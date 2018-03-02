@@ -1,0 +1,124 @@
+---
+title: "CEATLLE Walkthrough"
+author: "Grant Adams"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{CEATTLE Walkthrough}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+bibliography:
+csl: fisheries-research.csl
+---
+
+CEATTLE is short for Climate-Enhanced, Age-based model with Temperature-specific Trophic Linkages and Energetics, which is a multi-species age-structured assessment model developed for groundfish in the Bering Sea, USA by Holsman et al. . To incorporate the impacts of climate, the model includes temperature-dependent von Bertalanffy weight-at-age functions (VBGF) and temperature-specific, bioenergetics-based predation interactions. Inputs of the model include U.S. National Marine Fisheries Service Alaska Fisheries Science Center (AFSC) survey and fishery data. Outputs include historical estimates of predation mortality, fishing mortality, biomass, recruitment, etc.
+
+`Rceattle` is an `R` package designed to implement the CEATTLE model using Template Model Builder (`TMB`). Rceattle is structured similar to the original manuscript in terms of modularization. Seperate functions (i.e. modules) estimate retrospective temperature- and size-specific predator rations, prey preference, and weight-at- age. These are then used as inputs to the CEATTLE model to evaluate how predation mortality, recruitment, and survival of three target species change under historical climate conditions and harvest rates. Estimates from CEATTLE in `Rceattle` can then be forward projected to derive estimates of unfished biomass and fishing mortality under future climate conditions and various harvest scenarios. 
+
+## Equations 
+
+
+### Table 1. Population dynamics equations for species $i$ and age $j$ in each simulation year $y$. BT indicates the AFSC bottom trawl survey and EIT represents the echo-integrated acoustic- trawl survey. For all parameter definititions see Table 3.
+```{r echo = F}
+Definition <- c("Recruitment", "Initial abundance", "Numbers at age", "...", "Catch", "Total yield (kg)", "Biomass at age (kg)", "Spawning biomass at age (kg)", "Total mortality at age", "Fishing mortality at age", "Weight at age (kg)", rep("...", 2), "BT survey biomass (kg)", "EIT survey biomass (kg)", "Fishery age composition", "BT survey age composition", "EIT survey age composition", "BT selectivity" , "Proportion females", "Proportion of mature females", "Weight at age (kg)", "Residual natural mortality")
+
+Equation <- c("$N_{i1,y} = R_{i,y} = R_{0,i}e^{\tau_{i,y}}$",
+              "$N_{ij,1} = \left{ \begin{array}{} R_{0,i}e^{ \left( -j M1_{ij} \right)}N_{0,ij} \\ R_{0,i}e^{ \left( -j M1_{ij} \right)}N_{0,i,A_i} / \left(1 - e^{\left( -j M1_{i,A_i} \right)} \right) \end{array} \right.$",
+              "$N_{i, j+1, y+1} = N_{ij,y} e^{-Z_{ij,y}} $",
+              "$N_{i, A_i, y+1} = N_{i, A_{i}-1,y} e^{-Z_{i, A_{i}-1,y}} + N_{i, A_{i},y} e^{-Z_{i, A_{i},y}}$",
+              "$C_{ij,y} = \frac{F_ij,y} {Z_{ij,y}} \left(1 - e^{-Z_{ij,y}} \right) N_{ij,y} $",
+              "$Y_{i,y} = \sum_j^{A_i} \left(\frac{F_ij,y} {Z_{ij,y}} \left(1 - e^{-Z_{ij,y}} \right) N_{ij,y} W_{ij,y}\right) $",
+              "$B_{ij,y} =N_{ij,y} W_{ij,y}$",
+              "$SSB_{ij,y} = B_{ij,y} \rho_{ij} $",
+              "$Z_{ij,y} = M1_{ij} + M2_{ij,y} + F_{ij,y} $",
+              "$F_{ij,y} = F_{0,i}e^{\epsilon_{i,y} s^f_{ij}} $",
+              "$W_{ij,y} = W_{\inf,iy} \left(1 - e^{\left( -K_i \left( 1 - d_{i,y} \right) \left( j - t_{0,i} \right) \right)} \right) ^ {\frac{1} {1-d_{i,y }}} $",
+              "$d_{i,y} = e^{\left( \alpha_{d,i,y} + \alpha 0_{d,i} + \beta_{d,i} T_y \right)} $",
+              "$W_{\inf,iy} = \left( \frac{H_i}{K_i} \right)^{1/\left(1-d_{i,y} \right)} $",
+              "$\hat{\beta}^s_{i,y} = \sum_j^{A_i} \left( N_{ij,y} e^{-0.5 Z_{ij,y}} W_{ij,y} S^s_{ij} \right) $",
+              "$\hat{\beta}^{eit}_{y} = \sum_j^{A_1} \left( N_{1j,y} e^{-0.5 Z_{1j,y}} W_{1j,y} S^{eit}_{1j} q_{1j}^{eit}  \right) $", 
+              "$\hat{O}^f_{ij,y} = \frac{c_{ij,y}} {\sum_j C_{ij,y}}$",
+              "$\hat{O}^{s}_{ij,y} = \frac{N_{ij,y} e^{-0.5 Z_{ij,y}}  s^s_{ij}} {\sum_j \left(N_{ij,y} e^{-0.5 Z_{ij,y}}  s^s_{ij} \right)} $",
+              "$\hat{O}^{eit}_{1j,y} = \frac{N_{1j,y} e^{-0.5 Z_{1j,y}}  s^{eit_{1j} q_1^{eit}} {\sum_j \left(N_{1j,y} e^{-0.5 Z_{1j,y}}  s^{eit}_{1j} q_1^{eit} \right)}",
+              "$s_{ij}^s = \frac{1} {1 + e^{\left(-b_i^s * j-a_i^s \right)}} $,
+              ")
+
+Eq. <- c(paste("T1.", 1:3, sep = ""), "...", paste("T1.", 4:9, sep = ""), paste("T1.10",c("a","b","c"), sep = ""), paste("T1.", 11:21, sep = ""))
+
+Population_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Population_Equations, escape = T, format = "html")
+
+```
+
+
+### Table 2. Predation mortality equations for predators $p$ of age $a$, and prey $i$ of age $j$
+```{r echo = F}
+Definition <- c("Predation mortality", "Predator-prey suitability", "Mean gravimetric diet proportion", "Individual specific ration ($kg~kg^{-1}~yr^{-1}$)", "Temperature scaling algorithim", rep("...", 4))
+
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} {S}_{paij}} {\\sum_{ij} \\left({S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left({S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} = \\varphi_p \\alpha_{\\delta} W_{pa,y}^{\\left(1+\\beta_{\\delta}\\right)} f\\left(T_y \\right)_p$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+
+knitr::kable(Predation_Equations, escape = T, format = "html")
+
+```
+
+
+## Vignette Info
+
+Note the various macros within the `vignette` section of the metadata block above. These are required in order to instruct R how to build the vignette. Note that you should change the `title` field and the `\VignetteIndexEntry` to match the title of your vignette.
+
+## Styles
+
+The `html_vignette` template includes a basic CSS theme. To override this theme you can specify your own CSS in the document metadata as follows:
+
+    output: 
+      rmarkdown::html_vignette:
+        css: mystyles.css
+
+## Figures
+
+The figure sizes have been customised so that you can easily put two images side-by-side. 
+
+```{r, fig.show='hold'}
+plot(1:10)
+plot(10:1)
+```
+
+You can enable figure captions by `fig_caption: yes` in YAML:
+
+    output:
+      rmarkdown::html_vignette:
+        fig_caption: yes
+
+Then you can use the chunk option `fig.cap = "Your figure caption."` in **knitr**.
+
+## More Examples
+
+You can write math expressions, e.g. $Y = X\beta + \epsilon$, footnotes^[A footnote here.], and tables, e.g. using `knitr::kable()`.
+
+## Table 2. Predation mortality equations for predators $p$ of age $a$, and prey $i$ of age $j$
+```{r, echo=FALSE, results='asis'}
+
+knitr::kable(head(mtcars[,c(1,2)], 10),
+             row.names = FALSE,
+             col.names = c("Time", "$\\hat{m}_1$"))
+```
+$$\hat{m}$$
+Also a quote using `>`:
+
+> "He who gives up [code] safety for [code] speed deserves neither."
+([via](https://twitter.com/hadleywickham/status/504368538874703872))
+
+
+# References
