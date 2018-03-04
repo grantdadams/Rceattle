@@ -20,35 +20,64 @@ CEATTLE is short for Climate-Enhanced, Age-based model with Temperature-specific
 
 ### Table 1. Population dynamics equations for species $i$ and age $j$ in each simulation year $y$. BT indicates the AFSC bottom trawl survey and EIT represents the echo-integrated acoustic- trawl survey. For all parameter definititions see Table 3.
 ```{r echo = F}
-Definition <- c("Recruitment", "Initial abundance", "Numbers at age", "...", "Catch", "Total yield (kg)", "Biomass at age (kg)", "Spawning biomass at age (kg)", "Total mortality at age", "Fishing mortality at age", "Weight at age (kg)", rep("...", 2), "BT survey biomass (kg)", "EIT survey biomass (kg)", "Fishery age composition", "BT survey age composition", "EIT survey age composition", "BT selectivity" , "Proportion females", "Proportion of mature females", "Weight at age (kg)", "Residual natural mortality")
+Definition <- c("Recruitment", 
+                "Initial abundance", 
+                "Numbers at age", 
+                "...", 
+                "Catch", 
+                "Total yield (kg)", 
+                "Biomass at age (kg)", 
+                "Spawning biomass at age (kg)", 
+                "Total mortality at age", 
+                "Fishing mortality at age", 
+                "Weight at age (kg)", 
+                rep("...", 2), 
+                "BT survey biomass (kg)", 
+                "EIT survey biomass (kg)", 
+                "Fishery age composition", 
+                "BT survey age composition", 
+                "EIT survey age composition", 
+                "BT selectivity" , 
+                "Fishery selectivity",
+                "Proportion females", 
+                "Proportion of mature females", 
+                "Weight at age (kg)", 
+                "Residual natural mortality")
 
-Equation <- c("$N_{i1,y} = R_{i,y} = R_{0,i}e^{\tau_{i,y}}$",
-              "$N_{ij,1} = \left{ \begin{array}{} R_{0,i}e^{ \left( -j M1_{ij} \right)}N_{0,ij} \\ R_{0,i}e^{ \left( -j M1_{ij} \right)}N_{0,i,A_i} / \left(1 - e^{\left( -j M1_{i,A_i} \right)} \right) \end{array} \right.$",
-              "$N_{i, j+1, y+1} = N_{ij,y} e^{-Z_{ij,y}} $",
+Equation <- c("$N_{i1,y} = R_{i,y} = R_{0,i}e^{\\tau_{i,y}}$",
+              "$N_{ij,1} = \\left \\{ \\begin{array}{} R_{0,i}e^{ \\left( -j M1_{ij} \\right)}N_{0,ij} \\\\ R_{0,i}e^{ \\left( -j M1_{ij} \\right)}N_{0,i,A_i} / \\left(1 - e^{\\left( -j M1_{i,A_i} \\right)} \\right) \\end{array} \\right.$",
+              "$N_{i, j+1, y+1} = N_{ij,y} e^{-Z_{ij,y}}$",
               "$N_{i, A_i, y+1} = N_{i, A_{i}-1,y} e^{-Z_{i, A_{i}-1,y}} + N_{i, A_{i},y} e^{-Z_{i, A_{i},y}}$",
-              "$C_{ij,y} = \frac{F_ij,y} {Z_{ij,y}} \left(1 - e^{-Z_{ij,y}} \right) N_{ij,y} $",
-              "$Y_{i,y} = \sum_j^{A_i} \left(\frac{F_ij,y} {Z_{ij,y}} \left(1 - e^{-Z_{ij,y}} \right) N_{ij,y} W_{ij,y}\right) $",
-              "$B_{ij,y} =N_{ij,y} W_{ij,y}$",
-              "$SSB_{ij,y} = B_{ij,y} \rho_{ij} $",
-              "$Z_{ij,y} = M1_{ij} + M2_{ij,y} + F_{ij,y} $",
-              "$F_{ij,y} = F_{0,i}e^{\epsilon_{i,y} s^f_{ij}} $",
-              "$W_{ij,y} = W_{\inf,iy} \left(1 - e^{\left( -K_i \left( 1 - d_{i,y} \right) \left( j - t_{0,i} \right) \right)} \right) ^ {\frac{1} {1-d_{i,y }}} $",
-              "$d_{i,y} = e^{\left( \alpha_{d,i,y} + \alpha 0_{d,i} + \beta_{d,i} T_y \right)} $",
-              "$W_{\inf,iy} = \left( \frac{H_i}{K_i} \right)^{1/\left(1-d_{i,y} \right)} $",
-              "$\hat{\beta}^s_{i,y} = \sum_j^{A_i} \left( N_{ij,y} e^{-0.5 Z_{ij,y}} W_{ij,y} S^s_{ij} \right) $",
-              "$\hat{\beta}^{eit}_{y} = \sum_j^{A_1} \left( N_{1j,y} e^{-0.5 Z_{1j,y}} W_{1j,y} S^{eit}_{1j} q_{1j}^{eit}  \right) $", 
-              "$\hat{O}^f_{ij,y} = \frac{c_{ij,y}} {\sum_j C_{ij,y}}$",
-              "$\hat{O}^{s}_{ij,y} = \frac{N_{ij,y} e^{-0.5 Z_{ij,y}}  s^s_{ij}} {\sum_j \left(N_{ij,y} e^{-0.5 Z_{ij,y}}  s^s_{ij} \right)} $",
-              "$\hat{O}^{eit}_{1j,y} = \frac{N_{1j,y} e^{-0.5 Z_{1j,y}}  s^{eit_{1j} q_1^{eit}} {\sum_j \left(N_{1j,y} e^{-0.5 Z_{1j,y}}  s^{eit}_{1j} q_1^{eit} \right)}",
-              "$s_{ij}^s = \frac{1} {1 + e^{\left(-b_i^s * j-a_i^s \right)}} $,
-              ")
+              "$C_{ij,y} = \\frac{F_ij,y} {Z_{ij,y}} \\left( 1 - e^{-Z_{ij,y}} \\right) N_{ij,y}$",
+              "$Y_{i,y} = \\sum_j^{A_i} \\frac{F_ij,y} {Z_{ij,y}} \\left( 1 - e^{-Z_{ij,y}} \\right) N_{ij,y} W_{ij,y}$",
+              "$B_{ij,y} = N_{ij,y} W_{ij,y}$",
+              
+              "$SSB_{ij,y} = B_{ij,y} \\rho_{ij}$",
+              "$Z_{ij,y} = M1_{ij} + M2_{ij,y} + F_{ij,y}$",
+              "$F_{ij,y} = F_{0,i}e^{\\epsilon_{i,y} s^f_{ij}}$",
+              "$W_{ij,y} = W_{\\infty,iy} \\left(1 - e^{\\left( -K_i \\left( 1 - d_{i,y} \\right) \\left( j - t_{0,i} \\right) \\right)} \\right) ^ {\\frac{1} {1-d_{i,y }}}$",
+              "$d_{i,y} = e^{\\left( \\alpha_{d,i,y} + \\alpha 0_{d,i} + \\beta_{d,i} T_y \\right)}$",
+              "$W_{\\infty,iy} = \\left( \\frac{H_i}{K_i} \\right)^{1/\\left(1-d_{i,y} \\right)}$",
+              "$\\hat{\\beta}^s_{i,y} = \\sum_j^{A_i} \\left( N_{ij,y} e^{-0.5 Z_{ij,y}} W_{ij,y} S^s_{ij} \\right)$",
+              "$\\hat{\\beta}^{eit}_{y} = \\sum_j^{A_1} \\left( N_{1j,y} e^{-0.5 Z_{1j,y}} W_{1j,y} S^{eit}_{1j} q_{1j}^{eit}  \\right)$", 
+              "$\\hat{O}^f_{ij,y} = \\frac{c_{ij,y}} {\\sum_j C_{ij,y}}$",
+              "$\\hat{O}^{s}_{ij,y} = \\frac{N_{ij,y} e^{-0.5 Z_{ij,y}}  s^s_{ij}} {\\sum_j \\left(N_{ij,y} e^{-0.5 Z_{ij,y}}  s^s_{ij} \\right)}$",
+              "$\\hat{O}^{eit}_{1j,y} = \\frac{N_{1j,y} e^{-0.5 Z_{1j,y}}  s^{eit}_{1j} q^{eit}_{1}} {\\sum_j \\left( N_{1j,y} e^{-0.5 Z_{1j,y}}  s^{eit}_{1j} q^{eit}_{1} \\right)}$",
+              "$s_{ij}^s = \\frac{1} {1 + e^{\\left(-b_i^s * j-a_i^s \\right)}}$",
+              "$s^f_{ij} = \\left \\{ \\begin{array}{} e^{\\eta_ij} ~~ j \\leq A_{\\eta , i} \\\\ e^{\\eta_{i,A_{\\eta,i}}} ~~ j \\gt A_{\\eta,i} \\end{array} \\right.$",
+              "$\\omega_{ij} = \\frac{e^{-j M_{fem}}} { e^{-j M_{fem}} + e^{j M_{male}}}$",
+              "$\\rho_{ij} = \\omega_{ij} \\phi_{ij}$",
+              "$W_{ij,y} = W^{fem}_{ij,y} \\omega_{ij} + \\left(1 - \\omega_{ij} \\right) W^{male}_{ij,y}$",
+              "$M1_{ij} = M^{fem}_{ij} \\omega_{ij} + \\left(1 - \\omega_{ij} \\right) M^{male}_{ij}$")
 
 Eq. <- c(paste("T1.", 1:3, sep = ""), "...", paste("T1.", 4:9, sep = ""), paste("T1.10",c("a","b","c"), sep = ""), paste("T1.", 11:21, sep = ""))
 
 Population_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+colnames(Population_Equations) = c("Definition", "Equation", "")
 knitr::kable(Population_Equations, escape = T, format = "html")
 
 ```
+
 
 
 ### Table 2. Predation mortality equations for predators $p$ of age $a$, and prey $i$ of age $j$
@@ -68,6 +97,7 @@ Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} {S
 Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
 
 Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+colnames(Predation_Equations) = c("Definition", "Equation", "")
 
 knitr::kable(Predation_Equations, escape = T, format = "html")
 
