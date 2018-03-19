@@ -219,4 +219,70 @@ Parameters <- data.frame(cbind(Parameter, Definition, Type))
 knitr::kable(Parameters, escape = T, format = "html")
 ```
 
+### Table 4. Components of the likelihood function for each species $i$ of age $j$ in year $y$.
+```{r echo = F}
+Description <- c(
+  "Data components",
+  "BT survey biomass",
+  "BT survey age composition",
+  "EIT survey biomass",
+  "EIT survey age composition",
+  "Total catch",
+  "Fishery age composition",
+  "Penalties",
+  "Fishery selectivity",
+  "Priors",
+  "",
+  "",
+  "",
+  ""
+)
+
+Equation <- c(
+  "",
+  "$\\sum_i \\sum_y \\frac{\\left[ ln \\left(\\beta^s_{i,y} \\right) - ln \\left(\\hat{\\beta}^s_{i,y} \\right) \\right]} {2 \\sigma^2_{s,i}}$",
+  "$-\\sum_i n_i \\sum_y \\sum_j \\left( O^s_{ij,y} + v \\right) ~ ln \\left(\\hat{O}^s_{ij,y} + v \\right)$",
+  "$\\sum_i \\sum_y \\frac{\\left[ ln \\left(\\beta^{eit}_{y} \\right) - ln \\left(\\hat{\\beta}^{eit}_{y} \\right) \\right]} {2 \\sigma^2_{eit}},~\\sigma_{eit}=0.2$",
+  "$- n \\sum_y \\sum_j \\left( O^{eit}_{1j,y} + v \\right) ~ ln \\left(\\hat{O}^{eit}_{1j,y} + v \\right)$",
+  "$\\sum_i \\sum_y \\frac{\\left[ ln \\left(C^*_{i,y} \\right) - ln \\left(\\hat{C}^*_{i,y} \\right) \\right]} {2 \\sigma^2_{C}},~\\sigma_C = 0.05$",
+  "$-\\sum_i n_i \\sum_y \\sum_j \\left( O^f_{ij,y} + v \\right) ~ ln \\left(\\hat{O}^f_{ij,y} + v \\right)$",
+  "",
+  "$\\sum_i \\sum_j^{A_i - 1} \\chi \\left[ ln \\left(\\frac{\\eta^f_{ij}} {\\eta^f_{ij+1}} \\right) - ln \\left(\\frac{\\eta^f_{ij+1}} {\\eta^f_{ij+2}} \\right) \\right]^2 , ~ \\chi = \\left \\{  \\begin{array}{} 20,~if \\eta^f_{ij} \\gt \\eta^f_{ij+1} \\\\ 0,~if \\eta^f_{ij} \\leq \\eta^f_{ij+1} \\end{array} \\right.$",
+  "",
+  "$\\sum_i \\sum_j \\left( \\tau_{i,y} \\right)^2$",
+  "$\\sum_i \\sum_j \\left( N_{0,ij} \\right)^2$",
+  "$\\sum_i \\sum_j \\left( \\varepsilon_{i,y} \\right)^2$",
+  "$v = 0.001$"
+)
+
+Eq. <- c("", paste("T4.", 1:6, sep = ""), "", paste("T4.", 7, sep = ""), "", paste("T4.", 8:10, sep = ""), "")
+
+Source <- c(
+  "",
+  "NMFS annual EBS BT survey",
+  "NMFS annual EBS BT survey",
+  "Pollock acoustic trawl survey",
+  "Pollock acoustic trawl survey",
+  "Fishery observer data",
+  "Fishery observer data",
+  rep("", 7)
+)
+
+# Value
+
+Likelihood_Components <- data.frame(cbind(Description, Equation, Source, Eq.))
+colnames(Likelihood_Components) = c("Description", "Equation", "Data source", "")
+
+knitr::kable(Likelihood_Components, escape = T, format = "html")
+```
+
+### Questions
+
+## Errata:
+Table 3: Female natural mortality is missing an F under the "Type" column. 
+Table 4 legend: "function" is misspelled.
+Table 4. T.4.6 C is missing the hat in the likelihood equation.
+Table 4. T4.7 the upper value of chi, $\eta^f_{ji+1}$ should be $\eta^f_{ij+1}$
+Table 4. T4.2 Data source NFMS
+
 # References
