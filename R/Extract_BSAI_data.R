@@ -2,6 +2,9 @@
 
 extract_data <- function(){
 
+  # Load required functions
+  source("R/Support Functions/condense_df_fun.R")
+
   # Change wd
   setwd("data")
 
@@ -40,19 +43,15 @@ extract_data <- function(){
     assmnt_data$new_data <- as.matrix(input_data[row_ind_data,])
     colnames(assmnt_data$new_data) = NULL
     assmnt_data$new_data[which(assmnt_data$new_data %in% c("#", ""))] <- NA # Set blank cells to NA
-
-    if(is.null(nrow(assmnt_data$new_data)) == F){
-
-    }
-
-    assmnt_data$new_data <- assmnt_data$new_data[, colSums(is.na(assmnt_data$new_data)) < nrow(assmnt_data$new_data)] # Remove columns and rows of only NAs
+    # Remove columns and rows of only NAs
+    assmnt_data$new_data <- assmnt_data$new_data[, colSums(is.na(assmnt_data$new_data)) < nrow(assmnt_data$new_data)]
     if(is.null(nrow(assmnt_data$new_data)) == F){
       assmnt_data$new_data <- assmnt_data$new_data[rowSums(is.na(assmnt_data$new_data)) < ncol(assmnt_data$new_data),]
     }
 
     # 1.2.3 Convert to numeric if 1 or 2 dimensional
     if(class(assmnt_data$new_data) == "matrix" & nrow(assmnt_data$new_data) == 3){
-      assmnt_data$new_data <- matrix(as.numeric(as.character(assmnt_data$new_data)), nrow = nrow(assmnt_data$new_data), ncol = ncol(assmnt_data$new_data))
+      assmnt_data$new_data <- condense(assmnt_data$new_data)
     }
     if(class(assmnt_data$new_data) == "character"){
       assmnt_data$new_data <- as.numeric(as.character(assmnt_data$new_data))
@@ -61,23 +60,20 @@ extract_data <- function(){
     # 1.2.4 Convert to array and make numeric if 3 dimensional
     if(class(assmnt_data$new_data) == "matrix" & nrow(assmnt_data$new_data) > 3){
       new_dat_list <- list()
-      dat_breaks <- c(which(is.na(assmnt_data$new_data[,1])), nrow(assmnt_data$new_data)) # Get the row breaks for each species
+      dat_breaks <- c(which(is.na(assmnt_data$new_data[,1])), nrow(assmnt_data$new_data) + 1) # Get the row breaks for each species
 
       # 1.2.4.1 Assign each species' data into a list
-      for(j in 1:lneght(new_dat_list)){
+      for(j in 1:(length(dat_breaks)-1)){
         dat_lines <- (dat_breaks[j]+1):(dat_breaks[j+1]-1)
         new_dat_list$new_data <- assmnt_data$new_data[dat_lines,]
 
-        # 1.2.4.2 Make numeric
-        new_dat_list$new_data <- matrix(as.numeric(as.character(new_dat_list$new_dat)), nrow = nrow(new_dat_list$new_dat), ncol = ncol(new_dat_list$new_dat))
-        ############################################## START HERE!!!!
-        # 1.2.4.3 Condense matrix if NAs
-        for(k in 1:nrow(new_dat_list$new_data)){
+        # 1.2.4.2 Condense matrix and make numeric if NAs
+        new_dat_list$new_data <- condense(new_dat_list$new_data)
 
-        }
-
-        # 1.2.4.4 Name for species
-        dat_name <- as.character(assmnt_data$new_data[dat_breaks[j],1])
+        # 1.2.4.3 Name for species
+        dat_name <- as.character(paste(assmnt_data$new_data[dat_breaks[j],], collapse = ""))
+        dat_name <- gsub("NA", "", dat_name)
+        dat_name <- gsub("#", "", dat_name)
         names(new_dat_list)[which(names(new_dat_list) == "new_data" )] <- dat_name
       }
       # Assign to list
