@@ -79,8 +79,10 @@ extract_data <- function(){
           dat_name <- gsub("#", "", dat_name)
           names(new_dat_list)[which(names(new_dat_list) == "new_data" )] <- dat_name
         }
-        # Assign to list
-        assmnt_data$new_data <- new_dat_list
+        # 1.2.4.4 Make into array and assign to list
+        new_dat_array <- array(unlist(new_dat_list), dim = c(nrow(new_dat_list[[1]]), ncol(new_dat_list[[1]]), length(new_dat_list))) # Note: this will not work on ragged arrays
+        dimnames(new_dat_array)[[3]] <- names(new_dat_list)
+        assmnt_data$new_data <- new_dat_array
       }
     }
 
