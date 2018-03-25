@@ -50,34 +50,38 @@ extract_data <- function(){
     }
 
     # 1.2.3 Convert to numeric if 1 or 2 dimensional
-    if(class(assmnt_data$new_data) == "matrix" & nrow(assmnt_data$new_data) == 3){
-      assmnt_data$new_data <- condense(assmnt_data$new_data)
+    if(class(assmnt_data$new_data) == "matrix" & is.null(nrow(assmnt_data$new_data)) == F){
+      if(nrow(assmnt_data$new_data) == 3){
+        assmnt_data$new_data <- condense(assmnt_data$new_data)
+      }
     }
     if(class(assmnt_data$new_data) == "character"){
       assmnt_data$new_data <- as.numeric(as.character(assmnt_data$new_data))
     }
 
     # 1.2.4 Convert to array and make numeric if 3 dimensional
-    if(class(assmnt_data$new_data) == "matrix" & nrow(assmnt_data$new_data) > 3){
-      new_dat_list <- list()
-      dat_breaks <- c(which(is.na(assmnt_data$new_data[,1])), nrow(assmnt_data$new_data) + 1) # Get the row breaks for each species
+    if(class(assmnt_data$new_data) == "matrix" & is.null(nrow(assmnt_data$new_data)) == F){
+      if(nrow(assmnt_data$new_data) > 3){
+        new_dat_list <- list()
+        dat_breaks <- c(which(is.na(assmnt_data$new_data[,1])), nrow(assmnt_data$new_data) + 1) # Get the row breaks for each species
 
-      # 1.2.4.1 Assign each species' data into a list
-      for(j in 1:(length(dat_breaks)-1)){
-        dat_lines <- (dat_breaks[j]+1):(dat_breaks[j+1]-1)
-        new_dat_list$new_data <- assmnt_data$new_data[dat_lines,]
+        # 1.2.4.1 Assign each species' data into a list
+        for(j in 1:(length(dat_breaks)-1)){
+          dat_lines <- (dat_breaks[j]+1):(dat_breaks[j+1]-1)
+          new_dat_list$new_data <- assmnt_data$new_data[dat_lines,]
 
-        # 1.2.4.2 Condense matrix and make numeric if NAs
-        new_dat_list$new_data <- condense(new_dat_list$new_data)
+          # 1.2.4.2 Condense matrix and make numeric if NAs
+          new_dat_list$new_data <- condense(new_dat_list$new_data)
 
-        # 1.2.4.3 Name for species
-        dat_name <- as.character(paste(assmnt_data$new_data[dat_breaks[j],], collapse = ""))
-        dat_name <- gsub("NA", "", dat_name)
-        dat_name <- gsub("#", "", dat_name)
-        names(new_dat_list)[which(names(new_dat_list) == "new_data" )] <- dat_name
+          # 1.2.4.3 Name for species
+          dat_name <- as.character(paste(assmnt_data$new_data[dat_breaks[j],], collapse = ""))
+          dat_name <- gsub("NA", "", dat_name)
+          dat_name <- gsub("#", "", dat_name)
+          names(new_dat_list)[which(names(new_dat_list) == "new_data" )] <- dat_name
+        }
+        # Assign to list
+        assmnt_data$new_data <- new_dat_list
       }
-      # Assign to list
-      assmnt_data$new_data <- new_dat_list
     }
 
     # 1.2.5 Rename list object to model object
@@ -85,15 +89,4 @@ extract_data <- function(){
     dat_name <- gsub("#", "", dat_name)
     names(assmnt_data)[which(names(assmnt_data) == "new_data" )] <- dat_name
   }
-
-
-
-
-
-
-
-
-
-
-
 }
