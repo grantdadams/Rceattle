@@ -26,8 +26,6 @@ extract_data <- function(){
   setC_name           = "set_catch.dat";
   setF_name           = "setFabcFofl.dat";
 
-
-
   #---------------------------------------------------------------------
   # 1. Get assessment data
   #---------------------------------------------------------------------

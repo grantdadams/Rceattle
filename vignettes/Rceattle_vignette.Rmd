@@ -124,7 +124,7 @@ parameters_table <- function(){
   Parameters <- rbind(Parameters, c("Consumption optimum physiological temperature (°C)",  "$T^{co}_p$",  "I", "Tco"))
   Parameters <- rbind(Parameters, c("Max consumption parameter",  "$Q^c_p$",  "I", "Qc"))
   Parameters <- rbind(Parameters, c("Mean recruitment",  "$R_{0,i}$",  "E", ""))
-  Parameters <- rbind(Parameters, c("Annual recruitment deviation",  "$\\tau_{i,y}$",  "E", ""))
+  Parameters <- rbind(Parameters, c("Annual recruitment deviation",  "$\\tau_{i,y}$",  "E", "rec_dev"))
   Parameters <- rbind(Parameters, c("Initial abundance",  "$N_{0,ij}$",  "E", ""))
   Parameters <- rbind(Parameters, c("Mean fishing mortality",  "$F_{0,i}$",  "E", ""))
   Parameters <- rbind(Parameters, c("Anuual fishing mortality deviation",  "$\\epsilon_{i,y}$",  "E", ""))
@@ -150,11 +150,11 @@ parameters_table <- function(){
   Parameters <- rbind(Parameters, c("Observed fishery age comp.",  "$O^f_{ij,y}$",  "D", "fsh_age_obs"))
   Parameters <- rbind(Parameters, c("Observed BT age comp.",  "$O^{s}_{ij,y}$",  "D", "srv_age_obs"))
   Parameters <- rbind(Parameters, c("Observed EIT age comp.",  "$O^{eit}_{ij,y}$",  "D", "obs_eit_age"))
-  Parameters <- rbind(Parameters, c("Observed BT survey biomass (kg)",  "$\\beta^s_{i,y}$",  "D", "srv_biom"))
+  Parameters <- rbind(Parameters, c("Observed BT survey biomass (kg)",  "$\\beta^s_{i,y}$",  "D", "srv_bio"))
   Parameters <- rbind(Parameters, c("Observed EIT survey biomass (kg)",  "$\\beta^{eit}_y$",  "D", "obs_eit"))
-  Parameters <- rbind(Parameters, c("Bottom temperature (°C)",  "$T_y$",  "D", ""))
+  Parameters <- rbind(Parameters, c("Bottom temperature (°C)",  "$T_y$",  "D", "TempC"))
   Parameters <- rbind(Parameters, c("Gravimetric proportion of prey in predator stomach",  "$U_{paij,y}$",  "D", ""))
-  Parameters <- rbind(Parameters, c("Biomass of other prey (kg)",  "$B^{other}_p$",  "D", ""))
+  Parameters <- rbind(Parameters, c("Biomass of other prey (kg)",  "$B^{other}_p$",  "D", "other_food"))
 
   # Index of wether or not it is included in table
   Parameters <- as.data.frame(Parameters)
@@ -163,7 +163,7 @@ parameters_table <- function(){
   
   
   # Fill in the parameters not in table 3
-  params_extra <- c("**Derived**", "", "", "")
+  params_extra <- c("**Not in table 3**", "", "", "")
   params_extra <- rbind(params_extra, c("Annual survey biomass error", "$CV_{s,i,y}$", "F", "srv_Mean_CV"))
   params_extra <- rbind(params_extra, c("Number of years with total observed catch", "$n_{Y,i}$", "M", "nyrs_tc_biom_obs"))
   params_extra <- rbind(params_extra, c("Years with total observed catch", "$y_{Y,i}$", "I", "yrs_tc_biom_obs"))
@@ -184,10 +184,10 @@ parameters_table <- function(){
   
   # BT survey data
   params_extra <- rbind(params_extra, c("Number of years in the BT survey data", "$n_{y_{\\beta^s},i}$", "I", "nyrs_srv_biom"))
-  params_extra <- rbind(params_extra, c("Years in the BT survey data", "y_{\\beta^s,i}", "I", "yrs_srv_biom"))
-  params_extra <- rbind(params_extra, c("BT survey standard error", "\\sigma_{s,i}", "F", "srv_biom_se"))
+  params_extra <- rbind(params_extra, c("Years in the BT survey data", "$y_{\\beta^s,i}$", "I", "yrs_srv_biom"))
+  params_extra <- rbind(params_extra, c("BT survey standard error", "$\\sigma_{s,i}$", "F", "srv_biom_se"))
   params_extra <- rbind(params_extra, c("Number of years in the BT survey age or length composition data", "$n_{y_{O^s},i}$", "I", "nyrs_srv_age"))
-  params_extra <- rbind(params_extra, c("Years in the BT  survey age composition data", "y_{O^s,i}", "I", "yrs_srv_age"))
+  params_extra <- rbind(params_extra, c("Years in the BT  survey age composition data", "$y_{O^s,i}$", "I", "yrs_srv_age"))
   params_extra <- rbind(params_extra, c("Method of calculating BT survey age type (age or length)", "", "I", "srv_age_type"))
   params_extra <- rbind(params_extra, c("Number of BT survey age bins", "$n_{s,bin, i}$", "I", "srv_age_bins"))
   params_extra <- rbind(params_extra, c("Sample size for BT survey age composition multinomial", "$n_{O^s, i}$", "I", "srv_age_n"))
@@ -196,18 +196,27 @@ parameters_table <- function(){
   
   # EIT Survey 
   params_extra <- rbind(params_extra, c("Number of years in the EIT survey data", "$n_{y_{\\beta^{eit}}}$", "I", "n_eit"))
-  params_extra <- rbind(params_extra, c("Years in the BT survey data", "y_{\\beta^{eit}}", "I", "yrs_eit"))
+  params_extra <- rbind(params_extra, c("Years in the BT survey data", "$y_{\\beta^{eit}}$", "I", "yrs_eit"))
   params_extra <- rbind(params_extra, c("Sample size for EIT survey age composition multinomial", "$n_{O^{eit}}$", "I", "eit_age_n"))
   params_extra <- rbind(params_extra, c("Number of years in the EIT selectivtiy data", "$n_{y_{S^{eit}}}$", "I", "nyrs_eit_sel"))
-  params_extra <- rbind(params_extra, c("Years in the BT selectivity data", "y_{S^{eit}}", "I", "yrs_eit_sel"))
+  params_extra <- rbind(params_extra, c("Years in the BT selectivity data", "$y_{S^{eit}}$", "I", "yrs_eit_sel"))
   params_extra <- rbind(params_extra, c("Sample size for EIT survey age composition multinomial", "$n_{O^{eit}}$", "I", "eit_sel"))
   
   # Mortality parameters
   params_extra <- rbind(params_extra, c("Sex specific mortality and weight-at-age: 1 for combined, 2: for seperate", "", "I", "mf_type"))
   params_extra <- rbind(params_extra, c("Proportion", "$n_{O^{eit}}$", "I", "propMorF"))
   
-  #
-  params_extra <- rbind(params_extra, c("Total catch", "$C_{i,y}$", "D", "tc_obs"))
+  
+  params_extra <- rbind(params_extra, c("Observed catch-at-age", "$C_{ij,y}$", "I", "obs_catch"))
+  params_extra <- rbind(params_extra, c("Estimated catch-at-age", "$\\hat{C}_{ij,y}$", "E", "obs_catch_hat"))
+  params_extra <- rbind(params_extra, c("Observed total catch", "$C_{i,y}$", "D", "tc_obs"))
+  params_extra <- rbind(params_extra, c("Estimated total catch", "$\\hat{C}_{i,y}$", "D", "tc_biom_est"))
+  
+  params_extra <- rbind(params_extra, c("Total catch", "$B_{ij,y} = N_{ij,y} W_{ij,y}$", "E", "tc_obs"))
+
+  params_extra <- rbind(params_extra, c("Observed fishery age composition", "${O}^f_{ij,y}$", "I", "fsh_age_obs"))
+  params_extra <- rbind(params_extra, c("Estimated fishery age composition", "$\\hat{O}^f_{ij,y}$", "E", "fsh_age_hat"))
+  
   
   # Index of wether or not it is included in table
   params_extra <- as.data.frame(params_extra)
