@@ -281,7 +281,7 @@ knitr::kable(Likelihood_Components, escape = T, format = "html")
 ```
 
 ## Errata:
-Table 3: Female natural mortality is missing an F under the "Type" column. 
+Table 3: Female natural mortality is missing an F under the "Type" column.
 Table 4 legend: "function" is misspelled.
 Table 4. T.4.6 C is missing the hat in the likelihood equation.
 Table 4. T4.7 the upper value of chi, $\eta^f_{ji+1}$ should be $\eta^f_{ij+1}$

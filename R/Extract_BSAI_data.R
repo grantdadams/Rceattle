@@ -1,4 +1,9 @@
 # This function extracts data from CEATTLE inputs used by K Holsman's ADMB CEATTLE Model and outputs a list of inputs for the TMB CEATTLE model
+#
+#
+#
+#
+# Developed by Grant Adams 3-26-18
 
 extract_data <- function(){
 
@@ -21,6 +26,8 @@ extract_data <- function(){
   setC_name           = "set_catch.dat";
   setF_name           = "setFabcFofl.dat";
 
+
+
   #---------------------------------------------------------------------
   # 1. Get assessment data
   #---------------------------------------------------------------------
@@ -28,8 +35,19 @@ extract_data <- function(){
 
   # 1.1 Extract line numbers of inputs
   input_data <- read.delim(datafile_name, header =  T)
-  assmnt_line_no <- which(substr(input_data[,1], 0 ,2) %in% paste("#", c(LETTERS, letters), sep = ""))
-  assmnt_line_break <- which(input_data[,1] %in% c("##__________________________________________________________", "#=============================================================================="))
+  assmnt_dat_names <- c("nages", "nyrs_tc_biom", "yrs_tc_biom", "tcb_obs", "nyrs_fsh_comp", "yrs_fsh_comp", "fsh_age_type", "fsh_age_bins", "obs_catch", "nyrs_wt_at_age", "yrs_wt_at_age", "wt", "pmature", "M1_base", "nyrs_srv_biom", "yrs_srv_biom", "srv_biom", "nyrs_srv_age", "srv_age_type", "yrs_srv_age", "srv_age_bins", "srv_age_n", "srv_age_obs", "srv_age_sizes", "age_trans_matrix", "n_eit", "yrs_eit", "obs_eit", "obs_eit_age", "nyrs_eit_sel", "yrs_eit_sel", "eit_sel")
+
+  VBGF_dat_names <- c("mf_type", "propMorF", "t0", "log_mean_d", "logK", "logH", "Tcoef", "Pcoef")
+
+  assmnt_line_no <- which(substr(input_data[,1], 0 ,2) %in% paste("#", assmnt_dat_names , sep = ""))
+  assmnt_line_break <- which(input_data[,1] %in% c("##__________________________________________________________", "# ##__________________________________________________________"))
+
+  # 1.1.2 Get names of the line numbers
+  dat_name <- as.matrix(input_data[assmnt_line_break + 1,])[,1]
+  dat_name <- gsub("#", "", dat_name)
+
+  # 1.1.3 Remove extra line numbers for obs_catch, wt, srv_age_obs, eit_sel because they are formatted differently.
+  # Von bert stuff is also funky
 
   # 1.2 Extract model inputs
   for(i in 1:length(assmnt_line_no)){
@@ -63,7 +81,7 @@ extract_data <- function(){
     if(class(assmnt_data$new_data) == "matrix" & is.null(nrow(assmnt_data$new_data)) == F){
       if(nrow(assmnt_data$new_data) > 3){
         new_dat_list <- list()
-        dat_breaks <- c(which(is.na(assmnt_data$new_data[,1])), nrow(assmnt_data$new_data) + 1) # Get the row breaks for each species
+        dat_breaks <- sort(c(grep("#", assmnt_data$new_data[,1]), nrow(assmnt_data$new_data) + 1)) # Get the row breaks for each species
 
         # 1.2.4.1 Assign each species' data into a list
         for(j in 1:(length(dat_breaks)-1)){
@@ -80,15 +98,19 @@ extract_data <- function(){
           names(new_dat_list)[which(names(new_dat_list) == "new_data" )] <- dat_name
         }
         # 1.2.4.4 Make into array and assign to list
-        new_dat_array <- array(unlist(new_dat_list), dim = c(nrow(new_dat_list[[1]]), ncol(new_dat_list[[1]]), length(new_dat_list))) # Note: this will not work on ragged arrays
+        list_max_dim <- c(max(unlist(lapply(new_dat_list, nrow))), max(unlist(lapply(new_dat_list, ncol))), length(new_dat_list))
+        new_dat_array <- array(unlist(new_dat_list), dim = list_max_dim) # Note: ragged arrays will be filled with NA's based on the max size of an object
         dimnames(new_dat_array)[[3]] <- names(new_dat_list)
         assmnt_data$new_data <- new_dat_array
       }
     }
 
     # 1.2.5 Rename list object to model object
-    dat_name <- as.matrix(input_data[row_ind_name,])[1,1]
-    dat_name <- gsub("#", "", dat_name)
-    names(assmnt_data)[which(names(assmnt_data) == "new_data" )] <- dat_name
+    names(assmnt_data)[which(names(assmnt_data) == "new_data" )] <- dat_name[i]
   }
+  # Change wd back to main
+  setwd("../")
+
+  # Return the data to be used in TMB
+  return(assmnt_data)
 }
