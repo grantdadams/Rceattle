@@ -15,7 +15,7 @@ template<class Type>
 
   x2 = 0;
   std::cout << "x2 is " << x2 << "\n";
-  x2 += x.col(0).col(0);
+  x2 = x.col(0).col(0);
   mu = x2 * b + a;
 
   Type nll = -sum(dnorm(Y, mu, exp(logSigma), true));

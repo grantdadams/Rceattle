@@ -26,7 +26,11 @@ Type objective_function<Type>::operator() ()
   // ------------------------------------------------------------------------- //
   // 2. MODEL INPUTS                                                    //
   // ------------------------------------------------------------------------- //
-  
+  // 2.1. FIXED VALUES
+  int tau = 200; // Fishery age composition sample size
+  Type MNConst = 0.001; // Constant additive for logistic functions
+
+
   // 2.2. DIMENSIONS OF DATA
   // -- 2.2.1. Temporal dimensions
   DATA_INTEGER(nyrs); //Number of simulation years
@@ -105,6 +109,7 @@ Type objective_function<Type>::operator() ()
   // -- 3.2.1. Estimated observations
   matrix<Type> tc_biom_est(nspp, nyrs); // Estimated total yield (kg); n = [nspp, nyrs] # NOTE: Need to figure out how to make the age comps flexible for varying number of fleets. Maybe look at ASAP code.
   array<Type> obs_catch_hat(nspp, nages, nyrs); // Estimated catch-at-age; n = [nspp, nages, nyrs]
+  matrix<Type> tc_est(nspp, nyrs); // Estimated catch (n); n = [nspp, nyrs]
   array<Type> Weight_at_Age(nspp, nages, nyrs); // Estimated weight-at-age; n = [nspp, nages, nyrs]
   array<Type> fsh_age_hat(nspp, nages, nyrs); // Estimated fishery age comp; n = [nspp, nages, nyrs] # NOTE: Need to figure out how to make the age comps flexible for varying number of fleets. Maybe look at ASAP code.
   array<Type> Est_BT_Age_Comp(nspp, nages, nyrs); // Estimated BT age comp; n = [nspp, nages, nyrs] # NOTE: Need to figure out how to make the age comps flexible for varying number of surveys.
@@ -113,6 +118,7 @@ Type objective_function<Type>::operator() ()
   vector<Type> Est_EIT_IOA(nspp, nyrs); // Estimated BT survey biomass (kg); n = [nspp, nyrs] # NOTE: Need to figure out how to make the age comps flexible for varying number of surveys.
 
   // -- 3.2.2. Estimated Population Parameters 
+  matrix<Type> R(nspp, nyrs); // Estimated recruitment (n); n = [nspp, nyrs]
   array<Type> NByage(nspp, nages, nyrs); // Numbers at age; n = [nspp, nages, nyrs]
   array<Type> biomassByage(nspp, nages, nyrs); // Estimated biomass-at-age (kg); n = [nspp, nages, nyrs]
   matrix<Type> biomass(nspp, nyrs); // Estimated biomass (kg); n = [nspp, nyrs]
@@ -145,8 +151,8 @@ Type objective_function<Type>::operator() ()
   // Slot 8 -- N_0 -- Initial abundance-at-age
   // Slot 9 -- Epsilon -- Annual fishing mortality deviation
   jnll_comp.setZero();
-  Type jnll = 0; // Joint nll
-  
+  Type jnll = 0;
+    
   
   // ------------------------------------------------------------------------- //
   // 5. POPULATION DYNAMICS EQUATIONS                                          //
@@ -156,10 +162,10 @@ Type objective_function<Type>::operator() ()
   // 5.1. ESTIMATE RECRUITMENT: T1.1
   for(i=0; i<nspp; y++){
     for(y=0; y<n_yrs; y++){
-      NByage(i,0,y) = ln_mn_rec(i) * exp(rec_dev(i,y));
+      R(i,y) = exp(ln_mn_rec(i) + rec_dev(i,y));
       
       // Likelihood 
-      jnll_comp(7,nspp) -= rec_dev(i,y); // Recruitment deviation using penalized likelihood. QUESTION: Do we want recruitment deviations for each species to have seperate sigmas?
+      jnll_comp(7,i) += rec_dev(i,y); // Recruitment deviation using penalized likelihood. QUESTION: Do we want recruitment deviations for each species to have seperate sigmas?
     }
   }
   
@@ -179,8 +185,8 @@ Type objective_function<Type>::operator() ()
   }
   //
   // 5.3. ESTIMATE NUMBERS AT AGE, BIOMASS-AT-AGE (kg), and SSB-AT-AGE (kg)
-  Biomass = 0   // Initialize Biomass 
-  BiomassSSB = 0 // Initialize SSB 
+  Biomass.setZero();  // Initialize Biomass 
+  BiomassSSB.setZero(); // Initialize SSB 
   for(i=0; i < nspp; i++){
     for(j=0; j < nages(i); j++){
       for(y=0; y < nyrs; y++){
@@ -203,15 +209,17 @@ Type objective_function<Type>::operator() ()
   }
 
   // 5.4. ESTIMATE CATCH-AT-AGE and TOTAL YIELD (kg)
-  tc_biom_est(i, y) = 0 // Initialize tc_biom_est
+  tc_est.setZero();
+  tc_biom_est.setZero(); // Initialize tc_biom_est
   for(i=0; i < nspp; i++){
     for(j=0; j < nages(i); j++){
       for(y=0; y < nyrs; y++){
         obs_catch_hat(i, j, y) = F_Tot(i, j, y)/Zed(i, j, y) * (1 - exp(-Zed(i, j, y))) * NByage(i,j,y); // 5.4.
+        tc_est(i, y) += obs_catch_hat(i, j, y); // Estimate catch in numbers
         tc_biom_est(i, y) += obs_catch_hat(i, j, y) * Weight_at_Age(i, j, y); // 5.5.
         
         // Total Catch Likelihood 
-        jnll_comp(4,nspp) -= log(tc_biom_est(i,y) - log(tc_biom_obs(i, y))^2 / (2 * sigma_catch ^ 2); // T.4.5
+        jnll_comp(4,i) = log(tc_biom_est(i,y) - log(tc_biom_obs(i, y))^2 / (2 * sigma_catch ^ 2); // T.4.5
       }
     }
   }
@@ -221,7 +229,9 @@ Type objective_function<Type>::operator() ()
     for(j=0; j < nages(i); j++){
       for(y=0; y < nyrs; y++){
       // -- 5.5.1 Estimate age composition of the fishery
-      fsh_age_hat(i, j, y) = obs_catch_hat(i, j, y) / obs_catch_hat.col(j).col(y).sum()
+      fsh_age_hat(i, j, y) = obs_catch_hat(i, j, y) / tc_est(i, y);
+
+      jnll_comp(5, i) -= tau * (fsh_age_obs(i, j, y) + MNConst)* log(fsh_age_hat(i, j, y) + MNConst);
     }
   }
   
@@ -237,10 +247,12 @@ Type objective_function<Type>::operator() ()
         Zed(i,j,y) = M1(i,j) + F_Tot(i, j, y);
         
         // Likelihood 
-        jnll_comp(9,nspp) -= F_dev(i,y); // Penalized likelihood for Fishing mortality deviation.
+        jnll_comp(9, i) += F_dev(i,y); // Penalized likelihood for Fishing mortality deviation.
       }
     }
   }
+
+  jnll = jnll_comp.sum()
   // ------------------------------------------------------------------------- //
   // END MODEL                                                                 //
   // ------------------------------------------------------------------------- //
