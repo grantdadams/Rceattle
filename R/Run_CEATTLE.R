@@ -5,7 +5,7 @@ setwd("/Users/kkari/GitHub/TMB_models/ceattle_TMB/")
 #--------------------------------------------------
 # load data and compile model
 #--------------------------------------------------
-	load("data/ceattle.RData") # gets "dat"
+	load("data/bsai_ceattle.RData") # gets "dat"
 	setwd("src")
 		compile("fsa2.cpp")
 		dyn.load(dynlib("fsa2"))
@@ -69,7 +69,7 @@ setwd("/Users/kkari/GitHub/TMB_models/ceattle_TMB/")
 			  logN1A=rep(0,ncol(dat[[s]]$catchNo)-1),
 			  logFY=rep(0,ncol(dat[[s]]$catchNo)),
 			  logFA=rep(0,nrow(dat[[s]]$catchNo)),
-			  logVarLogCatch=c(0,0), 
+			  logVarLogCatch=c(0,0),
 			  logQ=rep(0,nrow(dat[[s]]$Q1)),
 			  logVarLogSurvey=0
 			)
@@ -82,15 +82,15 @@ setwd("/Users/kkari/GitHub/TMB_models/ceattle_TMB/")
 
 		}
 
-		
-			
-		for(l in 1:nrep){	
+
+
+		for(l in 1:nrep){
 			for(s in 1:nspp){
 				dat[[s]]$M<-M[[s]]
 				if(multispp){
 					M2[[s]]<-calc_M2(sp=s,rat=ration,p=pref[,s],MIn=M[[s]])
 					dat[[s]]$M<-M[[s]]+M2[[s]]
-				} 
+				}
 			}
 
 			# now refit the model with M2
@@ -101,7 +101,7 @@ setwd("/Users/kkari/GitHub/TMB_models/ceattle_TMB/")
 					  logN1A=rep(0,ncol(dat[[s]]$catchNo)-1),
 					  logFY=rep(0,ncol(dat[[s]]$catchNo)),
 					  logFA=rep(0,nrow(dat[[s]]$catchNo)),
-					  logVarLogCatch=c(0,0), 
+					  logVarLogCatch=c(0,0),
 					  logQ=rep(0,nrow(dat[[s]]$Q1)),
 					  logVarLogSurvey=0
 				)
@@ -117,7 +117,7 @@ setwd("/Users/kkari/GitHub/TMB_models/ceattle_TMB/")
 				#   logN1A=as.numeric(srep[[s]][rownames(srep[[s]])=="logN1A",1]),
 				#   logFY=as.numeric(srep[[s]][rownames(srep[[s]])=="logFY",1]),
 				#   logFA=as.numeric(srep[[s]][rownames(srep[[s]])=="logFA",1]),
-				#   logVarLogCatch=as.numeric(srep[[s]][rownames(srep[[s]])=="logVarLogCatch",1]), 
+				#   logVarLogCatch=as.numeric(srep[[s]][rownames(srep[[s]])=="logVarLogCatch",1]),
 				#   logQ=as.numeric(srep[[s]][rownames(srep[[s]])=="logQ",1]),
 				#   logVarLogSurvey=as.numeric(srep[[s]][rownames(srep[[s]])=="logVarLogSurvey",1])
 				# )
@@ -189,11 +189,11 @@ proj_mse<-function(MSE=TRUE,mcmc=100,Recmode=0,Hmode=0, SurveyMode=0, nyrs_fut=5
 			  logN1A=rep(0,ncol(dat[[s]]$catchNo)-1),
 			  logFY=rep(0,ncol(dat[[s]]$catchNo)),
 			  logFA=rep(0,nrow(dat[[s]]$catchNo)),
-			  logVarLogCatch=c(0,0), 
+			  logVarLogCatch=c(0,0),
 			  logQ=rep(0,nrow(dat[[s]]$Q1)),
 			  logVarLogSurvey=0
 			)
-		
+
 		parms<-list()
 		assign<-function(obj="estpar",parIn=parms[[s]],datIn=0){
 			if(length(parIn[[obj]])==length(datIn)){
@@ -213,7 +213,7 @@ proj_mse<-function(MSE=TRUE,mcmc=100,Recmode=0,Hmode=0, SurveyMode=0, nyrs_fut=5
 			parms[[s]]$logVarLogCatch<-assign(parIn=parms[[s]],obj="logVarLogCatch",datIn=get_val(val="logVarLogCatch",rand=rand1,sp=s) )
 			parms[[s]]$logQ<-assign(parIn=parms[[s]],obj="logQ",datIn=get_val(val="logQ",rand=rand1,sp=s))
 			parms[[s]]$logVarLogSurvey<-assign(parIn=parms[[s]],obj="logVarLogSurvey",datIn=get_val(val="logVarLogSurvey",rand=rand1,sp=s))
-			
+
 		}
 
 
@@ -227,7 +227,7 @@ proj_mse<-function(MSE=TRUE,mcmc=100,Recmode=0,Hmode=0, SurveyMode=0, nyrs_fut=5
 			  logN1A=factor(rep(NA,ny-1)),
 			  logFY=factor(rep(NA,ny)),
 			  logFA=factor(rep(NA,nages)),
-			  logVarLogCatch=factor(c(NA,NA)), 
+			  logVarLogCatch=factor(c(NA,NA)),
 			  logQ=factor(rep(NA,nrow(dat[[s]]$Q1))),
 			  logVarLogSurvey=factor(NA)
 			)
@@ -259,15 +259,15 @@ proj_mse<-function(MSE=TRUE,mcmc=100,Recmode=0,Hmode=0, SurveyMode=0, nyrs_fut=5
 
 		}
 
-		
-			
-		for(l in 1:nrep){	
+
+
+		for(l in 1:nrep){
 			for(s in 1:nspp){
 				dat[[s]]$M<-M[[s]]
 				if(multispp){
 					M2[[s]]<-calc_M2(sp=s,rat=ration,p=pref[,s],MIn=M[[s]])
 					dat[[s]]$M<-M[[s]]+M2[[s]]
-				} 
+				}
 			}
 
 			# now refit the model with M2
@@ -277,7 +277,7 @@ proj_mse<-function(MSE=TRUE,mcmc=100,Recmode=0,Hmode=0, SurveyMode=0, nyrs_fut=5
 					  logN1A=rep(0,ncol(dat[[s]]$catchNo)-1),
 					  logFY=rep(0,ncol(dat[[s]]$catchNo)),
 					  logFA=rep(0,nrow(dat[[s]]$catchNo)),
-					  logVarLogCatch=c(0,0), 
+					  logVarLogCatch=c(0,0),
 					  logQ=rep(0,nrow(dat[[s]]$Q1)),
 					  logVarLogSurvey=0
 				)
@@ -288,21 +288,21 @@ proj_mse<-function(MSE=TRUE,mcmc=100,Recmode=0,Hmode=0, SurveyMode=0, nyrs_fut=5
 				ssb<-srep[[s]][rownames(srep[[s]])=="ssb",]
 				# ration<-srep[rownames(srep)=="ration",]
 				ration[s,]<-.4*ssb[,1]*log(s/.8)
-			
+
 
 		}
 		setwd("../")
 		return(list(obj=obj,opt=opt,rep=rep,srep=srep,ration=ration,parms=parms,M2=M2))
 
-	
-	
+
+
 	# MSE : if set to TRUE, the model will be refit for each year of the projection - if set to false, projection is deterministic
 	# mcmc = if set to 1, no random draws, if set to >1 random draws to be pulled from parameter estimates
-	
+
 	# generate survey index from availble biomass
 	# project rectruits
 	# update the data with an additional year
-	# first run the model forward a year by re-estimating the 
+	# first run the model forward a year by re-estimating the
 
 
 }
