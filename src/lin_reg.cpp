@@ -13,12 +13,15 @@ template<class Type>
   vector<Type> mu(n_data);
   vector<Type> x2(n_data);
 
-  x2 = 0;
-  std::cout << "x2 is " << x2 << "\n";
+  if(x2(1) == 1){
+    std::cout << "x2 is " << sum(x2) << " and the code is broken \n";
+    return EXIT_FAILURE;
+  }
+  x2.setZero();
   x2 += x.col(0).col(0);
-  std::cout << "x2 is " << x2 << "\n";
-  mu = x2 * b + a;
-
+  mu = x2 * x.col(1).col(1);
+  std::cout << "mu is " << mu(1) << "\n";
+  return 1;
   Type nll = -sum(dnorm(Y, mu, exp(logSigma), true));
 
   std::cout << "The nll is " << nll << "\n";
