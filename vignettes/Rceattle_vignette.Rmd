@@ -210,9 +210,9 @@ parameters_table <- function(){
   params_extra <- rbind(params_extra, c("Observed catch-at-age", "$C_{ij,y}$", "I", "obs_catch"))
   params_extra <- rbind(params_extra, c("Estimated catch-at-age", "$\\hat{C}_{ij,y}$", "E", "obs_catch_hat"))
   params_extra <- rbind(params_extra, c("Observed total catch", "$C_{i,y}$", "D", "tc_obs"))
-  params_extra <- rbind(params_extra, c("Estimated total catch", "$\\hat{C}_{i,y}$", "D", "tc_biom_est"))
+  params_extra <- rbind(params_extra, c("Estimated total catch", "$\\hat{C}_{i,y}$", "D", "tc_hat"))
   
-  params_extra <- rbind(params_extra, c("Total catch", "$B_{ij,y} = N_{ij,y} W_{ij,y}$", "E", "tc_obs"))
+  params_extra <- rbind(params_extra, c("Estimated total yield", "$B_{ij,y} = N_{ij,y} W_{ij,y}$", "E", "tc_obs"))
 
   params_extra <- rbind(params_extra, c("Observed fishery age composition", "${O}^f_{ij,y}$", "I", "fsh_age_obs"))
   params_extra <- rbind(params_extra, c("Estimated fishery age composition", "$\\hat{O}^f_{ij,y}$", "E", "fsh_age_hat"))
