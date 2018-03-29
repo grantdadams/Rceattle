@@ -1,6 +1,6 @@
 #include <TMB.hpp>
 
-// Function for getting max of an IVECTOR
+// Function for getting max of an Ivector
 template <class Type>
 Type imax(const vector<Type> &x)
 {
@@ -185,128 +185,35 @@ Type objective_function<Type>::operator() (){
   Type jnll = 0;
 
 
-  // ------------------------------------------------------------------------- //
-  // 5. POPULATION DYNAMICS EQUATIONS                                          //
-  // ------------------------------------------------------------------------- //
-  // NOTE: Remember indexing starts at 0
-  //
-  // 5.1. ESTIMATE RECRUITMENT AND FISHING MORTALITY: T1.1
-  for(i=0; i<nspp; y++){
-    for(y=0; y<nyrs; y++){
-      R(i,y) = exp(ln_mn_rec(i) + rec_dev(i,y));
-      for(j=0; j<nages(i); j++){
-        F(i,j,y) = exp(fsh_sel(i,j)) * exp(ln_mean_F(i) + F_dev(i,y));
-      }
-      // Likelihood
-      // PUT RANDOM EFFECTS SWITCH HERE
-      jnll_comp(7,i) += pow(rec_dev(i,y), 2);// Recruitment deviation using penalized likelihood.
-      jnll_comp(9,i) += pow(F_dev(i,y), 2); // Fishing mortality deviation using penalized likelihood.
-    }
+
+
+
+
+  ///////////////////////
+  DATA_VECTOR(Y);
+  DATA_ARRAY(x);
+  PARAMETER(ab);
+  PARAMETER(b);
+  PARAMETER(logSigma);
+  ADREPORT(exp(2*logSigma));
+
+  int n_data = Y.size();
+
+  vector<Type> mu(n_data);
+  vector<Type> x2(n_data);
+
+  if(x2(1) == 1){
+    std::cout << "x2 is " << sum(x2) << " and the code is broken \n";
+    return EXIT_FAILURE;
   }
+  x2.setZero();
+  x2 += x.col(0).col(0);
+  mu = (x2 * x.col(1).col(1));
+  std::cout << "max mu is " << max(x2) << "\n";
+  return 1;
+  Type nll = -sum(dnorm(Y, mu, exp(logSigma), true));
 
-  //
-  // 5.2. ESTIMATE INITIAL ABUNDANCE AT AGE AND YEAR-1: T1.2
-  for(i=0; i < nspp; i++){
-    for(j=0; j < nages(i); j++){
-      // -- 5.2.1. Plus group where y = 1 and 1 < j <= Ai
-      if(j > 0 & j <= nages(i)){
-        NByage(i,j,0) = ln_mn_rec(i) * exp(-(j+1)*M1(i,j)) * N_0(i,j);
-      }
-      // -- 5.2.2. Where y = 1 and j > Ai.
-      if(j>nages(i)){
-        NByage(i,j,0) = ln_mn_rec(i) * exp(-(j+1)*M1(i,nages(i))) * N_0(i,nages(i))/ (1-exp(-(j+1)*M1(i,nages(i)))); // NOTE: This solves for the geometric series
-      }
-    }
-  }
-  //
-  // 5.3. ESTIMATE NUMBERS AT AGE, BIOMASS-AT-AGE (kg), and SSB-AT-AGE (kg)
-  biomass.setZero();  // Initialize Biomass
-  biomassSSB.setZero(); // Initialize SSB
-  for(i=0; i < nspp; i++){
-    for(j=0; j < nages(i); j++){
-      for(y=0; y < nyrs; y++){
-        // -- 5.3.1.  Where 1 <= j < Ai
-        if(j >= 0 & j < (nages(i)-1)){
-          NByage(i,j+1,y+1) = NByage(i,j,y) * exp(-Zed(i,j,y));
-          // -- 5.3.2. Plus group where j > Ai. NOTE: This is not the same as T1.3 because I used j = A_i rather than j > A_i.
-        }
-        if(j == (nages(i)-1)){ // # NOTE: May need to increase j loop to "nages(i) + 1" .
-          NByage(i,nages(i),y+1) = NByage(i,nages(i)-1,y) * exp(-Zed(i,nages(i)-1,y)) + NByage(i,nages(i),y) * exp(-Zed(i,nages(i),y));
-        }
-        biomassByage(i, j, y) = NByage(i, j, y) * Weight_at_Age(i, j, y); // 5.5.
-        biomassSSBByage(i, j, y) = biomassByage(i, j, y) * Prop_Mat(i, j); // 5.6.
-
-        // -- 5.3.3. Estimate Biomass and SSB
-        biomass(i, y) += biomassByage(i, j, y);
-        biomassSSB(i, y) += biomassSSBByage(i, j, y);
-      }
-    }
-  }
-
-  // 5.4. ESTIMATE CATCH-AT-AGE and TOTAL YIELD (kg)
-  tc_est.setZero();
-  tc_biom_est.setZero(); // Initialize tc_biom_est
-  for(i=0; i < nspp; i++){
-    for(j=0; j < nages(i); j++){
-      for(y=0; y < nyrs; y++){
-        obs_catch_hat(i, j, y) = F(i, j, y)/Zed(i, j, y) * (1 - exp(-Zed(i, j, y))) * NByage(i,j,y); // 5.4.
-        tc_est(i, y) += obs_catch_hat(i, j, y); // Estimate catch in numbers
-        tc_biom_est(i, y) += obs_catch_hat(i, j, y) * Weight_at_Age(i, j, y); // 5.5.
-
-        // Total Catch Likelihood
-        jnll_comp(4,i) = pow((log(tc_biom_est(i,y)) - log(tc_biom_obs(i, y))), 2) / (2 * pow(sigma_catch, 2)); // T.4.5
-      }
-    }
-  }
-
-  // 5.5. ESTIMATE FISHERY AGE COMPOSITION
-  for(i=0; i < nspp; i++){
-    for(j=0; j < nages(i); j++){
-      for(y=0; y < nyrs; y++){
-        // -- 5.5.1 Estimate age composition of the fishery
-        fsh_age_hat(i, j, y) = obs_catch_hat(i, j, y) / tc_est(i, y);
-        jnll_comp(5, i) -= tau * (fsh_age_obs(i, j, y) + MNConst)* log(fsh_age_hat(i, j, y) + MNConst);
-      }
-    }
-  }
-
-  // 5.8. Estimate total mortality at age
-  // 5.9. Estimate fishing mortality at age
-  // 5.17. Estimate fishery selectivity
-  for(i=0; i < nspp; i++){
-    for(j=0; j < nages(i); j++){
-      for(y=0; y < nyrs; y++){
-
-        Zed(i,j,y) = M1(i,j) + F(i, j, y);
-
-      }
-    }
-  }
-
-  // 5.6 EIT Components
-  // -- 5.6.1 EIT Survey Biomass
-  matrix<Type> eit_age_hat(nages(0), nyrs);
-  eit_age_hat.setZero();
-  eit_hat.setZero();
-  for(j=0; j < nages(0); j++){
-    for(y=0; y < n_eit; y++){
-      eit_age_hat(j,y) = NByage(0,j,y) * exp(-0.5 * Zed(0,j,y)) * eit_sel(j, y) * eit_q; // Remove the mid-year trawl?
-      eit_hat(y) += eit_age_hat(j,y) * Weight_at_Age(0, j, y);  //
-      jnll_comp(2, 0) += 12.5 * pow(log(obs_eit(y)) - log(eit_hat(y) + 1.e-04)), 2);
-    }
-  }
-  // -- 5.6.1 EIT Survey Age Composition
-  for(j=0; j < nages(0); j++){
-    for (y=0; y < n_eit; y++){
-      eit_age_hat(j, y) = eit_age_hat(j, y) / eit_age_hat.col(y).sum();
-      jnll_comp(3, 0) += eit_age_n(y) *  (obs_eit_age(j, y) + MNConst) * log(eit_age_hat(j, y) + MNConst);
-    }
-  }
-
-  jnll = jnll_comp.sum();
-  ADREPORT(jnll);
-  return jnll;
-  // ------------------------------------------------------------------------- //
-  // END MODEL                                                                 //
-  // ------------------------------------------------------------------------- //
+  std::cout << "The nll is " << nll << "\n";
+  ADREPORT(nll);
+  return nll;
 }

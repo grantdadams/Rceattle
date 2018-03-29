@@ -8,12 +8,12 @@ Rceattle <- function(){
   if("TMB" %in% rownames(installed.packages()) == FALSE) {install.packages("TMB")}
   # Load required packages
   library(TMB)
-  
+
   # Compile CEATTLE
   setwd("src")
-  compile("CEATTLE_BSAI_v01.cpp")
-  dyn.load(dynlib("CEATTLE_BSAI_v01"))
+  compile("CEATTLE_BSAI_v01_dev.cpp")
+  dyn.load(dynlib("CEATTLE_BSAI_v01_dev"))
   setwd("../")
-  
-  
+
+
 }
