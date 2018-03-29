@@ -1,5 +1,21 @@
 #include <TMB.hpp>
-
+// ------------------------------------------------------------------------- //
+//                 CEATTLE version 3.1.2                                     //
+//                  Template Model Builder                                   //
+//               Multispecies Statistical Model                              //
+//          Bioenergetic-based Assessment for Understanding                  //
+//              Biomass Linkages To The Environment                          //
+//                  in the Bering Sea                                        //
+//                   Oct. 2017                                               //
+//                                                                           //
+// AUTHORS:   Kirstin Holsman, Jim Ianelli                                   //
+//            Modified by Grant Adams                                        //
+// CITATIONS:                                                                //
+// 1. Holsman, K. K., Ianelli, J., Aydin, K., Punt, A. E., & Moffitt, E. A. (2015). A comparison of fisheries biological reference points estimated from temperature-specific multi-species and single-species climate-enhanced stock assessment models. Deep-Sea Research Part II: Topical Studies in Oceanography, 134, 360–378. https://doi.org/10.1016/j.dsr2.2015.08.001
+// ------------------------------------------------------------------------- //
+// ------------------------------------------------------------------------- //
+// 0. FUNCTIONS                                                              //
+// ------------------------------------------------------------------------- //
 // Function for getting max of an IVECTOR
 template <class Type>
 Type imax(const vector<Type> &x)
@@ -13,32 +29,15 @@ Type imax(const vector<Type> &x)
   }
   return res;
 }
-
 template<class Type>
 Type objective_function<Type>::operator() (){
-  // ------------------------------------------------------------------------- //
-  //                 CEATTLE version 3.1.2                                     //
-  //                  Template Model Builder                                   //
-  //               Multispecies Statistical Model                              //
-  //          Bioenergetic-based Assessment for Understanding                  //
-  //              Biomass Linkages To The Environment                          //
-  //                  in the Bering Sea                                        //
-  //                   Oct. 2017                                               //
-  //                                                                           //
-  // AUTHORS:   Kirstin Holsman, Jim Ianelli                                   //
-  //            Modified by Grant Adams                                        //
-  // CITATIONS:                                                                //
-  // 1. Holsman, K. K., Ianelli, J., Aydin, K., Punt, A. E., & Moffitt, E. A. (2015). A comparison of fisheries biological reference points estimated from temperature-specific multi-species and single-species climate-enhanced stock assessment models. Deep-Sea Research Part II: Topical Studies in Oceanography, 134, 360–378. https://doi.org/10.1016/j.dsr2.2015.08.001
-  // ------------------------------------------------------------------------- //
-
-
   // ------------------------------------------------------------------------- //
   // 1. MODEL CONFIGURATION                                                    //
   // ------------------------------------------------------------------------- //
   // 1.1. CONFIGURE MODEL (this section sets up the switches)
-
+  //
   // ------------------------------------------------------------------------- //
-  // 2. MODEL INPUTS                                                    //
+  // 2. MODEL INPUTS                                                           //
   // ------------------------------------------------------------------------- //
   // 2.1. FIXED VALUES
   int tau = 200; // Fishery age composition sample size
