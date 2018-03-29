@@ -65,6 +65,7 @@ Type objective_function<Type>::operator() (){
   // -- 2.3.2 BT Survey Components
   DATA_ARRAY(srv_age_obs); // Observed BT age comp; n = [nspp, nages, nyrs]
   DATA_MATRIX(srv_biom); // Observed BT survey biomass (kg); n = [nspp, nyrs]
+  DATA_ARRAY(age_trans_matrix)(1,nspp,1,nages,1,srv_age_bins)       // observed sp_age/size compositions
   // -- 2.3.3 EIT Survey components
   DATA_INTEGER(n_eit); // Number of years with EIT data
   DATA_IVECTOR(yrs_eit); // Years for available EIT data
