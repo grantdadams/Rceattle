@@ -9,9 +9,9 @@ ADMB2R<-function(ADMBfilename="tmsm",filepath="",use.headers=FALSE,datfiles="FAL
 	#ADMBfilename is the name of the admb file, e.g., "tmsm"
 	#filepath is the path to the folder that contains the ADMB file
 	# use.headers if set to "TRUE" or "T" then it will read in data according to object names using the function readdat (must be loaded)
-	
+
 	fn<-file(paste(filepath,ADMBfilename,".tpl",sep=""))
-	
+
 	tpl.file<- scan(fn, what="character",flush=T,blank.lines.skip=F, quiet=T)
 	skipp<-which(tpl.file=="DATA_SECTION")
 	nrow<-which(tpl.file=="PARAMETER_SECTION")
@@ -28,7 +28,7 @@ ADMB2R<-function(ADMBfilename="tmsm",filepath="",use.headers=FALSE,datfiles="FAL
 	tmp4<-rep(0,nt) # read in data from *(ad_comm::global_datafile)
 	LocalCalcs<-which(tpl.file=="LOCAL_CALCS") 	# lines with Local calcs
 	EndCalcs<-which(tpl.file=="END_CALCS") 		# lines with End calcs
-	
+
 
 	ai<-0  # list of file names
 	# first find the data rows in the tpl file that come from .dat files
@@ -36,18 +36,18 @@ ADMB2R<-function(ADMBfilename="tmsm",filepath="",use.headers=FALSE,datfiles="FAL
 	ctl.file<-""
 	if(ctlFile=="TRUE")
 		ctl.file<- scan(paste(filepath,ctlFilename,sep=""), what="character",flush=T,blank.lines.skip=F, quiet=T)
-	
+
 	for (i in 1:nt){
 		if(tpl.file[i]!=""){
 			tt[[i]]<-tt[[i]][tt[[i]]!=""]
-			if(tt[[i]][1]=="*(ad_comm::global_datafile)"){	
+			if(tt[[i]][1]=="*(ad_comm::global_datafile)"){
 				tmp3[i]<-1
 			}else{
 				tmp1<-strsplit(tt[[i]][1],split=c(">>"))
 				if(tmp1[[1]][1]=="*(ad_comm::global_datafile)"){
 					tmp4[i]<-1
-						ttCtl<-c(ttCtl,strsplit(tmp1[[1]][2],split=";")[[1]][1])			
-				}	
+						ttCtl<-c(ttCtl,strsplit(tmp1[[1]][2],split=";")[[1]][1])
+				}
 			}
 			ttt<-strsplit(tt[[i]],split=c("_"))
 			if(any(ttt[[1]]=="init"))
@@ -66,19 +66,19 @@ ADMB2R<-function(ADMBfilename="tmsm",filepath="",use.headers=FALSE,datfiles="FAL
 					}else{
 						if(ai==1)
 							tplA<-paste(ADMBfilename,".dat",sep="")
-						if(ai>1)	
+						if(ai>1)
 							tplA[ai]<-t4[[2]][1]
 					}
-				}	
+				}
 			}
 		}
-	}	
+	}
 	ttCtl<-ttCtl[-1]
-	
+
 	if(ctlFile=="TRUE")
 		ctl.file2<-data.frame(tplFile=ttCtl,ctlFile=ctl.file)
-	
-	
+
+
 	datfilesN<-rep(0,length(tplA));names(datfilesN)<-tplA
 	datnmdim<-list()
 	datanums<-which(tmp==1|tmp3==1)
@@ -92,7 +92,7 @@ ADMB2R<-function(ADMBfilename="tmsm",filepath="",use.headers=FALSE,datfiles="FAL
 	notes<-list()
 	nmt<-rep(0,length(datfilenums))
 	SVML<-rep(0,nd) # scalar(0), vector(1), matrix(2), list(3)
-	
+
 	## read in long data as a continuous string contained in the list ifile2
 	ifile2<-list()
 	for(i in 1:length(datfilenums)){
@@ -100,7 +100,7 @@ ADMB2R<-function(ADMBfilename="tmsm",filepath="",use.headers=FALSE,datfiles="FAL
 		iflex<-which(is.na(ifile))
 		idx <- sapply(as.double(ifile), is.na)
 		idy<-which(idx) # which lines are text
-		tmp1<--999		
+		tmp1<--999
 		for(zz in 2:length(idy)){
 			ir<-idy[zz-1]
 			irr<-idy[zz]
@@ -119,11 +119,11 @@ ADMB2R<-function(ADMBfilename="tmsm",filepath="",use.headers=FALSE,datfiles="FAL
 				if(any(tmp2=="#"))
 					tmp2<-tmp2[1:(which(tmp2=="#")-1)]  #remove values after an in-line #
 				tmp2<-as.numeric(na.omit(as.double(tmp2)))
-				tmp1<-c(tmp1,tmp2)		
-			}	
-		}	
-		ifile2[[i]]<-tmp1[-1]	
-	}		
+				tmp1<-c(tmp1,tmp2)
+			}
+		}
+		ifile2[[i]]<-tmp1[-1]
+	}
 	for(d in 1:nd){
 		if(d>1){
 			if(names(dat)[d-1]=="test_read")
@@ -136,9 +136,9 @@ ADMB2R<-function(ADMBfilename="tmsm",filepath="",use.headers=FALSE,datfiles="FAL
 			if(names(dat)[d-1]=="nages")
 				max_age=max(dat$nages)
 			if(names(dat)[d-1]=="nlengths")
-				max_length=max(dat$nlengths)	
-		}	
-	
+				max_length=max(dat$nlengths)
+		}
+
 		nrow<-0;ncol<-0
 		dn<-which(datfilenums<=datanums[d])
 		dn<-dn[length(dn)]
@@ -150,10 +150,10 @@ ADMB2R<-function(ADMBfilename="tmsm",filepath="",use.headers=FALSE,datfiles="FAL
 		#name, type, dims, data, notes
 		t1<-strsplit(tpl.tmp[datanums[d]]," ")
 		t1<-t1[[1]][t1[[1]]!=""]
-		
+
 		if(tmp3[datanums[d]]==0){
 			nm1<-t1[2] # data object name
-			t2<-strsplit(nm1,"\\(")[[1]] 
+			t2<-strsplit(nm1,"\\(")[[1]]
 			nm<-strsplit(t2[1],";")[[1]]
 			datnmdim[[nm]]<-nm1
 		}
@@ -161,13 +161,13 @@ ADMB2R<-function(ADMBfilename="tmsm",filepath="",use.headers=FALSE,datfiles="FAL
 			nmtmp1<-rep(0,nt)
 			skippp<-0
 			nm1<-t1[3] # find the name of the object
-			t2<-strsplit(nm1,"\\(")[[1]] 
+			t2<-strsplit(nm1,"\\(")[[1]]
 			nm<-strsplit(t2[1],";")[[1]]
 			# now find the dimensions in the preceeding text strings
 			for (i in 1:nt){
 				if(any(LocalCalcs==i))
 				stop()
-			
+
 				if(skippp==0){
 					if(tpl.file[i]!="//"){
 						if(tpl.file[i]!=""){
@@ -178,13 +178,13 @@ ADMB2R<-function(ADMBfilename="tmsm",filepath="",use.headers=FALSE,datfiles="FAL
 								if(any(tnt==nm)){
 									nmtmp1[i]<-1
 									datnmdim[[nm]]<-tttmp[iii]
-									t2<-strsplit(tttmp[iii],"\\(")[[1]] 
+									t2<-strsplit(tttmp[iii],"\\(")[[1]]
 									skippp<-1
 								}
 							}
 						}
 					}
-				}	
+				}
 			}
 		}
 		dm<-"1"
@@ -218,7 +218,7 @@ ADMB2R<-function(ADMBfilename="tmsm",filepath="",use.headers=FALSE,datfiles="FAL
 			nrow<-eval(parse(text=dm[length(dm)-2]))
 			ragged<-0  # 0 means it is not a ragged array
 			if(any(ncol!=ncol[1]))
-				ragged<-1	
+				ragged<-1
 			if(length(dm2)<=2){
 				#then it is a matrix
 				if(ragged==0){
@@ -244,7 +244,7 @@ ADMB2R<-function(ADMBfilename="tmsm",filepath="",use.headers=FALSE,datfiles="FAL
 						dum[[cl]]<-matrix(tmp,RowCol[1,cl],RowCol[2,cl],byrow=T)
 					}
 					dat[[nm]]<-dum
-				}	
+				}
 			}
 			if(length(dm2)==3){
 				# 3 d array
@@ -276,7 +276,7 @@ ADMB2R<-function(ADMBfilename="tmsm",filepath="",use.headers=FALSE,datfiles="FAL
 				}
 				dat[[nm]]<-dum
 			}
-			if(length(dm2)>3){	
+			if(length(dm2)>3){
 				ndm<-length(dm2)
 				# multi d array
 				SVML[d]<-ndm  # is a list
@@ -307,8 +307,8 @@ ADMB2R<-function(ADMBfilename="tmsm",filepath="",use.headers=FALSE,datfiles="FAL
 								tpl2n[ii]<-tpl1-tmptt
 								tpl2<-tpl1-tmptt		# this is where to start reading in the values
 								tmptt<-1+tmptt
-							}	
-					}	
+							}
+					}
 					# then read in the data
 					fn2<-paste(filepath,ADMBfilename,".tpl",sep="")
 					tmpt<-"";tmt<-""
@@ -316,7 +316,7 @@ ADMB2R<-function(ADMBfilename="tmsm",filepath="",use.headers=FALSE,datfiles="FAL
 						tmptt<-paste(scan(fn2, what="character", skip=skipp+tpl1-1-ii,nlines=1,flush=F,blank.lines.skip=F, quiet=T),collapse=" ")
 						ttt<-strsplit(tmptt,split="=")[[1]]
 						ttt<-strsplit(ttt,split=";")
-						ob1<-strsplit(ttt[[3]][2],split="\\++")[[1]][1] 
+						ob1<-strsplit(ttt[[3]][2],split="\\++")[[1]][1]
 						tt1<-ttt[[2]][1]
 						tt2<-strsplit(ttt[[3]][1],split="\\(")[[1]]
 						tmt<-paste(tmt,"[[",ob1,"]]",sep="")
@@ -324,7 +324,7 @@ ADMB2R<-function(ADMBfilename="tmsm",filepath="",use.headers=FALSE,datfiles="FAL
 							if(length(tt2)>1){
 								tt3<-strsplit(tt2[2],split="\\)")[[1]]
 								tmpt<-paste(tmpt,"for(",ob1," in ",tt1,":",tt2[1],"[",tt3,"]","){;dum",tmt,"<-list();",sep="")
-							}else{tmpt<-paste(tmpt,"for(",ob1," in ",tt1,":",tt2[1],"){;dum",tmt,"<-list();",sep="")}							
+							}else{tmpt<-paste(tmpt,"for(",ob1," in ",tt1,":",tt2[1],"){;dum",tmt,"<-list();",sep="")}
 						}else{
 							y<-1
 							tmptt<-paste(scan(fn2, what="character", skip=skipp+tpl1-1,nlines=1,flush=F,blank.lines.skip=F, quiet=T),collapse=" ")
@@ -339,10 +339,10 @@ ADMB2R<-function(ADMBfilename="tmsm",filepath="",use.headers=FALSE,datfiles="FAL
 								bb<-eval(parse(text=tt2[1]))
 								if(length(dms[[ndm]])!=length(bb))
 									dms[[ndm]]<-rep(dms[[ndm]],length(bb))
-								tmpt<-paste(tmpt,"dum",ttt,"<-rep(0,dms[[ndm]][",tt3,"]);dum",ttt,"[",tt1,":",tt2[1],"[",tt3,"]]<-lngdat[y:(y-1+",tt2[1],"[",tt3,"])];y<-",tt2[1],"[",tt3,"]","+y",paste(rep("}",ndm-1),collapse="",sep=""),sep="")	
-							}else{	
+								tmpt<-paste(tmpt,"dum",ttt,"<-rep(0,dms[[ndm]][",tt3,"]);dum",ttt,"[",tt1,":",tt2[1],"[",tt3,"]]<-lngdat[y:(y-1+",tt2[1],"[",tt3,"])];y<-",tt2[1],"[",tt3,"]","+y",paste(rep("}",ndm-1),collapse="",sep=""),sep="")
+							}else{
 								tmpt<-paste(tmpt,"for(",ob1," in ",tt1,":",tt2[1],");",sep="")
-								tmpt<-paste(tmpt,"dum",ttt,"<-rep(0,dms[[ndm]]);dum",ttt,"[1:",tt2[1],"]<-lngdat[y:(y-1+",tt2[1],")];y<-",tt2[1],"+y",paste(rep("}",ndm-1),collapse="",sep=""),sep="")	
+								tmpt<-paste(tmpt,"dum",ttt,"<-rep(0,dms[[ndm]]);dum",ttt,"[1:",tt2[1],"]<-lngdat[y:(y-1+",tt2[1],")];y<-",tt2[1],"+y",paste(rep("}",ndm-1),collapse="",sep=""),sep="")
 							}
 						}
 					}
@@ -355,18 +355,18 @@ ADMB2R<-function(ADMBfilename="tmsm",filepath="",use.headers=FALSE,datfiles="FAL
 				}else{
 					if(ragged==0){
 						dms1<-dmsn
-						for(cc in 1:length(dms1))	
+						for(cc in 1:length(dms1))
 							dms1[cc]<-dms[[cc]]
-						nn<-prod(dms1)	
+						nn<-prod(dms1)
 						dum<-array(lngdat[1:nn],dms1)  ### maybe not working yet
 						nmtadd<-nn[length(nn)]
 						dat[[nm]]<-dum
-					}	
+					}
 					if(ragged==1)
-						stop(paste(nm, ": can't read", ndm,"d ragged array directly into r: code may not read correctly from here out."))	
+						stop(paste(nm, ": can't read", ndm,"d ragged array directly into r: code may not read correctly from here out."))
 				}
 			}
-		}	
+		}
 		nmt[dn]<-nmt[dn]+nmtadd
 	}# end for each d
 	print(paste("scanned data from ",paste(tplA,collapse=", ")))
@@ -388,7 +388,7 @@ readdat<-function(fn,nm){
 	idy<-grep("#",ifile)
 	datnum<-which(idx==FALSE)
 	labnum<-which(idx==TRUE)
-	vnam <- ifile[idy] #list names 
+	vnam <- ifile[idy] #list names
 	nmr<-grep(nm,ifile)
 	up<-nmr:length(ifile)
 	skipp<-which(is.na(as.numeric(ifile[up]))==TRUE)
@@ -403,7 +403,7 @@ readdat<-function(fn,nm){
 		ans[r,]<-as.numeric(scan(fn,what="",flush=F,blank.lines.skip=F,skip=rr[r]-1,nlines=1, quiet=T,sep=""))
 	}
 	return(ans)
-}	
+}
 readdatOLD<-function(fn,nm){
 	# fn is the file name
 	#nm is the object name
@@ -413,7 +413,7 @@ readdatOLD<-function(fn,nm){
 	idy<-which(idx)
 	datnum<-which(idx==FALSE)
 	labnum<-which(idx==TRUE)
-	vnam <- ifile[idx] #list names 
+	vnam <- ifile[idx] #list names
 	# remove vnam objects that are simply commented out numbers
 	tmp<-rep(0,length(vnam))
 	tt<-strsplit(vnam,split="#")
@@ -433,7 +433,7 @@ readdatOLD<-function(fn,nm){
 	for(i in 1:length(vnam2))
 		vnam2[i]<-vnamt[[i]][2]
 	for(i in 1:length(ifile))
-		ifile[i]<-ifilet[[i]][length(ifilet[[i]])]	
+		ifile[i]<-ifilet[[i]][length(ifilet[[i]])]
 	vnam2<-na.omit(vnam2)
 	nv <- length(vnam2) #number of objects
 	A <- list()
@@ -447,7 +447,7 @@ readdatOLD<-function(fn,nm){
 		irr <- match(vnam[ii+1], ifile)
 	} else {
 		irr <- length(ifile)+1 #next row
-	}	
+	}
 	ans<--999
 	which(is.na(as.numeric(ifile[ir:irr]))==FALSE)
 	irn<-ir+which(is.na(as.numeric(ifile[ir:irr]))==FALSE)-1
@@ -456,17 +456,17 @@ readdatOLD<-function(fn,nm){
 		ans<-c(ans,as.numeric(na.omit(tt)))
 	}
 	ans<-ans[-1]
-	
+
 	return(ans)
-}	
-		
+}
+
 #MSMdattoRlist(fn=file.path(path,"main/New_Tmsmv2.dat"))
 MSMdattoRlist<-function(fn,nspp=3,skipp=2){
 	ifile <- scan(fn, what="character", skip=skipp,flush=T,blank.lines.skip=FALSE, quiet=T)
 	iflex<-which(is.na(ifile))
 	idx <- sapply(as.double(ifile), is.na)
 	datnum<-which(idx==FALSE)
-	vnam <- ifile[idx] #list names 
+	vnam <- ifile[idx] #list names
 	# remove vnam objects that are simply commented out numbers
 	tmp<-rep(0,length(vnam))
 	tt<-strsplit(vnam,split="#")
@@ -483,19 +483,19 @@ MSMdattoRlist<-function(fn,nspp=3,skipp=2){
 	labnum<-match(vnam2,ifile)
 	ifilet<-strsplit(ifile,split="#")
 	vnamt<-strsplit(vnam2,split="#")
-	
-	
+
+
 	for(i in 1:length(vnam2)){
 		vnam2[i]<-strsplit(vnamt[[i]][2],split=":")[[1]][1]
-	}	
+	}
 	for(i in 1:length(ifile))
-		ifile[i]<-ifilet[[i]][length(ifilet[[i]])]	
+		ifile[i]<-ifilet[[i]][length(ifilet[[i]])]
 	vnam2<-na.omit(vnam2)
 	nv <- length(vnam2) #number of objects
 	A <- list()
 	ir <- 0
 	vnam<-vnam2
-	
+
 	for (i in 1:(nv)){
 		ir <- match(vnam[i], ifile) # find the matching name in the ifile set
 		if (i!=nv) {
@@ -516,7 +516,7 @@ MSMdattoRlist<-function(fn,nspp=3,skipp=2){
 				tmpl[j] <- length(as.double(scan(fn, skip=skipp+ir-1+j, nlines=1,quiet=TRUE, what="")))
 			if(all(tmpl==tmpl[1])){
 				dum<-as.matrix(read.table(fn, skip=ir,nrow=nall, fill=TRUE))
-			}else{	
+			}else{
 				dum<-list()
 				for(s in 1:nspp)
 					dum[[s]]<-as.matrix(read.table(fn, skip=skipp+ir+(nrow*s-nrow),nrow=nrow, fill=TRUE))
@@ -530,7 +530,7 @@ MSMdattoRlist<-function(fn,nspp=3,skipp=2){
 }
 stdtoRlist<-function(tn="tmsm.std",k=3,nages=c(12,12,25)){
 	# first assign names
-	
+
 	proj1<-(read.csv(tn,sep = "\t",header=FALSE,fill=TRUE))
 	vnam<-strsplit(as.character(proj1[1,]),split=" ")
 	vnam<-vnam[[1]]
@@ -539,7 +539,7 @@ stdtoRlist<-function(tn="tmsm.std",k=3,nages=c(12,12,25)){
 	vnam<-vnam[-length(vnam)]
 	A<-(read.csv(tn,sep = "\t",header=TRUE,fill=TRUE))
 	AA<-data.frame(matrix(0,length(A[,1]),length(vnam)))
-	
+
 	for(i in 1:length(A[,1]))
 	{
 		tmp<-strsplit(as.character(A[i,]),split=" ")
@@ -551,7 +551,7 @@ stdtoRlist<-function(tn="tmsm.std",k=3,nages=c(12,12,25)){
 		txts<-tmp[idxs]
 		AA[i,]<-tmp2
 		AA[i,idxs]<-as.character(tmp[idxs])
-		
+
 	}
 	names(AA)<-vnam
 	return(AA)
@@ -591,13 +591,13 @@ cruletolist<-function(fn){
 	ifile <- scan(fn, what="character", flush=TRUE,blank.lines.skip=FALSE, quiet=TRUE)
 	idx <- sapply(as.double(ifile), is.na)
 	idx_n<-which(idx)
-	ifile_n <- as.double(scan(fn, what="numeric", sep=" ",blank.lines.skip=TRUE)) 
-	
+	ifile_n <- as.double(scan(fn, what="numeric", sep=" ",blank.lines.skip=TRUE))
+
 	ifile_c <- as.character(scan(fn, what="character", sep=" ",blank.lines.skip=TRUE))
 	nrows<-length(ifile)
 	ncols<-length(ifile_n)/nrows
 	colnames<-scan(fn, what="character", sep=" ",blank.lines.skip=TRUE)[1:ncols]
-	
+
 	ifile_n2<-data.frame(matrix(data=ifile_n,ncol=ncols,nrow=nrows,byrow=TRUE))[-idx_n,]
 	names(ifile_n2)<-colnames
 	ifile_c2<-data.frame(matrix(data=ifile_c,ncol=ncols,nrow=nrows,byrow=TRUE))[-idx_n,]
@@ -628,7 +628,7 @@ read_estrep2<-function(fn,val="M2_fut_1",printt=FALSE){
     labnum <- match(vnam2, ifile)
     ifilet <- strsplit(ifile, split = "#")
     vnamt <- vnam2
-    #for (i in 1:length(ifile)) 
+    #for (i in 1:length(ifile))
     #	ifile[i] <- ifilet[[i]][length(ifilet[[i]])]
     ifile<-unlist(ifilet)
     vnam2 <- na.omit(vnam2)
@@ -641,7 +641,7 @@ read_estrep2<-function(fn,val="M2_fut_1",printt=FALSE){
     for(ii in vv)
     {
     	ir<-which(ifile==vnam[ii])
-    	if (ii != nv) 
+    	if (ii != nv)
     	{
      	   irr <- which(ifile==vnam[ii + 1])
     	}else {
@@ -663,21 +663,21 @@ read_estrep2<-function(fn,val="M2_fut_1",printt=FALSE){
     		 }else{
     		 	ans[r,1:length(tt)]<-tt
     		 }
-    		 
+
     	}
-			
+
         eval(parse(text=paste("all_dat$",vnam[ii],"<-ans",sep="")))
         if(printt==TRUE)
         	print(paste(round(ii/nv,2)*100,"% complete :",vnam[ii]))
 	}
     return(all_dat)
 }
-read_estrep<-function (fn,printt=TRUE) 
+read_estrep<-function (fn,printt=TRUE)
 {
     ifile <- scan(fn, what = "character", flush = T, blank.lines.skip = T, quiet = T)
     tmp<-as.numeric(ifile)
     idx<-which(is.na(tmp))
-    
+
     idy<-idx
    # idy <- which(idx2)
     datnum <- which(idx == FALSE)
@@ -691,7 +691,7 @@ read_estrep<-function (fn,printt=TRUE)
     labnum <- match(vnam2, ifile)
     ifilet <- strsplit(ifile, split = "#")
     vnamt <- vnam2
-    #for (i in 1:length(ifile)) 
+    #for (i in 1:length(ifile))
     #	ifile[i] <- ifilet[[i]][length(ifilet[[i]])]
     ifile<-unlist(ifilet)
     vnam2 <- na.omit(vnam2)
@@ -704,7 +704,7 @@ read_estrep<-function (fn,printt=TRUE)
     for(ii in 1:length(vnam))
     {
     	ir<-which(ifile==vnam[ii])
-    	if (ii != nv) 
+    	if (ii != nv)
     	{
      	   irr <- which(ifile==vnam[ii + 1])
     	}else {
@@ -726,9 +726,9 @@ read_estrep<-function (fn,printt=TRUE)
     		 }else{
     		 	ans[r,1:length(tt)]<-tt
     		 }
-    		 
+
     	}
-			
+
         eval(parse(text=paste("all_dat$",vnam[ii],"<-ans",sep="")))
         if(printt==TRUE)
         	print(paste(round(ii/nv,2)*100,"% complete :",vnam[ii]))
@@ -763,7 +763,7 @@ read.rec<-function(fn,nspp=3){
 	 logR_obs.minus[s,] = (ln_mn_rec[s]-1.96*ln_mn_rec.se[s] + rec_dev[s,]-1.96*rec_dev.se[s,] )
 	 logR_obs.5.plus[s,] = (ln_mn_rec[s]+1*ln_mn_rec.se[s] + rec_dev[s,]+1*rec_dev.se[s,] )
 	 logR_obs.5.minus[s,] = (ln_mn_rec[s]-1*ln_mn_rec.se[s] + rec_dev[s,]-1*rec_dev.se[s,] )
-	} 
+	}
 	return(list(ln_mn_rec=ln_mn_rec,ln_mn_rec.se=ln_mn_rec.se,rec_dev=rec_dev,rec_dev.se=rec_dev.se,logR_obs=logR_obs,
 		logR_obs.plus=logR_obs.plus,logR_obs.minus=logR_obs.minus,
 		logR_obs.5.plus=logR_obs.5.plus,logR_obs.5.minus=logR_obs.5.minus))
@@ -795,7 +795,7 @@ read.Frate<-function(fn,nspp=3){
 	 logF_obs.minus[s,] = (ln_mean_F[s]-1.96*ln_mean_F.se[s] + F_dev[s,]-1.96*F_dev.se[s,] )
 	 logF_obs.5.plus[s,] = (ln_mean_F[s]+1*ln_mean_F.se[s] + F_dev[s,]+1*F_dev.se[s,] )
 	 logF_obs.5.minus[s,] = (ln_mean_F[s]-1*ln_mean_F.se[s] + F_dev[s,]-1*F_dev.se[s,] )
-	} 
+	}
 	return(list(ln_mean_F=ln_mean_F,ln_mean_F.se=ln_mean_F.se,F_dev=F_dev,F_dev.se=F_dev.se,logF_obs=logF_obs,
 		logF_obs.plus=logF_obs.plus,logF_obs.minus=logF_obs.minus,
 		logF_obs.5.plus=logF_obs.5.plus,logF_obs.5.minus=logF_obs.5.minus))

@@ -22,9 +22,18 @@ to_tmb <- function(){
 
   assmntdat_objno <- grep(paste(assmntdat_names,collapse="|"), names(assmnt_data))
 
+  assmnt_data_extract <- list()
+  for(i in 1:length(assmntdat_objno)){
+    assmnt_data_extract[[i]] <- assmnt_data[[assmntdat_objno[i]]]
+    names(assmnt_data_extract)[i] <- names(assmnt_data)[assmntdat_objno[i]]
+  }
+
+  # Combine objects into arrays or lists
+  gsub( paste("_", 1:3, sep = ""), "", names(assmnt_data_extract))
+
   # Change wd back to main
   setwd("../")
 
   # Return the data to be used in TMB
-  return(assmnt_data)
+  return(assmnt_data_extract)
 }
