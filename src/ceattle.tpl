@@ -353,7 +353,7 @@ DATA_SECTION
          *(ad_comm::global_datafile) >> wt(sp,yr,sp_age);               // Mean weight at sp_age
  END_CALCS 
   
-  // proportion mature & residual mort
+  // proportion matureage_trans & residual mort
   init_matrix          pmature(1,nspp,1,nages)                          // proportion mature by sp_age
   init_matrix          M1_base(1,nspp,1,nages)                          // residual mortality
   
