@@ -25,6 +25,9 @@ template<class Type>
 
   int n_data = Y.size();
 
+  int cols = 4;
+  array<Type> ragged_array(ints, n_data, cols);
+
 
   vector<Type> mu(n_data);
   vector<Type> x2(n_data);
@@ -33,12 +36,11 @@ template<class Type>
   x2 += x.col(0).col(0);
 
   if(x2(1) < 1){
-    error("Unknown fleet code");
-    return 0;
+
   }
 
-  mu = a + b * x.col(1).col(1);
-  std::cout << "max x2 is " << max(x2) << "\n";
+  mu = c(0)
+  std::cout << "max x2 is " << mu << "\n";
   return 1;
   Type nll = -sum(dnorm(Y, mu, exp(logSigma), true));
 
