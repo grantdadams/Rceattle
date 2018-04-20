@@ -30,6 +30,13 @@ Type imax(const vector<Type> &x)
   return res;
 }
 
+// Function for mean of a vector
+template <class Type>
+Type mean_vec(const vector<Type> &x)
+{
+  Type mean = x.sum()/x.size();
+  return mean;
+}
 
 template<class Type>
 Type objective_function<Type>::operator() (){
@@ -187,10 +194,10 @@ Type objective_function<Type>::operator() (){
   PARAMETER_MATRIX(F_dev);          // Annual fishing mortality deviations; n = [nspp, nyrs] # NOTE: The size of this will likely change
   // PARAMETER_VECTOR(sigma_F); // SD of fishing mortality deviations; n = [1, nspp] # NOTE: Have this estimated if using random effects.
   // -- 3.1.4. Selectivity parameters
-  PARAMETER_MATRIX(srv_sel_coff);    // Survey selectivity parameters; n = [nspp,nselages,sel_phase]
-  PARAMETER_MATRIX(fsh_sel_coff);     // Fishery age selectivity coef; n = [nspp, 8]
-  PARAMETER(log_eit_q);             // EIT Catchability
-  PARAMETER_VECTOR(log_srv_q);      // BT Survey catchability; n = [1, nspp]
+  PARAMETER_MATRIX(srv_sel_coff);    // Survey selectivity parameters; n = [nspp, nselages]
+  PARAMETER_MATRIX(fsh_sel_coff);    // Fishery age selectivity coef; n = [nspp, nselages]
+  PARAMETER(log_eit_q);              // EIT Catchability
+  PARAMETER_VECTOR(log_srv_q);       // BT Survey catchability; n = [1, nspp]
 
   // 3.2. DERIVED QUANTITIES
   int max_age = imax(nages);    // Integer of maximum nages to make the arrays.
@@ -201,11 +208,13 @@ Type objective_function<Type>::operator() (){
   matrix<Type>  tc_hat(nspp, nyrs);                   // Estimated total catch (n); n = [nspp, nyrs]
   array<Type>   F(nyrs, max_age, nspp);               // Estimated fishing mortality; n = [nspp, nages, nyrs]
   matrix<Type>  fsh_sel(nspp, max_age);               // Log estimated fishing selectivity
+  vector<type>  avgsel_srv(nspp);                     // Average fishery selectivity
   // -- 3.2.2. BT Survey components
   vector<Type>  srv_bio_hat(nspp, nyrs);              // Estimated BT survey biomass (kg); n = [nspp, nyrs]
   array<Type>   srv_age_hat(nyrs, max_age, nspp);     // Estimated BT age comp; n = [nspp, nages, nyrs]
   matrix<Type>  srv_hat(nspp, nyrs);                  // Estimated BT survey total abundance (n); n = [nspp, nyrs]
   matrix<Type>  srv_sel(nspp, max_age);               // Estimated survey selectivity at age; n = [nspp, nyrs]
+  vector<type>  avgsel_srv(nspp);                     // Average survey selectivity
   // -- 3.2.3. EIT Survey Components
   array<Type>   Weight_at_Age(nyrs, max_age, nspp);   // Estimated weight-at-age; n = [nspp, nages, nyrs]
   matrix<Type>  eit_age_hat(12, n_eit);               // Estimated EIT age comp; n = [12 ages, nyrs]
@@ -221,7 +230,6 @@ Type objective_function<Type>::operator() (){
 
   // -- 3.4. Parameter transformations
   Type eit_q = exp(log_eit_q);                        // EIT Catchability
-
   array<Type>   Zed(nyrs, max_age, nspp);             // Total mortality at age; n = [nspp, nages, nyrs]
 
   // ------------------------------------------------------------------------- //
@@ -252,11 +260,11 @@ Type objective_function<Type>::operator() (){
     for(j=0; j < nages(i); j++){
       // -- 5.2.1. Plus group where y = 1 and 1 < j <= Ai
       if(j > 0 & j <= nages(i)){
-        NByage(i,j,0) = ln_mn_rec(i) * exp(-(j+1)*M1(i,j)) * init_dev(i,j);
+        NByage(0, j, i) = ln_mn_rec(i) * exp(-(j+1)*M1(i,j)) * init_dev(i, j);
       }
       // -- 5.2.2. Where y = 1 and j > Ai.
       if(j>nages(i)){
-        NByage(i,j,0) = ln_mn_rec(i) * exp(-(j+1)*M1(i,nages(i))) * init_dev(i,nages(i))/ (1-exp(-(j+1)*M1(i,nages(i)))); // NOTE: This solves for the geometric series
+        NByage(0, j, i) = ln_mn_rec(i) * exp(-(j+1)*M1(i,nages(i))) * init_dev(i,nages(i))/ (1-exp(-(j+1)*M1(i,nages(i)))); // NOTE: This solves for the geometric series
       }
     }
   }
@@ -289,13 +297,16 @@ Type objective_function<Type>::operator() (){
   // 6. FISHERY COMPONENTS EQUATIONS                                           //
   // ------------------------------------------------------------------------- //
   // 7.1. ESTIMATE FISHERY SELECTIVITY
-  for (int sp=1;sp<=nspp;sp++)
-  {  
-    fsh_sel(sp)(1,nselages)          = fsh_sel_coff(sp);                          // fsh_sel_coff(sp) parameters
-    fsh_sel(sp)(nselages+1,nages(sp)) = fsh_sel(sp,nselages);
-    avgsel_fsh(sp)                   = log(mean(mfexp(fsh_sel_coff(sp))));
-    fsh_sel(sp)                     -= log(mean(mfexp(fsh_sel(sp))));
-    fsh_sel(sp)                      = mfexp(fsh_sel(sp));
+  for (i = 0; i <nspp; i++){
+      for(j=0; j < nselages(i); j++){
+         fsh_sel(i, j) = fsh_sel_coff(i, j);
+      }
+      for(j=nselages(i); j < nages(i); j++){
+         srv_sel(i, j) = fsh_sel(i, nselages(i) - Type(1));
+      }
+      avgsel_fsh(i) =  log( mean_vec( exp( fsh_sel_coff.row(i))));
+      fsh_sel(i, j) -= log( mean_vec( exp( fsh_sel.row(i))));
+      fsh_sel(i, j) = exp(fsh_sel.row(i));
   }
 
   // 6.1. ESTIMATE FISHING MORTALITY
@@ -352,20 +363,22 @@ Type objective_function<Type>::operator() (){
   // ------------------------------------------------------------------------- //
   // 7.1. Selectivity
   for (i=0; i<nspp; i++){
-    if(logist_sel_phase(sp) > Type(0.0)){
+    // 7.1.1. Logisitic selectivity
+    if(logist_sel_phase(sp) > Type(0)){
       for (j=0; j < nages(0); j++)
         srv_sel(i, j) = 1/ (1 + exp( -srv_sel_coff(i, 0) * j - srv_sel_coff(i, 0)));  
     }
-    if(logist_sel_phase(sp) == Type(0.0)){
+    // 7.1.2. Selectivity fit to age ranges
+    if(logist_sel_phase(sp) == Type(0)){
       for(j=0; j < nselages(i); j++){
-              srv_sel(i, j) = srv_sel_coff(i, j);
+         srv_sel(i, j) = srv_sel_coff(i, j);
       }
-for(j=nselages(i); j < nages(i); j++){
-        srv_sel(i, j) = srv_sel(i, nselages(i) - Type(1.0));
-}
-
-      srv_sel(i, j)                     -= log(mean(exp(srv_sel(sp))));
-      srv_sel(i, j)                      = exp(srv_sel(sp));
+      for(j=nselages(i); j < nages(i); j++){
+         srv_sel(i, j) = srv_sel(i, nselages(i) - Type(1));
+      }
+      avgsel_srv(i) =  log( mean_vec( exp( fsh_sel_coff.row(i))));
+      srv_sel(i, j) -= log( mean_vec( exp( srv_sel.row(i))));
+      srv_sel(i, j) = exp(srv_sel.row(i));
     }
   }
 
