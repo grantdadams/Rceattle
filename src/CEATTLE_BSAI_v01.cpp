@@ -39,7 +39,7 @@
     int tau = 200; // Fishery age composition sample size
     Type MNConst = 0.001;      // Constant additive for logistic functions
     int nselages = 8;
-    Type curve_pen_fsh = 12.5; // Fishery selectivity penalty
+    Type curv_pen_fsh = 12.5; // Fishery selectivity penalty
     
     
     // 2.2. DIMENSIONS OF DATA
@@ -195,7 +195,7 @@
     vector<Type>  srv_bio_hat(nspp, nyrs);              // Estimated BT survey biomass (kg); n = [nspp, nyrs]
     array<Type>   srv_age_hat(nyrs, max_age, nspp);     // Estimated BT age comp; n = [nspp, nages, nyrs]
     matrix<Type>  srv_hat(nspp, nyrs);                  // Estimated BT survey total abundance (n); n = [nspp, nyrs]
-    matrix<Type>  srv_sel(nspp, max_age);               // Estimated survey selectivity at age; n = [nspp, nyrs]
+    matrix<Type>  srv_sel(nspp, max_age); srv_sel.setZero() // Estimated survey selectivity at age; n = [nspp, nyrs]
     vector<Type>  avgsel_srv(nspp);                     // Average survey selectivity
     // -- 3.2.3. EIT Survey Components
     array<Type>   Weight_at_Age(nyrs, max_age, nspp);   // Estimated weight-at-age; n = [nspp, nages, nyrs]
@@ -284,7 +284,7 @@
         fsh_sel(i, j) = fsh_sel_coff(i, j);
       }
       for(j = nselages; j < nages(i); j++){
-        srv_sel(i, j) = fsh_sel(i, nselages - 1);
+        fsh_sel(i, j) = fsh_sel(i, nselages - 1);
       }
       //avgsel_fsh(i) =  log( mean_vec( exp( fsh_sel_coff.row(i))));
       //fsh_sel(i, j) -= log( mean_vec( exp( fsh_sel.row(i))));
@@ -360,7 +360,12 @@
         }
 
         //avgsel_srv(i) =  log( mean_vec( exp( fsh_sel_coff.row(i))));
-        //srv_sel(i, j) -= log( mean_vec( exp( srv_sel.row(i))));
+        vector<Type> srv_sel_tmp(nages(i)); 
+        srv_sel_tmp = srv_sel.row(i);
+
+        for(j = 0; j < nages(i); j++){
+        srv_sel(i, j) -= log( mean_vec( exp( srv_sel_tmp ));
+      }
 
         //srv_sel(i, j) = exp(srv_sel.row(i));
       }
@@ -491,7 +496,7 @@
         if( fsh_sel(i, j) > fsh_sel( i, j + 1 )){
           jnll_comp(6, i) -= Type(20) * pow( log( fsh_sel(i, j) / fsh_sel(i, j + 1 ) ), 2);
         }
-        //jnll_comp(6, i) -= curv_pen_fsh * pow( first_difference( first_difference( log( fsh_sel(i, j) ) ) ) , 2);
+        jnll_comp(6, i) -= curv_pen_fsh; //* pow( first_difference( first_difference( log( fsh_sel(i, j) ) ) ) , 2); # FIX
       }
     }
     
