@@ -25,13 +25,13 @@ template<class Type>
   DATA_VECTOR(Y);
   DATA_IVECTOR(ints);
   DATA_ARRAY(x);
-  PARAMETER(a);
-  PARAMETER(b);
+  PARAMETER_VECTOR(a);
   PARAMETER(logSigma);
   ADREPORT(exp(2*logSigma));
 
   int n_data = Y.size();
 
+  vector<vector<Type> > see;
 
   vector<Type> mu(n_data);
   vector<Type> x2(n_data);
@@ -39,17 +39,17 @@ template<class Type>
   x2.setZero();
   x2 += x.col(0).col(0);
 
-  mu = a + x2 * b;
+  mu = a(0) + x2 * a(1);
 
-  if(x2(1) < 1){
-
-  }
+  see(0) = x2;
+  see(1) = n_data;
 
   std::cout << "max x2 is " << mean_vec(ints) << "\n";
-  return 1;
-  Type nll = -sum(dnorm(Y, log(mu), exp(logSigma), true));
+  // return 1;
+  Type nll = -sum(dnorm(Y, mu, exp(logSigma), true));
 
   std::cout << "The nll is " << nll << "\n";
   ADREPORT(nll);
+  REPORT(see)
   return nll;
 }
