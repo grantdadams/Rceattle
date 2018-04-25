@@ -451,7 +451,7 @@ Type objective_function<Type>::operator() (){
   // 8. LIKELIHOOD EQUATIONS                                                   //
   // ------------------------------------------------------------------------- //
   // 8.1. OBJECTIVE FUNCTION
-  matrix<Type> jnll_comp(11,nspp); // matrix of negative log-likelihood components
+  matrix<Type> jnll_comp(13,nspp); // matrix of negative log-likelihood components
   // -- Data components
   // Slot 0 -- BT survey biomass -- NFMS annual BT survey
   // Slot 1 -- BT survey age composition -- NFMS annual BT survey
@@ -461,11 +461,13 @@ Type objective_function<Type>::operator() (){
   // Slot 5 -- Fishery age composition -- Fishery observer data
   // -- Likelihood penalties
   // Slot 6 -- Fishery selectivity
-  // Slot 7 -- Survey selectivity
+  // Slot 7 -- Fishery selectivity normalization
+  // Slot 8 -- Survey selectivity
+  // Slot 9 -- Survey selectivity normalization
   // -- Priors
-  // Slot 8 -- Tau -- Annual recruitment deviation
-  // Slot 9 -- init_dev -- Initial abundance-at-age
-  // Slot 10 -- Epsilon -- Annual fishing mortality deviation
+  // Slot 10 -- Tau -- Annual recruitment deviation
+  // Slot 11 -- init_dev -- Initial abundance-at-age
+  // Slot 12 -- Epsilon -- Annual fishing mortality deviation
   jnll_comp.setZero();
   Type jnll = 0;
 
@@ -534,7 +536,12 @@ Type objective_function<Type>::operator() (){
     }
   }
 
-  // Slot 7 -- Survey selectivity
+  // Slot 7 -- Fishery selectivity normalization
+  for(i=0; i < nspp; i++){
+  jnll_comp(7, i) += 50 * pow(avgsel_fsh(i), 2);
+  }
+
+  // Slot 8 -- Survey selectivity
   for(i=0; i < nspp; i++){
     if (logist_sel_phase(i) < 0){
     // Extract only the selectivities we want
@@ -544,23 +551,28 @@ Type objective_function<Type>::operator() (){
     }
     for(j=0; j < nages(i) - 2; j++){
     sel_tmp(j) = first_difference( first_difference( sel_tmp ) )(j);
-    jnll_comp(7, i) -= curv_pen_fsh * pow( sel_tmp(j) , 2); // FIX
+    jnll_comp(8, i) -= curv_pen_fsh * pow( sel_tmp(j) , 2); // FIX
     }
   }
   }
 
-  // Slots 8-10 -- PRIORS: PUT RANDOM EFFECTS SWITCH HERE
+  // Slot 9 -- Survey selectivity normalization
+  for(i=0; i < nspp; i++){
+  jnll_comp(9, i) += 50 * pow(avgsel_srv(i), 2);
+  }
+
+  // Slots 10-13 -- PRIORS: PUT RANDOM EFFECTS SWITCH HERE
   for(i=0; i < nspp; i++){
     // Slot 9 -- init_dev -- Initial abundance-at-age
     for(j=0; j < nages(i); j++){
-      jnll_comp(9, i) += pow( init_dev(i,j), 2);
+      jnll_comp(11, i) += pow( init_dev(i,j), 2);
     }
 
     // Slot 8 -- Tau -- Annual recruitment deviation
     // Slot 10 -- Epsilon -- Annual fishing mortality deviation
     for (y=0; y < nyrs; y++){
-      jnll_comp(8, i) += pow( rec_dev(i,y), 2);     // Recruitment deviation using penalized likelihood.
-      jnll_comp(10, i) += pow( F_dev(i,y), 2);       // Fishing mortality deviation using penalized likelihood.
+      jnll_comp(10, i) += pow( rec_dev(i,y), 2);     // Recruitment deviation using penalized likelihood.
+      jnll_comp(12, i) += pow( F_dev(i,y), 2);       // Fishing mortality deviation using penalized likelihood.
     }
   }
 
