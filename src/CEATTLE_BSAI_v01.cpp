@@ -189,14 +189,14 @@ Type objective_function<Type>::operator() (){
   array<Type>   fsh_age_hat(nyrs, max_age, nspp);     // Estimated fishery age comp; n = [nspp, nages, nyrs]
   matrix<Type>  tc_hat(nspp, nyrs);                   // Estimated total catch (n); n = [nspp, nyrs]
   array<Type>   F(nyrs, max_age, nspp);               // Estimated fishing mortality; n = [nspp, nages, nyrs]
-  matrix<Type>  fsh_sel(nspp, max_age);               // Log estimated fishing selectivity
-  vector<Type>  avgsel_fsh(nspp);                     // Average fishery selectivity
+  matrix<Type>  fsh_sel(nspp, max_age); fsh_sel.setZero(); // Log estimated fishing selectivity
+  vector<Type>  avgsel_fsh(nspp); avgsel_fsh.setZero();    // Average fishery selectivity
   // -- 3.2.2. BT Survey components
   vector<Type>  srv_bio_hat(nspp, nyrs);              // Estimated BT survey biomass (kg); n = [nspp, nyrs]
   array<Type>   srv_age_hat(nyrs, max_age, nspp);     // Estimated BT age comp; n = [nspp, nages, nyrs]
   matrix<Type>  srv_hat(nspp, nyrs);                  // Estimated BT survey total abundance (n); n = [nspp, nyrs]
   matrix<Type>  srv_sel(nspp, max_age); srv_sel.setZero(); // Estimated survey selectivity at age; n = [nspp, nyrs]
-  vector<Type>  avgsel_srv(nspp);                     // Average survey selectivity
+  vector<Type>  avgsel_srv(nspp); avgsel_srv.setZero();    // Average survey selectivity
   // -- 3.2.3. EIT Survey Components
   array<Type>   Weight_at_Age(nyrs, max_age, nspp);   // Estimated weight-at-age; n = [nspp, nages, nyrs]
   matrix<Type>  eit_age_hat(12, n_eit);               // Estimated EIT age comp; n = [12 ages, nyrs]
@@ -280,15 +280,30 @@ Type objective_function<Type>::operator() (){
   // ------------------------------------------------------------------------- //
   // 7.1. ESTIMATE FISHERY SELECTIVITY
   for (i = 0; i <nspp; i++){
-    for(j=0; j < nselages; j++){
-      fsh_sel(i, j) = fsh_sel_coff(i, j);
-    }
-    for(j = nselages; j < nages(i); j++){
-      fsh_sel(i, j) = fsh_sel(i, nselages - 1);
-    }
-    //avgsel_fsh(i) =  log( mean_vec( exp( fsh_sel_coff.row(i))));
-    //fsh_sel(i, j) -= log( mean_vec( exp( fsh_sel.row(i))));
-    //fsh_sel(i, j) = exp(fsh_sel.row(i));
+      for(j=0; j < nselages; j++){
+        fsh_sel(i, j) = fsh_sel_coff(i, j);
+        avgsel_fsh(i) +=  exp(fsh_sel_coff(i, j));
+      }
+      // 7.1.3 Average selectivity up to nselages
+      avgsel_fsh(i) = log(avgsel_fsh(i) / nselages);
+
+      // 7.1.4. Plus group selectivity
+      for(j = nselages; j < nages(i); j++){
+        fsh_sel(i, j) = fsh_sel(i, nselages - 1);
+      }
+
+      // 7.1.5. Average selectivity across all ages
+      Type avgsel_tmp = 0; // Temporary object for average selectivity across all ages
+      for(j = 0; j < nages(i); j++){
+        avgsel_tmp += exp(fsh_sel(i, j));
+      }
+      avgsel_tmp = log(avgsel_tmp / nages(i));
+
+      // 7.1.6. Standardize selectivity
+      for(j = 0; j < nages(i); j++){
+        fsh_sel(i, j) -=  avgsel_tmp;
+        fsh_sel(i, j) = exp(fsh_sel(i, j));
+      }
   }
 
   // 6.1. ESTIMATE FISHING MORTALITY
