@@ -47,7 +47,7 @@ template<class Type>
 
   std::cout << "max x2 is " << mean_vec(ints) << "\n";
   return 1;
-  Type nll = -sum(dnorm(Y, mu, exp(logSigma), true));
+  Type nll = -sum(dnorm(Y, log(mu), exp(logSigma), true));
 
   std::cout << "The nll is " << nll << "\n";
   ADREPORT(nll);

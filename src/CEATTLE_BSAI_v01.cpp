@@ -515,11 +515,21 @@ Type objective_function<Type>::operator() (){
 
   // Slot 6 -- Fishery selectivity
   for(i=0; i < nspp; i++){
-    for(j=0; j < (nages(i) - Type(1)); j++){
+    for(j=0; j < (nages(i) - 1); j++){
       if( fsh_sel(i, j) > fsh_sel( i, j + 1 )){
-        jnll_comp(6, i) -= Type(20) * pow( log( fsh_sel(i, j) / fsh_sel(i, j + 1 ) ), 2);
+        jnll_comp(6, i) -= 20 * pow( log( fsh_sel(i, j) / fsh_sel(i, j + 1 ) ), 2);
       }
-      jnll_comp(6, i) -= curv_pen_fsh; //* pow( first_difference( first_difference( log( fsh_sel(i, j) ) ) ) , 2); # FIX
+    }
+
+    // Extract only the selectivities we want
+    vector<Type> sel_tmp(nages(i));
+    for(j=0; j < nages(i); j++){
+      sel_tmp(j) = log(fsh_sel(i, j));
+    }
+
+    for(j=0; j < nages(i) - 2; j++){
+    sel_tmp(j) = first_difference( first_difference( sel_tmp ) )(j);
+    jnll_comp(6, i) -= curv_pen_fsh * pow( sel_tmp(j) , 2); // FIX
     }
   }
 
