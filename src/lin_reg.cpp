@@ -30,9 +30,6 @@ template<class Type>
   ADREPORT(exp(2*logSigma));
 
   int n_data = Y.size();
-
-  vector<vector<Type> > see;
-
   vector<Type> mu(n_data);
   vector<Type> x2(n_data);
 
@@ -50,6 +47,6 @@ template<class Type>
 
   std::cout << "The nll is " << nll << "\n";
   ADREPORT(nll);
-  REPORT(see)
+  REPORT(see);
   return nll;
 }
