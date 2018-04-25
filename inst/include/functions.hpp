@@ -29,7 +29,7 @@ Type imin(const vector<Type> &x)
 
 // Function for mean of a vector
 template <class Type>
-Type mean_vec(const vector<Type> &x)
+Type mean(const vector<Type> &x)
 {
   Type mean = x.sum()/x.size();
   return mean;
