@@ -54,3 +54,52 @@ vector<Type> first_difference(const vector<Type> &x)
 
   return tmp;
 }
+
+// Function for elementwise division
+template <class Type>
+matrix<Type> elem_div(matrix<Type> m1, matrix<Type> m2){
+
+  int m1r = m1.rows();
+  int m2r = m2.rows();
+
+  int m1c = m1.cols();
+  int m2c = m1.cols();
+
+  if (m1r != m2r){
+    std::cerr << "Error -- number of rows in matrices does not match" << std::endl;
+    return(0);
+  }
+
+  if (m1c != m2c){
+    std::cerr << "Error -- number of columns in matrices does not match" << std::endl;
+    return(0);
+  }
+
+  matrix<Type> m3(m1r, m1c);
+
+  // Elementwise division
+  for(int r = 0; r < m1r; r++){
+    for(int c = 0; c < m1c; c++){
+      m3(r, c) = m1(r, c) / m2(r, c);
+    }
+  }
+  return m3;
+}
+
+// Function for matrix exponential functions
+template <class Type>
+matrix<Type> pow_mat(matrix<Type> m1, Type exponent){
+
+  int m1r = m1.rows();
+  int m1c = m1.cols();
+
+  matrix<Type> m2(m1r, m1c);
+
+  // Elementwise division
+  for(int r = 0; r < m1r; r++){
+    for(int c = 0; c < m1c; c++){
+      m2(r, c) = pow( m1(r, c), exponent);
+    }
+  }
+  return m2;
+}

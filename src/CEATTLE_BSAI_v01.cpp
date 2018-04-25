@@ -75,6 +75,10 @@ Type objective_function<Type>::operator() (){
   DATA_IMATRIX( yrs_srv_biom );   // Years of survey biomass data; n = [nspp, nyrs_srv_biom]
   DATA_MATRIX( srv_bio );         // Observed BT survey biomass (kg); n = [nspp, nyrs]
   DATA_MATRIX( srv_biom_se );     // Observed annual biomass error (SE); n = [nspp, nyrs_srv_biom]
+  matrix<Type> srv_biom_lse(nspp, imax(nyrs_srv_biom)); // Observed annual biomass CV; n = [nspp, nyrs_srv_biom]
+  srv_biom_lse = srv_biom_se.array()/ srv_bio.array();          // CV estimation
+  srv_biom_lse = pow_mat(log((pow_mat(srv_biom_lse, 2) + 1).array()), 0.5);
+ 
 
   DATA_IVECTOR( nyrs_srv_age);   // Number of years of survey age/length composition; n = [nspp]
   DATA_IMATRIX( yrs_srv_age);    // Years for the survey age/length composition data; n = [nspp, nyrs_srv_age]
@@ -427,7 +431,7 @@ Type objective_function<Type>::operator() (){
         srv_yr_ind = yrs_srv_biom(i, y) - styr; // Temporary index for years of data
 
         srv_age_hat(y, j, i) = NByage(srv_yr_ind, j, i) * exp(-0.5 * Zed(srv_yr_ind, j, i)) * srv_sel(i, j) * exp(log_srv_q(i));
-        srv_hat(i, y) += srv_age_hat(y, j, i);   //
+        srv_hat(i, y) += srv_age_hat(y, j, i);   // Total numbers
         srv_bio_hat(i, y) += srv_age_hat(y, j, i) * Weight_at_Age(i, j, srv_yr_ind);  //
       }
     }
@@ -475,7 +479,7 @@ Type objective_function<Type>::operator() (){
   // Slot 0 -- BT survey biomass -- NFMS annual BT survey
   for(i=0; i < nspp; i++){
     for (y=0; y < nyrs_srv_biom(i); y++){
-      jnll_comp(0, i) += 12.5 * pow(log(srv_bio(i, y)) - log(srv_bio_hat(i, y)  + 1.e-04), 2);
+      jnll_comp(0, i) += pow(log(srv_bio(i, y)) - log(srv_bio_hat(i, y)), 2) / (2 * pow(srv_biom_lse(i, y), 2)); // NOTE: This is not quite the lognormal and biohat will be the median.
     }
   }
 
