@@ -77,7 +77,7 @@ Type objective_function<Type>::operator() (){
   DATA_MATRIX( srv_biom_se );     // Observed annual biomass error (SE); n = [nspp, nyrs_srv_biom]
   matrix<Type> srv_biom_lse(nspp, imax(nyrs_srv_biom)); // Observed annual biomass CV; n = [nspp, nyrs_srv_biom]
   srv_biom_lse = srv_biom_se.array()/ srv_bio.array();          // CV estimation
-  srv_biom_lse = pow_mat(log((pow_mat(srv_biom_lse, 2) + 1).array()), 0.5);
+  // srv_biom_lse = pow_mat(log((pow_mat(srv_biom_lse, 2) + 1).array()), 0.5);
  
 
   DATA_IVECTOR( nyrs_srv_age);   // Number of years of survey age/length composition; n = [nspp]
@@ -245,7 +245,7 @@ Type objective_function<Type>::operator() (){
   for(i=0; i < nspp; i++){
     for(j=0; j < nages(i); j++){
       // -- 5.2.1. Plus group where y = 1 and 1 < j <= Ai
-      if(j > 0 & j <= nages(i)){
+      if((j > 0) & (j <= nages(i))){
         NByage(0, j, i) = ln_mn_rec(i) * exp(-(j+1)*M1(i,j)) * init_dev(i, j);
       }
       // -- 5.2.2. Where y = 1 and j > Ai.
@@ -262,7 +262,7 @@ Type objective_function<Type>::operator() (){
     for(j=0; j < nages(i); j++){
       for(y=0; y < nyrs; y++){
         // -- 5.3.1.  Where 1 <= j < Ai
-        if(j >= 0 & j < (nages(i)-1)){
+        if((j >= 0) & (j < (nages(i)-1))){
           NByage(y+1, j+1, i) = NByage(y, j, i) * exp(-Zed(y, j, i));
           // -- 5.3.2. Plus group where j > Ai. NOTE: This is not the same as T1.3 because I used j = A_i rather than j > A_i.
         }
@@ -565,7 +565,7 @@ Type objective_function<Type>::operator() (){
   jnll_comp(9, i) += 50 * pow(avgsel_srv(i), 2);
   }
 
-  // Slots 10-13 -- PRIORS: PUT RANDOM EFFECTS SWITCH HERE
+  // Slots 10-12 -- PRIORS: PUT RANDOM EFFECTS SWITCH HERE
   for(i=0; i < nspp; i++){
     // Slot 9 -- init_dev -- Initial abundance-at-age
     for(j=0; j < nages(i); j++){
