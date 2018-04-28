@@ -1,5 +1,6 @@
 #include <TMB.hpp>
 // Function for getting max of an Ivector
+
 template <class Type>
 matrix<Type> pow_mat(matrix<Type> m1, Type exponent){
 
@@ -17,27 +18,32 @@ matrix<Type> pow_mat(matrix<Type> m1, Type exponent){
   return m2;
 }
 
+
 template<class Type>
   Type objective_function<Type>::operator() (){
   DATA_VECTOR(Y);
-  DATA_IVECTOR(ints);
-  DATA_MATRIX(x);
+  DATA_MATRIX(m1);
   PARAMETER_VECTOR(a);
   PARAMETER(logSigma);
-  ADREPORT(exp(2*logSigma));
+
 
   int n_data = Y.size();
   vector<Type> mu(n_data);
-  matrix<Type> m2()
-  vector<Type> x2(n_data);
+  matrix<Type> m2(n_data, m1.cols());
+  vector<Type> x1(n_data);
 
-  x2 = x.col(0);
+  m2 = m1; //pow_mat(m1, Type(2.0));
 
-  mu = a(0) + x2 * a(1);
+  x1 = m1.col(0);
+
+  mu = a(0) + x1 * a(1);
 
   Type nll = -sum(dnorm(Y, mu, exp(logSigma), true));
 
-  std::cout << "The nll is " << nll << "\n";
+  std::cout << "The matrix 1,1 are " << m2(n_data,0) << "\n";
+
+
   ADREPORT(nll);
+  ADREPORT(exp(2*logSigma));
   return nll;
 }
