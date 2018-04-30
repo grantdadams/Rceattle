@@ -86,9 +86,9 @@ matrix<Type> elem_div(matrix<Type> m1, matrix<Type> m2){
   return m3;
 }
 
-// Function for matrix exponential functions
+// Function for elementwise matrix exponential functions
 template <class Type>
-matrix<Type> pow_mat(matrix<Type> m1, Type exponent){
+matrix<Type> elem_pow(matrix<Type> m1, Type exponent){
 
   int m1r = m1.rows();
   int m1c = m1.cols();
@@ -103,3 +103,22 @@ matrix<Type> pow_mat(matrix<Type> m1, Type exponent){
   }
   return m2;
 }
+
+// Function for elementwise addition in a matrix
+template <class Type>
+matrix<Type> elem_add(matrix<Type> m1, Type value){
+
+  int m1r = m1.rows();
+  int m1c = m1.cols();
+
+  matrix<Type> m2(m1r, m1c);
+
+  // Elementwise division
+  for(int r = 0; r < m1r; r++){
+    for(int c = 0; c < m1c; c++){
+      m2(r, c) =  m1(r, c) + value;
+    }
+  }
+  return m2;
+}
+

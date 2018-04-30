@@ -32,7 +32,8 @@ template<class Type>
   matrix<Type> m2(n_data, m1.cols());
   vector<Type> x1(n_data);
 
-  m2 = m1; //pow_mat(m1, Type(2.0));
+  m2 = pow(m1.array(), Type(2.0));
+  m2 = m2.array() + 1;
 
   x1 = m1.col(0);
 
@@ -40,10 +41,11 @@ template<class Type>
 
   Type nll = -sum(dnorm(Y, mu, exp(logSigma), true));
 
-  std::cout << "The matrix 1,1 are " << m2(n_data,0) << "\n";
+  std::cout << "The matrix 1,1 are " << m2(n_data-1,0) << "\n";
 
 
   ADREPORT(nll);
   ADREPORT(exp(2*logSigma));
+  REPORT(m2);
   return nll;
 }
