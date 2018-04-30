@@ -77,7 +77,7 @@ Type objective_function<Type>::operator() (){
   DATA_MATRIX( srv_biom_se );     // Observed annual biomass error (SE); n = [nspp, nyrs_srv_biom]
   matrix<Type> srv_biom_lse(nspp, imax(nyrs_srv_biom)); // Observed annual biomass CV; n = [nspp, nyrs_srv_biom]
   srv_biom_lse = srv_biom_se.array()/ srv_bio.array();          // CV estimation
-  // srv_biom_lse = pow_mat(log((pow_mat(srv_biom_lse, 2) + 1).array()), 0.5);
+  srv_biom_lse = pow( log( ( pow( srv_biom_lse.array(), Type(2) ).array() + 1).array()).array(), Type(0.5));
  
 
   DATA_IVECTOR( nyrs_srv_age);   // Number of years of survey age/length composition; n = [nspp]
