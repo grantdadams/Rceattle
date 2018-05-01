@@ -188,7 +188,7 @@ Type objective_function<Type>::operator() (){
   // 3.2. DERIVED QUANTITIES
   int max_age = imax(nages);    // Integer of maximum nages to make the arrays.
   // -- 3.2.1. Fishery observations
-  matrix<Type>  tc_biom_est(nspp, nyrs);              // Estimated total yield (kg); n = [nspp, nyrs]
+  matrix<Type>  tc_biom_hat(nspp, nyrs);              // Estimated total yield (kg); n = [nspp, nyrs]
   array<Type>   catch_hat(nyrs, max_age, nspp);       // Estimated catch-at-age (n); n = [nspp, nages, nyrs]
   array<Type>   fsh_age_hat(nyrs, max_age, nspp);     // Estimated fishery age comp; n = [nspp, nages, nyrs]
   matrix<Type>  tc_hat(nspp, nyrs);                   // Estimated total catch (n); n = [nspp, nyrs]
@@ -321,13 +321,13 @@ Type objective_function<Type>::operator() (){
 
   // 6.1. ESTIMATE CATCH-AT-AGE and TOTAL YIELD (kg)
   tc_hat.setZero();
-  tc_biom_est.setZero(); // Initialize tc_biom_est
+  tc_biom_hat.setZero(); // Initialize tc_biom_hat
   for(i=0; i < nspp; i++){
     for(j=0; j < nages(i); j++){
       for(y=0; y < nyrs; y++){
         catch_hat(y, j, i) = F(y, j, i)/Zed(y, j, i) * (1 - exp(-Zed(y, j, i))) * NByage(y, j, i); // 5.4.
         tc_hat(i, y) += catch_hat(y, j, i); // Estimate catch in numbers
-        tc_biom_est(i, y) += catch_hat(y, j, i) * Weight_at_Age(y, j, i); // 5.5.
+        tc_biom_hat(i, y) += catch_hat(y, j, i) * Weight_at_Age(y, j, i); // 5.5.
       }
     }
   }
@@ -507,7 +507,7 @@ Type objective_function<Type>::operator() (){
   // Slot 4 -- Total catch -- Fishery observer data
   for(i=0; i < nspp; i++){
     for (y=0; y < nyrs; y++){
-      jnll_comp(4,i) = pow((log(tc_biom_est(i,y)) - log(tc_biom_obs(i, y))), 2) / (2 * pow(sigma_catch, 2)); // T.4.5
+      jnll_comp(4,i) = pow((log(tc_biom_hat(i,y) + Type(1.e-4)) - log(tc_biom_obs(i, y) + Type(1.e-4))), 2) / (2 * pow(sigma_catch, 2)); // T.4.5
     }
   }
 
