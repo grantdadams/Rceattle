@@ -1,5 +1,5 @@
 
-// Function for getting max of an IVECTOR
+// Function for getting max of an IVECTOR and return an int
 template <class Type>
 Type imax(const vector<Type> &x)
 {
@@ -13,7 +13,7 @@ Type imax(const vector<Type> &x)
   return res;
 }
 
-// Function for getting min of an IVECTOR
+// Function for getting min of an IVECTOR and return an int
 template <class Type>
 Type imin(const vector<Type> &x)
 {
@@ -90,35 +90,52 @@ matrix<Type> elem_div(matrix<Type> m1, matrix<Type> m2){
 template <class Type>
 matrix<Type> elem_pow(matrix<Type> m1, Type exponent){
 
-  int m1r = m1.rows();
-  int m1c = m1.cols();
+  int nrow = m1.rows();
+  int ncol = m1.cols();
 
-  matrix<Type> m2(m1r, m1c);
+  matrix<Type> m2(nrow, ncol);
 
   // Elementwise division
-  for(int r = 0; r < m1r; r++){
-    for(int c = 0; c < m1c; c++){
+  for(int r = 0; r < nrow; r++){
+    for(int c = 0; c < ncol; c++){
       m2(r, c) = pow( m1(r, c), exponent);
     }
   }
   return m2;
 }
 
-// Function for elementwise addition in a matrix
+// Function for to extract a layer from an array
 template <class Type>
-matrix<Type> elem_add(matrix<Type> m1, Type value){
+matrix<Type> array_to_matrix(array<Type> a1, int sheet){
 
-  int m1r = m1.rows();
-  int m1c = m1.cols();
-
-  matrix<Type> m2(m1r, m1c);
+  matrix<Type> m1(a1.dim(0), a1.dim(1));
 
   // Elementwise division
-  for(int r = 0; r < m1r; r++){
-    for(int c = 0; c < m1c; c++){
-      m2(r, c) =  m1(r, c) + value;
+  for(int r = 0; r < a1.dim(0); r++){
+    for(int c = 0; c < a1.dim(1); c++){
+      m1(r, c) =  a1(r, c, sheet);
     }
   }
-  return m2;
+  return m1;
+}
+
+// Function for the multiplaction of a vector and matrix: in r "v %*% m"
+template <class Type>
+vector<Type> vec_mat_prod(vector<Type> v1, matrix<Type> m1){
+
+  if (v1.size() != m1.cols()){
+    std::cerr << "Error -- length of vector does not equal the number of columns in the matrix" << std::endl;
+    return(0);
+  }
+
+  vector<Type> v2(m1.rows());
+  vector<Type> v3(m1.cols());
+
+  // Vector * matrix
+  for(int c = 0; c < m1.cols(); c++){
+    v2 = m1.col(c);
+    v3(c) = (v1 * v2).sum();
+  }
+  return v2;
 }
 
