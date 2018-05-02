@@ -78,7 +78,7 @@ Type objective_function<Type>::operator() (){
   matrix<Type> srv_biom_lse(nspp, imax(nyrs_srv_biom)); // Observed annual biomass CV; n = [nspp, nyrs_srv_biom]
   srv_biom_lse = srv_biom_se.array()/ srv_bio.array();          // CV estimation
   srv_biom_lse = pow( log( ( pow( srv_biom_lse.array(), Type(2) ).array() + 1).array()).array(), Type(0.5));
- 
+
 
   DATA_IVECTOR( nyrs_srv_age);   // Number of years of survey age/length composition; n = [nspp]
   DATA_IMATRIX( yrs_srv_age);    // Years for the survey age/length composition data; n = [nspp, nyrs_srv_age]
@@ -187,6 +187,8 @@ Type objective_function<Type>::operator() (){
 
   // 3.2. DERIVED QUANTITIES
   int max_age = imax(nages);    // Integer of maximum nages to make the arrays.
+  int max_bin = imax(srv_age_bins); // Integer of maximum number of length/age bins.
+
   // -- 3.2.1. Fishery observations
   matrix<Type>  tc_biom_hat(nspp, nyrs);              // Estimated total yield (kg); n = [nspp, nyrs]
   array<Type>   catch_hat(nyrs, max_age, nspp);       // Estimated catch-at-age (n); n = [nspp, nages, nyrs]
@@ -196,9 +198,9 @@ Type objective_function<Type>::operator() (){
   matrix<Type>  fsh_sel(nspp, max_age); fsh_sel.setZero(); // Log estimated fishing selectivity
   vector<Type>  avgsel_fsh(nspp); avgsel_fsh.setZero();    // Average fishery selectivity
   // -- 3.2.2. BT Survey components
-  vector<Type>  srv_bio_hat(nspp, nyrs);              // Estimated BT survey biomass (kg); n = [nspp, nyrs]
-  array<Type>   srv_age_hat(nyrs, max_age, nspp);     // Estimated BT age comp; n = [nspp, nages, nyrs]
-  matrix<Type>  srv_hat(nspp, nyrs);                  // Estimated BT survey total abundance (n); n = [nspp, nyrs]
+  vector<Type>  srv_bio_hat(nspp, imax(nyrs_srv_biom));              // Estimated BT survey biomass (kg); n = [nspp, nyrs]
+  array<Type>   srv_age_hat(imax(nyrs_srv_age), max_bin, nspp);     // Estimated BT age comp; n = [nspp, nages, nyrs]
+  matrix<Type>  srv_hat(nspp, imax(nyrs_srv_biom));                  // Estimated BT survey total abundance (n); n = [nspp, nyrs]
   matrix<Type>  srv_sel(nspp, max_age); srv_sel.setZero(); // Estimated survey selectivity at age; n = [nspp, nyrs]
   vector<Type>  avgsel_srv(nspp); avgsel_srv.setZero();    // Average survey selectivity
   // -- 3.2.3. EIT Survey Components
@@ -284,30 +286,30 @@ Type objective_function<Type>::operator() (){
   // ------------------------------------------------------------------------- //
   // 7.1. ESTIMATE FISHERY SELECTIVITY
   for (i = 0; i <nspp; i++){
-      for(j=0; j < nselages; j++){
-        fsh_sel(i, j) = fsh_sel_coff(i, j);
-        avgsel_fsh(i) +=  exp(fsh_sel_coff(i, j));
-      }
-      // 7.1.3 Average selectivity up to nselages
-      avgsel_fsh(i) = log(avgsel_fsh(i) / nselages);
+    for(j=0; j < nselages; j++){
+      fsh_sel(i, j) = fsh_sel_coff(i, j);
+      avgsel_fsh(i) +=  exp(fsh_sel_coff(i, j));
+    }
+    // 7.1.3 Average selectivity up to nselages
+    avgsel_fsh(i) = log(avgsel_fsh(i) / nselages);
 
-      // 7.1.4. Plus group selectivity
-      for(j = nselages; j < nages(i); j++){
-        fsh_sel(i, j) = fsh_sel(i, nselages - 1);
-      }
+    // 7.1.4. Plus group selectivity
+    for(j = nselages; j < nages(i); j++){
+      fsh_sel(i, j) = fsh_sel(i, nselages - 1);
+    }
 
-      // 7.1.5. Average selectivity across all ages
-      Type avgsel_tmp = 0; // Temporary object for average selectivity across all ages
-      for(j = 0; j < nages(i); j++){
-        avgsel_tmp += exp(fsh_sel(i, j));
-      }
-      avgsel_tmp = log(avgsel_tmp / nages(i));
+    // 7.1.5. Average selectivity across all ages
+    Type avgsel_tmp = 0; // Temporary object for average selectivity across all ages
+    for(j = 0; j < nages(i); j++){
+      avgsel_tmp += exp(fsh_sel(i, j));
+    }
+    avgsel_tmp = log(avgsel_tmp / nages(i));
 
-      // 7.1.6. Standardize selectivity
-      for(j = 0; j < nages(i); j++){
-        fsh_sel(i, j) -=  avgsel_tmp;
-        fsh_sel(i, j) = exp(fsh_sel(i, j));
-      }
+    // 7.1.6. Standardize selectivity
+    for(j = 0; j < nages(i); j++){
+      fsh_sel(i, j) -=  avgsel_tmp;
+      fsh_sel(i, j) = exp(fsh_sel(i, j));
+    }
   }
 
   // 6.1. ESTIMATE FISHING MORTALITY
@@ -340,6 +342,8 @@ Type objective_function<Type>::operator() (){
         if(fsh_age_type(i)==1){
           fsh_age_hat(y, j, i) = catch_hat(y, j, i) / tc_hat(i, y);
         }
+
+
         if(fsh_age_type(i)!=1){
           // ADD AGE TRANSITION MATRIX TO INPUT
           fsh_age_hat(y, j, i)  = catch_hat(y, j, i);//*age_trans_matrix.col().col(i) / tc_hat(i,y); // NOTE: double check indexing here of the age_trans_matrix
@@ -437,24 +441,40 @@ Type objective_function<Type>::operator() (){
     }
   }
 
-  // -- 7.7.2 BT Survey Age Composition: NOTE: will have to alter if age comp data are not the same length as non-age comp data
+  // -- 7.7.2 BT Survey Age Composition: NOTE: will have to alter if age comp data are not the same length as survey biomass data
   for(i=0; i < nspp; i++){
-    for(j=0; j < nages(i); j++){
-      for (y=0; y < nyrs_srv_age(i); y++){
-        if(srv_age_type(i)==1){
+    for (y=0; y < nyrs_srv_age(i); y++){
+
+      // 7.7.2.1 -- Survey catch-at-age
+      if(srv_age_type(i)==1){
+        for(j=0; j < nages(i); j++){
           srv_age_hat(y, j, i) = srv_age_hat(y, j, i) / srv_hat(i, y);
         }
-        if(srv_age_type(i)!=1){
-          srv_age_hat(y, j, i) = (srv_age_hat(y, j, i)); // * age_trans_matrix.col().col(i)) / srv_hat(i, y); // # NOTE: Double check the matrix algebra here
+      }
+      // 7.7.2.1 -- Convert from catch-at-age to catch-at-length: NOTE: There has got to be a better way
+      if(srv_age_type(i)!=1){
+
+        vector<Type> srv_age_tmp(nages(i)); // Temporary vector of survey-catch-at-age for matrix multiplication
+        vector<Type> srv_len_tmp(srv_age_bins(i)); // Temporary vector of survey-catch-at-length for matrix multiplication
+
+        for(j=0; j < nages(i); j++){
+          srv_age_tmp(j) = srv_age_hat(y, j, i);
+        }
+
+        srv_len_tmp = vec_mat_prod(srv_age_tmp, array_to_matrix(age_trans_matrix, i)); // Multiply the ALK for species i against the survey catch-at-age for year y
+
+        for(j=0; j < srv_age_bins(i); j++){
+          srv_age_hat(y, j, i) = srv_len_tmp(j)  / srv_hat(i, y) ; // * age_trans_matrix.col().col(i)) / srv_hat(i, y); // # NOTE: Double check the matrix algebra here
         }
       }
     }
   }
 
+
   // ------------------------------------------------------------------------- //
   // 8. LIKELIHOOD EQUATIONS                                                   //
   // ------------------------------------------------------------------------- //
-  // 8.1. OBJECTIVE FUNCTION
+  // 8.0. OBJECTIVE FUNCTION
   matrix<Type> jnll_comp(13,nspp); // matrix of negative log-likelihood components
   // -- Data components
   // Slot 0 -- BT survey biomass -- NFMS annual BT survey
@@ -475,6 +495,20 @@ Type objective_function<Type>::operator() (){
   jnll_comp.setZero();
   Type jnll = 0;
 
+  // 8.1. OFFSETS AND PENALTIES
+  // 8.1.1 -- Set up offset objects
+  vector<Type> offset_srv(nspp); offset_srv.setZero(); // Offset for multinomial likelihood
+
+  for(i=0; i < nspp; i++){
+
+    // 8.1.2. -- Survey offsets
+        for(j=0; j < nages(i); j++){
+    for (y = 0; y < nyrs_srv_age(i); y++){
+      offset_srv(i) -= srv_age_n(i, y)*(srv_age_obs(y, j, i) + MNConst) * log(srv_age_obs(y, j, i) + MNConst ) ;
+    }
+  }
+  }
+
   // 8.2. Fit the objective function
   // Slot 0 -- BT survey biomass -- NFMS annual BT survey
   for(i=0; i < nspp; i++){
@@ -486,10 +520,11 @@ Type objective_function<Type>::operator() (){
   // Slot 1 -- BT survey age composition -- NFMS annual BT survey
   for(i=0; i < nspp; i++){
     for(j=0; j < nages(i); j++){
-      for (y=0; y < nyrs_srv_biom(i); y++){
-        jnll_comp(1, i) += srv_age_n(i, y) *  (srv_age_obs(y, j, i) + MNConst) * log(srv_age_hat(y, j, i) + MNConst);
+      for (y=0; y < nyrs_srv_age(i); y++){
+        jnll_comp(1, i) -= srv_age_n(i, y) * (srv_age_obs(y, j, i) + MNConst) * log(srv_age_hat(y, j, i) + MNConst); // Should srv_age_obs  be in log space?
       }
     }
+    jnll_comp(1, i) -= offset_srv(i);
   }
 
   // Slot 2 -- EIT survey biomass -- Pollock acoustic trawl survey
@@ -507,7 +542,7 @@ Type objective_function<Type>::operator() (){
   // Slot 4 -- Total catch -- Fishery observer data
   for(i=0; i < nspp; i++){
     for (y=0; y < nyrs; y++){
-      jnll_comp(4,i) = pow((log(tc_biom_hat(i,y) + Type(1.e-4)) - log(tc_biom_obs(i, y) + Type(1.e-4))), 2) / (2 * pow(sigma_catch, 2)); // T.4.5
+      jnll_comp(4,i) += pow((log(tc_biom_hat(i,y) + Type(1.e-4)) - log(tc_biom_obs(i, y) + Type(1.e-4))), 2) / (2 * pow(sigma_catch, 2)); // T.4.5
     }
   }
 
@@ -535,34 +570,34 @@ Type objective_function<Type>::operator() (){
     }
 
     for(j=0; j < nages(i) - 2; j++){
-    sel_tmp(j) = first_difference( first_difference( sel_tmp ) )(j);
-    jnll_comp(6, i) -= curv_pen_fsh * pow( sel_tmp(j) , 2); // FIX
+      sel_tmp(j) = first_difference( first_difference( sel_tmp ) )(j);
+      jnll_comp(6, i) += curv_pen_fsh * pow( sel_tmp(j) , 2); // FIX
     }
   }
 
   // Slot 7 -- Fishery selectivity normalization
   for(i=0; i < nspp; i++){
-  jnll_comp(7, i) += 50 * pow(avgsel_fsh(i), 2);
+    jnll_comp(7, i) += 50 * pow(avgsel_fsh(i), 2);
   }
 
   // Slot 8 -- Survey selectivity
   for(i=0; i < nspp; i++){
     if (logist_sel_phase(i) < 0){
-    // Extract only the selectivities we want
-    vector<Type> sel_tmp(nages(i));
-    for(j=0; j < nages(i); j++){
-      sel_tmp(j) = log(srv_sel(i, j));
+      // Extract only the selectivities we want
+      vector<Type> sel_tmp(nages(i));
+      for(j=0; j < nages(i); j++){
+        sel_tmp(j) = log(srv_sel(i, j));
+      }
+      for(j=0; j < nages(i) - 2; j++){
+        sel_tmp(j) = first_difference( first_difference( sel_tmp ) )(j);
+        jnll_comp(8, i) += curv_pen_fsh * pow( sel_tmp(j) , 2); // FIX
+      }
     }
-    for(j=0; j < nages(i) - 2; j++){
-    sel_tmp(j) = first_difference( first_difference( sel_tmp ) )(j);
-    jnll_comp(8, i) -= curv_pen_fsh * pow( sel_tmp(j) , 2); // FIX
-    }
-  }
   }
 
   // Slot 9 -- Survey selectivity normalization
   for(i=0; i < nspp; i++){
-  jnll_comp(9, i) += 50 * pow(avgsel_srv(i), 2);
+    jnll_comp(9, i) += 50 * pow(avgsel_srv(i), 2);
   }
 
   // Slots 10-12 -- PRIORS: PUT RANDOM EFFECTS SWITCH HERE

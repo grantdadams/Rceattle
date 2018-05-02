@@ -15,9 +15,9 @@ x <- seq(0, 10, length=nobs)
 x2 <- seq(10, 20, length=nobs)
 Y=rnorm(length(x), 0, 2) + 4 * x
 plot(Y,x)
-XARRAY <- array(unlist(list(cbind(x, x2), cbind(x2, x))), dim = c(nobs, 2, 2))
+a1 = array(unlist(list(cbind(x, x2), cbind(x2, x))), dim = c(nobs, 2, 2))
 
-data <- list(Y=Y, m1 = cbind(x, x2), ints = c(3:5))
+data <- list(v1 = Y, m1 = cbind(x, x2), iv1 = round(Y, 0), a1 = a1)
 parameters <- list(a= c(0, 0), logSigma=0)
 obj <- MakeADFun(data, parameters, DLL="lin_reg")
 opt <- do.call("optim", obj)
