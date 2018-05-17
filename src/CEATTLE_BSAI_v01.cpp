@@ -97,7 +97,9 @@ Type objective_function<Type>::operator() (){
   DATA_MATRIX( obs_eit_age);     // Observed EIT age comp; n = [1, nages, nyrs] NOTE: may need to change this for future
   DATA_VECTOR( obs_eit);         // Observed EIT survey biomass (kg); n = [1, nyrs]
   DATA_MATRIX( eit_sel);         // Observed EIT survey selectivity; n = [eit_age, nyrs_eit_sel]
+
   // -- 2.3.4 Other
+  DATA_ARRAY( wt );              // Estimated weight-at-age; n = [nyrs, max_age, nspp]
   DATA_VECTOR( TempC);           // Bottom temperature (degrees C); n = [1, nyrs] # NOTE: Need to figure out how to make it flexible for alternative environmental predictors
   DATA_ARRAY( Diet_Mat);         // Annual gravimetric proportion of prey in predator stomach; n = [n_pred, n_age_pred, nspp, nages, nyrs]
   DATA_INTEGER( other_food);     // Biomass of other prey (kg); n = [nyrs, n_pred] # QUESTION: Is this year specific?
@@ -105,7 +107,7 @@ Type objective_function<Type>::operator() (){
 
   // 2.4. INPUT PARAMETERS
   // -- 2.4.1. Bioenergetics parameters (BP)
-  DATA_VECTOR( phi_p_bp);       // Annual relative foraging rate (d yr^-1)
+  DATA_VECTOR( phi_p_bp);       //  Annual relative foraging rate (d yr^-1)
   DATA_VECTOR( aLW);            //  Intercept of the allometric maximum consumption function (g g^-1 yr^-1); n = [1, nspp]
   DATA_VECTOR( bLW);            //  Allometric slope of maximum consumption; n = [1, nspp]
   DATA_VECTOR( Tcm);            //  Consumption maximum physiological temperature (degree C); n = [1, n_pred]
@@ -160,8 +162,21 @@ Type objective_function<Type>::operator() (){
       }
     }
 
-    if(yrs_eit(0) < styr){
+    // -- 2.8.2.4. Check to make sure initial years of survey data and styr are the same
+    if(yrs_eit(0) != styr){
       std::cerr<<"First year of EIT survey biomass is before specified start year"<<std::endl;
+      return(0);
+    }
+
+    // -- 2.8.2.5. Check to make sure initial years of survey data and styr are the same
+    if(yrs_srv_biom(0) != styr){
+      std::cerr<<"First year of BT survey biomass is before specified start year"<<std::endl;
+      return(0);
+    }
+
+    // -- 2.8.2.6. Check to make sure the number of years of weight-at-age (wt) is the same as nyrs
+    if(wt.dim()(wt) != nyrs){
+      std::cerr<<"Weight-at-age (wt) dimensions does not equal nyrs"<<std::endl;
       return(0);
     }
   }
@@ -209,7 +224,6 @@ Type objective_function<Type>::operator() (){
   matrix<Type>  srv_sel(nspp, max_age); srv_sel.setZero(); // Estimated survey selectivity at age; n = [nspp, nyrs]
   vector<Type>  avgsel_srv(nspp); avgsel_srv.setZero();    // Average survey selectivity
   // -- 3.2.3. EIT Survey Components
-  array<Type>   Weight_at_Age(nyrs, max_age, nspp);   // Estimated weight-at-age; n = [nspp, nages, nyrs]
   matrix<Type>  eit_age_hat(12, n_eit);               // Estimated EIT age comp; n = [12 ages, nyrs]
   vector<Type>  eit_hat(n_eit);                       // Estimated EIT survey biomass (kg); n = [nyrs]
 
@@ -278,7 +292,7 @@ Type objective_function<Type>::operator() (){
         if(j == (nages(i)-1)){ // # NOTE: May need to increase j loop to "nages(i) + 1" .
           NByage(y+1, nages(i), i) = NByage(y, nages(i)-1, i) * exp(-Zed(y, nages(i)-1, i)) + NByage(y, nages(i), i) * exp(-Zed(y, nages(i), i));
         }
-        biomassByage(y, j, i) = NByage(y, j, i) * Weight_at_Age(y, j, i); // 5.5.
+        biomassByage(y, j, i) = NByage(y, j, i) * wt(y, j, i); // 5.5.
         biomassSSBByage(y, j, i) = biomassByage(y, j, i) * Prop_Mat(i, j); // 5.6.
 
         // -- 5.3.3. Estimate Biomass and SSB
@@ -341,7 +355,7 @@ Type objective_function<Type>::operator() (){
       for(y=0; y < nyrs; y++){
         catch_hat(y, j, i) = F(y, j, i)/Zed(y, j, i) * (1 - exp(-Zed(y, j, i))) * NByage(y, j, i); // 5.4.
         tc_hat(i, y) += catch_hat(y, j, i); // Estimate catch in numbers
-        tc_biom_hat(i, y) += catch_hat(y, j, i) * Weight_at_Age(y, j, i); // 5.5.
+        tc_biom_hat(i, y) += catch_hat(y, j, i) * wt(y, j, i); // 5.5.
       }
     }
   }
@@ -425,9 +439,8 @@ Type objective_function<Type>::operator() (){
   for(j=0; j < nages(0); j++){
     for(y=0; y < n_eit; y++){
       eit_yr_ind = yrs_eit(y) - styr;
-
       eit_age_hat(j,y) = NByage(eit_yr_ind, j, 0) * exp(-Zed(eit_yr_ind, j, 0)) * eit_sel(j, y) * eit_q; // Remove the mid-year trawl?
-      eit_hat(y) += eit_age_hat(j,y) * Weight_at_Age(eit_yr_ind, j, 0);  //
+      eit_hat(y) += eit_age_hat(j,y) * wt(eit_yr_ind, j, 0);  //
     }
   }
   // -- 7.6.1 EIT Survey Age Composition
@@ -450,7 +463,7 @@ Type objective_function<Type>::operator() (){
 
         srv_age_hat(y, j, i) = NByage(srv_yr_ind, j, i) * exp(-0.5 * Zed(srv_yr_ind, j, i)) * srv_sel(i, j) * exp(log_srv_q(i));
         srv_hat(i, y) += srv_age_hat(y, j, i);   // Total numbers
-        srv_bio_hat(i, y) += srv_age_hat(y, j, i) * Weight_at_Age(i, j, srv_yr_ind);  //
+        srv_bio_hat(i, y) += srv_age_hat(y, j, i) * wt(srv_yr_ind, j, i);  //
       }
     }
   }

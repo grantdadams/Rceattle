@@ -9,8 +9,6 @@ compile("vector_matrix_arrays.cpp")
 dyn.load(dynlib("vector_matrix_array"))
 setwd("../")
 
-
-
 set.seed(123)
 nobs <- 120
 
