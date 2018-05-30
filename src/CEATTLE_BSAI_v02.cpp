@@ -590,10 +590,11 @@ Type objective_function<Type>::operator() (){
   for(i=0; i < nspp; i++){
     for(j=0; j < nages(i); j++){
       for (y=0; y < nyrs_fsh_comp(i); y++){
-        int yr_ind  = yrs_fsh_comp(i, y) - styr;
-        jnll_comp(5, i) -= tau * (fsh_age_obs(yr_ind, j, i) + MNConst)* log(fsh_age_hat(yr_ind, j, i) + MNConst);
+        // int yr_ind  = yrs_fsh_comp(i, y) - styr;
+        jnll_comp(5, i) -= tau * (fsh_age_obs(y, j, i) + MNConst) * log(fsh_age_hat(y, j, i) + MNConst );
       }
     }
+    jnll_comp(5, i) -= offset_fsh(i);
   }
 
   // Slot 6 -- Fishery selectivity
