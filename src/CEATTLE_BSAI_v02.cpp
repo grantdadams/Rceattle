@@ -525,6 +525,7 @@ Type objective_function<Type>::operator() (){
   // 8.1.1 -- Set up offset objects
   vector<Type> offset_srv(nspp); offset_srv.setZero(); // Offset for multinomial likelihood
   vector<Type> offset_fsh(nspp); offset_srv.setZero(); // Offset for multinomial likelihood
+  Type offset_eit; // Offset for multinomial likelihood
   tc_obs.setZero(); // Set total catch to 0 to initialize
 
   for(i=0; i < nspp; i++){
@@ -575,9 +576,11 @@ Type objective_function<Type>::operator() (){
   // Slot 3 -- EIT age composition -- Pollock acoustic trawl survey
   for(j=0; j < nages(0); j++){
     for (y=0; y < n_eit; y++){
-      jnll_comp(3, 0) += eit_age_n(y) *  (obs_eit_age(j, y) + MNConst) * log(eit_age_hat(j, y) + MNConst);
+      jnll_comp(3, 0) -= eit_age_n(y) *  (obs_eit_age(j, y) + MNConst) * log(eit_age_hat(j, y) + MNConst);
     }
   }
+  jnll_comp(3, 0) -= offset_eit
+
 
   // Slot 4 -- Total catch -- Fishery observer data
   for(i=0; i < nspp; i++){
