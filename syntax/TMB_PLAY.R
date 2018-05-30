@@ -1,7 +1,7 @@
 library(TMB)
 
 
-setwd("src")
+setwd("syntax")
 compile("lin_reg.cpp")
 dyn.load(dynlib("lin_reg"))
 setwd("../")
