@@ -11,8 +11,8 @@ Rceattle <- function(){
 
   # Compile CEATTLE
   setwd("src")
-  compile("CEATTLE_BSAI_v01.cpp")
-  dyn.load(dynlib("CEATTLE_BSAI_v01"))
+  compile("CEATTLE_BSAI_v02.cpp")
+  dyn.load(dynlib("CEATTLE_BSAI_v02"))
   setwd("../")
 
 
