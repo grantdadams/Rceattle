@@ -68,9 +68,9 @@ Type objective_function<Type>::operator() (){
   DATA_IVECTOR( fsh_age_bins );   // Bins for fishery age composition data; n = [nspp]
   DATA_ARRAY( obs_catch );        // Observed fishery catch-at-age or catch-at-length; n = [nspp, fsh_age_bins, nyrs_fsh_comp]
 
-  // May need to calculate in house
-  DATA_ARRAY( fsh_age_obs);      // Observed fishery age comp; n = [nspp, fsh_age_bins, nyrs_fsh_comp]
-  // matrix<Type> tc_obs(nspp, nyrs); // Observed total catch (n); n = [nspp, nyrs] NOTE: This may not be necessary if loading data from tmp
+  // Calculate in house
+  array<Type>  fsh_age_obs(imax(nages), nyrs, nspp);  // Observed fishery age comp; n = [nspp, fsh_age_bins, nyrs_fsh_comp]
+  matrix<Type> tc_obs(nspp, nyrs); // Observed total catch (n); n = [nspp, nyrs] NOTE: This may not be necessary if loading data from tmp
 
   // -- 2.3.2 BT Survey Components
   DATA_IVECTOR( nyrs_srv_biom );  // Number of years of survey biomass data; n = [nspp]
@@ -525,12 +525,25 @@ Type objective_function<Type>::operator() (){
   // 8.1.1 -- Set up offset objects
   vector<Type> offset_srv(nspp); offset_srv.setZero(); // Offset for multinomial likelihood
   vector<Type> offset_fsh(nspp); offset_srv.setZero(); // Offset for multinomial likelihood
+  tc_obs.setZero(); // Set total catch to 0 to initialize
 
   for(i=0; i < nspp; i++){
 
-    // 8.1.2. -- Survey offsets
+    // 8.1.1. -- Fishery age comp offsets
+    for(y = 0; y < nyrs_fsh_comp(i); y++){
         for(j=0; j < nages(i); j++){
+        tc_obs(i, y) += obs_catch(y, j, i);
+        }
+        for(j=0; j < nages(i); j++){
+         fsh_age_obs(y, j, i) = obs_catch(y, j, i)/(tc_obs(i, y) + 0.01);
+         offset_fsh( i ) -= tau * (fsh_age_obs(y, j, i) + MNConst) * log(fsh_age_obs(y, j, i) + MNConst);
+        }
+      }
+    
+
     for (y = 0; y < nyrs_srv_age(i); y++){
+    // 8.1.2. -- Survey age comp offsets
+        for(j=0; j < nages(i); j++){
       offset_srv(i) -= srv_age_n(i, y)*(srv_age_obs(y, j, i) + MNConst) * log(srv_age_obs(y, j, i) + MNConst ) ;
     }
   }
