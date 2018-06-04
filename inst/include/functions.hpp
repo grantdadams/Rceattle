@@ -105,17 +105,28 @@ matrix<Type> elem_pow(matrix<Type> m1, Type exponent){
 }
 
 // Function for to extract a layer from an array
-template <class Type>
+template<class Type>
 matrix<Type> array_to_matrix(array<Type> a1, int sheet){
+  vector<int> a1_dim = a1.dim;
+  matrix<Type> m1(a1_dim(0), a1_dim(1));
 
-  matrix<Type> m1(a1.dim(0), a1.dim(1));
-
-  // Elementwise division
-  for(int r = 0; r < a1.dim(0); r++){
-    for(int c = 0; c < a1.dim(1); c++){
-      m1(r, c) =  a1(r, c, sheet);
+// If array is array
+  if(a1_dim.size() == 3){
+  for(int row = 0; row < a1_dim(0); row++){
+    for(int col = 0; col < a1_dim(1); col++){
+      m1(row, col) = a1(row, col, sheet);
     }
   }
+}
+
+// If array is matrix
+  if(a1_dim.size() == 2){
+  for(int row = 0; row < a1_dim(0); row++){
+    for(int col = 0; col < a1_dim(1); col++){
+      m1(row, col) = a1(row, col);
+    }
+  }
+}
   return m1;
 }
 
