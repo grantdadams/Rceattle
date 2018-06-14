@@ -1,4 +1,4 @@
-readdat<-function(fn,nm){
+readdat<-function(fn, nm , nspp){
   # fn is the file name
   #nm is the object name
   ifile <- scan(fn, what="character",flush=T,blank.lines.skip=T, quiet=T)
@@ -18,10 +18,8 @@ readdat<-function(fn,nm){
 
 
   if(nm %in% c("obs_catch", "wt", "srv_age_obs", "age_trans_matrix")){
-
-  } else {
     st.r<-up[keep[1]]
-    stp.r<-up[skipp[skipp>keep[1]][1]]-1
+    stp.r<-up[skipp[skipp>keep[1]][nspp]]-1
     ifile[st.r:stp.r]
     rr<-st.r:stp.r
 
@@ -41,6 +39,11 @@ readdat<-function(fn,nm){
         ans[r,c] <- as.numeric(scan(fn,what="",flush=F,blank.lines.skip=F,skip=rr[r]-1,nlines=1, quiet=T,sep=""))[c]
       }
     }
+
+
+
+  } else {
+
   }
 
   return(ans)
