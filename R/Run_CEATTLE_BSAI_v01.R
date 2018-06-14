@@ -1,6 +1,7 @@
 # This functions runs CEATTLE
 
-Rceattle <- function(){
+Rceattle <- function(
+  ctlFilename){
   #--------------------------------------------------
   # 1. DATA and MODEL PREP
   #--------------------------------------------------
@@ -11,8 +12,8 @@ Rceattle <- function(){
 
   # Compile CEATTLE
   setwd("src")
-  compile("CEATTLE_BSAI_v02.cpp")
-  dyn.load(dynlib("CEATTLE_BSAI_v02"))
+  compile("CEATTLE_BSAI_v01.cpp")
+  dyn.load(dynlib("CEATTLE_BSAI_v01"))
   setwd("../")
 
 
