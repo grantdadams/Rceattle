@@ -1,6 +1,5 @@
 build_dat <- function(ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_v01", dat_dir = "data/dat files/"){
 
-
   # Step 1 -- Extract data names used in TMB
   fn<-file(paste("src/", TMBfilename,".cpp",sep=""))
 
@@ -56,13 +55,24 @@ build_dat <- function(ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_v
 
   dat_loc <- dat_loc[complete.cases(dat_loc),]
 
+  # Step 3 -- Extract data from the dat files
+  source("R/Support Functions/readdat_fun.R")
   dat_list <- list()
-
   for(i in 1:nrow(dat_loc)){
     dat_list[[i]] <- readdat(paste(dat_dir, dat_loc[i,2],sep=""), as.character(dat_loc[i, 1]), nspp = 3)
     names(dat_list)[i] = as.character(dat_loc[i, 1])
   }
 
+  # Step 4 -- Clean data remove columns of all NAs
+  source("R/Support Functions/dim_check.R")
+  for(i in 1:length(dat_list)){
+    dat_list[[i]] <- dim_check( dat_list[[i]] )
+    dat_list[[i]] <- remove_na_col( dat_list[[i]] )
+    dat_list[[i]] <- list_to_array( dat_list[[i]] )
+  }
+
+
+  print(paste( "The following items are not included:,", paste(dat_names[(!(dat_names %in% names(dat_list)))], collapse = ", "), sep = " "))
 
   return(dat_list)
 }
