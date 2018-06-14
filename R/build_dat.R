@@ -59,7 +59,7 @@ build_dat <- function(ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_v
   dat_list <- list()
 
   for(i in 1:nrow(dat_loc)){
-    dat_list[[i]] <- readdat(paste(dat_dir, dat_loc[i,2],sep=""), as.character(dat_loc[i, 1]))
+    dat_list[[i]] <- readdat(paste(dat_dir, dat_loc[i,2],sep=""), as.character(dat_loc[i, 1]), nspp = 3)
     names(dat_list)[i] = as.character(dat_loc[i, 1])
   }
 
