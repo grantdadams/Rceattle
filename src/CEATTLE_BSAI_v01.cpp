@@ -31,11 +31,16 @@ Type objective_function<Type>::operator() (){
   //    1 = run in MSM mode                                                    //
   DATA_IVECTOR(logist_sel_phase); // Selectivity for BT survey (0 = fit to data, 1 = logistic) //
 
+  // 1.2. Temporal dimensions
+  DATA_INTEGER( nyrs );       // Number of estimation years
+  DATA_INTEGER( styr );       // Start year
+
+  // 1.3. Number of species
+  DATA_INTEGER( nspp );       // Number of species (prey)
 
   // ------------------------------------------------------------------------- //
   // 2. MODEL INPUTS                                                           //
   // ------------------------------------------------------------------------- //
-
 
   // 2.1. FIXED VALUES
   int tau = 200; // Fishery age composition sample size
@@ -45,22 +50,18 @@ Type objective_function<Type>::operator() (){
 
 
   // 2.2. DIMENSIONS OF DATA
-  // -- 2.2.1. Temporal dimensions
-  DATA_INTEGER( nyrs);       // Number of estimation years
-  DATA_INTEGER( styr);       // Start year
   int endyr = nyrs + styr;   // End year
 
-  // -- 2.2.2. Number of species
-  DATA_INTEGER( nspp);       // Number of species (prey)
-  DATA_IVECTOR( nages);      // Number of species (prey) ages
+  // -- 2.2.2. Species attributes
+  DATA_IVECTOR( nages );      // Number of species (prey) ages
   // DATA_INTEGER( n_pred);  // Number of predator species
   // DATA_IVECTOR( n_age_pred); // Number of predator ages
 
   // 2.3. DATA INPUTS (i.e. assign data to objects)
   // -- 2.3.1 Fishery Components
-  DATA_IVECTOR( nyrs_tc_biom_obs );// Number of years with total observed catch; n = [nspp]
-  DATA_IMATRIX( yrs_tc_biom_obs ); // Years with total observed catch; n = [nspp, nyrs_tc_biom_obs]
-  DATA_MATRIX( tc_biom_obs );      // Observed total yield (kg); n = [nspp, nyrs_tc_biom_obs]
+  DATA_IVECTOR( nyrs_tc_biom );// Number of years with total observed catch; n = [nspp]
+  DATA_IMATRIX( yrs_tc_biom ); // Years with total observed catch; n = [nspp, nyrs_tc_biom]
+  DATA_MATRIX( tcb_obs );      // Observed total yield (kg); n = [nspp, nyrs_tc_biom]
 
   DATA_IVECTOR( nyrs_fsh_comp );  // Number of years in the fishery sp_age composition data; n = [nspp]
   DATA_IMATRIX( yrs_fsh_comp );   // Years for the fishery sp_age composition data; n = [nspp, nyrs_fsh_comp]
@@ -75,18 +76,18 @@ Type objective_function<Type>::operator() (){
   // -- 2.3.2 BT Survey Components
   DATA_IVECTOR( nyrs_srv_biom );  // Number of years of survey biomass data; n = [nspp]
   DATA_IMATRIX( yrs_srv_biom );   // Years of survey biomass data; n = [nspp, nyrs_srv_biom]
-  DATA_MATRIX( srv_bio );         // Observed BT survey biomass (kg); n = [nspp, nyrs]
+  DATA_MATRIX( srv_biom );         // Observed BT survey biomass (kg); n = [nspp, nyrs]
   DATA_MATRIX( srv_biom_se );     // Observed annual biomass error (SE); n = [nspp, nyrs_srv_biom]
   matrix<Type> srv_biom_lse(nspp, imax(nyrs_srv_biom)); // Observed annual biomass CV; n = [nspp, nyrs_srv_biom]
   srv_biom_lse = srv_biom_se.array()/ srv_bio.array();          // CV estimation
   srv_biom_lse = pow( log( ( pow( srv_biom_lse.array(), Type(2) ).array() + 1).array()).array(), Type(0.5));
 
-  DATA_IVECTOR( nyrs_srv_age);   // Number of years of survey age/length composition; n = [nspp]
-  DATA_IMATRIX( yrs_srv_age);    // Years for the survey age/length composition data; n = [nspp, nyrs_srv_age]
+  DATA_IVECTOR( nyrs_srv_age );   // Number of years of survey age/length composition; n = [nspp]
+  DATA_IMATRIX( yrs_srv_age );    // Years for the survey age/length composition data; n = [nspp, nyrs_srv_age]
   DATA_IVECTOR( srv_age_type );  // Type of compisition (1 = age; 2 = length); n = [nspp]
-  DATA_IVECTOR( srv_age_bins);   // Number of size binds for the age/length comps; n = [nspp]
-  DATA_MATRIX( srv_age_n);       // Sample size for the multinomial; n = [nspp, nyrs_srv_age]
-  DATA_ARRAY( srv_age_obs);      // Observed BT age comp; n = [nspp, nages, nyrs]
+  DATA_IVECTOR( srv_age_bins );   // Number of size binds for the age/length comps; n = [nspp]
+  DATA_MATRIX( srv_age_n );       // Sample size for the multinomial; n = [nspp, nyrs_srv_age]
+  DATA_ARRAY( srv_age_obs) ;      // Observed BT age comp; n = [nspp, nages, nyrs]
   DATA_MATRIX( srv_age_sizes );  // Observed size composition
   DATA_ARRAY( age_trans_matrix); // observed sp_age/size compositions; n = [nspp, nages, srv_age_bins]
 
@@ -139,7 +140,7 @@ Type objective_function<Type>::operator() (){
   if(debug == 1){
     // -- 2.8.2.1 Check to make sure the first year of survey data are not before start year
     for(int i = 0; i<nspp; i++){
-      if(yrs_tc_biom_obs(i,0) < styr){
+      if(yrs_tc_biom(i,0) < styr){
         std::cerr<<"First year of total catch biomass of species "<< i + 1 << " is before specified start year"<<std::endl;
         return(0);
       }
@@ -391,7 +392,7 @@ Type objective_function<Type>::operator() (){
           srv_age_tmp(j) = srv_age_hat(y, j, i);
         }
 
-        srv_len_tmp = vec_mat_prod(srv_age_tmp, array_to_matrix(age_trans_matrix, i)); // Multiply the ALK for species i against the survey catch-at-age for year y
+        srv_len_tmp = vec_mat_prod(srv_age_tmp, matrix_from_array(age_trans_matrix, i)); // Multiply the ALK for species i against the survey catch-at-age for year y
 
         for(j=0; j < srv_age_bins(i); j++){
           srv_age_hat(y, j, i) = srv_len_tmp(j) / srv_hat(i, y) ; // * age_trans_matrix.col().col(i)) / srv_hat(i, y); // # NOTE: Double check the matrix algebra here
@@ -478,7 +479,7 @@ Type objective_function<Type>::operator() (){
           fsh_age_tmp(j) = fsh_age_hat(y, j, i);
         }
 
-        fsh_len_tmp = vec_mat_prod(fsh_age_tmp, array_to_matrix(age_trans_matrix, i)); // Multiply the ALK for species i against the survey catch-at-age for year y
+        fsh_len_tmp = vec_mat_prod(fsh_age_tmp, matrix_from_array(age_trans_matrix, i)); // Multiply the ALK for species i against the survey catch-at-age for year y
 
         for(j=0; j < srv_age_bins(i); j++){
           fsh_age_hat(y, j, i) = fsh_len_tmp(j) / tc_hat(i, y) ; // * age_trans_matrix.col().col(i)) / srv_hat(i, y); // # NOTE: Double check the matrix algebra here
@@ -496,7 +497,7 @@ Type objective_function<Type>::operator() (){
       }
     }
   }
-  
+
 
   // ------------------------------------------------------------------------- //
   // 8. LIKELIHOOD EQUATIONS                                                   //
@@ -541,7 +542,7 @@ Type objective_function<Type>::operator() (){
          offset_fsh( i ) -= tau * (fsh_age_obs(y, j, i) + MNConst) * log(fsh_age_obs(y, j, i) + MNConst);
         }
       }
-    
+
 
     for (y = 0; y < nyrs_srv_age(i); y++){
     // 8.1.2. -- Survey age comp offsets
@@ -598,7 +599,7 @@ Type objective_function<Type>::operator() (){
   // Slot 4 -- Total catch -- Fishery observer data
   for(i=0; i < nspp; i++){
     for (y=0; y < nyrs; y++){
-      jnll_comp(4,i) += pow((log(tc_biom_hat(i, y) + Type(1.e-4)) - log(tc_biom_obs(i, y) + Type(1.e-4))), 2) / (2 * pow(sigma_catch, 2)); // T.4.5
+      jnll_comp(4,i) += pow((log(tc_biom_hat(i, y) + Type(1.e-4)) - log(tcb_obs(i, y) + Type(1.e-4))), 2) / (2 * pow(sigma_catch, 2)); // T.4.5
     }
   }
 

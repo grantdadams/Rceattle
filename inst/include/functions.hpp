@@ -106,27 +106,27 @@ matrix<Type> elem_pow(matrix<Type> m1, Type exponent){
 
 // Function for to extract a layer from an array
 template<class Type>
-matrix<Type> array_to_matrix(array<Type> a1, int sheet){
+matrix<Type> matrix_from_array(array<Type> a1, int sheet){
   vector<int> a1_dim = a1.dim;
   matrix<Type> m1(a1_dim(0), a1_dim(1));
 
-// If array is array
+  // If array is array
   if(a1_dim.size() == 3){
-  for(int row = 0; row < a1_dim(0); row++){
-    for(int col = 0; col < a1_dim(1); col++){
-      m1(row, col) = a1(row, col, sheet);
+    for(int row = 0; row < a1_dim(0); row++){
+      for(int col = 0; col < a1_dim(1); col++){
+        m1(row, col) = a1(row, col, sheet);
+      }
     }
   }
-}
 
-// If array is matrix
+  // If array is matrix
   if(a1_dim.size() == 2){
-  for(int row = 0; row < a1_dim(0); row++){
-    for(int col = 0; col < a1_dim(1); col++){
-      m1(row, col) = a1(row, col);
+    for(int row = 0; row < a1_dim(0); row++){
+      for(int col = 0; col < a1_dim(1); col++){
+        m1(row, col) = a1(row, col);
+      }
     }
   }
-}
   return m1;
 }
 
@@ -148,5 +148,28 @@ vector<Type> vec_mat_prod(vector<Type> v1, matrix<Type> m1){
     v3(c) = (v1 * v2).sum();
   }
   return v2;
+}
+
+
+// function to get row vector from array
+template<class Type>
+vector<Type> col_from_3D_array(array<Type> a1, int col, int sheet){
+  vector<int> a1_dim = a1.dim;
+  vector<Type> v1(a1_dim(0));
+
+  // If array is array
+  if(a1_dim.size() == 3){
+    for(int row = 0; row < a1_dim(0); row++){
+      v1(row) = a1(row, col, sheet);
+    }
+  }
+
+  // If array is matrix
+  if(a1_dim.size() == 2){
+    for(int row = 0; row < a1_dim(0); row++){
+      v1(row) = a1(row, col);
+    }
+  }
+  return v1;
 }
 
