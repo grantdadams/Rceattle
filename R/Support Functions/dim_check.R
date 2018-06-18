@@ -20,8 +20,10 @@ dim_check <- function( dat ){
           mat[i, c] <- dat[[i]][1, c]
         }
       }
+
+      dat <- mat
+
     }
-    dat <- mat
   }
 
   return(dat)
@@ -33,13 +35,17 @@ remove_na_col <- function( dat ){
 
   if(class(dat) == "matrix"){
     na_col <- which(apply (is.na(dat), 2, all) == 1)
-    dat <- dat[, 1:ncol(dat) < na_col  ]
+    if(length(na_col) != 0){
+      dat <- dat[, 1:ncol(dat) < na_col  ]
+    }
   }
 
   if(class(dat) == "list"){
     for(i in 1:length(dat)){
       na_col <- which(apply (is.na(dat[[i]]), 2, all) == 1)
-      dat[[i]] <- dat[[i]][, 1:ncol(dat[[i]]) < na_col  ]
+      if(length(na_col) != 0){
+        dat[[i]] <- dat[[i]][, 1:ncol(dat[[i]]) < na_col  ]
+      }
     }
   }
 
