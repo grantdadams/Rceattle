@@ -1,6 +1,8 @@
 build_dat <- function(ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_v01", dat_dir = "data/dat files/"){
 
+  #---------------------------------------------------------------------
   # Step 1 -- Extract data names used in TMB
+  #---------------------------------------------------------------------
   fn<-file(paste("src/", TMBfilename,".cpp",sep=""))
 
   cpp_file <- readLines(fn)
@@ -23,8 +25,9 @@ build_dat <- function(ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_v
     dat_names[i] <- sub("\\).*", "", sub(".*\\(", "", dat_call))
   }
 
-
+  #---------------------------------------------------------------------
   # Step 2 -- Find location of data in dat files
+  #---------------------------------------------------------------------
   fn <- file(paste(dat_dir, ctlFilename,".ctl",sep=""))
   ctl_file <- readLines(fn)
   skipp <- grep('START filenames', ctl_file) # Line of data files
@@ -55,7 +58,9 @@ build_dat <- function(ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_v
 
   dat_loc <- dat_loc[complete.cases(dat_loc),]
 
+  #---------------------------------------------------------------------
   # Step 3 -- Extract data from the dat files
+  #---------------------------------------------------------------------
   source("R/Support Functions/readdat_fun.R")
   dat_list <- list()
   for(i in 1:nrow(dat_loc)){
@@ -63,7 +68,9 @@ build_dat <- function(ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_v
     names(dat_list)[i] = as.character(dat_loc[i, 1])
   }
 
+  #---------------------------------------------------------------------
   # Step 4 -- Clean data remove columns of all NAs
+  #---------------------------------------------------------------------
   source("R/Support Functions/dim_check.R")
   for(i in 1:length(dat_list)){
     dat_list[[i]] <- dim_check( dat_list[[i]] )
