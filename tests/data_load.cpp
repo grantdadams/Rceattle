@@ -182,7 +182,8 @@ Type objective_function<Type>::operator() (){
     pmature( i, j ) = pmature( i, j ) * propMorF(i + (mf_type(i) - 1), j);
   }
   }
-           
+                        
 
-  return 0;
+return 0;
 }
+
