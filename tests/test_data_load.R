@@ -36,3 +36,5 @@ data_load <- function( ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_
   # Build object
   Obj = MakeADFun(data_list, parameters = list(),  DLL = version, type = "Fun")
 }
+
+data_load()
