@@ -7,7 +7,7 @@ data_load <- function( ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_
   # Check if require packages are installed and install if not
   if("TMB" %in% rownames(installed.packages()) == FALSE) {install.packages("TMB")}
   # Load data
-  source("R/build_dat.R")
+  source("R/1-build_dat.R")
   data_list <- build_dat(ctlFilename, TMBfilename, dat_dir)
 
 
