@@ -6,7 +6,7 @@ library(TMB)
 
 setwd("syntax")
 compile("vector_matrix_arrays.cpp")
-dyn.load(dynlib("vector_matrix_array"))
+dyn.load(dynlib("vector_matrix_arrays"))
 setwd("../")
 
 set.seed(123)
@@ -21,5 +21,6 @@ a1 = array(unlist(list(cbind(x, x2), cbind(x2, x))), dim = c(nobs, 2, 2))
 data <- list(v1 = Y, m1 = cbind(x, x2), iv1 = round(Y, 0), a1 = a1)
 
 # Test it
-obj <- MakeADFun(data, parameters = list(), DLL="vector_matrix_array")
+obj <- MakeADFun(data, parameters = list(), type="Fun",
+                 checkParameterOrder=FALSE, DLL="vector_matrix_arrays")
 
