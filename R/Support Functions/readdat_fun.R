@@ -10,7 +10,13 @@ readdat<-function(fn, nm , nspp){
   datnum<-which(idx==FALSE)
   labnum<-which(idx==TRUE)
   vnam <- ifile[idy] #list names
-  nmr<-grep(paste0("\\b", "#", nm, "\\b"),ifile)
+
+  dat_tmp <- scan(file=fn,what=character(),sep="\n",quiet=TRUE) # Get values from each line
+  dat_tmp <- gsub(" ", "", dat_tmp) # Remove spacing
+  dat_tmp <- strsplit(dat_tmp, ":") # Substring at colon
+  dat_tmp <- sapply(dat_tmp, `[[`, 1) # Take first element.. usually name
+  nmr<-grep(paste0("\\b", "#", nm, "\\b"),dat_tmp) # Where is the element
+
   up<-nmr:length(ifile)
   skipp<-which(is.na(as.numeric(ifile[up]))==TRUE)
   keep<-which(is.na(as.numeric(ifile[up]))==FALSE)
@@ -18,7 +24,7 @@ readdat<-function(fn, nm , nspp){
   # Max number of columns
   nc_vec <- c()
 
-  if(nm %in% c("obs_catch", "wt", "srv_age_obs", "age_trans_matrix", "tcb_obs")){ # Get data from arrays
+  if(nm %in% c("obs_catch", "wt", "srv_age_obs", "age_trans_matrix", "tcb_obs", "srv_age_sizes")){ # Get data from arrays
 
     dat_list <- list()
 

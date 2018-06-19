@@ -16,7 +16,7 @@ dim_check <- function( dat ){
       mat <- matrix(NA, nrow = n_s, ncol = max_ncol)
 
       for(i in 1:n_s){
-        for(c in 1:max_ncol){
+        for(c in 1:ncol(dat[[i]])){
           mat[i, c] <- dat[[i]][1, c]
         }
       }

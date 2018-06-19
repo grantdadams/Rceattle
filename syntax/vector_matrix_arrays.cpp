@@ -1,7 +1,7 @@
 // Overview of customized vector, matrix and array operations in TMB.
 
 #include <TMB.hpp>
-#include "../inst/include/functions.hpp"
+#include "../src/include/functions.hpp"
 
 template<class Type>
   Type objective_function<Type>::operator() (){
@@ -46,7 +46,7 @@ template<class Type>
   // Arrays ------------------------------------
 
 
-  matrix<Type> m4(a1.dim(0), a1.dim(1)); m4 = array_to_matrix(a1, 1); // Select sheet of array
+  matrix<Type> m4(a1.dim(0), a1.dim(1)); m4 = matrix_from_array(a1, 1); // Select sheet of array
   REPORT(m4);
 
 

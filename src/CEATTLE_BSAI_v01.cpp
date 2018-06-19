@@ -16,7 +16,7 @@
 // ------------------------------------------------------------------------- //
 // 0. LOAD DEPENDENCIES                                                      //
 // ------------------------------------------------------------------------- //
-#include "../inst/include/functions.hpp"
+#include "../src/include/functions.hpp"
 
 
 template<class Type>
@@ -38,6 +38,11 @@ Type objective_function<Type>::operator() (){
   // 1.3. Number of species
   DATA_INTEGER( nspp );       // Number of species (prey)
 
+   
+  // 1.4. MODEL OBJECTS
+  // 1.4.1. LOOPING INDICES -- k = observation, i = species/prey, j = age/prey age (yr), y = year, p = predator, a = predator age (yr)
+  int  i, j, y; //, k, p, a;
+
   // ------------------------------------------------------------------------- //
   // 2. MODEL INPUTS                                                           //
   // ------------------------------------------------------------------------- //
@@ -47,6 +52,7 @@ Type objective_function<Type>::operator() (){
   Type MNConst = 0.001;      // Constant additive for logistic functions
   int nselages = 8;
   Type curv_pen_fsh = 12.5; // Fishery selectivity penalty
+  Type sigma_catch = 0.05;      // SD of catch
 
 
   // 2.2. DIMENSIONS OF DATA
@@ -79,7 +85,7 @@ Type objective_function<Type>::operator() (){
   DATA_MATRIX( srv_biom );         // Observed BT survey biomass (kg); n = [nspp, nyrs]
   DATA_MATRIX( srv_biom_se );     // Observed annual biomass error (SE); n = [nspp, nyrs_srv_biom]
   matrix<Type> srv_biom_lse(nspp, imax(nyrs_srv_biom)); // Observed annual biomass CV; n = [nspp, nyrs_srv_biom]
-  srv_biom_lse = srv_biom_se.array()/ srv_bio.array();          // CV estimation
+  srv_biom_lse = srv_biom_se.array()/ srv_biom.array();          // CV estimation
   srv_biom_lse = pow( log( ( pow( srv_biom_lse.array(), Type(2) ).array() + 1).array()).array(), Type(0.5));
 
   DATA_IVECTOR( nyrs_srv_age );   // Number of years of survey age/length composition; n = [nspp]
@@ -100,43 +106,43 @@ Type objective_function<Type>::operator() (){
   DATA_MATRIX( eit_sel);         // Observed EIT survey selectivity; n = [eit_age, nyrs_eit_sel]
 
   // -- 2.3.4 Other
-  DATA_VECTOR( TempC);           // Bottom temperature (degrees C); n = [1, nyrs] # NOTE: Need to figure out how to make it flexible for alternative environmental predictors
-  DATA_ARRAY( Diet_Mat);         // Annual gravimetric proportion of prey in predator stomach; n = [n_pred, n_age_pred, nspp, nages, nyrs]
-  DATA_INTEGER( other_food);     // Biomass of other prey (kg); n = [nyrs, n_pred] # QUESTION: Is this year specific?
+  // DATA_VECTOR( TempC );           // Bottom temperature (degrees C); n = [1, nyrs] # NOTE: Need to figure out how to make it flexible for alternative environmental predictors
+  // DATA_ARRAY( Diet_Mat );         // Annual gravimetric proportion of prey in predator stomach; n = [n_pred, n_age_pred, nspp, nages, nyrs]
+  // DATA_INTEGER( other_food );     // Biomass of other prey (kg); n = [nyrs, n_pred] # QUESTION: Is this year specific?
 
 
   // 2.4. INPUT PARAMETERS
   // -- 2.4.1. Bioenergetics parameters (BP)
-  DATA_VECTOR( phi_p_bp);       // Annual relative foraging rate (d yr^-1)
-  DATA_VECTOR( aLW);            //  Intercept of the allometric maximum consumption function (g g^-1 yr^-1); n = [1, nspp]
-  DATA_VECTOR( bLW);            //  Allometric slope of maximum consumption; n = [1, nspp]
-  DATA_VECTOR( Tcm);            //  Consumption maximum physiological temperature (degree C); n = [1, n_pred]
-  DATA_VECTOR( Tco);            //  Consumption optimum physiological temperature (degree C); n = [1, n_pred]
-  DATA_VECTOR( Qc);             //  Max consumption parameter; n = [1, n_pred]
+  // DATA_VECTOR( phi_p_bp);       // Annual relative foraging rate (d yr^-1)
+  // DATA_VECTOR( CA );            //  Intercept of the allometric maximum consumption function (g g^-1 yr^-1); n = [1, nspp]
+  // DATA_VECTOR( CB );            //  Allometric slope of maximum consumption; n = [1, nspp]
+  DATA_VECTOR( Tcm );            //  Consumption maximum physiological temperature (degree C); n = [1, n_pred]
+  DATA_VECTOR( Tco );            //  Consumption optimum physiological temperature (degree C); n = [1, n_pred]
+  // DATA_VECTOR( Qc );             //  Max consumption parameter; n = [1, n_pred]
 
   // 2.6. DERIVED QUANTITIES # Calculate these in the model
-  DATA_MATRIX(d);               // VBGF allometric slope of consumption (d); n = [nspp, nyrs]
-  DATA_MATRIX(Winf);            // VBGF max asymptoptic weight; n = [nspp, nyrs]
-  DATA_MATRIX(Prop_Mat);        // Proportion of mature females at age; [nspp, nages]
+  // DATA_MATRIX(d);               // VBGF allometric slope of consumption (d); n = [nspp, nyrs]
+  // DATA_MATRIX(Winf);            // VBGF max asymptoptic weight; n = [nspp, nyrs]
 
   // 2.7. FIXED PARAMETERS
   // -- 2.7.1. von Bertalannfy growth function (VBGF)
-  PARAMETER_VECTOR(d0_vbgf);      // VBGF intercept for d parameter; n = [1, nspp]
-  PARAMETER_MATRIX(d_dev_vbgf);   // Annual deviation for VBGF d parameter; n = [nspp, nyrs] # NOTE: Need to figure out how to best vectorize this
-  PARAMETER_VECTOR(Beta_d_vbgf);  // Temperature covariate for VBGF d parameter; n = [1, nspp]
-  PARAMETER_VECTOR(K_vbgf);       // VBGF energy loss constant (kg kg^-1 yr^-1); n[1, nspp]
-  PARAMETER_VECTOR(H_vbgf);       // VBGF assimilation constant (kg kg^-1 yr^-1); n[1, nspp]
-  PARAMETER_VECTOR(t0_vbgf);      // VBGF age at Weight 0 (yr); n[1, nspp]
+  // DATA_VECTOR(d0_vbgf);      // VBGF intercept for d parameter; n = [1, nspp]
+  // DATA_MATRIX(d_dev_vbgf);   // Annual deviation for VBGF d parameter; n = [nspp, nyrs] # NOTE: Need to figure out how to best vectorize this
+  // DATA_VECTOR(Beta_d_vbgf);  // Temperature covariate for VBGF d parameter; n = [1, nspp]
+  // DATA_VECTOR( logK );       // VBGF energy loss constant (kg kg^-1 yr^-1); n[1, nspp]
+  // DATA_VECTOR( logH );       // VBGF assimilation constant (kg kg^-1 yr^-1); n[1, nspp]
+  // DATA_VECTOR( t0 );      // VBGF age at Weight 0 (yr); n[1, nspp]
 
   // -- 2.7.2. Others
-  PARAMETER_MATRIX(M1);         // Residual natural mortality; n = [nspp, nages]
-  PARAMETER_VECTOR(M_f);        // Female natural mortality; n = [1, nspp]
-  PARAMETER_VECTOR(M_m);        // Male natural mortality; n = [1, nspp]
-  PARAMETER_MATRIX(Prop_age_f); // Proportion-at-age of females of population; n = [nspp, nages]
-  PARAMETER_MATRIX(Prop_mat);   // Age-specific maturity; n = [nspp, nages]
-  Type sigma_catch = 0.05;      // SD of catch
+  DATA_MATRIX( M1_base );         // Residual natural mortality; n = [nspp, nages]
+  DATA_IVECTOR( mf_type );      // Sex specific mort and weight at age? : 1 = same for both, 2 = seperate wt at sp_age for each sex
+  DATA_MATRIX( propMorF );      // Proportion-at-age of females of population; n = [nspp, nages]
+  DATA_MATRIX( pmature );       // Proportion of mature females at age; [nspp, nages]
 
-  // -- 2.8.2. Debugging with data inputs
+
+  // ------------------------------------------------------------------------- //
+  // 2.8. Debugging with data inputs                                           //
+  // ------------------------------------------------------------------------- //
   if(debug == 1){
     // -- 2.8.2.1 Check to make sure the first year of survey data are not before start year
     for(int i = 0; i<nspp; i++){
@@ -157,7 +163,7 @@ Type objective_function<Type>::operator() (){
     // -- 2.8.2.3. Check to make sure the years of survey data biomass and age are the same
     for(int i = 0; i<nspp; i++){
       if(nyrs_srv_biom(i) != nyrs_srv_age(i)){
-        std::cerr<<"Survey biomass and age of species "<< i + 1 << " do not match"<<std::endl;
+        std::cerr<<"Nyrs of survey biomass and age-comp of species "<< i + 1 << " do not match"<<std::endl;
         return(0);
       }
     }
@@ -168,11 +174,19 @@ Type objective_function<Type>::operator() (){
     }
   }
 
+  // ------------------------------------------------------------------------- //
+  // 3. INITIAL CALCULATIONS                                                   //
+  // ------------------------------------------------------------------------- //
+  for ( i = 1; i < nspp ; i++){
+    for( j = 0 ; j < nages(i); j++ ){
+    pmature( i, j ) = pmature( i, j ) * propMorF(i + (mf_type(i) - 1), j);
+  }
+  }
+                        
 
   // ------------------------------------------------------------------------- //
   // 3. PARAMETER SECTION                                                      //
   // ------------------------------------------------------------------------- //
-
 
   // 3.1. PARAMETERS (assign parameters to objects)
   // -- 3.1.1 Recruitment parameters
@@ -229,12 +243,6 @@ Type objective_function<Type>::operator() (){
 
 
   // ------------------------------------------------------------------------- //
-  // 4. MODEL OBJECTS                                                          //
-  // ------------------------------------------------------------------------- //
-  // 4.1. LOOPING INDICES -- k = observation, i = species/prey, j = age/prey age (yr), y = year, p = predator, a = predator age (yr)
-  int  i, j, y; //, k, p, a;
-
-  // ------------------------------------------------------------------------- //
   // 5. POPULATION DYNAMICS EQUATIONS                                          //
   // ------------------------------------------------------------------------- //
   // NOTE: Remember indexing starts at 0
@@ -253,10 +261,12 @@ Type objective_function<Type>::operator() (){
 
 
   // 5.2. ESTIMATE INITIAL ABUNDANCE AT AGE AND YEAR-1: T1.2
+  matrix<Type> M1( nspp, max_age); M1.setZero();
   for(i=0; i < nspp; i++){
     for(j=0; j < nages(i); j++){
       // -- 5.2.1. Plus group where y = 1 and 1 < j <= Ai
       if((j > 0) & (j <= nages(i))){
+        M1(i,j) = M1_base(i,j) + Type(0.0001);
         NByage(0, j, i) = ln_mn_rec(i) * exp(-(j+1)*M1(i,j)) * init_dev(i, j);
       }
       // -- 5.2.2. Where y = 1 and j > Ai.
@@ -281,7 +291,7 @@ Type objective_function<Type>::operator() (){
           NByage(y+1, nages(i), i) = NByage(y, nages(i)-1, i) * exp(-Zed(y, nages(i)-1, i)) + NByage(y, nages(i), i) * exp(-Zed(y, nages(i), i));
         }
         biomassByage(y, j, i) = NByage(y, j, i) * Weight_at_Age(y, j, i); // 5.5.
-        biomassSSBByage(y, j, i) = biomassByage(y, j, i) * Prop_Mat(i, j); // 5.6.
+        biomassSSBByage(y, j, i) = biomassByage(y, j, i) * pmature(i, j); // 5.6.
 
         // -- 5.3.3. Estimate Biomass and SSB
         biomass(i, y) += biomassByage(y, j, i);
@@ -565,7 +575,7 @@ Type objective_function<Type>::operator() (){
   // Slot 0 -- BT survey biomass -- NFMS annual BT survey
   for(i=0; i < nspp; i++){
     for (y=0; y < nyrs_srv_biom(i); y++){
-      jnll_comp(0, i) += pow(log(srv_bio(i, y)) - log(srv_bio_hat(i, y)), 2) / (2 * pow(srv_biom_lse(i, y), 2)); // NOTE: This is not quite the lognormal and biohat will be the median.
+      jnll_comp(0, i) += pow(log(srv_biom(i, y)) - log(srv_bio_hat(i, y)), 2) / (2 * pow(srv_biom_lse(i, y), 2)); // NOTE: This is not quite the lognormal and biohat will be the median.
     }
   }
 
