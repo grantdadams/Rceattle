@@ -7,12 +7,15 @@ build_params <- function(data_list, nselages = 8) {
   cpp_fn <- file(paste("src/", TMBfilename, ".cpp", sep = ""))
 
   cpp_file <- readLines(cpp_fn)
-  nt <- length(cpp_file)
+  skipp <- grep("PARAMETER SECTION", cpp_file) # Line of data files
+  nrow <- grep("POPULATION DYNAMICS EQUATIONS", cpp_file) # Last line of data files
+  cpp_file <- scan(cpp_fn, what = "character", skip = skipp, nlines = (nrow - skipp), flush = T, blank.lines.skip = F, quiet = T)
   cpp_tmp <- c()
-  param_lines <- grep("PARAMETER_", cpp_file)
+  search_term <- c("PARAMETER\\(|PARAMETER_")
+  param_lines <- grep(search_term, cpp_file, ignore.case = F)
 
   for (i in 1:length(param_lines)) {
-    cpp_tmp[i] <- paste(scan(cpp_fn, skip = data_lines[i] - 1, flush = F, sep = "\t", nlines = 1, quiet = TRUE, what = "character", blank.lines.skip = TRUE), sep = "", collapse = " ")
+    cpp_tmp[i] <- paste(scan(cpp_fn, skip = skipp + param_lines[i] - 1, flush = F, sep = "\t", nlines = 1, quiet = TRUE, what = "character", blank.lines.skip = TRUE), sep = "", collapse = " ")
   }
   tt <- strsplit(cpp_tmp, split = c(" ")) # find all the text lines
 
@@ -20,7 +23,7 @@ build_params <- function(data_list, nselages = 8) {
   param_dim <- data.frame(matrix(1, nrow = length(param_lines), ncol = 4))
 
   for (i in 1:length(param_lines)) {
-    dat_line <- grep("PARAMETER_", tt[i][[1]])
+    dat_line <- grep(search_term, tt[i][[1]], ignore.case = F)
     dat_call <- paste(tt[[i]][ dat_line:(dat_line + 2)], collapse = "")
     param_names[i] <- sub("\\).*", "", sub(".*\\(", "", dat_call))
 
@@ -47,15 +50,20 @@ build_params <- function(data_list, nselages = 8) {
       }
     }
     param_dim[i,] <- as.numeric(param_dim[i,])
+
+    if(length(which(param_dim[i,] > 1)) == 0){ # PARAMETER
+      param = 0
+    }
+
     if(length(which(param_dim[i,] > 1)) == 1){ # PARAMETER_VECTOR
       param = rep(0, param_dim[i,][which(param_dim[i,] > 1)] )
     }
 
-    if(length(which(param_dim[i,] > 1)) == 2){
+    if(length(which(param_dim[i,] > 1)) == 2){ # PARAMETER_MATRIX
       param = matrix(0, nrow = as.numeric(param_dim[i,1]), ncol = as.numeric(param_dim[i,2]) )
     }
 
-    if(length(which(param_dim[i,] > 1)) == 3){
+    if(length(which(param_dim[i,] > 1)) == 3){ # PARAMETER_ARRAY
       param = array(0, dim = as.numeric(param_dim[i, 1:3]))
     }
     param_list[[i]] <- param
