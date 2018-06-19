@@ -1,6 +1,7 @@
-# This functions tests the loading of data into TMB.
+# This functions tests the loading of parameters into TMB.
 
-data_load <- function( ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_v01", dat_dir =  "data/dat files/"){
+param_load <- function( ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_v01", dat_dir =  "data/dat files/"){
+  version <- "param_load"
   #--------------------------------------------------
   # 1. DATA and MODEL PREP
   #--------------------------------------------------
@@ -8,7 +9,9 @@ data_load <- function( ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_
   if("TMB" %in% rownames(installed.packages()) == FALSE) {install.packages("TMB")}
   # Load data
   source("R/1-build_dat.R")
+  source("R/2-build_params.R")
   data_list <- build_dat(ctlFilename, TMBfilename, dat_dir)
+  params <- build_params(data_list, nselages = 8)
 
 
   #--------------------------------------------------
@@ -16,10 +19,10 @@ data_load <- function( ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_
   #--------------------------------------------------
   cpp_fn<-file(paste("src/", TMBfilename,".cpp",sep=""))
   cpp_file <- readLines(cpp_fn)
-  nrow <- grep('PARAMETER SECTION', cpp_file) # Last line of data files
-  cpp_file <- cpp_file[1:(nrow - 2)] # Retain data section
+  nrow <- grep('6.2 EIT Components', cpp_file) # Last line of data files
+  cpp_file <- cpp_file[1:(nrow - 1)] # Retain data section
   cpp_file <- c(cpp_file, "return 0;", "}", "")
-  writeLines(cpp_file, con = file("tests/data_load.cpp"))
+  writeLines(cpp_file, con = file(paste0("tests/", version, ".cpp")))
 
 
   #--------------------------------------------------
@@ -28,13 +31,12 @@ data_load <- function( ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_
   library(TMBdebug)
   library(TMB)
   setwd("tests")
-  version <- "data_load"
   compile(paste0(version, ".cpp"))
   dyn.load(dynlib(version))
   setwd("../")
 
   # Build object
-  Obj = MakeADFun(data_list, parameters = list(),  DLL = version, type = "Fun")
+  Obj = TMBdebug::MakeADFun(data_list, parameters = params,  DLL = version)
+  Rep <- Obj$report()
+  Rep$srv_sel
 }
-
-data_load()
