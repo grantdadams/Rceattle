@@ -19,7 +19,7 @@ param_load <- function( ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI
   #--------------------------------------------------
   cpp_fn<-file(paste("src/", TMBfilename,".cpp",sep=""))
   cpp_file <- readLines(cpp_fn)
-  nrow <- grep('7. FISHERY COMPONENTS', cpp_file) # Last line of data files
+  nrow <- grep('END MODEL', cpp_file) # Last line of data files
   cpp_file <- cpp_file[1:(nrow - 1)] # Retain data section
   cpp_file <- c(cpp_file, "return 0;", "}", "")
   writeLines(cpp_file, con = file(paste0("tests/", version, ".cpp")))
@@ -36,7 +36,11 @@ param_load <- function( ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI
   setwd("../")
 
   # Build object
-  Obj = TMBdebug::MakeADFun(data_list, parameters = params,  DLL = version)
+  Obj = MakeADFun(data_list, parameters = params,  DLL = version)
   Rep <- Obj$report()
-  Rep$srv
+  Rep$catch_hat
+  Rep$ALK
+  Rep$tc_hat
+  Rep$srv_age_hat
+
 }

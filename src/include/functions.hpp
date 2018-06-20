@@ -134,8 +134,8 @@ matrix<Type> matrix_from_array(array<Type> a1, int sheet){
 template <class Type>
 vector<Type> vec_mat_prod(vector<Type> v1, matrix<Type> m1){
 
-  if (v1.size() != m1.cols()){
-    std::cerr << "Error -- length of vector does not equal the number of columns in the matrix" << std::endl;
+  if (v1.size() != m1.rows()){
+    std::cerr << "Error -- length of vector does not equal the number of rows in the matrix" << std::endl;
     return(0);
   }
 
@@ -147,7 +147,7 @@ vector<Type> vec_mat_prod(vector<Type> v1, matrix<Type> m1){
     v2 = m1.col(c);
     v3(c) = (v1 * v2).sum();
   }
-  return v2;
+  return v3;
 }
 
 
@@ -173,3 +173,31 @@ vector<Type> col_from_3D_array(array<Type> a1, int col, int sheet){
   return v1;
 }
 
+
+// Function to trim matrix
+template<class Type>
+matrix<Type> trim_matrix(matrix<Type> m1, int nrow, int ncol){
+  // dim is a DATA_IMATRIX with structure nrow, ncol, ID # of object we wish to interogate
+  matrix<Type> m2(nrow, ncol);
+
+  // If array is matrix
+  for(int row = 0; row < nrow; row++){
+    for(int col = 0; col < ncol; col++){
+      m2(row, col) = m1(row, col);
+    }
+  }
+  return m2;
+}
+
+// Function to trim vector
+template<class Type>
+matrix<Type> trim_vector(vector<Type> v1, int length){
+  // dim is a DATA_IMATRIX with structure nrow, ncol, ID # of object we wish to interogate
+  vector<Type> v2(length);
+
+  // If array is matrix
+  for(int i = 0; i < length; i++){
+    v2(i) = v1(i);
+  }
+  return v2;
+}
