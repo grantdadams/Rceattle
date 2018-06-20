@@ -267,7 +267,6 @@ Type objective_function<Type>::operator() (){
       NByage(nyrs, 0, i) = R(i, nyrs-1);
     }
   }
-  REPORT( R );
 
 
   // 5.2. ESTIMATE INITIAL ABUNDANCE AT AGE AND YEAR-1: T1.2
@@ -285,7 +284,6 @@ Type objective_function<Type>::operator() (){
       }
     }
   }
-  REPORT( M1 );
 
 
   // 5.3. ESTIMATE NUMBERS AT AGE, BIOMASS-AT-AGE (kg), and SSB-AT-AGE (kg)
@@ -314,12 +312,6 @@ Type objective_function<Type>::operator() (){
       }
     }
   }
-  REPORT( NByage );
-  REPORT( S );
-  REPORT( biomassByage );
-  REPORT( biomassSSBByage );
-  REPORT( biomass );
-  REPORT( biomassSSB );
 
 
   // ------------------------------------------------------------------------- //
@@ -361,8 +353,7 @@ Type objective_function<Type>::operator() (){
       }
     }
   }
-  REPORT( avgsel_srv );
-  REPORT( srv_sel );
+
 
   // START HERE
   // 6.2 EIT Components
@@ -374,7 +365,7 @@ Type objective_function<Type>::operator() (){
     for(y=0; y < n_eit; y++){
       eit_yr_ind = yrs_eit(y) - styr;
 
-      eit_age_hat(j, y) = NByage(eit_yr_ind+1, j, 0) * exp(-Zed(eit_yr_ind, j, 0)) * eit_sel(j, y) * eit_q; // Remove the mid-year trawl?
+      eit_age_hat(j, y) = NByage(eit_yr_ind+1, j, 0) * S(eit_yr_ind, j, 0) * eit_sel(eit_yr_ind, j) * eit_q; // Remove the mid-year trawl?
       eit_hat(y) += eit_age_hat(j, y) * wt(eit_yr_ind, j, 0);  //
     }
   }
@@ -387,7 +378,7 @@ Type objective_function<Type>::operator() (){
   }
 
 
-  // 6.2 BT Components
+  // 6.3 BT Components
   // -- 6.3.1 BT Survey Biomass
   int srv_yr_ind;
   srv_age_hat.setZero();
@@ -398,15 +389,17 @@ Type objective_function<Type>::operator() (){
 
         srv_yr_ind = yrs_srv_biom(i, y) - styr; // Temporary index for years of data
 
-        srv_age_hat(y, j, i) = NByage(srv_yr_ind, j, i) * exp(-0.5 * Zed(srv_yr_ind, j, i)) * srv_sel(i, j) * exp(log_srv_q(i));
+        srv_age_hat(y, j, i) = NByage(srv_yr_ind+1, j, i) * exp(-0.5 * Zed(srv_yr_ind, j, i)) * srv_sel(i, j) * exp(log_srv_q(i));
         srv_hat(i, y) += srv_age_hat(y, j, i);   // Total numbers
-        srv_bio_hat(i, y) += srv_age_hat(y, j, i) * wt(i, j, srv_yr_ind);  //
+        srv_bio_hat(i, y) += srv_age_hat(y, j, i) * wt(eit_yr_ind, j, i);  //
       }
     }
   }
 
 
   // -- 6.4.2 BT Survey Age Composition: NOTE: will have to alter if age comp data are not the same length as survey biomass data
+  vector<Type> srv_age_tmp( imax(nages)); // Temporary vector of survey-catch-at-age for matrix multiplication
+  vector<Type> srv_len_tmp( imax(srv_age_bins)); // Temporary vector of survey-catch-at-length for matrix multiplication
   for(i=0; i < nspp; i++){
     for (y=0; y < nyrs_srv_age(i); y++){
 
@@ -419,21 +412,38 @@ Type objective_function<Type>::operator() (){
       // 6.4.2.2 -- Convert from catch-at-age to catch-at-length: NOTE: There has got to be a better way
       if(srv_age_type(i)!=1){
 
-        vector<Type> srv_age_tmp(nages(i)); // Temporary vector of survey-catch-at-age for matrix multiplication
-        vector<Type> srv_len_tmp(srv_age_bins(i)); // Temporary vector of survey-catch-at-length for matrix multiplication
-
         for(j=0; j < nages(i); j++){
           srv_age_tmp(j) = srv_age_hat(y, j, i);
         }
 
+        // START HERE
         srv_len_tmp = vec_mat_prod(srv_age_tmp, matrix_from_array(age_trans_matrix, i)); // Multiply the ALK for species i against the survey catch-at-age for year y
 
-        for(j=0; j < srv_age_bins(i); j++){
-          srv_age_hat(y, j, i) = srv_len_tmp(j) / srv_hat(i, y) ; // * age_trans_matrix.col().col(i)) / srv_hat(i, y); // # NOTE: Double check the matrix algebra here
-        }
+        //for(j=0; j < srv_age_bins(i); j++){
+          //srv_age_hat(y, j, i) = srv_len_tmp(j) / srv_hat(i, y) ; // * age_trans_matrix.col().col(i)) / srv_hat(i, y); // # NOTE: Double check the matrix algebra here
+        //}
       }
     }
   }
+
+
+  REPORT( R );
+  REPORT( M1 );
+  REPORT( avgsel_srv );
+  REPORT( srv_sel );
+  REPORT( eit_hat );
+  REPORT( eit_age_hat );
+  REPORT( NByage );
+  REPORT( S );
+  REPORT( biomassByage );
+  REPORT( biomassSSBByage );
+  REPORT( biomass );
+  REPORT( biomassSSB );
+  REPORT( srv_bio_hat );
+  REPORT( srv_hat );
+  REPORT( srv_age_hat );
+  REPORT( srv_age_tmp );
+  REPORT( srv_len_tmp );
 
 
   // ------------------------------------------------------------------------- //
