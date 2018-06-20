@@ -223,7 +223,7 @@ Type objective_function<Type>::operator() (){
   // -- 4.2.1. Fishery observations
   matrix<Type>  tc_biom_hat(nspp, nyrs);              // Estimated total yield (kg); n = [nspp, nyrs]
   array<Type>   catch_hat(nyrs, max_age, nspp);       // Estimated catch-at-age (n); n = [nspp, nages, nyrs]
-  array<Type>   fsh_age_hat(nyrs, max_age, nspp);     // Estimated fishery age comp; n = [nspp, nages, nyrs]
+  array<Type>   fsh_age_hat(nyrs, max_bin, nspp);     // Estimated fishery age comp; n = [nspp, nages, nyrs]
   matrix<Type>  tc_hat(nspp, nyrs);                   // Estimated total catch (n); n = [nspp, nyrs]
   array<Type>   F(nyrs, max_age, nspp);               // Estimated fishing mortality; n = [nspp, nages, nyrs]
   matrix<Type>  fsh_sel(nspp, max_age); fsh_sel.setZero(); // Log estimated fishing selectivity
@@ -399,7 +399,7 @@ Type objective_function<Type>::operator() (){
 
   // -- 6.4.2 BT Survey Age Composition: NOTE: will have to alter if age comp data are not the same length as survey biomass data
   vector<Type> srv_age_tmp( imax(nages)); // Temporary vector of survey-catch-at-age for matrix multiplication
-  vector<Type> srv_len_tmp( imax(srv_age_bins)); // Temporary vector of survey-catch-at-length for matrix multiplication
+  
   for(i=0; i < nspp; i++){
     for (y=0; y < nyrs_srv_age(i); y++){
 
@@ -412,38 +412,21 @@ Type objective_function<Type>::operator() (){
       // 6.4.2.2 -- Convert from catch-at-age to catch-at-length: NOTE: There has got to be a better way
       if(srv_age_type(i)!=1){
 
+
         for(j=0; j < nages(i); j++){
           srv_age_tmp(j) = srv_age_hat(y, j, i);
         }
 
-        // START HERE
-        srv_len_tmp = vec_mat_prod(srv_age_tmp, matrix_from_array(age_trans_matrix, i)); // Multiply the ALK for species i against the survey catch-at-age for year y
+        matrix<Type> ALK = trim_matrix( matrix_from_array(age_trans_matrix, i), nages(i), srv_age_bins(i) );
+        vector<Type> srv_age_tmp_trimmed = trim_vector(srv_age_tmp, nages(i) );
+        vector<Type> srv_len_tmp = vec_mat_prod( srv_age_tmp_trimmed , ALK ); // Multiply the ALK for species i against the survey catch-at-age for year y
 
-        //for(j=0; j < srv_age_bins(i); j++){
-          //srv_age_hat(y, j, i) = srv_len_tmp(j) / srv_hat(i, y) ; // * age_trans_matrix.col().col(i)) / srv_hat(i, y); // # NOTE: Double check the matrix algebra here
-        //}
+        for(j=0; j < srv_age_bins(i); j++){
+          srv_age_hat(y, j, i) = srv_len_tmp(j) / srv_hat(i, y) ; // * age_trans_matrix.col().col(i)) / srv_hat(i, y); // # NOTE: Double check the matrix algebra here
+        }
       }
     }
   }
-
-
-  REPORT( R );
-  REPORT( M1 );
-  REPORT( avgsel_srv );
-  REPORT( srv_sel );
-  REPORT( eit_hat );
-  REPORT( eit_age_hat );
-  REPORT( NByage );
-  REPORT( S );
-  REPORT( biomassByage );
-  REPORT( biomassSSBByage );
-  REPORT( biomass );
-  REPORT( biomassSSB );
-  REPORT( srv_bio_hat );
-  REPORT( srv_hat );
-  REPORT( srv_age_hat );
-  REPORT( srv_age_tmp );
-  REPORT( srv_len_tmp );
 
 
   // ------------------------------------------------------------------------- //
@@ -480,14 +463,24 @@ Type objective_function<Type>::operator() (){
 
 
   // 7.2. ESTIMATE FISHING MORTALITY
-  for(i=0; i<nspp; y++){
+  for(i=0; i<nspp; i++){
     for(y=0; y<nyrs; y++){
       for(j=0; j<nages(i); j++){
-        F(y, j, i) = exp(fsh_sel(i, j)) * exp(ln_mean_F(i) + F_dev(i, y));
+        F(y, j, i) = fsh_sel(i, j) * exp(ln_mean_F(i) + F_dev(i, y));
       }
     }
   }
 
+  // 7.5. Estimate total mortality at age NOTE: May need to go above population dynamics
+  for(i=0; i < nspp; i++){
+    for(j=0; j < nages(i); j++){
+      for(y=0; y < nyrs; y++){
+        Zed(y, j, i) = M1(i, j) + F(y, j, i);
+      }
+    }
+  }
+
+  // NOTE: The above may need to be before the population dynamics
 
   // 7.3. ESTIMATE CATCH-AT-AGE and TOTAL YIELD (kg)
   tc_hat.setZero();
@@ -495,7 +488,7 @@ Type objective_function<Type>::operator() (){
   for(i=0; i < nspp; i++){
     for(j=0; j < nages(i); j++){
       for(y=0; y < nyrs; y++){
-        catch_hat(y, j, i) = F(y, j, i)/Zed(y, j, i) * (1 - exp(-Zed(y, j, i))) * NByage(y, j, i); // 5.4.
+        catch_hat(y, j, i) = F(y, j, i)/Zed(y, j, i) * (1 - exp(-Zed(y, j, i))) * NByage(y + 1, j, i); // 5.4.
         tc_hat(i, y) += catch_hat(y, j, i); // Estimate catch in numbers
         tc_biom_hat(i, y) += catch_hat(y, j, i) * wt(y, j, i); // 5.5.
       }
@@ -504,10 +497,12 @@ Type objective_function<Type>::operator() (){
 
 
   // 7.4. ESTIMATE FISHERY AGE COMPOSITION
+  vector<Type> fsh_age_tmp( imax(nages)); // Temporary vector of survey-catch-at-age for matrix multiplication
+  
   for(i=0; i < nspp; i++){
     for (y=0; y < nyrs_fsh_comp(i); y++){
 
-      // 7.7.2.1 -- Estimate age composition of the fishery
+      /// 7.7.2.1 -- Estimate age composition of the fishery
       if(fsh_age_type(i)==1){
         for(j=0; j < nages(i); j++){
           fsh_age_hat(y, j, i) = catch_hat(y, j, i) / tc_hat(i, y);
@@ -516,28 +511,18 @@ Type objective_function<Type>::operator() (){
       // 7.7.2.1 -- Convert from catch-at-age to catch-at-length: NOTE: There has got to be a better way
       if(fsh_age_type(i)!=1){
 
-        vector<Type> fsh_age_tmp(nages(i)); // Temporary vector of survey-catch-at-age for matrix multiplication
-        vector<Type> fsh_len_tmp(fsh_age_bins(i)); // Temporary vector of survey-catch-at-length for matrix multiplication
 
         for(j=0; j < nages(i); j++){
-          fsh_age_tmp(j) = fsh_age_hat(y, j, i);
+          fsh_age_tmp(j) = catch_hat(y, j, i);
         }
 
-        fsh_len_tmp = vec_mat_prod(fsh_age_tmp, matrix_from_array(age_trans_matrix, i)); // Multiply the ALK for species i against the survey catch-at-age for year y
+        matrix<Type> ALK = trim_matrix( matrix_from_array(age_trans_matrix, i), nages(i), fsh_age_bins(i) );
+        vector<Type> fsh_age_tmp_trimmed = trim_vector(fsh_age_tmp, nages(i) );
+        vector<Type> fsh_len_tmp = vec_mat_prod( fsh_age_tmp_trimmed , ALK ); // Multiply the ALK for species i against the survey catch-at-age for year y
 
-        for(j=0; j < srv_age_bins(i); j++){
+        for(j=0; j < fsh_age_bins(i); j++){
           fsh_age_hat(y, j, i) = fsh_len_tmp(j) / tc_hat(i, y) ; // * age_trans_matrix.col().col(i)) / srv_hat(i, y); // # NOTE: Double check the matrix algebra here
         }
-      }
-    }
-  }
-
-
-  // 7.5.. Estimate total mortality at age
-  for(i=0; i < nspp; i++){
-    for(j=0; j < nages(i); j++){
-      for(y=0; y < nyrs; y++){
-        Zed(y, j, i) = M1(i, j) + F(y, j, i);
       }
     }
   }
@@ -731,12 +716,35 @@ Type objective_function<Type>::operator() (){
   // ------------------------------------------------------------------------- //
   // 10. REPORT SECTION                                                        //
   // ------------------------------------------------------------------------- //
-
-  jnll = jnll_comp.sum();
-  REPORT(jnll);
-  return jnll;
+  REPORT( R );
+  REPORT( M1 );
+  REPORT( avgsel_srv );
+  REPORT( srv_sel );
+  REPORT( avgsel_fsh );
+  REPORT( fsh_sel );
+  REPORT( eit_hat );
+  REPORT( eit_age_hat );
+  REPORT( NByage );
+  REPORT( S );
+  REPORT( biomassByage );
+  REPORT( biomassSSBByage );
+  REPORT( biomass );
+  REPORT( biomassSSB );
+  REPORT( srv_bio_hat );
+  REPORT( srv_hat );
+  REPORT( srv_age_hat );
+  REPORT( F );
+  REPORT( F_dev );
+  REPORT( tc_biom_hat );
+  REPORT( catch_hat );
+  REPORT( tc_hat );
+  REPORT( fsh_age_hat );
+  REPORT( Zed );
 
   // ------------------------------------------------------------------------- //
   // END MODEL                                                                 //
   // ------------------------------------------------------------------------- //
+  jnll = jnll_comp.sum();
+  REPORT(jnll);
+  return jnll;
 }
