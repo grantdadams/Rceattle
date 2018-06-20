@@ -1,3 +1,7 @@
+# Function to read a TMB cpp file and construct parameter objects given a specified size
+# Grant Adams June 2018
+
+
 build_params <- function(data_list, nselages = 8) {
   data_list$nselages <- nselages
 

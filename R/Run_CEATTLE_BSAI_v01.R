@@ -10,8 +10,10 @@ Rceattle <- function( ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_v
   # Load data
   source("R/1-build_dat.R")
   source("R/2-build_params.R")
+  source("R/3-build_map.R")
   data_list <- build_dat(ctlFilename, TMBfilename, dat_dir)
   params <- build_params(data_list, nselages = 8)
+  map <- build_map(data_list, params)
 
 
   # Compile CEATTLE
@@ -23,7 +25,7 @@ Rceattle <- function( ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_v
   setwd("../")
 
   # Build object
-  Obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version)
+  Obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map)
 
 
 }
