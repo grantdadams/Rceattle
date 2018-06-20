@@ -364,6 +364,7 @@ Type objective_function<Type>::operator() (){
   REPORT( avgsel_srv );
   REPORT( srv_sel );
 
+  // START HERE
   // 6.2 EIT Components
   // -- 6.2.1 EIT Survey Biomass
   int eit_yr_ind;
