@@ -17,6 +17,7 @@ Rceattle <- function( ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_v
 
 
   # Compile CEATTLE
+  library(TMBhelper)
   library(TMB)
   setwd("src")
   version <- "CEATTLE_BSAI_v01"
@@ -26,6 +27,11 @@ Rceattle <- function( ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_v
 
   # Build object
   Obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map)
+  Rep = Obj$report()
+  Opt = Optimize( Obj )
+  H <- Opt$h
+  E <- eigen(H)
+  cbind( Opt$opt$diagnostics, E$vectors )
 
 
 }

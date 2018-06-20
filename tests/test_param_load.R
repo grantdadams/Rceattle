@@ -1,6 +1,6 @@
 # This functions tests the loading of parameters into TMB.
 
-param_load <- function( ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_v01", dat_dir =  "data/dat files/"){
+param_load <- function( ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_v01", dat_dir =  "data/dat files/", data_list, line){
   version <- "param_load"
   #--------------------------------------------------
   # 1. DATA and MODEL PREP
@@ -9,8 +9,6 @@ param_load <- function( ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI
   if("TMB" %in% rownames(installed.packages()) == FALSE) {install.packages("TMB")}
   # Load data
   source("R/1-build_dat.R")
-  source("R/2-build_params.R")
-  data_list <- build_dat(ctlFilename, TMBfilename, dat_dir)
   params <- build_params(data_list, nselages = 8)
 
 
@@ -19,7 +17,7 @@ param_load <- function( ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI
   #--------------------------------------------------
   cpp_fn<-file(paste("src/", TMBfilename,".cpp",sep=""))
   cpp_file <- readLines(cpp_fn)
-  nrow <-  717 #grep('Slot 1 -- BT', cpp_file) # Last line of data files
+  nrow <-  line #grep('Slot 1 -- BT', cpp_file) # Last line of data files
   cpp_file <- cpp_file[1:(nrow - 1)] # Retain data section
   cpp_file <- c(cpp_file, "return 0;", "}", "")
   writeLines(cpp_file, con = file(paste0("tests/", version, ".cpp")))
@@ -38,9 +36,13 @@ param_load <- function( ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI
   # Build object
   Obj = MakeADFun(data_list, parameters = params,  DLL = version)
   Rep <- Obj$report()
-  Rep$catch_hat
-  Rep$ALK
-  Rep$tc_hat
-  Rep$srv_age_hat
-
 }
+
+source("R/2-build_params.R")
+data_list <- build_dat(ctlFilename, TMBfilename, dat_dir)
+
+
+param_load(data_list =  data_list, line = 769)
+
+
+
