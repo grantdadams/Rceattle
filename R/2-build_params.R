@@ -74,5 +74,9 @@ build_params <- function(data_list, nselages = 8) {
     names(param_list)[i] <- param_names[i]
   }
 
+  param_list$log_eit_q <- -6.7025
+  param_list$ln_mn_rec <- replace(param_list$ln_mn_rec, values = 9)
+  param_list$ln_mean_F <- replace(param_list$ln_mean_F, values = -.8)
+
   return(param_list)
 }
