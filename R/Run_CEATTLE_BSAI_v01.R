@@ -12,7 +12,7 @@ Rceattle <- function( ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_v
   source("R/2-build_params.R")
   source("R/3-build_map.R")
   data_list <- build_dat(ctlFilename, TMBfilename, dat_dir)
-  params <- build_params(data_list, nselages = 8)
+  params <- build_params(data_list, nselages = 8, incl_prev = T, "data/CEATTLE_results_0.Rdata")
   map <- build_map(data_list, params)
 
 

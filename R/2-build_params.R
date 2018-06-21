@@ -2,7 +2,7 @@
 # Grant Adams June 2018
 
 
-build_params <- function(data_list, nselages = 8) {
+build_params <- function(data_list, nselages = 8, incl_prev = T, prev_params) {
   data_list$nselages <- nselages
 
   #---------------------------------------------------------------------
@@ -77,6 +77,24 @@ build_params <- function(data_list, nselages = 8) {
   param_list$log_eit_q <- -6.7025
   param_list$ln_mn_rec <- replace(param_list$ln_mn_rec, values = 9)
   param_list$ln_mean_F <- replace(param_list$ln_mean_F, values = -.8)
+
+
+  #---------------------------------------------------------------------
+  # Step 3 -- Replace inits with previous parameters if desired
+  #---------------------------------------------------------------------
+  if(incl_prev == T){
+    load(prev_params)
+    param_names <- names(params)
+
+    for(i in 1:length(params)){
+
+      if( is.null(tmp[[ param_names[i] ]]) == F ){
+
+      params[[ param_names[i] ]] <- replace( params[[ param_names[i] ]],
+                                            values = tmp[[ param_names[i] ]] )
+      }
+    }
+  }
 
   return(param_list)
 }
