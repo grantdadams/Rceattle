@@ -22,10 +22,16 @@ build_map <- function(data_list, params) {
   # Survey selectivity coefficients
   for( i in 1: nrow(map_list$srv_sel_coff)){
     if(data_list$logist_sel_phase[i] > 0){
-      map_list$srv_sel_coff[i,3:ncol(map_list$srv_sel_coff)] <- NA
+      map_list$srv_sel_coff[i] <- replace(map_list$srv_sel_coff[i], vales = rep(NA, length(map_list$srv_sel_coff[i])))
     }
-
+    if(data_list$logist_sel_phase[i] < 0){
+      map_list$srv_sel_slp[i] <- NA
+      map_list$srv_sel_inf[i] <- NA
+    }
   }
+
+  # Catchability of surveys
+  map_list$log_srv_q <- replace(map_list$log_srv_q, values = rep(NA, length(map_list$log_srv_q)))
 
   # STEP 3 -- Conver to factor
   for(i in 1:length(map_list)){
