@@ -220,6 +220,8 @@ Type objective_function<Type>::operator() (){
   // -- 4.1.4. Selectivity parameters
   PARAMETER_MATRIX( srv_sel_coff );    // Survey selectivity parameters; n = [nspp, nselages]
   PARAMETER_MATRIX( fsh_sel_coff );    // Fishery age selectivity coef; n = [nspp, nselages]
+  PARAMETER_VECTOR( srv_sel_slp );     // Survey selectivity paramaters for logistic; n = [1, nspp]
+  PARAMETER_VECTOR( srv_sel_inf );     // Survey selectivity paramaters for logistic; n = [1, nspp]
   PARAMETER( log_eit_q );              // EIT Catchability; n = [1]
   PARAMETER_VECTOR( log_srv_q );       // BT Survey catchability; n = [1, nspp]
 
@@ -373,7 +375,7 @@ Type objective_function<Type>::operator() (){
     // 6.1.1. Logisitic selectivity
     if(logist_sel_phase(i) > 0){
       for (j=0; j < nages(i); j++)
-        srv_sel(i, j) = 1/ (1 + exp( -srv_sel_coff(i, 0) * ((j+1) - srv_sel_coff(i, 1))));
+        srv_sel(i, j) = 1/ (1 + exp( -srv_sel_slp(i) * ((j+1) - srv_sel_inf(i))));
     }
 
     // 6.1.2. Selectivity fit to age ranges. NOTE: This can likely be improved
