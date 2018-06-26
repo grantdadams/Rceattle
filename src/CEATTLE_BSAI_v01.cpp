@@ -419,8 +419,8 @@ Type objective_function<Type>::operator() (){
     for(y=0; y < n_eit; y++){
       eit_yr_ind = yrs_eit(y) - styr;
 
-      eit_age_hat(eit_yr_ind, j) = NByage(eit_yr_ind, j, 0) * eit_sel(y, j) * eit_q; // Remove the mid-year trawl?
-      eit_hat(eit_yr_ind) += eit_age_hat(eit_yr_ind, j) * wt(eit_yr_ind, j, 0);  //
+      eit_age_hat(y, j) = NByage(eit_yr_ind, j, 0) * eit_sel(y, j) * eit_q; // Remove the mid-year trawl?
+      eit_hat(y) += eit_age_hat(y, j) * wt(eit_yr_ind, j, 0);  //
     }
   }
 
@@ -428,12 +428,11 @@ Type objective_function<Type>::operator() (){
   // -- 6.2.2 EIT Survey Age Composition
   for(j=0; j < nages(0); j++){
     for (y=0; y < n_eit; y++){
-      eit_yr_ind = yrs_eit(y) - styr;
-      eit_age_hat(eit_yr_ind, j) = eit_age_hat(eit_yr_ind, j) / eit_age_hat.row(eit_yr_ind).sum(); // Divide numbers at age by total numbers for each year
+      eit_age_hat(y, j) = eit_age_hat(y, j) / eit_age_hat.row(y).sum(); // Divide numbers at age by total numbers for each year
     }
   }
 
-  // START DEBUG HERE
+
   // 6.3 BT Components
   // -- 6.3.1 BT Survey Biomass
   int srv_yr_ind;
@@ -445,9 +444,9 @@ Type objective_function<Type>::operator() (){
 
         srv_yr_ind = yrs_srv_biom(i, y) - styr; // Temporary index for years of data
 
-        srv_age_hat(srv_yr_ind, j, i) = NByage(srv_yr_ind, j, i) * exp(-0.5 * Zed(srv_yr_ind, j, i)) * srv_sel(i, j) * exp(log_srv_q(i));
-        srv_hat(i, srv_yr_ind) += srv_age_hat(srv_yr_ind, j, i);   // Total numbers
-        srv_bio_hat(i, srv_yr_ind) += srv_age_hat(srv_yr_ind, j, i) * wt(srv_yr_ind, j, i);  //
+        srv_age_hat(y, j, i) = NByage(srv_yr_ind, j, i) * exp(-0.5 * Zed(srv_yr_ind, j, i)) * srv_sel(i, j) * exp(log_srv_q(i));
+        srv_hat(i, y) += NByage(srv_yr_ind, j, i) * exp(-0.5 * Zed(srv_yr_ind, j, i)) * srv_sel(i, j) * exp(log_srv_q(i));   // Total numbers
+        srv_bio_hat(i, y) += NByage(srv_yr_ind, j, i) * exp(-0.5 * Zed(srv_yr_ind, j, i)) * srv_sel(i, j) * exp(log_srv_q(i)) * wt(srv_yr_ind, j, i);  //
       }
     }
   }
@@ -464,13 +463,13 @@ Type objective_function<Type>::operator() (){
       // 6.4.2.1 -- BT Survey catch-at-age
       if(srv_age_type(i)==1){
         for(j=0; j < nages(i); j++){
-          srv_age_hat(srv_yr_ind, j, i) = srv_age_hat(srv_yr_ind, j, i) / srv_hat(i, srv_yr_ind);
+          srv_age_hat(y, j, i) = srv_age_hat(y, j, i) / srv_hat(i, y);
         }
       }
       // 6.4.2.2 -- Convert from catch-at-age to catch-at-length: NOTE: There has got to be a better way
       if(srv_age_type(i)!=1){
         for(j=0; j < nages(i); j++){
-          srv_age_tmp(j) = srv_age_hat(srv_yr_ind, j, i);
+          srv_age_tmp(j) = srv_age_hat(y, j, i);
         }
 
         matrix<Type> ALK = trim_matrix( matrix_from_array(age_trans_matrix, i), nages(i), srv_age_bins(i) );
@@ -478,7 +477,7 @@ Type objective_function<Type>::operator() (){
         vector<Type> srv_len_tmp = vec_mat_prod( srv_age_tmp_trimmed , ALK ); // Multiply the ALK for species i against the survey catch-at-age for year y
 
         for(j=0; j < srv_age_bins(i); j++){
-          srv_age_hat(srv_yr_ind, j, i) = srv_len_tmp(j) / srv_hat(i, srv_yr_ind) ; // * age_trans_matrix.col().col(i)) / srv_hat(i, y); // # NOTE: Double check the matrix algebra here
+          srv_age_hat(y, j, i) = srv_len_tmp(j) / srv_hat(i, y) ; // * age_trans_matrix.col().col(i)) / srv_hat(i, y); // # NOTE: Double check the matrix algebra here
         }
       }
     }
@@ -503,9 +502,9 @@ Type objective_function<Type>::operator() (){
 
         fsh_yr_ind = yrs_tc_biom(i, y) - styr; // Temporary index for years of data
 
-        catch_hat(fsh_yr_ind, j, i) = F(fsh_yr_ind, j, i)/Zed(fsh_yr_ind, j, i) * (1 - exp(-Zed(fsh_yr_ind, j, i))) * NByage(fsh_yr_ind, j, i); // 5.4.
-        tc_hat(i, fsh_yr_ind) += catch_hat(fsh_yr_ind, j, i); // Estimate catch in numbers
-        tc_biom_hat(i, fsh_yr_ind) += catch_hat(fsh_yr_ind, j, i) * wt(fsh_yr_ind, j, i); // 5.5.
+        catch_hat(y, j, i) = F(fsh_yr_ind, j, i)/Zed(fsh_yr_ind, j, i) * (1 - exp(-Zed(fsh_yr_ind, j, i))) * NByage(fsh_yr_ind, j, i); // 5.4.
+        tc_hat(i, y) += catch_hat(y, j, i); // Estimate catch in numbers
+        tc_biom_hat(i, y) += catch_hat(y, j, i) * wt(y, j, i); // 5.5.
       }
     }
   }
@@ -521,14 +520,14 @@ Type objective_function<Type>::operator() (){
       /// 7.7.2.1 -- Estimate age composition of the fishery
       if(fsh_age_type(i)==1){
         for(j=0; j < nages(i); j++){
-          fsh_age_hat(fsh_yr_ind, j, i) = catch_hat(fsh_yr_ind, j, i) / tc_hat(i, fsh_yr_ind);
+          fsh_age_hat(y, j, i) = catch_hat(y, j, i) / tc_hat(i, y);
         }
       }
 
       // 7.7.2.1 -- Convert from catch-at-age to catch-at-length: NOTE: There has got to be a better way
       if(fsh_age_type(i)!=1){
         for(j=0; j < nages(i); j++){
-          fsh_age_tmp(j) = catch_hat(fsh_yr_ind, j, i);
+          fsh_age_tmp(j) = catch_hat(y, j, i);
         }
 
         matrix<Type> ALK = trim_matrix( matrix_from_array(age_trans_matrix, i), nages(i), fsh_age_bins(i) );
@@ -536,7 +535,7 @@ Type objective_function<Type>::operator() (){
         vector<Type> fsh_len_tmp = vec_mat_prod( fsh_age_tmp_trimmed , ALK ); // Multiply the ALK for species i against the survey catch-at-age for year y
 
         for(j=0; j < fsh_age_bins(i); j++){
-          fsh_age_hat(fsh_yr_ind, j, i) = fsh_len_tmp(j) / tc_hat(i, fsh_yr_ind) ; // * age_trans_matrix.col().col(i)) / srv_hat(i, y); // # NOTE: Double check the matrix algebra here
+          fsh_age_hat(y, j, i) = fsh_len_tmp(j) / tc_hat(i, y) ; // * age_trans_matrix.col().col(i)) / srv_hat(i, y); // # NOTE: Double check the matrix algebra here
         }
       }
     }
@@ -614,8 +613,8 @@ Type objective_function<Type>::operator() (){
   // Slot 0 -- BT survey biomass -- NFMS annual BT survey
   for(i=0; i < nspp; i++){
     for (y=0; y < nyrs_srv_biom(i); y++){
-      srv_yr_ind = yrs_srv_biom(i, y) - styr;
-      jnll_comp(0, i) += pow(log(srv_biom(i, y)) - log(srv_bio_hat(i, srv_yr_ind)), 2) / (2 * pow(srv_biom_lse(i, y), 2)); // NOTE: This is not quite the lognormal and biohat will be the median.
+      // srv_yr_ind = yrs_srv_biom(i, y) - styr;
+      jnll_comp(0, i) += pow(log(srv_biom(i, y)) - log(srv_bio_hat(i, y)), 2) / (2 * pow(srv_biom_lse(i, y), 2)); // NOTE: This is not quite the lognormal and biohat will be the median.
     }
   }
 
@@ -624,8 +623,8 @@ Type objective_function<Type>::operator() (){
   for(i=0; i < nspp; i++){
     for(j=0; j < nages(i); j++){
       for (y=0; y < nyrs_srv_age(i); y++){
-        srv_yr_ind = yrs_srv_age(i, y) - styr;
-        jnll_comp(1, i) -= srv_age_n(i, y) * (srv_age_obs(y, j, i) + MNConst) * log(srv_age_hat(srv_yr_ind, j, i) + MNConst); // Should srv_age_obs  be in log space?
+        // srv_yr_ind = yrs_srv_age(i, y) - styr;
+        jnll_comp(1, i) -= srv_age_n(i, y) * (srv_age_obs(y, j, i) + MNConst) * log(srv_age_hat(y, j, i) + MNConst); // Should srv_age_obs  be in log space?
       }
     }
     jnll_comp(1, i) -= offset_srv(i);
@@ -634,16 +633,15 @@ Type objective_function<Type>::operator() (){
 
   // Slot 2 -- EIT survey biomass -- Pollock acoustic trawl survey
   for (y=0; y < n_eit; y++){
-    eit_yr_ind = yrs_eit(y) - styr;
-    jnll_comp(2, 0) += 12.5 * pow(log(obs_eit(y)) - log(eit_hat(eit_yr_ind) + 1.e-04), 2);
+    jnll_comp(2, 0) += 12.5 * pow(log(obs_eit(y)) - log(eit_hat(y) + 1.e-04), 2);
   }
 
 
   // Slot 3 -- EIT age composition -- Pollock acoustic trawl survey
   for(j=0; j < nages(0); j++){
     for (y=0; y < n_eit; y++){
-      eit_yr_ind = yrs_eit(y) - styr;
-      jnll_comp(3, 0) -= eit_age_n(y) *  (obs_eit_age(y, j) + MNConst) * log(eit_age_hat(eit_yr_ind, j) + MNConst);
+      // eit_yr_ind = yrs_eit(y) - styr;
+      jnll_comp(3, 0) -= eit_age_n(y) *  (obs_eit_age(y, j) + MNConst) * log(eit_age_hat(y, j) + MNConst);
     }
   }
   jnll_comp(3, 0) -= offset_eit;
@@ -653,7 +651,7 @@ Type objective_function<Type>::operator() (){
   for(i=0; i < nspp; i++){
     for (y=0; y < nyrs_tc_biom(i); y++){
       fsh_yr_ind = yrs_tc_biom(i, y) - styr;
-      jnll_comp(4,i) += pow((log(tc_biom_hat(i, fsh_yr_ind) + Type(1.e-4)) - log(tcb_obs(i, y) + Type(1.e-4))), 2) / (2 * pow(sigma_catch, 2)); // T.4.5
+      jnll_comp(4,i) += pow((log(tc_biom_hat(i, y) + Type(1.e-4)) - log(tcb_obs(i, y) + Type(1.e-4))), 2) / (2 * pow(sigma_catch, 2)); // T.4.5
     }
   }
 
@@ -664,7 +662,7 @@ Type objective_function<Type>::operator() (){
       for (y=0; y < nyrs_fsh_comp(i); y++){
         fsh_yr_ind = yrs_fsh_comp(i, y) - styr; // Temporary index for years of data
         // int yr_ind  = yrs_fsh_comp(i, y) - styr;
-        jnll_comp(5, i) -= tau * (fsh_age_obs(y, j, i) + MNConst) * log(fsh_age_hat(fsh_yr_ind, j, i) + MNConst );
+        jnll_comp(5, i) -= tau * (fsh_age_obs(y, j, i) + MNConst) * log(fsh_age_hat(y, j, i) + MNConst );
       }
     }
     jnll_comp(5, i) -= offset_fsh(i);
