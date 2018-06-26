@@ -28,10 +28,10 @@ Type objective_function<Type>::operator() (){
   // 1.1. CONFIGURE MODEL (this section sets up the switches)
   DATA_INTEGER(debug);      // Logical vector to debug or not
   DATA_INTEGER(msmMode);
-  //    0 = run in single species mode                                         
-  //    1 = run in MSM mode 
-                                                     
-  DATA_IVECTOR(logist_sel_phase); // Selectivity for BT survey 
+  //    0 = run in single species mode
+  //    1 = run in MSM mode
+
+  DATA_IVECTOR(logist_sel_phase); // Selectivity for BT survey
   //    0 = fit to data
   //    1 = logistic
 
@@ -91,7 +91,7 @@ Type objective_function<Type>::operator() (){
   DATA_IVECTOR( srv_age_type );  // Type of compisition (1 = age; 2 = length); n = [1, nspp]
   DATA_IVECTOR( srv_age_bins );   // Number of size binds for the age/length comps; n = [nspp]
   DATA_MATRIX( srv_age_n );       // Sample size for the multinomial; n = [nspp, nyrs_srv_age]
-  DATA_ARRAY( srv_age_obs) ;      // Observed BT age comp; n = [nspp, nages, nyrs]
+  DATA_ARRAY( srv_age_obs ) ;      // Observed BT age comp; n = [nspp, nages, nyrs]
   DATA_MATRIX( srv_age_sizes );  // Observed size composition
   DATA_ARRAY( age_trans_matrix); // observed sp_age/size compositions; n = [nspp, nages, srv_age_bins]
 
@@ -197,8 +197,8 @@ Type objective_function<Type>::operator() (){
 
   for ( i = 0; i < nspp ; i++){
     for( j = 0 ; j < nages(i); j++ ){
-    pmature( i, j ) = pmature( i, j ) * propMorF(i + (mf_type(i) - 1), j);
-  }
+      pmature( i, j ) = pmature( i, j ) * propMorF(i + (mf_type(i) - 1), j);
+    }
   }
 
 
@@ -266,7 +266,7 @@ Type objective_function<Type>::operator() (){
   // ------------------------------------------------------------------------- //
   // NOTE: Remember indexing starts at 0
 
-    // 7.1. ESTIMATE FISHERY SELECTIVITY
+  // 7.1. ESTIMATE FISHERY SELECTIVITY
   for (i = 0; i <nspp; i++){
     for(j=0; j < nselages; j++){
       fsh_sel(i, j) = fsh_sel_coff(i, j);
@@ -328,7 +328,7 @@ Type objective_function<Type>::operator() (){
   // 5.2. ESTIMATE INITIAL ABUNDANCE AT AGE AND YEAR-1: T1.2
   for(i=0; i < nspp; i++){
     for(j=0; j < nages(i); j++){
-   
+
       if((j > 0) & (j < nages(i) - 1)){
         NByage(0, j, i) = exp(ln_mn_rec(i) - (j)*M1(i,j) + init_dev(i, j-1));
       }
@@ -352,12 +352,12 @@ Type objective_function<Type>::operator() (){
         }
 
         // -- 5.3.2. Plus group where j > Ai. NOTE: This is not the same as T1.3 because I used j = A_i rather than j > A_i.
-        if(j == (nages(i)-1)){ 
+        if(j == (nages(i)-1)){
           NByage(y, nages(i)-1, i) = NByage(y-1, nages(i)-2, i) * S(y-1, nages(i)-2, i) + NByage(y-1, nages(i)-1, i) * S(y-1, nages(i)-1, i);
         }
       }
 
-// -- 5.3.3. Estimate Biomass and SSB
+      // -- 5.3.3. Estimate Biomass and SSB
       for(y=0; y < nyrs; y++){
         // NOTE: The "-1" is because the NByage has the initial population numbers
         biomassByage(y, j, i) = NByage(y, j, i) * wt(y, j, i); // 5.5.
@@ -445,20 +445,18 @@ Type objective_function<Type>::operator() (){
         srv_yr_ind = yrs_srv_biom(i, y) - styr; // Temporary index for years of data
 
         srv_age_hat(y, j, i) = NByage(srv_yr_ind, j, i) * exp(-0.5 * Zed(srv_yr_ind, j, i)) * srv_sel(i, j) * exp(log_srv_q(i));
-        srv_hat(i, y) += NByage(srv_yr_ind, j, i) * exp(-0.5 * Zed(srv_yr_ind, j, i)) * srv_sel(i, j) * exp(log_srv_q(i));   // Total numbers
+        srv_hat(i, y) += srv_age_hat(y, j, i);   // Total numbers
         srv_bio_hat(i, y) += NByage(srv_yr_ind, j, i) * exp(-0.5 * Zed(srv_yr_ind, j, i)) * srv_sel(i, j) * exp(log_srv_q(i)) * wt(srv_yr_ind, j, i);  //
       }
     }
   }
 
-
   // -- 6.4.2 BT Survey Age Composition: NOTE: will have to alter if age comp data are not the same length as survey biomass data
   vector<Type> srv_age_tmp( imax(nages)); // Temporary vector of survey-catch-at-age for matrix multiplication
-  
+
   for(i=0; i < nspp; i++){
     for (y=0; y < nyrs_srv_age(i); y++){
-
-      srv_yr_ind = yrs_srv_age(i, y) - styr; // Temporary index for years of data
+      // srv_yr_ind = yrs_srv_age(i, y) - styr; // Temporary index for years of data
 
       // 6.4.2.1 -- BT Survey catch-at-age
       if(srv_age_type(i)==1){
@@ -575,30 +573,30 @@ Type objective_function<Type>::operator() (){
   Type offset_eit = 0; // Offset for multinomial likelihood
   tc_obs.setZero(); // Set total catch to 0 to initialize
 
+
+  // 8.1.1. -- Fishery age comp offsets
   for(i=0; i < nspp; i++){
-
-    // 8.1.1. -- Fishery age comp offsets
     for(y = 0; y < nyrs_fsh_comp(i); y++){
-        for(j=0; j < fsh_age_bins(i); j++){
+      for(j=0; j < fsh_age_bins(i); j++){
         tc_obs(i, y) += obs_catch(y, j, i);
-        }
-        for(j=0; j < fsh_age_bins(i); j++){
-         fsh_age_obs(y, j, i) = obs_catch(y, j, i)/(tc_obs(i, y) + 0.01); // Calculate age comp
-         offset_fsh( i ) -= tau * (fsh_age_obs(y, j, i) + MNConst) * log(fsh_age_obs(y, j, i) + MNConst);
-        }
       }
-
-
-    for (y = 0; y < nyrs_srv_age(i); y++){
-    // 8.1.2. -- Survey age comp offsets
-        for(j = 0; j < srv_age_bins(i); j++){
-          matrix<Type> srv_age_tmp = trim_matrix( matrix_from_array(srv_age_obs, i), nyrs_srv_age(i), srv_age_bins(i) ); // Get srv_age_ob from array for species i
-          srv_age_obs(y, j, i) = srv_age_obs(y, j, i) / srv_age_tmp.row(y).sum() ; // Convert numbers-at-age to age comp
-      offset_srv(i) -= srv_age_n(i, y)*(srv_age_obs(y, j, i) + MNConst) * log(srv_age_obs(y, j, i) + MNConst ) ;
+      for(j=0; j < fsh_age_bins(i); j++){
+        fsh_age_obs(y, j, i) = obs_catch(y, j, i)/(tc_obs(i, y) + 0.01); // Calculate age comp
+        offset_fsh( i ) -= tau * (fsh_age_obs(y, j, i) + MNConst) * log(fsh_age_obs(y, j, i) + MNConst);
+      }
     }
   }
-  }
 
+  // 8.1.2. -- Survey age comp offsets
+  for(i=0; i < nspp; i++){
+    matrix<Type> srv_age_tmp = trim_matrix(matrix_from_array(srv_age_obs, i), nyrs_srv_age(i), srv_age_bins(i));
+    for (y = 0; y < nyrs_srv_age(i); y++){
+      for(j = 0; j < srv_age_bins(i); j++){
+        srv_age_obs(y, j, i) = srv_age_obs(y, j, i) / srv_age_tmp.row(y).sum() ; // Convert numbers-at-age to age comp
+        offset_srv(i) -= srv_age_n(i, y)*(srv_age_obs(y, j, i) + MNConst) * log(srv_age_obs(y, j, i) + MNConst ) ;
+      }
+    }
+  }
 
   // 8.1.3. -- Offsets for acoustic survey
   for(y = 0; y < n_eit; y++){
@@ -741,6 +739,7 @@ Type objective_function<Type>::operator() (){
   // ------------------------------------------------------------------------- //
   // 10. REPORT SECTION                                                        //
   // ------------------------------------------------------------------------- //
+  REPORT( fsh_age_obs );
   REPORT( pmature );
   REPORT( R );
   REPORT( M1 );
