@@ -28,6 +28,8 @@ Rceattle <- function( ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_v
   # Build object
   Obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map)
   Rep = Obj$report()
+  #Opt = Optimize( Obj )
+  #Opt$opt$diagnostics
 
   return(Rep)
 

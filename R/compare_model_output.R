@@ -1,9 +1,9 @@
 # Function to compare output of models to check if there are within a certain threshold of relative error
 
-compare_output <- function( tmb = rep, admb = tmp, cut_off = 0.0001){
+compare_output <- function( tmb = rep, admb = tmp, cut_off = 0.001){
   param_check <- list()
-  tmb_names <- c("fsh_age_hat", "F", "pmature","tc_biom_hat", "biomass", "srv_bio_hat", "NByage", "R", "S", "srv_sel", "biomassSSB", "srv_age_obs", "biomassByage", "fsh_sel", "M1", "tc_hat", "biomassSSB")
-  admb_names <- c("fsh_age_hat", "F", "pmature","obs_catch_hat", "Biomass", "srv_bio_hat", "NByage", "R", "S", "srv_sel", "BiomassSSB", "srv_age_obs", "biomassByage", "fsh_sel", "M1", "tc_hat", "BiomassSSB")
+  tmb_names <- c("fsh_age_obs","fsh_age_hat", "F", "pmature","tc_biom_hat", "biomass", "srv_bio_hat", "NByage", "R", "S", "srv_sel", "biomassSSB", "srv_age_obs", "srv_age_hat", "biomassByage", "fsh_sel", "M1", "tc_hat", "biomassSSB")
+  admb_names <- c("fsh_age_obs","fsh_age_hat", "F", "pmature","obs_catch_hat", "Biomass", "srv_bio_hat", "NByage", "R", "S", "srv_sel", "BiomassSSB", "srv_age_obs", "srv_age_hat", "biomassByage", "fsh_sel", "M1", "tc_hat", "BiomassSSB")
 
   # Survey selectivity
   for( j in 1:length(tmb_names)){
@@ -50,5 +50,9 @@ compare_output <- function( tmb = rep, admb = tmp, cut_off = 0.0001){
     check_summary[i,2] = length(which(param_check[[i]] == 0))
   }
 
-  return(param_check)
+  return(list(param_check, check_summary))
 }
+
+
+res <- compare_output(rep, admb)
+res[[2]]
