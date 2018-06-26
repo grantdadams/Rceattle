@@ -195,7 +195,7 @@ Type objective_function<Type>::operator() (){
   matrix<Type> M1( nspp, max_age); M1.setZero();
   M1 = M1_base.array() + Type(0.0001);
 
-  for ( i = 1; i < nspp ; i++){
+  for ( i = 0; i < nspp ; i++){
     for( j = 0 ; j < nages(i); j++ ){
     pmature( i, j ) = pmature( i, j ) * propMorF(i + (mf_type(i) - 1), j);
   }
@@ -249,7 +249,7 @@ Type objective_function<Type>::operator() (){
 
   // -- 4.2.4. Estimated population parameters
   matrix<Type>  R(nspp, nyrs);                        // Estimated recruitment (n); n = [nspp, nyrs]
-  array<Type>   NByage(nyrs + 1, max_age, nspp);          // Numbers at age; n = [nspp, nages, nyrs]
+  array<Type>   NByage(nyrs, max_age, nspp);          // Numbers at age; n = [nspp, nages, nyrs]
   array<Type>   biomassByage(nyrs, max_age, nspp);    // Estimated biomass-at-age (kg); n = [nspp, nages, nyrs]
   matrix<Type>  biomass(nspp, nyrs);                  // Estimated biomass (kg); n = [nspp, nyrs]
   matrix<Type>  biomassSSB(nspp, nyrs);               // Estimated spawning stock biomass (kg); n = [nspp, nyrs]
@@ -321,7 +321,7 @@ Type objective_function<Type>::operator() (){
       R(i,y) = exp(ln_mn_rec(i) + rec_dev(i,y));
       NByage(y, 0, i) = R(i, y);
     }
-    NByage(nyrs, 0, i) = R(i, nyrs-1);
+    //NByage(nyrs, 0, i) = R(i, nyrs-1);
   }
 
 
@@ -330,11 +330,11 @@ Type objective_function<Type>::operator() (){
     for(j=0; j < nages(i); j++){
    
       if((j > 0) & (j < nages(i) - 1)){
-        NByage(0, j, i) = exp(ln_mn_rec(i) - (j)*M1(i,j) + init_dev(i, j));
+        NByage(0, j, i) = exp(ln_mn_rec(i) - (j)*M1(i,j) + init_dev(i, j-1));
       }
       // -- 5.2.2. Where y = 1 and j > Ai.
       if(j == (nages(i)-1)){
-        NByage(0, j, i) = exp(ln_mn_rec(i) - (j)*M1(i,j) + init_dev(i, j))/ (1-exp(-M1(i, nages(i)-1))); // NOTE: This solves for the geometric series
+        NByage(0, j, i) = exp(ln_mn_rec(i) - (j)*M1(i,j) + init_dev(i, j-1))/ (1-exp(-M1(i, nages(i)-1))); // NOTE: This solves for the geometric series
       }
     }
   }
@@ -345,7 +345,7 @@ Type objective_function<Type>::operator() (){
   biomassSSB.setZero(); // Initialize SSB
   for(i=0; i < nspp; i++){
     for(j=0; j < nages(i); j++){
-      for(y=1; y < nyrs+1; y++){
+      for(y=1; y < nyrs; y++){
         // -- 5.3.1.  Where 1 <= j < Ai
         if(j < (nages(i)-1)){
           NByage(y, j+1, i) = NByage(y-1, j, i) * S(y-1, j, i);
@@ -355,13 +355,16 @@ Type objective_function<Type>::operator() (){
         if(j == (nages(i)-1)){ 
           NByage(y, nages(i)-1, i) = NByage(y-1, nages(i)-2, i) * S(y-1, nages(i)-2, i) + NByage(y-1, nages(i)-1, i) * S(y-1, nages(i)-1, i);
         }
-        // NOTE: The "-1" is because the NByage has the initial population numbers
-        biomassByage(y-1, j, i) = NByage(y, j, i) * wt(y-1, j, i); // 5.5.
-        biomassSSBByage(y-1, j, i) = biomassByage(y-1, j, i) * pmature(i, j); // 5.6.
+      }
 
-        // -- 5.3.3. Estimate Biomass and SSB
-        biomass(i, y-1) += biomassByage(y-1, j, i);
-        biomassSSB(i, y-1) += biomassSSBByage(y-1, j, i);
+// -- 5.3.3. Estimate Biomass and SSB
+      for(y=0; y < nyrs; y++){
+        // NOTE: The "-1" is because the NByage has the initial population numbers
+        biomassByage(y, j, i) = NByage(y, j, i) * wt(y, j, i); // 5.5.
+        biomassSSBByage(y, j, i) = biomassByage(y, j, i) * pmature(i, j); // 5.6.
+
+        biomass(i, y) += biomassByage(y, j, i);
+        biomassSSB(i, y) += biomassSSBByage(y, j, i);
       }
     }
   }
@@ -416,7 +419,7 @@ Type objective_function<Type>::operator() (){
     for(y=0; y < n_eit; y++){
       eit_yr_ind = yrs_eit(y) - styr;
 
-      eit_age_hat(eit_yr_ind, j) = NByage(eit_yr_ind+1, j, 0) * eit_sel(y, j) * eit_q; // Remove the mid-year trawl?
+      eit_age_hat(eit_yr_ind, j) = NByage(eit_yr_ind, j, 0) * eit_sel(y, j) * eit_q; // Remove the mid-year trawl?
       eit_hat(eit_yr_ind) += eit_age_hat(eit_yr_ind, j) * wt(eit_yr_ind, j, 0);  //
     }
   }
@@ -430,7 +433,7 @@ Type objective_function<Type>::operator() (){
     }
   }
 
-
+  // START DEBUG HERE
   // 6.3 BT Components
   // -- 6.3.1 BT Survey Biomass
   int srv_yr_ind;
@@ -442,7 +445,7 @@ Type objective_function<Type>::operator() (){
 
         srv_yr_ind = yrs_srv_biom(i, y) - styr; // Temporary index for years of data
 
-        srv_age_hat(srv_yr_ind, j, i) = NByage(srv_yr_ind+1, j, i) * exp(-0.5 * Zed(srv_yr_ind, j, i)) * srv_sel(i, j) * exp(log_srv_q(i));
+        srv_age_hat(srv_yr_ind, j, i) = NByage(srv_yr_ind, j, i) * exp(-0.5 * Zed(srv_yr_ind, j, i)) * srv_sel(i, j) * exp(log_srv_q(i));
         srv_hat(i, srv_yr_ind) += srv_age_hat(srv_yr_ind, j, i);   // Total numbers
         srv_bio_hat(i, srv_yr_ind) += srv_age_hat(srv_yr_ind, j, i) * wt(srv_yr_ind, j, i);  //
       }
@@ -500,7 +503,7 @@ Type objective_function<Type>::operator() (){
 
         fsh_yr_ind = yrs_tc_biom(i, y) - styr; // Temporary index for years of data
 
-        catch_hat(fsh_yr_ind, j, i) = F(fsh_yr_ind, j, i)/Zed(fsh_yr_ind, j, i) * (1 - exp(-Zed(fsh_yr_ind, j, i))) * NByage(fsh_yr_ind + 1, j, i); // 5.4.
+        catch_hat(fsh_yr_ind, j, i) = F(fsh_yr_ind, j, i)/Zed(fsh_yr_ind, j, i) * (1 - exp(-Zed(fsh_yr_ind, j, i))) * NByage(fsh_yr_ind, j, i); // 5.4.
         tc_hat(i, fsh_yr_ind) += catch_hat(fsh_yr_ind, j, i); // Estimate catch in numbers
         tc_biom_hat(i, fsh_yr_ind) += catch_hat(fsh_yr_ind, j, i) * wt(fsh_yr_ind, j, i); // 5.5.
       }
@@ -720,8 +723,8 @@ Type objective_function<Type>::operator() (){
   // Slots 10-12 -- PRIORS: PUT RANDOM EFFECTS SWITCH HERE
   for(i=0; i < nspp; i++){
     // Slot 9 -- init_dev -- Initial abundance-at-age
-    for(j=0; j < nages(i); j++){
-      jnll_comp(11, i) += pow( init_dev(i,j), 2);
+    for(j=1; j < nages(i); j++){
+      jnll_comp(11, i) += pow( init_dev(i,j-1), 2);
     }
 
     // Slot 8 -- Tau -- Annual recruitment deviation
