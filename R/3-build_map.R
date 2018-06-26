@@ -14,15 +14,15 @@ build_map <- function(data_list, params) {
   # STEP 2 -- NA out parameters not to be estimated
   # Initial population deviations
   for(i in 1:nrow(map_list$init_dev)){
-    if((data_list$nages[i] + 1) < ncol(map_list$init_dev)){
-      map_list$init_dev[i,  (data_list$nages[i] + 1) : ncol(map_list$init_dev) ] <- NA
+    if((data_list$nages[i]-1) < ncol(map_list$init_dev)){
+      map_list$init_dev[i,  (data_list$nages[i]) : ncol(map_list$init_dev) ] <- NA
     }
   }
 
   # Survey selectivity coefficients
   for( i in 1: nrow(map_list$srv_sel_coff)){
     if(data_list$logist_sel_phase[i] > 0){
-      map_list$srv_sel_coff[i] <- replace(map_list$srv_sel_coff[i], vales = rep(NA, length(map_list$srv_sel_coff[i])))
+      map_list$srv_sel_coff[i,] <- replace(map_list$srv_sel_coff[i,], values = rep(NA, length(map_list$srv_sel_coff[i,])))
     }
     if(data_list$logist_sel_phase[i] < 0){
       map_list$srv_sel_slp[i] <- NA

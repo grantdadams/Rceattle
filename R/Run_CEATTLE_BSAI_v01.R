@@ -13,7 +13,7 @@ Rceattle <- function( ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_v
   source("R/3-build_map.R")
   data_list <- build_dat(ctlFilename, TMBfilename, dat_dir)
   params <- build_params(data_list, nselages = 8, incl_prev = T, Rdata_file = "data/CEATTLE_results.Rdata",  std_file = "data/ceattle_est.std")
-  map <- build_map(data_list, params)
+  map  <- build_map(data_list, params)
 
 
   # Compile CEATTLE
@@ -29,11 +29,8 @@ Rceattle <- function( ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_v
   Obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map)
   Rep = Obj$report()
 
-
-  Opt = Optimize( Obj )
-  H <- Opt$h
-  E <- eigen(H)
-  cbind( Opt$opt$diagnostics, E$vectors )
-
+  return(Rep)
 
 }
+
+rep <- Rceattle()

@@ -16,7 +16,8 @@ build_params <-
     cpp_fn <- file(paste("src/", TMBfilename, ".cpp", sep = ""))
 
     cpp_file <- readLines(cpp_fn)
-    skipp <- grep("PARAMETER SECTION", cpp_file) # Line of data files
+    skipp <-
+      grep("PARAMETER SECTION", cpp_file) # Line of data files
     nrow <-
       grep("POPULATION DYNAMICS EQUATIONS", cpp_file) # Last line of data files
     cpp_file <-
@@ -50,7 +51,8 @@ build_params <-
           collapse = " "
         )
     }
-    tt <- strsplit(cpp_tmp, split = c(" ")) # find all the text lines
+    tt <-
+      strsplit(cpp_tmp, split = c(" ")) # find all the text lines
 
     param_names <- c() # Character string of variables used in model
     param_dim <-
@@ -85,26 +87,26 @@ build_params <-
             max(data_list[[which(names(data_list) == param_dim[i, j])]], na.rm = T)
         }
       }
-      param_dim[i, ] <- as.numeric(param_dim[i, ])
+      param_dim[i,] <- as.numeric(param_dim[i,])
 
-      if (length(which(param_dim[i, ] > 1)) == 0) {
+      if (length(which(param_dim[i,] > 1)) == 0) {
         # PARAMETER
         param = 0
       }
 
-      if (length(which(param_dim[i, ] > 1)) == 1) {
+      if (length(which(param_dim[i,] > 1)) == 1) {
         # PARAMETER_VECTOR
-        param = rep(0, param_dim[i, ][which(param_dim[i, ] > 1)])
+        param = rep(0, param_dim[i,][which(param_dim[i,] > 1)])
       }
 
-      if (length(which(param_dim[i, ] > 1)) == 2) {
+      if (length(which(param_dim[i,] > 1)) == 2) {
         # PARAMETER_MATRIX
         param = matrix(0,
                        nrow = as.numeric(param_dim[i, 1]),
                        ncol = as.numeric(param_dim[i, 2]))
       }
 
-      if (length(which(param_dim[i, ] > 1)) == 3) {
+      if (length(which(param_dim[i,] > 1)) == 3) {
         # PARAMETER_ARRAY
         param = array(0, dim = as.numeric(param_dim[i, 1:3]))
       }
@@ -113,9 +115,13 @@ build_params <-
     }
 
     param_list$log_eit_q <- -6.7025
-    param_list$ln_mn_rec <- replace(param_list$ln_mn_rec, values = 9)
+    param_list$ln_mn_rec <-
+      replace(param_list$ln_mn_rec, values = 9)
     param_list$ln_mean_F <-
       replace(param_list$ln_mean_F, values = -.8)
+
+    # remove last init dev
+    param_list$init_dev <- param_list$init_dev[,1:(ncol(param_list$init_dev)-1)]
 
 
     #---------------------------------------------------------------------
@@ -140,18 +146,33 @@ build_params <-
 
         #STD
         if (param_names[i] %in% unique(std_dat$name)) {
-
           # PARAMETER_VECTOR and PARAMETER
-          if(length(which(param_dim[i, ] > 1)) <= 1){
-
+          if (length(which(param_dim[i,] > 1)) <= 1) {
             param_list[[param_names[i]]] <-
               replace(param_list[[param_names[i]]],
                       values = std_dat$value[which(std_dat$name == param_names[i])])
           }
-          if(length(which(param_dim[i, ] > 1)) == 2){
-            param_list[[param_names[i]]] <- matrix(std_dat$value[which(std_dat$name == param_names[i])], byrow = T, ncol = ncol(param_list[[param_names[i]]] ), nrow = nrow(param_list[[param_names[i]]] ))
+          if (length(which(param_dim[i,] > 1)) == 2) {
 
+            # Init devs because odd age distribution
+            if (param_names[i] == "init_dev") {
+              init_dev <- std_dat$value[which(std_dat$name == param_names[i])]
+              init_dev_lines <- c()
 
+              for (j in 1:nrow(param_list[[param_names[i]]])) {
+                init_dev_lines <- c(init_dev_lines, rep(j, data_list$nages[j] - 1))
+                param_list[[param_names[i]]][j, 1:(data_list$nages[j] - 1)] <-
+                  replace(param_list[[param_names[i]]][j, 1:(data_list$nages[j] - 1)], values = init_dev[which(init_dev_lines == j)])
+              }
+            } else{
+              param_list[[param_names[i]]] <-
+                matrix(
+                  std_dat$value[which(std_dat$name == param_names[i])],
+                  byrow = T,
+                  ncol = ncol(param_list[[param_names[i]]]),
+                  nrow = nrow(param_list[[param_names[i]]])
+                )
+            }
           }
         }
       }
