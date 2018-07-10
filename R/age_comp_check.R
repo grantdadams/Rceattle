@@ -1,6 +1,6 @@
 # Function to return relative error of survey age comps using data from TMB or ADMB
 rep <- Rceattle()
-species <- 1
+species <- 1 # Whichs species of interest: 1= pollock, 2 = cod, 3 = ATF.
 
 age_comp_comparison <- function( species, rep, tmp, ADMB_TMB = 1){
 
