@@ -53,6 +53,7 @@ age_comp_comparison <- function(data_list, species, rep, tmp, ADMB_TMB){
     }
     srv_age_com <- (srv_len_hat/ rowSums(srv_len_hat, na.rm = T))
   }
+  srv_age_com <- srv_age_com[ data_list$yrs_srv_age[species,] - data_list$styr + 1,]
 
   # Calculate relative error and return
   rel_error <- (srv_age_com - tmp[[paste("srv_age_hat", species, sep = "_")]] )/ tmp[[paste("srv_age_hat", species, sep = "_")]]
