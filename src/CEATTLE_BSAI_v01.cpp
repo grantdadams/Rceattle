@@ -441,23 +441,26 @@ Type objective_function<Type>::operator() (){
   for(i=0; i < nspp; i++){
     for(j=0; j < nages(i); j++){
       for(y=0; y < nyrs_srv_biom(i); y++){
-
         srv_yr_ind = yrs_srv_biom(i, y) - styr; // Temporary index for years of data
-
-        srv_age_hat(y, j, i) = NByage(srv_yr_ind, j, i) * exp(-0.5 * Zed(srv_yr_ind, j, i)) * srv_sel(i, j) * exp(log_srv_q(i));
-        srv_hat(i, y) += srv_age_hat(y, j, i);   // Total numbers
         srv_bio_hat(i, y) += NByage(srv_yr_ind, j, i) * exp(-0.5 * Zed(srv_yr_ind, j, i)) * srv_sel(i, j) * exp(log_srv_q(i)) * wt(srv_yr_ind, j, i);  //
       }
     }
   }
 
   // -- 6.4.2 BT Survey Age Composition: NOTE: will have to alter if age comp data are not the same length as survey biomass data
-  vector<Type> srv_age_tmp( imax(nages)); // Temporary vector of survey-catch-at-age for matrix multiplication
+  vector<Type> srv_age_tmp( imax(nages) ); // Temporary vector of survey-catch-at-age for matrix multiplication
+  for(i=0; i < nspp; i++){
+    for(j=0; j < nages(i); j++){
+      for(y=0; y < nyrs_srv_age(i); y++){
+        srv_yr_ind = yrs_srv_age(i, y) - styr; // Temporary index for years of data
+        srv_age_hat(y, j, i) = NByage(srv_yr_ind, j, i) * srv_sel(i, j) * exp(log_srv_q(i));
+        srv_hat(i, y) += srv_age_hat(y, j, i);   // Total numbers
+      }
+    }
+  }
 
   for(i=0; i < nspp; i++){
     for (y=0; y < nyrs_srv_age(i); y++){
-      // srv_yr_ind = yrs_srv_age(i, y) - styr; // Temporary index for years of data
-
       // 6.4.2.1 -- BT Survey catch-at-age
       if(srv_age_type(i)==1){
         for(j=0; j < nages(i); j++){

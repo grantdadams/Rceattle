@@ -1,4 +1,4 @@
-build_dat <- function(ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_v01", dat_dir = "data/dat files/") {
+build_dat <- function(ctlFilename, TMBfilename, dat_dir) {
 
   #---------------------------------------------------------------------
   # Step 1 -- Extract data names used in TMB
