@@ -1,6 +1,6 @@
 # This functions runs CEATTLE
 
-Rceattle <- function( ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_v01", dat_dir =  "data/dat files/" ){
+Rceattle <- function( ctlFilename, TMBfilename, dat_dir ){
   #--------------------------------------------------
   # 1. DATA and MODEL PREP
   #--------------------------------------------------
@@ -35,4 +35,4 @@ Rceattle <- function( ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_v
 
 }
 
-rep <- Rceattle( )
+rep <- Rceattle( ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_v01", dat_dir =  "data/dat files/" )
