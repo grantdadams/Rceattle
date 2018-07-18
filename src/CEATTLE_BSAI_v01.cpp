@@ -418,9 +418,9 @@ Type objective_function<Type>::operator() (){
   for(j=0; j < nages(0); j++){
     for(y=0; y < n_eit; y++){
       eit_yr_ind = yrs_eit(y) - styr;
-
-      eit_age_hat(y, j) = NByage(eit_yr_ind, j, 0) * eit_sel(y, j) * eit_q; // Remove the mid-year trawl?
+      eit_age_hat(y, j) = NByage(eit_yr_ind, j, 0) * eit_sel(eit_yr_ind, j) * eit_q; // Remove the mid-year trawl?
       eit_hat(y) += eit_age_hat(y, j) * wt(eit_yr_ind, j, 0);  //
+
     }
   }
 
@@ -435,9 +435,8 @@ Type objective_function<Type>::operator() (){
 
   // 6.3 BT Components
   // -- 6.3.1 BT Survey Biomass
+  srv_bio_hat.setZero();
   int srv_yr_ind;
-  srv_age_hat.setZero();
-  srv_hat.setZero();
   for(i=0; i < nspp; i++){
     for(j=0; j < nages(i); j++){
       for(y=0; y < nyrs_srv_biom(i); y++){
@@ -448,6 +447,8 @@ Type objective_function<Type>::operator() (){
   }
 
   // -- 6.4.2 BT Survey Age Composition: NOTE: will have to alter if age comp data are not the same length as survey biomass data
+    srv_age_hat.setZero();
+  srv_hat.setZero();
   vector<Type> srv_age_tmp( imax(nages) ); // Temporary vector of survey-catch-at-age for matrix multiplication
   for(i=0; i < nspp; i++){
     for(j=0; j < nages(i); j++){
