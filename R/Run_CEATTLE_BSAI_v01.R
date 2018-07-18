@@ -30,13 +30,15 @@ Rceattle <- function( ctlFilename, TMBfilename, dat_dir ){
   print("Step 4: Compile CEATTLE complete")
 
   # Build object
-  Obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map)
-  rep = Obj$report()
-  #Opt = Optimize( Obj )
+  obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map)
+  rep = obj$report()
+  #Opt = Optimize( obj )
   #Opt$opt$diagnostics
 
-  return(rep)
+  mod_objects <- list(data_list = data_list, params = params, map = map, rep = rep, obj = obj)
+  return(mod_objects)
 
 }
 
-rep <- Rceattle( ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_v01", dat_dir =  "data/dat files/" )
+mod_objects <- Rceattle( ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_v01", dat_dir =  "data/dat files/" )
+rep <- mod_objects$rep

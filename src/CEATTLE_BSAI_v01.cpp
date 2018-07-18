@@ -99,7 +99,7 @@ Type objective_function<Type>::operator() (){
   DATA_INTEGER( n_eit);          // Number of years with EIT data; n = [1]
   DATA_IVECTOR( yrs_eit);        // Years for available EIT data; n = [n_eit]
   DATA_VECTOR( eit_age_n);       // Number  of  EIT Hauls for multinomial; n = [yrs_eit]
-  DATA_MATRIX( obs_eit_age);     // Observed EIT age comp; n = [1, nages, nyrs] NOTE: may need to change this for future
+  DATA_MATRIX( obs_eit_age);     // Observed EIT catch-at-age; n = [n_eit, nyrs] 
   DATA_VECTOR( obs_eit);         // Observed EIT survey biomass (kg); n = [1, nyrs]
   DATA_MATRIX( eit_sel);         // Observed EIT survey selectivity; n = [eit_age, nyrs_eit_sel]
 
@@ -187,6 +187,7 @@ Type objective_function<Type>::operator() (){
 
   array<Type>  fsh_age_obs(nyrs, max_bin, nspp);  // Observed fishery age comp; n = [nyrs_fsh_comp, fsh_age_bins, nspp]
   matrix<Type> tc_obs(nspp, nyrs); // Observed total catch (n); n = [nspp, nyrs] NOTE: This may not be necessary if loading data from tmp
+  matrix<Type>  eit_age_comp = obs_eit_age;          // Eit age comp; n = [n_eit, srv_age_bins(0)]
 
   matrix<Type> srv_biom_lse(nspp, nyrs); // Observed annual biomass CV; n = [nspp, nyrs_srv_biom]
   srv_biom_lse = srv_biom_se.array()/ srv_biom.array();          // CV estimation
@@ -198,6 +199,14 @@ Type objective_function<Type>::operator() (){
   for ( i = 0; i < nspp ; i++){
     for( j = 0 ; j < nages(i); j++ ){
       pmature( i, j ) = pmature( i, j ) * propMorF(i + (mf_type(i) - 1), j);
+    }
+  }
+
+    // EIT catch-at-age to age-comp
+  eit_age_comp.setZero();
+  for(y = 0; y < n_eit; y++){
+    for(j = 0; j < srv_age_bins(0); j++){
+      eit_age_comp(y, j) = obs_eit_age(y, j)/ obs_eit_age.row(y).sum(); // Convert from catch-at-age to age comp
     }
   }
 
@@ -244,7 +253,8 @@ Type objective_function<Type>::operator() (){
   vector<Type>  avgsel_srv(nspp); avgsel_srv.setZero();    // Average survey selectivity
 
   // -- 4.2.3. EIT Survey Components
-  matrix<Type>  eit_age_hat(nyrs, srv_age_bins(0));               // Estimated EIT age comp; n = [nyrs, 12 ages]
+  matrix<Type>  eit_age_hat(nyrs, srv_age_bins(0));  // Estimated EIT age comp; n = [nyrs, 12 ages]
+
   vector<Type>  eit_hat(nyrs);                       // Estimated EIT survey biomass (kg); n = [nyrs]
 
   // -- 4.2.4. Estimated population parameters
@@ -489,36 +499,36 @@ Type objective_function<Type>::operator() (){
   // ------------------------------------------------------------------------- //
   // 7. FISHERY COMPONENTS EQUATIONS                                           //
   // ------------------------------------------------------------------------- //
-
-
-  // NOTE: The above may need to be before the population dynamics
-
-
   // 7.5. ESTIMATE CATCH-AT-AGE and TOTAL YIELD (kg)
   int fsh_yr_ind;
-  tc_hat.setZero();
   tc_biom_hat.setZero(); // Initialize tc_biom_hat
   for(i=0; i < nspp; i++){
     for(j=0; j < nages(i); j++){
       for(y=0; y < nyrs_tc_biom(i); y++){
-
         fsh_yr_ind = yrs_tc_biom(i, y) - styr; // Temporary index for years of data
-
-        catch_hat(y, j, i) = F(fsh_yr_ind, j, i)/Zed(fsh_yr_ind, j, i) * (1 - exp(-Zed(fsh_yr_ind, j, i))) * NByage(fsh_yr_ind, j, i); // 5.4.
-        tc_hat(i, y) += catch_hat(y, j, i); // Estimate catch in numbers
-        tc_biom_hat(i, y) += catch_hat(y, j, i) * wt(y, j, i); // 5.5.
+        tc_biom_hat(i, y) += F(fsh_yr_ind, j, i)/Zed(fsh_yr_ind, j, i) * (1 - exp(-Zed(fsh_yr_ind, j, i))) * NByage(fsh_yr_ind, j, i) * wt(y, j, i); // 5.5.
       }
     }
   }
 
 
   // 7.6. ESTIMATE FISHERY AGE COMPOSITION
+tc_hat.setZero();
+  // 7.6.1. Get catch-at-age
+  for(i=0; i < nspp; i++){
+    for(j=0; j < nages(i); j++){
+      for(y=0; y < nyrs_tc_biom(i); y++){
+        fsh_yr_ind = yrs_tc_biom(i, y) - styr; // Temporary index for years of data
+        catch_hat(y, j, i) = F(fsh_yr_ind, j, i)/Zed(fsh_yr_ind, j, i) * (1 - exp(-Zed(fsh_yr_ind, j, i))) * NByage(fsh_yr_ind, j, i); // 5.4.
+        tc_hat(i, y) += catch_hat(y, j, i); // Estimate catch in numbers
+      }
+    }
+  }
+
+// 7.6.2 Convert catch-at-age to age-comp
   vector<Type> fsh_age_tmp( imax(nages)); // Temporary vector of survey-catch-at-age for matrix multiplication
   for(i=0; i < nspp; i++){
-    for (y=0; y < nyrs_fsh_comp(i); y++){
-
-      fsh_yr_ind = yrs_fsh_comp(i, y) - styr; // Temporary index for years of data
-
+    for (y=0; y < nyrs; y++){
       /// 7.7.2.1 -- Estimate age composition of the fishery
       if(fsh_age_type(i)==1){
         for(j=0; j < nages(i); j++){
@@ -605,8 +615,7 @@ Type objective_function<Type>::operator() (){
   // 8.1.3. -- Offsets for acoustic survey
   for(y = 0; y < n_eit; y++){
     for(j = 0; j < srv_age_bins(0); j++){
-      obs_eit_age(y, j) = obs_eit_age.row(y).sum(); // Convert from catch-at-age to age comp
-      offset_eit -= eit_age_n(y) * (obs_eit_age(y, j) + MNConst) * log(obs_eit_age(y, j) + MNConst );
+      offset_eit -= eit_age_n(y) * (eit_age_comp(y, j) + MNConst) * log(eit_age_comp(y, j) + MNConst );
     }
   }
 
@@ -643,17 +652,16 @@ Type objective_function<Type>::operator() (){
   for(j=0; j < nages(0); j++){
     for (y=0; y < n_eit; y++){
       // eit_yr_ind = yrs_eit(y) - styr;
-      jnll_comp(3, 0) -= eit_age_n(y) *  (obs_eit_age(y, j) + MNConst) * log(eit_age_hat(y, j) + MNConst);
+      jnll_comp(3, 0) -= eit_age_n(y) *  (eit_age_comp(y, j) + MNConst) * log(eit_age_hat(y, j) + MNConst);
     }
   }
   jnll_comp(3, 0) -= offset_eit;
-
 
   // Slot 4 -- Total catch -- Fishery observer data
   for(i=0; i < nspp; i++){
     for (y=0; y < nyrs_tc_biom(i); y++){
       fsh_yr_ind = yrs_tc_biom(i, y) - styr;
-      jnll_comp(4,i) += pow((log(tc_biom_hat(i, y) + Type(1.e-4)) - log(tcb_obs(i, y) + Type(1.e-4))), 2) / (2 * pow(sigma_catch, 2)); // T.4.5
+      jnll_comp(4,i) += pow((log(tcb_obs(i, y) + Type(1.e-4)) - log(tc_biom_hat(i, y) + Type(1.e-4))), 2) / (2 * pow(sigma_catch, 2)); // T.4.5
     }
   }
 
@@ -663,8 +671,7 @@ Type objective_function<Type>::operator() (){
     for(j=0; j < nages(i); j++){
       for (y=0; y < nyrs_fsh_comp(i); y++){
         fsh_yr_ind = yrs_fsh_comp(i, y) - styr; // Temporary index for years of data
-        // int yr_ind  = yrs_fsh_comp(i, y) - styr;
-        jnll_comp(5, i) -= tau * (fsh_age_obs(y, j, i) + MNConst) * log(fsh_age_hat(y, j, i) + MNConst );
+        jnll_comp(5, i) -= tau * (fsh_age_obs(y, j, i) + MNConst) * log(fsh_age_hat(fsh_yr_ind, j, i) + MNConst );
       }
     }
     jnll_comp(5, i) -= offset_fsh(i);
@@ -692,13 +699,14 @@ Type objective_function<Type>::operator() (){
   }
 
 
-  // Slot 7 -- Fishery selectivity normalization
+  // Slot 6 -- Add fishery selectivity normalization
   for(i=0; i < nspp; i++){
     jnll_comp(7, i) += 50 * pow(avgsel_fsh(i), 2);
   }
 
 
-  // Slot 8 -- Survey selectivity
+
+  // Slot 7 -- Survey selectivity
   for(i=0; i < nspp; i++){
     if (logist_sel_phase(i) < 0){
       // Extract only the selectivities we want
@@ -714,7 +722,7 @@ Type objective_function<Type>::operator() (){
   }
 
 
-  // Slot 9 -- Survey selectivity normalization
+  // Slot 7 -- Add survey selectivity normalization
   for(i=0; i < nspp; i++){
     jnll_comp(9, i) += 50 * pow(avgsel_srv(i), 2);
   }
@@ -722,15 +730,15 @@ Type objective_function<Type>::operator() (){
 
   // Slots 10-12 -- PRIORS: PUT RANDOM EFFECTS SWITCH HERE
   for(i=0; i < nspp; i++){
-    // Slot 9 -- init_dev -- Initial abundance-at-age
+    // Slot 10 -- init_dev -- Initial abundance-at-age
     for(j=1; j < nages(i); j++){
-      jnll_comp(11, i) += pow( init_dev(i,j-1), 2);
+      jnll_comp(10, i) += pow( init_dev(i,j-1), 2);
     }
 
-    // Slot 8 -- Tau -- Annual recruitment deviation
-    // Slot 10 -- Epsilon -- Annual fishing mortality deviation
+    // Slot 11 -- Tau -- Annual recruitment deviation
+    // Slot 12 -- Epsilon -- Annual fishing mortality deviation
     for (y=0; y < nyrs; y++){
-      jnll_comp(10, i) += pow( rec_dev(i,y), 2);     // Recruitment deviation using penalized likelihood.
+      jnll_comp(11, i) += pow( rec_dev(i,y), 2);     // Recruitment deviation using penalized likelihood.
       jnll_comp(12, i) += pow( F_dev(i,y), 2);       // Fishing mortality deviation using penalized likelihood.
     }
   }
@@ -753,6 +761,8 @@ Type objective_function<Type>::operator() (){
   REPORT( fsh_sel );
   REPORT( eit_hat );
   REPORT( eit_age_hat );
+  REPORT( obs_eit_age );
+  REPORT( eit_age_comp );
   REPORT( NByage );
   REPORT( S );
   REPORT( biomassByage );
