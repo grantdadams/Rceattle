@@ -54,5 +54,5 @@ compare_output <- function( tmb = rep, admb = tmp, cut_off = 0.001){
 }
 
 
-res <- compare_output(rep, admb)
+res <- compare_output(rep, tmp)
 res[[2]]

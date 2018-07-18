@@ -7,7 +7,8 @@ build_params <-
            nselages = 8,
            incl_prev = T,
            Rdata_file,
-           std_file) {
+           std_file,
+           TMBfilename) {
     data_list$nselages <- nselages
 
     #---------------------------------------------------------------------

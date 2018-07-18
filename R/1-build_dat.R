@@ -1,4 +1,4 @@
-build_dat <- function(ctlFilename, TMBfilename, dat_dir) {
+build_dat <- function(ctlFilename = ctlFilename, TMBfilename = TMBfilename, dat_dir = dat_dir, nspp = 3) {
 
   #---------------------------------------------------------------------
   # Step 1 -- Extract data names used in TMB
@@ -67,7 +67,7 @@ build_dat <- function(ctlFilename, TMBfilename, dat_dir) {
   source("R/Support Functions/readdat_fun.R")
   dat_list <- list()
   for (i in 1:nrow(dat_loc)) {
-    dat_list[[i]] <- readdat(paste(dat_dir, dat_loc[i, 2], sep = ""), as.character(dat_loc[i, 1]), nspp = 3)
+    dat_list[[i]] <- readdat(paste(dat_dir, dat_loc[i, 2], sep = ""), as.character(dat_loc[i, 1]), nspp = nspp)
     names(dat_list)[i] <- as.character(dat_loc[i, 1])
   }
 
@@ -83,7 +83,6 @@ build_dat <- function(ctlFilename, TMBfilename, dat_dir) {
 
 
   print(paste("The following items are not included:,", paste(dat_names[(!(dat_names %in% names(dat_list)))], collapse = ", "), sep = " "))
-
 
   #---------------------------------------------------------------------
   # Steo 5 -- Model configuration
