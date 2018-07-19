@@ -93,7 +93,7 @@ compare_output <- function( rep = rep, tmp = tmp, cut_off = 0.01){
 
 # Note: TC-Hat and Fsh_age_hat will be off, but like is good
 res <- compare_output(rep, tmp)
-res[[1]]$fsh_age_hat[,,1]
+res[[3]]
 
 rep$jnll
 tmp$obj_fun

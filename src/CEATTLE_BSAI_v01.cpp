@@ -780,6 +780,8 @@ tc_hat.setZero();
   REPORT( fsh_age_hat );
   REPORT( Zed );
   REPORT( srv_age_obs );
+  REPORT( offset_srv );
+  REPORT( offset_fsh );
 
   // ------------------------------------------------------------------------- //
   // END MODEL                                                                 //
