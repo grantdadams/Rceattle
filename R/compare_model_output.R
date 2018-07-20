@@ -87,7 +87,7 @@ compare_output <- function( rep = rep, tmp = tmp, cut_off = 0.01){
   tmb_like$names <- like_names
   admb_like$names <- like_names
 
-  return(list(param_check, check_summary, like_check))
+  return(list(param_check, check_summary, like_check, tmb_like, admb_like))
 }
 
 

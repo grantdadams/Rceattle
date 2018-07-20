@@ -99,7 +99,7 @@ Type objective_function<Type>::operator() (){
   DATA_INTEGER( n_eit);          // Number of years with EIT data; n = [1]
   DATA_IVECTOR( yrs_eit);        // Years for available EIT data; n = [n_eit]
   DATA_VECTOR( eit_age_n);       // Number  of  EIT Hauls for multinomial; n = [yrs_eit]
-  DATA_MATRIX( obs_eit_age);     // Observed EIT catch-at-age; n = [n_eit, nyrs] 
+  DATA_MATRIX( obs_eit_age);     // Observed EIT catch-at-age; n = [n_eit, nyrs]
   DATA_VECTOR( obs_eit);         // Observed EIT survey biomass (kg); n = [1, nyrs]
   DATA_MATRIX( eit_sel);         // Observed EIT survey selectivity; n = [eit_age, nyrs_eit_sel]
 
@@ -202,13 +202,26 @@ Type objective_function<Type>::operator() (){
     }
   }
 
-    // EIT catch-at-age to age-comp
+  // EIT catch-at-age to age-comp
   eit_age_comp.setZero();
   for(y = 0; y < n_eit; y++){
     for(j = 0; j < srv_age_bins(0); j++){
       eit_age_comp(y, j) = obs_eit_age(y, j)/ obs_eit_age.row(y).sum(); // Convert from catch-at-age to age comp
     }
   }
+
+  // Fishery catch-at-age to age-comp
+  for(i=0; i < nspp; i++){
+    for(y = 0; y < nyrs_fsh_comp(i); y++){
+      for(j=0; j < fsh_age_bins(i); j++){
+        tc_obs(i, y) += obs_catch(y, j, i);
+      }
+      for(j=0; j < fsh_age_bins(i); j++){
+        fsh_age_obs(y, j, i) = obs_catch(y, j, i)/(tc_obs(i, y) + 0.01); // Calculate age comp
+      }
+    }
+  }
+
 
 
   // ------------------------------------------------------------------------- //
@@ -457,7 +470,7 @@ Type objective_function<Type>::operator() (){
   }
 
   // -- 6.4.2 BT Survey Age Composition: NOTE: will have to alter if age comp data are not the same length as survey biomass data
-    srv_age_hat.setZero();
+  srv_age_hat.setZero();
   srv_hat.setZero();
   vector<Type> srv_age_tmp( imax(nages) ); // Temporary vector of survey-catch-at-age for matrix multiplication
   for(i=0; i < nspp; i++){
@@ -513,7 +526,7 @@ Type objective_function<Type>::operator() (){
 
 
   // 7.6. ESTIMATE FISHERY AGE COMPOSITION
-tc_hat.setZero();
+  tc_hat.setZero();
   // 7.6.1. Get catch-at-age
   for(i=0; i < nspp; i++){
     for(j=0; j < nages(i); j++){
@@ -525,7 +538,7 @@ tc_hat.setZero();
     }
   }
 
-// 7.6.2 Convert catch-at-age to age-comp
+  // 7.6.2 Convert catch-at-age to age-comp
   vector<Type> fsh_age_tmp( imax(nages)); // Temporary vector of survey-catch-at-age for matrix multiplication
   for(i=0; i < nspp; i++){
     for (y=0; y < nyrs; y++){
@@ -592,10 +605,6 @@ tc_hat.setZero();
   for(i=0; i < nspp; i++){
     for(y = 0; y < nyrs_fsh_comp(i); y++){
       for(j=0; j < fsh_age_bins(i); j++){
-        tc_obs(i, y) += obs_catch(y, j, i);
-      }
-      for(j=0; j < fsh_age_bins(i); j++){
-        fsh_age_obs(y, j, i) = obs_catch(y, j, i)/(tc_obs(i, y) + 0.01); // Calculate age comp
         offset_fsh( i ) -= tau * (fsh_age_obs(y, j, i) + MNConst) * log(fsh_age_obs(y, j, i) + MNConst);
       }
     }
@@ -632,13 +641,15 @@ tc_hat.setZero();
 
   // Slot 1 -- BT survey age composition -- NFMS annual BT survey
   for(i=0; i < nspp; i++){
-    for(j=0; j < nages(i); j++){
-      for (y=0; y < nyrs_srv_age(i); y++){
+
+    for (y=0; y < nyrs_srv_age(i); y++){
+      for(j=0; j < nages(i); j++){
         // srv_yr_ind = yrs_srv_age(i, y) - styr;
         jnll_comp(1, i) -= srv_age_n(i, y) * (srv_age_obs(y, j, i) + MNConst) * log(srv_age_hat(y, j, i) + MNConst); // Should srv_age_obs  be in log space?
       }
+      jnll_comp(1, i) -= offset_srv(i);
     }
-    jnll_comp(1, i) -= offset_srv(i);
+
   }
 
 
@@ -649,13 +660,15 @@ tc_hat.setZero();
 
 
   // Slot 3 -- EIT age composition -- Pollock acoustic trawl survey
-  for(j=0; j < nages(0); j++){
-    for (y=0; y < n_eit; y++){
+
+  for (y=0; y < n_eit; y++){
+    for(j=0; j < nages(0); j++){
       // eit_yr_ind = yrs_eit(y) - styr;
       jnll_comp(3, 0) -= eit_age_n(y) *  (eit_age_comp(y, j) + MNConst) * log(eit_age_hat(y, j) + MNConst);
     }
+    jnll_comp(3, 0) -= offset_eit;
   }
-  jnll_comp(3, 0) -= offset_eit;
+
 
   // Slot 4 -- Total catch -- Fishery observer data
   for(i=0; i < nspp; i++){
@@ -668,13 +681,13 @@ tc_hat.setZero();
 
   // Slot 5 -- Fishery age composition -- Fishery observer data
   for(i=0; i < nspp; i++){
-    for(j=0; j < nages(i); j++){
-      for (y=0; y < nyrs_fsh_comp(i); y++){
+    for (y=0; y < nyrs_fsh_comp(i); y++){
+      for(j=0; j < fsh_age_bins(i); j++){
         fsh_yr_ind = yrs_fsh_comp(i, y) - styr; // Temporary index for years of data
         jnll_comp(5, i) -= tau * (fsh_age_obs(y, j, i) + MNConst) * log(fsh_age_hat(fsh_yr_ind, j, i) + MNConst );
       }
+      jnll_comp(5, i) -= offset_fsh(i);
     }
-    jnll_comp(5, i) -= offset_fsh(i);
   }
 
 

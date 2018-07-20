@@ -42,3 +42,4 @@ Rceattle <- function( ctlFilename, TMBfilename, dat_dir ){
 
 mod_objects <- Rceattle( ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI_v01", dat_dir =  "data/dat files/" )
 rep <- mod_objects$rep
+data_list <- mod_objects$data_list
