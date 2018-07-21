@@ -185,8 +185,8 @@ Type objective_function<Type>::operator() (){
   int max_age = imax(nages);    // Integer of maximum nages to make the arrays.
   int max_bin = imax(srv_age_bins); // Integer of maximum number of length/age bins.
 
-  array<Type>  fsh_age_obs(nyrs, max_bin, nspp);  // Observed fishery age comp; n = [nyrs_fsh_comp, fsh_age_bins, nspp]
-  matrix<Type> tc_obs(nspp, nyrs); // Observed total catch (n); n = [nspp, nyrs] NOTE: This may not be necessary if loading data from tmp
+  array<Type>  fsh_age_obs(nyrs, max_bin, nspp);     // Observed fishery age comp; n = [nyrs_fsh_comp, fsh_age_bins, nspp]
+  matrix<Type> tc_obs(nspp, nyrs); tc_obs.setZero(); // Set total catch to 0 to initialize // Observed total catch (n); n = [nspp, nyrs] NOTE: This may not be necessary if loading data from tmp
   matrix<Type>  eit_age_comp = obs_eit_age;          // Eit age comp; n = [n_eit, srv_age_bins(0)]
 
   matrix<Type> srv_biom_lse(nspp, nyrs); // Observed annual biomass CV; n = [nspp, nyrs_srv_biom]
@@ -449,9 +449,10 @@ Type objective_function<Type>::operator() (){
 
 
   // -- 6.2.2 EIT Survey Age Composition
+  matrix<Type> eit_age_comp_hat = eit_age_hat; eit_age_comp_hat.setZero();
   for(j=0; j < nages(0); j++){
     for (y=0; y < n_eit; y++){
-      eit_age_hat(y, j) = eit_age_hat(y, j) / eit_age_hat.row(y).sum(); // Divide numbers at age by total numbers for each year
+      eit_age_comp_hat(y, j) = eit_age_hat(y, j) / eit_age_hat.row(y).sum(); // Divide numbers at age by total numbers for each year
     }
   }
 
@@ -598,7 +599,6 @@ Type objective_function<Type>::operator() (){
   vector<Type> offset_srv(nspp); offset_srv.setZero(); // Offset for multinomial likelihood
   vector<Type> offset_fsh(nspp); offset_srv.setZero(); // Offset for multinomial likelihood
   Type offset_eit = 0; // Offset for multinomial likelihood
-  tc_obs.setZero(); // Set total catch to 0 to initialize
 
 
   // 8.1.1. -- Fishery age comp offsets
@@ -623,7 +623,7 @@ Type objective_function<Type>::operator() (){
 
   // 8.1.3. -- Offsets for acoustic survey
   for(y = 0; y < n_eit; y++){
-    for(j = 0; j < srv_age_bins(0); j++){
+    for(j = 0; j < nages(0); j++){
       offset_eit -= eit_age_n(y) * (eit_age_comp(y, j) + MNConst) * log(eit_age_comp(y, j) + MNConst );
     }
   }
@@ -641,15 +641,13 @@ Type objective_function<Type>::operator() (){
 
   // Slot 1 -- BT survey age composition -- NFMS annual BT survey
   for(i=0; i < nspp; i++){
-
     for (y=0; y < nyrs_srv_age(i); y++){
-      for(j=0; j < nages(i); j++){
+      for(j=0; j < srv_age_bins(i); j++){
         // srv_yr_ind = yrs_srv_age(i, y) - styr;
         jnll_comp(1, i) -= srv_age_n(i, y) * (srv_age_obs(y, j, i) + MNConst) * log(srv_age_hat(y, j, i) + MNConst); // Should srv_age_obs  be in log space?
       }
-      jnll_comp(1, i) -= offset_srv(i);
     }
-
+    jnll_comp(1, i) -= offset_srv(i);
   }
 
 
@@ -660,14 +658,13 @@ Type objective_function<Type>::operator() (){
 
 
   // Slot 3 -- EIT age composition -- Pollock acoustic trawl survey
-
   for (y=0; y < n_eit; y++){
     for(j=0; j < nages(0); j++){
       // eit_yr_ind = yrs_eit(y) - styr;
-      jnll_comp(3, 0) -= eit_age_n(y) *  (eit_age_comp(y, j) + MNConst) * log(eit_age_hat(y, j) + MNConst);
+      jnll_comp(3, 0) -= eit_age_n(y) *  (eit_age_comp(y, j) + MNConst) * log(eit_age_comp_hat(y, j) + MNConst);
     }
-    jnll_comp(3, 0) -= offset_eit;
   }
+      jnll_comp(3, 0) -= offset_eit;
 
 
   // Slot 4 -- Total catch -- Fishery observer data
@@ -700,6 +697,7 @@ Type objective_function<Type>::operator() (){
     }
 
     // Extract only the selectivities we want
+    if(logist_sel_phase( i ) < 0){
     vector<Type> sel_tmp(nages(i));
     for(j=0; j < nages(i); j++){
       sel_tmp(j) = log(fsh_sel(i, j));
@@ -710,6 +708,7 @@ Type objective_function<Type>::operator() (){
       jnll_comp(6, i) += curv_pen_fsh * pow( sel_tmp(j) , 2); // FIX
     }
   }
+}
 
 
   // Slot 6 -- Add fishery selectivity normalization
@@ -774,6 +773,7 @@ Type objective_function<Type>::operator() (){
   REPORT( fsh_sel );
   REPORT( eit_hat );
   REPORT( eit_age_hat );
+  REPORT( eit_age_comp_hat )
   REPORT( obs_eit_age );
   REPORT( eit_age_comp );
   REPORT( NByage );
@@ -795,6 +795,7 @@ Type objective_function<Type>::operator() (){
   REPORT( srv_age_obs );
   REPORT( offset_srv );
   REPORT( offset_fsh );
+  REPORT( offset_eit );
 
   // ------------------------------------------------------------------------- //
   // END MODEL                                                                 //

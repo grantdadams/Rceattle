@@ -25,14 +25,18 @@ Rceattle <- function( ctlFilename, TMBfilename, dat_dir ){
   library(TMBhelper)
   library(TMB)
   version <- "CEATTLE_BSAI_v01"
-  compile(paste0("src/", version, ".cpp"))
-  dyn.load(dynlib(paste0("src/", version)))
+  setwd("src")
+  compile(paste0(version, ".cpp"))
+  dyn.load(dynlib(paste0(version)))
+  setwd("..")
   print("Step 4: Compile CEATTLE complete")
 
   # Build object
   obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map)
   rep = obj$report()
-  #Opt = Optimize( obj )
+  # Opt = Optimize( obj )
+
+
   #Opt$opt$diagnostics
 
   mod_objects <- list(data_list = data_list, params = params, map = map, rep = rep, obj = obj)

@@ -32,6 +32,7 @@ compare_output <- function( rep = rep, tmp = tmp, cut_off = 0.01){
       }
     }
   }
+
   # EIT age hat
   param <- "eit_age_comp"
   admb_param <- "obs_eit_age"
@@ -93,7 +94,11 @@ compare_output <- function( rep = rep, tmp = tmp, cut_off = 0.01){
 
 # Note: TC-Hat and Fsh_age_hat will be off, but like is good
 res <- compare_output(rep, tmp)
+
 res[[3]]
+res[[4]]
+res[[5]]
+
 
 rep$jnll
 tmp$obj_fun
