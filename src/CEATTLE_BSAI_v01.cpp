@@ -692,12 +692,11 @@ Type objective_function<Type>::operator() (){
   for(i=0; i < nspp; i++){
     for(j=0; j < (nages(i) - 1); j++){
       if( fsh_sel(i, j) > fsh_sel( i, j + 1 )){
-        jnll_comp(6, i) -= 20 * pow( log( fsh_sel(i, j) / fsh_sel(i, j + 1 ) ), 2);
+        jnll_comp(6, i) += 20 * pow( log( fsh_sel(i, j) / fsh_sel(i, j + 1 ) ), 2);
       }
     }
 
     // Extract only the selectivities we want
-    if(logist_sel_phase( i ) < 0){
     vector<Type> sel_tmp(nages(i));
     for(j=0; j < nages(i); j++){
       sel_tmp(j) = log(fsh_sel(i, j));
@@ -706,7 +705,7 @@ Type objective_function<Type>::operator() (){
     for(j=0; j < nages(i) - 2; j++){
       sel_tmp(j) = first_difference( first_difference( sel_tmp ) )(j);
       jnll_comp(6, i) += curv_pen_fsh * pow( sel_tmp(j) , 2); // FIX
-    }
+    
   }
 }
 
@@ -803,5 +802,6 @@ Type objective_function<Type>::operator() (){
   jnll = jnll_comp.sum();
   REPORT( jnll );
   REPORT( jnll_comp );
+
   return jnll;
 }

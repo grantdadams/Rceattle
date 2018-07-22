@@ -74,7 +74,7 @@
 #fday	:	number	of	foraging	days	for	each	spp	of	pred	(pyr	is	fday	*	pvalue,	weighted	by	area	Biom)																			
 #365	237	365																																				
 1	1	1																																				
-#nlengths	:	number	of	Length	for	the	matrix	to	convert	ages	to	lenghths																										
+#nlengths	:	number	of	Length	for	the	matrix	to	convert	ages	to	lengths																										
 24	24	25																																				
 #lengths	:	Length	for	the	matrix	to	convert	ages	to	lenghths																												
 1	6	11	16	21	26	31	36	41	46	51	56	61	66	71	76	81	86	91	96	101	106	111	116															
