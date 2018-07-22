@@ -2,7 +2,7 @@
 #File
 ceattle
 #datafile_name
-dat_input_files/01_assesment_2017/test_2Jim.dat
+dat_input_files/01_assesment_2017/2017_asmt_corrected0.dat
 #dietfile_name
 #dat_input_files/diet.dat
 #diet2file_name 
@@ -18,13 +18,13 @@ fits_4_CEATTLE/rs_data4CEATTLE_full_avg.dat
 #retrofile_name
 dat_input_files/01_assesment_2017/retro_data2017_asssmnt.dat
 #futfile_name
-dat_input_files/01_assesment_2017/projection_data2017_asssmnt.dat
+dat_input_files/01_assesment_2017/projection_data2017_asssmntv2.dat
 #catch_in_name
 dat_input_files/01_assesment_2017/catch_in.dat
 #setC_name 
 dat_input_files/01_assesment_2017/set_catch.dat
 #setF_name 
-dat_input_files/01_assesment_2017/set_FabcFofl_0.dat
+dat_input_files/01_assesment_2017/setF40_datfiles/F40In_2_1_9.dat
 #END filenames (don't alter this line, needed for FIT_recruitment.R)
 #================================================================================ 
 #================================================================================ 
@@ -52,9 +52,9 @@ dat_input_files/01_assesment_2017/set_FabcFofl_0.dat
 #4= fit to NewCatch.dat
 #5= project under radnom seeded fishing rate  from  hindcast
 #ntemp_scen  : number  of  future  simulations
-1
+3
 #simset : set of  future  iterations  to  run                                   
-1 # 2 3 4 5 6 7 8 9 10 11 12
+1 2 3 # 4 5 6 7 8 9 10 11 12
 #alpha_ABC: ADDED F40 alpha - min biomass alpha
 0.05
 #alpha_OFL: ADDED F35 alpha - min biomass alpha
@@ -66,16 +66,18 @@ dat_input_files/01_assesment_2017/set_FabcFofl_0.dat
 #ncr_scen : number  of  control rule  Scenarios                                     
 1
 #c_mult : control rule  scenarios    
-1 1 #Individual stocks  fished  to  B40% where B0 is set to the B0 from no climate (using B0_set in .ctl file)                                    
+1 7 #Individual stocks  fished  to  B40%; pcod & plk,  then  atf, no  B0(spp) <.35  BO(spp)
+#1 5 #Individual stocks  fished  to  B40%; pcod  and plk,  then  atf
+#1 1 #Individual stocks  fished  to  B40% where B0 is set to the B0 from no climate (using B0_set in .ctl file)                                    
 #1 1 #Individual stocks  fished  to  B40%;
 #1 2 #Individual stocks  fished  to  B40%; constrained such  that  no  B0(spp) <.35  B0(spp)
 #1 22 #Individual stocks  fished  to  B40%; constrained such  that  no  B0(spp) <.35  B0(spp); given 2 mT cap & ATF ~ mean F (i.e., plk C<=1.35 mT, and pcod=0.95*ABC) 
 #1 3 #Individual stocks  fished  to  B40%; pcod  and atf,  then  plk
 #1 4 #Individual stocks  fished  to  B40%; pcod, then  atf,  then  plk
 #1 5 #Individual stocks  fished  to  B40%; pcod  and plk,  then  atf
-#1 6 # To ADD: Individual stocks  fished  to  B40%; given 2 mT cap & ATF ~ mean F (i.e., plk C<=1.35 mT, and pcod=0.95*ABC) 
-#1 7 # To ADD: Individual stocks  fished  to  B40%; given 2 mT cap (i.e., plk C<=1.35 mT, and pcod=0.95*ABC) 
-#1 8 # To ADD: Individual stocks  fished  to  B40%; ATF ~ mean F
+# # To ADD: Individual stocks  fished  to  B40%; given 2 mT cap & ATF ~ mean F (i.e., plk C<=1.35 mT, and pcod=0.95*ABC) 
+# # To ADD: Individual stocks  fished  to  B40%; given 2 mT cap (i.e., plk C<=1.35 mT, and pcod=0.95*ABC) 
+# # To ADD: Individual stocks  fished  to  B40%; ATF ~ mean F
 #4 3  # MSY with min B35%
 #5 3  # MEY with min B35%
 #2 1 #calculated project using YPR method
@@ -102,12 +104,13 @@ dat_input_files/01_assesment_2017/set_FabcFofl_0.dat
 #RationByAge  : 1 = calculate ration  based mean  length  at  age,  0 = calculate ration  and foraging  based on  lengths,  convert to  ages      
 1
 #Btarget  : target  spawning  biomass for control rules (ie 0.35  such  that  B/B0  =.35)
-0.4 
+0.4
 #B0_set: ADDED target  spawning  biomass for control rules (ie 0.35  such  that  B/B0  =.35)
-# single spp B0 based on CR 1.1 and no climate 
-5386284.5  447268.5  493190.2
+#old 5341307.0  411917.0  452192.9
+5341307.0  371995.0  452192.9
 # multispp B0 based on CR 1.1 
-#3812316.4  398083.9  460652.7
+#old 3794987.0  383228.0  429160.9
+#4010943.0  347605.6  418551.9
 #repn2: number  of  reps  to  find  M2                                      
 30  
 #rep_in:  number  of  reps  for starting  up  from  a #NAME?  command line (should be 5 or more in MSM mode)

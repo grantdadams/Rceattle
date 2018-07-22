@@ -27,8 +27,8 @@ compare_output <- function( rep = rep, tmp = tmp, cut_off = 0.01){
       for(i in 1:dim(tmb_params)[3]){
 
         admb_params <- tmp[[paste(param, i, sep = "_")]]
-        diff <- abs((tmb_params[1:nrow(admb_params), 1:ncol(admb_params), i] - admb_params) / admb_params) < cut_off
-        param_check[[param]][1:nrow(admb_params), 1:ncol(admb_params), i] <- replace( param_check[[param]][1:nrow(admb_params), 1:ncol(admb_params), i], values = diff)
+        diff <- abs((tmb_params[1:min(nrow(tmb_params[,,i]) , nrow(admb_params)), 1:min(ncol(tmb_params[,,i]) , ncol(admb_params)), i] - admb_params[1:min(nrow(tmb_params[,,i]) , nrow(admb_params)), 1:min(ncol(tmb_params[,,i]) , ncol(admb_params))]) / admb_params[1:min(nrow(tmb_params[,,i]) , nrow(admb_params)), 1:min(ncol(tmb_params[,,i]) , ncol(admb_params))]) < cut_off
+        param_check[[param]][1:min(nrow(tmb_params[,,i]) , nrow(admb_params)), 1:min(ncol(tmb_params[,,i]) , ncol(admb_params)), i] <- replace( param_check[[param]][1:min(nrow(tmb_params[,,i]) , nrow(admb_params)), 1:min(ncol(tmb_params[,,i]) , ncol(admb_params)), i], values = diff)
       }
     }
   }
@@ -95,10 +95,12 @@ compare_output <- function( rep = rep, tmp = tmp, cut_off = 0.01){
 # Note: TC-Hat and Fsh_age_hat will be off, but like is good
 res <- compare_output(rep, tmp)
 
+res[[2]]
 res[[3]]
 res[[4]]
 res[[5]]
 
 
+opt$objective
 rep$jnll
 tmp$obj_fun
