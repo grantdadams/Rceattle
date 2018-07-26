@@ -24,7 +24,7 @@ Rceattle <- function( ctlFilename, TMBfilename, dat_dir ){
   # Compile CEATTLE
   library(TMBhelper)
   library(TMB)
-  version <- "CEATTLE_BSAI_v01"
+  version <- TMBfilename
   setwd("src")
   compile(paste0(version, ".cpp"))
   dyn.load(dynlib(paste0(version)))
@@ -46,7 +46,7 @@ Rceattle <- function( ctlFilename, TMBfilename, dat_dir ){
   return(mod_objects)
 }
 
-mod_objects <- Rceattle( ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "CEATTLE_BSAI_v01", dat_dir =  "data/dat files/" )
+mod_objects <- Rceattle( ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "CEATTLE_BSAI_v01_1_0", dat_dir =  "data/dat files/" )
 rep <- mod_objects$rep
 data_list <- mod_objects$data_list
 params <- mod_objects$params
