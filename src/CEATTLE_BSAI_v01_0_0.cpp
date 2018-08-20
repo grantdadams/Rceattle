@@ -45,7 +45,7 @@ Type objective_function<Type>::operator() (){
 
   // 1.4. MODEL OBJECTS
   // 1.4.1. LOOPING INDICES -- k = observation, i = species/prey, j = age/prey age (yr), y = year, p = predator, a = predator age (yr)
-  int  i, j, y; //, k, p, a;
+  int  i, j, y, k, p, a;
 
   // ------------------------------------------------------------------------- //
   // 2. MODEL INPUTS                                                           //
@@ -273,6 +273,7 @@ Type objective_function<Type>::operator() (){
   // -- 4.2.4. Estimated population parameters
   matrix<Type>  R(nspp, nyrs);                        // Estimated recruitment (n); n = [nspp, nyrs]
   array<Type>   NByage(nyrs, max_age, nspp);          // Numbers at age; n = [nspp, nages, nyrs]
+  array<Type>   AvgN(nyrs, max_age, nspp);            // Average numbers-at-age; n = [nspp, nages, nyrs]
   array<Type>   biomassByage(nyrs, max_age, nspp);    // Estimated biomass-at-age (kg); n = [nspp, nages, nyrs]
   matrix<Type>  biomass(nspp, nyrs);                  // Estimated biomass (kg); n = [nspp, nyrs]
   matrix<Type>  biomassSSB(nspp, nyrs);               // Estimated spawning stock biomass (kg); n = [nspp, nyrs]
@@ -333,7 +334,7 @@ Type objective_function<Type>::operator() (){
     for(j=0; j < nages(i); j++){
       for(y=0; y < nyrs; y++){
         Zed(y, j, i) = M1(i, j) + F(y, j, i);
-        S(y, j, i) = exp(-Zed(y, j, i));
+        S(y, j, i) = exp(-Zed(y, j, i)); 
       }
     }
   }
@@ -391,6 +392,15 @@ Type objective_function<Type>::operator() (){
       }
     }
   }
+
+  // 5.4. ESTIMATE AVERAGE NUMBERS AT AGE
+  for(i = 0; i < nspp; i++){
+    for(j = 0; j < nages(i); j++){
+      for(y = 0; y < nyrs; y++){
+          AvgN(y, j, i) = NByage(y, j, i) * (1 - S(y, j, i)) / Zed(y, j, i);
+        }
+      }
+    }
 
 
   // ------------------------------------------------------------------------- //
