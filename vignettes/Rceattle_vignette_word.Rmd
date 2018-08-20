@@ -1,0 +1,305 @@
+---
+title: "Untitled"
+author: "Grant Adams"
+date: "8/2/2018"
+output: word_document
+vignette: >
+  %\VignetteIndexEntry{CEATTLE Walkthrough}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+bibliography: ceattle_bibliography.bib
+csl: https://raw.githubusercontent.com/citation-style-language/styles/master/dependent/fisheries-research.csl
+---
+
+CEATTLE is short for Climate-Enhanced, Age-based model with Temperature-specific Trophic Linkages and Energetics, which is a multi-species age-structured assessment model developed for groundfish in the Bering Sea, USA by Holsman et al. [-@Holsman2015]. To incorporate the impacts of climate, the model includes temperature-dependent von Bertalanffy weight-at-age functions (VBGF) and temperature-specific, bioenergetics-based predation interactions. Inputs of the model include U.S. National Marine Fisheries Service Alaska Fisheries Science Center (AFSC) survey and fishery data. Outputs include historical estimates of predation mortality, fishing mortality, biomass, recruitment, etc.
+
+`Rceattle` is an `R` package designed to implement the CEATTLE model using Template Model Builder (`TMB`; @Kristensen2015). Rceattle is structured similar to the original manuscript in terms of modularization. Seperate functions (i.e. modules) estimate retrospective temperature- and size-specific predator rations, prey preference, and weight-at- age. These are then used as inputs to the CEATTLE model to evaluate how predation mortality, recruitment, and survival of three target species change under historical climate conditions and harvest rates. Estimates from CEATTLE in `Rceattle` can then be forward projected to derive estimates of unfished biomass and fishing mortality under future climate conditions and various harvest scenarios.  
+
+## Equations 
+
+
+**Table 1.** Population dynamics equations for species $i$ and age $j$ in each simulation year $y$. BT indicates the AFSC bottom trawl survey and EIT represents the echo-integrated acoustic- trawl survey. For all parameter definititions see Table 3.
+```{r echo = F}
+Definition <- c("Recruitment", 
+                "Initial abundance", 
+                "Numbers at age", 
+                "...", 
+                "Catch", 
+                "Total yield (kg)", 
+                "Biomass at age (kg)", 
+                "Spawning biomass at age (kg)", 
+                "Total mortality at age", 
+                "Fishing mortality at age", 
+                "Weight at age (kg)", 
+                rep("...", 2), 
+                "BT survey biomass (kg)", 
+                "EIT survey biomass (kg)", 
+                "Fishery age composition", 
+                "BT survey age composition", 
+                "EIT survey age composition", 
+                "BT selectivity" , 
+                "Fishery selectivity",
+                "Proportion females", 
+                "Proportion of mature females", 
+                "Weight at age (kg)", 
+                "Residual natural mortality")
+
+Equation <- c("$N_{i1,y} = R_{i,y} = R_{0,i }e^{\\tau_{i,y}}$",
+              "$N_{ij,1} = \\left \\{ \\begin{array}{} R_{0,i}e^{ \\left( -j M1_{ij} \\right)}N_{0,ij} \\\\ R_{0,i}e^{ \\left( -j M1_{ij} \\right)}N_{0,i,A_i} / \\left(1 - e^{\\left( -j M1_{i,A_i} \\right)} \\right) \\end{array} \\right.$",
+              "$N_{i, j+1, y+1} = N_{ij,y} e^{-Z_{ij,y}}$",
+              "$N_{i, A_i, y+1} = N_{i, A_{i}-1,y} e^{-Z_{i, A_{i}-1,y}} + N_{i, A_{i},y} e^{-Z_{i, A_{i},y}}$",
+              "$C_{ij,y} = \\frac{F_ij,y} {Z_{ij,y}} \\left( 1 - e^{-Z_{ij,y}} \\right) N_{ij,y}$",
+              "$Y_{i,y} = \\sum_j^{A_i} \\frac{F_ij,y} {Z_{ij,y}} \\left( 1 - e^{-Z_{ij,y}} \\right) N_{ij,y} W_{ij,y}$",
+              "$B_{ij,y} = N_{ij,y} W_{ij,y}$",
+              
+              "$SSB_{ij,y} = B_{ij,y} \\rho_{ij}$",
+              "$Z_{ij,y} = M1_{ij} + M2_{ij,y} + F_{ij,y}$",
+              "$F_{ij,y} = F_{0,i}e^{\\epsilon_{i,y} s^f_{ij}}$",
+              "$W_{ij,y} = W_{\\infty,iy} \\left(1 - e^{\\left( -K_i \\left( 1 - d_{i,y} \\right) \\left( j - t_{0,i} \\right) \\right)} \\right) ^ {\\frac{1} {1-d_{i,y }}}$",
+              "$d_{i,y} = e^{\\left( \\alpha_{d,i,y} + \\alpha 0_{d,i} + \\beta_{d,i} T_y \\right)}$",
+              "$W_{\\infty,iy} = \\left( \\frac{H_i}{K_i} \\right)^{1/\\left(1-d_{i,y} \\right)}$",
+              "$\\hat{\\beta}^s_{i,y} = \\sum_j^{A_i} \\left( N_{ij,y} e^{-0.5 Z_{ij,y}} W_{ij,y} S^s_{ij} \\right)$",
+              "$\\hat{\\beta}^{eit}_{y} = \\sum_j^{A_1} \\left( N_{1j,y} e^{-0.5 Z_{1j,y}} W_{1j,y} S^{eit}_{1j} q_{1}^{eit}  \\right)$", 
+              "$\\hat{O}^f_{ij,y} = \\frac{c_{ij,y}} {\\sum_j C_{ij,y}}$",
+              "$\\hat{O}^{s}_{ij,y} = \\frac{N_{ij,y} e^{-0.5 Z_{ij,y}}  s^s_{ij}} {\\sum_j \\left(N_{ij,y} e^{-0.5 Z_{ij,y}}  s^s_{ij} \\right)}$",
+              "$\\hat{O}^{eit}_{1j,y} = \\frac{N_{1j,y} e^{-0.5 Z_{1j,y}}  s^{eit}_{1j} q^{eit}_{1}} {\\sum_j \\left( N_{1j,y} e^{-0.5 Z_{1j,y}}  s^{eit}_{1j} q^{eit}_{1} \\right)}$",
+              "$s_{ij}^s = \\frac{1} {1 + e^{\\left(-b_i^s * j-a_i^s \\right)}}$",
+              "$s^f_{ij} = \\left \\{ \\begin{array}{} e^{\\eta_ij} ~~ j \\leq A_{ \\eta , i} \\\\ e^{\\eta_{i,A_{ \\eta ,i}}} ~~ j \\gt A_{ \\eta,i} \\end{array} \\right.$",
+              "$\\omega_{ij} = \\frac{e^{-j M_{fem}}} { e^{-j M_{fem}} + e^{j M_{male}}}$",
+              "$\\rho_{ij} = \\omega_{ij} \\phi_{ij}$",
+              "$W_{ij,y} = W^{fem}_{ij,y} \\omega_{ij} + \\left(1 - \\omega_{ij} \\right) W^{male}_{ij,y}$",
+              "$M1_{ij} = M^{fem}_{ij} \\omega_{ij} + \\left(1 - \\omega_{ij} \\right) M^{male}_{ij}$")
+
+Eq. <- c(paste("T1.", 1:3, sep = ""), "...", paste("T1.", 4:9, sep = ""), paste("T1.10",c("a","b","c"), sep = ""), paste("T1.", 11:21, sep = ""))
+
+Population_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+colnames(Population_Equations) = c("Definition", "Equation", "")
+knitr::kable(Population_Equations, escape = T)
+
+```
+  
+  
+**Table 2.** Predation mortality equations for predators $p$ of age $a$, and prey $i$ of age $j$
+```{r echo = F}
+Definition <- c("Predation mortality", "Predator-prey suitability", "Mean gravimetric diet proportion", "Individual specific ration ($kg~kg^{-1}~yr^{-1}$)", "Temperature scaling algorithim", rep("...", 4))
+
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} {S}_{paij}} {\\sum_{ij} \\left({S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left({S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} = \\varphi_p \\alpha_{\\delta} W_{pa,y}^{\\left(1+\\beta_{\\delta}\\right)} f\\left(T_y \\right)_p$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+colnames(Predation_Equations) = c("Definition", "Equation", "")
+
+knitr::kable(Predation_Equations, escape = T)
+
+```
+  
+  
+**Table 3.** Parameter definitions.  
+```{r echo = F}
+parameters_table <- function(){
+  Parameters <- c("Year",   "$y$",  "M", "i")
+  Parameters <- rbind(Parameters, c("Predator",  "$p$",  "M", ""))
+  Parameters <- rbind(Parameters, c("Predator age (years)",  "$a$",  "M", ""))
+  Parameters <- rbind(Parameters, c("Prey",  "$i$",  "M", "k"))
+  Parameters <- rbind(Parameters, c("Prey age (years)",  "$j$",  "M", ""))
+  Parameters <- rbind(Parameters, c("Number of prey species",  "$n_i$",  "I", "nspp"))
+  Parameters <- rbind(Parameters, c("Number of predator species",  "$n_p$",  "I", ""))
+  Parameters <- rbind(Parameters, c("Number of prey ages",  "$A_i$",  "I", "nages"))
+  Parameters <- rbind(Parameters, c("Number of predator ages",  "$A_p$",  "I", ""))
+  Parameters <- rbind(Parameters, c("Number of simulation years",  "$n_y$",  "I", "nyrs"))
+  Parameters <- rbind(Parameters, c("Start year",  "$y_0$",  "I", "styr"))
+  Parameters <- rbind(Parameters, c("Annual relative foraging rate ($d~yr^{-1}$)",  "$\\hat{\\varphi}_p$",  "I", ""))
+  Parameters <- rbind(Parameters, c("Intercept of the allometic maximum consumption function ($g~g^{-1}~yr^{-1}$)",  "$\\alpha_{\\delta}$",  "I", "aLW"))
+  Parameters <- rbind(Parameters, c("Allometric slope of maximum consumption",  "$\\beta_{\\delta}$",  "I", "bLW"))
+  Parameters <- rbind(Parameters, c("Consumption maximum physiological temperature (°C)",  "$T^{cm}_p$",  "I", "Tcm"))
+  Parameters <- rbind(Parameters, c("Consumption optimum physiological temperature (°C)",  "$T^{co}_p$",  "I", "Tco"))
+  Parameters <- rbind(Parameters, c("Max consumption parameter",  "$Q^c_p$",  "I", "Qc"))
+  Parameters <- rbind(Parameters, c("Mean recruitment",  "$R_{0,i}$",  "E", ""))
+  Parameters <- rbind(Parameters, c("Annual recruitment deviation",  "$\\tau_{i,y}$",  "E", "rec_dev"))
+  Parameters <- rbind(Parameters, c("Initial abundance",  "$N_{0,ij}$",  "E", ""))
+  Parameters <- rbind(Parameters, c("Mean fishing mortality",  "$F_{0,i}$",  "E", ""))
+  Parameters <- rbind(Parameters, c("Anuual fishing mortality deviation",  "$\\epsilon_{i,y}$",  "E", ""))
+  Parameters <- rbind(Parameters, c("Fishery age selectivity coefficient",  "$\\eta_{ij}$",  "E", ""))
+  Parameters <- rbind(Parameters, c("Survey age selectivity slope",  "$b^s_i$",  "E", ""))
+  Parameters <- rbind(Parameters, c("Survey age selectivity limit",  "$a^s_i$",  "E", ""))
+  Parameters <- rbind(Parameters, c("VBGF allometric slope of consumption",  "$d_{i,y}$",  "P", "d"))
+  Parameters <- rbind(Parameters, c("VBGF max asymptotic weight (kg)",  "$W_{\\infty,iy}$",  "P", "Winf"))
+  Parameters <- rbind(Parameters, c("Proportion of mature females at age",  "$\\rho_{ij}$",  "P", ""))
+  Parameters <- rbind(Parameters, c("Residual natural mortality",  "$M1_{ij}$",  "F", "M1_base"))
+  Parameters <- rbind(Parameters, c("Intercept for VBGF $d$ parameter",  "$\\alpha0_{d,i}$",   "F", ""))
+  Parameters <- rbind(Parameters, c("Annual intercept for VBGF $d$ parameter",  "$\\alpha_{d,i,y}$",  "F", "log_mean_d"))
+  Parameters <- rbind(Parameters, c("Temperature covariate for VBGF $d$ parameter",  "$\\beta_{d,i}$",  "F", "Tcoef"))
+  Parameters <- rbind(Parameters, c("VBGF energy loss constant ($kg~kg^{-1}~yr^{-1}$)",  "$K_i$",  "F", "logK"))
+  Parameters <- rbind(Parameters, c("VBGF assimilation constant ($kg~kg^{-1}~yr^{-1}$)",  "$H_i$",  "F", "logH"))
+  Parameters <- rbind(Parameters, c("VBGF age when $W_{ij,y} = 0$ (years)",  "$t_{0,i}$",  "F", "t0"))
+  Parameters <- rbind(Parameters, c("EIT survey selectivity",  "$S^{eit}_{1j}$",  "F", ""))
+  Parameters <- rbind(Parameters, c("Female natural mortality",  "$M_{i}^{fem}$",  "F", ""))
+  Parameters <- rbind(Parameters, c("Male natural mortality",  "$M_{i}^{male}$",  "F", ""))
+  Parameters <- rbind(Parameters, c("Female proportion of population",  "$\\omega_{ij}$",  "F", ""))
+  Parameters <- rbind(Parameters, c("Age-specific maturity proportions",  "$\\varphi_{ij}$",  "F", "pmature"))
+  Parameters <- rbind(Parameters, c("Observed total yield ($kg$)",  "$C^*_{i,y}$",  "D", "tc_biom_obs"))
+  Parameters <- rbind(Parameters, c("Observed fishery age comp.",  "$O^f_{ij,y}$",  "D", "fsh_age_obs"))
+  Parameters <- rbind(Parameters, c("Observed BT age comp.",  "$O^{s}_{ij,y}$",  "D", "srv_age_obs"))
+  Parameters <- rbind(Parameters, c("Observed EIT age comp.",  "$O^{eit}_{ij,y}$",  "D", "obs_eit_age"))
+  Parameters <- rbind(Parameters, c("Observed BT survey biomass (kg)",  "$\\beta^s_{i,y}$",  "D", "srv_bio"))
+  Parameters <- rbind(Parameters, c("Observed EIT survey biomass (kg)",  "$\\beta^{eit}_y$",  "D", "obs_eit"))
+  Parameters <- rbind(Parameters, c("Bottom temperature (°C)",  "$T_y$",  "D", "TempC"))
+  Parameters <- rbind(Parameters, c("Gravimetric proportion of prey in predator stomach",  "$U_{paij,y}$",  "D", ""))
+  Parameters <- rbind(Parameters, c("Biomass of other prey (kg)",  "$B^{other}_p$",  "D", "other_food"))
+
+  # Index of wether or not it is included in table
+  Parameters <- as.data.frame(Parameters)
+  rownames(Parameters) <- c()
+  Parameters$include <- 1
+  
+  
+  # Fill in the parameters not in table 3
+  params_extra <- c("**Not in table 3**", "", "", "")
+  params_extra <- rbind(params_extra, c("Annual survey biomass error", "$CV_{s,i,y}$", "F", "srv_Mean_CV"))
+  params_extra <- rbind(params_extra, c("Number of years with total observed catch", "$n_{Y,i}$", "M", "nyrs_tc_biom_obs"))
+  params_extra <- rbind(params_extra, c("Years with total observed catch", "$y_{Y,i}$", "I", "yrs_tc_biom_obs"))
+  params_extra <- rbind(params_extra, c("Number of years in the fishery sp_age composition data", "$n_{y,i}$", "E", "nyrs_fsh_comp"))
+  params_extra <- rbind(params_extra, c("Number of estimation years",  "$n_{y,est}$",  "I", "nyrs_est"))
+  params_extra <- rbind(params_extra, c("End year", "$y_{n_y}$", "I", "endyr"))
+  
+  # Fishery age composition
+  params_extra <- rbind(params_extra, c("Number of years in the fishery age composition data", "$n_{y_{O^f},i}$", "I", "nyrs_fsh_comp"))
+  params_extra <- rbind(params_extra, c("Years in the fishery age composition data", "$y_{O^f,i}$", "I", "yrs_fsh_comp"))
+  params_extra <- rbind(params_extra, c("Method of calculating fishery age", "", "I", "fsh_age_type"))
+  params_extra <- rbind(params_extra, c("Number of fishery age bins", "$n_{f,bin}$", "I", "fsh_age_bins"))
+  
+  # Weight-at-age
+  params_extra <- rbind(params_extra, c("Number of years with weight-at-age data", "$n_{y,W,i}$", "I", "nyrs_wt_at_age"))
+  params_extra <- rbind(params_extra, c("Years with weight-at-age data", "$y_{W,i}$", "I", "yrs_wt_at_age"))
+  params_extra <- rbind(params_extra, c("Weight-at-age data", "$W_i$", "D", "wt"))
+  
+  # BT survey data
+  params_extra <- rbind(params_extra, c("Number of years in the BT survey data", "$n_{y_{\\beta^s},i}$", "I", "nyrs_srv_biom"))
+  params_extra <- rbind(params_extra, c("Years in the BT survey data", "$y_{\\beta^s,i}$", "I", "yrs_srv_biom"))
+  params_extra <- rbind(params_extra, c("BT survey standard error", "$\\sigma_{s,i}$", "F", "srv_biom_se"))
+  params_extra <- rbind(params_extra, c("Number of years in the BT survey age or length composition data", "$n_{y_{O^s},i}$", "I", "nyrs_srv_age"))
+  params_extra <- rbind(params_extra, c("Years in the BT  survey age composition data", "$y_{O^s,i}$", "I", "yrs_srv_age"))
+  params_extra <- rbind(params_extra, c("Method of calculating BT survey age type (age or length)", "", "I", "srv_age_type"))
+  params_extra <- rbind(params_extra, c("Number of BT survey age bins", "$n_{s,bin, i}$", "I", "srv_age_bins"))
+  params_extra <- rbind(params_extra, c("Sample size for BT survey age composition multinomial", "$n_{O^s, i}$", "I", "srv_age_n"))
+  params_extra <- rbind(params_extra, c("Observed survey BT size compositions", "$O^{s}_{ij}$", "I", "srv_age_sizes"))
+  params_extra <- rbind(params_extra, c("Age transition matrix", "", "I", "age_trans_matrix"))
+  
+  # EIT Survey 
+  params_extra <- rbind(params_extra, c("Number of years in the EIT survey data", "$n_{y_{\\beta^{eit}}}$", "I", "n_eit"))
+  params_extra <- rbind(params_extra, c("Years in the BT survey data", "$y_{\\beta^{eit}}$", "I", "yrs_eit"))
+  params_extra <- rbind(params_extra, c("Sample size for EIT survey age composition multinomial", "$n_{O^{eit}}$", "I", "eit_age_n"))
+  params_extra <- rbind(params_extra, c("Number of years in the EIT selectivtiy data", "$n_{y_{S^{eit}}}$", "I", "nyrs_eit_sel"))
+  params_extra <- rbind(params_extra, c("Years in the BT selectivity data", "$y_{S^{eit}}$", "I", "yrs_eit_sel"))
+  params_extra <- rbind(params_extra, c("Sample size for EIT survey age composition multinomial", "$n_{O^{eit}}$", "I", "eit_sel"))
+  
+  # Mortality parameters
+  params_extra <- rbind(params_extra, c("Sex specific mortality and weight-at-age: 1 for combined, 2: for seperate", "", "I", "mf_type"))
+  params_extra <- rbind(params_extra, c("Proportion", "$n_{O^{eit}}$", "I", "propMorF"))
+  
+  
+  params_extra <- rbind(params_extra, c("Observed catch-at-age", "$C_{ij,y}$", "I", "obs_catch"))
+  params_extra <- rbind(params_extra, c("Estimated catch-at-age", "$\\hat{C}_{ij,y}$", "E", "obs_catch_hat"))
+  params_extra <- rbind(params_extra, c("Observed total catch", "$C_{i,y}$", "D", "tc_obs"))
+  params_extra <- rbind(params_extra, c("Estimated total catch", "$\\hat{C}_{i,y}$", "D", "tc_hat"))
+  
+  params_extra <- rbind(params_extra, c("Estimated total yield", "$B_{ij,y} = N_{ij,y} W_{ij,y}$", "E", "tc_obs"))
+
+  params_extra <- rbind(params_extra, c("Observed fishery age composition", "${O}^f_{ij,y}$", "I", "fsh_age_obs"))
+  params_extra <- rbind(params_extra, c("Estimated fishery age composition", "$\\hat{O}^f_{ij,y}$", "E", "fsh_age_hat"))
+  
+  
+  # Index of wether or not it is included in table
+  params_extra <- as.data.frame(params_extra)
+  rownames(params_extra) <- c()
+  params_extra$include <- 0
+  
+  Parameters <- rbind(Parameters, params_extra)
+  
+  colnames(Parameters)[1:4] = c("Parameter", "Definition", "Type", "Model Object")
+  knitr::kable(Parameters[,1:4], escape = T,  warning = FALSE, message = FALSE)
+}
+parameters_table()
+```
+  
+  
+**Table 4.** Components of the likelihood function for each species $i$ of age $j$ in year $y$.  
+```{r echo = F}
+Description <- c(
+  "**Data components**",
+  "BT survey biomass",
+  "BT survey age composition",
+  "EIT survey biomass",
+  "EIT survey age composition",
+  "Total catch",
+  "Fishery age composition",
+  "**Penalties**",
+  "Fishery selectivity",
+  "**Priors**",
+  "",
+  "",
+  "",
+  ""
+)
+
+Equation <- c(
+  "",
+  "$\\sum_i \\sum_y \\frac{\\left[ ln \\left(\\beta^s_{i,y} \\right) - ln \\left(\\hat{\\beta}^s_{i,y} \\right) \\right]^2} {2 \\sigma^2_{s,i}}$",
+  "$-\\sum_i n_i \\sum_y \\sum_j \\left( O^s_{ij,y} + v \\right) ~ ln \\left(\\hat{O}^s_{ij,y} + v \\right)$",
+  "$\\sum_i \\sum_y \\frac{\\left[ ln \\left(\\beta^{eit}_{y} \\right) - ln \\left(\\hat{\\beta}^{eit}_{y} \\right) \\right]^2} {2 \\sigma^2_{eit}},~\\sigma_{eit}=0.2$",
+  "$- n \\sum_y \\sum_j \\left( O^{eit}_{1j,y} + v \\right) ~ ln \\left(\\hat{O}^{eit}_{1j,y} + v \\right)$",
+  "$\\sum_i \\sum_y \\frac{\\left[ ln \\left(C^*_{i,y} \\right) - ln \\left(\\hat{C}^*_{i,y} \\right) \\right]^2} {2 \\sigma^2_{C}},~\\sigma_C = 0.05$",
+  "$-\\sum_i n_i \\sum_y \\sum_j \\left( O^f_{ij,y} + v \\right) ~ ln \\left(\\hat{O}^f_{ij,y} + v \\right)$",
+  "",
+  "$\\sum_i \\sum_j^{A_i - 1} \\chi \\left[ ln \\left(\\frac{\\eta^f_{ij}} {\\eta^f_{ij+1}} \\right) - ln \\left(\\frac{\\eta^f_{ij+1}} {\\eta^f_{ij+2}} \\right) \\right]^2 , ~ \\chi = \\left \\{  \\begin{array}{} 20,~if \\eta^f_{ij} \\gt \\eta^f_{ij+1} \\\\ 0,~if \\eta^f_{ij} \\leq \\eta^f_{ij+1} \\end{array} \\right.$",
+  "",
+  "$\\sum_i \\sum_j \\left( \\tau_{i,y} \\right)^2$",
+  "$\\sum_i \\sum_j \\left( N_{0,ij} \\right)^2$",
+  "$\\sum_i \\sum_j \\left( \\varepsilon_{i,y} \\right)^2$",
+  "$v = 0.001$"
+)
+
+Eq. <- c("", paste("T4.", 1:6, sep = ""), "", paste("T4.", 7, sep = ""), "", paste("T4.", 8:10, sep = ""), "")
+
+Source <- c(
+  "",
+  "NMFS annual EBS BT survey",
+  "NMFS annual EBS BT survey",
+  "Pollock acoustic trawl survey",
+  "Pollock acoustic trawl survey",
+  "Fishery observer data",
+  "Fishery observer data",
+  rep("", 7)
+)
+
+# Value
+
+Likelihood_Components <- data.frame(cbind(Description, Equation, Source, Eq.))
+colnames(Likelihood_Components) = c("Description", "Equation", "Data source", "")
+
+knitr::kable(Likelihood_Components, escape = T)
+```
+
+## Errata:
+Table 3: Female natural mortality is missing an F under the "Type" column.
+Table 4 legend: "function" is misspelled.
+Table 4. T.4.6 C is missing the hat in the likelihood equation.
+Table 4. T4.7 the upper value of chi, $\eta^f_{ji+1}$ should be $\eta^f_{ij+1}$
+Table 4. T4.2 Data source NFMS
+
+## Thoughts
+Table 3. Change C* to Y and in table 2 Y to hat{Y}.
+
+## Questions
+What is propMorF?
+
+# References
