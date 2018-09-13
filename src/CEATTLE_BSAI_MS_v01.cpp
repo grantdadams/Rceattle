@@ -63,15 +63,16 @@ Type objective_function<Type>::operator() (){
   int endyr = nyrs + styr;   // End year
 
   // -- 2.2.2. Species attributes
-  DATA_IVECTOR( nages );      // Number of species (prey) ages
-  // DATA_INTEGER( n_pred);  // Number of predator species
+  DATA_IVECTOR( nages );        // Number of species (prey) ages
+  int max_age = imax(nages);    // Integer of maximum nages to make the arrays.
+  // DATA_INTEGER( n_pred);     // Number of predator species
   // DATA_IVECTOR( n_age_pred); // Number of predator ages
 
   // 2.3. DATA INPUTS (i.e. assign data to objects)
   // -- 2.3.1 Fishery Components
-  DATA_IVECTOR( nyrs_tc_biom );// Number of years with total observed catch; n = [nspp]
-  DATA_IMATRIX( yrs_tc_biom ); // Years with total observed catch; n = [nspp, nyrs_tc_biom]
-  DATA_MATRIX( tcb_obs );      // Observed total yield (kg); n = [nspp, nyrs_tc_biom]
+  DATA_IVECTOR( nyrs_tc_biom );   // Number of years with total observed catch; n = [nspp]
+  DATA_IMATRIX( yrs_tc_biom );    // Years with total observed catch; n = [nspp, nyrs_tc_biom]
+  DATA_MATRIX( tcb_obs );         // Observed total yield (kg); n = [nspp, nyrs_tc_biom]
 
   DATA_IVECTOR( nyrs_fsh_comp );  // Number of years in the fishery sp_age composition data; n = [nspp]
   DATA_IMATRIX( yrs_fsh_comp );   // Years for the fishery sp_age composition data; n = [nspp, nyrs_fsh_comp]
@@ -82,18 +83,18 @@ Type objective_function<Type>::operator() (){
   // -- 2.3.2 BT Survey Components
   DATA_IVECTOR( nyrs_srv_biom );  // Number of years of survey biomass data; n = [nspp]
   DATA_IMATRIX( yrs_srv_biom );   // Years of survey biomass data; n = [nspp, nyrs_srv_biom]
-  DATA_MATRIX( srv_biom );         // Observed BT survey biomass (kg); n = [nspp, nyrs]
+  DATA_MATRIX( srv_biom );        // Observed BT survey biomass (kg); n = [nspp, nyrs]
   DATA_MATRIX( srv_biom_se );     // Observed annual biomass error (SE); n = [nspp, nyrs_srv_biom]
 
   // -- 2.3.3. BT Survey age components
   DATA_IVECTOR( nyrs_srv_age );   // Number of years of survey age/length composition; n = [1, nspp]
   DATA_IMATRIX( yrs_srv_age );    // Years for the survey age/length composition data; n = [nspp, nyrs_srv_age]
-  DATA_IVECTOR( srv_age_type );  // Type of compisition (1 = age; 2 = length); n = [1, nspp]
+  DATA_IVECTOR( srv_age_type );   // Type of compisition (1 = age; 2 = length); n = [1, nspp]
   DATA_IVECTOR( srv_age_bins );   // Number of size binds for the age/length comps; n = [nspp]
   DATA_MATRIX( srv_age_n );       // Sample size for the multinomial; n = [nspp, nyrs_srv_age]
-  DATA_ARRAY( srv_age_obs ) ;      // Observed BT age comp; n = [nspp, nages, nyrs]
-  DATA_MATRIX( srv_age_sizes );  // Observed size composition
-  DATA_ARRAY( age_trans_matrix); // observed sp_age/size compositions; n = [nspp, nages, srv_age_bins]
+  DATA_ARRAY( srv_age_obs ) ;     // Observed BT age comp; n = [nspp, nages, nyrs]
+  DATA_MATRIX( srv_age_sizes );   // Observed size composition
+  DATA_ARRAY( age_trans_matrix);  // observed sp_age/size compositions; n = [nspp, nages, srv_age_bins]
 
   // -- 2.3.4 EIT Survey components
   DATA_INTEGER( n_eit);          // Number of years with EIT data; n = [1]
@@ -104,14 +105,20 @@ Type objective_function<Type>::operator() (){
   DATA_MATRIX( eit_sel);         // Observed EIT survey selectivity; n = [eit_age, nyrs_eit_sel]
 
   // -- 2.3.5. Weight-at-age
-  DATA_IVECTOR( nyrs_wt_at_age );  // Number of years of weight at age data; n = [nspp]
-  DATA_IMATRIX( yrs_wt_at_age );   // Years of weight-at-age; data n = [nspp, nyrs_wt_at_age]
-  DATA_ARRAY( wt );                // Weight-at-age by year; n = [nyrs_wt_at_age, nages, nspp]
+  DATA_IVECTOR( nyrs_wt_at_age ); // Number of years of weight at age data; n = [nspp]
+  DATA_IMATRIX( yrs_wt_at_age );  // Years of weight-at-age; data n = [nspp, nyrs_wt_at_age]
+  DATA_ARRAY( wt );               // Weight-at-age by year; n = [nyrs_wt_at_age, nages, nspp]
+
+  // -- 2.3.6. Diet data
+  DATA_IVECTOR( n_stomyrs );      // number years of stomach data; n = [1, nspp]
+  DATA_IMATRIX( stomyrs );        // years of stomach data; n = [nspp,n_stomyrs]
+  DATA_ARRAY( mnQ );              // meanwt of each prey spp in the stomach of each predator of sp_age a
+  DATA_ARRAY( Qse );              // SE wt of each prey spp in the stomach of each predator of sp_age a
 
   // -- 2.3.6 Other
-  // DATA_VECTOR( TempC );           // Bottom temperature (degrees C); n = [1, nyrs] # NOTE: Need to figure out how to make it flexible for alternative environmental predictors
-  // DATA_ARRAY( Diet_Mat );         // Annual gravimetric proportion of prey in predator stomach; n = [n_pred, n_age_pred, nspp, nages, nyrs]
-  // DATA_INTEGER( other_food );     // Biomass of other prey (kg); n = [nyrs, n_pred] # QUESTION: Is this year specific?
+  // DATA_VECTOR( TempC );        // Bottom temperature (degrees C); n = [1, nyrs] # NOTE: Need to figure out how to make it flexible for alternative environmental predictors
+  // DATA_ARRAY( Diet_Mat );      // Annual gravimetric proportion of prey in predator stomach; n = [n_pred, n_age_pred, nspp, nages, nyrs]
+  // DATA_INTEGER( other_food );  // Biomass of other prey (kg); n = [nyrs, n_pred] # QUESTION: Is this year specific?
 
 
   // 2.4. INPUT PARAMETERS
@@ -129,12 +136,12 @@ Type objective_function<Type>::operator() (){
 
   // 2.6. FIXED PARAMETERS
   // -- 2.6.1. von Bertalannfy growth function (VBGF)
-  // DATA_VECTOR(d0_vbgf);      // VBGF intercept for d parameter; n = [1, nspp]
-  // DATA_MATRIX(d_dev_vbgf);   // Annual deviation for VBGF d parameter; n = [nspp, nyrs] # NOTE: Need to figure out how to best vectorize this
-  // DATA_VECTOR(Beta_d_vbgf);  // Temperature covariate for VBGF d parameter; n = [1, nspp]
-  // DATA_VECTOR( logK );       // VBGF energy loss constant (kg kg^-1 yr^-1); n[1, nspp]
-  // DATA_VECTOR( logH );       // VBGF assimilation constant (kg kg^-1 yr^-1); n[1, nspp]
-  // DATA_VECTOR( t0 );         // VBGF age at Weight 0 (yr); n[1, nspp]
+  DATA_MATRIX( t0 );              // t0 parameter of the temp specific VonB for wt; n = [nspp, mf_type]
+  DATA_MATRIX( log_mean_d );      // log mean d parameter of the temp specific von B for wt; n = [nspp, mf_type]
+  DATA_MATRIX( logK );            // log k parameter of the temp specific VonB for wt; n = [nspp, mf_type]
+  DATA_MATRIX( logH );            // log H parameter of the temp specific VonB for wt; n = [nspp, mf_type]
+  DATA_MATRIX( Tcoef );           // T coefficent of the linear d equations of the temp specific VonB for wt; n = [nspp, mf_type]
+  DATA_MATRIX( Pcoef );           // P-value coefficent of the linear d equations of the temp specific VonB for wt; n = [nspp, mf_type]
 
   // -- 2.6.2. Others
   DATA_MATRIX( M1_base );         // Residual natural mortality; n = [nspp, nages]
@@ -182,7 +189,6 @@ Type objective_function<Type>::operator() (){
   // 3. INITIAL CALCULATIONS                                                   //
   // ------------------------------------------------------------------------- //
 
-  int max_age = imax(nages);    // Integer of maximum nages to make the arrays.
   int max_bin = imax(srv_age_bins); // Integer of maximum number of length/age bins.
 
   array<Type>  fsh_age_obs(nyrs, max_bin, nspp);     // Observed fishery age comp; n = [nyrs_fsh_comp, fsh_age_bins, nspp]

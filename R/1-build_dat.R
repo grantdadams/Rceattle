@@ -67,7 +67,7 @@ build_dat <- function(ctlFilename = ctlFilename, TMBfilename = TMBfilename, dat_
   source("R/Support Functions/readdat_fun.R")
   dat_list <- list()
   for (i in 1:nrow(dat_loc)) {
-    dat_list[[i]] <- readdat(paste(dat_dir, dat_loc[i, 2], sep = ""), as.character(dat_loc[i, 1]), nspp = nspp)
+    dat_list[[i]] <- readdat(fn = paste(dat_dir, dat_loc[i, 2], sep = ""), nm = as.character(dat_loc[i, 1]), nspp = nspp)
     names(dat_list)[i] <- as.character(dat_loc[i, 1])
   }
 
