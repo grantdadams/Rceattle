@@ -65,7 +65,7 @@ readdat<-function(fn, nm , nspp){
 
     ans <- dat_list
 
-  } if(nm %in% c("obs_catch", "wt", "srv_age_obs", "age_trans_matrix", "tcb_obs", "srv_age_sizes")){ # Get data from 3D arrays
+  } else if(nm %in% c("obs_catch", "wt", "srv_age_obs", "age_trans_matrix", "tcb_obs", "srv_age_sizes")){ # Get data from 3D arrays
 
     dat_list <- list()
 
