@@ -105,7 +105,7 @@ array<Type> stom_div_bio2( nyrs, nspp, max_age, nspp, max_age ); stom_div_bio2.s
       //if(fut_pass_number==1){
       //M2_fut(prey,i,prey_age) = Mtmp; //M2_plk(prey,i,prey_age);  
       //B_eaten_fut(prey,i,prey_age)=Eatentmp;
-      }
+      //}
     }   // end prey sp_age loop  
   }   // end prey spp loop
 
