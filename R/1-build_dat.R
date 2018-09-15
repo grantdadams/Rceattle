@@ -81,8 +81,13 @@ build_dat <- function(ctlFilename = ctlFilename, TMBfilename = TMBfilename, dat_
     dat_list[[i]] <- list_to_array(dat_list[[i]])
   }
 
-
-  print(paste("The following items are not included:,", paste(dat_names[(!(dat_names %in% names(dat_list)))], collapse = ", "), sep = " "))
+  # Print data included
+  not_included <- dat_names[(!(dat_names %in% names(dat_list)))]
+  if(length(not_included) > 0){
+    print(paste("The following data inputs are not included:", paste(not_included, collapse = ", "), sep = " "))
+  } else {
+    print("All data inputs items are included.")
+  }
 
   #---------------------------------------------------------------------
   # Steo 5 -- Model configuration
