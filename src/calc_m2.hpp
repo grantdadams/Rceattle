@@ -21,18 +21,7 @@ array<Type> stom_div_bio2( nyrs, nspp, max_age, nspp, max_age ); stom_div_bio2.s
   // ------------------------------------------------------------------------- //
   // 5. PREDATION MORTALITY EQUATIONS                                          //
   // ------------------------------------------------------------------------- //
-  // 5.1. Calculate ration
-
-  // Set how many years are looped over.
-  int nyrsUSE;
-  if(fut_pass_number==0){
-      nyrsUSE=nyrs;
-  }
-  if(fut_pass_number==1){  
-      nyrsUSE=nyrs_fut;
-  }
-
-  // 5.1.1 Calculate historic ration
+  // 5.1.1 Calculate historic ration 
   for(i=0; i < nspp; i++){
     for(j=0; j < nages(i); j++){
       for(y=0; y < nyrs; y++){ // Caclulate ration for each species
