@@ -135,10 +135,27 @@ Type objective_function<Type>::operator() (){
   DATA_VECTOR( CK1 );             // used in fT eq 3, limit where C is .98 max (ascending); n = [1, nspp]
   DATA_VECTOR( CK4 );             // used in fT eq 3, temp where C is .98 max (descending); n = [1, nspp]
 
-  // -- 2.4.2. Weight-at-length parameters
+  // -- 2.4.2. von Bertalannfy growth function (VBGF)
+  DATA_VECTOR( t0 );              // t0 parameter of the temp specific VonB for wt; n = [nspp, mf_type]
+  DATA_VECTOR( log_mean_d );      // log mean d parameter of the temp specific von B for wt; n = [nspp, mf_type]
+  DATA_VECTOR( logK );            // log k parameter of the temp specific VonB for wt; n = [nspp, mf_type]
+  DATA_VECTOR( logH );            // log H parameter of the temp specific VonB for wt; n = [nspp, mf_type]
+  DATA_VECTOR( Tcoef );           // T coefficent of the linear d equations of the temp specific VonB for wt; n = [nspp, mf_type]
+  DATA_VECTOR( Pcoef );           // P-value coefficent of the linear d equations of the temp specific VonB for wt; n = [nspp, mf_type]
+
+
+  // -- 2.4.3. Others
+  DATA_MATRIX( M1_base );         // Residual natural mortality; n = [nspp, nages]
+  DATA_IVECTOR( mf_type );        // Sex specific mort and weight at age? : 1 = same for both, 2 = seperate wt at sp_age for each sex
+  DATA_MATRIX( propMorF );        // Proportion-at-age of females of population; n = [nspp, nages]
+  DATA_MATRIX( pmature );         // Proportion of mature females at age; [nspp, nages]
+
+
+  // -- 2.4.4. Weight-at-length parameters
   DATA_MATRIX( aLW );             // LW a&b regression coefs for W=a*L^b; n = [2, nspp]
 
-  // -- 2.4.3. Diet proportion parameters
+  // 2.5. DIET DATA
+  // -- 2.5.1. Diet proportion parameters
   DATA_MATRIX( maxK );            // Matrix of maximum diet proportions for each predd,preyy combo (used for broken stick expon); n = [nspp, nspp]
   DATA_VECTOR( klim );            // Max  pred  length  at  which K should  be  calculated  (beyond this  is  it  just  equal to  K); n = [1, nspp]
   DATA_MATRIX( prefa );           // prefa of the functional response prefa(pred,prey); n = [nspp, nspp]
@@ -162,20 +179,21 @@ Type objective_function<Type>::operator() (){
   DATA_MATRIX( Mn_LatAge );       // Mean length-at-age; n = [nspp, nages]
 
 
-  // -- 2.4.3. von Bertalannfy growth function (VBGF)
-  DATA_VECTOR( t0 );              // t0 parameter of the temp specific VonB for wt; n = [nspp, mf_type]
-  DATA_VECTOR( log_mean_d );      // log mean d parameter of the temp specific von B for wt; n = [nspp, mf_type]
-  DATA_VECTOR( logK );            // log k parameter of the temp specific VonB for wt; n = [nspp, mf_type]
-  DATA_VECTOR( logH );            // log H parameter of the temp specific VonB for wt; n = [nspp, mf_type]
-  DATA_VECTOR( Tcoef );           // T coefficent of the linear d equations of the temp specific VonB for wt; n = [nspp, mf_type]
-  DATA_VECTOR( Pcoef );           // P-value coefficent of the linear d equations of the temp specific VonB for wt; n = [nspp, mf_type]
+  // -- 2.5.2. F Profile data
+  DATA_INTEGER( n_f );            // Number of F vectors
+  DATA_VECTOR( Frates );          // Fishing mortality vector; n = [1, n_f]
+  DATA_INTEGER( np );             // Number of 
+  DATA_MATRIX( Fprofiles );       // F profiles; n = [np, nspp]
 
-  // -- 2.4.4. Others
-  DATA_MATRIX( M1_base );         // Residual natural mortality; n = [nspp, nages]
-  DATA_IVECTOR( mf_type );        // Sex specific mort and weight at age? : 1 = same for both, 2 = seperate wt at sp_age for each sex
-  DATA_MATRIX( propMorF );        // Proportion-at-age of females of population; n = [nspp, nages]
-  DATA_MATRIX( pmature );         // Proportion of mature females at age; [nspp, nages]
 
+  // 2.6. ENVIRONMENTAL DATA
+  /*
+  DATA_INTEGER( nTyrs );          // Number of temperature years
+  DATA_VECTOR( Tyrs );            // Years of hindcast data
+  DATA_INTEGER( ncov );           // Number of environmental covariates
+*/
+
+  //
   // 2.5. DERIVED QUANTITIES # Calculate these in the model
   // DATA_MATRIX(d);               // VBGF allometric slope of consumption (d); n = [nspp, nyrs]
   // DATA_MATRIX(Winf);            // VBGF max asymptoptic weight; n = [nspp, nyrs]
