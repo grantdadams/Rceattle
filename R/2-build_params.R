@@ -57,7 +57,7 @@ build_params <-
 
     param_names <- c() # Character string of variables used in model
     param_dim <-
-      data.frame(matrix(1, nrow = length(param_lines), ncol = 4))
+      data.frame(matrix(1, nrow = length(param_lines), ncol = 5))
 
     for (i in 1:length(param_lines)) {
       dat_line <- grep(search_term, tt[i][[1]], ignore.case = F)
@@ -95,22 +95,28 @@ build_params <-
         param = 0
       }
 
+      # PARAMETER_VECTOR
       if (length(which(param_dim[i,] > 1)) == 1) {
-        # PARAMETER_VECTOR
         param = rep(0, param_dim[i,][which(param_dim[i,] > 1)])
       }
 
+      # PARAMETER_MATRIX
       if (length(which(param_dim[i,] > 1)) == 2) {
-        # PARAMETER_MATRIX
         param = matrix(0,
                        nrow = as.numeric(param_dim[i, 1]),
                        ncol = as.numeric(param_dim[i, 2]))
       }
 
+      # 3D PARAMETER_ARRAY
       if (length(which(param_dim[i,] > 1)) == 3) {
-        # PARAMETER_ARRAY
         param = array(0, dim = as.numeric(param_dim[i, 1:3]))
       }
+
+      # 4D PARAMETER_ARRAY
+      if (length(which(param_dim[i,] > 1)) == 4) {
+        param = array(0, dim = as.numeric(param_dim[i, 1:4]))
+      }
+
       param_list[[i]] <- param
       names(param_list)[i] <- param_names[i]
     }
