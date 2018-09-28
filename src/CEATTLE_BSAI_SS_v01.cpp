@@ -223,7 +223,6 @@ Type objective_function<Type>::operator() (){
   }
 
 
-
   // ------------------------------------------------------------------------- //
   // 4. PARAMETER SECTION                                                      //
   // ------------------------------------------------------------------------- //
@@ -338,6 +337,7 @@ Type objective_function<Type>::operator() (){
     }
   }
 
+
   // 5.1. ESTIMATE RECRUITMENT T1.1
   for(i=0; i< nspp; i++){
     for(y=0; y < nyrs; y++){
@@ -443,7 +443,6 @@ Type objective_function<Type>::operator() (){
       eit_yr_ind = yrs_eit(y) - styr;
       eit_age_hat(y, j) = NByage(eit_yr_ind, j, 0) * eit_sel(eit_yr_ind, j) * eit_q; // Remove the mid-year trawl?
       eit_hat(y) += eit_age_hat(y, j) * wt(eit_yr_ind, j, 0);  //
-
     }
   }
 
@@ -705,7 +704,7 @@ Type objective_function<Type>::operator() (){
     for(j=0; j < nages(i) - 2; j++){
       sel_tmp(j) = first_difference( first_difference( sel_tmp ) )(j);
       jnll_comp(6, i) += curv_pen_fsh * pow( sel_tmp(j) , 2); // FIX
-    
+
   }
 }
 
