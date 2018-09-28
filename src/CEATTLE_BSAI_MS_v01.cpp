@@ -167,7 +167,7 @@ Type objective_function<Type>::operator() (){
   DATA_IVECTOR( nlengths );       // number of Lengths for the matrix to convert ages to lengths; n = [1, nspp]
   int maxL = imax( nlengths );    // Maximum number of lengths for the matrix to convert between ages and lengths; n = [1]
   DATA_MATRIX( lengths );         // Lengths for the matrix to convert ages to lenghths; n = [nspp, nlengths]
-  // DATA_ARRAY( A2L_matrix );       // A2L_matrix : Matrix to convert ages to lenghths; n = [nspp, nages, nlengths]
+  DATA_ARRAY( A2L_matrix );       // A2L_matrix : Matrix to convert ages to lenghths; n = [nspp, nages, nlengths]
   DATA_ARRAY( K );                // K(1) is nprey by maxL matrix of stomach proportions of predator 1; n = [nspp, nspp, nlengths]
   DATA_ARRAY( KAge );             // K(1) is nprey by maxL matrix of stomach proportions of predator 1; n = [nspp, nspp, nages]
   DATA_MATRIX( PAge );            // n = [nspp, nages]
@@ -240,32 +240,13 @@ Type objective_function<Type>::operator() (){
 
   int max_bin = imax(srv_age_bins); // Integer of maximum number of length/age bins.
 
+  // 3.1. FISHERY DATA
+  // 3.1.1. Define objects
   array<Type>  fsh_age_obs(nyrs, max_bin, nspp);     // Observed fishery age comp; n = [nyrs_fsh_comp, fsh_age_bins, nspp]
   matrix<Type> tc_obs(nspp, nyrs); tc_obs.setZero(); // Set total catch to 0 to initialize // Observed total catch (n); n = [nspp, nyrs] NOTE: This may not be necessary if loading data from tmp
-  matrix<Type>  eit_age_comp = obs_eit_age;          // Eit age comp; n = [n_eit, srv_age_bins(0)]
 
-  matrix<Type> srv_biom_lse(nspp, nyrs); // Observed annual biomass CV; n = [nspp, nyrs_srv_biom]
-  srv_biom_lse = srv_biom_se.array()/ srv_biom.array();          // CV estimation
-  srv_biom_lse = pow( log( ( pow( srv_biom_lse.array(), Type(2) ).array() + 1).array()).array(), Type(0.5));
 
-  matrix<Type> M1( nspp, max_age); M1.setZero();
-  M1 = M1_base.array() + Type(0.0001);
-
-  for ( i = 0; i < nspp ; i++){
-    for( j = 0 ; j < nages(i); j++ ){
-      pmature( i, j ) = pmature( i, j ) * propMorF(i + (mf_type(i) - 1), j);
-    }
-  }
-
-  // EIT catch-at-age to age-comp
-  eit_age_comp.setZero();
-  for(y = 0; y < n_eit; y++){
-    for(j = 0; j < srv_age_bins(0); j++){
-      eit_age_comp(y, j) = obs_eit_age(y, j)/ obs_eit_age.row(y).sum(); // Convert from catch-at-age to age comp
-    }
-  }
-
-  // Fishery catch-at-age to age-comp
+  // 3.1.2. Fishery catch-at-age to age-comp
   for(i=0; i < nspp; i++){
     for(y = 0; y < nyrs_fsh_comp(i); y++){
       for(j=0; j < fsh_age_bins(i); j++){
@@ -277,6 +258,45 @@ Type objective_function<Type>::operator() (){
     }
   }
 
+  // 3.2. SURVEY DATA
+  // 3.2.1. Define objects
+  matrix<Type> srv_biom_lse(nspp, nyrs); // Observed annual biomass CV; n = [nspp, nyrs_srv_biom]
+  srv_biom_lse = srv_biom_se.array()/ srv_biom.array();          // CV estimation
+  srv_biom_lse = pow( log( ( pow( srv_biom_lse.array(), Type(2) ).array() + 1).array()).array(), Type(0.5));
+  matrix<Type>  eit_age_comp = obs_eit_age;          // Eit age comp; n = [n_eit, srv_age_bins(0)]
+
+  // 3.2.2. EIT catch-at-age to age-comp
+  eit_age_comp.setZero();
+  for(y = 0; y < n_eit; y++){
+    for(j = 0; j < srv_age_bins(0); j++){
+      eit_age_comp(y, j) = obs_eit_age(y, j)/ obs_eit_age.row(y).sum(); // Convert from catch-at-age to age comp
+    }
+  }
+
+
+  // 3.3. DIET DATA
+  vector<int> prey_nlengths( nspp );
+  vector<int> prey_nages( nspp );
+  int maxL;
+
+  // FIXME - this seems redundant
+  for(p = 0; p < nspp; p++){
+    prey_nlengths( p ) = nlengths( p );
+    prey_nages( p ) = nages( p );
+  }
+
+  // 3.4. BIOENERGETICS DATA
+  // START HERE
+
+  // 3.3 POPULATION DYNAMICS
+  matrix<Type> M1( nspp, max_age); M1.setZero();
+  M1 = M1_base.array() + Type(0.0001);
+
+  for ( i = 0; i < nspp ; i++){
+    for( j = 0 ; j < nages(i); j++ ){
+      pmature( i, j ) = pmature( i, j ) * propMorF(i + (mf_type(i) - 1), j);
+    }
+  }
 
 
   // ------------------------------------------------------------------------- //
