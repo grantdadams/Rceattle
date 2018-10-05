@@ -36,9 +36,11 @@ Rceattle <- function( ctlFilename, TMBfilename, dat_dir ){
   opt = Optimize( obj )
 
   # Refit
-  last_par = obj$env$parList(opt$par)
-  obj = TMB::MakeADFun(data_list, parameters = last_par,  DLL = version, map = map)
-  opt = Optimize( obj )
+  for(i in 1:10){
+    last_par = obj$env$parList(opt$par)
+    obj = TMB::MakeADFun(data_list, parameters = last_par,  DLL = version, map = map)
+    opt = Optimize( obj )
+  }
   rep = obj$report()
   #Opt$opt$diagnostics
 
@@ -46,7 +48,7 @@ Rceattle <- function( ctlFilename, TMBfilename, dat_dir ){
   return(mod_objects)
 }
 
-mod_objects <- Rceattle( ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/dat files/" )
+mod_objects <- Rceattle( ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v02", dat_dir =  "data/dat files/" )
 rep <- mod_objects$rep
 data_list <- mod_objects$data_list
 params <- mod_objects$params

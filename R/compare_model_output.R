@@ -2,8 +2,8 @@
 
 compare_output <- function( rep = rep, tmp = tmp, cut_off = 0.01){
   param_check <- list()
-  tmb_names <- c("fsh_age_obs","fsh_age_hat", "F", "pmature","tc_biom_hat", "biomass", "srv_bio_hat", "NByage", "R", "S", "srv_sel", "biomassSSB", "srv_age_obs", "srv_age_hat", "biomassByage", "fsh_sel", "M1", "tc_hat", "biomassSSB")
-  admb_names <- c("fsh_age_obs","fsh_age_hat", "F", "pmature","obs_catch_hat", "Biomass", "srv_bio_hat", "NByage", "R", "S", "srv_sel", "BiomassSSB", "srv_age_obs", "srv_age_hat", "biomassByage", "fsh_sel", "M1", "tc_hat", "BiomassSSB")
+  tmb_names <- c("fsh_age_obs","fsh_age_hat", "F", "pmature","tc_biom_hat", "biomass", "srv_bio_hat", "NByage", "R", "S", "srv_sel", "biomassSSB", "srv_age_obs", "srv_age_hat", "biomassByage", "fsh_sel", "M1", "tc_hat", "biomassSSB", "ration2Age")
+  admb_names <- c("fsh_age_obs","fsh_age_hat", "F", "pmature","obs_catch_hat", "Biomass", "srv_bio_hat", "NByage", "R", "S", "srv_sel", "BiomassSSB", "srv_age_obs", "srv_age_hat", "biomassByage", "fsh_sel", "M1", "tc_hat", "BiomassSSB", "ration2")
 
   # Survey selectivity
   for( j in 1:length(tmb_names)){
@@ -22,11 +22,11 @@ compare_output <- function( rep = rep, tmp = tmp, cut_off = 0.01){
         param_check[[param]][i, 1:length(admb_params)] <- replace( param_check[[param]][i,1:length(admb_params)], values = diff)
       }
     }
-    if( class(tmb_params) == "array"){
+    if( class(tmb_params) == "array"){ # 3D Array
       param_check[[param]] <- replace(param_check[[param]], values = rep(NA, length(param_check[[param]])))
       for(i in 1:dim(tmb_params)[3]){
 
-        admb_params <- tmp[[paste(param, i, sep = "_")]]
+        admb_params <- tmp[[paste(admb_param, i, sep = "_")]]
         diff <- abs((tmb_params[1:min(nrow(tmb_params[,,i]) , nrow(admb_params)), 1:min(ncol(tmb_params[,,i]) , ncol(admb_params)), i] - admb_params[1:min(nrow(tmb_params[,,i]) , nrow(admb_params)), 1:min(ncol(tmb_params[,,i]) , ncol(admb_params))]) / admb_params[1:min(nrow(tmb_params[,,i]) , nrow(admb_params)), 1:min(ncol(tmb_params[,,i]) , ncol(admb_params))]) < cut_off
         param_check[[param]][1:min(nrow(tmb_params[,,i]) , nrow(admb_params)), 1:min(ncol(tmb_params[,,i]) , ncol(admb_params)), i] <- replace( param_check[[param]][1:min(nrow(tmb_params[,,i]) , nrow(admb_params)), 1:min(ncol(tmb_params[,,i]) , ncol(admb_params)), i], values = diff)
       }
