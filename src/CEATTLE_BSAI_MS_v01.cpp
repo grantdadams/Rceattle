@@ -678,8 +678,8 @@ Type objective_function<Type>::operator() (){
     avail_food.setZero();
     for(p=0; p < nspp; p++){                    // Predator species loop
       for (a=0; a < nages(p); a++){             // Predator age loop
-        tmp_othersuit=0.;
         for(y=0; y < nyrs; y++){                // Year loop
+          tmp_othersuit=0.;
           for (i=0; i < nspp; i++){             // Prey species loop
             for (j=0; j < nages(i); j++){       // Prey age loop
               avail_food(y, a, p) += suit_main(p, i, a, j) * AvgN(y, j, i) * wt(y, j, i); // FIXME - include overlap indices: FIXME - mn_wt_stom?
@@ -692,27 +692,24 @@ Type objective_function<Type>::operator() (){
     }
 
 
-
     // 6.7. Calculate predation mortality
-    Type Mtmp=0.;                               // Temporary vector of M2
-    Type Eatentmp=0.;                           // Temporary vector of eaten quantity
+    M2.setZero();
+    B_eaten.setZero();
     for (i=0; i < nspp; i++){                   // Prey species loop
       for (j=0; j < nages(i); j++){             // Prey age loop
         for(y=0; y < nyrs; y++){                // Year loop
-          Mtmp=0;
-          Eatentmp=0;
           for (p=0; p <nspp; p++){              // Predator species loop
             for (a=0; a < nages(p); a++){       // Predator age loop
-                Mtmp += (AvgN(y, a, p) * ration2Age(y, a, p) * suit_main(p , i , a, j)) / avail_food(y, a, p); // #FIXME - include indices of overlap
-                Eatentmp += AvgN(y, a, p) * ration2Age(y, a, p) * suit_main(p , i , a, j);
+                M2(y, j, i) += (AvgN(y, a, p) * ration2Age(y, a, p) * suit_main(p , i , a, j)) / avail_food(y, a, p); // #FIXME - include indices of overlap
+                B_eaten(y, j, i) += AvgN(y, a, p) * ration2Age(y, a, p) * suit_main(p , i , a, j);
             }
           }
-          M2(y, j, i) = Mtmp;
-          B_eaten(y, j, i) = Eatentmp;
         }
       }
     }
   }
+
+
 
   // ------------------------------------------------------------------------- //
   // 7. SURVEY COMPONENTS EQUATIONS                                            //
