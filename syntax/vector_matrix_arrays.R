@@ -1,9 +1,5 @@
 
 # Test customized vector, matrix and array operations in TMB.
-
-library(TMB)
-
-
 setwd("syntax")
 compile("vector_matrix_arrays.cpp")
 dyn.load(dynlib("vector_matrix_arrays"))

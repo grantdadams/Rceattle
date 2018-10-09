@@ -3,7 +3,7 @@ build_dat <- function(ctlFilename = ctlFilename, TMBfilename = TMBfilename, dat_
   #---------------------------------------------------------------------
   # Step 1 -- Extract data names used in TMB
   #---------------------------------------------------------------------
-  cpp_fn <- file(paste("src/", TMBfilename, ".cpp", sep = ""))
+  cpp_fn <- file(paste("inst/", TMBfilename, ".cpp", sep = ""))
 
   cpp_file <- readLines(cpp_fn)
   skipp <- grep("MODEL INPUTS", cpp_file) # Line of data files

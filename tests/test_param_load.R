@@ -15,7 +15,7 @@ param_load <- function( ctlFilename = "asmnt2017_0", TMBfilename = "CEATTLE_BSAI
   #--------------------------------------------------
   # 2. Build CPP file data entry
   #--------------------------------------------------
-  cpp_fn<-file(paste("src/", TMBfilename,".cpp",sep=""))
+  cpp_fn<-file(paste("inst/", TMBfilename,".cpp",sep=""))
   cpp_file <- readLines(cpp_fn)
   nrow <-  line #grep('Slot 1 -- BT', cpp_file) # Last line of data files
   cpp_file <- cpp_file[1:(nrow - 1)] # Retain data section
