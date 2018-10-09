@@ -11,7 +11,7 @@
 #' @export
 #'
 #' @examples
-Rceattle <- function( ctlFilename, TMBfilename, dat_dir, debug = T){
+Rceattle <- function( data_list = NULL, ctlFilename, TMBfilename, dat_dir, debug = T){
   #--------------------------------------------------
   # 1. DATA and MODEL PREP
   #--------------------------------------------------
@@ -24,12 +24,15 @@ Rceattle <- function( ctlFilename, TMBfilename, dat_dir, debug = T){
   source("R/3-build_map.R")
 
   # STEP 1 - LOAD DATA
-  data_list <- build_dat(ctlFilename = ctlFilename, TMBfilename = TMBfilename, dat_dir = dat_dir, debug = debug)
-  print("Step 1: Data build complete")
+  if(is.null(data_list)){
+    data_list <- build_dat(ctlFilename = ctlFilename, TMBfilename = TMBfilename, dat_dir = dat_dir, debug = debug)
+    print("Step 1: Data build complete")
+  }
+  data_list$debug <- debug
 
   # STEP 2 - LOAD PARAMETERS
   params <- build_params(data_list, nselages = 8, incl_prev = TRUE, Rdata_file = paste0(strsplit(dat_dir, "/dat")[[1]][1], "/CEATTLE_results.Rdata"),  std_file = paste0(strsplit(dat_dir, "/dat")[[1]][1], "/ceattle_est.std"), TMBfilename = TMBfilename)
-   print("Step 2: Parameter build complete")
+  print("Step 2: Parameter build complete")
 
   # STEP 3 - BUILD MAP
   map  <- build_map(data_list, params, debug = debug)
@@ -48,26 +51,29 @@ Rceattle <- function( ctlFilename, TMBfilename, dat_dir, debug = T){
 
   # Build object
   obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map)
-  opt = Optimize( obj )
+  opt = tryCatch(Optimize( obj ), error = function(e) NULL)
+  rep = obj$report()
 
-  # Refit
-  for(i in 1:10){
-    last_par = obj$env$parList(opt$par)
-    obj = TMB::MakeADFun(data_list, parameters = last_par,  DLL = version, map = map)
-    opt = Optimize( obj )
+  # Refit - if not debugging
+  if(debug == FALSE){
+    for(i in 1:10){
+      last_par = obj$env$parList(opt$par)
+      print("Re-running model ", i)
+      obj = TMB::MakeADFun(data_list, parameters = last_par,  DLL = version, map = map, silent = TRUE)
+      opt = tryCatch(Optimize( obj ), error = function(e) NULL)
+    }
   }
   rep = obj$report()
-  #Opt$opt$diagnostics
 
+
+  # Return objects
   mod_objects <- list(data_list = data_list, params = params, map = map, rep = rep, obj = obj, opt = opt)
   return(mod_objects)
 }
 
-mod_objects <- Rceattle( ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_Files/dat files/", debug = TRUE)
-rep <- mod_objects$rep
-data_list <- mod_objects$data_list
-params <- mod_objects$params
-opt <- mod_objects$opt
-rep <- mod_objects$obj$report()
-rep$jnll
-opt$objective
+ms_run <- Rceattle(data_list = data_list, ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_Files/dat files/", debug = FALSE)
+rep <- ms_run$rep
+data_list <-ms_run$data_list
+
+ss_run <- Rceattle( data_list = ss_run$data_list, ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_SS_Files/dat files/", debug = FALSE)
+
