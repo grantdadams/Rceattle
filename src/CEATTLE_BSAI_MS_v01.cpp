@@ -376,6 +376,7 @@ Type objective_function<Type>::operator() (){
   array<Type> ration2Age( nyrs, max_age, nspp );      // Annual ration at age (kg/yr); n = [nyrs, nages, nspp]
 
   // -- 4.5. Suitability components
+  array<Type> suma_suit(nyrs, max_age, nspp);         // Sum of suitabilities; n = [nyrs, nages, nspp]
   array<Type> suit_main(nspp, nspp, max_age, max_age);// Suitability; n = [nspp, nspp, nages, nages]
   matrix<Type> suit_other(nspp, max_age);             // Suitability not accounted for by the included prey; n = [nspp, nages]
   array<Type> stom_div_bio2(nspp, nspp, max_age, max_age, nyrs);// Stomach proportion over biomass; U/ (W * N); n = [nspp, nspp, nages, nages, nyrs]
@@ -383,7 +384,7 @@ Type objective_function<Type>::operator() (){
   array<Type> stomKir(nspp, nspp, max_age, max_age, nyrs);// Stomach proportion U; n = [nspp, nspp, nages, nages, nyrs]
   array<Type> avail_food(nyrs, max_age, nspp);            // Available food to predator; n = [nyrs, nages, nspp]
   array<Type> of_stomKir(nyrs, max_age, nspp);            // Other food stomach content; n = [nyrs, nages, nspp] # FIXME - what is this?
-  array<Type> M2(nyrs, max_age, nspp);                    // Predation mortality at age; n = [nyrs, nages, nspp]
+  array<Type> M2(nyrs, max_age, nspp); M2.setZero();      // Predation mortality at age; n = [nyrs, nages, nspp]
   array<Type> B_eaten(nyrs, max_age, nspp);               // Biomass of prey eaten via predation; n = [nyrs, nages, nspp]
 
   // Calculate temperature to use
@@ -508,12 +509,6 @@ Type objective_function<Type>::operator() (){
     for(j=0; j < nages(i); j++){
       for(y=0; y < nyrs; y++){
         Zed(y, j, i) = M1(i, j) + F(y, j, i) + M2(y, j, i);
-
-        // Add predation mortality
-        if(msmMode > 0){
-          Zed(y, j, i)  += M2(y, j, i);
-        }
-
         S(y, j, i) = exp(-Zed(y, j, i));
       }
     }
@@ -637,11 +632,11 @@ Type objective_function<Type>::operator() (){
   if(msmMode > 0){
     // 6.4. Calculate stomach proportion over biomass; U/ (W * N)
     Type suit_tmp;                            //  Temporary storage variable
-    array<Type> suma_suit(nyrs, max_age, nspp); suma_suit.setZero();
+    suma_suit.setZero();
     for(y=0; y<nyrs; y++){                    // Year loop
-      for(p=0; p < nspp; p++){                // Predator species loop
-        for(a=0; a < nages(p); a++){          // Predator age loop
-          for (i=0; i < nspp; i++){           // Prey species loop
+      for (i=0; i < nspp; i++){               // Prey species loop
+        for(p=0; p < nspp; p++){              // Predator species loop
+          for(a=0; a < nages(p); a++){        // Predator age loop
             for (j=0; j < nages(i); j++){     // Prey age loop
               suit_tmp = stomKir(p, i, a, j, y) / (AvgN(y, j, i));
               if (wt(y, j, i)!= 0){
@@ -693,7 +688,6 @@ Type objective_function<Type>::operator() (){
 
 
     // 6.7. Calculate predation mortality
-    M2.setZero();
     B_eaten.setZero();
     for (i=0; i < nspp; i++){                   // Prey species loop
       for (j=0; j < nages(i); j++){             // Prey age loop
@@ -708,7 +702,6 @@ Type objective_function<Type>::operator() (){
       }
     }
   }
-
 
 
   // ------------------------------------------------------------------------- //
@@ -1141,6 +1134,7 @@ Type objective_function<Type>::operator() (){
 
 
   // 11.6. Suitability components
+  REPORT( suma_suit );
   REPORT( suit_main );
   REPORT( suit_other );
   REPORT( stom_div_bio2 );

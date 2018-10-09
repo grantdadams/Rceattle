@@ -5,7 +5,7 @@ Uobs <- data_list$UobsAge
 of_stomkir <- matrix(NA, 21, 3)
 for(pred in 1:3){
   for(pred_age in 1:21){
-    of_stomkir[pred_age, pred] <- 1 - sum(Uobs[pred,,pred_age,],na.rm = T)
+    of_stomkir[pred_age, pred] <- 1 - sum( rep$stomKir[pred,,pred_age,,1], na.rm = T)
   }
 }
 of_stomkir <- of_stomkir/data_list$other_food[1]
@@ -20,13 +20,15 @@ for(yr in 1:nyrs){
     for(pred in 1:3){
       for(prey_age in 1:data_list$nages[prey]){
         for(pred_age in 1:data_list$nages[pred]){
-          stom_div_bio2[pred,prey,pred_age,prey_age, yr] <- Uobs[pred,prey,pred_age,prey_age] / (rep$AvgN[yr, prey_age, prey] * data_list$wt[yr, prey_age, prey])
+          stom_div_bio2[pred,prey,pred_age,prey_age, yr] <- rep$stomKir[pred,prey,pred_age,prey_age,1] / (rep$AvgN[yr, prey_age, prey] * data_list$wt[yr, prey_age, prey])
           suma_suit[yr,pred_age,pred] <- suma_suit[yr,pred_age,pred] + stom_div_bio2[pred,prey,pred_age,prey_age,yr]
         }
       }
     }
   }
 }
+suma_suit[1,,1]
+rep$suma_suit[1,,1]
 
 # Suitability
 suit_main <- array(0, dim = c(3,3,21,21))
@@ -46,8 +48,12 @@ for(pred in 1:3){
     }
   }
 }
-
+suit_main[1,,1,]
+rep$suit_main[1,,1,]
 suit_other
+t(rep$suit_other)
+
+# Suitability seems good
 
 # Compare
 tmp$suit_other_1
@@ -58,12 +64,12 @@ tmp$suit_other_3
 avail_food <- array(0, dim = c(nyrs, 21, 3))
 for(pred in 1:3){
   for(pred_age in 1:data_list$nages[pred]){
-    tmp_othersuit = 0
     for(yr in 1:nyrs){
+      tmp_othersuit = 0
       for(prey in 1:3){
         for(prey_age in 1:data_list$nages[prey]){
 
-          avail_food[yr, pred_age, pred]  = avail_food[yr, pred_age, pred] + suit_main[pred,prey,pred_age,prey_age] * rep$AvgN[yr, prey_age, prey] * data_list$wt[yr, prey_age, prey]
+          avail_food[yr, pred_age, pred]  = avail_food[yr, pred_age, pred] + suit_main[pred,prey,pred_age,prey_age] * tmp[[paste0("AvgN_", prey)]][yr,prey_age] * data_list$wt[yr, prey_age, prey]
           tmp_othersuit = tmp_othersuit + suit_main[pred,prey,pred_age,prey_age]
         }
       }
@@ -71,11 +77,25 @@ for(pred in 1:3){
     }
   }
 }
-avail_food[,,1]
-rep$avail_food[,,1]
-
 
 tmp$avail_food_1[1,]
 tmp$avail_food_2[1,]
 tmp$avail_food_3[1,]
 
+# Calculate M2
+M2 <- array(0, dim = c(nyrs, 21, 3))
+B_eaten <- array(0, dim = c(nyrs, 21, 3))
+for(prey in 1:3){
+  for(prey_age in 1:data_list$nages[prey]){
+    for(yr in 1:nyrs){
+      for(pred in 1:3){
+        for(pred_age in 1:data_list$nages[pred]){
+          M2[yr, prey_age, prey] = M2[yr, prey_age, prey] + ((rep$AvgN[yr, pred_age, pred] * rep$ration2Age[yr, pred_age, pred]*suit_main[pred,prey,pred_age,prey_age])/avail_food[yr, pred_age, pred])
+          B_eaten[yr, prey_age, prey] = B_eaten[yr, prey_age, prey] + (rep$AvgN[yr, pred_age, pred] * rep$ration2Age[yr, pred_age, pred]*suit_main[pred,prey,pred_age,prey_age])
+        }
+      }
+    }
+  }
+}
+M2[1,,1]
+tmp$M2_1[1,]
