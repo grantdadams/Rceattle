@@ -1,7 +1,7 @@
 # Function to construct the TMB map argument for CEATTLE
 # Grant Adams June 2018
 
-build_map <- function(data_list, params) {
+build_map <- function(data_list, params, debug = FALSE) {
 
   map_list <- params
 
@@ -33,10 +33,24 @@ build_map <- function(data_list, params) {
   # Catchability of surveys
   map_list$log_srv_q <- replace(map_list$log_srv_q, values = rep(NA, length(map_list$log_srv_q)))
 
-  # STEP 3 -- Conver to factor
+
+  # STEP 3 - set up debug - I.E. turn off all parameters besides dummy
+  map_list$dummy <- NA
+  if(debug == TRUE){
+    for(i in 1:length(map_list)){
+      map_list[[i]] <- replace(map_list[[i]], values = rep(NA, length(map_list[[i]])))
+    }
+
+    map_list$dummy = 1
+
+  }
+
+
+  # STEP 4 -- Conver to factor
   for(i in 1:length(map_list)){
     map_list[[i]] <- factor(map_list[[i]])
   }
+
 
   return(map_list)
 }

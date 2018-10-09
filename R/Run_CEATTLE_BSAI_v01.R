@@ -1,6 +1,17 @@
 # This functions runs CEATTLE
 
-Rceattle <- function( ctlFilename, TMBfilename, dat_dir ){
+#' This function estimates population parameters of CEATTLE using maximum likelihood in TMB. The currently uses data from \code{.dat} files used in the ADMB version of CEATTLE.
+#'
+#' @param ctlFilename The ADMB control file used for CEATTLE
+#' @param TMBfilename The version of the cpp CEATTLE file found in the src folder
+#' @param dat_dir The directory where dat files are stored
+#' @param debug Runs the model without estimating parameters to get derived quantities given initial parameter values.
+#'
+#' @return
+#' @export
+#'
+#' @examples
+Rceattle <- function( ctlFilename, TMBfilename, dat_dir, debug = T){
   #--------------------------------------------------
   # 1. DATA and MODEL PREP
   #--------------------------------------------------
@@ -12,14 +23,18 @@ Rceattle <- function( ctlFilename, TMBfilename, dat_dir ){
   source("R/2-build_params.R")
   source("R/3-build_map.R")
 
-  data_list <- build_dat(ctlFilename = ctlFilename, TMBfilename = TMBfilename, dat_dir = dat_dir)
+  # STEP 1 - LOAD DATA
+  data_list <- build_dat(ctlFilename = ctlFilename, TMBfilename = TMBfilename, dat_dir = dat_dir, debug = debug)
   print("Step 1: Data build complete")
 
-  params <- build_params(data_list, nselages = 8, incl_prev = F, Rdata_file = "data/CEATTLE_results.Rdata",  std_file = "data/ceattle_est.std", TMBfilename = TMBfilename )
-  print("Step 2: Parameter build complete")
+  # STEP 2 - LOAD PARAMETERS
+  params <- build_params(data_list, nselages = 8, incl_prev = TRUE, Rdata_file = paste0(strsplit(dat_dir, "/dat")[[1]][1], "/CEATTLE_results.Rdata"),  std_file = paste0(strsplit(dat_dir, "/dat")[[1]][1], "/ceattle_est.std"), TMBfilename = TMBfilename)
+   print("Step 2: Parameter build complete")
 
-  map  <- build_map(data_list, params)
+  # STEP 3 - BUILD MAP
+  map  <- build_map(data_list, params, debug = debug)
   print("Step 3: Map build complete")
+
 
   # Compile CEATTLE
   library(TMBhelper)
@@ -48,7 +63,7 @@ Rceattle <- function( ctlFilename, TMBfilename, dat_dir ){
   return(mod_objects)
 }
 
-mod_objects <- Rceattle( ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_SS_Files/dat files/" )
+mod_objects <- Rceattle( ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_Files/dat files/", debug = FALSE)
 rep <- mod_objects$rep
 data_list <- mod_objects$data_list
 params <- mod_objects$params

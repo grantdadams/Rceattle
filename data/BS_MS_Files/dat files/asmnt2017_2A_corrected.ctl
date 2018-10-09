@@ -35,7 +35,7 @@ dat_input_files/01_assesment_2017/setF40_datfiles/F40In_2_1_9.dat
 #debugg  : debugg the model (0 =NO, 1= dump reps)                                          
 0
 #msmMode  : model mode                                            
-0
+1
 # 0 = run in  single  species mode                                    
 # 2 = run in  MSM mode  using Juarado #NAME?  approach  but new diet  and stomach data                           
 #nspp : number  of  species                                         
