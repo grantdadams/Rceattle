@@ -95,7 +95,7 @@ compare_output <- function( rep = rep, tmp = tmp, cut_off = 0.01){
 
 
 # Note: TC-Hat and Fsh_age_hat will be off, but like is good
-res <- compare_output(ss_run$rep, tmp)
+res <- compare_output(rep, tmp)
 
 res[[2]]
 res[[3]]

@@ -75,5 +75,5 @@ ms_run <- Rceattle(data_list = data_list, ctlFilename = "asmnt2017_2A_corrected"
 rep <- ms_run$rep
 data_list <-ms_run$data_list
 
-ss_run <- Rceattle( data_list = ss_run$data_list, ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_SS_Files/dat files/", debug = FALSE)
-
+ss_run <- Rceattle( ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_SS_Files/dat files/", debug = FALSE)
+rep <- ss_run$rep
