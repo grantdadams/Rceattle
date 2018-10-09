@@ -6,6 +6,7 @@
 #' @param TMBfilename The version of the cpp CEATTLE file found in the src folder
 #' @param dat_dir The directory where dat files are stored
 #' @param debug Runs the model without estimating parameters to get derived quantities given initial parameter values.
+#' @param data_list (Optional) a data_list from a previous model run.
 #'
 #' @return
 #' @export
@@ -40,18 +41,16 @@ Rceattle <- function( data_list = NULL, ctlFilename, TMBfilename, dat_dir, debug
 
 
   # Compile CEATTLE
-  library(TMBhelper)
-  library(TMB)
   version <- TMBfilename
-  setwd("src")
-  compile(paste0(version, ".cpp"))
-  dyn.load(dynlib(paste0(version)))
+  setwd("inst")
+  TMB::compile(paste0(version, ".cpp"))
+  dyn.load(TMB::dynlib(paste0(version)))
   setwd("..")
   print("Step 4: Compile CEATTLE complete")
 
   # Build object
   obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map)
-  opt = tryCatch(Optimize( obj ), error = function(e) NULL)
+  opt = tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
   rep = obj$report()
 
   # Refit - if not debugging
@@ -60,7 +59,7 @@ Rceattle <- function( data_list = NULL, ctlFilename, TMBfilename, dat_dir, debug
       last_par = obj$env$parList(opt$par)
       print("Re-running model ", i)
       obj = TMB::MakeADFun(data_list, parameters = last_par,  DLL = version, map = map, silent = TRUE)
-      opt = tryCatch(Optimize( obj ), error = function(e) NULL)
+      opt = tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
     }
   }
   rep = obj$report()
@@ -70,10 +69,3 @@ Rceattle <- function( data_list = NULL, ctlFilename, TMBfilename, dat_dir, debug
   mod_objects <- list(data_list = data_list, params = params, map = map, rep = rep, obj = obj, opt = opt)
   return(mod_objects)
 }
-
-ms_run <- Rceattle(data_list = data_list, ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_Files/dat files/", debug = FALSE)
-rep <- ms_run$rep
-data_list <-ms_run$data_list
-
-ss_run <- Rceattle( ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_SS_Files/dat files/", debug = FALSE)
-rep <- ss_run$rep

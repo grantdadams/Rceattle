@@ -25,7 +25,7 @@
 // ------------------------------------------------------------------------- //
 // 0. LOAD DEPENDENCIES                                                      //
 // ------------------------------------------------------------------------- //
-#include "../src/include/functions.hpp"
+#include "../inst/include/functions.hpp"
 
 
 template<class Type>
@@ -396,22 +396,22 @@ Type objective_function<Type>::operator() (){
       fsh_sel(i, j) = fsh_sel_coff(i, j);
       avgsel_fsh(i) +=  exp(fsh_sel_coff(i, j));
     }
-    // 8.1.3 Average selectivity up to nselages
+    // 8.1.1. Average selectivity up to nselages
     avgsel_fsh(i) = log(avgsel_fsh(i) / nselages);
 
-    // 8.1.4. Plus group selectivity
+    // 8.1.2. Plus group selectivity
     for(j = nselages; j < nages(i); j++){
       fsh_sel(i, j) = fsh_sel(i, nselages - 1);
     }
 
-    // 8.1.5. Average selectivity across all ages
+    // 8.1.3. Average selectivity across all ages
     Type avgsel_tmp = 0; // Temporary object for average selectivity across all ages
     for(j = 0; j < nages(i); j++){
       avgsel_tmp += exp(fsh_sel(i, j));
     }
     avgsel_tmp = log(avgsel_tmp / nages(i));
 
-    // 8.1.6. Standardize selectivity
+    // 8.1.4. Standardize selectivity
     for(j = 0; j < nages(i); j++){
       fsh_sel(i, j) -= avgsel_tmp;
       fsh_sel(i, j) = exp(fsh_sel(i, j));

@@ -1,5 +1,13 @@
-# Function to compare output of models to check if there are within a certain threshold of relative error
-
+#' Function to compare output of TMB and ADMB based CEATTLE models to check if there are within a certain threshold of relative error
+#'
+#' @param rep list of TMB CEATTLE estimated quantities from rep
+#' @param tmp list of ADMB CEATTLE estimated quantities from saved .Rdata file
+#' @param cut_off relative error tolerance
+#'
+#' @return
+#' @export
+#'
+#' @examples
 compare_output <- function( rep = rep, tmp = tmp, cut_off = 0.01){
   param_check <- list()
   tmb_names <- c("fsh_age_obs","fsh_age_hat", "F", "pmature","tc_biom_hat", "biomass", "srv_bio_hat", "NByage", "R", "S", "srv_sel", "biomassSSB", "srv_age_obs", "srv_age_hat", "biomassByage", "fsh_sel", "M1", "tc_hat", "biomassSSB", "ration2Age", "AvgN", "M2", "avail_food")
@@ -94,15 +102,3 @@ compare_output <- function( rep = rep, tmp = tmp, cut_off = 0.01){
 }
 
 
-# Note: TC-Hat and Fsh_age_hat will be off, but like is good
-res <- compare_output(rep, tmp)
-
-res[[2]]
-res[[3]]
-res[[4]]
-res[[5]]
-
-
-opt$objective
-rep$jnll
-tmp$obj_fun
