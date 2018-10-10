@@ -54,14 +54,14 @@ Rceattle <- function( data_list = NULL, ctlFilename, TMBfilename, dat_dir, debug
   rep = obj$report()
 
   # Refit - if not debugging
-  if(debug == FALSE){
-    for(i in 1:10){
-      last_par = obj$env$parList(opt$par)
-      print("Re-running model ", i)
-      obj = TMB::MakeADFun(data_list, parameters = last_par,  DLL = version, map = map, silent = TRUE)
-      opt = tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
-    }
-  }
+  # if(debug == FALSE){
+  #   for(i in 1:10){
+  #     last_par = obj$env$parList(opt$par)
+  #     print("Re-running model ", i)
+  #     obj = TMB::MakeADFun(data_list, parameters = last_par,  DLL = version, map = map, silent = TRUE)
+  #     opt = tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
+  #   }
+  # }
   rep = obj$report()
 
 
