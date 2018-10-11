@@ -592,6 +592,7 @@ Type objective_function<Type>::operator() (){
 
 
     // 6.5. Calculate other food stomach content
+    of_stomKir.setZero();
     for (y=0; y<nyrs; y++){           // Year loop
       for(p=0; p < nspp; p++){                  // Predator species loop
         for (a=0; a < nages(p); a++){           // Predator age loop
@@ -689,6 +690,8 @@ Type objective_function<Type>::operator() (){
     // 7. SURVEY COMPONENTS EQUATIONS                                            //
     // ------------------------------------------------------------------------- //
     // 7.1. Survey selectivity
+    avgsel_srv.setZero();
+    srv_sel.setZero();
     for (i=0; i<nspp; i++){
       // 7.1.1. Logisitic selectivity
       if(logist_sel_phase(i) > 0){
@@ -728,12 +731,12 @@ Type objective_function<Type>::operator() (){
     // 7.2 EIT Components
     // -- 7.2.1 EIT Survey Biomass
     int eit_yr_ind;
+    eit_hat.setZero();
     for(j=0; j < nages(0); j++){
       for(y=0; y < n_eit; y++){
         eit_yr_ind = yrs_eit(y) - styr;
         eit_age_hat(y, j) = NByage(eit_yr_ind, j, 0) * eit_sel(eit_yr_ind, j) * eit_q; // Remove the mid-year trawl?
         eit_hat(y) += eit_age_hat(y, j) * wt(eit_yr_ind, j, 0);  //
-
       }
     }
 
@@ -749,6 +752,7 @@ Type objective_function<Type>::operator() (){
     // 7.3 BT Components
     // -- 7.3.1 BT Survey Biomass
     int srv_yr_ind;
+    srv_bio_hat.setZero();
     for(i=0; i < nspp; i++){
       for(j=0; j < nages(i); j++){
         for(y=0; y < nyrs_srv_biom(i); y++){
@@ -760,6 +764,7 @@ Type objective_function<Type>::operator() (){
 
     // -- 7.4.2 BT Survey Age Composition: NOTE: will have to alter if age comp data are not the same length as survey biomass data
     vector<Type> srv_age_tmp( max_age ); // Temporary vector of survey-catch-at-age for matrix multiplication
+    srv_hat.setZero();
     for(i=0; i < nspp; i++){
       for(j=0; j < nages(i); j++){
         for(y=0; y < nyrs_srv_age(i); y++){
@@ -800,6 +805,7 @@ Type objective_function<Type>::operator() (){
     // 8. FISHERY COMPONENTS EQUATIONS                                           //
     // ------------------------------------------------------------------------- //
     // 8.5. ESTIMATE CATCH-AT-AGE and TOTAL YIELD (kg)
+    tc_biom_hat.setZero();
     for(i=0; i < nspp; i++){
       for(j=0; j < nages(i); j++){
         for(y=0; y < nyrs_tc_biom(i); y++){
@@ -812,6 +818,7 @@ Type objective_function<Type>::operator() (){
 
     // 8.6. ESTIMATE FISHERY AGE COMPOSITION
     // 8.6.1. Get catch-at-age
+    tc_hat.setZero();
     for(i=0; i < nspp; i++){
       for(j=0; j < nages(i); j++){
         for(y=0; y < nyrs_tc_biom(i); y++){
