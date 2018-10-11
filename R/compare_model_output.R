@@ -2,13 +2,13 @@
 #'
 #' @param rep list of TMB CEATTLE estimated quantities from rep
 #' @param tmp list of ADMB CEATTLE estimated quantities from saved .Rdata file
-#' @param cut_off relative error tolerance
+#' @param rel_error relative error tolerance
 #'
 #' @return
 #' @export
 #'
 #' @examples
-compare_output <- function( rep = rep, tmp = tmp, cut_off = 0.01){
+compare_output <- function( rep = rep, tmp = tmp, rel_error = 0.01){
   param_check <- list()
   tmb_names <- c("fsh_age_obs","fsh_age_hat", "F", "pmature","tc_biom_hat", "biomass", "srv_bio_hat", "NByage", "R", "S", "srv_sel", "biomassSSB", "srv_age_obs", "srv_age_hat", "biomassByage", "fsh_sel", "M1", "tc_hat", "biomassSSB", "ration2Age", "AvgN", "M2", "avail_food")
   admb_names <- c("fsh_age_obs","fsh_age_hat", "F", "pmature","obs_catch_hat", "Biomass", "srv_bio_hat", "NByage", "R", "S", "srv_sel", "BiomassSSB", "srv_age_obs", "srv_age_hat", "biomassByage", "fsh_sel", "M1", "tc_hat", "BiomassSSB", "ration2", "AvgN", "M2", "avail_food")
@@ -26,7 +26,7 @@ compare_output <- function( rep = rep, tmp = tmp, cut_off = 0.01){
         if(class(admb_params) == "matrix" ){
           admb_params <- admb_params[1,]
         }
-        diff <- abs((tmb_params[i,1:length(admb_params)] - admb_params)) / admb_params < cut_off
+        diff <- abs((tmb_params[i,1:length(admb_params)] - admb_params)) / admb_params < rel_error
         param_check[[param]][i, 1:length(admb_params)] <- replace( param_check[[param]][i,1:length(admb_params)], values = diff)
       }
     }
@@ -36,7 +36,7 @@ compare_output <- function( rep = rep, tmp = tmp, cut_off = 0.01){
         for(i in 1:dim(tmb_params)[3]){
 
           admb_params <- tmp[[paste(admb_param, i, sep = "_")]]
-          diff <- abs((tmb_params[1:min(nrow(tmb_params[,,i]) , nrow(admb_params)), 1:min(ncol(tmb_params[,,i]) , ncol(admb_params)), i] - admb_params[1:min(nrow(tmb_params[,,i]) , nrow(admb_params)), 1:min(ncol(tmb_params[,,i]) , ncol(admb_params))]) / admb_params[1:min(nrow(tmb_params[,,i]) , nrow(admb_params)), 1:min(ncol(tmb_params[,,i]) , ncol(admb_params))]) < cut_off
+          diff <- abs((tmb_params[1:min(nrow(tmb_params[,,i]) , nrow(admb_params)), 1:min(ncol(tmb_params[,,i]) , ncol(admb_params)), i] - admb_params[1:min(nrow(tmb_params[,,i]) , nrow(admb_params)), 1:min(ncol(tmb_params[,,i]) , ncol(admb_params))]) / admb_params[1:min(nrow(tmb_params[,,i]) , nrow(admb_params)), 1:min(ncol(tmb_params[,,i]) , ncol(admb_params))]) < rel_error
           param_check[[param]][1:min(nrow(tmb_params[,,i]) , nrow(admb_params)), 1:min(ncol(tmb_params[,,i]) , ncol(admb_params)), i] <- replace( param_check[[param]][1:min(nrow(tmb_params[,,i]) , nrow(admb_params)), 1:min(ncol(tmb_params[,,i]) , ncol(admb_params)), i], values = diff)
         }
       }
@@ -50,7 +50,7 @@ compare_output <- function( rep = rep, tmp = tmp, cut_off = 0.01){
   param_check[[param]] <- rep[[param]]
   param_check[[param]][] <- NA
   admb_params <- tmp[[admb_param]]
-  diff <- abs((tmb_params - admb_params) / admb_params) < cut_off
+  diff <- abs((tmb_params - admb_params) / admb_params) < rel_error
   param_check[[param]] <- replace( param_check[[param]], values = diff)
 
   # EIT selectivity
@@ -61,7 +61,7 @@ compare_output <- function( rep = rep, tmp = tmp, cut_off = 0.01){
   param_check[[param]] <- replace(param_check[[param]], values = rep(NA, length(param_check[[param]])))
   admb_params <- tmp[[param]]
   tmb_params <- tmb_params[which(tmb_params > 0)]
-  diff <- abs((tmb_params[1:length(admb_params)] - admb_params) / admb_params) < cut_off
+  diff <- abs((tmb_params[1:length(admb_params)] - admb_params) / admb_params) < rel_error
   param_check[[param]][1:length(admb_params)] <- replace( param_check[1:length(admb_params)], values = diff)
 
 
@@ -85,7 +85,7 @@ compare_output <- function( rep = rep, tmp = tmp, cut_off = 0.01){
   admb_like[7,] <- c(tmp$fsh_sel_like_1, tmp$fsh_sel_like_2, tmp$fsh_sel_like_3)
   admb_like[9,] <- c(tmp$srv_sel_like_1, tmp$srv_sel_like_2, tmp$srv_sel_like_3)
 
-  like_check <- abs((tmb_like - admb_like) / admb_like) < cut_off
+  like_check <- abs((tmb_like - admb_like) / admb_like) < rel_error
   like_check <- as.data.frame(like_check)
   admb_like <- round(admb_like,3)
   tmb_like <- round(tmb_like,3)
@@ -98,7 +98,7 @@ compare_output <- function( rep = rep, tmp = tmp, cut_off = 0.01){
   tmb_like$names <- like_names
   admb_like$names <- like_names
 
-  return(list(param_check, check_summary, like_check, tmb_like, admb_like))
+  return(list(summary = check_summary, parameters = param_check, likelihood = like_check, tmb_like = tmb_like, admb_like = admb_like))
 }
 
 
