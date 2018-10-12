@@ -56,7 +56,7 @@ Type objective_function<Type>::operator() (){
   int  i, j, y, k, p, a;
   int fsh_yr_ind;
   int niter = 1;                  // Number of iterations for MS mode
-  if(msmMode > 0){ niter = 5; }
+  if(msmMode > 0){ niter = 3; }
 
   // ------------------------------------------------------------------------- //
   // 2. MODEL INPUTS                                                           //
@@ -1063,7 +1063,9 @@ Type objective_function<Type>::operator() (){
   REPORT( biomassByage );
   REPORT( biomassSSBByage );
   REPORT( biomass );
+  ADREPORT( biomass );
   REPORT( biomassSSB );
+  ADREPORT( biomassSSB );
   REPORT( pmature );
   REPORT( R );
   REPORT( M1 );
@@ -1077,7 +1079,7 @@ Type objective_function<Type>::operator() (){
   REPORT( eit_hat );
   REPORT( eit_age_hat );
   REPORT( eit_age_comp_hat )
-    REPORT( obs_eit_age );
+  REPORT( obs_eit_age );
   REPORT( eit_age_comp );
   REPORT( avgsel_srv );
   REPORT( srv_sel );
