@@ -19,6 +19,9 @@ Rceattle <- function( data_list = NULL, ctlFilename, TMBfilename, dat_dir, debug
   #--------------------------------------------------
   # Check if require packages are installed and install if not
   if("TMB" %in% rownames(installed.packages()) == FALSE) {install.packages("TMB")}
+  if("TMBhelper" %in% rownames(installed.packages()) == FALSE) {install.packages("TMBhelper")}
+  library(TMB)
+  library(TMBhelper)
 
   # Load data
   source("R/1-build_dat.R")
@@ -65,19 +68,22 @@ Rceattle <- function( data_list = NULL, ctlFilename, TMBfilename, dat_dir, debug
 
   # STEP 5 - Build object
   obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map)
-  opt = tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
+  opt = TMBhelper::Optimize( obj ) ; #tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
   rep = obj$report()
 
   # Refit - if not debugging
-  if(debug == FALSE){
-    for(i in 1:10){
-      last_par = obj$env$parList(opt$par)
-      last_par$dummy = 0
-      print("Re-running model ", i)
-      obj = TMB::MakeADFun(data_list, parameters = last_par,  DLL = version, map = map, silent = TRUE)
-      opt = tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
-    }
+  if(debug == TRUE){ iter = 1}
+  if(debug == FALSE){ iter = 3}
+  for(i in 1:iter){
+    last_par = obj$env$parList(opt$par)
+    last_par$dummy = 0
+    print("Re-running model ", i)
+    obj = TMB::MakeADFun(data_list, parameters = last_par,  DLL = version, map = map, silent = TRUE)
+    opt = tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
   }
+
+  obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map)
+  opt = TMBhelper::Optimize( obj ) ; #tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
   rep = obj$report()
 
 
