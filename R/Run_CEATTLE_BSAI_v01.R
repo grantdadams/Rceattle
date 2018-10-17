@@ -25,7 +25,7 @@ Rceattle <- function( data_list = NULL, ctlFilename, TMBfilename, dat_dir, debug
 
   # Load data
   source("R/1-build_dat.R")
-  source("R/2-build_params.R")
+  source("R/2-build_params_par_file.R")
   source("R/3-build_map.R")
 
   # STEP 1 - LOAD DATA
@@ -36,7 +36,7 @@ Rceattle <- function( data_list = NULL, ctlFilename, TMBfilename, dat_dir, debug
   data_list$debug <- debug
 
   # STEP 2 - LOAD PARAMETERS
-  params <- build_params(data_list, nselages = 8, incl_prev = inits, Rdata_file = paste0(strsplit(dat_dir, "/dat")[[1]][1], "/CEATTLE_results.Rdata"),  std_file = paste0(strsplit(dat_dir, "/dat")[[1]][1], "/ceattle_est.std"), TMBfilename = TMBfilename)
+  params <- build_params(data_list, nselages = 8, incl_prev = inits, Rdata_file = paste0(strsplit(dat_dir, "/dat")[[1]][1], "/CEATTLE_results.Rdata"),  std_file = paste0(strsplit(dat_dir, "/dat")[[1]][1], "/ceattle.par"), TMBfilename = TMBfilename)
   print("Step 2: Parameter build complete")
 
   # STEP 3 - BUILD MAP
