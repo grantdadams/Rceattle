@@ -1,6 +1,6 @@
 ###################################################
 # Run in single species mode
-ss_run <- Rceattle(data_list = NULL, ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_SS_Files/dat files/", debug = TRUE, inits = TRUE)
+ss_run <- Rceattle(data_list = ss_run$data_list, ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_SS_Files/dat files/", debug = TRUE, inits = TRUE)
 ss_rep <- ss_run$rep
 
 # Load previous estimates
@@ -17,8 +17,8 @@ ss_res$admb_like
 sum(ss_rep$jnll_comp)
 ss_tmp$obj_fun
 
-age_comp_like_comparison( data_list = ss_run$data_list, species = 1, ss_rep, ss_tmp, ADMB_TMB = 2)
-age_comp_like_comparison( data_list = ss_run$data_list, species = 1, ss_rep, ss_tmp, ADMB_TMB = 1)
+age_comp_like_comparison( data_list = ss_run$data_list, species = 2, ss_rep, ss_tmp, ADMB_TMB = 2)
+age_comp_like_comparison( data_list = ss_run$data_list, species = 2, ss_rep, ss_tmp, ADMB_TMB = 1)
 
 
 ###################################################
@@ -37,7 +37,7 @@ ms_res$likelihood
 ms_res$tmb_like
 ms_res$admb_like
 
-ms_rep$jnll
+sum(ms_rep$jnll_comp)
 ms_tmp$obj_fun
 
 ms_rep$M2[1,,1]
