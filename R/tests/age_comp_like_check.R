@@ -38,8 +38,9 @@ age_comp_like_comparison <- function(data_list, species, rep, tmp, ADMB_TMB){
 
   round(nll_comp)
 
+
   target <- tmp[[paste("fsh_age_like", species, sep = "_")]]
   my_nll <- rep$jnll_comp[6, species]
-  my_nll
-  target
+  print(paste0("ADMB nll = ", target, "; TMB nll = ", my_nll ) )
+  return(nll_comp)
 }
