@@ -69,7 +69,7 @@ Rceattle <- function( data_list = NULL, ctlFilename, TMBfilename, dat_dir, debug
   # STEP 5 - Build object
   obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map)
   opt = TMBhelper::Optimize( obj ) ; #tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
-  rep = obj$report()
+  rep = obj$report(opt$par)
 
   # Refit - if not debugging
   if(debug == TRUE){ iter = 1}
@@ -84,7 +84,7 @@ Rceattle <- function( data_list = NULL, ctlFilename, TMBfilename, dat_dir, debug
 
   obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map)
   opt = TMBhelper::Optimize( obj ) ; #tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
-  rep = obj$report()
+  rep = obj$report(opt$par)
 
 
   # Return objects

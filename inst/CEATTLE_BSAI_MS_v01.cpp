@@ -284,6 +284,7 @@ Type objective_function<Type>::operator() (){
   array<Type>   Zed(nyrs, max_age, nspp); Zed.setZero();                         // Total mortality at age; n = [nspp, nages, nyrs]
 
   // -- 4.3. Fishery observations
+  vector<Type>  fsh_age_tmp( max_age );                                         // Temporary vector of survey-catch-at-age for matrix multiplication
   vector<Type>  avgsel_fsh(nspp); avgsel_fsh.setZero();                         // Average fishery selectivity
   array<Type>   catch_hat(nyrs, max_age, nspp); catch_hat.setZero();            // Estimated catch-at-age (n); n = [nspp, nages, nyrs]
   array<Type>   F(nyrs, max_age, nspp); F.setZero();                            // Estimated fishing mortality; n = [nspp, nages, nyrs]
@@ -295,6 +296,8 @@ Type objective_function<Type>::operator() (){
   matrix<Type>  tc_obs(nspp, nyrs); tc_obs.setZero();                           // Set total catch to 0 to initialize // Observed total catch (n); n = [nspp, nyrs] NOTE: This may not be necessary if loading data from tmp
 
   // -- 4.4. BT Survey components
+  Type avgsel_tmp = 0;                                                          // Temporary object for average selectivity across all ages
+  vector<Type>  srv_age_tmp( max_age );srv_age_tmp.setZero();                   // Temporary vector of survey-catch-at-age for matrix multiplication
   vector<Type>  avgsel_srv(nspp); avgsel_srv.setZero();                         // Average survey selectivity; n = [1, nspp]
   array<Type>   srv_age_hat(nyrs, max_bin, nspp); srv_age_hat.setZero();        // Estimated BT age comp; n = [nspp, nages, nyrs]
   matrix<Type>  srv_bio_hat(nspp, nyrs); srv_bio_hat.setZero();                 // Estimated BT survey biomass (kg); n = [nspp, nyrs]
@@ -320,6 +323,8 @@ Type objective_function<Type>::operator() (){
   vector<Type>  TempC( nTyrs ); TempC.setZero();                                  // Bottom temperature; n = [1, nTyrs]
 
   // -- 4.7. Suitability components
+  Type tmp_othersuit = 0  ;
+  Type suit_tmp = 0;                                                              //  Temporary storage variable
   array<Type>   avail_food(nyrs, max_age, nspp); avail_food.setZero();            // Available food to predator; n = [nyrs, nages, nspp]
   array<Type>   B_eaten(nyrs, max_age, nspp); B_eaten.setZero();                  // Biomass of prey eaten via predation; n = [nyrs, nages, nspp]
   array<Type>   of_stomKir(nyrs, max_age, nspp); of_stomKir.setZero();            // Other food stomach content; n = [nyrs, nages, nspp] # FIXME - what is this?
@@ -333,6 +338,7 @@ Type objective_function<Type>::operator() (){
   // 5. INITIAL CALCULATIONS                                                   //
   // ------------------------------------------------------------------------- //
   // 5.1. Fishery catch-at-age to age-comp
+  tc_obs.setZero();
   for(i=0; i < nspp; i++){
     for(y = 0; y < nyrs_fsh_comp(i); y++){
       for(j=0; j < fsh_age_bins(i); j++){
@@ -409,7 +415,7 @@ Type objective_function<Type>::operator() (){
       }
 
       // 8.1.3. Average selectivity across all ages
-      Type avgsel_tmp = 0; // Temporary object for average selectivity across all ages
+      avgsel_tmp = 0; // Temporary object for average selectivity across all ages
       for(j = 0; j < nages(i); j++){
         avgsel_tmp += exp(fsh_sel(i, j));
       }
@@ -612,7 +618,6 @@ Type objective_function<Type>::operator() (){
 
       // 6.6. Calculate stomach proportion over biomass; U/ (W * N)
       suma_suit.setZero();
-      Type suit_tmp;                            //  Temporary storage variable
       for(y=0; y<nyrs; y++){                    // Year loop
         for (i=0; i < nspp; i++){               // Prey species loop
           for(p=0; p < nspp; p++){              // Predator species loop
@@ -651,7 +656,6 @@ Type objective_function<Type>::operator() (){
 
       // 6.8. Calculate available food
       avail_food.setZero();
-      Type tmp_othersuit = 0  ;
       for(p=0; p < nspp; p++){                    // Predator species loop
         for (a=0; a < nages(p); a++){             // Predator age loop
           for(y=0; y < nyrs; y++){                // Year loop
@@ -714,7 +718,7 @@ Type objective_function<Type>::operator() (){
         }
 
         // 7.1.5. Average selectivity across all ages
-        Type avgsel_tmp = 0; // Temporary object for average selectivity across all ages
+        avgsel_tmp = 0; // set to zero
         for(j = 0; j < nages(i); j++){
           avgsel_tmp += exp(srv_sel(i, j));
         }
@@ -763,7 +767,6 @@ Type objective_function<Type>::operator() (){
     }
 
     // -- 7.4.2 BT Survey Age Composition: NOTE: will have to alter if age comp data are not the same length as survey biomass data
-    vector<Type> srv_age_tmp( max_age ); // Temporary vector of survey-catch-at-age for matrix multiplication
     srv_hat.setZero();
     for(i=0; i < nspp; i++){
       for(j=0; j < nages(i); j++){
@@ -835,7 +838,6 @@ Type objective_function<Type>::operator() (){
     }
 
     // 8.6.2 Convert catch-at-age to age-comp
-    vector<Type> fsh_age_tmp( max_age ); // Temporary vector of survey-catch-at-age for matrix multiplication
     for(i=0; i < nspp; i++){
       for (y=0; y < nyrs; y++){
         /// 8.7.2.1 -- Estimate age composition of the fishery
@@ -869,9 +871,7 @@ Type objective_function<Type>::operator() (){
   // 9. LIKELIHOOD EQUATIONS                                                   //
   // ------------------------------------------------------------------------- //
   // 9.0. OBJECTIVE FUNCTION
-  matrix<Type> jnll_comp(13,nspp); // matrix of negative log-likelihood components
-  jnll_comp.setZero();
-  Type jnll = 0;
+  matrix<Type> jnll_comp(13,nspp); jnll_comp.setZero();   // matrix of negative log-likelihood components
 
   // -- Data components
   // Slot 0 -- BT survey biomass -- NFMS annual BT survey
@@ -994,7 +994,7 @@ Type objective_function<Type>::operator() (){
     }
 
     // Extract only the selectivities we want
-    vector<Type> sel_tmp(nages(i));
+    vector<Type> sel_tmp(nages(i)); sel_tmp.setZero();
     for(j=0; j < nages(i); j++){
       sel_tmp(j) = log(fsh_sel(i, j));
     }
@@ -1135,15 +1135,13 @@ Type objective_function<Type>::operator() (){
   // ------------------------------------------------------------------------- //
   // END MODEL                                                                 //
   // ------------------------------------------------------------------------- //
+  Type jnll = 0;
   if(debug == 0){
     jnll = jnll_comp.sum();
   }
   if(debug == 1){
     jnll = dummy * dummy;
   }
-
   REPORT( jnll );
-
-
   return jnll;
 }
