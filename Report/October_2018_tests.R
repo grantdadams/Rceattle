@@ -1,7 +1,7 @@
 ###################################################
 # Run in single species mode
 load("data/BS_SS_Files/2017_assessment_data_list.RData")
-ss_run <- Rceattle(data_list = data_list_ss, ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_SS_Files/dat files/", debug = TRUE, inits = TRUE)
+ss_run <- Rceattle(data_list = data_list_ss, ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_SS_Files/dat files/", debug = TRUE, inits = "ceattle.par")
 ss_rep <- ss_run$rep
 
 # Load previous estimates
@@ -18,14 +18,11 @@ ss_res$admb_like
 sum(ss_rep$jnll_comp)
 ss_tmp$obj_fun
 
-age_comp_like_comparison( data_list = ss_run$data_list, species = 2, ss_rep, ss_tmp, ADMB_TMB = 2)
-age_comp_like_comparison( data_list = ss_run$data_list, species = 2, ss_rep, ss_tmp, ADMB_TMB = 1)
-
 
 ###################################################
-# Run in MS mode
+# Run in MS mode using par files
 load("data/BS_MS_Files/2017_assessment_data_list.RData")
-ms_run <- Rceattle(data_list = data_list_ms, ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_Files/dat files/", debug = TRUE, inits = TRUE)
+ms_run <- Rceattle(data_list = data_list_ms, ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_Files/dat files/", debug = TRUE, inits = "ceattle.par")
 ms_rep <- ms_run$rep
 
 # Load previous estimates
@@ -45,6 +42,25 @@ ms_tmp$obj_fun
 ms_rep$M2[1,,1]
 ms_tmp$M2_1[1,]
 
-age_comp_like_comparison( data_list = ms_run$data_list, species = 3, ms_rep, ms_tmp, ADMB_TMB = 2)
-age_comp_like_comparison( data_list = ms_run$data_list, species = 3, ms_rep, ms_tmp, ADMB_TMB = 1)
+###################################################
+# Run in MS mode using std files
+load("data/BS_MS_Files/2017_assessment_data_list.RData")
+ms_run <- Rceattle(data_list = data_list_ms, ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_Files/dat files/", debug = TRUE, inits = "ceattle_est.std")
+ms_rep <- ms_run$rep
 
+# Load previous estimates
+load("data/BS_MS_Files/CEATTLE_results.Rdata")
+ms_tmp <- tmp
+
+# Compare with current
+ms_res <- compare_output(ms_rep, ms_tmp, rel_error = 0.08)
+ms_res$summary
+ms_res$likelihood
+ms_res$tmb_like
+ms_res$admb_like
+
+sum(ms_rep$jnll_comp)
+ms_tmp$obj_fun
+
+ms_rep$M2[1,,1]
+ms_tmp$M2_1[1,]
