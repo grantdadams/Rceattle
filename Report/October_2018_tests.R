@@ -1,6 +1,7 @@
 ###################################################
 # Run in single species mode
-ss_run <- Rceattle(data_list = ss_run$data_list, ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_SS_Files/dat files/", debug = TRUE, inits = TRUE)
+load("data/BS_SS_Files/2017_assessment_data_list.RData")
+ss_run <- Rceattle(data_list = data_list_ss, ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_SS_Files/dat files/", debug = TRUE, inits = TRUE)
 ss_rep <- ss_run$rep
 
 # Load previous estimates
@@ -23,7 +24,8 @@ age_comp_like_comparison( data_list = ss_run$data_list, species = 2, ss_rep, ss_
 
 ###################################################
 # Run in MS mode
-ms_run <- Rceattle(data_list = ms_run$data_list, ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_Files/dat files/", debug = TRUE, inits = TRUE)
+load("data/BS_MS_Files/2017_assessment_data_list.RData")
+ms_run <- Rceattle(data_list = data_list_ms, ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_Files/dat files/", debug = TRUE, inits = TRUE)
 ms_rep <- ms_run$rep
 
 # Load previous estimates
