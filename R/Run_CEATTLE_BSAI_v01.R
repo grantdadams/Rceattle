@@ -13,7 +13,7 @@
 #' @export
 #'
 #' @examples
-Rceattle <- function( data_list = NULL, ctlFilename, TMBfilename, dat_dir, debug = T, inits = NULL){
+Rceattle <- function( data_list = NULL, ctlFilename, TMBfilename, dat_dir, debug = T, inits = NULL, random_rec = FALSE){
   #--------------------------------------------------
   # 1. DATA and MODEL PREP
   #--------------------------------------------------
@@ -25,43 +25,39 @@ Rceattle <- function( data_list = NULL, ctlFilename, TMBfilename, dat_dir, debug
 
   # Load data
   source("R/1-build_dat.R")
-  source("R/2-build_params_par_file.R")
+  source("R/2-build_params.R")
   source("R/3-build_map.R")
 
   # STEP 1 - LOAD DATA
   if(is.null(data_list)){
-<<<<<<< HEAD
     data_list <- build_dat(ctlFilename = ctlFilename,
                            TMBfilename = TMBfilename,
                            dat_dir = dat_dir,
                            nspp = 3,
-                           debug = debug)
-=======
-    data_list <- build_dat(ctlFilename = ctlFilename, TMBfilename = TMBfilename, dat_dir = dat_dir, debug = debug)
->>>>>>> parent of 17f0802... Added par file into parameter creation
+                           debug = debug,
+                           random_rec = random_rec)
     print("Step 1: Data build complete")
   }
-  data_list$debug <- debug
+  data_list$random_rec <- as.numeric(random_rec)
+  #data_list$debug <- debug
+
 
   # STEP 2 - LOAD PARAMETERS
-<<<<<<< HEAD
   params <- build_params(data_list = data_list,
                          nselages = 8,
                          incl_prev = ifelse(is.null(inits), FALSE, TRUE),
                          Rdata_file = paste0(strsplit(dat_dir, "/dat")[[1]][1], "/CEATTLE_results.Rdata"),
                          param_file = paste0(strsplit(dat_dir, "/dat")[[1]][1], "/", inits),
                          TMBfilename = TMBfilename)
-=======
-  params <- build_params(data_list, nselages = 8, incl_prev = inits, Rdata_file = paste0(strsplit(dat_dir, "/dat")[[1]][1], "/CEATTLE_results.Rdata"),  std_file = paste0(strsplit(dat_dir, "/dat")[[1]][1], "/ceattle.par"), TMBfilename = TMBfilename)
->>>>>>> parent of 17f0802... Added par file into parameter creation
   print("Step 2: Parameter build complete")
 
+
   # STEP 3 - BUILD MAP
-  map  <- build_map(data_list, params, debug = debug)
+  map  <- build_map(data_list, params, debug = debug, random_rec = random_rec)
   print("Step 3: Map build complete")
 
 
-  # STEP 4 - Compile CEATTLE
+  # STEP 5 - Compile CEATTLE
   version <- TMBfilename
   cpp_directory <- "inst"
   cpp_file <- paste0(cpp_directory, "/", version)
@@ -81,10 +77,12 @@ Rceattle <- function( data_list = NULL, ctlFilename, TMBfilename, dat_dir, debug
   dyn.load(TMB::dynlib(paste0(cpp_file)))
   print("Step 4: Compile CEATTLE complete")
 
-  # STEP 5 - Build object
-  obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map)
+
+  # STEP 6 - Build object
+  obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map)#, random = random)
   opt = TMBhelper::Optimize( obj ) ; #tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
-  rep = obj$report()
+  rep = obj$report(opt$par)
+
 
   # Refit - if not debugging
   if(debug == TRUE){ iter = 1}
@@ -93,13 +91,13 @@ Rceattle <- function( data_list = NULL, ctlFilename, TMBfilename, dat_dir, debug
     last_par = obj$env$parList(opt$par)
     last_par$dummy = 0
     print("Re-running model ", i)
-    obj = TMB::MakeADFun(data_list, parameters = last_par,  DLL = version, map = map, silent = TRUE)
+    obj = TMB::MakeADFun(data_list, parameters = last_par,  DLL = version, map = map, silent = TRUE) #, random = random)
     opt = tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
   }
 
-  obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map)
+  obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map) #, random = random)
   opt = TMBhelper::Optimize( obj ) ; #tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
-  rep = obj$report()
+  rep = obj$report(opt$par)
 
 
   # Return objects

@@ -2,7 +2,7 @@
 
 age_comp_like_comparison <- function(data_list, species, rep, tmp, ADMB_TMB){
 
-  MNConst = 0.0001
+  MNConst = 0.001
   tau = 200
 
   # TMB DATA
@@ -38,8 +38,26 @@ age_comp_like_comparison <- function(data_list, species, rep, tmp, ADMB_TMB){
 
   round(nll_comp)
 
+
   target <- tmp[[paste("fsh_age_like", species, sep = "_")]]
   my_nll <- rep$jnll_comp[6, species]
-  my_nll
-  target
+  print(paste0("ADMB nll = ", target, "; TMB nll = ", my_nll ) )
+  return(nll_comp)
 }
+
+
+
+#   # Calculate offset
+#   for(y in 1:data_list$nyrs_fsh_comp[species]){
+#     #for(j in 1: data_list$fsh_age_bins[species]){
+#     offset_fsh = offset_fsh - (tau * (fsh_age_obs[y, j] + MNConst) * log(fsh_age_obs[y, j] + MNConst));
+#     offset_fsh = offset_fsh - (tau * sum((fsh_age_obs[y,] + MNConst) * log(fsh_age_obs[y,] + MNConst)))
+#     #}
+#   }
+#
+#
+# # Calculate comp
+# for(y in 1:data_list$nyrs_fsh_comp[species]){
+#   fsh_yr_ind = data_list$yrs_fsh_comp[species, y] - data_list$styr + 1;
+#   nll_comp = nll_comp - offset_fsh - (tau * sum( (fsh_age_obs[y, ] + MNConst) * log(fsh_age_hat[y, ] + MNConst )));
+# }

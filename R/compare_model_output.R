@@ -1,4 +1,4 @@
-#' Function to compare output of TMB and ADMB based CEATTLE models to check if there are within a certain threshold of relative error
+#' Function to compare output of TMB and ADMB based CEATTLE models to check if there are within a certain threshold of relative error. 0 means it is not within the tolerance, 1 means it is.
 #'
 #' @param rep list of TMB CEATTLE estimated quantities from rep
 #' @param tmp list of ADMB CEATTLE estimated quantities from saved .Rdata file
@@ -10,8 +10,8 @@
 #' @examples
 compare_output <- function( rep = rep, tmp = tmp, rel_error = 0.01){
   param_check <- list()
-  tmb_names <- c("fsh_age_obs","fsh_age_hat", "F", "pmature","tc_biom_hat", "biomass", "srv_bio_hat", "NByage", "R", "S", "srv_sel", "biomassSSB", "srv_age_obs", "srv_age_hat", "biomassByage", "fsh_sel", "M1", "tc_hat", "biomassSSB", "ration2Age", "AvgN", "M2", "avail_food")
-  admb_names <- c("fsh_age_obs","fsh_age_hat", "F", "pmature","obs_catch_hat", "Biomass", "srv_bio_hat", "NByage", "R", "S", "srv_sel", "BiomassSSB", "srv_age_obs", "srv_age_hat", "biomassByage", "fsh_sel", "M1", "tc_hat", "BiomassSSB", "ration2", "AvgN", "M2", "avail_food")
+  tmb_names <- c("fsh_age_obs","fsh_age_hat", "F", "pmature","tc_biom_hat", "biomass", "srv_bio_hat", "NByage", "R", "S", "srv_sel", "biomassSSB", "srv_age_obs", "srv_age_hat", "biomassByage", "fsh_sel", "M1", "tc_hat", "biomassSSB", "ration2Age", "AvgN", "M2", "avail_food", "suit_other")
+  admb_names <- c("fsh_age_obs","fsh_age_hat", "F", "pmature","obs_catch_hat", "Biomass", "srv_bio_hat", "NByage", "R", "S", "srv_sel", "BiomassSSB", "srv_age_obs", "srv_age_hat", "biomassByage", "fsh_sel", "M1", "tc_hat", "BiomassSSB", "ration2", "AvgN", "M2", "avail_food", "suit_other")
 
   # Survey selectivity
   for( j in 1:length(tmb_names)){
@@ -34,9 +34,9 @@ compare_output <- function( rep = rep, tmp = tmp, rel_error = 0.01){
       if(length(dim(tmb_params)) == 3){
         param_check[[param]] <- replace(param_check[[param]], values = rep(NA, length(param_check[[param]])))
         for(i in 1:dim(tmb_params)[3]){
-
           admb_params <- tmp[[paste(admb_param, i, sep = "_")]]
           diff <- abs((tmb_params[1:min(nrow(tmb_params[,,i]) , nrow(admb_params)), 1:min(ncol(tmb_params[,,i]) , ncol(admb_params)), i] - admb_params[1:min(nrow(tmb_params[,,i]) , nrow(admb_params)), 1:min(ncol(tmb_params[,,i]) , ncol(admb_params))]) / admb_params[1:min(nrow(tmb_params[,,i]) , nrow(admb_params)), 1:min(ncol(tmb_params[,,i]) , ncol(admb_params))]) < rel_error
+
           param_check[[param]][1:min(nrow(tmb_params[,,i]) , nrow(admb_params)), 1:min(ncol(tmb_params[,,i]) , ncol(admb_params)), i] <- replace( param_check[[param]][1:min(nrow(tmb_params[,,i]) , nrow(admb_params)), 1:min(ncol(tmb_params[,,i]) , ncol(admb_params)), i], values = diff)
         }
       }
@@ -55,21 +55,40 @@ compare_output <- function( rep = rep, tmp = tmp, rel_error = 0.01){
 
   # EIT selectivity
   param <- "eit_hat"
-
   param_check[[param]] <- rep[[param]]
   tmb_params <- rep[[param]]
   param_check[[param]] <- replace(param_check[[param]], values = rep(NA, length(param_check[[param]])))
   admb_params <- tmp[[param]]
   tmb_params <- tmb_params[which(tmb_params > 0)]
   diff <- abs((tmb_params[1:length(admb_params)] - admb_params) / admb_params) < rel_error
-  param_check[[param]][1:length(admb_params)] <- replace( param_check[1:length(admb_params)], values = diff)
+  param_check[[param]][1:length(admb_params)] <- replace( param_check[[param]][1:length(admb_params)], values = diff)
 
+  # EIT age comp hat
+  param <- "eit_age_comp_hat" #FIXME - get eit age hat from
 
 
   # Do a summary of how many items are wrong
-  check_summary <- data.frame( parameter = names(param_check), n_wrong = rep(NA, length(names(param_check))))
+  check_summary <- data.frame(matrix(NA, ncol = tmp$nspp + 1,nrow = length(param_check)))
+  colnames(check_summary) <- c("Parameter", paste0("sp_", 1:tmp$nspp))
+  check_summary$Parameter <- names(param_check)
   for(i in 1:length(names(param_check))){
-    check_summary[i,2] = length(which(param_check[[i]] == 0))
+    for(j in 1:tmp$nspp){
+
+      # Vectors
+      if(names(param_check)[i] == "eit_hat"){
+        check_summary[i,2] = length(which(param_check[[i]] == 0))
+      }
+
+      # Matrices
+      if(length(dim(param_check[[i]])) == 2){
+        check_summary[i,j+1] = length(which(param_check[[i]][j,] == 0))
+      }
+
+      # Arrays
+      if(length(dim(param_check[[i]])) == 3){
+        check_summary[i,j+1] = length(which(param_check[[i]][,,j] == 0))
+      }
+    }
   }
 
   # Check obejctive functions
