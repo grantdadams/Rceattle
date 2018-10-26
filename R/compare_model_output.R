@@ -1,4 +1,4 @@
-#' Function to compare output of TMB and ADMB based CEATTLE models to check if there are within a certain threshold of relative error. 0 means it is not within the tolerance, 1 means it is.
+#' Function to compare output of TMB and ADMB based CEATTLE models to check if there are within a certain threshold of relative error
 #'
 #' @param rep list of TMB CEATTLE estimated quantities from rep
 #' @param tmp list of ADMB CEATTLE estimated quantities from saved .Rdata file
@@ -62,32 +62,14 @@ compare_output <- function( rep = rep, tmp = tmp, rel_error = 0.01){
   admb_params <- tmp[[param]]
   tmb_params <- tmb_params[which(tmb_params > 0)]
   diff <- abs((tmb_params[1:length(admb_params)] - admb_params) / admb_params) < rel_error
-  param_check[[param]][1:length(admb_params)] <- replace( param_check[[param]][1:length(admb_params)], values = diff)
+  param_check[[param]][1:length(admb_params)] <- replace( param_check[1:length(admb_params)], values = diff)
 
 
 
   # Do a summary of how many items are wrong
-  check_summary <- data.frame(matrix(NA, ncol = tmp$nspp + 1,nrow = length(param_check)))
-  colnames(check_summary) <- c("Parameter", paste0("sp_", 1:tmp$nspp))
-  check_summary$Parameter <- names(param_check)
+  check_summary <- data.frame( parameter = names(param_check), n_wrong = rep(NA, length(names(param_check))))
   for(i in 1:length(names(param_check))){
-    for(j in 1:tmp$nspp){
-
-      # Vectors
-      if(names(param_check)[i] == "eit_hat"){
-        check_summary[i,2] = length(which(param_check[[i]] == 0))
-      }
-
-      # Matrices
-      if(length(dim(param_check[[i]])) == 2){
-        check_summary[i,j+1] = length(which(param_check[[i]][j,] == 0))
-      }
-
-      # Arrays
-      if(length(dim(param_check[[i]])) == 3){
-        check_summary[i,j+1] = length(which(param_check[[i]][,,j] == 0))
-      }
-    }
+    check_summary[i,2] = length(which(param_check[[i]] == 0))
   }
 
   # Check obejctive functions
