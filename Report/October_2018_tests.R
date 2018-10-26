@@ -2,6 +2,7 @@
 # Run in single species mode
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 load("data/BS_SS_Files/2017_assessment_data_list.RData")
 ss_run <- Rceattle(data_list = data_list_ss, ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_SS_Files/dat files/", debug = TRUE, inits = "ceattle.par")
 =======
@@ -10,6 +11,9 @@ ss_run <- Rceattle(data_list = NULL, ctlFilename = "asmnt2017_0A_corrected", TMB
 =======
 ss_run <- Rceattle(data_list = ss_run$data_list, ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_SS_Files/dat files/", debug = TRUE, inits = TRUE)
 >>>>>>> parent of 17f0802... Added par file into parameter creation
+=======
+ss_run <- Rceattle(data_list = NULL, ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_SS_Files/dat files/", debug = TRUE, inits = TRUE)
+>>>>>>> parent of 5d25d83... Reorganized previous runs and files. Updated src to setZero on all types
 ss_rep <- ss_run$rep
 
 # Load previous estimates
@@ -28,7 +32,10 @@ ss_tmp$obj_fun
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> parent of 5d25d83... Reorganized previous runs and files. Updated src to setZero on all types
 age_comp_like_comparison( data_list = ss_run$data_list, species = 1, ss_rep, ss_tmp, ADMB_TMB = 2)
 age_comp_like_comparison( data_list = ss_run$data_list, species = 1, ss_rep, ss_tmp, ADMB_TMB = 1)
 
