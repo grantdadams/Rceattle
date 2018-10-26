@@ -7,7 +7,7 @@ build_params <-
            nselages = 8,
            incl_prev = T,
            Rdata_file,
-           std_file,
+           param_file,
            TMBfilename) {
     data_list$nselages <- nselages
 
@@ -17,16 +17,10 @@ build_params <-
     cpp_fn <- file(paste("inst/", TMBfilename, ".cpp", sep = ""))
 
     cpp_file <- readLines(cpp_fn)
-    skipp <-
-      grep("PARAMETER SECTION", cpp_file) # Line of data files
-    nrow <-
-      grep("POPULATION DYNAMICS EQUATIONS", cpp_file) # Last line of data files
     cpp_file <-
       scan(
         cpp_fn,
         what = "character",
-        skip = skipp,
-        nlines = (nrow - skipp),
         flush = T,
         blank.lines.skip = F,
         quiet = T
@@ -40,7 +34,7 @@ build_params <-
         paste(
           scan(
             cpp_fn,
-            skip = skipp + param_lines[i] - 1,
+            skip = param_lines[i] - 1,
             flush = F,
             sep = "\t",
             nlines = 1,
@@ -135,14 +129,9 @@ build_params <-
     # Step 3 -- Replace inits with previous parameters if desired
     #---------------------------------------------------------------------
     if (incl_prev == T) {
-      # TMP File
+
+      # TMP file
       load(Rdata_file)
-      # std fild
-      std_dat <- read.delim(std_file, sep = "")
-      std_dat$name <- gsub('[[:digit:]]|\\[|\\]', '', std_dat$name)
-
-      param_names <- names(param_list)
-
       for (i in 1:length(param_list)) {
         # RDATA
         if (is.null(tmp[[param_names[i]]]) == F) {
@@ -150,35 +139,138 @@ build_params <-
             replace(param_list[[param_names[i]]],
                     values = tmp[[param_names[i]]])
         }
+      }
 
-        #STD
-        if (param_names[i] %in% unique(std_dat$name)) {
-          # PARAMETER_VECTOR and PARAMETER
-          if (length(which(param_dim[i,] > 1)) <= 1) {
-            param_list[[param_names[i]]] <-
-              replace(param_list[[param_names[i]]],
-                      values = std_dat$value[which(std_dat$name == param_names[i])])
-          }
-          if (length(which(param_dim[i,] > 1)) == 2) {
+      # If using std file
+      if(grepl(".std", param_file)){
+        # std fild
+        std_dat <- read.delim(param_file, sep = "")
+        std_dat$name <- gsub('[[:digit:]]|\\[|\\]', '', std_dat$name)
 
-            # Init devs because odd age distribution
-            if (param_names[i] == "init_dev") {
-              init_dev <- std_dat$value[which(std_dat$name == param_names[i])]
-              init_dev_lines <- c()
+        param_names <- names(param_list)
 
-              for (j in 1:nrow(param_list[[param_names[i]]])) {
-                init_dev_lines <- c(init_dev_lines, rep(j, data_list$nages[j] - 1))
-                param_list[[param_names[i]]][j, 1:(data_list$nages[j] - 1)] <-
-                  replace(param_list[[param_names[i]]][j, 1:(data_list$nages[j] - 1)], values = init_dev[which(init_dev_lines == j)])
-              }
-            } else{
+        for (i in 1:length(param_list)) {
+
+          #STD
+          if (param_names[i] %in% unique(std_dat$name)) {
+            # PARAMETER_VECTOR and PARAMETER
+            if (length(which(param_dim[i,] > 1)) <= 1 | length(which(param_dim[i,] == 1)) == ncol(param_dim)) {
               param_list[[param_names[i]]] <-
-                matrix(
-                  std_dat$value[which(std_dat$name == param_names[i])],
-                  byrow = T,
-                  ncol = ncol(param_list[[param_names[i]]]),
-                  nrow = nrow(param_list[[param_names[i]]])
-                )
+                replace(param_list[[param_names[i]]],
+                        values = std_dat$value[which(std_dat$name == param_names[i])])
+            }
+            if (length(which(param_dim[i,] > 1)) == 2) {
+
+              # Init devs because odd age distribution
+              if (param_names[i] == "init_dev") {
+                init_dev <- std_dat$value[which(std_dat$name == param_names[i])]
+                init_dev_lines <- c()
+
+                for (j in 1:nrow(param_list[[param_names[i]]])) {
+                  init_dev_lines <- c(init_dev_lines, rep(j, data_list$nages[j] - 1))
+                  param_list[[param_names[i]]][j, 1:(data_list$nages[j] - 1)] <-
+                    replace(param_list[[param_names[i]]][j, 1:(data_list$nages[j] - 1)], values = init_dev[which(init_dev_lines == j)])
+                }
+              } else{
+                param_list[[param_names[i]]] <-
+                  matrix(
+                    std_dat$value[which(std_dat$name == param_names[i])],
+                    byrow = T,
+                    ncol = ncol(param_list[[param_names[i]]]),
+                    nrow = nrow(param_list[[param_names[i]]])
+                  )
+              }
+            }
+          }
+        }
+      }
+
+      ################################################################################################
+      # If using par file
+      if(grepl(".par", param_file)){
+        # std fild
+        std_dat <-
+          scan(
+            param_file,
+            what = "",
+            flush = T,
+            blank.lines.skip = F,
+            quiet = T
+          )
+
+        par_file_names <- c()
+        search_term <- c("#")
+        par_file_lines <- grep(search_term, std_dat, ignore.case = F)
+        par_file_lines <- par_file_lines[-1] # Subtract objective function
+
+        # Get parameter names
+        for (i in 1:length(par_file_lines)) {
+          par_file_names[i] <-
+            paste(
+              scan(
+                param_file,
+                skip = par_file_lines[i] - 1,
+                flush = F,
+                sep = "\t",
+                nlines = 1,
+                quiet = TRUE,
+                what = "character",
+                blank.lines.skip = TRUE
+              ),
+              sep = "",
+              collapse = " "
+            )
+        }
+
+        par_file_names <- gsub("# ", "", par_file_names)
+        par_file_names <- gsub(":", "", par_file_names)
+        par_file_names_filtered <-  gsub("[0-9]", "", par_file_names)
+        par_file_names_filtered <-  gsub("[[:punct:\\_]]", "", par_file_names_filtered)
+
+        # Extract values
+        par_list <- list()
+        for (i in 1:length(par_file_lines)) {
+          par_list[[i]] <-
+            scan(param_file,what="numeric",flush=F,blank.lines.skip=F,skip=par_file_lines[i],nlines=ifelse(i < length(par_file_lines), par_file_lines[i+1] - par_file_lines[i] - 1, 1), quiet=T,sep="")
+          par_list[[i]] <- as.numeric(as.character(par_list[[i]]))
+          names(par_list)[i] <- par_file_names[i]
+        }
+
+        # param_names <- names(param_list)
+
+        # REPLACE VALUES
+        for (i in 1:length(param_list)) {
+          if (param_names[i] %in% unique(par_file_names_filtered)) {
+
+            # PARAMETER_VECTOR and PARAMETER
+            if (length(which(param_dim[i,] > 1)) <= 1| length(which(param_dim[i,] == 1)) == ncol(param_dim)) {
+              param_list[[param_names[i]]] <-
+                replace(param_list[[param_names[i]]],
+                        values = unlist(par_list[grep( param_names[i], par_file_names)])) #FIXME: this will break if the order of the saved parameters are off
+            }
+
+            # PARAMETER_MATRIX
+            if (length(which(param_dim[i,] > 1)) == 2) {
+
+              # Init devs because odd age distribution
+              if (param_names[i] == "init_dev") {
+                init_dev <- unlist(par_list[grep( param_names[i], par_file_names)])
+                init_dev_lines <- c()
+
+                for (j in 1:nrow(param_list[[param_names[i]]])) {
+                  init_dev_lines <- c(init_dev_lines, rep(j, data_list$nages[j] - 1))
+                  param_list[[param_names[i]]][j, 1:(data_list$nages[j] - 1)] <-
+                    replace(param_list[[param_names[i]]][j, 1:(data_list$nages[j] - 1)], values = init_dev[which(init_dev_lines == j)])
+                }
+              } else{
+                param_list[[param_names[i]]] <-
+                  matrix(
+                    unlist(par_list[grep( param_names[i], par_file_names)]),
+                    byrow = T,
+                    ncol = ncol(param_list[[param_names[i]]]),
+                    nrow = nrow(param_list[[param_names[i]]])
+                  )
+              }
             }
           }
         }
