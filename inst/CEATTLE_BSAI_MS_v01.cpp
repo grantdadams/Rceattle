@@ -296,7 +296,7 @@ Type objective_function<Type>::operator() (){
 
   // -- 4.4. BT Survey components
   vector<Type>  avgsel_srv(nspp); avgsel_srv.setZero();                         // Average survey selectivity; n = [1, nspp]
-  array<Type>   srv_age_hat(nyrs, max_bin, nspp); srv_age_hat.setZero();        // Estimated BT age comp; n = [nspp, nages, nyrs]
+  array<Type>   srv_age_hat(nyrs, max_bin, nspp);                               // Estimated BT age comp; n = [nspp, nages, nyrs]
   matrix<Type>  srv_bio_hat(nspp, nyrs); srv_bio_hat.setZero();                 // Estimated BT survey biomass (kg); n = [nspp, nyrs]
   matrix<Type>  srv_hat(nspp, nyrs); srv_hat.setZero();                         // Estimated BT survey total abundance (n); n = [nspp, nyrs]
   matrix<Type>  srv_sel(nspp, max_age); srv_sel.setZero();                      // Estimated survey selectivity at age; n = [nspp, nyrs]
@@ -785,21 +785,16 @@ Type objective_function<Type>::operator() (){
         }
         // 7.4.2.2 -- Convert from catch-at-age to catch-at-length: NOTE: There has got to be a better way
         if(srv_age_type(i)!=1){
-
-
           for(j=0; j < nages(i); j++){
             srv_age_tmp(j) = srv_age_hat(y, j, i);
           }
-
 
           matrix<Type> ALK = trim_matrix( matrix_from_array(age_trans_matrix, i), nages(i), srv_age_bins(i) );
           vector<Type> srv_age_tmp_trimmed = trim_vector(srv_age_tmp, nages(i) );
           vector<Type> srv_len_tmp = vec_mat_prod( srv_age_tmp_trimmed , ALK ); // Multiply the ALK for species i against the survey catch-at-age for year y
 
           for(j=0; j < srv_age_bins(i); j++){
-            for(j=0; j < nages(i); j++){
-              srv_age_hat(y, j, i) = srv_len_tmp(j) / srv_hat(i, y) ; // * age_trans_matrix.col().col(i)) / srv_hat(i, y); // # NOTE: Double check the matrix algebra here
-            }
+            srv_age_hat(y, j, i) = srv_len_tmp(j) / srv_hat(i, y) ; // * age_trans_matrix.col().col(i)) / srv_hat(i, y); // # NOTE: Double check the matrix algebra here
           }
         }
       }
