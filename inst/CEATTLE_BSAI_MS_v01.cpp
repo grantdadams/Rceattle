@@ -975,7 +975,7 @@ Type objective_function<Type>::operator() (){
 
   // Slot 4 -- Total catch -- Fishery observer data
   for(i=0; i < nspp; i++){
-     jnll_comp(4,i) = 0; // FIXME: Likeliy redundant
+    jnll_comp(4,i) = 0; // FIXME: Likeliy redundant
     for (y=0; y < nyrs_tc_biom(i); y++){
       fsh_yr_ind = yrs_tc_biom(i, y) - styr;
       jnll_comp(4,i) += pow((log(tcb_obs(i, y) + Type(1.e-4)) - log(tc_biom_hat(i, y) + Type(1.e-4))), 2) / (2 * pow(sigma_catch, 2)); // T.4.5
@@ -1029,7 +1029,7 @@ Type objective_function<Type>::operator() (){
 
   // Slot 7 -- Survey selectivity
   for(i=0; i < nspp; i++){
-        jnll_comp(8, i) = 0; // FIXME: Likeliy redundant
+    jnll_comp(8, i) = 0; // FIXME: Likeliy redundant
     if (logist_sel_phase(i) < 0){
       // Extract only the selectivities we want
       vector<Type> sel_tmp(nages(i));
@@ -1046,16 +1046,16 @@ Type objective_function<Type>::operator() (){
 
   // Slot 7 -- Add survey selectivity normalization
   for(i=0; i < nspp; i++){
-        jnll_comp(9, i) = 0; // FIXME: Likeliy redundant
+    jnll_comp(9, i) = 0; // FIXME: Likeliy redundant
     jnll_comp(9, i) += 50 * pow(avgsel_srv(i), 2);
   }
 
 
   // Slots 10-12 -- PRIORS: PUT RANDOM EFFECTS SWITCH HERE
   for(i=0; i < nspp; i++){
-        jnll_comp(10, i) = 0; // FIXME: Likeliy redundant
-            jnll_comp(11, i) = 0; // FIXME: Likeliy redundant
-                jnll_comp(12, i) = 0; // FIXME: Likeliy redundant
+    jnll_comp(10, i) = 0; // FIXME: Likeliy redundant
+    jnll_comp(11, i) = 0; // FIXME: Likeliy redundant
+    jnll_comp(12, i) = 0; // FIXME: Likeliy redundant
     // Slot 10 -- init_dev -- Initial abundance-at-age
     for(j=1; j < nages(i); j++){
       jnll_comp(10, i) += pow( init_dev(i,j-1), 2);
@@ -1065,10 +1065,10 @@ Type objective_function<Type>::operator() (){
     // Slot 12 -- Epsilon -- Annual fishing mortality deviation
     for (y=0; y < nyrs; y++){
       if(random_rec == 0){
-          jnll_comp(11, i) += pow( rec_dev(i,y), 2);     // Recruitment deviation using penalized likelihood.
+        jnll_comp(11, i) += pow( rec_dev(i,y), 2);     // Recruitment deviation using penalized likelihood.
       }
       if(random_rec == 1){
-          jnll_comp(11, i) += dnorm( rec_dev(i,y), Type(0.0), r_sigma(i), true);     // Recruitment deviation using random effects.
+        jnll_comp(11, i) += dnorm( rec_dev(i,y), Type(0.0), r_sigma(i), true);     // Recruitment deviation using random effects.
       }
 
       jnll_comp(12, i) += pow( F_dev(i,y), 2);       // Fishing mortality deviation using penalized likelihood.
@@ -1108,7 +1108,7 @@ Type objective_function<Type>::operator() (){
   REPORT( eit_hat );
   REPORT( eit_age_hat );
   REPORT( eit_age_comp_hat )
-  REPORT( obs_eit_age );
+    REPORT( obs_eit_age );
   REPORT( eit_age_comp );
   REPORT( avgsel_srv );
   REPORT( srv_sel );
