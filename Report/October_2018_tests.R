@@ -1,7 +1,11 @@
 ###################################################
 # Run in single species mode
+<<<<<<< HEAD
 load("data/BS_SS_Files/2017_assessment_data_list.RData")
 ss_run <- Rceattle(data_list = data_list_ss, ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_SS_Files/dat files/", debug = TRUE, inits = "ceattle.par")
+=======
+ss_run <- Rceattle(data_list = NULL, ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_SS_Files/dat files/", debug = TRUE, inits = TRUE)
+>>>>>>> parent of 5d25d83... Reorganized previous runs and files. Updated src to setZero on all types
 ss_rep <- ss_run$rep
 
 # Load previous estimates
@@ -18,6 +22,12 @@ ss_res$admb_like
 sum(ss_rep$jnll_comp)
 ss_tmp$obj_fun
 
+<<<<<<< HEAD
+=======
+age_comp_like_comparison( data_list = ss_run$data_list, species = 1, ss_rep, ss_tmp, ADMB_TMB = 2)
+age_comp_like_comparison( data_list = ss_run$data_list, species = 1, ss_rep, ss_tmp, ADMB_TMB = 1)
+
+>>>>>>> parent of 5d25d83... Reorganized previous runs and files. Updated src to setZero on all types
 
 ###################################################
 # Run in MS mode using par files
@@ -36,7 +46,7 @@ ms_res$likelihood
 ms_res$tmb_like
 ms_res$admb_like
 
-sum(ms_rep$jnll_comp)
+ms_rep$jnll
 ms_tmp$obj_fun
 
 ms_rep$M2[1,,1]

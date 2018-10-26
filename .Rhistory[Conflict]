@@ -1,0 +1,512 @@
+class(Predation_Equations)
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, format = "latex", escape = F, booktabs = T)
+knitr::kable(mtcars, format = "latex", escape = F, booktabs = T)
+knitr::kable(head(mtcars), format = "latex", escape = F, booktabs = T)
+knitr::kable(head(mtcars), format = "latex", booktabs = T)
+knitr::kable(head(mtcars, 10))
+class(mtcars)
+class(Predation_Equations)
+Predation_Equations[,1]
+knitr::kable(head(Predation_Equations))
+knitr::kable(head(Predation_Equations), format = "latex")
+knitr::kable(head(Predation_Equations), booktabs = T)
+knitr::kable(Predation_Equations, booktabs = T)
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} = \\varphi_p \\alpha_{\\delta} W_{pa,y}^{\\left(1+\\beta_{\\delta}\\right)} f \\left(T_y \\right)_p $",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, booktabs = T)
+Definition
+Definition <- c("Predation mortality", "Predator-prey suitability", "Mean gravimetric diet proportion", paste(expression("Individual specific ration (kg kg"^-1~yr^-1)), "Temperature scaling algorithim", rep(NA, 4))
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} = \\varphi_p \\alpha_{\\delta} W_{pa,y}^{\\left(1+\\beta_{\\delta}\\right)} f \\left(T_y \\right)_p $",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, booktabs = T)
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} = \\varphi_p \\alpha_{\\delta} W_{pa,y}^{\\left(1+\\beta_{\\delta}\\right)} f \\left(T_y \\right)_p $",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, booktabs = T)
+knitr::kable("$\\delta_{pa,y} = \\varphi_p \\alpha_{\\delta} W_{pa,y}^{\\left(1+\\beta_{\\delta}\\right)} f \\left(T_y \\right)_p $",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$", booktabs = T)
+knitr::kable(c("$\\delta_{pa,y} = \\varphi_p \\alpha_{\\delta} W_{pa,y}^{\\left(1+\\beta_{\\delta}\\right)} f \\left(T_y \\right)_p $"), booktabs = T)
+knitr::kable("$\\delta_{pa,y} = \\varphi_p \\alpha_{\\delta} W_{pa,y}^{\\left(1+\\beta_{\\delta}\\right)} f \\left(T_y \\right)_p $", booktabs = T)
+knitr::kable(Predation_Equations, booktabs = T)
+Definition <- c("Predation mortality", "Predator-prey suitability", "Mean gravimetric diet proportion", paste(expression("Individual specific ration (kg kg"^-1~yr^-1)), "Temperature scaling algorithim", rep(NA, 4))
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} $",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, booktabs = T)
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\delta_{pa,y} $",
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\sigma_{pa,y} $",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, booktabs = T)
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\sigma _{pa,y} $",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, booktabs = T)
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$ D \\sigma _{pa,y} $",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, booktabs = T)
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$ D_{pa,y} $",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, booktabs = T)
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, booktabs = T)
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, booktabs = T)
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, booktabs = T)
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} = \\varphi V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+knitr::kable(Predation_Equations, booktabs = T)
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} = \\phi V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, booktabs = T)
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} = \\varphi V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, booktabs = T)
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} = \\hat{\\varphi}_p \\alpha_{\\delta} W_{pa,y}$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, booktabs = T)
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} = \\hat{\\varphi}_p W_{pa,y}$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, booktabs = T)
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} = \\hat \\varphi_p W_{pa,y}$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, booktabs = T)
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} = \\varphi_p W_{pa,y}$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, booktabs = T)
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} = \\varphi_p \\alpha_{\\delta} W_{pa,y}$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, booktabs = T)
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} = \\varphi_p \\alpha_{\\delta} W_{pa,y}^{\\left(1+\\beta_{\\delta}\\right)}$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, booktabs = T)
+Definition <- c("Predation mortality", "Predator-prey suitability", "Mean gravimetric diet proportion", paste(expression("Individual specific ration (kg kg"^-1~yr^-1)), "Temperature scaling algorithim", rep(NA, 4))
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} = \\varphi_p \\alpha_{\\delta} W_{pa,y}^{\\left(1+\\beta_{\\delta}\\right)} f\\left(T_y \\right)_p$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, booktabs = T)
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} = \\hat{p}\\varphi_p \\alpha_{\\delta} W_{pa,y}^{\\left(1+\\beta_{\\delta}\\right)} f\\left(T_y \\right)_p$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, booktabs = T)
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} = \\varphi_p \\alpha_{\\delta} W_{pa,y}^{\\left(1+\\beta_{\\delta}\\right)} f\\left(T_y \\right)_p$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, booktabs = T)
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} = \hat{} \\varphi_p \\alpha_{\\delta} W_{pa,y}^{\\left(1+\\beta_{\\delta}\\right)} f\\left(T_y \\right)_p$",
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} = \\hat{} \\varphi_p \\alpha_{\\delta} W_{pa,y}^{\\left(1+\\beta_{\\delta}\\right)} f\\left(T_y \\right)_p$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, booktabs = T)
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} = \\hat{p} \\varphi_p \\alpha_{\\delta} W_{pa,y}^{\\left(1+\\beta_{\\delta}\\right)} f\\left(T_y \\right)_p$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, booktabs = T)
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} = \\varphi_p \\alpha_{\\delta} W_{pa,y}^{\\left(1+\\beta_{\\delta}\\right)} f\\left(T_y \\right)_p$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, booktabs = T)
+?kable
+Definition <- c("Predation mortality", "Predator-prey suitability", "Mean gravimetric diet proportion", expression("Individual specific ration (kg kg"^-1~yr^-1), "Temperature scaling algorithim", rep(NA, 4))
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} = \\varphi_p \\alpha_{\\delta} W_{pa,y}^{\\left(1+\\beta_{\\delta}\\right)} f\\left(T_y \\right)_p$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+Definition <- c("Predation mortality", "Predator-prey suitability", "Mean gravimetric diet proportion", paste(expression("Individual specific ration (kg kg"^-1~yr^-1)), "Temperature scaling algorithim", rep(NA, 4))
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} = \\varphi_p \\alpha_{\\delta} W_{pa,y}^{\\left(1+\\beta_{\\delta}\\right)} f\\left(T_y \\right)_p$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, escape = T)
+Definition <- c("Predation mortality", "Predator-prey suitability", "Mean gravimetric diet proportion", "Individual specific ration ($kg~kg^{-1}~yr^{-1})", "Temperature scaling algorithim", rep(NA, 4))
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} = \\varphi_p \\alpha_{\\delta} W_{pa,y}^{\\left(1+\\beta_{\\delta}\\right)} f\\left(T_y \\right)_p$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, escape = T)
+Definition <- c("Predation mortality", "Predator-prey suitability", "Mean gravimetric diet proportion", "Individual specific ration ($kg~kg^{-1}~yr^{-1}$)", "Temperature scaling algorithim", rep(NA, 4))
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} = \\varphi_p \\alpha_{\\delta} W_{pa,y}^{\\left(1+\\beta_{\\delta}\\right)} f\\left(T_y \\right)_p$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, escape = T)
+Definition <- c("Predation mortality", "Predator-prey suitability", "Mean gravimetric diet proportion", "Individual specific ration ($kg~kg^{-1}~yr^{-1}$)", "Temperature scaling algorithim", rep(NA, 4))
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} = \\varphi_p \\alpha_{\\delta} W_{pa,y}^{\\left(1+\\beta_{\\delta}\\right)} f\\left(T_y \\right)_p$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, escape = T, format = "latex")
+knitr::kable(Predation_Equations, escape = T, format = "html")
+Predation_Equations
+Definition <- c("Predation mortality", "Predator-prey suitability", "Mean gravimetric diet proportion", "Individual specific ration ($kg~kg^{-1}~yr^{-1}$)", "Temperature scaling algorithim", rep("...", 4))
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} \\bar{S}_{paij}} {\\sum_{ij} \\left(\\hat{S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left(\\hat{S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} = \\varphi_p \\alpha_{\\delta} W_{pa,y}^{\\left(1+\\beta_{\\delta}\\right)} f\\left(T_y \\right)_p$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, escape = T, format = "html")
+knitr::kable(head(mtcars, 10))
+knitr::kable(head(mtcars[,c(1,2)], 10),
+row.names = FALSE,
+col.names = c("Time", "$\\dot{m}_1$")))
+knitr::kable(head(mtcars[,c(1,2)], 10),
+row.names = FALSE,
+col.names = c("Time", "$\\dot{m}_1$"))
+knitr::kable(head(mtcars[,c(1,2)], 10),
+row.names = FALSE,
+col.names = c("Time", "$\\hat{m}_1$"))
+knitr::kable(head(mtcars[,c(1,2)], 10),
+row.names = FALSE,
+col.names = c("Time", "$\\delta_{m}_1$"))
+knitr::kable(head(mtcars[,c(1,2)], 10),
+row.names = FALSE,
+col.names = c("Time", "$\\delta_{\\hatm}_1$"))
+knitr::kable(head(mtcars[,c(1,2)], 10),
+row.names = FALSE,
+col.names = c("Time", "$\\delta_{\\hat{m}}_1$"))
+knitr::kable(head(mtcars[,c(1,2)], 10),
+row.names = FALSE,
+col.names = c("Time", "$\\delta_{m}_1$"), escape = T)
+knitr::kable(head(mtcars[,c(1,2)], 10),
+row.names = FALSE,
+col.names = c("Time", "$\\hat_{m}_1$"), escape = T)
+knitr::kable(head(mtcars[,c(1,2)], 10),
+row.names = FALSE,
+col.names = c("Time", "$\hat_{m}_1$"), escape = T)
+knitr::kable(head(mtcars[,c(1,2)], 10),
+row.names = FALSE,
+col.names = c("Time", "$\\\\hat_{m}_1$"), escape = T)
+knitr::kable(head(mtcars[,c(1,2)], 10),
+row.names = FALSE,
+col.names = c("Time", "$\\\hat_{m}_1$"), escape = T)
+Definition <- c("Predation mortality", "Predator-prey suitability", "Mean gravimetric diet proportion", "Individual specific ration ($kg~kg^{-1}~yr^{-1}$)", "Temperature scaling algorithim", rep("...", 4))
+Equation <- c("$M2_{ij,y} = \\sum_{pa} \\left( \\frac{N_{pa,y} \\delta_{pa,y} {S}_{paij}} {\\sum_{ij} \\left({S}_{paij} B_{ij,y} \\right) + B_p^{other} \\left(1 - \\sum_{ij} \\left({S}_{paij} \\right) \\right)} \\right)$",
+"$\\hat{S}_{paij} = \\frac{1}{n_y} \\sum_y \\left( \\frac{ \\frac{\\bar{U}_{paij}} {B_{ij,y}} } {\\sum_{ij} \\left( \\frac{\\bar{U}_{paij}} {B_{ij,y}} \\right) + \\frac{1 + \\sum_{ij} \\bar{U}_{paij}} {B_p^{other}} } \\right)$",
+"$\\bar{U}_{paij} = \\frac{\\sum_y {U_{paij,y}}} {n_y}$",
+"$\\delta_{pa,y} = \\varphi_p \\alpha_{\\delta} W_{pa,y}^{\\left(1+\\beta_{\\delta}\\right)} f\\left(T_y \\right)_p$",
+"$f \\left(T_y \\right)_p = V^X e^{\\left(X \\left(1-V \\right) \\right)}$",
+"$V = \\left( T^{cm}_p - T_y \\right)/ \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$X = \\left(Z^2 \\left(1+ \\left( 1 + 40 /Y \\right)^{0.5} \\right)^2 \\right)/400$",
+"$Z = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p \\right)$",
+"$Y = ln\\left(Q^c_p \\right) \\left( T^{cm}_p - T^{co}_p + 2\\right)$")
+Eq. <- c(paste("T2.", 1:5, sep = ""), paste("T2.5",c("a","b","c","d"), sep = ""))
+Predation_Equations <- data.frame(cbind(Definition, Equation, Eq.))
+knitr::kable(Predation_Equations, escape = T, format = "html")
+pandoc.table(Predation_Equations)
+install.packages("pander")
+library(pander)
+pandoc.table(Predation_Equations)
+Definition <- c("Predation mortality", "Predator-prey suitability", "Mean gravimetric diet proportion", "Individual specific ration ($kg~kg^{-1}~yr^{-1}$)", "Temperature scaling algorithim", rep("...", 4))
+Equation <- c("$M2_{ij,y} = \sum_{pa} \left( \frac{N_{pa,y} \delta_{pa,y} {S}_{paij}} {\sum_{ij} \left({S}_{paij} B_{ij,y} \right) + B_p^{other} \left(1 - \sum_{ij} \left({S}_{paij} \right) \right)} \right)$",
+knitr::kable(Predation_Equations, escape = T, format = "html")
+pandoc.table(Predation_Equations)
+knitr::kable(head(mtcars[,c(1,2)], 10),
+row.names = FALSE,
+col.names = c("Time", "$\\\delta_{m}_1$"), escape = T)
+knitr::kable(head(mtcars[,c(1,2)], 10),
+row.names = FALSE,
+col.names = c("Time", "$\\delta_{m}_1$"), escape = T)
+knitr::kable(head(mtcars[,c(1,2)], 10),
+row.names = FALSE,
+col.names = c("Time", "$\\hat{m}_1$"), escape = T)
+knitr::kable(head(mtcars[,c(1,2)], 10),
+row.names = FALSE,
+col.names = c("Time", "$\\hat m_1$"), escape = T)
+knitr::kable(head(mtcars[,c(1,2)], 10),
+row.names = FALSE,
+col.names = c("Time", "$\\hat{m}_1$"), escape = T)
+knitr::kable(head(mtcars[,c(1,2)], 10),
+row.names = FALSE,
+col.names = c("Time", "$\\hat{m}_1$"))
+knitr::kable(head(mtcars[,c(1,2)], 10),
+row.names = FALSE,
+col.names = c("Time", "$%\hat{m}_1$"))
+knitr::kable(head(mtcars[,c(1,2)], 10),
+row.names = FALSE,
+col.names = c("Time", "$%\\hat{m}_1$"))
+knitr::kable(head(mtcars[,c(1,2)], 10),
+row.names = FALSE,
+col.names = c("Time", "$\\hat{m}_1$"))
