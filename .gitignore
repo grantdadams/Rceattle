@@ -3,3 +3,5 @@
 .RData
 .Ruserdata
 inst/doc
+inst/CEATTLE_BSAI_MS_v01.dll
+*.dll
