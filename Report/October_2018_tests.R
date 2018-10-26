@@ -9,7 +9,7 @@ load("data/BS_SS_Files/CEATTLE_results.Rdata")
 ss_tmp <- tmp
 
 # Compare with current
-ss_res <- compare_output(ss_rep, ss_tmp, rel_error = 0.00001)
+ss_res <- compare_output(ss_rep, ss_tmp, rel_error = 0.0001)
 ss_res$summary
 ss_res$likelihood
 ss_res$tmb_like
