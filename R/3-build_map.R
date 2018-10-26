@@ -1,7 +1,7 @@
 # Function to construct the TMB map argument for CEATTLE
 # Grant Adams June 2018
 
-build_map <- function(data_list, params, debug = FALSE) {
+build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
   map_list <- params
 
@@ -32,6 +32,11 @@ build_map <- function(data_list, params, debug = FALSE) {
 
   # Catchability of surveys
   map_list$log_srv_q <- replace(map_list$log_srv_q, values = rep(NA, length(map_list$log_srv_q)))
+
+  # Recruitment deviation sigmas - turn off if not estimating
+  if(random_rec == FALSE){
+    map_list$ln_rec_sigma <- replace(map_list$ln_rec_sigma, values = rep(NA, length(map_list$ln_rec_sigma)))
+  }
 
 
   # STEP 3 - set up debug - I.E. turn off all parameters besides dummy

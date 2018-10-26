@@ -55,7 +55,6 @@ compare_output <- function( rep = rep, tmp = tmp, rel_error = 0.01){
 
   # EIT selectivity
   param <- "eit_hat"
-
   param_check[[param]] <- rep[[param]]
   tmb_params <- rep[[param]]
   param_check[[param]] <- replace(param_check[[param]], values = rep(NA, length(param_check[[param]])))
@@ -64,6 +63,8 @@ compare_output <- function( rep = rep, tmp = tmp, rel_error = 0.01){
   diff <- abs((tmb_params[1:length(admb_params)] - admb_params) / admb_params) < rel_error
   param_check[[param]][1:length(admb_params)] <- replace( param_check[[param]][1:length(admb_params)], values = diff)
 
+  # EIT age comp hat
+  param <- "eit_age_comp_hat" #FIXME - get eit age hat from
 
 
   # Do a summary of how many items are wrong
