@@ -45,7 +45,7 @@ ms_tmp$M2_1[1,]
 ###################################################
 # Run in MS mode using std files
 load("data/BS_MS_Files/2017_assessment_data_list.RData")
-ms_run <- Rceattle(data_list = data_list_ms, ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_Files/dat files/", debug = TRUE, inits = "ceattle_est.std")
+ms_run <- Rceattle(data_list = data_list_ms, ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_Files/dat files/", debug = FALSE, inits = NULL)
 ms_rep <- ms_run$rep
 
 # Load previous estimates

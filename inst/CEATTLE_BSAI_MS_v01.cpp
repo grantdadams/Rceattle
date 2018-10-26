@@ -777,7 +777,6 @@ Type objective_function<Type>::operator() (){
         }
       }
     }
-    
 
     for(i=0; i < nspp; i++){
       for (y=0; y < nyrs_srv_age(i); y++){
@@ -895,7 +894,7 @@ Type objective_function<Type>::operator() (){
   // 9.1. OFFSETS AND PENALTIES
   // 9.1.1 -- Set up offset objects
   vector<Type> offset_srv(nspp); offset_srv.setZero(); // Offset for multinomial likelihood
-  vector<Type> offset_fsh(nspp); offset_fsh.setZero(); // Offset for multinomial likelihood
+  vector<Type> offset_fsh(nspp); offset_srv.setZero(); // Offset for multinomial likelihood
   Type offset_eit = 0; // Offset for multinomial likelihood
 
 
@@ -930,7 +929,6 @@ Type objective_function<Type>::operator() (){
   // 9.2. FIT OBJECTIVE FUNCTION
   // Slot 0 -- BT survey biomass -- NFMS annual BT survey
   for(i=0; i < nspp; i++){
-    jnll_comp(0, i) = 0; // FIXME: Likeliy redundant
     for (y=0; y < nyrs_srv_biom(i); y++){
       // srv_yr_ind = yrs_srv_biom(i, y) - styr;
       jnll_comp(0, i) += pow(log(srv_biom(i, y)) - log(srv_bio_hat(i, y)), 2) / (2 * pow(srv_biom_lse(i, y), 2)); // NOTE: This is not quite the lognormal and biohat will be the median.
@@ -940,7 +938,6 @@ Type objective_function<Type>::operator() (){
 
   // Slot 1 -- BT survey age composition -- NFMS annual BT survey
   for(i=0; i < nspp; i++){
-    jnll_comp(1, i) = 0; // FIXME: Likeliy redundant
     for (y=0; y < nyrs_srv_age(i); y++){
       for(j=0; j < srv_age_bins(i); j++){
         // srv_yr_ind = yrs_srv_age(i, y) - styr;
@@ -952,14 +949,12 @@ Type objective_function<Type>::operator() (){
 
 
   // Slot 2 -- EIT survey biomass -- Pollock acoustic trawl survey
-  jnll_comp(2, 0) = 0; // FIXME: Likeliy redundant
   for (y=0; y < n_eit; y++){
     jnll_comp(2, 0) += 12.5 * pow(log(obs_eit(y)) - log(eit_hat(y) + 1.e-04), 2);
   }
 
 
   // Slot 3 -- EIT age composition -- Pollock acoustic trawl survey
-  jnll_comp(3, 0) = 0; // FIXME: Likeliy redundant
   for (y=0; y < n_eit; y++){
     for(j=0; j < nages(0); j++){
       // eit_yr_ind = yrs_eit(y) - styr;
@@ -971,7 +966,6 @@ Type objective_function<Type>::operator() (){
 
   // Slot 4 -- Total catch -- Fishery observer data
   for(i=0; i < nspp; i++){
-     jnll_comp(4,i) = 0; // FIXME: Likeliy redundant
     for (y=0; y < nyrs_tc_biom(i); y++){
       fsh_yr_ind = yrs_tc_biom(i, y) - styr;
       jnll_comp(4,i) += pow((log(tcb_obs(i, y) + Type(1.e-4)) - log(tc_biom_hat(i, y) + Type(1.e-4))), 2) / (2 * pow(sigma_catch, 2)); // T.4.5
@@ -981,7 +975,6 @@ Type objective_function<Type>::operator() (){
 
   // Slot 5 -- Fishery age composition -- Fishery observer data
   for(i=0; i < nspp; i++){
-    jnll_comp(5, i) = 0; // FIXME: Likeliy redundant
     for (y=0; y < nyrs_fsh_comp(i); y++){
       for(j=0; j < fsh_age_bins(i); j++){
         fsh_yr_ind = yrs_fsh_comp(i, y) - styr; // Temporary index for years of data
@@ -994,7 +987,6 @@ Type objective_function<Type>::operator() (){
 
   // Slot 6 -- Fishery selectivity
   for(i=0; i < nspp; i++){
-    jnll_comp(6, i) = 0; // FIXME: Likeliy redundant
     for(j=0; j < (nages(i) - 1); j++){
       if( fsh_sel(i, j) > fsh_sel( i, j + 1 )){
         jnll_comp(6, i) += 20 * pow( log( fsh_sel(i, j) / fsh_sel(i, j + 1 ) ), 2);
@@ -1017,7 +1009,6 @@ Type objective_function<Type>::operator() (){
 
   // Slot 6 -- Add fishery selectivity normalization
   for(i=0; i < nspp; i++){
-    jnll_comp(7, i) = 0; // FIXME: Likeliy redundant
     jnll_comp(7, i) += 50 * pow(avgsel_fsh(i), 2);
   }
 
@@ -1025,7 +1016,6 @@ Type objective_function<Type>::operator() (){
 
   // Slot 7 -- Survey selectivity
   for(i=0; i < nspp; i++){
-        jnll_comp(8, i) = 0; // FIXME: Likeliy redundant
     if (logist_sel_phase(i) < 0){
       // Extract only the selectivities we want
       vector<Type> sel_tmp(nages(i));
@@ -1042,16 +1032,12 @@ Type objective_function<Type>::operator() (){
 
   // Slot 7 -- Add survey selectivity normalization
   for(i=0; i < nspp; i++){
-        jnll_comp(9, i) = 0; // FIXME: Likeliy redundant
     jnll_comp(9, i) += 50 * pow(avgsel_srv(i), 2);
   }
 
 
   // Slots 10-12 -- PRIORS: PUT RANDOM EFFECTS SWITCH HERE
   for(i=0; i < nspp; i++){
-        jnll_comp(10, i) = 0; // FIXME: Likeliy redundant
-            jnll_comp(11, i) = 0; // FIXME: Likeliy redundant
-                jnll_comp(12, i) = 0; // FIXME: Likeliy redundant
     // Slot 10 -- init_dev -- Initial abundance-at-age
     for(j=1; j < nages(i); j++){
       jnll_comp(10, i) += pow( init_dev(i,j-1), 2);
