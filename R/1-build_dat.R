@@ -1,4 +1,4 @@
-build_dat <- function(ctlFilename = ctlFilename, TMBfilename = TMBfilename, dat_dir = dat_dir, nspp = 3, debug = TRUE) {
+build_dat <- function(ctlFilename = ctlFilename, TMBfilename = TMBfilename, dat_dir = dat_dir, nspp = 3, debug = TRUE, random_rec = FALSE) {
 
   #---------------------------------------------------------------------
   # Step 1 -- Extract data names used in TMB
@@ -121,6 +121,8 @@ build_dat <- function(ctlFilename = ctlFilename, TMBfilename = TMBfilename, dat_
     names(dat_list)[which(names(dat_list) == "config")] <- dat_names[i]
   }
 
+  # Switches
+  dat_list$random_rec = as.numeric(random_rec)
   dat_list$debug = debug # Switch to debug model using initial values
 
   return(dat_list)
