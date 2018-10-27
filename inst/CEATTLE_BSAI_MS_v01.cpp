@@ -783,7 +783,7 @@ Type objective_function<Type>::operator() (){
         }
       }
     }
-    
+
 
     for(i=0; i < nspp; i++){
       for (y=0; y < nyrs_srv_age(i); y++){
