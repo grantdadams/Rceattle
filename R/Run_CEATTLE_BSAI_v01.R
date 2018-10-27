@@ -39,7 +39,7 @@ Rceattle <- function( data_list = NULL, ctlFilename, TMBfilename, dat_dir, debug
     print("Step 1: Data build complete")
   }
   data_list$random_rec <- as.numeric(random_rec)
-  #data_list$debug <- debug
+  data_list$debug <- debug
 
 
   # STEP 2 - LOAD PARAMETERS
@@ -79,7 +79,7 @@ Rceattle <- function( data_list = NULL, ctlFilename, TMBfilename, dat_dir, debug
 
 
   # STEP 6 - Build object
-  obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map)#, random = random)
+  obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map, silent = TRUE)#, random = random)
   opt = TMBhelper::Optimize( obj ) ; #tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
   rep = obj$report(opt$par)
 
@@ -95,7 +95,7 @@ Rceattle <- function( data_list = NULL, ctlFilename, TMBfilename, dat_dir, debug
     opt = tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
   }
 
-  obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map) #, random = random)
+  obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map, silent = TRUE) #, random = random)
   opt = TMBhelper::Optimize( obj ) ; #tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
   rep = obj$report(opt$par)
 
