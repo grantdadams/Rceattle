@@ -1,6 +1,6 @@
 ###################################################
 # Run in single species mode
-version <- "CEATTLE_BSAI_MS_v02"
+version <- "CEATTLE_BSAI_MS_v01"
 
 load("data/BS_SS_Files/2017_assessment_data_list.RData")
 ss_run <- Rceattle(data_list = data_list_ss, ctlFilename = "asmnt2017_0A_corrected", TMBfilename = version, dat_dir =  "data/BS_SS_Files/dat files/", debug = TRUE, inits = "ceattle.par", random_rec = FALSE)
