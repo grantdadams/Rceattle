@@ -13,7 +13,7 @@
 #' @export
 #'
 #' @examples
-Rceattle <- function( data_list = NULL, ctlFilename, TMBfilename, dat_dir, debug = T, inits = NULL, random_rec = FALSE){
+Rceattle <- function( data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, dat_dir = NULL, debug = T, inits = NULL, random_rec = FALSE){
   #--------------------------------------------------
   # 1. DATA and MODEL PREP
   #--------------------------------------------------
@@ -79,7 +79,7 @@ Rceattle <- function( data_list = NULL, ctlFilename, TMBfilename, dat_dir, debug
 
 
   # STEP 6 - Build object
-  obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map, silent = TRUE)#, random = random)
+  obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map, silent = FALSE)#, random = random)
   opt = TMBhelper::Optimize( obj ) ; #tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
   rep = obj$report(opt$par)
 
@@ -99,6 +99,7 @@ Rceattle <- function( data_list = NULL, ctlFilename, TMBfilename, dat_dir, debug
   opt = TMBhelper::Optimize( obj ) ; #tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
   rep = obj$report(opt$par)
 
+  dyn.unload(TMB::dynlib(paste0(cpp_file)))
 
   # Return objects
   mod_objects <- list(data_list = data_list, params = params, map = map, rep = rep, obj = obj, opt = opt)
