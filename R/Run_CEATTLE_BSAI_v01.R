@@ -7,13 +7,17 @@
 #' @param dat_dir The directory where dat files are stored
 #' @param debug Runs the model without estimating parameters to get derived quantities given initial parameter values.
 #' @param data_list (Optional) a data_list from a previous model run.
-#' @param inits Boolian of wether to have the model start optimization at ADMBs MLEs \code{TRUE} or all 0s \code{FALSE}
+#' @param inits Boolian of whether to have the model start optimization at ADMBs MLEs \code{TRUE} or all 0s \code{FALSE}
+#' @param plot_trajectory Boolian of whether to include plotting functions
+#' @param random_rec Boolian of whether to treat recruitment deviations as random effects.
 #'
 #' @return
 #' @export
 #'
 #' @examples
-Rceattle <- function( data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, dat_dir = NULL, debug = T, inits = NULL, random_rec = FALSE){
+
+Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, dat_dir = NULL, debug = T, inits = NULL, plot_trajectory = FALSE, random_rec = FALSE){
+
   #--------------------------------------------------
   # 1. DATA and MODEL PREP
   #--------------------------------------------------
@@ -27,6 +31,7 @@ Rceattle <- function( data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, 
   source("R/1-build_dat.R")
   source("R/2-build_params.R")
   source("R/3-build_map.R")
+
 
   # STEP 1 - LOAD DATA
   if(is.null(data_list)){
@@ -57,6 +62,14 @@ Rceattle <- function( data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, 
   print("Step 3: Map build complete")
 
 
+  # STEP 4 - Setup random effects
+  random <- c()
+  if(random_rec == TRUE){
+    random <- c("rec_dev")
+  }
+
+
+
   # STEP 5 - Compile CEATTLE
   version <- TMBfilename
   cpp_directory <- "inst"
@@ -79,7 +92,7 @@ Rceattle <- function( data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, 
 
 
   # STEP 6 - Build object
-  obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map, silent = FALSE)#, random = random)
+  obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map, random = random)
   opt = TMBhelper::Optimize( obj ) ; #tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
   rep = obj$report(opt$par)
 
@@ -91,15 +104,21 @@ Rceattle <- function( data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, 
     last_par = obj$env$parList(opt$par)
     last_par$dummy = 0
     print("Re-running model ", i)
-    obj = TMB::MakeADFun(data_list, parameters = last_par,  DLL = version, map = map, silent = TRUE) #, random = random)
+    obj = TMB::MakeADFun(data_list, parameters = last_par,  DLL = version, map = map, silent = TRUE, random = random)
     opt = tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
   }
 
-  obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map, silent = TRUE) #, random = random)
+  obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map, random = random)
   opt = TMBhelper::Optimize( obj ) ; #tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
   rep = obj$report(opt$par)
 
+  if(plot_trajectory){
+
+  }
+
+
   dyn.unload(TMB::dynlib(paste0(cpp_file)))
+
 
   # Return objects
   mod_objects <- list(data_list = data_list, params = params, map = map, rep = rep, obj = obj, opt = opt)
