@@ -15,7 +15,9 @@
 #' @export
 #'
 #' @examples
-Rceattle <- function( data_list = NULL, ctlFilename, TMBfilename, dat_dir, debug = T, inits = NULL, plot_trajectory = FALSE, random_rec = FALSE){
+
+Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, dat_dir = NULL, debug = T, inits = NULL, plot_trajectory = FALSE, random_rec = FALSE){
+
   #--------------------------------------------------
   # 1. DATA and MODEL PREP
   #--------------------------------------------------
@@ -67,6 +69,7 @@ Rceattle <- function( data_list = NULL, ctlFilename, TMBfilename, dat_dir, debug
   }
 
 
+
   # STEP 5 - Compile CEATTLE
   version <- TMBfilename
   cpp_directory <- "inst"
@@ -93,6 +96,7 @@ Rceattle <- function( data_list = NULL, ctlFilename, TMBfilename, dat_dir, debug
   opt = TMBhelper::Optimize( obj ) ; #tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
   rep = obj$report(opt$par)
 
+
   # Refit - if not debugging
   if(debug == TRUE){ iter = 1}
   if(debug == FALSE){ iter = 3}
@@ -111,6 +115,9 @@ Rceattle <- function( data_list = NULL, ctlFilename, TMBfilename, dat_dir, debug
   if(plot_trajectory){
 
   }
+
+
+  dyn.unload(TMB::dynlib(paste0(cpp_file)))
 
 
   # Return objects
