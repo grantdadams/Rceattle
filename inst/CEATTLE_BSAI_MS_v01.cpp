@@ -36,9 +36,10 @@ Type objective_function<Type>::operator() (){
   // 1.1. CONFIGURE MODEL (this section sets up the switches)
   DATA_INTEGER(debug);            // Logical to debug or not
   DATA_INTEGER(msmMode);
-  DATA_INTEGER(random_rec);       // Logical of whether to treate recruitment deviations as random effects
   //    0 = run in single species mode
   //    1 = run in MSM mode
+    DATA_INTEGER(random_rec);       // Logical of whether to treate recruitment deviations as random effects
+    DATA_INTEGER( niter );          // Number of loops for MSM mode
 
   DATA_IVECTOR(logist_sel_phase); // Selectivity for BT survey
   //    0 = fit to data
@@ -55,9 +56,8 @@ Type objective_function<Type>::operator() (){
   // 1.4. MODEL OBJECTS
   // 1.4.1. LOOPING INDICES -- k = observation, i = species/prey, j = age/prey age (yr), y = year, p = predator, a = predator age (yr)
   int  i, j, y, k, p, a;
-  int fsh_yr_ind;
-  int niter = 3;                  // Number of iterations for MS mode
-  if(msmMode > 0){ niter = 3; }
+  int fsh_yr_ind; 
+  if(msmMode == 0){ niter = 1; } // Number of iterations for SS mode
 
   // ------------------------------------------------------------------------- //
   // 2. MODEL INPUTS                                                           //
@@ -202,7 +202,7 @@ Type objective_function<Type>::operator() (){
    */
 
 
-  
+
   // ------------------------------------------------------------------------- //
   // 2.7. Debugging with data inputs                                           //
   // ------------------------------------------------------------------------- //
