@@ -16,7 +16,7 @@
 #'
 #' @examples
 
-Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, dat_dir = NULL, debug = T, inits = NULL, plot_trajectory = FALSE, random_rec = FALSE){
+Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, dat_dir = NULL, inits = NULL, debug = T, plot_trajectory = FALSE, random_rec = FALSE, niter = 3){
 
   #--------------------------------------------------
   # 1. DATA and MODEL PREP
@@ -45,6 +45,7 @@ Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, d
   }
   data_list$random_rec <- as.numeric(random_rec)
   data_list$debug <- debug
+  data_list$niter <- niter
 
 
   # STEP 2 - LOAD PARAMETERS
