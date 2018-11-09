@@ -804,7 +804,7 @@ Type objective_function<Type>::operator() (){
           vector<Type> srv_len_tmp = vec_mat_prod( srv_age_tmp_trimmed , ALK ); // Multiply the ALK for species i against the survey catch-at-age for year y
 
           for(j=0; j < srv_age_bins(i); j++){
-            srv_age_hat(y, j, i) = srv_len_tmp(j) / srv_hat(i, y) ; // * age_trans_matrix.col().col(i)) / srv_hat(i, y); // # NOTE: Double check the matrix algebra here
+            srv_age_hat(y, j, i) = srv_len_tmp(j) / srv_len_tmp.sum() ; // * age_trans_matrix.col().col(i)) / srv_hat(i, y); // # NOTE: Double check the matrix algebra here
           }
         }
       }
@@ -860,7 +860,7 @@ Type objective_function<Type>::operator() (){
           vector<Type> fsh_len_tmp = vec_mat_prod( fsh_age_tmp_trimmed , ALK ); // Multiply the ALK for species i against the survey catch-at-age for year y
 
           for(j=0; j < fsh_age_bins(i); j++){
-            fsh_age_hat(y, j, i) = fsh_len_tmp(j) / tc_hat(i, y) ; // * age_trans_matrix.col().col(i)) / srv_hat(i, y); // # NOTE: Double check the matrix algebra here
+            fsh_age_hat(y, j, i) = fsh_len_tmp(j) / tc_hat(i, y) ; // FIXME: because the age_trans_matrix rows do not sum to 1 for PCod, we are underestimating length_comp
           }
         }
       }
