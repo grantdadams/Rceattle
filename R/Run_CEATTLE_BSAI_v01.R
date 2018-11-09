@@ -79,10 +79,12 @@ Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, d
   # Remove compiled files if not compatible with system
   version_files <- list.files(path = cpp_directory, pattern = version)
   if(Sys.info()[1] == "Windows" & paste0(version,".so") %in% version_files){
+    try(  dyn.unload(TMB::dynlib(paste0(cpp_file))))
     file.remove(paste0(cpp_file,".so"))
     file.remove(paste0(cpp_file,".o"))
   }
   if(Sys.info()[1] != "Windows" & paste0(version,".dll") %in% version_files){
+    try(  dyn.unload(TMB::dynlib(paste0(cpp_file))))
     file.remove(paste0(cpp_file,".dll"))
     file.remove(paste0(cpp_file,".o"))
   }
@@ -93,32 +95,31 @@ Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, d
 
 
   # STEP 6 - Build object
-  obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map, random = random)
-  opt = TMBhelper::Optimize( obj ) ; #tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
-  rep = obj$report(opt$par)
+  obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map, random = random, silent = TRUE)
 
+  opt = optimx(obj$par, function(x) as.numeric(obj$fn(x)), obj$gr, control = list(all.methods=T, maxit = 1000))
+  opt = TMBhelper::Optimize( obj ) ; #tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
 
   # Refit - if not debugging
   if(debug == TRUE){ iter = 1}
-  if(debug == FALSE){ iter = 3}
+  if(debug == FALSE){ iter = 5}
   for(i in 1:iter){
-    last_par = obj$env$parList(opt$par)
+    last_par = obj$env$parList(obj$env$last.par.best)
     last_par$dummy = 0
     print("Re-running model ", i)
     obj = TMB::MakeADFun(data_list, parameters = last_par,  DLL = version, map = map, silent = TRUE, random = random)
     opt = tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
+    rep = obj$report(opt$par)
   }
 
-  obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map, random = random)
-  opt = TMBhelper::Optimize( obj ) ; #tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
-  rep = obj$report(opt$par)
+  # Unload model
+  dyn.unload(TMB::dynlib(paste0(cpp_file)))
 
+
+  # STEP 7 - Plot trajectory
   if(plot_trajectory){
 
   }
-
-
-  dyn.unload(TMB::dynlib(paste0(cpp_file)))
 
 
   # Return objects
