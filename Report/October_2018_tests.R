@@ -28,7 +28,7 @@ ss_tmp$obj_fun
 ###################################################
 # Run in MS mode using par files
 load("data/BS_MS_Files/2017_assessment_data_list.RData")
-ms_run <- Rceattle(data_list = data_list_ms, ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_Files/dat files/", inits = "ceattle.par", debug = FALSE, plot_trajectory = FALSE, random_rec = FALSE, niter = 3)
+ms_run <- Rceattle(data_list = data_list_ms, ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_Files/dat files/", inits = "ceattle.par", debug = TRUE, plot_trajectory = FALSE, random_rec = FALSE, niter = 3)
 ms_rep <- ms_run$rep
 
 # Load previous estimates

@@ -70,7 +70,6 @@ Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, d
   }
 
 
-
   # STEP 5 - Compile CEATTLE
   version <- TMBfilename
   cpp_directory <- "inst"
