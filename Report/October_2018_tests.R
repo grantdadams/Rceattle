@@ -28,7 +28,7 @@ ss_tmp$obj_fun
 ###################################################
 # Run in MS mode using par files
 load("data/BS_MS_Files/2017_assessment_data_list.RData")
-ms_run <- Rceattle(data_list = data_list_ms, ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_Files/dat files/", inits = "ceattle.par", debug = TRUE, plot_trajectory = FALSE, random_rec = FALSE, niter = 3)
+ms_run <- Rceattle(data_list = data_list_ms, ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_Files/dat files/", inits = "ceattle.par", debug = TRUE, plot_trajectory = FALSE, random_rec = FALSE, niter = 20)
 ms_rep <- ms_run$rep
 
 # Load previous estimates
@@ -39,40 +39,30 @@ ms_tmp <- tmp
 ms_res <- compare_output(ms_rep, ms_tmp, rel_error = 0.08)
 ms_res$summary
 ms_res$likelihood
-ms_res$tmb_like
-ms_res$admb_like
+tmb_nll_comp <- ms_res$tmb_like
+admb_nll_comp <- ms_res$admb_like
 
-sum(ms_rep$jnll_comp)
-ms_tmp$obj_fun
+tmb_pollock_age1_year1_M2 <- round(ms_rep$M2[1,1:12,1], 8)
+admb_pollock_age1_year1_M2 <- ms_tmp$M2_1[1,]
+
+tmb_jnll <- sum(ms_rep$jnll_comp)
+admb_jnll <- -1854293.01910412
 
 
-###################################################
-# Run in MS mode using std files
-load("data/BS_MS_Files/2017_assessment_data_list.RData")
-ms_run <- Rceattle(data_list = data_list_ms, ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_Files/dat files/", inits = "ceattle_est.std", debug = FALSE, plot_trajectory = FALSE, random_rec = FALSE, niter = 3)
-ms_rep <- ms_run$rep
+tmb_nll_comp
+admb_nll_comp
 
-# Load previous estimates
-load("data/BS_MS_Files/CEATTLE_results.Rdata")
-ms_tmp <- tmp
+tmb_jnll
+admb_jnll
 
-# Compare with current
-ms_res <- compare_output(ms_rep, ms_tmp, rel_error = 0.08)
-ms_res$summary
-ms_res$likelihood
-ms_res$tmb_like
-ms_res$admb_like
+tmb_pollock_age1_year1_M2
+admb_pollock_age1_year1_M2
 
-sum(ms_rep$jnll_comp)
-ms_tmp$obj_fun
-
-ms_rep$M2[1,,1]
-ms_tmp$M2_1[1,]
 
 ###################################################
 # Run in MS mode using par files and 10 loops
-load("data/BS_MS_10_Loops_Files/2017_assessment_data_list.RData")
-ms_run <- Rceattle(data_list = data_list, ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_10_Loops_Files/dat files/", inits = "ceattle.par", debug = TRUE, plot_trajectory = FALSE, random_rec = FALSE, niter = 10)
+load("data/BS_MS_Files/2017_assessment_data_list.RData")
+ms_run <- Rceattle(data_list = data_list_ms, ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_10_Loops_Files/dat files/", inits = ss_run$params, debug = FALSE, plot_trajectory = FALSE, random_rec = FALSE, niter = 18)
 ms_rep <- ms_run$rep
 
 # Load previous estimates
@@ -80,14 +70,21 @@ load("data/BS_MS_10_Loops_Files/CEATTLE_results.Rdata")
 ms_tmp <- tmp
 
 # Compare with current
-ms_res <- compare_output(ms_rep, ms_tmp, rel_error = 0.08)
+ms_res <- compare_output(ms_rep, ms_tmp, rel_error = 0.001)
 ms_res$summary
 ms_res$likelihood
-ms_res$tmb_like
-ms_res$admb_like
+tmb_nll_comp <- ms_res$tmb_like
+admb_nll_comp <- ms_res$admb_like
 
-sum(ms_rep$jnll_comp)
-ms_tmp$obj_fun
+tmb_jnll <- sum(ms_rep$jnll_comp)
+admb_jnll <- -1854293.01910412
 
-ms_rep$M2[1,,1]
+
+tmb_nll_comp
+admb_nll_comp
+
+tmb_jnll
+admb_jnll
+
+ms_rep$M2[1,1:12,1]
 ms_tmp$M2_1[1,]
