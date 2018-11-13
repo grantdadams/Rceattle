@@ -499,7 +499,6 @@ Type objective_function<Type>::operator() (){
 
         // -- 5.3.3. Estimate Biomass and SSB
         for(y=0; y < nyrs; y++){
-          // NOTE: The "-1" is because the NByage has the initial population numbers
           biomassByage(y, j, i) = NByage(y, j, i) * wt(y, j, i); // 5.5.
           biomassSSBByage(y, j, i) = biomassByage(y, j, i) * pmature(i, j); // 5.6.
 

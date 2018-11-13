@@ -33,6 +33,7 @@ Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, d
   source("R/3-build_map.R")
 
 
+
   # STEP 1 - LOAD DATA
   if(is.null(data_list)){
     data_list <- build_dat(ctlFilename = ctlFilename,
@@ -46,6 +47,7 @@ Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, d
   data_list$random_rec <- as.numeric(random_rec)
   data_list$debug <- debug
   data_list$niter <- niter
+
 
 
   # STEP 2 - LOAD PARAMETERS
@@ -62,9 +64,11 @@ Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, d
   print("Step 2: Parameter build complete")
 
 
+
   # STEP 3 - BUILD MAP
   map  <- build_map(data_list, params, debug = debug, random_rec = random_rec)
   print("Step 3: Map build complete")
+
 
 
   # STEP 4 - Setup random effects
@@ -72,6 +76,7 @@ Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, d
   if(random_rec == TRUE){
     random <- c("rec_dev")
   }
+
 
 
   # STEP 5 - Compile CEATTLE
@@ -97,12 +102,21 @@ Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, d
   print("Step 4: Compile CEATTLE complete")
 
 
+
   # STEP 6 - Build object
-  obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map, random = random, silent = TRUE)
-  opt <- nlminb(obj$par, obj$fn, obj$gr)
+  obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map, random = random, silent = FALSE)
+  # opt <- nlminb(obj$par, obj$fn, obj$gr)
+  methods <- c('Nelder-Mead', 'BFGS', 'CG', 'L-BFGS-B', 'nlm', 'nlminb', 'spg', 'ucminf', 'newuoa', 'bobyqa', 'nmkb', 'hjkb', 'Rcgmin', 'Rvmmin')
+  # opt_list <- list()
+  # for(i in 1:length(methods)){
+  #   opt_list[i] = optimx(obj$par, function(x) as.numeric(obj$fn(x)), obj$gr, control = list(maxit = 10000), method = methods[i])
+  # }
+
   opt = TMBhelper::Optimize( obj ) ; #tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
 
-  # Refit - if not debugging
+
+
+  # STEP 7 -  Refit - if not debugging
   if(debug == TRUE){ iter = 1}
   if(debug == FALSE){ iter = 5}
   for(i in 1:iter){
@@ -113,12 +127,12 @@ Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, d
     opt = tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
     rep = obj$report(opt$par)
   }
-
   # Unload model
   dyn.unload(TMB::dynlib(paste0(cpp_file)))
 
 
-  # STEP 7 - Plot trajectory
+
+  # STEP 8 - Plot trajectory
   if(plot_trajectory){
 
   }
