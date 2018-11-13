@@ -7,7 +7,7 @@
 #' @param dat_dir The directory where dat files are stored
 #' @param debug Runs the model without estimating parameters to get derived quantities given initial parameter values.
 #' @param data_list (Optional) a data_list from a previous model run.
-#' @param inits Boolian of whether to have the model start optimization at ADMBs MLEs \code{TRUE} or all 0s \code{FALSE}
+#' @param inits Character vector of named initial values from ADMB or list of previous parameter estimates from single species model.
 #' @param plot_trajectory Boolian of whether to include plotting functions
 #' @param random_rec Boolian of whether to treat recruitment deviations as random effects.
 #'
@@ -49,12 +49,16 @@ Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, d
 
 
   # STEP 2 - LOAD PARAMETERS
-  params <- build_params(data_list = data_list,
-                         nselages = 8,
-                         incl_prev = ifelse(is.null(inits), FALSE, TRUE),
-                         Rdata_file = paste0(strsplit(dat_dir, "/dat")[[1]][1], "/CEATTLE_results.Rdata"),
-                         param_file = paste0(strsplit(dat_dir, "/dat")[[1]][1], "/", inits),
-                         TMBfilename = TMBfilename)
+  if(is.character(inits) | is.null(inits)){
+    params <- build_params(data_list = data_list,
+                           nselages = 8,
+                           incl_prev = ifelse(is.null(inits), FALSE, TRUE),
+                           Rdata_file = paste0(strsplit(dat_dir, "/dat")[[1]][1], "/CEATTLE_results.Rdata"),
+                           param_file = paste0(strsplit(dat_dir, "/dat")[[1]][1], "/", inits),
+                           TMBfilename = TMBfilename)
+  } else{
+    params <- inits
+  }
   print("Step 2: Parameter build complete")
 
 
@@ -95,6 +99,7 @@ Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, d
 
   # STEP 6 - Build object
   obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map, random = random, silent = TRUE)
+  opt <- nlminb(obj$par, obj$fn, obj$gr)
   opt = TMBhelper::Optimize( obj ) ; #tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
 
   # Refit - if not debugging
