@@ -86,9 +86,10 @@ for(i in 1:length(log_sigma_re_vec)){
 jnll <- jnll - min(jnll)
 
 tiff( file = paste0("tests/like_profile_pen_likelihood",".tiff") , width=169 / 25.4, height = 100 / 25.4, family = "serif", units = "in", res = 100)
-plot(x = exp(log_sigma_re_vec), y = jnll, xlab = "Sigma rec", ylab = "NLL", type = "l", lwd = 2)
-abline(v = exp(log_sigma_re), lwd = 2, col = "#d8b365" , lty = 2)
-abline(v = exp(log_sigma_re_vec)[which(jnll ==  min(jnll))], lwd = 2, col = "#5ab4ac", lty = 2)
+par( mar=c(3, 3 , 1 , 0.25) , oma=c(0 , 0 , 0 , 0), tcl = -0.35, mgp = c(1.75, 0.5, 0))
+plot(x = exp(log_sigma_re_vec), y = jnll, xlab = "Sigma rec", ylab = "NLL", type = "l", lwd = 3)
+abline(v = exp(log_sigma_re), lwd = 3, col = "#d8b365" , lty = 2)
+abline(v = exp(log_sigma_re_vec)[which(jnll ==  min(jnll))], lwd = 3, col = "#5ab4ac", lty = 2)
 legend("topright", c("True value", "Estimate"), lty = c(1, 2), col = c("#d8b365", "#5ab4ac"), lwd = rep(2, 2), bty = "n")
 dev.off()
 
@@ -96,11 +97,11 @@ dev.off()
 # Strategy 4 - Use penalized likelihood
 tiff( file = paste0("tests/like_profile_pen_likelihood2",".tiff") , width=169 / 25.4, height = 100 / 25.4, family = "serif", units = "in", res = 100)
 par( mar=c(3, 3 , 1 , 0.25) , oma=c(0 , 0 , 0 , 0), tcl = -0.35, mgp = c(1.75, 0.5, 0))
-plot(x = exp(log_sigma_re_vec), y = jnll, xlab = "Sigma rec", ylab = "NLL", type = "l", lwd = 2)
-abline(v = exp(log_sigma_re), lwd = 2, col = "#d8b365" , lty = 2)
-abline(v = exp(log_sigma_re_vec)[which(jnll ==  min(jnll))], lwd = 2, col = "#5ab4ac", lty = 2)
+plot(x = exp(log_sigma_re_vec), y = jnll, xlab = "Sigma rec", ylab = "NLL", type = "l", lwd = 3)
+abline(v = exp(log_sigma_re), lwd = 3, col = "#d8b365" , lty = 2)
+abline(v = exp(log_sigma_re_vec)[which(jnll ==  min(jnll))], lwd = 3, col = "#5ab4ac", lty = 2)
 local_minima <- exp(log_sigma_re_vec)[which(jnll ==  min(jnll[ which(exp(log_sigma_re_vec) > 2)]) )]
-abline(v = local_minima, lwd = 2, col = "#5ab4ac", lty = 3)
+abline(v = local_minima, lwd = 3, col = "#5ab4ac", lty = 3)
 legend("topright", c("True value", "Estimate", "Local minima"), lty = c(1, 2, 3), col = c("#d8b365", "#5ab4ac", "#5ab4ac"), lwd = rep(2, 3), bty = "n")
 dev.off()
 
