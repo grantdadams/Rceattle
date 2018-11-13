@@ -95,8 +95,6 @@ Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, d
 
   # STEP 6 - Build object
   obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map, random = random, silent = TRUE)
-
-  opt = optimx(obj$par, function(x) as.numeric(obj$fn(x)), obj$gr, control = list(all.methods=T, maxit = 1000))
   opt = TMBhelper::Optimize( obj ) ; #tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
 
   # Refit - if not debugging

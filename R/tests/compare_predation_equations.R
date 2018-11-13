@@ -1,5 +1,5 @@
 # Compares predation functions using TMB or ADMB average age estimates and using TMB based diet and ration calculations
-compare_pred_function <- function(rep, tmp, TMB = TRUE){
+compare_pred_function <- function(data_list, rep = ms_rep, tmp = ms_tmp, TMB = TRUE, admb_suit = F){
 
   if(TMB == TRUE){
     AvgN <- list()
@@ -74,7 +74,19 @@ compare_pred_function <- function(rep, tmp, TMB = TRUE){
     }
   }
 
-  suit_other
+
+  if(admb_suit){
+
+
+    for(pred in 1:3){
+      suit_other[1:length( tmp[[paste("suit_other",pred, sep = "_")]] ), pred] <- replace(suit_other[1:length( tmp[[paste("suit_other",pred, sep = "_")]] ), pred], values = tmp[[paste("suit_other",pred, sep = "_")]])
+
+      for(pred_age in 1:data_list$nages[pred]){
+        suit_main[pred,,pred_age,] <- tmp[[paste("suit_main",pred, pred_age, sep = "_")]]
+      }
+    }
+  }
+
 
   # Compare
   tmp$suit_other_1
@@ -103,6 +115,10 @@ compare_pred_function <- function(rep, tmp, TMB = TRUE){
   tmp$avail_food_2[1,]
   tmp$avail_food_3[1,]
 
+  avail_food[1,,1]
+  avail_food[1,,2]
+  avail_food[1,,3]
+
   # Calculate M2
   M2 <- array(0, dim = c(nyrs, 21, 3))
   B_eaten <- array(0, dim = c(nyrs, 21, 3))
@@ -111,7 +127,7 @@ compare_pred_function <- function(rep, tmp, TMB = TRUE){
       for(yr in 1:nyrs){
         for(pred in 1:3){
           for(pred_age in 1:data_list$nages[pred]){
-            M2[yr, prey_age, prey] = M2[yr, prey_age, prey] + ((AvgN[[pred]][yr,pred_age] * ration[[pred]][yr,pred_age] * suit_main[pred,prey,pred_age,prey_age])/avail_food[yr, pred_age, pred])
+            M2[yr, prey_age, prey] = M2[yr, prey_age, prey] + ((AvgN[[pred]][yr,pred_age] * ration[[pred]][yr,pred_age] * suit_main[pred,prey,pred_age,prey_age]) / avail_food[yr, pred_age, pred])
             B_eaten[yr, prey_age, prey] = B_eaten[yr, prey_age, prey] + (AvgN[[pred]][yr,pred_age] * ration[[pred]][yr,pred_age] * suit_main[pred,prey,pred_age,prey_age])
           }
         }
@@ -123,11 +139,9 @@ compare_pred_function <- function(rep, tmp, TMB = TRUE){
   return(results)
 }
 
-admb_est <- compare_pred_function(ms_rep, ms_tmp, TMB = FALSE)
+results <- compare_pred_function(ms_run$data_list , ms_rep, ms_tmp, TMB = FALSE)
 rounder = 4
 # Species 1
-admb_est$R_M2[,1:12,1]
-ms_tmp$M2_1
-round(ms_tmp$M2_1, rounder) == round(admb_est$R_M2[,1:12,1], rounder)
-
-round(ms_rep$ration2Age[,1:12,1],4) == round(ms_tmp$ration2_1,4)
+results$R_M2[1,1:12,1]
+ms_tmp$M2_1[1,]
+ms_rep$M2[1,1:12,1]
