@@ -7,7 +7,7 @@
 #' @param admb_suit Boolian indicating whether or not to use suitability estimates from ADMB CEATTLE
 #' @param admb_available_food Boolian indicating whether or not to use ADMB based available food estimates
 #'
-#' @return
+#' @return List of predation mortality based derived quantities
 compare_pred_function <- function(data_list, rep = ms_rep, tmp = ms_tmp, TMB = TRUE, admb_suit = FALSE, admb_available_food = FALSE){
 
   # Step 1 - Extract ration and average N-at-age
@@ -63,10 +63,8 @@ compare_pred_function <- function(data_list, rep = ms_rep, tmp = ms_tmp, TMB = T
       }
     }
   }
-  # suma_suit[1,,1]
 
-
-  # Step 3 - Suitability
+  # Step 3 - Suitability: (U/Biomass) / (sum(U/Biomass) + (1 - sum(U)) / biomass of other food)
   suit_main <- array(0, dim = c(3,3,21,21))
   suit_other <- matrix(0, 21, 3)
   for(pred in 1:3){
@@ -87,7 +85,7 @@ compare_pred_function <- function(data_list, rep = ms_rep, tmp = ms_tmp, TMB = T
   }
 
 
-  # Check admb
+  # ADMB suitability
   suit_main_admb <- array(0, dim = c(3,3,21,21))
   suit_other_admb <- matrix(0, 21, 3)
   for(pred in 1:3){
@@ -102,24 +100,8 @@ compare_pred_function <- function(data_list, rep = ms_rep, tmp = ms_tmp, TMB = T
     suit_other <- suit_other_admb
   }
 
-  # # Suit_main
-  # suit_main[1,1,,]
-  # suit_main_admb[1,1,,]
-  #
-  # # Suit other
-  # tmp$suit_other_1
-  # suit_other[, 1]
-  # suit_other_admb[, 1]
-  #
-  # tmp$suit_other_2
-  # suit_other[, 2]
-  #
-  # tmp$suit_other_3
-  # suit_other[, 3]
 
-  ######## GOOD BELOW ###########
-
-  # Available food
+  # Step 4 - Available food: (sum(suitability * biomass) + biomass of other prey * (1 - sum(suitability))) / nyrs
   avail_food <- array(0, dim = c(nyrs, 21, 3))
   for(pred in 1:3){
     for(pred_age in 1:data_list$nages[pred]){
@@ -137,6 +119,7 @@ compare_pred_function <- function(data_list, rep = ms_rep, tmp = ms_tmp, TMB = T
     }
   }
 
+
   if(admb_available_food){
     for(pred in 1:3){
       for(pred_age in 1:data_list$nages[pred]){
@@ -146,18 +129,9 @@ compare_pred_function <- function(data_list, rep = ms_rep, tmp = ms_tmp, TMB = T
       }
     }
   }
-  #
-  #   tmp$avail_food_1[1,]
-  #   tmp$avail_food_2[1,]
-  #   tmp$avail_food_3[1,]
-  #
-  #   round(avail_food[1,,1], 0)
-  #   round(avail_food[1,,2], 0)
-  #   round(avail_food[1,,3], 0)
 
-  ######## GOOD BELOW ###########
 
-  # Calculate M2
+  # Step 5 -  Calculate M2: N * suitability * ration / available food
   M2 <- array(0, dim = c(nyrs, 21, 3))
   B_eaten <- array(0, dim = c(nyrs, 21, 3))
   for(prey in 1:3){
@@ -173,13 +147,46 @@ compare_pred_function <- function(data_list, rep = ms_rep, tmp = ms_tmp, TMB = T
     }
   }
 
-  results <- list(R_M2 = M2, TMB_M2 = rep$M2)
+  # Return results
+  results <- list(R_M2 = M2, TMB_M2 = rep$M2, avail_food = avail_food, suit_main = suit_main, suit_other = suit_other, of_stomkir = of_stomkir, stom_div_bio2 = stom_div_bio2)
   return(results)
 }
 
-results <- compare_pred_function(ms_run$data_list , ms_rep, ms_tmp, TMB = FALSE)
+
+load("predation_data_and_outpurs.RData")
+
+# Test 0 - All TMB
+results <- compare_pred_function(data_list_ms , ms_rep, ms_tmp, TMB = TRUE, admb_suit = FALSE, admb_available_food = FALSE)
+# Species 1
+results$R_M2[1,1:12,1] # R
+ms_tmp$M2_1[1,] # ADMB
+ms_rep$M2[1,1:12,1] # TMB
+
+
+# Test 1 - ADMB average N-at-age, suitability, available food
+results <- compare_pred_function(data_list_ms , ms_rep, ms_tmp, TMB = FALSE, admb_suit = TRUE, admb_available_food = TRUE)
 
 # Species 1
-results$R_M2[1,1:12,1]
-ms_tmp$M2_1[1,]
-ms_rep$M2[1,1:12,1]
+results$R_M2[1,1:12,1] # R
+ms_tmp$M2_1[1,] # ADMB
+ms_rep$M2[1,1:12,1] # TMB
+
+
+# Test 2 - ADMB average N-at-age and suitability, TMB based available food
+results <- compare_pred_function(data_list_ms , ms_rep, ms_tmp, TMB = FALSE, admb_suit = TRUE, admb_available_food = FALSE)
+
+# Species 1
+results$R_M2[1,1:12,1] # R
+ms_tmp$M2_1[1,] # ADMB
+ms_rep$M2[1,1:12,1] # TMB
+
+
+# Test 3 - ADMB average N-at-age - TMB based suitability and available food
+results <- compare_pred_function(data_list_ms , ms_rep, ms_tmp, TMB = FALSE, admb_suit = FALSE, admb_available_food = FALSE)
+
+# Species 1
+results$R_M2[1,1:12,1] # R
+ms_tmp$M2_1[1,] # ADMB
+ms_rep$M2[1,1:12,1] # TMB
+
+
