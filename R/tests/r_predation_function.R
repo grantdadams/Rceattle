@@ -162,6 +162,8 @@ results$R_M2[1,1:12,1] # R
 ms_tmp$M2_1[1,] # ADMB
 ms_rep$M2[1,1:12,1] # TMB
 
+sum(ms_rep$M2 - results$R_M2)
+
 
 # Test 1 - ADMB average N-at-age, suitability, available food
 results <- compare_pred_function(data_list_ms , ms_rep, ms_tmp, TMB = FALSE, admb_suit = TRUE, admb_available_food = TRUE)

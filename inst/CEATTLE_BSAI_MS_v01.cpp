@@ -279,6 +279,7 @@ Type objective_function<Type>::operator() (){
   matrix<Type>  biomass(nspp, nyrs); biomass.setZero();                         // Estimated biomass (kg); n = [nspp, nyrs]
   matrix<Type>  biomassSSB(nspp, nyrs); biomassSSB.setZero();                   // Estimated spawning stock biomass (kg); n = [nspp, nyrs]
   array<Type>   biomassSSBByage(nyrs, max_age, nspp); biomassSSBByage.setZero();// Spawning biomass at age (kg); n = [nspp, nages, nyrs]
+  array<Type>   M(nyrs, max_age, nspp); M.setZero();                            // Total natural mortality at age; n = [nyrs, nages, nspp]
   matrix<Type>  M1( nspp, max_age); M1.setZero();                               // Base natural mortality; n = [nspp, nages]
   array<Type>   M2(nyrs, max_age, nspp); M2.setZero();                          // Predation mortality at age; n = [nyrs, nages, nspp]
   array<Type>   NByage(nyrs, max_age, nspp); NByage.setZero();                  // Numbers at age; n = [nspp, nages, nyrs]
@@ -449,6 +450,7 @@ Type objective_function<Type>::operator() (){
     for(i=0; i < nspp; i++){
       for(j=0; j < nages(i); j++){
         for(y=0; y < nyrs; y++){
+          M(y, j, i) = M1(i, j) + M2(y, j, i);
           Zed(y, j, i) = M1(i, j) + F(y, j, i) + M2(y, j, i);
           S(y, j, i) = exp(-Zed(y, j, i));
         }
@@ -1087,13 +1089,19 @@ Type objective_function<Type>::operator() (){
   REPORT( biomassByage );
   REPORT( biomassSSBByage );
   REPORT( biomass );
-  ADREPORT( biomass );
   REPORT( biomassSSB );
-  ADREPORT( biomassSSB );
   REPORT( pmature );
+  REPORT(r_sigma);
   REPORT( R );
   REPORT( M1 );
+  REPORT( M );
 
+  ADREPORT( Zed );
+  ADREPORT( biomass );
+  ADREPORT( biomassSSB );
+  ADREPORT(r_sigma);
+  ADREPORT( R );
+  ADREPORT( M1);
 
   // -- 11.2. Survey components
   REPORT( srv_age_obs );
@@ -1103,7 +1111,7 @@ Type objective_function<Type>::operator() (){
   REPORT( eit_hat );
   REPORT( eit_age_hat );
   REPORT( eit_age_comp_hat )
-    REPORT( obs_eit_age );
+  REPORT( obs_eit_age );
   REPORT( eit_age_comp );
   REPORT( avgsel_srv );
   REPORT( srv_sel );
@@ -1119,6 +1127,8 @@ Type objective_function<Type>::operator() (){
   REPORT( tc_hat );
   REPORT( fsh_age_hat );
   REPORT( fsh_age_obs );
+
+  ADREPORT( F );
 
 
   // -- 11.4. Likelihood components
