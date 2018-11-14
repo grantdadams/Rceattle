@@ -1063,7 +1063,7 @@ Type objective_function<Type>::operator() (){
         jnll_comp(11, i) += pow( rec_dev(i,y), 2);     // Recruitment deviation using penalized likelihood.
       }
       if(random_rec == 1){
-        jnll_comp(11, i) += dnorm( rec_dev(i,y), Type(0.0), r_sigma(i), true);     // Recruitment deviation using random effects.
+        jnll_comp(11, i) -= dnorm( rec_dev(i,y), Type(0.0), r_sigma(i), true);     // Recruitment deviation using random effects.
       }
 
       jnll_comp(12, i) += pow( F_dev(i,y), 2);       // Fishing mortality deviation using penalized likelihood.
