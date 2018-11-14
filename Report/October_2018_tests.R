@@ -1,9 +1,7 @@
 ###################################################
 # Run in single species mode
-version <- "CEATTLE_BSAI_MS_v01"
-
 load("data/BS_SS_Files/2017_assessment_data_list.RData")
-ss_run <- Rceattle(data_list = data_list_ss, ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_SS_Files/dat files/", inits = NULL, debug = FALSE, plot_trajectory = FALSE, random_rec = FALSE, niter = 3)
+ss_run <- Rceattle(data_list = data_list_ss, ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_SS_Files/dat files/", inits = NULL, debug = FALSE, plot_trajectory = FALSE, random_rec = TRUE, niter = 3)
 ss_rep <- ss_run$rep
 
 # Load previous estimates
