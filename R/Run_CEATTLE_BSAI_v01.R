@@ -10,13 +10,15 @@
 #' @param inits Character vector of named initial values from ADMB or list of previous parameter estimates from single species model.
 #' @param plot_trajectory Boolian of whether to include plotting functions
 #' @param random_rec Boolian of whether to treat recruitment deviations as random effects.
+#' @param niter Number of iterations for multispecies model
+#' @param file_name Filename where files will be saved
 #'
 #' @return
 #' @export
 #'
 #' @examples
 
-Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, dat_dir = NULL, inits = NULL, debug = T, plot_trajectory = FALSE, random_rec = FALSE, niter = 3){
+Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, dat_dir = NULL, inits = NULL, debug = T, random_rec = FALSE, niter = 3, file_name = NULL){
 
   #--------------------------------------------------
   # 1. DATA and MODEL PREP
@@ -72,9 +74,9 @@ Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, d
 
 
   # STEP 4 - Setup random effects
-  random <- c()
+  random_vars <- c()
   if(random_rec == TRUE){
-    random <- c("rec_dev")
+    random_vars <- c("rec_dev")
   }
 
 
@@ -104,41 +106,39 @@ Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, d
 
 
   # STEP 6 - Build object
-  obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map, random = random, silent = FALSE)
+
+  obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map, random = random_vars, silent = FALSE)
+  print(paste0("Optimizing model"))
   # opt <- nlminb(obj$par, obj$fn, obj$gr)
-  methods <- c('Nelder-Mead', 'BFGS', 'CG', 'L-BFGS-B', 'nlm', 'nlminb', 'spg', 'ucminf', 'newuoa', 'bobyqa', 'nmkb', 'hjkb', 'Rcgmin', 'Rvmmin')
+  # methods <- c('Nelder-Mead', 'BFGS', 'CG', 'L-BFGS-B', 'nlm', 'nlminb', 'spg', 'ucminf', 'newuoa', 'bobyqa', 'nmkb', 'hjkb', 'Rcgmin', 'Rvmmin')
   # opt_list <- list()
   # for(i in 1:length(methods)){
   #   opt_list[i] = optimx(obj$par, function(x) as.numeric(obj$fn(x)), obj$gr, control = list(maxit = 10000), method = methods[i])
   # }
-
-  opt = TMBhelper::Optimize( obj ) ; #tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
+  opt = tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
 
 
 
   # STEP 7 -  Refit - if not debugging
-  if(debug == TRUE){ iter = 1}
-  if(debug == FALSE){ iter = 5}
-  for(i in 1:iter){
-    last_par = obj$env$parList(obj$env$last.par.best)
-    last_par$dummy = 0
-    print("Re-running model ", i)
-    obj = TMB::MakeADFun(data_list, parameters = last_par,  DLL = version, map = map, silent = TRUE, random = random)
-    opt = tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
-    rep = obj$report(opt$par)
+
+  if(debug == FALSE){
+    iter <- 2
+    for(i in 1:iter){
+      last_par = obj$env$parList(obj$env$last.par.best)
+      last_par$dummy = 0
+      print(paste0("Re-running model ", i))
+      obj = TMB::MakeADFun(data_list, parameters = last_par,  DLL = version, map = map, random = random_vars, silent = TRUE)
+      opt = tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
+    }
   }
   # Unload model
+  rep = TMB::sdreport(obj)
   dyn.unload(TMB::dynlib(paste0(cpp_file)))
-
-
-
-  # STEP 8 - Plot trajectory
-  if(plot_trajectory){
-
-  }
 
 
   # Return objects
   mod_objects <- list(data_list = data_list, params = params, map = map, rep = rep, obj = obj, opt = opt)
+  save(mod_objects, file = paste0(file_name, ".RData"))
+
   return(mod_objects)
 }
