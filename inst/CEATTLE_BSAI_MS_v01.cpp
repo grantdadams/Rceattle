@@ -821,7 +821,7 @@ Type objective_function<Type>::operator() (){
       for(j=0; j < nages(i); j++){
         for(y=0; y < nyrs_tc_biom(i); y++){
           fsh_yr_ind = yrs_tc_biom(i, y) - styr; // Temporary index for years of data
-          tc_biom_hat(i, y) += F(fsh_yr_ind, j, i)/Zed(fsh_yr_ind, j, i) * (1 - exp(-Zed(fsh_yr_ind, j, i))) * NByage(fsh_yr_ind, j, i) * wt(y, j, i); // 5.5.
+          tc_biom_hat(i, y) += F(fsh_yr_ind, j, i) / Zed(fsh_yr_ind, j, i) * (1 - exp(-Zed(fsh_yr_ind, j, i))) * NByage(fsh_yr_ind, j, i) * wt(y, j, i); // 5.5.
         }
       }
     }
