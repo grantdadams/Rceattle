@@ -107,7 +107,7 @@ Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, d
 
   # STEP 6 - Build object
 
-  obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map, random = random_vars, silent = FALSE)
+  obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map, random = random_vars, silent = TRUE)
   print(paste0("Optimizing model"))
   # opt <- nlminb(obj$par, obj$fn, obj$gr)
   # methods <- c('Nelder-Mead', 'BFGS', 'CG', 'L-BFGS-B', 'nlm', 'nlminb', 'spg', 'ucminf', 'newuoa', 'bobyqa', 'nmkb', 'hjkb', 'Rcgmin', 'Rvmmin')
@@ -124,21 +124,43 @@ Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, d
   if(debug == FALSE){
     iter <- 2
     for(i in 1:iter){
-      last_par = obj$env$parList(obj$env$last.par.best)
+      if(debug){
+        last_par <- params
+      }
+      else if(random_rec == F){
+        last_par = suppressWarnings(obj$env$parList(obj$env$last.par.best))
+      }
+      else{
+        last_par = suppressWarnings(obj$env$parList(obj$env$last.par.best))
+      }
+
       last_par$dummy = 0
       print(paste0("Re-running model ", i))
       obj = TMB::MakeADFun(data_list, parameters = last_par,  DLL = version, map = map, random = random_vars, silent = TRUE)
       opt = tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
     }
   }
-  # Unload model
-  rep = TMB::sdreport(obj)
-  dyn.unload(TMB::dynlib(paste0(cpp_file)))
+
+
+  # Get quantities
+  sdrep = TMB::sdreport(obj)
+  quantities <- obj$report(obj$env$last.par.best)
+
+  if(debug){
+    last_par <- params
+  }
+  else if(random_rec == F){
+    last_par = suppressWarnings(obj$env$parList(obj$env$last.par.best))
+  }
+  else{
+    last_par = suppressWarnings(obj$env$parList(obj$env$last.par.best))
+  }
 
 
   # Return objects
-  mod_objects <- list(data_list = data_list, params = params, map = map, rep = rep, obj = obj, opt = opt)
-  save(mod_objects, file = paste0(file_name, ".RData"))
+  mod_objects <- list(data_list = data_list, initial_params = params, final_params = last_par, map = map, sdrep = sdrep, obj = obj, opt = opt, quantities = quantities)
+  save(mod_objects, file = paste0(file_name,".RData"))
 
+  dyn.unload(TMB::dynlib(paste0(cpp_file)))
   return(mod_objects)
 }
