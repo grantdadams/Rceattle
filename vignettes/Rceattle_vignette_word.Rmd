@@ -1,19 +1,31 @@
 ---
-title: "Untitled"
-author: "Grant Adams"
+title: "Rceattle"
+author: "Grant Adams, Kirstin Holsman"
 date: "8/2/2018"
-output: word_document
-vignette: >
-  %\VignetteIndexEntry{CEATTLE Walkthrough}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
-bibliography: ceattle_bibliography.bib
+output:
+  pdf_document: default
+  word_document: default
 csl: https://raw.githubusercontent.com/citation-style-language/styles/master/dependent/fisheries-research.csl
+bibliography: ceattle_bibliography.bib
+vignette: |
+  %\VignetteIndexEntry{CEATTLE Walkthrough} %\VignetteEngine{knitr::rmarkdown} %\VignetteEncoding{UTF-8}
 ---
 
 CEATTLE is short for Climate-Enhanced, Age-based model with Temperature-specific Trophic Linkages and Energetics, which is a multi-species age-structured assessment model developed for groundfish in the Bering Sea, USA by Holsman et al. [-@Holsman2015]. To incorporate the impacts of climate, the model includes temperature-dependent von Bertalanffy weight-at-age functions (VBGF) and temperature-specific, bioenergetics-based predation interactions. Inputs of the model include U.S. National Marine Fisheries Service Alaska Fisheries Science Center (AFSC) survey and fishery data. Outputs include historical estimates of predation mortality, fishing mortality, biomass, recruitment, etc.
 
-`Rceattle` is an `R` package designed to implement the CEATTLE model using Template Model Builder (`TMB`; @Kristensen2015). Rceattle is structured similar to the original manuscript in terms of modularization. Seperate functions (i.e. modules) estimate retrospective temperature- and size-specific predator rations, prey preference, and weight-at- age. These are then used as inputs to the CEATTLE model to evaluate how predation mortality, recruitment, and survival of three target species change under historical climate conditions and harvest rates. Estimates from CEATTLE in `Rceattle` can then be forward projected to derive estimates of unfished biomass and fishing mortality under future climate conditions and various harvest scenarios.  
+`Rceattle` is an `R` package designed to implement the CEATTLE model using Template Model Builder (`TMB`; @Kristensen2015). Rceattle is structured similar to the original manuscript in terms of modularization. Seperate functions (i.e. modules) estimate retrospective temperature- and size-specific predator rations, prey preference, and weight-at- age. These are then used as inputs to the CEATTLE model to evaluate how predation mortality, recruitment, and survival of three target species change under historical climate conditions and harvest rates. Estimates from CEATTLE in `Rceattle` can then be forward projected to derive estimates of unfished biomass and fishing mortality under future climate conditions and various harvest scenarios.
+
+Currently `RCeattle` takes CEATTLE ADMB based inputs and estimates them in `TMB`. To run `Rceattle` a user selects a control file located in a data directory with \code{.dat} files used in ADMB. The model will then initialize assuming $0$ for all parameters unless a parameter list is provided or `"ceattle.par"` or `"ceattle_par.std"` is selected. In the later case, a .par or .std file provided from a previously estimated ADMB model must by included in the folder prior to the data directory. Currently, .dat files and ADMB outputs are included in the `\data` folder.
+
+For example, to run the 2017 single species assessment, the following can be specified:
+```{R eval=FALSE}
+ss_run_no_re <- Rceattle(data_list = NULL, ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_SS_Files/dat files/", inits = NULL, debug = FALSE, random_rec = FALSE, niter = 3, file_name = "Report/2017_single_species_assessment")
+```
+
+For the 2017 multispecies model starting from ADMB parameters, the following can be specified:
+```{R eval=FALSE}
+ms_run_no_re <- Rceattle(data_list = NULL, ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_Files/dat files/", inits = "ceattle.par", debug = FALSE, random_rec = FALSE, niter = 3, file_name = "Report/2017_multi_species_assessment")
+```
 
 ## Equations 
 
@@ -298,8 +310,5 @@ Table 4. T4.2 Data source NFMS
 
 ## Thoughts
 Table 3. Change C* to Y and in table 2 Y to hat{Y}.
-
-## Questions
-What is propMorF?
 
 # References

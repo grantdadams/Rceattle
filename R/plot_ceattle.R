@@ -1,18 +1,19 @@
 
-#' OUTPUT FUNCTION
+#' plot_biomass
 #'
-#' Function that provides a plot of the estimated population trajectory from a SIR outputs model including: median, 95%
-#' credible interval, 90% credible interval, catch, and observed absolute abundance.
+#' Function the plots the biomass and spawning stock biomass trends as estimated from Rceattle
 #'
 #' @param file_name name of a file to identified the files exported by the
 #'   function.
 #' @param ceattle_list List of CEATTLE model objects
-#' @param model_names Names of models
-#' @param line_col Colors of models to be used
+#' @param model_names Names of models to be used in legend
+#' @param line_col Colors of models to be used for line color
 #' @param species Species names for legend
+#' @param lwd Line width as specified by user
+#' @param include_srv Boolian of whether to include survey biomass estimates and 95% CI
 #'
 #' @return Returns and saves a figure with the population trajectory.
-plot_biomass <- function(ceattle_list, file_name = "NULL", model_names = NULL, line_col = NULL, species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"), lwd = 3) {
+plot_biomass <- function(ceattle_list, file_name = "NULL", model_names = NULL, line_col = NULL, species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"), lwd = 3, include_srv = FALSE) {
   library(extrafont)
 
   # Extract data objects
@@ -77,30 +78,32 @@ plot_biomass <- function(ceattle_list, file_name = "NULL", model_names = NULL, l
         legend("topright", c("Biomass", "SSB"), lty = c(1, 2), lwd = lwd, col = c(1, 1), bty = "n", cex = 1.175)
       }
 
-      # # Survey data
-      # srv_yrs <- ceattle_list[[1]]$data_list$yrs_srv_biom[j,]
-      # srv_biom <- ceattle_list[[1]]$data_list$srv_biom[j,]
-      # points( x = srv_yrs,
-      #         y =  srv_biom / 1000000,
-      #         pch = 16, cex = 1, col = "#696773")
-      #
-      #
-      # # Get 95% CI and range
-      # Upper95 <- (ceattle_list[[1]]$data_list$srv_biom[j,] + ceattle_list[[1]]$data_list$srv_biom_se[j,] * 1.92)/1000000
-      # Lower95 <- (ceattle_list[[1]]$data_list$srv_biom[j,] - ceattle_list[[1]]$data_list$srv_biom_se[j,] * 1.92)/1000000
-      #
-      #
-      # arrows( x0 = srv_yrs,
-      #         y0 = Upper95,
-      #         x1 = srv_yrs,
-      #         y1 = Lower95,
-      #         length=0.05, angle=90, code=3, lwd = 2, col = "#696773")
+      # Survey data
+      if(include_srv){
+        srv_yrs <- ceattle_list[[1]]$data_list$yrs_srv_biom[j,]
+        srv_biom <- ceattle_list[[1]]$data_list$srv_biom[j,]
+        points( x = srv_yrs,
+                y =  srv_biom / 1000000,
+                pch = 16, cex = 1, col = "#696773")
 
 
-      # Mean biomass
-      for(k in 1:dim(Biomass)[3]){
-        lines( x = Years, y = Biomass[j,,k], lty = 1, lwd = lwd, col = line_col[k]) # Median
-        lines( x = Years, y = SSB[j,,k], lty = 2, lwd = lwd, col = line_col[k]) # Median
+        # Get 95% CI and range
+        Upper95 <- (ceattle_list[[1]]$data_list$srv_biom[j,] + ceattle_list[[1]]$data_list$srv_biom_se[j,] * 1.92)/1000000
+        Lower95 <- (ceattle_list[[1]]$data_list$srv_biom[j,] - ceattle_list[[1]]$data_list$srv_biom_se[j,] * 1.92)/1000000
+
+
+        arrows( x0 = srv_yrs,
+                y0 = Upper95,
+                x1 = srv_yrs,
+                y1 = Lower95,
+                length=0.05, angle=90, code=3, lwd = 2, col = "#696773")
+
+
+        # Mean biomass
+        for(k in 1:dim(Biomass)[3]){
+          lines( x = Years, y = Biomass[j,,k], lty = 1, lwd = lwd, col = line_col[k]) # Median
+          lines( x = Years, y = SSB[j,,k], lty = 2, lwd = lwd, col = line_col[k]) # Median
+        }
 
         # # Credible interval
         # polygon(
@@ -119,6 +122,20 @@ plot_biomass <- function(ceattle_list, file_name = "NULL", model_names = NULL, l
 }
 
 
+#' plot_recruitment
+#'
+#' Function the plots the mean recruitment and 95% CI trends as estimated from Rceattle
+#'
+#' @param file_name name of a file to identified the files exported by the
+#'   function.
+#' @param ceattle_list List of CEATTLE model objects
+#' @param model_names Names of models to be used in legend
+#' @param line_col Colors of models to be used for line color
+#' @param species Species names for legend
+#' @param ci_col Colors to be used for CI color
+#' @param lwd Line width as specified by user
+#'
+#' @return Returns and saves a figure with the population trajectory.
 plot_recruitment <- function(ceattle_list, file_name = "NULL", model_names = NULL, line_col = NULL, species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"), ci_col = NULL, lwd = 3) {
 
 
@@ -160,9 +177,9 @@ plot_recruitment <- function(ceattle_list, file_name = "NULL", model_names = NUL
     line_col <- 1:length(ceattle_list)
   }
 
-  # if(is.null(ci_col)){
-  #   ci_col <- rep(NA, length(ceattle_list))
-  # }
+  if(is.null(ci_col)){
+    ci_col <- rep(NA, length(ceattle_list))
+  }
 
 
   # Plot trajectory
