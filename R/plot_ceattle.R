@@ -13,7 +13,7 @@
 #'
 #' @return Returns and saves a figure with the population trajectory.
 plot_biomass <- function(ceattle_list, file_name = "NULL", model_names = NULL, line_col = NULL, species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"), lwd = 3) {
-
+  library(extrafont)
 
   # Extract data objects
   nyrs <- ceattle_list[[1]]$data_list$nyrs
@@ -51,7 +51,7 @@ plot_biomass <- function(ceattle_list, file_name = "NULL", model_names = NULL, l
   for(i in 1:2){
     if(i == 1){
       filename <- paste0(file_name, "_biomass_trajectory", ".tiff")
-      tiff( file = filename , width=169 / 25.4, height = 150 / 25.4, family = "serif", units = "in", res = 300)
+      tiff( file = filename , width=169 / 25.4, height = 150 / 25.4, family = "Helvetica" , units = "in", res = 300)
     }
 
     # Plot configuration
@@ -67,33 +67,34 @@ plot_biomass <- function(ceattle_list, file_name = "NULL", model_names = NULL, l
            xaxt = c(rep("n", nspp - 1), "s")[j])
 
       # Legends
-      legend("topleft", species[j], bty = "n")
+      legend("topleft", species[j], bty = "n", cex = 1.4)
+
       if(j == 1){
-        legend("topright", model_names, lty = rep(1, length(line_col)), lwd = lwd, col = line_col, bty = "n")
+        legend("topright", model_names, lty = rep(1, length(line_col)), lwd = lwd, col = line_col, bty = "n", cex = 1.175)
       }
 
       if(j == 2){
-        legend("topright", c("Biomass", "SSB"), lty = c(1, 2), lwd = lwd, col = c(1, 1), bty = "n")
+        legend("topright", c("Biomass", "SSB"), lty = c(1, 2), lwd = lwd, col = c(1, 1), bty = "n", cex = 1.175)
       }
 
-      # Survey data
-      srv_yrs <- ceattle_list[[1]]$data_list$yrs_srv_biom[j,]
-      srv_biom <- ceattle_list[[1]]$data_list$srv_biom[j,]
-      points( x = srv_yrs,
-              y =  srv_biom / 1000000,
-              pch = 16, cex = 1, col = "#696773")
-
-
-      # Get 95% CI and range
-      Upper95 <- (ceattle_list[[1]]$data_list$srv_biom[j,] + ceattle_list[[1]]$data_list$srv_biom_se[j,] * 1.92)/1000000
-      Lower95 <- (ceattle_list[[1]]$data_list$srv_biom[j,] - ceattle_list[[1]]$data_list$srv_biom_se[j,] * 1.92)/1000000
-
-
-      arrows( x0 = srv_yrs,
-              y0 = Upper95,
-              x1 = srv_yrs,
-              y1 = Lower95,
-              length=0.05, angle=90, code=3, lwd = 2, col = "#696773")
+      # # Survey data
+      # srv_yrs <- ceattle_list[[1]]$data_list$yrs_srv_biom[j,]
+      # srv_biom <- ceattle_list[[1]]$data_list$srv_biom[j,]
+      # points( x = srv_yrs,
+      #         y =  srv_biom / 1000000,
+      #         pch = 16, cex = 1, col = "#696773")
+      #
+      #
+      # # Get 95% CI and range
+      # Upper95 <- (ceattle_list[[1]]$data_list$srv_biom[j,] + ceattle_list[[1]]$data_list$srv_biom_se[j,] * 1.92)/1000000
+      # Lower95 <- (ceattle_list[[1]]$data_list$srv_biom[j,] - ceattle_list[[1]]$data_list$srv_biom_se[j,] * 1.92)/1000000
+      #
+      #
+      # arrows( x0 = srv_yrs,
+      #         y0 = Upper95,
+      #         x1 = srv_yrs,
+      #         y1 = Lower95,
+      #         length=0.05, angle=90, code=3, lwd = 2, col = "#696773")
 
 
       # Mean biomass
@@ -120,6 +121,8 @@ plot_biomass <- function(ceattle_list, file_name = "NULL", model_names = NULL, l
 
 plot_recruitment <- function(ceattle_list, file_name = "NULL", model_names = NULL, line_col = NULL, species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"), ci_col = NULL, lwd = 3) {
 
+
+  library(extrafont)
 
   # Extract data objects
   nyrs <- ceattle_list[[1]]$data_list$nyrs
@@ -166,7 +169,7 @@ plot_recruitment <- function(ceattle_list, file_name = "NULL", model_names = NUL
   for(i in 1:2){
     if(i == 1){
       filename <- paste0(file_name, "_recruitment_trajectory", ".tiff")
-      tiff( file = filename , width=169 / 25.4, height = 150 / 25.4, family = "serif", units = "in", res = 300)
+      tiff( file = filename , width=169 / 25.4, height = 150 / 25.4, family = "Helvetica", units = "in", res = 300)
     }
 
     # Plot configuration
@@ -181,9 +184,9 @@ plot_recruitment <- function(ceattle_list, file_name = "NULL", model_names = NUL
            xlab = "Year", ylab = "Recruitment (millions)", xaxt = c(rep("n", nspp - 1), "s")[j])
 
       # Legends
-      legend("topleft", species[j], bty = "n")
+      legend("topleft", species[j], bty = "n", cex = 1.4)
       if(j == 1){
-        legend("topright", model_names, lty = rep(1, length(line_col)), lwd = lwd, col = line_col, bty = "n")
+        legend("topright", model_names, lty = rep(1, length(line_col)), lwd = lwd, col = line_col, bty = "n", cex = 1.175)
       }
 
 
