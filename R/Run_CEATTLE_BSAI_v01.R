@@ -122,7 +122,7 @@ Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, d
   # STEP 7 -  Refit - if not debugging
 
   if(debug == FALSE){
-    iter <- 2
+    iter <- 1
     for(i in 1:iter){
       if(debug){
         last_par <- params
