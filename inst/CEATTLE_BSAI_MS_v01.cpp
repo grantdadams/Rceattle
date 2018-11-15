@@ -1099,7 +1099,7 @@ Type objective_function<Type>::operator() (){
   ADREPORT( Zed );
   ADREPORT( biomass );
   ADREPORT( biomassSSB );
-  ADREPORT(r_sigma);
+  ADREPORT( r_sigma );
   ADREPORT( R );
   ADREPORT( M1);
 
