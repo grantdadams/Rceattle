@@ -1,8 +1,8 @@
 ###################################################
 # Run in single species mode
 load("data/BS_SS_Files/2017_assessment_data_list.RData")
-ss_run <- Rceattle(data_list = data_list_ss, ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_SS_Files/dat files/", inits = NULL, debug = FALSE, plot_trajectory = FALSE, random_rec = FALSE, niter = 3)
-ss_rep <- ss_run$rep
+ss_run <- Rceattle(data_list = data_list_ss, ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_SS_Files/dat files/", inits = "ceattle.par", debug = FALSE, random_rec = FALSE, niter = 3)
+ss_rep <- ss_run$quantities
 
 # Load previous estimates
 load("data/BS_SS_Files/CEATTLE_results.Rdata")
@@ -26,15 +26,15 @@ ss_tmp$obj_fun
 ###################################################
 # Run in MS mode using par files
 load("data/BS_MS_Files/2017_assessment_data_list.RData")
-ms_run <- Rceattle(data_list = data_list_ms; ctlFilename = "asmnt2017_2A_corrected"; TMBfilename = "CEATTLE_BSAI_MS_v01"; dat_dir =  "data/BS_MS_Files/dat files/"; inits = "ceattle.par"; debug = FALSE; plot_trajectory = FALSE; random_rec = TRUE; niter = 4)
-ms_rep <- ms_run$rep
+ms_run <- Rceattle(data_list = data_list_ms, ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_Files/dat files/", inits = "ceattle.par", debug = TRUE, random_rec = FALSE, niter = 7)
+ms_rep <- ms_run$quantities
 
 # Load previous estimates
 load("data/BS_MS_Files/CEATTLE_results.Rdata")
 ms_tmp <- tmp
 
 # Compare with current
-ms_res <- compare_output(ms_rep, ms_tmp, rel_error = 0.08)
+ms_res <- compare_output(ms_rep, ms_tmp, rel_error = 0.01)
 ms_res$summary
 ms_res$likelihood
 tmb_nll_comp <- ms_res$tmb_like
@@ -58,17 +58,17 @@ admb_pollock_age1_year1_M2
 
 
 ###################################################
-# Run in MS mode using par files and 10 loops
+# Run in MS mode using par files and 5 loops
 load("data/BS_MS_Files/2017_assessment_data_list.RData")
-ms_run <- Rceattle(data_list = data_list_ms, ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_10_Loops_Files/dat files/", inits = ss_run$params, debug = FALSE, plot_trajectory = FALSE, random_rec = FALSE, niter = 18)
-ms_rep <- ms_run$rep
+ms_run <- Rceattle(data_list = data_list_ms, ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_5_Loops_Files/dat files/", inits = "ceattle.par", debug = TRUE, random_rec = FALSE, niter = 8)
+ms_rep <- ms_run$quantities
 
 # Load previous estimates
-load("data/BS_MS_10_Loops_Files/CEATTLE_results.Rdata")
+load("data/BS_MS_5_Loops_Files/CEATTLE_results.Rdata")
 ms_tmp <- tmp
 
 # Compare with current
-ms_res <- compare_output(ms_rep, ms_tmp, rel_error = 0.001)
+ms_res <- compare_output(ms_rep, ms_tmp, rel_error = 0.01)
 ms_res$summary
 ms_res$likelihood
 tmb_nll_comp <- ms_res$tmb_like
