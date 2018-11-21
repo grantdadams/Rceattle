@@ -60,11 +60,11 @@ admb_pollock_age1_year1_M2
 ###################################################
 # Run in MS mode using par files and 5 loops
 load("data/BS_MS_Files/2017_assessment_data_list.RData")
-ms_run <- Rceattle(data_list = data_list_ms, ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_5_Loops_Files/dat files/", inits = "ceattle.par", debug = TRUE, random_rec = FALSE, niter = 8)
+ms_run <- Rceattle(data_list = data_list_ms, ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_10_Loops_Files/dat files/", inits = "ceattle.par", debug = TRUE, random_rec = FALSE, niter = 10)
 ms_rep <- ms_run$quantities
 
 # Load previous estimates
-load("data/BS_MS_5_Loops_Files/CEATTLE_results.Rdata")
+load("data/BS_MS_10_Loops_Files/CEATTLE_results.Rdata")
 ms_tmp <- tmp
 
 # Compare with current
@@ -75,7 +75,7 @@ tmb_nll_comp <- ms_res$tmb_like
 admb_nll_comp <- ms_res$admb_like
 
 tmb_jnll <- sum(ms_rep$jnll_comp)
-admb_jnll <- -1854293.01910412
+admb_jnll <- -1854292.98946876
 
 
 tmb_nll_comp
