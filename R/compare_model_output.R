@@ -10,8 +10,8 @@
 #' @examples
 compare_output <- function( rep = rep, tmp = tmp, rel_error = 0.01){
   param_check <- list()
-  tmb_names <- c("fsh_age_obs","fsh_age_hat", "F", "pmature","tc_biom_hat", "biomass", "srv_bio_hat", "NByage", "R", "S", "srv_sel", "biomassSSB", "srv_age_obs", "srv_age_hat", "biomassByage", "fsh_sel", "M1", "tc_hat", "biomassSSB", "ration2Age", "AvgN", "M2", "avail_food", "suit_other")
-  admb_names <- c("fsh_age_obs","fsh_age_hat", "F", "pmature","obs_catch_hat", "Biomass", "srv_bio_hat", "NByage", "R", "S", "srv_sel", "BiomassSSB", "srv_age_obs", "srv_age_hat", "biomassByage", "fsh_sel", "M1", "tc_hat", "BiomassSSB", "ration2", "AvgN", "M2", "avail_food", "suit_other")
+  tmb_names <- c("fsh_age_obs","fsh_age_hat", "F", "pmature","tc_biom_hat", "biomass", "srv_bio_hat", "NByage", "R", "S", "srv_sel", "biomassSSB", "srv_age_obs", "srv_age_hat", "biomassByage", "fsh_sel", "M1", "tc_hat", "biomassSSB", "ration2Age", "AvgN", "M2", "avail_food", "suit_other", "of_stomKir")
+  admb_names <- c("fsh_age_obs","fsh_age_hat", "F", "pmature","obs_catch_hat", "Biomass", "srv_bio_hat", "NByage", "R", "S", "srv_sel", "BiomassSSB", "srv_age_obs", "srv_age_hat", "biomassByage", "fsh_sel", "M1", "tc_hat", "BiomassSSB", "ration2", "AvgN", "M2", "avail_food", "suit_other", "of_stomKir")
 
   # Survey selectivity
   for( j in 1:length(tmb_names)){

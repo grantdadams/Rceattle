@@ -3,7 +3,7 @@
 # ADMB  single species mode
 load("data/BS_SS_Files/2017_assessment_data_list.RData")
 ss_admb <- Rceattle(data_list = data_list_ss, ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_SS_Files/dat files/", inits = "ceattle.par", debug = TRUE, random_rec = FALSE, niter = 3, file_name = "Report/GSS_ss_admb")
-ss_admb_rep <- ss_admb$rep
+ss_admb_rep <- ss_admb$sdrep
 
 ###################################################
 # Run in single species mode
@@ -23,6 +23,8 @@ ss_rep_re <- ss_run_re$rep
 load("data/BS_MS_Files/2017_assessment_data_list.RData")
 ms_admb <- Rceattle(data_list = data_list_ms, ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_Files/dat files/", inits = "ceattle.par", debug = TRUE, random_rec = FALSE, niter = 4, file_name = "Report/GSS_ms_admb")
 ms_admb_rep <- ms_admb$rep
+plot(ms_admb$quantities$NByage[,1,1], type = "l", col = 1)
+lines(ms_admb$quantities$AvgN[,1,1], lty = 1, col = 2)
 
 ###################################################
 # Run in MS mode using par files
