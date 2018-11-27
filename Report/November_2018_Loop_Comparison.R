@@ -1,4 +1,6 @@
-load("data/BS_MS_2_Loops_Files/CEATTLE_results.Rdata")
+load("data/BS_MS_1_Loops_Files/CEATTLE_results.Rdata")
+ms_1_loops <- tmp
+load("data/BS_MS_3_Loops_Files/CEATTLE_results.Rdata")
 ms_3_loops <- tmp
 load("data/BS_MS_5_Loops_Files/CEATTLE_results.Rdata")
 ms_5_loops <- tmp
@@ -7,6 +9,10 @@ ms_10_loops <- tmp
 load("data/BS_MS_20_Loops_Files/CEATTLE_results.Rdata")
 ms_20_loops <- tmp
 
+ms_1_loops$suit_main_1_1
+ms_3_loops$suit_main_1_1
+ms_5_loops$suit_main_1_1
+ms_10_loops$suit_main_1_1
 
 
 load("data/BS_MS_Files/2017_assessment_data_list.RData")
