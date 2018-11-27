@@ -89,7 +89,7 @@ DATA_SECTION
   ivector        seed(1,6);
     !!           seed=0   ; log_input(seed)
   number         niter                // number of iterations to run for each loop 
-    !!           niter=3  ; log_input(niter)
+    !!           niter=20  ; log_input(niter)
   number         MNConst              // constant additive for logistic functions
     !!           MNConst = 0.001  ; log_input(MNConst)
   number         cutoff
@@ -497,7 +497,7 @@ LOCAL_CALCS
  LOCAL_CALCS
                       
                       if(simMode>0||do_fut)
-                        niter=3; 
+                        niter=20; 
                         // niter=10; 
                       for (int sp=1;sp<=nspp;sp++)                              
                         sel_phase(sp) = -1*logist_sel_phase(sp); //-3
@@ -1377,6 +1377,9 @@ PARAMETER_SECTION
  
  // Derived parameters
  //==============================================================================
+  vector    rec_dev_prior(1,nspp)
+  vector    init_dev_prior(1,nspp)
+  vector    F_dev_prior(1,nspp)
   vector    PvalueAdj(1,nspp)
   !! PvalueAdj =1;
   matrix    R(1,nspp,1,nyrs)
@@ -1390,7 +1393,7 @@ PARAMETER_SECTION
   3darray   M2(1,nspp,1,nyrs,1,nages)
   3darray   B_eaten(1,nspp,1,nyrs,1,nages)
    // 3darray   of_stom(1,2,1,nspp,1,21)                              // year, pred, pred sp_age? other food stomach content, change nages to 21
-  3darray   of_stomKir(1,nyrs,1,nspp,1,maxA)                        // year, pred, pred sp_age? other food stomach content, change nages to 21
+  3darray   of_stomKir(1,nspp,1,maxA,1,nyrs)                       // year, pred, pred sp_age? other food stomach content, change nages to 21
   // 3darray   of_stom2(1,nyrs,1,nspp,1,21)                          // year, pred, pred sp_age? other food stomach content, change nages to 21
   matrix    stomtmp(1,nspp,1,nages)                                // year, pred, pred sp_age? other food stomach content, change nages to 21
   3darray   overlap(1,nyrs,1,nspp,1,nspp)
@@ -1672,7 +1675,7 @@ PRELIMINARY_CALCS_SECTION
  for (int yr=1;yr<=nyrs;yr++) // year
    for (int pred=1;pred<=nspp;pred++) // pred sp
     for (int pred_age=1;pred_age<=nages(pred);pred_age++) // pred sp_age sp
-     of_stomKir(yr,pred,pred_age) =(1-sum(stomKir(yr,pred,pred_age)))/other_food(1); 
+     of_stomKir(pred,pred_age,yr) =(1-sum(stomKir(yr,pred,pred_age)))/other_food(1); 
   for (int pred=1;pred<=nspp;pred++)
     for (int pred_age=1;pred_age<=nages(pred);pred_age++)
        for (int prey=1;prey<=nspp;prey++) // pred sp_age sp
@@ -1684,6 +1687,7 @@ PRELIMINARY_CALCS_SECTION
       for (int pred_age=1;pred_age<=nages(predd);pred_age++) // predator sp 
         other_food_byAge(predd,preyy,pred_age)=(1-KAge(predd,preyy,pred_age))*other_food(predd);
   // to add down the line
+
 
   for (int yr=1;yr<=nyrs;yr++) // year
    for (int pred=1;pred<=nspp;pred++) // pred sp
@@ -1700,6 +1704,8 @@ PRELIMINARY_CALCS_SECTION
       }  
     }
   }
+
+  log_input( of_stomKir );
   // cout<<"overlap "<<overlap<<endl;exit(1);
       // overlap(yr,pred,prey)=1.; 
 
@@ -1906,6 +1912,10 @@ FUNCTION CALC_OBJ_FUN
     obj_fun +=  1.* norm2(rec_dev(sp)  );
     obj_fun +=  1.* norm2(init_dev(sp) );
     obj_fun +=  1.* norm2(F_dev(sp)    );
+
+    rec_dev_prior(sp)=1.* norm2( rec_dev(sp)  );
+    init_dev_prior(sp)=1.* norm2( init_dev(sp)  );
+    F_dev_prior(sp)=1.* norm2( F_dev(sp)  );
 
     if(msmMode==4)
     {
@@ -3178,7 +3188,7 @@ FUNCTION void CALC_SUIT(int msmMode_pass_number)
             for (int year=1;year<=nyrs;year++) // year
             {
               suma_suit=sum(stom_div_bio2(year,pred,pred_age)); // sum of all prey and prey ages in the stom of the pred sp_age j
-              suit_main(pred,pred_age,prey,prey_age)    += stom_div_bio2(year,pred,pred_age,prey,prey_age)/(suma_suit+of_stomKir(year,pred,pred_age));                               
+              suit_main(pred,pred_age,prey,prey_age)    += stom_div_bio2(year,pred,pred_age,prey,prey_age)/(suma_suit+of_stomKir(pred,pred_age,year));                               
             }// end year
             suit_main(pred,pred_age,prey,prey_age) /= nyrs; 
             
@@ -6623,6 +6633,15 @@ FUNCTION write_R
     R_report << fT(sp)           <<endl;
     R_report << "L2A_convert_"       <<sp<<endl;     //Consum(1,nspp,1,nyrs,1,nlengths)  
     R_report << L2A_convert(sp)           <<endl;
+    R_report << "of_stomKir_"       << sp <<endl;  
+    R_report << of_stomKir(sp)           <<endl;
+    R_report << "rec_dev_prior_"       <<sp<<endl;   
+    R_report << rec_dev_prior(sp)           <<endl;
+    R_report << "init_dev_prior_"       <<sp<<endl;  
+    R_report << init_dev_prior(sp)           <<endl;
+    R_report << "F_dev_prior_"       <<sp<<endl; 
+    R_report << F_dev_prior(sp)           <<endl;
+
       
 
     if (RationByAge==1)
@@ -6822,6 +6841,15 @@ FUNCTION write_R
     for (int pred_age=1;pred_age<=nages(sp);pred_age++){
       R_report << "suit_main_"    <<sp<<"_"<<pred_age<<endl;
       R_report << suit_main(sp,pred_age)    <<endl; 
+
+      for(int year = 1; year <= nyrs; year++){
+            R_report << "stomKir_"    <<year<<"_"<<sp<<"_"<<pred_age<<endl;
+            R_report << stomKir(year, sp, pred_age)    <<endl; 
+
+            R_report << "stom_div_bio2_"    <<year<<"_"<<sp<<"_"<<pred_age<<endl;
+            R_report << stom_div_bio2(year, sp, pred_age)    <<endl; 
+
+          }
     }  
     //Mtmp += AvgN(pred,i,pred_age)*overlap(i,pred,prey) * ration2Age(pred,i,pred_age)*suit_main(pred,pred_age,prey,prey_age)/(avail_food(pred,i,pred_age));
     R_report << "srv_sel_"      <<sp<<endl;
@@ -7631,7 +7659,7 @@ FUNCTION void CALC_SUITOLD(int msmMode_pass_number)
             for (int year=1;year<=nyrs;year++) // year
             {
               suma_suit=sum(stom_div_bio2(year,pred,pred_age)); // sum of all prey and prey ages in the stom of the pred sp_age j
-              suit_main(pred,pred_age,prey,prey_age)    += stom_div_bio2(year,pred,pred_age,prey,prey_age)/(suma_suit+of_stomKir(year,pred,pred_age));                               
+              suit_main(pred,pred_age,prey,prey_age)    += stom_div_bio2(year,pred,pred_age,prey,prey_age)/(suma_suit+of_stomKir(pred,pred_age,year));                               
             }// end year
             suit_main(pred,pred_age,prey,prey_age) /= nyrs; 
             
@@ -7642,7 +7670,7 @@ FUNCTION void CALC_SUITOLD(int msmMode_pass_number)
             for (int year=1;year<=nyrs;year++) // year
             {
               suma_suit=sum(stom_div_bio2(year,pred,pred_age)); // sum of all prey and prey ages in the stom of the pred sp_age j
-              suit_main(pred,pred_age,prey,prey_age)    += stom_div_bio2(year,pred,pred_age,prey,prey_age)/(suma_suit+of_stomKir(year,pred,pred_age));                               
+              suit_main(pred,pred_age,prey,prey_age)    += stom_div_bio2(year,pred,pred_age,prey,prey_age)/(suma_suit+of_stomKir(pred,pred_age,year));                               
             }// end year
             suit_main(pred,pred_age,prey,prey_age) /= nyrs; 
           break;
