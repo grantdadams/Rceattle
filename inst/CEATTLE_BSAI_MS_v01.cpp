@@ -333,7 +333,7 @@ Type objective_function<Type>::operator() (){
   array<Type>   avail_food(nyrs, max_age, nspp); avail_food.setZero();            // Available food to predator; n = [nyrs, nages, nspp]
   array<Type>   B_eaten(nyrs, max_age, nspp); B_eaten.setZero();                  // Biomass of prey eaten via predation; n = [nyrs, nages, nspp]
   array<Type>   of_stomKir(max_age, nyrs, nspp); of_stomKir.setZero();            // Other food stomach content; n = [nyrs, nages, nspp] # FIXME - what is this?
-  array<Type>   stom_div_bio2(nyrs, nspp, max_age, nspp, max_age); stom_div_bio2.setZero();// Stomach proportion over biomass; U/ (W * N) ; n = [nspp, nspp, nages, nages, nyrs]
+  array<Type>   stom_div_bio2(nspp, nspp, max_age, max_age, nyrs); stom_div_bio2.setZero();// Stomach proportion over biomass; U/ (W * N) ; n = [nspp, nspp, nages, nages, nyrs]
   array<Type>   stomKir(nspp, nspp, max_age, max_age, nyrs); stomKir.setZero();   // Stomach proportion U; n = [nspp, nspp, nages, nages, nyrs]
   array<Type>   suit_main(nspp, nspp, max_age, max_age); suit_main.setZero();     // Suitability; n = [nspp, nspp, nages, nages]
   matrix<Type>  suit_other(nspp, max_age); suit_other.setZero();                  // Suitability not accounted for by the included prey; n = [nspp, nages]
@@ -632,8 +632,8 @@ Type objective_function<Type>::operator() (){
               for (j=0; j < nages(i); j++){     // Prey age loop
                 suit_tmp = stomKir(p, i, a, j, y) / (AvgN(y, j, i));
                 if (wt(y, j, i)!= 0){
-                  stom_div_bio2(y, p, a, i, j) = suit_tmp / wt(y, j, i);
-                  suma_suit(y, a, p ) += stom_div_bio2(y, p, a, i, j); // Calculate sum of stom_div_bio2 across prey and  prey age for each predator, predator age, and year
+                  stom_div_bio2(p, i, a, j, y) = suit_tmp / wt(y, j, i);
+                  suma_suit(y, a, p ) += stom_div_bio2(p, i, a, j, y); // Calculate sum of stom_div_bio2 across prey and  prey age for each predator, predator age, and year
                 }
               }
             }
@@ -651,7 +651,7 @@ Type objective_function<Type>::operator() (){
           for (i=0; i < nspp; i++){             // Prey species loop
             for (j=0; j < nages(i); j++){       // Prey age loop
               for (y=0; y<nyrs; y++){           // Year loop
-                suit_main(p, i, a, j) += stom_div_bio2(y, p, a, i, j)/(suma_suit(y, a, p ) + of_stomKir(a, y, p));
+                suit_main(p, i, a, j) += stom_div_bio2(p, i, a, j, y)/( suma_suit(y, a, p ) + of_stomKir(a, y, p) );
               }                                 // End year loop
               suit_main(p, i, a, j) /= nyrs;
               suit_other(p, a) -= suit_main(p, i, a, j); // Subtract observed suitability from entire suitability (i.e. 1)
@@ -1127,7 +1127,6 @@ Type objective_function<Type>::operator() (){
   REPORT( tc_hat );
   REPORT( fsh_age_hat );
   REPORT( fsh_age_obs );
-
   ADREPORT( F );
 
 

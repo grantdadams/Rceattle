@@ -99,7 +99,7 @@ load("data/BS_MS_10_Loops_Files/CEATTLE_results.Rdata")
 ms_tmp_10 <- tmp
 
 # Compare with current
-ms_res_10 <- compare_output(ms_rep_10, ms_tmp_10, rel_error = 0.01)
+ms_res_10 <- compare_output(ms_rep_10, ms_tmp_10, data_list = data_list_ms, rel_error = 0.0001)
 ms_res_10$summary
 ms_res_10$likelihood
 tmb_nll_comp <- ms_res_10$tmb_like
@@ -148,3 +148,36 @@ admb_jnll
 
 ms_rep_20$M2[1,1:12,1]
 ms_tmp_20$M2_1[1,]
+
+
+
+###################################################
+# Run in MS mode using par files and 1 loops
+load("data/BS_MS_Files/2017_assessment_data_list.RData")
+ms_run_1 <- Rceattle(data_list = data_list_ms, ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_1_Loops_Files/dat files/", inits = "ceattle.par", debug = TRUE, random_rec = FALSE, niter = 1)
+ms_rep_1 <- ms_run_1$quantities
+
+# Load previous estimates
+load("data/BS_MS_1_Loops_Files/CEATTLE_results.Rdata")
+ms_tmp_1 <- tmp
+
+# Compare with current
+ms_res_1 <- compare_output(ms_rep_1, ms_tmp_1, rel_error = 0.001)
+ms_res_1$summary
+ms_res_1$likelihood
+tmb_nll_comp <- ms_res_1$tmb_like
+admb_nll_comp <- ms_res_1$admb_like
+
+tmb_jnll <- sum(ms_rep_1$jnll_comp)
+admb_jnll <- -1854301.34736537
+
+
+tmb_nll_comp
+admb_nll_comp
+
+tmb_jnll
+admb_jnll
+
+ms_rep_1$M2[1,1:12,1]
+ms_tmp_1$M2_1[1,]
+
