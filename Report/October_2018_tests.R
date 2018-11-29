@@ -26,11 +26,11 @@ ss_tmp$obj_fun
 ###################################################
 # Run in MS mode using par files
 load("data/BS_MS_Files/2017_assessment_data_list.RData")
-ms_run <- Rceattle(data_list = data_list_ms, ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_Files/dat files/", inits = "ceattle.par", debug = TRUE, random_rec = FALSE, niter = 3)
-ms_rep_3 <- ms_run$quantities
+ms_run_3 <- Rceattle(data_list = data_list_ms, ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_3_Loops_Files/dat files/", inits = "ceattle.par", debug = TRUE, random_rec = FALSE, niter = 3)
+ms_rep_3 <- ms_run_3$quantities
 
 # Load previous estimates
-load("data/BS_MS_Files/CEATTLE_results.Rdata")
+load("data/BS_MS_3_Loops_Files/CEATTLE_results.Rdata")
 ms_tmp_3 <- tmp
 
 # Compare with current
