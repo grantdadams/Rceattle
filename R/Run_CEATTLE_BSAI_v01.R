@@ -107,7 +107,7 @@ Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, d
 
   # STEP 6 - Build and fit model object
   obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map, random = random_vars, silent = TRUE)
-  print(paste0("Optimizing model"))
+  print(paste0("Step 5: Optimizing model"), hessian = TRUE)
   # opt <- nlminb(obj$par, obj$fn, obj$gr)
   # methods <- c('Nelder-Mead', 'BFGS', 'CG', 'L-BFGS-B', 'nlm', 'nlminb', 'spg', 'ucminf', 'newuoa', 'bobyqa', 'nmkb', 'hjkb', 'Rcgmin', 'Rvmmin')
   # opt_list <- list()
@@ -135,6 +135,6 @@ Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, d
   mod_objects <- list(data_list = data_list, initial_params = params, final_params = last_par, map = map, sdrep = sdrep, obj = obj, opt = opt, quantities = quantities)
   save(mod_objects, file = paste0(file_name,".RData"))
 
-  dyn.unload(TMB::dynlib(paste0(cpp_file)))
+  # dyn.unload(TMB::dynlib(paste0(cpp_file)))
   return(mod_objects)
 }
