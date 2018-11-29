@@ -105,8 +105,7 @@ Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, d
 
 
 
-  # STEP 6 - Build object
-
+  # STEP 6 - Build and fit model object
   obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map, random = random_vars, silent = TRUE)
   print(paste0("Optimizing model"))
   # opt <- nlminb(obj$par, obj$fn, obj$gr)
@@ -115,32 +114,7 @@ Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, d
   # for(i in 1:length(methods)){
   #   opt_list[i] = optimx(obj$par, function(x) as.numeric(obj$fn(x)), obj$gr, control = list(maxit = 10000), method = methods[i])
   # }
-  opt = tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
-
-
-
-  # STEP 7 -  Refit - if not debugging
-
-  if(debug == FALSE){
-    iter <- 1
-    for(i in 1:iter){
-      if(debug){
-        last_par <- params
-      }
-      else if(random_rec == F){
-        last_par = suppressWarnings(obj$env$parList(obj$env$last.par.best))
-      }
-      else{
-        last_par = suppressWarnings(obj$env$parList(obj$env$last.par.best))
-      }
-
-      last_par$dummy = 0
-      print(paste0("Re-running model ", i))
-      obj = TMB::MakeADFun(data_list, parameters = last_par,  DLL = version, map = map, random = random_vars, silent = TRUE)
-      opt = tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL)
-    }
-  }
-
+  opt = tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL, loopnum = 6)
 
   # Get quantities
   sdrep = TMB::sdreport(obj)
