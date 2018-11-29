@@ -99,7 +99,7 @@ load("data/BS_MS_10_Loops_Files/CEATTLE_results.Rdata")
 ms_tmp_10 <- tmp
 
 # Compare with current
-ms_res_10 <- compare_output(ms_rep_10, ms_tmp_10, data_list = data_list_ms, rel_error = 0.0001)
+ms_res_10 <- compare_output(ms_rep_10, ms_tmp_10, data_list = data_list_ms, rel_error = 0.01)
 ms_res_10$summary
 ms_res_10$likelihood
 tmb_nll_comp <- ms_res_10$tmb_like
@@ -130,7 +130,7 @@ load("data/BS_MS_20_Loops_Files/CEATTLE_results.Rdata")
 ms_tmp_20 <- tmp
 
 # Compare with current
-ms_res_20 <- compare_output(ms_rep_20, ms_tmp_20, rel_error = 0.001)
+ms_res_20 <- compare_output(ms_rep_20, ms_tmp_20, rel_error = 0.01)
 ms_res_20$summary
 ms_res_20$likelihood
 tmb_nll_comp <- ms_res_20$tmb_like
