@@ -1,26 +1,27 @@
 # Load models
-load("Report/GSS/Models/GSS_ss_admb.RData")
+load("Report/GSS_SS_admb.RData")
 ss_admb <- mod_objects
 ss_admb$opt$AIC
 
-load("Report/GSS/Models/GSS_SS_no_re.RData")
+load("Report/GSS_SS_no_re.RData")
 ss_no_re <- mod_objects
 ss_no_re$opt$AIC
 
-load("Report/GSS/Models/GSS_SS_re.RData")
+load("Report/GSS_SS_re.RData")
 ss_re <- mod_objects
 ss_re$opt$AIC
 
-load("Report/GSS/Models/GSS_MS_admb.RData")
+load("Report/GSS_MS_admb.RData")
 ms_admb <- mod_objects
 sum(ms_admb$quantities$jnll_comp) * 2 + 2 * (length(unlist(ms_admb$initial_params)) - 1)
 
-load("Report/GSS/Models/GSS_MS_no_re.RData")
+load("Report/GSS_MS_no_re.RData")
 ms_no_re <- mod_objects
 ms_no_re$opt$AIC
 
 load("Report/GSS/Models/GSS_MS_re.RData")
 ms_re <- mod_objects
+ms_re$opt$AIC
 
 aic_vec <- c(sum(ss_admb$quantities$jnll_comp) * 2 + 2 * (length(unlist(ss_admb$initial_params)) - 1), ss_no_re$opt$AIC, ss_re$opt$AIC, sum(ms_admb$quantities$jnll_comp) * 2 + 2 * (length(unlist(ms_admb$initial_params)) - 1), ms_no_re$opt$AIC, ms_re$opt$AIC)
 

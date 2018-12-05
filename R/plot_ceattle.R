@@ -97,23 +97,24 @@ plot_biomass <- function(ceattle_list, file_name = "NULL", model_names = NULL, l
                 x1 = srv_yrs,
                 y1 = Lower95,
                 length=0.05, angle=90, code=3, lwd = 2, col = "#696773")
-
-
-        # Mean biomass
-        for(k in 1:dim(Biomass)[3]){
-          lines( x = Years, y = Biomass[j,,k], lty = 1, lwd = lwd, col = line_col[k]) # Median
-          lines( x = Years, y = SSB[j,,k], lty = 2, lwd = lwd, col = line_col[k]) # Median
-        }
-
-        # # Credible interval
-        # polygon(
-        #   x = c(Years,rev(Years)),
-        #   y = c(output_summary[3, ],rev(output_summary[4, ])),
-        #   col = "Grey80", border = NA) # 95% CI
-        # polygon( x = c(Years,rev(Years)),
-        #          y = c(output_summary[5, ], rev(output_summary[6, ])),
-        #          col = "Grey60", border = NA) # 90% CI
       }
+
+
+      # Mean biomass
+      for(k in 1:dim(Biomass)[3]){
+        lines( x = Years, y = Biomass[j,,k], lty = 1, lwd = lwd, col = line_col[k]) # Median
+        lines( x = Years, y = SSB[j,,k], lty = 2, lwd = lwd, col = line_col[k]) # Median
+      }
+
+      # # Credible interval
+      # polygon(
+      #   x = c(Years,rev(Years)),
+      #   y = c(output_summary[3, ],rev(output_summary[4, ])),
+      #   col = "Grey80", border = NA) # 95% CI
+      # polygon( x = c(Years,rev(Years)),
+      #          y = c(output_summary[5, ], rev(output_summary[6, ])),
+      #          col = "Grey60", border = NA) # 90% CI
+
     }
 
 
