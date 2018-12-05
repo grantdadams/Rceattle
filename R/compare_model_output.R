@@ -44,22 +44,22 @@ compare_output <- function( rep = rep, tmp = tmp, data_list = data_list, rel_err
           param_check[[param]][1:min(nrow(tmb_params[,,i]) , nrow(admb_params)), 1:min(ncol(tmb_params[,,i]) , ncol(admb_params)), i] <- replace( param_check[[param]][1:min(nrow(tmb_params[,,i]) , nrow(admb_params)), 1:min(ncol(tmb_params[,,i]) , ncol(admb_params)), i], values = diff)
         }
       }
-
-      # 5D Array
-      if(length(dim(tmb_params)) == 5){
-        param_check[[param]] <- replace(param_check[[param]], values = rep(NA, length(param_check[[param]])))
-
-        for(sp in 1:dim(tmb_params)[1]){
-          for(sp_age in 1:data_list$nages[sp]){
-            for(yr in 1:data_list$nyrs){
-              admb_params <- tmp[[paste(admb_param, yr, sp, sp_age, sep = "_")]]
-              tmb_tmp <- tmb_params[sp, , sp_age, ,yr]
-              diff <- abs(tmb_tmp -  admb_params) / (admb_params + 1e-16) < rel_error
-              param_check[[param]][sp, , sp_age, ,yr] <- replace( param_check[[param]][sp, , sp_age, ,yr], values = diff)
-            }
-          }
-        }
-      }
+#
+#       # 5D Array
+#       if(length(dim(tmb_params)) == 5){
+#         param_check[[param]] <- replace(param_check[[param]], values = rep(NA, length(param_check[[param]])))
+#
+#         for(sp in 1:dim(tmb_params)[1]){
+#           for(sp_age in 1:data_list$nages[sp]){
+#             for(yr in 1:data_list$nyrs){
+#               admb_params <- tmp[[paste(admb_param, yr, sp, sp_age, sep = "_")]]
+#               tmb_tmp <- tmb_params[sp, , sp_age, ,yr]
+#               diff <- abs(tmb_tmp -  admb_params) / (admb_params + 1e-16) < rel_error
+#               param_check[[param]][sp, , sp_age, ,yr] <- replace( param_check[[param]][sp, , sp_age, ,yr], values = diff)
+#             }
+#           }
+#         }
+#       }
     }
   }
 
