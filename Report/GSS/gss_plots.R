@@ -19,7 +19,7 @@ load("Report/GSS_MS_no_re.RData")
 ms_no_re <- mod_objects
 ms_no_re$opt$AIC
 
-load("Report/GSS/Models/GSS_MS_re.RData")
+load("Report/GSS_MS_re.RData")
 ms_re <- mod_objects
 ms_re$opt$AIC
 
@@ -64,7 +64,7 @@ plot_recruitment(ceattle_list = list(ms_admb, ms_no_re, ms_re, ss_admb, ss_no_re
                  ci_col = c( "#7F7F7F", "#F2BF79", "#ADCCBA", rep(adjustcolor( "red", alpha.f = 0), 3)), lwd = 4)
 
 
-# Plot RE
+  # Plot RE
 plot_biomass(ceattle_list = list(ms_re, ss_re, ms_admb, ms_no_re, ss_admb, ss_no_re)
              , file_name = "Report/GSS/re_runs",
              model_names = c("TMB multi-spp re", "TMB single-spp re", rep(NA, 4)),
