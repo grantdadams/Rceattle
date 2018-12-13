@@ -114,7 +114,7 @@ Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, d
   # for(i in 1:length(methods)){
   #   opt_list[i] = optimx(obj$par, function(x) as.numeric(obj$fn(x)), obj$gr, control = list(maxit = 10000), method = methods[i])
   # }
-  opt = tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL, loopnum = 3)
+  opt = tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL, loopnum = 5)
 
   # Get quantities
   sdrep = TMB::sdreport(obj)
