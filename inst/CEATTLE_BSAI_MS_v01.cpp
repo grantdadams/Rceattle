@@ -38,8 +38,8 @@ Type objective_function<Type>::operator() (){
   DATA_INTEGER(msmMode);
   //    0 = run in single species mode
   //    1 = run in MSM mode
-    DATA_INTEGER(random_rec);       // Logical of whether to treate recruitment deviations as random effects
-    DATA_INTEGER( niter );          // Number of loops for MSM mode
+  DATA_INTEGER(random_rec);       // Logical of whether to treate recruitment deviations as random effects
+  DATA_INTEGER( niter );          // Number of loops for MSM mode
 
   DATA_IVECTOR(logist_sel_phase); // Selectivity for BT survey
   //    0 = fit to data
@@ -56,7 +56,7 @@ Type objective_function<Type>::operator() (){
   // 1.4. MODEL OBJECTS
   // 1.4.1. LOOPING INDICES -- k = observation, i = species/prey, j = age/prey age (yr), y = year, p = predator, a = predator age (yr)
   int  i, j, y, k, p, a;
-  int fsh_yr_ind; 
+  int fsh_yr_ind;
   if(msmMode == 0){ niter = 1; } // Number of iterations for SS mode
 
   // ------------------------------------------------------------------------- //
@@ -266,7 +266,7 @@ Type objective_function<Type>::operator() (){
   PARAMETER_VECTOR( log_srv_q );       // BT Survey catchability; n = [1, nspp]
 
 
-   // ------------------------------------------------------------------------- //
+  // ------------------------------------------------------------------------- //
   // 4. DERIVED QUANTITIES SECTION                                             //
   // ------------------------------------------------------------------------- //
 
@@ -339,7 +339,7 @@ Type objective_function<Type>::operator() (){
   matrix<Type>  suit_other(nspp, max_age); suit_other.setZero();                  // Suitability not accounted for by the included prey; n = [nspp, nages]
   array<Type>   suma_suit(nyrs, max_age, nspp); suma_suit.setZero();              // Sum of suitabilities; n = [nyrs, nages, nspp]
 
-// ------------------------------------------------------------------------- //
+  // ------------------------------------------------------------------------- //
   // 5. INITIAL CALCULATIONS                                                   //
   // ------------------------------------------------------------------------- //
   // 5.1. Fishery catch-at-age to age-comp
@@ -526,7 +526,7 @@ Type objective_function<Type>::operator() (){
     // ------------------------------------------------------------------------- //
     // NOTE -- LOOPING INDICES -- k = observation, i = species/prey, j = age/prey age, y = year, p = predator, a = predator age
 
-       // 6.1. Calculate stomach weight by sp age
+    // 6.1. Calculate stomach weight by sp age
     for(i=0; i < nspp; i++){
       for(j=0; j < nages(i); j++){
         for(y=0; y < nyrs; y++){
@@ -1158,7 +1158,6 @@ Type objective_function<Type>::operator() (){
   REPORT( of_stomKir );
   REPORT( M2 );
   REPORT( B_eaten );
-
 
   // ------------------------------------------------------------------------- //
   // END MODEL                                                                 //
