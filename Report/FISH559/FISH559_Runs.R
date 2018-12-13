@@ -31,8 +31,8 @@ for(i in 3:20){
   # Run in MS mode using par files
   ms_run_no_re <- Rceattle(data_list = data_list_ms, ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_Files/dat files/", inits = ss_run_no_re$final_params, debug = FALSE, random_rec = FALSE, niter = i, file_name = paste0("Report/FISH559/Models/ms_no_re_", i))
 
-  ###################################################
-  # Run in MS mode using par files and random recruitment
-  ms_run_re <- Rceattle(data_list = data_list_ms, ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_Files/dat files/", inits = ms_run_no_re$final_params, debug = FALSE, random_rec = TRUE, niter = i, file_name = paste0("Report/FISH559/Models/ms_re_", i))
+  # ###################################################
+  # # Run in MS mode using par files and random recruitment
+  # ms_run_re <- Rceattle(data_list = data_list_ms, ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "CEATTLE_BSAI_MS_v01", dat_dir =  "data/BS_MS_Files/dat files/", inits = ms_run_no_re$final_params, debug = FALSE, random_rec = TRUE, niter = i, file_name = paste0("Report/FISH559/Models/ms_re_", i))
 }
 
