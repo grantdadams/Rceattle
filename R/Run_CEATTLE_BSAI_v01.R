@@ -18,7 +18,7 @@
 #'
 #' @examples
 
-Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, dat_dir = NULL, inits = NULL, debug = T, random_rec = FALSE, niter = 3, file_name = NULL){
+Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, dat_dir = NULL, inits = NULL, debug = T, random_rec = FALSE, niter = 3, file_name = NULL, AvgN_type = 0){
 
   #--------------------------------------------------
   # 1. DATA and MODEL PREP
@@ -49,6 +49,7 @@ Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, d
   data_list$random_rec <- as.numeric(random_rec)
   data_list$debug <- debug
   data_list$niter <- niter
+  data_list$AvgN_type <- AvgN_type
 
 
 
@@ -114,7 +115,7 @@ Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, d
   # for(i in 1:length(methods)){
   #   opt_list[i] = optimx(obj$par, function(x) as.numeric(obj$fn(x)), obj$gr, control = list(maxit = 10000), method = methods[i])
   # }
-  opt = tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL, loopnum = 5)
+  opt = tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL, loopnum = 3)
 
   # Get quantities
   sdrep = TMB::sdreport(obj)
