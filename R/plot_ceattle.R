@@ -158,7 +158,7 @@ plot_biomass <- function(ceattle_list, tmp_list = NULL, file_name = "NULL", mode
 #' @param lwd Line width as specified by user
 #'
 #' @return Returns and saves a figure with the population trajectory.
-plot_recruitment <- function(ceattle_list, tmp_list = NULL, file_name = "NULL", model_names = NULL, line_col = NULL, species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"), ci_col = NULL, lwd = 3) {
+plot_recruitment <- function(ceattle_list, tmp_list = NULL, file_name = "NULL", model_names = NULL, line_col = NULL, species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"), ci_col = NULL, lwd = 3, save_rec = FALSE) {
 
 
   library(extrafont)
@@ -198,27 +198,28 @@ plot_recruitment <- function(ceattle_list, tmp_list = NULL, file_name = "NULL", 
   recruitment_upper <- recruitment + recruitment_sd * 1.92
   recruitment_lower <- recruitment - recruitment_sd * 1.92
 
-  for(i in 1:nspp){
+  if(save_rec){
+    for(i in 1:nspp){
 
-    dat <- data.frame(recruitment[i,,])
-    datup <- data.frame(recruitment_upper[i,,])
-    datlow <- data.frame(recruitment_lower[i,,])
+      dat <- data.frame(recruitment[i,,])
+      datup <- data.frame(recruitment_upper[i,,])
+      datlow <- data.frame(recruitment_lower[i,,])
 
-    dat_new <- cbind(dat[,1], datlow[,1], datup[,1])
-    colnames(dat_new) <- rep(model_names[1], 3)
+      dat_new <- cbind(dat[,1], datlow[,1], datup[,1])
+      colnames(dat_new) <- rep(model_names[1], 3)
 
-    for(j in 2:ncol(dat)){
-      dat_new2 <- cbind(dat[,j], datlow[,j], datup[,j])
-      colnames(dat_new2) <- rep(model_names[j], 3)
-      dat_new <- cbind(dat_new, dat_new2)
+      for(j in 2:ncol(dat)){
+        dat_new2 <- cbind(dat[,j], datlow[,j], datup[,j])
+        colnames(dat_new2) <- rep(model_names[j], 3)
+        dat_new <- cbind(dat_new, dat_new2)
 
+      }
+
+
+      filename <- paste0(file_name, "_recruitment_species_",i, ".csv")
+      write.csv(dat_new, file = filename)
     }
-
-
-    filename <- paste0(file_name, "_recruitment_species_",i, ".csv")
-    write.csv(dat_new, file = filename)
   }
-
 
 
   # Plot limits

@@ -36,11 +36,29 @@ for(i in 1:18){
 loops5 <- c(0:18)
 
 
+# ADMB
+log_lik_admb <- c()
+loops_admb <- c(0,1,3,5,10,20)
+
+dat <- as.character(read.delim(paste0("data/BS_SS_Files/ceattle.par"), header = FALSE)[1,])
+dat <- as.numeric(strsplit(dat, split = " ")[[1]][11])
+log_lik_admb[1] <- dat
+
+for(i in 2:length(loops_admb)){
+  dat <- as.character(read.delim(paste0("data/BS_MS_", loops_admb[i], "_Loops_Files/ceattle.par"), header = FALSE)[1,])
+  dat <- as.numeric(strsplit(dat, split = " ")[[1]][11])
+  log_lik_admb[i] <- dat
+}
+
+
+
 # Plot
 
-plot(x = loops, y = log_lik - min(c(log_lik, log_lik_re)), ylab = "Relative NLL", xlab = "M2 iterations", pch = 16, ylim = c(0, max(c(log_lik, log_lik_re) - min(c(log_lik, log_lik_re)))))
-points(x = loops5, y = log_lik5 - min(c(log_lik, log_lik_re)), col = 1, pch = 16)
-points(x = loops_re + 0.2, y = log_lik_re - min(c(log_lik, log_lik_re)), col = "grey60", pch = 16)
+plot(x = loops, y = log_lik - min(c(log_lik_admb, log_lik, log_lik_re)), ylab = "Relative NLL", xlab = "M2 iterations", type = "l", lwd = 3, ylim = c(0, max(c(log_lik_admb, log_lik, log_lik_re) - min(c(log_lik_admb, log_lik, log_lik_re)))))
+lines(x = loops5, y = log_lik5 - min(c(log_lik, log_lik_admb, log_lik_re)), col = 1, pch = 16, lwd = 3)
+lines(x = loops_re + 0.1, y = log_lik_re - min(c(log_lik, log_lik_admb, log_lik_re)), col = "grey60", pch = 16, lwd = 3)
+lines(x = loops_admb + 0.2, y = log_lik_admb - min(c(log_lik, log_lik_admb, log_lik_re)), col = 3, pch = 16, lwd = 3, lty = 2)
+legend("topright", legend = c("ADMB", "TMB", "TMB re"), col = c(3, 1, "grey60"), pch = rep(16, 3), bty = "n")
 
 
 
