@@ -13,7 +13,7 @@
 #' @param include_srv Boolian of whether to include survey biomass estimates and 95% CI
 #'
 #' @return Returns and saves a figure with the population trajectory.
-plot_biomass <- function(ceattle_list, file_name = "NULL", model_names = NULL, line_col = NULL, species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"), lwd = 3, include_srv = FALSE) {
+plot_biomass <- function(ceattle_list, tmp_list = NULL, file_name = "NULL", model_names = NULL, line_col = NULL, species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"), lwd = 3, include_srv = FALSE) {
   library(extrafont)
 
   # Extract data objects
@@ -22,17 +22,38 @@ plot_biomass <- function(ceattle_list, file_name = "NULL", model_names = NULL, l
   nspp <- ceattle_list[[1]]$data_list$nspp
 
   # Get biomass
-  Biomass <- array(NA, dim = c(nspp, nyrs, length(ceattle_list) ))
+  Biomass <- array(NA, dim = c(nspp, nyrs, length(ceattle_list) + length(tmp_list) ))
   for(i in 1:length(ceattle_list)){
     Biomass[,,i] <- ceattle_list[[i]]$quantities$biomass
+  }
+
+  ind = 1
+  if(!is.null(tmp_list)){
+    for(i in (length(ceattle_list) + 1): (length(ceattle_list) + length(tmp_list))){
+      for(k in 1:nspp){
+        Biomass[k,,i] <- tmp_list[[ind]][[paste0("Biomass_", k)]]
+      }
+      ind = ind + 1
+    }
   }
   Biomass <- Biomass / 1000000
 
   # Get SSB
-  SSB <- array(NA, dim = c(nspp, nyrs, length(ceattle_list) ))
+  SSB <- array(NA, dim = c(nspp, nyrs, length(ceattle_list) + length(tmp_list) ))
   for(i in 1:length(ceattle_list)){
     SSB[,,i] <- ceattle_list[[i]]$quantities$biomassSSB
   }
+
+  ind = 1
+  if(!is.null(tmp_list)){
+    for(i in (length(ceattle_list) + 1): (length(ceattle_list) + length(tmp_list))){
+      for(k in 1:nspp){
+        SSB[k,,i] <- tmp_list[[ind]][[paste0("BiomassSSB_", k)]]
+      }
+      ind = ind + 1
+    }
+  }
+
   SSB <- SSB / 1000000
 
   # Plot limits
@@ -71,11 +92,11 @@ plot_biomass <- function(ceattle_list, file_name = "NULL", model_names = NULL, l
       legend("topleft", species[j], bty = "n", cex = 1.4)
 
       if(j == 1){
-        legend("topright", model_names, lty = rep(1, length(line_col)), lwd = lwd, col = line_col, bty = "n", cex = 1.175)
+        legend("topright", legend = model_names, lty = rep(1, length(line_col)), lwd = lwd, col = line_col, bty = "n", cex = 1.175)
       }
 
       if(j == 2){
-        legend("topright", c("Biomass", "SSB"), lty = c(1, 2), lwd = lwd, col = c(1, 1), bty = "n", cex = 1.175)
+        legend("topright", legend = c("Biomass", "SSB"), lty = c(1, 2), lwd = lwd, col = c(1, 1), bty = "n", cex = 1.175)
       }
 
       # Survey data
@@ -137,7 +158,7 @@ plot_biomass <- function(ceattle_list, file_name = "NULL", model_names = NULL, l
 #' @param lwd Line width as specified by user
 #'
 #' @return Returns and saves a figure with the population trajectory.
-plot_recruitment <- function(ceattle_list, file_name = "NULL", model_names = NULL, line_col = NULL, species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"), ci_col = NULL, lwd = 3) {
+plot_recruitment <- function(ceattle_list, tmp_list = NULL, file_name = "NULL", model_names = NULL, line_col = NULL, species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"), ci_col = NULL, lwd = 3) {
 
 
   library(extrafont)
@@ -149,10 +170,10 @@ plot_recruitment <- function(ceattle_list, file_name = "NULL", model_names = NUL
 
 
   # Get biomass
-  recruitment <- array(NA, dim = c(nspp, nyrs, length(ceattle_list) ))
-  recruitment_sd <- array(NA, dim = c(nspp, nyrs, length(ceattle_list) ))
+  recruitment <- array(NA, dim = c(nspp, nyrs,  length(ceattle_list) + length(tmp_list)  ))
+  recruitment_sd <- array(NA, dim = c(nspp, nyrs,  length(ceattle_list) + length(tmp_list)  ))
   for(i in 1:length(ceattle_list)){
-    recruitment[,,i] <- t(ceattle_list[[i]]$quantities$NByage[,1,])
+    recruitment[,,i] <- ceattle_list[[i]]$quantities$R[,]
 
     # Get SD of rec
     sd_rec <- which(names(ceattle_list[[i]]$sdrep$value) == "R")
@@ -160,11 +181,45 @@ plot_recruitment <- function(ceattle_list, file_name = "NULL", model_names = NUL
     recruitment_sd[,,i] <- replace(recruitment_sd[,,i], values = sd_rec)
   }
 
+  ind = 1
+  if(!is.null(tmp_list)){
+    for(i in (length(ceattle_list) + 1): (length(ceattle_list) + length(tmp_list))){
+      for(k in 1:nspp){
+        recruitment[k,,i] <- tmp_list[[ind]][[paste0("R_", k)]]
+        recruitment_sd[k,,i] <- replace(recruitment_sd[k,,i], values = rep(NA, length(recruitment_sd[k,,i])))
+      }
+      ind = ind + 1
+    }
+  }
+
 
   recruitment <- recruitment / 1000000
   recruitment_sd <- recruitment_sd / 1000000
   recruitment_upper <- recruitment + recruitment_sd * 1.92
   recruitment_lower <- recruitment - recruitment_sd * 1.92
+
+  for(i in 1:nspp){
+
+    dat <- data.frame(recruitment[i,,])
+    datup <- data.frame(recruitment_upper[i,,])
+    datlow <- data.frame(recruitment_lower[i,,])
+
+    dat_new <- cbind(dat[,1], datlow[,1], datup[,1])
+    colnames(dat_new) <- rep(model_names[1], 3)
+
+    for(j in 2:ncol(dat)){
+      dat_new2 <- cbind(dat[,j], datlow[,j], datup[,j])
+      colnames(dat_new2) <- rep(model_names[j], 3)
+      dat_new <- cbind(dat_new, dat_new2)
+
+    }
+
+
+    filename <- paste0(file_name, "_recruitment_species_",i, ".csv")
+    write.csv(dat_new, file = filename)
+  }
+
+
 
   # Plot limits
   ymax <- c()
@@ -176,10 +231,6 @@ plot_recruitment <- function(ceattle_list, file_name = "NULL", model_names = NUL
 
   if(is.null(line_col)){
     line_col <- 1:length(ceattle_list)
-  }
-
-  if(is.null(ci_col)){
-    ci_col <- rep(NA, length(ceattle_list))
   }
 
 
@@ -202,21 +253,23 @@ plot_recruitment <- function(ceattle_list, file_name = "NULL", model_names = NUL
            xlab = "Year", ylab = "Recruitment (millions)", xaxt = c(rep("n", nspp - 1), "s")[j])
 
       # Legends
-      legend("topleft", species[j], bty = "n", cex = 1.4)
+      legend("topleft", legend = species[j], bty = "n", cex = 1.4)
       if(j == 1){
-        legend("topright", model_names, lty = rep(1, length(line_col)), lwd = lwd, col = line_col, bty = "n", cex = 1.175)
+        legend("topright", legend = model_names, lty = rep(1, length(line_col)), lwd = lwd, col = line_col, bty = "n", cex = 1.175)
       }
 
 
       # Credible interval
-      for(k in 1:dim(recruitment)[3]){
-        polygon(
-          x = c(Years,rev(Years)),
-          y = c(recruitment_upper[j,,k], rev(recruitment_lower[j,,k])),
-          col = ci_col[k], border = NA, density = 15 * k, angle = 22 * k) # 95% CI
+      if(!is.null(ci_col)){
+        for(k in 1:dim(recruitment)[3]){
+          polygon(
+            x = c(Years,rev(Years)),
+            y = c(recruitment_upper[j,,k], rev(recruitment_lower[j,,k])),
+            col = ci_col[k], border = NA, density = 15 * k, angle = 22 * k) # 95% CI
+        }
       }
 
-      # Mean biomass
+      # Mean recruitment
       for(k in 1:dim(recruitment)[3]){
         lines( x = Years, y = recruitment[j,,k], lty = 1, lwd = lwd, col = line_col[k]) # Median
       }

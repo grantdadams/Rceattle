@@ -36,6 +36,7 @@ Type objective_function<Type>::operator() (){
   // 1.1. CONFIGURE MODEL (this section sets up the switches)
   DATA_INTEGER(debug);            // Logical to debug or not
   DATA_INTEGER(msmMode);
+  DATA_INTEGER(AvgN_type);        // N used for predation function (0 = AvgN_type, !0 = NbyAge)
   //    0 = run in single species mode
   //    1 = run in MSM mode
   DATA_INTEGER(random_rec);       // Logical of whether to treate recruitment deviations as random effects
@@ -515,7 +516,11 @@ Type objective_function<Type>::operator() (){
     for(i = 0; i < nspp; i++){
       for(j = 0; j < nages(i); j++){
         for(y = 0; y < nyrs; y++){
-          AvgN(y, j, i) = NByage(y, j, i) * (1 - S(y, j, i)) / Zed(y, j, i);
+          if(AvgN_type == 0){
+                      AvgN(y, j, i) = NByage(y, j, i) * (1 - S(y, j, i)) / Zed(y, j, i);
+          } else{
+            AvgN(y, j, i) = NByage(y, j, i);
+          }
         }
       }
     }
