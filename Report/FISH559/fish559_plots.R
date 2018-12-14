@@ -1,3 +1,4 @@
+library(Rceattle)
 # Load models
 load("Report/FISH559/Models/Optim 3/ss_admb.RData")
 ss_admb <- mod_objects
