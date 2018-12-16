@@ -8,17 +8,18 @@
 #' @param debug Runs the model without estimating parameters to get derived quantities given initial parameter values.
 #' @param data_list (Optional) a data_list from a previous model run.
 #' @param inits Character vector of named initial values from ADMB or list of previous parameter estimates from single species model.
-#' @param plot_trajectory Boolian of whether to include plotting functions
 #' @param random_rec Boolian of whether to treat recruitment deviations as random effects.
 #' @param niter Number of iterations for multispecies model
 #' @param file_name Filename where files will be saved
+#' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \deqn{\frac{N}{Z} \left( 1 - exp^{-Z} \right)}, 1 is \deqn{N e^{-Z/2}}, 2 is \deqn{N}.
+#' @param predMode The predation mortality functions to used. 0 is the default Holsman et al 2015
 #'
 #' @return
 #' @export
 #'
 #' @examples
 
-Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, dat_dir = NULL, inits = NULL, debug = T, random_rec = FALSE, niter = 3, file_name = NULL, AvgN_type = 0){
+Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = "CEATTLE_BSAI_MS_v01_02", dat_dir = NULL, inits = NULL, debug = T, random_rec = FALSE, niter = 3, file_name = NULL, avgnMode = 0, predMode = 0){
 
   #--------------------------------------------------
   # 1. DATA and MODEL PREP
@@ -49,7 +50,8 @@ Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = NULL, d
   data_list$random_rec <- as.numeric(random_rec)
   data_list$debug <- debug
   data_list$niter <- niter
-  data_list$AvgN_type <- AvgN_type
+  data_list$avgnMode <- avgnMode
+  data_list$predMode <- predMode
 
 
 

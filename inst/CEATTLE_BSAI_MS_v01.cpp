@@ -36,9 +36,17 @@ Type objective_function<Type>::operator() (){
   // 1.1. CONFIGURE MODEL (this section sets up the switches)
   DATA_INTEGER(debug);            // Logical to debug or not
   DATA_INTEGER(msmMode);
-  DATA_INTEGER(AvgN_type);        // N used for predation function (0 = AvgN_type, !0 = NbyAge)
   //    0 = run in single species mode
   //    1 = run in MSM mode
+
+  DATA_INTEGER(predMode);         // Predation mortality equations to use
+  //    0 = Holsman et al (2015) MSVPA based
+
+  DATA_INTEGER(avgnMode);        // N used for predation function
+  //    0 = AvgN
+  //    1 = N*exp(-Z / 2))
+  //    2 = N
+
   DATA_INTEGER(random_rec);       // Logical of whether to treate recruitment deviations as random effects
   DATA_INTEGER( niter );          // Number of loops for MSM mode
 
@@ -143,7 +151,7 @@ Type objective_function<Type>::operator() (){
   DATA_ARRAY( UobsWt );           // pred, prey, predL, preyL U matrix (mean wt_hat of prey in each pred); n = [nspp, nspp, maxL, maxL] #FIXME - Changed name in stomach2017.dat
   DATA_ARRAY( UobsAge );          // pred, prey, predA, preyA U matrix (mean number of prey in each pred age); n = [nspp, nspp, max_age, max_age]
   DATA_ARRAY( UobsWtAge );        // pred, prey, predA, preyA U matrix (mean wt_hat of prey in each pred age); n = [nspp, nspp, max_age, max_age]
-  DATA_MATRIX( Mn_LatAge );       // Mean length-at-age; n = [nspp, nages]
+  DATA_MATRIX( Mn_LatAge );       // Mean length-at-age; n = [nspp, nages], ALSO: mean_laa in Kinzey
 
   // -- 2.3.7. Q Diet data
   DATA_INTEGER( npred3 );         // Number of predators; n = [1]
@@ -340,6 +348,43 @@ Type objective_function<Type>::operator() (){
   matrix<Type>  suit_other(nspp, max_age); suit_other.setZero();                  // Suitability not accounted for by the included prey; n = [nspp, nages]
   array<Type>   suma_suit(nyrs, max_age, nspp); suma_suit.setZero();              // Sum of suitabilities; n = [nyrs, nages, nspp]
 
+
+
+  // ------------------------------------------------------------------------- //
+  // 5. KINZEY Parameters                                                      //
+  // ------------------------------------------------------------------------- //
+
+        int nspp_sq = nspp*nspp; // number pred X prey
+        int nspp_sq2 = nspp*(nspp+1); // number pred X (prey + "other")
+
+        PARAMETER_VECTOR(logH_1);                         // Predation functional form; n = [nspp_sq2]; // FIXME: make matrix
+        PARAMETER_VECTOR(logH_1a);                        // Age adjustment to H_1; n = [1, nspp]; // FIXME: make matrix
+        PARAMETER_VECTOR(logH_1b);                        // Age adjustment to H_1; n = [1, nspp]; // FIXME: make matrix
+
+        PARAMETER_VECTOR(logH_2);                            // Predation functional form; n = [1, nspp_sq]
+        PARAMETER_VECTOR(logH_3);                            // Predation functional form; n = [1, nspp_sq]; bounds = LowerBoundH3,UpperBoundH3; // FIXME: make matrix
+        PARAMETER_VECTOR(H_4);                               // Predation functional form; n = [1, nspp_sq]; bounds = LowerBoundH4,UpperBoundH4; // FIXME: make matrix
+
+        // Gamma selectivity parameters
+        PARAMETER_ARRAY( gam_ua );            // gamma selectivity of predator age u on prey age a; n = [nspp, nspp, nages, nages] // FIXME: move to 4D array nspp, nspp, nages, nages
+        PARAMETER_VECTOR( log_gam_a );        // Log predator selectivity; n = [1,nspp]; FIXME: bounds = 1.0e-10 and 19.9
+        PARAMETER_VECTOR( log_gam_b );        // Log predator selectivity; n = [1,nspp]; FIXME: bounds = -5.2 and 10
+
+        vector<Type> H_1(nspp_sq2); H_1 = exp(logH_1); // FIXME: make matrix
+        vector<Type> H_1a(nspp); H_1a = exp(logH_1a); // FIXME: make matrix
+        vector<Type> H_1b(nspp); H_1b = exp(logH_1b); // FIXME: make matrix
+        vector<Type> H_2(nspp_sq); H_2 = exp(logH_2); // FIXME: make matrix
+        vector<Type> H_3(nspp_sq); H_3 = exp(logH_3); // FIXME: make matrix
+
+        // DERIVED BITS
+        vector<int>  r_ages(nspp_sq);
+        vector<int>  k_ages(nspp_sq);
+
+        vector<Type> gam_a = exp(log_gam_a); // Predator selectivity
+        vector<Type> gam_b = exp(
+        int r_age, k_age;         // Predator - prey agelog_gam_b); // Predator selectivity
+        int ncnt;
+
   // ------------------------------------------------------------------------- //
   // 5. INITIAL CALCULATIONS                                                   //
   // ------------------------------------------------------------------------- //
@@ -516,11 +561,16 @@ Type objective_function<Type>::operator() (){
     for(i = 0; i < nspp; i++){
       for(j = 0; j < nages(i); j++){
         for(y = 0; y < nyrs; y++){
-          if(AvgN_type == 0){
-                      AvgN(y, j, i) = NByage(y, j, i) * (1 - S(y, j, i)) / Zed(y, j, i);
-          } else{
-            AvgN(y, j, i) = NByage(y, j, i);
+          if(avgnMode == 0){
+            AvgN(y, j, i) = NByage(y, j, i) * (1 - S(y, j, i)) / Zed(y, j, i); // MSVPA approach
           }
+          if(avgnMode == 1){
+            AvgN(y, j, i) = NByage(y, j, i) * exp(- Zed(y, j, i) / 2); // Kinzey and Punt (2009) approximation
+          }
+          if(avgnMode == 2){
+            AvgN(y, j, i) = NByage(y, j, i); // Van Kirk et al (2010) approximation
+          }
+          // FIXME: put in break here
         }
       }
     }
@@ -535,13 +585,17 @@ Type objective_function<Type>::operator() (){
     for(i=0; i < nspp; i++){
       for(j=0; j < nages(i); j++){
         for(y=0; y < nyrs; y++){
-          S2Age(y, j, i) = S_a(0, i) + (S_a(1, i) * LbyAge(y, j, i)) + (S_a(2, i) * pow(LbyAge(y, j, i), 2)) + (S_a(3, i) * pow(LbyAge(y, j, i), 3)) + (S_a(4, i) * pow(LbyAge(y, j, i), 4)) + (S_a(5, i) * pow(LbyAge(y, j, i), 5));
+          S2Age(y, j, i) = S_a(0, i) + (S_a(1, i) * LbyAge(y, j, i)) + (S_a(2, i) * pow(LbyAge(y, j, i), 2))
+          S2Age(y, j, i) += (S_a(3, i) * pow(LbyAge(y, j, i), 3)) + (S_a(4, i) * pow(LbyAge(y, j, i), 4)) + (S_a(5, i) * pow(LbyAge(y, j, i), 5));
+
           if(LbyAge(y, j, i)>80){
-            S2Age(y, j, i) = S_a(0, i) + (S_a(1, i) * 80) + (S_a(2, i) * pow(80, 2)) + (S_a(3, i) * pow(80, 3)) + (S_a(4, i) * pow(80, 4)) + (S_a(5, i) * pow(80, 5)); // set everything above 80 to 80
+            S2Age(y, j, i) = S_a(0, i) + (S_a(1, i) * 80) + (S_a(2, i) * pow(80, 2)) + (S_a(3, i) * pow(80, 3))
+            S2Age(y, j, i) += (S_a(4, i) * pow(80, 4)) + (S_a(5, i) * pow(80, 5)); // set everything above 80 to 80
           }
         }
       }
     }
+
 
     // 6.2. Calculate temperature function of consumption
     Type Yc = 0;
@@ -578,6 +632,7 @@ Type objective_function<Type>::operator() (){
       }
     }
 
+
     // 6.3. Calculate historic ration
     for(i=0; i < nspp; i++){
       for(j=0; j < nages(i); j++){
@@ -595,8 +650,9 @@ Type objective_function<Type>::operator() (){
       }
     }
 
+
     // 6.4. Calculate stomach content
-    for (y=0; y<nyrs; y++){           // Year loop
+    for (y=0; y<nyrs; y++){                     // Year loop
       for(p=0; p < nspp; p++){                  // Predator species loop
         for (a=0; a < nages(p); a++){           // Predator age loop
           for (i=0; i < nspp; i++){             // Prey species loop
@@ -611,10 +667,10 @@ Type objective_function<Type>::operator() (){
 
     // 6.5. Calculate other food stomach content
     of_stomKir.setZero();
-    for (y=0; y<nyrs; y++){           // Year loop
+    for (y=0; y<nyrs; y++){                     // Year loop
       for(p=0; p < nspp; p++){                  // Predator species loop
         for (a=0; a < nages(p); a++){           // Predator age loop
-          of_stomKir(a, y, p) = Type( 1 );         // Initialize other suitability
+          of_stomKir(a, y, p) = Type( 1 );      // Initialize other suitability
           for (i=0; i < nspp; i++){             // Prey species loop
             for (j=0; j < nages(i); j++){       // Prey age loop
               of_stomKir(a, y, p) -= stomKir(p, i, a, j, y);
@@ -628,72 +684,75 @@ Type objective_function<Type>::operator() (){
 
     if(msmMode > 0){
 
-      // 6.6. Calculate stomach proportion over biomass; U/ (W * N)
-      suma_suit.setZero();
-      for(y=0; y<nyrs; y++){                    // Year loop
-        for (i=0; i < nspp; i++){               // Prey species loop
-          for(p=0; p < nspp; p++){              // Predator species loop
-            for(a=0; a < nages(p); a++){        // Predator age loop
-              for (j=0; j < nages(i); j++){     // Prey age loop
-                suit_tmp = stomKir(p, i, a, j, y) / (AvgN(y, j, i));
-                if (wt(y, j, i)!= 0){
-                  stom_div_bio2(p, i, a, j, y) = suit_tmp / wt(y, j, i);
-                  suma_suit(y, a, p ) += stom_div_bio2(p, i, a, j, y); // Calculate sum of stom_div_bio2 across prey and  prey age for each predator, predator age, and year
+      // HOLSMAN PREDATION MORTALITY
+      if(predMode == 0){
+// 6.6. Calculate stomach proportion over biomass; U/ (W * N)
+        suma_suit.setZero();
+        for(y=0; y<nyrs; y++){                    // Year loop
+          for (i=0; i < nspp; i++){               // Prey species loop
+            for(p=0; p < nspp; p++){              // Predator species loop
+              for(a=0; a < nages(p); a++){        // Predator age loop
+                for (j=0; j < nages(i); j++){     // Prey age loop
+                  suit_tmp = stomKir(p, i, a, j, y) / (AvgN(y, j, i));
+                  if (wt(y, j, i)!= 0){
+                    stom_div_bio2(p, i, a, j, y) = suit_tmp / wt(y, j, i);
+                    suma_suit(y, a, p ) += stom_div_bio2(p, i, a, j, y); // Calculate sum of stom_div_bio2 across prey and  prey age for each predator, predator age, and year
+                  }
                 }
               }
             }
           }
         }
-      }
 
 
-      // 6.7. Calculate suitability
-      suit_main.setZero();
-      suit_other.setZero();
-      for(p=0; p < nspp; p++){                  // Predator species loop
-        for (a=0; a < nages(p); a++){           // Predator age loop
-          suit_other(p, a) = Type( 1 );         // Initialize other suitability
-          for (i=0; i < nspp; i++){             // Prey species loop
-            for (j=0; j < nages(i); j++){       // Prey age loop
-              for (y=0; y<nyrs; y++){           // Year loop
-                suit_main(p, i, a, j) += stom_div_bio2(p, i, a, j, y)/( suma_suit(y, a, p ) + of_stomKir(a, y, p) );
-              }                                 // End year loop
-              suit_main(p, i, a, j) /= nyrs;
-              suit_other(p, a) -= suit_main(p, i, a, j); // Subtract observed suitability from entire suitability (i.e. 1)
-            }
-          }
-        }
-      }
-
-
-      // 6.8. Calculate available food
-      avail_food.setZero();
-      for(p=0; p < nspp; p++){                    // Predator species loop
-        for (a=0; a < nages(p); a++){             // Predator age loop
-          for(y=0; y < nyrs; y++){                // Year loop
-            tmp_othersuit=0.;
+        // 6.7. Calculate suitability
+        suit_main.setZero();
+        suit_other.setZero();
+        for(p=0; p < nspp; p++){                  // Predator species loop
+          for (a=0; a < nages(p); a++){           // Predator age loop
+            suit_other(p, a) = Type( 1 );         // Initialize other suitability
             for (i=0; i < nspp; i++){             // Prey species loop
               for (j=0; j < nages(i); j++){       // Prey age loop
-                avail_food(y, a, p) += suit_main(p, i, a, j) * AvgN(y, j, i) * wt(y, j, i); // FIXME - include overlap indices: FIXME - mn_wt_stom?
-                tmp_othersuit += suit_main(p, i, a, j); // FIXME - include overlap indices
+                for (y=0; y<nyrs; y++){           // Year loop
+                  suit_main(p, i, a, j) += stom_div_bio2(p, i, a, j, y)/( suma_suit(y, a, p ) + of_stomKir(a, y, p) );
+                }                                 // End year loop
+                suit_main(p, i, a, j) /= nyrs;
+                suit_other(p, a) -= suit_main(p, i, a, j); // Subtract observed suitability from entire suitability (i.e. 1)
               }
             }
-            avail_food(y, a, p) += other_food(p)*(Type(1) - (tmp_othersuit)); // FIXME - double check this is in the right loop
           }
         }
-      }
 
 
-      // 6.9. Calculate predation mortality
-      M2.setZero();
-      B_eaten.setZero();
-      for (i=0; i < nspp; i++){                   // Prey species loop
-        for (j=0; j < nages(i); j++){             // Prey age loop
-          for(y=0; y < nyrs; y++){                // Year loop
-            for (p=0; p <nspp; p++){              // Predator species loop
-              for (a=0; a < nages(p); a++){       // Predator age loop
-                M2(y, j, i) += (AvgN(y, a, p) * ration2Age(y, a, p) * suit_main(p , i , a, j)) / avail_food(y, a, p); // #FIXME - include indices of overlap
-                B_eaten(y, j, i) += AvgN(y, a, p) * ration2Age(y, a, p) * suit_main(p , i , a, j);
+        // 6.8. Calculate available food
+        avail_food.setZero();
+        for(p=0; p < nspp; p++){                    // Predator species loop
+          for (a=0; a < nages(p); a++){             // Predator age loop
+            for(y=0; y < nyrs; y++){                // Year loop
+              tmp_othersuit=0.;
+              for (i=0; i < nspp; i++){             // Prey species loop
+                for (j=0; j < nages(i); j++){       // Prey age loop
+                  avail_food(y, a, p) += suit_main(p, i, a, j) * AvgN(y, j, i) * wt(y, j, i); // FIXME - include overlap indices: FIXME - mn_wt_stom?
+                  tmp_othersuit += suit_main(p, i, a, j); // FIXME - include overlap indices
+                }
+              }
+              avail_food(y, a, p) += other_food(p)*(Type(1) - (tmp_othersuit)); // FIXME - double check this is in the right loop
+            }
+          }
+        }
+
+
+        // 6.9. Calculate predation mortality
+        M2.setZero();
+        B_eaten.setZero();
+        for (i=0; i < nspp; i++){                   // Prey species loop
+          for (j=0; j < nages(i); j++){             // Prey age loop
+            for(y=0; y < nyrs; y++){                // Year loop
+              for (p=0; p <nspp; p++){              // Predator species loop
+                for (a=0; a < nages(p); a++){       // Predator age loop
+                  M2(y, j, i) += (AvgN(y, a, p) * ration2Age(y, a, p) * suit_main(p , i , a, j)) / avail_food(y, a, p); // #FIXME - include indices of overlap
+                  B_eaten(y, j, i) += AvgN(y, a, p) * ration2Age(y, a, p) * suit_main(p , i , a, j);
+                }
               }
             }
           }
@@ -866,7 +925,7 @@ Type objective_function<Type>::operator() (){
           vector<Type> fsh_len_tmp = vec_mat_prod( fsh_age_tmp_trimmed , ALK ); // Multiply the ALK for species i against the survey catch-at-age for year y
 
           for(j=0; j < fsh_age_bins(i); j++){
-            fsh_age_hat(y, j, i) = fsh_len_tmp(j) / tc_hat(i, y) ; // FIXME: because the age_trans_matrix rows do not sum to 1 for PCod, we are underestimating length_comp
+            fsh_age_hat(y, j, i) = fsh_len_tmp(j) / fsh_age_tmp.sum() ; // FIXME: because the age_trans_matrix rows do not sum to 1 for PCod, we are underestimating length_comp
           }
         }
       }
@@ -993,8 +1052,8 @@ Type objective_function<Type>::operator() (){
         fsh_yr_ind = yrs_fsh_comp(i, y) - styr; // Temporary index for years of data
         jnll_comp(5, i) -= tau * (fsh_age_obs(y, j, i) + MNConst) * log(fsh_age_hat(fsh_yr_ind, j, i) + MNConst );
       }
-      jnll_comp(5, i) -= offset_fsh(i);
     }
+    jnll_comp(5, i) -= offset_fsh(i);
   }
 
 
@@ -1116,7 +1175,7 @@ Type objective_function<Type>::operator() (){
   REPORT( eit_hat );
   REPORT( eit_age_hat );
   REPORT( eit_age_comp_hat )
-  REPORT( obs_eit_age );
+    REPORT( obs_eit_age );
   REPORT( eit_age_comp );
   REPORT( avgsel_srv );
   REPORT( srv_sel );
