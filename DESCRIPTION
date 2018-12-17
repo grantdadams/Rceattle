@@ -14,7 +14,8 @@ Imports: TMB (>= 1.7.10),
     adnuts (>= 0.0.0.9000),
     testthat,
     TMBhelper,
-    TMBdebug
+    TMBdebug,
+    r4ss
 Remotes: colemonnahan/adnuts
 RoxygenNote: 6.0.1
 BugReports: https://github.com/grantdadams/Rceattle/issues

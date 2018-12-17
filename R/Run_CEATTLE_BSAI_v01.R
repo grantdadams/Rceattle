@@ -21,6 +21,8 @@
 
 Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = "CEATTLE_BSAI_MS_v01_02", dat_dir = NULL, inits = NULL, debug = T, random_rec = FALSE, niter = 3, file_name = NULL, avgnMode = 0, predMode = 0){
 
+  start_time <- Sys.time()
+
   #--------------------------------------------------
   # 1. DATA and MODEL PREP
   #--------------------------------------------------
@@ -133,9 +135,10 @@ Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = "CEATTL
     last_par = suppressWarnings(obj$env$parList(obj$env$last.par.best))
   }
 
+  run_time = paste((Sys.time()-start_time) / 60)
 
   # Return objects
-  mod_objects <- list(data_list = data_list, initial_params = params, final_params = last_par, map = map, sdrep = sdrep, obj = obj, opt = opt, quantities = quantities)
+  mod_objects <- list(data_list = data_list, initial_params = params, final_params = last_par, map = map, sdrep = sdrep, obj = obj, opt = opt, quantities = quantities, run_time = run_time)
   save(mod_objects, file = paste0(file_name,".RData"))
 
   # dyn.unload(TMB::dynlib(paste0(cpp_file)))
