@@ -925,7 +925,7 @@ Type objective_function<Type>::operator() (){
           vector<Type> fsh_len_tmp = vec_mat_prod( fsh_age_tmp_trimmed , ALK ); // Multiply the ALK for species i against the survey catch-at-age for year y
 
           for(j=0; j < fsh_age_bins(i); j++){
-            fsh_age_hat(y, j, i) = fsh_len_tmp(j) / fsh_age_tmp.sum() ; // FIXME: because the age_trans_matrix rows do not sum to 1 for PCod, we are underestimating length_comp
+            fsh_age_hat(y, j, i) = fsh_len_tmp(j) / fsh_len_tmp.sum() ; // FIXME: because the age_trans_matrix rows do not sum to 1 for PCod, we are underestimating length_comp
           }
         }
       }
