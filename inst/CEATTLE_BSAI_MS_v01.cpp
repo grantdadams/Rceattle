@@ -349,42 +349,6 @@ Type objective_function<Type>::operator() (){
   array<Type>   suma_suit(nyrs, max_age, nspp); suma_suit.setZero();              // Sum of suitabilities; n = [nyrs, nages, nspp]
 
 
-
-  // ------------------------------------------------------------------------- //
-  // 5. KINZEY Parameters                                                      //
-  // ------------------------------------------------------------------------- //
-
-        int nspp_sq = nspp*nspp; // number pred X prey
-        int nspp_sq2 = nspp*(nspp+1); // number pred X (prey + "other")
-
-        PARAMETER_VECTOR(logH_1);                         // Predation functional form; n = [nspp_sq2]; // FIXME: make matrix
-        PARAMETER_VECTOR(logH_1a);                        // Age adjustment to H_1; n = [1, nspp]; // FIXME: make matrix
-        PARAMETER_VECTOR(logH_1b);                        // Age adjustment to H_1; n = [1, nspp]; // FIXME: make matrix
-
-        PARAMETER_VECTOR(logH_2);                            // Predation functional form; n = [1, nspp_sq]
-        PARAMETER_VECTOR(logH_3);                            // Predation functional form; n = [1, nspp_sq]; bounds = LowerBoundH3,UpperBoundH3; // FIXME: make matrix
-        PARAMETER_VECTOR(H_4);                               // Predation functional form; n = [1, nspp_sq]; bounds = LowerBoundH4,UpperBoundH4; // FIXME: make matrix
-
-        // Gamma selectivity parameters
-        PARAMETER_ARRAY( gam_ua );            // gamma selectivity of predator age u on prey age a; n = [nspp, nspp, nages, nages] // FIXME: move to 4D array nspp, nspp, nages, nages
-        PARAMETER_VECTOR( log_gam_a );        // Log predator selectivity; n = [1,nspp]; FIXME: bounds = 1.0e-10 and 19.9
-        PARAMETER_VECTOR( log_gam_b );        // Log predator selectivity; n = [1,nspp]; FIXME: bounds = -5.2 and 10
-
-        vector<Type> H_1(nspp_sq2); H_1 = exp(logH_1); // FIXME: make matrix
-        vector<Type> H_1a(nspp); H_1a = exp(logH_1a); // FIXME: make matrix
-        vector<Type> H_1b(nspp); H_1b = exp(logH_1b); // FIXME: make matrix
-        vector<Type> H_2(nspp_sq); H_2 = exp(logH_2); // FIXME: make matrix
-        vector<Type> H_3(nspp_sq); H_3 = exp(logH_3); // FIXME: make matrix
-
-        // DERIVED BITS
-        vector<int>  r_ages(nspp_sq);
-        vector<int>  k_ages(nspp_sq);
-
-        vector<Type> gam_a = exp(log_gam_a); // Predator selectivity
-        vector<Type> gam_b = exp(
-        int r_age, k_age;         // Predator - prey agelog_gam_b); // Predator selectivity
-        int ncnt;
-
   // ------------------------------------------------------------------------- //
   // 5. INITIAL CALCULATIONS                                                   //
   // ------------------------------------------------------------------------- //
@@ -586,11 +550,11 @@ Type objective_function<Type>::operator() (){
       for(j=0; j < nages(i); j++){
         for(y=0; y < nyrs; y++){
           S2Age(y, j, i) = S_a(0, i) + (S_a(1, i) * LbyAge(y, j, i)) + (S_a(2, i) * pow(LbyAge(y, j, i), 2))
-          S2Age(y, j, i) += (S_a(3, i) * pow(LbyAge(y, j, i), 3)) + (S_a(4, i) * pow(LbyAge(y, j, i), 4)) + (S_a(5, i) * pow(LbyAge(y, j, i), 5));
+           + (S_a(3, i) * pow(LbyAge(y, j, i), 3)) + (S_a(4, i) * pow(LbyAge(y, j, i), 4)) + (S_a(5, i) * pow(LbyAge(y, j, i), 5));
 
           if(LbyAge(y, j, i)>80){
             S2Age(y, j, i) = S_a(0, i) + (S_a(1, i) * 80) + (S_a(2, i) * pow(80, 2)) + (S_a(3, i) * pow(80, 3))
-            S2Age(y, j, i) += (S_a(4, i) * pow(80, 4)) + (S_a(5, i) * pow(80, 5)); // set everything above 80 to 80
+             + (S_a(4, i) * pow(80, 4)) + (S_a(5, i) * pow(80, 5)); // set everything above 80 to 80
           }
         }
       }
