@@ -1731,6 +1731,43 @@ Type objective_function<Type>::operator() () {
   REPORT( M2 );
   REPORT( B_eaten );
 
+  // -- 11.7. Kinzey predation functions
+  REPORT( nspp_sq );
+  REPORT( nspp_sq2 );
+
+  REPORT( H_1 );
+  REPORT( H_1a );
+  REPORT( H_1b );
+  REPORT( H_2 );
+  REPORT( H_3 );
+  REPORT( gam_a );
+  REPORT( gam_b );
+
+  REPORT( N_pred_yrs );
+  REPORT( N_prey_yrs );
+  REPORT( N_pred_eq );
+  REPORT( N_prey_eq );
+  REPORT( N_pred_eqs );
+  REPORT( N_prey_eqs );
+
+  // Functional response bits
+  REPORT( pred_resp );
+  REPORT( Pred_r );
+  REPORT( Prey_r );
+  REPORT( gam_ua );
+  REPORT( Vmort_ua );
+  REPORT( eaten_la );
+  REPORT( eaten_ua );
+
+  REPORT( Q_mass_l );
+  REPORT( Q_mass_u );
+  REPORT( Q_other_u );
+  REPORT( Q_hat );
+  REPORT( T_hat );
+
+  REPORT( omega_hat );
+  REPORT( omega_hat_ave );
+
   // ------------------------------------------------------------------------- //
   // END MODEL                                                                 //
   // ------------------------------------------------------------------------- //
