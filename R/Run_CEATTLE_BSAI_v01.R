@@ -19,128 +19,173 @@
 #'
 #' @examples
 
-Rceattle <- function(data_list = NULL, ctlFilename = NULL, TMBfilename = "CEATTLE_BSAI_MS_v01_02", dat_dir = NULL, inits = NULL, debug = T, random_rec = FALSE, niter = 3, file_name = NULL, avgnMode = 0, predMode = 0){
+Rceattle <-
+  function(data_list = NULL,
+           ctlFilename = NULL,
+           TMBfilename = "CEATTLE_BSAI_MS_v01_02",
+           dat_dir = NULL,
+           inits = NULL,
+           debug = T,
+           random_rec = FALSE,
+           niter = 3,
+           file_name = NULL,
+           avgnMode = 0,
+           predMode = 0) {
+    start_time <- Sys.time()
 
-  start_time <- Sys.time()
+    #--------------------------------------------------
+    # 1. DATA and MODEL PREP
+    #--------------------------------------------------
+    # Check if require packages are installed and install if not
+    if ("TMB" %in% rownames(installed.packages()) == FALSE) {
+      install.packages("TMB")
+    }
+    if ("TMBhelper" %in% rownames(installed.packages()) == FALSE) {
+      install.packages("TMBhelper")
+    }
+    library(TMB)
+    library(TMBhelper)
 
-  #--------------------------------------------------
-  # 1. DATA and MODEL PREP
-  #--------------------------------------------------
-  # Check if require packages are installed and install if not
-  if("TMB" %in% rownames(installed.packages()) == FALSE) {install.packages("TMB")}
-  if("TMBhelper" %in% rownames(installed.packages()) == FALSE) {install.packages("TMBhelper")}
-  library(TMB)
-  library(TMBhelper)
-
-  # Load data
-  source("R/1-build_dat.R")
-  source("R/2-build_params.R")
-  source("R/3-build_map.R")
+    # Load data
+    source("R/1-build_dat.R")
+    source("R/2-build_params.R")
+    source("R/3-build_map.R")
 
 
 
-  # STEP 1 - LOAD DATA
-  if(is.null(data_list)){
-    data_list <- build_dat(ctlFilename = ctlFilename,
-                           TMBfilename = TMBfilename,
-                           dat_dir = dat_dir,
-                           nspp = 3,
-                           debug = debug,
-                           random_rec = random_rec)
-    print("Step 1: Data build complete")
+    # STEP 1 - LOAD DATA
+    if (is.null(data_list)) {
+      data_list <- build_dat(
+        ctlFilename = ctlFilename,
+        TMBfilename = TMBfilename,
+        dat_dir = dat_dir,
+        nspp = 3,
+        debug = debug,
+        random_rec = random_rec
+      )
+      print("Step 1: Data build complete")
+    }
+    data_list$random_rec <- as.numeric(random_rec)
+    data_list$debug <- debug
+    data_list$niter <- niter
+    data_list$avgnMode <- avgnMode
+    data_list$predMode <- predMode
+
+
+
+    # STEP 2 - LOAD PARAMETERS
+    if (is.character(inits) | is.null(inits)) {
+      params <- build_params(
+        data_list = data_list,
+        nselages = 8,
+        incl_prev = ifelse(is.null(inits), FALSE, TRUE),
+        Rdata_file = paste0(strsplit(dat_dir, "/dat")[[1]][1], "/CEATTLE_results.Rdata"),
+        param_file = paste0(strsplit(dat_dir, "/dat")[[1]][1], "/", inits),
+        TMBfilename = TMBfilename
+      )
+    } else{
+      params <- inits
+    }
+    print("Step 2: Parameter build complete")
+
+
+
+    # STEP 3 - BUILD MAP
+    map  <-
+      build_map(data_list, params, debug = debug, random_rec = random_rec)
+    print("Step 3: Map build complete")
+
+
+
+    # STEP 4 - Setup random effects
+    random_vars <- c()
+    if (random_rec == TRUE) {
+      random_vars <- c("rec_dev")
+    }
+
+
+
+    # STEP 5 - Compile CEATTLE
+    version <- TMBfilename
+    cpp_directory <- "inst"
+    cpp_file <- paste0(cpp_directory, "/", version)
+
+    # Remove compiled files if not compatible with system
+    version_files <-
+      list.files(path = cpp_directory, pattern = version)
+    if (Sys.info()[1] == "Windows" &
+        paste0(version, ".so") %in% version_files) {
+      try(dyn.unload(TMB::dynlib(paste0(cpp_file))))
+      file.remove(paste0(cpp_file, ".so"))
+      file.remove(paste0(cpp_file, ".o"))
+    }
+    if (Sys.info()[1] != "Windows" &
+        paste0(version, ".dll") %in% version_files) {
+      try(dyn.unload(TMB::dynlib(paste0(cpp_file))))
+      file.remove(paste0(cpp_file, ".dll"))
+      file.remove(paste0(cpp_file, ".o"))
+    }
+
+    TMB::compile(paste0(cpp_file, ".cpp"))
+    dyn.load(TMB::dynlib(paste0(cpp_file)))
+    print("Step 4: Compile CEATTLE complete")
+
+
+
+    # STEP 6 - Build and fit model object
+    obj = TMB::MakeADFun(
+      data_list,
+      parameters = params,
+      DLL = version,
+      map = map,
+      random = random_vars,
+      silent = TRUE
+    )
+    print(paste0("Step 5: Optimizing model"), hessian = TRUE)
+    # opt <- nlminb(obj$par, obj$fn, obj$gr)
+    # methods <- c('Nelder-Mead', 'BFGS', 'CG', 'L-BFGS-B', 'nlm', 'nlminb', 'spg', 'ucminf', 'newuoa', 'bobyqa', 'nmkb', 'hjkb', 'Rcgmin', 'Rvmmin')
+    # opt_list <- list()
+    # for(i in 1:length(methods)){
+    #   opt_list[i] = optimx(obj$par, function(x) as.numeric(obj$fn(x)), obj$gr, control = list(maxit = 10000), method = methods[i])
+    # }
+    opt = tryCatch(
+      TMBhelper::Optimize(obj),
+      error = function(e)
+        NULL,
+      loopnum = 3
+    )
+
+    # Get quantities
+    sdrep = TMB::sdreport(obj)
+    quantities <- obj$report(obj$env$last.par.best)
+
+    if (debug) {
+      last_par <- params
+    }
+    else if (random_rec == F) {
+      last_par = suppressWarnings(obj$env$parList(obj$env$last.par.best))
+    }
+    else{
+      last_par = suppressWarnings(obj$env$parList(obj$env$last.par.best))
+    }
+
+    run_time = paste((Sys.time() - start_time) / 60)
+
+    # Return objects
+    mod_objects <-
+      list(
+        data_list = data_list,
+        initial_params = params,
+        final_params = last_par,
+        map = map,
+        sdrep = sdrep,
+        obj = obj,
+        opt = opt,
+        quantities = quantities,
+        run_time = run_time
+      )
+    save(mod_objects, file = paste0(file_name, ".RData"))
+
+    # dyn.unload(TMB::dynlib(paste0(cpp_file)))
+    return(mod_objects)
   }
-  data_list$random_rec <- as.numeric(random_rec)
-  data_list$debug <- debug
-  data_list$niter <- niter
-  data_list$avgnMode <- avgnMode
-  data_list$predMode <- predMode
-
-
-
-  # STEP 2 - LOAD PARAMETERS
-  if(is.character(inits) | is.null(inits)){
-    params <- build_params(data_list = data_list,
-                           nselages = 8,
-                           incl_prev = ifelse(is.null(inits), FALSE, TRUE),
-                           Rdata_file = paste0(strsplit(dat_dir, "/dat")[[1]][1], "/CEATTLE_results.Rdata"),
-                           param_file = paste0(strsplit(dat_dir, "/dat")[[1]][1], "/", inits),
-                           TMBfilename = TMBfilename)
-  } else{
-    params <- inits
-  }
-  print("Step 2: Parameter build complete")
-
-
-
-  # STEP 3 - BUILD MAP
-  map  <- build_map(data_list, params, debug = debug, random_rec = random_rec)
-  print("Step 3: Map build complete")
-
-
-
-  # STEP 4 - Setup random effects
-  random_vars <- c()
-  if(random_rec == TRUE){
-    random_vars <- c("rec_dev")
-  }
-
-
-
-  # STEP 5 - Compile CEATTLE
-  version <- TMBfilename
-  cpp_directory <- "inst"
-  cpp_file <- paste0(cpp_directory, "/", version)
-
-  # Remove compiled files if not compatible with system
-  version_files <- list.files(path = cpp_directory, pattern = version)
-  if(Sys.info()[1] == "Windows" & paste0(version,".so") %in% version_files){
-    try(  dyn.unload(TMB::dynlib(paste0(cpp_file))))
-    file.remove(paste0(cpp_file,".so"))
-    file.remove(paste0(cpp_file,".o"))
-  }
-  if(Sys.info()[1] != "Windows" & paste0(version,".dll") %in% version_files){
-    try(  dyn.unload(TMB::dynlib(paste0(cpp_file))))
-    file.remove(paste0(cpp_file,".dll"))
-    file.remove(paste0(cpp_file,".o"))
-  }
-
-  TMB::compile(paste0(cpp_file, ".cpp"))
-  dyn.load(TMB::dynlib(paste0(cpp_file)))
-  print("Step 4: Compile CEATTLE complete")
-
-
-
-  # STEP 6 - Build and fit model object
-  obj = TMB::MakeADFun(data_list, parameters = params,  DLL = version, map = map, random = random_vars, silent = TRUE)
-  print(paste0("Step 5: Optimizing model"), hessian = TRUE)
-  # opt <- nlminb(obj$par, obj$fn, obj$gr)
-  # methods <- c('Nelder-Mead', 'BFGS', 'CG', 'L-BFGS-B', 'nlm', 'nlminb', 'spg', 'ucminf', 'newuoa', 'bobyqa', 'nmkb', 'hjkb', 'Rcgmin', 'Rvmmin')
-  # opt_list <- list()
-  # for(i in 1:length(methods)){
-  #   opt_list[i] = optimx(obj$par, function(x) as.numeric(obj$fn(x)), obj$gr, control = list(maxit = 10000), method = methods[i])
-  # }
-  opt = tryCatch(TMBhelper::Optimize( obj ), error = function(e) NULL, loopnum = 3)
-
-  # Get quantities
-  sdrep = TMB::sdreport(obj)
-  quantities <- obj$report(obj$env$last.par.best)
-
-  if(debug){
-    last_par <- params
-  }
-  else if(random_rec == F){
-    last_par = suppressWarnings(obj$env$parList(obj$env$last.par.best))
-  }
-  else{
-    last_par = suppressWarnings(obj$env$parList(obj$env$last.par.best))
-  }
-
-  run_time = paste((Sys.time()-start_time) / 60)
-
-  # Return objects
-  mod_objects <- list(data_list = data_list, initial_params = params, final_params = last_par, map = map, sdrep = sdrep, obj = obj, opt = opt, quantities = quantities, run_time = run_time)
-  save(mod_objects, file = paste0(file_name,".RData"))
-
-  # dyn.unload(TMB::dynlib(paste0(cpp_file)))
-  return(mod_objects)
-}
