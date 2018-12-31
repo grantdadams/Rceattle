@@ -39,6 +39,18 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     map_list$ln_rec_sigma <- replace(map_list$ln_rec_sigma, values = rep(NA, length(map_list$ln_rec_sigma)))
   }
 
+  # Kinzey predation functions
+  if(data_list$msmMode < 2 | data_list$msmMode > 8){
+    map_list$logH_1 <- replace(map_list$logH_1, values = rep(NA, length(map_list$logH_1)))
+    map_list$logH_1a <- replace(map_list$logH_1a, values = rep(NA, length(map_list$logH_1a)))
+    map_list$logH_1b <- replace(map_list$logH_1b, values = rep(NA, length(map_list$logH_1b)))
+    map_list$logH_2 <- replace(map_list$logH_2, values = rep(NA, length(map_list$logH_2)))
+    map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
+    map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
+    map_list$log_gam_a <- replace(map_list$log_gam_a, values = rep(NA, length(map_list$log_gam_a)))
+    map_list$log_gam_b <- replace(map_list$log_gam_b, values = rep(NA, length(map_list$log_gam_b)))
+  }
+
 
   # STEP 3 - set up debug - I.E. turn off all parameters besides dummy
   map_list$dummy <- NA

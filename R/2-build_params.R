@@ -1,13 +1,13 @@
-# Function to read a TMB cpp file and construct parameter objects given a specified size
-# Grant Adams June 2018
-
-
+#' # Function to read a TMB cpp file and construct parameter list object for Rceattle
+#'
+#' @param data_list A data_list object created by \link{\code{build_dat}}
+#' @param nselages The number of selectivity parameters to use for each species. Deafult is 8
+#' @param inits Character vector of named initial values from ADMB \code{.std} or \code{.par} files or list of previous parameter estimates from Rceattle model.
+#' @param TMBfilename The version of the cpp CEATTLE file found in the src folder.
 build_params <-
   function(data_list,
            nselages = 8,
-           incl_prev = T,
-           Rdata_file,
-           param_file,
+           param_file = NULL,
            TMBfilename) {
     data_list$nselages <- nselages
 
@@ -73,6 +73,8 @@ build_params <-
     #---------------------------------------------------------------------
     # Step 2 -- Build list of parameters size of maximum data dimension
     #---------------------------------------------------------------------
+    data_list$nspp_sq = data_list$nspp * data_list$nspp
+    data_list$nspp_sq2 = data_list$nspp * (data_list$nspp + 1)
     param_list <- list()
 
     for (i in 1:nrow(param_dim)) {
@@ -115,31 +117,30 @@ build_params <-
       names(param_list)[i] <- param_names[i]
     }
 
+
+    #---------------------------------------------------------------------
+    # Step 3 -- Replace inits with starting values in range
+    #---------------------------------------------------------------------
     param_list$log_eit_q <- -6.7025
     param_list$ln_mn_rec <-
       replace(param_list$ln_mn_rec, values = 9)
     param_list$ln_mean_F <-
       replace(param_list$ln_mean_F, values = -.8)
+    param_list$log_gam_a <-
+      replace(param_list$log_gam_a, values = 2)
+    param_list$logH_3 <-
+      replace(param_list$logH_3, values = -10)
+    param_list$H_4 <-
+      replace(param_list$H_4, values = 2)
 
     # remove last init dev
     param_list$init_dev <- param_list$init_dev[,1:(ncol(param_list$init_dev)-1)]
 
 
     #---------------------------------------------------------------------
-    # Step 3 -- Replace inits with previous parameters if desired
+    # Step 4 -- Replace inits with previous parameters if desired
     #---------------------------------------------------------------------
-    if (incl_prev == T) {
-
-      # TMP file
-      load(Rdata_file)
-      for (i in 1:length(param_list)) {
-        # RDATA
-        if (is.null(tmp[[param_names[i]]]) == F) {
-          param_list[[param_names[i]]] <-
-            replace(param_list[[param_names[i]]],
-                    values = tmp[[param_names[i]]])
-        }
-      }
+    if (!is.null(inits)) {
 
       # If using std file
       if(grepl(".std", param_file)){

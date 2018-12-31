@@ -1,4 +1,15 @@
-build_dat <- function(ctlFilename = ctlFilename, TMBfilename = TMBfilename, dat_dir = dat_dir, nspp = 3, debug = TRUE, random_rec = FALSE) {
+#' Function to build a \code{data_list} object to be used by Rceattle from ADMB based CEATTLE dat and ctl files. For BSAI.
+#'
+#' @param ctlFilename The ADMB control file used for CEATTLE
+#' @param TMBfilename The version of the cpp CEATTLE file found in the src folder
+#' @param dat_dir The directory where dat files are stored
+#' @param nspp The number of species included in the CEATTLE model
+#'
+#' @return
+#' @export
+#'
+#' @examples
+build_dat <- function(ctlFilename = ctlFilename, TMBfilename = TMBfilename, dat_dir = dat_dir, nspp = 3) {
 
   #---------------------------------------------------------------------
   # Step 1 -- Extract data names used in TMB
@@ -120,10 +131,6 @@ build_dat <- function(ctlFilename = ctlFilename, TMBfilename = TMBfilename, dat_
     dat_list$config <- as.numeric(scan(ctl_fn, what = "", flush = F, blank.lines.skip = F, skip = skipp, nlines = 1, quiet = T, sep = ""))
     names(dat_list)[which(names(dat_list) == "config")] <- dat_names[i]
   }
-
-  # Switches
-  dat_list$random_rec = as.numeric(random_rec)
-  dat_list$debug = debug # Switch to debug model using initial values
 
   return(dat_list)
 }

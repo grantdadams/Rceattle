@@ -2,35 +2,42 @@
 
 #' This function estimates population parameters of CEATTLE using maximum likelihood in TMB. The currently uses data from \code{.dat} files used in the ADMB version of CEATTLE.
 #'
-#' @param ctlFilename The ADMB control file used for CEATTLE
 #' @param TMBfilename The version of the cpp CEATTLE file found in the src folder
-#' @param dat_dir The directory where dat files are stored
+#' @param data_list a data_list created from \code{\link{build_dat}}.
+#' @param inits Character vector of named initial values from ADMB or list of previous parameter estimates from Rceattle model.
+#' @param file_name Filename where files will be saved
 #' @param debug Runs the model without estimating parameters to get derived quantities given initial parameter values.
-#' @param data_list (Optional) a data_list from a previous model run.
-#' @param inits Character vector of named initial values from ADMB or list of previous parameter estimates from single species model.
 #' @param random_rec Boolian of whether to treat recruitment deviations as random effects.
 #' @param niter Number of iterations for multispecies model
-#' @param file_name Filename where files will be saved
+#' @param msmMode The predation mortality functions to used. Defaults to no predation mortality used.
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \deqn{\frac{N}{Z} \left( 1 - exp^{-Z} \right)}, 1 is \deqn{N e^{-Z/2}}, 2 is \deqn{N}.
-#' @param predMode The predation mortality functions to used. 0 is the default Holsman et al 2015
 #'
-#' @return
-#' @export
+#' @details
+#' CEATTLE is an age-structured population dynamics model that can be fit with or without predation mortality. The default is to exclude predation mortality by setting \code{msmMode} to 0. Predation mortality can be included by setting \code{msmMode} with the following options:
+#' \describe{
+#'   \item{0}{Single species mode}
+#'   \item{1}{Holsman et al. 2015 predation based on multi-species virtual population analysis (MSVPA) based predation formation.}
+#'   \item{2}{Kinzey & Punt 2010 Holling Type I (linear)}
+#'   \item{3}{Kinzey & Punt 2010 Holling Type II}
+#'   \item{4}{Kinzey & Punt 2010 Holling Type III}
+#'   \item{5}{Kinzey & Punt 2010 Predator interference}
+#'   \item{6}{Kinzey & Punt 2010 Predator preemption}
+#'   \item{7}{Kinzey & Punt 2010 Hassell-Varley}
+#'   \item{8}{Kinzey & Punt 2010 Ecosim}
+#' }
 #'
 #' @examples
 
 Rceattle <-
-  function(data_list = NULL,
-           ctlFilename = NULL,
-           TMBfilename = "CEATTLE_BSAI_MS_v01_02",
-           dat_dir = NULL,
+  function(TMBfilename = "CEATTLE_BSAI_MS_v01_02",
+           data_list = NULL,
            inits = NULL,
+           file_name = NULL,
            debug = T,
            random_rec = FALSE,
            niter = 3,
-           file_name = NULL,
-           avgnMode = 0,
-           predMode = 0) {
+           msmMode = 0,
+           avgnMode = 0) {
     start_time <- Sys.time()
 
     #--------------------------------------------------
@@ -47,30 +54,22 @@ Rceattle <-
     library(TMBhelper)
 
     # Load data
-    source("R/1-build_dat.R")
     source("R/2-build_params.R")
     source("R/3-build_map.R")
 
 
-
     # STEP 1 - LOAD DATA
     if (is.null(data_list)) {
-      data_list <- build_dat(
-        ctlFilename = ctlFilename,
-        TMBfilename = TMBfilename,
-        dat_dir = dat_dir,
-        nspp = 3,
-        debug = debug,
-        random_rec = random_rec
-      )
-      print("Step 1: Data build complete")
+      stop("Missing data_list object")
     }
+
+
+    # Switches
     data_list$random_rec <- as.numeric(random_rec)
     data_list$debug <- debug
     data_list$niter <- niter
     data_list$avgnMode <- avgnMode
-    data_list$predMode <- predMode
-
+    data_list$msmMode <- msmMode
 
 
     # STEP 2 - LOAD PARAMETERS
@@ -78,9 +77,7 @@ Rceattle <-
       params <- build_params(
         data_list = data_list,
         nselages = 8,
-        incl_prev = ifelse(is.null(inits), FALSE, TRUE),
-        Rdata_file = paste0(strsplit(dat_dir, "/dat")[[1]][1], "/CEATTLE_results.Rdata"),
-        param_file = paste0(strsplit(dat_dir, "/dat")[[1]][1], "/", inits),
+        inits = inits,
         TMBfilename = TMBfilename
       )
     } else{
@@ -102,7 +99,6 @@ Rceattle <-
     if (random_rec == TRUE) {
       random_vars <- c("rec_dev")
     }
-
 
 
     # STEP 5 - Compile CEATTLE
