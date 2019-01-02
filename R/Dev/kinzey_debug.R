@@ -9,7 +9,7 @@ file_name = NULL; # Don't save
 debug = 0; # Estimate
 random_rec = FALSE; # No random recruitment
 niter = 10; # Number of iterations around predation/pop dy functions
-msmMode = 2; # Multi-species holsman mode
+msmMode = 3; # Multi-species holsman mode
 avgnMode = 0
 
 
@@ -75,6 +75,8 @@ if (Sys.info()[1] != "Windows" &
   file.remove(paste0(cpp_file, ".o"))
 }
 
+# dyn.unload(TMB::dynlib(paste0(cpp_file)))
+# file.remove(paste0(cpp_file, ".dll"))
 TMB::compile(paste0(cpp_file, ".cpp"))
 dyn.load(TMB::dynlib(paste0(cpp_file)))
 print("Step 4: Compile CEATTLE complete")
