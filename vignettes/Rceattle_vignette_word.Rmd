@@ -30,7 +30,8 @@ ss_run <- Rceattle(TMBfilename = "CEATTLE_BSAI_MS_v01_02",
                    debug = 0, # Estimate
                    random_rec = FALSE, # No random recruitment
                    msmMode = 0, # Single species mode
-                   avgnMode = 0)
+                   avgnMode = 0,
+                   silent = TRUE)
 ```
 The you can plot the model results using using
 ```{R eval=FALSE}
@@ -45,7 +46,7 @@ data_list_ms <- build_dat(ctlFilename = "asmnt2017_2A_corrected", TMBfilename = 
 
 ms_run <- Rceattle(TMBfilename = "CEATTLE_BSAI_MS_v01_02", 
                    data_list = data_list_ms,
-                   inits = NULL, # Initial parameters = 0
+                   inits = ss_run$final_params, # Initial parameters from ss run
                    file_name = NULL, # Don't save
                    debug = 0, # Estimate
                    random_rec = FALSE, # No random recruitment
