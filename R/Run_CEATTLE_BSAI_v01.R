@@ -10,6 +10,7 @@
 #' @param niter Number of iterations for multispecies model
 #' @param msmMode The predation mortality functions to used. Defaults to no predation mortality used.
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{\frac{N}{Z} \left( 1 - exp^{-Z} \right)}, 1 is \eqn{N e^{-Z/2}}, 2 is \eqn{N}.
+#' @param silent TRUE/FALSE wether to include TMB estimation progress
 #'
 #' @details
 #' CEATTLE is an age-structured population dynamics model that can be fit with or without predation mortality. The default is to exclude predation mortality by setting \code{msmMode} to 0. Predation mortality can be included by setting \code{msmMode} with the following options:
@@ -34,7 +35,8 @@ Rceattle <-
            random_rec = FALSE,
            niter = 3,
            msmMode = 0,
-           avgnMode = 0) {
+           avgnMode = 0,
+           silent = FALSE) {
     start_time <- Sys.time()
 
     setwd(getwd())
@@ -133,7 +135,7 @@ Rceattle <-
       DLL = version,
       map = map,
       random = random_vars,
-      silent = FALSE
+      silent = silent
     )
     print(paste0("Step 5: Optimizing model"), hessian = TRUE)
     # opt <- nlminb(obj$par, obj$fn, obj$gr)
