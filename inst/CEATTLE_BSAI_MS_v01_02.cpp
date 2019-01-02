@@ -983,7 +983,7 @@ Type objective_function<Type>::operator() () {
                                                           (1 + H_3(rksp) * (Pred_ratio - 1 + 1.0e-10));
                       break;
                     default:
-                      error("Invalid 'predMode'");
+                      error("Invalid 'msmMode'");
                     }
                   }
                   else { // "other" is linear
@@ -1556,7 +1556,7 @@ Type objective_function<Type>::operator() () {
   }
 
   // Diet likelihood components
-  if (predMode > 0 & msmMode > 0) {
+  if (msmMode > 1) {
 
     // Slot 13 -- Ration likelihood
     for (y = 0; y < nyrs; y++) {

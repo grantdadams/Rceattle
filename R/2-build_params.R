@@ -1,20 +1,21 @@
-#' # Function to read a TMB cpp file and construct parameter list object for Rceattle
+#' Build parameter file
+#' @description Function to read a TMB cpp file and construct parameter list object for Rceattle
 #'
-#' @param data_list A data_list object created by \link{\code{build_dat}}
+#' @param data_list A data_list object created by \code{\link{build_dat}}
 #' @param nselages The number of selectivity parameters to use for each species. Deafult is 8
 #' @param inits Character vector of named initial values from ADMB \code{.std} or \code{.par} files or list of previous parameter estimates from Rceattle model.
 #' @param TMBfilename The version of the cpp CEATTLE file found in the src folder.
 build_params <-
   function(data_list,
            nselages = 8,
-           param_file = NULL,
-           TMBfilename) {
+           inits = NULL,
+           TMBfilename = NULL) {
     data_list$nselages <- nselages
-
+    closeAllConnections()
     #---------------------------------------------------------------------
     # Step 1 -- Extract parameter names and dimensions used in TMB
     #---------------------------------------------------------------------
-    cpp_fn <- file(paste("inst/", TMBfilename, ".cpp", sep = ""))
+    cpp_fn <- paste("inst/", TMBfilename, ".cpp", sep = "")
 
     cpp_file <- readLines(cpp_fn)
     cpp_file <-
@@ -143,9 +144,9 @@ build_params <-
     if (!is.null(inits)) {
 
       # If using std file
-      if(grepl(".std", param_file)){
+      if(grepl(".std", inits)){
         # std fild
-        std_dat <- read.delim(param_file, sep = "")
+        std_dat <- read.delim(inits, sep = "")
         std_dat$name <- gsub('[[:digit:]]|\\[|\\]', '', std_dat$name)
 
         param_names <- names(param_list)
@@ -188,11 +189,11 @@ build_params <-
 
       ################################################################################################
       # If using par file
-      if(grepl(".par", param_file)){
+      if(grepl(".par", inits)){
         # std fild
         std_dat <-
           scan(
-            param_file,
+            inits,
             what = "",
             flush = T,
             blank.lines.skip = F,
@@ -209,7 +210,7 @@ build_params <-
           par_file_names[i] <-
             paste(
               scan(
-                param_file,
+                inits,
                 skip = par_file_lines[i] - 1,
                 flush = F,
                 sep = "\t",
@@ -232,7 +233,7 @@ build_params <-
         par_list <- list()
         for (i in 1:length(par_file_lines)) {
           par_list[[i]] <-
-            scan(param_file,what="numeric",flush=F,blank.lines.skip=F,skip=par_file_lines[i],nlines=ifelse(i < length(par_file_lines), par_file_lines[i+1] - par_file_lines[i] - 1, 1), quiet=T,sep="")
+            scan(inits,what="numeric",flush=F,blank.lines.skip=F,skip=par_file_lines[i],nlines=ifelse(i < length(par_file_lines), par_file_lines[i+1] - par_file_lines[i] - 1, 1), quiet=T,sep="")
           par_list[[i]] <- as.numeric(as.character(par_list[[i]]))
           names(par_list)[i] <- par_file_names[i]
         }
@@ -277,6 +278,7 @@ build_params <-
         }
       }
     }
+    closeAllConnections()
 
     return(param_list)
   }
