@@ -72,7 +72,7 @@ Rceattle <-
     data_list$avgnMode <- avgnMode
     data_list$msmMode <- msmMode
 
-    # STEP 2 - LOAD PARAMETERS
+    # STEP 1 - LOAD PARAMETERS
     if (is.character(inits) | is.null(inits)) {
       params <- Rceattle::build_params(
         data_list = data_list,
@@ -83,14 +83,18 @@ Rceattle <-
     } else{
       params <- inits
     }
-    print("Step 2: Parameter build complete")
+    print("Step 1: Parameter build complete")
 
 
 
-    # STEP 3 - BUILD MAP
+    # STEP 2 - BUILD MAP
     map  <-
       Rceattle::build_map(data_list, params, debug = debug, random_rec = random_rec)
-    print("Step 3: Map build complete")
+    print("Step 2: Map build complete")
+
+
+    # STEP 3 - Get bounds
+    bounds <- Rceattle::build_bounds(param_list = params)
 
 
 
@@ -136,8 +140,9 @@ Rceattle <-
       map = map,
       random = random_vars,
       silent = silent
+
     )
-    print(paste0("Step 5: Optimizing model"), hessian = TRUE)
+    print(paste0("Step 4: Optimizing model"), hessian = TRUE)
     # opt <- nlminb(obj$par, obj$fn, obj$gr)
     # methods <- c('Nelder-Mead', 'BFGS', 'CG', 'L-BFGS-B', 'nlm', 'nlminb', 'spg', 'ucminf', 'newuoa', 'bobyqa', 'nmkb', 'hjkb', 'Rcgmin', 'Rvmmin')
     # opt_list <- list()
@@ -146,6 +151,8 @@ Rceattle <-
     # }
     opt = tryCatch(
       TMBhelper::Optimize(obj),
+      lower = bounds$lower,
+      upper = bounds$upper,
       error = function(e)
         NULL,
       loopnum = 3
@@ -172,12 +179,13 @@ Rceattle <-
       list(
         data_list = data_list,
         initial_params = params,
-        final_params = last_par,
+        estimated_params = last_par,
         map = map,
         sdrep = sdrep,
         obj = obj,
         opt = opt,
         quantities = quantities,
+        bounds = bounds,
         run_time = run_time
       )
 

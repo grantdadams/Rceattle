@@ -614,11 +614,11 @@ Type objective_function<Type>::operator() () {
       for (j = 0; j < nages(i); j++) {
         for (y = 0; y < nyrs; y++) {
           S2Age(y, j, i) = S_a(0, i) + (S_a(1, i) * LbyAge(y, j, i)) + (S_a(2, i) * pow(LbyAge(y, j, i), 2))
-                           + (S_a(3, i) * pow(LbyAge(y, j, i), 3)) + (S_a(4, i) * pow(LbyAge(y, j, i), 4)) + (S_a(5, i) * pow(LbyAge(y, j, i), 5));
+          + (S_a(3, i) * pow(LbyAge(y, j, i), 3)) + (S_a(4, i) * pow(LbyAge(y, j, i), 4)) + (S_a(5, i) * pow(LbyAge(y, j, i), 5));
 
           if (LbyAge(y, j, i) > 80) {
             S2Age(y, j, i) = S_a(0, i) + (S_a(1, i) * 80) + (S_a(2, i) * pow(80, 2)) + (S_a(3, i) * pow(80, 3))
-                             + (S_a(4, i) * pow(80, 4)) + (S_a(5, i) * pow(80, 5)); // set everything above 80 to 80
+            + (S_a(4, i) * pow(80, 4)) + (S_a(5, i) * pow(80, 5)); // set everything above 80 to 80
           }
         }
       }
@@ -847,7 +847,7 @@ Type objective_function<Type>::operator() () {
                 if (Mn_LatAge(p, r_age) > Mn_LatAge(ksp, k_age)) {
                   x_l_ratio = log(Mn_LatAge(p, r_age) / Mn_LatAge(ksp, k_age));
                   gam_ua(p , ksp, r_age, k_age) = Type(1.0e-10) +  (Type(1.0e-10) + gam_a( p ) - 1) * log(x_l_ratio / LenOpt + Type(1.0e-10)) -
-                                                  (1.0e-10 + x_l_ratio - LenOpt) / gam_b(p);
+                    (1.0e-10 + x_l_ratio - LenOpt) / gam_b(p);
                   ncnt += 1;
                   gsum += exp( gam_ua(p , ksp, r_age, k_age) );
                 }
@@ -871,6 +871,12 @@ Type objective_function<Type>::operator() () {
         // ============================
         // KINZEY PREDATION MORTALITY
         // ============================
+
+        for (rsp = 0; rsp < nspp; rsp++) {
+          for (ru = 0; ru < nages(rsp); ru++) {
+            Q_other_u(rsp, ru) = other_food(rsp); // FIXME: may want to estimate other food exp(Q_other_est(rsp,ru));
+          }
+        }
 
 
         Type Pred_ratio = 0;          // Predator ratio
@@ -927,19 +933,19 @@ Type objective_function<Type>::operator() () {
         rksp = -1;
 
         //FIXME: Add year loop
-        
-          for (p = 0; p < nspp; p++) {
-            for (ksp = 0; ksp < (nspp + 1); ksp++) {
-              rk_sp += 1;
-              if (ksp < nspp) {
-                rksp += 1;
-              }
-              for (y = 0; y < nyrs; y++) {
+
+        for (p = 0; p < nspp; p++) {
+          for (ksp = 0; ksp < (nspp + 1); ksp++) {
+            rk_sp += 1;
+            if (ksp < nspp) {
+              rksp += 1;
+            }
+            for (y = 0; y < nyrs; y++) {
               for (r_age = 0; r_age < nages(p); r_age++) {
                 for (k_age = 0; k_age < kk_ages(ksp); k_age++) {
-                
+
                   Term = 1.0e-10 + H_1(rk_sp) * (Type(1) + H_1a(p) * H_1b(p) / (Type(r_age) + H_1b(p) + Type(1.0e-10)));
-	
+
                   N_pred_eqs(p, y, r_age) = N_pred_eq(p, r_age);
 
 
@@ -958,28 +964,28 @@ Type objective_function<Type>::operator() () {
                       break;
                     case 3: // Holling Type II
                       pred_resp(rk_sp, y, r_age, k_age) = 1.0e-10 + Term * (1 + H_2(rksp) + Type(1.0e-10)) /
-                                                          ( 1 + H_2(rksp) * Prey_ratio + 1.0e-10);
+                        ( 1 + H_2(rksp) * Prey_ratio + 1.0e-10);
                       break;
                     case 4: // Holling Type III
                       pred_resp(rk_sp, y, r_age, k_age) = 1.0e-10 +
-                                                          Term * (1 + H_2(rksp)) * pow((Prey_ratio + 1.0e-10), H_4(rksp)) /
-                                                          (1 + H_2(rksp) * pow((Prey_ratio + 1.0e-10), H_4(rksp)) + 1.0e-10 );
+                        Term * (1 + H_2(rksp)) * pow((Prey_ratio + 1.0e-10), H_4(rksp)) /
+                          (1 + H_2(rksp) * pow((Prey_ratio + 1.0e-10), H_4(rksp)) + 1.0e-10 );
                       break;
                     case 5: // predator interference
                       pred_resp(rk_sp, y, r_age, k_age) = 1.0e-10 + Term * (1 + H_2(rksp) + Type(1.0e-10)) /
-                                                          ( 1 + H_2(rksp) * Prey_ratio + H_3(rksp) * (Pred_ratio - 1) + 1.0e-10);
+                        ( 1 + H_2(rksp) * Prey_ratio + H_3(rksp) * (Pred_ratio - 1) + 1.0e-10);
                       break;
                     case 6: // predator preemption
                       pred_resp(rk_sp, y, r_age, k_age) = 1.0e-10 + Term * (1 + H_2(rksp) + Type(1.0e-10)) /
-                                                          ( (1 + H_2(rksp) * Prey_ratio) * (1 + H_3(rksp) * (Pred_ratio - 1)) + Type(1.0e-10));
+                        ( (1 + H_2(rksp) * Prey_ratio) * (1 + H_3(rksp) * (Pred_ratio - 1)) + Type(1.0e-10));
                       break;
                     case 7: // Hassell-Varley
                       pred_resp(rk_sp, y, r_age, k_age) = 1.0e-10 + Term * (2 + H_2(rksp) + 1.0e-10) /
-                                                          (1.0 + H_2(rksp) * Prey_ratio + pow((Prey_ratio + Type(1.0e-10)), H_4(rksp)) + 1.0e-10 );
+                        (1.0 + H_2(rksp) * Prey_ratio + pow((Prey_ratio + Type(1.0e-10)), H_4(rksp)) + 1.0e-10 );
                       break;
                     case 8: // Ecosim
                       pred_resp(rk_sp, y, r_age, k_age) = 1.0e-10 + Term /
-                                                          (1 + H_3(rksp) * (Pred_ratio - 1 + 1.0e-10));
+                        (1 + H_3(rksp) * (Pred_ratio - 1 + 1.0e-10));
                       break;
                     default:
                       error("Invalid 'msmMode'");
@@ -988,7 +994,7 @@ Type objective_function<Type>::operator() () {
                   else { // "other" is linear
                     pred_resp(rk_sp, y, r_age, 1) = 1.0e-10 + Term;
                   }
-                  
+
                 }
               } // end of r_ages, k_ages loop
             }   // =========================
@@ -1050,7 +1056,7 @@ Type objective_function<Type>::operator() () {
           }
         }
 
-      
+
         // Mass eaten (including "other")
         Q_mass_l.setZero();
         Q_mass_u.setZero();
@@ -1111,7 +1117,7 @@ Type objective_function<Type>::operator() () {
           }
         }
 
-  
+
         // Predict ration
         Type n_avg, numer, denom;
 
@@ -1559,14 +1565,14 @@ Type objective_function<Type>::operator() () {
 
   // Diet likelihood components
   if (msmMode > 1) {
-  	
-    
+
+
     // Slot 13 -- Ration likelihood
     for (y = 0; y < nyrs; y++) {
       for (i = 0; i < nspp; i++) {
         for (j = 1; j < nages(i); j++) { // don't include age zero in likelihood
           jnll_comp(13, i) += 0.5 * pow( log( omega_hat(i, y, j) + 1.0e-10) -
-                                         log(ration2Age(y, j, i)), 2) / (sd_ration * sd_ration); // FIXME: add year indices for ration
+            log(ration2Age(y, j, i)), 2) / (sd_ration * sd_ration); // FIXME: add year indices for ration
         }
       }
     }
@@ -1685,7 +1691,7 @@ Type objective_function<Type>::operator() () {
   REPORT( eit_hat );
   REPORT( eit_age_hat );
   REPORT( eit_age_comp_hat )
-  REPORT( obs_eit_age );
+    REPORT( obs_eit_age );
   REPORT( eit_age_comp );
   REPORT( avgsel_srv );
   REPORT( srv_sel );
