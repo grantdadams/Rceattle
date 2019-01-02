@@ -824,7 +824,7 @@ Type objective_function<Type>::operator() () {
             rk_sp += 1;
             // rr_lens(rk_sp) = l_bins(rsp);
             rr_ages(rk_sp) = nages(rsp);
-            if (ksp <= nspp) kk_ages(rk_sp) = nages(ksp);
+            if (ksp < nspp) kk_ages(rk_sp) = nages(ksp);
             else kk_ages(rk_sp) = 1;
           }
         }
@@ -865,6 +865,7 @@ Type objective_function<Type>::operator() () {
             }
           }
         }
+
         // if (DebugOut > 5) cout << "gam_ua = " << endl << gam_ua << endl;
         // if (DebugOut == 1) cout << "end gamma_selectivity" << endl;
 
@@ -903,6 +904,8 @@ Type objective_function<Type>::operator() () {
             }
           }
         }
+
+
 
 
         // Calculate available prey and predator for each year
@@ -1108,7 +1111,6 @@ Type objective_function<Type>::operator() () {
         }
 
         // Predict ration
-
         Type n_avg, numer, denom;
 
         omega_hat_ave.setZero();
@@ -1136,8 +1138,6 @@ Type objective_function<Type>::operator() () {
             omega_hat_ave(rsp, age) = numer / denom;
           }
         }
-
-
       } // End Kinzey predation
     } // End M2
 
@@ -1557,7 +1557,7 @@ Type objective_function<Type>::operator() () {
 
   // Diet likelihood components
   if (msmMode > 1) {
-
+    
     // Slot 13 -- Ration likelihood
     for (y = 0; y < nyrs; y++) {
       for (i = 0; i < nspp; i++) {
@@ -1775,7 +1775,7 @@ Type objective_function<Type>::operator() () {
   if (debug == 0) {
     jnll = jnll_comp.sum();
   }
-  if (debug == 1) {
+  if (debug > 0) {
     jnll = dummy * dummy;
   }
   REPORT( jnll );

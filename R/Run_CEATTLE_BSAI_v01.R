@@ -133,7 +133,7 @@ Rceattle <-
       DLL = version,
       map = map,
       random = random_vars,
-      silent = TRUE
+      silent = FALSE
     )
     print(paste0("Step 5: Optimizing model"), hessian = TRUE)
     # opt <- nlminb(obj$par, obj$fn, obj$gr)

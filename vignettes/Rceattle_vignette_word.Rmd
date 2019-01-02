@@ -27,7 +27,7 @@ ss_run <- Rceattle(TMBfilename = "CEATTLE_BSAI_MS_v01_02",
                    data_list = data_list_ss,
                    inits = NULL, # Initial parameters = 0
                    file_name = NULL, # Don't save
-                   debug = FALSE, # Estimate
+                   debug = 0, # Estimate
                    random_rec = FALSE, # No random recruitment
                    msmMode = 0, # Single species mode
                    avgnMode = 0)
@@ -45,9 +45,9 @@ data_list_ms <- build_dat(ctlFilename = "asmnt2017_2A_corrected", TMBfilename = 
 
 ms_run <- Rceattle(TMBfilename = "CEATTLE_BSAI_MS_v01_02", 
                    data_list = data_list_ms,
-                   inits = ss_run$final_params, # Initial parameters = 0
+                   inits = NULL, # Initial parameters = 0
                    file_name = NULL, # Don't save
-                   debug = FALSE, # Don't estimate
+                   debug = 0, # Estimate
                    random_rec = FALSE, # No random recruitment
                    niter = 10, # Number of iterations around predation/pop dy functions
                    msmMode = 1, # Multi-species holsman mode
