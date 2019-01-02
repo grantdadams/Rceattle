@@ -1552,10 +1552,10 @@ Type objective_function<Type>::operator() () {
 
       // Slot 11 -- Tau -- Annual recruitment deviation
       if (random_rec == 0) {
-        jnll_comp(11, i) += pow( rec_dev(i, y), 2);    // Recruitment deviation using penalized likelihood.
+        jnll_comp(11, i) += pow( rec_dev(i, y) - Type(0.25), 2);    // Recruitment deviation using penalized likelihood. ADDED lognormal bias correction
       }
       if (random_rec == 1) {
-        jnll_comp(11, i) -= dnorm( rec_dev(i, y), Type(0.0), r_sigma(i), true);    // Recruitment deviation using random effects.
+        jnll_comp(11, i) -= dnorm( rec_dev(i, y) - (r_sigma(i) * r_sigma(i) / 2) , Type(0.0), r_sigma(i), true);    // Recruitment deviation using random effects.
       }
 
       // Slot 12 -- Epsilon -- Annual fishing mortality deviation
@@ -1608,7 +1608,6 @@ Type objective_function<Type>::operator() () {
 
 
     Type Denom = 0;
-    Type TotN = 0;
 
     // Calculate the predicted fraction by length-class (Eqn 17)
     T_hat.setZero();
@@ -1618,8 +1617,6 @@ Type objective_function<Type>::operator() () {
         vector<Type> eaten_lmy(srv_age_bins(ksp)); eaten_lmy.setZero(); // no. of prey@length eaten by a predator length during iyr
 
         for (rln = 0; rln < srv_age_bins(rsp); rln++) { //
-          TotN = tau; // FIXME: add actual sample size
-
           // This is Equation 17
           for (y = 0; y < nyrs; y++) { // FIXME: loop by stomach year
             // int stom_yr = yrs_stomlns(rsp, ksp, stm_yr); // FIXME: index by stomach year
