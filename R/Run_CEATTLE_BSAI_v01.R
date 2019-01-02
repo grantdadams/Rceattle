@@ -193,6 +193,6 @@ Rceattle <-
       save(mod_objects, file = paste0(file_name, ".RData"))
     }
 
-    # dyn.unload(TMB::dynlib(paste0(cpp_file)))
+    dyn.unload(TMB::dynlib(paste0(cpp_file)))
     return(mod_objects)
   }
