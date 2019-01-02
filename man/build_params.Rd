@@ -4,8 +4,7 @@
 \alias{build_params}
 \title{Build parameter file}
 \usage{
-build_params(data_list, nselages = 8, inits = NULL,
-  TMBfilename = NULL)
+build_params(data_list, nselages = 8, inits = NULL, TMBfilename = NULL)
 }
 \arguments{
 \item{data_list}{A data_list object created by \code{\link{build_dat}}}
