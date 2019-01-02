@@ -1,13 +1,10 @@
-#' Function to compare output of TMB and ADMB based CEATTLE models to check if there are within a certain threshold of relative error. 0 means it is not within the tolerance, 1 means it is.
+#' Compare TMB vs ADMB
+#' @description Function to compare output of TMB and ADMB based CEATTLE models to check if there are within a certain threshold of relative error. 0 means it is not within the tolerance, 1 means it is.
 #'
-#' @param rep list of TMB CEATTLE estimated quantities from rep
+#' @param rep TMB CEATTLE estimated quantities from exported from \code{\link{Rceattle}}
 #' @param tmp list of ADMB CEATTLE estimated quantities from saved .Rdata file
+#' @param data_list a data_list created from \code{\link{build_dat}}.
 #' @param rel_error relative error tolerance
-#'
-#' @return
-#' @export
-#'
-#' @examples
 compare_output <- function( rep = rep, tmp = tmp, data_list = data_list, rel_error = 0.01){
 
   param_check <- list()

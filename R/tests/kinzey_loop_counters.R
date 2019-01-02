@@ -1,4 +1,4 @@
 rk_sp <- c()
-for(i in 1:3){
-  rk_sp[i] <- (i - 1) * (4)
+for(i in 0:2){
+  rk_sp[i+1] <- (i) * (4)
 }

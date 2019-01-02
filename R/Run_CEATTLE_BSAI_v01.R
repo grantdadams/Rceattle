@@ -1,32 +1,29 @@
-# This functions runs CEATTLE
-
-#' This function estimates population parameters of CEATTLE using maximum likelihood in TMB. The currently uses data from \code{.dat} files used in the ADMB version of CEATTLE.
+#' This functions runs CEATTLE
+#' @description  This function estimates population parameters of CEATTLE using maximum likelihood in TMB.
 #'
 #' @param TMBfilename The version of the cpp CEATTLE file found in the src folder
 #' @param data_list a data_list created from \code{\link{build_dat}}.
-#' @param inits Character vector of named initial values from ADMB or list of previous parameter estimates from Rceattle model.
-#' @param file_name Filename where files will be saved
+#' @param inits Character vector of named initial values from ADMB or list of previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters.
+#' @param file_name Filename where files will be saved. If NULL, no file is saved.
 #' @param debug Runs the model without estimating parameters to get derived quantities given initial parameter values.
 #' @param random_rec Boolian of whether to treat recruitment deviations as random effects.
 #' @param niter Number of iterations for multispecies model
 #' @param msmMode The predation mortality functions to used. Defaults to no predation mortality used.
-#' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \deqn{\frac{N}{Z} \left( 1 - exp^{-Z} \right)}, 1 is \deqn{N e^{-Z/2}}, 2 is \deqn{N}.
+#' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{\frac{N}{Z} \left( 1 - exp^{-Z} \right)}, 1 is \eqn{N e^{-Z/2}}, 2 is \eqn{N}.
 #'
 #' @details
 #' CEATTLE is an age-structured population dynamics model that can be fit with or without predation mortality. The default is to exclude predation mortality by setting \code{msmMode} to 0. Predation mortality can be included by setting \code{msmMode} with the following options:
 #' \describe{
-#'   \item{0}{Single species mode}
-#'   \item{1}{Holsman et al. 2015 predation based on multi-species virtual population analysis (MSVPA) based predation formation.}
-#'   \item{2}{Kinzey & Punt 2010 Holling Type I (linear)}
-#'   \item{3}{Kinzey & Punt 2010 Holling Type II}
-#'   \item{4}{Kinzey & Punt 2010 Holling Type III}
-#'   \item{5}{Kinzey & Punt 2010 Predator interference}
-#'   \item{6}{Kinzey & Punt 2010 Predator preemption}
-#'   \item{7}{Kinzey & Punt 2010 Hassell-Varley}
-#'   \item{8}{Kinzey & Punt 2010 Ecosim}
-#' }
-#'
-#' @examples
+#' \item{0. Single species mode}
+#' \item{1. Holsman et al. 2015 predation based on multi-species virtual population analysis (MSVPA) based predation formation.}
+#'   \item{2. Kinzey & Punt 2010 Holling Type I (linear)}
+#'   \item{3. Kinzey & Punt 2010 Holling Type II}
+#'   \item{4. Kinzey & Punt 2010 Holling Type III}
+#'   \item{5. Kinzey & Punt 2010 Predator interference}
+#'   \item{6. Kinzey & Punt 2010 Predator preemption}
+#'   \item{7. Kinzey & Punt 2010 Hassell-Varley}
+#'   \item{8. Kinzey & Punt 2010 Ecosim}
+#'   }
 
 Rceattle <-
   function(TMBfilename = "CEATTLE_BSAI_MS_v01_02",
@@ -39,6 +36,8 @@ Rceattle <-
            msmMode = 0,
            avgnMode = 0) {
     start_time <- Sys.time()
+
+    setwd(getwd())
 
     #--------------------------------------------------
     # 1. DATA and MODEL PREP
@@ -54,8 +53,8 @@ Rceattle <-
     library(TMBhelper)
 
     # Load data
-    source("R/2-build_params.R")
-    source("R/3-build_map.R")
+    # source("R/2-build_params.R")
+    # source("R/3-build_map.R")
 
 
     # STEP 1 - LOAD DATA
@@ -71,10 +70,9 @@ Rceattle <-
     data_list$avgnMode <- avgnMode
     data_list$msmMode <- msmMode
 
-
     # STEP 2 - LOAD PARAMETERS
     if (is.character(inits) | is.null(inits)) {
-      params <- build_params(
+      params <- Rceattle::build_params(
         data_list = data_list,
         nselages = 8,
         inits = inits,
@@ -89,7 +87,7 @@ Rceattle <-
 
     # STEP 3 - BUILD MAP
     map  <-
-      build_map(data_list, params, debug = debug, random_rec = random_rec)
+      Rceattle::build_map(data_list, params, debug = debug, random_rec = random_rec)
     print("Step 3: Map build complete")
 
 
@@ -180,7 +178,10 @@ Rceattle <-
         quantities = quantities,
         run_time = run_time
       )
-    save(mod_objects, file = paste0(file_name, ".RData"))
+
+    if(!is.null(file_name)){
+      save(mod_objects, file = paste0(file_name, ".RData"))
+    }
 
     # dyn.unload(TMB::dynlib(paste0(cpp_file)))
     return(mod_objects)

@@ -17,7 +17,7 @@ Imports: TMB (>= 1.7.10),
     TMBdebug,
     r4ss
 Remotes: colemonnahan/adnuts
-RoxygenNote: 6.0.1
+RoxygenNote: 6.1.1
 BugReports: https://github.com/grantdadams/Rceattle/issues
 Suggests: knitr,
     rmarkdown,

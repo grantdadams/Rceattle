@@ -1,20 +1,16 @@
-#' Function to build a \code{data_list} object to be used by Rceattle from ADMB based CEATTLE dat and ctl files. For BSAI.
+#' Build data list object
+#' @description Function to build a \code{data_list} object to be used by Rceattle from ADMB based CEATTLE dat and ctl files for BSAI groundfish.
 #'
 #' @param ctlFilename The ADMB control file used for CEATTLE
 #' @param TMBfilename The version of the cpp CEATTLE file found in the src folder
 #' @param dat_dir The directory where dat files are stored
 #' @param nspp The number of species included in the CEATTLE model
-#'
-#' @return
-#' @export
-#'
-#' @examples
-build_dat <- function(ctlFilename = ctlFilename, TMBfilename = TMBfilename, dat_dir = dat_dir, nspp = 3) {
+build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, dat_dir = NULL, nspp = 3) {
 
   #---------------------------------------------------------------------
   # Step 1 -- Extract data names used in TMB
   #---------------------------------------------------------------------
-  cpp_fn <- file(paste("inst/", TMBfilename, ".cpp", sep = ""))
+  cpp_fn <- paste("inst/", TMBfilename, ".cpp", sep = "")
 
   cpp_file <- readLines(cpp_fn)
   skipp <- grep("MODEL INPUTS", cpp_file) # Line of data files
@@ -39,7 +35,7 @@ build_dat <- function(ctlFilename = ctlFilename, TMBfilename = TMBfilename, dat_
   #---------------------------------------------------------------------
   # Step 2 -- Find location of data in dat files
   #---------------------------------------------------------------------
-  ctl_fn <- file(paste(dat_dir, ctlFilename, ".ctl", sep = ""))
+  ctl_fn <- paste(dat_dir, ctlFilename, ".ctl", sep = "")
   ctl_file <- readLines(ctl_fn)
   skipp <- grep("START filenames", ctl_file) # Line of data files
   nrow <- grep("END filenames", ctl_file) # Last line of data files
@@ -78,7 +74,7 @@ build_dat <- function(ctlFilename = ctlFilename, TMBfilename = TMBfilename, dat_
   source("R/Support Functions/readdat_fun.R")
   dat_list <- list()
   for (i in 1:nrow(dat_loc)) {
-    dat_list[[i]] <- readdat(fn = paste(dat_dir, dat_loc[i, 2], sep = ""), nm = as.character(dat_loc[i, 1]), nspp = nspp)
+    dat_list[[i]] <- suppressWarnings(readdat(fn = paste(dat_dir, dat_loc[i, 2], sep = ""), nm = as.character(dat_loc[i, 1]), nspp = nspp))
     names(dat_list)[i] <- as.character(dat_loc[i, 1])
   }
 
@@ -104,7 +100,7 @@ build_dat <- function(ctlFilename = ctlFilename, TMBfilename = TMBfilename, dat_
   # Steo 5 -- Model configuration
   #---------------------------------------------------------------------
   cpp_file <- readLines(cpp_fn)
-  ctl_fn <- file(paste(dat_dir, ctlFilename, ".ctl", sep = ""))
+  ctl_fn <- paste(dat_dir, ctlFilename, ".ctl", sep = "")
   ctl_file <- readLines(ctl_fn)
   skipp <- grep("MODEL CONFIGURATION", cpp_file) # Line of data files
   nrow <- grep("MODEL INPUTS", cpp_file) # Last line of data files
