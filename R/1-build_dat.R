@@ -10,7 +10,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, dat_dir = NULL, ns
   #---------------------------------------------------------------------
   # Step 1 -- Extract data names used in TMB
   #---------------------------------------------------------------------
-  cpp_fn <- paste("inst/", TMBfilename, ".cpp", sep = "")
+  cpp_fn <- file(paste("inst/", TMBfilename, ".cpp", sep = ""))
 
   cpp_file <- readLines(cpp_fn)
   skipp <- grep("MODEL INPUTS", cpp_file) # Line of data files
@@ -35,7 +35,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, dat_dir = NULL, ns
   #---------------------------------------------------------------------
   # Step 2 -- Find location of data in dat files
   #---------------------------------------------------------------------
-  ctl_fn <- paste(dat_dir, ctlFilename, ".ctl", sep = "")
+  ctl_fn <- file(paste(dat_dir, ctlFilename, ".ctl", sep = ""))
   ctl_file <- readLines(ctl_fn)
   skipp <- grep("START filenames", ctl_file) # Line of data files
   nrow <- grep("END filenames", ctl_file) # Last line of data files
@@ -100,7 +100,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, dat_dir = NULL, ns
   # Steo 5 -- Model configuration
   #---------------------------------------------------------------------
   cpp_file <- readLines(cpp_fn)
-  ctl_fn <- paste(dat_dir, ctlFilename, ".ctl", sep = "")
+  ctl_fn <- file(paste(dat_dir, ctlFilename, ".ctl", sep = ""))
   ctl_file <- readLines(ctl_fn)
   skipp <- grep("MODEL CONFIGURATION", cpp_file) # Line of data files
   nrow <- grep("MODEL INPUTS", cpp_file) # Last line of data files
@@ -113,6 +113,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, dat_dir = NULL, ns
     cpp_tmp[i] <- paste(scan(cpp_fn, skip = data_lines[i] + skipp - 1, flush = F, sep = "\t", nlines = 1, quiet = TRUE, what = "character", blank.lines.skip = TRUE), sep = "", collapse = " ")
   }
   tt <- strsplit(cpp_tmp, split = c(" ")) # find all the text lines
+
 
   dat_names <- c() # Character string of variables used in model
   for (i in 1:length(data_lines)) {
