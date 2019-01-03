@@ -291,9 +291,9 @@ Type objective_function<Type>::operator() () {
   PARAMETER_VECTOR(logH_1a);           // Age adjustment to H_1; n = [1, nspp]; // FIXME: make matrix
   PARAMETER_VECTOR(logH_1b);           // Age adjustment to H_1; n = [1, nspp]; // FIXME: make matrix
 
-  PARAMETER_VECTOR(logH_2);            // Predation functional form; n = [1, nspp_sq]
-  PARAMETER_VECTOR(logH_3);            // Predation functional form; n = [1, nspp_sq]; bounds = LowerBoundH3,UpperBoundH3; // FIXME: make matrix
-  PARAMETER_VECTOR(H_4);               // Predation functional form; n = [1, nspp_sq]; bounds = LowerBoundH4,UpperBoundH4; // FIXME: make matrix
+  PARAMETER_MATRIX(logH_2);            // Predation functional form; n = [nspp, nspp]
+  PARAMETER_MATRIX(logH_3);            // Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH3,UpperBoundH3;
+  PARAMETER_MATRIX(H_4);               // Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH4,UpperBoundH4;
 
   // 3.6 Gamma selectivity parameters
   PARAMETER_VECTOR( log_gam_a );       // Log predator selectivity; n = [1,nspp]; FIXME: bounds = 1.0e-10 and 19.9
@@ -377,11 +377,7 @@ Type objective_function<Type>::operator() () {
 
 
   // -- 4.8. Kinzey selectivity 
-  int nspp_sq = nspp * nspp; // number pred X prey
   int nspp_sq2 = nspp * (nspp + 1); // number pred X (prey + "other")
-
-  vector<int>  r_ages(nspp_sq);
-  vector<int>  k_ages(nspp_sq);
   vector<int>  kk_ages(nspp_sq2);
   vector<int>  rr_ages(nspp_sq2);
 
@@ -394,8 +390,8 @@ Type objective_function<Type>::operator() () {
   vector<Type> H_1(nspp_sq2); H_1 = exp(logH_1);                                     // FIXME: make matrix
   vector<Type> H_1a(nspp); H_1a = exp(logH_1a);                                      // FIXME: make matrix
   vector<Type> H_1b(nspp); H_1b = exp(logH_1b);                                      // FIXME: make matrix
-  vector<Type> H_2(nspp_sq); H_2 = exp(logH_2);                                      // FIXME: make matrix
-  vector<Type> H_3(nspp_sq); H_3 = exp(logH_3);                                      // FIXME: make matrix
+  matrix<Type> H_2(nspp, nspp); H_2 = exp(logH_2.array());                           
+  matrix<Type> H_3(nspp, nspp); H_3 = exp(logH_3.array());                               
 
   array<Type>  N_pred_yrs(nspp, max_age, nyrs); N_pred_yrs.setZero();                // Effective numbers of predators for each age of prey
   array<Type>  N_prey_yrs(nspp, max_age, nyrs); N_prey_yrs.setZero();                // Effective numbers of prey for each age of predator
@@ -815,15 +811,6 @@ Type objective_function<Type>::operator() () {
         // 8.2.1. GAMMA Selectivity // FIXME - not flexible for interannual variation in length-at-age
         rk_sp = -1;
         for (rsp = 0; rsp < nspp; rsp++) {
-          for (ksp = 0; ksp < nspp; ksp++) {
-            rk_sp += 1;
-            r_ages(rk_sp) = nages(rsp);
-            k_ages(rk_sp) = nages(ksp);
-          }
-        }
-
-        rk_sp = -1;
-        for (rsp = 0; rsp < nspp; rsp++) {
           for (ksp = 0; ksp < nspp + 1; ksp++) {
             rk_sp += 1;
             // rr_lens(rk_sp) = l_bins(rsp);
@@ -953,29 +940,29 @@ Type objective_function<Type>::operator() () {
                       pred_resp(rk_sp, r_age, k_age, yr) = 1.0e-10 + Term;
                       break;
                     case 3: // Holling Type II
-                      pred_resp(rk_sp, r_age, k_age, yr) = 1.0e-10 + Term * (1 + H_2(rksp) + Type(1.0e-10)) /
-                        ( 1 + H_2(rksp) * Prey_ratio + 1.0e-10);
+                      pred_resp(rk_sp, r_age, k_age, yr) = 1.0e-10 + Term * (1 + H_2(rsp, ksp) + Type(1.0e-10)) /
+                        ( 1 + H_2(rsp, ksp) * Prey_ratio + 1.0e-10);
                       break;
                     case 4: // Holling Type III
                       pred_resp(rk_sp, r_age, k_age, yr) = 1.0e-10 +
-                        Term * (1 + H_2(rksp)) * pow((Prey_ratio + 1.0e-10), H_4(rksp)) /
-                          (1 + H_2(rksp) * pow((Prey_ratio + 1.0e-10), H_4(rksp)) + 1.0e-10 );
+                        Term * (1 + H_2(rsp, ksp)) * pow((Prey_ratio + 1.0e-10), H_4(rsp, ksp)) /
+                          (1 + H_2(rsp, ksp) * pow((Prey_ratio + 1.0e-10), H_4(rsp, ksp)) + 1.0e-10 );
                       break;
                     case 5: // predator interference
-                      pred_resp(rk_sp, r_age, k_age, yr) = 1.0e-10 + Term * (1 + H_2(rksp) + Type(1.0e-10)) /
-                        ( 1 + H_2(rksp) * Prey_ratio + H_3(rksp) * (Pred_ratio - 1) + 1.0e-10);
+                      pred_resp(rk_sp, r_age, k_age, yr) = 1.0e-10 + Term * (1 + H_2(rsp, ksp) + Type(1.0e-10)) /
+                        ( 1 + H_2(rsp, ksp) * Prey_ratio + H_3(rsp, ksp) * (Pred_ratio - 1) + 1.0e-10);
                       break;
                     case 6: // predator preemption
-                      pred_resp(rk_sp, r_age, k_age, yr) = 1.0e-10 + Term * (1 + H_2(rksp) + Type(1.0e-10)) /
-                        ( (1 + H_2(rksp) * Prey_ratio) * (1 + H_3(rksp) * (Pred_ratio - 1)) + Type(1.0e-10));
+                      pred_resp(rk_sp, r_age, k_age, yr) = 1.0e-10 + Term * (1 + H_2(rsp, ksp) + Type(1.0e-10)) /
+                        ( (1 + H_2(rsp, ksp) * Prey_ratio) * (1 + H_3(rsp, ksp) * (Pred_ratio - 1)) + Type(1.0e-10));
                       break;
                     case 7: // Hassell-Varley
-                      pred_resp(rk_sp, r_age, k_age, yr) = 1.0e-10 + Term * (2 + H_2(rksp) + 1.0e-10) /
-                        (1.0 + H_2(rksp) * Prey_ratio + pow((Prey_ratio + Type(1.0e-10)), H_4(rksp)) + 1.0e-10 );
+                      pred_resp(rk_sp, r_age, k_age, yr) = 1.0e-10 + Term * (2 + H_2(rsp, ksp) + 1.0e-10) /
+                        (1.0 + H_2(rsp, ksp) * Prey_ratio + pow((Prey_ratio + Type(1.0e-10)), H_4(rsp, ksp)) + 1.0e-10 );
                       break;
                     case 8: // Ecosim
                       pred_resp(rk_sp, r_age, k_age, yr) = 1.0e-10 + Term /
-                        (1 + H_3(rksp) * (Pred_ratio - 1 + 1.0e-10));
+                        (1 + H_3(rsp, ksp) * (Pred_ratio - 1 + 1.0e-10));
                       break;
                     default:
                       error("Invalid 'msmMode'");
@@ -1721,7 +1708,6 @@ Type objective_function<Type>::operator() () {
   REPORT( B_eaten );
 
   // -- 12.7. Kinzey predation functions
-  REPORT( nspp_sq );
   REPORT( nspp_sq2 );
 
   REPORT( H_1 );
