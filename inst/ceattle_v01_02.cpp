@@ -91,7 +91,7 @@ Type objective_function<Type>::operator() () {
   Type sd_ration = 0.05;          	// SD of ration likelihood
 
 
-  // 2.2. DIMENSIONS OF DATA
+  // 2.2. DIMENSIONS
   // int endyr = nyrs + styr;        // End year
 
   // -- 2.2.2. Species attributes
@@ -446,7 +446,7 @@ Type objective_function<Type>::operator() () {
   // 5.3. EIT catch-at-age to age-comp
   for (yr = 0; yr < n_eit; yr++) {
     for (ln = 0; ln < srv_age_bins(0); ln++) {
-      eit_age_comp(yr, ln) = obs_eit_age(yr, ln) / obs_eit_age.col(yr).sum(); // Convert from catch-at-age to age comp
+      eit_age_comp(yr, ln) = obs_eit_age(yr, ln) / obs_eit_age.row(yr).sum(); // Convert from catch-at-age to age comp
     }
   }
 
@@ -1197,7 +1197,7 @@ Type objective_function<Type>::operator() () {
     // -- 9.2.2 EIT Survey Age Composition
     for (age = 0; age < nages(0); age++) {
       for (yr = 0; yr < n_eit; yr++) {
-        eit_age_comp_hat(age, yr) = eit_age_hat(age, yr) / eit_age_hat.row(yr).sum(); // Divide numbers at age by total numbers for each year
+        eit_age_comp_hat(age, yr) = eit_age_hat(age, yr) / eit_age_hat.col(yr).sum(); // Divide numbers at age by total numbers for each year
       }
     }
 

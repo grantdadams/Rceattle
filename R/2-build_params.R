@@ -15,7 +15,7 @@ build_params <-
     #---------------------------------------------------------------------
     # Step 1 -- Extract parameter names and dimensions used in TMB
     #---------------------------------------------------------------------
-    cpp_fn <- paste("inst/", TMBfilename, ".cpp", sep = "")
+    cpp_fn <- file(paste("inst/", TMBfilename, ".cpp", sep = ""))
 
     cpp_file <- readLines(cpp_fn)
     cpp_file <-
