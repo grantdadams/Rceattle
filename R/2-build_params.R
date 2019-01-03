@@ -128,11 +128,24 @@ build_params <-
     param_list$ln_mean_F <-
       replace(param_list$ln_mean_F, values = -.8)
     param_list$log_gam_a <-
-      replace(param_list$log_gam_a, values = 2)
+      replace(param_list$log_gam_a, values = 0.5)
+    param_list$log_gam_b <-
+      replace(param_list$log_gam_b, values = -0.5)
+
+
+    param_list$logH_1 <-
+      replace(param_list$logH_1, values = -8.5)
+    param_list$logH_1b <-
+      replace(param_list$logH_1b, values = 0)
+    param_list$logH_1a <-
+      replace(param_list$logH_1a, values = -3)
+
+    param_list$logH_2 <-
+      replace(param_list$logH_2, values = -9)
     param_list$logH_3 <-
-      replace(param_list$logH_3, values = -10)
+      replace(param_list$logH_3, values = -9)
     param_list$H_4 <-
-      replace(param_list$H_4, values = 2)
+      replace(param_list$H_4, values = 1)
 
     # remove last init dev
     param_list$init_dev <- param_list$init_dev[,1:(ncol(param_list$init_dev)-1)]
