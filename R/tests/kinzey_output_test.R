@@ -6,9 +6,9 @@ ss_run <- Rceattle(TMBfilename = "ceattle_v01_02",
                    data_list = data_list_ss,
                    inits = NULL, # Initial parameters = 0
                    file_name = NULL, # Don't save
-                   debug = 1, # Estimate
+                   debug = 0, # Estimate
                    random_rec = FALSE, # No random recruitment
-                   msmMode = 3, # Single species mode
+                   msmMode = 0, # Single species mode
                    avgnMode = 0,
                    silent = FALSE)
 
