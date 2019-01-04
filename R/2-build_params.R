@@ -74,6 +74,7 @@ build_params <-
     #---------------------------------------------------------------------
     # Step 2 -- Build list of parameters size of maximum data dimension
     #---------------------------------------------------------------------
+    data_list$nspp2 = data_list$nspp + 1
     data_list$nspp_sq = data_list$nspp * data_list$nspp
     data_list$nspp_sq2 = data_list$nspp * (data_list$nspp + 1)
     param_list <- list()

@@ -11,18 +11,13 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, dat_dir = NULL, ns
   # Step 1 -- Extract data names used in TMB
   #---------------------------------------------------------------------
   cpp_fn <- file(paste("inst/", TMBfilename, ".cpp", sep = ""))
-
   cpp_file <- readLines(cpp_fn)
+
   skipp <- grep("MODEL INPUTS", cpp_file) # Line of data files
   nrow <- grep("PARAMETER SECTION", cpp_file) # Last line of data files
-  cpp_file <- scan(cpp_fn, what = "character", skip = skipp, nlines = (nrow - skipp), flush = T, blank.lines.skip = F, quiet = T)
-  nt <- length(cpp_file)
-  cpp_tmp <- c()
+  cpp_file <- cpp_file[skipp:nrow]
   data_lines <- grep("DATA_", cpp_file)
-
-  for (i in 1:length(data_lines)) {
-    cpp_tmp[i] <- paste(scan(cpp_fn, skip = data_lines[i] + skipp - 1, flush = F, sep = "\t", nlines = 1, quiet = TRUE, what = "character", blank.lines.skip = TRUE), sep = "", collapse = " ")
-  }
+  cpp_tmp <- cpp_file[data_lines]
   tt <- strsplit(cpp_tmp, split = c(" ")) # find all the text lines
 
   dat_names <- c() # Character string of variables used in model
@@ -74,7 +69,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, dat_dir = NULL, ns
   source("R/Support Functions/readdat_fun.R")
   dat_list <- list()
   for (i in 1:nrow(dat_loc)) {
-    dat_list[[i]] <- suppressWarnings(readdat(fn = paste(dat_dir, dat_loc[i, 2], sep = ""), nm = as.character(dat_loc[i, 1]), nspp = nspp))
+    dat_list[[i]] <- readdat(fn = paste(dat_dir, dat_loc[i, 2], sep = ""), nm = as.character(dat_loc[i, 1]), nspp = nspp)
     names(dat_list)[i] <- as.character(dat_loc[i, 1])
   }
 
@@ -104,14 +99,10 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, dat_dir = NULL, ns
   ctl_file <- readLines(ctl_fn)
   skipp <- grep("MODEL CONFIGURATION", cpp_file) # Line of data files
   nrow <- grep("MODEL INPUTS", cpp_file) # Last line of data files
-  cpp_file <- scan(cpp_fn, what = "character", skip = skipp, nlines = (nrow - skipp), flush = T, blank.lines.skip = F, quiet = T)
-  nt <- length(cpp_file)
-  cpp_tmp <- c()
+  cpp_file <- cpp_file[skipp:nrow]
   data_lines <- grep("DATA_", cpp_file)
+  cpp_tmp <- cpp_file[data_lines]
 
-  for (i in 1:length(data_lines)) {
-    cpp_tmp[i] <- paste(scan(cpp_fn, skip = data_lines[i] + skipp - 1, flush = F, sep = "\t", nlines = 1, quiet = TRUE, what = "character", blank.lines.skip = TRUE), sep = "", collapse = " ")
-  }
   tt <- strsplit(cpp_tmp, split = c(" ")) # find all the text lines
 
 

@@ -73,22 +73,22 @@ Type objective_function<Type>::operator() () {
   // 1.4. MODEL OBJECTS
   // 1.4.1. LOOPING INDICES -- k = observation, sp = species, age = age, ln = length, ksp = prey, k_age = prey age (yr), k_ln = prey length, yr = year, rsp = predator, r_age = predator age (yr), r_ln = predator length
   int sp, age, ln, ksp, k_age, k_ln, yr, rsp, r_age, r_ln; // k
-  int fsh_yr, srv_yr, eit_yr;			    // Year indices
-  int rksp, rk_sp, ncnt, ksp_type;   	// Pointers
-  if (msmMode == 0) { niter = 1; } 		// Number of iterations for SS mode
+  int fsh_yr, srv_yr, eit_yr;         // Year indices
+  int ncnt;    // Pointers
+  if (msmMode == 0) { niter = 1; }    // Number of iterations for SS mode
 
   // ------------------------------------------------------------------------- //
   // 2. MODEL INPUTS                                                           //
   // ------------------------------------------------------------------------- //
 
   // 2.1. FIXED VALUES
-  int tau = 200; 					          // Fishery age composition sample size
-  int stom_tau = 20; 				        // Stomach sample size
-  Type MNConst = 0.001;           	// Constant additive for logistic functions
-  int nselages = 8;               	// Number of selectivity ages
-  Type curv_pen_fsh = 12.5;       	// Fishery selectivity penalty
-  Type sigma_catch = 0.05;        	// SD of catch
-  Type sd_ration = 0.05;          	// SD of ration likelihood
+  int tau = 200;                    // Fishery age composition sample size
+  int stom_tau = 20;                // Stomach sample size
+  Type MNConst = 0.001;             // Constant additive for logistic functions
+  int nselages = 8;                 // Number of selectivity ages
+  Type curv_pen_fsh = 12.5;         // Fishery selectivity penalty
+  Type sigma_catch = 0.05;          // SD of catch
+  Type sd_ration = 0.05;            // SD of ration likelihood
 
 
   // 2.2. DIMENSIONS
@@ -165,8 +165,8 @@ Type objective_function<Type>::operator() () {
   DATA_MATRIX( Mn_LatAge );       // Mean length-at-age; n = [nspp, nages], ALSO: mean_laa in Kinzey
 
   // -- 2.3.7. Q Diet data
-  // DATA_INTEGER( npred3 );         // Number of predators; n = [1]
-  // DATA_IVECTOR( nprey3 );         // Number of prey species for each predator; n = [1, nspp]
+  // DATA_INTEGER( npred3 );      // Number of predators; n = [1]
+  // DATA_IVECTOR( nprey3 );      // Number of prey species for each predator; n = [1, nspp]
   DATA_IVECTOR( n_stomyrs );      // number years of stomach data; n = [1, nspp]
   DATA_IMATRIX( stomyrs );        // years of stomach data; n = [nspp, n_stomyrs]
   DATA_ARRAY( mnQ );              // meanwt of each prey spp in the stomach of each predator of sp_age a; n = [npred3,n_stomyrs,max_age,nspp+1]
@@ -287,7 +287,7 @@ Type objective_function<Type>::operator() () {
 
   // FIXME: Create maps
   // -- 3.5. Kinzery predation function parameters
-  PARAMETER_VECTOR(logH_1);            // Predation functional form; n = [1, nspp_sq2]; // FIXME: make matrix
+  PARAMETER_MATRIX(logH_1);            // Predation functional form; n = [nspp, nspp2]; // FIXME: make matrix; nspp2 = nspp + 1
   PARAMETER_VECTOR(logH_1a);           // Age adjustment to H_1; n = [1, nspp]; // FIXME: make matrix
   PARAMETER_VECTOR(logH_1b);           // Age adjustment to H_1; n = [1, nspp]; // FIXME: make matrix
 
@@ -376,42 +376,38 @@ Type objective_function<Type>::operator() () {
   array<Type>   suma_suit(nspp, max_age, nyrs); suma_suit.setZero();              // Sum of suitabilities; n = [nyrs, nages, nspp]
 
 
-  // -- 4.8. Kinzey selectivity 
-  int nspp_sq2 = nspp * (nspp + 1); // number pred X (prey + "other")
-  vector<int>  kk_ages(nspp_sq2);
-  vector<int>  rr_ages(nspp_sq2);
-
+  // -- 4.8. Kinzey selectivity
   vector<Type> gam_a = exp(log_gam_a); // Predator selectivity
   vector<Type> gam_b = exp(log_gam_b); // Predator selectivity
   array<Type>  gam_ua(nspp, nspp, max_age, max_age); gam_ua.setZero();               // gamma selectivity of predator age u on prey age a; n = [nspp, nspp, nages, nages]
 
 
   // -- 4.9. Kinzey Functional response bits
-  vector<Type> H_1(nspp_sq2); H_1 = exp(logH_1);                                     // FIXME: make matrix
+  matrix<Type> H_1(nspp, nspp + 1); H_1 = exp(logH_1.array());                                     // FIXME: make matrix
   vector<Type> H_1a(nspp); H_1a = exp(logH_1a);                                      // FIXME: make matrix
   vector<Type> H_1b(nspp); H_1b = exp(logH_1b);                                      // FIXME: make matrix
-  matrix<Type> H_2(nspp, nspp); H_2 = exp(logH_2.array());                           
-  matrix<Type> H_3(nspp, nspp); H_3 = exp(logH_3.array());                               
+  matrix<Type> H_2(nspp, nspp); H_2 = exp(logH_2.array());
+  matrix<Type> H_3(nspp, nspp); H_3 = exp(logH_3.array());
 
   array<Type>  N_pred_yrs(nspp, max_age, nyrs); N_pred_yrs.setZero();                // Effective numbers of predators for each age of prey
   array<Type>  N_prey_yrs(nspp, max_age, nyrs); N_prey_yrs.setZero();                // Effective numbers of prey for each age of predator
   matrix<Type> N_pred_eq(nspp, max_age); N_pred_eq.setZero();                        // Effective numbers of predators for each age of prey (styr_pred)
   matrix<Type> N_prey_eq(nspp, max_age); N_prey_eq.setZero();                        // Effective numbers of prey for each age of predator
 
-  array<Type>  pred_resp(nspp_sq2, max_age, max_age, nyrs); pred_resp.setZero();     // Predator functional response
+  array<Type>  pred_resp(nspp, nspp + 1, max_age, max_age, nyrs); pred_resp.setZero();     // Predator functional response
   array<Type>  Pred_r(nspp, max_age, nyrs); Pred_r.setZero();                        // save Pred_ratio values
   array<Type>  Prey_r(nspp, max_age, nyrs); Prey_r.setZero();                        // save Prey_ratio values
 
   array<Type>  Vmort_ua(nspp, nspp, max_age, max_age, nyrs); Vmort_ua.setZero();     // Predation mortality on prey age a by single predator age u
-  array<Type>  Pmort_ua(nspp, nspp, max_age, nyrs); Pmort_ua.setZero();    			     // Predation mortality on prey age a by all predators age u
-  
+  array<Type>  Pmort_ua(nspp, nspp, max_age, nyrs); Pmort_ua.setZero();              // Predation mortality on prey age a by all predators age u
+
   array<Type>  eaten_la(nspp, nspp, max_bin, max_age, nyrs); eaten_la.setZero();     // Number of prey of age a eaten by predator length l
   array<Type>  eaten_ua(nspp, nspp, max_age, max_age, nyrs); eaten_ua.setZero();     // Number of prey of age a eaten by predator age u
 
-  array<Type>  Q_mass_l(nspp_sq2, max_bin, nyrs); Q_mass_l.setZero();                // Mass of prey consumed by length l of predator // FIXME: make into 4D array
-  array<Type>  Q_mass_u(nspp_sq2, max_bin, nyrs); Q_mass_u.setZero();                // Mass of prey consumed by age u of predator // FIXME: make into 4D array
+  array<Type>  Q_mass_l(nspp, nspp + 1, max_bin, nyrs); Q_mass_l.setZero();                // Mass of prey consumed by length l of predator // FIXME: make into 4D array
+  array<Type>  Q_mass_u(nspp, nspp + 1, max_bin, nyrs); Q_mass_u.setZero();                // Mass of prey consumed by age u of predator // FIXME: make into 4D array
   matrix<Type> Q_other_u(nspp, max_age); Q_other_u.setZero();                        // Mass of other consumed by age u of predator
-  array<Type>  Q_hat(nspp_sq2, max_bin, nyrs); Q_hat.setZero();                      // Fraction for each prey type of total mass eaten by predator length
+  array<Type>  Q_hat(nspp, nspp + 1, max_bin, nyrs); Q_hat.setZero();                      // Fraction for each prey type of total mass eaten by predator length
   array<Type>  T_hat(nspp, nspp, max_bin, max_bin); T_hat.setZero();                 // Fraction of prey of length m in predator of length l
 
   array<Type> omega_hat(nspp, max_age, nyrs); omega_hat.setZero();                   // Daily ration by predator age each year
@@ -728,8 +724,8 @@ Type objective_function<Type>::operator() () {
     // 8. PREDATION MORTALITY EQUATIONS                                          //
     // ------------------------------------------------------------------------- //
     if (msmMode > 0) {
-      
-      // -- 8.1. HOLSMAN PREDATION MORTALITY 
+
+      // -- 8.1. HOLSMAN PREDATION MORTALITY
       if (msmMode == 1) {
         // 8.1.1. Calculate stomach proportion over biomass; U/ (W * N)
         suma_suit.setZero();
@@ -809,17 +805,6 @@ Type objective_function<Type>::operator() () {
       if (msmMode > 1) {
 
         // 8.2.1. GAMMA Selectivity // FIXME - not flexible for interannual variation in length-at-age
-        rk_sp = -1;
-        for (rsp = 0; rsp < nspp; rsp++) {
-          for (ksp = 0; ksp < nspp + 1; ksp++) {
-            rk_sp += 1;
-            // rr_lens(rk_sp) = l_bins(rsp);
-            rr_ages(rk_sp) = nages(rsp);
-            if (ksp < nspp) kk_ages(rk_sp) = nages(ksp);
-            else kk_ages(rk_sp) = 1;
-          }
-        }
-
         Type x_l_ratio = 0;       // Log(mean(predLen@age)/mean(preyLen@age))
         Type LenOpt = 0;          // Value of x_l_ratio where selectivity = 1
         Type gsum = 0;
@@ -911,66 +896,61 @@ Type objective_function<Type>::operator() () {
           }
         }
 
-
         // 8.2.6. Calculate predator functional response (Table 1 Kinzey and Punt (2009))
-        rk_sp = -1;
-        rksp = -1;
         for (rsp = 0; rsp < nspp; rsp++) {                          // Predator loop
           for (ksp = 0; ksp < (nspp + 1); ksp++) {                  // Prey loop
-            rk_sp += 1;
-            if (ksp < nspp) {
-              rksp += 1;
-            }
             for (yr = 0; yr < nyrs; yr++) {                         // Year loop
               for (r_age = 0; r_age < nages(rsp); r_age++) {        // Predator age loop
-                for (k_age = 0; k_age < kk_ages(ksp); k_age++) {    // Prey age loop
 
-                  Term = 1.0e-10 + H_1(rk_sp) * (Type(1) + H_1a(rsp) * H_1b(rsp) / (Type(r_age) + H_1b(rsp) + Type(1.0e-10))); // Eq. 15 Kinzey and Punt (2009)
+                Term = 1.0e-10 + H_1(rsp, ksp) * (Type(1) + H_1a(rsp) * H_1b(rsp) / (Type(r_age) + H_1b(rsp) + Type(1.0e-10))); // Eq. 15 Kinzey and Punt (2009)
 
-                  if (ksp < nspp) {
+                // Observed species
+                if(ksp < nspp){
+                  for (k_age = 0; k_age < nages(ksp); k_age++) {    // Prey age loop
 
                     // Predator-prey ratios
                     Pred_ratio = (N_pred_yrs(rsp, r_age, yr) + Type(1.0e-10)) / (N_pred_eq(rsp, r_age) + Type(1.0e-10)); // Eq. 17 Kinzey and Punt (2009): Predator biomass relative to equilibrium
-                    Prey_ratio = (N_prey_yrs(ksp, k_age, yr) + Type(1.0e-10)) / (N_prey_eq(ksp, k_age) + Type(1.0e-10)); // Eq. 16 Prey Kinzey and Punt (2009): biomass relative to equilibrium 
+                    Prey_ratio = (N_prey_yrs(ksp, k_age, yr) + Type(1.0e-10)) / (N_prey_eq(ksp, k_age) + Type(1.0e-10)); // Eq. 16 Prey Kinzey and Punt (2009): biomass relative to equilibrium
                     Pred_r(rsp, r_age, yr) = Pred_ratio;
                     Prey_r(ksp, k_age, yr) = Prey_ratio;
 
                     switch (msmMode) {
                     case 2: // Holling Type I (linear)
-                      pred_resp(rk_sp, r_age, k_age, yr) = 1.0e-10 + Term;
+                      pred_resp(rsp, ksp, r_age, k_age, yr) = 1.0e-10 + Term;
                       break;
                     case 3: // Holling Type II
-                      pred_resp(rk_sp, r_age, k_age, yr) = 1.0e-10 + Term * (1 + H_2(rsp, ksp) + Type(1.0e-10)) /
+                      pred_resp(rsp, ksp, r_age, k_age, yr) = 1.0e-10 + Term * (1 + H_2(rsp, ksp) + Type(1.0e-10)) /
                         ( 1 + H_2(rsp, ksp) * Prey_ratio + 1.0e-10);
                       break;
                     case 4: // Holling Type III
-                      pred_resp(rk_sp, r_age, k_age, yr) = 1.0e-10 +
+                      pred_resp(rsp, ksp, r_age, k_age, yr) = 1.0e-10 +
                         Term * (1 + H_2(rsp, ksp)) * pow((Prey_ratio + 1.0e-10), H_4(rsp, ksp)) /
                           (1 + H_2(rsp, ksp) * pow((Prey_ratio + 1.0e-10), H_4(rsp, ksp)) + 1.0e-10 );
                       break;
                     case 5: // predator interference
-                      pred_resp(rk_sp, r_age, k_age, yr) = 1.0e-10 + Term * (1 + H_2(rsp, ksp) + Type(1.0e-10)) /
+                      pred_resp(rsp, ksp, r_age, k_age, yr) = 1.0e-10 + Term * (1 + H_2(rsp, ksp) + Type(1.0e-10)) /
                         ( 1 + H_2(rsp, ksp) * Prey_ratio + H_3(rsp, ksp) * (Pred_ratio - 1) + 1.0e-10);
                       break;
                     case 6: // predator preemption
-                      pred_resp(rk_sp, r_age, k_age, yr) = 1.0e-10 + Term * (1 + H_2(rsp, ksp) + Type(1.0e-10)) /
+                      pred_resp(rsp, ksp, r_age, k_age, yr) = 1.0e-10 + Term * (1 + H_2(rsp, ksp) + Type(1.0e-10)) /
                         ( (1 + H_2(rsp, ksp) * Prey_ratio) * (1 + H_3(rsp, ksp) * (Pred_ratio - 1)) + Type(1.0e-10));
                       break;
                     case 7: // Hassell-Varley
-                      pred_resp(rk_sp, r_age, k_age, yr) = 1.0e-10 + Term * (2 + H_2(rsp, ksp) + 1.0e-10) /
+                      pred_resp(rsp, ksp, r_age, k_age, yr) = 1.0e-10 + Term * (2 + H_2(rsp, ksp) + 1.0e-10) /
                         (1.0 + H_2(rsp, ksp) * Prey_ratio + pow((Prey_ratio + Type(1.0e-10)), H_4(rsp, ksp)) + 1.0e-10 );
                       break;
                     case 8: // Ecosim
-                      pred_resp(rk_sp, r_age, k_age, yr) = 1.0e-10 + Term /
+                      pred_resp(rsp, ksp, r_age, k_age, yr) = 1.0e-10 + Term /
                         (1 + H_3(rsp, ksp) * (Pred_ratio - 1 + 1.0e-10));
                       break;
                     default:
                       error("Invalid 'msmMode'");
                     }
                   }
-                  else { // "other" is linear
-                    pred_resp(rk_sp, r_age, 0, yr) = 1.0e-10 + Term;
-                  }
+                }
+                // "other" is linear
+                else{
+                  pred_resp(rsp, ksp, r_age, 0, yr) = 1.0e-10 + Term;
                 }
               } // end of r_ages, k_ages loop
             }   // =========================
@@ -978,14 +958,14 @@ Type objective_function<Type>::operator() () {
         }
 
 
+
         // 8.2.7. Mortality as a function of predator age: Eq. 7 Kinzey and Punt (2009)
         for (yr = 0; yr < nyrs; yr++) {
           for (rsp = 0; rsp  <  nspp; rsp++) {
             for (ksp = 0; ksp  <  nspp; ksp++) {
-              ksp_type = (rsp) * (nspp + 1) + ksp; // (rsp-1)*(nspp+1)+ksp; to avoid "other"?
               for (r_age = 0; r_age < nages(rsp); r_age++) {
                 for (k_age = 0; k_age < nages(ksp); k_age++) {
-                  pred_effect = pred_resp(ksp_type, r_age, k_age, yr) * gam_ua(rsp , ksp, r_age, k_age);
+                  pred_effect = pred_resp(rsp, ksp, r_age, k_age, yr) * gam_ua(rsp , ksp, r_age, k_age);
                   Vmort_ua(rsp, ksp, r_age, k_age, yr) = pred_effect * NByage(rsp, r_age, yr);
                 }
               }
@@ -1001,8 +981,8 @@ Type objective_function<Type>::operator() () {
         for (yr = 0; yr < nyrs; yr++) {
           for (rsp = 0; rsp < nspp; rsp++) {
             for (ksp = 0; ksp < nspp; ksp++) {
-                for (k_age = 0; k_age < nages(ksp); k_age++) {
-                	for (r_age = 0; r_age < nages(rsp); r_age++) {
+              for (k_age = 0; k_age < nages(ksp); k_age++) {
+                for (r_age = 0; r_age < nages(rsp); r_age++) {
                   Pmort_ua(rsp, ksp, k_age, yr) += Vmort_ua(rsp, ksp, r_age, k_age, yr);
                 }
                 M2(ksp, k_age, yr) += Pmort_ua(rsp, ksp, k_age, yr);
@@ -1041,21 +1021,19 @@ Type objective_function<Type>::operator() () {
         for (yr = 0; yr < nyrs; yr++) {
           for (rsp = 0; rsp  < nspp; rsp++) {
             for (ksp = 0; ksp  <  nspp + 1; ksp++) {
-              // Pointers to locations of data
-              ksp_type = (rsp) * (nspp + 1) + ksp;
 
               // Species included
               if (ksp < nspp) {
                 // Results by length: Eqn 10 kinda Kinzey and Punt (2009)
                 for (r_ln = 0; r_ln  <  srv_age_bins(rsp); r_ln++) {
                   for (k_age = 0; k_age < nages(ksp); k_age++) {
-                    Q_mass_l(ksp_type, r_ln, yr) += eaten_la(rsp, ksp, r_ln, k_age, yr) * wt(yr, k_age, ksp);
+                    Q_mass_l(rsp, ksp, r_ln, yr) += eaten_la(rsp, ksp, r_ln, k_age, yr) * wt(yr, k_age, ksp);
                   }
                 }
                 // Results by k_age: Eq. 11 Kinzey and Punt (2009)
                 for (r_age = 0; r_age  <  nages(rsp); r_age++) {
                   for (k_age = 0; k_age < nages(ksp); k_age++) {
-                    Q_mass_u(ksp_type, r_age, yr) += eaten_ua(rsp, ksp, r_age, k_age, yr) * wt(yr, k_age, ksp);
+                    Q_mass_u(rsp, ksp, r_age, yr) += eaten_ua(rsp, ksp, r_age, k_age, yr) * wt(yr, k_age, ksp);
                   }
                 }
               }
@@ -1063,13 +1041,13 @@ Type objective_function<Type>::operator() () {
               // Other food
               else {
                 for (r_age = 0; r_age  <  nages(rsp); r_age++) {
-                  pred_effect = pred_resp(ksp_type, r_age, 0, yr); // Other food k_age = 0 because 1 age is used
+                  pred_effect = pred_resp(rsp, ksp, r_age, 0, yr); // Other food k_age = 0 because 1 age is used
                   Tmort = pred_effect * NByage(rsp, r_age, yr);
-                  Q_mass_u(ksp_type, r_age, yr)  = Q_other_u(rsp, r_age) * (Type(1) - exp(-Tmort));                     // Eq. 11 Kinzey and Punt (2009)
+                  Q_mass_u(rsp, ksp, r_age, yr)  = Q_other_u(rsp, r_age) * (Type(1) - exp(-Tmort));                     // Eq. 11 Kinzey and Punt (2009)
                 }
                 for (r_ln = 0; r_ln < srv_age_bins(rsp); r_ln++) {
                   for (r_age = 0; r_age < nages(rsp); r_age++) {
-                    Q_mass_l(ksp_type, r_ln, yr) += Q_mass_u(ksp_type, r_age, yr) * age_trans_matrix(r_age, r_ln, rsp); // Eq. 10 Kinzey and Punt (2009)
+                    Q_mass_l(rsp, ksp, r_ln, yr) += Q_mass_u(rsp, ksp, r_age, yr) * age_trans_matrix(r_age, r_ln, rsp); // Eq. 10 Kinzey and Punt (2009)
                   }
                 }
               }
@@ -1082,13 +1060,12 @@ Type objective_function<Type>::operator() () {
         for (yr = 0; yr < nyrs; yr++) {
           for (rsp = 0; rsp  <  nspp; rsp++) {
             for (r_ln = 0; r_ln < srv_age_bins(rsp); r_ln++) {
-              rk_sp = (rsp) * (nspp + 1);
               Q_ksum_l = 0;
               for (ksp = 0; ksp < (nspp + 1); ksp++) {
-                Q_ksum_l += Q_mass_l(rk_sp + ksp, r_ln, yr) + 1.0e-10; // Table 3 - Diet weight proportions Kinzey and Punt (2009)
+                Q_ksum_l += Q_mass_l(rsp, ksp, r_ln, yr) + 1.0e-10; // Table 3 - Diet weight proportions Kinzey and Punt (2009)
               }
               for (ksp = 0; ksp < (nspp + 1); ksp++) {
-                Q_hat(rk_sp + ksp, r_ln, yr) = (1.0e-10 + Q_mass_l(rk_sp + ksp, r_ln, yr) / Q_ksum_l); // changed paranthesis -dhk apr 28 09
+                Q_hat(rsp, ksp, r_ln, yr) = (1.0e-10 + Q_mass_l(rsp, ksp, r_ln, yr) / Q_ksum_l); // changed paranthesis -dhk apr 28 09
               }
             }
           }
@@ -1107,11 +1084,10 @@ Type objective_function<Type>::operator() () {
             denom = 0;
             for (yr = 0; yr < nyrs; yr++) {
               // Average abundance
-              n_avg = 1.0e-10 + AvgN(rsp, r_age, yr);  // added 1.0e-10 -dhk June 24 08. not in NRM tpl -dhk apr 28 09
+              n_avg = 1.0e-10 + NByage(rsp, r_age, yr) * sqrt(S(rsp, r_age, yr));  // FIXME: Add average N added 1.0e-10 -dhk June 24 08. not in NRM tpl -dhk apr 28 09
               // find total consumption by this r_age-class
-              rk_sp = (rsp) * (nspp + 1);
               for (ksp = 0; ksp < (nspp + 1); ksp++) {
-                omega_hat(rsp, r_age, yr) += Q_mass_u(rk_sp + ksp, r_age, yr);
+                omega_hat(rsp, r_age, yr) += Q_mass_u(rsp, ksp, r_age, yr);
               }
               numer += omega_hat(rsp, r_age, yr) / + Type(1.0e-10); // FIXME: Divide by 365 to make into daily ration
               denom += n_avg;
@@ -1368,8 +1344,6 @@ Type objective_function<Type>::operator() () {
       for (r_ln = 0; r_ln < srv_age_bins(rsp); r_ln++) {
         // if (stoms_w_N(rsp,r_ln,yr) > 0){ Sample size
         for (ksp = 0; ksp < nspp; ksp++) { // FIXME: no offset for "other food"
-          rk_sp = rsp * (nspp + 1) + ksp;
-
           if ( diet_w_sum(rsp, ksp, r_ln, yr) > 0) {
             offset_diet_w(rsp) -= stom_tau * (diet_w_sum(rsp, ksp, r_ln, yr) + MNConst) * log(diet_w_sum(rsp, ksp, r_ln, yr) + MNConst); // FIXME add actual sample size
           }
@@ -1571,9 +1545,8 @@ Type objective_function<Type>::operator() () {
       for (yr = 0; yr < nyrs; yr++) {
         for (r_ln = 0; r_ln < srv_age_bins(rsp); r_ln++) {
           for (ksp = 0; ksp < nspp; ksp++) {                  // FIME: need to add in other food
-            rk_sp = (rsp) * (nspp + 1) + ksp;
             if (diet_w_sum(rsp, ksp, r_ln, yr) > 0) { // (rsp, ksp, a, r_ln, yr)
-              jnll_comp(15, rsp) -= stom_tau * diet_w_sum(rsp, ksp, r_ln, yr) * log(Q_hat(rk_sp, r_ln, yr) + 1.0e-10);
+              jnll_comp(15, rsp) -= stom_tau * diet_w_sum(rsp, ksp, r_ln, yr) * log(Q_hat(rsp, ksp, r_ln, yr) + 1.0e-10);
             }
           }
         }
@@ -1659,7 +1632,7 @@ Type objective_function<Type>::operator() () {
   REPORT( eit_hat );
   REPORT( eit_age_hat );
   REPORT( eit_age_comp_hat )
-  REPORT( obs_eit_age );
+    REPORT( obs_eit_age );
   REPORT( eit_age_comp );
   REPORT( avgsel_srv );
   REPORT( srv_sel );
@@ -1708,8 +1681,6 @@ Type objective_function<Type>::operator() () {
   REPORT( B_eaten );
 
   // -- 12.7. Kinzey predation functions
-  REPORT( nspp_sq2 );
-
   REPORT( H_1 );
   REPORT( H_1a );
   REPORT( H_1b );
@@ -1743,7 +1714,7 @@ Type objective_function<Type>::operator() () {
   // ------------------------------------------------------------------------- //
   // 13. END MODEL                                                             //
   // ------------------------------------------------------------------------- //
-    Type jnll = 0;
+  Type jnll = 0;
 
   // Estimation mode
   if (debug == 0) {

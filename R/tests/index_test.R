@@ -1,17 +1,19 @@
 
 library(TMB)
 library(TMBhelper)
+library(TMBdebug)
 
 # Load data
 # source("R/2-build_params.R")
 # source("R/3-build_map.R")
+data_list_ss$nages
 TMBfilename = "ceattle_v01_02"
 data_list = data_list_ss
 inits = NULL # Initial parameters = 0
 file_name = NULL # Don't save
-debug = 2 # Estimate
+debug = 1 # Estimate
 random_rec = FALSE # No random recruitment
-msmMode = 0 # Single species mode
+msmMode = 3 # Single species mode
 avgnMode = 0
 silent = FALSE
 niter = 10
@@ -58,7 +60,7 @@ if (random_rec == TRUE) {
 
 
 # STEP 5 - Compile CEATTLE
-version <- "ceattle_v01_02"
+version <- TMBfilename
 cpp_directory <- "inst"
 cpp_file <- paste0(cpp_directory, "/", version)
 
@@ -69,7 +71,7 @@ dyn.load(TMB::dynlib(paste0(cpp_file)))
 print("Step 4: Compile CEATTLE complete")
 
 
-obj = TMB::MakeADFun(
+obj = TMBdebug::MakeADFun(
   data_list,
   parameters = params,
   DLL = version,
