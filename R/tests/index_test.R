@@ -78,5 +78,4 @@ obj = TMBdebug::MakeADFun(
   map = map,
   random = random_vars,
   silent = silent
-
 )
