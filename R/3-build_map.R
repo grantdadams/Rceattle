@@ -12,7 +12,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
 
   # STEP 2 -- NA out parameters not to be estimated
-  # Initial population deviations
+  # Initial population deviations - map out last age and ages not seen
   for(i in 1:nrow(map_list$init_dev)){
     if((data_list$nages[i]-1) < ncol(map_list$init_dev)){
       map_list$init_dev[i,  (data_list$nages[i]) : ncol(map_list$init_dev) ] <- NA
