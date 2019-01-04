@@ -26,6 +26,9 @@ Type objective_function<Type>::operator() ()
   vector<Type> v3_segment = v3.segment(2,3); //segment of 3 elements,
   REPORT(v3_segment);                     // starting at 3rd element
 
+  vector<Type> v3_segment2 = v3.segment(2,1); //segment of 1 elements,
+  REPORT(v3_segment2);                     // starting at 3rd element
+
   Type v1_sum = v1.sum();               // sum of all cells in v1
   REPORT(v1_sum);
 

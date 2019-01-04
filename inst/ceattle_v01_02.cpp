@@ -548,11 +548,13 @@ Type objective_function<Type>::operator() () {
     for (sp = 0; sp < nspp; sp++) {
       for (age = 0; age < nages(sp); age++) {
         if ((age > 0) & (age < nages(sp) - 1)) {
-          NByage(sp, age, 0) = exp(ln_mn_rec(sp) - (age) * M1(sp, age) + init_dev(sp, age - 1));
+          Type mort_sum = M1.row(sp).segment(0, age).sum(); // Sum M1 until age - 1
+          NByage(sp, age, 0) = exp(ln_mn_rec(sp) - mort_sum + init_dev(sp, age - 1));
         }
         // -- 6.2.2. Where yr = 1 and age > Ai.
         if (age == (nages(sp) - 1)) {
-          NByage(sp, age, 0) = exp(ln_mn_rec(sp) - (age) * M1(sp, age) + init_dev(sp, age - 1)) / (1 - exp(-M1(sp, nages(sp) - 1))); // NOTE: This solves for the geometric series
+          Type mort_sum = M1.row(sp).segment(0, age).sum(); // Sum M1 until age - 1
+          NByage(sp, age, 0) = exp(ln_mn_rec(sp) - mort_sum + init_dev(sp, age - 1)) / (1 - exp(-M1(sp, nages(sp) - 1))); // NOTE: This solves for the geometric series
         }
       }
     }
@@ -1205,7 +1207,7 @@ Type objective_function<Type>::operator() () {
           }
 
           matrix<Type> ALK = trim_matrix( matrix_from_array(age_trans_matrix, sp), nages(sp), srv_age_bins(sp) );
-          vector<Type> srv_age_tmp_trimmed = trim_vector(srv_age_tmp, nages(sp) );
+          vector<Type> srv_age_tmp_trimmed = srv_age_tmp.segment(0, nages(sp));
           vector<Type> srv_len_tmp = vec_mat_prod( srv_age_tmp_trimmed , ALK ); // Multiply the ALK for species sp against the survey catch-at-age for year yr
 
           for (ln = 0; ln < srv_age_bins(sp); ln++) {
@@ -1261,7 +1263,7 @@ Type objective_function<Type>::operator() () {
           }
 
           matrix<Type> ALK = trim_matrix( matrix_from_array(age_trans_matrix, sp), nages(sp), fsh_age_bins(sp) );
-          vector<Type> fsh_age_tmp_trimmed = trim_vector(fsh_age_tmp, nages(sp) );
+          vector<Type> fsh_age_tmp_trimmed = fsh_age_tmp.segment(0, nages(sp) );
           vector<Type> fsh_len_tmp = vec_mat_prod( fsh_age_tmp_trimmed , ALK ); // Multiply the ALK for species sp against the survey catch-at-age for year yr
 
           for (ln = 0; ln < fsh_age_bins(sp); ln++) {
@@ -1494,17 +1496,25 @@ Type objective_function<Type>::operator() () {
     jnll_comp(12, sp) = 0; // FIXME: Likeliy redundant
     // Slot 10 -- init_dev -- Initial abundance-at-age
     for (age = 1; age < nages(sp); age++) {
+
+      if (random_rec == 0) {
       jnll_comp(10, sp) += pow( init_dev(sp, age - 1), 2);
+    }
+
+if (random_rec == 1) {
+jnll_comp(10, sp) += dnorm( init_dev(sp, age - 1), Type(0.0), r_sigma(sp), true);
+}
+
     }
 
     for (yr = 0; yr < nyrs; yr++) {
 
       // Slot 11 -- Tau -- Annual recruitment deviation
       if (random_rec == 0) {
-        jnll_comp(11, sp) += pow( rec_dev(sp, yr) - Type(0.25), 2);    // Recruitment deviation using penalized likelihood. ADDED lognormal bias correction
+        jnll_comp(11, sp) += pow( rec_dev(sp, yr), 2);    // Recruitment deviation using penalized likelihood. ADDED lognormal bias correction
       }
       if (random_rec == 1) {
-        jnll_comp(11, sp) -= dnorm( rec_dev(sp, yr) - (r_sigma(sp) * r_sigma(sp) / 2) , Type(0.0), r_sigma(sp), true);    // Recruitment deviation using random effects.
+        jnll_comp(11, sp) -= dnorm( rec_dev(sp, yr) , Type(0.0), r_sigma(sp), true);    // Recruitment deviation using random effects.
       }
 
       // Slot 12 -- Epsilon -- Annual fishing mortality deviation
