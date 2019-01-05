@@ -2,11 +2,61 @@
 title: "Untitled"
 author: "Grant Adams"
 date: "January 3, 2019"
-output: pdf_document
+output:
+  word_document: default
+csl: https://raw.githubusercontent.com/citation-style-language/styles/master/dependent/fisheries-research.csl
+bibliography: ceattle_bibliography.bib
 ---
 
-## Equations 
+CEATTLE is short for Climate-Enhanced, Age-based model with Temperature-specific Trophic Linkages and Energetics, which is a multi-species age-structured assessment model developed for groundfish in the Bering Sea, USA by Holsman et al. [-@Holsman2015]. To incorporate the impacts of climate, the model includes temperature-dependent von Bertalanffy weight-at-age functions (VBGF) and temperature-specific, bioenergetics-based predation interactions. Inputs of the model include U.S. National Marine Fisheries Service Alaska Fisheries Science Center (AFSC) survey and fishery data. Outputs include historical estimates of predation mortality, fishing mortality, biomass, recruitment, etc.
 
+`Rceattle` is an `R` package designed to implement the CEATTLE model using Template Model Builder (`TMB`; @Kristensen2015). Rceattle is structured similar to the original manuscript in terms of modularization. Seperate functions (i.e. modules) estimate retrospective temperature- and size-specific predator rations, prey preference, and weight-at- age. These are then used as inputs to the CEATTLE model to evaluate how predation mortality, recruitment, and survival of three target species change under historical climate conditions and harvest rates. Estimates from CEATTLE in `Rceattle` can then be forward projected to derive estimates of unfished biomass and fishing mortality under future climate conditions and various harvest scenarios.
+
+Currently `RCeattle` takes CEATTLE ADMB based inputs and estimates them in `TMB`. To run `Rceattle` a user selects a control file located in a data directory with `.dat` files used in ADMB. The model will then initialize assuming $0$ for all parameters unless a parameter list is provided or `"ceattle.par"` or `"ceattle_par.std"` is selected. In the later case, a .par or .std file provided from a previously estimated ADMB model must by included in the folder prior to the data directory. Currently, .dat files and ADMB outputs are included in the `\data` folder.
+
+# Example
+For example, to run the 2017 single species assessment for the Bering Sea, a data file must first be created:
+```{R eval=FALSE}
+data_list_ss <- build_dat(ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "ceattle_v01_02", dat_dir = "data/BSAI/BS_SS_Files/dat files/", nspp = 3)
+```
+Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
+```{R eval=FALSE}
+ss_run <- Rceattle(TMBfilename = "ceattle_v01_02", 
+                   data_list = data_list_ss,
+                   inits = NULL, # Initial parameters = 0
+                   file_name = NULL, # Don't save
+                   debug = 0, # Estimate
+                   random_rec = FALSE, # No random recruitment
+                   msmMode = 0, # Single species mode
+                   avgnMode = 0,
+                   silent = FALSE)
+```
+The you can plot the model results using using
+```{R eval=FALSE}
+plot_biomass(ceattle_list =  list(ss_run))
+plot_recruitment(ceattle_list =  list(ss_run))
+```
+
+
+For the 2017 multispecies model starting from the single species parameters, the following can be specified:
+```{R eval=FALSE}
+data_list_ms <- build_dat(ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "ceattle_v01_02", dat_dir = "data/BSAI/BS_MS_Files/dat files/", nspp = 3)
+
+ms_run <- Rceattle(TMBfilename = "ceattle_v01_02", 
+                   data_list = data_list_ms,
+                   inits = ss_run$estimated_params, # Initial parameters from ss run
+                   file_name = NULL, # Don't save
+                   debug = 1, # Estimate
+                   random_rec = FALSE, # No random recruitment
+                   niter = 10, # Number of iterations around predation/pop dy functions
+                   msmMode = 1, # Multi-species holsman mode
+                   avgnMode = 0)
+
+plot_biomass(ceattle_list =  list(ms_run))
+plot_recruitment(ceattle_list =  list(ms_run))
+```
+
+# Equations 
 
 **Table 1.** Population dynamics equations for species $i$ and age $j$ in each simulation year $y$. BT indicates the AFSC bottom trawl survey and EIT represents the echo-integrated acoustic- trawl survey. For all parameter definititions see Table 3.
 ```{r echo = F}
@@ -35,7 +85,7 @@ Definition <- c("Recruitment",
                 "Residual natural mortality")
 
 Equation <- c("$N_{i1,y} = R_{i,y} = R_{0,i }e^{\\tau_{i,y}}$",
-              "$N_{ij,1} = \\left{ \\begin{array}{} R_{0,i}e^{ \\left( -j M1_{ij} \\right)}N_{0,ij} \\\\ R_{0,i}e^{ \\left( -j M1_{ij} \\right)}N_{0,i,A_i} / \\left(1 - e^{\\left( -j M1_{i,A_i} \\right)} \\right) \\end{array} \\right.$",
+              "$N_{ij,1} = \\left \\{ \\begin{array}{} R_{0,i}e^{ \\left( -j M1_{ij} \\right)}N_{0,ij} \\\\ R_{0,i}e^{ \\left( -j M1_{ij} \\right)}N_{0,i,A_i} / \\left(1 - e^{\\left( -j M1_{i,A_i} \\right)} \\right) \\end{array} \\right.$",
               "$N_{i, j+1, y+1} = N_{ij,y} e^{-Z_{ij,y}}$",
               "$N_{i, A_i, y+1} = N_{i, A_{i}-1,y} e^{-Z_{i, A_{i}-1,y}} + N_{i, A_{i},y} e^{-Z_{i, A_{i},y}}$",
               "$C_{ij,y} = \\frac{F_ij,y} {Z_{ij,y}} \\left( 1 - e^{-Z_{ij,y}} \\right) N_{ij,y}$",
@@ -279,14 +329,5 @@ colnames(Likelihood_Components) = c("Description", "Equation", "Data source", ""
 knitr::kable(Likelihood_Components, escape = T)
 ```
 
-## Errata:
-Table 3: Female natural mortality is missing an F under the "Type" column.
-Table 4 legend: "function" is misspelled.
-Table 4. T.4.6 C is missing the hat in the likelihood equation.
-Table 4. T4.7 the upper value of chi, $\eta^f_{ji+1}$ should be $\eta^f_{ij+1}$
-Table 4. T4.2 Data source NFMS
-
-## Thoughts
-Table 3. Change C* to Y and in table 2 Y to hat{Y}.
 
 # References

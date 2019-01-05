@@ -1491,18 +1491,15 @@ Type objective_function<Type>::operator() () {
 
   // Slots 10-12 -- PRIORS: PUT RANDOM EFFECTS SWITCH HERE
   for (sp = 0; sp < nspp; sp++) {
-    jnll_comp(10, sp) = 0; // FIXME: Likeliy redundant
-    jnll_comp(11, sp) = 0; // FIXME: Likeliy redundant
-    jnll_comp(12, sp) = 0; // FIXME: Likeliy redundant
     // Slot 10 -- init_dev -- Initial abundance-at-age
     for (age = 1; age < nages(sp); age++) {
 
       if (random_rec == 0) {
-      jnll_comp(10, sp) += pow( init_dev(sp, age - 1), 2);
+      jnll_comp(10, sp) += pow( init_dev(sp, age - 1) - Type(0.25), 2);
     }
 
 if (random_rec == 1) {
-jnll_comp(10, sp) += dnorm( init_dev(sp, age - 1), Type(0.0), r_sigma(sp), true);
+jnll_comp(10, sp) -= dnorm( init_dev(sp, age - 1) - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);
 }
 
     }
@@ -1511,10 +1508,10 @@ jnll_comp(10, sp) += dnorm( init_dev(sp, age - 1), Type(0.0), r_sigma(sp), true)
 
       // Slot 11 -- Tau -- Annual recruitment deviation
       if (random_rec == 0) {
-        jnll_comp(11, sp) += pow( rec_dev(sp, yr), 2);    // Recruitment deviation using penalized likelihood. ADDED lognormal bias correction
+        jnll_comp(11, sp) += pow( rec_dev(sp, yr) - Type(0.25), 2);    // Recruitment deviation using penalized likelihood. ADDED lognormal bias correction
       }
       if (random_rec == 1) {
-        jnll_comp(11, sp) -= dnorm( rec_dev(sp, yr) , Type(0.0), r_sigma(sp), true);    // Recruitment deviation using random effects.
+        jnll_comp(11, sp) -= dnorm( rec_dev(sp, yr) - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);    // Recruitment deviation using random effects.
       }
 
       // Slot 12 -- Epsilon -- Annual fishing mortality deviation

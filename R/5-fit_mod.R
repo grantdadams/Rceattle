@@ -142,7 +142,7 @@ Rceattle <-
       silent = silent
 
     )
-    print(paste0("Step 4: Optimizing model"), hessian = TRUE)
+    print(paste0("Step 5: Optimizing model"), hessian = TRUE)
     # opt <- nlminb(obj$par, obj$fn, obj$gr)
     # methods <- c('Nelder-Mead', 'BFGS', 'CG', 'L-BFGS-B', 'nlm', 'nlminb', 'spg', 'ucminf', 'newuoa', 'bobyqa', 'nmkb', 'hjkb', 'Rcgmin', 'Rvmmin')
     # opt_list <- list()
@@ -193,6 +193,6 @@ Rceattle <-
       save(mod_objects, file = paste0(file_name, ".RData"))
     }
 
-    dyn.unload(TMB::dynlib(paste0(cpp_file)))
+    # dyn.unload(TMB::dynlib(paste0(cpp_file)))
     return(mod_objects)
   }
