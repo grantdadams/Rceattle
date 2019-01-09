@@ -6,11 +6,13 @@
 #' @param inits Character vector of named initial values from ADMB or list of previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters.
 #' @param file_name Filename where files will be saved. If NULL, no file is saved.
 #' @param debug Runs the model without estimating parameters to get derived quantities given initial parameter values.
-#' @param random_rec Boolian of whether to treat recruitment deviations as random effects.
+#' @param random_rec logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE.
 #' @param niter Number of iterations for multispecies model
 #' @param msmMode The predation mortality functions to used. Defaults to no predation mortality used.
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{\frac{N}{Z} \left( 1 - exp^{-Z} \right)}, 1 is \eqn{N e^{-Z/2}}, 2 is \eqn{N}.
-#' @param silent TRUE/FALSE wether to include TMB estimation progress
+#' @param silent logical.  IF TRUE, includes TMB estimation progress
+#' @param est_diet logical. If FALSE, does not include diet in the likelihood.The default is FALSE.
+#' @param suitMode logical. If FALSE, does not estimate suitability parameters. If TRUE, estimates gamma selectivity parameters. The default is FALSE.
 #'
 #' @details
 #' CEATTLE is an age-structured population dynamics model that can be fit with or without predation mortality. The default is to exclude predation mortality by setting \code{msmMode} to 0. Predation mortality can be included by setting \code{msmMode} with the following options:
@@ -36,6 +38,8 @@ Rceattle <-
            niter = 3,
            msmMode = 0,
            avgnMode = 0,
+           est_diet = FALSE,
+           suitMode = FALSE,
            silent = FALSE) {
     start_time <- Sys.time()
 
@@ -71,6 +75,9 @@ Rceattle <-
     data_list$niter <- niter
     data_list$avgnMode <- avgnMode
     data_list$msmMode <- msmMode
+    data_list$suitMode <- suitMode
+    data_list$est_diet <- est_diet
+
 
     # STEP 1 - LOAD PARAMETERS
     if (is.character(inits) | is.null(inits)) {

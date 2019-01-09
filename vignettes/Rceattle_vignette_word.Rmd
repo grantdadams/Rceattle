@@ -65,6 +65,50 @@ plot_biomass(ceattle_list =  list(ms_run, ss_run), model_names = c("MS", "SS"))
 plot_recruitment(ceattle_list =  list(ms_run, ss_run), model_names = c("MS", "SS"))
 ```
 
-Random effects via random recruitment deviations can be estimated by selecting `random_rec = TRUE`.
+Data can be simulated from the estimated quantities using `sim_mod`:
+```{R eval = FALSE}
+ss_sim <- sim_mod(ss_run)
+
+ss_sim_run <- Rceattle(TMBfilename = "ceattle_v01_02", 
+                   data_list = ss_sim,
+                   inits = NULL, # Initial parameters = 0
+                   file_name = NULL, # Don't save
+                   debug = 0, # Estimate
+                   random_rec = FALSE, # No random recruitment
+                   msmMode = 0, # Single species mode
+                   avgnMode = 0,
+                   silent = FALSE)
+
+ms_sim <- sim_mod(ms_run)
+
+ms_sim_run <- Rceattle(TMBfilename = "ceattle_v01_02", 
+                   data_list = ms_sim,
+                   inits = NULL, # Initial parameters = 0
+                   file_name = NULL, # Don't save
+                   debug = 0, # Estimate
+                   random_rec = FALSE, # No random recruitment
+                   msmMode = 1, # Holsman MS mode
+                   avgnMode = 0,
+                   silent = FALSE)
+
+
+```
+
+
+For recruitment, the model assumes that recruitment $R$ of species $sp$ follows the folloiwng equation:
+$$R_{sp,yr} = R0_{sp} * e^{Rdev_{sp, yr}}$$
+$$Rdev_{sp, yr} \sim N(0, \sigma_{r,sp})$$
+Following Holsman et al. [-@Holsman2015], $\sigma_{r,sp}$ can be fixed at `sqrt(0.05)` and the model estimated using penalized likelihood, by setting `ranfom_rec = FALSE`. Alternatively, `Rdev` can be treated as random effects and $\sigma_{r,sp}$ estimated by setting `random_rec = TRUE`:
+```{R eval = FALSE}
+ss_re <- Rceattle(TMBfilename = "ceattle_v01_02", 
+                   data_list = ss_sim,
+                   inits = NULL, # Initial parameters = 0
+                   file_name = NULL, # Don't save
+                   debug = 0, # Estimate
+                   random_rec = TRUE, # No random recruitment
+                   msmMode = 0, # Single species mode
+                   avgnMode = 0,
+                   silent = FALSE)
+```
 
 # References

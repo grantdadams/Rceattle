@@ -13,6 +13,9 @@ Type imax(const vector<Type> &x)
   return res;
 }
 
+//  Function to getting sqaure
+template <class Type> Type square(Type x){return x*x;}
+
 // Function for getting min of an IVECTOR and return an int
 template <class Type>
 Type imin(const vector<Type> &x)

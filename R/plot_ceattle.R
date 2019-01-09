@@ -385,10 +385,8 @@ plot_recruitment <-
             polygon(
               x = c(Years, rev(Years)),
               y = c(recruitment_upper[j, , k], rev(recruitment_lower[j, , k])),
-              col = ci_col[k],
-              border = NA,
-              density = 15 * k,
-              angle = 22 * k
+              col = adjustcolor( ci_col[k], alpha.f = 0.2),
+              border = NA
             ) # 95% CI
           }
         }

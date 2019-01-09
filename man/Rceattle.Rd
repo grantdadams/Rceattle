@@ -6,7 +6,8 @@
 \usage{
 Rceattle(TMBfilename = "CEATTLE_BSAI_MS_v01_02", data_list = NULL,
   inits = NULL, file_name = NULL, debug = T, random_rec = FALSE,
-  niter = 3, msmMode = 0, avgnMode = 0, silent = FALSE)
+  niter = 3, msmMode = 0, avgnMode = 0, est_diet = FALSE,
+  suitMode = FALSE, silent = FALSE)
 }
 \arguments{
 \item{TMBfilename}{The version of the cpp CEATTLE file found in the src folder}
@@ -19,7 +20,7 @@ Rceattle(TMBfilename = "CEATTLE_BSAI_MS_v01_02", data_list = NULL,
 
 \item{debug}{Runs the model without estimating parameters to get derived quantities given initial parameter values.}
 
-\item{random_rec}{Boolian of whether to treat recruitment deviations as random effects.}
+\item{random_rec}{logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE.}
 
 \item{niter}{Number of iterations for multispecies model}
 
@@ -27,7 +28,11 @@ Rceattle(TMBfilename = "CEATTLE_BSAI_MS_v01_02", data_list = NULL,
 
 \item{avgnMode}{The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{\frac{N}{Z} \left( 1 - exp^{-Z} \right)}, 1 is \eqn{N e^{-Z/2}}, 2 is \eqn{N}.}
 
-\item{silent}{TRUE/FALSE wether to include TMB estimation progress}
+\item{est_diet}{logical. If FALSE, does not include diet in the likelihood.The default is FALSE.}
+
+\item{suitMode}{logical. If FALSE, does not estimate suitability parameters. If TRUE, estimates gamma selectivity parameters. The default is FALSE.}
+
+\item{silent}{logical.  IF TRUE, includes TMB estimation progress}
 }
 \description{
 This function estimates population parameters of CEATTLE using maximum likelihood in TMB.
