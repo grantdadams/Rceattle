@@ -1,7 +1,7 @@
-
+library(Rceattle)
 data_list_ss <- build_dat(ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "ceattle_v01_02", dat_dir = "data/BSAI/BS_SS_Files/dat files/", nspp = 3)
 
-library(Rceattle)
+
 ss_run <- Rceattle(TMBfilename = "ceattle_v01_02",
                    data_list = data_list_ss,
                    inits = NULL, # Initial parameters = 0
@@ -10,7 +10,7 @@ ss_run <- Rceattle(TMBfilename = "ceattle_v01_02",
                    random_rec = FALSE, # No random recruitment
                    msmMode = 0, # Single species mode
                    avgnMode = 0,
-                   silent = FALSE)
+                   silent = TRUE)
 
 ss_run_re <- Rceattle(TMBfilename = "ceattle_v01_02",
                       data_list = data_list_ss,

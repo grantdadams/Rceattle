@@ -20,7 +20,7 @@ Imports:
     reshape2,
     ggplot2,
     oce
-Remotes: colemonnahan/adnuts
+Remotes: colemonnahan/adnuts, r4ss/r4ss
 RoxygenNote: 6.1.1
 BugReports: https://github.com/grantdadams/Rceattle/issues
 Suggests: knitr,
