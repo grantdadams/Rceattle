@@ -179,7 +179,7 @@ Rceattle <-
       last_par = suppressWarnings(obj$env$parList(obj$env$last.par.best))
     }
 
-    run_time = paste((Sys.time() - start_time) / 60)
+    run_time = ((Sys.time() - start_time))
 
     # Return objects
     mod_objects <-

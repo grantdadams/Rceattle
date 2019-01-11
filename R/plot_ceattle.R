@@ -21,7 +21,6 @@ plot_biomass <-
            species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"),
            lwd = 3,
            include_srv = FALSE) {
-    library(extrafont)
 
     # Extract data objects
     nyrs <- ceattle_list[[1]]$data_list$nyrs
@@ -243,7 +242,6 @@ plot_recruitment <-
            ci_col = NULL,
            lwd = 3,
            save_rec = FALSE) {
-    library(extrafont)
 
     # Extract data objects
     nyrs <- ceattle_list[[1]]$data_list$nyrs
@@ -261,10 +259,12 @@ plot_recruitment <-
       recruitment[, , i] <- ceattle_list[[i]]$quantities$R[, ]
 
       # Get SD of rec
+      if (!is.null(ci_col)) {
       sd_rec <- which(names(ceattle_list[[i]]$sdrep$value) == "R")
       sd_rec <- ceattle_list[[i]]$sdrep$sd[sd_rec]
       recruitment_sd[, , i] <-
         replace(recruitment_sd[, , i], values = sd_rec)
+      }
     }
 
     ind = 1

@@ -1617,6 +1617,7 @@ Type objective_function<Type>::operator() () {
   // ------------------------------------------------------------------------- //
 
   // 12.1. Population components
+  REPORT( mn_rec );
   REPORT( Zed );
   REPORT( NByage );
   REPORT( AvgN );
