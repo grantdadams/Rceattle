@@ -17,6 +17,8 @@ msmMode = 3 # Single species mode
 avgnMode = 0
 silent = FALSE
 niter = 10
+est_diet = FALSE
+suitMode = FALSE
 
 
 # Switches
@@ -25,6 +27,10 @@ data_list$debug <- debug
 data_list$niter <- niter
 data_list$avgnMode <- avgnMode
 data_list$msmMode <- msmMode
+data_list$suitMode <- msmMode
+data_list$suitMode <- suitMode
+data_list$est_diet <- est_diet
+
 
 # STEP 1 - LOAD PARAMETERS
 if (is.character(inits) | is.null(inits)) {
@@ -42,8 +48,7 @@ print("Step 1: Parameter build complete")
 
 
 # STEP 2 - BUILD MAP
-map  <-
-  Rceattle::build_map(data_list, params, debug = debug, random_rec = random_rec)
+map  <- Rceattle::build_map(data_list, params, debug = debug, random_rec = random_rec)
 print("Step 2: Map build complete")
 
 
