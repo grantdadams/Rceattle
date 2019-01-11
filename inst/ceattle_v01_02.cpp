@@ -309,13 +309,14 @@ Type objective_function<Type>::operator() () {
   int max_bin = imax(srv_age_bins);                                              // Integer of maximum number of length/age bins.
 
   // -- 4.2. Estimated population parameters
+  vector<Type>  mn_rec = exp(ln_mn_rec);                                        // Mean recruitment; n = [1, nspp]
   array<Type>   AvgN(nspp, max_age, nyrs); AvgN.setZero();                      // Average numbers-at-age; n = [nspp, nages, nyrs]
   array<Type>   biomassByage(nspp, max_age, nyrs); biomassByage.setZero();      // Estimated biomass-at-age (kg); n = [nspp, nages, nyrs]
   matrix<Type>  biomass(nspp, nyrs); biomass.setZero();                         // Estimated biomass (kg); n = [nspp, nyrs]
   matrix<Type>  biomassSSB(nspp, nyrs); biomassSSB.setZero();                   // Estimated spawning stock biomass (kg); n = [nspp, nyrs]
   array<Type>   biomassSSBByage(nspp, max_age, nyrs); biomassSSBByage.setZero();// Spawning biomass at age (kg); n = [nspp, nages, nyrs]
   array<Type>   M(nspp, max_age, nyrs); M.setZero();                            // Total natural mortality at age; n = [nyrs, nages, nspp]
-  matrix<Type>  M1(nspp, max_age); M1.setZero();                               // Base natural mortality; n = [nspp, nages]
+  matrix<Type>  M1(nspp, max_age); M1.setZero();                                // Base natural mortality; n = [nspp, nages]
   array<Type>   M2(nspp, max_age, nyrs); M2.setZero();                          // Predation mortality at age; n = [nyrs, nages, nspp]
   array<Type>   NByage(nspp, max_age, nyrs); NByage.setZero();                  // Numbers at age; n = [nspp, nages, nyrs]
   matrix<Type>  R(nspp, nyrs); R.setZero();                                     // Estimated recruitment (n); n = [nspp, nyrs]
