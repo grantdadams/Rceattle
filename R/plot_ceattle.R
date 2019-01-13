@@ -67,11 +67,12 @@ plot_biomass <-
 
     # Plot limits
     ymax <- c()
+    ymin <- c()
     for (i in 1:dim(Biomass)[1]) {
-      ymax[i] <- max(Biomass[i, , ], na.rm = T)
+      ymax[i] <- max(c(Biomass[i, , ], SSB[i, , ], 0), na.rm = T)
+      ymin[i] <- min(c(Biomass[i, , ], SSB[i, , ], 0), na.rm = T)
     }
     ymax <- ymax + 0.15 * ymax
-    ymin <- 0
 
     if (is.null(line_col)) {
       line_col <- 1:length(ceattle_list)
@@ -82,11 +83,11 @@ plot_biomass <-
     loops <- ifelse(is.null(file_name), 1, 2)
     for (i in 1:loops) {
       if (i == 2) {
-        filename <- paste0(file_name, "_biomass_trajectory", ".tiff")
-        tiff(
+        filename <- paste0(file_name, "_biomass_trajectory", ".png")
+        png(
           file = filename ,
-          width = 169 / 25.4,
-          height = 150 / 25.4,
+          width = 7,# 169 / 25.4,
+          height = 6.5,# 150 / 25.4,
           family = "Helvetica" ,
           units = "in",
           res = 300
@@ -107,7 +108,7 @@ plot_biomass <-
         plot(
           y = NA,
           x = NA,
-          ylim = c(ymin, ymax[j]),
+          ylim = c(ymin[j], ymax[j]),
           xlim = c(min(Years), max(Years)),
           xlab = "Year",
           ylab = "Biomass (million t)",
@@ -260,10 +261,10 @@ plot_recruitment <-
 
       # Get SD of rec
       if (!is.null(ci_col)) {
-      sd_rec <- which(names(ceattle_list[[i]]$sdrep$value) == "R")
-      sd_rec <- ceattle_list[[i]]$sdrep$sd[sd_rec]
-      recruitment_sd[, , i] <-
-        replace(recruitment_sd[, , i], values = sd_rec)
+        sd_rec <- which(names(ceattle_list[[i]]$sdrep$value) == "R")
+        sd_rec <- ceattle_list[[i]]$sdrep$sd[sd_rec]
+        recruitment_sd[, , i] <-
+          replace(recruitment_sd[, , i], values = sd_rec)
       }
     }
 
@@ -311,11 +312,17 @@ plot_recruitment <-
 
     # Plot limits
     ymax <- c()
+    ymin <- c()
     for (i in 1:dim(recruitment)[1]) {
-      ymax[i] <- max(recruitment_upper[i, , ], na.rm = T)
+      if (!is.null(ci_col)) {
+        ymax[i] <- max(c(recruitment_upper[i, , ], 0), na.rm = T)
+        ymin[i] <- min(c(recruitment_upper[i, , ], 0), na.rm = T)
+      } else{
+        ymax[i] <- max(c(recruitment[i, , ], 0), na.rm = T)
+        ymin[i] <- min(c(recruitment[i, , ], 0), na.rm = T)
+      }
     }
     ymax <- ymax + 0.2 * ymax
-    ymin <- 0
 
     if (is.null(line_col)) {
       line_col <- 1:length(ceattle_list)
@@ -326,11 +333,11 @@ plot_recruitment <-
     loops <- ifelse(is.null(file_name), 1, 2)
     for (i in 1:loops) {
       if (i == 2) {
-        filename <- paste0(file_name, "_recruitment_trajectory", ".tiff")
-        tiff(
+        filename <- paste0(file_name, "_recruitment_trajectory", ".png")
+        png(
           file = filename ,
-          width = 169 / 25.4,
-          height = 150 / 25.4,
+          width = 7,# 169 / 25.4,
+          height = 6.5,# 150 / 25.4,
           family = "Helvetica",
           units = "in",
           res = 300
@@ -351,7 +358,7 @@ plot_recruitment <-
         plot(
           y = NA,
           x = NA,
-          ylim = c(ymin, ymax[j]),
+          ylim = c(ymin[j], ymax[j]),
           xlim = c(min(Years), max(Years)),
           xlab = "Year",
           ylab = "Recruitment (millions)",
@@ -400,6 +407,205 @@ plot_recruitment <-
             lwd = lwd,
             col = line_col[k]
           ) # Median
+        }
+      }
+
+
+      if (i == 2) {
+        dev.off()
+      }
+    }
+  }
+
+
+
+
+#' Plot selectivity
+#'
+#' @description Function the plots the fishery and survey selectivity as estimated from Rceattle
+#'
+#' @param file_name name of a file to identified the files exported by the
+#'   function.
+#' @param ceattle_list List of CEATTLE model objects exported from \code{\link{Rceattle}}
+#' @param model_names Names of models to be used in legend
+#' @param line_col Colors of models to be used for line color
+#' @param species Species names for legend
+#' @param lwd Line width as specified by user
+plot_selectivity <-
+  function(ceattle_list,
+           tmp_list = NULL,
+           file_name = NULL,
+           model_names = NULL,
+           line_col = NULL,
+           species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"),
+           lwd = 3) {
+
+    # Extract data objects
+    nyrs <- ceattle_list[[1]]$data_list$nyrs
+    Years <-
+      ceattle_list[[1]]$data_list$styr:(ceattle_list[[1]]$data_list$styr + nyrs - 1)
+    nspp <- ceattle_list[[1]]$data_list$nspp
+    nages <- ceattle_list[[1]]$data_list$nages
+
+    # Get biomass
+    srv_selectivity <-
+      array(NA, dim = c(nspp, max(nages), length(ceattle_list) + length(tmp_list)))
+    for (i in 1:length(ceattle_list)) {
+      srv_selectivity[, , i] <- ceattle_list[[i]]$quantities$srv_sel
+    }
+
+    ind = 1
+    if (!is.null(tmp_list)) {
+      for (i in (length(ceattle_list) + 1):(length(ceattle_list) + length(tmp_list))) {
+        for (k in 1:nspp) {
+          srv_selectivity[k,1:nages[k], i] <- tmp_list[[ind]][[paste0("srv_sel_", k)]]
+        }
+        ind = ind + 1
+      }
+    }
+
+    # Get SSB
+    fsh_selectivity <-
+      array(NA, dim = c(nspp, max(nages), length(ceattle_list) + length(tmp_list)))
+    for (i in 1:length(ceattle_list)) {
+      fsh_selectivity[, , i] <- ceattle_list[[i]]$quantities$fsh_sel
+    }
+
+    ind = 1
+    if (!is.null(tmp_list)) {
+      for (i in (length(ceattle_list) + 1):(length(ceattle_list) + length(tmp_list))) {
+        for (k in 1:nspp) {
+          fsh_selectivity[k, , i] <- tmp_list[[ind]][[paste0("fsh_sel_", k)]]
+        }
+        ind = ind + 1
+      }
+    }
+
+    # Plot limits
+    ymax_srv <- c()
+    ymin_srv <- c()
+
+    ymax_fsh <- c()
+    ymin_fsh <- c()
+    for (i in 1:dim(srv_selectivity)[1]) {
+      ymax_srv[i] <- max(c(srv_selectivity[i,1:nages[i], ], 0), na.rm = T)
+      ymin_srv[i] <- min(c(srv_selectivity[i,1:nages[i], ], 0), na.rm = T)
+
+      ymax_fsh[i] <- max(c(fsh_selectivity[i,1:nages[i], ], 0), na.rm = T)
+      ymin_fsh[i] <- min(c(fsh_selectivity[i,1:nages[i], ], 0), na.rm = T)
+    }
+    ymax_srv <- ymax_srv + 0.15 * ymax_srv
+    ymax_fsh <- ymax_fsh + 0.15 * ymax_fsh
+
+    if (is.null(line_col)) {
+      line_col <- 1:length(ceattle_list)
+    }
+
+
+    # Plot trajectory
+    loops <- ifelse(is.null(file_name), 1, 2)
+    for (i in 1:loops) {
+      if (i == 2) {
+        filename <- paste0(file_name, "_selectivity", ".png")
+        png(
+          file = filename ,
+          width = 7,# 169 / 25.4,
+          height = 6.5, # 150 / 25.4,
+          family = "Helvetica" ,
+          units = "in",
+          res = 300
+        )
+      }
+
+      # Plot configuration
+      layout(matrix(1:((nspp + 2)*2), nrow = (nspp + 2), ncol = 2, byrow = TRUE), heights = c(0.1, rep(1, nspp), 0.2))
+      par(
+        mar = c(0, 3 , 0 , 1) ,
+        oma = c(0 , 0 , 0 , 0),
+        tcl = -0.35,
+        mgp = c(1.75, 0.5, 0)
+      )
+      plot.new()
+      plot.new()
+
+      for (j in 1:nspp) {
+
+        # Survey selectivity
+        plot(
+          y = NA,
+          x = NA,
+          ylim = c(ymin_srv[j], ymax_srv[j]),
+          xlim = c(min(0), nages[j]),
+          xlab = "Age",
+          ylab = "Survey selectivity",
+          xaxt = c(rep("n", nspp - 1), "s")[j]
+        )
+
+        # Legends
+        legend("topleft", species[j], bty = "n", cex = 1.4)
+
+        if (j == 1) {
+          if(!is.null(model_names)){
+            legend(
+              "topright",
+              legend = model_names,
+              lty = rep(1, length(line_col)),
+              lwd = lwd,
+              col = line_col,
+              bty = "n",
+              cex = 1.175
+            )
+          }
+        }
+
+
+        # Mean selectivity
+        for (k in 1:dim(srv_selectivity)[3]) {
+          lines(
+            x = 1:nages[j],
+            y = srv_selectivity[j, 1:nages[j], k],
+            lty = 1,
+            lwd = lwd,
+            col = line_col[k]
+          )
+        }
+
+
+        # Fishery selectivity
+        plot(
+          y = NA,
+          x = NA,
+          ylim = c(ymin_fsh[j], ymax_fsh[j]),
+          xlim = c(min(0), nages[j]),
+          xlab = "Age",
+          ylab = "Fishery selectivity",
+          xaxt = c(rep("n", nspp - 1), "s")[j]
+        )
+
+        if (j == 1) {
+          if(!is.null(model_names)){
+            legend(
+              "topright",
+              legend = model_names,
+              lty = rep(1, length(line_col)),
+              lwd = lwd,
+              col = line_col,
+              bty = "n",
+              cex = 1.175
+            )
+          }
+        }
+
+
+        # Mean selectivity
+        for (k in 1:dim(fsh_selectivity)[3]) {
+          lines(
+            x = 1:nages[j],
+            y = fsh_selectivity[j, 1:nages[j], k],
+            lty = 1,
+            lwd = lwd,
+            col = line_col[k]
+          )
         }
       }
 

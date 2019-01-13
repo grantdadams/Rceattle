@@ -122,13 +122,13 @@ Rceattle <-
       list.files(path = cpp_directory, pattern = version)
     if (Sys.info()[1] == "Windows" &
         paste0(version, ".so") %in% version_files) {
-      try(dyn.unload(TMB::dynlib(paste0(cpp_file))))
+      suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file)))))
       file.remove(paste0(cpp_file, ".so"))
       file.remove(paste0(cpp_file, ".o"))
     }
     if (Sys.info()[1] != "Windows" &
         paste0(version, ".dll") %in% version_files) {
-      try(dyn.unload(TMB::dynlib(paste0(cpp_file))))
+      suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file)))))
       file.remove(paste0(cpp_file, ".dll"))
       file.remove(paste0(cpp_file, ".o"))
     }
@@ -200,6 +200,6 @@ Rceattle <-
       save(mod_objects, file = paste0(file_name, ".RData"))
     }
 
-    # dyn.unload(TMB::dynlib(paste0(cpp_file)))
+    suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file)))))
     return(mod_objects)
   }

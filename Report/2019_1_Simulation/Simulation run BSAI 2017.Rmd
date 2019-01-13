@@ -1,0 +1,101 @@
+---
+title: "BSAI 2017 Simulation Test"
+author: "Grant Adams"
+date: "January 11, 2019"
+output:
+  word_document: default
+  pdf_document: default
+---
+```{r , echo = FALSE, fig.cap="Fig 1. Time series of estimated biomass using penalized likelihood multi-species CEATTLE from an operating model (OM) fit to data, models fit to simulated data (SMs), and mean/median of the SMs."}
+# Plot models
+file_name = "time"
+knitr::include_graphics(paste0(file_name, "_biomass_trajectory", ".png"))
+```
+
+
+
+```{r , echo = FALSE, fig.cap="Fig 2. Time series of estimated biomass mean squared error (MSE) of models fit to simulated data from multi-species CEATTLE using penalized likelihood"}
+file_name = "mse"
+knitr::include_graphics(paste0(file_name, "_biomass_trajectory", ".png"))
+```
+
+
+
+```{r , echo = FALSE, fig.cap="Fig 3. Time series of estimated biomass median relative error (MRE) of models fit to simulated data from multi-species CEATTLE using penalized likelihood"}
+file_name = "mre"
+knitr::include_graphics(paste0(file_name, "_biomass_trajectory", ".png"))
+```
+
+
+
+```{r , echo = FALSE, fig.cap="Fig 4. Time series of estimated biomass coefficient of variation (CV) of models fit to simulated data from multi-species CEATTLE using penalized likelihood"}
+file_name = "cv"
+knitr::include_graphics(paste0(file_name, "_biomass_trajectory", ".png"))
+```
+
+
+
+
+
+
+```{r , echo = FALSE, fig.cap="Fig 5. Time series of estimated recruitment using penalized likelihood multi-species CEATTLE from an operating model (OM) fit to data, models fit to simulated data (SMs), and mean/median of the SMs."}
+# Plot models
+file_name = "time"
+knitr::include_graphics(paste0(file_name, "_recruitment_trajectory", ".png"))
+```
+
+
+
+```{r , echo = FALSE, fig.cap="Fig 6. Time series of estimated recruitment mean squared error (MSE) of models fit to simulated data from multi-species CEATTLE using penalized likelihood"}
+file_name = "mse"
+knitr::include_graphics(paste0(file_name, "_recruitment_trajectory", ".png"))
+```
+
+
+
+```{r , echo = FALSE, fig.cap="Fig 7. Time series of estimated recruitment median relative error (MRE) of models fit to simulated data from multi-species CEATTLE using penalized likelihood"}
+file_name = "mre"
+knitr::include_graphics(paste0(file_name, "_recruitment_trajectory", ".png"))
+```
+
+
+
+```{r , echo = FALSE, fig.cap="Fig 8. Time series of estimated recruitment coefficient of variation (CV) of models fit to simulated data from multi-species CEATTLE using penalized likelihood"}
+file_name = "cv"
+knitr::include_graphics(paste0(file_name, "_recruitment_trajectory", ".png"))
+```
+
+
+
+
+
+
+
+```{r , echo = FALSE, fig.cap="Fig 9. Estimated selectivity using penalized likelihood multi-species CEATTLE from an operating model (OM) fit to data, models fit to simulated data (SMs), and mean/median of the SMs."}
+# Plot models
+file_name = "time"
+knitr::include_graphics(paste0(file_name, "_selectivity", ".png"))
+```
+
+
+
+```{r , echo = FALSE, fig.cap="Fig 10. Estimated selectivity mean squared error (MSE) of models fit to simulated data from multi-species CEATTLE using penalized likelihood"}
+file_name = "mse"
+knitr::include_graphics(paste0(file_name, "_selectivity", ".png"))
+```
+
+
+
+```{r , echo = FALSE, fig.cap="Fig 11. Estimated selectivity median relative error (MRE) of models fit to simulated data from multi-species CEATTLE using penalized likelihood"}
+file_name = "mre"
+knitr::include_graphics(paste0(file_name, "_selectivity", ".png"))
+```
+
+
+
+```{r , echo = FALSE, fig.cap="Fig 12. Estimated selectivity coefficient of variation (CV) of models fit to simulated data from multi-species CEATTLE using penalized likelihood"}
+file_name = "cv"
+knitr::include_graphics(paste0(file_name, "_selectivity", ".png"))
+```
+
+

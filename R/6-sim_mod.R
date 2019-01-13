@@ -65,6 +65,7 @@ compare_sim <- function( operating_mod, simulation_mods, object = "quantities"){
   sim_mre <- list()
   sim_mse <- list()
   sim_mean <- list()
+  sim_median <- list()
   sim_sd <- list()
   sim_cv <- list()
   sim_params <- list()
@@ -106,6 +107,7 @@ compare_sim <- function( operating_mod, simulation_mods, object = "quantities"){
       if(param_dim > 0){
         # Get mean, sd, and CV
         sim_mean[[param]] <- apply(simplify2array(sim_params[[param]]), 1:param_dim, mean)
+        sim_median[[param]] <- apply(simplify2array(sim_params[[param]]), 1:param_dim, median)
         sim_sd[[param]] <- apply(simplify2array(sim_params[[param]]), 1:param_dim, sd)
         sim_cv[[param]] <- sim_sd[[param]] / sim_mean[[param]]
 
@@ -115,7 +117,7 @@ compare_sim <- function( operating_mod, simulation_mods, object = "quantities"){
     }
 
 
-  result_list <- list(Mean = sim_mean, SD = sim_sd, CV = sim_cv, MRE = sim_mre, MSE = sim_mse)
+  result_list <- list(Mean = sim_mean, Median = sim_median, SD = sim_sd, CV = sim_cv, MRE = sim_mre, MSE = sim_mse)
   return(result_list)
 }
 
