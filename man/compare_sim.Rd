@@ -4,7 +4,7 @@
 \alias{compare_sim}
 \title{Evaluate simulation performance}
 \usage{
-compare_sim(operating_mod, simulation_mods)
+compare_sim(operating_mod, simulation_mods, object = "quantities")
 }
 \arguments{
 \item{operating_mod}{CEATTLE model object exported from \code{\link{Rceattle}} to be used as the operating model}
