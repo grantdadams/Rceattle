@@ -3,9 +3,9 @@
 #' @description  Simulates data used in Rceattle from the expected values etimated from Rceattle. The variances and uncertainty are the same as used in the operating model. The function currently simulates (assumed distribution) the following: survey biomass (log-normal), survey catch-at-length/age (multinomial), EIT biomass (log-normal), EIT catch-at-length/age (multinomial), total catch (kg) (log-normal), and catch-at-length/age.
 #'
 #' @param ceattle_obj CEATTLE model object exported from \code{\link{Rceattle}}
-#' TODO Options for simulation diet data: multinomial, sqrt-normal, dirichlet, multinomial
+#' @export
 sim_mod <- function( ceattle_obj ){
-
+  #TODO Options for simulation diet data: multinomial, sqrt-normal, dirichlet, multinomial
   dat_sim <- ceattle_obj$data_list
 
   for(sp in 1:ceattle_obj$data_list$nspp){ #FIXME: may need to adjust for multiple surveys

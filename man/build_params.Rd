@@ -2,15 +2,12 @@
 % Please edit documentation in R/2-build_params.R
 \name{build_params}
 \alias{build_params}
-\title{Build parameter file}
+\title{Build parameter list from cpp file}
 \usage{
-build_params(data_list, nselages = 8, inits = NULL,
-  TMBfilename = NULL)
+build_params(data_list, inits = NULL, TMBfilename = NULL)
 }
 \arguments{
 \item{data_list}{A data_list object created by \code{\link{build_dat}}}
-
-\item{nselages}{The number of selectivity parameters to use for each species. Deafult is 8}
 
 \item{inits}{Character vector of named initial values from ADMB \code{.std} or \code{.par} files or list of previous parameter estimates from Rceattle model.}
 

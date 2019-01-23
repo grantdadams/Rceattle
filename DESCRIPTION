@@ -10,6 +10,8 @@ Description: Implements the CEATTLE model developed by Holsman et al (2016) in R
 License: What license is it under?
 Encoding: UTF-8
 LazyData: true
+Depends: TMB
+LinkingTo: TMB, RcppEigen
 Imports: 
     TMB (>= 1.7.10),
     adnuts (>= 0.0.0.9000),

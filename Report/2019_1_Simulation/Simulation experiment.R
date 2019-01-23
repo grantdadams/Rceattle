@@ -1,7 +1,7 @@
 library(Rceattle)
 
 # Fit initial models
-data_list_ss <- build_dat(ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "ceattle_v01_02", dat_dir = "data/BSAI/BS_SS_Files/dat files/", nspp = 3)
+data_list_ss <- build_dat(ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "ceattle_v01_02", dat_dir = "data-raw/BSAI/BS_SS_Files/dat files/", nspp = 3)
 
 ss_run <- Rceattle(TMBfilename = "ceattle_v01_02",
                    data_list = data_list_ss,
@@ -13,7 +13,7 @@ ss_run <- Rceattle(TMBfilename = "ceattle_v01_02",
                    avgnMode = 0,
                    silent = TRUE)
 
-data_list_ms <- build_dat(ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "ceattle_v01_02", dat_dir = "data/BSAI/BS_MS_Files/dat files/", nspp = 3)
+data_list_ms <- build_dat(ctlFilename = "asmnt2017_2A_corrected", TMBfilename = "ceattle_v01_02", dat_dir = "data-raw/BSAI/BS_MS_Files/dat files/", nspp = 3)
 
 ms_run <- Rceattle(TMBfilename = "ceattle_v01_02",
                    data_list = data_list_ms,
@@ -25,6 +25,11 @@ ms_run <- Rceattle(TMBfilename = "ceattle_v01_02",
                    msmMode = 1, # Multi-species holsman mode
                    avgnMode = 0,
                    silent = TRUE)
+
+BS2017SS <- data_list_ss
+BS2017MS <- data_list_ms
+usethis::use_data(BS2017MS, overwrite = T)
+usethis::use_data(BS2017SS, overwrite = T)
 
 # # Simulation
 # nsim <- 100

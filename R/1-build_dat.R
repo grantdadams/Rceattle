@@ -1,16 +1,20 @@
-#' Build data list object
-#' @description Function to build a \code{data_list} object to be used by Rceattle from ADMB based CEATTLE dat and ctl files for BSAI groundfish.
+#' Build data list object for TMB from ADMB dat files
 #'
-#' @param ctlFilename The ADMB control file used for CEATTLE
-#' @param TMBfilename The version of the cpp CEATTLE file found in the src folder
-#' @param dat_dir The directory where dat files are stored
-#' @param nspp The number of species included in the CEATTLE model
-build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, dat_dir = NULL, nspp = 3) {
+#' @description Function to build a \code{data_list} object to be used by Rceattle from ADMB based CEATTLE dat and ctl files for BSAI groundfish. The function first reads the TMB .cpp file speciied by \code{TMBfilename} to identify the names of the data objects used by TMB. The function then searches across the \code{.dat} files in the directory specified by \code{dat_dir} to find the location of each data object. The function then reads in the specific data object from the \code{.dat} file and reformats them to be used by TMB.
+#'
+#' @param ctlFilename The ADMB control (.ctl) file used for CEATTLE
+#' @param TMBfilename The version of the cpp CEATTLE file found in the /src folder
+#' @param dat_dir The directory where ctl and dat files are stored
+#' @param nspp The number of species included in the CEATTLE model. Deafualts to 3.
+#'
+#' @return A list of data objects used by TMB
+#' @export
+build_dat <- function(ctlFilename = NULL, TMBfilename = "ceattle_v01_02", dat_dir = NULL, nspp = 3, nselages = 8) {
 
   #---------------------------------------------------------------------
   # Step 1 -- Extract data names used in TMB
   #---------------------------------------------------------------------
-  cpp_fn <- file(paste("inst/", TMBfilename, ".cpp", sep = ""))
+  cpp_fn <- file(paste("src/", TMBfilename, ".cpp", sep = ""))
   cpp_file <- readLines(cpp_fn)
 
   skipp <- grep("MODEL INPUTS", cpp_file) # Line of data files
@@ -66,21 +70,19 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, dat_dir = NULL, ns
   #---------------------------------------------------------------------
   # Step 3 -- Extract data from the dat files
   #---------------------------------------------------------------------
-  source("R/Support Functions/readdat_fun.R")
   dat_list <- list()
   for (i in 1:nrow(dat_loc)) {
-    dat_list[[i]] <- readdat(fn = paste(dat_dir, dat_loc[i, 2], sep = ""), nm = as.character(dat_loc[i, 1]), nspp = nspp)
+    dat_list[[i]] <- Rceattle:::readdat(fn = paste(dat_dir, dat_loc[i, 2], sep = ""), nm = as.character(dat_loc[i, 1]), nspp = nspp)
     names(dat_list)[i] <- as.character(dat_loc[i, 1])
   }
 
   #---------------------------------------------------------------------
   # Step 4 -- Clean data remove columns of all NAs
   #---------------------------------------------------------------------
-  source("R/Support Functions/dim_check.R")
   for (i in 1:length(dat_list)) {
-    dat_list[[i]] <- dim_check(dat_list[[i]])
-    dat_list[[i]] <- remove_na_col(dat_list[[i]])
-    dat_list[[i]] <- list_to_array(dat_list[[i]])
+    dat_list[[i]] <- Rceattle:::dim_check(dat_list[[i]])
+    dat_list[[i]] <- Rceattle:::remove_na_col(dat_list[[i]])
+    dat_list[[i]] <- Rceattle:::list_to_array(dat_list[[i]])
   }
 
   # Print data included
@@ -118,6 +120,28 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, dat_dir = NULL, ns
     skipp <- grep(dat_names[i], ctl_file) # Line of data files
     dat_list$config <- as.numeric(scan(ctl_fn, what = "", flush = F, blank.lines.skip = F, skip = skipp, nlines = 1, quiet = T, sep = ""))
     names(dat_list)[which(names(dat_list) == "config")] <- dat_names[i]
+  }
+
+  #---------------------------------------------------------------------
+  # Steo 6 -- Convert to TMB configuration
+  #---------------------------------------------------------------------
+  # Convert selectivity
+  for(i in 1:length(dat_list$logist_sel_phase)){
+    if(dat_list$logist_sel_phase[i] < 0){
+      dat_list$logist_sel_phase[i] <- 0
+    }
+    if(dat_list$logist_sel_phase[i] > 0){
+      dat_list$logist_sel_phase[i] <- 1
+    }
+  }
+
+  if(length(nselages) == 1){
+    dat_list$nselages <- rep(nselages, dat_list$nspp)
+  }
+  else if(length(nselages) == dat_list$nspp){
+    dat_list$nselages <- nselages
+  } else{
+    stop("nselages is not of length 1 or nspp")
   }
 
   return(dat_list)

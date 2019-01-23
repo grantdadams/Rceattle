@@ -1,7 +1,7 @@
 #' This functions runs CEATTLE
 #' @description  This function estimates population parameters of CEATTLE using maximum likelihood in TMB.
 #'
-#' @param TMBfilename The version of the cpp CEATTLE file found in the src folder
+#' @param TMBfilename The version of the cpp CEATTLE file found in the src folder. If NULL, uses the built .cpp file
 #' @param data_list a data_list created from \code{\link{build_dat}}.
 #' @param inits Character vector of named initial values from ADMB or list of previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters.
 #' @param file_name Filename where files will be saved. If NULL, no file is saved.
@@ -27,9 +27,12 @@
 #'   \item{7. Kinzey & Punt 2010 Hassell-Varley}
 #'   \item{8. Kinzey & Punt 2010 Ecosim}
 #'   }
+#' @useDynLib Rceattle
+#' @export
 
 Rceattle <-
   function(TMBfilename = "CEATTLE_BSAI_MS_v01_02",
+           run_dev = TRUE,
            data_list = NULL,
            inits = NULL,
            file_name = NULL,
@@ -48,19 +51,15 @@ Rceattle <-
     #--------------------------------------------------
     # 1. DATA and MODEL PREP
     #--------------------------------------------------
-    # Check if require packages are installed and install if not
-    if ("TMB" %in% rownames(installed.packages()) == FALSE) {
-      install.packages("TMB")
-    }
-    if ("TMBhelper" %in% rownames(installed.packages()) == FALSE) {
-      install.packages("TMBhelper")
-    }
-    library(TMB)
-    library(TMBhelper)
-
-    # Load data
-    # source("R/2-build_params.R")
-    # source("R/3-build_map.R")
+    # # Check if require packages are installed and install if not
+    # if ("TMB" %in% rownames(installed.packages()) == FALSE) {
+    #   install.packages("TMB")
+    # }
+    # if ("TMBhelper" %in% rownames(installed.packages()) == FALSE) {
+    #   install.packages("TMBhelper")
+    # }
+    # library(TMB)
+    # library(TMBhelper)
 
 
     # STEP 1 - LOAD DATA
@@ -83,7 +82,6 @@ Rceattle <-
     if (is.character(inits) | is.null(inits)) {
       params <- Rceattle::build_params(
         data_list = data_list,
-        nselages = 8,
         inits = inits,
         TMBfilename = TMBfilename
       )
@@ -112,30 +110,36 @@ Rceattle <-
     }
 
 
-    # STEP 5 - Compile CEATTLE
-    version <- TMBfilename
-    cpp_directory <- "inst"
-    cpp_file <- paste0(cpp_directory, "/", version)
+    # STEP 5 - Compile CEATTLE is providing cpp file
+    if(!is.null(TMBfilename)){
+      version <- TMBfilename
+      cpp_directory <- "src"
+      cpp_file <- paste0(cpp_directory, "/", version)
 
-    # Remove compiled files if not compatible with system
-    version_files <-
-      list.files(path = cpp_directory, pattern = version)
-    if (Sys.info()[1] == "Windows" &
-        paste0(version, ".so") %in% version_files) {
-      suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file)))))
-      file.remove(paste0(cpp_file, ".so"))
-      file.remove(paste0(cpp_file, ".o"))
-    }
-    if (Sys.info()[1] != "Windows" &
-        paste0(version, ".dll") %in% version_files) {
-      suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file)))))
-      file.remove(paste0(cpp_file, ".dll"))
-      file.remove(paste0(cpp_file, ".o"))
-    }
+      # Remove compiled files if not compatible with system
+      version_files <-
+        list.files(path = cpp_directory, pattern = version)
+      if (Sys.info()[1] == "Windows" &
+          paste0(version, ".so") %in% version_files) {
+        suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file)))))
+        file.remove(paste0(cpp_file, ".so"))
+        file.remove(paste0(cpp_file, ".o"))
+      }
+      if (Sys.info()[1] != "Windows" &
+          paste0(version, ".dll") %in% version_files) {
+        suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file)))))
+        file.remove(paste0(cpp_file, ".dll"))
+        file.remove(paste0(cpp_file, ".o"))
+      }
 
-    TMB::compile(paste0(cpp_file, ".cpp"))
-    dyn.load(TMB::dynlib(paste0(cpp_file)))
-    print("Step 4: Compile CEATTLE complete")
+      TMB::compile(paste0(cpp_file, ".cpp"))
+      dyn.load(TMB::dynlib(paste0(cpp_file)))
+      print("Step 4: Compile CEATTLE complete")
+    }
+    # If no tmb file provided use default
+    if(is.null(TMBfilename)){
+      version = "Rceattle"
+    }
 
 
 
@@ -195,6 +199,8 @@ Rceattle <-
         bounds = bounds,
         run_time = run_time
       )
+
+    class(mod_objects) <- "Rceattle"
 
     if(!is.null(file_name)){
       save(mod_objects, file = paste0(file_name, ".RData"))

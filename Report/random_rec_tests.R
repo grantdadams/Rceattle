@@ -1,5 +1,5 @@
 library(Rceattle)
-data_list_ss <- build_dat(ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "ceattle_v01_02", dat_dir = "data/BSAI/BS_SS_Files/dat files/", nspp = 3)
+data_list_ss <- build_dat(ctlFilename = "asmnt2017_0A_corrected", TMBfilename = "ceattle_v01_02", dat_dir = "data-raw/BSAI/BS_SS_Files/dat files/", nspp = 3)
 
 
 ss_run <- Rceattle(TMBfilename = "ceattle_v01_02",

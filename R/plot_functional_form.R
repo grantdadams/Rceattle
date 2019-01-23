@@ -6,6 +6,7 @@
 #' @param pred Predator index
 #' @param pred_age Predator age
 #' @param prey Prey index
+#' @export
 plot_form <- function( params = NULL, pred = 1, pred_age = 1, prey = 1, msmMode = 3){
 
   # Get indices
