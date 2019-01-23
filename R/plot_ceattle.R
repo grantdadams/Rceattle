@@ -12,6 +12,7 @@
 #' @param include_srv Boolian of whether to include survey biomass estimates and 95% CI
 #'
 #' @return Returns and saves a figure with the population trajectory.
+#' @export
 plot_biomass <-
   function(ceattle_list,
            tmp_list = NULL,

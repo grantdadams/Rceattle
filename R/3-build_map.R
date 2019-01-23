@@ -1,6 +1,12 @@
-# Function to construct the TMB map argument for CEATTLE
-# Grant Adams June 2018
-
+#' Function to construct the TMB map argument for CEATTLE
+#'
+#' @param data_list a data_list created from \code{\link{build_dat}}.
+#' @param params a parameter list created from \code{\link{build_param}} or \code{\link{build_params_from_cpp}}
+#' @param debug Runs the model without estimating parameters to get derived quantities given initial parameter values. If TRUE, sets all map values to NA except dummy
+#' @param random_rec logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE, which sets the map for ln_rec_sigma to NA
+#'
+#' @return a list of map arguments for each parameter
+#' @export
 build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
   map_list <- params
@@ -21,12 +27,17 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
   # Survey selectivity coefficients
   for( i in 1: nrow(map_list$srv_sel_coff)){
-    if(data_list$logist_sel_phase[i] > 0){
+    if(data_list$logist_sel_phase[i] == 0){ # Logitistic
       map_list$srv_sel_coff[i,] <- replace(map_list$srv_sel_coff[i,], values = rep(NA, length(map_list$srv_sel_coff[i,])))
     }
-    if(data_list$logist_sel_phase[i] < 0){
+    if(data_list$logist_sel_phase[i] == 1){ # Non-parametric at age
       map_list$srv_sel_slp[i] <- NA
       map_list$srv_sel_inf[i] <- NA
+
+      # If nselages is  < max(nselages)
+      if(data_list$nselages[i] < max(data_list$nselages, na.rm = TRUE)){
+        map_list$srv_sel_coff[i, (data_list$nselages[i] + 1):max(data_list$nselages)]  <- replace(map_list$srv_sel_coff[i, (data_list$nselages[i] + 1):max(data_list$nselages)], values = rep(NA, length(map_list$srv_sel_coff[i, (data_list$nselages[i] + 1):max(data_list$nselages)])))
+      }
     }
   }
 

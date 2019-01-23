@@ -2,20 +2,23 @@
 % Please edit documentation in R/1-build_dat.R
 \name{build_dat}
 \alias{build_dat}
-\title{Build data list object}
+\title{Build data list object for TMB from ADMB dat files}
 \usage{
-build_dat(ctlFilename = NULL, TMBfilename = NULL, dat_dir = NULL,
-  nspp = 3)
+build_dat(ctlFilename = NULL, TMBfilename = "ceattle_v01_02",
+  dat_dir = NULL, nspp = 3, nselages = 8)
 }
 \arguments{
-\item{ctlFilename}{The ADMB control file used for CEATTLE}
+\item{ctlFilename}{The ADMB control (.ctl) file used for CEATTLE}
 
-\item{TMBfilename}{The version of the cpp CEATTLE file found in the src folder}
+\item{TMBfilename}{The version of the cpp CEATTLE file found in the /src folder}
 
-\item{dat_dir}{The directory where dat files are stored}
+\item{dat_dir}{The directory where ctl and dat files are stored}
 
-\item{nspp}{The number of species included in the CEATTLE model}
+\item{nspp}{The number of species included in the CEATTLE model. Deafualts to 3.}
+}
+\value{
+A list of data objects used by TMB
 }
 \description{
-Function to build a \code{data_list} object to be used by Rceattle from ADMB based CEATTLE dat and ctl files for BSAI groundfish.
+Function to build a \code{data_list} object to be used by Rceattle from ADMB based CEATTLE dat and ctl files for BSAI groundfish. The function first reads the TMB .cpp file speciied by \code{TMBfilename} to identify the names of the data objects used by TMB. The function then searches across the \code{.dat} files in the directory specified by \code{dat_dir} to find the location of each data object. The function then reads in the specific data object from the \code{.dat} file and reformats them to be used by TMB.
 }

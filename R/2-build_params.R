@@ -1,21 +1,19 @@
-#' Build parameter file
+#' Build parameter list from cpp file
 #' @description Function to read a TMB cpp file and construct parameter list object for Rceattle
 #'
 #' @param data_list A data_list object created by \code{\link{build_dat}}
-#' @param nselages The number of selectivity parameters to use for each species. Deafult is 8
 #' @param inits Character vector of named initial values from ADMB \code{.std} or \code{.par} files or list of previous parameter estimates from Rceattle model.
 #' @param TMBfilename The version of the cpp CEATTLE file found in the src folder.
+#' @export
 build_params <-
   function(data_list,
-           nselages = 8,
            inits = NULL,
            TMBfilename = NULL) {
-    data_list$nselages <- nselages
     closeAllConnections()
     #---------------------------------------------------------------------
     # Step 1 -- Extract parameter names and dimensions used in TMB
     #---------------------------------------------------------------------
-    cpp_fn <- file(paste("inst/", TMBfilename, ".cpp", sep = ""))
+    cpp_fn <- file(paste("src/", TMBfilename, ".cpp", sep = ""))
 
     cpp_file <- readLines(cpp_fn)
     cpp_file <-
