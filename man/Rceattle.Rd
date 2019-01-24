@@ -6,21 +6,21 @@
 \usage{
 Rceattle(TMBfilename = "ceattle_v01_02", cpp_directory = NULL,
   data_list = NULL, inits = NULL, map = NULL, file_name = NULL,
-  debug = T, random_rec = FALSE, niter = 3, msmMode = 0,
-  avgnMode = 0, est_diet = FALSE, suitMode = FALSE, silent = FALSE)
+  debug = T, random_rec = FALSE, niter = 3, msmMode = 0, avgnMode = 0,
+  est_diet = FALSE, suitMode = FALSE, silent = FALSE)
 }
 \arguments{
 \item{TMBfilename}{(Optional) A version of the cpp CEATTLE \code{cpp_directory}. If NULL, uses the deafult and built .cpp file}
 
-\item{cpp_directory}{The directory where the cpp file is found}
+\item{cpp_directory}{(Optional) The directory where the cpp file is found}
 
 \item{data_list}{a data_list created from \code{\link{build_dat}}.}
 
-\item{inits}{Character vector of named initial values from ADMB or list of previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters. Can also consturct using \code{\link{build_params}}}
+\item{inits}{(Optional) Character vector of named initial values from ADMB or list of previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters. Can also consturct using \code{\link{build_params}}}
 
-\item{map}{A prebuilt map object from \code{\link{build_map}}}
+\item{map}{(Optional) A prebuilt map object from \code{\link{build_map}}}
 
-\item{file_name}{Filename where files will be saved. If NULL, no file is saved.}
+\item{file_name}{(Optional) Filename where files will be saved. If NULL, no file is saved.}
 
 \item{debug}{Runs the model without estimating parameters to get derived quantities given initial parameter values.}
 
