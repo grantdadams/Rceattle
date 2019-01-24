@@ -3,17 +3,19 @@
 #'
 #' @param data_list A data_list object created by \code{\link{build_dat}}
 #' @param inits Character vector of named initial values from ADMB \code{.std} or \code{.par} files or list of previous parameter estimates from Rceattle model.
-#' @param TMBfilename The version of the cpp CEATTLE file found in the src folder.
+#' @param TMBfilename The version of the cpp CEATTLE file.
+#' @param cpp_directory The directory where the cpp file is found
 #' @export
 build_params <-
   function(data_list,
            inits = NULL,
-           TMBfilename = NULL) {
+           TMBfilename = NULL,
+           cpp_directory = "src") {
     closeAllConnections()
     #---------------------------------------------------------------------
     # Step 1 -- Extract parameter names and dimensions used in TMB
     #---------------------------------------------------------------------
-    cpp_fn <- file(paste("src/", TMBfilename, ".cpp", sep = ""))
+    cpp_fn <- file(paste(cpp_directory, "/", TMBfilename, ".cpp", sep = ""))
 
     cpp_file <- readLines(cpp_fn)
     cpp_file <-

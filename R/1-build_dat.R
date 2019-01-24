@@ -4,17 +4,28 @@
 #'
 #' @param ctlFilename The ADMB control (.ctl) file used for CEATTLE
 #' @param TMBfilename The version of the cpp CEATTLE file found in the /src folder
+#' @param cpp_directory The directory where the cpp file is found
 #' @param dat_dir The directory where ctl and dat files are stored
 #' @param nspp The number of species included in the CEATTLE model. Deafualts to 3.
+#' @param nselages Number of ages to estimate selectivity. Can either be a single number or vector of length nspp
 #'
 #' @return A list of data objects used by TMB
 #' @export
-build_dat <- function(ctlFilename = NULL, TMBfilename = "ceattle_v01_02", dat_dir = NULL, nspp = 3, nselages = 8) {
+build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NULL, dat_dir = NULL, nspp = 3, nselages = 8) {
+
+  # Get cpp file if not provided
+  if(is.null(TMBfilename) | is.null(cpp_directory)){
+    cpp_directory <- system.file("executables",package="Rceattle")
+    TMBfilename <- "ceattle_v01_02"
+  } else{
+    cpp_directory <- cpp_directory
+    TMBfilename <- TMBfilename
+  }
 
   #---------------------------------------------------------------------
   # Step 1 -- Extract data names used in TMB
   #---------------------------------------------------------------------
-  cpp_fn <- file(paste("src/", TMBfilename, ".cpp", sep = ""))
+  cpp_fn <- file(paste(cpp_directory,"/", TMBfilename, ".cpp", sep = ""))
   cpp_file <- readLines(cpp_fn)
 
   skipp <- grep("MODEL INPUTS", cpp_file) # Line of data files

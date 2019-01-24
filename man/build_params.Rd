@@ -4,14 +4,17 @@
 \alias{build_params}
 \title{Build parameter list from cpp file}
 \usage{
-build_params(data_list, inits = NULL, TMBfilename = NULL)
+build_params(data_list, inits = NULL, TMBfilename = NULL,
+  cpp_directory = "src")
 }
 \arguments{
 \item{data_list}{A data_list object created by \code{\link{build_dat}}}
 
 \item{inits}{Character vector of named initial values from ADMB \code{.std} or \code{.par} files or list of previous parameter estimates from Rceattle model.}
 
-\item{TMBfilename}{The version of the cpp CEATTLE file found in the src folder.}
+\item{TMBfilename}{The version of the cpp CEATTLE file.}
+
+\item{cpp_directory}{The directory where the cpp file is found}
 }
 \description{
 Function to read a TMB cpp file and construct parameter list object for Rceattle
