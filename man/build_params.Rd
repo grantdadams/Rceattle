@@ -16,6 +16,9 @@ build_params(data_list, inits = NULL, TMBfilename = NULL,
 
 \item{cpp_directory}{The directory where the cpp file is found}
 }
+\value{
+a list of map arguments for each parameter
+}
 \description{
 Function to read a TMB cpp file and construct parameter list object for Rceattle
 }

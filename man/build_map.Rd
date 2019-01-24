@@ -19,5 +19,5 @@ build_map(data_list, params, debug = FALSE, random_rec = FALSE)
 a list of map arguments for each parameter
 }
 \description{
-Function to construct the TMB map argument for CEATTLE
+Reads a parameter list to construct map
 }

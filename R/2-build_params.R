@@ -1,10 +1,13 @@
 #' Build parameter list from cpp file
+#'
 #' @description Function to read a TMB cpp file and construct parameter list object for Rceattle
 #'
 #' @param data_list A data_list object created by \code{\link{build_dat}}
 #' @param inits Character vector of named initial values from ADMB \code{.std} or \code{.par} files or list of previous parameter estimates from Rceattle model.
 #' @param TMBfilename The version of the cpp CEATTLE file.
 #' @param cpp_directory The directory where the cpp file is found
+#'
+#' @return a list of map arguments for each parameter
 #' @export
 build_params <-
   function(data_list,

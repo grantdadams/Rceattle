@@ -9,6 +9,9 @@ build_bounds(param_list = NULL)
 \arguments{
 \item{param_list}{Parameter list object built from \code{\link{build_params}}}
 }
+\value{
+List of upper and lower bounds
+}
 \description{
-Build parameter bounds
+Function to build parameter bounds based on Holsman et al 2015 and Kinzey and Punt 2010
 }

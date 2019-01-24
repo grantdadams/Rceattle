@@ -1,9 +1,12 @@
-
 #' Build parameter bounds
 #'
-#' @decription Function to build parameter bounds based on Holsman et al 2015 and Kinzey and Punt 2010
+#' Function to build parameter bounds based on Holsman et al 2015 and Kinzey and Punt 2010
+#'
 #' @param param_list Parameter list object built from \code{\link{build_params}}
+#'
+#' @return List of upper and lower bounds
 #' @export
+#'
 build_bounds <- function( param_list = NULL){
 
   upper_bnd <- param_list
