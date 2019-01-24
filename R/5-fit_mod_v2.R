@@ -158,7 +158,6 @@
 #'  Slot 14 -- Ration penalties
 #'  Slot 15 -- Diet weight likelihood
 #'  Slot 16 -- Stomach content of prey length ln in predator length a likelihood
-#' @useDynLib Rceattle
 #' @export
 
 Rceattle <-
