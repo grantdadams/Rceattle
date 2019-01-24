@@ -2,6 +2,7 @@
 % Please edit documentation in R/7-plot_ceattle.R, R/plot_functional_form.R
 \name{plot_form}
 \alias{plot_form}
+\alias{plot_form}
 \title{Plot functional form}
 \usage{
 plot_form(params = NULL, pred = 1, pred_age = 1, prey = 1,

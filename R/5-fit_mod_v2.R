@@ -2,11 +2,11 @@
 #' @description  This function estimates population parameters of CEATTLE using maximum likelihood in TMB.
 #'
 #' @param TMBfilename (Optional) A version of the cpp CEATTLE \code{cpp_directory}. If NULL, uses the deafult and built .cpp file
-#' @param cpp_directory The directory where the cpp file is found
+#' @param cpp_directory (Optional) The directory where the cpp file is found
 #' @param data_list a data_list created from \code{\link{build_dat}}.
-#' @param inits Character vector of named initial values from ADMB or list of previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters. Can also consturct using \code{\link{build_params}}
-#' @param map A prebuilt map object from \code{\link{build_map}}
-#' @param file_name Filename where files will be saved. If NULL, no file is saved.
+#' @param inits (Optional) Character vector of named initial values from ADMB or list of previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters. Can also consturct using \code{\link{build_params}}
+#' @param map (Optional) A prebuilt map object from \code{\link{build_map}}
+#' @param file_name (Optional) Filename where files will be saved. If NULL, no file is saved.
 #' @param debug Runs the model without estimating parameters to get derived quantities given initial parameter values.
 #' @param random_rec logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE.
 #' @param niter Number of iterations for multispecies model
@@ -255,6 +255,7 @@ Rceattle <-
       random_vars <- c("rec_dev")
     }
 
+    '%!in%' <- function(x,y)!('%in%'(x,y))
 
     # STEP 5 - Compile CEATTLE is providing cpp file
     version <- TMBfilename
@@ -271,6 +272,12 @@ Rceattle <-
     }
     if (Sys.info()[1] != "Windows" &
         paste0(version, ".dll") %in% version_files) {
+      suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file)))))
+      file.remove(paste0(cpp_file, ".dll"))
+      file.remove(paste0(cpp_file, ".o"))
+    }
+    if (Sys.info()[1] != "Windows" &
+        paste0(version, ".so") %!in% version_files) {
       suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file)))))
       file.remove(paste0(cpp_file, ".dll"))
       file.remove(paste0(cpp_file, ".o"))
