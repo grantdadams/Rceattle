@@ -301,7 +301,7 @@ Rceattle <-
     #   opt_list[i] = optimx(obj$par, function(x) as.numeric(obj$fn(x)), obj$gr, control = list(maxit = 10000), method = methods[i])
     # }
     opt = tryCatch(
-      TMBhelper::Optimize(obj),
+      Optimize(obj),
       lower = bounds$lower,
       upper = bounds$upper,
       error = function(e)
