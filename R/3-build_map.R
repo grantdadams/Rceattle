@@ -1,5 +1,7 @@
 #' Function to construct the TMB map argument for CEATTLE
 #'
+#' @description Reads a parameter list to construct map
+#'
 #' @param data_list a data_list created from \code{\link{build_dat}}.
 #' @param params a parameter list created from \code{\link{build_param}} or \code{\link{build_params_from_cpp}}
 #' @param debug Runs the model without estimating parameters to get derived quantities given initial parameter values. If TRUE, sets all map values to NA except dummy
