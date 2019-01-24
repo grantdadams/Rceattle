@@ -13,8 +13,8 @@ LazyData: true
 Depends: TMB
 LinkingTo: TMB, RcppEigen
 Imports: 
-    TMB (>= 1.7.10),
-    adnuts (>= 0.0.0.9000),
+    TMB,
+    adnuts,
     testthat,
     r4ss,
     reshape2,
