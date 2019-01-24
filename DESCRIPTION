@@ -16,8 +16,6 @@ Imports:
     TMB (>= 1.7.10),
     adnuts (>= 0.0.0.9000),
     testthat,
-    TMBhelper,
-    TMBdebug,
     r4ss,
     reshape2,
     ggplot2,
