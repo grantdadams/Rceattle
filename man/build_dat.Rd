@@ -4,17 +4,21 @@
 \alias{build_dat}
 \title{Build data list object for TMB from ADMB dat files}
 \usage{
-build_dat(ctlFilename = NULL, TMBfilename = "ceattle_v01_02",
-  dat_dir = NULL, nspp = 3, nselages = 8)
+build_dat(ctlFilename = NULL, TMBfilename = NULL,
+  cpp_directory = NULL, dat_dir = NULL, nspp = 3, nselages = 8)
 }
 \arguments{
 \item{ctlFilename}{The ADMB control (.ctl) file used for CEATTLE}
 
 \item{TMBfilename}{The version of the cpp CEATTLE file found in the /src folder}
 
+\item{cpp_directory}{The directory where the cpp file is found}
+
 \item{dat_dir}{The directory where ctl and dat files are stored}
 
 \item{nspp}{The number of species included in the CEATTLE model. Deafualts to 3.}
+
+\item{nselages}{Number of ages to estimate selectivity. Can either be a single number or vector of length nspp}
 }
 \value{
 A list of data objects used by TMB
