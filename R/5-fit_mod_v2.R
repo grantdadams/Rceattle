@@ -14,7 +14,7 @@
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{\frac{N}{Z} \left( 1 - exp^{-Z} \right)}, 1 is \eqn{N e^{-Z/2}}, 2 is \eqn{N}.
 #' @param silent logical.  IF TRUE, includes TMB estimation progress
 #' @param est_diet logical. If FALSE, does not include diet in the likelihood.The default is FALSE. WARNING: STILL NEEDS WORK.
-#' @param suitMode logical. If FALSE, does not estimate suitability parameters. If TRUE, estimates gamma selectivity parameters. The default is FALSE. WARNING: STILL NEEDS WORK.
+#' @param suitMode Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = gamma selectivity from Kinzey and Punt (2009)}, 2 = lognormal suitability. Does not work
 #'
 #' @details
 #' CEATTLE is an age-structured population dynamics model that can be fit with or without predation mortality. The default is to exclude predation mortality by setting \code{msmMode} to 0. Predation mortality can be included by setting \code{msmMode} with the following options:
@@ -185,7 +185,7 @@ Rceattle <-
            msmMode = 0,
            avgnMode = 0,
            est_diet = FALSE,
-           suitMode = FALSE,
+           suitMode = 0,
            silent = FALSE) {
     start_time <- Sys.time()
 
@@ -217,7 +217,7 @@ Rceattle <-
     data_list$niter <- niter
     data_list$avgnMode <- avgnMode
     data_list$msmMode <- msmMode
-    data_list$suitMode <- suitMode
+    data_list$suitMode <- as.numeric(suitMode)
     data_list$est_diet <- est_diet
 
 

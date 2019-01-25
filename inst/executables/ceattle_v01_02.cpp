@@ -300,6 +300,9 @@ Type objective_function<Type>::operator() () {
   PARAMETER_VECTOR( log_gam_a );       // Log predator selectivity; n = [1,nspp]; FIXME: bounds = 1.0e-10 and 19.9
   PARAMETER_VECTOR( log_gam_b );       // Log predator selectivity; n = [1,nspp]; FIXME: bounds = -5.2 and 10
 
+  // 3.7. Preference
+  PARAMETER_MATRIX( phi );             // Species preference coefficient; n = [nspp, nspp]
+
 
   // ------------------------------------------------------------------------- //
   // 4. DERIVED QUANTITIES SECTION                                             //
@@ -805,6 +808,39 @@ Type objective_function<Type>::operator() () {
           }
         }
       } // End GAMMA selectivity
+
+      // 8.1.3. Lognormal suitability // FIXME - not flexible for interannual variation in length-at-age
+      // -- Turned off if not estimating selectivity
+      if(suitMode == 2){
+        Type x_l_ratio = 0;       // Log(mean(predLen@age)/mean(preyLen@age))
+        Type gsum = 0;
+
+        suit_main.setZero();
+        for (rsp = 0; rsp < nspp; rsp++) {                              // Pred loop
+          for (ksp = 0; ksp < nspp; ksp++) {                            // Prey loop
+            for (r_age = 1; r_age < nages(rsp); r_age++) {              // Pred age // FIXME: start at 1?
+              gsum = 1.0e-10;                                           // Initialize
+              for (k_age = 0; k_age < nages(ksp); k_age++) {            // Prey age
+                // if prey are smaller than predator:
+                if (Mn_LatAge(rsp, r_age) > Mn_LatAge(ksp, k_age)) {
+                  x_l_ratio = log(Mn_LatAge(rsp, r_age) / Mn_LatAge(ksp, k_age)); // Log ratio of lengths
+
+                  suit_main(rsp , ksp, r_age, k_age) = phi(rsp, ksp) * exp(-1/ (2*square(gam_b(rsp))) * square(x_l_ratio - gam_b(rsp)) );
+                  gsum += exp( suit_main(rsp , ksp, r_age, k_age) );
+                }
+                else
+                  suit_main(rsp , ksp, r_age, k_age) = 0;
+              }
+              /* for (k_age = 0; k_age < nages(ksp); k_age++) {            // Prey age
+                // if prey are smaller than predator:
+                if (Mn_LatAge(rsp, r_age) > Mn_LatAge(ksp, k_age)) {
+                  suit_main(rsp , ksp, r_age, k_age) = Type(1.0e-10) + exp(suit_main(rsp , ksp, r_age, k_age) - log(Type(1.0e-10) + gsum / Type(ncnt))); // NOT sure what this is for...
+                }
+              }*/
+            }
+          }
+        }
+      } // End lognormal selectivity
 
 
       // ------------------------------------------------------------------------- //
