@@ -31,12 +31,13 @@
 #'   }
 #'
 #'
-#' @return A list of class "Rceattle" including:
+#' @return
+#' A list of class "Rceattle" including:
 #'
-#' \describe{
-#' \item{data_list: List of data inputs}
-#' \item{initial_params: List of starting parameters}
-#' \item{bounds: Parameter bounds used for estimation}
+#' \itemize{
+#'   \item{data_list: List of data inputs}
+#'   \item{initial_params: List of starting parameters}
+#'   \item{bounds: Parameter bounds used for estimation}
 #'   \item{map: List of map used in TMB}
 #'   \item{obj: TMB model object}
 #'   \item{opt: Optimized model object from `nlimb``}
@@ -46,10 +47,12 @@
 #'   \item{run_time: Model run time}
 #'   }
 #'
+#'
+#'
 #' `quantities` from the returned `Rceattle` object includes the following:
-#' \describe{
-#'   \item{1. Population components}
-#'   \item{mn_rec:  Mean recruitment; dim =  [1, nspp] }
+#' \itemize{
+#'   \item 1. Population components
+#'   \item mn_rec:  Mean recruitment; dim =  [1, nspp]
 #'   \item{Zed:  Total mortality at age; dim =  [nspp, nages, nyrs] }
 #'   \item{NByage:  Numbers at age; dim =  [nspp, nages, nyrs] }
 #'   \item{AvgN:  Average numbers-at-age; dim =  [nspp, nages, nyrs] }
