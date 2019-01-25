@@ -53,9 +53,14 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   }
 
   # Suitability parameters
-  if(data_list$suitMode == FALSE){
+  if(data_list$suitMode == 0){
     map_list$log_gam_a <- replace(map_list$log_gam_a, values = rep(NA, length(map_list$log_gam_a)))
     map_list$log_gam_b <- replace(map_list$log_gam_b, values = rep(NA, length(map_list$log_gam_b)))
+  }
+
+  # Log-normal preference
+  if(data_list$suitMode != 2){
+    map_list$phi <- replace(map_list$phi, values = rep(NA, length(map_list$phi)))
   }
 
   # Kinzey predation functions
