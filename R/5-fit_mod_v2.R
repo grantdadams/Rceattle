@@ -170,6 +170,21 @@
 #'  \item{Slot 15 -- Diet weight likelihood}
 #'  \item{Slot 16 -- Stomach content of prey length ln in predator length a likelihood}
 #' }
+#'
+#' @example
+#'library(Rceattle)
+#'data(BS2017SS) # ?BS2017SS for more information on the data
+#'
+#'# Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
+#'ss_run <- Rceattle(data_list = BS2017SS,
+#'                   inits = NULL, # Initial parameters = 0
+#'                   file_name = NULL, # Don't save
+#'                   debug = 0, # Estimate
+#'                   random_rec = FALSE, # No random recruitment
+#'                   msmMode = 0, # Single species mode
+#'                   avgnMode = 0,
+#'                   silent = TRUE)
+#'
 #' @export
 
 Rceattle <-
@@ -186,7 +201,8 @@ Rceattle <-
            avgnMode = 0,
            est_diet = FALSE,
            suitMode = 0,
-           silent = FALSE) {
+           silent = FALSE,
+           recompile = FALSE) {
     start_time <- Sys.time()
 
     setwd(getwd())
@@ -270,33 +286,38 @@ Rceattle <-
     '%!in%' <- function(x,y)!('%in%'(x,y))
 
     # STEP 5 - Compile CEATTLE is providing cpp file
-    version <- TMBfilename
-    cpp_file <- paste0(cpp_directory, "/", version)
+    cpp_file <- paste0(cpp_directory, "/", TMBfilename)
 
     # Remove compiled files if not compatible with system
     version_files <-
-      list.files(path = cpp_directory, pattern = version)
+      list.files(path = cpp_directory, pattern = TMBfilename)
     if (Sys.info()[1] == "Windows" &
-        paste0(version, ".so") %in% version_files) {
+        paste0(TMBfilename, ".so") %in% version_files) {
       suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file)))))
       suppressWarnings(file.remove(paste0(cpp_file, ".so")))
       suppressWarnings(file.remove(paste0(cpp_file, ".o")))
     }
     if (Sys.info()[1] != "Windows" &
-        paste0(version, ".dll") %in% version_files) {
+        paste0(TMBfilename, ".dll") %in% version_files) {
       suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file)))))
       suppressWarnings(file.remove(paste0(cpp_file, ".dll")))
       suppressWarnings(file.remove(paste0(cpp_file, ".o")))
     }
     if (Sys.info()[1] != "Windows" &
-        paste0(version, ".so") %!in% version_files) {
+        paste0(TMBfilename, ".so") %!in% version_files) {
       suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file)))))
       suppressWarnings(file.remove(paste0(cpp_file, ".dll")))
       suppressWarnings(file.remove(paste0(cpp_file, ".o")))
     }
+    if(recompile){
+      suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file)))))
+      suppressWarnings(file.remove(paste0(cpp_file, ".dll")))
+      suppressWarnings(file.remove(paste0(cpp_file, ".so")))
+      suppressWarnings(file.remove(paste0(cpp_file, ".o")))
+    }
 
     TMB::compile(paste0(cpp_file, ".cpp"))
-    dyn.load(TMB::dynlib(paste0(cpp_file)))
+     dyn.load(TMB::dynlib(paste0(cpp_file)))
     print("Step 4: Compile CEATTLE complete")
 
 
@@ -305,7 +326,7 @@ Rceattle <-
     obj = TMB::MakeADFun(
       data_list,
       parameters = params,
-      DLL = version,
+      DLL = TMBfilename,
       map = map,
       random = random_vars,
       silent = silent

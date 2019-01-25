@@ -29,17 +29,27 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
   # Survey selectivity coefficients
   for( i in 1: nrow(map_list$srv_sel_coff)){
-    if(data_list$logist_sel_phase[i] == 0){ # Logitistic
+    if(data_list$srv_sel_type[i] == 0){ # Logitistic
+
+      # Map out non-parametric
       map_list$srv_sel_coff[i,] <- replace(map_list$srv_sel_coff[i,], values = rep(NA, length(map_list$srv_sel_coff[i,])))
+
+      # Map out double logistic
+      map_list$srv_sel_slp[2, i] <- NA
+      map_list$srv_sel_inf[2,i] <- NA
     }
-    if(data_list$logist_sel_phase[i] == 1){ # Non-parametric at age
-      map_list$srv_sel_slp[i] <- NA
-      map_list$srv_sel_inf[i] <- NA
+    if(data_list$srv_sel_type[i] == 1){ # Non-parametric at age
+      map_list$srv_sel_slp[1:2, i] <- NA
+      map_list$srv_sel_inf[1:2, i] <- NA
 
       # If nselages is  < max(nselages)
       if(data_list$nselages[i] < max(data_list$nselages, na.rm = TRUE)){
         map_list$srv_sel_coff[i, (data_list$nselages[i] + 1):max(data_list$nselages)]  <- replace(map_list$srv_sel_coff[i, (data_list$nselages[i] + 1):max(data_list$nselages)], values = rep(NA, length(map_list$srv_sel_coff[i, (data_list$nselages[i] + 1):max(data_list$nselages)])))
       }
+    }
+    if(data_list$srv_sel_type[i] == 2){ # Double logistic
+      # Map out non-parametric
+      map_list$srv_sel_coff[i,] <- replace(map_list$srv_sel_coff[i,], values = rep(NA, length(map_list$srv_sel_coff[i,])))
     }
   }
 

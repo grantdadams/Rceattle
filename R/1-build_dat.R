@@ -125,7 +125,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     dat_call <- paste(tt[i][[1]][ dat_line:(dat_line + 2)], collapse = "")
     dat_names[i] <- sub("\\).*", "", sub(".*\\(", "", dat_call))
   }
-
+  dat_names <- c(dat_names, "logist_sel_phase")
 
   for (i in 1:length(dat_names)) {
     skipp <- grep(dat_names[i], ctl_file) # Line of data files
@@ -145,6 +145,11 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
       dat_list$logist_sel_phase[i] <- 1
     }
   }
+
+  # Rename
+  dat_list$srv_sel_type <- dat_list$logist_sel_phase
+  dat_list$logist_sel_phase <- NULL
+
 
   if(length(nselages) == 1){
     dat_list$nselages <- rep(nselages, dat_list$nspp)
