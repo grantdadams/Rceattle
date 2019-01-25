@@ -59,7 +59,7 @@ Type objective_function<Type>::operator() () {
   DATA_INTEGER( random_rec );     // Logical of whether to treate recruitment deviations as random effects
   DATA_INTEGER( niter );          // Number of loops for MSM mode
 
-  DATA_IVECTOR( logist_sel_phase ); // Selectivity type for BT survey
+  DATA_IVECTOR( srv_sel_type ); // Selectivity type for BT survey
   //    0 = fit to data
   //    1 = logistic
 
@@ -98,8 +98,6 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR( nages );          // Number of species (prey) ages; n = [1, nspp]
   DATA_IVECTOR( nselages );       // Number of ages to estimate selectivity; n = [1, nspp]
   int max_age = imax(nages);      // Integer of maximum nages to make the arrays; n = [1]
-  // DATA_INTEGER( n_pred);       // Number of predator species
-  // DATA_IVECTOR( n_age_pred);   // Number of predator ages
 
   // 2.3. DATA INPUTS (i.e. assign data to objects)
   // -- 2.3.1 Fishery Components
@@ -281,8 +279,8 @@ Type objective_function<Type>::operator() () {
   // -- 3.4. Selectivity parameters
   PARAMETER_MATRIX( srv_sel_coff );    // Survey selectivity parameters; n = [nspp, nselages]
   PARAMETER_MATRIX( fsh_sel_coff );    // Fishery age selectivity coef; n = [nspp, nselages]
-  PARAMETER_VECTOR( srv_sel_slp );     // Survey selectivity paramaters for logistic; n = [1, nspp]
-  PARAMETER_VECTOR( srv_sel_inf );     // Survey selectivity paramaters for logistic; n = [1, nspp]
+  PARAMETER_MATRIX( srv_sel_slp );     // Survey selectivity paramaters for logistic; n = [2, nspp]
+  PARAMETER_VECTOR( srv_sel_inf );     // Survey selectivity paramaters for logistic; n = [2, nspp]
   PARAMETER( log_eit_q );              // EIT Catchability; n = [1]
   PARAMETER_VECTOR( log_srv_q );       // BT Survey catchability; n = [1, nspp]
 
@@ -512,6 +510,9 @@ Type objective_function<Type>::operator() () {
         fsh_sel(sp, age) -= avgsel_tmp;
         fsh_sel(sp, age) = exp(fsh_sel(sp, age));
       }
+
+                vector<Type> sel_sp = fsh_sel.row(sp); // Can't max a matrix....
+          fsh_sel.row(sp) /= max(sel_sp); // Standardize so max sel = 1 for each species
     }
 
 
@@ -833,7 +834,7 @@ Type objective_function<Type>::operator() () {
             }
             for (ksp = 0; ksp < nspp; ksp++) {                            // Prey loop
               for (k_age = 0; k_age < nages(ksp); k_age++) {              // Prey age
-                suit_main(rsp , ksp, r_age, k_age) / gsum;                // Scale, so it sums to 1.
+                suit_main(rsp , ksp, r_age, k_age) /= gsum;                // Scale, so it sums to 1.
               }
             }
           }
@@ -1154,13 +1155,13 @@ Type objective_function<Type>::operator() () {
     srv_sel.setZero();
     for (sp = 0; sp < nspp; sp++) {
       // 9.1.1. Logisitic selectivity
-      if (logist_sel_phase(sp) == 0) {
+      if (srv_sel_type(sp) == 0) {
         for (age = 0; age < nages(sp); age++)
-          srv_sel(sp, age) = 1 / (1 + exp( -srv_sel_slp(sp) * ((age + 1) - srv_sel_inf(sp))));
+          srv_sel(sp, age) = 1 / (1 + exp( -srv_sel_slp(0, sp) * ((age + 1) - srv_sel_inf(0, sp))));
       }
 
-      // 9.1.2. Selectivity fit to age ranges. NOTE: This can likely be improved
-      if (logist_sel_phase(sp) == 1) {
+      // 9.1.2. Non-parametric selectivity fit to age ranges. NOTE: This can likely be improved
+      if (srv_sel_type(sp) == 1) {
         for (age = 0; age < nselages(sp); age++) {
           srv_sel(sp, age) = srv_sel_coff(sp, age);
           avgsel_srv(sp) +=  exp(srv_sel_coff(sp, age));
@@ -1185,8 +1186,20 @@ Type objective_function<Type>::operator() () {
           srv_sel(sp, age) -=  avgsel_tmp;
           srv_sel(sp, age) = exp(srv_sel(sp, age));
         }
+
+
       }
-    }
+
+      // 9.1.2. Double logistic (Dorn and Methot 1990)
+      if (srv_sel_type(sp) == 2) {
+        for (age = 0; age < nages(sp); age++){
+                  srv_sel(sp, age) = (1 / (1 + exp( -srv_sel_slp(0, sp) * ((age + 1) - srv_sel_inf(0, sp))))) * // Upper slop
+           (1 - (1 / (1 + exp( -srv_sel_slp(1, sp) * ((age + 1) - srv_sel_inf(1, sp))))));  // Downward slope;
+          }
+        }
+          vector<Type> sel_sp = srv_sel.row(sp); // Can't max a matrix....
+          srv_sel.row(sp) /= max(sel_sp); // Standardize so max sel = 1 for each species
+    } // End species loop
 
     // 9.2 EIT Components
     // -- 9.2.1 EIT Survey Biomass
@@ -1509,7 +1522,7 @@ Type objective_function<Type>::operator() () {
   // Slot 7 -- Survey selectivity
   for (sp = 0; sp < nspp; sp++) {
     jnll_comp(8, sp) = 0; // FIXME: Likeliy redundant
-    if (logist_sel_phase(sp) == 1) {
+    if (srv_sel_type(sp) == 1) {
       // Extract only the selectivities we want
       vector<Type> sel_tmp(nages(sp));
       for (age = 0; age < nages(sp); age++) {

@@ -15,7 +15,7 @@
 #' \item{nspp}{Integer: number of species in model}
 #' \item{styr}{Integer: Start year}
 #' \item{nyrs}{Integer: Number of estimation years}
-#' \item{logist_sel_phase}{Ivector: selectivity type. 0 = logistic, 1 = non-parametric selectivity estimated for each age; length = nspp:}
+#' \item{srv_sel_type}{Ivector: Survey selectivity type. 0 = logistic, 1 = non-parametric selectivity estimated for each age, 2 = double-logistic; length = nspp:}
 #' \item{nselages}{Ivector: if non-parametric selectivity, the number of ages to estimate selectivity; length = nspp:}
 #' }
 #'
@@ -105,7 +105,7 @@
 #' \item{nspp}{Integer: number of species in model}
 #' \item{styr}{Integer: Start year}
 #' \item{nyrs}{Integer: Number of estimation years}
-#' \item{logist_sel_phase}{Ivector: selectivity type. 0 = logistic, 1 = non-parametric selectivity estimated for each age; length = nspp:}
+#' \item{srv_sel_type}{Ivector: selectivity type. 0 = logistic, 1 = non-parametric selectivity estimated for each age; length = nspp:}
 #' \item{nselages}{Ivector: if non-parametric selectivity, the number of ages to estimate selectivity; length = nspp:}
 #' }
 #'
