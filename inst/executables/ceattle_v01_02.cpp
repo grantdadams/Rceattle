@@ -816,27 +816,25 @@ Type objective_function<Type>::operator() () {
         Type gsum = 0;
 
         suit_main.setZero();
-        for (rsp = 0; rsp < nspp; rsp++) {                              // Pred loop
-          for (ksp = 0; ksp < nspp; ksp++) {                            // Prey loop
-            for (r_age = 1; r_age < nages(rsp); r_age++) {              // Pred age // FIXME: start at 1?
-              gsum = 1.0e-10;                                           // Initialize
-              for (k_age = 0; k_age < nages(ksp); k_age++) {            // Prey age
+        for (rsp = 0; rsp < nspp; rsp++) {                                // Pred loop
+          for (r_age = 1; r_age < nages(rsp); r_age++) {                  // Pred age // FIXME: start at 1?
+            gsum = 1;                                                     // Sum of suitability for each predator-at-age. Initialize at 1 because other biomass is assumed 1
+            for (ksp = 0; ksp < nspp; ksp++) {                            // Prey loop
+              for (k_age = 0; k_age < nages(ksp); k_age++) {              // Prey age
                 // if prey are smaller than predator:
                 if (Mn_LatAge(rsp, r_age) > Mn_LatAge(ksp, k_age)) {
                   x_l_ratio = log(Mn_LatAge(rsp, r_age) / Mn_LatAge(ksp, k_age)); // Log ratio of lengths
-
                   suit_main(rsp , ksp, r_age, k_age) = phi(rsp, ksp) * exp(-1/ (2*square(gam_b(rsp))) * square(x_l_ratio - gam_b(rsp)) );
-                  gsum += exp( suit_main(rsp , ksp, r_age, k_age) );
+                  gsum += suit_main(rsp , ksp, r_age, k_age);
                 }
                 else
                   suit_main(rsp , ksp, r_age, k_age) = 0;
               }
-              /* for (k_age = 0; k_age < nages(ksp); k_age++) {            // Prey age
-                // if prey are smaller than predator:
-                if (Mn_LatAge(rsp, r_age) > Mn_LatAge(ksp, k_age)) {
-                  suit_main(rsp , ksp, r_age, k_age) = Type(1.0e-10) + exp(suit_main(rsp , ksp, r_age, k_age) - log(Type(1.0e-10) + gsum / Type(ncnt))); // NOT sure what this is for...
-                }
-              }*/
+            }
+            for (ksp = 0; ksp < nspp; ksp++) {                            // Prey loop
+              for (k_age = 0; k_age < nages(ksp); k_age++) {              // Prey age
+                suit_main(rsp , ksp, r_age, k_age) / gsum;                // Scale, so it sums to 1.
+              }
             }
           }
         }
@@ -1683,7 +1681,7 @@ Type objective_function<Type>::operator() () {
   REPORT( eit_hat );
   REPORT( eit_age_hat );
   REPORT( eit_age_comp_hat )
-  REPORT( obs_eit_age );
+    REPORT( obs_eit_age );
   REPORT( eit_age_comp );
   REPORT( avgsel_srv );
   REPORT( srv_sel );
