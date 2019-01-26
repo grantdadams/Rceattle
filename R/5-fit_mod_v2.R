@@ -201,8 +201,7 @@ Rceattle <-
       est_diet = FALSE,
       suitMode = 0,
       silent = FALSE,
-      recompile = FALSE,
-      scale_sel_fish = TRUE) {
+      recompile = FALSE) {
   start_time <- Sys.time()
 
   setwd(getwd())
@@ -235,7 +234,6 @@ Rceattle <-
   data_list$msmMode <- msmMode
   data_list$suitMode <- as.numeric(suitMode)
   data_list$est_diet <- est_diet
-  data_list$scale_sel_fish <- scale_sel_fish
 
 
   # Get cpp file if not provided
@@ -268,7 +266,7 @@ Rceattle <-
    map <-
     suppressWarnings(Rceattle::build_map(data_list, params, debug = debug, random_rec = random_rec))
   } else{
-   params <- map
+    map <- map
   }
   print("Step 2: Map build complete")
 

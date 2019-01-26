@@ -58,7 +58,6 @@ Type objective_function<Type>::operator() () {
 
   DATA_INTEGER( random_rec );     // Logical of whether to treate recruitment deviations as random effects
   DATA_INTEGER( niter );          // Number of loops for MSM mode
-  DATA_INTEGER( scale_sel_fish);  // Scale fishery selectivity to 1
 
   DATA_IVECTOR( srv_sel_type ); // Selectivity type for BT survey
   //    0 = fit to data
@@ -281,7 +280,7 @@ Type objective_function<Type>::operator() () {
   PARAMETER_MATRIX( srv_sel_coff );    // Survey selectivity parameters; n = [nspp, nselages]
   PARAMETER_MATRIX( fsh_sel_coff );    // Fishery age selectivity coef; n = [nspp, nselages]
   PARAMETER_MATRIX( srv_sel_slp );     // Survey selectivity paramaters for logistic; n = [2, nspp]
-  PARAMETER_VECTOR( srv_sel_inf );     // Survey selectivity paramaters for logistic; n = [2, nspp]
+  PARAMETER_MATRIX( srv_sel_inf );     // Survey selectivity paramaters for logistic; n = [2, nspp]
   PARAMETER( log_eit_q );              // EIT Catchability; n = [1]
   PARAMETER_VECTOR( log_srv_q );       // BT Survey catchability; n = [1, nspp]
 
@@ -511,10 +510,10 @@ Type objective_function<Type>::operator() () {
         fsh_sel(sp, age) -= avgsel_tmp;
         fsh_sel(sp, age) = exp(fsh_sel(sp, age));
       }
-if(scale_sel_fish == 1){
+
                 vector<Type> sel_sp = fsh_sel.row(sp); // Can't max a matrix....
           fsh_sel.row(sp) /= max(sel_sp); // Standardize so max sel = 1 for each species
-          }
+
     }
 
 
@@ -1158,8 +1157,9 @@ if(scale_sel_fish == 1){
     for (sp = 0; sp < nspp; sp++) {
       // 9.1.1. Logisitic selectivity
       if (srv_sel_type(sp) == 0) {
-        for (age = 0; age < nages(sp); age++)
+        for (age = 0; age < nages(sp); age++){
           srv_sel(sp, age) = 1 / (1 + exp( -srv_sel_slp(0, sp) * ((age + 1) - srv_sel_inf(0, sp))));
+        }
       }
 
       // 9.1.2. Non-parametric selectivity fit to age ranges. NOTE: This can likely be improved

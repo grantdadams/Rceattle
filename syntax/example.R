@@ -1,0 +1,41 @@
+
+# Example
+# To run the 2017 single species assessment for the Bering Sea, a data file must first be loaded:
+library(Rceattle)
+data(BS2017SS) # ?BS2017SS for more information on the data
+
+# Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
+ss_run <- Rceattle(TMBfilename = "ceattle_v01_02",
+                   cpp_directory = "inst/executables",
+                   data_list = BS2017SS,
+                   inits = NULL, # Initial parameters = 0
+                   file_name = NULL, # Don't save
+                   debug = 0, # Estimate
+                   random_rec = FALSE, # No random recruitment
+                   msmMode = 0, # Single species mode
+                   avgnMode = 0,
+                   silent = TRUE)
+
+# The you can plot the model results using using
+plot_selectivity(ss_run)
+plot_biomass(Rceattle =  ss_run)
+plot_recruitment(Rceattle =  ss_run)
+
+
+# For the 2017 multispecies model starting from the single species parameters, the following can be specified:
+data(BS2017MS) # ?BS2017MS for more information on the data
+
+ms_run3 <- Rceattle(TMBfilename = "ceattle_v01_02",
+                    cpp_directory = "inst/executables",
+                    data_list = BS2017MS,
+                    inits = ss_run$estimated_params, # Initial parameters from single species ests
+                    file_name = "tests/example", # Don't save
+                    debug = 0, # Estimate
+                    niter = 10,
+                    random_rec = FALSE, # No random recruitment
+                    msmMode = 1, # Holsman et al empirical suitability
+                    avgnMode = 0,
+                    silent = TRUE)
+
+plot_biomass(list(ss_run, ms_run3, mod_objects), model_names = c("SS", "MS", "MS_Scaled"),  file_name = "tests/example")
+plot_recruitment(list(ss_run, ms_run3, mod_objects), model_names = c("SS", "MS", "MS_Scaled"),  file_name = "tests/example")
