@@ -139,10 +139,10 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   # Convert selectivity
   for(i in 1:length(dat_list$logist_sel_phase)){
     if(dat_list$logist_sel_phase[i] < 0){
-      dat_list$logist_sel_phase[i] <- 0
+      dat_list$logist_sel_phase[i] <- 1
     }
     if(dat_list$logist_sel_phase[i] > 0){
-      dat_list$logist_sel_phase[i] <- 1
+      dat_list$logist_sel_phase[i] <- 0
     }
   }
 
