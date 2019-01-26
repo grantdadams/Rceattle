@@ -10,14 +10,14 @@ MODEL CONFIGURATION
 \item{debug}{Integer = Logical to debug (1) or not (0)}
 \item{msmMode}{Integer: Single species (0) or multi-species (1) mode}
 \item{est_diet}{Integer: include diet data in likelihood. 0 = no, 1 = yes}
-\item{suitMode}{Integer: Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = gamma selectivity from Kinzey and Punt (2009)}
+\item{suitMode}{Integer: Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = gamma selectivity from Kinzey and Punt (2009)}, 2 = lognormal suitability
 \item{avgnMode}{Integer: Average numbers-at-age to be used in predation function. 0 = average numbers-at-age, 1 = \eqn{= N * e^{-Z/2} }, 2 = \eqn{N}.
 \item{random_rec}{Integer: Switch to estimate recruitment deviations as random effects. 0 = no, 1 = yes}
 \item{niter}{Integer: Number of loops around population/predation equations}
 \item{nspp}{Integer: number of species in model}
 \item{styr}{Integer: Start year}
 \item{nyrs}{Integer: Number of estimation years}
-\item{logist_sel_phase}{Ivector: selectivity type. 0 = logistic, 1 = non-parametric selectivity estimated for each age; length = nspp:}
+\item{srv_sel_type}{Ivector: Survey selectivity type. 0 = logistic, 1 = non-parametric selectivity estimated for each age, 2 = double-logistic; length = nspp:}
 \item{nselages}{Ivector: if non-parametric selectivity, the number of ages to estimate selectivity; length = nspp:}
 }
 
