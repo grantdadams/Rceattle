@@ -58,6 +58,7 @@ Type objective_function<Type>::operator() () {
 
   DATA_INTEGER( random_rec );     // Logical of whether to treate recruitment deviations as random effects
   DATA_INTEGER( niter );          // Number of loops for MSM mode
+  DATA_INTEGER( scale_sel_fish);  // Scale fishery selectivity to 1
 
   DATA_IVECTOR( srv_sel_type ); // Selectivity type for BT survey
   //    0 = fit to data
@@ -510,9 +511,10 @@ Type objective_function<Type>::operator() () {
         fsh_sel(sp, age) -= avgsel_tmp;
         fsh_sel(sp, age) = exp(fsh_sel(sp, age));
       }
-
+if(scale_sel_fish == 1){
                 vector<Type> sel_sp = fsh_sel.row(sp); // Can't max a matrix....
           fsh_sel.row(sp) /= max(sel_sp); // Standardize so max sel = 1 for each species
+          }
     }
 
 
