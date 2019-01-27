@@ -855,7 +855,7 @@ Type objective_function<Type>::operator() () {
                 // if prey are smaller than predator:
                 if (Mn_LatAge(rsp, r_age) > Mn_LatAge(ksp, k_age)) {
                   x_l_ratio = log(Mn_LatAge(rsp, r_age) / Mn_LatAge(ksp, k_age)); // Log ratio of lengths
-                  suit_main(rsp , ksp, r_age, k_age, 0) = exp(phi(rsp, ksp)) * exp(-1/ (2*square(gam_b(rsp))) * square(x_l_ratio - gam_b(rsp)) );
+                  suit_main(rsp , ksp, r_age, k_age, 0) = exp(phi(rsp, ksp)) * exp(-1/ (2*square(gam_a(rsp))) * square(x_l_ratio - gam_b(rsp)) );
                   gsum += suit_main(rsp , ksp, r_age, k_age, 0);
                 }
                 else
@@ -891,7 +891,7 @@ Type objective_function<Type>::operator() () {
                   // if prey are smaller than predator:
                   if (Mn_LatAge(rsp, r_age) > Mn_LatAge(ksp, k_age)) {
                     x_l_ratio = log(wt(yr, r_age, rsp) / wt(yr, k_age, ksp)); // Log ratio of lengths
-                    suit_main(rsp , ksp, r_age, k_age, yr) = exp(phi(rsp, ksp)) * exp(-1/ (2*square(gam_b(rsp))) * square(x_l_ratio - gam_b(rsp)) );
+                    suit_main(rsp , ksp, r_age, k_age, yr) = exp(phi(rsp, ksp)) * exp(-1/ (2*square(gam_a(rsp))) * square(x_l_ratio - gam_b(rsp)) );
                     gsum += suit_main(rsp , ksp, r_age, k_age, yr);
                   }
                   else{

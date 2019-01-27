@@ -7,7 +7,7 @@
 #' @return List of upper and lower bounds
 #' @export
 #'
-build_bounds <- function( param_list = NULL){
+build_bounds <- function( param_list = NULL, data_list){
 
   upper_bnd <- param_list
   lower_bnd <- param_list
@@ -19,8 +19,10 @@ build_bounds <- function( param_list = NULL){
   }
 
   # Predator selectivity
+  if(data_list$suitMode == 1){ # Bounds for gamma suitability
   lower_bnd$log_gam_a <- replace(lower_bnd$log_gam_a, values = rep(1.0e-10, length(lower_bnd$log_gam_a)))
   upper_bnd$log_gam_a <- replace(upper_bnd$log_gam_a, values = rep(19.9, length(upper_bnd$log_gam_a)))
+  }
 
   lower_bnd$log_gam_b <- replace(lower_bnd$log_gam_b, values = rep(-5.2, length(lower_bnd$log_gam_b)))
   upper_bnd$log_gam_b <- replace(upper_bnd$log_gam_b, values = rep(10, length(upper_bnd$log_gam_b)))
@@ -41,7 +43,7 @@ build_bounds <- function( param_list = NULL){
   upper_bnd$init_dev <- replace(upper_bnd$init_dev, values = rep(10, length(upper_bnd$init_dev)))
 
   # F
-  lower_bnd$F_dev <- replace(lower_bnd$F_dev, values = rep(-10, length(lower_bnd$F_dev)))
+  lower_bnd$F_dev <- replace(lower_bnd$F_dev, values = rep(-1000, length(lower_bnd$F_dev)))
   upper_bnd$F_dev <- replace(upper_bnd$F_dev, values = rep(10, length(upper_bnd$F_dev)))
 
   # Phi

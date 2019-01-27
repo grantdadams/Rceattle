@@ -68,8 +68,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     map_list$log_gam_b <- replace(map_list$log_gam_b, values = rep(NA, length(map_list$log_gam_b)))
   }
 
-  # Log-normal preference
-  if(data_list$suitMode != 2){
+  # Log-normal preference (used in suitmode = 2, 3)
+  if(data_list$suitMode %in% c(0,1)){
     map_list$phi <- replace(map_list$phi, values = rep(NA, length(map_list$phi)))
   }
 
@@ -78,9 +78,6 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     map_list$logH_1 <- replace(map_list$logH_1, values = rep(NA, length(map_list$logH_1)))
     map_list$logH_1a <- replace(map_list$logH_1a, values = rep(NA, length(map_list$logH_1a)))
     map_list$logH_1b <- replace(map_list$logH_1b, values = rep(NA, length(map_list$logH_1b)))
-
-    map_list$log_gam_a <- replace(map_list$log_gam_a, values = rep(NA, length(map_list$log_gam_a)))
-    map_list$log_gam_b <- replace(map_list$log_gam_b, values = rep(NA, length(map_list$log_gam_b)))
   }
 
   if(data_list$msmMode < 3){
