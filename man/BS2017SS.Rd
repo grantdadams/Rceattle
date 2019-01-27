@@ -8,9 +8,9 @@
 MODEL CONFIGURATION
 \describe{
 \item{debug}{Integer = Logical to debug (1) or not (0)}
-\item{msmMode}{Integer: Single species (0) or multi-species (1) mode}
+\item{msmMode}{Integer: Single species (0), MSVPA multi-species (1) mode, 2 = Holling Type 1, 3 = Holling Type 2, 4 = Holling Type 3, 5 = Predator interference, 6 = predator preemption, 7 = hassell varley, 8 = ecosim. 2 through 8 are from Kinzey and Punt 2009. MSVPA multi-species can either be empirical or estimated (see \code{suitMode}) }
 \item{est_diet}{Integer: include diet data in likelihood. 0 = no, 1 = yes}
-\item{suitMode}{Integer: Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = gamma selectivity from Kinzey and Punt (2009)}, 2 = lognormal suitability
+\item{suitMode}{Integer: Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = gamma selectivity from Kinzey and Punt (2009)}, 2 = length-based lognormal suitability, 3 = time-varying weight based lognormal selectivity.
 \item{avgnMode}{Integer: Average numbers-at-age to be used in predation function. 0 = average numbers-at-age, 1 = \eqn{= N * e^{-Z/2} }, 2 = \eqn{N}.
 \item{random_rec}{Integer: Switch to estimate recruitment deviations as random effects. 0 = no, 1 = yes}
 \item{niter}{Integer: Number of loops around population/predation equations}
@@ -59,8 +59,8 @@ DATA INPUTS: A list of different integers, vectors, matrices, and arrays. NOTE: 
 \item{ fday }{Vector: number of foraging days for each predator; length = [nspp]}
 \item{ Pyrs }{Array: : dim = [nspp, nyrs+1, nages]}
 \item{ Uobs }{Array: pred, prey, predL, preyL U matrix (mean number of prey in each pred}{ dim = [nspp, nspp, maxL, maxL]}
-\item{ UobsWt }{Array: pred, prey, predL, preyL U matrix (mean wt_hat of prey in each pred}{ dim = [nspp, nspp, maxL, maxL] }
-\item{ UobsAge }{Array: pred, prey, predA, preyA U matrix (mean number of prey in each pred age}{ dim = [nspp, nspp, max_age, max_age]}
+\item{ UobsWt }{Array: pred, prey, predL, preyL U matrix (mean wt_hat of prey in each pred}{ dim = [nspp, nspp, maxL, maxL] . This fits predation mortality from \code{msmMode = 1} and \code{suitMode = 1, 2}}
+\item{ UobsAge }{Array: pred, prey, predA, preyA U matrix (mean number of prey in each pred age}{ dim = [nspp, nspp, max_age, max_age]. This controls empiricial predation mortality from \code{msmMode = 1} and \code{suitMode = 0}}
 \item{ Mn_LatAge }{Matrix: Mean length-at-age; dim = [nspp, nages]}
 \item{ nTyrs }{Integer: Number of temperature years; dim = [1] }
 \item{ Tyrs }{Ivector: Years of hindcast data; length = [nTyrs]}

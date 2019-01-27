@@ -60,7 +60,8 @@ DATA INPUTS: A list of different integers, vectors, matrices, and arrays. NOTE: 
 \item{ Pyrs }{Array: : dim = [nspp, nyrs+1, nages]}
 \item{ Uobs }{Array: pred, prey, predL, preyL U matrix (mean number of prey in each pred}{ dim = [nspp, nspp, maxL, maxL]}
 \item{ UobsWt }{Array: pred, prey, predL, preyL U matrix (mean wt_hat of prey in each pred}{ dim = [nspp, nspp, maxL, maxL] }
-\item{ UobsAge }{Array: pred, prey, predA, preyA U matrix (mean number of prey in each pred age}{ dim = [nspp, nspp, max_age, max_age]}
+\item{ UobsAge }{Array: pred, prey, pred age, prey age diet proportion by numbers (mean number of prey in each pred age}{ dim = [nspp, nspp, max_age, max_age, Optional (nyr)]}
+\item{UobsWtAge}{Array: pred, prey, pred age, prey age diet proportion by weight (mean weight of prey in each pred age}{ dim = [nspp, nspp, max_age, max_age, Optional (nyr)]}
 \item{ Mn_LatAge }{Matrix: Mean length-at-age; dim = [nspp, nages]}
 \item{ nTyrs }{Integer: Number of temperature years; dim = [1] }
 \item{ Tyrs }{Ivector: Years of hindcast data; length = [nTyrs]}
