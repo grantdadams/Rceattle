@@ -9,7 +9,7 @@ build_map(data_list, params, debug = FALSE, random_rec = FALSE)
 \arguments{
 \item{data_list}{a data_list created from \code{\link{build_dat}}.}
 
-\item{params}{a parameter list created from \code{\link{build_param}} or \code{\link{build_params_from_cpp}}}
+\item{params}{a parameter list created from \code{\link{build_param}}.}
 
 \item{debug}{Runs the model without estimating parameters to get derived quantities given initial parameter values. If TRUE, sets all map values to NA except dummy}
 
