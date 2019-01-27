@@ -356,7 +356,7 @@ Rceattle <-
                              startpar=obj$par,
                              lower = L,
                              upper = U,
-                             loopnum = 3
+                             loopnum = 5
     )
 
     print("Step 6: Optimization complete")

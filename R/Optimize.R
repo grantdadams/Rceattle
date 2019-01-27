@@ -26,7 +26,7 @@
 Optimize = function( obj, fn=obj$fn, gr=obj$gr, startpar=obj$par, lower=rep(-Inf,length(startpar)), upper=rep(Inf,length(startpar)),
                      getsd=TRUE, control=list(eval.max=1e5, iter.max=1e5, trace=0), bias.correct=FALSE,
                      bias.correct.control=list(sd=FALSE, split=NULL, nsplit=NULL, vars_to_correct=NULL),
-                     savedir=NULL, loopnum=3, newtonsteps=0, n=Inf, ... ){
+                     savedir=NULL, loopnum=5, newtonsteps=0, n=Inf, ... ){
 
   # Specify default values for bias.correct.control, which is internally called `BS.control`
   BS.control = list(sd=FALSE, split=NULL, nsplit=NULL, vars_to_correct=NULL)
