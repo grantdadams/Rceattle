@@ -160,7 +160,7 @@ Type objective_function<Type>::operator() () {
   DATA_ARRAY( Uobs );             // pred, prey, predL, preyL U matrix (mean number of prey in each pred); n = [nspp, nspp, maxL, maxL]
   DATA_ARRAY( UobsWt );           // pred, prey, predL, preyL U matrix (mean wt_hat of prey in each pred); n = [nspp, nspp, maxL, maxL] #FIXME - Changed name in stomach2017.dat
   DATA_ARRAY( UobsAge );          // pred, prey, predA, preyA U matrix (mean number of prey in each pred age); n = [nspp, nspp, max_age, max_age]
-  // DATA_ARRAY( UobsWtAge );        // pred, prey, predA, preyA U matrix (mean wt_hat of prey in each pred age); n = [nspp, nspp, max_age, max_age]: NOTUSED
+  DATA_ARRAY( UobsWtAge );        // pred, prey, predA, preyA U matrix (mean wt_hat of prey in each pred age); n = [nspp, nspp, max_age, max_age]
   DATA_MATRIX( Mn_LatAge );       // Mean length-at-age; n = [nspp, nages], ALSO: mean_laa in Kinzey
 
   // -- 2.3.7. Q Diet data
@@ -371,13 +371,15 @@ Type objective_function<Type>::operator() () {
   array<Type>   B_eaten(nspp, max_age, nyrs); B_eaten.setZero();                  // Biomass of prey eaten via predation; n = [nyrs, nages, nspp]
   array<Type>   of_stomKir(nspp, max_age, nyrs); of_stomKir.setZero();            // Other food stomach content; n = [nyrs, nages, nspp]
   array<Type>   stom_div_bio2(nspp, nspp, max_age, max_age, nyrs); stom_div_bio2.setZero();// Stomach proportion over biomass; U/ (W * N) ; n = [nspp, nspp, nages, nages, nyrs]
-  array<Type>   stomKir(nspp, nspp, max_age, max_age, nyrs); stomKir.setZero();   // Stomach proportion U; n = [nspp, nspp, nages, nages, nyrs]
+  array<Type>   stomKir(nspp, nspp, max_age, max_age, nyrs); stomKir.setZero();       // Stomach proportion by numbers U; n = [nspp, nspp, nages, nages, nyrs]
+  array<Type>   stomKirWt(nspp, nspp, max_age, max_age, nyrs); stomKirWt.setZero();   // Stomach proportion by weight U; n = [nspp, nspp, nages, nages, nyrs]
   array<Type>   diet_w_dat(nspp, nspp, max_bin, max_bin, nyrs); diet_w_dat.setZero(); // Observed stomach contents by weight of prey length j in predator length l
-  array<Type>   diet_w_sum(nspp, nspp, max_bin, nyrs); diet_w_sum.setZero();      // Observed stomach contentes by weight of prey in predator length j
-  array<Type>   suit_main(nspp, nspp, max_age, max_age); suit_main.setZero();     // Suitability/gamma selectivity of predator age u on prey age a; n = [nspp, nspp, nages, nages]
-  matrix<Type>  suit_other(nspp, max_age); suit_other.setZero();                  // Suitability not accounted for by the included prey; n = [nspp, nages]
-  array<Type>   suma_suit(nspp, max_age, nyrs); suma_suit.setZero();              // Sum of suitabilities; n = [nyrs, nages, nspp]
-
+  array<Type>   diet_w_sum(nspp, nspp, max_bin, nyrs); diet_w_sum.setZero();          // Observed stomach contentes by weight of prey in predator length j
+  array<Type>   suit_main(nspp, nspp, max_age, max_age); suit_main.setZero();         // Suitability/gamma selectivity of predator age u on prey age a; n = [nspp, nspp, nages, nages]
+  matrix<Type>  suit_other(nspp, max_age); suit_other.setZero();                      // Suitability not accounted for by the included prey; n = [nspp, nages]
+  array<Type>   suma_suit(nspp, max_age, nyrs); suma_suit.setZero();                  // Sum of suitabilities; n = [nyrs, nages, nspp]
+  array<Type>   UobsWtAge_hat(nspp, nspp, max_age, max_age, nyrs); UobsWtAge_hat.setZero();   // Estimated stomach proportion by weight U; n = [nspp, nspp, nages, nages, nyrs]
+  array<Type>   mn_UobsWtAge_hat(nspp, nspp, max_age, max_age); mn_UobsWtAge_hat.setZero();   // Average estimated stomach proportion by weight U; n = [nspp, nspp, nages, nages]
 
   // -- 4.8. Kinzey selectivity
   vector<Type> gam_a = exp(log_gam_a); // Predator selectivity
@@ -474,6 +476,10 @@ Type objective_function<Type>::operator() () {
 
   r_sigma = exp(ln_rec_sigma); // Convert log sd to natural scale
 
+  // Dimensions of diet matrix
+  vector<int> a1_dim = UobsAge.dim; // dimension of a1
+  vector<int> a2_dim = UobsWtAge.dim; // dimension of a1
+
 
   // ------------------------------------------------------------------------- //
   // 6. POPULATION DYNAMICS EQUATIONS                                          //
@@ -511,8 +517,8 @@ Type objective_function<Type>::operator() () {
         fsh_sel(sp, age) = exp(fsh_sel(sp, age));
       }
 
-                vector<Type> sel_sp = fsh_sel.row(sp); // Can't max a matrix....
-          fsh_sel.row(sp) /= max(sel_sp); // Standardize so max sel = 1 for each species
+      vector<Type> sel_sp = fsh_sel.row(sp); // Can't max a matrix....
+      fsh_sel.row(sp) /= max(sel_sp); // Standardize so max sel = 1 for each species
 
     }
 
@@ -695,7 +701,20 @@ Type objective_function<Type>::operator() () {
         for (ksp = 0; ksp < nspp; ksp++) {                      // Prey species loop
           for (r_age = 0; r_age < nages(rsp); r_age++) {        // Predator age loop
             for (k_age = 0; k_age < nages(ksp); k_age++) {      // Prey age loop
-              stomKir(rsp, ksp, r_age, k_age, yr) = UobsAge(rsp , ksp , r_age, k_age); //  FIXEME - ksp think this is equivalent to stomKir(yr,pred,pred_age,prey)=UobsAge(pred,prey,pred_age);
+              // Change to 5D array if 4D
+              if(a1_dim.size() == 4){
+                stomKir(rsp, ksp, r_age, k_age, yr) = UobsAge(rsp , ksp , r_age, k_age);
+              }
+              if(a1_dim.size() == 5){
+                stomKir(rsp, ksp, r_age, k_age, yr) = UobsAge(rsp , ksp , r_age, k_age, yr);
+              }
+
+              if(a2_dim.size() == 4){
+                stomKirWt(rsp, ksp, r_age, k_age, yr) = UobsWtAge(rsp, ksp, r_age, k_age);
+              }
+              if(a2_dim.size() == 5){
+                stomKirWt(rsp, ksp, r_age, k_age, yr) = UobsWtAge(rsp, ksp, r_age, k_age, yr);
+              }
             }
           }
           // By length
@@ -826,7 +845,7 @@ Type objective_function<Type>::operator() () {
                 // if prey are smaller than predator:
                 if (Mn_LatAge(rsp, r_age) > Mn_LatAge(ksp, k_age)) {
                   x_l_ratio = log(Mn_LatAge(rsp, r_age) / Mn_LatAge(ksp, k_age)); // Log ratio of lengths
-                  suit_main(rsp , ksp, r_age, k_age) = phi(rsp, ksp) * exp(-1/ (2*square(gam_b(rsp))) * square(x_l_ratio - gam_b(rsp)) );
+                  suit_main(rsp , ksp, r_age, k_age) = exp(phi(rsp, ksp)) * exp(-1/ (2*square(gam_b(rsp))) * square(x_l_ratio - gam_b(rsp)) );
                   gsum += suit_main(rsp , ksp, r_age, k_age);
                 }
                 else
@@ -869,6 +888,7 @@ Type objective_function<Type>::operator() () {
         // 8.1.3. Calculate predation mortality
         M2.setZero();
         B_eaten.setZero();
+        mn_UobsWtAge_hat.setZero();
         for (ksp = 0; ksp < nspp; ksp++) {                        // Prey species loop
           for (k_age = 0; k_age < nages(ksp); k_age++) {          // Prey age loop
             for (yr = 0; yr < nyrs; yr++) {                       // Year loop
@@ -876,6 +896,10 @@ Type objective_function<Type>::operator() () {
                 for (r_age = 0; r_age < nages(rsp); r_age++) {    // Predator age loop
                   M2(ksp, k_age, yr) += (AvgN(rsp, r_age, yr) * ration2Age(rsp, r_age, yr) * suit_main(rsp , ksp , r_age, k_age)) / avail_food(rsp, r_age, yr); // #FIXME - include indices of overlap
                   B_eaten(ksp, k_age, yr) += AvgN(rsp, r_age, yr) * ration2Age(rsp, r_age, yr) * suit_main(rsp , ksp , r_age, k_age);
+
+                  // Estimated stomach proportion
+                  UobsWtAge_hat(rsp, ksp, r_age, k_age, yr) = (AvgN(ksp, k_age, yr) * suit_main(rsp , ksp , r_age, k_age) * wt(yr, k_age, ksp)) / avail_food(rsp, r_age, yr);
+                    mn_UobsWtAge_hat(rsp, ksp, r_age, k_age) += UobsWtAge_hat(rsp, ksp, r_age, k_age, yr)/nyrs;
                 }
               }
             }
@@ -1195,12 +1219,12 @@ Type objective_function<Type>::operator() () {
       // 9.1.2. Double logistic (Dorn and Methot 1990)
       if (srv_sel_type(sp) == 2) {
         for (age = 0; age < nages(sp); age++){
-                  srv_sel(sp, age) = (1 / (1 + exp( -srv_sel_slp(0, sp) * ((age + 1) - srv_sel_inf(0, sp))))) * // Upper slop
-           (1 - (1 / (1 + exp( -srv_sel_slp(1, sp) * ((age + 1) - srv_sel_inf(1, sp))))));  // Downward slope;
-          }
+          srv_sel(sp, age) = (1 / (1 + exp( -srv_sel_slp(0, sp) * ((age + 1) - srv_sel_inf(0, sp))))) * // Upper slop
+            (1 - (1 / (1 + exp( -srv_sel_slp(1, sp) * ((age + 1) - srv_sel_inf(1, sp))))));  // Downward slope;
         }
-          vector<Type> sel_sp = srv_sel.row(sp); // Can't max a matrix....
-          srv_sel.row(sp) /= max(sel_sp); // Standardize so max sel = 1 for each species
+      }
+      vector<Type> sel_sp = srv_sel.row(sp); // Can't max a matrix....
+      srv_sel.row(sp) /= max(sel_sp); // Standardize so max sel = 1 for each species
     } // End species loop
 
     // 9.2 EIT Components
@@ -1364,8 +1388,9 @@ Type objective_function<Type>::operator() () {
   // 11.1.1 -- Set up offset objects
   vector<Type> offset_srv(nspp); offset_srv.setZero(); // Offset for multinomial likelihood
   vector<Type> offset_fsh(nspp); offset_fsh.setZero(); // Offset for multinomial likelihood
-  vector<Type> offset_diet_w(nspp); offset_diet_w.setZero(); // Offset for stomach content weight likelihood
-  vector<Type> offset_diet_l(nspp); offset_diet_l.setZero(); // Offset for stomach content of prey length ln in predator length a
+  vector<Type> offset_diet_w(nspp); offset_diet_w.setZero(); // Offset for total stomach content weight likelihood
+  vector<Type> offset_diet_l(nspp); offset_diet_l.setZero(); // Offset for total stomach content of prey length ln in predator length a
+  vector<Type> offset_uobsagewt(nspp); offset_uobsagewt.setZero(); // Offset for stomach proportion by weight likelihood
   Type offset_eit = 0; // Offset for multinomial likelihood
 
 
@@ -1422,6 +1447,40 @@ Type objective_function<Type>::operator() () {
       }
     }
   }
+
+  // 11.1.6. -- Offsets for diet proportion by weight
+  // If 5D array
+  if(a2_dim.size() == 5){
+    for (rsp = 0; rsp < nspp; rsp++) {
+      for (yr = 0; yr < nyrs; yr++) {
+        for (r_age = 0; r_age < nages(rsp); r_age++) {
+          for (ksp = 0; ksp < nspp; ksp++) {
+            for (k_age = 0; k_age < nages(ksp); k_age++) {                  // FIME: need to add in other food
+              if (UobsWtAge(rsp, ksp, r_age, k_age, yr) > 0) { // (rsp, ksp, a, r_ln, yr)
+                offset_uobsagewt(rsp) -= stom_tau * UobsWtAge(rsp, ksp, r_age, k_age, yr) * log(UobsWtAge(rsp, ksp, r_age, k_age, yr) + 1.0e-10);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // If 4D array
+  if(a2_dim.size() == 4){
+    for (rsp = 0; rsp < nspp; rsp++) {
+      for (r_age = 0; r_age < nages(rsp); r_age++) {
+        for (ksp = 0; ksp < nspp; ksp++) {
+          for (k_age = 0; k_age < nages(ksp); k_age++) {                  // FIME: need to add in other food
+            if (UobsWtAge(rsp, ksp, r_age, k_age) > 0) { // (rsp, ksp, a, r_ln, yr)
+              offset_uobsagewt(rsp) -= stom_tau * UobsWtAge(rsp, ksp, r_age, k_age) * log(UobsWtAge(rsp, ksp, r_age, k_age) + 1.0e-10);
+            }
+          }
+        }
+      }
+    }
+  }
+
 
 
 
@@ -1576,7 +1635,45 @@ Type objective_function<Type>::operator() () {
   }
 
 
-  // 11.3. Diet likelihood components
+  // 11.3. Diet likelihood components from MSVPA
+  if ((msmMode == 1) & (est_diet == 1)) {
+    // Slot 14 -- Diet weight likelihood
+    // If 5D array
+    if(a2_dim.size() == 5){
+      for (rsp = 0; rsp < nspp; rsp++) {
+        for (yr = 0; yr < nyrs; yr++) {
+          for (r_age = 0; r_age < nages(rsp); r_age++) {
+            for (ksp = 0; ksp < nspp; ksp++) {
+              for (k_age = 0; k_age < nages(ksp); k_age++) {                  // FIME: need to add in other food
+                if (UobsWtAge(rsp, ksp, r_age, k_age, yr) > 0) { // (rsp, ksp, a, r_ln, yr)
+                  jnll_comp(15, rsp) -= stom_tau * UobsWtAge(rsp, ksp, r_age, k_age, yr) * log(UobsWtAge_hat(rsp, ksp, r_age, k_age, yr) + 1.0e-10);
+                }
+              }
+            }
+          }
+        }
+        jnll_comp(15, rsp) -= offset_uobsagewt(rsp);
+      }
+    }
+
+    // If 4D array
+    if(a2_dim.size() == 4){
+      for (rsp = 0; rsp < nspp; rsp++) {
+        for (r_age = 0; r_age < nages(rsp); r_age++) {
+          for (ksp = 0; ksp < nspp; ksp++) {
+            for (k_age = 0; k_age < nages(ksp); k_age++) {                  // FIME: need to add in other food
+              if (UobsWtAge(rsp, ksp, r_age, k_age) > 0) { // (rsp, ksp, a, r_ln, yr)
+                jnll_comp(15, rsp) -= stom_tau * UobsWtAge(rsp, ksp, r_age, k_age) * log(mn_UobsWtAge_hat(rsp, ksp, r_age, k_age) + 1.0e-10);
+              }
+            }
+          }
+        }
+        jnll_comp(15, rsp) -= offset_uobsagewt(rsp);
+      }
+    }
+  } // End diet proportion by weight component
+
+  // 11.4. Diet likelihood components from Kinzey and Punt
   if ((msmMode > 1) & (est_diet == 1)) {
     // Slot 13 -- Ration likelihood
     for (yr = 0; yr < nyrs; yr++) {
@@ -1720,6 +1817,8 @@ Type objective_function<Type>::operator() () {
   REPORT( offset_srv );
   REPORT( offset_fsh );
   REPORT( offset_eit );
+  REPORT( offset_diet_w );
+  REPORT( offset_diet_l );
 
 
   // -- 12.5. Ration components
@@ -1743,6 +1842,8 @@ Type objective_function<Type>::operator() () {
   REPORT( of_stomKir );
   REPORT( M2 );
   REPORT( B_eaten );
+  REPORT( UobsWtAge_hat );
+  REPORT( mn_UobsWtAge_hat );
 
   // -- 12.7. Kinzey predation functions
   REPORT( H_1 );

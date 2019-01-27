@@ -44,12 +44,11 @@ build_bounds <- function( param_list = NULL){
   lower_bnd$F_dev <- replace(lower_bnd$F_dev, values = rep(-10, length(lower_bnd$F_dev)))
   upper_bnd$F_dev <- replace(upper_bnd$F_dev, values = rep(10, length(upper_bnd$F_dev)))
 
-  # Vectorize
-  bounds <- list(lower = as.numeric(unlist(lower_bnd)), upper = as.numeric(unlist(upper_bnd)))
+  bounds <- list(upper= upper_bnd, lower = lower_bnd)
 
 
   # Make sure inits are within bounds
-  if( sum(bounds$upper < as.numeric(unlist(param_list))) > 1 | sum(as.numeric(unlist(param_list)) < bounds$lower) > 1 ){
+  if( sum(unlist(bounds$upper) < as.numeric(unlist(param_list))) > 0 | sum(as.numeric(unlist(param_list)) < unlist(bounds$lower)) > 0 ){
     lower_check <- param_list
     upper_check <- param_list
     param_check <- data.frame(matrix(NA, nrow = length(param_list), ncol = 3))

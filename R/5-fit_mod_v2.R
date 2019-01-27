@@ -338,22 +338,26 @@ Rceattle <-
   # for(i in 1:length(methods)){
   #  opt_list[i] = optimx(obj$par, function(x) as.numeric(obj$fn(x)), obj$gr, control = list(maxit = 10000), method = methods[i])
   # }
-  opt = tryCatch(
-   Optimize(obj),
-   lower = bounds$lower,
-   upper = bounds$upper,
-   error = function(e)
-    NULL,
-   loopnum = 3
+
+
+  # Remove inactive parameters from bounds and vectorize
+  L = unlist(bounds$lower)[which(!is.na(unlist(map)))]
+  U = unlist(bounds$upper)[which(!is.na(unlist(map)))]
+
+  # Optimize
+  opt = Optimize(obj = obj,
+                 fn=obj$fn,
+                 gr=obj$gr,
+                 startpar=obj$par,
+                 lower = L,
+                 upper = U,
+                 loopnum = 3
   )
 
   print("Step 6: Optimization complete")
 
   # Get quantities
-  sdrep = TMB::sdreport(obj)
   quantities <- obj$report(obj$env$last.par.best)
-
-  print("Step 7: Standard deviations complete")
 
   if (debug) {
    last_par <- params
@@ -376,7 +380,7 @@ Rceattle <-
     map = map,
     obj = obj,
     opt = opt,
-    sdrep = sdrep,
+    sdrep = opt$SD,
     estimated_params = last_par,
     quantities = quantities,
     run_time = run_time
