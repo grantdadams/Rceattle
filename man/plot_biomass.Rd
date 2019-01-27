@@ -22,7 +22,7 @@ function.}
 
 \item{lwd}{Line width as specified by user}
 
-\item{include_srv}{Boolian of whether to include survey biomass estimates and 95% CI}
+\item{include_srv}{Boolian of whether to include survey biomass estimates and 95 CI}
 }
 \value{
 Returns and saves a figure with the population trajectory.
