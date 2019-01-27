@@ -9,7 +9,7 @@
 #' @param line_col Colors of models to be used for line color
 #' @param species Species names for legend
 #' @param lwd Line width as specified by user
-#' @param include_srv Boolian of whether to include survey biomass estimates and 95% CI
+#' @param include_srv Boolian of whether to include survey biomass estimates and 95 CI
 #'
 #' @return Returns and saves a figure with the population trajectory.
 #' @export

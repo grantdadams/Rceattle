@@ -75,85 +75,85 @@ A list of class "Rceattle" including:
  \item{M: Total natural mortality at age; dim = [nyrs, nages, nspp] }
  \item{}
  \item{2. Survey components}
- \item{ srv_age_obs:  }
- \item{ srv_bio_hat: Estimated BT survey biomass (kg); dim = [nspp, nyrs] }
- \item{ srv_hat: Estimated BT survey total abundance (n); dim = [nspp, nyrs] }
- \item{ srv_age_hat: Estimated BT age comp; dim = [nspp, nages, nyrs] }
- \item{ eit_hat: Estimated EIT survey biomass (kg); dim = [nyrs] }
- \item{ eit_age_hat: Estimated EIT catch-at-age ; dim = [nyrs, srv_age_bins(0)] }
- \item{ eit_age_comp_hat : Estimated EIT age comp ; dim = [nyrs, srv_age_bins(0)] }
- \item{ obs_eit_age:  }
- \item{ eit_age_comp: Eit age comp; dim = [n_eit, srv_age_bins(0)] }
- \item{ avgsel_srv: Average survey selectivity; dim = [1, nspp] }
- \item{ srv_sel: Estimated survey selectivity at age; dim = [nspp, nyrs] }
+ \item{srv_age_obs:}
+ \item{srv_bio_hat: Estimated BT survey biomass (kg); dim = [nspp, nyrs] }
+ \item{srv_hat: Estimated BT survey total abundance (n); dim = [nspp, nyrs] }
+ \item{srv_age_hat: Estimated BT age comp; dim = [nspp, nages, nyrs] }
+ \item{eit_hat: Estimated EIT survey biomass (kg); dim = [nyrs] }
+ \item{eit_age_hat: Estimated EIT catch-at-age ; dim = [nyrs, srv_age_bins(0)] }
+ \item{eit_age_comp_hat : Estimated EIT age comp ; dim = [nyrs, srv_age_bins(0)] }
+ \item{obs_eit_age:}
+ \item{eit_age_comp: Eit age comp; dim = [n_eit, srv_age_bins(0)] }
+ \item{avgsel_srv: Average survey selectivity; dim = [1, nspp] }
+ \item{srv_sel: Estimated survey selectivity at age; dim = [nspp, nyrs] }
  \item{}
  \item{3. Fishery components}
- \item{ F: Estimated fishing mortality; dim = [nspp, nages, nyrs] }
- \item{ F_dev:  }
- \item{ fsh_sel: Log estimated fishing selectivity; dim = [nyrs, srv_age_bins(0)] }
- \item{ avgsel_fsh: Average fishery selectivity }
- \item{ tc_biom_hat: Estimated total yield (kg); dim = [nspp, nyrs] }
- \item{ catch_hat: Estimated catch-at-age (n); dim = [nspp, nages, nyrs] }
- \item{ tc_hat: Estimated total catch (n); dim = [nspp, nyrs] }
- \item{ fsh_age_hat: Estimated fishery age comp; dim = [nspp, nages, nyrs] }
- \item{ fsh_age_obs: Observed fishery age comp; dim = [nyrs_fsh_comp, fsh_age_bins, nspp] }
+ \item{F: Estimated fishing mortality; dim = [nspp, nages, nyrs] }
+ \item{F_dev:}
+ \item{fsh_sel: Log estimated fishing selectivity; dim = [nyrs, srv_age_bins(0)] }
+ \item{avgsel_fsh: Average fishery selectivity }
+ \item{tc_biom_hat: Estimated total yield (kg); dim = [nspp, nyrs] }
+ \item{catch_hat: Estimated catch-at-age (n); dim = [nspp, nages, nyrs] }
+ \item{tc_hat: Estimated total catch (n); dim = [nspp, nyrs] }
+ \item{fsh_age_hat: Estimated fishery age comp; dim = [nspp, nages, nyrs] }
+ \item{fsh_age_obs: Observed fishery age comp; dim = [nyrs_fsh_comp, fsh_age_bins, nspp] }
  \item{}
  \item{3. Likelihood components}
- \item{ jnll_comp: Matrix of negative log-likelihood components (See below) }
- \item{ offset_srv: Offsets for multinomial likelihood }
- \item{ offset_fsh: Offsets for multinomial likelihood }
- \item{ offset_eit: Offsets for multinomial likelihood }
+ \item{jnll_comp: Matrix of negative log-likelihood components (See below) }
+ \item{offset_srv: Offsets for multinomial likelihood }
+ \item{offset_fsh: Offsets for multinomial likelihood }
+ \item{offset_eit: Offsets for multinomial likelihood }
  \item{}
  \item{4. Ration components}
- \item{ ConsumAge: Pre-allocated indiviudal consumption in grams per predator-age; dim = [nyrs, nages, nspp] }
- \item{ Consum_livingAge: Pre-allocated indiviudal consumption in grams per predator-age; dim = [nyrs, nages, nspp] }
- \item{ S2Age: pre-allocate mean stomach weight as a function of sp_age }
- \item{ LbyAge: Length by age from LW regression }
- \item{ mnWt_obs: Mean observed weight at age (across years); dim = [nspp, nages] }
- \item{ fT:  Pre-allocation of temperature function of consumption; dim = [nspp, nTyrs]}
- \item{ TempC: Bottom temperature; dim = [1, nTyrs] }
- \item{ ration2Age: Annual ration at age (kg/yr); dim = [nyrs, nages, nspp] }
+ \item{ConsumAge: Pre-allocated indiviudal consumption in grams per predator-age; dim = [nyrs, nages, nspp] }
+ \item{Consum_livingAge: Pre-allocated indiviudal consumption in grams per predator-age; dim = [nyrs, nages, nspp] }
+ \item{S2Age: pre-allocate mean stomach weight as a function of sp_age }
+ \item{LbyAge: Length by age from LW regression }
+ \item{mnWt_obs: Mean observed weight at age (across years); dim = [nspp, nages] }
+ \item{fT:  Pre-allocation of temperature function of consumption; dim = [nspp, nTyrs]}
+ \item{TempC: Bottom temperature; dim = [1, nTyrs] }
+ \item{ration2Age: Annual ration at age (kg/yr); dim = [nyrs, nages, nspp] }
  \item{}
  \item{5. Suitability components}
- \item{ suma_suit: Sum of suitabilities; dim = [nyrs, nages, nspp] }
- \item{ suit_main: Suitability/gamma selectivity of predator age u on prey age a; dim = [nspp, nspp, nages, nages] }
- \item{ suit_other: Suitability not accounted for by the included prey; dim = [nspp, nages] }
- \item{ stom_div_bio2: // Stomach proportion over biomass; U/ (W * N) ; dim = [nspp, nspp, nages, nages, nyrs] }
- \item{ stomKir: Stomach proportion U; dim = [nspp, nspp, nages, nages, nyrs] }
- \item{ avail_food: Available food to predator; dim = [nyrs, nages, nspp] }
- \item{ of_stomKir: Other food stomach content; dim = [nyrs, nages, nspp] }
- \item{ B_eaten: Biomass of prey eaten via predation; dim = [nyrs, nages, nspp] }
+ \item{suma_suit: Sum of suitabilities; dim = [nyrs, nages, nspp] }
+ \item{suit_main: Suitability/gamma selectivity of predator age u on prey age a; dim = [nspp, nspp, nages, nages] }
+ \item{suit_other: Suitability not accounted for by the included prey; dim = [nspp, nages] }
+ \item{stom_div_bio2: // Stomach proportion over biomass; U/ (W * N) ; dim = [nspp, nspp, nages, nages, nyrs] }
+ \item{stomKir: Stomach proportion U; dim = [nspp, nspp, nages, nages, nyrs] }
+ \item{avail_food: Available food to predator; dim = [nyrs, nages, nspp] }
+ \item{of_stomKir: Other food stomach content; dim = [nyrs, nages, nspp] }
+ \item{B_eaten: Biomass of prey eaten via predation; dim = [nyrs, nages, nspp] }
  \item{}
  \item{6. Kinzey predation functions}
- \item{ H_1: Functional response parameters from Kinzey & Punt (2009) }
- \item{ H_1a: Functional response parameters from Kinzey & Punt (2009) }
- \item{ H_1b: Functional response parameters from Kinzey & Punt (2009) }
- \item{ H_2: Functional response parameters from Kinzey & Punt (2009) }
- \item{ H_3: Functional response parameters from Kinzey & Punt (2009) }
- \item{ gam_a: Predator gamma selectivity parameters }
- \item{ gam_b: Predator gamma selectivity parameters }
- \item{ N_pred_yrs: Effective numbers of predators for each age of prey }
- \item{ N_prey_yrs: Effective numbers of prey for each age of prey }
- \item{ N_pred_eq: Effective numbers of predators for each age of prey in equilibrium (styr_pred) }
- \item{ N_prey_eq: Effective numbers of prey for each age of predator in equilibrium (styr_pred) }
- \item{ pred_resp: Predator functional response }
- \item{ Pred_r: Pred_ratio values }
- \item{ Prey_r: Prey_ratio values }
- \item{ Vmort_ua: Predation mortality on prey age a by single predator age u }
- \item{ eaten_la: Number of prey of age a eaten by predator length l }
- \item{ eaten_ua: Number of prey of age a eaten by predator age u }
- \item{ Q_mass_l: Mass of each prey sp consumed by predator at length // FIXME: make into 4D array }
- \item{ Q_mass_u: Mass of each prey sp consumed by predator at age // FIXME: make into 4D array }
- \item{ Q_other_u: Mass of other prey consumed by predator at age }
- \item{ Q_hat: Fraction for each prey type of total mass eaten by predator length }
- \item{ T_hat: Fraction of prey of length m in predator of length l }
- \item{ omega_hat: Estimated daily ration by predator age each year }
- \item{ omega_hat_ave: Estimated daily ration by predator age averaged over years }
+ \item{H_1: Functional response parameters from Kinzey & Punt (2009) }
+ \item{H_1a: Functional response parameters from Kinzey & Punt (2009) }
+ \item{H_1b: Functional response parameters from Kinzey & Punt (2009) }
+ \item{H_2: Functional response parameters from Kinzey & Punt (2009) }
+ \item{H_3: Functional response parameters from Kinzey & Punt (2009) }
+ \item{gam_a: Predator gamma selectivity parameters }
+ \item{gam_b: Predator gamma selectivity parameters }
+ \item{N_pred_yrs: Effective numbers of predators for each age of prey }
+ \item{N_prey_yrs: Effective numbers of prey for each age of prey }
+ \item{N_pred_eq: Effective numbers of predators for each age of prey in equilibrium (styr_pred) }
+ \item{N_prey_eq: Effective numbers of prey for each age of predator in equilibrium (styr_pred) }
+ \item{pred_resp: Predator functional response }
+ \item{Pred_r: Pred_ratio values }
+ \item{Prey_r: Prey_ratio values }
+ \item{Vmort_ua: Predation mortality on prey age a by single predator age u }
+ \item{eaten_la: Number of prey of age a eaten by predator length l }
+ \item{eaten_ua: Number of prey of age a eaten by predator age u }
+ \item{Q_mass_l: Mass of each prey sp consumed by predator at length // FIXME: make into 4D array }
+ \item{Q_mass_u: Mass of each prey sp consumed by predator at age // FIXME: make into 4D array }
+ \item{Q_other_u: Mass of other prey consumed by predator at age }
+ \item{Q_hat: Fraction for each prey type of total mass eaten by predator length }
+ \item{T_hat: Fraction of prey of length m in predator of length l }
+ \item{omega_hat: Estimated daily ration by predator age each year }
+ \item{omega_hat_ave: Estimated daily ration by predator age averaged over years }
 }
 
 
 `jnll_comp` includes:
-\describe{
+\itemize{
  \item{-- Data components}
 \item{Slot 0 -- BT survey biomass -- NFMS annual BT survey}
 \item{Slot 1 -- BT survey age composition -- NFMS annual BT survey}
@@ -182,15 +182,15 @@ This function estimates population parameters of CEATTLE using maximum likelihoo
 }
 \details{
 CEATTLE is an age-structured population dynamics model that can be fit with or without predation mortality. The default is to exclude predation mortality by setting \code{msmMode} to 0. Predation mortality can be included by setting \code{msmMode} with the following options:
-\describe{
+\itemize{
 \item{0. Single species mode}
 \item{1. Holsman et al. 2015 predation based on multi-species virtual population analysis (MSVPA) based predation formation.}
- \item{2. Kinzey & Punt 2010 Holling Type I (linear): DOES NOT WORK}
- \item{3. Kinzey & Punt 2010 Holling Type II: DOES NOT WORK}
- \item{4. Kinzey & Punt 2010 Holling Type III: DOES NOT WORK}
- \item{5. Kinzey & Punt 2010 Predator interference: DOES NOT WORK}
- \item{6. Kinzey & Punt 2010 Predator preemption: DOES NOT WORK}
- \item{7. Kinzey & Punt 2010 Hassell-Varley: DOES NOT WORK}
- \item{8. Kinzey & Punt 2010 Ecosim: DOES NOT WORK}
+ \item{2. Kinzey & Punt 2010 Holling Type I (linear)}
+ \item{3. Kinzey & Punt 2010 Holling Type II}
+ \item{4. Kinzey & Punt 2010 Holling Type III}
+ \item{5. Kinzey & Punt 2010 Predator interference}
+ \item{6. Kinzey & Punt 2010 Predator preemption}
+ \item{7. Kinzey & Punt 2010 Hassell-Varley}
+ \item{8. Kinzey & Punt 2010 Ecosim}
  }
 }
