@@ -316,7 +316,7 @@ Rceattle <-
   }
 
   TMB::compile(paste0(cpp_file, ".cpp"))
-   dyn.load(TMB::dynlib(paste0(cpp_file)))
+   dyn.load(TMB::dynlib(paste0(cpp_file)), silent = TRUE)
   print("Step 4: Compile CEATTLE complete")
 
 
@@ -392,6 +392,6 @@ Rceattle <-
    save(mod_objects, file = paste0(file_name, ".RData"))
   }
 
-  suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file)))))
+  # suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file)))))
   return(mod_objects)
  }
