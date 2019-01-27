@@ -295,6 +295,10 @@ build_params <-
         }
       }
     }
+
+    # Start phi at 0.5
+    param_list$phi <- replace(param_list$phi, values = rep(log(0.5), length(param_list$phi)))
+
     closeAllConnections()
 
     return(param_list)

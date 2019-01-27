@@ -40,23 +40,6 @@ ms_run <- Rceattle(TMBfilename = "ceattle_v01_02",
 plot_biomass(list(ss_run, ms_run, mod_objects), model_names = c("SS", "MS", "MS_2"),  file_name = "tests/example")
 plot_recruitment(list(ss_run, ms_run, mod_objects), model_names = c("SS", "MS", "MS_2"),  file_name = "tests/example")
 
-# Estimate diet
-ms_run_diet <- Rceattle(TMBfilename = "ceattle_v01_02",
-                   cpp_directory = "inst/executables",
-                   data_list = BS2017MS,
-                   inits = ms_run$estimated_params, # Initial parameters from single species ests
-                   file_name = "tests/example", # Don't save
-                   debug = 0, # Estimate
-                   niter = 10,
-                   random_rec = FALSE, # No random recruitment
-                   msmMode = 1, # Holsman et al empirical suitability
-                   avgnMode = 0,
-                   silent = TRUE,
-                   est_diet = TRUE)
-
-plot_biomass(list(ss_run, ms_run, mod_objects, ms_run_diet), model_names = c("SS", "MS", "MS_2", "MS_diet"),  file_name = "tests/example")
-plot_recruitment(list(ss_run, ms_run, mod_objects, ms_run_diet), model_names = c("SS", "MS", "MS_2"),  file_name = "tests/example")
-
 
 # Estimate diet
 ms_run_diet <- Rceattle(TMBfilename = "ceattle_v01_02",
@@ -64,14 +47,14 @@ ms_run_diet <- Rceattle(TMBfilename = "ceattle_v01_02",
                         data_list = BS2017MS,
                         inits = ms_run$estimated_params, # Initial parameters from single species ests
                         file_name = "tests/example", # Don't save
-                        debug = 1, # Estimate
+                        debug = 0, # Estimate
                         niter = 10,
                         random_rec = FALSE, # No random recruitment
                         msmMode = 1, # Holsman et al empirical suitability
                         avgnMode = 0,
                         suitMode = 2,
-                        silent = TRUE,
+                        silent = FALSE,
                         est_diet = TRUE)
 
-plot_biomass(list(ss_run, ms_run, mod_objects, ms_run_diet), model_names = c("SS", "MS", "MS_2", "MS_diet"),  file_name = "tests/example")
-plot_recruitment(list(ss_run, ms_run, mod_objects, ms_run_diet), model_names = c("SS", "MS", "MS_2"),  file_name = "tests/example")
+plot_biomass(list(ss_run, ms_run, ms_run_diet), model_names = c("SS", "MS", "MS_2", "MS_diet"),  file_name = "tests/example")
+plot_recruitment(list(ss_run, ms_run, ms_run_diet), model_names = c("SS", "MS", "MS_2"),  file_name = "tests/example")
