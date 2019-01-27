@@ -271,7 +271,7 @@ Rceattle <-
 
 
     # STEP 3 - Get bounds
-    bounds <- Rceattle::build_bounds(param_list = params)
+    bounds <- Rceattle::build_bounds(param_list = params, data_list)
     print("Step 3: Param bounds complete")
 
 
@@ -343,14 +343,20 @@ Rceattle <-
     L = unlist(bounds$lower)[which(!is.na(unlist(map)))]
     U = unlist(bounds$upper)[which(!is.na(unlist(map)))]
 
+    # Remove random effects from bounds
+    if (random_rec == TRUE) {
+      L <- L[-grep(random_vars, names(L))]
+      U <- U[-grep(random_vars, names(U))]
+    }
+
     # Optimize
     opt = Rceattle::Optimize(obj = obj,
-                              fn=obj$fn,
-                              gr=obj$gr,
-                              startpar=obj$par,
-                              lower = L,
-                              upper = U,
-                              loopnum = 3
+                             fn=obj$fn,
+                             gr=obj$gr,
+                             startpar=obj$par,
+                             lower = L,
+                             upper = U,
+                             loopnum = 3
     )
 
     print("Step 6: Optimization complete")
