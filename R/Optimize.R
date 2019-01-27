@@ -91,13 +91,13 @@ Optimize = function( obj, fn=obj$fn, gr=obj$gr, startpar=obj$par, lower=rep(-Inf
       if( !is.null(BS.control[["nsplit"]]) ) {
         if( BS.control[["nsplit"]] == 1 ) BS.control[["nsplit"]] = NULL
       }
-      parameter_estimates[["SD"]] = sdreport( obj=obj, par.fixed=parameter_estimates$par, hessian.fixed=h, bias.correct=bias.correct, bias.correct.control=BS.control[c("sd","split","nsplit")], ... )
+      parameter_estimates[["SD"]] = TMB::sdreport( obj=obj, par.fixed=parameter_estimates$par, hessian.fixed=h, bias.correct=bias.correct, bias.correct.control=BS.control[c("sd","split","nsplit")], ... )
     }else{
       if( "ADreportIndex" %in% names(obj$env) ){
         Which = as.vector(unlist( obj$env$ADreportIndex()[ BS.control[["vars_to_correct"]] ] ))
       }else{
         # Run first time to get indices
-        parameter_estimates[["SD"]] = sdreport( obj=obj, par.fixed=parameter_estimates$par, hessian.fixed=h, bias.correct=FALSE, ... )
+        parameter_estimates[["SD"]] = TMB::sdreport( obj=obj, par.fixed=parameter_estimates$par, hessian.fixed=h, bias.correct=FALSE, ... )
         # Determine indices
         Which = which( rownames(summary(parameter_estimates[["SD"]],"report")) %in% BS.control[["vars_to_correct"]] )
       }
@@ -109,7 +109,7 @@ Optimize = function( obj, fn=obj$fn, gr=obj$gr, startpar=obj$par, lower=rep(-Inf
       if(length(Which)==0) Which = NULL
       # Repeat SD with indexing
       message( paste0("Bias correcting ", length(Which), " derived quantities") )
-      parameter_estimates[["SD"]] = sdreport( obj=obj, par.fixed=parameter_estimates$par, hessian.fixed=h, bias.correct=TRUE, bias.correct.control=list(sd=BS.control[["sd"]], split=Which, nsplit=NULL), ... )
+      parameter_estimates[["SD"]] = TMB::sdreport( obj=obj, par.fixed=parameter_estimates$par, hessian.fixed=h, bias.correct=TRUE, bias.correct.control=list(sd=BS.control[["sd"]], split=Which, nsplit=NULL), ... )
     }
     # Update
     parameter_estimates[["Convergence_check"]] = ifelse( parameter_estimates$SD$pdHess==TRUE, parameter_estimates[["Convergence_check"]], "The model is definitely not converged" )

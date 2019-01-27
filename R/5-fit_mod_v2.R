@@ -344,7 +344,7 @@ Rceattle <-
     U = unlist(bounds$upper)[which(!is.na(unlist(map)))]
 
     # Optimize
-    opt = TMBhelper::Optimize(obj = obj,
+    opt = Rceattle::Optimize(obj = obj,
                               fn=obj$fn,
                               gr=obj$gr,
                               startpar=obj$par,
