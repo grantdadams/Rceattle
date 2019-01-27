@@ -9,7 +9,7 @@ Optimize(obj, fn = obj$fn, gr = obj$gr, startpar = obj$par,
   length(startpar)), getsd = TRUE, control = list(eval.max = 1e+05,
   iter.max = 1e+05, trace = 0), bias.correct = FALSE,
   bias.correct.control = list(sd = FALSE, split = NULL, nsplit = NULL,
-  vars_to_correct = NULL), savedir = NULL, loopnum = 3,
+  vars_to_correct = NULL), savedir = NULL, loopnum = 5,
   newtonsteps = 0, n = Inf, ...)
 }
 \arguments{

@@ -18,7 +18,7 @@ Currently `RCeattle` can take CEATTLE ADMB based inputs and estimates them in `T
 
 # Install `Rceattle`:
 ```{R eval = FALSE}
-install.packages("yourdir/Rceattle_0.0.0.9000.tar.gz", type="source")
+install.packages("mydir/Rceattle_0.0.0.9000.tar.gz", type="source")
 ```
 
 # Example

@@ -4,7 +4,7 @@
 \alias{build_bounds}
 \title{Build parameter bounds}
 \usage{
-build_bounds(param_list = NULL)
+build_bounds(param_list = NULL, data_list)
 }
 \arguments{
 \item{param_list}{Parameter list object built from \code{\link{build_params}}}
