@@ -865,7 +865,7 @@ Type objective_function<Type>::operator() () {
             for (ksp = 0; ksp < nspp; ksp++) {                            // Prey loop
               for (k_age = 0; k_age < nages(ksp); k_age++) {              // Prey age
                 suit_main(rsp , ksp, r_age, k_age, 0) /= gsum;                // Scale, so it sums to 1.
-                
+
                 // Fill in years
                 for (yr = 1; yr < nyrs; yr++) {                 // Year loop
                   suit_main(rsp, ksp, r_age, k_age, yr) = suit_main(rsp, ksp, r_age, k_age, 0);
@@ -895,7 +895,7 @@ Type objective_function<Type>::operator() () {
                     gsum += suit_main(rsp , ksp, r_age, k_age, yr);
                   }
                   else{
-                    suit_main(rsp , ksp, r_age, k_age) = 0;
+                    suit_main(rsp , ksp, r_age, k_age, yr) = 0;
                   }
                 }
               }
