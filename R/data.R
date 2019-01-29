@@ -8,7 +8,7 @@
 #' \item{debug}{Integer = Logical to debug (1) or not (0)}
 #' \item{msmMode}{Integer: Single species (0), MSVPA multi-species (1) mode, 2 = Holling Type 1, 3 = Holling Type 2, 4 = Holling Type 3, 5 = Predator interference, 6 = predator preemption, 7 = hassell varley, 8 = ecosim. 2 through 8 are from Kinzey and Punt 2009. MSVPA multi-species can either be empirical or estimated (see \code{suitMode}) }
 #' \item{est_diet}{Integer: include diet data in likelihood. 0 = no, 1 = yes}
-#' \item{suitMode}{Integer: Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = gamma selectivity from Kinzey and Punt (2009)}, 2 = length-based lognormal suitability, 3 = time-varying weight based lognormal selectivity.
+#' \item{suitMode}{Integer: Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma selectivity from Kinzey and Punt (2009), 2 = time-varing length based gamma selectivity from Kinzey and Punt (2009), 3 = time-varying weight based gamma selectivity from Kinzey and Punt (2009), 4 = length based lognormal selectivity, 5 = time-varing length based lognormal selectivity, 6 = time-varying weight based lognormal selectivity}
 #' \item{avgnMode}{Integer: Average numbers-at-age to be used in predation function. 0 = average numbers-at-age, 1 = \eqn{= N * e^{-Z/2} }, 2 = \eqn{N}.}
 #' \item{random_rec}{Integer: Switch to estimate recruitment deviations as random effects. 0 = no, 1 = yes}
 #' \item{niter}{Integer: Number of loops around population/predation equations}
