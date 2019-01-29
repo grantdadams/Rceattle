@@ -84,7 +84,6 @@ Type objective_function<Type>::operator() () {
 
   // 2.1. FIXED VALUES
   int tau = 200;                    // Fishery age composition sample size
-  int stom_tau = 20;                // Stomach sample size
   Type MNConst = 0.001;             // Constant additive for logistic functions
   Type curv_pen_fsh = 12.5;         // Fishery selectivity penalty
   Type sigma_catch = 0.05;          // SD of catch
@@ -96,6 +95,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 2.2.2. Species attributes
   DATA_IVECTOR( nages );          // Number of species (prey) ages; n = [1, nspp]
+  DATA_INTEGER(stom_tau);         // Stomach sample size
   DATA_IVECTOR( nselages );       // Number of ages to estimate selectivity; n = [1, nspp]
   int max_age = imax(nages);      // Integer of maximum nages to make the arrays; n = [1]
 
@@ -790,7 +790,7 @@ Type objective_function<Type>::operator() () {
                 // Fill in years
                 for (yr = 1; yr < nyrs; yr++) {                 // Year loop
                   suit_main(rsp, ksp, r_age, k_age, yr) = suit_main(rsp, ksp, r_age, k_age, 0);
-                }  
+                }
               }
             }
           }
@@ -798,7 +798,7 @@ Type objective_function<Type>::operator() () {
       } // End Holsman/MSVPA suitability
 
 
-      // 8.1.2. GAMMA suitability // FIXME - not flexible for interannual variation in length-at-age
+      // 8.1.2. Length-based GAMMA suitability // FIXME - not flexible for interannual variation in length-at-age
       // -- Turned off if not estimating selectivity
       if(suitMode == 1){
         Type x_l_ratio = 0;       // Log(mean(predLen@age)/mean(preyLen@age))
@@ -833,16 +833,139 @@ Type objective_function<Type>::operator() () {
                 // Fill in years
                 for (yr = 1; yr < nyrs; yr++) {                 // Year loop
                   suit_main(rsp, ksp, r_age, k_age, yr) = suit_main(rsp, ksp, r_age, k_age, 0);
-                }  
+                }
               }
             }
           }
         }
       } // End GAMMA selectivity
 
-      // 8.1.3. Length-based lognormal suitability // FIXME - not flexible for interannual variation in length-at-age
+
+      // 8.1.2. Length-based GAMMA suitability // FIXME - not flexible for interannual variation in length-at-age
       // -- Turned off if not estimating selectivity
       if(suitMode == 2){
+        Type x_l_ratio = 0;       // Log(mean(predLen@age)/mean(preyLen@age))
+        Type LenOpt = 0;          // Value of x_l_ratio where selectivity = 1
+        Type gsum = 0;
+
+        suit_main.setZero();
+        for (rsp = 0; rsp < nspp; rsp++) {                              // Pred loop
+          LenOpt = Type(1.0e-10) + (gam_a(rsp) - 1) * gam_b(rsp);       // Eq. 18 Kinzey and Punt 2009
+          for (ksp = 0; ksp < nspp; ksp++) {                            // Prey loop
+            for (r_age = 1; r_age < nages(rsp); r_age++) {              // Pred age // FIXME: start at 1?
+              ncnt = 0;
+              gsum = 1.0e-10;                                           // Initialize
+              for (k_age = 0; k_age < nages(ksp); k_age++) {            // Prey age
+                // if prey are smaller than predator:
+                if (Mn_LatAge(rsp, r_age) > Mn_LatAge(ksp, k_age)) {
+                  x_l_ratio = log(Mn_LatAge(rsp, r_age) / Mn_LatAge(ksp, k_age));
+                  suit_main(rsp , ksp, r_age, k_age, 0) = Type(1.0e-10) +  (Type(1.0e-10) + gam_a( rsp ) - 1) * log(x_l_ratio / LenOpt + Type(1.0e-10)) -
+                    (1.0e-10 + x_l_ratio - LenOpt) / gam_b(rsp);
+                  ncnt += 1;
+                  gsum += exp( suit_main(rsp , ksp, r_age, k_age, 0) );
+                }
+                else
+                  suit_main(rsp , ksp, r_age, k_age, 0) = 0;
+              }
+              for (k_age = 0; k_age < nages(ksp); k_age++) {            // Prey age
+                // if prey are smaller than predator:
+                if (Mn_LatAge(rsp, r_age) > Mn_LatAge(ksp, k_age)) {
+                  suit_main(rsp , ksp, r_age, k_age, 0) = Type(1.0e-10) + exp(suit_main(rsp , ksp, r_age, k_age, 0) - log(Type(1.0e-10) + gsum / Type(ncnt))); // NOT sure what this is for...
+                }
+
+                // Fill in years
+                for (yr = 1; yr < nyrs; yr++) {                 // Year loop
+                  suit_main(rsp, ksp, r_age, k_age, yr) = suit_main(rsp, ksp, r_age, k_age, 0);
+                }
+              }
+            }
+          }
+        }
+      } // End GAMMA selectivity
+
+
+      // 8.1.2. Time-varying length-based GAMMA suitability // FIXME - not flexible for interannual variation in length-at-age
+      // -- Turned off if not estimating selectivity
+      if(suitMode == 2){
+        Type x_l_ratio = 0;       // Log(mean(predLen@age)/mean(preyLen@age))
+        Type LenOpt = 0;          // Value of x_l_ratio where selectivity = 1
+        Type gsum = 0;
+
+        suit_main.setZero();
+        for (rsp = 0; rsp < nspp; rsp++) {                              // Pred loop
+          LenOpt = Type(1.0e-10) + (gam_a(rsp) - 1) * gam_b(rsp);       // Eq. 18 Kinzey and Punt 2009
+          for (ksp = 0; ksp < nspp; ksp++) {                            // Prey loop
+            for (r_age = 1; r_age < nages(rsp); r_age++) {              // Pred age // FIXME: start at 1?
+              for (yr = 0; yr < nyrs; yr++) {                 // Year loop
+                ncnt = 0;
+                gsum = 1.0e-10;                                           // Initialize
+                for (k_age = 0; k_age < nages(ksp); k_age++) {            // Prey age
+                  // if prey are smaller than predator:
+                  if ( (aLW(0, rsp) * pow( wt(yr, r_age, rsp), aLW(1, rsp)))  > (aLW(0, ksp) * pow( wt(yr, k_age, ksp), aLW(1, ksp)))) {
+                    x_l_ratio = log((aLW(0, rsp) * pow( wt(yr, r_age, rsp), aLW(1, rsp))) / (aLW(0, ksp) * pow( wt(yr, k_age, ksp), aLW(1, ksp))) ); // Log ratio of lengths
+                    suit_main(rsp , ksp, r_age, k_age, yr) = Type(1.0e-10) +  (Type(1.0e-10) + gam_a( rsp ) - 1) * log(x_l_ratio / LenOpt + Type(1.0e-10)) -
+                      (1.0e-10 + x_l_ratio - LenOpt) / gam_b(rsp);
+                    ncnt += 1;
+                    gsum += exp( suit_main(rsp , ksp, r_age, k_age, yr) );
+                  }
+                  else
+                    suit_main(rsp , ksp, r_age, k_age, yr) = 0;
+                }
+                for (k_age = 0; k_age < nages(ksp); k_age++) {            // Prey age
+                  // if prey are smaller than predator:
+                  if ( (aLW(0, rsp) * pow( wt(yr, r_age, rsp), aLW(1, rsp)))  > (aLW(0, ksp) * pow( wt(yr, k_age, ksp), aLW(1, ksp)))) {
+                    suit_main(rsp , ksp, r_age, k_age, yr) = Type(1.0e-10) + exp(suit_main(rsp , ksp, r_age, k_age, yr) - log(Type(1.0e-10) + gsum / Type(ncnt))); // NOT sure what this is for...
+                  }
+                }
+              }
+            }
+          }
+        }
+      } // End GAMMA selectivity
+
+      // 8.1.3. Time-varying weight-based GAMMA suitability // FIXME - not flexible for interannual variation in length-at-age
+      // -- Turned off if not estimating selectivity
+      if(suitMode == 3){
+        Type x_l_ratio = 0;       // Log(mean(predLen@age)/mean(preyLen@age))
+        Type LenOpt = 0;          // Value of x_l_ratio where selectivity = 1
+        Type gsum = 0;
+
+        suit_main.setZero();
+        for (rsp = 0; rsp < nspp; rsp++) {                              // Pred loop
+          LenOpt = Type(1.0e-10) + (gam_a(rsp) - 1) * gam_b(rsp);       // Eq. 18 Kinzey and Punt 2009
+          for (ksp = 0; ksp < nspp; ksp++) {                            // Prey loop
+            for (r_age = 1; r_age < nages(rsp); r_age++) {              // Pred age // FIXME: start at 1?
+              for (yr = 0; yr < nyrs; yr++) {                 // Year loop
+                ncnt = 0;
+                gsum = 1.0e-10;                                           // Initialize
+                for (k_age = 0; k_age < nages(ksp); k_age++) {            // Prey age
+                  // if prey are smaller than predator:
+                  if (wt(yr, r_age, rsp) >wt(yr, k_age, ksp)) {
+                    x_l_ratio = log(wt(yr, r_age, rsp) / wt(yr, k_age, ksp)); // Log ratio of lengths
+                    suit_main(rsp , ksp, r_age, k_age, yr) = Type(1.0e-10) +  (Type(1.0e-10) + gam_a( rsp ) - 1) * log(x_l_ratio / LenOpt + Type(1.0e-10)) -
+                      (1.0e-10 + x_l_ratio - LenOpt) / gam_b(rsp);
+                    ncnt += 1;
+                    gsum += exp( suit_main(rsp , ksp, r_age, k_age, yr) );
+                  }
+                  else
+                    suit_main(rsp , ksp, r_age, k_age, yr) = 0;
+                }
+                for (k_age = 0; k_age < nages(ksp); k_age++) {            // Prey age
+                  // if prey are smaller than predator:
+                  if (wt(yr, r_age, rsp) >wt(yr, k_age, ksp)) {
+                    suit_main(rsp , ksp, r_age, k_age, yr) = Type(1.0e-10) + exp(suit_main(rsp , ksp, r_age, k_age, yr) - log(Type(1.0e-10) + gsum / Type(ncnt))); // NOT sure what this is for...
+                  }
+                }
+              }
+            }
+          }
+        }
+      } // End GAMMA selectivity
+
+      //-------------------------------------------------------------------------------------------------------------
+      // 8.1.4. Length-based lognormal suitability // FIXME - not flexible for interannual variation in length-at-age
+      // -- Turned off if not estimating selectivity
+      if(suitMode == 4){
         Type x_l_ratio = 0;       // Log(mean(predLen@age)/mean(preyLen@age))
         Type gsum = 0;
 
@@ -869,15 +992,16 @@ Type objective_function<Type>::operator() () {
                 // Fill in years
                 for (yr = 1; yr < nyrs; yr++) {                 // Year loop
                   suit_main(rsp, ksp, r_age, k_age, yr) = suit_main(rsp, ksp, r_age, k_age, 0);
-                }  
+                }
               }
             }
           }
         }
       } // End lognormal selectivity
 
-      // 8.1.4. Weight-based lognormal suitability
-      if(suitMode == 3){
+
+      // 8.1.5. Time varying length-based lognormal suitability
+      if(suitMode == 5){
         Type x_l_ratio = 0;       // Log(mean(predLen@age)/mean(preyLen@age))
         Type gsum = 0;
 
@@ -889,7 +1013,41 @@ Type objective_function<Type>::operator() () {
               for (ksp = 0; ksp < nspp; ksp++) {                            // Prey loop
                 for (k_age = 0; k_age < nages(ksp); k_age++) {              // Prey age
                   // if prey are smaller than predator:
-                  if (Mn_LatAge(rsp, r_age) > Mn_LatAge(ksp, k_age)) {
+                  if ( (aLW(0, rsp) * pow( wt(yr, r_age, rsp), aLW(1, rsp)))  > (aLW(0, ksp) * pow( wt(yr, k_age, ksp), aLW(1, ksp)))) {
+                    x_l_ratio = log((aLW(0, rsp) * pow( wt(yr, r_age, rsp), aLW(1, rsp))) / (aLW(0, ksp) * pow( wt(yr, k_age, ksp), aLW(1, ksp))) ); // Log ratio of lengths
+                    suit_main(rsp , ksp, r_age, k_age, yr) = exp(phi(rsp, ksp)) * exp(-1/ (2*square(gam_a(rsp))) * square(x_l_ratio - gam_b(rsp)) );
+                    gsum += suit_main(rsp , ksp, r_age, k_age, yr);
+                  }
+                  else{
+                    suit_main(rsp , ksp, r_age, k_age, yr) = 0;
+                  }
+                }
+              }
+              for (ksp = 0; ksp < nspp; ksp++) {                            // Prey loop
+                for (k_age = 0; k_age < nages(ksp); k_age++) {              // Prey age
+                  suit_main(rsp , ksp, r_age, k_age, yr) /= gsum;                // Scale, so it sums to 1.
+                }
+              }
+            }
+          }
+        }
+      } // End lognormal selectivity
+
+
+      // 8.1.6. Time varying weight-based lognormal suitability
+      if(suitMode == 6){
+        Type x_l_ratio = 0;       // Log(mean(predLen@age)/mean(preyLen@age))
+        Type gsum = 0;
+
+        suit_main.setZero();
+        for (rsp = 0; rsp < nspp; rsp++) {                                // Pred loop
+          for (r_age = 1; r_age < nages(rsp); r_age++) {                  // Pred age // FIXME: start at 1?
+            for(yr = 0; yr < nyrs; yr++){
+              gsum = 1;                                                     // Sum of suitability for each predator-at-age. Initialize at 1 because other biomass is assumed 1
+              for (ksp = 0; ksp < nspp; ksp++) {                            // Prey loop
+                for (k_age = 0; k_age < nages(ksp); k_age++) {              // Prey age
+                  // if prey are smaller than predator:
+                  if (wt(yr, r_age, rsp) > wt(yr, k_age, ksp)) {
                     x_l_ratio = log(wt(yr, r_age, rsp) / wt(yr, k_age, ksp)); // Log ratio of lengths
                     suit_main(rsp , ksp, r_age, k_age, yr) = exp(phi(rsp, ksp)) * exp(-1/ (2*square(gam_a(rsp))) * square(x_l_ratio - gam_b(rsp)) );
                     gsum += suit_main(rsp , ksp, r_age, k_age, yr);

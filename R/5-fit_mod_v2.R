@@ -5,7 +5,8 @@
 #' @param cpp_directory (Optional) The directory where the cpp file is found
 #' @param data_list a data_list created from \code{\link{build_dat}}.
 #' @param inits (Optional) Character vector of named initial values from ADMB or list of previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters. Can also consturct using \code{\link{build_params}}
-#' @param map (Optional) A prebuilt map object from \code{\link{build_map}}
+#' @param map (Optional) A prebuilt map object from \code{\link{build_map}}.
+#' @param bounds (Optional) A prebuild bounds object from \code{\link{build_bounds}}.
 #' @param file_name (Optional) Filename where files will be saved. If NULL, no file is saved.
 #' @param debug Runs the model without estimating parameters to get derived quantities given initial parameter values.
 #' @param random_rec logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE.
@@ -14,7 +15,8 @@
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{\frac{N}{Z} \left( 1 - exp^{-Z} \right)}, 1 is \eqn{N e^{-Z/2}}, 2 is \eqn{N}.
 #' @param silent logical. IF TRUE, includes TMB estimation progress
 #' @param est_diet logical. If FALSE, does not include diet in the likelihood.The default is FALSE. WARNING: STILL NEEDS WORK.
-#' @param suitMode Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = gamma selectivity from Kinzey and Punt (2009)}, 2 = lognormal suitability. Does not work
+#' @param suitMode Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma selectivity from Kinzey and Punt (2009), 2 = time-varing length based gamma selectivity from Kinzey and Punt (2009), 3 = time-varying weight based gamma selectivity from Kinzey and Punt (2009), 4 = length based lognormal selectivity, 5 = time-varing length based lognormal selectivity, 6 = time-varying weight based lognormal selectivity,
+#' @param stom_tau Stomach content sample size for likelihood.
 #' @details
 #' CEATTLE is an age-structured population dynamics model that can be fit with or without predation mortality. The default is to exclude predation mortality by setting \code{msmMode} to 0. Predation mortality can be included by setting \code{msmMode} with the following options:
 #' \itemize{
@@ -169,7 +171,7 @@
 #' \item{Slot 16 -- Stomach content of prey length ln in predator length a likelihood}
 #' }
 #'
-#' @example
+#' @examples
 #'library(Rceattle)
 #'data(BS2017SS) # ?BS2017SS for more information on the data
 #'
@@ -191,6 +193,7 @@ Rceattle <-
            data_list = NULL,
            inits = NULL,
            map = NULL,
+           bounds = NULL,
            file_name = NULL,
            debug = T,
            random_rec = FALSE,
@@ -199,6 +202,7 @@ Rceattle <-
            avgnMode = 0,
            est_diet = FALSE,
            suitMode = 0,
+           stom_tau = 20,
            silent = FALSE,
            recompile = FALSE) {
     start_time <- Sys.time()
@@ -233,6 +237,7 @@ Rceattle <-
     data_list$msmMode <- msmMode
     data_list$suitMode <- as.numeric(suitMode)
     data_list$est_diet <- est_diet
+    data_list$stom_tau <- stom_tau
 
 
     # Get cpp file if not provided
@@ -271,7 +276,11 @@ Rceattle <-
 
 
     # STEP 3 - Get bounds
-    bounds <- Rceattle::build_bounds(param_list = params, data_list)
+    if (is.null(bounds)) {
+      bounds <- Rceattle::build_bounds(param_list = params, data_list)
+    } else {
+      bounds = bounds
+    }
     print("Step 3: Param bounds complete")
 
 

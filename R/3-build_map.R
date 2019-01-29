@@ -62,40 +62,107 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     map_list$ln_rec_sigma <- replace(map_list$ln_rec_sigma, values = rep(NA, length(map_list$ln_rec_sigma)))
   }
 
-  # Suitability parameters
-  if(data_list$suitMode == 0){
+  ######################################################
+  ####### Predation bits
+  ######################################################
+  # 1. Turn off all predation parameters for single species
+  if(data_list$msmMode == 0){
+
+    # Suitability parameters
     map_list$log_gam_a <- replace(map_list$log_gam_a, values = rep(NA, length(map_list$log_gam_a)))
     map_list$log_gam_b <- replace(map_list$log_gam_b, values = rep(NA, length(map_list$log_gam_b)))
-  }
-
-  # Log-normal preference (used in suitmode = 2, 3)
-  if(data_list$suitMode %in% c(0,1)){
     map_list$phi <- replace(map_list$phi, values = rep(NA, length(map_list$phi)))
-  }
 
-  # Kinzey predation functions
-  if(data_list$msmMode < 2 | data_list$msmMode > 8){
+    # Multispecies
     map_list$logH_1 <- replace(map_list$logH_1, values = rep(NA, length(map_list$logH_1)))
     map_list$logH_1a <- replace(map_list$logH_1a, values = rep(NA, length(map_list$logH_1a)))
     map_list$logH_1b <- replace(map_list$logH_1b, values = rep(NA, length(map_list$logH_1b)))
-  }
 
-  if(data_list$msmMode < 3){
     map_list$logH_2 <- replace(map_list$logH_2, values = rep(NA, length(map_list$logH_2)))
     map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
     map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
+
   }
 
-  if(data_list$msmMode %in% c(3,4,7)){
-    map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
-  }
+  # 2. MSVPA based predation
+  if(data_list$msmMode == 1){
+    # Multispecies
+    map_list$logH_1 <- replace(map_list$logH_1, values = rep(NA, length(map_list$logH_1)))
+    map_list$logH_1a <- replace(map_list$logH_1a, values = rep(NA, length(map_list$logH_1a)))
+    map_list$logH_1b <- replace(map_list$logH_1b, values = rep(NA, length(map_list$logH_1b)))
 
-  if(data_list$msmMode %in% c(3,5,6,8)){
-    map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
-  }
-
-  if(data_list$msmMode == 8){
     map_list$logH_2 <- replace(map_list$logH_2, values = rep(NA, length(map_list$logH_2)))
+    map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
+    map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
+
+  }
+
+  # 3. Kinzey and Punt predation equations
+  if(data_list$msmMode > 1){
+
+    # Holling Type 1
+    if(data_list$msmMode == 2){
+      map_list$logH_2 <- replace(map_list$logH_2, values = rep(NA, length(map_list$logH_2)))
+      map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
+      map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
+    }
+
+    # Holling Type 2
+    if(data_list$msmMode == 3){
+      map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
+      map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
+    }
+
+    # Holling Type 3
+    if(data_list$msmMode == 4){
+      map_list$logH_2 <- replace(map_list$logH_2, values = rep(NA, length(map_list$logH_2)))
+      map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
+    }
+
+    # Predator interference
+    if(data_list$msmMode == 5){
+      map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
+    }
+
+    # Predator preemption
+    if(data_list$msmMode == 6){
+      map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
+    }
+
+    # Hassell-Varley
+    if(data_list$msmMode == 7){
+      map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
+    }
+
+    # Ecosim
+    if(data_list$msmMode == 8){
+      map_list$logH_2 <- replace(map_list$logH_2, values = rep(NA, length(map_list$logH_2)))
+      map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
+    }
+  }
+
+
+  ######################################################
+  ####### Suitability bits
+  ######################################################
+  if(data_list$msmMode > 0){
+
+    # 2.1. Empirical suitability
+    if(data_list$suitMode == 0){
+      map_list$log_gam_a <- replace(map_list$log_gam_a, values = rep(NA, length(map_list$log_gam_a)))
+      map_list$log_gam_b <- replace(map_list$log_gam_b, values = rep(NA, length(map_list$log_gam_b)))
+      map_list$phi <- replace(map_list$phi, values = rep(NA, length(map_list$phi)))
+    }
+
+    # 2.2. GAMMA suitability
+    if(data_list$suitMode %in% c(1:3)){
+      map_list$phi <- replace(map_list$phi, values = rep(NA, length(map_list$phi)))
+    }
+
+    # 2.3. and 2.4 Lognormal
+    if(data_list$suitMode %in% c(4:5)){
+      # Use all the parameters
+    }
   }
 
 

@@ -15,7 +15,6 @@ ss_run <- Rceattle(TMBfilename = "ceattle_v01_02",
                    msmMode = 0, # Single species mode
                    avgnMode = 0,
                    silent = TRUE)
-
 # The you can plot the model results using using
 plot_selectivity(ss_run)
   plot_biomass(Rceattle =  ss_run)
@@ -29,7 +28,7 @@ ms_run <- Rceattle(TMBfilename = "ceattle_v01_02",
                     cpp_directory = "inst/executables",
                     data_list = BS2017MS,
                     inits = ss_run$estimated_params, # Initial parameters from single species ests
-                    file_name = "tests/example", # Don't save
+                    file_name = NULL, # Don't save
                     debug = 0, # Estimate
                     niter = 10,
                     random_rec = FALSE, # No random recruitment

@@ -19,13 +19,13 @@ build_bounds <- function( param_list = NULL, data_list){
   }
 
   # Predator selectivity
-  if(data_list$suitMode == 1){ # Bounds for gamma suitability
-  lower_bnd$log_gam_a <- replace(lower_bnd$log_gam_a, values = rep(1.0e-10, length(lower_bnd$log_gam_a)))
-  upper_bnd$log_gam_a <- replace(upper_bnd$log_gam_a, values = rep(19.9, length(upper_bnd$log_gam_a)))
+  if(data_list$suitMode %in% c(1:3)){ # Bounds for gamma suitability
+    lower_bnd$log_gam_a <- replace(lower_bnd$log_gam_a, values = rep(1.0e-10, length(lower_bnd$log_gam_a)))
+    upper_bnd$log_gam_a <- replace(upper_bnd$log_gam_a, values = rep(19.9, length(upper_bnd$log_gam_a)))
+  } else{
+    lower_bnd$log_gam_b <- replace(lower_bnd$log_gam_b, values = rep(-10, length(lower_bnd$log_gam_b)))
+    upper_bnd$log_gam_b <- replace(upper_bnd$log_gam_b, values = rep(20, length(upper_bnd$log_gam_b)))
   }
-
-  lower_bnd$log_gam_b <- replace(lower_bnd$log_gam_b, values = rep(-5.2, length(lower_bnd$log_gam_b)))
-  upper_bnd$log_gam_b <- replace(upper_bnd$log_gam_b, values = rep(10, length(upper_bnd$log_gam_b)))
 
   # Functional form
   lower_bnd$logH_3 <- replace(lower_bnd$logH_3, values = rep(-30, length(lower_bnd$logH_3)))

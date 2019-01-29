@@ -5,10 +5,10 @@
 \title{This functions runs CEATTLE}
 \usage{
 Rceattle(TMBfilename = "ceattle_v01_02", cpp_directory = NULL,
-  data_list = NULL, inits = NULL, map = NULL, file_name = NULL,
-  debug = T, random_rec = FALSE, niter = 3, msmMode = 0,
-  avgnMode = 0, est_diet = FALSE, suitMode = 0, silent = FALSE,
-  recompile = FALSE)
+  data_list = NULL, inits = NULL, map = NULL, bounds = NULL,
+  file_name = NULL, debug = T, random_rec = FALSE, niter = 3,
+  msmMode = 0, avgnMode = 0, est_diet = FALSE, suitMode = 0,
+  stom_tau = 20, silent = FALSE, recompile = FALSE)
 }
 \arguments{
 \item{TMBfilename}{(Optional) A version of the cpp CEATTLE \code{cpp_directory}. If NULL, uses the deafult and built .cpp file}
@@ -19,7 +19,9 @@ Rceattle(TMBfilename = "ceattle_v01_02", cpp_directory = NULL,
 
 \item{inits}{(Optional) Character vector of named initial values from ADMB or list of previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters. Can also consturct using \code{\link{build_params}}}
 
-\item{map}{(Optional) A prebuilt map object from \code{\link{build_map}}}
+\item{map}{(Optional) A prebuilt map object from \code{\link{build_map}}.}
+
+\item{bounds}{(Optional) A prebuild bounds object from \code{\link{build_bounds}}.}
 
 \item{file_name}{(Optional) Filename where files will be saved. If NULL, no file is saved.}
 
@@ -34,6 +36,10 @@ Rceattle(TMBfilename = "ceattle_v01_02", cpp_directory = NULL,
 \item{avgnMode}{The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{\frac{N}{Z} \left( 1 - exp^{-Z} \right)}, 1 is \eqn{N e^{-Z/2}}, 2 is \eqn{N}.}
 
 \item{est_diet}{logical. If FALSE, does not include diet in the likelihood.The default is FALSE. WARNING: STILL NEEDS WORK.}
+
+\item{suitMode}{Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma selectivity from Kinzey and Punt (2009), 2 = time-varing length based gamma selectivity from Kinzey and Punt (2009), 3 = time-varying weight based gamma selectivity from Kinzey and Punt (2009), 4 = length based lognormal selectivity, 5 = time-varing length based lognormal selectivity, 6 = time-varying weight based lognormal selectivity,}
+
+\item{stom_tau}{Stomach content sample size for likelihood.}
 
 \item{silent}{logical. IF TRUE, includes TMB estimation progress}
 }
@@ -193,4 +199,19 @@ CEATTLE is an age-structured population dynamics model that can be fit with or w
  \item{7. Kinzey & Punt 2010 Hassell-Varley}
  \item{8. Kinzey & Punt 2010 Ecosim}
  }
+}
+\examples{
+library(Rceattle)
+data(BS2017SS) # ?BS2017SS for more information on the data
+
+# Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
+ss_run <- Rceattle(data_list = BS2017SS,
+   inits = NULL, # Initial parameters = 0
+   file_name = NULL, # Don't save
+   debug = 0, # Estimate
+   random_rec = FALSE, # No random recruitment
+   msmMode = 0, # Single species mode
+   avgnMode = 0,
+   silent = TRUE)
+
 }
