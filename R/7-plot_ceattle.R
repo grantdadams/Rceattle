@@ -225,6 +225,8 @@ plot_biomass <-
   }
 
 
+
+
 #' plot_recruitment
 #'
 #' @description Function the plots the mean recruitment and 95% CI trends as estimated from Rceattle
@@ -566,7 +568,7 @@ plot_selectivity <-
         if (j == 1) {
           if(!is.null(model_names)){
             legend(
-              "topright",
+              "bottomright",
               legend = model_names,
               lty = rep(1, length(line_col)),
               lwd = lwd,
@@ -604,7 +606,7 @@ plot_selectivity <-
         if (j == 1) {
           if(!is.null(model_names)){
             legend(
-              "topright",
+              "bottomright",
               legend = model_names,
               lty = rep(1, length(line_col)),
               lwd = lwd,
@@ -715,4 +717,214 @@ plot_form <- function( params = NULL, pred = 1, pred_age = 1, prey = 1, msmMode 
     filled.contour(response, xlab = "Prey ratio", ylab = "Predator ratio", col = oce.colorsDensity(30))
   }
 }
+
+
+#' plot_M2
+#'
+#' @description Function the plots the predation mortality trends as estimated from Rceattle
+#'
+#' @param file_name name of a file to identified the files exported by the
+#'   function.
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param model_names Names of models to be used in legend
+#' @param line_col Colors of models to be used for line color
+#' @param species Species names for legend
+#' @param lwd Line width as specified by user
+#' @param age Age specified
+#'
+#' @return Returns and saves a figure with the population trajectory.
+#' @export
+plot_mort <-
+  function(Rceattle,
+           tmp_list = NULL,
+           file_name = NULL,
+           model_names = NULL,
+           line_col = NULL,
+           species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"),
+           lwd = 3,
+           age = 3) {
+
+    # Convert single one into a list
+    if(class(Rceattle) == "Rceattle"){
+      Rceattle <- list(Rceattle)
+    }
+
+    # Extract data objects
+    nyrs <- Rceattle[[1]]$data_list$nyrs
+    Years <-
+      Rceattle[[1]]$data_list$styr:(Rceattle[[1]]$data_list$styr + nyrs - 1)
+    nspp <- Rceattle[[1]]$data_list$nspp
+    max_age <- max(Rceattle[[1]]$data_list$nages)
+
+    # Get M2
+    M2 <-
+      array(NA, dim = c(nspp, max_age, nyrs, length(Rceattle) + length(tmp_list)))
+    for (i in 1:length(Rceattle)) {
+      M2[, , ,i] <- Rceattle[[i]]$quantities$M2
+    }
+
+    # ind = 1
+    # if (!is.null(tmp_list)) {
+    #   for (i in (length(Rceattle) + 1):(length(Rceattle) + length(tmp_list))) {
+    #     for (k in 1:nspp) {
+    #       M2[k, , i] <- tmp_list[[ind]][[paste0("M2_", k)]]
+    #     }
+    #     ind = ind + 1
+    #   }
+    # }
+
+    # Get f_mat
+    f_mat <-
+      array(NA, dim = c(nspp, max_age, nyrs, length(Rceattle) + length(tmp_list)))
+    for (i in 1:length(Rceattle)) {
+      f_mat[, , ,i] <- Rceattle[[i]]$quantities$F
+    }
+
+    m_mat <-
+      array(NA, dim = c(nspp, max_age, length(Rceattle) + length(tmp_list)))
+    for (i in 1:length(Rceattle)) {
+      m_mat[, ,i] <- Rceattle[[i]]$quantities$M1
+    }
+
+    # ind = 1
+    # if (!is.null(tmp_list)) {
+    #   for (i in (length(Rceattle) + 1):(length(Rceattle) + length(tmp_list))) {
+    #     for (k in 1:nspp) {
+    #       f_mat[k, , i] <- tmp_list[[ind]][[paste0("F_", k)]]
+    #     }
+    #     ind = ind + 1
+    #   }
+    # }
+
+    # Plot limits
+    #if(fishing){
+    ymax <- c()
+    ymin <- c()
+    for (i in 1:dim(M2)[1]) {
+      ymax[i] <- max(c(M2[i, age, ,], f_mat[i, age, ,], m_mat[i, age,], 0), na.rm = T)
+      ymin[i] <- min(c(M2[i, age, ,], f_mat[i, age, ,], m_mat[i, age,], 0), na.rm = T)
+    }
+    ymax <- ymax + 0.15 * ymax
+    # }
+    # if(fishing == FALSE){
+    #   ymax <- c()
+    #   ymin <- c()
+    #   for (i in 1:dim(M2)[1]) {
+    #     ymax[i] <- max(c(M2[i, , ,], 0), na.rm = T)
+    #     ymin[i] <- min(c(M2[i, , ,], 0), na.rm = T)
+    #   }
+    #   ymax <- ymax + 0.15 * ymax
+    # }
+
+    if (is.null(line_col)) {
+      line_col <- 1:length(Rceattle)
+    }
+
+    alphas <- seq(1, 0.1, length.out = nages)
+
+    # Plot trajectory
+    loops <- ifelse(is.null(file_name), 1, 2)
+    for (i in 1:loops) {
+      if (i == 2) {
+        filename <- paste0(file_name,"_age",age, "_mortality_trajectory", ".png")
+        png(
+          file = filename ,
+          width = 7,# 169 / 25.4,
+          height = 6.5,# 150 / 25.4,
+          family = "Helvetica" ,
+          units = "in",
+          res = 300
+        )
+      }
+
+      # Plot configuration
+      layout(matrix(1:(nspp + 2), nrow = (nspp + 2)), heights = c(0.1, rep(1, nspp), 0.2))
+      par(
+        mar = c(0, 3 , 0 , 1) ,
+        oma = c(0 , 0 , 0 , 0),
+        tcl = -0.35,
+        mgp = c(1.75, 0.5, 0)
+      )
+      plot.new()
+
+      for (j in 1:nspp) {
+        plot(
+          y = NA,
+          x = NA,
+          ylim = c(ymin[j], ymax[j]),
+          xlim = c(min(Years), max(Years)),
+          xlab = "Year",
+          ylab = "Mortality",
+          xaxt = c(rep("n", nspp - 1), "s")[j]
+        )
+
+        # Legends
+        legend("topleft", species[j], bty = "n", cex = 1.4)
+
+        if (j == 1) {
+          if(!is.null(model_names)){
+            legend(
+              "topright",
+              legend = model_names,
+              lty = rep(1, length(line_col)),
+              lwd = lwd,
+              col = line_col,
+              bty = "n",
+              cex = 1.175
+            )
+          }
+        }
+
+        if (j == 2) {
+          legend(
+            "topright",
+            legend = c("M1", "M2", "F"),
+            lty = c(3, 1, 2),
+            lwd = lwd,
+            col = c(1, 1, 1),
+            bty = "n",
+            cex = 1.175
+          )
+        }
+
+
+
+        # Mean M2
+        for (k in 1:dim(M2)[4]) {
+          #if(fishing == FALSE){
+          lines(
+            x = Years,
+            y = M2[j, age, , k],
+            lty = 1,
+            lwd = lwd,
+            col = line_col[k]
+          ) # Median
+          #}
+          #if(fishing){
+          lines(
+            x = Years,
+            y = f_mat[j, age, , k],
+            lty = 2,
+            lwd = lwd,
+            col = line_col[k]
+          ) # Median
+
+          # M
+          abline(
+            h = m_mat[j, age, k],
+            lty = 3,
+            lwd = lwd,
+            col = line_col[k]
+          ) # Median
+          #}
+        }
+      }
+
+
+      if (i == 2) {
+        dev.off()
+      }
+    }
+  }
+
 
