@@ -49,7 +49,7 @@ Type objective_function<Type>::operator() () {
   DATA_INTEGER(msmMode);
   //    0 = run in single species mode
   //    1 = run in MSM mode  Holsman et al (2015) MSVPA based
-  DATA_INTEGER(est_diet);         // Include diet data in the likelihood
+  // DATA_INTEGER(est_diet);         // Include diet data in the likelihood
   DATA_INTEGER(suitMode);         // Estimate suitability
   DATA_INTEGER(avgnMode);         // N used for predation function
   //    0 = AvgN
@@ -801,49 +801,6 @@ Type objective_function<Type>::operator() () {
       // 8.1.2. Length-based GAMMA suitability // FIXME - not flexible for interannual variation in length-at-age
       // -- Turned off if not estimating selectivity
       if(suitMode == 1){
-        Type x_l_ratio = 0;       // Log(mean(predLen@age)/mean(preyLen@age))
-        Type LenOpt = 0;          // Value of x_l_ratio where selectivity = 1
-        Type gsum = 0;
-
-        suit_main.setZero();
-        for (rsp = 0; rsp < nspp; rsp++) {                              // Pred loop
-          LenOpt = Type(1.0e-10) + (gam_a(rsp) - 1) * gam_b(rsp);       // Eq. 18 Kinzey and Punt 2009
-          for (ksp = 0; ksp < nspp; ksp++) {                            // Prey loop
-            for (r_age = 1; r_age < nages(rsp); r_age++) {              // Pred age // FIXME: start at 1?
-              ncnt = 0;
-              gsum = 1.0e-10;                                           // Initialize
-              for (k_age = 0; k_age < nages(ksp); k_age++) {            // Prey age
-                // if prey are smaller than predator:
-                if (Mn_LatAge(rsp, r_age) > Mn_LatAge(ksp, k_age)) {
-                  x_l_ratio = log(Mn_LatAge(rsp, r_age) / Mn_LatAge(ksp, k_age));
-                  suit_main(rsp , ksp, r_age, k_age, 0) = Type(1.0e-10) +  (Type(1.0e-10) + gam_a( rsp ) - 1) * log(x_l_ratio / LenOpt + Type(1.0e-10)) -
-                    (1.0e-10 + x_l_ratio - LenOpt) / gam_b(rsp);
-                  ncnt += 1;
-                  gsum += exp( suit_main(rsp , ksp, r_age, k_age, 0) );
-                }
-                else
-                  suit_main(rsp , ksp, r_age, k_age, 0) = 0;
-              }
-              for (k_age = 0; k_age < nages(ksp); k_age++) {            // Prey age
-                // if prey are smaller than predator:
-                if (Mn_LatAge(rsp, r_age) > Mn_LatAge(ksp, k_age)) {
-                  suit_main(rsp , ksp, r_age, k_age, 0) = Type(1.0e-10) + exp(suit_main(rsp , ksp, r_age, k_age, 0) - log(Type(1.0e-10) + gsum / Type(ncnt))); // NOT sure what this is for...
-                }
-
-                // Fill in years
-                for (yr = 1; yr < nyrs; yr++) {                 // Year loop
-                  suit_main(rsp, ksp, r_age, k_age, yr) = suit_main(rsp, ksp, r_age, k_age, 0);
-                }
-              }
-            }
-          }
-        }
-      } // End GAMMA selectivity
-
-
-      // 8.1.2. Length-based GAMMA suitability // FIXME - not flexible for interannual variation in length-at-age
-      // -- Turned off if not estimating selectivity
-      if(suitMode == 2){
         Type x_l_ratio = 0;       // Log(mean(predLen@age)/mean(preyLen@age))
         Type LenOpt = 0;          // Value of x_l_ratio where selectivity = 1
         Type gsum = 0;
@@ -1662,9 +1619,9 @@ Type objective_function<Type>::operator() () {
         for (r_age = 0; r_age < nages(rsp); r_age++) {
           for (ksp = 0; ksp < nspp; ksp++) {
             for (k_age = 0; k_age < nages(ksp); k_age++) {                  // FIME: need to add in other food
-              if (UobsWtAge(rsp, ksp, r_age, k_age, yr) > 0) { // (rsp, ksp, a, r_ln, yr)
-                offset_uobsagewt(rsp) -= stom_tau * UobsWtAge(rsp, ksp, r_age, k_age, yr) * log(UobsWtAge(rsp, ksp, r_age, k_age, yr) + 1.0e-10);
-              }
+              //if (UobsWtAge(rsp, ksp, r_age, k_age, yr) > 0) { // (rsp, ksp, a, r_ln, yr)
+                offset_uobsagewt(rsp) -= stom_tau * (UobsWtAge(rsp, ksp, r_age, k_age, yr) + MNConst) * log(UobsWtAge(rsp, ksp, r_age, k_age, yr) + MNConst);
+              //}
             }
           }
         }
@@ -1678,9 +1635,9 @@ Type objective_function<Type>::operator() () {
       for (r_age = 0; r_age < nages(rsp); r_age++) {
         for (ksp = 0; ksp < nspp; ksp++) {
           for (k_age = 0; k_age < nages(ksp); k_age++) {                  // FIME: need to add in other food
-            if (UobsWtAge(rsp, ksp, r_age, k_age) > 0) { // (rsp, ksp, a, r_ln, yr)
-              offset_uobsagewt(rsp) -= stom_tau * UobsWtAge(rsp, ksp, r_age, k_age) * log(UobsWtAge(rsp, ksp, r_age, k_age) + 1.0e-10);
-            }
+            //if (UobsWtAge(rsp, ksp, r_age, k_age) > 0) { // (rsp, ksp, a, r_ln, yr)
+              offset_uobsagewt(rsp) -= stom_tau * (UobsWtAge(rsp, ksp, r_age, k_age) + MNConst) * log(UobsWtAge(rsp, ksp, r_age, k_age) + MNConst);
+            //}
           }
         }
       }
@@ -1842,18 +1799,19 @@ Type objective_function<Type>::operator() () {
 
 
   // 11.3. Diet likelihood components from MSVPA
-  if ((msmMode == 1) & (est_diet == 1)) {
+  if ((msmMode == 1) & (suitMode > 0)) {
     // Slot 14 -- Diet weight likelihood
     // If 5D array
     if(a2_dim.size() == 5){
       for (rsp = 0; rsp < nspp; rsp++) {
+        jnll_comp(15, rsp) = 0;
         for (yr = 0; yr < nyrs; yr++) {
           for (r_age = 0; r_age < nages(rsp); r_age++) {
             for (ksp = 0; ksp < nspp; ksp++) {
               for (k_age = 0; k_age < nages(ksp); k_age++) {                  // FIME: need to add in other food
-                if (UobsWtAge(rsp, ksp, r_age, k_age, yr) > 0) { // (rsp, ksp, a, r_ln, yr)
-                  jnll_comp(15, rsp) -= stom_tau * UobsWtAge(rsp, ksp, r_age, k_age, yr) * log(UobsWtAge_hat(rsp, ksp, r_age, k_age, yr) + 1.0e-10);
-                }
+                //if (UobsWtAge(rsp, ksp, r_age, k_age, yr) > 0) { // (rsp, ksp, a, r_ln, yr)
+                  jnll_comp(15, rsp) -= stom_tau * (UobsWtAge(rsp, ksp, r_age, k_age, yr) + MNConst) * (log(UobsWtAge_hat(rsp, ksp, r_age, k_age, yr) + MNConst));
+               // }
               }
             }
           }
@@ -1865,12 +1823,13 @@ Type objective_function<Type>::operator() () {
     // If 4D array
     if(a2_dim.size() == 4){
       for (rsp = 0; rsp < nspp; rsp++) {
+                jnll_comp(15, rsp) = 0;
         for (r_age = 0; r_age < nages(rsp); r_age++) {
           for (ksp = 0; ksp < nspp; ksp++) {
             for (k_age = 0; k_age < nages(ksp); k_age++) {                  // FIME: need to add in other food
-              if (UobsWtAge(rsp, ksp, r_age, k_age) > 0) { // (rsp, ksp, a, r_ln, yr)
-                jnll_comp(15, rsp) -= stom_tau * UobsWtAge(rsp, ksp, r_age, k_age) * log(mn_UobsWtAge_hat(rsp, ksp, r_age, k_age) + 1.0e-10);
-              }
+              //if (UobsWtAge(rsp, ksp, r_age, k_age) > 0) { // (rsp, ksp, a, r_ln, yr)
+                jnll_comp(15, rsp) -= stom_tau * (UobsWtAge(rsp, ksp, r_age, k_age) + MNConst) * (log(mn_UobsWtAge_hat(rsp, ksp, r_age, k_age) + MNConst));
+              //}
             }
           }
         }
@@ -1880,7 +1839,7 @@ Type objective_function<Type>::operator() () {
   } // End diet proportion by weight component
 
   // 11.4. Diet likelihood components from Kinzey and Punt
-  if ((msmMode > 1) & (est_diet == 1)) {
+  if ((msmMode > 1)) {
     // Slot 13 -- Ration likelihood
     for (yr = 0; yr < nyrs; yr++) {
       for (sp = 0; sp < nspp; sp++) {
@@ -2025,6 +1984,7 @@ Type objective_function<Type>::operator() () {
   REPORT( offset_eit );
   REPORT( offset_diet_w );
   REPORT( offset_diet_l );
+  REPORT( offset_uobsagewt );
 
 
   // -- 12.5. Ration components
