@@ -66,6 +66,7 @@ Type objective_function<Type>::operator() () {
   // 1.2. Temporal dimensions
   DATA_INTEGER( nyrs );           // Number of estimation years
   DATA_INTEGER( styr );           // Start year
+  DATA_INTEGER( proj_yr );         // Year to project with no fishing
 
   // 1.3. Number of species
   DATA_INTEGER( nspp );           // Number of species (prey)
@@ -91,7 +92,7 @@ Type objective_function<Type>::operator() () {
 
 
   // 2.2. DIMENSIONS
-  // int endyr = nyrs + styr;        // End year
+  int nyrs_proj = proj_yr - styr + 1        // End year
 
   // -- 2.2.2. Species attributes
   DATA_IVECTOR( nages );          // Number of species (prey) ages; n = [1, nspp]
@@ -446,7 +447,7 @@ Type objective_function<Type>::operator() () {
   }
 
 
-  // 3.3 POPULATION DYNAMICS
+  // 5.4. POPULATION DYNAMICS
   M1 = M1_base.array() + Type(0.0001);
   for ( sp = 0; sp < nspp ; sp++) {
     for ( age = 0 ; age < nages(sp); age++ ) {
@@ -454,7 +455,7 @@ Type objective_function<Type>::operator() () {
     }
   }
 
-  // Calculate temperature to use
+  // 5.5. Calculate temperature to use
   TempC = BTempC_retro.sum() / nTyrs; // Fill with average bottom temperature
 
   int yr_ind = 0;
@@ -465,7 +466,7 @@ Type objective_function<Type>::operator() () {
     }
   }
 
-  // Calculate length-at-age
+  // 5.6. Calculate length-at-age
   for (sp = 0; sp < nspp; sp++) {
     for (age = 0; age < nages(sp); age++) {
       for (yr = 0; yr < nyrs; yr++) {

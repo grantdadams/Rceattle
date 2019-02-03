@@ -820,7 +820,6 @@ plot_mort <-
       line_col <- 1:length(Rceattle)
     }
 
-    alphas <- seq(1, 0.1, length.out = nages)
 
     # Plot trajectory
     loops <- ifelse(is.null(file_name), 1, 2)
@@ -926,5 +925,4 @@ plot_mort <-
       }
     }
   }
-
 
