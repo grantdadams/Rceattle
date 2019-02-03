@@ -8,10 +8,12 @@
 #' @param dat_dir The directory where ctl and dat files are stored
 #' @param nspp The number of species included in the CEATTLE model. Deafualts to 3.
 #' @param nselages Number of ages to estimate selectivity. Can either be a single number or vector of length nspp
+#' @param proj_yr The year to project the populations with no fishing. Assumed to be 2100
+#' @param stom_tau Stomach content sample size for likelihood. Assumed to be 20.
 #'
 #' @return A list of data objects used by TMB
 #' @export
-build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NULL, dat_dir = NULL, nspp = 3, nselages = 8) {
+build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NULL, dat_dir = NULL, nspp = 3, nselages = 8, proj_yr = 2100, stom_tau = 20) {
 
   # Get cpp file if not provided
   if(is.null(TMBfilename) | is.null(cpp_directory)){
@@ -99,7 +101,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   # Print data included
   not_included <- dat_names[(!(dat_names %in% names(dat_list)))]
   if(length(not_included) > 0){
-    print(paste("The following data inputs are not included:", paste(not_included, collapse = ", "), sep = " "))
+    print(paste("The following data inputs are not included in the dat files:", paste(not_included, collapse = ", "), sep = " "))
   } else {
     print("All data inputs items are included.")
   }
@@ -149,6 +151,10 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   # Rename
   dat_list$srv_sel_type <- dat_list$logist_sel_phase
   dat_list$logist_sel_phase <- NULL
+
+  # Get add in projected year
+  dat_list$proj_yr <- proj_yr
+  dat_list$stom_tau <- stom_tau
 
 
   if(length(nselages) == 1){

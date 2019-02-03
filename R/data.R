@@ -17,6 +17,7 @@
 #' \item{nyrs}{Integer: Number of estimation years}
 #' \item{srv_sel_type}{Ivector: Survey selectivity type. 0 = logistic, 1 = non-parametric selectivity estimated for each age, 2 = double-logistic; length = nspp:}
 #' \item{nselages}{Ivector: if non-parametric selectivity, the number of ages to estimate selectivity; length = nspp:}
+#' \item{projYear}{Integer: projYear The year to project the populations with no fishing. Assumed to be 2100}
 #' }
 #'
 #'
@@ -59,6 +60,7 @@
 #' \item{ Uobs }{Array: pred, prey, predL, preyL U matrix (mean number of prey in each pred}{ dim = [nspp, nspp, maxL, maxL]}
 #' \item{ UobsWt }{Array: pred, prey, predL, preyL U matrix (mean wt_hat of prey in each pred}{ dim = [nspp, nspp, maxL, maxL] . This fits predation mortality from \code{msmMode = 1} and \code{suitMode = 1, 2}}
 #' \item{ UobsAge }{Array: pred, prey, predA, preyA U matrix (mean number of prey in each pred age}{ dim = [nspp, nspp, max_age, max_age]. This controls empiricial predation mortality from \code{msmMode = 1} and \code{suitMode = 0}}
+#' \item{stom_tau Stomach}{Iinteger: content sample size for likelihood. Default is 20.}
 #' \item{ Mn_LatAge }{Matrix: Mean length-at-age; dim = [nspp, nages]}
 #' \item{ nTyrs }{Integer: Number of temperature years; dim = [1] }
 #' \item{ Tyrs }{Ivector: Years of hindcast data; length = [nTyrs]}
