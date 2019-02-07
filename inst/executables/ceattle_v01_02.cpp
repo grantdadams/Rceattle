@@ -91,7 +91,7 @@ Type objective_function<Type>::operator() () {
 
 
   // 2.2. DIMENSIONS
-  int nyrs_proj = proj_yr - styr + 1        // End year
+  int nyrs_proj = proj_yr - styr + 1;        // End year
 
   // -- 2.2.2. Species attributes
   DATA_IVECTOR( nages );          // Number of species (prey) ages; n = [1, nspp]
