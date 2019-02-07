@@ -6,7 +6,6 @@
 //          Bioenergetic-based Assessment for Understanding                  //
 //              Biomass Linkages To The Environment                          //
 //                  in the Bering Sea                                        //
-//                   Oct. 2017                                               //
 //                                                                           //
 // AUTHORS:   Kirstin Holsman, Jim Ianelli                                   //
 //            Modified by Grant Adams                                        //
@@ -956,8 +955,6 @@ Type objective_function<Type>::operator() () {
           }
         }
       } // End lognormal selectivity
-
-
       // 8.1.5. Time varying length-based lognormal suitability
       if(suitMode == 5){
         Type x_l_ratio = 0;       // Log(mean(predLen@age)/mean(preyLen@age))
@@ -1043,7 +1040,12 @@ Type objective_function<Type>::operator() () {
                   tmp_othersuit += suit_main(rsp, ksp, r_age, k_age, yr); // FIXME - include overlap indices
                 }
               }
-              avail_food(rsp, r_age, yr) += other_food(rsp) * (Type(1) - (tmp_othersuit)); // FIXME - double check this is in the right loop
+              if(suitMode == 0){ // Holsman
+                avail_food(rsp, r_age, yr) += other_food(rsp) * (Type(1) - (tmp_othersuit));
+              }
+              if(suitMode > 0){ // Log-normal and gamma
+                avail_food(rsp, r_age, yr) += other_food(rsp) * Type(1);
+              }
             }
           }
         }
