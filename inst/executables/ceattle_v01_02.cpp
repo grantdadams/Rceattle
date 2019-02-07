@@ -1665,7 +1665,7 @@ Type objective_function<Type>::operator() () {
     for (yr = 0; yr < nyrs_srv_age(sp); yr++) {
       for (ln = 0; ln < srv_age_bins(sp); ln++) {
         // srv_yr = yrs_srv_age(sp, yr) - styr;
-        jnll_comp(1, sp) -= srv_age_n(sp, yr) * (srv_age_obs(yr, ln, sp) + MNConst) * log(srv_age_hat(sp, ln, yr) + MNConst); // Should srv_age_obs  be in log space?
+        jnll_comp(1, sp) -= srv_age_n(sp, yr) * (srv_age_obs(yr, ln, sp) + MNConst) * log(srv_age_hat(sp, ln, yr) + MNConst);
       }
     }
     jnll_comp(1, sp) -= offset_srv(sp);
