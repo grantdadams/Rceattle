@@ -1,3 +1,4 @@
+# Kirstin Holsman @kirstin.holsman@noaa.gov
 readdat<-function(fn, nm , nspp){
   #fn is the file name
   #nm is the object name
