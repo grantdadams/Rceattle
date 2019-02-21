@@ -65,7 +65,7 @@ Type objective_function<Type>::operator() () {
   // 1.2. Temporal dimensions
   DATA_INTEGER( nyrs );           // Number of estimation years
   DATA_INTEGER( styr );           // Start year
-  DATA_INTEGER( proj_yr );         // Year to project with no fishing
+  // DATA_INTEGER( proj_yr );         // Year to project with no fishing
 
   // 1.3. Number of species
   DATA_INTEGER( nspp );           // Number of species (prey)
@@ -91,7 +91,7 @@ Type objective_function<Type>::operator() () {
 
 
   // 2.2. DIMENSIONS
-  int nyrs_proj = proj_yr - styr + 1;        // End year
+  // int nyrs_proj = proj_yr - styr + 1;        // End year
 
   // -- 2.2.2. Species attributes
   DATA_IVECTOR( nages );          // Number of species (prey) ages; n = [1, nspp]
