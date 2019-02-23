@@ -45,9 +45,17 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   }
 
   #---------------------------------------------------------------------
+  # Step 1 -- Add data names NOT used in TMB
+  #---------------------------------------------------------------------
+  dat_names <- c(dat_names, c("nyrs_srv_biom", "yrs_srv_biom", "srv_biom", "srv_biom_se",
+                              "n_eit", "yrs_eit", "obs_eit"))
+
+  dat_names <- as.character(unique(dat_names))
+
+  #---------------------------------------------------------------------
   # Step 2 -- Find location of data in dat files
   #---------------------------------------------------------------------
-  ctl_fn <- file(paste(dat_dir, ctlFilename, ".ctl", sep = ""))
+  ctl_fn <- file(paste(dat_dir,"/", ctlFilename, ".ctl", sep = ""))
   ctl_file <- readLines(ctl_fn)
   skipp <- grep("START filenames", ctl_file) # Line of data files
   nrow <- grep("END filenames", ctl_file) # Last line of data files
@@ -60,7 +68,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   dat_loc <- data.frame(dat_name = dat_names, datfile = rep(NA, length(dat_names)))
 
   for (i in 1:length(dat_files)) {
-    fn <- paste(dat_dir, dat_files[i], sep = "")
+    fn <- paste(dat_dir, "/",dat_files[i], sep = "")
     if (file.exists(fn)) {
       dat_tmp <- scan(file = fn, what = character(), sep = "\n", quiet = T) # Get values from each line
       dat_tmp <- gsub(" ", "", dat_tmp) # Remove spacing
@@ -85,7 +93,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   #---------------------------------------------------------------------
   dat_list <- list()
   for (i in 1:nrow(dat_loc)) {
-    dat_list[[i]] <- Rceattle:::readdat(fn = paste(dat_dir, dat_loc[i, 2], sep = ""), nm = as.character(dat_loc[i, 1]), nspp = nspp)
+    dat_list[[i]] <- Rceattle:::readdat(fn = paste(dat_dir, "/", dat_loc[i, 2], sep = ""), nm = as.character(dat_loc[i, 1]), nspp = nspp)
     names(dat_list)[i] <- as.character(dat_loc[i, 1])
   }
 
@@ -110,7 +118,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   # Steo 5 -- Model configuration
   #---------------------------------------------------------------------
   cpp_file <- readLines(cpp_fn)
-  ctl_fn <- file(paste(dat_dir, ctlFilename, ".ctl", sep = ""))
+  ctl_fn <- file(paste(dat_dir, "/",ctlFilename, ".ctl", sep = ""))
   ctl_file <- readLines(ctl_fn)
   skipp <- grep("MODEL CONFIGURATION", cpp_file) # Line of data files
   nrow <- grep("MODEL INPUTS", cpp_file) # Last line of data files
@@ -159,12 +167,41 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
 
   if(length(nselages) == 1){
     dat_list$nselages <- rep(nselages, dat_list$nspp)
-  }
-  else if(length(nselages) == dat_list$nspp){
+  } else if(length(nselages) == dat_list$nspp){
     dat_list$nselages <- nselages
   } else{
     stop("nselages is not of length 1 or nspp")
   }
+
+  #---------------------------------------------------------------------
+  # Step 7 -- Reorganize for surveys
+  #---------------------------------------------------------------------
+  dat_list$n_srv <- c(2,1,1) # Bottom trawl and EIT
+
+  # BIOMASS
+  dat_list$srv_biom <- data.frame(
+    Species = rep(1:nspp, dat_list$nyrs_srv_biom),
+    Survey = rep(rep(1, nspp), dat_list$nyrs_srv_biom),
+    Year = as.vector(t(dat_list$yrs_srv_biom)),
+    Month = rep(rep(6, nspp), dat_list$nyrs_srv_biom),
+    Observation = as.vector(t(dat_list$srv_biom)),
+    Error = as.vector(t(dat_list$srv_biom_se))
+  )
+
+  # SE to CV
+  dat_list$srv_biom$Error <- (dat_list$srv_biom$Error/dat_list$srv_biom$Observation)
+  dat_list$srv_biom$Error <- sqrt(log((dat_list$srv_biom$Error^2) + 1))
+
+  # Add EIT bit
+  eit_biom <- data.frame(
+    Species = rep(1, dat_list$n_eit),
+    Survey = rep(2, dat_list$n_eit),
+    Year = dat_list$yrs_eit,
+    Month = rep(0, dat_list$n_eit),
+    Observation = dat_list$obs_eit,
+    Error = rep( 0.2, dat_list$n_eit)
+  )
+  dat_list$srv_biom <- rbind(dat_list$srv_biom, eit_biom)
 
   return(dat_list)
 }
