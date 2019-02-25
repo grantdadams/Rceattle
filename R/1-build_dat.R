@@ -48,7 +48,9 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   # Step 1 -- Add data names NOT used in TMB
   #---------------------------------------------------------------------
   dat_names <- c(dat_names, c("nyrs_srv_biom", "yrs_srv_biom", "srv_biom", "srv_biom_se",
-                              "n_eit", "yrs_eit", "obs_eit"))
+                              "srv_age_obs", "nyrs_srv_age", "yrs_srv_age", "srv_age_n",
+                              "n_eit", "yrs_eit", "obs_eit",
+                              "eit_age_n", "obs_eit_age" ))
 
   dat_names <- as.character(unique(dat_names))
 
@@ -149,10 +151,10 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   # Convert selectivity
   for(i in 1:length(dat_list$logist_sel_phase)){
     if(dat_list$logist_sel_phase[i] < 0){
-      dat_list$logist_sel_phase[i] <- 1
+      dat_list$logist_sel_phase[i] <- 2 # Non-parametric
     }
     if(dat_list$logist_sel_phase[i] > 0){
-      dat_list$logist_sel_phase[i] <- 0
+      dat_list$logist_sel_phase[i] <- 1 # Logistic selectivity
     }
   }
 
@@ -174,11 +176,26 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   }
 
   #---------------------------------------------------------------------
-  # Step 7 -- Reorganize for surveys
+  # Step 7 -- Survey specifications
   #---------------------------------------------------------------------
   dat_list$n_srv <- c(2,1,1) # Bottom trawl and EIT
 
-  # BIOMASS
+  dat_list$srv_sel_type <- data.frame(
+    Species = c(1:3, 1),
+    Survey = c(1,1,1,2),
+    Survey_Nyrs = c(dat_list$nyrs_srv_biom, dat_list$n_eit),
+    Selectivity = c(dat_list$srv_sel_type, 0),
+    Nselages = c(dat_list$nselage, ncol(dat_list$eit_sel)),
+    Comp_type = c(dat_list$srv_age_type, 1),
+    Comp_N_bins = c(dat_list$srv_age_bins, ncol(dat_list$obs_eit_age)),
+    Comp_Nyrs = c(dat_list$nyrs_srv_age, dat_list$n_eit),
+    Estimate_q = c(0, 0, 0, 1),
+    log_q_prior = c(0, 0, 0, -6.7025))
+
+  #---------------------------------------------------------------------
+  # Step 8 -- Reorganize for survey biomass
+  #---------------------------------------------------------------------
+  # BT BIOMASS
   dat_list$srv_biom <- data.frame(
     Species = rep(1:nspp, dat_list$nyrs_srv_biom),
     Survey = rep(rep(1, nspp), dat_list$nyrs_srv_biom),
@@ -202,6 +219,50 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Error = rep( 0.2, dat_list$n_eit)
   )
   dat_list$srv_biom <- rbind(dat_list$srv_biom, eit_biom)
+
+  #---------------------------------------------------------------------
+  # Step 9 -- Reorganize for survey age comp
+  #---------------------------------------------------------------------
+  # BT Survey age comp
+  dat_list$srv_comp <- data.frame(
+    Species = rep(1:nspp, dat_list$nyrs_srv_age),
+    Survey = rep(rep(1, nspp), dat_list$nyrs_srv_age),
+    Year = as.vector(t(dat_list$yrs_srv_age)),
+    Month = rep(rep(6, nspp), dat_list$nyrs_srv_age),
+    Sample_size = as.vector(t(dat_list$srv_age_n))
+  )
+
+
+  Observation <- rbind(dat_list$srv_age_obs[,,1], dat_list$srv_age_obs[,,2], dat_list$srv_age_obs[,,3])
+  colnames(Observation) <- paste0("Comp_", 1:ncol(Observation))
+  dat_list$srv_comp <- cbind(dat_list$srv_comp, Observation)
+
+  # EIT Survey age comp
+  eit_comp <- data.frame(
+    Species = rep(1, dat_list$n_eit),
+    Survey = rep(2, dat_list$n_eit),
+    Year = dat_list$yrs_eit,
+    Month = rep(0, dat_list$n_eit),
+    Sample_size = dat_list$eit_age_n
+  )
+
+  colnames(dat_list$obs_eit_age) <- paste0("Comp_", 1:ncol(dat_list$obs_eit_age))
+  eit_comp <- cbind(eit_comp, dat_list$obs_eit_age)
+
+  # Combine
+  dat_list$srv_comp <- rbind.fill(dat_list$srv_comp, eit_comp)
+
+  #---------------------------------------------------------------------
+  # Step 10 -- Reorganize selectivity
+  #---------------------------------------------------------------------
+  dat_list$emp_srv_sel <- data.frame(Species = rep(1, length(dat_list$n_eit)),
+                                     Survey = rep(2, length(dat_list$n_eit)),
+                                     Year = dat_list$yrs_eit
+                                     )
+  colnames(dat_list$eit_sel) <- paste("Age_",1:ncol(dat_list$eit_sel), sep = "")
+  dat_list$emp_srv_sel <- cbind(dat_list$emp_srv_sel, dat_list$eit_sel[dat_list$yrs_eit - dat_list$styr + 1,])
+
+
 
   return(dat_list)
 }
