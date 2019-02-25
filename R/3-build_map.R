@@ -28,8 +28,17 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   }
 
   # Survey selectivity coefficients
-  for( i in 1: nrow(map_list$srv_sel_coff)){
-    if(data_list$srv_sel_type[i] == 0){ # Logitistic
+  for( i in 1: nrow(data_list$srv_sel_type)){
+    if(data_list$srv_sel_type$Selectivity[i] == 0){ # Empirical
+
+      # Map out non-parametric
+      map_list$srv_sel_coff[i,] <- replace(map_list$srv_sel_coff[i,], values = rep(NA, length(map_list$srv_sel_coff[i,])))
+
+      # Map out logistic and double logistic
+      map_list$srv_sel_slp[1:2, i] <- NA
+      map_list$srv_sel_inf[1:2, i] <- NA
+    }
+    if(data_list$srv_sel_type$Selectivity[i] == 1){ # Logitistic
 
       # Map out non-parametric
       map_list$srv_sel_coff[i,] <- replace(map_list$srv_sel_coff[i,], values = rep(NA, length(map_list$srv_sel_coff[i,])))
@@ -38,7 +47,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$srv_sel_slp[2, i] <- NA
       map_list$srv_sel_inf[2,i] <- NA
     }
-    if(data_list$srv_sel_type[i] == 1){ # Non-parametric at age
+    if(data_list$srv_sel_type$Selectivity[i] == 2){ # Non-parametric at age
       map_list$srv_sel_slp[1:2, i] <- NA
       map_list$srv_sel_inf[1:2, i] <- NA
 
@@ -47,14 +56,19 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
         map_list$srv_sel_coff[i, (data_list$nselages[i] + 1):max(data_list$nselages)]  <- replace(map_list$srv_sel_coff[i, (data_list$nselages[i] + 1):max(data_list$nselages)], values = rep(NA, length(map_list$srv_sel_coff[i, (data_list$nselages[i] + 1):max(data_list$nselages)])))
       }
     }
-    if(data_list$srv_sel_type[i] == 2){ # Double logistic
+    if(data_list$srv_sel_type$Selectivity[i] == 3){ # Double logistic
       # Map out non-parametric
       map_list$srv_sel_coff[i,] <- replace(map_list$srv_sel_coff[i,], values = rep(NA, length(map_list$srv_sel_coff[i,])))
     }
   }
 
   # Catchability of surveys
-  map_list$log_srv_q <- replace(map_list$log_srv_q, values = rep(NA, length(map_list$log_srv_q)))
+  for( i in 1: nrow(data_list$srv_sel_type)){
+    # If not estimating turn of
+    if(data_list$srv_sel_type$Estimate_q == 0){
+      map_list$log_srv_q[i] <- NA
+    }
+  }
 
 
   # Recruitment deviation sigmas - turn off if not estimating
@@ -172,9 +186,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     for(i in 1:length(map_list)){
       map_list[[i]] <- replace(map_list[[i]], values = rep(NA, length(map_list[[i]])))
     }
-
     map_list$dummy = 1
-
   }
 
 
