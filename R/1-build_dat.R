@@ -180,7 +180,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   #---------------------------------------------------------------------
   dat_list$n_srv <- c(2,1,1) # Bottom trawl and EIT
 
-  dat_list$srv_sel_type <- data.frame(
+  dat_list$srv_control <- data.frame(
     Species = c(1:3, 1),
     Survey = c(1,1,1,2),
     Survey_Nyrs = c(dat_list$nyrs_srv_biom, dat_list$n_eit),

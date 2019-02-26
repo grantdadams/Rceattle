@@ -28,8 +28,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   }
 
   # Survey selectivity coefficients
-  for( i in 1: nrow(data_list$srv_sel_type)){
-    if(data_list$srv_sel_type$Selectivity[i] == 0){ # Empirical
+  for( i in 1: nrow(data_list$srv_control)){
+    if(data_list$srv_control$Selectivity[i] == 0){ # Empirical
 
       # Map out non-parametric
       map_list$srv_sel_coff[i,] <- replace(map_list$srv_sel_coff[i,], values = rep(NA, length(map_list$srv_sel_coff[i,])))
@@ -38,7 +38,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$srv_sel_slp[1:2, i] <- NA
       map_list$srv_sel_inf[1:2, i] <- NA
     }
-    if(data_list$srv_sel_type$Selectivity[i] == 1){ # Logitistic
+    if(data_list$srv_control$Selectivity[i] == 1){ # Logitistic
 
       # Map out non-parametric
       map_list$srv_sel_coff[i,] <- replace(map_list$srv_sel_coff[i,], values = rep(NA, length(map_list$srv_sel_coff[i,])))
@@ -47,7 +47,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$srv_sel_slp[2, i] <- NA
       map_list$srv_sel_inf[2,i] <- NA
     }
-    if(data_list$srv_sel_type$Selectivity[i] == 2){ # Non-parametric at age
+    if(data_list$srv_control$Selectivity[i] == 2){ # Non-parametric at age
       map_list$srv_sel_slp[1:2, i] <- NA
       map_list$srv_sel_inf[1:2, i] <- NA
 
@@ -56,16 +56,16 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
         map_list$srv_sel_coff[i, (data_list$nselages[i] + 1):max(data_list$nselages)]  <- replace(map_list$srv_sel_coff[i, (data_list$nselages[i] + 1):max(data_list$nselages)], values = rep(NA, length(map_list$srv_sel_coff[i, (data_list$nselages[i] + 1):max(data_list$nselages)])))
       }
     }
-    if(data_list$srv_sel_type$Selectivity[i] == 3){ # Double logistic
+    if(data_list$srv_control$Selectivity[i] == 3){ # Double logistic
       # Map out non-parametric
       map_list$srv_sel_coff[i,] <- replace(map_list$srv_sel_coff[i,], values = rep(NA, length(map_list$srv_sel_coff[i,])))
     }
   }
 
   # Catchability of surveys
-  for( i in 1: nrow(data_list$srv_sel_type)){
+  for( i in 1: nrow(data_list$srv_control)){
     # If not estimating turn of
-    if(data_list$srv_sel_type$Estimate_q == 0){
+    if(data_list$srv_control$Estimate_q[i] == 0){
       map_list$log_srv_q[i] <- NA
     }
   }
