@@ -58,7 +58,7 @@ Type objective_function<Type>::operator() () {
   DATA_INTEGER( random_rec );     // Logical of whether to treate recruitment deviations as random effects
   DATA_INTEGER( niter );          // Number of loops for MSM mode
 
-  DATA_MATRIX( srv_sel_type ); // Selectivity type for BT survey
+  DATA_MATRIX( srv_control ); // Selectivity type for BT survey
   // Columns =  Species, Survey, Selectivity, Estimate_q, log_q_prior
   // Selectivity 0 = empirical, 1 = logistic, 2 = non-parametric, 3 = double logistic
 
@@ -119,14 +119,8 @@ Type objective_function<Type>::operator() () {
   DATA_MATRIX( emp_srv_sel );     // Observed survey selectivity; n = [eit_age, nyrs_eit_sel]
   DATA_MATRIX( srv_comp ) ;       // Observed age/length comp; n = [nspp, nages, nyrs]
 
-  // -- 2.3.3. BT Survey age components
-
   // DATA_MATRIX( srv_age_sizes );   // Observed size composition: n = [nspp, srv_age_bins]; NOTUSED
   DATA_ARRAY( age_trans_matrix);  // observed sp_age/size compositions; n = [nspp, nages, srv_age_bins]
-
-  // -- 2.3.4 EIT Survey components
-  DATA_VECTOR( eit_age_n);        // Number  of  EIT Hauls for multinomial; n = [yrs_eit]
-  DATA_MATRIX( obs_eit_age);      // Observed EIT catch-at-age; n = [n_eit, nyrs]
 
   // -- 2.3.5. Weight-at-age
   // DATA_IVECTOR( nyrs_wt_at_age ); // Number of years of weight at age data; n = [nspp]: NOTUSED
@@ -219,34 +213,36 @@ Type objective_function<Type>::operator() () {
   // 2.7. Debugging with data inputs                                           //
   // ------------------------------------------------------------------------- //
   if (debug == 1) {
-    // -- 2.8.2.1 Check to make sure the first year of survey data are not before start year
-    for (sp = 0; sp < nspp; sp++) {
-      if (yrs_tc_biom(sp, 0) < styr) {
-        std::cerr << "First year of total catch biomass of species " << sp + 1 << " is before specified start year" << std::endl;
-        return (0);
-      }
-    }
+    /*
+     // -- 2.8.2.1 Check to make sure the first year of survey data are not before start year
+     for (sp = 0; sp < nspp; sp++) {
+     if (yrs_tc_biom(sp, 0) < styr) {
+     std::cerr << "First year of total catch biomass of species " << sp + 1 << " is before specified start year" << std::endl;
+     return (0);
+     }
+     }
 
-    // -- 2.8.2.2 Check to make sure the first year of survey data are not before start year
-    for (sp = 0; sp < nspp; sp++) {
-      if (yrs_srv_biom(sp, 0) < styr) {
-        std::cerr << "First year of survey biomass of species " << sp + 1 << " is before specified start year" << std::endl;
-        return (0);
-      }
-    }
+     // -- 2.8.2.2 Check to make sure the first year of survey data are not before start year
+     for (sp = 0; sp < nspp; sp++) {
+     if (yrs_srv_biom(sp, 0) < styr) {
+     std::cerr << "First year of survey biomass of species " << sp + 1 << " is before specified start year" << std::endl;
+     return (0);
+     }
+     }
 
-    // -- 2.8.2.3. Check to make sure the years of survey data biomass and age are the same
-    for (sp = 0; sp < nspp; sp++) {
-      if (nyrs_srv_biom(sp) != nyrs_srv_age(sp)) {
-        std::cerr << "Nyrs of survey biomass and age-comp of species " << sp + 1 << " do not match" << std::endl;
-        return (0);
-      }
-    }
+     // -- 2.8.2.3. Check to make sure the years of survey data biomass and age are the same
+     for (sp = 0; sp < nspp; sp++) {
+     if (nyrs_srv_biom(sp) != nyrs_srv_age(sp)) {
+     std::cerr << "Nyrs of survey biomass and age-comp of species " << sp + 1 << " do not match" << std::endl;
+     return (0);
+     }
+     }
 
-    if (yrs_eit(0) < styr) {
-      std::cerr << "First year of EIT survey biomass is before specified start year" << std::endl;
-      return (0);
-    }
+     if (yrs_eit(0) < styr) {
+     std::cerr << "First year of EIT survey biomass is before specified start year" << std::endl;
+     return (0);
+     }
+     */
   }
 
 
@@ -424,10 +420,10 @@ Type objective_function<Type>::operator() () {
   }
 
 
-  // 5.2. EIT catch-at-age to age-comp
-  for (yr = 0; yr < n_eit; yr++) {
-    for (ln = 0; ln < srv_age_bins(0); ln++) {
-      eit_age_comp(yr, ln) = obs_eit_age(yr, ln) / obs_eit_age.row(yr).sum(); // Convert from catch-at-age to age comp
+  // 5.2. Standardize survey composition
+  for(ind = 0; ind < srv_comp.rows(); ind++){
+    for (ln = 0; ln < srv_control(ind, 6); ln++) {
+      srv_comp(ind, ln + 5) = srv_comp(ind, ln + 5) / srv_comp.block(ind,5,1,srv_control(ind, 6)).sum();
     }
   }
 
@@ -470,7 +466,7 @@ Type objective_function<Type>::operator() () {
   ind = 0;
   for (sp = 0; sp < nspp; sp++){
     for(srv = 0; srv < n_srv(sp); srv++){
-      srv_q(sp, srv) = exp(log_srv_q(ind)); // Exponentiate 
+      srv_q(sp, srv) = exp(log_srv_q(ind)); // Exponentiate
       ind += 1;
     }
   }
@@ -1339,8 +1335,6 @@ Type objective_function<Type>::operator() () {
     // ------------------------------------------------------------------------- //
 
     srv_sel.setZero();
-
-
     // 9.0. Empirical selectivity
     for (ind = 0; ind < emp_srv_sel.rows(); ind++){
 
@@ -1361,24 +1355,24 @@ Type objective_function<Type>::operator() () {
     for (sp = 0; sp < nspp; sp++) { // Loop around species
       for(srv = 0; srv < n_srv(sp); srv++){ // Loop around surveys
         // 9.1.1. Logisitic selectivity
-        if (srv_sel_type(ind, 2) == 1) {
+        if (srv_control(ind, 2) == 1) {
           for (age = 0; age < nages(sp); age++){
             srv_sel_tmp(ind, age) = 1 / (1 + exp( -srv_sel_slp(0, ind) * ((age + 1) - srv_sel_inf(0, ind))));
           }
         }
 
         // 9.1.2. Non-parametric selectivity fit to age ranges. NOTE: This can likely be improved
-        if (srv_sel_type(ind, 2) == 2) {
-          for (age = 0; age < srv_sel_type(ind, 3); age++) {
+        if (srv_control(ind, 2) == 2) {
+          for (age = 0; age < srv_control(ind, 3); age++) {
             srv_sel_tmp(ind, age) = srv_sel_coff(ind, age);
             avgsel_srv(ind) +=  exp(srv_sel_coff(ind, age));
           }
           // 9.1.3 Average selectivity up to nselages(sp)
-          avgsel_srv(ind) = log(avgsel_srv(ind) / srv_sel_type(ind, 3));
+          avgsel_srv(ind) = log(avgsel_srv(ind) / srv_control(ind, 3));
 
           // 9.1.4. Plus group selectivity
-          for (age = srv_sel_type(ind, 3); age < nages(sp); age++) {
-            srv_sel_tmp(ind, age) = srv_sel_tmp(ind, srv_sel_type(ind, 3) - 1);
+          for (age = srv_control(ind, 3); age < nages(sp); age++) {
+            srv_sel_tmp(ind, age) = srv_sel_tmp(ind, srv_control(ind, 3) - 1);
           }
 
           // 9.1.5. Average selectivity across all ages
@@ -1397,7 +1391,7 @@ Type objective_function<Type>::operator() () {
 
 
         // 9.1.2. Double logistic (Dorn and Methot 1990)
-        if (srv_sel_type(ind, 2) == 3) {
+        if (srv_control(ind, 2) == 3) {
           for (age = 0; age < nages(sp); age++){
             srv_sel_tmp(ind, age) = (1 / (1 + exp( -srv_sel_slp(0, ind) * ((age + 1) - srv_sel_inf(0, ind))))) * // Upper slop
               (1 - (1 / (1 + exp( -srv_sel_slp(1, ind) * ((age + 1) - srv_sel_inf(1, ind))))));  // Downward slope;
@@ -1405,7 +1399,7 @@ Type objective_function<Type>::operator() () {
         }
 
         // Standardize estimated selectivities and add to vector
-        if (srv_sel_type(ind, 2) > 0) {
+        if (srv_control(ind, 2) > 0) {
           vector<Type> sel_sp = srv_sel_tmp.row(ind); // Can't max a matrix....
           srv_sel_tmp.row(ind) /= max(sel_sp); // Standardize so max sel = 1 for each species
 
@@ -1421,26 +1415,7 @@ Type objective_function<Type>::operator() () {
     } // End species loop
 
 
-    // 9.2 EIT Components
-    // -- 9.2.1 EIT Survey Biomass
-    for (age = 0; age < nages(0); age++) {
-      for (yr = 0; yr < n_eit; yr++) {
-        eit_yr = yrs_eit(yr) - styr;
-        eit_age_hat(age, yr) = NByage(0, age, eit_yr) * eit_sel(eit_yr, age) * eit_q; // Remove the mid-year trawl?
-      }
-    }
-
-
-    // -- 9.2.2 EIT Survey Age Composition
-    for (age = 0; age < nages(0); age++) {
-      for (yr = 0; yr < n_eit; yr++) {
-        eit_age_comp_hat(age, yr) = eit_age_hat(age, yr) / eit_age_hat.col(yr).sum(); // Divide numbers at age by total numbers for each year
-      }
-    }
-
-
-    // 9.3 Survey components
-    // -- 9.3.1 Survey Biomass
+    // -- 9.2. Survey Biomass
     for(ind = 0; ind < srv_bio_hat.rows(); ind++){
 
       sp = srv_bio_hat(ind, 0) - 1;             // Temporary index of species
@@ -1456,8 +1431,7 @@ Type objective_function<Type>::operator() () {
     }
 
 
-    // -- 9.3.1 Survey composition
-    // Total numbers
+    // -- 9.3. Survey composition
     for(ind = 0; ind < srv_comp_hat.rows(); ind++){
 
       sp = srv_comp_hat(ind, 0) - 1;             // Temporary index of species
@@ -1467,53 +1441,32 @@ Type objective_function<Type>::operator() () {
 
       srv_hat(ind, 5) = 0;                       // Initialize
 
+      // Total numbers
       for (age = 0; age < nages(sp); age++) {
-      srv_hat(ind, 5) += NByage(sp, age, srv_yr) * exp( - (mo/12) * Zed(sp, age, srv_yr)) * srv_sel(ind, age, srv_yr) * srv_q(sp, srv);   // Total numbers
-    }
+        srv_comp_hat(ind, age + 5 ) = NByage(sp, age, srv_yr) * exp( - (mo/12) * Zed(sp, age, srv_yr)) * srv_sel(ind, age, srv_yr) * srv_q(sp, srv);
+        srv_hat(ind, 5) += srv_comp_hat(ind, age + 5 );   // Total numbers
+      }
 
-    }
+      //  Survey catch-at-age
+      if (srv_control(ind, 5) == 1) {
+        for (age = 0; age < nages(sp); age++) {
+          srv_comp_hat(ind, age + 5 ) = srv_comp_hat(ind, age + 5 ) / srv_hat(ind, 5);
+        }
+      }
 
-
-for(ind = 0; ind < srv_comp_hat.rows(); ind++){
-  //  Survey catch-at-age
-  if (srv_sel_type(ind, 5) == 1) {
-            for (age = 0; age < srv_sel_type(ind, 6); age++) {
-              srv_comp_hat(ind, age + 5 ) = srv_age_hat(sp, age, yr) / srv_hat(sp, yr);
-            }
-          }
-
-}
-
-
-    ind = 0; // Initialize
-    for (sp = 0; sp < nspp; sp++) { // Loop around species
-      for(srv = 0; srv < n_srv(sp); srv++){ // Loop around surveys
-        for (yr = 0; yr < nyrs_srv_age(sp); yr++) {
-          // 9.4.2.1 -- BT Survey catch-at-age
-          if (srv_age_type(sp) == 1) {
-            for (age = 0; age < nages(sp); age++) {
-              srv_age_hat(sp, age, yr) = srv_age_hat(sp, age, yr) / srv_hat(sp, yr);
-            }
-          }
-          // 9.4.2.2 -- Convert from catch-at-age to catch-at-length: NOTE: There has got to be a better way
-          if (srv_age_type(sp) != 1) {
-            for (age = 0; age < nages(sp); age++) {
-              srv_age_tmp(age) = srv_age_hat(sp, age, yr);
-            }
-
-            matrix<Type> ALK = trim_matrix( matrix_from_array(age_trans_matrix, sp), nages(sp), srv_age_bins(sp) );
-            vector<Type> srv_age_tmp_trimmed = srv_age_tmp.segment(0, nages(sp));
-            vector<Type> srv_len_tmp = vec_mat_prod( srv_age_tmp_trimmed , ALK ); // Multiply the ALK for species sp against the survey catch-at-age for year yr
-
-            for (ln = 0; ln < srv_age_bins(sp); ln++) {
-              srv_age_hat(sp, ln, yr) = srv_len_tmp(ln) / srv_len_tmp.sum() ; // * age_trans_matrix.col().col(sp)) / srv_hat(sp, yr); // # NOTE: Double check the matrix algebra here
-            }
+      // Convert from catch-at-age to catch-at-length: NOTE: There has got to be a better way
+      if (srv_control(ind, 5) != 1) {
+        for (ln = 0; ln < srv_control(ind, 6); ln++) {
+          for (age = 0; age < nages(sp); age++) {
+            srv_comp_hat(ind, ln + 5 ) += srv_comp_hat(ind, ln + 5 ) * age_trans_matrix(age, ln, sp);
           }
         }
 
-        ind += 1; // Add 1 to counter
-      } // End survey loop
-    } // End species loop
+        for (ln = 0; ln < srv_control(ind, 6); ln++) {
+          srv_comp_hat(ind, ln + 5 ) = srv_comp_hat(ind, age + 5 ) / srv_hat(ind, 5); // * age_trans_matrix.col().col(sp)) / srv_hat(sp, yr); // # NOTE: Double check the matrix algebra here
+        }
+      }
+    }
 
 
     // ------------------------------------------------------------------------- //
@@ -1794,7 +1747,7 @@ for(ind = 0; ind < srv_comp_hat.rows(); ind++){
   for (sp = 0; sp < nspp; sp++) { // Loop around species
     for(srv = 0; srv < n_srv(sp); srv++){ // Loop around surveys
       jnll_comp(8, sp) = 0; // FIXME: Likeliy redundant
-      if (srv_sel_type(ind, 2) == 2) {
+      if (srv_control(ind, 2) == 2) {
         // Extract only the selectivities we want
         vector<Type> sel_tmp(nages(sp));
         for (age = 0; age < nages(sp); age++) {
