@@ -250,7 +250,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   eit_comp <- cbind(eit_comp, dat_list$obs_eit_age)
 
   # Combine
-  dat_list$srv_comp <- rbind.fill(dat_list$srv_comp, eit_comp)
+  dat_list$srv_comp <- plyr::rbind.fill(dat_list$srv_comp, eit_comp)
 
   #---------------------------------------------------------------------
   # Step 10 -- Reorganize selectivity
