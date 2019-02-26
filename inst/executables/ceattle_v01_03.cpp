@@ -73,7 +73,7 @@ Type objective_function<Type>::operator() () {
 
   // 1.4. MODEL OBJECTS
   // 1.4.1. LOOPING INDICES -- k = observation, sp = species, age = age, ln = length, ksp = prey, k_age = prey age (yr), k_ln = prey length, yr = year, rsp = predator, r_age = predator age (yr), r_ln = predator length
-  int sp, age, ln, ksp, k_age, k_ln, yr, rsp, r_age, r_ln; // k
+  int sp, age, ln, ksp, k_age, k_ln, yr, mo, rsp, r_age, r_ln; // k
   int srv, fsh, ind;               // Survey and fishery indices
   int fsh_yr, srv_yr, eit_yr;         // Year indices
   int ncnt;    // Pointers
@@ -330,10 +330,11 @@ Type objective_function<Type>::operator() () {
   // -- 4.4. Survey components
   Type avgsel_tmp = 0;                                                          // Temporary object for average selectivity across all ages
   vector<Type>  srv_age_tmp( max_age ); srv_age_tmp.setZero();                  // Temporary vector of survey-catch-at-age for matrix multiplication
-  vector<Type>  avgsel_srv(sum(n_srv)); avgsel_srv.setZero();                         // Average survey selectivity; n = [1, nspp]
-  array<Type>   srv_age_hat(sum(n_srv), max_bin, nyrs); srv_age_hat.setZero();        // Estimated BT age comp; n = [nspp, nages, nyrs]
+  matrix<Type>  srv_comp_hat = srv_comp;        // Estimated BT age comp; n = [nspp, nages, nyrs]
   matrix<Type>  srv_bio_hat = srv_biom.block(0,0,srv_biom.rows(),5);            // Estimated survey biomass (kg); columns = Species, Index, Year, Month, Estimate
-  matrix<Type>  srv_hat(sum(n_srv), nyrs); srv_hat.setZero();                         // Estimated BT survey total abundance (n); n = [nspp, nyrs]
+  matrix<Type>  srv_hat = srv_comp.block(0,0,srv_biom.rows(),6) ;                         // Estimated survey total abundance (n); n = [nspp, nyrs]
+
+  vector<Type>  avgsel_srv(sum(n_srv)); avgsel_srv.setZero();                         // Average survey selectivity; n = [1, nspp]
   array<Type>   srv_sel(sum(n_srv), max_age, nyrs); srv_sel.setZero();                // Estimated survey selectivity at age; n = [nspp, nages, nyrs]
   array<Type>   srv_sel_tmp(sum(n_srv), max_age); srv_sel_tmp.setZero();            // Temporary saved survey selectivity at age for estimated bits; n = [nspp, nages, nyrs]
   matrix<Type> srv_q(nspp, imax(n_srv)); srv_q.setZero();       // Matrix to save q on natural scale
@@ -1445,30 +1446,43 @@ Type objective_function<Type>::operator() () {
       sp = srv_bio_hat(ind, 0) - 1;             // Temporary index of species
       srv = srv_bio_hat(ind, 1) - 1;            // Temporary survey index
       srv_yr = srv_bio_hat(ind, 2) - styr;      // Temporary index for years of data
+      mo =  = srv_bio_hat(ind, 3);              // Temporary index for month
 
       srv_bio_hat(ind, 4) = 0;                  // Initialize
 
       for (age = 0; age < nages(sp); age++) {
-        srv_bio_hat(ind, 4) += NByage(sp, age, srv_yr) * exp( - (srv_bio_hat(ind, 3)/12) * Zed(sp, age, srv_yr)) * srv_sel(ind, age, srv_yr) * srv_q(sp, srv) * wt(srv_yr, age, sp);
+        srv_bio_hat(ind, 4) += NByage(sp, age, srv_yr) * exp( - (mo/12) * Zed(sp, age, srv_yr)) * srv_sel(ind, age, srv_yr) * srv_q(sp, srv) * wt(srv_yr, age, sp);
       }
     }
 
 
-    // -- 9.4.2 BT Survey Age Composition: NOTE: will have to alter if age comp data are not the same length as survey biomass data
-    srv_hat.setZero();
-    ind = 0; // Initialize
-    for (sp = 0; sp < nspp; sp++) { // Loop around species
-      for(srv = 0; srv < n_srv(sp); srv++){ // Loop around surveys
-        for (age = 0; age < nages(sp); age++) {
-          for (yr = 0; yr < nyrs_srv_age(sp); yr++) {
-            srv_yr = srv_bio_hat(ind, 2) - styr;      // Temporary index for years of data
-            srv_age_hat(ind, age, yr) = NByage(sp, age, srv_yr) * srv_sel(ind, age, srv_yr) * exp(log_srv_q(ind));
-            srv_hat(ind, yr) += srv_age_hat(ind, age, yr);   // Total numbers
+    // -- 9.3.1 Survey composition
+    // Total numbers
+    for(ind = 0; ind < srv_comp_hat.rows(); ind++){
+
+      sp = srv_comp_hat(ind, 0) - 1;             // Temporary index of species
+      srv = srv_comp_hat(ind, 1) - 1;            // Temporary survey index
+      srv_yr = srv_comp_hat(ind, 2) - styr;      // Temporary index for years of data
+      mo =  = srv_comp_hat(ind, 3);              // Temporary index for month
+
+      srv_hat(ind, 5) = 0;                       // Initialize
+
+      for (age = 0; age < nages(sp); age++) {
+      srv_hat(ind, 5) += NByage(sp, age, srv_yr) * exp( - (mo/12) * Zed(sp, age, srv_yr)) * srv_sel(ind, age, srv_yr) * srv_q(sp, srv);   // Total numbers
+    }
+
+    }
+
+
+for(ind = 0; ind < srv_comp_hat.rows(); ind++){
+  //  Survey catch-at-age
+  if (srv_sel_type(ind, 5) == 1) {
+            for (age = 0; age < srv_sel_type(ind, 6); age++) {
+              srv_comp_hat(ind, age + 5 ) = srv_age_hat(sp, age, yr) / srv_hat(sp, yr);
+            }
           }
-        }
-        ind += 1; // Add 1 to counter
-      } // End survey loop
-    } // End species loop
+
+}
 
 
     ind = 0; // Initialize
