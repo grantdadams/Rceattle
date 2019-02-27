@@ -334,6 +334,9 @@ Type objective_function<Type>::operator() () {
   array<Type>   srv_sel(sum(n_srv), max_age, nyrs); srv_sel.setZero();                // Estimated survey selectivity at age; n = [nspp, nages, nyrs]
   array<Type>   srv_sel_tmp(sum(n_srv), max_age); srv_sel_tmp.setZero();            // Temporary saved survey selectivity at age for estimated bits; n = [nspp, nages, nyrs]
   matrix<Type> srv_q(nspp, imax(n_srv)); srv_q.setZero();       // Matrix to save q on natural scale
+  matrix<int> srv_type(nspp, imax(n_srv)); srv_type.setZero();       // Matrix to save survey composition type (1 = age, 2 = length)
+  matrix<int> srv_ln(nspp, imax(n_srv)); srv_ln.setZero();       // Matrix to save max bin of survey age/lengths
+  
 
   // -- 4.5. EIT Survey Components
   matrix<Type>  eit_age_comp_hat(srv_age_bins(0), nyrs); eit_age_comp_hat.setZero(); // Estimated EIT age comp ; n = [nyrs, 12 ages]
@@ -462,13 +465,15 @@ Type objective_function<Type>::operator() () {
   vector<int> a1_dim = UobsAge.dim; // dimension of a1
   vector<int> a2_dim = UobsWtAge.dim; // dimension of a1
 
-  // Set up q for indexing
-  ind = 0;
-  for (sp = 0; sp < nspp; sp++){
-    for(srv = 0; srv < n_srv(sp); srv++){
+  // Set up q and srv lengths for indexing
+  for (ind = 0; ind < srv_control.rows(); ind++){
+
+      sp = srv_control(ind, 0) - 1;             // Temporary index of species
+      srv = srv_control(ind, 1) - 1;            // Temporary survey index
+
       srv_q(sp, srv) = exp(log_srv_q(ind)); // Exponentiate
-      ind += 1;
-    }
+      srv_type(sp, srv) = srv_control(ind, 5);
+      srv_ln(sp, srv) = srv_control(ind, 6); 
   }
 
 
@@ -1351,9 +1356,11 @@ Type objective_function<Type>::operator() () {
     // 9.1. Estimated survey selectivity
     avgsel_srv.setZero();
     srv_sel_tmp.setZero();
-    ind = 0; // Initialize
-    for (sp = 0; sp < nspp; sp++) { // Loop around species
-      for(srv = 0; srv < n_srv(sp); srv++){ // Loop around surveys
+    for(ind = 0; ind < srv_control.rows(); ind++){
+
+      sp = srv_control(ind, 0) - 1;             // Temporary index of species
+      srv = srv_control(ind, 1) - 1;            // Temporary survey index
+
         // 9.1.1. Logisitic selectivity
         if (srv_control(ind, 2) == 1) {
           for (age = 0; age < nages(sp); age++){
@@ -1409,10 +1416,7 @@ Type objective_function<Type>::operator() () {
             }
           }
         }
-
-        ind += 1; // Add 1 to counter
-      } // End survey loop
-    } // End species loop
+    } // End loop
 
 
     // -- 9.2. Survey Biomass
@@ -1448,22 +1452,22 @@ Type objective_function<Type>::operator() () {
       }
 
       //  Survey catch-at-age
-      if (srv_control(ind, 5) == 1) {
+      if (srv_type(sp, srv) == 1) {
         for (age = 0; age < nages(sp); age++) {
           srv_comp_hat(ind, age + 5 ) = srv_comp_hat(ind, age + 5 ) / srv_hat(ind, 5);
         }
       }
 
-      // Convert from catch-at-age to catch-at-length: NOTE: There has got to be a better way
-      if (srv_control(ind, 5) != 1) {
-        for (ln = 0; ln < srv_control(ind, 6); ln++) {
+      // Convert from catch-at-age to catch-at-length
+      if ( srv_type(sp, srv) != 1) {
+        for (ln = 0; ln < srv_ln(sp, srv); ln++) {
           for (age = 0; age < nages(sp); age++) {
             srv_comp_hat(ind, ln + 5 ) += srv_comp_hat(ind, ln + 5 ) * age_trans_matrix(age, ln, sp);
           }
         }
 
-        for (ln = 0; ln < srv_control(ind, 6); ln++) {
-          srv_comp_hat(ind, ln + 5 ) = srv_comp_hat(ind, age + 5 ) / srv_hat(ind, 5); // * age_trans_matrix.col().col(sp)) / srv_hat(sp, yr); // # NOTE: Double check the matrix algebra here
+        for (ln = 0; ln < srv_ln(sp, srv); ln++) {
+          srv_comp_hat(ind, ln + 5 ) = srv_comp_hat(ind, age + 5 ) / srv_hat(ind, 5); 
         }
       }
     }
