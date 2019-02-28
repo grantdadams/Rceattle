@@ -18,7 +18,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   # Get cpp file if not provided
   if(is.null(TMBfilename) | is.null(cpp_directory)){
     cpp_directory <- system.file("executables",package="Rceattle")
-    TMBfilename <- "ceattle_v01_02"
+    TMBfilename <- "ceattle_v01_03"
   } else{
     cpp_directory <- cpp_directory
     TMBfilename <- TMBfilename
@@ -49,7 +49,8 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   #---------------------------------------------------------------------
   dat_names <- c(dat_names, c("nyrs_srv_biom", "yrs_srv_biom", "srv_biom", "srv_biom_se",
                               "srv_age_obs", "nyrs_srv_age", "yrs_srv_age", "srv_age_n",
-                              "n_eit", "yrs_eit", "obs_eit",
+                              "srv_age_type", "srv_age_bins",
+                              "n_eit", "yrs_eit", "obs_eit", "eit_sel",
                               "eit_age_n", "obs_eit_age" ))
 
   dat_names <- as.character(unique(dat_names))
