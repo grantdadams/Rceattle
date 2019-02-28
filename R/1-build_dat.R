@@ -182,8 +182,8 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   dat_list$n_srv <- c(2,1,1) # Bottom trawl and EIT
 
   dat_list$srv_control <- data.frame(
+    Survey = c(1:4),
     Species = c(1:3, 1),
-    Survey = c(1,1,1,2),
     Survey_Nyrs = c(dat_list$nyrs_srv_biom, dat_list$n_eit),
     Selectivity = c(dat_list$srv_sel_type, 0),
     Nselages = c(dat_list$nselage, ncol(dat_list$eit_sel)),
@@ -191,15 +191,16 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Comp_N_bins = c(dat_list$srv_age_bins, ncol(dat_list$obs_eit_age)),
     Comp_Nyrs = c(dat_list$nyrs_srv_age, dat_list$n_eit),
     Estimate_q = c(0, 0, 0, 1),
-    log_q_prior = c(0, 0, 0, -6.7025))
+    log_q_prior = c(0, 0, 0, -6.7025),
+    Survey_name = c("BT_Pollock", "BT_Cod", "BT_ATF", "EIT_Pollock"))
 
   #---------------------------------------------------------------------
   # Step 8 -- Reorganize for survey biomass
   #---------------------------------------------------------------------
   # BT BIOMASS
   dat_list$srv_biom <- data.frame(
+    Survey = rep(1:3, dat_list$nyrs_srv_biom),
     Species = rep(1:nspp, dat_list$nyrs_srv_biom),
-    Survey = rep(rep(1, nspp), dat_list$nyrs_srv_biom),
     Year = as.vector(t(dat_list$yrs_srv_biom)),
     Month = rep(rep(6, nspp), dat_list$nyrs_srv_biom),
     Observation = as.vector(t(dat_list$srv_biom)),
@@ -212,8 +213,8 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
 
   # Add EIT bit
   eit_biom <- data.frame(
+    Survey = rep(4, dat_list$n_eit),
     Species = rep(1, dat_list$n_eit),
-    Survey = rep(2, dat_list$n_eit),
     Year = dat_list$yrs_eit,
     Month = rep(0, dat_list$n_eit),
     Observation = dat_list$obs_eit,
