@@ -49,7 +49,7 @@ build_params <-
     param_list$fsh_sel_coff = matrix(0, nrow = sum(data_list$n_srv), ncol = max(data_list$nselages))  # Fishery age selectivity coef; n = [nspp, nselages]
     param_list$srv_sel_slp = matrix(0, nrow = 2, ncol = sum(data_list$n_srv))  # Survey selectivity paramaters for logistic; n = [2, nspp]
     param_list$srv_sel_inf = matrix(0, nrow = 2, ncol = sum(data_list$n_srv))  # Survey selectivity paramaters for logistic; n = [2, nspp]
-    param_list$log_srv_q = data_list$srv_control$log_q_prior   # Survey catchability; n = [sum(n_srv)]
+    param_list$log_srv_q = data_list$srv_control$log_q_start   # Survey catchability; n = [sum(n_srv)]
 
 
     # -- 3.5. Kinzery predation function parameters

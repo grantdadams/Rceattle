@@ -47,11 +47,13 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   #---------------------------------------------------------------------
   # Step 1 -- Add data names NOT used in TMB
   #---------------------------------------------------------------------
-  dat_names <- c(dat_names, c("nyrs_srv_biom", "yrs_srv_biom", "srv_biom", "srv_biom_se",
-                              "srv_age_obs", "nyrs_srv_age", "yrs_srv_age", "srv_age_n",
-                              "srv_age_type", "srv_age_bins",
-                              "n_eit", "yrs_eit", "obs_eit", "eit_sel",
-                              "eit_age_n", "obs_eit_age" ))
+  names_not_in_cpp <- c("nyrs_srv_biom", "yrs_srv_biom", "srv_biom", "srv_biom_se",
+                        "srv_age_obs", "nyrs_srv_age", "yrs_srv_age", "srv_age_n",
+                        "srv_age_type", "srv_age_bins",
+                        "n_eit", "yrs_eit", "obs_eit", "eit_sel",
+                        "eit_age_n", "obs_eit_age" )
+  names_in_cpp <- dat_names
+  dat_names <- c(dat_names, names_not_in_cpp)
 
   dat_names <- as.character(unique(dat_names))
 
@@ -138,6 +140,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     dat_call <- paste(tt[i][[1]][ dat_line:(dat_line + 2)], collapse = "")
     dat_names[i] <- sub("\\).*", "", sub(".*\\(", "", dat_call))
   }
+  names_in_cpp <- c(names_in_cpp, dat_names)
   dat_names <- c(dat_names, "logist_sel_phase")
 
   for (i in 1:length(dat_names)) {
@@ -182,7 +185,8 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   dat_list$n_srv <- c(2,1,1) # Bottom trawl and EIT
 
   dat_list$srv_control <- data.frame(
-    Survey = c(1:4),
+    Survey_name = c("BT_Pollock", "BT_Cod", "BT_ATF", "EIT_Pollock"),
+    Survey_code = c(1:4),
     Species = c(1:3, 1),
     Survey_Nyrs = c(dat_list$nyrs_srv_biom, dat_list$n_eit),
     Selectivity = c(dat_list$srv_sel_type, 0),
@@ -190,16 +194,17 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Comp_type = c(dat_list$srv_age_type, 1),
     Comp_N_bins = c(dat_list$srv_age_bins, ncol(dat_list$obs_eit_age)),
     Comp_Nyrs = c(dat_list$nyrs_srv_age, dat_list$n_eit),
-    Estimate_q = c(0, 0, 0, 1),
-    log_q_prior = c(0, 0, 0, -6.7025),
-    Survey_name = c("BT_Pollock", "BT_Cod", "BT_ATF", "EIT_Pollock"))
+    Estimate_q = c(1, 1, 1, 0),
+    log_q_start = c(0, 0, 0, -6.7025)
+  )
 
   #---------------------------------------------------------------------
   # Step 8 -- Reorganize for survey biomass
   #---------------------------------------------------------------------
   # BT BIOMASS
   dat_list$srv_biom <- data.frame(
-    Survey = rep(1:3, dat_list$nyrs_srv_biom),
+    Survey_name = rep(c("BT_Pollock", "BT_Cod", "BT_ATF"), dat_list$nyrs_srv_biom),
+    Survey_code = rep(1:3, dat_list$nyrs_srv_biom),
     Species = rep(1:nspp, dat_list$nyrs_srv_biom),
     Year = as.vector(t(dat_list$yrs_srv_biom)),
     Month = rep(rep(6, nspp), dat_list$nyrs_srv_biom),
@@ -213,7 +218,8 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
 
   # Add EIT bit
   eit_biom <- data.frame(
-    Survey = rep(4, dat_list$n_eit),
+    Survey_name = rep("EIT_Pollock", dat_list$n_eit),
+    Survey_code = rep(4, dat_list$n_eit),
     Species = rep(1, dat_list$n_eit),
     Year = dat_list$yrs_eit,
     Month = rep(0, dat_list$n_eit),
@@ -227,8 +233,9 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   #---------------------------------------------------------------------
   # BT Survey age comp
   dat_list$srv_comp <- data.frame(
+    Survey_name = rep(c("BT_Pollock", "BT_Cod", "BT_ATF"), dat_list$nyrs_srv_age),
+    Survey_code = rep(1:nspp, dat_list$nyrs_srv_age),
     Species = rep(1:nspp, dat_list$nyrs_srv_age),
-    Survey = rep(rep(1, nspp), dat_list$nyrs_srv_age),
     Year = as.vector(t(dat_list$yrs_srv_age)),
     Month = rep(rep(6, nspp), dat_list$nyrs_srv_age),
     Sample_size = as.vector(t(dat_list$srv_age_n))
@@ -241,8 +248,9 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
 
   # EIT Survey age comp
   eit_comp <- data.frame(
+    Survey_name = rep("EIT_Pollock", dat_list$n_eit),
+    Survey_code = rep(4, dat_list$n_eit),
     Species = rep(1, dat_list$n_eit),
-    Survey = rep(2, dat_list$n_eit),
     Year = dat_list$yrs_eit,
     Month = rep(0, dat_list$n_eit),
     Sample_size = dat_list$eit_age_n
@@ -257,12 +265,27 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   #---------------------------------------------------------------------
   # Step 10 -- Reorganize selectivity
   #---------------------------------------------------------------------
-  dat_list$emp_srv_sel <- data.frame(Species = rep(1, length(dat_list$n_eit)),
-                                     Survey = rep(2, length(dat_list$n_eit)),
-                                     Year = dat_list$yrs_eit
-                                     )
+  dat_list$emp_srv_sel <- data.frame(
+    Survey_name = rep("EIT_Pollock", dat_list$n_eit),
+    Survey_code = rep(4, length(dat_list$n_eit)),
+    Species = rep(1, length(dat_list$n_eit)),
+    Year = dat_list$yrs_eit
+  )
   colnames(dat_list$eit_sel) <- paste("Age_",1:ncol(dat_list$eit_sel), sep = "")
   dat_list$emp_srv_sel <- cbind(dat_list$emp_srv_sel, dat_list$eit_sel[dat_list$yrs_eit - dat_list$styr + 1,])
+
+
+
+
+  #---------------------------------------------------------------------
+  # Final Step -- Remove unwanted bits
+  #---------------------------------------------------------------------
+  '%!in%' <- function(x,y)!('%in%'(x,y))
+  for(i in 1:length(dat_list)){
+    if(names(dat_list[[i]]) %!in% names_in_cpp){
+      dat_list[[i]] <- NULL
+    }
+  }
 
 
 
