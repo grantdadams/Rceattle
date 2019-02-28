@@ -265,11 +265,11 @@ Type objective_function<Type>::operator() () {
   PARAMETER_MATRIX( F_dev );          // Annual fishing mortality deviations; n = [nspp, nyrs] # NOTE: The size of this will likely change
 
   // -- 3.4. Selectivity parameters
-  PARAMETER_MATRIX( srv_sel_coff );    // Survey selectivity parameters; n = [sum(n_srv), nselages]
-  PARAMETER_MATRIX( fsh_sel_coff );    // Fishery age selectivity coef; n = [sum(n_srv), nselages]
-  PARAMETER_MATRIX( srv_sel_slp );     // Survey selectivity paramaters for logistic; n = [2, sum(n_srv)]
-  PARAMETER_MATRIX( srv_sel_inf );     // Survey selectivity paramaters for logistic; n = [2, sum(n_srv)]
-  PARAMETER_VECTOR( log_srv_q );       // Survey catchability; n = [sum(n_srv)]
+  PARAMETER_MATRIX( srv_sel_coff );    // Survey selectivity parameters; n = [n_srv, nselages]
+  PARAMETER_MATRIX( fsh_sel_coff );    // Fishery age selectivity coef; n = [n_srv, nselages]
+  PARAMETER_MATRIX( srv_sel_slp );     // Survey selectivity paramaters for logistic; n = [2, n_srv]
+  PARAMETER_MATRIX( srv_sel_inf );     // Survey selectivity paramaters for logistic; n = [2, n_srv]
+  PARAMETER_VECTOR( log_srv_q );       // Survey catchability; n = [n_srv]
 
   // FIXME: Create maps
   // -- 3.5. Kinzery predation function parameters
@@ -295,6 +295,7 @@ Type objective_function<Type>::operator() () {
 
   // 4.1. Derived indices
   int max_bin = imax(srv_age_bins);                                              // Integer of maximum number of length/age bins.
+  int n_srv = srv_control.rows();
 
   // -- 4.2. Estimated population parameters
   vector<Type>  mn_rec = exp(ln_mn_rec);                                        // Mean recruitment; n = [1, nspp]
@@ -333,9 +334,9 @@ Type objective_function<Type>::operator() () {
   matrix<Type>  srv_age_hat = srv_comp;                                         // Estimated survey abundance at age; n = [nspp, nages, nyrs]
 
 
-  vector<Type>  avgsel_srv(sum(n_srv)); avgsel_srv.setZero();                   // Average survey selectivity; n = [1, nspp]
-  array<Type>   srv_sel(nspp, sum(n_srv), max_age, nyrs); srv_sel.setZero();    // Estimated survey selectivity at age; n = [nspp, nages, nyrs]
-  array<Type>   srv_sel_tmp(sum(n_srv), max_age); srv_sel_tmp.setZero();        // Temporary saved survey selectivity at age for estimated bits; n = [nspp, nages, nyrs]
+  vector<Type>  avgsel_srv(n_srv); avgsel_srv.setZero();                   // Average survey selectivity; n = [1, nspp]
+  array<Type>   srv_sel(srv_control.rows(), max_age, nyrs); srv_sel.setZero();    // Estimated survey selectivity at age; n = [nspp, nages, nyrs]
+  array<Type>   srv_sel_tmp(srv_control.rows(), max_age); srv_sel_tmp.setZero();        // Temporary saved survey selectivity at age for estimated bits; n = [nspp, nages, nyrs]
   matrix<Type> srv_q(nspp, imax(n_srv)); srv_q.setZero();                       // Matrix to save q on natural scale
   matrix<int> srv_type(nspp, imax(n_srv)); srv_type.setZero();                  // Matrix to save survey composition type (1 = age, 2 = length)
   matrix<int> srv_bins(nspp, imax(n_srv)); srv_bins.setZero();                  // Matrix to save max bin of survey age/lengths
@@ -1538,7 +1539,7 @@ Type objective_function<Type>::operator() () {
   // 11. LIKELIHOOD EQUATIONS                                                   //
   // ------------------------------------------------------------------------- //
   // 11.0. OBJECTIVE FUNCTION
-  matrix<Type> jnll_comp(17, sum(n_srv)); jnll_comp.setZero();  // matrix of negative log-likelihood components
+  matrix<Type> jnll_comp(17, n_srv); jnll_comp.setZero();  // matrix of negative log-likelihood components
 
   // -- Data components
   // Slot 0 -- Survey biomass
@@ -1563,8 +1564,8 @@ Type objective_function<Type>::operator() () {
 
   // 11.1. OFFSETS AND PENALTIES
   // 11.1.1 -- Set up offset objects
-  matrix<Type> offset_srv(nspp, imax(n_srv)); offset_srv.setZero(); // Offset for multinomial likelihood
-  vector<Type> offset_fsh(sum(n_srv)); offset_fsh.setZero(); // Offset for multinomial likelihood
+  matrix<Type> offset_srv(n_srv); offset_srv.setZero(); // Offset for multinomial likelihood
+  vector<Type> offset_fsh(n_srv); offset_fsh.setZero(); // Offset for multinomial likelihood
   vector<Type> offset_diet_w(nspp); offset_diet_w.setZero(); // Offset for total stomach content weight likelihood
   vector<Type> offset_diet_l(nspp); offset_diet_l.setZero(); // Offset for total stomach content of prey length ln in predator length a
   vector<Type> offset_uobsagewt(nspp); offset_uobsagewt.setZero(); // Offset for stomach proportion by weight likelihood
@@ -1659,7 +1660,9 @@ Type objective_function<Type>::operator() () {
   // Slot 0 -- Survey biomass -- NFMS annual BT survey and EIT survey
   for (srv_ind = 0; srv_ind < srv_biom.rows(); srv_ind++) {
     sp = srv_biom(srv_ind, 0) - 1; // Species is the 2nd column
-    jnll_comp(0, sp) += pow(log(srv_biom(srv_ind, 4)) - log(srv_bio_hat(srv_ind, 4)), 2) / (2 * square(srv_biom(srv_ind, 4))); // NOTE: This is not quite the lognormal and biohat will be the median.
+    srv = srv_comp(ind, 1) - 1;            // Temporary survey index
+
+    jnll_comp(0, srv) += pow(log(srv_biom(srv_ind, 4)) - log(srv_bio_hat(srv_ind, 4)), 2) / (2 * square(srv_biom(srv_ind, 4))); // NOTE: This is not quite the lognormal and biohat will be the median.
   }
 
 
@@ -1671,17 +1674,16 @@ Type objective_function<Type>::operator() () {
     srv = srv_comp(ind, 1) - 1;            // Temporary survey index
 
     for (ln = 0; ln < srv_control(ind, 6); ln++) {
-      jnll_comp(1, sp) -= srv_comp(ind, 4) * (srv_comp(ind, ln + 5) + MNConst) * log(srv_comp_hat(ind, ln + 5) + MNConst ) ;
+      jnll_comp(1, srv) -= srv_comp(ind, 4) * (srv_comp(ind, ln + 5) + MNConst) * log(srv_comp_hat(ind, ln + 5) + MNConst ) ;
     }
   }
 
   // Remove offsets
-  for (sp = 0; sp < nspp; sp++) {
-    for (srv = 0; srv < n_srv(sp); srv++) {
+    for (srv = 0; srv < n_srv; srv++) {
       // srv_yr = yrs_srv_age(sp, yr) - styr;
-      jnll_comp(1, sp) -= offset_srv(sp, srv);
+      jnll_comp(1, srv) -= offset_srv(srv);
     }
-  }
+  
 
 
   // Slot 4 -- Total catch -- Fishery observer data
