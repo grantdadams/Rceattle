@@ -117,26 +117,10 @@ Type objective_function<Type>::operator() () {
   DATA_ARRAY( age_trans_matrix);     // observed sp_age/size compositions; n = [nspp, nages, srv_age_bins]
 
   // -- 2.3.5. Weight-at-age
-  // DATA_IVECTOR( nyrs_wt_at_age ); // Number of years of weight at age data; n = [nspp]: NOTUSED
-  // DATA_IMATRIX( yrs_wt_at_age );  // Years of weight-at-age; data n = [nspp, nyrs_wt_at_age]: NOTUSED
   DATA_ARRAY( wt );                  // Weight-at-age by year; n = [nyrs, nages, nspp]: FIXME: Change nyrs to nyrs_wt_at_age if data don't span entire bit
 
   // 2.3.6. Diet data
-  // DATA_MATRIX( maxK );            // Matrix of maximum diet proportions for each predd,preyy combo (used for broken stick expon); n = [nspp, nspp]: NOTUSED
-  // DATA_VECTOR( klim );            // Max  pred  length  at  which K should  be  calculated  (beyond this  is  it  just  equal to  K); n = [1, nspp]: NOTUSED
-  // DATA_MATRIX( prefa );           // prefa of the functional response prefa(pred,prey); n = [nspp, nspp]: NOTUSED
-  // DATA_MATRIX( prefb );           // prefb of the functional response prefa(pred,prey); n = [nspp, nspp]: NOTUSED
-  // DATA_MATRIX( l1 );              // l1 of the switch function l1(pred,prey); n = [nspp, nspp]: NOTUSED
-  // DATA_MATRIX( l2 );              // l2 of the switch function l2(pred,prey); n = [nspp, nspp]: NOTUSED
-  // DATA_MATRIX( LA_Lengths );      // length to sp_age coversion matrix (rounded to nearest integer); n = [nspp, nages]: NOTUSED
   DATA_VECTOR( fday );               // number of foraging days for each predator; n = [1, nspp] #FIXME - assuming this is the same as fdays
-  // DATA_IVECTOR( nlengths );       // number of Lengths for the matrix to convert ages to lengths; n = [1, nspp]: NOTUSED
-  // int maxL = imax( nlengths );    // Maximum number of lengths for the matrix to convert between ages and lengths; n = [1]: NOTUSED
-  // DATA_MATRIX( lengths );         // Lengths for the matrix to convert ages to lenghths; n = [nspp, nlengths]: NOTUSED
-  // DATA_ARRAY( A2L_matrix );       // Age to length matrix : Matrix to convert ages to lenghths; n = [nspp, nages, nlengths]: NOTUSED
-  // DATA_ARRAY( K );                // K(1) is nprey by maxL matrix of stomach proportions of predator 1; n = [nspp, nspp, nlengths]: NOTUSED
-  // DATA_ARRAY( KAge );             // K(1) is nprey by maxL matrix of stomach proportions of predator 1; n = [nspp, nspp, nages]: NOTUSED
-  // DATA_MATRIX( PAge );            // n = [nspp, nages]: NOTUSED
   DATA_ARRAY( Pyrs );                // n = [nspp, nyrs+1, nages]: #FIXME - Assuming this is the same as Pby_yr?
   DATA_ARRAY( Uobs );                // pred, prey, predL, preyL U matrix (mean number of prey in each pred); n = [nspp, nspp, maxL, maxL]
   DATA_ARRAY( UobsWt );              // pred, prey, predL, preyL U matrix (mean wt_hat of prey in each pred); n = [nspp, nspp, maxL, maxL] #FIXME - Changed name in stomach2017.dat
@@ -144,24 +128,14 @@ Type objective_function<Type>::operator() () {
   DATA_ARRAY( UobsWtAge );           // pred, prey, predA, preyA U matrix (mean wt_hat of prey in each pred age); n = [nspp, nspp, max_age, max_age]
   DATA_MATRIX( Mn_LatAge );          // Mean length-at-age; n = [nspp, nages], ALSO: mean_laa in Kinzey
 
-  // -- 2.3.7. Q Diet data
-  // DATA_INTEGER( npred3 );      // Number of predators; n = [1]: NOTUSED
-  // DATA_IVECTOR( nprey3 );      // Number of prey species for each predator; n = [1, nspp]: NOTUSED
-  // DATA_IVECTOR( n_stomyrs );      // number years of stomach data; n = [1, nspp]: NOTUSED
-  // DATA_IMATRIX( stomyrs );        // years of stomach data; n = [nspp, n_stomyrs]: NOTUSED
-  // DATA_ARRAY( mnQ );              // meanwt of each prey spp in the stomach of each predator of sp_age a; n = [npred3,n_stomyrs,max_age,nspp+1]: NOTUSED
-  // DATA_ARRAY( Qse );              // SE wt of each prey spp in the stomach of each predator of sp_age a; n = [npred3,n_stomyrs,max_age,nspp+1]: NOTUSED
-
   // 2.3.8. Environmental data
   DATA_INTEGER( nTyrs );          // Number of temperature years; n = [1] #FIXME - changed the name of this in retro_data2017_asssmnt.dat
   DATA_IVECTOR( Tyrs );           // Years of hindcast data; n = [1, nTyrs] #FIXME - changed the name of this in retro_data2017_asssmnt.dat
   DATA_VECTOR( BTempC );    // Vector of bottom temperature; n = [1,  nTyrs ]
-  // DATA_INTEGER( ncov );        // Number of environmental covariates
 
   // 2.4. INPUT PARAMETERS
   // -- 2.4.1. Bioenergetics parameters (BP)
   DATA_VECTOR( other_food );      // Biomass of other prey (kg); n = [1, nspp]
-  // DATA_IVECTOR( useWt );          // Assign relative proportion of prey in the diet according to relative biomass in the system.,otherwise the model with use relative proportion by number; n = [1, nspp]: NOTUSED
   DATA_IVECTOR( C_model );        // f == 1, the use Cmax*fT*P; n = [1, nspp]
   DATA_VECTOR( Pvalue );          // This scales the pvalue used if C_model ==1 , proportion of Cmax; Pvalue is P in Cmax*fT*Pvalue*PAge; n = [1, nspp]
   DATA_IVECTOR( Ceq );            // Ceq: which Comsumption equation to use; n = [1, nspp]; Currently all sp = 1
@@ -174,15 +148,8 @@ Type objective_function<Type>::operator() () {
   DATA_VECTOR( CK1 );             // used in fT eq 3, limit where C is .98 max (ascending); n = [1, nspp]
   DATA_VECTOR( CK4 );             // used in fT eq 3, temp where C is .98 max (descending); n = [1, nspp]
   DATA_MATRIX( S_a );             // S_a, S_b, S_b2, S_b3, S_b4, S_b5: a,L,L^2,L^3,L^4,L^5 (rows)coef for mean S=a+b*L+b2*L*L, whith a cap at 80cm for each pred spp(cols); n = [6, nspp]
-  // DATA_MATRIX( aLim );            // #aLim and bLim : upper limit of prey size; n = [2, nspp]: NOTUSED
 
   // -- 2.4.2. von Bertalannfy growth function (VBGF): This is used to calculate future weight-at-age: NOT YET IMPLEMENTED
-  // DATA_VECTOR( t0 );              // t0 parameter of the temp specific VonB for wt; n = [nspp, mf_type]
-  // DATA_VECTOR( log_mean_d );      // log mean d parameter of the temp specific von B for wt; n = [nspp, mf_type]
-  // DATA_VECTOR( logK );            // log k parameter of the temp specific VonB for wt; n = [nspp, mf_type]
-  // DATA_VECTOR( logH );            // log H parameter of the temp specific VonB for wt; n = [nspp, mf_type]
-  // DATA_VECTOR( Tcoef );           // T coefficent of the linear d equations of the temp specific VonB for wt; n = [nspp, mf_type]
-  // DATA_VECTOR( Pcoef );           // P-value coefficent of the linear d equations of the temp specific VonB for wt; n = [nspp, mf_type]
 
   // -- 2.4.3. Weight-at-length parameters
   DATA_MATRIX( aLW );             // LW a&b regression coefs for W=a*L^b; n = [2, nspp]
@@ -193,12 +160,6 @@ Type objective_function<Type>::operator() () {
   DATA_MATRIX( pmature );         // Proportion of mature females at age; [nspp, nages]
 
   // -- 2.4.5. F Profile data: NOTUSED
-  /*
-   DATA_INTEGER( n_f );            // Number of F vectors
-   DATA_VECTOR( Frates );          // Fishing mortality vector; n = [1, n_f]
-   DATA_INTEGER( np );             // Number of
-   DATA_MATRIX( Fprofiles );       // F profiles; n = [np, nspp]
-   */
 
 
 
