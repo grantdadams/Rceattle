@@ -18,7 +18,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   # Get cpp file if not provided
   if(is.null(TMBfilename) | is.null(cpp_directory)){
     cpp_directory <- system.file("executables",package="Rceattle")
-    TMBfilename <- "ceattle_v01_03"
+    TMBfilename <- "ceattle_v01_04"
   } else{
     cpp_directory <- cpp_directory
     TMBfilename <- TMBfilename
@@ -47,11 +47,14 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   #---------------------------------------------------------------------
   # Step 1 -- Add data names NOT used in TMB
   #---------------------------------------------------------------------
-  names_not_in_cpp <- c("nyrs_srv_biom", "yrs_srv_biom", "srv_biom", "srv_biom_se",
+  names_not_in_cpp <- c("nyrs_srv_biom", "yrs_srv_biom", "srv_biom_se",
                         "srv_age_obs", "nyrs_srv_age", "yrs_srv_age", "srv_age_n",
                         "srv_age_type", "srv_age_bins",
                         "n_eit", "yrs_eit", "obs_eit", "eit_sel",
-                        "eit_age_n", "obs_eit_age" )
+                        "eit_age_n", "obs_eit_age",
+                        "fsh_age_bins", "fsh_age_type", "nyrs_fsh_comp", "yrs_fsh_age",
+                        "nyrs_fsh_comp" , "yrs_fsh_comp" , "obs_catch", "nyrs_tc_biom" , "tcb_obs", "nyrs_tc_biom", "yrs_tc_biom",
+                        "propMorF", "mf_type", "BTempC_retro", "fsh_sel_type")
   names_in_cpp <- dat_names
   dat_names <- c(dat_names, names_not_in_cpp)
 
@@ -167,7 +170,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   dat_list$logist_sel_phase <- NULL
 
   # Get add in projected year
-  dat_list$proj_yr <- proj_yr
+  # dat_list$proj_yr <- proj_yr
   dat_list$stom_tau <- stom_tau
 
 
@@ -182,19 +185,18 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   #---------------------------------------------------------------------
   # Step 7 -- Survey specifications
   #---------------------------------------------------------------------
-  dat_list$n_srv <- c(2,1,1) # Bottom trawl and EIT
+  # dat_list$n_srv <- c(2,1,1) # Bottom trawl and EIT
 
   dat_list$srv_control <- data.frame(
     Survey_name = c("BT_Pollock", "BT_Cod", "BT_ATF", "EIT_Pollock"),
     Survey_code = c(1:4),
     Species = c(1:3, 1),
-    Survey_Nyrs = c(dat_list$nyrs_srv_biom, dat_list$n_eit),
     Selectivity = c(dat_list$srv_sel_type, 0),
-    Nselages = c(dat_list$nselage, ncol(dat_list$eit_sel)),
+    Nselages = rep(NA, 4),
     Comp_type = c(dat_list$srv_age_type, 1),
     Comp_N_bins = c(dat_list$srv_age_bins, ncol(dat_list$obs_eit_age)),
     Comp_Nyrs = c(dat_list$nyrs_srv_age, dat_list$n_eit),
-    Estimate_q = c(1, 1, 1, 0),
+    Estimate_q = c(0, 0, 0, 1),
     log_q_start = c(0, 0, 0, -6.7025)
   )
 
@@ -209,12 +211,12 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Year = as.vector(t(dat_list$yrs_srv_biom)),
     Month = rep(rep(6, nspp), dat_list$nyrs_srv_biom),
     Observation = as.vector(t(dat_list$srv_biom)),
-    Error = as.vector(t(dat_list$srv_biom_se))
+    CV = as.vector(t(dat_list$srv_biom_se))
   )
 
   # SE to CV
-  dat_list$srv_biom$Error <- (dat_list$srv_biom$Error/dat_list$srv_biom$Observation)
-  dat_list$srv_biom$Error <- sqrt(log((dat_list$srv_biom$Error^2) + 1))
+  dat_list$srv_biom$CV <- (dat_list$srv_biom$CV/dat_list$srv_biom$Observation)
+  dat_list$srv_biom$CV <- sqrt(log((dat_list$srv_biom$CV^2) + 1))
 
   # Add EIT bit
   eit_biom <- data.frame(
@@ -224,7 +226,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Year = dat_list$yrs_eit,
     Month = rep(0, dat_list$n_eit),
     Observation = dat_list$obs_eit,
-    Error = rep( 0.2, dat_list$n_eit)
+    CV = rep( 0.2, dat_list$n_eit)
   )
   dat_list$srv_biom <- rbind(dat_list$srv_biom, eit_biom)
 
@@ -271,23 +273,112 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Species = rep(1, length(dat_list$n_eit)),
     Year = dat_list$yrs_eit
   )
-  colnames(dat_list$eit_sel) <- paste("Age_",1:ncol(dat_list$eit_sel), sep = "")
+  colnames(dat_list$eit_sel) <- paste("Comp_",1:ncol(dat_list$eit_sel), sep = "")
   dat_list$emp_srv_sel <- cbind(dat_list$emp_srv_sel, dat_list$eit_sel[dat_list$yrs_eit - dat_list$styr + 1,])
 
 
+
+  #---------------------------------------------------------------------
+  # Step 11 -- Fishery specifications
+  #---------------------------------------------------------------------
+  # dat_list$n_fsh <- c(1,1,1) # Bottom trawl and EIT
+
+  dat_list$fsh_control <- data.frame(
+    Fishery_name = c("Pollock", "Cod", "ATF"),
+    Fishery_code = c(1:3),
+    Species = c(1:3),
+    Selectivity = rep(2, 3),
+    Nselages = c(dat_list$nselages),
+    Comp_type = c(dat_list$fsh_age_type),
+    Comp_N_bins = c(dat_list$fsh_age_bins)
+  )
+
+  #---------------------------------------------------------------------
+  # Step 12 -- Reorganize for fishery biomass
+  #---------------------------------------------------------------------
+  # BT BIOMASS
+  dat_list$catch_biom <- data.frame(
+    Fishery_name = rep(c("Pollock", "Cod", "ATF"), dat_list$nyrs_tc_biom),
+    Fishery_code = rep(1:3, dat_list$nyrs_tc_biom),
+    Species = rep(1:nspp, dat_list$nyrs_tc_biom),
+    Year = as.vector(t(dat_list$yrs_tc_biom)),
+    Month = rep(rep(0, nspp), dat_list$nyrs_tc_biom),
+    Catch_kg = as.vector(t(dat_list$tcb_obs)),
+    CV = rep(rep(0.05, nspp), dat_list$nyrs_tc_biom)
+    )
+
+  #---------------------------------------------------------------------
+  # Step 13 -- Reorganize for fishery age comp
+  #---------------------------------------------------------------------
+  # BT Survey age comp
+  dat_list$fsh_comp <- data.frame(
+    Fishery_name = rep(c("Pollock", "Cod", "ATF"), dat_list$nyrs_fsh_comp),
+    Fishery_code = rep(1:nspp, dat_list$nyrs_fsh_comp),
+    Species = rep(1:nspp, dat_list$nyrs_fsh_comp),
+    Year = na.exclude(as.vector(t(dat_list$yrs_fsh_comp))),
+    Month = rep(rep(0, nspp), dat_list$nyrs_fsh_comp),
+    Sample_size = rep(rep(200, nspp), dat_list$nyrs_fsh_comp)
+  )
+
+
+  Observation <- rbind(dat_list$obs_catch[,,1], dat_list$obs_catch[,,2], dat_list$obs_catch[,,3])
+  colnames(Observation) <- paste0("Comp_", 1:ncol(Observation))
+  Observation <- Observation[rowSums(is.na(Observation)) != ncol(Observation), ]
+  dat_list$fsh_comp <- cbind(dat_list$fsh_comp, Observation)
+
+  #---------------------------------------------------------------------
+  # Step 14 -- Reorganize selectivity
+  #---------------------------------------------------------------------
+  dat_list$emp_fsh_sel <- data.frame(
+    Fishery_name = NA,
+    Fishery_code = NA,
+    Species = NA,
+    Year = NA,
+    Comp_1 = NA
+  )
+
+
+  #---------------------------------------------------------------------
+  # Step 15 -- Rename stuff
+  #---------------------------------------------------------------------
+
+  dat_list$endyr = 2100
+  dat_list$propF = dat_list$propMorF[c(1,2,4),]
+  dat_list$BTempC <- dat_list$BTempC_retro
+
+  colnames(dat_list$aLW) <- paste0("Species", 1:nspp)
+
+
+  dimnames(dat_list$Uobs) <- list(paste0('Pred', 1:3),paste0('Prey', 1:3), paste0('Pred_ln', 1:max( dat_list$srv_age_bins)), paste0('Pred_ln', 1:max( dat_list$srv_age_bins)))
+
+  dimnames(dat_list$UobsWt) <- list(paste0('Pred', 1:3),paste0('Prey', 1:3), paste0('Pred_ln', 1:max( dat_list$srv_age_bins)), paste0('Pred_ln', 1:max( dat_list$srv_age_bins)))
+
+  dimnames(dat_list$UobsAge) <- list(paste0('Pred', 1:3),paste0('Prey', 1:3), paste0('Pred_ln', 1:max( dat_list$nages)), paste0('Pred_ln', 1:max( dat_list$nages)))
+
+  dimnames(dat_list$UobsWtAge) <- list(paste0('Pred', 1:3),paste0('Prey', 1:3), paste0('Pred_ln', 1:max( dat_list$nages)), paste0('Pred_ln', 1:max( dat_list$nages)))
+
+
+  dat_list2$avgnMode <- 1
+dat_list2$avgnMode <- 0
+  dat_list2$random_rec <- FALSE
+  dat_list2$niter <- 10
+  dat_list2$suitMode <- 0
+  dat_list2$est_diet <- 0
+  dat_list2$msmMode <- 1
+  dat_list2$debug <- TRUE
 
 
   #---------------------------------------------------------------------
   # Final Step -- Remove unwanted bits
   #---------------------------------------------------------------------
+  names_not_in_cpp <- c(names_not_in_cpp, "BTempC_retro", "propMorF" , "srv_sel_type", "srv_age_type", "fsh_age_bins")
+
   '%!in%' <- function(x,y)!('%in%'(x,y))
-  for(i in 1:length(dat_list)){
-    if(names(dat_list[[i]]) %!in% names_in_cpp){
-      dat_list[[i]] <- NULL
-    }
+  dat_list2 <- list()
+
+  for(i in 1:length(names_in_cpp)){
+    dat_list2[[names_in_cpp[i]]] <-  dat_list[[names_in_cpp[i]]]
   }
 
-
-
-  return(dat_list)
+  return(dat_list2)
 }
