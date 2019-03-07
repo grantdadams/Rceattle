@@ -310,7 +310,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   #---------------------------------------------------------------------
   # Step 13 -- Reorganize for fishery age comp
   #---------------------------------------------------------------------
-  # BT Survey age comp
+  # Fishery age comp
   dat_list$fsh_comp <- data.frame(
     Fishery_name = rep(c("Pollock", "Cod", "ATF"), dat_list$nyrs_fsh_comp),
     Fishery_code = rep(1:nspp, dat_list$nyrs_fsh_comp),
