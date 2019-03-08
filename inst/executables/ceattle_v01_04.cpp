@@ -272,13 +272,15 @@ Type objective_function<Type>::operator() () {
 
   // -- 4.3. Fishery observations
   vector<Type>  fsh_age_tmp( max_age );                                         // Temporary vector of survey-catch-at-age for matrix multiplication
-  vector<Type>  avgsel_fsh(nspp); avgsel_fsh.setZero();                         // Average fishery selectivity
+  vector<Type>  avgsel_fsh(n_fsh); avgsel_fsh.setZero();                        // Average fishery selectivity; n = [1, nspp]
+  array<Type>   fsh_sel(n_fsh, max_age, nyrs); fsh_sel.setZero();               // Estimated fishery selectivity at age; n = [nspp, nages, nyrs]
+  array<Type>   fsh_sel_tmp(n_fsh, max_age); fsh_sel_tmp.setZero();             // Temporary saved fishery selectivity at age for estimated bits; n = [nspp, nages, nyrs]
+
   array<Type>   catch_hat(nspp, max_age, nyrs); catch_hat.setZero();            // Estimated catch-at-age (n); n = [nspp, nages, nyrs]
   array<Type>   F(n_fsh, max_age, nyrs); F.setZero();                            // Estimated fishing mortality for each fishery; n = [n_fsh, nages, nyrs]
   array<Type>   F_tot(nspp, max_age, nyrs); F_tot.setZero();                    // Sum of annual estimated fishing mortalities for each species-at-age; n = [nspp, nages, nyrs]
   array<Type>   fsh_age_obs(nspp, max_bin, nyrs); fsh_age_obs.setZero();        // Observed fishery age comp; n = [nyrs_fsh_comp, fsh_age_bins, nspp]
   array<Type>   fsh_age_hat(nspp, max_bin, nyrs); fsh_age_hat.setZero();        // Estimated fishery age comp; n = [nspp, nages, nyrs]
-  matrix<Type>  fsh_sel(nspp, max_age); fsh_sel.setZero();                      // Log estimated fishing selectivity
   matrix<Type>  tc_biom_hat(nspp, nyrs); tc_biom_hat.setZero();                 // Estimated total yield (kg); n = [nspp, nyrs]
   matrix<Type>  tc_hat(nspp, nyrs); tc_hat.setZero();                           // Estimated total catch (n); n = [nspp, nyrs]
   matrix<Type>  tc_obs(nspp, nyrs); tc_obs.setZero();                           // Set total catch to 0 to initialize // Observed total catch (n); n = [nspp, nyrs] NOTE: This may not be necessary if loading data from tmp
@@ -435,6 +437,19 @@ srv_ind = srv_comp(comp_ind, 1) - 1;     // Temporary index of survey
   // NOTE: Remember indexing starts at 0
   // Start iterations
   for (int iter = 0; iter < niter; iter++) {
+
+        fsh_sel.setZero();
+    // 6.0. EMPIRICAL FISHERY SELECTIVITY
+    for (sel_ind = 0; sel_ind < emp_fsh_sel.rows(); sel_ind++){
+
+      sp = emp_fsh_sel(sel_ind, 0) - 1;             // Temporary index of species
+      srv = emp_fsh_sel(sel_ind, 1) - 1;            // Temporary survey index
+      fsh_yr = emp_fsh_sel(sel_ind, 2) - styr;      // Temporary index for years of data
+
+      for (age = 3; age < emp_fsh_sel.cols(); age++) {
+        fsh_sel(srv, age, fsh_yr) = emp_fsh_sel(sel_ind, age);
+      }
+    }
 
     // 6.1. ESTIMATE FISHERY SELECTIVITY
     avgsel_fsh.setZero();
