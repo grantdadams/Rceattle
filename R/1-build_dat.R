@@ -195,7 +195,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Nselages = rep(NA, 4),
     Comp_type = c(dat_list$srv_age_type, 1),
     Comp_N_bins = c(dat_list$srv_age_bins, ncol(dat_list$obs_eit_age)),
-    Comp_Nyrs = c(dat_list$nyrs_srv_age, dat_list$n_eit),
+    # Comp_Nyrs = c(dat_list$nyrs_srv_age, dat_list$n_eit),
     Estimate_q = c(0, 0, 0, 1),
     log_q_start = c(0, 0, 0, -6.7025)
   )

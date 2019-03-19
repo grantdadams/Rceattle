@@ -13,6 +13,12 @@ Type imax(const vector<Type> &x)
   return res;
 }
 
+// Function for detecting NAs
+template<class Type>
+bool isNA(Type x){
+  return R_IsNA(asDouble(x));
+}
+
 //  Function to getting sqaure
 template <class Type> Type square(Type x){return x*x;}
 
