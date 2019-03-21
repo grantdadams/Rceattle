@@ -45,12 +45,12 @@ build_params <-
     # -- 3.4. Selectivity parameters
     # FIXME - change nspp to n_srv
     # FIXME - change order of selectivity paramters for logistic
-    param_list$srv_sel_coff = matrix(0, nrow = nrow(data_list$srv_control), ncol = max(1, data_list$srv_control$Nselages))   # Survey selectivity parameters; n = [nspp, nselages]
+    param_list$srv_sel_coff = matrix(0, nrow = nrow(data_list$srv_control), ncol = max(1, data_list$srv_control$Nselages, na.rm = T))   # Survey selectivity parameters; n = [nspp, nselages]
     param_list$srv_sel_slp = matrix(0, nrow = 2, ncol = nrow(data_list$srv_control))  # Survey selectivity paramaters for logistic; n = [2, nspp]
     param_list$srv_sel_inf = matrix(0, nrow = 2, ncol = nrow(data_list$srv_control))  # Survey selectivity paramaters for logistic; n = [2, nspp]
     param_list$log_srv_q = data_list$srv_control$log_q_start   # Survey catchability; n = [sum(n_srv)]
 
-    param_list$fsh_sel_coff = matrix(0, nrow = nrow(data_list$fsh_control), ncol = max(1, data_list$nselages))  # Fishery age selectivity coef; n = [nspp, nselages]
+    param_list$fsh_sel_coff = matrix(0, nrow = nrow(data_list$fsh_control), ncol = max(1, data_list$fsh_control$Nselages, na.rm = T))  # Fishery age selectivity coef; n = [nspp, nselages]
     param_list$fsh_sel_slp = matrix(0, nrow = 2, ncol = nrow(data_list$fsh_control))  # Fishery selectivity paramaters for logistic; n = [2, nspp]
     param_list$fsh_sel_inf = matrix(0, nrow = 2, ncol = nrow(data_list$fsh_control))  # Fishery selectivity paramaters for logistic; n = [2, nspp]
 

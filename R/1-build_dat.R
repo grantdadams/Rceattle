@@ -248,7 +248,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   colnames(Observation) <- paste0("Comp_", 1:ncol(Observation))
   dat_list$srv_comp <- cbind(dat_list$srv_comp, Observation)
 
-  # EIT Survey age comp
+  # EIT Survey ag e comp
   eit_comp <- data.frame(
     Survey_name = rep("EIT_Pollock", dat_list$n_eit),
     Survey_code = rep(4, dat_list$n_eit),

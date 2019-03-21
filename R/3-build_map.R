@@ -52,8 +52,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$fsh_sel_inf[1:2, i] <- NA
 
       # If nselages is  < max(nselages)
-      if(data_list$nselages[i] < max(data_list$nselages, na.rm = TRUE)){
-        map_list$fsh_sel_coff[i, (data_list$nselages[i] + 1):max(data_list$nselages)]  <- replace(map_list$fsh_sel_coff[i, (data_list$nselages[i] + 1):max(data_list$nselages)], values = rep(NA, length(map_list$fsh_sel_coff[i, (data_list$nselages[i] + 1):max(data_list$nselages)])))
+      if(data_list$fsh_control$Nselages[i] < max(data_list$fsh_control$Nselages, na.rm = TRUE)){
+        map_list$fsh_sel_coff[i, (data_list$fsh_control$Nselages[i] + 1):max(data_list$fsh_control$Nselages, na.rm = T)]  <- replace(map_list$fsh_sel_coff[i, (data_list$fsh_control$Nselages[i] + 1):max(data_list$fsh_control$Nselages, na.rm = T)], values = rep(NA, length(map_list$fsh_sel_coff[i, (data_list$fsh_control$Nselages[i] + 1):max(data_list$fsh_control$Nselages, na.rm = T)])))
       }
     }
     if(data_list$fsh_control$Selectivity[i] == 3){ # Double logistic
@@ -88,8 +88,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$srv_sel_inf[1:2, i] <- NA
 
       # If nselages is  < max(nselages)
-      if(data_list$nselages[i] < max(data_list$nselages, na.rm = TRUE)){
-        map_list$srv_sel_coff[i, (data_list$nselages[i] + 1):max(data_list$nselages)]  <- replace(map_list$srv_sel_coff[i, (data_list$nselages[i] + 1):max(data_list$nselages)], values = rep(NA, length(map_list$srv_sel_coff[i, (data_list$nselages[i] + 1):max(data_list$nselages)])))
+      if(data_list$srv_control$Nselages[i] < max(data_list$srv_control$Nselages, na.rm = TRUE)){
+        map_list$srv_sel_coff[i, (data_list$srv_control$Nselages[i] + 1):max(data_list$srv_control$Nselages, na.rm = T)]  <- replace(map_list$srv_sel_coff[i, (data_list$srv_control$Nselages[i] + 1):max(data_list$srv_control$Nselages, na.rm = T)], values = rep(NA, length(map_list$srv_sel_coff[i, (data_list$srv_control$Nselages[i] + 1):max(data_list$srv_control$Nselages, na.rm = T)])))
       }
     }
     if(data_list$srv_control$Selectivity[i] == 3){ # Double logistic
