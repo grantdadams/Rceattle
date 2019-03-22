@@ -121,7 +121,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     # Suitability parameters
     map_list$log_gam_a <- replace(map_list$log_gam_a, values = rep(NA, length(map_list$log_gam_a)))
     map_list$log_gam_b <- replace(map_list$log_gam_b, values = rep(NA, length(map_list$log_gam_b)))
-    map_list$phi <- replace(map_list$phi, values = rep(NA, length(map_list$phi)))
+    map_list$log_phi <- replace(map_list$log_phi, values = rep(NA, length(map_list$log_phi)))
 
     # Multispecies
     map_list$logH_1 <- replace(map_list$logH_1, values = rep(NA, length(map_list$logH_1)))
@@ -201,12 +201,12 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     if(data_list$suitMode == 0){
       map_list$log_gam_a <- replace(map_list$log_gam_a, values = rep(NA, length(map_list$log_gam_a)))
       map_list$log_gam_b <- replace(map_list$log_gam_b, values = rep(NA, length(map_list$log_gam_b)))
-      map_list$phi <- replace(map_list$phi, values = rep(NA, length(map_list$phi)))
+      map_list$log_phi <- replace(map_list$log_phi, values = rep(NA, length(map_list$log_phi)))
     }
 
     # 2.2. GAMMA suitability
     if(data_list$suitMode %in% c(1:3)){
-      map_list$phi <- replace(map_list$phi, values = rep(NA, length(map_list$phi)))
+      map_list$log_phi <- replace(map_list$log_phi, values = rep(NA, length(map_list$log_phi)))
     }
 
     # 2.3. and 2.4 Lognormal
@@ -227,10 +227,14 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
 
   # STEP 4 -- Conver to factor
-  for(i in 1:length(map_list)){
-    map_list[[i]] <- factor(map_list[[i]])
+  map_list_grande <- list()
+  map_list_grande[[1]] <- map_list
+  map_list_grande[[2]] <- map_list
+
+  for(i in 1:length(map_list_grande[[1]])){
+    map_list_grande[[1]][[i]] <- factor(map_list_grande[[1]][[i]])
   }
 
 
-  return(map_list)
+  return(map_list_grande)
 }

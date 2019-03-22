@@ -13,6 +13,16 @@
 // 1. Holsman, K. K., Ianelli, J., Aydin, K., Punt, A. E., & Moffitt, E. A. (2015). A comparison of fisheries biological reference points estimated from temperature-specific multi-species and single-species climate-enhanced stock assessment models. Deep-Sea Research Part II: Topical Studies in Oceanography, 134, 360–378. https://doi.org/10.1016/j.dsr2.2015.08.001
 // ------------------------------------------------------------------------- //
 //
+// Changes from 2017 assessment
+// 1. Normalize age-transition matrix prior to use (PCod rows did not sum to 1)
+// 2. Added log-normal recruitment deviation bias correction
+// 3. BT survey age/length composition estimated for month 6 rather than 0, similar to BT survey biomass
+// 4. Fixed mis-specification of multinomial for fishery composition
+// 5. Normalized survey and fishery selectivity so that max = 1
+// 6.
+//
+//
+//
 //  INDEX:
 //  0. Load dependencies
 //  1. Model configuration
@@ -37,130 +47,136 @@
 // ------------------------------------------------------------------------- //
 #include "functions.hpp"
 
-
 template<class Type>
 Type objective_function<Type>::operator() () {
   // ------------------------------------------------------------------------- //
   // 1. MODEL CONFIGURATION                                                    //
   // ------------------------------------------------------------------------- //
   // 1.1. CONFIGURE MODEL (this section sets up the switches)
-  DATA_INTEGER(debug);            // Logical to debug or not
+  DATA_INTEGER(debug);                    // Logical to debug or not
   DATA_INTEGER(msmMode);
   //    0 = run in single species mode
   //    1 = run in MSM mode  Holsman et al (2015) MSVPA based
-  // DATA_INTEGER(est_diet);         // Include diet data in the likelihood
-  DATA_INTEGER(suitMode);         // Estimate suitability
-  DATA_INTEGER(avgnMode);         // N used for predation function
+  // DATA_INTEGER(est_diet);              // Include diet data in the likelihood
+  DATA_INTEGER(suitMode);                 // Estimate suitability
+  DATA_INTEGER(avgnMode);                 // N used for predation function
   //    0 = AvgN
   //    1 = N*exp(-Z / 2))
   //    2 = N
 
-  DATA_INTEGER( random_rec );     // Logical of whether to treate recruitment deviations as random effects
-  DATA_INTEGER( niter );          // Number of loops for MSM mode
+  DATA_INTEGER( random_rec );             // Logical of whether to treate recruitment deviations as random effects
+  DATA_INTEGER( niter );                  // Number of loops for MSM mode
 
 
   // Columns =  Species, Survey, Selectivity, Estimate_q, log_q_prior
   // Selectivity 0 = empirical, 1 = logistic, 2 = non-parametric, 3 = double logistic
 
   // 1.2. Temporal dimensions
-  DATA_INTEGER( nyrs );           // Number of estimation years
-  DATA_INTEGER( styr );           // Start year
-  DATA_INTEGER( endyr);
+  DATA_INTEGER( nyrs );                   // Number of estimation years
+  DATA_INTEGER( styr );                   // Start year
+  // DATA_INTEGER( endyr);                   // End year of projection
 
   // 1.3. Number of species
-  DATA_INTEGER( nspp );           // Number of species (prey)
+  DATA_INTEGER( nspp );                   // Number of species (prey)
 
 
   // 1.4. MODEL OBJECTS
   // 1.4.1. LOOPING INDICES -- k = observation, sp = species, age = age, ln = length, ksp = prey, k_age = prey age (yr), k_ln = prey length, yr = year, rsp = predator, r_age = predator age (yr), r_ln = predator length
-  int sp, age, ln, ksp, k_age, k_ln, yr, mo, rsp, r_age, r_ln; // k
-  int srv, fsh;                       // Survey and fishery indices
-  int fsh_yr, srv_yr;         // Year indices
-  int fsh_ind, srv_ind, comp_ind, ctl_ind;     // Indices for survey data sets
+  int sp, age, ln, ksp, k_age, k_ln, yr, rsp, r_age, r_ln; // k
+  int srv, fsh;                           // Survey and fishery indices
+  int fsh_yr, srv_yr;                     // Year indices
+  int fsh_ind, srv_ind, comp_ind, ctl_ind;// Indices for survey data sets
   int ncnt;    // Pointers
-  if (msmMode == 0) { niter = 1; }    // Number of iterations for SS mode
+  Type mo = 0;                            // Month float
+  if (msmMode == 0) { niter = 1; }        // Number of iterations for SS mode
 
   // ------------------------------------------------------------------------- //
   // 2. MODEL INPUTS                                                           //
   // ------------------------------------------------------------------------- //
 
   // 2.1. FIXED VALUES
-  int tau = 200;                    // Fishery age composition sample size
-  Type MNConst = 0.001;             // Constant additive for logistic functions
-  Type curv_pen_fsh = 12.5;         // Fishery selectivity penalty
-  Type sigma_catch = 0.05;          // SD of catch
-  Type sd_ration = 0.05;            // SD of ration likelihood
+  Type MNConst = 0.001;                   // Constant additive for logistic functions
+  Type curv_pen_fsh = 12.5;               // Fishery selectivity penalty
+  Type sd_ration = 0.05;                  // SD of ration likelihood
 
 
   // 2.2. DIMENSIONS
   // int nyrs_proj = proj_yr - styr + 1;        // End year
 
   // -- 2.2.2. Species attributes
-  DATA_IVECTOR( nages );          // Number of species (prey) ages; n = [1, nspp]
-  DATA_INTEGER(stom_tau);         // Stomach sample size
-  int max_age = imax(nages);      // Integer of maximum nages to make the arrays; n = [1]
+  DATA_IVECTOR( nages );                  // Number of species (prey) ages; n = [1, nspp]
+  DATA_INTEGER( stom_tau );               // Stomach sample size
+  int max_age = imax(nages);              // Integer of maximum nages to make the arrays; n = [1]
 
   // 2.3. DATA INPUTS (i.e. assign data to objects)
   // -- 2.3.1 Fishery Components
-  DATA_IMATRIX( fsh_control );     // Survey specifications
-  DATA_MATRIX( catch_biom );      // Observed survey biomass (kg); n = [5, nyrs_srv_biom * nspp ]; columns  = Species, Survey, Year, Month, Observation, Error
-  DATA_MATRIX( emp_fsh_sel );     // Observed survey selectivity; n = [eit_age, nyrs_eit_sel]
-  DATA_MATRIX( fsh_comp ) ;       // Observed age/length comp; n = [nspp, nages, nyrs]
+
+  DATA_IMATRIX( fsh_control );            // Survey specifications
+  DATA_IMATRIX( fsh_biom_ctl );           // Info for fishery biomass; n = [nobs_fish_biom, 2]; columns = Fishery_name, Fishery_code, Species, Year, Month
+  DATA_MATRIX( fsh_biom_obs );            // Observed fishery catch biomass (kg) and cv; n = [nobs_fish_biom, 2]; columns = Observation, Error
+  DATA_IMATRIX( fsh_emp_sel_ctl );        // Info on empirical fishery selectivity; columns =  Fishery_name, Fishery_code, Species, Year
+
+  DATA_MATRIX( fsh_emp_sel_obs );         // Observed emprical fishery selectivity; columns = Compe_1, Comp_2, etc.
+  DATA_IMATRIX( fsh_comp_ctl );           // Info on observed fishery age/length comp; columns = Fishery_name, Fishery_code, Species, Year, Month, Sample size
+  DATA_MATRIX( fsh_comp_obs );            // Observed fishery age/length comp; cols = Comp_1, Comp_2, etc. can be proportion
 
   // -- 2.3.2 Survey components
-  DATA_IMATRIX( srv_control );     // Survey specifications
-  DATA_MATRIX( srv_biom );        // Observed survey biomass (kg); n = [5, nyrs_srv_biom * nspp ]; columns  = Species, Survey, Year, Month, Observation, Error
-  DATA_MATRIX( emp_srv_sel );     // Observed survey selectivity; n = [eit_age, nyrs_eit_sel]
-  DATA_MATRIX( srv_comp ) ;       // Observed age/length comp; n = [nspp, nages, nyrs]
+  DATA_IMATRIX( srv_control );            // Survey specifications
+  DATA_IMATRIX( srv_biom_ctl );           // Info for survey biomass; n = [nobs_srv_biom, 2]; columns = Survey_name, Survey_code, Species, Year, Month
 
-  // DATA_MATRIX( srv_age_sizes );   // Observed size composition: n = [nspp, srv_age_bins]; NOTUSED
-  DATA_ARRAY( age_trans_matrix);     // observed sp_age/size compositions; n = [nspp, nages, srv_age_bins]
+  DATA_MATRIX( srv_biom_obs );            // Observed survey biomass (kg) and cv; n = [nobs_srv_biom, 2]; columns = Observation, Error
+  DATA_IMATRIX( srv_emp_sel_ctl );        // Info on empirical survey selectivity; columns =  Survey_name, Survey_code, Species, Year
+  DATA_MATRIX( srv_emp_sel_obs );         // Observed emprical survey selectivity; columns = Compe_1, Comp_2, etc.
+  DATA_IMATRIX( srv_comp_ctl );           // Info on observed survey age/length comp; columns = Survey_name, Survey_code, Species, Year, Month, Sample size
+  DATA_MATRIX( srv_comp_obs );            // Observed survey age/length comp; cols = Comp_1, Comp_2, etc. can be proportion
+
+
+  DATA_ARRAY( age_trans_matrix);          // observed sp_age/size compositions; n = [nspp, nages, srv_age_bins]
 
   // -- 2.3.5. Weight-at-age
-  DATA_ARRAY( wt );                  // Weight-at-age by year; n = [nyrs, nages, nspp]: FIXME: Change nyrs to nyrs_wt_at_age if data don't span entire bit
+  DATA_ARRAY( wt );                       // Weight-at-age by year; n = [nyrs, nages, nspp]: FIXME: Change nyrs to nyrs_wt_at_age if data don't span entire bit
 
   // 2.3.6. Diet data
-  DATA_VECTOR( fday );               // number of foraging days for each predator; n = [1, nspp] #FIXME - assuming this is the same as fdays
-  DATA_ARRAY( Pyrs );                // n = [nspp, nyrs+1, nages]: #FIXME - Assuming this is the same as Pby_yr?
-  DATA_ARRAY( Uobs );                // pred, prey, predL, preyL U matrix (mean number of prey in each pred); n = [nspp, nspp, maxL, maxL]
-  DATA_ARRAY( UobsWt );              // pred, prey, predL, preyL U matrix (mean wt_hat of prey in each pred); n = [nspp, nspp, maxL, maxL] #FIXME - Changed name in stomach2017.dat
-  DATA_ARRAY( UobsAge );             // pred, prey, predA, preyA U matrix (mean number of prey in each pred age); n = [nspp, nspp, max_age, max_age]
-  DATA_ARRAY( UobsWtAge );           // pred, prey, predA, preyA U matrix (mean wt_hat of prey in each pred age); n = [nspp, nspp, max_age, max_age]
-  DATA_MATRIX( Mn_LatAge );          // Mean length-at-age; n = [nspp, nages], ALSO: mean_laa in Kinzey
+  DATA_VECTOR( fday );                    // number of foraging days for each predator; n = [1, nspp] #FIXME - assuming this is the same as fdays
+  DATA_ARRAY( Pyrs );                     // n = [nspp, nyrs+1, nages]: #FIXME - Assuming this is the same as Pby_yr?
+  DATA_ARRAY( Uobs );                     // pred, prey, predL, preyL U matrix (mean number of prey in each pred); n = [nspp, nspp, maxL, maxL]
+  DATA_ARRAY( UobsWt );                   // pred, prey, predL, preyL U matrix (mean wt_hat of prey in each pred); n = [nspp, nspp, maxL, maxL] #FIXME - Changed name in stomach2017.dat
+  DATA_ARRAY( UobsAge );                  // pred, prey, predA, preyA U matrix (mean number of prey in each pred age); n = [nspp, nspp, max_age, max_age]
+  DATA_ARRAY( UobsWtAge );                // pred, prey, predA, preyA U matrix (mean wt_hat of prey in each pred age); n = [nspp, nspp, max_age, max_age]
+  DATA_MATRIX( Mn_LatAge );               // Mean length-at-age; n = [nspp, nages], ALSO: mean_laa in Kinzey
 
   // 2.3.8. Environmental data
-  DATA_INTEGER( nTyrs );          // Number of temperature years; n = [1] #FIXME - changed the name of this in retro_data2017_asssmnt.dat
-  DATA_IVECTOR( Tyrs );           // Years of hindcast data; n = [1, nTyrs] #FIXME - changed the name of this in retro_data2017_asssmnt.dat
-  DATA_VECTOR( BTempC );    // Vector of bottom temperature; n = [1,  nTyrs ]
+  DATA_INTEGER( nTyrs );                  // Number of temperature years; n = [1] #FIXME - changed the name of this in retro_data2017_asssmnt.dat
+  DATA_IVECTOR( Tyrs );                   // Years of hindcast data; n = [1, nTyrs] #FIXME - changed the name of this in retro_data2017_asssmnt.dat
+  DATA_VECTOR( BTempC );                  // Vector of bottom temperature; n = [1,  nTyrs ]
 
   // 2.4. INPUT PARAMETERS
   // -- 2.4.1. Bioenergetics parameters (BP)
-  DATA_VECTOR( other_food );      // Biomass of other prey (kg); n = [1, nspp]
-  DATA_IVECTOR( C_model );        // f == 1, the use Cmax*fT*P; n = [1, nspp]
-  DATA_VECTOR( Pvalue );          // This scales the pvalue used if C_model ==1 , proportion of Cmax; Pvalue is P in Cmax*fT*Pvalue*PAge; n = [1, nspp]
-  DATA_IVECTOR( Ceq );            // Ceq: which Comsumption equation to use; n = [1, nspp]; Currently all sp = 1
-  DATA_VECTOR( CA );              // Wt specific intercept of Cmax=CA*W^CB; n = [1, nspp]
-  DATA_VECTOR( CB );              // Wt specific slope of Cmax=CA*W^CB; n = [1, nspp]
-  DATA_VECTOR( Qc );              // used in fT, QC value; n = [1, nspp]
-  DATA_VECTOR( Tco );             // used in fT, thermal optimum; n = [1, nspp]
-  DATA_VECTOR( Tcm );             // used in fT, thermal max; n = [1, nspp]
-  DATA_VECTOR( Tcl );             // used in fT eq 3, limit; n = [1, nspp]
-  DATA_VECTOR( CK1 );             // used in fT eq 3, limit where C is .98 max (ascending); n = [1, nspp]
-  DATA_VECTOR( CK4 );             // used in fT eq 3, temp where C is .98 max (descending); n = [1, nspp]
-  DATA_MATRIX( S_a );             // S_a, S_b, S_b2, S_b3, S_b4, S_b5: a,L,L^2,L^3,L^4,L^5 (rows)coef for mean S=a+b*L+b2*L*L, whith a cap at 80cm for each pred spp(cols); n = [6, nspp]
+  DATA_VECTOR( other_food );              // Biomass of other prey (kg); n = [1, nspp]
+  DATA_IVECTOR( C_model );                // f == 1, the use Cmax*fT*P; n = [1, nspp]
+  DATA_VECTOR( Pvalue );                  // This scales the pvalue used if C_model ==1 , proportion of Cmax; Pvalue is P in Cmax*fT*Pvalue*PAge; n = [1, nspp]
+  DATA_IVECTOR( Ceq );                    // Ceq: which Comsumption equation to use; n = [1, nspp]; Currently all sp = 1
+  DATA_VECTOR( CA );                      // Wt specific intercept of Cmax=CA*W^CB; n = [1, nspp]
+  DATA_VECTOR( CB );                      // Wt specific slope of Cmax=CA*W^CB; n = [1, nspp]
+  DATA_VECTOR( Qc );                      // used in fT, QC value; n = [1, nspp]
+  DATA_VECTOR( Tco );                     // used in fT, thermal optimum; n = [1, nspp]
+  DATA_VECTOR( Tcm );                     // used in fT, thermal max; n = [1, nspp]
+  DATA_VECTOR( Tcl );                     // used in fT eq 3, limit; n = [1, nspp]
+  DATA_VECTOR( CK1 );                     // used in fT eq 3, limit where C is .98 max (ascending); n = [1, nspp]
+  DATA_VECTOR( CK4 );                     // used in fT eq 3, temp where C is .98 max (descending); n = [1, nspp]
+  DATA_MATRIX( S_a );                     // S_a, S_b, S_b2, S_b3, S_b4, S_b5: a,L,L^2,L^3,L^4,L^5 (rows)coef for mean S=a+b*L+b2*L*L, whith a cap at 80cm for each pred spp(cols); n = [6, nspp]
 
   // -- 2.4.2. von Bertalannfy growth function (VBGF): This is used to calculate future weight-at-age: NOT YET IMPLEMENTED
 
   // -- 2.4.3. Weight-at-length parameters
-  DATA_MATRIX( aLW );             // LW a&b regression coefs for W=a*L^b; n = [2, nspp]
+  DATA_MATRIX( aLW );                     // LW a&b regression coefs for W=a*L^b; n = [2, nspp]
 
   // -- 2.4.4. Others
-  DATA_MATRIX( M1_base );         // Residual natural mortality; n = [nspp, nages]
-  DATA_MATRIX( propF );        // Proportion-at-age of females of population; n = [nspp, nages]
-  DATA_MATRIX( pmature );         // Proportion of mature females at age; [nspp, nages]
+  DATA_MATRIX( M1_base );                 // Residual natural mortality; n = [nspp, nages]
+  DATA_MATRIX( propF );                   // Proportion-at-age of females of population; n = [nspp, nages]
+  DATA_MATRIX( pmature );                 // Proportion of mature females at age; [nspp, nages]
 
   // -- 2.4.5. F Profile data: NOTUSED
-
 
 
   // ------------------------------------------------------------------------- //
@@ -203,46 +219,48 @@ Type objective_function<Type>::operator() () {
   // ------------------------------------------------------------------------- //
   // 3. PARAMETER SECTION                                                      //
   // ------------------------------------------------------------------------- //
-  PARAMETER(dummy);                    // Variable to test derived quantities given input parameters; n = [1]
+
+  PARAMETER(dummy);                               // Variable to test derived quantities given input parameters; n = [1]
 
   // -- 3.1. Recruitment parameters
-  PARAMETER_VECTOR( ln_mn_rec );       // Mean recruitment; n = [1, nspp]
-  PARAMETER_VECTOR( ln_rec_sigma );    // Standard deviation of recruitment deviations; n = [1, nspp]
-  PARAMETER_MATRIX( rec_dev );         // Annual recruitment deviation; n = [nspp, nyrs]
+  PARAMETER_VECTOR( ln_mn_rec );                  // Mean recruitment; n = [1, nspp]
+  PARAMETER_VECTOR( ln_rec_sigma );               // Standard deviation of recruitment deviations; n = [1, nspp]
+  PARAMETER_MATRIX( rec_dev );                    // Annual recruitment deviation; n = [nspp, nyrs]
+
 
   // -- 3.2. Abundance parameters
-  PARAMETER_MATRIX( init_dev );             // Initial abundance-at-age; n = [nspp, nages] # NOTE: Need to figure out how to best vectorize this
+  PARAMETER_MATRIX( init_dev );                   // Initial abundance-at-age; n = [nspp, nages] # NOTE: Need to figure out how to best vectorize this
 
   // -- 3.3. fishing mortality parameters
-  PARAMETER_VECTOR( ln_mean_F );      // Log mean fishing mortality; n = [1, nspp]
-  PARAMETER_MATRIX( F_dev );          // Annual fishing mortality deviations; n = [nspp, nyrs] # NOTE: The size of this will likely change
+  PARAMETER_VECTOR( ln_mean_F );                  // Log mean fishing mortality; n = [1, nspp]
+  PARAMETER_MATRIX( F_dev );                      // Annual fishing mortality deviations; n = [nspp, nyrs] # NOTE: The size of this will likely change
 
   // -- 3.4. Selectivity parameters
-  PARAMETER_MATRIX( srv_sel_coff );    // Survey selectivity parameters; n = [n_srv, nselages]
-  PARAMETER_MATRIX( srv_sel_slp );     // Survey selectivity paramaters for logistic; n = [2, n_srv]
-  PARAMETER_MATRIX( srv_sel_inf );     // Survey selectivity paramaters for logistic; n = [2, n_srv]
-  PARAMETER_VECTOR( log_srv_q );       // Survey catchability; n = [n_srv]
+  PARAMETER_MATRIX( srv_sel_coff );               // Survey selectivity parameters; n = [n_srv, nselages]
+  PARAMETER_MATRIX( srv_sel_slp );                // Survey selectivity paramaters for logistic; n = [2, n_srv]
+  PARAMETER_MATRIX( srv_sel_inf );                // Survey selectivity paramaters for logistic; n = [2, n_srv]
+  PARAMETER_VECTOR( log_srv_q );                  // Survey catchability; n = [n_srv]
 
-  PARAMETER_MATRIX( fsh_sel_coff );    // Fishery age selectivity coef; n = [n_srv, nselages]
-  PARAMETER_MATRIX( fsh_sel_slp );     // Fishery selectivity paramaters for logistic; n = [2, n_fsh]
-  PARAMETER_MATRIX( fsh_sel_inf );     // Fishery selectivity paramaters for logistic; n = [2, n_fsh]
+  PARAMETER_MATRIX( fsh_sel_coff );               // Fishery age selectivity coef; n = [n_srv, nselages]
+  PARAMETER_MATRIX( fsh_sel_slp );                // Fishery selectivity paramaters for logistic; n = [2, n_fsh]
+  PARAMETER_MATRIX( fsh_sel_inf );                // Fishery selectivity paramaters for logistic; n = [2, n_fsh]
 
   // FIXME: Create maps
   // -- 3.5. Kinzery predation function parameters
-  PARAMETER_MATRIX(logH_1);            // Predation functional form; n = [nspp, nspp2]; // FIXME: make matrix; nspp2 = nspp + 1
-  PARAMETER_VECTOR(logH_1a);           // Age adjustment to H_1; n = [1, nspp]; // FIXME: make matrix
-  PARAMETER_VECTOR(logH_1b);           // Age adjustment to H_1; n = [1, nspp]; // FIXME: make matrix
+  PARAMETER_MATRIX(logH_1);                       // Predation functional form; n = [nspp, nspp2];
+  PARAMETER_VECTOR(logH_1a);                      // Age adjustment to H_1; n = [1, nspp]; // FIXME: make matrix
+  PARAMETER_VECTOR(logH_1b);                      // Age adjustment to H_1; n = [1, nspp]; // FIXME: make matrix
 
-  PARAMETER_MATRIX(logH_2);            // Predation functional form; n = [nspp, nspp]
-  PARAMETER_MATRIX(logH_3);            // Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH3,UpperBoundH3;
-  PARAMETER_MATRIX(H_4);               // Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH4,UpperBoundH4;
+  PARAMETER_MATRIX(logH_2);                       // Predation functional form; n = [nspp, nspp]
+  PARAMETER_MATRIX(logH_3);                       // Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH3,UpperBoundH3;
+  PARAMETER_MATRIX(H_4);                          // Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH4,UpperBoundH4;
 
   // 3.6 Gamma selectivity parameters
-  PARAMETER_VECTOR( log_gam_a );       // Log predator selectivity; n = [1,nspp]; FIXME: bounds = 1.0e-10 and 19.9
-  PARAMETER_VECTOR( log_gam_b );       // Log predator selectivity; n = [1,nspp]; FIXME: bounds = -5.2 and 10
+  PARAMETER_VECTOR( log_gam_a );                  // Log predator selectivity; n = [1,nspp]; FIXME: bounds = 1.0e-10 and 19.9
+  PARAMETER_VECTOR( log_gam_b );                  // Log predator selectivity; n = [1,nspp]; FIXME: bounds = -5.2 and 10
 
   // 3.7. Preference
-  PARAMETER_MATRIX( phi );             // Species preference coefficient; n = [nspp, nspp]
+  PARAMETER_MATRIX( log_phi );                        // Species preference coefficient; n = [nspp, nspp]
 
 
   // ------------------------------------------------------------------------- //
@@ -250,74 +268,75 @@ Type objective_function<Type>::operator() () {
   // ------------------------------------------------------------------------- //
 
   // 4.1. Derived indices
-  int max_bin = imax(srv_control.col(6));                                              // Integer of maximum number of length/age bins.
+  vector<int> bin_tmp = srv_control.col( 6 );
+  int max_bin = imax( bin_tmp );                                       // Integer of maximum number of length/age bins.
   int n_srv = srv_control.rows();
   int n_fsh = fsh_control.rows();
 
   // -- 4.2. Estimated population parameters
-  vector<Type>  mn_rec = exp(ln_mn_rec);                                        // Mean recruitment; n = [1, nspp]
-  array<Type>   AvgN(nspp, max_age, nyrs); AvgN.setZero();                      // Average numbers-at-age; n = [nspp, nages, nyrs]
-  array<Type>   biomassByage(nspp, max_age, nyrs); biomassByage.setZero();      // Estimated biomass-at-age (kg); n = [nspp, nages, nyrs]
-  matrix<Type>  biomass(nspp, nyrs); biomass.setZero();                         // Estimated biomass (kg); n = [nspp, nyrs]
-  matrix<Type>  biomassSSB(nspp, nyrs); biomassSSB.setZero();                   // Estimated spawning stock biomass (kg); n = [nspp, nyrs]
-  array<Type>   biomassSSBByage(nspp, max_age, nyrs); biomassSSBByage.setZero();// Spawning biomass at age (kg); n = [nspp, nages, nyrs]
-  array<Type>   M(nspp, max_age, nyrs); M.setZero();                            // Total natural mortality at age; n = [nyrs, nages, nspp]
-  matrix<Type>  M1(nspp, max_age); M1.setZero();                                // Base natural mortality; n = [nspp, nages]
-  array<Type>   M2(nspp, max_age, nyrs); M2.setZero();                          // Predation mortality at age; n = [nyrs, nages, nspp]
-  array<Type>   NByage(nspp, max_age, nyrs); NByage.setZero();                  // Numbers at age; n = [nspp, nages, nyrs]
-  matrix<Type>  R(nspp, nyrs); R.setZero();                                     // Estimated recruitment (n); n = [nspp, nyrs]
-  array<Type>   S(nspp, max_age, nyrs); S.setZero();                            // Survival at age; n = [nspp, nages, nyrs]
-  array<Type>   Zed(nspp, max_age, nyrs); Zed.setZero();                        // Total mortality at age; n = [nspp, nages, nyrs]
-  vector<Type>  r_sigma(nspp); r_sigma.setZero();                               // Standard deviation of recruitment variation
+  vector<Type>  mn_rec = exp(ln_mn_rec);                                            // Mean recruitment; n = [1, nspp]
+  array<Type>   AvgN(nspp, max_age, nyrs); AvgN.setZero();                          // Average numbers-at-age; n = [nspp, nages, nyrs]
+  array<Type>   biomassByage(nspp, max_age, nyrs); biomassByage.setZero();          // Estimated biomass-at-age (kg); n = [nspp, nages, nyrs]
+  matrix<Type>  biomass(nspp, nyrs); biomass.setZero();                             // Estimated biomass (kg); n = [nspp, nyrs]
+  matrix<Type>  biomassSSB(nspp, nyrs); biomassSSB.setZero();                       // Estimated spawning stock biomass (kg); n = [nspp, nyrs]
+  array<Type>   biomassSSBByage(nspp, max_age, nyrs); biomassSSBByage.setZero();    // Spawning biomass at age (kg); n = [nspp, nages, nyrs]
+  array<Type>   M(nspp, max_age, nyrs); M.setZero();                                // Total natural mortality at age; n = [nyrs, nages, nspp]
+  matrix<Type>  M1(nspp, max_age); M1.setZero();                                    // Base natural mortality; n = [nspp, nages]
+  array<Type>   M2(nspp, max_age, nyrs); M2.setZero();                              // Predation mortality at age; n = [nyrs, nages, nspp]
+  array<Type>   NByage(nspp, max_age, nyrs); NByage.setZero();                      // Numbers at age; n = [nspp, nages, nyrs]
+  matrix<Type>  R(nspp, nyrs); R.setZero();                                         // Estimated recruitment (n); n = [nspp, nyrs]
+  array<Type>   S(nspp, max_age, nyrs); S.setZero();                                // Survival at age; n = [nspp, nages, nyrs]
+  array<Type>   Zed(nspp, max_age, nyrs); Zed.setZero();                            // Total mortality at age; n = [nspp, nages, nyrs]
+  vector<Type>  r_sigma(nspp); r_sigma.setZero();                                   // Standard deviation of recruitment variation
 
   // -- 4.3. Fishery observations
-  vector<Type>  avgsel_fsh(n_fsh); avgsel_fsh.setZero();                        // Average fishery selectivity; n = [1, nspp]
-  array<Type>   fsh_sel(n_fsh, max_age, nyrs); fsh_sel.setZero();               // Estimated fishery selectivity at age; n = [nspp, nages, nyrs]
-  array<Type>   fsh_sel_tmp(n_fsh, max_age); fsh_sel_tmp.setZero();             // Temporary saved fishery selectivity at age for estimated bits; n = [nspp, nages, nyrs]
+  vector<Type>  avgsel_fsh(n_fsh); avgsel_fsh.setZero();                            // Average fishery selectivity; n = [1, nspp]
+  array<Type>   fsh_sel(n_fsh, max_age, nyrs); fsh_sel.setZero();                   // Estimated fishery selectivity at age; n = [nspp, nages, nyrs]
+  matrix<Type>  fsh_sel_tmp(n_fsh, max_age); fsh_sel_tmp.setZero();                 // Temporary saved fishery selectivity at age for estimated bits; n = [nspp, nages, nyrs]
 
-  array<Type>   catch_hat(nspp, max_age, nyrs); catch_hat.setZero();            // Estimated catch-at-age (n); n = [nspp, nages, nyrs]
-  array<Type>   F(n_fsh, max_age, nyrs); F.setZero();                            // Estimated fishing mortality for each fishery; n = [n_fsh, nages, nyrs]
-  array<Type>   F_tot(nspp, max_age, nyrs); F_tot.setZero();                    // Sum of annual estimated fishing mortalities for each species-at-age; n = [nspp, nages, nyrs]
-  matrix<Type>  fsh_bio_hat = srv_biom.block(0,0,catch_biom.rows(),6);                 // Estimated fishery yield (kg); columns = Species, Index, Year, Month, Estimate
-  matrix<Type>  fsh_hat = fsh_comp.block(0,0,fsh_comp.rows(),7) ;               // Estimated fishery catch (n); n = [nspp, nyrs]
-  matrix<Type>  srv_age_hat = fsh_comp;                                         // Estimated fishery catch at age; n = [nspp, nages, nyrs]
-  matrix<Type>  fsh_comp_hat = fsh_comp;                                        // Estimated fishery comp; n = [nspp, nages, nyrs]
- 
+  array<Type>   catch_hat(nspp, max_age, nyrs); catch_hat.setZero();                // Estimated catch-at-age (n); n = [nspp, nages, nyrs]
+  array<Type>   F(n_fsh, max_age, nyrs); F.setZero();                               // Estimated fishing mortality for each fishery; n = [n_fsh, nages, nyrs]
+  array<Type>   F_tot(nspp, max_age, nyrs); F_tot.setZero();                        // Sum of annual estimated fishing mortalities for each species-at-age; n = [nspp, nages, nyrs]
+  vector<Type>  fsh_bio_hat(fsh_biom_obs.rows()); fsh_bio_hat.setZero();            // Estimated fishery yield (kg); columns = Species, Index, Year, Month, Estimate
+  vector<Type>  fsh_hat(fsh_comp_obs.rows()) ; fsh_hat.setZero() ;                  // Estimated fishery catch (n); n = [nspp, nyrs]
+  matrix<Type>  fsh_age_hat = fsh_comp_obs; fsh_age_hat.setZero();                 // Estimated fishery catch at age; n = [nspp, nages, nyrs]
+  matrix<Type>  fsh_comp_hat = fsh_comp_obs; fsh_comp_hat.setZero();                // Estimated fishery comp; n = [nspp, nages, nyrs]
+
   // -- 4.4. Survey components
-  vector<Type>  avgsel_srv(n_srv); avgsel_srv.setZero();                        // Average survey selectivity; n = [1, nspp]
-  array<Type>   srv_sel(n_srv, max_age, nyrs); srv_sel.setZero();               // Estimated survey selectivity at age; n = [nspp, nages, nyrs]
-  array<Type>   srv_sel_tmp(n_srv, max_age); srv_sel_tmp.setZero();             // Temporary saved survey selectivity at age for estimated bits; n = [nspp, nages, nyrs]
+  vector<Type>  avgsel_srv(n_srv); avgsel_srv.setZero();                          // Average survey selectivity; n = [1, nspp]
+  array<Type>   srv_sel(n_srv, max_age, nyrs); srv_sel.setZero();                 // Estimated survey selectivity at age; n = [nspp, nages, nyrs]
+  matrix<Type>  srv_sel_tmp(n_srv, max_age); srv_sel_tmp.setZero();               // Temporary saved survey selectivity at age for estimated bits; n = [nspp, nages, nyrs]
 
-  Type avgsel_tmp = 0;                                                          // Temporary object for average selectivity across all ages
-  matrix<Type>  srv_bio_hat = srv_biom.block(0,0,srv_biom.rows(),6);            // Estimated survey biomass (kg); columns = Species, Index, Year, Month, Estimate
-  matrix<Type>  srv_hat = srv_comp.block(0,0,srv_comp.rows(),7) ;               // Estimated survey total abundance (n); n = [nspp, nyrs]
-  matrix<Type>  srv_age_hat = srv_comp;                                         // Estimated survey abundance at age; n = [nspp, nages, nyrs]
-  matrix<Type>  srv_comp_hat = srv_comp;                                        // Estimated survey comp; n = [nspp, nages, nyrs]
+  Type avgsel_tmp = 0;                                                            // Temporary object for average selectivity across all ages
+  vector<Type>  srv_bio_hat(srv_biom_obs.rows()); srv_bio_hat.setZero();          // Estimated survey biomass (kg); columns = Species, Index, Year, Month, Estimate
+  vector<Type>  srv_hat( srv_comp_obs.rows() ); srv_hat.setZero();                // Estimated survey total abundance (n); n = [nspp, nyrs]
+  matrix<Type>  srv_age_hat = srv_comp_obs; srv_age_hat.setZero();                // Estimated survey abundance at age; columns = Comp_1, Comp_2, etc.
+  matrix<Type>  srv_comp_hat = srv_comp_obs; srv_comp_hat.setZero();              // Estimated survey comp; columns = Comp_1, Comp_2, etc.
 
   // -- 4.6. Ration components
-  array<Type>   ConsumAge( nspp, max_age, nyrs ); ConsumAge.setZero();            // Pre-allocated indiviudal consumption in grams per predator-age; n = [nyrs, nages, nspp]
-  array<Type>   Consum_livingAge( nspp, max_age, nyrs ); Consum_livingAge.setZero(); // Pre-allocated indiviudal consumption in grams per predator-age; n = [nyrs, nages, nspp]
-  matrix<Type>  fT( nspp, nTyrs ); fT.setZero();                                  // Pre-allocation of temperature function of consumption; n = [nspp, nTyrs]
-  array<Type>   LbyAge( nspp, max_age, nyrs ); LbyAge.setZero();                  // Length by age from LW regression
-  matrix<Type>  mnWt_obs( nspp, max_age ); mnWt_obs.setZero();                    // Mean observed weight at age (across years); n = [nspp, nages]
-  array<Type>   ration2Age( nspp, max_age, nyrs ); ration2Age.setZero();          // Annual ration at age (kg/yr); n = [nyrs, nages, nspp]
-  array<Type>   S2Age( nspp, max_age, nyrs ); S2Age.setZero();                    // pre-allocate mean stomach weight as a function of sp_age
-  vector<Type>  TempC( nTyrs ); TempC.setZero();                                  // Bottom temperature; n = [1, nTyrs]
+  array<Type>   ConsumAge( nspp, max_age, nyrs ); ConsumAge.setZero();                        // Pre-allocated indiviudal consumption in grams per predator-age; n = [nyrs, nages, nspp]
+  array<Type>   Consum_livingAge( nspp, max_age, nyrs ); Consum_livingAge.setZero();          // Pre-allocated indiviudal consumption in grams per predator-age; n = [nyrs, nages, nspp]
+  matrix<Type>  fT( nspp, nTyrs ); fT.setZero();                                              // Pre-allocation of temperature function of consumption; n = [nspp, nTyrs]
+  array<Type>   LbyAge( nspp, max_age, nyrs ); LbyAge.setZero();                              // Length by age from LW regression
+  matrix<Type>  mnWt_obs( nspp, max_age ); mnWt_obs.setZero();                                // Mean observed weight at age (across years); n = [nspp, nages]
+  array<Type>   ration2Age( nspp, max_age, nyrs ); ration2Age.setZero();                      // Annual ration at age (kg/yr); n = [nyrs, nages, nspp]
+  array<Type>   S2Age( nspp, max_age, nyrs ); S2Age.setZero();                                // pre-allocate mean stomach weight as a function of sp_age
+  vector<Type>  TempC( nTyrs ); TempC.setZero();                                              // Bottom temperature; n = [1, nTyrs]
 
   // -- 4.7. Suitability components
   Type tmp_othersuit = 0  ;
-  Type suit_tmp = 0;                                                              //  Temporary storage variable
-  array<Type>   avail_food(nspp, max_age, nyrs); avail_food.setZero();            // Available food to predator; n = [nyrs, nages, nspp]
-  array<Type>   B_eaten(nspp, max_age, nyrs); B_eaten.setZero();                  // Biomass of prey eaten via predation; n = [nyrs, nages, nspp]
-  array<Type>   of_stomKir(nspp, max_age, nyrs); of_stomKir.setZero();            // Other food stomach content; n = [nyrs, nages, nspp]
-  array<Type>   stom_div_bio2(nspp, nspp, max_age, max_age, nyrs); stom_div_bio2.setZero();// Stomach proportion over biomass; U/ (W * N) ; n = [nspp, nspp, nages, nages, nyrs]
-  array<Type>   stomKir(nspp, nspp, max_age, max_age, nyrs); stomKir.setZero();       // Stomach proportion by numbers U; n = [nspp, nspp, nages, nages, nyrs]
-  array<Type>   stomKirWt(nspp, nspp, max_age, max_age, nyrs); stomKirWt.setZero();   // Stomach proportion by weight U; n = [nspp, nspp, nages, nages, nyrs]
-  array<Type>   diet_w_dat(nspp, nspp, max_bin, max_bin, nyrs); diet_w_dat.setZero(); // Observed stomach contents by weight of prey length j in predator length l
-  array<Type>   diet_w_sum(nspp, nspp, max_bin, nyrs); diet_w_sum.setZero();          // Observed stomach contentes by weight of prey in predator length j
-  array<Type>   suit_main(nspp, nspp, max_age, max_age, nyrs); suit_main.setZero();         // Suitability/gamma selectivity of predator age u on prey age a; n = [nspp, nspp, nages, nages]
-  matrix<Type>  suit_other(nspp, max_age); suit_other.setZero();                      // Suitability not accounted for by the included prey; n = [nspp, nages]
-  array<Type>   suma_suit(nspp, max_age, nyrs); suma_suit.setZero();                  // Sum of suitabilities; n = [nyrs, nages, nspp]
+  Type suit_tmp = 0;                                                                          //  Temporary storage variable
+  array<Type>   avail_food(nspp, max_age, nyrs); avail_food.setZero();                        // Available food to predator; n = [nyrs, nages, nspp]
+  array<Type>   B_eaten(nspp, max_age, nyrs); B_eaten.setZero();                              // Biomass of prey eaten via predation; n = [nyrs, nages, nspp]
+  array<Type>   of_stomKir(nspp, max_age, nyrs); of_stomKir.setZero();                        // Other food stomach content; n = [nyrs, nages, nspp]
+  array<Type>   stom_div_bio2(nspp, nspp, max_age, max_age, nyrs); stom_div_bio2.setZero();   // Stomach proportion over biomass; U/ (W * N) ; n = [nspp, nspp, nages, nages, nyrs]
+  array<Type>   stomKir(nspp, nspp, max_age, max_age, nyrs); stomKir.setZero();               // Stomach proportion by numbers U; n = [nspp, nspp, nages, nages, nyrs]
+  array<Type>   stomKirWt(nspp, nspp, max_age, max_age, nyrs); stomKirWt.setZero();           // Stomach proportion by weight U; n = [nspp, nspp, nages, nages, nyrs]
+  array<Type>   diet_w_dat(nspp, nspp, max_bin, max_bin, nyrs); diet_w_dat.setZero();         // Observed stomach contents by weight of prey length j in predator length l
+  array<Type>   diet_w_sum(nspp, nspp, max_bin, nyrs); diet_w_sum.setZero();                  // Observed stomach contentes by weight of prey in predator length j
+  array<Type>   suit_main(nspp, nspp, max_age, max_age, nyrs); suit_main.setZero();           // Suitability/gamma selectivity of predator age u on prey age a; n = [nspp, nspp, nages, nages]
+  matrix<Type>  suit_other(nspp, max_age); suit_other.setZero();                              // Suitability not accounted for by the included prey; n = [nspp, nages]
+  array<Type>   suma_suit(nspp, max_age, nyrs); suma_suit.setZero();                          // Sum of suitabilities; n = [nyrs, nages, nspp]
   array<Type>   UobsWtAge_hat(nspp, nspp, max_age, max_age, nyrs); UobsWtAge_hat.setZero();   // Estimated stomach proportion by weight U; n = [nspp, nspp, nages, nages, nyrs]
   array<Type>   mn_UobsWtAge_hat(nspp, nspp, max_age, max_age); mn_UobsWtAge_hat.setZero();   // Average estimated stomach proportion by weight U; n = [nspp, nspp, nages, nages]
 
@@ -325,8 +344,8 @@ Type objective_function<Type>::operator() () {
   vector<Type> gam_a = exp(log_gam_a); // Predator selectivity
   vector<Type> gam_b = exp(log_gam_b); // Predator selectivity
 
-  // -- 4.9. Kinzey Functional response bits
-  matrix<Type> H_1(nspp, nspp + 1); H_1 = exp(logH_1.array());                                     // FIXME: make matrix
+  // -- 4.9. Kinzey Functional response
+  matrix<Type> H_1(nspp, nspp + 1); H_1 = exp(logH_1.array());                       // FIXME: make matrix
   vector<Type> H_1a(nspp); H_1a = exp(logH_1a);                                      // FIXME: make matrix
   vector<Type> H_1b(nspp); H_1b = exp(logH_1b);                                      // FIXME: make matrix
   matrix<Type> H_2(nspp, nspp); H_2 = exp(logH_2.array());
@@ -347,10 +366,10 @@ Type objective_function<Type>::operator() () {
   array<Type>  eaten_la(nspp, nspp, max_bin, max_age, nyrs); eaten_la.setZero();     // Number of prey of age a eaten by predator length l
   array<Type>  eaten_ua(nspp, nspp, max_age, max_age, nyrs); eaten_ua.setZero();     // Number of prey of age a eaten by predator age u
 
-  array<Type>  Q_mass_l(nspp, nspp + 1, max_bin, nyrs); Q_mass_l.setZero();                // Mass of each prey sp consumed by predator at length // FIXME: make into 4D array
-  array<Type>  Q_mass_u(nspp, nspp + 1, max_bin, nyrs); Q_mass_u.setZero();                // Mass of each prey sp consumed by predator at age // FIXME: make into 4D array
+  array<Type>  Q_mass_l(nspp, nspp + 1, max_bin, nyrs); Q_mass_l.setZero();          // Mass of each prey sp consumed by predator at length // FIXME: make into 4D array
+  array<Type>  Q_mass_u(nspp, nspp + 1, max_bin, nyrs); Q_mass_u.setZero();          // Mass of each prey sp consumed by predator at age // FIXME: make into 4D array
   matrix<Type> Q_other_u(nspp, max_age); Q_other_u.setZero();                        // Mass of other prey consumed by predator at age
-  array<Type>  Q_hat(nspp, nspp + 1, max_bin, nyrs); Q_hat.setZero();                      // Fraction for each prey type of total mass eaten by predator length
+  array<Type>  Q_hat(nspp, nspp + 1, max_bin, nyrs); Q_hat.setZero();                // Fraction for each prey type of total mass eaten by predator length
   array<Type>  T_hat(nspp, nspp, max_bin, max_bin); T_hat.setZero();                 // Fraction of prey of length m in predator of length l
 
   array<Type> omega_hat(nspp, max_age, nyrs); omega_hat.setZero();                   // Daily ration by predator age each year
@@ -361,7 +380,39 @@ Type objective_function<Type>::operator() () {
   // 5. INITIAL CALCULATIONS                                                   //
   // ------------------------------------------------------------------------- //
 
-  // Survey control bits
+  // 5.5. Maturity and sex ratio
+  M1 = M1_base.array() + Type(0.0001);
+  for ( sp = 0; sp < nspp ; sp++) {
+    for ( age = 0 ; age < nages(sp); age++ ) {
+      pmature( sp, age ) = pmature( sp, age ) * propF(sp, age);
+    }
+  }
+
+  // 5.6. Calculate temperature to use
+  TempC = BTempC.sum() / nTyrs; // Fill with average bottom temperature
+
+  int yr_ind = 0;
+  for (yr = 0; yr < nTyrs; yr++) {
+    yr_ind = Tyrs( yr ) - styr;
+    if ((yr_ind >= 0) & (yr_ind < nyrs)) {
+      TempC(yr_ind) = BTempC( yr );
+    }
+  }
+
+  // 5.7. Calculate length-at-age
+  for (sp = 0; sp < nspp; sp++) {
+    for (age = 0; age < nages(sp); age++) {
+      for (yr = 0; yr < nyrs; yr++) {
+        LbyAge( sp, age, yr) = ( pow( ( 1 / aLW(0, sp) ), (1 / aLW(1, sp) ) ) ) * pow( ( wt(yr, age, sp) * 1000), (1 / aLW(1, sp))); // W = a L ^ b is the same as (W/a)^(1/b)
+      }
+    }
+  }
+
+
+  // 5.8. Parameter transform
+  r_sigma = exp(ln_rec_sigma); // Convert log sd to natural scale
+
+  // 5.1. Reorganize survey control bits
   vector<Type> srv_q(n_srv); srv_q.setZero();                                   // Vector to save q on natural scale
   vector<int> srv_sel_type(n_srv); srv_sel_type.setZero();                      // Vector to save survey selectivity type
   vector<int> srv_nselages(n_srv); srv_nselages.setZero();                      // Vector to save number of ages to estimate non-parametric selectivity (1 = age, 2 = length)
@@ -373,7 +424,7 @@ Type objective_function<Type>::operator() () {
   for (srv_ind = 0; srv_ind < n_srv; srv_ind++){
     srv = srv_control(srv_ind, 1) - 1;                    // Temporary survey index
     srv_q(srv) = exp(log_srv_q(srv_ind));                 // Exponentiate
-    srv_spp(srv) = srv_control(fsh_ind, 2) - 1;            // Species
+    srv_spp(srv) = srv_control(srv_ind, 2) - 1;           // Species
     srv_sel_type(srv) = srv_control(srv_ind, 3);          // Selectivity type
     srv_nselages(srv) = srv_control(srv_ind, 4);          // Non-parametric selectivity ages
     srv_comp_type(srv) = srv_control(srv_ind, 5);         // Composition type
@@ -384,7 +435,7 @@ Type objective_function<Type>::operator() () {
   }
 
 
-// Fishery control bits
+  // 5.2. Reorganize fishery control bits
   vector<int> fsh_sel_type(n_fsh); fsh_sel_type.setZero();                      // Vector to save fishery selectivity type
   vector<int> fsh_nselages(n_fsh); fsh_nselages.setZero();                      // Vector to save number of ages to estimate non-parametric selectivity (1 = age, 2 = length)
   vector<int> fsh_comp_type(n_fsh); fsh_comp_type.setZero();                    // Vector to save fishery composition type (1 = age, 2 = length)
@@ -401,118 +452,117 @@ Type objective_function<Type>::operator() () {
   }
 
 
-  // 5.1. Fishery catch-at-age to age-comp
-  tc_obs.setZero();
-  for(comp_ind = 0; comp_ind < fsh_comp.rows(); comp_ind++){
-    fsh_ind = fsh_comp(comp_ind, 1) - 1;     // Temporary index of fishery
-    fsh_comp.block(comp_ind,6,1,fsh_n_bins(fsh_ind)) = fsh_comp.block(comp_ind,6,1,fsh_n_bins(fsh_ind)) / fsh_comp.block(comp_ind,6,1,fsh_n_bins(fsh_ind)).sum();
-
-  }
-
-
-  // 5.2. Standardize survey composition
-  for(comp_ind = 0; comp_ind < srv_comp.rows(); comp_ind++){
-    srv_ind = srv_comp(comp_ind, 1) - 1;     // Temporary index of survey
-    srv_comp.block(comp_ind,6,1,srv_n_bins(srv_ind)) = srv_comp.block(comp_ind,6,1,srv_n_bins(srv_ind)) / srv_comp.block(comp_ind,6,1,srv_n_bins(srv_ind)).sum();
-
-  }
-
-
-  // 5.3. POPULATION DYNAMICS
-  M1 = M1_base.array() + Type(0.0001);
-  for ( sp = 0; sp < nspp ; sp++) {
-    for ( age = 0 ; age < nages(sp); age++ ) {
-      pmature( sp, age ) = pmature( sp, age ) * propF(sp, age);
-    }
-  }
-
-  // 5.4. Calculate temperature to use
-  TempC = BTempC.sum() / nTyrs; // Fill with average bottom temperature
-
-  int yr_ind = 0;
-  for (yr = 0; yr < nTyrs; yr++) {
-    yr_ind = Tyrs( yr ) - styr;
-    if ((yr_ind >= 0) & (yr_ind < nyrs)) {
-      TempC(yr_ind) = BTempC( yr );
-    }
-  }
-
-  // 5.5. Calculate length-at-age
-  for (sp = 0; sp < nspp; sp++) {
-    for (age = 0; age < nages(sp); age++) {
-      for (yr = 0; yr < nyrs; yr++) {
-        LbyAge( sp, age, yr) = ( pow( ( 1 / aLW(0, sp) ), (1 / aLW(1, sp) ) ) ) * pow( ( wt(yr, age, sp) * 1000), (1 / aLW(1, sp))); // W = a L ^ b is the same as (W/a)^(1/b)
+  // 5.3. Normalize fishery composition
+  for(comp_ind = 0; comp_ind < fsh_comp_obs.rows(); comp_ind++){
+    fsh = fsh_comp_ctl(comp_ind, 0)-1;
+    // Get sum of composition
+    Type sum_temp = 0;
+    for(int col = 0; col < fsh_n_bins(fsh); col ++){
+      if(!isNA(fsh_comp_obs(comp_ind, col))){
+        sum_temp += fsh_comp_obs(comp_ind, col);
       }
     }
+    // Divide each row by sum
+    fsh_comp_obs.row(comp_ind) = fsh_comp_obs.row(comp_ind) / sum_temp;
   }
 
-  r_sigma = exp(ln_rec_sigma); // Convert log sd to natural scale
+
+  // 5.4. Normalize survey composition
+  for(comp_ind = 0; comp_ind < srv_comp_obs.rows(); comp_ind++){
+    // Get sum of composition
+    Type sum_temp = 0;
+    for(int col = 0; col < srv_comp_obs.cols(); col ++){
+      if(!isNA(srv_comp_obs(comp_ind, col))){
+        sum_temp += srv_comp_obs(comp_ind, col);
+      }
+    }
+    // Divide each row by sum
+    srv_comp_obs.row(comp_ind) = srv_comp_obs.row(comp_ind) / sum_temp;
+  }
+
+  /*
+   // 5.5. Normalize age-transition matrix
+   for(sp = 0; sp < nspp; sp ++){
+   Type sum_temp = 0;
+   for (age = 0; age < nages(sp); age++) {
+   for (ln = 0; ln < sp_bins(sp); ln++) {
+   sum_temp +=  age_trans_matrix(age, ln, sp);
+   }
+   for (ln = 0; ln < sp_bins(sp); ln++) {
+   age_trans_matrix(age, ln, sp) = age_trans_matrix(age, ln, sp) / sum_temp;
+   }
+   }
+   }
+   */
 
   // Dimensions of diet matrix
   vector<int> a1_dim = UobsAge.dim; // dimension of a1
   vector<int> a2_dim = UobsWtAge.dim; // dimension of a1
 
-
+  // Good above here
   // ------------------------------------------------------------------------- //
   // 6. POPULATION DYNAMICS EQUATIONS                                          //
   // ------------------------------------------------------------------------- //
   // NOTE: Remember indexing starts at 0
   // Start iterations
   for (int iter = 0; iter < niter; iter++) {
+    // Good above here
 
     fsh_sel.setZero();
     // 6.0. EMPIRICAL FISHERY SELECTIVITY
-    for (sel_ind = 0; sel_ind < emp_fsh_sel.rows(); sel_ind++){
+    for (int sel_ind = 0; sel_ind < fsh_emp_sel_obs.rows(); sel_ind++){
 
-      sp = emp_fsh_sel(sel_ind, 0) - 1;             // Temporary index of species
-      fsh = emp_fsh_sel(sel_ind, 1) - 1;            // Temporary survey index
-      fsh_yr = emp_fsh_sel(sel_ind, 2) - styr;      // Temporary index for years of data
+      fsh = fsh_emp_sel_ctl(sel_ind, 0) - 1;            // Temporary survey index
+      sp = fsh_emp_sel_ctl(sel_ind, 1) - 1;             // Temporary index of species
+      fsh_yr = fsh_emp_sel_ctl(sel_ind, 2) - styr;      // Temporary index for years of data
 
-      for (age = 3; age < emp_fsh_sel.cols(); age++) {
-        fsh_sel(fsh, age, fsh_yr) = emp_fsh_sel(sel_ind, age);
+      for (age = 0; age < fsh_emp_sel_obs.cols(); age++) {
+        fsh_sel(fsh, age, fsh_yr) = fsh_emp_sel_obs(sel_ind, age);
       }
     }
 
+
     // 6.1. ESTIMATE FISHERY SELECTIVITY
-    avgsel_fsh.setZero();
+
     fsh_sel.setZero();
     for(ctl_ind = 0; ctl_ind < n_fsh; ctl_ind++){
 
-      sp = fsh_control(ctl_ind, 2) - 1;             // Temporary index of species
       fsh = fsh_control(ctl_ind, 1) - 1;            // Temporary survey index
+      sp = fsh_control(ctl_ind, 2) - 1;             // Temporary index of species
 
       // 9.1.1. Logisitic selectivity
       if (fsh_sel_type(fsh) == 1) {
         for (age = 0; age < nages(sp); age++){
-          fsh_sel_tmp(ctl_ind, age) = 1 / (1 + exp( -fsh_sel_slp(0, ctl_ind) * ((age + 1) - fsh_sel_inf(0, ctl_ind))));
+          fsh_sel_tmp(fsh, age) = 1 / (1 + exp( -fsh_sel_slp(0, fsh) * ((age + 1) - fsh_sel_inf(0, fsh))));
         }
       }
 
       // 9.1.2. Non-parametric selectivity fit to age ranges. NOTE: This can likely be improved
       if (fsh_sel_type(fsh) == 2) {
+        avgsel_fsh.setZero();
         for (age = 0; age < fsh_nselages(fsh); age++) {
-          fsh_sel_tmp(ctl_ind, age) = fsh_sel_coff(ctl_ind, age);
-          avgsel_fsh(ctl_ind) +=  exp(fsh_sel_coff(ctl_ind, age));
+          fsh_sel_tmp(sp, age) = fsh_sel_coff(sp, age);
+          avgsel_fsh(sp) +=  exp(fsh_sel_coff(sp, age));
         }
         // 9.1.3 Average selectivity up to nselages(sp)
-        avgsel_fsh(ctl_ind) = log(avgsel_fsh(ctl_ind) / fsh_nselages(fsh));
+        avgsel_fsh(fsh) = log(avgsel_fsh(fsh) / fsh_nselages(fsh));
 
         // 9.1.4. Plus group selectivity
         for (age = fsh_nselages(fsh); age < nages(sp); age++) {
-          fsh_sel_tmp(ctl_ind, age) = fsh_sel_tmp(ctl_ind, fsh_nselages(fsh) - 1);
+          fsh_sel_tmp(fsh, age) = fsh_sel_tmp(fsh, fsh_nselages(fsh) - 1);
         }
 
         // 9.1.5. Average selectivity across all ages
         avgsel_tmp = 0; // set to zero
         for (age = 0; age < nages(sp); age++) {
-          avgsel_tmp += exp(fsh_sel_tmp(ctl_ind, age));
+          avgsel_tmp += exp(fsh_sel_tmp(fsh, age));
         }
         avgsel_tmp = log(avgsel_tmp / nages(sp));
 
         // 9.1.6. Standardize selectivity
         for (age = 0; age < nages(sp); age++) {
-          fsh_sel_tmp(ctl_ind, age) -=  avgsel_tmp;
-          fsh_sel_tmp(ctl_ind, age) = exp(fsh_sel_tmp(ctl_ind, age));
+          fsh_sel_tmp(fsh, age) -=  avgsel_tmp;
+          fsh_sel_tmp(fsh, age) = exp(fsh_sel_tmp(fsh, age));
         }
       }
 
@@ -520,40 +570,43 @@ Type objective_function<Type>::operator() () {
       // 9.1.2. Double logistic (Dorn and Methot 1990)
       if (fsh_sel_type(fsh) == 3) {
         for (age = 0; age < nages(sp); age++){
-          fsh_sel_tmp(ctl_ind, age) = (1 / (1 + exp( -fsh_sel_slp(0, ctl_ind) * ((age + 1) - fsh_sel_inf(0, ctl_ind))))) * // Upper slop
-            (1 - (1 / (1 + exp( -fsh_sel_slp(1, ctl_ind) * ((age + 1) - fsh_sel_inf(1, ctl_ind))))));  // Downward slope;
+          fsh_sel_tmp(fsh, age) = (1 / (1 + exp( -fsh_sel_slp(0, fsh) * ((age + 1) - fsh_sel_inf(0, fsh))))) * // Upper slop
+            (1 - (1 / (1 + exp( -fsh_sel_slp(1, fsh) * ((age + 1) - fsh_sel_inf(1, fsh))))));  // Downward slope;
         }
       }
 
       // Standardize estimated selectivities and add to vector
       if (fsh_sel_type(fsh) > 0) {
-        vector<Type> sel_sp = fsh_sel_tmp.row(ctl_ind); // Can't max a matrix....
-        fsh_sel_tmp.row(ctl_ind) /= max(sel_sp); // Standardize so max sel = 1 for each species
+        //vector<Type> sel_sp = fsh_sel_tmp.row(fsh); // Can't max a matrix....
+        // sh_sel_tmp.row(fsh) /= max(sel_sp); // Standardize so max sel = 1 for each species
 
         for (age = 0; age < nages(sp); age++){
           for (yr = 0; yr < nyrs; yr++) {
-            fsh_sel(fsh, age, yr) = fsh_sel_tmp(ctl_ind, age);
+            fsh_sel(fsh, age, yr) = fsh_sel_tmp(fsh, age);
           }
         }
       }
     } // End fishery selectivity loop
 
-
+    // Good above here
 
     // 6.1. ESTIMATE FISHING MORTALITY
     F.setZero();
     F_tot.setZero();
     for (fsh_ind = 0; fsh_ind < n_fsh; fsh_ind++) {
 
-      sp = fsh_spp(fsh);  // Temporary index of fishery survey
+      sp = fsh_spp(fsh_ind);  // Temporary index of fishery survey
+
       for (yr = 0; yr < nyrs; yr++) {
         for (age = 0; age < nages(sp); age++) {
 
-          F(fsh_ind, age, yr) = fsh_sel(fsh_ind, age) * exp(ln_mean_F(fsh_ind) + F_dev(fsh_ind, yr));
+          F(fsh_ind, age, yr) = fsh_sel(fsh_ind, age, yr) * exp(ln_mean_F(fsh_ind) + F_dev(fsh_ind, yr));
           F_tot(sp, age, yr) += F(fsh_ind, age, yr);
         }
       }
     }
+
+    // Good above here
 
 
     // 6.2. Estimate total mortality at age NOTE: May need to go above population dynamics
@@ -575,6 +628,8 @@ Type objective_function<Type>::operator() () {
         NByage(sp, 0, yr) = R(sp, yr);
       }
     }
+
+    // Good above here
 
 
     // 6.4. ESTIMATE INITIAL ABUNDANCE AT AGE AND YEAR-1: T1.2
@@ -628,11 +683,9 @@ Type objective_function<Type>::operator() () {
         for (yr = 0; yr < nyrs; yr++) {
           if (avgnMode == 0) {
             AvgN(sp, age, yr) = NByage(sp, age, yr) * (1 - S(sp, age, yr)) / Zed(sp, age, yr); // MSVPA approach
-          }
-          if (avgnMode == 1) {
+          }else if (avgnMode == 1) {
             AvgN(sp, age, yr) = NByage(sp, age, yr) * exp(- Zed(sp, age, yr) / 2); // Kinzey and Punt (2009) approximation
-          }
-          if (avgnMode == 2) {
+          }else if (avgnMode == 2) {
             AvgN(sp, age, yr) = NByage(sp, age, yr); // Van Kirk et al (2010) approximation
           } else{
             error("Invalid 'avgnMode'");
@@ -768,6 +821,7 @@ Type objective_function<Type>::operator() () {
     }
     of_stomKir /= other_food(0);
 
+    // Good above here
 
     // START PREDATION
     if (msmMode > 0) {
@@ -775,6 +829,7 @@ Type objective_function<Type>::operator() () {
       // ------------------------------------------------------------------------- //
       // 8.1. SUITABILITY EQUATIONS                                                //
       // ------------------------------------------------------------------------- //
+
       // 8.1.1. Holsman and MSVPA based suitability // FIXME - not flexible for interannual variation
       if (suitMode == 0) {
         // 8.1.1.1. Calculate stomach proportion over biomass; U/ (W * N)
@@ -819,6 +874,8 @@ Type objective_function<Type>::operator() () {
           }
         }
       } // End Holsman/MSVPA suitability
+
+
 
 
       // 8.1.2. Length-based GAMMA suitability // FIXME - not flexible for interannual variation in length-at-age
@@ -903,6 +960,7 @@ Type objective_function<Type>::operator() () {
         }
       } // End GAMMA selectivity
 
+
       // 8.1.3. Time-varying weight-based GAMMA suitability // FIXME - not flexible for interannual variation in length-at-age
       // -- Turned off if not estimating selectivity
       if(suitMode == 3){
@@ -942,6 +1000,7 @@ Type objective_function<Type>::operator() () {
         }
       } // End GAMMA selectivity
 
+
       //-------------------------------------------------------------------------------------------------------------
       // 8.1.4. Length-based lognormal suitability // FIXME - not flexible for interannual variation in length-at-age
       // -- Turned off if not estimating selectivity
@@ -958,7 +1017,7 @@ Type objective_function<Type>::operator() () {
                 // if prey are smaller than predator:
                 if (Mn_LatAge(rsp, r_age) > Mn_LatAge(ksp, k_age)) {
                   x_l_ratio = log(Mn_LatAge(rsp, r_age) / Mn_LatAge(ksp, k_age)); // Log ratio of lengths
-                  suit_main(rsp , ksp, r_age, k_age, 0) = exp(phi(rsp, ksp)) * exp(-1/ (2*square(gam_a(rsp))) * square(x_l_ratio - gam_b(rsp)) );
+                  suit_main(rsp , ksp, r_age, k_age, 0) = exp(log_phi(rsp, ksp)) * exp(-1/ (2*square(gam_a(rsp))) * square(x_l_ratio - gam_b(rsp)) );
                   gsum += suit_main(rsp , ksp, r_age, k_age, 0);
                 }
                 else
@@ -993,7 +1052,7 @@ Type objective_function<Type>::operator() () {
                   // if prey are smaller than predator:
                   if ( (aLW(0, rsp) * pow( wt(yr, r_age, rsp), aLW(1, rsp)))  > (aLW(0, ksp) * pow( wt(yr, k_age, ksp), aLW(1, ksp)))) {
                     x_l_ratio = log((aLW(0, rsp) * pow( wt(yr, r_age, rsp), aLW(1, rsp))) / (aLW(0, ksp) * pow( wt(yr, k_age, ksp), aLW(1, ksp))) ); // Log ratio of lengths
-                    suit_main(rsp , ksp, r_age, k_age, yr) = exp(phi(rsp, ksp)) * exp(-1/ (2*square(gam_a(rsp))) * square(x_l_ratio - gam_b(rsp)) );
+                    suit_main(rsp , ksp, r_age, k_age, yr) = exp(log_phi(rsp, ksp)) * exp(-1/ (2*square(gam_a(rsp))) * square(x_l_ratio - gam_b(rsp)) );
                     gsum += suit_main(rsp , ksp, r_age, k_age, yr);
                   }
                   else{
@@ -1027,7 +1086,7 @@ Type objective_function<Type>::operator() () {
                   // if prey are smaller than predator:
                   if (wt(yr, r_age, rsp) > wt(yr, k_age, ksp)) {
                     x_l_ratio = log(wt(yr, r_age, rsp) / wt(yr, k_age, ksp)); // Log ratio of lengths
-                    suit_main(rsp , ksp, r_age, k_age, yr) = exp(phi(rsp, ksp)) * exp(-1/ (2*square(gam_a(rsp))) * square(x_l_ratio - gam_b(rsp)) );
+                    suit_main(rsp , ksp, r_age, k_age, yr) = exp(log_phi(rsp, ksp)) * exp(-1/ (2*square(gam_a(rsp))) * square(x_l_ratio - gam_b(rsp)) );
                     gsum += suit_main(rsp , ksp, r_age, k_age, yr);
                   }
                   else{
@@ -1356,27 +1415,30 @@ Type objective_function<Type>::operator() () {
           }
         }
 
-
+        // - END LOOP - END LOOP - END LOOP - END LOOP - END LOOP - //
       } // End 8.2. Kinzey predation
+      // - END LOOP - END LOOP - END LOOP - END LOOP - END LOOP - //
     } // End 8. Predation mortality
-
+    // - END LOOP - END LOOP - END LOOP - END LOOP - END LOOP - //
 
     // ------------------------------------------------------------------------- //
     // 9. SURVEY COMPONENTS EQUATIONS                                            //
     // ------------------------------------------------------------------------- //
+    // Good above here
 
-    srv_sel.setZero();
     // 9.0. Empirical selectivity
-    for (sel_ind = 0; sel_ind < emp_srv_sel.rows(); sel_ind++){
+    srv_sel.setZero();
+    for (int sel_ind = 0; sel_ind < srv_emp_sel_obs.rows(); sel_ind++){
 
-      sp = emp_srv_sel(sel_ind, 0) - 1;             // Temporary index of species
-      srv = emp_srv_sel(sel_ind, 1) - 1;            // Temporary survey index
-      srv_yr = emp_srv_sel(sel_ind, 2) - styr;      // Temporary index for years of data
+      srv = srv_emp_sel_ctl(sel_ind, 0) - 1;            // Temporary survey index
+      sp = srv_emp_sel_ctl(sel_ind, 1) - 1;             // Temporary index of species
+      srv_yr = srv_emp_sel_ctl(sel_ind, 2) - styr;      // Temporary index for years of data
 
-      for (age = 3; age < emp_srv_sel.cols(); age++) {
-        srv_sel(srv, age, srv_yr) = emp_srv_sel(sel_ind, age);
+      for (age = 0; age < srv_emp_sel_obs.cols(); age++) {
+        srv_sel(srv, age, srv_yr) = srv_emp_sel_obs(sel_ind, age);
       }
     }
+    // Good above here
 
 
     // 9.1. Estimated survey selectivity
@@ -1384,8 +1446,8 @@ Type objective_function<Type>::operator() () {
     srv_sel_tmp.setZero();
     for(ctl_ind = 0; ctl_ind < n_srv; ctl_ind++){
 
-      sp = srv_control(ctl_ind, 2) - 1;             // Temporary index of species
       srv = srv_control(ctl_ind, 1) - 1;            // Temporary survey index
+      sp = srv_control(ctl_ind, 2) - 1;             // Temporary index of species
 
       // 9.1.1. Logisitic selectivity
       if (srv_sel_type(srv) == 1) {
@@ -1443,20 +1505,21 @@ Type objective_function<Type>::operator() () {
         }
       }
     } // End loop
+    // Good above here
 
 
     // -- 9.2. Survey Biomass
-    for(srv_ind = 0; srv_ind < srv_bio_hat.rows(); srv_ind++){
+    for(srv_ind = 0; srv_ind < srv_biom_ctl.rows(); srv_ind++){
 
-      sp = srv_bio_hat(srv_ind, 2) - 1;             // Temporary index of species
-      srv = srv_bio_hat(srv_ind, 1) - 1;            // Temporary survey index
-      srv_yr = srv_bio_hat(srv_ind, 3) - styr;      // Temporary index for years of data
-      mo =  = srv_bio_hat(srv_ind, 4);              // Temporary index for month
+      srv = srv_biom_ctl(srv_ind, 0) - 1;            // Temporary survey index
+      sp = srv_biom_ctl(srv_ind, 1) - 1;             // Temporary index of species
+      srv_yr = srv_biom_ctl(srv_ind, 2) - styr;      // Temporary index for years of data
+      mo = srv_biom_ctl(srv_ind, 3);                 // Temporary index for month
 
-      srv_bio_hat(srv_ind, 5) = 0;                  // Initialize
+      srv_bio_hat(srv_ind) = 0;                      // Initialize
 
       for (age = 0; age < nages(sp); age++) {
-        srv_bio_hat(srv_ind, 5) += NByage(sp, age, srv_yr) * exp( - (mo/12) * Zed(sp, age, srv_yr)) * srv_sel(srv, age, srv_yr) * srv_q(srv) * wt(srv_yr, age, sp);
+        srv_bio_hat(srv_ind) += NByage(sp, age, srv_yr) * exp( - (mo/12) * Zed(sp, age, srv_yr)) * srv_sel(srv, age, srv_yr) * srv_q(srv) * wt(srv_yr, age, sp);
       }
     }
 
@@ -1464,110 +1527,117 @@ Type objective_function<Type>::operator() () {
     // -- 9.3. Survey composition
     for(comp_ind = 0; comp_ind < srv_comp_hat.rows(); comp_ind++){
 
-      sp = srv_comp_hat(comp_ind, 2) - 1;             // Temporary index of species
-      srv = srv_comp_hat(comp_ind, 1) - 1;            // Temporary survey index
-      srv_yr = srv_comp_hat(comp_ind, 4) - styr;      // Temporary index for years of data
-      mo =  = srv_comp_hat(comp_ind, 5);              // Temporary index for month
+      srv = srv_comp_ctl(comp_ind, 0) - 1;            // Temporary survey index
+      sp = srv_comp_ctl(comp_ind, 1) - 1;             // Temporary index of species
+      srv_yr = srv_comp_ctl(comp_ind, 2) - styr;      // Temporary index for years of data
+      mo = srv_comp_ctl(comp_ind, 3);                 // Temporary index for month
 
-      srv_hat(comp_ind, 6) = 0;                       // Initialize
+      srv_hat(comp_ind) = 0;                       // Initialize
 
       // Total numbers
       for (age = 0; age < nages(sp); age++) {
-        srv_age_hat(comp_ind, age + 6 ) = NByage(sp, age, srv_yr) * exp( - (mo/12) * Zed(sp, age, srv_yr)) * srv_sel(srv, age, srv_yr) * srv_q(srv);
-        srv_hat(comp_ind, 6) += srv_age_hat(comp_ind, age + 6 );   // Total numbers
+        srv_age_hat(comp_ind, age ) = NByage(sp, age, srv_yr)  * srv_sel(srv, age, srv_yr) * srv_q(srv); // * exp( - Type(mo/12) * Zed(sp, age, srv_yr))
+        srv_hat(comp_ind) += srv_age_hat(comp_ind, age );   // Total numbers
       }
 
-      //  Survey catch-at-age
-      if (srv_type(srv) == 1) {
+      //  Normalize survey catch-at-age
+      if (srv_comp_type(srv) == 1) {
         for (age = 0; age < nages(sp); age++) {
-          srv_comp_hat(comp_ind, age + 6 ) = srv_age_hat(comp_ind, age + 6 ) / srv_hat(comp_ind, 6);
+          srv_comp_hat(comp_ind, age) = srv_age_hat(comp_ind, age) / srv_hat(comp_ind);
         }
       }
 
       // Convert from catch-at-age to catch-at-length
-      if ( srv_type(srv) != 1) {
+      if ( srv_comp_type(srv) != 1) {
         for (ln = 0; ln < srv_n_bins(srv); ln++) {
-          srv_comp_hat(comp_ind, ln + 6 ) = 0; // Initialize
+          srv_comp_hat(comp_ind, ln ) = 0; // Initialize
+
           for (age = 0; age < nages(sp); age++) {
-            srv_comp_hat(comp_ind, ln + 6 ) += srv_age_hat(comp_ind, age + 6 ) * age_trans_matrix(age, ln, sp);
+            srv_comp_hat(comp_ind, ln ) += srv_age_hat(comp_ind, age) * age_trans_matrix(age, ln, sp);
           }
         }
 
+        // Normalize
         for (ln = 0; ln < srv_n_bins(srv); ln++) {
-          srv_comp_hat(comp_ind, ln + 6 ) = srv_comp_hat(comp_ind, ln + 6 ) / srv_hat(comp_ind, 6);
+          srv_comp_hat(comp_ind, ln) = srv_comp_hat(comp_ind, ln) / srv_hat(comp_ind);
         }
       }
     }
 
+    // Good above here
 
     // ------------------------------------------------------------------------- //
     // 10. FISHERY COMPONENTS EQUATIONS                                          //
     // ------------------------------------------------------------------------- //
     // 10.5. ESTIMATE CATCH-AT-AGE and TOTAL YIELD (kg)
-        for(fsh_ind = 0; fsh_ind < fsh_bio_hat.rows(); fsh_ind++){
+    for(fsh_ind = 0; fsh_ind < fsh_biom_ctl.rows(); fsh_ind++){
 
-      sp = fsh_bio_hat(fsh_ind, 2) - 1;             // Temporary index of species
-      srv = fsh_bio_hat(fsh_ind, 1) - 1;            // Temporary survey index
-      fsh_yr = fsh_bio_hat(fsh_ind, 3) - styr;      // Temporary index for years of data
-      mo =  = fsh_bio_hat(fsh_ind, 4);              // Temporary index for month
+      fsh = fsh_biom_ctl(fsh_ind, 0) - 1;            // Temporary fishery index
+      sp = fsh_biom_ctl(fsh_ind, 1) - 1;             // Temporary index of species
+      fsh_yr = fsh_biom_ctl(fsh_ind, 2) - styr;      // Temporary index for years of data
+      mo = fsh_biom_ctl(fsh_ind, 3);                 // Temporary index for month
 
-      fsh_bio_hat(fsh_ind, 5) = 0;                  // Initialize
+      fsh_bio_hat(fsh_ind) = 0;                  // Initialize
 
       for (age = 0; age < nages(sp); age++) {
-        fsh_bio_hat(fsh_ind, 5) += F(fsh, age, fsh_yr) / Zed(sp, age, fsh_yr) * (1 - exp(-Zed(sp, age, fsh_yr))) * NByage(sp, age, fsh_yr) * wt(yr, age, sp); // 5.5.
+        fsh_bio_hat(fsh_ind) += F(fsh, age, fsh_yr) / Zed(sp, age, fsh_yr) * (1 - exp(-Zed(sp, age, fsh_yr))) * NByage(sp, age, fsh_yr) * wt(fsh_yr, age, sp); // 5.5.
       }
     }
+    // Good above here
 
 
-    // -- 9.3. Fishery   composition
+    // -- 9.3. Fishery composition
     for(comp_ind = 0; comp_ind < fsh_comp_hat.rows(); comp_ind++){
 
-      sp = fsh_comp_hat(comp_ind, 2) - 1;             // Temporary index of species
-      srv = fsh_comp_hat(comp_ind, 1) - 1;            // Temporary survey index
-      fsh_yr = fsh_comp_hat(comp_ind, 4) - styr;      // Temporary index for years of data
-      mo =  = fsh_comp_hat(comp_ind, 5);              // Temporary index for month
+      fsh = fsh_comp_ctl(comp_ind, 0) - 1;            // Temporary fishery index
+      sp = fsh_comp_ctl(comp_ind, 1) - 1;             // Temporary index of species
+      fsh_yr = fsh_comp_ctl(comp_ind, 2) - styr;      // Temporary index for years of data
+      mo = fsh_comp_ctl(comp_ind, 3);                 // Temporary index for month
 
-      fsh_hat(comp_ind, 6) = 0;                       // Initialize
+      fsh_hat(comp_ind) = 0;                          // Initialize
 
       // Total numbers
       for (age = 0; age < nages(sp); age++) {
-        fsh_age_hat(comp_ind, age + 6 ) = F(fsh, age, fsh_yr) / Zed(sp, age, fsh_yr) * (1 - exp(-Zed(sp, age, fsh_yr))) * NByage(sp, age, fsh_yr); // 5.4. 
-        fsh_hat(comp_ind, 6) += fsh_age_hat(comp_ind, age + 6 );   // Total numbers
+        fsh_age_hat(comp_ind, age ) = F(fsh, age, fsh_yr) / Zed(sp, age, fsh_yr) * (1 - exp(-Zed(sp, age, fsh_yr))) * NByage(sp, age, fsh_yr); // 5.4.
+        fsh_hat( comp_ind ) += fsh_age_hat(comp_ind, age );   // Total numbers
       }
 
       //  Survey catch-at-age
-      if (fsh_type(srv) == 1) {
+      if (fsh_comp_type(fsh) == 1) {
         for (age = 0; age < nages(sp); age++) {
-          fsh_comp_hat(comp_ind, age + 6 ) = fsh_age_hat(comp_ind, age + 6 ) / fsh_hat(comp_ind, 6);
+          fsh_comp_hat(comp_ind, age) = fsh_age_hat(comp_ind, age ) / fsh_hat(comp_ind);
         }
       }
 
       // Convert from catch-at-age to catch-at-length
-      if ( fsh_type(srv) != 1) {
-        for (ln = 0; ln < fsh_bins(srv); ln++) {
-          fsh_comp_hat(comp_ind, ln + 6 ) = 0; // Initialize
+      if ( fsh_comp_type(fsh) != 1) {
+        for (ln = 0; ln < fsh_n_bins(fsh); ln++) {
+          fsh_comp_hat(comp_ind, ln) = 0; // Initialize
           for (age = 0; age < nages(sp); age++) {
-            fsh_comp_hat(comp_ind, ln + 6 ) += fsh_age_hat(comp_ind, age + 6 ) * age_trans_matrix(age, ln, sp);
+            fsh_comp_hat(comp_ind, ln ) += fsh_age_hat(comp_ind, age) * age_trans_matrix(age, ln, sp);
           }
         }
 
-        for (ln = 0; ln < fsh_bins(srv); ln++) {
-          fsh_comp_hat(comp_ind, ln + 6 ) = fsh_comp_hat(comp_ind, ln + 6 ) / fsh_hat(comp_ind, 6);
+        for (ln = 0; ln < fsh_n_bins(fsh); ln++) {
+          fsh_comp_hat(comp_ind, ln ) = fsh_comp_hat(comp_ind, ln) / fsh_hat(comp_ind);
         }
       }
     }
+    // - END LOOP - END LOOP - END LOOP - END LOOP - END LOOP - //
+  } // End iterations
+  // - END LOOP - END LOOP - END LOOP - END LOOP - END LOOP - //
 
-    // End iterations
-  }
 
   // ------------------------------------------------------------------------- //
   // 11. LIKELIHOOD EQUATIONS                                                  //
-  // ------------------------------------------------------------------------- //
-  vector<int> n_tot(2);
-  n_tot(0) = n_srv; n_tot(1) = n_fsh;
-  n_tot = imax(n_tot);
+  // Get max number of fisheries or surveys
+  vector<int> n_tot_vec(2);
+  n_tot_vec(0) = n_srv; n_tot_vec(1) = n_fsh;
+  int n_tot = imax(n_tot_vec);
+
   // 11.0. OBJECTIVE FUNCTION
   matrix<Type> jnll_comp(17, n_tot); jnll_comp.setZero();  // matrix of negative log-likelihood components
+
 
   // -- Survey components
   // Slot 0 -- Survey biomass
@@ -1576,7 +1646,7 @@ Type objective_function<Type>::operator() () {
   // Slot 3 -- Survey selectivity normalization
   // -- Fishery components
   // Slot 4 -- Total catch (kg)
-  // Slot 5 -- Fishery age/length composition 
+  // Slot 5 -- Fishery age/length composition
   // Slot 6 -- Fishery selectivity
   // Slot 7 -- Fishery selectivity normalization
   // -- Priors/penalties
@@ -1597,32 +1667,31 @@ Type objective_function<Type>::operator() () {
   vector<Type> offset_diet_w(nspp); offset_diet_w.setZero(); // Offset for total stomach content weight likelihood
   vector<Type> offset_diet_l(nspp); offset_diet_l.setZero(); // Offset for total stomach content of prey length ln in predator length a
   vector<Type> offset_uobsagewt(nspp); offset_uobsagewt.setZero(); // Offset for stomach proportion by weight likelihood
-  Type offset_eit = 0; // Offset for multinomial likelihood
 
 
   // 11.1.1. -- Fishery age comp offsets
-  for (comp_ind = 0; comp_ind < fsh_comp.rows(); comp_ind++) {
+  for (comp_ind = 0; comp_ind < fsh_comp_obs.rows(); comp_ind++) {
 
-    sp = fsh_comp(comp_ind, 2) - 1;             // Temporary index of species
-    fsh = fsh_comp(comp_ind, 1) - 1;            // Temporary survey index
+    fsh = fsh_comp_ctl(comp_ind, 0) - 1;            // Temporary survey index
+    sp = fsh_comp_ctl(comp_ind, 1) - 1;             // Temporary index of species
 
-    for (ln = 0; ln < fsh_comp.cols(); ln++) {
-      if(!isNA( fsh_comp(comp_ind, ln + 6) )){
-        offset(fsh, 1) -= fsh_comp(comp_ind, 5) * (fsh_comp(comp_ind, ln + 6) + MNConst) * log(fsh_comp(comp_ind, ln + 6) + MNConst ) ;
+    for (ln = 0; ln < fsh_n_bins(fsh); ln++) {
+      if(!isNA( fsh_comp_obs(comp_ind, ln ))){
+        offset(fsh, 1) -= Type(fsh_comp_ctl(comp_ind, 4)) * (fsh_comp_obs(comp_ind, ln) + MNConst) * log(fsh_comp_obs(comp_ind, ln) + MNConst ) ;
       }
     }
   }
 
 
   // 11.1.2. -- Survey age comp offsets
-  for (comp_ind = 0; comp_ind < srv_comp.rows(); comp_ind++) {
+  for (comp_ind = 0; comp_ind < srv_comp_obs.rows(); comp_ind++) {
 
-    sp = srv_comp(comp_ind, 2) - 1;             // Temporary index of species
-    srv = srv_comp(comp_ind, 1) - 1;            // Temporary survey index
+    srv = srv_comp_ctl(comp_ind, 0) - 1;            // Temporary survey index
+    sp = srv_comp_ctl(comp_ind, 1) - 1;             // Temporary index of species
 
-    for (ln = 0; ln < srv_comp.cols(); ln++) {
-      if(!isNA( srv_comp(comp_ind, ln + 6) )){
-        offset(srv, 0) -= srv_comp(comp_ind, 5) * (srv_comp(comp_ind, ln + 6) + MNConst) * log(srv_comp(comp_ind, ln + 6) + MNConst ) ;
+    for (ln = 0; ln < srv_n_bins(srv); ln++) {
+      if(!isNA( srv_comp_obs(comp_ind, ln ))){
+        offset(srv, 0) -= Type(srv_comp_ctl(comp_ind, 4)) * (srv_comp_obs(comp_ind, ln) + MNConst) * log(srv_comp_obs(comp_ind, ln) + MNConst ) ;
       }
     }
   }
@@ -1689,400 +1758,426 @@ Type objective_function<Type>::operator() () {
   }
 
 
+  // 11.2. FIT OBJECTIVE FUNCTION
+  // Slot 0 -- Survey biomass -- NFMS annual BT survey and EIT survey
+  for (srv_ind = 0; srv_ind < srv_biom_obs.rows(); srv_ind++) {
+
+    srv = srv_biom_ctl(srv_ind, 0) - 1;            // Temporary survey index
+    sp = srv_biom_ctl(srv_ind, 1) - 1;             // Species is the 2nd column
+
+    jnll_comp(0, srv) += pow(log(srv_biom_obs(srv_ind, 0)) - log(srv_bio_hat(srv_ind)), 2) / (2 * square(srv_biom_obs(srv_ind, 1))); // NOTE: This is not quite the lognormal and biohat will be the median.
+  }
 
 
-    // 11.2. FIT OBJECTIVE FUNCTION
-    // Slot 0 -- Survey biomass -- NFMS annual BT survey and EIT survey
-    for (srv_ind = 0; srv_ind < srv_biom.rows(); srv_ind++) {
-      sp = srv_biom(srv_ind, 2) - 1;             // Species is the 2nd column
-      srv = srv_biom(srv_ind, 1) - 1;            // Temporary survey index
 
-      jnll_comp(0, srv) += pow(log(srv_biom(srv_ind, 5)) - log(srv_bio_hat(srv_ind, 5)), 2) / (2 * square(srv_biom(srv_ind, 6))); // NOTE: This is not quite the lognormal and biohat will be the median.
-    }
+  // Slot 1 -- Survey age composition
+  for (comp_ind = 0; comp_ind < srv_comp_obs.rows(); comp_ind++) {
 
+    srv = srv_comp_ctl(comp_ind, 0) - 1;            // Temporary survey index
+    sp = srv_comp_ctl(comp_ind, 1) - 1;             // Temporary index of species
 
-
-    // Slot 1 -- Survey age composition
-    for (comp_ind = 0; comp_ind < srv_comp.rows(); comp_ind++) {
-
-      sp = srv_comp(comp_ind, 2) - 1;             // Temporary index of species
-      srv = srv_comp(comp_ind, 1) - 1;            // Temporary survey index
-
-      for (ln = 0; ln < srv_comp.cols(); ln++) {
-        if(!isNA( srv_comp(comp_ind, ln + 6) )){
-          jnll_comp(1, srv) -= srv_comp(comp_ind, 5) * (srv_comp(comp_ind, ln + 6) + MNConst) * log(srv_comp_hat(comp_ind, ln + 6) + MNConst ) ;Angels Landing, Utah 84737
-        }
+    for (ln = 0; ln < srv_comp_obs.cols(); ln++) {
+      if(!isNA( srv_comp_obs(comp_ind, ln) )){
+        jnll_comp(1, srv) -= Type(srv_comp_ctl(comp_ind, 4)) * (srv_comp_obs(comp_ind, ln) + MNConst) * log(srv_comp_hat(comp_ind, ln) + MNConst ) ;
       }
     }
+  }
 
-    // Remove offsets
-    for (srv = 0; srv < n_srv; srv++) {
-      // srv_yr = yrs_srv_age(sp, yr) - styr;
-      jnll_comp(1, srv) -= offset(srv, 0);
-    }
-
-     // Slot 2 -- Survey selectivity
-    for(srv = 0; srv < n_srv; srv++){ // Loop around surveys
-      jnll_comp(2, srv) = 0; // FIXME: Likeliy redundant
-      sp = srv_spp(srv);
-
-      if (srv_sel_type(srv) == 2) {
-        // Extract only the selectivities we want
-        vector<Type> sel_tmp(nages(sp));
-
-        for (age = 0; age < nages(sp); age++) {
-          sel_tmp(age) = log(srv_sel(srv, age, 0));  sel_tmp.setZero();
-        }
-
-        for (age = 0; age < nages(sp) - 2; age++) {
-
-          sel_tmp(age) = first_difference( first_difference( sel_tmp ) )(age);
-          jnll_comp(2, srv) += curv_pen_fsh * pow( sel_tmp(age) , 2); // FIX
-
-        }
-      }
-    }
+  // Remove offsets
+  for (srv = 0; srv < n_srv; srv++) {
+    // srv_yr = yrs_srv_age(sp, yr) - styr;
+    jnll_comp(1, srv) -= offset(srv, 0);
+  }
 
 
+  // Slot 2 -- Survey selectivity
+  for(srv = 0; srv < n_srv; srv++){ // Loop around surveys
+    jnll_comp(2, srv) = 0; // FIXME: Likeliy redundant
+    sp = srv_spp(srv);
 
-    // Slot 3 -- Add survey selectivity normalization
-    for(srv = 0; srv < n_srv; srv++){
-      jnll_comp(3, srv) += 50 * square(avgsel_srv(srv));
-    }
+    if (srv_sel_type(srv) == 2) {
 
-
-
-
-    // Slot 4 -- Total catch -- Fishery observer dat
-for (fsh_ind = 0; fsh_ind < srv_biom.rows(); fsh_ind++) {
-      sp = catch_biom(fsh_ind, 2) - 1;             // Specie  s is the 2nd column
-      fsh = catch_biom(fsh_ind, 1) - 1;            // Temporary survey index
-
-      jnll_comp(4, fsh) += pow(log(catch_biom(fsh_ind, 5)) - log(fsh_bio_hat(fsh_ind, 5)), 2) / (2 * square(catch_biom(fsh_ind, 6))); // NOTE: This is not quite the log  normal and biohat will be the median.
-    }
-
-
-
-    // Slot 5 -- Fishery age composition -- Fishery observer data
-    for (comp_ind = 0; comp_ind < fsh_comp.rows(); comp_ind++) {
-
-      sp = fsh_comp(comp_ind, 2) - 1;             // Temporary index of species
-      fsh = fsh_comp(comp_ind, 1) - 1;            // Temporary survey index
-
-      // Ad is na to loop and just run all the columns
-      for (ln = 0; ln < fsh_comp.cols(); ln++) {
-        if(!isNA( fsh_comp(comp_ind, ln + 6) )){
-          jnll_comp(5, fsh) -= fsh_comp(comp_ind, 5) * (fsh_comp(comp_ind, ln + 6) + MNConst) * log(fsh_comp_hat(comp_ind, ln + 6) + MNConst ) ;
-        }
-      }
-    }
-
-    // Remove offsets
-    for (fsh = 0; fsh < n_fsh; fsh++) {
-      // srv_yr = yrs_srv_age(sp, yr) - styr;
-      jnll_comp(5, fsh) -= offset(fsh, 0);
-    }
-
-
-
-    // Slot 6 -- Fishery selectivity
-        for(fsh = 0; fsh < n_fsh; fsh++){ // Loop around surveys
-      jnll_comp(6, fsh) = 0; // FIXME: Likeliy redundant
-      sp = fsh_spp(fsh);
-
-      if (fsh_sel_type(fsh) == 2) {
-        // Extract only the selectivities we want
-        vector<Type> sel_tmp(nages(sp)); sel_tmp.setZero();
-
-        for (age = 0; age < nages(sp); age++) {
-          sel_tmp(age) = log(fsh_sel(fsh, age, 0));
-        }
-
-        for (age = 0; age < nages(sp) - 2; age++) {
-
-          sel_tmp(age) = first_difference( first_difference( sel_tmp ) )(age);
-          jnll_comp(6, fsh) += curv_pen_fsh * pow( sel_tmp(age) , 2); // FIX
-
-        }
-      }
-    }
-
-
-    // Slot 7 -- Add fishery selectivity normalization
-    for (fsh = 0; fsh < n_fsh; fsh++) {
-      jnll_comp(7, fsh) += 50 * square(avgsel_fsh(fsh));
-    }
-
-
-
-    // Slots 8-10 -- PRIORS: PUT RANDOM EFFECTS SWITCH HERE
-    for (sp = 0; sp < nspp; sp++) {
-      // Slot 10 -- init_dev -- Initial abundance-at-age
-      for (age = 1; age < nages(sp); age++) {
-
-        if (random_rec == 0) {
-          jnll_comp(8, sp) += pow( init_dev(sp, age - 1) - Type(0.25), 2);
-        }
-
-        if (random_rec == 1) {
-          jnll_comp(8, sp) -= dnorm( init_dev(sp, age - 1) - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);
-        }
-
-      }
-
-      for (yr = 0; yr < nyrs; yr++) {
-
-        // Slot 11 -- Tau -- Annual recruitment deviation
-        if (random_rec == 0) {
-          jnll_comp(9, sp) += pow( rec_dev(sp, yr) - Type(0.25), 2);    // Recruitment deviation using penalized likelihood. ADDED lognormal bias correction
-        }
-        if (random_rec == 1) {
-          jnll_comp(9, sp) -= dnorm( rec_dev(sp, yr) - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);    // Recruitment deviation using random effects.
-        }
-
-        // Slot 12 -- Epsilon -- Annual fishing mortality deviation
-        jnll_comp(10, sp) += pow( F_dev(sp, yr), 2);      // Fishing mortality deviation using penalized likelihood.
-      }
-    }
-
-
-
-    // 11.3. Diet likelihood components from MSVPA
-    if ((msmMode == 1) & (suitMode > 0)) {
-      // Slot 14 -- Diet weight likelihood
-      // If 5D array
-      if(a2_dim.size() == 5){
-        for (rsp = 0; rsp < nspp; rsp++) {
-          jnll_comp(15, rsp) = 0;
-          for (yr = 0; yr < nyrs; yr++) {
-            for (r_age = 0; r_age < nages(rsp); r_age++) {
-              for (ksp = 0; ksp < nspp; ksp++) {
-                for (k_age = 0; k_age < nages(ksp); k_age++) {                  // FIME: need to add in other food
-                  //if (UobsWtAge(rsp, ksp, r_age, k_age, yr) > 0) { // (rsp, ksp, a, r_ln, yr)
-                  jnll_comp(15, rsp) -= stom_tau * (UobsWtAge(rsp, ksp, r_age, k_age, yr) + MNConst) * (log(UobsWtAge_hat(rsp, ksp, r_age, k_age, yr) + MNConst));
-                  // }
-                }
-              }
-            }
-          }
-          jnll_comp(15, rsp) -= offset_uobsagewt(rsp);
+      for (age = 0; age < (nages(sp) - 1); age++) {
+        if ( srv_sel(srv, age, 0) > srv_sel(srv, age + 1, 0)) {
+          jnll_comp(2, sp) += 20 * pow( log(srv_sel(srv, age, 0) / srv_sel(srv, age + 1, 0) ), 2);
         }
       }
 
-      // If 4D array
-      if(a2_dim.size() == 4){
-        for (rsp = 0; rsp < nspp; rsp++) {
-          jnll_comp(15, rsp) = 0;
+      // Extract only the selectivities we want
+      vector<Type> sel_tmp(nages(sp));
+
+      for (age = 0; age < nages(sp); age++) {
+        sel_tmp(age) = log(srv_sel(srv, age, 0));  sel_tmp.setZero();
+      }
+
+      for (age = 0; age < nages(sp) - 2; age++) {
+
+        sel_tmp(age) = first_difference( first_difference( sel_tmp ) )(age);
+        jnll_comp(2, srv) += curv_pen_fsh * pow( sel_tmp(age) , 2); // FIX
+
+      }
+    }
+  }
+
+
+  // Slot 3 -- Add survey selectivity normalization
+  for(srv = 0; srv < n_srv; srv++){
+    jnll_comp(3, srv) += 50 * square(avgsel_srv(srv));
+  }
+
+
+  // Slot 4 -- Total catch -- Fishery observer dat
+  for (fsh_ind = 0; fsh_ind < fsh_biom_obs.rows(); fsh_ind++) {
+
+    fsh = fsh_biom_ctl(fsh_ind, 0) - 1;            // Temporary fishery index
+    sp = fsh_biom_ctl(fsh_ind, 1) - 1;             // Species is the column 3
+
+    jnll_comp(4, fsh) += pow(log(fsh_biom_obs(fsh_ind, 0)) - log(fsh_bio_hat(fsh_ind)), 2) / (2 * square(fsh_biom_obs(fsh_ind, 1))); // NOTE: This is not quite the log  normal and biohat will be the median.
+  }
+
+
+
+  // Slot 5 -- Fishery age composition -- Fishery observer data
+  for (comp_ind = 0; comp_ind < fsh_comp_obs.rows(); comp_ind++) {
+
+    fsh = fsh_comp_ctl(comp_ind, 0) - 1;            // Temporary survey index
+    sp = fsh_comp_ctl(comp_ind, 1) - 1;             // Temporary index of species
+
+    // Ad is na to loop and just run all the columns
+    for (ln = 0; ln < fsh_comp_obs.cols(); ln++) {
+      if(!isNA( fsh_comp_obs(comp_ind, ln) )){
+        jnll_comp(5, fsh) -= Type(fsh_comp_ctl(comp_ind, 4)) * (fsh_comp_obs(comp_ind, ln) + MNConst) * log(fsh_comp_hat(comp_ind, ln) + MNConst ) ;
+      }
+    }
+  }
+
+  // Remove offsets
+  for (fsh = 0; fsh < n_fsh; fsh++) {
+    // srv_yr = yrs_srv_age(sp, yr) - styr;
+    jnll_comp(5, fsh) -= offset(fsh, 1);
+  }
+
+
+
+  // Slot 6 -- Fishery selectivity
+  for(fsh = 0; fsh < n_fsh; fsh++){ // Loop around surveys
+    jnll_comp(6, fsh) = 0; // FIXME: Likeliy redundant
+    sp = fsh_spp(fsh);
+
+    if (fsh_sel_type(fsh) == 2) {
+
+      for (age = 0; age < (nages(sp) - 1); age++) {
+        if ( fsh_sel(fsh, age, 0) > fsh_sel(fsh, age + 1, 0)) {
+          jnll_comp(6, sp) += 20 * pow( log(fsh_sel(fsh, age, 0) / fsh_sel(fsh, age + 1, 0) ), 2);
+        }
+      }
+
+      // Extract only the selectivities we want
+      vector<Type> sel_tmp(nages(sp)); sel_tmp.setZero();
+
+      for (age = 0; age < nages(sp); age++) {
+        sel_tmp(age) = log(fsh_sel(fsh, age, 0));
+      }
+
+      for (age = 0; age < nages(sp) - 2; age++) {
+
+        sel_tmp(age) = first_difference( first_difference( sel_tmp ) )(age);
+        jnll_comp(6, fsh) += curv_pen_fsh * pow( sel_tmp(age) , 2); // FIX
+
+      }
+    }
+  }
+
+
+  // Slot 7 -- Add fishery selectivity normalization
+  for (fsh = 0; fsh < n_fsh; fsh++) {
+    jnll_comp(7, fsh) = 50 * square(avgsel_fsh(fsh));
+  }
+
+  // Slots 8-10 -- PRIORS: PUT RANDOM EFFECTS SWITCH HERE
+  for (sp = 0; sp < nspp; sp++) {
+    // Slot 10 -- init_dev -- Initial abundance-at-age
+    for (age = 1; age < nages(sp); age++) {
+
+      if (random_rec == 0) {
+        jnll_comp(8, sp) += pow( init_dev(sp, age - 1) - Type(0.25), 2);
+      }
+
+      if (random_rec == 1) {
+        jnll_comp(8, sp) -= dnorm( init_dev(sp, age - 1) - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);
+      }
+
+    }
+
+    for (yr = 0; yr < nyrs; yr++) {
+
+      // Slot 11 -- Tau -- Annual recruitment deviation
+      if (random_rec == 0) {
+        jnll_comp(9, sp) += pow( rec_dev(sp, yr) - Type(0.25), 2);    // Recruitment deviation using penalized likelihood. ADDED lognormal bias correction
+      }
+      if (random_rec == 1) {
+        jnll_comp(9, sp) -= dnorm( rec_dev(sp, yr) - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);    // Recruitment deviation using random effects.
+      }
+
+      // Slot 12 -- Epsilon -- Annual fishing mortality deviation
+      jnll_comp(10, sp) += pow( F_dev(sp, yr), 2);      // Fishing mortality deviation using penalized likelihood.
+    }
+  }
+
+
+
+  // 11.3. Diet likelihood components from MSVPA
+  if ((msmMode == 1) & (suitMode > 0)) {
+    // Slot 14 -- Diet weight likelihood
+    // If 5D array
+    if(a2_dim.size() == 5){
+      for (rsp = 0; rsp < nspp; rsp++) {
+        jnll_comp(15, rsp) = 0;
+        for (yr = 0; yr < nyrs; yr++) {
           for (r_age = 0; r_age < nages(rsp); r_age++) {
             for (ksp = 0; ksp < nspp; ksp++) {
               for (k_age = 0; k_age < nages(ksp); k_age++) {                  // FIME: need to add in other food
-                //if (UobsWtAge(rsp, ksp, r_age, k_age) > 0) { // (rsp, ksp, a, r_ln, yr)
-                jnll_comp(15, rsp) -= stom_tau * (UobsWtAge(rsp, ksp, r_age, k_age) + MNConst) * (log(mn_UobsWtAge_hat(rsp, ksp, r_age, k_age) + MNConst));
-                //}
+                //if (UobsWtAge(rsp, ksp, r_age, k_age, yr) > 0) { // (rsp, ksp, a, r_ln, yr)
+                jnll_comp(15, rsp) -= stom_tau * (UobsWtAge(rsp, ksp, r_age, k_age, yr) + MNConst) * (log(UobsWtAge_hat(rsp, ksp, r_age, k_age, yr) + MNConst));
+                // }
               }
             }
           }
-          jnll_comp(15, rsp) -= offset_uobsagewt(rsp);
         }
+        jnll_comp(15, rsp) -= offset_uobsagewt(rsp);
       }
-    } // End diet proportion by weight component
+    }
 
-    // 11.4. Diet likelihood components from Kinzey and Punt
-    if ((msmMode > 1)) {
-      // Slot 13 -- Ration likelihood
-      for (yr = 0; yr < nyrs; yr++) {
-        for (sp = 0; sp < nspp; sp++) {
-          for (age = 1; age < nages(sp); age++) { // don't include age zero in likelihood
-            jnll_comp(13, sp) += 0.5 * pow( log( omega_hat(sp, age, yr) + 1.0e-10) -
-              log(ration2Age(sp, age, yr)), 2) / (sd_ration * sd_ration); // FIXME: add year indices for ration
+    // If 4D array
+    if(a2_dim.size() == 4){
+      for (rsp = 0; rsp < nspp; rsp++) {
+        jnll_comp(15, rsp) = 0;
+        for (r_age = 0; r_age < nages(rsp); r_age++) {
+          for (ksp = 0; ksp < nspp; ksp++) {
+            for (k_age = 0; k_age < nages(ksp); k_age++) {                  // FIME: need to add in other food
+              //if (UobsWtAge(rsp, ksp, r_age, k_age) > 0) { // (rsp, ksp, a, r_ln, yr)
+              jnll_comp(15, rsp) -= stom_tau * (UobsWtAge(rsp, ksp, r_age, k_age) + MNConst) * (log(mn_UobsWtAge_hat(rsp, ksp, r_age, k_age) + MNConst));
+              //}
+            }
           }
         }
+        jnll_comp(15, rsp) -= offset_uobsagewt(rsp);
       }
+    }
+  } // End diet proportion by weight component
 
-
-      // Slot 14 -- Ration penalalties FIXME: not sure if necessary: talk to Andre
+  // 11.4. Diet likelihood components from Kinzey and Punt
+  if ((msmMode > 1)) {
+    // Slot 13 -- Ration likelihood
+    for (yr = 0; yr < nyrs; yr++) {
       for (sp = 0; sp < nspp; sp++) {
-        for (age = 0; age < nages(sp); age++) {
-          Type mean_ohat = 0;
-          for (yr = 0; yr < nyrs; yr++) {
-            mean_ohat += omega_hat(sp, age, yr) / nyrs;
-          }
-          for (yr = 0; yr < nyrs; yr++) {
-            jnll_comp(14, sp) += 20 *  pow(omega_hat(sp, age, yr) - mean_ohat, 2);
-          }
+        for (age = 1; age < nages(sp); age++) { // don't include age zero in likelihood
+          jnll_comp(13, sp) += 0.5 * pow( log( omega_hat(sp, age, yr) + 1.0e-10) -
+            log(ration2Age(sp, age, yr)), 2) / (sd_ration * sd_ration); // FIXME: add year indices for ration
         }
       }
+    }
 
 
-      // Slot 14 -- Diet weight likelihood
-      for (rsp = 0; rsp < nspp; rsp++) {
+    // Slot 14 -- Ration penalalties FIXME: not sure if necessary: talk to Andre
+    for (sp = 0; sp < nspp; sp++) {
+      for (age = 0; age < nages(sp); age++) {
+        Type mean_ohat = 0;
         for (yr = 0; yr < nyrs; yr++) {
-          for (r_ln = 0; r_ln < sp_bins(rsp); r_ln++) {
-            for (ksp = 0; ksp < nspp; ksp++) {                  // FIME: need to add in other food
-              if (diet_w_sum(rsp, ksp, r_ln, yr) > 0) { // (rsp, ksp, a, r_ln, yr)
-                jnll_comp(15, rsp) -= stom_tau * diet_w_sum(rsp, ksp, r_ln, yr) * log(Q_hat(rsp, ksp, r_ln, yr) + 1.0e-10);
-              }
+          mean_ohat += omega_hat(sp, age, yr) / nyrs;
+        }
+        for (yr = 0; yr < nyrs; yr++) {
+          jnll_comp(14, sp) += 20 *  pow(omega_hat(sp, age, yr) - mean_ohat, 2);
+        }
+      }
+    }
+
+
+    // Slot 14 -- Diet weight likelihood
+    for (rsp = 0; rsp < nspp; rsp++) {
+      for (yr = 0; yr < nyrs; yr++) {
+        for (r_ln = 0; r_ln < sp_bins(rsp); r_ln++) {
+          for (ksp = 0; ksp < nspp; ksp++) {                  // FIME: need to add in other food
+            if (diet_w_sum(rsp, ksp, r_ln, yr) > 0) { // (rsp, ksp, a, r_ln, yr)
+              jnll_comp(15, rsp) -= stom_tau * diet_w_sum(rsp, ksp, r_ln, yr) * log(Q_hat(rsp, ksp, r_ln, yr) + 1.0e-10);
             }
           }
         }
-        jnll_comp(15, rsp) -= offset_diet_w(rsp);
       }
+      jnll_comp(15, rsp) -= offset_diet_w(rsp);
+    }
 
 
-      Type Denom = 0;
+    Type Denom = 0;
 
-      // Calculate the predicted fraction by length-class (Eqn 17)
-      T_hat.setZero();
-      for (rsp = 0; rsp < nspp; rsp++) {
-        for (ksp = 0; ksp < nspp; ksp++) {
+    // Calculate the predicted fraction by length-class (Eqn 17)
+    T_hat.setZero();
+    for (rsp = 0; rsp < nspp; rsp++) {
+      for (ksp = 0; ksp < nspp; ksp++) {
 
-          vector<Type> eaten_lmy(sp_bins(ksp)); eaten_lmy.setZero(); // no. of prey@length eaten by a predator length during iyr
+        vector<Type> eaten_lmy(sp_bins(ksp)); eaten_lmy.setZero(); // no. of prey@length eaten by a predator length during iyr
 
-          for (r_ln = 0; r_ln < sp_bins(rsp); r_ln++) { //
-            // This is Equation 17
-            for (yr = 0; yr < nyrs; yr++) { // FIXME: loop by stomach year
-              // int stom_yr = yrs_stomlns(rsp, ksp, stm_yr); // FIXME: index by stomach year
-              for (k_ln = 0; k_ln < sp_bins(ksp); k_ln ++) {
-                for (k_age = 0; k_age < nages(ksp); k_age++) {
-                  eaten_lmy(k_ln) += eaten_la(rsp, ksp, r_ln, k_age, yr) * age_trans_matrix(k_age, k_ln, ksp);
-                }
-                T_hat(rsp, ksp, r_ln, k_ln) += stom_tau * eaten_lmy(k_ln); // FIXME: add actual stomach content sample size
+        for (r_ln = 0; r_ln < sp_bins(rsp); r_ln++) { //
+          // This is Equation 17
+          for (yr = 0; yr < nyrs; yr++) { // FIXME: loop by stomach year
+            // int stom_yr = yrs_stomlns(rsp, ksp, stm_yr); // FIXME: index by stomach year
+            for (k_ln = 0; k_ln < sp_bins(ksp); k_ln ++) {
+              for (k_age = 0; k_age < nages(ksp); k_age++) {
+                eaten_lmy(k_ln) += eaten_la(rsp, ksp, r_ln, k_age, yr) * age_trans_matrix(k_age, k_ln, ksp);
               }
+              T_hat(rsp, ksp, r_ln, k_ln) += stom_tau * eaten_lmy(k_ln); // FIXME: add actual stomach content sample size
             }
+          }
 
 
-            Denom = 0;
-            for (k_ln = 0; k_ln < sp_bins(ksp); k_ln++) {
-              Denom += T_hat(rsp, ksp, r_ln, k_ln);
-            }
+          Denom = 0;
+          for (k_ln = 0; k_ln < sp_bins(ksp); k_ln++) {
+            Denom += T_hat(rsp, ksp, r_ln, k_ln);
+          }
 
-            // Renormalize the eaten vector
-            for (k_ln = 0; k_ln < sp_bins(ksp); k_ln++) {
-              T_hat(rsp, ksp, r_ln, k_ln) /= Denom;
+          // Renormalize the eaten vector
+          for (k_ln = 0; k_ln < sp_bins(ksp); k_ln++) {
+            T_hat(rsp, ksp, r_ln, k_ln) /= Denom;
 
-              // Likelihood of diet length         / This is equation 16
-              if (Uobs(rsp, ksp, r_ln, k_ln) > 0) {
-                jnll_comp(16, rsp) -= stom_tau * Uobs(rsp, ksp, r_ln, k_ln) * log(T_hat(rsp, ksp, r_ln, k_ln)  + 1.0e-10);
-              }
+            // Likelihood of diet length         / This is equation 16
+            if (Uobs(rsp, ksp, r_ln, k_ln) > 0) {
+              jnll_comp(16, rsp) -= stom_tau * Uobs(rsp, ksp, r_ln, k_ln) * log(T_hat(rsp, ksp, r_ln, k_ln)  + 1.0e-10);
             }
           }
         }
-        jnll_comp(16, rsp) -= offset_diet_l(rsp);
       }
-    } // End if statement for diet likelihood
-
-
-    // ------------------------------------------------------------------------- //
-    // 12. REPORT SECTION                                                        //
-    // ------------------------------------------------------------------------- //
-
-    // 12.1. Population components
-    REPORT( mn_rec );
-    REPORT( Zed );
-    REPORT( NByage );
-    REPORT( AvgN );
-    REPORT( S );
-    REPORT( biomassByage );
-    REPORT( biomassSSBByage );
-    REPORT( biomass );
-    REPORT( biomassSSB );
-    REPORT( pmature );
-    REPORT(r_sigma);
-    REPORT( R );
-    REPORT( M1 );
-    REPORT( M );
-
-    ADREPORT( Zed );
-    ADREPORT( biomass );
-    ADREPORT( biomassSSB );
-    ADREPORT( r_sigma );
-    ADREPORT( R );
-    ADREPORT( M1);
-
-    // -- 12.2. Survey components
-
-
-    // -- 12.3. Fishery components
-    ADREPORT( F );
-
-
-    // -- 12.4. Likelihood components
-    REPORT( jnll_comp );
-    REPORT( offset );
-    REPORT( offset_diet_w );
-    REPORT( offset_diet_l );
-    REPORT( offset_uobsagewt );
-
-
-    // -- 12.5. Ration components
-    REPORT( ConsumAge );
-    REPORT( Consum_livingAge );
-    REPORT( S2Age );
-    REPORT( LbyAge );
-    REPORT( mnWt_obs );
-    REPORT( fT );
-    REPORT( TempC );
-    REPORT( ration2Age );
-
-
-    // 12.6. Suitability components
-    REPORT( suma_suit );
-    REPORT( suit_main );
-    REPORT( suit_other );
-    REPORT( stom_div_bio2 );
-    REPORT( stomKir );
-    REPORT( avail_food );
-    REPORT( of_stomKir );
-    REPORT( M2 );
-    REPORT( B_eaten );
-    REPORT( UobsWtAge_hat );
-    REPORT( mn_UobsWtAge_hat );
-
-    // -- 12.7. Kinzey predation functions
-    REPORT( H_1 );
-    REPORT( H_1a );
-    REPORT( H_1b );
-    REPORT( H_2 );
-    REPORT( H_3 );
-    REPORT( gam_a );
-    REPORT( gam_b );
-
-    REPORT( N_pred_yrs );
-    REPORT( N_prey_yrs );
-    REPORT( N_pred_eq );
-    REPORT( N_prey_eq );
-
-    REPORT( pred_resp );
-    REPORT( Pred_r );
-    REPORT( Prey_r );
-    REPORT( Vmort_ua );
-    REPORT( eaten_la );
-    REPORT( eaten_ua );
-
-    REPORT( Q_mass_l );
-    REPORT( Q_mass_u );
-    REPORT( Q_other_u );
-    REPORT( Q_hat );
-    REPORT( T_hat );
-
-    REPORT( omega_hat );
-    REPORT( omega_hat_ave );
-
-    // ------------------------------------------------------------------------- //
-    // 13. END MODEL                                                             //
-    // ------------------------------------------------------------------------- //
-    Type jnll = 0;
-
-    // Estimation mode
-    if (debug == 0) {
-      jnll = jnll_comp.sum();
+      jnll_comp(16, rsp) -= offset_diet_l(rsp);
     }
+  } // End if statement for diet likelihood
 
-    // Debug mode
-    if (debug > 0) {
-      jnll = dummy * dummy;
-    }
 
-    REPORT( jnll );
-    return jnll;
+  // ------------------------------------------------------------------------- //
+  // 12. REPORT SECTION                                                        //
+  // ------------------------------------------------------------------------- //
+
+  // 12.1. Population components
+  REPORT( mn_rec );
+  REPORT( Zed );
+  REPORT( NByage );
+  REPORT( AvgN );
+  REPORT( S );
+  REPORT( biomassByage );
+  REPORT( biomassSSBByage );
+  REPORT( biomass );
+  REPORT( biomassSSB );
+  REPORT( pmature );
+  REPORT(r_sigma);
+  REPORT( R );
+  REPORT( M1 );
+  REPORT( M );
+
+  ADREPORT( Zed );
+  ADREPORT( biomass );
+  ADREPORT( biomassSSB );
+  ADREPORT( r_sigma );
+  ADREPORT( R );
+  ADREPORT( M1);
+
+  // -- 12.2. Fishery components
+  REPORT( avgsel_fsh );
+  REPORT( fsh_sel );
+  REPORT( fsh_sel_tmp );
+  REPORT( catch_hat );
+  REPORT( F );
+  REPORT( F_tot );
+  REPORT( fsh_bio_hat );
+  REPORT( fsh_hat );
+  REPORT( fsh_age_hat );
+  REPORT( fsh_comp_hat );
+  REPORT( fsh_comp_obs );
+
+  // -- 12.3. Survey components
+  REPORT( avgsel_srv );
+  REPORT( srv_sel );
+  REPORT( srv_sel_tmp );
+  REPORT(  srv_bio_hat );
+  REPORT( srv_hat );
+  REPORT( srv_age_hat );
+  REPORT( srv_comp_hat );
+
+
+  // -- 12.4. Likelihood components
+  REPORT( jnll_comp );
+  REPORT( offset );
+  REPORT( offset_diet_w );
+  REPORT( offset_diet_l );
+  REPORT( offset_uobsagewt );
+
+
+  // -- 12.5. Ration components
+  REPORT( ConsumAge );
+  REPORT( Consum_livingAge );
+  REPORT( S2Age );
+  REPORT( LbyAge );
+  REPORT( mnWt_obs );
+  REPORT( fT );
+  REPORT( TempC );
+  REPORT( ration2Age );
+
+
+  // 12.6. Suitability components
+  REPORT( suma_suit );
+  REPORT( suit_main );
+  REPORT( suit_other );
+  REPORT( stom_div_bio2 );
+  REPORT( stomKir );
+  REPORT( avail_food );
+  REPORT( of_stomKir );
+  REPORT( M2 );
+  REPORT( B_eaten );
+  REPORT( UobsWtAge_hat );
+  REPORT( mn_UobsWtAge_hat );
+
+  // -- 12.7. Kinzey predation functions
+  REPORT( H_1 );
+  REPORT( H_1a );
+  REPORT( H_1b );
+  REPORT( H_2 );
+  REPORT( H_3 );
+  REPORT( gam_a );
+  REPORT( gam_b );
+
+  REPORT( N_pred_yrs );
+  REPORT( N_prey_yrs );
+  REPORT( N_pred_eq );
+  REPORT( N_prey_eq );
+
+  REPORT( pred_resp );
+  REPORT( Pred_r );
+  REPORT( Prey_r );
+  REPORT( Vmort_ua );
+  REPORT( eaten_la );
+  REPORT( eaten_ua );
+
+  REPORT( Q_mass_l );
+  REPORT( Q_mass_u );
+  REPORT( Q_other_u );
+  REPORT( Q_hat );
+  REPORT( T_hat );
+
+  REPORT( omega_hat );
+  REPORT( omega_hat_ave );
+
+  // ------------------------------------------------------------------------- //
+  // 13. END MODEL                                                             //
+  // ------------------------------------------------------------------------- //
+  Type jnll = 0;
+
+  // Estimation mode
+  if (debug == 0) {
+    jnll = jnll_comp.sum();
+  }
+
+  // Debug mode
+  if (debug > 0) {
+    jnll = dummy * dummy;
+  }
+
+  REPORT( jnll );
+  return jnll;
 }
