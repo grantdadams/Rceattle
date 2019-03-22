@@ -47,13 +47,13 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   #---------------------------------------------------------------------
   # Step 1 -- Add data names NOT used in TMB
   #---------------------------------------------------------------------
-  names_not_in_cpp <- c("nyrs_srv_biom", "yrs_srv_biom", "srv_biom_se",
+  names_not_in_cpp <- c("nyrs_srv_biom", "yrs_srv_biom", "srv_biom", "srv_biom_se",
                         "srv_age_obs", "nyrs_srv_age", "yrs_srv_age", "srv_age_n",
                         "srv_age_type", "srv_age_bins",
                         "n_eit", "yrs_eit", "obs_eit", "eit_sel",
                         "eit_age_n", "obs_eit_age",
-                        "fsh_age_bins", "fsh_age_type", "nyrs_fsh_comp", "yrs_fsh_age",
-                        "nyrs_fsh_comp" , "yrs_fsh_comp" , "obs_catch", "nyrs_tc_biom" , "tcb_obs", "nyrs_tc_biom", "yrs_tc_biom",
+                        "nyrs_fsh_comp" , "yrs_fsh_comp", "fsh_age_type" , "fsh_age_bins", "obs_catch", # FSH Comp
+                        "nyrs_tc_biom" , "yrs_tc_biom", "tcb_obs", # Fish biom
                         "propMorF", "mf_type", "BTempC_retro", "fsh_sel_type")
   names_in_cpp <- dat_names
   dat_names <- c(dat_names, names_not_in_cpp)
@@ -267,14 +267,14 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   #---------------------------------------------------------------------
   # Step 10 -- Reorganize selectivity
   #---------------------------------------------------------------------
-  dat_list$emp_srv_sel <- data.frame(
+  dat_list$srv_emp_sel <- data.frame(
     Survey_name = rep("EIT_Pollock", dat_list$n_eit),
     Survey_code = rep(4, length(dat_list$n_eit)),
     Species = rep(1, length(dat_list$n_eit)),
     Year = dat_list$yrs_eit
   )
   colnames(dat_list$eit_sel) <- paste("Comp_",1:ncol(dat_list$eit_sel), sep = "")
-  dat_list$emp_srv_sel <- cbind(dat_list$emp_srv_sel, dat_list$eit_sel[dat_list$yrs_eit - dat_list$styr + 1,])
+  dat_list$srv_emp_sel <- cbind(dat_list$srv_emp_sel, dat_list$eit_sel[dat_list$yrs_eit - dat_list$styr + 1,])
 
 
 
@@ -297,7 +297,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   # Step 12 -- Reorganize for fishery biomass
   #---------------------------------------------------------------------
   # BT BIOMASS
-  dat_list$catch_biom <- data.frame(
+  dat_list$fsh_biom <- data.frame(
     Fishery_name = rep(c("Pollock", "Cod", "ATF"), dat_list$nyrs_tc_biom),
     Fishery_code = rep(1:3, dat_list$nyrs_tc_biom),
     Species = rep(1:nspp, dat_list$nyrs_tc_biom),
@@ -329,14 +329,14 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   #---------------------------------------------------------------------
   # Step 14 -- Reorganize selectivity
   #---------------------------------------------------------------------
-  dat_list$emp_fsh_sel <- data.frame(
+  dat_list$fsh_emp_sel <- data.frame(
     Fishery_name = NA,
     Fishery_code = NA,
     Species = NA,
     Year = NA,
     Comp_1 = NA
   )
-
+  dat_list$fsh_emp_sel[-1,]
 
   #---------------------------------------------------------------------
   # Step 15 -- Rename stuff
@@ -358,14 +358,14 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   dimnames(dat_list$UobsWtAge) <- list(paste0('Pred', 1:3),paste0('Prey', 1:3), paste0('Pred_ln', 1:max( dat_list$nages)), paste0('Pred_ln', 1:max( dat_list$nages)))
 
 
-  dat_list2$avgnMode <- 1
-dat_list2$avgnMode <- 0
-  dat_list2$random_rec <- FALSE
-  dat_list2$niter <- 10
-  dat_list2$suitMode <- 0
-  dat_list2$est_diet <- 0
-  dat_list2$msmMode <- 1
-  dat_list2$debug <- TRUE
+  dat_list$avgnMode <- 1
+  dat_list$avgnMode <- 0
+  dat_list$random_rec <- FALSE
+  dat_list$niter <- 10
+  dat_list$suitMode <- 0
+  dat_list$est_diet <- 0
+  dat_list$msmMode <- 1
+  dat_list$debug <- TRUE
 
 
   #---------------------------------------------------------------------
@@ -375,6 +375,11 @@ dat_list2$avgnMode <- 0
 
   '%!in%' <- function(x,y)!('%in%'(x,y))
   dat_list2 <- list()
+
+  names_in_cpp <- c(names_in_cpp,
+                    "fsh_emp_sel", "srv_emp_sel",
+                    "fsh_comp", "srv_comp",
+                    "fsh_biom", "srv_biom")
 
   for(i in 1:length(names_in_cpp)){
     dat_list2[[names_in_cpp[i]]] <-  dat_list[[names_in_cpp[i]]]

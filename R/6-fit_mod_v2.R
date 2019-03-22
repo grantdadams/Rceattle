@@ -237,7 +237,7 @@ Rceattle <-
     # Get cpp file if not provided
     if(is.null(TMBfilename) | is.null(cpp_directory)){
       cpp_directory <- system.file("executables",package="Rceattle")
-      TMBfilename <- "ceattle_v01_02"
+      TMBfilename <- "ceattle_v01_04"
     } else{
       cpp_directory <- cpp_directory
       TMBfilename <- TMBfilename
@@ -286,6 +286,7 @@ Rceattle <-
 
     '%!in%' <- function(x,y)!('%in%'(x,y))
 
+
     # STEP 5 - Compile CEATTLE is providing cpp file
     cpp_file <- paste0(cpp_directory, "/", TMBfilename)
 
@@ -322,8 +323,10 @@ Rceattle <-
     print("Step 4: Compile CEATTLE complete")
 
 
+    # STEP 6 - Reorganize data
+    data_list <- rearrange_dat(data_list)
 
-    # STEP 6 - Build and fit model object
+    # STEP 7 - Build and fit model object
     obj = TMB::MakeADFun(
       data_list,
       parameters = params,
