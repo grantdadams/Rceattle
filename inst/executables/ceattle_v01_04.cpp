@@ -420,6 +420,7 @@ Type objective_function<Type>::operator() () {
   vector<int> srv_n_bins(n_srv); srv_n_bins.setZero();                          // Vector to save number of bins for survey composition
   vector<int> srv_spp(n_srv); srv_spp.setZero();                                // Vector to save survey species
   vector<int> sp_bins(nspp); sp_bins.setZero();                                 // Vector to save max bin of surveys
+  vector<int> srv_units(n_srv); srv_units.setZero();                            // Vector to save survey units (1 = weight, 2 = numbers)
 
   for (srv_ind = 0; srv_ind < n_srv; srv_ind++){
     srv = srv_control(srv_ind, 1) - 1;                    // Temporary survey index
@@ -429,6 +430,7 @@ Type objective_function<Type>::operator() () {
     srv_nselages(srv) = srv_control(srv_ind, 4);          // Non-parametric selectivity ages
     srv_comp_type(srv) = srv_control(srv_ind, 5);         // Composition type
     srv_n_bins(srv) = srv_control(srv_ind, 6);            // Survey bins
+    srv_units(srv) = srv_control(srv_ind, 7);             // Survey units
 
     sp = srv_control(srv, 2) - 1;
     sp_bins(sp) = srv_control(srv, 6);
@@ -441,6 +443,7 @@ Type objective_function<Type>::operator() () {
   vector<int> fsh_comp_type(n_fsh); fsh_comp_type.setZero();                    // Vector to save fishery composition type (1 = age, 2 = length)
   vector<int> fsh_n_bins(n_fsh); fsh_n_bins.setZero();                          // Vector to save number of bins for fishery composition
   vector<int> fsh_spp(n_fsh); fsh_spp.setZero();                                // Vector to save specives of fishery
+  vector<int> fsh_units(n_fsh); fsh_units.setZero();                            // Vector to save survey units (1 = weight, 2 = numbers)
 
   for (fsh_ind = 0; fsh_ind < n_fsh; fsh_ind++){
     fsh = fsh_control(fsh_ind, 1) - 1;                    // Temporary survey index
@@ -448,7 +451,8 @@ Type objective_function<Type>::operator() () {
     fsh_sel_type(fsh) = fsh_control(fsh_ind, 3);          // Selectivity type
     fsh_nselages(fsh) = fsh_control(fsh_ind, 4);          // Non-parametric selectivity ages
     fsh_comp_type(fsh) = fsh_control(fsh_ind, 5);         // Composition type
-    fsh_n_bins(fsh) = fsh_control(fsh_ind, 6);            // Survey bins
+    fsh_n_bins(fsh) = fsh_control(fsh_ind, 6);            // Fishery bins
+    fsh_units(fsh) = fsh_control(fsh_ind, 7);             // Fishery units
 
   }
 
@@ -1518,7 +1522,14 @@ Type objective_function<Type>::operator() () {
       srv_bio_hat(srv_ind) = 0;                      // Initialize
 
       for (age = 0; age < nages(sp); age++) {
-        srv_bio_hat(srv_ind) += NByage(sp, age, srv_yr) * exp( - (mo/12) * Zed(sp, age, srv_yr)) * srv_sel(srv, age, srv_yr) * srv_q(srv) * wt(srv_yr, age, sp);
+        // Weight
+        if(srv_units(srv) == 1){
+                  srv_bio_hat(srv_ind) += NByage(sp, age, srv_yr) * exp( - (mo/12) * Zed(sp, age, srv_yr)) * srv_sel(srv, age, srv_yr) * srv_q(srv) * wt(srv_yr, age, sp);
+        }
+// Numbers
+        if(srv_units(srv) == 2){
+                  srv_bio_hat(srv_ind) += NByage(sp, age, srv_yr) * exp( - (mo/12) * Zed(sp, age, srv_yr)) * srv_sel(srv, age, srv_yr) * srv_q(srv);
+        }
       }
     }
 
@@ -1579,7 +1590,16 @@ Type objective_function<Type>::operator() () {
       fsh_bio_hat(fsh_ind) = 0;                  // Initialize
 
       for (age = 0; age < nages(sp); age++) {
-        fsh_bio_hat(fsh_ind) += F(fsh, age, fsh_yr) / Zed(sp, age, fsh_yr) * (1 - exp(-Zed(sp, age, fsh_yr))) * NByage(sp, age, fsh_yr) * wt(fsh_yr, age, sp); // 5.5.
+        // By weight
+        if(fsh_units(fsh) == 1){
+                  fsh_bio_hat(fsh_ind) += F(fsh, age, fsh_yr) / Zed(sp, age, fsh_yr) * (1 - exp(-Zed(sp, age, fsh_yr))) * NByage(sp, age, fsh_yr) * wt(fsh_yr, age, sp); // 5.5.
+        }
+
+                // By numbers
+        if(fsh_units(fsh) == 2){
+                  fsh_bio_hat(fsh_ind) += F(fsh, age, fsh_yr) / Zed(sp, age, fsh_yr) * (1 - exp(-Zed(sp, age, fsh_yr))) * NByage(sp, age, fsh_yr); // 5.5.
+        }
+
       }
     }
     // Good above here
