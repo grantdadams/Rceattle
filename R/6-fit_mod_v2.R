@@ -331,7 +331,7 @@ Rceattle <-
       data_list,
       parameters = params,
       DLL = TMBfilename,
-      map = map,
+      map = map[[1]],
       random = random_vars,
       silent = silent
 
@@ -346,8 +346,8 @@ Rceattle <-
 
 
     # Remove inactive parameters from bounds and vectorize
-    L = unlist(bounds$lower)[which(!is.na(unlist(map)))]
-    U = unlist(bounds$upper)[which(!is.na(unlist(map)))]
+    L = unlist(bounds$lower)[which(!is.na(unlist(map[[1]])))]
+    U = unlist(bounds$upper)[which(!is.na(unlist(map[[1]])))]
 
     # Remove random effects from bounds
     if (random_rec == TRUE) {
