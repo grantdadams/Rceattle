@@ -292,14 +292,14 @@ Type objective_function<Type>::operator() () {
   // -- 4.3. Fishery observations
   vector<Type>  avgsel_fsh(n_fsh); avgsel_fsh.setZero();                            // Average fishery selectivity; n = [1, nspp]
   array<Type>   fsh_sel(n_fsh, max_age, nyrs); fsh_sel.setZero();                   // Estimated fishery selectivity at age; n = [nspp, nages, nyrs]
-  matrix<Type>  fsh_sel_tmp(n_fsh, max_age); fsh_sel_tmp.setZero();                 // Temporary saved fishery selectivity at age for estimated bits; n = [nspp, nages, nyrs]
+  matrix<Type>  fsh_sel2(n_fsh, max_age); fsh_sel2.setZero();                       // Temporary saved fishery selectivity at age for estimated bits; n = [nspp, nages, nyrs]
 
   array<Type>   catch_hat(nspp, max_age, nyrs); catch_hat.setZero();                // Estimated catch-at-age (n); n = [nspp, nages, nyrs]
   array<Type>   F(n_fsh, max_age, nyrs); F.setZero();                               // Estimated fishing mortality for each fishery; n = [n_fsh, nages, nyrs]
   array<Type>   F_tot(nspp, max_age, nyrs); F_tot.setZero();                        // Sum of annual estimated fishing mortalities for each species-at-age; n = [nspp, nages, nyrs]
   vector<Type>  fsh_bio_hat(fsh_biom_obs.rows()); fsh_bio_hat.setZero();            // Estimated fishery yield (kg); columns = Species, Index, Year, Month, Estimate
   vector<Type>  fsh_hat(fsh_comp_obs.rows()) ; fsh_hat.setZero() ;                  // Estimated fishery catch (n); n = [nspp, nyrs]
-  matrix<Type>  fsh_age_hat = fsh_comp_obs; fsh_age_hat.setZero();                 // Estimated fishery catch at age; n = [nspp, nages, nyrs]
+  matrix<Type>  fsh_age_hat = fsh_comp_obs; fsh_age_hat.setZero();                  // Estimated fishery catch at age; n = [nspp, nages, nyrs]
   matrix<Type>  fsh_comp_hat = fsh_comp_obs; fsh_comp_hat.setZero();                // Estimated fishery comp; n = [nspp, nages, nyrs]
 
   // -- 4.4. Survey components
@@ -444,11 +444,12 @@ Type objective_function<Type>::operator() () {
 
   for (fsh_ind = 0; fsh_ind < n_fsh; fsh_ind++){
     fsh = fsh_control(fsh_ind, 1) - 1;                    // Temporary survey index
+    fsh_spp(fsh) = fsh_control(fsh_ind, 2) - 1;           // Species
     fsh_sel_type(fsh) = fsh_control(fsh_ind, 3);          // Selectivity type
     fsh_nselages(fsh) = fsh_control(fsh_ind, 4);          // Non-parametric selectivity ages
     fsh_comp_type(fsh) = fsh_control(fsh_ind, 5);         // Composition type
     fsh_n_bins(fsh) = fsh_control(fsh_ind, 6);            // Survey bins
-    fsh_spp(fsh) = fsh_control(fsh_ind, 2) - 1;           // Species
+
   }
 
 
@@ -506,10 +507,12 @@ Type objective_function<Type>::operator() () {
   // NOTE: Remember indexing starts at 0
   // Start iterations
   for (int iter = 0; iter < niter; iter++) {
-    // Good above here
 
-    fsh_sel.setZero();
+
     // 6.0. EMPIRICAL FISHERY SELECTIVITY
+        avgsel_fsh.setZero();
+    fsh_sel2.setZero();
+    fsh_sel.setZero();
     for (int sel_ind = 0; sel_ind < fsh_emp_sel_obs.rows(); sel_ind++){
 
       fsh = fsh_emp_sel_ctl(sel_ind, 0) - 1;            // Temporary survey index
@@ -517,78 +520,74 @@ Type objective_function<Type>::operator() () {
       fsh_yr = fsh_emp_sel_ctl(sel_ind, 2) - styr;      // Temporary index for years of data
 
       for (age = 0; age < fsh_emp_sel_obs.cols(); age++) {
+        if(!isNA(fsh_emp_sel_obs(sel_ind, age))){
         fsh_sel(fsh, age, fsh_yr) = fsh_emp_sel_obs(sel_ind, age);
+      }
       }
     }
 
-
     // 6.1. ESTIMATE FISHERY SELECTIVITY
+    for (fsh = 0; fsh < n_fsh; fsh++) {
 
-    fsh_sel.setZero();
-    for(ctl_ind = 0; ctl_ind < n_fsh; ctl_ind++){
+      sp = fsh_spp(fsh);             // Temporary index of species
 
-      fsh = fsh_control(ctl_ind, 1) - 1;            // Temporary survey index
-      sp = fsh_control(ctl_ind, 2) - 1;             // Temporary index of species
-
-      // 9.1.1. Logisitic selectivity
+      // 6.1.1. Logisitic selectivity
       if (fsh_sel_type(fsh) == 1) {
         for (age = 0; age < nages(sp); age++){
-          fsh_sel_tmp(fsh, age) = 1 / (1 + exp( -fsh_sel_slp(0, fsh) * ((age + 1) - fsh_sel_inf(0, fsh))));
+          fsh_sel2(fsh, age) = 1 / (1 + exp( -fsh_sel_slp(0, fsh) * ((age + 1) - fsh_sel_inf(0, fsh))));
         }
       }
 
-      // 9.1.2. Non-parametric selectivity fit to age ranges. NOTE: This can likely be improved
+      // 6.1.2. Non-parametric selectivity fit to age ranges. NOTE: This can likely be improved
       if (fsh_sel_type(fsh) == 2) {
-        avgsel_fsh.setZero();
         for (age = 0; age < fsh_nselages(fsh); age++) {
-          fsh_sel_tmp(sp, age) = fsh_sel_coff(sp, age);
-          avgsel_fsh(sp) +=  exp(fsh_sel_coff(sp, age));
+          fsh_sel2(fsh, age) = fsh_sel_coff(fsh, age);
+          avgsel_fsh(fsh) +=  exp(fsh_sel_coff(fsh, age));
         }
-        // 9.1.3 Average selectivity up to nselages(sp)
+        //  Average selectivity up to nselages
         avgsel_fsh(fsh) = log(avgsel_fsh(fsh) / fsh_nselages(fsh));
 
-        // 9.1.4. Plus group selectivity
+        // Plus group selectivity
         for (age = fsh_nselages(fsh); age < nages(sp); age++) {
-          fsh_sel_tmp(fsh, age) = fsh_sel_tmp(fsh, fsh_nselages(fsh) - 1);
+          fsh_sel2(fsh, age) = fsh_sel2(fsh, fsh_nselages(fsh) - 1);
         }
 
-        // 9.1.5. Average selectivity across all ages
-        avgsel_tmp = 0; // set to zero
+        // Average selectivity across all ages
+        avgsel_tmp = 0; // Temporary object for average selectivity across all ages
         for (age = 0; age < nages(sp); age++) {
-          avgsel_tmp += exp(fsh_sel_tmp(fsh, age));
+          avgsel_tmp += exp(fsh_sel2(fsh, age));
         }
         avgsel_tmp = log(avgsel_tmp / nages(sp));
 
-        // 9.1.6. Standardize selectivity
+        // Standardize selectivity
         for (age = 0; age < nages(sp); age++) {
-          fsh_sel_tmp(fsh, age) -=  avgsel_tmp;
-          fsh_sel_tmp(fsh, age) = exp(fsh_sel_tmp(fsh, age));
+          fsh_sel2(fsh, age) -= avgsel_tmp;
+          fsh_sel2(fsh, age) = exp(fsh_sel2(fsh, age));
         }
       }
 
 
-      // 9.1.2. Double logistic (Dorn and Methot 1990)
+      // 6.1.3. Double logistic (Dorn and Methot 1990)
       if (fsh_sel_type(fsh) == 3) {
-        for (age = 0; age < nages(sp); age++){
-          fsh_sel_tmp(fsh, age) = (1 / (1 + exp( -fsh_sel_slp(0, fsh) * ((age + 1) - fsh_sel_inf(0, fsh))))) * // Upper slop
+        for (age = 0; age <  nages(sp); age++){
+          fsh_sel2(fsh, age) = (1 / (1 + exp( -fsh_sel_slp(0, fsh) * ((age + 1) - fsh_sel_inf(0, fsh))))) * // Upper slop
             (1 - (1 / (1 + exp( -fsh_sel_slp(1, fsh) * ((age + 1) - fsh_sel_inf(1, fsh))))));  // Downward slope;
         }
       }
 
-      // Standardize estimated selectivities and add to vector
+      // 6.1.4. Normalize
       if (fsh_sel_type(fsh) > 0) {
-        //vector<Type> sel_sp = fsh_sel_tmp.row(fsh); // Can't max a matrix....
-        // sh_sel_tmp.row(fsh) /= max(sel_sp); // Standardize so max sel = 1 for each species
+        vector<Type> sel_sp = fsh_sel2.row(fsh); // Can't max a matrix....
+        fsh_sel2.row(fsh) /= max(sel_sp); // Standardize so max sel = 1 for each species
+      }
 
-        for (age = 0; age < nages(sp); age++){
-          for (yr = 0; yr < nyrs; yr++) {
-            fsh_sel(fsh, age, yr) = fsh_sel_tmp(fsh, age);
-          }
+      for (age = 0; age < nages(sp); age++){
+        for (yr = 0; yr < nyrs; yr++) {
+          fsh_sel(fsh, age, yr) = fsh_sel2(fsh, age);
         }
       }
-    } // End fishery selectivity loop
+    }
 
-    // Good above here
 
     // 6.1. ESTIMATE FISHING MORTALITY
     F.setZero();
@@ -599,8 +598,8 @@ Type objective_function<Type>::operator() () {
 
       for (yr = 0; yr < nyrs; yr++) {
         for (age = 0; age < nages(sp); age++) {
-
           F(fsh_ind, age, yr) = fsh_sel(fsh_ind, age, yr) * exp(ln_mean_F(fsh_ind) + F_dev(fsh_ind, yr));
+          // F(fsh_ind, age, yr) = fsh_sel(fsh_ind, age, yr) * exp(ln_mean_F(fsh_ind) + F_dev(fsh_ind, yr));
           F_tot(sp, age, yr) += F(fsh_ind, age, yr);
         }
       }
@@ -1867,7 +1866,9 @@ Type objective_function<Type>::operator() () {
     if (fsh_sel_type(fsh) == 2) {
 
       for (age = 0; age < (nages(sp) - 1); age++) {
+        //if ( fsh_sel(fsh, age, 0) > fsh_sel(fsh, age + 1, 0)) {
         if ( fsh_sel(fsh, age, 0) > fsh_sel(fsh, age + 1, 0)) {
+          //jnll_comp(6, sp) += 20 * pow( log(fsh_sel(fsh, age, 0) / fsh_sel(fsh, age + 1, 0) ), 2);
           jnll_comp(6, sp) += 20 * pow( log(fsh_sel(fsh, age, 0) / fsh_sel(fsh, age + 1, 0) ), 2);
         }
       }
@@ -1876,6 +1877,7 @@ Type objective_function<Type>::operator() () {
       vector<Type> sel_tmp(nages(sp)); sel_tmp.setZero();
 
       for (age = 0; age < nages(sp); age++) {
+        // sel_tmp(age) = log(fsh_sel(fsh, age, 0));
         sel_tmp(age) = log(fsh_sel(fsh, age, 0));
       }
 
@@ -2081,7 +2083,7 @@ Type objective_function<Type>::operator() () {
   // -- 12.2. Fishery components
   REPORT( avgsel_fsh );
   REPORT( fsh_sel );
-  REPORT( fsh_sel_tmp );
+  REPORT( fsh_sel2 );
   REPORT( catch_hat );
   REPORT( F );
   REPORT( F_tot );
@@ -2090,6 +2092,7 @@ Type objective_function<Type>::operator() () {
   REPORT( fsh_age_hat );
   REPORT( fsh_comp_hat );
   REPORT( fsh_comp_obs );
+  REPORT( fsh_sel_type );
 
   // -- 12.3. Survey components
   REPORT( avgsel_srv );
