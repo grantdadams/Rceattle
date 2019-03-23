@@ -16,9 +16,9 @@ bounds = NULL
 file_name = NULL # Don't save
 debug = 0 # Estimate
 random_rec = FALSE # No random recruitment
-msmMode = 0 # Single species mode
+msmMode = 1 # Single species mode
 avgnMode = 0
-silent = FALSE
+silent = TRUE
 niter = 5
 est_diet = FALSE
 suitMode = FALSE
@@ -197,108 +197,3 @@ opt = Rceattle::Optimize(obj = obj,
 
 
 Check_Identifiable(obj)
-
-print("Step 6: Optimization complete")
-
-# Get quantities
-quantities <- obj$report(obj$env$last.par.best)
-
-if (debug) {
-  last_par <- params
-} else if (random_rec == F) {
-  last_par = suppressWarnings(obj$env$parList(obj$env$last.par.best))
-} else{
-  last_par = suppressWarnings(obj$env$parList(obj$env$last.par.best))
-}
-
-run_time = ((Sys.time() - start_time))
-
-# # Return objects
-# mod_objects <-
-#   list(
-#     data_list = data_list,
-#     initial_params = params,
-#     bounds = bounds,
-#     map = map,
-#     obj = obj,
-#     opt = opt,
-#     sdrep = opt$SD,
-#     estimated_params = last_par,
-#     quantities = quantities,
-#     run_time = run_time
-#   )
-#
-# class(mod_objects) <- "Rceattle"
-#
-# if(!is.null(file_name)){
-#   save(mod_objects, file = paste0(file_name, ".RData"))
-# }
-#
-# quantities$fsh_sel[,,1]
-# mod_objects$quantities$fsh_sel
-#
-# quantities$F[,,1]
-# mod_objects$quantities$F[,,1]
-#
-# quantities$M[,,1]
-# mod_objects$quantities$M[,,1]
-#
-# quantities$Zed[,,1]
-# mod_objects$quantities$Zed[,,1]
-#
-# quantities$S[,,1]
-# mod_objects$quantities$S[,,1]
-#
-# quantities$R
-# mod_objects$quantities$R
-#
-# quantities$NByage[,,6]
-# mod_objects$quantities$NByage[,,6]
-#
-# quantities$biomassSSB
-# mod_objects$quantities$biomassSSB
-#
-#
-# quantities$srv_sel[,,1]
-# mod_objects$quantities$srv_sel
-#
-#
-# quantities$srv_bio_hat
-# c(t(mod_objects$quantities$srv_bio_hat))
-#
-#
-# quantities$srv_hat[37:46]
-# c(t(mod_objects$quantities$srv_hat))[40:49]
-#
-# quantities$srv_comp_hat[1:10, 1:12]
-# t(mod_objects$quantities$srv_age_hat[1,1:12,1:10])
-#
-# quantities$srv_comp_hat[37:46, 1:12]
-# t(mod_objects$quantities$srv_age_hat[2,1:12,1:10])
-#
-# quantities$srv_comp_hat[73:82, 1:12]
-# t(mod_objects$quantities$srv_age_hat[3,1:12,1:10])
-#
-# quantities$fsh_bio_hat
-# mod_objects$quantities$tc_biom_hat
-#
-# quantities$fsh_hat
-# mod_objects$quantities$tc_hat
-#
-# quantities$fsh_comp_hat[1:10, 1:12]
-# t(mod_objects$quantities$fsh_age_hat[1,1:12,1:10])
-#
-# quantities$fsh_comp_hat[39:48, 1:12]
-# t(mod_objects$quantities$fsh_age_hat[2,1:12,1:10])
-#
-# quantities$fsh_comp_hat[78:87, 1:12]
-# t(mod_objects$quantities$fsh_age_hat[3,1:12,1:10])
-#
-# round(quantities$jnll_comp, 4)
-# round(mod_objects$quantities$jnll_comp,4)
-#
-#
-# # round(quantities$offset, 4)
-# # round(mod_objects$quantities$offset_fsh,4)
-# # round(mod_objects$quantities$offset_eit,4)
-# # round(mod_objects$quantities$offset_srv,4)
