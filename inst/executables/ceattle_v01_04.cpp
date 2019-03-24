@@ -315,12 +315,11 @@ Type objective_function<Type>::operator() () {
 
   // -- 4.6. Ration components
   array<Type>   ConsumAge( nspp, max_age, nyrs ); ConsumAge.setZero();                        // Pre-allocated indiviudal consumption in grams per predator-age; n = [nyrs, nages, nspp]
-  array<Type>   Consum_livingAge( nspp, max_age, nyrs ); Consum_livingAge.setZero();          // Pre-allocated indiviudal consumption in grams per predator-age; n = [nyrs, nages, nspp]
   matrix<Type>  fT( nspp, nTyrs ); fT.setZero();                                              // Pre-allocation of temperature function of consumption; n = [nspp, nTyrs]
   array<Type>   LbyAge( nspp, max_age, nyrs ); LbyAge.setZero();                              // Length by age from LW regression
   matrix<Type>  mnWt_obs( nspp, max_age ); mnWt_obs.setZero();                                // Mean observed weight at age (across years); n = [nspp, nages]
   array<Type>   ration2Age( nspp, max_age, nyrs ); ration2Age.setZero();                      // Annual ration at age (kg/yr); n = [nyrs, nages, nspp]
-  array<Type>   S2Age( nspp, max_age, nyrs ); S2Age.setZero();                                // pre-allocate mean stomach weight as a function of sp_age
+  array<Type>   S2Age( nspp, max_age, nyrs ); S2Age.setZero();                                // Pre-allocate mean stomach weight as a function of sp_age
   vector<Type>  TempC( nTyrs ); TempC.setZero();                                              // Bottom temperature; n = [1, nTyrs]
 
   // -- 4.7. Suitability components
@@ -732,9 +731,13 @@ Type objective_function<Type>::operator() () {
     Type Kb = 0;
     for (sp = 0; sp < nspp; sp++) {
       for (yr = 0; yr < nTyrs; yr++) {
+
+        // Exponential function from Stewart et al. 1983
         if ( Ceq(sp) == 1) {
           fT(sp, yr) = exp(Qc(sp) * TempC(yr));
         }
+
+        // Temperature dependence for warm-water-species from Kitchell et al. 1977
         if ( Ceq(sp) == 2) {
           Yc = log( Qc(sp) ) * (Tcm(sp) - Tco(sp) + 2);
           Zc = log( Qc(sp) ) * (Tcm(sp) - Tco(sp));
@@ -742,6 +745,8 @@ Type objective_function<Type>::operator() () {
           Xc = pow(Zc, 2) * pow((1 + pow((1 + 40 / Yc), 0.5)), 2) / 400;
           fT(sp, yr) = pow(Vc, Xc) * exp(Xc * (1 - Vc));
         }
+
+        // Temperature dependence for cool and cold-water species from Thornton and Lessem 1979
         if (Ceq(sp) == 3) {
           G2 = (1 / (Tcl(sp) - Tcm(sp))) * log((0.98 * (1 - CK4(sp))) / (CK4(sp) * 0.02));
           L2 = exp(G2 * (Tcl( sp ) - TempC( yr )));
@@ -760,10 +765,17 @@ Type objective_function<Type>::operator() () {
       for (age = 0; age < nages(sp); age++) {
         for (yr = 0; yr < nyrs; yr++) {
           ConsumAge(sp, age, yr) = Type(24) * Type(0.0134) * exp( Type(0.0115) * TempC( yr )) * Type(91.25) * S2Age(sp, age, yr) * wt(yr, age, sp); // Calculate consumption for predator-at-age; units = kg/predator
-          Consum_livingAge(sp, age, yr) = ConsumAge(sp, age, yr);       // Specific consumption rates for each size of predator in terms of g/g/yr of all prey consumed per predator per year
 
           if (C_model( sp ) == 1) {
-            ConsumAge(sp, age, yr) = CA(sp) * pow(wt(yr, age, sp) * Type(1000), CB( sp )) * fT(sp, yr) * fday( sp ) * wt(yr, age, sp) * 1000;//g/pred.yr
+            // C_max = maximum specific feeding rate (g g^-1 d^-1)
+            // p = proportion of maximum consumption
+            // f(T) = temperature dependence function
+            // CA = intercept of allometric mass function
+            // CB = slope of allometric mass function
+            // fday = number of forageing days per year
+
+            ConsumAge(sp, age, yr) = CA(sp) * pow(wt(yr, age, sp) * Type(1000), CB( sp )) // C_max = CA * W ^ CB; where C_max is grams consumed per grams of predator per day
+             * fT(sp, yr) * fday( sp ) * wt(yr, age, sp) * 1000; //  C_max * f(T) * wt * fday g/pred.yr
             ConsumAge(sp, age, yr) = ConsumAge(sp, age, yr) * Pvalue(sp) * Pyrs(yr, age, sp); //
           }
 
@@ -941,8 +953,8 @@ Type objective_function<Type>::operator() () {
                 gsum = 1.0e-10;                                           // Initialize
                 for (k_age = 0; k_age < nages(ksp); k_age++) {            // Prey age
                   // if prey are smaller than predator:
-                  if ( (aLW(0, rsp) * pow( wt(yr, r_age, rsp), aLW(1, rsp)))  > (aLW(0, ksp) * pow( wt(yr, k_age, ksp), aLW(1, ksp)))) {
-                    x_l_ratio = log((aLW(0, rsp) * pow( wt(yr, r_age, rsp), aLW(1, rsp))) / (aLW(0, ksp) * pow( wt(yr, k_age, ksp), aLW(1, ksp))) ); // Log ratio of lengths
+                  if ( LbyAge( rsp, r_age, yr)  > LbyAge( Ksp, K_age, yr)) {
+                    x_l_ratio = log(LbyAge( rsp, r_age, yr) / LbyAge( Ksp, K_age, yr) ); // Log ratio of lengths
                     suit_main(rsp , ksp, r_age, k_age, yr) = Type(1.0e-10) +  (Type(1.0e-10) + gam_a( rsp ) - 1) * log(x_l_ratio / LenOpt + Type(1.0e-10)) -
                       (1.0e-10 + x_l_ratio - LenOpt) / gam_b(rsp);
                     ncnt += 1;
@@ -953,7 +965,7 @@ Type objective_function<Type>::operator() () {
                 }
                 for (k_age = 0; k_age < nages(ksp); k_age++) {            // Prey age
                   // if prey are smaller than predator:
-                  if ( (aLW(0, rsp) * pow( wt(yr, r_age, rsp), aLW(1, rsp)))  > (aLW(0, ksp) * pow( wt(yr, k_age, ksp), aLW(1, ksp)))) {
+                  if ( LbyAge( rsp, r_age, yr)  > LbyAge( Ksp, K_age, yr)) {
                     suit_main(rsp , ksp, r_age, k_age, yr) = Type(1.0e-10) + exp(suit_main(rsp , ksp, r_age, k_age, yr) - log(Type(1.0e-10) + gsum / Type(ncnt))); // NOT sure what this is for...
                   }
                 }
@@ -1053,8 +1065,8 @@ Type objective_function<Type>::operator() () {
               for (ksp = 0; ksp < nspp; ksp++) {                            // Prey loop
                 for (k_age = 0; k_age < nages(ksp); k_age++) {              // Prey age
                   // if prey are smaller than predator:
-                  if ( (aLW(0, rsp) * pow( wt(yr, r_age, rsp), aLW(1, rsp)))  > (aLW(0, ksp) * pow( wt(yr, k_age, ksp), aLW(1, ksp)))) {
-                    x_l_ratio = log((aLW(0, rsp) * pow( wt(yr, r_age, rsp), aLW(1, rsp))) / (aLW(0, ksp) * pow( wt(yr, k_age, ksp), aLW(1, ksp))) ); // Log ratio of lengths
+                  if ( LbyAge( rsp, r_age, yr)  > LbyAge( Ksp, K_age, yr)) {
+                   x_l_ratio = log(LbyAge( rsp, r_age, yr) / LbyAge( Ksp, K_age, yr) ); // Log ratio of lengths
                     suit_main(rsp , ksp, r_age, k_age, yr) = exp(log_phi(rsp, ksp)) * exp(-1/ (2*square(gam_a(rsp))) * square(x_l_ratio - gam_b(rsp)) );
                     gsum += suit_main(rsp , ksp, r_age, k_age, yr);
                   }
@@ -2134,7 +2146,6 @@ Type objective_function<Type>::operator() () {
 
   // -- 12.5. Ration components
   REPORT( ConsumAge );
-  REPORT( Consum_livingAge );
   REPORT( S2Age );
   REPORT( LbyAge );
   REPORT( mnWt_obs );
