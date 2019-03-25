@@ -18,11 +18,13 @@ rearrange_dat <- function(dat_list){
   dat_list$fsh_biom_obs <- dat_list$fsh_biom[,c("Catch_kg", "CV")]
 
   # Step 4 -  Seperate survey comp info from observation
-  dat_list$srv_comp_ctl <- dat_list$srv_comp[,c("Survey_code", "Species", "Year", "Month", "Sample_size")]
+  dat_list$srv_comp_ctl <- dat_list$srv_comp[,c("Survey_code", "Species", "Year")]
+  dat_list$srv_comp_n <- dat_list$srv_comp[,c("Month", "Sample_size")]
   dat_list$srv_comp_obs <- dat_list$srv_comp[,grep("Comp_", colnames(dat_list$srv_comp))]
 
   # Step 5 -  Seperate catch comp info from observation
-  dat_list$fsh_comp_ctl <- dat_list$fsh_comp[,c("Fishery_code", "Species", "Year", "Month", "Sample_size")]
+  dat_list$fsh_comp_ctl <- dat_list$fsh_comp[,c("Fishery_code", "Species", "Year")]
+  dat_list$fsh_comp_n <- dat_list$fsh_comp[,c("Month", "Sample_size")]
   dat_list$fsh_comp_obs <- dat_list$fsh_comp[,grep("Comp_", colnames(dat_list$fsh_comp))]
 
   # Step 6 -  Seperate survey empirical selectivity info from observation

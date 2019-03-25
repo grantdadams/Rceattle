@@ -182,6 +182,8 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     stop("nselages is not of length 1 or nspp")
   }
 
+  dat_list$pop_wt_index <- c(1:3)
+
   #---------------------------------------------------------------------
   # Step 7 -- Survey specifications
   #---------------------------------------------------------------------
@@ -196,6 +198,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Comp_type = c(dat_list$srv_age_type, 1),
     Comp_N_bins = c(dat_list$srv_age_bins, ncol(dat_list$obs_eit_age)),
     Catch_units = rep(1, 4),
+    Weight_index = c(1:3,1),
     # Comp_Nyrs = c(dat_list$nyrs_srv_age, dat_list$n_eit),
     Estimate_q = c(0, 0, 0, 1),
     log_q_start = c(0, 0, 0, -6.7025)
@@ -278,7 +281,6 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   dat_list$srv_emp_sel <- cbind(dat_list$srv_emp_sel, dat_list$eit_sel[dat_list$yrs_eit - dat_list$styr + 1,])
 
 
-
   #---------------------------------------------------------------------
   # Step 11 -- Fishery specifications
   #---------------------------------------------------------------------
@@ -292,7 +294,8 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Nselages = c(dat_list$nselages),
     Comp_type = c(dat_list$fsh_age_type),
     Comp_N_bins = c(dat_list$fsh_age_bins),
-    Catch_units = rep(1, 3)
+    Catch_units = rep(1, 3),
+    Weight_index = c(1:3)
   )
 
   #---------------------------------------------------------------------
