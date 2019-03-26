@@ -109,6 +109,7 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR( nages );                  // Number of species (prey) ages; n = [1, nspp]
   DATA_INTEGER( stom_tau );               // Stomach sample size
   int max_age = imax(nages);              // Integer of maximum nages to make the arrays; n = [1]
+  DATA_ARRAY( age_error );                // Array of aging error matrices for each species; n = [nspp, nages, nages]
 
   // 2.3. DATA INPUTS (i.e. assign data to objects)
   // -- 2.3.1 Fishery Components
