@@ -373,6 +373,15 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   dat_list$debug <- TRUE
 
 
+  ###########################
+  # Adding aging error
+  ###########################
+  dat_list$age_error <- array(0, dim = c(dat_list$nspp, max(dat_list$nages), max(dat_list$nages)))
+  for(sp in 1:dat_list$nspp){
+    dat_list$age_error[sp,,] <- diag(1, max(dat_list$nages), max(dat_list$nages))
+  }
+
+
   #---------------------------------------------------------------------
   # Final Step -- Remove unwanted bits
   #---------------------------------------------------------------------

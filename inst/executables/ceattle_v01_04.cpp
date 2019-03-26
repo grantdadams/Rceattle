@@ -304,7 +304,8 @@ Type objective_function<Type>::operator() () {
   array<Type>   F_tot(nspp, max_age, nyrs); F_tot.setZero();                        // Sum of annual estimated fishing mortalities for each species-at-age; n = [nspp, nages, nyrs]
   vector<Type>  fsh_bio_hat(fsh_biom_obs.rows()); fsh_bio_hat.setZero();            // Estimated fishery yield (kg); columns = Species, Index, Year, Month, Estimate
   vector<Type>  fsh_hat(fsh_comp_obs.rows()) ; fsh_hat.setZero() ;                  // Estimated fishery catch (n); n = [nspp, nyrs]
-  matrix<Type>  fsh_age_hat = fsh_comp_obs; fsh_age_hat.setZero();                  // Estimated fishery catch at age; n = [nspp, nages, nyrs]
+  matrix<Type>  fsh_age_hat = fsh_comp_obs; fsh_age_hat.setZero();                  // Estimated fishery catch at true age; n = [nspp, nages, nyrs]
+  matrix<Type>  fsh_age_obs_hat = fsh_comp_obs; fsh_age_obs_hat.setZero();          // Estimated fishery catch at observed age; n = [nspp, nages, nyrs]
   matrix<Type>  fsh_comp_hat = fsh_comp_obs; fsh_comp_hat.setZero();                // Estimated fishery comp; n = [nspp, nages, nyrs]
 
   // -- 4.4. Survey components
@@ -315,7 +316,8 @@ Type objective_function<Type>::operator() () {
   Type avgsel_tmp = 0;                                                            // Temporary object for average selectivity across all ages
   vector<Type>  srv_bio_hat(srv_biom_obs.rows()); srv_bio_hat.setZero();          // Estimated survey biomass (kg); columns = Species, Index, Year, Month, Estimate
   vector<Type>  srv_hat( srv_comp_obs.rows() ); srv_hat.setZero();                // Estimated survey total abundance (n); n = [nspp, nyrs]
-  matrix<Type>  srv_age_hat = srv_comp_obs; srv_age_hat.setZero();                // Estimated survey abundance at age; columns = Comp_1, Comp_2, etc.
+  matrix<Type>  srv_age_hat = srv_comp_obs; srv_age_hat.setZero();                // Estimated survey abundance at true age; columns = Comp_1, Comp_2, etc.
+  matrix<Type>  srv_age_obs_hat = srv_comp_obs; srv_age_obs_hat.setZero();        // Estimated survey abundance at observed age; columns = Comp_1, Comp_2, etc.
   matrix<Type>  srv_comp_hat = srv_comp_obs; srv_comp_hat.setZero();              // Estimated survey comp; columns = Comp_1, Comp_2, etc.
 
   // -- 4.6. Ration components
@@ -522,7 +524,7 @@ Type objective_function<Type>::operator() () {
 
 
     // 6.0. EMPIRICAL FISHERY SELECTIVITY
-        avgsel_fsh.setZero();
+    avgsel_fsh.setZero();
     fsh_sel2.setZero();
     fsh_sel.setZero();
     for (int sel_ind = 0; sel_ind < fsh_emp_sel_obs.rows(); sel_ind++){
@@ -533,8 +535,8 @@ Type objective_function<Type>::operator() () {
 
       for (age = 0; age < fsh_emp_sel_obs.cols(); age++) {
         if(!isNA(fsh_emp_sel_obs(sel_ind, age))){
-        fsh_sel(fsh, age, fsh_yr) = fsh_emp_sel_obs(sel_ind, age);
-      }
+          fsh_sel(fsh, age, fsh_yr) = fsh_emp_sel_obs(sel_ind, age);
+        }
       }
     }
 
@@ -784,7 +786,7 @@ Type objective_function<Type>::operator() () {
             // fday = number of forageing days per year
 
             ConsumAge(sp, age, yr) = CA(sp) * pow(wt(yr, age, pop_wt_index(sp)) * Type(1000), CB( sp )) // C_max = CA * W ^ CB; where C_max is grams consumed per grams of predator per day
-             * fT(sp, yr) * fday( sp ) * wt(yr, age, pop_wt_index(sp)) * 1000; //  C_max * f(T) * wt * fday g/pred.yr
+            * fT(sp, yr) * fday( sp ) * wt(yr, age, pop_wt_index(sp)) * 1000; //  C_max * f(T) * wt * fday g/pred.yr
             ConsumAge(sp, age, yr) = ConsumAge(sp, age, yr) * Pvalue(sp) * Pyrs(yr, age, sp); //
           }
 
@@ -1075,7 +1077,7 @@ Type objective_function<Type>::operator() () {
                 for (k_age = 0; k_age < nages(ksp); k_age++) {              // Prey age
                   // if prey are smaller than predator:
                   if ( LbyAge( rsp, r_age, yr)  > LbyAge( ksp, k_age, yr)) {
-                   x_l_ratio = log(LbyAge( rsp, r_age, yr) / LbyAge( ksp, k_age, yr) ); // Log ratio of lengths
+                    x_l_ratio = log(LbyAge( rsp, r_age, yr) / LbyAge( ksp, k_age, yr) ); // Log ratio of lengths
                     suit_main(rsp , ksp, r_age, k_age, yr) = exp(log_phi(rsp, ksp)) * exp(-1/ (2*square(gam_a(rsp))) * square(x_l_ratio - gam_b(rsp)) );
                     gsum += suit_main(rsp , ksp, r_age, k_age, yr);
                   }
@@ -1545,17 +1547,18 @@ Type objective_function<Type>::operator() () {
       for (age = 0; age < nages(sp); age++) {
         // Weight
         if(srv_units(srv) == 1){
-                  srv_bio_hat(srv_ind) += NByage(sp, age, srv_yr) * exp( - (mo/12) * Zed(sp, age, srv_yr)) * srv_sel(srv, age, srv_yr) * srv_q(srv) * wt(srv_yr, age, srv_wt_index(srv));
+          srv_bio_hat(srv_ind) += NByage(sp, age, srv_yr) * exp( - (mo/12) * Zed(sp, age, srv_yr)) * srv_sel(srv, age, srv_yr) * srv_q(srv) * wt(srv_yr, age, srv_wt_index(srv));
         }
-// Numbers
+        // Numbers
         if(srv_units(srv) == 2){
-                  srv_bio_hat(srv_ind) += NByage(sp, age, srv_yr) * exp( - (mo/12) * Zed(sp, age, srv_yr)) * srv_sel(srv, age, srv_yr) * srv_q(srv);
+          srv_bio_hat(srv_ind) += NByage(sp, age, srv_yr) * exp( - (mo/12) * Zed(sp, age, srv_yr)) * srv_sel(srv, age, srv_yr) * srv_q(srv);
         }
       }
     }
 
 
     // -- 9.3. Survey composition
+    srv_age_obs_hat.setZero();
     for(comp_ind = 0; comp_ind < srv_comp_hat.rows(); comp_ind++){
 
       srv = srv_comp_ctl(comp_ind, 0) - 1;            // Temporary survey index
@@ -1571,10 +1574,19 @@ Type objective_function<Type>::operator() () {
         srv_hat(comp_ind) += srv_age_hat(comp_ind, age );   // Total numbers
       }
 
+      // Add in aging error
+
+      for (int true_age = 0; true_age < nages(sp); true_age++) {
+        for (int obs_age = 0; obs_age < nages(sp); obs_age++) {
+          srv_age_obs_hat(comp_ind, obs_age) += srv_age_hat(comp_ind, true_age ) * age_error(sp, true_age, obs_age);
+        }
+      }
+
+
       //  Normalize survey catch-at-age
       if (srv_comp_type(srv) == 1) {
         for (age = 0; age < nages(sp); age++) {
-          srv_comp_hat(comp_ind, age) = srv_age_hat(comp_ind, age) / srv_hat(comp_ind);
+          srv_comp_hat(comp_ind, age) = srv_age_obs_hat(comp_ind, age) / srv_hat(comp_ind);
         }
       }
 
@@ -1584,7 +1596,7 @@ Type objective_function<Type>::operator() () {
           srv_comp_hat(comp_ind, ln ) = 0; // Initialize
 
           for (age = 0; age < nages(sp); age++) {
-            srv_comp_hat(comp_ind, ln ) += srv_age_hat(comp_ind, age) * age_trans_matrix(age, ln, sp);
+            srv_comp_hat(comp_ind, ln ) += srv_age_obs_hat(comp_ind, age) * age_trans_matrix(age, ln, sp);
           }
         }
 
@@ -1613,12 +1625,12 @@ Type objective_function<Type>::operator() () {
       for (age = 0; age < nages(sp); age++) {
         // By weight
         if(fsh_units(fsh) == 1){
-                  fsh_bio_hat(fsh_ind) += F(fsh, age, fsh_yr) / Zed(sp, age, fsh_yr) * (1 - exp(-Zed(sp, age, fsh_yr))) * NByage(sp, age, fsh_yr) * wt(fsh_yr, age, fsh_wt_index(fsh)); // 5.5.
+          fsh_bio_hat(fsh_ind) += F(fsh, age, fsh_yr) / Zed(sp, age, fsh_yr) * (1 - exp(-Zed(sp, age, fsh_yr))) * NByage(sp, age, fsh_yr) * wt(fsh_yr, age, fsh_wt_index(fsh)); // 5.5.
         }
 
-                // By numbers
+        // By numbers
         if(fsh_units(fsh) == 2){
-                  fsh_bio_hat(fsh_ind) += F(fsh, age, fsh_yr) / Zed(sp, age, fsh_yr) * (1 - exp(-Zed(sp, age, fsh_yr))) * NByage(sp, age, fsh_yr); // 5.5.
+          fsh_bio_hat(fsh_ind) += F(fsh, age, fsh_yr) / Zed(sp, age, fsh_yr) * (1 - exp(-Zed(sp, age, fsh_yr))) * NByage(sp, age, fsh_yr); // 5.5.
         }
 
       }
@@ -1627,6 +1639,7 @@ Type objective_function<Type>::operator() () {
 
 
     // -- 9.3. Fishery composition
+    fsh_age_obs_hat.setZero();
     for(comp_ind = 0; comp_ind < fsh_comp_hat.rows(); comp_ind++){
 
       fsh = fsh_comp_ctl(comp_ind, 0) - 1;            // Temporary fishery index
@@ -1642,10 +1655,18 @@ Type objective_function<Type>::operator() () {
         fsh_hat( comp_ind ) += fsh_age_hat(comp_ind, age );   // Total numbers
       }
 
+      // Adjust for aging error
+
+      for (int true_age = 0; true_age < nages(sp); true_age++) {
+        for (int obs_age = 0; obs_age < nages(sp); obs_age++) {
+          fsh_age_obs_hat(comp_ind, obs_age) += fsh_age_hat(comp_ind, true_age ) * age_error(sp, true_age, obs_age);
+        }
+      }
+
       //  Survey catch-at-age
       if (fsh_comp_type(fsh) == 1) {
         for (age = 0; age < nages(sp); age++) {
-          fsh_comp_hat(comp_ind, age) = fsh_age_hat(comp_ind, age ) / fsh_hat(comp_ind);
+          fsh_comp_hat(comp_ind, age) = fsh_age_obs_hat(comp_ind, age ) / fsh_hat(comp_ind);
         }
       }
 
@@ -1654,7 +1675,7 @@ Type objective_function<Type>::operator() () {
         for (ln = 0; ln < fsh_n_bins(fsh); ln++) {
           fsh_comp_hat(comp_ind, ln) = 0; // Initialize
           for (age = 0; age < nages(sp); age++) {
-            fsh_comp_hat(comp_ind, ln ) += fsh_age_hat(comp_ind, age) * age_trans_matrix(age, ln, sp);
+            fsh_comp_hat(comp_ind, ln ) += fsh_age_obs_hat(comp_ind, age) * age_trans_matrix(age, ln, sp);
           }
         }
 
