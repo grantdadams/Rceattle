@@ -5,7 +5,8 @@
 \title{Build data list object for TMB from ADMB dat files}
 \usage{
 build_dat(ctlFilename = NULL, TMBfilename = NULL,
-  cpp_directory = NULL, dat_dir = NULL, nspp = 3, nselages = 8)
+  cpp_directory = NULL, dat_dir = NULL, nspp = 3, nselages = 8,
+  proj_yr = 2100, stom_tau = 20)
 }
 \arguments{
 \item{ctlFilename}{The ADMB control (.ctl) file used for CEATTLE}
@@ -19,6 +20,10 @@ build_dat(ctlFilename = NULL, TMBfilename = NULL,
 \item{nspp}{The number of species included in the CEATTLE model. Deafualts to 3.}
 
 \item{nselages}{Number of ages to estimate selectivity. Can either be a single number or vector of length nspp}
+
+\item{proj_yr}{The year to project the populations with no fishing. Assumed to be 2100}
+
+\item{stom_tau}{Stomach content sample size for likelihood. Assumed to be 20.}
 }
 \value{
 A list of data objects used by TMB
