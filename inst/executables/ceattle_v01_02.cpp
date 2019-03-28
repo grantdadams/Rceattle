@@ -858,8 +858,8 @@ Type objective_function<Type>::operator() () {
                 gsum = 1.0e-10;                                           // Initialize
                 for (k_age = 0; k_age < nages(ksp); k_age++) {            // Prey age
                   // if prey are smaller than predator:
-                  if ( (aLW(0, rsp) * pow( wt(yr, r_age, rsp), aLW(1, rsp)))  > (aLW(0, ksp) * pow( wt(yr, k_age, ksp), aLW(1, ksp)))) {
-                    x_l_ratio = log((aLW(0, rsp) * pow( wt(yr, r_age, rsp), aLW(1, rsp))) / (aLW(0, ksp) * pow( wt(yr, k_age, ksp), aLW(1, ksp))) ); // Log ratio of lengths
+                  if ( LbyAge( rsp, r_age, yr)  > LbyAge( ksp, k_age, yr)) {
+                    x_l_ratio = log(LbyAge( rsp, r_age, yr) / LbyAge( ksp, k_age, yr)); // Log ratio of lengths
                     suit_main(rsp , ksp, r_age, k_age, yr) = Type(1.0e-10) +  (Type(1.0e-10) + gam_a( rsp ) - 1) * log(x_l_ratio / LenOpt + Type(1.0e-10)) -
                       (1.0e-10 + x_l_ratio - LenOpt) / gam_b(rsp);
                     ncnt += 1;
@@ -968,8 +968,8 @@ Type objective_function<Type>::operator() () {
               for (ksp = 0; ksp < nspp; ksp++) {                            // Prey loop
                 for (k_age = 0; k_age < nages(ksp); k_age++) {              // Prey age
                   // if prey are smaller than predator:
-                  if ( (aLW(0, rsp) * pow( wt(yr, r_age, rsp), aLW(1, rsp)))  > (aLW(0, ksp) * pow( wt(yr, k_age, ksp), aLW(1, ksp)))) {
-                    x_l_ratio = log((aLW(0, rsp) * pow( wt(yr, r_age, rsp), aLW(1, rsp))) / (aLW(0, ksp) * pow( wt(yr, k_age, ksp), aLW(1, ksp))) ); // Log ratio of lengths
+                  if ( LbyAge( rsp, r_age, yr)  > LbyAge( ksp, k_age, yr)) {
+                    x_l_ratio = log(LbyAge( rsp, r_age, yr) / LbyAge( ksp, k_age, yr)); // Log ratio of lengths
                     suit_main(rsp , ksp, r_age, k_age, yr) = exp(phi(rsp, ksp)) * exp(-1/ (2*square(gam_a(rsp))) * square(x_l_ratio - gam_b(rsp)) );
                     gsum += suit_main(rsp , ksp, r_age, k_age, yr);
                   }
