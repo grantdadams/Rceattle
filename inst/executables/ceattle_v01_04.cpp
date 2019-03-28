@@ -19,7 +19,8 @@
 // 3. BT survey age/length composition estimated for month 6 rather than 0, similar to BT survey biomass
 // 4. Fixed mis-specification of multinomial for fishery composition
 // 5. Normalized survey and fishery selectivity so that max = 1
-// 6.
+// 6. Fixed initialization of population
+// 7. Fixed estimation routine of suitability coefficients (N used to caclulate suitability is no-longer different)
 //
 //
 //
