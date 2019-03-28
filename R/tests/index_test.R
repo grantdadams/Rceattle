@@ -8,7 +8,7 @@ library(Rceattle)
 # source("R/2-build_params.R")
 # source("R/3-build_map.R")
 data_list_ss$nages
-cpp_directory <- system.file("executables",package="Rceattle")
+cpp_directory <- "inst/executables"
 TMBfilename <- "ceattle_v01_02"
 data("BS2017SS")
 data_list = BS2017SS
@@ -139,6 +139,7 @@ if(recompile){
   suppressWarnings(file.remove(paste0(cpp_file, ".o")))
 }
 
+dyn.unload(TMB::dynlib(paste0(cpp_file)), silent = TRUE)
 TMB::compile(paste0(cpp_file, ".cpp"))
 dyn.load(TMB::dynlib(paste0(cpp_file)), silent = TRUE)
 print("Step 4: Compile CEATTLE complete")
