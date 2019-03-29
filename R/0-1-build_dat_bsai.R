@@ -13,7 +13,7 @@
 #'
 #' @return A list of data objects used by TMB
 #' @export
-build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NULL, dat_dir = NULL, nspp = 3, nselages = 8, proj_yr = 2100, stom_tau = 20) {
+build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NULL, dat_dir = NULL, nspp = 3, nselages = 8, endyr = 2017, proj_yr = 2100, stom_tau = 20) {
 
   # Get cpp file if not provided
   if(is.null(TMBfilename) | is.null(cpp_directory)){
@@ -183,6 +183,9 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   }
 
   dat_list$pop_wt_index <- c(1:3)
+  dat_list$pop_alk_index <- c(1:3)
+  dat_list$nlenths <- dat_list$fsh_age_bins
+  dat_list$endyr <- endyr
 
   #---------------------------------------------------------------------
   # Step 7 -- Survey specifications
@@ -195,8 +198,6 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Species = c(1:3, 1),
     Selectivity = c(dat_list$srv_sel_type, 0),
     Nselages = rep(NA, 4),
-    Comp_type = c(dat_list$srv_age_type, 1),
-    Comp_N_bins = c(dat_list$srv_age_bins, ncol(dat_list$obs_eit_age)),
     Catch_units = rep(1, 4),
     Weight_index = c(1:3,1),
     # Comp_Nyrs = c(dat_list$nyrs_srv_age, dat_list$n_eit),
@@ -212,6 +213,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Survey_name = rep(c("BT_Pollock", "BT_Cod", "BT_ATF"), dat_list$nyrs_srv_biom),
     Survey_code = rep(1:3, dat_list$nyrs_srv_biom),
     Species = rep(1:nspp, dat_list$nyrs_srv_biom),
+    Sex = rep(rep(0, nspp), dat_list$nyrs_srv_biom),
     Year = as.vector(t(dat_list$yrs_srv_biom)),
     Month = rep(rep(6, nspp), dat_list$nyrs_srv_biom),
     Observation = as.vector(t(dat_list$srv_biom)),
@@ -227,6 +229,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Survey_name = rep("EIT_Pollock", dat_list$n_eit),
     Survey_code = rep(4, dat_list$n_eit),
     Species = rep(1, dat_list$n_eit),
+    Sex = rep(0, dat_list$n_eit),
     Year = dat_list$yrs_eit,
     Month = rep(0, dat_list$n_eit),
     Observation = dat_list$obs_eit,
@@ -242,6 +245,8 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Survey_name = rep(c("BT_Pollock", "BT_Cod", "BT_ATF"), dat_list$nyrs_srv_age),
     Survey_code = rep(1:nspp, dat_list$nyrs_srv_age),
     Species = rep(1:nspp, dat_list$nyrs_srv_age),
+    Sex = rep(rep(0, nspp), dat_list$nyrs_srv_age),
+    Age0_Length1 = rep(c(1,2,2), dat_list$nyrs_srv_age),
     Year = as.vector(t(dat_list$yrs_srv_age)),
     Month = rep(rep(6, nspp), dat_list$nyrs_srv_age),
     Sample_size = as.vector(t(dat_list$srv_age_n))
@@ -257,6 +262,8 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Survey_name = rep("EIT_Pollock", dat_list$n_eit),
     Survey_code = rep(4, dat_list$n_eit),
     Species = rep(1, dat_list$n_eit),
+    Sex = rep(0, dat_list$n_eit),
+    Age0_Length1 = rep(0, dat_list$n_eit),
     Year = dat_list$yrs_eit,
     Month = rep(0, dat_list$n_eit),
     Sample_size = dat_list$eit_age_n
@@ -292,8 +299,6 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Species = c(1:3),
     Selectivity = rep(2, 3),
     Nselages = c(dat_list$nselages),
-    Comp_type = c(dat_list$fsh_age_type),
-    Comp_N_bins = c(dat_list$fsh_age_bins),
     Catch_units = rep(1, 3),
     Weight_index = c(1:3)
   )
@@ -306,6 +311,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Fishery_name = rep(c("Pollock", "Cod", "ATF"), dat_list$nyrs_tc_biom),
     Fishery_code = rep(1:3, dat_list$nyrs_tc_biom),
     Species = rep(1:nspp, dat_list$nyrs_tc_biom),
+    Sex = rep(rep(0, nspp), dat_list$nyrs_tc_biom),
     Year = as.vector(t(dat_list$yrs_tc_biom)),
     Month = rep(rep(0, nspp), dat_list$nyrs_tc_biom),
     Catch_kg = as.vector(t(dat_list$tcb_obs)),
@@ -320,6 +326,8 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Fishery_name = rep(c("Pollock", "Cod", "ATF"), dat_list$nyrs_fsh_comp),
     Fishery_code = rep(1:nspp, dat_list$nyrs_fsh_comp),
     Species = rep(1:nspp, dat_list$nyrs_fsh_comp),
+    Sex = rep(rep(0, nspp), dat_list$nyrs_fsh_comp),
+    Age0_Length1 = rep(c(1,2,2), dat_list$nyrs_fsh_comp),
     Year = na.exclude(as.vector(t(dat_list$yrs_fsh_comp))),
     Month = rep(rep(0, nspp), dat_list$nyrs_fsh_comp),
     Sample_size = rep(rep(200, nspp), dat_list$nyrs_fsh_comp)
