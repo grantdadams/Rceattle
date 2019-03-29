@@ -29,9 +29,9 @@ plot_biomass <-
     }
 
     # Extract data objects
-    nyrs <- Rceattle[[1]]$data_list$nyrs
     Years <-
-      Rceattle[[1]]$data_list$styr:(Rceattle[[1]]$data_list$styr + nyrs - 1)
+      Rceattle[[1]]$data_list$styr:Rceattle[[1]]$data_list$endyr
+    nyrs <- length(Years)
     nspp <- Rceattle[[1]]$data_list$nspp
 
     # Get biomass
@@ -259,9 +259,9 @@ plot_recruitment <-
     }
 
     # Extract data objects
-    nyrs <- Rceattle[[1]]$data_list$nyrs
     Years <-
-      Rceattle[[1]]$data_list$styr:(Rceattle[[1]]$data_list$styr + nyrs - 1)
+      Rceattle[[1]]$data_list$styr:Rceattle[[1]]$data_list$endyr
+    nyrs <- length(Years)
     nspp <- Rceattle[[1]]$data_list$nspp
 
 
@@ -462,9 +462,9 @@ plot_selectivity <-
     }
 
     # Extract data objects
-    nyrs <- Rceattle[[1]]$data_list$nyrs
     Years <-
-      Rceattle[[1]]$data_list$styr:(Rceattle[[1]]$data_list$styr + nyrs - 1)
+      Rceattle[[1]]$data_list$styr:Rceattle[[1]]$data_list$endyr
+    nyrs <- length(Years)
     nspp <- Rceattle[[1]]$data_list$nspp
     nages <- Rceattle[[1]]$data_list$nages
 
@@ -750,9 +750,9 @@ plot_mort <-
     }
 
     # Extract data objects
-    nyrs <- Rceattle[[1]]$data_list$nyrs
     Years <-
-      Rceattle[[1]]$data_list$styr:(Rceattle[[1]]$data_list$styr + nyrs - 1)
+      Rceattle[[1]]$data_list$styr:Rceattle[[1]]$data_list$endyr
+    nyrs <- length(Years)
     nspp <- Rceattle[[1]]$data_list$nspp
     max_age <- max(Rceattle[[1]]$data_list$nages)
 
