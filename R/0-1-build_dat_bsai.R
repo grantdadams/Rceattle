@@ -200,6 +200,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Nselages = rep(NA, 4),
     Catch_units = rep(1, 4),
     Weight_index = c(1:3,1),
+    ALK_index = c(1:3,1),
     # Comp_Nyrs = c(dat_list$nyrs_srv_age, dat_list$n_eit),
     Estimate_q = c(0, 0, 0, 1),
     log_q_start = c(0, 0, 0, -6.7025)
@@ -246,9 +247,9 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Survey_code = rep(1:nspp, dat_list$nyrs_srv_age),
     Species = rep(1:nspp, dat_list$nyrs_srv_age),
     Sex = rep(rep(0, nspp), dat_list$nyrs_srv_age),
-    Age0_Length1 = rep(c(1,2,2), dat_list$nyrs_srv_age),
+    Age0_Length1 = rep(c(0,1,1), dat_list$nyrs_srv_age),
     Year = as.vector(t(dat_list$yrs_srv_age)),
-    Month = rep(rep(6, nspp), dat_list$nyrs_srv_age),
+    Month = rep(rep(0, nspp), dat_list$nyrs_srv_age),
     Sample_size = as.vector(t(dat_list$srv_age_n))
   )
 
@@ -300,7 +301,8 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Selectivity = rep(2, 3),
     Nselages = c(dat_list$nselages),
     Catch_units = rep(1, 3),
-    Weight_index = c(1:3)
+    Weight_index = c(1:3),
+    ALK_index = c(1:3)
   )
 
   #---------------------------------------------------------------------
@@ -327,7 +329,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Fishery_code = rep(1:nspp, dat_list$nyrs_fsh_comp),
     Species = rep(1:nspp, dat_list$nyrs_fsh_comp),
     Sex = rep(rep(0, nspp), dat_list$nyrs_fsh_comp),
-    Age0_Length1 = rep(c(1,2,2), dat_list$nyrs_fsh_comp),
+    Age0_Length1 = rep(c(0,1,1), dat_list$nyrs_fsh_comp),
     Year = na.exclude(as.vector(t(dat_list$yrs_fsh_comp))),
     Month = rep(rep(0, nspp), dat_list$nyrs_fsh_comp),
     Sample_size = rep(rep(200, nspp), dat_list$nyrs_fsh_comp)
@@ -355,7 +357,6 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   # Step 15 -- Rename stuff
   #---------------------------------------------------------------------
 
-  dat_list$endyr = 2100
   dat_list$propF = dat_list$propMorF[c(1,2,4),]
   dat_list$BTempC <- dat_list$BTempC_retro
 
