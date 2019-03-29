@@ -10,20 +10,22 @@ rearrange_dat <- function(dat_list){
   dat_list$srv_control <- dat_list$srv_control[,-which(colnames(dat_list$srv_control) == "log_q_start")]
 
   # Step 2 -  Seperate survey biomass info from observation
-  dat_list$srv_biom_ctl <- dat_list$srv_biom[,c("Survey_code", "Species", "Year", "Month")]
+  dat_list$srv_biom_ctl <- dat_list$srv_biom[,c("Survey_code", "Species", "Sex", "Year")]
+  dat_list$srv_biom_n <- as.matrix(dat_list$srv_biom[,c("Month")])
   dat_list$srv_biom_obs <- dat_list$srv_biom[,c("Observation", "CV")]
 
   # Step 3 -  Seperate catch biomass info from observation
-  dat_list$fsh_biom_ctl <- dat_list$fsh_biom[,c("Fishery_code", "Species", "Year", "Month")]
+  dat_list$fsh_biom_ctl <- dat_list$fsh_biom[,c("Fishery_code", "Species", "Sex", "Year")]
+  dat_list$fsh_biom_n <- as.matrix(dat_list$fsh_biom[,c("Month")])
   dat_list$fsh_biom_obs <- dat_list$fsh_biom[,c("Catch_kg", "CV")]
 
   # Step 4 -  Seperate survey comp info from observation
-  dat_list$srv_comp_ctl <- dat_list$srv_comp[,c("Survey_code", "Species", "Year")]
+  dat_list$srv_comp_ctl <- dat_list$srv_comp[,c("Survey_code", "Species", "Sex", "Age0_Length1", "Year")]
   dat_list$srv_comp_n <- dat_list$srv_comp[,c("Month", "Sample_size")]
   dat_list$srv_comp_obs <- dat_list$srv_comp[,grep("Comp_", colnames(dat_list$srv_comp))]
 
   # Step 5 -  Seperate catch comp info from observation
-  dat_list$fsh_comp_ctl <- dat_list$fsh_comp[,c("Fishery_code", "Species", "Year")]
+  dat_list$fsh_comp_ctl <- dat_list$fsh_comp[,c("Fishery_code", "Species","Sex", "Age0_Length1", "Year")]
   dat_list$fsh_comp_n <- dat_list$fsh_comp[,c("Month", "Sample_size")]
   dat_list$fsh_comp_obs <- dat_list$fsh_comp[,grep("Comp_", colnames(dat_list$fsh_comp))]
 

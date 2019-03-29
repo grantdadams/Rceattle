@@ -73,25 +73,28 @@ Type objective_function<Type>::operator() () {
   // Selectivity 0 = empirical, 1 = logistic, 2 = non-parametric, 3 = double logistic
 
   // 1.2. Temporal dimensions
-  DATA_INTEGER( nyrs );                   // Number of estimation years
-  DATA_INTEGER( styr );                   // Start year
+  DATA_INTEGER( endyr );                     // End of estimation years
+  DATA_INTEGER( styr );                      // Start year
+  int nyrs = endyr - styr + 1;
   // DATA_INTEGER( endyr);                   // End year of projection
 
   // 1.3. Number of species
   DATA_INTEGER( nspp );                   // Number of species (prey)
   DATA_IVECTOR( pop_wt_index );           // Dim 3 of wt to use for population dynamics
-  pop_wt_index = pop_wt_index - 1;
+  DATA_IVECTOR( pop_alk_index );          // Dim 3 of wt to use for age_transition_matrix
+  pop_wt_index -= 1;
+  pop_alk_index -= 1;
 
 
   // 1.4. MODEL OBJECTS
   // 1.4.1. LOOPING INDICES -- k = observation, sp = species, age = age, ln = length, ksp = prey, k_age = prey age (yr), k_ln = prey length, yr = year, rsp = predator, r_age = predator age (yr), r_ln = predator length
   int sp, age, ln, ksp, k_age, k_ln, yr, rsp, r_age, r_ln; // k
-  int srv, fsh;                           // Survey and fishery indices
-  int fsh_yr, srv_yr;                     // Year indices
-  int fsh_ind, srv_ind, comp_ind, ctl_ind;// Indices for survey data sets
+  int srv, fsh, sex;                                                    // Survey and fishery indices
+  int fsh_yr, srv_yr, srv_comp_type, fsh_comp_type;                     // Year indices
+  int fsh_ind, srv_ind, comp_ind, ctl_ind;                              // Indices for survey data sets
   int ncnt;    // Pointers
-  Type mo = 0;                            // Month float
-  if (msmMode == 0) { niter = 1; }        // Number of iterations for SS mode
+  Type mo = 0;                                                          // Month float
+  if (msmMode == 0) { niter = 1; }                                      // Number of iterations for SS mode
 
   // ------------------------------------------------------------------------- //
   // 2. MODEL INPUTS                                                           //
@@ -108,6 +111,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 2.2.2. Species attributes
   DATA_IVECTOR( nages );                  // Number of species (prey) ages; n = [1, nspp]
+  DATA_IVECTOR( nlengths );               // Number of species (prey) lengths; n = [1, nspp]
   DATA_INTEGER( stom_tau );               // Stomach sample size
   int max_age = imax(nages);              // Integer of maximum nages to make the arrays; n = [1]
   DATA_ARRAY( age_error );                // Array of aging error matrices for each species; n = [nspp, nages, nages]
@@ -116,18 +120,20 @@ Type objective_function<Type>::operator() () {
   // -- 2.3.1 Fishery Components
 
   DATA_IMATRIX( fsh_control );            // Survey specifications
-  DATA_IMATRIX( fsh_biom_ctl );           // Info for fishery biomass; n = [nobs_fish_biom, 2]; columns = Fishery_name, Fishery_code, Species, Year, Month
+  DATA_IMATRIX( fsh_biom_ctl );           // Info for fishery biomass; columns = Fishery_name, Fishery_code, Species, Year
+  DATA_IMATRIX( fsh_biom_n );             // Info for fishery biomass; columns = Month
   DATA_MATRIX( fsh_biom_obs );            // Observed fishery catch biomass (kg) and cv; n = [nobs_fish_biom, 2]; columns = Observation, Error
   DATA_IMATRIX( fsh_emp_sel_ctl );        // Info on empirical fishery selectivity; columns =  Fishery_name, Fishery_code, Species, Year
 
   DATA_MATRIX( fsh_emp_sel_obs );         // Observed emprical fishery selectivity; columns = Compe_1, Comp_2, etc.
   DATA_IMATRIX( fsh_comp_ctl );           // Info on observed fishery age/length comp; columns = Fishery_name, Fishery_code, Species, Year
-  DATA_MATRIX( fsh_comp_n );             // Info on month and sample size of observed fishery age/length comp; columns = Month, Sample size
+  DATA_MATRIX( fsh_comp_n );              // Info on month and sample size of observed fishery age/length comp; columns = Month, Sample size
   DATA_MATRIX( fsh_comp_obs );            // Observed fishery age/length comp; cols = Comp_1, Comp_2, etc. can be proportion
 
   // -- 2.3.2 Survey components
   DATA_IMATRIX( srv_control );            // Survey specifications
-  DATA_IMATRIX( srv_biom_ctl );           // Info for survey biomass; n = [nobs_srv_biom, 2]; columns = Survey_name, Survey_code, Species, Year, Month
+  DATA_IMATRIX( srv_biom_ctl );           // Info for survey biomass; columns = Survey_name, Survey_code, Species, Year
+  DATA_MATRIX( srv_biom_n );              // Info for survey biomass; columns = Month
 
   DATA_MATRIX( srv_biom_obs );            // Observed survey biomass (kg) and cv; n = [nobs_srv_biom, 2]; columns = Observation, Error
   DATA_IMATRIX( srv_emp_sel_ctl );        // Info on empirical survey selectivity; columns =  Survey_name, Survey_code, Species, Year
@@ -274,8 +280,7 @@ Type objective_function<Type>::operator() () {
   // ------------------------------------------------------------------------- //
 
   // 4.1. Derived indices
-  vector<int> bin_tmp = srv_control.col( 6 );
-  int max_bin = imax( bin_tmp );                                       // Integer of maximum number of length/age bins.
+  int max_bin = imax( nlengths );                                                   // Integer of maximum number of length/age bins.
   int n_srv = srv_control.rows();
   int n_fsh = fsh_control.rows();
 
@@ -423,12 +428,10 @@ Type objective_function<Type>::operator() () {
   vector<Type> srv_q(n_srv); srv_q.setZero();                                   // Vector to save q on natural scale
   vector<int> srv_sel_type(n_srv); srv_sel_type.setZero();                      // Vector to save survey selectivity type
   vector<int> srv_nselages(n_srv); srv_nselages.setZero();                      // Vector to save number of ages to estimate non-parametric selectivity (1 = age, 2 = length)
-  vector<int> srv_comp_type(n_srv); srv_comp_type.setZero();                    // Vector to save survey composition type (1 = age, 2 = length)
-  vector<int> srv_n_bins(n_srv); srv_n_bins.setZero();                          // Vector to save number of bins for survey composition
   vector<int> srv_spp(n_srv); srv_spp.setZero();                                // Vector to save survey species
-  vector<int> sp_bins(nspp); sp_bins.setZero();                                 // Vector to save max bin of surveys
   vector<int> srv_units(n_srv); srv_units.setZero();                            // Vector to save survey units (1 = weight, 2 = numbers)
   vector<int> srv_wt_index(n_srv); srv_wt_index.setZero();                      // Vector to save 3rd dim of wt to use for weight-at-age
+  vector<int> srv_alk_index(n_srv); srv_alk_index.setZero();                    // Vector to save 3rd dim of age_trans_matrix to use for ALK
 
   for (srv_ind = 0; srv_ind < n_srv; srv_ind++){
     srv = srv_control(srv_ind, 1) - 1;                    // Temporary survey index
@@ -436,35 +439,28 @@ Type objective_function<Type>::operator() () {
     srv_spp(srv) = srv_control(srv_ind, 2) - 1;           // Species
     srv_sel_type(srv) = srv_control(srv_ind, 3);          // Selectivity type
     srv_nselages(srv) = srv_control(srv_ind, 4);          // Non-parametric selectivity ages
-    srv_comp_type(srv) = srv_control(srv_ind, 5);         // Composition type
-    srv_n_bins(srv) = srv_control(srv_ind, 6);            // Survey bins
-    srv_units(srv) = srv_control(srv_ind, 7);             // Survey units
-    srv_wt_index(srv) = srv_control(srv_ind, 8) - 1;      // Dim3 of wt
-
-    sp = srv_control(srv, 2) - 1;
-    sp_bins(sp) = srv_control(srv, 6);
+    srv_units(srv) = srv_control(srv_ind, 5);             // Survey units
+    srv_wt_index(srv) = srv_control(srv_ind, 6) - 1;      // Dim3 of wt
+    srv_alk_index(srv) = srv_control(srv_ind, 7) - 1;     // Dim3 of ALK
   }
 
 
   // 5.2. Reorganize fishery control bits
   vector<int> fsh_sel_type(n_fsh); fsh_sel_type.setZero();                      // Vector to save fishery selectivity type
   vector<int> fsh_nselages(n_fsh); fsh_nselages.setZero();                      // Vector to save number of ages to estimate non-parametric selectivity (1 = age, 2 = length)
-  vector<int> fsh_comp_type(n_fsh); fsh_comp_type.setZero();                    // Vector to save fishery composition type (1 = age, 2 = length)
-  vector<int> fsh_n_bins(n_fsh); fsh_n_bins.setZero();                          // Vector to save number of bins for fishery composition
   vector<int> fsh_spp(n_fsh); fsh_spp.setZero();                                // Vector to save specives of fishery
   vector<int> fsh_units(n_fsh); fsh_units.setZero();                            // Vector to save survey units (1 = weight, 2 = numbers)
   vector<int> fsh_wt_index(n_fsh); fsh_wt_index.setZero();                      // Vector to save 3rd dim of wt to use for weight-at-age
+  vector<int> fsh_alk_index(n_fsh); fsh_alk_index.setZero();                    // Vector to save 3rd dim of age_trans_matrix to use for ALK
 
   for (fsh_ind = 0; fsh_ind < n_fsh; fsh_ind++){
     fsh = fsh_control(fsh_ind, 1) - 1;                    // Temporary survey index
     fsh_spp(fsh) = fsh_control(fsh_ind, 2) - 1;           // Species
     fsh_sel_type(fsh) = fsh_control(fsh_ind, 3);          // Selectivity type
     fsh_nselages(fsh) = fsh_control(fsh_ind, 4);          // Non-parametric selectivity ages
-    fsh_comp_type(fsh) = fsh_control(fsh_ind, 5);         // Composition type
-    fsh_n_bins(fsh) = fsh_control(fsh_ind, 6);            // Fishery bins
-    fsh_units(fsh) = fsh_control(fsh_ind, 7);             // Fishery units
-    fsh_wt_index(fsh) = fsh_control(fsh_ind, 8) - 1;      // Dim3 of wt
-
+    fsh_units(fsh) = fsh_control(fsh_ind, 5);             // Fishery units
+    fsh_wt_index(fsh) = fsh_control(fsh_ind, 6) - 1;      // Dim3 of wt
+    fsh_alk_index(fsh) =  fsh_control(fsh_ind, 7) - 1;    // Dim3 of ALK
   }
 
 
@@ -473,7 +469,7 @@ Type objective_function<Type>::operator() () {
     fsh = fsh_comp_ctl(comp_ind, 0)-1;
     // Get sum of composition
     Type sum_temp = 0;
-    for(int col = 0; col < fsh_n_bins(fsh); col ++){
+    for(int col = 0; col < fsh_comp_obs.cols(); col ++){
       if(!isNA(fsh_comp_obs(comp_ind, col))){
         sum_temp += fsh_comp_obs(comp_ind, col);
       }
@@ -501,10 +497,10 @@ Type objective_function<Type>::operator() () {
    for(sp = 0; sp < nspp; sp ++){
    Type sum_temp = 0;
    for (age = 0; age < nages(sp); age++) {
-   for (ln = 0; ln < sp_bins(sp); ln++) {
+   for (ln = 0; ln < nlengths(sp); ln++) {
    sum_temp +=  age_trans_matrix(age, ln, sp);
    }
-   for (ln = 0; ln < sp_bins(sp); ln++) {
+   for (ln = 0; ln < nlengths(sp); ln++) {
    age_trans_matrix(age, ln, sp) = age_trans_matrix(age, ln, sp) / sum_temp;
    }
    }
@@ -821,8 +817,8 @@ Type objective_function<Type>::operator() () {
             }
           }
           // By length
-          for (r_ln = 0; r_ln < sp_bins(rsp); r_ln++) {      // Predator length loop // FIXME: Change to diet length bins
-            for (k_ln = 0; k_ln < sp_bins(ksp); k_ln++) {    // Prey length loop FIXME: Change to diet length bins
+          for (r_ln = 0; r_ln < nlengths(rsp); r_ln++) {      // Predator length loop // FIXME: Change to diet length bins
+            for (k_ln = 0; k_ln < nlengths(ksp); k_ln++) {    // Prey length loop FIXME: Change to diet length bins
               diet_w_dat(rsp, ksp, r_ln, k_ln, yr) = UobsWt(rsp , ksp , r_ln, k_ln);
               diet_w_sum(rsp, ksp, r_ln, yr) += UobsWt(rsp , ksp , r_ln, k_ln);
             }
@@ -1349,8 +1345,8 @@ Type objective_function<Type>::operator() () {
                 for (r_age = 0; r_age  <  nages(rsp); r_age++) {
                   eaten_ua(rsp, ksp, r_age, k_age, yr) = Vmort_ua(rsp, ksp, r_age, k_age, yr) * NS_Z;                                  // Eq. 8 Kinzey and Punt (2009)
 
-                  for (r_ln = 0; r_ln  <  sp_bins(rsp); r_ln++) { // FIXME: Change to diet length bins
-                    eaten_la(rsp, ksp, r_ln, k_age, yr) += eaten_ua(rsp, ksp, r_age, k_age, yr)  * age_trans_matrix(r_age, r_ln, rsp); // Eq. 9 Kinzey and Punt (2009)
+                  for (r_ln = 0; r_ln  <  nlengths(rsp); r_ln++) { // FIXME: Change to diet length bins
+                    eaten_la(rsp, ksp, r_ln, k_age, yr) += eaten_ua(rsp, ksp, r_age, k_age, yr)  * age_trans_matrix(r_age, r_ln, pop_alk_index(rsp)); // Eq. 9 Kinzey and Punt (2009)
                   }
                 }
               }
@@ -1369,7 +1365,7 @@ Type objective_function<Type>::operator() () {
               // Species included
               if (ksp < nspp) {
                 // Results by length: Eqn 10 kinda Kinzey and Punt (2009)
-                for (r_ln = 0; r_ln  <  sp_bins(rsp); r_ln++) { // FIXME: Change to diet bins
+                for (r_ln = 0; r_ln  <  nlengths(rsp); r_ln++) { // FIXME: Change to diet bins
                   for (k_age = 0; k_age < nages(ksp); k_age++) {
                     Q_mass_l(rsp, ksp, r_ln, yr) += eaten_la(rsp, ksp, r_ln, k_age, yr) * wt(yr, k_age, pop_wt_index(ksp));
                   }
@@ -1389,9 +1385,9 @@ Type objective_function<Type>::operator() () {
                   Tmort = pred_effect * NByage(rsp, r_age, yr);
                   Q_mass_u(rsp, ksp, r_age, yr)  = Q_other_u(rsp, r_age) * (Type(1) - exp(-Tmort));                     // Eq. 11 Kinzey and Punt (2009)
                 }
-                for (r_ln = 0; r_ln < sp_bins(rsp); r_ln++) { // FIXME: Change to diet bins
+                for (r_ln = 0; r_ln < nlengths(rsp); r_ln++) { // FIXME: Change to diet bins
                   for (r_age = 0; r_age < nages(rsp); r_age++) {
-                    Q_mass_l(rsp, ksp, r_ln, yr) += Q_mass_u(rsp, ksp, r_age, yr) * age_trans_matrix(r_age, r_ln, rsp); // Eq. 10 Kinzey and Punt (2009)
+                    Q_mass_l(rsp, ksp, r_ln, yr) += Q_mass_u(rsp, ksp, r_age, yr) * age_trans_matrix(r_age, r_ln, pop_alk_index(rsp)); // Eq. 10 Kinzey and Punt (2009)
                   }
                 }
               }
@@ -1403,7 +1399,7 @@ Type objective_function<Type>::operator() () {
         // 8.2.11. Total up the consumption by each predator and normalize (Eqn 15)
         for (yr = 0; yr < nyrs; yr++) {
           for (rsp = 0; rsp  <  nspp; rsp++) {
-            for (r_ln = 0; r_ln < sp_bins(rsp); r_ln++) { // FIXME: Change to diet length bins
+            for (r_ln = 0; r_ln < nlengths(rsp); r_ln++) { // FIXME: Change to diet length bins
               Q_ksum_l = 0;
               for (ksp = 0; ksp < (nspp + 1); ksp++) {
                 Q_ksum_l += Q_mass_l(rsp, ksp, r_ln, yr) + 1.0e-10; // Table 3 - Diet weight proportions Kinzey and Punt (2009)
@@ -1540,8 +1536,10 @@ Type objective_function<Type>::operator() () {
 
       srv = srv_biom_ctl(srv_ind, 0) - 1;            // Temporary survey index
       sp = srv_biom_ctl(srv_ind, 1) - 1;             // Temporary index of species
-      srv_yr = srv_biom_ctl(srv_ind, 2) - styr;      // Temporary index for years of data
-      mo = srv_biom_ctl(srv_ind, 3);                 // Temporary index for month
+      sex = srv_biom_ctl(srv_ind, 2);                // Temporary index for years of data
+      srv_yr = srv_biom_ctl(srv_ind, 3) - styr;      // Temporary index for years of data
+
+      mo = srv_biom_n(srv_ind, 0);                    // Temporary index for month
 
       srv_bio_hat(srv_ind) = 0;                      // Initialize
 
@@ -1564,8 +1562,10 @@ Type objective_function<Type>::operator() () {
 
       srv = srv_comp_ctl(comp_ind, 0) - 1;            // Temporary survey index
       sp = srv_comp_ctl(comp_ind, 1) - 1;             // Temporary index of species
-      srv_yr = srv_comp_ctl(comp_ind, 2) - styr;      // Temporary index for years of data
-      mo = srv_comp_n(comp_ind, 0);                 // Temporary index for month
+      sex = srv_comp_ctl(comp_ind, 2);                // Temporary index for comp sex (0 = combined, 1 = female, 2 = male)
+      srv_comp_type = srv_comp_ctl(comp_ind, 3);      // Temporary index for comp type (0 = age, 1 = length)
+      srv_yr = srv_comp_ctl(comp_ind, 4) - styr;      // Temporary index for years of data
+      mo = srv_comp_n(comp_ind, 0);                   // Temporary index for month
 
       srv_hat(comp_ind) = 0;                       // Initialize
 
@@ -1585,24 +1585,24 @@ Type objective_function<Type>::operator() () {
 
 
       //  Normalize survey catch-at-age
-      if (srv_comp_type(srv) == 1) {
+      if (srv_comp_type == 0) {
         for (age = 0; age < nages(sp); age++) {
           srv_comp_hat(comp_ind, age) = srv_age_obs_hat(comp_ind, age) / srv_hat(comp_ind);
         }
       }
 
       // Convert from catch-at-age to catch-at-length
-      if ( srv_comp_type(srv) != 1) {
-        for (ln = 0; ln < srv_n_bins(srv); ln++) {
+      if ( srv_comp_type == 1) {
+        for (ln = 0; ln < nlengths(sp); ln++) {
           srv_comp_hat(comp_ind, ln ) = 0; // Initialize
 
           for (age = 0; age < nages(sp); age++) {
-            srv_comp_hat(comp_ind, ln ) += srv_age_obs_hat(comp_ind, age) * age_trans_matrix(age, ln, sp);
+            srv_comp_hat(comp_ind, ln ) += srv_age_obs_hat(comp_ind, age) * age_trans_matrix(age, ln, srv_alk_index(sp));
           }
         }
 
         // Normalize
-        for (ln = 0; ln < srv_n_bins(srv); ln++) {
+        for (ln = 0; ln < nlengths(sp); ln++) {
           srv_comp_hat(comp_ind, ln) = srv_comp_hat(comp_ind, ln) / srv_hat(comp_ind);
         }
       }
@@ -1618,8 +1618,9 @@ Type objective_function<Type>::operator() () {
 
       fsh = fsh_biom_ctl(fsh_ind, 0) - 1;            // Temporary fishery index
       sp = fsh_biom_ctl(fsh_ind, 1) - 1;             // Temporary index of species
-      fsh_yr = fsh_biom_ctl(fsh_ind, 2) - styr;      // Temporary index for years of data
-      mo = fsh_biom_ctl(fsh_ind, 3);                 // Temporary index for month
+      sex = fsh_biom_ctl(fsh_ind, 2);                // Temporary index for years of data
+      fsh_yr = fsh_biom_ctl(fsh_ind, 3) - styr;      // Temporary index for years of data
+      mo = fsh_biom_n(fsh_ind, 0);                   // Temporary index for month
 
       fsh_bio_hat(fsh_ind) = 0;                  // Initialize
 
@@ -1645,8 +1646,10 @@ Type objective_function<Type>::operator() () {
 
       fsh = fsh_comp_ctl(comp_ind, 0) - 1;            // Temporary fishery index
       sp = fsh_comp_ctl(comp_ind, 1) - 1;             // Temporary index of species
-      fsh_yr = fsh_comp_ctl(comp_ind, 2) - styr;      // Temporary index for years of data
-      mo = fsh_comp_n(comp_ind, 0);                 // Temporary index for month
+      sex = fsh_comp_ctl(comp_ind, 2);                // Temporary index for comp sex (0 = combined, 1 = female, 2 = male)
+      fsh_comp_type = fsh_comp_ctl(comp_ind, 3);      // Temporary index for comp type (0 = age, 1 = length)
+      fsh_yr = fsh_comp_ctl(comp_ind, 4) - styr;      // Temporary index for years of data
+      mo = fsh_comp_n(comp_ind, 0);                   // Temporary index for month
 
       fsh_hat(comp_ind) = 0;                          // Initialize
 
@@ -1665,22 +1668,22 @@ Type objective_function<Type>::operator() () {
       }
 
       //  Survey catch-at-age
-      if (fsh_comp_type(fsh) == 1) {
+      if (fsh_comp_type == 0) {
         for (age = 0; age < nages(sp); age++) {
           fsh_comp_hat(comp_ind, age) = fsh_age_obs_hat(comp_ind, age ) / fsh_hat(comp_ind);
         }
       }
 
       // Convert from catch-at-age to catch-at-length
-      if ( fsh_comp_type(fsh) != 1) {
-        for (ln = 0; ln < fsh_n_bins(fsh); ln++) {
+      if ( fsh_comp_type == 1) {
+        for (ln = 0; ln < nlengths(sp); ln++) {
           fsh_comp_hat(comp_ind, ln) = 0; // Initialize
           for (age = 0; age < nages(sp); age++) {
-            fsh_comp_hat(comp_ind, ln ) += fsh_age_obs_hat(comp_ind, age) * age_trans_matrix(age, ln, sp);
+            fsh_comp_hat(comp_ind, ln ) += fsh_age_obs_hat(comp_ind, age) * age_trans_matrix(age, ln, fsh_alk_index(fsh));
           }
         }
 
-        for (ln = 0; ln < fsh_n_bins(fsh); ln++) {
+        for (ln = 0; ln < nlengths(sp); ln++) {
           fsh_comp_hat(comp_ind, ln ) = fsh_comp_hat(comp_ind, ln) / fsh_hat(comp_ind);
         }
       }
@@ -1737,7 +1740,7 @@ Type objective_function<Type>::operator() () {
     fsh = fsh_comp_ctl(comp_ind, 0) - 1;            // Temporary survey index
     sp = fsh_comp_ctl(comp_ind, 1) - 1;             // Temporary index of species
 
-    for (ln = 0; ln < fsh_n_bins(fsh); ln++) {
+    for (ln = 0; ln < fsh_comp_obs.cols(); ln++) {
       if(!isNA( fsh_comp_obs(comp_ind, ln ))){
         offset(fsh, 1) -= Type(fsh_comp_n(comp_ind, 1)) * (fsh_comp_obs(comp_ind, ln) + MNConst) * log(fsh_comp_obs(comp_ind, ln) + MNConst ) ;
       }
@@ -1751,7 +1754,7 @@ Type objective_function<Type>::operator() () {
     srv = srv_comp_ctl(comp_ind, 0) - 1;            // Temporary survey index
     sp = srv_comp_ctl(comp_ind, 1) - 1;             // Temporary index of species
 
-    for (ln = 0; ln < srv_n_bins(srv); ln++) {
+    for (ln = 0; ln < srv_comp_obs.cols(); ln++) {
       if(!isNA( srv_comp_obs(comp_ind, ln ))){
         offset(srv, 0) -= Type(srv_comp_n(comp_ind, 1)) * (srv_comp_obs(comp_ind, ln) + MNConst) * log(srv_comp_obs(comp_ind, ln) + MNConst ) ;
       }
@@ -1762,7 +1765,7 @@ Type objective_function<Type>::operator() () {
   // 11.1.4. -- Offsets for diet (weights)
   for (rsp = 0; rsp < nspp; rsp++) {
     for (yr = 0; yr < nyrs; yr++) {
-      for (r_ln = 0; r_ln < sp_bins(rsp); r_ln++) {
+      for (r_ln = 0; r_ln < nlengths(rsp); r_ln++) {
         // if (stoms_w_N(rsp,r_ln,yr) > 0){ Sample size
         for (ksp = 0; ksp < nspp; ksp++) { // FIXME: no offset for "other food"
           if ( diet_w_sum(rsp, ksp, r_ln, yr) > 0) {
@@ -1776,8 +1779,8 @@ Type objective_function<Type>::operator() () {
   // 11.1.5. -- Offsets for diet (lengths) FIXME: add real stomach sample size
   for (rsp = 0; rsp < nspp; rsp++) {
     for (ksp = 0; ksp < nspp; ksp++) {
-      for (r_ln = 0; r_ln < sp_bins(rsp); r_ln++) {
-        for (k_ln = 0; k_ln < sp_bins(ksp); k_ln++) {
+      for (r_ln = 0; r_ln < nlengths(rsp); r_ln++) {
+        for (k_ln = 0; k_ln < nlengths(ksp); k_ln++) {
           if (Uobs(rsp, ksp, r_ln, k_ln) > 0) {
             offset_diet_l(rsp) -= stom_tau * Uobs(rsp, ksp, r_ln, k_ln) * log(Uobs(rsp, ksp, r_ln, k_ln) + 1.0e-10);
           }
@@ -2061,7 +2064,7 @@ Type objective_function<Type>::operator() () {
     // Slot 14 -- Diet weight likelihood
     for (rsp = 0; rsp < nspp; rsp++) {
       for (yr = 0; yr < nyrs; yr++) {
-        for (r_ln = 0; r_ln < sp_bins(rsp); r_ln++) {
+        for (r_ln = 0; r_ln < nlengths(rsp); r_ln++) {
           for (ksp = 0; ksp < nspp; ksp++) {                  // FIME: need to add in other food
             if (diet_w_sum(rsp, ksp, r_ln, yr) > 0) { // (rsp, ksp, a, r_ln, yr)
               jnll_comp(15, rsp) -= stom_tau * diet_w_sum(rsp, ksp, r_ln, yr) * log(Q_hat(rsp, ksp, r_ln, yr) + 1.0e-10);
@@ -2080,15 +2083,15 @@ Type objective_function<Type>::operator() () {
     for (rsp = 0; rsp < nspp; rsp++) {
       for (ksp = 0; ksp < nspp; ksp++) {
 
-        vector<Type> eaten_lmy(sp_bins(ksp)); eaten_lmy.setZero(); // no. of prey@length eaten by a predator length during iyr
+        vector<Type> eaten_lmy(nlengths(ksp)); eaten_lmy.setZero(); // no. of prey@length eaten by a predator length during iyr
 
-        for (r_ln = 0; r_ln < sp_bins(rsp); r_ln++) { //
+        for (r_ln = 0; r_ln < nlengths(rsp); r_ln++) { //
           // This is Equation 17
           for (yr = 0; yr < nyrs; yr++) { // FIXME: loop by stomach year
             // int stom_yr = yrs_stomlns(rsp, ksp, stm_yr); // FIXME: index by stomach year
-            for (k_ln = 0; k_ln < sp_bins(ksp); k_ln ++) {
+            for (k_ln = 0; k_ln < nlengths(ksp); k_ln ++) {
               for (k_age = 0; k_age < nages(ksp); k_age++) {
-                eaten_lmy(k_ln) += eaten_la(rsp, ksp, r_ln, k_age, yr) * age_trans_matrix(k_age, k_ln, ksp);
+                eaten_lmy(k_ln) += eaten_la(rsp, ksp, r_ln, k_age, yr) * age_trans_matrix(k_age, k_ln, pop_alk_index(ksp));
               }
               T_hat(rsp, ksp, r_ln, k_ln) += stom_tau * eaten_lmy(k_ln); // FIXME: add actual stomach content sample size
             }
@@ -2096,12 +2099,12 @@ Type objective_function<Type>::operator() () {
 
 
           Denom = 0;
-          for (k_ln = 0; k_ln < sp_bins(ksp); k_ln++) {
+          for (k_ln = 0; k_ln < nlengths(ksp); k_ln++) {
             Denom += T_hat(rsp, ksp, r_ln, k_ln);
           }
 
           // Renormalize the eaten vector
-          for (k_ln = 0; k_ln < sp_bins(ksp); k_ln++) {
+          for (k_ln = 0; k_ln < nlengths(ksp); k_ln++) {
             T_hat(rsp, ksp, r_ln, k_ln) /= Denom;
 
             // Likelihood of diet length         / This is equation 16
