@@ -14,9 +14,9 @@ inits = NULL # Initial parameters = 0
 map = NULL
 bounds = NULL
 file_name = NULL # Don't save
-debug = 0 # Estimate
+debug = 1 # Estimate
 random_rec = FALSE # No random recruitment
-msmMode = 1 # Single species mode
+msmMode = 0 # Single species mode
 avgnMode = 0
 silent = TRUE
 niter = 5
@@ -27,7 +27,7 @@ recompile = FALSE
 # #--------------------------------------------------
 # # 1. DATA and MODEL PREP
 # #--------------------------------------------------
-load("C:/Users/Grant Adams/Documents/GitHub/RceattleRuns/2019 Think Tank/Models/ss_no_re.RData")
+load("C:/Users/Grant Adams/Documents/GitHub/RceattleRuns/BSAI/2019 Think Tank/Models/ss_no_re.RData")
 initial_params <- mod_objects$estimated_params
 
 initial_params$srv_sel_coff
@@ -195,5 +195,10 @@ opt = Rceattle::Optimize(obj = obj,
                          loopnum = 5
 )
 
+# Get quantities
+quantities <- obj$report(obj$env$last.par.best)
+round(quantities$jnll_comp,3)
 
 Check_Identifiable(obj)
+
+round(mod_objects$quantities$jnll_comp, 3)

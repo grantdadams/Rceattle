@@ -22,6 +22,8 @@ build_params <-
     param_list <- list()
 
 
+    nyrs <- data_list$endyr - data_list$styr + 1
+
     #---------------------------------------------------------------------
     # Step 1 -- Specify parameter names and dimensions used in TMB
     #---------------------------------------------------------------------
@@ -31,7 +33,7 @@ build_params <-
     # -- 3.1. Recruitment parameters
     param_list$ln_mn_rec = rep(0, data_list$nspp)    # Mean recruitment; n = [1, nspp]
     param_list$ln_rec_sigma = rep(0, data_list$nspp)  # Standard deviation of recruitment deviations; n = [1, nspp]
-    param_list$rec_dev = matrix(0, nrow = data_list$nspp, ncol = data_list$nyrs)     # Annual recruitment deviation; n = [nspp, nyrs]
+    param_list$rec_dev = matrix(0, nrow = data_list$nspp, ncol = nyrs)     # Annual recruitment deviation; n = [nspp, nyrs]
 
 
     # -- 3.2. Abundance parameters
@@ -39,7 +41,7 @@ build_params <-
 
     # -- 3.3. fishing mortality parameters
     param_list$ln_mean_F = rep(0, nrow(data_list$fsh_control))   # Log mean fishing mortality; n = [1, nspp]
-    param_list$F_dev = matrix(0, nrow = nrow(data_list$fsh_control), ncol = data_list$nyrs)     # Annual fishing mortality deviations; n = [nspp, nyrs] # NOTE: The size of this will likely change
+    param_list$F_dev = matrix(0, nrow = nrow(data_list$fsh_control), ncol = nyrs)     # Annual fishing mortality deviations; n = [nspp, nyrs] # NOTE: The size of this will likely change
 
 
     # -- 3.4. Selectivity parameters
