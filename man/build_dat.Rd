@@ -6,7 +6,7 @@
 \usage{
 build_dat(ctlFilename = NULL, TMBfilename = NULL,
   cpp_directory = NULL, dat_dir = NULL, nspp = 3, nselages = 8,
-  proj_yr = 2100, stom_tau = 20)
+  endyr = 2017, proj_yr = 2100, stom_tau = 20)
 }
 \arguments{
 \item{ctlFilename}{The ADMB control (.ctl) file used for CEATTLE}
