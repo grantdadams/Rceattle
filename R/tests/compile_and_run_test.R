@@ -14,9 +14,9 @@ inits = NULL # Initial parameters = 0
 map = NULL
 bounds = NULL
 file_name = NULL # Don't save
-debug = 1 # Estimate
+debug = 0 # Estimate
 random_rec = FALSE # No random recruitment
-msmMode = 0 # Single species mode
+msmMode = 1 # Single species mode
 avgnMode = 0
 silent = TRUE
 niter = 5

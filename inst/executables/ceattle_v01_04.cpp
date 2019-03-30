@@ -157,16 +157,15 @@ Type objective_function<Type>::operator() () {
   DATA_ARRAY( UobsWtAge );                // pred, prey, predA, preyA U matrix (mean wt_hat of prey in each pred age); n = [nspp, nspp, max_age, max_age]
   DATA_MATRIX( Mn_LatAge );               // Mean length-at-age; n = [nspp, nages], ALSO: mean_laa in Kinzey
 
-  // 2.3.8. Environmental data
-  DATA_INTEGER( nTyrs );                  // Number of temperature years; n = [1] #FIXME - changed the name of this in retro_data2017_asssmnt.dat
+  // 2.3.8. Environmental data              
   DATA_IVECTOR( Tyrs );                   // Years of hindcast data; n = [1, nTyrs] #FIXME - changed the name of this in retro_data2017_asssmnt.dat
   DATA_VECTOR( BTempC );                  // Vector of bottom temperature; n = [1,  nTyrs ]
+  int nTyrs = Tyrs.size();                // Number of temperature years; n = [1] #FIXME - changed the name of this in retro_data2017_asssmnt.dat
 
   // 2.4. INPUT PARAMETERS
   // -- 2.4.1. Bioenergetics parameters (BP)
   DATA_VECTOR( other_food );              // Biomass of other prey (kg); n = [1, nspp]
-  DATA_IVECTOR( C_model );                // f == 1, the use Cmax*fT*P; n = [1, nspp]
-  DATA_VECTOR( Pvalue );                  // This scales the pvalue used if C_model ==1 , proportion of Cmax; Pvalue is P in Cmax*fT*Pvalue*PAge; n = [1, nspp]
+  DATA_VECTOR( Pvalue );                  // This scales the pvalue used, proportion of Cmax; Pvalue is P in Cmax*fT*Pvalue*PAge; n = [1, nspp]
   DATA_IVECTOR( Ceq );                    // Ceq: which Comsumption equation to use; n = [1, nspp]; Currently all sp = 1
   DATA_VECTOR( CA );                      // Wt specific intercept of Cmax=CA*W^CB; n = [1, nspp]
   DATA_VECTOR( CB );                      // Wt specific slope of Cmax=CA*W^CB; n = [1, nspp]
@@ -176,7 +175,6 @@ Type objective_function<Type>::operator() () {
   DATA_VECTOR( Tcl );                     // used in fT eq 3, limit; n = [1, nspp]
   DATA_VECTOR( CK1 );                     // used in fT eq 3, limit where C is .98 max (ascending); n = [1, nspp]
   DATA_VECTOR( CK4 );                     // used in fT eq 3, temp where C is .98 max (descending); n = [1, nspp]
-  DATA_MATRIX( S_a );                     // S_a, S_b, S_b2, S_b3, S_b4, S_b5: a,L,L^2,L^3,L^4,L^5 (rows)coef for mean S=a+b*L+b2*L*L, whith a cap at 80cm for each pred spp(cols); n = [6, nspp]
 
   // -- 2.4.2. von Bertalannfy growth function (VBGF): This is used to calculate future weight-at-age: NOT YET IMPLEMENTED
 
@@ -328,12 +326,11 @@ Type objective_function<Type>::operator() () {
 
   // -- 4.6. Ration components
   array<Type>   ConsumAge( nspp, max_age, nyrs ); ConsumAge.setZero();                        // Pre-allocated indiviudal consumption in grams per predator-age; n = [nyrs, nages, nspp]
-  matrix<Type>  fT( nspp, nTyrs ); fT.setZero();                                              // Pre-allocation of temperature function of consumption; n = [nspp, nTyrs]
+  matrix<Type>  fT( nspp, nyrs ); fT.setZero();                                              // Pre-allocation of temperature function of consumption; n = [nspp, nTyrs]
   array<Type>   LbyAge( nspp, max_age, nyrs ); LbyAge.setZero();                              // Length by age from LW regression
   matrix<Type>  mnWt_obs( nspp, max_age ); mnWt_obs.setZero();                                // Mean observed weight at age (across years); n = [nspp, nages]
   array<Type>   ration2Age( nspp, max_age, nyrs ); ration2Age.setZero();                      // Annual ration at age (kg/yr); n = [nyrs, nages, nspp]
-  array<Type>   S2Age( nspp, max_age, nyrs ); S2Age.setZero();                                // Pre-allocate mean stomach weight as a function of sp_age
-  vector<Type>  TempC( nTyrs ); TempC.setZero();                                              // Bottom temperature; n = [1, nTyrs]
+  vector<Type>  TempC( nyrs ); TempC.setZero();                                              // Bottom temperature; n = [1, nTyrs]
 
   // -- 4.7. Suitability components
   Type tmp_othersuit = 0  ;
@@ -709,22 +706,6 @@ Type objective_function<Type>::operator() () {
     // ------------------------------------------------------------------------- //
     // NOTE -- LOOPING INDICES -- sp = species, age = age, ln = length, ksp = prey, k_age = prey age (yr), k_ln = prey length, yr = year, rsp = predator, r_age = predator age (yr), r_ln = predator length
 
-    // 7.1. Calculate stomach weight by sp age
-    for (sp = 0; sp < nspp; sp++) {
-      for (age = 0; age < nages(sp); age++) {
-        for (yr = 0; yr < nyrs; yr++) {
-          S2Age(sp, age, yr) = S_a(0, sp) + (S_a(1, sp) * LbyAge(sp, age, yr)) + (S_a(2, sp) * pow(LbyAge(sp, age, yr), 2))
-          + (S_a(3, sp) * pow(LbyAge(sp, age, yr), 3)) + (S_a(4, sp) * pow(LbyAge(sp, age, yr), 4)) + (S_a(5, sp) * pow(LbyAge(sp, age, yr), 5));
-
-          if (LbyAge(sp, age, yr) > 80) {
-            S2Age(sp, age, yr) = S_a(0, sp) + (S_a(1, sp) * 80) + (S_a(2, sp) * pow(80, 2)) + (S_a(3, sp) * pow(80, 3))
-            + (S_a(4, sp) * pow(80, 4)) + (S_a(5, sp) * pow(80, 5)); // set everything above 80 to 80
-          }
-        }
-      }
-    }
-
-
     // 7.2. Calculate temperature function of consumption
     Type Yc = 0;
     Type Zc = 0;
@@ -771,11 +752,7 @@ Type objective_function<Type>::operator() () {
     for (sp = 0; sp < nspp; sp++) {
       for (age = 0; age < nages(sp); age++) {
         for (yr = 0; yr < nyrs; yr++) {
-          ConsumAge(sp, age, yr) = Type(24) * Type(0.0134) * exp( Type(0.0115) * TempC( yr )) * Type(91.25) * S2Age(sp, age, yr) * wt(yr, age, pop_wt_index(sp)); // Calculate consumption for predator-at-age; units = kg/predator
-
-          if (C_model( sp ) == 1) {
-            // C_max = maximum specific feeding rate (g g^-1 d^-1)
-            // p = proportion of maximum consumption
+          // p = proportion of maximum consumption
             // f(T) = temperature dependence function
             // CA = intercept of allometric mass function
             // CB = slope of allometric mass function
@@ -784,7 +761,7 @@ Type objective_function<Type>::operator() () {
             ConsumAge(sp, age, yr) = CA(sp) * pow(wt(yr, age, pop_wt_index(sp)) * Type(1000), CB( sp )) // C_max = CA * W ^ CB; where C_max is grams consumed per grams of predator per day
             * fT(sp, yr) * fday( sp ) * wt(yr, age, pop_wt_index(sp)) * 1000; //  C_max * f(T) * wt * fday g/pred.yr
             ConsumAge(sp, age, yr) = ConsumAge(sp, age, yr) * Pvalue(sp) * Pyrs(yr, age, sp); //
-          }
+          
 
           ration2Age(sp, age, yr) = ConsumAge(sp, age, yr) / 1000;      // Annual ration kg/yr //aLW(predd)*pow(lengths(predd,age),bLW(predd));//mnwt_bin(predd,age);
         }
@@ -2177,7 +2154,6 @@ Type objective_function<Type>::operator() () {
 
   // -- 12.5. Ration components
   REPORT( ConsumAge );
-  REPORT( S2Age );
   REPORT( LbyAge );
   REPORT( mnWt_obs );
   REPORT( fT );
