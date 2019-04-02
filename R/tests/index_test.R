@@ -9,7 +9,7 @@ library(Rceattle)
 # source("R/3-build_map.R")
 data_list_ss$nages
 cpp_directory <- "inst/executables"
-TMBfilename <- "ceattle_v01_02"
+TMBfilename = "ceattle_v01_04"
 data("BS2017SS")
 data_list = BS2017SS
 inits = NULL # Initial parameters = 0

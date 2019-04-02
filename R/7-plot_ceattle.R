@@ -29,9 +29,9 @@ plot_biomass <-
     }
 
     # Extract data objects
-    nyrs <- Rceattle[[1]]$data_list$nyrs
     Years <-
-      Rceattle[[1]]$data_list$styr:(Rceattle[[1]]$data_list$styr + nyrs - 1)
+      Rceattle[[1]]$data_list$styr:Rceattle[[1]]$data_list$endyr
+    nyrs <- length(Years)
     nspp <- Rceattle[[1]]$data_list$nspp
 
     # Get biomass
@@ -259,9 +259,9 @@ plot_recruitment <-
     }
 
     # Extract data objects
-    nyrs <- Rceattle[[1]]$data_list$nyrs
     Years <-
-      Rceattle[[1]]$data_list$styr:(Rceattle[[1]]$data_list$styr + nyrs - 1)
+      Rceattle[[1]]$data_list$styr:Rceattle[[1]]$data_list$endyr
+    nyrs <- length(Years)
     nspp <- Rceattle[[1]]$data_list$nspp
 
 
@@ -462,17 +462,21 @@ plot_selectivity <-
     }
 
     # Extract data objects
-    nyrs <- Rceattle[[1]]$data_list$nyrs
     Years <-
-      Rceattle[[1]]$data_list$styr:(Rceattle[[1]]$data_list$styr + nyrs - 1)
+      Rceattle[[1]]$data_list$styr:Rceattle[[1]]$data_list$endyr
+    nyrs <- length(Years)
     nspp <- Rceattle[[1]]$data_list$nspp
+    srv_control <- Rceattle[[1]]$data_list$srv_control
+    fsh_control <- Rceattle[[1]]$data_list$fsh_control
+    nsrv <- nrow(Rceattle[[1]]$data_list$srv_control)
+    nfsh <- nrow(Rceattle[[1]]$data_list$fsh_control)
     nages <- Rceattle[[1]]$data_list$nages
 
     # Get biomass
     srv_selectivity <-
-      array(NA, dim = c(nspp, max(nages), length(Rceattle) + length(tmp_list)))
+      array(NA, dim = c(nsrv, max(nages), length(Rceattle) + length(tmp_list)))
     for (i in 1:length(Rceattle)) {
-      srv_selectivity[, , i] <- Rceattle[[i]]$quantities$srv_sel
+      srv_selectivity[, , i] <- Rceattle[[i]]$quantities$srv_sel[,,1]
     }
 
     ind = 1
@@ -487,9 +491,9 @@ plot_selectivity <-
 
     # Get SSB
     fsh_selectivity <-
-      array(NA, dim = c(nspp, max(nages), length(Rceattle) + length(tmp_list)))
+      array(NA, dim = c(nfsh, max(nages), length(Rceattle) + length(tmp_list)))
     for (i in 1:length(Rceattle)) {
-      fsh_selectivity[, , i] <- Rceattle[[i]]$quantities$fsh_sel
+      fsh_selectivity[, , i] <- Rceattle[[i]]$quantities$fsh_sel[,,1]
     }
 
     ind = 1
@@ -509,11 +513,13 @@ plot_selectivity <-
     ymax_fsh <- c()
     ymin_fsh <- c()
     for (i in 1:dim(srv_selectivity)[1]) {
-      ymax_srv[i] <- max(c(srv_selectivity[i,1:nages[i], ], 0), na.rm = T)
-      ymin_srv[i] <- min(c(srv_selectivity[i,1:nages[i], ], 0), na.rm = T)
+      ymax_srv[i] <- max(c(srv_selectivity[i,,], 0), na.rm = T)
+      ymin_srv[i] <- min(c(srv_selectivity[i,,], 0), na.rm = T)
+    }
 
-      ymax_fsh[i] <- max(c(fsh_selectivity[i,1:nages[i], ], 0), na.rm = T)
-      ymin_fsh[i] <- min(c(fsh_selectivity[i,1:nages[i], ], 0), na.rm = T)
+    for (i in 1:dim(fsh_selectivity)[1]) {
+      ymax_fsh[i] <- max(c(fsh_selectivity[i,, ], 0), na.rm = T)
+      ymin_fsh[i] <- min(c(fsh_selectivity[i,, ], 0), na.rm = T)
     }
     ymax_srv <- ymax_srv + 0.15 * ymax_srv
     ymax_fsh <- ymax_fsh + 0.15 * ymax_fsh
@@ -522,6 +528,8 @@ plot_selectivity <-
       line_col <- 1:length(Rceattle)
     }
 
+
+    max_obj <- max(c(nsrv, nfsh))
 
     # Plot trajectory
     loops <- ifelse(is.null(file_name), 1, 2)
@@ -539,69 +547,83 @@ plot_selectivity <-
       }
 
       # Plot configuration
-      layout(matrix(1:((nspp + 2)*2), nrow = (nspp + 2), ncol = 2, byrow = TRUE), heights = c(0.1, rep(1, nspp), 0.2))
+      layout(matrix(1:((max_obj + 2)*2), nrow = (max_obj + 2), ncol = 2, byrow = FALSE), heights = c(0.1, rep(1, max_obj), 0.2))
       par(
         mar = c(0, 3 , 0 , 1) ,
         oma = c(0 , 0 , 0 , 0),
         tcl = -0.35,
         mgp = c(1.75, 0.5, 0)
       )
-      plot.new()
+
       plot.new()
 
-      for (j in 1:nspp) {
-
-        # Survey selectivity
+      # Survey selectivity
+      for (j in 1:nsrv) {
+        sp <- srv_control$Species[which(srv_control$Survey_code == j)]
         plot(
           y = NA,
           x = NA,
           ylim = c(ymin_srv[j], ymax_srv[j]),
-          xlim = c(min(0), nages[j]),
+          xlim = c(min(0), nages[sp]),
           xlab = "Age",
           ylab = "Survey selectivity",
-          xaxt = c(rep("n", nspp - 1), "s")[j]
+          xaxt = c(rep("n", nsrv - 1), "s")[j]
         )
-
-        # Legends
-        legend("topleft", species[j], bty = "n", cex = 1.4)
-
-        if (j == 1) {
-          if(!is.null(model_names)){
-            legend(
-              "bottomright",
-              legend = model_names,
-              lty = rep(1, length(line_col)),
-              lwd = lwd,
-              col = line_col,
-              bty = "n",
-              cex = 1.175
-            )
-          }
-        }
-
 
         # Mean selectivity
         for (k in 1:dim(srv_selectivity)[3]) {
           lines(
-            x = 1:nages[j],
-            y = srv_selectivity[j, 1:nages[j], k],
+            x = 1:nages[sp],
+            y = srv_selectivity[j, 1:nages[sp], k],
             lty = 1,
             lwd = lwd,
             col = line_col[k]
           )
         }
 
+        # Legends
+        legend("topleft", paste0("Srv ",j,"; Sp ", sp), bty = "n", cex = 1.4)
+      }
 
-        # Fishery selectivity
+      # Add empty plots
+      if(nsrv >= nfsh){
+        plot.new()
+      }
+
+      if(nsrv < nfsh){
+        for(i in 1:(nfsh - nsrv)){
+          plot.new()
+        }
+      }
+
+
+      # Fishery selectivity
+      plot.new()
+      for (j in 1:nfsh) {
+        sp <- fsh_control$Species[which(fsh_control$Fishery_code == j)]
         plot(
           y = NA,
           x = NA,
           ylim = c(ymin_fsh[j], ymax_fsh[j]),
-          xlim = c(min(0), nages[j]),
+          xlim = c(min(0), nages[sp]),
           xlab = "Age",
           ylab = "Fishery selectivity",
-          xaxt = c(rep("n", nspp - 1), "s")[j]
+          xaxt = c(rep("n", nfsh - 1), "s")[j]
         )
+
+        # Mean selectivity
+        for (k in 1:dim(fsh_selectivity)[3]) {
+          lines(
+            x = 1:nages[sp],
+            y = fsh_selectivity[j, 1:nages[sp], k],
+            lty = 1,
+            lwd = lwd,
+            col = line_col[k]
+          )
+        }
+
+        # Legends
+        legend("topleft", paste0("Fsh ",j,"; Sp ", sp), bty = "n", cex = 1.4)
 
         if (j == 1) {
           if(!is.null(model_names)){
@@ -616,19 +638,8 @@ plot_selectivity <-
             )
           }
         }
-
-
-        # Mean selectivity
-        for (k in 1:dim(fsh_selectivity)[3]) {
-          lines(
-            x = 1:nages[j],
-            y = fsh_selectivity[j, 1:nages[j], k],
-            lty = 1,
-            lwd = lwd,
-            col = line_col[k]
-          )
-        }
       }
+
 
 
       if (i == 2) {
@@ -750,9 +761,9 @@ plot_mort <-
     }
 
     # Extract data objects
-    nyrs <- Rceattle[[1]]$data_list$nyrs
     Years <-
-      Rceattle[[1]]$data_list$styr:(Rceattle[[1]]$data_list$styr + nyrs - 1)
+      Rceattle[[1]]$data_list$styr:Rceattle[[1]]$data_list$endyr
+    nyrs <- length(Years)
     nspp <- Rceattle[[1]]$data_list$nspp
     max_age <- max(Rceattle[[1]]$data_list$nages)
 
