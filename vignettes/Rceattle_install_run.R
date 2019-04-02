@@ -32,8 +32,6 @@ plot_recruitment(Rceattle =  ss_run)
 data("BS2017MS")
 # Or we can use the previous data set
 
-
-
 ms_run <- Rceattle::fit_mod(data_list = mydata,
                    inits = ss_run$estimated_params, # Initial parameters from single species ests
                    file_name = NULL, # Don't save
