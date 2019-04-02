@@ -92,9 +92,7 @@
 #'  \item{}
 #'  \item{3. Likelihood components}
 #'  \item{jnll_comp: Matrix of negative log-likelihood components (See below) }
-#'  \item{offset_srv: Offsets for multinomial likelihood }
-#'  \item{offset_fsh: Offsets for multinomial likelihood }
-#'  \item{offset_eit: Offsets for multinomial likelihood }
+#'  \item{offset: Offsets for multinomial likelihood }
 #'  \item{}
 #'  \item{4. Ration components}
 #'  \item{ConsumAge: Pre-allocated indiviudal consumption in grams per predator-age; dim = [nyrs, nages, nspp] }
@@ -147,21 +145,18 @@
 #' `jnll_comp` includes:
 #' \itemize{
 #'  \item{-- Data components}
-#' \item{Slot 0 -- BT survey biomass -- NFMS annual BT survey}
-#' \item{Slot 1 -- BT survey age composition -- NFMS annual BT survey}
-#' \item{Slot 2 -- EIT survey biomass -- Pollock acoustic trawl survey}
-#' \item{Slot 3 -- EIT age composition -- Pollock acoustic trawl survey}
+#' \item{Slot 0 -- Survey biomass}
+#' \item{Slot 1 -- Survey age/length composition}
+#' \item{Slot 2 -- Fishery selectivity}
+#' \item{Slot 3 -- Fishery selectivity normalization}
 #' \item{Slot 4 -- Total catch -- Fishery observer data}
-#' \item{Slot 5 -- Fishery age composition -- Fishery observer data}
-#' \item{-- Likelihood penalties}
-#' \item{Slot 6 -- Fishery selectivity}
-#' \item{Slot 7 -- Fishery selectivity normalization}
-#' \item{Slot 8 -- Survey selectivity}
-#' \item{Slot 9 -- Survey selectivity normalization}
+#' \item{Slot 5 -- Fishery age/length composition -- Fishery observer data}
+#' \item{Slot 6 -- Survey selectivity}
+#' \item{Slot 7 -- Survey selectivity normalization}
 #' \item{-- Priors}
-#' \item{Slot 10 -- Tau -- Annual recruitment deviation}
-#' \item{Slot 11 -- init_dev -- Initial abundance-at-age}
-#' \item{Slot 12 -- Epsilon -- Annual fishing mortality deviation}
+#' \item{Slot 8 -- Tau -- Annual recruitment deviation}
+#' \item{Slot 9 -- init_dev -- Initial abundance-at-age}
+#' \item{Slot 10 -- Epsilon -- Annual fishing mortality deviation}
 #' \item{-- M2 likelihood components}
 #' \item{Slot 13 -- Ration likelihood}
 #' \item{Slot 14 -- Ration penalties}
@@ -186,7 +181,7 @@
 #' @export
 
 fit_mod <-
-  function(TMBfilename = "ceattle_v01_02",
+  function(TMBfilename = NULL,
            cpp_directory = NULL,
            data_list = NULL,
            inits = NULL,
