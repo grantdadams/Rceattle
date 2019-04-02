@@ -4,10 +4,11 @@
 \alias{fit_mod}
 \title{This functions runs CEATTLE}
 \usage{
-fit_mod(TMBfilename = NULL, cpp_directory = NULL, data_list = NULL,
-  inits = NULL, map = NULL, bounds = NULL, file_name = NULL,
-  debug = T, random_rec = FALSE, niter = 3, msmMode = 0,
-  avgnMode = 0, suitMode = 0, silent = FALSE, recompile = FALSE)
+fit_mod(TMBfilename = "ceattle_v01_04", cpp_directory = NULL,
+  data_list = NULL, inits = NULL, map = NULL, bounds = NULL,
+  file_name = NULL, debug = T, random_rec = FALSE, niter = 3,
+  msmMode = 0, avgnMode = 0, suitMode = 0, silent = FALSE,
+  recompile = FALSE)
 }
 \arguments{
 \item{TMBfilename}{(Optional) A version of the cpp CEATTLE \code{cpp_directory}. If NULL, uses the deafult and built .cpp file}
