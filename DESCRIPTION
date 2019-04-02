@@ -13,17 +13,13 @@ LazyData: true
 Imports:
     TMB,
     testthat,
-    r4ss,
     reshape2,
-    ggplot2,
     oce,
     TMBhelper,
-    dplyr,
     plyr,
     readxl,
-    writexl,
-    cellranger
-Remotes: r4ss/r4ss, kaskr/TMB_contrib_R/TMBhelper
+    writexl
+Remotes: kaskr/TMB_contrib_R/TMBhelper
 RoxygenNote: 6.1.1
 BugReports: https://github.com/grantdadams/Rceattle/issues
 Suggests: knitr,
