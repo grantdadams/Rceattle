@@ -33,12 +33,12 @@ mydata <- Rceattle::read_excel( file = "BS2017SS.xlsx")
 ################################################
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
 ss_run <- Rceattle::fit_mod(data_list = mydata,
-                   inits = NULL, # Initial parameters = 0
-                   file_name = NULL, # Don't save
-                   debug = 0, # Estimate
-                   random_rec = FALSE, # No random recruitment
-                   msmMode = 0, # Single species mode
-                   silent = TRUE)
+                            inits = NULL, # Initial parameters = 0
+                            file_name = NULL, # Don't save
+                            debug = 0, # Estimate
+                            random_rec = FALSE, # No random recruitment
+                            msmMode = 0, # Single species mode
+                            silent = TRUE)
 # Type ?fit_mod for more details
 
 # The you can plot the model results using using
@@ -51,14 +51,14 @@ data("BS2017MS") # Note: the only difference is the residual mortality is lower
 # Or we can use the previous data set
 
 ms_run <- Rceattle::fit_mod(data_list = mydata,
-                   inits = ss_run$estimated_params, # Initial parameters from single species ests
-                   file_name = NULL, # Don't save
-                   debug = 0, # Estimate
-                   niter = 10, # 10 iterations around population and predation dynamics
-                   random_rec = FALSE, # No random recruitment
-                   msmMode = 1, # MSVPA based
-                   suitMode = 0, # empirical suitability
-                   silent = TRUE)
+                            inits = ss_run$estimated_params, # Initial parameters from single species ests
+                            file_name = NULL, # Don't save
+                            debug = 0, # Estimate
+                            niter = 10, # 10 iterations around population and predation dynamics
+                            random_rec = FALSE, # No random recruitment
+                            msmMode = 1, # MSVPA based
+                            suitMode = 0, # empirical suitability
+                            silent = TRUE)
 
 # We can plot both runs as well:
 mod_list <- list(ss_run, ms_run)
