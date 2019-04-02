@@ -2,6 +2,7 @@
 #' @description This function estimates population parameters of CEATTLE using maximum likelihood in TMB.
 #'
 #' @param TMBfilename (Optional) A version of the cpp CEATTLE \code{cpp_directory}. If NULL, uses the deafult and built .cpp file
+#' @param cpp_directory (Optional) The directory where the cpp file is found
 #' @param data_list a data_list created from BSAI CEATTLE dat files \code{\link{build_dat}}, prebuilt data_list \code{\link{BS2017SS}}, or read in using \code{\link{read_excel}}.
 #' @param inits (Optional) Character vector of named initial values from ADMB or list of previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters. Can also consturct using \code{\link{build_params}}
 #' @param map (Optional) A prebuilt map object from \code{\link{build_map}}.
@@ -180,7 +181,8 @@
 #' @export
 
 fit_mod <-
-  function(TMBfilename = NULL,
+  function(TMBfilename = "ceattle_v01_04",
+           cpp_directory = NULL,
            data_list = NULL,
            inits = NULL,
            map = NULL,
@@ -228,14 +230,13 @@ fit_mod <-
 
 
     # Get cpp file if not provided
-    #if(is.null(TMBfilename)){
+    if(is.null(TMBfilename) | is.null(cpp_directory)){
       cpp_directory <- system.file("executables",package="Rceattle")
       TMBfilename <- "ceattle_v01_04"
-      cpp_file <- paste0(cpp_directory, "/", TMBfilename)
-    #} else{
-      # TMBfilename <- TMBfilename
-      # cpp_file <- TMBfilename
-    #}
+    } else{
+      cpp_directory <- cpp_directory
+      TMBfilename <- TMBfilename
+    }
 
 
     # STEP 1 - LOAD PARAMETERS
@@ -280,7 +281,7 @@ fit_mod <-
 
 
     # STEP 5 - Compile CEATTLE is providing cpp file
-
+    cpp_file <- paste0(cpp_directory, "/", TMBfilename)
 
     # Remove compiled files if not compatible with system
     version_files <-
