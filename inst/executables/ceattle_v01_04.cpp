@@ -112,7 +112,7 @@ Type objective_function<Type>::operator() () {
   // -- 2.2.2. Species attributes
   DATA_IVECTOR( nages );                  // Number of species (prey) ages; n = [1, nspp]
   DATA_IVECTOR( nlengths );               // Number of species (prey) lengths; n = [1, nspp]
-  DATA_INTEGER( stom_tau );               // Stomach sample size
+  DATA_VECTOR( stom_tau );               // Stomach sample size
   int max_age = imax(nages);              // Integer of maximum nages to make the arrays; n = [1]
   DATA_ARRAY( age_error );                // Array of aging error matrices for each species; n = [nspp, nages, nages]
 
@@ -1743,7 +1743,7 @@ Type objective_function<Type>::operator() () {
         // if (stoms_w_N(rsp,r_ln,yr) > 0){ Sample size
         for (ksp = 0; ksp < nspp; ksp++) { // FIXME: no offset for "other food"
           if ( diet_w_sum(rsp, ksp, r_ln, yr) > 0) {
-            offset_diet_w(rsp) -= stom_tau * (diet_w_sum(rsp, ksp, r_ln, yr) + MNConst) * log(diet_w_sum(rsp, ksp, r_ln, yr) + MNConst); // FIXME add actual sample size
+            offset_diet_w(rsp) -= stom_tau(rsp) * (diet_w_sum(rsp, ksp, r_ln, yr) + MNConst) * log(diet_w_sum(rsp, ksp, r_ln, yr) + MNConst); // FIXME add actual sample size
           }
         }
       }
@@ -1756,7 +1756,7 @@ Type objective_function<Type>::operator() () {
       for (r_ln = 0; r_ln < nlengths(rsp); r_ln++) {
         for (k_ln = 0; k_ln < nlengths(ksp); k_ln++) {
           if (Uobs(rsp, ksp, r_ln, k_ln) > 0) {
-            offset_diet_l(rsp) -= stom_tau * Uobs(rsp, ksp, r_ln, k_ln) * log(Uobs(rsp, ksp, r_ln, k_ln) + 1.0e-10);
+            offset_diet_l(rsp) -= stom_tau(rsp) * Uobs(rsp, ksp, r_ln, k_ln) * log(Uobs(rsp, ksp, r_ln, k_ln) + 1.0e-10);
           }
         }
       }
@@ -1772,7 +1772,7 @@ Type objective_function<Type>::operator() () {
           for (ksp = 0; ksp < nspp; ksp++) {
             for (k_age = 0; k_age < nages(ksp); k_age++) {                  // FIME: need to add in other food
               //if (UobsWtAge(rsp, ksp, r_age, k_age, yr) > 0) { // (rsp, ksp, a, r_ln, yr)
-              offset_uobsagewt(rsp) -= stom_tau * (UobsWtAge(rsp, ksp, r_age, k_age, yr) + MNConst) * log(UobsWtAge(rsp, ksp, r_age, k_age, yr) + MNConst);
+              offset_uobsagewt(rsp) -= stom_tau(rsp) * (UobsWtAge(rsp, ksp, r_age, k_age, yr) + MNConst) * log(UobsWtAge(rsp, ksp, r_age, k_age, yr) + MNConst);
               //}
             }
           }
@@ -1788,7 +1788,7 @@ Type objective_function<Type>::operator() () {
         for (ksp = 0; ksp < nspp; ksp++) {
           for (k_age = 0; k_age < nages(ksp); k_age++) {                  // FIME: need to add in other food
             //if (UobsWtAge(rsp, ksp, r_age, k_age) > 0) { // (rsp, ksp, a, r_ln, yr)
-            offset_uobsagewt(rsp) -= stom_tau * (UobsWtAge(rsp, ksp, r_age, k_age) + MNConst) * log(UobsWtAge(rsp, ksp, r_age, k_age) + MNConst);
+            offset_uobsagewt(rsp) -= stom_tau(rsp) * (UobsWtAge(rsp, ksp, r_age, k_age) + MNConst) * log(UobsWtAge(rsp, ksp, r_age, k_age) + MNConst);
             //}
           }
         }
@@ -1980,7 +1980,7 @@ Type objective_function<Type>::operator() () {
             for (ksp = 0; ksp < nspp; ksp++) {
               for (k_age = 0; k_age < nages(ksp); k_age++) {                  // FIME: need to add in other food
                 //if (UobsWtAge(rsp, ksp, r_age, k_age, yr) > 0) { // (rsp, ksp, a, r_ln, yr)
-                jnll_comp(15, rsp) -= stom_tau * (UobsWtAge(rsp, ksp, r_age, k_age, yr) + MNConst) * (log(UobsWtAge_hat(rsp, ksp, r_age, k_age, yr) + MNConst));
+                jnll_comp(15, rsp) -= stom_tau(rsp) * (UobsWtAge(rsp, ksp, r_age, k_age, yr) + MNConst) * (log(UobsWtAge_hat(rsp, ksp, r_age, k_age, yr) + MNConst));
                 // }
               }
             }
@@ -1998,7 +1998,7 @@ Type objective_function<Type>::operator() () {
           for (ksp = 0; ksp < nspp; ksp++) {
             for (k_age = 0; k_age < nages(ksp); k_age++) {                  // FIME: need to add in other food
               //if (UobsWtAge(rsp, ksp, r_age, k_age) > 0) { // (rsp, ksp, a, r_ln, yr)
-              jnll_comp(15, rsp) -= stom_tau * (UobsWtAge(rsp, ksp, r_age, k_age) + MNConst) * (log(mn_UobsWtAge_hat(rsp, ksp, r_age, k_age) + MNConst));
+              jnll_comp(15, rsp) -= stom_tau(rsp) * (UobsWtAge(rsp, ksp, r_age, k_age) + MNConst) * (log(mn_UobsWtAge_hat(rsp, ksp, r_age, k_age) + MNConst));
               //}
             }
           }
@@ -2041,7 +2041,7 @@ Type objective_function<Type>::operator() () {
         for (r_ln = 0; r_ln < nlengths(rsp); r_ln++) {
           for (ksp = 0; ksp < nspp; ksp++) {                  // FIME: need to add in other food
             if (diet_w_sum(rsp, ksp, r_ln, yr) > 0) { // (rsp, ksp, a, r_ln, yr)
-              jnll_comp(15, rsp) -= stom_tau * diet_w_sum(rsp, ksp, r_ln, yr) * log(Q_hat(rsp, ksp, r_ln, yr) + 1.0e-10);
+              jnll_comp(15, rsp) -= stom_tau(rsp) * diet_w_sum(rsp, ksp, r_ln, yr) * log(Q_hat(rsp, ksp, r_ln, yr) + 1.0e-10);
             }
           }
         }
@@ -2067,7 +2067,7 @@ Type objective_function<Type>::operator() () {
               for (k_age = 0; k_age < nages(ksp); k_age++) {
                 eaten_lmy(k_ln) += eaten_la(rsp, ksp, r_ln, k_age, yr) * age_trans_matrix(k_age, k_ln, pop_alk_index(ksp));
               }
-              T_hat(rsp, ksp, r_ln, k_ln) += stom_tau * eaten_lmy(k_ln); // FIXME: add actual stomach content sample size
+              T_hat(rsp, ksp, r_ln, k_ln) += stom_tau(rsp) * eaten_lmy(k_ln); // FIXME: add actual stomach content sample size
             }
           }
 
@@ -2083,7 +2083,7 @@ Type objective_function<Type>::operator() () {
 
             // Likelihood of diet length         / This is equation 16
             if (Uobs(rsp, ksp, r_ln, k_ln) > 0) {
-              jnll_comp(16, rsp) -= stom_tau * Uobs(rsp, ksp, r_ln, k_ln) * log(T_hat(rsp, ksp, r_ln, k_ln)  + 1.0e-10);
+              jnll_comp(16, rsp) -= stom_tau(rsp) * Uobs(rsp, ksp, r_ln, k_ln) * log(T_hat(rsp, ksp, r_ln, k_ln)  + 1.0e-10);
             }
           }
         }

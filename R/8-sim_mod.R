@@ -5,99 +5,100 @@
 #' @param ceattle_obj CEATTLE model object exported from \code{\link{Rceattle}}
 #' @expected TRUE/FALSE, whether to simulate the data or export the expected value
 #' @export
-sim_mod <- function( ceattle_obj, expected = FALSE ){
+sim_mod <- function( ceattle_obj, simulate = FALSE ){
   #TODO Options for simulation diet data: multinomial, sqrt-normal, dirichlet, multinomial
   dat_sim <- ceattle_obj$data_list
 
-  for(sp in 1:ceattle_obj$data_list$nspp){ #FIXME: may need to adjust for multiple surveys
 
-    # Slot 0 -- BT survey biomass -- NFMS annual BT survey
-    srv_biom_lse = dat_sim$srv_biom_se / dat_sim$srv_biom
-    srv_biom_lse = sqrt( log( (  srv_biom_lse^2 ) + 1));
+  # Slot 0 -- BT survey biomass -- NFMS annual BT survey
+  srv_biom_lse = dat_sim$srv_biom$CV
 
-    if(expected){# Simulate
-      values <- exp(rnorm(length(dat_sim$srv_biom[sp,]), mean = log(ceattle_obj$quantities$srv_bio_hat[sp,1:dat_sim$nyrs_srv_age[sp]]), sd = srv_biom_lse[sp,1:dat_sim$nyrs_srv_age[sp]]))
+  if(simulate){# Simulate
+    values <- exp(rnorm(length(dat_sim$srv_biom$Observation), mean = log(ceattle_obj$quantities$srv_bio_hat), sd = srv_biom_lse))
+    colnames(dat_sim$srv_biom)[7] <- "Simulated_value"
+  } else{ # simulate value
+    values <- ceattle_obj$quantities$srv_bio_hat
+    colnames(dat_sim$srv_biom)[7] <- "Predicted_value"
+  }
+
+  dat_sim$srv_biom$Observation = values
+
+
+  # Slot 1 -- BT survey age composition -- NFMS annual BT survey
+  for(obs in 1:nrow(dat_sim$srv_comp)){
+
+    sp <- dat_sim$srv_comp$Species[obs]
+
+    if(simulate){# Simulate
+      # FIXME add dirichlet multinomial
+      values <- rmultinom(n = 1, size = dat_sim$srv_comp$Sample_size[obs], prob = ceattle_obj$quantities$srv_comp_hat[obs,])
+
     } else{ # Expected value
-      values <- ceattle_obj$quantities$srv_bio_hat[sp,1:dat_sim$nyrs_srv_age[sp]]
+
+      values <- ceattle_obj$quantities$srv_comp_hat[obs,]
+
     }
 
-    dat_sim$srv_biom[sp,] = replace(dat_sim$srv_biom[sp,], values = values)
+    dat_sim$srv_comp[obs,(1:dat_sim$nages[sp]) + 8] = values[(1:dat_sim$nages[sp])]
+  }
 
 
-    # Slot 1 -- BT survey age composition -- NFMS annual BT survey
-    for(yr in 1:dat_sim$nyrs_srv_age[sp]){
-
-      if(expected){# Simulate
-        values <- rmultinom(n = 1, size = dat_sim$srv_age_n[sp, yr], prob = ceattle_obj$quantities$srv_age_hat[sp, , yr])
-      } else{ # Expected value
-        values <- ceattle_obj$quantities$srv_age_hat[sp, , yr]
-      }
-
-      dat_sim$srv_age_obs[yr,,sp] = replace( dat_sim$srv_age_obs[yr,,sp], values = values)
-    }
 
 
-    if(sp == 1){
-      # Slot 2 -- EIT survey biomass -- Pollock acoustic trawl survey
-      if(expected){# Simulate
-        values <- exp(rnorm(length(dat_sim$obs_eit), mean = log(ceattle_obj$quantities$eit_hat[1:dat_sim$n_eit]), sd = .2))
-      } else{ # Expected value
-        values <- ceattle_obj$quantities$eit_hat[1:dat_sim$n_eit]
-      }
+  # Slot 4 -- Total catch -- Fishery observer data
+  fsh_biom_lse = dat_sim$fsh_biom$CV
 
-      dat_sim$obs_eit = replace(dat_sim$obs_eit, values = values)
+  if(simulate){# Simulate
+    values <- exp(rnorm(length(dat_sim$fsh_biom$Catch_kg), mean = log(ceattle_obj$quantities$fsh_bio_hat), sd = fsh_biom_lse))
+    colnames(dat_sim$fsh_biom)[7] <- "Simulated_catch"
+  } else{ # simulate value
+    values <- ceattle_obj$quantities$fsh_bio_hat
+    colnames(dat_sim$fsh_biom)[7] <- "Predicted_catch"
+  }
 
-
-      # Slot 3 -- EIT age composition -- Pollock acoustic trawl survey
-      for(yr in 1:dat_sim$n_eit){
-        if(expected){# Simulate
-          values <- rmultinom(n = 1, size = dat_sim$eit_age_n[yr], prob = ceattle_obj$quantities$eit_age_comp_hat[, yr])
-        } else{ # Expected value
-          values <- ceattle_obj$quantities$eit_age_comp_hat[, yr]
-        }
-        dat_sim$obs_eit_age[yr,] = replace( dat_sim$obs_eit_age[yr,], values = values)
-      }
-    }
+  dat_sim$fsh_biom$Catch_kg = values
 
 
-    # Slot 4 -- Total catch -- Fishery observer data
-    if(expected){# Simulate
-      values <- exp(rnorm(length(dat_sim$tcb_obs[sp,]), mean = log(ceattle_obj$quantities$tc_biom_hat[sp,1:dat_sim$nyrs_tc_biom[sp]]), sd = 0.05))
+  # Slot 5 -- Fishery age composition -- Fishery observer data
+  for(obs in 1:nrow(dat_sim$fsh_comp)){
+
+    sp <- dat_sim$fsh_comp$Species[obs]
+
+    if(simulate){# Simulate
+      # FIXME add dirichlet multinomial
+      values <- rmultinom(n = 1, size = dat_sim$fsh_comp$Sample_size[obs], prob = ceattle_obj$quantities$fsh_comp_hat[obs,])
+
     } else{ # Expected value
-      values <- ceattle_obj$quantities$tc_biom_hat[sp,1:dat_sim$nyrs_tc_biom[sp]]
-    }
-    dat_sim$tcb_obs[sp,] = replace(dat_sim$tcb_obs[sp,], values = values)
 
+      values <- ceattle_obj$quantities$fsh_comp_hat[obs,]
 
-    # Slot 5 -- Fishery age composition -- Fishery observer data
-    for(yr in 1:dat_sim$nyrs_fsh_comp[sp]){
-      if(expected){# Simulate
-        values <- rmultinom(n = 1, size = 200, prob = ceattle_obj$quantities$fsh_age_hat[sp, , yr])
-      } else{ # Expected value
-        values <- ceattle_obj$quantities$fsh_age_hat[sp, , yr]
-      }
-      dat_sim$obs_catch[yr,,sp] = replace( dat_sim$obs_catch[yr,,sp], values = values)
     }
 
-    # Slot 5 -- Diet composition from lognormal suitability
-    # 4D
-    if(length(dim(dat_sim$UobsWtAge)) == 4){
+    dat_sim$fsh_comp[obs,(1:dat_sim$nages[sp]) + 8] = values[(1:dat_sim$nages[sp])]
+  }
+
+  # Slot 5 -- Diet composition from lognormal suitability
+  # 4D
+  if(length(dim(dat_sim$UobsWtAge)) == 4){
+    for(sp in 1:dat_sim$nspp){
       for(r_age in 1:dat_sim$nages[sp]){
-        if(ceattle_obj$data_list$suitMode %in% c(2:3) & expected & sum(ceattle_obj$quantities$mn_UobsWtAge_hat[sp,,r_age,] > 0) > 0){
-          values <- rmultinom(n = 1, size = 20, prob = ceattle_obj$quantities$mn_UobsWtAge_hat[sp,,r_age,]) #FIXME change sample size
+        if(ceattle_obj$data_list$suitMode > 0 & simulate & sum(ceattle_obj$quantities$mn_UobsWtAge_hat[sp,,r_age,] > 0) > 0){
+          values <- rmultinom(n = 1, size = dat_sim$stom_tau[sp], prob = ceattle_obj$quantities$mn_UobsWtAge_hat[sp,,r_age,]) #FIXME change sample size
         } else {
           values <- ceattle_obj$quantities$mn_UobsWtAge_hat[sp,,r_age,]
         }
         dat_sim$UobsWtAge[sp,,r_age,] <- replace(dat_sim$UobsWtAge[sp,,r_age,], values = values)
       }
     }
+  }
 
-    # 5D
-    if(length(dim(dat_sim$UobsWtAge)) == 5){
+  # 5D
+  if(length(dim(dat_sim$UobsWtAge)) == 5){
+    for(sp in 1:dat_sim$nspp){
       for(yr in 1:dat_sim$nyrs_fsh_comp[sp]){
         for(r_age in 1:dat_sim$nages[sp]){
-          if(ceattle_obj$data_list$suitMode %in% c(2:3) & expected& sum(ceattle_obj$quantities$UobsWtAge_hat[sp,,r_age, , yr] > 0) > 0){
-            values <- rmultinom(n = 1, size = 20, prob = ceattle_obj$quantities$UobsWtAge_hat[sp,,r_age,,yr]) #FIXME change sample size
+          if(ceattle_obj$data_list$suitMode > 0 & simulate& sum(ceattle_obj$quantities$UobsWtAge_hat[sp,,r_age, , yr] > 0) > 0){
+            values <- rmultinom(n = 1, size = dat_sim$stom_tau[sp], prob = ceattle_obj$quantities$UobsWtAge_hat[sp,,r_age,,yr]) #FIXME change sample size
           } else {
             values <- ceattle_obj$quantities$UobsWtAge_hat[sp,,r_age,,yr]
           }
@@ -105,9 +106,7 @@ sim_mod <- function( ceattle_obj, expected = FALSE ){
         }
       }
     }
-
   }
-
 
   return(dat_sim)
 }

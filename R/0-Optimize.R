@@ -64,7 +64,7 @@ Optimize = function( obj, fn=obj$fn, gr=obj$gr, startpar=obj$par, lower=rep(-Inf
   # Add diagnostics
   parameter_estimates[["time_for_MLE"]] = Sys.time() - start_time
   parameter_estimates[["max_gradient"]] = max(abs(gr(parameter_estimates$par)))
-  parameter_estimates[["Convergence_check"]] = ifelse( parameter_estimates[["max_gradient"]]<0.0001, "There is no evidence that the model is not converged", "The model is likely not converged" )
+  parameter_estimates[["Convergence_check"]] = ifelse( parameter_estimates[["max_gradient"]]<0.0001, "There is no evidence that the model is not converged", paste0("The maximum gradient is ", round(parameter_estimates[["max_gradient"]], 6)) )
   parameter_estimates[["number_of_coefficients"]] = c("Total"=length(unlist(obj$env$parameters)), "Fixed"=length(startpar), "Random"=length(unlist(obj$env$parameters))-length(startpar) )
   parameter_estimates[["AIC"]] = TMBhelper::TMBAIC( opt=parameter_estimates )
   if( n!=Inf ){

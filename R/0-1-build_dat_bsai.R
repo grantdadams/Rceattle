@@ -47,7 +47,8 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   #---------------------------------------------------------------------
   # Step 1 -- Add data names NOT used in TMB
   #---------------------------------------------------------------------
-  names_not_in_cpp <- c("nyrs_srv_biom", "yrs_srv_biom", "srv_biom", "srv_biom_se",
+  names_not_in_cpp <- c("nspp"
+    , "nyrs_srv_biom", "yrs_srv_biom", "srv_biom", "srv_biom_se",
                         "srv_age_obs", "nyrs_srv_age", "yrs_srv_age", "srv_age_n",
                         "srv_age_type", "srv_age_bins",
                         "n_eit", "yrs_eit", "obs_eit", "eit_sel",
@@ -171,7 +172,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
 
   # Get add in projected year
   # dat_list$proj_yr <- proj_yr
-  dat_list$stom_tau <- stom_tau
+  dat_list$stom_tau <- rep(stom_tau, dat_list$nspp)
 
 
   if(length(nselages) == 1){
@@ -184,7 +185,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
 
   dat_list$pop_wt_index <- c(1:3)
   dat_list$pop_alk_index <- c(1:3)
-  dat_list$nlenths <- dat_list$fsh_age_bins
+  dat_list$nlengths <- dat_list$fsh_age_bins
   dat_list$endyr <- endyr
 
   #---------------------------------------------------------------------
@@ -390,6 +391,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     dat_list$age_error[sp,,] <- diag(1, max(dat_list$nages), max(dat_list$nages))
   }
 
+  dat_list$nlengths <- dat_list$fsh_age_bins
 
   #---------------------------------------------------------------------
   # Final Step -- Remove unwanted bits
