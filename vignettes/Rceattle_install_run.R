@@ -1,5 +1,14 @@
+# Grant Adams, Kirstin Holsman, Andre Punt - April 2019
+# Function to run CEATTLE model in TMB
+# Citation:
+# Holsman, K. K., Ianelli, J., Aydin, K., Punt, A. E., and Moffitt, E. A. 2015. A comparison of fisheries biological reference points estimated from temperature-specific multi-species and single-species climate-enhanced stock assessment models. Deep-Sea Research Part II: Topical Studies in Oceanography, 134: 360–378.
+
+
 # Install Rceattle
 devtools::install_github("grantdadams/Rceattle", auth_token = "4925b42ac46f1e0aefd671e9dc0c1cf1b3157017")
+# NOTE: will have to have TMB downloaded
+# Instructions can be found here: https://github.com/kaskr/adcomp/wiki/Download
+# Try "TMB::runExample(all = TRUE)" to see if TMB works
 
 
 library(Rceattle)
@@ -37,8 +46,8 @@ plot_biomass(Rceattle =  ss_run)
 plot_recruitment(Rceattle =  ss_run)
 
 
-# For the a multispecies model starting from the single species parameters, the following can be specified:
-data("BS2017MS")
+# For the a multispecies model starting from the single species parameters, the following can be specified to load the data:
+data("BS2017MS") # Note: the only difference is the residual mortality is lower
 # Or we can use the previous data set
 
 ms_run <- Rceattle::fit_mod(data_list = mydata,
