@@ -311,8 +311,13 @@ fit_mod <-
       suppressWarnings(file.remove(paste0(cpp_file, ".o")))
     }
 
-    TMB::compile(paste0(cpp_file, ".cpp"))
-    dyn.load(TMB::dynlib(paste0(cpp_file)), silent = TRUE)
+    old_wd <- getwd()
+    setwd(cpp_directory)
+    TMB::compile(paste0(TMBfilename, ".cpp"))
+    dyn.load(TMB::dynlib(paste0(TMBfilename)), silent = TRUE)
+    setwd(old_wd)
+
+
     print("Step 4: Compile CEATTLE complete")
 
 
