@@ -3,7 +3,7 @@
 #'
 #' @param TMBfilename (Optional) A version of the cpp CEATTLE \code{cpp_directory}. If NULL, uses the deafult and built .cpp file
 #' @param cpp_directory (Optional) The directory where the cpp file is found
-#' @param data_list a data_list created from \code{\link{build_dat}}.
+#' @param data_list a data_list created from BSAI CEATTLE dat files \code{\link{build_dat}}, prebuilt data_list \code{\link{BS2017SS}}, or read in using \code{\link{read_excel}}.
 #' @param inits (Optional) Character vector of named initial values from ADMB or list of previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters. Can also consturct using \code{\link{build_params}}
 #' @param map (Optional) A prebuilt map object from \code{\link{build_map}}.
 #' @param bounds (Optional) A prebuild bounds object from \code{\link{build_bounds}}.
@@ -174,7 +174,7 @@
 #'data(BS2017SS) # ?BS2017SS for more information on the data
 #'
 #'# Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
-#'ss_run <- Rceattle(data_list = BS2017SS,
+#'ss_run <- fit_mod(data_list = BS2017SS,
 #'    inits = NULL, # Initial parameters = 0
 #'    file_name = NULL, # Don't save
 #'    debug = 0, # Estimate
@@ -185,7 +185,7 @@
 #'
 #' @export
 
-Rceattle <-
+fit_mod <-
   function(TMBfilename = "ceattle_v01_02",
            cpp_directory = NULL,
            data_list = NULL,
@@ -237,7 +237,7 @@ Rceattle <-
     # Get cpp file if not provided
     if(is.null(TMBfilename) | is.null(cpp_directory)){
       cpp_directory <- system.file("executables",package="Rceattle")
-      TMBfilename <- "ceattle_v01_02"
+      TMBfilename <- "ceattle_v01_04"
     } else{
       cpp_directory <- cpp_directory
       TMBfilename <- TMBfilename
@@ -286,6 +286,7 @@ Rceattle <-
 
     '%!in%' <- function(x,y)!('%in%'(x,y))
 
+
     # STEP 5 - Compile CEATTLE is providing cpp file
     cpp_file <- paste0(cpp_directory, "/", TMBfilename)
 
@@ -322,13 +323,15 @@ Rceattle <-
     print("Step 4: Compile CEATTLE complete")
 
 
+    # STEP 6 - Reorganize data
+    data_list2 <- rearrange_dat(data_list)
 
-    # STEP 6 - Build and fit model object
+    # STEP 7 - Build and fit model object
     obj = TMB::MakeADFun(
-      data_list,
+      data_list2,
       parameters = params,
       DLL = TMBfilename,
-      map = map,
+      map = map[[1]],
       random = random_vars,
       silent = silent
 
@@ -343,8 +346,8 @@ Rceattle <-
 
 
     # Remove inactive parameters from bounds and vectorize
-    L = unlist(bounds$lower)[which(!is.na(unlist(map)))]
-    U = unlist(bounds$upper)[which(!is.na(unlist(map)))]
+    L = unlist(bounds$lower)[which(!is.na(unlist(map[[1]])))]
+    U = unlist(bounds$upper)[which(!is.na(unlist(map[[1]])))]
 
     # Remove random effects from bounds
     if (random_rec == TRUE) {

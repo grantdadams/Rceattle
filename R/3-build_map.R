@@ -27,9 +27,54 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     }
   }
 
+  # Fishery selectivity coefficients
+  for( i in 1: nrow(data_list$fsh_control)){
+    if(data_list$fsh_control$Selectivity[i] == 0){ # Empirical
+
+      # Map out non-parametric
+      map_list$fsh_sel_coff[i,] <- replace(map_list$fsh_sel_coff[i,], values = rep(NA, length(map_list$fsh_sel_coff[i,])))
+
+      # Map out logistic and double logistic
+      map_list$fsh_sel_slp[1:2, i] <- NA
+      map_list$fsh_sel_inf[1:2, i] <- NA
+    }
+    if(data_list$fsh_control$Selectivity[i] == 1){ # Logitistic
+
+      # Map out non-parametric
+      map_list$fsh_sel_coff[i,] <- replace(map_list$fsh_sel_coff[i,], values = rep(NA, length(map_list$fsh_sel_coff[i,])))
+
+      # Map out double logistic
+      map_list$fsh_sel_slp[2, i] <- NA
+      map_list$fsh_sel_inf[2,i] <- NA
+    }
+    if(data_list$fsh_control$Selectivity[i] == 2){ # Non-parametric at age
+      map_list$fsh_sel_slp[1:2, i] <- NA
+      map_list$fsh_sel_inf[1:2, i] <- NA
+
+      # If nselages is  < max(nselages)
+      if(data_list$fsh_control$Nselages[i] < max(data_list$fsh_control$Nselages, na.rm = TRUE)){
+        map_list$fsh_sel_coff[i, (data_list$fsh_control$Nselages[i] + 1):max(data_list$fsh_control$Nselages, na.rm = T)]  <- replace(map_list$fsh_sel_coff[i, (data_list$fsh_control$Nselages[i] + 1):max(data_list$fsh_control$Nselages, na.rm = T)], values = rep(NA, length(map_list$fsh_sel_coff[i, (data_list$fsh_control$Nselages[i] + 1):max(data_list$fsh_control$Nselages, na.rm = T)])))
+      }
+    }
+    if(data_list$fsh_control$Selectivity[i] == 3){ # Double logistic
+      # Map out non-parametric
+      map_list$fsh_sel_coff[i,] <- replace(map_list$fsh_sel_coff[i,], values = rep(NA, length(map_list$fsh_sel_coff[i,])))
+    }
+  }
+
+
   # Survey selectivity coefficients
-  for( i in 1: nrow(map_list$srv_sel_coff)){
-    if(data_list$srv_sel_type[i] == 0){ # Logitistic
+  for( i in 1: nrow(data_list$srv_control)){
+    if(data_list$srv_control$Selectivity[i] == 0){ # Empirical
+
+      # Map out non-parametric
+      map_list$srv_sel_coff[i,] <- replace(map_list$srv_sel_coff[i,], values = rep(NA, length(map_list$srv_sel_coff[i,])))
+
+      # Map out logistic and double logistic
+      map_list$srv_sel_slp[1:2, i] <- NA
+      map_list$srv_sel_inf[1:2, i] <- NA
+    }
+    if(data_list$srv_control$Selectivity[i] == 1){ # Logitistic
 
       # Map out non-parametric
       map_list$srv_sel_coff[i,] <- replace(map_list$srv_sel_coff[i,], values = rep(NA, length(map_list$srv_sel_coff[i,])))
@@ -38,23 +83,28 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$srv_sel_slp[2, i] <- NA
       map_list$srv_sel_inf[2,i] <- NA
     }
-    if(data_list$srv_sel_type[i] == 1){ # Non-parametric at age
+    if(data_list$srv_control$Selectivity[i] == 2){ # Non-parametric at age
       map_list$srv_sel_slp[1:2, i] <- NA
       map_list$srv_sel_inf[1:2, i] <- NA
 
       # If nselages is  < max(nselages)
-      if(data_list$nselages[i] < max(data_list$nselages, na.rm = TRUE)){
-        map_list$srv_sel_coff[i, (data_list$nselages[i] + 1):max(data_list$nselages)]  <- replace(map_list$srv_sel_coff[i, (data_list$nselages[i] + 1):max(data_list$nselages)], values = rep(NA, length(map_list$srv_sel_coff[i, (data_list$nselages[i] + 1):max(data_list$nselages)])))
+      if(data_list$srv_control$Nselages[i] < max(data_list$srv_control$Nselages, na.rm = TRUE)){
+        map_list$srv_sel_coff[i, (data_list$srv_control$Nselages[i] + 1):max(data_list$srv_control$Nselages, na.rm = T)]  <- replace(map_list$srv_sel_coff[i, (data_list$srv_control$Nselages[i] + 1):max(data_list$srv_control$Nselages, na.rm = T)], values = rep(NA, length(map_list$srv_sel_coff[i, (data_list$srv_control$Nselages[i] + 1):max(data_list$srv_control$Nselages, na.rm = T)])))
       }
     }
-    if(data_list$srv_sel_type[i] == 2){ # Double logistic
+    if(data_list$srv_control$Selectivity[i] == 3){ # Double logistic
       # Map out non-parametric
       map_list$srv_sel_coff[i,] <- replace(map_list$srv_sel_coff[i,], values = rep(NA, length(map_list$srv_sel_coff[i,])))
     }
   }
 
   # Catchability of surveys
-  map_list$log_srv_q <- replace(map_list$log_srv_q, values = rep(NA, length(map_list$log_srv_q)))
+  for( i in 1: nrow(data_list$srv_control)){
+    # If not estimating turn of
+    if(data_list$srv_control$Estimate_q[i] == 0){
+      map_list$log_srv_q[i] <- NA
+    }
+  }
 
 
   # Recruitment deviation sigmas - turn off if not estimating
@@ -71,7 +121,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     # Suitability parameters
     map_list$log_gam_a <- replace(map_list$log_gam_a, values = rep(NA, length(map_list$log_gam_a)))
     map_list$log_gam_b <- replace(map_list$log_gam_b, values = rep(NA, length(map_list$log_gam_b)))
-    map_list$phi <- replace(map_list$phi, values = rep(NA, length(map_list$phi)))
+    map_list$log_phi <- replace(map_list$log_phi, values = rep(NA, length(map_list$log_phi)))
 
     # Multispecies
     map_list$logH_1 <- replace(map_list$logH_1, values = rep(NA, length(map_list$logH_1)))
@@ -151,12 +201,12 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     if(data_list$suitMode == 0){
       map_list$log_gam_a <- replace(map_list$log_gam_a, values = rep(NA, length(map_list$log_gam_a)))
       map_list$log_gam_b <- replace(map_list$log_gam_b, values = rep(NA, length(map_list$log_gam_b)))
-      map_list$phi <- replace(map_list$phi, values = rep(NA, length(map_list$phi)))
+      map_list$log_phi <- replace(map_list$log_phi, values = rep(NA, length(map_list$log_phi)))
     }
 
     # 2.2. GAMMA suitability
     if(data_list$suitMode %in% c(1:3)){
-      map_list$phi <- replace(map_list$phi, values = rep(NA, length(map_list$phi)))
+      map_list$log_phi <- replace(map_list$log_phi, values = rep(NA, length(map_list$log_phi)))
     }
 
     # 2.3. and 2.4 Lognormal
@@ -172,17 +222,19 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     for(i in 1:length(map_list)){
       map_list[[i]] <- replace(map_list[[i]], values = rep(NA, length(map_list[[i]])))
     }
-
     map_list$dummy = 1
-
   }
 
 
   # STEP 4 -- Conver to factor
-  for(i in 1:length(map_list)){
-    map_list[[i]] <- factor(map_list[[i]])
+  map_list_grande <- list()
+  map_list_grande[[1]] <- map_list
+  map_list_grande[[2]] <- map_list
+
+  for(i in 1:length(map_list_grande[[1]])){
+    map_list_grande[[1]][[i]] <- factor(map_list_grande[[1]][[i]])
   }
 
 
-  return(map_list)
+  return(map_list_grande)
 }

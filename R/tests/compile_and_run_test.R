@@ -1,45 +1,42 @@
-
+library(Rceattle)
 library(TMB)
 library(TMBhelper)
 library(TMBdebug)
-library(Rceattle)
 
 # Load data
 # source("R/2-build_params.R")
 # source("R/3-build_map.R")
-data_list_ss$nages
-cpp_directory <- "inst/executables"
 TMBfilename = "ceattle_v01_04"
+cpp_directory <- "inst/executables"
 data("BS2017SS")
-data_list = BS2017SS
+data_list = mydata2
 inits = NULL # Initial parameters = 0
+map = NULL
+bounds = NULL
 file_name = NULL # Don't save
-debug = 0 # Estimate
+debug = 1 # Estimate
 random_rec = FALSE # No random recruitment
 msmMode = 0 # Single species mode
 avgnMode = 0
-silent = FALSE
-niter = 10
+silent = TRUE
+niter = 5
 est_diet = FALSE
 suitMode = FALSE
-map <- NULL
-bounds <- NULL
+recompile = FALSE
 
-setwd(getwd())
+# #--------------------------------------------------
+# # 1. DATA and MODEL PREP
+# #--------------------------------------------------
+load("C:/Users/Grant Adams/Documents/GitHub/RceattleRuns/BSAI/2019 Think Tank/Models/ss_no_re.RData")
+initial_params <- mod_objects$estimated_params
 
-#--------------------------------------------------
-# 1. DATA and MODEL PREP
-#--------------------------------------------------
-# # Check if require packages are installed and install if not
-# if ("TMB" %in% rownames(installed.packages()) == FALSE) {
-#  install.packages("TMB")
-# }
-# if ("TMBhelper" %in% rownames(installed.packages()) == FALSE) {
-#  install.packages("TMBhelper")
-# }
-# library(TMB)
-# library(TMBhelper)
-
+initial_params$srv_sel_coff
+initial_params$srv_sel_inf <- cbind(initial_params$srv_sel_inf, matrix(0, ncol = 1, nrow = 2))
+initial_params$srv_sel_slp <- cbind(initial_params$srv_sel_slp, matrix(0, ncol = 1, nrow = 2))
+initial_params$log_srv_q <- c(initial_params$log_srv_q, initial_params$log_eit_q)
+inits <- initial_params
+inits$log_eit_q <- NULL
+inits$phi <- NULL
 
 # STEP 1 - LOAD DATA
 if (is.null(data_list)) {
@@ -59,7 +56,7 @@ data_list$suitMode <- as.numeric(suitMode)
 # Get cpp file if not provided
 if(is.null(TMBfilename) | is.null(cpp_directory)){
   cpp_directory <- system.file("executables",package="Rceattle")
-  TMBfilename <- "ceattle_v01_02"
+  TMBfilename <- "ceattle_v01_04"
 } else{
   cpp_directory <- cpp_directory
   TMBfilename <- TMBfilename
@@ -75,6 +72,16 @@ if (is.character(inits) | is.null(inits)) {
     cpp_directory = cpp_directory
   ))
 } else{
+  params <- suppressWarnings(Rceattle::build_params(
+    data_list = data_list,
+    inits = inits,
+    TMBfilename = TMBfilename,
+    cpp_directory = cpp_directory
+  ))
+  inits$srv_sel_coff <- params$srv_sel_coff
+  inits$fsh_sel_inf <- params$fsh_sel_inf
+  inits$fsh_sel_slp <- params$fsh_sel_slp
+  inits$log_phi <- params$log_phi
   params <- inits
 }
 print("Step 1: Parameter build complete")
@@ -108,6 +115,7 @@ if (random_rec == TRUE) {
 
 '%!in%' <- function(x,y)!('%in%'(x,y))
 
+
 # STEP 5 - Compile CEATTLE is providing cpp file
 cpp_file <- paste0(cpp_directory, "/", TMBfilename)
 
@@ -139,29 +147,37 @@ if(recompile){
   suppressWarnings(file.remove(paste0(cpp_file, ".o")))
 }
 
-dyn.unload(TMB::dynlib(paste0(cpp_file)), silent = TRUE)
+
+dyn.unload(TMB::dynlib(paste0(cpp_file)))
 TMB::compile(paste0(cpp_file, ".cpp"))
 dyn.load(TMB::dynlib(paste0(cpp_file)), silent = TRUE)
 print("Step 4: Compile CEATTLE complete")
 
 
+# STEP 6 - Reorganize data
+data_list2 <- rearrange_dat(data_list)
 
-# STEP 6 - Build and fit model object
+# STEP 7 - Build and fit model object
 obj = TMB::MakeADFun(
-  data_list,
+  data_list2,
   parameters = params,
   DLL = TMBfilename,
-  map = map,
   random = random_vars,
-  silent = silent
-
+  silent = silent,
+  map = map[[1]]
 )
-
+print(paste0("Step 5: Build object complete"), hessian = TRUE)
+# opt <- nlminb(obj$par, obj$fn, obj$gr)
+# methods <- c('Nelder-Mead', 'BFGS', 'CG', 'L-BFGS-B', 'nlm', 'nlminb', 'spg', 'ucminf', 'newuoa', 'bobyqa', 'nmkb', 'hjkb', 'Rcgmin', 'Rvmmin')
+# opt_list <- list()
+# for(i in 1:length(methods)){
+#  opt_list[i] = optimx(obj$par, function(x) as.numeric(obj$fn(x)), obj$gr, control = list(maxit = 10000), method = methods[i])
+# }
 
 
 # Remove inactive parameters from bounds and vectorize
-L = unlist(bounds$lower)[which(!is.na(unlist(map)))]
-U = unlist(bounds$upper)[which(!is.na(unlist(map)))]
+L = unlist(bounds$lower)[which(!is.na(unlist(map[[1]])))]
+U = unlist(bounds$upper)[which(!is.na(unlist(map[[1]])))]
 
 # Remove random effects from bounds
 if (random_rec == TRUE) {
@@ -178,4 +194,11 @@ opt = Rceattle::Optimize(obj = obj,
                          upper = U,
                          loopnum = 5
 )
+
+# Get quantities
+quantities <- obj$report(obj$env$last.par.best)
+round(quantities$jnll_comp,3)
+
 Check_Identifiable(obj)
+
+round(mod_objects$quantities$jnll_comp, 3)

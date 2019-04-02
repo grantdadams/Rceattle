@@ -4,7 +4,7 @@
 \name{BS2017MS}
 \alias{BS2017MS}
 \title{Data inputs for multi-species CEATTLE of the Bering Sea from 1979 to 2017}
-\format{An object of class \code{list} of length 102.}
+\format{An object of class \code{list} of length 50.}
 \usage{
 BS2017MS
 }
