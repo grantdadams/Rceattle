@@ -12,7 +12,6 @@ Encoding: UTF-8
 LazyData: true
 Imports:
     TMB,
-    adnuts,
     testthat,
     r4ss,
     reshape2,
@@ -22,8 +21,9 @@ Imports:
     dplyr,
     plyr,
     openxlsx,
-    readxl
-Remotes: colemonnahan/adnuts, r4ss/r4ss, kaskr/TMB_contrib_R/TMBhelper
+    readxl,
+    glue
+Remotes: r4ss/r4ss, kaskr/TMB_contrib_R/TMBhelper
 RoxygenNote: 6.1.1
 BugReports: https://github.com/grantdadams/Rceattle/issues
 Suggests: knitr,

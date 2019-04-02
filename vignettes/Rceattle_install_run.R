@@ -135,4 +135,3 @@ cpp_file <- paste0(cpp_directory, "/", TMBfilename, ".cpp")
 cpp_file <- file(cpp_file)
 cpp_file <- readLines(cpp_file)
 
-vignette(package = "Rceattle")
