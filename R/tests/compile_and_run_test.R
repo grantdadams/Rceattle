@@ -9,14 +9,14 @@ library(TMBdebug)
 TMBfilename = "ceattle_v01_04"
 cpp_directory <- "inst/executables"
 data("BS2017SS")
-data_list = BS2017SS
+data_list = mydata2
 inits = NULL # Initial parameters = 0
 map = NULL
 bounds = NULL
 file_name = NULL # Don't save
-debug = 0 # Estimate
+debug = 1 # Estimate
 random_rec = FALSE # No random recruitment
-msmMode = 1 # Single species mode
+msmMode = 0 # Single species mode
 avgnMode = 0
 silent = TRUE
 niter = 5

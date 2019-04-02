@@ -20,6 +20,14 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   ceattle_wb <- openxlsx::createWorkbook()
   names_used <- c()
 
+  # Metadata
+  meta_filename <- system.file("extdata", "meta_data_names.xlsx", package = "Rceattle")
+  meta_data <- suppressMessages((suppressWarnings(as.data.frame(readxl::read_xlsx(meta_filename)))))
+
+  openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "meta_data", gridLines = FALSE)
+  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1, x = meta_data)
+
+
   # control
   control <- matrix(NA, ncol = data_list$nspp, nrow = 9)
   control[1,1] <- data_list$nspp
@@ -32,19 +40,19 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   control[8,] <- data_list$other_food
   control[9,] <- data_list$stom_tau
   control <- as.data.frame(control)
-  colnames(control) <- paste0("Species_", 1:ncol(control))
-  rownames(control) <- c("nspp", "styr", "endyr", "nages", "nlengths", "pop_wt_index", "pop_alk_index", "other_food", "stom_tau")
-  names_used <- c(names_used, rownames(control))
+  control <- cbind(c("nspp", "styr", "endyr", "nages", "nlengths", "pop_wt_index", "pop_alk_index", "other_food", "stom_sample_size"), control)
+  colnames(control) <- c( "Object", paste0("Species_", 1:data_list$nspp))
+  names_used <- c(names_used, as.character(control$Object))
 
   openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "control", gridLines = FALSE)
-  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1, x = control)
+  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 1, x = control)
 
 
   # srv and fsh bits
   srv_bits <- c("srv_control", "srv_biom", "srv_emp_sel", "srv_comp", "fsh_control", "fsh_biom", "fsh_emp_sel", "fsh_comp")
   for(i in 1:length(srv_bits)){
     openxlsx::addWorksheet(wb = ceattle_wb, sheetName = srv_bits[i], gridLines = FALSE)
-    openxlsx::writeDataTable(wb = ceattle_wb, sheet = i+1, x = data_list[[srv_bits[i]]])
+    openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + i+1, x = data_list[[srv_bits[i]]])
   }
   names_used <- c(names_used, srv_bits)
 
@@ -76,7 +84,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   alk_dat <- as.data.frame(alk_dat)
 
   openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "age_trans_matrix", gridLines = FALSE)
-  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 10, x = alk_dat)
+  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 10, x = alk_dat)
 
   names_used <- c(names_used, "age_trans_matrix")
 
@@ -96,7 +104,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   age_error <- as.data.frame(age_error)
 
   openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "age_error", gridLines = FALSE)
-  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 11, x = age_error)
+  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 11, x = age_error)
 
   names_used <- c(names_used, "age_error")
 
@@ -124,7 +132,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   wt <- as.data.frame(wt)
 
   openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "wt", gridLines = FALSE)
-  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 12, x = wt)
+  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 12, x = wt)
 
   names_used <- c(names_used, "wt")
 
@@ -136,7 +144,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   pmature <- as.data.frame(pmature)
 
   openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "pmature", gridLines = FALSE)
-  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 13, x = pmature)
+  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 13, x = pmature)
 
   names_used <- c(names_used, "pmature")
 
@@ -148,7 +156,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   propF <- as.data.frame(propF)
 
   openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "propF", gridLines = FALSE)
-  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 14, x = propF)
+  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 14, x = propF)
 
   names_used <- c(names_used, "propF")
 
@@ -160,7 +168,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   M1_base <- as.data.frame(M1_base)
 
   openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "M1_base", gridLines = FALSE)
-  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 15, x = M1_base)
+  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 15, x = M1_base)
 
   names_used <- c(names_used, "M1_base")
 
@@ -172,7 +180,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   Mn_LatAge <- as.data.frame(Mn_LatAge)
 
   openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "Mn_LatAge", gridLines = FALSE)
-  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 16, x = Mn_LatAge)
+  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 16, x = Mn_LatAge)
 
   names_used <- c(names_used, "Mn_LatAge")
 
@@ -183,7 +191,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   aLW <- as.data.frame(aLW)
 
   openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "aLW", gridLines = FALSE)
-  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 17, x = aLW)
+  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 17, x = aLW)
 
   names_used <- c(names_used, "aLW")
 
@@ -203,14 +211,15 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   bioenergetics_control[11,] <- data_list$CK4
 
   bioenergetics_control <- as.data.frame(bioenergetics_control)
-  colnames(bioenergetics_control) <- paste0("Species_", 1:ncol(bioenergetics_control))
-  rownames(bioenergetics_control) <- c("Ceq", "Pvalue", "fday", "CA", "CB", "Qc", "Tco", "Tcm", "Tcl", "CK1", "CK4")
-  names_used <- c(names_used, rownames(bioenergetics_control))
+
+  bioenergetics_control <- cbind(c("Ceq", "Pvalue", "fday", "CA", "CB", "Qc", "Tco", "Tcm", "Tcl", "CK1", "CK4"), bioenergetics_control)
+  colnames(bioenergetics_control) <- c("Object", paste0("Species_", 1:data_list$nspp))
+  names_used <- c(names_used, as.character(bioenergetics_control$Object))
 
   bioenergetics_control <- as.data.frame(bioenergetics_control)
 
   openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "bioenergetics_control", gridLines = FALSE)
-  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 18, x = bioenergetics_control)
+  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 18, x = bioenergetics_control)
 
 
   data_names[data_names %!in% names_used]
@@ -219,7 +228,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   # Temperature stuff
   Temp_data <- data.frame(Tyrs = data_list$Tyrs, BTempC = data_list$BTempC)
   openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "Temp_data", gridLines = FALSE)
-  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 19, x = Temp_data)
+  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 19, x = Temp_data)
   names_used <- c(names_used, c("Tyrs", "BTempC"))
 
 
@@ -240,7 +249,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   Pyrs <- as.data.frame(Pyrs)
 
   openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "Pyrs", gridLines = FALSE)
-  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 20, x = Pyrs)
+  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 20, x = Pyrs)
 
   names_used <- c(names_used, "Pyrs")
 
@@ -270,7 +279,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
     UobsAge <- as.data.frame(UobsAge)
 
     openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "UobsAge", gridLines = FALSE)
-    openxlsx::writeDataTable(wb = ceattle_wb, sheet = 21, x = UobsAge)
+    openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 21, x = UobsAge)
 
     names_used <- c(names_used, "UobsAge")
 
@@ -303,7 +312,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
     UobsAge <- as.data.frame(UobsAge)
 
     openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "UobsAge", gridLines = FALSE)
-    openxlsx::writeDataTable(wb = ceattle_wb, sheet = 21, x = UobsAge)
+    openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 21, x = UobsAge)
 
     names_used <- c(names_used, "UobsAge")
   }
@@ -335,7 +344,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
     UobsWtAge <- as.data.frame(UobsWtAge)
 
     openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "UobsWtAge", gridLines = FALSE)
-    openxlsx::writeDataTable(wb = ceattle_wb, sheet = 22, x = UobsWtAge)
+    openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 22, x = UobsWtAge)
 
     names_used <- c(names_used, "UobsWtAge")
 
@@ -369,7 +378,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
     UobsWtAge <- as.data.frame(UobsWtAge)
 
     openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "UobsWtAge", gridLines = FALSE)
-    openxlsx::writeDataTable(wb = ceattle_wb, sheet = 22, x = UobsWtAge)
+    openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 22, x = UobsWtAge)
 
     names_used <- c(names_used, "UobsWtAge")
   }
@@ -401,7 +410,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
     Uobs <- as.data.frame(Uobs)
 
     openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "Uobs", gridLines = FALSE)
-    openxlsx::writeDataTable(wb = ceattle_wb, sheet = 23, x = Uobs)
+    openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 23, x = Uobs)
 
     names_used <- c(names_used, "Uobs")
 
@@ -434,7 +443,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
     Uobs <- as.data.frame(Uobs)
 
     openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "Uobs", gridLines = FALSE)
-    openxlsx::writeDataTable(wb = ceattle_wb, sheet = 23, x = Uobs)
+    openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 23, x = Uobs)
 
     names_used <- c(names_used, "Uobs")
   }
@@ -466,7 +475,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
     UobsWt <- as.data.frame(UobsWt)
 
     openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "UobsWt", gridLines = FALSE)
-    openxlsx::writeDataTable(wb = ceattle_wb, sheet = 24, x = UobsWt)
+    openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 24, x = UobsWt)
 
     names_used <- c(names_used, "UobsWt")
 
@@ -500,7 +509,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
     UobsWt <- as.data.frame(UobsWt)
 
     openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "UobsWt", gridLines = FALSE)
-    openxlsx::writeDataTable(wb = ceattle_wb, sheet = 24, x = UobsWt)
+    openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 24, x = UobsWt)
 
     names_used <- c(names_used, "UobsWt")
   }
@@ -514,3 +523,334 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   # write the data
   openxlsx::saveWorkbook(ceattle_wb, file, overwrite = TRUE)
 }
+
+
+
+
+
+#' Read a CEATTLE excel data file
+#'
+#' @param file Filname to be used. Must end with ".xlsx"
+#'
+#' @return
+#' @export
+#'
+#' @examples
+#'
+#' library(Rceattle)
+#' data(BS2017SS)
+#' write_excel(data_list = BS2017SS, file = "BS2017SS.xlsx")
+#' data_list <- read_excel(file = "BS2017SS.xlsx")
+read_excel <- function( file = "Rceattle_data.xlsx" ){
+  '%!in%' <- function(x,y)!('%in%'(x,y))
+  ## setup a list object
+
+  data_list <- list()
+
+
+  sheet1 <- readxl::read_xlsx( file, sheet = "control")
+  sheet1 <- as.data.frame(sheet1)
+
+  # control
+  data_list$nspp <- sheet1[1,2]
+  data_list$styr <- sheet1[2,2]
+  data_list$endyr <- sheet1[3,2]
+  data_list$nages <- as.numeric(as.character(sheet1[4, 2:(data_list$nspp + 1)]))
+  data_list$nlengths <- as.numeric(as.character(sheet1[5, 2:(data_list$nspp + 1)]))
+  data_list$pop_wt_index <- sheet1[6, 2:(data_list$nspp + 1)]
+  data_list$pop_alk_index <- sheet1[7, 2:(data_list$nspp + 1)]
+  data_list$other_food <- sheet1[8, 2:(data_list$nspp + 1)]
+  data_list$stom_tau <- sheet1[9, 2:(data_list$nspp + 1)]
+
+
+  # srv and fsh bits
+  srv_bits <- c("srv_control", "srv_biom", "srv_emp_sel", "srv_comp", "fsh_control", "fsh_biom", "fsh_emp_sel", "fsh_comp")
+  for(i in 1:length(srv_bits)){
+    sheet <- as.data.frame(readxl::read_xlsx( file, sheet = srv_bits[i]))
+    sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
+
+data_list[[srv_bits[i]]] <- sheet
+  }
+
+
+  # age_trans_matrix
+  age_trans_matrix <- as.data.frame(readxl::read_xlsx( file, sheet = "age_trans_matrix"))
+  unique_alk <- unique(as.character(age_trans_matrix$ALK_index))
+  alk <- array(NA, dim = c(max(data_list$nages, na.rm = T), max(data_list$nlengths, na.rm = T), length(unique_alk)))
+
+
+  for(i in 1:nrow(age_trans_matrix)){
+
+    alk_ind <- as.numeric(as.character(age_trans_matrix$ALK_index[i]))
+    age <- as.numeric(as.character(age_trans_matrix$Age[i]))
+    sp <- as.numeric(as.character(age_trans_matrix$Species[i]))
+
+    alk[age, 1:data_list$nlengths[sp], alk_ind] <- as.numeric(as.character(age_trans_matrix[i, (1:data_list$nlengths[sp]) + 3]))
+  }
+  data_list$age_trans_matrix <- alk
+
+
+
+  # age_error
+  age_error <- as.data.frame(readxl::read_xlsx( file, sheet = "age_error"))
+  arm <- array(NA, dim = c(data_list$nspp, max(data_list$nages, na.rm = T), max(data_list$nages, na.rm = T)))
+
+
+  for(i in 1:nrow(age_error)){
+    true_age <- as.numeric(as.character(age_error$True_age[i]))
+    sp <- as.numeric(as.character(age_error$Species[i]))
+
+    arm[sp, true_age, 1:data_list$nages[sp]] <- as.numeric(as.character(age_error[i, (1:data_list$nages[sp]) + 2]))
+  }
+  data_list$age_error <- arm
+
+
+
+  # wt
+  wt_matrix <- as.data.frame(readxl::read_xlsx( file, sheet = "wt"))
+  unique_wt <- unique(as.character(wt_matrix$Wt_index))
+  wt <- array(NA, dim = c(length(data_list$styr:data_list$endyr), max(data_list$nages, na.rm = T), length(unique_wt)))
+
+
+  for(i in 1:nrow(wt_matrix)){
+
+    wt_ind <- as.numeric(as.character(wt_matrix$Wt_index[i]))
+    sp <- as.numeric(as.character(wt_matrix$Species[i]))
+    yr <- as.numeric(as.character(wt_matrix$Year[i])) - data_list$styr + 1
+
+    wt[yr, 1:data_list$nages[sp], wt_ind] <- as.numeric(as.character(wt_matrix[i, (1:data_list$nages[sp]) + 4]))
+  }
+  data_list$wt <- wt
+
+
+
+  # pmature
+  pmature <- as.data.frame(readxl::read_xlsx( file, sheet = "pmature"))
+  data_list$pmature <- pmature
+
+
+  # propF
+  propF <- as.data.frame(readxl::read_xlsx( file, sheet = "propF"))
+  data_list$propF <- propF
+
+
+  # M1_base
+  M1_base <- as.data.frame(readxl::read_xlsx( file, sheet = "M1_base"))
+  data_list$M1_base <- M1_base
+
+
+  # Mn_LatAge
+  Mn_LatAge <- as.data.frame(readxl::read_xlsx( file, sheet = "Mn_LatAge"))
+  data_list$Mn_LatAge <- Mn_LatAge
+
+
+  # aLW
+  aLW <- as.data.frame(readxl::read_xlsx( file, sheet = "aLW"))
+  data_list$aLW <- aLW
+
+
+  # bioenergetics_control
+  bioenergetics_control <- as.data.frame(readxl::read_xlsx( file, sheet = "bioenergetics_control"))
+
+  for(i in 1:nrow(bioenergetics_control)){
+    data_list[[bioenergetics_control$Object[i]]] <- as.numeric(as.character(bioenergetics_control[i,((1:data_list$nspp) + 1)]))
+  }
+
+
+
+  # Temperature stuff
+  Temp_data <- as.data.frame(readxl::read_xlsx( file, sheet = "Temp_data"))
+  data_list$Tyrs <- Temp_data$Tyrs
+  data_list$BTempC <- Temp_data$BTempC
+
+
+
+
+  # Diet information
+  # Pyrs
+  pyrs_matrix <- as.data.frame(readxl::read_xlsx( file, sheet = "Pyrs"))
+  Pyrs <- array(NA, dim = c( length(data_list$styr:data_list$endyr) , max(data_list$nages), data_list$nspp ))
+
+
+  for(i in 1:nrow(pyrs_matrix)){
+    sp <- as.numeric(as.character(pyrs_matrix$Species[i]))
+    yr <- as.numeric(as.character(pyrs_matrix$Year[i])) - data_list$styr + 1
+
+    Pyrs[yr, 1:data_list$nages[sp], sp] <- as.numeric(as.character(pyrs_matrix[i, (1:data_list$nages[sp]) + 2]))
+  }
+  data_list$Pyrs <- Pyrs
+
+
+
+  # Diet UobsAge
+  UobsAge_matrix <- as.data.frame(readxl::read_xlsx( file, sheet = "UobsAge"))
+
+  # without year
+  if(ncol(UobsAge_matrix) == 5){
+    UobsAge <- array(NA, dim = c( data_list$nspp, data_list$nspp, max(data_list$nages), max(data_list$nages)))
+    dims <- dim(data_list$UobsAge)
+
+    for(i in 1:nrow(UobsAge_matrix)){
+      pred <- as.numeric(as.character(UobsAge_matrix$Pred[i]))
+      prey <- as.numeric(as.character(UobsAge_matrix$Prey[i]))
+      pred_age <- as.numeric(as.character(UobsAge_matrix$Pred_age[i]))
+      prey_age <- as.numeric(as.character(UobsAge_matrix$Prey_age[i]))
+      stom <- as.numeric(as.character(UobsAge_matrix$Stomach_proportion_by_number[i]))
+
+      UobsAge[pred, prey, pred_age, prey_age] <- stom
+    }
+
+    data_list$UobsAge <- UobsAge
+  }
+
+  # with year
+  if(ncol(UobsAge_matrix) == 6){
+    UobsAge <- array(NA, dim = c( data_list$nspp, data_list$nspp, max(data_list$nages), max(data_list$nages)))
+    dims <- dim(data_list$UobsAge)
+
+    for(i in 1:nrow(UobsAge_matrix)){
+      pred <- as.numeric(as.character(UobsAge_matrix$Pred[i]))
+      prey <- as.numeric(as.character(UobsAge_matrix$Prey[i]))
+      pred_age <- as.numeric(as.character(UobsAge_matrix$Pred_age[i]))
+      prey_age <- as.numeric(as.character(UobsAge_matrix$Prey_age[i]))
+      year <- as.numeric(as.character(UobsAge_matrix$Year[i]))
+      stom <- as.numeric(as.character(UobsAge_matrix$Stomach_proportion_by_number[i]))
+
+      UobsAge[pred, prey, pred_age, prey_age, year] <- stom
+    }
+
+    data_list$UobsAge <- UobsAge
+  }
+
+
+  # Diet UobsWtAge
+  UobsWtAge_matrix <- as.data.frame(readxl::read_xlsx( file, sheet = "UobsWtAge"))
+
+  # without year
+  if(ncol(UobsWtAge_matrix) == 5){
+    UobsWtAge <- array(NA, dim = c( data_list$nspp, data_list$nspp, max(data_list$nages), max(data_list$nages)))
+    dims <- dim(data_list$UobsWtAge)
+
+    for(i in 1:nrow(UobsWtAge_matrix)){
+      pred <- as.numeric(as.character(UobsWtAge_matrix$Pred[i]))
+      prey <- as.numeric(as.character(UobsWtAge_matrix$Prey[i]))
+      pred_age <- as.numeric(as.character(UobsWtAge_matrix$Pred_age[i]))
+      prey_age <- as.numeric(as.character(UobsWtAge_matrix$Prey_age[i]))
+      stom <- as.numeric(as.character(UobsWtAge_matrix$Stomach_proportion_by_weight[i]))
+
+      UobsWtAge[pred, prey, pred_age, prey_age] <- stom
+    }
+
+    data_list$UobsWtAge <- UobsWtAge
+  }
+
+  # with year
+  if(ncol(UobsWtAge_matrix) == 6){
+    UobsWtAge <- array(NA, dim = c( data_list$nspp, data_list$nspp, max(data_list$nages), max(data_list$nages)))
+    dims <- dim(data_list$UobsWtAge)
+
+    for(i in 1:nrow(UobsWtAge_matrix)){
+      pred <- as.numeric(as.character(UobsWtAge_matrix$Pred[i]))
+      prey <- as.numeric(as.character(UobsWtAge_matrix$Prey[i]))
+      pred_age <- as.numeric(as.character(UobsWtAge_matrix$Pred_age[i]))
+      prey_age <- as.numeric(as.character(UobsWtAge_matrix$Prey_age[i]))
+      year <- as.numeric(as.character(UobsWtAge_matrix$Year[i]))
+      stom <- as.numeric(as.character(UobsWtAge_matrix$Stomach_proportion_by_weight[i]))
+
+      UobsWtAge[pred, prey, pred_age, prey_age, year] <- stom
+    }
+
+    data_list$UobsWtAge <- UobsWtAge
+  }
+
+
+  # START HERE!
+
+
+  # Diet Uobs
+  Uobs_matrix <- as.data.frame(readxl::read_xlsx( file, sheet = "Uobs"))
+
+  # without year
+  if(ncol(Uobs_matrix) == 5){
+    Uobs <- array(NA, dim = c( data_list$nspp, data_list$nspp, max(data_list$nlengths), max(data_list$nlengths)))
+    dims <- dim(data_list$Uobs)
+
+    for(i in 1:nrow(Uobs_matrix)){
+      pred <- as.numeric(as.character(Uobs_matrix$Pred[i]))
+      prey <- as.numeric(as.character(Uobs_matrix$Prey[i]))
+      pred_length <- as.numeric(as.character(Uobs_matrix$Pred_length[i]))
+      prey_length <- as.numeric(as.character(Uobs_matrix$Prey_length[i]))
+      stom <- as.numeric(as.character(Uobs_matrix$Stomach_proportion_by_number[i]))
+
+      Uobs[pred, prey, pred_length, prey_length] <- stom
+    }
+
+    data_list$Uobs <- Uobs
+  }
+
+  # with year
+  if(ncol(Uobs_matrix) == 6){
+    Uobs <- array(NA, dim = c( data_list$nspp, data_list$nspp, max(data_list$nlengths), max(data_list$nlengths)))
+    dims <- dim(data_list$Uobs)
+
+    for(i in 1:nrow(Uobs_matrix)){
+      pred <- as.numeric(as.character(Uobs_matrix$Pred[i]))
+      prey <- as.numeric(as.character(Uobs_matrix$Prey[i]))
+      pred_length <- as.numeric(as.character(Uobs_matrix$Pred_length[i]))
+      prey_length <- as.numeric(as.character(Uobs_matrix$Prey_length[i]))
+      year <- as.numeric(as.character(Uobs_matrix$Year[i]))
+      stom <- as.numeric(as.character(Uobs_matrix$Stomach_proportion_by_number[i]))
+
+      Uobs[pred, prey, pred_length, prey_length, year] <- stom
+    }
+
+    data_list$Uobs <- Uobs
+  }
+
+
+
+  # Diet UobsWt
+  UobsWt_matrix <- as.data.frame(readxl::read_xlsx( file, sheet = "UobsWt"))
+
+  # without year
+  if(ncol(UobsWt_matrix) == 5){
+    UobsWt <- array(NA, dim = c( data_list$nspp, data_list$nspp, max(data_list$nlengths), max(data_list$nlengths)))
+    dims <- dim(data_list$UobsWt)
+
+    for(i in 1:nrow(UobsWt_matrix)){
+      pred <- as.numeric(as.character(UobsWt_matrix$Pred[i]))
+      prey <- as.numeric(as.character(UobsWt_matrix$Prey[i]))
+      pred_length <- as.numeric(as.character(UobsWt_matrix$Pred_length[i]))
+      prey_length <- as.numeric(as.character(UobsWt_matrix$Prey_length[i]))
+      stom <- as.numeric(as.character(UobsWt_matrix$Stomach_proportion_by_weight[i]))
+
+      UobsWt[pred, prey, pred_length, prey_length] <- stom
+    }
+
+    data_list$UobsWt <- UobsWt
+  }
+
+  # with year
+  if(ncol(UobsWt_matrix) == 6){
+    UobsWt <- array(NA, dim = c( data_list$nspp, data_list$nspp, max(data_list$nlengths), max(data_list$nlengths)))
+    dims <- dim(data_list$UobsWt)
+
+    for(i in 1:nrow(UobsWt_matrix)){
+      pred <- as.numeric(as.character(UobsWt_matrix$Pred[i]))
+      prey <- as.numeric(as.character(UobsWt_matrix$Prey[i]))
+      pred_length <- as.numeric(as.character(UobsWt_matrix$Pred_length[i]))
+      prey_length <- as.numeric(as.character(UobsWt_matrix$Prey_length[i]))
+      year <- as.numeric(as.character(UobsWt_matrix$Year[i]))
+      stom <- as.numeric(as.character(UobsWt_matrix$Stomach_proportion_by_weight[i]))
+
+      UobsWt[pred, prey, pred_length, prey_length, year] <- stom
+    }
+
+    data_list$UobsWt <- UobsWt
+  }
+
+
+  # write the data
+  return(data_list)
+}
+

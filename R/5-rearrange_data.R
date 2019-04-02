@@ -29,6 +29,8 @@ rearrange_dat <- function(dat_list){
   dat_list$fsh_comp_n <- dat_list$fsh_comp[,c("Month", "Sample_size")]
   dat_list$fsh_comp_obs <- dat_list$fsh_comp[,grep("Comp_", colnames(dat_list$fsh_comp))]
 
+  # Remove first row of empirical selectivity if all NAs
+
   # Step 6 -  Seperate survey empirical selectivity info from observation
   dat_list$srv_emp_sel_ctl <- as.matrix(dat_list$srv_emp_sel[,c("Survey_code", "Species", "Year")])
   dat_list$srv_emp_sel_obs <- as.matrix(dat_list$srv_emp_sel[,grep("Comp_", colnames(dat_list$srv_emp_sel))])
@@ -38,8 +40,8 @@ rearrange_dat <- function(dat_list){
   dat_list$fsh_emp_sel_obs <- as.matrix(dat_list$fsh_emp_sel[,grep("Comp_", colnames(dat_list$fsh_emp_sel))])
 
   # Make data_list names different
-  dat_list$fsh_control$Fishery_name <- as.numeric((dat_list$fsh_control$Fishery_name))
-  dat_list$srv_control$Survey_name <- as.numeric((dat_list$srv_control$Survey_name))
+  dat_list$fsh_control$Fishery_name <- suppressWarnings(as.numeric((dat_list$fsh_control$Fishery_name)))
+  dat_list$srv_control$Survey_name <- suppressWarnings(as.numeric((dat_list$srv_control$Survey_name)))
 
   # Make data.frames into matrices
   for(i in 1:length(dat_list)){
