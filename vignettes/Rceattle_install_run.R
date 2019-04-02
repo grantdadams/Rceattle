@@ -1,10 +1,13 @@
 # Install Rceattle
 devtools::install_github("grantdadams/Rceattle", auth_token = "4925b42ac46f1e0aefd671e9dc0c1cf1b3157017")
+library(Rceattle)
 
+################################################
+# Data
+################################################
 # Example
 # To run the 2017 single species assessment for the Bering Sea, a data file must first be loaded:
-library(Rceattle)
-data(BS2017SS) # ?BS2017SS for more information on the data 
+data(BS2017SS) # ?BS2017SS for more information on the data
 
 # Write data to excel
 Rceattle::write_excel(data_list = BS2017SS, file = "BS2017SS.xlsx")
@@ -13,6 +16,10 @@ Rceattle::write_excel(data_list = BS2017SS, file = "BS2017SS.xlsx")
 # Read the data back in
 mydata <- Rceattle::read_excel( file = "BS2017SS.xlsx")
 
+
+################################################
+# Estimation
+################################################
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
 ss_run <- Rceattle::fit_mod(data_list = mydata,
                    inits = NULL, # Initial parameters = 0
@@ -74,7 +81,7 @@ ms_sim <- sim_mod(ms_run)
 
 ms_sim_run <- Rceattle::fit_mod(
   data_list = ms_sim,
-  inits = NULL, # Initial parameters = 0
+  inits = ss_run$estimated_params, # Initial parameters = 0
   file_name = NULL, # Don't save
   debug = 0, # Estimate
   random_rec = FALSE, # No random recruitment
@@ -96,17 +103,17 @@ plot_recruitment(Rceattle = mod_list, model_names = mod_names)
 
 # For recruitment, the model can estimate recruitment deviates as random effects
 ss_re <- Rceattle::fit_mod(
-  data_list = ss_sim,
+  data_list = mydata,
   inits = NULL, # Initial parameters = 0
   file_name = NULL, # Don't save
   debug = 0, # Estimate
-  random_rec = TRUE, # Random recruitment
+  random_rec = TRUE, # Turn of recruitment deviations as random effects
   msmMode = 0, # Single species mode
   silent = TRUE)
 
 # Diet estimation
 ms_gamma <- Rceattle::fit_mod(
-  data_list = mydata2,
+  data_list = mydata,
   inits = ss_run$estimated_params, # Initial parameters from single species ests
   file_name = NULL, # Don't save
   debug = 0, # Estimate
@@ -118,8 +125,9 @@ ms_gamma <- Rceattle::fit_mod(
 # Can try different functions. Look at ?fit_mod suitmode
 
 
-
-
+################################################
+# CPP file
+################################################
 # If we want to extract the cpp file
 cpp_directory <- system.file("executables",package="Rceattle")
 TMBfilename <- "ceattle_v01_04"
