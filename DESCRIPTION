@@ -20,14 +20,8 @@ Imports:
     TMBhelper,
     dplyr,
     plyr,
-    openxlsx,
     readxl,
-    glue,
-    Rcpp,
-    cellranger,
-    tibble,
-    rlang,
-    pillar
+    writexl
 Remotes: r4ss/r4ss, kaskr/TMB_contrib_R/TMBhelper
 RoxygenNote: 6.1.1
 BugReports: https://github.com/grantdadams/Rceattle/issues

@@ -17,15 +17,14 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   '%!in%' <- function(x,y)!('%in%'(x,y))
   ## setup a workbook
   data_names <- names(data_list)
-  ceattle_wb <- openxlsx::createWorkbook()
   names_used <- c()
 
+  xcel_list <- list()
   # Metadata
   meta_filename <- system.file("extdata", "meta_data_names.xlsx", package = "Rceattle")
   meta_data <- suppressMessages((suppressWarnings(as.data.frame(readxl::read_xlsx(meta_filename)))))
 
-  openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "meta_data", gridLines = FALSE)
-  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1, x = meta_data)
+  xcel_list$meta_data <- meta_data
 
 
   # control
@@ -44,15 +43,13 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   colnames(control) <- c( "Object", paste0("Species_", 1:data_list$nspp))
   names_used <- c(names_used, as.character(control$Object))
 
-  openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "control", gridLines = FALSE)
-  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 1, x = control)
+  xcel_list$control <- control
 
 
   # srv and fsh bits
   srv_bits <- c("srv_control", "srv_biom", "srv_emp_sel", "srv_comp", "fsh_control", "fsh_biom", "fsh_emp_sel", "fsh_comp")
   for(i in 1:length(srv_bits)){
-    openxlsx::addWorksheet(wb = ceattle_wb, sheetName = srv_bits[i], gridLines = FALSE)
-    openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + i+1, x = data_list[[srv_bits[i]]])
+    xcel_list[[srv_bits[i]]] <- data_list[[srv_bits[i]]]
   }
   names_used <- c(names_used, srv_bits)
 
@@ -83,8 +80,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   colnames(alk_dat) <- c("ALK_index", "Species", "Age", paste0("Length_", 1:(ncol(alk_dat) - 3)))
   alk_dat <- as.data.frame(alk_dat)
 
-  openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "age_trans_matrix", gridLines = FALSE)
-  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 10, x = alk_dat)
+  xcel_list$age_trans_matrix <- alk_dat
 
   names_used <- c(names_used, "age_trans_matrix")
 
@@ -103,8 +99,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   colnames(age_error) <- c("Species", "True_age", paste0("Obs_age", 1:max(data_list$nages)))
   age_error <- as.data.frame(age_error)
 
-  openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "age_error", gridLines = FALSE)
-  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 11, x = age_error)
+  xcel_list$age_error <- age_error
 
   names_used <- c(names_used, "age_error")
 
@@ -131,8 +126,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   colnames(wt) <- c("Wt_name", "Wt_index", "Species", "Year", paste0("Age", 1:max(data_list$nages)))
   wt <- as.data.frame(wt)
 
-  openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "wt", gridLines = FALSE)
-  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 12, x = wt)
+  xcel_list$wt <- wt
 
   names_used <- c(names_used, "wt")
 
@@ -143,8 +137,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   rownames(pmature) <- paste0("Species_", 1:data_list$nspp)
   pmature <- as.data.frame(pmature)
 
-  openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "pmature", gridLines = FALSE)
-  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 13, x = pmature)
+  xcel_list$pmature <- pmature
 
   names_used <- c(names_used, "pmature")
 
@@ -155,8 +148,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   rownames(propF) <- paste0("Species_", 1:data_list$nspp)
   propF <- as.data.frame(propF)
 
-  openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "propF", gridLines = FALSE)
-  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 14, x = propF)
+  xcel_list$propF <- propF
 
   names_used <- c(names_used, "propF")
 
@@ -167,8 +159,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   rownames(M1_base) <- paste0("Species_", 1:data_list$nspp)
   M1_base <- as.data.frame(M1_base)
 
-  openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "M1_base", gridLines = FALSE)
-  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 15, x = M1_base)
+  xcel_list$M1_base <- M1_base
 
   names_used <- c(names_used, "M1_base")
 
@@ -179,8 +170,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   rownames(Mn_LatAge) <- paste0("Species_", 1:data_list$nspp)
   Mn_LatAge <- as.data.frame(Mn_LatAge)
 
-  openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "Mn_LatAge", gridLines = FALSE)
-  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 16, x = Mn_LatAge)
+  xcel_list$Mn_LatAge <- Mn_LatAge
 
   names_used <- c(names_used, "Mn_LatAge")
 
@@ -190,8 +180,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   colnames(aLW) <- paste0("Species_", 1:data_list$nspp)
   aLW <- as.data.frame(aLW)
 
-  openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "aLW", gridLines = FALSE)
-  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 17, x = aLW)
+  xcel_list$aLW <- aLW
 
   names_used <- c(names_used, "aLW")
 
@@ -218,8 +207,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
 
   bioenergetics_control <- as.data.frame(bioenergetics_control)
 
-  openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "bioenergetics_control", gridLines = FALSE)
-  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 18, x = bioenergetics_control)
+  xcel_list$bioenergetics_control <- bioenergetics_control
 
 
   data_names[data_names %!in% names_used]
@@ -227,8 +215,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
 
   # Temperature stuff
   Temp_data <- data.frame(Tyrs = data_list$Tyrs, BTempC = data_list$BTempC)
-  openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "Temp_data", gridLines = FALSE)
-  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 19, x = Temp_data)
+  xcel_list$Temp_data <- Temp_data
   names_used <- c(names_used, c("Tyrs", "BTempC"))
 
 
@@ -248,8 +235,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   colnames(Pyrs) <- c("Species", "Year", paste0("Age", 1:max(data_list$nages)))
   Pyrs <- as.data.frame(Pyrs)
 
-  openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "Pyrs", gridLines = FALSE)
-  openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 20, x = Pyrs)
+  xcel_list$Pyrs <- Pyrs
 
   names_used <- c(names_used, "Pyrs")
 
@@ -278,8 +264,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
     colnames(UobsAge) <- c("Pred", "Prey", "Pred_age", "Prey_age", "Stomach_proportion_by_number")
     UobsAge <- as.data.frame(UobsAge)
 
-    openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "UobsAge", gridLines = FALSE)
-    openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 21, x = UobsAge)
+    xcel_list$UobsAge <- UobsAge
 
     names_used <- c(names_used, "UobsAge")
 
@@ -311,8 +296,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
     colnames(UobsAge) <- c("Pred", "Prey", "Pred_age", "Prey_age", "Year", "Stomach_proportion_by_number")
     UobsAge <- as.data.frame(UobsAge)
 
-    openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "UobsAge", gridLines = FALSE)
-    openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 21, x = UobsAge)
+    xcel_list$UobsAge <- UobsAge
 
     names_used <- c(names_used, "UobsAge")
   }
@@ -343,8 +327,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
     colnames(UobsWtAge) <- c("Pred", "Prey", "Pred_age", "Prey_age", "Stomach_proportion_by_weight")
     UobsWtAge <- as.data.frame(UobsWtAge)
 
-    openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "UobsWtAge", gridLines = FALSE)
-    openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 22, x = UobsWtAge)
+    xcel_list$UobsWtAge <- UobsWtAge
 
     names_used <- c(names_used, "UobsWtAge")
 
@@ -377,8 +360,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
     colnames(UobsWtAge) <- c("Pred", "Prey", "Pred_age", "Prey_age", "Year", "Stomach_proportion_by_weight")
     UobsWtAge <- as.data.frame(UobsWtAge)
 
-    openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "UobsWtAge", gridLines = FALSE)
-    openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 22, x = UobsWtAge)
+    xcel_list$UobsWtAge <- UobsWtAge
 
     names_used <- c(names_used, "UobsWtAge")
   }
@@ -409,8 +391,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
     colnames(Uobs) <- c("Pred", "Prey", "Pred_length", "Prey_length", "Stomach_proportion_by_number")
     Uobs <- as.data.frame(Uobs)
 
-    openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "Uobs", gridLines = FALSE)
-    openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 23, x = Uobs)
+    xcel_list$Uobs <- Uobs
 
     names_used <- c(names_used, "Uobs")
 
@@ -442,8 +423,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
     colnames(Uobs) <- c("Pred", "Prey", "Pred_length", "Prey_length", "Year", "Stomach_proportion_by_number")
     Uobs <- as.data.frame(Uobs)
 
-    openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "Uobs", gridLines = FALSE)
-    openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 23, x = Uobs)
+    xcel_list$Uobs <- Uobs
 
     names_used <- c(names_used, "Uobs")
   }
@@ -474,8 +454,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
     colnames(UobsWt) <- c("Pred", "Prey", "Pred_length", "Prey_length", "Stomach_proportion_by_weight")
     UobsWt <- as.data.frame(UobsWt)
 
-    openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "UobsWt", gridLines = FALSE)
-    openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 24, x = UobsWt)
+    xcel_list$UobsWt <- UobsWt
 
     names_used <- c(names_used, "UobsWt")
 
@@ -508,8 +487,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
     colnames(UobsWt) <- c("Pred", "Prey", "Pred_length", "Prey_length", "Year", "Stomach_proportion_by_weight")
     UobsWt <- as.data.frame(UobsWt)
 
-    openxlsx::addWorksheet(wb = ceattle_wb, sheetName = "UobsWt", gridLines = FALSE)
-    openxlsx::writeDataTable(wb = ceattle_wb, sheet = 1 + 24, x = UobsWt)
+    xcel_list$UobsWt <- UobsWt
 
     names_used <- c(names_used, "UobsWt")
   }
@@ -521,7 +499,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
 
 
   # write the data
-  openxlsx::saveWorkbook(ceattle_wb, file, overwrite = TRUE)
+  writexl::write_xlsx(xcel_list, file)
 }
 
 
