@@ -181,7 +181,7 @@
 #' @export
 
 fit_mod <-
-  function(TMBfilename = NULL,
+  function(TMBfilename = "ceattle_v01_04",
            cpp_directory = NULL,
            data_list = NULL,
            inits = NULL,
