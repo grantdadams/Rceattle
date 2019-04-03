@@ -9,6 +9,7 @@ library(TMBdebug)
 TMBfilename = "ceattle_v01_04"
 cpp_directory <- "inst/executables"
 data("BS2017SS")
+BS2017SS$endyr <- 2015
 data_list = BS2017SS
 inits = NULL # Initial parameters = 0
 map = NULL
@@ -16,13 +17,15 @@ bounds = NULL
 file_name = NULL # Don't save
 debug = 0 # Estimate
 random_rec = FALSE # No random recruitment
-msmMode = 1 # Single species mode
+msmMode = 0 # Single species mode
 avgnMode = 0
 silent = TRUE
 niter = 5
 est_diet = FALSE
 suitMode = FALSE
 recompile = FALSE
+
+
 
 # #--------------------------------------------------
 # # 1. DATA and MODEL PREP
@@ -34,9 +37,9 @@ initial_params$srv_sel_coff
 initial_params$srv_sel_inf <- cbind(initial_params$srv_sel_inf, matrix(0, ncol = 1, nrow = 2))
 initial_params$srv_sel_slp <- cbind(initial_params$srv_sel_slp, matrix(0, ncol = 1, nrow = 2))
 initial_params$log_srv_q <- c(initial_params$log_srv_q, initial_params$log_eit_q)
-inits <- initial_params
-inits$log_eit_q <- NULL
-inits$phi <- NULL
+# inits <- initial_params
+# inits$log_eit_q <- NULL
+# inits$phi <- NULL
 
 # STEP 1 - LOAD DATA
 if (is.null(data_list)) {
@@ -67,16 +70,12 @@ if(is.null(TMBfilename) | is.null(cpp_directory)){
 if (is.character(inits) | is.null(inits)) {
   params <- suppressWarnings(Rceattle::build_params(
     data_list = data_list,
-    inits = inits,
-    TMBfilename = TMBfilename,
-    cpp_directory = cpp_directory
+    inits = inits
   ))
 } else{
   params <- suppressWarnings(Rceattle::build_params(
     data_list = data_list,
-    inits = inits,
-    TMBfilename = TMBfilename,
-    cpp_directory = cpp_directory
+    inits = inits
   ))
   inits$srv_sel_coff <- params$srv_sel_coff
   inits$fsh_sel_inf <- params$fsh_sel_inf

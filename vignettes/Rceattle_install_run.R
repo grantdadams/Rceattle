@@ -3,12 +3,16 @@
 # Citation:
 # Holsman, K. K., Ianelli, J., Aydin, K., Punt, A. E., and Moffitt, E. A. 2015. A comparison of fisheries biological reference points estimated from temperature-specific multi-species and single-species climate-enhanced stock assessment models. Deep-Sea Research Part II: Topical Studies in Oceanography, 134: 360–378.
 
+# Install devtools if you don't already have it
+install.packages("devtools")
+# Install TMB and rtools
+# Instructions can be found here for non-pc: https://github.com/kaskr/adcomp/wiki/Download
+install.packages('TMB', type = 'source')
+# Try "TMB::runExample(all = TRUE)" to see if TMB works
 
 # Install Rceattle
 devtools::install_github("grantdadams/Rceattle", auth_token = "4925b42ac46f1e0aefd671e9dc0c1cf1b3157017")
-# NOTE: will have to have TMB downloaded
-# Instructions can be found here: https://github.com/kaskr/adcomp/wiki/Download
-# Try "TMB::runExample(all = TRUE)" to see if TMB works
+
 
 
 library(Rceattle)
@@ -38,7 +42,8 @@ ss_run <- Rceattle::fit_mod(data_list = mydata,
                             debug = 0, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
-                            silent = TRUE)
+                            silent = TRUE,
+                            recompile = TRUE)
 # Type ?fit_mod for more details
 
 # The you can plot the model results using using
