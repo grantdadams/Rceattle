@@ -199,7 +199,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Species = c(1:3, 1),
     Selectivity = c(dat_list$srv_sel_type, 0),
     Nselages = rep(NA, 4),
-    Catch_units = rep(1, 4),
+    Weight1_Numbers2 = rep(1, 4),
     Weight_index = c(1:3,1),
     ALK_index = c(1:3,1),
     # Comp_Nyrs = c(dat_list$nyrs_srv_age, dat_list$n_eit),
@@ -301,7 +301,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Species = c(1:3),
     Selectivity = rep(2, 3),
     Nselages = c(dat_list$nselages),
-    Catch_units = rep(1, 3),
+    Weight1_Numbers2 = rep(1, 3),
     Weight_index = c(1:3),
     ALK_index = c(1:3)
   )

@@ -10,6 +10,7 @@
 #' @param species Species names for legend
 #' @param lwd Line width as specified by user
 #' @param include_srv Boolian of whether to include survey biomass estimates and 95 CI
+#' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
 #'
 #' @return Returns and saves a figure with the population trajectory.
 #' @export
@@ -21,7 +22,8 @@ plot_biomass <-
            line_col = NULL,
            species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"),
            lwd = 3,
-           include_srv = FALSE) {
+           include_srv = FALSE,
+           right_adj = 0) {
 
     # Convert single one into a list
     if(class(Rceattle) == "Rceattle"){
@@ -29,16 +31,21 @@ plot_biomass <-
     }
 
     # Extract data objects
-    Years <-
-      Rceattle[[1]]$data_list$styr:Rceattle[[1]]$data_list$endyr
-    nyrs <- length(Years)
+    Years <- list()
+    for(i in 1:length(Rceattle)){
+      Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
+    }
+    nyrs <- max(sapply(Years, length))
+    maxyr <- max((sapply(Years, max)))
+    minyr <- min((sapply(Years, min)))
+
     nspp <- Rceattle[[1]]$data_list$nspp
 
     # Get biomass
     Biomass <-
       array(NA, dim = c(nspp, nyrs, length(Rceattle) + length(tmp_list)))
     for (i in 1:length(Rceattle)) {
-      Biomass[, , i] <- Rceattle[[i]]$quantities$biomass
+      Biomass[, 1:length(Years[[i]]), i] <- Rceattle[[i]]$quantities$biomass
     }
 
     ind = 1
@@ -56,7 +63,7 @@ plot_biomass <-
     SSB <-
       array(NA, dim = c(nspp, nyrs, length(Rceattle) + length(tmp_list)))
     for (i in 1:length(Rceattle)) {
-      SSB[, , i] <- Rceattle[[i]]$quantities$biomassSSB
+      SSB[, 1:length(Years[[i]]), i] <- Rceattle[[i]]$quantities$biomassSSB
     }
 
     ind = 1
@@ -115,7 +122,7 @@ plot_biomass <-
           y = NA,
           x = NA,
           ylim = c(ymin[j], ymax[j]),
-          xlim = c(min(Years), max(Years)),
+          xlim = c(minyr, maxyr + right_adj),
           xlab = "Year",
           ylab = "Biomass (million t)",
           xaxt = c(rep("n", nspp - 1), "s")[j]
@@ -191,15 +198,15 @@ plot_biomass <-
         # Mean biomass
         for (k in 1:dim(Biomass)[3]) {
           lines(
-            x = Years,
-            y = Biomass[j, , k],
+            x = Years[[k]],
+            y = Biomass[j, 1:length(Years[[k]]), k],
             lty = 1,
             lwd = lwd,
             col = line_col[k]
           ) # Median
           lines(
-            x = Years,
-            y = SSB[j, , k],
+            x = Years[[k]],
+            y = SSB[j, 1:length(Years[[k]]), k],
             lty = 2,
             lwd = lwd,
             col = line_col[k]
@@ -239,6 +246,7 @@ plot_biomass <-
 #' @param species Species names for legend
 #' @param ci_col Colors to be used for CI color
 #' @param lwd Line width as specified by user
+#' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
 #' @export
 #'
 #' @return Returns and saves a figure with the population trajectory.
@@ -251,7 +259,8 @@ plot_recruitment <-
            species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"),
            ci_col = NULL,
            lwd = 3,
-           save_rec = FALSE) {
+           save_rec = FALSE,
+           right_adj = 0) {
 
     # Convert single one into a list
     if(class(Rceattle) == "Rceattle"){
@@ -259,9 +268,14 @@ plot_recruitment <-
     }
 
     # Extract data objects
-    Years <-
-      Rceattle[[1]]$data_list$styr:Rceattle[[1]]$data_list$endyr
-    nyrs <- length(Years)
+    Years <- list()
+    for(i in 1:length(Rceattle)){
+      Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
+    }
+    nyrs <- max(sapply(Years, length))
+    maxyr <- max((sapply(Years, max)))
+    minyr <- min((sapply(Years, min)))
+
     nspp <- Rceattle[[1]]$data_list$nspp
 
 
@@ -271,7 +285,7 @@ plot_recruitment <-
     recruitment_sd <-
       array(NA, dim = c(nspp, nyrs,  length(Rceattle) + length(tmp_list)))
     for (i in 1:length(Rceattle)) {
-      recruitment[, , i] <- Rceattle[[i]]$quantities$R[, ]
+      recruitment[, 1:length(Years[[i]]) , i] <- Rceattle[[i]]$quantities$R[, ]
 
       # Get SD of rec
       if (!is.null(ci_col)) {
@@ -373,7 +387,7 @@ plot_recruitment <-
           y = NA,
           x = NA,
           ylim = c(ymin[j], ymax[j]),
-          xlim = c(min(Years), max(Years)),
+          xlim = c(minyr, maxyr + right_adj),
           xlab = "Year",
           ylab = "Recruitment (millions)",
           xaxt = c(rep("n", nspp - 1), "s")[j]
@@ -404,8 +418,8 @@ plot_recruitment <-
         if (!is.null(ci_col)) {
           for (k in 1:dim(recruitment)[3]) {
             polygon(
-              x = c(Years, rev(Years)),
-              y = c(recruitment_upper[j, , k], rev(recruitment_lower[j, , k])),
+              x = c(Years[[k]], rev(Years[[k]])),
+              y = c(recruitment_upper[j, 1:length(Years[[k]]), k], rev(recruitment_lower[j, 1:length(Years[[k]]), k])),
               col = adjustcolor( ci_col[k], alpha.f = 0.2),
               border = NA
             ) # 95% CI
@@ -415,8 +429,8 @@ plot_recruitment <-
         # Mean recruitment
         for (k in 1:dim(recruitment)[3]) {
           lines(
-            x = Years,
-            y = recruitment[j, , k],
+            x = Years[[k]],
+            y = recruitment[j, 1:length(Years[[k]]), k],
             lty = 1,
             lwd = lwd,
             col = line_col[k]
@@ -462,9 +476,14 @@ plot_selectivity <-
     }
 
     # Extract data objects
-    Years <-
-      Rceattle[[1]]$data_list$styr:Rceattle[[1]]$data_list$endyr
-    nyrs <- length(Years)
+    Years <- list()
+    for(i in 1:length(Rceattle)){
+      Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
+    }
+    nyrs <- max(sapply(Years, length))
+    maxyr <- max((sapply(Years, max)))
+    minyr <- min((sapply(Years, min)))
+
     nspp <- Rceattle[[1]]$data_list$nspp
     srv_control <- Rceattle[[1]]$data_list$srv_control
     fsh_control <- Rceattle[[1]]$data_list$fsh_control
@@ -742,6 +761,8 @@ plot_form <- function( params = NULL, pred = 1, pred_age = 1, prey = 1, msmMode 
 #' @param species Species names for legend
 #' @param lwd Line width as specified by user
 #' @param age Age specified
+#' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#'
 #'
 #' @return Returns and saves a figure with the population trajectory.
 #' @export
@@ -753,7 +774,8 @@ plot_mort <-
            line_col = NULL,
            species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"),
            lwd = 3,
-           age = 3) {
+           age = 3,
+           right_adj = 0){
 
     # Convert single one into a list
     if(class(Rceattle) == "Rceattle"){
@@ -761,9 +783,14 @@ plot_mort <-
     }
 
     # Extract data objects
-    Years <-
-      Rceattle[[1]]$data_list$styr:Rceattle[[1]]$data_list$endyr
-    nyrs <- length(Years)
+    Years <- list()
+    for(i in 1:length(Rceattle)){
+      Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
+    }
+    nyrs <- max(sapply(Years, length))
+    maxyr <- max((sapply(Years, max)))
+    minyr <- min((sapply(Years, min)))
+
     nspp <- Rceattle[[1]]$data_list$nspp
     max_age <- max(Rceattle[[1]]$data_list$nages)
 
@@ -771,7 +798,7 @@ plot_mort <-
     M2 <-
       array(NA, dim = c(nspp, max_age, nyrs, length(Rceattle) + length(tmp_list)))
     for (i in 1:length(Rceattle)) {
-      M2[, , ,i] <- Rceattle[[i]]$quantities$M2
+      M2[, , 1:length(Years[[i]]),i] <- Rceattle[[i]]$quantities$M2
     }
 
     # ind = 1
@@ -788,7 +815,7 @@ plot_mort <-
     f_mat <-
       array(NA, dim = c(nspp, max_age, nyrs, length(Rceattle) + length(tmp_list)))
     for (i in 1:length(Rceattle)) {
-      f_mat[, , ,i] <- Rceattle[[i]]$quantities$F
+      f_mat[, , 1:length(Years[[i]]) ,i] <- Rceattle[[i]]$quantities$F
     }
 
     m_mat <-
@@ -862,7 +889,7 @@ plot_mort <-
           y = NA,
           x = NA,
           ylim = c(ymin[j], ymax[j]),
-          xlim = c(min(Years), max(Years)),
+          xlim = c(minyr, maxyr + right_adj),
           xlab = "Year",
           ylab = "Mortality",
           xaxt = c(rep("n", nspp - 1), "s")[j]
@@ -903,8 +930,8 @@ plot_mort <-
         for (k in 1:dim(M2)[4]) {
           #if(fishing == FALSE){
           lines(
-            x = Years,
-            y = M2[j, age, , k],
+            x = Years[[k]],
+            y = M2[j, age, 1:length(Years[[k]]) , k],
             lty = 1,
             lwd = lwd,
             col = line_col[k]
@@ -912,8 +939,8 @@ plot_mort <-
           #}
           #if(fishing){
           lines(
-            x = Years,
-            y = f_mat[j, age, , k],
+            x = Years[[k]],
+            y = f_mat[j, age, 1:length(Years[[k]]), k],
             lty = 2,
             lwd = lwd,
             col = line_col[k]
