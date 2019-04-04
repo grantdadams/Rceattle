@@ -11,6 +11,7 @@
 #' @param lwd Line width as specified by user
 #' @param include_srv Boolian of whether to include survey biomass estimates and 95 CI
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
 #'
 #' @return Returns and saves a figure with the population trajectory.
 #' @export
@@ -23,7 +24,8 @@ plot_biomass <-
            species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"),
            lwd = 3,
            include_srv = FALSE,
-           right_adj = 0) {
+           right_adj = 0,
+           mohns = NULL) {
 
     # Convert single one into a list
     if(class(Rceattle) == "Rceattle"){
@@ -130,6 +132,10 @@ plot_biomass <-
 
         # Legends
         legend("topleft", species[j], bty = "n", cex = 1.4)
+
+        if(!is.null(mohns)){
+          legend("top", paste0("B Rho = ", round(mohns[1,j+1], 2), "; SSB Rho = ",  round(mohns[2,j+1], 2) ), bty = "n", cex = 1) # Biomass rho
+        }
 
         if (j == 1) {
           if(!is.null(model_names)){
@@ -247,6 +253,7 @@ plot_biomass <-
 #' @param ci_col Colors to be used for CI color
 #' @param lwd Line width as specified by user
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
 #' @export
 #'
 #' @return Returns and saves a figure with the population trajectory.
@@ -260,7 +267,8 @@ plot_recruitment <-
            ci_col = NULL,
            lwd = 3,
            save_rec = FALSE,
-           right_adj = 0) {
+           right_adj = 0,
+           mohns = NULL) {
 
     # Convert single one into a list
     if(class(Rceattle) == "Rceattle"){
@@ -398,6 +406,11 @@ plot_recruitment <-
                legend = species[j],
                bty = "n",
                cex = 1.4)
+
+        if(!is.null(mohns)){
+          legend("top", paste0("Rho = ", round(mohns[3,j+1], 2) ), bty = "n", cex = 1.4) # Biomass rho
+        }
+
         if (j == 1) {
           if(!is.null(model_names)){
             legend(

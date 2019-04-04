@@ -7,7 +7,7 @@
 plot_recruitment(Rceattle, tmp_list = NULL, file_name = NULL,
   model_names = NULL, line_col = NULL, species = c("Walleye pollock",
   "Pacific cod", "Arrowtooth flounder"), ci_col = NULL, lwd = 3,
-  save_rec = FALSE, right_adj = 0)
+  save_rec = FALSE, right_adj = 0, mohns = NULL)
 }
 \arguments{
 \item{Rceattle}{Single or list of Rceattle model objects exported from \code{\link{Rceattle}}}
@@ -26,6 +26,8 @@ function.}
 \item{lwd}{Line width as specified by user}
 
 \item{right_adj}{How many units of the x-axis to add to the right side of the figure for fitting the legend.}
+
+\item{mohns}{data.frame of mohn's rows extracted from \code{\link{retrospective}}}
 }
 \value{
 Returns and saves a figure with the population trajectory.
