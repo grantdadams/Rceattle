@@ -38,7 +38,7 @@ mydata <- Rceattle::read_excel( file = "BS2017SS.xlsx")
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
 ss_run <- Rceattle::fit_mod(data_list = mydata,
                             inits = NULL, # Initial parameters = 0
-                            file_name = NULL, # Don't save
+                            file = NULL, # Don't save
                             debug = 0, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
@@ -57,7 +57,7 @@ data("BS2017MS") # Note: the only difference is the residual mortality is lower
 
 ms_run <- Rceattle::fit_mod(data_list = mydata,
                             inits = ss_run$estimated_params, # Initial parameters from single species ests
-                            file_name = NULL, # Don't save
+                            file = NULL, # Don't save
                             debug = 0, # Estimate
                             niter = 10, # 10 iterations around population and predation dynamics
                             random_rec = FALSE, # No random recruitment
@@ -86,7 +86,7 @@ ss_sim <- sim_mod(ss_run)
 ss_sim_run <- Rceattle::fit_mod(
   data_list = ss_sim,
   inits = NULL, # Initial parameters = 0
-  file_name = NULL, # Don't save
+  file = NULL, # Don't save
   debug = 0, # Estimate
   random_rec = FALSE, # No random recruitment
   msmMode = 0, # Single species mode
@@ -98,7 +98,7 @@ ms_sim <- sim_mod(ms_run)
 ms_sim_run <- Rceattle::fit_mod(
   data_list = ms_sim,
   inits = ss_run$estimated_params, # Initial parameters = 0
-  file_name = NULL, # Don't save
+  file = NULL, # Don't save
   debug = 0, # Estimate
   random_rec = FALSE, # No random recruitment
   msmMode = 1, # Holsman MS mode
@@ -121,7 +121,7 @@ plot_recruitment(Rceattle = mod_list, model_names = mod_names)
 ss_re <- Rceattle::fit_mod(
   data_list = mydata,
   inits = NULL, # Initial parameters = 0
-  file_name = NULL, # Don't save
+  file = NULL, # Don't save
   debug = 0, # Estimate
   random_rec = TRUE, # Turn of recruitment deviations as random effects
   msmMode = 0, # Single species mode
@@ -131,7 +131,7 @@ ss_re <- Rceattle::fit_mod(
 ms_gamma <- Rceattle::fit_mod(
   data_list = mydata,
   inits = ss_run$estimated_params, # Initial parameters from single species ests
-  file_name = NULL, # Don't save
+  file = NULL, # Don't save
   debug = 0, # Estimate
   niter = 10, # 10 iterations around population and predation dynamics
   random_rec = FALSE, # No random recruitment

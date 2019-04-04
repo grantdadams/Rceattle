@@ -7,7 +7,7 @@
 #' @param inits (Optional) Character vector of named initial values from ADMB or list of previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters. Can also consturct using \code{\link{build_params}}
 #' @param map (Optional) A prebuilt map object from \code{\link{build_map}}.
 #' @param bounds (Optional) A prebuild bounds object from \code{\link{build_bounds}}.
-#' @param file_name (Optional) Filename where files will be saved. If NULL, no file is saved.
+#' @param file (Optional) Filename where files will be saved. If NULL, no file is saved.
 #' @param debug Runs the model without estimating parameters to get derived quantities given initial parameter values.
 #' @param random_rec logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE.
 #' @param niter Number of iterations for multispecies model
@@ -171,7 +171,7 @@
 #'# Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
 #'ss_run <- fit_mod(data_list = BS2017SS,
 #'    inits = NULL, # Initial parameters = 0
-#'    file_name = NULL, # Don't save
+#'    file = NULL, # Don't save
 #'    debug = 0, # Estimate
 #'    random_rec = FALSE, # No random recruitment
 #'    msmMode = 0, # Single species mode
@@ -187,7 +187,7 @@ fit_mod <-
            inits = NULL,
            map = NULL,
            bounds = NULL,
-           file_name = NULL,
+           file = NULL,
            debug = T,
            random_rec = FALSE,
            niter = 3,
@@ -397,8 +397,8 @@ fit_mod <-
 
     class(mod_objects) <- "Rceattle"
 
-    if(!is.null(file_name)){
-      save(mod_objects, file = paste0(file_name, ".RData"))
+    if(!is.null(file)){
+      save(mod_objects, file = paste0(file, ".RData"))
     }
 
     # suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file)))))

@@ -65,14 +65,16 @@ retrospective <- function( Rceattle = NULL, peels = NULL){
 
   # Loop around peels
   for(i in 1:peels){
+    data_list$endyr <- endyr - i
+    nyrs_peel <- (endyr - i) - styr + 1
 
     # Loop around derived quantitities
     for(j in 1:length(objects)){
       base <- mod_list[[1]]$quantities[[objects[j]]]
       peel <- mod_list[[i + 1]]$quantities[[objects[j]]]
 
-      base <- base[,ncol(peel)]
-      peel <- peel[,ncol(peel)]
+      base <- base[,nyrs_peel]
+      peel <- peel[,nyrs_peel]
 
       rel_error <- ((peel - base) / base)/peels
 

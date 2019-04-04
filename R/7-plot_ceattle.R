@@ -2,7 +2,7 @@
 #'
 #' @description Function the plots the biomass and spawning stock biomass trends as estimated from Rceattle
 #'
-#' @param file_name name of a file to identified the files exported by the
+#' @param file name of a file to identified the files exported by the
 #'   function.
 #' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
 #' @param model_names Names of models to be used in legend
@@ -18,7 +18,7 @@
 plot_biomass <-
   function(Rceattle,
            tmp_list = NULL,
-           file_name = NULL,
+           file = NULL,
            model_names = NULL,
            line_col = NULL,
            species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"),
@@ -90,15 +90,15 @@ plot_biomass <-
     ymax <- ymax + 0.15 * ymax
 
     if (is.null(line_col)) {
-      line_col <- 1:length(Rceattle)
+      line_col <- oce.colorsViridis(length(Rceattle))
     }
 
 
     # Plot trajectory
-    loops <- ifelse(is.null(file_name), 1, 2)
+    loops <- ifelse(is.null(file), 1, 2)
     for (i in 1:loops) {
       if (i == 2) {
-        filename <- paste0(file_name, "_biomass_trajectory", ".png")
+        filename <- paste0(file, "_biomass_trajectory", ".png")
         png(
           file = filename ,
           width = 7,# 169 / 25.4,
@@ -244,13 +244,13 @@ plot_biomass <-
 #'
 #' @description Function the plots the mean recruitment and 95% CI trends as estimated from Rceattle
 #'
-#' @param file_name name of a file to identified the files exported by the
+#' @param file name of a file to identified the files exported by the
 #'   function.
 #' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
 #' @param species Species names for legend
-#' @param ci_col Colors to be used for CI color
+#' @param add_ci If the confidence interval is to be added
 #' @param lwd Line width as specified by user
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
@@ -260,11 +260,11 @@ plot_biomass <-
 plot_recruitment <-
   function(Rceattle,
            tmp_list = NULL,
-           file_name = NULL,
+           file = NULL,
            model_names = NULL,
            line_col = NULL,
            species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"),
-           ci_col = NULL,
+           add_ci = TRUE,
            lwd = 3,
            save_rec = FALSE,
            right_adj = 0,
@@ -296,7 +296,7 @@ plot_recruitment <-
       recruitment[, 1:length(Years[[i]]) , i] <- Rceattle[[i]]$quantities$R[, ]
 
       # Get SD of rec
-      if (!is.null(ci_col)) {
+      if (add_ci) {
         sd_rec <- which(names(Rceattle[[i]]$sdrep$value) == "R")
         sd_rec <- Rceattle[[i]]$sdrep$sd[sd_rec]
         recruitment_sd[, , i] <-
@@ -340,7 +340,7 @@ plot_recruitment <-
 
 
         filename <-
-          paste0(file_name, "_recruitment_species_", i, ".csv")
+          paste0(file, "_recruitment_species_", i, ".csv")
         write.csv(dat_new, file = filename)
       }
     }
@@ -350,7 +350,7 @@ plot_recruitment <-
     ymax <- c()
     ymin <- c()
     for (i in 1:dim(recruitment)[1]) {
-      if (!is.null(ci_col)) {
+      if (add_ci) {
         ymax[i] <- max(c(recruitment_upper[i, , ], 0), na.rm = T)
         ymin[i] <- min(c(recruitment_upper[i, , ], 0), na.rm = T)
       } else{
@@ -361,15 +361,15 @@ plot_recruitment <-
     ymax <- ymax + 0.2 * ymax
 
     if (is.null(line_col)) {
-      line_col <- 1:length(Rceattle)
+      line_col <- oce.colorsViridis(length(Rceattle))
     }
 
 
     # Plot trajectory
-    loops <- ifelse(is.null(file_name), 1, 2)
+    loops <- ifelse(is.null(file), 1, 2)
     for (i in 1:loops) {
       if (i == 2) {
-        filename <- paste0(file_name, "_recruitment_trajectory", ".png")
+        filename <- paste0(file, "_recruitment_trajectory", ".png")
         png(
           file = filename ,
           width = 7,# 169 / 25.4,
@@ -428,12 +428,12 @@ plot_recruitment <-
 
 
         # Credible interval
-        if (!is.null(ci_col)) {
+        if (add_ci) {
           for (k in 1:dim(recruitment)[3]) {
             polygon(
               x = c(Years[[k]], rev(Years[[k]])),
               y = c(recruitment_upper[j, 1:length(Years[[k]]), k], rev(recruitment_lower[j, 1:length(Years[[k]]), k])),
-              col = adjustcolor( ci_col[k], alpha.f = 0.2),
+              col = adjustcolor( line_col[k], alpha.f = 0.4),
               border = NA
             ) # 95% CI
           }
@@ -465,7 +465,7 @@ plot_recruitment <-
 #'
 #' @description Function the plots the fishery and survey selectivity as estimated from Rceattle
 #'
-#' @param file_name name of a file to identified the files exported by the
+#' @param file name of a file to identified the files exported by the
 #'   function.
 #' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
 #' @param model_names Names of models to be used in legend
@@ -477,7 +477,7 @@ plot_recruitment <-
 plot_selectivity <-
   function(Rceattle,
            tmp_list = NULL,
-           file_name = NULL,
+           file = NULL,
            model_names = NULL,
            line_col = NULL,
            species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"),
@@ -557,17 +557,17 @@ plot_selectivity <-
     ymax_fsh <- ymax_fsh + 0.15 * ymax_fsh
 
     if (is.null(line_col)) {
-      line_col <- 1:length(Rceattle)
+      line_col <- oce.colorsViridis(length(Rceattle))
     }
 
 
     max_obj <- max(c(nsrv, nfsh))
 
     # Plot trajectory
-    loops <- ifelse(is.null(file_name), 1, 2)
+    loops <- ifelse(is.null(file), 1, 2)
     for (i in 1:loops) {
       if (i == 2) {
-        filename <- paste0(file_name, "_selectivity", ".png")
+        filename <- paste0(file, "_selectivity", ".png")
         png(
           file = filename ,
           width = 7,# 169 / 25.4,
@@ -766,7 +766,7 @@ plot_form <- function( params = NULL, pred = 1, pred_age = 1, prey = 1, msmMode 
 #'
 #' @description Function the plots the predation mortality trends as estimated from Rceattle
 #'
-#' @param file_name name of a file to identified the files exported by the
+#' @param file name of a file to identified the files exported by the
 #'   function.
 #' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
 #' @param model_names Names of models to be used in legend
@@ -782,7 +782,7 @@ plot_form <- function( params = NULL, pred = 1, pred_age = 1, prey = 1, msmMode 
 plot_mort <-
   function(Rceattle,
            tmp_list = NULL,
-           file_name = NULL,
+           file = NULL,
            model_names = NULL,
            line_col = NULL,
            species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"),
@@ -868,15 +868,15 @@ plot_mort <-
     # }
 
     if (is.null(line_col)) {
-      line_col <- 1:length(Rceattle)
+      line_col <- oce.colorsViridis(length(Rceattle))
     }
 
 
     # Plot trajectory
-    loops <- ifelse(is.null(file_name), 1, 2)
+    loops <- ifelse(is.null(file), 1, 2)
     for (i in 1:loops) {
       if (i == 2) {
-        filename <- paste0(file_name,"_age",age, "_mortality_trajectory", ".png")
+        filename <- paste0(file,"_age",age, "_mortality_trajectory", ".png")
         png(
           file = filename ,
           width = 7,# 169 / 25.4,

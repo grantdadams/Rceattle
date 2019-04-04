@@ -4,7 +4,7 @@
 \alias{plot_biomass}
 \title{plot_biomass}
 \usage{
-plot_biomass(Rceattle, tmp_list = NULL, file_name = NULL,
+plot_biomass(Rceattle, tmp_list = NULL, file = NULL,
   model_names = NULL, line_col = NULL, species = c("Walleye pollock",
   "Pacific cod", "Arrowtooth flounder"), lwd = 3, include_srv = FALSE,
   right_adj = 0, mohns = NULL)
@@ -12,7 +12,7 @@ plot_biomass(Rceattle, tmp_list = NULL, file_name = NULL,
 \arguments{
 \item{Rceattle}{Single or list of Rceattle model objects exported from \code{\link{Rceattle}}}
 
-\item{file_name}{name of a file to identified the files exported by the
+\item{file}{name of a file to identified the files exported by the
 function.}
 
 \item{model_names}{Names of models to be used in legend}
