@@ -23,6 +23,7 @@
 // 7. Fixed estimation routine of suitability coefficients (N used to caclulate suitability is no-longer different)
 // 8. Changed ration calculation over nyrs rather than nTyrs
 // 9. Allowed retrospective estimation
+// 10. Acoustic comp and biomass data are assumed to come from month 6 rather than 0, given they survey in the summer
 //
 //
 //  INDEX:

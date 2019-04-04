@@ -233,7 +233,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Species = rep(1, dat_list$n_eit),
     Sex = rep(0, dat_list$n_eit),
     Year = dat_list$yrs_eit,
-    Month = rep(0, dat_list$n_eit),
+    Month = rep(6, dat_list$n_eit),
     Observation = dat_list$obs_eit,
     CV = rep( 0.2, dat_list$n_eit)
   )
@@ -250,7 +250,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Sex = rep(rep(0, nspp), dat_list$nyrs_srv_age),
     Age0_Length1 = rep(c(0,1,1), dat_list$nyrs_srv_age),
     Year = as.vector(t(dat_list$yrs_srv_age)),
-    Month = rep(rep(0, nspp), dat_list$nyrs_srv_age),
+    Month = rep(rep(6, nspp), dat_list$nyrs_srv_age),
     Sample_size = as.vector(t(dat_list$srv_age_n))
   )
 
@@ -267,7 +267,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Sex = rep(0, dat_list$n_eit),
     Age0_Length1 = rep(0, dat_list$n_eit),
     Year = dat_list$yrs_eit,
-    Month = rep(0, dat_list$n_eit),
+    Month = rep(6, dat_list$n_eit),
     Sample_size = dat_list$eit_age_n
   )
 
