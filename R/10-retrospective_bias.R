@@ -44,7 +44,7 @@ retrospective <- function( Rceattle = NULL, peels = NULL){
     inits$F_dev <- inits$F_dev[,1:nyrs]
 
     # Refit
-    newmod <- suppressMessages(suppressWarnings( Rceattle::fit_mod(
+    newmod <- suppressMessages(suppressWarnings(Rceattle::fit_mod(
       data_list = data_list,
       inits = inits,
       file = NULL,
@@ -54,12 +54,14 @@ retrospective <- function( Rceattle = NULL, peels = NULL){
       msmMode = data_list$msmMode,
       suitMode = data_list$suitMode,
       avgnMode = data_list$avgnMode,
-      silent = TRUE) ))
+      silent = TRUE)))
 
     # Refit model
-    if(newmod$opt$Convergence_check != "The model is definitely not converged" | !is.null(newmod$opt$Convergence_check)){
-      mod_list[[ind]] <- newmod
-      ind <- ind + 1
+    if(!is.null(newmod$opt$Convergence_check)){ # If converged
+      if(newmod$opt$Convergence_check != "The model is definitely not converged" ){
+        mod_list[[ind]] <- newmod
+        ind <- ind + 1
+      }
     }
   }
 
@@ -71,8 +73,8 @@ retrospective <- function( Rceattle = NULL, peels = NULL){
   mohns$Object <- objects
 
   # Loop around peels that converged
-  for(i in 1:length(mod_list)){
-    nyrs_peel <- mod_list[[i]]$data_list$endyr - styr + 1
+  for(i in 1:(length(mod_list) - 1)){
+    nyrs_peel <- mod_list[[i+1]]$data_list$endyr - styr + 1
 
     # Loop around derived quantitities
     for(j in 1:length(objects)){

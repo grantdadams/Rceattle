@@ -1,11 +1,12 @@
 #' Plot functional form
 #'
-#' @describtion Function to plot the functional form estimated or specified by \code{\link{Rceattle}}
+#' @description Function to plot the functional form estimated or specified by \code{\link{Rceattle}}
 #'
 #' @param params Parameter list object from \code{\link{build_params}} or \code{\link{Rceattle}}
 #' @param pred Predator index
 #' @param pred_age Predator age
 #' @param prey Prey index
+#'
 #' @export
 plot_form <- function( params = NULL, pred = 1, pred_age = 1, prey = 1, msmMode = 3){
 

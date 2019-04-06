@@ -248,7 +248,7 @@ fit_mod <-
     } else{
       params <- inits
     }
-    print("Step 1: Parameter build complete")
+    message("Step 1: Parameter build complete")
 
 
 
@@ -259,7 +259,7 @@ fit_mod <-
     } else{
       map <- map
     }
-    print("Step 2: Map build complete")
+    message("Step 2: Map build complete")
 
 
     # STEP 3 - Get bounds
@@ -268,7 +268,7 @@ fit_mod <-
     } else {
       bounds = bounds
     }
-    print("Step 3: Param bounds complete")
+    message("Step 3: Param bounds complete")
 
 
     # STEP 4 - Setup random effects
@@ -318,7 +318,7 @@ fit_mod <-
     setwd(old_wd)
 
 
-    print("Step 4: Compile CEATTLE complete")
+    message("Step 4: Compile CEATTLE complete")
 
 
     # STEP 6 - Reorganize data
@@ -334,7 +334,7 @@ fit_mod <-
       silent = silent
 
     )
-    print(paste0("Step 5: Build object complete"), hessian = TRUE)
+    message(paste0("Step 5: Build object complete"), hessian = TRUE)
     # opt <- nlminb(obj$par, obj$fn, obj$gr)
     # methods <- c('Nelder-Mead', 'BFGS', 'CG', 'L-BFGS-B', 'nlm', 'nlminb', 'spg', 'ucminf', 'newuoa', 'bobyqa', 'nmkb', 'hjkb', 'Rcgmin', 'Rvmmin')
     # opt_list <- list()
@@ -363,7 +363,7 @@ fit_mod <-
                              loopnum = 5
     )
 
-    print("Step 6: Optimization complete")
+    message("Step 6: Optimization complete")
 
     # Get quantities
     quantities <- obj$report(obj$env$last.par.best)
