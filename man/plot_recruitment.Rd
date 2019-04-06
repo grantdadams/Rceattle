@@ -6,7 +6,7 @@
 \usage{
 plot_recruitment(Rceattle, tmp_list = NULL, file = NULL,
   model_names = NULL, line_col = NULL, species = c("Walleye pollock",
-  "Pacific cod", "Arrowtooth flounder"), add_ci = TRUE, lwd = 3,
+  "Pacific cod", "Arrowtooth flounder"), add_ci = FALSE, lwd = 3,
   save_rec = FALSE, right_adj = 0, mohns = NULL)
 }
 \arguments{
