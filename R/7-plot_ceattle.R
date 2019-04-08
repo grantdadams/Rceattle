@@ -12,6 +12,7 @@
 #' @param include_srv Boolian of whether to include survey biomass estimates and 95 CI
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
+#' @param incl_proj TRUE/FALSE include projections years
 #'
 #' @return Returns and saves a figure with the population trajectory.
 #' @export
@@ -25,7 +26,8 @@ plot_biomass <-
            lwd = 3,
            include_srv = FALSE,
            right_adj = 0,
-           mohns = NULL) {
+           mohns = NULL,
+           incl_proj = FALSE) {
 
     # Convert single one into a list
     if(class(Rceattle) == "Rceattle"){
@@ -35,9 +37,15 @@ plot_biomass <-
     # Extract data objects
     Years <- list()
     for(i in 1:length(Rceattle)){
-      Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
+      if(incl_proj == FALSE){
+        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
+      }
+      if(incl_proj){
+        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$projyr
+      }
     }
-    nyrs <- max(sapply(Years, length))
+    nyrs_vec <- sapply(Years, length)
+    nyrs <- max(nyrs_vec)
     maxyr <- max((sapply(Years, max)))
     minyr <- min((sapply(Years, min)))
 
@@ -47,7 +55,7 @@ plot_biomass <-
     Biomass <-
       array(NA, dim = c(nspp, nyrs, length(Rceattle) + length(tmp_list)))
     for (i in 1:length(Rceattle)) {
-      Biomass[, 1:length(Years[[i]]), i] <- Rceattle[[i]]$quantities$biomass
+      Biomass[, 1:length(Years[[i]]), i] <- Rceattle[[i]]$quantities$biomass[,1:nyrs_vec[i]]
     }
 
     ind = 1
@@ -65,7 +73,7 @@ plot_biomass <-
     SSB <-
       array(NA, dim = c(nspp, nyrs, length(Rceattle) + length(tmp_list)))
     for (i in 1:length(Rceattle)) {
-      SSB[, 1:length(Years[[i]]), i] <- Rceattle[[i]]$quantities$biomassSSB
+      SSB[, 1:length(Years[[i]]), i] <- Rceattle[[i]]$quantities$biomassSSB[,1:nyrs_vec[i]]
     }
 
     ind = 1
@@ -254,6 +262,7 @@ plot_biomass <-
 #' @param lwd Line width as specified by user
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
+#' @param incl_proj TRUE/FALSE, include projection years
 #' @export
 #'
 #' @return Returns and saves a figure with the population trajectory.
@@ -268,7 +277,8 @@ plot_recruitment <-
            lwd = 3,
            save_rec = FALSE,
            right_adj = 0,
-           mohns = NULL) {
+           mohns = NULL,
+           incl_proj = FALSE) {
 
     # Convert single one into a list
     if(class(Rceattle) == "Rceattle"){
@@ -278,9 +288,15 @@ plot_recruitment <-
     # Extract data objects
     Years <- list()
     for(i in 1:length(Rceattle)){
-      Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
+      if(incl_proj == FALSE){
+        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
+      }
+      if(incl_proj){
+        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$projyr
+      }
     }
-    nyrs <- max(sapply(Years, length))
+    nyrs_vec <- sapply(Years, length)
+    nyrs <- max(nyrs_vec)
     maxyr <- max((sapply(Years, max)))
     minyr <- min((sapply(Years, min)))
 
@@ -293,14 +309,14 @@ plot_recruitment <-
     recruitment_sd <-
       array(NA, dim = c(nspp, nyrs,  length(Rceattle) + length(tmp_list)))
     for (i in 1:length(Rceattle)) {
-      recruitment[, 1:length(Years[[i]]) , i] <- Rceattle[[i]]$quantities$R[, ]
+      recruitment[, 1:length(Years[[i]]) , i] <- Rceattle[[i]]$quantities$R[,1:nyrs_vec[i]]
 
       # Get SD of rec
       if (add_ci) {
         sd_rec <- which(names(Rceattle[[i]]$sdrep$value) == "R")
         sd_rec <- Rceattle[[i]]$sdrep$sd[sd_rec]
         recruitment_sd[, , i] <-
-          replace(recruitment_sd[, , i], values = sd_rec)
+          replace(recruitment_sd[, , i], values = sd_rec[1:(nyrs_vec[i] * nspp)])
       }
     }
 
@@ -493,7 +509,8 @@ plot_selectivity <-
     for(i in 1:length(Rceattle)){
       Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
     }
-    nyrs <- max(sapply(Years, length))
+    nyrs_vec <- sapply(Years, length)
+    nyrs <- max(nyrs_vec)
     maxyr <- max((sapply(Years, max)))
     minyr <- min((sapply(Years, min)))
 
@@ -784,6 +801,7 @@ plot_form <- function( params = NULL, pred = 1, pred_age = 1, prey = 1, msmMode 
 #' @param age Age specified
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
 #' @param M2_only TRUE/FALSE plot only M1 and M2
+#' @param incl_proj TRUE/FALSE include projection years?
 #'
 #'
 #' @return Returns and saves a figure with the population trajectory.
@@ -798,7 +816,8 @@ plot_mort <-
            lwd = 3,
            age = 3,
            right_adj = 0,
-           M2_only = FALSE){
+           M2_only = FALSE,
+           incl_proj = FALSE){
 
     # Convert single one into a list
     if(class(Rceattle) == "Rceattle"){
@@ -808,9 +827,15 @@ plot_mort <-
     # Extract data objects
     Years <- list()
     for(i in 1:length(Rceattle)){
-      Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
+      if(incl_proj == FALSE){
+        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
+      }
+      if(incl_proj){
+        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$projyr
+      }
     }
-    nyrs <- max(sapply(Years, length))
+    nyrs_vec <- sapply(Years, length)
+    nyrs <- max(nyrs_vec)
     maxyr <- max((sapply(Years, max)))
     minyr <- min((sapply(Years, min)))
 
@@ -821,7 +846,7 @@ plot_mort <-
     M2 <-
       array(NA, dim = c(nspp, max_age, nyrs, length(Rceattle) + length(tmp_list)))
     for (i in 1:length(Rceattle)) {
-      M2[, , 1:length(Years[[i]]),i] <- Rceattle[[i]]$quantities$M2
+      M2[, , 1:length(Years[[i]]),i] <- Rceattle[[i]]$quantities$M2[,,1:nyrs_vec[i]]
     }
 
     # ind = 1
@@ -838,7 +863,7 @@ plot_mort <-
     f_mat <-
       array(NA, dim = c(nspp, max_age, nyrs, length(Rceattle) + length(tmp_list)))
     for (i in 1:length(Rceattle)) {
-      f_mat[, , 1:length(Years[[i]]) ,i] <- Rceattle[[i]]$quantities$F
+      f_mat[, , 1:length(Years[[i]]) ,i] <- Rceattle[[i]]$quantities$F[,,1:nyrs_vec[i]]
     }
 
     m_mat <-

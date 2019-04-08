@@ -7,7 +7,7 @@
 plot_biomass(Rceattle, tmp_list = NULL, file = NULL,
   model_names = NULL, line_col = NULL, species = c("Walleye pollock",
   "Pacific cod", "Arrowtooth flounder"), lwd = 3, include_srv = FALSE,
-  right_adj = 0, mohns = NULL)
+  right_adj = 0, mohns = NULL, incl_proj = FALSE)
 }
 \arguments{
 \item{Rceattle}{Single or list of Rceattle model objects exported from \code{\link{Rceattle}}}
@@ -28,6 +28,8 @@ function.}
 \item{right_adj}{How many units of the x-axis to add to the right side of the figure for fitting the legend.}
 
 \item{mohns}{data.frame of mohn's rows extracted from \code{\link{retrospective}}}
+
+\item{incl_proj}{TRUE/FALSE include projections years}
 }
 \value{
 Returns and saves a figure with the population trajectory.

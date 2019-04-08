@@ -27,18 +27,20 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
 
 
   # control
-  control <- matrix(NA, ncol = data_list$nspp, nrow = 9)
+  control <- matrix(NA, ncol = data_list$nspp, nrow = 11)
   control[1,1] <- data_list$nspp
   control[2,1] <- data_list$styr
   control[3,1] <- data_list$endyr
-  control[4,] <- data_list$nages
-  control[5,] <- data_list$nlengths
-  control[6,] <- data_list$pop_wt_index
-  control[7,] <- data_list$pop_alk_index
-  control[8,] <- data_list$other_food
-  control[9,] <- data_list$stom_tau
+  control[4,1] <- data_list$projyr
+  control[5,] <- data_list$nages
+  control[6,] <- data_list$nlengths
+  control[7,] <- data_list$pop_wt_index
+  control[8,] <- data_list$pop_alk_index
+  control[9,] <- data_list$other_food
+  control[10,] <- data_list$stom_tau
+  control[11,] <- data_list$proj_F
   control <- as.data.frame(control)
-  control <- cbind(c("nspp", "styr", "endyr", "nages", "nlengths", "pop_wt_index", "pop_alk_index", "other_food", "stom_sample_size"), control)
+  control <- cbind(c("nspp", "styr", "endyr", "projyr","nages", "nlengths", "pop_wt_index", "pop_alk_index", "other_food", "stom_sample_size", "proj_F"), control)
   colnames(control) <- c( "Object", paste0("Species_", 1:data_list$nspp))
   names_used <- c(names_used, as.character(control$Object))
 
@@ -531,12 +533,14 @@ read_excel <- function( file = "Rceattle_data.xlsx" ){
   data_list$nspp <- sheet1[1,2]
   data_list$styr <- sheet1[2,2]
   data_list$endyr <- sheet1[3,2]
-  data_list$nages <- as.numeric(as.character(sheet1[4, 2:(data_list$nspp + 1)]))
-  data_list$nlengths <- as.numeric(as.character(sheet1[5, 2:(data_list$nspp + 1)]))
-  data_list$pop_wt_index <- sheet1[6, 2:(data_list$nspp + 1)]
-  data_list$pop_alk_index <- sheet1[7, 2:(data_list$nspp + 1)]
-  data_list$other_food <- sheet1[8, 2:(data_list$nspp + 1)]
-  data_list$stom_tau <- sheet1[9, 2:(data_list$nspp + 1)]
+  data_list$projyr <- sheet1[4,2]
+  data_list$nages <- as.numeric(as.character(sheet1[5, 2:(data_list$nspp + 1)]))
+  data_list$nlengths <- as.numeric(as.character(sheet1[6, 2:(data_list$nspp + 1)]))
+  data_list$pop_wt_index <- sheet1[7, 2:(data_list$nspp + 1)]
+  data_list$pop_alk_index <- sheet1[8, 2:(data_list$nspp + 1)]
+  data_list$other_food <- sheet1[9, 2:(data_list$nspp + 1)]
+  data_list$stom_tau <- sheet1[10, 2:(data_list$nspp + 1)]
+  data_list$proj_F <- as.numeric(sheet1[11, 2:(data_list$nspp + 1)])
 
 
   # srv and fsh bits

@@ -30,7 +30,8 @@ recompile = FALSE
 # #--------------------------------------------------
 # # 1. DATA and MODEL PREP
 # #--------------------------------------------------
-load("C:/Users/Grant Adams/Documents/GitHub/RceattleRuns/BSAI/2019 Think Tank/Models/ss_no_re.RData")
+load("~/Documents/GitHub/RceattleRuns/BSAI/2019 Think Tank/Models/ss_no_re.RData")
+# "C:/Users/Grant Adams/Documents/GitHub/RceattleRuns/BSAI/2019 Think Tank/Models/ss_no_re.RData"
 initial_params <- mod_objects$estimated_params
 
 initial_params$srv_sel_coff

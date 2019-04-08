@@ -305,7 +305,7 @@ fit_mod <-
       suppressWarnings(file.remove(paste0(cpp_file, ".o")))
     }
     if(recompile){
-      suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file)))))
+      suppressMessages(suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file))))))
       suppressWarnings(file.remove(paste0(cpp_file, ".dll")))
       suppressWarnings(file.remove(paste0(cpp_file, ".so")))
       suppressWarnings(file.remove(paste0(cpp_file, ".o")))
@@ -334,7 +334,7 @@ fit_mod <-
       silent = silent
 
     )
-    message(paste0("Step 5: Build object complete"), hessian = TRUE)
+    message(paste0("Step 5: Build object complete"))
     # opt <- nlminb(obj$par, obj$fn, obj$gr)
     # methods <- c('Nelder-Mead', 'BFGS', 'CG', 'L-BFGS-B', 'nlm', 'nlminb', 'spg', 'ucminf', 'newuoa', 'bobyqa', 'nmkb', 'hjkb', 'Rcgmin', 'Rvmmin')
     # opt_list <- list()
