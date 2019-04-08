@@ -27,7 +27,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
 
 
   # control
-  control <- matrix(NA, ncol = data_list$nspp, nrow = 11)
+  control <- matrix(NA, ncol = data_list$nspp, nrow = 10)
   control[1,1] <- data_list$nspp
   control[2,1] <- data_list$styr
   control[3,1] <- data_list$endyr
@@ -38,9 +38,8 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   control[8,] <- data_list$pop_alk_index
   control[9,] <- data_list$other_food
   control[10,] <- data_list$stom_tau
-  control[11,] <- data_list$proj_F
   control <- as.data.frame(control)
-  control <- cbind(c("nspp", "styr", "endyr", "projyr","nages", "nlengths", "pop_wt_index", "pop_alk_index", "other_food", "stom_sample_size", "proj_F"), control)
+  control <- cbind(c("nspp", "styr", "endyr", "projyr","nages", "nlengths", "pop_wt_index", "pop_alk_index", "other_food", "stom_sample_size"), control)
   colnames(control) <- c( "Object", paste0("Species_", 1:data_list$nspp))
   names_used <- c(names_used, as.character(control$Object))
 
@@ -540,7 +539,6 @@ read_excel <- function( file = "Rceattle_data.xlsx" ){
   data_list$pop_alk_index <- sheet1[8, 2:(data_list$nspp + 1)]
   data_list$other_food <- sheet1[9, 2:(data_list$nspp + 1)]
   data_list$stom_tau <- sheet1[10, 2:(data_list$nspp + 1)]
-  data_list$proj_F <- as.numeric(sheet1[11, 2:(data_list$nspp + 1)])
 
 
   # srv and fsh bits
