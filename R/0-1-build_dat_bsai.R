@@ -297,6 +297,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   #---------------------------------------------------------------------
   # dat_list$n_fsh <- c(1,1,1) # Bottom trawl and EIT
 
+
   dat_list$fsh_control <- data.frame(
     Fishery_name = c("Pollock", "Cod", "ATF"),
     Fishery_code = c(1:3),
@@ -307,6 +308,14 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Weight_index = c(1:3),
     ALK_index = c(1:3)
   )
+
+  # Projected fishing mortality
+  if(length(proj_F) != nrow(dat_list$fsh_control)){
+    proj_F <- rep(proj_F[1], nrow(dat_list$fsh_control))
+  }
+
+  dat_list$fsh_control$proj_F <- proj_F
+
 
   #---------------------------------------------------------------------
   # Step 12 -- Reorganize for fishery biomass
@@ -383,10 +392,6 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   dat_list$est_diet <- 0
   dat_list$msmMode <- 1
   dat_list$debug <- TRUE
-  dat_list$proj_F <- proj_F
-  if(length(dat_list$proj_F) != nrow(dat_list$fsh_control)){
-    dat_list$proj_F <- rep(dat_list$proj_F[1], nrow(dat_list$fsh_control))
-  }
 
 
   ###########################
