@@ -55,7 +55,7 @@ plot_recruitment(Rceattle =  ss_run)
 data("BS2017MS") # Note: the only difference is the residual mortality is lower
 # Or we can use the previous data set
 
-ms_run <- Rceattle::fit_mod(data_list = mydata,
+ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
                             inits = ss_run$estimated_params, # Initial parameters from single species ests
                             file = NULL, # Don't save
                             debug = 0, # Estimate
@@ -70,8 +70,8 @@ mod_list <- list(ss_run, ms_run)
 mod_names <- c("SS", "MS")
 
 # Plot biomass trajectory
-plot_biomass(Rceattle = mod_list, model_names = mod_names)
-plot_recruitment(Rceattle = mod_list, model_names = mod_names)
+plot_biomass(Rceattle = mod_list, model_names = mod_names, incl_proj = TRUE)
+plot_recruitment(Rceattle = mod_list, model_names = mod_names, incl_proj = TRUE, add_ci = TRUE)
 
 plot_selectivity(Rceattle = mod_list, model_names = mod_names)
 plot_mort(Rceattle = mod_list, model_names = mod_names, age = 2)

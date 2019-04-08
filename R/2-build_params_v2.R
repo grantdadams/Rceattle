@@ -37,6 +37,7 @@ build_params <-
 
     # -- 3.3. fishing mortality parameters
     param_list$ln_mean_F = rep(0, nrow(data_list$fsh_control))   # Log mean fishing mortality; n = [1, nspp]
+    param_list$proj_F = data_list$proj_F   # Fishing mortality for projections; n = [1, nspp]
     param_list$F_dev = matrix(0, nrow = nrow(data_list$fsh_control), ncol = nyrs)     # Annual fishing mortality deviations; n = [nspp, nyrs] # NOTE: The size of this will likely change
 
 

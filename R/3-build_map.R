@@ -19,6 +19,10 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   }
 
 
+# Map out future fishing mortality
+  map_list$proj_F <- as.numeric(replace(map_list$proj_F, values = rep(NA, length(map_list$proj_F))))
+
+
   # STEP 2 -- NA out parameters not to be estimated
   # Initial population deviations - map out last age and ages not seen
   for(i in 1:nrow(map_list$init_dev)){
