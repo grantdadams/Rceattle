@@ -246,6 +246,7 @@ fit_mod <-
         inits = inits
       ))
     } else{
+      inits$proj_F <- data_list$proj_F
       params <- inits
     }
     message("Step 1: Parameter build complete")
