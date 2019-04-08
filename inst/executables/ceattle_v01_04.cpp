@@ -654,6 +654,7 @@ Type objective_function<Type>::operator() () {
   vector<int> srv_wt_index(n_srv); srv_wt_index.setZero();                      // Vector to save 3rd dim of wt to use for weight-at-age
   vector<int> srv_alk_index(n_srv); srv_alk_index.setZero();                    // Vector to save 3rd dim of age_trans_matrix to use for ALK
 
+
   for (srv_ind = 0; srv_ind < n_srv; srv_ind++){
     srv = srv_control(srv_ind, 1) - 1;                    // Temporary survey index
     srv_q(srv) = exp(log_srv_q(srv_ind));                 // Exponentiate
