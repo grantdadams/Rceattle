@@ -288,24 +288,24 @@ fit_mod <-
       list.files(path = cpp_directory, pattern = TMBfilename)
     if (Sys.info()[1] == "Windows" &
         paste0(TMBfilename, ".so") %in% version_files) {
-      suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file)))))
+      suppressMessages(suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file))), silent = TRUE)))
       suppressWarnings(file.remove(paste0(cpp_file, ".so")))
       suppressWarnings(file.remove(paste0(cpp_file, ".o")))
     }
     if (Sys.info()[1] != "Windows" &
         paste0(TMBfilename, ".dll") %in% version_files) {
-      suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file)))))
+      suppressMessages(suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file))), silent = TRUE)))
       suppressWarnings(file.remove(paste0(cpp_file, ".dll")))
       suppressWarnings(file.remove(paste0(cpp_file, ".o")))
     }
     if (Sys.info()[1] != "Windows" &
         paste0(TMBfilename, ".so") %!in% version_files) {
-      suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file)))))
+      suppressMessages(suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file))))))
       suppressWarnings(file.remove(paste0(cpp_file, ".dll")))
       suppressWarnings(file.remove(paste0(cpp_file, ".o")))
     }
     if(recompile){
-      suppressMessages(suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file))))))
+      suppressMessages(suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file))), silent = TRUE)))
       suppressWarnings(file.remove(paste0(cpp_file, ".dll")))
       suppressWarnings(file.remove(paste0(cpp_file, ".so")))
       suppressWarnings(file.remove(paste0(cpp_file, ".o")))
