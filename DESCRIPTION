@@ -18,8 +18,9 @@ Imports:
     TMBhelper,
     plyr,
     readxl,
-    writexl
-Remotes: kaskr/TMB_contrib_R/TMBhelper
+    writexl,
+    tmbstan
+Remotes: kaskr/TMB_contrib_R/TMBhelper, kaskr/tmbstan/tmbstan
 RoxygenNote: 6.1.1
 BugReports: https://github.com/grantdadams/Rceattle/issues
 Suggests: knitr,
