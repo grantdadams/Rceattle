@@ -5,7 +5,6 @@
 #' @param data_list Rceattle data_list object
 #' @param file Filname to be used. Must end with ".xlsx"
 #'
-#' @return
 #' @export
 #'
 #' @examples
@@ -510,7 +509,6 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
 #'
 #' @param file Filname to be used. Must end with ".xlsx"
 #'
-#' @return
 #' @export
 #'
 #' @examples

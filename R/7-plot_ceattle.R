@@ -683,7 +683,7 @@ plot_selectivity <-
 
 #' Plot functional form
 #'
-#' @describtion Function to plot the functional form estimated or specified by \code{\link{Rceattle}}
+#' @description Function to plot the functional form estimated or specified by \code{\link{Rceattle}}
 #'
 #' @param params Parameter list object from \code{\link{build_params}} or \code{\link{Rceattle}}
 #' @param pred Predator index

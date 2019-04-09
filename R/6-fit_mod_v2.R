@@ -305,7 +305,7 @@ fit_mod <-
       suppressWarnings(file.remove(paste0(cpp_file, ".o")))
     }
     if(recompile){
-      suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file)))))
+      suppressMessages(suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file))))))
       suppressWarnings(file.remove(paste0(cpp_file, ".dll")))
       suppressWarnings(file.remove(paste0(cpp_file, ".so")))
       suppressWarnings(file.remove(paste0(cpp_file, ".o")))

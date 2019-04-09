@@ -28,7 +28,7 @@ plot_form(params = NULL, pred = 1, pred_age = 1, prey = 1,
 \item{prey}{Prey index}
 }
 \description{
-Plot functional form
+Function to plot the functional form estimated or specified by \code{\link{Rceattle}}
 
-Plot functional form
+Function to plot the functional form estimated or specified by \code{\link{Rceattle}}
 }
