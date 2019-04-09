@@ -103,7 +103,7 @@ plot_biomass <-
           file = filename ,
           width = 7,# 169 / 25.4,
           height = 6.5,# 150 / 25.4,
-          family = "Helvetica" ,
+
           units = "in",
           res = 300
         )
@@ -572,7 +572,7 @@ plot_selectivity <-
           file = filename ,
           width = 7,# 169 / 25.4,
           height = 6.5, # 150 / 25.4,
-          family = "Helvetica" ,
+
           units = "in",
           res = 300
         )
@@ -881,7 +881,7 @@ plot_mort <-
           file = filename ,
           width = 7,# 169 / 25.4,
           height = 6.5,# 150 / 25.4,
-          family = "Helvetica" ,
+
           units = "in",
           res = 300
         )
