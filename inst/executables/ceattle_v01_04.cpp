@@ -307,7 +307,7 @@ Type objective_function<Type>::operator() () {
   int sp, age, ln, ksp, k_age, k_ln, yr, rsp, r_age, r_ln; // k
   int srv, fsh, sex;                                                    // Survey and fishery indices
   int fsh_yr, srv_yr, srv_comp_type, fsh_comp_type;                     // Year indices
-  int fsh_ind, srv_ind, comp_ind, ctl_ind;                              // Indices for survey data sets
+  int fsh_ind, srv_ind, comp_ind, ctl_ind, yr_ind;                      // Indices for survey data sets
   int ncnt;    // Pointers
   Type mo = 0;                                                          // Month float
   if (msmMode == 0) { niter = 1; }                                      // Number of iterations for SS mode
@@ -617,7 +617,7 @@ Type objective_function<Type>::operator() () {
   // 5.6. Calculate temperature to use
   TempC = BTempC.sum() / nTyrs; // Fill with average bottom temperature
 
-  int yr_ind = 0;
+  yr_ind = 0;
   for (yr = 0; yr < nTyrs; yr++) {
     yr_ind = Tyrs( yr ) - styr;
     if ((yr_ind >= 0) & (yr_ind < nyrs)) {
@@ -868,17 +868,7 @@ Type objective_function<Type>::operator() () {
     // 6.3. ESTIMATE RECRUITMENT T1.1
     for (sp = 0; sp < nspp; sp++) {
       for (yr = 0; yr < nyrs; yr++) {
-
-        // Hindcast
-        if(yr < nyrs_hind){
           R(sp, yr) = exp(ln_mn_rec(sp) + rec_dev(sp, yr));
-        }
-
-        // Project under mean recruitment
-        if(yr >= nyrs_hind){
-          R(sp, yr) = exp(ln_mn_rec(sp));
-        }
-
         NByage(sp, 0, yr) = R(sp, yr);
       }
     }
@@ -1127,10 +1117,10 @@ Type objective_function<Type>::operator() () {
                   suit_tmp = stomKir(rsp, ksp, r_age, k_age, yr) / (AvgN(ksp, k_age, yr));
 
                   if(yr < nyrs_hind){
-                    int yr_ind = yr;
+                    yr_ind = yr;
                   }
                   if(yr >= nyrs_hind){
-                    int yr_ind = nyrs_hind - 1;
+                    yr_ind = nyrs_hind - 1;
                   }
 
                   if (wt(yr_ind, k_age, pop_wt_index(ksp)) != 0) {
@@ -1271,10 +1261,10 @@ Type objective_function<Type>::operator() () {
                 gsum = 1.0e-10;                                           // Initialize
 
                 if(yr < nyrs_hind){
-                  int yr_ind = yr;
+                  yr_ind = yr;
                 }
                 if(yr >= nyrs_hind){
-                  int yr_ind = nyrs_hind - 1;
+                  yr_ind = nyrs_hind - 1;
                 }
 
                 for (k_age = 0; k_age < nages(ksp); k_age++) {            // Prey age
@@ -1384,10 +1374,10 @@ Type objective_function<Type>::operator() () {
               gsum = 1;                                                     // Sum of suitability for each predator-at-age. Initialize at 1 because other biomass is assumed 1
 
               if(yr < nyrs_hind){
-                int yr_ind = yr;
+                yr_ind = yr;
               }
               if(yr >= nyrs_hind){
-                int yr_ind = nyrs_hind - 1;
+                yr_ind = nyrs_hind - 1;
               }
 
               for (ksp = 0; ksp < nspp; ksp++) {                            // Prey loop
@@ -1427,10 +1417,10 @@ Type objective_function<Type>::operator() () {
               tmp_othersuit = 0.;
 
               if(yr < nyrs_hind){
-                int yr_ind = yr;
+                yr_ind = yr;
               }
               if(yr >= nyrs_hind){
-                int yr_ind = nyrs_hind - 1;
+                yr_ind = nyrs_hind - 1;
               }
 
               for (ksp = 0; ksp < nspp; ksp++) {                  // Prey species loop
@@ -1459,10 +1449,10 @@ Type objective_function<Type>::operator() () {
             for (yr = 0; yr < nyrs; yr++) {                       // Year loop
 
               if(yr < nyrs_hind){
-                int yr_ind = yr;
+                yr_ind = yr;
               }
               if(yr >= nyrs_hind){
-                int yr_ind = nyrs_hind - 1;
+                yr_ind = nyrs_hind - 1;
               }
 
               for (rsp = 0; rsp < nspp; rsp++) {                  // Predator species loop
@@ -1662,10 +1652,10 @@ Type objective_function<Type>::operator() () {
         Q_mass_u.setZero();
         for (yr = 0; yr < nyrs; yr++) {
           if(yr < nyrs_hind){
-            int yr_ind = yr;
+            yr_ind = yr;
           }
           if(yr >= nyrs_hind){
-            int yr_ind = nyrs_hind - 1;
+            yr_ind = nyrs_hind - 1;
           }
 
           for (rsp = 0; rsp  < nspp; rsp++) {

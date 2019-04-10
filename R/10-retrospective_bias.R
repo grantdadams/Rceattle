@@ -48,7 +48,7 @@ retrospective <- function( Rceattle = NULL, peels = NULL){
       data_list = data_list,
       inits = inits,
       file = NULL,
-      debug = data_list$debug,
+      debug = 0,
       niter = data_list$niter,
       random_rec = data_list$random_rec,
       msmMode = data_list$msmMode,
