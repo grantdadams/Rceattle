@@ -11,6 +11,12 @@
 #' @export
 build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
+  # Get year objects
+  nyrs <- data_list$endyr - data_list$styr + 1
+  nyrs_proj <- data_list$projyr - data_list$styr + 1
+  yrs_proj <- (nyrs + 1):nyrs_proj
+
+  # Get params to map
   map_list <- params
 
   # STEP 1 -- Convert map_list to seperate parameters
@@ -19,8 +25,11 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   }
 
 
-# Map out future fishing mortality
+  # Map out future fishing mortality
   map_list$proj_F <- as.numeric(replace(map_list$proj_F, values = rep(NA, length(map_list$proj_F))))
+
+  # Map out future recruitment deviations
+  map_list$rec_dev[,yrs_proj] <- as.numeric(replace(map_list$rec_dev[,yrs_proj], values = rep(NA, length(map_list$rec_dev[,yrs_proj]))))
 
 
   # STEP 2 -- NA out parameters not to be estimated

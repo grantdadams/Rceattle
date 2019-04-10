@@ -36,7 +36,9 @@ plot_biomass <-
 
     # Extract data objects
     Years <- list()
+    Endyrs <- list()
     for(i in 1:length(Rceattle)){
+      Endyrs[[i]] <- Rceattle[[i]]$data_list$endyr
       if(incl_proj == FALSE){
         Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
       }
@@ -44,6 +46,7 @@ plot_biomass <-
         Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$projyr
       }
     }
+    max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
     nyrs_vec <- sapply(Years, length)
     nyrs <- max(nyrs_vec)
     maxyr <- max((sapply(Years, max)))
@@ -137,6 +140,11 @@ plot_biomass <-
           ylab = "Biomass (million t)",
           xaxt = c(rep("n", nspp - 1), "s")[j]
         )
+
+        # Horizontal line
+        if(incl_proj){
+abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
+        }
 
         # Legends
         legend("topleft", species[j], bty = "n", cex = 1.4)
@@ -287,7 +295,9 @@ plot_recruitment <-
 
     # Extract data objects
     Years <- list()
+    Endyrs <- list()
     for(i in 1:length(Rceattle)){
+      Endyrs[[i]] <- Rceattle[[i]]$data_list$endyr
       if(incl_proj == FALSE){
         Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
       }
@@ -295,6 +305,7 @@ plot_recruitment <-
         Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$projyr
       }
     }
+    max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
     nyrs_vec <- sapply(Years, length)
     nyrs <- max(nyrs_vec)
     maxyr <- max((sapply(Years, max)))
@@ -416,6 +427,11 @@ plot_recruitment <-
           ylab = "Recruitment (millions)",
           xaxt = c(rep("n", nspp - 1), "s")[j]
         )
+
+        # Horizontal line at end yr
+        if(incl_proj){
+          abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
+        }
 
         # Legends
         legend("topleft",
@@ -826,7 +842,9 @@ plot_mort <-
 
     # Extract data objects
     Years <- list()
+    Endyrs <- list()
     for(i in 1:length(Rceattle)){
+      Endyrs[[i]] <- Rceattle[[i]]$data_list$endyr
       if(incl_proj == FALSE){
         Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
       }
@@ -834,6 +852,7 @@ plot_mort <-
         Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$projyr
       }
     }
+    max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
     nyrs_vec <- sapply(Years, length)
     nyrs <- max(nyrs_vec)
     maxyr <- max((sapply(Years, max)))
@@ -947,6 +966,11 @@ plot_mort <-
           ylab = "Mortality",
           xaxt = c(rep("n", nspp - 1), "s")[j]
         )
+
+        # Horizontal line at end yr
+        if(incl_proj){
+          abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
+        }
 
         # Legends
         legend("topleft", species[j], bty = "n", cex = 1.4)
