@@ -392,7 +392,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   dat_list$est_diet <- 0
   dat_list$msmMode <- 1
   dat_list$debug <- TRUE
-
+  dat_list$minage <- rep(1, dat_list$nspp)
 
   ###########################
   # Adding aging error
@@ -415,7 +415,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   names_in_cpp <- c(names_in_cpp,
                     "fsh_emp_sel", "srv_emp_sel",
                     "fsh_comp", "srv_comp",
-                    "fsh_biom", "srv_biom", "proj_F")
+                    "fsh_biom", "srv_biom", "proj_F", "minage")
 
   for(i in 1:length(names_in_cpp)){
     dat_list2[[names_in_cpp[i]]] <-  dat_list[[names_in_cpp[i]]]

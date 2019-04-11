@@ -27,6 +27,7 @@
 #'
 #' \describe{
 #' \item{nages}{Ivector: Number of species ages; length = nspp}
+#' \item{minage}{Ivector: Minumum of species ages; length = nspp}
 #' \item{1. FISHERY COMPONENTS}{}
 #' \item{nyrs_tc_biom}{Vector: Number of years with total observed catch; length = nspp}
 #' \item{yrs_tc_biom}{Matrix: Years with total observed catch; dim = [nspp, nyrs_tc_biom]}
@@ -118,6 +119,7 @@
 #'
 #' \describe{
 #' \item{nages}{Ivector: Number of species ages; length = nspp}
+#' \item{minage}{Ivector: Minumum of species ages; length = nspp}
 #' \item{1. FISHERY COMPONENTS}{}
 #' \item{nyrs_tc_biom}{Vector: Number of years with total observed catch; length = nspp}
 #' \item{yrs_tc_biom}{Matrix: Years with total observed catch; dim = [nspp, nyrs_tc_biom]}
