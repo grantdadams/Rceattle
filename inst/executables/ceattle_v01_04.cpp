@@ -1904,7 +1904,7 @@ Type objective_function<Type>::operator() () {
         if ( srv_comp_type == 1) {
           for (ln = 0; ln < nlengths(sp); ln++) {
             for (age = 0; age < nages(sp); age++) {
-              srv_comp_hat(comp_ind, ln ) += srv_age_obs_hat(comp_ind, age) * age_trans_matrix(age, ln, srv_alk_index(sp));
+              srv_comp_hat(comp_ind, ln ) += srv_age_obs_hat(comp_ind, age) * age_trans_matrix(age, ln, srv_alk_index(srv));
             }
           }
 
