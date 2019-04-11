@@ -548,6 +548,9 @@ read_excel <- function( file = "Rceattle_data.xlsx" ){
 data_list[[srv_bits[i]]] <- sheet
   }
 
+  data_list$srv_control$Nselages <- suppressWarnings(as.numeric(data_list$srv_control$Nselages))
+  data_list$fsh_control$Nselages <- suppressWarnings(as.numeric(data_list$fsh_control$Nselages))
+
 
   # age_trans_matrix
   age_trans_matrix <- as.data.frame(readxl::read_xlsx( file, sheet = "age_trans_matrix"))
