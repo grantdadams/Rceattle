@@ -2508,6 +2508,15 @@ Type objective_function<Type>::operator() () {
   REPORT( srv_comp_hat );
 
 
+  REPORT( srv_q );
+  REPORT( srv_sel_type );
+  REPORT( srv_nselages );
+  REPORT( srv_spp );
+  REPORT( srv_units );
+  REPORT( srv_wt_index );
+  REPORT( srv_alk_index );
+
+
   // -- 12.4. Likelihood components
   REPORT( jnll_comp );
   REPORT( offset );
