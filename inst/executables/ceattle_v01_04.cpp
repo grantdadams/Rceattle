@@ -2506,6 +2506,7 @@ Type objective_function<Type>::operator() () {
   REPORT( srv_hat );
   REPORT( srv_age_hat );
   REPORT( srv_comp_hat );
+  REPORT( srv_age_obs_hat );
 
 
   REPORT( srv_q );
