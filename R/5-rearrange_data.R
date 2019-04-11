@@ -60,8 +60,19 @@ rearrange_dat <- function(dat_list){
   }
 
   # Normalize age-transition matrix
-  for(i in 1:dat_list$nspp){
+  for(i in 1:dim(dat_list$age_trans_matrix)[3]){
     dat_list$age_trans_matrix[,,i] = dat_list$age_trans_matrix[,,i] / rowSums(dat_list$age_trans_matrix[,,i], na.rm = T)
+  }
+
+
+  # Normalize srv comp
+  for(i in nrow(dat_list$srv_comp_obs)){
+    dat_list$fsh_comp_obs[i,] = dat_list$fsh_comp_obs[i,] / sum(fsh_comp_obs[i,], na.rm = TRUE)
+  }
+
+  # Normalize fsh comp
+  for(i in nrow(dat_list$srv_comp_obs)){
+    dat_list$srv_comp_obs[i,] = dat_list$srv_comp_obs[i,] / sum(srv_comp_obs[i,], na.rm = TRUE)
   }
 
   return(dat_list)
