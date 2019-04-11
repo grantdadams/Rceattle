@@ -63,12 +63,12 @@ rearrange_dat <- function(dat_list){
 
   # Normalize srv comp
   for(i in nrow(dat_list$srv_comp_obs)){
-    dat_list$srv_comp_obs[i,] = dat_list$srv_comp_obs[i,] / sum(srv_comp_obs[i,], na.rm = TRUE)
+    dat_list$srv_comp_obs[i,] = dat_list$srv_comp_obs[i,] / sum(dat_list$srv_comp_obs[i,], na.rm = TRUE)
   }
 
   # Normalize fsh comp
   for(i in nrow(dat_list$fsh_comp_obs)){
-    dat_list$fsh_comp_obs[i,] = dat_list$fsh_comp_obs[i,] / sum(fsh_comp_obs[i,], na.rm = TRUE)
+    dat_list$fsh_comp_obs[i,] = dat_list$fsh_comp_obs[i,] / sum(dat_list$fsh_comp_obs[i,], na.rm = TRUE)
   }
 
   return(dat_list)
