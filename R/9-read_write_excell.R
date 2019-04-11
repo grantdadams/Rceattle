@@ -550,6 +550,8 @@ read_excel <- function( file = "Rceattle_data.xlsx" ){
 data_list[[srv_bits[i]]] <- sheet
   }
 
+  data_list$srv_control$Nselages <- suppressWarnings(as.numeric(data_list$srv_control$Nselages))
+  data_list$fsh_control$Nselages <- suppressWarnings(as.numeric(data_list$fsh_control$Nselages))
 
   # age_trans_matrix
   age_trans_matrix <- as.data.frame(readxl::read_xlsx( file, sheet = "age_trans_matrix"))
@@ -665,7 +667,7 @@ data_list[[srv_bits[i]]] <- sheet
 
   # without year
   if(ncol(UobsAge_matrix) == 5){
-    UobsAge <- array(NA, dim = c( data_list$nspp, data_list$nspp, max(data_list$nages), max(data_list$nages)))
+    UobsAge <- array(0, dim = c( data_list$nspp, data_list$nspp, max(data_list$nages), max(data_list$nages)))
     dims <- dim(data_list$UobsAge)
 
     for(i in 1:nrow(UobsAge_matrix)){
@@ -683,7 +685,7 @@ data_list[[srv_bits[i]]] <- sheet
 
   # with year
   if(ncol(UobsAge_matrix) == 6){
-    UobsAge <- array(NA, dim = c( data_list$nspp, data_list$nspp, max(data_list$nages), max(data_list$nages)))
+    UobsAge <- array(0, dim = c( data_list$nspp, data_list$nspp, max(data_list$nages), max(data_list$nages)))
     dims <- dim(data_list$UobsAge)
 
     for(i in 1:nrow(UobsAge_matrix)){
@@ -706,7 +708,7 @@ data_list[[srv_bits[i]]] <- sheet
 
   # without year
   if(ncol(UobsWtAge_matrix) == 5){
-    UobsWtAge <- array(NA, dim = c( data_list$nspp, data_list$nspp, max(data_list$nages), max(data_list$nages)))
+    UobsWtAge <- array(0, dim = c( data_list$nspp, data_list$nspp, max(data_list$nages), max(data_list$nages)))
     dims <- dim(data_list$UobsWtAge)
 
     for(i in 1:nrow(UobsWtAge_matrix)){
@@ -724,7 +726,7 @@ data_list[[srv_bits[i]]] <- sheet
 
   # with year
   if(ncol(UobsWtAge_matrix) == 6){
-    UobsWtAge <- array(NA, dim = c( data_list$nspp, data_list$nspp, max(data_list$nages), max(data_list$nages)))
+    UobsWtAge <- array(0, dim = c( data_list$nspp, data_list$nspp, max(data_list$nages), max(data_list$nages)))
     dims <- dim(data_list$UobsWtAge)
 
     for(i in 1:nrow(UobsWtAge_matrix)){
@@ -750,7 +752,7 @@ data_list[[srv_bits[i]]] <- sheet
 
   # without year
   if(ncol(Uobs_matrix) == 5){
-    Uobs <- array(NA, dim = c( data_list$nspp, data_list$nspp, max(data_list$nlengths), max(data_list$nlengths)))
+    Uobs <- array(0, dim = c( data_list$nspp, data_list$nspp, max(data_list$nlengths), max(data_list$nlengths)))
     dims <- dim(data_list$Uobs)
 
     for(i in 1:nrow(Uobs_matrix)){
@@ -768,7 +770,7 @@ data_list[[srv_bits[i]]] <- sheet
 
   # with year
   if(ncol(Uobs_matrix) == 6){
-    Uobs <- array(NA, dim = c( data_list$nspp, data_list$nspp, max(data_list$nlengths), max(data_list$nlengths)))
+    Uobs <- array(0, dim = c( data_list$nspp, data_list$nspp, max(data_list$nlengths), max(data_list$nlengths)))
     dims <- dim(data_list$Uobs)
 
     for(i in 1:nrow(Uobs_matrix)){
@@ -792,7 +794,7 @@ data_list[[srv_bits[i]]] <- sheet
 
   # without year
   if(ncol(UobsWt_matrix) == 5){
-    UobsWt <- array(NA, dim = c( data_list$nspp, data_list$nspp, max(data_list$nlengths), max(data_list$nlengths)))
+    UobsWt <- array(0, dim = c( data_list$nspp, data_list$nspp, max(data_list$nlengths), max(data_list$nlengths)))
     dims <- dim(data_list$UobsWt)
 
     for(i in 1:nrow(UobsWt_matrix)){
@@ -810,7 +812,7 @@ data_list[[srv_bits[i]]] <- sheet
 
   # with year
   if(ncol(UobsWt_matrix) == 6){
-    UobsWt <- array(NA, dim = c( data_list$nspp, data_list$nspp, max(data_list$nlengths), max(data_list$nlengths)))
+    UobsWt <- array(0, dim = c( data_list$nspp, data_list$nspp, max(data_list$nlengths), max(data_list$nlengths)))
     dims <- dim(data_list$UobsWt)
 
     for(i in 1:nrow(UobsWt_matrix)){
