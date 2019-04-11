@@ -361,7 +361,9 @@ fit_mod <-
                              startpar=obj$par,
                              lower = L,
                              upper = U,
-                             loopnum = 5
+                             loopnum = 8,
+                             control = list(eval.max = 1e+08,
+                                            iter.max = 1e+08, trace = 0)
     )
 
     message("Step 6: Optimization complete")
@@ -381,6 +383,7 @@ fit_mod <-
 
     run_time = ((Sys.time() - start_time))
 
+
     # Return objects
     mod_objects <-
       list(
@@ -395,6 +398,21 @@ fit_mod <-
         quantities = quantities,
         run_time = run_time
       )
+
+    if(debug == 0){
+      # Check identifiability
+      identified <- suppressMessages(TMBhelper::Check_Identifiable(obj))
+
+      # Make into list
+      identified_param_list <- obj$env$parList(as.numeric(identified$BadParams$Param_check))
+      identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==0,"Not estimated",x), how = "replace")
+      identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==1,"OK",x), how = "replace")
+      identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==2,"BAD",x), how = "replace")
+
+      identified$param_list <- identified_param_list
+
+      mod_objects$identified <- identified
+    }
 
     class(mod_objects) <- "Rceattle"
 
