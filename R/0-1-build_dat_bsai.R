@@ -8,12 +8,14 @@
 #' @param dat_dir The directory where ctl and dat files are stored
 #' @param nspp The number of species included in the CEATTLE model. Deafualts to 3.
 #' @param nselages Number of ages to estimate selectivity. Can either be a single number or vector of length nspp
-#' @param proj_yr The year to project the populations with no fishing. Assumed to be 2100
+#' @param proj_yr The year to project the populations with no fishing. Assumed to be 2050
 #' @param stom_tau Stomach content sample size for likelihood. Assumed to be 20.
+#' @param endyr The end year of the hindcast
+#' @param proj_F F vector or single value for projections
 #'
 #' @return A list of data objects used by TMB
 #' @export
-build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NULL, dat_dir = NULL, nspp = 3, nselages = 8, endyr = 2017, proj_yr = 2100, stom_tau = 20) {
+build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NULL, dat_dir = NULL, nspp = 3, nselages = 8, endyr = 2017, proj_yr = 2050, proj_F = 0, stom_tau = 20) {
 
   # Get cpp file if not provided
   if(is.null(TMBfilename) | is.null(cpp_directory)){
@@ -171,7 +173,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   dat_list$logist_sel_phase <- NULL
 
   # Get add in projected year
-  # dat_list$proj_yr <- proj_yr
+  dat_list$projyr <- proj_yr
   dat_list$stom_tau <- rep(stom_tau, dat_list$nspp)
 
 
@@ -204,7 +206,9 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     ALK_index = c(1:3,1),
     # Comp_Nyrs = c(dat_list$nyrs_srv_age, dat_list$n_eit),
     Estimate_q = c(0, 0, 0, 1),
-    log_q_start = c(0, 0, 0, -6.7025)
+    log_q_start = c(0, 0, 0, -6.7025),
+    Estimate_sigma_index = rep(0, 4),
+    Sigma_index_prior = rep(NA, 4)
   )
 
   #---------------------------------------------------------------------
@@ -233,7 +237,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Species = rep(1, dat_list$n_eit),
     Sex = rep(0, dat_list$n_eit),
     Year = dat_list$yrs_eit,
-    Month = rep(0, dat_list$n_eit),
+    Month = rep(6, dat_list$n_eit),
     Observation = dat_list$obs_eit,
     CV = rep( 0.2, dat_list$n_eit)
   )
@@ -250,7 +254,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Sex = rep(rep(0, nspp), dat_list$nyrs_srv_age),
     Age0_Length1 = rep(c(0,1,1), dat_list$nyrs_srv_age),
     Year = as.vector(t(dat_list$yrs_srv_age)),
-    Month = rep(rep(0, nspp), dat_list$nyrs_srv_age),
+    Month = rep(rep(6, nspp), dat_list$nyrs_srv_age),
     Sample_size = as.vector(t(dat_list$srv_age_n))
   )
 
@@ -267,7 +271,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Sex = rep(0, dat_list$n_eit),
     Age0_Length1 = rep(0, dat_list$n_eit),
     Year = dat_list$yrs_eit,
-    Month = rep(0, dat_list$n_eit),
+    Month = rep(6, dat_list$n_eit),
     Sample_size = dat_list$eit_age_n
   )
 
@@ -295,6 +299,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   #---------------------------------------------------------------------
   # dat_list$n_fsh <- c(1,1,1) # Bottom trawl and EIT
 
+
   dat_list$fsh_control <- data.frame(
     Fishery_name = c("Pollock", "Cod", "ATF"),
     Fishery_code = c(1:3),
@@ -303,8 +308,18 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Nselages = c(dat_list$nselages),
     Weight1_Numbers2 = rep(1, 3),
     Weight_index = c(1:3),
-    ALK_index = c(1:3)
+    ALK_index = c(1:3),
+    Estimate_sigma_catch = rep(0, 3),
+    Sigma_catch_prior = rep(NA, 3)
   )
+
+  # Projected fishing mortality
+  if(length(proj_F) != nrow(dat_list$fsh_control)){
+    proj_F <- rep(proj_F[1], nrow(dat_list$fsh_control))
+  }
+
+  dat_list$fsh_control$proj_F <- proj_F
+
 
   #---------------------------------------------------------------------
   # Step 12 -- Reorganize for fishery biomass
@@ -381,7 +396,8 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   dat_list$est_diet <- 0
   dat_list$msmMode <- 1
   dat_list$debug <- TRUE
-
+  dat_list$minage <- rep(1, dat_list$nspp)
+  dat_list$sigma_rec_prior <- rep(sqrt(0.5), dat_list$nspp)
 
   ###########################
   # Adding aging error
@@ -404,7 +420,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   names_in_cpp <- c(names_in_cpp,
                     "fsh_emp_sel", "srv_emp_sel",
                     "fsh_comp", "srv_comp",
-                    "fsh_biom", "srv_biom")
+                    "fsh_biom", "srv_biom", "proj_F", "minage", "sigma_rec_prior")
 
   for(i in 1:length(names_in_cpp)){
     dat_list2[[names_in_cpp[i]]] <-  dat_list[[names_in_cpp[i]]]

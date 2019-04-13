@@ -6,7 +6,7 @@
 \usage{
 fit_mod(TMBfilename = "ceattle_v01_04", cpp_directory = NULL,
   data_list = NULL, inits = NULL, map = NULL, bounds = NULL,
-  file_name = NULL, debug = T, random_rec = FALSE, niter = 3,
+  file = NULL, debug = T, random_rec = FALSE, niter = 3,
   msmMode = 0, avgnMode = 0, suitMode = 0, silent = FALSE,
   recompile = FALSE)
 }
@@ -23,7 +23,7 @@ fit_mod(TMBfilename = "ceattle_v01_04", cpp_directory = NULL,
 
 \item{bounds}{(Optional) A prebuild bounds object from \code{\link{build_bounds}}.}
 
-\item{file_name}{(Optional) Filename where files will be saved. If NULL, no file is saved.}
+\item{file}{(Optional) Filename where files will be saved. If NULL, no file is saved.}
 
 \item{debug}{Runs the model without estimating parameters to get derived quantities given initial parameter values.}
 
@@ -198,7 +198,7 @@ data(BS2017SS) # ?BS2017SS for more information on the data
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
 ss_run <- fit_mod(data_list = BS2017SS,
    inits = NULL, # Initial parameters = 0
-   file_name = NULL, # Don't save
+   file = NULL, # Don't save
    debug = 0, # Estimate
    random_rec = FALSE, # No random recruitment
    msmMode = 0, # Single species mode

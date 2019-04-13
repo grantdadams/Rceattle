@@ -19,6 +19,7 @@ build_params <-
 
 
     nyrs <- data_list$endyr - data_list$styr + 1
+    nyrs_proj <- data_list$projyr - data_list$styr + 1
 
     #---------------------------------------------------------------------
     # Step 1 -- Specify parameter names and dimensions used in TMB
@@ -28,8 +29,8 @@ build_params <-
 
     # -- 3.1. Recruitment parameters
     param_list$ln_mn_rec = rep(0, data_list$nspp)    # Mean recruitment; n = [1, nspp]
-    param_list$ln_rec_sigma = rep(0, data_list$nspp)  # Standard deviation of recruitment deviations; n = [1, nspp]
-    param_list$rec_dev = matrix(0, nrow = data_list$nspp, ncol = nyrs)     # Annual recruitment deviation; n = [nspp, nyrs]
+    param_list$ln_rec_sigma = as.numeric(data_list$sigma_rec_prior)  # Standard deviation of recruitment deviations; n = [1, nspp]
+    param_list$rec_dev = matrix(0, nrow = data_list$nspp, ncol = nyrs_proj)     # Annual recruitment deviation; n = [nspp, nyrs]
 
 
     # -- 3.2. Abundance parameters
@@ -37,23 +38,28 @@ build_params <-
 
     # -- 3.3. fishing mortality parameters
     param_list$ln_mean_F = rep(0, nrow(data_list$fsh_control))   # Log mean fishing mortality; n = [1, nspp]
+    param_list$proj_F = data_list$fsh_control$proj_F   # Fishing mortality for projections; n = [1, nspp]
     param_list$F_dev = matrix(0, nrow = nrow(data_list$fsh_control), ncol = nyrs)     # Annual fishing mortality deviations; n = [nspp, nyrs] # NOTE: The size of this will likely change
 
 
     # -- 3.4. Selectivity parameters
     # FIXME - change nspp to n_srv
     # FIXME - change order of selectivity paramters for logistic
-    param_list$srv_sel_coff = matrix(0, nrow = nrow(data_list$srv_control), ncol = max(1, data_list$srv_control$Nselages, na.rm = T))   # Survey selectivity parameters; n = [nspp, nselages]
+    param_list$srv_sel_coff = suppressWarnings(matrix(0, nrow = nrow(data_list$srv_control), ncol = max(1, as.numeric(data_list$srv_control$Nselages), na.rm = T)))   # Survey selectivity parameters; n = [nspp, nselages]
     param_list$srv_sel_slp = matrix(0, nrow = 2, ncol = nrow(data_list$srv_control))  # Survey selectivity paramaters for logistic; n = [2, nspp]
     param_list$srv_sel_inf = matrix(0, nrow = 2, ncol = nrow(data_list$srv_control))  # Survey selectivity paramaters for logistic; n = [2, nspp]
     param_list$log_srv_q = data_list$srv_control$log_q_start   # Survey catchability; n = [sum(n_srv)]
 
-    param_list$fsh_sel_coff = matrix(0, nrow = nrow(data_list$fsh_control), ncol = max(1, data_list$fsh_control$Nselages, na.rm = T))  # Fishery age selectivity coef; n = [nspp, nselages]
+    param_list$fsh_sel_coff = suppressWarnings( matrix(0, nrow = nrow(data_list$fsh_control), ncol = max(1, as.numeric(data_list$fsh_control$Nselages), na.rm = T)))  # Fishery age selectivity coef; n = [nspp, nselages]
     param_list$fsh_sel_slp = matrix(0, nrow = 2, ncol = nrow(data_list$fsh_control))  # Fishery selectivity paramaters for logistic; n = [2, nspp]
     param_list$fsh_sel_inf = matrix(0, nrow = 2, ncol = nrow(data_list$fsh_control))  # Fishery selectivity paramaters for logistic; n = [2, nspp]
 
 
-    # -- 3.5. Kinzery predation function parameters
+    # -- 3.5. Variance of survey and fishery time series
+    param_list$ln_sigma_srv_index = data_list$srv_control$Sigma_index_prior        # Log standard deviation of survey index time-series; n = [1, n_srv]
+    param_list$ln_sigma_fsh_catch = data_list$fsh_control$Sigma_catch_prior        # Log standard deviation of fishery catch time-series; n = [1, n_fsh]
+
+    # -- 3.6. Kinzery predation function parameters
     param_list$logH_1 = matrix(0, nrow = data_list$nspp, ncol = data_list$nspp2)       # Predation functional form; n = [nspp, nspp2]; # FIXME: make matrix; nspp2 = nspp + 1
     param_list$logH_1a = rep(0, data_list$nspp)      # Age adjustment to H_1; n = [1, nspp]; # FIXME: make matrix
     param_list$logH_1b = rep(0, data_list$nspp)      # Age adjustment to H_1; n = [1, nspp]; # FIXME: make matrix
@@ -62,11 +68,11 @@ build_params <-
     param_list$logH_3 = matrix(0, nrow = data_list$nspp, ncol = data_list$nspp)       # Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH3,UpperBoundH3;
     param_list$H_4 = matrix(0, nrow = data_list$nspp, ncol = data_list$nspp)        # Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH4,UpperBoundH4;
 
-    # 3.6 Gamma selectivity parameters
+    # -- 3.7 Gamma selectivity parameters
     param_list$log_gam_a = rep(0, data_list$nspp)    # Log predator selectivity; n = [1,nspp]; FIXME: bounds = 1.0e-10 and 19.9
     param_list$log_gam_b = rep(0, data_list$nspp)   # Log predator selectivity; n = [1,nspp]; FIXME: bounds = -5.2 and 10
 
-    # 3.7. Preference parameters
+    # -- 3.8. Preference parameters
     param_list$log_phi = matrix(0, data_list$nspp, data_list$nspp)
 
     #---------------------------------------------------------------------

@@ -30,16 +30,17 @@ recompile = FALSE
 # #--------------------------------------------------
 # # 1. DATA and MODEL PREP
 # #--------------------------------------------------
-load("C:/Users/Grant Adams/Documents/GitHub/RceattleRuns/BSAI/2019 Think Tank/Models/ss_no_re.RData")
+load("~/Documents/GitHub/RceattleRuns/BSAI/2019 Think Tank/Models/ss_no_re.RData")
+# "C:/Users/Grant Adams/Documents/GitHub/RceattleRuns/BSAI/2019 Think Tank/Models/ss_no_re.RData"
 initial_params <- mod_objects$estimated_params
 
 initial_params$srv_sel_coff
 initial_params$srv_sel_inf <- cbind(initial_params$srv_sel_inf, matrix(0, ncol = 1, nrow = 2))
 initial_params$srv_sel_slp <- cbind(initial_params$srv_sel_slp, matrix(0, ncol = 1, nrow = 2))
 initial_params$log_srv_q <- c(initial_params$log_srv_q, initial_params$log_eit_q)
-# inits <- initial_params
-# inits$log_eit_q <- NULL
-# inits$phi <- NULL
+inits <- initial_params
+inits$log_eit_q <- NULL
+inits$phi <- NULL
 
 # STEP 1 - LOAD DATA
 if (is.null(data_list)) {
@@ -201,3 +202,6 @@ round(quantities$jnll_comp,3)
 Check_Identifiable(obj)
 
 round(mod_objects$quantities$jnll_comp, 3)
+
+
+fit <- tmbstan(obj, chains=1)

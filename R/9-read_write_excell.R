@@ -27,18 +27,21 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
 
 
   # control
-  control <- matrix(NA, ncol = data_list$nspp, nrow = 9)
+  control <- matrix(NA, ncol = data_list$nspp, nrow = 12)
   control[1,1] <- data_list$nspp
   control[2,1] <- data_list$styr
   control[3,1] <- data_list$endyr
-  control[4,] <- data_list$nages
-  control[5,] <- data_list$nlengths
-  control[6,] <- data_list$pop_wt_index
-  control[7,] <- data_list$pop_alk_index
-  control[8,] <- data_list$other_food
-  control[9,] <- data_list$stom_tau
+  control[4,1] <- data_list$projyr
+  control[5,] <- data_list$nages
+  control[6,] <- data_list$minage
+  control[7,] <- data_list$nlengths
+  control[8,] <- data_list$pop_wt_index
+  control[9,] <- data_list$pop_alk_index
+  control[10,] <- data_list$sigma_rec_prior
+  control[11,] <- data_list$other_food
+  control[12,] <- data_list$stom_tau
   control <- as.data.frame(control)
-  control <- cbind(c("nspp", "styr", "endyr", "nages", "nlengths", "pop_wt_index", "pop_alk_index", "other_food", "stom_sample_size"), control)
+  control <- cbind(c("nspp", "styr", "endyr", "projyr","nages", "minage", "nlengths", "pop_wt_index", "pop_alk_index", "sigma_rec_prior", "other_food", "stom_sample_size"), control)
   colnames(control) <- c( "Object", paste0("Species_", 1:data_list$nspp))
   names_used <- c(names_used, as.character(control$Object))
 
@@ -531,12 +534,15 @@ read_excel <- function( file = "Rceattle_data.xlsx" ){
   data_list$nspp <- sheet1[1,2]
   data_list$styr <- sheet1[2,2]
   data_list$endyr <- sheet1[3,2]
-  data_list$nages <- as.numeric(as.character(sheet1[4, 2:(data_list$nspp + 1)]))
-  data_list$nlengths <- as.numeric(as.character(sheet1[5, 2:(data_list$nspp + 1)]))
-  data_list$pop_wt_index <- sheet1[6, 2:(data_list$nspp + 1)]
-  data_list$pop_alk_index <- sheet1[7, 2:(data_list$nspp + 1)]
-  data_list$other_food <- sheet1[8, 2:(data_list$nspp + 1)]
-  data_list$stom_tau <- sheet1[9, 2:(data_list$nspp + 1)]
+  data_list$projyr <- sheet1[4,2]
+  data_list$nages <- as.numeric(as.character(sheet1[5, 2:(data_list$nspp + 1)]))
+  data_list$minage <- as.numeric(as.character(sheet1[6, 2:(data_list$nspp + 1)]))
+  data_list$nlengths <- as.numeric(as.character(sheet1[7, 2:(data_list$nspp + 1)]))
+  data_list$pop_wt_index <- sheet1[8, 2:(data_list$nspp + 1)]
+  data_list$pop_alk_index <- sheet1[9, 2:(data_list$nspp + 1)]
+  data_list$sigma_rec_prior <- sheet1[10, 2:(data_list$nspp + 1)]
+  data_list$other_food <- sheet1[11, 2:(data_list$nspp + 1)]
+  data_list$stom_tau <- sheet1[12, 2:(data_list$nspp + 1)]
 
 
   # srv and fsh bits
@@ -551,18 +557,24 @@ data_list[[srv_bits[i]]] <- sheet
   data_list$srv_control$Nselages <- suppressWarnings(as.numeric(data_list$srv_control$Nselages))
   data_list$fsh_control$Nselages <- suppressWarnings(as.numeric(data_list$fsh_control$Nselages))
 
-
   # age_trans_matrix
   age_trans_matrix <- as.data.frame(readxl::read_xlsx( file, sheet = "age_trans_matrix"))
   unique_alk <- unique(as.character(age_trans_matrix$ALK_index))
-  alk <- array(NA, dim = c(max(data_list$nages, na.rm = T), max(data_list$nlengths, na.rm = T), length(unique_alk)))
+  alk <- array(0, dim = c(max(data_list$nages, na.rm = T), max(data_list$nlengths, na.rm = T), length(unique_alk)))
 
 
   for(i in 1:nrow(age_trans_matrix)){
 
     alk_ind <- as.numeric(as.character(age_trans_matrix$ALK_index[i]))
-    age <- as.numeric(as.character(age_trans_matrix$Age[i]))
     sp <- as.numeric(as.character(age_trans_matrix$Species[i]))
+    age <- as.numeric(as.character(age_trans_matrix$Age[i])) - data_list$minage[sp] + 1
+
+    if(age > data_list$nages[sp]){
+      message(paste0("Error: number of ages in age_trans_matrix for species: ", sp," and index: ",alk_ind))
+      message(paste0("is greater than the number of ages specified in the control"))
+      message(paste0("Please remove or change nages in control"))
+      stop()
+    }
 
     alk[age, 1:data_list$nlengths[sp], alk_ind] <- as.numeric(as.character(age_trans_matrix[i, (1:data_list$nlengths[sp]) + 3]))
   }
@@ -572,12 +584,19 @@ data_list[[srv_bits[i]]] <- sheet
 
   # age_error
   age_error <- as.data.frame(readxl::read_xlsx( file, sheet = "age_error"))
-  arm <- array(NA, dim = c(data_list$nspp, max(data_list$nages, na.rm = T), max(data_list$nages, na.rm = T)))
+  arm <- array(0, dim = c(data_list$nspp, max(data_list$nages, na.rm = T), max(data_list$nages, na.rm = T)))
 
 
   for(i in 1:nrow(age_error)){
-    true_age <- as.numeric(as.character(age_error$True_age[i]))
     sp <- as.numeric(as.character(age_error$Species[i]))
+    true_age <- as.numeric(as.character(age_error$True_age[i])) - data_list$minage[sp] + 1
+
+    if(true_age > data_list$nages[sp]){
+      message(paste0("Error: number of true ages specified in age_error for species: ", sp))
+      message(paste0("is greater than the number of ages specified in the control"))
+      message(paste0("Please remove or change nages in control"))
+      stop()
+    }
 
     arm[sp, true_age, 1:data_list$nages[sp]] <- as.numeric(as.character(age_error[i, (1:data_list$nages[sp]) + 2]))
   }
@@ -588,7 +607,7 @@ data_list[[srv_bits[i]]] <- sheet
   # wt
   wt_matrix <- as.data.frame(readxl::read_xlsx( file, sheet = "wt"))
   unique_wt <- unique(as.character(wt_matrix$Wt_index))
-  wt <- array(NA, dim = c(length(data_list$styr:data_list$endyr), max(data_list$nages, na.rm = T), length(unique_wt)))
+  wt <- array(0, dim = c(length(data_list$styr:data_list$endyr), max(data_list$nages, na.rm = T), length(unique_wt)))
 
 
   for(i in 1:nrow(wt_matrix)){
@@ -648,7 +667,7 @@ data_list[[srv_bits[i]]] <- sheet
   # Diet information
   # Pyrs
   pyrs_matrix <- as.data.frame(readxl::read_xlsx( file, sheet = "Pyrs"))
-  Pyrs <- array(NA, dim = c( length(data_list$styr:data_list$endyr) , max(data_list$nages), data_list$nspp ))
+  Pyrs <- array(0, dim = c( length(data_list$styr:data_list$endyr) , max(data_list$nages), data_list$nspp ))
 
 
   for(i in 1:nrow(pyrs_matrix)){
@@ -666,14 +685,14 @@ data_list[[srv_bits[i]]] <- sheet
 
   # without year
   if(ncol(UobsAge_matrix) == 5){
-    UobsAge <- array(NA, dim = c( data_list$nspp, data_list$nspp, max(data_list$nages), max(data_list$nages)))
+    UobsAge <- array(0, dim = c( data_list$nspp, data_list$nspp, max(data_list$nages), max(data_list$nages)))
     dims <- dim(data_list$UobsAge)
 
     for(i in 1:nrow(UobsAge_matrix)){
       pred <- as.numeric(as.character(UobsAge_matrix$Pred[i]))
       prey <- as.numeric(as.character(UobsAge_matrix$Prey[i]))
-      pred_age <- as.numeric(as.character(UobsAge_matrix$Pred_age[i]))
-      prey_age <- as.numeric(as.character(UobsAge_matrix$Prey_age[i]))
+      pred_age <- as.numeric(as.character(UobsAge_matrix$Pred_age[i])) - data_list$minage[pred] + 1
+      prey_age <- as.numeric(as.character(UobsAge_matrix$Prey_age[i])) - data_list$minage[prey] + 1
       stom <- as.numeric(as.character(UobsAge_matrix$Stomach_proportion_by_number[i]))
 
       UobsAge[pred, prey, pred_age, prey_age] <- stom
@@ -684,14 +703,14 @@ data_list[[srv_bits[i]]] <- sheet
 
   # with year
   if(ncol(UobsAge_matrix) == 6){
-    UobsAge <- array(NA, dim = c( data_list$nspp, data_list$nspp, max(data_list$nages), max(data_list$nages)))
+    UobsAge <- array(0, dim = c( data_list$nspp, data_list$nspp, max(data_list$nages), max(data_list$nages)))
     dims <- dim(data_list$UobsAge)
 
     for(i in 1:nrow(UobsAge_matrix)){
       pred <- as.numeric(as.character(UobsAge_matrix$Pred[i]))
       prey <- as.numeric(as.character(UobsAge_matrix$Prey[i]))
-      pred_age <- as.numeric(as.character(UobsAge_matrix$Pred_age[i]))
-      prey_age <- as.numeric(as.character(UobsAge_matrix$Prey_age[i]))
+      pred_age <- as.numeric(as.character(UobsAge_matrix$Pred_age[i])) - data_list$minage[pred] + 1
+      prey_age <- as.numeric(as.character(UobsAge_matrix$Prey_age[i])) - data_list$minage[prey] + 1
       year <- as.numeric(as.character(UobsAge_matrix$Year[i]))
       stom <- as.numeric(as.character(UobsAge_matrix$Stomach_proportion_by_number[i]))
 
@@ -707,14 +726,14 @@ data_list[[srv_bits[i]]] <- sheet
 
   # without year
   if(ncol(UobsWtAge_matrix) == 5){
-    UobsWtAge <- array(NA, dim = c( data_list$nspp, data_list$nspp, max(data_list$nages), max(data_list$nages)))
+    UobsWtAge <- array(0, dim = c( data_list$nspp, data_list$nspp, max(data_list$nages), max(data_list$nages)))
     dims <- dim(data_list$UobsWtAge)
 
     for(i in 1:nrow(UobsWtAge_matrix)){
       pred <- as.numeric(as.character(UobsWtAge_matrix$Pred[i]))
       prey <- as.numeric(as.character(UobsWtAge_matrix$Prey[i]))
-      pred_age <- as.numeric(as.character(UobsWtAge_matrix$Pred_age[i]))
-      prey_age <- as.numeric(as.character(UobsWtAge_matrix$Prey_age[i]))
+      pred_age <- as.numeric(as.character(UobsWtAge_matrix$Pred_age[i])) - data_list$minage[pred] + 1
+      prey_age <- as.numeric(as.character(UobsWtAge_matrix$Prey_age[i])) - data_list$minage[prey] + 1
       stom <- as.numeric(as.character(UobsWtAge_matrix$Stomach_proportion_by_weight[i]))
 
       UobsWtAge[pred, prey, pred_age, prey_age] <- stom
@@ -725,14 +744,14 @@ data_list[[srv_bits[i]]] <- sheet
 
   # with year
   if(ncol(UobsWtAge_matrix) == 6){
-    UobsWtAge <- array(NA, dim = c( data_list$nspp, data_list$nspp, max(data_list$nages), max(data_list$nages)))
+    UobsWtAge <- array(0, dim = c( data_list$nspp, data_list$nspp, max(data_list$nages), max(data_list$nages)))
     dims <- dim(data_list$UobsWtAge)
 
     for(i in 1:nrow(UobsWtAge_matrix)){
       pred <- as.numeric(as.character(UobsWtAge_matrix$Pred[i]))
       prey <- as.numeric(as.character(UobsWtAge_matrix$Prey[i]))
-      pred_age <- as.numeric(as.character(UobsWtAge_matrix$Pred_age[i]))
-      prey_age <- as.numeric(as.character(UobsWtAge_matrix$Prey_age[i]))
+      pred_age <- as.numeric(as.character(UobsWtAge_matrix$Pred_age[i])) - data_list$minage[pred] + 1
+      prey_age <- as.numeric(as.character(UobsWtAge_matrix$Prey_age[i])) - data_list$minage[prey] + 1
       year <- as.numeric(as.character(UobsWtAge_matrix$Year[i]))
       stom <- as.numeric(as.character(UobsWtAge_matrix$Stomach_proportion_by_weight[i]))
 
@@ -751,7 +770,7 @@ data_list[[srv_bits[i]]] <- sheet
 
   # without year
   if(ncol(Uobs_matrix) == 5){
-    Uobs <- array(NA, dim = c( data_list$nspp, data_list$nspp, max(data_list$nlengths), max(data_list$nlengths)))
+    Uobs <- array(0, dim = c( data_list$nspp, data_list$nspp, max(data_list$nlengths), max(data_list$nlengths)))
     dims <- dim(data_list$Uobs)
 
     for(i in 1:nrow(Uobs_matrix)){
@@ -769,7 +788,7 @@ data_list[[srv_bits[i]]] <- sheet
 
   # with year
   if(ncol(Uobs_matrix) == 6){
-    Uobs <- array(NA, dim = c( data_list$nspp, data_list$nspp, max(data_list$nlengths), max(data_list$nlengths)))
+    Uobs <- array(0, dim = c( data_list$nspp, data_list$nspp, max(data_list$nlengths), max(data_list$nlengths)))
     dims <- dim(data_list$Uobs)
 
     for(i in 1:nrow(Uobs_matrix)){
@@ -793,7 +812,7 @@ data_list[[srv_bits[i]]] <- sheet
 
   # without year
   if(ncol(UobsWt_matrix) == 5){
-    UobsWt <- array(NA, dim = c( data_list$nspp, data_list$nspp, max(data_list$nlengths), max(data_list$nlengths)))
+    UobsWt <- array(0, dim = c( data_list$nspp, data_list$nspp, max(data_list$nlengths), max(data_list$nlengths)))
     dims <- dim(data_list$UobsWt)
 
     for(i in 1:nrow(UobsWt_matrix)){
@@ -811,7 +830,7 @@ data_list[[srv_bits[i]]] <- sheet
 
   # with year
   if(ncol(UobsWt_matrix) == 6){
-    UobsWt <- array(NA, dim = c( data_list$nspp, data_list$nspp, max(data_list$nlengths), max(data_list$nlengths)))
+    UobsWt <- array(0, dim = c( data_list$nspp, data_list$nspp, max(data_list$nlengths), max(data_list$nlengths)))
     dims <- dim(data_list$UobsWt)
 
     for(i in 1:nrow(UobsWt_matrix)){
