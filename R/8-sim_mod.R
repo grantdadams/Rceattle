@@ -4,6 +4,7 @@
 #'
 #' @param ceattle_obj CEATTLE model object exported from \code{\link{Rceattle}}
 #' @param simulate TRUE/FALSE, whether to simulate the data or export the expected value
+#'
 #' @export
 sim_mod <- function( ceattle_obj, simulate = FALSE ){
   #TODO Options for simulation diet data: multinomial, sqrt-normal, dirichlet, multinomial

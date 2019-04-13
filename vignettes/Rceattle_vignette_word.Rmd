@@ -108,7 +108,7 @@ plot_recruitment(Rceattle = mod_list, model_names = mod_names)
 For recruitment, the model assumes that recruitment $R$ of species $sp$ follows the following equation:
 $$R_{sp,yr} = R0_{sp} * e^{Rdev_{sp, yr}}$$
 $$Rdev_{sp, yr} \sim N(0, \sigma_{r,sp})$$
-Following Holsman et al. [-@Holsman2015], $\sigma_{r,sp}$ can be fixed at `sqrt(0.05)` and the model estimated using penalized likelihood, by setting `ranfom_rec = FALSE`. Alternatively, `Rdev` can be treated as random effects and $\sigma_{r,sp}$ estimated by setting `random_rec = TRUE`:
+Following Holsman et al. [-@Holsman2015], $\sigma_{r,sp}$ can be fixed at `sqrt(0.5)` and the model estimated using penalized likelihood, by setting `ranfom_rec = FALSE`. Alternatively, `Rdev` can be treated as random effects and $\sigma_{r,sp}$ estimated by setting `random_rec = TRUE`:
 ```{R eval = FALSE}
 ss_re <- Rceattle::fit_mod(
   data_list = BS2017SS,

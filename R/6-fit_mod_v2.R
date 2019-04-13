@@ -7,7 +7,7 @@
 #' @param inits (Optional) Character vector of named initial values from ADMB or list of previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters. Can also consturct using \code{\link{build_params}}
 #' @param map (Optional) A prebuilt map object from \code{\link{build_map}}.
 #' @param bounds (Optional) A prebuild bounds object from \code{\link{build_bounds}}.
-#' @param file_name (Optional) Filename where files will be saved. If NULL, no file is saved.
+#' @param file (Optional) Filename where files will be saved. If NULL, no file is saved.
 #' @param debug Runs the model without estimating parameters to get derived quantities given initial parameter values.
 #' @param random_rec logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE.
 #' @param niter Number of iterations for multispecies model
@@ -171,7 +171,7 @@
 #'# Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
 #'ss_run <- fit_mod(data_list = BS2017SS,
 #'    inits = NULL, # Initial parameters = 0
-#'    file_name = NULL, # Don't save
+#'    file = NULL, # Don't save
 #'    debug = 0, # Estimate
 #'    random_rec = FALSE, # No random recruitment
 #'    msmMode = 0, # Single species mode
@@ -187,7 +187,7 @@ fit_mod <-
            inits = NULL,
            map = NULL,
            bounds = NULL,
-           file_name = NULL,
+           file = NULL,
            debug = T,
            random_rec = FALSE,
            niter = 3,
@@ -246,9 +246,10 @@ fit_mod <-
         inits = inits
       ))
     } else{
+      inits$proj_F <- data_list$fsh_control$proj_F
       params <- inits
     }
-    print("Step 1: Parameter build complete")
+    message("Step 1: Parameter build complete")
 
 
 
@@ -259,7 +260,7 @@ fit_mod <-
     } else{
       map <- map
     }
-    print("Step 2: Map build complete")
+    message("Step 2: Map build complete")
 
 
     # STEP 3 - Get bounds
@@ -268,7 +269,7 @@ fit_mod <-
     } else {
       bounds = bounds
     }
-    print("Step 3: Param bounds complete")
+    message("Step 3: Param bounds complete")
 
 
     # STEP 4 - Setup random effects
@@ -288,7 +289,7 @@ fit_mod <-
       list.files(path = cpp_directory, pattern = TMBfilename)
     if (Sys.info()[1] == "Windows" &
         paste0(TMBfilename, ".so") %in% version_files) {
-      suppressMessages(suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file))), silent = TRUE)))
+      suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file))), silent = TRUE))
       suppressWarnings(file.remove(paste0(cpp_file, ".so")))
       suppressWarnings(file.remove(paste0(cpp_file, ".o")))
     }
@@ -300,7 +301,7 @@ fit_mod <-
     }
     if (Sys.info()[1] != "Windows" &
         paste0(TMBfilename, ".so") %!in% version_files) {
-      suppressMessages(suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file))))))
+      suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file))), silent = TRUE))
       suppressWarnings(file.remove(paste0(cpp_file, ".dll")))
       suppressWarnings(file.remove(paste0(cpp_file, ".o")))
     }
@@ -318,7 +319,7 @@ fit_mod <-
     setwd(old_wd)
 
 
-    print("Step 4: Compile CEATTLE complete")
+    message("Step 4: Compile CEATTLE complete")
 
 
     # STEP 6 - Reorganize data
@@ -334,7 +335,7 @@ fit_mod <-
       silent = silent
 
     )
-    print(paste0("Step 5: Build object complete"), hessian = TRUE)
+    message(paste0("Step 5: Build object complete"))
     # opt <- nlminb(obj$par, obj$fn, obj$gr)
     # methods <- c('Nelder-Mead', 'BFGS', 'CG', 'L-BFGS-B', 'nlm', 'nlminb', 'spg', 'ucminf', 'newuoa', 'bobyqa', 'nmkb', 'hjkb', 'Rcgmin', 'Rvmmin')
     # opt_list <- list()
@@ -360,10 +361,12 @@ fit_mod <-
                              startpar=obj$par,
                              lower = L,
                              upper = U,
-                             loopnum = 5
+                             loopnum = 8,
+                             control = list(eval.max = 1e+08,
+                                            iter.max = 1e+08, trace = 0)
     )
 
-    print("Step 6: Optimization complete")
+    message("Step 6: Optimization complete")
 
     # Get quantities
     quantities <- obj$report(obj$env$last.par.best)
@@ -380,6 +383,7 @@ fit_mod <-
 
     run_time = ((Sys.time() - start_time))
 
+
     # Return objects
     mod_objects <-
       list(
@@ -395,10 +399,25 @@ fit_mod <-
         run_time = run_time
       )
 
+    if(debug == 0){
+      # Check identifiability
+      identified <- suppressMessages(TMBhelper::Check_Identifiable(obj))
+#
+#       # Make into list
+#       identified_param_list <- obj$env$parList(as.numeric(identified$BadParams$Param_check))
+#       identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==0,"Not estimated",x), how = "replace")
+#       identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==1,"OK",x), how = "replace")
+#       identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==2,"BAD",x), how = "replace")
+#
+#       identified$param_list <- identified_param_list
+
+      mod_objects$identified <- identified
+    }
+
     class(mod_objects) <- "Rceattle"
 
-    if(!is.null(file_name)){
-      save(mod_objects, file = paste0(file_name, ".RData"))
+    if(!is.null(file)){
+      save(mod_objects, file = paste0(file, ".RData"))
     }
 
     # suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file)))))

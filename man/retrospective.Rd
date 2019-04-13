@@ -23,7 +23,7 @@ data("BS2017MS") # Note: the only difference is the residual mortality is lower
 
 ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
                             inits = NULL, # Initial parameters = 0
-                            file_name = NULL, # Don't save
+                            file = NULL, # Don't save
                             debug = 0, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode

@@ -42,6 +42,14 @@ build_bounds <- function( param_list = NULL, data_list){
   lower_bnd$init_dev <- replace(lower_bnd$init_dev, values = rep(-10, length(lower_bnd$init_dev)))
   upper_bnd$init_dev <- replace(upper_bnd$init_dev, values = rep(10, length(upper_bnd$init_dev)))
 
+  # Sruvery variance
+  lower_bnd$ln_sigma_srv_index <- replace(lower_bnd$ln_sigma_srv_index, values = rep(-10, length(lower_bnd$ln_sigma_srv_index)))
+  upper_bnd$ln_sigma_srv_index <- replace(upper_bnd$ln_sigma_srv_index, values = rep(10, length(upper_bnd$ln_sigma_srv_index)))
+
+  # Fishery variance
+  lower_bnd$ln_sigma_fsh_catch <- replace(lower_bnd$ln_sigma_fsh_catch, values = rep(-10, length(lower_bnd$ln_sigma_fsh_catch)))
+  upper_bnd$ln_sigma_fsh_catch <- replace(upper_bnd$ln_sigma_fsh_catch, values = rep(3, length(upper_bnd$ln_sigma_fsh_catch)))
+
   # F
   lower_bnd$F_dev <- replace(lower_bnd$F_dev, values = rep(-1000, length(lower_bnd$F_dev)))
   upper_bnd$F_dev <- replace(upper_bnd$F_dev, values = rep(10, length(upper_bnd$F_dev)))
@@ -54,7 +62,7 @@ build_bounds <- function( param_list = NULL, data_list){
 
 
   # Make sure inits are within bounds
-  if( sum(unlist(bounds$upper) < as.numeric(unlist(param_list))) > 0 | sum(as.numeric(unlist(param_list)) < unlist(bounds$lower)) > 0 ){
+  if( sum(unlist(bounds$upper) < as.numeric(unlist(param_list)), na.rm = TRUE) > 0 | sum(as.numeric(unlist(param_list)) < unlist(bounds$lower), na.rm = TRUE) > 0 ){
     lower_check <- param_list
     upper_check <- param_list
     param_check <- data.frame(matrix(NA, nrow = length(param_list), ncol = 3))
