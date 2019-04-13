@@ -327,8 +327,9 @@ Type objective_function<Type>::operator() () {
 
   // -- 2.2.2. Species attributes
   DATA_IVECTOR( nages );                  // Number of species (prey) ages; n = [1, nspp]
+  DATA_IVECTOR( minage );                 // Minimum age of each species; n = [1, nspp]
   DATA_IVECTOR( nlengths );               // Number of species (prey) lengths; n = [1, nspp]
-  DATA_VECTOR( stom_tau );               // Stomach sample size
+  DATA_VECTOR( stom_tau );                // Stomach sample size
   int max_age = imax(nages);              // Integer of maximum nages to make the arrays; n = [1]
   DATA_ARRAY( age_error );                // Array of aging error matrices for each species; n = [nspp, nages, nages]
 
@@ -472,8 +473,12 @@ Type objective_function<Type>::operator() () {
   PARAMETER_MATRIX( fsh_sel_slp );                // Fishery selectivity paramaters for logistic; n = [2, n_fsh]
   PARAMETER_MATRIX( fsh_sel_inf );                // Fishery selectivity paramaters for logistic; n = [2, n_fsh]
 
+  // 3.5. Variance of survey and fishery time series
+  PARAMETER_VECTOR( ln_sigma_srv_index );         // Log standard deviation of survey index time-series; n = [1, n_srv]
+  PARAMETER_VECTOR( ln_sigma_fsh_catch );         // Log standard deviation of fishery catch time-series; n = [1, n_fsh]
+
   // FIXME: Create maps
-  // -- 3.5. Kinzery predation function parameters
+  // -- 3.6. Kinzery predation function parameters
   PARAMETER_MATRIX(logH_1);                       // Predation functional form; n = [nspp, nspp2];
   PARAMETER_VECTOR(logH_1a);                      // Age adjustment to H_1; n = [1, nspp]; // FIXME: make matrix
   PARAMETER_VECTOR(logH_1b);                      // Age adjustment to H_1; n = [1, nspp]; // FIXME: make matrix
@@ -482,11 +487,11 @@ Type objective_function<Type>::operator() () {
   PARAMETER_MATRIX(logH_3);                       // Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH3,UpperBoundH3;
   PARAMETER_MATRIX(H_4);                          // Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH4,UpperBoundH4;
 
-  // 3.6 Gamma selectivity parameters
+  // 3.7. Gamma selectivity parameters
   PARAMETER_VECTOR( log_gam_a );                  // Log predator selectivity; n = [1,nspp]; FIXME: bounds = 1.0e-10 and 19.9
   PARAMETER_VECTOR( log_gam_b );                  // Log predator selectivity; n = [1,nspp]; FIXME: bounds = -5.2 and 10
 
-  // 3.7. Preference
+  // 3.8. Preference
   PARAMETER_MATRIX( log_phi );                        // Species preference coefficient; n = [nspp, nspp]
 
 
@@ -519,7 +524,7 @@ Type objective_function<Type>::operator() () {
   vector<Type>  avgsel_fsh(n_fsh); avgsel_fsh.setZero();                            // Average fishery selectivity; n = [1, nspp]
   array<Type>   fsh_sel(n_fsh, max_age, nyrs); fsh_sel.setZero();                   // Estimated fishery selectivity at age; n = [nspp, nages, nyrs]
   matrix<Type>  fsh_sel2(n_fsh, max_age); fsh_sel2.setZero();                       // Temporary saved fishery selectivity at age for estimated bits; n = [nspp, nages, nyrs]
-
+  vector<Type>  sigma_fsh_catch(n_fsh); sigma_fsh_catch.setZero();                  // Standard deviation of fishery time-series; n = [1, n_fsh]
   array<Type>   catch_hat(nspp, max_age, nyrs); catch_hat.setZero();                // Estimated catch-at-age (n); n = [nspp, nages, nyrs]
   array<Type>   F(n_fsh, max_age, nyrs); F.setZero();                               // Estimated fishing mortality for each fishery; n = [n_fsh, nages, nyrs]
   array<Type>   F_tot(nspp, max_age, nyrs); F_tot.setZero();                        // Sum of annual estimated fishing mortalities for each species-at-age; n = [nspp, nages, nyrs]
@@ -533,7 +538,7 @@ Type objective_function<Type>::operator() () {
   vector<Type>  avgsel_srv(n_srv); avgsel_srv.setZero();                          // Average survey selectivity; n = [1, nspp]
   array<Type>   srv_sel(n_srv, max_age, nyrs); srv_sel.setZero();                 // Estimated survey selectivity at age; n = [nspp, nages, nyrs]
   matrix<Type>  srv_sel_tmp(n_srv, max_age); srv_sel_tmp.setZero();               // Temporary saved survey selectivity at age for estimated bits; n = [nspp, nages, nyrs]
-
+  vector<Type>  sigma_srv_index(n_srv); sigma_srv_index.setZero();                // Vector of standard deviates of survey index; n = [1, n_srv]
   Type avgsel_tmp = 0;                                                            // Temporary object for average selectivity across all ages
   vector<Type>  srv_bio_hat(srv_biom_obs.rows()); srv_bio_hat.setZero();          // Estimated survey biomass (kg); columns = Species, Index, Year, Month, Estimate
   vector<Type>  srv_hat( srv_comp_obs.rows() ); srv_hat.setZero();                // Estimated survey total abundance (n); n = [nspp, nyrs]
@@ -543,11 +548,11 @@ Type objective_function<Type>::operator() () {
 
   // -- 4.6. Ration components
   array<Type>   ConsumAge( nspp, max_age, nyrs ); ConsumAge.setZero();                        // Pre-allocated indiviudal consumption in grams per predator-age; n = [nyrs, nages, nspp]
-  matrix<Type>  fT( nspp, nyrs ); fT.setZero();                                              // Pre-allocation of temperature function of consumption; n = [nspp, nTyrs]
+  matrix<Type>  fT( nspp, nyrs ); fT.setZero();                                               // Pre-allocation of temperature function of consumption; n = [nspp, nTyrs]
   array<Type>   LbyAge( nspp, max_age, nyrs ); LbyAge.setZero();                              // Length by age from LW regression
   matrix<Type>  mnWt_obs( nspp, max_age ); mnWt_obs.setZero();                                // Mean observed weight at age (across years); n = [nspp, nages]
   array<Type>   ration2Age( nspp, max_age, nyrs ); ration2Age.setZero();                      // Annual ration at age (kg/yr); n = [nyrs, nages, nspp]
-  vector<Type>  TempC( nyrs ); TempC.setZero();                                              // Bottom temperature; n = [1, nTyrs]
+  vector<Type>  TempC( nyrs ); TempC.setZero();                                               // Bottom temperature; n = [1, nTyrs]
 
   // -- 4.7. Suitability components
   Type tmp_othersuit = 0  ;
@@ -644,6 +649,9 @@ Type objective_function<Type>::operator() () {
 
   // 5.8. Parameter transform
   r_sigma = exp(ln_rec_sigma); // Convert log sd to natural scale
+  sigma_srv_index = exp(ln_sigma_srv_index ) ;
+  sigma_fsh_catch = exp( ln_sigma_fsh_catch) ;
+
 
   // 5.1. Reorganize survey control bits
   vector<Type> srv_q(n_srv); srv_q.setZero();                                   // Vector to save q on natural scale
@@ -653,6 +661,7 @@ Type objective_function<Type>::operator() () {
   vector<int> srv_units(n_srv); srv_units.setZero();                            // Vector to save survey units (1 = weight, 2 = numbers)
   vector<int> srv_wt_index(n_srv); srv_wt_index.setZero();                      // Vector to save 3rd dim of wt to use for weight-at-age
   vector<int> srv_alk_index(n_srv); srv_alk_index.setZero();                    // Vector to save 3rd dim of age_trans_matrix to use for ALK
+  vector<int> est_sigma_srv(n_srv); est_sigma_srv.setZero();                    // Vector to save wether sigma survey is estimated
 
 
   for (srv_ind = 0; srv_ind < n_srv; srv_ind++){
@@ -664,6 +673,7 @@ Type objective_function<Type>::operator() () {
     srv_units(srv) = srv_control(srv_ind, 5);             // Survey units
     srv_wt_index(srv) = srv_control(srv_ind, 6) - 1;      // Dim3 of wt
     srv_alk_index(srv) = srv_control(srv_ind, 7) - 1;     // Dim3 of ALK
+    est_sigma_srv(srv) = srv_control(srv_ind, 9);         // Wether to estimate standard deviation of survey time series
   }
 
 
@@ -674,6 +684,7 @@ Type objective_function<Type>::operator() () {
   vector<int> fsh_units(n_fsh); fsh_units.setZero();                            // Vector to save survey units (1 = weight, 2 = numbers)
   vector<int> fsh_wt_index(n_fsh); fsh_wt_index.setZero();                      // Vector to save 3rd dim of wt to use for weight-at-age
   vector<int> fsh_alk_index(n_fsh); fsh_alk_index.setZero();                    // Vector to save 3rd dim of age_trans_matrix to use for ALK
+  vector<int> est_sigma_fsh(n_fsh); est_sigma_fsh.setZero();                    // Vector to save wether sigma fishery is estimated
 
   for (fsh_ind = 0; fsh_ind < n_fsh; fsh_ind++){
     fsh = fsh_control(fsh_ind, 1) - 1;                    // Temporary survey index
@@ -683,6 +694,7 @@ Type objective_function<Type>::operator() () {
     fsh_units(fsh) = fsh_control(fsh_ind, 5);             // Fishery units
     fsh_wt_index(fsh) = fsh_control(fsh_ind, 6) - 1;      // Dim3 of wt
     fsh_alk_index(fsh) =  fsh_control(fsh_ind, 7) - 1;    // Dim3 of ALK
+    est_sigma_fsh(fsh) = fsh_control(fsh_ind, 8);         // Wether to estimate standard deviation of fishery time series
   }
 
 
@@ -868,7 +880,7 @@ Type objective_function<Type>::operator() () {
     // 6.3. ESTIMATE RECRUITMENT T1.1
     for (sp = 0; sp < nspp; sp++) {
       for (yr = 0; yr < nyrs; yr++) {
-          R(sp, yr) = exp(ln_mn_rec(sp) + rec_dev(sp, yr));
+        R(sp, yr) = exp(ln_mn_rec(sp) + rec_dev(sp, yr));
         NByage(sp, 0, yr) = R(sp, yr);
       }
     }
@@ -2148,15 +2160,29 @@ Type objective_function<Type>::operator() () {
 
   // 11.2. FIT OBJECTIVE FUNCTION
   // Slot 0 -- Survey biomass -- NFMS annual BT survey and EIT survey
+  Type srv_std_dev = 0;
   for (srv_ind = 0; srv_ind < srv_biom_obs.rows(); srv_ind++) {
 
     srv = srv_biom_ctl(srv_ind, 0) - 1;            // Temporary survey index
     sp = srv_biom_ctl(srv_ind, 1) - 1;             // Species is the 2nd column
     srv_yr = srv_biom_ctl(srv_ind, 3);             // Temporary index for years of data
 
+    // Set up variance
+    switch (est_sigma_srv(srv)) {
+    case 0: // Provided standard deviation
+      srv_std_dev = srv_biom_obs(srv_ind, 1);
+      break;
+    case 1:     // Estimated standard deviation
+      srv_std_dev = sigma_srv_index(srv);
+      break;
+    default:
+      error("Invalid 'Estimate_sigma_index'");
+    }
+
+
     // Add years from hindcast
     if(srv_yr <= endyr){
-      jnll_comp(0, srv) += pow(log(srv_biom_obs(srv_ind, 0)) - log(srv_bio_hat(srv_ind)), 2) / (2 * square(srv_biom_obs(srv_ind, 1))); // NOTE: This is not quite the lognormal and biohat will be the median.
+      jnll_comp(0, srv) += pow(log(srv_biom_obs(srv_ind, 0)) - log(srv_bio_hat(srv_ind)), 2) / (2 * square( srv_std_dev )); // NOTE: This is not quite the lognormal and biohat will be the median.
     }
   }
 
@@ -2224,11 +2250,24 @@ Type objective_function<Type>::operator() () {
 
 
   // Slot 4 -- Total catch -- Fishery observer dat
+  Type fsh_std_dev = 0;
   for (fsh_ind = 0; fsh_ind < fsh_biom_obs.rows(); fsh_ind++) {
 
     fsh = fsh_biom_ctl(fsh_ind, 0) - 1;            // Temporary fishery index
     sp = fsh_biom_ctl(fsh_ind, 1) - 1;             // Species is the column 3
     fsh_yr = fsh_biom_ctl(fsh_ind, 3);             // Temporary index for years of data
+
+    // Set up variance
+    switch (est_sigma_fsh(fsh)) {
+    case 0: // Provided standard deviation
+      fsh_std_dev = fsh_biom_obs(fsh_ind, 1);
+      break;
+    case 1:     // Estimated standard deviation
+      fsh_std_dev = sigma_fsh_catch(fsh);
+      break;
+    default:
+      error("Invalid 'Estimate_sigma_catch'");
+    }
 
     // Ad only years from hindcast
     if(fsh_yr <= endyr){
@@ -2304,26 +2343,14 @@ Type objective_function<Type>::operator() () {
   for (sp = 0; sp < nspp; sp++) {
     // Slot 10 -- init_dev -- Initial abundance-at-age
     for (age = 1; age < nages(sp); age++) {
-
-      if (random_rec == 0) {
-        jnll_comp(8, sp) += pow( init_dev(sp, age - 1) - Type(0.25), 2);
-      }
-
-      if (random_rec == 1) {
-        jnll_comp(8, sp) -= dnorm( init_dev(sp, age - 1) - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);
-      }
-
+      jnll_comp(8, sp) -= dnorm( init_dev(sp, age - 1) - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);
     }
 
     for (yr = 0; yr < nyrs_hind; yr++) {
 
       // Slot 11 -- Tau -- Annual recruitment deviation
-      if (random_rec == 0) {
-        jnll_comp(9, sp) += pow( rec_dev(sp, yr) - Type(0.25), 2);    // Recruitment deviation using penalized likelihood. ADDED lognormal bias correction
-      }
-      if (random_rec == 1) {
-        jnll_comp(9, sp) -= dnorm( rec_dev(sp, yr) - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);    // Recruitment deviation using random effects.
-      }
+      jnll_comp(9, sp) -= dnorm( rec_dev(sp, yr) - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);    // Recruitment deviation using random effects.
+
 
       // Slot 12 -- Epsilon -- Annual fishing mortality deviation
       jnll_comp(10, sp) += pow( F_dev(sp, yr), 2);      // Fishing mortality deviation using penalized likelihood.

@@ -312,6 +312,7 @@ plot_recruitment <-
     minyr <- min((sapply(Years, min)))
 
     nspp <- Rceattle[[1]]$data_list$nspp
+    minage <- Rceattle[[1]]$data_list$minage
 
 
     # Get biomass
