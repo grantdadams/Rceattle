@@ -27,19 +27,20 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
 
 
   # control
-  control <- matrix(NA, ncol = data_list$nspp, nrow = 10)
+  control <- matrix(NA, ncol = data_list$nspp, nrow = 11)
   control[1,1] <- data_list$nspp
   control[2,1] <- data_list$styr
   control[3,1] <- data_list$endyr
   control[4,1] <- data_list$projyr
   control[5,] <- data_list$nages
-  control[6,] <- data_list$nlengths
-  control[7,] <- data_list$pop_wt_index
-  control[8,] <- data_list$pop_alk_index
-  control[9,] <- data_list$other_food
-  control[10,] <- data_list$stom_tau
+  control[6,] <- data_list$minage
+  control[7,] <- data_list$nlengths
+  control[8,] <- data_list$pop_wt_index
+  control[9,] <- data_list$pop_alk_index
+  control[10,] <- data_list$other_food
+  control[11,] <- data_list$stom_tau
   control <- as.data.frame(control)
-  control <- cbind(c("nspp", "styr", "endyr", "projyr","nages", "nlengths", "pop_wt_index", "pop_alk_index", "other_food", "stom_sample_size"), control)
+  control <- cbind(c("nspp", "styr", "endyr", "projyr","nages", "minage", "nlengths", "pop_wt_index", "pop_alk_index", "other_food", "stom_sample_size"), control)
   colnames(control) <- c( "Object", paste0("Species_", 1:data_list$nspp))
   names_used <- c(names_used, as.character(control$Object))
 
