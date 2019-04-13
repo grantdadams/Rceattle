@@ -71,11 +71,14 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   alk_dat <- matrix(NA, ncol = max(index_species$Nlengths) + 3, nrow = sum(index_species$Nages))
   ages_done <- 0
   for(i in 1:nrow(index_species)){
+
+    sp <- index_species$Sp[i]  # Species index
     for(age in 1:index_species$Nages[i]){
+      sp_age <- data_list$minage[sp] + age - 1
       ages_done <- ages_done + 1
+      alk_dat[ages_done,2] <- sp
       alk_dat[ages_done,1] <- index_species$ALK[i] # ALK index
-      alk_dat[ages_done,2] <- index_species$Sp[i]  # Species index
-      alk_dat[ages_done,3] <- age  # Age index
+      alk_dat[ages_done,3] <- sp_age  # Age index
       alk_dat[ages_done,4:ncol(alk_dat)] <- data_list$age_trans_matrix[age,,index_species$ALK[i]]  # Age index
     }
   }
@@ -93,8 +96,9 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   for(sp in 1:data_list$nspp){
     for(age in 1:data_list$nages[sp]){
       ages_done <- ages_done + 1
+      sp_age <- data_list$minage[sp] + age - 1
       age_error[ages_done,1] <- sp # Species index
-      age_error[ages_done,2] <- age # Species index
+      age_error[ages_done,2] <- sp_age # Species index
       age_error[ages_done,((1:data_list$nages[sp]) + 2)] <- data_list$age_error[sp, age, 1:data_list$nages[sp]] # Species index
     }
   }
@@ -254,8 +258,8 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
           for(prey_a in 1:data_list$nages[prey]){
             UobsAge[ind, 1] <- pred
             UobsAge[ind, 2] <- prey
-            UobsAge[ind, 3] <- pred_a
-            UobsAge[ind, 4] <- prey_a
+            UobsAge[ind, 3] <- pred_a + data_list$minage[pred] - 1
+            UobsAge[ind, 4] <- prey_a + data_list$minage[prey] - 1
             UobsAge[ind, 5] <- data_list$UobsAge[pred, prey, pred_a, prey_a]
             ind = ind + 1
           }
@@ -284,8 +288,8 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
             for(yr in 1:dims[5]){
               UobsAge[ind, 1] <- pred
               UobsAge[ind, 2] <- prey
-              UobsAge[ind, 3] <- pred_a
-              UobsAge[ind, 4] <- prey_a
+              UobsAge[ind, 3] <- pred_a + data_list$minage[pred] - 1
+              UobsAge[ind, 4] <- prey_a + data_list$minage[prey] - 1
               UobsAge[ind, 5] <- yr
               UobsAge[ind, 6] <- data_list$UobsAge[pred, prey, pred_a, prey_a, yr]
               ind = ind + 1
@@ -317,8 +321,8 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
           for(prey_a in 1:data_list$nages[prey]){
             UobsWtAge[ind, 1] <- pred
             UobsWtAge[ind, 2] <- prey
-            UobsWtAge[ind, 3] <- pred_a
-            UobsWtAge[ind, 4] <- prey_a
+            UobsWtAge[ind, 3] <- pred_a + data_list$minage[pred] - 1
+            UobsWtAge[ind, 4] <- prey_a + data_list$minage[prey] - 1
             UobsWtAge[ind, 5] <- data_list$UobsWtAge[pred, prey, pred_a, prey_a]
             ind = ind + 1
           }
@@ -348,8 +352,8 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
             for(yr in 1:dims[5]){
               UobsWtAge[ind, 1] <- pred
               UobsWtAge[ind, 2] <- prey
-              UobsWtAge[ind, 3] <- pred_a
-              UobsWtAge[ind, 4] <- prey_a
+              UobsWtAge[ind, 3] <- pred_a + data_list$minage[pred] - 1
+              UobsWtAge[ind, 4] <- prey_a + data_list$minage[prey] - 1
               UobsWtAge[ind, 5] <- yr
               UobsWtAge[ind, 6] <- data_list$UobsWtAge[pred, prey, pred_a, prey_a, yr]
               ind = ind + 1
@@ -531,18 +535,18 @@ read_excel <- function( file = "Rceattle_data.xlsx" ){
   sheet1 <- as.data.frame(sheet1)
 
   # control
-  data_list$nspp <- sheet1[1,2]
-  data_list$styr <- sheet1[2,2]
-  data_list$endyr <- sheet1[3,2]
-  data_list$projyr <- sheet1[4,2]
+  data_list$nspp <- as.numeric(sheet1[1,2])
+  data_list$styr <- as.numeric(sheet1[2,2])
+  data_list$endyr <- as.numeric(sheet1[3,2])
+  data_list$projyr <- as.numeric(sheet1[4,2])
   data_list$nages <- as.numeric(as.character(sheet1[5, 2:(data_list$nspp + 1)]))
   data_list$minage <- as.numeric(as.character(sheet1[6, 2:(data_list$nspp + 1)]))
   data_list$nlengths <- as.numeric(as.character(sheet1[7, 2:(data_list$nspp + 1)]))
-  data_list$pop_wt_index <- sheet1[8, 2:(data_list$nspp + 1)]
-  data_list$pop_alk_index <- sheet1[9, 2:(data_list$nspp + 1)]
-  data_list$sigma_rec_prior <- sheet1[10, 2:(data_list$nspp + 1)]
-  data_list$other_food <- sheet1[11, 2:(data_list$nspp + 1)]
-  data_list$stom_tau <- sheet1[12, 2:(data_list$nspp + 1)]
+  data_list$pop_wt_index <- as.numeric(sheet1[8, 2:(data_list$nspp + 1)])
+  data_list$pop_alk_index <- as.numeric(sheet1[9, 2:(data_list$nspp + 1)])
+  data_list$sigma_rec_prior <- as.numeric(sheet1[10, 2:(data_list$nspp + 1)])
+  data_list$other_food <- as.numeric(sheet1[11, 2:(data_list$nspp + 1)])
+  data_list$stom_tau <- as.numeric(sheet1[12, 2:(data_list$nspp + 1)])
 
 
   # srv and fsh bits
