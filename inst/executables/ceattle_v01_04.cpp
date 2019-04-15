@@ -305,7 +305,7 @@ Type objective_function<Type>::operator() () {
   // 1.4. MODEL OBJECTS
   // 1.4.1. LOOPING INDICES -- k = observation, sp = species, age = age, ln = length, ksp = prey, k_age = prey age (yr), k_ln = prey length, yr = year, rsp = predator, r_age = predator age (yr), r_ln = predator length
   int sp, age, ln, ksp, k_age, k_ln, yr, rsp, r_age, r_ln; // k
-  int srv, fsh, sex;                                                    // Survey and fishery indices
+  int srv, fsh;                                                    // Survey and fishery indices
   int fsh_yr, srv_yr, srv_comp_type, fsh_comp_type;                     // Year indices
   int fsh_ind, srv_ind, comp_ind, ctl_ind, yr_ind;                      // Indices for survey data sets
   int ncnt;    // Pointers
@@ -1858,7 +1858,7 @@ Type objective_function<Type>::operator() () {
 
       srv = srv_biom_ctl(srv_ind, 0) - 1;            // Temporary survey index
       sp = srv_biom_ctl(srv_ind, 1) - 1;             // Temporary index of species
-      sex = srv_biom_ctl(srv_ind, 2);                // Temporary index for years of data
+      // sex = srv_biom_ctl(srv_ind, 2);                // Temporary index for years of data
       srv_yr = srv_biom_ctl(srv_ind, 3) - styr;      // Temporary index for years of data
 
       mo = srv_biom_n(srv_ind, 0);                    // Temporary index for month
@@ -1885,7 +1885,7 @@ Type objective_function<Type>::operator() () {
 
       srv = srv_biom_ctl(srv_ind, 0) - 1;            // Temporary survey index
       sp = srv_biom_ctl(srv_ind, 1) - 1;             // Temporary index of species
-      sex = srv_biom_ctl(srv_ind, 2);                // Temporary index for years of data
+      // sex = srv_biom_ctl(srv_ind, 2);                // Temporary index for years of data
       srv_yr = srv_biom_ctl(srv_ind, 3) - styr;      // Temporary index for years of data
 
       mo = srv_biom_n(srv_ind, 0);                    // Temporary index for month
@@ -1935,7 +1935,7 @@ Type objective_function<Type>::operator() () {
 
       srv = srv_comp_ctl(comp_ind, 0) - 1;            // Temporary survey index
       sp = srv_comp_ctl(comp_ind, 1) - 1;             // Temporary index of species
-      sex = srv_comp_ctl(comp_ind, 2);                // Temporary index for comp sex (0 = combined, 1 = female, 2 = male)
+      // sex = srv_comp_ctl(comp_ind, 2);                // Temporary index for comp sex (0 = combined, 1 = female, 2 = male)
       srv_comp_type = srv_comp_ctl(comp_ind, 3);      // Temporary index for comp type (0 = age, 1 = length)
       srv_yr = srv_comp_ctl(comp_ind, 4) - styr;      // Temporary index for years of data
       mo = srv_comp_n(comp_ind, 0);                   // Temporary index for month
@@ -1991,7 +1991,7 @@ Type objective_function<Type>::operator() () {
 
       fsh = fsh_biom_ctl(fsh_ind, 0) - 1;            // Temporary fishery index
       sp = fsh_biom_ctl(fsh_ind, 1) - 1;             // Temporary index of species
-      sex = fsh_biom_ctl(fsh_ind, 2);                // Temporary index for years of data
+      // sex = fsh_biom_ctl(fsh_ind, 2);                // Temporary index for years of data
       fsh_yr = fsh_biom_ctl(fsh_ind, 3) - styr;      // Temporary index for years of data
       mo = fsh_biom_n(fsh_ind, 0);                   // Temporary index for month
 
@@ -2022,7 +2022,7 @@ Type objective_function<Type>::operator() () {
 
       fsh = fsh_comp_ctl(comp_ind, 0) - 1;            // Temporary fishery index
       sp = fsh_comp_ctl(comp_ind, 1) - 1;             // Temporary index of species
-      sex = fsh_comp_ctl(comp_ind, 2);                // Temporary index for comp sex (0 = combined, 1 = female, 2 = male)
+      // sex = fsh_comp_ctl(comp_ind, 2);                // Temporary index for comp sex (0 = combined, 1 = female, 2 = male)
       fsh_comp_type = fsh_comp_ctl(comp_ind, 3);      // Temporary index for comp type (0 = age, 1 = length)
       fsh_yr = fsh_comp_ctl(comp_ind, 4) - styr;      // Temporary index for years of data
       mo = fsh_comp_n(comp_ind, 0);                   // Temporary index for month

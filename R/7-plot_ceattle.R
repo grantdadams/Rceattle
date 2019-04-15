@@ -889,7 +889,7 @@ plot_mort <-
     m_mat <-
       array(NA, dim = c(nspp, max_age, length(Rceattle) + length(tmp_list)))
     for (i in 1:length(Rceattle)) {
-      m_mat[, ,i] <- Rceattle[[i]]$quantities$M1
+      m_mat[, ,i] <- Rceattle[[i]]$quantities$M1[,1:max_age]
     }
 
     # ind = 1
