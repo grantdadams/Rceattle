@@ -31,6 +31,8 @@ retrospective <- function( Rceattle = NULL, peels = NULL){
   data_list <- Rceattle$data_list
   endyr <- data_list$endyr
   styr <- data_list$styr
+  projyr <- data_list$projyr
+  nyrs_proj <- projyr - styr + 1
 
   # Run across retrospective bits
   ind <- 2
@@ -40,7 +42,7 @@ retrospective <- function( Rceattle = NULL, peels = NULL){
 
     # Adjust initial parameters
     inits <- Rceattle$estimated_params
-    inits$rec_dev <- inits$rec_dev[,1:nyrs]
+    inits$rec_dev[, (nyrs + 1):nyrs_proj] <- 0
     inits$F_dev <- inits$F_dev[,1:nyrs]
 
     # Refit
