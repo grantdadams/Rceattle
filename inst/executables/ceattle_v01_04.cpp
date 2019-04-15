@@ -545,6 +545,9 @@ Type objective_function<Type>::operator() () {
   matrix<Type>  srv_age_hat = srv_comp_obs; srv_age_hat.setZero();                // Estimated survey abundance at true age; columns = Comp_1, Comp_2, etc.
   matrix<Type>  srv_age_obs_hat = srv_comp_obs; srv_age_obs_hat.setZero();        // Estimated survey abundance at observed age; columns = Comp_1, Comp_2, etc.
   matrix<Type>  srv_comp_hat = srv_comp_obs; srv_comp_hat.setZero();              // Estimated survey comp; columns = Comp_1, Comp_2, etc.
+  vector<Type>  sigma_srv_analytical(n_srv); sigma_srv_analytical.setZero();      // Temporary vector to save analytical sigma follow Ludwig and Walters 1994
+  vector<Type>  srv_q_analytical(n_srv); srv_q_analytical.setZero();              // Temporary vector to save analytical sigma follow Ludwig and Walters 1994
+  vector<Type>  srv_n_obs(n_srv); srv_n_obs.setZero();                            // Vector to save the number of observations for each survey time series
 
   // -- 4.6. Ration components
   array<Type>   ConsumAge( nspp, max_age, nyrs ); ConsumAge.setZero();                        // Pre-allocated indiviudal consumption in grams per predator-age; n = [nyrs, nages, nspp]
@@ -661,6 +664,7 @@ Type objective_function<Type>::operator() () {
   vector<int> srv_units(n_srv); srv_units.setZero();                            // Vector to save survey units (1 = weight, 2 = numbers)
   vector<int> srv_wt_index(n_srv); srv_wt_index.setZero();                      // Vector to save 3rd dim of wt to use for weight-at-age
   vector<int> srv_alk_index(n_srv); srv_alk_index.setZero();                    // Vector to save 3rd dim of age_trans_matrix to use for ALK
+  vector<int> est_srv_q(n_srv); est_srv_q.setZero();                            // Vector to save wether or not analytical q is used
   vector<int> est_sigma_srv(n_srv); est_sigma_srv.setZero();                    // Vector to save wether sigma survey is estimated
 
 
@@ -673,6 +677,7 @@ Type objective_function<Type>::operator() () {
     srv_units(srv) = srv_control(srv_ind, 5);             // Survey units
     srv_wt_index(srv) = srv_control(srv_ind, 6) - 1;      // Dim3 of wt
     srv_alk_index(srv) = srv_control(srv_ind, 7) - 1;     // Dim3 of ALK
+    est_srv_q(srv) = srv_control(srv_ind, 8);             // Estimate analytical q?
     est_sigma_srv(srv) = srv_control(srv_ind, 9);         // Wether to estimate standard deviation of survey time series
   }
 
@@ -1846,8 +1851,36 @@ Type objective_function<Type>::operator() () {
     } // End loop
     // Good above here
 
+    // -- 9.2. Analytical survey q following Ludwig and Martell 1994
+    srv_n_obs.setZero();
+    srv_q_analytical.setZero();
+    for(srv_ind = 0; srv_ind < srv_biom_ctl.rows(); srv_ind++){
 
-    // -- 9.2. Survey Biomass
+      srv = srv_biom_ctl(srv_ind, 0) - 1;            // Temporary survey index
+      sp = srv_biom_ctl(srv_ind, 1) - 1;             // Temporary index of species
+      sex = srv_biom_ctl(srv_ind, 2);                // Temporary index for years of data
+      srv_yr = srv_biom_ctl(srv_ind, 3) - styr;      // Temporary index for years of data
+
+      mo = srv_biom_n(srv_ind, 0);                    // Temporary index for month
+      if(srv_yr < nyrs_hind){
+        srv_n_obs(srv) += 1; // Add one if survey is used
+        srv_q_analytical(srv) += log(srv_biom_obs(srv_ind, 0) / biomass(sp, srv_yr));
+      }
+    }
+
+
+    for(srv = 0 ; srv < n_srv; srv ++){
+      srv_q_analytical(srv) = exp(srv_q_analytical(srv) / srv_n_obs(srv));
+
+      // Set srv_q to analytical if used
+      if(est_srv_q(srv) == 2){
+        srv_q(srv) = srv_q_analytical(srv);
+      }
+    }
+
+
+
+    // -- 9.3. Survey Biomass
     for(srv_ind = 0; srv_ind < srv_biom_ctl.rows(); srv_ind++){
 
       srv = srv_biom_ctl(srv_ind, 0) - 1;            // Temporary survey index
@@ -1871,11 +1904,31 @@ Type objective_function<Type>::operator() () {
             srv_bio_hat(srv_ind) += NByage(sp, age, srv_yr) * exp( - (mo/12) * Zed(sp, age, srv_yr)) * srv_sel(srv, age, srv_yr) * srv_q(srv);
           }
         }
+
+
       }
     }
 
+    // -- 9.4. Calculate analytical sigma following Ludwig and Walters 1994
+    srv_n_obs.setZero();
+    sigma_srv_analytical.setZero();
+    for(srv_ind = 0; srv_ind < srv_biom_ctl.rows(); srv_ind++){
 
-    // -- 9.3. Survey composition
+      srv = srv_biom_ctl(srv_ind, 0) - 1;            // Temporary survey index
+      srv_yr = srv_biom_ctl(srv_ind, 3) - styr;      // Temporary index for years of data
+
+      if(srv_yr < nyrs_hind){
+        srv_n_obs(srv) += 1; // Add one if survey is used
+        sigma_srv_analytical(srv) += square( log(srv_biom_obs(srv_ind, 0)) - log(srv_bio_hat(srv_ind)));
+      }
+    }
+
+    for(srv = 0 ; srv < n_srv; srv ++){
+      sigma_srv_analytical(srv) = sqrt(sigma_srv_analytical(srv) / srv_n_obs(srv));
+    }
+
+
+    // -- 9.5. Survey composition
     srv_age_obs_hat.setZero();
     srv_comp_hat.setZero();
     for(comp_ind = 0; comp_ind < srv_comp_hat.rows(); comp_ind++){
@@ -2169,11 +2222,15 @@ Type objective_function<Type>::operator() () {
 
     // Set up variance
     switch (est_sigma_srv(srv)) {
-    case 0: // Provided standard deviation
+    case 0:     // Provided standard deviation
       srv_std_dev = srv_biom_obs(srv_ind, 1);
       break;
     case 1:     // Estimated standard deviation
       srv_std_dev = sigma_srv_index(srv);
+      break;
+    case 2:     // Analytical
+      srv_std_dev = sigma_srv_analytical(srv);
+      sigma_srv_index(srv) = sigma_srv_analytical(srv);
       break;
     default:
       error("Invalid 'Estimate_sigma_index'");
@@ -2534,8 +2591,7 @@ Type objective_function<Type>::operator() () {
   REPORT( srv_age_hat );
   REPORT( srv_comp_hat );
   REPORT( srv_age_obs_hat );
-
-
+  REPORT( sigma_srv_index );
   REPORT( srv_q );
   REPORT( srv_sel_type );
   REPORT( srv_nselages );

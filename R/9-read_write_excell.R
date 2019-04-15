@@ -512,6 +512,8 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
 
 
 
+
+
 #' Read a CEATTLE excel data file
 #'
 #' @param file Filname to be used. Must end with ".xlsx"
@@ -555,7 +557,7 @@ read_excel <- function( file = "Rceattle_data.xlsx" ){
     sheet <- as.data.frame(readxl::read_xlsx( file, sheet = srv_bits[i]))
     sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
 
-data_list[[srv_bits[i]]] <- sheet
+    data_list[[srv_bits[i]]] <- sheet
   }
 
   data_list$srv_control$Nselages <- suppressWarnings(as.numeric(data_list$srv_control$Nselages))
@@ -627,22 +629,22 @@ data_list[[srv_bits[i]]] <- sheet
 
 
   # pmature
-  pmature <- as.data.frame(readxl::read_xlsx( file, sheet = "pmature"))
+  pmature <- suppressMessages(as.data.frame(readxl::read_xlsx( file, sheet = "pmature")))
   data_list$pmature <- pmature
 
 
   # propF
-  propF <- as.data.frame(readxl::read_xlsx( file, sheet = "propF"))
+  propF <- suppressMessages(as.data.frame(readxl::read_xlsx( file, sheet = "propF")))
   data_list$propF <- propF
 
 
   # M1_base
-  M1_base <- as.data.frame(readxl::read_xlsx( file, sheet = "M1_base"))
+  M1_base <- suppressMessages(as.data.frame(readxl::read_xlsx( file, sheet = "M1_base")))
   data_list$M1_base <- M1_base
 
 
   # Mn_LatAge
-  Mn_LatAge <- as.data.frame(readxl::read_xlsx( file, sheet = "Mn_LatAge"))
+  Mn_LatAge <- suppressMessages(as.data.frame(readxl::read_xlsx( file, sheet = "Mn_LatAge")))
   data_list$Mn_LatAge <- Mn_LatAge
 
 
@@ -855,4 +857,3 @@ data_list[[srv_bits[i]]] <- sheet
   # write the data
   return(data_list)
 }
-

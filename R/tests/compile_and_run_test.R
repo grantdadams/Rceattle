@@ -204,4 +204,4 @@ Check_Identifiable(obj)
 round(mod_objects$quantities$jnll_comp, 3)
 
 
-fit <- tmbstan(obj, chains=1)
+# fit <- tmbstan(obj, chains=1)
