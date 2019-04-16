@@ -5,9 +5,9 @@
 \title{plot_biomass}
 \usage{
 plot_biomass(Rceattle, tmp_list = NULL, file = NULL,
-  model_names = NULL, line_col = NULL, species = c("Walleye pollock",
-  "Pacific cod", "Arrowtooth flounder"), lwd = 3, include_srv = FALSE,
-  right_adj = 0, mohns = NULL, incl_proj = FALSE)
+  model_names = NULL, line_col = NULL, species = NULL, lwd = 3,
+  include_srv = FALSE, right_adj = 0, mohns = NULL,
+  incl_proj = FALSE)
 }
 \arguments{
 \item{Rceattle}{Single or list of Rceattle model objects exported from \code{\link{Rceattle}}}

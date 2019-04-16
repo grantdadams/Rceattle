@@ -279,7 +279,7 @@ Type objective_function<Type>::operator() () {
   //    1 = N*exp(-Z / 2))
   //    2 = N
 
-  DATA_INTEGER( random_rec );             // Logical of whether to treate recruitment deviations as random effects
+  // DATA_INTEGER( random_rec );             // Logical of whether to treate recruitment deviations as random effects
   DATA_INTEGER( niter );                  // Number of loops for MSM mode
 
 
@@ -2328,7 +2328,7 @@ Type objective_function<Type>::operator() () {
 
     // Ad only years from hindcast
     if(fsh_yr <= endyr){
-      jnll_comp(4, fsh) += pow(log(fsh_biom_obs(fsh_ind, 0) + MNConst) - log(fsh_bio_hat(fsh_ind)), 2) / (2 * square(fsh_biom_obs(fsh_ind, 1))); // NOTE: This is not quite the log  normal and biohat will be the median.
+      jnll_comp(4, fsh) += pow(log(fsh_biom_obs(fsh_ind, 0) + MNConst) - log(fsh_bio_hat(fsh_ind)), 2) / (2 * square(fsh_std_dev)); // NOTE: This is not quite the log  normal and biohat will be the median.
     }
   }
 

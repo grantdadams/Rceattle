@@ -401,17 +401,17 @@ fit_mod <-
 
     if(debug == 0){
       # Check identifiability
-      identified <- suppressMessages(TMBhelper::Check_Identifiable(obj))
+#       identified <- suppressMessages(TMBhelper::Check_Identifiable(obj))
+# #
+# #       # Make into list
+# #       identified_param_list <- obj$env$parList(as.numeric(identified$BadParams$Param_check))
+# #       identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==0,"Not estimated",x), how = "replace")
+# #       identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==1,"OK",x), how = "replace")
+# #       identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==2,"BAD",x), how = "replace")
+# #
+# #       identified$param_list <- identified_param_list
 #
-#       # Make into list
-#       identified_param_list <- obj$env$parList(as.numeric(identified$BadParams$Param_check))
-#       identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==0,"Not estimated",x), how = "replace")
-#       identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==1,"OK",x), how = "replace")
-#       identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==2,"BAD",x), how = "replace")
-#
-#       identified$param_list <- identified_param_list
-
-      mod_objects$identified <- identified
+#       mod_objects$identified <- identified
     }
 
     class(mod_objects) <- "Rceattle"

@@ -42,7 +42,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   control[12,] <- data_list$stom_tau
   control <- as.data.frame(control)
   control <- cbind(c("nspp", "styr", "endyr", "projyr","nages", "minage", "nlengths", "pop_wt_index", "pop_alk_index", "sigma_rec_prior", "other_food", "stom_sample_size"), control)
-  colnames(control) <- c( "Object", paste0("Species_", 1:data_list$nspp))
+  colnames(control) <- c( "Object", data_list$spnames)
   names_used <- c(names_used, as.character(control$Object))
 
   xcel_list$control <- control
@@ -208,7 +208,7 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
   bioenergetics_control <- as.data.frame(bioenergetics_control)
 
   bioenergetics_control <- cbind(c("Ceq", "Pvalue", "fday", "CA", "CB", "Qc", "Tco", "Tcm", "Tcl", "CK1", "CK4"), bioenergetics_control)
-  colnames(bioenergetics_control) <- c("Object", paste0("Species_", 1:data_list$nspp))
+  colnames(bioenergetics_control) <- c("Object", data_list$spnames)
   names_used <- c(names_used, as.character(bioenergetics_control$Object))
 
   bioenergetics_control <- as.data.frame(bioenergetics_control)
@@ -541,6 +541,7 @@ read_excel <- function( file = "Rceattle_data.xlsx" ){
   data_list$styr <- as.numeric(sheet1[2,2])
   data_list$endyr <- as.numeric(sheet1[3,2])
   data_list$projyr <- as.numeric(sheet1[4,2])
+  data_list$spnames <- as.character(colnames(sheet1)[2:(data_list$nspp + 1)])
   data_list$nages <- as.numeric(as.character(sheet1[5, 2:(data_list$nspp + 1)]))
   data_list$minage <- as.numeric(as.character(sheet1[6, 2:(data_list$nspp + 1)]))
   data_list$nlengths <- as.numeric(as.character(sheet1[7, 2:(data_list$nspp + 1)]))

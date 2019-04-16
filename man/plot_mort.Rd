@@ -5,9 +5,8 @@
 \title{plot_M2}
 \usage{
 plot_mort(Rceattle, tmp_list = NULL, file = NULL, model_names = NULL,
-  line_col = NULL, species = c("Walleye pollock", "Pacific cod",
-  "Arrowtooth flounder"), lwd = 3, age = 3, right_adj = 0,
-  M2_only = FALSE, incl_proj = FALSE)
+  line_col = NULL, species = NULL, lwd = 3, age = 3,
+  right_adj = 0, M2_only = FALSE, incl_proj = FALSE)
 }
 \arguments{
 \item{Rceattle}{Single or list of Rceattle model objects exported from \code{\link{Rceattle}}}
