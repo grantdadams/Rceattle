@@ -398,6 +398,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   dat_list$debug <- TRUE
   dat_list$minage <- rep(1, dat_list$nspp)
   dat_list$sigma_rec_prior <- rep(sqrt(0.5), dat_list$nspp)
+  dat_list$spnames <- c("Pollock", "Cod", "Arrowtooth flounder")
 
   ###########################
   # Adding aging error
@@ -420,7 +421,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   names_in_cpp <- c(names_in_cpp,
                     "fsh_emp_sel", "srv_emp_sel",
                     "fsh_comp", "srv_comp",
-                    "fsh_biom", "srv_biom", "proj_F", "minage", "sigma_rec_prior")
+                    "fsh_biom", "srv_biom", "proj_F", "minage", "sigma_rec_prior", "spnames")
 
   for(i in 1:length(names_in_cpp)){
     dat_list2[[names_in_cpp[i]]] <-  dat_list[[names_in_cpp[i]]]

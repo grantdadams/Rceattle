@@ -47,6 +47,9 @@ rearrange_dat <- function(dat_list){
   # dat_list$proj_F <- dat_list$fsh_control$proj_F
   dat_list$fsh_control <- dat_list$fsh_control[,-which(colnames(dat_list$fsh_control) == "proj_F")]
 
+  # Species names
+  dat_list$spnames <- NULL
+
   # Make data.frames into matrices
   for(i in 1:length(dat_list)){
     if(class(dat_list[[i]]) == "data.frame"){

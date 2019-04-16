@@ -22,7 +22,7 @@ plot_biomass <-
            file = NULL,
            model_names = NULL,
            line_col = NULL,
-           species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"),
+           species = NULL,
            lwd = 3,
            include_srv = FALSE,
            right_adj = 0,
@@ -33,6 +33,12 @@ plot_biomass <-
     if(class(Rceattle) == "Rceattle"){
       Rceattle <- list(Rceattle)
     }
+
+    # Species names
+    if(is.null(species)){
+      species =  Rceattle[[1]]$data_list$spnames
+    }
+
 
     # Extract data objects
     Years <- list()
@@ -829,7 +835,7 @@ plot_mort <-
            file = NULL,
            model_names = NULL,
            line_col = NULL,
-           species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"),
+           species = NULL,
            lwd = 3,
            age = 3,
            right_adj = 0,
@@ -861,6 +867,11 @@ plot_mort <-
 
     nspp <- Rceattle[[1]]$data_list$nspp
     max_age <- max(Rceattle[[1]]$data_list$nages)
+
+    # Species names
+    if(is.null(species)){
+      species =  Rceattle[[1]]$data_list$spnames
+    }
 
     # Get M2
     M2 <-
@@ -1074,7 +1085,7 @@ plot_maturity <-
            file = NULL,
            model_names = NULL,
            line_col = NULL,
-           species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"),
+           species = NULL,
            lwd = 3) {
 
     # Convert single one into a list
@@ -1094,6 +1105,12 @@ plot_maturity <-
     # Line colors
     if (is.null(line_col)) {
       line_col <- oce::oce.colorsViridis(length(Rceattle))
+    }
+
+
+    # Species names
+    if(is.null(species)){
+      species =  Rceattle[[1]]$data_list$spnames
     }
 
 
