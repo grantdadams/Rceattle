@@ -9,7 +9,6 @@
 #' @param line_col Colors of models to be used for line color
 #' @param species Species names for legend
 #' @param lwd Line width as specified by user
-#' @param include_srv Boolian of whether to include survey biomass estimates and 95 CI
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
 #' @param incl_proj TRUE/FALSE include projections years
@@ -24,7 +23,6 @@ plot_biomass <-
            line_col = NULL,
            species = NULL,
            lwd = 3,
-           include_srv = FALSE,
            right_adj = 0,
            mohns = NULL,
            incl_proj = FALSE) {
@@ -182,43 +180,6 @@ abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
             col = c(1, 1),
             bty = "n",
             cex = 1.175
-          )
-        }
-
-        # Survey data
-        if (include_srv) {
-          srv_yrs <- Rceattle[[1]]$data_list$yrs_srv_biom[j, ]
-          srv_biom <- Rceattle[[1]]$data_list$srv_biom[j, ]
-          points(
-            x = srv_yrs,
-            y =  srv_biom / 1000000,
-            pch = 16,
-            cex = 1,
-            col = "#696773"
-          )
-
-
-          # Get 95% CI and range
-          Upper95 <-
-            (
-              Rceattle[[1]]$data_list$srv_biom[j, ] + Rceattle[[1]]$data_list$srv_biom_se[j, ] * 1.92
-            ) / 1000000
-          Lower95 <-
-            (
-              Rceattle[[1]]$data_list$srv_biom[j, ] - Rceattle[[1]]$data_list$srv_biom_se[j, ] * 1.92
-            ) / 1000000
-
-
-          arrows(
-            x0 = srv_yrs,
-            y0 = Upper95,
-            x1 = srv_yrs,
-            y1 = Lower95,
-            length = 0.05,
-            angle = 90,
-            code = 3,
-            lwd = 2,
-            col = "#696773"
           )
         }
 

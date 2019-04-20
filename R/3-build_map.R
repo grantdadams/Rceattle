@@ -143,6 +143,15 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     map_list$ln_rec_sigma <- replace(map_list$ln_rec_sigma, values = rep(NA, length(map_list$ln_rec_sigma)))
   }
 
+
+
+  # Map out Fdev for years with 0 catch to very low number
+  fsh_biom <- data_list$fsh_biom
+  fsh_ind <- fsh_biom$Fishery_code[which(fsh_biom$Catch_kg == 0)]
+  yr_ind <- fsh_biom$Year[which(fsh_biom$Catch_kg == 0)] - data_list$styr + 1
+
+  map_list$F_dev[fsh_ind, yr_ind] <- NA
+
   ######################################################
   ####### Predation bits
   ######################################################
