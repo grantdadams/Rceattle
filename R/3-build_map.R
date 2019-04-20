@@ -25,24 +25,27 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   }
 
 
-  # Map out future fishing mortality
+  # -- 1 Map out future fishing mortality
   map_list$proj_F <- as.numeric(replace(map_list$proj_F, values = rep(NA, length(map_list$proj_F))))
 
-  # Map out future recruitment deviations
+  # -- 2 Map out future recruitment deviations
   map_list$rec_dev[,yrs_proj] <- as.numeric(replace(map_list$rec_dev[,yrs_proj], values = rep(NA, length(map_list$rec_dev[,yrs_proj]))))
 
 
   # STEP 2 -- NA out parameters not to be estimated
-  # Initial population deviations - map out last age and ages not seen
+
+  # -- 3 Initial population deviations - map out last age and ages not seen
   for(i in 1:nrow(map_list$init_dev)){
     if((data_list$nages[i]-1) < ncol(map_list$init_dev)){
       map_list$init_dev[i,  (data_list$nages[i]) : ncol(map_list$init_dev) ] <- NA
     }
   }
 
-  # Fishery selectivity coefficients
+  # -- 4 Fishery selectivity coefficients
   for( i in 1: nrow(data_list$fsh_control)){
-    if(data_list$fsh_control$Selectivity[i] == 0){ # Empirical
+
+    # -- 4.0. Empirical - sel_type = 0
+    if(data_list$fsh_control$Selectivity[i] == 0){
 
       # Map out non-parametric
       map_list$fsh_sel_coff[i,] <- replace(map_list$fsh_sel_coff[i,], values = rep(NA, length(map_list$fsh_sel_coff[i,])))
@@ -50,35 +53,86 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       # Map out logistic and double logistic
       map_list$fsh_sel_slp[1:2, i] <- NA
       map_list$fsh_sel_inf[1:2, i] <- NA
+
+      # Map out logistic and double logistic deviates
+      map_list$fsh_sel_slp_dev[1:2, i,] <- NA
+      map_list$fsh_sel_inf_dev[1:2, i,] <- NA
+
+      # Map out selectivity var
+      map_list$fsh_sel_log_sd[i] <- NA
     }
-    if(data_list$fsh_control$Selectivity[i] == 1){ # Logitistic
+
+    # -- 4.1. Logitistic - sel_type = 1
+    if(data_list$fsh_control$Selectivity[i] == 1){
 
       # Map out non-parametric
       map_list$fsh_sel_coff[i,] <- replace(map_list$fsh_sel_coff[i,], values = rep(NA, length(map_list$fsh_sel_coff[i,])))
 
       # Map out double logistic
       map_list$fsh_sel_slp[2, i] <- NA
-      map_list$fsh_sel_inf[2,i] <- NA
+      map_list$fsh_sel_inf[2, i] <- NA
+
+      # Map out logistic and double logistic deviates
+      map_list$fsh_sel_slp_dev[2, i,] <- NA
+      map_list$fsh_sel_inf_dev[2, i,] <- NA
+
+      # Map out time varying parameters if not used
+      if(data_list$srv_control$Time_varying_sel[i] == 0){
+        map_list$fsh_sel_slp_dev[1, i,] <- NA
+        map_list$fsh_sel_inf_dev[1, i,] <- NA
+      }
+
+      # Map out selectivity var if not using time-varying or using random walk
+      if(data_list$srv_control$Time_varying_sel[i] %in% c(0, 1)){
+        map_list$fsh_sel_log_sd[i] <- NA
+      }
     }
+
+    # -- 4.2. Non-parametric - sel_type = 2
     if(data_list$fsh_control$Selectivity[i] == 2){ # Non-parametric at age
-      map_list$fsh_sel_slp[1:2, i] <- NA
-      map_list$fsh_sel_inf[1:2, i] <- NA
 
       # If nselages is  < max(nselages)
       if(data_list$fsh_control$Nselages[i] < max(data_list$fsh_control$Nselages, na.rm = TRUE)){
-        map_list$fsh_sel_coff[i, (data_list$fsh_control$Nselages[i] + 1):max(data_list$fsh_control$Nselages, na.rm = T)]  <- replace(map_list$fsh_sel_coff[i, (data_list$fsh_control$Nselages[i] + 1):max(data_list$fsh_control$Nselages, na.rm = T)], values = rep(NA, length(map_list$fsh_sel_coff[i, (data_list$fsh_control$Nselages[i] + 1):max(data_list$fsh_control$Nselages, na.rm = T)])))
+        mapped_ages <- (data_list$fsh_control$Nselages[i] + 1):max(data_list$fsh_control$Nselages, na.rm = T)
+        map_list$fsh_sel_coff[i, mapped_ages]  <- replace(map_list$fsh_sel_coff[i, mapped_ages], values = rep(NA, length(map_list$fsh_sel_coff[i, mapped_ages])))
       }
+
+      # Map out logistic and double logistic
+      map_list$fsh_sel_slp[1:2, i] <- NA
+      map_list$fsh_sel_inf[1:2, i] <- NA
+
+      # Map out logistic and double logistic deviates
+      map_list$fsh_sel_slp_dev[1:2, i,] <- NA
+      map_list$fsh_sel_inf_dev[1:2, i,] <- NA
+
+      # Map out selectivity var
+      map_list$fsh_sel_log_sd[i] <- NA
     }
+
+    # -- 4.3. Double logistic - sel_type = 3
     if(data_list$fsh_control$Selectivity[i] == 3){ # Double logistic
       # Map out non-parametric
       map_list$fsh_sel_coff[i,] <- replace(map_list$fsh_sel_coff[i,], values = rep(NA, length(map_list$fsh_sel_coff[i,])))
+
+      # Map out time varying parameters if not used
+      if(data_list$srv_control$Time_varying_sel[i] == 0){
+        map_list$fsh_sel_slp_dev[1:2, i,] <- NA
+        map_list$fsh_sel_inf_dev[1:2, i,] <- NA
+      }
+
+      # Map out selectivity var if not using time-varying or using random walk
+      if(data_list$srv_control$Time_varying_sel[i] %in% c(0, 1)){
+        map_list$fsh_sel_log_sd[i] <- NA
+      }
     }
   }
 
 
-  # Survey selectivity coefficients
+  # -- 5 Survey selectivity coefficients
   for( i in 1: nrow(data_list$srv_control)){
-    if(data_list$srv_control$Selectivity[i] == 0){ # Empirical
+
+    # -- 5.0. Empirical - sel_type = 0
+    if(data_list$srv_control$Selectivity[i] == 0){
 
       # Map out non-parametric
       map_list$srv_sel_coff[i,] <- replace(map_list$srv_sel_coff[i,], values = rep(NA, length(map_list$srv_sel_coff[i,])))
@@ -86,38 +140,101 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       # Map out logistic and double logistic
       map_list$srv_sel_slp[1:2, i] <- NA
       map_list$srv_sel_inf[1:2, i] <- NA
+
+      # Map out logistic and double logistic deviates
+      map_list$srv_sel_slp_dev[1:2, i,] <- NA
+      map_list$srv_sel_inf_dev[1:2, i,] <- NA
+
+      # Map out selectivity var
+      map_list$srv_sel_log_sd[i] <- NA
     }
-    if(data_list$srv_control$Selectivity[i] == 1){ # Logitistic
+
+    # -- 5.1. Logitistic - sel_type = 1
+    if(data_list$srv_control$Selectivity[i] == 1){
 
       # Map out non-parametric
       map_list$srv_sel_coff[i,] <- replace(map_list$srv_sel_coff[i,], values = rep(NA, length(map_list$srv_sel_coff[i,])))
 
       # Map out double logistic
       map_list$srv_sel_slp[2, i] <- NA
-      map_list$srv_sel_inf[2,i] <- NA
+      map_list$srv_sel_inf[2, i] <- NA
+
+      # Map out logistic and double logistic deviates
+      map_list$srv_sel_slp_dev[2, i,] <- NA
+      map_list$srv_sel_inf_dev[2, i,] <- NA
+
+      # Map out time varying parameters if not used
+      if(data_list$srv_control$Time_varying_sel[i] == 0){
+        map_list$srv_sel_slp_dev[1, i,] <- NA
+        map_list$srv_sel_inf_dev[1, i,] <- NA
+      }
+
+      # Map out selectivity var if not using time-varying or using random walk
+      if(data_list$srv_control$Time_varying_sel[i] %in% c(0, 1)){
+        map_list$srv_sel_log_sd[i] <- NA
+      }
     }
+
+    # -- 5.2. Non-parametric - sel_type = 2
     if(data_list$srv_control$Selectivity[i] == 2){ # Non-parametric at age
-      map_list$srv_sel_slp[1:2, i] <- NA
-      map_list$srv_sel_inf[1:2, i] <- NA
 
       # If nselages is  < max(nselages)
       if(data_list$srv_control$Nselages[i] < max(data_list$srv_control$Nselages, na.rm = TRUE)){
-        map_list$srv_sel_coff[i, (data_list$srv_control$Nselages[i] + 1):max(data_list$srv_control$Nselages, na.rm = T)]  <- replace(map_list$srv_sel_coff[i, (data_list$srv_control$Nselages[i] + 1):max(data_list$srv_control$Nselages, na.rm = T)], values = rep(NA, length(map_list$srv_sel_coff[i, (data_list$srv_control$Nselages[i] + 1):max(data_list$srv_control$Nselages, na.rm = T)])))
+        mapped_ages <- (data_list$srv_control$Nselages[i] + 1):max(data_list$srv_control$Nselages, na.rm = T)
+        map_list$srv_sel_coff[i, mapped_ages]  <- replace(map_list$srv_sel_coff[i, mapped_ages], values = rep(NA, length(map_list$srv_sel_coff[i, mapped_ages])))
       }
+
+      # Map out logistic and double logistic
+      map_list$srv_sel_slp[1:2, i] <- NA
+      map_list$srv_sel_inf[1:2, i] <- NA
+
+      # Map out logistic and double logistic deviates
+      map_list$srv_sel_slp_dev[1:2, i,] <- NA
+      map_list$srv_sel_inf_dev[1:2, i,] <- NA
+
+      # Map out selectivity var
+      map_list$srv_sel_log_sd[i] <- NA
     }
+
+    # -- 5.3. Double logistic - sel_type = 3
     if(data_list$srv_control$Selectivity[i] == 3){ # Double logistic
       # Map out non-parametric
       map_list$srv_sel_coff[i,] <- replace(map_list$srv_sel_coff[i,], values = rep(NA, length(map_list$srv_sel_coff[i,])))
+
+      # Map out time varying parameters if not used
+      if(data_list$srv_control$Time_varying_sel[i] == 0){
+        map_list$srv_sel_slp_dev[1:2, i,] <- NA
+        map_list$srv_sel_inf_dev[1:2, i,] <- NA
+      }
+
+      # Map out selectivity var if not using time-varying or using random walk
+      if(data_list$srv_control$Time_varying_sel[i] %in% c(0, 1)){
+        map_list$srv_sel_log_sd[i] <- NA
+      }
     }
   }
 
-  # Survey control
+  # -- 6. Survey control
   for( i in 1: nrow(data_list$srv_control)){
 
     # Catchability of surveys
     # If not estimating turn of
     if(data_list$srv_control$Estimate_q[i] %in% c(0,2)){
       map_list$log_srv_q[i] <- NA
+      map_list$log_srv_q_dev[i,] <- NA
+      map_list$srv_q_log_sd[i] <- NA
+    }
+
+    # Time-varying catchability of surveys
+    # If not estimating turn of
+    if(data_list$srv_control$Time_varying_q[i] == 0){
+      map_list$log_srv_q_dev[i,] <- NA
+      map_list$srv_q_log_sd[i] <- NA
+    }
+
+    # Random walk - map out q_sd
+    if(data_list$srv_control$Time_varying_q[i] == 1){
+      map_list$srv_q_log_sd[i] <- NA
     }
 
     # Standard deviation of surveys index
@@ -151,6 +268,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   yr_ind <- fsh_biom$Year[which(fsh_biom$Catch_kg == 0)] - data_list$styr + 1
 
   map_list$F_dev[fsh_ind, yr_ind] <- NA
+  map_list$fsh_sel_slp_dev[1:2, i, yr_ind] <- NA
+  map_list$fsh_sel_inf_dev[1:2, i, yr_ind] <- NA
 
   ######################################################
   ####### Predation bits
