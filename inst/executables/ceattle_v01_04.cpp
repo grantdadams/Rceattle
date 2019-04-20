@@ -528,7 +528,8 @@ Type objective_function<Type>::operator() () {
   array<Type>   catch_hat(nspp, max_age, nyrs); catch_hat.setZero();                // Estimated catch-at-age (n); n = [nspp, nages, nyrs]
   array<Type>   F(n_fsh, max_age, nyrs); F.setZero();                               // Estimated fishing mortality for each fishery; n = [n_fsh, nages, nyrs]
   array<Type>   F_tot(nspp, max_age, nyrs); F_tot.setZero();                        // Sum of annual estimated fishing mortalities for each species-at-age; n = [nspp, nages, nyrs]
-  vector<Type>  fsh_bio_hat(fsh_biom_obs.rows()); fsh_bio_hat.setZero();            // Estimated fishery yield (kg); columns = Species, Index, Year, Month, Estimate
+  vector<Type>  fsh_bio_hat(fsh_biom_obs.rows()); fsh_bio_hat.setZero();            // Estimated fishery yield (kg);
+  vector<Type>  fsh_cv_hat(fsh_biom_obs.rows()); fsh_cv_hat.setZero();              // Estimated/fixed fishery cv (kg);
   vector<Type>  fsh_hat(fsh_comp_obs.rows()) ; fsh_hat.setZero() ;                  // Estimated fishery catch (n); n = [nspp, nyrs]
   matrix<Type>  fsh_age_hat = fsh_comp_obs; fsh_age_hat.setZero();                  // Estimated fishery catch at true age; n = [nspp, nages, nyrs]
   matrix<Type>  fsh_age_obs_hat = fsh_comp_obs; fsh_age_obs_hat.setZero();          // Estimated fishery catch at observed age; n = [nspp, nages, nyrs]
@@ -540,7 +541,8 @@ Type objective_function<Type>::operator() () {
   matrix<Type>  srv_sel_tmp(n_srv, max_age); srv_sel_tmp.setZero();               // Temporary saved survey selectivity at age for estimated bits; n = [nspp, nages, nyrs]
   vector<Type>  sigma_srv_index(n_srv); sigma_srv_index.setZero();                // Vector of standard deviates of survey index; n = [1, n_srv]
   Type avgsel_tmp = 0;                                                            // Temporary object for average selectivity across all ages
-  vector<Type>  srv_bio_hat(srv_biom_obs.rows()); srv_bio_hat.setZero();          // Estimated survey biomass (kg); columns = Species, Index, Year, Month, Estimate
+  vector<Type>  srv_bio_hat(srv_biom_obs.rows()); srv_bio_hat.setZero();          // Estimated survey biomass (kg)
+  vector<Type>  srv_cv_hat(srv_biom_obs.rows()); srv_cv_hat.setZero();            // Estimated/fixed survey cv (kg)
   vector<Type>  srv_hat( srv_comp_obs.rows() ); srv_hat.setZero();                // Estimated survey total abundance (n); n = [nspp, nyrs]
   matrix<Type>  srv_age_hat = srv_comp_obs; srv_age_hat.setZero();                // Estimated survey abundance at true age; columns = Comp_1, Comp_2, etc.
   matrix<Type>  srv_age_obs_hat = srv_comp_obs; srv_age_obs_hat.setZero();        // Estimated survey abundance at observed age; columns = Comp_1, Comp_2, etc.
@@ -2236,6 +2238,8 @@ Type objective_function<Type>::operator() () {
       error("Invalid 'Estimate_sigma_index'");
     }
 
+    srv_cv_hat(srv_ind) = srv_std_dev;
+
 
     // Add years from hindcast
     if(srv_yr <= endyr){
@@ -2326,9 +2330,13 @@ Type objective_function<Type>::operator() () {
       error("Invalid 'Estimate_sigma_catch'");
     }
 
+    fsh_cv_hat(fsh_ind) = fsh_std_dev; // Save estimated cv
+
     // Ad only years from hindcast
     if(fsh_yr <= endyr){
-      jnll_comp(4, fsh) += pow(log(fsh_biom_obs(fsh_ind, 0) + MNConst) - log(fsh_bio_hat(fsh_ind)), 2) / (2 * square(fsh_std_dev)); // NOTE: This is not quite the log  normal and biohat will be the median.
+      if(fsh_biom_obs(fsh_ind, 0) > 0){
+jnll_comp(4, fsh) += pow(log(fsh_biom_obs(fsh_ind, 0) + MNConst) - log(fsh_bio_hat(fsh_ind)), 2) / (2 * square(fsh_std_dev)); // NOTE: This is not quite the log  normal and biohat will be the median.
+      }
     }
   }
 
@@ -2576,6 +2584,7 @@ Type objective_function<Type>::operator() () {
   REPORT( F );
   REPORT( F_tot );
   REPORT( fsh_bio_hat );
+  REPORT( fsh_cv_hat );
   REPORT( fsh_hat );
   REPORT( fsh_age_hat );
   REPORT( fsh_comp_hat );
@@ -2587,6 +2596,7 @@ Type objective_function<Type>::operator() () {
   REPORT( srv_sel );
   REPORT( srv_sel_tmp );
   REPORT(  srv_bio_hat );
+  REPORT( srv_cv_hat );
   REPORT( srv_hat );
   REPORT( srv_age_hat );
   REPORT( srv_comp_hat );

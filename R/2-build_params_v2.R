@@ -42,6 +42,14 @@ build_params <-
     param_list$F_dev = matrix(0, nrow = nrow(data_list$fsh_control), ncol = nyrs)     # Annual fishing mortality deviations; n = [nspp, nyrs] # NOTE: The size of this will likely change
 
 
+    # Set Fdev for years with 0 catch to very low number
+    fsh_biom <- data_list$fsh_biom
+    fsh_ind <- fsh_biom$Fishery_code[which(fsh_biom$Catch_kg == 0)]
+    yr_ind <- fsh_biom$Year[which(fsh_biom$Catch_kg == 0)] - data_list$styr + 1
+
+    param_list$F_dev[fsh_ind, yr_ind] <- -999
+
+
     # -- 3.4. Selectivity parameters
     # FIXME - change nspp to n_srv
     # FIXME - change order of selectivity paramters for logistic
