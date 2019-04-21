@@ -124,7 +124,7 @@ plot_fsh_comp <-
         plot(
           y = NA,
           x = NA,
-          ylim = c(0, nages[sp] * 1.10),
+          ylim = c(0, nages[sp] * 1.20),
           xlim = c(minyr, maxyr + right_adj),
           xlab = "Year",
           ylab = "Fishery age comp",
@@ -137,7 +137,7 @@ plot_fsh_comp <-
         }
 
         # Legends
-        legend("topleft", fsh_control$Fishery_name[sp], bty = "n", cex = 1.4)
+        legend("topleft", fsh_control$Fishery_name[fsh[j]], bty = "n", cex = 1.4)
 
 
         # Type
@@ -161,10 +161,12 @@ plot_fsh_comp <-
         comp_tmp <- tidyr::gather(comp_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_tmp)))
         comp_tmp$age <- as.numeric(gsub("Comp_", "", comp_tmp$age))
         comp_tmp <- comp_tmp[which(!is.na(comp_tmp$comp)),]
+        comp_tmp <- comp_tmp[which(comp_tmp$comp > 0),]
 
         comp_hat_tmp <- tidyr::gather(comp_hat_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_hat_tmp)))
         comp_hat_tmp$age <- as.numeric(gsub("Comp_", "", comp_hat_tmp$age))
         comp_hat_tmp <- comp_hat_tmp[which(!is.na(comp_tmp$comp)),]
+        comp_hat_tmp <- comp_hat_tmp[which(comp_hat_tmp$comp > 0),]
 
 
         if(nrow(comp_tmp) > 0){
@@ -221,7 +223,7 @@ plot_fsh_comp <-
         plot(
           y = NA,
           x = NA,
-          ylim = c(0, nages[sp] * 1.10),
+          ylim = c(0, nages[sp] * 1.20),
           xlim = c(minyr, maxyr + right_adj),
           xlab = "Year",
           ylab = "Fishery length comp",
@@ -234,7 +236,7 @@ plot_fsh_comp <-
         }
 
         # Legends
-        legend("topleft", fsh_control$Fishery_name[sp], bty = "n", cex = 1.4)
+        legend("topleft", fsh_control$Fishery_name[fsh[j]], bty = "n", cex = 1.4)
 
 
         # Type
@@ -258,10 +260,12 @@ plot_fsh_comp <-
         comp_tmp <- tidyr::gather(comp_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_tmp)))
         comp_tmp$age <- as.numeric(gsub("Comp_", "", comp_tmp$age))
         comp_tmp <- comp_tmp[which(!is.na(comp_tmp$comp)),]
+        comp_tmp <- comp_tmp[which(comp_tmp$comp > 0),]
 
         comp_hat_tmp <- tidyr::gather(comp_hat_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_hat_tmp)))
         comp_hat_tmp$age <- as.numeric(gsub("Comp_", "", comp_hat_tmp$age))
         comp_hat_tmp <- comp_hat_tmp[which(!is.na(comp_tmp$comp)),]
+        comp_hat_tmp <- comp_hat_tmp[which(comp_hat_tmp$comp > 0),]
 
 
         if(nrow(comp_tmp) > 0){

@@ -247,7 +247,7 @@ plot_recruitment <-
            file = NULL,
            model_names = NULL,
            line_col = NULL,
-           species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"),
+           species = NULL,
            add_ci = FALSE,
            lwd = 3,
            save_rec = FALSE,
@@ -258,6 +258,11 @@ plot_recruitment <-
     # Convert single one into a list
     if(class(Rceattle) == "Rceattle"){
       Rceattle <- list(Rceattle)
+    }
+
+    # Species names
+    if(is.null(species)){
+      species =  Rceattle[[1]]$data_list$spnames
     }
 
     # Extract data objects
