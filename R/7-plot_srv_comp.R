@@ -1,6 +1,6 @@
-#' Plot time series of survey age/length composition
+#' Plot time series of survey comp data
 #'
-#' @description Function the plots the survey composition as estimated from Rceattle
+#' @description Function the plots the survey comp data as estimated from Rceattle
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
@@ -40,246 +40,125 @@ plot_srv_comp <-
 
 
     # Extract data objects
-    Endyrs <- Rceattle$data_list$endyr
-    if(incl_proj == FALSE){
-      Years <- Rceattle$data_list$styr:Rceattle$data_list$endyr
-    }
-    if(incl_proj){
-      Years <- Rceattle$data_list$styr:Rceattle$data_list$projyr
-    }
-
     # Get observed
     srv_list <- Rceattle$data_list$srv_comp
     srv_list[,grep("Comp_", colnames(srv_list))] = srv_list[,grep("Comp_", colnames(srv_list))]/rowSums(srv_list[,grep("Comp_", colnames(srv_list))], na.rm = TRUE)
+    srv_control <- Rceattle$data_list$srv_control
 
 
     # Get estimated
     srv_hat_list <- Rceattle$data_list$srv_comp
     srv_hat_list[,grep("Comp_", colnames(srv_list))] = Rceattle$quantities$srv_comp_hat
 
-    max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
-    nyrs_vec <- sapply(Years, length)
-    nyrs <- max(nyrs_vec)
-    maxyr <- max((sapply(Years, max)))
-    minyr <- min((sapply(Years, min)))
-
-    nspp <- Rceattle$data_list$nspp
-
-
-
-    # Plot z-limits
-    nsrv <- nrow(Rceattle$data_list$srv_control)
-    srv_control <- (Rceattle$data_list$srv_control)
-    ymax <- rep(0, nsrv)
-    ymin <- rep(0, nsrv)
-    for(srv in 1:nrow(Rceattle$data_list$srv_control)){
-      srv_ind <- which(srv_list$Survey_code == srv & srv_list$Age0_Length1 == 0)
-      comp_tmp <- as.matrix(srv_list[srv_ind, grep("Comp_", colnames(srv_list))])
-      comp_hat_tmp <- as.matrix(srv_hat_list[srv_ind, grep("Comp_", colnames(srv_hat_list))])
-      ymax[srv] <- max(c(comp_tmp, comp_hat_tmp, ymax[srv]), na.rm = T)
-      ymin[srv] <- min(c(comp_tmp, comp_hat_tmp, ymin[srv]), na.rm = T)
-    }
-
-    ymax <- ymax + 0.1 * ymax
 
     if (is.null(line_col)) {
       line_col <- rev(oce::oce.colorsViridis(3))[2:3]
     }
 
     #############################################
-    # Plot Survey age comps Type 1
+    # Plot comps Type 1
     #############################################
-    srv <- unique(srv_list$Survey_code[which(srv_list$Age0_Length1 == 0)])
-    nsrv <- length(srv)
+    for(comp_type in c(0,1)){
 
-    loops <- ifelse(is.null(file), 1, 2)
-    for (i in 1:loops) {
-      if (i == 2) {
-        filename <- paste0(file, "_survey_age_comps_1", ".png")
-        png(
-          file = filename ,
-          width = 7,# 169 / 25.4,
-          height = 6.5,# 150 / 25.4,
+      srv <- unique(srv_list$Survey_code[which(srv_list$Age0_Length1 == comp_type)])
+      nsrv <- length(srv)
 
-          units = "in",
-          res = 300
-        )
-      }
+      loops <- ifelse(is.null(file), 1, 2)
+      for (i in 1:loops) {
+        if (i == 2) {
+          filename <- paste0(file, c("_survey_age_comps_1", "_survey_length_comps_1")[comp_type + 1], ".png")
+          png(
+            file = filename ,
+            width = 7,# 169 / 25.4,
+            height = 6.5,# 150 / 25.4,
 
-      # Plot configuration
-      layout(matrix(1:(nsrv + 2), nrow = (nsrv + 2)), heights = c(0.1, rep(1, nsrv), 0.2))
-      par(
-        mar = c(0, 3 , 0 , 1) ,
-        oma = c(0 , 0 , 0 , 0),
-        tcl = -0.35,
-        mgp = c(1.75, 0.5, 0)
-      )
-      plot.new()
-
-      for (j in 1:nsrv) {
-
-        sp <- srv_control$Species[which(srv_control$Survey_code == srv[j])]
-        nages <- Rceattle$data_list$nages
-
-        plot(
-          y = NA,
-          x = NA,
-          ylim = c(0, nages[sp] * 1.20),
-          xlim = c(minyr, maxyr + right_adj),
-          xlab = "Year",
-          ylab = "Survey age comp",
-          xaxt = c(rep("n", nsrv - 1), "s")[j]
-        )
-
-        # Horizontal line
-        if(incl_proj){
-          abline(v = max_endyr, lwd  = 3, col = "grey", lty = 2)
-        }
-
-        # Legends
-        legend("topleft", srv_control$Survey_name[srv[j]], bty = "n", cex = 1.4)
-
-
-        # Type
-        if (j == 1) {
-          legend(
-            "topright",
-            legend = c("Observed", "Estimated"),
-            pch = c(16, 16),
-            cex = 1.125,
-            col = line_col,
-            bty = "n"
+            units = "in",
+            res = 300
           )
         }
 
-        # Extract comps
-        srv_ind <- which(srv_list$Survey_code == srv[j] & srv_list$Age0_Length1 == 0)
-        comp_tmp <- srv_list[srv_ind,]
-        comp_hat_tmp <- srv_hat_list[srv_ind, ]
-
-        # Reorganize and clean
-        comp_tmp <- tidyr::gather(comp_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_tmp)))
-        comp_tmp$age <- as.numeric(gsub("Comp_", "", comp_tmp$age))
-        comp_tmp <- comp_tmp[which(!is.na(comp_tmp$comp)),]
-        comp_tmp <- comp_tmp[which(comp_tmp$comp > 0),]
-
-        comp_hat_tmp <- tidyr::gather(comp_hat_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_hat_tmp)))
-        comp_hat_tmp$age <- as.numeric(gsub("Comp_", "", comp_hat_tmp$age))
-        comp_hat_tmp <- comp_hat_tmp[which(!is.na(comp_tmp$comp)),]
-        comp_hat_tmp <- comp_hat_tmp[which(comp_hat_tmp$comp > 0),]
-
-
-        if(nrow(comp_tmp) > 0){
-          # Observed
-          symbols( x = comp_tmp$Year , y = comp_tmp$age , circle = comp_tmp$comp, inches=0.10,add=T, fg = line_col[1])
-
-          # Estimated
-          symbols( x = comp_hat_tmp$Year , y = comp_hat_tmp$age , circle = comp_hat_tmp$comp, inches=0.10,add=T, fg = line_col[2])
-        }
-      }
-
-
-      if (i == 2) {
-        dev.off()
-      }
-    }
-
-
-    #############################################
-    # Plot Survey length comps Type 1
-    #############################################
-    srv <- unique(srv_list$Survey_code[which(srv_list$Age0_Length1 == 1)])
-    nsrv <- length(srv)
-
-    loops <- ifelse(is.null(file), 1, 2)
-    for (i in 1:loops) {
-      if (i == 2) {
-        filename <- paste0(file, "_survey_length_comps_1", ".png")
-        png(
-          file = filename ,
-          width = 7,# 169 / 25.4,
-          height = 6.5,# 150 / 25.4,
-
-          units = "in",
-          res = 300
+        # Plot configuration
+        layout(matrix(1:(nsrv + 2), nrow = (nsrv + 2)), heights = c(0.1, rep(1, nsrv), 0.2))
+        par(
+          mar = c(0, 3 , 0 , 1) ,
+          oma = c(0 , 0 , 0 , 0),
+          tcl = -0.35,
+          mgp = c(1.75, 0.5, 0)
         )
-      }
+        plot.new()
 
-      # Plot configuration
-      layout(matrix(1:(nsrv + 2), nrow = (nsrv + 2)), heights = c(0.1, rep(1, nsrv), 0.2))
-      par(
-        mar = c(0, 3 , 0 , 1) ,
-        oma = c(0 , 0 , 0 , 0),
-        tcl = -0.35,
-        mgp = c(1.75, 0.5, 0)
-      )
-      plot.new()
-
-      for (j in 1:nsrv) {
-
-        sp <- srv_control$Species[which(srv_control$Survey_code == srv[j])]
-        nages <- Rceattle$data_list$nlengths
-
-        plot(
-          y = NA,
-          x = NA,
-          ylim = c(0, nages[sp] * 1.20),
-          xlim = c(minyr, maxyr + right_adj),
-          xlab = "Year",
-          ylab = "Survey length comp",
-          xaxt = c(rep("n", nsrv - 1), "s")[j]
-        )
-
-        # Horizontal line
-        if(incl_proj){
-          abline(v = max_endyr, lwd  = 3, col = "grey", lty = 2)
-        }
-
-        # Legends
-        legend("topleft", srv_control$Survey_name[srv[j]], bty = "n", cex = 1.4)
+        for (j in 1:nsrv) {
 
 
-        # Type
-        if (j == 1) {
-          legend(
-            "topright",
-            legend = c("Observed", "Estimated"),
-            pch = c(16, 16),
-            cex = 1.125,
-            col = line_col,
-            bty = "n"
+          # Extract comps
+          srv_ind <- which(srv_list$Survey_code == srv[j] & srv_list$Age0_Length1 == comp_type)
+          comp_tmp <- srv_list[srv_ind,]
+          comp_hat_tmp <- srv_hat_list[srv_ind, ]
+
+          # Reorganize and clean
+          comp_tmp <- tidyr::gather(comp_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_tmp)))
+          comp_tmp$age <- as.numeric(gsub("Comp_", "", comp_tmp$age))
+          comp_tmp <- comp_tmp[which(!is.na(comp_tmp$comp)),]
+          comp_tmp <- comp_tmp[which(comp_tmp$comp > 0),]
+
+          comp_hat_tmp <- tidyr::gather(comp_hat_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_hat_tmp)))
+          comp_hat_tmp$age <- as.numeric(gsub("Comp_", "", comp_hat_tmp$age))
+          comp_hat_tmp <- comp_hat_tmp[which(!is.na(comp_tmp$comp)),]
+          comp_hat_tmp <- comp_hat_tmp[which(comp_hat_tmp$comp > 0),]
+
+          sp <- srv_control$Species[which(srv_control$Survey_code == srv[j])]
+          nages <- list(Rceattle$data_list$nages, Rceattle$data_list$nlengths)[[comp_type + 1]]
+
+          plot(
+            y = NA,
+            x = NA,
+            ylim = c(0, nages[sp] * 1.20),
+            xlim = c(min(comp_tmp$Year, na.rm = TRUE), max(comp_tmp$Year, na.rm = TRUE) + right_adj),
+            xlab = "Year",
+            ylab = c("Survey age comp", "Survey length comp")[comp_type + 1],
+            xaxt = c(rep("n", nsrv - 1), "s")[j]
           )
+
+
+          # Horizontal line
+          if(incl_proj){
+            abline(v = max_endyr, lwd  = 3, col = "grey", lty = 2)
+          }
+
+          # Legends
+          legend("topleft", as.character(srv_control$Survey_name[srv[j]]), bty = "n", cex = 1.4)
+
+
+          # Type
+          if (j == 1) {
+            legend(
+              "topright",
+              legend = c("Observed", "Estimated"),
+              pch = c(16, 16),
+              cex = 1.125,
+              col = line_col,
+              bty = "n"
+            )
+
+            x_loc <- c(mean(comp_tmp$Year, na.rm = T) - 2, mean(comp_tmp$Year, na.rm = T), mean(comp_tmp$Year, na.rm = T) +2)
+            symbols( x = x_loc , y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.10, 3) , circle = c(0.1, 0.25, 0.5), inches=0.10,add=T, fg = line_col[2])
+            text(x = x_loc, y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.16, 3), labels = c(0.1, 0.25, 0.5))
+          }
+
+
+          if(nrow(comp_tmp) > 0){
+            # Observed
+            symbols( x = comp_tmp$Year , y = comp_tmp$age , circle = comp_tmp$comp, inches=0.10,add=T, fg = line_col[1])
+
+            # Estimated
+            symbols( x = comp_hat_tmp$Year , y = comp_hat_tmp$age , circle = comp_hat_tmp$comp, inches=0.10,add=T, fg = line_col[2])
+          }
         }
 
-        # Extract comps
-        srv_ind <- which(srv_list$Survey_code == srv[j] & srv_list$Age0_Length1 == 1)
-        comp_tmp <- srv_list[srv_ind,]
-        comp_hat_tmp <- srv_hat_list[srv_ind, ]
 
-        # Reorganize and clean
-        comp_tmp <- tidyr::gather(comp_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_tmp)))
-        comp_tmp$age <- as.numeric(gsub("Comp_", "", comp_tmp$age))
-        comp_tmp <- comp_tmp[which(!is.na(comp_tmp$comp)),]
-        comp_tmp <- comp_tmp[which(comp_tmp$comp > 0),]
-
-        comp_hat_tmp <- tidyr::gather(comp_hat_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_hat_tmp)))
-        comp_hat_tmp$age <- as.numeric(gsub("Comp_", "", comp_hat_tmp$age))
-        comp_hat_tmp <- comp_hat_tmp[which(!is.na(comp_tmp$comp)),]
-        comp_hat_tmp <- comp_hat_tmp[which(comp_hat_tmp$comp > 0),]
-
-        if(nrow(comp_tmp) > 0){
-          # Observed
-          symbols( x = comp_tmp$Year , y = comp_tmp$age , circle = comp_tmp$comp, inches=0.10,add=T, fg = line_col[1])
-
-          # Estimated
-          symbols( x = comp_hat_tmp$Year , y = comp_hat_tmp$age , circle = comp_hat_tmp$comp, inches=0.10,add=T, fg = line_col[2])
+        if (i == 2) {
+          dev.off()
         }
-      }
-
-
-      if (i == 2) {
-        dev.off()
       }
     }
-
   }
