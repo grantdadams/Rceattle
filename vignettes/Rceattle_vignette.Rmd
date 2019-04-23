@@ -3,9 +3,9 @@ title: "Rceattle"
 author: "Grant Adams, Kirstin Holsman"
 csl: https://raw.githubusercontent.com/citation-style-language/styles/master/dependent/fisheries-research.csl
 output:
-  pdf_document: default
   html_document:
     df_print: paged
+  pdf_document: default
 bibliography: ceattle_bibliography.bib
 vignette: |
   %\VignetteIndexEntry{CEATTLE Walkthrough} 
@@ -17,7 +17,7 @@ CEATTLE is short for Climate-Enhanced, Age-based model with Temperature-specific
 
 `Rceattle` is an `R` package designed to implement the CEATTLE model using Template Model Builder (`TMB`; @Kristensen2015), which can be installed using following https://github.com/kaskr/adcomp/wiki/Download. Rceattle is structured similar to the original manuscript in terms of modularization. Seperate functions (i.e. modules) estimate retrospective temperature- and size-specific predator rations, prey preference, and weight-at- age. These are then used as inputs to the CEATTLE model to evaluate how predation mortality, recruitment, and survival of three target species change under historical climate conditions and harvest rates.
 
-Currently `RCeattle` can take CEATTLE ADMB based inputs and estimates them in `TMB`. To run `Rceattle` a user can either load a data set or build a data set from ADMB dat files by selecting a control file located in a data directory with `.dat` files used in ADMB and using the `build_dat` function. The model will then initialize assuming $0$ for all parameters unless a parameter list is provided or `"ceattle.par"` or `"ceattle_par.std"` is selected. In the later case, a .par or .std file provided from a previously estimated ADMB model can be used and specified with associated directory (i.e. `"mydir/ceattle_par.std"`). Documentation for all functions can be found using `?`.
+Currently `RCeattle` can take survey index, survey catch-at-age, fishery catch, fishery catch-at-age, bioenergetics, life history, and diet based inputs and estimates time series of biomass, fishing mortality, and predation mortality using the CEATTLE model in `TMB`. To run `Rceattle` a user can either load a pre-build Bering Sea data set, build a data set from an excel spreadsheet, or build a data set from ADMB CEATTLE dat files by selecting a control file located in a data directory with `.dat` files used in ADMB and using the `build_dat` function. The model will then initialize assuming $0$ for all parameters unless a parameter list is provided and/or `"ceattle.par"` or `"ceattle_par.std"` is selected. In the later case, a .par or .std file provided from a previously estimated ADMB model can be used and specified with associated directory (i.e. `"mydir/ceattle_par.std"`). Documentation for all functions can be found using `?`.
 
 ## Installation
 To install `Rceattle` you will need to do the following steps:
@@ -34,18 +34,16 @@ devtools::install_github("grantdadams/Rceattle", auth_token = "4925b42ac46f1e0ae
 ```
 
 ## Data
-For example, to run the 2017 single species assessment for the Bering Sea, a data file must first be loaded:
-```{R eval = FALSE}
+For example, to run the 2017 single-species or multi-species assessment for the Bering Sea, a data file must first be loaded:
+```{R eval = TRUE}
 library(Rceattle)
-data(BS2017SS) # ?BS2017SS for more information on the data
+data(BS2017SS) # ?BS2017SS for more information on the single-species data
+data(BS2017MS) # ?BS2017MS for more information on the multi-species data
 ```
 
 
 The data can then be written to excel, altered and reread into R in a useable format for `Rceattle`. The first page of the excel document will have meta-data describing each item.
 ```{R eval = TRUE}
-library(Rceattle)
-data(BS2017SS) # ?BS2017SS for more information on the data
-
 # Write data to excel
 Rceattle::write_excel(data_list = BS2017SS, file = "BS2017SS.xlsx")
 
@@ -93,7 +91,6 @@ Rceattle::plot_fsh_comp(Rceattle =  ss_run)
 ### Multi-species mode
 For the a multispecies model starting from the single species parameters estimated, the following can be specified. Here I use the data in the single-species run, but the multi-species data can be loaded using `data("BS2017MS")`. Note: the only difference from `BS2017SS` is the residual mortality is lower. Note, starting with the single-species parameter estimates is ideal, it may not converge otherwise.
 ```{R eval = TRUE, message = FALSE, results = "hide"}
-data("BS2017MS")
 ms_run <- Rceattle::fit_mod(data_list = mydata,
                             inits = ss_run$estimated_params, # Initial parameters from single species ests
                             file = NULL, # Don't save
