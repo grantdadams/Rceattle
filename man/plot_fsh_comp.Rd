@@ -2,7 +2,7 @@
 % Please edit documentation in R/7-plot_fsh_comp.R
 \name{plot_fsh_comp}
 \alias{plot_fsh_comp}
-\title{Plot time series of fishery catch}
+\title{Plot time series of fishery comp data}
 \usage{
 plot_fsh_comp(Rceattle, tmp_list = NULL, file = NULL,
   model_names = NULL, line_col = NULL, species = NULL, cex = 3,
@@ -32,5 +32,5 @@ function.}
 Returns and saves a figure with the catch trajectory.
 }
 \description{
-Function the plots the fishery catch as estimated from Rceattle
+Function the plots the fishery comp data as estimated from Rceattle
 }
