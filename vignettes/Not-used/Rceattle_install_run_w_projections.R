@@ -104,7 +104,7 @@ ms_run_proj <- Rceattle::fit_mod(data_list = mydata,
 
 
 
-# PROJECTION 1: CHANGING FUTURE RECRUITMENT
+# PROJECTION 2: CHANGING FUTURE RECRUITMENT
 # Change recruitment deviations - NOTE: the workflow for this may change in the future
 
 # Get years from projection

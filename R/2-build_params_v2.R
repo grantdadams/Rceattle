@@ -10,7 +10,7 @@
 build_params <-
   function(data_list,
            inits = NULL) {
-    closeAllConnections()
+    # closeAllConnections()
 
     data_list$nspp2 = data_list$nspp + 1
     data_list$nspp_sq = data_list$nspp * data_list$nspp
@@ -258,7 +258,7 @@ build_params <-
     # Start phi at 0.5
     param_list$log_phi <- replace(param_list$log_phi, values = rep(log(0.5), length(param_list$log_phi)))
 
-    closeAllConnections()
+    # closeAllConnections()
 
     return(param_list)
   }
