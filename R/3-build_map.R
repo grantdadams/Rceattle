@@ -239,7 +239,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
     # Standard deviation of surveys index
     # If not estimating turn of
-    if(data_list$srv_control$Estimate_sigma_index[i] %in% c(0,2)){
+    if(data_list$srv_control$Estimate_sigma_survey[i] %in% c(0,2)){
       map_list$ln_sigma_srv_index[i] <- NA
     }
   }

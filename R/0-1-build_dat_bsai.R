@@ -213,8 +213,8 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     log_q_start = c(0, 0, 0, -6.7025),
     Time_varying_q = rep(0, 4),
     Q_sd_prior = rep(0, 4),
-    Estimate_sigma_index = rep(0, 4),
-    Sigma_index_prior = rep(NA, 4)
+    Estimate_sigma_survey = rep(0, 4),
+    Sigma_survey_prior = rep(NA, 4)
   )
 
   #---------------------------------------------------------------------
