@@ -140,7 +140,7 @@ plot_fsh_comp <-
               bty = "n"
             )
 
-            x_loc <- c(mean(comp_tmp$Year, na.rm = T) - 2, mean(comp_tmp$Year, na.rm = T), mean(comp_tmp$Year, na.rm = T) +2)
+            x_loc <- c(mean(fsh_list$Year, na.rm = T) - 2, mean(fsh_list$Year, na.rm = T), mean(fsh_list$Year, na.rm = T) +2)
             symbols( x = x_loc , y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.07, 3) , circle = c(0.1, 0.25, 0.5), inches=0.10,add=T, fg = line_col[2])
             text(x = x_loc, y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.16, 3), labels = c(0.1, 0.25, 0.5))
           }
@@ -229,7 +229,7 @@ plot_fsh_comp <-
           plot(
             y = NA,
             x = NA,
-            ylim = c(0, nages[sp] * 1.20),
+            ylim = c(0, nages[sp] * 1.25),
             xlim = c(min(fsh_list$Year, na.rm = TRUE), max(fsh_list$Year, na.rm = TRUE) + right_adj),
             xlab = "Year",
             ylab = c("Fishery age comp", "Fishery length comp")[comp_type + 1],
@@ -252,14 +252,14 @@ plot_fsh_comp <-
 
 
 # Positive
-          x_loc <- c(mean(comp_tmp$Year, na.rm = T) + 1, mean(comp_tmp$Year, na.rm = T) + 3, mean(comp_tmp$Year, na.rm = T) + 5)
-            symbols( x = x_loc , y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.07, 3) , circle = c(0.1, 0.25, 0.5), inches=0.10,add=T, bg = line_col[2])
-            text(x = x_loc, y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.16, 3), labels = round(seq(from = 0.5, to = max_pearson, length.out = 3) , 2))
+          x_loc <- c(mean(srv_list$Year, na.rm = T) + 1, mean(srv_list$Year, na.rm = T) + 3.5, mean(srv_list$Year, na.rm = T) + 6)
+            symbols( x = x_loc , y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.1, 3) , circle = round(seq(from = 0.5, to = max_pearson, length.out = 3) , 1), inches=0.10,add=T, bg = line_col[2])
+            text(x = x_loc, y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.23, 3), labels = round(seq(from = 0.5, to = max_pearson, length.out = 3) , 1))
 
             # Negative
-            x_loc <- c(mean(comp_tmp$Year, na.rm = T) - 1, mean(comp_tmp$Year, na.rm = T) - 3, mean(comp_tmp$Year, na.rm = T) - 5)
-            symbols( x = x_loc , y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.07, 3) , circle = c(0.1, 0.25, 0.5), inches=0.10,add=T, bg = line_col[1])
-            text(x = x_loc, y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.16, 3), labels = round(seq(from = -0.5, to = -max_pearson, length.out = 3) , 2) )
+            x_loc <- c(mean(srv_list$Year, na.rm = T) - 1, mean(srv_list$Year, na.rm = T) - 3.5, mean(srv_list$Year, na.rm = T) - 6)
+            symbols( x = x_loc , y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.1, 3) , circle = -round(seq(from = -0.5, to = -max_pearson, length.out = 3) , 1), inches=0.10,add=T, bg = line_col[1])
+            text(x = x_loc, y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.23, 3), labels = round(seq(from = -0.5, to = -max_pearson, length.out = 3) , 1) )
 
 
 
