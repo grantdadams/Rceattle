@@ -36,8 +36,9 @@
 //  6. Population dynamics
 //  7. Ration equations
 //  8. Predation mortality equations
+//  -- 8.0. Suitability equations
 //  -- 8.1. Holsman et al Predation mortality
-//  -- 9.2. Kinzey and Punt predation mortality
+//  -- 8.2. Kinzey and Punt predation mortality
 //  9. Survey components
 //  10. Fishery components
 //  11. Likelihood components
@@ -561,7 +562,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 4.7. Suitability components
   Type tmp_othersuit = 0  ;
-  Type suit_tmp = 0;                                                                          //  Temporary storage variable
+  Type suit_tmp = 0;                                                                          // Temporary storage variable
   array<Type>   avail_food(nspp, max_age, nyrs); avail_food.setZero();                        // Available food to predator; n = [nyrs, nages, nspp]
   array<Type>   B_eaten(nspp, max_age, nyrs); B_eaten.setZero();                              // Biomass of prey eaten via predation; n = [nyrs, nages, nspp]
   array<Type>   of_stomKir(nspp, max_age, nyrs); of_stomKir.setZero();                        // Other food stomach content; n = [nyrs, nages, nspp]
@@ -592,7 +593,7 @@ Type objective_function<Type>::operator() () {
   matrix<Type> N_pred_eq(nspp, max_age); N_pred_eq.setZero();                        // Effective numbers of predators for each age of prey (styr_pred)
   matrix<Type> N_prey_eq(nspp, max_age); N_prey_eq.setZero();                        // Effective numbers of prey for each age of predator
 
-  array<Type>  pred_resp(nspp, nspp + 1, max_age, max_age, nyrs); pred_resp.setZero();     // Predator functional response
+  array<Type>  pred_resp(nspp, nspp + 1, max_age, max_age, nyrs); pred_resp.setZero();// Predator functional response
   array<Type>  Pred_r(nspp, max_age, nyrs); Pred_r.setZero();                        // save Pred_ratio values
   array<Type>  Prey_r(nspp, max_age, nyrs); Prey_r.setZero();                        // save Prey_ratio values
 
@@ -1025,14 +1026,15 @@ Type objective_function<Type>::operator() () {
 
           // Hindcast
           if(yr < nyrs_hind){
-            ConsumAge(sp, age, yr) = CA(sp) * pow(wt(yr, age, pop_wt_index(sp)) * Type(1000), CB( sp )) // C_max = CA * W ^ CB; where C_max is grams consumed per grams of predator per day
-            * fT(sp, yr) * fday( sp ) * wt(yr, age, pop_wt_index(sp)) * 1000; //  C_max * f(T) * wt * fday g/pred.yr
+            ConsumAge(sp, age, yr) = CA(sp) * pow(wt(yr, age, pop_wt_index(sp)) * Type(1000), CB( sp )) //  C_max = CA * W ^ CB; where C_max is grams consumed per grams of predator per day
+            * fT(sp, yr) * fday( sp ) * wt(yr, age, pop_wt_index(sp)) * 1000;                           //  C_max * f(T) * wt * fday g/pred.yr
             ConsumAge(sp, age, yr) = ConsumAge(sp, age, yr) * Pvalue(sp) * Pyrs(yr, age, sp); //
           }
+
           // Projection
           if(yr >= nyrs_hind){
-            ConsumAge(sp, age, yr) = CA(sp) * pow(wt((nyrs_hind - 1), age, pop_wt_index(sp)) * Type(1000), CB( sp )) // C_max = CA * W ^ CB; where C_max is grams consumed per grams of predator per day
-            * fT(sp, yr) * fday( sp ) * wt((nyrs_hind - 1), age, pop_wt_index(sp)) * 1000; //  C_max * f(T) * wt * fday g/pred.yr
+            ConsumAge(sp, age, yr) = CA(sp) * pow(wt((nyrs_hind - 1), age, pop_wt_index(sp)) * Type(1000), CB( sp ))  //  C_max = CA * W ^ CB; where C_max is grams consumed per grams of predator per day
+            * fT(sp, yr) * fday( sp ) * wt((nyrs_hind - 1), age, pop_wt_index(sp)) * 1000;                            //  C_max * f(T) * wt * fday g/pred.yr
             ConsumAge(sp, age, yr) = ConsumAge(sp, age, yr) * Pvalue(sp) * Pyrs((nyrs_hind-1), age, sp); //
           }
 
@@ -1082,6 +1084,7 @@ Type objective_function<Type>::operator() () {
               }
             }
           }
+          
           // By length
           for (r_ln = 0; r_ln < nlengths(rsp); r_ln++) {      // Predator length loop // FIXME: Change to diet length bins
             for (k_ln = 0; k_ln < nlengths(ksp); k_ln++) {    // Prey length loop FIXME: Change to diet length bins
