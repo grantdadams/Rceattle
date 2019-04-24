@@ -658,7 +658,7 @@ read_excel <- function( file = "Rceattle_data.xlsx" ){
   bioenergetics_control <- as.data.frame(readxl::read_xlsx( file, sheet = "bioenergetics_control"))
 
   for(i in 1:nrow(bioenergetics_control)){
-    data_list[[bioenergetics_control$Object[i]]] <- as.numeric(as.character(bioenergetics_control[i,((1:data_list$nspp) + 1)]))
+    data_list[[bioenergetics_control$Object[i]]] <- suppressWarnings(as.numeric(as.character(bioenergetics_control[i,((1:data_list$nspp) + 1)])))
   }
 
 
