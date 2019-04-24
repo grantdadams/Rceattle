@@ -273,6 +273,13 @@ Type objective_function<Type>::operator() () {
   DATA_INTEGER(msmMode);
   //    0 = run in single species mode
   //    1 = run in MSM mode  Holsman et al (2015) MSVPA based
+  //    2 = Holling Type I (linear)
+  //    3 = Holling Type II
+  //    4 = Holling Type III
+  //    5 = Predator interference
+  //    6 = Predator preemption
+  //    7 = Hassell-Varley
+  //    8 = Ecosim
   // DATA_INTEGER(est_diet);              // Include diet data in the likelihood
   DATA_INTEGER(suitMode);                 // Estimate suitability
   DATA_INTEGER(avgnMode);                 // N used for predation function
@@ -460,11 +467,12 @@ Type objective_function<Type>::operator() () {
   PARAMETER_MATRIX( init_dev );                   // Initial abundance-at-age; n = [nspp, nages] # NOTE: Need to figure out how to best vectorize this
 
   // -- 3.3. fishing mortality parameters
-  PARAMETER_VECTOR( ln_mean_F );                  // Log mean fishing mortality; n = [1, nspp]
-  PARAMETER_VECTOR( proj_F );                     // Fishing mortality for projections
-  PARAMETER_MATRIX( F_dev );                      // Annual fishing mortality deviations; n = [nspp, nyrs] # NOTE: The size of this will likely change
+  PARAMETER_VECTOR( ln_mean_F );                  // Log mean fishing mortality; n = [1, n_fsh]
+  PARAMETER_VECTOR( proj_F );                     // Fishing mortality for projections; n = [1, n_fsh]
+  PARAMETER_MATRIX( F_dev );                      // Annual fishing mortality deviations; n = [n_fsh, nyrs] # NOTE: The size of this will likely change
 
-  // -- 3.4. Selectivity parameters
+
+  // -- 3.4. Selectivity parameter
   PARAMETER_MATRIX( srv_sel_coff );               // Survey selectivity parameters; n = [n_srv, nselages]
   PARAMETER_MATRIX( srv_sel_slp );                // Survey selectivity paramaters for logistic; n = [2, n_srv]
   PARAMETER_MATRIX( srv_sel_inf );                // Survey selectivity paramaters for logistic; n = [2, n_srv]
@@ -473,6 +481,7 @@ Type objective_function<Type>::operator() () {
   PARAMETER_MATRIX( fsh_sel_coff );               // Fishery age selectivity coef; n = [n_srv, nselages]
   PARAMETER_MATRIX( fsh_sel_slp );                // Fishery selectivity paramaters for logistic; n = [2, n_fsh]
   PARAMETER_MATRIX( fsh_sel_inf );                // Fishery selectivity paramaters for logistic; n = [2, n_fsh]
+
 
   // 3.5. Variance of survey and fishery time series
   PARAMETER_VECTOR( ln_sigma_srv_index );         // Log standard deviation of survey index time-series; n = [1, n_srv]
@@ -488,12 +497,14 @@ Type objective_function<Type>::operator() () {
   PARAMETER_MATRIX(logH_3);                       // Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH3,UpperBoundH3;
   PARAMETER_MATRIX(H_4);                          // Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH4,UpperBoundH4;
 
+
   // 3.7. Gamma selectivity parameters
   PARAMETER_VECTOR( log_gam_a );                  // Log predator selectivity; n = [1,nspp]; FIXME: bounds = 1.0e-10 and 19.9
   PARAMETER_VECTOR( log_gam_b );                  // Log predator selectivity; n = [1,nspp]; FIXME: bounds = -5.2 and 10
 
+
   // 3.8. Preference
-  PARAMETER_MATRIX( log_phi );                        // Species preference coefficient; n = [nspp, nspp]
+  PARAMETER_MATRIX( log_phi );                    // Species preference coefficient; n = [nspp, nspp]
 
 
   // ------------------------------------------------------------------------- //
@@ -1084,7 +1095,7 @@ Type objective_function<Type>::operator() () {
               }
             }
           }
-          
+
           // By length
           for (r_ln = 0; r_ln < nlengths(rsp); r_ln++) {      // Predator length loop // FIXME: Change to diet length bins
             for (k_ln = 0; k_ln < nlengths(ksp); k_ln++) {    // Prey length loop FIXME: Change to diet length bins
@@ -1495,6 +1506,7 @@ Type objective_function<Type>::operator() () {
 
       // 8.2. KINZEY PREDATION EQUATIONS
       if (msmMode > 1) {
+
         // 8.2.2. Populate other food
         for (rsp = 0; rsp < nspp; rsp++) {
           for (r_age = 0; r_age < nages(rsp); r_age++) {
@@ -1520,17 +1532,17 @@ Type objective_function<Type>::operator() () {
           for (ksp = 0; ksp < nspp; ksp++) {
             for (r_age = 0; r_age < nages(rsp); r_age++) {
               for (k_age = 0; k_age < nages(ksp); k_age++) {
-                N_pred_eq(rsp, r_age) += NByage(rsp, r_age, 0) * suit_main(rsp , ksp, r_age, k_age, yr); // Denominator of Eq. 17 Kinzey and Punt (2009) 1st year
+                N_pred_eq(rsp, r_age) += NByage(rsp, r_age, 0) * suit_main(rsp , ksp, r_age, k_age, 0); // Denominator of Eq. 17 Kinzey and Punt (2009) 1st year - FIXME: probably should use 2015
               }
             }
             for (k_age = 0; k_age < nages(ksp); k_age++) {
               for (r_age = 0; r_age < nages(rsp); r_age++) {
-                N_prey_eq(ksp, k_age) += NByage(ksp, k_age, 0) * suit_main(rsp , ksp, r_age, k_age, yr); // Denominator of Eq. 16 Kinzey and Punt (2009) 1st year
+                N_prey_eq(ksp, k_age) += NByage(ksp, k_age, 0) * suit_main(rsp , ksp, r_age, k_age, 0); // Denominator of Eq. 16 Kinzey and Punt (2009) 1st year - FIXME: probably should use 2015
               }
             }
           }
         }
-
+        
 
         // 8.2.5. Calculate available prey and predator for each year
         N_pred_yrs.setZero();
@@ -1758,9 +1770,9 @@ Type objective_function<Type>::operator() () {
             omega_hat_ave(rsp, r_age) = numer / denom;
           }
         }
-
         // - END LOOP - END LOOP - END LOOP - END LOOP - END LOOP - //
       } // End 8.2. Kinzey predation
+
       // - END LOOP - END LOOP - END LOOP - END LOOP - END LOOP - //
     } // End 8. Predation mortality
     // - END LOOP - END LOOP - END LOOP - END LOOP - END LOOP - //
