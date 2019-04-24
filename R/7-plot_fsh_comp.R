@@ -217,8 +217,14 @@ plot_fsh_comp <-
 
           # Calculate pearson residual
           comp_tmp$comp_hat <- comp_hat_tmp$comp
+          comp_tmp <- comp_tmp[which(comp_tmp$comp > 0),]
+          comp_tmp <- comp_tmp[which(comp_tmp$comp_hat > 0),]
 
           comp_tmp$pearson <- (comp_tmp$comp - comp_tmp$comp_hat) / sqrt( ( comp_tmp$comp_hat * (1 - comp_tmp$comp_hat)) / comp_tmp$Sample_size)
+
+
+
+
 
           max_pearson <- max(abs(comp_tmp$pearson), na.rm = TRUE)
 
