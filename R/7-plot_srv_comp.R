@@ -113,7 +113,7 @@ plot_srv_comp <-
             y = NA,
             x = NA,
             ylim = c(0, nages[sp] * 1.20),
-            xlim = c(min(comp_tmp$Year, na.rm = TRUE), max(comp_tmp$Year, na.rm = TRUE) + right_adj),
+            xlim = c(min(srv_list$Year, na.rm = TRUE), max(srv_list$Year, na.rm = TRUE) + right_adj),
             xlab = "Year",
             ylab = c("Survey age comp", "Survey length comp")[comp_type + 1],
             xaxt = c(rep("n", nsrv - 1), "s")[j]
@@ -229,7 +229,7 @@ plot_srv_comp <-
             y = NA,
             x = NA,
             ylim = c(0, nages[sp] * 1.20),
-            xlim = c(min(comp_tmp$Year, na.rm = TRUE), max(comp_tmp$Year, na.rm = TRUE) + right_adj),
+            xlim = c(min(srv_list$Year, na.rm = TRUE), max(srv_list$Year, na.rm = TRUE) + right_adj),
             xlab = "Year",
             ylab = c("Survey age comp", "Survey length comp")[comp_type + 1],
             xaxt = c(rep("n", nsrv - 1), "s")[j]

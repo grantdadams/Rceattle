@@ -113,7 +113,7 @@ plot_fsh_comp <-
             y = NA,
             x = NA,
             ylim = c(0, nages[sp] * 1.20),
-            xlim = c(min(comp_tmp$Year, na.rm = TRUE), max(comp_tmp$Year, na.rm = TRUE) + right_adj),
+            xlim = c(min(fsh_list$Year, na.rm = TRUE), max(fsh_list$Year, na.rm = TRUE) + right_adj),
             xlab = "Year",
             ylab = c("Fishery age comp", "Fishery length comp")[comp_type + 1],
             xaxt = c(rep("n", nfsh - 1), "s")[j]
@@ -230,7 +230,7 @@ plot_fsh_comp <-
             y = NA,
             x = NA,
             ylim = c(0, nages[sp] * 1.20),
-            xlim = c(min(comp_tmp$Year, na.rm = TRUE), max(comp_tmp$Year, na.rm = TRUE) + right_adj),
+            xlim = c(min(fsh_list$Year, na.rm = TRUE), max(fsh_list$Year, na.rm = TRUE) + right_adj),
             xlab = "Year",
             ylab = c("Fishery age comp", "Fishery length comp")[comp_type + 1],
             xaxt = c(rep("n", nfsh - 1), "s")[j]

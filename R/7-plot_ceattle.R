@@ -624,7 +624,7 @@ plot_selectivity <-
         }
 
         # Legends
-        legend("topleft", paste0("Srv ",j,"; Sp ", sp), bty = "n", cex = 1.4)
+        legend("topleft", as.character(srv_control$Survey_name[j]), bty = "n", cex = 1.4)
       }
 
       # Add empty plots
@@ -669,7 +669,7 @@ plot_selectivity <-
         }
 
         # Legends
-        legend("topleft", paste0("Fsh ",j,"; Sp ", sp), bty = "n", cex = 1.4)
+        legend("topleft", as.character(fsh_control$Fishery_name[j]), bty = "n", cex = 1.4)
 
         if (j == 1) {
           if(!is.null(model_names)){
