@@ -1868,36 +1868,8 @@ Type objective_function<Type>::operator() () {
     } // End loop
     // Good above here
 
-    // -- 9.2. Analytical survey q following Ludwig and Martell 1994
-    srv_n_obs.setZero();
-    srv_q_analytical.setZero();
-    for(srv_ind = 0; srv_ind < srv_biom_ctl.rows(); srv_ind++){
-
-      srv = srv_biom_ctl(srv_ind, 0) - 1;            // Temporary survey index
-      sp = srv_biom_ctl(srv_ind, 1) - 1;             // Temporary index of species
-      // sex = srv_biom_ctl(srv_ind, 2);                // Temporary index for years of data
-      srv_yr = srv_biom_ctl(srv_ind, 3) - styr;      // Temporary index for years of data
-
-      mo = srv_biom_n(srv_ind, 0);                    // Temporary index for month
-      if(srv_yr < nyrs_hind){
-        srv_n_obs(srv) += 1; // Add one if survey is used
-        srv_q_analytical(srv) += log(srv_biom_obs(srv_ind, 0) / biomass(sp, srv_yr));
-      }
-    }
-
-
-    for(srv = 0 ; srv < n_srv; srv ++){
-      srv_q_analytical(srv) = exp(srv_q_analytical(srv) / srv_n_obs(srv));
-
-      // Set srv_q to analytical if used
-      if(est_srv_q(srv) == 2){
-        srv_q(srv) = srv_q_analytical(srv);
-      }
-    }
-
-
-
-    // -- 9.3. Survey Biomass
+    
+    // -- 9.2. Survey Biomass
     for(srv_ind = 0; srv_ind < srv_biom_ctl.rows(); srv_ind++){
 
       srv = srv_biom_ctl(srv_ind, 0) - 1;            // Temporary survey index
@@ -1914,17 +1886,53 @@ Type objective_function<Type>::operator() () {
         for (age = 0; age < nages(sp); age++) {
           // Weight
           if(srv_units(srv) == 1){
-            srv_bio_hat(srv_ind) += NByage(sp, age, srv_yr) * exp( - (mo/12) * Zed(sp, age, srv_yr)) * srv_sel(srv, age, srv_yr) * srv_q(srv) * wt(srv_yr, age, srv_wt_index(srv));
+            srv_bio_hat(srv_ind) += NByage(sp, age, srv_yr) * exp( - (mo/12) * Zed(sp, age, srv_yr)) * srv_sel(srv, age, srv_yr) * wt(srv_yr, age, srv_wt_index(srv));
           }
           // Numbers
           if(srv_units(srv) == 2){
-            srv_bio_hat(srv_ind) += NByage(sp, age, srv_yr) * exp( - (mo/12) * Zed(sp, age, srv_yr)) * srv_sel(srv, age, srv_yr) * srv_q(srv);
+            srv_bio_hat(srv_ind) += NByage(sp, age, srv_yr) * exp( - (mo/12) * Zed(sp, age, srv_yr)) * srv_sel(srv, age, srv_yr);
           }
         }
-
-
       }
     }
+
+
+// -- 9.3. Analytical survey q following Ludwig and Martell 1994
+    srv_n_obs.setZero();
+    srv_q_analytical.setZero();
+    for(srv_ind = 0; srv_ind < srv_biom_ctl.rows(); srv_ind++){
+
+      srv = srv_biom_ctl(srv_ind, 0) - 1;            // Temporary survey index
+      sp = srv_biom_ctl(srv_ind, 1) - 1;             // Temporary index of species
+      // sex = srv_biom_ctl(srv_ind, 2);                // Temporary index for years of data
+      srv_yr = srv_biom_ctl(srv_ind, 3) - styr;      // Temporary index for years of data
+
+      mo = srv_biom_n(srv_ind, 0);                    // Temporary index for month
+      if(srv_yr < nyrs_hind){
+        srv_n_obs(srv) += 1; // Add one if survey is used
+        srv_q_analytical(srv) += log(srv_biom_obs(srv_ind, 0) / srv_bio_hat(srv_ind));
+      }
+    }
+
+    for(srv = 0 ; srv < n_srv; srv ++){
+      srv_q_analytical(srv) = exp(srv_q_analytical(srv) / srv_n_obs(srv));
+
+      // Set srv_q to analytical if used
+      if(est_srv_q(srv) == 2){
+        srv_q(srv) = srv_q_analytical(srv);
+      }
+    }
+
+
+    // -- 9.2. Survey Biomass - multiply by q
+    for(srv_ind = 0; srv_ind < srv_biom_ctl.rows(); srv_ind++){
+
+      srv = srv_biom_ctl(srv_ind, 0) - 1;            // Temporary survey index
+
+      srv_bio_hat(srv_ind) *= srv_q(srv);
+    }
+
+
 
     // -- 9.4. Calculate analytical sigma following Ludwig and Walters 1994
     srv_n_obs.setZero();
