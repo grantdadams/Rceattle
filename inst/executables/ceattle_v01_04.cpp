@@ -572,9 +572,9 @@ Type objective_function<Type>::operator() () {
   vector<Type>  TempC( nyrs ); TempC.setZero();                                               // Bottom temperature; n = [1, nTyrs]
 
   // -- 4.7. Suitability components
-  Type tmp_othersuit = 0  ;
   Type suit_tmp = 0;                                                                          // Temporary storage variable
   array<Type>   avail_food(nspp, max_age, nyrs); avail_food.setZero();                        // Available food to predator; n = [nyrs, nages, nspp]
+  array<Type>   othersuit(nspp, max_age, nyrs); othersuit.setZero();                  // Sum of available food to predator; n = [nyrs, nages, nspp]
   array<Type>   B_eaten(nspp, max_age, nyrs); B_eaten.setZero();                              // Biomass of prey eaten via predation; n = [nyrs, nages, nspp]
   array<Type>   of_stomKir(nspp, max_age, nyrs); of_stomKir.setZero();                        // Other food stomach content; n = [nyrs, nages, nspp]
   array<Type>   stom_div_bio2(nspp, nspp, max_age, max_age, nyrs); stom_div_bio2.setZero();   // Stomach proportion over biomass; U/ (W * N) ; n = [nspp, nspp, nages, nages, nyrs]
@@ -1064,21 +1064,22 @@ Type objective_function<Type>::operator() () {
             for (k_age = 0; k_age < nages(ksp); k_age++) {      // Prey age loop
               // Change to 5D array if 4D
               if(a1_dim.size() == 4){
-                stomKir(rsp, ksp, r_age, k_age, yr) = UobsAge(rsp , ksp , r_age, k_age);
+                stomKir(rsp, ksp, r_age, k_age, yr) = UobsWtAge(rsp , ksp , r_age, k_age);
               }
               if(a1_dim.size() == 5){
                 // Hindcast
                 if(yr < nyrs_hind){
-                  stomKir(rsp, ksp, r_age, k_age, yr) = UobsAge(rsp , ksp , r_age, k_age, yr);
+                  stomKir(rsp, ksp, r_age, k_age, yr) = UobsWtAge(rsp , ksp , r_age, k_age, yr);
                 }
 
                 // Projection - use last year
                 if(yr >= nyrs_hind){
-                  stomKir(rsp, ksp, r_age, k_age, yr) = UobsAge(rsp , ksp , r_age, k_age, nyrs_hind - 1);
+                  stomKir(rsp, ksp, r_age, k_age, yr) = UobsWtAge(rsp , ksp , r_age, k_age, nyrs_hind - 1);
                 }
 
               }
 
+// FIXME
               if(a2_dim.size() == 4){
                 stomKirWt(rsp, ksp, r_age, k_age, yr) = UobsWtAge(rsp, ksp, r_age, k_age);
               }
@@ -1444,10 +1445,10 @@ Type objective_function<Type>::operator() () {
       if (msmMode == 1) {
         // 8.1.3. Calculate available food
         avail_food.setZero();
+        othersuit.setZero();  
         for (rsp = 0; rsp < nspp; rsp++) {                        // Predator species loop
           for (r_age = 0; r_age < nages(rsp); r_age++) {          // Predator age loop
             for (yr = 0; yr < nyrs; yr++) {                       // Year loop
-              tmp_othersuit = 0.;
 
               if(yr < nyrs_hind){
                 yr_ind = yr;
@@ -1459,11 +1460,11 @@ Type objective_function<Type>::operator() () {
               for (ksp = 0; ksp < nspp; ksp++) {                  // Prey species loop
                 for (k_age = 0; k_age < nages(ksp); k_age++) {    // Prey age loop
                   avail_food(rsp, r_age, yr) += suit_main(rsp, ksp, r_age, k_age, yr) * AvgN(ksp, k_age, yr) * wt(yr_ind, k_age, pop_wt_index(ksp)); // FIXME - include overlap indices: FIXME - mn_wt_stom?
-                  tmp_othersuit += suit_main(rsp, ksp, r_age, k_age, yr); // FIXME - include overlap indices
+                  othersuit(rsp, r_age, yr) += suit_main(rsp, ksp, r_age, k_age, yr); // FIXME - include overlap indices
                 }
               }
               if(suitMode == 0){ // Holsman
-                avail_food(rsp, r_age, yr) += other_food(rsp) * (Type(1) - (tmp_othersuit));
+                avail_food(rsp, r_age, yr) += other_food(rsp) * (Type(1) - (othersuit(rsp, r_age, yr)));
               }
               if(suitMode > 0){ // Log-normal and gamma
                 avail_food(rsp, r_age, yr) += other_food(rsp) * Type(1);
@@ -2658,6 +2659,7 @@ jnll_comp(4, fsh) += pow(log(fsh_biom_obs(fsh_ind, 0) + MNConst) - log(fsh_bio_h
   REPORT( stom_div_bio2 );
   REPORT( stomKir );
   REPORT( avail_food );
+  REPORT( othersuit );
   REPORT( of_stomKir );
   REPORT( M2 );
   REPORT( B_eaten );
