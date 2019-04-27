@@ -713,7 +713,8 @@ read_excel <- function( file = "Rceattle_data.xlsx" ){
       for(pred_age in 1:max(data_list$nages)){
         stom_sum <- sum(UobsAge[pred, , pred_age, ], na.rm = TRUE)
         if(stom_sum > 1){
-          UobsAge[pred, , pred_age, ] <- UobsAge[pred, , pred_age, ] / stom_sum
+          warning(paste0("Stomach proportion by number (UobsAge) for species ", pred, " age ", pred_age," is greater than 1"))
+          warning(paste0("Multi-species mode will not work"))
         }
       }
     }
@@ -743,7 +744,8 @@ read_excel <- function( file = "Rceattle_data.xlsx" ){
         for(yr in 1:nyrs){
           stom_sum <- sum(UobsAge[pred, , pred_age, , yr], na.rm = TRUE)
           if(stom_sum > 1){
-            UobsAge[pred, , pred_age, , yr] <- UobsAge[pred, , pred_age, , yr] / stom_sum
+            warning(paste0("Stomach proportion by number (UobsAge) for species ", pred, " age ", pred_age," is greater than 1"))
+            warning(paste0("Multi-species mode will not work"))
           }
         }
       }
@@ -776,7 +778,8 @@ read_excel <- function( file = "Rceattle_data.xlsx" ){
       for(pred_age in 1:max(data_list$nages)){
         stom_sum <- sum(UobsWtAge[pred, , pred_age, ], na.rm = TRUE)
         if(stom_sum > 1){
-          UobsWtAge[pred, , pred_age, ] <- UobsWtAge[pred, , pred_age, ] / stom_sum
+          warning(paste0("Stomach proportion by weight (UobsWtAge) for species ", pred, " age ", pred_age," is greater than 1"))
+          warning(paste0("Multi-species mode will not work"))
         }
       }
     }
@@ -807,8 +810,8 @@ read_excel <- function( file = "Rceattle_data.xlsx" ){
         for(yr in 1:nyrs){
           stom_sum <- sum(UobsWtAge[pred, , pred_age, , yr], na.rm = TRUE)
           if(stom_sum > 1){
-            UobsWtAge[pred, , pred_age, , yr] <- UobsWtAge[pred, , pred_age, , yr] / stom_sum
-          }
+            warning(paste0("Stomach proportion by weight (UobsWtAge) for species ", pred, " age ", pred_age," is greater than 1"))
+            warning(paste0("Multi-species mode will not work"))}
         }
       }
     }
