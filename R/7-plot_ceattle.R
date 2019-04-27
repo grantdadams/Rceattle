@@ -247,7 +247,7 @@ plot_recruitment <-
            file = NULL,
            model_names = NULL,
            line_col = NULL,
-           species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"),
+           species = NULL,
            add_ci = FALSE,
            lwd = 3,
            save_rec = FALSE,
@@ -258,6 +258,11 @@ plot_recruitment <-
     # Convert single one into a list
     if(class(Rceattle) == "Rceattle"){
       Rceattle <- list(Rceattle)
+    }
+
+    # Species names
+    if(is.null(species)){
+      species =  Rceattle[[1]]$data_list$spnames
     }
 
     # Extract data objects
@@ -619,7 +624,7 @@ plot_selectivity <-
         }
 
         # Legends
-        legend("topleft", paste0("Srv ",j,"; Sp ", sp), bty = "n", cex = 1.4)
+        legend("topleft", as.character(srv_control$Survey_name[j]), bty = "n", cex = 1.4)
       }
 
       # Add empty plots
@@ -664,7 +669,7 @@ plot_selectivity <-
         }
 
         # Legends
-        legend("topleft", paste0("Fsh ",j,"; Sp ", sp), bty = "n", cex = 1.4)
+        legend("topleft", as.character(fsh_control$Fishery_name[j]), bty = "n", cex = 1.4)
 
         if (j == 1) {
           if(!is.null(model_names)){

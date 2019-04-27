@@ -552,6 +552,9 @@ read_excel <- function( file = "Rceattle_data.xlsx" ){
   data_list$stom_tau <- as.numeric(sheet1[12, 2:(data_list$nspp + 1)])
 
 
+  nyrs <- data_list$endyr - data_list$styr + 1
+
+
   # srv and fsh bits
   srv_bits <- c("srv_control", "srv_biom", "srv_emp_sel", "srv_comp", "fsh_control", "fsh_biom", "fsh_emp_sel", "fsh_comp")
   for(i in 1:length(srv_bits)){
@@ -658,7 +661,7 @@ read_excel <- function( file = "Rceattle_data.xlsx" ){
   bioenergetics_control <- as.data.frame(readxl::read_xlsx( file, sheet = "bioenergetics_control"))
 
   for(i in 1:nrow(bioenergetics_control)){
-    data_list[[bioenergetics_control$Object[i]]] <- as.numeric(as.character(bioenergetics_control[i,((1:data_list$nspp) + 1)]))
+    data_list[[bioenergetics_control$Object[i]]] <- suppressWarnings(as.numeric(as.character(bioenergetics_control[i,((1:data_list$nspp) + 1)])))
   }
 
 
@@ -705,12 +708,23 @@ read_excel <- function( file = "Rceattle_data.xlsx" ){
       UobsAge[pred, prey, pred_age, prey_age] <- stom
     }
 
+    # Normalize
+    for(pred in 1:data_list$nspp){
+      for(pred_age in 1:max(data_list$nages)){
+        stom_sum <- sum(UobsAge[pred, , pred_age, ], na.rm = TRUE)
+        if(stom_sum > 1){
+          warning(paste0("Stomach proportion by number (UobsAge) for species ", pred, " age ", pred_age," is greater than 1"))
+          warning(paste0("Multi-species mode will not work"))
+        }
+      }
+    }
+
     data_list$UobsAge <- UobsAge
   }
 
   # with year
   if(ncol(UobsAge_matrix) == 6){
-    UobsAge <- array(0, dim = c( data_list$nspp, data_list$nspp, max(data_list$nages), max(data_list$nages)))
+    UobsAge <- array(0, dim = c( data_list$nspp, data_list$nspp, max(data_list$nages), max(data_list$nages), nyrs))
     dims <- dim(data_list$UobsAge)
 
     for(i in 1:nrow(UobsAge_matrix)){
@@ -722,6 +736,19 @@ read_excel <- function( file = "Rceattle_data.xlsx" ){
       stom <- as.numeric(as.character(UobsAge_matrix$Stomach_proportion_by_number[i]))
 
       UobsAge[pred, prey, pred_age, prey_age, year] <- stom
+    }
+
+    # Normalize
+    for(pred in 1:data_list$nspp){
+      for(pred_age in 1:max(data_list$nages)){
+        for(yr in 1:nyrs){
+          stom_sum <- sum(UobsAge[pred, , pred_age, , yr], na.rm = TRUE)
+          if(stom_sum > 1){
+            warning(paste0("Stomach proportion by number (UobsAge) for species ", pred, " age ", pred_age," is greater than 1"))
+            warning(paste0("Multi-species mode will not work"))
+          }
+        }
+      }
     }
 
     data_list$UobsAge <- UobsAge
@@ -746,12 +773,23 @@ read_excel <- function( file = "Rceattle_data.xlsx" ){
       UobsWtAge[pred, prey, pred_age, prey_age] <- stom
     }
 
+    # Normalize
+    for(pred in 1:data_list$nspp){
+      for(pred_age in 1:max(data_list$nages)){
+        stom_sum <- sum(UobsWtAge[pred, , pred_age, ], na.rm = TRUE)
+        if(stom_sum > 1){
+          warning(paste0("Stomach proportion by weight (UobsWtAge) for species ", pred, " age ", pred_age," is greater than 1"))
+          warning(paste0("Multi-species mode will not work"))
+        }
+      }
+    }
+
     data_list$UobsWtAge <- UobsWtAge
   }
 
   # with year
   if(ncol(UobsWtAge_matrix) == 6){
-    UobsWtAge <- array(0, dim = c( data_list$nspp, data_list$nspp, max(data_list$nages), max(data_list$nages)))
+    UobsWtAge <- array(0, dim = c( data_list$nspp, data_list$nspp, max(data_list$nages), max(data_list$nages), nyrs))
     dims <- dim(data_list$UobsWtAge)
 
     for(i in 1:nrow(UobsWtAge_matrix)){
@@ -763,6 +801,19 @@ read_excel <- function( file = "Rceattle_data.xlsx" ){
       stom <- as.numeric(as.character(UobsWtAge_matrix$Stomach_proportion_by_weight[i]))
 
       UobsWtAge[pred, prey, pred_age, prey_age, year] <- stom
+    }
+
+
+    # Normalize
+    for(pred in 1:data_list$nspp){
+      for(pred_age in 1:max(data_list$nages)){
+        for(yr in 1:nyrs){
+          stom_sum <- sum(UobsWtAge[pred, , pred_age, , yr], na.rm = TRUE)
+          if(stom_sum > 1){
+            warning(paste0("Stomach proportion by weight (UobsWtAge) for species ", pred, " age ", pred_age," is greater than 1"))
+            warning(paste0("Multi-species mode will not work"))}
+        }
+      }
     }
 
     data_list$UobsWtAge <- UobsWtAge
