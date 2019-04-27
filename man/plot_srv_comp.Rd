@@ -2,7 +2,7 @@
 % Please edit documentation in R/7-plot_srv_comp.R
 \name{plot_srv_comp}
 \alias{plot_srv_comp}
-\title{Plot time series of survey age/length composition}
+\title{Plot time series of survey comp data}
 \usage{
 plot_srv_comp(Rceattle, tmp_list = NULL, file = NULL,
   model_names = NULL, line_col = NULL, species = NULL, cex = 3,
@@ -32,5 +32,5 @@ function.}
 Returns and saves a figure with the catch trajectory.
 }
 \description{
-Function the plots the survey composition as estimated from Rceattle
+Function the plots the survey comp data as estimated from Rceattle
 }
