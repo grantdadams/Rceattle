@@ -579,7 +579,6 @@ Type objective_function<Type>::operator() () {
   array<Type>   of_stomKir(nspp, max_age, nyrs); of_stomKir.setZero();                        // Other food stomach content; n = [nyrs, nages, nspp]
   array<Type>   stom_div_bio2(nspp, nspp, max_age, max_age, nyrs); stom_div_bio2.setZero();   // Stomach proportion over biomass; U/ (W * N) ; n = [nspp, nspp, nages, nages, nyrs]
   array<Type>   stomKir(nspp, nspp, max_age, max_age, nyrs); stomKir.setZero();               // Stomach proportion by numbers U; n = [nspp, nspp, nages, nages, nyrs]
-  array<Type>   stomKirWt(nspp, nspp, max_age, max_age, nyrs); stomKirWt.setZero();           // Stomach proportion by weight U; n = [nspp, nspp, nages, nages, nyrs]
   array<Type>   diet_w_dat(nspp, nspp, max_bin, max_bin, nyrs); diet_w_dat.setZero();         // Observed stomach contents by weight of prey length j in predator length l
   array<Type>   diet_w_sum(nspp, nspp, max_bin, nyrs); diet_w_sum.setZero();                  // Observed stomach contentes by weight of prey in predator length j
   array<Type>   suit_main(nspp, nspp, max_age, max_age, nyrs); suit_main.setZero();           // Suitability/gamma selectivity of predator age u on prey age a; n = [nspp, nspp, nages, nages]
@@ -761,7 +760,7 @@ Type objective_function<Type>::operator() () {
    */
 
   // Dimensions of diet matrix
-  vector<int> a1_dim = UobsAge.dim; // dimension of a1
+  vector<int> a1_dim = UobsWtAge.dim; // dimension of a1
   vector<int> a2_dim = UobsWtAge.dim; // dimension of a1
 
   // Good above here
@@ -1077,22 +1076,6 @@ Type objective_function<Type>::operator() () {
                   stomKir(rsp, ksp, r_age, k_age, yr) = UobsWtAge(rsp , ksp , r_age, k_age, nyrs_hind - 1);
                 }
 
-              }
-
-// FIXME
-              if(a2_dim.size() == 4){
-                stomKirWt(rsp, ksp, r_age, k_age, yr) = UobsWtAge(rsp, ksp, r_age, k_age);
-              }
-              if(a2_dim.size() == 5){
-                // Hindcast
-                if(yr < nyrs_hind){
-                  stomKirWt(rsp, ksp, r_age, k_age, yr) = UobsWtAge(rsp, ksp, r_age, k_age, yr);
-                }
-
-                // Projection - use last year
-                if(yr >= nyrs_hind){
-                  stomKirWt(rsp, ksp, r_age, k_age, yr) = UobsWtAge(rsp, ksp, r_age, k_age, nyrs_hind - 1);
-                }
               }
             }
           }

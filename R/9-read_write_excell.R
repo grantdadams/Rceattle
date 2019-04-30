@@ -714,7 +714,7 @@ read_excel <- function( file = "Rceattle_data.xlsx" ){
         stom_sum <- sum(UobsAge[pred, , pred_age, ], na.rm = TRUE)
         if(stom_sum > 1){
           warning(paste0("Stomach proportion by number (UobsAge) for species ", pred, " age ", pred_age," is greater than 1"))
-          warning(paste0("Multi-species mode will not work"))
+          # warning(paste0("Multi-species mode will not work"))
         }
       }
     }
@@ -743,9 +743,9 @@ read_excel <- function( file = "Rceattle_data.xlsx" ){
       for(pred_age in 1:max(data_list$nages)){
         for(yr in 1:nyrs){
           stom_sum <- sum(UobsAge[pred, , pred_age, , yr], na.rm = TRUE)
-          if(stom_sum > 1){
+          if(stom_sum >= 1){
             warning(paste0("Stomach proportion by number (UobsAge) for species ", pred, " age ", pred_age," is greater than 1"))
-            warning(paste0("Multi-species mode will not work"))
+            #warning(paste0("Multi-species mode will not work"))
           }
         }
       }
