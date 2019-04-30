@@ -13,8 +13,17 @@ ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
 ms_run <- Rceattle::fit_mod(data_list = BS2017SS,
                             inits = ss_run$estimated_params, # Initial parameters = 0
                             file = NULL, # Don't save
-                            debug = 1, # Estimate
+                            debug = 0, # Estimate
                             random_rec = FALSE, # No random recruitment
-                            msmMode = 3, # Single species mode
+                            msmMode = 1, # Single species mode
                             silent = TRUE)
 ms_run$quantities$jnll_comp
+
+
+# We can plot both runs as well:
+mod_list <- list(ss_run, ms_run)
+mod_names <- c("SS", "MS")
+
+# Plot biomass trajectory
+plot_biomass(Rceattle = mod_list, model_names = mod_names, incl_proj = TRUE)
+plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE, incl_proj = TRUE)
