@@ -13,6 +13,7 @@
 #' @param niter Number of iterations for multispecies model
 #' @param msmMode The predation mortality functions to used. Defaults to no predation mortality used.
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{\frac{N}{Z} \left( 1 - exp^{-Z} \right)}, 1 is \eqn{N e^{-Z/2}}, 2 is \eqn{N}.
+#' @param minNByage Minimum numbers at age to put in a hard constraint that the number-at-age can not go below.
 #' @param silent logical. IF TRUE, includes TMB estimation progress
 #' @param suitMode Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma selectivity from Kinzey and Punt (2009), 2 = time-varing length based gamma selectivity from Kinzey and Punt (2009), 3 = time-varying weight based gamma selectivity from Kinzey and Punt (2009), 4 = length based lognormal selectivity, 5 = time-varing length based lognormal selectivity, 6 = time-varying weight based lognormal selectivity,
 #' @details
@@ -193,6 +194,7 @@ fit_mod <-
            niter = 3,
            msmMode = 0,
            avgnMode = 0,
+           minNByage = 0,
            suitMode = 0,
            silent = FALSE,
            recompile = FALSE) {
@@ -227,6 +229,7 @@ fit_mod <-
     data_list$avgnMode <- avgnMode
     data_list$msmMode <- msmMode
     data_list$suitMode <- as.numeric(suitMode)
+    data_list$minNByage <- as.numeric(minNByage)
 
 
     # Get cpp file if not provided
