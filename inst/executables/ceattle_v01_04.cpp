@@ -276,7 +276,8 @@ Type objective_function<Type>::operator() () {
   // 1. MODEL CONFIGURATION                                                    //
   // ------------------------------------------------------------------------- //
   // 1.1. CONFIGURE MODEL (this section sets up the switches)
-  DATA_INTEGER(debug);                    // Logical to debug or not
+  DATA_INTEGER(debug);                    // Logical to estimate (0) or not (1)
+  DATA_SCALAR( minNByage );                // Logical to put in a hard constraint that the lowest a numbers at age can be is 1
   DATA_INTEGER(msmMode);
   //    0 = run in single species mode
   //    1 = run in MSM mode  Holsman et al (2015) MSVPA based
@@ -944,6 +945,12 @@ Type objective_function<Type>::operator() () {
           if (age == (nages(sp) - 1)) {
             NByage(sp, nages(sp) - 1, yr) = NByage(sp, nages(sp) - 2, yr - 1) * S(sp, nages(sp) - 2, yr - 1) + NByage(sp, nages(sp) - 1, yr - 1) * S(sp, nages(sp) - 1, yr - 1);
           }
+
+          // Hard constraint to reduce population collapse
+
+            if(NByage(sp, age, yr) < minNByage){
+              NByage(sp, age, yr) = minNByage;
+          }
         }
 
         // -- 6.3.3. Estimate Biomass and SSB
@@ -1145,10 +1152,10 @@ Type objective_function<Type>::operator() () {
                   }
 
 
-// Make sure it is a real number, if not set to 0
+                  // Make sure it is a real number, if not set to 0
                   if(!isFinite(suit_tmp(rsp, ksp, r_age, k_age, yr))){
-                      suit_tmp(rsp, ksp, r_age, k_age, yr) = 0;
-                    }
+                    suit_tmp(rsp, ksp, r_age, k_age, yr) = 0;
+                  }
 
 
                   if(yr < nyrs_hind){
