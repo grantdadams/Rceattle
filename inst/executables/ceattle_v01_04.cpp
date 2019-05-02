@@ -70,6 +70,13 @@ bool isNA(Type x){
   return R_IsNA(asDouble(x));
 }
 
+
+// Function for detecting Inf
+template<class Type>
+bool isFinite(Type x){
+  return R_finite(asDouble(x));
+}
+
 //  Function to getting sqaure
 template <class Type> Type square(Type x){return x*x;}
 
@@ -572,13 +579,13 @@ Type objective_function<Type>::operator() () {
   vector<Type>  TempC( nyrs ); TempC.setZero();                                               // Bottom temperature; n = [1, nTyrs]
 
   // -- 4.7. Suitability components
-  Type suit_tmp = 0;                                                                          // Temporary storage variable
   array<Type>   avail_food(nspp, max_age, nyrs); avail_food.setZero();                        // Available food to predator; n = [nyrs, nages, nspp]
   array<Type>   othersuit(nspp, max_age, nyrs); othersuit.setZero();                  // Sum of available food to predator; n = [nyrs, nages, nspp]
   array<Type>   B_eaten(nspp, max_age, nyrs); B_eaten.setZero();                              // Biomass of prey eaten via predation; n = [nyrs, nages, nspp]
   array<Type>   of_stomKir(nspp, max_age, nyrs); of_stomKir.setZero();                        // Other food stomach content; n = [nyrs, nages, nspp]
   array<Type>   stom_div_bio2(nspp, nspp, max_age, max_age, nyrs); stom_div_bio2.setZero();   // Stomach proportion over biomass; U/ (W * N) ; n = [nspp, nspp, nages, nages, nyrs]
   array<Type>   stomKir(nspp, nspp, max_age, max_age, nyrs); stomKir.setZero();               // Stomach proportion by numbers U; n = [nspp, nspp, nages, nages, nyrs]
+  array<Type>   suit_tmp(nspp, nspp, max_age, max_age, nyrs); suit_tmp.setZero();           // Temporary suitability storage U; n = [nspp, nspp, nages, nages, nyrs]
   array<Type>   diet_w_dat(nspp, nspp, max_bin, max_bin, nyrs); diet_w_dat.setZero();         // Observed stomach contents by weight of prey length j in predator length l
   array<Type>   diet_w_sum(nspp, nspp, max_bin, nyrs); diet_w_sum.setZero();                  // Observed stomach contentes by weight of prey in predator length j
   array<Type>   suit_main(nspp, nspp, max_age, max_age, nyrs); suit_main.setZero();           // Suitability/gamma selectivity of predator age u on prey age a; n = [nspp, nspp, nages, nages]
@@ -1131,7 +1138,18 @@ Type objective_function<Type>::operator() () {
             for (rsp = 0; rsp < nspp; rsp++) {                  // Predator species loop
               for (r_age = 0; r_age < nages(rsp); r_age++) {    // Predator age loop
                 for (k_age = 0; k_age < nages(ksp); k_age++) {  // Prey age loop
-                  suit_tmp = stomKir(rsp, ksp, r_age, k_age, yr) / (AvgN(ksp, k_age, yr));
+
+                  suit_tmp(rsp, ksp, r_age, k_age, yr) = 0;
+                  if(AvgN(ksp, k_age, yr) > 0){
+                    suit_tmp(rsp, ksp, r_age, k_age, yr) = stomKir(rsp, ksp, r_age, k_age, yr) / (AvgN(ksp, k_age, yr));
+                  }
+
+
+// Make sure it is a real number, if not set to 0
+                  if(!isFinite(suit_tmp(rsp, ksp, r_age, k_age, yr))){
+                      suit_tmp(rsp, ksp, r_age, k_age, yr) = 0;
+                    }
+
 
                   if(yr < nyrs_hind){
                     yr_ind = yr;
@@ -1140,8 +1158,8 @@ Type objective_function<Type>::operator() () {
                     yr_ind = nyrs_hind - 1;
                   }
 
-                  if (wt(yr_ind, k_age, pop_wt_index(ksp)) != 0) {
-                    stom_div_bio2(rsp, ksp, r_age, k_age, yr) = suit_tmp / wt(yr_ind, k_age, pop_wt_index(ksp));
+                  if (wt(yr_ind, k_age, pop_wt_index(ksp)) > 0) {
+                    stom_div_bio2(rsp, ksp, r_age, k_age, yr) = suit_tmp(rsp, ksp, r_age, k_age, yr) / wt(yr_ind, k_age, pop_wt_index(ksp));
                     suma_suit(rsp, r_age, yr ) += stom_div_bio2(rsp, ksp, r_age, k_age, yr); // Calculate sum of stom_div_bio2 across prey and  prey age for each predator, predator age, and year
                   }
                 }
@@ -1160,10 +1178,18 @@ Type objective_function<Type>::operator() () {
             for (ksp = 0; ksp < nspp; ksp++) {                  // Prey species loop
               for (k_age = 0; k_age < nages(ksp); k_age++) {    // Prey age loop
                 for (yr = 0; yr < nyrs; yr++) {                 // Year loop
-                  suit_main(rsp, ksp, r_age, k_age, 0) += stom_div_bio2(rsp, ksp, r_age, k_age, yr) / ( suma_suit(rsp, r_age, yr ) + of_stomKir(rsp, r_age, yr) );
+
+                  if( suma_suit(rsp, r_age, yr ) + of_stomKir(rsp, r_age, yr) > 0){
+                    suit_main(rsp, ksp, r_age, k_age, 0) += stom_div_bio2(rsp, ksp, r_age, k_age, yr) / ( suma_suit(rsp, r_age, yr ) + of_stomKir(rsp, r_age, yr) );
+                  }
                 }                                 // End year loop
                 suit_main(rsp, ksp, r_age, k_age, 0) /= nyrs;
                 suit_other(rsp, r_age) -= suit_main(rsp, ksp, r_age, k_age, 0); // Subtract observed suitability from entire suitability (ksp.e. 1)
+
+                // Remove NAs from crashing populations
+                if(!isFinite(suit_main(rsp, ksp, r_age, k_age, 0))){
+                  suit_main(rsp, ksp, r_age, k_age, 0) = 0;
+                }
 
                 // Fill in years
                 for (yr = 1; yr < nyrs; yr++) {                 // Year loop
@@ -1428,7 +1454,7 @@ Type objective_function<Type>::operator() () {
       if (msmMode == 1) {
         // 8.1.3. Calculate available food
         avail_food.setZero();
-        othersuit.setZero();  
+        othersuit.setZero();
         for (rsp = 0; rsp < nspp; rsp++) {                        // Predator species loop
           for (r_age = 0; r_age < nages(rsp); r_age++) {          // Predator age loop
             for (yr = 0; yr < nyrs; yr++) {                       // Year loop
@@ -1474,8 +1500,10 @@ Type objective_function<Type>::operator() () {
 
               for (rsp = 0; rsp < nspp; rsp++) {                  // Predator species loop
                 for (r_age = 0; r_age < nages(rsp); r_age++) {    // Predator age loop
-                  M2(ksp, k_age, yr) += (AvgN(rsp, r_age, yr) * ration2Age(rsp, r_age, yr) * suit_main(rsp , ksp , r_age, k_age, yr)) / avail_food(rsp, r_age, yr); // #FIXME - include indices of overlap
-                  B_eaten(ksp, k_age, yr) += AvgN(rsp, r_age, yr) * ration2Age(rsp, r_age, yr) * suit_main(rsp , ksp , r_age, k_age, yr);
+                  if(avail_food(rsp, r_age, yr) > 0){
+                    M2(ksp, k_age, yr) += (AvgN(rsp, r_age, yr) * ration2Age(rsp, r_age, yr) * suit_main(rsp , ksp , r_age, k_age, yr)) / avail_food(rsp, r_age, yr); // #FIXME - include indices of overlap
+                    B_eaten(ksp, k_age, yr) += AvgN(rsp, r_age, yr) * ration2Age(rsp, r_age, yr) * suit_main(rsp , ksp , r_age, k_age, yr);
+                  }
 
                   // Estimated stomach proportion
                   UobsWtAge_hat(rsp, ksp, r_age, k_age, yr) = (AvgN(ksp, k_age, yr) * suit_main(rsp , ksp , r_age, k_age, yr) * wt(yr_ind, k_age, pop_wt_index(ksp))) / avail_food(rsp, r_age, yr);
@@ -1526,7 +1554,7 @@ Type objective_function<Type>::operator() () {
             }
           }
         }
-        
+
 
         // 8.2.5. Calculate available prey and predator for each year
         N_pred_yrs.setZero();
@@ -1852,7 +1880,7 @@ Type objective_function<Type>::operator() () {
     } // End loop
     // Good above here
 
-    
+
     // -- 9.2. Survey Biomass
     for(srv_ind = 0; srv_ind < srv_biom_ctl.rows(); srv_ind++){
 
@@ -1881,7 +1909,7 @@ Type objective_function<Type>::operator() () {
     }
 
 
-// -- 9.3. Analytical survey q following Ludwig and Martell 1994
+    // -- 9.3. Analytical survey q following Ludwig and Martell 1994
     srv_n_obs.setZero();
     srv_q_analytical.setZero();
     for(srv_ind = 0; srv_ind < srv_biom_ctl.rows(); srv_ind++){
@@ -2250,7 +2278,7 @@ Type objective_function<Type>::operator() () {
 
     // Add years from hindcast
     if(srv_yr <= endyr){
-      jnll_comp(0, srv) += pow(log(srv_biom_obs(srv_ind, 0)) - log(srv_bio_hat(srv_ind)), 2) / (2 * square( srv_std_dev )); // NOTE: This is not quite the lognormal and biohat will be the median.
+      jnll_comp(0, srv) -= dnorm(log(srv_bio_hat(srv_ind)), log(srv_biom_obs(srv_ind, 0)), srv_std_dev, true);  // pow(log(srv_biom_obs(srv_ind, 0)) - log(srv_bio_hat(srv_ind)), 2) / (2 * square( srv_std_dev )); // NOTE: This is not quite the lognormal and biohat will be the median.
     }
   }
 
@@ -2342,7 +2370,7 @@ Type objective_function<Type>::operator() () {
     // Ad only years from hindcast
     if(fsh_yr <= endyr){
       if(fsh_biom_obs(fsh_ind, 0) > 0){
-jnll_comp(4, fsh) += pow(log(fsh_biom_obs(fsh_ind, 0) + MNConst) - log(fsh_bio_hat(fsh_ind)), 2) / (2 * square(fsh_std_dev)); // NOTE: This is not quite the log  normal and biohat will be the median.
+        jnll_comp(4, fsh) -=  dnorm(log(fsh_bio_hat(fsh_ind)), log(fsh_biom_obs(fsh_ind, 0)), fsh_std_dev, true) ; // pow(log(fsh_biom_obs(fsh_ind, 0) + MNConst) - log(fsh_bio_hat(fsh_ind)), 2) / (2 * square(fsh_std_dev)); // NOTE: This is not quite the log  normal and biohat will be the median.
       }
     }
   }
@@ -2444,7 +2472,7 @@ jnll_comp(4, fsh) += pow(log(fsh_biom_obs(fsh_ind, 0) + MNConst) - log(fsh_bio_h
             for (ksp = 0; ksp < nspp; ksp++) {
               for (k_age = 0; k_age < nages(ksp); k_age++) {                  // FIME: need to add in other food
                 if (UobsWtAge(rsp, ksp, r_age, k_age, yr) > 0) { // (rsp, ksp, a, r_ln, yr)
-                jnll_comp(15, rsp) -= stom_tau(rsp) * (UobsWtAge(rsp, ksp, r_age, k_age, yr) + MNConst) * (log(UobsWtAge_hat(rsp, ksp, r_age, k_age, yr) + MNConst));
+                  jnll_comp(15, rsp) -= stom_tau(rsp) * (UobsWtAge(rsp, ksp, r_age, k_age, yr) + MNConst) * (log(UobsWtAge_hat(rsp, ksp, r_age, k_age, yr) + MNConst));
                 }
               }
             }
@@ -2462,7 +2490,7 @@ jnll_comp(4, fsh) += pow(log(fsh_biom_obs(fsh_ind, 0) + MNConst) - log(fsh_bio_h
           for (ksp = 0; ksp < nspp; ksp++) {
             for (k_age = 0; k_age < nages(ksp); k_age++) {                  // FIME: need to add in other food
               if (UobsWtAge(rsp, ksp, r_age, k_age) > 0) { // (rsp, ksp, a, r_ln, yr)
-              jnll_comp(15, rsp) -= stom_tau(rsp) * (UobsWtAge(rsp, ksp, r_age, k_age) + MNConst) * (log(mn_UobsWtAge_hat(rsp, ksp, r_age, k_age) + MNConst));
+                jnll_comp(15, rsp) -= stom_tau(rsp) * (UobsWtAge(rsp, ksp, r_age, k_age) + MNConst) * (log(mn_UobsWtAge_hat(rsp, ksp, r_age, k_age) + MNConst));
               }
             }
           }
@@ -2641,6 +2669,7 @@ jnll_comp(4, fsh) += pow(log(fsh_biom_obs(fsh_ind, 0) + MNConst) - log(fsh_bio_h
   REPORT( suit_other );
   REPORT( stom_div_bio2 );
   REPORT( stomKir );
+  REPORT( suit_tmp );
   REPORT( avail_food );
   REPORT( othersuit );
   REPORT( of_stomKir );
