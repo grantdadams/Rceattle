@@ -71,8 +71,8 @@ build_params <-
 
 
     # -- 3.5. Variance of survey and fishery time series
-    param_list$ln_sigma_srv_index = data_list$srv_control$Sigma_survey_prior        # Log standard deviation of survey index time-series; n = [1, n_srv]
-    param_list$ln_sigma_fsh_catch = data_list$fsh_control$Sigma_catch_prior        # Log standard deviation of fishery catch time-series; n = [1, n_fsh]
+    param_list$ln_sigma_srv_index = data_list$srv_control$Survey_sd_prior        # Log standard deviation of survey index time-series; n = [1, n_srv]
+    param_list$ln_sigma_fsh_catch = data_list$fsh_control$Catch_sd_prior        # Log standard deviation of fishery catch time-series; n = [1, n_fsh]
     param_list$fsh_sel_log_sd <- log(data_list$fsh_control$Sel_sd_prior)          # Log standard deviation for fishery selectivity random walk - used for logistic
     param_list$srv_sel_log_sd <- log(data_list$srv_control$Sel_sd_prior)          # Log standard deviation for survey selectivity random walk - used for logistic
     param_list$srv_q_log_sd <- log(data_list$srv_control$Q_sd_prior)          # Log standard deviation for survey selectivity random walk - used for logistic
