@@ -213,8 +213,8 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     log_q_start = c(0, 0, 0, -6.7025),
     Time_varying_q = rep(0, 4),
     Q_sd_prior = rep(0, 4),
-    Estimate_sigma_survey = rep(0, 4),
-    Sigma_survey_prior = rep(NA, 4)
+    Estimate_survey_sd = rep(0, 4), # Used to be Estimate_sigma_survey
+    Survey_sd_prior = rep(NA, 4) # Used to be Sigma_survey_prior
   )
 
   #---------------------------------------------------------------------
@@ -228,6 +228,8 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Sex = rep(rep(0, nspp), dat_list$nyrs_srv_biom),
     Year = as.vector(t(dat_list$yrs_srv_biom)),
     Month = rep(rep(6, nspp), dat_list$nyrs_srv_biom),
+    Selectivity_block = rep(rep(1, nspp), dat_list$nyrs_srv_biom),
+    Q_block = rep(rep(1, nspp), dat_list$nyrs_srv_biom),
     Observation = as.vector(t(dat_list$srv_biom)),
     CV = as.vector(t(dat_list$srv_biom_se))
   )
@@ -244,6 +246,8 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Sex = rep(0, dat_list$n_eit),
     Year = dat_list$yrs_eit,
     Month = rep(6, dat_list$n_eit),
+    Selectivity_block = rep( 1, dat_list$n_eit),
+    Q_block = rep( 1, dat_list$n_eit),
     Observation = dat_list$obs_eit,
     CV = rep( 0.2, dat_list$n_eit)
   )
@@ -317,8 +321,8 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Weight1_Numbers2 = rep(1, 3),
     Weight_index = c(1:3),
     ALK_index = c(1:3),
-    Estimate_sigma_catch = rep(0, 3),
-    Sigma_catch_prior = rep(NA, 3)
+    Estimate_catch_sd = rep(0, 3), # Used to be Estimate_sigma_catch
+    Catch_sd_prior = rep(NA, 3) # Used to be Sigma_catch_prior
   )
 
   # Projected fishing mortality
@@ -340,6 +344,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Sex = rep(rep(0, nspp), dat_list$nyrs_tc_biom),
     Year = as.vector(t(dat_list$yrs_tc_biom)),
     Month = rep(rep(0, nspp), dat_list$nyrs_tc_biom),
+    Selectivity_block = rep(rep(1, nspp), dat_list$nyrs_tc_biom),
     Catch_kg = as.vector(t(dat_list$tcb_obs)),
     CV = rep(rep(0.05, nspp), dat_list$nyrs_tc_biom)
     )

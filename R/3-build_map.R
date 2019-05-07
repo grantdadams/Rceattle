@@ -239,7 +239,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
     # Standard deviation of surveys index
     # If not estimating turn of
-    if(data_list$srv_control$Estimate_sigma_survey[i] %in% c(0,2)){
+    if(data_list$srv_control$Estimate_survey_sd[i] %in% c(0,2)){
       map_list$ln_sigma_srv_index[i] <- NA
     }
   }
@@ -249,7 +249,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   for( i in 1: nrow(data_list$fsh_control)){
     # Standard deviation of fishery time series
     # If not estimating turn of
-    if(data_list$fsh_control$Estimate_sigma_catch[i] %in% c(0,2)){
+    if(data_list$fsh_control$Estimate_catch_sd[i] %in% c(0,2)){
       map_list$ln_sigma_fsh_catch[i] <- NA
     }
   }
