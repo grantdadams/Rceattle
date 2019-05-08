@@ -277,7 +277,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
         warning(paste0("Double check Time_varying_sel in srv_control of surveys:", paste(data_list$srv_control$Survey_name[sel_duplicate_vec])))
       }
 
-      # FIXME add checks for surveys sigma
+      # FIXME add checks for surveys sel sigma
 
       # Make selectivity maps the same if selectivity is the same
       map_list$srv_sel_slp[1:2, i] <- map_list$srv_sel_slp[1:2, sel_duplicate]
@@ -307,9 +307,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
         warning(paste0("Double check Time_varying_q in srv_control of surveys:", paste(data_list$srv_control$Survey_name[q_duplicate_vec])))
       }
 
-      # FIXME add checks for surveys sigma
+      # FIXME add checks for surveys q sigma
 
-      # Make selectivity maps the same if selectivity is the same
+      # Make catchability maps the same if selectivity is the same
       map_list$log_srv_q_dev[i,] <- map_list$log_srv_q_dev[sel_duplicate,]
       map_list$srv_q_log_sd[i] <- map_list$srv_q_log_sd[sel_duplicate]
     }
