@@ -214,6 +214,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     }
   }
 
+
+
+
   # -- 6. Survey control
   for( i in 1: nrow(data_list$srv_control)){
 
@@ -245,7 +248,80 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   }
 
 
-  # Fishery control
+  # -- 7. Share survey q and selectivity
+  sel_index <- data_list$srv_control$Selectivity_index
+  sel_index_tested <- c()
+
+  q_index <- data_list$srv_control$Q_index
+  q_index_tested <- c()
+  rows_tests <- c()
+  for(i in 1: nrow(data_list$srv_control)){
+    sel_test <- sel_index[i] %in% sel_index_tested
+    q_test <- q_index[i] %in% q_index_tested
+
+    # If selectivity is the same as a previous index
+    if(sel_test){
+      sel_duplicate <- which(sel_index_tested == sel_index[i])[1]
+      sel_duplicate_vec <- c(which(sel_index_tested == sel_index[i]), i)
+
+      # Error check selectivity type
+      if(length(unique(data_list$srv_control$Selectivity[sel_duplicate_vec])) > 1){
+        warning("Survey selectivity of surveys with same Selectivity_index is not the same")
+        warning(paste0("Double check Selectivity in srv_control of surveys:", paste(data_list$srv_control$Survey_name[sel_duplicate_vec])))
+      }
+
+
+      # Error check time-varying selectivity type
+      if(length(unique(data_list$srv_control$Time_varying_sel[sel_duplicate_vec])) > 1){
+        warning("Time varying survey selectivity of surveys with same Selectivity_index is not the same")
+        warning(paste0("Double check Time_varying_sel in srv_control of surveys:", paste(data_list$srv_control$Survey_name[sel_duplicate_vec])))
+      }
+
+      # FIXME add checks for surveys sigma
+
+      # Make selectivity maps the same if selectivity is the same
+      map_list$srv_sel_slp[1:2, i] <- map_list$srv_sel_slp[1:2, sel_duplicate]
+      map_list$srv_sel_inf[1:2, i] <- map_list$srv_sel_inf[1:2, sel_duplicate]
+      map_list$srv_sel_coff[i,] <- map_list$srv_sel_coff[sel_duplicate,]
+      map_list$srv_sel_slp_dev[1:2, i,] <- map_list$srv_sel_slp_dev[1:2, sel_duplicate,]
+      map_list$srv_sel_inf_dev[1:2, i,] <- map_list$srv_sel_inf_dev[1:2, sel_duplicate,]
+      map_list$srv_sel_log_sd[i] <- map_list$srv_sel_log_sd[sel_duplicate]
+    }
+
+
+    # If catchability is the same as a previous index
+    if(q_test){
+      q_duplicate <- which(q_index_tested == q_index[i])[1]
+      q_duplicate_vec <- c(which(q_index_tested == q_index[i]), i)
+
+      # Error check selectivity type
+      if(length(unique(data_list$srv_control$Estimate_q[q_duplicate_vec])) > 1){
+        warning("Survey catchability of surveys with same Q_index is not the same")
+        warning(paste0("Double check Estimate_q in srv_control of surveys:", paste(data_list$srv_control$Survey_name[q_duplicate_vec])))
+      }
+
+
+      # Error check time-varying selectivity type
+      if(length(unique(data_list$srv_control$Time_varying_q[q_duplicate_vec])) > 1){
+        warning("Time varying survey catchability of surveys with same Q_index is not the same")
+        warning(paste0("Double check Time_varying_q in srv_control of surveys:", paste(data_list$srv_control$Survey_name[q_duplicate_vec])))
+      }
+
+      # FIXME add checks for surveys sigma
+
+      # Make selectivity maps the same if selectivity is the same
+      map_list$log_srv_q_dev[i,] <- map_list$log_srv_q_dev[sel_duplicate,]
+      map_list$srv_q_log_sd[i] <- map_list$srv_q_log_sd[sel_duplicate]
+    }
+
+
+    # Add index
+    sel_index_tested <- c(sel_index_tested, sel_index[i])
+    q_index_tested <- c(q_index_tested, q_index[i])
+  }
+
+
+  # -- 8. Fishery control
   for( i in 1: nrow(data_list$fsh_control)){
     # Standard deviation of fishery time series
     # If not estimating turn of
@@ -255,14 +331,14 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   }
 
 
-  # Recruitment deviation sigmas - turn off if not estimating
+  # -- 9. Recruitment deviation sigmas - turn off if not estimating
   if(random_rec == FALSE){
     map_list$ln_rec_sigma <- replace(map_list$ln_rec_sigma, values = rep(NA, length(map_list$ln_rec_sigma)))
   }
 
 
 
-  # Map out Fdev for years with 0 catch to very low number
+  # -- 10. Map out Fdev for years with 0 catch to very low number
   fsh_biom <- data_list$fsh_biom
   fsh_ind <- fsh_biom$Fishery_code[which(fsh_biom$Catch_kg == 0)]
   yr_ind <- fsh_biom$Year[which(fsh_biom$Catch_kg == 0)] - data_list$styr + 1

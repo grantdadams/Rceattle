@@ -51,31 +51,38 @@ build_params <-
 
 
     # -- 3.4. Survey selectivity parameters
-    # FIXME - change nspp to n_srv
     # FIXME - change order of selectivity paramters for logistic
     param_list$srv_sel_coff = suppressWarnings(matrix(0, nrow = nrow(data_list$srv_control), ncol = max(1, as.numeric(data_list$srv_control$Nselages), na.rm = T)))   # Survey selectivity parameters; n = [nspp, nselages]
     param_list$srv_sel_slp = matrix(0, nrow = 2, ncol = nrow(data_list$srv_control))  # Survey selectivity paramaters for logistic; n = [2, nspp]
     param_list$srv_sel_inf = matrix(0, nrow = 2, ncol = nrow(data_list$srv_control))  # Survey selectivity paramaters for logistic; n = [2, nspp]
-    param_list$log_srv_q = data_list$srv_control$log_q_start   # Survey catchability; n = [sum(n_srv)]
-    param_list$log_srv_q_dev = matrix(0, nrow = length(data_list$srv_control$log_q_start), ncol = nyrs)   # Survey catchability deviations; n = [sum(n_srv)]
-    param_list$srv_sel_slp_dev = array(0, dim = c(2, nrow(data_list$srv_control), nyrs))  # Survey selectivity deviations paramaters for logistic; n = [2, nspp]
-    param_list$srv_sel_inf_dev = array(0, dim = c(2, nrow(data_list$srv_control), nyrs))  # Survey selectivity deviations paramaters for logistic; n = [2, nspp]
+    param_list$log_srv_q = data_list$srv_control$Log_q_prior   # Survey catchability; n = [sum(n_srv)]
+
+    # --- 3.4.2. Time varying parameters
+    n_q_blocks <- max(data_list$srv_biom$Q_block)
+    n_sel_blocks <- max(data_list$srv_biom$Selectivity_block)
+
+    param_list$log_srv_q_dev = matrix(0, nrow = length(data_list$srv_control$Log_q_prior), ncol = n_q_blocks)   # Survey catchability deviations; n = [sum(n_srv)]
+    param_list$srv_sel_slp_dev = array(0, dim = c(2, nrow(data_list$srv_control), n_sel_blocks))  # Survey selectivity deviations paramaters for logistic; n = [2, nspp]
+    param_list$srv_sel_inf_dev = array(0, dim = c(2, nrow(data_list$srv_control), n_sel_blocks))  # Survey selectivity deviations paramaters for logistic; n = [2, nspp]
 
 
     # -- 3.5. Fishery selectivity parameters
     param_list$fsh_sel_coff = suppressWarnings( matrix(0, nrow = nrow(data_list$fsh_control), ncol = max(1, as.numeric(data_list$fsh_control$Nselages), na.rm = T)))  # Fishery age selectivity coef; n = [nspp, nselages]
     param_list$fsh_sel_slp = matrix(0, nrow = 2, ncol = nrow(data_list$fsh_control))  # Fishery selectivity paramaters for logistic; n = [2, nspp]
     param_list$fsh_sel_inf = matrix(0, nrow = 2, ncol = nrow(data_list$fsh_control))  # Fishery selectivity paramaters for logistic; n = [2, nspp]
-    param_list$fsh_sel_slp_dev = array(0, dim = c(2, nrow(data_list$fsh_control), nyrs))  # Fishery selectivity deviations paramaters for logistic; n = [2, nspp]
-    param_list$fsh_sel_inf_dev = array(0, dim = c(2, nrow(data_list$fsh_control), nyrs))  # Fishery selectivity deviations paramaters for logistic; n = [2, nspp]
+
+    # --- 3.5.2. Time varying parameters
+    n_sel_blocks <- max(data_list$fsh_biom$Selectivity_block)
+    param_list$fsh_sel_slp_dev = array(0, dim = c(2, nrow(data_list$fsh_control), n_sel_blocks))  # Fishery selectivity deviations paramaters for logistic; n = [2, nspp]
+    param_list$fsh_sel_inf_dev = array(0, dim = c(2, nrow(data_list$fsh_control), n_sel_blocks))  # Fishery selectivity deviations paramaters for logistic; n = [2, nspp]
 
 
     # -- 3.5. Variance of survey and fishery time series
-    param_list$ln_sigma_srv_index = data_list$srv_control$Survey_sd_prior        # Log standard deviation of survey index time-series; n = [1, n_srv]
-    param_list$ln_sigma_fsh_catch = data_list$fsh_control$Catch_sd_prior        # Log standard deviation of fishery catch time-series; n = [1, n_fsh]
-    param_list$fsh_sel_log_sd <- log(data_list$fsh_control$Sel_sd_prior)          # Log standard deviation for fishery selectivity random walk - used for logistic
+    param_list$ln_sigma_srv_index = log(data_list$srv_control$Survey_sd_prior)        # Log standard deviation of survey index time-series; n = [1, n_srv]
+    param_list$ln_sigma_fsh_catch = log(data_list$fsh_control$Catch_sd_prior)        # Log standard deviation of fishery catch time-series; n = [1, n_fsh]
     param_list$srv_sel_log_sd <- log(data_list$srv_control$Sel_sd_prior)          # Log standard deviation for survey selectivity random walk - used for logistic
     param_list$srv_q_log_sd <- log(data_list$srv_control$Q_sd_prior)          # Log standard deviation for survey selectivity random walk - used for logistic
+    param_list$fsh_sel_log_sd <- log(data_list$fsh_control$Sel_sd_prior)          # Log standard deviation for fishery selectivity random walk - used for logistic
 
 
     # -- 3.6. Kinzery predation function parameters

@@ -210,7 +210,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     # Comp_Nyrs = c(dat_list$nyrs_srv_age, dat_list$n_eit),
     Q_index = c(1:4),
     Estimate_q = c(0, 0, 0, 1),
-    log_q_start = c(0, 0, 0, -6.7025),
+    Log_q_prior = c(0, 0, 0, -6.7025),
     Time_varying_q = rep(0, 4),
     Q_sd_prior = rep(0, 4),
     Estimate_survey_sd = rep(0, 4), # Used to be Estimate_sigma_survey
