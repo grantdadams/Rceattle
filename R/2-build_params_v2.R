@@ -41,6 +41,14 @@ build_params <-
     param_list$proj_F = data_list$fsh_control$proj_F   # Fishing mortality for projections; n = [1, nspp]
     param_list$F_dev = matrix(0, nrow = nrow(data_list$fsh_control), ncol = nyrs)     # Annual fishing mortality deviations; n = [nspp, nyrs] # NOTE: The size of this will likely change
 
+    # Make ln_mean_F very low if the data is turned off
+    for( i in 1: nrow(data_list$fsh_control)){
+      # Turn of F and F dev if not estimating
+      if(data_list$fsh_control$Fit_0no_1yes[i] == 0){
+        param_list$ln_mean_F[i] <- -999
+      }
+    }
+
 
     # Set Fdev for years with 0 catch to very low number
     fsh_biom <- data_list$fsh_biom

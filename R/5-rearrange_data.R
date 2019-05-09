@@ -7,7 +7,7 @@
 rearrange_dat <- function(dat_list){
 
   # Step 1 - remove q priors
-  dat_list$srv_control <- dat_list$srv_control[,-which(colnames(dat_list$srv_control) == "log_q_start")]
+  dat_list$srv_control <- dat_list$srv_control[,-which(colnames(dat_list$srv_control) %in% c("log_q_start", "Sigma_index_prior"))]
 
   # Step 2 -  Seperate survey biomass info from observation
   dat_list$srv_biom_ctl <- dat_list$srv_biom[,c("Survey_code", "Species", "Sex", "Year")]
@@ -45,7 +45,7 @@ rearrange_dat <- function(dat_list){
 
   # projected fishery
   # dat_list$proj_F <- dat_list$fsh_control$proj_F
-  dat_list$fsh_control <- dat_list$fsh_control[,-which(colnames(dat_list$fsh_control) == "proj_F")]
+  dat_list$fsh_control <- dat_list$fsh_control[,-which(colnames(dat_list$fsh_control) %in% c("proj_F", "Sigma_catch_prior"))]
 
   # Species names
   dat_list$spnames <- NULL

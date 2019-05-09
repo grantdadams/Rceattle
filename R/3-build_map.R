@@ -42,7 +42,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
   # Fishery selectivity coefficients
   for( i in 1: nrow(data_list$fsh_control)){
-    if(data_list$fsh_control$Selectivity[i] == 0){ # Empirical
+    if(data_list$fsh_control$Selectivity[i] == 0 | data_list$fsh_control$Fit_0no_1yes[i] == 0){ # Empirical or not Fit
 
       # Map out non-parametric
       map_list$fsh_sel_coff[i,] <- replace(map_list$fsh_sel_coff[i,], values = rep(NA, length(map_list$fsh_sel_coff[i,])))
@@ -78,7 +78,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
   # Survey selectivity coefficients
   for( i in 1: nrow(data_list$srv_control)){
-    if(data_list$srv_control$Selectivity[i] == 0){ # Empirical
+    if(data_list$srv_control$Selectivity[i] == 0 | data_list$srv_control$Fit_0no_1yes[i] == 0){ # Empirical or not fit
 
       # Map out non-parametric
       map_list$srv_sel_coff[i,] <- replace(map_list$srv_sel_coff[i,], values = rep(NA, length(map_list$srv_sel_coff[i,])))
@@ -116,13 +116,13 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
     # Catchability of surveys
     # If not estimating turn of
-    if(data_list$srv_control$Estimate_q[i] %in% c(0,2)){
+    if(data_list$srv_control$Estimate_q[i] %in% c(0,2) | data_list$srv_control$Fit_0no_1yes[i] == 0){
       map_list$log_srv_q[i] <- NA
     }
 
     # Standard deviation of surveys index
     # If not estimating turn of
-    if(data_list$srv_control$Estimate_sigma_index[i] %in% c(0,2)){
+    if(data_list$srv_control$Estimate_sigma_index[i] %in% c(0,2) | data_list$srv_control$Fit_0no_1yes[i] == 0){
       map_list$ln_sigma_srv_index[i] <- NA
     }
   }
@@ -134,6 +134,13 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     # If not estimating turn of
     if(data_list$fsh_control$Estimate_sigma_catch[i] %in% c(0,2)){
       map_list$ln_sigma_fsh_catch[i] <- NA
+    }
+
+    # Turn of F and F dev if not estimating
+    if(data_list$fsh_control$Fit_0no_1yes[i] == 0){
+      map_list$ln_sigma_fsh_catch[i] <- NA
+      map_list$F_dev[i, ] <- NA
+      map_list$ln_mean_F[i] <- NA
     }
   }
 
