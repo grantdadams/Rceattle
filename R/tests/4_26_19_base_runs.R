@@ -13,9 +13,9 @@ ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
 ms_run <- Rceattle::fit_mod(data_list = BS2017SS,
                             inits = ss_run$estimated_params, # Initial parameters = 0
                             file = NULL, # Don't save
-                            debug = 1, # Estimate
+                            debug = 0, # Estimate
                             random_rec = FALSE, # No random recruitment
-                            msmMode = 2, # Single species mode
+                            msmMode = 1, # Single species mode
                             silent = TRUE,
                             suitMode = 0)
 ms_run$quantities$jnll_comp
