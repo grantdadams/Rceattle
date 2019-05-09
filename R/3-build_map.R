@@ -59,7 +59,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$fsh_sel_inf_dev[1:2, i,] <- NA
 
       # Map out selectivity var
-      map_list$fsh_sel_log_sd[i] <- NA
+      map_list$ln_sigma_fsh_sel[i] <- NA
     }
 
     # -- 4.1. Logitistic - sel_type = 1
@@ -84,7 +84,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
       # Map out selectivity var if not using time-varying or using random walk
       if(data_list$srv_control$Time_varying_sel[i] %in% c(0, 1)){
-        map_list$fsh_sel_log_sd[i] <- NA
+        map_list$ln_sigma_fsh_sel[i] <- NA
       }
     }
 
@@ -106,7 +106,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$fsh_sel_inf_dev[1:2, i,] <- NA
 
       # Map out selectivity var
-      map_list$fsh_sel_log_sd[i] <- NA
+      map_list$ln_sigma_fsh_sel[i] <- NA
     }
 
     # -- 4.3. Double logistic - sel_type = 3
@@ -121,8 +121,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       }
 
       # Map out selectivity var if not using time-varying or using random walk
-      if(data_list$srv_control$Time_varying_sel[i] %in% c(0, 1)){
-        map_list$fsh_sel_log_sd[i] <- NA
+      if(data_list$srv_control$Time_varying_sel[i] %in% c(0, 1, 3)){
+        map_list$ln_sigma_fsh_sel[i] <- NA
       }
     }
   }
@@ -146,7 +146,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$srv_sel_inf_dev[1:2, i,] <- NA
 
       # Map out selectivity var
-      map_list$srv_sel_log_sd[i] <- NA
+      map_list$ln_sigma_srv_sel[i] <- NA
     }
 
     # -- 5.1. Logitistic - sel_type = 1
@@ -171,7 +171,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
       # Map out selectivity var if not using time-varying or using random walk
       if(data_list$srv_control$Time_varying_sel[i] %in% c(0, 1)){
-        map_list$srv_sel_log_sd[i] <- NA
+        map_list$ln_sigma_srv_sel[i] <- NA
       }
     }
 
@@ -193,7 +193,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$srv_sel_inf_dev[1:2, i,] <- NA
 
       # Map out selectivity var
-      map_list$srv_sel_log_sd[i] <- NA
+      map_list$ln_sigma_srv_sel[i] <- NA
     }
 
     # -- 5.3. Double logistic - sel_type = 3
@@ -207,9 +207,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
         map_list$srv_sel_inf_dev[1:2, i,] <- NA
       }
 
-      # Map out selectivity var if not using time-varying or using random walk
-      if(data_list$srv_control$Time_varying_sel[i] %in% c(0, 1)){
-        map_list$srv_sel_log_sd[i] <- NA
+      # Map out selectivity var if not using time-varying or using random walk or time block
+      if(data_list$srv_control$Time_varying_sel[i] %in% c(0, 1, 3)){
+        map_list$ln_sigma_srv_sel[i] <- NA
       }
     }
   }
@@ -219,25 +219,29 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
   # -- 6. Survey control
   for( i in 1: nrow(data_list$srv_control)){
-
     # Catchability of surveys
     # If not estimating turn of
     if(data_list$srv_control$Estimate_q[i] %in% c(0,2)){
       map_list$log_srv_q[i] <- NA
-      map_list$log_srv_q_dev[i,] <- NA
-      map_list$srv_q_log_sd[i] <- NA
+      map_list$ln_srv_q_dev[i,] <- NA
+      map_list$ln_sigma_srv_q[i] <- NA
     }
 
     # Time-varying catchability of surveys
     # If not estimating turn of
     if(data_list$srv_control$Time_varying_q[i] == 0){
-      map_list$log_srv_q_dev[i,] <- NA
-      map_list$srv_q_log_sd[i] <- NA
+      map_list$ln_srv_q_dev[i,] <- NA
+      map_list$ln_sigma_srv_q[i] <- NA
     }
 
     # Random walk - map out q_sd
     if(data_list$srv_control$Time_varying_q[i] == 1){
-      map_list$srv_q_log_sd[i] <- NA
+      map_list$ln_sigma_srv_q[i] <- NA
+    }
+
+    # Time block - map out q_sd
+    if(data_list$srv_control$Time_varying_q[i] == 3){
+      map_list$ln_sigma_srv_q[i] <- NA
     }
 
     # Standard deviation of surveys index
@@ -285,7 +289,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$srv_sel_coff[i,] <- map_list$srv_sel_coff[sel_duplicate,]
       map_list$srv_sel_slp_dev[1:2, i,] <- map_list$srv_sel_slp_dev[1:2, sel_duplicate,]
       map_list$srv_sel_inf_dev[1:2, i,] <- map_list$srv_sel_inf_dev[1:2, sel_duplicate,]
-      map_list$srv_sel_log_sd[i] <- map_list$srv_sel_log_sd[sel_duplicate]
+      map_list$ln_sigma_srv_sel[i] <- map_list$ln_sigma_srv_sel[sel_duplicate]
     }
 
 
@@ -310,8 +314,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       # FIXME add checks for surveys q sigma
 
       # Make catchability maps the same if selectivity is the same
-      map_list$log_srv_q_dev[i,] <- map_list$log_srv_q_dev[sel_duplicate,]
-      map_list$srv_q_log_sd[i] <- map_list$srv_q_log_sd[sel_duplicate]
+      map_list$ln_srv_q_dev[i,] <- map_list$ln_srv_q_dev[sel_duplicate,]
+      map_list$ln_sigma_srv_q[i] <- map_list$ln_sigma_srv_q[sel_duplicate]
     }
 
 
