@@ -23,7 +23,7 @@ plot_srv_comp <-
            line_col = NULL,
            species = NULL,
            cex = 3,
-           lwd = 3,
+           lwd = 2,
            right_adj = 0,
            mohns = NULL,
            incl_proj = FALSE) {
@@ -103,7 +103,7 @@ plot_srv_comp <-
 
           comp_hat_tmp <- tidyr::gather(comp_hat_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_hat_tmp)))
           comp_hat_tmp$age <- as.numeric(gsub("Comp_", "", comp_hat_tmp$age))
-          comp_hat_tmp <- comp_hat_tmp[which(!is.na(comp_tmp$comp)),]
+          comp_hat_tmp <- comp_hat_tmp[which(!is.na(comp_hat_tmp$comp)),]
           comp_hat_tmp <- comp_hat_tmp[which(comp_hat_tmp$comp > 0),]
 
           sp <- srv_control$Species[which(srv_control$Survey_code == srv[j])]
@@ -206,12 +206,12 @@ plot_srv_comp <-
           # Reorganize and clean
           comp_tmp <- tidyr::gather(comp_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_tmp)))
           comp_tmp$age <- as.numeric(gsub("Comp_", "", comp_tmp$age))
-          comp_tmp <- comp_tmp[which(!is.na(comp_tmp$comp)),]
+          # comp_tmp <- comp_tmp[which(!is.na(comp_tmp$comp)),]
           # comp_tmp <- comp_tmp[which(comp_tmp$comp > 0),]
 
           comp_hat_tmp <- tidyr::gather(comp_hat_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_hat_tmp)))
           comp_hat_tmp$age <- as.numeric(gsub("Comp_", "", comp_hat_tmp$age))
-          comp_hat_tmp <- comp_hat_tmp[which(!is.na(comp_tmp$comp)),]
+          # comp_hat_tmp <- comp_hat_tmp[which(!is.na(comp_hat_tmp$comp)),]
           # comp_hat_tmp <- comp_hat_tmp[which(comp_hat_tmp$comp > 0),]
 
           # Calculate pearson residual
@@ -317,7 +317,7 @@ plot_srv_comp <-
 
           comp_hat_tmp <- tidyr::gather(comp_hat_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_hat_tmp)))
           comp_hat_tmp$age <- as.numeric(gsub("Comp_", "", comp_hat_tmp$age))
-          comp_hat_tmp <- comp_hat_tmp[which(!is.na(comp_tmp$comp)),]
+          comp_hat_tmp <- comp_hat_tmp[which(!is.na(comp_hat_tmp$comp)),]
           comp_hat_tmp <- comp_hat_tmp[which(comp_hat_tmp$comp > 0),]
 
           # Get comp dims
@@ -357,7 +357,7 @@ plot_srv_comp <-
               y = NA,
               x = NA,
               ylim = c(0, max_comp * 1.10),
-              xlim = c(0, nages[sp]),
+              xlim = c(0, max(nages)),
               xlab = NA,
               ylab = NA,
               xaxt = "n",
@@ -388,8 +388,9 @@ plot_srv_comp <-
             comp_hat_tmp_yr <- comp_hat_tmp[which(comp_hat_tmp$Year == yrs[yr]),]
 
             # Plot observed and predicted comp
-            polygon(c(0,comp_tmp_yr$age), c(0, comp_tmp_yr$comp),col='grey80',border=NA)
-            lines(comp_hat_tmp_yr$age, comp_hat_tmp_yr$comp,col=1, lwd = 1.5)
+            polygon(c(0,comp_tmp_yr$age, max(comp_tmp_yr$age) + 1), c(0, comp_tmp_yr$comp, 0),col='grey80',border=NA)
+            lines(c(0,comp_hat_tmp_yr$age, max(comp_tmp_yr$age) + 1), c(0, comp_hat_tmp_yr$comp, 0),col=1, lwd = lwd)
+
 
             # Make bottom row of empty plots
             if(row_cnt == (plot_rows - 1)){
@@ -437,7 +438,7 @@ plot_srv_comp <-
         # Plot configuration
         layout(matrix(1:(nsrv + 2), nrow = (nsrv + 2)), heights = c(0.1, rep(1, nsrv), 0.2))
         par(
-          mar = c(0, 3 , 0 , 1) ,
+          mar = c(2, 3 , 0 , 1) ,
           oma = c(0 , 0 , 0 , 0),
           tcl = -0.35,
           mgp = c(1.75, 0.5, 0)
@@ -459,7 +460,7 @@ plot_srv_comp <-
 
           comp_hat_tmp <- tidyr::gather(comp_hat_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_hat_tmp)))
           comp_hat_tmp$age <- as.numeric(gsub("Comp_", "", comp_hat_tmp$age))
-          comp_hat_tmp <- comp_hat_tmp[which(!is.na(comp_tmp$comp)),]
+          comp_hat_tmp <- comp_hat_tmp[which(!is.na(comp_hat_tmp$comp)),]
           comp_hat_tmp <- comp_hat_tmp[which(comp_hat_tmp$comp > 0),]
 
 
@@ -490,8 +491,7 @@ plot_srv_comp <-
             ylim = c(0, max_comp * 1.10),
             xlim = c(0, nages[sp]),
             ylab = "Comp",
-            xlab = NA,
-            xaxt = "n"
+            xlab = NA
           )
 
 
@@ -507,8 +507,8 @@ plot_srv_comp <-
 
 
           # Plot observed and predicted comp
-          polygon(c(c(comp_tmp_sum$Category, max(comp_tmp_sum$Category) + 1), 0), c(c(comp_tmp_sum$x, 0), 0),col='grey80',border=NA)
-          lines(comp_hat_tmp_sum$Category, comp_hat_tmp_sum$x,col=1, lwd = 1.5)
+          polygon(c(0, comp_tmp_sum$Category, max(comp_tmp_sum$Category) + 1), c(0, comp_tmp_sum$x, 0),col='grey80',border=NA)
+          lines(c(0, comp_hat_tmp_sum$Category, max(comp_tmp_sum$Category) + 1), c(0, comp_hat_tmp_sum$x, 0),col=1, lwd = lwd)
         }
 
 
