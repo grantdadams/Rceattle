@@ -948,8 +948,8 @@ Type objective_function<Type>::operator() () {
 
           // Hard constraint to reduce population collapse
 
-            if(NByage(sp, age, yr) < minNByage){
-              NByage(sp, age, yr) = minNByage;
+          if(NByage(sp, age, yr) < minNByage){
+            NByage(sp, age, yr) = minNByage;
           }
         }
 
@@ -2457,10 +2457,14 @@ Type objective_function<Type>::operator() () {
 
       // Slot 11 -- Tau -- Annual recruitment deviation
       jnll_comp(9, sp) -= dnorm( rec_dev(sp, yr) - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);    // Recruitment deviation using random effects.
+    }
+  }
 
 
-      // Slot 12 -- Epsilon -- Annual fishing mortality deviation
-      jnll_comp(10, sp) += pow( F_dev(sp, yr), 2);      // Fishing mortality deviation using penalized likelihood.
+  // Slot 12 -- Epsilon -- Annual fishing mortality deviation
+  for (fsh = 0; fsh < n_fsh; fsh++) {
+    for (yr = 0; yr < nyrs_hind; yr++) {
+      jnll_comp(10, fsh) += pow( F_dev(fsh, yr), 2);      // Fishing mortality deviation using penalized likelihood.
     }
   }
 

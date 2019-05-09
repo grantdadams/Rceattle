@@ -436,14 +436,30 @@ plot_fsh_comp <-
 
 
         # Plot configuration
-        layout(matrix(1:(nfsh + 2), nrow = (nfsh + 2)), heights = c(0.1, rep(1, nfsh), 0.2))
-        par(
-          mar = c(2, 3 , 0 , 1) ,
-          oma = c(0 , 0 , 0 , 0),
-          tcl = -0.35,
-          mgp = c(1.75, 0.5, 0)
-        )
-        plot.new()
+        if(nfsh <= 4){
+          layout(matrix(1:(nfsh + 2), nrow = (nfsh + 2), byrow = TRUE), heights = c(0.1, rep(1, nfsh), 0.2))
+          par(
+            mar = c(2, 3 , 0 , 1) ,
+            oma = c(0 , 0 , 0 , 0),
+            tcl = -0.35,
+            mgp = c(1.75, 0.5, 0)
+          )
+          plot.new()
+          nrows <- nfsh
+        }
+
+        if(nfsh > 4){
+          nrows <- ceiling(nfsh/2)
+          layout(matrix(1:(((nrows+2) *2)), nrow = (nrows + 2), byrow = TRUE), heights = c(0.1, rep(1, nrows), 0.2))
+          par(
+            mar = c(2, 3 , 0 , 1) ,
+            oma = c(0 , 0 , 0 , 0),
+            tcl = -0.35,
+            mgp = c(1.75, 0.5, 0)
+          )
+          plot.new()
+          plot.new()
+        }
 
         for (j in 1:nfsh) {
 

@@ -252,15 +252,15 @@ plot_srv_comp <-
           }
 
 
-            # Positive
-            x_loc <- c(mean(srv_list$Year, na.rm = T) + 1, mean(srv_list$Year, na.rm = T) + 3.5, mean(srv_list$Year, na.rm = T) + 6)
-            symbols( x = x_loc , y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.1, 3) , circle = round(seq(from = 0.5, to = max_pearson, length.out = 3) , 1), inches=0.10,add=T, bg = line_col[2])
-            text(x = x_loc, y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.23, 3), labels = round(seq(from = 0.5, to = max_pearson, length.out = 3) , 1))
+          # Positive
+          x_loc <- c(mean(srv_list$Year, na.rm = T) + 1, mean(srv_list$Year, na.rm = T) + 3.5, mean(srv_list$Year, na.rm = T) + 6)
+          symbols( x = x_loc , y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.1, 3) , circle = round(seq(from = 0.5, to = max_pearson, length.out = 3) , 1), inches=0.10,add=T, bg = line_col[2])
+          text(x = x_loc, y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.23, 3), labels = round(seq(from = 0.5, to = max_pearson, length.out = 3) , 1))
 
-            # Negative
-            x_loc <- c(mean(srv_list$Year, na.rm = T) - 1, mean(srv_list$Year, na.rm = T) - 3.5, mean(srv_list$Year, na.rm = T) - 6)
-            symbols( x = x_loc , y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.1, 3) , circle = -round(seq(from = -0.5, to = -max_pearson, length.out = 3) , 1), inches=0.10,add=T, bg = line_col[1])
-            text(x = x_loc, y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.23, 3), labels = round(seq(from = -0.5, to = -max_pearson, length.out = 3) , 1) )
+          # Negative
+          x_loc <- c(mean(srv_list$Year, na.rm = T) - 1, mean(srv_list$Year, na.rm = T) - 3.5, mean(srv_list$Year, na.rm = T) - 6)
+          symbols( x = x_loc , y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.1, 3) , circle = -round(seq(from = -0.5, to = -max_pearson, length.out = 3) , 1), inches=0.10,add=T, bg = line_col[1])
+          text(x = x_loc, y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.23, 3), labels = round(seq(from = -0.5, to = -max_pearson, length.out = 3) , 1) )
 
 
 
@@ -436,14 +436,30 @@ plot_srv_comp <-
 
 
         # Plot configuration
-        layout(matrix(1:(nsrv + 2), nrow = (nsrv + 2)), heights = c(0.1, rep(1, nsrv), 0.2))
-        par(
-          mar = c(2, 3 , 0 , 1) ,
-          oma = c(0 , 0 , 0 , 0),
-          tcl = -0.35,
-          mgp = c(1.75, 0.5, 0)
-        )
-        plot.new()
+        if(nsrv <= 4){
+          layout(matrix(1:(nsrv + 2), nrow = (nsrv + 2), byrow = TRUE), heights = c(0.1, rep(1, nsrv), 0.2))
+          par(
+            mar = c(2, 3 , 0 , 1) ,
+            oma = c(0 , 0 , 0 , 0),
+            tcl = -0.35,
+            mgp = c(1.75, 0.5, 0)
+          )
+          plot.new()
+          nrows <- nsrv
+        }
+
+        if(nsrv > 4){
+          nrows <- ceiling(nsrv/2)
+          layout(matrix(1:(((nrows+2) *2)), nrow = (nrows + 2), byrow = TRUE), heights = c(0.1, rep(1, nrows), 0.2))
+          par(
+            mar = c(2, 3 , 0 , 1) ,
+            oma = c(0 , 0 , 0 , 0),
+            tcl = -0.35,
+            mgp = c(1.75, 0.5, 0)
+          )
+          plot.new()
+          plot.new()
+        }
 
         for (j in 1:nsrv) {
 
