@@ -276,4 +276,246 @@ plot_srv_comp <-
         }
       }
     }
+
+
+
+    #############################################
+    # Plot comps Type 3 - Histograms
+    #############################################
+    for(comp_type in c(0,1)){
+
+      srv <- unique(srv_list$Survey_code[which(srv_list$Age0_Length1 == comp_type)])
+      nsrv <- length(srv)
+
+      loops <- ifelse(is.null(file), 1, 2)
+
+      for (j in 1:nsrv) {
+        for (i in 1:loops) {
+          if (i == 2) {
+            filename <- paste0(file,"_",as.character(srv_control$Survey_name[srv[j]]), "_", c("srv_age_comps_histograms", "srv_length_comps_histograms")[comp_type + 1], ".png")
+            png(
+              file = filename ,
+              width = 7.5,# 169 / 25.4,
+              height = 10,# 150 / 25.4,
+
+              units = "in",
+              res = 300
+            )
+          }
+
+
+          # Extract comps
+          srv_ind <- which(srv_list$Survey_code == srv[j] & srv_list$Age0_Length1 == comp_type)
+          comp_tmp <- srv_list[srv_ind,]
+          comp_hat_tmp <- srv_hat_list[srv_ind, ]
+
+          # Reorganize and clean
+          comp_tmp <- tidyr::gather(comp_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_tmp)))
+          comp_tmp$age <- as.numeric(gsub("Comp_", "", comp_tmp$age))
+          comp_tmp <- comp_tmp[which(!is.na(comp_tmp$comp)),]
+          comp_tmp <- comp_tmp[which(comp_tmp$comp > 0),]
+
+          comp_hat_tmp <- tidyr::gather(comp_hat_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_hat_tmp)))
+          comp_hat_tmp$age <- as.numeric(gsub("Comp_", "", comp_hat_tmp$age))
+          comp_hat_tmp <- comp_hat_tmp[which(!is.na(comp_tmp$comp)),]
+          comp_hat_tmp <- comp_hat_tmp[which(comp_hat_tmp$comp > 0),]
+
+          # Get comp dims
+          sp <- srv_control$Species[which(srv_control$Survey_code == srv[j])]
+          nages <- list(Rceattle$data_list$nages, Rceattle$data_list$nlengths)[[comp_type + 1]]
+
+          yrs <- sort(unique(c(comp_hat_tmp$Year, comp_tmp$Year)))
+          nyrs <- length(yrs)
+
+          # Min and max
+          max_comp <- max(c(comp_hat_tmp$comp, comp_tmp$comp))
+          min_comp <- min(c(comp_hat_tmp$comp, comp_tmp$comp))
+
+          # Plot configuration
+          plot_rows <- ceiling(nyrs/4) + 1
+          layout(matrix(1:(plot_rows * 5), ncol = 5, byrow = FALSE), widths = c(0.2,1,1,1,1))
+          par(
+            mar = c(0, 0 , 0 , 0) ,
+            oma = c(0 , 0 , 0 , 0),
+            tcl = -0.35,
+            mgp = c(1.75, 0.5, 0)
+          )
+
+          # Plot black row
+          for(k in 1:plot_rows){
+            plot.new()
+          }
+
+
+          row_cnt = 0
+          # Plot each comp for each year
+          for(yr in 1:nyrs){
+            row_cnt = row_cnt + 1
+
+            # Set plot up
+            plot(
+              y = NA,
+              x = NA,
+              ylim = c(0, max_comp * 1.10),
+              xlim = c(0, nages[sp]),
+              xlab = NA,
+              ylab = NA,
+              xaxt = "n",
+              yaxt = "n"
+            )
+
+            # x-axis
+            if(row_cnt == (plot_rows - 1) | yr == nyrs){
+              axis(side = 1)
+              mtext(text =  paste(as.character(srv_control$Survey_name[srv[j]]), c("age", "length"))[comp_type + 1],
+                    side = 1, line = 2, cex = 0.7)
+            }
+
+
+            # y-axis
+            if(yr < plot_rows){
+              y_axis <- round(seq(0, max_comp * 1.15, length.out = 4)[1:3],1)
+              axis(side = 2, at = y_axis, labels = c(0,y_axis[2:3]))
+              mtext(text =  "srv comp",
+                    side = 2, line = 2, cex = 0.7)
+            }
+
+            # Legends
+            legend("topleft", legend = yrs[yr], bty = "n", cex = 1.2)
+
+            # Subset year for observed and predicted comp
+            comp_tmp_yr <- comp_tmp[which(comp_tmp$Year == yrs[yr]),]
+            comp_hat_tmp_yr <- comp_hat_tmp[which(comp_hat_tmp$Year == yrs[yr]),]
+
+            # Plot observed and predicted comp
+            polygon(c(0,comp_tmp_yr$age), c(0, comp_tmp_yr$comp),col='grey80',border=NA)
+            lines(comp_hat_tmp_yr$age, comp_hat_tmp_yr$comp,col=1, lwd = 1.5)
+
+            # Make bottom row of empty plots
+            if(row_cnt == (plot_rows - 1)){
+              plot.new()
+              row_cnt = 0
+            }
+          }
+        }
+
+
+        if (i == 2) {
+          dev.off()
+        }
+      }
+    }
+
+
+
+    #############################################
+    # Plot comps Type 4 - Histograms of aggregated comps
+    #############################################
+    for(comp_type in c(0,1)){
+
+      srv <- unique(srv_list$Survey_code[which(srv_list$Age0_Length1 == comp_type)])
+      nsrv <- length(srv)
+
+      loops <- ifelse(is.null(file), 1, 2)
+
+
+      for (i in 1:loops) {
+        if (i == 2) {
+          filename <- paste0(file,"_",as.character(srv_control$Survey_name[srv[j]]), "_", c("srv_age_agg_comps_histograms", "srv_length_agg_comps_histograms")[comp_type + 1], ".png")
+          png(
+            file = filename ,
+            width = 7.5,# 169 / 25.4,
+            height = 10,# 150 / 25.4,
+
+            units = "in",
+            res = 300
+          )
+        }
+
+
+
+        # Plot configuration
+        layout(matrix(1:(nsrv + 2), nrow = (nsrv + 2)), heights = c(0.1, rep(1, nsrv), 0.2))
+        par(
+          mar = c(0, 3 , 0 , 1) ,
+          oma = c(0 , 0 , 0 , 0),
+          tcl = -0.35,
+          mgp = c(1.75, 0.5, 0)
+        )
+        plot.new()
+
+        for (j in 1:nsrv) {
+
+          # Extract comps
+          srv_ind <- which(srv_list$Survey_code == srv[j] & srv_list$Age0_Length1 == comp_type)
+          comp_tmp <- srv_list[srv_ind,]
+          comp_hat_tmp <- srv_hat_list[srv_ind, ]
+
+          # Reorganize and clean
+          comp_tmp <- tidyr::gather(comp_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_tmp)))
+          comp_tmp$age <- as.numeric(gsub("Comp_", "", comp_tmp$age))
+          comp_tmp <- comp_tmp[which(!is.na(comp_tmp$comp)),]
+          comp_tmp <- comp_tmp[which(comp_tmp$comp > 0),]
+
+          comp_hat_tmp <- tidyr::gather(comp_hat_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_hat_tmp)))
+          comp_hat_tmp$age <- as.numeric(gsub("Comp_", "", comp_hat_tmp$age))
+          comp_hat_tmp <- comp_hat_tmp[which(!is.na(comp_tmp$comp)),]
+          comp_hat_tmp <- comp_hat_tmp[which(comp_hat_tmp$comp > 0),]
+
+
+          # Combine across year for observed and predicted comp
+          comp_tmp_sum <- aggregate(comp_tmp$comp, by=list(Category=comp_tmp$age), FUN=sum)
+          comp_tmp_sum$x <- comp_tmp_sum$x / sum(comp_tmp_sum$x)
+
+          comp_hat_tmp_sum <- aggregate(comp_hat_tmp$comp, by=list(Category=comp_hat_tmp$age), FUN=sum)
+          comp_hat_tmp_sum$x <- comp_hat_tmp_sum$x / sum(comp_hat_tmp_sum$x)
+
+
+          # Get comp dims
+          sp <- srv_control$Species[which(srv_control$Survey_code == srv[j])]
+          nages <- list(Rceattle$data_list$nages, Rceattle$data_list$nlengths)[[comp_type + 1]]
+
+          yrs <- sort(unique(c(comp_hat_tmp$Year, comp_tmp$Year)))
+          nyrs <- length(yrs)
+
+
+          # Min and max
+          max_comp <- max(c(comp_hat_tmp_sum$x, comp_tmp_sum$x))
+          min_comp <- min(c(comp_hat_tmp_sum$x, comp_tmp_sum$x))
+
+          # Set plot up
+          plot(
+            y = NA,
+            x = NA,
+            ylim = c(0, max_comp * 1.10),
+            xlim = c(0, nages[sp]),
+            ylab = "Comp",
+            xlab = NA,
+            xaxt = "n"
+          )
+
+
+          # Legend
+          legend("topleft", legend = as.character(srv_control$Survey_name[srv[j]]), bty = "n")
+
+          # x-axis
+          if(j == nsrv){
+            axis(side = 1)
+            mtext(text =  paste(c("Age", "Length"))[comp_type + 1],
+                  side = 1, line = 2, cex = 0.7)
+          }
+
+
+          # Plot observed and predicted comp
+          polygon(c(c(comp_tmp_sum$Category, max(comp_tmp_sum$Category) + 1), 0), c(c(comp_tmp_sum$x, 0), 0),col='grey80',border=NA)
+          lines(comp_hat_tmp_sum$Category, comp_hat_tmp_sum$x,col=1, lwd = 1.5)
+        }
+
+
+
+        if (i == 2) {
+          dev.off()
+        }
+      }
+    }
   }
