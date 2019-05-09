@@ -137,7 +137,7 @@ plot_index <-
         }
 
         # Legends
-        legend("topleft", srv_control$Survey_name[j], bty = "n", cex = 1.4)
+        legend("topleft", legend = as.character(srv_control$Survey_name[j]), bty = "n", cex = 1.4)
 
         # if(!is.null(mohns)){
         #   legend("top", paste0("B Rho = ", round(mohns[1,j+1], 2), "; SSB Rho = ",  round(mohns[2,j+1], 2) ), bty = "n", cex = 1) # Biomass rho
@@ -357,7 +357,7 @@ plot_catch <-
         }
 
         # Legends
-        legend("topleft", fsh_control$Fishery_name[j], bty = "n", cex = 1.4)
+        legend("topleft", legend = as.character(fsh_control$Fishery_name[j]), bty = "n", cex = 1.4)
 
         # if(!is.null(mohns)){
         #   legend("top", paste0("B Rho = ", round(mohns[1,j+1], 2), "; SSB Rho = ",  round(mohns[2,j+1], 2) ), bty = "n", cex = 1) # Biomass rho
