@@ -23,7 +23,7 @@ plot_srv_comp <-
            line_col = NULL,
            species = NULL,
            cex = 3,
-           lwd = 2,
+           lwd = 3,
            right_adj = 0,
            mohns = NULL,
            incl_proj = FALSE) {
@@ -140,7 +140,7 @@ plot_srv_comp <-
               bty = "n"
             )
 
-            x_loc <- c(mean(srv_list$Year, na.rm = T) - 2, mean(srv_list$Year, na.rm = T), mean(srv_list$Year, na.rm = T) + 2)
+            x_loc <- c(mean(srv_list$Year, na.rm = T) - 2, mean(srv_list$Year, na.rm = T), mean(srv_list$Year, na.rm = T) +2)
             symbols( x = x_loc , y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.07, 3) , circle = c(0.1, 0.25, 0.5), inches=0.10,add=T, fg = line_col[2])
             text(x = x_loc, y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.16, 3), labels = c(0.1, 0.25, 0.5))
           }
@@ -161,6 +161,7 @@ plot_srv_comp <-
         }
       }
     }
+
 
 
     #############################################
@@ -206,22 +207,17 @@ plot_srv_comp <-
           # Reorganize and clean
           comp_tmp <- tidyr::gather(comp_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_tmp)))
           comp_tmp$age <- as.numeric(gsub("Comp_", "", comp_tmp$age))
-          # comp_tmp <- comp_tmp[which(!is.na(comp_tmp$comp)),]
-          # comp_tmp <- comp_tmp[which(comp_tmp$comp > 0),]
 
           comp_hat_tmp <- tidyr::gather(comp_hat_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_hat_tmp)))
           comp_hat_tmp$age <- as.numeric(gsub("Comp_", "", comp_hat_tmp$age))
-          # comp_hat_tmp <- comp_hat_tmp[which(!is.na(comp_hat_tmp$comp)),]
-          # comp_hat_tmp <- comp_hat_tmp[which(comp_hat_tmp$comp > 0),]
 
           # Calculate pearson residual
           comp_tmp$comp_hat <- comp_hat_tmp$comp
           comp_tmp <- comp_tmp[which(comp_tmp$comp > 0),]
           comp_tmp <- comp_tmp[which(comp_tmp$comp_hat > 0),]
 
-
+          # Calculate pearson
           comp_tmp$pearson <- (comp_tmp$comp - comp_tmp$comp_hat) / sqrt( ( comp_tmp$comp_hat * (1 - comp_tmp$comp_hat)) / comp_tmp$Sample_size)
-
           max_pearson <- max(abs(comp_tmp$pearson), na.rm = TRUE)
 
 
@@ -247,6 +243,7 @@ plot_srv_comp <-
           # Legends
           legend("topleft", as.character(srv_control$Survey_name[srv[j]]), bty = "n", cex = 1.4)
 
+
           if(j == 1){
             legend("topright", "Pearson residual", bty = "n", cex = 1)
           }
@@ -254,13 +251,13 @@ plot_srv_comp <-
 
           # Positive
           x_loc <- c(mean(srv_list$Year, na.rm = T) + 1, mean(srv_list$Year, na.rm = T) + 3.5, mean(srv_list$Year, na.rm = T) + 6)
-          symbols( x = x_loc , y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.1, 3) , circle = round(seq(from = 0.5, to = max_pearson, length.out = 3) , 1), inches=0.10,add=T, bg = line_col[2])
-          text(x = x_loc, y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.23, 3), labels = round(seq(from = 0.5, to = max_pearson, length.out = 3) , 1))
+          symbols( x = x_loc , y = rep(max(comp_tmp$age, na.rm = TRUE) * 1.1, 3) , circle = round(seq(from = 0.5, to = max_pearson, length.out = 3) , 1), inches=0.10,add=T, bg = line_col[2])
+          text(x = x_loc, y = rep(max(comp_tmp$age, na.rm = TRUE) * 1.23, 3), labels = round(seq(from = 0.5, to = max_pearson, length.out = 3) , 1))
 
           # Negative
           x_loc <- c(mean(srv_list$Year, na.rm = T) - 1, mean(srv_list$Year, na.rm = T) - 3.5, mean(srv_list$Year, na.rm = T) - 6)
-          symbols( x = x_loc , y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.1, 3) , circle = -round(seq(from = -0.5, to = -max_pearson, length.out = 3) , 1), inches=0.10,add=T, bg = line_col[1])
-          text(x = x_loc, y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.23, 3), labels = round(seq(from = -0.5, to = -max_pearson, length.out = 3) , 1) )
+          symbols( x = x_loc , y = rep(max(comp_tmp$age, na.rm = TRUE) * 1.1, 3) , circle = -round(seq(from = -0.5, to = -max_pearson, length.out = 3) , 1), inches=0.10,add=T, bg = line_col[1])
+          text(x = x_loc, y = rep(max(comp_tmp$age, na.rm = TRUE) * 1.23, 3), labels = round(seq(from = -0.5, to = -max_pearson, length.out = 3) , 1) )
 
 
 
@@ -276,7 +273,6 @@ plot_srv_comp <-
         }
       }
     }
-
 
 
     #############################################
@@ -312,13 +308,14 @@ plot_srv_comp <-
           # Reorganize and clean
           comp_tmp <- tidyr::gather(comp_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_tmp)))
           comp_tmp$age <- as.numeric(gsub("Comp_", "", comp_tmp$age))
-          comp_tmp <- comp_tmp[which(!is.na(comp_tmp$comp)),]
-          comp_tmp <- comp_tmp[which(comp_tmp$comp > 0),]
 
           comp_hat_tmp <- tidyr::gather(comp_hat_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_hat_tmp)))
           comp_hat_tmp$age <- as.numeric(gsub("Comp_", "", comp_hat_tmp$age))
-          comp_hat_tmp <- comp_hat_tmp[which(!is.na(comp_hat_tmp$comp)),]
-          comp_hat_tmp <- comp_hat_tmp[which(comp_hat_tmp$comp > 0),]
+
+          # Combine
+          comp_tmp$comp_hat <- comp_hat_tmp$comp
+          comp_tmp <- comp_tmp[which(!is.na(comp_tmp$comp)),]
+          # comp_tmp <- comp_tmp[which(comp_tmp$comp_hat > 0),]
 
           # Get comp dims
           sp <- srv_control$Species[which(srv_control$Survey_code == srv[j])]
@@ -328,8 +325,8 @@ plot_srv_comp <-
           nyrs <- length(yrs)
 
           # Min and max
-          max_comp <- max(c(comp_hat_tmp$comp, comp_tmp$comp))
-          min_comp <- min(c(comp_hat_tmp$comp, comp_tmp$comp))
+          max_comp <- max(c(comp_tmp$comp, comp_tmp$comp_hat))
+          min_comp <- min(c(comp_tmp$comp, comp_tmp$comp_hat))
 
           # Plot configuration
           plot_rows <- ceiling(nyrs/4) + 1
@@ -385,11 +382,10 @@ plot_srv_comp <-
 
             # Subset year for observed and predicted comp
             comp_tmp_yr <- comp_tmp[which(comp_tmp$Year == yrs[yr]),]
-            comp_hat_tmp_yr <- comp_hat_tmp[which(comp_hat_tmp$Year == yrs[yr]),]
 
             # Plot observed and predicted comp
             polygon(c(0,comp_tmp_yr$age, max(comp_tmp_yr$age) + 1), c(0, comp_tmp_yr$comp, 0),col='grey80',border=NA)
-            lines(c(0,comp_hat_tmp_yr$age, max(comp_tmp_yr$age) + 1), c(0, comp_hat_tmp_yr$comp, 0),col=1, lwd = lwd)
+            lines(c(0,comp_tmp_yr$age, max(comp_tmp_yr$age) + 1), c(0, comp_tmp_yr$comp_hat, 0),col=1, lwd = lwd)
 
 
             # Make bottom row of empty plots
@@ -422,7 +418,7 @@ plot_srv_comp <-
 
       for (i in 1:loops) {
         if (i == 2) {
-          filename <- paste0(file,"_",as.character(srv_control$Survey_name[srv[j]]), "_", c("srv_age_agg_comps_histograms", "srv_length_agg_comps_histograms")[comp_type + 1], ".png")
+          filename <- paste0(file,"_", c("srv_age_agg_comps_histograms", "srv_length_agg_comps_histograms")[comp_type + 1], ".png")
           png(
             file = filename ,
             width = 7.5,# 169 / 25.4,
@@ -436,7 +432,7 @@ plot_srv_comp <-
 
 
         # Plot configuration
-        if(nsrv <= 4){
+        if(nsrv < 4){
           layout(matrix(1:(nsrv + 2), nrow = (nsrv + 2), byrow = TRUE), heights = c(0.2, rep(1, nsrv), 0.2))
           par(
             mar = c(2, 3 , 0 , 1) ,
@@ -448,11 +444,11 @@ plot_srv_comp <-
           nrows <- nsrv
         }
 
-        if(nsrv > 4){
+        if(nsrv >= 4){
           nrows <- ceiling(nsrv/2)
           layout(matrix(1:(((nrows+2) *2)), nrow = (nrows + 2), byrow = TRUE), heights = c(0.2, rep(1, nrows), 0.2))
           par(
-            mar = c(1, 3 , 0 , 1) ,
+            mar = c(2, 3 , 0 , 1) ,
             oma = c(0 , 0 , 0 , 0),
             tcl = -0.35,
             mgp = c(1.75, 0.5, 0)
@@ -471,20 +467,20 @@ plot_srv_comp <-
           # Reorganize and clean
           comp_tmp <- tidyr::gather(comp_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_tmp)))
           comp_tmp$age <- as.numeric(gsub("Comp_", "", comp_tmp$age))
-          comp_tmp <- comp_tmp[which(!is.na(comp_tmp$comp)),]
-          comp_tmp <- comp_tmp[which(comp_tmp$comp > 0),]
 
           comp_hat_tmp <- tidyr::gather(comp_hat_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_hat_tmp)))
           comp_hat_tmp$age <- as.numeric(gsub("Comp_", "", comp_hat_tmp$age))
-          comp_hat_tmp <- comp_hat_tmp[which(!is.na(comp_hat_tmp$comp)),]
-          comp_hat_tmp <- comp_hat_tmp[which(comp_hat_tmp$comp > 0),]
+
+          # Combine
+          comp_tmp$comp_hat <- comp_hat_tmp$comp
+          comp_tmp <- comp_tmp[which(!is.na(comp_tmp$comp)),]
 
 
           # Combine across year for observed and predicted comp
           comp_tmp_sum <- aggregate(comp_tmp$comp, by=list(Category=comp_tmp$age), FUN=sum)
           comp_tmp_sum$x <- comp_tmp_sum$x / sum(comp_tmp_sum$x)
 
-          comp_hat_tmp_sum <- aggregate(comp_hat_tmp$comp, by=list(Category=comp_hat_tmp$age), FUN=sum)
+          comp_hat_tmp_sum <- aggregate(comp_tmp$comp_hat, by=list(Category=comp_tmp$age), FUN=sum)
           comp_hat_tmp_sum$x <- comp_hat_tmp_sum$x / sum(comp_hat_tmp_sum$x)
 
 
