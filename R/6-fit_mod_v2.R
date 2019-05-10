@@ -365,14 +365,37 @@ fit_mod <-
                              lower = L,
                              upper = U,
                              loopnum = 8,
-                             control = list(eval.max = 1e+08,
-                                            iter.max = 1e+08, trace = 0)
+                             control = list(eval.max = 1e+09,
+                                            iter.max = 1e+09, trace = 0)
     )
 
     message("Step 6: Optimization complete")
 
     # Get quantities
     quantities <- obj$report(obj$env$last.par.best)
+
+    # Rename jnll
+    colnames(quantities$jnll_comp) <- paste0("Sp/Srv/Fsh_", 1:ncol(quantities$jnll_comp))
+    rownames(quantities$jnll_comp) <- c(
+      "Survey biomass",
+      "Survey comp data",
+      "Survey selectivity",
+      "Survey selectivity normalization",
+      "Total catch",
+      "Fishery comp data",
+      "Fishery selectivity",
+      "Fishery selectivity normalization",
+      "Recruitment deviates",
+      "Initial abundance deviates",
+      "Fishing mortality deviates",
+      "Empty",
+      "Empty",
+      "Ration",
+      "Ration penalties",
+      "Stomach content weight",
+      "Stomach content numbers"
+    )
+
 
     if (debug) {
       last_par <- params
