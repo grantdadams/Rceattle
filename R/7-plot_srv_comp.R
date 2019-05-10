@@ -357,7 +357,7 @@ plot_srv_comp <-
               y = NA,
               x = NA,
               ylim = c(0, max_comp * 1.10),
-              xlim = c(0, max(nages)),
+              xlim = c(0, nages[sp]),
               xlab = NA,
               ylab = NA,
               xaxt = "n",
@@ -437,7 +437,7 @@ plot_srv_comp <-
 
         # Plot configuration
         if(nsrv <= 4){
-          layout(matrix(1:(nsrv + 2), nrow = (nsrv + 2), byrow = TRUE), heights = c(0.1, rep(1, nsrv), 0.2))
+          layout(matrix(1:(nsrv + 2), nrow = (nsrv + 2), byrow = TRUE), heights = c(0.2, rep(1, nsrv), 0.2))
           par(
             mar = c(2, 3 , 0 , 1) ,
             oma = c(0 , 0 , 0 , 0),
@@ -450,9 +450,9 @@ plot_srv_comp <-
 
         if(nsrv > 4){
           nrows <- ceiling(nsrv/2)
-          layout(matrix(1:(((nrows+2) *2)), nrow = (nrows + 2), byrow = TRUE), heights = c(0.1, rep(1, nrows), 0.2))
+          layout(matrix(1:(((nrows+2) *2)), nrow = (nrows + 2), byrow = TRUE), heights = c(0.2, rep(1, nrows), 0.2))
           par(
-            mar = c(2, 3 , 0 , 1) ,
+            mar = c(1, 3 , 0 , 1) ,
             oma = c(0 , 0 , 0 , 0),
             tcl = -0.35,
             mgp = c(1.75, 0.5, 0)
