@@ -357,7 +357,7 @@ plot_fsh_comp <-
               y = NA,
               x = NA,
               ylim = c(0, max_comp * 1.10),
-              xlim = c(0, max(nages)),
+              xlim = c(0, nages[sp]),
               xlab = NA,
               ylab = NA,
               xaxt = "n",
@@ -436,8 +436,8 @@ plot_fsh_comp <-
 
 
         # Plot configuration
-        if(nfsh <= 4){
-          layout(matrix(1:(nfsh + 2), nrow = (nfsh + 2), byrow = TRUE), heights = c(0.1, rep(1, nfsh), 0.2))
+        if(nfsh < 4){
+          layout(matrix(1:(nfsh + 2), nrow = (nfsh + 2), byrow = TRUE), heights = c(0.2, rep(1, nfsh), 0.2))
           par(
             mar = c(2, 3 , 0 , 1) ,
             oma = c(0 , 0 , 0 , 0),
@@ -448,9 +448,9 @@ plot_fsh_comp <-
           nrows <- nfsh
         }
 
-        if(nfsh > 4){
+        if(nfsh >= 4){
           nrows <- ceiling(nfsh/2)
-          layout(matrix(1:(((nrows+2) *2)), nrow = (nrows + 2), byrow = TRUE), heights = c(0.1, rep(1, nrows), 0.2))
+          layout(matrix(1:(((nrows+2) *2)), nrow = (nrows + 2), byrow = TRUE), heights = c(0.2, rep(1, nrows), 0.2))
           par(
             mar = c(2, 3 , 0 , 1) ,
             oma = c(0 , 0 , 0 , 0),
