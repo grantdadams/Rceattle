@@ -207,21 +207,17 @@ plot_fsh_comp <-
           # Reorganize and clean
           comp_tmp <- tidyr::gather(comp_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_tmp)))
           comp_tmp$age <- as.numeric(gsub("Comp_", "", comp_tmp$age))
-          # comp_tmp <- comp_tmp[which(!is.na(comp_tmp$comp)),]
-          # comp_tmp <- comp_tmp[which(comp_tmp$comp > 0),]
 
           comp_hat_tmp <- tidyr::gather(comp_hat_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_hat_tmp)))
           comp_hat_tmp$age <- as.numeric(gsub("Comp_", "", comp_hat_tmp$age))
-          # comp_hat_tmp <- comp_hat_tmp[which(!is.na(comp_hat_tmp$comp)),]
-          # comp_hat_tmp <- comp_hat_tmp[which(comp_hat_tmp$comp > 0),]
 
           # Calculate pearson residual
           comp_tmp$comp_hat <- comp_hat_tmp$comp
           comp_tmp <- comp_tmp[which(comp_tmp$comp > 0),]
           comp_tmp <- comp_tmp[which(comp_tmp$comp_hat > 0),]
 
+          # Calculate pearson
           comp_tmp$pearson <- (comp_tmp$comp - comp_tmp$comp_hat) / sqrt( ( comp_tmp$comp_hat * (1 - comp_tmp$comp_hat)) / comp_tmp$Sample_size)
-
           max_pearson <- max(abs(comp_tmp$pearson), na.rm = TRUE)
 
 
@@ -255,13 +251,13 @@ plot_fsh_comp <-
 
           # Positive
           x_loc <- c(mean(fsh_list$Year, na.rm = T) + 1, mean(fsh_list$Year, na.rm = T) + 3.5, mean(fsh_list$Year, na.rm = T) + 6)
-          symbols( x = x_loc , y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.1, 3) , circle = round(seq(from = 0.5, to = max_pearson, length.out = 3) , 1), inches=0.10,add=T, bg = line_col[2])
-          text(x = x_loc, y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.23, 3), labels = round(seq(from = 0.5, to = max_pearson, length.out = 3) , 1))
+          symbols( x = x_loc , y = rep(max(comp_tmp$age, na.rm = TRUE) * 1.1, 3) , circle = round(seq(from = 0.5, to = max_pearson, length.out = 3) , 1), inches=0.10,add=T, bg = line_col[2])
+          text(x = x_loc, y = rep(max(comp_tmp$age, na.rm = TRUE) * 1.23, 3), labels = round(seq(from = 0.5, to = max_pearson, length.out = 3) , 1))
 
           # Negative
           x_loc <- c(mean(fsh_list$Year, na.rm = T) - 1, mean(fsh_list$Year, na.rm = T) - 3.5, mean(fsh_list$Year, na.rm = T) - 6)
-          symbols( x = x_loc , y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.1, 3) , circle = -round(seq(from = -0.5, to = -max_pearson, length.out = 3) , 1), inches=0.10,add=T, bg = line_col[1])
-          text(x = x_loc, y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.23, 3), labels = round(seq(from = -0.5, to = -max_pearson, length.out = 3) , 1) )
+          symbols( x = x_loc , y = rep(max(comp_tmp$age, na.rm = TRUE) * 1.1, 3) , circle = -round(seq(from = -0.5, to = -max_pearson, length.out = 3) , 1), inches=0.10,add=T, bg = line_col[1])
+          text(x = x_loc, y = rep(max(comp_tmp$age, na.rm = TRUE) * 1.23, 3), labels = round(seq(from = -0.5, to = -max_pearson, length.out = 3) , 1) )
 
 
 
@@ -312,13 +308,14 @@ plot_fsh_comp <-
           # Reorganize and clean
           comp_tmp <- tidyr::gather(comp_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_tmp)))
           comp_tmp$age <- as.numeric(gsub("Comp_", "", comp_tmp$age))
-          comp_tmp <- comp_tmp[which(!is.na(comp_tmp$comp)),]
-          comp_tmp <- comp_tmp[which(comp_tmp$comp > 0),]
 
           comp_hat_tmp <- tidyr::gather(comp_hat_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_hat_tmp)))
           comp_hat_tmp$age <- as.numeric(gsub("Comp_", "", comp_hat_tmp$age))
-          comp_hat_tmp <- comp_hat_tmp[which(!is.na(comp_hat_tmp$comp)),]
-          comp_hat_tmp <- comp_hat_tmp[which(comp_hat_tmp$comp > 0),]
+
+          # Combine
+          comp_tmp$comp_hat <- comp_hat_tmp$comp
+          comp_tmp <- comp_tmp[which(!is.na(comp_tmp$comp)),]
+          # comp_tmp <- comp_tmp[which(comp_tmp$comp_hat > 0),]
 
           # Get comp dims
           sp <- fsh_control$Species[which(fsh_control$Fishery_code == fsh[j])]
@@ -328,8 +325,8 @@ plot_fsh_comp <-
           nyrs <- length(yrs)
 
           # Min and max
-          max_comp <- max(c(comp_hat_tmp$comp, comp_tmp$comp))
-          min_comp <- min(c(comp_hat_tmp$comp, comp_tmp$comp))
+          max_comp <- max(c(comp_tmp$comp, comp_tmp$comp_hat))
+          min_comp <- min(c(comp_tmp$comp, comp_tmp$comp_hat))
 
           # Plot configuration
           plot_rows <- ceiling(nyrs/4) + 1
@@ -357,7 +354,7 @@ plot_fsh_comp <-
               y = NA,
               x = NA,
               ylim = c(0, max_comp * 1.10),
-              xlim = c(0, max(nages)),
+              xlim = c(0, nages[sp]),
               xlab = NA,
               ylab = NA,
               xaxt = "n",
@@ -385,11 +382,10 @@ plot_fsh_comp <-
 
             # Subset year for observed and predicted comp
             comp_tmp_yr <- comp_tmp[which(comp_tmp$Year == yrs[yr]),]
-            comp_hat_tmp_yr <- comp_hat_tmp[which(comp_hat_tmp$Year == yrs[yr]),]
 
             # Plot observed and predicted comp
             polygon(c(0,comp_tmp_yr$age, max(comp_tmp_yr$age) + 1), c(0, comp_tmp_yr$comp, 0),col='grey80',border=NA)
-            lines(c(0,comp_hat_tmp_yr$age, max(comp_tmp_yr$age) + 1), c(0, comp_hat_tmp_yr$comp, 0),col=1, lwd = lwd)
+            lines(c(0,comp_tmp_yr$age, max(comp_tmp_yr$age) + 1), c(0, comp_tmp_yr$comp_hat, 0),col=1, lwd = lwd)
 
 
             # Make bottom row of empty plots
@@ -422,7 +418,7 @@ plot_fsh_comp <-
 
       for (i in 1:loops) {
         if (i == 2) {
-          filename <- paste0(file,"_",as.character(fsh_control$Fishery_name[fsh[j]]), "_", c("fsh_age_agg_comps_histograms", "fsh_length_agg_comps_histograms")[comp_type + 1], ".png")
+          filename <- paste0(file,"_", c("fsh_age_agg_comps_histograms", "fsh_length_agg_comps_histograms")[comp_type + 1], ".png")
           png(
             file = filename ,
             width = 7.5,# 169 / 25.4,
@@ -436,14 +432,30 @@ plot_fsh_comp <-
 
 
         # Plot configuration
-        layout(matrix(1:(nfsh + 2), nrow = (nfsh + 2)), heights = c(0.1, rep(1, nfsh), 0.2))
-        par(
-          mar = c(2, 3 , 0 , 1) ,
-          oma = c(0 , 0 , 0 , 0),
-          tcl = -0.35,
-          mgp = c(1.75, 0.5, 0)
-        )
-        plot.new()
+        if(nfsh < 4){
+          layout(matrix(1:(nfsh + 2), nrow = (nfsh + 2), byrow = TRUE), heights = c(0.2, rep(1, nfsh), 0.2))
+          par(
+            mar = c(2, 3 , 0 , 1) ,
+            oma = c(0 , 0 , 0 , 0),
+            tcl = -0.35,
+            mgp = c(1.75, 0.5, 0)
+          )
+          plot.new()
+          nrows <- nfsh
+        }
+
+        if(nfsh >= 4){
+          nrows <- ceiling(nfsh/2)
+          layout(matrix(1:(((nrows+2) *2)), nrow = (nrows + 2), byrow = TRUE), heights = c(0.2, rep(1, nrows), 0.2))
+          par(
+            mar = c(2, 3 , 0 , 1) ,
+            oma = c(0 , 0 , 0 , 0),
+            tcl = -0.35,
+            mgp = c(1.75, 0.5, 0)
+          )
+          plot.new()
+          plot.new()
+        }
 
         for (j in 1:nfsh) {
 
@@ -455,20 +467,20 @@ plot_fsh_comp <-
           # Reorganize and clean
           comp_tmp <- tidyr::gather(comp_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_tmp)))
           comp_tmp$age <- as.numeric(gsub("Comp_", "", comp_tmp$age))
-          comp_tmp <- comp_tmp[which(!is.na(comp_tmp$comp)),]
-          comp_tmp <- comp_tmp[which(comp_tmp$comp > 0),]
 
           comp_hat_tmp <- tidyr::gather(comp_hat_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_hat_tmp)))
           comp_hat_tmp$age <- as.numeric(gsub("Comp_", "", comp_hat_tmp$age))
-          comp_hat_tmp <- comp_hat_tmp[which(!is.na(comp_hat_tmp$comp)),]
-          comp_hat_tmp <- comp_hat_tmp[which(comp_hat_tmp$comp > 0),]
+
+          # Combine
+          comp_tmp$comp_hat <- comp_hat_tmp$comp
+          comp_tmp <- comp_tmp[which(!is.na(comp_tmp$comp)),]
 
 
           # Combine across year for observed and predicted comp
           comp_tmp_sum <- aggregate(comp_tmp$comp, by=list(Category=comp_tmp$age), FUN=sum)
           comp_tmp_sum$x <- comp_tmp_sum$x / sum(comp_tmp_sum$x)
 
-          comp_hat_tmp_sum <- aggregate(comp_hat_tmp$comp, by=list(Category=comp_hat_tmp$age), FUN=sum)
+          comp_hat_tmp_sum <- aggregate(comp_tmp$comp_hat, by=list(Category=comp_tmp$age), FUN=sum)
           comp_hat_tmp_sum$x <- comp_hat_tmp_sum$x / sum(comp_hat_tmp_sum$x)
 
 

@@ -1,3 +1,4 @@
+library(Rceattle)
 data("BS2017MS")
 data("BS2017SS")
 
@@ -7,18 +8,20 @@ ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
                             debug = 0, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
-                            silent = TRUE)
+                            silent = TRUE,
+                            recompile = TRUE)
+
 
 
 ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
-                            inits = ss_run$estimated_params, # Initial parameters = 0
+                            inits = ss_run$estimated_params, # Initial parameters from single species ests
                             file = NULL, # Don't save
                             debug = 0, # Estimate
-                            random_rec = FALSE, # No random recruitment
-                            msmMode = 1, # Single species mode
-                            silent = TRUE,
-                            suitMode = 0)
-ms_run$quantities$jnll_comp
+                            niter = 10, # 10 iterations around population and predation dynamics
+                            random_rec = TRUE, # No random recruitment
+                            msmMode = 1, # MSVPA based
+                            suitMode = 0, # empirical suitability
+                            silent = TRUE)
 
 
 # We can plot both runs as well:
