@@ -3,73 +3,144 @@
 #' A dataset containing the inputs used for CEATTLE
 #'
 #' @format
-#' MODEL CONFIGURATION
+#' Control
 #' \describe{
-#' \item{debug}{Integer = Logical to debug (1) or not (0)}
-#' \item{msmMode}{Integer: Single species (0), MSVPA multi-species (1) mode, 2 = Holling Type 1, 3 = Holling Type 2, 4 = Holling Type 3, 5 = Predator interference, 6 = predator preemption, 7 = hassell varley, 8 = ecosim. 2 through 8 are from Kinzey and Punt 2009. MSVPA multi-species can either be empirical or estimated (see suitMode) }
-#' \item{est_diet}{Integer: include diet data in likelihood. 0 = no, 1 = yes}
-#' \item{suitMode}{Integer: Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma selectivity from Kinzey and Punt (2009), 2 = time-varing length based gamma selectivity from Kinzey and Punt (2009), 3 = time-varying weight based gamma selectivity from Kinzey and Punt (2009), 4 = length based lognormal selectivity, 5 = time-varing length based lognormal selectivity, 6 = time-varying weight based lognormal selectivity}
-#' \item{avgnMode}{Integer: Average numbers-at-age to be used in predation function. 0 = average numbers-at-age, 1 = \eqn{= N * e^{-Z/2} }, 2 = \eqn{N}.}
-#' \item{random_rec}{Integer: Switch to estimate recruitment deviations as random effects. 0 = no, 1 = yes}
-#' \item{niter}{Integer: Number of loops around population/predation equations}
 #' \item{nspp}{Integer: number of species in model}
 #' \item{styr}{Integer: Start year}
-#' \item{nyrs}{Integer: Number of estimation years}
-#' \item{srv_sel_type}{Ivector: Survey selectivity type. 0 = logistic, 1 = non-parametric selectivity estimated for each age, 2 = double-logistic; length = nspp:}
-#' \item{nselages}{Ivector: if non-parametric selectivity, the number of ages to estimate selectivity; length = nspp:}
-#' \item{projYear}{Integer: projYear The year to project the populations with no fishing. Assumed to be 2100}
+#' \item{endyr}{Integer: Number of estimation years}
+#' \item{projyr}{Integer: The year to project the populations.}
+#' \item{nages}{Ivector: Number of ages (included age-0) to be used for each species}
+#' \item{minage}{Ivector: Minimum age of each species}
+#' \item{nlengths}{Ivector: Number of lengths for each species}
+#' \item{pop_wt_index}{Ivector: index of wt to use for the species predation dynamics (dim 1 of wt)}
+#' \item{pop_alk_index}{Ivector: index of alk to use for the species predation dynamics (dim 1 of alk)}
+#' \item{sigma_rec_prior}{Vector: inditial standard deviation of recruitment for each species. Fixed if random_rec = TRUE}
+#' \item{other_food}{Vector: other food in the system assumed for each species}
+#' \item{stom_sample_size}{Vector: sample size for diet data multinomial}
 #' }
 #'
+#' srv_control: controls for survey data
+#'\describe{
+#'\item{Survey_name}{Name of survey}
+#'\item{Survey_code}{Index of survey ACROSS species}
+#'\item{Species}{Species number}
+#'\item{Fit_0no_1yes}{Index of wether data should be included in the likelihood and associated parameters estimated.}
+#'\item{Selectivity}{Selectivity to use for the species: 0 = empirical selectivity provided in srv_emp_sel; 1 = logistic selectivity; 2 = non-parametric selecitivty sensu Ianelli et al 2018; 3 = double logistic}
+#'\item{Nselages}{Number of ages to estimate non-parametric selectivity for Selectivity = 2. Not used otherwise}
+#'\item{Weight1_Numbers2}{Is the observation in weight (kg) set as 1, if the observation is in numbers caught, set as 2}
+#'\item{Weight_index}{Weight-at-age (wt) index to use for calculation of derived quantities (dim 1 of wt array)}
+#'\item{ALK_index}{Age transition matrix (e.g. Age Length Key or ALK) index to use for derived quantitied (dim 1 of ALK array)}
+#'\item{Estimate_q}{Estimate catchability? (0 = no; 1 = yes, 2 = analytical from Ludwig and Walters 1994)}
+#'\item{log_q_start}{Starting value or fixed value for catchability}
+#'\item{Estimate_sigma_index}{Estimate survey variance (0 = use CV from srv_biom, 1 = yes, 2 = analytically estimate following (Ludwig and Walters 1994)}
+#'\item{Sigma_index_prior}{Starting value to be used if Estimate_sigma_index = 1}
+#'}
+#'
+#' srv_biom: time series of survey indices of abundance
+#'\describe{
+#'\item{Survey_name}{Name of survey}
+#'\item{Survey_code}{Index of survey ACROSS species}
+#'\item{Species}{Species number}
+#'\item{Sex}{NOTUSED}
+#'\item{Year}{}
+#'\item{Month}{}
+#'\item{Observation}{Observed index of abundance}
+#'\item{CV}{CV for lognormal distribution of survey index of abundance}
+#'}
+#'
+#'srv_emp_sel: pre-defined selectivity for survey indices
+#'\describe{
+#'\item{Survey_name}{Name of survey}
+#'\item{Survey_code}{Index of survey ACROSS species}
+#'\item{Species}{Species number}
+#'\item{Comp_1}{Selectivity of first age in model}
+#'\item{Comp_2}{Selectivity of second age in model}
+#'}
 #'
 #'
+#'srv_comp: time series of survey composition. These are normalized to 1 prior to estimation.
+#'\describe{
+#'\item{Survey_name}{Name of survey}
+#'\item{Survey_code}{Index of survey ACROSS species}
+#'\item{Species}{Species number}
+#'\item{Sex}{NOTUSED}
+#'\item{Age0_Length1}{Index wether the comp data are length comps (1) or age comps (0)}
+#'\item{Year}{}
+#'\item{Month}{}
+#'\item{Sample_size}{sample size to use for multinomial distribution}
+#'\item{Comp_1}{Age or length comp of first age/length in model}
+#'}
 #'
-#' DATA INPUTS: A list of different integers, vectors, matrices, and arrays. NOTE: Matrices and arrays will be filled with NA to the largest size. For example if nages of species 1 is 12 and nages of species 2 is 24}
 #'
+#' fsh_control: controls for survey data
+#'\describe{
+#'\item{Fishery_name}{Name of Fishery}
+#'\item{Fishery_code}{Index of Fishery ACROSS species}
+#'\item{Species}{Species number}
+#'\item{Fit_0no_1yes}{Index of wether data should be included in the likelihood and associated parameters estimated.}
+#'\item{Selectivity}{Selectivity to use for the species: 0 = empirical selectivity provided in srv_emp_sel; 1 = logistic selectivity; 2 = non-parametric selecitivty sensu Ianelli et al 2018; 3 = double logistic}
+#'\item{Nselages}{Number of ages to estimate non-parametric selectivity for Selectivity = 2. Not used otherwise}
+#'\item{Weight1_Numbers2}{Is the observation in weight (kg) set as 1, if the observation is in numbers caught, set as 2}
+#'\item{Weight_index}{Weight-at-age (wt) index to use for calculation of derived quantities (dim 1 of wt array)}
+#'\item{ALK_index}{Age transition matrix (e.g. Age Length Key or ALK) index to use for derived quantitied (dim 1 of ALK array)}
+#'\item{Estimate_sigma_index}{Estimate Fishery variance (0 = use CV from srv_biom, 1 = yes, 2 = analytically estimate following (Ludwig and Walters 1994)}
+#'\item{Sigma_index_prior}{Starting value to be used if Estimate_sigma_index = 1}
+#'\item{proj_F}{Fishing mortality to project under for each fishery}
+#'}
+#'
+#' fsh_biom: time series of fishery indices of abundance
+#'\describe{
+#'\item{Fishery_name}{Name of Fishery}
+#'\item{Fishery_code}{Index of Fishery ACROSS species}
+#'\item{Species}{Species number}
+#'\item{Sex}{NOTUSED}
+#'\item{Year}{}
+#'\item{Month}{}
+#'\item{Catch}{Observed catch}
+#'\item{CV}{CV for lognormal distribution of fishery catch}
+#'}
+#'
+#'fsh_emp_sel: pre-defined selectivity for catch
+#'\describe{
+#'\item{Fishery_name}{Name of Fishery}
+#'\item{Fishery_code}{Index of Fishery ACROSS species}
+#'\item{Species}{Species number}
+#'\item{Comp_1}{Selectivity of first age in model}
+#'\item{Comp_2}{Selectivity of second age in model}
+#'}
+#'
+#'
+#'fsh_comp: time series of fishery composition data. These are normalized to 1 prior to estimation.
+#'\describe{
+#'\item{Fishery_name}{Name of Fishery}
+#'\item{Fishery_code}{Index of Fishery ACROSS species}
+#'\item{Species}{Species number}
+#'\item{Sex}{NOTUSED}
+#'\item{Age0_Length1}{Index wether the comp data are length comps (1) or age comps (0)}
+#'\item{Year}{}
+#'\item{Month}{}
+#'\item{Sample_size}{sample size to use for multinomial distribution}
+#'\item{Comp_1}{Age or length comp of first age/length in model}
+#'}
+#'
+#'
+#' Other data inputs:
 #' \describe{
-#' \item{nages}{Ivector: Number of species ages; length = nspp}
-#' \item{minage}{Ivector: Minumum of species ages; length = nspp}
-#' \item{1. FISHERY COMPONENTS}{}
-#' \item{nyrs_tc_biom}{Vector: Number of years with total observed catch; length = nspp}
-#' \item{yrs_tc_biom}{Matrix: Years with total observed catch; dim = [nspp, nyrs_tc_biom]}
-#' \item{tcb_obs}{Matrix: Observed total yield (kg}{ dim = [nspp, nyrs_tc_biom]}
-#' \item{ nyrs_fsh_comp }{Ivector: Number of years in the fishery sp_age composition data; dim = [nspp]}
-#' \item{ yrs_fsh_comp }{Imatrix: Years for the fishery sp_age composition data; dim = [nspp, nyrs_fsh_comp]}
-#' \item{ fsh_age_type }{Ivector: Composition type for fishery catch (1 = age based, 2 = length based}{ dim = [nspp]}
-#' \item{ fsh_age_bins }{Ivector: Number of bins for fishery age/length composition data; dim = [nspp]}
-#' \item{ obs_catch }{Array: Observed fishery catch-at-age or catch-at-length; dim = [nspp, fsh_age_bins, nyrs_fsh_comp]}
-#' \item{ 2. SURVEY COMPONENTS}{}
-#' \item{ nyrs_srv_biom }{Ivector: Number of years of survey biomass data; dim = [nspp]}
-#' \item{ yrs_srv_biom }{Imatrix: Years of survey biomass data; dim = [nspp, nyrs_srv_biom]}
-#' \item{ srv_biom }{Matrix: Observed BT survey biomass (kg}{ dim = [nspp, nyrs]}
-#' \item{ srv_biom_se }{Matrix: Observed annual biomass error (SE}{ dim = [nspp, nyrs_srv_biom]}
-#' \item{ nyrs_srv_age }{Ivector: Number of years of survey age/length composition; length = [nspp]}
-#' \item{ yrs_srv_age }{Imatrix: Years for the survey age/length composition data; dim = [nspp, nyrs_srv_age]}
-#' \item{ srv_age_type }{Ivector: Type of compisition (1 = age; 2 = length}{ length = [nspp]}
-#' \item{ srv_age_bins }{Ivector: Number of size binds for the age/length comps; dim = [nspp]}
-#' \item{ srv_age_n }{Matrix: Sample size for the multinomial; dim = [nspp, nyrs_srv_age]}
-#' \item{ srv_age_obs }{Array: Observed BT age comp; dim = [nspp, nages, nyrs]}
-#' \item{ age_trans_matrix}{Array: observed sp_age/size compositions; dim = [nspp, nages, srv_age_bins]}
-#' \item{ n_eit}{Integer: Number of years with EIT data; dim = [1]}
-#' \item{ yrs_eit}{Ivector: Years for available EIT data; dim = [n_eit]}
-#' \item{ eit_age_n}{Vector: Numberof EIT Hauls for multinomial; dim = [yrs_eit]}
-#' \item{ obs_eit_age}{Matrix: Observed EIT catch-at-age; dim = [n_eit, nyrs]}
-#' \item{ obs_eit}{Vector: Observed EIT survey biomass (kg}{ length = [nyrs]}
-#' \item{ eit_sel}{Matrix: Observed EIT survey selectivity; dim = [eit_age, nyrs_eit_sel]}
-#' \item{3. RATION AND CONSUMPTION PARAMETERS}{}
-#' \item{ fday }{Vector: number of foraging days for each predator; length = [nspp]}
-#' \item{ Pyrs }{Array: : dim = [nspp, nyrs+1, nages]}
-#' \item{ Uobs }{Array: pred, prey, predL, preyL U matrix (mean number of prey in each pred}{ dim = [nspp, nspp, maxL, maxL]}
-#' \item{ UobsWt }{Array: pred, prey, predL, preyL U matrix (mean wt_hat of prey in each pred}{ dim = [nspp, nspp, maxL, maxL] . This fits predation mortality from \code{msmMode = 1} and \code{suitMode = 1, 2}}
-#' \item{ UobsAge }{Array: pred, prey, predA, preyA U matrix (mean number of prey in each pred age}{ dim = [nspp, nspp, max_age, max_age]. This controls empiricial predation mortality from \code{msmMode = 1} and \code{suitMode = 0}}
-#' \item{stom_tau Stomach}{Iinteger: content sample size for likelihood. Default is 20.}
-#' \item{ Mn_LatAge }{Matrix: Mean length-at-age; dim = [nspp, nages]}
-#' \item{ nTyrs }{Integer: Number of temperature years; dim = [1] }
-#' \item{ Tyrs }{Ivector: Years of hindcast data; length = [nTyrs]}
-#' \item{ BTempC_retro }{Vector: bottom temperature; length = [nTyrs ]}
-#' \item{ other_food }{Vector: Biomass of other prey (kg}{ length = [nspp]}
-#' \item{ C_model }{Ivector: f == 1, the use Cmax*fT*P; length = [nspp]}
+#' \item{ age_trans_matrix}{Array: observed age-length transition matrix or ALK; dim = [alk_ind, nages, nlengths]}
+#' \item{ age_error}{Array: observed ageing error matrix row is true age, column is observed age; dim = [nspp, nages, nages]}
+#' \item{ wt}{Array: observed weight-at-age; dim = [nyrs, nages, wt_ind]}
+#' \item{ pmature }{Matrix: Proportion of mature females at age; dim = [nspp, nages]}
+#' \item{ propF}{Matrix: Proportion-at-age of females of population; dim = [nspp, nages]}
+#' \item{ M1_base }{Matrix: Residual natural mortality; dim = [nspp, nages]}
+#' \item{ Mn_LatAge }{Matrix: mean length-at-age across years (used for suitability models > 0); dim = [nspp, nages]}
+#' \item{ aLW }{Matrix: LW a&b regression coefs for W=a*L^b (used for suitability models > 0); dim = [2, nspp]}
+#' }
+#'
+#' Bioenergetics and diet data:
+#' \describe{
+#' \item{ Ceq }{Ivector: Ceq: which Comsumption equation to use; length = [nspp]}
 #' \item{ Pvalue }{Vector: This scales the pvalue used if C_model ==1 , proportion of Cmax; Pvalue is P in Cmax*fT*Pvalue*PAge; length = [nspp]}
-#' \item{ Ceq }{Ivector: Ceq: which Comsumption equation to use; length = [nspp]; Currently all sp = 1}
+#' \item{ fday }{Vector: number of foraging days for each predator; length = [nspp]}
 #' \item{ CA }{Vector: Wt specific intercept of Cmax=CA*W^CB; length = [nspp]}
 #' \item{ CB }{Vector: Wt specific slope of Cmax=CA*W^CB; length = [nspp]}
 #' \item{ Qc }{Vector: used in fT, QC value; length = [nspp]}
@@ -78,15 +149,13 @@
 #' \item{ Tcl }{Vector: used in fT eq 3, limit; length = [nspp]}
 #' \item{ CK1 }{Vector: used in fT eq 3, limit where C is .98 max (ascending}{ length = [nspp]}
 #' \item{ CK4 }{Vector: used in fT eq 3, temp where C is .98 max (descending}{ length = [nspp]}
-#' \item{ S_a }{Matrix: S_a, S_b, S_b2, S_b3, S_b4, S_b5: a,L,L^2,L^3,L^4,L^5 (rows)coef for mean S=a+b*L+b2*L*L, whith a cap at 80cm for each pred spp(cols}{ dim = [6, nspp]}
-#' \item{3. WEIGHT, MATURITY, MORTALITY}{}
-#' \item{ wt }{Array: Weight-at-age by year; dim = [nyrs, nages, nspp]}
-#' \item{ aLW }{Matrix: LW a&b regression coefs for W=a*L^b; dim = [2, nspp]}
-#' \item{ M1_base }{Matrix: Residual natural mortality; dim = [nspp, nages]}
-#' \item{ mf_type }{Ivector: Sex specific mort and weight at age? : 1 = same for both, 2 = seperate wt at sp_age for each sex; length = nspp}
-#' \item{ propMorF }{Matrix: Proportion-at-age of females of population; dim = [nspp, nages]}
-#' \item{ pmature }{Matrix: Proportion of mature females at age; dim = [nspp, nages]}
-#' ...
+#' \item{ nTyrs }{Integer: Number of temperature years; dim = [1] }
+#' \item{ Tyrs }{Ivector: Years of hindcast data; length = [nTyrs]}
+#' \item{ Pyrs }{Array: number of foraging days for each species, age, year : dim = [nspp, nyrs, nages]}
+#' \item{ Uobs }{Array: pred, prey, predL, preyL diet proportion data (mean number of prey in each pred): dim = [nspp, nspp, maxL, maxL]}
+#' \item{ UobsWt }{Array: pred, prey, predL, preyL diet proportion data (mean wt_hat of prey in each pred): dim = [nspp, nspp, maxL, maxL] . This fits predation mortality from \code{msmMode = 1} and \code{suitMode = 1, 2}}
+#' \item{ UobsAge }{Array: pred, prey, predA, preyA diet prorportion data  (mean number of prey in each pred age) dim = [nspp, nspp, max_age, max_age]}
+#' \item{ UobsWtAge }{Array: pred, prey, predA, preyA diet prorportion data  (mean weight of prey at age in each pred at age) dim = [nspp, nspp, max_age, max_age]}
 #' }
 "BS2017SS"
 
@@ -95,73 +164,145 @@
 #'
 #' A dataset containing the inputs used for CEATTLE
 #'
-#' @format A list of different integers and vectors, specifying model switches:
-#' MODEL CONFIGURATION
+#' @format
+#' Control
 #' \describe{
-#' \item{debug}{Integer = Logical to debug (1) or not (0)}
-#' \item{msmMode}{Integer: Single species (0) or multi-species (1) mode}
-#' \item{est_diet}{Integer: include diet data in likelihood. 0 = no, 1 = yes}
-#' \item{suitMode}{Integer: Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = gamma selectivity from Kinzey and Punt (2009)}
-#' \item{avgnMode}{Integer: Average numbers-at-age to be used in predation function. 0 = average numbers-at-age, 1 = \eqn{= N * e^{-Z/2} }, 2 = \eqn{N}.}
-#' \item{random_rec}{Integer: Switch to estimate recruitment deviations as random effects. 0 = no, 1 = yes}
-#' \item{niter}{Integer: Number of loops around population/predation equations}
 #' \item{nspp}{Integer: number of species in model}
 #' \item{styr}{Integer: Start year}
-#' \item{nyrs}{Integer: Number of estimation years}
-#' \item{srv_sel_type}{Ivector: selectivity type. 0 = logistic, 1 = non-parametric selectivity estimated for each age; length = nspp:}
-#' \item{nselages}{Ivector: if non-parametric selectivity, the number of ages to estimate selectivity; length = nspp:}
+#' \item{endyr}{Integer: Number of estimation years}
+#' \item{projyr}{Integer: The year to project the populations.}
+#' \item{nages}{Ivector: Number of ages (included age-0) to be used for each species}
+#' \item{minage}{Ivector: Minimum age of each species}
+#' \item{nlengths}{Ivector: Number of lengths for each species}
+#' \item{pop_wt_index}{Ivector: index of wt to use for the species predation dynamics (dim 1 of wt)}
+#' \item{pop_alk_index}{Ivector: index of alk to use for the species predation dynamics (dim 1 of alk)}
+#' \item{sigma_rec_prior}{Vector: inditial standard deviation of recruitment for each species. Fixed if random_rec = TRUE}
+#' \item{other_food}{Vector: other food in the system assumed for each species}
+#' \item{stom_sample_size}{Vector: sample size for diet data multinomial}
 #' }
 #'
+#' srv_control: controls for survey data
+#'\describe{
+#'\item{Survey_name}{Name of survey}
+#'\item{Survey_code}{Index of survey ACROSS species}
+#'\item{Species}{Species number}
+#'\item{Fit_0no_1yes}{Index of wether data should be included in the likelihood and associated parameters estimated.}
+#'\item{Selectivity}{Selectivity to use for the species: 0 = empirical selectivity provided in srv_emp_sel; 1 = logistic selectivity; 2 = non-parametric selecitivty sensu Ianelli et al 2018; 3 = double logistic}
+#'\item{Nselages}{Number of ages to estimate non-parametric selectivity for Selectivity = 2. Not used otherwise}
+#'\item{Weight1_Numbers2}{Is the observation in weight (kg) set as 1, if the observation is in numbers caught, set as 2}
+#'\item{Weight_index}{Weight-at-age (wt) index to use for calculation of derived quantities (dim 1 of wt array)}
+#'\item{ALK_index}{Age transition matrix (e.g. Age Length Key or ALK) index to use for derived quantitied (dim 1 of ALK array)}
+#'\item{Estimate_q}{Estimate catchability? (0 = no; 1 = yes, 2 = analytical from Ludwig and Walters 1994)}
+#'\item{log_q_start}{Starting value or fixed value for catchability}
+#'\item{Estimate_sigma_index}{Estimate survey variance (0 = use CV from srv_biom, 1 = yes, 2 = analytically estimate following (Ludwig and Walters 1994)}
+#'\item{Sigma_index_prior}{Starting value to be used if Estimate_sigma_index = 1}
+#'}
+#'
+#' srv_biom: time series of survey indices of abundance
+#'\describe{
+#'\item{Survey_name}{Name of survey}
+#'\item{Survey_code}{Index of survey ACROSS species}
+#'\item{Species}{Species number}
+#'\item{Sex}{NOTUSED}
+#'\item{Year}{}
+#'\item{Month}{}
+#'\item{Observation}{Observed index of abundance}
+#'\item{CV}{CV for lognormal distribution of survey index of abundance}
+#'}
+#'
+#'srv_emp_sel: pre-defined selectivity for survey indices
+#'\describe{
+#'\item{Survey_name}{Name of survey}
+#'\item{Survey_code}{Index of survey ACROSS species}
+#'\item{Species}{Species number}
+#'\item{Comp_1}{Selectivity of first age in model}
+#'\item{Comp_2}{Selectivity of second age in model}
+#'}
 #'
 #'
+#'srv_comp: time series of survey composition. These are normalized to 1 prior to estimation.
+#'\describe{
+#'\item{Survey_name}{Name of survey}
+#'\item{Survey_code}{Index of survey ACROSS species}
+#'\item{Species}{Species number}
+#'\item{Sex}{NOTUSED}
+#'\item{Age0_Length1}{Index wether the comp data are length comps (1) or age comps (0)}
+#'\item{Year}{}
+#'\item{Month}{}
+#'\item{Sample_size}{sample size to use for multinomial distribution}
+#'\item{Comp_1}{Age or length comp of first age/length in model}
+#'}
 #'
-#' DATA INPUTS: A list of different integers, vectors, matrices, and arrays. NOTE: Matrices and arrays will be filled with NA to the largest size. For example if nages of species 1 is 12 and nages of species 2 is 24}
 #'
+#' fsh_control: controls for survey data
+#'\describe{
+#'\item{Fishery_name}{Name of Fishery}
+#'\item{Fishery_code}{Index of Fishery ACROSS species}
+#'\item{Species}{Species number}
+#'\item{Fit_0no_1yes}{Index of wether data should be included in the likelihood and associated parameters estimated.}
+#'\item{Selectivity}{Selectivity to use for the species: 0 = empirical selectivity provided in srv_emp_sel; 1 = logistic selectivity; 2 = non-parametric selecitivty sensu Ianelli et al 2018; 3 = double logistic}
+#'\item{Nselages}{Number of ages to estimate non-parametric selectivity for Selectivity = 2. Not used otherwise}
+#'\item{Weight1_Numbers2}{Is the observation in weight (kg) set as 1, if the observation is in numbers caught, set as 2}
+#'\item{Weight_index}{Weight-at-age (wt) index to use for calculation of derived quantities (dim 1 of wt array)}
+#'\item{ALK_index}{Age transition matrix (e.g. Age Length Key or ALK) index to use for derived quantitied (dim 1 of ALK array)}
+#'\item{Estimate_sigma_index}{Estimate Fishery variance (0 = use CV from srv_biom, 1 = yes, 2 = analytically estimate following (Ludwig and Walters 1994)}
+#'\item{Sigma_index_prior}{Starting value to be used if Estimate_sigma_index = 1}
+#'\item{proj_F}{Fishing mortality to project under for each fishery}
+#'}
+#'
+#' fsh_biom: time series of fishery indices of abundance
+#'\describe{
+#'\item{Fishery_name}{Name of Fishery}
+#'\item{Fishery_code}{Index of Fishery ACROSS species}
+#'\item{Species}{Species number}
+#'\item{Sex}{NOTUSED}
+#'\item{Year}{}
+#'\item{Month}{}
+#'\item{Catch}{Observed catch}
+#'\item{CV}{CV for lognormal distribution of fishery catch}
+#'}
+#'
+#'fsh_emp_sel: pre-defined selectivity for catch
+#'\describe{
+#'\item{Fishery_name}{Name of Fishery}
+#'\item{Fishery_code}{Index of Fishery ACROSS species}
+#'\item{Species}{Species number}
+#'\item{Comp_1}{Selectivity of first age in model}
+#'\item{Comp_2}{Selectivity of second age in model}
+#'}
+#'
+#'
+#'fsh_comp: time series of fishery composition data. These are normalized to 1 prior to estimation.
+#'\describe{
+#'\item{Fishery_name}{Name of Fishery}
+#'\item{Fishery_code}{Index of Fishery ACROSS species}
+#'\item{Species}{Species number}
+#'\item{Sex}{NOTUSED}
+#'\item{Age0_Length1}{Index wether the comp data are length comps (1) or age comps (0)}
+#'\item{Year}{}
+#'\item{Month}{}
+#'\item{Sample_size}{sample size to use for multinomial distribution}
+#'\item{Comp_1}{Age or length comp of first age/length in model}
+#'}
+#'
+#'
+#' Other data inputs:
 #' \describe{
-#' \item{nages}{Ivector: Number of species ages; length = nspp}
-#' \item{minage}{Ivector: Minumum of species ages; length = nspp}
-#' \item{1. FISHERY COMPONENTS}{}
-#' \item{nyrs_tc_biom}{Vector: Number of years with total observed catch; length = nspp}
-#' \item{yrs_tc_biom}{Matrix: Years with total observed catch; dim = [nspp, nyrs_tc_biom]}
-#' \item{tcb_obs}{Matrix: Observed total yield (kg}{ dim = [nspp, nyrs_tc_biom]}
-#' \item{ nyrs_fsh_comp }{Ivector: Number of years in the fishery sp_age composition data; dim = [nspp]}
-#' \item{ yrs_fsh_comp }{Imatrix: Years for the fishery sp_age composition data; dim = [nspp, nyrs_fsh_comp]}
-#' \item{ fsh_age_type }{Ivector: Composition type for fishery catch (1 = age based, 2 = length based}{ dim = [nspp]}
-#' \item{ fsh_age_bins }{Ivector: Number of bins for fishery age/length composition data; dim = [nspp]}
-#' \item{ obs_catch }{Array: Observed fishery catch-at-age or catch-at-length; dim = [nspp, fsh_age_bins, nyrs_fsh_comp]}
-#' \item{ 2. SURVEY COMPONENTS}{}
-#' \item{ nyrs_srv_biom }{Ivector: Number of years of survey biomass data; dim = [nspp]}
-#' \item{ yrs_srv_biom }{Imatrix: Years of survey biomass data; dim = [nspp, nyrs_srv_biom]}
-#' \item{ srv_biom }{Matrix: Observed BT survey biomass (kg}{ dim = [nspp, nyrs]}
-#' \item{ srv_biom_se }{Matrix: Observed annual biomass error (SE}{ dim = [nspp, nyrs_srv_biom]}
-#' \item{ nyrs_srv_age }{Ivector: Number of years of survey age/length composition; length = [nspp]}
-#' \item{ yrs_srv_age }{Imatrix: Years for the survey age/length composition data; dim = [nspp, nyrs_srv_age]}
-#' \item{ srv_age_type }{Ivector: Type of compisition (1 = age; 2 = length}{ length = [nspp]}
-#' \item{ srv_age_bins }{Ivector: Number of size binds for the age/length comps; dim = [nspp]}
-#' \item{ srv_age_n }{Matrix: Sample size for the multinomial; dim = [nspp, nyrs_srv_age]}
-#' \item{ srv_age_obs }{Array: Observed BT age comp; dim = [nspp, nages, nyrs]}
-#' \item{ age_trans_matrix}{Array: observed sp_age/size compositions; dim = [nspp, nages, srv_age_bins]}
-#' \item{ n_eit}{Integer: Number of years with EIT data; dim = [1]}
-#' \item{ yrs_eit}{Ivector: Years for available EIT data; dim = [n_eit]}
-#' \item{ eit_age_n}{Vector: Numberof EIT Hauls for multinomial; dim = [yrs_eit]}
-#' \item{ obs_eit_age}{Matrix: Observed EIT catch-at-age; dim = [n_eit, nyrs]}
-#' \item{ obs_eit}{Vector: Observed EIT survey biomass (kg}{ length = [nyrs]}
-#' \item{ eit_sel}{Matrix: Observed EIT survey selectivity; dim = [eit_age, nyrs_eit_sel]}
-#' \item{3. RATION AND CONSUMPTION PARAMETERS}{}
-#' \item{ fday }{Vector: number of foraging days for each predator; length = [nspp]}
-#' \item{ Pyrs }{Array: : dim = [nspp, nyrs+1, nages]}
-#' \item{ Uobs }{Array: pred, prey, predL, preyL U matrix (mean number of prey in each pred}{ dim = [nspp, nspp, maxL, maxL]}
-#' \item{ UobsWt }{Array: pred, prey, predL, preyL U matrix (mean wt_hat of prey in each pred}{ dim = [nspp, nspp, maxL, maxL] }
-#' \item{ UobsAge }{Array: pred, prey, pred age, prey age diet proportion by numbers (mean number of prey in each pred age}{ dim = [nspp, nspp, max_age, max_age, Optional (nyr)]}
-#' \item{UobsWtAge}{Array: pred, prey, pred age, prey age diet proportion by weight (mean weight of prey in each pred age}{ dim = [nspp, nspp, max_age, max_age, Optional (nyr)]}
-#' \item{ Mn_LatAge }{Matrix: Mean length-at-age; dim = [nspp, nages]}
-#' \item{ nTyrs }{Integer: Number of temperature years; dim = [1] }
-#' \item{ Tyrs }{Ivector: Years of hindcast data; length = [nTyrs]}
-#' \item{ BTempC_retro }{Vector: bottom temperature; length = [nTyrs ]}
-#' \item{ other_food }{Vector: Biomass of other prey (kg}{ length = [nspp]}
-#' \item{ C_model }{Ivector: f == 1, the use Cmax*fT*P; length = [nspp]}
+#' \item{ age_trans_matrix}{Array: observed age-length transition matrix or ALK; dim = [alk_ind, nages, nlengths]}
+#' \item{ age_error}{Array: observed ageing error matrix row is true age, column is observed age; dim = [nspp, nages, nages]}
+#' \item{ wt}{Array: observed weight-at-age; dim = [nyrs, nages, wt_ind]}
+#' \item{ pmature }{Matrix: Proportion of mature females at age; dim = [nspp, nages]}
+#' \item{ propF}{Matrix: Proportion-at-age of females of population; dim = [nspp, nages]}
+#' \item{ M1_base }{Matrix: Residual natural mortality; dim = [nspp, nages]}
+#' \item{ Mn_LatAge }{Matrix: mean length-at-age across years (used for suitability models > 0); dim = [nspp, nages]}
+#' \item{ aLW }{Matrix: LW a&b regression coefs for W=a*L^b (used for suitability models > 0); dim = [2, nspp]}
+#' }
+#'
+#' Bioenergetics and diet data:
+#' \describe{
+#' \item{ Ceq }{Ivector: Ceq: which Comsumption equation to use; length = [nspp]}
 #' \item{ Pvalue }{Vector: This scales the pvalue used if C_model ==1 , proportion of Cmax; Pvalue is P in Cmax*fT*Pvalue*PAge; length = [nspp]}
-#' \item{ Ceq }{Ivector: Ceq: which Comsumption equation to use; length = [nspp]; Currently all sp = 1}
+#' \item{ fday }{Vector: number of foraging days for each predator; length = [nspp]}
 #' \item{ CA }{Vector: Wt specific intercept of Cmax=CA*W^CB; length = [nspp]}
 #' \item{ CB }{Vector: Wt specific slope of Cmax=CA*W^CB; length = [nspp]}
 #' \item{ Qc }{Vector: used in fT, QC value; length = [nspp]}
@@ -170,15 +311,13 @@
 #' \item{ Tcl }{Vector: used in fT eq 3, limit; length = [nspp]}
 #' \item{ CK1 }{Vector: used in fT eq 3, limit where C is .98 max (ascending}{ length = [nspp]}
 #' \item{ CK4 }{Vector: used in fT eq 3, temp where C is .98 max (descending}{ length = [nspp]}
-#' \item{ S_a }{Matrix: S_a, S_b, S_b2, S_b3, S_b4, S_b5: a,L,L^2,L^3,L^4,L^5 (rows)coef for mean S=a+b*L+b2*L*L, whith a cap at 80cm for each pred spp(cols}{ dim = [6, nspp]}
-#' \item{3. WEIGHT, MATURITY, MORTALITY}{}
-#' \item{ wt }{Array: Weight-at-age by year; dim = [nyrs, nages, nspp]}
-#' \item{ aLW }{Matrix: LW a&b regression coefs for W=a*L^b; dim = [2, nspp]}
-#' \item{ M1_base }{Matrix: Residual natural mortality; dim = [nspp, nages]}
-#' \item{ mf_type }{Ivector: Sex specific mort and weight at age? : 1 = same for both, 2 = seperate wt at sp_age for each sex; length = nspp}
-#' \item{ propMorF }{Matrix: Proportion-at-age of females of population; dim = [nspp, nages]}
-#' \item{ pmature }{Matrix: Proportion of mature females at age; dim = [nspp, nages]}
-#' ...
+#' \item{ nTyrs }{Integer: Number of temperature years; dim = [1] }
+#' \item{ Tyrs }{Ivector: Years of hindcast data; length = [nTyrs]}
+#' \item{ Pyrs }{Array: number of foraging days for each species, age, year : dim = [nspp, nyrs, nages]}
+#' \item{ Uobs }{Array: pred, prey, predL, preyL diet proportion data (mean number of prey in each pred): dim = [nspp, nspp, maxL, maxL]}
+#' \item{ UobsWt }{Array: pred, prey, predL, preyL diet proportion data (mean wt_hat of prey in each pred): dim = [nspp, nspp, maxL, maxL] . This fits predation mortality from \code{msmMode = 1} and \code{suitMode = 1, 2}}
+#' \item{ UobsAge }{Array: pred, prey, predA, preyA diet prorportion data  (mean number of prey in each pred age) dim = [nspp, nspp, max_age, max_age]}
+#' \item{ UobsWtAge }{Array: pred, prey, predA, preyA diet prorportion data  (mean weight of prey at age in each pred at age) dim = [nspp, nspp, max_age, max_age]}
 #' }
 "BS2017MS"
 

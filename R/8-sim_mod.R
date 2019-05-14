@@ -50,14 +50,14 @@ sim_mod <- function( ceattle_obj, simulate = FALSE ){
   fsh_biom_lse = dat_sim$fsh_biom$CV
 
   if(simulate){# Simulate
-    values <- exp(rnorm(length(dat_sim$fsh_biom$Catch_kg), mean = log(ceattle_obj$quantities$fsh_bio_hat), sd = fsh_biom_lse))
+    values <- exp(rnorm(length(dat_sim$fsh_biom$Catch), mean = log(ceattle_obj$quantities$fsh_bio_hat), sd = fsh_biom_lse))
     colnames(dat_sim$fsh_biom)[7] <- "Simulated_catch"
   } else{ # simulate value
     values <- ceattle_obj$quantities$fsh_bio_hat
     colnames(dat_sim$fsh_biom)[7] <- "Predicted_catch"
   }
 
-  dat_sim$fsh_biom$Catch_kg = values
+  dat_sim$fsh_biom$Catch = values
 
 
   # Slot 5 -- Fishery age composition -- Fishery observer data
