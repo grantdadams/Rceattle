@@ -334,7 +334,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Sex = rep(rep(0, nspp), dat_list$nyrs_tc_biom),
     Year = as.vector(t(dat_list$yrs_tc_biom)),
     Month = rep(rep(0, nspp), dat_list$nyrs_tc_biom),
-    Catch_kg = as.vector(t(dat_list$tcb_obs)),
+    Catch = as.vector(t(dat_list$tcb_obs)),
     CV = rep(rep(0.05, nspp), dat_list$nyrs_tc_biom)
     )
 

@@ -52,8 +52,8 @@ build_params <-
 
     # Set Fdev for years with 0 catch to very low number
     fsh_biom <- data_list$fsh_biom
-    fsh_ind <- fsh_biom$Fishery_code[which(fsh_biom$Catch_kg == 0)]
-    yr_ind <- fsh_biom$Year[which(fsh_biom$Catch_kg == 0)] - data_list$styr + 1
+    fsh_ind <- fsh_biom$Fishery_code[which(fsh_biom$Catch == 0)]
+    yr_ind <- fsh_biom$Year[which(fsh_biom$Catch == 0)] - data_list$styr + 1
 
     param_list$F_dev[fsh_ind, yr_ind] <- -999
 
