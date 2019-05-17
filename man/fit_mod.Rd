@@ -194,6 +194,8 @@ CEATTLE is an age-structured population dynamics model that can be fit with or w
  }
 }
 \examples{
+
+# Load package and data
 library(Rceattle)
 data(BS2017SS) # ?BS2017SS for more information on the data
 
