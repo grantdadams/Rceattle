@@ -166,6 +166,8 @@
 #' }
 #'
 #' @examples
+#'
+#'# Load package and data
 #'library(Rceattle)
 #'data(BS2017SS) # ?BS2017SS for more information on the data
 #'
@@ -326,6 +328,7 @@ fit_mod <-
 
 
     # STEP 6 - Reorganize data
+    Rceattle:::data_check(data_list)
     data_list2 <- rearrange_dat(data_list)
 
     # STEP 7 - Build and fit model object
@@ -395,6 +398,13 @@ fit_mod <-
       "Stomach content weight",
       "Stomach content numbers"
     )
+
+
+    colnames(quantities$biomassSSB) <- data_list$styr:data_list$projyr
+    colnames(quantities$R) <- data_list$styr:data_list$projyr
+
+    rownames(quantities$biomassSSB) <- data_list$spnames
+    rownames(quantities$R) <- data_list$spnames
 
 
     if (debug) {

@@ -25,11 +25,11 @@ library(Rceattle)
 data(BS2017SS) # ?BS2017SS for more information on the data
 
 # Write data to excel
-Rceattle::write_excel(data_list = BS2017SS, file = "BS2017SS.xlsx")
+Rceattle::write_data(data_list = BS2017SS, file = "BS2017SS.xlsx")
 
 # Change the data how you want in excel
 # Read the data back in
-mydata <- Rceattle::read_excel( file = "BS2017SS.xlsx")
+mydata <- Rceattle::read_data( file = "BS2017SS.xlsx")
 
 
 ################################################

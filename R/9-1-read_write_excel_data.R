@@ -11,8 +11,8 @@
 #'
 #' library(Rceattle)
 #' data(BS2017SS)
-#' write_excel(data_list = BS2017SS, file = "BS2017SS.xlsx")
-write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
+#' write_data(data_list = BS2017SS, file = "BS2017SS.xlsx")
+write_data <- function( data_list, file = "Rceattle_data.xlsx" ){
   '%!in%' <- function(x,y)!('%in%'(x,y))
   ## setup a workbook
   data_names <- names(data_list)
@@ -524,9 +524,9 @@ write_excel <- function( data_list, file = "Rceattle_data.xlsx" ){
 #'
 #' library(Rceattle)
 #' data(BS2017SS)
-#' write_excel(data_list = BS2017SS, file = "BS2017SS.xlsx")
-#' data_list <- read_excel(file = "BS2017SS.xlsx")
-read_excel <- function( file = "Rceattle_data.xlsx" ){
+#' write_data(data_list = BS2017SS, file = "BS2017SS.xlsx")
+#' data_list <- read_data(file = "BS2017SS.xlsx")
+read_data <- function( file = "Rceattle_data.xlsx" ){
   '%!in%' <- function(x,y)!('%in%'(x,y))
   ## setup a list object
 

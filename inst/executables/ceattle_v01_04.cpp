@@ -1126,10 +1126,16 @@ Type objective_function<Type>::operator() () {
               of_stomKir(rsp, r_age, yr) -= stomKir(rsp, ksp, r_age, k_age, yr);
             }
           }
+          if(other_food(rsp) > 0){
+            of_stomKir(rsp, r_age, yr) /= other_food(rsp);
+          }
+          if(other_food(rsp) == 0){
+            of_stomKir(rsp, r_age, yr) = 0;
+          }
         }
       }
     }
-    of_stomKir /= other_food(0);
+
 
     // Good above here
 

@@ -55,112 +55,112 @@ plot_fsh_comp <-
       line_col <- rev(oce::oce.colorsViridis(3))[2:3]
     }
 
-    #############################################
-    # Plot comps Type 1
-    #############################################
-    for(comp_type in c(0,1)){
-
-      fsh <- unique(fsh_list$Fishery_code[which(fsh_list$Age0_Length1 == comp_type)])
-      nfsh <- length(fsh)
-
-      loops <- ifelse(is.null(file), 1, 2)
-      for (i in 1:loops) {
-        if (i == 2) {
-          filename <- paste0(file, c("_fishery_age_comps_1", "_fishery_length_comps_1")[comp_type + 1], ".png")
-          png(
-            file = filename ,
-            width = 7,# 169 / 25.4,
-            height = 6.5,# 150 / 25.4,
-
-            units = "in",
-            res = 300
-          )
-        }
-
-        # Plot configuration
-        layout(matrix(1:(nfsh + 2), nrow = (nfsh + 2)), heights = c(0.1, rep(1, nfsh), 0.2))
-        par(
-          mar = c(0, 3 , 0 , 1) ,
-          oma = c(0 , 0 , 0 , 0),
-          tcl = -0.35,
-          mgp = c(1.75, 0.5, 0)
-        )
-        plot.new()
-
-        for (j in 1:nfsh) {
-
-
-          # Extract comps
-          fsh_ind <- which(fsh_list$Fishery_code == fsh[j] & fsh_list$Age0_Length1 == comp_type)
-          comp_tmp <- fsh_list[fsh_ind,]
-          comp_hat_tmp <- fsh_hat_list[fsh_ind, ]
-
-          # Reorganize and clean
-          comp_tmp <- tidyr::gather(comp_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_tmp)))
-          comp_tmp$age <- as.numeric(gsub("Comp_", "", comp_tmp$age))
-          comp_tmp <- comp_tmp[which(!is.na(comp_tmp$comp)),]
-          comp_tmp <- comp_tmp[which(comp_tmp$comp > 0),]
-
-          comp_hat_tmp <- tidyr::gather(comp_hat_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_hat_tmp)))
-          comp_hat_tmp$age <- as.numeric(gsub("Comp_", "", comp_hat_tmp$age))
-          comp_hat_tmp <- comp_hat_tmp[which(!is.na(comp_hat_tmp$comp)),]
-          comp_hat_tmp <- comp_hat_tmp[which(comp_hat_tmp$comp > 0),]
-
-          sp <- fsh_control$Species[which(fsh_control$Fishery_code == fsh[j])]
-          nages <- list(Rceattle$data_list$nages, Rceattle$data_list$nlengths)[[comp_type + 1]]
-
-          plot(
-            y = NA,
-            x = NA,
-            ylim = c(0, nages[sp] * 1.20),
-            xlim = c(min(fsh_list$Year, na.rm = TRUE), max(fsh_list$Year, na.rm = TRUE) + right_adj),
-            xlab = "Year",
-            ylab = c("Fishery age comp", "Fishery length comp")[comp_type + 1],
-            xaxt = c(rep("n", nfsh - 1), "s")[j]
-          )
-
-
-          # Horizontal line
-          if(incl_proj){
-            abline(v = max_endyr, lwd  = 3, col = "grey", lty = 2)
-          }
-
-          # Legends
-          legend("topleft", as.character(fsh_control$Fishery_name[fsh[j]]), bty = "n", cex = 1.4)
-
-
-          # Type
-          if (j == 1) {
-            legend(
-              "topright",
-              legend = c("Observed", "Estimated"),
-              pch = c(16, 16),
-              cex = 1.125,
-              col = line_col,
-              bty = "n"
-            )
-
-            x_loc <- c(mean(fsh_list$Year, na.rm = T) - 2, mean(fsh_list$Year, na.rm = T), mean(fsh_list$Year, na.rm = T) +2)
-            symbols( x = x_loc , y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.07, 3) , circle = c(0.1, 0.25, 0.5), inches=0.10,add=T, fg = line_col[2])
-            text(x = x_loc, y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.16, 3), labels = c(0.1, 0.25, 0.5))
-          }
-
-
-          if(nrow(comp_tmp) > 0){
-            # Observed
-            symbols( x = comp_tmp$Year , y = comp_tmp$age , circle = comp_tmp$comp, inches=0.10,add=T, fg = line_col[1])
-
-            # Estimated
-            symbols( x = comp_hat_tmp$Year , y = comp_hat_tmp$age , circle = comp_hat_tmp$comp, inches=0.10,add=T, fg = line_col[2])
-          }
-        }
-
-
-        if (i == 2) {
-          dev.off()
-        }
-      }
-    }
+    # #############################################
+    # # Plot comps Type 1
+    # #############################################
+    # for(comp_type in c(0,1)){
+    #
+    #   fsh <- unique(fsh_list$Fishery_code[which(fsh_list$Age0_Length1 == comp_type)])
+    #   nfsh <- length(fsh)
+    #
+    #   loops <- ifelse(is.null(file), 1, 2)
+    #   for (i in 1:loops) {
+    #     if (i == 2) {
+    #       filename <- paste0(file, c("_fishery_age_comps_1", "_fishery_length_comps_1")[comp_type + 1], ".png")
+    #       png(
+    #         file = filename ,
+    #         width = 7,# 169 / 25.4,
+    #         height = 6.5,# 150 / 25.4,
+    #
+    #         units = "in",
+    #         res = 300
+    #       )
+    #     }
+    #
+    #     # Plot configuration
+    #     layout(matrix(1:(nfsh + 2), nrow = (nfsh + 2)), heights = c(0.1, rep(1, nfsh), 0.2))
+    #     par(
+    #       mar = c(0, 3 , 0 , 1) ,
+    #       oma = c(0 , 0 , 0 , 0),
+    #       tcl = -0.35,
+    #       mgp = c(1.75, 0.5, 0)
+    #     )
+    #     plot.new()
+    #
+    #     for (j in 1:nfsh) {
+    #
+    #
+    #       # Extract comps
+    #       fsh_ind <- which(fsh_list$Fishery_code == fsh[j] & fsh_list$Age0_Length1 == comp_type)
+    #       comp_tmp <- fsh_list[fsh_ind,]
+    #       comp_hat_tmp <- fsh_hat_list[fsh_ind, ]
+    #
+    #       # Reorganize and clean
+    #       comp_tmp <- tidyr::gather(comp_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_tmp)))
+    #       comp_tmp$age <- as.numeric(gsub("Comp_", "", comp_tmp$age))
+    #       comp_tmp <- comp_tmp[which(!is.na(comp_tmp$comp)),]
+    #       comp_tmp <- comp_tmp[which(comp_tmp$comp > 0),]
+    #
+    #       comp_hat_tmp <- tidyr::gather(comp_hat_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_hat_tmp)))
+    #       comp_hat_tmp$age <- as.numeric(gsub("Comp_", "", comp_hat_tmp$age))
+    #       comp_hat_tmp <- comp_hat_tmp[which(!is.na(comp_hat_tmp$comp)),]
+    #       comp_hat_tmp <- comp_hat_tmp[which(comp_hat_tmp$comp > 0),]
+    #
+    #       sp <- fsh_control$Species[which(fsh_control$Fishery_code == fsh[j])]
+    #       nages <- list(Rceattle$data_list$nages, Rceattle$data_list$nlengths)[[comp_type + 1]]
+    #
+    #       plot(
+    #         y = NA,
+    #         x = NA,
+    #         ylim = c(0, nages[sp] * 1.20),
+    #         xlim = c(min(fsh_list$Year, na.rm = TRUE), max(fsh_list$Year, na.rm = TRUE) + right_adj),
+    #         xlab = "Year",
+    #         ylab = c("Fishery age comp", "Fishery length comp")[comp_type + 1],
+    #         xaxt = c(rep("n", nfsh - 1), "s")[j]
+    #       )
+    #
+    #
+    #       # Horizontal line
+    #       if(incl_proj){
+    #         abline(v = max_endyr, lwd  = 3, col = "grey", lty = 2)
+    #       }
+    #
+    #       # Legends
+    #       legend("topleft", as.character(fsh_control$Fishery_name[fsh[j]]), bty = "n", cex = 1.4)
+    #
+    #
+    #       # Type
+    #       if (j == 1) {
+    #         legend(
+    #           "topright",
+    #           legend = c("Observed", "Estimated"),
+    #           pch = c(16, 16),
+    #           cex = 1.125,
+    #           col = line_col,
+    #           bty = "n"
+    #         )
+    #
+    #         x_loc <- c(mean(fsh_list$Year, na.rm = T) - 2, mean(fsh_list$Year, na.rm = T), mean(fsh_list$Year, na.rm = T) +2)
+    #         symbols( x = x_loc , y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.07, 3) , circle = c(0.1, 0.25, 0.5), inches=0.10,add=T, fg = line_col[2])
+    #         text(x = x_loc, y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.16, 3), labels = c(0.1, 0.25, 0.5))
+    #       }
+    #
+    #
+    #       if(nrow(comp_tmp) > 0){
+    #         # Observed
+    #         symbols( x = comp_tmp$Year , y = comp_tmp$age , circle = comp_tmp$comp, inches=0.10,add=T, fg = line_col[1])
+    #
+    #         # Estimated
+    #         symbols( x = comp_hat_tmp$Year , y = comp_hat_tmp$age , circle = comp_hat_tmp$comp, inches=0.10,add=T, fg = line_col[2])
+    #       }
+    #     }
+    #
+    #
+    #     if (i == 2) {
+    #       dev.off()
+    #     }
+    #   }
+    # }
 
 
 
@@ -380,6 +380,10 @@ plot_fsh_comp <-
             # Legends
             legend("topleft", legend = yrs[yr], bty = "n", cex = 1.2)
 
+            if(yr == 1){
+              legend("topright", legend = c("Observed", "Estimated"), lty = 1, lwd = 2, col = c("grey80", 1), bty = "n")
+            }
+
             # Subset year for observed and predicted comp
             comp_tmp_yr <- comp_tmp[which(comp_tmp$Year == yrs[yr]),]
 
@@ -509,6 +513,10 @@ plot_fsh_comp <-
 
           # Legend
           legend("topleft", legend = as.character(fsh_control$Fishery_name[fsh[j]]), bty = "n")
+
+          if(j == 1){
+            legend("topright", legend = c("Observed", "Estimated"), lty = 1, lwd = 2, col = c("grey80", 1), bty = "n")
+          }
 
           # x-axis
           if(j == nfsh){
