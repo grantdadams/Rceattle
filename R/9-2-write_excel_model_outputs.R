@@ -38,6 +38,7 @@ write_results <- function( Rceattle, file = "Rceattle_results.xlsx" ){
 
   xcel_list <- list()
 
+
   # Save control specifications
   data_list <- Rceattle$data_list
   quantities <- Rceattle$quantities
@@ -63,6 +64,11 @@ write_results <- function( Rceattle, file = "Rceattle_results.xlsx" ){
   names_used <- c(names_used, as.character(control$Object))
 
   xcel_list$control <- control
+
+
+  # Jnll
+  xcel_list$jnll_comp <- as.data.frame(quantities$jnll_comp)
+  xcel_list$jnll_comp <- cbind(data.frame(JNLL_component = rownames(quantities$jnll_comp)), xcel_list$jnll_comp)
 
   ############################################################
   # Survey data
