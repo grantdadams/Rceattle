@@ -31,5 +31,5 @@ ss_run <- fit_mod(data_list = BS2017SS,
    avgnMode = 0,
    silent = TRUE)
 
-write_results(Rceattle = BS2017SS, file = "Rceattle_results.xlsx")
+write_results(Rceattle = BS2017SS, file = 'Rceattle_results.xlsx')
 }

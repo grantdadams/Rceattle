@@ -9,7 +9,7 @@ write_data(data_list, file = "Rceattle_data.xlsx")
 \arguments{
 \item{data_list}{Rceattle data_list object}
 
-\item{file}{Filname to be used. Must end with ".xlsx"}
+\item{file}{Filname to be used. Must end with '.xlsx'}
 }
 \description{
 Write data file
@@ -18,5 +18,5 @@ Write data file
 
 library(Rceattle)
 data(BS2017SS)
-write_data(data_list = BS2017SS, file = "BS2017SS.xlsx")
+write_data(data_list = BS2017SS, file = 'BS2017SS.xlsx')
 }
