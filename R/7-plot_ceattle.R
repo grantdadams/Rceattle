@@ -1175,8 +1175,9 @@ plot_maturity <-
 #' @param incl_proj TRUE/FALSE include projections years
 #' @param add_ci TRUE/FALSE, includes 95% confidence interval
 #'
-#' @return Returns and saves a figure with the population trajectory.
+#' @return Returns and saves a figure with the ssb trajectory.
 #' @export
+#'
 plot_ssb <-
   function(Rceattle,
            tmp_list = NULL,
@@ -1249,7 +1250,7 @@ plot_ssb <-
     }
 
     SSB <- SSB / 1000000
-    ssb_sd <- ssb_sd
+    ssb_sd <- ssb_sd / 1000000
     SSB_upper <- SSB + ssb_sd * 1.92
     SSB_lower <- SSB - ssb_sd * 1.92
 

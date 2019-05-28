@@ -8,8 +8,8 @@ ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
                             debug = 0, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
-                            silent = TRUE,
-                            recompile = TRUE)
+                            silent = FALSE,
+                            recompile = FALSE)
 
 
 
@@ -18,7 +18,7 @@ ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
                             file = NULL, # Don't save
                             debug = 0, # Estimate
                             niter = 10, # 10 iterations around population and predation dynamics
-                            random_rec = TRUE, # No random recruitment
+                            random_rec = FALSE, # No random recruitment
                             msmMode = 1, # MSVPA based
                             suitMode = 0, # empirical suitability
                             silent = FALSE)
