@@ -31,7 +31,7 @@ function.}
 \item{add_ci}{TRUE/FALSE, includes 95% confidence interval}
 }
 \value{
-Returns and saves a figure with the population trajectory.
+Returns and saves a figure with the ssb trajectory.
 }
 \description{
 Function the plots the spawning stock biomass trends as estimated from Rceattle
