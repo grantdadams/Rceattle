@@ -21,7 +21,7 @@ ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
                             random_rec = TRUE, # No random recruitment
                             msmMode = 1, # MSVPA based
                             suitMode = 0, # empirical suitability
-                            silent = TRUE)
+                            silent = FALSE)
 
 
 # We can plot both runs as well:
@@ -31,7 +31,7 @@ mod_names <- c("SS", "MS")
 # Plot biomass trajectory
 plot_biomass(Rceattle = mod_list, model_names = mod_names, incl_proj = TRUE)
 plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE, incl_proj = TRUE)
-
+plot_ssb(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE, incl_proj = FALSE)
 
 plot_index(ms_run)
 plot_catch(ms_run)
