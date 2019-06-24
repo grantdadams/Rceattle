@@ -1159,4 +1159,208 @@ plot_maturity <-
   }
 
 
+#' plot_ssb
+#'
+#' @description Function the plots the spawning stock biomass trends as estimated from Rceattle
+#'
+#' @param file name of a file to identified the files exported by the
+#'   function.
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param model_names Names of models to be used in legend
+#' @param line_col Colors of models to be used for line color
+#' @param species Species names for legend
+#' @param lwd Line width as specified by user
+#' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
+#' @param incl_proj TRUE/FALSE include projections years
+#' @param add_ci TRUE/FALSE, includes 95% confidence interval
+#'
+#' @return Returns and saves a figure with the ssb trajectory.
+#' @export
+#'
+plot_ssb <-
+  function(Rceattle,
+           tmp_list = NULL,
+           file = NULL,
+           model_names = NULL,
+           line_col = NULL,
+           species = NULL,
+           lwd = 3,
+           right_adj = 0,
+           mohns = NULL,
+           incl_proj = FALSE,
+           add_ci = FALSE) {
+
+    # Convert single one into a list
+    if(class(Rceattle) == "Rceattle"){
+      Rceattle <- list(Rceattle)
+    }
+
+    # Species names
+    if(is.null(species)){
+      species =  Rceattle[[1]]$data_list$spnames
+    }
+
+
+    # Extract data objects
+    Years <- list()
+    Endyrs <- list()
+    for(i in 1:length(Rceattle)){
+      Endyrs[[i]] <- Rceattle[[i]]$data_list$endyr
+      if(incl_proj == FALSE){
+        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
+      }
+      if(incl_proj){
+        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$projyr
+      }
+    }
+    max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
+    nyrs_vec <- sapply(Years, length)
+    nyrs <- max(nyrs_vec)
+    maxyr <- max((sapply(Years, max)))
+    minyr <- min((sapply(Years, min)))
+
+    nspp <- Rceattle[[1]]$data_list$nspp
+
+
+    # Get SSB
+    SSB <-
+      array(NA, dim = c(nspp, nyrs, length(Rceattle) + length(tmp_list)))
+    ssb_sd <- array(NA, dim = c(nspp, nyrs, length(Rceattle) + length(tmp_list)))
+    for (i in 1:length(Rceattle)) {
+      SSB[, 1:length(Years[[i]]), i] <- Rceattle[[i]]$quantities$biomassSSB[,1:nyrs_vec[i]]
+
+      # Get SD of rec
+      if (add_ci) {
+        ssb_sd_sub <- which(names(Rceattle[[i]]$sdrep$value) == "biomassSSB")
+        ssb_sd_sub <- Rceattle[[i]]$sdrep$sd[ssb_sd_sub]
+        ssb_sd[, , i] <-
+          replace(ssb_sd[, , i], values = ssb_sd_sub[1:(nyrs_vec[i] * nspp)])
+      }
+    }
+
+    ind = 1
+    if (!is.null(tmp_list)) {
+      for (i in (length(Rceattle) + 1):(length(Rceattle) + length(tmp_list))) {
+        for (k in 1:nspp) {
+          SSB[k, , i] <- tmp_list[[ind]][[paste0("BiomassSSB_", k)]]
+        }
+        ind = ind + 1
+      }
+    }
+
+    SSB <- SSB / 1000000
+    ssb_sd <- ssb_sd / 1000000
+    SSB_upper <- SSB + ssb_sd * 1.92
+    SSB_lower <- SSB - ssb_sd * 1.92
+
+    # Plot limits
+    ymax <- c()
+    ymin <- c()
+    for (i in 1:dim(SSB)[1]) {
+      ymax[i] <- max(c(SSB[i, , ], SSB_lower[i, , ], SSB_upper[i, , ], 0), na.rm = T)
+      ymin[i] <- min(c(SSB[i, , ], SSB_lower[i, , ], SSB_upper[i, , ], 0), na.rm = T)
+    }
+    ymax <- ymax + 0.15 * ymax
+
+    if (is.null(line_col)) {
+      line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
+    }
+
+
+    # Plot trajectory
+    loops <- ifelse(is.null(file), 1, 2)
+    for (i in 1:loops) {
+      if (i == 2) {
+        filename <- paste0(file, "_ssb_trajectory", ".png")
+        png(
+          file = filename ,
+          width = 7,# 169 / 25.4,
+          height = 6.5,# 150 / 25.4,
+
+          units = "in",
+          res = 300
+        )
+      }
+
+      # Plot configuration
+      layout(matrix(1:(nspp + 2), nrow = (nspp + 2)), heights = c(0.1, rep(1, nspp), 0.2))
+      par(
+        mar = c(0, 3 , 0 , 1) ,
+        oma = c(0 , 0 , 0 , 0),
+        tcl = -0.35,
+        mgp = c(1.75, 0.5, 0)
+      )
+      plot.new()
+
+      for (j in 1:nspp) {
+        plot(
+          y = NA,
+          x = NA,
+          ylim = c(ymin[j], ymax[j]),
+          xlim = c(minyr, maxyr + right_adj),
+          xlab = "Year",
+          ylab = "SSB (million t)",
+          xaxt = c(rep("n", nspp - 1), "s")[j]
+        )
+
+        # Horizontal line
+        if(incl_proj){
+          abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
+        }
+
+        # Legends
+        legend("topleft", species[j], bty = "n", cex = 1.4)
+
+        if(!is.null(mohns)){
+          legend("top", paste0("SSB Rho = ",  round(mohns[2,j+1], 2) ), bty = "n", cex = 1) # SSB rho
+        }
+
+        if (j == 1) {
+          if(!is.null(model_names)){
+            legend(
+              "topright",
+              legend = model_names,
+              lty = rep(1, length(line_col)),
+              lwd = lwd,
+              col = line_col,
+              bty = "n",
+              cex = 1.175
+            )
+          }
+        }
+
+
+
+        # Mean SSB
+        for (k in 1:dim(SSB)[3]) {
+          lines(
+            x = Years[[k]],
+            y = SSB[j, 1:length(Years[[k]]), k],
+            lty = 1,
+            lwd = lwd,
+            col = line_col[k]
+          ) # Median
+        }
+
+        # Credible interval
+        if (add_ci) {
+          for (k in 1:dim(SSB)[3]) {
+            polygon(
+              x = c(Years[[k]], rev(Years[[k]])),
+              y = c(SSB_upper[j, 1:length(Years[[k]]), k], rev(SSB_lower[j, 1:length(Years[[k]]), k])),
+              col = adjustcolor( line_col[k], alpha.f = 0.4),
+              border = NA
+            )
+          }
+        }
+
+      }
+
+
+      if (i == 2) {
+        dev.off()
+      }
+    }
+  }
 

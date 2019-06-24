@@ -20,7 +20,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   map_list <- params
 
   # STEP 1 -- Convert map_list to seperate parameters
-  for(i in 1:length(map_list)){
+  for (i in 1:length(map_list)) {
     map_list[[i]] <- replace(map_list[[i]], values = c(1:length(map_list[[i]])))
   }
 
@@ -28,27 +28,30 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   # -- 1 Map out future fishing mortality
   map_list$proj_F <- as.numeric(replace(map_list$proj_F, values = rep(NA, length(map_list$proj_F))))
 
-  # -- 2 Map out future recruitment deviations
-  map_list$rec_dev[,yrs_proj] <- as.numeric(replace(map_list$rec_dev[,yrs_proj], values = rep(NA, length(map_list$rec_dev[,yrs_proj]))))
+
+  # Map out future recruitment deviations
+  map_list$rec_dev[, yrs_proj] <- as.numeric(replace(map_list$rec_dev[, yrs_proj], values = rep(NA, length(map_list$rec_dev[,
+                                                                                                                            yrs_proj]))))
 
 
-  # STEP 2 -- NA out parameters not to be estimated
-
-  # -- 3 Initial population deviations - map out last age and ages not seen
-  for(i in 1:nrow(map_list$init_dev)){
-    if((data_list$nages[i]-1) < ncol(map_list$init_dev)){
-      map_list$init_dev[i,  (data_list$nages[i]) : ncol(map_list$init_dev) ] <- NA
+  # STEP 2 -- NA out parameters not to be estimated Initial population deviations - map out last age and ages not seen
+  for (i in 1:nrow(map_list$init_dev)) {
+    if ((data_list$nages[i] - 1) < ncol(map_list$init_dev)) {
+      map_list$init_dev[i, (data_list$nages[i]):ncol(map_list$init_dev)] <- NA
     }
   }
 
-  # -- 4 Fishery selectivity coefficients
-  for( i in 1: nrow(data_list$fsh_control)){
+  # Fishery selectivity coefficients
+  for (i in 1:nrow(data_list$fsh_control)) {
 
-    # -- 4.0. Empirical - sel_type = 0
-    if(data_list$fsh_control$Selectivity[i] == 0){
+    # -- 4.0.  Empirical or not Fit - sel_type = 0
+    if (data_list$fsh_control$Selectivity[i] == 0 | data_list$fsh_control$Fit_0no_1yes[i] == 0) {
+      
+
 
       # Map out non-parametric
-      map_list$fsh_sel_coff[i,] <- replace(map_list$fsh_sel_coff[i,], values = rep(NA, length(map_list$fsh_sel_coff[i,])))
+      map_list$fsh_sel_coff[i, ] <- replace(map_list$fsh_sel_coff[i, ], values = rep(NA, length(map_list$fsh_sel_coff[i,
+                                                                                                                      ])))
 
       # Map out logistic and double logistic
       map_list$fsh_sel_slp[1:2, i] <- NA
@@ -63,10 +66,12 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     }
 
     # -- 4.1. Logitistic - sel_type = 1
-    if(data_list$fsh_control$Selectivity[i] == 1){
+    if (data_list$fsh_control$Selectivity[i] == 1) {
+
 
       # Map out non-parametric
-      map_list$fsh_sel_coff[i,] <- replace(map_list$fsh_sel_coff[i,], values = rep(NA, length(map_list$fsh_sel_coff[i,])))
+      map_list$fsh_sel_coff[i, ] <- replace(map_list$fsh_sel_coff[i, ], values = rep(NA, length(map_list$fsh_sel_coff[i,
+                                                                                                                      ])))
 
       # Map out double logistic
       map_list$fsh_sel_slp[2, i] <- NA
@@ -131,11 +136,13 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   # -- 5 Survey selectivity coefficients
   for( i in 1: nrow(data_list$srv_control)){
 
-    # -- 5.0. Empirical - sel_type = 0
-    if(data_list$srv_control$Selectivity[i] == 0){
+    # -- 5.0. Empirical or not fit - sel_type = 0
+  for (i in 1:nrow(data_list$srv_control)) {
+    if (data_list$srv_control$Selectivity[i] == 0 | data_list$srv_control$Fit_0no_1yes[i] == 0) {
 
       # Map out non-parametric
-      map_list$srv_sel_coff[i,] <- replace(map_list$srv_sel_coff[i,], values = rep(NA, length(map_list$srv_sel_coff[i,])))
+      map_list$srv_sel_coff[i, ] <- replace(map_list$srv_sel_coff[i, ], values = rep(NA, length(map_list$srv_sel_coff[i,
+                                                                                                                      ])))
 
       # Map out logistic and double logistic
       map_list$srv_sel_slp[1:2, i] <- NA
@@ -149,11 +156,13 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$ln_sigma_srv_sel[i] <- NA
     }
 
+
     # -- 5.1. Logitistic - sel_type = 1
     if(data_list$srv_control$Selectivity[i] == 1){
 
       # Map out non-parametric
-      map_list$srv_sel_coff[i,] <- replace(map_list$srv_sel_coff[i,], values = rep(NA, length(map_list$srv_sel_coff[i,])))
+      map_list$srv_sel_coff[i, ] <- replace(map_list$srv_sel_coff[i, ], values = rep(NA, length(map_list$srv_sel_coff[i,
+                                                                                                                      ])))
 
       # Map out double logistic
       map_list$srv_sel_slp[2, i] <- NA
@@ -219,9 +228,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
   # -- 6. Survey control
   for( i in 1: nrow(data_list$srv_control)){
-    # Catchability of surveys
-    # If not estimating turn of
-    if(data_list$srv_control$Estimate_q[i] %in% c(0,2)){
+
+    # Catchability of surveys If not estimating turn of
+    if (data_list$srv_control$Estimate_q[i] %in% c(0, 2) | data_list$srv_control$Fit_0no_1yes[i] == 0) {
       map_list$log_srv_q[i] <- NA
       map_list$ln_srv_q_dev[i,] <- NA
       map_list$ln_sigma_srv_q[i] <- NA
@@ -244,9 +253,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$ln_sigma_srv_q[i] <- NA
     }
 
-    # Standard deviation of surveys index
-    # If not estimating turn of
-    if(data_list$srv_control$Estimate_survey_sd[i] %in% c(0,2)){
+    # Standard deviation of surveys index If not estimating turn of
+    if (data_list$srv_control$Estimate_sigma_index[i] %in% c(0, 2) | data_list$srv_control$Fit_0no_1yes[i] == 0) {
       map_list$ln_sigma_srv_index[i] <- NA
     }
   }
@@ -326,11 +334,17 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
 
   # -- 8. Fishery control
-  for( i in 1: nrow(data_list$fsh_control)){
-    # Standard deviation of fishery time series
-    # If not estimating turn of
-    if(data_list$fsh_control$Estimate_catch_sd[i] %in% c(0,2)){
+  for (i in 1:nrow(data_list$fsh_control)) {
+    # Standard deviation of fishery time series If not estimating turn of
+    if (data_list$fsh_control$Estimate_catch_sd[i] %in% c(0, 2)) {
       map_list$ln_sigma_fsh_catch[i] <- NA
+    }
+
+    # Turn of F and F dev if not estimating
+    if (data_list$fsh_control$Fit_0no_1yes[i] == 0) {
+      map_list$ln_sigma_fsh_catch[i] <- NA
+      map_list$F_dev[i, ] <- NA
+      map_list$ln_mean_F[i] <- NA
     }
   }
 
@@ -344,18 +358,15 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
   # -- 10. Map out Fdev for years with 0 catch to very low number
   fsh_biom <- data_list$fsh_biom
-  fsh_ind <- fsh_biom$Fishery_code[which(fsh_biom$Catch_kg == 0)]
-  yr_ind <- fsh_biom$Year[which(fsh_biom$Catch_kg == 0)] - data_list$styr + 1
+  fsh_ind <- fsh_biom$Fishery_code[which(fsh_biom$Catch == 0)]
+  yr_ind <- fsh_biom$Year[which(fsh_biom$Catch == 0)] - data_list$styr + 1
 
   map_list$F_dev[fsh_ind, yr_ind] <- NA
   map_list$fsh_sel_slp_dev[1:2, i, yr_ind] <- NA
   map_list$fsh_sel_inf_dev[1:2, i, yr_ind] <- NA
 
-  ######################################################
-  ####### Predation bits
-  ######################################################
-  # 1. Turn off all predation parameters for single species
-  if(data_list$msmMode == 0){
+  ###################################################### Predation bits 1. Turn off all predation parameters for single species
+  if (data_list$msmMode == 0) {
 
     # Suitability parameters
     map_list$log_gam_a <- replace(map_list$log_gam_a, values = rep(NA, length(map_list$log_gam_a)))
@@ -374,7 +385,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   }
 
   # 2. MSVPA based predation
-  if(data_list$msmMode == 1){
+  if (data_list$msmMode == 1) {
     # Multispecies
     map_list$logH_1 <- replace(map_list$logH_1, values = rep(NA, length(map_list$logH_1)))
     map_list$logH_1a <- replace(map_list$logH_1a, values = rep(NA, length(map_list$logH_1a)))
@@ -387,69 +398,67 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   }
 
   # 3. Kinzey and Punt predation equations
-  if(data_list$msmMode > 1){
+  if (data_list$msmMode > 1) {
 
     # Holling Type 1
-    if(data_list$msmMode == 2){
+    if (data_list$msmMode == 2) {
       map_list$logH_2 <- replace(map_list$logH_2, values = rep(NA, length(map_list$logH_2)))
       map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
       map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
     }
 
     # Holling Type 2
-    if(data_list$msmMode == 3){
+    if (data_list$msmMode == 3) {
       map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
       map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
     }
 
     # Holling Type 3
-    if(data_list$msmMode == 4){
+    if (data_list$msmMode == 4) {
       map_list$logH_2 <- replace(map_list$logH_2, values = rep(NA, length(map_list$logH_2)))
       map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
     }
 
     # Predator interference
-    if(data_list$msmMode == 5){
+    if (data_list$msmMode == 5) {
       map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
     }
 
     # Predator preemption
-    if(data_list$msmMode == 6){
+    if (data_list$msmMode == 6) {
       map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
     }
 
     # Hassell-Varley
-    if(data_list$msmMode == 7){
+    if (data_list$msmMode == 7) {
       map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
     }
 
     # Ecosim
-    if(data_list$msmMode == 8){
+    if (data_list$msmMode == 8) {
       map_list$logH_2 <- replace(map_list$logH_2, values = rep(NA, length(map_list$logH_2)))
       map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
     }
   }
 
 
-  ######################################################
-  ####### Suitability bits
-  ######################################################
-  if(data_list$msmMode > 0){
+  ###################################################### Suitability bits
+  if (data_list$msmMode > 0) {
 
     # 2.1. Empirical suitability
-    if(data_list$suitMode == 0){
+    if (data_list$suitMode == 0) {
       map_list$log_gam_a <- replace(map_list$log_gam_a, values = rep(NA, length(map_list$log_gam_a)))
       map_list$log_gam_b <- replace(map_list$log_gam_b, values = rep(NA, length(map_list$log_gam_b)))
       map_list$log_phi <- replace(map_list$log_phi, values = rep(NA, length(map_list$log_phi)))
     }
 
     # 2.2. GAMMA suitability
-    if(data_list$suitMode %in% c(1:3)){
+    if (data_list$suitMode %in% c(1:3)) {
       map_list$log_phi <- replace(map_list$log_phi, values = rep(NA, length(map_list$log_phi)))
     }
 
     # 2.3. and 2.4 Lognormal
-    if(data_list$suitMode %in% c(4:5)){
+    if (data_list$suitMode %in% c(4:5)) {
       # Use all the parameters
     }
   }
@@ -457,8 +466,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
   # STEP 3 - set up debug - I.E. turn off all parameters besides dummy
   map_list$dummy <- NA
-  if(debug == TRUE){
-    for(i in 1:length(map_list)){
+  if (debug == TRUE) {
+    for (i in 1:length(map_list)) {
       map_list[[i]] <- replace(map_list[[i]], values = rep(NA, length(map_list[[i]])))
     }
     map_list$dummy = 1
@@ -470,7 +479,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   map_list_grande[[1]] <- map_list
   map_list_grande[[2]] <- map_list
 
-  for(i in 1:length(map_list_grande[[1]])){
+  for (i in 1:length(map_list_grande[[1]])) {
     map_list_grande[[1]][[i]] <- factor(map_list_grande[[1]][[i]])
   }
 

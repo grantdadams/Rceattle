@@ -7,8 +7,8 @@
 fit_mod(TMBfilename = "ceattle_v01_04", cpp_directory = NULL,
   data_list = NULL, inits = NULL, map = NULL, bounds = NULL,
   file = NULL, debug = T, random_rec = FALSE, niter = 3,
-  msmMode = 0, avgnMode = 0, suitMode = 0, silent = FALSE,
-  recompile = FALSE)
+  msmMode = 0, avgnMode = 0, minNByage = 0, suitMode = 0,
+  silent = FALSE, recompile = FALSE)
 }
 \arguments{
 \item{TMBfilename}{(Optional) A version of the cpp CEATTLE \code{cpp_directory}. If NULL, uses the deafult and built .cpp file}
@@ -34,6 +34,8 @@ fit_mod(TMBfilename = "ceattle_v01_04", cpp_directory = NULL,
 \item{msmMode}{The predation mortality functions to used. Defaults to no predation mortality used.}
 
 \item{avgnMode}{The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{\frac{N}{Z} \left( 1 - exp^{-Z} \right)}, 1 is \eqn{N e^{-Z/2}}, 2 is \eqn{N}.}
+
+\item{minNByage}{Minimum numbers at age to put in a hard constraint that the number-at-age can not go below.}
 
 \item{suitMode}{Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma selectivity from Kinzey and Punt (2009), 2 = time-varing length based gamma selectivity from Kinzey and Punt (2009), 3 = time-varying weight based gamma selectivity from Kinzey and Punt (2009), 4 = length based lognormal selectivity, 5 = time-varing length based lognormal selectivity, 6 = time-varying weight based lognormal selectivity,}
 
@@ -192,6 +194,8 @@ CEATTLE is an age-structured population dynamics model that can be fit with or w
  }
 }
 \examples{
+
+# Load package and data
 library(Rceattle)
 data(BS2017SS) # ?BS2017SS for more information on the data
 

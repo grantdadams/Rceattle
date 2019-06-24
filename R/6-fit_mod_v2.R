@@ -13,6 +13,7 @@
 #' @param niter Number of iterations for multispecies model
 #' @param msmMode The predation mortality functions to used. Defaults to no predation mortality used.
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{\frac{N}{Z} \left( 1 - exp^{-Z} \right)}, 1 is \eqn{N e^{-Z/2}}, 2 is \eqn{N}.
+#' @param minNByage Minimum numbers at age to put in a hard constraint that the number-at-age can not go below.
 #' @param silent logical. IF TRUE, includes TMB estimation progress
 #' @param suitMode Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma selectivity from Kinzey and Punt (2009), 2 = time-varing length based gamma selectivity from Kinzey and Punt (2009), 3 = time-varying weight based gamma selectivity from Kinzey and Punt (2009), 4 = length based lognormal selectivity, 5 = time-varing length based lognormal selectivity, 6 = time-varying weight based lognormal selectivity,
 #' @details
@@ -165,6 +166,8 @@
 #' }
 #'
 #' @examples
+#'
+#'# Load package and data
 #'library(Rceattle)
 #'data(BS2017SS) # ?BS2017SS for more information on the data
 #'
@@ -193,6 +196,7 @@ fit_mod <-
            niter = 3,
            msmMode = 0,
            avgnMode = 0,
+           minNByage = 0,
            suitMode = 0,
            silent = FALSE,
            recompile = FALSE) {
@@ -227,6 +231,7 @@ fit_mod <-
     data_list$avgnMode <- avgnMode
     data_list$msmMode <- msmMode
     data_list$suitMode <- as.numeric(suitMode)
+    data_list$minNByage <- as.numeric(minNByage)
 
 
     # Get cpp file if not provided
@@ -323,6 +328,7 @@ fit_mod <-
 
 
     # STEP 6 - Reorganize data
+    Rceattle:::data_check(data_list)
     data_list2 <- rearrange_dat(data_list)
 
     # STEP 7 - Build and fit model object
@@ -362,14 +368,44 @@ fit_mod <-
                              lower = L,
                              upper = U,
                              loopnum = 8,
-                             control = list(eval.max = 1e+08,
-                                            iter.max = 1e+08, trace = 0)
+                             control = list(eval.max = 1e+09,
+                                            iter.max = 1e+09, trace = 0)
     )
 
     message("Step 6: Optimization complete")
 
     # Get quantities
     quantities <- obj$report(obj$env$last.par.best)
+
+    # Rename jnll
+    colnames(quantities$jnll_comp) <- paste0("Sp/Srv/Fsh_", 1:ncol(quantities$jnll_comp))
+    rownames(quantities$jnll_comp) <- c(
+      "Survey biomass",
+      "Survey comp data",
+      "Survey selectivity",
+      "Survey selectivity normalization",
+      "Total catch",
+      "Fishery comp data",
+      "Fishery selectivity",
+      "Fishery selectivity normalization",
+      "Recruitment deviates",
+      "Initial abundance deviates",
+      "Fishing mortality deviates",
+      "Empty",
+      "Empty",
+      "Ration",
+      "Ration penalties",
+      "Stomach content weight",
+      "Stomach content numbers"
+    )
+
+
+    colnames(quantities$biomassSSB) <- data_list$styr:data_list$projyr
+    colnames(quantities$R) <- data_list$styr:data_list$projyr
+
+    rownames(quantities$biomassSSB) <- data_list$spnames
+    rownames(quantities$R) <- data_list$spnames
+
 
     if (debug) {
       last_par <- params
