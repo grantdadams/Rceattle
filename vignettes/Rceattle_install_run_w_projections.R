@@ -52,10 +52,10 @@ plot_recruitment(Rceattle =  ss_run)
 
 
 # For the a multispecies model starting from the single species parameters, the following can be specified to load the data:
-data("BS2017MS") # Note: the only difference is the residual mortality is lower
+data("BS2017MS") # Note: the only difference is the residual mortality (M1_base) is lower
 # Or we can use the previous data set
 
-ms_run <- Rceattle::fit_mod(data_list = mydata,
+ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
                             inits = ss_run$estimated_params, # Initial parameters from single species ests
                             file = NULL, # Don't save
                             debug = 0, # Estimate
@@ -76,6 +76,12 @@ plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE)
 plot_selectivity(Rceattle = mod_list, model_names = mod_names)
 plot_mort(Rceattle = mod_list, model_names = mod_names, age = 2)
 
+# Run diagnostics
+plot_fsh_comp(ms_run) # Fitted fishery composition data
+plot_srv_comp(ms_run) # Fitted survey composition data
+plot_index(ms_run) # Fitted indices of abundance
+plot_catch(ms_run) # Fitted catch series
+
 
 ################################################
 # Projection
@@ -84,14 +90,14 @@ plot_mort(Rceattle = mod_list, model_names = mod_names, age = 2)
 # PROJECTION 1: CHANGING F
 # Rceattle automatically projects the population forward when estimating
 # To check to see what the F rates are for each fishery we can check:
-mydata$fsh_control$proj_F
-mydata$projyr # Year the population is projected forward
+BS2017MS$fsh_control$proj_F
+BS2017MS$projyr # Year the population is projected forward
 
 # We can then change the F - For example, mean historical F
-mydata$fsh_control$proj_F <- c(0.2342936, 0.513, 0.0774777)
+BS2017MS$fsh_control$proj_F <- c(0.2342936, 0.513, 0.0774777)
 
 # Re-run, without estimating
-ms_run_proj <- Rceattle::fit_mod(data_list = mydata,
+ms_run_proj <- Rceattle::fit_mod(data_list = BS2017MS,
                             inits = ms_run$estimated_params, # Initial parameters from single species ests
                             file = NULL, # Don't save
                             debug = TRUE, # Do not estimate. Not changing parameters right now
@@ -108,8 +114,8 @@ ms_run_proj <- Rceattle::fit_mod(data_list = mydata,
 # Change recruitment deviations - NOTE: the workflow for this may change in the future
 
 # Get years from projection
-nyrs <- mydata$endyr - mydata$styr + 1
-nyrs_proj <- mydata$projyr - mydata$styr + 1
+nyrs <- BS2017MS$endyr - BS2017MS$styr + 1
+nyrs_proj <- BS2017MS$projyr - BS2017MS$styr + 1
 yrs_proj <- (nyrs + 1):nyrs_proj
 
 # Replace future rec_devs with numbers
@@ -120,7 +126,7 @@ ms_run$estimated_params$rec_dev[,yrs_proj] <- replace(
                   sd = 0.707) # Assumed value from penalized likelihood
   )
 
-ms_run_proj2 <- Rceattle::fit_mod(data_list = mydata,
+ms_run_proj2 <- Rceattle::fit_mod(data_list = BS2017MS,
                                  inits = ms_run$estimated_params, # Initial parameters from single species ests
                                  file = NULL, # Don't save
                                  debug = TRUE, # Do not estimate. Not changing parameters right now
