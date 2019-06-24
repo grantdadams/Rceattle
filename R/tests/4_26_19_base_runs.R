@@ -1,3 +1,4 @@
+library(Rceattle)
 data("BS2017MS")
 data("BS2017SS")
 
@@ -7,14 +8,34 @@ ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
                             debug = 0, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
-                            silent = TRUE)
+                            silent = FALSE,
+                            recompile = FALSE)
 
 
-ms_run <- Rceattle::fit_mod(data_list = BS2017SS,
-                            inits = ss_run$estimated_params, # Initial parameters = 0
+
+ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
+                            inits = ss_run$estimated_params, # Initial parameters from single species ests
                             file = NULL, # Don't save
-                            debug = 1, # Estimate
+                            debug = 0, # Estimate
+                            niter = 10, # 10 iterations around population and predation dynamics
                             random_rec = FALSE, # No random recruitment
-                            msmMode = 3, # Single species mode
-                            silent = TRUE)
-ms_run$quantities$jnll_comp
+                            msmMode = 1, # MSVPA based
+                            suitMode = 0, # empirical suitability
+                            silent = FALSE)
+
+
+# We can plot both runs as well:
+mod_list <- list(ss_run, ms_run)
+mod_names <- c("SS", "MS")
+
+# Plot biomass trajectory
+plot_biomass(Rceattle = mod_list, model_names = mod_names, incl_proj = TRUE)
+plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE, incl_proj = TRUE)
+plot_ssb(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE, incl_proj = FALSE)
+
+plot_index(ms_run)
+plot_catch(ms_run)
+
+plot_srv_comp(ms_run)
+plot_fsh_comp(ms_run)
+

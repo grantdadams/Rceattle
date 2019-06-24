@@ -200,6 +200,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Survey_code = c(1:4),
     Species = c(1:3, 1),
     Selectivity_index = c(1:4),
+    Fit_0no_1yes = rep(1, 4),
     Selectivity = c(dat_list$srv_sel_type, 0),
     Nselages = rep(NA, 4),
     Time_varying_sel = rep(0, 4),
@@ -314,6 +315,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Fishery_name = c("Pollock", "Cod", "ATF"),
     Fishery_code = c(1:3),
     Species = c(1:3),
+    Fit_0no_1yes = rep(1,3),
     Selectivity = rep(2, 3),
     Nselages = c(dat_list$nselages),
     Time_varying_sel = rep(0, 3),
@@ -345,7 +347,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Year = as.vector(t(dat_list$yrs_tc_biom)),
     Month = rep(rep(0, nspp), dat_list$nyrs_tc_biom),
     Selectivity_block = rep(rep(1, nspp), dat_list$nyrs_tc_biom),
-    Catch_kg = as.vector(t(dat_list$tcb_obs)),
+    Catch = as.vector(t(dat_list$tcb_obs)),
     CV = rep(rep(0.05, nspp), dat_list$nyrs_tc_biom)
     )
 

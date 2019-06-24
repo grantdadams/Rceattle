@@ -137,7 +137,7 @@ plot_index <-
         }
 
         # Legends
-        legend("topleft", srv_control$Survey_name[j], bty = "n", cex = 1.4)
+        legend("topleft", legend = as.character(srv_control$Survey_name[j]), bty = "n", cex = 1.4)
 
         # if(!is.null(mohns)){
         #   legend("top", paste0("B Rho = ", round(mohns[1,j+1], 2), "; SSB Rho = ",  round(mohns[2,j+1], 2) ), bty = "n", cex = 1) # Biomass rho
@@ -273,17 +273,17 @@ plot_catch <-
       Srv_list[[i]] <- Rceattle[[i]]$data_list$fsh_biom
       Srv_list[[i]]$CV <- Rceattle[[i]]$quantities$fsh_cv_hat
 
-      no_zero <- which(Srv_list[[i]]$Catch_kg > 0)
+      no_zero <- which(Srv_list[[i]]$Catch > 0)
       Srv_list[[i]]$Lower95 <- NA
       Srv_list[[i]]$Upper95 <- NA
 
-      Srv_list[[i]]$Upper95[no_zero] <- qlnorm(0.975, meanlog = log(Srv_list[[i]]$Catch_kg[no_zero]), sdlog = Srv_list[[i]]$CV[no_zero])
-      Srv_list[[i]]$Lower95[no_zero] <- qlnorm(0.025, meanlog = log(Srv_list[[i]]$Catch_kg[no_zero]), sdlog = Srv_list[[i]]$CV[no_zero])
+      Srv_list[[i]]$Upper95[no_zero] <- qlnorm(0.975, meanlog = log(Srv_list[[i]]$Catch[no_zero]), sdlog = Srv_list[[i]]$CV[no_zero])
+      Srv_list[[i]]$Lower95[no_zero] <- qlnorm(0.025, meanlog = log(Srv_list[[i]]$Catch[no_zero]), sdlog = Srv_list[[i]]$CV[no_zero])
 
 
       # Get estimated
       Srv_hat_list[[i]] <- Rceattle[[i]]$data_list$fsh_biom
-      Srv_hat_list[[i]]$Catch_kg <- Rceattle[[i]]$quantities$fsh_bio_hat
+      Srv_hat_list[[i]]$Catch <- Rceattle[[i]]$quantities$fsh_bio_hat
       Srv_hat_list[[i]]$CV <- Rceattle[[i]]$quantities$fsh_cv_hat
     }
     max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
@@ -304,8 +304,8 @@ plot_catch <-
     for(i in 1:length(Rceattle)){
       for(srv in 1:nrow(Rceattle[[i]]$data_list$fsh_control)){
         srv_ind <- which(Srv_list[[i]]$Fishery_code == srv)
-        ymax[srv] <- max(c(Srv_list[[i]]$Upper95[srv_ind], Srv_hat_list[[i]]$Catch_kg[srv_ind], ymax[srv]), na.rm = T)
-        ymin[srv] <- min(c(Srv_list[[i]]$Lower95[srv_ind], Srv_hat_list[[i]]$Catch_kg[srv_ind], ymin[srv]), na.rm = T)
+        ymax[srv] <- max(c(Srv_list[[i]]$Upper95[srv_ind], Srv_hat_list[[i]]$Catch[srv_ind], ymax[srv]), na.rm = T)
+        ymin[srv] <- min(c(Srv_list[[i]]$Lower95[srv_ind], Srv_hat_list[[i]]$Catch[srv_ind], ymin[srv]), na.rm = T)
       }
     }
     ymax <- ymax + 0.1 * ymax
@@ -357,7 +357,7 @@ plot_catch <-
         }
 
         # Legends
-        legend("topleft", fsh_control$Fishery_name[j], bty = "n", cex = 1.4)
+        legend("topleft", legend = as.character(fsh_control$Fishery_name[j]), bty = "n", cex = 1.4)
 
         # if(!is.null(mohns)){
         #   legend("top", paste0("B Rho = ", round(mohns[1,j+1], 2), "; SSB Rho = ",  round(mohns[2,j+1], 2) ), bty = "n", cex = 1) # Biomass rho
@@ -402,7 +402,7 @@ plot_catch <-
           # Observed
           points(
             x = srv_tmp$Year,
-            y = srv_tmp$Catch_kg,
+            y = srv_tmp$Catch,
             pch = 16,
             cex = cex,
             col = line_col[k]
@@ -415,7 +415,7 @@ plot_catch <-
           # Estimated
           lines(
             x = srv_hat_tmp$Year,
-            y = srv_hat_tmp$Catch_kg,
+            y = srv_hat_tmp$Catch,
             pch = 18,
             lwd = lwd,
             col = line_col[k]

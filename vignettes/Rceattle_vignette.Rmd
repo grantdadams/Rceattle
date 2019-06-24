@@ -45,11 +45,11 @@ data(BS2017MS) # ?BS2017MS for more information on the multi-species data
 The data can then be written to excel, altered and reread into R in a useable format for `Rceattle`. The first page of the excel document will have meta-data describing each item.
 ```{R eval = TRUE}
 # Write data to excel
-Rceattle::write_excel(data_list = BS2017SS, file = "BS2017SS.xlsx")
+Rceattle::write_data(data_list = BS2017SS, file = "BS2017SS.xlsx")
 
 # Change the data how you want in excel
 # Read the data back in
-mydata <- Rceattle::read_excel( file = "BS2017SS.xlsx")
+mydata <- Rceattle::read_data( file = "BS2017SS.xlsx")
 ```
 
 
