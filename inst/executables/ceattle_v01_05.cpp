@@ -525,38 +525,37 @@ Type objective_function<Type>::operator() () {
   PARAMETER_MATRIX( F_dev );                      // Annual fishing mortality deviations; n = [n_fsh, nyrs] # NOTE: The size of this will likely change
 
 
-  // -- 3.4. Selectivity parameter
+  // -- 3.4. Survey selectivity parameter
   PARAMETER_MATRIX( srv_sel_coff );               // Survey selectivity parameters; n = [n_srv, nselages]
   PARAMETER_MATRIX( srv_sel_slp );                // Survey selectivity paramaters for logistic; n = [2, n_srv]
   PARAMETER_MATRIX( srv_sel_inf );                // Survey selectivity paramaters for logistic; n = [2, n_srv]
+  PARAMETER_VECTOR( log_srv_q );                  // Survey catchability; n = [n_srv]
   PARAMETER_ARRAY( srv_sel_slp_dev );             // Survey selectivity parameter deviate for logistic; n = [2, n_srv, n_sel_blocks]
   PARAMETER_ARRAY( srv_sel_inf_dev );             // Survey selectivity parameter deviate for logistic; n = [2, n_srv, n_sel_blocks]
   PARAMETER_ARRAY( srv_sel_slp_dev_re );          // Survey selectivity parameter random effect deviate for logistic; n = [2, n_srv, n_sel_blocks]
   PARAMETER_ARRAY( srv_sel_inf_dev_re );          // Survey selectivity parameter random effect deviate for logistic; n = [2, n_srv, n_sel_blocks]
-  PARAMETER_VECTOR( log_srv_q );                  // Survey catchability; n = [n_srv]
   PARAMETER_MATRIX( ln_srv_q_dev );               // Annual survey catchability deviates; n = [n_srv, nyrs_hind]
   PARAMETER_MATRIX( ln_srv_q_dev_re );            // Annual survey catchability random effect deviates; n = [n_srv, nyrs_hind]
 
-
+  // -- 3.5. Fishery selectivity parameter
   PARAMETER_MATRIX( fsh_sel_coff );               // Fishery age selectivity coef; n = [n_srv, nselages]
   PARAMETER_MATRIX( fsh_sel_slp );                // Fishery selectivity paramaters for logistic; n = [2, n_fsh]
   PARAMETER_MATRIX( fsh_sel_inf );                // Fishery selectivity paramaters for logistic; n = [2, n_fsh]
   PARAMETER_ARRAY( fsh_sel_slp_dev );             // Fishery selectivity parameter deviate for logistic; n = [2, n_fsh, n_sel_blocks]
   PARAMETER_ARRAY( fsh_sel_inf_dev );             // Fishery selectivity parameter deviate for logistic; n = [2, n_fsh, n_sel_blocks]
-
   PARAMETER_ARRAY( fsh_sel_slp_dev_re );          // Fishery selectivity parameter random effect deviate for logistic; n = [2, n_fsh, n_sel_blocks]
   PARAMETER_ARRAY( fsh_sel_inf_dev_re );          // Fishery selectivity parameter random effect deviate for logistic; n = [2, n_fsh, n_sel_blocks]
 
 
-  // 3.5. Variance of survey and fishery time series
+  // 3.6. Variance of survey and fishery time series
   PARAMETER_VECTOR( ln_sigma_srv_index );         // Log standard deviation of survey index time-series; n = [1, n_srv]
   PARAMETER_VECTOR( ln_sigma_fsh_catch );         // Log standard deviation of fishery catch time-series; n = [1, n_fsh]
-  PARAMETER_VECTOR( ln_sigma_fsh_sel );           // Log standard deviation of fishery selectivity; n = [1, n_fsh]
-  PARAMETER_VECTOR( ln_sigma_srv_q );             // Log standard deviation of survey catchability; n = [1, n_srv]
   PARAMETER_VECTOR( ln_sigma_srv_sel );            // Log standard deviation of survey selectivity; n = [1, n_srv]
+  PARAMETER_VECTOR( ln_sigma_srv_q );             // Log standard deviation of survey catchability; n = [1, n_srv]
+  PARAMETER_VECTOR( ln_sigma_fsh_sel );           // Log standard deviation of fishery selectivity; n = [1, n_fsh]
 
-  // FIXME: Create maps
-  // -- 3.6. Kinzery predation function parameters
+
+  // -- 3.7. Kinzery predation function parameters
   PARAMETER_MATRIX(logH_1);                       // Predation functional form; n = [nspp, nspp2];
   PARAMETER_VECTOR(logH_1a);                      // Age adjustment to H_1; n = [1, nspp]; // FIXME: make matrix
   PARAMETER_VECTOR(logH_1b);                      // Age adjustment to H_1; n = [1, nspp]; // FIXME: make matrix
@@ -566,12 +565,12 @@ Type objective_function<Type>::operator() () {
   PARAMETER_MATRIX(H_4);                          // Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH4,UpperBoundH4;
 
 
-  // 3.7. Gamma selectivity parameters
+  // 3.8. Gamma selectivity parameters
   PARAMETER_VECTOR( log_gam_a );                  // Log predator selectivity; n = [1,nspp]; FIXME: bounds = 1.0e-10 and 19.9
   PARAMETER_VECTOR( log_gam_b );                  // Log predator selectivity; n = [1,nspp]; FIXME: bounds = -5.2 and 10
 
 
-  // 3.8. Preference
+  // 3.9. Preference
   PARAMETER_MATRIX( log_phi );                    // Species preference coefficient; n = [nspp, nspp]
 
 
@@ -785,7 +784,7 @@ Type objective_function<Type>::operator() () {
       }
 
       // Random effect
-      if(srv_varying_q(srv) != 2){
+      if(srv_varying_q(srv) == 2){
         srv_q(srv, yr) = exp(log_srv_q(srv_ind) + ln_srv_q_dev_re(yr));                 // Exponentiate
       }
     }

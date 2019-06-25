@@ -64,14 +64,15 @@ build_params <- function(data_list, inits = NULL) {
     param_list$log_srv_q = data_list$srv_control$Log_q_prior   # Survey catchability; n = [sum(n_srv)]
 
     # --- 3.4.2. Time varying parameters
-    param_list$ln_srv_q_dev = matrix(0, nrow = nrow(data_list$srv_control), ncol = nyrs_hind)   # Survey catchability deviations; n = [sum(n_srv)]
     param_list$srv_sel_slp_dev = array(0, dim = c(2, nrow(data_list$srv_control), nyrs_hind))  # Survey selectivity deviations paramaters for logistic; n = [2, nspp]
     param_list$srv_sel_inf_dev = array(0, dim = c(2, nrow(data_list$srv_control), nyrs_hind))  # Survey selectivity deviations paramaters for logistic; n = [2, nspp]
-
-    # Random effects version
-    param_list$ln_srv_q_dev_re = matrix(0, nrow = nrow(data_list$srv_control), ncol = nyrs_hind)   # Survey catchability deviations; n = [sum(n_srv)]
     param_list$srv_sel_slp_dev_re = array(0, dim = c(2, nrow(data_list$srv_control), nyrs_hind))  # Survey selectivity deviations paramaters for logistic; n = [2, nspp]
     param_list$srv_sel_inf_dev_re = array(0, dim = c(2, nrow(data_list$srv_control), nyrs_hind))  # Survey selectivity deviations paramaters for logistic; n = [2, nspp]
+
+    # Random effects version
+    param_list$ln_srv_q_dev = matrix(0, nrow = nrow(data_list$srv_control), ncol = nyrs_hind)   # Survey catchability deviations; n = [sum(n_srv)]
+    param_list$ln_srv_q_dev_re = matrix(0, nrow = nrow(data_list$srv_control), ncol = nyrs_hind)   # Survey catchability deviations; n = [sum(n_srv)]
+
 
 
     # -- 3.5. Fishery selectivity parameters

@@ -339,7 +339,6 @@ fit_mod <-
       map = map[[1]],
       random = random_vars,
       silent = silent
-
     )
     message(paste0("Step 5: Build object complete"))
     # opt <- nlminb(obj$par, obj$fn, obj$gr)
