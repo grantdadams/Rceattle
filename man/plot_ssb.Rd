@@ -28,7 +28,7 @@ function.}
 
 \item{incl_proj}{TRUE/FALSE include projections years}
 
-\item{add_ci}{TRUE/FALSE, includes 95% confidence interval}
+\item{add_ci}{TRUE/FALSE, includes 95 percent confidence interval}
 }
 \value{
 Returns and saves a figure with the ssb trajectory.
