@@ -354,10 +354,11 @@ fit_mod <-
     U = unlist(bounds$upper)[which(!is.na(unlist(map[[1]])))]
 
     # Remove random effects from bounds
-    if (random_rec == TRUE) {
-      L <- L[-grep(random_vars, names(L))]
-      U <- U[-grep(random_vars, names(U))]
+    for(i in 1:length(random_vars)){
+      L <- L[-grep(random_vars[i], names(L))]
+      U <- U[-grep(random_vars[i], names(U))]
     }
+
 
     # Optimize
     opt = Rceattle::Optimize(obj = obj,

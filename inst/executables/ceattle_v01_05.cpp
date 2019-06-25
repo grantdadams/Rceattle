@@ -1044,7 +1044,7 @@ Type objective_function<Type>::operator() () {
     for (sp = 0; sp < nspp; sp++) {
       for (age = 0; age < nages(sp); age++) {
         if ((age > 0) & (age < nages(sp) - 1)) {
-          Type mort_sum = M1.row(sp).segment(0, age).sum(); // Sum M1 until age - 1
+          Type mort_sum = M1.row(sp).segment(0, age-1).sum(); // Sum M1 until age - 1
           NByage(sp, age, 0) = exp(ln_mn_rec(sp) - mort_sum + init_dev(sp, age - 1));
         }
         // -- 6.2.2. Where yr = 1 and age > Ai.
@@ -2961,6 +2961,8 @@ Type objective_function<Type>::operator() () {
   REPORT( srv_wt_index );
   REPORT( srv_alk_index );
   REPORT( sigma_srv_sel );
+  REPORT( sigma_srv_q );
+  REPORT( ln_srv_q_dev );
 
 
   // -- 12.4. Likelihood components
