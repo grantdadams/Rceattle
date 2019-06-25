@@ -146,6 +146,10 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$fsh_sel_slp_dev[1:2, i,] <- NA
       map_list$fsh_sel_inf_dev[1:2, i,] <- NA
 
+      # Map out random effect deviates
+      map_list$fsh_sel_slp_dev_re[1:2, i,] <- NA
+      map_list$fsh_sel_inf_dev_re[1:2, i,] <- NA
+
       # Map out selectivity var
       map_list$ln_sigma_fsh_sel[i] <- NA
     }
@@ -322,6 +326,10 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
         map_list$srv_sel_slp_dev[1:2, i,] <- NA
         map_list$srv_sel_inf_dev[1:2, i,] <- NA
 
+        # Map random effect deviates
+        map_list$srv_sel_slp_dev_re[1:2, i,] <- NA
+        map_list$srv_sel_inf_dev_re[1:2, i,] <- NA
+
 
         # Map out selectivity var
         map_list$ln_sigma_srv_sel[i] <- NA
@@ -400,6 +408,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     if (data_list$srv_control$Estimate_q[i] %in% c(0, 2) | data_list$srv_control$Fit_0no_1yes[i] == 0) {
       map_list$log_srv_q[i] <- NA
       map_list$ln_srv_q_dev[i,] <- NA
+      map_list$ln_srv_q_dev_re[i,] <- NA
       map_list$ln_sigma_srv_q[i] <- NA
     }
 

@@ -329,7 +329,7 @@ fit_mod <-
 
     # STEP 6 - Reorganize data
     Rceattle:::data_check(data_list)
-    data_list2 <- rearrange_dat(data_list)
+    data_list2 <- Rceattle::rearrange_dat(data_list)
 
     # STEP 7 - Build and fit model object
     obj = TMB::MakeADFun(
@@ -383,6 +383,7 @@ fit_mod <-
       "Survey comp data",
       "Survey selectivity",
       "Survey selectivity normalization",
+      "Survey catchability",
       "Total catch",
       "Fishery comp data",
       "Fishery selectivity",
@@ -390,7 +391,6 @@ fit_mod <-
       "Recruitment deviates",
       "Initial abundance deviates",
       "Fishing mortality deviates",
-      "Empty",
       "Empty",
       "Ration",
       "Ration penalties",
@@ -435,18 +435,17 @@ fit_mod <-
       )
 
     if(debug == 0){
-      # Check identifiability
-#       identified <- suppressMessages(TMBhelper::Check_Identifiable(obj))
-# #
-# #       # Make into list
-# #       identified_param_list <- obj$env$parList(as.numeric(identified$BadParams$Param_check))
-# #       identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==0,"Not estimated",x), how = "replace")
-# #       identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==1,"OK",x), how = "replace")
-# #       identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==2,"BAD",x), how = "replace")
-# #
-# #       identified$param_list <- identified_param_list
-#
-#       mod_objects$identified <- identified
+      identified <- suppressMessages(TMBhelper::Check_Identifiable(obj))
+
+      # Make into list
+      identified_param_list <- obj$env$parList(as.numeric(identified$BadParams$Param_check))
+      identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==0,"Not estimated",x), how = "replace")
+      identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==1,"OK",x), how = "replace")
+      identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==2,"BAD",x), how = "replace")
+
+      identified$param_list <- identified_param_list
+
+      mod_objects$identified <- identified
     }
 
     class(mod_objects) <- "Rceattle"
