@@ -137,6 +137,13 @@ build_params <- function(data_list, inits = NULL) {
     #---------------------------------------------------------------------
     # Step 4 -- Replace inits with previous parameters if desired
     #---------------------------------------------------------------------
+    if(class(inits) == "list"){
+      for(i in 1:length(inits)){
+        param_list[[names(inits)[i]]] = inits[[names(inits)[i]]]
+      }
+    }
+
+
     if (!is.null(inits)) {
 
         # If using std file
