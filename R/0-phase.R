@@ -15,10 +15,9 @@
 #' @param  optimizer The optimizer to use. Default is nlminb (This is not currently active)
 #' @return A list of parameter estimates and their standard errors
 #' @author Gavin Fay
-#' @export
 #'
-#' @examples
-
+#'
+#'
 TMBphase <- function(data, parameters, random, phases, model_name,
                      optimizer = "nlminb") {
 
