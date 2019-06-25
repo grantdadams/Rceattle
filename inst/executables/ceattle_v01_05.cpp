@@ -764,28 +764,30 @@ Type objective_function<Type>::operator() () {
     srv = srv_control(srv_ind, 1) - 1;                     // Temporary survey index
     srv_spp(srv) = srv_control(srv_ind, 2) - 1;            // Species
     srv_sel_ind(srv) = srv_control(srv_ind, 3);            // Survey selectivity index
-    srv_sel_type(srv) = srv_control(srv_ind, 4);           // Selectivity type
-    srv_fit(srv) = srv_control(srv_ind, 3);                // Fit? 0 = no, 1 = yes
-    srv_nselages(srv) = srv_control(srv_ind, 5);           // Non-parametric selectivity ages
-    srv_varying_sel(srv) = srv_control(srv_ind, 6);        // Time-varying selectivity type
-    srv_units(srv) = srv_control(srv_ind, 7);              // Survey units
-    srv_wt_index(srv) = srv_control(srv_ind, 8) - 1;       // Dim3 of wt
-    srv_alk_index(srv) = srv_control(srv_ind, 9) - 1;      // Dim3 of ALK
-    srv_q_ind(srv) = srv_control(srv_ind, 10) - 1;         // Index of survey q
-    est_srv_q(srv) = srv_control(srv_ind, 11);             // Estimate analytical q?
-    srv_varying_q(srv) = srv_control(srv_ind, 12);         // Time varying q type
-    est_sigma_srv(srv) = srv_control(srv_ind, 13);         // Wether to estimate standard deviation of survey time series
+    srv_fit(srv) = srv_control(srv_ind, 4);                // Fit? 0 = no, 1 = yes
+    srv_sel_type(srv) = srv_control(srv_ind, 5);           // Selectivity type
+    srv_nselages(srv) = srv_control(srv_ind, 6);           // Non-parametric selectivity ages
+    srv_varying_sel(srv) = srv_control(srv_ind, 7);        // Time-varying selectivity type
+    srv_units(srv) = srv_control(srv_ind, 8);              // Survey units
+    srv_wt_index(srv) = srv_control(srv_ind, 9) - 1;       // Dim3 of wt
+    srv_alk_index(srv) = srv_control(srv_ind, 10) - 1;      // Dim3 of ALK
+    srv_q_ind(srv) = srv_control(srv_ind, 11) - 1;         // Index of survey q
+    est_srv_q(srv) = srv_control(srv_ind, 12);             // Estimate analytical q?
+    srv_varying_q(srv) = srv_control(srv_ind, 13);         // Time varying q type
+    est_sigma_srv(srv) = srv_control(srv_ind, 14);         // Wether to estimate standard deviation of survey time series
+  }
 
-
+  // Set up survey q
+  for(srv = 0; srv < n_srv; srv++){
     for(yr = 0; yr < nyrs_hind; yr++){
       // Random walk
       if(srv_varying_q(srv) != 2){
-        srv_q(srv, yr) = exp(log_srv_q(srv_ind) + ln_srv_q_dev(yr));                 // Exponentiate
+        srv_q(srv, yr) = exp(log_srv_q(srv) + ln_srv_q_dev(srv, yr));                 // Exponentiate
       }
 
       // Random effect
       if(srv_varying_q(srv) == 2){
-        srv_q(srv, yr) = exp(log_srv_q(srv_ind) + ln_srv_q_dev_re(yr));                 // Exponentiate
+        srv_q(srv, yr) = exp(log_srv_q(srv) + ln_srv_q_dev_re(srv, yr));                 // Exponentiate
       }
     }
   }
@@ -2628,7 +2630,7 @@ Type objective_function<Type>::operator() () {
     if(fsh_fit(fsh) == 1){
       if(fsh_yr <= endyr){
         if(fsh_biom_obs(fsh_ind, 0) > 0){
-          jnll_comp(5, fsh) += dnorm(log(fsh_bio_hat(fsh_ind)), log(fsh_biom_obs(fsh_ind, 0)), fsh_std_dev, true) ; // pow(log(fsh_biom_obs(fsh_ind, 0) + MNConst) - log(fsh_bio_hat(fsh_ind)), 2) / (2 * square(fsh_std_dev)); // NOTE: This is not quite the log  normal and biohat will be the median.
+          jnll_comp(5, fsh) -= dnorm(log(fsh_bio_hat(fsh_ind)), log(fsh_biom_obs(fsh_ind, 0)), fsh_std_dev, true) ; // pow(log(fsh_biom_obs(fsh_ind, 0) + MNConst) - log(fsh_bio_hat(fsh_ind)), 2) / (2 * square(fsh_std_dev)); // NOTE: This is not quite the log  normal and biohat will be the median.
         }
       }
     }
@@ -2747,13 +2749,13 @@ Type objective_function<Type>::operator() () {
   for (sp = 0; sp < nspp; sp++) {
     // Slot 10 -- init_dev -- Initial abundance-at-age
     for (age = 1; age < nages(sp); age++) {
-      jnll_comp(9, sp) -= dnorm( init_dev(sp, age - 1) - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);
+      jnll_comp(10, sp) -= dnorm( init_dev(sp, age - 1) - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);
     }
 
     for (yr = 0; yr < nyrs_hind; yr++) {
 
       // Slot 11 -- Tau -- Annual recruitment deviation
-      jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr) - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);    // Recruitment deviation using random effects.
+      jnll_comp(9, sp) -= dnorm( rec_dev(sp, yr) - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);    // Recruitment deviation using random effects.
 
     }
   }
@@ -2949,6 +2951,7 @@ Type objective_function<Type>::operator() () {
   REPORT( srv_age_obs_hat );
   REPORT( sigma_srv_index );
   REPORT( srv_q );
+  REPORT( srv_q_analytical );
   REPORT( srv_sel_type );
   REPORT( srv_nselages );
   REPORT( srv_spp );
