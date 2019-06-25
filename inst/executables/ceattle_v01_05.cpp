@@ -982,7 +982,7 @@ Type objective_function<Type>::operator() () {
         for (age = 0; age < nages(sp); age++){
           for (yr = 0; yr < nyrs_hind; yr++) {
             vector<Type> fsh_sel_tmp_yr = fsh_sel_sub.col(yr);
-            fsh_sel(fsh, age, yr) = max(fsh_sel_tmp_yr);
+            fsh_sel(fsh, age, yr) /= max(fsh_sel_tmp_yr);
           }
         }
       }
@@ -2734,6 +2734,8 @@ Type objective_function<Type>::operator() () {
         }
       }
     }
+
+
   }
 
 
