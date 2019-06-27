@@ -36,7 +36,7 @@ mydata <- Rceattle::read_data( file = "BS2017SS.xlsx")
 # Estimation
 ################################################
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
-ss_run <- Rceattle::fit_mod(data_list = mydata,
+ss_run2 <- Rceattle::fit_mod(data_list = mydata,
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save
                             debug = 0, # Estimate

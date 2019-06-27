@@ -871,6 +871,7 @@ Type objective_function<Type>::operator() () {
   // ------------------------------------------------------------------------- //
   // NOTE: Remember indexing starts at 0
   // Start iterations
+  
   for (int iter = 0; iter < niter; iter++) {
 
 
@@ -989,6 +990,7 @@ Type objective_function<Type>::operator() () {
     }
 
 
+
     // 6.1. ESTIMATE FISHING MORTALITY
     F.setZero();
     F_tot.setZero();
@@ -1014,8 +1016,6 @@ Type objective_function<Type>::operator() () {
       }
     }
 
-    // Good above here
-
 
     // 6.2. Estimate total mortality at age NOTE: May need to go above population dynamics
     for (sp = 0; sp < nspp; sp++) {
@@ -1036,8 +1036,6 @@ Type objective_function<Type>::operator() () {
         NByage(sp, 0, yr) = R(sp, yr);
       }
     }
-
-    // Good above here
 
 
     // 6.4. ESTIMATE INITIAL ABUNDANCE AT AGE AND YEAR-1: T1.2
@@ -1274,7 +1272,6 @@ Type objective_function<Type>::operator() () {
     }
 
 
-    // Good above here
 
     // START PREDATION
     if (msmMode > 0) {
@@ -1375,6 +1372,7 @@ Type objective_function<Type>::operator() () {
               ncnt = 0;
               gsum = 1.0e-10;                                           // Initialize
               for (k_age = 0; k_age < nages(ksp); k_age++) {            // Prey age
+
                 // if prey are smaller than predator:
                 if (Mn_LatAge(rsp, r_age) > Mn_LatAge(ksp, k_age)) {
                   x_l_ratio = log(Mn_LatAge(rsp, r_age) / Mn_LatAge(ksp, k_age));
@@ -1607,7 +1605,10 @@ Type objective_function<Type>::operator() () {
       // 8. PREDATION MORTALITY EQUATIONS                                          //
       // ------------------------------------------------------------------------- //
       // -- 8.1. HOLSMAN PREDATION MORTALITY
+
       if (msmMode == 1) {
+
+        
         // 8.1.3. Calculate available food
         avail_food.setZero();
         othersuit.setZero();
@@ -1671,7 +1672,7 @@ Type objective_function<Type>::operator() () {
         }
       } // End 8..1. Holsman predation mortality
 
-
+   
       // 8.2. KINZEY PREDATION EQUATIONS
       if (msmMode > 1) {
 
@@ -1940,15 +1941,15 @@ Type objective_function<Type>::operator() () {
         }
         // - END LOOP - END LOOP - END LOOP - END LOOP - END LOOP - //
       } // End 8.2. Kinzey predation
-
       // - END LOOP - END LOOP - END LOOP - END LOOP - END LOOP - //
     } // End 8. Predation mortality
     // - END LOOP - END LOOP - END LOOP - END LOOP - END LOOP - //
 
+
     // ------------------------------------------------------------------------- //
     // 9. SURVEY COMPONENTS EQUATIONS                                            //
     // ------------------------------------------------------------------------- //
-    // Good above here
+
 
     // 9.0. Empirical selectivity
     srv_sel.setZero();
@@ -1964,10 +1965,8 @@ Type objective_function<Type>::operator() () {
           srv_sel(srv, age, srv_yr) = srv_emp_sel_obs(sel_ind, age);
         }
       }
-
       // FIXME - have survey selectivity after nyrs_hind filled with last year
     }
-    // Good above here
 
 
     // 9.1. Estimated survey selectivity
@@ -2068,7 +2067,8 @@ Type objective_function<Type>::operator() () {
 
       }
     } // End loop
-    // Good above here
+
+
 
 
     // -- 9.2. Survey Biomass
@@ -2133,8 +2133,9 @@ Type objective_function<Type>::operator() () {
 
       srv = srv_biom_ctl(srv_ind, 0) - 1;            // Temporary survey index
       srv_yr = srv_biom_ctl(srv_ind, 3) - styr;      // Temporary index for years of data
-
+      if(srv_yr < nyrs_hind){
       srv_bio_hat(srv_ind) *= srv_q(srv, srv_yr);
+      }
     }
 
 
@@ -2211,7 +2212,7 @@ Type objective_function<Type>::operator() () {
       }
     }
 
-    // Good above here
+
 
     // ------------------------------------------------------------------------- //
     // 10. FISHERY COMPONENTS EQUATIONS                                          //
@@ -2242,7 +2243,7 @@ Type objective_function<Type>::operator() () {
         }
       }
     }
-    // Good above here
+
 
 
     // -- 9.3. Fishery composition
@@ -2341,7 +2342,6 @@ Type objective_function<Type>::operator() () {
   vector<Type> offset_diet_w(nspp); offset_diet_w.setZero(); // Offset for total stomach content weight likelihood
   vector<Type> offset_diet_l(nspp); offset_diet_l.setZero(); // Offset for total stomach content of prey length ln in predator length a
   vector<Type> offset_uobsagewt(nspp); offset_uobsagewt.setZero(); // Offset for stomach proportion by weight likelihood
-
 
   // 11.1.1. -- Fishery age comp offsets
   for (comp_ind = 0; comp_ind < fsh_comp_obs.rows(); comp_ind++) {
@@ -2896,7 +2896,6 @@ Type objective_function<Type>::operator() () {
       jnll_comp(16, rsp) -= offset_diet_l(rsp);
     }
   } // End if statement for diet likelihood
-
 
   // ------------------------------------------------------------------------- //
   // 12. REPORT SECTION                                                        //
