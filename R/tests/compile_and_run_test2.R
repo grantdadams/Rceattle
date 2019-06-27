@@ -9,7 +9,7 @@ library(TMBdebug)
 TMBfilename = "ceattle_v01_05"
 cpp_directory <- "inst/executables"
 data("BS2017SS")
-BS2017SS$endyr <- 2015
+BS2017SS$endyr <- 2014
 data_list = BS2017SS
 inits = NULL # Initial parameters = 0
 map = NULL
@@ -22,7 +22,7 @@ avgnMode = 0
 silent = TRUE
 niter = 5
 est_diet = FALSE
-suitMode = FALSE
+suitMode = 1
 recompile = FALSE
 
 
@@ -30,17 +30,6 @@ recompile = FALSE
 # #--------------------------------------------------
 # # 1. DATA and MODEL PREP
 # #--------------------------------------------------
-load("~/Documents/GitHub/RceattleRuns/BSAI/2019 Think Tank/Models/ss_no_re.RData")
-# "C:/Users/Grant Adams/Documents/GitHub/RceattleRuns/BSAI/2019 Think Tank/Models/ss_no_re.RData"
-initial_params <- mod_objects$estimated_params
-
-initial_params$srv_sel_coff
-initial_params$srv_sel_inf <- cbind(initial_params$srv_sel_inf, matrix(0, ncol = 1, nrow = 2))
-initial_params$srv_sel_slp <- cbind(initial_params$srv_sel_slp, matrix(0, ncol = 1, nrow = 2))
-initial_params$log_srv_q <- c(initial_params$log_srv_q, initial_params$log_eit_q)
-inits <- initial_params
-inits$log_eit_q <- NULL
-inits$phi <- NULL
 
 # STEP 1 - LOAD DATA
 if (is.null(data_list)) {
@@ -55,62 +44,32 @@ data_list$niter <- niter
 data_list$avgnMode <- avgnMode
 data_list$msmMode <- msmMode
 data_list$suitMode <- as.numeric(suitMode)
+data_list$minNByage <- 0
 
-
-# Get cpp file if not provided
-if(is.null(TMBfilename) | is.null(cpp_directory)){
-  cpp_directory <- system.file("executables",package="Rceattle")
-  TMBfilename <- "ceattle_v01_04"
-} else{
-  cpp_directory <- cpp_directory
-  TMBfilename <- TMBfilename
-}
 
 
 # STEP 1 - LOAD PARAMETERS
-if (is.character(inits) | is.null(inits)) {
-  params <- suppressWarnings(Rceattle::build_params(
-    data_list = data_list,
-    inits = inits
-  ))
-} else{
-  params <- suppressWarnings(Rceattle::build_params(
-    data_list = data_list,
-    inits = inits
-  ))
-  inits$srv_sel_coff <- params$srv_sel_coff
-  inits$fsh_sel_inf <- params$fsh_sel_inf
-  inits$fsh_sel_slp <- params$fsh_sel_slp
-  inits$log_phi <- params$log_phi
-  params <- inits
-}
-print("Step 1: Parameter build complete")
-
+params <- suppressWarnings(Rceattle::build_params(
+  data_list = data_list,
+  inits = NULL
+))
 
 
 # STEP 2 - BUILD MAP
-if (is.null(map)) {
-  map <-
-    suppressWarnings(Rceattle::build_map(data_list, params, debug = debug, random_rec = random_rec))
-} else{
-  map <- map
-}
+map <-
+  suppressWarnings(Rceattle::build_map(data_list, params, debug = debug, random_rec = random_rec))
+
 print("Step 2: Map build complete")
 
 
 # STEP 3 - Get bounds
-if (is.null(bounds)) {
-  bounds <- Rceattle::build_bounds(param_list = params, data_list)
-} else {
-  bounds = bounds
-}
-print("Step 3: Param bounds complete")
+bounds <- Rceattle::build_bounds(param_list = params, data_list)
 
 
 # STEP 4 - Setup random effects
-random_vars <- c()
+random_vars <- c("ln_srv_q_dev_re", "srv_sel_slp_dev_re", "srv_sel_inf_dev_re", "fsh_sel_slp_dev_re", "fsh_sel_inf_dev_re")
 if (random_rec == TRUE) {
-  random_vars <- c("rec_dev")
+  random_vars <- c(random_vars , "rec_dev")
 }
 
 '%!in%' <- function(x,y)!('%in%'(x,y))
