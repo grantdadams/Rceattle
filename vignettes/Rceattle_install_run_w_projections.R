@@ -37,13 +37,13 @@ mydata <- Rceattle::read_data( file = "BS2017SS.xlsx")
 ################################################
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
 ss_run2 <- Rceattle::fit_mod(data_list = mydata,
-                            inits = NULL, # Initial parameters = 0
-                            file = NULL, # Don't save
-                            debug = 0, # Estimate
-                            random_rec = FALSE, # No random recruitment
-                            msmMode = 0, # Single species mode
-                            silent = TRUE,
-                            recompile = TRUE)
+                             inits = NULL, # Initial parameters = 0
+                             file = NULL, # Don't save
+                             debug = 0, # Estimate
+                             random_rec = FALSE, # No random recruitment
+                             msmMode = 0, # Single species mode
+                             silent = TRUE,
+                             recompile = TRUE)
 # Type ?fit_mod for more details
 
 # The you can plot the model results using using
@@ -83,6 +83,10 @@ plot_index(ms_run) # Fitted indices of abundance
 plot_catch(ms_run) # Fitted catch series
 
 
+# Save results
+write_results(Rceattle = ms_run, file = "yourresults.xlsx")
+
+
 ################################################
 # Projection
 ################################################
@@ -98,14 +102,14 @@ BS2017MS$fsh_control$proj_F <- c(0.2342936, 0.513, 0.0774777)
 
 # Re-run, without estimating
 ms_run_proj <- Rceattle::fit_mod(data_list = BS2017MS,
-                            inits = ms_run$estimated_params, # Initial parameters from single species ests
-                            file = NULL, # Don't save
-                            debug = TRUE, # Do not estimate. Not changing parameters right now
-                            niter = 10, # 10 iterations around population and predation dynamics
-                            random_rec = FALSE, # No random recruitment
-                            msmMode = 1, # MSVPA based
-                            suitMode = 0, # empirical suitability
-                            silent = TRUE)
+                                 inits = ms_run$estimated_params, # Initial parameters from single species ests
+                                 file = NULL, # Don't save
+                                 debug = TRUE, # Do not estimate. Not changing parameters right now
+                                 niter = 10, # 10 iterations around population and predation dynamics
+                                 random_rec = FALSE, # No random recruitment
+                                 msmMode = 1, # MSVPA based
+                                 suitMode = 0, # empirical suitability
+                                 silent = TRUE)
 
 
 
@@ -124,17 +128,17 @@ ms_run$estimated_params$rec_dev[,yrs_proj] <- replace(
   values = rnorm( length(ms_run$estimated_params$rec_dev[,yrs_proj]),
                   mean = 0,
                   sd = 0.707) # Assumed value from penalized likelihood
-  )
+)
 
 ms_run_proj2 <- Rceattle::fit_mod(data_list = BS2017MS,
-                                 inits = ms_run$estimated_params, # Initial parameters from single species ests
-                                 file = NULL, # Don't save
-                                 debug = TRUE, # Do not estimate. Not changing parameters right now
-                                 niter = 10, # 10 iterations around population and predation dynamics
-                                 random_rec = FALSE, # No random recruitment
-                                 msmMode = 1, # MSVPA based
-                                 suitMode = 0, # empirical suitability
-                                 silent = TRUE)
+                                  inits = ms_run$estimated_params, # Initial parameters from single species ests
+                                  file = NULL, # Don't save
+                                  debug = TRUE, # Do not estimate. Not changing parameters right now
+                                  niter = 10, # 10 iterations around population and predation dynamics
+                                  random_rec = FALSE, # No random recruitment
+                                  msmMode = 1, # MSVPA based
+                                  suitMode = 0, # empirical suitability
+                                  silent = TRUE)
 
 
 # plot
@@ -224,7 +228,7 @@ ms_gamma <- Rceattle::fit_mod(
   random_rec = FALSE, # No random recruitment
   msmMode = 1, # MSVPA based
   suitMode = 1, # Have a gamma function with time-independent length ratio for suitability. Includes diet in likelihood as multinomial
-  silent = TRUE)
+  silent = FALSE)
 # Can try different functions. Look at ?fit_mod suitmode
 
 
