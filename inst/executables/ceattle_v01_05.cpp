@@ -1357,7 +1357,7 @@ Type objective_function<Type>::operator() () {
 
 
 
-      // 8.1.2. Length-based GAMMA suitability // FIXME - not flexible for interannual variation in length-at-age
+      // 8.1.2. Length-based GAMMA suitability
       // -- Turned off if not estimating selectivity
       if(suitMode == 1){
         Type x_l_ratio = 0;       // Log(mean(predLen@age)/mean(preyLen@age))
@@ -1401,7 +1401,7 @@ Type objective_function<Type>::operator() () {
       } // End GAMMA selectivity
 
 
-      // 8.1.2. Time-varying length-based GAMMA suitability // FIXME - not flexible for interannual variation in length-at-age
+      // 8.1.2. Time-varying length-based GAMMA suitability
       // -- Turned off if not estimating selectivity
       if(suitMode == 2){
         Type x_l_ratio = 0;       // Log(mean(predLen@age)/mean(preyLen@age))
@@ -1441,7 +1441,7 @@ Type objective_function<Type>::operator() () {
       } // End GAMMA selectivity
 
 
-      // 8.1.3. Time-varying weight-based GAMMA suitability // FIXME - not flexible for interannual variation in length-at-age
+      // 8.1.3. Time-varying weight-based GAMMA suitability
       // -- Turned off if not estimating selectivity
       if(suitMode == 3){
         Type x_l_ratio = 0;       // Log(mean(predLen@age)/mean(preyLen@age))
@@ -1490,7 +1490,7 @@ Type objective_function<Type>::operator() () {
 
 
       //-------------------------------------------------------------------------------------------------------------
-      // 8.1.4. Length-based lognormal suitability // FIXME - not flexible for interannual variation in length-at-age
+      // 8.1.4. Length-based lognormal suitability
       // -- Turned off if not estimating selectivity
       if(suitMode == 4){
         Type x_l_ratio = 0;       // Log(mean(predLen@age)/mean(preyLen@age))
@@ -1525,6 +1525,8 @@ Type objective_function<Type>::operator() () {
           }
         }
       } // End lognormal selectivity
+
+      
       // 8.1.5. Time varying length-based lognormal suitability
       if(suitMode == 5){
         Type x_l_ratio = 0;       // Log(mean(predLen@age)/mean(preyLen@age))
