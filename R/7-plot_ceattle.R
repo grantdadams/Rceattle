@@ -374,7 +374,6 @@ plot_recruitment <-
           file = filename ,
           width = 7,# 169 / 25.4,
           height = 6.5,# 150 / 25.4,
-          family = "Helvetica",
           units = "in",
           res = 300
         )
@@ -1089,7 +1088,6 @@ plot_maturity <-
           file = filename ,
           width = 4,# 169 / 25.4,
           height = 6.5, # 150 / 25.4,
-          family = "Helvetica" ,
           units = "in",
           res = 300
         )
