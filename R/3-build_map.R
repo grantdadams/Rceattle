@@ -133,6 +133,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       if(data_list$fsh_control$Time_varying_sel[i] == 3){
 
         fsh_biom <- data_list$fsh_biom[which(data_list$fsh_biom$Fishery_code == i),]
+        fsh_biom <- fsh_biom[1:nyrs_hind,]
 
         # Turn off random effects
         map_list$fsh_sel_slp_dev_re[1, i,] <- NA
@@ -237,6 +238,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
         # Loop through upper and lower
         fsh_biom <- data_list$fsh_biom[which(data_list$fsh_biom$Fishery_code == i),]
+        fsh_biom <- fsh_biom[1:nyrs_hind,]
 
         for(j in 1:2){
           map_list$fsh_sel_slp_dev[j, i,] <- fsh_biom$Selectivity_block - 1 + ind_slp
@@ -325,6 +327,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
         # Extract survey years where data is provided
         srv_biom <- data_list$srv_biom[which(data_list$srv_biom$Survey_code == i),]
+        srv_biom <- srv_biom[which((srv_biom$Year - data_list$styr + 1) <= nyrs_hind),]
+
         srv_biom_yrs <- srv_biom$Year - data_list$styr + 1
 
         # Random walk
@@ -423,6 +427,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
           # Extract survey years where data is provided
           srv_biom <- data_list$srv_biom[which(data_list$srv_biom$Survey_code == i),]
+          srv_biom <- srv_biom[which((srv_biom$Year - data_list$styr + 1) <= nyrs_hind),]
           srv_biom_yrs <- srv_biom$Year - data_list$styr + 1
 
           # Random walk
@@ -509,6 +514,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
       # Extract survey years where data is provided
       srv_biom <- data_list$srv_biom[which(data_list$srv_biom$Survey_code == i),]
+      srv_biom <- srv_biom[which((srv_biom$Year - data_list$styr + 1) <= nyrs_hind),]
       srv_biom_yrs <- srv_biom$Year - data_list$styr + 1
 
       # Random walk
@@ -635,6 +641,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
   # -- 10. Map out Fdev for years with 0 catch to very low number
   fsh_biom <- data_list$fsh_biom
+  fsh_biom <- fsh_biom[1:nyrs_hind,]
+
   fsh_ind <- fsh_biom$Fishery_code[which(fsh_biom$Catch == 0)]
   yr_ind <- fsh_biom$Year[which(fsh_biom$Catch == 0)] - data_list$styr + 1
 
