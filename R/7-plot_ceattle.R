@@ -1159,9 +1159,9 @@ plot_maturity <-
   }
 
 
-#' plot_ssb
+#' Plot SSB
 #'
-#' @description Function the plots the spawning stock biomass trends as estimated from Rceattle
+#' @description Function the plots the spawning stock biomass trends as estimated from Rceattle. Returns and saves a figure with the ssb trajectory.
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
@@ -1173,9 +1173,8 @@ plot_maturity <-
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
 #' @param incl_proj TRUE/FALSE include projections years
-#' @param add_ci TRUE/FALSE, includes 95% confidence interval
+#' @param add_ci TRUE/FALSE, includes 95 percent confidence interval
 #'
-#' @return Returns and saves a figure with the ssb trajectory.
 #' @export
 #'
 plot_ssb <-

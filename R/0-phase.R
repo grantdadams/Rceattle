@@ -17,7 +17,7 @@
 #' @author Gavin Fay
 #' @export
 #'
-#' @examples
+
 
 TMBphase <- function(data, parameters, random, phases, model_name,
                      optimizer = "nlminb") {
