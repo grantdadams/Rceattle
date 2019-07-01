@@ -3,6 +3,9 @@
 # Citation:
 # Holsman, K. K., Ianelli, J., Aydin, K., Punt, A. E., and Moffitt, E. A. 2015. A comparison of fisheries biological reference points estimated from temperature-specific multi-species and single-species climate-enhanced stock assessment models. Deep-Sea Research Part II: Topical Studies in Oceanography, 134: 360–378.
 
+################################################
+# Installation
+################################################
 # Install devtools if you don't already have it
 install.packages("devtools")
 # Install TMB and rtools
@@ -14,8 +17,11 @@ install.packages('TMB', type = 'source')
 devtools::install_github("grantdadams/Rceattle", auth_token = "4925b42ac46f1e0aefd671e9dc0c1cf1b3157017")
 
 
-
+################################################
+# Setup
+################################################
 library(Rceattle)
+
 
 ################################################
 # Data
@@ -223,10 +229,25 @@ ms_gamma <- Rceattle::fit_mod(
   niter = 10, # 10 iterations around population and predation dynamics
   random_rec = FALSE, # No random recruitment
   msmMode = 1, # MSVPA based
-  suitMode = 1, # Have a gamma function with time-independent length ratio for suitability. Includes diet in likelihood as multinomial
+  suitMode = 1, # Have a gamma function with time-independent length ratio for suitability. Includes diet proportion by weight in likelihood as multinomial
   silent = TRUE)
 # Can try different functions. Look at ?fit_mod suitmode
 
+
+ms_gamma2 <- Rceattle::fit_mod(
+  data_list = mydata,
+  inits = ss_run$estimated_params, # Initial parameters from single species ests
+  file = NULL, # Don't save
+  debug = 0, # Estimate
+  niter = 10, # 10 iterations around population and predation dynamics
+  random_rec = FALSE, # No random recruitment
+  msmMode = 3, # MSVPA based
+  suitMode = 1, # Have a gamma function with time-independent length ratio for suitability. Includes diet proportion by weight in likelihood as multinomial
+  silent = TRUE,
+  recompile = TRUE)
+
+ms_gamma2$quantities$jnll_comp
+ms_gamma2$quantities$srv_hat
 
 ################################################
 # Included files
