@@ -241,12 +241,12 @@ ms_gamma2 <- Rceattle::fit_mod(
   debug = 1, # Estimate
   niter = 10, # 10 iterations around population and predation dynamics
   random_rec = FALSE, # No random recruitment
-  msmMode = 3, # MSVPA based
-  suitMode = 1, # Have a gamma function with time-independent length ratio for suitability. Includes diet proportion by weight in likelihood as multinomial
-  silent = TRUE)
+  msmMode = 4, # MSVPA based
+  suitMode = 0, # Have a gamma function with time-independent length ratio for suitability. Includes diet proportion by weight in likelihood as multinomial
+  silent = FALSE)
 
 ms_gamma2$quantities$jnll_comp
-ms_gamma2$quantities$srv_hat
+sum(is.nan(ms_gamma2$quantities$T_hat))
 
 ################################################
 # Included files
