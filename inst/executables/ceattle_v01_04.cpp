@@ -2015,7 +2015,12 @@ Type objective_function<Type>::operator() () {
         //  Normalize survey catch-at-age
         if (srv_comp_type == 0) {
           for (age = 0; age < nages(sp); age++) {
-            srv_comp_hat(comp_ind, age) = srv_age_obs_hat(comp_ind, age) / srv_hat(comp_ind);
+            if(srv_hat(comp_ind) > 0){
+              srv_comp_hat(comp_ind, age) = srv_age_obs_hat(comp_ind, age) / srv_hat(comp_ind);
+            } else {
+              srv_comp_hat(comp_ind, age) = 0;
+            }
+            
           }
         }
 
@@ -2029,7 +2034,11 @@ Type objective_function<Type>::operator() () {
 
           // Normalize
           for (ln = 0; ln < nlengths(sp); ln++) {
-            srv_comp_hat(comp_ind, ln) = srv_comp_hat(comp_ind, ln) / srv_hat(comp_ind);
+            if(srv_hat(comp_ind) > 0){
+              srv_comp_hat(comp_ind, ln) = srv_comp_hat(comp_ind, ln) / srv_hat(comp_ind);
+            } else {
+srv_comp_hat(comp_ind, ln) = 0;
+            }
           }
         }
       }
@@ -2296,7 +2305,9 @@ Type objective_function<Type>::operator() () {
     // Add years from hindcast
     if(srv_fit(srv) == 1){
       if(srv_yr <= endyr){
-        jnll_comp(0, srv) -= dnorm(log(srv_bio_hat(srv_ind)), log(srv_biom_obs(srv_ind, 0)), srv_std_dev, true);  // pow(log(srv_biom_obs(srv_ind, 0)) - log(srv_bio_hat(srv_ind)), 2) / (2 * square( srv_std_dev )); // NOTE: This is not quite the lognormal and biohat will be the median.
+        if(srv_bio_hat(srv_ind) > 0){ // Make sure not taking log of 0
+          jnll_comp(0, srv) -= dnorm(log(srv_bio_hat(srv_ind)), log(srv_biom_obs(srv_ind, 0)), srv_std_dev, true);  // pow(log(srv_biom_obs(srv_ind, 0)) - log(srv_bio_hat(srv_ind)), 2) / (2 * square( srv_std_dev )); // NOTE: This is not quite the lognormal and biohat will be the median.
+        }
       }
     }
   }
@@ -2308,15 +2319,29 @@ Type objective_function<Type>::operator() () {
 
     srv = srv_comp_ctl(comp_ind, 0) - 1;            // Temporary survey index
     sp = srv_comp_ctl(comp_ind, 1) - 1;             // Temporary index of species
+    srv_comp_type = srv_comp_ctl(comp_ind, 3);      // Temporary index for comp type (0 = age, 1 = length)
     srv_yr = srv_comp_ctl(comp_ind, 4);             // Temporary index for years of data
+
+    Type n_comp = 0;
+    if(srv_comp_type == 0){
+      n_comp = nages(sp);
+    }
+    if(srv_comp_type == 1){
+      n_comp = nlengths(sp);
+    }
 
 
     // Only use years wanted
     if(srv_fit(srv) == 1){
       if(srv_yr <= endyr){
-        for (ln = 0; ln < srv_comp_obs.cols(); ln++) {
+        for (ln = 0; ln < n_comp; ln++) {
           if(!isNA( srv_comp_obs(comp_ind, ln) )){
             jnll_comp(1, srv) -= Type(srv_comp_n(comp_ind, 1)) * (srv_comp_obs(comp_ind, ln) + MNConst) * log(srv_comp_hat(comp_ind, ln) + MNConst ) ;
+          }
+
+          // Error check
+          if(isNA( srv_comp_obs(comp_ind, ln) )){
+            error("NA present in survey composition data");
           }
         }
       }
@@ -2414,15 +2439,30 @@ Type objective_function<Type>::operator() () {
 
     fsh = fsh_comp_ctl(comp_ind, 0) - 1;            // Temporary survey index
     sp = fsh_comp_ctl(comp_ind, 1) - 1;             // Temporary index of species
+    fsh_comp_type = fsh_comp_ctl(comp_ind, 3);      // Temporary index for comp type (0 = age, 1 = length)
     fsh_yr = fsh_comp_ctl(comp_ind, 4);             // Temporary index for years of data
+
+
+    Type n_comp = 0;
+    if(fsh_comp_type == 0){
+      n_comp = nages(sp);
+    }
+    if(fsh_comp_type == 1){
+      n_comp = nlengths(sp);
+    }
 
     // If included in likelihood
     if(fsh_fit(fsh) == 1){
       // Add years from hindcast only
       if(fsh_yr <= endyr){
-        for (ln = 0; ln < fsh_comp_obs.cols(); ln++) {
+        for (ln = 0; ln < n_comp; ln++) {
           if(!isNA( fsh_comp_obs(comp_ind, ln) )){
             jnll_comp(5, fsh) -= Type(fsh_comp_n(comp_ind, 1)) * (fsh_comp_obs(comp_ind, ln) + MNConst) * log(fsh_comp_hat(comp_ind, ln) + MNConst ) ;
+          }
+
+          // Error check
+          if(isNA( fsh_comp_obs(comp_ind, ln) )){
+            error("NA present in fishery composition data");
           }
         }
       }

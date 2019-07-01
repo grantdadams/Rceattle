@@ -367,7 +367,7 @@ fit_mod <-
                              startpar=obj$par,
                              lower = L,
                              upper = U,
-                             loopnum = 8,
+                             loopnum = 3,
                              control = list(eval.max = 1e+09,
                                             iter.max = 1e+09, trace = 0)
     )
