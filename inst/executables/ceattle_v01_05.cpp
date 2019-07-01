@@ -2924,7 +2924,9 @@ Type objective_function<Type>::operator() () {
 
           // Renormalize the eaten vector
           for (k_ln = 0; k_ln < nlengths(ksp); k_ln++) {
+          if(Denom > 0){
             T_hat(rsp, ksp, r_ln, k_ln) /= Denom;
+          }
 
             // Likelihood of diet length         / This is equation 16
             if (Uobs(rsp, ksp, r_ln, k_ln) > 0) {
