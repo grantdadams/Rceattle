@@ -2194,11 +2194,10 @@ Type objective_function<Type>::operator() () {
         //  Normalize survey catch-at-age
         if (srv_comp_type == 0) {
           for (age = 0; age < nages(sp); age++) {
+          if(srv_hat(comp_ind) > 0){
             srv_comp_hat(comp_ind, age) = srv_age_obs_hat(comp_ind, age) / srv_hat(comp_ind);
-            
-            // Make sure we are not dividing by 0
-            if( srv_hat(comp_ind) == 0){
-              srv_comp_hat(comp_ind, age) = 0 ;
+            } else{
+            srv_comp_hat(comp_ind, age) = 0;
             }
           }
         }
@@ -2213,11 +2212,10 @@ Type objective_function<Type>::operator() () {
 
           // Normalize
           for (ln = 0; ln < nlengths(sp); ln++) {
-            srv_comp_hat(comp_ind, ln) = srv_comp_hat(comp_ind, ln) / srv_hat(comp_ind);
-            
-            // Make sure we are not dividing by 0
-            if( srv_hat(comp_ind) == 0){
-              srv_comp_hat(comp_ind, ln) = 0 ;
+            if(srv_hat(comp_ind) > 0){
+              srv_comp_hat(comp_ind, ln) = srv_comp_hat(comp_ind, ln) / srv_hat(comp_ind);
+            } else {
+              srv_comp_hat(comp_ind, ln) = 0;
             }
           }
         }
@@ -2502,18 +2500,13 @@ Type objective_function<Type>::operator() () {
     srv_comp_type = srv_comp_ctl(comp_ind, 3);      // Temporary index for comp type (0 = age, 1 = length)
     srv_yr = srv_comp_ctl(comp_ind, 4);             // Temporary index for years of data
 
-
-    Type n_comp = 0; // Number of ages/lengths
-    switch (srv_comp_type) {
-    case 0:
+// Number of ages/lengths
+    Type n_comp = 0;
+    if(srv_comp_type == 0){
       n_comp = nages(sp);
-      break;
-    case 1:
+    }
+     if(srv_comp_type == 1){
       n_comp = nlengths(sp);
-      break;
-    default:
-      error("Invalid survey comp type");
-    break;
     }
 
     // Only use years wanted
@@ -2522,6 +2515,10 @@ Type objective_function<Type>::operator() () {
         for (ln = 0; ln < n_comp; ln++) {
           if(!isNA( srv_comp_obs(comp_ind, ln) )){
             jnll_comp(1, srv) -= Type(srv_comp_n(comp_ind, 1)) * (srv_comp_obs(comp_ind, ln) + MNConst) * log(srv_comp_hat(comp_ind, ln) + MNConst ) ;
+          }
+          
+          if(isNA( srv_comp_obs(comp_ind, ln) )){
+            error("NA in survey composition data");
           }
         }
       }
@@ -2671,15 +2668,30 @@ Type objective_function<Type>::operator() () {
 
     fsh = fsh_comp_ctl(comp_ind, 0) - 1;            // Temporary survey index
     sp = fsh_comp_ctl(comp_ind, 1) - 1;             // Temporary index of species
+    fsh_comp_type = fsh_comp_ctl(comp_ind, 3);      // Temporary index for comp type (0 = age, 1 = length)
     fsh_yr = fsh_comp_ctl(comp_ind, 4);             // Temporary index for years of data
+    
+    // Number of ages/lengths
+    Type n_comp = 0;
+    if(fsh_comp_type == 0){
+    n_comp = nages(sp);
+    }
+    if(fsh_comp_type == 1){
+    n_comp = nlengths(sp);
+    }
+    
 
     // If included in likelihood
     if(fsh_fit(fsh) == 1){
       // Add years from hindcast only
       if(fsh_yr <= endyr){
-        for (ln = 0; ln < fsh_comp_obs.cols(); ln++) {
+        for (ln = 0; ln < n_comp; ln++) {
           if(!isNA( fsh_comp_obs(comp_ind, ln) )){
             jnll_comp(6, fsh) -= Type(fsh_comp_n(comp_ind, 1)) * (fsh_comp_obs(comp_ind, ln) + MNConst) * log(fsh_comp_hat(comp_ind, ln) + MNConst ) ;
+          }
+          
+          if(isNA( fsh_comp_obs(comp_ind, ln) )){
+            error("NA in fishery composition data");
           }
         }
       }
