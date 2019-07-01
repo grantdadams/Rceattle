@@ -695,8 +695,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
     # Holling Type 3
     if (data_list$msmMode == 4) {
-      map_list$logH_2 <- replace(map_list$logH_2, values = rep(NA, length(map_list$logH_2)))
-      map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
+      map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
     }
 
     # Predator interference
