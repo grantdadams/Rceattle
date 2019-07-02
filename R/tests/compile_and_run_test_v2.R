@@ -17,10 +17,11 @@ bounds = NULL
 file_name = NULL # Don't save
 debug = 0 # Estimate
 random_rec = FALSE # No random recruitment
-msmMode = 4 # Type 1 species mode
+msmMode = 1 # Type 1 species mode
 avgnMode = 0
 silent = TRUE
 niter = 5
+minNByage = 0
 est_diet = FALSE
 suitMode = FALSE
 recompile = FALSE
@@ -30,17 +31,7 @@ recompile = FALSE
 # #--------------------------------------------------
 # # 1. DATA and MODEL PREP
 # #--------------------------------------------------
-load("~/Documents/GitHub/RceattleRuns/BSAI/2019 Think Tank/Models/ss_no_re.RData")
-# "C:/Users/Grant Adams/Documents/GitHub/RceattleRuns/BSAI/2019 Think Tank/Models/ss_no_re.RData"
-initial_params <- mod_objects$estimated_params
-
-initial_params$srv_sel_coff
-initial_params$srv_sel_inf <- cbind(initial_params$srv_sel_inf, matrix(0, ncol = 1, nrow = 2))
-initial_params$srv_sel_slp <- cbind(initial_params$srv_sel_slp, matrix(0, ncol = 1, nrow = 2))
-initial_params$log_srv_q <- c(initial_params$log_srv_q, initial_params$log_eit_q)
-inits <- initial_params
-inits$log_eit_q <- NULL
-inits$phi <- NULL
+inits <- ms_run$estimated_params
 
 # STEP 1 - LOAD DATA
 if (is.null(data_list)) {
@@ -55,6 +46,7 @@ data_list$niter <- niter
 data_list$avgnMode <- avgnMode
 data_list$msmMode <- msmMode
 data_list$suitMode <- as.numeric(suitMode)
+data_list$minNByage <- as.numeric(minNByage)
 
 
 # Get cpp file if not provided
@@ -74,14 +66,6 @@ if (is.character(inits) | is.null(inits)) {
     inits = inits
   ))
 } else{
-  params <- suppressWarnings(Rceattle::build_params(
-    data_list = data_list,
-    inits = inits
-  ))
-  inits$srv_sel_coff <- params$srv_sel_coff
-  inits$fsh_sel_inf <- params$fsh_sel_inf
-  inits$fsh_sel_slp <- params$fsh_sel_slp
-  inits$log_phi <- params$log_phi
   params <- inits
 }
 print("Step 1: Parameter build complete")
@@ -156,6 +140,7 @@ print("Step 4: Compile CEATTLE complete")
 
 # STEP 6 - Reorganize data
 data_list2 <- rearrange_dat(data_list)
+data_list2$msmMode = 3
 
 # STEP 7 - Build and fit model object
 obj = TMB::MakeADFun(
@@ -163,16 +148,17 @@ obj = TMB::MakeADFun(
   parameters = params,
   DLL = TMBfilename,
   random = random_vars,
-  silent = silent,
+  silent = FALSE,
   map = map[[1]]
 )
+
+obj$gr()
+obj$fn()
+
+opt <- nlminb(objective = obj$fn,
+              start=obj$par)
+
 print(paste0("Step 5: Build object complete"), hessian = TRUE)
-# opt <- nlminb(obj$par, obj$fn, obj$gr)
-# methods <- c('Nelder-Mead', 'BFGS', 'CG', 'L-BFGS-B', 'nlm', 'nlminb', 'spg', 'ucminf', 'newuoa', 'bobyqa', 'nmkb', 'hjkb', 'Rcgmin', 'Rvmmin')
-# opt_list <- list()
-# for(i in 1:length(methods)){
-#  opt_list[i] = optimx(obj$par, function(x) as.numeric(obj$fn(x)), obj$gr, control = list(maxit = 10000), method = methods[i])
-# }
 
 
 # Remove inactive parameters from bounds and vectorize

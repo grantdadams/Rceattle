@@ -236,7 +236,7 @@ ms_gamma <- Rceattle::fit_mod(
 
 ms_gamma2 <- Rceattle::fit_mod(
   data_list = mydata,
-  inits = ss_run$estimated_params, # Initial parameters from single species ests
+  inits = ms_run$estimated_params, # Initial parameters from single species ests
   file = NULL, # Don't save
   debug = 1, # Estimate
   niter = 10, # 10 iterations around population and predation dynamics
