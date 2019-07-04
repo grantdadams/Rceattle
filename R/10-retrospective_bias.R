@@ -86,8 +86,8 @@ retrospective <- function(Rceattle = NULL, peels = NULL) {
                                                                   avgnMode = data_list$avgnMode, silent = TRUE)))
 
     # Refit model If converged
-    if (!is.null(newmod$opt$Convergence_check)) {
-      if (newmod$opt$Convergence_check != "The model is definitely not converged") {
+    if (!is.null(newmod$opt$opt$Convergence_check)) {
+      if (newmod$opt$opt$Convergence_check != "The model is definitely not converged") {
         mod_list[[ind]] <- newmod
         ind <- ind + 1
       }

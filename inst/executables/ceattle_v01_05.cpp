@@ -871,7 +871,7 @@ Type objective_function<Type>::operator() () {
   // ------------------------------------------------------------------------- //
   // NOTE: Remember indexing starts at 0
   // Start iterations
-  
+
   for (int iter = 0; iter < niter; iter++) {
 
 
@@ -1526,7 +1526,7 @@ Type objective_function<Type>::operator() () {
         }
       } // End lognormal selectivity
 
-      
+
       // 8.1.5. Time varying length-based lognormal suitability
       if(suitMode == 5){
         Type x_l_ratio = 0;       // Log(mean(predLen@age)/mean(preyLen@age))
@@ -1610,7 +1610,7 @@ Type objective_function<Type>::operator() () {
 
       if (msmMode == 1) {
 
-        
+
         // 8.1.3. Calculate available food
         avail_food.setZero();
         othersuit.setZero();
@@ -1674,7 +1674,7 @@ Type objective_function<Type>::operator() () {
         }
       } // End 8..1. Holsman predation mortality
 
-   
+
       // 8.2. KINZEY PREDATION EQUATIONS
       if (msmMode > 1) {
 
@@ -2136,7 +2136,7 @@ Type objective_function<Type>::operator() () {
       srv = srv_biom_ctl(srv_ind, 0) - 1;            // Temporary survey index
       srv_yr = srv_biom_ctl(srv_ind, 3) - styr;      // Temporary index for years of data
       if(srv_yr < nyrs_hind){
-      srv_bio_hat(srv_ind) *= srv_q(srv, srv_yr);
+        srv_bio_hat(srv_ind) *= srv_q(srv, srv_yr);
       }
     }
 
@@ -2194,10 +2194,10 @@ Type objective_function<Type>::operator() () {
         //  Normalize survey catch-at-age
         if (srv_comp_type == 0) {
           for (age = 0; age < nages(sp); age++) {
-          if(srv_hat(comp_ind) > 0){
-            srv_comp_hat(comp_ind, age) = srv_age_obs_hat(comp_ind, age) / srv_hat(comp_ind);
+            if(srv_hat(comp_ind) > 0){
+              srv_comp_hat(comp_ind, age) = srv_age_obs_hat(comp_ind, age) / srv_hat(comp_ind);
             } else{
-            srv_comp_hat(comp_ind, age) = 0;
+              srv_comp_hat(comp_ind, age) = 0;
             }
           }
         }
@@ -2483,8 +2483,8 @@ Type objective_function<Type>::operator() () {
     // Add years from hindcast
     if(srv_fit(srv) == 1){
       if(srv_yr <= endyr){
-      if(srv_bio_hat(srv_ind) > 0){
-        jnll_comp(0, srv) -= dnorm(log(srv_bio_hat(srv_ind)), log(srv_biom_obs(srv_ind, 0)), srv_std_dev, true);  // pow(log(srv_biom_obs(srv_ind, 0)) - log(srv_bio_hat(srv_ind)), 2) / (2 * square( srv_std_dev )); // NOTE: This is not quite the lognormal and biohat will be the median.
+        if(srv_bio_hat(srv_ind) > 0){
+          jnll_comp(0, srv) -= dnorm(log(srv_bio_hat(srv_ind)), log(srv_biom_obs(srv_ind, 0)), srv_std_dev, true);  // pow(log(srv_biom_obs(srv_ind, 0)) - log(srv_bio_hat(srv_ind)), 2) / (2 * square( srv_std_dev )); // NOTE: This is not quite the lognormal and biohat will be the median.
         }
       }
     }
@@ -2500,12 +2500,12 @@ Type objective_function<Type>::operator() () {
     srv_comp_type = srv_comp_ctl(comp_ind, 3);      // Temporary index for comp type (0 = age, 1 = length)
     srv_yr = srv_comp_ctl(comp_ind, 4);             // Temporary index for years of data
 
-// Number of ages/lengths
+    // Number of ages/lengths
     Type n_comp = 0;
     if(srv_comp_type == 0){
       n_comp = nages(sp);
     }
-     if(srv_comp_type == 1){
+    if(srv_comp_type == 1){
       n_comp = nlengths(sp);
     }
 
@@ -2516,7 +2516,7 @@ Type objective_function<Type>::operator() () {
           if(!isNA( srv_comp_obs(comp_ind, ln) )){
             jnll_comp(1, srv) -= Type(srv_comp_n(comp_ind, 1)) * (srv_comp_obs(comp_ind, ln) + MNConst) * log(srv_comp_hat(comp_ind, ln) + MNConst ) ;
           }
-          
+
           if(isNA( srv_comp_obs(comp_ind, ln) )){
             error("NA in survey composition data");
           }
@@ -2670,16 +2670,16 @@ Type objective_function<Type>::operator() () {
     sp = fsh_comp_ctl(comp_ind, 1) - 1;             // Temporary index of species
     fsh_comp_type = fsh_comp_ctl(comp_ind, 3);      // Temporary index for comp type (0 = age, 1 = length)
     fsh_yr = fsh_comp_ctl(comp_ind, 4);             // Temporary index for years of data
-    
+
     // Number of ages/lengths
     Type n_comp = 0;
     if(fsh_comp_type == 0){
-    n_comp = nages(sp);
+      n_comp = nages(sp);
     }
     if(fsh_comp_type == 1){
-    n_comp = nlengths(sp);
+      n_comp = nlengths(sp);
     }
-    
+
 
     // If included in likelihood
     if(fsh_fit(fsh) == 1){
@@ -2689,7 +2689,7 @@ Type objective_function<Type>::operator() () {
           if(!isNA( fsh_comp_obs(comp_ind, ln) )){
             jnll_comp(6, fsh) -= Type(fsh_comp_n(comp_ind, 1)) * (fsh_comp_obs(comp_ind, ln) + MNConst) * log(fsh_comp_hat(comp_ind, ln) + MNConst ) ;
           }
-          
+
           if(isNA( fsh_comp_obs(comp_ind, ln) )){
             error("NA in fishery composition data");
           }
@@ -2924,9 +2924,9 @@ Type objective_function<Type>::operator() () {
 
           // Renormalize the eaten vector
           for (k_ln = 0; k_ln < nlengths(ksp); k_ln++) {
-          if(Denom > 0){
-            T_hat(rsp, ksp, r_ln, k_ln) /= Denom;
-          }
+            if(Denom > 0){
+              T_hat(rsp, ksp, r_ln, k_ln) /= Denom;
+            }
 
             // Likelihood of diet length         / This is equation 16
             if (Uobs(rsp, ksp, r_ln, k_ln) > 0) {
