@@ -16,8 +16,6 @@
 #' @return A list of parameter estimates and their standard errors
 #' @author Gavin Fay
 #'
-#'
-#'
 TMBphase <- function(data, parameters, random, phases, model_name,
                      optimizer = "nlminb") {
 

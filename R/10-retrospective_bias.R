@@ -80,7 +80,6 @@ retrospective <- function(Rceattle = NULL, peels = NULL) {
       map[[1]][[i]] <- factor(map[[2]][[i]])
     }
 
-
     # Refit
     newmod <- suppressMessages(suppressWarnings(Rceattle::fit_mod(data_list = data_list, inits = inits, file = NULL, debug = 0, map = map,
                                                                   niter = data_list$niter, random_rec = data_list$random_rec, msmMode = data_list$msmMode, suitMode = data_list$suitMode,
@@ -95,37 +94,41 @@ retrospective <- function(Rceattle = NULL, peels = NULL) {
     }
   }
 
-  # Calculate Mohs rho for each species
-  objects <- c("biomass", "biomassSSB", "R")
+    # Calculate Mohs rho for each species
+    objects <- c("biomass", "biomassSSB", "R")
 
-  mohns <- data.frame(matrix(0, nrow = length(objects), ncol = 1 + data_list$nspp))
-  colnames(mohns) <- c("Object", paste0("Species_", 1:data_list$nspp))
-  mohns$Object <- objects
+    mohns <- data.frame(matrix(0, nrow = length(objects) + 1, ncol = 1 + data_list$nspp))
+    colnames(mohns) <- c("Object", paste0("Spp/Fsh_", 1:max(c(data_list$nspp, nrow(data_list$fsh_control)))))
+    mohns$Object <- c(objects, "F")
 
-  # Loop around peels that converged
-  for (i in 1:(length(mod_list) - 1)) {
-    nyrs_peel <- mod_list[[i + 1]]$data_list$endyr - styr + 1
+    # Loop around peels that converged
+    for (i in 1:(length(mod_list) - 1)) {
+        nyrs_peel <- mod_list[[i + 1]]$data_list$endyr - styr + 1
 
-    # Loop around derived quantitities
-    for (j in 1:length(objects)) {
-      base <- mod_list[[1]]$quantities[[objects[j]]]
-      peel <- mod_list[[i + 1]]$quantities[[objects[j]]]
+        # Loop around derived quantitities
+        for (j in 1:length(objects)) {
+            base <- mod_list[[1]]$quantities[[objects[j]]]
+            peel <- mod_list[[i + 1]]$quantities[[objects[j]]]
 
-      base <- base[, nyrs_peel]
-      peel <- peel[, nyrs_peel]
+            base <- base[, nyrs_peel]
+            peel <- peel[, nyrs_peel]
 
-      rel_error <- ((peel - base)/base)/peels
+            rel_error <- ((peel - base)/base)/peels
 
-      mohns[, j + 1] <- mohns[, j + 1] + rel_error
+            mohns[j, 2:(data_list$nspp + 1) ] <- mohns[j, 2:(data_list$nspp + 1)] + rel_error
+        }
+
+        # F vec
+        base <- exp(mod_list[[1]]$estimated_params$F_dev + mod_list[[1]]$estimated_params$ln_mean_F)
+        peel <- exp(mod_list[[1 + i]]$estimated_params$F_dev + mod_list[[1 + i]]$estimated_params$ln_mean_F)
+
+        base <- base[, nyrs_peel]
+        peel <- peel[, nyrs_peel]
+
+        rel_error <- ((peel - base)/base)/peels
+
+        mohns[nrow(mohns), 2:ncol(mohns) ] <- mohns[nrow(mohns), 2:ncol(mohns) ] + rel_error
     }
-  }
-
-  # Do it for fishing mortality mohnsF <- data.frame(matrix(0, nrow = 1, ncol = 1 + data_list$nspp)) colnames(mohnsF) <-
-  # c('Object', paste0('Species_', 1:data_list$nspp)) mohnsF$Object <- 'F' fsh_control <- data_list$fsh_control for(i in
-  # 1:peels){ # Loop around derived quantitities base <- exp(mod_list[[1]]$estimated_params$ln_mean_F +
-  # mod_list[[1]]$estimated_params$F_dev) peel <- exp(mod_list[[i+1]]$estimated_params$ln_mean_F +
-  # mod_list[[i+1]]$estimated_params$F_dev) base <- base[,ncol(peel)] peel <- peel[,ncol(peel)] rel_error <- ((peel - base) /
-  # base)/peels } }
 
   return(list(Rceattle_list = rev(mod_list), mohns = mohns))
 }

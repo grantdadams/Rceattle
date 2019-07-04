@@ -341,12 +341,6 @@ fit_mod <-
       silent = silent
     )
     message(paste0("Step 5: Build object complete"))
-    # opt <- nlminb(obj$par, obj$fn, obj$gr)
-    # methods <- c('Nelder-Mead', 'BFGS', 'CG', 'L-BFGS-B', 'nlm', 'nlminb', 'spg', 'ucminf', 'newuoa', 'bobyqa', 'nmkb', 'hjkb', 'Rcgmin', 'Rvmmin')
-    # opt_list <- list()
-    # for(i in 1:length(methods)){
-    #  opt_list[i] = optimx(obj$par, function(x) as.numeric(obj$fn(x)), obj$gr, control = list(maxit = 10000), method = methods[i])
-    # }
 
 
     # Remove inactive parameters from bounds and vectorize
