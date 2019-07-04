@@ -50,6 +50,14 @@
 // 0. LOAD DEPENDENCIES                                                      //
 // ------------------------------------------------------------------------- //
 
+// Function to take the max of two values
+template <class Type>
+Type val_max(Type x, Type y){
+  vector<Type> vec(2);
+  vec(0) = x; vec(1) = y;
+  return(max(vec));
+}
+
 // Function for getting max of an IVECTOR and return an int
 template <class Type>
 Type imax(const vector<Type> &x)
@@ -932,11 +940,8 @@ Type objective_function<Type>::operator() () {
           }
 
           // -- 6.3.3. Hard constraint to reduce population collapse
-          if(NByage(sp, age, yr) < minNByage){
-            NByage(sp, age, yr) = minNByage;
-          }
+          NByage(sp, age, yr) = val_max(NByage(sp, age, yr), minNByage);
         }
-
         // -- 6.3.4. Estimate Biomass and SSB
         for (yr = 0; yr < nyrs; yr++) {
           // Hindcast
