@@ -2,7 +2,7 @@
 % Please edit documentation in R/7-plot_ceattle.R
 \name{plot_ssb}
 \alias{plot_ssb}
-\title{plot_ssb}
+\title{Plot SSB}
 \usage{
 plot_ssb(Rceattle, tmp_list = NULL, file = NULL, model_names = NULL,
   line_col = NULL, species = NULL, lwd = 3, right_adj = 0,
@@ -30,9 +30,6 @@ function.}
 
 \item{add_ci}{TRUE/FALSE, includes 95 percent confidence interval}
 }
-\value{
-Returns and saves a figure with the ssb trajectory.
-}
 \description{
-Function the plots the spawning stock biomass trends as estimated from Rceattle
+Function the plots the spawning stock biomass trends as estimated from Rceattle. Returns and saves a figure with the ssb trajectory.
 }
