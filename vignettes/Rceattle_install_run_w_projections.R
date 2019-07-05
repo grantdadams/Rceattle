@@ -49,7 +49,7 @@ ss_run <- Rceattle::fit_mod(data_list = mydata,
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
                             silent = TRUE,
-                            recompile = TRUE)
+                            recompile = FALSE)
 # Type ?fit_mod for more details
 
 # The you can plot the model results using using
@@ -69,7 +69,7 @@ ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
                             random_rec = FALSE, # No random recruitment
                             msmMode = 1, # MSVPA based
                             suitMode = 0, # empirical suitability
-                            silent = TRUE)
+                            silent = FALSE)
 
 # We can plot both runs as well:
 mod_list <- list(ss_run, ms_run)
