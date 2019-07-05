@@ -8,4 +8,4 @@ file_directory <- "your_download_directory"
 path_to_file <- paste(file_directory, "/", "Rceattle_0.0.0.9000.tar.gz", sep = "")
 
 # Step 3 - Install
-install.packages(path_to_file, repos = NULL, type="source")
+install.packages(path_to_file, repos = NULL, type="source", dependencies = TRUE)

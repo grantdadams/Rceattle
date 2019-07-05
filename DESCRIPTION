@@ -15,10 +15,12 @@ Imports:
     testthat,
     reshape2,
     oce,
+    TMBhelper,
     plyr,
     readxl,
     writexl,
     tidyr
+Remotes: kaskr/TMB_contrib_R/TMBhelper
 RoxygenNote: 6.1.1
 BugReports: https://github.com/grantdadams/Rceattle/issues
 Suggests: knitr,
