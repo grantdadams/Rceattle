@@ -1141,12 +1141,8 @@ Type objective_function<Type>::operator() () {
               for (r_age = 0; r_age < nages(rsp); r_age++) {    // Predator age loop
                 for (k_age = 0; k_age < nages(ksp); k_age++) {  // Prey age loop
 
-                  suit_tmp(rsp, ksp, r_age, k_age, yr) = 0;
-                  if(AvgN(ksp, k_age, yr) > 0){
-                    suit_tmp(rsp, ksp, r_age, k_age, yr) = stomKir(rsp, ksp, r_age, k_age, yr) / (AvgN(ksp, k_age, yr));
-                  }
-
-
+                    suit_tmp(rsp, ksp, r_age, k_age, yr) = val_max(stomKir(rsp, ksp, r_age, k_age, yr) / (AvgN(ksp, k_age, yr)), Type(0.0));
+                  
                   // Make sure it is a real number, if not set to 0
                   if(!isFinite(suit_tmp(rsp, ksp, r_age, k_age, yr))){
                     suit_tmp(rsp, ksp, r_age, k_age, yr) = 0;
@@ -2001,12 +1997,7 @@ Type objective_function<Type>::operator() () {
         //  Normalize survey catch-at-age
         if (srv_comp_type == 0) {
           for (age = 0; age < nages(sp); age++) {
-            if(srv_hat(comp_ind) > 0){
-              srv_comp_hat(comp_ind, age) = srv_age_obs_hat(comp_ind, age) / srv_hat(comp_ind);
-            } else {
-              srv_comp_hat(comp_ind, age) = 0;
-            }
-            
+              srv_comp_hat(comp_ind, age) = val_max( srv_age_obs_hat(comp_ind, age) / srv_hat(comp_ind), Type(0.0));   
           }
         }
 
@@ -2020,11 +2011,7 @@ Type objective_function<Type>::operator() () {
 
           // Normalize
           for (ln = 0; ln < nlengths(sp); ln++) {
-            if(srv_hat(comp_ind) > 0){
-              srv_comp_hat(comp_ind, ln) = srv_comp_hat(comp_ind, ln) / srv_hat(comp_ind);
-            } else {
-srv_comp_hat(comp_ind, ln) = 0;
-            }
+              srv_comp_hat(comp_ind, ln) = val_max(srv_comp_hat(comp_ind, ln) / srv_hat(comp_ind), Type(0.0));
           }
         }
       }
