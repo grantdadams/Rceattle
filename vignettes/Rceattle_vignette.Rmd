@@ -17,7 +17,7 @@ CEATTLE is short for Climate-Enhanced, Age-based model with Temperature-specific
 
 `Rceattle` is an `R` package designed to implement the CEATTLE model using Template Model Builder (`TMB`; @Kristensen2015), which can be installed using following https://github.com/kaskr/adcomp/wiki/Download. Rceattle is structured similar to the original manuscript in terms of modularization. Seperate functions (i.e. modules) estimate retrospective temperature- and size-specific predator rations, prey preference, and weight-at- age. These are then used as inputs to the CEATTLE model to evaluate how predation mortality, recruitment, and survival of three target species change under historical climate conditions and harvest rates.
 
-Currently `RCeattle` can take survey index, survey catch-at-age, fishery catch, fishery catch-at-age, bioenergetics, life history, and diet based inputs and estimates time series of biomass, fishing mortality, and predation mortality using the CEATTLE model in `TMB`. To run `Rceattle` a user can either load a pre-build Bering Sea data set, build a data set from an excel spreadsheet, or build a data set from ADMB CEATTLE dat files by selecting a control file located in a data directory with `.dat` files used in ADMB and using the `build_dat` function. The model will then initialize assuming $0$ for all parameters unless a parameter list is provided and/or `"ceattle.par"` or `"ceattle_par.std"` is selected. In the later case, a .par or .std file provided from a previously estimated ADMB model can be used and specified with associated directory (i.e. `"mydir/ceattle_par.std"`). Documentation for all functions can be found using `?`.
+Currently `RCeattle` can take survey index, survey catch-at-age, fishery catch, fishery catch-at-age, bioenergetics, life history, and diet based inputs and estimates time series of biomass, fishing mortality, and predation mortality using the CEATTLE model in `TMB`. To run `Rceattle` a user can either load a pre-build Bering Sea data set or build a data set from an excel spreadsheet. The model will then initialize assuming $0$ for all parameters unless a parameter list is provided from a previous model. Documentation for all functions can be found using `?`.
 
 ## Installation
 To install `Rceattle` you will need to do the following steps:
@@ -82,7 +82,7 @@ Rceattle::plot_srv_comp(Rceattle =  ss_run)
 
 
 Fishery diagnostics can be plot following:
-```{R eval = TRUE}
+```{R eval = FALSE}
 Rceattle::plot_catch(Rceattle =  ss_run)
 Rceattle::plot_fsh_comp(Rceattle =  ss_run)
 ```
