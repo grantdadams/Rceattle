@@ -17,11 +17,11 @@ fit_mod(TMBfilename = "ceattle_v01_04", cpp_directory = NULL,
 
 \item{data_list}{a data_list created from BSAI CEATTLE dat files \code{\link{build_dat}}, prebuilt data_list \code{\link{BS2017SS}}, or read in using \code{\link{read_excel}}.}
 
-\item{inits}{(Optional) Character vector of named initial values from ADMB or list of previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters. Can also consturct using \code{\link{build_params}}}
+\item{inits}{(Optional) List of previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters. Can also construct using \code{\link{build_params}}}
 
 \item{map}{(Optional) A prebuilt map object from \code{\link{build_map}}.}
 
-\item{bounds}{(Optional) A prebuild bounds object from \code{\link{build_bounds}}.}
+\item{bounds}{(Optional) A prebuilt bounds object from \code{\link{build_bounds}}.}
 
 \item{file}{(Optional) Filename where files will be saved. If NULL, no file is saved.}
 
@@ -33,7 +33,7 @@ fit_mod(TMBfilename = "ceattle_v01_04", cpp_directory = NULL,
 
 \item{msmMode}{The predation mortality functions to used. Defaults to no predation mortality used.}
 
-\item{avgnMode}{The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{\frac{N}{Z} \left( 1 - exp^{-Z} \right)}, 1 is \eqn{N e^{-Z/2}}, 2 is \eqn{N}.}
+\item{avgnMode}{The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.}
 
 \item{minNByage}{Minimum numbers at age to put in a hard constraint that the number-at-age can not go below.}
 
