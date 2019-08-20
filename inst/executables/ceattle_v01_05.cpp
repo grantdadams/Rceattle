@@ -26,7 +26,10 @@
 // 10. Acoustic comp and biomass data are assumed to come from month 6 rather than 0, given they survey in the summer
 // 11. Added time varying selectivity and catchability
 // 12. Can make survey selectivity and/or catchability equal across surveys
-//
+// 13. Added cabability to have a two sex model
+// 14. Added in spawning stock biomass weight
+// 15. Added in multiple weights for surveys
+// 16. Added in spawning month mortality adjustment
 //
 //  INDEX:
 //  0. Load dependencies
@@ -358,9 +361,11 @@ Type objective_function<Type>::operator() () {
   // 1.3. Number of species
   DATA_INTEGER( nspp );                   // Number of species (prey)
   DATA_IVECTOR( pop_wt_index );           // Dim 3 of wt to use for population dynamics
+  DATA_IVECTOR( ssb_wt_index );           // Dim 3 of wt to use for spawning stock biomass calculation
   DATA_IVECTOR( pop_alk_index );          // Dim 3 of wt to use for age_transition_matrix
-  pop_wt_index = pop_wt_index - 1;
-  pop_alk_index -= 1;
+  pop_wt_index -= 1;                      // Indexing starts at 0
+  ssb_wt_index -= 1;                      // Indexing starts at 0
+  pop_alk_index -= 1;                     // Indexing starts at 0
 
 
   // 1.4. MODEL OBJECTS
@@ -387,6 +392,9 @@ Type objective_function<Type>::operator() () {
   // int nyrs_proj = proj_yr - styr + 1;        // End year
 
   // -- 2.2.2. Species attributes
+  DATA_IVECTOR( nsex );                   // Number of sexes to be modelled; n = [1, nspp]; 1 = sexes combined/single sex, 2 = 2 sexes
+  DATA_VECTOR( spawn_month );             // Month of spawning to adjust mortality; n = [1, nspp]
+  DATA_VECTOR( R_sexr );                 // Sex ratio of recruitment; n = [1, nspp]; R_sexr = R to females/ R to females and males
   DATA_IVECTOR( nages );                  // Number of species (prey) ages; n = [1, nspp]
   DATA_IVECTOR( minage );                 // Minimum age of each species; n = [1, nspp]
   DATA_IVECTOR( nlengths );               // Number of species (prey) lengths; n = [1, nspp]
@@ -1081,13 +1089,13 @@ Type objective_function<Type>::operator() () {
           // Hindcast
           if(yr < nyrs_hind){
             biomassByage(sp, age, yr) = NByage(sp, age, yr) * wt(yr, age, pop_wt_index(sp)); // 6.5.
+            biomassSSBByage(sp, age, yr) = NByage(sp, age, yr) * pow(S(sp, age, yr), spawn_month(sp)/12) * wt(yr, age, ssb_wt_index(sp)) * pmature(sp, age); // 6.6.
           }
           // Projection - Use last year of wt
           if(yr >= nyrs_hind){
             biomassByage(sp, age, yr) = NByage(sp, age, yr) * wt((nyrs_hind - 1), age, pop_wt_index(sp)); // 6.5.
+            biomassSSBByage(sp, age, yr) = NByage(sp, age, yr) * pow(S(sp, age, yr), spawn_month(sp)/12) *  wt((nyrs_hind - 1), age, ssb_wt_index(sp)) * pmature(sp, age); // 6.6.
           }
-
-          biomassSSBByage(sp, age, yr) = biomassByage(sp, age, yr) * pmature(sp, age); // 6.6.
 
           biomass(sp, yr) += biomassByage(sp, age, yr);
           biomassSSB(sp, yr) += biomassSSBByage(sp, age, yr);

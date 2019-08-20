@@ -186,9 +186,13 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   }
 
   dat_list$pop_wt_index <- c(1:3)
+  dat_list$ssb_wt_index <- c(1:3)
+  dat_list$spawn_month <- rep(0, 3)
   dat_list$pop_alk_index <- c(1:3)
   dat_list$nlengths <- dat_list$fsh_age_bins
   dat_list$endyr <- endyr
+  dat_list$nsex <- rep(1, 3)
+  dat_list$R_sexr <- rep(NA, 3)
 
   #---------------------------------------------------------------------
   # Step 7 -- Survey specifications
@@ -436,7 +440,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   names_in_cpp <- c(names_in_cpp,
                     "fsh_emp_sel", "srv_emp_sel",
                     "fsh_comp", "srv_comp",
-                    "fsh_biom", "srv_biom", "proj_F", "minage", "sigma_rec_prior", "spnames")
+                    "fsh_biom", "srv_biom", "proj_F", "minage", "sigma_rec_prior", "spnames", "nsex", "R_sexr", "ssb_wt_index", "spawn_month")
 
   for(i in 1:length(names_in_cpp)){
     dat_list2[[names_in_cpp[i]]] <-  dat_list[[names_in_cpp[i]]]
