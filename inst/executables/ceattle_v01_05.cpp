@@ -2516,10 +2516,6 @@ Type objective_function<Type>::operator() () {
           if(!isNA( srv_comp_obs(comp_ind, ln) )){
             jnll_comp(1, srv) -= Type(srv_comp_n(comp_ind, 1)) * (srv_comp_obs(comp_ind, ln) + MNConst) * log(srv_comp_hat(comp_ind, ln) + MNConst ) ;
           }
-
-          if(isNA( srv_comp_obs(comp_ind, ln) )){
-            error("NA in survey composition data");
-          }
         }
       }
     }
