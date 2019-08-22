@@ -11,6 +11,8 @@
 #' @export
 build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
+  # -----------------------------------------------------------
+  # -- Setup
   # Get year objects
   nyrs_hind <- data_list$endyr - data_list$styr + 1
   nyrs_proj <- data_list$projyr - data_list$styr + 1
@@ -25,6 +27,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   }
 
 
+  # -----------------------------------------------------------
   # -- 1 Map out future fishing mortality
   map_list$proj_F <- as.numeric(replace(map_list$proj_F, values = rep(NA, length(map_list$proj_F))))
 
@@ -42,7 +45,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   }
 
 
-
+  # -----------------------------------------------------------
   # 4 -- Fishery selectivity coefficients
   ind_slp <- 1
   ind_inf <- 1
@@ -60,20 +63,21 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
                                                                                                                       ])))
 
       # Map out logistic and double logistic
-      map_list$fsh_sel_slp[1:2, i] <- NA
-      map_list$fsh_sel_inf[1:2, i] <- NA
+      map_list$fsh_sel_slp[1:2, i, ] <- NA
+      map_list$fsh_sel_inf[1:2, i, ] <- NA
 
       # Map out logistic and double logistic deviates
-      map_list$fsh_sel_slp_dev[1:2, i,] <- NA
-      map_list$fsh_sel_inf_dev[1:2, i,] <- NA
+      map_list$fsh_sel_slp_dev[1:2, i, ,] <- NA
+      map_list$fsh_sel_inf_dev[1:2, i, ,] <- NA
 
       # Turn off random effects
-      map_list$fsh_sel_slp_dev_re[1, i,] <- NA
-      map_list$fsh_sel_inf_dev_re[1, i,] <- NA
+      map_list$fsh_sel_slp_dev_re[1, i, ,] <- NA
+      map_list$fsh_sel_inf_dev_re[1, i, ,] <- NA
 
       # Map out selectivity var
       map_list$ln_sigma_fsh_sel[i] <- NA
     }
+
 
     # -- 4.1. Logitistic - sel_type = 1
     if (data_list$fsh_control$Selectivity[i] == 1) {
@@ -84,48 +88,48 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
                                                                                                                       ])))
 
       # Map out double logistic
-      map_list$fsh_sel_slp[2, i] <- NA
-      map_list$fsh_sel_inf[2, i] <- NA
+      map_list$fsh_sel_slp[2, i, ] <- NA
+      map_list$fsh_sel_inf[2, i, ] <- NA
 
       # Map out double logistic deviates
-      map_list$fsh_sel_slp_dev[2, i,] <- NA
-      map_list$fsh_sel_inf_dev[2, i,] <- NA
+      map_list$fsh_sel_slp_dev[2, i, ,] <- NA
+      map_list$fsh_sel_inf_dev[2, i, ,] <- NA
 
-      map_list$fsh_sel_slp_dev_re[2, i,] <- NA
-      map_list$fsh_sel_inf_dev_re[2, i,] <- NA
+      map_list$fsh_sel_slp_dev_re[2, i, ,] <- NA
+      map_list$fsh_sel_inf_dev_re[2, i, ,] <- NA
 
       # Map out time varying parameters if not used
       if(data_list$fsh_control$Time_varying_sel[i] == 0){
-        map_list$fsh_sel_slp_dev[1, i,] <- NA
-        map_list$fsh_sel_inf_dev[1, i,] <- NA
+        map_list$fsh_sel_slp_dev[1, i, ,] <- NA
+        map_list$fsh_sel_inf_dev[1, i, ,] <- NA
 
-        map_list$fsh_sel_slp_dev_re[1, i,] <- NA
-        map_list$fsh_sel_inf_dev_re[1, i,] <- NA
+        map_list$fsh_sel_slp_dev_re[1, i, ,] <- NA
+        map_list$fsh_sel_inf_dev_re[1, i, ,] <- NA
       }
 
       # Random walk (turn of random effects)
       if(data_list$fsh_control$Time_varying_sel[i] == 1){
-        map_list$fsh_sel_slp_dev_re[1, i,] <- NA
-        map_list$fsh_sel_inf_dev_re[1, i,] <- NA
+        map_list$fsh_sel_slp_dev_re[1, i, ,] <- NA
+        map_list$fsh_sel_inf_dev_re[1, i, ,] <- NA
 
-        map_list$fsh_sel_slp_dev[1, i,] <- ind_slp + 1:length(map_list$fsh_sel_slp_dev[1, i,]) - 1
-        map_list$fsh_sel_inf_dev[1, i,] <- ind_inf + 1:length(map_list$fsh_sel_inf_dev[1, i,]) - 1
+        map_list$fsh_sel_slp_dev[1, i, ,] <- ind_slp + 1:length(map_list$fsh_sel_slp_dev[1, i, ,]) - 1
+        map_list$fsh_sel_inf_dev[1, i, ,] <- ind_inf + 1:length(map_list$fsh_sel_inf_dev[1, i, ,]) - 1
 
-        ind_slp <- ind_slp + length(map_list$fsh_sel_slp_dev[1, i,])
-        ind_inf <- ind_inf + length(map_list$fsh_sel_inf_dev[1, i,])
+        ind_slp <- ind_slp + length(map_list$fsh_sel_slp_dev[1, i, ,])
+        ind_inf <- ind_inf + length(map_list$fsh_sel_inf_dev[1, i, ,])
       }
 
       # Random effects (turn off random deviates)
       if(data_list$fsh_control$Time_varying_sel[i] == 2){
-        map_list$fsh_sel_slp_dev[1, i,] <- NA
-        map_list$fsh_sel_inf_dev[1, i,] <- NA
+        map_list$fsh_sel_slp_dev[1, i, ,] <- NA
+        map_list$fsh_sel_inf_dev[1, i, , ] <- NA
 
         for(j in 1){
-          map_list$fsh_sel_slp_dev_re[j, i,] <- ind_slp_re + 1:length(map_list$fsh_sel_slp_dev_re[j, i,]) - 1
-          map_list$fsh_sel_inf_dev_re[j, i,] <- ind_inf_re + 1:length(map_list$fsh_sel_inf_dev_re[j, i,]) - 1
+          map_list$fsh_sel_slp_dev_re[j, i, ,] <- ind_slp_re + 1:length(map_list$fsh_sel_slp_dev_re[j, i, ,]) - 1
+          map_list$fsh_sel_inf_dev_re[j, i, ,] <- ind_inf_re + 1:length(map_list$fsh_sel_inf_dev_re[j, i, ,]) - 1
 
-          ind_slp_re <- ind_slp_re + length(map_list$fsh_sel_slp_dev_re[j, i,])
-          ind_inf_re <- ind_inf_re + length(map_list$fsh_sel_inf_dev_re[j, i,])
+          ind_slp_re <- ind_slp_re + length(map_list$fsh_sel_slp_dev_re[j, i, ,])
+          ind_inf_re <- ind_inf_re + length(map_list$fsh_sel_inf_dev_re[j, i, ,])
         }
       }
 
@@ -135,19 +139,21 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
         fsh_biom <- data_list$fsh_biom[which(data_list$fsh_biom$Fishery_code == i),]
 
         # Turn off random effects
-        map_list$fsh_sel_slp_dev_re[1, i,] <- NA
-        map_list$fsh_sel_inf_dev_re[1, i,] <- NA
+        map_list$fsh_sel_slp_dev_re[1, i, ,] <- NA
+        map_list$fsh_sel_inf_dev_re[1, i, ,] <- NA
 
         # Map out double logistic
-        map_list$fsh_sel_slp[1:2, i] <- NA
-        map_list$fsh_sel_inf[1:2, i] <- NA
+        map_list$fsh_sel_slp[1:2, i ,] <- NA
+        map_list$fsh_sel_inf[1:2, i ,] <- NA
 
         # Map selectivity blocks
-        map_list$fsh_sel_slp_dev[1, i,] <- fsh_biom$Selectivity_block - 1 + ind_slp
-        map_list$fsh_sel_inf_dev[1, i,] <- fsh_biom$Selectivity_block - 1 + ind_inf
+        for(sex in 1:data_list$nsex){
+          map_list$fsh_sel_slp_dev[1, i, sex,] <- fsh_biom$Selectivity_block - 1 + ind_slp
+          map_list$fsh_sel_inf_dev[1, i, sex,] <- fsh_biom$Selectivity_block - 1 + ind_inf
 
-        ind_slp <- ind_slp + max(fsh_biom$Selectivity_block)
-        ind_inf <- ind_inf + max(fsh_biom$Selectivity_block)
+          ind_slp <- ind_slp + max(fsh_biom$Selectivity_block)
+          ind_inf <- ind_inf + max(fsh_biom$Selectivity_block)
+        }
       }
 
       # Map out selectivity var if not using time-varying or using random walk
@@ -156,26 +162,28 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       }
     }
 
+
     # -- 4.2. Non-parametric - sel_type = 2
     if(data_list$fsh_control$Selectivity[i] == 2){ # Non-parametric at age
 
       # If nselages is  < max(nselages)
       if(data_list$fsh_control$Nselages[i] < max(data_list$fsh_control$Nselages, na.rm = TRUE)){
         mapped_ages <- (data_list$fsh_control$Nselages[i] + 1):max(data_list$fsh_control$Nselages, na.rm = T)
+
         map_list$fsh_sel_coff[i, mapped_ages]  <- replace(map_list$fsh_sel_coff[i, mapped_ages], values = rep(NA, length(map_list$fsh_sel_coff[i, mapped_ages])))
       }
 
       # Map out logistic and double logistic
-      map_list$fsh_sel_slp[1:2, i] <- NA
-      map_list$fsh_sel_inf[1:2, i] <- NA
+      map_list$fsh_sel_slp[1:2, i ,] <- NA
+      map_list$fsh_sel_inf[1:2, i ,] <- NA
 
       # Map out logistic and double logistic deviates
-      map_list$fsh_sel_slp_dev[1:2, i,] <- NA
-      map_list$fsh_sel_inf_dev[1:2, i,] <- NA
+      map_list$fsh_sel_slp_dev[1:2, i, ,] <- NA
+      map_list$fsh_sel_inf_dev[1:2, i, ,] <- NA
 
       # Map out random effect deviates
-      map_list$fsh_sel_slp_dev_re[1:2, i,] <- NA
-      map_list$fsh_sel_inf_dev_re[1:2, i,] <- NA
+      map_list$fsh_sel_slp_dev_re[1:2, i, ,] <- NA
+      map_list$fsh_sel_inf_dev_re[1:2, i, ,] <- NA
 
       # Map out selectivity var
       map_list$ln_sigma_fsh_sel[i] <- NA
@@ -188,38 +196,38 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
       # Map out time varying parameters if not used
       if(data_list$fsh_control$Time_varying_sel[i] == 0){
-        map_list$fsh_sel_slp_dev[1:2, i,] <- NA
-        map_list$fsh_sel_inf_dev[1:2, i,] <- NA
+        map_list$fsh_sel_slp_dev[1:2, i, ,] <- NA
+        map_list$fsh_sel_inf_dev[1:2, i, ,] <- NA
 
-        map_list$fsh_sel_slp_dev_re[1:2, i,] <- NA
-        map_list$fsh_sel_inf_dev_re[1:2, i,] <- NA
+        map_list$fsh_sel_slp_dev_re[1:2, i, ,] <- NA
+        map_list$fsh_sel_inf_dev_re[1:2, i, ,] <- NA
       }
 
       # Random walk (turn of random effects)
       if(data_list$fsh_control$Time_varying_sel[i] == 1){
-        map_list$fsh_sel_slp_dev_re[1:2, i,] <- NA
-        map_list$fsh_sel_inf_dev_re[1:2, i,] <- NA
+        map_list$fsh_sel_slp_dev_re[1:2, i, ,] <- NA
+        map_list$fsh_sel_inf_dev_re[1:2, i, ,] <- NA
 
         for(j in 1:2){
-          map_list$fsh_sel_slp_dev[j, i,] <- ind_slp + 1:length(map_list$fsh_sel_slp_dev[j, i,]) - 1
-          map_list$fsh_sel_inf_dev[j, i,] <- ind_inf + 1:length(map_list$fsh_sel_inf_dev[j, i,]) - 1
+          map_list$fsh_sel_slp_dev[j, i, ,] <- ind_slp + 1:length(map_list$fsh_sel_slp_dev[j, i, ,]) - 1
+          map_list$fsh_sel_inf_dev[j, i, ,] <- ind_inf + 1:length(map_list$fsh_sel_inf_dev[j, i, ,]) - 1
 
-          ind_slp <- ind_slp + length(map_list$fsh_sel_slp_dev[j, i,])
-          ind_inf <- ind_inf + length(map_list$fsh_sel_inf_dev[j, i,])
+          ind_slp <- ind_slp + length(map_list$fsh_sel_slp_dev[j, i, ,])
+          ind_inf <- ind_inf + length(map_list$fsh_sel_inf_dev[j, i, ,])
         }
       }
 
       # Random effects (turn off random deviates)
       if(data_list$fsh_control$Time_varying_sel[i] == 2){
-        map_list$fsh_sel_slp_dev[1:2, i,] <- NA
-        map_list$fsh_sel_inf_dev[1:2, i,] <- NA
+        map_list$fsh_sel_slp_dev[1:2, i, ,] <- NA
+        map_list$fsh_sel_inf_dev[1:2, i, ,] <- NA
 
         for(j in 1:2){
-          map_list$fsh_sel_slp_dev_re[j, i,] <- ind_slp_re + 1:length(map_list$fsh_sel_slp_dev_re[j, i,]) - 1
-          map_list$fsh_sel_inf_dev_re[j, i,] <- ind_inf_re + 1:length(map_list$fsh_sel_inf_dev_re[j, i,]) - 1
+          map_list$fsh_sel_slp_dev_re[j, i, ,] <- ind_slp_re + 1:length(map_list$fsh_sel_slp_dev_re[j, i, ,]) - 1
+          map_list$fsh_sel_inf_dev_re[j, i, ,] <- ind_inf_re + 1:length(map_list$fsh_sel_inf_dev_re[j, i, ,]) - 1
 
-          ind_slp_re <- ind_slp_re + length(map_list$fsh_sel_slp_dev_re[j, i,])
-          ind_inf_re <- ind_inf_re + length(map_list$fsh_sel_inf_dev_re[j, i,])
+          ind_slp_re <- ind_slp_re + length(map_list$fsh_sel_slp_dev_re[j, i, ,])
+          ind_inf_re <- ind_inf_re + length(map_list$fsh_sel_inf_dev_re[j, i, ,])
         }
       }
 
@@ -228,22 +236,24 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       if(data_list$fsh_control$Time_varying_sel[i] == 3){
 
         # Turn off random effects
-        map_list$fsh_sel_slp_dev_re[1:2, i,] <- NA
-        map_list$fsh_sel_inf_dev_re[1:2, i,] <- NA
+        map_list$fsh_sel_slp_dev_re[1:2, i, ,] <- NA
+        map_list$fsh_sel_inf_dev_re[1:2, i, ,] <- NA
 
         # Map out double logistic
-        map_list$fsh_sel_slp[1:2, i] <- NA
-        map_list$fsh_sel_inf[1:2, i] <- NA
+        map_list$fsh_sel_slp[1:2, i ,] <- NA
+        map_list$fsh_sel_inf[1:2, i, ] <- NA
 
         # Loop through upper and lower
         fsh_biom <- data_list$fsh_biom[which(data_list$fsh_biom$Fishery_code == i),]
 
         for(j in 1:2){
-          map_list$fsh_sel_slp_dev[j, i,] <- fsh_biom$Selectivity_block - 1 + ind_slp
-          map_list$fsh_sel_inf_dev[j, i,] <- fsh_biom$Selectivity_block - 1 + ind_inf
+          for(sex in 1:data_list$nsex){
+            map_list$fsh_sel_slp_dev[j, i, sex,] <- fsh_biom$Selectivity_block - 1 + ind_slp
+            map_list$fsh_sel_inf_dev[j, i, sex,] <- fsh_biom$Selectivity_block - 1 + ind_inf
 
-          ind_slp <- ind_slp + max(fsh_biom$Selectivity_block)
-          ind_inf <- ind_inf + max(fsh_biom$Selectivity_block)
+            ind_slp <- ind_slp + max(fsh_biom$Selectivity_block)
+            ind_inf <- ind_inf + max(fsh_biom$Selectivity_block)
+          }
         }
       }
 
@@ -255,7 +265,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   }
 
 
-
+  # -----------------------------------------------------------
   # -- 5 Survey selectivity coefficients
   ind_slp <- 1
   ind_inf <- 1

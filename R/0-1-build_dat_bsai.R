@@ -230,7 +230,6 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Survey_name = rep(c("BT_Pollock", "BT_Cod", "BT_ATF"), dat_list$nyrs_srv_biom),
     Survey_code = rep(1:3, dat_list$nyrs_srv_biom),
     Species = rep(1:nspp, dat_list$nyrs_srv_biom),
-    Sex = rep(rep(0, nspp), dat_list$nyrs_srv_biom),
     Year = as.vector(t(dat_list$yrs_srv_biom)),
     Month = rep(rep(6, nspp), dat_list$nyrs_srv_biom),
     Selectivity_block = rep(rep(1, nspp), dat_list$nyrs_srv_biom),
@@ -248,7 +247,6 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Survey_name = rep("EIT_Pollock", dat_list$n_eit),
     Survey_code = rep(4, dat_list$n_eit),
     Species = rep(1, dat_list$n_eit),
-    Sex = rep(0, dat_list$n_eit),
     Year = dat_list$yrs_eit,
     Month = rep(6, dat_list$n_eit),
     Selectivity_block = rep( 1, dat_list$n_eit),
@@ -303,6 +301,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Survey_name = rep("EIT_Pollock", dat_list$n_eit),
     Survey_code = rep(4, length(dat_list$n_eit)),
     Species = rep(1, length(dat_list$n_eit)),
+    Sex = rep(0, length(dat_list$n_eit)),
     Year = dat_list$yrs_eit
   )
   colnames(dat_list$eit_sel) <- paste("Comp_",1:ncol(dat_list$eit_sel), sep = "")
@@ -347,7 +346,6 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Fishery_name = rep(c("Pollock", "Cod", "ATF"), dat_list$nyrs_tc_biom),
     Fishery_code = rep(1:3, dat_list$nyrs_tc_biom),
     Species = rep(1:nspp, dat_list$nyrs_tc_biom),
-    Sex = rep(rep(0, nspp), dat_list$nyrs_tc_biom),
     Year = as.vector(t(dat_list$yrs_tc_biom)),
     Month = rep(rep(0, nspp), dat_list$nyrs_tc_biom),
     Selectivity_block = rep(rep(1, nspp), dat_list$nyrs_tc_biom),
@@ -383,6 +381,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Fishery_name = NA,
     Fishery_code = NA,
     Species = NA,
+    Sex = NA,
     Year = NA,
     Comp_1 = NA
   )

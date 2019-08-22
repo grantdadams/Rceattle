@@ -77,15 +77,15 @@ build_params <- function(data_list, inits = NULL) {
 
     # -- 3.5. Fishery selectivity parameters
     param_list$fsh_sel_coff = suppressWarnings( matrix(0, nrow = nrow(data_list$fsh_control), ncol = max(1, as.numeric(data_list$fsh_control$Nselages), na.rm = T)))  # Fishery age selectivity coef; n = [nspp, nselages]
-    param_list$fsh_sel_slp = matrix(0, nrow = 2, ncol = nrow(data_list$fsh_control))  # Fishery selectivity paramaters for logistic; n = [2, nspp]
-    param_list$fsh_sel_inf = matrix(0, nrow = 2, ncol = nrow(data_list$fsh_control))  # Fishery selectivity paramaters for logistic; n = [2, nspp]
+    param_list$fsh_sel_slp = array(0, dim = c(2, nrow(data_list$fsh_control), 2))  # Fishery selectivity paramaters for logistic; n = [2, nspp, 2 sexes]
+    param_list$fsh_sel_inf = array(0, dim = c(2, nrow(data_list$fsh_control), 2))  # Fishery selectivity paramaters for logistic; n = [2, nspp, 2 sexes]
 
     # --- 3.5.2. Time varying parameters
-    param_list$fsh_sel_slp_dev = array(0, dim = c(2, nrow(data_list$fsh_control), nyrs_hind))  # Fishery selectivity deviations paramaters for logistic; n = [2, nspp]
-    param_list$fsh_sel_inf_dev = array(0, dim = c(2, nrow(data_list$fsh_control), nyrs_hind))  # Fishery selectivity deviations paramaters for logistic; n = [2, nspp]
+    param_list$fsh_sel_slp_dev = array(0, dim = c(2, nrow(data_list$fsh_control), 2, nyrs_hind))  # Fishery selectivity deviations paramaters for logistic; n = [2, nspp]
+    param_list$fsh_sel_inf_dev = array(0, dim = c(2, nrow(data_list$fsh_control), 2, nyrs_hind))  # Fishery selectivity deviations paramaters for logistic; n = [2, nspp]
 
-    param_list$fsh_sel_slp_dev_re = array(0, dim = c(2, nrow(data_list$fsh_control), nyrs_hind))  # Fishery selectivity random effect deviations paramaters for logistic; n = [2, nspp]
-    param_list$fsh_sel_inf_dev_re = array(0, dim = c(2, nrow(data_list$fsh_control), nyrs_hind))  # Fishery selectivity random effectdeviations paramaters for logistic; n = [2, nspp]
+    param_list$fsh_sel_slp_dev_re = array(0, dim = c(2, nrow(data_list$fsh_control), 2, nyrs_hind))  # Fishery selectivity random effect deviations paramaters for logistic; n = [2, nspp]
+    param_list$fsh_sel_inf_dev_re = array(0, dim = c(2, nrow(data_list$fsh_control), 2, nyrs_hind))  # Fishery selectivity random effectdeviations paramaters for logistic; n = [2, nspp]
 
 
     # -- 3.5. Variance of survey and fishery time series
