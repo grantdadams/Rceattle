@@ -593,6 +593,7 @@ Type objective_function<Type>::operator() () {
   array<Type>   M(nspp, max_age, nyrs); M.setZero();                                // Total natural mortality at age; n = [nyrs, nages, nspp]
   matrix<Type>  M1(nspp, max_age); M1.setZero();                                    // Base natural mortality; n = [nspp, nages]
   array<Type>   M2(nspp, max_age, nyrs); M2.setZero();                              // Predation mortality at age; n = [nyrs, nages, nspp]
+  array<Type>   M2_prop(nspp, nspp, max_age, max_age, nyrs); M2_prop.setZero();     // Relative predation mortality at age from each species at age; n = [nyrs, nages, nspp]
   array<Type>   NByage(nspp, max_age, nyrs); NByage.setZero();                      // Numbers at age; n = [nspp, nages, nyrs]
   matrix<Type>  R(nspp, nyrs); R.setZero();                                         // Estimated recruitment (n); n = [nspp, nyrs]
   array<Type>   S(nspp, max_age, nyrs); S.setZero();                                // Survival at age; n = [nspp, nages, nyrs]
@@ -1661,6 +1662,7 @@ Type objective_function<Type>::operator() () {
                 for (r_age = 0; r_age < nages(rsp); r_age++) {    // Predator age loop
                   if(avail_food(rsp, r_age, yr) > 0){
                     M2(ksp, k_age, yr) += (AvgN(rsp, r_age, yr) * ration2Age(rsp, r_age, yr) * suit_main(rsp , ksp , r_age, k_age, yr)) / avail_food(rsp, r_age, yr); // #FIXME - include indices of overlap
+                    M2_prop(rsp, ksp, r_age, k_age, yr) = (AvgN(rsp, r_age, yr) * ration2Age(rsp, r_age, yr) * suit_main(rsp , ksp , r_age, k_age, yr)) / avail_food(rsp, r_age, yr); 
                     B_eaten(ksp, k_age, yr) += AvgN(rsp, r_age, yr) * ration2Age(rsp, r_age, yr) * suit_main(rsp , ksp , r_age, k_age, yr);
                   }
 
@@ -3029,6 +3031,7 @@ Type objective_function<Type>::operator() () {
   REPORT( othersuit );
   REPORT( of_stomKir );
   REPORT( M2 );
+  REPORT( M2_prop );
   REPORT( B_eaten );
   REPORT( UobsWtAge_hat );
   REPORT( mn_UobsWtAge_hat );

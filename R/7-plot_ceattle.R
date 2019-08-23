@@ -859,7 +859,7 @@ plot_mort <-
     f_mat <-
       array(NA, dim = c(nspp, max_age, nyrs, length(Rceattle) + length(tmp_list)))
     for (i in 1:length(Rceattle)) {
-      f_mat[, , 1:length(Years[[i]]) ,i] <- Rceattle[[i]]$quantities$F[,,1:nyrs_vec[i]]
+      f_mat[, , 1:length(Years[[i]]) ,i] <- Rceattle[[i]]$quantities$F_tot[,,1:nyrs_vec[i]]
     }
 
     m_mat <-
