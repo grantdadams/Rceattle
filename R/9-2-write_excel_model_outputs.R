@@ -141,6 +141,19 @@ write_results <- function(Rceattle, file = "Rceattle_results.xlsx") {
     colnames(xcel_list$SSB) <- data_list$spnames
     xcel_list$SSB <- cbind(data.frame(Year = yrs), xcel_list$SSB)
 
+    # Age-1 Mortality
+    mortality <- matrix(NA, nrow = nyrs, ncol = data_list$nspp * 3 + 1)
+    mortality[,1] <- yrs
+    ind <- 2
+    for(sp in 1:data_list$nspp){
+      mortality[,ind] <- quantities$M2[sp,1,1:nyrs]; ind = ind + 1
+      mortality[,ind] <- quantities$F_tot[sp,1,1:nyrs]; ind = ind + 1
+      mortality[,ind] <- quantities$Zed[sp,1,1:nyrs]; ind = ind + 1
+    }
+
+    colnames(mortality) <- c("Year", paste0(rep(c("M2", "Ftot", "Z"), 3), rep(1:data_list$nspp, each = 3)))
+    xcel_list$Age1Mortality <- as.data.frame(mortality)
+
     ############################################################ write the data
     writexl::write_xlsx(xcel_list, file)
 }
