@@ -57,17 +57,17 @@ build_params <- function(data_list, inits = NULL) {
 
 
     # -- 3.4. Survey selectivity parameters
-    # FIXME - change order of selectivity paramters for logistic
-    param_list$srv_sel_coff = suppressWarnings(matrix(0, nrow = nrow(data_list$srv_control), ncol = max(1, as.numeric(data_list$srv_control$Nselages), na.rm = T)))   # Survey selectivity parameters; n = [nspp, nselages]
-    param_list$srv_sel_slp = matrix(0, nrow = 2, ncol = nrow(data_list$srv_control))  # Survey selectivity paramaters for logistic; n = [2, nspp]
-    param_list$srv_sel_inf = matrix(0, nrow = 2, ncol = nrow(data_list$srv_control))  # Survey selectivity paramaters for logistic; n = [2, nspp]
     param_list$log_srv_q = data_list$srv_control$Log_q_prior   # Survey catchability; n = [sum(n_srv)]
+    param_list$srv_sel_coff = suppressWarnings(matrix(0, nrow = nrow(data_list$srv_control), ncol = max(1, as.numeric(data_list$srv_control$Nselages), na.rm = T)))   # Survey selectivity parameters; n = [nspp, nselages]
+    param_list$srv_sel_slp = array(0, dim = c(2, nrow(data_list$srv_control), 2))  # Survey selectivity paramaters for logistic; n = [2, nspp, 2 sexes]
+    param_list$srv_sel_inf = array(0, dim = c(2, nrow(data_list$srv_control), 2))  # Survey selectivity paramaters for logistic; n = [2, nspp, 2 sexes]
 
-    # --- 3.4.2. Time varying parameters
-    param_list$srv_sel_slp_dev = array(0, dim = c(2, nrow(data_list$srv_control), nyrs_hind))  # Survey selectivity deviations paramaters for logistic; n = [2, nspp]
-    param_list$srv_sel_inf_dev = array(0, dim = c(2, nrow(data_list$srv_control), nyrs_hind))  # Survey selectivity deviations paramaters for logistic; n = [2, nspp]
-    param_list$srv_sel_slp_dev_re = array(0, dim = c(2, nrow(data_list$srv_control), nyrs_hind))  # Survey selectivity deviations paramaters for logistic; n = [2, nspp]
-    param_list$srv_sel_inf_dev_re = array(0, dim = c(2, nrow(data_list$srv_control), nyrs_hind))  # Survey selectivity deviations paramaters for logistic; n = [2, nspp]
+    # --- 3.5.2. Time varying parameters
+    param_list$srv_sel_slp_dev = array(0, dim = c(2, nrow(data_list$srv_control), 2, nyrs_hind))  # Survey selectivity deviations paramaters for logistic; n = [2, nspp]
+    param_list$srv_sel_inf_dev = array(0, dim = c(2, nrow(data_list$srv_control), 2, nyrs_hind))  # Survey selectivity deviations paramaters for logistic; n = [2, nspp]
+
+    param_list$srv_sel_slp_dev_re = array(0, dim = c(2, nrow(data_list$srv_control), 2, nyrs_hind))  # Survey selectivity random effect deviations paramaters for logistic; n = [2, nspp]
+    param_list$srv_sel_inf_dev_re = array(0, dim = c(2, nrow(data_list$srv_control), 2, nyrs_hind))  # Survey selectivity random effectdeviations paramaters for logistic; n = [2, nspp]
 
     # Random effects version
     param_list$ln_srv_q_dev = matrix(0, nrow = nrow(data_list$srv_control), ncol = nyrs_hind)   # Survey catchability deviations; n = [sum(n_srv)]
