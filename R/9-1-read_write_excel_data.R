@@ -54,7 +54,7 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 
 
     # srv and fsh bits
-    srv_bits <- c("srv_control", "srv_biom", "srv_emp_sel", "srv_comp", "fsh_control", "fsh_biom", "fsh_emp_sel", "fsh_comp")
+    srv_bits <- c("srv_control", "srv_biom", "srv_comp", "fsh_control", "fsh_biom", "fsh_comp", "emp_sel")
     for (i in 1:length(srv_bits)) {
         xcel_list[[srv_bits[i]]] <- data_list[[srv_bits[i]]]
     }
@@ -115,28 +115,7 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 
 
     # wt
-    index_species <- data.frame(wt = c(data_list$srv_control$Weight_index, data_list$fsh_control$Weight_index), Sp = c(data_list$srv_control$Species,
-        data_list$fsh_control$Species))
-    index_species <- index_species[!duplicated(index_species[, c("wt", "Sp")]), ]
-    index_species <- index_species[order(index_species$wt), ]
-
-    wt <- matrix(NA, ncol = max(data_list$nages) + 4, nrow = nrow(index_species) * length(data_list$styr:data_list$endyr))
-    yrs_done <- 1
-    for (wt_index in 1:nrow(index_species)) {
-        nyears <- length(data_list$styr:data_list$endyr)
-        wt[yrs_done:(yrs_done + nyears - 1), 1] <- paste0("Index_", wt_index)
-        wt[yrs_done:(yrs_done + nyears - 1), 2] <- wt_index
-        wt[yrs_done:(yrs_done + nyears - 1), 3] <- index_species$Sp[wt_index]
-        wt[yrs_done:(yrs_done + nyears - 1), 4] <- data_list$styr:data_list$endyr
-        wt[yrs_done:(yrs_done + nyears - 1), 5:(4 + data_list$nages[index_species$Sp[wt_index]])] <- data_list$wt[, 1:(data_list$nages[index_species$Sp[wt_index]]),
-            wt_index]
-        yrs_done <- yrs_done + length(data_list$styr:data_list$endyr)
-    }
-
-    colnames(wt) <- c("Wt_name", "Wt_index", "Species", "Year", paste0("Age", 1:max(data_list$nages)))
-    wt <- as.data.frame(wt)
-
-    xcel_list$wt <- wt
+    xcel_list$wt <- data_list$wt
 
     names_used <- c(names_used, "wt")
 
@@ -165,8 +144,6 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 
     # M1_base
     M1_base <- data_list$M1_base
-    colnames(M1_base) <- paste0("Age", 1:max(data_list$nages))
-    rownames(M1_base) <- paste0("Species_", 1:data_list$nspp)
     M1_base <- as.data.frame(M1_base)
 
     xcel_list$M1_base <- M1_base
@@ -564,7 +541,7 @@ read_data <- function(file = "Rceattle_data.xlsx") {
 
 
     # srv and fsh bits
-    srv_bits <- c("srv_control", "srv_biom", "srv_emp_sel", "srv_comp", "fsh_control", "fsh_biom", "fsh_emp_sel", "fsh_comp")
+    srv_bits <- c("srv_control", "srv_biom", "srv_comp", "fsh_control", "fsh_biom", "fsh_comp", "emp_sel")
     for (i in 1:length(srv_bits)) {
         sheet <- as.data.frame(readxl::read_xlsx(file, sheet = srv_bits[i]))
         sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
@@ -624,21 +601,8 @@ read_data <- function(file = "Rceattle_data.xlsx") {
 
 
     # wt
-    wt_matrix <- as.data.frame(readxl::read_xlsx(file, sheet = "wt"))
-    unique_wt <- unique(as.character(wt_matrix$Wt_index))
-    wt <- array(0, dim = c(length(data_list$styr:data_list$endyr), max(data_list$nages, na.rm = T), length(unique_wt)))
-
-
-    for (i in 1:nrow(wt_matrix)) {
-
-        wt_ind <- as.numeric(as.character(wt_matrix$Wt_index[i]))
-        sp <- as.numeric(as.character(wt_matrix$Species[i]))
-        yr <- as.numeric(as.character(wt_matrix$Year[i])) - data_list$styr + 1
-
-        wt[yr, 1:data_list$nages[sp], wt_ind] <- as.numeric(as.character(wt_matrix[i, (1:data_list$nages[sp]) + 4]))
-    }
+    wt <- suppressMessages(as.data.frame(readxl::read_xlsx(file, sheet = "wt")))
     data_list$wt <- wt
-
 
 
     # pmature

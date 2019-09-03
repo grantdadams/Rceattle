@@ -199,12 +199,12 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   #---------------------------------------------------------------------
   # dat_list$n_srv <- c(2,1,1) # Bottom trawl and EIT
 
-  dat_list$srv_control <- data.frame(
-    Survey_name = c("BT_Pollock", "BT_Cod", "BT_ATF", "EIT_Pollock"),
-    Survey_code = c(1:4),
+  srv_control <- data.frame(
+    Fleet_name = c("BT_Pollock", "BT_Cod", "BT_ATF", "EIT_Pollock"),
+    Fleet_code = c(4:7),
+    Fleet_type = rep(2,4),
     Species = c(1:3, 1),
     Selectivity_index = c(1:4),
-    Fit_0no_1yes = rep(1, 4),
     Selectivity = c(dat_list$srv_sel_type, 0),
     Nselages = rep(NA, 4),
     Time_varying_sel = rep(0, 4),
@@ -212,23 +212,62 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Weight1_Numbers2 = rep(1, 4),
     Weight_index = c(1:3,1),
     ALK_index = c(1:3,1),
-    # Comp_Nyrs = c(dat_list$nyrs_srv_age, dat_list$n_eit),
     Q_index = c(1:4),
     Estimate_q = c(0, 0, 0, 1),
     Log_q_prior = c(0, 0, 0, -6.7025),
     Time_varying_q = rep(0, 4),
     Q_sd_prior = rep(0, 4),
     Estimate_survey_sd = rep(0, 4), # Used to be Estimate_sigma_survey
-    Survey_sd_prior = rep(NA, 4) # Used to be Sigma_survey_prior
+    Survey_sd_prior = rep(NA, 4), # Used to be Sigma_survey_prior
+    Estimate_catch_sd = rep(NA, 4), # Used to be Estimate_sigma_catch
+    Catch_sd_prior = rep(NA, 4) # Used to be Sigma_catch_prior
   )
+
+
+  #---------------------------------------------------------------------
+  # Step 11 -- Fishery specifications
+  #---------------------------------------------------------------------
+  # dat_list$n_fsh <- c(1,1,1) # Bottom trawl and EIT
+  dat_list$fleet_control <- data.frame(
+    Fleet_name = c("Pollock", "Cod", "ATF"),
+    Fleet_code = c(1:3),
+    Fleet_type = rep(1,3),
+    Species = c(1:3),
+    Selectivity_index = rep(NA, 3),
+    Selectivity = rep(2, 3),
+    Nselages = c(dat_list$nselages),
+    Time_varying_sel = rep(0, 3),
+    Sel_sd_prior = rep(0, 3),
+    Weight1_Numbers2 = rep(1, 3),
+    Weight_index = c(1:3),
+    ALK_index = c(1:3),
+    Q_index = rep(NA, 3),
+    Estimate_q = rep(NA, 3),
+    Log_q_prior = rep(NA, 3),
+    Time_varying_q = rep(NA, 3),
+    Q_sd_prior = rep(NA, 3),
+    Estimate_survey_sd = rep(NA, 3),
+    Survey_sd_prior = rep(NA, 3),
+    Estimate_catch_sd = rep(0, 3), # Used to be Estimate_sigma_catch
+    Catch_sd_prior = rep(NA, 3) # Used to be Sigma_catch_prior
+  )
+
+  dat_list$fleet_control <- rbind(dat_list$fleet_control, srv_control)
+
+  # Projected fishing mortality
+  if(length(proj_F) != nrow(dat_list$fleet_control)){
+    proj_F <- rep(proj_F[1], nrow(dat_list$fleet_control))
+  }
+
+  dat_list$fleet_control$proj_F <- proj_F
 
   #---------------------------------------------------------------------
   # Step 8 -- Reorganize for survey biomass
   #---------------------------------------------------------------------
   # BT BIOMASS
   dat_list$srv_biom <- data.frame(
-    Survey_name = rep(c("BT_Pollock", "BT_Cod", "BT_ATF"), dat_list$nyrs_srv_biom),
-    Survey_code = rep(1:3, dat_list$nyrs_srv_biom),
+    Fleet_name = rep(c("BT_Pollock", "BT_Cod", "BT_ATF"), dat_list$nyrs_srv_biom),
+    Fleet_code = rep(4:6, dat_list$nyrs_srv_biom),
     Species = rep(1:nspp, dat_list$nyrs_srv_biom),
     Year = as.vector(t(dat_list$yrs_srv_biom)),
     Month = rep(rep(6, nspp), dat_list$nyrs_srv_biom),
@@ -244,8 +283,8 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
 
   # Add EIT bit
   eit_biom <- data.frame(
-    Survey_name = rep("EIT_Pollock", dat_list$n_eit),
-    Survey_code = rep(4, dat_list$n_eit),
+    Fleet_name = rep("EIT_Pollock", dat_list$n_eit),
+    Fleet_code = rep(7, dat_list$n_eit),
     Species = rep(1, dat_list$n_eit),
     Year = dat_list$yrs_eit,
     Month = rep(6, dat_list$n_eit),
@@ -261,8 +300,8 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   #---------------------------------------------------------------------
   # BT Survey age comp
   dat_list$srv_comp <- data.frame(
-    Survey_name = rep(c("BT_Pollock", "BT_Cod", "BT_ATF"), dat_list$nyrs_srv_age),
-    Survey_code = rep(1:nspp, dat_list$nyrs_srv_age),
+    Fleet_name = rep(c("BT_Pollock", "BT_Cod", "BT_ATF"), dat_list$nyrs_srv_age),
+    Fleet_code = rep(4:6, dat_list$nyrs_srv_age),
     Species = rep(1:nspp, dat_list$nyrs_srv_age),
     Sex = rep(rep(0, nspp), dat_list$nyrs_srv_age),
     Age0_Length1 = rep(c(0,1,1), dat_list$nyrs_srv_age),
@@ -278,8 +317,8 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
 
   # EIT Survey ag e comp
   eit_comp <- data.frame(
-    Survey_name = rep("EIT_Pollock", dat_list$n_eit),
-    Survey_code = rep(4, dat_list$n_eit),
+    Fleet_name = rep("EIT_Pollock", dat_list$n_eit),
+    Fleet_code = rep(7, dat_list$n_eit),
     Species = rep(1, dat_list$n_eit),
     Sex = rep(0, dat_list$n_eit),
     Age0_Length1 = rep(0, dat_list$n_eit),
@@ -297,9 +336,9 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   #---------------------------------------------------------------------
   # Step 10 -- Reorganize selectivity
   #---------------------------------------------------------------------
-  dat_list$srv_emp_sel <- data.frame(
-    Survey_name = rep("EIT_Pollock", dat_list$n_eit),
-    Survey_code = rep(4, length(dat_list$n_eit)),
+  dat_list$emp_sel <- data.frame(
+    Fleet_name = rep("EIT_Pollock", dat_list$n_eit),
+    Fleet_code = rep(7, length(dat_list$n_eit)),
     Species = rep(1, length(dat_list$n_eit)),
     Sex = rep(0, length(dat_list$n_eit)),
     Year = dat_list$yrs_eit
@@ -309,42 +348,12 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
 
 
   #---------------------------------------------------------------------
-  # Step 11 -- Fishery specifications
-  #---------------------------------------------------------------------
-  # dat_list$n_fsh <- c(1,1,1) # Bottom trawl and EIT
-
-
-  dat_list$fsh_control <- data.frame(
-    Fishery_name = c("Pollock", "Cod", "ATF"),
-    Fishery_code = c(1:3),
-    Species = c(1:3),
-    Fit_0no_1yes = rep(1,3),
-    Selectivity = rep(2, 3),
-    Nselages = c(dat_list$nselages),
-    Time_varying_sel = rep(0, 3),
-    Sel_sd_prior = rep(0, 3),
-    Weight1_Numbers2 = rep(1, 3),
-    Weight_index = c(1:3),
-    ALK_index = c(1:3),
-    Estimate_catch_sd = rep(0, 3), # Used to be Estimate_sigma_catch
-    Catch_sd_prior = rep(NA, 3) # Used to be Sigma_catch_prior
-  )
-
-  # Projected fishing mortality
-  if(length(proj_F) != nrow(dat_list$fsh_control)){
-    proj_F <- rep(proj_F[1], nrow(dat_list$fsh_control))
-  }
-
-  dat_list$fsh_control$proj_F <- proj_F
-
-
-  #---------------------------------------------------------------------
   # Step 12 -- Reorganize for fishery biomass
   #---------------------------------------------------------------------
   # BT BIOMASS
   dat_list$fsh_biom <- data.frame(
-    Fishery_name = rep(c("Pollock", "Cod", "ATF"), dat_list$nyrs_tc_biom),
-    Fishery_code = rep(1:3, dat_list$nyrs_tc_biom),
+    Fleet_name = rep(c("Pollock", "Cod", "ATF"), dat_list$nyrs_tc_biom),
+    Fleet_code = rep(1:3, dat_list$nyrs_tc_biom),
     Species = rep(1:nspp, dat_list$nyrs_tc_biom),
     Year = as.vector(t(dat_list$yrs_tc_biom)),
     Month = rep(rep(0, nspp), dat_list$nyrs_tc_biom),
@@ -358,8 +367,8 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   #---------------------------------------------------------------------
   # Fishery age comp
   dat_list$fsh_comp <- data.frame(
-    Fishery_name = rep(c("Pollock", "Cod", "ATF"), dat_list$nyrs_fsh_comp),
-    Fishery_code = rep(1:nspp, dat_list$nyrs_fsh_comp),
+    Fleet_name = rep(c("Pollock", "Cod", "ATF"), dat_list$nyrs_fsh_comp),
+    Fleet_code = rep(1:nspp, dat_list$nyrs_fsh_comp),
     Species = rep(1:nspp, dat_list$nyrs_fsh_comp),
     Sex = rep(rep(0, nspp), dat_list$nyrs_fsh_comp),
     Age0_Length1 = rep(c(0,1,1), dat_list$nyrs_fsh_comp),
@@ -374,18 +383,10 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   Observation <- Observation[rowSums(is.na(Observation)) != ncol(Observation), ]
   dat_list$fsh_comp <- cbind(dat_list$fsh_comp, Observation)
 
-  #---------------------------------------------------------------------
-  # Step 14 -- Reorganize selectivity
-  #---------------------------------------------------------------------
-  dat_list$fsh_emp_sel <- data.frame(
-    Fishery_name = NA,
-    Fishery_code = NA,
-    Species = NA,
-    Sex = NA,
-    Year = NA,
-    Comp_1 = NA
-  )
-  dat_list$fsh_emp_sel[-1,]
+  dat_list$comp_data <- rbind(dat_list$fsh_comp, dat_list$srv_comp)
+
+
+
 
   #---------------------------------------------------------------------
   # Step 15 -- Rename stuff
@@ -419,6 +420,28 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   dat_list$spnames <- c("Pollock", "Cod", "Arrowtooth flounder")
 
   ###########################
+  # Change WT format
+  ###########################
+  yrs <- dat_list$styr:dat_list$endyr
+  wt_new <- data.frame(Wt_name = rep(c("Pollock", "Cod", "ATF"), each = length(yrs)), Wt_index = rep(1:3, each = length(yrs)), Species = rep(1:3, each = length(yrs)), Year = rep(yrs, 3))
+  wt_new$Sex = 0
+
+  wt_temp <- rbind(dat_list$wt[,,1], dat_list$wt[,,2])
+  wt_temp <- rbind(wt_temp, dat_list$wt[,,3])
+  wt_temp <- as.data.frame(wt_temp)
+  colnames(wt_temp) <- paste0("Age", 1:ncol(wt_temp))
+  wt_new <- cbind(wt_new, wt_temp)
+
+
+  ###########################
+  # Change M1 format
+  ###########################
+  # M1_tmp <- data.frame(Species = 1:3, Sex = rep(0, 3))
+  # colnames(dat_list$M1_base) <- paste0("Age", 1:ncol(dat_list$M1_base))
+  # M1_tmp <- cbind(M1_tmp, dat_list$M1_base)
+  # dat_list$M1_base <- M1_tmp
+
+  ###########################
   # Adding aging error
   ###########################
   dat_list$age_error <- array(0, dim = c(dat_list$nspp, max(dat_list$nages), max(dat_list$nages)))
@@ -436,8 +459,8 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   '%!in%' <- function(x,y)!('%in%'(x,y))
   dat_list2 <- list()
 
-  names_in_cpp <- c(names_in_cpp,
-                    "fsh_emp_sel", "srv_emp_sel",
+  names_in_cpp <- c(names_in_cpp, "comp_data",
+                    "emp_sel", "fleet_control",
                     "fsh_comp", "srv_comp",
                     "fsh_biom", "srv_biom", "proj_F", "minage", "sigma_rec_prior", "spnames", "nsex", "R_sexr", "ssb_wt_index", "spawn_month")
 

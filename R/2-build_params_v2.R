@@ -35,14 +35,14 @@ build_params <- function(data_list, inits = NULL) {
     param_list$init_dev = matrix(0, nrow = data_list$nspp, ncol = max(data_list$nages))  # Initial abundance-at-age; n = [nspp, nages] # NOTE: Need to figure out how to best vectorize this
 
     # -- 3.3. fishing mortality parameters
-    param_list$ln_mean_F = rep(0, nrow(data_list$fsh_control))  # Log mean fishing mortality; n = [1, nspp]
-    param_list$proj_F = data_list$fsh_control$proj_F  # Fishing mortality for projections; n = [1, nspp]
-    param_list$F_dev = matrix(0, nrow = nrow(data_list$fsh_control), ncol = nyrs_hind)  # Annual fishing mortality deviations; n = [nspp, nyrs_hind] # NOTE: The size of this will likely change
+    param_list$ln_mean_F = rep(0, nrow(data_list$fleet_control))  # Log mean fishing mortality; n = [1, nspp]
+    param_list$proj_F = data_list$fleet_control$proj_F  # Fishing mortality for projections; n = [1, nspp]
+    param_list$F_dev = matrix(0, nrow = nrow(data_list$fleet_control), ncol = nyrs_hind)  # Annual fishing mortality deviations; n = [nspp, nyrs_hind] # NOTE: The size of this will likely change
 
     # Make ln_mean_F very low if the data is turned off
-    for (i in 1:nrow(data_list$fsh_control)) {
+    for (i in 1:nrow(data_list$fleet_control)) {
         # Turn of F and F dev if not estimating
-        if (data_list$fsh_control$Fit_0no_1yes[i] == 0) {
+        if (data_list$fleet_control$Fleet_type[i] %in% c(0,2)) {
             param_list$ln_mean_F[i] <- -999
         }
     }
@@ -56,45 +56,33 @@ build_params <- function(data_list, inits = NULL) {
     param_list$F_dev[fsh_ind, yr_ind] <- -999
 
 
-    # -- 3.4. Survey selectivity parameters
-    param_list$log_srv_q = data_list$srv_control$Log_q_prior   # Survey catchability; n = [sum(n_srv)]
-    param_list$srv_sel_coff = suppressWarnings(matrix(0, nrow = nrow(data_list$srv_control), ncol = max(1, as.numeric(data_list$srv_control$Nselages), na.rm = T)))   # Survey selectivity parameters; n = [nspp, nselages]
-    param_list$srv_sel_slp = array(0, dim = c(2, nrow(data_list$srv_control), 2))  # Survey selectivity paramaters for logistic; n = [2, nspp, 2 sexes]
-    param_list$srv_sel_inf = array(0, dim = c(2, nrow(data_list$srv_control), 2))  # Survey selectivity paramaters for logistic; n = [2, nspp, 2 sexes]
-
-    # --- 3.5.2. Time varying parameters
-    param_list$srv_sel_slp_dev = array(0, dim = c(2, nrow(data_list$srv_control), 2, nyrs_hind))  # Survey selectivity deviations paramaters for logistic; n = [2, nspp]
-    param_list$srv_sel_inf_dev = array(0, dim = c(2, nrow(data_list$srv_control), 2, nyrs_hind))  # Survey selectivity deviations paramaters for logistic; n = [2, nspp]
-
-    param_list$srv_sel_slp_dev_re = array(0, dim = c(2, nrow(data_list$srv_control), 2, nyrs_hind))  # Survey selectivity random effect deviations paramaters for logistic; n = [2, nspp]
-    param_list$srv_sel_inf_dev_re = array(0, dim = c(2, nrow(data_list$srv_control), 2, nyrs_hind))  # Survey selectivity random effectdeviations paramaters for logistic; n = [2, nspp]
-
+    # -- 3.4. Survey catchability parameters
     # Random effects version
-    param_list$ln_srv_q_dev = matrix(0, nrow = nrow(data_list$srv_control), ncol = nyrs_hind)   # Survey catchability deviations; n = [sum(n_srv)]
-    param_list$ln_srv_q_dev_re = matrix(0, nrow = nrow(data_list$srv_control), ncol = nyrs_hind)   # Survey catchability deviations; n = [sum(n_srv)]
+    param_list$log_srv_q = data_list$fleet_control$Log_q_prior   # Survey catchability; n = [sum(n_srv)]
+    param_list$ln_srv_q_dev = matrix(0, nrow = nrow(data_list$fleet_control), ncol = nyrs_hind)   # Survey catchability deviations; n = [sum(n_srv)]
+    param_list$ln_srv_q_dev_re = matrix(0, nrow = nrow(data_list$fleet_control), ncol = nyrs_hind)   # Survey catchability deviations; n = [sum(n_srv)]
+    param_list$ln_sigma_srv_q <- log(data_list$fleet_control$Q_sd_prior)              # Log standard deviation for survey selectivity random walk - used for logistic
 
 
+    # -- 3.5. Selectivity parameters
+    n_selectivities <- nrow(data_list$fleet_control)
+    param_list$sel_coff = suppressWarnings( matrix(0, nrow = n_selectivities, ncol = max(1, as.numeric(c(data_list$fleet_control$Nselages) ), na.rm = T)))  # Fishery age selectivity coef; n = [nspp, nselages]
+    param_list$sel_slp = array(0, dim = c(2, n_selectivities, 2))  # selectivity paramaters for logistic; n = [2, nspp, 2 sexes]
+    param_list$sel_inf = array(0, dim = c(2, n_selectivities, 2))  # selectivity paramaters for logistic; n = [2, nspp, 2 sexes]
 
-    # -- 3.5. Fishery selectivity parameters
-    param_list$fsh_sel_coff = suppressWarnings( matrix(0, nrow = nrow(data_list$fsh_control), ncol = max(1, as.numeric(data_list$fsh_control$Nselages), na.rm = T)))  # Fishery age selectivity coef; n = [nspp, nselages]
-    param_list$fsh_sel_slp = array(0, dim = c(2, nrow(data_list$fsh_control), 2))  # Fishery selectivity paramaters for logistic; n = [2, nspp, 2 sexes]
-    param_list$fsh_sel_inf = array(0, dim = c(2, nrow(data_list$fsh_control), 2))  # Fishery selectivity paramaters for logistic; n = [2, nspp, 2 sexes]
+    # --- 3.5.2. Time varying selectivity parameters
+    param_list$sel_slp_dev = array(0, dim = c(2, n_selectivities, 2, nyrs_hind))  # selectivity deviations paramaters for logistic; n = [2, nspp]
+    param_list$sel_inf_dev = array(0, dim = c(2, n_selectivities, 2, nyrs_hind))  # selectivity deviations paramaters for logistic; n = [2, nspp]
 
-    # --- 3.5.2. Time varying parameters
-    param_list$fsh_sel_slp_dev = array(0, dim = c(2, nrow(data_list$fsh_control), 2, nyrs_hind))  # Fishery selectivity deviations paramaters for logistic; n = [2, nspp]
-    param_list$fsh_sel_inf_dev = array(0, dim = c(2, nrow(data_list$fsh_control), 2, nyrs_hind))  # Fishery selectivity deviations paramaters for logistic; n = [2, nspp]
+    param_list$sel_slp_dev_re = array(0, dim = c(2, n_selectivities, 2, nyrs_hind))  # selectivity random effect deviations paramaters for logistic; n = [2, nspp]
+    param_list$sel_inf_dev_re = array(0, dim = c(2, n_selectivities, 2, nyrs_hind))  # selectivity random effectdeviations paramaters for logistic; n = [2, nspp]
 
-    param_list$fsh_sel_slp_dev_re = array(0, dim = c(2, nrow(data_list$fsh_control), 2, nyrs_hind))  # Fishery selectivity random effect deviations paramaters for logistic; n = [2, nspp]
-    param_list$fsh_sel_inf_dev_re = array(0, dim = c(2, nrow(data_list$fsh_control), 2, nyrs_hind))  # Fishery selectivity random effectdeviations paramaters for logistic; n = [2, nspp]
-
+    param_list$ln_sigma_sel <- log(data_list$fleet_control$Sel_sd_prior)          # Log standard deviation for  selectivity random walk - used for logistic
 
     # -- 3.5. Variance of survey and fishery time series
-    param_list$ln_sigma_srv_index = log(data_list$srv_control$Survey_sd_prior)      # Log standard deviation of survey index time-series; n = [1, n_srv]
-    param_list$ln_sigma_fsh_catch = log(data_list$fsh_control$Catch_sd_prior)       # Log standard deviation of fishery catch time-series; n = [1, n_fsh]
+    param_list$ln_sigma_srv_index = log(data_list$fleet_control$Survey_sd_prior)      # Log standard deviation of survey index time-series; n = [1, n_srv]
+    param_list$ln_sigma_fsh_catch = log(data_list$fleet_control$Catch_sd_prior)       # Log standard deviation of fishery catch time-series; n = [1, n_fsh]
 
-    param_list$ln_sigma_srv_sel <- log(data_list$srv_control$Sel_sd_prior)          # Log standard deviation for survey selectivity random walk - used for logistic
-    param_list$ln_sigma_srv_q <- log(data_list$srv_control$Q_sd_prior)              # Log standard deviation for survey selectivity random walk - used for logistic
-    param_list$ln_sigma_fsh_sel <- log(data_list$fsh_control$Sel_sd_prior)          # Log standard deviation for fishery selectivity random walk - used for logistic
 
 
     # -- 3.6. Kinzery predation function parameters
