@@ -6,46 +6,30 @@
 #' @export
 rearrange_dat <- function(dat_list){
 
-  # Step 1 - remove q priors
-  dat_list$srv_control <- dat_list$srv_control[,-which(colnames(dat_list$srv_control) %in% c("Sel_sd_prior", "Log_q_prior", "Q_sd_prior", "Survey_sd_prior"))]
+  # Step 1 - remove numeric objects from control
+  dat_list$fleet_control <- dat_list$fleet_control[,-which(colnames(dat_list$fleet_control) %in% c("Sel_sd_prior", "Log_q_prior", "Q_sd_prior", "Survey_sd_prior", "Sel_sd_prior", "proj_F", "Catch_sd_prior"))]
 
   # Step 2 -  Seperate survey biomass info from observation
-  dat_list$srv_biom_ctl <- dat_list$srv_biom[,c("Survey_code", "Species", "Year")]
+  dat_list$srv_biom_ctl <- dat_list$srv_biom[,c("Fleet_code", "Species", "Year")]
   dat_list$srv_biom_n <- as.matrix(dat_list$srv_biom[,c("Month")])
   dat_list$srv_biom_obs <- dat_list$srv_biom[,c("Observation", "CV")]
 
   # Step 3 -  Seperate catch biomass info from observation
-  dat_list$fsh_biom_ctl <- dat_list$fsh_biom[,c("Fishery_code", "Species", "Year")]
+  dat_list$fsh_biom_ctl <- dat_list$fsh_biom[,c("Fleet_code", "Species", "Year")]
   dat_list$fsh_biom_n <- as.matrix(dat_list$fsh_biom[,c("Month")])
   dat_list$fsh_biom_obs <- dat_list$fsh_biom[,c("Catch", "CV")]
 
   # Step 4 -  Seperate survey comp info from observation
-  dat_list$srv_comp_ctl <- dat_list$srv_comp[,c("Survey_code", "Species", "Sex", "Age0_Length1", "Year")]
-  dat_list$srv_comp_n <- dat_list$srv_comp[,c("Month", "Sample_size")]
-  dat_list$srv_comp_obs <- dat_list$srv_comp[,grep("Comp_", colnames(dat_list$srv_comp))]
-
-  # Step 5 -  Seperate catch comp info from observation
-  dat_list$fsh_comp_ctl <- dat_list$fsh_comp[,c("Fishery_code", "Species","Sex", "Age0_Length1", "Year")]
-  dat_list$fsh_comp_n <- dat_list$fsh_comp[,c("Month", "Sample_size")]
-  dat_list$fsh_comp_obs <- dat_list$fsh_comp[,grep("Comp_", colnames(dat_list$fsh_comp))]
-
-  # Remove first row of empirical selectivity if all NAs
+  dat_list$comp_ctl <- dat_list$comp_data[,c("Fleet_code", "Species", "Sex", "Age0_Length1", "Year")]
+  dat_list$comp_n <- dat_list$comp_data[,c("Month", "Sample_size")]
+  dat_list$comp_obs <- dat_list$comp_data[,grep("Comp_", colnames(dat_list$comp_data))]
 
   # Step 6 -  Seperate survey empirical selectivity info from observation
-  dat_list$srv_emp_sel_ctl <- as.matrix(dat_list$srv_emp_sel[,c("Survey_code", "Species", "Year")])
-  dat_list$srv_emp_sel_obs <- as.matrix(dat_list$srv_emp_sel[,grep("Comp_", colnames(dat_list$srv_emp_sel))])
-
-  # Step 7 -  Seperate fishery empirical selectivity from observation
-  dat_list$fsh_emp_sel_ctl <- as.matrix(dat_list$fsh_emp_sel[,c("Fishery_code", "Species", "Year")])
-  dat_list$fsh_emp_sel_obs <- as.matrix(dat_list$fsh_emp_sel[,grep("Comp_", colnames(dat_list$fsh_emp_sel))])
+  dat_list$emp_sel_ctl <- as.matrix(dat_list$emp_sel[,c("Fleet_code", "Species", "Year", "Sex")])
+  dat_list$emp_sel_obs <- as.matrix(dat_list$emp_sel[,grep("Comp_", colnames(dat_list$emp_sel))])
 
   # Make data_list names different
-  dat_list$fsh_control$Fishery_name <- suppressWarnings(as.numeric((dat_list$fsh_control$Fishery_name)))
-  dat_list$srv_control$Survey_name <- suppressWarnings(as.numeric((dat_list$srv_control$Survey_name)))
-
-  # projected fishery
-  # dat_list$proj_F <- dat_list$fsh_control$proj_F
-  dat_list$fsh_control <- dat_list$fsh_control[,-which(colnames(dat_list$fsh_control) %in% c("Sel_sd_prior", "proj_F", "Catch_sd_prior"))]
+  dat_list$fleet_control$Fleet_name <- suppressWarnings(as.numeric((dat_list$fleet_control$Fleet_name)))
 
   # Species names
   dat_list$spnames <- NULL
@@ -57,7 +41,7 @@ rearrange_dat <- function(dat_list){
     }
   }
 
-  items_to_remove <- c("fsh_emp_sel", "srv_emp_sel",    "fsh_comp",    "srv_comp",    "fsh_biom",    "srv_biom")
+  items_to_remove <- c("emp_sel",    "fsh_comp",    "srv_comp",    "fsh_biom",    "srv_biom")
   for(i in 1:length(items_to_remove)){
     dat_list[[items_to_remove[i]]] <- NULL
   }
@@ -78,7 +62,24 @@ rearrange_dat <- function(dat_list){
     dat_list$fsh_comp_obs[i,] = dat_list$fsh_comp_obs[i,] / sum(dat_list$fsh_comp_obs[i,], na.rm = TRUE)
   }
 
-  # Set up index matrix for survey selectivity
+  # Set up wt array
+  wt_matrix <- dat_list$wt
+  unique_wt <- unique(as.character(wt_matrix$Wt_index))
+  wt <- array(0, dim = c(length(unique_wt), 2, max(data_list$nages, na.rm = T), length(data_list$styr:data_list$endyr)))
+
+  for (i in 1:nrow(wt_matrix)) {
+
+    wt_ind <- as.numeric(as.character(wt_matrix$Wt_index[i]))
+    sp <- as.numeric(as.character(wt_matrix$Species[i]))
+    sex <- as.numeric(as.character(wt_matrix$Sex[i]))
+    yr <- as.numeric(as.character(wt_matrix$Year[i])) - data_list$styr + 1
+    if(sex == 0){ sex = c(1, 2)}
+
+    wt[wt_ind, sex, 1:data_list$nages[sp], yr] <- as.numeric(as.character(wt_matrix[i, (1:data_list$nages[sp]) + 5]))
+  }
+  dat_list$wt <- wt
+
+  # Set up M1 array
 
   return(dat_list)
 }

@@ -136,7 +136,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       # Map selectivity blocks together
       if(data_list$fsh_control$Time_varying_sel[i] == 3){
 
-        fsh_biom <- data_list$fsh_biom[which(data_list$fsh_biom$Fishery_code == i),]
+        fsh_biom <- data_list$fsh_biom[which(data_list$fsh_biom$Fleet_code == i),]
 
         # Turn off random effects
         map_list$fsh_sel_slp_dev_re[1, i, ,] <- NA
@@ -244,7 +244,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
         map_list$fsh_sel_inf[1:2, i, ] <- NA
 
         # Loop through upper and lower
-        fsh_biom <- data_list$fsh_biom[which(data_list$fsh_biom$Fishery_code == i),]
+        fsh_biom <- data_list$fsh_biom[which(data_list$fsh_biom$Fleet_code == i),]
 
         for(j in 1:2){
           for(sex in 1:data_list$nsex){
@@ -281,16 +281,16 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
                                                                                                                       ])))
 
       # Map out logistic and double logistic
-      map_list$srv_sel_slp[1:2, i] <- NA
-      map_list$srv_sel_inf[1:2, i] <- NA
+      map_list$srv_sel_slp[1:2, i,] <- NA
+      map_list$srv_sel_inf[1:2, i,] <- NA
 
       # Map out logistic and double logistic deviates
-      map_list$srv_sel_slp_dev[1:2, i,] <- NA
-      map_list$srv_sel_inf_dev[1:2, i,] <- NA
+      map_list$srv_sel_slp_dev[1:2, i,,] <- NA
+      map_list$srv_sel_inf_dev[1:2, i,,] <- NA
 
       # Map out random effects
-      map_list$srv_sel_slp_dev_re[1:2, i,] <- NA
-      map_list$srv_sel_inf_dev_re[1:2, i,] <- NA
+      map_list$srv_sel_slp_dev_re[1:2, i,,] <- NA
+      map_list$srv_sel_inf_dev_re[1:2, i,,] <- NA
 
       # Map out selectivity var
       map_list$ln_sigma_srv_sel[i] <- NA
@@ -305,36 +305,36 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
                                                                                                                       ])))
 
       # Map out double logistic
-      map_list$srv_sel_slp[2, i] <- NA
-      map_list$srv_sel_inf[2, i] <- NA
+      map_list$srv_sel_slp[2, i,] <- NA
+      map_list$srv_sel_inf[2, i,] <- NA
 
       # Map out logistic and double logistic deviates
-      map_list$srv_sel_slp_dev[2, i,] <- NA
-      map_list$srv_sel_inf_dev[2, i,] <- NA
+      map_list$srv_sel_slp_dev[2, i,,] <- NA
+      map_list$srv_sel_inf_dev[2, i,,] <- NA
 
-      map_list$srv_sel_slp_dev_re[2, i,] <- NA
-      map_list$srv_sel_inf_dev_re[2, i,] <- NA
+      map_list$srv_sel_slp_dev_re[2, i,,] <- NA
+      map_list$srv_sel_inf_dev_re[2, i,,] <- NA
 
       # Map out time varying parameters if not used
       if(data_list$srv_control$Time_varying_sel[i] == 0){
-        map_list$srv_sel_slp_dev[1, i,] <- NA
-        map_list$srv_sel_inf_dev[1, i,] <- NA
+        map_list$srv_sel_slp_dev[1, i,,] <- NA
+        map_list$srv_sel_inf_dev[1, i,,] <- NA
 
-        map_list$srv_sel_slp_dev_re[1, i,] <- NA
-        map_list$srv_sel_inf_dev_re[1, i,] <- NA
+        map_list$srv_sel_slp_dev_re[1, i,,] <- NA
+        map_list$srv_sel_inf_dev_re[1, i,,] <- NA
       }
 
       # Set up time varying parameters used (account for missing years)
       if(data_list$srv_control$Time_varying_sel[i] > 0){
         # Set all to NA
-        map_list$srv_sel_slp_dev[1, i,] <- NA
-        map_list$srv_sel_inf_dev[1, i,] <- NA
+        map_list$srv_sel_slp_dev[1, i,,] <- NA
+        map_list$srv_sel_inf_dev[1, i,,] <- NA
 
-        map_list$srv_sel_slp_dev_re[1, i,] <- NA
-        map_list$srv_sel_inf_dev_re[1, i,] <- NA
+        map_list$srv_sel_slp_dev_re[1, i,,] <- NA
+        map_list$srv_sel_inf_dev_re[1, i,,] <- NA
 
         # Extract survey years where data is provided
-        srv_biom <- data_list$srv_biom[which(data_list$srv_biom$Survey_code == i),]
+        srv_biom <- data_list$srv_biom[which(data_list$srv_biom$Fleet_code == i),]
         srv_biom_yrs <- srv_biom$Year - data_list$styr + 1
 
         # Random walk
@@ -432,7 +432,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
           map_list$srv_sel_inf_dev[j, i,] <- NA
 
           # Extract survey years where data is provided
-          srv_biom <- data_list$srv_biom[which(data_list$srv_biom$Survey_code == i),]
+          srv_biom <- data_list$srv_biom[which(data_list$srv_biom$Fleet_code == i),]
           srv_biom_yrs <- srv_biom$Year - data_list$styr + 1
 
           # Random walk
@@ -518,7 +518,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$ln_srv_q_dev_re[i,] <- NA
 
       # Extract survey years where data is provided
-      srv_biom <- data_list$srv_biom[which(data_list$srv_biom$Survey_code == i),]
+      srv_biom <- data_list$srv_biom[which(data_list$srv_biom$Fleet_code == i),]
       srv_biom_yrs <- srv_biom$Year - data_list$styr + 1
 
       # Random walk
@@ -567,14 +567,14 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       # Error check selectivity type
       if(length(unique(data_list$srv_control$Selectivity[sel_duplicate_vec])) > 1){
         warning("Survey selectivity of surveys with same Selectivity_index is not the same")
-        warning(paste0("Double check Selectivity in srv_control of surveys:", paste(data_list$srv_control$Survey_name[sel_duplicate_vec])))
+        warning(paste0("Double check Selectivity in srv_control of surveys:", paste(data_list$srv_control$Fleet_name[sel_duplicate_vec])))
       }
 
 
       # Error check time-varying selectivity type
       if(length(unique(data_list$srv_control$Time_varying_sel[sel_duplicate_vec])) > 1){
         warning("Time varying survey selectivity of surveys with same Selectivity_index is not the same")
-        warning(paste0("Double check Time_varying_sel in srv_control of surveys:", paste(data_list$srv_control$Survey_name[sel_duplicate_vec])))
+        warning(paste0("Double check Time_varying_sel in srv_control of surveys:", paste(data_list$srv_control$Fleet_name[sel_duplicate_vec])))
       }
 
       # FIXME add checks for surveys sel sigma
@@ -597,14 +597,14 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       # Error check selectivity type
       if(length(unique(data_list$srv_control$Estimate_q[q_duplicate_vec])) > 1){
         warning("Survey catchability of surveys with same Q_index is not the same")
-        warning(paste0("Double check Estimate_q in srv_control of surveys:", paste(data_list$srv_control$Survey_name[q_duplicate_vec])))
+        warning(paste0("Double check Estimate_q in srv_control of surveys:", paste(data_list$srv_control$Fleet_name[q_duplicate_vec])))
       }
 
 
       # Error check time-varying selectivity type
       if(length(unique(data_list$srv_control$Time_varying_q[q_duplicate_vec])) > 1){
         warning("Time varying survey catchability of surveys with same Q_index is not the same")
-        warning(paste0("Double check Time_varying_q in srv_control of surveys:", paste(data_list$srv_control$Survey_name[q_duplicate_vec])))
+        warning(paste0("Double check Time_varying_q in srv_control of surveys:", paste(data_list$srv_control$Fleet_name[q_duplicate_vec])))
       }
 
       # FIXME add checks for surveys q sigma
@@ -645,7 +645,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
   # -- 10. Map out Fdev for years with 0 catch to very low number
   fsh_biom <- data_list$fsh_biom
-  fsh_ind <- fsh_biom$Fishery_code[which(fsh_biom$Catch == 0)]
+  fsh_ind <- fsh_biom$Fleet_code[which(fsh_biom$Catch == 0)]
   yr_ind <- fsh_biom$Year[which(fsh_biom$Catch == 0)] - data_list$styr + 1
 
   map_list$F_dev[fsh_ind, yr_ind] <- NA
