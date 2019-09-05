@@ -184,7 +184,7 @@
 #' @export
 
 fit_mod <-
-  function(TMBfilename = "ceattle_v01_04",
+  function(TMBfilename = "ceattle_v01_06",
            cpp_directory = NULL,
            data_list = NULL,
            inits = NULL,
@@ -237,7 +237,7 @@ fit_mod <-
     # Get cpp file if not provided
     if(is.null(TMBfilename) | is.null(cpp_directory)){
       cpp_directory <- system.file("executables",package="Rceattle")
-      TMBfilename <- "ceattle_v01_05"
+      TMBfilename <- "ceattle_v01_06"
     } else{
       cpp_directory <- cpp_directory
       TMBfilename <- TMBfilename
@@ -278,7 +278,7 @@ fit_mod <-
 
 
     # STEP 4 - Setup random effects
-    random_vars <- c("ln_srv_q_dev_re", "srv_sel_slp_dev_re", "srv_sel_inf_dev_re", "fsh_sel_slp_dev_re", "fsh_sel_inf_dev_re")
+    random_vars <- c("ln_srv_q_dev_re", "sel_slp_dev_re", "sel_inf_dev_re")
     if (random_rec == TRUE) {
       random_vars <- c(random_vars , "rec_dev")
     }

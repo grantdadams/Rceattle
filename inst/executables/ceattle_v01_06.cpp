@@ -462,7 +462,7 @@ Type objective_function<Type>::operator() () {
   DATA_MATRIX( aLW );                     // LW a&b regression coefs for W=a*L^b; n = [2, nspp]
 
   // -- 2.4.4. Others
-  DATA_MATRIX( M1_base );                 // Residual natural mortality; n = [nspp, nages]
+  DATA_ARRAY( M1_base );                 // Residual natural mortality; n = [nspp, nages]
   DATA_MATRIX( propF );                   // Proportion-at-age of females of population; n = [nspp, nages]
   DATA_MATRIX( pmature );                 // Proportion of mature females at age; [nspp, nages]
 
@@ -585,7 +585,6 @@ Type objective_function<Type>::operator() () {
   matrix<Type>  biomassSSB(nspp, nyrs); biomassSSB.setZero();                       // Estimated spawning stock biomass (kg); n = [nspp, nyrs]
   array<Type>   biomassSSBByage(nspp, max_age, nyrs); biomassSSBByage.setZero();    // Spawning biomass at age (kg); n = [nspp, nages, nyrs]
   array<Type>   M(nspp, max_age, nyrs); M.setZero();                                // Total natural mortality at age; n = [nyrs, nages, nspp]
-  matrix<Type>  M1(nspp, max_age); M1.setZero();                                    // Base natural mortality; n = [nspp, nages]
   array<Type>   M2(nspp, max_age, nyrs); M2.setZero();                              // Predation mortality at age; n = [nyrs, nages, nspp]
   array<Type>   M2_prop(nspp, nspp, max_age, max_age, nyrs); M2_prop.setZero();     // Relative predation mortality at age from each species at age; n = [nyrs, nages, nspp]
   array<Type>   NByage(nspp, 2, max_age, nyrs); NByage.setZero();                   // Numbers at age; n = [nspp, nages, nyrs]
@@ -693,7 +692,6 @@ Type objective_function<Type>::operator() () {
   // ------------------------------------------------------------------------- //
 
   // 5.5. Maturity and sex ratio
-  M1 = M1_base.array() + Type(0.0001);
   for ( sp = 0; sp < nspp ; sp++) {
     for ( age = 0 ; age < nages(sp); age++ ) {
       if(nsex(sp) == 1){
@@ -773,7 +771,7 @@ Type objective_function<Type>::operator() () {
     est_srv_q(flt) = fleet_control(flt_ind, 12);             // Estimate analytical q?
     srv_varying_q(flt) = fleet_control(flt_ind, 13);         // Time varying q type
     est_sigma_srv(flt) = fleet_control(flt_ind, 14);         // Wether to estimate standard deviation of survey time series
-    est_sigma_fsh(flt) = fleet_control(flt_ind, 10);        // Wether to estimate standard deviation of fishery time series
+    est_sigma_fsh(flt) = fleet_control(flt_ind, 15);        // Wether to estimate standard deviation of fishery time series
   }
 
   // Set up survey q
@@ -982,8 +980,8 @@ Type objective_function<Type>::operator() () {
       for (age = 0; age < nages(sp); age++) {
         for (yr = 0; yr < nyrs; yr++) {
           for(sex = 0; sex < nsex(sp); sex ++){
-            M(sp, age, yr) = M1(sp, age) + M2(sp, age, yr);
-            Zed(sp, sex, age, yr) = M1(sp, age) + F_tot(sp, sex, age, yr) + M2(sp, age, yr);
+            M(sp, age, yr) = M1_base(sp, sex, age) + M2(sp, age, yr);
+            Zed(sp, sex, age, yr) = M1_base(sp, sex, age) + F_tot(sp, sex, age, yr) + M2(sp, age, yr);
             S(sp, sex, age, yr) = exp(-Zed(sp, sex, age, yr));
           }
         }
@@ -1012,13 +1010,22 @@ Type objective_function<Type>::operator() () {
       for(sex = 0; sex < nsex(sp); sex ++){
         for (age = 0; age < nages(sp); age++) {
           if ((age > 0) & (age < nages(sp) - 1)) {
-            Type mort_sum = M1.row(sp).segment(0, age-1).sum(); // Sum M1 until age - 1
+
+            // Sum M1 until age - 1
+            Type mort_sum = 0;
+            for(int age_tmp = 0; age_tmp < age; age_tmp++){
+              mort_sum += M1_base(sp, sex, age_tmp);
+            }
             NByage(sp, sex, age, 0) = exp(ln_mn_rec(sp) - mort_sum + init_dev(sp, age - 1)) * R_sexr(sp);
           }
           // -- 6.2.2. Where yr = 1 and age > Ai.
           if (age == (nages(sp) - 1)) {
-            Type mort_sum = M1.row(sp).segment(0, age).sum(); // Sum M1 until age - 1
-            NByage(sp, sex, age, 0) = exp(ln_mn_rec(sp) - mort_sum + init_dev(sp, age - 1)) / (1 - exp(-M1(sp, nages(sp) - 1))) * R_sexr(sp); // NOTE: This solves for the geometric series
+            // Sum M1 until age - 1
+            Type mort_sum = 0;
+            for(int age_tmp = 0; age_tmp <= age; age_tmp++){
+              mort_sum += M1_base(sp, sex, age_tmp);
+            }
+            NByage(sp, sex, age, 0) = exp(ln_mn_rec(sp) - mort_sum + init_dev(sp, age - 1)) / (1 - exp(-M1_base(sp, sex, nages(sp) - 1))) * R_sexr(sp); // NOTE: This solves for the geometric series
           }
         }
       }
@@ -2433,7 +2440,7 @@ Type objective_function<Type>::operator() () {
   }
 
 
-  // Slot 3-5 -- Survey selectivity
+  // Slot 3-5 -- Selectivity
   for(flt = 0; flt < n_flt; flt++){ // Loop around surveys
     sp = flt_spp(flt);
 
@@ -2698,14 +2705,12 @@ Type objective_function<Type>::operator() () {
   REPORT( pmature );
   REPORT(r_sigma);
   REPORT( R );
-  REPORT( M1 );
   REPORT( M );
   ADREPORT( Zed );
   ADREPORT( biomass );
   ADREPORT( biomassSSB );
   ADREPORT( r_sigma );
   ADREPORT( R );
-  ADREPORT( M1);
 
   // -- 12.2. Selectivity
   REPORT( sel );
@@ -2794,6 +2799,7 @@ Type objective_function<Type>::operator() () {
   // ------------------------------------------------------------------------- //
   // 13. END MODEL                                                             //
   // ------------------------------------------------------------------------- //
+  
   Type jnll = 0;
 
   // Estimation mode

@@ -2,68 +2,56 @@
 #'
 #' @description Function to rearrange a \code{data_list} object to be read into TMB CEATTLE
 #'
-#' @param dat_list a data_list created from \code{\link{build_dat}}.
+#' @param data_list a data_list created from \code{\link{build_dat}}.
 #' @export
-rearrange_dat <- function(dat_list){
+rearrange_dat <- function(data_list){
 
   # Step 1 - remove numeric objects from control
-  dat_list$fleet_control <- dat_list$fleet_control[,-which(colnames(dat_list$fleet_control) %in% c("Sel_sd_prior", "Log_q_prior", "Q_sd_prior", "Survey_sd_prior", "Sel_sd_prior", "proj_F", "Catch_sd_prior"))]
+  data_list$fleet_control <- data_list$fleet_control[,-which(colnames(data_list$fleet_control) %in% c("Sel_sd_prior", "Log_q_prior", "Q_sd_prior", "Survey_sd_prior", "Sel_sd_prior", "proj_F", "Catch_sd_prior"))]
 
   # Step 2 -  Seperate survey biomass info from observation
-  dat_list$srv_biom_ctl <- dat_list$srv_biom[,c("Fleet_code", "Species", "Year")]
-  dat_list$srv_biom_n <- as.matrix(dat_list$srv_biom[,c("Month")])
-  dat_list$srv_biom_obs <- dat_list$srv_biom[,c("Observation", "CV")]
+  data_list$srv_biom_ctl <- data_list$srv_biom[,c("Fleet_code", "Species", "Year")]
+  data_list$srv_biom_n <- as.matrix(data_list$srv_biom[,c("Month")])
+  data_list$srv_biom_obs <- data_list$srv_biom[,c("Observation", "CV")]
 
   # Step 3 -  Seperate catch biomass info from observation
-  dat_list$fsh_biom_ctl <- dat_list$fsh_biom[,c("Fleet_code", "Species", "Year")]
-  dat_list$fsh_biom_n <- as.matrix(dat_list$fsh_biom[,c("Month")])
-  dat_list$fsh_biom_obs <- dat_list$fsh_biom[,c("Catch", "CV")]
+  data_list$fsh_biom_ctl <- data_list$fsh_biom[,c("Fleet_code", "Species", "Year")]
+  data_list$fsh_biom_n <- as.matrix(data_list$fsh_biom[,c("Month")])
+  data_list$fsh_biom_obs <- data_list$fsh_biom[,c("Catch", "CV")]
 
   # Step 4 -  Seperate survey comp info from observation
-  dat_list$comp_ctl <- dat_list$comp_data[,c("Fleet_code", "Species", "Sex", "Age0_Length1", "Year")]
-  dat_list$comp_n <- dat_list$comp_data[,c("Month", "Sample_size")]
-  dat_list$comp_obs <- dat_list$comp_data[,grep("Comp_", colnames(dat_list$comp_data))]
+  data_list$comp_ctl <- data_list$comp_data[,c("Fleet_code", "Species", "Sex", "Age0_Length1", "Year")]
+  data_list$comp_n <- data_list$comp_data[,c("Month", "Sample_size")]
+  data_list$comp_obs <- data_list$comp_data[,grep("Comp_", colnames(data_list$comp_data))]
 
   # Step 6 -  Seperate survey empirical selectivity info from observation
-  dat_list$emp_sel_ctl <- as.matrix(dat_list$emp_sel[,c("Fleet_code", "Species", "Year", "Sex")])
-  dat_list$emp_sel_obs <- as.matrix(dat_list$emp_sel[,grep("Comp_", colnames(dat_list$emp_sel))])
+  data_list$emp_sel_ctl <- as.matrix(data_list$emp_sel[,c("Fleet_code", "Species", "Year", "Sex")])
+  data_list$emp_sel_obs <- as.matrix(data_list$emp_sel[,grep("Comp_", colnames(data_list$emp_sel))])
 
   # Make data_list names different
-  dat_list$fleet_control$Fleet_name <- suppressWarnings(as.numeric((dat_list$fleet_control$Fleet_name)))
+  data_list$fleet_control$Fleet_name <- suppressWarnings(as.numeric(as.character(data_list$fleet_control$Fleet_name)))
 
   # Species names
-  dat_list$spnames <- NULL
-
-  # Make data.frames into matrices
-  for(i in 1:length(dat_list)){
-    if(class(dat_list[[i]]) == "data.frame"){
-      dat_list[[i]] <- as.matrix(dat_list[[i]])
-    }
-  }
-
-  items_to_remove <- c("emp_sel",    "fsh_comp",    "srv_comp",    "fsh_biom",    "srv_biom")
-  for(i in 1:length(items_to_remove)){
-    dat_list[[items_to_remove[i]]] <- NULL
-  }
+  data_list$spnames <- NULL
 
   # Normalize age-transition matrix
-  for(i in 1:dim(dat_list$age_trans_matrix)[3]){
-    dat_list$age_trans_matrix[,,i] = dat_list$age_trans_matrix[,,i] / rowSums(dat_list$age_trans_matrix[,,i], na.rm = T)
+  for(i in 1:dim(data_list$age_trans_matrix)[3]){
+    data_list$age_trans_matrix[,,i] = data_list$age_trans_matrix[,,i] / rowSums(data_list$age_trans_matrix[,,i], na.rm = T)
   }
 
 
   # Normalize srv comp
-  for(i in nrow(dat_list$srv_comp_obs)){
-    dat_list$srv_comp_obs[i,] = dat_list$srv_comp_obs[i,] / sum(dat_list$srv_comp_obs[i,], na.rm = TRUE)
+  for(i in nrow(data_list$srv_comp_obs)){
+    data_list$srv_comp_obs[i,] = data_list$srv_comp_obs[i,] / sum(data_list$srv_comp_obs[i,], na.rm = TRUE)
   }
 
   # Normalize fsh comp
-  for(i in nrow(dat_list$fsh_comp_obs)){
-    dat_list$fsh_comp_obs[i,] = dat_list$fsh_comp_obs[i,] / sum(dat_list$fsh_comp_obs[i,], na.rm = TRUE)
+  for(i in nrow(data_list$fsh_comp_obs)){
+    data_list$fsh_comp_obs[i,] = data_list$fsh_comp_obs[i,] / sum(data_list$fsh_comp_obs[i,], na.rm = TRUE)
   }
 
   # Set up wt array
-  wt_matrix <- dat_list$wt
+  wt_matrix <- data_list$wt
   unique_wt <- unique(as.character(wt_matrix$Wt_index))
   wt <- array(0, dim = c(length(unique_wt), 2, max(data_list$nages, na.rm = T), length(data_list$styr:data_list$endyr)))
 
@@ -74,12 +62,36 @@ rearrange_dat <- function(dat_list){
     sex <- as.numeric(as.character(wt_matrix$Sex[i]))
     yr <- as.numeric(as.character(wt_matrix$Year[i])) - data_list$styr + 1
     if(sex == 0){ sex = c(1, 2)}
-
-    wt[wt_ind, sex, 1:data_list$nages[sp], yr] <- as.numeric(as.character(wt_matrix[i, (1:data_list$nages[sp]) + 5]))
+    for(j in 1:length(sex)){
+      wt[wt_ind, sex[j], 1:data_list$nages[sp], yr] <- as.numeric(as.character(wt_matrix[i, (1:data_list$nages[sp]) + 5]))
+    }
   }
-  dat_list$wt <- wt
+  data_list$wt <- wt
 
   # Set up M1 array
+  m1 <- array(0, dim = c(data_list$nspp, 2, max(data_list$nages, na.rm = T)))
 
-  return(dat_list)
+  for (i in 1:nrow(data_list$M1_base)) {
+    sp <- as.numeric(as.character(data_list$M1_base$Species[i]))
+    sex <- as.numeric(as.character(data_list$M1_base$Sex[i]))
+    if(sex == 0){ sex = c(1, 2)}
+    for(j in 1:length(sex)){
+      m1[sp, sex[j], 1:max(data_list$nages, na.rm = T)] <- as.numeric(data_list$M1_base[i,-c(1,2)])
+    }
+  }
+  data_list$M1_base <- m1
+
+  # Make data.frames into matrices
+  for(i in 1:length(data_list)){
+    if(class(data_list[[i]]) == "data.frame"){
+      data_list[[i]] <- as.matrix(data_list[[i]])
+    }
+  }
+
+  items_to_remove <- c("emp_sel",    "fsh_comp",    "srv_comp",    "fsh_biom",    "srv_biom", "comp_data")
+  for(i in 1:length(items_to_remove)){
+    data_list[[items_to_remove[i]]] <- NULL
+  }
+
+  return(data_list)
 }
