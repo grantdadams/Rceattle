@@ -4,10 +4,10 @@
 \alias{rearrange_dat}
 \title{Rearrange}
 \usage{
-rearrange_dat(dat_list)
+rearrange_dat(data_list)
 }
 \arguments{
-\item{dat_list}{a data_list created from \code{\link{build_dat}}.}
+\item{data_list}{a data_list created from \code{\link{build_dat}}.}
 }
 \description{
 Function to rearrange a \code{data_list} object to be read into TMB CEATTLE

@@ -204,7 +204,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Fleet_code = c(4:7),
     Fleet_type = rep(2,4),
     Species = c(1:3, 1),
-    Selectivity_index = c(1:4),
+    Selectivity_index = c(4:7),
     Selectivity = c(dat_list$srv_sel_type, 0),
     Nselages = rep(NA, 4),
     Time_varying_sel = rep(0, 4),
@@ -233,7 +233,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Fleet_code = c(1:3),
     Fleet_type = rep(1,3),
     Species = c(1:3),
-    Selectivity_index = rep(NA, 3),
+    Selectivity_index = 1:3,
     Selectivity = rep(2, 3),
     Nselages = c(dat_list$nselages),
     Time_varying_sel = rep(0, 3),
@@ -431,15 +431,15 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   wt_temp <- as.data.frame(wt_temp)
   colnames(wt_temp) <- paste0("Age", 1:ncol(wt_temp))
   wt_new <- cbind(wt_new, wt_temp)
-
+  dat_list$wt <- wt_new
 
   ###########################
   # Change M1 format
   ###########################
-  # M1_tmp <- data.frame(Species = 1:3, Sex = rep(0, 3))
-  # colnames(dat_list$M1_base) <- paste0("Age", 1:ncol(dat_list$M1_base))
-  # M1_tmp <- cbind(M1_tmp, dat_list$M1_base)
-  # dat_list$M1_base <- M1_tmp
+  M1_tmp <- data.frame(Species = 1:3, Sex = rep(0, 3))
+  colnames(dat_list$M1_base) <- paste0("Age", 1:ncol(dat_list$M1_base))
+  M1_tmp <- cbind(M1_tmp, dat_list$M1_base)
+  dat_list$M1_base <- M1_tmp
 
   ###########################
   # Adding aging error

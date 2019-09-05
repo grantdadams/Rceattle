@@ -4,7 +4,7 @@
 \alias{fit_mod}
 \title{This functions runs CEATTLE}
 \usage{
-fit_mod(TMBfilename = "ceattle_v01_04", cpp_directory = NULL,
+fit_mod(TMBfilename = "ceattle_v01_06", cpp_directory = NULL,
   data_list = NULL, inits = NULL, map = NULL, bounds = NULL,
   file = NULL, debug = T, random_rec = FALSE, niter = 3,
   msmMode = 0, avgnMode = 0, minNByage = 0, suitMode = 0,
