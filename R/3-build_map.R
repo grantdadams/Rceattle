@@ -76,8 +76,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$sel_inf_dev[1:2, i, ,] <- NA
 
       # Turn off random effects
-      map_list$sel_slp_dev_re[1, i, ,] <- NA
-      map_list$sel_inf_dev_re[1, i, ,] <- NA
+      map_list$sel_slp_dev_re[1:2, i, ,] <- NA
+      map_list$sel_inf_dev_re[1:2, i, ,] <- NA
 
       # Map out selectivity var
       map_list$ln_sigma_sel[i] <- NA
@@ -126,7 +126,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
         }
       }
 
-      # Random effects (turn off random deviates)
+      # Random effects (turn off random walk deviates)
       if(data_list$fleet_control$Time_varying_sel[i] == 2){
         map_list$sel_slp_dev[1, i, ,] <- NA
         map_list$sel_inf_dev[1, i, , ] <- NA

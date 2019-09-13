@@ -48,6 +48,15 @@ ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
                             recompile = TRUE)
 # Type ?fit_mod for more details
 
+ss_run$quantities$S[1,1,2,]
+mod_objects$quantities$S[1,2,]
+
+ss_run$quantities$NByage[1,1,,1:3]
+mod_objects$quantities$NByage[1,,1:3]
+
+ss_run$quantities$jnll_comp
+mod_objects$quantities$jnll_comp
+
 # The you can plot the model results using using
 plot_biomass(Rceattle =  ss_run)
 plot_recruitment(Rceattle =  ss_run)
