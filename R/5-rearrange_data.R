@@ -25,7 +25,7 @@ rearrange_dat <- function(data_list){
   data_list$comp_obs <- data_list$comp_data[,grep("Comp_", colnames(data_list$comp_data))]
 
   # Step 6 -  Seperate survey empirical selectivity info from observation
-  data_list$emp_sel_ctl <- as.matrix(data_list$emp_sel[,c("Fleet_code", "Species", "Year", "Sex")])
+  data_list$emp_sel_ctl <- as.matrix(data_list$emp_sel[,c("Fleet_code", "Species", "Sex", "Year")])
   data_list$emp_sel_obs <- as.matrix(data_list$emp_sel[,grep("Comp_", colnames(data_list$emp_sel))])
 
   # Make data_list names different
