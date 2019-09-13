@@ -344,7 +344,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Year = dat_list$yrs_eit
   )
   colnames(dat_list$eit_sel) <- paste("Comp_",1:ncol(dat_list$eit_sel), sep = "")
-  dat_list$srv_emp_sel <- cbind(dat_list$srv_emp_sel, dat_list$eit_sel[dat_list$yrs_eit - dat_list$styr + 1,])
+  dat_list$emp_sel <- cbind(dat_list$emp_sel, dat_list$eit_sel[dat_list$yrs_eit - dat_list$styr + 1,])
 
 
   #---------------------------------------------------------------------

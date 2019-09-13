@@ -372,7 +372,7 @@ Type objective_function<Type>::operator() () {
   // 1.4.1. LOOPING INDICES -- k = observation, sp = species, sex = sex (0 = combines; 1 = females; 2 = males), age = age, ln = length, ksp = prey, k_age = prey age (yr), k_ln = prey length, yr = year, rsp = predator, r_age = predator age (yr), r_ln = predator length
   int sp, sex, age, ln, ksp, k_sex, k_age, k_ln, yr, rsp, r_sex, r_age, r_ln; // k
   int srv, fsh, flt;                                                    // Survey and fishery indices
-  int fsh_yr, srv_yr, comp_type;
+  int flt_yr, flt_sex, comp_type;
   int flt_ind, fsh_ind, srv_ind, comp_ind, yr_ind;                               // Indices for survey sets
   int sel_type, sel_varying, nselages;
   int ncnt;    // Pointers
@@ -758,7 +758,7 @@ Type objective_function<Type>::operator() () {
 
   for (flt_ind = 0; flt_ind < n_flt; flt_ind++){
     flt = fleet_control(flt_ind, 1) - 1;                     // Temporary survey index
-    flt_type = fleet_control(flt_ind, 2);                    // Fit? 0 = no, 1 = yes
+    flt_type(flt) = fleet_control(flt_ind, 2);               // Fleet type; 0 = don't fit, 1 = fishery, 2 = survey
     flt_spp(flt) = fleet_control(flt_ind, 3) - 1;            // Species
     flt_sel_ind(flt) = fleet_control(flt_ind, 4);            // Survey selectivity index
     flt_sel_type(flt) = fleet_control(flt_ind, 5);           // Selectivity type
@@ -809,19 +809,19 @@ Type objective_function<Type>::operator() () {
       // Fishery
       flt = emp_sel_ctl(sel_ind, 0) - 1;    // Temporary index
       sp = emp_sel_ctl(sel_ind, 1) - 1;         // Temporary index of species
-      sex = emp_sel_ctl(sel_ind, 2) - styr;     // Temporary index for sex
+      sex = emp_sel_ctl(sel_ind, 2);     // Temporary index for sex
       yr = emp_sel_ctl(sel_ind, 3) - styr;      // Temporary index for years of data
-
+      
 
       if(sex > 0){
         sex -= 1; // Adjust sex
       }
 
       if(yr < nyrs_hind){
-        for (age = 0; age < emp_sel_obs.cols(); age++) {
+        for (age = 0; age < nages(sp); age++) {
           if(!isNA(emp_sel_obs(sel_ind, age))){
             sel(flt, sex, age, yr) = emp_sel_obs(sel_ind, age);
-          }
+         }
         }
       }
     }      // FIXME - set all fishing selectivities after nyrs_hind to the terminal year
@@ -1993,31 +1993,31 @@ Type objective_function<Type>::operator() () {
 
 
     // ------------------------------------------------------------------------- //
-    // 9. SURVEY COMPONENTS EQUATIONS                                            //
+    // 9. INDEX COMPONENTS EQUATIONS                                            //
     // ------------------------------------------------------------------------- //
 
-    // -- 9.1. Survey Biomass
+    // -- 9.1. Index of abundance/biomass
     for(srv_ind = 0; srv_ind < srv_biom_ctl.rows(); srv_ind++){
 
       srv = srv_biom_ctl(srv_ind, 0) - 1;            // Temporary survey index
       sp = srv_biom_ctl(srv_ind, 1) - 1;             // Temporary index of species
-      srv_yr = srv_biom_ctl(srv_ind, 2) - styr;      // Temporary index for years of data
+      flt_yr = srv_biom_ctl(srv_ind, 2) - styr;      // Temporary index for years of data
 
       mo = srv_biom_n(srv_ind, 0);                    // Temporary index for month
 
       srv_bio_hat(srv_ind) = 0;                      // Initialize
 
-      if(srv_yr < nyrs_hind){
+      if(flt_yr < nyrs_hind){
 
         for (age = 0; age < nages(sp); age++) {
           for(sex = 0; sex < nsex(sp); sex++){
             // Weight
             if(flt_units(srv) == 1){
-              srv_bio_hat(srv_ind) += NByage(sp, sex, age, srv_yr) * exp( - (mo/12) * Zed(sp, sex, age, srv_yr)) * sel(srv, sex, age, srv_yr) * wt( flt_wt_index(srv), sex, age, srv_yr );
+              srv_bio_hat(srv_ind) += NByage(sp, sex, age, flt_yr) * exp( - (mo/12) * Zed(sp, sex, age, flt_yr)) * sel(srv, sex, age, flt_yr) * wt( flt_wt_index(srv), sex, age, flt_yr );
             }
             // Numbers
             if(flt_units(srv) == 2){
-              srv_bio_hat(srv_ind) += NByage(sp, sex, age, srv_yr) * exp( - (mo/12) * Zed(sp, sex, age, srv_yr)) * sel(srv, sex, age, srv_yr);
+              srv_bio_hat(srv_ind) += NByage(sp, sex, age, flt_yr) * exp( - (mo/12) * Zed(sp, sex, age, flt_yr)) * sel(srv, sex, age, flt_yr);
             }
           }
         }
@@ -2032,10 +2032,10 @@ Type objective_function<Type>::operator() () {
 
       srv = srv_biom_ctl(srv_ind, 0) - 1;            // Temporary survey index
       sp = srv_biom_ctl(srv_ind, 1) - 1;             // Temporary index of species
-      srv_yr = srv_biom_ctl(srv_ind, 2) - styr;      // Temporary index for years of data
+      flt_yr = srv_biom_ctl(srv_ind, 2) - styr;      // Temporary index for years of data
 
       mo = srv_biom_n(srv_ind, 0);                    // Temporary index for month
-      if(srv_yr < nyrs_hind){
+      if(flt_yr < nyrs_hind){
         srv_n_obs(srv) += 1; // Add one if survey is used
         srv_q_analytical(srv) += log(srv_biom_obs(srv_ind, 0) / srv_bio_hat(srv_ind));
       }
@@ -2057,9 +2057,9 @@ Type objective_function<Type>::operator() () {
     for(srv_ind = 0; srv_ind < srv_biom_ctl.rows(); srv_ind++){
 
       srv = srv_biom_ctl(srv_ind, 0) - 1;            // Temporary survey index
-      srv_yr = srv_biom_ctl(srv_ind, 2) - styr;      // Temporary index for years of data
-      if(srv_yr < nyrs_hind){
-        srv_bio_hat(srv_ind) *= srv_q(srv, srv_yr);
+      flt_yr = srv_biom_ctl(srv_ind, 2) - styr;      // Temporary index for years of data
+      if(flt_yr < nyrs_hind){
+        srv_bio_hat(srv_ind) *= srv_q(srv, flt_yr);
       }
     }
 
@@ -2071,9 +2071,9 @@ Type objective_function<Type>::operator() () {
     for(srv_ind = 0; srv_ind < srv_biom_ctl.rows(); srv_ind++){
 
       srv = srv_biom_ctl(srv_ind, 0) - 1;            // Temporary survey index
-      srv_yr = srv_biom_ctl(srv_ind, 2) - styr;      // Temporary index for years of data
+      flt_yr = srv_biom_ctl(srv_ind, 2) - styr;      // Temporary index for years of data
 
-      if(srv_yr < nyrs_hind){
+      if(flt_yr < nyrs_hind){
         srv_n_obs(srv) += 1; // Add one if survey is used
         sigma_srv_analytical(srv) += square( log(srv_biom_obs(srv_ind, 0)) - log(srv_bio_hat(srv_ind)));
       }
@@ -2094,23 +2094,23 @@ Type objective_function<Type>::operator() () {
 
       fsh = fsh_biom_ctl(fsh_ind, 0) - 1;            // Temporary fishery index
       sp = fsh_biom_ctl(fsh_ind, 1) - 1;             // Temporary index of species
-      fsh_yr = fsh_biom_ctl(fsh_ind, 2) - styr;      // Temporary index for years of data
+      flt_yr = fsh_biom_ctl(fsh_ind, 2) - styr;      // Temporary index for years of data
       mo = fsh_biom_n(fsh_ind, 0);                   // Temporary index for month
 
       fsh_bio_hat(fsh_ind) = 0;                  // Initialize
 
-      if(fsh_yr < nyrs_hind){
+      if(flt_yr < nyrs_hind){
 
         for(sex = 0; sex < nsex(sp); sex ++){
           for (age = 0; age < nages(sp); age++) {
             // By weight
             if(flt_units(fsh) == 1){
-              fsh_bio_hat(fsh_ind) += F(fsh, sex, age, fsh_yr) / Zed(sp, sex, age, fsh_yr) * (1 - exp(-Zed(sp, sex, age, fsh_yr))) * NByage(sp, sex, age, fsh_yr) * wt( flt_wt_index(fsh), sex, age, fsh_yr ); // 5.5.
+              fsh_bio_hat(fsh_ind) += F(fsh, sex, age, flt_yr) / Zed(sp, sex, age, flt_yr) * (1 - exp(-Zed(sp, sex, age, flt_yr))) * NByage(sp, sex, age, flt_yr) * wt( flt_wt_index(fsh), sex, age, flt_yr ); // 5.5.
             }
 
             // By numbers
             if(flt_units(fsh) == 2){
-              fsh_bio_hat(fsh_ind) += F(fsh, sex, age, fsh_yr) / Zed(sp, sex, age, fsh_yr) * (1 - exp(-Zed(sp, sex, age, fsh_yr))) * NByage(sp, sex, age, fsh_yr); // 5.5.
+              fsh_bio_hat(fsh_ind) += F(fsh, sex, age, flt_yr) / Zed(sp, sex, age, flt_yr) * (1 - exp(-Zed(sp, sex, age, flt_yr))) * NByage(sp, sex, age, flt_yr); // 5.5.
             }
           }
         }
@@ -2130,10 +2130,10 @@ Type objective_function<Type>::operator() () {
 
       flt = comp_ctl(comp_ind, 0) - 1;            // Temporary fishery index
       sp = comp_ctl(comp_ind, 1) - 1;             // Temporary index of species
-      sex = comp_ctl(comp_ind, 2);                // Temporary index for comp sex (0 = combined, 1 = female, 2 = male)
+      flt_sex = comp_ctl(comp_ind, 2);                // Temporary index for comp sex (0 = combined, 1 = female, 2 = male)
       comp_type = comp_ctl(comp_ind, 3);          // Temporary index for comp type (0 = age, 1 = length)
       yr = comp_ctl(comp_ind, 4) - styr;          // Temporary index for years of data
-      mo = comp_n(comp_ind, 0);               // Temporary index for month
+      mo = comp_n(comp_ind, 0);                   // Temporary index for month
 
       n_hat(comp_ind) = 0;                          // Initialize
 
@@ -2142,10 +2142,11 @@ Type objective_function<Type>::operator() () {
         // Get catch-at-age
         for (age = 0; age < nages(sp); age++) {
 
+
           // Fishery
           if(flt_type(flt) == 1){
             // Sexes combined or 1 sex assessment
-            if((sex == 0) | (nsex(sp) == 1)){
+            if((flt_sex == 0) | (nsex(sp) == 1)){
               for(sex = 0; sex < nsex(sp); sex ++){
                 age_hat(comp_ind, age ) += F(flt, sex, age, yr) / Zed(sp, sex, age, yr) * (1 - exp(-Zed(sp, sex, age, yr))) * NByage(sp, sex, age, yr); // 5.4.
                 n_hat( comp_ind ) += F(flt, sex, age, yr) / Zed(sp, sex, age, yr) * (1 - exp(-Zed(sp, sex, age, yr))) * NByage(sp, sex, age, yr);
@@ -2153,17 +2154,20 @@ Type objective_function<Type>::operator() () {
             }
 
             // Sex specific composition data
-            if(sex > 0){
-              sex = sex - 1;
+            if((flt_sex == 1)| (flt_sex == 2)){
+              sex = flt_sex - 1;
               age_hat(comp_ind, age ) = F(flt, sex, age, yr) / Zed(sp, sex, age, yr) * (1 - exp(-Zed(sp, sex, age, yr))) * NByage(sp, sex, age, yr);
-              n_hat( comp_ind ) += F(flt, sex, age, yr) / Zed(sp, age, age, yr) * (1 - exp(-Zed(sp, sex, age, yr))) * NByage(sp, sex, age, yr);
+              n_hat( comp_ind ) += F(flt, sex, age, yr) / Zed(sp, sex, age, yr) * (1 - exp(-Zed(sp, sex, age, yr))) * NByage(sp, sex, age, yr);
             }
           }
+
+
+          
 
           // Survey
           if(flt_type(flt) == 2){
             // Sexes combined or 1 sex assessment
-            if((sex == 0) | (nsex(sp) == 1)){
+            if((flt_sex == 0) | (nsex(sp) == 1)){
               for(sex = 0; sex < nsex(sp); sex ++){
                 // Survey catch-at-age
                 age_hat(comp_ind, age ) += NByage(sp, sex, age, yr)  * sel(flt, sex, age, yr) * srv_q(flt, yr) * exp( - Type(mo/12) * Zed(sp, sex, age, yr));
@@ -2173,8 +2177,8 @@ Type objective_function<Type>::operator() () {
             }
 
             // Sex specific composition data
-            if(sex > 0){
-              sex = sex - 1;
+            if((flt_sex == 1)| (flt_sex == 2)){
+              sex = flt_sex - 1;
               // Survey catch-at-age
               age_hat(comp_ind, age ) = NByage(sp, sex, age, yr)  * sel(flt, sex, age, yr) * srv_q(flt, yr) * exp( - Type(mo/12) * Zed(sp, sex, age, yr));
               // Total numbers
@@ -2336,7 +2340,7 @@ Type objective_function<Type>::operator() () {
 
     srv = srv_biom_ctl(srv_ind, 0) - 1;            // Temporary survey index
     sp = srv_biom_ctl(srv_ind, 1) - 1;             // Species is the 2nd column
-    srv_yr = srv_biom_ctl(srv_ind, 2);             // Temporary index for years of data
+    flt_yr = srv_biom_ctl(srv_ind, 2);             // Temporary index for years of data
 
     // Set up variance
     switch (est_sigma_srv(srv)) {
@@ -2359,7 +2363,7 @@ Type objective_function<Type>::operator() () {
 
     // Add years from hindcast
     if(flt_type(srv) > 0){
-      if(srv_yr <= endyr){
+      if(flt_yr <= endyr){
         if(srv_bio_hat(srv_ind) > 0){
           jnll_comp(0, srv) -= dnorm(log(srv_bio_hat(srv_ind)), log(srv_biom_obs(srv_ind, 0)), srv_std_dev, true);  // pow(log(srv_biom_obs(srv_ind, 0)) - log(srv_bio_hat(srv_ind)), 2) / (2 * square( srv_std_dev )); // NOTE: This is not quite the lognormal and biohat will be the median.
         }
@@ -2374,7 +2378,7 @@ Type objective_function<Type>::operator() () {
 
     fsh = fsh_biom_ctl(fsh_ind, 0) - 1;            // Temporary fishery index
     sp = fsh_biom_ctl(fsh_ind, 1) - 1;             // Species is the column 3
-    fsh_yr = fsh_biom_ctl(fsh_ind, 2);             // Temporary index for years of data
+    flt_yr = fsh_biom_ctl(fsh_ind, 2);             // Temporary index for years of data
 
     // Set up variance
     switch (est_sigma_fsh(fsh)) {
@@ -2391,8 +2395,8 @@ Type objective_function<Type>::operator() () {
     fsh_cv_hat(fsh_ind) = fsh_std_dev; // Save estimated cv
 
     // Add only years from hindcast
-    if(flt_type(fsh) > 0){
-      if(fsh_yr <= endyr){
+    if(flt_type(fsh) == 1){
+      if(flt_yr <= endyr){
         if(fsh_biom_obs(fsh_ind, 0) > 0){
           jnll_comp(5, fsh) -= dnorm(log(fsh_bio_hat(fsh_ind)), log(fsh_biom_obs(fsh_ind, 0)), fsh_std_dev, true) ; // pow(log(fsh_biom_obs(fsh_ind, 0) + MNConst) - log(fsh_bio_hat(fsh_ind)), 2) / (2 * square(fsh_std_dev)); // NOTE: This is not quite the log  normal and biohat will be the median.
         }
@@ -2464,7 +2468,6 @@ Type objective_function<Type>::operator() () {
 
           sel_tmp(age) = first_difference( first_difference( sel_tmp ) )(age);
           jnll_comp(3, flt) += curve_pen * pow( sel_tmp(age) , 2); // FIX
-
         }
       }
     }
@@ -2691,6 +2694,23 @@ Type objective_function<Type>::operator() () {
   // 12. REPORT SECTION                                                        //
   // ------------------------------------------------------------------------- //
 
+  // 12.0 Report indices
+  REPORT( flt_type );
+  REPORT( flt_spp );         
+  REPORT( flt_sel_ind );     
+  REPORT( flt_sel_type );    
+  REPORT( flt_nselages );    
+  REPORT( flt_varying_sel ); 
+  REPORT( flt_units );       
+  REPORT( flt_wt_index );    
+  REPORT( flt_alk_index );   
+  REPORT( flt_q_ind );       
+  REPORT( est_srv_q );       
+  REPORT( srv_varying_q );   
+  REPORT( est_sigma_srv );   
+  REPORT( est_sigma_fsh );   
+
+
   // 12.1. Population components
   REPORT( mn_rec );
   REPORT( Zed );
@@ -2712,20 +2732,16 @@ Type objective_function<Type>::operator() () {
   ADREPORT( r_sigma );
   ADREPORT( R );
 
+
   // -- 12.2. Selectivity
   REPORT( sel );
   REPORT( avgsel );
+  REPORT( emp_sel_obs );
   REPORT( sel_tmp );
   REPORT( sigma_sel );
 
-  // -- 12.3. Fishery components
-  REPORT( catch_hat );
-  REPORT( F );
-  REPORT( F_tot );
-  REPORT( fsh_bio_hat );
-  REPORT( fsh_cv_hat );
 
-  // -- 12.4. Survey components
+  // -- 12.3. Survey components
   REPORT( srv_bio_hat );
   REPORT( srv_cv_hat );
   REPORT( sigma_srv_index );
@@ -2734,7 +2750,24 @@ Type objective_function<Type>::operator() () {
   REPORT( sigma_srv_q );
   REPORT( ln_srv_q_dev );
 
-  // -- 12.5. Likelihood components
+
+  // -- 12.4. Fishery components
+  REPORT( catch_hat );
+  REPORT( F );
+  REPORT( F_tot );
+  REPORT( fsh_bio_hat );
+  REPORT( fsh_cv_hat );
+
+
+// 12.5. Age/length composition
+  REPORT( age_obs_hat );
+  REPORT( age_hat );
+  REPORT( comp_obs );
+  REPORT( comp_hat );
+  REPORT( comp_n );
+
+
+  // -- 12.6. Likelihood components
   REPORT( jnll_comp );
   REPORT( offset );
   REPORT( offset_diet_w );
@@ -2742,7 +2775,7 @@ Type objective_function<Type>::operator() () {
   REPORT( offset_uobsagewt );
 
 
-  // -- 12.6. Ration components
+  // -- 12.7. Ration components
   REPORT( ConsumAge );
   REPORT( LbyAge );
   REPORT( mnWt_obs );
@@ -2751,7 +2784,7 @@ Type objective_function<Type>::operator() () {
   REPORT( ration2Age );
 
 
-  // 12.7. Suitability components
+  // 12.8. Suitability components
   REPORT( suma_suit );
   REPORT( suit_main );
   REPORT( suit_other );
@@ -2766,7 +2799,7 @@ Type objective_function<Type>::operator() () {
   REPORT( UobsWtAge_hat );
   REPORT( mn_UobsWtAge_hat );
 
-  // -- 12.8. Kinzey predation functions
+  // -- 12.9. Kinzey predation functions
   REPORT( H_1 );
   REPORT( H_1a );
   REPORT( H_1b );
