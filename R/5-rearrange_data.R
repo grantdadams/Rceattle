@@ -40,14 +40,9 @@ rearrange_dat <- function(data_list){
   }
 
 
-  # Normalize srv comp
-  for(i in nrow(data_list$srv_comp_obs)){
-    data_list$srv_comp_obs[i,] = data_list$srv_comp_obs[i,] / sum(data_list$srv_comp_obs[i,], na.rm = TRUE)
-  }
-
-  # Normalize fsh comp
-  for(i in nrow(data_list$fsh_comp_obs)){
-    data_list$fsh_comp_obs[i,] = data_list$fsh_comp_obs[i,] / sum(data_list$fsh_comp_obs[i,], na.rm = TRUE)
+  # Normalize comp data
+  for(i in 1:nrow(data_list$comp_obs)){
+    data_list$comp_obs[i,] = data_list$comp_obs[i,] / sum(data_list$comp_obs[i,], na.rm = TRUE)
   }
 
   # Set up wt array

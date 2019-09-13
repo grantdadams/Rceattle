@@ -30,6 +30,7 @@
 // 14. Added in spawning stock biomass weight
 // 15. Added in multiple weights for surveys
 // 16. Added in spawning month mortality adjustment
+// 17. Removed constant 0.0001 added to M1
 //
 //  INDEX:
 //  0. Load dependencies
@@ -465,6 +466,7 @@ Type objective_function<Type>::operator() () {
   DATA_ARRAY( M1_base );                 // Residual natural mortality; n = [nspp, nages]
   DATA_MATRIX( propF );                   // Proportion-at-age of females of population; n = [nspp, nages]
   DATA_MATRIX( pmature );                 // Proportion of mature females at age; [nspp, nages]
+  M1_base = M1_base + 0.0001; // FIXME remove
 
   // -- 2.4.5. F Profile data: NOTUSED
 
@@ -1013,7 +1015,7 @@ Type objective_function<Type>::operator() () {
 
             // Sum M1 until age - 1
             Type mort_sum = 0;
-            for(int age_tmp = 0; age_tmp < age; age_tmp++){
+            for(int age_tmp = 0; age_tmp < age-1; age_tmp++){ // FIXME: remove age 1
               mort_sum += M1_base(sp, sex, age_tmp);
             }
             NByage(sp, sex, age, 0) = exp(ln_mn_rec(sp) - mort_sum + init_dev(sp, age - 1)) * R_sexr(sp);
@@ -1022,7 +1024,7 @@ Type objective_function<Type>::operator() () {
           if (age == (nages(sp) - 1)) {
             // Sum M1 until age - 1
             Type mort_sum = 0;
-            for(int age_tmp = 0; age_tmp <= age; age_tmp++){
+            for(int age_tmp = 0; age_tmp < age; age_tmp++){
               mort_sum += M1_base(sp, sex, age_tmp);
             }
             NByage(sp, sex, age, 0) = exp(ln_mn_rec(sp) - mort_sum + init_dev(sp, age - 1)) / (1 - exp(-M1_base(sp, sex, nages(sp) - 1))) * R_sexr(sp); // NOTE: This solves for the geometric series
@@ -2249,17 +2251,19 @@ Type objective_function<Type>::operator() () {
   // 11.1. OFFSETS AND PENALTIES
   // 11.1.1 -- Set up offset objects
   vector<Type> offset(n_flt); offset.setZero(); // Offset for multinomial likelihood
-
   vector<Type> offset_diet_w(nspp); offset_diet_w.setZero(); // Offset for total stomach content weight likelihood
   vector<Type> offset_diet_l(nspp); offset_diet_l.setZero(); // Offset for total stomach content of prey length ln in predator length a
   vector<Type> offset_uobsagewt(nspp); offset_uobsagewt.setZero(); // Offset for stomach proportion by weight likelihood
 
+
   // 11.1.1. -- Age/length comp offsets
   for (comp_ind = 0; comp_ind < comp_obs.rows(); comp_ind++) {
 
-    flt = comp_ctl(comp_ind, 0) - 1;            // Temporary survey index
-    sp = comp_ctl(comp_ind, 1) - 1;             // Temporary index of species
-    yr = comp_ctl(comp_ind, 4);             // Temporary index for years of data
+      flt = comp_ctl(comp_ind, 0) - 1;            // Temporary fishery index
+      sp = comp_ctl(comp_ind, 1) - 1;             // Temporary index of species
+      flt_sex = comp_ctl(comp_ind, 2);            // Temporary index for comp sex (0 = combined, 1 = female, 2 = male)
+      comp_type = comp_ctl(comp_ind, 3);          // Temporary index for comp type (0 = age, 1 = length)
+      yr = comp_ctl(comp_ind, 4) - styr;          // Temporary index for years of data
 
     // Add years from hindcast only
     if(yr <= endyr){
@@ -2398,7 +2402,7 @@ Type objective_function<Type>::operator() () {
     if(flt_type(fsh) == 1){
       if(flt_yr <= endyr){
         if(fsh_biom_obs(fsh_ind, 0) > 0){
-          jnll_comp(5, fsh) -= dnorm(log(fsh_bio_hat(fsh_ind)), log(fsh_biom_obs(fsh_ind, 0)), fsh_std_dev, true) ; // pow(log(fsh_biom_obs(fsh_ind, 0) + MNConst) - log(fsh_bio_hat(fsh_ind)), 2) / (2 * square(fsh_std_dev)); // NOTE: This is not quite the log  normal and biohat will be the median.
+          jnll_comp(1, fsh) -= dnorm(log(fsh_bio_hat(fsh_ind)), log(fsh_biom_obs(fsh_ind, 0)), fsh_std_dev, true) ; // pow(log(fsh_biom_obs(fsh_ind, 0) + MNConst) - log(fsh_bio_hat(fsh_ind)), 2) / (2 * square(fsh_std_dev)); // NOTE: This is not quite the log  normal and biohat will be the median.
         }
       }
     }
@@ -2549,9 +2553,9 @@ Type objective_function<Type>::operator() () {
 
       // Slot 11 -- Tau -- Annual recruitment deviation
       jnll_comp(9, sp) -= dnorm( rec_dev(sp, yr) - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);    // Recruitment deviation using random effects.
-
     }
   }
+
 
   // Slot 12 -- Epsilon -- Annual fishing mortality deviation
   for (flt = 0; flt < n_flt; flt++) {
@@ -2724,6 +2728,7 @@ Type objective_function<Type>::operator() () {
   REPORT( biomassSSB );
   REPORT( pmature );
   REPORT(r_sigma);
+  REPORT( R_sexr );
   REPORT( R );
   REPORT( M );
   ADREPORT( Zed );

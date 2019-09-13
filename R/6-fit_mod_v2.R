@@ -349,8 +349,11 @@ fit_mod <-
 
     # Remove random effects from bounds
     for(i in 1:length(random_vars)){
-      L <- L[-grep(random_vars[i], names(L))]
-      U <- U[-grep(random_vars[i], names(U))]
+      remove_bounds <- grep(random_vars[i], names(L))
+      if(length(remove_bounds) > 0){
+        L <- L[-remove_bounds]
+        U <- U[-remove_bounds]
+      }
     }
 
 
