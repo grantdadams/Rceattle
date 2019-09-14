@@ -251,7 +251,7 @@ fit_mod <-
         inits = inits
       ))
     } else{
-      inits$proj_F <- data_list$fsh_control$proj_F
+      inits$proj_F <- data_list$fleet_control$proj_F
       params <- inits
     }
     message("Step 1: Parameter build complete")

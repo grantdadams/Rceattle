@@ -47,14 +47,67 @@ ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
                             silent = TRUE,
                             recompile = TRUE)
 # Type ?fit_mod for more details
+ests <- mod_objects$estimated_params
+inits <- ss_run$estimated_params
+inits$ln_mn_rec <- ests$ln_mn_rec
 
-ss_run$quantities$S[1,1,2,]
+inits$ln_mean_F[1:3] <- ests$ln_mean_F
+
+inits$log_srv_q[7] <- ests$log_srv_q[4]
+inits$sel_inf[,4:7,1] <- ests$srv_sel_inf
+inits$sel_slp[,4:7,1] <- ests$srv_sel_slp
+inits$sel_coff[1:3,] <- ests$fsh_sel_coff
+inits$init_dev <- ests$init_dev
+inits$F_dev[1:3,] <- ests$F_dev
+inits$rec_dev <- ests$rec_dev
+
+
+ss_run2 <- Rceattle::fit_mod(data_list = BS2017SS,
+                            TMBfilename = "ceattle_v01_06",
+                            cpp_directory = "inst/executables",
+                            inits = NULL, # Initial parameters = 0
+                            file = NULL, # Don't save
+                            debug = 0, # Estimate
+                            random_rec = FALSE, # No random recruitment
+                            msmMode = 0, # Single species mode
+                            silent = TRUE,
+                            recompile = TRUE)
+
+
+round(ss_run2$quantities$jnll_comp, 3)
+round(mod_objects$quantities$jnll_comp, 3)
+
+sum(ss_run2$quantities$jnll_comp[-4,])
+sum(mod_objects$quantities$jnll_comp[-8,])
+
+
+ss_run2$quantities$srv_bio_hat
+mod_objects$quantities$srv_bio_hat
+
+
+ss_run2$quantities$S[1,1,2,]
 mod_objects$quantities$S[1,2,]
 
-ss_run$quantities$NByage[1,1,,1:3]
-mod_objects$quantities$NByage[1,,1:3]
+ss_run2$quantities$NByage[1,1,,10:13]
+mod_objects$quantities$NByage[1,,10:13]
 
-ss_run$quantities$jnll_comp
+ss_run2$quantities$Zed[1,1,,10:13]
+mod_objects$quantities$Zed[1,,10:13]
+
+ss_run2$quantities$sel[7,1,,10:13]
+mod_objects$quantities$srv_sel[4,,10:13]
+
+ss_run2$quantities$sel[1,1,,10:13]
+mod_objects$quantities$fsh_sel[1,,10:13]
+
+
+
+
+ss_run2$quantities$flt_spp
+ss_run2$quantities$flt_type
+ss_run2$quantities$flt_sel_type
+
+
 mod_objects$quantities$jnll_comp
 
 # The you can plot the model results using using
@@ -67,17 +120,18 @@ data("BS2017MS") # Note: the only difference is the residual mortality (M1_base)
 # Or we can use the previous data set
 
 ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
-                            inits = ss_run$estimated_params, # Initial parameters from single species ests
+                            inits = ss_run2$estimated_params, # Initial parameters from single species ests
                             file = NULL, # Don't save
                             debug = 0, # Estimate
                             niter = 10, # 10 iterations around population and predation dynamics
                             random_rec = FALSE, # No random recruitment
                             msmMode = 1, # MSVPA based
                             suitMode = 0, # empirical suitability
-                            silent = TRUE)
+                            silent = TRUE,
+                            recompile = FALSE)
 
 # We can plot both runs as well:
-mod_list <- list(ss_run, ms_run)
+mod_list <- list(ss_run2, ms_run)
 mod_names <- c("SS", "MS")
 
 # Plot biomass trajectory
