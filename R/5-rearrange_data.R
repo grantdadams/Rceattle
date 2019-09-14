@@ -24,6 +24,14 @@ rearrange_dat <- function(data_list){
   data_list$comp_n <- data_list$comp_data[,c("Month", "Sample_size")]
   data_list$comp_obs <- data_list$comp_data[,grep("Comp_", colnames(data_list$comp_data))]
 
+  # Step 5 -  Seperate uobs info from observation
+  data_list$UobsWtAge_ctl <- data_list$UobsWtAge[,c("Pred", "Prey", "Pred_sex", "Prey_sex", "Pred_age", "Prey_age", "Year")]
+  data_list$UobsWtAge <- data_list$UobsWtAge[,c("Sample_size", "Stomach_proportion_by_weight")]
+
+  data_list$UobsAge_ctl <- data_list$UobsAge[,c("Pred", "Prey", "Pred_sex", "Prey_sex", "Pred_age", "Prey_age", "Year")]
+  data_list$UobsAge <- data_list$UobsAge[,c("Sample_size", "Stomach_proportion_by_number")]
+
+
   # Step 6 -  Seperate survey empirical selectivity info from observation
   data_list$emp_sel_ctl <- as.matrix(data_list$emp_sel[,c("Fleet_code", "Species", "Sex", "Year")])
   data_list$emp_sel_obs <- as.matrix(data_list$emp_sel[,grep("Comp_", colnames(data_list$emp_sel))])
@@ -97,7 +105,7 @@ rearrange_dat <- function(data_list){
     }
   }
 
-  items_to_remove <- c("emp_sel",    "fsh_comp",    "srv_comp",    "fsh_biom",    "srv_biom", "comp_data")
+  items_to_remove <- c("emp_sel",  "fsh_comp",    "srv_comp",    "fsh_biom",    "srv_biom", "comp_data")
   for(i in 1:length(items_to_remove)){
     data_list[[items_to_remove[i]]] <- NULL
   }
