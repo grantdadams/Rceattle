@@ -2717,7 +2717,7 @@ Type objective_function<Type>::operator() () {
           //if ( fsh_sel(fsh, age, 0) > fsh_sel(fsh, age + 1, 0)) {
           if ( fsh_sel(fsh, age, 0) > fsh_sel(fsh, age + 1, 0)) {
             //jnll_comp(6, sp) += 20 * pow( log(fsh_sel(fsh, age, 0) / fsh_sel(fsh, age + 1, 0) ), 2);
-            jnll_comp(7, sp) += 20 * pow( log(fsh_sel(fsh, age, 0) / fsh_sel(fsh, age + 1, 0) ), 2);
+            jnll_comp(7, fsh) += 20 * pow( log(fsh_sel(fsh, age, 0) / fsh_sel(fsh, age + 1, 0) ), 2);
           }
         }
 

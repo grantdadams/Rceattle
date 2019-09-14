@@ -76,6 +76,20 @@ rearrange_dat <- function(data_list){
   }
   data_list$M1_base <- m1
 
+
+  # Set up Mn_LatAge array
+  Mn_LatAge <- array(0, dim = c(data_list$nspp, 2, max(data_list$nages, na.rm = T)))
+
+  for (i in 1:nrow(data_list$Mn_LatAge)) {
+    sp <- as.numeric(as.character(data_list$Mn_LatAge$Species[i]))
+    sex <- as.numeric(as.character(data_list$Mn_LatAge$Sex[i]))
+    if(sex == 0){ sex = c(1, 2)}
+    for(j in 1:length(sex)){
+      Mn_LatAge[sp, sex[j], 1:max(data_list$nages, na.rm = T)] <- as.numeric(data_list$Mn_LatAge[i,-c(1,2)])
+    }
+  }
+  data_list$Mn_LatAge <- Mn_LatAge
+
   # Make data.frames into matrices
   for(i in 1:length(data_list)){
     if(class(data_list[[i]]) == "data.frame"){
