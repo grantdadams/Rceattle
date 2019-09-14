@@ -2735,7 +2735,6 @@ Type objective_function<Type>::operator() () {
 
       rsp = UobsWtAge_ctl(stom_ind, 0) - 1; // Index of pred
       jnll_comp(15, rsp) -= Type(UobsWtAge(stom_ind, 0)) * (UobsWtAge(stom_ind, 1) + MNConst) * log(UobsWtAge_hat(stom_ind, 1) + MNConst );
-
     }
 
     // Remove offset
