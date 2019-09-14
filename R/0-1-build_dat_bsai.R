@@ -464,7 +464,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   ###########################
   # Change UobsWtAge and UobsAge format
   ###########################
-  UobsAge <- matrix(NA, ncol = 8, nrow = length(dat_list$UobsAge))
+  UobsAge <- matrix(NA, ncol = 9, nrow = length(dat_list$UobsAge))
   dims <- dim(dat_list$UobsAge)
 
   ind <- 1
@@ -472,24 +472,25 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     for (prey in 1:dims[2]) {
       for (pred_a in 1:dat_list$nages[pred]) {
         for (prey_a in 1:dat_list$nages[prey]) {
-          UobsAge[ind, 1] <- 0
-          UobsAge[ind, 2] <- pred
-          UobsAge[ind, 3] <- prey
+          UobsAge[ind, 1] <- pred
+          UobsAge[ind, 2] <- prey
+          UobsAge[ind, 3] <- 0
           UobsAge[ind, 4] <- 0
-          UobsAge[ind, 5] <- 0
-          UobsAge[ind, 6] <- pred_a + dat_list$minage[pred] - 1
-          UobsAge[ind, 7] <- prey_a + dat_list$minage[prey] - 1
-          UobsAge[ind, 8] <- dat_list$UobsAge[pred, prey, pred_a, prey_a]
+          UobsAge[ind, 5] <- pred_a + dat_list$minage[pred] - 1
+          UobsAge[ind, 6] <- prey_a + dat_list$minage[prey] - 1
+          UobsAge[ind, 7] <- 0
+          UobsAge[ind, 8] <- 20
+          UobsAge[ind, 9] <- dat_list$UobsAge[pred, prey, pred_a, prey_a]
           ind = ind + 1
         }
       }
     }
   }
-  colnames(UobsAge) <- c("Year", "Pred", "Prey", "Pred_sex", "Prey_sex", "Pred_age", "Prey_age", "Stomach_proportion_by_number")
+  colnames(UobsAge) <- c("Pred", "Prey", "Pred_sex", "Prey_sex", "Pred_age", "Prey_age", "Year", "Sample_size", "Stomach_proportion_by_number")
   dat_list$UobsAge <- UobsAge
 
 
-  UobsWtAge <- matrix(NA, ncol = 8, nrow = length(dat_list$UobsWtAge))
+  UobsWtAge <- matrix(NA, ncol = 9, nrow = length(dat_list$UobsWtAge))
   dims <- dim(dat_list$UobsWtAge)
 
   ind <- 1
@@ -497,20 +498,21 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     for (prey in 1:dims[2]) {
       for (pred_a in 1:dat_list$nages[pred]) {
         for (prey_a in 1:dat_list$nages[prey]) {
-          UobsWtAge[ind, 1] <- 0
-          UobsWtAge[ind, 2] <- pred
-          UobsWtAge[ind, 3] <- prey
+          UobsWtAge[ind, 1] <- pred
+          UobsWtAge[ind, 2] <- prey
+          UobsWtAge[ind, 3] <- 0
           UobsWtAge[ind, 4] <- 0
-          UobsWtAge[ind, 5] <- 0
-          UobsWtAge[ind, 6] <- pred_a + dat_list$minage[pred] - 1
-          UobsWtAge[ind, 7] <- prey_a + dat_list$minage[prey] - 1
-          UobsWtAge[ind, 8] <- dat_list$UobsWtAge[pred, prey, pred_a, prey_a]
+          UobsWtAge[ind, 5] <- pred_a + dat_list$minage[pred] - 1
+          UobsWtAge[ind, 6] <- prey_a + dat_list$minage[prey] - 1
+          UobsWtAge[ind, 7] <- 0
+          UobsWtAge[ind, 8] <- 20
+          UobsWtAge[ind, 9] <- dat_list$UobsWtAge[pred, prey, pred_a, prey_a]
           ind = ind + 1
         }
       }
     }
   }
-  colnames(UobsWtAge) <- c("Year", "Pred", "Prey", "Pred_sex", "Prey_sex", "Pred_age", "Prey_age", "Stomach_proportion_by_weight")
+  colnames(UobsWtAge) <- c("Pred", "Prey", "Pred_sex", "Prey_sex", "Pred_age", "Prey_age",  "Year", "Sample_size", "Stomach_proportion_by_weight")
   dat_list$UobsWtAge <- UobsWtAge
 
 
