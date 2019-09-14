@@ -41,11 +41,11 @@ ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
                             cpp_directory = "inst/executables",
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save
-                            debug = 1, # Estimate
+                            debug = 0, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
                             silent = TRUE,
-                            recompile = TRUE)
+                            recompile = FALSE)
 # Type ?fit_mod for more details
 ests <- mod_objects$estimated_params
 inits <- ss_run$estimated_params

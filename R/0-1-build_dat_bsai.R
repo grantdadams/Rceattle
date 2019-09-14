@@ -487,7 +487,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     }
   }
   colnames(UobsAge) <- c("Pred", "Prey", "Pred_sex", "Prey_sex", "Pred_age", "Prey_age", "Year", "Sample_size", "Stomach_proportion_by_number")
-  dat_list$UobsAge <- UobsAge
+  dat_list$UobsAge <- UobsAge[which(complete.cases(UobsAge)),]
 
 
   UobsWtAge <- matrix(NA, ncol = 9, nrow = length(dat_list$UobsWtAge))
@@ -513,7 +513,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     }
   }
   colnames(UobsWtAge) <- c("Pred", "Prey", "Pred_sex", "Prey_sex", "Pred_age", "Prey_age",  "Year", "Sample_size", "Stomach_proportion_by_weight")
-  dat_list$UobsWtAge <- UobsWtAge
+  dat_list$UobsWtAge <- UobsWtAge[which(complete.cases(UobsWtAge)),]
 
 
 
