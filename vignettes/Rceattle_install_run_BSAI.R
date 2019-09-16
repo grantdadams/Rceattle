@@ -188,7 +188,7 @@ sum(ms_run$quantities$jnll_comp)
 sum(mod_objects$quantities$jnll_comp)
 
 # We can plot both runs as well:
-mod_list <- list(ms_run, mod_objects)
+mod_list <- list(ss_run, mod_objects)
 mod_names <- c("SS", "SS-old")
 
 # Plot biomass trajectory

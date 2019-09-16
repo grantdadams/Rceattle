@@ -469,7 +469,6 @@ Type objective_function<Type>::operator() () {
   DATA_ARRAY( M1_base );                 // Residual natural mortality; n = [nspp, nages]
   DATA_MATRIX( propF );                   // Proportion-at-age of females of population; n = [nspp, nages]
   DATA_MATRIX( pmature );                 // Proportion of mature females at age; [nspp, nages]
-M1_base = M1_base + 0.0001;
 
   // -- 2.4.5. F Profile data: NOTUSED
 
@@ -1013,7 +1012,7 @@ M1_base = M1_base + 0.0001;
 
             // Sum M1 until age - 1
             Type mort_sum = 0;
-            for(int age_tmp = 0; age_tmp < age - 1; age_tmp++){
+            for(int age_tmp = 0; age_tmp < age; age_tmp++){
               mort_sum += M1_base(sp, sex, age_tmp);
             }
             NByage(sp, sex, age, 0) = exp(ln_mn_rec(sp) - mort_sum + init_dev(sp, age - 1)) * R_sexr(sp);
@@ -2295,6 +2294,20 @@ M1_base = M1_base + 0.0001;
               age_hat(comp_ind, age ) = NByage(sp, sex, age, yr)  * sel(flt, sex, age, yr) * srv_q(flt, yr) * exp( - Type(mo/12) * Zed(sp, sex, age, yr));
               // Total numbers
               n_hat(comp_ind) += NByage(sp, sex, age, yr)  * sel(flt, sex, age, yr) * srv_q(flt, yr) * exp( - Type(mo/12) * Zed(sp, sex, age, yr));
+            }
+
+            // Joint composition data
+            if(flt_sex == 3){
+
+
+              for(sex = 0; sex < nsex(sp); sex ++){
+// Survey catch-at-age
+              age_hat(comp_ind, age + nages(sp) * sex ) = NByage(sp, sex, age, yr)  * sel(flt, sex, age, yr) * srv_q(flt, yr) * exp( - Type(mo/12) * Zed(sp, sex, age, yr));
+              // Total numbers
+              n_hat(comp_ind) += NByage(sp, sex, age, yr)  * sel(flt, sex, age, yr) * srv_q(flt, yr) * exp( - Type(mo/12) * Zed(sp, sex, age, yr));
+            }
+
+
             }
           }
         }
