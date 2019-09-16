@@ -14,6 +14,7 @@
 #' @param msmMode The predation mortality functions to used. Defaults to no predation mortality used.
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.
 #' @param minNByage Minimum numbers at age to put in a hard constraint that the number-at-age can not go below.
+#' @param phase Optional. List of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R. If NULL, will not phase model.
 #' @param silent logical. IF TRUE, includes TMB estimation progress
 #' @param suitMode Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma selectivity from Kinzey and Punt (2009), 2 = time-varing length based gamma selectivity from Kinzey and Punt (2009), 3 = time-varying weight based gamma selectivity from Kinzey and Punt (2009), 4 = length based lognormal selectivity, 5 = time-varing length based lognormal selectivity, 6 = time-varying weight based lognormal selectivity,
 #' @details
@@ -171,6 +172,41 @@
 #'library(Rceattle)
 #'data(BS2017SS) # ?BS2017SS for more information on the data
 #'
+#'# Set up phases
+#'phaseList = list(
+#'    dummy = 1,
+#'    ln_mn_rec = 1,
+#'    ln_rec_sigma = 2,
+#'    rec_dev = 2,
+#'    init_dev = 2,
+#'    ln_mean_F = 1,
+#'    proj_F = 1,
+#'    F_dev = 1,
+#'    log_srv_q = 3,
+#'    ln_srv_q_dev = 4,
+#'    ln_srv_q_dev_re = 4,
+#'    ln_sigma_srv_q = 4,
+#'    sel_coff = 3,
+#'    sel_slp = 3,
+#'    sel_inf = 3,
+#'    sel_slp_dev = 4,
+#'    sel_inf_dev = 4,
+#'    sel_slp_dev_re = 4,
+#'    sel_inf_dev_re = 4,
+#'    ln_sigma_sel = 4,
+#'    ln_sigma_srv_index = 2,
+#'    ln_sigma_fsh_catch = 2,
+#'    logH_1 = 6,
+#'    logH_1a = 6,
+#'    logH_1b = 6,
+#'    logH_2 = 6,
+#'    logH_3 = 6,
+#'    H_4 = 6,
+#'    log_gam_a = 5,
+#'    log_gam_b = 5,
+#'    log_phi = 5
+#')
+#'
 #'# Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
 #'ss_run <- fit_mod(data_list = BS2017SS,
 #'    inits = NULL, # Initial parameters = 0
@@ -179,6 +215,7 @@
 #'    random_rec = FALSE, # No random recruitment
 #'    msmMode = 0, # Single species mode
 #'    avgnMode = 0,
+#'    phase = phaseList,
 #'    silent = TRUE)
 #'
 #' @export
@@ -198,6 +235,7 @@ fit_mod <-
            avgnMode = 0,
            minNByage = 0,
            suitMode = 0,
+           phase = NULL,
            silent = FALSE,
            recompile = FALSE) {
     start_time <- Sys.time()
@@ -327,20 +365,9 @@ fit_mod <-
     message("Step 4: Compile CEATTLE complete")
 
 
-    # STEP 6 - Reorganize data
+    # STEP 6 - Reorganize data and build model object
     Rceattle:::data_check(data_list)
-    data_list2 <- Rceattle::rearrange_dat(data_list)
-
-    # STEP 7 - Build and fit model object
-    obj = TMB::MakeADFun(
-      data_list2,
-      parameters = params,
-      DLL = TMBfilename,
-      map = map[[1]],
-      random = random_vars,
-      silent = silent
-    )
-    message(paste0("Step 5: Build object complete"))
+    data_list_reorganized <- Rceattle::rearrange_dat(data_list)
 
 
     # Remove inactive parameters from bounds and vectorize
@@ -356,15 +383,49 @@ fit_mod <-
       }
     }
 
+    # STEP 8 - Fit model object
+
+    # If phased
+    if(!is.null(phase)){
+      phase_pars <- Rceattle::TMBphase(
+        data = data_list_reorganized,
+        parameters = params,
+        map = map[[1]],
+        random = random_vars,
+        phases = phase,
+        cpp_directory = cpp_directory,
+        model_name = TMBfilename,
+        silent = silent
+      )
+
+      start_par <- phase_pars
+    }
+
+    # Not phased
+    if(is.null(phase)){
+      start_par <- params
+    }
+
+
+    obj = TMB::MakeADFun(
+      data_list_reorganized,
+      parameters = start_par,
+      DLL = TMBfilename,
+      map = map[[1]],
+      random = random_vars,
+      silent = silent
+    )
+
+    message(paste0("Step 5: Build object complete"))
 
     # Optimize
-    opt = Rceattle::Optimize(obj = obj,
+    opt = TMBhelper::fit_tmb(obj = obj,
                              fn=obj$fn,
                              gr=obj$gr,
                              startpar=obj$par,
                              lower = L,
                              upper = U,
-                             loopnum = 3,
+                             loopnum = 5,
                              control = list(eval.max = 1e+09,
                                             iter.max = 1e+09, trace = 0)
     )
