@@ -469,6 +469,7 @@ Type objective_function<Type>::operator() () {
   DATA_ARRAY( M1_base );                 // Residual natural mortality; n = [nspp, nages]
   DATA_MATRIX( propF );                   // Proportion-at-age of females of population; n = [nspp, nages]
   DATA_MATRIX( pmature );                 // Proportion of mature females at age; [nspp, nages]
+M1_base = M1_base + 0.0001;
 
   // -- 2.4.5. F Profile data: NOTUSED
 
@@ -531,8 +532,14 @@ Type objective_function<Type>::operator() () {
   PARAMETER_VECTOR( proj_F );                     // Fishing mortality for projections; n = [1, n_fsh]
   PARAMETER_MATRIX( F_dev );                      // Annual fishing mortality deviations; n = [n_fsh, nyrs] # NOTE: The size of this will likely change
 
+  // -- 3.4. Survey catchability parameters
+  PARAMETER_VECTOR( log_srv_q );                  // Survey catchability; n = [n_srv]
+  PARAMETER_MATRIX( ln_srv_q_dev );               // Annual survey catchability deviates; n = [n_srv, nyrs_hind]
+  PARAMETER_MATRIX( ln_srv_q_dev_re );            // Annual survey catchability random effect deviates; n = [n_srv, nyrs_hind]
+  PARAMETER_VECTOR( ln_sigma_srv_q );             // Log standard deviation of survey catchability; n = [1, n_srv]
 
-  // -- 3.4. Selectivity parameters
+
+  // -- 3.5. Selectivity parameters
   PARAMETER_MATRIX( sel_coff );               // selectivity parameters; n = [n_selectivities, nselages]
   PARAMETER_ARRAY( sel_slp );                // selectivity paramaters for logistic; n = [2, n_selectivities]
   PARAMETER_ARRAY( sel_inf );                // selectivity paramaters for logistic; n = [2, n_selectivities]
@@ -543,14 +550,7 @@ Type objective_function<Type>::operator() () {
   PARAMETER_VECTOR( ln_sigma_sel );            // Log standard deviation of selectivity; n = [1, n_selectivities]
 
 
-  // -- 3.5. Survey catchability parameters
-  PARAMETER_VECTOR( log_srv_q );                  // Survey catchability; n = [n_srv]
-  PARAMETER_MATRIX( ln_srv_q_dev );               // Annual survey catchability deviates; n = [n_srv, nyrs_hind]
-  PARAMETER_MATRIX( ln_srv_q_dev_re );            // Annual survey catchability random effect deviates; n = [n_srv, nyrs_hind]
-  PARAMETER_VECTOR( ln_sigma_srv_q );             // Log standard deviation of survey catchability; n = [1, n_srv]
-
-
-  // 3.6. Variance of survey and fishery time series
+  // -- 3.6. Variance of survey and fishery time series
   PARAMETER_VECTOR( ln_sigma_srv_index );         // Log standard deviation of survey index time-series; n = [1, n_srv]
   PARAMETER_VECTOR( ln_sigma_fsh_catch );         // Log standard deviation of fishery catch time-series; n = [1, n_fsh]
 
@@ -1013,7 +1013,7 @@ Type objective_function<Type>::operator() () {
 
             // Sum M1 until age - 1
             Type mort_sum = 0;
-            for(int age_tmp = 0; age_tmp < age; age_tmp++){
+            for(int age_tmp = 0; age_tmp < age - 1; age_tmp++){
               mort_sum += M1_base(sp, sex, age_tmp);
             }
             NByage(sp, sex, age, 0) = exp(ln_mn_rec(sp) - mort_sum + init_dev(sp, age - 1)) * R_sexr(sp);
