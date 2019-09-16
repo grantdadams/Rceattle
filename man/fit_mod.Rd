@@ -39,7 +39,7 @@ fit_mod(TMBfilename = "ceattle_v01_06", cpp_directory = NULL,
 
 \item{suitMode}{Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma selectivity from Kinzey and Punt (2009), 2 = time-varing length based gamma selectivity from Kinzey and Punt (2009), 3 = time-varying weight based gamma selectivity from Kinzey and Punt (2009), 4 = length based lognormal selectivity, 5 = time-varing length based lognormal selectivity, 6 = time-varying weight based lognormal selectivity,}
 
-\item{phase}{Optional. List of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R. If NULL, will not phase model.}
+\item{phase}{Optional. List of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R. If NULL, will not phase model. If set to \code{"default"}, will use default phasing.}
 
 \item{silent}{logical. IF TRUE, includes TMB estimation progress}
 }
@@ -203,37 +203,37 @@ data(BS2017SS) # ?BS2017SS for more information on the data
 
 # Set up phases
 phaseList = list(
-   dummy = 1,
-   ln_mn_rec = 1,
-   ln_rec_sigma = 2,
-   rec_dev = 2,
-   init_dev = 2,
-   ln_mean_F = 1,
-   proj_F = 1,
-   F_dev = 1,
-   log_srv_q = 3,
-   ln_srv_q_dev = 4,
-   ln_srv_q_dev_re = 4,
-   ln_sigma_srv_q = 4,
-   sel_coff = 3,
-   sel_slp = 3,
-   sel_inf = 3,
-   sel_slp_dev = 4,
-   sel_inf_dev = 4,
-   sel_slp_dev_re = 4,
-   sel_inf_dev_re = 4,
-   ln_sigma_sel = 4,
-   ln_sigma_srv_index = 2,
-   ln_sigma_fsh_catch = 2,
-   logH_1 = 6,
-   logH_1a = 6,
-   logH_1b = 6,
-   logH_2 = 6,
-   logH_3 = 6,
-   H_4 = 6,
-   log_gam_a = 5,
-   log_gam_b = 5,
-   log_phi = 5
+dummy = 1,
+ln_mn_rec = 1,
+ln_rec_sigma = 2,
+rec_dev = 2,
+init_dev = 2,
+ln_mean_F = 1,
+proj_F = 1,
+F_dev = 1,
+log_srv_q = 3,
+ln_srv_q_dev = 4,
+ln_srv_q_dev_re = 4,
+ln_sigma_srv_q = 4,
+sel_coff = 3,
+sel_slp = 3,
+sel_inf = 3,
+sel_slp_dev = 4,
+sel_inf_dev = 4,
+sel_slp_dev_re = 4,
+sel_inf_dev_re = 4,
+ln_sigma_sel = 4,
+ln_sigma_srv_index = 2,
+ln_sigma_fsh_catch = 2,
+logH_1 = 6,
+logH_1a = 6,
+logH_1b = 6,
+logH_2 = 6,
+logH_3 = 6,
+H_4 = 6,
+log_gam_a = 5,
+log_gam_b = 5,
+log_phi = 5
 )
 
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:

@@ -299,7 +299,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   # Step 9 -- Reorganize for survey age comp
   #---------------------------------------------------------------------
   # BT Survey age comp
-  dat_list$srv_comp <- data.frame(
+  srv_comp <- data.frame(
     Fleet_name = rep(c("BT_Pollock", "BT_Cod", "BT_ATF"), dat_list$nyrs_srv_age),
     Fleet_code = rep(4:6, dat_list$nyrs_srv_age),
     Species = rep(1:nspp, dat_list$nyrs_srv_age),
@@ -313,7 +313,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
 
   Observation <- rbind(dat_list$srv_age_obs[,,1], dat_list$srv_age_obs[,,2], dat_list$srv_age_obs[,,3])
   colnames(Observation) <- paste0("Comp_", 1:ncol(Observation))
-  dat_list$srv_comp <- cbind(dat_list$srv_comp, Observation)
+  srv_comp <- cbind(srv_comp, Observation)
 
   # EIT Survey ag e comp
   eit_comp <- data.frame(
@@ -331,7 +331,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   eit_comp <- cbind(eit_comp, dat_list$obs_eit_age)
 
   # Combine
-  dat_list$srv_comp <- plyr::rbind.fill(dat_list$srv_comp, eit_comp)
+  srv_comp <- plyr::rbind.fill(srv_comp, eit_comp)
 
   #---------------------------------------------------------------------
   # Step 10 -- Reorganize selectivity
@@ -346,6 +346,21 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   colnames(dat_list$eit_sel) <- paste("Comp_",1:ncol(dat_list$eit_sel), sep = "")
   dat_list$emp_sel <- cbind(dat_list$emp_sel, dat_list$eit_sel[dat_list$yrs_eit - dat_list$styr + 1,])
 
+
+  #---------------------------------------------------------------------
+  # Step 11 -- Reorganize age transition matrix
+  #---------------------------------------------------------------------
+  alk_tmp <- dat_list$age_trans_matrix
+  age_trans_matrix <- data.frame(ALK_name = c(rep("Pollock", 10), rep("Cod", 12), rep("ATF", 21)),
+                                 ALK_index = c(rep(1, 10), rep(2, 12), rep(3, 21)),
+                                 Species = c(rep(1, 10), rep(2, 12), rep(3, 21)),
+                                 Sex = c(rep(0, 10), rep(0, 12), rep(0, 21)),
+                                 Age = c(1:10, 1:12, 1:21))
+  age_trans_obs <- rbind(alk_tmp[1:10,,1], alk_tmp[1:12,,2])
+  age_trans_obs <-rbind(age_trans_obs, alk_tmp[1:21,,3])
+  colnames(age_trans_obs) <- paste0("Length", 1:ncol(age_trans_obs))
+  age_trans_matrix <- cbind(age_trans_matrix, age_trans_obs)
+  dat_list$age_trans_matrix <- age_trans_matrix
 
   #---------------------------------------------------------------------
   # Step 12 -- Reorganize for fishery biomass
@@ -366,7 +381,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   # Step 13 -- Reorganize for fishery age comp
   #---------------------------------------------------------------------
   # Fishery age comp
-  dat_list$fsh_comp <- data.frame(
+  fsh_comp <- data.frame(
     Fleet_name = rep(c("Pollock", "Cod", "ATF"), dat_list$nyrs_fsh_comp),
     Fleet_code = rep(1:nspp, dat_list$nyrs_fsh_comp),
     Species = rep(1:nspp, dat_list$nyrs_fsh_comp),
@@ -381,9 +396,9 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   Observation <- rbind(dat_list$obs_catch[,,1], dat_list$obs_catch[,,2], dat_list$obs_catch[,,3])
   colnames(Observation) <- paste0("Comp_", 1:ncol(Observation))
   Observation <- Observation[rowSums(is.na(Observation)) != ncol(Observation), ]
-  dat_list$fsh_comp <- cbind(dat_list$fsh_comp, Observation)
+  fsh_comp <- cbind(fsh_comp, Observation)
 
-  dat_list$comp_data <- rbind(dat_list$fsh_comp, dat_list$srv_comp)
+  dat_list$comp_data <- rbind(fsh_comp, srv_comp)
 
 
 
@@ -520,7 +535,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   #---------------------------------------------------------------------
   # Final Step -- Remove unwanted bits
   #---------------------------------------------------------------------
-  names_not_in_cpp <- c(names_not_in_cpp, "BTempC_retro", "propMorF" , "srv_sel_type", "srv_age_type", "fsh_age_bins")
+  names_not_in_cpp <- c(names_not_in_cpp, "BTempC_retro", "propMorF" , "srv_sel_type", "srv_age_type", "fsh_age_bins", "fsh_comp", "srv_comp")
 
   '%!in%' <- function(x,y)!('%in%'(x,y))
   dat_list2 <- list()
