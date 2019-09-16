@@ -25,44 +25,11 @@ library(Rceattle)
 data(BS2017SS) # ?BS2017SS for more information on the data
 
 # Write data to excel
-# Rceattle::write_data(data_list = BS2017SS, file = "BS2017SS.xlsx")
-#
-# # Change the data how you want in excel
-# # Read the data back in
-# mydata <- Rceattle::read_data( file = "BS2017SS.xlsx")
-phaseList = list(
-      dummy = 1,
-      ln_mn_rec = 1,
-      ln_rec_sigma = 2,
-      rec_dev = 2,
-      init_dev = 2,
-      ln_mean_F = 1,
-      proj_F = 1,
-      F_dev = 1,
-      log_srv_q = 3,
-      ln_srv_q_dev = 4,
-      ln_srv_q_dev_re = 4,
-      ln_sigma_srv_q = 4,
-      sel_coff = 3,
-      sel_slp = 3,
-      sel_inf = 3,
-      sel_slp_dev = 4,
-      sel_inf_dev = 4,
-      sel_slp_dev_re = 4,
-      sel_inf_dev_re = 4,
-      ln_sigma_sel = 4,
-      ln_sigma_srv_index = 2,
-      ln_sigma_fsh_catch = 2,
-      logH_1 = 6,
-      logH_1a = 6,
-      logH_1b = 6,
-      logH_2 = 6,
-      logH_3 = 6,
-      H_4 = 6,
-      log_gam_a = 5,
-      log_gam_b = 5,
-      log_phi = 5
-  )
+Rceattle::write_data(data_list = BS2017SS, file = "BS2017SS.xlsx")
+
+# Change the data how you want in excel
+# Read the data back in
+mydata <- Rceattle::read_data( file = "BS2017SS.xlsx")
 
 
 
@@ -70,7 +37,7 @@ phaseList = list(
 # Estimation
 ################################################
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
-ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
+ss_run <- Rceattle::fit_mod(data_list = mydata,
                             TMBfilename = "ceattle_v01_06",
                             cpp_directory = "inst/executables",
                             inits = NULL, # Initial parameters = 0
@@ -78,7 +45,7 @@ ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
                             debug = 0, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
-                            phase = phaseList,
+                            phase = "default",
                             silent = TRUE,
                             recompile = FALSE)
 
