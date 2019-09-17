@@ -796,7 +796,6 @@ plot_form <- function( params = NULL, pred = 1, pred_age = 1, prey = 1, msmMode 
 #' @export
 plot_mort <-
   function(Rceattle,
-           tmp_list = NULL,
            file = NULL,
            model_names = NULL,
            line_col = NULL,
@@ -840,43 +839,23 @@ plot_mort <-
 
     # Get M2
     M2 <-
-      array(NA, dim = c(nspp, max_age, nyrs, length(Rceattle) + length(tmp_list)))
+      array(NA, dim = c(nspp, 2, max_age, nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
-      M2[, , 1:length(Years[[i]]),i] <- Rceattle[[i]]$quantities$M2[,,1:nyrs_vec[i]]
+      M2[,, , 1:length(Years[[i]]),i] <- Rceattle[[i]]$quantities$M2[,,,1:nyrs_vec[i]]
     }
-
-    # ind = 1
-    # if (!is.null(tmp_list)) {
-    #   for (i in (length(Rceattle) + 1):(length(Rceattle) + length(tmp_list))) {
-    #     for (k in 1:nspp) {
-    #       M2[k, , i] <- tmp_list[[ind]][[paste0("M2_", k)]]
-    #     }
-    #     ind = ind + 1
-    #   }
-    # }
 
     # Get f_mat
     f_mat <-
-      array(NA, dim = c(nspp, max_age, nyrs, length(Rceattle) + length(tmp_list)))
+      array(NA, dim = c(nspp, 2, max_age, nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
-      f_mat[, , 1:length(Years[[i]]) ,i] <- Rceattle[[i]]$quantities$F_tot[,,1:nyrs_vec[i]]
+      f_mat[, ,, 1:length(Years[[i]]) ,i] <- Rceattle[[i]]$quantities$F_tot[,,,1:nyrs_vec[i]]
     }
 
     m_mat <-
-      array(NA, dim = c(nspp, max_age, length(Rceattle) + length(tmp_list)))
+      array(NA, dim = c(nspp, 2, max_age, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
-      m_mat[, ,i] <- Rceattle[[i]]$quantities$M1[,1:max_age]
+      m_mat[,,,i] <- Rceattle[[i]]$quantities$M1[,,1:max_age]
     }
-
-    # ind = 1
-    # if (!is.null(tmp_list)) {
-    #   for (i in (length(Rceattle) + 1):(length(Rceattle) + length(tmp_list))) {
-    #     for (k in 1:nspp) {
-    #       f_mat[k, , i] <- tmp_list[[ind]][[paste0("F_", k)]]
-    #     }
-    #     ind = ind + 1
-    #   }
-    # }
 
     # Plot limits
     #if(fishing){
@@ -884,24 +863,15 @@ plot_mort <-
     ymin <- c()
     for (i in 1:dim(M2)[1]) {
       if(M2_only){
-        ymax[i] <- max(c(M2[i, age, ,], m_mat[i, age,], 0), na.rm = T)
-        ymin[i] <- min(c(M2[i, age, ,], m_mat[i, age,], 0), na.rm = T)
+        ymax[i] <- max(c(M2[i, ,age, ,], m_mat[i, ,age,], 0), na.rm = T)
+        ymin[i] <- min(c(M2[i, ,age, ,], m_mat[i, ,age,], 0), na.rm = T)
       } else{
-        ymax[i] <- max(c(M2[i, age, ,], f_mat[i, age, ,], m_mat[i, age,], 0), na.rm = T)
-        ymin[i] <- min(c(M2[i, age, ,], f_mat[i, age, ,], m_mat[i, age,], 0), na.rm = T)
+        ymax[i] <- max(c(M2[i, ,age, ,], f_mat[i, ,age, ,], m_mat[i, ,age,], 0), na.rm = T)
+        ymin[i] <- min(c(M2[i, ,age, ,], f_mat[i, ,age, ,], m_mat[i, ,age,], 0), na.rm = T)
       }
     }
     ymax <- ymax + 0.15 * ymax
-    # }
-    # if(fishing == FALSE){
-    #   ymax <- c()
-    #   ymin <- c()
-    #   for (i in 1:dim(M2)[1]) {
-    #     ymax[i] <- max(c(M2[i, , ,], 0), na.rm = T)
-    #     ymin[i] <- min(c(M2[i, , ,], 0), na.rm = T)
-    #   }
-    #   ymax <- ymax + 0.15 * ymax
-    # }
+
 
     if (is.null(line_col)) {
       line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
