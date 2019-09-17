@@ -2724,37 +2724,41 @@ Type objective_function<Type>::operator() () {
     // Penalize time-varying selectivity deviates (Random walk)
     if((flt_varying_sel(flt) == 1) & (flt_sel_type(flt) != 2) & (flt_type(flt) > 0)){
       for (age = 0; age < nages(sp); age++) {
+        for(sex = 0; sex < nsex(sp); sex ++){
         for(yr = 0; yr < nyrs_hind; yr++){
 
           // Logistic deviates
-          jnll_comp(4, flt) -= dnorm(sel_inf_dev(0, flt, yr), Type(0.0), sigma_sel(flt), true);
-          jnll_comp(4, flt) -= dnorm(sel_slp_dev(0, flt, yr), Type(0.0), sigma_sel(flt), true);
+          jnll_comp(4, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
+          jnll_comp(4, flt) -= dnorm(sel_slp_dev(0, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
 
           // Double logistic deviates
           if(flt_sel_type(flt) == 3){
-            jnll_comp(4, flt) -= dnorm(sel_inf_dev(1, flt, yr), Type(0.0), sigma_sel(flt), true);
-            jnll_comp(4, flt) -= dnorm(sel_slp_dev(1, flt, yr), Type(0.0), sigma_sel(flt), true);
+            jnll_comp(4, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
+            jnll_comp(4, flt) -= dnorm(sel_slp_dev(1, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
           }
         }
+      }
       }
     }
 
     // Penalize time-varying selectivity deviates (Random effects)
     if((flt_varying_sel(flt) == 2) & (flt_sel_type(flt) != 2) & (flt_type(flt) > 0)){
       for (age = 0; age < nages(sp); age++) {
+        for(sex = 0; sex < nsex(sp); sex ++){
         for(yr = 0; yr < nyrs_hind; yr++){
 
           // Logistic deviates
-          jnll_comp(5, flt) -= dnorm(sel_inf_dev_re(0, flt, yr), Type(0.0), sigma_sel(flt), true);
-          jnll_comp(5, flt) -= dnorm(sel_slp_dev_re(0, flt, yr), Type(0.0), sigma_sel(flt), true);
+          jnll_comp(5, flt) -= dnorm(sel_inf_dev_re(0, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
+          jnll_comp(5, flt) -= dnorm(sel_slp_dev_re(0, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
 
           // Double logistic deviates
           if(flt_sel_type(flt) == 3){
-            jnll_comp(5, flt) -= dnorm(sel_inf_dev_re(1, flt, yr), Type(0.0), sigma_sel(flt), true);
-            jnll_comp(5, flt) -= dnorm(sel_slp_dev_re(1, flt, yr), Type(0.0), sigma_sel(flt), true);
+            jnll_comp(5, flt) -= dnorm(sel_inf_dev_re(1, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
+            jnll_comp(5, flt) -= dnorm(sel_slp_dev_re(1, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
           }
         }
       }
+    }
     }
   }
 

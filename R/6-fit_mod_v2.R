@@ -437,7 +437,7 @@ step = 5
 
       start_par <- phase_pars
 
-      message(paste0("Step", step," Phasing complete - getting final estimates"))
+      message(paste0("Step ", step,": Phasing complete - getting final estimates"))
       step = step + 1
     }
 
