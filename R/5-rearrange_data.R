@@ -33,6 +33,28 @@ rearrange_dat <- function(data_list){
 
 
   # Step 6 -  Seperate survey empirical selectivity info from observation
+  yrs <- data_list$styr:data_list$endyr
+  for(i in 1:nrow(data_list$emp_sel)){
+    # Fill in years
+    if(data_list$emp_sel$Year[i] == 0){
+
+      # Change first year
+      data_list$emp_sel$Year[i] <- yrs[1]
+
+      # Change the rest
+      emp_sel_tmp <- data_list$emp_sel[i,]
+      emp_sel_tmp$Year <- yrs[2]
+      emp_sel <- emp_sel_tmp
+
+      for(yr in 3:length(yrs)){
+        emp_sel_tmp$Year <- yrs[yr]
+        emp_sel <- rbind(emp_sel, emp_sel_tmp)
+      }
+
+      data_list$emp_sel <- rbind(data_list$emp_sel, emp_sel)
+    }
+  }
+
   data_list$emp_sel_ctl <- as.matrix(data_list$emp_sel[,c("Fleet_code", "Species", "Sex", "Year")])
   data_list$emp_sel_obs <- as.matrix(data_list$emp_sel[,grep("Comp_", colnames(data_list$emp_sel))])
 
@@ -41,6 +63,29 @@ rearrange_dat <- function(data_list){
 
   # Species names
   data_list$spnames <- NULL
+
+  # Input missing acucmulation ages - defaults to age range
+  for(i in 1:nrow(data_list$fleet_control)){
+
+    if(is.na(data_list$fleet_control$Nselages[i])){
+      data_list$fleet_control$Nselages[i] = -999
+    }
+
+    # Lower
+    if(is.na(data_list$fleet_control$Accumatation_age_lower[i])){
+      data_list$fleet_control$Accumatation_age_lower[i] <- data_list$minage[data_list$fleet_control$Species[i]]
+    }
+
+    # Upper
+    if(is.na(data_list$fleet_control$Accumatation_age_upper[i])){
+      data_list$fleet_control$Accumatation_age_upper[i] <- data_list$nages[data_list$fleet_control$Species[i]]
+    }
+
+    # Selected age
+    if(is.na(data_list$fleet_control$Age_first_selected[i])){
+      data_list$fleet_control$Age_first_selected[i] <- data_list$minage[data_list$fleet_control$Species[i]]
+    }
+  }
 
   # Rearrange age-transition matrix
   age_trans_matrix <- data_list$age_trans_matrix

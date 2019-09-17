@@ -58,7 +58,8 @@ build_params <- function(data_list, inits = NULL) {
 
     # -- 3.4. Survey catchability parameters
     # Random effects version
-    param_list$log_srv_q = data_list$fleet_control$Log_q_prior   # Survey catchability; n = [sum(n_srv)]
+    param_list$ln_srv_q = data_list$fleet_control$Log_q_prior   # Survey catchability; n = [sum(n_srv)]
+    param_list$srv_q_pow = rep(0, nrow(data_list$fleet_control))
     param_list$ln_srv_q_dev = matrix(0, nrow = nrow(data_list$fleet_control), ncol = nyrs_hind)   # Survey catchability deviations; n = [sum(n_srv)]
     param_list$ln_srv_q_dev_re = matrix(0, nrow = nrow(data_list$fleet_control), ncol = nyrs_hind)   # Survey catchability deviations; n = [sum(n_srv)]
     param_list$ln_sigma_srv_q <- log(data_list$fleet_control$Q_sd_prior)              # Log standard deviation for survey selectivity random walk - used for logistic
@@ -66,7 +67,7 @@ build_params <- function(data_list, inits = NULL) {
 
     # -- 3.5. Selectivity parameters
     n_selectivities <- nrow(data_list$fleet_control)
-    param_list$sel_coff = suppressWarnings( matrix(0, nrow = n_selectivities, ncol = max(1, as.numeric(c(data_list$fleet_control$Nselages) ), na.rm = T)))  # Fishery age selectivity coef; n = [nspp, nselages]
+    param_list$sel_coff = suppressWarnings( array(0, dim = c(n_selectivities, 2, max(1, as.numeric(c(data_list$fleet_control$Nselages) ), na.rm = T))))  # Fishery age selectivity coef; n = [nspp, nselages]
     param_list$sel_slp = array(0, dim = c(2, n_selectivities, 2))  # selectivity paramaters for logistic; n = [2, nspp, 2 sexes]
     param_list$sel_inf = array(0, dim = c(2, n_selectivities, 2))  # selectivity paramaters for logistic; n = [2, nspp, 2 sexes]
 
