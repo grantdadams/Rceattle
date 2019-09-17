@@ -2271,6 +2271,16 @@ Type objective_function<Type>::operator() () {
               age_hat(comp_ind, age ) = F(flt, sex, age, yr) / Zed(sp, sex, age, yr) * (1 - exp(-Zed(sp, sex, age, yr))) * NByage(sp, sex, age, yr);
               n_hat( comp_ind ) += F(flt, sex, age, yr) / Zed(sp, sex, age, yr) * (1 - exp(-Zed(sp, sex, age, yr))) * NByage(sp, sex, age, yr);
             }
+
+            // Joint composition data
+            if(flt_sex == 3){
+              for(sex = 0; sex < nsex(sp); sex ++){
+                // Survey catch-at-age
+                age_hat(comp_ind, age + nages(sp) * sex ) = F(flt, sex, age, yr) / Zed(sp, sex, age, yr) * (1 - exp(-Zed(sp, sex, age, yr))) * NByage(sp, sex, age, yr);
+                // Total numbers
+                n_hat(comp_ind) += F(flt, sex, age, yr) / Zed(sp, sex, age, yr) * (1 - exp(-Zed(sp, sex, age, yr))) * NByage(sp, sex, age, yr);
+              }
+            }
           }
 
 
@@ -2982,6 +2992,7 @@ Type objective_function<Type>::operator() () {
   REPORT( age_hat );
   REPORT( comp_obs );
   REPORT( comp_hat );
+  REPORT( n_hat );
   REPORT( comp_n );
 
 
