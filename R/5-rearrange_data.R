@@ -74,7 +74,7 @@ rearrange_dat <- function(data_list){
 
 
 
-# Normalize comp data
+  # Normalize comp data
   for(i in 1:nrow(data_list$comp_obs)){
     data_list$comp_obs[i,] = data_list$comp_obs[i,] / sum(data_list$comp_obs[i,], na.rm = TRUE)
   }
@@ -92,6 +92,9 @@ rearrange_dat <- function(data_list){
     yr <- as.numeric(as.character(wt_matrix$Year[i])) - data_list$styr + 1
     if(sex == 0){ sex = c(1, 2)}
     for(j in 1:length(sex)){
+      if(sum(grepl("[[:space:]]", as.character(wt_matrix[i, (1:data_list$nages[sp]) + 5])))){
+        stop(paste("Space found in wt data: row", i))
+      }
       wt[wt_ind, sex[j], 1:data_list$nages[sp], yr] <- as.numeric(as.character(wt_matrix[i, (1:data_list$nages[sp]) + 5]))
     }
   }

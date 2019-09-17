@@ -353,6 +353,7 @@ fit_mod <-
         )
       }
     }
+
     if(class(phase) == "character"){
       if(tolower(phase) != "default"){
         warning("phase misspecified: please set to 'default' or list with the same order as parameters.")
@@ -420,7 +421,7 @@ fit_mod <-
     }
 
     # STEP 8 - Fit model object
-
+step = 5
     # If phased
     if(!is.null(phase)){
       phase_pars <- Rceattle::TMBphase(
@@ -435,6 +436,9 @@ fit_mod <-
       )
 
       start_par <- phase_pars
+
+      message(paste0("Step", step," Phasing complete - getting final estimates"))
+      step = step + 1
     }
 
     # Not phased
@@ -452,10 +456,11 @@ fit_mod <-
       silent = silent
     )
 
-    message(paste0("Step 5: Build object complete"))
+    message(paste0("Step ",step, ": final build complete"))
+    step = step + 1
 
     # Optimize
-    opt = TMBhelper::fit_tmb(obj = obj,
+    opt = Rceattle::Optimize(obj = obj,
                              fn=obj$fn,
                              gr=obj$gr,
                              startpar=obj$par,
@@ -466,7 +471,7 @@ fit_mod <-
                                             iter.max = 1e+09, trace = 0)
     )
 
-    message("Step 6: Optimization complete")
+    message("Step ",step, ": Final optimization complete")
 
     # Get quantities
     quantities <- obj$report(obj$env$last.par.best)
