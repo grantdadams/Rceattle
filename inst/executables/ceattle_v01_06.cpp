@@ -749,6 +749,9 @@ Type objective_function<Type>::operator() () {
   vector<int> flt_nselages(n_flt); flt_nselages.setZero();                      // Vector to save number of ages to estimate non-parametric selectivity (1 = age, 2 = length)
   vector<int> flt_varying_sel(n_flt); flt_varying_sel.setZero();                // Vector storing information on wether time-varying selectivity is estimated (0 = no, 1 = random walk with fixed variance, 2 = random effect)
   vector<int> flt_spp(n_flt); flt_spp.setZero();                                // Vector to save survey species
+  vector<int> flt_sel_age(n_flt); flt_sel_age.setZero();                        // Vector to save age first selected (selectivity below this age = 0)
+  vector<int> flt_accum_age_lower(n_flt); flt_accum_age_lower.setZero();        // Vector to save lower accumulation age
+  vector<int> flt_accum_age_upper(n_flt); flt_accum_age_upper.setZero();        // Vector to save upper accumulation age
   vector<int> flt_units(n_flt); flt_units.setZero();                            // Vector to save survey units (1 = weight, 2 = numbers)
   vector<int> flt_wt_index(n_flt); flt_wt_index.setZero();                      // Vector to save 1st dim of wt to use for weight-at-age
   vector<int> flt_alk_index(n_flt); flt_alk_index.setZero();                    // Vector to save 3rd dim of age_trans_matrix to use for ALK
@@ -767,14 +770,17 @@ Type objective_function<Type>::operator() () {
     flt_sel_type(flt) = fleet_control(flt_ind, 5);           // Selectivity type
     flt_nselages(flt) = fleet_control(flt_ind, 6);           // Non-parametric selectivity ages
     flt_varying_sel(flt) = fleet_control(flt_ind, 7);        // Time-varying selectivity type
-    flt_units(flt) = fleet_control(flt_ind, 8);              // Survey units
-    flt_wt_index(flt) = fleet_control(flt_ind, 9) - 1;       // Dim1 of wt
-    flt_alk_index(flt) = fleet_control(flt_ind, 10) - 1;     // Dim3 of ALK
-    flt_q_ind(flt) = fleet_control(flt_ind, 11) - 1;         // Index of survey q
-    est_srv_q(flt) = fleet_control(flt_ind, 12);             // Estimate analytical q?
-    srv_varying_q(flt) = fleet_control(flt_ind, 13);         // Time varying q type
-    est_sigma_srv(flt) = fleet_control(flt_ind, 14);         // Wether to estimate standard deviation of survey time series
-    est_sigma_fsh(flt) = fleet_control(flt_ind, 15);        // Wether to estimate standard deviation of fishery time series
+    flt_sel_age(flt) = fleet_control(flt_ind, 8) - minage(flt_spp(flt));              // First age selected
+    flt_accum_age_lower(flt) = fleet_control(flt_ind, 9) - minage(flt_spp(flt));       // Dim1 of wt
+    flt_accum_age_upper(flt) = fleet_control(flt_ind, 10) - minage(flt_spp(flt));     // Dim3 of ALK
+    flt_units(flt) = fleet_control(flt_ind, 11);              // Survey units
+    flt_wt_index(flt) = fleet_control(flt_ind, 12) - 1;       // Dim1 of wt
+    flt_alk_index(flt) = fleet_control(flt_ind, 13) - 1;     // Dim3 of ALK
+    flt_q_ind(flt) = fleet_control(flt_ind, 14) - 1;         // Index of survey q
+    est_srv_q(flt) = fleet_control(flt_ind, 15);             // Estimate analytical q?
+    srv_varying_q(flt) = fleet_control(flt_ind, 16);         // Time varying q type
+    est_sigma_srv(flt) = fleet_control(flt_ind, 17);         // Wether to estimate standard deviation of survey time series
+    est_sigma_fsh(flt) = fleet_control(flt_ind, 18);        // Wether to estimate standard deviation of fishery time series
   }
 
   // Set up survey q
@@ -919,6 +925,19 @@ Type objective_function<Type>::operator() () {
 
       // 6.1.4. Normalize
       if (sel_type > 0) {
+
+for (yr = 0; yr < nyrs_hind; yr++) {
+          for (age = 0; age < nages(sp); age++){
+            for(sex = 0; sex < nsex(sp); sex++){
+              if(age < flt_sel_age(flt)){
+                sel(flt, sex, age, yr) = 0;
+              }
+            }
+          }
+        }
+
+
+
         // Find max for each fishery and year across ages, and sexes
         // FIXME: there is probably a more elegant way to do this
         for (yr = 0; yr < nyrs_hind; yr++) {
@@ -2665,6 +2684,32 @@ Type objective_function<Type>::operator() () {
     Type n_comp = 0;
     if(comp_type == 0){
       n_comp = nages(sp) * joint_adjust;
+
+      // Accumulation age
+      for(age = 0; age < n_comp; age++){
+int age_test = age;
+        if(age >= nages(sp)){
+age_test = age - nages(sp);
+        }
+
+        // Lower
+        if(age_test < flt_accum_age_lower(flt)){
+
+          comp_obs(comp_ind, flt_accum_age_lower(flt)) += comp_obs(comp_ind, age);
+          comp_obs(comp_ind, age) = 0;
+
+          comp_hat(comp_ind, flt_accum_age_lower(flt)) += comp_hat(comp_ind, age);
+          comp_hat(comp_ind, age) = 0;
+      }
+      // Upper
+      if(age_test > flt_accum_age_upper(flt)){
+          comp_obs(comp_ind, flt_accum_age_upper(flt)) += comp_obs(comp_ind, age);
+          comp_obs(comp_ind, age) = 0;
+
+          comp_hat(comp_ind, flt_accum_age_upper(flt)) += comp_hat(comp_ind, age);
+          comp_hat(comp_ind, age) = 0;
+      }
+      } 
     }
     if(comp_type == 1){
       n_comp = nlengths(sp) * joint_adjust;
