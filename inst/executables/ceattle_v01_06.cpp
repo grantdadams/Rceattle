@@ -861,12 +861,12 @@ Type objective_function<Type>::operator() () {
             for(sex = 0; sex < nsex(sp); sex++){
               // Random walk and block
               if(sel_varying != 2){
-                sel(flt, sex, age, yr) = 1 / (1 + exp( - exp(sel_slp(0, flt, sex) + sel_slp_dev(0, flt, sex, yr)) * ((age + 1) -( sel_inf(0, flt, sex) + sel_inf_dev(0, flt, sex, yr )))));
+                sel(flt, sex, age, yr) = 1 / (1 + exp( -(sel_slp(0, flt, sex) + sel_slp_dev(0, flt, sex, yr)) * ((age + 1) -( sel_inf(0, flt, sex) + sel_inf_dev(0, flt, sex, yr )))));
               }
 
               // Random effect
               if(sel_varying == 2){
-                sel(flt, sex, age, yr) = 1 / (1 + exp( - exp(sel_slp(0, flt, sex) + sel_slp_dev_re(0, flt, sex, yr)) * ((age + 1) -( sel_inf(0, flt, sex) + sel_inf_dev_re(0, flt, sex, yr )))));
+                sel(flt, sex, age, yr) = 1 / (1 + exp( -(sel_slp(0, flt, sex) + sel_slp_dev_re(0, flt, sex, yr)) * ((age + 1) -( sel_inf(0, flt, sex) + sel_inf_dev_re(0, flt, sex, yr )))));
               }
             }
           }
@@ -923,19 +923,20 @@ Type objective_function<Type>::operator() () {
 
               // Random walk and block
               if(sel_varying != 2){
-                sel(flt, sex, age, yr) = 1 / (1 + exp( - exp(sel_slp(0, flt, sex) + sel_slp_dev(0, flt, sex, yr)) * ((age + 1) - ( sel_inf(0, flt, sex) + sel_inf_dev(0, flt, sex, yr ))))) * // Upper slope
-                  (1 - (1 / (1 + exp( - exp(sel_slp(1, flt, sex) + sel_slp_dev(1, flt, sex, yr)) * ((age + 1) - (sel_inf(1, flt, sex) + sel_inf_dev(1, flt, sex, yr )))))));  // Downward slope;
+                sel(flt, sex, age, yr) = 1 / (1 + exp( -(sel_slp(0, flt, sex) + sel_slp_dev(0, flt, sex, yr)) * ((age + 1) -( sel_inf(0, flt, sex) + sel_inf_dev(0, flt, sex, yr ))))) * // Upper slope
+                  (1 - (1 / (1 + exp( -(sel_slp(1, flt, sex) + sel_slp_dev(1, flt, sex, yr)) * ((age + 1) - (sel_inf(1, flt, sex) + sel_inf_dev(1, flt, sex, yr )))))));  // Downward slope;
               }
 
               // Random effect
               if(sel_varying == 2){
-                sel(flt, sex, age, yr) = 1 / (1 + exp( -exp(sel_slp(0, flt, sex) + sel_slp_dev_re(0, flt, sex, yr)) * ((age + 1) - ( sel_inf(0, flt, sex) + sel_inf_dev_re(0, flt, sex, yr ))))) * // Upper slope
-                  (1 - (1 / (1 + exp( - exp(sel_slp(1, flt, sex) + sel_slp_dev_re(1, flt, sex, yr)) * ((age + 1) - (sel_inf(1, flt, sex) + sel_inf_dev_re(1, flt, sex, yr )))))));  // Downward slope;
+                sel(flt, sex, age, yr) = 1 / (1 + exp( -(sel_slp(0, flt, sex) + sel_slp_dev_re(0, flt, sex, yr)) * ((age + 1) -( sel_inf(0, flt, sex) + sel_inf_dev_re(0, flt, sex, yr ))))) * // Upper slope
+                  (1 - (1 / (1 + exp( -(sel_slp(1, flt, sex) + sel_slp_dev_re(1, flt, sex, yr)) * ((age + 1) - (sel_inf(1, flt, sex) + sel_inf_dev_re(1, flt, sex, yr )))))));  // Downward slope;
               }
             }
           }
         }
       }
+
 
       // 6.1.4. Descending logistic (Dorn and Methot 1990)
       if (sel_type == 4) {
@@ -956,6 +957,7 @@ Type objective_function<Type>::operator() () {
           }
         }
       }
+
 
       // 6.1.4. Normalize
       if (sel_type > 0) {
@@ -987,14 +989,6 @@ Type objective_function<Type>::operator() () {
           // Normalize selectivity
           for (age = 0; age < nages(sp); age++){
             for(sex = 0; sex < nsex(sp); sex++){
-
-              if(sel_type == 3){
-                if(nselages > 0 ){
-                  max_sel = sel(flt, sex, nselages - minage(sp), yr);
-                }
-              }
-
-
               sel(flt, sex, age, yr) /= max_sel;
             }
           }
