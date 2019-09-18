@@ -2445,7 +2445,6 @@ Type objective_function<Type>::operator() () {
 
     // Predict stomach content
     // 7.4. Reorganize UobsWTAge content
-    /*
     for(int stom_ind = 0; stom_ind < UobsWtAge.rows(); stom_ind++){
       rsp = UobsWtAge_ctl(stom_ind, 0) - 1; // Index of pred
       ksp = UobsWtAge_ctl(stom_ind, 1) - 1; // Index of prey
@@ -2453,64 +2452,44 @@ Type objective_function<Type>::operator() () {
       k_sex = UobsWtAge_ctl(stom_ind, 3); // Index of prey sex
       r_age = UobsWtAge_ctl(stom_ind, 4) - minage(rsp); // Index of pred age
       k_age = UobsWtAge_ctl(stom_ind, 5) - minage(ksp); // Index of prey age
-      yr = UobsWtAge_ctl(stom_ind, 6) - styr; // Index of year
+      flt_yr = UobsWtAge_ctl(stom_ind, 6); // Index of year
 
-      // Sample size
-      UobsWtAge_hat(stom_ind, 0) = UobsWtAge(stom_ind, 0);
+      // Predator
+      // 1 sex model
+      r_sexes(stom_ind, 0) = 0; r_sexes(stom_ind, 1) = 1;
+      k_sexes(stom_ind, 0) = 0; k_sexes(stom_ind, 1) = 1;
+
+      if(r_sex > 0){
+        r_sexes(stom_ind, 0) = r_sex - 1;  r_sexes(stom_ind, 1) = r_sex - 1;
+      }
+
+      if(k_sex > 0){
+        k_sexes(stom_ind, 0) = k_sex - 1;  k_sexes(stom_ind, 1) = k_sex - 1;
+      }
 
       // Initialize
       UobsWtAge_hat(stom_ind, 1) = 0;
 
-      // Predator
-      // 1 sex model
-      vector<int> r_sexes(1); r_sexes(0) = 0;
+      for(int j = 0; j < 2; j ++){
+        for(int k = 0; k < 2; k ++){
 
-      // 2 sex model and Uobs is for both sex
-      if( (nsex(rsp) == 2) & (r_sex == 0) ){
-        vector<int> r_sexes(2); r_sexes(0) = 0; r_sexes(1) = 1;
-      }
-      // 2 sex model and Uobs is for 1 sex
-      if( (nsex(rsp) == 2) & (r_sex > 0) ){
-        vector<int> r_sexes(1); r_sexes(0) = r_sex;
-      }
+          if(flt_yr > 0){
+            yr = flt_yr - styr;
 
-      // Prey
-      // 1 sex model
-      vector<int> k_sexes(1); k_sexes(0) = 0;
-
-      // 2 sex model and Uobs is for both sex
-      if( (nsex(ksp) == 2) & (k_sex == 0) ){
-        vector<int> k_sexes(2); k_sexes(0) = 0; k_sexes(1) = 1;
-      }
-      // 2 sex model and Uobs is for 1 sex
-      if( (nsex(ksp) == 2) & (k_sex > 0) ){
-        vector<int> k_sexes(1); k_sexes(0) = k_sex;
-      }
-
-      // Hoslman and estimated suitability
-      if((msmMode == 1) & (suitMode > 0)){
-        // Only use hindcast
-        if(yr < nyrs_hind){
-
-          for(r_sex = 0; r_sex < r_sexes.size(); r_sex ++){
-            for(k_sex = 0; k_sex < k_sexes.size(); k_sex ++){
-              // Average of years
-              if(yr == -styr){
-                for (yr = 0; yr < nyrs; yr++) {
-                  UobsWtAge_hat(stom_ind, 1) += (AvgN(ksp, k_sexes(k_sex), k_age, yr) * suit_main(rsp, ksp, r_sexes(r_sex), k_sexes(k_sex), r_age, k_age, yr) * wt(pop_wt_index(ksp), k_sexes(k_sex), k_age, yr_ind)) / avail_food(rsp, r_sexes(r_sex), r_age, yr) / ( endyr - styr + 1);
-                }
+            if(yr < nyrs_hind){
+              UobsWtAge_hat(stom_ind, 1) += (AvgN(ksp, k_sexes(k), k_age, yr) * suit_main(rsp, ksp, r_sexes(j), k_sexes(k), r_age, k_age, yr) * wt(pop_wt_index(ksp), k_sexes(k), k_age, yr_ind)) / avail_food(rsp, r_sexes(r), r_age, yr) / 4 ; // NOTE: Divide by species
               }
+          }
 
-              // Individual years
-              if( yr != -styr){
-                UobsWtAge_hat(stom_ind, 1) += (AvgN(ksp, k_sexes(k_sex), k_age, yr) * suit_main(rsp, ksp, r_sexes(r_sex), k_sexes(k_sex), r_age, k_age, yr) * wt(pop_wt_index(ksp), k_sexes(k_sex), k_age, yr_ind)) / avail_food(rsp, r_sexes(r_sex), r_age, yr) / r_sexes.size() ; // NOTE: Divide by species
-              }
+          // Average of years
+          if(flt_yr == 0){
+            for (yr = 0; yr < nyrs; yr++) {
+              UobsWtAge_hat(stom_ind, 1) += (AvgN(ksp, k_sexes(k), k_age, yr) * suit_main(rsp, ksp, r_sexes(j), k_sexes(k), r_age, k_age, yr) * wt(pop_wt_index(ksp), k_sexes(k), k_age, yr_ind)) / avail_food(rsp, r_sexes(r), r_age, yr) / 4 / ( endyr - styr + 1);
             }
           }
         }
       }
     }
-*/
 
     // - END LOOP - END LOOP - END LOOP - END LOOP - END LOOP - //
   } // End population dynamics iterations
