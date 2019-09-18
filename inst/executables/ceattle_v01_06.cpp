@@ -800,6 +800,8 @@ Type objective_function<Type>::operator() () {
   }
 
 
+  matrix<int> r_sexes(UobsWtAge.rows(), 2); r_sexes.setZero();
+  matrix<int> k_sexes(UobsWtAge.rows(), 2); k_sexes.setZero();
   // Good above here
   // ------------------------------------------------------------------------- //
   // 6. POPULATION DYNAMICS EQUATIONS                                          //
@@ -832,12 +834,12 @@ Type objective_function<Type>::operator() () {
 
       if(yr < nyrs_hind){
         for(sex = 0; sex < sexes.size(); sex++){
-        for (age = 0; age < nages(sp); age++) {
-          if(!isNA(emp_sel_obs(sel_ind, age))){
-            sel(flt, sexes(sex), age, yr) = emp_sel_obs(sel_ind, age);
+          for (age = 0; age < nages(sp); age++) {
+            if(!isNA(emp_sel_obs(sel_ind, age))){
+              sel(flt, sexes(sex), age, yr) = emp_sel_obs(sel_ind, age);
+            }
           }
         }
-      }
       }
     }      // FIXME - set all fishing selectivities after nyrs_hind to the terminal year
 
@@ -1243,6 +1245,7 @@ Type objective_function<Type>::operator() () {
 
 
     // 7.4. Reorganize UobsAge content
+    /*
     for(int stom_ind = 0; stom_ind < UobsAge.rows(); stom_ind++){
       rsp = UobsAge_ctl(stom_ind, 0) - 1; // Index of pred
       ksp = UobsAge_ctl(stom_ind, 1) - 1; // Index of prey
@@ -1295,7 +1298,7 @@ Type objective_function<Type>::operator() () {
         }
       }
     }
-
+*/
 
     // 7.4. Reorganize UobsWTAge content
     for(int stom_ind = 0; stom_ind < UobsWtAge.rows(); stom_ind++){
@@ -1305,46 +1308,37 @@ Type objective_function<Type>::operator() () {
       k_sex = UobsWtAge_ctl(stom_ind, 3); // Index of prey sex
       r_age = UobsWtAge_ctl(stom_ind, 4) - minage(rsp); // Index of pred age
       k_age = UobsWtAge_ctl(stom_ind, 5) - minage(ksp); // Index of prey age
-      yr = UobsWtAge_ctl(stom_ind, 6) - styr; // Index of year
+      flt_yr = UobsWtAge_ctl(stom_ind, 6); // Index of year
 
       // Predator
       // 1 sex model
-      vector<int> r_sexes(1); r_sexes(0) = 0;
+      r_sexes(stom_ind, 0) = 0; r_sexes(stom_ind, 1) = 1;
+      k_sexes(stom_ind, 0) = 0; k_sexes(stom_ind, 1) = 1;
 
-      // 2 sex model and Uobs is for both sex
-      if( (nsex(rsp) == 2) & (r_sex == 0) ){
-        vector<int> r_sexes(2); r_sexes(0) = 0; r_sexes(1) = 1;
-      }
-      // 2 sex model and Uobs is for 1 sex
-      if( (nsex(rsp) == 2) & (r_sex > 0) ){
-        vector<int> r_sexes(1); r_sexes(0) = r_sex;
+      if(r_sex > 0){
+        r_sexes(stom_ind, 0) = r_sex - 1;  r_sexes(stom_ind, 1) = r_sex - 1;
       }
 
-      // Prey
-      // 1 sex model
-      vector<int> k_sexes(1); k_sexes(0) = 0;
-
-      // 2 sex model and Uobs is for both sex
-      if( (nsex(ksp) == 2) & (k_sex == 0) ){
-        vector<int> k_sexes(2); k_sexes(0) = 0; k_sexes(1) = 1;
-      }
-      // 2 sex model and Uobs is for 1 sex
-      if( (nsex(ksp) == 2) & (k_sex > 0) ){
-        vector<int> k_sexes(1); k_sexes(0) = k_sex;
+      if(k_sex > 0){
+        k_sexes(stom_ind, 0) = k_sex - 1;  k_sexes(stom_ind, 1) = k_sex - 1;
       }
 
-      // Only use hindcast
-      if(yr < nyrs_hind){
 
-        for(r_sex = 0; r_sex < r_sexes.size(); r_sex ++){
-          for(k_sex = 0; k_sex < k_sexes.size(); k_sex ++){
-            // Average of years
-            if(yr == -styr){
-              for (yr = 0; yr < nyrs; yr++) {
-                stomKirWt(rsp, ksp, r_sexes(r_sex), k_sexes(k_sex), r_age, k_age, yr) = UobsWtAge(stom_ind, 1);
-              }
-            } else { // Not average
-              stomKirWt(rsp, ksp, r_sexes(r_sex), k_sexes(k_sex), r_age, k_age, yr) = UobsWtAge(stom_ind, 1);
+      for(int j = 0; j < 2; j ++){
+        for(int k = 0; k < 2; k ++){
+
+          if(flt_yr > 0){
+            yr = flt_yr - styr;
+
+            if(yr < nyrs_hind){
+              stomKirWt(rsp, ksp, r_sexes(stom_ind, j), k_sexes(stom_ind, k), r_age, k_age, yr) = UobsWtAge(stom_ind, 1);
+            }
+          }
+
+          // Average of years
+          if(flt_yr == 0){
+            for (yr = 0; yr < nyrs; yr++) {
+              stomKirWt(rsp, ksp, r_sexes(stom_ind, j), k_sexes(stom_ind, k), r_age, k_age, yr) = UobsWtAge(stom_ind, 1);
             }
           }
         }
@@ -2451,6 +2445,7 @@ Type objective_function<Type>::operator() () {
 
     // Predict stomach content
     // 7.4. Reorganize UobsWTAge content
+    /*
     for(int stom_ind = 0; stom_ind < UobsWtAge.rows(); stom_ind++){
       rsp = UobsWtAge_ctl(stom_ind, 0) - 1; // Index of pred
       ksp = UobsWtAge_ctl(stom_ind, 1) - 1; // Index of prey
@@ -2515,7 +2510,7 @@ Type objective_function<Type>::operator() () {
         }
       }
     }
-
+*/
 
     // - END LOOP - END LOOP - END LOOP - END LOOP - END LOOP - //
   } // End population dynamics iterations
@@ -3038,6 +3033,9 @@ Type objective_function<Type>::operator() () {
   REPORT( srv_varying_q );
   REPORT( est_sigma_srv );
   REPORT( est_sigma_fsh );
+  REPORT( UobsWtAge_ctl );
+  REPORT( r_sexes );
+  REPORT( k_sexes );
 
 
   // 12.1. Population components

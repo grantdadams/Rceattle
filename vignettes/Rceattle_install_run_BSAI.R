@@ -42,13 +42,12 @@ ss_run <- Rceattle::fit_mod(data_list = mydata,
                             cpp_directory = "inst/executables",
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save
-                            debug = 0, # Estimate
+                            debug = 1, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
-                            phase = "default",
+                            phase = NULL,
                             silent = TRUE,
                             recompile = FALSE)
-
 # The you can plot the model results using using
 plot_biomass(Rceattle =  ss_run)
 plot_recruitment(Rceattle =  ss_run)

@@ -424,7 +424,7 @@ fit_mod <-
     # STEP 8 - Fit model object
 step = 5
     # If phased
-    if(!is.null(phase)){
+    if(!is.null(phase) & debug == 0){
       phase_pars <- Rceattle::TMBphase(
         data = data_list_reorganized,
         parameters = params,
