@@ -1,4 +1,3 @@
-
 #' Plot time series of IOA
 #'
 #' @description Function the plots the survey indices as estimated from Rceattle
@@ -11,14 +10,12 @@
 #' @param species Species names for legend
 #' @param cex Line width as specified by user
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
-#' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
 #' @param incl_proj TRUE/FALSE include projections years
 #'
 #' @return Returns and saves a figure with the index trajectory.
 #' @export
 plot_index <-
   function(Rceattle,
-           tmp_list = NULL,
            file = NULL,
            model_names = NULL,
            line_col = NULL,
@@ -26,7 +23,6 @@ plot_index <-
            cex = 3,
            lwd = 3,
            right_adj = 0,
-           mohns = NULL,
            incl_proj = FALSE) {
 
     # Convert single one into a list
@@ -77,13 +73,16 @@ plot_index <-
 
 
     # Plot limits
-    nsrv <- nrow(Rceattle[[1]]$data_list$srv_control)
-    srv_control <- (Rceattle[[1]]$data_list$srv_control)
+    fleet_control <- (Rceattle[[1]]$data_list$fleet_control)
+    srv_biom <- (Rceattle[[1]]$data_list$srv_biom)
+    srvs <- unique(srv_biom$Fleet_code)
+    nsrv <- length(srvs)
+
     ymax <- rep(0, nsrv)
     ymin <- rep(0, nsrv)
     for(i in 1:length(Rceattle)){
-      for(srv in 1:nrow(Rceattle[[i]]$data_list$srv_control)){
-        srv_ind <- which(Srv_list[[i]]$Survey_code == srv)
+      for(srv in 1:nsrv){
+        srv_ind <- which(Srv_list[[i]]$Fleet_code == srvs[srv])
         ymax[srv] <- max(c(Srv_list[[i]]$Upper95[srv_ind], Srv_hat_list[[i]]$Observation[srv_ind], ymax[srv]), na.rm = T)
         ymin[srv] <- min(c(Srv_list[[i]]$Lower95[srv_ind], Srv_hat_list[[i]]$Observation[srv_ind], ymin[srv]), na.rm = T)
       }
@@ -137,11 +136,8 @@ plot_index <-
         }
 
         # Legends
-        legend("topleft", legend = as.character(srv_control$Survey_name[j]), bty = "n", cex = 1.4)
+        legend("topleft", legend = as.character(fleet_control$Fleet_name[srvs[j]]), bty = "n", cex = 1.4)
 
-        # if(!is.null(mohns)){
-        #   legend("top", paste0("B Rho = ", round(mohns[1,j+1], 2), "; SSB Rho = ",  round(mohns[2,j+1], 2) ), bty = "n", cex = 1) # Biomass rho
-        # }
 
         # Model names
         if (j == 1) {
@@ -159,16 +155,16 @@ plot_index <-
 
         # Type
         if (j == 2) {
-            legend(
-              "topright",
-              legend = c("Observed", "Estimated"),
-              pch = c(16, NA),
-              lty = c(NA, 1),
-              cex = 1.125,
-              lwd = lwd,
-              col = 1,
-              bty = "n"
-            )
+          legend(
+            "topright",
+            legend = c("Observed", "Estimated"),
+            pch = c(16, NA),
+            lty = c(NA, 1),
+            cex = 1.125,
+            lwd = lwd,
+            col = 1,
+            bty = "n"
+          )
         }
 
         # Survey data
@@ -176,8 +172,8 @@ plot_index <-
 
         # Mean biomass
         for (k in 1:length(Rceattle)) {
-          srv_tmp <- Srv_list[[k]][which(Srv_list[[k]]$Survey_code == j),]
-          srv_hat_tmp <- Srv_hat_list[[k]][which(Srv_list[[k]]$Survey_code == j),]
+          srv_tmp <- Srv_list[[k]][which(Srv_list[[k]]$Fleet_code == srvs[j]),]
+          srv_hat_tmp <- Srv_hat_list[[k]][which(Srv_list[[k]]$Fleet_code == srvs[j]),]
 
           # Observed
           points(
@@ -190,7 +186,7 @@ plot_index <-
 
 
           # 95% CI
-          arrows(srv_tmp$Year, srv_tmp$Lower95, srv_tmp$Year, srv_tmp$Upper95, length=0.05, angle=90, code=3, col = line_col[k])
+          suppressMessages(arrows(srv_tmp$Year, srv_tmp$Lower95, srv_tmp$Year, srv_tmp$Upper95, length=0.05, angle=90, code=3, col = line_col[k]))
 
           # Estimated
           lines(
@@ -209,6 +205,8 @@ plot_index <-
       }
     }
   }
+
+
 
 
 
