@@ -523,7 +523,7 @@ plot_selectivity <-
     minyr <- min((sapply(Years, min)))
 
     nspp <- Rceattle[[1]]$data_list$nspp
-    fsh_control <- Rceattle[[1]]$data_list$fleet_control
+    fleet_control <- Rceattle[[1]]$data_list$fleet_control
     nflt <- nrow(Rceattle[[1]]$data_list$fleet_control)
     nages <- Rceattle[[1]]$data_list$nages
     minage <- Rceattle[[1]]$data_list$minage

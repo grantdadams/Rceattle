@@ -186,7 +186,7 @@ plot_index <-
 
 
           # 95% CI
-          suppressMessages(arrows(srv_tmp$Year, srv_tmp$Lower95, srv_tmp$Year, srv_tmp$Upper95, length=0.05, angle=90, code=3, col = line_col[k]))
+          suppressWarnings(suppressMessages(arrows(srv_tmp$Year, srv_tmp$Lower95, srv_tmp$Year, srv_tmp$Upper95, length=0.05, angle=90, code=3, col = line_col[k])))
 
           # Estimated
           lines(
