@@ -4,9 +4,9 @@
 \alias{plot_selectivity}
 \title{Plot selectivity}
 \usage{
-plot_selectivity(Rceattle, tmp_list = NULL, file = NULL,
-  model_names = NULL, line_col = NULL, species = c("Walleye pollock",
-  "Pacific cod", "Arrowtooth flounder"), lwd = 3)
+plot_selectivity(Rceattle, file = NULL, model_names = NULL,
+  line_col = NULL, species = c("Walleye pollock", "Pacific cod",
+  "Arrowtooth flounder"), lwd = 3)
 }
 \arguments{
 \item{Rceattle}{Single or list of Rceattle model objects exported from \code{\link{Rceattle}}}

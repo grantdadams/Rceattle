@@ -544,7 +544,7 @@ plot_comp <-
           min_comp <- min(c(comp_hat_tmp_sum$x, comp_tmp_sum$x))
 
           sex <- unique(comp_tmp$Sex)
-
+          lowercomp <- 0
           if(sex == 3){
             lowercomp <- - max_comp * 1.10
           }
@@ -571,13 +571,13 @@ plot_comp <-
           # y-axis
           # Single sex or combined
           if(sex != 3){
-            y_axis <- round(seq(0, max_comp * 1.15, length.out = 4)[1:3],1)
+            y_axis <- round(seq(0, max_comp * 1.15, length.out = 4)[1:3],2)
             axis(side = 2, at = y_axis, labels = c(0,y_axis[2:3]))
           }
 
           # Joint sex comp
           if(sex == 3){
-            y_axis <- round(seq(-max_comp * 1.15, max_comp * 1.15, length.out = 5)[1:5],1)
+            y_axis <- round(seq(-max_comp * 1.15, max_comp * 1.15, length.out = 5)[1:5],2)
             axis(side = 2, at = y_axis, labels = y_axis)
           }
 
