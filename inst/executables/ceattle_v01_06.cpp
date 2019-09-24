@@ -579,6 +579,7 @@ Type objective_function<Type>::operator() () {
   // 4.1. Derived indices
   int max_bin = imax( nlengths );                                                   // Integer of maximum number of length/age bins.
   int n_flt = fleet_control.rows();
+  vector<int> joint_adjust(comp_obs.rows()); joint_adjust.setZero();
 
   // -- 4.2. Estimated population parameters
   vector<Type>  mn_rec = exp(ln_mn_rec);                                            // Mean recruitment; n = [1, nspp]
@@ -626,6 +627,7 @@ Type objective_function<Type>::operator() () {
   // -- 4.6. Composition data - FIXME: will blow up in nlengths is less than nages
   vector<Type>  n_hat(comp_obs.rows()) ; n_hat.setZero() ;                          // Estimated catch (n); n = [nspp, nyrs]
   matrix<Type>  age_hat = comp_obs; age_hat.setZero();                              // Estimated catch at true age; n = [nspp, nages, nyrs]
+  matrix<Type>  true_age_comp_hat = comp_obs; true_age_comp_hat.setZero();                  // True age composition
   matrix<Type>  age_obs_hat = comp_obs; age_obs_hat.setZero();                      // Estimated catch at observed age; n = [nspp, nages, nyrs]
   matrix<Type>  comp_hat = comp_obs; comp_hat.setZero();                            // Estimated comp; n = [nspp, nages, nyrs]
 
@@ -761,6 +763,7 @@ Type objective_function<Type>::operator() () {
   vector<int> srv_varying_q(n_flt); srv_varying_q.setZero();                    // Vector storing information on wether time-varying q is estimated (0 = no, 1 = random walk with fixed variance, 2 = random effect)
   vector<int> est_sigma_srv(n_flt); est_sigma_srv.setZero();                    // Vector to save wether sigma survey is estimated
   vector<int> est_sigma_fsh(n_flt); est_sigma_fsh.setZero();                    // Vector to save wether sigma fishery is estimated
+  vector<int> sel_norm_age(n_flt); sel_norm_age.setZero();                      // Vector to save age to normalize selectivty
 
 
   for (flt_ind = 0; flt_ind < n_flt; flt_ind++){
@@ -781,7 +784,8 @@ Type objective_function<Type>::operator() () {
     est_srv_q(flt) = fleet_control(flt_ind, 15);             // Estimate analytical q?
     srv_varying_q(flt) = fleet_control(flt_ind, 16);         // Time varying q type
     est_sigma_srv(flt) = fleet_control(flt_ind, 17);         // Wether to estimate standard deviation of survey time series
-    est_sigma_fsh(flt) = fleet_control(flt_ind, 18);        // Wether to estimate standard deviation of fishery time series
+    est_sigma_fsh(flt) = fleet_control(flt_ind, 18);         // Wether to estimate standard deviation of fishery time series
+    sel_norm_age(flt) =  flt_nselages(flt) - minage(flt_spp(flt));  // Age to normalize logistic selectivities
   }
 
   // Set up survey q
@@ -982,6 +986,14 @@ Type objective_function<Type>::operator() () {
           Type max_sel = 0;
           for (age = 0; age < nages(sp); age++){
             for(sex = 0; sex < nsex(sp); sex++){
+
+              // Normalize by specific age
+              if((nselages > 0) & (sel_type != 2)){
+                max_sel = sel(flt, sex, sel_norm_age(flt), yr);
+              }
+              
+
+              // Normalize by max
               if(sel(flt, sex, age, yr) > max_sel){
                 max_sel = sel(flt, sex, age, yr);
               }
@@ -1246,59 +1258,59 @@ Type objective_function<Type>::operator() () {
 
     // 7.4. Reorganize UobsAge content
     /*
-    for(int stom_ind = 0; stom_ind < UobsAge.rows(); stom_ind++){
-      rsp = UobsAge_ctl(stom_ind, 0) - 1; // Index of pred
-      ksp = UobsAge_ctl(stom_ind, 1) - 1; // Index of prey
-      r_sex = UobsAge_ctl(stom_ind, 2); // Index of pred sex
-      k_sex = UobsAge_ctl(stom_ind, 3); // Index of prey sex
-      r_age = UobsAge_ctl(stom_ind, 4) - minage(rsp); // Index of pred age
-      k_age = UobsAge_ctl(stom_ind, 5) - minage(ksp); // Index of prey age
-      yr = UobsAge_ctl(stom_ind, 6) - styr; // Index of year
+     for(int stom_ind = 0; stom_ind < UobsAge.rows(); stom_ind++){
+     rsp = UobsAge_ctl(stom_ind, 0) - 1; // Index of pred
+     ksp = UobsAge_ctl(stom_ind, 1) - 1; // Index of prey
+     r_sex = UobsAge_ctl(stom_ind, 2); // Index of pred sex
+     k_sex = UobsAge_ctl(stom_ind, 3); // Index of prey sex
+     r_age = UobsAge_ctl(stom_ind, 4) - minage(rsp); // Index of pred age
+     k_age = UobsAge_ctl(stom_ind, 5) - minage(ksp); // Index of prey age
+     yr = UobsAge_ctl(stom_ind, 6) - styr; // Index of year
 
-      // Predator
-      // 1 sex model
-      vector<int> r_sexes(1); r_sexes(0) = 0;
+     // Predator
+     // 1 sex model
+     vector<int> r_sexes(1); r_sexes(0) = 0;
 
-      // 2 sex model and Uobs is for both sex
-      if( (nsex(rsp) == 2) & (r_sex == 0) ){
-        vector<int> r_sexes(2); r_sexes(0) = 0; r_sexes(1) = 1;
-      }
-      // 2 sex model and Uobs is for 1 sex
-      if( (nsex(rsp) == 2) & (r_sex > 0) ){
-        vector<int> r_sexes(1); r_sexes(0) = r_sex;
-      }
+     // 2 sex model and Uobs is for both sex
+     if( (nsex(rsp) == 2) & (r_sex == 0) ){
+     vector<int> r_sexes(2); r_sexes(0) = 0; r_sexes(1) = 1;
+     }
+     // 2 sex model and Uobs is for 1 sex
+     if( (nsex(rsp) == 2) & (r_sex > 0) ){
+     vector<int> r_sexes(1); r_sexes(0) = r_sex;
+     }
 
-      // Prey
-      // 1 sex model
-      vector<int> k_sexes(1); k_sexes(0) = 0;
+     // Prey
+     // 1 sex model
+     vector<int> k_sexes(1); k_sexes(0) = 0;
 
-      // 2 sex model and Uobs is for both sex
-      if( (nsex(ksp) == 2) & (k_sex == 0) ){
-        vector<int> k_sexes(2); k_sexes(0) = 0; k_sexes(1) = 1;
-      }
-      // 2 sex model and Uobs is for 1 sex
-      if( (nsex(ksp) == 2) & (k_sex > 0) ){
-        vector<int> k_sexes(1); k_sexes(0) = k_sex;
-      }
+     // 2 sex model and Uobs is for both sex
+     if( (nsex(ksp) == 2) & (k_sex == 0) ){
+     vector<int> k_sexes(2); k_sexes(0) = 0; k_sexes(1) = 1;
+     }
+     // 2 sex model and Uobs is for 1 sex
+     if( (nsex(ksp) == 2) & (k_sex > 0) ){
+     vector<int> k_sexes(1); k_sexes(0) = k_sex;
+     }
 
-      // Only use hindcast
-      if(yr < nyrs_hind){
+     // Only use hindcast
+     if(yr < nyrs_hind){
 
-        for(r_sex = 0; r_sex < r_sexes.size(); r_sex ++){
-          for(k_sex = 0; k_sex < k_sexes.size(); k_sex ++){
-            // Average of years
-            if(yr == -styr){
-              for (yr = 0; yr < nyrs; yr++) {
-                stomKir(rsp, ksp, r_sexes(r_sex), k_sexes(k_sex), r_age, k_age, yr) = UobsAge(stom_ind, 1);
-              }
-            } else { // Not average
-              stomKir(rsp, ksp, r_sexes(r_sex), k_sexes(k_sex), r_age, k_age, yr) = UobsAge(stom_ind, 1);
-            }
-          }
-        }
-      }
-    }
-*/
+     for(r_sex = 0; r_sex < r_sexes.size(); r_sex ++){
+     for(k_sex = 0; k_sex < k_sexes.size(); k_sex ++){
+     // Average of years
+     if(yr == -styr){
+     for (yr = 0; yr < nyrs; yr++) {
+     stomKir(rsp, ksp, r_sexes(r_sex), k_sexes(k_sex), r_age, k_age, yr) = UobsAge(stom_ind, 1);
+     }
+     } else { // Not average
+     stomKir(rsp, ksp, r_sexes(r_sex), k_sexes(k_sex), r_age, k_age, yr) = UobsAge(stom_ind, 1);
+     }
+     }
+     }
+     }
+     }
+     */
 
     // 7.4. Reorganize UobsWTAge content
     for(int stom_ind = 0; stom_ind < UobsWtAge.rows(); stom_ind++){
@@ -2349,7 +2361,7 @@ Type objective_function<Type>::operator() () {
             }
 
             // Sex specific composition data
-            if((flt_sex == 1)| (flt_sex == 2)){
+            if((flt_sex == 1) | (flt_sex == 2)){
               sex = flt_sex - 1;
               // Survey catch-at-age
               age_hat(comp_ind, age ) = NByage(sp, sex, age, yr)  * sel(flt, sex, age, yr) * srv_q(flt, yr) * exp( - Type(mo/12) * Zed(sp, sex, age, yr));
@@ -2370,14 +2382,20 @@ Type objective_function<Type>::operator() () {
         }
 
         // Adjustment for joint sex composition data
-        Type joint_adjust = 1;
+        joint_adjust(comp_ind) = 1;
         if(flt_sex == 3){
-          joint_adjust = 2;
+          joint_adjust(comp_ind) = 2;
         }
 
-        // Adjust for aging error
-        for (int obs_age = 0; obs_age < nages(sp) * joint_adjust; obs_age++) {
-          for (int true_age = 0; true_age < nages(sp) * joint_adjust; true_age++) {
+        // Get true age comp
+        for (age = 0; age < nages(sp) * joint_adjust(comp_ind); age++) {
+          true_age_comp_hat(comp_ind, age ) = age_hat(comp_ind, age ) / n_hat(comp_ind);
+        }
+
+
+        // Adjust for aging error // FIXME something is up here
+        for (int obs_age = 0; obs_age < nages(sp) * joint_adjust(comp_ind); obs_age++) {
+          for (int true_age = 0; true_age < nages(sp) * joint_adjust(comp_ind); true_age++) {
 
             // Adjust indexing for joint age/length comp
             int true_age_tmp = true_age;
@@ -2398,7 +2416,7 @@ Type objective_function<Type>::operator() () {
 
         //  Survey catch-at-age - standardize to sum to 1
         if (comp_type == 0) {
-          for (age = 0; age < nages(sp) * joint_adjust; age++) {
+          for (age = 0; age < nages(sp) * joint_adjust(comp_ind); age++) {
             comp_hat(comp_ind, age) = age_obs_hat(comp_ind, age ) / n_hat(comp_ind);
           }
         }
@@ -2406,8 +2424,8 @@ Type objective_function<Type>::operator() () {
 
         // Convert from catch-at-age to catch-at-length
         if ( comp_type == 1) {
-          for (ln = 0; ln < nlengths(sp) * joint_adjust; ln++) {
-            for (age = 0; age < nages(sp) * joint_adjust; age++) {
+          for (ln = 0; ln < nlengths(sp) * joint_adjust(comp_ind); ln++) {
+            for (age = 0; age < nages(sp) * joint_adjust(comp_ind); age++) {
 
               // Adjust indexing for joint age/length comp
               int obs_ln_tmp = ln;
@@ -2422,7 +2440,7 @@ Type objective_function<Type>::operator() () {
                 flt_sex = 1;
               }
 
-              if((ln < nlengths(sp)) & (joint_adjust == 2)){
+              if((ln < nlengths(sp)) & (joint_adjust(comp_ind) == 2)){
                 flt_sex = 0;
               }
 
@@ -2431,7 +2449,7 @@ Type objective_function<Type>::operator() () {
           }
 
           // Standardize to sum to 1
-          for (ln = 0; ln < nlengths(sp) * joint_adjust; ln++) {
+          for (ln = 0; ln < nlengths(sp) * joint_adjust(comp_ind); ln++) {
             comp_hat(comp_ind, ln ) = comp_hat(comp_ind, ln) / n_hat(comp_ind);
           }
         }
@@ -2477,14 +2495,14 @@ Type objective_function<Type>::operator() () {
             yr = flt_yr - styr;
 
             if(yr < nyrs_hind){
-              UobsWtAge_hat(stom_ind, 1) += (AvgN(ksp, k_sexes(k), k_age, yr) * suit_main(rsp, ksp, r_sexes(j), k_sexes(k), r_age, k_age, yr) * wt(pop_wt_index(ksp), k_sexes(k), k_age, yr_ind)) / avail_food(rsp, r_sexes(r), r_age, yr) / 4 ; // NOTE: Divide by species
-              }
+             UobsWtAge_hat(stom_ind, 1) += (AvgN(ksp, k_sexes(stom_ind, k), k_age, yr) * suit_main(rsp, ksp, r_sexes(stom_ind, j), k_sexes(stom_ind, k), r_age, k_age, yr) * wt(pop_wt_index(ksp), k_sexes(stom_ind, k), k_age, yr_ind)) / avail_food(rsp, r_sexes(stom_ind, j), r_age, yr) / 4 ; // NOTE: Divide by species
+            }
           }
 
           // Average of years
           if(flt_yr == 0){
             for (yr = 0; yr < nyrs; yr++) {
-              UobsWtAge_hat(stom_ind, 1) += (AvgN(ksp, k_sexes(k), k_age, yr) * suit_main(rsp, ksp, r_sexes(j), k_sexes(k), r_age, k_age, yr) * wt(pop_wt_index(ksp), k_sexes(k), k_age, yr_ind)) / avail_food(rsp, r_sexes(r), r_age, yr) / 4 / ( endyr - styr + 1);
+              UobsWtAge_hat(stom_ind, 1) += (AvgN(ksp, k_sexes(stom_ind, k), k_age, yr) * suit_main(rsp, ksp, r_sexes(stom_ind, j), k_sexes(stom_ind, k), r_age, k_age, yr) * wt(pop_wt_index(ksp), k_sexes(stom_ind, k), k_age, yr_ind)) / avail_food(rsp, r_sexes(stom_ind, j), r_age, yr) / 4 / ( endyr - styr + 1);
             }
           }
         }
@@ -2691,15 +2709,15 @@ Type objective_function<Type>::operator() () {
 
 
     // Adjustment for joint sex composition data
-    Type joint_adjust = 1;
+    joint_adjust(comp_ind) = 1;
     if(flt_sex == 3){
-      joint_adjust = 2;
+      joint_adjust(comp_ind) = 2;
     }
 
     // Number of ages/lengths
     Type n_comp = 0;
     if(comp_type == 0){
-      n_comp = nages(sp) * joint_adjust;
+      n_comp = nages(sp) * joint_adjust(comp_ind);
 
       // Accumulation age
       for(age = 0; age < n_comp; age++){
@@ -2728,7 +2746,7 @@ Type objective_function<Type>::operator() () {
       }
     }
     if(comp_type == 1){
-      n_comp = nlengths(sp) * joint_adjust;
+      n_comp = nlengths(sp) * joint_adjust(comp_ind);
     }
 
     // Only use years wanted
@@ -3013,8 +3031,10 @@ Type objective_function<Type>::operator() () {
   REPORT( est_sigma_srv );
   REPORT( est_sigma_fsh );
   REPORT( UobsWtAge_ctl );
+  REPORT( sel_norm_age );
   REPORT( r_sexes );
   REPORT( k_sexes );
+  REPORT( joint_adjust );
 
 
   // 12.1. Population components
@@ -3072,6 +3092,7 @@ Type objective_function<Type>::operator() () {
   REPORT( age_hat );
   REPORT( comp_obs );
   REPORT( comp_hat );
+  REPORT( true_age_comp_hat );
   REPORT( n_hat );
   REPORT( comp_n );
 

@@ -331,7 +331,7 @@ fit_mod <-
           srv_q_pow = 6,
           ln_srv_q_dev = 7,
           ln_srv_q_dev_re = 7,
-          ln_sigma_srv_q = 7,
+          ln_sigma_srv_q = 8,
           sel_coff = 3,
           sel_slp = 3,
           sel_inf = 3,
@@ -342,15 +342,15 @@ fit_mod <-
           ln_sigma_sel = 4,
           ln_sigma_srv_index = 2,
           ln_sigma_fsh_catch = 2,
-          logH_1 = 9,
-          logH_1a = 9,
-          logH_1b = 9,
-          logH_2 = 9,
-          logH_3 = 9,
-          H_4 = 9,
-          log_gam_a = 8,
-          log_gam_b = 8,
-          log_phi = 8
+          logH_1 = 10,
+          logH_1a = 10,
+          logH_1b = 10,
+          logH_2 = 10,
+          logH_3 = 10,
+          H_4 = 10,
+          log_gam_a = 9,
+          log_gam_b = 9,
+          log_phi = 9
         )
       }
     }
@@ -424,7 +424,7 @@ fit_mod <-
     # STEP 8 - Fit model object
 step = 5
     # If phased
-    if(!is.null(phase) & debug == 0){
+    if(!is.null(phase)){
       phase_pars <- Rceattle::TMBphase(
         data = data_list_reorganized,
         parameters = params,
