@@ -1,3 +1,24 @@
+#' Make a vector of colors.
+#'
+#' A subset of rich.colors by Arni Magnusson from the gplots package, with the
+#' addition of alpha transparency (which is now available in the gplots version
+#' as well)
+#'
+#'
+#' @param n Number of colors to generate.
+#' @param alpha Alpha transparency value for all colors in vector. Value is
+#' passed to rgb function.
+#' @author Arni Magnusson, Ian Taylor
+#' @export
+rich.colors.short <- function(n,alpha=1){
+  x <- seq(0, 1, length = n)
+  r <- 1/(1 + exp(20 - 35 * x))
+  g <- pmin(pmax(0, -0.8 + 6 * x - 5 * x^2), 1)
+  b <- dnorm(x, 0.25, 0.15)/max(dnorm(x, 0.25, 0.15))
+  rgb.m <- matrix(c(r, g, b), ncol = 3)
+  rich.vector <- apply(rgb.m, 1, function(v) rgb(v[1], v[2], v[3], alpha=alpha))
+}
+
 #' plot_biomass
 #'
 #' @description Function the plots the biomass and spawning stock biomass trends as estimated from Rceattle
@@ -147,7 +168,7 @@ plot_biomass <-
 
         # Horizontal line
         if(incl_proj){
-abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
+          abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
         }
 
         # Legends
@@ -480,7 +501,6 @@ plot_recruitment <-
 #' @export
 plot_selectivity <-
   function(Rceattle,
-           tmp_list = NULL,
            file = NULL,
            model_names = NULL,
            line_col = NULL,
@@ -503,195 +523,156 @@ plot_selectivity <-
     minyr <- min((sapply(Years, min)))
 
     nspp <- Rceattle[[1]]$data_list$nspp
-    srv_control <- Rceattle[[1]]$data_list$srv_control
-    fsh_control <- Rceattle[[1]]$data_list$fsh_control
-    nsrv <- nrow(Rceattle[[1]]$data_list$srv_control)
-    nfsh <- nrow(Rceattle[[1]]$data_list$fsh_control)
+    fsh_control <- Rceattle[[1]]$data_list$fleet_control
+    nflt <- nrow(Rceattle[[1]]$data_list$fleet_control)
     nages <- Rceattle[[1]]$data_list$nages
+    minage <- Rceattle[[1]]$data_list$minage
+    nsex <- Rceattle[[1]]$data_list$nsex
 
     # Get biomass
-    srv_selectivity <-
-      array(NA, dim = c(nsrv, max(nages), length(Rceattle) + length(tmp_list)))
+    selectivity_array <-
+      array(NA, dim = c(nflt, 2, max(nages), nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
-      srv_selectivity[, , i] <- Rceattle[[i]]$quantities$srv_sel[,,1]
-    }
-
-    ind = 1
-    if (!is.null(tmp_list)) {
-      for (i in (length(Rceattle) + 1):(length(Rceattle) + length(tmp_list))) {
-        for (k in 1:nspp) {
-          srv_selectivity[k,1:nages[k], i] <- tmp_list[[ind]][[paste0("srv_sel_", k)]]
-        }
-        ind = ind + 1
-      }
-    }
-
-    # Get SSB
-    fsh_selectivity <-
-      array(NA, dim = c(nfsh, max(nages), length(Rceattle) + length(tmp_list)))
-    for (i in 1:length(Rceattle)) {
-      fsh_selectivity[, , i] <- Rceattle[[i]]$quantities$fsh_sel[,,1]
-    }
-
-    ind = 1
-    if (!is.null(tmp_list)) {
-      for (i in (length(Rceattle) + 1):(length(Rceattle) + length(tmp_list))) {
-        for (k in 1:nspp) {
-          fsh_selectivity[k, , i] <- tmp_list[[ind]][[paste0("fsh_sel_", k)]]
-        }
-        ind = ind + 1
-      }
+      selectivity_array[, , , ,i] <- Rceattle[[i]]$quantities$sel[,,,]
     }
 
     # Plot limits
-    ymax_srv <- c()
-    ymin_srv <- c()
-
-    ymax_fsh <- c()
-    ymin_fsh <- c()
-    for (i in 1:dim(srv_selectivity)[1]) {
-      ymax_srv[i] <- max(c(srv_selectivity[i,,], 0), na.rm = T)
-      ymin_srv[i] <- min(c(srv_selectivity[i,,], 0), na.rm = T)
+    ymax_sel <- c()
+    ymin_sel <- c()
+    for (i in 1:dim(selectivity_array)[1]) {
+      ymax_sel[i] <- max(c(selectivity_array[i,,,,], 0), na.rm = T)
+      ymin_sel[i] <- min(c(selectivity_array[i,,,,], 0), na.rm = T)
     }
-
-    for (i in 1:dim(fsh_selectivity)[1]) {
-      ymax_fsh[i] <- max(c(fsh_selectivity[i,, ], 0), na.rm = T)
-      ymin_fsh[i] <- min(c(fsh_selectivity[i,, ], 0), na.rm = T)
-    }
-    ymax_srv <- ymax_srv + 0.15 * ymax_srv
-    ymax_fsh <- ymax_fsh + 0.15 * ymax_fsh
 
     if (is.null(line_col)) {
       line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
     }
 
+    max_obj <- nflt
 
-    max_obj <- max(c(nsrv, nfsh))
 
     # Plot trajectory
     loops <- ifelse(is.null(file), 1, 2)
-    for (i in 1:loops) {
-      if (i == 2) {
-        filename <- paste0(file, "_selectivity", ".png")
-        png(
-          file = filename ,
-          width = 7,# 169 / 25.4,
-          height = 6.5, # 150 / 25.4,
 
-          units = "in",
-          res = 300
-        )
-      }
+    #################################
+    # Selectivity time series
+    #################################
+    for(j in 1:nflt){
+      for (i in 1:loops) {
+        # Species
+        sp <- fleet_control$Species[which(fleet_control$Fleet_code == j)]
 
-      # Plot configuration
-      layout(matrix(1:((max_obj + 2)*2), nrow = (max_obj + 2), ncol = 2, byrow = FALSE), heights = c(0.1, rep(1, max_obj), 0.3))
-      par(
-        mar = c(0, 3 , 0 , 1) ,
-        oma = c(0 , 0 , 0 , 0),
-        tcl = -0.35,
-        mgp = c(1.75, 0.5, 0)
-      )
+        for(sex in 1:nsex[sp]){
 
-      plot.new()
+          # Get sex for legend
+          legend_sex = sex
+          legend_sex2 = ifelse(sex == 1, "Female", "Male")
+          if(nsex[sp] == 1){
+            legend_sex <- 0
+            legend_sex2 = "Combined"
+          }
 
-      # Survey selectivity
-      for(j in 1:nsrv){
-        sp <- srv_control$Species[which(srv_control$Survey_code == j)]
-        plot(
-          y = NA,
-          x = NA,
-          ylim = c(ymin_srv[j], ymax_srv[j]),
-          xlim = c(min(0),  max(nages, na.rm = TRUE)),
-          xlab = "Age",
-          ylab = "Survey selectivity",
-          xaxt = c(rep("n", nsrv - 1), "s")[j]
-        )
+          if (i == 2) {
+            filename <- paste0(file, "time-varying_selectivity_fleet",j,"_sex",legend_sex, ".png")
+            png(
+              file = filename ,
+              width = 7,# 169 / 25.4,
+              height = 6.5, # 150 / 25.4,
 
-        if(j == nsrv){
-          mtext(side = 1, "Age", cex  = 0.75, line = 2)
-        }
-
-        # Mean selectivity
-        for (k in 1:dim(srv_selectivity)[3]) {
-          lines(
-            x = 1:nages[sp],
-            y = srv_selectivity[j, 1:nages[sp], k],
-            lty = 1,
-            lwd = lwd,
-            col = line_col[k]
-          )
-        }
-
-        # Legends
-        legend("bottomright", as.character(srv_control$Survey_name[j]), bty = "n", cex = 1.4)
-      }
-
-      # Add empty plots
-      if(nsrv >= nfsh){
-        plot.new()
-      }
-
-      if(nsrv < nfsh){
-        for(i in 1:(nfsh - nsrv)){
-          plot.new()
-        }
-      }
-
-
-      # Fishery selectivity
-      plot.new()
-      for (j in 1:nfsh) {
-        sp <- fsh_control$Species[which(fsh_control$Fishery_code == j)]
-        plot(
-          y = NA,
-          x = NA,
-          ylim = c(ymin_fsh[j], ymax_fsh[j]),
-          xlim = c(min(0), max(nages, na.rm = TRUE)),
-          xlab = "Age",
-          ylab = "Fishery selectivity",
-          xaxt = c(rep("n", nfsh - 1), "s")[j]
-        )
-
-        if(j == nfsh){
-          mtext(side = 1, "Age", cex  = 0.75, line = 2)
-        }
-
-        # Mean selectivity
-        for (k in 1:dim(fsh_selectivity)[3]) {
-          lines(
-            x = 1:nages[sp],
-            y = fsh_selectivity[j, 1:nages[sp], k],
-            lty = 1,
-            lwd = lwd,
-            col = line_col[k]
-          )
-        }
-
-        # Legends
-        legend("bottomright", as.character(fsh_control$Fishery_name[j]), bty = "n", cex = 1.4)
-
-        if (j == 1) {
-          if(!is.null(model_names)){
-            legend(
-              "bottomright",
-              legend = model_names,
-              lty = rep(1, length(line_col)),
-              lwd = lwd,
-              col = line_col,
-              bty = "n",
-              cex = 1.175
+              units = "in",
+              res = 300
             )
+          }
+          sel_subset <- (selectivity_array[j, sex, 1:nages[sp], 1:nyrs, 1])
+
+          par(
+            mar = c(3.2, 3.2 , 1 , 0.5) ,
+            oma = c(0 , 0 , 0 , 0),
+            tcl = -0.8,
+            mgp = c(10, 0.6, 0)
+          )
+          persp(y = Years[[1]], x =  (1:nages[sp]) - 1 + minage[sp], z = sel_subset, col="white",xlab = "Age",ylab= "\n\nYear", zlab= "\n\nSelectivity",expand=0.5,box=TRUE,ticktype="detailed",phi=35,theta=-19, main = NA)
+          mtext(text = paste(legend_sex2, as.character(fleet_control$Fleet_name[j])), side = 3, cex = 1.25, line = -.5)
+
+          if (i == 2) {
+            dev.off()
           }
         }
       }
+    }
 
+    #################################
+    # Terminal selectivity
+    #################################
+    for(sp in 1:nspp){
+      for(sex in 1:nsex[sp]){
 
+        # Get sex for legend
+        legend_sex = sex
+        legend_sex2 = ifelse(sex == 1, "Female", "Male")
+        if(nsex[sp] == 1){
+          legend_sex <- 0
+          legend_sex2 = "Combined"
+        }
 
-      if (i == 2) {
-        dev.off()
+        for (i in 1:loops) {
+          if (i == 2) {
+
+            filename <- paste0(file, "_terminal_selectivity_species",sp,"_sex",legend_sex, ".png")
+            png(
+              file = filename ,
+              width = 7,# 169 / 25.4,
+              height = 6.5, # 150 / 25.4,
+
+              units = "in",
+              res = 300
+            )
+          }
+
+          fleets <- fleet_control$Fleet_code[which(fleet_control$Species == sp)]
+          flt_colors <- rich.colors.short(length(fleets))
+
+          # Plot configuration
+          par(
+            mar = c(3.2, 3.2 , 0.5 , 0.5) ,
+            oma = c(0 , 0 , 0 , 0),
+            tcl = -0.35,
+            mgp = c(1.75, 0.5, 0)
+          )
+
+          plot(
+            y = NA,
+            x = NA,
+            ylim = c(min(ymin_sel[fleets]), max(ymax_sel[fleets])),
+            xlim = c(min(0),  max(nages[sp], na.rm = TRUE)),
+            xlab = "Age",
+            ylab = "Terminal selectivity"
+          )
+
+          # Mean selectivity
+          for (flt in 1:length(fleets)) {
+            lines(
+              x = 1:nages[sp],
+              y = selectivity_array[fleets[flt], sex, 1:nages[sp], nyrs, 1],
+              lty = 1,
+              lwd = lwd,
+              col = flt_colors[flt]
+            )
+          }
+
+          # Legends
+          legend("bottomright", paste(legend_sex2, as.character(fleet_control$Fleet_name[fleets])), col = flt_colors, bty = "n", lty = rep(1, length(fleets)), lwd = rep(2, length(fleets)), cex = 0.8)
+
+          # Save plot
+          if (i == 2) {
+            dev.off()
+          }
+        }
       }
     }
   }
+
+
 
 
 #' Plot functional form
