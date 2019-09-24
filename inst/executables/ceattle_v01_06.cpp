@@ -991,7 +991,7 @@ Type objective_function<Type>::operator() () {
               if((nselages > 0) & (sel_type != 2)){
                 max_sel = sel(flt, sex, sel_norm_age(flt), yr);
               }
-              
+
 
               // Normalize by max
               if(sel(flt, sex, age, yr) > max_sel){
@@ -2345,8 +2345,6 @@ Type objective_function<Type>::operator() () {
           }
 
 
-
-
           // Survey
           if(flt_type(flt) == 2){
             // Sexes combined or 1 sex assessment
@@ -2393,23 +2391,24 @@ Type objective_function<Type>::operator() () {
         }
 
 
-        // Adjust for aging error // FIXME something is up here
-        for (int obs_age = 0; obs_age < nages(sp) * joint_adjust(comp_ind); obs_age++) {
-          for (int true_age = 0; true_age < nages(sp) * joint_adjust(comp_ind); true_age++) {
+        // Adjust for aging error
+        for (int obs_age = 0; obs_age < nages(sp); obs_age++) {
+          for (int true_age = 0; true_age < nages(sp); true_age++) {
+            age_obs_hat(comp_ind, obs_age) += age_hat(comp_ind, true_age ) * age_error(sp, true_age, obs_age);
+          }
+        }
 
-            // Adjust indexing for joint age/length comp
-            int true_age_tmp = true_age;
-            int obs_age_tmp = obs_age;
+        // Adjust for aging error for joint data
+        if(flt_sex == 3){
+          for (int obs_age = nages(sp); obs_age < nages(sp) * 2; obs_age++) {
+            for (int true_age = nages(sp); true_age < nages(sp) * 2; true_age++) {
 
-            if(obs_age >= nages(sp)){
-              obs_age_tmp = obs_age - nages(sp);
+              // Adjust indexing for joint age/length comp
+              int true_age_tmp = true_age - nages(sp);
+              int obs_age_tmp = obs_age - nages(sp);
+
+              age_obs_hat(comp_ind, obs_age) += age_hat(comp_ind, true_age ) * age_error(sp, true_age_tmp, obs_age_tmp);
             }
-
-            if(true_age >= nages(sp)){
-              true_age_tmp = true_age - nages(sp);
-            }
-
-            age_obs_hat(comp_ind, obs_age) += age_hat(comp_ind, true_age ) * age_error(sp, true_age_tmp, obs_age_tmp);
           }
         }
 
@@ -2424,33 +2423,42 @@ Type objective_function<Type>::operator() () {
 
         // Convert from catch-at-age to catch-at-length
         if ( comp_type == 1) {
-          for (ln = 0; ln < nlengths(sp) * joint_adjust(comp_ind); ln++) {
-            for (age = 0; age < nages(sp) * joint_adjust(comp_ind); age++) {
+          for (ln = 0; ln < nlengths(sp); ln++) {
+            for (age = 0; age < nages(sp); age++) {
 
-              // Adjust indexing for joint age/length comp
-              int obs_ln_tmp = ln;
-              int obs_age_tmp = age;
-
-              if(age >= nages(sp)){
-                obs_age_tmp = age - nages(sp);
+              sex = 0;
+              if(flt_sex > 0 & flt_sex < 3){
+                sex = flt_sex - 1;
               }
 
-              if(ln >= nlengths(sp)){
-                obs_ln_tmp = ln - nlengths(sp);
-                flt_sex = 1;
-              }
-
-              if((ln < nlengths(sp)) & (joint_adjust(comp_ind) == 2)){
-                flt_sex = 0;
-              }
-
-              comp_hat(comp_ind, ln ) += age_obs_hat(comp_ind, age) * age_trans_matrix(flt_alk_index(flt), flt_sex, obs_age_tmp, obs_ln_tmp );
+              comp_hat(comp_ind, ln ) += age_obs_hat(comp_ind, age) * age_trans_matrix(flt_alk_index(flt), sex, age, ln );
             }
           }
+
+
+          // Convert from catch-at-age to catch-at-length for joint comp data
+          if ( flt_sex == 3) {
+            for (ln = nlengths(sp); ln < nlengths(sp) * 2; ln++) {
+              for (age = nages(sp); age < nages(sp) * 2; age++) {
+
+                // Adjust indexing for joint age/length comp
+                int obs_ln_tmp = ln;
+                int obs_age_tmp = age;
+
+                obs_age_tmp = age - nages(sp);
+                obs_ln_tmp = ln - nlengths(sp);
+                sex = 1;
+
+                comp_hat(comp_ind, ln ) += age_obs_hat(comp_ind, age) * age_trans_matrix(flt_alk_index(flt), sex, obs_age_tmp, obs_ln_tmp );
+              }
+            }
+          }
+
 
           // Standardize to sum to 1
           for (ln = 0; ln < nlengths(sp) * joint_adjust(comp_ind); ln++) {
             comp_hat(comp_ind, ln ) = comp_hat(comp_ind, ln) / n_hat(comp_ind);
+                  
           }
         }
       }
@@ -2495,7 +2503,7 @@ Type objective_function<Type>::operator() () {
             yr = flt_yr - styr;
 
             if(yr < nyrs_hind){
-             UobsWtAge_hat(stom_ind, 1) += (AvgN(ksp, k_sexes(stom_ind, k), k_age, yr) * suit_main(rsp, ksp, r_sexes(stom_ind, j), k_sexes(stom_ind, k), r_age, k_age, yr) * wt(pop_wt_index(ksp), k_sexes(stom_ind, k), k_age, yr_ind)) / avail_food(rsp, r_sexes(stom_ind, j), r_age, yr) / 4 ; // NOTE: Divide by species
+              UobsWtAge_hat(stom_ind, 1) += (AvgN(ksp, k_sexes(stom_ind, k), k_age, yr) * suit_main(rsp, ksp, r_sexes(stom_ind, j), k_sexes(stom_ind, k), r_age, k_age, yr) * wt(pop_wt_index(ksp), k_sexes(stom_ind, k), k_age, yr_ind)) / avail_food(rsp, r_sexes(stom_ind, j), r_age, yr) / 4 ; // NOTE: Divide by species
             }
           }
 
