@@ -435,6 +435,9 @@ read_data <- function(file = "Rceattle_data.xlsx") {
         }
 
         arm[sp, true_age, 1:data_list$nages[sp]] <- as.numeric(as.character(age_error[i, (1:data_list$nages[sp]) + 2]))
+
+        # Normalize
+        arm[sp, true_age, 1:data_list$nages[sp]] <- arm[sp, true_age, 1:data_list$nages[sp]] / sum(arm[sp, true_age, 1:data_list$nages[sp]], na.rm = TRUE)
     }
     data_list$age_error <- arm
 
