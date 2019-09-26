@@ -244,6 +244,7 @@ plot_biomass <-
 
 
 
+
 #' plot_recruitment
 #'
 #' @description Function the plots the mean recruitment and 95% CI trends as estimated from Rceattle
@@ -264,7 +265,6 @@ plot_biomass <-
 #' @return Returns and saves a figure with the population trajectory.
 plot_recruitment <-
   function(Rceattle,
-           tmp_list = NULL,
            file = NULL,
            model_names = NULL,
            line_col = NULL,
@@ -310,9 +310,9 @@ plot_recruitment <-
 
     # Get biomass
     recruitment <-
-      array(NA, dim = c(nspp, nyrs,  length(Rceattle) + length(tmp_list)))
+      array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
     recruitment_sd <-
-      array(NA, dim = c(nspp, nyrs,  length(Rceattle) + length(tmp_list)))
+      array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
     for (i in 1:length(Rceattle)) {
       recruitment[, 1:length(Years[[i]]) , i] <- Rceattle[[i]]$quantities$R[,1:nyrs_vec[i]]
 
@@ -322,18 +322,6 @@ plot_recruitment <-
         sd_rec <- Rceattle[[i]]$sdrep$sd[sd_rec]
         recruitment_sd[, , i] <-
           replace(recruitment_sd[, , i], values = sd_rec[1:(nyrs_vec[i] * nspp)])
-      }
-    }
-
-    ind = 1
-    if (!is.null(tmp_list)) {
-      for (i in (length(Rceattle) + 1):(length(Rceattle) + length(tmp_list))) {
-        for (k in 1:nspp) {
-          recruitment[k, , i] <- tmp_list[[ind]][[paste0("R_", k)]]
-          recruitment_sd[k, , i] <-
-            replace(recruitment_sd[k, , i], values = rep(NA, length(recruitment_sd[k, , i])))
-        }
-        ind = ind + 1
       }
     }
 
