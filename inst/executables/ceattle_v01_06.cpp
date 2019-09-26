@@ -2427,7 +2427,9 @@ Type objective_function<Type>::operator() () {
             for (age = 0; age < nages(sp); age++) {
 
               sex = 0;
-              if(flt_sex > 0 & flt_sex < 3){
+
+              // Adjust sex for males/females
+              if((flt_sex > 0) & (flt_sex < 3)){
                 sex = flt_sex - 1;
               }
 
