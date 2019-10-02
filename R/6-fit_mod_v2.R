@@ -408,9 +408,13 @@ fit_mod <-
     data_list_reorganized <- Rceattle::rearrange_dat(data_list)
 
 
-    # Remove inactive parameters from bounds and vectorize
-    L = unlist(bounds$lower)[which(!is.na(unlist(map[[1]])))]
-    U = unlist(bounds$upper)[which(!is.na(unlist(map[[1]])))]
+    # STEP 7 - Set up parameter bounds
+    L <- c()
+    U <- c()
+    for(i in 1:length(map[[1]])){
+      L = c(L, unlist(bounds$lower[[i]])[which(!is.na(unlist(map[[1]][[i]])) & !duplicated(unlist(map[[1]][[i]])))])
+      U = c(U, unlist(bounds$upper[[i]])[which(!is.na(unlist(map[[1]][[i]])) & !duplicated(unlist(map[[1]][[i]])))])
+    }
 
     # Remove random effects from bounds
     for(i in 1:length(random_vars)){
@@ -420,6 +424,7 @@ fit_mod <-
         U <- U[-remove_bounds]
       }
     }
+
 
     # STEP 8 - Fit model object
 step = 5
@@ -448,6 +453,7 @@ step = 5
     }
 
 
+# STEP 9 - Fit final model
     obj = TMB::MakeADFun(
       data_list_reorganized,
       parameters = start_par,
@@ -461,7 +467,7 @@ step = 5
     step = step + 1
 
     # Optimize
-    opt = Rceattle::Optimize(obj = obj,
+    opt = Rceattle::fit_tmb(obj = obj,
                              fn=obj$fn,
                              gr=obj$gr,
                              startpar=obj$par,

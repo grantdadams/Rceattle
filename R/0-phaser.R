@@ -49,12 +49,12 @@ TMBphase <- function(data, parameters, map, random, phases, cpp_directory, model
   # function to fill list component with a factor
   fill_vals <- function(x,vals){rep(as.factor(vals), length(x))}
 
-  # compile the model
-  old_wd <- getwd()
-  setwd(cpp_directory)
-  TMB::compile(paste0(model_name, ".cpp"))
-  dyn.load(TMB::dynlib(paste0(model_name)), silent = TRUE)
-  setwd(old_wd)
+  # # compile the model - NOTE: redundant
+  # old_wd <- getwd()
+  # setwd(cpp_directory)
+  # TMB::compile(paste0(model_name, ".cpp"))
+  # dyn.load(TMB::dynlib(paste0(model_name)), silent = TRUE)
+  # setwd(old_wd)
 
   #loop over phases
   for (phase_cur in 1:max(unlist(phases))) {
