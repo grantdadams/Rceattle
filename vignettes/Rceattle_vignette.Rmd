@@ -35,7 +35,7 @@ devtools::install_github("grantdadams/Rceattle", auth_token = "4925b42ac46f1e0ae
 
 ## Data
 For example, to run the 2017 single-species or multi-species assessment for the Bering Sea, a data file must first be loaded:
-```{R eval = TRUE}
+```{R eval = FALSE}
 library(Rceattle)
 data(BS2017SS) # ?BS2017SS for more information on the single-species data
 data(BS2017MS) # ?BS2017MS for more information on the multi-species data
@@ -43,7 +43,7 @@ data(BS2017MS) # ?BS2017MS for more information on the multi-species data
 
 
 The data can then be written to excel, altered and reread into R in a useable format for `Rceattle`. The first page of the excel document will have meta-data describing each item.
-```{R eval = TRUE}
+```{R eval = FALSE}
 # Write data to excel
 Rceattle::write_data(data_list = BS2017SS, file = "BS2017SS.xlsx")
 
@@ -56,7 +56,7 @@ mydata <- Rceattle::read_data( file = "BS2017SS.xlsx")
 ## Estimation
 ### Single-species mode
 Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
-```{R eval = TRUE, message = FALSE, results = "hide"}
+```{R eval = FALSE, message = FALSE, results = "hide"}
 ss_run <- Rceattle::fit_mod(data_list = mydata,
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save
@@ -67,7 +67,7 @@ ss_run <- Rceattle::fit_mod(data_list = mydata,
 # Type ?fit_mod for more details
 ```
 The you can plot the model results using using
-```{R eval = TRUE}
+```{R eval = FALSE}
 Rceattle::plot_biomass(Rceattle =  ss_run)
 Rceattle::plot_recruitment(Rceattle =  ss_run)
 ```
@@ -75,22 +75,16 @@ Rceattle::plot_recruitment(Rceattle =  ss_run)
 ### Diagnostics
 
 Survey diagnostics can be plot following:
-```{R eval = TRUE}
+```{R eval = FALSE}
 Rceattle::plot_index(Rceattle =  ss_run)
-Rceattle::plot_srv_comp(Rceattle =  ss_run)
-```
-
-
-Fishery diagnostics can be plot following:
-```{R eval = TRUE}
+Rceattle::plot_comp(Rceattle =  ss_run)
 Rceattle::plot_catch(Rceattle =  ss_run)
-Rceattle::plot_fsh_comp(Rceattle =  ss_run)
 ```
 
 
 ### Multi-species mode
 For the a multispecies model starting from the single species parameters estimated, the following can be specified. Here I use the data in the single-species run, but the multi-species data can be loaded using `data("BS2017MS")`. Note: the only difference from `BS2017SS` is the residual mortality is lower. Note, starting with the single-species parameter estimates is ideal, it may not converge otherwise.
-```{R eval = TRUE, message = FALSE, results = "hide"}
+```{R eval = FALSE, message = FALSE, results = "hide"}
 ms_run <- Rceattle::fit_mod(data_list = mydata,
                             inits = ss_run$estimated_params, # Initial parameters from single species ests
                             file = NULL, # Don't save
@@ -103,7 +97,7 @@ ms_run <- Rceattle::fit_mod(data_list = mydata,
 ```
 
 We can plot both runs as well:
-```{R eval = TRUE}
+```{R eval = FALSE}
 mod_list <- list(ss_run, ms_run)
 mod_names <- c("SS", "MS")
 
@@ -119,7 +113,7 @@ plot_mort(Rceattle = mod_list, model_names = mod_names, age = 2)
 ## Projection
 PROJECTION 1: CHANGING F
 Rceattle automatically projects the population forward when estimating. To check to see what the F rates are for each fishery we can check:
-```{R eval = TRUE, message = FALSE, results = "hide"}
+```{R eval = FALSE, message = FALSE, results = "hide"}
 mydata$fsh_control$proj_F
 mydata$projyr # Year the population is projected forward
 
@@ -141,7 +135,7 @@ ms_run_proj <- Rceattle::fit_mod(data_list = mydata,
 
 PROJECTION 2: CHANGING FUTURE RECRUITMENT
 Change recruitment deviations - NOTE: the workflow for this may change in the future
-```{R eval = TRUE, message = FALSE, results = "hide"}
+```{R eval = FALSE, message = FALSE, results = "hide"}
 # Get years from projection
 nyrs <- mydata$endyr - mydata$styr + 1
 nyrs_proj <- mydata$projyr - mydata$styr + 1
