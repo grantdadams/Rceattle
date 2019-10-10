@@ -407,6 +407,41 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   dat_list$comp_data <- rbind(fsh_comp, srv_comp)
 
 
+  #---------------------------------------------------------------------
+  # Step 14 -- Set up input n-at-age
+  #---------------------------------------------------------------------
+
+  NByageFixed <- data.frame(
+    Species_name = NA,
+    Species = NA,
+    Sex = NA,
+    Year = NA,
+    Age1 = NA,
+    Age2 = NA,
+    Age3 = NA,
+    Age4 = NA,
+    Age5 = NA,
+    Age6 = NA,
+    Age7 = NA,
+    Age8 = NA,
+    Age9 = NA,
+    Age10 = NA,
+    Age11 = NA,
+    Age12 = NA,
+    Age13 = NA,
+    Age14 = NA,
+    Age15 = NA,
+    Age16 = NA,
+    Age17 = NA,
+    Age18 = NA,
+    Age19 = NA,
+    Age20 = NA,
+    Age21 = NA
+  )
+  NByageFixed <- NByageFixed[-1,]
+
+  dat_list$NByageFixed <- NByageFixed
+
 
 
   #---------------------------------------------------------------------
@@ -439,6 +474,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   dat_list$minage <- rep(1, dat_list$nspp)
   dat_list$sigma_rec_prior <- rep(sqrt(0.5), dat_list$nspp)
   dat_list$spnames <- c("Pollock", "Cod", "Arrowtooth flounder")
+  dat_list$estDynamics = rep(0, dat_list$nspp)
 
   ###########################
   # Change WT format
@@ -541,12 +577,12 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   #---------------------------------------------------------------------
   # Final Step -- Remove unwanted bits
   #---------------------------------------------------------------------
-  names_not_in_cpp <- c(names_not_in_cpp, "BTempC_retro", "propMorF" , "srv_sel_type", "srv_age_type", "fsh_age_bins", "fsh_comp", "srv_comp")
+  names_not_in_cpp <- c(names_not_in_cpp,  "BTempC_retro", "propMorF" , "srv_sel_type", "srv_age_type", "fsh_age_bins", "fsh_comp", "srv_comp")
 
   '%!in%' <- function(x,y)!('%in%'(x,y))
   dat_list2 <- list()
 
-  names_in_cpp <- c(names_in_cpp, "comp_data",
+  names_in_cpp <- c(names_in_cpp, "comp_data", "NByageFixed", "estDynamics",
                     "emp_sel", "fleet_control",
                     "fsh_comp", "srv_comp",
                     "fsh_biom", "srv_biom", "proj_F", "minage", "sigma_rec_prior", "spnames", "nsex", "R_sexr", "ssb_wt_index", "spawn_month")

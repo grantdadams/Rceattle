@@ -725,8 +725,27 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     map_list$dummy = 1
   }
 
+  # STEP 4 - set up fixed n-at-age - I.E. turn off all parameters besides for species
+  for(i in 1:data_list$nspp){
 
-  # STEP 4 -- Conver to factor
+    # Fixed n-at-age
+    if(data_list$estDynamics[i] > 0){
+
+      # Population parameters
+      map_list$ln_mn_rec[i] <- NA
+      map_list$ln_rec_sigma[i] <- NA
+      map_list$ln_rec_sigma[i,] <- replace(map_list$ln_rec_sigma[i,], values = rep(NA, length(map_list$ln_rec_sigma[i,])))
+      map_list$init_dev[i,] <- replace(map_list$init_dev[i,], values = rep(NA, length(map_list$init_dev[i,])))
+    }
+
+    # Don't estimate the scalar
+    if(data_list$estDynamics[i] < 2 & data_list$msmMode == 0){
+      map_list$ln_pop_scalar[i] <- NA
+    }
+  }
+
+
+  # STEP 5 -- Conver to factor
   map_list_grande <- list()
   map_list_grande[[1]] <- map_list
   map_list_grande[[2]] <- map_list

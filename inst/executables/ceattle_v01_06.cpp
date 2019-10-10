@@ -365,6 +365,7 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR( pop_wt_index );           // Dim 3 of wt to use for population dynamics
   DATA_IVECTOR( ssb_wt_index );           // Dim 3 of wt to use for spawning stock biomass calculation
   DATA_IVECTOR( pop_alk_index );          // Dim 3 of wt to use for age_transition_matrix
+  DATA_IVECTOR( estDynamics );            // Index indicating wether the population parameters are estimated (0), numbers-at-age are provided (1), or an index of numbers-at-age multiplied by an estimated scalar is used (2)
   pop_wt_index -= 1;                      // Indexing starts at 0
   ssb_wt_index -= 1;                      // Indexing starts at 0
   pop_alk_index -= 1;                     // Indexing starts at 0
@@ -399,11 +400,11 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR( nages );                  // Number of species (prey) ages; n = [1, nspp]
   DATA_IVECTOR( minage );                 // Minimum age of each species; n = [1, nspp]
   DATA_IVECTOR( nlengths );               // Number of species (prey) lengths; n = [1, nspp]
+  DATA_ARRAY( NByageFixed );              // Provided estimates of numbers- or index-at-age to be multiplied (or not) by pop_scalar to get Nbyage
   Type stom_tau = 20;                     // Stomach sample size: FIXME - have as input
   int max_age = imax(nages);              // Integer of maximum nages to make the arrays; n = [1]
-  DATA_ARRAY( age_error );                // Array of aging error matrices for each species; n = [nspp, nages, nages]
 
-  // 2.3. DATA INPUTS (i.e. assign data to objects)
+  // 2.3. Data controls (i.e. how to assign data to objects)
   DATA_IMATRIX( fleet_control );          // Fleet specifications
 
   // -- 2.3.1 Fishery Components
@@ -417,14 +418,15 @@ Type objective_function<Type>::operator() () {
   DATA_MATRIX( srv_biom_obs );            // Observed survey biomass (kg) and cv; n = [nobs_srv_biom, 2]; columns = Observation, Error
 
   // -- 2.3.3. Composition data
-  DATA_IMATRIX( comp_ctl );           // Info on observed survey age/length comp; columns = Survey_name, Survey_code, Species, Year
-  DATA_MATRIX( comp_n );              // Month and sample size on observed survey age/length comp; columns = Month, Sample size
-  DATA_MATRIX( comp_obs );            // Observed survey age/length comp; cols = Comp_1, Comp_2, etc. can be proportion
+  DATA_IMATRIX( comp_ctl );               // Info on observed survey age/length comp; columns = Survey_name, Survey_code, Species, Year
+  DATA_MATRIX( comp_n );                  // Month and sample size on observed survey age/length comp; columns = Month, Sample size
+  DATA_MATRIX( comp_obs );                // Observed survey age/length comp; cols = Comp_1, Comp_2, etc. can be proportion
 
   // -- 2.3.4 Age and selectivity
   DATA_IMATRIX( emp_sel_ctl );            // Info on empirical fishery selectivity; columns =  Fishery_name, Fishery_code, Species, Year
   DATA_MATRIX( emp_sel_obs );             // Observed emprical fishery selectivity; columns = Compe_1, Comp_2, etc.
   DATA_ARRAY( age_trans_matrix);          // observed sp_age/size compositions; n = [nspp, nages, srv_age_bins]
+  DATA_ARRAY( age_error );                // Array of aging error matrices for each species; n = [nspp, nages, nages]
 
   // -- 2.3.5. Weight-at-age
   DATA_ARRAY( wt );                       // Weight-at-age by year; n = [nweight, sex, nages, nyrs]: FIXME: Change nyrs to nyrs_wt_at_age if data don't span entire bit
@@ -435,9 +437,9 @@ Type objective_function<Type>::operator() () {
   DATA_ARRAY( Uobs );                     // pred, prey, predL, preyL U matrix (mean number of prey in each pred); n = [nspp, nspp, maxL, maxL]
   DATA_ARRAY( UobsWt );                   // pred, prey, predL, preyL U matrix (mean wt_hat of prey in each pred); n = [nspp, nspp, maxL, maxL] #FIXME - Changed name in stomach2017.dat
   DATA_MATRIX( UobsAge );                 // pred, prey, predA, preyA U observations (mean number of prey in each pred age); n = [nspp, nspp, max_age, max_age]
-  DATA_IMATRIX( UobsAge_ctl );             // Info on pred, prey, predA, preyA U matrix (mean number of prey in each pred age); n = [nspp, nspp, max_age, max_age]
+  DATA_IMATRIX( UobsAge_ctl );            // Info on pred, prey, predA, preyA U matrix (mean number of prey in each pred age); n = [nspp, nspp, max_age, max_age]
   DATA_MATRIX( UobsWtAge );               // pred, prey, predA, preyA U observations (mean wt_hat of prey in each pred age); n = [nspp, nspp, max_age, max_age]
-  DATA_IMATRIX( UobsWtAge_ctl );           // Info on pred, prey, predA, preyA U matrix (mean wt_hat of prey in each pred age); n = [nspp, nspp, max_age, max_age]
+  DATA_IMATRIX( UobsWtAge_ctl );          // Info on pred, prey, predA, preyA U matrix (mean wt_hat of prey in each pred age); n = [nspp, nspp, max_age, max_age]
   DATA_ARRAY( Mn_LatAge );                // Mean length-at-age; n = [nspp, sex, nages], ALSO: mean_laa in Kinzey
 
   // 2.3.7. Environmental data
@@ -465,54 +467,17 @@ Type objective_function<Type>::operator() () {
   DATA_MATRIX( aLW );                     // LW a&b regression coefs for W=a*L^b; n = [2, nspp]
 
   // -- 2.4.4. Others
-  DATA_ARRAY( M1_base );                 // Residual natural mortality; n = [nspp, nages]
+  DATA_ARRAY( M1_base );                  // Residual natural mortality; n = [nspp, nages]
   DATA_MATRIX( propF );                   // Proportion-at-age of females of population; n = [nspp, nages]
   DATA_MATRIX( pmature );                 // Proportion of mature females at age; [nspp, nages]
-
-  // -- 2.4.5. F Profile data: NOTUSED
-
-  // ------------------------------------------------------------------------- //
-  // 2.7. Debugging with data inputs                                           //
-  // ------------------------------------------------------------------------- //
-  if (debug == 1) {
-    /*
-     // -- 2.8.2.1 Check to make sure the first year of survey data are not before start year
-     for (sp = 0; sp < nspp; sp++) {
-     if (yrs_tc_biom(sp, 0) < styr) {
-     std::cerr << "First year of total catch biomass of species " << sp + 1 << " is before specified start year" << std::endl;
-     return (0);
-     }
-     }
-
-     // -- 2.8.2.2 Check to make sure the first year of survey data are not before start year
-     for (sp = 0; sp < nspp; sp++) {
-     if (yrs_srv_biom(sp, 0) < styr) {
-     std::cerr << "First year of survey biomass of species " << sp + 1 << " is before specified start year" << std::endl;
-     return (0);
-     }
-     }
-
-     // -- 2.8.2.3. Check to make sure the years of survey data biomass and age are the same
-     for (sp = 0; sp < nspp; sp++) {
-     if (nyrs_srv_biom(sp) != nyrs_srv_age(sp)) {
-     std::cerr << "Nyrs of survey biomass and age-comp of species " << sp + 1 << " do not match" << std::endl;
-     return (0);
-     }
-     }
-
-     if (yrs_eit(0) < styr) {
-     std::cerr << "First year of EIT survey biomass is before specified start year" << std::endl;
-     return (0);
-     }
-     */
-  }
 
 
   // ------------------------------------------------------------------------- //
   // 3. PARAMETER SECTION                                                      //
   // ------------------------------------------------------------------------- //
 
-  PARAMETER(dummy);                               // Variable to test derived quantities given input parameters; n = [1]
+  PARAMETER( dummy );                             // Variable to test derived quantities given input parameters; n = [1]
+  PARAMETER_VECTOR( ln_pop_scalar );                // Scalar to multiply supplied numbers at age by
 
   // -- 3.1. Recruitment parameters
   PARAMETER_VECTOR( ln_mn_rec );                  // Mean recruitment; n = [1, nspp]
@@ -530,7 +495,7 @@ Type objective_function<Type>::operator() () {
   PARAMETER_MATRIX( F_dev );                      // Annual fishing mortality deviations; n = [n_fsh, nyrs] # NOTE: The size of this will likely change
 
   // -- 3.4. Survey catchability parameters
-  PARAMETER_VECTOR( ln_srv_q );                  // Survey catchability; n = [n_srv]
+  PARAMETER_VECTOR( ln_srv_q );                   // Survey catchability; n = [n_srv]
   PARAMETER_VECTOR( srv_q_pow );                  // Survey catchability power coefficient q * B ^ q_pow; n = [n_srv]
   PARAMETER_MATRIX( ln_srv_q_dev );               // Annual survey catchability deviates; n = [n_srv, nyrs_hind]
   PARAMETER_MATRIX( ln_srv_q_dev_re );            // Annual survey catchability random effect deviates; n = [n_srv, nyrs_hind]
@@ -538,14 +503,14 @@ Type objective_function<Type>::operator() () {
 
 
   // -- 3.5. Selectivity parameters
-  PARAMETER_ARRAY( sel_coff );               // selectivity parameters; n = [n_selectivities, nselages]
-  PARAMETER_ARRAY( sel_slp );                // selectivity paramaters for logistic; n = [2, n_selectivities]
-  PARAMETER_ARRAY( sel_inf );                // selectivity paramaters for logistic; n = [2, n_selectivities]
-  PARAMETER_ARRAY( sel_slp_dev );             // selectivity parameter deviate for logistic; n = [2, n_selectivities, n_sel_blocks]
-  PARAMETER_ARRAY( sel_inf_dev );             // selectivity parameter deviate for logistic; n = [2, n_selectivities, n_sel_blocks]
-  PARAMETER_ARRAY( sel_slp_dev_re );          // selectivity parameter random effect deviate for logistic; n = [2, n_selectivities, n_sel_blocks]
-  PARAMETER_ARRAY( sel_inf_dev_re );          // selectivity parameter random effect deviate for logistic; n = [2, n_selectivities, n_sel_blocks]
-  PARAMETER_VECTOR( ln_sigma_sel );            // Log standard deviation of selectivity; n = [1, n_selectivities]
+  PARAMETER_ARRAY( sel_coff );                    // selectivity parameters; n = [n_selectivities, nselages]
+  PARAMETER_ARRAY( sel_slp );                     // selectivity paramaters for logistic; n = [2, n_selectivities]
+  PARAMETER_ARRAY( sel_inf );                     // selectivity paramaters for logistic; n = [2, n_selectivities]
+  PARAMETER_ARRAY( sel_slp_dev );                 // selectivity parameter deviate for logistic; n = [2, n_selectivities, n_sel_blocks]
+  PARAMETER_ARRAY( sel_inf_dev );                 // selectivity parameter deviate for logistic; n = [2, n_selectivities, n_sel_blocks]
+  PARAMETER_ARRAY( sel_slp_dev_re );              // selectivity parameter random effect deviate for logistic; n = [2, n_selectivities, n_sel_blocks]
+  PARAMETER_ARRAY( sel_inf_dev_re );              // selectivity parameter random effect deviate for logistic; n = [2, n_selectivities, n_sel_blocks]
+  PARAMETER_VECTOR( ln_sigma_sel );               // Log standard deviation of selectivity; n = [1, n_selectivities]
 
 
   // -- 3.6. Variance of survey and fishery time series
@@ -582,6 +547,7 @@ Type objective_function<Type>::operator() () {
   vector<int> joint_adjust(comp_obs.rows()); joint_adjust.setZero();
 
   // -- 4.2. Estimated population parameters
+  vector<Type>  pop_scalar = exp(ln_pop_scalar);                                       // Fixed n-at-age scaling coefficient
   vector<Type>  mn_rec = exp(ln_mn_rec);                                            // Mean recruitment; n = [1, nspp]
   array<Type>   biomassByage(nspp, max_age, nyrs); biomassByage.setZero();          // Estimated biomass-at-age (kg); n = [nspp, nages, nyrs]
   matrix<Type>  biomass(nspp, nyrs); biomass.setZero();                             // Estimated biomass (kg); n = [nspp, nyrs]
@@ -589,7 +555,7 @@ Type objective_function<Type>::operator() () {
   array<Type>   biomassSSBByage(nspp, max_age, nyrs); biomassSSBByage.setZero();    // Spawning biomass at age (kg); n = [nspp, nages, nyrs]
   array<Type>   M(nspp, 2, max_age, nyrs); M.setZero();                             // Total natural mortality at age; n = [nyrs, 2 sexes, nages, nspp]
   array<Type>   M1 = M1_base;
-  array<Type>   M2(nspp, 2, max_age, nyrs); M2.setZero();                              // Predation mortality at age; n = [nyrs, nages, nspp]
+  array<Type>   M2(nspp, 2, max_age, nyrs); M2.setZero();                           // Predation mortality at age; n = [nyrs, nages, nspp]
   array<Type>   M2_prop(nspp, nspp, 2, 2, max_age, max_age, nyrs); M2_prop.setZero();     // Relative predation mortality at age from each species at age; n = [nyrs, nages, nspp]
   array<Type>   NByage(nspp, 2, max_age, nyrs); NByage.setZero();                   // Numbers at age; n = [nspp, nages, nyrs]
   array<Type>   AvgN(nspp, 2, max_age, nyrs); AvgN.setZero();                       // Average numbers-at-age; n = [nspp, nages, nyrs]
@@ -600,10 +566,10 @@ Type objective_function<Type>::operator() () {
   vector<Type>  r_sigma(nspp); r_sigma.setZero();                                   // Standard deviation of recruitment variation
 
   // -- 4.3. Selectivity parameters
-  matrix<Type>  avgsel(n_flt, 2); avgsel.setZero();                                   // Average selectivity; n = [1, nselectivities]
-  array<Type>   sel(n_flt, 2, max_age, nyrs_hind); sel.setZero();                  // Estimated selectivity at age; n = [nselectivities, 2 sexes, nages, nyrs]
+  matrix<Type>  avgsel(n_flt, 2); avgsel.setZero();                                 // Average selectivity; n = [1, nselectivities]
+  array<Type>   sel(n_flt, 2, max_age, nyrs_hind); sel.setZero();                   // Estimated selectivity at age; n = [nselectivities, 2 sexes, nages, nyrs]
   array<Type>   sel_tmp(n_flt, 2, max_age); sel_tmp.setZero();                      // Temporary saved selectivity at age for estimated bits; n = [nselectivities, nages, nyrs]
-  vector<Type>  sigma_sel(n_flt); sigma_sel.setZero();                             // Standard deviation of selectivity deviates; n = [1, nselectivities]
+  vector<Type>  sigma_sel(n_flt); sigma_sel.setZero();                              // Standard deviation of selectivity deviates; n = [1, nselectivities]
 
   // -- 4.4. Fishery observations
   vector<Type>  sigma_fsh_catch(n_flt); sigma_fsh_catch.setZero();                  // Standard deviation of fishery time-series; n = [1, n_fsh]
@@ -627,7 +593,7 @@ Type objective_function<Type>::operator() () {
   // -- 4.6. Composition data - FIXME: will blow up in nlengths is less than nages
   vector<Type>  n_hat(comp_obs.rows()) ; n_hat.setZero() ;                          // Estimated catch (n); n = [nspp, nyrs]
   matrix<Type>  age_hat = comp_obs; age_hat.setZero();                              // Estimated catch at true age; n = [nspp, nages, nyrs]
-  matrix<Type>  true_age_comp_hat = comp_obs; true_age_comp_hat.setZero();                  // True age composition
+  matrix<Type>  true_age_comp_hat = comp_obs; true_age_comp_hat.setZero();          // True age composition
   matrix<Type>  age_obs_hat = comp_obs; age_obs_hat.setZero();                      // Estimated catch at observed age; n = [nspp, nages, nyrs]
   matrix<Type>  comp_hat = comp_obs; comp_hat.setZero();                            // Estimated comp; n = [nspp, nages, nyrs]
 
@@ -1066,7 +1032,15 @@ Type objective_function<Type>::operator() () {
       for(sex = 0; sex < nsex(sp); sex ++){
         for (yr = 0; yr < nyrs; yr++) {
           R(sp, yr) = exp(ln_mn_rec(sp) + rec_dev(sp, yr));
-          NByage(sp, sex, 0, yr) = R(sp, yr) * R_sexr(sp);
+
+          // Estimated numbers-at-age
+          if(estDynamics(sp) == 0){
+            NByage(sp, sex, 0, yr) = R(sp, yr) * R_sexr(sp);
+          }
+          // Fixed numbers-at-age
+          if(estDynamics(sp) > 0){
+            NByage(sp, sex, 0, yr) = pop_scalar(sp) * NByageFixed(sp, sex, 0, yr);
+          }
         }
       }
     }
@@ -1076,23 +1050,32 @@ Type objective_function<Type>::operator() () {
     for (sp = 0; sp < nspp; sp++) {
       for(sex = 0; sex < nsex(sp); sex ++){
         for (age = 0; age < nages(sp); age++) {
-          if ((age > 0) & (age < nages(sp) - 1)) {
+          // Estimated abundance
+          if(estDynamics(sp) == 0){
 
-            // Sum M1 until age - 1
-            Type mort_sum = 0;
-            for(int age_tmp = 0; age_tmp < age; age_tmp++){
-              mort_sum += M1_base(sp, sex, age_tmp);
+            if ((age > 0) & (age < nages(sp) - 1)) {
+
+              // Sum M1 until age - 1
+              Type mort_sum = 0;
+              for(int age_tmp = 0; age_tmp < age; age_tmp++){
+                mort_sum += M1_base(sp, sex, age_tmp);
+              }
+              NByage(sp, sex, age, 0) = exp(ln_mn_rec(sp) - mort_sum + init_dev(sp, age - 1)) * R_sexr(sp);
             }
-            NByage(sp, sex, age, 0) = exp(ln_mn_rec(sp) - mort_sum + init_dev(sp, age - 1)) * R_sexr(sp);
+            // -- 6.2.2. Where yr = 1 and age > Ai.
+            if (age == (nages(sp) - 1)) {
+              // Sum M1 until age - 1
+              Type mort_sum = 0;
+              for(int age_tmp = 0; age_tmp < age; age_tmp++){
+                mort_sum += M1_base(sp, sex, age_tmp);
+              }
+              NByage(sp, sex, age, 0) = exp(ln_mn_rec(sp) - mort_sum + init_dev(sp, age - 1)) / (1 - exp(-M1_base(sp, sex, nages(sp) - 1))) * R_sexr(sp); // NOTE: This solves for the geometric series
+            }
           }
-          // -- 6.2.2. Where yr = 1 and age > Ai.
-          if (age == (nages(sp) - 1)) {
-            // Sum M1 until age - 1
-            Type mort_sum = 0;
-            for(int age_tmp = 0; age_tmp < age; age_tmp++){
-              mort_sum += M1_base(sp, sex, age_tmp);
-            }
-            NByage(sp, sex, age, 0) = exp(ln_mn_rec(sp) - mort_sum + init_dev(sp, age - 1)) / (1 - exp(-M1_base(sp, sex, nages(sp) - 1))) * R_sexr(sp); // NOTE: This solves for the geometric series
+
+          // Fixed numbers-at-age
+          if(estDynamics(sp) > 0){
+            NByage(sp, sex, age, 0) = pop_scalar(sp) * NByageFixed(sp, sex, age, 0);
           }
         }
       }
@@ -1107,14 +1090,23 @@ Type objective_function<Type>::operator() () {
       for (age = 0; age < nages(sp); age++) {
         for (yr = 1; yr < nyrs; yr++) {
           for(sex = 0; sex < nsex(sp); sex ++){
-            // -- 6.3.1.  Where 1 <= age < Ai
-            if (age < (nages(sp) - 1)) {
-              NByage(sp, sex, age + 1, yr) = NByage(sp, sex, age, yr - 1) * S(sp, sex, age, yr - 1);
+            // Estimated numbers-at-age
+            if(estDynamics(sp) == 0){
+              // -- 6.3.1.  Where 1 <= age < Ai
+              if (age < (nages(sp) - 1)) {
+                NByage(sp, sex, age + 1, yr) = NByage(sp, sex, age, yr - 1) * S(sp, sex, age, yr - 1);
+              }
+
+              // -- 6.3.2. Plus group where age > Ai. NOTE: This is not the same as T1.3 because sp used age = A_i rather than age > A_i.
+              if (age == (nages(sp) - 1)) {
+                NByage(sp, sex, age, yr) = NByage(sp, sex, age - 1, yr - 1) * S(sp, sex, age - 1, yr - 1) + NByage(sp, sex, age, yr - 1) * S(sp, sex, age, yr - 1);
+              }
             }
 
-            // -- 6.3.2. Plus group where age > Ai. NOTE: This is not the same as T1.3 because sp used age = A_i rather than age > A_i.
-            if (age == (nages(sp) - 1)) {
-              NByage(sp, sex, nages(sp) - 1, yr) = NByage(sp, sex, nages(sp) - 2, yr - 1) * S(sp, sex, nages(sp) - 2, yr - 1) + NByage(sp, sex, nages(sp) - 1, yr - 1) * S(sp, sex, nages(sp) - 1, yr - 1);
+
+            // Fixed numbers-at-age
+            if(estDynamics(sp) > 0){
+              NByage(sp, sex, age, yr) = pop_scalar(sp) * NByageFixed(sp, sex, age, yr);
             }
 
             // Hard constraint to reduce population collapse
@@ -2460,7 +2452,7 @@ Type objective_function<Type>::operator() () {
           // Standardize to sum to 1
           for (ln = 0; ln < nlengths(sp) * joint_adjust(comp_ind); ln++) {
             comp_hat(comp_ind, ln ) = comp_hat(comp_ind, ln) / n_hat(comp_ind);
-                  
+
           }
         }
       }
@@ -3048,6 +3040,7 @@ Type objective_function<Type>::operator() () {
 
 
   // 12.1. Population components
+  REPORT( pop_scalar );
   REPORT( mn_rec );
   REPORT( pmature );
   REPORT( Zed );
@@ -3069,6 +3062,7 @@ Type objective_function<Type>::operator() () {
   ADREPORT( biomassSSB );
   ADREPORT( r_sigma );
   ADREPORT( R );
+  ADREPORT( pop_scalar );
 
 
   // -- 12.2. Selectivity

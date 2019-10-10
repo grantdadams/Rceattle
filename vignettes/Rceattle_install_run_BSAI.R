@@ -42,18 +42,20 @@ ss_run <- Rceattle::fit_mod(data_list = mydata,
                             cpp_directory = "inst/executables",
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save
-                            debug = 1, # Estimate
+                            debug = 0, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
-                            phase = NULL,
+                            phase = "default",
                             silent = TRUE,
                             recompile = FALSE)
+
 # The you can plot the model results using using
 plot_biomass(Rceattle =  ss_run)
-plot_recruitment(Rceattle =  ss_run)
+plot_ssb(Rceattle =  ss_run)
+plot_recruitment(Rceattle =  ss_run, add_ci = TRUE)
 
 
-# For the a multispecies model starting from the single species parameters, the following can be specified to load the data:
+# Fo  r the a multispecies model starting from the single species parameters, the following can be specified to load the data:
 data("BS2017MS") # Note: the only difference is the residual mortality (M1_base) is lower
 
 ms_run <- Rceattle::fit_mod(data_list = BS2017MS,

@@ -172,9 +172,10 @@
 #'library(Rceattle)
 #'data(BS2017SS) # ?BS2017SS for more information on the data
 #'
-#'# Set up phases
+#'# Set up phases, also the default
 #'phaseList = list(
 #'dummy = 1,
+#'ln_pop_scalar = 11,
 #'ln_mn_rec = 1,
 #'ln_rec_sigma = 2,
 #'rec_dev = 2,
@@ -320,6 +321,7 @@ fit_mod <-
       if(tolower(phase) == "default"){
         phase = list(
           dummy = 1,
+          ln_pop_scalar = 11,
           ln_mn_rec = 1,
           ln_rec_sigma = 2,
           rec_dev = 2,
@@ -541,18 +543,18 @@ step = 5
         run_time = run_time
       )
 
-    if(debug == 0){
-      # identified <- suppressMessages(TMBhelper::Check_Identifiable(obj))
-      #
-      # # Make into list
-      # identified_param_list <- obj$env$parList(as.numeric(identified$BadParams$Param_check))
-      # identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==0,"Not estimated",x), how = "replace")
-      # identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==1,"OK",x), how = "replace")
-      # identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==2,"BAD",x), how = "replace")
-      #
-      # identified$param_list <- identified_param_list
-      #
-      # mod_objects$identified <- identified
+    if(is.null(opt$SD)){
+      identified <- suppressMessages(TMBhelper::Check_Identifiable(obj))
+
+      # Make into list
+      identified_param_list <- obj$env$parList(as.numeric(identified$BadParams$Param_check))
+      identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==0,"Not estimated",x), how = "replace")
+      identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==1,"OK",x), how = "replace")
+      identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==2,"BAD",x), how = "replace")
+
+      identified$param_list <- identified_param_list
+
+      mod_objects$identified <- identified
     }
 
     class(mod_objects) <- "Rceattle"
