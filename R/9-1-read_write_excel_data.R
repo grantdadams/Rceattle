@@ -27,7 +27,7 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 
 
     # control
-    control <- matrix(NA, ncol = data_list$nspp, nrow = 15)
+    control <- matrix(NA, ncol = data_list$nspp, nrow = 16)
     control[1, 1] <- data_list$nspp
     control[2, 1] <- data_list$styr
     control[3, 1] <- data_list$endyr
@@ -43,9 +43,10 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
     control[13, ] <- data_list$pop_alk_index
     control[14, ] <- data_list$sigma_rec_prior
     control[15, ] <- data_list$other_food
+    control[16, ] <- data_list$estDynamics
     control <- as.data.frame(control)
     control <- cbind(c("nspp", "styr", "endyr", "projyr", "nsex", "spawn_month", "R_sexr", "nages", "minage", "nlengths", "pop_wt_index", "ssb_wt_index","pop_alk_index", "sigma_rec_prior",
-        "other_food"), control)
+        "other_food", "estDynamics"), control)
     colnames(control) <- c("Object", data_list$spnames)
     names_used <- c(names_used, as.character(control$Object))
 
@@ -53,20 +54,11 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 
 
     # srv and fsh bits
-    srv_bits <- c("fleet_control", "srv_biom", "fsh_biom", "comp_data",  "emp_sel")
+    srv_bits <- c("fleet_control", "srv_biom", "fsh_biom", "comp_data",  "emp_sel", "NByageFixed", "age_trans_matrix")
     for (i in 1:length(srv_bits)) {
         xcel_list[[srv_bits[i]]] <- data_list[[srv_bits[i]]]
     }
     names_used <- c(names_used, srv_bits)
-
-
-    # 3D arrays by age
-
-
-    # age_trans_matrix
-    xcel_list$age_trans_matrix <- as.data.frame(data_list$age_trans_matrix)
-    names_used <- c(names_used, "age_trans_matrix")
-
 
     # age_error
     index_species <- data.frame(ALK = c(data_list$fleet_control$ALK_index), Sp = c(data_list$fleet_control$Species))
@@ -394,14 +386,14 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     data_list$pop_alk_index <- as.numeric(sheet1[13, 2:(data_list$nspp + 1)])
     data_list$sigma_rec_prior <- as.numeric(sheet1[14, 2:(data_list$nspp + 1)])
     data_list$other_food <- as.numeric(sheet1[15, 2:(data_list$nspp + 1)])
-    data_list$stom_tau <- as.numeric(sheet1[16, 2:(data_list$nspp + 1)])
+    data_list$estDynamics <- as.numeric(sheet1[16, 2:(data_list$nspp + 1)])
 
 
     nyrs <- data_list$endyr - data_list$styr + 1
 
 
     # srv and fsh bits
-    srv_bits <- c("fleet_control", "srv_biom", "fsh_biom" , "comp_data", "emp_sel")
+    srv_bits <- c("fleet_control", "srv_biom", "fsh_biom" , "comp_data", "emp_sel", "NByageFixed")
     for (i in 1:length(srv_bits)) {
         sheet <- as.data.frame(readxl::read_xlsx(file, sheet = srv_bits[i]))
         sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
