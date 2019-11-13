@@ -543,7 +543,7 @@ step = 5
         run_time = run_time
       )
 
-    if((is.null(opt$SD)) | (unique(is.nan(opt$SD$sd)) == TRUE)){
+    if(is.null(opt$SD)){
       identified <- suppressMessages(TMBhelper::Check_Identifiable(obj))
 
       # Make into list
