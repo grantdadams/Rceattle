@@ -734,12 +734,12 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       # Population parameters
       map_list$ln_mn_rec[i] <- NA
       map_list$ln_rec_sigma[i] <- NA
-      map_list$ln_rec_sigma[i,] <- replace(map_list$ln_rec_sigma[i,], values = rep(NA, length(map_list$ln_rec_sigma[i,])))
+      map_list$rec_dev[i,] <- replace(map_list$rec_dev[i,], values = rep(NA, length(map_list$rec_dev[i,])))
       map_list$init_dev[i,] <- replace(map_list$init_dev[i,], values = rep(NA, length(map_list$init_dev[i,])))
     }
 
     # Don't estimate the scalar
-    if(data_list$estDynamics[i] < 2 & data_list$msmMode == 0){
+    if(data_list$estDynamics[i] < 2 | data_list$msmMode == 0){
       map_list$ln_pop_scalar[i] <- NA
     }
   }

@@ -201,9 +201,10 @@ CEATTLE is an age-structured population dynamics model that can be fit with or w
 library(Rceattle)
 data(BS2017SS) # ?BS2017SS for more information on the data
 
-# Set up phases
+# Set up phases, also the default
 phaseList = list(
 dummy = 1,
+ln_pop_scalar = 11,
 ln_mn_rec = 1,
 ln_rec_sigma = 2,
 rec_dev = 2,

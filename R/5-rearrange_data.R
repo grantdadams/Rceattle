@@ -173,8 +173,8 @@ rearrange_dat <- function(data_list){
   data_list$Mn_LatAge <- Mn_LatAge
 
 
-  # Set up NbyageFixed array
-  NbyageFixed <- array(0, dim = c(data_list$nspp, 2, max(data_list$nages, na.rm = T), length(data_list$styr:data_list$projyr)))
+  # Set up NByageFixed array
+  NByageFixed <- array(0, dim = c(data_list$nspp, 2, max(data_list$nages, na.rm = T), length(data_list$styr:data_list$projyr)))
 
   if(nrow(data_list$NByageFixed) > 0){
     for (i in 1:nrow(data_list$NByageFixed)) {
@@ -188,13 +188,13 @@ rearrange_dat <- function(data_list){
 
       for(j in 1:length(sex)){
         if(yr > 0){
-          NbyageFixed[sp, sex[j], 1:max(data_list$nages, na.rm = T), yr] <- as.numeric(data_list$NbyageFixed[i,-c(1:4)])
+          NByageFixed[sp, sex[j], 1:max(data_list$nages, na.rm = T), yr] <- as.numeric(data_list$NByageFixed[i,-c(1:4)])
         }
       }
     }
   }
 
-  data_list$NbyageFixed <- NbyageFixed
+  data_list$NByageFixed <- NByageFixed
 
   # Make data.frames into matrices
   for(i in 1:length(data_list)){
