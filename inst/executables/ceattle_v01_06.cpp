@@ -2660,6 +2660,11 @@ Type objective_function<Type>::operator() () {
       if(flt_yr <= endyr){
         if(srv_bio_hat(srv_ind) > 0){
           jnll_comp(0, srv) -= dnorm(log(srv_bio_hat(srv_ind)), log(srv_biom_obs(srv_ind, 0)), srv_std_dev, true);  // pow(log(srv_biom_obs(srv_ind, 0)) - log(srv_bio_hat(srv_ind)), 2) / (2 * square( srv_std_dev )); // NOTE: This is not quite the lognormal and biohat will be the median.
+        
+          SIMULATE {
+            srv_biom_obs(srv_ind, 0) = rnorm(log(srv_bio_hat(srv_ind)), srv_std_dev);  // Simulate response
+            srv_biom_obs(srv_ind, 0) = exp(srv_biom_obs(srv_ind, 0));
+          }
         }
       }
     }
@@ -2693,6 +2698,11 @@ Type objective_function<Type>::operator() () {
       if(flt_yr <= endyr){
         if(fsh_biom_obs(fsh_ind, 0) > 0){
           jnll_comp(1, flt) -= dnorm(log(fsh_bio_hat(fsh_ind)), log(fsh_biom_obs(fsh_ind, 0)), fsh_std_dev, true) ; // pow(log(fsh_biom_obs(fsh_ind, 0) + MNConst) - log(fsh_bio_hat(fsh_ind)), 2) / (2 * square(fsh_std_dev)); // NOTE: This is not quite the log  normal and biohat will be the median.
+        
+        SIMULATE {
+            fsh_biom_obs(fsh_ind, 0) = rnorm(log(fsh_bio_hat(fsh_ind)), fsh_std_dev);  // Simulate response
+            fsh_biom_obs(fsh_ind, 0) = exp(fsh_biom_obs(fsh_ind, 0));
+          }
         }
       }
     }
@@ -3165,8 +3175,17 @@ Type objective_function<Type>::operator() () {
   REPORT( omega_hat );
   REPORT( omega_hat_ave );
 
+
   // ------------------------------------------------------------------------- //
-  // 13. END MODEL                                                             //
+  // 13. REPORT SIMULATED QUANTITIES SECTION                                   //
+  // ------------------------------------------------------------------------- //
+  SIMULATE {
+            REPORT(srv_biom_obs);          // Report the simulation
+            REPORT(fsh_biom_obs);
+          }
+
+  // ------------------------------------------------------------------------- //
+  // 14. END MODEL                                                             //
   // ------------------------------------------------------------------------- //
 
   Type jnll = 0;
