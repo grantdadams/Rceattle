@@ -27,7 +27,7 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 
 
     # control
-    control <- matrix(NA, ncol = data_list$nspp, nrow = 16)
+    control <- matrix(NA, ncol = data_list$nspp, nrow = 17)
     control[1, 1] <- data_list$nspp
     control[2, 1] <- data_list$styr
     control[3, 1] <- data_list$endyr
@@ -44,9 +44,10 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
     control[14, ] <- data_list$sigma_rec_prior
     control[15, ] <- data_list$other_food
     control[16, ] <- data_list$estDynamics
+    control[17, ] <- data_list$proj_F
     control <- as.data.frame(control)
     control <- cbind(c("nspp", "styr", "endyr", "projyr", "nsex", "spawn_month", "R_sexr", "nages", "minage", "nlengths", "pop_wt_index", "ssb_wt_index","pop_alk_index", "sigma_rec_prior",
-        "other_food", "estDynamics"), control)
+                       "other_food", "estDynamics", "proj_F"), control)
     colnames(control) <- c("Object", data_list$spnames)
     names_used <- c(names_used, as.character(control$Object))
 
@@ -178,22 +179,7 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 
 
     # Diet information Pyrs
-    Pyrs <- matrix(NA, ncol = max(data_list$nages) + 2, nrow = data_list$nspp * length(data_list$styr:data_list$endyr))
-    yrs_done <- 1
-    for (sp in 1:data_list$nspp) {
-        nyears <- length(data_list$styr:data_list$endyr)
-        Pyrs[yrs_done:(yrs_done + nyears - 1), 1] <- sp
-        Pyrs[yrs_done:(yrs_done + nyears - 1), 2] <- data_list$styr:data_list$endyr
-        Pyrs[yrs_done:(yrs_done + nyears - 1), 3:(2 + data_list$nages[sp])] <- data_list$Pyrs[1:nyears, 1:(data_list$nages[sp]),
-            sp]
-        yrs_done <- yrs_done + nyears
-    }
-
-    colnames(Pyrs) <- c("Species", "Year", paste0("Age", 1:max(data_list$nages)))
-    Pyrs <- as.data.frame(Pyrs)
-
-    xcel_list$Pyrs <- Pyrs
-
+    xcel_list$Pyrs <- as.data.frame(data_list$Pyrs)
     names_used <- c(names_used, "Pyrs")
 
 
@@ -215,14 +201,14 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
         for (pred in 1:dims[1]) {
             for (prey in 1:dims[2]) {
                 for (pred_a in 1:data_list$nlengths[pred]) {
-                  for (prey_a in 1:data_list$nlengths[prey]) {
-                    Uobs[ind, 1] <- pred
-                    Uobs[ind, 2] <- prey
-                    Uobs[ind, 3] <- pred_a
-                    Uobs[ind, 4] <- prey_a
-                    Uobs[ind, 5] <- data_list$Uobs[pred, prey, pred_a, prey_a]
-                    ind = ind + 1
-                  }
+                    for (prey_a in 1:data_list$nlengths[prey]) {
+                        Uobs[ind, 1] <- pred
+                        Uobs[ind, 2] <- prey
+                        Uobs[ind, 3] <- pred_a
+                        Uobs[ind, 4] <- prey_a
+                        Uobs[ind, 5] <- data_list$Uobs[pred, prey, pred_a, prey_a]
+                        ind = ind + 1
+                    }
                 }
             }
         }
@@ -244,17 +230,17 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
         for (pred in 1:dims[1]) {
             for (prey in 1:dims[2]) {
                 for (pred_a in 1:data_list$nlengths[pred]) {
-                  for (prey_a in 1:data_list$nlengths[prey]) {
-                    for (yr in 1:dims[5]) {
-                      Uobs[ind, 1] <- pred
-                      Uobs[ind, 2] <- prey
-                      Uobs[ind, 3] <- pred_a
-                      Uobs[ind, 4] <- prey_a
-                      Uobs[ind, 5] <- yr
-                      Uobs[ind, 6] <- data_list$Uobs[pred, prey, pred_a, prey_a, yr]
-                      ind = ind + 1
+                    for (prey_a in 1:data_list$nlengths[prey]) {
+                        for (yr in 1:dims[5]) {
+                            Uobs[ind, 1] <- pred
+                            Uobs[ind, 2] <- prey
+                            Uobs[ind, 3] <- pred_a
+                            Uobs[ind, 4] <- prey_a
+                            Uobs[ind, 5] <- yr
+                            Uobs[ind, 6] <- data_list$Uobs[pred, prey, pred_a, prey_a, yr]
+                            ind = ind + 1
+                        }
                     }
-                  }
                 }
             }
         }
@@ -278,14 +264,14 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
         for (pred in 1:dims[1]) {
             for (prey in 1:dims[2]) {
                 for (pred_a in 1:data_list$nlengths[pred]) {
-                  for (prey_a in 1:data_list$nlengths[prey]) {
-                    UobsWt[ind, 1] <- pred
-                    UobsWt[ind, 2] <- prey
-                    UobsWt[ind, 3] <- pred_a
-                    UobsWt[ind, 4] <- prey_a
-                    UobsWt[ind, 5] <- data_list$UobsWt[pred, prey, pred_a, prey_a]
-                    ind = ind + 1
-                  }
+                    for (prey_a in 1:data_list$nlengths[prey]) {
+                        UobsWt[ind, 1] <- pred
+                        UobsWt[ind, 2] <- prey
+                        UobsWt[ind, 3] <- pred_a
+                        UobsWt[ind, 4] <- prey_a
+                        UobsWt[ind, 5] <- data_list$UobsWt[pred, prey, pred_a, prey_a]
+                        ind = ind + 1
+                    }
                 }
             }
         }
@@ -308,17 +294,17 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
         for (pred in 1:dims[1]) {
             for (prey in 1:dims[2]) {
                 for (pred_a in 1:data_list$nlengths[pred]) {
-                  for (prey_a in 1:data_list$nlengths[prey]) {
-                    for (yr in 1:dims[5]) {
-                      UobsWt[ind, 1] <- pred
-                      UobsWt[ind, 2] <- prey
-                      UobsWt[ind, 3] <- pred_a
-                      UobsWt[ind, 4] <- prey_a
-                      UobsWt[ind, 5] <- yr
-                      UobsWt[ind, 6] <- data_list$UobsWt[pred, prey, pred_a, prey_a, yr]
-                      ind = ind + 1
+                    for (prey_a in 1:data_list$nlengths[prey]) {
+                        for (yr in 1:dims[5]) {
+                            UobsWt[ind, 1] <- pred
+                            UobsWt[ind, 2] <- prey
+                            UobsWt[ind, 3] <- pred_a
+                            UobsWt[ind, 4] <- prey_a
+                            UobsWt[ind, 5] <- yr
+                            UobsWt[ind, 6] <- data_list$UobsWt[pred, prey, pred_a, prey_a, yr]
+                            ind = ind + 1
+                        }
                     }
-                  }
                 }
             }
         }
@@ -387,7 +373,7 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     data_list$sigma_rec_prior <- as.numeric(sheet1[14, 2:(data_list$nspp + 1)])
     data_list$other_food <- as.numeric(sheet1[15, 2:(data_list$nspp + 1)])
     data_list$estDynamics <- as.numeric(sheet1[16, 2:(data_list$nspp + 1)])
-
+    data_list$proj_F <- as.numeric(sheet1[17, 2:(data_list$nspp + 1)])
 
     nyrs <- data_list$endyr - data_list$styr + 1
 
@@ -470,7 +456,7 @@ read_data <- function(file = "Rceattle_data.xlsx") {
 
     for (i in 1:nrow(bioenergetics_control)) {
         data_list[[bioenergetics_control$Object[i]]] <- suppressWarnings(as.numeric(as.character(bioenergetics_control[i, ((1:data_list$nspp) +
-            1)])))
+                                                                                                                               1)])))
     }
 
 
@@ -485,18 +471,7 @@ read_data <- function(file = "Rceattle_data.xlsx") {
 
     # Diet information Pyrs
     pyrs_matrix <- as.data.frame(readxl::read_xlsx(file, sheet = "Pyrs"))
-    Pyrs <- array(0, dim = c(length(data_list$styr:data_list$endyr), max(data_list$nages), data_list$nspp))
-
-
-    for (i in 1:nrow(pyrs_matrix)) {
-        sp <- as.numeric(as.character(pyrs_matrix$Species[i]))
-        yr <- as.numeric(as.character(pyrs_matrix$Year[i])) - data_list$styr + 1
-
-        Pyrs[yr, 1:data_list$nages[sp], sp] <- as.numeric(as.character(pyrs_matrix[i, (1:data_list$nages[sp]) + 2]))
-    }
-    data_list$Pyrs <- Pyrs
-
-
+    data_list$Pyrs <- pyrs_matrix
 
     # Diet UobsAge
     UobsAge <- as.data.frame(readxl::read_xlsx(file, sheet = "UobsAge"))

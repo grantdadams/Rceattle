@@ -11,11 +11,11 @@
 #' @param proj_yr The year to project the populations with no fishing. Assumed to be 2050
 #' @param stom_tau Stomach content sample size for likelihood. Assumed to be 20.
 #' @param endyr The end year of the hindcast
-#' @param proj_F F vector or single value for projections
+#' @param proj_F_prop F proportion vector or single value for projections
 #'
 #' @return A list of data objects used by TMB
 #' @export
-build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NULL, dat_dir = NULL, nspp = 3, nselages = 8, endyr = 2017, proj_yr = 2050, proj_F = 0, stom_tau = 20) {
+build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NULL, dat_dir = NULL, nspp = 3, nselages = 8, endyr = 2017, proj_yr = 2050, proj_F_prop = 0, stom_tau = 20) {
 
   # Get cpp file if not provided
   if(is.null(TMBfilename) | is.null(cpp_directory)){
@@ -50,7 +50,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   # Step 1 -- Add data names NOT used in TMB
   #---------------------------------------------------------------------
   names_not_in_cpp <- c("nspp"
-    , "nyrs_srv_biom", "yrs_srv_biom", "srv_biom", "srv_biom_se",
+                        , "nyrs_srv_biom", "yrs_srv_biom", "srv_biom", "srv_biom_se",
                         "srv_age_obs", "nyrs_srv_age", "yrs_srv_age", "srv_age_n",
                         "srv_age_type", "srv_age_bins",
                         "n_eit", "yrs_eit", "obs_eit", "eit_sel",
@@ -261,11 +261,12 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   dat_list$fleet_control <- rbind(dat_list$fleet_control, srv_control)
 
   # Projected fishing mortality
-  if(length(proj_F) != nrow(dat_list$fleet_control)){
-    proj_F <- rep(proj_F[1], nrow(dat_list$fleet_control))
+  if(length(proj_F_prop) != nrow(dat_list$fleet_control)){
+    proj_F_prop <- rep(proj_F_prop[1], nrow(dat_list$fleet_control))
   }
 
-  dat_list$fleet_control$proj_F <- proj_F
+  dat_list$proj_F <- rep(0, 3)
+  dat_list$fleet_control$proj_F_prop <- proj_F_prop
 
   #---------------------------------------------------------------------
   # Step 8 -- Reorganize for survey biomass
@@ -381,7 +382,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Selectivity_block = rep(rep(1, nspp), dat_list$nyrs_tc_biom),
     Catch = as.vector(t(dat_list$tcb_obs)),
     CV = rep(rep(0.05, nspp), dat_list$nyrs_tc_biom)
-    )
+  )
 
   #---------------------------------------------------------------------
   # Step 13 -- Reorganize for fishery age comp
@@ -405,6 +406,24 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   fsh_comp <- cbind(fsh_comp, Observation)
 
   dat_list$comp_data <- rbind(fsh_comp, srv_comp)
+
+
+  #---------------------------------------------------------------------
+  # Step 14 -- Reorganize pyrs
+  #---------------------------------------------------------------------
+  Pyrs <- matrix(NA, ncol = max(dat_list$nages) + 2, nrow = dat_list$nspp * length(dat_list$styr:dat_list$endyr))
+  yrs_done <- 1
+  for (sp in 1:dat_list$nspp) {
+    nyears <- length(dat_list$styr:dat_list$endyr)
+    Pyrs[yrs_done:(yrs_done + nyears - 1), 1] <- sp
+    Pyrs[yrs_done:(yrs_done + nyears - 1), 2] <- dat_list$styr:dat_list$endyr
+    Pyrs[yrs_done:(yrs_done + nyears - 1), 3:(2 + dat_list$nages[sp])] <- dat_list$Pyrs[1:nyears, 1:(dat_list$nages[sp]),
+                                                                                        sp]
+    yrs_done <- yrs_done + nyears
+  }
+
+  colnames(Pyrs) <- c("Species", "Year", paste0("Age", 1:max(dat_list$nages)))
+  dat_list$Pyrs <- as.data.frame(Pyrs)
 
 
   #---------------------------------------------------------------------
@@ -585,7 +604,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   names_in_cpp <- c(names_in_cpp, "comp_data", "NByageFixed", "estDynamics",
                     "emp_sel", "fleet_control",
                     "fsh_comp", "srv_comp",
-                    "fsh_biom", "srv_biom", "proj_F", "minage", "sigma_rec_prior", "spnames", "nsex", "R_sexr", "ssb_wt_index", "spawn_month")
+                    "fsh_biom", "srv_biom", "proj_F_prop", "proj_F", "minage", "sigma_rec_prior", "spnames", "nsex", "R_sexr", "ssb_wt_index", "spawn_month")
 
   for(i in 1:length(names_in_cpp)){
     dat_list2[[names_in_cpp[i]]] <-  dat_list[[names_in_cpp[i]]]

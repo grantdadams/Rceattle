@@ -253,6 +253,21 @@ fit_mod <-
     }
 
 
+    # Remove years of data previous to start year
+    data_list$UobsWtAge <- as.data.frame(data_list$UobsWtAge)
+    data_list$UobsAge <- as.data.frame(data_list$UobsAge)
+
+    data_list$wt <- data_list$wt[which(data_list$wt$Year == 0 | data_list$wt$Year >= data_list$styr),]
+    data_list$UobsAge <- data_list$UobsAge[which(data_list$UobsAge$Year == 0 | data_list$UobsAge$Year >= data_list$styr),]
+    data_list$UobsWtAge <- data_list$UobsWtAge[which(data_list$UobsWtAge$Year == 0 | data_list$UobsWtAge$Year >= data_list$styr),]
+    data_list$srv_biom <- data_list$srv_biom[which(data_list$srv_biom$Year >= data_list$styr),]
+    data_list$fsh_biom <- data_list$fsh_biom[which(data_list$fsh_biom$Year >= data_list$styr),]
+    data_list$comp_data <- data_list$comp_data[which(data_list$comp_data$Year >= data_list$styr),]
+    data_list$emp_sel <- data_list$emp_sel[which(data_list$emp_sel$Year == 0 | data_list$emp_sel$Year >= data_list$styr),]
+    data_list$NByageFixed <- data_list$NByageFixed[which(data_list$NByageFixed$Year == 0 | data_list$NByageFixed$Year >= data_list$styr),]
+    data_list$Pyrs <- data_list$Pyrs[which(data_list$Pyrs$Year == 0 | data_list$Pyrs$Year >= data_list$styr),]
+
+
     # Switches
     data_list$random_rec <- as.numeric(random_rec)
     data_list$debug <- debug
@@ -328,6 +343,7 @@ fit_mod <-
           init_dev = 2,
           ln_mean_F = 1,
           proj_F = 1,
+          proj_F_prop = 1,
           F_dev = 1,
           log_srv_q = 5,
           srv_q_pow = 6,
