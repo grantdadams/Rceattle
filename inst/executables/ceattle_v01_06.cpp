@@ -1232,14 +1232,14 @@ Type objective_function<Type>::operator() () {
             if(yr < nyrs_hind){
               ConsumAge(sp, sex, age, yr) = CA(sp) * pow(wt( pop_wt_index(sp), sex, age, yr ) * Type(1000), CB( sp )) //  C_max = CA * W ^ CB; where C_max is grams consumed per grams of predator per day
               * fT(sp, yr) * fday( sp ) * wt(pop_wt_index(sp), sex, age, yr) * 1000;                           //  C_max * f(T) * wt * fday g/pred.yr
-              ConsumAge(sp, sex, age, yr) = ConsumAge(sp, sex, age, yr) * Pvalue(sp) * Pyrs(yr, age, sp); //
+              ConsumAge(sp, sex, age, yr) = ConsumAge(sp, sex, age, yr) * Pvalue(sp) * Pyrs(sp, sex, age, yr); //
             }
 
             // Projection
             if(yr >= nyrs_hind){
               ConsumAge(sp, sex, age, yr) = CA(sp) * pow(wt( pop_wt_index(sp), sex, age, (nyrs_hind - 1) ) * Type(1000), CB( sp ))  //  C_max = CA * W ^ CB; where C_max is grams consumed per grams of predator per day
               * fT(sp, yr) * fday( sp ) * wt( pop_wt_index(sp), sex, age, (nyrs_hind - 1) ) * 1000;                            //  C_max * f(T) * wt * fday g/pred.yr
-              ConsumAge(sp, sex, age, yr) = ConsumAge(sp, sex, age, yr) * Pvalue(sp) * Pyrs((nyrs_hind-1), age, sp); //
+              ConsumAge(sp, sex, age, yr) = ConsumAge(sp, sex, age, yr) * Pvalue(sp) * Pyrs(sp, sex, age, (nyrs_hind-1)); //
             }
 
             ration2Age(sp, sex, age, yr) = ConsumAge(sp, sex, age, yr) / 1000;      // Annual ration kg/yr //aLW(predd)*pow(lengths(predd,age),bLW(predd));//mnwt_bin(predd,age);
