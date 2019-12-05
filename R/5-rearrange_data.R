@@ -205,14 +205,19 @@ rearrange_dat <- function(data_list){
 
 
   # Set up pyrs array
-  Pyrs <- array(0, dim = c(length(data_list$styr:data_list$endyr), max(data_list$nages), data_list$nspp))
+  Pyrs <- array(0, dim = c(data_list$nspp, 2, max(data_list$nages), length(data_list$styr:data_list$endyr)))
 
   for (i in 1:nrow(data_list$Pyrs)) {
     sp <- as.numeric(as.character(data_list$Pyrs$Species[i]))
+    sex <- as.numeric(as.character(data_list$Pyrs$Sex[i]))
+    if(sex == 0){
+      sex = c(1,2)
+    }
     yr <- as.numeric(as.character(data_list$Pyrs$Year[i])) - data_list$styr + 1
-    Pyrs[yr, 1:data_list$nages[sp], sp] <- as.numeric(as.character(data_list$Pyrs[i, (1:data_list$nages[sp]) + 2]))
+    Pyrs[sp, sex, 1:data_list$nages[sp], yr] <- as.numeric(as.character(data_list$Pyrs[i, (1:data_list$nages[sp]) + 2]))
   }
   data_list$Pyrs <- Pyrs
+
 
   # Make data.frames into matrices
   for(i in 1:length(data_list)){

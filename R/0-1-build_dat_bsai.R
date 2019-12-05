@@ -411,18 +411,19 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   #---------------------------------------------------------------------
   # Step 14 -- Reorganize pyrs
   #---------------------------------------------------------------------
-  Pyrs <- matrix(NA, ncol = max(dat_list$nages) + 2, nrow = dat_list$nspp * length(dat_list$styr:dat_list$endyr))
+  Pyrs <- matrix(NA, ncol = max(dat_list$nages) + 3, nrow = dat_list$nspp * length(dat_list$styr:dat_list$endyr))
   yrs_done <- 1
   for (sp in 1:dat_list$nspp) {
     nyears <- length(dat_list$styr:dat_list$endyr)
     Pyrs[yrs_done:(yrs_done + nyears - 1), 1] <- sp
-    Pyrs[yrs_done:(yrs_done + nyears - 1), 2] <- dat_list$styr:dat_list$endyr
-    Pyrs[yrs_done:(yrs_done + nyears - 1), 3:(2 + dat_list$nages[sp])] <- dat_list$Pyrs[1:nyears, 1:(dat_list$nages[sp]),
+    Pyrs[yrs_done:(yrs_done + nyears - 1), 2] <- 0
+    Pyrs[yrs_done:(yrs_done + nyears - 1), 3] <- dat_list$styr:dat_list$endyr
+    Pyrs[yrs_done:(yrs_done + nyears - 1), 4:(3 + dat_list$nages[sp])] <- dat_list$Pyrs[1:nyears, 1:(dat_list$nages[sp]),
                                                                                         sp]
     yrs_done <- yrs_done + nyears
   }
 
-  colnames(Pyrs) <- c("Species", "Year", paste0("Age", 1:max(dat_list$nages)))
+  colnames(Pyrs) <- c("Species", "Sex", "Year", paste0("Age", 1:max(dat_list$nages)))
   dat_list$Pyrs <- as.data.frame(Pyrs)
 
 
