@@ -135,6 +135,12 @@ rearrange_dat <- function(data_list){
     sp <- as.numeric(as.character(wt_matrix$Species[i]))
     sex <- as.numeric(as.character(wt_matrix$Sex[i]))
     yr <- as.numeric(as.character(wt_matrix$Year[i])) - data_list$styr + 1
+
+    # If year == 0, set weight to all years
+    if(yr == (-data_list$styr + 1)){
+      yr = 1:length(data_list$styr:data_list$endyr)
+    }
+
     if(sex == 0){ sex = c(1, 2)}
     for(j in 1:length(sex)){
       if(sum(grepl("[[:space:]]", as.character(wt_matrix[i, (1:data_list$nages[sp]) + 5])))){
@@ -144,6 +150,7 @@ rearrange_dat <- function(data_list){
     }
   }
   data_list$wt <- wt
+
 
   # Set up M1 array
   m1 <- array(0, dim = c(data_list$nspp, 2, max(data_list$nages, na.rm = T)))
@@ -195,6 +202,17 @@ rearrange_dat <- function(data_list){
   }
 
   data_list$NByageFixed <- NByageFixed
+
+
+  # Set up pyrs array
+  Pyrs <- array(0, dim = c(length(data_list$styr:data_list$endyr), max(data_list$nages), data_list$nspp))
+
+  for (i in 1:nrow(data_list$Pyrs)) {
+    sp <- as.numeric(as.character(data_list$Pyrs$Species[i]))
+    yr <- as.numeric(as.character(data_list$Pyrs$Year[i])) - data_list$styr + 1
+    Pyrs[yr, 1:data_list$nages[sp], sp] <- as.numeric(as.character(data_list$Pyrs[i, (1:data_list$nages[sp]) + 2]))
+  }
+  data_list$Pyrs <- Pyrs
 
   # Make data.frames into matrices
   for(i in 1:length(data_list)){

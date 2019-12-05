@@ -6,7 +6,7 @@ library(TMBdebug)
 # Load data
 # source("R/2-build_params.R")
 # source("R/3-build_map.R")
-TMBfilename = "ceattle_v01_05"
+TMBfilename = "ceattle_v01_06"
 cpp_directory <- "inst/executables"
 data("BS2017SS")
 BS2017SS$endyr <- 2017
@@ -26,26 +26,24 @@ suitMode = FALSE
 recompile = FALSE
 
 
+data_list$UobsWtAge <- as.data.frame(data_list$UobsWtAge)
+data_list$UobsAge <- as.data.frame(data_list$UobsAge)
+
+# Step 0 - remove years prior to start year
+data_list$wt <- data_list$wt[which(data_list$wt$Year == 0 | data_list$wt$Year >= data_list$styr),]
+data_list$UobsAge <- data_list$UobsAge[which(data_list$UobsAge$Year == 0 | data_list$UobsAge$Year >= data_list$styr),]
+data_list$UobsWtAge <- data_list$UobsWtAge[which(data_list$UobsWtAge$Year == 0 | data_list$UobsWtAge$Year >= data_list$styr),]
+data_list$srv_biom <- data_list$srv_biom[which(data_list$srv_biom$Year >= data_list$styr),]
+data_list$fsh_biom <- data_list$fsh_biom[which(data_list$fsh_biom$Year >= data_list$styr),]
+data_list$comp_data <- data_list$comp_data[which(data_list$comp_data$Year >= data_list$styr),]
+data_list$emp_sel <- data_list$emp_sel[which(data_list$emp_sel$Year == 0 | data_list$emp_sel$Year >= data_list$styr),]
+data_list$NByageFixed <- data_list$NByageFixed[which(data_list$NByageFixed$Year == 0 | data_list$NByageFixed$Year >= data_list$styr),]
+data_list$Pyrs <- data_list$Pyrs[which(data_list$Pyrs$Year == 0 | data_list$Pyrs$Year >= data_list$styr),]
+
 
 # #--------------------------------------------------
 # # 1. DATA and MODEL PREP
 # #--------------------------------------------------
-load("~/Documents/GitHub/RceattleRuns/BSAI/2019 Think Tank/Models/ss_no_re.RData")
-# "C:/Users/Grant Adams/Documents/GitHub/RceattleRuns/BSAI/2019 Think Tank/Models/ss_no_re.RData"
-initial_params <- mod_objects$estimated_params
-
-initial_params$srv_sel_coff
-initial_params$srv_sel_inf <- cbind(initial_params$srv_sel_inf, matrix(0, ncol = 1, nrow = 2))
-initial_params$srv_sel_slp <- cbind(initial_params$srv_sel_slp, matrix(0, ncol = 1, nrow = 2))
-initial_params$log_srv_q <- c(initial_params$log_srv_q, initial_params$log_eit_q)
-inits <- initial_params
-inits$log_eit_q <- NULL
-inits$phi <- NULL
-
-# STEP 1 - LOAD DATA
-if (is.null(data_list)) {
-  stop("Missing data_list object")
-}
 
 
 # Switches
@@ -55,6 +53,7 @@ data_list$niter <- niter
 data_list$avgnMode <- avgnMode
 data_list$msmMode <- msmMode
 data_list$suitMode <- as.numeric(suitMode)
+data_list$minNByage <- 0
 
 
 # Get cpp file if not provided
@@ -68,42 +67,25 @@ if(is.null(TMBfilename) | is.null(cpp_directory)){
 
 
 # STEP 1 - LOAD PARAMETERS
-if (is.character(inits) | is.null(inits)) {
-  params <- suppressWarnings(Rceattle::build_params(
-    data_list = data_list,
-    inits = inits
-  ))
-} else{
-  params <- suppressWarnings(Rceattle::build_params(
-    data_list = data_list,
-    inits = inits
-  ))
-  inits$srv_sel_coff <- params$srv_sel_coff
-  inits$fsh_sel_inf <- params$fsh_sel_inf
-  inits$fsh_sel_slp <- params$fsh_sel_slp
-  inits$log_phi <- params$log_phi
-  params <- inits
-}
+
+params <- suppressWarnings(Rceattle::build_params(
+  data_list = data_list,
+  inits = inits
+))
 print("Step 1: Parameter build complete")
 
 
 
 # STEP 2 - BUILD MAP
-if (is.null(map)) {
-  map <-
-    suppressWarnings(Rceattle::build_map(data_list, params, debug = debug, random_rec = random_rec))
-} else{
-  map <- map
-}
+map <-
+  suppressWarnings(Rceattle::build_map(data_list, params, debug = debug, random_rec = random_rec))
+
 print("Step 2: Map build complete")
 
 
 # STEP 3 - Get bounds
-if (is.null(bounds)) {
-  bounds <- Rceattle::build_bounds(param_list = params, data_list)
-} else {
-  bounds = bounds
-}
+bounds <- Rceattle::build_bounds(param_list = params, data_list)
+
 print("Step 3: Param bounds complete")
 
 

@@ -491,7 +491,8 @@ Type objective_function<Type>::operator() () {
 
   // -- 3.3. fishing mortality parameters
   PARAMETER_VECTOR( ln_mean_F );                  // Log mean fishing mortality; n = [1, n_fsh]
-  PARAMETER_VECTOR( proj_F );                     // Fishing mortality for projections; n = [1, n_fsh]
+  PARAMETER_VECTOR( proj_F );                     // Fishing mortality for projections; n = [1, nspp]
+  PARAMETER_VECTOR( proj_F_prop );                // Proportion of fishing mortality from each fleet for projections; n = [1, n_fsh]
   PARAMETER_MATRIX( F_dev );                      // Annual fishing mortality deviations; n = [n_fsh, nyrs] # NOTE: The size of this will likely change
 
   // -- 3.4. Survey catchability parameters
@@ -997,7 +998,7 @@ Type objective_function<Type>::operator() () {
 
             // Forecast
             if( yr >= nyrs_hind){
-              F(flt, sex, age, yr) = sel(flt, sex, age, nyrs_hind - 1) * proj_F(flt); // FIXME using last year of selectivity
+              F(flt, sex, age, yr) = sel(flt, sex, age, nyrs_hind - 1) * proj_F_prop(flt) * proj_F(sp); // FIXME using last year of selectivity
             }
             if(flt_type(flt) == 1){
               F_tot(sp, sex, age, yr) += F(flt, sex, age, yr);
