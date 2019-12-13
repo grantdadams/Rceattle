@@ -186,13 +186,14 @@ CEATTLE is an age-structured population dynamics model that can be fit with or w
 \itemize{
 \item{0. Single species mode}
 \item{1. Holsman et al. 2015 predation based on multi-species virtual population analysis (MSVPA) based predation formation.}
- \item{2. Kinzey & Punt 2010 Holling Type I (linear)}
- \item{3. Kinzey & Punt 2010 Holling Type II}
- \item{4. Kinzey & Punt 2010 Holling Type III}
- \item{5. Kinzey & Punt 2010 Predator interference}
- \item{6. Kinzey & Punt 2010 Predator preemption}
- \item{7. Kinzey & Punt 2010 Hassell-Varley}
- \item{8. Kinzey & Punt 2010 Ecosim}
+\item{2. MSVPA Holling Type III}
+ \item{3. Kinzey & Punt 2010 Holling Type I (linear)}
+ \item{4. Kinzey & Punt 2010 Holling Type II}
+ \item{5. Kinzey & Punt 2010 Holling Type III}
+ \item{6. Kinzey & Punt 2010 Predator interference}
+ \item{7. Kinzey & Punt 2010 Predator preemption}
+ \item{8. Kinzey & Punt 2010 Hassell-Varley}
+ \item{9. Kinzey & Punt 2010 Ecosim}
  }
 }
 \examples{
