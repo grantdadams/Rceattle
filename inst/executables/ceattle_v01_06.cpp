@@ -330,14 +330,15 @@ Type objective_function<Type>::operator() () {
   DATA_SCALAR( minNByage );               // Hard constraint that the lowest a numbers at age can be is 1
   DATA_INTEGER(msmMode);
   //    0 = run in single species mode
-  //    1 = run in MSM mode  Holsman et al (2015) MSVPA based
-  //    2 = Holling Type I (linear)
-  //    3 = Holling Type II
-  //    4 = Holling Type III
-  //    5 = Predator interference
-  //    6 = Predator preemption
-  //    7 = Hassell-Varley
-  //    8 = Ecosim
+  //    1 = run in Type II MSVPA based (sensu Holsman et al (2015)) 
+  //    2 = run in Type III MSVPA based
+  //    3 = Holling Type I (linear)
+  //    4 = Holling Type II
+  //    5 = Holling Type III
+  //    6 = Predator interference
+  //    7 = Predator preemption
+  //    8 = Hassell-Varley
+  //    9 = Ecosim
   // DATA_INTEGER(est_diet);              // Include diet data in the likelihood
   DATA_INTEGER(suitMode);                 // Estimate suitability
   DATA_INTEGER(avgnMode);                 // N used for predation function
@@ -610,6 +611,7 @@ Type objective_function<Type>::operator() () {
   array<Type>   avail_food(nspp, 2, max_age, nyrs); avail_food.setZero();                        // Available food to predator; n = [nspp, 2 sexes, nages, nyrs]
   array<Type>   othersuit(nspp, 2, max_age, nyrs); othersuit.setZero();                          // Sum of available food to predator; n = [nspp, 2 sexes, nages, nyrs]
   array<Type>   B_eaten(nspp, 2, max_age, nyrs); B_eaten.setZero();                              // Biomass of prey eaten via predation; n = [nyrs, nages, nspp]
+  array<Type>   B_eaten_prop(nspp, nspp, 2, 2, max_age, max_age, nyrs); B_eaten.setZero();                              // Biomass of prey eaten via predation by a predator at age; n = [nyrs, nages, nspp]
   array<Type>   of_stomKir(nspp, 2, max_age, nyrs); of_stomKir.setZero();                        // Other food stomach content; n = [nspp, 2 sexes, nages, nyrs]
   array<Type>   stom_div_bio2(nspp, nspp, 2, 2, max_age, max_age, nyrs); stom_div_bio2.setZero();// Stomach proportion over biomass; U/ (W * N) ; n = [nspp, nspp, 2 sexes, 2 sexes, nages, nages, nyrs]
   array<Type>   stomKir(nspp, nspp, 2, 2, max_age, max_age, nyrs); stomKir.setZero();            // Stomach proportion by numbers U; n = [nspp, nspp, nages, nages, nyrs]
@@ -1420,8 +1422,17 @@ Type objective_function<Type>::operator() () {
                     for (k_age = 0; k_age < nages(ksp); k_age++) {  // Prey age loop
 
                       suit_tmp(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = 0;
+
+
+
                       if(AvgN(ksp, k_sex, k_age, yr) > 0){
                         suit_tmp(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = stomKirWt(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) / (AvgN(ksp, k_sex, k_age, yr));
+                      
+                        // Make into Type 3 MSVPA
+                        // U = 
+                        if(msmMode == 2){
+                          suit_tmp(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) /= AvgN(ksp, k_sex, k_age, yr);
+                        }
                       }
 
 
@@ -1775,7 +1786,7 @@ Type objective_function<Type>::operator() () {
       // ------------------------------------------------------------------------- //
       // -- 8.1. HOLSMAN PREDATION MORTALITY
 
-      if (msmMode == 1) {
+      if ((msmMode == 1) | (msmMode == 2)) {
 
 
         // 8.1.3. Calculate available food
@@ -1796,7 +1807,7 @@ Type objective_function<Type>::operator() () {
                 for (ksp = 0; ksp < nspp; ksp++) {                  // Prey species loop
                   for(k_sex = 0; k_sex < nsex(ksp); k_sex++){
                     for (k_age = 0; k_age < nages(ksp); k_age++) {    // Prey age loop
-                      avail_food(rsp, r_sex, r_age, yr) += suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) * AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind); // FIXME - include overlap indices: FIXME - mn_wt_stom?
+                      avail_food(rsp, r_sex, r_age, yr) += suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) * pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind); // FIXME - include overlap indices: FIXME - mn_wt_stom?
                       othersuit(rsp, r_sex, r_age, yr) += suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr); // FIXME - include overlap indices
                     }
                   }
@@ -1832,9 +1843,19 @@ Type objective_function<Type>::operator() () {
                   for(r_sex = 0; r_sex < nsex(rsp); r_sex++){
                     for (r_age = 0; r_age < nages(rsp); r_age++) {    // Predator age loop
                       if(avail_food(rsp, r_sex, r_age, yr) > 0){
-                        M2(ksp, k_sex, k_age, yr) += (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr); // #FIXME - include indices of overlap
-                        M2_prop(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr);
-                        B_eaten(ksp, k_sex, k_age, yr) += AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr);
+                        // Predation mortality
+                        M2(ksp, k_sex, k_age, yr) += pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind); // #FIXME - include indices of overlap
+                        M2_prop(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind);
+     
+     // Biomass of prey species eaten                   
+if(yr < nyrs_hind){
+                  yr_ind = yr;
+                }
+                if(yr >= nyrs_hind){
+                  yr_ind = nyrs_hind - 1;
+                }
+                        B_eaten(ksp, k_sex, k_age, yr) += pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) *  AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
+                        B_eaten_prop(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) *  AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
                       }
                     }
                   }
@@ -1847,7 +1868,7 @@ Type objective_function<Type>::operator() () {
 
 
       // 8.2. KINZEY PREDATION EQUATIONS
-      if (msmMode > 1) {
+      if (msmMode > 2) {
 
         // 8.2.2. Populate other food
         for (rsp = 0; rsp < nspp; rsp++) {
@@ -1939,31 +1960,31 @@ Type objective_function<Type>::operator() () {
                         Prey_r(ksp, k_age, yr) = Prey_ratio;
 
                         switch (msmMode) {
-                        case 2: // Holling Type I (linear)
+                        case 3: // Holling Type I (linear)
                           pred_resp(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = 1.0e-10 + Term;
                           break;
-                        case 3: // Holling Type II
+                        case 4: // Holling Type II
                           pred_resp(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = 1.0e-10 + Term * (1 + H_2(rsp, ksp) + Type(1.0e-10)) /
                             ( 1 + H_2(rsp, ksp) * Prey_ratio + 1.0e-10);
                           break;
-                        case 4: // Holling Type III
+                        case 5: // Holling Type III
                           pred_resp(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = 1.0e-10 +
                             Term * (1 + H_2(rsp, ksp)) * pow((Prey_ratio + 1.0e-10), H_4(rsp, ksp)) /
                               (1 + H_2(rsp, ksp) * pow((Prey_ratio + 1.0e-10), H_4(rsp, ksp)) + 1.0e-10 );
                           break;
-                        case 5: // predator interference
+                        case 6: // predator interference
                           pred_resp(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = 1.0e-10 + Term * (1 + H_2(rsp, ksp) + Type(1.0e-10)) /
                             ( 1 + H_2(rsp, ksp) * Prey_ratio + H_3(rsp, ksp) * (Pred_ratio - 1) + 1.0e-10);
                           break;
-                        case 6: // predator preemption
+                        case 7: // predator preemption
                           pred_resp(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = 1.0e-10 + Term * (1 + H_2(rsp, ksp) + Type(1.0e-10)) /
                             ( (1 + H_2(rsp, ksp) * Prey_ratio) * (1 + H_3(rsp, ksp) * (Pred_ratio - 1)) + Type(1.0e-10));
                           break;
-                        case 7: // Hassell-Varley
+                        case 8: // Hassell-Varley
                           pred_resp(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = 1.0e-10 + Term * (2 + H_2(rsp, ksp) + 1.0e-10) /
                             (1.0 + H_2(rsp, ksp) * Prey_ratio + pow((Prey_ratio + Type(1.0e-10)), H_4(rsp, ksp)) + 1.0e-10 );
                           break;
-                        case 8: // Ecosim
+                        case 9: // Ecosim
                           pred_resp(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = 1.0e-10 + Term /
                             (1 + H_3(rsp, ksp) * (Pred_ratio - 1 + 1.0e-10));
                           break;
@@ -2269,6 +2290,8 @@ Type objective_function<Type>::operator() () {
 
         for(sex = 0; sex < nsex(sp); sex ++){
           for (age = 0; age < nages(sp); age++) {
+            // FIXME: add wt_yr_ind for MSE
+
             // By weight
             if(flt_units(flt) == 1){
               fsh_bio_hat(fsh_ind) += F(flt, sex, age, flt_yr) / Zed(sp, sex, age, flt_yr) * (1 - exp(-Zed(sp, sex, age, flt_yr))) * NByage(sp, sex, age, flt_yr) * wt( flt_wt_index(flt), sex, age, flt_yr ); // 5.5.
@@ -3143,6 +3166,7 @@ Type objective_function<Type>::operator() () {
   REPORT( M2 );
   REPORT( M2_prop );
   REPORT( B_eaten );
+  REPORT( B_eaten_prop );
   REPORT( UobsAge_hat );
   REPORT( UobsWtAge_hat );
 
