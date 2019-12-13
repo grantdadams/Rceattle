@@ -636,7 +636,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   }
 
   # 2. MSVPA based predation
-  if (data_list$msmMode == 1) {
+  if (data_list$msmMode %in% c(1,2)) {
     # Multispecies
     map_list$logH_1 <- replace(map_list$logH_1, values = rep(NA, length(map_list$logH_1)))
     map_list$logH_1a <- replace(map_list$logH_1a, values = rep(NA, length(map_list$logH_1a)))
@@ -649,43 +649,43 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   }
 
   # 3. Kinzey and Punt predation equations
-  if (data_list$msmMode > 1) {
+  if (data_list$msmMode > 2) {
 
     # Holling Type 1
-    if (data_list$msmMode == 2) {
+    if (data_list$msmMode == 3) {
       map_list$logH_2 <- replace(map_list$logH_2, values = rep(NA, length(map_list$logH_2)))
       map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
       map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
     }
 
     # Holling Type 2
-    if (data_list$msmMode == 3) {
+    if (data_list$msmMode == 4) {
       map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
       map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
     }
 
     # Holling Type 3
-    if (data_list$msmMode == 4) {
+    if (data_list$msmMode == 5) {
       map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
     }
 
     # Predator interference
-    if (data_list$msmMode == 5) {
-      map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
-    }
-
-    # Predator preemption
     if (data_list$msmMode == 6) {
       map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
     }
 
-    # Hassell-Varley
+    # Predator preemption
     if (data_list$msmMode == 7) {
+      map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
+    }
+
+    # Hassell-Varley
+    if (data_list$msmMode == 8) {
       map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
     }
 
     # Ecosim
-    if (data_list$msmMode == 8) {
+    if (data_list$msmMode == 9) {
       map_list$logH_2 <- replace(map_list$logH_2, values = rep(NA, length(map_list$logH_2)))
       map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
     }
