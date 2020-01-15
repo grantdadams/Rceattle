@@ -31,7 +31,6 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
   # -----------------------------------------------------------
   # -- 1 Map out future fishing mortality
-  map_list$proj_F <- as.numeric(replace(map_list$proj_F, values = rep(NA, length(map_list$proj_F))))
   map_list$proj_F_prop <- as.numeric(replace(map_list$proj_F_prop, values = rep(NA, length(map_list$proj_F_prop))))
 
   # Map out future recruitment deviations
@@ -728,10 +727,17 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   # STEP 4 - set up fixed n-at-age - I.E. turn off all parameters besides for species
   for(i in 1:data_list$nspp){
 
+    # Check proj F if proj F prop is all 0
+    prop_check <- data_list$fleet_control$proj_F[which(data_list$fleet_control$Species == i & data_list$fleet_control$Fleet_type == 1)]
+    if(sum(as.numeric(prop_check == 0)) != 0){
+      map_list$proj_F[i] <- NA
+    }
+
     # Fixed n-at-age
     if(data_list$estDynamics[i] > 0){
 
       # Population parameters
+      map_list$proj_F[i] <- NA
       map_list$ln_mn_rec[i] <- NA
       map_list$ln_rec_sigma[i] <- NA
       map_list$rec_dev[i,] <- replace(map_list$rec_dev[i,], values = rep(NA, length(map_list$rec_dev[i,])))
