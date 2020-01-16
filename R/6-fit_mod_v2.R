@@ -257,7 +257,6 @@ fit_mod <-
     # Remove years of data previous to start year
     data_list$UobsWtAge <- as.data.frame(data_list$UobsWtAge)
     data_list$UobsAge <- as.data.frame(data_list$UobsAge)
-
     data_list$wt <- data_list$wt[which(data_list$wt$Year == 0 | data_list$wt$Year >= data_list$styr),]
     data_list$UobsAge <- data_list$UobsAge[which(data_list$UobsAge$Year == 0 | data_list$UobsAge$Year >= data_list$styr),]
     data_list$UobsWtAge <- data_list$UobsWtAge[which(data_list$UobsWtAge$Year == 0 | data_list$UobsWtAge$Year >= data_list$styr),]
@@ -268,6 +267,24 @@ fit_mod <-
     data_list$NByageFixed <- data_list$NByageFixed[which(data_list$NByageFixed$Year == 0 | data_list$NByageFixed$Year >= data_list$styr),]
     data_list$Pyrs <- data_list$Pyrs[which(data_list$Pyrs$Year == 0 | data_list$Pyrs$Year >= data_list$styr),]
 
+
+    # Extend catch data to proj year for projections
+    for(flt in (unique(data_list$fsh_biom$Fleet_code))){
+      fsh_biom_sub <- data_list$fsh_biom[which(data_list$fsh_biom$Fleet_code == flt),]
+      yrs_proj <- (data_list$endyr + 1):data_list$projyr
+      nyrs_proj <- length(yrs_proj)
+      proj_fsh_biom <- data.frame(Fleet_name = rep(fsh_biom_sub$Fleet_name[1], nyrs_proj),
+                                  Fleet_code = rep(flt, nyrs_proj),
+                                  Species = rep(fsh_biom_sub$Species[1], nyrs_proj),
+                                  Year = yrs_proj,
+                                  Month = rep(fsh_biom_sub$Month[length(fsh_biom_sub$Month)], nyrs_proj),
+                                  Selectivity_block = rep(fsh_biom_sub$Selectivity_block[length(fsh_biom_sub$Selectivity_block)], nyrs_proj),
+                                  Catch = rep(NA, nyrs_proj),
+                                  CV = rep(NA, nyrs_proj))
+      data_list$fsh_biom <- rbind(data_list$fsh_biom, proj_fsh_biom)
+    }
+    data_list$fsh_biom <- data_list$fsh_biom[
+      with(data_list$fsh_biom, order(Fleet_code, Year)),]
 
     # Switches
     data_list$random_rec <- as.numeric(random_rec)
@@ -446,7 +463,7 @@ fit_mod <-
 
 
     # STEP 8 - Fit model object
-step = 5
+    step = 5
     # If phased
     if(!is.null(phase)){
       phase_pars <- Rceattle::TMBphase(
@@ -472,7 +489,7 @@ step = 5
     }
 
 
-# STEP 9 - Fit final model
+    # STEP 9 - Fit final model
     obj = TMB::MakeADFun(
       data_list_reorganized,
       parameters = start_par,
@@ -487,14 +504,14 @@ step = 5
 
     # Optimize
     opt = Rceattle::fit_tmb(obj = obj,
-                             fn=obj$fn,
-                             gr=obj$gr,
-                             startpar=obj$par,
-                             lower = L,
-                             upper = U,
-                             loopnum = 5,
-                             control = list(eval.max = 1e+09,
-                                            iter.max = 1e+09, trace = 0)
+                            fn=obj$fn,
+                            gr=obj$gr,
+                            startpar=obj$par,
+                            lower = L,
+                            upper = U,
+                            loopnum = 5,
+                            control = list(eval.max = 1e+09,
+                                           iter.max = 1e+09, trace = 0)
     )
 
     message("Step ",step, ": Final optimization complete")

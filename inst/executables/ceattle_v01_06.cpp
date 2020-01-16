@@ -391,7 +391,6 @@ Type objective_function<Type>::operator() () {
 
 
   // 2.2. DIMENSIONS
-  // int nyrs_proj = proj_yr - styr + 1;        // End year
 
   // -- 2.2.2. Species attributes
   DATA_IVECTOR( nsex );                   // Number of sexes to be modelled; n = [1, nspp]; 1 = sexes combined/single sex, 2 = 2 sexes
@@ -491,7 +490,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 3.3. fishing mortality parameters
   PARAMETER_VECTOR( ln_mean_F );                  // Log mean fishing mortality; n = [1, n_fsh]
-  PARAMETER_VECTOR( proj_F );                     // Fishing mortality for projections; n = [1, nspp]
+  PARAMETER_VECTOR( FSPR );                     // Fishing mortality for projections; n = [1, nspp]
   PARAMETER_VECTOR( proj_F_prop );                // Proportion of fishing mortality from each fleet for projections; n = [1, n_fsh]
   PARAMETER_MATRIX( F_dev );                      // Annual fishing mortality deviations; n = [n_fsh, nyrs] # NOTE: The size of this will likely change
 
@@ -583,7 +582,7 @@ Type objective_function<Type>::operator() () {
   vector<Type>  SB35(nspp); SB35.setZero();                                         // Estimated 35% spawning biomass per recruit
   vector<Type>  SB40(nspp); SB40.setZero();                                         // Estimated 35% spawning biomass per recruit
   vector<Type>  SB0(nspp); SB0.setZero();                                           // Estimated spawning biomass per recruit at F = 0
-  vector<Type>  target_F(nspp); target_F.setZero();
+  matrix<Type>  proj_F(nspp, nyrs); proj_F.setZero();
 
   // -- 4.5. Survey components
   vector<Type>  sigma_srv_index(n_flt); sigma_srv_index.setZero();                  // Vector of standard deviation of survey index; n = [1, n_srv]
@@ -1004,7 +1003,7 @@ Type objective_function<Type>::operator() () {
 
             // Forecast
             if( yr >= nyrs_hind){
-              F(flt, sex, age, yr) = sel(flt, sex, age, nyrs_hind - 1) * proj_F_prop(flt) * exp(proj_F(sp)); // FIXME using last year of selectivity
+              F(flt, sex, age, yr) = sel(flt, sex, age, nyrs_hind - 1) * proj_F_prop(flt) * FSPR(sp); // FIXME using last year of selectivity
             }
             if(flt_type(flt) == 1){
               F_tot(sp, sex, age, yr) += F(flt, sex, age, yr);
@@ -1163,7 +1162,7 @@ Type objective_function<Type>::operator() () {
     }
 
 
-/*
+
     // 6.6. ESTIMATE FORECAST NUMBERS AT AGE, BIOMASS-AT-AGE (kg), and SSB-AT-AGE (kg)
     // Tier 3 Harvest control
     for (sp = 0; sp < nspp; sp++) {
@@ -1198,8 +1197,8 @@ Type objective_function<Type>::operator() () {
 
 
             // -- 6.3.3. Estimate Biomass and SSB
-            biomassByage(sp, age, yr) += NByage(sp, sex, age, yr) * wt( pop_wt_index(sp), sex, age, yr ); // 6.5.
-            biomassSSBByage(sp, age, yr) = NByage(sp, 0, age, yr) * pow(S(sp, 0, age, yr), spawn_month(sp)/12) * wt(ssb_wt_index(sp), 0, age, nyrs_hind ) * pmature(sp, age); // 6.6.
+            biomassByage(sp, age, yr) += NByage(sp, sex, age, yr) * wt( pop_wt_index(sp), sex, age, nyrs_hind-1 ); // 6.5.
+            biomassSSBByage(sp, age, yr) = NByage(sp, 0, age, yr) * pow(S(sp, 0, age, yr), spawn_month(sp)/12) * wt(ssb_wt_index(sp), 0, age, nyrs_hind-1 ) * pmature(sp, age); // 6.6.
 
             biomass(sp, yr) += biomassByage(sp, age, yr);
             biomassSSB(sp, yr) += biomassSSBByage(sp, age, yr);
@@ -1209,16 +1208,22 @@ Type objective_function<Type>::operator() () {
 
         // Adjust F based on F35 control rule
         if(biomassSSB(sp, yr) < SB35(sp)){
+          proj_F(sp, yr) = FSPR(sp) * (((biomassSSB(sp, yr)/SB35(sp))-0.05)/(1-0.05));
 
-          target_F(sp) = exp(proj_F(sp)) * (((biomassSSB(sp, yr)/SB35(sp))-0.05)/(1-0.05));
+
+          for (age = 0; age < nages(sp); age++) {
+            for(sex = 0; sex < nsex(sp); sex ++){
+              F_tot(sp, sex, age, yr) = 0;
+            }
+          }
+
+
           for (flt = 0; flt < n_flt; flt++) {
-
             if(sp == flt_spp(flt)){
               for (age = 0; age < nages(sp); age++) {
                 for(sex = 0; sex < nsex(sp); sex ++){
 
-
-                  F(flt, sex, age, yr) = sel(flt, sex, age, nyrs_hind - 1) * proj_F_prop(flt) * target_F(sp); // FIXME using last year of selectivity
+                  F(flt, sex, age, yr) = sel(flt, sex, age, nyrs_hind - 1) * proj_F_prop(flt) * proj_F(sp, yr); // FIXME using last year of selectivity
 
                   if(flt_type(flt) == 1){
                     F_tot(sp, sex, age, yr) += F(flt, sex, age, yr);
@@ -1230,6 +1235,7 @@ Type objective_function<Type>::operator() () {
         }
 
         for (age = 0; age < nages(sp); age++) {
+          biomassByage(sp, age, yr) = 0;
           for(sex = 0; sex < nsex(sp); sex ++){
             M(sp, sex, age, yr) = M1_base(sp, sex, age) + M2(sp, sex, age, yr);
             Zed(sp, sex, age, yr) = M1_base(sp, sex, age) + F_tot(sp, sex, age, yr) + M2(sp, sex, age, yr);
@@ -1237,10 +1243,12 @@ Type objective_function<Type>::operator() () {
           }
         }
 
+            biomass(sp, yr) = 0;
+            biomassSSB(sp, yr) = 0;
+
 
         // Rerun projection
         for (age = 0; age < nages(sp); age++) {
-
           for(sex = 0; sex < nsex(sp); sex ++){
 
             // Estimated numbers-at-age
@@ -1269,8 +1277,8 @@ Type objective_function<Type>::operator() () {
 
 
             // -- 6.3.3. Estimate Biomass and SSB
-            biomassByage(sp, age, yr) += NByage(sp, sex, age, yr) * wt( pop_wt_index(sp), sex, age, yr ); // 6.5.
-            biomassSSBByage(sp, age, yr) = NByage(sp, 0, age, yr) * pow(S(sp, 0, age, yr), spawn_month(sp)/12) * wt(ssb_wt_index(sp), 0, age, nyrs_hind ) * pmature(sp, age); // 6.6.
+            biomassByage(sp, age, yr) += NByage(sp, sex, age, yr) * wt( pop_wt_index(sp), sex, age, nyrs_hind-1 ); // 6.5.
+            biomassSSBByage(sp, age, yr) = NByage(sp, 0, age, yr) * pow(S(sp, 0, age, yr), spawn_month(sp)/12) * wt(ssb_wt_index(sp), 0, age, nyrs_hind-1 ) * pmature(sp, age); // 6.6.
 
             biomass(sp, yr) += biomassByage(sp, age, yr);
             biomassSSB(sp, yr) += biomassSSBByage(sp, age, yr);
@@ -1278,7 +1286,6 @@ Type objective_function<Type>::operator() () {
         }
       }
     }
-*/
 
     // 6.6. ESTIMATE SEX RATIO
     sexr_hat.setZero();
@@ -3305,6 +3312,8 @@ Type objective_function<Type>::operator() () {
   REPORT( F_tot );
   REPORT( fsh_bio_hat );
   REPORT( fsh_cv_hat );
+  REPORT( proj_F );
+  REPORT( FSPR );
 
 
   // 12.5. Age/length composition
