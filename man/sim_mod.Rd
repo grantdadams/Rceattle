@@ -4,10 +4,10 @@
 \alias{sim_mod}
 \title{Simulate Rceattle data}
 \usage{
-sim_mod(ceattle_obj, simulate = FALSE)
+sim_mod(Rceattle, simulate = FALSE)
 }
 \arguments{
-\item{ceattle_obj}{CEATTLE model object exported from \code{\link{Rceattle}}}
+\item{Rceattle}{CEATTLE model object exported from \code{\link{Rceattle}}}
 
 \item{simulate}{TRUE/FALSE, whether to simulate the data or export the expected value}
 }

@@ -56,7 +56,7 @@ rearrange_dat <- function(data_list){
   }
 
   data_list$emp_sel_ctl <- as.matrix(data_list$emp_sel[,c("Fleet_code", "Species", "Sex", "Year")])
-  data_list$emp_sel_obs <- as.matrix(data_list$emp_sel[,grep("Comp_", colnames(data_list$emp_sel))])
+  data_list$emp_sel_obs <- matrix(as.numeric(unlist(data_list$emp_sel[,grep("Comp_", colnames(data_list$emp_sel))])), nrow = nrow(data_list$emp_sel_ctl))
 
   # Make data_list names different
   data_list$fleet_control$Fleet_name <- suppressWarnings(as.numeric(as.character(data_list$fleet_control$Fleet_name)))
@@ -136,17 +136,20 @@ rearrange_dat <- function(data_list){
     sex <- as.numeric(as.character(wt_matrix$Sex[i]))
     yr <- as.numeric(as.character(wt_matrix$Year[i])) - data_list$styr + 1
 
-    # If year == 0, set weight to all years
-    if(yr == (-data_list$styr + 1)){
-      yr = 1:length(data_list$styr:data_list$endyr)
-    }
+    if(yr <= data_list$endyr - data_list$styr + 1){
 
-    if(sex == 0){ sex = c(1, 2)}
-    for(j in 1:length(sex)){
-      if(sum(grepl("[[:space:]]", as.character(wt_matrix[i, (1:data_list$nages[sp]) + 5])))){
-        stop(paste("Space found in wt data: row", i))
+      # If year == 0, set weight to all years
+      if(yr == (-data_list$styr + 1)){
+        yr = 1:length(data_list$styr:data_list$endyr)
       }
-      wt[wt_ind, sex[j], 1:data_list$nages[sp], yr] <- as.numeric(as.character(wt_matrix[i, (1:data_list$nages[sp]) + 5]))
+
+      if(sex == 0){ sex = c(1, 2)}
+      for(j in 1:length(sex)){
+        if(sum(grepl("[[:space:]]", as.character(wt_matrix[i, (1:data_list$nages[sp]) + 5])))){
+          stop(paste("Space found in wt data: row", i))
+        }
+        wt[wt_ind, sex[j], 1:data_list$nages[sp], yr] <- as.numeric(as.character(as.matrix(unlist(wt_matrix[i, (1:data_list$nages[sp]) + 5]))))
+      }
     }
   }
   data_list$wt <- wt
@@ -205,7 +208,7 @@ rearrange_dat <- function(data_list){
 
 
   # Set up pyrs array
-  Pyrs <- array(0, dim = c(data_list$nspp, 2, max(data_list$nages), length(data_list$styr:data_list$endyr)))
+  Pyrs <- array(0, dim = c(data_list$nspp, 2, max(data_list$nages), length(data_list$styr:data_list$endyr))) # FIXME: Change for forecast
 
   for (i in 1:nrow(data_list$Pyrs)) {
     sp <- as.numeric(as.character(data_list$Pyrs$Species[i]))
@@ -214,7 +217,10 @@ rearrange_dat <- function(data_list){
       sex = c(1,2)
     }
     yr <- as.numeric(as.character(data_list$Pyrs$Year[i])) - data_list$styr + 1
-    Pyrs[sp, sex, 1:data_list$nages[sp], yr] <- as.numeric(as.character(data_list$Pyrs[i, (1:data_list$nages[sp]) + 2]))
+
+    if(yr <= data_list$endyr - data_list$styr + 1){
+      Pyrs[sp, sex, 1:data_list$nages[sp], yr] <- as.numeric(as.character(as.matrix(unlist(data_list$Pyrs[i, (1:data_list$nages[sp]) + 2]))))
+    }
   }
   data_list$Pyrs <- Pyrs
 

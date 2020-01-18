@@ -37,6 +37,7 @@ mydata <- Rceattle::read_data( file = "BS2017SS.xlsx")
 # Estimation
 ################################################
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
+mydata$fleet_control$proj_F_prop <-rep(1,7)
 ss_run <- Rceattle::fit_mod(data_list = mydata,
                             TMBfilename = "ceattle_v01_06",
                             cpp_directory = "inst/executables",
@@ -47,7 +48,9 @@ ss_run <- Rceattle::fit_mod(data_list = mydata,
                             msmMode = 0, # Single species mode
                             phase = "default",
                             silent = TRUE,
-                            recompile = FALSE)
+                            recompile = TRUE)
+mse <- mse_run(operating_model = ss_run, estimation_model = ss_run, nsim = 1, assessment_period = 2, sampling_period = 2, simulate = TRUE)
+
 # The you can plot the model results using using
 plot_biomass(Rceattle =  ss_run, incl_proj = T)
 plot_recruitment(Rceattle =  ss_run, add_ci = TRUE)
@@ -69,6 +72,7 @@ ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
                             silent = TRUE,
                             recompile = FALSE)
 
+ms_mse <- mse_run(operating_model = ms_run, estimation_model = ss_run, nsim = 1, assessment_period = 2, sampling_period = 2, simulate = TRUE)
 
 # We can plot both runs as well:
 mod_list <- list(ss_run, ms_run)
