@@ -182,7 +182,7 @@
 #'rec_dev = 2,
 #'init_dev = 2,
 #'ln_mean_F = 1,
-#'proj_F = 1,
+#'FSPR = 1,
 #'F_dev = 1,
 #'log_srv_q = 3,
 #'ln_srv_q_dev = 4,
@@ -260,9 +260,9 @@ fit_mod <-
     data_list$wt <- data_list$wt[which(data_list$wt$Year == 0 | data_list$wt$Year >= data_list$styr),]
     data_list$UobsAge <- data_list$UobsAge[which(data_list$UobsAge$Year == 0 | data_list$UobsAge$Year >= data_list$styr),]
     data_list$UobsWtAge <- data_list$UobsWtAge[which(data_list$UobsWtAge$Year == 0 | data_list$UobsWtAge$Year >= data_list$styr),]
-    data_list$srv_biom <- data_list$srv_biom[which(data_list$srv_biom$Year >= data_list$styr),]
-    data_list$fsh_biom <- data_list$fsh_biom[which(data_list$fsh_biom$Year >= data_list$styr),]
-    data_list$comp_data <- data_list$comp_data[which(data_list$comp_data$Year >= data_list$styr),]
+    data_list$srv_biom <- data_list$srv_biom[which(abs(data_list$srv_biom$Year) >= data_list$styr),]
+    data_list$fsh_biom <- data_list$fsh_biom[which(abs(data_list$fsh_biom$Year) >= data_list$styr),]
+    data_list$comp_data <- data_list$comp_data[which(abs(data_list$comp_data$Year) >= data_list$styr),]
     data_list$emp_sel <- data_list$emp_sel[which(data_list$emp_sel$Year == 0 | data_list$emp_sel$Year >= data_list$styr),]
     data_list$NByageFixed <- data_list$NByageFixed[which(data_list$NByageFixed$Year == 0 | data_list$NByageFixed$Year >= data_list$styr),]
     data_list$Pyrs <- data_list$Pyrs[which(data_list$Pyrs$Year == 0 | data_list$Pyrs$Year >= data_list$styr),]
@@ -280,7 +280,7 @@ fit_mod <-
                                   Month = rep(fsh_biom_sub$Month[length(fsh_biom_sub$Month)], nyrs_proj),
                                   Selectivity_block = rep(fsh_biom_sub$Selectivity_block[length(fsh_biom_sub$Selectivity_block)], nyrs_proj),
                                   Catch = rep(NA, nyrs_proj),
-                                  CV = rep(NA, nyrs_proj))
+                                  CV = rep(fsh_biom_sub$CV[length(fsh_biom_sub$CV)], nyrs_proj))
       data_list$fsh_biom <- rbind(data_list$fsh_biom, proj_fsh_biom)
     }
     data_list$fsh_biom <- data_list$fsh_biom[
@@ -313,7 +313,7 @@ fit_mod <-
         inits = inits
       ))
     } else{
-      inits$proj_F <- data_list$fleet_control$proj_F
+      # inits$proj_F <- data_list$fleet_control$proj_F
       params <- inits
     }
     message("Step 1: Parameter build complete")
@@ -360,7 +360,7 @@ fit_mod <-
           rec_dev = 2,
           init_dev = 2,
           ln_mean_F = 1,
-          proj_F = 1,
+          FSPR = 1,
           proj_F_prop = 1,
           F_dev = 1,
           log_srv_q = 5,
@@ -465,7 +465,7 @@ fit_mod <-
     # STEP 8 - Fit model object
     step = 5
     # If phased
-    if(!is.null(phase)){
+    if(!is.null(phase) & debug == FALSE){
       phase_pars <- Rceattle::TMBphase(
         data = data_list_reorganized,
         parameters = params,
@@ -534,7 +534,7 @@ fit_mod <-
       "Recruitment deviates",
       "Initial abundance deviates",
       "Fishing mortality deviates",
-      "Empty",
+      "SPR Calculation",
       "Ration",
       "Ration penalties",
       "Stomach content weight",
@@ -600,3 +600,5 @@ fit_mod <-
     # suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file)))))
     return(mod_objects)
   }
+
+

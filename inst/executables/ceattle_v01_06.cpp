@@ -2335,11 +2335,18 @@ Type objective_function<Type>::operator() () {
 
       srv = srv_biom_ctl(srv_ind, 0) - 1;            // Temporary survey index
       sp = srv_biom_ctl(srv_ind, 1) - 1;             // Temporary index of species
-      flt_yr = srv_biom_ctl(srv_ind, 2) - styr;      // Temporary index for years of data
+      flt_yr = srv_biom_ctl(srv_ind, 2);              // Temporary index for years of data
 
       mo = srv_biom_n(srv_ind, 0);                    // Temporary index for month
 
       srv_bio_hat(srv_ind) = 0;                      // Initialize
+
+      if(flt_yr > 0){
+        flt_yr = flt_yr - styr;
+      }
+      if(flt_yr < 0){
+        flt_yr = -flt_yr - styr;
+      }
 
       // Hindcast
       if(flt_yr < nyrs_hind){
@@ -2373,7 +2380,14 @@ Type objective_function<Type>::operator() () {
 
       srv = srv_biom_ctl(srv_ind, 0) - 1;            // Temporary survey index
       sp = srv_biom_ctl(srv_ind, 1) - 1;             // Temporary index of species
-      flt_yr = srv_biom_ctl(srv_ind, 2) - styr;      // Temporary index for years of data
+      flt_yr = srv_biom_ctl(srv_ind, 2);             // Temporary index for years of data
+
+      if(flt_yr > 0){
+        flt_yr = flt_yr - styr;
+      }
+      if(flt_yr < 0){
+        flt_yr = -flt_yr - styr;
+      }
 
       mo = srv_biom_n(srv_ind, 0);                    // Temporary index for month
       if(flt_yr < nyrs_hind){
@@ -2398,7 +2412,14 @@ Type objective_function<Type>::operator() () {
     for(srv_ind = 0; srv_ind < srv_biom_ctl.rows(); srv_ind++){
 
       srv = srv_biom_ctl(srv_ind, 0) - 1;            // Temporary survey index
-      flt_yr = srv_biom_ctl(srv_ind, 2) - styr;      // Temporary index for years of data
+      flt_yr = srv_biom_ctl(srv_ind, 2);      // Temporary index for years of data
+
+      if(flt_yr > 0){
+        flt_yr = flt_yr - styr;
+      }
+      if(flt_yr < 0){
+        flt_yr = -flt_yr - styr;
+      }
 
       // Hindcast
       if(flt_yr < nyrs_hind){
@@ -2422,7 +2443,14 @@ Type objective_function<Type>::operator() () {
     for(srv_ind = 0; srv_ind < srv_biom_ctl.rows(); srv_ind++){
 
       srv = srv_biom_ctl(srv_ind, 0) - 1;            // Temporary survey index
-      flt_yr = srv_biom_ctl(srv_ind, 2) - styr;      // Temporary index for years of data
+      flt_yr = srv_biom_ctl(srv_ind, 2);      // Temporary index for years of data
+
+      if(flt_yr > 0){
+        flt_yr = flt_yr - styr;
+      }
+      if(flt_yr < 0){
+        flt_yr = -flt_yr - styr;
+      }
 
       if(flt_yr < nyrs_hind){
         srv_n_obs(srv) += 1; // Add one if survey is used
@@ -2445,10 +2473,17 @@ Type objective_function<Type>::operator() () {
 
       flt = fsh_biom_ctl(fsh_ind, 0) - 1;            // Temporary fishery index
       sp = fsh_biom_ctl(fsh_ind, 1) - 1;             // Temporary index of species
-      flt_yr = fsh_biom_ctl(fsh_ind, 2) - styr;      // Temporary index for years of data
+      flt_yr = fsh_biom_ctl(fsh_ind, 2);      // Temporary index for years of data
       mo = fsh_biom_n(fsh_ind, 0);                   // Temporary index for month
 
       fsh_bio_hat(fsh_ind) = 0;                      // Initialize
+
+      if(flt_yr > 0){
+        flt_yr = flt_yr - styr;
+      }
+      if(flt_yr < 0){
+        flt_yr = -flt_yr - styr;
+      }
 
       // Hindcast
       if(flt_yr < nyrs_hind){
@@ -2492,10 +2527,17 @@ Type objective_function<Type>::operator() () {
       sp = comp_ctl(comp_ind, 1) - 1;             // Temporary index of species
       flt_sex = comp_ctl(comp_ind, 2);            // Temporary index for comp sex (0 = combined, 1 = female, 2 = male)
       comp_type = comp_ctl(comp_ind, 3);          // Temporary index for comp type (0 = age, 1 = length)
-      yr = comp_ctl(comp_ind, 4) - styr;          // Temporary index for years of data
+      yr = comp_ctl(comp_ind, 4);                 // Temporary index for years of data
       mo = comp_n(comp_ind, 0);                   // Temporary index for month
 
       n_hat(comp_ind) = 0;                          // Initialize
+
+      if(yr > 0){
+        yr = yr - styr;
+      }
+      if(yr < 0){
+        yr = -yr - styr;
+      }
 
       // Hindcast
       if(yr < nyrs_hind){
@@ -2761,7 +2803,7 @@ Type objective_function<Type>::operator() () {
     comp_type = comp_ctl(comp_ind, 3);          // Temporary index for comp type (0 = age, 1 = length)
     yr = comp_ctl(comp_ind, 4) - styr;          // Temporary index for years of data
 
-
+if(yr > 0){
     // Adjustment for joint sex composition data
     Type joint_adjust = 1;
     if(flt_sex == 3){
@@ -2788,6 +2830,7 @@ Type objective_function<Type>::operator() () {
       }
     }
   }
+}
 
   // 11.1.4. -- Offsets for diet (weights)
   for (rsp = 0; rsp < nspp; rsp++) {
@@ -2838,6 +2881,7 @@ Type objective_function<Type>::operator() () {
     sp = srv_biom_ctl(srv_ind, 1) - 1;             // Species is the 2nd column
     flt_yr = srv_biom_ctl(srv_ind, 2);             // Temporary index for years of data
 
+if(flt_yr > 0){
     // Set up variance
     switch (est_sigma_srv(srv)) {
     case 0:     // Provided standard deviation
@@ -2861,7 +2905,7 @@ Type objective_function<Type>::operator() () {
     if(flt_type(srv) > 0){
       if(flt_yr <= endyr){
         if(srv_bio_hat(srv_ind) > 0){
-          jnll_comp(0, srv) -= dnorm(log(srv_bio_hat(srv_ind)), log(srv_biom_obs(srv_ind, 0)), srv_std_dev, true);  // pow(log(srv_biom_obs(srv_ind, 0)) - log(srv_bio_hat(srv_ind)), 2) / (2 * square( srv_std_dev )); // NOTE: This is not quite the lognormal and biohat will be the median.
+          jnll_comp(0, srv) -= dnorm(log(srv_biom_obs(srv_ind, 0)), log(srv_bio_hat(srv_ind)), srv_std_dev, true);  // pow(log(srv_biom_obs(srv_ind, 0)) - log(srv_bio_hat(srv_ind)), 2) / (2 * square( srv_std_dev )); // NOTE: This is not quite the lognormal and biohat will be the median.
 
           SIMULATE {
             srv_biom_obs(srv_ind, 0) = rnorm(log(srv_bio_hat(srv_ind)), srv_std_dev);  // Simulate response
@@ -2870,6 +2914,7 @@ Type objective_function<Type>::operator() () {
         }
       }
     }
+  }
   }
 
 
@@ -2880,6 +2925,7 @@ Type objective_function<Type>::operator() () {
     flt = fsh_biom_ctl(fsh_ind, 0) - 1;            // Temporary fishery index
     sp = fsh_biom_ctl(fsh_ind, 1) - 1;             // Species is the column 3
     flt_yr = fsh_biom_ctl(fsh_ind, 2);             // Temporary index for years of data
+    if(flt_yr > 0){
 
     // Set up variance
     switch (est_sigma_fsh(flt)) {
@@ -2899,7 +2945,7 @@ Type objective_function<Type>::operator() () {
     if(flt_type(flt) == 1){
       if(flt_yr <= endyr){
         if(fsh_biom_obs(fsh_ind, 0) > 0){
-          jnll_comp(1, flt) -= dnorm(log(fsh_bio_hat(fsh_ind)), log(fsh_biom_obs(fsh_ind, 0)), fsh_std_dev, true) ; // pow(log(fsh_biom_obs(fsh_ind, 0) + MNConst) - log(fsh_bio_hat(fsh_ind)), 2) / (2 * square(fsh_std_dev)); // NOTE: This is not quite the log  normal and biohat will be the median.
+          jnll_comp(1, flt) -= dnorm(log(fsh_biom_obs(fsh_ind, 0)), log(fsh_bio_hat(fsh_ind)), fsh_std_dev, true) ; // pow(log(fsh_biom_obs(fsh_ind, 0) + MNConst) - log(fsh_bio_hat(fsh_ind)), 2) / (2 * square(fsh_std_dev)); // NOTE: This is not quite the log  normal and biohat will be the median.
 
           SIMULATE {
             fsh_biom_obs(fsh_ind, 0) = rnorm(log(fsh_bio_hat(fsh_ind)), fsh_std_dev);  // Simulate response
@@ -2909,6 +2955,7 @@ Type objective_function<Type>::operator() () {
       }
     }
   }
+  }
 
 
 
@@ -2917,10 +2964,11 @@ Type objective_function<Type>::operator() () {
 
     flt = comp_ctl(comp_ind, 0) - 1;        // Temporary survey index
     sp = comp_ctl(comp_ind, 1) - 1;         // Temporary index of species
-    flt_sex = comp_ctl(comp_ind, 2);        // Temporary index for comp sex (0 = combined, 1 = female, 2 = male)
+    flt_sex = comp_ctl(comp_ind, 2);        // Temporary index for comp sex (0 = combined, 1 = female, 2 = male, 3 = joint)
     comp_type = comp_ctl(comp_ind, 3);      // Temporary index for comp type (0 = age, 1 = length)
     yr = comp_ctl(comp_ind, 4);             // Temporary index for years of data
 
+    if(yr > 0){
 
     // Adjustment for joint sex composition data
     joint_adjust(comp_ind) = 1;
@@ -2976,6 +3024,7 @@ Type objective_function<Type>::operator() () {
       }
     }
   }
+}
 
 
   // Remove offsets
