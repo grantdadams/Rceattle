@@ -553,16 +553,16 @@ Type objective_function<Type>::operator() () {
   matrix<Type>  biomass(nspp, nyrs); biomass.setZero();                             // Estimated biomass (kg); n = [nspp, nyrs]
   matrix<Type>  biomassSSB(nspp, nyrs); biomassSSB.setZero();                       // Estimated spawning stock biomass (kg); n = [nspp, nyrs]
   array<Type>   biomassSSBByage(nspp, max_age, nyrs); biomassSSBByage.setZero();    // Spawning biomass at age (kg); n = [nspp, nages, nyrs]
-  array<Type>   M(nspp, 2, max_age, nyrs); M.setZero();                             // Total natural mortality at age; n = [nyrs, 2 sexes, nages, nspp]
+  array<Type>   M(nspp, 2, max_age, nyrs+1); M.setZero();                             // Total natural mortality at age; n = [nyrs, 2 sexes, nages, nspp]
   array<Type>   M1 = M1_base;
-  array<Type>   M2(nspp, 2, max_age, nyrs); M2.setZero();                           // Predation mortality at age; n = [nyrs, nages, nspp]
+  array<Type>   M2(nspp, 2, max_age, nyrs+1); M2.setZero();                           // Predation mortality at age; n = [nyrs, nages, nspp]
   array<Type>   M2_prop(nspp, nspp, 2, 2, max_age, max_age, nyrs); M2_prop.setZero();     // Relative predation mortality at age from each species at age; n = [nyrs, nages, nspp]
   array<Type>   NByage(nspp, 2, max_age, nyrs); NByage.setZero();                   // Numbers at age; n = [nspp, nages, nyrs]
   array<Type>   AvgN(nspp, 2, max_age, nyrs); AvgN.setZero();                       // Average numbers-at-age; n = [nspp, nages, nyrs]
   array<Type>   sexr_hat(nspp, max_age, nyrs); sexr_hat.setZero();                  // Estimated sex ration; n = [nspp, nages, nyrs]
   matrix<Type>  R(nspp, nyrs); R.setZero();                                         // Estimated recruitment (n); n = [nspp, nyrs]
-  array<Type>   S(nspp, 2, max_age, nyrs); S.setZero();                             // Survival at age; n = [nspp, 2 sexes, nages, nyrs]
-  array<Type>   Zed(nspp, 2, max_age, nyrs); Zed.setZero();                         // Total mortality at age; n = [nspp, 2 sexes, nages, nyrs]
+  array<Type>   S(nspp, 2, max_age, nyrs+1); S.setZero();                             // Survival at age; n = [nspp, 2 sexes, nages, nyrs]
+  array<Type>   Zed(nspp, 2, max_age, nyrs+1); Zed.setZero();                         // Total mortality at age; n = [nspp, 2 sexes, nages, nyrs]
   vector<Type>  r_sigma(nspp); r_sigma.setZero();                                   // Standard deviation of recruitment variation
 
   // -- 4.3. Selectivity parameters
@@ -574,8 +574,8 @@ Type objective_function<Type>::operator() () {
   // -- 4.4. Fishery observations
   vector<Type>  sigma_fsh_catch(n_flt); sigma_fsh_catch.setZero();                  // Standard deviation of fishery time-series; n = [1, n_fsh]
   array<Type>   catch_hat(nspp, max_age, nyrs); catch_hat.setZero();                // Estimated catch-at-age (n); n = [nspp, nages, nyrs]
-  array<Type>   F(n_flt, 2, max_age, nyrs); F.setZero();                            // Estimated fishing mortality for each fishery; n = [n_flt, 2 sexes, nages, nyrs]
-  array<Type>   F_tot(nspp, 2, max_age, nyrs); F_tot.setZero();                     // Sum of annual estimated fishing mortalities for each species-at-age; n = [nspp, 2 sexes, nages, nyrs]
+  array<Type>   F(n_flt, 2, max_age, nyrs+1); F.setZero();                            // Estimated fishing mortality for each fishery; n = [n_flt, 2 sexes, nages, nyrs]
+  array<Type>   F_tot(nspp, 2, max_age, nyrs+1); F_tot.setZero();                     // Sum of annual estimated fishing mortalities for each species-at-age; n = [nspp, 2 sexes, nages, nyrs]
   vector<Type>  fsh_bio_hat(fsh_biom_obs.rows()); fsh_bio_hat.setZero();            // Estimated fishery yield (kg);
   vector<Type>  fsh_cv_hat(fsh_biom_obs.rows()); fsh_cv_hat.setZero();              // Estimated/fixed fishery cv (kg);
   array<Type>   NbyageSPR(3, nspp, max_age);                                        // Estimated numbers at age for spawning biomass per recruit reference points
@@ -992,7 +992,7 @@ Type objective_function<Type>::operator() () {
       sp = flt_spp(flt);  // Temporary index of fishery survey
 
 
-      for (yr = 0; yr < nyrs; yr++) {
+      for (yr = 0; yr <= nyrs; yr++) {
         for (age = 0; age < nages(sp); age++) {
           for(sex = 0; sex < nsex(sp); sex ++){
 
@@ -1017,7 +1017,7 @@ Type objective_function<Type>::operator() () {
     // 6.2. Estimate total mortality at age NOTE: May need to go above population dynamics
     for (sp = 0; sp < nspp; sp++) {
       for (age = 0; age < nages(sp); age++) {
-        for (yr = 0; yr < nyrs; yr++) {
+        for (yr = 0; yr <= nyrs; yr++) {
           for(sex = 0; sex < nsex(sp); sex ++){
             M(sp, sex, age, yr) = M1_base(sp, sex, age) + M2(sp, sex, age, yr);
             Zed(sp, sex, age, yr) = M1_base(sp, sex, age) + F_tot(sp, sex, age, yr) + M2(sp, sex, age, yr);
@@ -1035,15 +1035,15 @@ Type objective_function<Type>::operator() () {
       NbyageSPR(2, sp, 0) = exp(ln_mn_rec(sp));
 
       for (age = 1; age < nages(sp)-1; age++) {
-        NbyageSPR(0, sp, age) =  NbyageSPR(0, sp, age-1) * exp(M(sp, 0, age-1, nyrs_hind));
-        NbyageSPR(1, sp, age) =  NbyageSPR(1, sp, age-1) * S(sp, 0, age-1, nyrs_hind);
-        NbyageSPR(2, sp, age) =  NbyageSPR(2, sp, age-1) * S(sp, 0, age-1, nyrs_hind);
+        NbyageSPR(0, sp, age) =  NbyageSPR(0, sp, age-1) * exp(M(sp, 0, age-1, nyrs));
+        NbyageSPR(1, sp, age) =  NbyageSPR(1, sp, age-1) * S(sp, 0, age-1, nyrs);
+        NbyageSPR(2, sp, age) =  NbyageSPR(2, sp, age-1) * S(sp, 0, age-1, nyrs);
       }
 
       // Plus group
-      NbyageSPR(0, sp, nages(sp) - 1) = NbyageSPR(0, sp, nages(sp) - 2) * exp(M(sp, 0, nages(sp) - 2, nyrs_hind)) + NbyageSPR(0, sp, nages(sp) - 1) * exp(M(sp, 0, nages(sp) - 1, nyrs_hind));
-      NbyageSPR(1, sp, nages(sp) - 1) = NbyageSPR(1, sp, nages(sp) - 2) * S(sp, 0, nages(sp) - 2, nyrs_hind) + NbyageSPR(1, sp, nages(sp) - 1) * S(sp, 0, nages(sp) - 1, nyrs_hind);
-      //NbyageSPR(2, sp, nages(sp) - 1) = NbyageSPR(2, sp, nages(sp) - 2) * S(sp, 0, nages(sp) - 2, nyrs_hind) + NbyageSPR(2, sp, nages(sp) - 1) * S(sp, 0, nages(sp) - 1;, nyrs_hind);
+      NbyageSPR(0, sp, nages(sp) - 1) = NbyageSPR(0, sp, nages(sp) - 2) * exp(M(sp, 0, nages(sp) - 2, nyrs)) + NbyageSPR(0, sp, nages(sp) - 1) * exp(M(sp, 0, nages(sp) - 1, nyrs));
+      NbyageSPR(1, sp, nages(sp) - 1) = NbyageSPR(1, sp, nages(sp) - 2) * S(sp, 0, nages(sp) - 2, nyrs) + NbyageSPR(1, sp, nages(sp) - 1) * S(sp, 0, nages(sp) - 1, nyrs);
+      //NbyageSPR(2, sp, nages(sp) - 1) = NbyageSPR(2, sp, nages(sp) - 2) * S(sp, 0, nages(sp) - 2, 0) + NbyageSPR(2, sp, nages(sp) - 1) * S(sp, 0, nages(sp) - 1;, 0);
 
       // Calulcate SPR
       for (age = 0; age < nages(sp); age++) {

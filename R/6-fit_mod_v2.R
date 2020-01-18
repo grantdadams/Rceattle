@@ -360,7 +360,7 @@ fit_mod <-
           rec_dev = 2,
           init_dev = 2,
           ln_mean_F = 1,
-          FSPR = 1,
+          FSPR = 3,
           proj_F_prop = 1,
           F_dev = 1,
           log_srv_q = 5,
