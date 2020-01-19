@@ -269,19 +269,21 @@ fit_mod <-
 
 
     # Extend catch data to proj year for projections
-    for(flt in (unique(data_list$fsh_biom$Fleet_code))){
-      fsh_biom_sub <- data_list$fsh_biom[which(data_list$fsh_biom$Fleet_code == flt),]
-      yrs_proj <- (data_list$endyr + 1):data_list$projyr
-      nyrs_proj <- length(yrs_proj)
-      proj_fsh_biom <- data.frame(Fleet_name = rep(fsh_biom_sub$Fleet_name[1], nyrs_proj),
-                                  Fleet_code = rep(flt, nyrs_proj),
-                                  Species = rep(fsh_biom_sub$Species[1], nyrs_proj),
-                                  Year = yrs_proj,
-                                  Month = rep(fsh_biom_sub$Month[length(fsh_biom_sub$Month)], nyrs_proj),
-                                  Selectivity_block = rep(fsh_biom_sub$Selectivity_block[length(fsh_biom_sub$Selectivity_block)], nyrs_proj),
-                                  Catch = rep(NA, nyrs_proj),
-                                  CV = rep(fsh_biom_sub$CV[length(fsh_biom_sub$CV)], nyrs_proj))
-      data_list$fsh_biom <- rbind(data_list$fsh_biom, proj_fsh_biom)
+    if(data_list$projyr > data_list$endyr){
+      for(flt in (unique(data_list$fsh_biom$Fleet_code))){
+        fsh_biom_sub <- data_list$fsh_biom[which(data_list$fsh_biom$Fleet_code == flt),]
+        yrs_proj <- (data_list$endyr + 1):data_list$projyr
+        nyrs_proj <- length(yrs_proj)
+        proj_fsh_biom <- data.frame(Fleet_name = rep(fsh_biom_sub$Fleet_name[1], nyrs_proj),
+                                    Fleet_code = rep(flt, nyrs_proj),
+                                    Species = rep(fsh_biom_sub$Species[1], nyrs_proj),
+                                    Year = yrs_proj,
+                                    Month = rep(fsh_biom_sub$Month[length(fsh_biom_sub$Month)], nyrs_proj),
+                                    Selectivity_block = rep(fsh_biom_sub$Selectivity_block[length(fsh_biom_sub$Selectivity_block)], nyrs_proj),
+                                    Catch = rep(NA, nyrs_proj),
+                                    CV = rep(fsh_biom_sub$CV[length(fsh_biom_sub$CV)], nyrs_proj))
+        data_list$fsh_biom <- rbind(data_list$fsh_biom, proj_fsh_biom)
+      }
     }
     data_list$fsh_biom <- data_list$fsh_biom[
       with(data_list$fsh_biom, order(Fleet_code, Year)),]
