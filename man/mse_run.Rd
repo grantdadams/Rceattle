@@ -6,7 +6,7 @@
 \usage{
 mse_run(operating_model = ss_run, estimation_model = ss_run,
   nsim = 10, assessment_period = 1, sampling_period = 1,
-  simulate = TRUE)
+  simulate = TRUE, cap = NULL)
 }
 \arguments{
 \item{operating_model}{CEATTLE model object exported from \code{\link{Rceattle}}}
@@ -20,6 +20,8 @@ mse_run(operating_model = ss_run, estimation_model = ss_run,
 \item{sampling_period}{Period of years data sampling is conducted}
 
 \item{simulate}{Include simulated random error proportional to that estimated/provided.}
+
+\item{cap}{A cap on the catch in the projection. Can be a single number or vector. Default = NULL}
 }
 \value{
 A list of

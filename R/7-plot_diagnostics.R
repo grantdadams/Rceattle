@@ -212,6 +212,8 @@ plot_index <-
 
 
 
+
+
 #' Plot time series of fishery catch
 #'
 #' @description Function the plots the fishery catch as estimated from Rceattle
@@ -295,15 +297,17 @@ plot_catch <-
 
 
     # Plot limits
-    nsrv <- nrow(Rceattle[[1]]$data_list$fsh_control)
-    fsh_control <- (Rceattle[[1]]$data_list$fsh_control)
+    fsh_control <- (Rceattle[[1]]$data_list$fleet_control)
+    fsh_control <- fsh_control[which(fsh_control$Fleet_type == 1),]
+    nsrv <- nrow(fsh_control)
+
     ymax <- rep(0, nsrv)
     ymin <- rep(0, nsrv)
     for(i in 1:length(Rceattle)){
-      for(srv in 1:nrow(Rceattle[[i]]$data_list$fsh_control)){
-        srv_ind <- which(Srv_list[[i]]$Fishery_code == srv)
-        ymax[srv] <- max(c(Srv_list[[i]]$Upper95[srv_ind], Srv_hat_list[[i]]$Catch[srv_ind], ymax[srv]), na.rm = T)
-        ymin[srv] <- min(c(Srv_list[[i]]$Lower95[srv_ind], Srv_hat_list[[i]]$Catch[srv_ind], ymin[srv]), na.rm = T)
+      for(j in 1:length(fsh_control$Fleet_code)){
+        flt_ind <- which(Srv_list[[i]]$Fleet_code == fsh_control$Fleet_code[j])
+        ymax[j] <- max(c(Srv_list[[i]]$Upper95[flt_ind], Srv_hat_list[[i]]$Catch[flt_ind], ymax[j]), na.rm = T)
+        ymin[j] <- min(c(Srv_list[[i]]$Lower95[flt_ind], Srv_hat_list[[i]]$Catch[flt_ind], ymin[j]), na.rm = T)
       }
     }
     ymax <- ymax + 0.1 * ymax
@@ -355,7 +359,7 @@ plot_catch <-
         }
 
         # Legends
-        legend("topleft", legend = as.character(fsh_control$Fishery_name[j]), bty = "n", cex = 1.4)
+        legend("topleft", legend = as.character(fsh_control$Fleet_name[j]), bty = "n", cex = 1.4)
 
         # if(!is.null(mohns)){
         #   legend("top", paste0("B Rho = ", round(mohns[1,j+1], 2), "; SSB Rho = ",  round(mohns[2,j+1], 2) ), bty = "n", cex = 1) # Biomass rho
@@ -394,8 +398,8 @@ plot_catch <-
 
         # Mean biomass
         for (k in 1:length(Rceattle)) {
-          srv_tmp <- Srv_list[[k]][which(Srv_list[[k]]$Fishery_code == j),]
-          srv_hat_tmp <- Srv_hat_list[[k]][which(Srv_list[[k]]$Fishery_code == j),]
+          srv_tmp <- Srv_list[[k]][which(Srv_list[[k]]$Fleet_code == fsh_control$Fleet_code[j]),]
+          srv_hat_tmp <- Srv_hat_list[[k]][which(Srv_list[[k]]$Fleet_code == fsh_control$Fleet_code[j]),]
 
           # Observed
           points(
@@ -427,3 +431,4 @@ plot_catch <-
       }
     }
   }
+

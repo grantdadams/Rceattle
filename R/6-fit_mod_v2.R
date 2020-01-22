@@ -486,7 +486,7 @@ fit_mod <-
     }
 
     # Not phased
-    if(is.null(phase)){
+    if(is.null(phase) | debug == TRUE){
       start_par <- params
     }
 
