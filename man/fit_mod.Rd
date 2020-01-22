@@ -8,7 +8,7 @@ fit_mod(TMBfilename = "ceattle_v01_06", cpp_directory = NULL,
   data_list = NULL, inits = NULL, map = NULL, bounds = NULL,
   file = NULL, debug = T, random_rec = FALSE, niter = 3,
   msmMode = 0, avgnMode = 0, minNByage = 0, suitMode = 0,
-  phase = NULL, silent = FALSE, recompile = FALSE)
+  phase = NULL, silent = FALSE, recompile = FALSE, gradient = TRUE)
 }
 \arguments{
 \item{TMBfilename}{(Optional) A version of the cpp CEATTLE \code{cpp_directory}. If NULL, uses the deafult and built .cpp file}
@@ -42,6 +42,8 @@ fit_mod(TMBfilename = "ceattle_v01_06", cpp_directory = NULL,
 \item{phase}{Optional. List of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R. If NULL, will not phase model. If set to \code{"default"}, will use default phasing.}
 
 \item{silent}{logical. IF TRUE, includes TMB estimation progress}
+
+\item{gradient}{Use the gradient to fit the phasing.}
 }
 \value{
 A list of class "Rceattle" including:

@@ -32,6 +32,8 @@
 // 16. Added in spawning month mortality adjustment
 // 17. Removed constant 0.0001 added to M1
 // 18. Had the model estimate Uobs
+//  Fixme: denominator is zero somewhere. Log of negative number. Check suitability. Make other prey a very large number.
+//  Look at M2: suitability: and consumption. Make sure positive.
 //
 //  INDEX:
 //  0. Load dependencies
@@ -490,7 +492,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 3.3. fishing mortality parameters
   PARAMETER_VECTOR( ln_mean_F );                  // Log mean fishing mortality; n = [1, n_fsh]
-  PARAMETER_MATRIX( FSPR );                     // Fishing mortality for projections; n = [1, nspp]
+  PARAMETER_MATRIX( ln_FSPR );                     // Fishing mortality for projections; n = [1, nspp]
   PARAMETER_VECTOR( proj_F_prop );                // Proportion of fishing mortality from each fleet for projections; n = [1, n_fsh]
   PARAMETER_MATRIX( F_dev );                      // Annual fishing mortality deviations; n = [n_fsh, nyrs] # NOTE: The size of this will likely change
 
@@ -585,6 +587,7 @@ Type objective_function<Type>::operator() () {
   vector<Type>  SB40(nspp); SB40.setZero();                                         // Estimated 40% spawning biomass per recruit
   vector<Type>  SB0(nspp); SB0.setZero();                                           // Estimated spawning biomass per recruit at F = 0
   matrix<Type>  proj_FABC(nspp, nyrs); proj_FABC.setZero();                         // Projected FABC using tier 3 harvest control rule
+  matrix<Type>  FSPR(nspp, 2); FSPR = exp(ln_FSPR.array());
 
   // -- 4.5. Survey components
   vector<Type>  sigma_srv_index(n_flt); sigma_srv_index.setZero();                  // Vector of standard deviation of survey index; n = [1, n_srv]
@@ -1550,7 +1553,7 @@ Type objective_function<Type>::operator() () {
               }
             }
             if(other_food(rsp) > 0){
-              of_stomKir(rsp, r_sex, r_age, yr) /= other_food(rsp);
+              of_stomKir(rsp, r_sex, r_age, yr) /= other_food(rsp); // Penalize this
             }
             if(other_food(rsp) == 0){
               of_stomKir(rsp, r_sex, r_age, yr) = 0;
@@ -3174,15 +3177,15 @@ Type objective_function<Type>::operator() () {
     // If included in likelihood
     if(flt_type(flt) == 1){
       for (yr = 0; yr < nyrs_hind; yr++) {
-        jnll_comp(11, flt) += pow( F_dev(flt, yr), 2);      // Fishing mortality deviation using penalized likelihood.
+        jnll_comp(11, flt) += square(F_dev(flt, yr));      // Fishing mortality deviation using penalized likelihood.
       }
     }
   }
 
   // Slot 12 -- SPR reference point penalties
   for (sp = 0; sp < nspp; sp++) {
-    jnll_comp(12, sp)  += 200*square((SB35(sp)/SB0(sp))-0.35);
-    jnll_comp(12, sp)  += 200*square((SB40(sp)/SB0(sp))-0.40);
+    jnll_comp(12, sp)  += 200*square(SB35(sp) - SB0(sp) * 0.35);
+    jnll_comp(12, sp)  += 200*square(SB40(sp) - SB0(sp) * 0.40);
   }
 
 
