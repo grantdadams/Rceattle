@@ -6,12 +6,13 @@
 #' @param assessment_period Period of years that each assessment is taken
 #' @param sampling_period Period of years data sampling is conducted
 #' @param simulate Include simulated random error proportional to that estimated/provided.
+#' @param cap A cap on the catch in the projection. Can be a single number or vector. Default = NULL
 #'
 #' @return A list of
 #' @export
 #'
 #' @examples
-mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 10, assessment_period = 1, sampling_period = 1, simulate = TRUE){
+mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 10, assessment_period = 1, sampling_period = 1, simulate = TRUE, cap = NULL){
   Rceattle_OM_list <- list()
   Rceattle_EM_list <- list()
 
@@ -198,9 +199,9 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
     # Replace future rec_devs with numbers
     if(simulate){
       for(sp in 1:operating_model_use$data_list$nspp){
-        operating_model_use$estimated_params$rec_dev[sp,proj_yrs - estimation_model$data_list$styr + 1] <- replace(
-          operating_model_use$estimated_params$rec_dev[sp,proj_yrs - estimation_model$data_list$styr + 1],
-          values = rnorm( length(operating_model_use$estimated_params$rec_dev[sp,proj_yrs - estimation_model$data_list$styr + 1]),
+        operating_model_use$estimated_params$rec_dev[sp,proj_yrs - operating_model_use$data_list$styr + 1] <- replace(
+          operating_model_use$estimated_params$rec_dev[sp,proj_yrs - operating_model_use$data_list$styr + 1],
+          values = rnorm( length(operating_model_use$estimated_params$rec_dev[sp,proj_yrs - operating_model_use$data_list$styr + 1]),
                           mean = 0,
                           sd = exp(operating_model_use$estimated_params$ln_rec_sigma[sp])) # Assumed value from penalized likelihood
         )
@@ -217,6 +218,9 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
       new_years <- proj_yrs[which(proj_yrs <= yr & proj_yrs > operating_model_use$data_list$endyr)]
       dat_fill_ind <- which(new_catch_data$Year == new_years & is.na(new_catch_data$Catch))
       new_catch_data$Catch[dat_fill_ind] <- estimation_model_use$quantities$fsh_bio_hat[dat_fill_ind]
+      if(!is.null(cap)){
+        new_catch_data$Catch[dat_fill_ind] <- ifelse(new_catch_data$Catch[dat_fill_ind] > cap, cap, new_catch_data$Catch[dat_fill_ind])
+      }
 
       # Update catch data in OM and EM
       operating_model_use$data_list$fsh_biom <- new_catch_data
@@ -349,7 +353,7 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
                                       phase = "default",
                                       silent = TRUE,
                                       recompile = FALSE)
-
+      # plot_biomass(list(estimation_model_use, operating_model_use), model_names = c("EM", "OM"))
       # End year of assessment
     }
 

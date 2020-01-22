@@ -150,6 +150,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
           fsh_biom <- data_list$fsh_biom[which(data_list$fsh_biom$Fleet_code == i),]
           Selectivity_block <- fsh_biom$Selectivity_block
           biom_yrs <- fsh_biom$Year - data_list$styr + 1
+
+          Selectivity_block <- Selectivity_block[which(biom_yrs <= nyrs_hind)]
+          biom_yrs <- biom_yrs[which(biom_yrs <= nyrs_hind)]
         }
 
         # if a survey use the survey years
@@ -157,6 +160,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
           srv_biom <- data_list$srv_biom[which(data_list$srv_biom$Fleet_code == i),]
           Selectivity_block <- srv_biom$Selectivity_block
           biom_yrs <- srv_biom$Year - data_list$styr + 1
+
+          Selectivity_block <- Selectivity_block[which(biom_yrs <= nyrs_hind)]
+          biom_yrs <- biom_yrs[which(biom_yrs <= nyrs_hind)]
         }
 
         # Turn off random effects
@@ -274,6 +280,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
           fsh_biom <- data_list$fsh_biom[which(data_list$fsh_biom$Fleet_code == i),]
           Selectivity_block <- fsh_biom$Selectivity_block
           biom_yrs <- fsh_biom$Year - data_list$styr + 1
+
+          Selectivity_block <- Selectivity_block[which(biom_yrs <= nyrs_hind)]
+          biom_yrs <- biom_yrs[which(biom_yrs <= nyrs_hind)]
         }
 
         # if a survey use the survey years
@@ -281,6 +290,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
           srv_biom <- data_list$srv_biom[which(data_list$srv_biom$Fleet_code == i),]
           Selectivity_block <- srv_biom$Selectivity_block
           biom_yrs <- srv_biom$Year - data_list$styr + 1
+
+          Selectivity_block <- Selectivity_block[which(biom_yrs <= nyrs_hind)]
+          biom_yrs <- biom_yrs[which(biom_yrs <= nyrs_hind)]
         }
 
         # Turn off random effects
@@ -292,8 +304,6 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
         map_list$sel_inf[1:2, i, ] <- NA
 
         # Loop through upper and lower
-        fsh_biom <- data_list$fsh_biom[which(data_list$fsh_biom$Fleet_code == i),]
-
         for(j in 1:2){
           for(sex in 1:nsex){
             map_list$sel_slp_dev[j, i, sex, biom_yrs] <- Selectivity_block - 1 + ind_slp
@@ -376,6 +386,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
           fsh_biom <- data_list$fsh_biom[which(data_list$fsh_biom$Fleet_code == i),]
           Selectivity_block <- fsh_biom$Selectivity_block
           biom_yrs <- fsh_biom$Year - data_list$styr + 1
+
+          Selectivity_block <- Selectivity_block[which(biom_yrs <= nyrs_hind)]
+          biom_yrs <- biom_yrs[which(biom_yrs <= nyrs_hind)]
         }
 
         # if a survey use the survey years
@@ -383,6 +396,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
           srv_biom <- data_list$srv_biom[which(data_list$srv_biom$Fleet_code == i),]
           Selectivity_block <- srv_biom$Selectivity_block
           biom_yrs <- srv_biom$Year - data_list$styr + 1
+
+          Selectivity_block <- Selectivity_block[which(biom_yrs <= nyrs_hind)]
+          biom_yrs <- biom_yrs[which(biom_yrs <= nyrs_hind)]
         }
 
         # Turn off random effects
@@ -481,7 +497,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$ln_srv_q_dev_re[i,] <- NA
 
       # Extract survey years where data is provided
-      srv_biom <- data_list$srv_biom[which(data_list$srv_biom$Fleet_code == i),]
+      srv_biom <- data_list$srv_biom[which(data_list$srv_biom$Fleet_code == i & data_list$srv_biom$Year <= data_list$endyr),]
       srv_biom_yrs <- srv_biom$Year - data_list$styr + 1
 
       # Random walk
@@ -607,7 +623,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
 
   # -- 10. Map out Fdev for years with 0 catch to very low number
-  fsh_biom <- data_list$fsh_biom
+  fsh_biom <- data_list$fsh_biom[which(data_list$fsh_biom$Year <= data_list$endyr),]
   fsh_ind <- fsh_biom$Fleet_code[which(fsh_biom$Catch == 0)]
   yr_ind <- fsh_biom$Year[which(fsh_biom$Catch == 0)] - data_list$styr + 1
 
@@ -733,14 +749,14 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     # Check proj F if proj F prop is all 0
     prop_check <- data_list$fleet_control$proj_F_prop[which(data_list$fleet_control$Species == i & data_list$fleet_control$Fleet_type == 1)]
     if(sum(as.numeric(prop_check == 0)) != 0){
-      map_list$FSPR[i] <- NA
+      map_list$FSPR[i,] <- NA
     }
 
     # Fixed n-at-age
     if(data_list$estDynamics[i] > 0){
 
       # Population parameters
-      map_list$FSPR[i] <- NA
+      map_list$FSPR[i,] <- NA
       map_list$ln_mn_rec[i] <- NA
       map_list$ln_rec_sigma[i] <- NA
       map_list$rec_dev[i,] <- replace(map_list$rec_dev[i,], values = rep(NA, length(map_list$rec_dev[i,])))
