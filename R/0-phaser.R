@@ -44,7 +44,7 @@
 #'  TMBphase(data, parameters, random, model_name, optimizer = "nlminb")
 
 TMBphase <- function(data, parameters, map, random, phases, cpp_directory, model_name,
-                     optimizer = "nlminb", silent) {
+                     optimizer = "nlminb", silent, gradient = TRUE) {
 
   # function to fill list component with a factor
   fill_vals <- function(x,vals){rep(as.factor(vals), length(x))}
@@ -85,7 +85,11 @@ TMBphase <- function(data, parameters, map, random, phases, cpp_directory, model
     TMB::newtonOption(obj,smartsearch=FALSE)
     #obj$fn()
     #obj$gr()
-    opt <- nlminb(obj$par,obj$fn,obj$gr)
+    if(gradient){
+      opt <- nlminb(obj$par,obj$fn,obj$gr)
+    } else{
+    opt <- nlminb(obj$par,obj$fn)#,obj$gr)
+    }
     last_par = suppressWarnings(obj$env$parList(obj$env$last.par.best))
 
     #close phase loop
