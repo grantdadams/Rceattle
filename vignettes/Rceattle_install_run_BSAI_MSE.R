@@ -51,7 +51,7 @@ ss_run <- Rceattle::fit_mod(data_list = mydata,
                             recompile = FALSE)
 
 plot_catch(ss_run, incl_proj = TRUE)
-mse <- mse_run(operating_model = ss_run, estimation_model = ss_run, nsim = 100, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
+mse <- mse_run(operating_model = ss_run, estimation_model = ss_run, nsim = 1, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
 # The you can plot the model results using using
 plot_biomass(Rceattle =  ss_run, incl_proj = T)
 plot_recruitment(Rceattle =  ss_run, add_ci = TRUE)
@@ -74,7 +74,7 @@ ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
                             silent = TRUE,
                             recompile = FALSE)
 
-ms_mse <- mse_run(operating_model = ms_run, estimation_model = ss_run, nsim = 100, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
+ms_mse <- mse_run(operating_model = ms_run, estimation_model = ss_run, nsim = 1, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
 
 # We can plot both runs as well:
 mod_list <- list(ss_run, ms_run)
