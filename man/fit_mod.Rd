@@ -45,7 +45,6 @@ fit_mod(TMBfilename = "ceattle_v01_06", cpp_directory = NULL,
 \item{silent}{logical. IF TRUE, includes TMB estimation progress}
 
 \item{use_gradient}{use the gradient to phase. Defulat = TRUE}
-}
 \value{
 A list of class "Rceattle" including:
 
