@@ -17,6 +17,7 @@
 #' @param phase Optional. List of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R. If NULL, will not phase model. If set to \code{"default"}, will use default phasing.
 #' @param silent logical. IF TRUE, includes TMB estimation progress
 #' @param suitMode Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma selectivity from Kinzey and Punt (2009), 2 = time-varing length based gamma selectivity from Kinzey and Punt (2009), 3 = time-varying weight based gamma selectivity from Kinzey and Punt (2009), 4 = length based lognormal selectivity, 5 = time-varing length based lognormal selectivity, 6 = time-varying weight based lognormal selectivity,
+#' @param use_gradient use the gradient to phase. Defulat = TRUE
 #' @details
 #' CEATTLE is an age-structured population dynamics model that can be fit with or without predation mortality. The default is to exclude predation mortality by setting \code{msmMode} to 0. Predation mortality can be included by setting \code{msmMode} with the following options:
 #' \itemize{
@@ -182,7 +183,7 @@
 #'rec_dev = 2,
 #'init_dev = 2,
 #'ln_mean_F = 1,
-#'FSPR = 1,
+#'ln_FSPR = 1,
 #'F_dev = 1,
 #'log_srv_q = 3,
 #'ln_srv_q_dev = 4,
@@ -239,7 +240,8 @@ fit_mod <-
            suitMode = 0,
            phase = NULL,
            silent = FALSE,
-           recompile = FALSE) {
+           recompile = FALSE,
+           use_gradient = TRUE) {
     start_time <- Sys.time()
 
     setwd(getwd())
@@ -362,7 +364,7 @@ fit_mod <-
           rec_dev = 2,
           init_dev = 2,
           ln_mean_F = 1,
-          FSPR = 3,
+          ln_FSPR = 3,
           proj_F_prop = 1,
           F_dev = 1,
           log_srv_q = 5,
@@ -476,7 +478,8 @@ fit_mod <-
         phases = phase,
         cpp_directory = cpp_directory,
         model_name = TMBfilename,
-        silent = silent
+        silent = silent,
+        use_gradient = use_gradient
       )
 
       start_par <- phase_pars
