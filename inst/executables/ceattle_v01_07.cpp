@@ -638,6 +638,7 @@ Type objective_function<Type>::operator() () {
   vector<Type> gam_b = exp(log_gam_b); // Predator selectivity
 
   // -- 4.10. Kinzey Functional response
+  /*
   matrix<Type> H_1(nspp, nspp + 1); H_1 = exp(logH_1.array());
   vector<Type> H_1a(nspp); H_1a = exp(logH_1a);
   vector<Type> H_1b(nspp); H_1b = exp(logH_1b);
@@ -668,7 +669,7 @@ Type objective_function<Type>::operator() () {
 
   array<Type> omega_hat(nspp, max_age, nyrs); omega_hat.setZero();                   // Daily ration by predator age each year
   matrix<Type> omega_hat_ave(nspp, max_age); omega_hat_ave.setZero();                // Daily ration by predator age averaged over years
-
+*/
 
   // ------------------------------------------------------------------------- //
   // 5. INITIAL CALCULATIONS                                                   //
@@ -2034,7 +2035,7 @@ Type objective_function<Type>::operator() () {
 
       // 8.2. KINZEY PREDATION EQUATIONS
       if (msmMode > 2) {
-
+/*
         // 8.2.2. Populate other food
         for (rsp = 0; rsp < nspp; rsp++) {
           for (r_age = 0; r_age < nages(rsp); r_age++) {
@@ -2337,6 +2338,7 @@ Type objective_function<Type>::operator() () {
           }
         }
         // - END LOOP - END LOOP - END LOOP - END LOOP - END LOOP - //
+        */
       } // End 8.2. Kinzey predation
       // - END LOOP - END LOOP - END LOOP - END LOOP - END LOOP - //
     } // End 8. Predation mortality
@@ -3191,9 +3193,7 @@ Type objective_function<Type>::operator() () {
 
 
   // 11.3. Diet likelihood components from MSVPA
-
-
-  if ((msmMode == 1) & (suitMode > 0)) {
+  if ((msmMode > 0) & (msmMode < 3) & (suitMode > 0)) {
     // Slot 14 -- Diet weight likelihood
     for(int stom_ind = 0; stom_ind < UobsWtAge.rows(); stom_ind++){
 
@@ -3211,7 +3211,8 @@ Type objective_function<Type>::operator() () {
   } // End diet proportion by weight component
 
   // 11.4. Diet likelihood components from Kinzey and Punt
-  if ((msmMode > 1)) {
+  /*
+  if ((msmMode > 2)) {
     // Slot 13 -- Ration likelihood
     for (yr = 0; yr < nyrs_hind; yr++) {
       for (sp = 0; sp < nspp; sp++) {
@@ -3298,11 +3299,11 @@ Type objective_function<Type>::operator() () {
       jnll_comp(16, rsp) -= offset_diet_l(rsp);
     }
   } // End if statement for diet likelihood
+  */
 
   // ------------------------------------------------------------------------- //
   // 12. REPORT SECTION                                                        //
   // ------------------------------------------------------------------------- //
-
 
   // 12.0 Report indices
   REPORT( flt_type );
@@ -3462,7 +3463,6 @@ Type objective_function<Type>::operator() () {
   REPORT( omega_hat );
   REPORT( omega_hat_ave );
   */
-
 
 
   // ------------------------------------------------------------------------- //

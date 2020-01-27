@@ -8,7 +8,7 @@ fit_mod(TMBfilename = "ceattle_v01_06", cpp_directory = NULL,
   data_list = NULL, inits = NULL, map = NULL, bounds = NULL,
   file = NULL, debug = T, random_rec = FALSE, niter = 3,
   msmMode = 0, avgnMode = 0, minNByage = 0, suitMode = 0,
-  phase = NULL, silent = FALSE, recompile = FALSE,
+  phase = NULL, silent = FALSE, recompile = FALSE, getsd = TRUE,
   use_gradient = TRUE)
 }
 \arguments{
@@ -44,7 +44,10 @@ fit_mod(TMBfilename = "ceattle_v01_06", cpp_directory = NULL,
 
 \item{silent}{logical. IF TRUE, includes TMB estimation progress}
 
+\item{getsd}{Boolean whether to run standard error calculation}
+
 \item{use_gradient}{use the gradient to phase. Defulat = TRUE}
+}
 \value{
 A list of class "Rceattle" including:
 

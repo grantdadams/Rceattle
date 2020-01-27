@@ -17,6 +17,7 @@
 #' @param phase Optional. List of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R. If NULL, will not phase model. If set to \code{"default"}, will use default phasing.
 #' @param silent logical. IF TRUE, includes TMB estimation progress
 #' @param suitMode Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma selectivity from Kinzey and Punt (2009), 2 = time-varing length based gamma selectivity from Kinzey and Punt (2009), 3 = time-varying weight based gamma selectivity from Kinzey and Punt (2009), 4 = length based lognormal selectivity, 5 = time-varing length based lognormal selectivity, 6 = time-varying weight based lognormal selectivity,
+#' @param getsd	Boolean whether to run standard error calculation
 #' @param use_gradient use the gradient to phase. Defulat = TRUE
 #' @details
 #' CEATTLE is an age-structured population dynamics model that can be fit with or without predation mortality. The default is to exclude predation mortality by setting \code{msmMode} to 0. Predation mortality can be included by setting \code{msmMode} with the following options:
@@ -241,10 +242,12 @@ fit_mod <-
            phase = NULL,
            silent = FALSE,
            recompile = FALSE,
+           getsd = TRUE,
            use_gradient = TRUE) {
     start_time <- Sys.time()
 
     setwd(getwd())
+    '%!in%' <- function(x,y)!('%in%'(x,y))
 
     #--------------------------------------------------
     # 1. DATA and MODEL PREP
@@ -275,6 +278,7 @@ fit_mod <-
       for(flt in (unique(data_list$fsh_biom$Fleet_code))){
         fsh_biom_sub <- data_list$fsh_biom[which(data_list$fsh_biom$Fleet_code == flt),]
         yrs_proj <- (data_list$endyr + 1):data_list$projyr
+        yrs_proj <- yrs_proj[which(yrs_proj %!in% fsh_biom_sub$Year)]
         nyrs_proj <- length(yrs_proj)
         proj_fsh_biom <- data.frame(Fleet_name = rep(fsh_biom_sub$Fleet_name[1], nyrs_proj),
                                     Fleet_code = rep(flt, nyrs_proj),
@@ -515,6 +519,7 @@ fit_mod <-
                             lower = L,
                             upper = U,
                             loopnum = 5,
+                            getsd = getsd,
                             control = list(eval.max = 1e+09,
                                            iter.max = 1e+09, trace = 0)
     )
@@ -582,7 +587,7 @@ fit_mod <-
         run_time = run_time
       )
 
-    if(is.null(opt$SD)){
+    if(is.null(opt$SD) & getsd){
       identified <- suppressMessages(TMBhelper::Check_Identifiable(obj))
 
       # Make into list
