@@ -3185,9 +3185,12 @@ Type objective_function<Type>::operator() () {
 
   // Slot 12 -- SPR reference point penalties
   for (sp = 0; sp < nspp; sp++) {
+    if(msmMode == 0){
     jnll_comp(12, sp)  += 200*square((SB35(sp)/SB0(sp))-0.35);
     jnll_comp(12, sp)  += 200*square((SB40(sp)/SB0(sp))-0.40);
   }
+  }
+
 
 
   // 11.3. Diet likelihood components from MSVPA

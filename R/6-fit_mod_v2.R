@@ -331,7 +331,7 @@ fit_mod <-
     # STEP 2 - BUILD MAP
     if (is.null(map)) {
       map <-
-        suppressWarnings(Rceattle::build_map(data_list, params, debug = debug, random_rec = random_rec))
+        suppressWarnings(build_map(data_list, params, debug = debug, random_rec = random_rec))
     } else{
       map <- map
     }
@@ -575,6 +575,8 @@ fit_mod <-
     # Return objects
     mod_objects <-
       list(
+        TMBfilename = TMBfilename,
+        cpp_directory = cpp_directory,
         data_list = data_list,
         initial_params = params,
         bounds = bounds,

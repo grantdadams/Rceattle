@@ -39,7 +39,10 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   # Map out future recruitment deviations
   map_list$rec_dev[, yrs_proj] <- as.numeric(replace(map_list$rec_dev[, yrs_proj], values = rep(NA, length(map_list$rec_dev[,
                                                                                                                             yrs_proj]))))
-  # map_list$ln_FSPR <- replace(map_list$ln_FSPR, values = rep(NA, length(map_list$ln_FSPR)))
+
+  if(data_list$msmMode > 0){
+    map_list$ln_FSPR <- replace(map_list$ln_FSPR, values = rep(NA, length(map_list$ln_FSPR)))
+  }
 
 
   # STEP 2 -- NA out parameters not to be estimated Initial population deviations - map out last age and ages not seen
