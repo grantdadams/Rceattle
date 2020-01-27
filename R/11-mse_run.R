@@ -13,6 +13,8 @@
 #'
 #' @examples
 mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 10, assessment_period = 1, sampling_period = 1, simulate = TRUE, cap = NULL){
+  '%!in%' <- function(x,y)!('%in%'(x,y))
+
   Rceattle_OM_list <- list()
   Rceattle_EM_list <- list()
 
@@ -82,6 +84,7 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
   for(flt in (unique(operating_model$data_list$wt$Wt_index))){
     wt_sub <- operating_model$data_list$wt[which(operating_model$data_list$wt$Wt_index == flt),]
     yrs_proj <- (operating_model$data_list$endyr + 1):operating_model$data_list$projyr
+    yrs_proj <- yrs_proj[which(yrs_proj %!in% wt_sub$Year)]
     nyrs_proj <- length(yrs_proj)
     proj_wt <- data.frame(Wt_name = rep(wt_sub$Wt_name[1], nyrs_proj),
                           Wt_index = rep(flt, nyrs_proj),
@@ -92,7 +95,7 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
     proj_comps <- data.frame(matrix(wt_sub[nrow(wt_sub), (ncol(proj_wt)+1) : ncol(wt_sub)], ncol = ncol(wt_sub) - ncol(proj_wt), nrow = nyrs_proj, byrow = TRUE))
     colnames(proj_comps) <-paste0("Age", 1:ncol(proj_comps))
     proj_wt <-cbind(proj_wt, proj_comps)
-
+    colnames(proj_wt) <- colnames(operating_model$data_list$wt)
     operating_model$data_list$wt <- rbind(operating_model$data_list$wt, proj_wt)
   }
   operating_model$data_list$wt <- operating_model$data_list$wt[
@@ -111,7 +114,7 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
     proj_comps <- data.frame(matrix(Pyrs_sub[nrow(Pyrs_sub), (ncol(proj_Pyrs)+1) : ncol(Pyrs_sub)], ncol = ncol(Pyrs_sub) - ncol(proj_Pyrs), nrow = nyrs_proj, byrow = TRUE))
     colnames(proj_comps) <-paste0("Age", 1:ncol(proj_comps))
     proj_Pyrs <-cbind(proj_Pyrs, proj_comps)
-
+    colnames(proj_Pyrs) <- colnames(operating_model$data_list$Pyrs)
     operating_model$data_list$Pyrs <- rbind(operating_model$data_list$Pyrs, proj_Pyrs)
   }
   operating_model$data_list$Pyrs <- operating_model$data_list$Pyrs[
@@ -143,6 +146,7 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
   for(flt in (unique(estimation_model$data_list$wt$Wt_index))){
     wt_sub <- estimation_model$data_list$wt[which(estimation_model$data_list$wt$Wt_index == flt),]
     yrs_proj <- (estimation_model$data_list$endyr + 1):estimation_model$data_list$projyr
+    yrs_proj <- yrs_proj[which(yrs_proj %!in% wt_sub$Year)]
     nyrs_proj <- length(yrs_proj)
     proj_wt <- data.frame(Wt_name = rep(wt_sub$Wt_name[1], nyrs_proj),
                           Wt_index = rep(flt, nyrs_proj),
@@ -153,7 +157,7 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
     proj_comps <- data.frame(matrix(wt_sub[nrow(wt_sub), (ncol(proj_wt)+1) : ncol(wt_sub)], ncol = ncol(wt_sub) - ncol(proj_wt), nrow = nyrs_proj, byrow = TRUE))
     colnames(proj_comps) <-paste0("Age", 1:ncol(proj_comps))
     proj_wt <-cbind(proj_wt, proj_comps)
-
+    colnames(proj_wt) <- colnames(operating_model$data_list$wt)
     estimation_model$data_list$wt <- rbind(estimation_model$data_list$wt, proj_wt)
   }
   estimation_model$data_list$wt <- estimation_model$data_list$wt[
@@ -172,7 +176,7 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
     proj_comps <- data.frame(matrix(Pyrs_sub[nrow(Pyrs_sub), (ncol(proj_Pyrs)+1) : ncol(Pyrs_sub)], ncol = ncol(Pyrs_sub) - ncol(proj_Pyrs), nrow = nyrs_proj, byrow = TRUE))
     colnames(proj_comps) <-paste0("Age", 1:ncol(proj_comps))
     proj_Pyrs <-cbind(proj_Pyrs, proj_comps)
-
+    colnames(proj_Pyrs) <- colnames(operating_model$data_list$Pyrs)
     estimation_model$data_list$Pyrs <- rbind(estimation_model$data_list$Pyrs, proj_Pyrs)
   }
   estimation_model$data_list$Pyrs <- estimation_model$data_list$Pyrs[
@@ -191,6 +195,8 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
   for(sim in 1:nsim){
 
     # Set models
+    Rceattle_EM_list[[sim]] <- list()
+    Rceattle_EM_list[[sim]][[1]] <- estimation_model
     estimation_model_use <- estimation_model
     operating_model_use <- operating_model
 
@@ -211,11 +217,11 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
 
 
     # Run through model
-    for(yr in assess_yrs){
+    for(k in 1:length(assess_yrs)){
 
       # Get projected catch data from EM
       new_catch_data <- estimation_model_use$data_list$fsh_biom
-      new_years <- proj_yrs[which(proj_yrs <= yr & proj_yrs > operating_model_use$data_list$endyr)]
+      new_years <- proj_yrs[which(proj_yrs <= assess_yrs[k] & proj_yrs > operating_model_use$data_list$endyr)]
       dat_fill_ind <- which(new_catch_data$Year == new_years & is.na(new_catch_data$Catch))
       new_catch_data$Catch[dat_fill_ind] <- estimation_model_use$quantities$fsh_bio_hat[dat_fill_ind]
       if(!is.null(cap)){
@@ -228,7 +234,7 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
 
       # Update endyr of OM
       nyrs_hind <- operating_model_use$data_list$endyr - operating_model_use$data_list$styr + 1
-      operating_model_use$data_list$endyr <- yr
+      operating_model_use$data_list$endyr <- assess_yrs[k]
 
       # Update parameters
       # -- F_dev
@@ -316,7 +322,7 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
       # Simulate new survey and comp data
       sim_dat <- sim_mod(operating_model_use, simulate = simulate)
 
-      years_include <- sample_yrs[which(sample_yrs > estimation_model_use$data_list$endyr & sample_yrs <= yr)]
+      years_include <- sample_yrs[which(sample_yrs > estimation_model_use$data_list$endyr & sample_yrs <= assess_yrs[k])]
 
       # -- Add survey data to EM
       new_srv_biom <- sim_dat$srv_biom[which(abs(sim_dat$srv_biom$Year) %in% years_include),]
@@ -334,7 +340,7 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
         with(estimation_model_use$data_list$comp_data, order(Fleet_code, Year)),]
 
       # Update end year and re-estimate
-      estimation_model_use$data_list$endyr <- yr
+      estimation_model_use$data_list$endyr <- assess_yrs[k]
 
       estimation_model_use <- fit_mod(TMBfilename = "ceattle_v01_06",
                                       cpp_directory = NULL,
@@ -352,16 +358,24 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
                                       suitMode = estimation_model_use$data_list$suitMode,
                                       phase = "default",
                                       silent = TRUE,
+                                      getsd = FALSE,
                                       recompile = FALSE)
       # plot_biomass(list(estimation_model_use, operating_model_use), model_names = c("EM", "OM"))
       # End year of assessment
+
+      estimation_model_use$initial_params <- NULL
+      estimation_model_use$bounds <- NULL
+      estimation_model_use$map <- NULL
+      estimation_model_use$obj <- NULL
+      estimation_model_use$opt <- NULL
+      estimation_model_use$sdrep <- NULL
+      Rceattle_EM_list[[sim]][[k+1]] <- estimation_model_use
     }
 
     plot_biomass(list(estimation_model_use, operating_model_use), model_names = c("EM", "OM"))
 
     # Save models
     Rceattle_OM_list[[sim]] <- operating_model_use
-    Rceattle_EM_list[[sim]] <- estimation_model_use
   }
 
   return(list(Rceattle_OM_list = Rceattle_OM_list, Rceattle_EM_list = Rceattle_EM_list))

@@ -588,7 +588,6 @@ Type objective_function<Type>::operator() () {
   vector<Type>  SB0(nspp); SB0.setZero();                                           // Estimated spawning biomass per recruit at F = 0
   matrix<Type>  FSPR(nspp, 2); FSPR = exp(ln_FSPR.array());
   matrix<Type>  proj_FABC(nspp, nyrs); proj_FABC.setZero();                         // Projected FABC using tier 3 harvest control rule
-  matrix<Type>  FSPR(nspp, 2); FSPR = exp(ln_FSPR.array());
 
   // -- 4.5. Survey components
   vector<Type>  sigma_srv_index(n_flt); sigma_srv_index.setZero();                  // Vector of standard deviation of survey index; n = [1, n_srv]
@@ -2009,9 +2008,10 @@ Type objective_function<Type>::operator() () {
                     for (r_age = 0; r_age < nages(rsp); r_age++) {    // Predator age loop
                       if(avail_food(rsp, r_sex, r_age, yr) > 0){
                         // Predation mortality
-                        M2(ksp, k_sex, k_age, yr) += pow(AvgN(ksp, k_sex, k_age, yr) , msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind); // #FIXME - include indices of overlap
-                        M2_prop(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind);
-
+                        if(AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) > 0){
+                          M2(ksp, k_sex, k_age, yr) += pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / (AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind)); // #FIXME - include indices of overlap
+                          M2_prop(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / (AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind));
+                        }
                         // Biomass of prey species eaten
                         if(yr < nyrs_hind){
                           yr_ind = yr;
@@ -3185,8 +3185,8 @@ Type objective_function<Type>::operator() () {
 
   // Slot 12 -- SPR reference point penalties
   for (sp = 0; sp < nspp; sp++) {
-    //jnll_comp(12, sp)  += 200*square((SB35(sp)/SB0(sp))-0.35);
-    //jnll_comp(12, sp)  += 200*square((SB40(sp)/SB0(sp))-0.40);
+    jnll_comp(12, sp)  += 200*square((SB35(sp)/SB0(sp))-0.35);
+    jnll_comp(12, sp)  += 200*square((SB40(sp)/SB0(sp))-0.40);
   }
 
 
@@ -3303,6 +3303,7 @@ Type objective_function<Type>::operator() () {
   // 12. REPORT SECTION                                                        //
   // ------------------------------------------------------------------------- //
 
+
   // 12.0 Report indices
   REPORT( flt_type );
   REPORT( flt_spp );
@@ -3414,23 +3415,24 @@ Type objective_function<Type>::operator() () {
 
   // 12.8. Suitability components
   REPORT( suma_suit );
-  REPORT( suit_main );
+  // REPORT( suit_main );
   REPORT( suit_other );
-  REPORT( stom_div_bio2 );
-  REPORT( stomKir );
-  REPORT( stomKirWt );
+  // REPORT( stom_div_bio2 );
+  // REPORT( stomKir );
+  // REPORT( stomKirWt );
   REPORT( avail_food );
   REPORT( othersuit );
   REPORT( of_stomKir );
   REPORT( M1 );
   REPORT( M2 );
-  REPORT( M2_prop );
+  // REPORT( M2_prop );
   REPORT( B_eaten );
-  REPORT( B_eaten_prop );
+  // REPORT( B_eaten_prop );
   REPORT( UobsAge_hat );
   REPORT( UobsWtAge_hat );
 
   // -- 12.9. Kinzey predation functions
+  /*
   REPORT( H_1 );
   REPORT( H_1a );
   REPORT( H_1b );
@@ -3459,6 +3461,8 @@ Type objective_function<Type>::operator() () {
 
   REPORT( omega_hat );
   REPORT( omega_hat_ave );
+  */
+
 
 
   // ------------------------------------------------------------------------- //

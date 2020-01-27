@@ -48,7 +48,7 @@ ss_run <- Rceattle::fit_mod(data_list = mydata,
                             msmMode = 0, # Single species mode
                             phase = "default",
                             silent = TRUE,
-                            recompile = FALSE)
+                            recompile = TRUE)
 
 plot_catch(ss_run, incl_proj = TRUE)
 mse <- mse_run(operating_model = ss_run, estimation_model = ss_run, nsim = 1, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
