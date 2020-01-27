@@ -15,6 +15,8 @@
 mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 10, assessment_period = 1, sampling_period = 1, simulate = TRUE, cap = NULL){
   '%!in%' <- function(x,y)!('%in%'(x,y))
 
+  set.seed(666)
+
   Rceattle_OM_list <- list()
   Rceattle_EM_list <- list()
 
@@ -298,10 +300,11 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
         operating_model_use$map[[1]][[i]] <- factor( operating_model_use$map[[2]][[i]])
       }
 
+      operating_model_use$estimated_params$ln_FSPR <- replace(operating_model_use$estimated_params$ln_FSPR, values = rep(-10, length(operating_model_use$estimated_params$ln_FSPR)))
 
       # Fit OM with new catch data
-      operating_model_use <- fit_mod(TMBfilename = "ceattle_v01_06",
-                                     cpp_directory = NULL,
+      operating_model_use <- fit_mod(TMBfilename = operating_model_use$TMBfilename,
+                                     cpp_directory = operating_model_use$cpp_directory,
                                      data_list = operating_model_use$data_list,
                                      inits = operating_model_use$estimated_params,
                                      map =  operating_model_use$map,
@@ -316,6 +319,7 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
                                      suitMode = operating_model_use$data_list$suitMode,
                                      phase = NULL,
                                      silent = TRUE,
+                                     getsd = FALSE,
                                      recompile = FALSE)
 
 
@@ -342,8 +346,8 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
       # Update end year and re-estimate
       estimation_model_use$data_list$endyr <- assess_yrs[k]
 
-      estimation_model_use <- fit_mod(TMBfilename = "ceattle_v01_06",
-                                      cpp_directory = NULL,
+      estimation_model_use <- fit_mod(TMBfilename = estimation_model_use$TMBfilename,
+                                      cpp_directory = estimation_model_use$cpp_directory,
                                       data_list = estimation_model_use$data_list,
                                       inits = NULL,
                                       map =  NULL,
