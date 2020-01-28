@@ -6,7 +6,7 @@
 \usage{
 mse_run(operating_model = ss_run, estimation_model = ss_run,
   nsim = 10, assessment_period = 1, sampling_period = 1,
-  simulate = TRUE, cap = NULL)
+  simulate = TRUE, cap = NULL, seed = 666)
 }
 \arguments{
 \item{operating_model}{CEATTLE model object exported from \code{\link{Rceattle}}}

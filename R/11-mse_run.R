@@ -12,10 +12,10 @@
 #' @export
 #'
 #' @examples
-mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 10, assessment_period = 1, sampling_period = 1, simulate = TRUE, cap = NULL){
+mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 10, assessment_period = 1, sampling_period = 1, simulate = TRUE, cap = NULL, seed = 666){
   '%!in%' <- function(x,y)!('%in%'(x,y))
 
-  set.seed(666)
+  set.seed(seed)
 
   Rceattle_OM_list <- list()
   Rceattle_EM_list <- list()
@@ -189,8 +189,8 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
   # Years for simulations
   proj_yrs <- (estimation_model$data_list$endyr + 1) : estimation_model$data_list$projyr
   proj_nyrs <- length(proj_yrs)
-  assess_yrs <- seq(from = estimation_model$data_list$endyr + 1, to = estimation_model$data_list$projyr,  by = assessment_period)
-  sample_yrs <- seq(from = estimation_model$data_list$endyr + 1, to = estimation_model$data_list$projyr,  by = sampling_period)
+  assess_yrs <- seq(from = estimation_model$data_list$endyr + assessment_period, to = estimation_model$data_list$projyr,  by = assessment_period)
+  sample_yrs <- seq(from = estimation_model$data_list$endyr + sampling_period, to = estimation_model$data_list$projyr,  by = sampling_period)
 
 
   # Do the MSE
@@ -224,7 +224,7 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
       # Get projected catch data from EM
       new_catch_data <- estimation_model_use$data_list$fsh_biom
       new_years <- proj_yrs[which(proj_yrs <= assess_yrs[k] & proj_yrs > operating_model_use$data_list$endyr)]
-      dat_fill_ind <- which(new_catch_data$Year == new_years & is.na(new_catch_data$Catch))
+      dat_fill_ind <- which(new_catch_data$Year %in% new_years & is.na(new_catch_data$Catch))
       new_catch_data$Catch[dat_fill_ind] <- estimation_model_use$quantities$fsh_bio_hat[dat_fill_ind]
       if(!is.null(cap)){
         new_catch_data$Catch[dat_fill_ind] <- ifelse(new_catch_data$Catch[dat_fill_ind] > cap, cap, new_catch_data$Catch[dat_fill_ind])
@@ -272,7 +272,7 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
 
 
       # Update map (Only new parameter we are estimating in OM is the F_dev of the new years)
-      operating_model_use$map <- build_map(operating_model_use$data_list, params = operating_model_use$estimated_params, debug = operating_model_use$data_list$debug, random_rec = FALSE)
+      operating_model_use$map <- Rceattle::build_map(operating_model_use$data_list, params = operating_model_use$estimated_params, debug = operating_model_use$data_list$debug, random_rec = FALSE)
 
       for (i in 1:length(operating_model_use$map[[2]])) {
         operating_model_use$map[[2]][[i]] <- replace(operating_model_use$map[[2]][[i]], values = rep(NA, length(operating_model_use$map[[2]][[i]])))
@@ -304,23 +304,23 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
 
       # Fit OM with new catch data
       operating_model_use <- fit_mod(TMBfilename = operating_model_use$TMBfilename,
-                                     cpp_directory = operating_model_use$cpp_directory,
-                                     data_list = operating_model_use$data_list,
-                                     inits = operating_model_use$estimated_params,
-                                     map =  operating_model_use$map,
-                                     bounds = NULL,
-                                     file = NULL,
-                                     debug = operating_model_use$data_list$debug,
-                                     random_rec = operating_model_use$data_list$random_rec,
-                                     niter = operating_model_use$data_list$niter,
-                                     msmMode = operating_model_use$data_list$msmMode,
-                                     avgnMode = operating_model_use$data_list$avgnMode,
-                                     minNByage = operating_model_use$data_list$debug,
-                                     suitMode = operating_model_use$data_list$suitMode,
-                                     phase = NULL,
-                                     silent = TRUE,
-                                     getsd = FALSE,
-                                     recompile = FALSE)
+                                         cpp_directory = operating_model_use$cpp_directory,
+                                         data_list = operating_model_use$data_list,
+                                         inits = operating_model_use$estimated_params,
+                                         map =  operating_model_use$map,
+                                         bounds = NULL,
+                                         file = NULL,
+                                         debug = operating_model_use$data_list$debug,
+                                         random_rec = operating_model_use$data_list$random_rec,
+                                         niter = operating_model_use$data_list$niter,
+                                         msmMode = operating_model_use$data_list$msmMode,
+                                         avgnMode = operating_model_use$data_list$avgnMode,
+                                         minNByage = operating_model_use$data_list$debug,
+                                         suitMode = operating_model_use$data_list$suitMode,
+                                         phase = NULL,
+                                         silent = TRUE,
+                                         getsd = FALSE,
+                                         recompile = FALSE)
 
 
       # Simulate new survey and comp data
@@ -346,10 +346,45 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
       # Update end year and re-estimate
       estimation_model_use$data_list$endyr <- assess_yrs[k]
 
+
+      # Update parameters
+      # -- F_dev
+      estimation_model_use$estimated_params$F_dev <- cbind(estimation_model_use$estimated_params$F_dev, matrix(0, nrow= nrow(estimation_model_use$estimated_params$F_dev), ncol = length(new_years)))
+
+      # -- Time-varing survey catachbilitiy - Assume last year - filled by columns
+      estimation_model_use$estimated_params$ln_srv_q_dev <- cbind(estimation_model_use$estimated_params$ln_srv_q_dev, matrix(estimation_model_use$estimated_params$ln_srv_q_dev[,ncol(estimation_model_use$estimated_params$ln_srv_q_dev)], nrow= nrow(estimation_model_use$estimated_params$ln_srv_q_dev), ncol = length(new_years)))
+      estimation_model_use$estimated_params$ln_srv_q_dev_re <- cbind(estimation_model_use$estimated_params$ln_srv_q_dev_re, matrix(estimation_model_use$estimated_params$ln_srv_q_dev_re[,ncol(estimation_model_use$estimated_params$ln_srv_q_dev_re)], nrow= nrow(estimation_model_use$estimated_params$ln_srv_q_dev_re), ncol = length(new_years)))
+
+      # -- Time-varing selectivity - Assume last year - filled by columns
+      n_selectivities <- nrow(estimation_model_use$data_list$fleet_control)
+
+      sel_slp_dev = array(0, dim = c(2, n_selectivities, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic; n = [2, nspp]
+      sel_inf_dev = array(0, dim = c(2, n_selectivities, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic; n = [2, nspp]
+
+      sel_slp_dev_re = array(0, dim = c(2, n_selectivities, 2, nyrs_hind + length(new_years)))  # selectivity random effect deviations paramaters for logistic; n = [2, nspp]
+      sel_inf_dev_re = array(0, dim = c(2, n_selectivities, 2, nyrs_hind + length(new_years)))  # selectivity random effectdeviations paramaters for logistic; n = [2, nspp]
+
+      sel_slp_dev[,,,1:nyrs_hind] <- estimation_model_use$estimated_params$sel_slp_dev
+      sel_inf_dev[,,,1:nyrs_hind] <- estimation_model_use$estimated_params$sel_inf_dev
+      sel_slp_dev_re[,,,1:nyrs_hind] <- estimation_model_use$estimated_params$sel_slp_dev_re
+      sel_inf_dev_re[,,,1:nyrs_hind] <- estimation_model_use$estimated_params$sel_inf_dev_re
+
+      sel_slp_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_slp_dev[,,,nyrs_hind]
+      sel_inf_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_inf_dev[,,,nyrs_hind]
+      sel_slp_dev_re[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_slp_dev_re[,,,nyrs_hind]
+      sel_inf_dev_re[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_inf_dev_re[,,,nyrs_hind]
+
+      estimation_model_use$estimated_params$sel_slp_dev <- sel_slp_dev
+      estimation_model_use$estimated_params$sel_inf_dev <- sel_inf_dev
+      estimation_model_use$estimated_params$sel_slp_dev_re <- sel_slp_dev_re
+      estimation_model_use$estimated_params$sel_inf_dev_re <- sel_inf_dev_re
+
+
+      # Restimate
       estimation_model_use <- fit_mod(TMBfilename = estimation_model_use$TMBfilename,
                                       cpp_directory = estimation_model_use$cpp_directory,
                                       data_list = estimation_model_use$data_list,
-                                      inits = NULL,
+                                      inits = estimation_model_use$estimated_params,
                                       map =  NULL,
                                       bounds = NULL,
                                       file = NULL,
@@ -364,7 +399,7 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
                                       silent = TRUE,
                                       getsd = FALSE,
                                       recompile = FALSE)
-      # plot_biomass(list(estimation_model_use, operating_model_use), model_names = c("EM", "OM"))
+      #plot_biomass(list(estimation_model_use, operating_model_use), model_names = c("EM", "OM"))
       # End year of assessment
 
       estimation_model_use$initial_params <- NULL
