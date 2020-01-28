@@ -588,6 +588,7 @@ Type objective_function<Type>::operator() () {
   vector<Type>  SB0(nspp); SB0.setZero();                                           // Estimated spawning biomass per recruit at F = 0
   matrix<Type>  FSPR(nspp, 2); FSPR = exp(ln_FSPR.array());
   matrix<Type>  proj_FABC(nspp, nyrs); proj_FABC.setZero();                         // Projected FABC using tier 3 harvest control rule
+  // matrix<Type>  FSPR(nspp, 2); FSPR = exp(ln_FSPR.array());
 
   // -- 4.5. Survey components
   vector<Type>  sigma_srv_index(n_flt); sigma_srv_index.setZero();                  // Vector of standard deviation of survey index; n = [1, n_srv]
@@ -2006,19 +2007,21 @@ Type objective_function<Type>::operator() () {
                 for (rsp = 0; rsp < nspp; rsp++) {                  // Predator species loop
                   for(r_sex = 0; r_sex < nsex(rsp); r_sex++){
                     for (r_age = 0; r_age < nages(rsp); r_age++) {    // Predator age loop
+
+
                       if(avail_food(rsp, r_sex, r_age, yr) > 0){
+
+                        M2(ksp, k_sex, k_age, yr) += pow(AvgN(ksp, k_sex, k_age, yr) , msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind); // #FIXME - include indices of overlap
+                        M2_prop(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind);
+
+
+                        /*
                         // Predation mortality
                         if(AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) > 0){
-                          M2(ksp, k_sex, k_age, yr) += pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / (AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind)); // #FIXME - include indices of overlap
-                          M2_prop(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / (AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind));
-                        }
-                        // Biomass of prey species eaten
-                        if(yr < nyrs_hind){
-                          yr_ind = yr;
-                        }
-                        if(yr >= nyrs_hind){
-                          yr_ind = nyrs_hind - 1;
-                        }
+                        M2(ksp, k_sex, k_age, yr) += pow(AvgN(ksp, k_sex, k_age, yr) , msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind); // #FIXME - include indices of overlap
+                        M2_prop(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind);
+}
+*/
                         B_eaten(ksp, k_sex, k_age, yr) += pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
                         B_eaten_prop(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) *  AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
                       }
@@ -2401,16 +2404,14 @@ Type objective_function<Type>::operator() () {
 
       if(flt_yr > 0){
         flt_yr = flt_yr - styr;
-      }
-      if(flt_yr < 0){
-        flt_yr = -flt_yr - styr;
-      }
+      
 
       mo = srv_biom_n(srv_ind, 0);                    // Temporary index for month
       if(flt_yr < nyrs_hind){
         srv_n_obs(srv) += 1; // Add one if survey is used
         srv_q_analytical(srv) += log(srv_biom_obs(srv_ind, 0) / srv_bio_hat(srv_ind));
       }
+    }
     }
 
     for(srv = 0 ; srv < n_flt; srv ++){
@@ -3188,9 +3189,8 @@ Type objective_function<Type>::operator() () {
     if(msmMode == 0){
     jnll_comp(12, sp)  += 200*square((SB35(sp)/SB0(sp))-0.35);
     jnll_comp(12, sp)  += 200*square((SB40(sp)/SB0(sp))-0.40);
+    }
   }
-  }
-
 
 
   // 11.3. Diet likelihood components from MSVPA
@@ -3214,7 +3214,7 @@ Type objective_function<Type>::operator() () {
   } // End diet proportion by weight component
 
   // 11.4. Diet likelihood components from Kinzey and Punt
-  if ((msmMode > 1)) {
+  if ((msmMode > 2)) {
     // Slot 13 -- Ration likelihood
     for (yr = 0; yr < nyrs_hind; yr++) {
       for (sp = 0; sp < nspp; sp++) {
@@ -3305,7 +3305,6 @@ Type objective_function<Type>::operator() () {
   // ------------------------------------------------------------------------- //
   // 12. REPORT SECTION                                                        //
   // ------------------------------------------------------------------------- //
-
 
   // 12.0 Report indices
   REPORT( flt_type );
@@ -3418,24 +3417,23 @@ Type objective_function<Type>::operator() () {
 
   // 12.8. Suitability components
   REPORT( suma_suit );
-  // REPORT( suit_main );
+  REPORT( suit_main );
   REPORT( suit_other );
-  // REPORT( stom_div_bio2 );
-  // REPORT( stomKir );
-  // REPORT( stomKirWt );
+  REPORT( stom_div_bio2 );
+  REPORT( stomKir );
+  REPORT( stomKirWt );
   REPORT( avail_food );
   REPORT( othersuit );
   REPORT( of_stomKir );
   REPORT( M1 );
   REPORT( M2 );
-  // REPORT( M2_prop );
+  REPORT( M2_prop );
   REPORT( B_eaten );
-  // REPORT( B_eaten_prop );
+  REPORT( B_eaten_prop );
   REPORT( UobsAge_hat );
   REPORT( UobsWtAge_hat );
 
   // -- 12.9. Kinzey predation functions
-  /*
   REPORT( H_1 );
   REPORT( H_1a );
   REPORT( H_1b );
@@ -3464,8 +3462,6 @@ Type objective_function<Type>::operator() () {
 
   REPORT( omega_hat );
   REPORT( omega_hat_ave );
-  */
-
 
 
   // ------------------------------------------------------------------------- //
