@@ -2465,14 +2465,11 @@ Type objective_function<Type>::operator() () {
 
       if(flt_yr > 0){
         flt_yr = flt_yr - styr;
-      }
-      if(flt_yr < 0){
-        flt_yr = -flt_yr - styr;
-      }
 
       if(flt_yr < nyrs_hind){
         srv_n_obs(srv) += 1; // Add one if survey is used
         sigma_srv_analytical(srv) += square( log(srv_biom_obs(srv_ind, 0)) - log(srv_bio_hat(srv_ind)));
+      }
       }
     }
 
