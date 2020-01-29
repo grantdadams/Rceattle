@@ -322,6 +322,8 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
                                          getsd = FALSE,
                                          recompile = FALSE)
 
+      # Update standard error from survey for simulation
+      operating_model_use$data_list$srv_biom$CV <- operating_model_use$quantities$srv_cv_hat
 
       # Simulate new survey and comp data
       sim_dat <- sim_mod(operating_model_use, simulate = simulate)
@@ -408,6 +410,8 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
       estimation_model_use$obj <- NULL
       estimation_model_use$opt <- NULL
       estimation_model_use$sdrep <- NULL
+      estimation_model_use$quantities[[names(estimation_model_use$quantities) %!in% c("catch_hat", "biomass", "mn_rec", "SB0", "biomassSSB" , "R", "srv_cv_hat")]] <- NULL
+
       Rceattle_EM_list[[sim]][[k+1]] <- estimation_model_use
     }
 
