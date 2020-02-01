@@ -219,7 +219,7 @@ rearrange_dat <- function(data_list){
     yr <- as.numeric(as.character(data_list$Pyrs$Year[i])) - data_list$styr + 1
 
     if(yr <= data_list$endyr - data_list$styr + 1){
-      Pyrs[sp, sex, 1:data_list$nages[sp], yr] <- as.numeric(as.character(as.matrix(unlist(data_list$Pyrs[i, (1:data_list$nages[sp]) + 2]))))
+      Pyrs[sp, sex, 1:data_list$nages[sp], yr] <- as.numeric(as.character(as.matrix(unlist(data_list$Pyrs[i, (1:data_list$nages[sp]) + 3]))))
     }
   }
   data_list$Pyrs <- Pyrs
