@@ -1058,9 +1058,9 @@ Type objective_function<Type>::operator() () {
       }
 
       // Plus group
-      NbyageSPR(0, sp, nages(sp) - 1) = NbyageSPR(0, sp, nages(sp) - 2) * exp(-M(sp, 0, nages(sp) - 2, nyrs_hind - 1)) + NbyageSPR(0, sp, nages(sp) - 1) * exp(-M(sp, 0, nages(sp) - 1, nyrs_hind - 1));
-      NbyageSPR(1, sp, nages(sp) - 1) = NbyageSPR(1, sp, nages(sp) - 2) * exp(-(M(sp, 0,  nages(sp) - 2, nyrs_hind - 1) + F35_tot(sp, 0,  nages(sp) - 2))) + NbyageSPR(1, sp, nages(sp) - 1) * exp(-(M(sp, 0,  nages(sp) - 1, nyrs_hind - 1) + F35_tot(sp, 0,  nages(sp) - 1)));
-      NbyageSPR(2, sp, nages(sp) - 1) = NbyageSPR(2, sp, nages(sp) - 2) * exp(-(M(sp, 0,  nages(sp) - 2, nyrs_hind - 1) + F40_tot(sp, 0,  nages(sp) - 2))) + NbyageSPR(2, sp, nages(sp) - 1) * exp(-(M(sp, 0,  nages(sp) - 1, nyrs_hind - 1) + F40_tot(sp, 0,  nages(sp) - 1)));
+      NbyageSPR(0, sp, nages(sp) - 1) = NbyageSPR(0, sp, nages(sp) - 2) * exp(-M(sp, 0, nages(sp) - 2, nyrs_hind - 1)) / (1 - exp(-M(sp, 0, nages(sp) - 1, nyrs_hind - 1)));
+      NbyageSPR(1, sp, nages(sp) - 1) = NbyageSPR(1, sp, nages(sp) - 2) * exp(-(M(sp, 0,  nages(sp) - 2, nyrs_hind - 1) + F35_tot(sp, 0,  nages(sp) - 2))) / (1 - exp(-(M(sp, 0,  nages(sp) - 1, nyrs_hind - 1) + F35_tot(sp, 0,  nages(sp) - 1))));
+      NbyageSPR(2, sp, nages(sp) - 1) = NbyageSPR(2, sp, nages(sp) - 2) * exp(-(M(sp, 0,  nages(sp) - 2, nyrs_hind - 1) + F40_tot(sp, 0,  nages(sp) - 2))) / (1 - exp(-(M(sp, 0,  nages(sp) - 1, nyrs_hind - 1) + F40_tot(sp, 0,  nages(sp) - 1))));
 
       // Calulcate SPR
       for (age = 0; age < nages(sp); age++) {
