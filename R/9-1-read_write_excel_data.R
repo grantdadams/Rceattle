@@ -388,7 +388,6 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     }
 
     data_list$fleet_control$Nselages <- suppressWarnings(as.numeric(data_list$fleet_control$Nselages))
-    data_list$fleet_control$Nselages <- suppressWarnings(as.numeric(data_list$fleet_control$Nselages))
 
     # age_trans_matrix
     age_trans_matrix <- as.data.frame(readxl::read_xlsx(file, sheet = "age_trans_matrix"))

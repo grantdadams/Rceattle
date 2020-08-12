@@ -66,7 +66,7 @@ build_params <- function(data_list, inits = NULL) {
   param_list$srv_q_pow = rep(0, nrow(data_list$fleet_control))
   param_list$ln_srv_q_dev = matrix(0, nrow = nrow(data_list$fleet_control), ncol = nyrs_hind)   # Survey catchability deviations; n = [sum(n_srv)]
   param_list$ln_srv_q_dev_re = matrix(0, nrow = nrow(data_list$fleet_control), ncol = nyrs_hind)   # Survey catchability deviations; n = [sum(n_srv)]
-  param_list$ln_sigma_srv_q <- log(data_list$fleet_control$Q_sd_prior)              # Log standard deviation for survey selectivity random walk - used for logistic
+  param_list$ln_sigma_srv_q <- log(data_list$fleet_control$Q_sd_prior)       # Log standard deviation for survey selectivity random walk - used for logistic
 
 
   # -- 3.5. Selectivity parameters
@@ -105,6 +105,9 @@ build_params <- function(data_list, inits = NULL) {
 
   # -- 3.8. Preference parameters
   param_list$log_phi = matrix(0, data_list$nspp, data_list$nspp)
+
+  # -- 3.9. Comp weighting
+  param_list$comp_weights = data_list$fleet_control$Comp_weights
 
   #---------------------------------------------------------------------
   # Step 3 -- Replace inits with starting values in range

@@ -223,7 +223,8 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Estimate_survey_sd = rep(0, 4), # Used to be Estimate_sigma_survey
     Survey_sd_prior = rep(NA, 4), # Used to be Sigma_survey_prior
     Estimate_catch_sd = rep(NA, 4), # Used to be Estimate_sigma_catch
-    Catch_sd_prior = rep(NA, 4) # Used to be Sigma_catch_prior
+    Catch_sd_prior = rep(NA, 4), # Used to be Sigma_catch_prior
+    Comp_weights = rep(1, 4) # MacCallister Ianelli weights
   )
 
 
@@ -255,7 +256,8 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Estimate_survey_sd = rep(NA, 3),
     Survey_sd_prior = rep(NA, 3),
     Estimate_catch_sd = rep(0, 3), # Used to be Estimate_sigma_catch
-    Catch_sd_prior = rep(NA, 3) # Used to be Sigma_catch_prior
+    Catch_sd_prior = rep(NA, 3), # Used to be Sigma_catch_prior
+    Comp_weights = rep(1, 3) # MacCallister-Ianelli weights
   )
 
   dat_list$fleet_control <- rbind(dat_list$fleet_control, srv_control)

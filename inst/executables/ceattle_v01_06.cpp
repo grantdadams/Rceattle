@@ -518,7 +518,7 @@ Type objective_function<Type>::operator() () {
   // -- 3.6. Variance of survey and fishery time series
   PARAMETER_VECTOR( ln_sigma_srv_index );         // Log standard deviation of survey index time-series; n = [1, n_srv]
   PARAMETER_VECTOR( ln_sigma_fsh_catch );         // Log standard deviation of fishery catch time-series; n = [1, n_fsh]
-
+  PARAMETER_VECTOR( comp_weights );               // MacCallister-Ianelli weights for fisheries data
 
   // -- 3.7. Kinzery predation function parameters
   PARAMETER_MATRIX(logH_1);                       // Predation functional form; n = [nspp, nspp2];
@@ -3032,7 +3032,7 @@ Type objective_function<Type>::operator() () {
           for (ln = 0; ln < n_comp; ln++) {
             if(!isNA( comp_obs(comp_ind, ln) )){
               if(comp_hat(comp_ind, ln) > 0){
-                jnll_comp(2, flt) -= Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln)) * log(comp_hat(comp_ind, ln)) ;
+                jnll_comp(2, flt) -= comp_weights(flt) * Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln)) * log(comp_hat(comp_ind, ln)) ;
               }
             }
           }

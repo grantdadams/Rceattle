@@ -4,14 +4,28 @@
 \alias{fit_tmb}
 \title{Optimize a TMB model}
 \usage{
-fit_tmb(obj, fn = obj$fn, gr = obj$gr, startpar = obj$par,
-  lower = rep(-Inf, length(startpar)), upper = rep(Inf,
-  length(startpar)), getsd = TRUE, control = list(eval.max = 10000,
-  iter.max = 10000, trace = 0), bias.correct = FALSE,
-  bias.correct.control = list(sd = FALSE, split = NULL, nsplit = NULL,
-  vars_to_correct = NULL), savedir = NULL, loopnum = 3,
-  newtonsteps = 0, n = Inf, getReportCovariance = FALSE,
-  getJointPrecision = FALSE, getHessian = FALSE, quiet = FALSE, ...)
+fit_tmb(
+  obj,
+  fn = obj$fn,
+  gr = obj$gr,
+  startpar = obj$par,
+  lower = rep(-Inf, length(startpar)),
+  upper = rep(Inf, length(startpar)),
+  getsd = TRUE,
+  control = list(eval.max = 10000, iter.max = 10000, trace = 0),
+  bias.correct = FALSE,
+  bias.correct.control = list(sd = FALSE, split = NULL, nsplit = NULL, vars_to_correct
+    = NULL),
+  savedir = NULL,
+  loopnum = 3,
+  newtonsteps = 0,
+  n = Inf,
+  getReportCovariance = FALSE,
+  getJointPrecision = FALSE,
+  getHessian = FALSE,
+  quiet = FALSE,
+  ...
+)
 }
 \arguments{
 \item{obj}{The compiled TMB object}

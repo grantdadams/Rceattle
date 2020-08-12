@@ -232,7 +232,7 @@ fit_mod <-
            map = NULL,
            bounds = NULL,
            file = NULL,
-           debug = T,
+           debug = FALSE,
            random_rec = FALSE,
            niter = 3,
            msmMode = 0,
@@ -557,6 +557,21 @@ fit_mod <-
 
     rownames(quantities$biomassSSB) <- data_list$spnames
     rownames(quantities$R) <- data_list$spnames
+
+    # Calculate MaCallister-Iannelli coefficients
+    # Effective sample size for the length data for year y
+
+    eff_n_macallister <- rowSums(quantities$comp_hat * (1 - quantities$comp_hat), na.rm = TRUE)/rowSums((data_list_reorganized$comp_obs - quantities$comp_hat)^2, na.rm = TRUE) # sum_length (p_hat * (1 - p_hat))/ sum_length ((p - p_hat) ^ 2)
+
+
+    # Loop fleets and take harmonic mean
+    weights_macallister <- rep(NA, length(unique(data_list$comp_data$Fleet_code)))
+    for(flt in unique(data_list$comp_data$Fleet_code)){
+comp_sub <- which(data_list$comp_data$Fleet_code == flt & data_list$comp_data$Year > 0)
+      data_list$fleet_control$Comp_weights[which(data_list$fleet_control$Fleet_code == flt)] <- ((1/length(comp_sub))*sum((eff_n_macallister[comp_sub]/data_list$comp_data$Sample_size[comp_sub])^-1))^-1
+    }
+
+
 
 
     if (debug) {

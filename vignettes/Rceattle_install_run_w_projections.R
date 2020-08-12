@@ -14,7 +14,7 @@ install.packages('TMB', type = 'source')
 # Try "TMB::runExample(all = TRUE)" to see if TMB works
 
 # Install Rceattle
-devtools::install_github("grantdadams/Rceattle", ref = "grant/time_varying_q_and_sel", auth_token = "4925b42ac46f1e0aefd671e9dc0c1cf1b3157017")
+devtools::install_github("grantdadams/Rceattle", ref = "grant/time_varying_q_sel_2sex2", auth_token = "4925b42ac46f1e0aefd671e9dc0c1cf1b3157017")
 
 
 ################################################
@@ -49,12 +49,26 @@ ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
                              random_rec = FALSE, # No random recruitment
                              msmMode = 0, # Single species mode
                              silent = TRUE,
-                             recompile = TRUE)
+                             recompile = FALSE)
 # Type ?fit_mod for more details
 
 # The you can plot the model results using using
 plot_biomass(Rceattle =  ss_run)
 plot_recruitment(Rceattle =  ss_run)
+
+# Note: fitting the model updates the composition weights using the harmonic mean MacCallister-Ianelli method, refitting the model will change the MLE based on the new weighting
+ss_run_weighted <- Rceattle::fit_mod(data_list = ss_run$data_list,
+                            inits = NULL, # Initial parameters = 0
+                            file = NULL, # Don't save
+                            debug = 0, # Estimate
+                            random_rec = FALSE, # No random recruitment
+                            msmMode = 0, # Single species mode
+                            silent = TRUE,
+                            recompile = FALSE)
+
+# The you can plot the model results using using
+plot_biomass(Rceattle =  list(ss_run, ss_run_weighted))
+plot_recruitment(Rceattle =  list(ss_run, ss_run_weighted))
 
 
 # For the a multispecies model starting from the single species parameters, the following can be specified to load the data:

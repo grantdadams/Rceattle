@@ -13,7 +13,8 @@ install.packages('TMB', type = 'source')
 # Install Rceattle
 devtools::install_github("grantdadams/Rceattle", auth_token = "4925b42ac46f1e0aefd671e9dc0c1cf1b3157017")
 
-
+library(devtools)
+devtools::install_github("shcaba/SS-DL-tool")
 
 library(Rceattle)
 

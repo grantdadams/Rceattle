@@ -4,9 +4,19 @@
 \alias{plot_ssb}
 \title{Plot SSB}
 \usage{
-plot_ssb(Rceattle, tmp_list = NULL, file = NULL, model_names = NULL,
-  line_col = NULL, species = NULL, lwd = 3, right_adj = 0,
-  mohns = NULL, incl_proj = FALSE, add_ci = FALSE)
+plot_ssb(
+  Rceattle,
+  tmp_list = NULL,
+  file = NULL,
+  model_names = NULL,
+  line_col = NULL,
+  species = NULL,
+  lwd = 3,
+  right_adj = 0,
+  mohns = NULL,
+  incl_proj = FALSE,
+  add_ci = FALSE
+)
 }
 \arguments{
 \item{Rceattle}{Single or list of Rceattle model objects exported from \code{\link{Rceattle}}}
