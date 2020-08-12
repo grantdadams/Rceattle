@@ -21,9 +21,11 @@ Imports:
     writexl,
     tidyr
 Remotes: kaskr/TMB_contrib_R/TMBhelper
-RoxygenNote: 6.1.1
+RoxygenNote: 7.1.0
 BugReports: https://github.com/grantdadams/Rceattle/issues
 Suggests: knitr,
     rmarkdown,
     testthat
 VignetteBuilder: knitr
+Depends: 
+    R (>= 2.10)

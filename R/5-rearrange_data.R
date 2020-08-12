@@ -227,7 +227,7 @@ rearrange_dat <- function(data_list){
 
   # Make data.frames into matrices
   for(i in 1:length(data_list)){
-    if(class(data_list[[i]]) == "data.frame"){
+    if(class(data_list[[i]])[1] == "data.frame"){
       data_list[[i]] <- as.matrix(data_list[[i]])
     }
   }

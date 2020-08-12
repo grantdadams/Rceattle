@@ -4,9 +4,19 @@
 \alias{plot_catch}
 \title{Plot time series of fishery catch}
 \usage{
-plot_catch(Rceattle, tmp_list = NULL, file = NULL,
-  model_names = NULL, line_col = NULL, species = NULL, cex = 3,
-  lwd = 3, right_adj = 0, mohns = NULL, incl_proj = FALSE)
+plot_catch(
+  Rceattle,
+  tmp_list = NULL,
+  file = NULL,
+  model_names = NULL,
+  line_col = NULL,
+  species = NULL,
+  cex = 3,
+  lwd = 3,
+  right_adj = 0,
+  mohns = NULL,
+  incl_proj = FALSE
+)
 }
 \arguments{
 \item{Rceattle}{Single or list of Rceattle model objects exported from \code{\link{Rceattle}}}

@@ -4,7 +4,8 @@
 \name{BS2017MS}
 \alias{BS2017MS}
 \title{Data inputs for multi-species CEATTLE of the Bering Sea from 1979 to 2017}
-\format{Control
+\format{
+Control
 \describe{
 \item{nspp}{Integer: number of species in model}
 \item{styr}{Integer: Start year}
@@ -157,7 +158,8 @@ Bioenergetics and diet data:
 \item{ UobsWt }{Array: pred, prey, predL, preyL diet proportion data (mean wt_hat of prey in each pred): dim = [nspp, nspp, maxL, maxL] . This fits predation mortality from \code{msmMode = 1} and \code{suitMode = 1, 2}}
 \item{ UobsAge }{Array: pred, prey, predA, preyA diet prorportion data  (mean number of prey in each pred age) dim = [nspp, nspp, max_age, max_age]}
 \item{ UobsWtAge }{Array: pred, prey, predA, preyA diet prorportion data  (mean weight of prey at age in each pred at age) dim = [nspp, nspp, max_age, max_age]}
-}}
+}
+}
 \usage{
 BS2017MS
 }

@@ -33,10 +33,13 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
 
   # -----------------------------------------------------------
-  # -- 1 Map out future fishing mortality
+  # -- 1.1. Map out future fishing mortality
   map_list$proj_F_prop <- as.numeric(replace(map_list$proj_F_prop, values = rep(NA, length(map_list$proj_F_prop))))
 
-  # Map out future recruitment deviations
+  # -- 1.2. Map out comp weights
+  map_list$comp_weights <- as.numeric(replace(map_list$comp_weights, values = rep(NA, length(map_list$comp_weights))))
+
+  # -- 1.3. Map out future recruitment deviations
   map_list$rec_dev[, yrs_proj] <- as.numeric(replace(map_list$rec_dev[, yrs_proj], values = rep(NA, length(map_list$rec_dev[,
                                                                                                                             yrs_proj]))))
 
