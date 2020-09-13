@@ -394,7 +394,8 @@ fit_mod <-
           H_4 = 10,
           log_gam_a = 9,
           log_gam_b = 9,
-          log_phi = 9
+          log_phi = 9,
+          comp_weights = 10
         )
       }
     }

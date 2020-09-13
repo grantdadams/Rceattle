@@ -83,7 +83,8 @@ ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
                             random_rec = FALSE, # No random recruitment
                             msmMode = 1, # MSVPA based
                             suitMode = 0, # empirical suitability
-                            silent = TRUE)
+                            silent = TRUE,
+                            phases = "default")
 
 # We can plot both runs as well:
 mod_list <- list(ss_run, ms_run)
