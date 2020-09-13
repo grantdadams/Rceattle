@@ -4,7 +4,8 @@
 \alias{plot_form}
 \title{Plot functional form}
 \usage{
-plot_form(params = NULL, pred = 1, pred_age = 1, prey = 1, msmMode = 3)
+plot_form(params = NULL, pred = 1, pred_age = 1, prey = 1,
+  msmMode = 3)
 }
 \arguments{
 \item{params}{Parameter list object from \code{\link{build_params}} or \code{\link{Rceattle}}}

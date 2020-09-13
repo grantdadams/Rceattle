@@ -107,7 +107,13 @@ build_params <- function(data_list, inits = NULL) {
   param_list$log_phi = matrix(0, data_list$nspp, data_list$nspp)
 
   # -- 3.9. Comp weighting
+  if(!is.null(data_list$fleet_control$Comp_weights)){
   param_list$comp_weights = data_list$fleet_control$Comp_weights
+  }
+  if(is.null(data_list$fleet_control$Comp_weights)){
+    param_list$comp_weights = rep(1, nrow(data_list$fleet_control))
+  }
+
 
   #---------------------------------------------------------------------
   # Step 3 -- Replace inits with starting values in range

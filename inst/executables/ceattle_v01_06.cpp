@@ -2011,19 +2011,31 @@ Type objective_function<Type>::operator() () {
 
                       if(avail_food(rsp, r_sex, r_age, yr) > 0){
 
-                        M2(ksp, k_sex, k_age, yr) += pow(AvgN(ksp, k_sex, k_age, yr) , msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / (AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind)); // #FIXME - include indices of overlap
-                        M2_prop(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / (AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind));
-
-
                         /*
-                        // Predation mortality
-                        if(AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) > 0){
-                        M2(ksp, k_sex, k_age, yr) += pow(AvgN(ksp, k_sex, k_age, yr) , msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind); // #FIXME - include indices of overlap
-                        M2_prop(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind);
-}
-*/
-                        B_eaten(ksp, k_sex, k_age, yr) += pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
-                        B_eaten_prop(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) *  AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
+                         // Predation mortality
+                         if(AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) > 0){
+                         M2(ksp, k_sex, k_age, yr) += pow(AvgN(ksp, k_sex, k_age, yr) , msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind); // #FIXME - include indices of overlap
+                         M2_prop(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind);
+                         }
+                         */
+
+                        // Type 2 MSVPA
+                        if(msmMode == 1){
+                          M2(ksp, k_sex, k_age, yr) += (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr); // #FIXME - include indices of overlap
+                          M2_prop(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr);
+                          B_eaten(ksp, k_sex, k_age, yr) += AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr);
+                          B_eaten_prop(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
+                        }
+
+
+                        // Type 3 MSVPA
+                        if(msmMode == 2){
+                          M2(ksp, k_sex, k_age, yr) += pow(AvgN(ksp, k_sex, k_age, yr) , msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr)
+                                                                                                                                                     * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / (AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind)); // #FIXME - include indices of overlap
+                          M2_prop(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / (AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind));
+                          B_eaten(ksp, k_sex, k_age, yr) += pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
+                          B_eaten_prop(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) *  AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
+                        }
                       }
                     }
                   }
@@ -2406,12 +2418,12 @@ Type objective_function<Type>::operator() () {
         flt_yr = flt_yr - styr;
 
 
-      mo = srv_biom_n(srv_ind, 0);                    // Temporary index for month
-      if(flt_yr < nyrs_hind){
-        srv_n_obs(srv) += 1; // Add one if survey is used
-        srv_q_analytical(srv) += log(srv_biom_obs(srv_ind, 0) / srv_bio_hat(srv_ind));
+        mo = srv_biom_n(srv_ind, 0);                    // Temporary index for month
+        if(flt_yr < nyrs_hind){
+          srv_n_obs(srv) += 1; // Add one if survey is used
+          srv_q_analytical(srv) += log(srv_biom_obs(srv_ind, 0) / srv_bio_hat(srv_ind));
+        }
       }
-    }
     }
 
     for(srv = 0 ; srv < n_flt; srv ++){
@@ -2466,10 +2478,10 @@ Type objective_function<Type>::operator() () {
       if(flt_yr > 0){
         flt_yr = flt_yr - styr;
 
-      if(flt_yr < nyrs_hind){
-        srv_n_obs(srv) += 1; // Add one if survey is used
-        sigma_srv_analytical(srv) += square( log(srv_biom_obs(srv_ind, 0)) - log(srv_bio_hat(srv_ind)));
-      }
+        if(flt_yr < nyrs_hind){
+          srv_n_obs(srv) += 1; // Add one if survey is used
+          sigma_srv_analytical(srv) += square( log(srv_biom_obs(srv_ind, 0)) - log(srv_bio_hat(srv_ind)));
+        }
       }
     }
 
@@ -3184,8 +3196,8 @@ Type objective_function<Type>::operator() () {
   // Slot 12 -- SPR reference point penalties
   for (sp = 0; sp < nspp; sp++) {
     if(msmMode == 0){
-    jnll_comp(12, sp)  += 200*square((SB35(sp)/SB0(sp))-0.35);
-    jnll_comp(12, sp)  += 200*square((SB40(sp)/SB0(sp))-0.40);
+      jnll_comp(12, sp)  += 200*square((SB35(sp)/SB0(sp))-0.35);
+      jnll_comp(12, sp)  += 200*square((SB40(sp)/SB0(sp))-0.40);
     }
   }
 

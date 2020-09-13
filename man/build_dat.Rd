@@ -4,18 +4,9 @@
 \alias{build_dat}
 \title{Build data list object for TMB from ADMB dat files}
 \usage{
-build_dat(
-  ctlFilename = NULL,
-  TMBfilename = NULL,
-  cpp_directory = NULL,
-  dat_dir = NULL,
-  nspp = 3,
-  nselages = 8,
-  endyr = 2017,
-  proj_yr = 2050,
-  proj_F_prop = 0,
-  stom_tau = 20
-)
+build_dat(ctlFilename = NULL, TMBfilename = NULL,
+  cpp_directory = NULL, dat_dir = NULL, nspp = 3, nselages = 8,
+  endyr = 2017, proj_yr = 2050, proj_F_prop = 0, stom_tau = 20)
 }
 \arguments{
 \item{ctlFilename}{The ADMB control (.ctl) file used for CEATTLE}
