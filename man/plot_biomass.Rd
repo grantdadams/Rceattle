@@ -4,18 +4,9 @@
 \alias{plot_biomass}
 \title{plot_biomass}
 \usage{
-plot_biomass(
-  Rceattle,
-  tmp_list = NULL,
-  file = NULL,
-  model_names = NULL,
-  line_col = NULL,
-  species = NULL,
-  lwd = 3,
-  right_adj = 0,
-  mohns = NULL,
-  incl_proj = FALSE
-)
+plot_biomass(Rceattle, tmp_list = NULL, file = NULL,
+  model_names = NULL, line_col = NULL, species = NULL, lwd = 3,
+  right_adj = 0, mohns = NULL, incl_proj = FALSE)
 }
 \arguments{
 \item{Rceattle}{Single or list of Rceattle model objects exported from \code{\link{Rceattle}}}
