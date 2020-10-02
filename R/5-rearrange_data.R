@@ -7,7 +7,8 @@
 rearrange_dat <- function(data_list){
 
   # Step 1 - remove numeric objects from control
-  data_list$fleet_control <- data_list$fleet_control[,-which(colnames(data_list$fleet_control) %in% c("Sel_sd_prior", "Log_q_prior", "Q_sd_prior", "Survey_sd_prior", "Sel_sd_prior", "proj_F", "Catch_sd_prior"))]
+  data_list$fleet_control <- data_list$fleet_control[,-which(colnames(data_list$fleet_control) %in% c("Sel_sd_prior", "Log_q_prior", "Q_sd_prior", "Survey_sd_prior", "proj_F", "Catch_sd_prior"))]
+  data_list$fleet_control$Time_varying_sel <- round(data_list$fleet_control$Time_varying_sel)
 
   # Step 2 -  Seperate survey biomass info from observation
   data_list$srv_biom_ctl <- data_list$srv_biom[,c("Fleet_code", "Species", "Year")]
