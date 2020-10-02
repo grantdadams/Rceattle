@@ -71,7 +71,8 @@ build_params <- function(data_list, inits = NULL) {
 
   # -- 3.5. Selectivity parameters
   n_selectivities <- nrow(data_list$fleet_control)
-  param_list$sel_coff = suppressWarnings( array(0, dim = c(n_selectivities, 2, max(1, as.numeric(c(data_list$fleet_control$Nselages) ), na.rm = T))))  # Fishery age selectivity coef; n = [nspp, nselages]
+  param_list$sel_coff = suppressWarnings( array(0, dim = c(n_selectivities, 2, max(1, as.numeric(c(data_list$fleet_control$Nselages) ), na.rm = T))))  # Non-parametric selectivity coef; n = [nspp, nselages]
+  param_list$sel_curve_pen = suppressWarnings( matrix( c(data_list$fleet_control$Time_varying_sel, data_list$fleet_control$Sel_sd_prior), nrow = n_selectivities, ncol = 2)) # Non-parametric selectivity penalties
   param_list$sel_slp = array(0, dim = c(2, n_selectivities, 2))  # selectivity paramaters for logistic; n = [2, nspp, 2 sexes]
   param_list$sel_inf = array(0, dim = c(2, n_selectivities, 2))  # selectivity paramaters for logistic; n = [2, nspp, 2 sexes]
 
@@ -84,13 +85,13 @@ build_params <- function(data_list, inits = NULL) {
 
   param_list$ln_sigma_sel <- log(data_list$fleet_control$Sel_sd_prior)          # Log standard deviation for  selectivity random walk - used for logistic
 
-  # -- 3.5. Variance of survey and fishery time series
+
+  # -- 3.6. Variance of survey and fishery time series
   param_list$ln_sigma_srv_index = log(data_list$fleet_control$Survey_sd_prior)      # Log standard deviation of survey index time-series; n = [1, n_srv]
   param_list$ln_sigma_fsh_catch = log(data_list$fleet_control$Catch_sd_prior)       # Log standard deviation of fishery catch time-series; n = [1, n_fsh]
 
 
-
-  # -- 3.6. Kinzery predation function parameters
+  # -- 3.7. Kinzery predation function parameters
   param_list$logH_1 = matrix(0, nrow = data_list$nspp, ncol = data_list$nspp2)  # Predation functional form; n = [nspp, nspp2]; # FIXME: make matrix; nspp2 = nspp + 1
   param_list$logH_1a = rep(0, data_list$nspp)  # Age adjustment to H_1; n = [1, nspp]; # FIXME: make matrix
   param_list$logH_1b = rep(0, data_list$nspp)  # Age adjustment to H_1; n = [1, nspp]; # FIXME: make matrix
@@ -99,14 +100,17 @@ build_params <- function(data_list, inits = NULL) {
   param_list$logH_3 = matrix(0, nrow = data_list$nspp, ncol = data_list$nspp)  # Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH3,UpperBoundH3;
   param_list$H_4 = matrix(0, nrow = data_list$nspp, ncol = data_list$nspp)  # Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH4,UpperBoundH4;
 
-  # -- 3.7 Gamma selectivity parameters
+
+  # -- 3.8 Gamma selectivity parameters
   param_list$log_gam_a = rep(0, data_list$nspp)  # Log predator selectivity; n = [1,nspp]; FIXME: bounds = 1.0e-10 and 19.9
   param_list$log_gam_b = rep(0, data_list$nspp)  # Log predator selectivity; n = [1,nspp]; FIXME: bounds = -5.2 and 10
 
-  # -- 3.8. Preference parameters
+
+  # -- 3.9. Preference parameters
   param_list$log_phi = matrix(0, data_list$nspp, data_list$nspp)
 
-  # -- 3.9. Comp weighting
+
+  # -- 3.10. Comp weighting
   if(!is.null(data_list$fleet_control$Comp_weights)){
   param_list$comp_weights = data_list$fleet_control$Comp_weights
   }

@@ -63,6 +63,10 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   ind_inf_re <- 1
   ind_slp_re <- 1
 
+  # Map out non-parametric selectivity penalties. Leaving as parameters in case we want to estimate down the line.
+  map_list$sel_curve_pen <- replace(map_list$sel_curve_pen, values = rep(NA, length(map_list$sel_curve_pen)))
+
+
   for (i in 1:nrow(data_list$fleet_control)) {
 
     # -- Turn off sex-specific parameters if 1 sex model

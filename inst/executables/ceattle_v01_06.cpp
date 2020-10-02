@@ -388,7 +388,6 @@ Type objective_function<Type>::operator() () {
   // ------------------------------------------------------------------------- //
 
   // 2.1. FIXED VALUES
-  Type curve_pen = 12.5;                  // Selectivity penalty for non-parametric
   Type sd_ration = 0.05;                  // SD of ration likelihood
 
 
@@ -505,7 +504,7 @@ Type objective_function<Type>::operator() () {
 
 
   // -- 3.5. Selectivity parameters
-  PARAMETER_ARRAY( sel_coff );                    // selectivity parameters; n = [n_selectivities, nselages]
+  PARAMETER_ARRAY( sel_coff );                    // selectivity parameters for non-parametric; n = [n_selectivities, nselages]
   PARAMETER_ARRAY( sel_slp );                     // selectivity paramaters for logistic; n = [2, n_selectivities]
   PARAMETER_ARRAY( sel_inf );                     // selectivity paramaters for logistic; n = [2, n_selectivities]
   PARAMETER_ARRAY( sel_slp_dev );                 // selectivity parameter deviate for logistic; n = [2, n_selectivities, n_sel_blocks]
@@ -513,6 +512,7 @@ Type objective_function<Type>::operator() () {
   PARAMETER_ARRAY( sel_slp_dev_re );              // selectivity parameter random effect deviate for logistic; n = [2, n_selectivities, n_sel_blocks]
   PARAMETER_ARRAY( sel_inf_dev_re );              // selectivity parameter random effect deviate for logistic; n = [2, n_selectivities, n_sel_blocks]
   PARAMETER_VECTOR( ln_sigma_sel );               // Log standard deviation of selectivity; n = [1, n_selectivities]
+  PARAMETER_MATRIX( sel_curve_pen );              // Selectivity penalty for non-parametric selectivity, 2nd column is for monotonic bit
 
 
   // -- 3.6. Variance of survey and fishery time series
@@ -751,7 +751,7 @@ Type objective_function<Type>::operator() () {
     flt_sel_ind(flt) = fleet_control(flt_ind, 4);            // Survey selectivity index
     flt_sel_type(flt) = fleet_control(flt_ind, 5);           // Selectivity type
     flt_nselages(flt) = fleet_control(flt_ind, 6);           // Non-parametric selectivity ages
-    flt_varying_sel(flt) = fleet_control(flt_ind, 7);        // Time-varying selectivity type
+    flt_varying_sel(flt) = fleet_control(flt_ind, 7);        // Time-varying selectivity type.
     flt_sel_age(flt) = fleet_control(flt_ind, 8) - minage(flt_spp(flt));              // First age selected
     flt_accum_age_lower(flt) = fleet_control(flt_ind, 9) - minage(flt_spp(flt));       // Dim1 of wt
     flt_accum_age_upper(flt) = fleet_control(flt_ind, 10) - minage(flt_spp(flt));     // Dim3 of ALK
@@ -3073,7 +3073,7 @@ Type objective_function<Type>::operator() () {
         for(sex = 0; sex < nsex(sp); sex++){
           for (age = 0; age < (nages(sp) - 1); age++) {
             if ( sel(flt, sex, age, 0) > sel(flt, sex, age + 1, 0)) {
-              jnll_comp(3, flt) += 20 * pow( log(sel(flt, sex, age, 0) / sel(flt, sex, age + 1, 0) ), 2);
+              jnll_comp(3, flt) += sel_curve_pen(flt, 0) * pow( log(sel(flt, sex, age, 0) / sel(flt, sex, age + 1, 0) ), 2);
             }
           }
         }
@@ -3089,7 +3089,7 @@ Type objective_function<Type>::operator() () {
           for (age = 0; age < nages(sp) - 2; age++) {
 
             sel_tmp(age) = first_difference( first_difference( sel_tmp ) )(age);
-            jnll_comp(3, flt) += curve_pen * pow( sel_tmp(age) , 2);
+            jnll_comp(3, flt) += sel_curve_pen(flt, 1) * pow( sel_tmp(age) , 2);
           }
         }
       }
