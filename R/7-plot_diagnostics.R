@@ -540,8 +540,8 @@ plot_logindex <- function(Rceattle,
   for(srv in 1:nsrv){
     for(i in 1:length(Rceattle)){
       srv_ind <- which(Srv_list[[i]]$Fleet_code == srvs[srv])
-      ymax[srv] <- max(log(c(Srv_list[[i]]$Upper95[srv_ind], Srv_hat_list[[i]]$Observation[srv_ind], ymax[srv])), na.rm = T)
-      ymin[srv] <- min(log(c(Srv_list[[i]]$Lower95[srv_ind], Srv_hat_list[[i]]$Observation[srv_ind], ymin[srv])), na.rm = T)
+      ymax[srv] <- max(c(log(c(Srv_list[[i]]$Upper95[srv_ind], Srv_hat_list[[i]]$Observation[srv_ind])), ymax[srv]), na.rm = T)
+      ymin[srv] <- min(c(log(c(Srv_list[[i]]$Lower95[srv_ind], Srv_hat_list[[i]]$Observation[srv_ind])), ymin[srv]), na.rm = T)
     }
   }
   ymax <- ymax + top_adj * (ymax-ymin)
@@ -644,18 +644,6 @@ plot_logindex <- function(Rceattle,
         # Index name
         legend('topleft',as.character(fleet_control$Fleet_name[srvs[srv]]),bty="n",y.intersp = -0.2,cex=0.8)
 
-        # Model names
-        if(srv == 1){
-          if(!is.null(model_names)){
-            legend(
-              "topright",
-              legend = model_names,
-              pch = rep(16, length(line_col)), cex=0.8,
-              col = line_col,
-              bty = "n"
-            )
-          }
-        }
 
         # Loop through models
         for (k in 1:length(Rceattle)) {
@@ -669,6 +657,32 @@ plot_logindex <- function(Rceattle,
 
           # Plot observed CPUE
           gplots::plotCI(srv_tmp$Year, log(srv_tmp$Observation), ui=log(srv_tmp$Upper95), li=log(srv_tmp$Lower95),add=T,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
+        }
+
+        # Model names
+        if(srv == 1 & (nsrv %% 2) == 0){
+          if(!is.null(model_names)){
+            legend(
+              "topright",
+              legend = model_names,
+              pch = rep(16, length(line_col)), cex=0.8,
+              col = line_col,
+              bty = "n"
+            )
+          }
+        }
+
+        if(srv == nsrv & (nsrv %% 2) != 0){
+          plot(NA, NA, ylab="", xlab="", ylim = c((ymin[srv]), (ymax[srv])), xlim = xlim, type='n', xaxt="n", yaxt="n", bty = "n")
+          if(!is.null(model_names)){
+            legend(
+              "top",
+              legend = model_names,
+              pch = rep(16, length(line_col)), cex=1,
+              col = line_col,
+              bty = "n"
+            )
+          }
         }
       }
       mtext(paste("Year"), side=1, outer=TRUE, at=0.5,line=1,cex=1)
