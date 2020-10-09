@@ -4,9 +4,17 @@
 \alias{plot_comp}
 \title{Plot time series of survey comp data}
 \usage{
-plot_comp(Rceattle, file = NULL, model_names = NULL, species = NULL,
-  cex = 3, lwd = 3, right_adj = 0, mohns = NULL,
-  incl_proj = FALSE)
+plot_comp(
+  Rceattle,
+  file = NULL,
+  model_names = NULL,
+  species = NULL,
+  cex = 3,
+  lwd = 3,
+  right_adj = 0,
+  mohns = NULL,
+  incl_proj = FALSE
+)
 }
 \arguments{
 \item{Rceattle}{Single or list of Rceattle model objects exported from \code{\link{Rceattle}}}

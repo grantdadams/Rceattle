@@ -2,11 +2,21 @@
 % Please edit documentation in R/7-plot_diagnostics.R
 \name{plot_catch}
 \alias{plot_catch}
-\title{Plot time series of fishery catch}
+\title{Landings fits}
 \usage{
-plot_catch(Rceattle, tmp_list = NULL, file = NULL,
-  model_names = NULL, line_col = NULL, species = NULL, cex = 3,
-  lwd = 3, right_adj = 0, mohns = NULL, incl_proj = FALSE)
+plot_catch(
+  Rceattle,
+  file = NULL,
+  model_names = NULL,
+  line_col = NULL,
+  species = NULL,
+  right_adj = 0,
+  top_adj = 0.05,
+  incl_proj = FALSE,
+  single.plots = FALSE,
+  width = NULL,
+  height = NULL
+)
 }
 \arguments{
 \item{Rceattle}{Single or list of Rceattle model objects exported from \code{\link{Rceattle}}}
@@ -20,17 +30,18 @@ function.}
 
 \item{species}{Species names for legend}
 
-\item{cex}{Line width as specified by user}
+\item{right_adj}{How much right side of the x-axis for fitting the legend. As percentage.}
 
-\item{right_adj}{How many units of the x-axis to add to the right side of the figure for fitting the legend.}
-
-\item{mohns}{data.frame of mohn's rows extracted from \code{\link{retrospective}}}
+\item{top_adj}{How much top side of the y-axis for fitting the legend. As percentage.}
 
 \item{incl_proj}{TRUE/FALSE include projections years}
-}
-\value{
-Returns and saves a figure with the catch trajectory.
+
+\item{single.plots}{if TRUE plot invidual fits else make multiplot}
+
+\item{width}{plot width}
+
+\item{height}{plot hight}
 }
 \description{
-Function the plots the fishery catch as estimated from Rceattle
+Plot of fitted landings data on natural-scale (r4ss-style)
 }
