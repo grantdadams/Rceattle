@@ -395,7 +395,8 @@ fit_mod <-
           log_gam_a = 9,
           log_gam_b = 9,
           log_phi = 9,
-          comp_weights = 10
+          comp_weights = 10,
+          sel_curve_pen = 10
         )
       }
     }
