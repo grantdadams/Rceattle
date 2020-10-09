@@ -160,7 +160,7 @@ plot_biomass <-
           y = NA,
           x = NA,
           ylim = c(ymin[j], ymax[j]),
-          xlim = c(minyr, maxyr + right_adj),
+          xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
           xlab = "Year",
           ylab = "Biomass (million t)",
           xaxt = c(rep("n", nspp - 1), "s")[j]
@@ -172,10 +172,10 @@ plot_biomass <-
         }
 
         # Legends
-        legend("topleft", species[j], bty = "n", cex = 1.4)
+        legend("topleft", species[j], bty = "n", cex = 0.8)
 
         if(!is.null(mohns)){
-          legend("top", paste0("B Rho = ", round(mohns[1,j+1], 2), "; SSB Rho = ",  round(mohns[2,j+1], 2) ), bty = "n", cex = 1) # Biomass rho
+          legend("top", paste0("B Rho = ", round(mohns[1,j+1], 2), "; SSB Rho = ",  round(mohns[2,j+1], 2) ), bty = "n", cex = 0.8) # Biomass rho
         }
 
         if (j == 1) {
@@ -187,7 +187,7 @@ plot_biomass <-
               lwd = lwd,
               col = line_col,
               bty = "n",
-              cex = 1.175
+              cex = 0.8
             )
           }
         }
@@ -200,7 +200,7 @@ plot_biomass <-
             lwd = lwd,
             col = c(1, 1),
             bty = "n",
-            cex = 1.175
+            cex = 0.8
           )
         }
 
@@ -304,6 +304,7 @@ plot_recruitment <-
     maxyr <- max((sapply(Years, max)))
     minyr <- min((sapply(Years, min)))
 
+    spp <- which(Rceattle[[1]]$data_list$estDynamics == 0)
     nspp <- Rceattle[[1]]$data_list$nspp
     minage <- Rceattle[[1]]$data_list$minage
 
@@ -389,7 +390,7 @@ plot_recruitment <-
       }
 
       # Plot configuration
-      layout(matrix(1:(nspp + 2), nrow = (nspp + 2)), heights = c(0.1, rep(1, nspp), 0.2))
+      layout(matrix(1:(length(spp) + 2), nrow = (length(spp) + 2)), heights = c(0.1, rep(1, length(spp)), 0.2))
       par(
         mar = c(0, 3 , 0 , 1) ,
         oma = c(0 , 0 , 0 , 0),
@@ -398,15 +399,15 @@ plot_recruitment <-
       )
       plot.new()
 
-      for (j in 1:nspp) {
+      for (j in 1:length(spp)) {
         plot(
           y = NA,
           x = NA,
-          ylim = c(ymin[j], ymax[j]),
-          xlim = c(minyr, maxyr + right_adj),
+          ylim = c(ymin[spp[j]], ymax[spp[j]]),
+          xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
           xlab = "Year",
           ylab = "Recruitment (millions)",
-          xaxt = c(rep("n", nspp - 1), "s")[j]
+          xaxt = c(rep("n", length(spp) - 1), "s")[j]
         )
 
         # Horizontal line at end yr
@@ -416,15 +417,15 @@ plot_recruitment <-
 
         # Legends
         legend("topleft",
-               legend = species[j],
+               legend = species[spp[j]],
                bty = "n",
-               cex = 1.4)
+               cex = 0.8)
 
         if(!is.null(mohns)){
-          legend("top", paste0("Rho = ", round(mohns[3,j+1], 2) ), bty = "n", cex = 1.4) # Biomass rho
+          legend("top", paste0("Rho = ", round(mohns[3,spp[j]+1], 2) ), bty = "n", cex = 0.8) # Biomass rho
         }
 
-        if (j == 1) {
+        if (spp[j] == 1) {
           if(!is.null(model_names)){
             legend(
               "topright",
@@ -433,7 +434,7 @@ plot_recruitment <-
               lwd = lwd,
               col = line_col,
               bty = "n",
-              cex = 1.175
+              cex = 0.8
             )
           }
 
@@ -445,7 +446,7 @@ plot_recruitment <-
           for (k in 1:dim(recruitment)[3]) {
             polygon(
               x = c(Years[[k]], rev(Years[[k]])),
-              y = c(recruitment_upper[j, 1:length(Years[[k]]), k], rev(recruitment_lower[j, 1:length(Years[[k]]), k])),
+              y = c(recruitment_upper[spp[j], 1:length(Years[[k]]), k], rev(recruitment_lower[spp[j], 1:length(Years[[k]]), k])),
               col = adjustcolor( line_col[k], alpha.f = 0.4),
               border = NA
             ) # 95% CI
@@ -456,7 +457,7 @@ plot_recruitment <-
         for (k in 1:dim(recruitment)[3]) {
           lines(
             x = Years[[k]],
-            y = recruitment[j, 1:length(Years[[k]]), k],
+            y = recruitment[spp[j], 1:length(Years[[k]]), k],
             lty = 1,
             lwd = lwd,
             col = line_col[k]
@@ -580,7 +581,7 @@ plot_selectivity <-
             mgp = c(10, 0.6, 0)
           )
           persp(y = Years[[1]], x =  (1:nages[sp]) - 1 + minage[sp], z = sel_subset, col="white",xlab = "Age",ylab= "\n\nYear", zlab= "\n\nSelectivity",expand=0.5,box=TRUE,ticktype="detailed",phi=35,theta=-19, main = NA)
-          mtext(text = paste(legend_sex2, as.character(fleet_control$Fleet_name[j])), side = 3, cex = 1.25, line = -.5)
+          mtext(text = paste(legend_sex2, as.character(fleet_control$Fleet_name[j])), side = 3, cex = 0.8, line = -.5)
 
           if (i == 2) {
             dev.off()
@@ -877,7 +878,7 @@ plot_mort <-
           y = NA,
           x = NA,
           ylim = c(ymin[j], ymax[j]),
-          xlim = c(minyr, maxyr + right_adj),
+          xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
           xlab = "Year",
           ylab = "Mortality",
           xaxt = c(rep("n", nspp - 1), "s")[j]
@@ -889,7 +890,7 @@ plot_mort <-
         }
 
         # Legends
-        legend("topleft", species[j], bty = "n", cex = 1.4)
+        legend("topleft", species[j], bty = "n", cex = 0.8)
 
         if (j == 1) {
           if(!is.null(model_names)){
@@ -900,7 +901,7 @@ plot_mort <-
               lwd = lwd,
               col = line_col,
               bty = "n",
-              cex = 1.175
+              cex = 0.8
             )
           }
         }
@@ -914,7 +915,7 @@ plot_mort <-
               lwd = lwd,
               col = c(1, 1),
               bty = "n",
-              cex = 1.175
+              cex = 0.8
             )
           } else{
             legend(
@@ -924,7 +925,7 @@ plot_mort <-
               lwd = lwd,
               col = c(1, 1, 1),
               bty = "n",
-              cex = 1.175
+              cex = 0.8
             )
           }
         }
@@ -1071,7 +1072,7 @@ plot_maturity <-
         }
 
         # Species legends
-        legend("topleft", species[j], bty = "n", cex = 1.4)
+        legend("topleft", species[j], bty = "n", cex = 0.8)
 
         # Model name legends
         if (j == 1) {
@@ -1083,7 +1084,7 @@ plot_maturity <-
               lwd = lwd,
               col = line_col,
               bty = "n",
-              cex = 1.175
+              cex = 0.8
             )
           }
         }
@@ -1234,7 +1235,7 @@ plot_ssb <-
           y = NA,
           x = NA,
           ylim = c(ymin[j], ymax[j]),
-          xlim = c(minyr, maxyr + right_adj),
+          xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
           xlab = "Year",
           ylab = "SSB (million t)",
           xaxt = c(rep("n", nspp - 1), "s")[j]
@@ -1246,10 +1247,10 @@ plot_ssb <-
         }
 
         # Legends
-        legend("topleft", species[j], bty = "n", cex = 1.4)
+        legend("topleft", species[j], bty = "n", cex = 0.8)
 
         if(!is.null(mohns)){
-          legend("top", paste0("SSB Rho = ",  round(mohns[2,j+1], 2) ), bty = "n", cex = 1) # SSB rho
+          legend("top", paste0("SSB Rho = ",  round(mohns[2,j+1], 2) ), bty = "n", cex = 0.8) # SSB rho
         }
 
         if (j == 1) {
@@ -1261,7 +1262,7 @@ plot_ssb <-
               lwd = lwd,
               col = line_col,
               bty = "n",
-              cex = 1.175
+              cex = 0.8
             )
           }
         }
