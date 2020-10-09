@@ -4,8 +4,18 @@
 \alias{TMBphase}
 \title{Run TMB using phases}
 \usage{
-TMBphase(data, parameters, map, random, phases, cpp_directory, model_name,
-  optimizer = "nlminb", silent, use_gradient = TRUE)
+TMBphase(
+  data,
+  parameters,
+  map,
+  random,
+  phases,
+  cpp_directory,
+  model_name,
+  optimizer = "nlminb",
+  silent,
+  use_gradient = TRUE
+)
 }
 \arguments{
 \item{data}{A list to be passed to TMB}

@@ -1,434 +1,679 @@
-#' Plot time series of IOA
+#' CPUE fits
 #'
-#' @description Function the plots the survey indices as estimated from Rceattle
+#' Plot of fitted CPUE indices on natural-scale (r4ss-style)
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
 #' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param single.plots if TRUE plot invidual fits else make multiplot
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
 #' @param species Species names for legend
-#' @param cex Line width as specified by user
-#' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#' @param right_adj How much right side of the x-axis for fitting the legend. As percentage.
+#' @param top_adj How much top side of the y-axis for fitting the legend. As percentage.
 #' @param incl_proj TRUE/FALSE include projections years
-#'
-#' @return Returns and saves a figure with the index trajectory.
+#' @param width plot width
+#' @param height plot hight
 #' @export
-plot_index <-
-  function(Rceattle,
-           file = NULL,
-           model_names = NULL,
-           line_col = NULL,
-           species = NULL,
-           cex = 3,
-           lwd = 3,
-           right_adj = 0,
-           incl_proj = FALSE) {
 
-    # Convert single one into a list
-    if(class(Rceattle) == "Rceattle"){
-      Rceattle <- list(Rceattle)
+plot_index <- function(Rceattle,
+                       file = NULL,
+                       model_names = NULL,
+                       line_col = NULL,
+                       species = NULL,
+                       right_adj = 0,
+                       top_adj = 0.05,
+                       incl_proj = FALSE,
+                       single.plots=FALSE,
+                       width=NULL,
+                       height=NULL){
+
+
+  # Convert single one into a list
+  if(class(Rceattle) == "Rceattle"){
+    Rceattle <- list(Rceattle)
+  }
+
+  # Species names
+  if(is.null(species)){
+    species =  Rceattle[[1]]$data_list$spnames
+  }
+
+
+  # Extract data objects
+  Years <- list()
+  Endyrs <- list()
+  Srv_list <- list()
+  Srv_hat_list <- list()
+  for(i in 1:length(Rceattle)){
+    Endyrs[[i]] <- Rceattle[[i]]$data_list$endyr
+    if(incl_proj == FALSE){
+      Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
+    }
+    if(incl_proj){
+      Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$projyr
     }
 
-    # Species names
-    if(is.null(species)){
-      species =  Rceattle[[1]]$data_list$spnames
-    }
+    # Get observed
+    Srv_list[[i]] <- Rceattle[[i]]$data_list$srv_biom
+    Srv_list[[i]]$CV <- Rceattle[[i]]$quantities$srv_cv_hat
+    Srv_list[[i]]$Upper95 <- qlnorm(0.975, meanlog = log(Srv_list[[i]]$Observation), sdlog = Srv_list[[i]]$CV)
+    Srv_list[[i]]$Lower95 <- qlnorm(0.025, meanlog = log(Srv_list[[i]]$Observation), sdlog = Srv_list[[i]]$CV)
 
 
-    # Extract data objects
-    Years <- list()
-    Endyrs <- list()
-    Srv_list <- list()
-    Srv_hat_list <- list()
+    # Get estimated
+    Srv_hat_list[[i]] <- Rceattle[[i]]$data_list$srv_biom
+    Srv_hat_list[[i]]$Observation <- Rceattle[[i]]$quantities$srv_bio_hat
+    Srv_hat_list[[i]]$CV <- Rceattle[[i]]$quantities$srv_cv_hat
+  }
+  max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
+  nyrs_vec <- sapply(Years, length)
+  nyrs <- max(nyrs_vec)
+
+  nspp <- Rceattle[[1]]$data_list$nspp
+
+
+  # Plot limits
+  fleet_control <- (Rceattle[[1]]$data_list$fleet_control)
+  srv_biom <- (Rceattle[[1]]$data_list$srv_biom)
+  srvs <- sort(unique(srv_biom$Fleet_code))
+  nsrv <- length(srvs)
+
+  ymax <- c()
+  ymin <- c()
+
+  for(srv in 1:nsrv){
     for(i in 1:length(Rceattle)){
-      Endyrs[[i]] <- Rceattle[[i]]$data_list$endyr
-      if(incl_proj == FALSE){
-        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
-      }
-      if(incl_proj){
-        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$projyr
-      }
-
-      # Get observed
-      Srv_list[[i]] <- Rceattle[[i]]$data_list$srv_biom
-      Srv_list[[i]]$CV <- Rceattle[[i]]$quantities$srv_cv_hat
-      Srv_list[[i]]$Upper95 <- qlnorm(0.975, meanlog = log(Srv_list[[i]]$Observation), sdlog = Srv_list[[i]]$CV)
-      Srv_list[[i]]$Lower95 <- qlnorm(0.025, meanlog = log(Srv_list[[i]]$Observation), sdlog = Srv_list[[i]]$CV)
-
-
-      # Get estimated
-      Srv_hat_list[[i]] <- Rceattle[[i]]$data_list$srv_biom
-      Srv_hat_list[[i]]$Observation <- Rceattle[[i]]$quantities$srv_bio_hat
-      Srv_hat_list[[i]]$CV <- Rceattle[[i]]$quantities$srv_cv_hat
+      srv_ind <- which(Srv_list[[i]]$Fleet_code == srvs[srv])
+      ymax[srv] <- max((c(Srv_list[[i]]$Upper95[srv_ind], Srv_hat_list[[i]]$Observation[srv_ind])), na.rm = T)
+      ymin[srv] <- min((c(Srv_list[[i]]$Lower95[srv_ind], Srv_hat_list[[i]]$Observation[srv_ind])), na.rm = T)
     }
-    max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
-    nyrs_vec <- sapply(Years, length)
-    nyrs <- max(nyrs_vec)
-    maxyr <- max((sapply(Years, max)))
-    minyr <- min((sapply(Years, min)))
+  }
+  ymax <- ymax + top_adj * (ymax-ymin)
 
-    nspp <- Rceattle[[1]]$data_list$nspp
+  # Assume colors if not provided
+  if (is.null(line_col)) {
+    line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
+  }
 
+  # Plot trajectory
+  loops <- ifelse(is.null(file), 1, 2)
+  for (j in 1:loops) {
 
-
-    # Plot limits
-    fleet_control <- (Rceattle[[1]]$data_list$fleet_control)
-    srv_biom <- (Rceattle[[1]]$data_list$srv_biom)
-    srvs <- unique(srv_biom$Fleet_code)
-    nsrv <- length(srvs)
-
-    ymax <- rep(0, nsrv)
-    ymin <- rep(0, nsrv)
-    for(i in 1:length(Rceattle)){
+    # Plot/save each survey individually
+    if(single.plots==TRUE){
+      if(is.null(width)) width = 5
+      if(is.null(height)) height = 3.5
       for(srv in 1:nsrv){
-        srv_ind <- which(Srv_list[[i]]$Fleet_code == srvs[srv])
-        ymax[srv] <- max(c(Srv_list[[i]]$Upper95[srv_ind], Srv_hat_list[[i]]$Observation[srv_ind], ymax[srv]), na.rm = T)
-        ymin[srv] <- min(c(Srv_list[[i]]$Lower95[srv_ind], Srv_hat_list[[i]]$Observation[srv_ind], ymin[srv]), na.rm = T)
-      }
-    }
-    ymax <- ymax + 0.1 * ymax
+        Par = list(mfrow=c(1,1),mar = c(3.5, 3.5, 0.5, 0.1), mgp =c(2.,0.5,0), tck = -0.02,cex=0.8)
 
-    if (is.null(line_col)) {
-      line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
-    }
-
-
-    # Plot trajectory
-    loops <- ifelse(is.null(file), 1, 2)
-    for (i in 1:loops) {
-      if (i == 2) {
-        filename <- paste0(file, "_survey_index", ".png")
-        png(
-          file = filename ,
-          width = 7,# 169 / 25.4,
-          height = 6.5,# 150 / 25.4,
-
-          units = "in",
-          res = 300
-        )
-      }
-
-      # Plot configuration
-      layout(matrix(1:(nsrv + 2), nrow = (nsrv + 2)), heights = c(0.1, rep(1, nsrv), 0.2))
-      par(
-        mar = c(0, 3 , 0 , 1) ,
-        oma = c(0 , 0 , 0 , 0),
-        tcl = -0.35,
-        mgp = c(1.75, 0.5, 0)
-      )
-      plot.new()
-
-      for (j in 1:nsrv) {
-        plot(
-          y = NA,
-          x = NA,
-          ylim = c(ymin[j], ymax[j]),
-          xlim = c(minyr, maxyr + right_adj),
-          xlab = "Year",
-          ylab = "Relative abundance",
-          xaxt = c(rep("n", nsrv - 1), "s")[j]
-        )
-
-        # Horizontal line
-        if(incl_proj){
-          abline(v = max_endyr, lwd  = 3, col = "grey", lty = 2)
+        # Save
+        if(j == 2){
+          filename <- paste0(file, "fleet",srvs[j]," ",as.character(fleet_control$Fleet_name[srvs[srv]]), "_survey_index", ".png")
+          png(file = filename, width = width, height = height, res = 200, units = "in")
         }
 
-        # Legends
-        legend("topleft", legend = as.character(fleet_control$Fleet_name[srvs[j]]), bty = "n", cex = 1.4)
 
+        minyr <- min(sapply(Srv_list, function(x) min(x[which(x$Fleet_code == srvs[srv]),]$Year)))
+        maxyr <- max(sapply(Srv_list, function(x) max(x[which(x$Fleet_code == srvs[srv]),]$Year)))
+
+        par(Par)
+        plot(NA, NA, ylab="Index", xlab="Year", ylim = c((ymin[srv]), (ymax[srv])), xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj), type='n', xaxt="n", yaxt="n")
+        axis(1,labels=TRUE,cex=0.8)
+        axis(2,labels=TRUE,cex=0.8)
+
+        # Loop through models
+        for (k in 1:length(Rceattle)) {
+
+          # Subset data by fleet and model
+          srv_tmp <- Srv_list[[k]][which(Srv_list[[k]]$Fleet_code == srvs[srv]),]
+          srv_hat_tmp <- Srv_hat_list[[k]][which(Srv_list[[k]]$Fleet_code == srvs[srv]),]
+
+          # Plot predicted CPUE
+          lines(srv_hat_tmp$Year, (srv_hat_tmp$Observation),lwd=2,col=line_col[k])
+
+          # Plot observed CPUE
+          gplots::plotCI(srv_tmp$Year, (srv_tmp$Observation), ui=(srv_tmp$Upper95), li=(srv_tmp$Lower95),add=T,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
+        }
+
+        # Index name
+        legend('topleft',as.character(fleet_control$Fleet_name[srvs[srv]]),bty="n",y.intersp = -0.2,cex=0.8)
 
         # Model names
-        if (j == 1) {
+        if(!is.null(model_names)){
+          legend(
+            "topright",
+            legend = model_names,
+            pch = rep(16, length(line_col)), cex=0.8,
+            col = line_col,
+            bty = "n"
+          )
+
+        }
+        # Save plot
+        if(j == 2){dev.off()}
+      }
+    }
+
+    # Plot/save each survey individually
+    if(single.plots==FALSE){
+
+      # Set heights of plot
+      if(is.null(width)) width = 7
+      if(is.null(height)) height = ifelse(nsrv==1,5,ifelse(nsrv==2,3.,2.5))*round(nsrv/2+0.01,0)
+
+
+      Par = list(mfrow=c(round(nsrv/2+0.01,0),ifelse(nsrv==1,1,2)),mai=c(0.35,0.15,0,.15),omi = c(0.2,0.25,0.2,0) + 0.1,mgp=c(2,0.5,0), tck = -0.02,cex=0.8)
+
+      # Save
+      if(j == 2){
+        filename <- paste0(file,"_survey_indices", ".png")
+        png(file = filename, width = width, height = height, res = 200, units = "in")
+      }
+      par(Par)
+
+
+      for(srv in 1:nsrv){
+        minyr <- min(sapply(Srv_list, function(x) min(x[which(x$Fleet_code == srvs[srv]),]$Year)))
+        maxyr <- max(sapply(Srv_list, function(x) max(x[which(x$Fleet_code == srvs[srv]),]$Year)))
+
+        xlim <- c(minyr, maxyr)
+        if(srv == 1){
+          xlim <- c(minyr, maxyr + (maxyr - minyr) * right_adj)
+        }
+
+        plot(NA, NA, ylab="", xlab="", ylim = c((ymin[srv]), (ymax[srv])), xlim = xlim, type='n', xaxt="n", yaxt="n")
+        axis(1,labels=TRUE,cex=0.8)
+        axis(2,labels=TRUE,cex=0.8)
+
+        # Index name
+        legend('topleft',as.character(fleet_control$Fleet_name[srvs[srv]]),bty="n",y.intersp = -0.2,cex=0.8)
+
+        # Model names
+        if(srv == 1){
           if(!is.null(model_names)){
             legend(
               "topright",
               legend = model_names,
-              pch = rep(16, length(line_col)),
-              cex = 1.125,
+              pch = rep(16, length(line_col)), cex=0.8,
               col = line_col,
               bty = "n"
             )
           }
         }
 
-        # Type
-        if (j == 2) {
-          legend(
-            "topright",
-            legend = c("Observed", "Estimated"),
-            pch = c(16, NA),
-            lty = c(NA, 1),
-            cex = 1.125,
-            lwd = lwd,
-            col = 1,
-            bty = "n"
-          )
-        }
-
-        # Survey data
-
-
-        # Mean biomass
+        # Loop through models
         for (k in 1:length(Rceattle)) {
-          srv_tmp <- Srv_list[[k]][which(Srv_list[[k]]$Fleet_code == srvs[j]),]
-          srv_hat_tmp <- Srv_hat_list[[k]][which(Srv_list[[k]]$Fleet_code == srvs[j]),]
 
-          # Observed
-          points(
-            x = srv_tmp$Year,
-            y = srv_tmp$Observation,
-            pch = 16,
-            cex = cex,
-            col = line_col[k]
-          ) # Median
+          # Subset data by fleet and model
+          srv_tmp <- Srv_list[[k]][which(Srv_list[[k]]$Fleet_code == srvs[srv]),]
+          srv_hat_tmp <- Srv_hat_list[[k]][which(Srv_list[[k]]$Fleet_code == srvs[srv]),]
 
+          # Plot predicted CPUE
+          lines(srv_hat_tmp$Year, (srv_hat_tmp$Observation),lwd=2,col=line_col[k])
 
-          # 95% CI
-          suppressWarnings(suppressMessages(arrows(srv_tmp$Year, srv_tmp$Lower95, srv_tmp$Year, srv_tmp$Upper95, length=0.05, angle=90, code=3, col = line_col[k])))
-
-          # Estimated
-          lines(
-            x = srv_hat_tmp$Year,
-            y = srv_hat_tmp$Observation,
-            pch = 18,
-            lwd = lwd,
-            col = line_col[k]
-          ) # Median
+          # Plot observed CPUE
+          gplots::plotCI(srv_tmp$Year, (srv_tmp$Observation), ui=(srv_tmp$Upper95), li=(srv_tmp$Lower95),add=T,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
         }
       }
-
-
-      if (i == 2) {
-        dev.off()
-      }
+      mtext(paste("Year"), side=1, outer=TRUE, at=0.5,line=1,cex=1)
+      mtext(paste("Index"), side=2, outer=TRUE, at=0.5,line=1,cex=1)
+      if(j == 2){dev.off()}
     }
   }
+} # End of fit
 
 
-
-
-
-
-
-
-
-#' Plot time series of fishery catch
+#' Landings fits
 #'
-#' @description Function the plots the fishery catch as estimated from Rceattle
+#' Plot of fitted landings data on natural-scale (r4ss-style)
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
 #' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param single.plots if TRUE plot invidual fits else make multiplot
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
 #' @param species Species names for legend
-#' @param cex Line width as specified by user
-#' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
-#' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
+#' @param right_adj How much right side of the x-axis for fitting the legend. As percentage.
+#' @param top_adj How much top side of the y-axis for fitting the legend. As percentage.
 #' @param incl_proj TRUE/FALSE include projections years
-#'
-#' @return Returns and saves a figure with the catch trajectory.
+#' @param width plot width
+#' @param height plot hight
 #' @export
-plot_catch <-
-  function(Rceattle,
-           tmp_list = NULL,
-           file = NULL,
-           model_names = NULL,
-           line_col = NULL,
-           species = NULL,
-           cex = 3,
-           lwd = 3,
-           right_adj = 0,
-           mohns = NULL,
-           incl_proj = FALSE) {
 
-    # Convert single one into a list
-    if(class(Rceattle) == "Rceattle"){
-      Rceattle <- list(Rceattle)
+plot_catch <- function(Rceattle,
+                       file = NULL,
+                       model_names = NULL,
+                       line_col = NULL,
+                       species = NULL,
+                       right_adj = 0,
+                       top_adj = 0.05,
+                       incl_proj = FALSE,
+                       single.plots=FALSE,
+                       width=NULL,
+                       height=NULL){
+
+
+  # Convert single one into a list
+  if(class(Rceattle) == "Rceattle"){
+    Rceattle <- list(Rceattle)
+  }
+
+  # Species names
+  if(is.null(species)){
+    species =  Rceattle[[1]]$data_list$spnames
+  }
+
+
+  # Extract data objects
+  Years <- list()
+  Endyrs <- list()
+  fsh_list <- list()
+  fsh_hat_list <- list()
+  for(i in 1:length(Rceattle)){
+    Endyrs[[i]] <- Rceattle[[i]]$data_list$endyr
+    if(incl_proj == FALSE){
+      Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
+    }
+    if(incl_proj){
+      Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$projyr
     }
 
-    # Species names
-    if(is.null(species)){
-      species =  Rceattle[[1]]$data_list$spnames
-    }
+    # Get observed
+    fsh_list[[i]] <- Rceattle[[i]]$data_list$fsh_biom[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% Years[[i]] ),]
+    fsh_list[[i]]$CV <- Rceattle[[i]]$quantities$fsh_cv_hat[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% Years[[i]] )]
+
+    no_zero <- which(fsh_list[[i]]$Catch > 0)
+    fsh_list[[i]]$Lower95 <- 0
+    fsh_list[[i]]$Upper95 <- 0
+    fsh_list[[i]]$Upper95[no_zero]  <- qlnorm(0.975, meanlog = log(fsh_list[[i]]$Catch[no_zero]), sdlog = fsh_list[[i]]$CV[no_zero])
+    fsh_list[[i]]$Lower95[no_zero]  <- qlnorm(0.025, meanlog = log(fsh_list[[i]]$Catch[no_zero]), sdlog = fsh_list[[i]]$CV[no_zero])
 
 
-    # Extract data objects
-    Years <- list()
-    Endyrs <- list()
-    Srv_list <- list()
-    Srv_hat_list <- list()
+    # Get estimated
+    fsh_hat_list[[i]] <- Rceattle[[i]]$data_list$fsh_biom[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% Years[[i]] ),]
+    fsh_hat_list[[i]]$Catch <- Rceattle[[i]]$quantities$fsh_bio_hat[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% Years[[i]] )]
+    fsh_hat_list[[i]]$CV <- Rceattle[[i]]$quantities$fsh_cv_hat[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% Years[[i]] )]
+  }
+  max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
+  nyrs_vec <- sapply(Years, length)
+  nyrs <- max(nyrs_vec)
+
+  nspp <- Rceattle[[1]]$data_list$nspp
+
+
+  # Plot limits
+  fleet_control <- (Rceattle[[1]]$data_list$fleet_control)
+  fsh_biom <- (Rceattle[[1]]$data_list$fsh_biom)
+  fshs <- sort(unique(fsh_biom$Fleet_code))
+  nfsh <- length(fshs)
+
+  ymax <- c()
+  ymin <- c()
+
+  for(fsh in 1:nfsh){
     for(i in 1:length(Rceattle)){
-      Endyrs[[i]] <- Rceattle[[i]]$data_list$endyr
-      if(incl_proj == FALSE){
-        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
-      }
-      if(incl_proj){
-        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$projyr
-      }
-
-      # Get observed
-      Srv_list[[i]] <- Rceattle[[i]]$data_list$fsh_biom
-      Srv_list[[i]]$CV <- Rceattle[[i]]$quantities$fsh_cv_hat
-
-      no_zero <- which(Srv_list[[i]]$Catch > 0)
-      Srv_list[[i]]$Lower95 <- NA
-      Srv_list[[i]]$Upper95 <- NA
-
-      Srv_list[[i]]$Upper95[no_zero] <- qlnorm(0.975, meanlog = log(Srv_list[[i]]$Catch[no_zero]), sdlog = Srv_list[[i]]$CV[no_zero])
-      Srv_list[[i]]$Lower95[no_zero] <- qlnorm(0.025, meanlog = log(Srv_list[[i]]$Catch[no_zero]), sdlog = Srv_list[[i]]$CV[no_zero])
-
-
-      # Get estimated
-      Srv_hat_list[[i]] <- Rceattle[[i]]$data_list$fsh_biom
-      Srv_hat_list[[i]]$Catch <- Rceattle[[i]]$quantities$fsh_bio_hat
-      Srv_hat_list[[i]]$CV <- Rceattle[[i]]$quantities$fsh_cv_hat
+      fsh_ind <- which(fsh_list[[i]]$Fleet_code == fshs[fsh])
+      ymax[fsh] <- max((c(fsh_list[[i]]$Upper95[fsh_ind], fsh_hat_list[[i]]$Catch[fsh_ind])), na.rm = T)
+      ymin[fsh] <- min((c(fsh_list[[i]]$Lower95[fsh_ind], fsh_hat_list[[i]]$Catch[fsh_ind])), na.rm = T)
     }
-    max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
-    nyrs_vec <- sapply(Years, length)
-    nyrs <- max(nyrs_vec)
-    maxyr <- max((sapply(Years, max)))
-    minyr <- min((sapply(Years, min)))
+  }
+  ymax <- ymax + top_adj * (ymax-ymin)
 
-    nspp <- Rceattle[[1]]$data_list$nspp
+  # Assume colors if not provided
+  if (is.null(line_col)) {
+    line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
+  }
 
+  # Plot trajectory
+  loops <- ifelse(is.null(file), 1, 2)
+  for (j in 1:loops) {
 
+    # Plot/save each survey individually
+    if(single.plots==TRUE){
+      if(is.null(width)) width = 5
+      if(is.null(height)) height = 3.5
+      for(fsh in 1:nfsh){
+        Par = list(mfrow=c(1,1),mar = c(3.5, 3.5, 0.5, 0.1), mgp =c(2.,0.5,0), tck = -0.02,cex=0.8)
 
-    # Plot limits
-    fsh_control <- (Rceattle[[1]]$data_list$fleet_control)
-    fsh_control <- fsh_control[which(fsh_control$Fleet_type == 1),]
-    nsrv <- nrow(fsh_control)
-
-    ymax <- rep(0, nsrv)
-    ymin <- rep(0, nsrv)
-    for(i in 1:length(Rceattle)){
-      for(j in 1:length(fsh_control$Fleet_code)){
-        flt_ind <- which(Srv_list[[i]]$Fleet_code == fsh_control$Fleet_code[j])
-        ymax[j] <- max(c(Srv_list[[i]]$Upper95[flt_ind], Srv_hat_list[[i]]$Catch[flt_ind], ymax[j]), na.rm = T)
-        ymin[j] <- min(c(Srv_list[[i]]$Lower95[flt_ind], Srv_hat_list[[i]]$Catch[flt_ind], ymin[j]), na.rm = T)
-      }
-    }
-    ymax <- ymax + 0.1 * ymax
-
-    if (is.null(line_col)) {
-      line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
-    }
-
-
-    # Plot trajectory
-    loops <- ifelse(is.null(file), 1, 2)
-    for (i in 1:loops) {
-      if (i == 2) {
-        filename <- paste0(file, "_total_catch", ".png")
-        png(
-          file = filename ,
-          width = 7,# 169 / 25.4,
-          height = 6.5,# 150 / 25.4,
-
-          units = "in",
-          res = 300
-        )
-      }
-
-      # Plot configuration
-      layout(matrix(1:(nsrv + 2), nrow = (nsrv + 2)), heights = c(0.1, rep(1, nsrv), 0.2))
-      par(
-        mar = c(0, 3 , 0 , 1) ,
-        oma = c(0 , 0 , 0 , 0),
-        tcl = -0.35,
-        mgp = c(1.75, 0.5, 0)
-      )
-      plot.new()
-
-      for (j in 1:nsrv) {
-        plot(
-          y = NA,
-          x = NA,
-          ylim = c(ymin[j], ymax[j]),
-          xlim = c(minyr, maxyr + right_adj),
-          xlab = "Year",
-          ylab = "Total catch",
-          xaxt = c(rep("n", nsrv - 1), "s")[j]
-        )
-
-        # Horizontal line
-        if(incl_proj){
-          abline(v = max_endyr, lwd  = 3, col = "grey", lty = 2)
+        # Save
+        if(j == 2){
+          filename <- paste0(file, "fleet",fshs[j]," ",as.character(fleet_control$Fleet_name[fshs[fsh]]), "_fishery_catch", ".png")
+          png(file = filename, width = width, height = height, res = 200, units = "in")
         }
 
-        # Legends
-        legend("topleft", legend = as.character(fsh_control$Fleet_name[j]), bty = "n", cex = 1.4)
 
-        # if(!is.null(mohns)){
-        #   legend("top", paste0("B Rho = ", round(mohns[1,j+1], 2), "; SSB Rho = ",  round(mohns[2,j+1], 2) ), bty = "n", cex = 1) # Biomass rho
-        # }
+        minyr <- min(sapply(fsh_list, function(x) min(x[which(x$Fleet_code == fshs[fsh]),]$Year)))
+        maxyr <- max_endyr
+
+        par(Par)
+        plot(NA, NA, ylab="Catch", xlab="Year", ylim = c((ymin[fsh]), (ymax[fsh])), xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj), type='n', xaxt="n", yaxt="n")
+        axis(1,labels=TRUE,cex=0.8)
+        axis(2,labels=TRUE,cex=0.8)
+
+        # Loop through models
+        for (k in 1:length(Rceattle)) {
+
+          # Subset data by fleet and model
+          fsh_tmp <- fsh_list[[k]][which(fsh_list[[k]]$Fleet_code == fshs[fsh]),]
+          fsh_hat_tmp <- fsh_hat_list[[k]][which(fsh_list[[k]]$Fleet_code == fshs[fsh]),]
+
+          # Plot predicted CPUE
+          lines(fsh_hat_tmp$Year, (fsh_hat_tmp$Catch),lwd=2,col=line_col[k])
+
+          # Plot observed CPUE
+          gplots::plotCI(fsh_tmp$Year, (fsh_tmp$Catch), ui=(fsh_tmp$Upper95), li=(fsh_tmp$Lower95),add=T,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
+        }
+
+        # Index name
+        legend('topleft',as.character(fleet_control$Fleet_name[fshs[fsh]]),bty="n",y.intersp = -0.2,cex=0.8)
 
         # Model names
-        if (j == 1) {
+        if(!is.null(model_names)){
+          legend(
+            "topright",
+            legend = model_names,
+            pch = rep(16, length(line_col)), cex=0.8,
+            col = line_col,
+            bty = "n"
+          )
+
+        }
+        # Save plot
+        if(j == 2){dev.off()}
+      }
+    }
+
+    # Plot/save each survey individually
+    if(single.plots==FALSE){
+
+      # Set heights of plot
+      if(is.null(width)) width = 7
+      if(is.null(height)) height = ifelse(nfsh==1,5,ifelse(nfsh==2,3.,2.5))*round(nfsh/2+0.01,0)
+
+
+      Par = list(mfrow=c(round(nfsh/2+0.01,0),ifelse(nfsh==1,1,2)),mai=c(0.35,0.15,0,.15),omi = c(0.2,0.25,0.2,0) + 0.1,mgp=c(2,0.5,0), tck = -0.02,cex=0.8)
+
+      # Save
+      if(j == 2){
+        filename <- paste0(file,"_fishery_catch", ".png")
+        png(file = filename, width = width, height = height, res = 200, units = "in")
+      }
+      par(Par)
+
+
+      for(fsh in 1:nfsh){
+        minyr <- min(sapply(fsh_list, function(x) min(x[which(x$Fleet_code == fshs[fsh]),]$Year)))
+        maxyr <- max_endyr
+
+        xlim <- c(minyr, maxyr)
+        if(fsh == 1){
+          xlim <- c(minyr, maxyr + (maxyr - minyr) * right_adj)
+        }
+
+        plot(NA, NA, ylab="", xlab="", ylim = c((ymin[fsh]), (ymax[fsh])), xlim = xlim, type='n', xaxt="n", yaxt="n")
+        axis(1,labels=TRUE,cex=0.8)
+        axis(2,labels=TRUE,cex=0.8)
+
+        # Index name
+        legend('topleft',as.character(fleet_control$Fleet_name[fshs[fsh]]),bty="n",y.intersp = -0.2,cex=0.8)
+
+        # Model names
+        if(fsh == 1){
           if(!is.null(model_names)){
             legend(
               "topright",
               legend = model_names,
-              pch = rep(16, length(line_col)),
-              cex = 1.125,
+              pch = rep(16, length(line_col)), cex=0.8,
               col = line_col,
               bty = "n"
             )
           }
         }
 
-        # Type
-        if (j == 2) {
-          legend(
-            "topright",
-            legend = c("Observed", "Estimated"),
-            pch = c(16, NA),
-            lty = c(NA, 1),
-            cex = 1.125,
-            lwd = lwd,
-            col = 1,
-            bty = "n"
-          )
-        }
-
-        # Survey data
-
-
-        # Mean biomass
+        # Loop through models
         for (k in 1:length(Rceattle)) {
-          srv_tmp <- Srv_list[[k]][which(Srv_list[[k]]$Fleet_code == fsh_control$Fleet_code[j]),]
-          srv_hat_tmp <- Srv_hat_list[[k]][which(Srv_list[[k]]$Fleet_code == fsh_control$Fleet_code[j]),]
 
-          # Observed
-          points(
-            x = srv_tmp$Year,
-            y = srv_tmp$Catch,
-            pch = 16,
-            cex = cex,
-            col = line_col[k]
-          ) # Median
+          # Subset data by fleet and model
+          fsh_tmp <- fsh_list[[k]][which(fsh_list[[k]]$Fleet_code == fshs[fsh]),]
+          fsh_hat_tmp <- fsh_hat_list[[k]][which(fsh_list[[k]]$Fleet_code == fshs[fsh]),]
 
+          # Plot predicted CPUE
+          lines(fsh_hat_tmp$Year, (fsh_hat_tmp$Catch),lwd=2,col=line_col[k])
 
-          # 95% CI
-          arrows(srv_tmp$Year, srv_tmp$Lower95, srv_tmp$Year, srv_tmp$Upper95, length=0.05, angle=90, code=3, col = line_col[k])
-
-          # Estimated
-          lines(
-            x = srv_hat_tmp$Year,
-            y = srv_hat_tmp$Catch,
-            pch = 18,
-            lwd = lwd,
-            col = line_col[k]
-          ) # Median
+          # Plot observed CPUE
+          gplots::plotCI(fsh_tmp$Year, (fsh_tmp$Catch), ui=(fsh_tmp$Upper95), li=(fsh_tmp$Lower95),add=T,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
         }
       }
-
-
-      if (i == 2) {
-        dev.off()
-      }
+      mtext(paste("Year"), side=1, outer=TRUE, at=0.5,line=1,cex=1)
+      mtext(paste("Catch"), side=2, outer=TRUE, at=0.5,line=1,cex=1)
+      if(j == 2){dev.off()}
     }
   }
+} # End of fit
 
+#' log(CPUE) fits
+#'
+#' Plot of fitted CPUE indices on log-scale (r4ss-style)
+#'
+#' @param file name of a file to identified the files exported by the
+#'   function.
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param single.plots if TRUE plot invidual fits else make multiplot
+#' @param model_names Names of models to be used in legend
+#' @param line_col Colors of models to be used for line color
+#' @param species Species names for legend
+#' @param right_adj How much right side of the x-axis for fitting the legend. As percentage.
+#' @param top_adj How much top side of the y-axis for fitting the legend. As percentage.
+#' @param incl_proj TRUE/FALSE include projections years
+#' @param width plot width
+#' @param height plot hight
+#' @export
+
+plot_logindex <- function(Rceattle,
+                          file = NULL,
+                          model_names = NULL,
+                          line_col = NULL,
+                          species = NULL,
+                          right_adj = 0,
+                          top_adj = 0.05,
+                          incl_proj = FALSE,
+                          single.plots=FALSE,
+                          width=NULL,
+                          height=NULL){
+
+
+  # Convert single one into a list
+  if(class(Rceattle) == "Rceattle"){
+    Rceattle <- list(Rceattle)
+  }
+
+  # Species names
+  if(is.null(species)){
+    species =  Rceattle[[1]]$data_list$spnames
+  }
+
+
+  # Extract data objects
+  Years <- list()
+  Endyrs <- list()
+  Srv_list <- list()
+  Srv_hat_list <- list()
+  for(i in 1:length(Rceattle)){
+    Endyrs[[i]] <- Rceattle[[i]]$data_list$endyr
+    if(incl_proj == FALSE){
+      Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
+    }
+    if(incl_proj){
+      Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$projyr
+    }
+
+    # Get observed
+    Srv_list[[i]] <- Rceattle[[i]]$data_list$srv_biom
+    Srv_list[[i]]$CV <- Rceattle[[i]]$quantities$srv_cv_hat
+    Srv_list[[i]]$Upper95 <- qlnorm(0.975, meanlog = log(Srv_list[[i]]$Observation), sdlog = Srv_list[[i]]$CV)
+    Srv_list[[i]]$Lower95 <- qlnorm(0.025, meanlog = log(Srv_list[[i]]$Observation), sdlog = Srv_list[[i]]$CV)
+
+
+    # Get estimated
+    Srv_hat_list[[i]] <- Rceattle[[i]]$data_list$srv_biom
+    Srv_hat_list[[i]]$Observation <- Rceattle[[i]]$quantities$srv_bio_hat
+    Srv_hat_list[[i]]$CV <- Rceattle[[i]]$quantities$srv_cv_hat
+  }
+  max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
+  nyrs_vec <- sapply(Years, length)
+  nyrs <- max(nyrs_vec)
+
+  nspp <- Rceattle[[1]]$data_list$nspp
+
+
+  # Plot limits
+  fleet_control <- (Rceattle[[1]]$data_list$fleet_control)
+  srv_biom <- (Rceattle[[1]]$data_list$srv_biom)
+  srvs <- sort(unique(srv_biom$Fleet_code))
+  nsrv <- length(srvs)
+
+  ymax <- c()
+  ymin <- c()
+
+  for(srv in 1:nsrv){
+    for(i in 1:length(Rceattle)){
+      srv_ind <- which(Srv_list[[i]]$Fleet_code == srvs[srv])
+      ymax[srv] <- max(log(c(Srv_list[[i]]$Upper95[srv_ind], Srv_hat_list[[i]]$Observation[srv_ind])), na.rm = T)
+      ymin[srv] <- min(log(c(Srv_list[[i]]$Lower95[srv_ind], Srv_hat_list[[i]]$Observation[srv_ind])), na.rm = T)
+    }
+  }
+  ymax <- ymax + top_adj * (ymax-ymin)
+
+  # Assume colors if not provided
+  if (is.null(line_col)) {
+    line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
+  }
+
+  # Plot trajectory
+  loops <- ifelse(is.null(file), 1, 2)
+  for (j in 1:loops) {
+
+    # Plot/save each survey individually
+    if(single.plots==TRUE){
+      if(is.null(width)) width = 5
+      if(is.null(height)) height = 3.5
+      for(srv in 1:nsrv){
+        Par = list(mfrow=c(1,1),mar = c(3.5, 3.5, 0.5, 0.1), mgp =c(2.,0.5,0), tck = -0.02,cex=0.8)
+
+        # Save
+        if(j == 2){
+          filename <- paste0(file, "fleet",srvs[j]," ",as.character(fleet_control$Fleet_name[srvs[srv]]), "_log_survey_index", ".png")
+          png(file = filename, width = width, height = height, res = 200, units = "in")
+        }
+
+
+        minyr <- min(sapply(Srv_list, function(x) min(x[which(x$Fleet_code == srvs[srv]),]$Year)))
+        maxyr <- max(sapply(Srv_list, function(x) max(x[which(x$Fleet_code == srvs[srv]),]$Year)))
+
+        par(Par)
+        plot(NA, NA, ylab="log Index", xlab="Year", ylim = c((ymin[srv]), (ymax[srv])), xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj), type='n', xaxt="n", yaxt="n")
+        axis(1,labels=TRUE,cex=0.8)
+        axis(2,labels=TRUE,cex=0.8)
+
+        # Loop through models
+        for (k in 1:length(Rceattle)) {
+
+          # Subset data by fleet and model
+          srv_tmp <- Srv_list[[k]][which(Srv_list[[k]]$Fleet_code == srvs[srv]),]
+          srv_hat_tmp <- Srv_hat_list[[k]][which(Srv_list[[k]]$Fleet_code == srvs[srv]),]
+
+          # Plot predicted CPUE
+          lines(srv_hat_tmp$Year, log(srv_hat_tmp$Observation),lwd=2,col=line_col[k])
+
+          # Plot observed CPUE
+          gplots::plotCI(srv_tmp$Year, log(srv_tmp$Observation), ui=log(srv_tmp$Upper95), li=log(srv_tmp$Lower95),add=T,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
+        }
+
+        # Index name
+        legend('topleft',as.character(fleet_control$Fleet_name[srvs[srv]]),bty="n",y.intersp = -0.2,cex=0.8)
+
+        # Model names
+        if(!is.null(model_names)){
+          legend(
+            "topright",
+            legend = model_names,
+            pch = rep(16, length(line_col)), cex=0.8,
+            col = line_col,
+            bty = "n"
+          )
+
+        }
+        # Save plot
+        if(j == 2){dev.off()}
+      }
+    }
+
+    # Plot/save each survey individually
+    if(single.plots==FALSE){
+
+      # Set heights of plot
+      if(is.null(width)) width = 7
+      if(is.null(height)) height = ifelse(nsrv==1,5,ifelse(nsrv==2,3.,2.5))*round(nsrv/2+0.01,0)
+
+
+      Par = list(mfrow=c(round(nsrv/2+0.01,0),ifelse(nsrv==1,1,2)),mai=c(0.35,0.15,0,.15),omi = c(0.2,0.25,0.2,0) + 0.1,mgp=c(2,0.5,0), tck = -0.02,cex=0.8)
+
+      # Save
+      if(j == 2){
+        filename <- paste0(file,"_log_survey_indices", ".png")
+        png(file = filename, width = width, height = height, res = 200, units = "in")
+      }
+      par(Par)
+
+
+      for(srv in 1:nsrv){
+        minyr <- min(sapply(Srv_list, function(x) min(x[which(x$Fleet_code == srvs[srv]),]$Year)))
+        maxyr <- max(sapply(Srv_list, function(x) max(x[which(x$Fleet_code == srvs[srv]),]$Year)))
+
+        xlim <- c(minyr, maxyr)
+        if(srv == 1){
+          xlim <- c(minyr, maxyr + (maxyr - minyr) * right_adj)
+        }
+
+        plot(NA, NA, ylab="", xlab="", ylim = c((ymin[srv]), (ymax[srv])), xlim = xlim, type='n', xaxt="n", yaxt="n")
+        axis(1,labels=TRUE,cex=0.8)
+        axis(2,labels=TRUE,cex=0.8)
+
+        # Index name
+        legend('topleft',as.character(fleet_control$Fleet_name[srvs[srv]]),bty="n",y.intersp = -0.2,cex=0.8)
+
+        # Model names
+        if(srv == 1){
+          if(!is.null(model_names)){
+            legend(
+              "topright",
+              legend = model_names,
+              pch = rep(16, length(line_col)), cex=0.8,
+              col = line_col,
+              bty = "n"
+            )
+          }
+        }
+
+        # Loop through models
+        for (k in 1:length(Rceattle)) {
+
+          # Subset data by fleet and model
+          srv_tmp <- Srv_list[[k]][which(Srv_list[[k]]$Fleet_code == srvs[srv]),]
+          srv_hat_tmp <- Srv_hat_list[[k]][which(Srv_list[[k]]$Fleet_code == srvs[srv]),]
+
+          # Plot predicted CPUE
+          lines(srv_hat_tmp$Year, log(srv_hat_tmp$Observation),lwd=2,col=line_col[k])
+
+          # Plot observed CPUE
+          gplots::plotCI(srv_tmp$Year, log(srv_tmp$Observation), ui=log(srv_tmp$Upper95), li=log(srv_tmp$Lower95),add=T,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
+        }
+      }
+      mtext(paste("Year"), side=1, outer=TRUE, at=0.5,line=1,cex=1)
+      mtext(paste("Log Index"), side=2, outer=TRUE, at=0.5,line=1,cex=1)
+      if(j == 2){dev.off()}
+    }
+  }
+} # End of logfit
