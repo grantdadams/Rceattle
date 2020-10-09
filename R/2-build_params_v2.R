@@ -26,7 +26,7 @@ build_params <- function(data_list, inits = NULL) {
   param_list$dummy = 0  # Variable to test derived quantities given input parameters; n = [1]
 
   # -- 3.0. Population scalar
-  param_list$ln_pop_scalar = rep(0, data_list$nspp)
+  param_list$ln_pop_scalar = matrix(0, nrow = data_list$nspp, ncol = max(data_list$nages))
 
   # -- 3.1. Recruitment parameters
   param_list$ln_mn_rec = rep(0, data_list$nspp)  # Mean recruitment; n = [1, nspp]

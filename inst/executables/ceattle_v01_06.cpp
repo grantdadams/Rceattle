@@ -477,7 +477,7 @@ Type objective_function<Type>::operator() () {
   // ------------------------------------------------------------------------- //
 
   PARAMETER( dummy );                             // Variable to test derived quantities given input parameters; n = [1]
-  PARAMETER_VECTOR( ln_pop_scalar );                // Scalar to multiply supplied numbers at age by
+  PARAMETER_MATRIX( ln_pop_scalar );              // Scalar to multiply supplied numbers at age by; n = [nspp, nages]
 
   // -- 3.1. Recruitment parameters
   PARAMETER_VECTOR( ln_mn_rec );                  // Mean recruitment; n = [1, nspp]
@@ -549,22 +549,22 @@ Type objective_function<Type>::operator() () {
   vector<int> joint_adjust(comp_obs.rows()); joint_adjust.setZero();
 
   // -- 4.2. Estimated population parameters
-  vector<Type>  pop_scalar = exp(ln_pop_scalar);                                    // Fixed n-at-age scaling coefficient
+  matrix<Type>  pop_scalar = ln_pop_scalar;  pop_scalar = exp(ln_pop_scalar.array());// Fixed n-at-age scaling coefficient; n = [nspp, nages]
   vector<Type>  mn_rec = exp(ln_mn_rec);                                            // Mean recruitment; n = [1, nspp]
   array<Type>   biomassByage(nspp, max_age, nyrs); biomassByage.setZero();          // Estimated biomass-at-age (kg); n = [nspp, nages, nyrs]
   matrix<Type>  biomass(nspp, nyrs); biomass.setZero();                             // Estimated biomass (kg); n = [nspp, nyrs]
   matrix<Type>  biomassSSB(nspp, nyrs); biomassSSB.setZero();                       // Estimated spawning stock biomass (kg); n = [nspp, nyrs]
   array<Type>   biomassSSBByage(nspp, max_age, nyrs); biomassSSBByage.setZero();    // Spawning biomass at age (kg); n = [nspp, nages, nyrs]
-  array<Type>   M(nspp, 2, max_age, nyrs); M.setZero();                           // Total natural mortality at age; n = [nyrs, 2 sexes, nages, nspp]
+  array<Type>   M(nspp, 2, max_age, nyrs); M.setZero();                             // Total natural mortality at age; n = [nyrs, 2 sexes, nages, nspp]
   array<Type>   M1 = M1_base;
-  array<Type>   M2(nspp, 2, max_age, nyrs); M2.setZero();                         // Predation mortality at age; n = [nyrs, nages, nspp]
+  array<Type>   M2(nspp, 2, max_age, nyrs); M2.setZero();                           // Predation mortality at age; n = [nyrs, nages, nspp]
   array<Type>   M2_prop(nspp, nspp, 2, 2, max_age, max_age, nyrs); M2_prop.setZero();     // Relative predation mortality at age from each species at age; n = [nyrs, nages, nspp]
   array<Type>   NByage(nspp, 2, max_age, nyrs); NByage.setZero();                   // Numbers at age; n = [nspp, nages, nyrs]
   array<Type>   AvgN(nspp, 2, max_age, nyrs); AvgN.setZero();                       // Average numbers-at-age; n = [nspp, nages, nyrs]
   array<Type>   sexr_hat(nspp, max_age, nyrs); sexr_hat.setZero();                  // Estimated sex ration; n = [nspp, nages, nyrs]
   matrix<Type>  R(nspp, nyrs); R.setZero();                                         // Estimated recruitment (n); n = [nspp, nyrs]
-  array<Type>   S(nspp, 2, max_age, nyrs); S.setZero();                           // Survival at age; n = [nspp, 2 sexes, nages, nyrs]
-  array<Type>   Zed(nspp, 2, max_age, nyrs); Zed.setZero();                       // Total mortality at age; n = [nspp, 2 sexes, nages, nyrs]
+  array<Type>   S(nspp, 2, max_age, nyrs); S.setZero();                             // Survival at age; n = [nspp, 2 sexes, nages, nyrs]
+  array<Type>   Zed(nspp, 2, max_age, nyrs); Zed.setZero();                         // Total mortality at age; n = [nspp, 2 sexes, nages, nyrs]
   vector<Type>  r_sigma(nspp); r_sigma.setZero();                                   // Standard deviation of recruitment variation
 
   // -- 4.3. Selectivity parameters
@@ -1088,7 +1088,7 @@ Type objective_function<Type>::operator() () {
           }
           // Fixed numbers-at-age
           if(estDynamics(sp) > 0){
-            NByage(sp, sex, 0, yr) = pop_scalar(sp) * NByageFixed(sp, sex, 0, yr);
+            NByage(sp, sex, 0, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, 0, yr);
           }
         }
       }
@@ -1122,9 +1122,19 @@ Type objective_function<Type>::operator() () {
             }
           }
 
-          // Fixed numbers-at-age
-          if(estDynamics(sp) > 0){
-            NByage(sp, sex, age, 0) = pop_scalar(sp) * NByageFixed(sp, sex, age, 0);
+          // Fixed numbers-at-age - fixed scalar
+          if(estDynamics(sp) == 1){
+            NByage(sp, sex, age, 0) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, 0);
+          }
+
+          // Fixed numbers-at-age age-independent scalar
+          if(estDynamics(sp) == 2){
+            NByage(sp, sex, age, 0) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, 0);
+          }
+
+          // Fixed numbers-at-age age-dependent scalar
+          if(estDynamics(sp) == 3){
+            NByage(sp, sex, age, 0) = pop_scalar(sp, age) * NByageFixed(sp, sex, age, 0);
           }
         }
       }
