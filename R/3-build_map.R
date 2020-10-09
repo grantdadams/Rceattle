@@ -776,7 +776,19 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
     # Don't estimate the scalar
     if(data_list$estDynamics[i] < 2 | data_list$msmMode == 0){
-      map_list$ln_pop_scalar[i] <- NA
+      map_list$ln_pop_scalar[i,] <- NA
+    }
+
+    # Age-independent scalar
+    if(data_list$estDynamics[i] == 2 | data_list$msmMode != 0){
+      map_list$ln_pop_scalar[i,2:ncol(map_list$ln_pop_scalar)] <- NA # Only estimate first parameter
+    }
+
+    # Age-dependent scalar
+    if(data_list$estDynamics[i] == 3 | data_list$msmMode != 0){
+      if(data_list$nages[i] < ncol(map_list$ln_pop_scalar)){ # Map out ages beyond maxage of the species
+      map_list$ln_pop_scalar[i,(data_list$nages[i]+1):ncol(map_list$ln_pop_scalar)] <- NA # Only estimate parameters for each age of species
+      }
     }
   }
 
