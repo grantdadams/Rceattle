@@ -103,6 +103,15 @@ bool isFinite(Type x){
   return R_finite(asDouble(x));
 }
 
+
+// Positive function
+template<class Type>
+Type posfun(Type x, Type eps, Type &pen){
+  pen += CppAD::CondExpLt(x,eps,Type(0.01)*pow(x-eps,2),Type(0));
+  return CppAD::CondExpGe(x,eps,x,eps/(Type(2)-x/eps));
+}
+
+
 //  Function to getting sqaure
 template <class Type> Type square(Type x){return x*x;}
 
@@ -566,6 +575,7 @@ Type objective_function<Type>::operator() () {
   array<Type>   S(nspp, 2, max_age, nyrs); S.setZero();                             // Survival at age; n = [nspp, 2 sexes, nages, nyrs]
   array<Type>   Zed(nspp, 2, max_age, nyrs); Zed.setZero();                         // Total mortality at age; n = [nspp, 2 sexes, nages, nyrs]
   vector<Type>  r_sigma(nspp); r_sigma.setZero();                                   // Standard deviation of recruitment variation
+  vector<Type>  zero_pop_pen(nspp); zero_pop_pen.setZero();                          // Additional penalty to add to likelihood if n-at-age goes < 0
 
   // -- 4.3. Selectivity parameters
   matrix<Type>  avgsel(n_flt, 2); avgsel.setZero();                                 // Average selectivity; n = [1, nselectivities]
@@ -1162,16 +1172,24 @@ Type objective_function<Type>::operator() () {
               }
             }
 
-
-            // Fixed numbers-at-age
-            if(estDynamics(sp) > 0){
-              NByage(sp, sex, age, yr) = pop_scalar(sp) * NByageFixed(sp, sex, age, yr);
+            // Fixed numbers-at-age - fixed scalar
+            if(estDynamics(sp) == 1){
+              NByage(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
             }
 
-            // Hard constraint to reduce population collapse
-            if(NByage(sp, sex, age, yr) < minNByage){
-              NByage(sp, sex, age, yr) = minNByage;
+            // Fixed numbers-at-age age-independent scalar
+            if(estDynamics(sp) == 2){
+              NByage(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
             }
+
+            // Fixed numbers-at-age age-dependent scalar
+            if(estDynamics(sp) == 3){
+              NByage(sp, sex, age, yr) = pop_scalar(sp, age) * NByageFixed(sp, sex, age, yr);
+            }
+
+            // Constrain to reduce population collapse
+            // NByage(sp, sex, age, yr) = posfun(NByage(sp, sex, age, yr), Type(0.001), zero_pop_pen(sp));
+
           }
         }
 
@@ -1193,7 +1211,7 @@ Type objective_function<Type>::operator() () {
     // 6.7. ESTIMATE FORECAST NUMBERS AT AGE, BIOMASS-AT-AGE (kg), and SSB-AT-AGE (kg)
     // Tier 3 Harvest control
     for (sp = 0; sp < nspp; sp++) {
-      for (yr = nyrs_hind; yr < nyrs; yr++) {
+      for (yr = nyrs_hind; yr < nyrs; yr++){
         for (age = 0; age < nages(sp); age++) {
 
           for(sex = 0; sex < nsex(sp); sex ++){
@@ -1212,9 +1230,19 @@ Type objective_function<Type>::operator() () {
             }
 
 
-            // Fixed numbers-at-age
-            if(estDynamics(sp) > 0){
-              NByage(sp, sex, age, yr) = pop_scalar(sp) * NByageFixed(sp, sex, age, yr);
+            // Fixed numbers-at-age - fixed scalar
+            if(estDynamics(sp) == 1){
+              NByage(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
+            }
+
+            // Fixed numbers-at-age age-independent scalar
+            if(estDynamics(sp) == 2){
+              NByage(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
+            }
+
+            // Fixed numbers-at-age age-dependent scalar
+            if(estDynamics(sp) == 3){
+              NByage(sp, sex, age, yr) = pop_scalar(sp, age) * NByageFixed(sp, sex, age, yr);
             }
 
             // Hard constraint to reduce population collapse
@@ -1292,9 +1320,19 @@ Type objective_function<Type>::operator() () {
             }
 
 
-            // Fixed numbers-at-age
-            if(estDynamics(sp) > 0){
-              NByage(sp, sex, age, yr) = pop_scalar(sp) * NByageFixed(sp, sex, age, yr);
+            // Fixed numbers-at-age - fixed scalar
+            if(estDynamics(sp) == 1){
+              NByage(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
+            }
+
+            // Fixed numbers-at-age age-independent scalar
+            if(estDynamics(sp) == 2){
+              NByage(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
+            }
+
+            // Fixed numbers-at-age age-dependent scalar
+            if(estDynamics(sp) == 3){
+              NByage(sp, sex, age, yr) = pop_scalar(sp, age) * NByageFixed(sp, sex, age, yr);
             }
 
             // Hard constraint to reduce population collapse
@@ -2799,7 +2837,7 @@ Type objective_function<Type>::operator() () {
   // 11. LIKELIHOOD EQUATIONS
 
   // 11.0. OBJECTIVE FUNCTION
-  matrix<Type> jnll_comp(17, n_flt); jnll_comp.setZero();  // matrix of negative log-likelihood components
+  matrix<Type> jnll_comp(18, n_flt); jnll_comp.setZero();  // matrix of negative log-likelihood components
 
   // -- Standard likelihood components
   // Slot 0 -- Survey biomass
@@ -2816,11 +2854,12 @@ Type objective_function<Type>::operator() () {
   // Slot 10 -- init_dev -- Initial abundance-at-age
   // Slot 11 -- Epsilon -- Annual fishing mortality deviation
   // Slot 12 -- SPR penalities
+  // Slot 13 -- N-at-age < 0 penalty
   // -- M2 likelihood components
-  // Slot 13 -- Ration likelihood
-  // Slot 14 -- Ration penalties
-  // Slot 15 -- Diet weight likelihood
-  // Slot 16 -- Stomach content of prey length ln in predator length a likelihood
+  // Slot 14 -- Ration likelihood
+  // Slot 15 -- Ration penalties
+  // Slot 16 -- Diet weight likelihood
+  // Slot 17 -- Stomach content of prey length ln in predator length a likelihood
 
 
   // 11.1. OFFSETS AND PENALTIES
@@ -3212,22 +3251,28 @@ Type objective_function<Type>::operator() () {
   }
 
 
+  // Slot 13 -- N-at-age < 0 penalty. See posfun
+  for (sp = 0; sp < nspp; sp++){
+    if(estDynamics(sp) == 0){
+      jnll_comp(13, sp) += zero_pop_pen(sp);
+    }
+  }
+
+
   // 11.3. Diet likelihood components from MSVPA
-
-
   if ((msmMode == 1) & (suitMode > 0)) {
     // Slot 14 -- Diet weight likelihood
     for(int stom_ind = 0; stom_ind < UobsWtAge.rows(); stom_ind++){
 
       rsp = UobsWtAge_ctl(stom_ind, 0) - 1; // Index of pred
       if(UobsWtAge_hat(stom_ind, 1) > 0){
-        jnll_comp(15, rsp) -= Type(UobsWtAge(stom_ind, 0)) * (UobsWtAge(stom_ind, 1)) * log(UobsWtAge_hat(stom_ind, 1));
+        jnll_comp(16, rsp) -= Type(UobsWtAge(stom_ind, 0)) * (UobsWtAge(stom_ind, 1)) * log(UobsWtAge_hat(stom_ind, 1));
       }
     }
 
     // Remove offset
     for (rsp = 0; rsp < nspp; rsp++) {
-      jnll_comp(15, rsp) -= offset_uobsagewt(rsp);
+      jnll_comp(16, rsp) -= offset_uobsagewt(rsp);
     }
 
   } // End diet proportion by weight component
@@ -3239,7 +3284,7 @@ Type objective_function<Type>::operator() () {
       for (sp = 0; sp < nspp; sp++) {
         for(sex = 0; sex < nsex(sp); sex ++){
           for (age = 1; age < nages(sp); age++) { // don't include age zero in likelihood
-            jnll_comp(13, sp) += 0.5 * pow( log( omega_hat(sp, age, yr) + 1.0e-10) -
+            jnll_comp(14, sp) += 0.5 * pow( log( omega_hat(sp, age, yr) + 1.0e-10) -
               log(ration2Age(sp, sex, age, yr)), 2) / (sd_ration * sd_ration); // FIXME: add year indices for ration
           }
         }
@@ -3255,7 +3300,7 @@ Type objective_function<Type>::operator() () {
           mean_ohat += omega_hat(sp, age, yr) / nyrs;
         }
         for (yr = 0; yr < nyrs; yr++) {
-          jnll_comp(14, sp) += 20 *  pow(omega_hat(sp, age, yr) - mean_ohat, 2);
+          jnll_comp(15, sp) += 20 *  pow(omega_hat(sp, age, yr) - mean_ohat, 2);
         }
       }
     }
@@ -3267,12 +3312,12 @@ Type objective_function<Type>::operator() () {
         for (r_ln = 0; r_ln < nlengths(rsp); r_ln++) {
           for (ksp = 0; ksp < nspp; ksp++) {                  // FIME: need to add in other food
             if (diet_w_sum(rsp, ksp, r_ln, yr) > 0) { // (rsp, ksp, a, r_ln, yr)
-              jnll_comp(15, rsp) -= stom_tau * diet_w_sum(rsp, ksp, r_ln, yr) * log(Q_hat(rsp, ksp, r_ln, yr) + 1.0e-10); // FIXME: Q_hat has some NAs
+              jnll_comp(16, rsp) -= stom_tau * diet_w_sum(rsp, ksp, r_ln, yr) * log(Q_hat(rsp, ksp, r_ln, yr) + 1.0e-10); // FIXME: Q_hat has some NAs
             }
           }
         }
       }
-      jnll_comp(15, rsp) -= offset_diet_w(rsp);
+      jnll_comp(16, rsp) -= offset_diet_w(rsp);
     }
 
 
@@ -3311,13 +3356,13 @@ Type objective_function<Type>::operator() () {
 
               // Likelihood of diet length         / This is equation 16
               if (Uobs(rsp, ksp, r_ln, k_ln) > 0) {
-                jnll_comp(16, rsp) -= stom_tau * Uobs(rsp, ksp, r_ln, k_ln) * log(T_hat(rsp, ksp, r_ln, k_ln)  + 1.0e-10);
+                jnll_comp(17, rsp) -= stom_tau * Uobs(rsp, ksp, r_ln, k_ln) * log(T_hat(rsp, ksp, r_ln, k_ln)  + 1.0e-10);
               }
             }
           }
         }
       }
-      jnll_comp(16, rsp) -= offset_diet_l(rsp);
+      jnll_comp(17, rsp) -= offset_diet_l(rsp);
     }
   } // End if statement for diet likelihood
 
