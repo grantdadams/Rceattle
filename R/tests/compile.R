@@ -7,3 +7,4 @@ cpp_file <- paste0(cpp_directory, "/", version)
 dyn.unload(TMB::dynlib(paste0(cpp_file)))
 TMB::compile(paste0(cpp_file, ".cpp"))
 dyn.load(TMB::dynlib(paste0(cpp_file)))
+

@@ -531,6 +531,12 @@ fit_mod <-
     # Get quantities
     quantities <- obj$report(obj$env$last.par.best)
 
+    if(opt$objective != quantities$jnll){
+      message( "#########################" )
+      message( "Convergence warning (8)" )
+      message( "#########################" )
+    }
+
     # Rename jnll
     colnames(quantities$jnll_comp) <- paste0("Sp/Srv/Fsh_", 1:ncol(quantities$jnll_comp))
     rownames(quantities$jnll_comp) <- c(
@@ -547,6 +553,7 @@ fit_mod <-
       "Initial abundance deviates",
       "Fishing mortality deviates",
       "SPR Calculation",
+      "Zero n-at-age penalty",
       "Ration",
       "Ration penalties",
       "Stomach content weight",
@@ -569,7 +576,7 @@ fit_mod <-
     # Loop fleets and take harmonic mean
     weights_macallister <- rep(NA, length(unique(data_list$comp_data$Fleet_code)))
     for(flt in unique(data_list$comp_data$Fleet_code)){
-comp_sub <- which(data_list$comp_data$Fleet_code == flt & data_list$comp_data$Year > 0)
+      comp_sub <- which(data_list$comp_data$Fleet_code == flt & data_list$comp_data$Year > 0)
       data_list$fleet_control$Comp_weights[which(data_list$fleet_control$Fleet_code == flt)] <- ((1/length(comp_sub))*sum((eff_n_macallister[comp_sub]/data_list$comp_data$Sample_size[comp_sub])^-1))^-1
     }
 
