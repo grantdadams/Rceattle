@@ -16,9 +16,10 @@
 #' @param minNByage Minimum numbers at age to put in a hard constraint that the number-at-age can not go below.
 #' @param phase Optional. List of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R. If NULL, will not phase model. If set to \code{"default"}, will use default phasing.
 #' @param silent logical. IF TRUE, includes TMB estimation progress
-#' @param suitMode Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma selectivity from Kinzey and Punt (2009), 2 = time-varing length based gamma selectivity from Kinzey and Punt (2009), 3 = time-varying weight based gamma selectivity from Kinzey and Punt (2009), 4 = length based lognormal selectivity, 5 = time-varing length based lognormal selectivity, 6 = time-varying weight based lognormal selectivity,
+#' @param suitMode Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma selectivity from Kinzey and Punt (2009), 2 = time-varying length based gamma selectivity from Kinzey and Punt (2009), 3 = time-varying weight based gamma selectivity from Kinzey and Punt (2009), 4 = length based lognormal selectivity, 5 = time-varying length based lognormal selectivity, 6 = time-varying weight based lognormal selectivity,
 #' @param getsd	Boolean whether to run standard error calculation
-#' @param use_gradient use the gradient to phase. Defulat = TRUE
+#' @param use_gradient use the gradient to phase. Default = TRUE
+#' @param rel_tol The relative tolerance for discontinuous likelihood warnings. Set to 1. This evaluates the difference between the TMB object likelihood and the nlminb likelihood.
 #' @details
 #' CEATTLE is an age-structured population dynamics model that can be fit with or without predation mortality. The default is to exclude predation mortality by setting \code{msmMode} to 0. Predation mortality can be included by setting \code{msmMode} with the following options:
 #' \itemize{
@@ -243,7 +244,8 @@ fit_mod <-
            silent = FALSE,
            recompile = FALSE,
            getsd = TRUE,
-           use_gradient = TRUE) {
+           use_gradient = TRUE,
+           rel_tol = 1) {
     start_time <- Sys.time()
 
     setwd(getwd())
@@ -531,7 +533,7 @@ fit_mod <-
     # Get quantities
     quantities <- obj$report(obj$env$last.par.best)
 
-    if(opt$objective != quantities$jnll){
+    if(opt$objective - quantities$jnll > rel_tol){
       message( "#########################" )
       message( "Convergence warning (8)" )
       message( "#########################" )

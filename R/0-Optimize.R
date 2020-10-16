@@ -83,7 +83,7 @@ fit_tmb = function( obj, fn=obj$fn, gr=obj$gr, startpar=obj$par, lower=rep(-Inf,
   }
 
   # Exclude difficult-to-interpret messages
-  parameter_estimates = parameter_estimates[c('par','objective','iterations','evaluations')]
+  parameter_estimates = parameter_estimates[c('par','objective','iterations','evaluations', 'message')]
 
   # Add diagnostics
   parameter_estimates[["time_for_MLE"]] = Sys.time() - start_time
