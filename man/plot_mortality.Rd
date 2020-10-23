@@ -11,7 +11,12 @@ plot_mortality(
   zlim = NULL,
   contour = FALSE,
   width = NULL,
-  height = NULL
+  height = NULL,
+  title = NULL,
+  log = FALSE,
+  spp = NULL,
+  maxage = NULL,
+  title_cex = 10
 )
 }
 \arguments{
@@ -29,6 +34,16 @@ function.}
 \item{width}{Plot width when saved "inches"}
 
 \item{height}{Plot height when saved "inches"}
+
+\item{title}{Additional title to add. Will also add species names if not NULL}
+
+\item{log}{TRUE/FALSE use log M1 + M2}
+
+\item{spp}{Species to plot. Plots all if null.}
+
+\item{maxage}{Plot up to this age. Plots all ages if NULL}
+
+\item{title_cex}{Font size for title}
 
 \item{species}{Species names for legend}
 }
