@@ -12,6 +12,11 @@
 #' @param species Species names for legend
 #' @param width Plot width when saved "inches"
 #' @param height Plot height when saved "inches"
+#' @param title Additional title to add. Will also add species names if not NULL
+#' @param title_cex Font size for title
+#' @param spp Species to plot. Plots all if null.
+#' @param log TRUE/FALSE use log M1 + M2
+#' @param maxage Plot up to this age. Plots all ages if NULL
 #'
 #' @export
 plot_mortality <-
@@ -21,7 +26,12 @@ plot_mortality <-
            zlim = NULL,
            contour = FALSE,
            width = NULL,
-           height = NULL) {
+           height = NULL,
+           title = NULL,
+           log = FALSE,
+           spp = NULL,
+           maxage = NULL,
+           title_cex = 10) {
 
     # Convert single one into a list
     if(class(Rceattle) == "Rceattle"){
@@ -46,8 +56,14 @@ plot_mortality <-
     minyr <- min((sapply(Years, min)))
 
     nspp <- Rceattle[[1]]$data_list$nspp
+    spnames <- Rceattle[[1]]$data_list$spnames
     estdynamics <- Rceattle[[1]]$data_list$estDynamics
     nages <- Rceattle[[1]]$data_list$nages
+    for(i in 1:length(nages)){
+      nages[i] <- ifelse(nages[i] > maxage, maxage, nages[i] )
+    }
+
+
     minage <- Rceattle[[1]]$data_list$minage
     nsex <- Rceattle[[1]]$data_list$nsex
 
@@ -55,7 +71,11 @@ plot_mortality <-
     m_array <-
       array(NA, dim = c(nspp, 2, max(nages), nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
-      m_array[, , , ,i] <- Rceattle[[i]]$quantities$M[,,,1:nyrs]
+      m_array[, , , ,i] <- Rceattle[[i]]$quantities$M[,,1:maxage,1:nyrs]
+    }
+
+    if(log){
+      m_array = log(m_array)
     }
 
     # Plot limits
@@ -73,13 +93,16 @@ plot_mortality <-
     #################################
     # Mortality time series
     #################################
+    if(is.null(spp)){
+      spp <- 1:nspp
+    }
 
 
     # Species
     for(j in 1:nspp){
       sp <- j
 
-      if(estdynamics[j] == 0){
+      if(estdynamics[j] == 0 & sp %in% spp){
 
         # Sexes
         for(sex in 1:nsex[sp]){
@@ -131,7 +154,16 @@ plot_mortality <-
 
             # Plot as tiles
             if(contour == FALSE){
-              print(ggplot(data, aes(y = Age, x = Year, zmin = zlim[1], zmax = zlim[2])) + geom_tile(aes(fill = M))  + scale_y_continuous(expand = c(0, 0), breaks=seq(0,max(ages),round(nages[sp]/5))) + coord_equal() +  scale_x_continuous(expand = c(0, 0))+ scale_fill_viridis_c("M1 + M2") + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_rect(colour = "black", size = 6)))
+              p = ggplot(data, aes(y = Age, x = Year, zmin = zlim[1], zmax = zlim[2])) + geom_tile(aes(fill = M))  + scale_y_continuous(expand = c(0, 0), breaks=seq(0,max(ages),round(nages[sp]/5))) + coord_equal() +  scale_x_continuous(expand = c(0, 0))+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_rect(colour = "black", size = 6))
+              if(!is.null(title)){
+                p = p + ggtitle(paste0(title,": ",spnames[j] )) + theme(plot.title = element_text(size = title_cex))
+              }
+              if(log){
+                p = p + scale_fill_viridis_c("log(M1 + M2)", limits = c(zlim[1], zlim[2]))
+              } else {
+                p = p + scale_fill_viridis_c("M1 + M2", limits = c(zlim[1], zlim[2]))
+              }
+              print(p)
             }
             if (i == 2) {
               dev.off()
