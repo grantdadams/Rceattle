@@ -577,12 +577,11 @@ fit_mod <-
 
     # Loop fleets and take harmonic mean
     weights_macallister <- rep(NA, length(unique(data_list$comp_data$Fleet_code)))
+    data_list$fleet_control$Est_weights_macallister <- NA
     for(flt in unique(data_list$comp_data$Fleet_code)){
       comp_sub <- which(data_list$comp_data$Fleet_code == flt & data_list$comp_data$Year > 0)
-      data_list$fleet_control$Comp_weights[which(data_list$fleet_control$Fleet_code == flt)] <- ((1/length(comp_sub))*sum((eff_n_macallister[comp_sub]/data_list$comp_data$Sample_size[comp_sub])^-1))^-1
+      data_list$fleet_control$Est_weights_macallister[which(data_list$fleet_control$Fleet_code == flt)] <- ((1/length(comp_sub))*sum((eff_n_macallister[comp_sub]/data_list$comp_data$Sample_size[comp_sub])^-1))^-1
     }
-
-
 
 
     if (debug) {
