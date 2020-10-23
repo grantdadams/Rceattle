@@ -14,7 +14,7 @@
 #' @param msmMode The predation mortality functions to used. Defaults to no predation mortality used.
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.
 #' @param minNByage Minimum numbers at age to put in a hard constraint that the number-at-age can not go below.
-#' @param phase TRUE/FALSE or list of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R. If FALSE, will not phase model. If set to TRUE, will use default phasing.
+#' @param phase Optional. List of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R. If NULL, will not phase model. If set to \code{"default"}, will use default phasing.
 #' @param silent logical. IF TRUE, includes TMB estimation progress
 #' @param suitMode Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma selectivity from Kinzey and Punt (2009), 2 = time-varying length based gamma selectivity from Kinzey and Punt (2009), 3 = time-varying weight based gamma selectivity from Kinzey and Punt (2009), 4 = length based lognormal selectivity, 5 = time-varying length based lognormal selectivity, 6 = time-varying weight based lognormal selectivity,
 #' @param getsd	Boolean whether to run standard error calculation
@@ -240,7 +240,7 @@ fit_mod <-
            avgnMode = 0,
            minNByage = 0,
            suitMode = 0,
-           phase = FALSE,
+           phase = NULL,
            silent = FALSE,
            recompile = FALSE,
            getsd = TRUE,
@@ -360,8 +360,8 @@ fit_mod <-
 
 
     # Set default phasing
-    if(class(phase) != "list"){
-      if(phase == TRUE){
+    if(class(phase) == "character"){
+      if(tolower(phase) == "default"){
         phase = list(
           dummy = 1,
           ln_pop_scalar = 11,
