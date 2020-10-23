@@ -23,7 +23,8 @@ fit_mod(
   silent = FALSE,
   recompile = FALSE,
   getsd = TRUE,
-  use_gradient = TRUE
+  use_gradient = TRUE,
+  rel_tol = 1
 )
 }
 \arguments{
@@ -53,7 +54,7 @@ fit_mod(
 
 \item{minNByage}{Minimum numbers at age to put in a hard constraint that the number-at-age can not go below.}
 
-\item{suitMode}{Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma selectivity from Kinzey and Punt (2009), 2 = time-varing length based gamma selectivity from Kinzey and Punt (2009), 3 = time-varying weight based gamma selectivity from Kinzey and Punt (2009), 4 = length based lognormal selectivity, 5 = time-varing length based lognormal selectivity, 6 = time-varying weight based lognormal selectivity,}
+\item{suitMode}{Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma selectivity from Kinzey and Punt (2009), 2 = time-varying length based gamma selectivity from Kinzey and Punt (2009), 3 = time-varying weight based gamma selectivity from Kinzey and Punt (2009), 4 = length based lognormal selectivity, 5 = time-varying length based lognormal selectivity, 6 = time-varying weight based lognormal selectivity,}
 
 \item{phase}{Optional. List of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R. If NULL, will not phase model. If set to \code{"default"}, will use default phasing.}
 
@@ -61,7 +62,9 @@ fit_mod(
 
 \item{getsd}{Boolean whether to run standard error calculation}
 
-\item{use_gradient}{use the gradient to phase. Defulat = TRUE}
+\item{use_gradient}{use the gradient to phase. Default = TRUE}
+
+\item{rel_tol}{The relative tolerance for discontinuous likelihood warnings. Set to 1. This evaluates the difference between the TMB object likelihood and the nlminb likelihood.}
 }
 \value{
 A list of class "Rceattle" including:

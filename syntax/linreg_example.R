@@ -1,7 +1,7 @@
 # https://github.com/kaskr/adcomp/blob/master/TMB/inst/examples/linreg_parallel.R
 library(TMB)
-compile("linreg_parallel.cpp")
-dyn.load(dynlib("linreg_parallel"))
+compile("linreg_example.cpp")
+dyn.load(dynlib("linreg_example"))
 
 ## Simulate data
 set.seed(123)
@@ -10,8 +10,11 @@ data <- list(Y = rnorm(length(x)) + x, x = x)
 parameters <- list(a=0, b=0, logSigma=0)
 
 ## Fit model
-obj <- MakeADFun(data, parameters, DLL="linreg_parallel")
+obj <- MakeADFun(data, parameters, DLL="linreg_example")
 opt <- nlminb(obj$par, obj$fn, obj$gr)
 
+# These are slightly different
 opt$objective - obj$report(obj$env$last.par.best)$nll
+
+# These are the same
 opt$objective - obj$fn(obj$env$last.par.best)
