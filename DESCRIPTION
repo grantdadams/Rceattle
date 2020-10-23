@@ -20,7 +20,8 @@ Imports:
     readxl,
     writexl,
     tidyr,
-    gplots
+    gplots,
+    ggplot2
 Remotes: kaskr/TMB_contrib_R/TMBhelper
 RoxygenNote: 7.1.1
 BugReports: https://github.com/grantdadams/Rceattle/issues
