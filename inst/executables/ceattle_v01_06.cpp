@@ -486,7 +486,7 @@ Type objective_function<Type>::operator() () {
   // ------------------------------------------------------------------------- //
 
   PARAMETER( dummy );                             // Variable to test derived quantities given input parameters; n = [1]
-  PARAMETER_MATRIX( ln_pop_scalar );              // Scalar to multiply supplied numbers at age by; n = [nspp, nages]
+  PARAMETER_ARRAY( ln_pop_scalar );              // Scalar to multiply supplied numbers at age by; n = [nspp, nages]
 
   // -- 3.1. Recruitment parameters
   PARAMETER_VECTOR( ln_mn_rec );                  // Mean recruitment; n = [1, nspp]
@@ -558,7 +558,7 @@ Type objective_function<Type>::operator() () {
   vector<int> joint_adjust(comp_obs.rows()); joint_adjust.setZero();
 
   // -- 4.2. Estimated population parameters
-  matrix<Type>  pop_scalar = ln_pop_scalar;  pop_scalar = exp(ln_pop_scalar.array());// Fixed n-at-age scaling coefficient; n = [nspp, nages]
+  array<Type>   pop_scalar = ln_pop_scalar;  pop_scalar = exp(ln_pop_scalar.array());// Fixed n-at-age scaling coefficient; n = [nspp, nages]
   vector<Type>  mn_rec = exp(ln_mn_rec);                                            // Mean recruitment; n = [1, nspp]
   array<Type>   biomassByage(nspp, max_age, nyrs); biomassByage.setZero();          // Estimated biomass-at-age (kg); n = [nspp, nages, nyrs]
   matrix<Type>  biomass(nspp, nyrs); biomass.setZero();                             // Estimated biomass (kg); n = [nspp, nyrs]
@@ -996,6 +996,18 @@ Type objective_function<Type>::operator() () {
           }
         }
       }
+
+
+      // Set selectivity for relative-abundance scalar
+      if(estDynamics(sp) >= 3){
+        for (age = 0; age < nages(sp); age++){
+          for (yr = 0; yr < nyrs_hind; yr++) {
+            for(sex = 0; sex < nsex(sp); sex++){
+              pop_scalar(sp, sex, age) = sel(flt, sex, age, nyrs_hind - 1);
+            }
+          }
+        }
+      }
     }
 
 
@@ -1098,7 +1110,7 @@ Type objective_function<Type>::operator() () {
           }
           // Fixed numbers-at-age
           if(estDynamics(sp) > 0){
-            NByage(sp, sex, 0, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, 0, yr);
+            NByage(sp, sex, 0, yr) = pop_scalar(sp, sex, 0) * NByageFixed(sp, sex, 0, yr);
           }
         }
       }
@@ -1134,17 +1146,17 @@ Type objective_function<Type>::operator() () {
 
           // Fixed numbers-at-age - fixed scalar
           if(estDynamics(sp) == 1){
-            NByage(sp, sex, age, 0) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, 0);
+            NByage(sp, sex, age, 0) = pop_scalar(sp, sex, 0) * NByageFixed(sp, sex, age, 0);
           }
 
           // Fixed numbers-at-age age-independent scalar
           if(estDynamics(sp) == 2){
-            NByage(sp, sex, age, 0) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, 0);
+            NByage(sp, sex, age, 0) = pop_scalar(sp, sex, 0) * NByageFixed(sp, sex, age, 0);
           }
 
           // Fixed numbers-at-age age-dependent scalar
-          if(estDynamics(sp) == 3){
-            NByage(sp, sex, age, 0) = pop_scalar(sp, age) * NByageFixed(sp, sex, age, 0);
+          if(estDynamics(sp) >= 3){
+            NByage(sp, sex, age, 0) = pop_scalar(sp, sex, age) * NByageFixed(sp, sex, age, 0);
           }
         }
       }
@@ -1174,17 +1186,17 @@ Type objective_function<Type>::operator() () {
 
             // Fixed numbers-at-age - fixed scalar
             if(estDynamics(sp) == 1){
-              NByage(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
+              NByage(sp, sex, age, yr) = pop_scalar(sp, sex, 0) * NByageFixed(sp, sex, age, yr);
             }
 
             // Fixed numbers-at-age age-independent scalar
             if(estDynamics(sp) == 2){
-              NByage(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
+              NByage(sp, sex, age, yr) = pop_scalar(sp, sex, 0) * NByageFixed(sp, sex, age, yr);
             }
 
             // Fixed numbers-at-age age-dependent scalar
-            if(estDynamics(sp) == 3){
-              NByage(sp, sex, age, yr) = pop_scalar(sp, age) * NByageFixed(sp, sex, age, yr);
+            if(estDynamics(sp) >= 3){
+              NByage(sp, sex, age, yr) = pop_scalar(sp, sex, age) * NByageFixed(sp, sex, age, yr);
             }
 
             // Constrain to reduce population collapse
@@ -1232,17 +1244,17 @@ Type objective_function<Type>::operator() () {
 
             // Fixed numbers-at-age - fixed scalar
             if(estDynamics(sp) == 1){
-              NByage(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
+              NByage(sp, sex, age, yr) = pop_scalar(sp, sex, 0) * NByageFixed(sp, sex, age, yr);
             }
 
             // Fixed numbers-at-age age-independent scalar
             if(estDynamics(sp) == 2){
-              NByage(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
+              NByage(sp, sex, age, yr) = pop_scalar(sp, sex, 0) * NByageFixed(sp, sex, age, yr);
             }
 
             // Fixed numbers-at-age age-dependent scalar
-            if(estDynamics(sp) == 3){
-              NByage(sp, sex, age, yr) = pop_scalar(sp, age) * NByageFixed(sp, sex, age, yr);
+            if(estDynamics(sp) >= 3){
+              NByage(sp, sex, age, yr) = pop_scalar(sp, sex, age) * NByageFixed(sp, sex, age, yr);
             }
 
             // Hard constraint to reduce population collapse
@@ -1322,17 +1334,17 @@ Type objective_function<Type>::operator() () {
 
             // Fixed numbers-at-age - fixed scalar
             if(estDynamics(sp) == 1){
-              NByage(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
+              NByage(sp, sex, age, yr) = pop_scalar(sp, sex, 0) * NByageFixed(sp, sex, age, yr);
             }
 
             // Fixed numbers-at-age age-independent scalar
             if(estDynamics(sp) == 2){
-              NByage(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
+              NByage(sp, sex, age, yr) = pop_scalar(sp, sex, 0) * NByageFixed(sp, sex, age, yr);
             }
 
             // Fixed numbers-at-age age-dependent scalar
-            if(estDynamics(sp) == 3){
-              NByage(sp, sex, age, yr) = pop_scalar(sp, age) * NByageFixed(sp, sex, age, yr);
+            if(estDynamics(sp) >= 3){
+              NByage(sp, sex, age, yr) = pop_scalar(sp, sex, age) * NByageFixed(sp, sex, age, yr);
             }
 
             // Hard constraint to reduce population collapse
