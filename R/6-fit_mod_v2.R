@@ -148,28 +148,6 @@
 #' }
 #'
 #'
-#' `jnll_comp` includes:
-#' \itemize{
-#'  \item{-- Data components}
-#' \item{Slot 0 -- Survey biomass}
-#' \item{Slot 1 -- Survey age/length composition}
-#' \item{Slot 2 -- Fishery selectivity}
-#' \item{Slot 3 -- Fishery selectivity normalization}
-#' \item{Slot 4 -- Total catch -- Fishery observer data}
-#' \item{Slot 5 -- Fishery age/length composition -- Fishery observer data}
-#' \item{Slot 6 -- Survey selectivity}
-#' \item{Slot 7 -- Survey selectivity normalization}
-#' \item{-- Priors}
-#' \item{Slot 8 -- Tau -- Annual recruitment deviation}
-#' \item{Slot 9 -- init_dev -- Initial abundance-at-age}
-#' \item{Slot 10 -- Epsilon -- Annual fishing mortality deviation}
-#' \item{-- M2 likelihood components}
-#' \item{Slot 13 -- Ration likelihood}
-#' \item{Slot 14 -- Ration penalties}
-#' \item{Slot 15 -- Diet weight likelihood}
-#' \item{Slot 16 -- Stomach content of prey length ln in predator length a likelihood}
-#' }
-#'
 #' @examples
 #'
 #'# Load package and data
@@ -533,11 +511,6 @@ fit_mod <-
     # Get quantities
     quantities <- obj$report(obj$env$last.par.best)
 
-    if(opt$objective - quantities$jnll > rel_tol){
-      message( "#########################" )
-      message( "Convergence warning (8)" )
-      message( "#########################" )
-    }
 
     # Rename jnll
     colnames(quantities$jnll_comp) <- paste0("Sp/Srv/Fsh_", 1:ncol(quantities$jnll_comp))
@@ -626,6 +599,14 @@ fit_mod <-
       identified$param_list <- identified_param_list
 
       mod_objects$identified <- identified
+    }
+
+
+    # Warning for discontinuous likelihood
+    if(abs(opt$objective - quantities$jnll) > rel_tol){
+      message( "#########################" )
+      message( "Convergence warning (8)" )
+      message( "#########################" )
     }
 
     class(mod_objects) <- "Rceattle"

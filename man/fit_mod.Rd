@@ -19,7 +19,7 @@ fit_mod(
   avgnMode = 0,
   minNByage = 0,
   suitMode = 0,
-  phase = FALSE,
+  phase = NULL,
   silent = FALSE,
   recompile = FALSE,
   getsd = TRUE,
@@ -56,7 +56,7 @@ fit_mod(
 
 \item{suitMode}{Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma selectivity from Kinzey and Punt (2009), 2 = time-varying length based gamma selectivity from Kinzey and Punt (2009), 3 = time-varying weight based gamma selectivity from Kinzey and Punt (2009), 4 = length based lognormal selectivity, 5 = time-varying length based lognormal selectivity, 6 = time-varying weight based lognormal selectivity,}
 
-\item{phase}{TRUE/FALSE or list of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R. If FALSE, will not phase model. If set to TRUE, will use default phasing.}
+\item{phase}{Optional. List of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R. If NULL, will not phase model. If set to \code{"default"}, will use default phasing.}
 
 \item{silent}{logical. IF TRUE, includes TMB estimation progress}
 
