@@ -32,6 +32,7 @@
 // 16. Added in spawning month mortality adjustment
 // 17. Removed constant 0.0001 added to M1
 // 18. Had the model estimate Uobs
+// 19. Added flexibility to fixed n-at-age to have age, sex specific scaling paramters and estimate selectivity
 //  Fixme: denominator is zero somewhere. Log of negative number. Check suitability. Make other prey a very large number.
 //  Look at M2: suitability: and consumption. Make sure positive.
 //
