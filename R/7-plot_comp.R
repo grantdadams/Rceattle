@@ -230,28 +230,32 @@ plot_comp <-
             xlim = c(min(comp_data$Year, na.rm = TRUE), max(comp_data$Year, na.rm = TRUE) + right_adj),
             xlab = "Year",
             ylab = c("Survey age comp", "Survey length comp")[comp_type + 1],
-            xaxt = c(rep("n", nsrv - 1), "s")[j]
+            xaxt = "s"
           )
 
 
           # Legends
-          legend("topleft", as.character(fleet_control$Fleet_name[srv[j]]), bty = "n", cex = 1.4)
+          legend("topleft", as.character(fleet_control$Fleet_name[srv[j]]), bty = "n", cex = 1)
 
 
 
           ############################
           # Legend
           #############################
+          round = 0
+          if(sum(seq(from = 1, to = max_pearson, length.out = 3) < 3) == 3){
+            round = 1
+          }
 
           # Positive
-          x_loc <- c(mean(comp_data$Year, na.rm = T) + 1, mean(comp_data$Year, na.rm = T) + 3.5, mean(comp_data$Year, na.rm = T) + 6)
-          symbols( x = x_loc , y = rep(nages[sp] * 1.1, 3) , circle = round(seq(from = 1, to = max_pearson, length.out = 3) , 0), inches=0.20,add=T, bg = colvec[3])
-          text(x = x_loc, y = rep(nages[sp] * 1.23, 3), labels = round(seq(from = 1, to = max_pearson, length.out = 3) , 0))
+          x_loc <- c(max(comp_data$Year, na.rm = T) - 6, max(comp_data$Year, na.rm = T) - 3.5, max(comp_data$Year, na.rm = T) - 1)
+          symbols( x = x_loc , y = rep(nages[sp] * 1.1, 3) , circle = round(seq(from = 1, to = max_pearson, length.out = 3) , round), inches=0.20,add=T, bg = colvec[3])
+          text(x = x_loc, y = rep(nages[sp] * 1.23, 3), labels = round(seq(from = 1, to = max_pearson, length.out = 3) , round))
 
           # Negative
-          x_loc <- c(mean(comp_data$Year, na.rm = T) - 1, mean(comp_data$Year, na.rm = T) - 3.5, mean(comp_data$Year, na.rm = T) - 6)
-          symbols( x = x_loc , y = rep(nages[sp] * 1.1, 3) , circle = -round(seq(from = -1, to = -max_pearson, length.out = 3) , 0), inches=0.20,add=T, bg = NA)
-          text(x = x_loc, y = rep(nages[sp] * 1.23, 3), labels = round(seq(from = -1, to = -max_pearson, length.out = 3) , 0) )
+          x_loc <- c(max(comp_data$Year, na.rm = T) - 8.5, max(comp_data$Year, na.rm = T) - 11, max(comp_data$Year, na.rm = T) - 13.5)
+          symbols( x = x_loc , y = rep(nages[sp] * 1.1, 3) , circle = -round(seq(from = -1, to = -max_pearson, length.out = 3) , round), inches=0.20,add=T, bg = NA)
+          text(x = x_loc, y = rep(nages[sp] * 1.23, 3), labels = round(seq(from = -1, to = -max_pearson, length.out = 3) , round) )
 
 
           #############################

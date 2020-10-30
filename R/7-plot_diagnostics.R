@@ -600,7 +600,7 @@ plot_logindex <- function(Rceattle,
             "topright",
             legend = model_names,
             pch = rep(16, length(line_col)), cex=0.8,
-            col = line_col,
+            col = line_col, ncol = 2,
             bty = "n"
           )
 
