@@ -67,7 +67,8 @@ TMBphase <- function(data, parameters, map, random, phases, cpp_directory, model
     j <- 0
     for (i in 1:length(parameters)) {
       if (phases[[i]]>phase_cur) {
-        map_use[[i]] <- fill_vals(map[[i]],NA)
+        map_val <- which(names(map_use) %in% names(phases)[i])
+        map_use[[map_val]] <- fill_vals(map[[map_val]],NA)
       }
     }
     #map_use
@@ -82,7 +83,7 @@ TMBphase <- function(data, parameters, map, random, phases, cpp_directory, model
     # Fit the model
     obj <- TMB::MakeADFun(data,parameters =  params_use,random=random_use,DLL=model_name,map=map_use, silent = silent)
     #obj <- TMB::MakeADFun(data,params_use,DLL=DLL_use,map=map_use)
-    TMB::newtonOption(obj,smartsearch=FALSE)
+    # TMB::newtonOption(obj,smartsearch=FALSE)
     #obj$fn()
     #obj$gr()
     if(use_gradient){

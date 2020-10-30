@@ -231,12 +231,13 @@ plot_recruitment(Rceattle = mod_list, model_names = mod_names)
 # For recruitment, the model can estimate recruitment deviates as random effects
 ss_re <- Rceattle::fit_mod(
   data_list = mydata,
-  inits = NULL, # Initial parameters = 0
+  inits = ss_re$estimated_params, # Initial parameters = 0
   file = NULL, # Don't save
   debug = 0, # Estimate
   random_rec = TRUE, # Turn of recruitment deviations as random effects
   msmMode = 0, # Single species mode
-  silent = TRUE)
+  silent = TRUE,
+  phase = NULL)
 
 # Diet estimation
 ms_gamma <- Rceattle::fit_mod(
