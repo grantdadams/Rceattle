@@ -212,7 +212,7 @@ fit_mod <-
            bounds = NULL,
            file = NULL,
            debug = FALSE,
-           random_rec = FALSE,
+           random_rec = TRUE,
            niter = 3,
            msmMode = 0,
            avgnMode = 0,
@@ -330,10 +330,8 @@ fit_mod <-
     # STEP 4 - Setup random effects
     random_vars <- c("ln_srv_q_dev_re", "sel_slp_dev_re", "sel_inf_dev_re")
     if (random_rec == TRUE) {
-      random_vars <- c(random_vars , "rec_dev")
+      random_vars <- c(random_vars , "rec_dev", "init_dev")
     }
-
-    '%!in%' <- function(x,y)!('%in%'(x,y))
 
 
 
@@ -351,12 +349,13 @@ fit_mod <-
           ln_FSPR = 3,
           proj_F_prop = 1,
           F_dev = 1,
-          log_srv_q = 5,
+          ln_srv_q = 5,
           srv_q_pow = 6,
           ln_srv_q_dev = 7,
           ln_srv_q_dev_re = 7,
           ln_sigma_srv_q = 8,
           sel_coff = 3,
+          sel_curve_pen = 10,
           sel_slp = 3,
           sel_inf = 3,
           sel_slp_dev = 4,
@@ -375,8 +374,7 @@ fit_mod <-
           log_gam_a = 9,
           log_gam_b = 9,
           log_phi = 9,
-          comp_weights = 10,
-          sel_curve_pen = 10
+          comp_weights = 10
         )
       }
     }
@@ -438,16 +436,9 @@ fit_mod <-
     L <- c()
     U <- c()
     for(i in 1:length(map[[1]])){
-      L = c(L, unlist(bounds$lower[[i]])[which(!is.na(unlist(map[[1]][[i]])) & !duplicated(unlist(map[[1]][[i]])))])
-      U = c(U, unlist(bounds$upper[[i]])[which(!is.na(unlist(map[[1]][[i]])) & !duplicated(unlist(map[[1]][[i]])))])
-    }
-
-    # Remove random effects from bounds
-    for(i in 1:length(random_vars)){
-      remove_bounds <- grep(random_vars[i], names(L))
-      if(length(remove_bounds) > 0){
-        L <- L[-remove_bounds]
-        U <- U[-remove_bounds]
+      if(names(map[[1]])[i] %!in% random_vars){ # Dont have bounds for random effects
+        L = c(L, unlist(bounds$lower[[i]])[which(!is.na(unlist(map[[1]][[i]])) & !duplicated(unlist(map[[1]][[i]])))])
+        U = c(U, unlist(bounds$upper[[i]])[which(!is.na(unlist(map[[1]][[i]])) & !duplicated(unlist(map[[1]][[i]])))])
       }
     }
 
@@ -456,6 +447,7 @@ fit_mod <-
     step = 5
     # If phased
     if(!is.null(phase) & debug == FALSE){
+      message(paste0("Step ", step,": Phasing begin"))
       phase_pars <- Rceattle::TMBphase(
         data = data_list_reorganized,
         parameters = params,
