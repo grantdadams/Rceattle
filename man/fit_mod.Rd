@@ -13,7 +13,7 @@ fit_mod(
   bounds = NULL,
   file = NULL,
   debug = FALSE,
-  random_rec = FALSE,
+  random_rec = TRUE,
   niter = 3,
   msmMode = 0,
   avgnMode = 0,
@@ -176,29 +176,6 @@ A list of class "Rceattle" including:
  \item{T_hat: Fraction of prey of length m in predator of length l }
  \item{omega_hat: Estimated daily ration by predator age each year }
  \item{omega_hat_ave: Estimated daily ration by predator age averaged over years }
-}
-
-
-`jnll_comp` includes:
-\itemize{
- \item{-- Data components}
-\item{Slot 0 -- Survey biomass}
-\item{Slot 1 -- Survey age/length composition}
-\item{Slot 2 -- Fishery selectivity}
-\item{Slot 3 -- Fishery selectivity normalization}
-\item{Slot 4 -- Total catch -- Fishery observer data}
-\item{Slot 5 -- Fishery age/length composition -- Fishery observer data}
-\item{Slot 6 -- Survey selectivity}
-\item{Slot 7 -- Survey selectivity normalization}
-\item{-- Priors}
-\item{Slot 8 -- Tau -- Annual recruitment deviation}
-\item{Slot 9 -- init_dev -- Initial abundance-at-age}
-\item{Slot 10 -- Epsilon -- Annual fishing mortality deviation}
-\item{-- M2 likelihood components}
-\item{Slot 13 -- Ration likelihood}
-\item{Slot 14 -- Ration penalties}
-\item{Slot 15 -- Diet weight likelihood}
-\item{Slot 16 -- Stomach content of prey length ln in predator length a likelihood}
 }
 }
 \description{
