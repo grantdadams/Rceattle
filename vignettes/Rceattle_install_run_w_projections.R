@@ -29,6 +29,7 @@ library(Rceattle)
 # Example
 # To run the 2017 single species assessment for the Bering Sea, a data file must first be loaded:
 data(BS2017SS) # ?BS2017SS for more information on the data
+BS2017SS$projyr <- 2030
 
 # Write data to excel
 Rceattle::write_data(data_list = BS2017SS, file = "BS2017SS.xlsx")
@@ -74,6 +75,7 @@ plot_recruitment(Rceattle =  list(ss_run, ss_run_weighted))
 # For the a multispecies model starting from the single species parameters, the following can be specified to load the data:
 data("BS2017MS") # Note: the only difference is the residual mortality (M1_base) is lower
 # Or we can use the previous data set
+BS2017MS$projyr <- 2030
 
 ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
                             inits = ss_run$estimated_params, # Initial parameters from single species ests
@@ -87,7 +89,7 @@ ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
 
 # We can plot both runs as well:
 mod_list <- list(ss_run, ms_run)
-mod_names <- c("SS", "MS")
+mod_names <- c("Single-species", "Multi-species")
 
 # Plot biomass trajectory
 plot_biomass(Rceattle = mod_list, model_names = mod_names)
