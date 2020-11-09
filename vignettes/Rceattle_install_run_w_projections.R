@@ -56,6 +56,7 @@ ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
 # The you can plot the model results using using
 plot_biomass(Rceattle =  ss_run)
 plot_recruitment(Rceattle =  ss_run, add_ci = TRUE)
+plot_mortality(Rceattle = ms_run, maxage = 21)
 
 # Note: fitting the model updates the composition weights using the harmonic mean MacCallister-Ianelli method, refitting the model will change the MLE based on the new weighting
 ss_run_weighted <- Rceattle::fit_mod(data_list = ss_run$data_list,
