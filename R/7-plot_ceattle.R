@@ -28,7 +28,8 @@ rich.colors.short <- function(n,alpha=1){
 #' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
-#' @param species Species names for legend
+#' @param spnames Species names for legend
+#' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
 #' @param lwd Line width as specified by user
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
@@ -43,6 +44,7 @@ plot_biomass <-
            model_names = NULL,
            line_col = NULL,
            species = NULL,
+           spnames = NULL,
            lwd = 3,
            right_adj = 0,
            mohns = NULL,
@@ -54,8 +56,8 @@ plot_biomass <-
     }
 
     # Species names
-    if(is.null(species)){
-      species =  Rceattle[[1]]$data_list$spnames
+    if(is.null(spnames)){
+      spnames =  Rceattle[[1]]$data_list$spnames
     }
 
 
@@ -77,23 +79,18 @@ plot_biomass <-
     maxyr <- max((sapply(Years, max)))
     minyr <- min((sapply(Years, min)))
 
-    nspp <- Rceattle[[1]]$data_list$nspp
+    if(is.null(species)){
+      nspp <- Rceattle[[1]]$data_list$nspp
+      species <- 1:nspp
+    }
+
+    nspp <- length(species)
 
     # Get biomass
     Biomass <-
       array(NA, dim = c(nspp, nyrs, length(Rceattle) + length(tmp_list)))
     for (i in 1:length(Rceattle)) {
-      Biomass[, 1:length(Years[[i]]), i] <- Rceattle[[i]]$quantities$biomass[,1:nyrs_vec[i]]
-    }
-
-    ind = 1
-    if (!is.null(tmp_list)) {
-      for (i in (length(Rceattle) + 1):(length(Rceattle) + length(tmp_list))) {
-        for (k in 1:nspp) {
-          Biomass[k, , i] <- tmp_list[[ind]][[paste0("Biomass_", k)]]
-        }
-        ind = ind + 1
-      }
+      Biomass[species, 1:length(Years[[i]]), i] <- Rceattle[[i]]$quantities$biomass[species,1:nyrs_vec[i]]
     }
     Biomass <- Biomass / 1000000
 
@@ -101,17 +98,7 @@ plot_biomass <-
     SSB <-
       array(NA, dim = c(nspp, nyrs, length(Rceattle) + length(tmp_list)))
     for (i in 1:length(Rceattle)) {
-      SSB[, 1:length(Years[[i]]), i] <- Rceattle[[i]]$quantities$biomassSSB[,1:nyrs_vec[i]]
-    }
-
-    ind = 1
-    if (!is.null(tmp_list)) {
-      for (i in (length(Rceattle) + 1):(length(Rceattle) + length(tmp_list))) {
-        for (k in 1:nspp) {
-          SSB[k, , i] <- tmp_list[[ind]][[paste0("BiomassSSB_", k)]]
-        }
-        ind = ind + 1
-      }
+      SSB[species, 1:length(Years[[i]]), i] <- Rceattle[[i]]$quantities$biomassSSB[species,1:nyrs_vec[i]]
     }
 
     SSB <- SSB / 1000000
@@ -172,7 +159,7 @@ plot_biomass <-
         }
 
         # Legends
-        legend("topleft", species[j], bty = "n", cex = 0.8)
+        legend("topleft", spnames[species[j]], bty = "n", cex = 0.8)
 
         if(!is.null(mohns)){
           legend("top", paste0("B Rho = ", round(mohns[1,j+1], 2), "; SSB Rho = ",  round(mohns[2,j+1], 2) ), bty = "n", cex = 0.8) # Biomass rho
@@ -254,7 +241,8 @@ plot_biomass <-
 #' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
-#' @param species Species names for legend
+#' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
+#' @param spnames Species names for legend
 #' @param add_ci If the confidence interval is to be added
 #' @param lwd Line width as specified by user
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
@@ -269,6 +257,7 @@ plot_recruitment <-
            model_names = NULL,
            line_col = NULL,
            species = NULL,
+           spnames = NULL,
            add_ci = FALSE,
            lwd = 3,
            save_rec = FALSE,
@@ -282,8 +271,8 @@ plot_recruitment <-
     }
 
     # Species names
-    if(is.null(species)){
-      species =  Rceattle[[1]]$data_list$spnames
+    if(is.null(spnames)){
+      spnames =  Rceattle[[1]]$data_list$spnames
     }
 
     # Extract data objects
@@ -307,6 +296,13 @@ plot_recruitment <-
     spp <- which(Rceattle[[1]]$data_list$estDynamics == 0)
     nspp <- Rceattle[[1]]$data_list$nspp
     minage <- Rceattle[[1]]$data_list$minage
+
+    if(is.null(species)){
+
+      species <- 1:nspp
+    }
+
+    spp <- spp[which(spp %in% species)]
 
 
     # Get biomass
@@ -417,7 +413,7 @@ plot_recruitment <-
 
         # Legends
         legend("topleft",
-               legend = species[spp[j]],
+               legend = spnames[spp[j]],
                bty = "n",
                cex = 0.8)
 
@@ -1059,7 +1055,7 @@ plot_maturity <-
 #' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
-#' @param species Species names for legend
+#' @param spnames Species names for legend
 #' @param lwd Line width as specified by user
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
@@ -1075,6 +1071,7 @@ plot_ssb <-
            model_names = NULL,
            line_col = NULL,
            species = NULL,
+           spnames = NULL,
            lwd = 3,
            right_adj = 0,
            mohns = NULL,
@@ -1087,8 +1084,8 @@ plot_ssb <-
     }
 
     # Species names
-    if(is.null(species)){
-      species =  Rceattle[[1]]$data_list$spnames
+    if(is.null(spnames)){
+      spnames =  Rceattle[[1]]$data_list$spnames
     }
 
 
@@ -1109,8 +1106,11 @@ plot_ssb <-
     nyrs <- max(nyrs_vec)
     maxyr <- max((sapply(Years, max)))
     minyr <- min((sapply(Years, min)))
-
     nspp <- Rceattle[[1]]$data_list$nspp
+
+    if(is.null(species)){
+      species <- 1:nspp
+    }
 
 
     # Get SSB
@@ -1174,7 +1174,7 @@ plot_ssb <-
       }
 
       # Plot configuration
-      layout(matrix(1:(nspp + 2), nrow = (nspp + 2)), heights = c(0.1, rep(1, nspp), 0.2))
+      layout(matrix(1:(length(species) + 2), nrow = (length(species) + 2)), heights = c(0.1, rep(1, length(species)), 0.2))
       par(
         mar = c(0, 3 , 0 , 1) ,
         oma = c(0 , 0 , 0 , 0),
@@ -1183,7 +1183,7 @@ plot_ssb <-
       )
       plot.new()
 
-      for (j in 1:nspp) {
+      for (j in species) {
         plot(
           y = NA,
           x = NA,
@@ -1200,7 +1200,7 @@ plot_ssb <-
         }
 
         # Legends
-        legend("topleft", species[j], bty = "n", cex = 0.8)
+        legend("topleft", spnames[j], bty = "n", cex = 0.8)
 
         if(!is.null(mohns)){
           legend("top", paste0("SSB Rho = ",  round(mohns[2,j+1], 2) ), bty = "n", cex = 0.8) # SSB rho
@@ -1254,3 +1254,419 @@ plot_ssb <-
     }
   }
 
+
+
+#' Plot biomass eaten
+#'
+#' @description Function the plots the biomass consumed trends as estimated from Rceattle. Returns and saves a figure with the biomass eaten trajectory.
+#'
+#' @param file name of a file to identified the files exported by the
+#'   function.
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param model_names Names of models to be used in legend
+#' @param line_col Colors of models to be used for line color
+#' @param spnames Species names for legend
+#' @param lwd Line width as specified by user
+#' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
+#' @param incl_proj TRUE/FALSE include projections years
+#' @param add_ci TRUE/FALSE, includes 95 percent confidence interval
+#'
+#' @export
+#'
+plot_b_eaten <-
+  function(Rceattle,
+           file = NULL,
+           model_names = NULL,
+           line_col = NULL,
+           spnames = NULL,
+           lwd = 3,
+           right_adj = 0,
+           mohns = NULL,
+           incl_proj = FALSE,
+           add_ci = FALSE) {
+
+    # Convert single one into a list
+    if(class(Rceattle) == "Rceattle"){
+      Rceattle <- list(Rceattle)
+    }
+
+    # Species names
+    if(is.null(spnames)){
+      spnames =  Rceattle[[1]]$data_list$spnames
+    }
+
+
+    # Extract data objects
+    Years <- list()
+    Endyrs <- list()
+    for(i in 1:length(Rceattle)){
+      Endyrs[[i]] <- Rceattle[[i]]$data_list$endyr
+      if(incl_proj == FALSE){
+        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
+      }
+      if(incl_proj){
+        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$projyr
+      }
+    }
+
+    max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
+    nyrs_vec <- sapply(Years, length)
+    nyrs <- max(nyrs_vec)
+    maxyr <- max((sapply(Years, max)))
+    minyr <- min((sapply(Years, min)))
+
+    nspp <- Rceattle[[1]]$data_list$nspp
+
+
+    # Get B_eaten
+    B_eaten <-
+      array(NA, dim = c(nspp, nyrs, length(Rceattle)))
+    ssb_sd <- array(NA, dim = c(nspp, nyrs, length(Rceattle)))
+    for (i in 1:length(Rceattle)) {
+      for(sp in 1:nspp){
+        for(yr in 1:nyrs_vec[i]){
+          B_eaten[sp, yr, i] <- sum(Rceattle[[i]]$quantities$B_eaten[sp,,,yr])
+
+
+          # # Get SD of rec
+          # if (add_ci) {
+          #   ssb_sd_sub <- which(names(Rceattle[[i]]$sdrep$value) == "biomassSSB")
+          #   ssb_sd_sub <- Rceattle[[i]]$sdrep$sd[ssb_sd_sub]
+          #   ssb_sd[, , i] <-
+          #     replace(ssb_sd[, , i], values = ssb_sd_sub[1:(nyrs_vec[i] * nspp)])
+          # }
+        }
+      }
+    }
+
+
+
+
+    ind = 1
+
+    B_eaten <- B_eaten / 1000000
+    ssb_sd <- ssb_sd / 1000000
+    SSB_upper <- B_eaten + ssb_sd * 1.92
+    SSB_lower <- B_eaten - ssb_sd * 1.92
+
+    # Plot limits
+    ymax <- c()
+    ymin <- c()
+    for (i in 1:dim(B_eaten)[1]) {
+      ymax[i] <- max(c(B_eaten[i, , ], SSB_lower[i, , ], SSB_upper[i, , ], 0), na.rm = T)
+      ymin[i] <- min(c(B_eaten[i, , ], SSB_lower[i, , ], SSB_upper[i, , ], 0), na.rm = T)
+    }
+    ymax <- ymax + 0.15 * ymax
+
+    if (is.null(line_col)) {
+      line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
+    }
+
+
+    # Plot trajectory
+    loops <- ifelse(is.null(file), 1, 2)
+    for (i in 1:loops) {
+      if (i == 2) {
+        filename <- paste0(file, "_b_eaten_trajectory", ".png")
+        png(
+          file = filename ,
+          width = 7,# 169 / 25.4,
+          height = 6.5,# 150 / 25.4,
+
+          units = "in",
+          res = 300
+        )
+      }
+
+      # Plot configuration
+      layout(matrix(1:(nspp + 2), nrow = (nspp + 2)), heights = c(0.1, rep(1, nspp), 0.2))
+      par(
+        mar = c(0, 3 , 0 , 1) ,
+        oma = c(0 , 0 , 0 , 0),
+        tcl = -0.35,
+        mgp = c(1.75, 0.5, 0)
+      )
+      plot.new()
+
+      for (j in 1:nspp) {
+        plot(
+          y = NA,
+          x = NA,
+          ylim = c(ymin[j], ymax[j]),
+          xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
+          xlab = "Year",
+          ylab = "Biomass consumed (million t)",
+          xaxt = c(rep("n", nspp - 1), "s")[j]
+        )
+
+        # Horizontal line
+        if(incl_proj){
+          abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
+        }
+
+        # Legends
+        legend("topleft", spnames[j], bty = "n", cex = 0.8)
+
+        if(!is.null(mohns)){
+          legend("top", paste0("B_eaten Rho = ",  round(mohns[2,j+1], 2) ), bty = "n", cex = 0.8) # B_eaten rho
+        }
+
+        if (j == 1) {
+          if(!is.null(model_names)){
+            legend(
+              "topright",
+              legend = model_names,
+              lty = rep(1, length(line_col)),
+              lwd = lwd,
+              col = line_col,
+              bty = "n",
+              cex = 0.8
+            )
+          }
+        }
+
+
+
+        # Mean B_eaten
+        for (k in 1:dim(B_eaten)[3]) {
+          lines(
+            x = Years[[k]],
+            y = B_eaten[j, 1:length(Years[[k]]), k],
+            lty = 1,
+            lwd = lwd,
+            col = line_col[k]
+          ) # Median
+        }
+
+        # Credible interval
+        if (add_ci) {
+          for (k in 1:dim(B_eaten)[3]) {
+            polygon(
+              x = c(Years[[k]], rev(Years[[k]])),
+              y = c(SSB_upper[j, 1:length(Years[[k]]), k], rev(SSB_lower[j, 1:length(Years[[k]]), k])),
+              col = adjustcolor( line_col[k], alpha.f = 0.4),
+              border = NA
+            )
+          }
+        }
+
+      }
+
+
+      if (i == 2) {
+        dev.off()
+      }
+    }
+  }
+
+
+
+#' Plot biomass eaten
+#'
+#' @description Function the plots the biomass consumed trends as estimated from Rceattle. Returns and saves a figure with the biomass eaten trajectory.
+#'
+#' @param file name of a file to identified the files exported by the
+#'   function.
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param model_names Names of models to be used in legend
+#' @param line_col Colors of models to be used for line color
+#' @param spnames Species names for legend
+#' @param lwd Line width as specified by user
+#' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
+#' @param incl_proj TRUE/FALSE include projections years
+#' @param add_ci TRUE/FALSE, includes 95 percent confidence interval
+#'
+#' @export
+#'
+plot_b_eaten_prop <-
+  function(Rceattle,
+           file = NULL,
+           model_names = NULL,
+           line_col = NULL,
+           spnames = NULL,
+           lwd = 3,
+           right_adj = 0,
+           mohns = NULL,
+           incl_proj = FALSE,
+           add_ci = FALSE) {
+
+    # Convert single one into a list
+    if(class(Rceattle) == "Rceattle"){
+      Rceattle <- list(Rceattle)
+    }
+
+    # Species names
+    if(is.null(spnames)){
+      spnames =  Rceattle[[1]]$data_list$spnames
+    }
+
+
+    # Extract data objects
+    Years <- list()
+    Endyrs <- list()
+    for(i in 1:length(Rceattle)){
+      Endyrs[[i]] <- Rceattle[[i]]$data_list$endyr
+      if(incl_proj == FALSE){
+        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
+      }
+      if(incl_proj){
+        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$projyr
+      }
+    }
+
+    max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
+    nyrs_vec <- sapply(Years, length)
+    nyrs <- max(nyrs_vec)
+    maxyr <- max((sapply(Years, max)))
+    minyr <- min((sapply(Years, min)))
+
+    nspp <- Rceattle[[1]]$data_list$nspp
+
+
+    # Get B_eaten
+    B_eaten <-
+      array(NA, dim = c(nspp, nspp, nyrs, length(Rceattle)))
+    ssb_sd <- array(NA, dim = c(nspp, nspp,  nyrs, length(Rceattle)))
+    for (i in 1:length(Rceattle)) {
+      for(rsp in 1:nspp){
+        for(ksp in 1:nspp){
+          for(yr in 1:nyrs_vec[i]){
+            B_eaten[rsp, ksp, yr, i] <- sum(Rceattle[[i]]$quantities$B_eaten_prop[rsp,ksp,,,,,yr])
+          }
+        }
+      }
+    }
+
+
+
+    ind = 1
+
+    B_eaten <- B_eaten
+    ssb_sd <- ssb_sd
+    SSB_upper <- B_eaten + ssb_sd * 1.92
+    SSB_lower <- B_eaten - ssb_sd * 1.92
+
+    # Plot limits
+    ymax <- c()
+    ymin <- c()
+    for (i in 1:dim(B_eaten)[1]) {
+      ymax[i] <- max(c(B_eaten[,i, , ], SSB_lower[,i, , ], SSB_upper[,i, , ], 0), na.rm = T)
+      ymin[i] <- min(c(B_eaten[,i, , ], SSB_lower[,i, , ], SSB_upper[,i, , ], 0), na.rm = T)
+    }
+    ymax <- ymax + 0.15 * ymax
+
+    if (is.null(line_col)) {
+      line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
+    }
+
+
+    # Plot trajectory
+    loops <- ifelse(is.null(file), 1, 2)
+    for (i in 1:loops) {
+      if (i == 2) {
+        filename <- paste0(file, "_b_eaten_prop_trajectory", ".png")
+        png(
+          file = filename ,
+          width = 7,# 169 / 25.4,
+          height = 6.5,# 150 / 25.4,
+
+          units = "in",
+          res = 300
+        )
+      }
+
+      # Plot configuration
+      layout(matrix(1:(nspp + 2), nrow = (nspp + 2)), heights = c(0.1, rep(1, nspp), 0.2))
+      par(
+        mar = c(0, 3 , 0 , 1) ,
+        oma = c(0 , 0 , 0 , 0),
+        tcl = -0.35,
+        mgp = c(1.75, 0.5, 0)
+      )
+      plot.new()
+
+      for (j in 1:nspp) {
+        plot(
+          y = NA,
+          x = NA,
+          ylim = c(ymin[j], ymax[j]),
+          xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
+          xlab = "Year",
+          ylab = "Biomass consumed (million t)",
+          xaxt = c(rep("n", nspp - 1), "s")[j]
+        )
+
+        # Horizontal line
+        if(incl_proj){
+          abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
+        }
+
+        # Legends
+        legend("topleft", spnames[j], bty = "n", cex = 0.8)
+
+        if(!is.null(mohns)){
+          legend("top", paste0("B_eaten Rho = ",  round(mohns[2,j+1], 2) ), bty = "n", cex = 0.8) # B_eaten rho
+        }
+
+        if (j == 1) {
+          if(!is.null(model_names)){
+            legend(
+              "topright",
+              legend = model_names,
+              lty = rep(1, length(line_col)),
+              lwd = lwd,
+              col = line_col,
+              bty = "n",
+              cex = 0.8
+            )
+          }
+        }
+
+        if (j == 2) {
+          legend(
+            "topright",
+            legend = c("Predator:", spnames),
+            lty = 1:nspp,
+            lwd = lwd,
+            col = c(0, rep(1, nspp)),
+            bty = "n",
+            cex = 0.8
+          )
+        }
+
+
+
+        # Mean B_eaten
+        for (k in 1:dim(B_eaten)[4]) {
+          for(pred in 1:nspp){
+            lines(
+              x = Years[[k]],
+              y = B_eaten[pred, j, 1:length(Years[[k]]), k],
+              lwd = lwd,
+              lty = pred,
+              col = line_col[k]) # Median
+          }
+        }
+      }
+
+      # # Credible interval
+      # if (add_ci) {
+      #   for (k in 1:dim(B_eaten)[3]) {
+      #     polygon(
+      #       x = c(Years[[k]], rev(Years[[k]])),
+      #       y = c(SSB_upper[j, 1:length(Years[[k]]), k], rev(SSB_lower[j, 1:length(Years[[k]]), k])),
+      #       col = adjustcolor( line_col[k], alpha.f = 0.4),
+      #       border = NA
+      #     )
+      #   }
+      # }
+
+
+
+      if (i == 2) {
+        dev.off()
+      }
+    }
+  }
