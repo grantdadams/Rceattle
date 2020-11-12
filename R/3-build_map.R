@@ -537,78 +537,86 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   }
 
 
-  # # -- 7. Share survey q and selectivity
-  # sel_index <- data_list$fleet_control$Selectivity_index
-  # sel_index_tested <- c()
-  #
-  # q_index <- data_list$fleet_control$Q_index
-  # q_index_tested <- c()
-  # rows_tests <- c()
-  #
-  # for(i in 1: nrow(data_list$fleet_control)){
-  #   sel_test <- sel_index[i] %in% sel_index_tested
-  #   q_test <- q_index[i] %in% q_index_tested
-  #
-  #   # If selectivity is the same as a previous index
-  #   if(sel_test){
-  #     sel_duplicate <- which(sel_index_tested == sel_index[i])[1]
-  #     sel_duplicate_vec <- c(which(sel_index_tested == sel_index[i]), i)
-  #
-  #     # Error check selectivity type
-  #     if(length(unique(data_list$fleet_control$Selectivity[sel_duplicate_vec])) > 1){
-  #       warning("Survey selectivity of surveys with same Selectivity_index is not the same")
-  #       warning(paste0("Double check Selectivity in fleet_control of surveys:", paste(data_list$fleet_control$Fleet_name[sel_duplicate_vec])))
-  #     }
-  #
-  #
-  #     # Error check time-varying selectivity type
-  #     if(length(unique(data_list$fleet_control$Time_varying_sel[sel_duplicate_vec])) > 1){
-  #       warning("Time varying survey selectivity of surveys with same Selectivity_index is not the same")
-  #       warning(paste0("Double check Time_varying_sel in fleet_control of surveys:", paste(data_list$fleet_control$Fleet_name[sel_duplicate_vec])))
-  #     }
-  #
-  #     # FIXME add checks for surveys sel sigma
-  #
-  #     # Make selectivity maps the same if selectivity is the same
-  #     map_list$srv_sel_slp[1:2, i] <- map_list$srv_sel_slp[1:2, sel_duplicate]
-  #     map_list$srv_sel_inf[1:2, i] <- map_list$srv_sel_inf[1:2, sel_duplicate]
-  #     map_list$srv_sel_coff[i,] <- map_list$srv_sel_coff[sel_duplicate,]
-  #     map_list$srv_sel_slp_dev[1:2, i,] <- map_list$srv_sel_slp_dev[1:2, sel_duplicate,]
-  #     map_list$srv_sel_inf_dev[1:2, i,] <- map_list$srv_sel_inf_dev[1:2, sel_duplicate,]
-  #     map_list$ln_sigma_srv_sel[i] <- map_list$ln_sigma_srv_sel[sel_duplicate]
-  #   }
-  #
-  #
-  #   # If catchability is the same as a previous index
-  #   if(q_test){
-  #     q_duplicate <- which(q_index_tested == q_index[i])[1]
-  #     q_duplicate_vec <- c(which(q_index_tested == q_index[i]), i)
-  #
-  #     # Error check selectivity type
-  #     if(length(unique(data_list$fleet_control$Estimate_q[q_duplicate_vec])) > 1){
-  #       warning("Survey catchability of surveys with same Q_index is not the same")
-  #       warning(paste0("Double check Estimate_q in fleet_control of surveys:", paste(data_list$fleet_control$Fleet_name[q_duplicate_vec])))
-  #     }
-  #
-  #
-  #     # Error check time-varying selectivity type
-  #     if(length(unique(data_list$fleet_control$Time_varying_q[q_duplicate_vec])) > 1){
-  #       warning("Time varying survey catchability of surveys with same Q_index is not the same")
-  #       warning(paste0("Double check Time_varying_q in fleet_control of surveys:", paste(data_list$fleet_control$Fleet_name[q_duplicate_vec])))
-  #     }
-  #
-  #     # FIXME add checks for surveys q sigma
-  #
-  #     # Make catchability maps the same if selectivity is the same
-  #     map_list$ln_srv_q_dev[i,] <- map_list$ln_srv_q_dev[sel_duplicate,]
-  #     map_list$ln_sigma_srv_q[i] <- map_list$ln_sigma_srv_q[sel_duplicate]
-  #   }
-  #
-  #
-  #   # Add index
-  #   sel_index_tested <- c(sel_index_tested, sel_index[i])
-  #   q_index_tested <- c(q_index_tested, q_index[i])
-  # }
+  # -- 7. Share survey q and selectivity
+  sel_index <- data_list$fleet_control$Selectivity_index
+  sel_index_tested <- c()
+
+  q_index <- data_list$fleet_control$Q_index
+  q_index_tested <- c()
+  rows_tests <- c()
+
+  for(i in 1: nrow(data_list$fleet_control)){
+    sel_test <- sel_index[i] %in% sel_index_tested
+    if(!is.na(q_index[i])){
+      q_test <- q_index[i] %in% q_index_tested
+    }
+
+    # If selectivity is the same as a previous index
+    if(sel_test){
+      sel_duplicate <- which(sel_index_tested == sel_index[i])[1]
+      sel_duplicate_vec <- c(which(sel_index_tested == sel_index[i]), i)
+
+      # Error check selectivity type
+      if(length(unique(data_list$fleet_control$Selectivity[sel_duplicate_vec])) > 1){
+        warning("Survey selectivity of surveys with same Selectivity_index is not the same")
+        warning(paste0("Double check Selectivity in fleet_control of surveys:", paste(data_list$fleet_control$Fleet_name[sel_duplicate_vec])))
+      }
+
+
+      # Error check time-varying selectivity type
+      if(length(unique(data_list$fleet_control$Time_varying_sel[sel_duplicate_vec])) > 1){
+        warning("Time varying survey selectivity of surveys with same Selectivity_index is not the same")
+        warning(paste0("Double check Time_varying_sel in fleet_control of surveys:", paste(data_list$fleet_control$Fleet_name[sel_duplicate_vec])))
+      }
+
+      # FIXME add checks for surveys sel sigma
+
+      # Make selectivity maps the same if selectivity is the same
+      map_list$sel_slp[1:2, i,] <- map_list$sel_slp[1:2, sel_duplicate,]
+      map_list$sel_inf[1:2, i,] <- map_list$sel_inf[1:2, sel_duplicate,]
+      map_list$sel_coff[i,,] <- map_list$sel_coff[sel_duplicate,,]
+      map_list$sel_slp_dev[1:2, i,,] <- map_list$sel_slp_dev[1:2, sel_duplicate,,]
+      map_list$sel_inf_dev[1:2, i,,] <- map_list$sel_inf_dev[1:2, sel_duplicate,,]
+      map_list$sel_slp_dev_re[1:2, i,,] <- map_list$sel_slp_dev_re[1:2, sel_duplicate,,]
+      map_list$sel_inf_dev_re[1:2, i,,] <- map_list$sel_inf_dev_re[1:2, sel_duplicate,,]
+      map_list$ln_sigma_sel[i] <- map_list$ln_sigma_sel[sel_duplicate]
+      map_list$sel_curve_pen[i,] <- map_list$sel_curve_pen[sel_duplicate,]
+    }
+
+
+    # If catchability is the same as a previous index
+    if(q_test){
+      q_duplicate <- which(q_index_tested == q_index[i])[1]
+      q_duplicate_vec <- c(which(q_index_tested == q_index[i]), i)
+
+      # Error check selectivity type
+      if(length(unique(data_list$fleet_control$Estimate_q[q_duplicate_vec])) > 1){
+        warning("Survey catchability of surveys with same Q_index is not the same")
+        warning(paste0("Double check Estimate_q in fleet_control of surveys:", paste(data_list$fleet_control$Fleet_name[q_duplicate_vec])))
+      }
+
+
+      # Error check time-varying selectivity type
+      if(length(unique(data_list$fleet_control$Time_varying_q[q_duplicate_vec])) > 1){
+        warning("Time varying survey catchability of surveys with same Q_index is not the same")
+        warning(paste0("Double check Time_varying_q in fleet_control of surveys:", paste(data_list$fleet_control$Fleet_name[q_duplicate_vec])))
+      }
+
+      # FIXME add checks for surveys q sigma
+
+      # Make catchability maps the same if selectivity is the same
+      map_list$ln_srv_q[i] <- map_list$ln_srv_q[q_duplicate]
+      map_list$srv_q_pow[i] <- map_list$srv_q_pow[q_duplicate]
+      map_list$ln_srv_q_dev[i,] <- map_list$ln_srv_q_dev[q_duplicate,]
+      map_list$ln_srv_q_dev_re[i,] <- map_list$ln_srv_q_dev_re[q_duplicate,]
+      map_list$ln_sigma_srv_q[i] <- map_list$ln_sigma_srv_q[q_duplicate]
+    }
+
+
+    # Add index
+    sel_index_tested <- c(sel_index_tested, sel_index[i])
+    q_index_tested <- c(q_index_tested, q_index[i])
+  }
 
 
   # -- 8. Fishery control
@@ -787,7 +795,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     # Age-dependent scalar
     if(data_list$estDynamics[i] == 3 | data_list$msmMode != 0){
       if(data_list$nages[i] < ncol(map_list$ln_pop_scalar)){ # Map out ages beyond maxage of the species
-      map_list$ln_pop_scalar[i,(data_list$nages[i]+1):ncol(map_list$ln_pop_scalar)] <- NA # Only estimate parameters for each age of species
+        map_list$ln_pop_scalar[i,(data_list$nages[i]+1):ncol(map_list$ln_pop_scalar)] <- NA # Only estimate parameters for each age of species
       }
     }
   }
