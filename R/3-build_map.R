@@ -49,9 +49,11 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
 
   # STEP 2 -- NA out parameters not to be estimated Initial population deviations - map out last age and ages not seen
-  for (i in 1:nrow(map_list$init_dev)) {
-    if ((data_list$nages[i] - 1) < ncol(map_list$init_dev)) {
-      map_list$init_dev[i, (data_list$nages[i]):ncol(map_list$init_dev)] <- NA
+  if(class(map_list$init_dev) != "numeric"){
+    for (i in 1:nrow(map_list$init_dev)) {
+      if ((data_list$nages[i] - 1) < ncol(map_list$init_dev)) {
+        map_list$init_dev[i, (data_list$nages[i]):ncol(map_list$init_dev)] <- NA
+      }
     }
   }
 
@@ -78,7 +80,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
       # Map out non-parametric
       map_list$sel_coff[i,, ] <- replace(map_list$sel_coff[i,, ], values = rep(NA, length(map_list$sel_coff[i,,
-                                                                                                            ])))
+      ])))
 
       # Map out logistic and double logistic
       map_list$sel_slp[1:2, i, ] <- NA
@@ -103,7 +105,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
       # Map out non-parametric
       map_list$sel_coff[i,, ] <- replace(map_list$sel_coff[i,, ], values = rep(NA, length(map_list$sel_coff[i,,
-                                                                                                            ])))
+      ])))
 
       # Map out double logistic
       map_list$sel_slp[2, i, ] <- NA
@@ -339,7 +341,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
       # Map out non-parametric
       map_list$sel_coff[i,, ] <- replace(map_list$sel_coff[i,, ], values = rep(NA, length(map_list$sel_coff[i,,
-                                                                                                            ])))
+      ])))
 
       # Map out double logistic
       map_list$sel_slp[1, i, ] <- NA

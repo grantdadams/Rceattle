@@ -164,7 +164,7 @@ rearrange_dat <- function(data_list){
     sex <- as.numeric(as.character(data_list$M1_base$Sex[i]))
     if(sex == 0){ sex = c(1, 2)}
     for(j in 1:length(sex)){
-      m1[sp, sex[j], 1:max(data_list$nages, na.rm = T)] <- as.numeric(data_list$M1_base[i,-c(1,2)])
+      m1[sp, sex[j], 1:max(data_list$nages, na.rm = T)] <- as.numeric(data_list$M1_base[i,(1:max(data_list$nages, na.rm = T)) + 2])
     }
   }
   data_list$M1_base <- m1
@@ -178,7 +178,7 @@ rearrange_dat <- function(data_list){
     sex <- as.numeric(as.character(data_list$Mn_LatAge$Sex[i]))
     if(sex == 0){ sex = c(1, 2)}
     for(j in 1:length(sex)){
-      Mn_LatAge[sp, sex[j], 1:max(data_list$nages, na.rm = T)] <- as.numeric(data_list$Mn_LatAge[i,-c(1,2)])
+      Mn_LatAge[sp, sex[j], 1:max(data_list$nages, na.rm = T)] <- as.numeric(data_list$Mn_LatAge[i,(1:max(data_list$nages, na.rm = T)) + 2])
     }
   }
   data_list$Mn_LatAge <- Mn_LatAge

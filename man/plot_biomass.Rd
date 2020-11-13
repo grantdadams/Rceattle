@@ -11,6 +11,7 @@ plot_biomass(
   model_names = NULL,
   line_col = NULL,
   species = NULL,
+  spnames = NULL,
   lwd = 3,
   right_adj = 0,
   mohns = NULL,
@@ -27,7 +28,9 @@ function.}
 
 \item{line_col}{Colors of models to be used for line color}
 
-\item{species}{Species names for legend}
+\item{species}{Which species to plot e.g. c(1,4). Default = NULL plots them all}
+
+\item{spnames}{Species names for legend}
 
 \item{lwd}{Line width as specified by user}
 
