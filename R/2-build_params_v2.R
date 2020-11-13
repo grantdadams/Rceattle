@@ -35,7 +35,7 @@ build_params <- function(data_list, inits = NULL) {
 
 
   # -- 3.2. Abundance parameters
-  param_list$init_dev = matrix(0, nrow = data_list$nspp, ncol = max(data_list$nages))  # Initial abundance-at-age; n = [nspp, nages] # NOTE: Need to figure out how to best vectorize this
+  param_list$init_dev = matrix(0, nrow = data_list$nspp, ncol = max(data_list$nages)-1)  # Initial abundance-at-age; n = [nspp, nages] # NOTE: Need to figure out how to best vectorize this
 
   # -- 3.3. fishing mortality parameters
   param_list$ln_mean_F = rep(0, nrow(data_list$fleet_control))  # Log mean fishing mortality; n = [1, nspp]
@@ -135,9 +135,6 @@ build_params <- function(data_list, inits = NULL) {
   param_list$logH_2 <- replace(param_list$logH_2, values = -9)
   param_list$logH_3 <- replace(param_list$logH_3, values = -9)
   param_list$H_4 <- replace(param_list$H_4, values = 1)
-
-  # remove last init dev
-  param_list$init_dev <- param_list$init_dev[, 1:(ncol(param_list$init_dev) - 1)]
 
 
   #---------------------------------------------------------------------
