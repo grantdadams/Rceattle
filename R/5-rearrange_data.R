@@ -7,7 +7,10 @@
 rearrange_dat <- function(data_list){
 
   # Step 1 - remove numeric objects from control
-  data_list$fleet_control <- data_list$fleet_control[,-which(colnames(data_list$fleet_control) %in% c("Sel_sd_prior", "Log_q_prior", "Q_sd_prior", "Survey_sd_prior", "proj_F", "Catch_sd_prior"))]
+  data_list$ln_srv_q_prior <- log(data_list$fleet_control$Q_prior)
+
+  data_list$fleet_control <- data_list$fleet_control[,-which(colnames(data_list$fleet_control) %in% c("Sel_sd_prior", "Q_prior", "Q_sd_prior", "Time_varying_q_sd_prior", "Survey_sd_prior", "proj_F", "Catch_sd_prior"))]
+
   data_list$fleet_control$Time_varying_sel <- round(data_list$fleet_control$Time_varying_sel)
 
   # Step 2 -  Seperate survey biomass info from observation
@@ -199,7 +202,7 @@ rearrange_dat <- function(data_list){
 
       for(j in 1:length(sex)){
         if(yr > 0){
-          NByageFixed[sp, sex[j], 1:max(data_list$nages, na.rm = T), yr] <- as.numeric(data_list$NByageFixed[i,-c(1:4)])
+          NByageFixed[sp, sex[j], 1:max(data_list$nages, na.rm = T), yr] <- as.numeric(data_list$NByageFixed[i,c(1:max(data_list$nages, na.rm = T))+4])
         }
       }
     }

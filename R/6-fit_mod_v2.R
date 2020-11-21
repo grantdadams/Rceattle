@@ -351,15 +351,16 @@ fit_mod <-
           F_dev = 1,
           ln_srv_q = 3,
           srv_q_pow = 4,
-          ln_srv_q_dev = 4,
+          ln_srv_q_dev = 5,
           ln_srv_q_dev_re = 4,
           ln_sigma_srv_q = 4,
+          ln_sigma_time_varying_srv_q = 4,
           sel_coff = 3,
           sel_curve_pen = 4,
           sel_slp = 3,
           sel_inf = 3,
-          sel_slp_dev = 4,
-          sel_inf_dev = 4,
+          sel_slp_dev = 5,
+          sel_inf_dev = 5,
           sel_slp_dev_re = 4,
           sel_inf_dev_re = 4,
           ln_sigma_sel = 4,
@@ -419,7 +420,7 @@ fit_mod <-
 
     old_wd <- getwd()
     setwd(cpp_directory)
-    TMB::compile(paste0(TMBfilename, ".cpp"))
+    TMB::compile(paste0(TMBfilename, ".cpp"), CPPFLAGS="-Wno-ignored-attributes")
     dyn.load(TMB::dynlib(paste0(TMBfilename)), silent = TRUE)
     setwd(old_wd)
 
@@ -446,7 +447,7 @@ fit_mod <-
     # STEP 8 - Fit model object
     step = 5
     # If phased
-    if(!is.null(phase) & debug == FALSE){
+    if(!is.null(phase) & debug == FALSE & debug == FALSE){
       message(paste0("Step ", step,": Phasing begin"))
       phase_pars <- Rceattle::TMBphase(
         data = data_list_reorganized,
@@ -486,17 +487,19 @@ fit_mod <-
     step = step + 1
 
     # Optimize
-    opt = Rceattle::fit_tmb(obj = obj,
-                            fn=obj$fn,
-                            gr=obj$gr,
-                            startpar=obj$par,
-                            lower = L,
-                            upper = U,
-                            loopnum = 5,
-                            getsd = getsd,
-                            control = list(eval.max = 1e+09,
-                                           iter.max = 1e+09, trace = 0)
-    )
+    if(debug == FALSE){
+      opt = Rceattle::fit_tmb(obj = obj,
+                              fn=obj$fn,
+                              gr=obj$gr,
+                              startpar=obj$par,
+                              lower = L,
+                              upper = U,
+                              loopnum = 5,
+                              getsd = getsd,
+                              control = list(eval.max = 1e+09,
+                                             iter.max = 1e+09, trace = 0)
+      )
+    }
 
     message("Step ",step, ": Final optimization complete")
 
@@ -572,34 +575,47 @@ fit_mod <-
         bounds = bounds,
         map = map,
         obj = obj,
-        opt = opt,
-        sdrep = opt$SD,
         estimated_params = last_par,
         quantities = quantities,
         run_time = run_time
       )
 
-    if(is.null(opt$SD) & getsd){
-      identified <- suppressMessages(TMBhelper::Check_Identifiable(obj))
+    if(debug == FALSE){
+      mod_objects$opt = opt
+      mod_objects$sdrep = opt$SD
 
-      # Make into list
-      identified_param_list <- obj$env$parList(as.numeric(identified$BadParams$Param_check))
-      identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==0,"Not estimated",x), how = "replace")
-      identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==1,"OK",x), how = "replace")
-      identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==2,"BAD",x), how = "replace")
+    }
 
-      identified$param_list <- identified_param_list
+    if(debug == FALSE){
+      if(is.null(opt$SD) & getsd){
+        identified <- suppressMessages(TMBhelper::Check_Identifiable(obj))
 
-      mod_objects$identified <- identified
+        # Make into list
+        identified_param_list <- obj$env$parList(as.numeric(identified$BadParams$Param_check))
+        identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==0,"Not estimated",x), how = "replace")
+        identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==1,"OK",x), how = "replace")
+        identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==2,"BAD",x), how = "replace")
+
+        identified$param_list <- identified_param_list
+
+        mod_objects$identified <- identified
+      }
     }
 
 
-    # Warning for discontinuous likelihood
-    if(abs(opt$objective - quantities$jnll) > rel_tol){
-      message( "#########################" )
-      message( "Convergence warning (8)" )
-      message( "#########################" )
+    if(debug == FALSE){
+      if(!is.null(opt$SD) & random_rec == FALSE){
+        # Warning for discontinuous likelihood
+        if(abs(opt$objective - quantities$jnll) > rel_tol){
+          message( "#########################" )
+          message( "Convergence warning (8)" )
+          message( "#########################" )
+        }
+      }
     }
+
+
+
 
     class(mod_objects) <- "Rceattle"
 
