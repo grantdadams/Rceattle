@@ -49,13 +49,12 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
 
   # STEP 2 -- NA out parameters not to be estimated Initial population deviations - map out last age and ages not seen
-  if(class(map_list$init_dev) != "numeric"){
-    for (i in 1:nrow(map_list$init_dev)) {
-      if ((data_list$nages[i] - 1) < ncol(map_list$init_dev)) {
-        map_list$init_dev[i, (data_list$nages[i]):ncol(map_list$init_dev)] <- NA
-      }
+  for (i in 1:nrow(map_list$init_dev)) {
+    if ((data_list$nages[i] - 1) < ncol(map_list$init_dev)) {
+      map_list$init_dev[i, (data_list$nages[i]):ncol(map_list$init_dev)] <- NA
     }
   }
+
 
 
   # -----------------------------------------------------------
@@ -70,6 +69,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
 
   for (i in 1:nrow(data_list$fleet_control)) {
+    # Turn off prior for catchability
+    map_list$ln_sigma_srv_q[i] <- NA
 
     # -- Turn off sex-specific parameters if 1 sex model
     nsex <- data_list$nsex[data_list$fleet_control$Species[i]]
@@ -127,8 +128,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
         map_list$sel_inf_dev_re[1, i, ,] <- NA
       }
 
-      # Random walk (turn of random effects)
-      if(data_list$fleet_control$Time_varying_sel[i] == 1){
+      # Penalized likelihood or random walk (turn off random effects)
+      if(data_list$fleet_control$Time_varying_sel[i] %in% c(1,4)){
         map_list$sel_slp_dev_re[1, i, ,] <- NA
         map_list$sel_inf_dev_re[1, i, ,] <- NA
 
@@ -196,8 +197,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
         }
       }
 
-      # Map out selectivity var if not using time-varying or using random walk
-      if(data_list$fleet_control$Time_varying_sel[i] %in% c(0, 1, 3)){
+      # Map out selectivity var if not using time-varying, penalized likelihood, or using random walk
+      if(data_list$fleet_control$Time_varying_sel[i] %in% c(0, 1, 3, 4)){
         map_list$ln_sigma_sel[i] <- NA
       }
     }
@@ -252,8 +253,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
         map_list$sel_inf_dev_re[1:2, i, ,] <- NA
       }
 
-      # Random walk (turn of random effects)
-      if(data_list$fleet_control$Time_varying_sel[i] == 1){
+      # Penalized likelihood or random walk (turn of random effects)
+      if(data_list$fleet_control$Time_varying_sel[i] %in% c(1,4,5)){
         map_list$sel_slp_dev_re[1:2, i, ,] <- NA
         map_list$sel_inf_dev_re[1:2, i, ,] <- NA
 
@@ -265,6 +266,12 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
             ind_slp <- ind_slp + length(map_list$sel_slp_dev[j, i, sex,])
             ind_inf <- ind_inf + length(map_list$sel_inf_dev[j, i, sex,])
           }
+        }
+
+        # If only doing the ascending portion
+        if(data_list$fleet_control$Time_varying_sel[i] %in% c(5)){
+          map_list$sel_slp_dev[2, i, ,] <- NA
+          map_list$sel_inf_dev[2, i, ,] <- NA
         }
       }
 
@@ -328,8 +335,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
         }
       }
 
-      # Map out selectivity var if not using time-varying or using random walk
-      if(data_list$fleet_control$Time_varying_sel[i] %in% c(0, 1, 3)){
+      # Map out selectivity var if not using time-varying, penalized likelihood, or using random walk
+      if(data_list$fleet_control$Time_varying_sel[i] %in% c(0, 1, 3, 4, 5)){
         map_list$ln_sigma_sel[i] <- NA
       }
     }
@@ -363,8 +370,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
         map_list$sel_inf_dev_re[2, i, ,] <- NA
       }
 
-      # Random walk (turn of random effects)
-      if(data_list$fleet_control$Time_varying_sel[i] == 1){
+      # Penalized likelihood or random walk (turn of random effects)
+      if(data_list$fleet_control$Time_varying_sel[i] %in% c(1,4)){
         map_list$sel_slp_dev_re[2, i, ,] <- NA
         map_list$sel_inf_dev_re[2, i, ,] <- NA
 
@@ -432,8 +439,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
         }
       }
 
-      # Map out selectivity var if not using time-varying or using random walk
-      if(data_list$fleet_control$Time_varying_sel[i] %in% c(0, 1, 3)){
+      # Map out selectivity var if not using time-varying, penalized likelihood, or using random walk
+      if(data_list$fleet_control$Time_varying_sel[i] %in% c(0, 1, 3, 4)){
         map_list$ln_sigma_sel[i] <- NA
       }
     }
@@ -460,19 +467,25 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   ind_q_re <- 1
   ind_q <- 1
   for( i in 1: nrow(data_list$fleet_control)){
+    # Q
+    # - 0 = fixed at prior
+    # - 1 = Estimate single parameter
+    # - 2 = Estimate single parameter with prior
+    # - 3 = Estimate analytical q
+    # - 4 = Estimate power equation
 
     # Catchability of surveys If not estimating turn of
-    if (data_list$fleet_control$Estimate_q[i] %in% c(NA, 0, 2) | data_list$fleet_control$Fleet_type[i] == 0) {
+    if (data_list$fleet_control$Estimate_q[i] %in% c(NA, 0, 3) | data_list$fleet_control$Fleet_type[i] == 0) {
       map_list$ln_srv_q[i] <- NA
       map_list$srv_q_pow[i] <- NA
       map_list$ln_srv_q_dev[i,] <- NA
       map_list$ln_srv_q_dev_re[i,] <- NA
       map_list$ln_sigma_srv_q[i] <- NA
-
+      map_list$ln_sigma_time_varying_srv_q[i] <- NA
     }
 
     # Catchability power coeficient
-    if (data_list$fleet_control$Estimate_q[i] %in% c(1) | data_list$fleet_control$Fleet_type[i] == 0) {
+    if (data_list$fleet_control$Estimate_q[i] %in% c(1,2) | data_list$fleet_control$Fleet_type[i] == 0) {
       map_list$srv_q_pow[i] <- NA
     }
 
@@ -482,11 +495,13 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$ln_srv_q_dev[i,] <- NA
       map_list$ln_srv_q_dev_re[i,] <- NA
       map_list$ln_sigma_srv_q[i] <- NA
+      map_list$ln_sigma_time_varying_srv_q[i] <- NA
     }
 
-    # Random walk - map out q_sd
-    if(data_list$fleet_control$Time_varying_q[i] %in% c(1)){
+    # Random walk or penalized likelihood - map out q_sd
+    if(data_list$fleet_control$Time_varying_q[i] %in% c(1, 4)){
       map_list$ln_sigma_srv_q[i] <- NA
+      map_list$ln_sigma_time_varying_srv_q[i] <- NA
       map_list$ln_srv_q_dev_re[i,] <- NA
     }
 
@@ -498,6 +513,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     # Time block - map out q_sd
     if(data_list$fleet_control$Time_varying_q[i] %in% c(3)){
       map_list$ln_sigma_srv_q[i] <- NA
+      map_list$ln_sigma_time_varying_srv_q[i] <- NA
       map_list$ln_srv_q_dev_re[i,] <- NA
       map_list$ln_srv_q[i] <- NA
     }
@@ -513,8 +529,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       srv_biom <- data_list$srv_biom[which(data_list$srv_biom$Fleet_code == i & data_list$srv_biom$Year <= data_list$endyr),]
       srv_biom_yrs <- srv_biom$Year - data_list$styr + 1
 
-      # Random walk
-      if(data_list$fleet_control$Time_varying_q[i] == 1){
+      # Penalized likelihood or random walk
+      if(data_list$fleet_control$Time_varying_q[i] %in% c(1,4)){
         map_list$ln_srv_q_dev[i, srv_biom_yrs] <- ind_q + (1:length(srv_biom_yrs)) - 1
         ind_q <- ind_q + length(srv_biom_yrs)
       }
@@ -549,9 +565,11 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
   for(i in 1: nrow(data_list$fleet_control)){
     sel_test <- sel_index[i] %in% sel_index_tested
-    if(!is.na(q_index[i])){
+    if(!is.na(q_index[i])){ # Make sure not using fishery data
       q_test <- q_index[i] %in% q_index_tested
-    }
+    } else {
+      q_test <- FALSE
+      }
 
     # If selectivity is the same as a previous index
     if(sel_test){
@@ -612,6 +630,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$ln_srv_q_dev[i,] <- map_list$ln_srv_q_dev[q_duplicate,]
       map_list$ln_srv_q_dev_re[i,] <- map_list$ln_srv_q_dev_re[q_duplicate,]
       map_list$ln_sigma_srv_q[i] <- map_list$ln_sigma_srv_q[q_duplicate]
+      map_list$ln_sigma_time_varying_srv_q[i] <- map_list$ln_sigma_time_varying_srv_q[q_duplicate]
     }
 
 

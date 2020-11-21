@@ -217,9 +217,10 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     ALK_index = c(1:3,1),
     Q_index = c(1:4),
     Estimate_q = c(0, 0, 0, 1),
-    Log_q_prior = c(0, 0, 0, -6.7025),
-    Time_varying_q = rep(0, 4),
+    Q_prior = c(0, 0, 0, exp(-6.7025)),
     Q_sd_prior = rep(0, 4),
+    Time_varying_q = rep(0, 4),
+    Time_varying_q_sd_prior = rep(0, 4),
     Estimate_survey_sd = rep(0, 4), # Used to be Estimate_sigma_survey
     Survey_sd_prior = rep(NA, 4), # Used to be Sigma_survey_prior
     Estimate_catch_sd = rep(NA, 4), # Used to be Estimate_sigma_catch
@@ -250,9 +251,10 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     ALK_index = c(1:3),
     Q_index = rep(NA, 3),
     Estimate_q = rep(NA, 3),
-    Log_q_prior = rep(NA, 3),
-    Time_varying_q = rep(NA, 3),
+    Q_prior = rep(NA, 3),
     Q_sd_prior = rep(NA, 3),
+    Time_varying_q = rep(NA, 3),
+    Time_varying_q_sd_prior = rep(NA, 3),
     Estimate_survey_sd = rep(NA, 3),
     Survey_sd_prior = rep(NA, 3),
     Estimate_catch_sd = rep(0, 3), # Used to be Estimate_sigma_catch
