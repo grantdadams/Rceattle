@@ -51,6 +51,7 @@ ss_run <- Rceattle::fit_mod(data_list = mydata,
                             phase = "default",
                             silent = TRUE,
                             recompile = FALSE)
+ss_run$map[[2]]$sel_inf
 
 # The you can plot the model results using using
 plot_biomass(Rceattle =  ss_run, incl_proj = T)
