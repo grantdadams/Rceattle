@@ -217,7 +217,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     ALK_index = c(1:3,1),
     Q_index = c(1:4),
     Estimate_q = c(0, 0, 0, 1),
-    Q_prior = c(0, 0, 0, exp(-6.7025)),
+    Q_prior = exp(c(0, 0, 0, -6.7025)),
     Q_sd_prior = rep(0, 4),
     Time_varying_q = rep(0, 4),
     Time_varying_q_sd_prior = rep(0, 4),
