@@ -40,8 +40,8 @@ build_bounds <- function(param_list = NULL, data_list) {
 
     # Selectivity deviates
     # - Slope
-    lower_bnd$sel_slp_dev <- replace(lower_bnd$sel_slp_dev, values = rep(-5, length(lower_bnd$sel_slp_dev)))
-    upper_bnd$sel_slp_dev <- replace(upper_bnd$sel_slp_dev, values = rep(5, length(upper_bnd$sel_slp_dev)))
+    lower_bnd$ln_sel_slp_dev <- replace(lower_bnd$ln_sel_slp_dev, values = rep(-5, length(lower_bnd$ln_sel_slp_dev)))
+    upper_bnd$ln_sel_slp_dev <- replace(upper_bnd$ln_sel_slp_dev, values = rep(5, length(upper_bnd$ln_sel_slp_dev)))
 
     # - Asymptotic
     lower_bnd$sel_inf_dev <- replace(lower_bnd$sel_inf_dev, values = rep(-5, length(lower_bnd$sel_inf_dev)))

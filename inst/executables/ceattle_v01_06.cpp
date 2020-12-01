@@ -518,11 +518,11 @@ Type objective_function<Type>::operator() () {
 
   // -- 3.5. Selectivity parameters
   PARAMETER_ARRAY( sel_coff );                    // selectivity parameters for non-parametric; n = [n_selectivities, nselages]
-  PARAMETER_ARRAY( sel_slp );                     // selectivity paramaters for logistic; n = [2, n_selectivities]
+  PARAMETER_ARRAY( ln_sel_slp );                     // selectivity paramaters for logistic; n = [2, n_selectivities]
   PARAMETER_ARRAY( sel_inf );                     // selectivity paramaters for logistic; n = [2, n_selectivities]
-  PARAMETER_ARRAY( sel_slp_dev );                 // selectivity parameter deviate for logistic; n = [2, n_selectivities, n_sel_blocks]
+  PARAMETER_ARRAY( ln_sel_slp_dev );                 // selectivity parameter deviate for logistic; n = [2, n_selectivities, n_sel_blocks]
   PARAMETER_ARRAY( sel_inf_dev );                 // selectivity parameter deviate for logistic; n = [2, n_selectivities, n_sel_blocks]
-  PARAMETER_ARRAY( sel_slp_dev_re );              // selectivity parameter random effect deviate for logistic; n = [2, n_selectivities, n_sel_blocks]
+  PARAMETER_ARRAY( ln_sel_slp_dev_re );              // selectivity parameter random effect deviate for logistic; n = [2, n_selectivities, n_sel_blocks]
   PARAMETER_ARRAY( sel_inf_dev_re );              // selectivity parameter random effect deviate for logistic; n = [2, n_selectivities, n_sel_blocks]
   PARAMETER_VECTOR( ln_sigma_sel );               // Log standard deviation of selectivity; n = [1, n_selectivities]
   PARAMETER_MATRIX( sel_curve_pen );              // Selectivity penalty for non-parametric selectivity, 2nd column is for monotonic bit
@@ -861,12 +861,12 @@ Type objective_function<Type>::operator() () {
             for(sex = 0; sex < nsex(sp); sex++){
               // Random walk and block
               if(sel_varying != 2){
-                sel(flt, sex, age, yr) = 1 / (1 + exp( -(sel_slp(0, flt, sex) + sel_slp_dev(0, flt, sex, yr)) * ((age + 1) -( sel_inf(0, flt, sex) + sel_inf_dev(0, flt, sex, yr )))));
+                sel(flt, sex, age, yr) = 1 / (1 + exp( -exp(ln_sel_slp(0, flt, sex) + ln_sel_slp_dev(0, flt, sex, yr)) * ((age + 1) -( sel_inf(0, flt, sex) + sel_inf_dev(0, flt, sex, yr )))));
               }
 
               // Random effect
               if(sel_varying == 2){
-                sel(flt, sex, age, yr) = 1 / (1 + exp( -(sel_slp(0, flt, sex) + sel_slp_dev_re(0, flt, sex, yr)) * ((age + 1) -( sel_inf(0, flt, sex) + sel_inf_dev_re(0, flt, sex, yr )))));
+                sel(flt, sex, age, yr) = 1 / (1 + exp( -exp(ln_sel_slp(0, flt, sex) + ln_sel_slp_dev_re(0, flt, sex, yr)) * ((age + 1) -( sel_inf(0, flt, sex) + sel_inf_dev_re(0, flt, sex, yr )))));
               }
             }
           }
@@ -923,14 +923,14 @@ Type objective_function<Type>::operator() () {
 
               // Random walk and block
               if(sel_varying != 2){
-                sel(flt, sex, age, yr) = 1 / (1 + exp( -exp((sel_slp(0, flt, sex) + sel_slp_dev(0, flt, sex, yr))) * ((age + 1) -( sel_inf(0, flt, sex) + sel_inf_dev(0, flt, sex, yr ))))) * // Upper slope
-                  (1 - (1 / (1 + exp( -(exp(sel_slp(1, flt, sex) + sel_slp_dev(1, flt, sex, yr))) * ((age + 1) - (sel_inf(1, flt, sex) + sel_inf_dev(1, flt, sex, yr )))))));  // Downward slope;
+                sel(flt, sex, age, yr) = 1 / (1 + exp( -exp((ln_sel_slp(0, flt, sex) + ln_sel_slp_dev(0, flt, sex, yr))) * ((age + 1) -( sel_inf(0, flt, sex) + sel_inf_dev(0, flt, sex, yr ))))) * // Upper slope
+                  (1 - (1 / (1 + exp( -(exp(ln_sel_slp(1, flt, sex) + ln_sel_slp_dev(1, flt, sex, yr))) * ((age + 1) - (sel_inf(1, flt, sex) + sel_inf_dev(1, flt, sex, yr )))))));  // Downward slope;
               }
 
               // Random effect
               if(sel_varying == 2){
-                sel(flt, sex, age, yr) = 1 / (1 + exp( -exp(sel_slp(0, flt, sex) + sel_slp_dev_re(0, flt, sex, yr)) * ((age + 1) -( sel_inf(0, flt, sex) + sel_inf_dev_re(0, flt, sex, yr ))))) * // Upper slope
-                  (1 - (1 / (1 + exp( -exp(sel_slp(1, flt, sex) + sel_slp_dev_re(1, flt, sex, yr)) * ((age + 1) - (sel_inf(1, flt, sex) + sel_inf_dev_re(1, flt, sex, yr )))))));  // Downward slope;
+                sel(flt, sex, age, yr) = 1 / (1 + exp( -exp(ln_sel_slp(0, flt, sex) + ln_sel_slp_dev_re(0, flt, sex, yr)) * ((age + 1) -( sel_inf(0, flt, sex) + sel_inf_dev_re(0, flt, sex, yr ))))) * // Upper slope
+                  (1 - (1 / (1 + exp( -exp(ln_sel_slp(1, flt, sex) + ln_sel_slp_dev_re(1, flt, sex, yr)) * ((age + 1) - (sel_inf(1, flt, sex) + sel_inf_dev_re(1, flt, sex, yr )))))));  // Downward slope;
               }
             }
           }
@@ -946,12 +946,12 @@ Type objective_function<Type>::operator() () {
 
               // Random walk and block
               if(sel_varying != 2){
-                sel(flt, sex, age, yr) = (1 - (1 / (1 + exp( - exp(sel_slp(1, flt, sex) + sel_slp_dev(1, flt, sex, yr)) * ((age + 1) - (sel_inf(1, flt, sex) + sel_inf_dev(1, flt, sex, yr )))))));  // Downward slope;
+                sel(flt, sex, age, yr) = (1 - (1 / (1 + exp( - exp(ln_sel_slp(1, flt, sex) + ln_sel_slp_dev(1, flt, sex, yr)) * ((age + 1) - (sel_inf(1, flt, sex) + sel_inf_dev(1, flt, sex, yr )))))));  // Downward slope;
               }
 
               // Random effect
               if(sel_varying == 2){
-                sel(flt, sex, age, yr) = (1 - (1 / (1 + exp( - exp(sel_slp(1, flt, sex) + sel_slp_dev_re(1, flt, sex, yr)) * ((age + 1) - (sel_inf(1, flt, sex) + sel_inf_dev_re(1, flt, sex, yr )))))));  // Downward slope;
+                sel(flt, sex, age, yr) = (1 - (1 / (1 + exp( - exp(ln_sel_slp(1, flt, sex) + ln_sel_slp_dev_re(1, flt, sex, yr)) * ((age + 1) - (sel_inf(1, flt, sex) + sel_inf_dev_re(1, flt, sex, yr )))))));  // Downward slope;
               }
             }
           }
@@ -2996,11 +2996,11 @@ Type objective_function<Type>::operator() () {
       srv_cv_hat(srv_ind) = srv_std_dev;
 
 
-      // Add years from hindcast
+      // Only include years from hindcast
       if(flt_type(srv) > 0){
         if(flt_yr <= endyr){
           if(srv_bio_hat(srv_ind) > 0){
-            jnll_comp(0, srv) -= dnorm(log(srv_biom_obs(srv_ind, 0)) - square(srv_std_dev)/2, log(srv_bio_hat(srv_ind)), srv_std_dev, true);  // pow(log(srv_biom_obs(srv_ind, 0)) - log(srv_bio_hat(srv_ind)), 2) / (2 * square( srv_std_dev )); // NOTE: This is not quite the lognormal and biohat will be the median.
+            // jnll_comp(0, srv) -= dnorm(log(srv_biom_obs(srv_ind, 0)) - square(srv_std_dev)/2, log(srv_bio_hat(srv_ind)), srv_std_dev, true);  // pow(log(srv_biom_obs(srv_ind, 0)) - log(srv_bio_hat(srv_ind)), 2) / (2 * square( srv_std_dev )); // NOTE: This is not quite the lognormal and biohat will be the median.
 
 
             // Martin's
@@ -3186,12 +3186,12 @@ Type objective_function<Type>::operator() () {
         for(yr = 0; yr < nyrs_hind; yr++){
 
           jnll_comp(4, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
-          jnll_comp(4, flt) -= dnorm(sel_slp_dev(0, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
+          jnll_comp(4, flt) -= dnorm(ln_sel_slp_dev(0, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
 
           // Double logistic deviates
           if(flt_sel_type(flt) == 3){
             jnll_comp(4, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
-            jnll_comp(4, flt) -= dnorm(sel_slp_dev(1, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
+            jnll_comp(4, flt) -= dnorm(ln_sel_slp_dev(1, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
           }
         }
       }
@@ -3204,12 +3204,12 @@ Type objective_function<Type>::operator() () {
 
           // Logistic deviates
           jnll_comp(5, flt) -= dnorm(sel_inf_dev_re(0, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
-          jnll_comp(5, flt) -= dnorm(sel_slp_dev_re(0, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
+          jnll_comp(5, flt) -= dnorm(ln_sel_slp_dev_re(0, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
 
           // Double logistic deviates
           if(flt_sel_type(flt) == 3){
             jnll_comp(5, flt) -= dnorm(sel_inf_dev_re(1, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
-            jnll_comp(5, flt) -= dnorm(sel_slp_dev_re(1, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
+            jnll_comp(5, flt) -= dnorm(ln_sel_slp_dev_re(1, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
           }
         }
       }
@@ -3225,20 +3225,20 @@ Type objective_function<Type>::operator() () {
 
           // Logistic deviates
           sel_inf_dev_ll(flt, yr) = -dnorm(sel_inf_dev(0, flt, sex, yr) - sel_inf_dev(0, flt, sex, yr-1), Type(0.0), sigma_sel(flt), true);
-          sel_slp_dev_ll(flt, yr) = -dnorm(sel_slp_dev(0, flt, sex, yr) - sel_slp_dev(0, flt, sex, yr-1), Type(0.0), sigma_sel(flt), true);
+          sel_slp_dev_ll(flt, yr) = -dnorm(ln_sel_slp_dev(0, flt, sex, yr) - ln_sel_slp_dev(0, flt, sex, yr-1), Type(0.0), sigma_sel(flt), true);
 
           // Logistic deviates
-          //jnll_comp(4, flt) -= dnorm(sel_slp_dev(0, flt, sex, yr) - sel_slp_dev(0, flt, sex, yr-1), Type(0.0), sigma_sel(flt), true);
+          //jnll_comp(4, flt) -= dnorm(ln_sel_slp_dev(0, flt, sex, yr) - ln_sel_slp_dev(0, flt, sex, yr-1), Type(0.0), sigma_sel(flt), true);
           //jnll_comp(4, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr) - sel_inf_dev(0, flt, sex, yr-1), Type(0.0), 4 * sigma_sel(flt), true);
 
           //Martin's
-          jnll_comp(4, flt) += 0.5 * square((sel_slp_dev(0, flt, sex, yr) - sel_slp_dev(0, flt, sex, yr-1))/ sigma_sel(flt));
+          jnll_comp(4, flt) += 0.5 * square((ln_sel_slp_dev(0, flt, sex, yr) - ln_sel_slp_dev(0, flt, sex, yr-1))/ sigma_sel(flt));
           jnll_comp(4, flt) += 0.5 * square((sel_inf_dev(0, flt, sex, yr) - sel_inf_dev(0, flt, sex, yr-1))/ 4 * sigma_sel(flt));
 
           // Double logistic deviates
           if((flt_sel_type(flt) == 3) & (flt_varying_sel(flt) == 4)){
             jnll_comp(4, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr) - sel_inf_dev(1, flt, sex, yr-1), Type(0.0), sigma_sel(flt), true);
-            jnll_comp(4, flt) -= dnorm(sel_slp_dev(1, flt, sex, yr) - sel_slp_dev(1, flt, sex, yr-1), Type(0.0), sigma_sel(flt), true);
+            jnll_comp(4, flt) -= dnorm(ln_sel_slp_dev(1, flt, sex, yr) - ln_sel_slp_dev(1, flt, sex, yr-1), Type(0.0), sigma_sel(flt), true);
           }
         }
 
@@ -3249,9 +3249,9 @@ Type objective_function<Type>::operator() () {
         Type sel_inf_dev2_sum = 0;
 
         for(yr = 0; yr < nyrs_hind; yr++){
-          sel_slp_dev1_sum += sel_slp_dev(0, flt, sex, yr);
+          sel_slp_dev1_sum += ln_sel_slp_dev(0, flt, sex, yr);
           sel_inf_dev1_sum += sel_inf_dev(0, flt, sex, yr);
-          sel_slp_dev2_sum += sel_slp_dev(1, flt, sex, yr);
+          sel_slp_dev2_sum += ln_sel_slp_dev(1, flt, sex, yr);
           sel_inf_dev2_sum += sel_inf_dev(1, flt, sex, yr);
         }
 
@@ -3315,7 +3315,10 @@ Type objective_function<Type>::operator() () {
       jnll_comp(7, flt) += square(q_dev_sum) * 10000;
 
       for(yr = 1; yr < nyrs_hind; yr++){
-        jnll_comp(7, flt) -= dnorm(ln_srv_q_dev(flt, yr) - ln_srv_q_dev(flt, yr-1), Type(0.0), time_varying_sigma_srv_q(flt), true );
+
+        // jnll_comp(7, flt) -= dnorm(ln_srv_q_dev(flt, yr) - ln_srv_q_dev(flt, yr-1), Type(0.0), time_varying_sigma_srv_q(flt), true );
+        // Martin's
+        jnll_comp(7, flt) += 0.5 * square((ln_srv_q_dev(flt, yr) - ln_srv_q_dev(flt, yr-1))/ time_varying_sigma_srv_q(flt));
       }
     }
   } // End q loop
@@ -3328,7 +3331,7 @@ Type objective_function<Type>::operator() () {
       jnll_comp(10, sp) -= dnorm( init_dev(sp, age - 1) - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);
     }
 
-    for (yr = 0; yr < 7; yr++) {
+    for (yr = 0; yr < 8; yr++) {
 
       // Slot 11 -- Tau -- Annual recruitment deviation
       //jnll_comp(9, sp) -= dnorm( rec_dev(sp, yr)  - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);    // Recruitment deviation using random effects.
