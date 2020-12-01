@@ -3000,11 +3000,11 @@ Type objective_function<Type>::operator() () {
       if(flt_type(srv) > 0){
         if(flt_yr <= endyr){
           if(srv_bio_hat(srv_ind) > 0){
-            // jnll_comp(0, srv) -= dnorm(log(srv_biom_obs(srv_ind, 0)) - square(srv_std_dev)/2, log(srv_bio_hat(srv_ind)), srv_std_dev, true);  // pow(log(srv_biom_obs(srv_ind, 0)) - log(srv_bio_hat(srv_ind)), 2) / (2 * square( srv_std_dev )); // NOTE: This is not quite the lognormal and biohat will be the median.
+            jnll_comp(0, srv) -= dnorm(log(srv_biom_obs(srv_ind, 0)) - square(srv_std_dev)/2, log(srv_bio_hat(srv_ind)), srv_std_dev, true);  // pow(log(srv_biom_obs(srv_ind, 0)) - log(srv_bio_hat(srv_ind)), 2) / (2 * square( srv_std_dev )); // NOTE: This is not quite the lognormal and biohat will be the median.
 
 
             // Martin's
-            jnll_comp(0, srv)+= 0.5*square((log(srv_biom_obs(srv_ind, 0))-log(srv_bio_hat(srv_ind))+square(srv_std_dev)/2.0)/srv_std_dev);
+            //jnll_comp(0, srv)+= 0.5*square((log(srv_biom_obs(srv_ind, 0))-log(srv_bio_hat(srv_ind))+square(srv_std_dev)/2.0)/srv_std_dev);
 
             SIMULATE {
               srv_biom_obs(srv_ind, 0) = rnorm(log(srv_bio_hat(srv_ind)), srv_std_dev);  // Simulate response
@@ -3044,11 +3044,11 @@ Type objective_function<Type>::operator() () {
       if(flt_type(flt) == 1){
         if(flt_yr <= endyr){
           if(fsh_biom_obs(fsh_ind, 0) > 0){
-            //jnll_comp(1, flt) -= dnorm(log(fsh_biom_obs(fsh_ind, 0)), log(fsh_bio_hat(fsh_ind)), fsh_std_dev, true) ; // pow(log(fsh_biom_obs(fsh_ind, 0) + MNConst) - log(fsh_bio_hat(fsh_ind)), 2) / (2 * square(fsh_std_dev)); // NOTE: This is not quite the log  normal and biohat will be the median.
+            jnll_comp(1, flt) -= dnorm(log(fsh_biom_obs(fsh_ind, 0)), log(fsh_bio_hat(fsh_ind)), fsh_std_dev, true) ; // pow(log(fsh_biom_obs(fsh_ind, 0) + MNConst) - log(fsh_bio_hat(fsh_ind)), 2) / (2 * square(fsh_std_dev)); // NOTE: This is not quite the log  normal and biohat will be the median.
 
 
             // Martin's
-            jnll_comp(1, flt)+= 0.5*square((log(fsh_biom_obs(fsh_ind, 0))-log(fsh_bio_hat(fsh_ind)))/fsh_std_dev);
+            //jnll_comp(1, flt)+= 0.5*square((log(fsh_biom_obs(fsh_ind, 0))-log(fsh_bio_hat(fsh_ind)))/fsh_std_dev);
 
 
             SIMULATE {
@@ -3121,10 +3121,10 @@ Type objective_function<Type>::operator() () {
           for (ln = 0; ln < n_comp; ln++) {
             if(!isNA( comp_obs(comp_ind, ln) )){
               if(comp_hat(comp_ind, ln) > 0){
-                //jnll_comp(2, flt) -= comp_weights(flt) * Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln)) * log(comp_hat(comp_ind, ln)) ;
+                jnll_comp(2, flt) -= comp_weights(flt) * Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln)) * log(comp_hat(comp_ind, ln)) ;
 
                 // Martin's
-                jnll_comp(2, flt) -= comp_weights(flt) * Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + 0.00001) * log((comp_hat(comp_ind, ln)+0.00001) / (comp_obs(comp_ind, ln) + 0.00001)) ;
+                //jnll_comp(2, flt) -= comp_weights(flt) * Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + 0.00001) * log((comp_hat(comp_ind, ln)+0.00001) / (comp_obs(comp_ind, ln) + 0.00001)) ;
                 //multN_fsh(i)*(catp(i,j)+o)*log((Ecatp(fshyrs(i),j)+o)/(catp(i,j)+o));
 
               }
@@ -3139,7 +3139,7 @@ Type objective_function<Type>::operator() () {
   // Remove offsets
   for (flt = 0; flt < n_flt; flt++) {
     if(flt_type(flt) > 0){
-      // jnll_comp(2, flt) -= offset(flt);
+      jnll_comp(2, flt) -= offset(flt);
     }
   }
 
@@ -3228,12 +3228,12 @@ Type objective_function<Type>::operator() () {
           sel_slp_dev_ll(flt, yr) = -dnorm(ln_sel_slp_dev(0, flt, sex, yr) - ln_sel_slp_dev(0, flt, sex, yr-1), Type(0.0), sigma_sel(flt), true);
 
           // Logistic deviates
-          //jnll_comp(4, flt) -= dnorm(ln_sel_slp_dev(0, flt, sex, yr) - ln_sel_slp_dev(0, flt, sex, yr-1), Type(0.0), sigma_sel(flt), true);
-          //jnll_comp(4, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr) - sel_inf_dev(0, flt, sex, yr-1), Type(0.0), 4 * sigma_sel(flt), true);
+          jnll_comp(4, flt) -= dnorm(ln_sel_slp_dev(0, flt, sex, yr) - ln_sel_slp_dev(0, flt, sex, yr-1), Type(0.0), sigma_sel(flt), true);
+          jnll_comp(4, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr) - sel_inf_dev(0, flt, sex, yr-1), Type(0.0), 4 * sigma_sel(flt), true);
 
           //Martin's
-          jnll_comp(4, flt) += 0.5 * square((ln_sel_slp_dev(0, flt, sex, yr) - ln_sel_slp_dev(0, flt, sex, yr-1))/ sigma_sel(flt));
-          jnll_comp(4, flt) += 0.5 * square((sel_inf_dev(0, flt, sex, yr) - sel_inf_dev(0, flt, sex, yr-1))/ 4 * sigma_sel(flt));
+          //jnll_comp(4, flt) += 0.5 * square((ln_sel_slp_dev(0, flt, sex, yr) - ln_sel_slp_dev(0, flt, sex, yr-1))/ sigma_sel(flt));
+          //jnll_comp(4, flt) += 0.5 * square((sel_inf_dev(0, flt, sex, yr) - sel_inf_dev(0, flt, sex, yr-1))/ 4 * sigma_sel(flt));
 
           // Double logistic deviates
           if((flt_sel_type(flt) == 3) & (flt_varying_sel(flt) == 4)){
@@ -3283,10 +3283,10 @@ Type objective_function<Type>::operator() () {
     // Prior on catchability
     if( est_srv_q(flt) == 2){
 
-     // jnll_comp(7, flt) -= dnorm(ln_srv_q(flt), ln_srv_q_prior(flt), sigma_srv_q(flt), true);
+     jnll_comp(7, flt) -= dnorm(ln_srv_q(flt), ln_srv_q_prior(flt), sigma_srv_q(flt), true);
 
       // Martin's
-     jnll_comp(7, flt) += .5*square((ln_srv_q(flt)-ln_srv_q_prior(flt))/sigma_srv_q(flt));
+     //jnll_comp(7, flt) += .5*square((ln_srv_q(flt)-ln_srv_q_prior(flt))/sigma_srv_q(flt));
     }
 
     // Penalized likelihood
@@ -3316,9 +3316,9 @@ Type objective_function<Type>::operator() () {
 
       for(yr = 1; yr < nyrs_hind; yr++){
 
-        // jnll_comp(7, flt) -= dnorm(ln_srv_q_dev(flt, yr) - ln_srv_q_dev(flt, yr-1), Type(0.0), time_varying_sigma_srv_q(flt), true );
+        jnll_comp(7, flt) -= dnorm(ln_srv_q_dev(flt, yr) - ln_srv_q_dev(flt, yr-1), Type(0.0), time_varying_sigma_srv_q(flt), true );
         // Martin's
-        jnll_comp(7, flt) += 0.5 * square((ln_srv_q_dev(flt, yr) - ln_srv_q_dev(flt, yr-1))/ time_varying_sigma_srv_q(flt));
+        //jnll_comp(7, flt) += 0.5 * square((ln_srv_q_dev(flt, yr) - ln_srv_q_dev(flt, yr-1))/ time_varying_sigma_srv_q(flt));
       }
     }
   } // End q loop
@@ -3331,17 +3331,18 @@ Type objective_function<Type>::operator() () {
       jnll_comp(10, sp) -= dnorm( init_dev(sp, age - 1) - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);
     }
 
-    for (yr = 0; yr < 8; yr++) {
-
+    for (yr = 0; yr < nyrs_hind; yr++) {
       // Slot 11 -- Tau -- Annual recruitment deviation
-      //jnll_comp(9, sp) -= dnorm( rec_dev(sp, yr)  - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);    // Recruitment deviation using random effects.
+      jnll_comp(9, sp) -= dnorm( rec_dev(sp, yr)  - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);    // Recruitment deviation using random effects.
+    }
 
+    for (yr = 0; yr < 8; yr++) {
       // Martin's
-      jnll_comp(9, sp) -= -0.5*square( rec_dev(sp, yr) /1.0);
+      // jnll_comp(9, sp) -= -0.5*square( rec_dev(sp, yr) /1.0);
     }
 
     for (yr = nyrs_hind-2; yr < nyrs_hind; yr++) {
-      jnll_comp(9, sp) -= -0.5*square( rec_dev(sp, yr) /1.0);
+      //jnll_comp(9, sp) -= -0.5*square( rec_dev(sp, yr) /1.0);
     }
   }
 
