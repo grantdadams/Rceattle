@@ -270,6 +270,8 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   }
 
   dat_list$proj_F <- rep(0, 3)
+  dat_list$est_sex_ratio <-  rep(NA, 3)
+  dat_list$sex_ratio_sigma <- rep(NA, 3)
   dat_list$fleet_control$proj_F_prop <- proj_F_prop
 
   #---------------------------------------------------------------------
@@ -472,7 +474,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   # Step 15 -- Rename stuff
   #---------------------------------------------------------------------
 
-  dat_list$propF = dat_list$propMorF[c(1,2,4),]
+  dat_list$sex_ratio = dat_list$propMorF[c(1,2,4),]
   dat_list$BTempC <- dat_list$BTempC_retro
 
   colnames(dat_list$aLW) <- paste0("Species", 1:nspp)
@@ -606,10 +608,11 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   '%!in%' <- function(x,y)!('%in%'(x,y))
   dat_list2 <- list()
 
+  # Names of data to include
   names_in_cpp <- c(names_in_cpp, "comp_data", "NByageFixed", "estDynamics",
                     "emp_sel", "fleet_control",
                     "fsh_comp", "srv_comp",
-                    "fsh_biom", "srv_biom", "proj_F_prop", "proj_F", "minage", "sigma_rec_prior", "spnames", "nsex", "R_sexr", "ssb_wt_index", "spawn_month")
+                    "fsh_biom", "srv_biom", "proj_F_prop", "proj_F", "minage", "sigma_rec_prior", "spnames", "nsex", "R_sexr", "ssb_wt_index", "spawn_month", "est_sex_ratio", "sex_ratio_sigma", "sex_ratio")
 
   for(i in 1:length(names_in_cpp)){
     dat_list2[[names_in_cpp[i]]] <-  dat_list[[names_in_cpp[i]]]

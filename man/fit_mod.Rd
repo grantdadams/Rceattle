@@ -206,7 +206,7 @@ data(BS2017SS) # ?BS2017SS for more information on the data
 phaseList = list(
 dummy = 1,
 ln_pop_scalar = 11,
-ln_mn_rec = 1,
+ln_mean_rec = 1,
 ln_rec_sigma = 2,
 rec_dev = 2,
 init_dev = 2,

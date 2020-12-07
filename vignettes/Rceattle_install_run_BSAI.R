@@ -51,7 +51,6 @@ ss_run <- Rceattle::fit_mod(data_list = mydata,
                             phase = "default",
                             silent = TRUE,
                             recompile = FALSE)
-ss_run$map[[2]]$sel_inf
 
 # The you can plot the model results using using
 plot_biomass(Rceattle =  ss_run, incl_proj = T)
@@ -75,6 +74,7 @@ ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
                             suitMode = 0, # empirical suitability
                             silent = TRUE,
                             recompile = FALSE)
+
 
 # We can plot both runs as well:
 mod_list <- list(ss_run, ms_run)

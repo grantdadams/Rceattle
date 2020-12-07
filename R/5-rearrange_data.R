@@ -5,6 +5,7 @@
 #' @param data_list a data_list created from \code{\link{build_dat}}.
 #' @export
 rearrange_dat <- function(data_list){
+  '%!in%' <- function(x,y)!('%in%'(x,y))
 
   # Step 1 - remove numeric objects from control
   data_list$ln_srv_q_prior <- log(data_list$fleet_control$Q_prior)
@@ -38,24 +39,26 @@ rearrange_dat <- function(data_list){
 
   # Step 6 -  Seperate survey empirical selectivity info from observation
   yrs <- data_list$styr:data_list$endyr
-  for(i in 1:nrow(data_list$emp_sel)){
-    # Fill in years
-    if(data_list$emp_sel$Year[i] == 0){
+  if(nrow(data_list$emp_sel) > 0 ){
+    for(i in 1:nrow(data_list$emp_sel)){
+      # Fill in years
+      if(data_list$emp_sel$Year[i] == 0){
 
-      # Change first year
-      data_list$emp_sel$Year[i] <- yrs[1]
+        # Change first year
+        data_list$emp_sel$Year[i] <- yrs[1]
 
-      # Change the rest
-      emp_sel_tmp <- data_list$emp_sel[i,]
-      emp_sel_tmp$Year <- yrs[2]
-      emp_sel <- emp_sel_tmp
+        # Change the rest
+        emp_sel_tmp <- data_list$emp_sel[i,]
+        emp_sel_tmp$Year <- yrs[2]
+        emp_sel <- emp_sel_tmp
 
-      for(yr in 3:length(yrs)){
-        emp_sel_tmp$Year <- yrs[yr]
-        emp_sel <- rbind(emp_sel, emp_sel_tmp)
+        for(yr in 3:length(yrs)){
+          emp_sel_tmp$Year <- yrs[yr]
+          emp_sel <- rbind(emp_sel, emp_sel_tmp)
+        }
+
+        data_list$emp_sel <- rbind(data_list$emp_sel, emp_sel)
       }
-
-      data_list$emp_sel <- rbind(data_list$emp_sel, emp_sel)
     }
   }
 
@@ -94,6 +97,11 @@ rearrange_dat <- function(data_list){
   # Rearrange age-transition matrix
   age_trans_matrix <- data_list$age_trans_matrix
   unique_alk <- unique(as.character(age_trans_matrix$ALK_index))
+  for(i in 1:length(data_list$pop_alk_index)){
+    if(data_list$pop_alk_index[i] %!in% unique_alk){
+      stop("Check population alk index, not in alk file")
+    }
+  }
   alk <- array(0, dim = c(length(unique_alk), 2, max(data_list$nages, na.rm = T), max(data_list$nlengths, na.rm = T)))
 
 
@@ -131,6 +139,18 @@ rearrange_dat <- function(data_list){
   # Set up wt array
   wt_matrix <- data_list$wt
   unique_wt <- unique(as.character(wt_matrix$Wt_index))
+  for(i in 1:length(data_list$pop_wt_index)){
+    if(data_list$pop_wt_index[i] %!in% unique_wt){
+      stop("Check population weight index, not in weight file")
+    }
+  }
+
+  for(i in 1:length(data_list$ssb_wt_index)){
+    if(data_list$ssb_wt_index[i] %!in% unique_wt){
+      stop("Check SSB weight index, not in weight file")
+    }
+  }
+
   wt <- array(0, dim = c(length(unique_wt), 2, max(data_list$nages, na.rm = T), length(data_list$styr:data_list$endyr)))
 
   for (i in 1:nrow(wt_matrix)) {
