@@ -33,8 +33,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
 
   # -----------------------------------------------------------
-  # -- 1.1. Map out future fishing mortality
+  # -- 1.1. Map out future fishing mortality and sex ratio variance
   map_list$proj_F_prop <- as.numeric(replace(map_list$proj_F_prop, values = rep(NA, length(map_list$proj_F_prop))))
+  map_list$ln_sex_ratio_sigma <- as.numeric(replace(map_list$ln_sex_ratio_sigma, values = rep(NA, length(map_list$ln_sex_ratio_sigma))))
 
   # -- 1.2. Map out comp weights
   map_list$comp_weights <- as.numeric(replace(map_list$comp_weights, values = rep(NA, length(map_list$comp_weights))))
@@ -797,7 +798,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
       # Population parameters
       map_list$ln_FSPR[i,] <- NA
-      map_list$ln_mn_rec[i] <- NA
+      map_list$ln_mean_rec[i] <- NA
       map_list$ln_rec_sigma[i] <- NA
       map_list$rec_dev[i,] <- replace(map_list$rec_dev[i,], values = rep(NA, length(map_list$rec_dev[i,])))
       map_list$init_dev[i,] <- replace(map_list$init_dev[i,], values = rep(NA, length(map_list$init_dev[i,])))

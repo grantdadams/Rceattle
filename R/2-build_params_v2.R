@@ -25,11 +25,12 @@ build_params <- function(data_list, inits = NULL) {
 
   param_list$dummy = 0  # Variable to test derived quantities given input parameters; n = [1]
 
-  # -- 3.0. Population scalar
+  # -- 3.0. Population scalar/ sex ratio variance
   param_list$ln_pop_scalar = matrix(0, nrow = data_list$nspp, ncol = max(data_list$nages))
+  param_list$ln_sex_ratio_sigma = log(data_list$sex_ratio_sigma)
 
   # -- 3.1. Recruitment parameters
-  param_list$ln_mn_rec = rep(0, data_list$nspp)  # Mean recruitment; n = [1, nspp]
+  param_list$ln_mean_rec = rep(0, data_list$nspp)  # Mean recruitment; n = [1, nspp]
   param_list$ln_rec_sigma = log(as.numeric(data_list$sigma_rec_prior))  # Standard deviation of recruitment deviations; n = [1, nspp]
   param_list$rec_dev = matrix(0, nrow = data_list$nspp, ncol = nyrs_proj)  # Annual recruitment deviation; n = [nspp, nyrs_hind]
 
@@ -124,7 +125,7 @@ build_params <- function(data_list, inits = NULL) {
   #---------------------------------------------------------------------
   # Step 3 -- Replace inits with starting values in range
   #---------------------------------------------------------------------
-  param_list$ln_mn_rec <- replace(param_list$ln_mn_rec, values = 9)
+  param_list$ln_mean_rec <- replace(param_list$ln_mean_rec, values = 9)
   param_list$ln_mean_F <- replace(param_list$ln_mean_F, values = -0.8)
   param_list$log_gam_a <- replace(param_list$log_gam_a, values = 0.5)
   param_list$log_gam_b <- replace(param_list$log_gam_b, values = -0.5)

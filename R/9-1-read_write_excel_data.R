@@ -27,7 +27,7 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 
 
     # control
-    control <- matrix(NA, ncol = data_list$nspp, nrow = 17)
+    control <- matrix(NA, ncol = data_list$nspp, nrow = 19)
     control[1, 1] <- data_list$nspp
     control[2, 1] <- data_list$styr
     control[3, 1] <- data_list$endyr
@@ -45,9 +45,11 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
     control[15, ] <- data_list$other_food
     control[16, ] <- data_list$estDynamics
     control[17, ] <- data_list$proj_F
+    control[18, ] <- data_list$est_sex_ratio
+    control[19, ] <- data_list$sex_ratio_sigma
     control <- as.data.frame(control)
     control <- cbind(c("nspp", "styr", "endyr", "projyr", "nsex", "spawn_month", "R_sexr", "nages", "minage", "nlengths", "pop_wt_index", "ssb_wt_index","pop_alk_index", "sigma_rec_prior",
-                       "other_food", "estDynamics", "proj_F"), control)
+                       "other_food", "estDynamics", "proj_F", "est_sex_ratio", "sex_ratio_sigma"), control)
     colnames(control) <- c("Object", data_list$spnames)
     names_used <- c(names_used, as.character(control$Object))
 
@@ -103,15 +105,15 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
     names_used <- c(names_used, "pmature")
 
 
-    # propF
-    propF <- data_list$propF
-    colnames(propF) <- paste0("Age", 1:max(data_list$nages))
-    rownames(propF) <- paste0("Species_", 1:data_list$nspp)
-    propF <- as.data.frame(propF)
+    # sex_ratio
+    sex_ratio <- data_list$sex_ratio
+    colnames(sex_ratio) <- paste0("Age", 1:max(data_list$nages))
+    rownames(sex_ratio) <- paste0("Species_", 1:data_list$nspp)
+    sex_ratio <- as.data.frame(sex_ratio)
 
-    xcel_list$propF <- propF
+    xcel_list$sex_ratio <- sex_ratio
 
-    names_used <- c(names_used, "propF")
+    names_used <- c(names_used, "sex_ratio")
 
 
     # M1_base
@@ -374,6 +376,8 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     data_list$other_food <- as.numeric(sheet1[15, 2:(data_list$nspp + 1)])
     data_list$estDynamics <- as.numeric(sheet1[16, 2:(data_list$nspp + 1)])
     data_list$proj_F <- as.numeric(sheet1[17, 2:(data_list$nspp + 1)])
+    data_list$est_sex_ratio <- as.numeric(sheet1[18, 2:(data_list$nspp + 1)])
+    data_list$sex_ratio_sigma <- as.numeric(sheet1[19, 2:(data_list$nspp + 1)])
 
     nyrs <- data_list$endyr - data_list$styr + 1
 
@@ -397,6 +401,7 @@ read_data <- function(file = "Rceattle_data.xlsx") {
 
     # age_error
     age_error <- as.data.frame(readxl::read_xlsx(file, sheet = "age_error"))
+    age_error <- age_error[rowSums(is.na(age_error)) != ncol(age_error), ] # Remove rows with all NA's
     arm <- array(0, dim = c(data_list$nspp, max(data_list$nages, na.rm = T), max(data_list$nages, na.rm = T)))
 
 
@@ -430,9 +435,9 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     data_list$pmature <- pmature
 
 
-    # propF
-    propF <- suppressMessages(as.data.frame(readxl::read_xlsx(file, sheet = "propF")))
-    data_list$propF <- propF
+    # sex_ratio
+    sex_ratio <- suppressMessages(as.data.frame(readxl::read_xlsx(file, sheet = "sex_ratio")))
+    data_list$sex_ratio <- sex_ratio
 
 
     # M1_base

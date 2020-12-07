@@ -158,7 +158,7 @@
 #'phaseList = list(
 #'dummy = 1,
 #'ln_pop_scalar = 11,
-#'ln_mn_rec = 1,
+#'ln_mean_rec = 1,
 #'ln_rec_sigma = 2,
 #'rec_dev = 2,
 #'init_dev = 2,
@@ -341,7 +341,7 @@ fit_mod <-
         phase = list(
           dummy = 1,
           ln_pop_scalar = 4,
-          ln_mn_rec = 1,
+          ln_mean_rec = 1,
           ln_rec_sigma = 2,
           rec_dev = 2,
           init_dev = 2,
@@ -357,6 +357,7 @@ fit_mod <-
           ln_sigma_time_varying_srv_q = 4,
           sel_coff = 3,
           sel_curve_pen = 4,
+          ln_sex_ratio_sigma = 3,
           ln_sel_slp = 3,
           sel_inf = 3,
           ln_sel_slp_dev = 5,
@@ -513,6 +514,7 @@ fit_mod <-
       "Survey biomass",
       "Total catch",
       "Age/length composition data",
+      "Sex ratio",
       "Non-parametric selectivity",
       "Selectivity random walk deviates",
       "Selectivity random effect deviates",
