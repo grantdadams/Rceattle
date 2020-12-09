@@ -3018,9 +3018,11 @@ Type objective_function<Type>::operator() () {
           if(srv_bio_hat(srv_ind) > 0){
             jnll_comp(0, srv) -= dnorm(log(srv_biom_obs(srv_ind, 0)) - square(srv_std_dev)/2, log(srv_bio_hat(srv_ind)), srv_std_dev, true);  // pow(log(srv_biom_obs(srv_ind, 0)) - log(srv_bio_hat(srv_ind)), 2) / (2 * square( srv_std_dev )); // NOTE: This is not quite the lognormal and biohat will be the median.
 
-
             // Martin's
             //jnll_comp(0, srv)+= 0.5*square((log(srv_biom_obs(srv_ind, 0))-log(srv_bio_hat(srv_ind))+square(srv_std_dev)/2.0)/srv_std_dev);
+
+            // Ingrids
+            // jnll_comp(0, srv) += square((log(srv_biom_obs(srv_ind, 0)) - log(srv_bio_hat(srv_ind)))/(sqrt(2)*srv_std_dev )); 
 
             SIMULATE {
               srv_biom_obs(srv_ind, 0) = rnorm(log(srv_bio_hat(srv_ind)), srv_std_dev);  // Simulate response
@@ -3065,6 +3067,9 @@ Type objective_function<Type>::operator() () {
 
             // Martin's
             //jnll_comp(1, flt)+= 0.5*square((log(fsh_biom_obs(fsh_ind, 0))-log(fsh_bio_hat(fsh_ind)))/fsh_std_dev);
+
+            // Ingrid's
+            // jnll_comp(1, flt) += square(log(fsh_biom_obs(fsh_ind, 0) +  0.001)-log(fsh_bio_hat(fsh_ind) + 0.001));
 
 
             SIMULATE {
@@ -3167,11 +3172,11 @@ Type objective_function<Type>::operator() () {
         if(est_sex_ratio(sp) == 1){
           jnll_comp(4, sp) -= dnorm(sex_ratio_mean_hat(sp, yr), sex_ratio(sp, 1), sex_ratio_sigma(sp)); // Using the 2nd age here, cause recruitment is assumed to be age 1 (c++ 0)
           // Ingrid's
-          // sexr_like=0.5*norm2((obs_mean_sexr-pred_sexr)/obs_SD_sexr);
+          // jnll_comp(4, sp) += 0.5 * square((sex_ratio(sp, 1) - sex_ratio_mean_hat(sp, yr))/sex_ratio_sigma(sp));
         }
 
         if(est_sex_ratio(sp) == 2){
-          for(age == 1; age < nages(sp); age++){ // Start at age 2 because age 1 is fixed
+          for(age = 1; age < nages(sp); age++){ // Start at age 2 because age 1 is fixed
            jnll_comp(4, sp) -= dnorm(sex_ratio_hat(sp, age, yr), sex_ratio(sp, age), sex_ratio_sigma(sp));
           }
         }
@@ -3366,25 +3371,31 @@ Type objective_function<Type>::operator() () {
     // Slot 10 -- init_dev -- Initial abundance-at-age
     for (age = 1; age < nages(sp); age++) {
       jnll_comp(11, sp) -= dnorm( init_dev(sp, age - 1) - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);
+
+      // Ingrid's
+      // jnll_comp(10, sp) += square(init_dev(sp, age-1));
     }
 
     for (yr = 0; yr < nyrs_hind; yr++) {
       // Slot 11 -- Tau -- Annual recruitment deviation
       jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr)  - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);    // Recruitment deviation using random effects.
+
+      // Ingrid's
+      // jnll_comp(10, sp) += square(rec_dev(sp, yr));
     }
 
+    // Martin's
+    /*
     for (yr = 0; yr < 8; yr++) {
       //jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr)  - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);    // Recruitment deviation using random effects.
-
-      // Martin's
-      // jnll_comp(10, sp) -= -0.5*square( rec_dev(sp, yr) /1.0);
+      jnll_comp(10, sp) -= -0.5*square( rec_dev(sp, yr) /1.0);
     }
 
     for (yr = nyrs_hind-2; yr < nyrs_hind; yr++) {
       //jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr)  - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);    // Recruitment deviation using random effects.
-
-      //jnll_comp(10, sp) -= -0.5*square( rec_dev(sp, yr) /1.0);
+      jnll_comp(10, sp) -= -0.5*square( rec_dev(sp, yr) /1.0);
     }
+    */
   }
 
 
@@ -3392,9 +3403,9 @@ Type objective_function<Type>::operator() () {
   for (flt = 0; flt < n_flt; flt++) {
     // If included in likelihood
     if(flt_type(flt) == 1){
-      //for (yr = 0; yr < nyrs_hind; yr++) {
-      //jnll_comp(12, flt) += square(F_dev(flt, yr));      // Fishing mortality deviation using penalized likelihood.
-      //}
+      for (yr = 0; yr < nyrs_hind; yr++) {
+        jnll_comp(12, flt) += square(F_dev(flt, yr));      // Fishing mortality deviation using penalized likelihood.
+      }
       // Sum to zero constraint
       Type f_dev_sum = 0;
 
