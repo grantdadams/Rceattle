@@ -17,12 +17,12 @@ rearrange_dat <- function(data_list){
   # Step 2 -  Seperate survey biomass info from observation
   data_list$srv_biom_ctl <- data_list$srv_biom[,c("Fleet_code", "Species", "Year")]
   data_list$srv_biom_n <- as.matrix(data_list$srv_biom[,c("Month")])
-  data_list$srv_biom_obs <- data_list$srv_biom[,c("Observation", "CV")]
+  data_list$srv_biom_obs <- data_list$srv_biom[,c("Observation", "Log_sd")]
 
   # Step 3 -  Seperate catch biomass info from observation
   data_list$fsh_biom_ctl <- data_list$fsh_biom[,c("Fleet_code", "Species", "Year")]
   data_list$fsh_biom_n <- as.matrix(data_list$fsh_biom[,c("Month")])
-  data_list$fsh_biom_obs <- data_list$fsh_biom[,c("Catch", "CV")]
+  data_list$fsh_biom_obs <- data_list$fsh_biom[,c("Catch", "Log_sd")]
 
   # Step 4 -  Seperate survey comp info from observation
   data_list$comp_ctl <- data_list$comp_data[,c("Fleet_code", "Species", "Sex", "Age0_Length1", "Year")]

@@ -422,12 +422,12 @@ Type objective_function<Type>::operator() () {
   // -- 2.3.1 Fishery Components
   DATA_IMATRIX( fsh_biom_ctl );           // Info for fishery biomass; columns = Fishery_name, Fishery_code, Species, Year
   DATA_IMATRIX( fsh_biom_n );             // Info for fishery biomass; columns = Month
-  DATA_MATRIX( fsh_biom_obs );            // Observed fishery catch biomass (kg) and cv; n = [nobs_fish_biom, 2]; columns = Observation, Error
+  DATA_MATRIX( fsh_biom_obs );            // Observed fishery catch biomass (kg) and log_sd; n = [nobs_fish_biom, 2]; columns = Observation, Error
 
   // -- 2.3.2 Survey components
   DATA_IMATRIX( srv_biom_ctl );           // Info for survey biomass; columns = Survey_name, Survey_code, Species, Year
   DATA_MATRIX( srv_biom_n );              // Info for survey biomass; columns = Month
-  DATA_MATRIX( srv_biom_obs );            // Observed survey biomass (kg) and cv; n = [nobs_srv_biom, 2]; columns = Observation, Error
+  DATA_MATRIX( srv_biom_obs );            // Observed survey biomass (kg) and log_sd; n = [nobs_srv_biom, 2]; columns = Observation, Error
   DATA_VECTOR( ln_srv_q_prior );          // Prior mean for survey catchability; n = [nflt]
 
   // -- 2.3.3. Composition data
@@ -599,7 +599,7 @@ Type objective_function<Type>::operator() () {
   array<Type>   F40_tot(nspp, 2, max_age); F40_tot.setZero();                       // Estimated fishing mortality for each species that leads to SB40; n = [nspp, 2 sexes, nages]
   array<Type>   F_tot(nspp, 2, max_age, nyrs+1); F_tot.setZero();                   // Sum of annual estimated fishing mortalities for each species-at-age; n = [nspp, 2 sexes, nages, nyrs]
   vector<Type>  fsh_bio_hat(fsh_biom_obs.rows()); fsh_bio_hat.setZero();            // Estimated fishery yield (kg);
-  vector<Type>  fsh_cv_hat(fsh_biom_obs.rows()); fsh_cv_hat.setZero();              // Estimated/fixed fishery cv (kg);
+  vector<Type>  fsh_log_sd_hat(fsh_biom_obs.rows()); fsh_log_sd_hat.setZero();              // Estimated/fixed fishery log_sd (kg);
   array<Type>   NbyageSPR(3, nspp, max_age);                                        // Estimated numbers at age for spawning biomass per recruit reference points
   vector<Type>  SB35(nspp); SB35.setZero();                                         // Estimated 35% spawning biomass per recruit
   vector<Type>  SB40(nspp); SB40.setZero();                                         // Estimated 40% spawning biomass per recruit
@@ -614,7 +614,7 @@ Type objective_function<Type>::operator() () {
   vector<Type>  time_varying_sigma_srv_q(n_flt); time_varying_sigma_srv_q.setZero();// Vector of standard deviation of time-varying survey catchability deviation; n = [1, n_srv]
   Type avgsel_tmp = 0;                                                              // Temporary object for average selectivity across all ages
   vector<Type>  srv_bio_hat(srv_biom_obs.rows()); srv_bio_hat.setZero();            // Estimated survey biomass (kg)
-  vector<Type>  srv_cv_hat(srv_biom_obs.rows()); srv_cv_hat.setZero();              // Estimated/fixed survey cv (kg)
+  vector<Type>  srv_log_sd_hat(srv_biom_obs.rows()); srv_log_sd_hat.setZero();              // Estimated/fixed survey log_sd (kg)
   vector<Type>  sigma_srv_analytical(n_flt); sigma_srv_analytical.setZero();        // Temporary vector to save analytical sigma follow Ludwig and Walters 1994
   vector<Type>  srv_q_analytical(n_flt); srv_q_analytical.setZero();                // Temporary vector to save analytical sigma follow Ludwig and Walters 1994
   matrix<Type>  srv_q(n_flt, nyrs_hind); srv_q.setZero();                           // Estimated survey catchability
@@ -3009,7 +3009,7 @@ Type objective_function<Type>::operator() () {
         error("Invalid 'Estimate_sigma_index'");
       }
 
-      srv_cv_hat(srv_ind) = srv_std_dev;
+      srv_log_sd_hat(srv_ind) = srv_std_dev;
 
 
       // Only include years from hindcast
@@ -3017,12 +3017,6 @@ Type objective_function<Type>::operator() () {
         if(flt_yr <= endyr){
           if(srv_bio_hat(srv_ind) > 0){
             jnll_comp(0, srv) -= dnorm(log(srv_biom_obs(srv_ind, 0)) - square(srv_std_dev)/2, log(srv_bio_hat(srv_ind)), srv_std_dev, true);  // pow(log(srv_biom_obs(srv_ind, 0)) - log(srv_bio_hat(srv_ind)), 2) / (2 * square( srv_std_dev )); // NOTE: This is not quite the lognormal and biohat will be the median.
-
-            // Martin's
-            //jnll_comp(0, srv)+= 0.5*square((log(srv_biom_obs(srv_ind, 0))-log(srv_bio_hat(srv_ind))+square(srv_std_dev)/2.0)/srv_std_dev);
-
-            // Ingrids
-            // jnll_comp(0, srv) += square((log(srv_biom_obs(srv_ind, 0)) - log(srv_bio_hat(srv_ind)))/(sqrt(2)*srv_std_dev )); 
 
             SIMULATE {
               srv_biom_obs(srv_ind, 0) = rnorm(log(srv_bio_hat(srv_ind)), srv_std_dev);  // Simulate response
@@ -3056,21 +3050,13 @@ Type objective_function<Type>::operator() () {
         error("Invalid 'Estimate_sigma_catch'");
       }
 
-      fsh_cv_hat(fsh_ind) = fsh_std_dev; // Save estimated cv
+      fsh_log_sd_hat(fsh_ind) = fsh_std_dev; // Save estimated log_sd
 
       // Add only years from hindcast
       if(flt_type(flt) == 1){
         if(flt_yr <= endyr){
           if(fsh_biom_obs(fsh_ind, 0) > 0){
             jnll_comp(1, flt) -= dnorm(log(fsh_biom_obs(fsh_ind, 0)), log(fsh_bio_hat(fsh_ind)), fsh_std_dev, true) ; // pow(log(fsh_biom_obs(fsh_ind, 0) + MNConst) - log(fsh_bio_hat(fsh_ind)), 2) / (2 * square(fsh_std_dev)); // NOTE: This is not quite the log  normal and biohat will be the median.
-
-
-            // Martin's
-            //jnll_comp(1, flt)+= 0.5*square((log(fsh_biom_obs(fsh_ind, 0))-log(fsh_bio_hat(fsh_ind)))/fsh_std_dev);
-
-            // Ingrid's
-            // jnll_comp(1, flt) += square(log(fsh_biom_obs(fsh_ind, 0) +  0.001)-log(fsh_bio_hat(fsh_ind) + 0.001));
-
 
             SIMULATE {
               fsh_biom_obs(fsh_ind, 0) = rnorm(log(fsh_bio_hat(fsh_ind)), fsh_std_dev);  // Simulate response
@@ -3143,11 +3129,6 @@ Type objective_function<Type>::operator() () {
             if(!isNA( comp_obs(comp_ind, ln) )){
               if(comp_hat(comp_ind, ln) > 0){
                 jnll_comp(2, flt) -= comp_weights(flt) * Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + 0.00001) * log(comp_hat(comp_ind, ln) + 0.00001) ;
-
-                // Martin's
-                //jnll_comp(2, flt) -= comp_weights(flt) * Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + 0.00001) * log((comp_hat(comp_ind, ln)+0.00001) / (comp_obs(comp_ind, ln) + 0.00001)) ;
-                //multN_fsh(i)*(catp(i,j)+o)*log((Ecatp(fshyrs(i),j)+o)/(catp(i,j)+o));
-
               }
             }
           }
@@ -3171,8 +3152,6 @@ Type objective_function<Type>::operator() () {
       if((nsex(sp) == 2) & (estDynamics(sp) == 0)){
         if(est_sex_ratio(sp) == 1){
           jnll_comp(4, sp) -= dnorm(sex_ratio_mean_hat(sp, yr), sex_ratio(sp, 1), sex_ratio_sigma(sp)); // Using the 2nd age here, cause recruitment is assumed to be age 1 (c++ 0)
-          // Ingrid's
-          // jnll_comp(4, sp) += 0.5 * square((sex_ratio(sp, 1) - sex_ratio_mean_hat(sp, yr))/sex_ratio_sigma(sp));
         }
 
         if(est_sex_ratio(sp) == 2){
@@ -3263,8 +3242,6 @@ Type objective_function<Type>::operator() () {
       for(sex = 0; sex < nsex(sp); sex ++){
         for(yr = 1; yr < nyrs_hind; yr++){ // Start at second year
 
-
-
           // Logistic deviates
           sel_inf_dev_ll(flt, yr) = -dnorm(sel_inf_dev(0, flt, sex, yr) - sel_inf_dev(0, flt, sex, yr-1), Type(0.0), sigma_sel(flt), true);
           sel_slp_dev_ll(flt, yr) = -dnorm(ln_sel_slp_dev(0, flt, sex, yr) - ln_sel_slp_dev(0, flt, sex, yr-1), Type(0.0), sigma_sel(flt), true);
@@ -3272,10 +3249,6 @@ Type objective_function<Type>::operator() () {
           // Logistic deviates
           jnll_comp(5, flt) -= dnorm(ln_sel_slp_dev(0, flt, sex, yr) - ln_sel_slp_dev(0, flt, sex, yr-1), Type(0.0), sigma_sel(flt), true);
           jnll_comp(5, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr) - sel_inf_dev(0, flt, sex, yr-1), Type(0.0), 4 * sigma_sel(flt), true);
-
-          //Martin's
-          //jnll_comp(5, flt) += 0.5 * square((ln_sel_slp_dev(0, flt, sex, yr) - ln_sel_slp_dev(0, flt, sex, yr-1))/ sigma_sel(flt));
-          //jnll_comp(5, flt) += 0.5 * square((sel_inf_dev(0, flt, sex, yr) - sel_inf_dev(0, flt, sex, yr-1))/ 4 * sigma_sel(flt));
 
           // Double logistic deviates
           if((flt_sel_type(flt) == 3) & (flt_varying_sel(flt) == 4)){
@@ -3324,11 +3297,7 @@ Type objective_function<Type>::operator() () {
 
     // Prior on catchability
     if( est_srv_q(flt) == 2){
-
       jnll_comp(8, flt) -= dnorm(ln_srv_q(flt), ln_srv_q_prior(flt), sigma_srv_q(flt), true);
-
-      // Martin's
-      //jnll_comp(8, flt) += .5*square((ln_srv_q(flt)-ln_srv_q_prior(flt))/sigma_srv_q(flt));
     }
 
     // Penalized likelihood
@@ -3357,10 +3326,7 @@ Type objective_function<Type>::operator() () {
       jnll_comp(8, flt) += square(q_dev_sum) * 10000;
 
       for(yr = 1; yr < nyrs_hind; yr++){
-
         jnll_comp(8, flt) -= dnorm(ln_srv_q_dev(flt, yr) - ln_srv_q_dev(flt, yr-1), Type(0.0), time_varying_sigma_srv_q(flt), true );
-        // Martin's
-        //jnll_comp(8, flt) += 0.5 * square((ln_srv_q_dev(flt, yr) - ln_srv_q_dev(flt, yr-1))/ time_varying_sigma_srv_q(flt));
       }
     }
   } // End q loop
@@ -3371,31 +3337,12 @@ Type objective_function<Type>::operator() () {
     // Slot 10 -- init_dev -- Initial abundance-at-age
     for (age = 1; age < nages(sp); age++) {
       jnll_comp(11, sp) -= dnorm( init_dev(sp, age - 1) - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);
-
-      // Ingrid's
-      // jnll_comp(10, sp) += square(init_dev(sp, age-1));
     }
 
     for (yr = 0; yr < nyrs_hind; yr++) {
       // Slot 11 -- Tau -- Annual recruitment deviation
       jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr)  - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);    // Recruitment deviation using random effects.
-
-      // Ingrid's
-      // jnll_comp(10, sp) += square(rec_dev(sp, yr));
     }
-
-    // Martin's
-    /*
-    for (yr = 0; yr < 8; yr++) {
-      //jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr)  - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);    // Recruitment deviation using random effects.
-      jnll_comp(10, sp) -= -0.5*square( rec_dev(sp, yr) /1.0);
-    }
-
-    for (yr = nyrs_hind-2; yr < nyrs_hind; yr++) {
-      //jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr)  - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);    // Recruitment deviation using random effects.
-      jnll_comp(10, sp) -= -0.5*square( rec_dev(sp, yr) /1.0);
-    }
-    */
   }
 
 
@@ -3608,7 +3555,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 12.3. Survey components
   REPORT( srv_bio_hat );
-  REPORT( srv_cv_hat );
+  REPORT( srv_log_sd_hat );
   REPORT( sigma_srv_index );
   REPORT( srv_q );
   REPORT( srv_q_analytical );
@@ -3622,7 +3569,7 @@ Type objective_function<Type>::operator() () {
   REPORT( F );
   REPORT( F_tot );
   REPORT( fsh_bio_hat );
-  REPORT( fsh_cv_hat );
+  REPORT( fsh_log_sd_hat );
   REPORT( proj_FABC );
   REPORT( FSPR );
   REPORT( F35_tot );

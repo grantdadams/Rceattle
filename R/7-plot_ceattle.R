@@ -39,7 +39,6 @@ rich.colors.short <- function(n,alpha=1){
 #' @export
 plot_biomass <-
   function(Rceattle,
-           tmp_list = NULL,
            file = NULL,
            model_names = NULL,
            line_col = NULL,
@@ -88,7 +87,7 @@ plot_biomass <-
 
     # Get biomass
     Biomass <-
-      array(NA, dim = c(nspp, nyrs, length(Rceattle) + length(tmp_list)))
+      array(NA, dim = c(nspp, nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
       Biomass[species, 1:length(Years[[i]]), i] <- Rceattle[[i]]$quantities$biomass[species,1:nyrs_vec[i]]
     }
@@ -96,7 +95,7 @@ plot_biomass <-
 
     # Get SSB
     SSB <-
-      array(NA, dim = c(nspp, nyrs, length(Rceattle) + length(tmp_list)))
+      array(NA, dim = c(nspp, nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
       SSB[species, 1:length(Years[[i]]), i] <- Rceattle[[i]]$quantities$biomassSSB[species,1:nyrs_vec[i]]
     }
@@ -1066,7 +1065,6 @@ plot_maturity <-
 #'
 plot_ssb <-
   function(Rceattle,
-           tmp_list = NULL,
            file = NULL,
            model_names = NULL,
            line_col = NULL,
@@ -1115,8 +1113,8 @@ plot_ssb <-
 
     # Get SSB
     SSB <-
-      array(NA, dim = c(nspp, nyrs, length(Rceattle) + length(tmp_list)))
-    ssb_sd <- array(NA, dim = c(nspp, nyrs, length(Rceattle) + length(tmp_list)))
+      array(NA, dim = c(nspp, nyrs, length(Rceattle)))
+    ssb_sd <- array(NA, dim = c(nspp, nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
       SSB[, 1:length(Years[[i]]), i] <- Rceattle[[i]]$quantities$biomassSSB[,1:nyrs_vec[i]]
 
@@ -1126,16 +1124,6 @@ plot_ssb <-
         ssb_sd_sub <- Rceattle[[i]]$sdrep$sd[ssb_sd_sub]
         ssb_sd[, , i] <-
           replace(ssb_sd[, , i], values = ssb_sd_sub[1:(nyrs_vec[i] * nspp)])
-      }
-    }
-
-    ind = 1
-    if (!is.null(tmp_list)) {
-      for (i in (length(Rceattle) + 1):(length(Rceattle) + length(tmp_list))) {
-        for (k in 1:nspp) {
-          SSB[k, , i] <- tmp_list[[ind]][[paste0("BiomassSSB_", k)]]
-        }
-        ind = ind + 1
       }
     }
 
@@ -1329,7 +1317,7 @@ plot_b_eaten <-
           B_eaten[sp, yr, i] <- sum(Rceattle[[i]]$quantities$B_eaten[sp,,,yr])
 
 
-          # # Get SD of rec
+          # # Get SD of ssb
           # if (add_ci) {
           #   ssb_sd_sub <- which(names(Rceattle[[i]]$sdrep$value) == "biomassSSB")
           #   ssb_sd_sub <- Rceattle[[i]]$sdrep$sd[ssb_sd_sub]

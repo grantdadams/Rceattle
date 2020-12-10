@@ -287,12 +287,12 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Selectivity_block = rep(rep(1, nspp), dat_list$nyrs_srv_biom),
     Q_block = rep(rep(1, nspp), dat_list$nyrs_srv_biom),
     Observation = as.vector(t(dat_list$srv_biom)),
-    CV = as.vector(t(dat_list$srv_biom_se))
+    Log_sd = as.vector(t(dat_list$srv_biom_se))
   )
 
-  # SE to CV
-  dat_list$srv_biom$CV <- (dat_list$srv_biom$CV/dat_list$srv_biom$Observation)
-  dat_list$srv_biom$CV <- sqrt(log((dat_list$srv_biom$CV^2) + 1))
+  # SE to Log_sd
+  dat_list$srv_biom$Log_sd <- (dat_list$srv_biom$Log_sd/dat_list$srv_biom$Observation)
+  dat_list$srv_biom$Log_sd <- sqrt(log((dat_list$srv_biom$Log_sd^2) + 1))
 
   # Add EIT bit
   eit_biom <- data.frame(
@@ -304,7 +304,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Selectivity_block = rep( 1, dat_list$n_eit),
     Q_block = rep( 1, dat_list$n_eit),
     Observation = dat_list$obs_eit,
-    CV = rep( 0.2, dat_list$n_eit)
+    Log_sd = rep( 0.2, dat_list$n_eit)
   )
   dat_list$srv_biom <- rbind(dat_list$srv_biom, eit_biom)
 
@@ -387,7 +387,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Month = rep(rep(0, nspp), dat_list$nyrs_tc_biom),
     Selectivity_block = rep(rep(1, nspp), dat_list$nyrs_tc_biom),
     Catch = as.vector(t(dat_list$tcb_obs)),
-    CV = rep(rep(0.05, nspp), dat_list$nyrs_tc_biom)
+    Log_sd = rep(rep(0.05, nspp), dat_list$nyrs_tc_biom)
   )
 
   #---------------------------------------------------------------------
