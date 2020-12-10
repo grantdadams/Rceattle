@@ -6,7 +6,6 @@
 \usage{
 plot_biomass(
   Rceattle,
-  tmp_list = NULL,
   file = NULL,
   model_names = NULL,
   line_col = NULL,

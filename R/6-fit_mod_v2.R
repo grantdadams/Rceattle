@@ -267,7 +267,7 @@ fit_mod <-
                                     Month = rep(fsh_biom_sub$Month[length(fsh_biom_sub$Month)], nyrs_proj),
                                     Selectivity_block = rep(fsh_biom_sub$Selectivity_block[length(fsh_biom_sub$Selectivity_block)], nyrs_proj),
                                     Catch = rep(NA, nyrs_proj),
-                                    CV = rep(fsh_biom_sub$CV[length(fsh_biom_sub$CV)], nyrs_proj))
+                                    Log_sd = rep(fsh_biom_sub$Log_sd[length(fsh_biom_sub$Log_sd)], nyrs_proj))
         data_list$fsh_biom <- rbind(data_list$fsh_biom, proj_fsh_biom)
       }
     }

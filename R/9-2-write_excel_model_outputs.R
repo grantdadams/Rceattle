@@ -84,16 +84,16 @@ write_results <- function(Rceattle, file = "Rceattle_results.xlsx") {
 
     # srv_biom_hat
     xcel_list$srv_biom_hat <- data_list$srv_biom
-    xcel_list$srv_biom_hat$CV <- NULL
+    xcel_list$srv_biom_hat$Log_sd <- NULL
     xcel_list$srv_biom_hat$Estimated_index <- quantities$srv_bio_hat
-    xcel_list$srv_biom_hat$CV <- quantities$srv_cv_hat
+    xcel_list$srv_biom_hat$Log_sd <- quantities$srv_log_sd_hat
 
 
     # fsh_biom_hat
     xcel_list$fsh_biom_hat <- data_list$fsh_biom
-    xcel_list$fsh_biom_hat$CV <- NULL
+    xcel_list$fsh_biom_hat$Log_sd <- NULL
     xcel_list$fsh_biom_hat$Estimated_catch <- quantities$fsh_bio_hat
-    xcel_list$fsh_biom_hat$CV <- quantities$fsh_cv_hat
+    xcel_list$fsh_biom_hat$Log_sd <- quantities$fsh_log_sd_hat
 
 
     # srv_comp_hat

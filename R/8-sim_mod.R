@@ -12,7 +12,7 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
 
 
     # Slot 0 -- BT survey biomass -- NFMS annual BT survey
-    srv_biom_lse = Rceattle$quantities$srv_cv_hat
+    srv_biom_lse = Rceattle$quantities$srv_log_sd_hat
 
     if (simulate) {
         # Simulate
@@ -74,7 +74,7 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
 
 
     # Slot 2 -- Total catch -- Fishery observer data
-    fsh_biom_lse = Rceattle$quantities$fsh_cv_hat
+    fsh_biom_lse = Rceattle$quantities$fsh_log_sd_hat
 
     if (simulate) {
         # Simulate
