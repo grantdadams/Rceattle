@@ -130,6 +130,29 @@ rearrange_dat <- function(data_list){
   data_list$age_trans_matrix <- alk
 
 
+  # Rearrange age_error matrices
+  arm <- array(0, dim = c(data_list$nspp, max(data_list$nages, na.rm = T), max(data_list$nages, na.rm = T)))
+
+
+  for (i in 1:nrow(data_list$age_error)) {
+    sp <- as.numeric(as.character(data_list$age_error$Species[i]))
+    true_age <- as.numeric(as.character(data_list$age_error$True_age[i])) - data_list$minage[sp] + 1
+
+    if (true_age > data_list$nages[sp]) {
+      message(paste0("Error: number of true ages specified in age_error for species: ", sp))
+      message(paste0("is greater than the number of ages specified in the control"))
+      message(paste0("Please remove or change nages in control"))
+      stop()
+    }
+
+    arm[sp, true_age, 1:data_list$nages[sp]] <- as.numeric(as.character(data_list$age_error[i, (1:data_list$nages[sp]) + 2]))
+
+    # Normalize
+    arm[sp, true_age, 1:data_list$nages[sp]] <- arm[sp, true_age, 1:data_list$nages[sp]] / sum(arm[sp, true_age, 1:data_list$nages[sp]], na.rm = TRUE)
+  }
+  data_list$age_error <- arm
+
+
 
   # Normalize comp data
   for(i in 1:nrow(data_list$comp_obs)){
@@ -247,6 +270,11 @@ rearrange_dat <- function(data_list){
     }
   }
   data_list$Pyrs <- Pyrs
+
+  # Remove species column from alw, pmature, sex_ratio
+  data_list$sex_ratio <- data_list$sex_ratio[,-1]
+  data_list$pmature <- data_list$pmature[,-1]
+  data_list$aLW <- data_list$aLW[,-1]
 
 
   # Make data.frames into matrices

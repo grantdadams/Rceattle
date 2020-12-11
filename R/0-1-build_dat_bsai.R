@@ -475,9 +475,15 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   #---------------------------------------------------------------------
 
   dat_list$sex_ratio = dat_list$propMorF[c(1,2,4),]
+  dat_list$sex_ratio <- cbind(data.frame(Species = c(1:3)), dat_list$sex_ratio)
+  dat_list$pmature <- cbind(data.frame(Species = c(1:3)), dat_list$pmature)
+
   dat_list$BTempC <- dat_list$BTempC_retro
 
-  colnames(dat_list$aLW) <- paste0("Species", 1:nspp)
+  aLW <- t(dat_list$aLW)
+  aLW <- cbind(data.frame(Species = c(1:3)), aLW)
+  colnames(aLW) <- c("Species", "a", "b")
+  dat_list$aLW <- aLW
 
 
   dimnames(dat_list$Uobs) <- list(paste0('Pred', 1:3),paste0('Prey', 1:3), paste0('Pred_ln', 1:max( dat_list$srv_age_bins)), paste0('Pred_ln', 1:max( dat_list$srv_age_bins)))
@@ -501,6 +507,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   dat_list$sigma_rec_prior <- rep(sqrt(0.5), dat_list$nspp)
   dat_list$spnames <- c("Pollock", "Cod", "Arrowtooth flounder")
   dat_list$estDynamics = rep(0, dat_list$nspp)
+  dat_list$nlengths <- dat_list$fsh_age_bins
 
   ###########################
   # Change WT format
@@ -540,7 +547,24 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     dat_list$age_error[sp,,] <- diag(1, max(dat_list$nages), max(dat_list$nages))
   }
 
-  dat_list$nlengths <- dat_list$fsh_age_bins
+  index_species <- data.frame(ALK = c(dat_list$fleet_control$ALK_index), Sp = c(dat_list$fleet_control$Species))
+  index_species <- index_species[!duplicated(index_species[, c("ALK", "Sp")]), ]
+  index_species <- index_species[order(index_species$ALK), ]
+  nages <- data.frame(Sp = 1:dat_list$nspp, Nages = dat_list$nages, Nlengths = dat_list$nlengths)
+  index_species <- merge(index_species, nages, by = "Sp", all = TRUE)
+  age_error <- matrix(NA, ncol = max(index_species$Nages) + 2, nrow = sum(index_species$Nages))
+  ages_done <- 0
+  for (sp in 1:dat_list$nspp) {
+    for (age in 1:dat_list$nages[sp]) {
+      ages_done <- ages_done + 1
+      sp_age <- dat_list$minage[sp] + age - 1
+      age_error[ages_done, 1] <- sp  # Species index
+      age_error[ages_done, 2] <- sp_age  # Species index
+      age_error[ages_done, ((1:dat_list$nages[sp]) + 2)] <- dat_list$age_error[sp, age, 1:dat_list$nages[sp]]  # Species index
+    }
+  }
+  colnames(age_error) <- c("Species", "True_age", paste0("Obs_age", 1:max(dat_list$nages)))
+  dat_list$age_error <- age_error
 
 
 
@@ -603,7 +627,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   #---------------------------------------------------------------------
   # Final Step -- Remove unwanted bits
   #---------------------------------------------------------------------
-  names_not_in_cpp <- c(names_not_in_cpp,  "BTempC_retro", "propMorF" , "srv_sel_type", "srv_age_type", "fsh_age_bins", "fsh_comp", "srv_comp")
+  names_not_in_cpp <- c(names_not_in_cpp,  "BTempC_retro", "propMorF" , "srv_sel_type", "srv_age_type", "fsh_age_bins", "fsh_comp", "srv_comp", "Uobs", "UobsWt")
 
   '%!in%' <- function(x,y)!('%in%'(x,y))
   dat_list2 <- list()
@@ -613,6 +637,8 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
                     "emp_sel", "fleet_control",
                     "fsh_comp", "srv_comp",
                     "fsh_biom", "srv_biom", "proj_F_prop", "proj_F", "minage", "sigma_rec_prior", "spnames", "nsex", "R_sexr", "ssb_wt_index", "spawn_month", "est_sex_ratio", "sex_ratio_sigma", "sex_ratio")
+  names_in_cpp <- names_in_cpp[-which(names_in_cpp == "Uobs")]
+  names_in_cpp <- names_in_cpp[-which(names_in_cpp == "UobsWt")]
 
   for(i in 1:length(names_in_cpp)){
     dat_list2[[names_in_cpp[i]]] <-  dat_list[[names_in_cpp[i]]]
