@@ -64,27 +64,7 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
     names_used <- c(names_used, srv_bits)
 
     # age_error
-    index_species <- data.frame(ALK = c(data_list$fleet_control$ALK_index), Sp = c(data_list$fleet_control$Species))
-    index_species <- index_species[!duplicated(index_species[, c("ALK", "Sp")]), ]
-    index_species <- index_species[order(index_species$ALK), ]
-    nages <- data.frame(Sp = 1:data_list$nspp, Nages = data_list$nages, Nlengths = data_list$nlengths)
-    index_species <- merge(index_species, nages, by = "Sp", all = TRUE)
-    age_error <- matrix(NA, ncol = max(index_species$Nages) + 2, nrow = sum(index_species$Nages))
-    ages_done <- 0
-    for (sp in 1:data_list$nspp) {
-        for (age in 1:data_list$nages[sp]) {
-            ages_done <- ages_done + 1
-            sp_age <- data_list$minage[sp] + age - 1
-            age_error[ages_done, 1] <- sp  # Species index
-            age_error[ages_done, 2] <- sp_age  # Species index
-            age_error[ages_done, ((1:data_list$nages[sp]) + 2)] <- data_list$age_error[sp, age, 1:data_list$nages[sp]]  # Species index
-        }
-    }
-    colnames(age_error) <- c("Species", "True_age", paste0("Obs_age", 1:max(data_list$nages)))
-    age_error <- as.data.frame(age_error)
-
-    xcel_list$age_error <- age_error
-
+    xcel_list$age_error <- as.data.frame(data_list$age_error)
     names_used <- c(names_used, "age_error")
 
 
@@ -95,24 +75,14 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 
 
     # pmature
-    pmature <- data_list$pmature
-    colnames(pmature) <- paste0("Age", 1:max(data_list$nages))
-    rownames(pmature) <- paste0("Species_", 1:data_list$nspp)
-    pmature <- as.data.frame(pmature)
-
-    xcel_list$pmature <- pmature
-
+    colnames(data_list$pmature) <- c("Species", paste0("Age", 1:max(data_list$nages)))
+    xcel_list$pmature <- as.data.frame(data_list$pmature)
     names_used <- c(names_used, "pmature")
 
 
     # sex_ratio
-    sex_ratio <- data_list$sex_ratio
-    colnames(sex_ratio) <- paste0("Age", 1:max(data_list$nages))
-    rownames(sex_ratio) <- paste0("Species_", 1:data_list$nspp)
-    sex_ratio <- as.data.frame(sex_ratio)
-
-    xcel_list$sex_ratio <- sex_ratio
-
+    colnames(data_list$sex_ratio) <- c("Species", paste0("Age", 1:max(data_list$nages)))
+    xcel_list$sex_ratio <- as.data.frame(data_list$sex_ratio)
     names_used <- c(names_used, "sex_ratio")
 
 
@@ -135,11 +105,7 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
     names_used <- c(names_used, "Mn_LatAge")
 
     # aLW
-    aLW <- data_list$aLW
-    rownames(aLW) <- c("alpha", "beta")
-    colnames(aLW) <- paste0("Species_", 1:data_list$nspp)
-    aLW <- as.data.frame(aLW)
-
+    aLW <- as.data.frame(data_list$aLW)
     xcel_list$aLW <- aLW
 
     names_used <- c(names_used, "aLW")
@@ -192,134 +158,6 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
     # UobsAge
     xcel_list$UobsWtAge <- as.data.frame(data_list$UobsWtAge)
     names_used <- c(names_used, "UobsWtAge")
-
-
-    # Diet Uobs
-    if (length(dim(data_list$Uobs)) == 4) {
-        Uobs <- matrix(NA, ncol = 5, nrow = length(data_list$Uobs))
-        dims <- dim(data_list$Uobs)
-
-        ind <- 1
-        for (pred in 1:dims[1]) {
-            for (prey in 1:dims[2]) {
-                for (pred_a in 1:data_list$nlengths[pred]) {
-                    for (prey_a in 1:data_list$nlengths[prey]) {
-                        Uobs[ind, 1] <- pred
-                        Uobs[ind, 2] <- prey
-                        Uobs[ind, 3] <- pred_a
-                        Uobs[ind, 4] <- prey_a
-                        Uobs[ind, 5] <- data_list$Uobs[pred, prey, pred_a, prey_a]
-                        ind = ind + 1
-                    }
-                }
-            }
-        }
-
-        colnames(Uobs) <- c("Pred", "Prey", "Pred_length", "Prey_length", "Stomach_proportion_by_number")
-        Uobs <- as.data.frame(Uobs)
-
-        xcel_list$Uobs <- Uobs
-
-        names_used <- c(names_used, "Uobs")
-
-    }
-
-    if (length(dim(data_list$Uobs)) == 5) {
-        Uobs <- matrix(NA, ncol = 6, nrow = length(data_list$Uobs))
-        dims <- dim(data_list$Uobs)
-
-        ind <- 1
-        for (pred in 1:dims[1]) {
-            for (prey in 1:dims[2]) {
-                for (pred_a in 1:data_list$nlengths[pred]) {
-                    for (prey_a in 1:data_list$nlengths[prey]) {
-                        for (yr in 1:dims[5]) {
-                            Uobs[ind, 1] <- pred
-                            Uobs[ind, 2] <- prey
-                            Uobs[ind, 3] <- pred_a
-                            Uobs[ind, 4] <- prey_a
-                            Uobs[ind, 5] <- yr
-                            Uobs[ind, 6] <- data_list$Uobs[pred, prey, pred_a, prey_a, yr]
-                            ind = ind + 1
-                        }
-                    }
-                }
-            }
-        }
-
-        colnames(Uobs) <- c("Pred", "Prey", "Pred_length", "Prey_length", "Year", "Stomach_proportion_by_number")
-        Uobs <- as.data.frame(Uobs)
-
-        xcel_list$Uobs <- Uobs
-
-        names_used <- c(names_used, "Uobs")
-    }
-
-
-
-    # Diet UobsWt
-    if (length(dim(data_list$UobsWt)) == 4) {
-        UobsWt <- matrix(NA, ncol = 5, nrow = length(data_list$UobsWt))
-        dims <- dim(data_list$UobsWt)
-
-        ind <- 1
-        for (pred in 1:dims[1]) {
-            for (prey in 1:dims[2]) {
-                for (pred_a in 1:data_list$nlengths[pred]) {
-                    for (prey_a in 1:data_list$nlengths[prey]) {
-                        UobsWt[ind, 1] <- pred
-                        UobsWt[ind, 2] <- prey
-                        UobsWt[ind, 3] <- pred_a
-                        UobsWt[ind, 4] <- prey_a
-                        UobsWt[ind, 5] <- data_list$UobsWt[pred, prey, pred_a, prey_a]
-                        ind = ind + 1
-                    }
-                }
-            }
-        }
-
-        colnames(UobsWt) <- c("Pred", "Prey", "Pred_length", "Prey_length", "Stomach_proportion_by_weight")
-        UobsWt <- as.data.frame(UobsWt)
-
-        xcel_list$UobsWt <- UobsWt
-
-        names_used <- c(names_used, "UobsWt")
-
-    }
-
-
-    if (length(dim(data_list$UobsWt)) == 5) {
-        UobsWt <- matrix(NA, ncol = 6, nrow = length(data_list$UobsWt))
-        dims <- dim(data_list$UobsWt)
-
-        ind <- 1
-        for (pred in 1:dims[1]) {
-            for (prey in 1:dims[2]) {
-                for (pred_a in 1:data_list$nlengths[pred]) {
-                    for (prey_a in 1:data_list$nlengths[prey]) {
-                        for (yr in 1:dims[5]) {
-                            UobsWt[ind, 1] <- pred
-                            UobsWt[ind, 2] <- prey
-                            UobsWt[ind, 3] <- pred_a
-                            UobsWt[ind, 4] <- prey_a
-                            UobsWt[ind, 5] <- yr
-                            UobsWt[ind, 6] <- data_list$UobsWt[pred, prey, pred_a, prey_a, yr]
-                            ind = ind + 1
-                        }
-                    }
-                }
-            }
-        }
-
-        colnames(UobsWt) <- c("Pred", "Prey", "Pred_length", "Prey_length", "Year", "Stomach_proportion_by_weight")
-        UobsWt <- as.data.frame(UobsWt)
-
-        xcel_list$UobsWt <- UobsWt
-
-        names_used <- c(names_used, "UobsWt")
-    }
-
-
 
 
     data_names[data_names %!in% names_used]
@@ -402,27 +240,7 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     # age_error
     age_error <- as.data.frame(readxl::read_xlsx(file, sheet = "age_error"))
     age_error <- age_error[rowSums(is.na(age_error)) != ncol(age_error), ] # Remove rows with all NA's
-    arm <- array(0, dim = c(data_list$nspp, max(data_list$nages, na.rm = T), max(data_list$nages, na.rm = T)))
-
-
-    for (i in 1:nrow(age_error)) {
-        sp <- as.numeric(as.character(age_error$Species[i]))
-        true_age <- as.numeric(as.character(age_error$True_age[i])) - data_list$minage[sp] + 1
-
-        if (true_age > data_list$nages[sp]) {
-            message(paste0("Error: number of true ages specified in age_error for species: ", sp))
-            message(paste0("is greater than the number of ages specified in the control"))
-            message(paste0("Please remove or change nages in control"))
-            stop()
-        }
-
-        arm[sp, true_age, 1:data_list$nages[sp]] <- as.numeric(as.character(age_error[i, (1:data_list$nages[sp]) + 2]))
-
-        # Normalize
-        arm[sp, true_age, 1:data_list$nages[sp]] <- arm[sp, true_age, 1:data_list$nages[sp]] / sum(arm[sp, true_age, 1:data_list$nages[sp]], na.rm = TRUE)
-    }
-    data_list$age_error <- arm
-
+    data_list$age_error <- age_error
 
 
     # wt
@@ -431,13 +249,11 @@ read_data <- function(file = "Rceattle_data.xlsx") {
 
 
     # pmature
-    pmature <- suppressMessages(as.data.frame(readxl::read_xlsx(file, sheet = "pmature")))
-    data_list$pmature <- pmature
+    data_list$pmature <- suppressMessages(as.data.frame(readxl::read_xlsx(file, sheet = "pmature")))
 
 
     # sex_ratio
-    sex_ratio <- suppressMessages(as.data.frame(readxl::read_xlsx(file, sheet = "sex_ratio")))
-    data_list$sex_ratio <- sex_ratio
+    data_list$sex_ratio <- suppressMessages(as.data.frame(readxl::read_xlsx(file, sheet = "sex_ratio")))
 
 
     # M1_base
@@ -484,91 +300,6 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     # Diet UobsWtAge
     UobsWtAge <- as.data.frame(readxl::read_xlsx(file, sheet = "UobsWtAge"))
     data_list$UobsWtAge <- UobsWtAge
-
-
-
-
-    # Diet Uobs
-    Uobs_matrix <- as.data.frame(readxl::read_xlsx(file, sheet = "Uobs"))
-
-    # without year
-    if (ncol(Uobs_matrix) == 5) {
-        Uobs <- array(0, dim = c(data_list$nspp, data_list$nspp, max(data_list$nlengths), max(data_list$nlengths)))
-        dims <- dim(data_list$Uobs)
-
-        for (i in 1:nrow(Uobs_matrix)) {
-            pred <- as.numeric(as.character(Uobs_matrix$Pred[i]))
-            prey <- as.numeric(as.character(Uobs_matrix$Prey[i]))
-            pred_length <- as.numeric(as.character(Uobs_matrix$Pred_length[i]))
-            prey_length <- as.numeric(as.character(Uobs_matrix$Prey_length[i]))
-            stom <- as.numeric(as.character(Uobs_matrix$Stomach_proportion_by_number[i]))
-
-            Uobs[pred, prey, pred_length, prey_length] <- stom
-        }
-
-        data_list$Uobs <- Uobs
-    }
-
-    # with year
-    if (ncol(Uobs_matrix) == 6) {
-        Uobs <- array(0, dim = c(data_list$nspp, data_list$nspp, max(data_list$nlengths), max(data_list$nlengths)))
-        dims <- dim(data_list$Uobs)
-
-        for (i in 1:nrow(Uobs_matrix)) {
-            pred <- as.numeric(as.character(Uobs_matrix$Pred[i]))
-            prey <- as.numeric(as.character(Uobs_matrix$Prey[i]))
-            pred_length <- as.numeric(as.character(Uobs_matrix$Pred_length[i]))
-            prey_length <- as.numeric(as.character(Uobs_matrix$Prey_length[i]))
-            year <- as.numeric(as.character(Uobs_matrix$Year[i]))
-            stom <- as.numeric(as.character(Uobs_matrix$Stomach_proportion_by_number[i]))
-
-            Uobs[pred, prey, pred_length, prey_length, year] <- stom
-        }
-
-        data_list$Uobs <- Uobs
-    }
-
-
-
-    # Diet UobsWt
-    UobsWt_matrix <- as.data.frame(readxl::read_xlsx(file, sheet = "UobsWt"))
-
-    # without year
-    if (ncol(UobsWt_matrix) == 5) {
-        UobsWt <- array(0, dim = c(data_list$nspp, data_list$nspp, max(data_list$nlengths), max(data_list$nlengths)))
-        dims <- dim(data_list$UobsWt)
-
-        for (i in 1:nrow(UobsWt_matrix)) {
-            pred <- as.numeric(as.character(UobsWt_matrix$Pred[i]))
-            prey <- as.numeric(as.character(UobsWt_matrix$Prey[i]))
-            pred_length <- as.numeric(as.character(UobsWt_matrix$Pred_length[i]))
-            prey_length <- as.numeric(as.character(UobsWt_matrix$Prey_length[i]))
-            stom <- as.numeric(as.character(UobsWt_matrix$Stomach_proportion_by_weight[i]))
-
-            UobsWt[pred, prey, pred_length, prey_length] <- stom
-        }
-
-        data_list$UobsWt <- UobsWt
-    }
-
-    # with year
-    if (ncol(UobsWt_matrix) == 6) {
-        UobsWt <- array(0, dim = c(data_list$nspp, data_list$nspp, max(data_list$nlengths), max(data_list$nlengths)))
-        dims <- dim(data_list$UobsWt)
-
-        for (i in 1:nrow(UobsWt_matrix)) {
-            pred <- as.numeric(as.character(UobsWt_matrix$Pred[i]))
-            prey <- as.numeric(as.character(UobsWt_matrix$Prey[i]))
-            pred_length <- as.numeric(as.character(UobsWt_matrix$Pred_length[i]))
-            prey_length <- as.numeric(as.character(UobsWt_matrix$Prey_length[i]))
-            year <- as.numeric(as.character(UobsWt_matrix$Year[i]))
-            stom <- as.numeric(as.character(UobsWt_matrix$Stomach_proportion_by_weight[i]))
-
-            UobsWt[pred, prey, pred_length, prey_length, year] <- stom
-        }
-
-        data_list$UobsWt <- UobsWt
-    }
 
 
     # write the data

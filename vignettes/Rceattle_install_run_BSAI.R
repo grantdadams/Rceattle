@@ -34,7 +34,6 @@ Rceattle::write_data(data_list = BS2017SS, file = "BS2017SS.xlsx")
 mydata <- Rceattle::read_data( file = "BS2017SS.xlsx")
 
 
-
 ################################################
 # Estimation
 ################################################

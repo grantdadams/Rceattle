@@ -447,8 +447,6 @@ Type objective_function<Type>::operator() () {
   // 2.3.6. Diet data
   DATA_VECTOR( fday );                    // number of foraging days for each predator; n = [1, nspp] #FIXME - assuming this is the same as fdays
   DATA_ARRAY( Pyrs );                     // n = [nspp, nyrs+1, nages]: #FIXME - Assuming this is the same as Pby_yr?
-  DATA_ARRAY( Uobs );                     // pred, prey, predL, preyL U matrix (mean number of prey in each pred); n = [nspp, nspp, maxL, maxL]
-  DATA_ARRAY( UobsWt );                   // pred, prey, predL, preyL U matrix (mean wt_hat of prey in each pred); n = [nspp, nspp, maxL, maxL] #FIXME - Changed name in stomach2017.dat
   DATA_MATRIX( UobsAge );                 // pred, prey, predA, preyA U observations (mean number of prey in each pred age); n = [nspp, nspp, max_age, max_age]
   DATA_IMATRIX( UobsAge_ctl );            // Info on pred, prey, predA, preyA U matrix (mean number of prey in each pred age); n = [nspp, nspp, max_age, max_age]
   DATA_MATRIX( UobsWtAge );               // pred, prey, predA, preyA U observations (mean wt_hat of prey in each pred age); n = [nspp, nspp, max_age, max_age]
@@ -652,6 +650,8 @@ Type objective_function<Type>::operator() () {
   array<Type>   suma_suit(nspp, 2, max_age, nyrs); suma_suit.setZero();                       // Sum of suitabilities; n = [nyrs, 2 sexes, nages, nspp]
   matrix<Type>  UobsAge_hat = UobsAge; UobsAge.setZero();                                     // Estimated stomach proportion by weight U; n = [nspp, nspp, nages, nages, nyrs]
   matrix<Type>  UobsWtAge_hat = UobsWtAge; UobsWtAge_hat.setZero();                           // Estimated stomach proportion by weight U; n = [nspp, nspp, nages, nages, nyrs]
+  array<Type>   Uobs(nspp, nspp, max_bin, max_bin);Uobs.setZero();                            // pred, prey, predL, preyL U matrix (mean number of prey in each pred); n = [nspp, nspp, maxL, maxL]
+  array<Type>   UobsWt(nspp, nspp, max_bin, max_bin);UobsWt.setZero();                         // pred, prey, predL, preyL U matrix (mean wt_hat of prey in each pred); n = [nspp, nspp, maxL, maxL] #FIXME - Changed name in stomach2017.dat
 
   // -- 4.9. Kinzey selectivity
   vector<Type> gam_a = exp(log_gam_a); // Predator selectivity
@@ -722,10 +722,10 @@ Type objective_function<Type>::operator() () {
         for (yr = 0; yr < nyrs; yr++) {
           // Hindcast
           if(yr < nyrs_hind){
-            LbyAge( sp, sex, age, yr) = ( pow( ( 1 / aLW(0, sp) ), (1 / aLW(1, sp) ) ) )  * pow( ( wt(pop_wt_index(sp), sex, age, yr) * 1000), (1 / aLW(1, sp))); // W = a L ^ b is the same as (W/a)^(1/b)
+            LbyAge( sp, sex, age, yr) = ( pow( ( 1 / aLW(sp, 0) ), (1 / aLW(sp, 1) ) ) )  * pow( ( wt(pop_wt_index(sp), sex, age, yr) * 1000), (1 / aLW(sp, 1))); // W = a L ^ b is the same as (W/a)^(1/b)
           }
           if(yr >= nyrs_hind){
-            LbyAge( sp, sex, age, yr) = ( pow( ( 1 / aLW(0, sp) ), (1 / aLW(1, sp) ) ) )  * pow( ( wt( pop_wt_index(sp), sex, age, (nyrs_hind - 1) ) * 1000), (1 / aLW(1, sp))); // W = a L ^ b is the same as (W/a)^(1/b)
+            LbyAge( sp, sex, age, yr) = ( pow( ( 1 / aLW(sp, 0) ), (1 / aLW(sp, 1) ) ) )  * pow( ( wt( pop_wt_index(sp), sex, age, (nyrs_hind - 1) ) * 1000), (1 / aLW(sp, 1))); // W = a L ^ b is the same as (W/a)^(1/b)
           }
         }
       }
