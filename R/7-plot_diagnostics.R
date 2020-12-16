@@ -56,15 +56,15 @@ plot_index <- function(Rceattle,
 
     # Get observed
     Srv_list[[i]] <- Rceattle[[i]]$data_list$srv_biom
-    Srv_list[[i]]$CV <- Rceattle[[i]]$quantities$srv_cv_hat
-    Srv_list[[i]]$Upper95 <- qlnorm(0.975, meanlog = log(Srv_list[[i]]$Observation), sdlog = Srv_list[[i]]$CV)
-    Srv_list[[i]]$Lower95 <- qlnorm(0.025, meanlog = log(Srv_list[[i]]$Observation), sdlog = Srv_list[[i]]$CV)
+    Srv_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$srv_log_sd_hat
+    Srv_list[[i]]$Upper95 <- qlnorm(0.975, meanlog = log(Srv_list[[i]]$Observation), sdlog = Srv_list[[i]]$Log_sd)
+    Srv_list[[i]]$Lower95 <- qlnorm(0.025, meanlog = log(Srv_list[[i]]$Observation), sdlog = Srv_list[[i]]$Log_sd)
 
 
     # Get estimated
     Srv_hat_list[[i]] <- Rceattle[[i]]$data_list$srv_biom
     Srv_hat_list[[i]]$Observation <- Rceattle[[i]]$quantities$srv_bio_hat
-    Srv_hat_list[[i]]$CV <- Rceattle[[i]]$quantities$srv_cv_hat
+    Srv_hat_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$srv_log_sd_hat
   }
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
   nyrs_vec <- sapply(Years, length)
@@ -282,19 +282,19 @@ plot_catch <- function(Rceattle,
 
     # Get observed
     fsh_list[[i]] <- Rceattle[[i]]$data_list$fsh_biom[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% Years[[i]] ),]
-    fsh_list[[i]]$CV <- Rceattle[[i]]$quantities$fsh_cv_hat[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% Years[[i]] )]
+    fsh_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$fsh_log_sd_hat[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% Years[[i]] )]
 
     no_zero <- which(fsh_list[[i]]$Catch > 0)
     fsh_list[[i]]$Lower95 <- 0
     fsh_list[[i]]$Upper95 <- 0
-    fsh_list[[i]]$Upper95[no_zero]  <- qlnorm(0.975, meanlog = log(fsh_list[[i]]$Catch[no_zero]), sdlog = fsh_list[[i]]$CV[no_zero])
-    fsh_list[[i]]$Lower95[no_zero]  <- qlnorm(0.025, meanlog = log(fsh_list[[i]]$Catch[no_zero]), sdlog = fsh_list[[i]]$CV[no_zero])
+    fsh_list[[i]]$Upper95[no_zero]  <- qlnorm(0.975, meanlog = log(fsh_list[[i]]$Catch[no_zero]), sdlog = fsh_list[[i]]$Log_sd[no_zero])
+    fsh_list[[i]]$Lower95[no_zero]  <- qlnorm(0.025, meanlog = log(fsh_list[[i]]$Catch[no_zero]), sdlog = fsh_list[[i]]$Log_sd[no_zero])
 
 
     # Get estimated
     fsh_hat_list[[i]] <- Rceattle[[i]]$data_list$fsh_biom[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% Years[[i]] ),]
     fsh_hat_list[[i]]$Catch <- Rceattle[[i]]$quantities$fsh_bio_hat[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% Years[[i]] )]
-    fsh_hat_list[[i]]$CV <- Rceattle[[i]]$quantities$fsh_cv_hat[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% Years[[i]] )]
+    fsh_hat_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$fsh_log_sd_hat[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% Years[[i]] )]
   }
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
   nyrs_vec <- sapply(Years, length)
@@ -511,15 +511,15 @@ plot_logindex <- function(Rceattle,
 
     # Get observed
     Srv_list[[i]] <- Rceattle[[i]]$data_list$srv_biom
-    Srv_list[[i]]$CV <- Rceattle[[i]]$quantities$srv_cv_hat
-    Srv_list[[i]]$Upper95 <- qlnorm(0.975, meanlog = log(Srv_list[[i]]$Observation), sdlog = Srv_list[[i]]$CV)
-    Srv_list[[i]]$Lower95 <- qlnorm(0.025, meanlog = log(Srv_list[[i]]$Observation), sdlog = Srv_list[[i]]$CV)
+    Srv_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$srv_log_sd_hat
+    Srv_list[[i]]$Upper95 <- qlnorm(0.975, meanlog = log(Srv_list[[i]]$Observation), sdlog = Srv_list[[i]]$Log_sd)
+    Srv_list[[i]]$Lower95 <- qlnorm(0.025, meanlog = log(Srv_list[[i]]$Observation), sdlog = Srv_list[[i]]$Log_sd)
 
 
     # Get estimated
     Srv_hat_list[[i]] <- Rceattle[[i]]$data_list$srv_biom
     Srv_hat_list[[i]]$Observation <- Rceattle[[i]]$quantities$srv_bio_hat
-    Srv_hat_list[[i]]$CV <- Rceattle[[i]]$quantities$srv_cv_hat
+    Srv_hat_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$srv_log_sd_hat
   }
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
   nyrs_vec <- sapply(Years, length)

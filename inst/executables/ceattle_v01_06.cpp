@@ -597,7 +597,7 @@ Type objective_function<Type>::operator() () {
   array<Type>   F40_tot(nspp, 2, max_age); F40_tot.setZero();                       // Estimated fishing mortality for each species that leads to SB40; n = [nspp, 2 sexes, nages]
   array<Type>   F_tot(nspp, 2, max_age, nyrs+1); F_tot.setZero();                   // Sum of annual estimated fishing mortalities for each species-at-age; n = [nspp, 2 sexes, nages, nyrs]
   vector<Type>  fsh_bio_hat(fsh_biom_obs.rows()); fsh_bio_hat.setZero();            // Estimated fishery yield (kg);
-  vector<Type>  fsh_log_sd_hat(fsh_biom_obs.rows()); fsh_log_sd_hat.setZero();              // Estimated/fixed fishery log_sd (kg);
+  vector<Type>  fsh_log_sd_hat(fsh_biom_obs.rows()); fsh_log_sd_hat.setZero();      // Estimated/fixed fishery log_sd (kg);
   array<Type>   NbyageSPR(3, nspp, max_age);                                        // Estimated numbers at age for spawning biomass per recruit reference points
   vector<Type>  SB35(nspp); SB35.setZero();                                         // Estimated 35% spawning biomass per recruit
   vector<Type>  SB40(nspp); SB40.setZero();                                         // Estimated 40% spawning biomass per recruit
@@ -612,7 +612,7 @@ Type objective_function<Type>::operator() () {
   vector<Type>  time_varying_sigma_srv_q(n_flt); time_varying_sigma_srv_q.setZero();// Vector of standard deviation of time-varying survey catchability deviation; n = [1, n_srv]
   Type avgsel_tmp = 0;                                                              // Temporary object for average selectivity across all ages
   vector<Type>  srv_bio_hat(srv_biom_obs.rows()); srv_bio_hat.setZero();            // Estimated survey biomass (kg)
-  vector<Type>  srv_log_sd_hat(srv_biom_obs.rows()); srv_log_sd_hat.setZero();              // Estimated/fixed survey log_sd (kg)
+  vector<Type>  srv_log_sd_hat(srv_biom_obs.rows()); srv_log_sd_hat.setZero();      // Estimated/fixed survey log_sd (kg)
   vector<Type>  sigma_srv_analytical(n_flt); sigma_srv_analytical.setZero();        // Temporary vector to save analytical sigma follow Ludwig and Walters 1994
   vector<Type>  srv_q_analytical(n_flt); srv_q_analytical.setZero();                // Temporary vector to save analytical sigma follow Ludwig and Walters 1994
   matrix<Type>  srv_q(n_flt, nyrs_hind); srv_q.setZero();                           // Estimated survey catchability
@@ -3036,6 +3036,8 @@ Type objective_function<Type>::operator() () {
     flt = fsh_biom_ctl(fsh_ind, 0) - 1;            // Temporary fishery index
     sp = fsh_biom_ctl(fsh_ind, 1) - 1;             // Species is the column 3
     flt_yr = fsh_biom_ctl(fsh_ind, 2);             // Temporary index for years of data
+    yr = flt_yr - styr;                            // Temporary index of years. Start at 0.
+
     if(flt_yr > 0){
 
       // Set up variance
@@ -3062,6 +3064,10 @@ Type objective_function<Type>::operator() () {
               fsh_biom_obs(fsh_ind, 0) = rnorm(log(fsh_bio_hat(fsh_ind)), fsh_std_dev);  // Simulate response
               fsh_biom_obs(fsh_ind, 0) = exp(fsh_biom_obs(fsh_ind, 0));
             }
+
+
+          // Slot 12 -- Epsilon -- Annual fishing mortality deviation
+            jnll_comp(12, flt) += square(F_dev(flt, yr));      // Fishing mortality deviation using penalized likelihood.
           }
         }
       }
@@ -3345,23 +3351,6 @@ Type objective_function<Type>::operator() () {
     }
   }
 
-
-  // Slot 12 -- Epsilon -- Annual fishing mortality deviation
-  for (flt = 0; flt < n_flt; flt++) {
-    // If included in likelihood
-    if(flt_type(flt) == 1){
-      for (yr = 0; yr < nyrs_hind; yr++) {
-        jnll_comp(12, flt) += square(F_dev(flt, yr));      // Fishing mortality deviation using penalized likelihood.
-      }
-      // Sum to zero constraint
-      Type f_dev_sum = 0;
-
-      for(yr = 0; yr < nyrs_hind; yr++){
-        f_dev_sum += F_dev(flt, yr);
-      }
-      jnll_comp(12, flt) += square(f_dev_sum) * 10000;
-    }
-  }
 
   // Slot 13 -- SPR reference point penalties
   for (sp = 0; sp < nspp; sp++) {
