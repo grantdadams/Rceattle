@@ -19,7 +19,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   nyrs_hind <- data_list$endyr - data_list$styr + 1
   nyrs_proj <- data_list$projyr - data_list$styr + 1
   yrs_proj <- (nyrs_hind + 1):nyrs_proj
-  if(nyrs_hind ==nyrs_proj){
+  if(nyrs_hind == nyrs_proj){
     yrs_proj = NULL
   }
 
