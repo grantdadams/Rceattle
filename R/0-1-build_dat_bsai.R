@@ -272,6 +272,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   dat_list$proj_F <- rep(0, 3)
   dat_list$est_sex_ratio <-  rep(NA, 3)
   dat_list$sex_ratio_sigma <- rep(NA, 3)
+  dat_list$Cindex <- rep(1, 3) # Environmental T index to use
   dat_list$fleet_control$proj_F_prop <- proj_F_prop
 
   #---------------------------------------------------------------------
@@ -513,8 +514,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   # Change WT format
   ###########################
   yrs <- dat_list$styr:dat_list$endyr
-  wt_new <- data.frame(Wt_name = rep(c("Pollock", "Cod", "ATF"), each = length(yrs)), Wt_index = rep(1:3, each = length(yrs)), Species = rep(1:3, each = length(yrs)), Year = rep(yrs, 3))
-  wt_new$Sex = 0
+  wt_new <- data.frame(Wt_name = rep(c("Pollock", "Cod", "ATF"), each = length(yrs)), Wt_index = rep(1:3, each = length(yrs)), Species = rep(1:3, each = length(yrs)), Sex = rep(0, length(yrs) * 3), Year = rep(yrs, 3))
 
   wt_temp <- rbind(dat_list$wt[,,1], dat_list$wt[,,2])
   wt_temp <- rbind(wt_temp, dat_list$wt[,,3])
@@ -623,11 +623,14 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   dat_list$UobsWtAge <- UobsWtAge[which(complete.cases(UobsWtAge)),]
 
 
+  dat_list$env_data <- data.frame(Year = dat_list$Tyrs, BTempC = dat_list$BTempC)
+
+
 
   #---------------------------------------------------------------------
   # Final Step -- Remove unwanted bits
   #---------------------------------------------------------------------
-  names_not_in_cpp <- c(names_not_in_cpp,  "BTempC_retro", "propMorF" , "srv_sel_type", "srv_age_type", "fsh_age_bins", "fsh_comp", "srv_comp", "Uobs", "UobsWt")
+  names_not_in_cpp <- c(names_not_in_cpp,  "BTempC_retro", "propMorF" , "srv_sel_type", "srv_age_type", "fsh_age_bins", "fsh_comp", "srv_comp", "Uobs", "UobsWt", "BTempC", "Tyrs")
 
   '%!in%' <- function(x,y)!('%in%'(x,y))
   dat_list2 <- list()
@@ -636,9 +639,13 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   names_in_cpp <- c(names_in_cpp, "comp_data", "NByageFixed", "estDynamics",
                     "emp_sel", "fleet_control",
                     "fsh_comp", "srv_comp",
-                    "fsh_biom", "srv_biom", "proj_F_prop", "proj_F", "minage", "sigma_rec_prior", "spnames", "nsex", "R_sexr", "ssb_wt_index", "spawn_month", "est_sex_ratio", "sex_ratio_sigma", "sex_ratio")
+                    "fsh_biom", "srv_biom", "proj_F_prop", "proj_F", "minage", "sigma_rec_prior", "spnames", "nsex", "R_sexr", "ssb_wt_index", "spawn_month", "est_sex_ratio", "sex_ratio_sigma", "sex_ratio", "env_data", "Cindex")
+
+  # Remove
   names_in_cpp <- names_in_cpp[-which(names_in_cpp == "Uobs")]
   names_in_cpp <- names_in_cpp[-which(names_in_cpp == "UobsWt")]
+  names_in_cpp <- names_in_cpp[-which(names_in_cpp == "BTempC")]
+  names_in_cpp <- names_in_cpp[-which(names_in_cpp == "Tyrs")]
 
   for(i in 1:length(names_in_cpp)){
     dat_list2[[names_in_cpp[i]]] <-  dat_list[[names_in_cpp[i]]]

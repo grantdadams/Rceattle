@@ -133,7 +133,7 @@ rearrange_dat <- function(data_list){
   # Rearrange age_error matrices
   arm <- array(0, dim = c(data_list$nspp, max(data_list$nages, na.rm = T), max(data_list$nages, na.rm = T)))
 
-
+  data_list$age_error <- as.data.frame(data_list$age_error) # FIXME: somethin is up with data.frames
   for (i in 1:nrow(data_list$age_error)) {
     sp <- as.numeric(as.character(data_list$age_error$Species[i]))
     true_age <- as.numeric(as.character(data_list$age_error$True_age[i])) - data_list$minage[sp] + 1
@@ -156,7 +156,7 @@ rearrange_dat <- function(data_list){
 
   # Normalize comp data
   for(i in 1:nrow(data_list$comp_obs)){
-    data_list$comp_obs[i,] = data_list$comp_obs[i,] / sum(data_list$comp_obs[i,], na.rm = TRUE)
+    data_list$comp_obs[i,] = as.numeric(data_list$comp_obs[i,]) / sum(as.numeric(data_list$comp_obs[i,]), na.rm = TRUE)
   }
 
   # Set up wt array
@@ -254,6 +254,11 @@ rearrange_dat <- function(data_list){
   data_list$NByageFixed <- NByageFixed
 
 
+  # Set up environmental indices
+  data_list$env_yrs <-  data_list$env_data$Year
+  data_list$env_index <-  matrix(data_list$env_data[,2:ncol(data_list$env_data)],nrow = nrow(data_list$env_data))
+
+
   # Set up pyrs array
   Pyrs <- array(0, dim = c(data_list$nspp, 2, max(data_list$nages), length(data_list$styr:data_list$endyr))) # FIXME: Change for forecast
 
@@ -265,7 +270,7 @@ rearrange_dat <- function(data_list){
     }
     yr <- as.numeric(as.character(data_list$Pyrs$Year[i])) - data_list$styr + 1
 
-    if(yr <= data_list$endyr - data_list$styr + 1){
+    if(yr <= (data_list$endyr - data_list$styr + 1)){
       Pyrs[sp, sex, 1:data_list$nages[sp], yr] <- as.numeric(as.character(as.matrix(unlist(data_list$Pyrs[i, (1:data_list$nages[sp]) + 3]))))
     }
   }
@@ -284,7 +289,7 @@ rearrange_dat <- function(data_list){
     }
   }
 
-  items_to_remove <- c("emp_sel",  "fsh_comp",    "srv_comp",    "fsh_biom",    "srv_biom", "comp_data")
+  items_to_remove <- c("emp_sel",  "fsh_comp",    "srv_comp",    "fsh_biom",    "srv_biom", "comp_data", "env_data")
   for(i in 1:length(items_to_remove)){
     data_list[[items_to_remove[i]]] <- NULL
   }

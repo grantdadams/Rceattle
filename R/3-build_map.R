@@ -474,6 +474,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     # - 2 = Estimate single parameter with prior
     # - 3 = Estimate analytical q
     # - 4 = Estimate power equation
+    # - 5 = Use env index ln(q_y) = q_mu + beta * index_y
 
     # Catchability of surveys If not estimating turn of
     if (data_list$fleet_control$Estimate_q[i] %in% c(NA, 0, 3) | data_list$fleet_control$Fleet_type[i] == 0) {
@@ -485,14 +486,14 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$ln_sigma_time_varying_srv_q[i] <- NA
     }
 
-    # Catchability power coeficient
-    if (data_list$fleet_control$Estimate_q[i] %in% c(1,2) | data_list$fleet_control$Fleet_type[i] == 0) {
+    # Just turn off catchability power coeficient for single parameter.
+    if (data_list$fleet_control$Estimate_q[i] %in% c(1,2, 3) | data_list$fleet_control$Fleet_type[i] == 0) {
       map_list$srv_q_pow[i] <- NA
     }
 
     # Time-varying catchability of surveys
-    # If not estimating turn of
-    if(data_list$fleet_control$Time_varying_q[i] %in% c(0, NA)){
+    # If not estimating turn of. Also turns off if using environmental index Est_q = 5.
+    if(data_list$fleet_control$Time_varying_q[i] %in% c(0, NA) | data_list$fleet_control$Estimate_q[i] %in% c(5)){
       map_list$ln_srv_q_dev[i,] <- NA
       map_list$ln_srv_q_dev_re[i,] <- NA
       map_list$ln_sigma_srv_q[i] <- NA
@@ -506,7 +507,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$ln_srv_q_dev_re[i,] <- NA
     }
 
-    # Random effect - map out q_sd
+    # Random effect - map out devs
     if(data_list$fleet_control$Time_varying_q[i] %in% c(2)){
       map_list$ln_srv_q_dev[i,] <- NA
     }

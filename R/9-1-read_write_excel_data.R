@@ -112,22 +112,23 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 
 
     # bioenergetics_control
-    bioenergetics_control <- matrix(NA, ncol = data_list$nspp, nrow = 11)
+    bioenergetics_control <- matrix(NA, ncol = data_list$nspp, nrow = 12)
     bioenergetics_control[1, ] <- data_list$Ceq
-    bioenergetics_control[2, ] <- data_list$Pvalue
-    bioenergetics_control[3, ] <- data_list$fday
-    bioenergetics_control[4, ] <- data_list$CA
-    bioenergetics_control[5, ] <- data_list$CB
-    bioenergetics_control[6, ] <- data_list$Qc
-    bioenergetics_control[7, ] <- data_list$Tco
-    bioenergetics_control[8, ] <- data_list$Tcm
-    bioenergetics_control[9, ] <- data_list$Tcl
-    bioenergetics_control[10, ] <- data_list$CK1
-    bioenergetics_control[11, ] <- data_list$CK4
+    bioenergetics_control[2, ] <- data_list$Cindex
+    bioenergetics_control[3, ] <- data_list$Pvalue
+    bioenergetics_control[4, ] <- data_list$fday
+    bioenergetics_control[5, ] <- data_list$CA
+    bioenergetics_control[6, ] <- data_list$CB
+    bioenergetics_control[7, ] <- data_list$Qc
+    bioenergetics_control[8, ] <- data_list$Tco
+    bioenergetics_control[9, ] <- data_list$Tcm
+    bioenergetics_control[10, ] <- data_list$Tcl
+    bioenergetics_control[11, ] <- data_list$CK1
+    bioenergetics_control[12, ] <- data_list$CK4
 
     bioenergetics_control <- as.data.frame(bioenergetics_control)
 
-    bioenergetics_control <- cbind(c("Ceq", "Pvalue", "fday", "CA", "CB", "Qc", "Tco", "Tcm", "Tcl", "CK1", "CK4"), bioenergetics_control)
+    bioenergetics_control <- cbind(c("Ceq", "Cindex","Pvalue", "fday", "CA", "CB", "Qc", "Tco", "Tcm", "Tcl", "CK1", "CK4"), bioenergetics_control)
     colnames(bioenergetics_control) <- c("Object", data_list$spnames)
     names_used <- c(names_used, as.character(bioenergetics_control$Object))
 
@@ -140,9 +141,8 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 
 
     # Temperature stuff
-    Temp_data <- data.frame(Tyrs = data_list$Tyrs, BTempC = data_list$BTempC)
-    xcel_list$Temp_data <- Temp_data
-    names_used <- c(names_used, c("Tyrs", "BTempC"))
+    xcel_list$env_data <- data_list$env_data
+    names_used <- c(names_used, c("env_data"))
 
 
 
@@ -282,9 +282,8 @@ read_data <- function(file = "Rceattle_data.xlsx") {
 
 
     # Temperature stuff
-    Temp_data <- as.data.frame(readxl::read_xlsx(file, sheet = "Temp_data"))
-    data_list$Tyrs <- Temp_data$Tyrs
-    data_list$BTempC <- Temp_data$BTempC
+    env_data <- as.data.frame(readxl::read_xlsx(file, sheet = "env_data"))
+    data_list$env_data <- env_data
 
 
 
