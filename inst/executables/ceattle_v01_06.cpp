@@ -454,15 +454,16 @@ Type objective_function<Type>::operator() () {
   DATA_ARRAY( Mn_LatAge );                // Mean length-at-age; n = [nspp, sex, nages], ALSO: mean_laa in Kinzey
 
   // 2.3.7. Environmental data
-  DATA_IVECTOR( Tyrs );                   // Years of hindcast data; n = [1, nTyrs] #FIXME - changed the name of this in retro_data2017_asssmnt.dat
-  DATA_VECTOR( BTempC );                  // Vector of bottom temperature; n = [1,  nTyrs ]
-  int nTyrs = Tyrs.size();                // Number of temperature years; n = [1] #FIXME - changed the name of this in retro_data2017_asssmnt.dat
+  DATA_IVECTOR( env_yrs );                // Years of hindcast data; n = [1, nTyrs] #FIXME - changed the name of this in retro_data2017_asssmnt.dat
+  DATA_MATRIX( env_index );               // Matrix o environmental predictors such as bottom temperature; n = [1,  nTyrs ]
+  int nTyrs = env_yrs.size();             // Number of temperature years; n = [1] #FIXME - changed the name of this in retro_data2017_asssmnt.dat
 
   // 2.4. INPUT PARAMETERS
   // -- 2.4.1. Bioenergetics parameters (BP)
   DATA_VECTOR( other_food );              // Biomass of other prey (kg); n = [1, nspp]
   DATA_VECTOR( Pvalue );                  // This scales the pvalue used, proportion of Cmax; Pvalue is P in Cmax*fT*Pvalue*PAge; n = [1, nspp]
   DATA_IVECTOR( Ceq );                    // Ceq: which Comsumption equation to use; n = [1, nspp]; Currently all sp = 1
+  DATA_IVECTOR( Cindex );                 // Cindex, which environmental index in env_index should drive bioenergetics.
   DATA_VECTOR( CA );                      // Wt specific intercept of Cmax=CA*W^CB; n = [1, nspp]
   DATA_VECTOR( CB );                      // Wt specific slope of Cmax=CA*W^CB; n = [1, nspp]
   DATA_VECTOR( Qc );                      // used in fT, QC value; n = [1, nspp]
@@ -509,7 +510,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 3.4. Survey catchability parameters
   PARAMETER_VECTOR( ln_srv_q );                   // Survey catchability; n = [n_srv]
-  PARAMETER_VECTOR( srv_q_pow );                  // Survey catchability power coefficient q * B ^ q_pow; n = [n_srv]
+  PARAMETER_VECTOR( srv_q_pow );                  // Survey catchability power coefficient q * B ^ q_pow or beta ln(q_y) = q_mut + beta * index_y; n = [n_srv]
   PARAMETER_MATRIX( ln_srv_q_dev );               // Annual survey catchability deviates; n = [n_srv, nyrs_hind]
   PARAMETER_MATRIX( ln_srv_q_dev_re );            // Annual survey catchability random effect deviates; n = [n_srv, nyrs_hind]
   PARAMETER_VECTOR( ln_sigma_srv_q );             // Log standard deviation of prior on survey catchability; n = [1, n_srv]
@@ -631,7 +632,7 @@ Type objective_function<Type>::operator() () {
   array<Type>   LbyAge( nspp, 2, max_age, nyrs ); LbyAge.setZero();                 // Length by age from LW regression
   matrix<Type>  mnWt_obs( nspp, max_age ); mnWt_obs.setZero();                      // Mean observed weight at age (across years); n = [nspp, nages]
   array<Type>   ration2Age( nspp, 2, max_age, nyrs ); ration2Age.setZero();         // Annual ration at age (kg/yr); n = [nyrs, nages, nspp]
-  vector<Type>  TempC( nyrs ); TempC.setZero();                                     // Bottom temperature; n = [1, nTyrs]
+  matrix<Type>  env_index_hat( nyrs, env_index.cols() ); env_index_hat.setZero();   // Environmental indices like bottom temperature; n = [1, nTyrs]
 
   // -- 4.8. Suitability components
   array<Type>   avail_food(nspp, 2, max_age, nyrs); avail_food.setZero();                        // Available food to predator; n = [nspp, 2 sexes, nages, nyrs]
@@ -704,15 +705,22 @@ Type objective_function<Type>::operator() () {
   }
 
   // 5.6. Calculate temperature to use
-  TempC = BTempC.sum() / nTyrs; // Fill with average bottom temperature
-
-  yr_ind = 0;
-  for (yr = 0; yr < nTyrs; yr++) {
-    yr_ind = Tyrs( yr ) - styr;
-    if ((yr_ind >= 0) & (yr_ind < nyrs)) {
-      TempC(yr_ind) = BTempC( yr );
+  for(int i = 0; i < env_index.cols(); i++){
+    Type env_mu = env_index.col(i).sum() / nTyrs; // Fill with average bottom temperature
+    for(yr = 0; yr < nyrs; yr++){
+      env_index_hat(yr, i) = env_mu; // Fill in missing years with average
     }
   }
+
+for(int i = 0; i < env_index.cols(); i++){
+  yr_ind = 0;
+  for (yr = 0; yr < nTyrs; yr++) {
+    yr_ind = env_yrs( yr ) - styr;
+    if ((yr_ind >= 0) & (yr_ind < nyrs)) {
+      env_index_hat(yr_ind, i) = env_index( yr , i );
+    }
+  }
+}
 
 
   // 5.7. Calculate length-at-age
@@ -741,6 +749,7 @@ Type objective_function<Type>::operator() () {
   sigma_srv_q = exp(ln_sigma_srv_q) ;
   time_varying_sigma_srv_q = exp(ln_sigma_time_varying_srv_q) ;
   sex_ratio_sigma = exp(ln_sex_ratio_sigma);
+  Cindex -=1; // Subtract 1 from Cindex to deal with indexing start at 0
 
 
   // 5.1. Reorganize survey control bits
@@ -790,7 +799,7 @@ Type objective_function<Type>::operator() () {
   // Set up survey q
   for(flt = 0; flt < n_flt; flt++){
     for(yr = 0; yr < nyrs_hind; yr++){
-      // Random walk
+      // Random walk, penalized deviate
       if(srv_varying_q(flt) != 2){
         srv_q(flt, yr) = exp(ln_srv_q(flt) + ln_srv_q_dev(flt, yr));                 // Exponentiate
       }
@@ -798,6 +807,11 @@ Type objective_function<Type>::operator() () {
       // Random effect
       if(srv_varying_q(flt) == 2){
         srv_q(flt, yr) = exp(ln_srv_q(flt) + ln_srv_q_dev_re(flt, yr));                 // Exponentiate
+      }
+
+      // Q as a function of environmental index
+      if(est_srv_q(flt) == 5){
+        srv_q(flt, yr) = exp(ln_srv_q(flt) + srv_q_pow(flt) * env_index_hat(yr, srv_varying_q(flt)));
       }
     }
   }
@@ -1426,14 +1440,14 @@ Type objective_function<Type>::operator() () {
 
         // Exponential function from Stewart et al. 1983
         if ( Ceq(sp) == 1) {
-          fT(sp, yr) = exp(Qc(sp) * TempC(yr));
+          fT(sp, yr) = exp(Qc(sp) * env_index_hat(yr, Cindex(sp)));
         }
 
         // Temperature dependence for warm-water-species from Kitchell et al. 1977
         if ( Ceq(sp) == 2) {
           Yc = log( Qc(sp) ) * (Tcm(sp) - Tco(sp) + 2);
           Zc = log( Qc(sp) ) * (Tcm(sp) - Tco(sp));
-          Vc = (Tcm(sp) - TempC(yr)) / (Tcm(sp) - Tco(sp));
+          Vc = (Tcm(sp) - env_index_hat(yr, Cindex(sp))) / (Tcm(sp) - Tco(sp));
           Xc = pow(Zc, 2) * pow((1 + pow((1 + 40 / Yc), 0.5)), 2) / 400;
           fT(sp, yr) = pow(Vc, Xc) * exp(Xc * (1 - Vc));
         }
@@ -1441,10 +1455,10 @@ Type objective_function<Type>::operator() () {
         // Temperature dependence for cool and cold-water species from Thornton and Lessem 1979
         if (Ceq(sp) == 3) {
           G2 = (1 / (Tcl(sp) - Tcm(sp))) * log((0.98 * (1 - CK4(sp))) / (CK4(sp) * 0.02));
-          L2 = exp(G2 * (Tcl( sp ) - TempC( yr )));
+          L2 = exp(G2 * (Tcl( sp ) -  env_index_hat(yr, Cindex(sp))));
           Kb = (CK4(sp) * L2) / (1 + CK4(sp) * (L2 - 1));
           G1 = (1 / (Tco(sp) - Qc(sp))) * log((0.98 * (1 - CK1(sp))) / (CK1(sp) * 0.02));
-          L1 = exp(G1 * (TempC(yr) - Qc(sp)));
+          L1 = exp(G1 * (env_index_hat(yr, Cindex(sp)) - Qc(sp)));
           Ka = (CK1(sp) * L1) / (1 + CK1(sp) * (L1 - 1));
           fT(sp, yr) = Ka * Kb;
         }
@@ -3588,7 +3602,7 @@ Type objective_function<Type>::operator() () {
   REPORT( LbyAge );
   REPORT( mnWt_obs );
   REPORT( fT );
-  REPORT( TempC );
+  REPORT( env_index_hat );
   REPORT( ration2Age );
 
 
