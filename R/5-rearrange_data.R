@@ -256,7 +256,8 @@ rearrange_dat <- function(data_list){
 
   # Set up environmental indices
   data_list$env_yrs <-  data_list$env_data$Year
-  data_list$env_index <-  matrix(data_list$env_data[,2:ncol(data_list$env_data)],nrow = nrow(data_list$env_data))
+  env_cols <- ncol(data_list$env_data) - 1
+  data_list$env_index <-  as.matrix(data_list$env_data[,2:ncol(data_list$env_data)],ncol = env_cols)
 
 
   # Set up pyrs array

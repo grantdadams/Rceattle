@@ -2,7 +2,7 @@
 % Please edit documentation in R/0-combine_data_sets.R
 \name{combine_data}
 \alias{combine_data}
-\title{Combine data sets. Will use the temperature data set from data_set1 and diet data will have to be updated.}
+\title{Combine data sets. Will use the env_data data set from data_set1 and diet data will have to be updated.}
 \usage{
 combine_data(data_list1 = NULL, data_list2 = NULL)
 }
@@ -10,5 +10,5 @@ combine_data(data_list1 = NULL, data_list2 = NULL)
 \item{data_list2}{}
 }
 \description{
-Combine data sets. Will use the temperature data set from data_set1 and diet data will have to be updated.
+Combine data sets. Will use the env_data data set from data_set1 and diet data will have to be updated.
 }

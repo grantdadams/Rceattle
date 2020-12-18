@@ -1,4 +1,4 @@
-#' Combine data sets. Will use the temperature data set from data_set1 and diet data will have to be updated.
+#' Combine data sets. Will use the env_data data set from data_set1 and diet data will have to be updated.
 #'
 #' @param data_list1
 #' @param data_list2
@@ -13,9 +13,9 @@ combine_data <- function(data_list1 = NULL, data_list2 = NULL){
 
   names_not_used <- c("nspp", "styr", "endyr", "projyr")
 
-  vec_names <- c("spnames", "nsex", "spawn_month", "R_sexr", "nages", "minage", "nlengths","pop_wt_index", "ssb_wt_index", "pop_alk_index", "sigma_rec_prior", "other_food", "estDynamics", "proj_F", "est_sex_ratio", "sex_ratio_sigma","Ceq", "Pvalue", "fday", "CA","CB", "Qc", "Tco",  "Tcm",  "Tcl",  "CK1", "CK4") # Object names of vectors
+  vec_names <- c("spnames", "nsex", "spawn_month", "R_sexr", "nages", "minage", "nlengths","pop_wt_index", "ssb_wt_index", "pop_alk_index", "sigma_rec_prior", "other_food", "estDynamics", "proj_F", "est_sex_ratio", "sex_ratio_sigma","Ceq", "Cindex","Pvalue", "fday", "CA","CB", "Qc", "Tco",  "Tcm",  "Tcl",  "CK1", "CK4") # Object names of vectors
 
-  mat_names <- c("fleet_control", "srv_biom", "fsh_biom", "comp_data", "emp_sel", "NByageFixed", "age_trans_matrix", "age_error", "wt",   "pmature", "sex_ratio", "M1_base", "Mn_LatAge", "aLW", "Pyrs", "UobsAge", "UobsWtAge", "Tyrs", "BTempC") # Object names of matrices
+  mat_names <- c("fleet_control", "srv_biom", "fsh_biom", "comp_data", "emp_sel", "NByageFixed", "age_trans_matrix", "age_error", "wt",   "pmature", "sex_ratio", "M1_base", "Mn_LatAge", "aLW", "Pyrs", "UobsAge", "UobsWtAge", "env_data") # Object names of matrices
 
   # Get index from data_set1 of the 4 indices
   fleet_index1 <- max(data_list1$fleet_control$Fleet_code, na.rm = TRUE)
