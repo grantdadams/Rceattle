@@ -40,12 +40,22 @@ build_bounds <- function(param_list = NULL, data_list) {
 
     # Selectivity deviates
     # - Slope
-    lower_bnd$ln_sel_slp_dev <- replace(lower_bnd$ln_sel_slp_dev, values = rep(-5, length(lower_bnd$ln_sel_slp_dev)))
-    upper_bnd$ln_sel_slp_dev <- replace(upper_bnd$ln_sel_slp_dev, values = rep(5, length(upper_bnd$ln_sel_slp_dev)))
+    for(i in 1:nrow(data_list$fleet_control)){
+        # If using blocks don't put bounds on deviates, as these are estimated
+        if(data_list$fleet_control$Time_varying_sel[i] != 3){
+            lower_bnd$ln_sel_slp_dev[,i,,] <- replace(lower_bnd$ln_sel_slp_dev[,i,,], values = rep(-5, length(lower_bnd$ln_sel_slp_dev[,i,,])))
+            upper_bnd$ln_sel_slp_dev[,i,,] <- replace(upper_bnd$ln_sel_slp_dev[,i,,], values = rep(5, length(upper_bnd$ln_sel_slp_dev[,i,,])))
+        }
+    }
 
     # - Asymptotic
-    lower_bnd$sel_inf_dev <- replace(lower_bnd$sel_inf_dev, values = rep(-5, length(lower_bnd$sel_inf_dev)))
-    upper_bnd$sel_inf_dev <- replace(upper_bnd$sel_inf_dev, values = rep(5, length(upper_bnd$sel_inf_dev)))
+    for(i in 1:nrow(data_list$fleet_control)){
+        # If using blocks don't put bounds on deviates, as these are estimated
+        if(data_list$fleet_control$Time_varying_sel[i] != 3){
+            lower_bnd$sel_inf_dev[,i,,] <- replace(lower_bnd$sel_inf_dev[,i,,], values = rep(-5, length(lower_bnd$sel_inf_dev[,i,,])))
+            upper_bnd$sel_inf_dev[,i,,] <- replace(upper_bnd$sel_inf_dev[,i,,], values = rep(5, length(upper_bnd$sel_inf_dev[,i,,])))
+        }
+    }
 
 
 
@@ -73,7 +83,7 @@ build_bounds <- function(param_list = NULL, data_list) {
 
     # Make sure inits are within bounds
     if (sum(unlist(bounds$upper) < as.numeric(unlist(param_list)), na.rm = TRUE) > 0 | sum(as.numeric(unlist(param_list)) <
-        unlist(bounds$lower), na.rm = TRUE) > 0) {
+                                                                                           unlist(bounds$lower), na.rm = TRUE) > 0) {
         lower_check <- param_list
         upper_check <- param_list
         param_check <- data.frame(matrix(NA, nrow = length(param_list), ncol = 3))
