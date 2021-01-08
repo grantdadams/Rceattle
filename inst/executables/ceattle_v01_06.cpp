@@ -712,15 +712,15 @@ Type objective_function<Type>::operator() () {
     }
   }
 
-for(int i = 0; i < env_index.cols(); i++){
-  yr_ind = 0;
-  for (yr = 0; yr < nTyrs; yr++) {
-    yr_ind = env_yrs( yr ) - styr;
-    if ((yr_ind >= 0) & (yr_ind < nyrs)) {
-      env_index_hat(yr_ind, i) = env_index( yr , i );
+  for(int i = 0; i < env_index.cols(); i++){
+    yr_ind = 0;
+    for (yr = 0; yr < nTyrs; yr++) {
+      yr_ind = env_yrs( yr ) - styr;
+      if ((yr_ind >= 0) & (yr_ind < nyrs)) {
+        env_index_hat(yr_ind, i) = env_index( yr , i );
+      }
     }
   }
-}
 
 
   // 5.7. Calculate length-at-age
@@ -767,7 +767,7 @@ for(int i = 0; i < env_index.cols(); i++){
   vector<int> flt_wt_index(n_flt); flt_wt_index.setZero();                      // Vector to save 1st dim of wt to use for weight-at-age
   vector<int> flt_alk_index(n_flt); flt_alk_index.setZero();                    // Vector to save 3rd dim of age_trans_matrix to use for ALK
   vector<int> flt_q_ind(n_flt); flt_q_ind.setZero();                            // Vector storing index of survey q for mapping
-  vector<int> est_srv_q(n_flt); est_srv_q.setZero();                            // Vector to save wether or not analytical q is used
+  vector<int> est_srv_q(n_flt); est_srv_q.setZero();                            // Vector to save wether or not analytical q is used, or power equation
   vector<int> srv_varying_q(n_flt); srv_varying_q.setZero();                    // Vector storing information on wether time-varying q is estimated (0 = no, 1 = random walk with fixed variance, 2 = random effect)
   vector<int> est_sigma_srv(n_flt); est_sigma_srv.setZero();                    // Vector to save wether sigma survey is estimated
   vector<int> est_sigma_fsh(n_flt); est_sigma_fsh.setZero();                    // Vector to save wether sigma fishery is estimated
@@ -800,7 +800,7 @@ for(int i = 0; i < env_index.cols(); i++){
   for(flt = 0; flt < n_flt; flt++){
     for(yr = 0; yr < nyrs_hind; yr++){
       // Random walk, penalized deviate
-      if(srv_varying_q(flt) != 2){
+      if((srv_varying_q(flt) == 0) | (srv_varying_q(flt) == 1) | (srv_varying_q(flt) == 4)){
         srv_q(flt, yr) = exp(ln_srv_q(flt) + ln_srv_q_dev(flt, yr));                 // Exponentiate
       }
 
@@ -2028,7 +2028,7 @@ for(int i = 0; i < env_index.cols(); i++){
         }
       } // End lognormal selectivity
 
-      
+
       // ------------------------------------------------------------------------- //
       // 8. PREDATION MORTALITY EQUATIONS                                          //
       // ------------------------------------------------------------------------- //
@@ -2556,8 +2556,15 @@ for(int i = 0; i < env_index.cols(); i++){
       if(flt_yr >= nyrs_hind){
         yr_ind = nyrs_hind - 1;
       }
+      // Power equation
+      if(est_srv_q(srv) == 4){
+        srv_bio_hat(srv_ind) = srv_q(srv, yr_ind) * pow(srv_bio_hat(srv_ind), (1 + srv_q_pow(srv)));
+      }
 
-      srv_bio_hat(srv_ind) = srv_q(srv, yr_ind) * pow(srv_bio_hat(srv_ind), (1 + srv_q_pow(srv)));
+      // All else
+      if(est_srv_q(srv) != 4){
+        srv_bio_hat(srv_ind) = srv_q(srv, yr_ind) * srv_bio_hat(srv_ind);
+      }
 
     }
 
@@ -3080,7 +3087,7 @@ for(int i = 0; i < env_index.cols(); i++){
             }
 
 
-          // Slot 12 -- Epsilon -- Annual fishing mortality deviation
+            // Slot 12 -- Epsilon -- Annual fishing mortality deviation
             jnll_comp(12, flt) += square(F_dev(flt, yr));      // Fishing mortality deviation using penalized likelihood.
           }
         }
@@ -3176,13 +3183,13 @@ for(int i = 0; i < env_index.cols(); i++){
 
         if(est_sex_ratio(sp) == 2){
           for(age = 1; age < nages(sp); age++){ // Start at age 2 because age 1 is fixed
-           jnll_comp(4, sp) -= dnorm(sex_ratio_hat(sp, age, yr), sex_ratio(sp, age), sex_ratio_sigma(sp));
+            jnll_comp(4, sp) -= dnorm(sex_ratio_hat(sp, age, yr), sex_ratio(sp, age), sex_ratio_sigma(sp));
           }
         }
       }
     }
   }
-  
+
 
 
   // Slot 4-6 -- Selectivity
@@ -3321,32 +3328,34 @@ for(int i = 0; i < env_index.cols(); i++){
     }
 
     // Penalized likelihood
-    if((srv_varying_q(flt) == 1) & (flt_type(flt) == 2)){
-      for(yr = 0; yr < nyrs_hind; yr++){
-        jnll_comp(8, flt) -= dnorm(ln_srv_q_dev(flt, yr), Type(0.0), time_varying_sigma_srv_q(flt), true );
+    if( est_srv_q(flt) != 5){ // Not environmental index function
+      if((srv_varying_q(flt) == 1) & (flt_type(flt) == 2)){
+        for(yr = 0; yr < nyrs_hind; yr++){
+          jnll_comp(8, flt) -= dnorm(ln_srv_q_dev(flt, yr), Type(0.0), time_varying_sigma_srv_q(flt), true );
+        }
       }
-    }
 
-    // Random effects
-    if((srv_varying_q(flt) == 2) & (flt_type(flt) == 2)){
-      for(yr = 0; yr < nyrs_hind; yr++){
-        jnll_comp(9, flt) -= dnorm(ln_srv_q_dev_re(flt, yr), Type(0.0), time_varying_sigma_srv_q(flt), true );
+      // Random effects
+      if((srv_varying_q(flt) == 2) & (flt_type(flt) == 2)){
+        for(yr = 0; yr < nyrs_hind; yr++){
+          jnll_comp(9, flt) -= dnorm(ln_srv_q_dev_re(flt, yr), Type(0.0), time_varying_sigma_srv_q(flt), true );
+        }
       }
-    }
 
-    // Random walk
-    if((srv_varying_q(flt) == 4) & (flt_type(flt) == 2)){
+      // Random walk
+      if((srv_varying_q(flt) == 4) & (flt_type(flt) == 2)){
 
-      // Sum to zero constraint
-      Type q_dev_sum = 0;
+        // Sum to zero constraint
+        Type q_dev_sum = 0;
 
-      for(yr = 0; yr < nyrs_hind; yr++){
-        q_dev_sum += ln_srv_q_dev(flt, yr);
-      }
-      jnll_comp(8, flt) += square(q_dev_sum) * 10000;
+        for(yr = 0; yr < nyrs_hind; yr++){
+          q_dev_sum += ln_srv_q_dev(flt, yr);
+        }
+        jnll_comp(8, flt) += square(q_dev_sum) * 10000;
 
-      for(yr = 1; yr < nyrs_hind; yr++){
-        jnll_comp(8, flt) -= dnorm(ln_srv_q_dev(flt, yr) - ln_srv_q_dev(flt, yr-1), Type(0.0), time_varying_sigma_srv_q(flt), true );
+        for(yr = 1; yr < nyrs_hind; yr++){
+          jnll_comp(8, flt) -= dnorm(ln_srv_q_dev(flt, yr) - ln_srv_q_dev(flt, yr-1), Type(0.0), time_varying_sigma_srv_q(flt), true );
+        }
       }
     }
   } // End q loop
