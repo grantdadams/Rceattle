@@ -89,7 +89,7 @@ plot_biomass <-
     Biomass <-
       array(NA, dim = c(nspp, nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
-      Biomass[species, 1:length(Years[[i]]), i] <- Rceattle[[i]]$quantities$biomass[species,1:nyrs_vec[i]]
+      Biomass[species - min(species) + 1, 1:length(Years[[i]]), i] <- Rceattle[[i]]$quantities$biomass[species,1:nyrs_vec[i]]
     }
     Biomass <- Biomass / 1000000
 
@@ -97,7 +97,7 @@ plot_biomass <-
     SSB <-
       array(NA, dim = c(nspp, nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
-      SSB[species, 1:length(Years[[i]]), i] <- Rceattle[[i]]$quantities$biomassSSB[species,1:nyrs_vec[i]]
+      SSB[species - min(species) + 1, 1:length(Years[[i]]), i] <- Rceattle[[i]]$quantities$biomassSSB[species,1:nyrs_vec[i]]
     }
 
     SSB <- SSB / 1000000
