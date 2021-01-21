@@ -10,11 +10,10 @@ TMBphase(
   map,
   random,
   phases,
-  cpp_directory,
   model_name,
-  optimizer = "nlminb",
   silent,
-  use_gradient = TRUE
+  use_gradient = TRUE,
+  control = list(eval.max = 1e+09, iter.max = 1e+09, trace = 0)
 )
 }
 \arguments{
@@ -28,19 +27,16 @@ TMBphase(
 
 \item{phases}{A list of the phases for the parameters of the model (same structure as your parameter list)}
 
-\item{cpp_directory}{a string describing the model cpp directory.}
-
 \item{model_name}{A string describing the model name. Must be the name of your .cpp file}
 
-\item{optimizer}{The optimizer to use. Default is nlminb (This is not currently active)}
+\item{control}{A list of control parameters. For details see \code{?nlminb}}
 }
 \value{
 A list of parameter estimates and their standard errors
 }
 \description{
 This function runs TMB with ADMB-like phasing of parameter estimation.
-Phasing within an optimizer
-Function with normal inputs, passed via “...”, plus two additional arguments, “phase” and “optimizer”
+Function with normal inputs, passed via “...”, plus two additional arguments, “phase”
 Optimizer by default is nlminb
 phase is a tagged list where missing elements are populated with a vector of 1s, and non-missing elements are integers, and where the optimizer loops through values of phase while progressively changing map to turn on parameters
 }

@@ -24,7 +24,11 @@ fit_mod(
   recompile = FALSE,
   getsd = TRUE,
   use_gradient = TRUE,
-  rel_tol = 1
+  rel_tol = 1,
+  control = list(eval.max = 1e+09, iter.max = 1e+09, trace = 0),
+  getHessian = TRUE,
+  loopnum = 5,
+  newtonsteps = 0
 )
 }
 \arguments{
@@ -65,6 +69,14 @@ fit_mod(
 \item{use_gradient}{use the gradient to phase. Default = TRUE}
 
 \item{rel_tol}{The relative tolerance for discontinuous likelihood warnings. Set to 1. This evaluates the difference between the TMB object likelihood and the nlminb likelihood.}
+
+\item{control}{A list of control parameters. For details see \code{?nlminb}}
+
+\item{getHessian}{return Hessian for usage in later code}
+
+\item{loopnum}{number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})}
+
+\item{newtonsteps}{number of extra newton steps to take after optimization (alternative to \code{loopnum})}
 }
 \value{
 A list of class "Rceattle" including:
