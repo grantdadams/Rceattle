@@ -20,6 +20,10 @@
 #' @param getsd	Boolean whether to run standard error calculation
 #' @param use_gradient use the gradient to phase. Default = TRUE
 #' @param rel_tol The relative tolerance for discontinuous likelihood warnings. Set to 1. This evaluates the difference between the TMB object likelihood and the nlminb likelihood.
+#' @param control A list of control parameters. For details see \code{?nlminb}
+#' @param loopnum number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})
+#' @param newtonsteps number of extra newton steps to take after optimization (alternative to \code{loopnum})
+#' @param getHessian return Hessian for usage in later code
 #' @details
 #' CEATTLE is an age-structured population dynamics model that can be fit with or without predation mortality. The default is to exclude predation mortality by setting \code{msmMode} to 0. Predation mortality can be included by setting \code{msmMode} with the following options:
 #' \itemize{
@@ -223,7 +227,12 @@ fit_mod <-
            recompile = FALSE,
            getsd = TRUE,
            use_gradient = TRUE,
-           rel_tol = 1) {
+           rel_tol = 1,
+           control = list(eval.max = 1e+09,
+                iter.max = 1e+09, trace = 0),
+           getHessian = TRUE,
+           loopnum = 5,
+           newtonsteps = 0) {
     start_time <- Sys.time()
 
     setwd(getwd())
@@ -456,10 +465,10 @@ fit_mod <-
         map = map[[1]],
         random = random_vars,
         phases = phase,
-        cpp_directory = cpp_directory,
         model_name = TMBfilename,
         silent = silent,
-        use_gradient = use_gradient
+        use_gradient = use_gradient,
+        control = control
       )
 
       start_par <- phase_pars
@@ -495,10 +504,11 @@ fit_mod <-
                               startpar=obj$par,
                               lower = L,
                               upper = U,
-                              loopnum = 5,
+                              loopnum = loopnum,
                               getsd = getsd,
-                              control = list(eval.max = 1e+09,
-                                             iter.max = 1e+09, trace = 0)
+                              control = control,
+                              getHessian = getHessian,
+                              quiet = silent,
       )
     }
 
@@ -593,7 +603,7 @@ fit_mod <-
         identified <- suppressMessages(TMBhelper::Check_Identifiable(obj))
 
         # Make into list
-        identified_param_list <- obj$env$parList(as.numeric(identified$BadParams$Param_check))
+        identified_param_list <- obj$env$parList(identified$BadParams$Param_check)
         identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==0,"Not estimated",x), how = "replace")
         identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==1,"OK",x), how = "replace")
         identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==2,"BAD",x), how = "replace")
