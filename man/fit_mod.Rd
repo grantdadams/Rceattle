@@ -19,9 +19,9 @@ fit_mod(TMBfilename = "ceattle_v01_04", cpp_directory = NULL,
 
 \item{inits}{(Optional) List of previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters. Can also construct using \code{\link{build_params}}}
 
-\item{map}{(Optional) A prebuilt map object from \code{\link{build_map}}.}
+\item{map}{(Optional) A map object from \code{\link{build_map}}.}
 
-\item{bounds}{(Optional) A prebuilt bounds object from \code{\link{build_bounds}}.}
+\item{bounds}{(Optional) A bounds object from \code{\link{build_bounds}}.}
 
 \item{file}{(Optional) Filename where files will be saved. If NULL, no file is saved.}
 

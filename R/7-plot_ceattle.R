@@ -374,7 +374,6 @@ plot_recruitment <-
           file = filename ,
           width = 7,# 169 / 25.4,
           height = 6.5,# 150 / 25.4,
-          family = "Helvetica",
           units = "in",
           res = 300
         )
@@ -624,7 +623,7 @@ plot_selectivity <-
         }
 
         # Legends
-        legend("topleft", as.character(srv_control$Survey_name[j]), bty = "n", cex = 1.4)
+        legend("bottomright", as.character(srv_control$Survey_name[j]), bty = "n", cex = 1.4)
       }
 
       # Add empty plots
@@ -669,7 +668,7 @@ plot_selectivity <-
         }
 
         # Legends
-        legend("topleft", as.character(fsh_control$Fishery_name[j]), bty = "n", cex = 1.4)
+        legend("bottomright", as.character(fsh_control$Fishery_name[j]), bty = "n", cex = 1.4)
 
         if (j == 1) {
           if(!is.null(model_names)){
@@ -860,7 +859,7 @@ plot_mort <-
     f_mat <-
       array(NA, dim = c(nspp, max_age, nyrs, length(Rceattle) + length(tmp_list)))
     for (i in 1:length(Rceattle)) {
-      f_mat[, , 1:length(Years[[i]]) ,i] <- Rceattle[[i]]$quantities$F[,,1:nyrs_vec[i]]
+      f_mat[, , 1:length(Years[[i]]) ,i] <- Rceattle[[i]]$quantities$F_tot[,,1:nyrs_vec[i]]
     }
 
     m_mat <-
@@ -1089,7 +1088,6 @@ plot_maturity <-
           file = filename ,
           width = 4,# 169 / 25.4,
           height = 6.5, # 150 / 25.4,
-          family = "Helvetica" ,
           units = "in",
           res = 300
         )

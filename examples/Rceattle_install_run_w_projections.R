@@ -14,7 +14,7 @@ install.packages('TMB', type = 'source')
 # Try "TMB::runExample(all = TRUE)" to see if TMB works
 
 # Install Rceattle
-devtools::install_github("grantdadams/Rceattle", auth_token = "4925b42ac46f1e0aefd671e9dc0c1cf1b3157017")
+devtools::install_github("grantdadams/Rceattle", ref = "grant/time_varying_q_and_sel", auth_token = "4925b42ac46f1e0aefd671e9dc0c1cf1b3157017")
 
 
 ################################################
@@ -89,6 +89,10 @@ plot_index(ms_run) # Fitted indices of abundance
 plot_catch(ms_run) # Fitted catch series
 
 
+# Save results
+write_results(Rceattle = ms_run, file = "yourresults.xlsx")
+
+
 ################################################
 # Projection
 ################################################
@@ -104,14 +108,14 @@ BS2017MS$fsh_control$proj_F <- c(0.2342936, 0.513, 0.0774777)
 
 # Re-run, without estimating
 ms_run_proj <- Rceattle::fit_mod(data_list = BS2017MS,
-                            inits = ms_run$estimated_params, # Initial parameters from single species ests
-                            file = NULL, # Don't save
-                            debug = TRUE, # Do not estimate. Not changing parameters right now
-                            niter = 10, # 10 iterations around population and predation dynamics
-                            random_rec = FALSE, # No random recruitment
-                            msmMode = 1, # MSVPA based
-                            suitMode = 0, # empirical suitability
-                            silent = TRUE)
+                                 inits = ms_run$estimated_params, # Initial parameters from single species ests
+                                 file = NULL, # Don't save
+                                 debug = TRUE, # Do not estimate. Not changing parameters right now
+                                 niter = 10, # 10 iterations around population and predation dynamics
+                                 random_rec = FALSE, # No random recruitment
+                                 msmMode = 1, # MSVPA based
+                                 suitMode = 0, # empirical suitability
+                                 silent = TRUE)
 
 
 
@@ -130,17 +134,17 @@ ms_run$estimated_params$rec_dev[,yrs_proj] <- replace(
   values = rnorm( length(ms_run$estimated_params$rec_dev[,yrs_proj]),
                   mean = 0,
                   sd = 0.707) # Assumed value from penalized likelihood
-  )
+)
 
 ms_run_proj2 <- Rceattle::fit_mod(data_list = BS2017MS,
-                                 inits = ms_run$estimated_params, # Initial parameters from single species ests
-                                 file = NULL, # Don't save
-                                 debug = TRUE, # Do not estimate. Not changing parameters right now
-                                 niter = 10, # 10 iterations around population and predation dynamics
-                                 random_rec = FALSE, # No random recruitment
-                                 msmMode = 1, # MSVPA based
-                                 suitMode = 0, # empirical suitability
-                                 silent = TRUE)
+                                  inits = ms_run$estimated_params, # Initial parameters from single species ests
+                                  file = NULL, # Don't save
+                                  debug = TRUE, # Do not estimate. Not changing parameters right now
+                                  niter = 10, # 10 iterations around population and predation dynamics
+                                  random_rec = FALSE, # No random recruitment
+                                  msmMode = 1, # MSVPA based
+                                  suitMode = 0, # empirical suitability
+                                  silent = TRUE)
 
 
 # plot

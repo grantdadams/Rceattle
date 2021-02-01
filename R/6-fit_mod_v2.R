@@ -4,9 +4,9 @@
 #' @param TMBfilename (Optional) A version of the cpp CEATTLE \code{cpp_directory}. If NULL, uses the deafult and built .cpp file
 #' @param cpp_directory (Optional) The directory where the cpp file is found
 #' @param data_list a data_list created from BSAI CEATTLE dat files \code{\link{build_dat}}, prebuilt data_list \code{\link{BS2017SS}}, or read in using \code{\link{read_excel}}.
-#' @param inits (Optional) List of previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters. Can also construct using \code{\link{build_params}}
-#' @param map (Optional) A prebuilt map object from \code{\link{build_map}}.
-#' @param bounds (Optional) A prebuilt bounds object from \code{\link{build_bounds}}.
+#' @param inits (Optional) Character vector of named initial values from previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters. Can also construct using \code{\link{build_params}}
+#' @param map (Optional) A map object from \code{\link{build_map}}.
+#' @param bounds (Optional) A bounds object from \code{\link{build_bounds}}.
 #' @param file (Optional) Filename where files will be saved. If NULL, no file is saved.
 #' @param debug Runs the model without estimating parameters to get derived quantities given initial parameter values.
 #' @param random_rec logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE.
@@ -237,7 +237,7 @@ fit_mod <-
     # Get cpp file if not provided
     if(is.null(TMBfilename) | is.null(cpp_directory)){
       cpp_directory <- system.file("executables",package="Rceattle")
-      TMBfilename <- "ceattle_v01_04"
+      TMBfilename <- "ceattle_v01_05"
     } else{
       cpp_directory <- cpp_directory
       TMBfilename <- TMBfilename
@@ -278,9 +278,9 @@ fit_mod <-
 
 
     # STEP 4 - Setup random effects
-    random_vars <- c()
+    random_vars <- c("ln_srv_q_dev_re", "srv_sel_slp_dev_re", "srv_sel_inf_dev_re", "fsh_sel_slp_dev_re", "fsh_sel_inf_dev_re")
     if (random_rec == TRUE) {
-      random_vars <- c("rec_dev")
+      random_vars <- c(random_vars , "rec_dev")
     }
 
     '%!in%' <- function(x,y)!('%in%'(x,y))
@@ -329,7 +329,7 @@ fit_mod <-
 
     # STEP 6 - Reorganize data
     Rceattle:::data_check(data_list)
-    data_list2 <- rearrange_dat(data_list)
+    data_list2 <- Rceattle::rearrange_dat(data_list)
 
     # STEP 7 - Build and fit model object
     obj = TMB::MakeADFun(
@@ -339,7 +339,6 @@ fit_mod <-
       map = map[[1]],
       random = random_vars,
       silent = silent
-
     )
     message(paste0("Step 5: Build object complete"))
 
@@ -349,10 +348,11 @@ fit_mod <-
     U = unlist(bounds$upper)[which(!is.na(unlist(map[[1]])))]
 
     # Remove random effects from bounds
-    if (random_rec == TRUE) {
-      L <- L[-grep(random_vars, names(L))]
-      U <- U[-grep(random_vars, names(U))]
+    for(i in 1:length(random_vars)){
+      L <- L[-grep(random_vars[i], names(L))]
+      U <- U[-grep(random_vars[i], names(U))]
     }
+
 
     # Optimize
     opt = Rceattle::Optimize(obj = obj,
@@ -378,6 +378,7 @@ fit_mod <-
       "Survey comp data",
       "Survey selectivity",
       "Survey selectivity normalization",
+      "Survey catchability",
       "Total catch",
       "Fishery comp data",
       "Fishery selectivity",
@@ -385,7 +386,6 @@ fit_mod <-
       "Recruitment deviates",
       "Initial abundance deviates",
       "Fishing mortality deviates",
-      "Empty",
       "Empty",
       "Ration",
       "Ration penalties",
@@ -430,18 +430,17 @@ fit_mod <-
       )
 
     if(debug == 0){
-      # Check identifiability
-#       identified <- suppressMessages(TMBhelper::Check_Identifiable(obj))
-# #
-# #       # Make into list
-# #       identified_param_list <- obj$env$parList(as.numeric(identified$BadParams$Param_check))
-# #       identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==0,"Not estimated",x), how = "replace")
-# #       identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==1,"OK",x), how = "replace")
-# #       identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==2,"BAD",x), how = "replace")
-# #
-# #       identified$param_list <- identified_param_list
-#
-#       mod_objects$identified <- identified
+      # identified <- suppressMessages(TMBhelper::Check_Identifiable(obj))
+      #
+      # # Make into list
+      # identified_param_list <- obj$env$parList(as.numeric(identified$BadParams$Param_check))
+      # identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==0,"Not estimated",x), how = "replace")
+      # identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==1,"OK",x), how = "replace")
+      # identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==2,"BAD",x), how = "replace")
+      #
+      # identified$param_list <- identified_param_list
+      #
+      # mod_objects$identified <- identified
     }
 
     class(mod_objects) <- "Rceattle"
