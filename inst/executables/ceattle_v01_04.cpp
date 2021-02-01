@@ -1927,7 +1927,6 @@ Type objective_function<Type>::operator() () {
 
     for(srv = 0 ; srv < n_srv; srv ++){
       srv_q_analytical(srv) = exp(srv_q_analytical(srv) / srv_n_obs(srv));
-
       // Set srv_q to analytical if used
       if(est_srv_q(srv) == 2){
         srv_q(srv) = srv_q_analytical(srv);
@@ -2011,7 +2010,11 @@ Type objective_function<Type>::operator() () {
 
           // Normalize
           for (ln = 0; ln < nlengths(sp); ln++) {
-              srv_comp_hat(comp_ind, ln) = val_max(srv_comp_hat(comp_ind, ln) / srv_hat(comp_ind), Type(0.0));
+            if(srv_hat(comp_ind) > 0){
+              srv_comp_hat(comp_ind, ln) = srv_comp_hat(comp_ind, ln) / srv_hat(comp_ind);
+            } else {
+              srv_comp_hat(comp_ind, ln) = 0;
+            }
           }
         }
       }
@@ -2152,11 +2155,21 @@ Type objective_function<Type>::operator() () {
 
     fsh = fsh_comp_ctl(comp_ind, 0) - 1;            // Temporary survey index
     sp = fsh_comp_ctl(comp_ind, 1) - 1;             // Temporary index of species
+    fsh_comp_type = fsh_comp_ctl(comp_ind, 3);      // Temporary index for comp type (0 = age, 1 = length)
     fsh_yr = fsh_comp_ctl(comp_ind, 4);             // Temporary index for years of data
+
+// Number of comps
+    Type n_comp = 0;
+    if(fsh_comp_type == 0){
+      n_comp = nages(sp);
+    }
+    if(fsh_comp_type == 1){
+      n_comp = nlengths(sp);
+    }
 
     // Add years from hindcast only
     if(fsh_yr <= endyr){
-      for (ln = 0; ln < fsh_comp_obs.cols(); ln++) {
+      for (ln = 0; ln < n_comp; ln++) {
         if(!isNA( fsh_comp_obs(comp_ind, ln ))){
           offset(fsh, 1) -= Type(fsh_comp_n(comp_ind, 1)) * (fsh_comp_obs(comp_ind, ln) + MNConst) * log(fsh_comp_obs(comp_ind, ln) + MNConst ) ;
         }
@@ -2170,12 +2183,21 @@ Type objective_function<Type>::operator() () {
 
     srv = srv_comp_ctl(comp_ind, 0) - 1;            // Temporary survey index
     sp = srv_comp_ctl(comp_ind, 1) - 1;             // Temporary index of species
+    srv_comp_type = srv_comp_ctl(comp_ind, 3);      // Temporary index for comp type (0 = age, 1 = length)
     srv_yr = srv_comp_ctl(comp_ind, 4);             // Temporary index for years of data
 
+// Number of comps
+    Type n_comp = 0;
+    if(srv_comp_type == 0){
+      n_comp = nages(sp);
+    }
+    if(srv_comp_type == 1){
+      n_comp = nlengths(sp);
+    }
 
     // Only use years from hindcast only
     if(srv_yr <= endyr){
-      for (ln = 0; ln < srv_comp_obs.cols(); ln++) {
+      for (ln = 0; ln < n_comp; ln++) {
         if(!isNA( srv_comp_obs(comp_ind, ln ))){
           offset(srv, 0) -= Type(srv_comp_n(comp_ind, 1)) * (srv_comp_obs(comp_ind, ln) + MNConst) * log(srv_comp_obs(comp_ind, ln) + MNConst ) ;
         }

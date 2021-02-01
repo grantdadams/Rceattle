@@ -6,7 +6,7 @@ library(TMBdebug)
 # Load data
 # source("R/2-build_params.R")
 # source("R/3-build_map.R")
-TMBfilename = "ceattle_v01_04"
+TMBfilename = "ceattle_v01_05"
 cpp_directory <- "inst/executables"
 data("BS2017SS")
 BS2017SS$endyr <- 2017
