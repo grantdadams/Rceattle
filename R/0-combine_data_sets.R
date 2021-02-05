@@ -24,7 +24,6 @@ combine_data <- function(data_list1 = NULL, data_list2 = NULL){
   nspp1 <- data_list1$nspp
   q_index1 <- max(data_list1$fleet_control$Q_index, na.rm = TRUE)
   sel_index1 <- max(data_list1$fleet_control$Selectivity_index, na.rm = TRUE)
-  nspp1 <- data_list1$nspp
 
   # Update vector indices
   data_list2[["pop_wt_index"]] <- data_list2[["pop_wt_index"]] + weight_index1
@@ -73,7 +72,7 @@ combine_data <- function(data_list1 = NULL, data_list2 = NULL){
 
 
   # Add new species
-  data_list_new$nspp <- data_list2$nspp + data_list2$nspp
+  data_list_new$nspp <- data_list1$nspp + data_list2$nspp
 
   return(data_list_new)
 }
