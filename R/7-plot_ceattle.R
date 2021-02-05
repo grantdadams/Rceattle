@@ -512,6 +512,7 @@ plot_selectivity <-
     nages <- Rceattle[[1]]$data_list$nages
     minage <- Rceattle[[1]]$data_list$minage
     nsex <- Rceattle[[1]]$data_list$nsex
+    est_dynamics <- Rceattle[[1]]$data_list$estDynamics
 
     # Get biomass
     selectivity_array <-
@@ -589,67 +590,69 @@ plot_selectivity <-
     # Terminal selectivity
     #################################
     for(sp in 1:nspp){
-      for(sex in 1:nsex[sp]){
+      if(est_dynamics[sp] == 0){
+        for(sex in 1:nsex[sp]){
 
-        # Get sex for legend
-        legend_sex = sex
-        legend_sex2 = ifelse(sex == 1, "Female", "Male")
-        if(nsex[sp] == 1){
-          legend_sex <- 0
-          legend_sex2 = "Combined"
-        }
-
-        for (i in 1:loops) {
-          if (i == 2) {
-
-            filename <- paste0(file, "_terminal_selectivity_species",sp,"_sex",legend_sex, ".png")
-            png(
-              file = filename ,
-              width = 7,# 169 / 25.4,
-              height = 6.5, # 150 / 25.4,
-
-              units = "in",
-              res = 300
-            )
+          # Get sex for legend
+          legend_sex = sex
+          legend_sex2 = ifelse(sex == 1, "Female", "Male")
+          if(nsex[sp] == 1){
+            legend_sex <- 0
+            legend_sex2 = "Combined"
           }
 
-          fleets <- fleet_control$Fleet_code[which(fleet_control$Species == sp)]
-          flt_colors <- rich.colors.short(length(fleets))
+          for (i in 1:loops) {
+            if (i == 2) {
 
-          # Plot configuration
-          par(
-            mar = c(3.2, 3.2 , 0.5 , 0.5) ,
-            oma = c(0 , 0 , 0 , 0),
-            tcl = -0.35,
-            mgp = c(1.75, 0.5, 0)
-          )
+              filename <- paste0(file, "_terminal_selectivity_species",sp,"_sex",legend_sex, ".png")
+              png(
+                file = filename ,
+                width = 7,# 169 / 25.4,
+                height = 6.5, # 150 / 25.4,
 
-          plot(
-            y = NA,
-            x = NA,
-            ylim = c(min(ymin_sel[fleets]), max(ymax_sel[fleets])),
-            xlim = c(min(0),  max(nages[sp], na.rm = TRUE)),
-            xlab = "Age",
-            ylab = "Terminal selectivity"
-          )
+                units = "in",
+                res = 300
+              )
+            }
 
-          # Mean selectivity
-          for (flt in 1:length(fleets)) {
-            lines(
-              x = 1:nages[sp],
-              y = selectivity_array[fleets[flt], sex, 1:nages[sp], nyrs, 1],
-              lty = 1,
-              lwd = lwd,
-              col = flt_colors[flt]
+            fleets <- fleet_control$Fleet_code[which(fleet_control$Species == sp)]
+            flt_colors <- rich.colors.short(length(fleets))
+
+            # Plot configuration
+            par(
+              mar = c(3.2, 3.2 , 0.5 , 0.5) ,
+              oma = c(0 , 0 , 0 , 0),
+              tcl = -0.35,
+              mgp = c(1.75, 0.5, 0)
             )
-          }
 
-          # Legends
-          legend("bottomright", paste(legend_sex2, as.character(fleet_control$Fleet_name[fleets])), col = flt_colors, bty = "n", lty = rep(1, length(fleets)), lwd = rep(2, length(fleets)), cex = 0.8)
+            plot(
+              y = NA,
+              x = NA,
+              ylim = c(min(ymin_sel[fleets]), max(ymax_sel[fleets])),
+              xlim = c(min(0),  max(nages[sp], na.rm = TRUE)),
+              xlab = "Age",
+              ylab = "Terminal selectivity"
+            )
 
-          # Save plot
-          if (i == 2) {
-            dev.off()
+            # Mean selectivity
+            for (flt in 1:length(fleets)) {
+              lines(
+                x = 1:nages[sp],
+                y = selectivity_array[fleets[flt], sex, 1:nages[sp], nyrs, 1],
+                lty = 1,
+                lwd = lwd,
+                col = flt_colors[flt]
+              )
+            }
+
+            # Legends
+            legend("bottomright", paste(legend_sex2, as.character(fleet_control$Fleet_name[fleets])), col = flt_colors, bty = "n", lty = rep(1, length(fleets)), lwd = rep(2, length(fleets)), cex = 0.8)
+
+            # Save plot
+            if (i == 2) {
+              dev.off()
+            }
           }
         }
       }
