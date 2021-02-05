@@ -801,8 +801,32 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$ln_FSPR[i,] <- NA
       map_list$ln_mean_rec[i] <- NA
       map_list$ln_rec_sigma[i] <- NA
+      map_list$ln_sex_ratio_sigma[i] <- NA
       map_list$rec_dev[i,] <- replace(map_list$rec_dev[i,], values = rep(NA, length(map_list$rec_dev[i,])))
       map_list$init_dev[i,] <- replace(map_list$init_dev[i,], values = rep(NA, length(map_list$init_dev[i,])))
+
+      # Fleet parameters
+      flts <- data_list$fleet_control$Fleet_code[which(data_list$fleet_control$Species == i)]
+
+
+      map_list$ln_mean_F[flts] <- NA
+      map_list$F_dev[flts,] <- NA
+      map_list$ln_srv_q[flts] <- NA
+      map_list$srv_q_pow[flts] <- NA
+      map_list$ln_srv_q_dev[flts,] <- NA
+      map_list$ln_srv_q_dev_re[flts,] <- NA
+      map_list$ln_sigma_srv_q[flts] <- NA
+      map_list$ln_sigma_time_varying_srv_q[flts] <- NA
+      map_list$sel_coff[flts,1:2,] <- NA
+      map_list$ln_sel_slp[1:2, flts, ] <- NA
+      map_list$sel_inf[1:2, flts, ] <- NA
+      map_list$ln_sel_slp_dev[1:2, flts, ,] <- NA
+      map_list$sel_inf_dev[1:2, flts, ,] <- NA
+      map_list$ln_sel_slp_dev_re[1:2, flts, ,] <- NA
+      map_list$sel_inf_dev_re[1:2, flts, ,] <- NA
+      map_list$ln_sigma_sel[flts] <- NA
+      map_list$ln_sigma_srv_index[flts] <- NA
+      map_list$ln_sigma_fsh_catch[flts] <- NA
     }
 
     # Don't estimate the scalar
