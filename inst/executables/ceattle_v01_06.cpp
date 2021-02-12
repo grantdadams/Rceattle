@@ -592,7 +592,6 @@ Type objective_function<Type>::operator() () {
 
   // -- 4.4. Fishery observations
   vector<Type>  sigma_fsh_catch(n_flt); sigma_fsh_catch.setZero();                  // Standard deviation of fishery time-series; n = [1, n_fsh]
-  array<Type>   catch_hat(nspp, max_age, nyrs); catch_hat.setZero();                // Estimated catch-at-age (n); n = [nspp, nages, nyrs]
   array<Type>   F(n_flt, 2, max_age, nyrs); F.setZero();                            // Estimated fishing mortality for each fishery; n = [n_flt, 2 sexes, nages, nyrs]
   array<Type>   F35_tot(nspp, 2, max_age); F35_tot.setZero();                       // Estimated fishing mortality for each species that leads to SB35; n = [nspp, 2 sexes, nages]
   array<Type>   F40_tot(nspp, 2, max_age); F40_tot.setZero();                       // Estimated fishing mortality for each species that leads to SB40; n = [nspp, 2 sexes, nages]
@@ -3564,7 +3563,6 @@ if(flt_type(flt) == 1){
 
 
   // -- 12.4. Fishery components
-  REPORT( catch_hat );
   REPORT( F );
   REPORT( F_tot );
   REPORT( fsh_bio_hat );
