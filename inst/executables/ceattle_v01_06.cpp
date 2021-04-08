@@ -2101,15 +2101,15 @@ if(flt_type(flt) == 1){
                         if(msmMode == 1){
                           M2(ksp, k_sex, k_age, yr) += (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr); // #FIXME - include indices of overlap
                           M2_prop(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr);
-                          B_eaten(ksp, k_sex, k_age, yr) += AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr);
-                          B_eaten_prop(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
+                          B_eaten(ksp, k_sex, k_age, yr) += AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)/ avail_food(rsp, r_sex, r_age, yr);
+                          B_eaten_prop(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
                         }
 
 
                         // Type 3 MSVPA
                         if(msmMode == 2){
                           M2(ksp, k_sex, k_age, yr) += pow(AvgN(ksp, k_sex, k_age, yr) , msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr)
-                                                                                                                                                     * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / (AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind)); // #FIXME - include indices of overlap
+                                                                                                                             * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / (AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind)); // #FIXME - include indices of overlap
                           M2_prop(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / (AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind));
                           B_eaten(ksp, k_sex, k_age, yr) += pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
                           B_eaten_prop(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) *  AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
@@ -3067,7 +3067,7 @@ if(flt_type(flt) == 1){
       if(flt_type(flt) == 1){
         if(flt_yr <= endyr){
           if(fsh_biom_obs(fsh_ind, 0) > 0){
-            jnll_comp(1, flt) -= dnorm(log(fsh_biom_obs(fsh_ind, 0)), log(fsh_bio_hat(fsh_ind)), fsh_std_dev, true) ; // pow(log(fsh_biom_obs(fsh_ind, 0) + MNConst) - log(fsh_bio_hat(fsh_ind)), 2) / (2 * square(fsh_std_dev)); // NOTE: This is not quite the log  normal and biohat will be the median.
+            jnll_comp(1, flt) -= dnorm(log(fsh_biom_obs(fsh_ind, 0)) - square(fsh_std_dev)/2, log(fsh_bio_hat(fsh_ind)), fsh_std_dev, true) ;
 
             SIMULATE {
               fsh_biom_obs(fsh_ind, 0) = rnorm(log(fsh_bio_hat(fsh_ind)), fsh_std_dev);  // Simulate response
