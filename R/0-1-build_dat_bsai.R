@@ -188,7 +188,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   dat_list$pop_wt_index <- c(1:3)
   dat_list$ssb_wt_index <- c(1:3)
   dat_list$spawn_month <- rep(0, 3)
-  dat_list$pop_alk_index <- c(1:3)
+  dat_list$pop_age_transition_index <- c(1:3)
   dat_list$nlengths <- dat_list$fsh_age_bins
   dat_list$endyr <- endyr
   dat_list$nsex <- rep(1, 3)
@@ -214,7 +214,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Accumatation_age_upper = c(10, 12, 21, 10),
     Weight1_Numbers2 = rep(1, 4),
     Weight_index = c(1:3,1),
-    ALK_index = c(1:3,1),
+    Age_transition_index = c(1:3,1),
     Q_index = c(1:4),
     Estimate_q = c(0, 0, 0, 1),
     Q_prior = exp(c(0, 0, 0, -6.7025)),
@@ -248,7 +248,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     Accumatation_age_upper = c(10, 12, 21),
     Weight1_Numbers2 = rep(1, 3),
     Weight_index = c(1:3),
-    ALK_index = c(1:3),
+    Age_transition_index = c(1:3),
     Q_index = rep(NA, 3),
     Estimate_q = rep(NA, 3),
     Q_prior = rep(NA, 3),
@@ -365,8 +365,8 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   # Step 11 -- Reorganize age transition matrix
   #---------------------------------------------------------------------
   alk_tmp <- dat_list$age_trans_matrix
-  age_trans_matrix <- data.frame(ALK_name = c(rep("Pollock", 10), rep("Cod", 12), rep("ATF", 21)),
-                                 ALK_index = c(rep(1, 10), rep(2, 12), rep(3, 21)),
+  age_trans_matrix <- data.frame(Age_transition_name = c(rep("Pollock", 10), rep("Cod", 12), rep("ATF", 21)),
+                                 Age_transition_index = c(rep(1, 10), rep(2, 12), rep(3, 21)),
                                  Species = c(rep(1, 10), rep(2, 12), rep(3, 21)),
                                  Sex = c(rep(0, 10), rep(0, 12), rep(0, 21)),
                                  Age = c(1:10, 1:12, 1:21))
@@ -547,9 +547,9 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
     dat_list$age_error[sp,,] <- diag(1, max(dat_list$nages), max(dat_list$nages))
   }
 
-  index_species <- data.frame(ALK = c(dat_list$fleet_control$ALK_index), Sp = c(dat_list$fleet_control$Species))
-  index_species <- index_species[!duplicated(index_species[, c("ALK", "Sp")]), ]
-  index_species <- index_species[order(index_species$ALK), ]
+  index_species <- data.frame(Age_transition_matrix = c(dat_list$fleet_control$Age_transition_index), Sp = c(dat_list$fleet_control$Species))
+  index_species <- index_species[!duplicated(index_species[, c("Age_transition_matrix", "Sp")]), ]
+  index_species <- index_species[order(index_species$Age_transition_matrix), ]
   nages <- data.frame(Sp = 1:dat_list$nspp, Nages = dat_list$nages, Nlengths = dat_list$nlengths)
   index_species <- merge(index_species, nages, by = "Sp", all = TRUE)
   age_error <- matrix(NA, ncol = max(index_species$Nages) + 2, nrow = sum(index_species$Nages))
@@ -639,9 +639,10 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   names_in_cpp <- c(names_in_cpp, "comp_data", "NByageFixed", "estDynamics",
                     "emp_sel", "fleet_control",
                     "fsh_comp", "srv_comp",
-                    "fsh_biom", "srv_biom", "proj_F_prop", "proj_F", "minage", "sigma_rec_prior", "spnames", "nsex", "R_sexr", "ssb_wt_index", "spawn_month", "est_sex_ratio", "sex_ratio_sigma", "sex_ratio", "env_data", "Cindex")
+                    "fsh_biom", "srv_biom", "proj_F_prop", "proj_F", "minage", "sigma_rec_prior", "spnames", "nsex", "R_sexr", "ssb_wt_index", "spawn_month", "est_sex_ratio", "sex_ratio_sigma", "sex_ratio", "env_data", "Cindex", "pop_age_transition_index")
 
   # Remove
+  names_in_cpp <- names_in_cpp[-which(names_in_cpp == "pop_alk_index")]
   names_in_cpp <- names_in_cpp[-which(names_in_cpp == "Uobs")]
   names_in_cpp <- names_in_cpp[-which(names_in_cpp == "UobsWt")]
   names_in_cpp <- names_in_cpp[-which(names_in_cpp == "BTempC")]
