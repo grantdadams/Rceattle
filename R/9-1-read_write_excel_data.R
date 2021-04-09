@@ -40,7 +40,7 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
     control[10, ] <- data_list$nlengths
     control[11, ] <- data_list$pop_wt_index
     control[12, ] <- data_list$ssb_wt_index
-    control[13, ] <- data_list$pop_alk_index
+    control[13, ] <- data_list$pop_age_transition_index
     control[14, ] <- data_list$sigma_rec_prior
     control[15, ] <- data_list$other_food
     control[16, ] <- data_list$estDynamics
@@ -48,7 +48,7 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
     control[18, ] <- data_list$est_sex_ratio
     control[19, ] <- data_list$sex_ratio_sigma
     control <- as.data.frame(control)
-    control <- cbind(c("nspp", "styr", "endyr", "projyr", "nsex", "spawn_month", "R_sexr", "nages", "minage", "nlengths", "pop_wt_index", "ssb_wt_index","pop_alk_index", "sigma_rec_prior",
+    control <- cbind(c("nspp", "styr", "endyr", "projyr", "nsex", "spawn_month", "R_sexr", "nages", "minage", "nlengths", "pop_wt_index", "ssb_wt_index","pop_age_transition_index", "sigma_rec_prior",
                        "other_food", "estDynamics", "proj_F", "est_sex_ratio", "sex_ratio_sigma"), control)
     colnames(control) <- c("Object", data_list$spnames)
     names_used <- c(names_used, as.character(control$Object))
@@ -209,7 +209,7 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     data_list$nlengths <- as.numeric(as.character(sheet1[10, 2:(data_list$nspp + 1)]))
     data_list$pop_wt_index <- as.numeric(sheet1[11, 2:(data_list$nspp + 1)])
     data_list$ssb_wt_index <- as.numeric(sheet1[12, 2:(data_list$nspp + 1)])
-    data_list$pop_alk_index <- as.numeric(sheet1[13, 2:(data_list$nspp + 1)])
+    data_list$pop_age_transition_index <- as.numeric(sheet1[13, 2:(data_list$nspp + 1)])
     data_list$sigma_rec_prior <- as.numeric(sheet1[14, 2:(data_list$nspp + 1)])
     data_list$other_food <- as.numeric(sheet1[15, 2:(data_list$nspp + 1)])
     data_list$estDynamics <- as.numeric(sheet1[16, 2:(data_list$nspp + 1)])

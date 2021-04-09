@@ -96,23 +96,23 @@ rearrange_dat <- function(data_list){
 
   # Rearrange age-transition matrix
   age_trans_matrix <- data_list$age_trans_matrix
-  unique_alk <- unique(as.character(age_trans_matrix$ALK_index))
-  for(i in 1:length(data_list$pop_alk_index)){
-    if(data_list$pop_alk_index[i] %!in% unique_alk){
-      stop("Check population alk index, not in alk file")
+  unique_age_trans <- unique(as.character(age_trans_matrix$Age_transition_index))
+  for(i in 1:length(data_list$pop_age_transition_index)){
+    if(data_list$pop_age_transition_index[i] %!in% unique_age_transition){
+      stop("Check population age_transition index, not in age_transition file")
     }
   }
-  alk <- array(0, dim = c(length(unique_alk), 2, max(data_list$nages, na.rm = T), max(data_list$nlengths, na.rm = T)))
+  age_transition <- array(0, dim = c(length(unique_age_transition), 2, max(data_list$nages, na.rm = T), max(data_list$nlengths, na.rm = T)))
 
 
   for (i in 1:nrow(age_trans_matrix)) {
-    alk_ind <- as.numeric(as.character(age_trans_matrix$ALK_index[i]))
+    age_transition_ind <- as.numeric(as.character(age_trans_matrix$Age_transition_index[i]))
     sex <- as.numeric(as.character(age_trans_matrix$Sex[i]))
     sp <- as.numeric(as.character(age_trans_matrix$Species[i]))
     age <- as.numeric(as.character(age_trans_matrix$Age[i])) - data_list$minage[sp] + 1
 
     if (age > data_list$nages[sp]) {
-      message(paste0("Error: number of ages in age_trans_matrix for species: ", sp, " and index: ", alk_ind))
+      message(paste0("Error: number of ages in age_trans_matrix for species: ", sp, " and index: ", age_transition_ind))
       message(paste0("is greater than the number of ages specified in the control"))
       message(paste0("Please remove or change nages in control"))
       stop()
@@ -121,13 +121,13 @@ rearrange_dat <- function(data_list){
     # Assign
     if(sex == 0){ sex = c(1, 2)}
     for(j in 1:length(sex)){
-      alk[alk_ind, sex[j], age, 1:data_list$nlengths[sp]] <- as.numeric(as.character(age_trans_matrix[i, (1:data_list$nlengths[sp]) + 5]))
+      age_transition[age_transition_ind, sex[j], age, 1:data_list$nlengths[sp]] <- as.numeric(as.character(age_trans_matrix[i, (1:data_list$nlengths[sp]) + 5]))
 
       # Normalize
-      alk[alk_ind, sex[j], age, 1:data_list$nlengths[sp]] <- alk[alk_ind, sex[j], age, 1:data_list$nlengths[sp]] / sum(alk[alk_ind, sex[j], age, 1:data_list$nlengths[sp]], na.rm = TRUE)
+      age_transition[age_transition_ind, sex[j], age, 1:data_list$nlengths[sp]] <- age_transition[age_transition_ind, sex[j], age, 1:data_list$nlengths[sp]] / sum(age_transition[age_transition_ind, sex[j], age, 1:data_list$nlengths[sp]], na.rm = TRUE)
     }
   }
-  data_list$age_trans_matrix <- alk
+  data_list$age_trans_matrix <- age_transition
 
 
   # Rearrange age_error matrices

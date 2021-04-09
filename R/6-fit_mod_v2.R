@@ -229,7 +229,7 @@ fit_mod <-
            use_gradient = TRUE,
            rel_tol = 1,
            control = list(eval.max = 1e+09,
-                iter.max = 1e+09, trace = 0),
+                          iter.max = 1e+09, trace = 0),
            getHessian = TRUE,
            loopnum = 5,
            newtonsteps = 0) {
@@ -345,54 +345,56 @@ fit_mod <-
 
 
     # Set default phasing
-    if(class(phase) == "character"){
-      if(tolower(phase) == "default"){
-        phase = list(
-          dummy = 1,
-          ln_pop_scalar = 4,
-          ln_mean_rec = 1,
-          ln_rec_sigma = 2,
-          rec_dev = 2,
-          init_dev = 2,
-          ln_mean_F = 1,
-          ln_FSPR = 3,
-          proj_F_prop = 1,
-          F_dev = 1,
-          ln_srv_q = 3,
-          srv_q_pow = 4,
-          ln_srv_q_dev = 5,
-          ln_srv_q_dev_re = 4,
-          ln_sigma_srv_q = 4,
-          ln_sigma_time_varying_srv_q = 4,
-          sel_coff = 3,
-          sel_curve_pen = 4,
-          ln_sex_ratio_sigma = 3,
-          ln_sel_slp = 3,
-          sel_inf = 3,
-          ln_sel_slp_dev = 5,
-          sel_inf_dev = 5,
-          ln_sel_slp_dev_re = 4,
-          sel_inf_dev_re = 4,
-          ln_sigma_sel = 4,
-          ln_sigma_srv_index = 2,
-          ln_sigma_fsh_catch = 2,
-          logH_1 = 4,
-          logH_1a = 4,
-          logH_1b = 4,
-          logH_2 = 4,
-          logH_3 = 4,
-          H_4 = 4,
-          log_gam_a = 4,
-          log_gam_b = 4,
-          log_phi = 4,
-          comp_weights = 4
-        )
+    if(!is.null(phase)){
+      if(class(phase) == "character"){
+        if(tolower(phase) == "default"){
+          phase = list(
+            dummy = 1,
+            ln_pop_scalar = 4,
+            ln_mean_rec = 1,
+            ln_rec_sigma = 2,
+            rec_dev = 2,
+            init_dev = 2,
+            ln_mean_F = 1,
+            ln_FSPR = 3,
+            proj_F_prop = 1,
+            F_dev = 1,
+            ln_srv_q = 3,
+            srv_q_pow = 4,
+            ln_srv_q_dev = 5,
+            ln_srv_q_dev_re = 4,
+            ln_sigma_srv_q = 4,
+            ln_sigma_time_varying_srv_q = 4,
+            sel_coff = 3,
+            sel_curve_pen = 4,
+            ln_sex_ratio_sigma = 3,
+            ln_sel_slp = 3,
+            sel_inf = 3,
+            ln_sel_slp_dev = 5,
+            sel_inf_dev = 5,
+            ln_sel_slp_dev_re = 4,
+            sel_inf_dev_re = 4,
+            ln_sigma_sel = 4,
+            ln_sigma_srv_index = 2,
+            ln_sigma_fsh_catch = 2,
+            logH_1 = 4,
+            logH_1a = 4,
+            logH_1b = 4,
+            logH_2 = 4,
+            logH_3 = 4,
+            H_4 = 4,
+            log_gam_a = 4,
+            log_gam_b = 4,
+            log_phi = 4,
+            comp_weights = 4
+          )
+        }
       }
-    }
 
-    if(class(phase) == "character"){
-      if(tolower(phase) != "default"){
-        warning("phase misspecified: please set to 'default' or list with the same order as parameters.")
+      if(class(phase) == "character"){
+        if(tolower(phase) != "default"){
+          warning("phase misspecified: please set to 'default' or list with the same order as parameters.")
+        }
       }
     }
 
@@ -457,7 +459,7 @@ fit_mod <-
     # STEP 8 - Fit model object
     step = 5
     # If phased
-    if(!is.null(phase) & debug == FALSE & debug == FALSE){
+    if(!is.null(phase) & debug == FALSE ){
       message(paste0("Step ", step,": Phasing begin"))
       phase_pars <- Rceattle::TMBphase(
         data = data_list_reorganized,

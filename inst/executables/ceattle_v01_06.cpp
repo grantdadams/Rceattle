@@ -377,12 +377,12 @@ Type objective_function<Type>::operator() () {
   DATA_INTEGER( nspp );                   // Number of species (prey)
   DATA_IVECTOR( pop_wt_index );           // Dim 3 of wt to use for population dynamics
   DATA_IVECTOR( ssb_wt_index );           // Dim 3 of wt to use for spawning stock biomass calculation
-  DATA_IVECTOR( pop_alk_index );          // Dim 3 of wt to use for age_transition_matrix
+  DATA_IVECTOR( pop_age_transition_index );          // Dim 3 of wt to use for age_transition_matrix
   DATA_IVECTOR( estDynamics );            // Index indicating wether the population parameters are estimated (0), numbers-at-age are provided (1), or an index of numbers-at-age multiplied by an estimated scalar is used (2)
   DATA_IVECTOR( est_sex_ratio );              // Is sex ration F/(M+F) to be included in the likelihood; 0 = no, 1 = use annual average across ages (uses 2nd age in sex_ratio data), 2 = age, and year specific (TBD)
   pop_wt_index -= 1;                      // Indexing starts at 0
   ssb_wt_index -= 1;                      // Indexing starts at 0
-  pop_alk_index -= 1;                     // Indexing starts at 0
+  pop_age_transition_index -= 1;                     // Indexing starts at 0
 
 
   // 1.4. MODEL OBJECTS
@@ -764,7 +764,7 @@ for(int i = 0; i < env_index.cols(); i++){
   vector<int> flt_accum_age_upper(n_flt); flt_accum_age_upper.setZero();        // Vector to save upper accumulation age
   vector<int> flt_units(n_flt); flt_units.setZero();                            // Vector to save survey units (1 = weight, 2 = numbers)
   vector<int> flt_wt_index(n_flt); flt_wt_index.setZero();                      // Vector to save 1st dim of wt to use for weight-at-age
-  vector<int> flt_alk_index(n_flt); flt_alk_index.setZero();                    // Vector to save 3rd dim of age_trans_matrix to use for ALK
+  vector<int> flt_age_transition_index(n_flt); flt_age_transition_index.setZero(); // Vector to save 3rd dim of age_trans_matrix to use for ALK
   vector<int> flt_q_ind(n_flt); flt_q_ind.setZero();                            // Vector storing index of survey q for mapping
   vector<int> est_srv_q(n_flt); est_srv_q.setZero();                            // Vector to save wether or not analytical q is used
   vector<int> srv_varying_q(n_flt); srv_varying_q.setZero();                    // Vector storing information on wether time-varying q is estimated (0 = no, 1 = random walk with fixed variance, 2 = random effect)
@@ -783,10 +783,10 @@ for(int i = 0; i < env_index.cols(); i++){
     flt_varying_sel(flt) = fleet_control(flt_ind, 7);        // Time-varying selectivity type.
     flt_sel_age(flt) = fleet_control(flt_ind, 8) - minage(flt_spp(flt));              // First age selected
     flt_accum_age_lower(flt) = fleet_control(flt_ind, 9) - minage(flt_spp(flt));       // Dim1 of wt
-    flt_accum_age_upper(flt) = fleet_control(flt_ind, 10) - minage(flt_spp(flt));     // Dim3 of ALK
-    flt_units(flt) = fleet_control(flt_ind, 11);              // Survey units
-    flt_wt_index(flt) = fleet_control(flt_ind, 12) - 1;       // Dim1 of wt
-    flt_alk_index(flt) = fleet_control(flt_ind, 13) - 1;     // Dim3 of ALK
+    flt_accum_age_upper(flt) = fleet_control(flt_ind, 10) - minage(flt_spp(flt));     // Dim3 of age transition matrix
+    flt_units(flt) = fleet_control(flt_ind, 11);             // Survey units
+    flt_wt_index(flt) = fleet_control(flt_ind, 12) - 1;      // Dim1 of wt
+    flt_age_transition_index(flt) = fleet_control(flt_ind, 13) - 1;     // Dim3 of age transition matrix
     flt_q_ind(flt) = fleet_control(flt_ind, 14) - 1;         // Index of survey q
     est_srv_q(flt) = fleet_control(flt_ind, 15);             // Estimate analytical q?
     srv_varying_q(flt) = fleet_control(flt_ind, 16);         // Time varying q type
@@ -2023,7 +2023,7 @@ if(flt_type(flt) == 1){
         }
       } // End lognormal selectivity
 
-      
+
       // ------------------------------------------------------------------------- //
       // 8. PREDATION MORTALITY EQUATIONS                                          //
       // ------------------------------------------------------------------------- //
@@ -2318,7 +2318,7 @@ if(flt_type(flt) == 1){
                       eaten_ua(rsp, ksp, r_age, k_age, yr) = Vmort_ua(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) * NS_Z;                                  // Eq. 8 Kinzey and Punt (2009)
 
                       for (r_ln = 0; r_ln  <  nlengths(rsp); r_ln++) { // FIXME: Change to diet length bins
-                        eaten_la(rsp, ksp, r_ln, k_age, yr) += eaten_ua(rsp, ksp, r_age, k_age, yr)  * age_trans_matrix(pop_alk_index(rsp), r_sex, r_age, r_ln ); // Eq. 9 Kinzey and Punt (2009)
+                        eaten_la(rsp, ksp, r_ln, k_age, yr) += eaten_ua(rsp, ksp, r_age, k_age, yr)  * age_trans_matrix(pop_age_transition_index(rsp), r_sex, r_age, r_ln ); // Eq. 9 Kinzey and Punt (2009)
                       }
                     }
                   }
@@ -2377,7 +2377,7 @@ if(flt_type(flt) == 1){
                 }
                 for (r_ln = 0; r_ln < nlengths(rsp); r_ln++) { // FIXME: Change to diet bins
                   for (r_age = 0; r_age < nages(rsp); r_age++) {
-                    Q_mass_l(rsp, ksp, r_ln, yr) += Q_mass_u(rsp, ksp, r_age, yr) * age_trans_matrix(pop_alk_index(rsp), r_sex, r_age, r_ln); // Eq. 10 Kinzey and Punt (2009)
+                    Q_mass_l(rsp, ksp, r_ln, yr) += Q_mass_u(rsp, ksp, r_age, yr) * age_trans_matrix(pop_age_transition_index(rsp), r_sex, r_age, r_ln); // Eq. 10 Kinzey and Punt (2009)
                   }
                 }
               }
@@ -2788,7 +2788,7 @@ if(flt_type(flt) == 1){
               sex = flt_sex - 1;
             }
 
-            comp_hat(comp_ind, ln ) += age_obs_hat(comp_ind, age) * age_trans_matrix(flt_alk_index(flt), sex, age, ln );
+            comp_hat(comp_ind, ln ) += age_obs_hat(comp_ind, age) * age_trans_matrix(flt_age_transition_index(flt), sex, age, ln );
           }
         }
 
@@ -2806,7 +2806,7 @@ if(flt_type(flt) == 1){
               obs_ln_tmp = ln - nlengths(sp);
               sex = 1;
 
-              comp_hat(comp_ind, ln ) += age_obs_hat(comp_ind, age) * age_trans_matrix(flt_alk_index(flt), sex, obs_age_tmp, obs_ln_tmp );
+              comp_hat(comp_ind, ln ) += age_obs_hat(comp_ind, age) * age_trans_matrix(flt_age_transition_index(flt), sex, obs_age_tmp, obs_ln_tmp );
             }
           }
         }
@@ -3177,7 +3177,7 @@ if(flt_type(flt) == 1){
       }
     }
   }
-  
+
 
 
   // Slot 4-6 -- Selectivity
@@ -3455,7 +3455,7 @@ if(flt_type(flt) == 1){
               // int stom_yr = yrs_stomlns(rsp, ksp, stm_yr); // FIXME: index by stomach year
               for (k_ln = 0; k_ln < nlengths(ksp); k_ln ++) {
                 for (k_age = 0; k_age < nages(ksp); k_age++) {
-                  eaten_lmy(k_ln) += eaten_la(rsp, ksp, r_ln, k_age, yr) * age_trans_matrix(pop_alk_index(ksp), k_sex, k_age, k_ln);
+                  eaten_lmy(k_ln) += eaten_la(rsp, ksp, r_ln, k_age, yr) * age_trans_matrix(pop_age_transition_index(ksp), k_sex, k_age, k_ln);
                 }
                 T_hat(rsp, ksp, r_ln, k_ln) += stom_tau * eaten_lmy(k_ln); // FIXME: add actual stomach content sample size
               }
@@ -3498,7 +3498,7 @@ if(flt_type(flt) == 1){
   REPORT( flt_varying_sel );
   REPORT( flt_units );
   REPORT( flt_wt_index );
-  REPORT( flt_alk_index );
+  REPORT( flt_age_transition_index );
   REPORT( flt_q_ind );
   REPORT( est_srv_q );
   REPORT( srv_varying_q );
