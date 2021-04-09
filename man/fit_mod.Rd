@@ -96,7 +96,7 @@ A list of class "Rceattle" including:
 
 
 
-`quantities` from the returned `Rceattle` object includes the following:
+`quantities` from the returned `Rceattle` object includes the following (dimension/names may be deprecated):
 \itemize{
  \item 1. Population components
  \item mn_rec: Mean recruitment; dim = [1, nspp]
