@@ -7,157 +7,87 @@
 \format{
 Control
 \describe{
-\item{nspp}{Integer: number of species in model}
-\item{styr}{Integer: Start year}
-\item{endyr}{Integer: Number of estimation years}
-\item{projyr}{Integer: The year to project the populations.}
-\item{nages}{Ivector: Number of ages (included age-0) to be used for each species}
-\item{minage}{Ivector: Minimum age of each species}
-\item{nlengths}{Ivector: Number of lengths for each species}
-\item{pop_wt_index}{Ivector: index of wt to use for the species predation dynamics (dim 1 of wt)}
-\item{pop_alk_index}{Ivector: index of alk to use for the species predation dynamics (dim 1 of alk)}
-\item{sigma_rec_prior}{Vector: inditial standard deviation of recruitment for each species. Fixed if random_rec = TRUE}
-\item{other_food}{Vector: other food in the system assumed for each species}
-\item{stom_sample_size}{Vector: sample size for diet data multinomial}
+\item{nspp}{Number of species included in CEATTLE}
+\item{styr}{Start year of the hindcast}
+\item{endyr}{End year of the hindcast}
+\item{projyr}{End year of the forecast}
+\item{nsex}{Number of sexes to model in the population (1 = combined/1sex, 2 = models both female/male)}
+\item{Sex}{sex codes for data/comp: 0=combined; 1=use female only; 2=use male only; 3 = joint female and male}
+\item{spawn_month}{Spawning month of the population to adjust the numbers spawning}
+\item{R_sexr}{Percent of recruitment that is female (ignored if nsex = 1)}
+\item{nages}{Number of ages of each species included in the hindcast}
+\item{minage}{Minimum age for each population (i.e.does recruitment correspond to age 0, 1, 2?)}
+\item{nlengths}{Number of lengths of each species included in the hindcast}
+\item{pop_wt_index}{Weight-at-age (wt) index to use for calculation of each species population derived quantities (SSB, Consumption/Ration, Suitability, etc)}
+\item{ssb_wt_index}{Weight-at-age (wt) index to use for calculation of each species spawning biomass}
+\item{pop_age_transition_index}{Age transition matrix (e.g. growth trajectory) index to use for derived quantities of the population to convert age to length (also used in length-based predation estimation)}
+\item{sigma_rec_prior}{Standard deviation to use for recruitment}
+\item{other_food}{Other food in the ecosystem for each species}
+\item{stom_sample_size}{Sample size of diet data for each species (used when suitMode > 0)}
+\item{est_propF}{Is sex ration F/(M+F) to be included in the likelihood (assumed normal); 0 = no, 1 = use annual average across ages (uses 2nd age in propF data), 2 = age, and year specific (TBD)}
+\item{propF_sigma}{Initial value or fixed value for sd of normal likelihood for sex ration. Not yet able to estimate.}
+\item{fleet_control}{Survey and fishery data specifications}
+\item{srv_biom}{Survey index in weight (kg) or numbers data}
+\item{fsh_biom}{Total catch in weight (kg) or numbers data}
+\item{comp_data}{Survey/fishery age or length composition data. Note if sex is 3, put female composition data then male composition data (similar to SS).}
+\item{emp_sel}{Empirical/fixed selectivity for surveys and fisheries (leave empty if not used)}
+\item{age_trans_matrix}{Age transition matrix (e.g. growth trajectory) used to convert age to length for length comp data. Can have multiple matrices for a species specified by Age_transition_index.}
+\item{age_error}{Aging error matrices. Can have only one per species.}
+\item{wt}{Weight-at-age (wt) to use for calculation of derived quantities (SSB, Consumption/Ration, Suitability, Total Catch, Survey Biomass, etc). Can have multiple weight-at-age data-sets for each species, but must be full for all years of the hindcast.}
+\item{pmature}{Maturity-at-age for each species}
+\item{propF}{Percent female at age for each species}
+\item{M1_base}{Residual natural mortality for each species}
+\item{Mn_LatAge}{Mean length-at-age for each species. Used when estimating time-invariant length-based gamma suitability (suitMode = 1) or time invariant length-based lognormal suitability (suitMode = 4)}
+\item{aLW}{Parameters for weight-at-length power function for each species. . Used when estimating time-variant length-based gamma suitability (suitMode = 2) or time-variant length-based lognormal suitability (suitMode = 5)}
+\item{Ceq}{Which bioenergetics equation to use for each species for ft to scale max consumtion: 1 = Exponential (Stewart et al 1983), 2 = Temperature-dependendence for warm-water species (Kitchell et al 1977; sensu Holsman et al 2015), 3 = temperature dependence for cool and cold-water species (Thornton and Lessem 1979)}
+\item{Cindex}{Which environmental index in env_data to use to drive bioenergetics}
+\item{Pvalue}{This scales the maximum consumption used for ration for each species; Pvalue is in Cmax*fT*Pvalue*Pyrs}
+\item{fday}{Number of foraging days per year for each species}
+\item{CA}{Intercept of allometric mass function for calculating maximum consumption: CA * Weight ^ CB}
+\item{CB}{Slope of allometric mass function for calculating maximum consumption: CA * Weight ^ CB}
+\item{Qc}{Parameter for temperature scaling function of maximum consumption specified by Ceq}
+\item{Tco}{Parameter for temperature scaling function of maximum consumption specified by Ceq}
+\item{Tcm}{Parameter for temperature scaling function of maximum consumption specified by Ceq}
+\item{Tcl}{Parameter for temperature scaling function of maximum consumption specified by Ceq}
+\item{CK1}{Parameter for temperature scaling function of maximum consumption specified by Ceq}
+\item{CK4}{Parameter for temperature scaling function of maximum consumption specified by Ceq}
+\item{env_data}{Environmental indices such as bottom temperature data to incorporate into ration equation specificed by Ceq and Cindex. Also used to drive catchability if Estimate_q = 5. Will use the mean for missing years. Temperature should be in celcius.}
+\item{Pyrs}{Annual relative foraging rate by age. Multiplied by pvalue and fday to scale maximum consumption to the number of days in a year that foraging occurs.}
+\item{UobsAge}{Stomach proportion by numbers for each predator, prey, predator age, prey age combination. Can also be year specific by including the column, "Year"}
+\item{UobsWtAge}{Stomach proportion by weight for each predator, prey, predator age, prey age combination. Can also be year specific by including the column, "Year"}
 }
 
-srv_control: controls for survey data
+fleet_control: controls for survey and fisheries data
 \describe{
-\item{Survey_name}{Name of survey}
-\item{Survey_code}{Index of survey ACROSS species}
+\item{UobsWtAge}{Stomach proportion by weight for each predator, prey, predator age, prey age combination. Can also be year specific by including the column, "Year"}
+\item{Fleet_name}{Name of survey or fishery}
+\item{Fleet_code}{Index of survey/fishery ACROSS species}
+\item{Fleet_type}{0 = Do not estimate; 1 = Fishery; 2 = Survey}
 \item{Species}{Species number}
-\item{Fit_0no_1yes}{Index of wether data should be included in the likelihood and associated parameters estimated.}
-\item{Selectivity}{Selectivity to use for the species: 0 = empirical selectivity provided in srv_emp_sel; 1 = logistic selectivity; 2 = non-parametric selecitivty sensu Ianelli et al 2018; 3 = double logistic}
+\item{Selectivity_index}{index to use if selectivities of different surveys are to be the same}
+\item{Selectivity}{Selectivity to use for the species: 0 = empirical selectivity provided in srv_emp_sel; 1 = logistic selectivity; 2 = non-parametric selecitivty sensu Ianelli et al 2018; 3 = double logistic; 4 = descending logistic}
 \item{Nselages}{Number of ages to estimate non-parametric selectivity for Selectivity = 2. Not used otherwise}
-\item{Weight1_Numbers2}{Is the observation in weight (kg) set as 1, if the observation is in numbers caught, set as 2}
-\item{Weight_index}{Weight-at-age (wt) index to use for calculation of derived quantities (dim 1 of wt array)}
-\item{ALK_index}{Age transition matrix (e.g. Age Length Key or ALK) index to use for derived quantitied (dim 1 of ALK array)}
-\item{Estimate_q}{Estimate catchability? (0 = no; 1 = yes, 2 = analytical from Ludwig and Walters 1994)}
-\item{log_q_start}{Starting value or fixed value for catchability}
-\item{Estimate_sigma_index}{Estimate survey variance (0 = use CV from srv_biom, 1 = yes, 2 = analytically estimate following (Ludwig and Walters 1994)}
-\item{Sigma_index_prior}{Starting value to be used if Estimate_sigma_index = 1}
-}
-
-srv_biom: time series of survey indices of abundance
-\describe{
-\item{Survey_name}{Name of survey}
-\item{Survey_code}{Index of survey ACROSS species}
-\item{Species}{Species number}
-\item{Sex}{NOTUSED}
-\item{Year}{}
-\item{Month}{}
-\item{Observation}{Observed index of abundance}
-\item{CV}{CV for lognormal distribution of survey index of abundance}
-}
-
-srv_emp_sel: pre-defined selectivity for survey indices
-\describe{
-\item{Survey_name}{Name of survey}
-\item{Survey_code}{Index of survey ACROSS species}
-\item{Species}{Species number}
-\item{Comp_1}{Selectivity of first age in model}
-\item{Comp_2}{Selectivity of second age in model}
-}
-
-
-srv_comp: time series of survey composition. These are normalized to 1 prior to estimation.
-\describe{
-\item{Survey_name}{Name of survey}
-\item{Survey_code}{Index of survey ACROSS species}
-\item{Species}{Species number}
-\item{Sex}{NOTUSED}
-\item{Age0_Length1}{Index wether the comp data are length comps (1) or age comps (0)}
-\item{Year}{}
-\item{Month}{}
-\item{Sample_size}{sample size to use for multinomial distribution}
-\item{Comp_1}{Age or length comp of first age/length in model}
-}
-
-
-fsh_control: controls for survey data
-\describe{
-\item{Fishery_name}{Name of Fishery}
-\item{Fishery_code}{Index of Fishery ACROSS species}
-\item{Species}{Species number}
-\item{Fit_0no_1yes}{Index of wether data should be included in the likelihood and associated parameters estimated.}
-\item{Selectivity}{Selectivity to use for the species: 0 = empirical selectivity provided in srv_emp_sel; 1 = logistic selectivity; 2 = non-parametric selecitivty sensu Ianelli et al 2018; 3 = double logistic}
-\item{Nselages}{Number of ages to estimate non-parametric selectivity for Selectivity = 2. Not used otherwise}
-\item{Weight1_Numbers2}{Is the observation in weight (kg) set as 1, if the observation is in numbers caught, set as 2}
-\item{Weight_index}{Weight-at-age (wt) index to use for calculation of derived quantities (dim 1 of wt array)}
-\item{ALK_index}{Age transition matrix (e.g. Age Length Key or ALK) index to use for derived quantitied (dim 1 of ALK array)}
-\item{Estimate_sigma_index}{Estimate Fishery variance (0 = use CV from srv_biom, 1 = yes, 2 = analytically estimate following (Ludwig and Walters 1994)}
-\item{Sigma_index_prior}{Starting value to be used if Estimate_sigma_index = 1}
-\item{proj_F}{Fishing mortality to project under for each fishery}
-}
-
-fsh_biom: time series of fishery indices of abundance
-\describe{
-\item{Fishery_name}{Name of Fishery}
-\item{Fishery_code}{Index of Fishery ACROSS species}
-\item{Species}{Species number}
-\item{Sex}{NOTUSED}
-\item{Year}{}
-\item{Month}{}
-\item{Catch}{Observed catch}
-\item{CV}{CV for lognormal distribution of fishery catch}
-}
-
-fsh_emp_sel: pre-defined selectivity for catch
-\describe{
-\item{Fishery_name}{Name of Fishery}
-\item{Fishery_code}{Index of Fishery ACROSS species}
-\item{Species}{Species number}
-\item{Comp_1}{Selectivity of first age in model}
-\item{Comp_2}{Selectivity of second age in model}
-}
-
-
-fsh_comp: time series of fishery composition data. These are normalized to 1 prior to estimation.
-\describe{
-\item{Fishery_name}{Name of Fishery}
-\item{Fishery_code}{Index of Fishery ACROSS species}
-\item{Species}{Species number}
-\item{Sex}{NOTUSED}
-\item{Age0_Length1}{Index wether the comp data are length comps (1) or age comps (0)}
-\item{Year}{}
-\item{Month}{}
-\item{Sample_size}{sample size to use for multinomial distribution}
-\item{Comp_1}{Age or length comp of first age/length in model}
-}
-
-
-Other data inputs:
-\describe{
-\item{ age_trans_matrix}{Array: observed age-length transition matrix or ALK; dim = [alk_ind, nages, nlengths]}
-\item{ age_error}{Array: observed ageing error matrix row is true age, column is observed age; dim = [nspp, nages, nages]}
-\item{ wt}{Array: observed weight-at-age; dim = [nyrs, nages, wt_ind]}
-\item{ pmature }{Matrix: Proportion of mature females at age; dim = [nspp, nages]}
-\item{ propF}{Matrix: Proportion-at-age of females of population; dim = [nspp, nages]}
-\item{ M1_base }{Matrix: Residual natural mortality; dim = [nspp, nages]}
-\item{ Mn_LatAge }{Matrix: mean length-at-age across years (used for suitability models > 0); dim = [nspp, nages]}
-\item{ aLW }{Matrix: LW a&b regression coefs for W=a*L^b (used for suitability models > 0); dim = [2, nspp]}
-}
-
-Bioenergetics and diet data:
-\describe{
-\item{ Ceq }{Ivector: Ceq: which Comsumption equation to use; length = [nspp]}
-\item{ Pvalue }{Vector: This scales the pvalue used if C_model ==1 , proportion of Cmax; Pvalue is P in Cmax*fT*Pvalue*PAge; length = [nspp]}
-\item{ fday }{Vector: number of foraging days for each predator; length = [nspp]}
-\item{ CA }{Vector: Wt specific intercept of Cmax=CA*W^CB; length = [nspp]}
-\item{ CB }{Vector: Wt specific slope of Cmax=CA*W^CB; length = [nspp]}
-\item{ Qc }{Vector: used in fT, QC value; length = [nspp]}
-\item{ Tco }{Vector: used in fT, thermal optimum; length = [nspp]}
-\item{ Tcm }{Vector: used in fT, thermal max; length = [nspp]}
-\item{ Tcl }{Vector: used in fT eq 3, limit; length = [nspp]}
-\item{ CK1 }{Vector: used in fT eq 3, limit where C is .98 max (ascending}{ length = [nspp]}
-\item{ CK4 }{Vector: used in fT eq 3, temp where C is .98 max (descending}{ length = [nspp]}
-\item{ nTyrs }{Integer: Number of temperature years; dim = [1] }
-\item{ Tyrs }{Ivector: Years of hindcast data; length = [nTyrs]}
-\item{ Pyrs }{Array: number of foraging days for each species, age, year : dim = [nspp, nyrs, nages]}
-\item{ Uobs }{Array: pred, prey, predL, preyL diet proportion data (mean number of prey in each pred): dim = [nspp, nspp, maxL, maxL]}
-\item{ UobsWt }{Array: pred, prey, predL, preyL diet proportion data (mean wt_hat of prey in each pred): dim = [nspp, nspp, maxL, maxL] . This fits predation mortality from \code{msmMode = 1} and \code{suitMode = 1, 2}}
-\item{ UobsAge }{Array: pred, prey, predA, preyA diet prorportion data  (mean number of prey in each pred age) dim = [nspp, nspp, max_age, max_age]}
-\item{ UobsWtAge }{Array: pred, prey, predA, preyA diet prorportion data  (mean weight of prey at age in each pred at age) dim = [nspp, nspp, max_age, max_age]}
+\item{Time_varying_sel}{Wether a time-varying selectivity should be estimated for logistic, double logistic selectivity, or descending logistic. 0 = no, 1 = penalized deviates given sel_sd_prior, 2 = random effect, 3 = time blocks with no penality, 4 = random walk following Dorn, 5 = random walk on ascending portion of double logistic only. If selectivity is set to type = 2 (non-parametric) this value will be the 1st penalty on selectivity.}
+\item{Sel_sd_prior}{The sd to use for the random walk of time varying selectivity if set to 1. If selectivity is set to type = 2 (non-parametric) this value will be the 2nd penalty on selectivity.}
+\item{Age_first_selected}{Age at which selectivity is non-zero}
+\item{Acuumulation_age_lower}{Ages below this will be grouped to this age for composition data. For example, if set to 2, comp data for age 2 will include 1 and 2 year olds.}
+\item{Acuumulation_age_upper}{Ages above this will be grouped to this age for composition data. For example, if set to 9 for a species with 10 ages, comp data for age 9 will include 9 and 10 year olds.}
+\item{weight1_Numbers2}{Is the observation in weight (kg) set as 1, if the observation is in numbers caught, set as 2}
+\item{Weight_index}{Weight-at-age (wt) index to use for calculation of derived quantities}
+\item{Age_transition_index}{Age transition matrix (e.g. growth trajectory) index to use for derived quantities to convert age to length}
+\item{Q_index}{index to use if catchability coefficients are to be set the same}
+\item{Estimate_q}{Estimate catchability? (0 = fixed at prior; - 1 = Estimate single parameter; - 2 = Estimate single parameter with prior; - 3 = Estimate analytical q  from Ludwig and Walters 1994;  - 4 = Estimate power equation; - 5 - Linear equation log(q_y) = q_mu + beta * index_y)}
+\item{Q_prior}{Starting value or fixed value for catchability}
+\item{Q_sd_prior}{Variance of q prior: dnorm (log_q, log_q_prior, q_sd_prior)}
+\item{Time_varying_q}{Wether a time-varying q should be estimated. 0 = no, 1 = penalized deviate, 2 = random effect, 3 = time blocks with no penalty; 4 = random walk from mean following Dorn 2018 (dnorm(q_y - q_y-1, 0, sigma). If Estimate_q = 5, this determines the environmental index to be used in the equation log(q_y) = q_mu + beta * index_y}
+\item{Time_varying_q_sd_prior}{The sd to use for the random walk of time varying q if set to 1}
+\item{Estimate_survey_sd}{Estimate survey variance (0 = use CV from srv_biom, 1 = yes, 2 = analytically estimate following (Ludwig and Walters 1994)}
+\item{Survey_sd_prior}{Starting value to be used if Estimate_sigma_index = 1}
+\item{Estimate_catch_sd}{Estimate fishery variance (0 = use CV from srv_biom, 1 = yes, 2 = analytically estimate following (Ludwig and Walters 1994)}
+\item{Catch_sd_prior}{Starting value to be used if Estimate_sigma_catch = 1}
+\item{Comp_weights}{Composition weights to be used for multinomial likelihood. These are multiplied. After running model, these will update to McAllister & Ianelli 1997 weights using the harmonic mean.}
+\item{Catch_units}{Units used for survey: 1 = kg; 2 = numbers}
+\item{proj_F_prop}{The proportion of future fishing mortality assigned to this fleet}
 }
 }
 \usage{

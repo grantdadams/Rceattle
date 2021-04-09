@@ -96,7 +96,7 @@ rearrange_dat <- function(data_list){
 
   # Rearrange age-transition matrix
   age_trans_matrix <- data_list$age_trans_matrix
-  unique_age_trans <- unique(as.character(age_trans_matrix$Age_transition_index))
+  unique_age_transition <- unique(as.character(age_trans_matrix$Age_transition_index))
   for(i in 1:length(data_list$pop_age_transition_index)){
     if(data_list$pop_age_transition_index[i] %!in% unique_age_transition){
       stop("Check population age_transition index, not in age_transition file")
