@@ -10,7 +10,6 @@
 #' \item{endyr}{End year of the hindcast}
 #' \item{projyr}{End year of the forecast}
 #' \item{nsex}{Number of sexes to model in the population (1 = combined/1sex, 2 = models both female/male)}
-#' \item{Sex}{sex codes for data/comp: 0=combined; 1=use female only; 2=use male only; 3 = joint female and male}
 #' \item{spawn_month}{Spawning month of the population to adjust the numbers spawning}
 #' \item{R_sexr}{Percent of recruitment that is female (ignored if nsex = 1)}
 #' \item{nages}{Number of ages of each species included in the hindcast}
@@ -21,9 +20,11 @@
 #' \item{pop_age_transition_index}{Age transition matrix (e.g. growth trajectory) index to use for derived quantities of the population to convert age to length (also used in length-based predation estimation)}
 #' \item{sigma_rec_prior}{Standard deviation to use for recruitment}
 #' \item{other_food}{Other food in the ecosystem for each species}
-#' \item{stom_sample_size}{Sample size of diet data for each species (used when suitMode > 0)}
-#' \item{est_propF}{Is sex ration F/(M+F) to be included in the likelihood (assumed normal); 0 = no, 1 = use annual average across ages (uses 2nd age in propF data), 2 = age, and year specific (TBD)}
-#' \item{propF_sigma}{Initial value or fixed value for sd of normal likelihood for sex ration. Not yet able to estimate.}
+#' \item{estDynamics}{Estimate or fix numbers-at-age: 0 = estimate dynamics, 1 = use input numbers-at-age in NbyageFixed, 2 = multiply input numbers-at-age (NbyageFixed) by a single scaling coefficient, 3 = multiply input numbers-at-age (NbyageFixed) by age specific scaling coefficient.}
+#' \item{proj_F}{Unused}
+#' \item{est_sex_ratio}{Is sex ration F/(M+F) to be included in the likelihood (assumed normal); 0 = no, 1 = use annual average across ages (uses 2nd age in propF data), 2 = age, and year specific (TBD)}
+#' \item{sex_ratio_sigma}{Initial value or fixed value for sd of normal likelihood for sex ration. Not yet able to estimate.}
+#' \item{est_M1}{Estimate residual (multi-species mode) or total natural mortality (single-species mode). 0 = use fixed natural mortality from M1_base, 1 = estimate sex- and age-invariant M1, 2 = sex-specific (two-sex model), age-invariant M1, 3 =   estimate sex- and age-specific M1.}
 #' \item{fleet_control}{Survey and fishery data specifications}
 #' \item{srv_biom}{Survey index in weight (kg) or numbers data}
 #' \item{fsh_biom}{Total catch in weight (kg) or numbers data}
@@ -57,7 +58,6 @@
 #'
 #' fleet_control: controls for survey and fisheries data
 #'\describe{
-#' \item{UobsWtAge}{Stomach proportion by weight for each predator, prey, predator age, prey age combination. Can also be year specific by including the column, "Year"}
 #' \item{Fleet_name}{Name of survey or fishery}
 #' \item{Fleet_code}{Index of survey/fishery ACROSS species}
 #' \item{Fleet_type}{0 = Do not estimate; 1 = Fishery; 2 = Survey}
@@ -86,6 +86,7 @@
 #' \item{Comp_weights}{Composition weights to be used for multinomial likelihood. These are multiplied. After running model, these will update to McAllister & Ianelli 1997 weights using the harmonic mean.}
 #' \item{Catch_units}{Units used for survey: 1 = kg; 2 = numbers}
 #' \item{proj_F_prop}{The proportion of future fishing mortality assigned to this fleet}
+#' \item{Sex}{sex codes: 0=combined; 1=use female only; 2=use male only; 3 = joint female and male}
 #'}
 "BS2017SS"
 
@@ -102,7 +103,6 @@
 #' \item{endyr}{End year of the hindcast}
 #' \item{projyr}{End year of the forecast}
 #' \item{nsex}{Number of sexes to model in the population (1 = combined/1sex, 2 = models both female/male)}
-#' \item{Sex}{sex codes for data/comp: 0=combined; 1=use female only; 2=use male only; 3 = joint female and male}
 #' \item{spawn_month}{Spawning month of the population to adjust the numbers spawning}
 #' \item{R_sexr}{Percent of recruitment that is female (ignored if nsex = 1)}
 #' \item{nages}{Number of ages of each species included in the hindcast}
@@ -113,9 +113,11 @@
 #' \item{pop_age_transition_index}{Age transition matrix (e.g. growth trajectory) index to use for derived quantities of the population to convert age to length (also used in length-based predation estimation)}
 #' \item{sigma_rec_prior}{Standard deviation to use for recruitment}
 #' \item{other_food}{Other food in the ecosystem for each species}
-#' \item{stom_sample_size}{Sample size of diet data for each species (used when suitMode > 0)}
-#' \item{est_propF}{Is sex ration F/(M+F) to be included in the likelihood (assumed normal); 0 = no, 1 = use annual average across ages (uses 2nd age in propF data), 2 = age, and year specific (TBD)}
-#' \item{propF_sigma}{Initial value or fixed value for sd of normal likelihood for sex ration. Not yet able to estimate.}
+#' \item{estDynamics}{Estimate or fix numbers-at-age: 0 = estimate dynamics, 1 = use input numbers-at-age in NbyageFixed, 2 = multiply input numbers-at-age (NbyageFixed) by a single scaling coefficient, 3 = multiply input numbers-at-age (NbyageFixed) by age specific scaling coefficient.}
+#' \item{proj_F}{Unused}
+#' \item{est_sex_ratio}{Is sex ration F/(M+F) to be included in the likelihood (assumed normal); 0 = no, 1 = use annual average across ages (uses 2nd age in propF data), 2 = age, and year specific (TBD)}
+#' \item{sex_ratio_sigma}{Initial value or fixed value for sd of normal likelihood for sex ration. Not yet able to estimate.}
+#' \item{est_M1}{Estimate residual (multi-species mode) or total natural mortality (single-species mode). 0 = use fixed natural mortality from M1_base, 1 = estimate sex- and age-invariant M1, 2 = sex-specific (two-sex model), age-invariant M1, 3 =   estimate sex- and age-specific M1.}
 #' \item{fleet_control}{Survey and fishery data specifications}
 #' \item{srv_biom}{Survey index in weight (kg) or numbers data}
 #' \item{fsh_biom}{Total catch in weight (kg) or numbers data}
@@ -149,7 +151,6 @@
 #'
 #' fleet_control: controls for survey and fisheries data
 #'\describe{
-#' \item{UobsWtAge}{Stomach proportion by weight for each predator, prey, predator age, prey age combination. Can also be year specific by including the column, "Year"}
 #' \item{Fleet_name}{Name of survey or fishery}
 #' \item{Fleet_code}{Index of survey/fishery ACROSS species}
 #' \item{Fleet_type}{0 = Do not estimate; 1 = Fishery; 2 = Survey}
@@ -178,6 +179,7 @@
 #' \item{Comp_weights}{Composition weights to be used for multinomial likelihood. These are multiplied. After running model, these will update to McAllister & Ianelli 1997 weights using the harmonic mean.}
 #' \item{Catch_units}{Units used for survey: 1 = kg; 2 = numbers}
 #' \item{proj_F_prop}{The proportion of future fishing mortality assigned to this fleet}
+#' \item{Sex}{sex codes: 0=combined; 1=use female only; 2=use male only; 3 = joint female and male}
 #'}
 "BS2017MS"
 

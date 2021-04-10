@@ -29,6 +29,7 @@ Rceattle::write_data(data_list = BS2017SS, file = "BS2017SS.xlsx")
 # Change the data how you want in excel
 # Read the data back in
 mydata <- Rceattle::read_data( file = "BS2017SS.xlsx")
+mydata$est_M1 <- c(0,0,0)
 
 
 ################################################
@@ -41,7 +42,22 @@ ss_run <- Rceattle::fit_mod(data_list = mydata,
                             cpp_directory = "inst/executables",
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save
-                            debug = 0, # Estimate
+                            debug = FALSE, # Estimate
+                            random_rec = FALSE, # No random recruitment
+                            msmMode = 0, # Single species mode
+                            phase = "default",
+                            silent = TRUE,
+                            recompile = FALSE)
+
+# Estimate pollock M
+mydata_M <- mydata
+mydata_M$est_M1 <- c(1,0,0)
+ss_run_M <- Rceattle::fit_mod(data_list = mydata_M,
+                            TMBfilename = "ceattle_v01_06",
+                            cpp_directory = "inst/executables",
+                            inits = NULL, # Initial parameters = 0
+                            file = NULL, # Don't save
+                            debug = FALSE, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
                             phase = "default",
@@ -49,7 +65,7 @@ ss_run <- Rceattle::fit_mod(data_list = mydata,
                             recompile = FALSE)
 
 # The you can plot the model results using using
-plot_biomass(Rceattle =  ss_run)
+plot_biomass(Rceattle =  list(ss_run, ss_run_M))
 plot_recruitment(Rceattle =  ss_run, add_ci = TRUE)
 plot_catch(Rceattle =  ss_run, incl_proj = T)
 

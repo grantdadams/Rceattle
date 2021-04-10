@@ -75,9 +75,10 @@ build_bounds <- function(param_list = NULL, data_list) {
     lower_bnd$F_dev <- replace(lower_bnd$F_dev, values = rep(-1000, length(lower_bnd$F_dev)))
     upper_bnd$F_dev <- replace(upper_bnd$F_dev, values = rep(10, length(upper_bnd$F_dev)))
 
-    # Phi lower_bnd$phi <- replace(lower_bnd$phi, values = rep(-Inf, length(lower_bnd$phi))) upper_bnd$phi <-
-    # replace(upper_bnd$phi, values = rep(-0.000001, length(upper_bnd$phi)))
+    lower_bnd$ln_M1 <- replace(lower_bnd$ln_M1, values = rep(log(0.001), length(lower_bnd$ln_M1)))
+    upper_bnd$ln_M1 <- replace(upper_bnd$ln_M1, values = rep(log(2), length(upper_bnd$ln_M1)))
 
+    # Combine bounds in list
     bounds <- list(upper = upper_bnd, lower = lower_bnd)
 
 
