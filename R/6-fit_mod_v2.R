@@ -159,39 +159,46 @@
 #'data(BS2017SS) # ?BS2017SS for more information on the data
 #'
 #'# Set up phases, also the default
-#'phaseList = list(
-#'dummy = 1,
-#'ln_pop_scalar = 11,
-#'ln_mean_rec = 1,
-#'ln_rec_sigma = 2,
-#'rec_dev = 2,
-#'init_dev = 2,
-#'ln_mean_F = 1,
-#'ln_FSPR = 1,
-#'F_dev = 1,
-#'log_srv_q = 3,
-#'ln_srv_q_dev = 4,
-#'ln_srv_q_dev_re = 4,
-#'ln_sigma_srv_q = 4,
-#'sel_coff = 3,
-#'ln_sel_slp = 3,
-#'sel_inf = 3,
-#'ln_sel_slp_dev = 4,
-#'sel_inf_dev = 4,
-#'ln_sel_slp_dev_re = 4,
-#'sel_inf_dev_re = 4,
-#'ln_sigma_sel = 4,
-#'ln_sigma_srv_index = 2,
-#'ln_sigma_fsh_catch = 2,
-#'logH_1 = 6,
-#'logH_1a = 6,
-#'logH_1b = 6,
-#'logH_2 = 6,
-#'logH_3 = 6,
-#'H_4 = 6,
-#'log_gam_a = 5,
-#'log_gam_b = 5,
-#'log_phi = 5
+#' phase = list(
+#' dummy = 1,
+#' ln_pop_scalar = 4,
+#' ln_mean_rec = 1,
+#' ln_rec_sigma = 2,
+#' rec_dev = 2,
+#' init_dev = 2,
+#' ln_mean_F = 1,
+#' ln_FSPR = 3,
+#' proj_F_prop = 1,
+#' F_dev = 1,
+#' ln_srv_q = 3,
+#' srv_q_pow = 4,
+#' ln_srv_q_dev = 5,
+#' ln_srv_q_dev_re = 4,
+#' ln_sigma_srv_q = 4,
+#' ln_sigma_time_varying_srv_q = 4,
+#' sel_coff = 3,
+#' sel_curve_pen = 4,
+#' ln_sex_ratio_sigma = 3,
+#' ln_sel_slp = 3,
+#' ln_M1 = 4,
+#' sel_inf = 3,
+#' ln_sel_slp_dev = 5,
+#' sel_inf_dev = 5,
+#' ln_sel_slp_dev_re = 4,
+#' sel_inf_dev_re = 4,
+#' ln_sigma_sel = 4,
+#' ln_sigma_srv_index = 2,
+#' ln_sigma_fsh_catch = 2,
+#' logH_1 = 4,
+#' logH_1a = 4,
+#' logH_1b = 4,
+#' logH_2 = 4,
+#' logH_3 = 4,
+#' H_4 = 4,
+#' log_gam_a = 4,
+#' log_gam_b = 4,
+#' log_phi = 4,
+#' comp_weights = 4
 #')
 #'
 #'# Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
@@ -313,6 +320,7 @@ fit_mod <-
       # inits$proj_F <- data_list$fleet_control$proj_F
       params <- inits
     }
+    start_par <- params
     message("Step 1: Parameter build complete")
 
 
@@ -320,7 +328,7 @@ fit_mod <-
     # STEP 2 - BUILD MAP
     if (is.null(map)) {
       map <-
-        suppressWarnings(build_map(data_list, params, debug = debug, random_rec = random_rec))
+        suppressWarnings(build_map(data_list, params, debug = FALSE, random_rec = random_rec))
     } else{
       map <- map
     }
@@ -369,6 +377,7 @@ fit_mod <-
             sel_curve_pen = 4,
             ln_sex_ratio_sigma = 3,
             ln_sel_slp = 3,
+            ln_M1 = 4,
             sel_inf = 3,
             ln_sel_slp_dev = 5,
             sel_inf_dev = 5,
@@ -477,11 +486,6 @@ fit_mod <-
 
       message(paste0("Step ", step,": Phasing complete - getting final estimates"))
       step = step + 1
-    }
-
-    # Not phased
-    if(is.null(phase) | debug == TRUE){
-      start_par <- params
     }
 
 

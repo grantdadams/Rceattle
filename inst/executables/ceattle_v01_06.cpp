@@ -479,7 +479,6 @@ Type objective_function<Type>::operator() () {
   DATA_MATRIX( aLW );                     // LW a&b regression coefs for W=a*L^b; n = [2, nspp]
 
   // -- 2.4.4. Others
-  DATA_ARRAY( M1_base );                  // Residual natural mortality; n = [nspp, nages]
   DATA_MATRIX( sex_ratio );               // Proportion-at-age of females of population; n = [nspp, nages]
   DATA_MATRIX( pmature );                 // Proportion of mature females at age; [nspp, nages]
 
@@ -495,11 +494,12 @@ Type objective_function<Type>::operator() () {
   PARAMETER_VECTOR( ln_mean_rec );                // Mean recruitment; n = [1, nspp]
   PARAMETER_VECTOR( ln_rec_sigma );               // Standard deviation of recruitment deviations; n = [1, nspp]
   PARAMETER_MATRIX( rec_dev );                    // Annual recruitment deviation; n = [nspp, nyrs]
-  PARAMETER_VECTOR( ln_sex_ratio_sigma );             // Variance for sex ratio to be used; n = [nspp]
+  PARAMETER_VECTOR( ln_sex_ratio_sigma );         // Variance for sex ratio to be used; n = [nspp]
 
 
   // -- 3.2. Abundance parameters
   PARAMETER_MATRIX( init_dev );                   // Initial abundance-at-age; n = [nspp, nages] # NOTE: Need to figure out how to best vectorize this
+  PARAMETER_ARRAY( ln_M1 );                       // Natural mortality (residual if multispecies mode or total if single species mode); n = [nspp, nsex, nages]
 
 
   // -- 3.3. fishing mortality parameters
@@ -518,13 +518,13 @@ Type objective_function<Type>::operator() () {
 
 
   // -- 3.5. Selectivity parameters
-  PARAMETER_ARRAY( sel_coff );                    // selectivity parameters for non-parametric; n = [n_selectivities, nselages]
-  PARAMETER_ARRAY( ln_sel_slp );                  // selectivity paramaters for logistic; n = [2, n_selectivities]
-  PARAMETER_ARRAY( sel_inf );                     // selectivity paramaters for logistic; n = [2, n_selectivities]
-  PARAMETER_ARRAY( ln_sel_slp_dev );              // selectivity parameter deviate for logistic; n = [2, n_selectivities, n_sel_blocks]
-  PARAMETER_ARRAY( sel_inf_dev );                 // selectivity parameter deviate for logistic; n = [2, n_selectivities, n_sel_blocks]
-  PARAMETER_ARRAY( ln_sel_slp_dev_re );           // selectivity parameter random effect deviate for logistic; n = [2, n_selectivities, n_sel_blocks]
-  PARAMETER_ARRAY( sel_inf_dev_re );              // selectivity parameter random effect deviate for logistic; n = [2, n_selectivities, n_sel_blocks]
+  PARAMETER_ARRAY( sel_coff );                    // selectivity parameters for non-parametric; n = [n_selectivities, nsex, nselages]
+  PARAMETER_ARRAY( ln_sel_slp );                  // selectivity paramaters for logistic; n = [2, n_selectivities, nsex]
+  PARAMETER_ARRAY( sel_inf );                     // selectivity paramaters for logistic; n = [2, n_selectivities, nsex]
+  PARAMETER_ARRAY( ln_sel_slp_dev );              // selectivity parameter deviate for logistic; n = [2, n_selectivities, nsex, n_sel_blocks]
+  PARAMETER_ARRAY( sel_inf_dev );                 // selectivity parameter deviate for logistic; n = [2, n_selectivities, nsex, n_sel_blocks]
+  PARAMETER_ARRAY( ln_sel_slp_dev_re );           // selectivity parameter random effect deviate for logistic; n = [2, n_selectivities, nsex, n_sel_blocks]
+  PARAMETER_ARRAY( sel_inf_dev_re );              // selectivity parameter random effect deviate for logistic; n = [2, n_selectivities, nsex, n_sel_blocks]
   PARAMETER_VECTOR( ln_sigma_sel );               // Log standard deviation of selectivity; n = [1, n_selectivities]
   PARAMETER_MATRIX( sel_curve_pen );              // Selectivity penalty for non-parametric selectivity, 2nd column is for monotonic bit
 
@@ -562,7 +562,7 @@ Type objective_function<Type>::operator() () {
   int n_flt = fleet_control.rows();
   vector<int> joint_adjust(comp_obs.rows()); joint_adjust.setZero();
 
-  // -- 4.2. Estimated population parameters
+  // -- 4.2. Estimated population quantities
   matrix<Type>  pop_scalar = ln_pop_scalar;  pop_scalar = exp(ln_pop_scalar.array());// Fixed n-at-age scaling coefficient; n = [nspp, nages]
   vector<Type>  mn_rec = exp(ln_mean_rec);                                          // Mean recruitment; n = [1, nspp]
   array<Type>   biomassByage(nspp, max_age, nyrs); biomassByage.setZero();          // Estimated biomass-at-age (kg); n = [nspp, nages, nyrs]
@@ -570,7 +570,7 @@ Type objective_function<Type>::operator() () {
   matrix<Type>  biomassSSB(nspp, nyrs); biomassSSB.setZero();                       // Estimated spawning stock biomass (kg); n = [nspp, nyrs]
   array<Type>   biomassSSBByage(nspp, max_age, nyrs); biomassSSBByage.setZero();    // Spawning biomass at age (kg); n = [nspp, nages, nyrs]
   array<Type>   M(nspp, 2, max_age, nyrs); M.setZero();                             // Total natural mortality at age; n = [nyrs, 2 sexes, nages, nspp]
-  array<Type>   M1 = M1_base;
+  array<Type>   M1(ln_M1.dim); M1 = exp(ln_M1);                                     // Residual or total natural mortality at age; n = [nspp, 2 sexes, nages]
   array<Type>   M2(nspp, 2, max_age, nyrs); M2.setZero();                           // Predation mortality at age; n = [nyrs, nages, nspp]
   array<Type>   M2_prop(nspp, nspp, 2, 2, max_age, max_age, nyrs); M2_prop.setZero();     // Relative predation mortality at age from each species at age; n = [nyrs, nages, nspp]
   array<Type>   NByage(nspp, 2, max_age, nyrs); NByage.setZero();                   // Numbers at age; n = [nspp, nages, nyrs]
@@ -590,7 +590,7 @@ Type objective_function<Type>::operator() () {
   array<Type>   sel_tmp(n_flt, 2, max_age); sel_tmp.setZero();                      // Temporary saved selectivity at age for estimated bits; n = [nselectivities, nages, nyrs]
   vector<Type>  sigma_sel(n_flt); sigma_sel.setZero();                              // Standard deviation of selectivity deviates; n = [1, nselectivities]
 
-  // -- 4.4. Fishery observations
+  // -- 4.4. Fishery components
   vector<Type>  sigma_fsh_catch(n_flt); sigma_fsh_catch.setZero();                  // Standard deviation of fishery time-series; n = [1, n_fsh]
   array<Type>   F(n_flt, 2, max_age, nyrs); F.setZero();                            // Estimated fishing mortality for each fishery; n = [n_flt, 2 sexes, nages, nyrs]
   array<Type>   F35_tot(nspp, 2, max_age); F35_tot.setZero();                       // Estimated fishing mortality for each species that leads to SB35; n = [nspp, 2 sexes, nages]
@@ -858,7 +858,7 @@ for(int i = 0; i < env_index.cols(); i++){
           }
         }
       }
-    }      // FIXME - set all fishing selectivities after nyrs_hind to the terminal year
+    }      // FIXME - set all empirical selectivities after nyrs_hind to the terminal year
 
     // 6.1. ESTIMATE SELECTIVITY
     avgsel.setZero();
@@ -1064,8 +1064,8 @@ if(flt_type(flt) == 1){
       for (age = 0; age < nages(sp); age++) {
         for (yr = 0; yr < nyrs; yr++) {
           for(sex = 0; sex < nsex(sp); sex ++){
-            M(sp, sex, age, yr) = M1_base(sp, sex, age) + M2(sp, sex, age, yr);
-            Zed(sp, sex, age, yr) = M1_base(sp, sex, age) + F_tot(sp, sex, age, yr) + M2(sp, sex, age, yr);
+            M(sp, sex, age, yr) = M1(sp, sex, age) + M2(sp, sex, age, yr);
+            Zed(sp, sex, age, yr) = M1(sp, sex, age) + F_tot(sp, sex, age, yr) + M2(sp, sex, age, yr);
             S(sp, sex, age, yr) = exp(-Zed(sp, sex, age, yr));
           }
         }
@@ -1138,7 +1138,7 @@ if(flt_type(flt) == 1){
               // Sum M1 until age - 1
               Type mort_sum = 0;
               for(int age_tmp = 0; age_tmp < age; age_tmp++){
-                mort_sum += M1_base(sp, sex, age_tmp);
+                mort_sum += M1(sp, sex, age_tmp);
               }
               NByage(sp, sex, age, 0) = exp(ln_mean_rec(sp) - mort_sum + init_dev(sp, age - 1)) * R_sexr(sp);
             }
@@ -1147,9 +1147,9 @@ if(flt_type(flt) == 1){
               // Sum M1 until age - 1
               Type mort_sum = 0;
               for(int age_tmp = 0; age_tmp < age; age_tmp++){
-                mort_sum += M1_base(sp, sex, age_tmp);
+                mort_sum += M1(sp, sex, age_tmp);
               }
-              NByage(sp, sex, age, 0) = exp(ln_mean_rec(sp) - mort_sum + init_dev(sp, age - 1)) / (1 - exp(-M1_base(sp, sex, nages(sp) - 1))) * R_sexr(sp); // NOTE: This solves for the geometric series
+              NByage(sp, sex, age, 0) = exp(ln_mean_rec(sp) - mort_sum + init_dev(sp, age - 1)) / (1 - exp(-M1(sp, sex, nages(sp) - 1))) * R_sexr(sp); // NOTE: This solves for the geometric series
             }
           }
 
@@ -1313,8 +1313,8 @@ if(flt_type(flt) == 1){
         for (age = 0; age < nages(sp); age++) {
           biomassByage(sp, age, yr) = 0;
           for(sex = 0; sex < nsex(sp); sex ++){
-            M(sp, sex, age, yr) = M1_base(sp, sex, age) + M2(sp, sex, age, yr);
-            Zed(sp, sex, age, yr) = M1_base(sp, sex, age) + F_tot(sp, sex, age, yr) + M2(sp, sex, age, yr);
+            M(sp, sex, age, yr) = M1(sp, sex, age) + M2(sp, sex, age, yr);
+            Zed(sp, sex, age, yr) = M1(sp, sex, age) + F_tot(sp, sex, age, yr) + M2(sp, sex, age, yr);
             S(sp, sex, age, yr) = exp(-Zed(sp, sex, age, yr));
           }
         }

@@ -271,6 +271,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
 
   dat_list$proj_F <- rep(0, 3)
   dat_list$est_sex_ratio <-  rep(NA, 3)
+  dat_list$est_M1 <-  rep(0,3)
   dat_list$sex_ratio_sigma <- rep(NA, 3)
   dat_list$Cindex <- rep(1, 3) # Environmental T index to use
   dat_list$fleet_control$proj_F_prop <- proj_F_prop
@@ -639,7 +640,7 @@ build_dat <- function(ctlFilename = NULL, TMBfilename = NULL, cpp_directory = NU
   names_in_cpp <- c(names_in_cpp, "comp_data", "NByageFixed", "estDynamics",
                     "emp_sel", "fleet_control",
                     "fsh_comp", "srv_comp",
-                    "fsh_biom", "srv_biom", "proj_F_prop", "proj_F", "minage", "sigma_rec_prior", "spnames", "nsex", "R_sexr", "ssb_wt_index", "spawn_month", "est_sex_ratio", "sex_ratio_sigma", "sex_ratio", "env_data", "Cindex", "pop_age_transition_index")
+                    "fsh_biom", "srv_biom", "proj_F_prop", "proj_F", "minage", "sigma_rec_prior", "spnames", "nsex", "R_sexr", "ssb_wt_index", "spawn_month", "est_sex_ratio", "sex_ratio_sigma", "sex_ratio", "env_data", "Cindex", "pop_age_transition_index", "est_M1")
 
   # Remove
   names_in_cpp <- names_in_cpp[-which(names_in_cpp == "pop_alk_index")]
