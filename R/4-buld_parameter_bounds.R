@@ -27,12 +27,13 @@ build_bounds <- function(param_list = NULL, data_list) {
         upper_bnd$log_gam_b <- replace(upper_bnd$log_gam_b, values = rep(20, length(upper_bnd$log_gam_b)))
     }
 
-    # Functional form
-    lower_bnd$logH_3 <- replace(lower_bnd$logH_3, values = rep(-30, length(lower_bnd$logH_3)))
-    upper_bnd$logH_3 <- replace(upper_bnd$logH_3, values = rep(-1e-06, length(upper_bnd$logH_3)))
-
-    lower_bnd$H_4 <- replace(lower_bnd$H_4, values = rep(-0.1, length(lower_bnd$H_4)))
-    upper_bnd$H_4 <- replace(upper_bnd$H_4, values = rep(20, length(upper_bnd$H_4)))
+    # Commenting out Kinzey bits
+    # # Functional form
+    # lower_bnd$logH_3 <- replace(lower_bnd$logH_3, values = rep(-30, length(lower_bnd$logH_3)))
+    # upper_bnd$logH_3 <- replace(upper_bnd$logH_3, values = rep(-1e-06, length(upper_bnd$logH_3)))
+    #
+    # lower_bnd$H_4 <- replace(lower_bnd$H_4, values = rep(-0.1, length(lower_bnd$H_4)))
+    # upper_bnd$H_4 <- replace(upper_bnd$H_4, values = rep(20, length(upper_bnd$H_4)))
 
     # Recruitment
     lower_bnd$rec_dev <- replace(lower_bnd$rec_dev, values = rep(-15, length(lower_bnd$rec_dev)))

@@ -30,13 +30,13 @@
 #' \item{0. Single species mode}
 #' \item{1. Holsman et al. 2015 predation based on multi-species virtual population analysis (MSVPA) based predation formation.}
 #' \item{2. MSVPA Holling Type III}
-#'  \item{3. Kinzey & Punt 2010 Holling Type I (linear)}
-#'  \item{4. Kinzey & Punt 2010 Holling Type II}
-#'  \item{5. Kinzey & Punt 2010 Holling Type III}
-#'  \item{6. Kinzey & Punt 2010 Predator interference}
-#'  \item{7. Kinzey & Punt 2010 Predator preemption}
-#'  \item{8. Kinzey & Punt 2010 Hassell-Varley}
-#'  \item{9. Kinzey & Punt 2010 Ecosim}
+#'  \item{3. Kinzey & Punt 2010 Holling Type I (linear) - Deprecated}
+#'  \item{4. Kinzey & Punt 2010 Holling Type II - Deprecated}
+#'  \item{5. Kinzey & Punt 2010 Holling Type III - Deprecated}
+#'  \item{6. Kinzey & Punt 2010 Predator interference - Deprecated}
+#'  \item{7. Kinzey & Punt 2010 Predator preemption - Deprecated}
+#'  \item{8. Kinzey & Punt 2010 Hassell-Varley - Deprecated}
+#'  \item{9. Kinzey & Punt 2010 Ecosim - Deprecated}
 #'  }
 #'
 #'
@@ -95,12 +95,6 @@
 #'   ln_sigma_sel = 4,
 #'   ln_sigma_srv_index = 2,
 #'   ln_sigma_fsh_catch = 2,
-#'   logH_1 = 4,
-#'   logH_1a = 4,
-#'   logH_1b = 4,
-#'   logH_2 = 4,
-#'   logH_3 = 4,
-#'   H_4 = 4,
 #'   log_gam_a = 4,
 #'   log_gam_b = 4,
 #'   log_phi = 4,
@@ -121,7 +115,7 @@
 #' @export
 
 fit_mod <-
-  function(TMBfilename = "ceattle_v01_06",
+  function(TMBfilename = "ceattle_v01_07",
            cpp_directory = NULL,
            data_list = NULL,
            inits = NULL,
@@ -172,6 +166,18 @@ fit_mod <-
     data_list$emp_sel <- data_list$emp_sel[which(data_list$emp_sel$Year == 0 | data_list$emp_sel$Year >= data_list$styr),]
     data_list$NByageFixed <- data_list$NByageFixed[which(data_list$NByageFixed$Year == 0 | data_list$NByageFixed$Year >= data_list$styr),]
     data_list$Pyrs <- data_list$Pyrs[which(data_list$Pyrs$Year == 0 | data_list$Pyrs$Year >= data_list$styr),]
+
+
+    # - Remove years of data after to proj year
+    data_list$wt <- data_list$wt[which(data_list$wt$Year <= data_list$projyr),]
+    data_list$UobsAge <- data_list$UobsAge[which(data_list$UobsAge$Year <= data_list$projyr),]
+    data_list$UobsWtAge <- data_list$UobsWtAge[which(data_list$UobsWtAge$Year <= data_list$projyr),]
+    data_list$srv_biom <- data_list$srv_biom[which(abs(data_list$srv_biom$Year) <= data_list$projyr),]
+    data_list$fsh_biom <- data_list$fsh_biom[which(abs(data_list$fsh_biom$Year) <= data_list$projyr),]
+    data_list$comp_data <- data_list$comp_data[which(abs(data_list$comp_data$Year) <= data_list$projyr),]
+    data_list$emp_sel <- data_list$emp_sel[which(data_list$emp_sel$Year <= data_list$projyr),]
+    data_list$NByageFixed <- data_list$NByageFixed[which(data_list$NByageFixed$Year <= data_list$projyr),]
+    data_list$Pyrs <- data_list$Pyrs[which(data_list$Pyrs$Year <= data_list$projyr),]
 
 
     # - Extend catch data to proj year for projections
@@ -281,12 +287,6 @@ fit_mod <-
             ln_sigma_sel = 4,
             ln_sigma_srv_index = 2,
             ln_sigma_fsh_catch = 2,
-            logH_1 = 4,
-            logH_1a = 4,
-            logH_1b = 4,
-            logH_2 = 4,
-            logH_3 = 4,
-            H_4 = 4,
             log_gam_a = 4,
             log_gam_b = 4,
             log_phi = 4,
@@ -307,7 +307,7 @@ fit_mod <-
     # - Get cpp file if not provided
     if(is.null(TMBfilename) | is.null(cpp_directory)){
       cpp_directory <- system.file("executables",package="Rceattle")
-      TMBfilename <- "ceattle_v01_06"
+      TMBfilename <- "ceattle_v01_07"
     } else{
       cpp_directory <- cpp_directory
       TMBfilename <- TMBfilename
