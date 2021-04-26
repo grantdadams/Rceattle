@@ -113,13 +113,13 @@ build_params <- function(data_list, inits = NULL) {
 
 
   # -- 3.8. Kinzery predation function parameters
-  param_list$logH_1 = matrix(0, nrow = data_list$nspp, ncol = data_list$nspp2)  # Predation functional form; n = [nspp, nspp2]; # FIXME: make matrix; nspp2 = nspp + 1
-  param_list$logH_1a = rep(0, data_list$nspp)  # Age adjustment to H_1; n = [1, nspp]; # FIXME: make matrix
-  param_list$logH_1b = rep(0, data_list$nspp)  # Age adjustment to H_1; n = [1, nspp]; # FIXME: make matrix
-
-  param_list$logH_2 = matrix(0, nrow = data_list$nspp, ncol = data_list$nspp)  # Predation functional form; n = [nspp, nspp]
-  param_list$logH_3 = matrix(0, nrow = data_list$nspp, ncol = data_list$nspp)  # Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH3,UpperBoundH3;
-  param_list$H_4 = matrix(0, nrow = data_list$nspp, ncol = data_list$nspp)  # Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH4,UpperBoundH4;
+  # param_list$logH_1 = matrix(-8.5, nrow = data_list$nspp, ncol = data_list$nspp2)  # Predation functional form; n = [nspp, nspp2]; # FIXME: make matrix; nspp2 = nspp + 1
+  # param_list$logH_1a = rep(-3, data_list$nspp)  # Age adjustment to H_1; n = [1, nspp]; # FIXME: make matrix
+  # param_list$logH_1b = rep(0, data_list$nspp)  # Age adjustment to H_1; n = [1, nspp]; # FIXME: make matrix
+  #
+  # param_list$logH_2 = matrix(-9, nrow = data_list$nspp, ncol = data_list$nspp)  # Predation functional form; n = [nspp, nspp]
+  # param_list$logH_3 = matrix(-9, nrow = data_list$nspp, ncol = data_list$nspp)  # Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH3,UpperBoundH3;
+  # param_list$H_4 = matrix(1, nrow = data_list$nspp, ncol = data_list$nspp)  # Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH4,UpperBoundH4;
 
 
   # -- 3.9. Gamma selectivity parameters
@@ -147,15 +147,6 @@ build_params <- function(data_list, inits = NULL) {
   param_list$ln_mean_F <- replace(param_list$ln_mean_F, values = -0.8)
   param_list$log_gam_a <- replace(param_list$log_gam_a, values = 0.5)
   param_list$log_gam_b <- replace(param_list$log_gam_b, values = -0.5)
-
-
-  param_list$logH_1 <- replace(param_list$logH_1, values = -8.5)
-  param_list$logH_1b <- replace(param_list$logH_1b, values = 0)
-  param_list$logH_1a <- replace(param_list$logH_1a, values = -3)
-
-  param_list$logH_2 <- replace(param_list$logH_2, values = -9)
-  param_list$logH_3 <- replace(param_list$logH_3, values = -9)
-  param_list$H_4 <- replace(param_list$H_4, values = 1)
 
 
   #---------------------------------------------------------------------

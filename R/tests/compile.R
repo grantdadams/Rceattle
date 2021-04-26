@@ -1,5 +1,5 @@
 library(TMB)
-TMBfilename = "ceattle_v01_06"
+TMBfilename = "ceattle_v01_07"
 
 version <- TMBfilename
 cpp_directory <- "inst/executables"

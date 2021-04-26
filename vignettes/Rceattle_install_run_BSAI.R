@@ -38,8 +38,6 @@ mydata$est_M1 <- c(0,0,0)
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
 mydata$fleet_control$proj_F_prop <-rep(0,7)
 ss_run <- Rceattle::fit_mod(data_list = mydata,
-                            TMBfilename = "ceattle_v01_06",
-                            cpp_directory = "inst/executables",
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save
                             debug = FALSE, # Estimate
@@ -53,8 +51,6 @@ ss_run <- Rceattle::fit_mod(data_list = mydata,
 mydata_M <- mydata
 mydata_M$est_M1 <- c(1,0,0)
 ss_run_M <- Rceattle::fit_mod(data_list = mydata_M,
-                            TMBfilename = "ceattle_v01_06",
-                            cpp_directory = "inst/executables",
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save
                             debug = FALSE, # Estimate

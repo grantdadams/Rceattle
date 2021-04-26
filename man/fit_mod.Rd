@@ -5,7 +5,7 @@
 \title{This functions runs CEATTLE}
 \usage{
 fit_mod(
-  TMBfilename = "ceattle_v01_06",
+  TMBfilename = "ceattle_v01_07",
   cpp_directory = NULL,
   data_list = NULL,
   inits = NULL,
@@ -103,13 +103,13 @@ CEATTLE is an age-structured population dynamics model that can be fit with or w
 \item{0. Single species mode}
 \item{1. Holsman et al. 2015 predation based on multi-species virtual population analysis (MSVPA) based predation formation.}
 \item{2. MSVPA Holling Type III}
- \item{3. Kinzey & Punt 2010 Holling Type I (linear)}
- \item{4. Kinzey & Punt 2010 Holling Type II}
- \item{5. Kinzey & Punt 2010 Holling Type III}
- \item{6. Kinzey & Punt 2010 Predator interference}
- \item{7. Kinzey & Punt 2010 Predator preemption}
- \item{8. Kinzey & Punt 2010 Hassell-Varley}
- \item{9. Kinzey & Punt 2010 Ecosim}
+ \item{3. Kinzey & Punt 2010 Holling Type I (linear) - Deprecated}
+ \item{4. Kinzey & Punt 2010 Holling Type II - Deprecated}
+ \item{5. Kinzey & Punt 2010 Holling Type III - Deprecated}
+ \item{6. Kinzey & Punt 2010 Predator interference - Deprecated}
+ \item{7. Kinzey & Punt 2010 Predator preemption - Deprecated}
+ \item{8. Kinzey & Punt 2010 Hassell-Varley - Deprecated}
+ \item{9. Kinzey & Punt 2010 Ecosim - Deprecated}
  }
 }
 \examples{
@@ -148,12 +148,6 @@ data(BS2017SS) # ?BS2017SS for more information on the data
   ln_sigma_sel = 4,
   ln_sigma_srv_index = 2,
   ln_sigma_fsh_catch = 2,
-  logH_1 = 4,
-  logH_1a = 4,
-  logH_1b = 4,
-  logH_2 = 4,
-  logH_3 = 4,
-  H_4 = 4,
   log_gam_a = 4,
   log_gam_b = 4,
   log_phi = 4,
