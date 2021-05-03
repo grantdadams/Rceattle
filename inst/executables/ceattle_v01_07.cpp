@@ -513,7 +513,7 @@ Type objective_function<Type>::operator() () {
   PARAMETER_VECTOR( ln_srv_q );                   // Survey catchability; n = [n_srv]
   PARAMETER_VECTOR( srv_q_pow );                  // Survey catchability power coefficient q * B ^ q_pow or beta ln(q_y) = q_mut + beta * index_y; n = [n_srv]
   PARAMETER_MATRIX( ln_srv_q_dev );               // Annual survey catchability deviates; n = [n_srv, nyrs_hind]
-  PARAMETER_MATRIX( ln_srv_q_dev_re );            // Annual survey catchability random effect deviates; n = [n_srv, nyrs_hind]
+  // PARAMETER_MATRIX( ln_srv_q_dev_re );            // Annual survey catchability random effect deviates; n = [n_srv, nyrs_hind]
   PARAMETER_VECTOR( ln_sigma_srv_q );             // Log standard deviation of prior on survey catchability; n = [1, n_srv]
   PARAMETER_VECTOR( ln_sigma_time_varying_srv_q );// Log standard deviation of time varying survey catchability; n = [1, n_srv]
 
@@ -524,8 +524,8 @@ Type objective_function<Type>::operator() () {
   PARAMETER_ARRAY( sel_inf );                     // selectivity paramaters for logistic; n = [2, n_selectivities, nsex]
   PARAMETER_ARRAY( ln_sel_slp_dev );              // selectivity parameter deviate for logistic; n = [2, n_selectivities, nsex, n_sel_blocks]
   PARAMETER_ARRAY( sel_inf_dev );                 // selectivity parameter deviate for logistic; n = [2, n_selectivities, nsex, n_sel_blocks]
-  PARAMETER_ARRAY( ln_sel_slp_dev_re );           // selectivity parameter random effect deviate for logistic; n = [2, n_selectivities, nsex, n_sel_blocks]
-  PARAMETER_ARRAY( sel_inf_dev_re );              // selectivity parameter random effect deviate for logistic; n = [2, n_selectivities, nsex, n_sel_blocks]
+  // PARAMETER_ARRAY( ln_sel_slp_dev_re );           // selectivity parameter random effect deviate for logistic; n = [2, n_selectivities, nsex, n_sel_blocks]
+  // PARAMETER_ARRAY( sel_inf_dev_re );              // selectivity parameter random effect deviate for logistic; n = [2, n_selectivities, nsex, n_sel_blocks]
   PARAMETER_VECTOR( ln_sigma_sel );               // Log standard deviation of selectivity; n = [1, n_selectivities]
   PARAMETER_MATRIX( sel_curve_pen );              // Selectivity penalty for non-parametric selectivity, 2nd column is for monotonic bit
 
@@ -810,7 +810,7 @@ for(int i = 0; i < env_index.cols(); i++){
 
       // Random effect
       if(srv_varying_q(flt) == 2){
-        srv_q(flt, yr) = exp(ln_srv_q(flt) + ln_srv_q_dev_re(flt, yr));                 // Exponentiate
+        // srv_q(flt, yr) = exp(ln_srv_q(flt) + ln_srv_q_dev_re(flt, yr));                 // Exponentiate
       }
 
       // Q as a function of environmental index
@@ -890,7 +890,7 @@ for(int i = 0; i < env_index.cols(); i++){
 
               // Random effect
               if(sel_varying == 2){
-                sel(flt, sex, age, yr) = 1 / (1 + exp( -exp(ln_sel_slp(0, flt, sex) + ln_sel_slp_dev_re(0, flt, sex, yr)) * ((age + 1) -( sel_inf(0, flt, sex) + sel_inf_dev_re(0, flt, sex, yr )))));
+                // sel(flt, sex, age, yr) = 1 / (1 + exp( -exp(ln_sel_slp(0, flt, sex) + ln_sel_slp_dev_re(0, flt, sex, yr)) * ((age + 1) -( sel_inf(0, flt, sex) + sel_inf_dev_re(0, flt, sex, yr )))));
               }
             }
           }
@@ -953,8 +953,8 @@ for(int i = 0; i < env_index.cols(); i++){
 
               // Random effect
               if(sel_varying == 2){
-                sel(flt, sex, age, yr) = 1 / (1 + exp( -exp(ln_sel_slp(0, flt, sex) + ln_sel_slp_dev_re(0, flt, sex, yr)) * ((age + 1) -( sel_inf(0, flt, sex) + sel_inf_dev_re(0, flt, sex, yr ))))) * // Upper slope
-                  (1 - (1 / (1 + exp( -exp(ln_sel_slp(1, flt, sex) + ln_sel_slp_dev_re(1, flt, sex, yr)) * ((age + 1) - (sel_inf(1, flt, sex) + sel_inf_dev_re(1, flt, sex, yr )))))));  // Downward slope;
+                // sel(flt, sex, age, yr) = 1 / (1 + exp( -exp(ln_sel_slp(0, flt, sex) + ln_sel_slp_dev_re(0, flt, sex, yr)) * ((age + 1) -( sel_inf(0, flt, sex) + sel_inf_dev_re(0, flt, sex, yr ))))) * // Upper slope
+                //(1 - (1 / (1 + exp( -exp(ln_sel_slp(1, flt, sex) + ln_sel_slp_dev_re(1, flt, sex, yr)) * ((age + 1) - (sel_inf(1, flt, sex) + sel_inf_dev_re(1, flt, sex, yr )))))));  // Downward slope;
               }
             }
           }
@@ -975,7 +975,7 @@ for(int i = 0; i < env_index.cols(); i++){
 
               // Random effect
               if(sel_varying == 2){
-                sel(flt, sex, age, yr) = (1 - (1 / (1 + exp( - exp(ln_sel_slp(1, flt, sex) + ln_sel_slp_dev_re(1, flt, sex, yr)) * ((age + 1) - (sel_inf(1, flt, sex) + sel_inf_dev_re(1, flt, sex, yr )))))));  // Downward slope;
+                // sel(flt, sex, age, yr) = (1 - (1 / (1 + exp( - exp(ln_sel_slp(1, flt, sex) + ln_sel_slp_dev_re(1, flt, sex, yr)) * ((age + 1) - (sel_inf(1, flt, sex) + sel_inf_dev_re(1, flt, sex, yr )))))));  // Downward slope;
               }
             }
           }
@@ -1623,7 +1623,7 @@ if(flt_type(flt) == 1){
         }
       }
     }
-    */ 
+    */
 
 
     // 7.5. Calculate other food stomach content
@@ -3250,13 +3250,13 @@ if(flt_type(flt) == 1){
         for(yr = 0; yr < nyrs_hind; yr++){
 
           // Logistic deviates
-          jnll_comp(6, flt) -= dnorm(sel_inf_dev_re(0, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
-          jnll_comp(6, flt) -= dnorm(ln_sel_slp_dev_re(0, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
+          //jnll_comp(6, flt) -= dnorm(sel_inf_dev_re(0, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
+          //jnll_comp(6, flt) -= dnorm(ln_sel_slp_dev_re(0, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
 
           // Double logistic deviates
           if(flt_sel_type(flt) == 3){
-            jnll_comp(6, flt) -= dnorm(sel_inf_dev_re(1, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
-            jnll_comp(6, flt) -= dnorm(ln_sel_slp_dev_re(1, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
+            //jnll_comp(6, flt) -= dnorm(sel_inf_dev_re(1, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
+            //jnll_comp(6, flt) -= dnorm(ln_sel_slp_dev_re(1, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
           }
         }
       }
@@ -3336,7 +3336,7 @@ if(flt_type(flt) == 1){
     // Random effects
     if((srv_varying_q(flt) == 2) & (flt_type(flt) == 2)){
       for(yr = 0; yr < nyrs_hind; yr++){
-        jnll_comp(9, flt) -= dnorm(ln_srv_q_dev_re(flt, yr), Type(0.0), time_varying_sigma_srv_q(flt), true );
+        //jnll_comp(9, flt) -= dnorm(ln_srv_q_dev_re(flt, yr), Type(0.0), time_varying_sigma_srv_q(flt), true );
       }
     }
 

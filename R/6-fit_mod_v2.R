@@ -246,7 +246,7 @@ fit_mod <-
 
 
     # STEP 4 - Setup random effects
-    random_vars <- c("ln_srv_q_dev_re", "ln_sel_slp_dev_re", "sel_inf_dev_re")
+    random_vars <- c() # c("ln_srv_q_dev_re", "ln_sel_slp_dev_re", "sel_inf_dev_re")
     if (random_rec == TRUE) {
       random_vars <- c(random_vars , "rec_dev", "init_dev")
     }
@@ -271,7 +271,7 @@ fit_mod <-
             ln_srv_q = 3,
             srv_q_pow = 4,
             ln_srv_q_dev = 5,
-            ln_srv_q_dev_re = 4,
+            # ln_srv_q_dev_re = 4,
             ln_sigma_srv_q = 4,
             ln_sigma_time_varying_srv_q = 4,
             sel_coff = 3,
@@ -282,8 +282,8 @@ fit_mod <-
             sel_inf = 3,
             ln_sel_slp_dev = 5,
             sel_inf_dev = 5,
-            ln_sel_slp_dev_re = 4,
-            sel_inf_dev_re = 4,
+            # ln_sel_slp_dev_re = 4,
+            # sel_inf_dev_re = 4,
             ln_sigma_sel = 4,
             ln_sigma_srv_index = 2,
             ln_sigma_fsh_catch = 2,
@@ -346,6 +346,8 @@ fit_mod <-
     setwd(cpp_directory)
     TMB::compile(paste0(TMBfilename, ".cpp"), CPPFLAGS="-Wno-ignored-attributes")
     dyn.load(TMB::dynlib(paste0(TMBfilename)), silent = TRUE)
+    # TMB::config(tape.parallel = 1, trace.optimize = 1, optimize.parallel = 1,
+    #        DLL = TMBfilename)
     setwd(old_wd)
 
 
