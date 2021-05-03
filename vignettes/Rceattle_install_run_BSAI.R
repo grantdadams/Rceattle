@@ -45,7 +45,7 @@ ss_run <- Rceattle::fit_mod(data_list = mydata,
                             msmMode = 0, # Single species mode
                             phase = "default",
                             silent = TRUE,
-                            recompile = FALSE)
+                            recompile = TRUE)
 
 # Estimate pollock M
 mydata_M <- mydata
