@@ -71,8 +71,6 @@ data("BS2017MS") # Note: the only difference is the residual mortality (M1_base)
 BS2017MS$projyr <- 2030
 
 ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
-                            TMBfilename = "ceattle_v01_06",
-                            cpp_directory = "inst/executables",
                             inits = ss_run$estimated_params, # Initial parameters from single species ests
                             file = NULL, # Don't save
                             debug = 0, # Estimate
