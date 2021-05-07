@@ -12,7 +12,7 @@ fit_mod(
   map = NULL,
   bounds = NULL,
   file = NULL,
-  debug = FALSE,
+  debug = 0,
   random_rec = TRUE,
   niter = 3,
   msmMode = 0,
@@ -46,7 +46,7 @@ fit_mod(
 
 \item{file}{(Optional) Filename where files will be saved. If NULL, no file is saved.}
 
-\item{debug}{Runs the model without estimating parameters to get derived quantities given initial parameter values.}
+\item{debug}{0 = Fit the model. 1 = runs the model through MakeADFun, but not nlminb, 2 = runs the model without estimating parameters to get derived quantities given initial parameter values (maps out all parameters).}
 
 \item{random_rec}{logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE.}
 

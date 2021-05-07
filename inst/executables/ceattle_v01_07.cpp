@@ -511,7 +511,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 3.4. Survey catchability parameters
   PARAMETER_VECTOR( ln_srv_q );                   // Survey catchability; n = [n_srv]
-  PARAMETER_VECTOR( srv_q_pow );                  // Survey catchability power coefficient q * B ^ q_pow or beta ln(q_y) = q_mut + beta * index_y; n = [n_srv]
+  // PARAMETER_VECTOR( srv_q_pow );                  // Survey catchability power coefficient q * B ^ q_pow or beta ln(q_y) = q_mut + beta * index_y; n = [n_srv]
   PARAMETER_MATRIX( ln_srv_q_dev );               // Annual survey catchability deviates; n = [n_srv, nyrs_hind]
   // PARAMETER_MATRIX( ln_srv_q_dev_re );            // Annual survey catchability random effect deviates; n = [n_srv, nyrs_hind]
   PARAMETER_VECTOR( ln_sigma_srv_q );             // Log standard deviation of prior on survey catchability; n = [1, n_srv]
@@ -575,7 +575,7 @@ Type objective_function<Type>::operator() () {
   array<Type>   M(nspp, 2, max_age, nyrs); M.setZero();                             // Total natural mortality at age; n = [nyrs, 2 sexes, nages, nspp]
   array<Type>   M1(ln_M1.dim); M1 = exp(ln_M1);                                     // Residual or total natural mortality at age; n = [nspp, 2 sexes, nages]
   array<Type>   M2(nspp, 2, max_age, nyrs); M2.setZero();                           // Predation mortality at age; n = [nyrs, nages, nspp]
-  array<Type>   M2_prop(nspp, nspp, 2, 2, max_age, max_age, nyrs); M2_prop.setZero();     // Relative predation mortality at age from each species at age; n = [nyrs, nages, nspp]
+  array<Type>   M2_prop(nspp * 2, nspp * 2, max_age, max_age, nyrs); M2_prop.setZero();     // Relative predation mortality at age from each species at age; n = [nyrs, nages, nspp]
   array<Type>   NByage(nspp, 2, max_age, nyrs); NByage.setZero();                   // Numbers at age; n = [nspp, nages, nyrs]
   array<Type>   AvgN(nspp, 2, max_age, nyrs); AvgN.setZero();                       // Average numbers-at-age; n = [nspp, nages, nyrs]
   array<Type>   sex_ratio_hat(nspp, max_age, nyrs); sex_ratio_hat.setZero();        // Estimated age-specific sex ratin; n = [nspp, nages, nyrs]
@@ -640,15 +640,15 @@ Type objective_function<Type>::operator() () {
   array<Type>   avail_food(nspp, 2, max_age, nyrs); avail_food.setZero();                        // Available food to predator; n = [nspp, 2 sexes, nages, nyrs]
   array<Type>   othersuit(nspp, 2, max_age, nyrs); othersuit.setZero();                          // Sum of available food to predator; n = [nspp, 2 sexes, nages, nyrs]
   array<Type>   B_eaten(nspp, 2, max_age, nyrs); B_eaten.setZero();                              // Biomass of prey eaten via predation; n = [nyrs, nages, nspp]
-  array<Type>   B_eaten_prop(nspp, nspp, 2, 2, max_age, max_age, nyrs); B_eaten.setZero();       // Biomass of prey eaten via predation by a predator at age; n = [nyrs, nages, nspp]
+  array<Type>   B_eaten_prop(nspp * 2, nspp * 2, max_age, max_age, nyrs); B_eaten.setZero();       // Biomass of prey eaten via predation by a predator at age; n = [nyrs, nages, nspp]
   array<Type>   of_stomKir(nspp, 2, max_age, nyrs); of_stomKir.setZero();                        // Other food stomach content; n = [nspp, 2 sexes, nages, nyrs]
-  array<Type>   stom_div_bio2(nspp, nspp, 2, 2, max_age, max_age, nyrs); stom_div_bio2.setZero();// Stomach proportion over biomass; U/ (W * N) ; n = [nspp, nspp, 2 sexes, 2 sexes, nages, nages, nyrs]
-  array<Type>   stomKir(nspp, nspp, 2, 2, max_age, max_age, nyrs); stomKir.setZero();            // Stomach proportion by numbers U; n = [nspp, nspp, nages, nages, nyrs]
-  array<Type>   suit_tmp(nspp, nspp, 2, 2, max_age, max_age, nyrs); suit_tmp.setZero();       // Temporary suitability storage U; n = [nspp, nspp, 2 sexes, 2 sexes, nages, nages, nyrs]
-  array<Type>   stomKirWt(nspp, nspp, 2, 2, max_age, max_age, nyrs); stomKirWt.setZero();     // Stomach proportion by weight U; n = [nspp, nspp, nages, nages, nyrs]
+  array<Type>   stom_div_bio2(nspp * 2, nspp * 2, max_age, max_age, nyrs); stom_div_bio2.setZero();// Stomach proportion over biomass; U/ (W * N) ; n = [nspp, nspp, 2 sexes, 2 sexes, nages, nages, nyrs]
+  array<Type>   stomKir(nspp * 2, nspp * 2, max_age, max_age, nyrs); stomKir.setZero();            // Stomach proportion by numbers U; n = [nspp, nspp, nages, nages, nyrs]
+  array<Type>   suit_tmp(nspp * 2, nspp * 2, max_age, max_age, nyrs); suit_tmp.setZero();       // Temporary suitability storage U; n = [nspp, nspp, 2 sexes, 2 sexes, nages, nages, nyrs]
+  array<Type>   stomKirWt(nspp * 2, nspp * 2, max_age, max_age, nyrs); stomKirWt.setZero();     // Stomach proportion by weight U; n = [nspp, nspp, nages, nages, nyrs]
   // array<Type>   diet_w_dat(nspp, nspp, max_bin, max_bin, nyrs); diet_w_dat.setZero();         // Observed stomach contents by weight of prey length j in predator length l
   // array<Type>   diet_w_sum(nspp, nspp, max_bin, nyrs); diet_w_sum.setZero();                  // Observed stomach contentes by weight of prey in predator length j
-  array<Type>   suit_main(nspp, nspp,  2, 2, max_age, max_age, nyrs); suit_main.setZero();    // Suitability/gamma selectivity of predator age u on prey age a; n = [nspp, nspp, 2 sexes, 2 sexes, nages, nages]
+  array<Type>   suit_main(nspp * 2, nspp * 2, max_age, max_age, nyrs); suit_main.setZero();    // Suitability/gamma selectivity of predator age u on prey age a; n = [nspp, nspp, 2 sexes, 2 sexes, nages, nages]
   array<Type>   suit_other(nspp, 2, max_age); suit_other.setZero();                           // Suitability not accounted for by the included prey; n = [nspp, 2 sexes, nages]
   array<Type>   suma_suit(nspp, 2, max_age, nyrs); suma_suit.setZero();                       // Sum of suitabilities; n = [nyrs, 2 sexes, nages, nspp]
   matrix<Type>  UobsAge_hat = UobsAge; UobsAge.setZero();                                     // Estimated stomach proportion by weight U; n = [nspp, nspp, nages, nages, nyrs]
@@ -677,8 +677,8 @@ Type objective_function<Type>::operator() () {
   array<Type>  Pred_r(nspp, 2, max_age, nyrs); Pred_r.setZero();                        // save Pred_ratio values
   array<Type>  Prey_r(nspp, 2, max_age, nyrs); Prey_r.setZero();                        // save Prey_ratio values
 
-  array<Type>  Vmort_ua(nspp, nspp, 2, 2, max_age, max_age, nyrs); Vmort_ua.setZero();     // Predation mortality on prey age a by single predator age u
-  array<Type>  Pmort_ua(nspp, nspp, 2, 2, max_age, nyrs); Pmort_ua.setZero();              // Predation mortality on prey age a by all predators age u
+  array<Type>  Vmort_ua(nspp * 2, nspp * 2, max_age, max_age, nyrs); Vmort_ua.setZero();     // Predation mortality on prey age a by single predator age u
+  array<Type>  Pmort_ua(nspp * 2, nspp * 2, max_age, nyrs); Pmort_ua.setZero();              // Predation mortality on prey age a by all predators age u
 
   // FIXME - add flexible diet components
   array<Type>  eaten_la(nspp, nspp, max_bin, max_age, nyrs); eaten_la.setZero();     // Number of prey of age a eaten by predator length l
@@ -815,7 +815,7 @@ for(int i = 0; i < env_index.cols(); i++){
 
       // Q as a function of environmental index
       if(est_srv_q(flt) == 5){
-        srv_q(flt, yr) = exp(ln_srv_q(flt) + srv_q_pow(flt) * env_index_hat(yr, srv_varying_q(flt)));
+        // srv_q(flt, yr) = exp(ln_srv_q(flt) + srv_q_pow(flt) * env_index_hat(yr, srv_varying_q(flt)));
       }
     }
   }
@@ -1587,14 +1587,14 @@ if(flt_type(flt) == 1){
             yr = flt_yr - styr;
 
             if(yr < nyrs_hind){
-              stomKirWt(rsp, ksp, r_sexes(stom_ind, j), k_sexes(stom_ind, k), r_age, k_age, yr) = UobsWtAge(stom_ind, 1);
+              stomKirWt(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr) = UobsWtAge(stom_ind, 1);
             }
           }
 
           // Average of years
           if(flt_yr == 0){
             for (yr = 0; yr < nyrs; yr++) {
-              stomKirWt(rsp, ksp, r_sexes(stom_ind, j), k_sexes(stom_ind, k), r_age, k_age, yr) = UobsWtAge(stom_ind, 1);
+              stomKirWt(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr) = UobsWtAge(stom_ind, 1);
             }
           }
         }
@@ -1636,7 +1636,7 @@ if(flt_type(flt) == 1){
             for (ksp = 0; ksp < nspp; ksp++) {                  // Prey species loop
               for(k_sex = 0; k_sex < nsex(ksp); k_sex++){
                 for (k_age = 0; k_age < nages(ksp); k_age++) {    // Prey age loop
-                  of_stomKir(rsp, r_sex, r_age, yr) -= stomKirWt(rsp, ksp, r_sex, k_sex, r_age, k_age, yr);
+                  of_stomKir(rsp, r_sex, r_age, yr) -= stomKirWt(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr);
                 }
               }
             }
@@ -1670,7 +1670,7 @@ if(flt_type(flt) == 1){
                   for (r_age = 0; r_age < nages(rsp); r_age++) {    // Predator age loop
                     for (k_age = 0; k_age < nages(ksp); k_age++) {  // Prey age loop
 
-                      suit_tmp(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = 0;
+                      suit_tmp(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = 0;
 
                       if(yr < nyrs_hind){
                         yr_ind = yr;
@@ -1681,26 +1681,26 @@ if(flt_type(flt) == 1){
 
 
                       if(AvgN(ksp, k_sex, k_age, yr) > 0){
-                        suit_tmp(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = stomKirWt(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) / (AvgN(ksp, k_sex, k_age, yr));
+                        suit_tmp(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = stomKirWt(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / (AvgN(ksp, k_sex, k_age, yr));
 
                         // Make into Type 3 MSVPA
                         // U =
                         if(msmMode == 2){
-                          suit_tmp(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) /= AvgN(ksp, k_sex, k_age, yr);
+                          suit_tmp(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) /= AvgN(ksp, k_sex, k_age, yr);
                         }
                       }
 
 
                       // Make sure it is a real number, if not set to 0
-                      if(!isFinite(suit_tmp(rsp, ksp, r_sex, k_sex, r_age, k_age, yr))){
-                        suit_tmp(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = 0;
+                      if(!isFinite(suit_tmp(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr))){
+                        suit_tmp(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = 0;
                       }
 
 
 
                       if (wt(pop_wt_index(ksp), k_sex, k_age, yr_ind ) != 0) {
-                        stom_div_bio2(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = suit_tmp(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) / wt( pop_wt_index(ksp), k_sex, k_age, yr_ind );
-                        suma_suit(rsp, r_sex, r_age, yr ) += stom_div_bio2(rsp, ksp, r_sex, k_sex, r_age, k_age, yr); // Calculate sum of stom_div_bio2 across prey and  prey age for each predator, predator age, and year
+                        stom_div_bio2(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = suit_tmp(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / wt( pop_wt_index(ksp), k_sex, k_age, yr_ind );
+                        suma_suit(rsp, r_sex, r_age, yr ) += stom_div_bio2(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr); // Calculate sum of stom_div_bio2 across prey and  prey age for each predator, predator age, and year
                       }
                     }
                   }
@@ -1725,22 +1725,22 @@ if(flt_type(flt) == 1){
 
                       // Average suitability across years
                       if( suma_suit(rsp, r_sex, r_age, yr ) + of_stomKir(rsp, r_sex, r_age, yr) > 0){
-                        suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, 0) += stom_div_bio2(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) / ( suma_suit(rsp, r_sex, r_age, yr ) + of_stomKir(rsp, r_sex, r_age, yr) );
+                        suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) += stom_div_bio2(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / ( suma_suit(rsp, r_sex, r_age, yr ) + of_stomKir(rsp, r_sex, r_age, yr) );
                       }
                     }       // End year loop
 
                     // FIXME - Add in interannual variability here
-                    suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, 0) /= nyrs;
-                    suit_other(rsp, r_sex, r_age) -= suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, 0); // Subtract observed suitability from entire suitability (ksp.e. 1)
+                    suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) /= nyrs;
+                    suit_other(rsp, r_sex, r_age) -= suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0); // Subtract observed suitability from entire suitability (ksp.e. 1)
 
                     // Remove NAs from crashing populations
-                    if(!isFinite(suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, 0))){
-                      suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, 0) = 0;
+                    if(!isFinite(suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0))){
+                      suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) = 0;
                     }
 
                     // Fill in years
                     for (yr = 1; yr < nyrs; yr++) {                 // Year loop
-                      suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, 0);
+                      suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0);
                     }
                   }
                 }
@@ -1774,23 +1774,23 @@ if(flt_type(flt) == 1){
                     // if prey are smaller than predator:
                     if (Mn_LatAge(rsp, r_sex, r_age) > Mn_LatAge(ksp, k_sex, k_age)) {
                       x_l_ratio = log(Mn_LatAge(rsp, r_sex, r_age) / Mn_LatAge(ksp, k_sex, k_age));
-                      suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, 0) = Type(1.0e-10) +  (Type(1.0e-10) + gam_a( rsp ) - 1) * log(x_l_ratio / LenOpt + Type(1.0e-10)) -
+                      suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) = Type(1.0e-10) +  (Type(1.0e-10) + gam_a( rsp ) - 1) * log(x_l_ratio / LenOpt + Type(1.0e-10)) -
                         (1.0e-10 + x_l_ratio - LenOpt) / gam_b(rsp);
                       ncnt += 1;
-                      gsum += exp( suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, 0) );
+                      gsum += exp( suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) );
                     }
                     else
-                      suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, 0) = 0;
+                      suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) = 0;
                   }
                   for (k_age = 0; k_age < nages(ksp); k_age++) {            // Prey age
                     // if prey are smaller than predator:
                     if (Mn_LatAge(rsp, r_sex, r_age) > Mn_LatAge(ksp, k_sex, k_age)) {
-                      suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, 0) = Type(1.0e-10) + exp(suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, 0) - log(Type(1.0e-10) + gsum / Type(ncnt))); // NOT sure what this is for...
+                      suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) = Type(1.0e-10) + exp(suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) - log(Type(1.0e-10) + gsum / Type(ncnt))); // NOT sure what this is for...
                     }
 
                     // Fill in years
                     for (yr = 1; yr < nyrs; yr++) {                 // Year loop
-                      suit_main(rsp, ksp, r_age, k_age, yr) = suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, 0);
+                      suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0);
                     }
                   }
                 }
@@ -1822,18 +1822,18 @@ if(flt_type(flt) == 1){
                       // if prey are smaller than predator:
                       if ( LbyAge( rsp, r_sex, r_age, yr)  > LbyAge( ksp, k_sex, k_age, yr)) {
                         x_l_ratio = log(LbyAge( rsp, r_sex, r_age, yr) / LbyAge( ksp, k_sex, k_age, yr) ); // Log ratio of lengths
-                        suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, yr) = Type(1.0e-10) +  (Type(1.0e-10) + gam_a( rsp ) - 1) * log(x_l_ratio / LenOpt + Type(1.0e-10)) -
+                        suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = Type(1.0e-10) +  (Type(1.0e-10) + gam_a( rsp ) - 1) * log(x_l_ratio / LenOpt + Type(1.0e-10)) -
                           (1.0e-10 + x_l_ratio - LenOpt) / gam_b(rsp);
                         ncnt += 1;
-                        gsum += exp( suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, yr) );
+                        gsum += exp( suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) );
                       }
                       else
-                        suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, yr) = 0;
+                        suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = 0;
                     }
                     for (k_age = 0; k_age < nages(ksp); k_age++) {            // Prey age
                       // if prey are smaller than predator:
                       if ( LbyAge( rsp, r_sex, r_age, yr)  > LbyAge( ksp, k_sex, k_age, yr)) {
-                        suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, yr) = Type(1.0e-10) + exp(suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, yr) - log(Type(1.0e-10) + gsum / Type(ncnt))); // NOT sure what this is for...
+                        suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = Type(1.0e-10) + exp(suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) - log(Type(1.0e-10) + gsum / Type(ncnt))); // NOT sure what this is for...
                       }
                     }
                   }
@@ -1874,19 +1874,19 @@ if(flt_type(flt) == 1){
                       // if prey are smaller than predator:
                       if (wt(pop_wt_index(rsp), r_sex, r_age, yr_ind ) > wt(pop_wt_index(ksp), k_sex, k_age, yr_ind)) {
                         x_l_ratio = log(wt(pop_wt_index(rsp), r_sex, r_age, yr_ind) / wt(pop_wt_index(ksp), k_sex, k_age, yr_ind)); // Log ratio of lengths
-                        suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, yr) = Type(1.0e-10) +  (Type(1.0e-10) + gam_a( rsp ) - 1) * log(x_l_ratio / LenOpt + Type(1.0e-10)) -
+                        suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = Type(1.0e-10) +  (Type(1.0e-10) + gam_a( rsp ) - 1) * log(x_l_ratio / LenOpt + Type(1.0e-10)) -
                           (1.0e-10 + x_l_ratio - LenOpt) / gam_b(rsp);
                         ncnt += 1;
-                        gsum += exp( suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, yr) );
+                        gsum += exp( suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) );
                       }
                       else{
-                        suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, yr) = 0;
+                        suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = 0;
                       }
                     }
                     for (k_age = 0; k_age < nages(ksp); k_age++) {            // Prey age
                       // if prey are smaller than predator:
                       if (wt(pop_wt_index(rsp), r_sex, r_age, yr_ind) > wt(pop_wt_index(ksp), k_sex, k_age, yr_ind)) {
-                        suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, yr) = Type(1.0e-10) + exp(suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, yr) - log(Type(1.0e-10) + gsum / Type(ncnt))); // NOT sure what this is for...
+                        suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = Type(1.0e-10) + exp(suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) - log(Type(1.0e-10) + gsum / Type(ncnt))); // NOT sure what this is for...
                       }
                     }
                   }
@@ -1916,11 +1916,11 @@ if(flt_type(flt) == 1){
                     // if prey are smaller than predator:
                     if (Mn_LatAge(rsp, r_sex, r_age) > Mn_LatAge(ksp, k_sex, k_age)) {
                       x_l_ratio = log(Mn_LatAge(rsp, r_sex, r_age) / Mn_LatAge(ksp, k_sex, k_age)); // Log ratio of lengths
-                      suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, 0) = exp(log_phi(rsp, ksp)) * exp(-1/ (2*square(gam_a(rsp))) * square(x_l_ratio - gam_b(rsp)) );
-                      gsum += suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, 0);
+                      suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) = exp(log_phi(rsp, ksp)) * exp(-1/ (2*square(gam_a(rsp))) * square(x_l_ratio - gam_b(rsp)) );
+                      gsum += suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0);
                     }
                     else{
-                      suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, 0) = 0;
+                      suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) = 0;
                     }
                   }
                 }
@@ -1928,11 +1928,11 @@ if(flt_type(flt) == 1){
               for (ksp = 0; ksp < nspp; ksp++) {                            // Prey loop
                 for(k_sex = 0; k_sex < nsex(ksp); k_sex ++){
                   for (k_age = 0; k_age < nages(ksp); k_age++) {              // Prey age
-                    suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, 0) /= gsum;                // Scale, so it sums to 1.
+                    suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) /= gsum;                // Scale, so it sums to 1.
 
                     // Fill in years
                     for (yr = 1; yr < nyrs; yr++) {                 // Year loop
-                      suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, 0);
+                      suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0);
                     }
                   }
                 }
@@ -1960,11 +1960,11 @@ if(flt_type(flt) == 1){
                       // if prey are smaller than predator:
                       if ( LbyAge( rsp, r_sex, r_age, yr)  > LbyAge( ksp, k_sex, k_age, yr)) {
                         x_l_ratio = log(LbyAge( rsp, r_sex, r_age, yr) / LbyAge( ksp, k_sex, k_age, yr) ); // Log ratio of lengths
-                        suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, yr) = exp(log_phi(rsp, ksp)) * exp(-1/ (2*square(gam_a(rsp))) * square(x_l_ratio - gam_b(rsp)) );
-                        gsum += suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, yr);
+                        suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = exp(log_phi(rsp, ksp)) * exp(-1/ (2*square(gam_a(rsp))) * square(x_l_ratio - gam_b(rsp)) );
+                        gsum += suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr);
                       }
                       else{
-                        suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, yr) = 0;
+                        suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = 0;
                       }
                     }
                   }
@@ -1972,7 +1972,7 @@ if(flt_type(flt) == 1){
                 for (ksp = 0; ksp < nspp; ksp++) {                            // Prey loop
                   for(k_sex = 0; k_sex < nsex(ksp); k_sex ++){
                     for (k_age = 0; k_age < nages(ksp); k_age++) {              // Prey age
-                      suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, yr) /= gsum;                // Scale, so it sums to 1.
+                      suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) /= gsum;                // Scale, so it sums to 1.
                     }
                   }
                 }
@@ -2008,11 +2008,11 @@ if(flt_type(flt) == 1){
                       // if prey are smaller than predator:
                       if (wt(pop_wt_index(rsp), r_sex, r_age, yr_ind) > wt(pop_wt_index(ksp), k_sex, k_age, yr_ind)) {
                         x_l_ratio = log(wt(pop_wt_index(rsp), r_sex, r_age, yr_ind) / wt(pop_wt_index(ksp), k_sex, k_age, yr_ind)); // Log ratio of lengths
-                        suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, yr) = exp(log_phi(rsp, ksp)) * exp(-1/ (2*square(gam_a(rsp))) * square(x_l_ratio - gam_b(rsp)) );
-                        gsum += suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, yr);
+                        suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = exp(log_phi(rsp, ksp)) * exp(-1/ (2*square(gam_a(rsp))) * square(x_l_ratio - gam_b(rsp)) );
+                        gsum += suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr);
                       }
                       else{
-                        suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, yr) = 0;
+                        suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = 0;
                       }
                     }
                   }
@@ -2020,7 +2020,7 @@ if(flt_type(flt) == 1){
                 for (ksp = 0; ksp < nspp; ksp++) {                            // Prey loop
                   for(k_sex = 0; k_sex < nsex(ksp); k_sex ++){
                     for (k_age = 0; k_age < nages(ksp); k_age++) {              // Prey age
-                      suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, yr) /= gsum;                // Scale, so it sums to 1.
+                      suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) /= gsum;                // Scale, so it sums to 1.
                     }
                   }
                 }
@@ -2057,8 +2057,8 @@ if(flt_type(flt) == 1){
                 for (ksp = 0; ksp < nspp; ksp++) {                  // Prey species loop
                   for(k_sex = 0; k_sex < nsex(ksp); k_sex++){
                     for (k_age = 0; k_age < nages(ksp); k_age++) {    // Prey age loop
-                      avail_food(rsp, r_sex, r_age, yr) += suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) * pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) ; // FIXME - include overlap indices: FIXME - mn_wt_stom?
-                      othersuit(rsp, r_sex, r_age, yr) += suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr); // FIXME - include overlap indices
+                      avail_food(rsp, r_sex, r_age, yr) += suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) * pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) ; // FIXME - include overlap indices: FIXME - mn_wt_stom?
+                      othersuit(rsp, r_sex, r_age, yr) += suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr); // FIXME - include overlap indices
                     }
                   }
                 }
@@ -2099,27 +2099,27 @@ if(flt_type(flt) == 1){
                         /*
                          // Predation mortality
                          if(AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) > 0){
-                         M2(ksp, k_sex, k_age, yr) += pow(AvgN(ksp, k_sex, k_age, yr) , msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind); // #FIXME - include indices of overlap
-                         M2_prop(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind);
+                         M2(ksp, k_sex, k_age, yr) += pow(AvgN(ksp, k_sex, k_age, yr) , msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind); // #FIXME - include indices of overlap
+                         M2_prop(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind);
                          }
                          */
 
                         // Type 2 MSVPA
                         if(msmMode == 1){
-                          M2(ksp, k_sex, k_age, yr) += (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr); // #FIXME - include indices of overlap
-                          M2_prop(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr);
-                          B_eaten(ksp, k_sex, k_age, yr) += AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)/ avail_food(rsp, r_sex, r_age, yr);
-                          B_eaten_prop(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
+                          M2(ksp, k_sex, k_age, yr) += (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr); // #FIXME - include indices of overlap
+                          M2_prop(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr);
+                          B_eaten(ksp, k_sex, k_age, yr) += AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)/ avail_food(rsp, r_sex, r_age, yr);
+                          B_eaten_prop(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
                         }
 
 
                         // Type 3 MSVPA
                         if(msmMode == 2){
                           M2(ksp, k_sex, k_age, yr) += pow(AvgN(ksp, k_sex, k_age, yr) , msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr)
-                                                                                                                             * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / (AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind)); // #FIXME - include indices of overlap
-                          M2_prop(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / (AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind));
-                          B_eaten(ksp, k_sex, k_age, yr) += pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
-                          B_eaten_prop(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) *  AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
+                                                                                                                             * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / (AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind)); // #FIXME - include indices of overlap
+                          M2_prop(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / (AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind));
+                          B_eaten(ksp, k_sex, k_age, yr) += pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
+                          B_eaten_prop(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) *  AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
                         }
                       }
                     }
@@ -2163,13 +2163,13 @@ if(flt_type(flt) == 1){
               for(k_sex = 0; k_sex < nsex(ksp); k_sex++){
                 for (r_age = 0; r_age < nages(rsp); r_age++) {
                   for (k_age = 0; k_age < nages(ksp); k_age++) {
-                    N_pred_eq(rsp, r_sex, r_age) += NByage(rsp, r_sex, r_age, 0) * suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, 0); // Denominator of Eq. 17 Kinzey and Punt (2009) 1st year - FIXME: probably should use 2015
+                    N_pred_eq(rsp, r_sex, r_age) += NByage(rsp, r_sex, r_age, 0) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0); // Denominator of Eq. 17 Kinzey and Punt (2009) 1st year - FIXME: probably should use 2015
                   }
                 }
 
                 for (k_age = 0; k_age < nages(ksp); k_age++) {
                   for (r_age = 0; r_age < nages(rsp); r_age++) {
-                    N_prey_eq(ksp, k_sex, k_age) += NByage(ksp, k_sex, k_age, 0) * suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, 0); // Denominator of Eq. 16 Kinzey and Punt (2009) 1st year - FIXME: probably should use 2015
+                    N_prey_eq(ksp, k_sex, k_age) += NByage(ksp, k_sex, k_age, 0) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0); // Denominator of Eq. 16 Kinzey and Punt (2009) 1st year - FIXME: probably should use 2015
                   }
                 }
               }
@@ -2188,14 +2188,14 @@ if(flt_type(flt) == 1){
                 for(k_sex = 0; k_sex < nsex(ksp); k_sex++){
                   for (r_age = 0; r_age < nages(rsp); r_age++) {
                     for (k_age = 0; k_age < nages(ksp); k_age++) {
-                      N_pred_yrs(rsp, r_sex, r_age, yr) += NByage(rsp, r_sex, r_age, yr) * suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, yr); // Numerator of Eq. 17 Kinzey and Punt (2009) 1st year // FIXME: Use averageN?
+                      N_pred_yrs(rsp, r_sex, r_age, yr) += NByage(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr); // Numerator of Eq. 17 Kinzey and Punt (2009) 1st year // FIXME: Use averageN?
                     }
                   }
 
 
                   for (k_age = 0; k_age < nages(ksp); k_age++) {
                     for (r_age = 0; r_age < nages(rsp); r_age++) {
-                      N_prey_yrs(ksp, k_sex, k_age, yr) += NByage(ksp, k_sex, k_age, yr) * suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, yr); // Numerator of Eq. 16 Kinzey and Punt (2009) 1st year
+                      N_prey_yrs(ksp, k_sex, k_age, yr) += NByage(ksp, k_sex, k_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr); // Numerator of Eq. 16 Kinzey and Punt (2009) 1st year
                     }
                   }
                 }
@@ -2227,31 +2227,31 @@ if(flt_type(flt) == 1){
 
                         switch (msmMode) {
                         case 3: // Holling Type I (linear)
-                          pred_resp(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = 1.0e-10 + Term;
+                          pred_resp(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = 1.0e-10 + Term;
                           break;
                         case 4: // Holling Type II
-                          pred_resp(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = 1.0e-10 + Term * (1 + H_2(rsp, ksp) + Type(1.0e-10)) /
+                          pred_resp(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = 1.0e-10 + Term * (1 + H_2(rsp, ksp) + Type(1.0e-10)) /
                             ( 1 + H_2(rsp, ksp) * Prey_ratio + 1.0e-10);
                           break;
                         case 5: // Holling Type III
-                          pred_resp(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = 1.0e-10 +
+                          pred_resp(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = 1.0e-10 +
                             Term * (1 + H_2(rsp, ksp)) * pow((Prey_ratio + 1.0e-10), H_4(rsp, ksp)) /
                               (1 + H_2(rsp, ksp) * pow((Prey_ratio + 1.0e-10), H_4(rsp, ksp)) + 1.0e-10 );
                           break;
                         case 6: // predator interference
-                          pred_resp(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = 1.0e-10 + Term * (1 + H_2(rsp, ksp) + Type(1.0e-10)) /
+                          pred_resp(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = 1.0e-10 + Term * (1 + H_2(rsp, ksp) + Type(1.0e-10)) /
                             ( 1 + H_2(rsp, ksp) * Prey_ratio + H_3(rsp, ksp) * (Pred_ratio - 1) + 1.0e-10);
                           break;
                         case 7: // predator preemption
-                          pred_resp(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = 1.0e-10 + Term * (1 + H_2(rsp, ksp) + Type(1.0e-10)) /
+                          pred_resp(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = 1.0e-10 + Term * (1 + H_2(rsp, ksp) + Type(1.0e-10)) /
                             ( (1 + H_2(rsp, ksp) * Prey_ratio) * (1 + H_3(rsp, ksp) * (Pred_ratio - 1)) + Type(1.0e-10));
                           break;
                         case 8: // Hassell-Varley
-                          pred_resp(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = 1.0e-10 + Term * (2 + H_2(rsp, ksp) + 1.0e-10) /
+                          pred_resp(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = 1.0e-10 + Term * (2 + H_2(rsp, ksp) + 1.0e-10) /
                             (1.0 + H_2(rsp, ksp) * Prey_ratio + pow((Prey_ratio + Type(1.0e-10)), H_4(rsp, ksp)) + 1.0e-10 );
                           break;
                         case 9: // Ecosim
-                          pred_resp(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = 1.0e-10 + Term /
+                          pred_resp(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = 1.0e-10 + Term /
                             (1 + H_3(rsp, ksp) * (Pred_ratio - 1 + 1.0e-10));
                           break;
                         default:
@@ -2279,8 +2279,8 @@ if(flt_type(flt) == 1){
                 for(k_sex = 0; k_sex < nsex(ksp); k_sex ++){
                   for (r_age = 0; r_age < nages(rsp); r_age++) {
                     for (k_age = 0; k_age < nages(ksp); k_age++) {
-                      pred_effect = pred_resp(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) * suit_main(rsp , ksp, r_sex, k_sex, r_age, k_age, yr);
-                      Vmort_ua(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) = pred_effect * NByage(rsp, r_sex, r_age, yr);
+                      pred_effect = pred_resp(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr);
+                      Vmort_ua(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = pred_effect * NByage(rsp, r_sex, r_age, yr);
                     }
                   }
                 }
@@ -2300,9 +2300,9 @@ if(flt_type(flt) == 1){
                 for(k_sex = 0; k_sex < nsex(ksp); k_sex ++){
                   for (k_age = 0; k_age < nages(ksp); k_age++) {
                     for (r_age = 0; r_age < nages(rsp); r_age++) {
-                      Pmort_ua(rsp, ksp, r_sex, k_sex, k_age, yr) += Vmort_ua(rsp, ksp, r_sex, k_sex, r_age, k_age, yr);
+                      Pmort_ua(rsp + (nspp * r_sex), ksp + (nspp * k_sex), k_age, yr) += Vmort_ua(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr);
                     }
-                    M2(ksp, k_sex, k_age, yr) += Pmort_ua(rsp, ksp, r_sex, k_sex, k_age, yr);
+                    M2(ksp, k_sex, k_age, yr) += Pmort_ua(rsp + (nspp * r_sex), ksp + (nspp * k_sex), k_age, yr);
                   }
                 }
               }
@@ -2323,7 +2323,7 @@ if(flt_type(flt) == 1){
                 for (rsp = 0; rsp  <  nspp; rsp++) {
                   for(r_sex = 0; r_sex < nsex(rsp); r_sex ++){
                     for (r_age = 0; r_age  <  nages(rsp); r_age++) {
-                      eaten_ua(rsp, ksp, r_age, k_age, yr) = Vmort_ua(rsp, ksp, r_sex, k_sex, r_age, k_age, yr) * NS_Z;                                  // Eq. 8 Kinzey and Punt (2009)
+                      eaten_ua(rsp, ksp, r_age, k_age, yr) = Vmort_ua(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) * NS_Z;                                  // Eq. 8 Kinzey and Punt (2009)
 
                       for (r_ln = 0; r_ln  <  nlengths(rsp); r_ln++) { // FIXME: Change to diet length bins
                         eaten_la(rsp, ksp, r_ln, k_age, yr) += eaten_ua(rsp, ksp, r_age, k_age, yr)  * age_trans_matrix(pop_age_transition_index(rsp), r_sex, r_age, r_ln ); // Eq. 9 Kinzey and Punt (2009)
@@ -2561,7 +2561,7 @@ if(flt_type(flt) == 1){
         yr_ind = nyrs_hind - 1;
       }
 
-      srv_bio_hat(srv_ind) = srv_q(srv, yr_ind) * pow(srv_bio_hat(srv_ind), (1 + srv_q_pow(srv)));
+      srv_bio_hat(srv_ind) = srv_q(srv, yr_ind) * srv_bio_hat(srv_ind); // pow(srv_bio_hat(srv_ind), (1 + srv_q_pow(srv)));
 
     }
 
@@ -2867,14 +2867,14 @@ if(flt_type(flt) == 1){
             yr = flt_yr - styr;
 
             if(yr < nyrs_hind){
-              UobsWtAge_hat(stom_ind, 1) += (AvgN(ksp, k_sexes(stom_ind, k), k_age, yr) * suit_main(rsp, ksp, r_sexes(stom_ind, j), k_sexes(stom_ind, k), r_age, k_age, yr) * wt(pop_wt_index(ksp), k_sexes(stom_ind, k), k_age, yr)) / avail_food(rsp, r_sexes(stom_ind, j), r_age, yr) / 4 ; // NOTE: Divide by species
+              UobsWtAge_hat(stom_ind, 1) += (AvgN(ksp, k_sexes(stom_ind, k), k_age, yr) * suit_main(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr) * wt(pop_wt_index(ksp), k_sexes(stom_ind, k), k_age, yr)) / avail_food(rsp, r_sexes(stom_ind, j), r_age, yr) / 4 ; // NOTE: Divide by species
             }
           }
 
           // Average of years
           if(flt_yr == 0){
             for (yr = 0; yr < nyrs_hind; yr++) {
-              UobsWtAge_hat(stom_ind, 1) += (AvgN(ksp, k_sexes(stom_ind, k), k_age, yr) * suit_main(rsp, ksp, r_sexes(stom_ind, j), k_sexes(stom_ind, k), r_age, k_age, yr) * wt(pop_wt_index(ksp), k_sexes(stom_ind, k), k_age, yr)) / avail_food(rsp, r_sexes(stom_ind, j), r_age, yr) / 4 / nyrs_hind;
+              UobsWtAge_hat(stom_ind, 1) += (AvgN(ksp, k_sexes(stom_ind, k), k_age, yr) * suit_main(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr) * wt(pop_wt_index(ksp), k_sexes(stom_ind, k), k_age, yr)) / avail_food(rsp, r_sexes(stom_ind, j), r_age, yr) / 4 / nyrs_hind;
             }
           }
         }
@@ -3503,6 +3503,7 @@ if(flt_type(flt) == 1){
   // ------------------------------------------------------------------------- //
 
   // 12.0 Report indices
+  /*
   REPORT( flt_type );
   REPORT( flt_spp );
   REPORT( flt_sel_ind );
@@ -3671,6 +3672,10 @@ if(flt_type(flt) == 1){
     REPORT(srv_biom_obs);          // Report the simulation
     REPORT(fsh_biom_obs);
   }
+  REPORT(jnll_comp);
+  REPORT(biomassSSB);
+  REPORT(R);
+  REPORT(comp_hat);
 
   // ------------------------------------------------------------------------- //
   // 14. END MODEL                                                             //
