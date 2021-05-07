@@ -8,7 +8,7 @@
 #' @param map (Optional) A map object from \code{\link{build_map}}.
 #' @param bounds (Optional) A bounds object from \code{\link{build_bounds}}.
 #' @param file (Optional) Filename where files will be saved. If NULL, no file is saved.
-#' @param debug Runs the model without estimating parameters to get derived quantities given initial parameter values.
+#' @param debug 0 = Fit the model. 1 = runs the model through MakeADFun, but not nlminb, 2 = runs the model without estimating parameters to get derived quantities given initial parameter values (maps out all parameters).
 #' @param random_rec logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE.
 #' @param niter Number of iterations for multispecies model
 #' @param msmMode The predation mortality functions to used. Defaults to no predation mortality used.
@@ -122,7 +122,7 @@ fit_mod <-
            map = NULL,
            bounds = NULL,
            file = NULL,
-           debug = FALSE,
+           debug = 0,
            random_rec = TRUE,
            niter = 3,
            msmMode = 0,
@@ -229,7 +229,7 @@ fit_mod <-
     # STEP 2 - BUILD MAP
     if (is.null(map)) {
       map <-
-        suppressWarnings(build_map(data_list, params, debug = FALSE, random_rec = random_rec))
+        suppressWarnings(build_map(data_list, params, debug = debug > 1, random_rec = random_rec))
     } else{
       map <- map
     }
@@ -269,7 +269,7 @@ fit_mod <-
             proj_F_prop = 1,
             F_dev = 1,
             ln_srv_q = 3,
-            srv_q_pow = 4,
+            # srv_q_pow = 4,
             ln_srv_q_dev = 5,
             # ln_srv_q_dev_re = 4,
             ln_sigma_srv_q = 4,
@@ -378,7 +378,7 @@ fit_mod <-
     # STEP 8 - Fit model object
     step = 5
     # If phased
-    if(!is.null(phase) & debug == FALSE ){
+    if(!is.null(phase) & debug == 0 ){
       message(paste0("Step ", step,": Phasing begin"))
       phase_pars <- Rceattle::TMBphase(
         data = data_list_reorganized,
@@ -413,7 +413,7 @@ fit_mod <-
     step = step + 1
 
     # Optimize
-    if(debug == FALSE){
+    if(debug %in% c(0,2)){
       opt = Rceattle::fit_tmb(obj = obj,
                               fn=obj$fn,
                               gr=obj$gr,
@@ -479,11 +479,8 @@ fit_mod <-
     }
 
 
-    if (debug) {
+    if (debug > 0) {
       last_par <- params
-    }
-    else if (random_rec == F) {
-      last_par = suppressWarnings(obj$env$parList(obj$env$last.par.best))
     }
     else{
       last_par = suppressWarnings(obj$env$parList(obj$env$last.par.best))
@@ -507,14 +504,14 @@ fit_mod <-
         run_time = run_time
       )
 
-    if(debug == FALSE){
+    if(debug == 0){
       mod_objects$opt = opt
       mod_objects$sdrep = opt$SD
 
     }
 
-    if(debug == FALSE){
-      if(is.null(opt$SD) & getsd){
+    if(debug == 0){
+      if(is.null(opt$SD) & getsd & !getHessian){
         identified <- suppressMessages(TMBhelper::check_estimability(obj))
 
         # Make into list
@@ -530,7 +527,7 @@ fit_mod <-
     }
 
 
-    if(debug == FALSE){
+    if(debug == 0){
       if(!is.null(opt$SD) & random_rec == FALSE){
         # Warning for discontinuous likelihood
         if(abs(opt$objective - quantities$jnll) > rel_tol){

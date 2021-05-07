@@ -541,7 +541,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     # Catchability of surveys If not estimating turn of
     if (data_list$fleet_control$Estimate_q[flt] %in% c(NA, 0, 3) | data_list$fleet_control$Fleet_type[flt] == 0) {
       map_list$ln_srv_q[flt] <- NA
-      map_list$srv_q_pow[flt] <- NA
+      # map_list$srv_q_pow[flt] <- NA
       map_list$ln_srv_q_dev[flt,] <- NA
       #map_list$ln_srv_q_dev_re[flt,] <- NA
       map_list$ln_sigma_srv_q[flt] <- NA
@@ -550,7 +550,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
     # Just turn off catchability power coeficient for single parameter.
     if (data_list$fleet_control$Estimate_q[flt] %in% c(1,2, 3) | data_list$fleet_control$Fleet_type[flt] == 0) {
-      map_list$srv_q_pow[flt] <- NA
+      # map_list$srv_q_pow[flt] <- NA
     }
 
     # Time-varying catchability of surveys
@@ -691,7 +691,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
       # Make catchability maps the same if selectivity is the same
       map_list$ln_srv_q[flt] <- map_list$ln_srv_q[q_duplicate]
-      map_list$srv_q_pow[flt] <- map_list$srv_q_pow[q_duplicate]
+      # map_list$srv_q_pow[flt] <- map_list$srv_q_pow[q_duplicate]
       map_list$ln_srv_q_dev[flt,] <- map_list$ln_srv_q_dev[q_duplicate,]
       #map_list$ln_srv_q_dev_re[flt,] <- map_list$ln_srv_q_dev_re[q_duplicate,]
       map_list$ln_sigma_srv_q[flt] <- map_list$ln_sigma_srv_q[q_duplicate]
@@ -883,7 +883,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$ln_mean_F[flts] <- NA
       map_list$F_dev[flts,] <- NA
       map_list$ln_srv_q[flts] <- NA
-      map_list$srv_q_pow[flts] <- NA
+      # map_list$srv_q_pow[flts] <- NA
       map_list$ln_srv_q_dev[flts,] <- NA
       #map_list$ln_srv_q_dev_re[flts,] <- NA
       map_list$ln_sigma_srv_q[flts] <- NA
