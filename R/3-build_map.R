@@ -746,9 +746,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   if (data_list$msmMode == 0) {
 
     # Suitability parameters
-    map_list$log_gam_a <- replace(map_list$log_gam_a, values = rep(NA, length(map_list$log_gam_a)))
-    map_list$log_gam_b <- replace(map_list$log_gam_b, values = rep(NA, length(map_list$log_gam_b)))
-    map_list$log_phi <- replace(map_list$log_phi, values = rep(NA, length(map_list$log_phi)))
+    # map_list$log_gam_a <- replace(map_list$log_gam_a, values = rep(NA, length(map_list$log_gam_a)))
+    # map_list$log_gam_b <- replace(map_list$log_gam_b, values = rep(NA, length(map_list$log_gam_b)))
+    # map_list$log_phi <- replace(map_list$log_phi, values = rep(NA, length(map_list$log_phi)))
 
     # # Multispecies
     # map_list$logH_1 <- replace(map_list$logH_1, values = rep(NA, length(map_list$logH_1)))
@@ -826,14 +826,14 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
     # 2.1. Empirical suitability
     if (data_list$suitMode == 0) {
-      map_list$log_gam_a <- replace(map_list$log_gam_a, values = rep(NA, length(map_list$log_gam_a)))
-      map_list$log_gam_b <- replace(map_list$log_gam_b, values = rep(NA, length(map_list$log_gam_b)))
-      map_list$log_phi <- replace(map_list$log_phi, values = rep(NA, length(map_list$log_phi)))
+      # map_list$log_gam_a <- replace(map_list$log_gam_a, values = rep(NA, length(map_list$log_gam_a)))
+      # map_list$log_gam_b <- replace(map_list$log_gam_b, values = rep(NA, length(map_list$log_gam_b)))
+      # map_list$log_phi <- replace(map_list$log_phi, values = rep(NA, length(map_list$log_phi)))
     }
 
     # 2.2. GAMMA suitability
     if (data_list$suitMode %in% c(1:3)) {
-      map_list$log_phi <- replace(map_list$log_phi, values = rep(NA, length(map_list$log_phi)))
+      # map_list$log_phi <- replace(map_list$log_phi, values = rep(NA, length(map_list$log_phi)))
     }
 
     # 2.3. and 2.4 Lognormal

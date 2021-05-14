@@ -544,7 +544,7 @@ Type objective_function<Type>::operator() () {
   PARAMETER_MATRIX(logH_2);                       // Predation functional form; n = [nspp, nspp]
   PARAMETER_MATRIX(logH_3);                       // Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH3,UpperBoundH3;
   PARAMETER_MATRIX(H_4);                          // Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH4,UpperBoundH4;
-  */
+
 
 
   // 3.8. Gamma selectivity parameters
@@ -554,7 +554,7 @@ Type objective_function<Type>::operator() () {
 
   // 3.9. Preference
   PARAMETER_MATRIX( log_phi );                    // Species preference coefficient; n = [nspp, nspp]
-
+   */
 
   // ------------------------------------------------------------------------- //
   // 4. DERIVED QUANTITIES SECTION                                             //
@@ -657,8 +657,8 @@ Type objective_function<Type>::operator() () {
   array<Type>   UobsWt(nspp, nspp, max_bin, max_bin);UobsWt.setZero();                         // pred, prey, predL, preyL U matrix (mean wt_hat of prey in each pred); n = [nspp, nspp, maxL, maxL] #FIXME - Changed name in stomach2017.dat
 
   // -- 4.9. Kinzey selectivity
-  vector<Type> gam_a = exp(log_gam_a); // Predator selectivity
-  vector<Type> gam_b = exp(log_gam_b); // Predator selectivity
+  //vector<Type> gam_a = exp(log_gam_a); // Predator selectivity
+  //vector<Type> gam_b = exp(log_gam_b); // Predator selectivity
 
   // -- 4.10. Kinzey Functional response
   /* Commenting out kinzey bits for speed
@@ -1752,7 +1752,7 @@ if(flt_type(flt) == 1){
 
 
 
-
+      /* Commenting out for GOA Model
       // 8.1.2. Length-based GAMMA suitability
       // -- Turned off if not estimating selectivity
       if(suitMode == 1){
@@ -2029,7 +2029,8 @@ if(flt_type(flt) == 1){
           }
         }
       } // End lognormal selectivity
-
+*/
+        //Commenting out for GOA
 
       // ------------------------------------------------------------------------- //
       // 8. PREDATION MORTALITY EQUATIONS                                          //
@@ -3672,10 +3673,11 @@ if(flt_type(flt) == 1){
     REPORT(srv_biom_obs);          // Report the simulation
     REPORT(fsh_biom_obs);
   }
-  REPORT(jnll_comp);
-  REPORT(biomassSSB);
-  REPORT(R);
-  REPORT(comp_hat);
+
+  REPORT( jnll_comp );
+  REPORT( biomass );
+  REPORT( biomassSSB );
+  REPORT( R );
 
   // ------------------------------------------------------------------------- //
   // 14. END MODEL                                                             //

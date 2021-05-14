@@ -287,9 +287,9 @@ fit_mod <-
             ln_sigma_sel = 4,
             ln_sigma_srv_index = 2,
             ln_sigma_fsh_catch = 2,
-            log_gam_a = 4,
-            log_gam_b = 4,
-            log_phi = 4,
+            # log_gam_a = 4,
+            # log_gam_b = 4,
+            # log_phi = 4,
             comp_weights = 4
           )
         }

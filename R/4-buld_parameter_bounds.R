@@ -20,11 +20,11 @@ build_bounds <- function(param_list = NULL, data_list) {
 
     # Predator selectivity Bounds for gamma suitability
     if (data_list$suitMode %in% c(1:3)) {
-        lower_bnd$log_gam_a <- replace(lower_bnd$log_gam_a, values = rep(1e-10, length(lower_bnd$log_gam_a)))
-        upper_bnd$log_gam_a <- replace(upper_bnd$log_gam_a, values = rep(19.9, length(upper_bnd$log_gam_a)))
+        #lower_bnd$log_gam_a <- replace(lower_bnd$log_gam_a, values = rep(1e-10, length(lower_bnd$log_gam_a)))
+        #upper_bnd$log_gam_a <- replace(upper_bnd$log_gam_a, values = rep(19.9, length(upper_bnd$log_gam_a)))
     } else {
-        lower_bnd$log_gam_b <- replace(lower_bnd$log_gam_b, values = rep(-10, length(lower_bnd$log_gam_b)))
-        upper_bnd$log_gam_b <- replace(upper_bnd$log_gam_b, values = rep(20, length(upper_bnd$log_gam_b)))
+        #lower_bnd$log_gam_b <- replace(lower_bnd$log_gam_b, values = rep(-10, length(lower_bnd$log_gam_b)))
+        #upper_bnd$log_gam_b <- replace(upper_bnd$log_gam_b, values = rep(20, length(upper_bnd$log_gam_b)))
     }
 
     # Commenting out Kinzey bits
