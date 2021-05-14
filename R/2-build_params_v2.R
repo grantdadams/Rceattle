@@ -30,7 +30,7 @@ build_params <- function(data_list, inits = NULL) {
   param_list$ln_sex_ratio_sigma = log(data_list$sex_ratio_sigma)
 
   # -- 3.1. Recruitment parameters
-  param_list$ln_mean_rec = rep(0, data_list$nspp)  # Mean recruitment; n = [1, nspp]
+  param_list$ln_mean_rec = rep(9, data_list$nspp)  # Mean recruitment; n = [1, nspp]
   param_list$ln_rec_sigma = log(as.numeric(data_list$sigma_rec_prior))  # Standard deviation of recruitment deviations; n = [1, nspp]
   param_list$rec_dev = matrix(0, nrow = data_list$nspp, ncol = nyrs_proj)  # Annual recruitment deviation; n = [nspp, nyrs_hind]
 
@@ -56,7 +56,7 @@ build_params <- function(data_list, inits = NULL) {
 
 
   # -- 3.4. fishing mortality parameters
-  param_list$ln_mean_F = rep(0, nrow(data_list$fleet_control))  # Log mean fishing mortality; n = [1, nspp]
+  param_list$ln_mean_F = rep(-0.8, nrow(data_list$fleet_control))  # Log mean fishing mortality; n = [1, nspp]
   param_list$proj_F_prop = data_list$fleet_control$proj_F_prop  # Proportion of future fishing mortality for projections for each fleet; n = [1, nfleet]
   param_list$ln_FSPR = matrix(0, nrow = data_list$nspp, ncol = 2)                          # Future fishing mortality for projections for each species; n = [1, nfleet]
   param_list$F_dev = matrix(0, nrow = nrow(data_list$fleet_control), ncol = nyrs_hind)  # Annual fishing mortality deviations; n = [nspp, nyrs_hind] # NOTE: The size of this will likely change
@@ -123,12 +123,12 @@ build_params <- function(data_list, inits = NULL) {
 
 
   # -- 3.9. Gamma selectivity parameters
-  param_list$log_gam_a = rep(0, data_list$nspp)  # Log predator selectivity; n = [1,nspp]; FIXME: bounds = 1.0e-10 and 19.9
-  param_list$log_gam_b = rep(0, data_list$nspp)  # Log predator selectivity; n = [1,nspp]; FIXME: bounds = -5.2 and 10
+  # param_list$log_gam_a = rep(0.5, data_list$nspp)  # Log predator selectivity; n = [1,nspp]; FIXME: bounds = 1.0e-10 and 19.9
+  # param_list$log_gam_b = rep(-.5, data_list$nspp)  # Log predator selectivity; n = [1,nspp]; FIXME: bounds = -5.2 and 10
 
 
   # -- 3.10. Preference parameters
-  param_list$log_phi = matrix(0, data_list$nspp, data_list$nspp)
+  # param_list$log_phi = matrix(0.5, data_list$nspp, data_list$nspp)
 
 
   # -- 3.11. Comp weighting
@@ -141,15 +141,6 @@ build_params <- function(data_list, inits = NULL) {
 
 
   #---------------------------------------------------------------------
-  # Step 3 -- Replace inits with starting values in range
-  #---------------------------------------------------------------------
-  param_list$ln_mean_rec <- replace(param_list$ln_mean_rec, values = 9)
-  param_list$ln_mean_F <- replace(param_list$ln_mean_F, values = -0.8)
-  param_list$log_gam_a <- replace(param_list$log_gam_a, values = 0.5)
-  param_list$log_gam_b <- replace(param_list$log_gam_b, values = -0.5)
-
-
-  #---------------------------------------------------------------------
   # Step 4 -- Replace inits with previous parameters if desired
   #---------------------------------------------------------------------
   if(class(inits) == "list"){
@@ -157,13 +148,6 @@ build_params <- function(data_list, inits = NULL) {
       param_list[[names(inits)[i]]] = inits[[names(inits)[i]]]
     }
   }
-
-
-  # Start phi at 0.5
-  param_list$log_phi <- replace(param_list$log_phi, values = rep(log(0.5), length(param_list$log_phi)))
-
-  # closeAllConnections()
-
 
 
   return(param_list)
