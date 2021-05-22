@@ -3678,6 +3678,7 @@ if(flt_type(flt) == 1){
   REPORT( biomass );
   REPORT( biomassSSB );
   REPORT( R );
+  REPORT( comp_hat );
 
   // ------------------------------------------------------------------------- //
   // 14. END MODEL                                                             //

@@ -11,11 +11,11 @@ License: What license is it under?
 Encoding: UTF-8
 LazyData: true
 Imports:
+    TMBhelper,
     TMB,
     testthat,
     reshape2,
     oce,
-    TMBhelper,
     plyr,
     readxl,
     writexl,
