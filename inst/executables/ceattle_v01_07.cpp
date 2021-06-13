@@ -3504,7 +3504,6 @@ if(flt_type(flt) == 1){
   // ------------------------------------------------------------------------- //
 
   // 12.0 Report indices
-  /*
   REPORT( flt_type );
   REPORT( flt_spp );
   REPORT( flt_sel_ind );
@@ -3673,12 +3672,6 @@ if(flt_type(flt) == 1){
     REPORT(srv_biom_obs);          // Report the simulation
     REPORT(fsh_biom_obs);
   }
-
-  REPORT( jnll_comp );
-  REPORT( biomass );
-  REPORT( biomassSSB );
-  REPORT( R );
-  REPORT( comp_hat );
 
   // ------------------------------------------------------------------------- //
   // 14. END MODEL                                                             //
