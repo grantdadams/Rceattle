@@ -1,33 +1,19 @@
 Package: Rceattle
-Type: Package
-Title: Climate-Enhanced, Age-based model with Temperature-specific Trophic Linkages and Energetics
+Title: What the Package Does (One Line, Title Case)
 Version: 0.0.0.9000
-Author: Grant Adams, Kirstin Holsman
-Maintainer: Grant Adams <adamsgd@uw.edu>
-Description: Implements the CEATTLE model developed by Holsman et al (2016) in R for groundfish fisheries in Alaska.
-    Specifically, the package includes functions to assemble NOAA AFSC survey and catch data and fit the CEATTLE model using TMB.
-    The Package also provides functions to evaluate and plot model outputs.
-License: What license is it under?
+Authors@R: 
+    person(given = "First",
+           family = "Last",
+           role = c("aut", "cre"),
+           email = "first.last@example.com",
+           comment = c(ORCID = "YOUR-ORCID-ID"))
+Description: What the package does (one paragraph).
+License: GPL (>= 2)
 Encoding: UTF-8
 LazyData: true
-Imports:
-    TMBhelper,
-    TMB,
-    testthat,
-    reshape2,
-    oce,
-    plyr,
-    readxl,
-    writexl,
-    tidyr,
-    gplots,
-    ggplot2
-Remotes: kaskr/TMB_contrib_R/TMBhelper
+Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.1
-BugReports: https://github.com/grantdadams/Rceattle/issues
-Suggests: knitr,
-    rmarkdown,
-    testthat
-VignetteBuilder: knitr
-Depends: 
-    R (>= 2.10)
+Imports: 
+    TMB (>= 1.7.20)
+LinkingTo: 
+    TMB
