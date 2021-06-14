@@ -1512,39 +1512,33 @@ plot_b_eaten_prop <-
     nyrs <- max(nyrs_vec)
     maxyr <- max((sapply(Years, max)))
     minyr <- min((sapply(Years, min)))
+    max_age <- max(Rceattle[[1]]$data_list$nages)
 
     nspp <- Rceattle[[1]]$data_list$nspp
 
 
     # Get B_eaten
-    B_eaten <-
-      array(NA, dim = c(nspp, nspp, nyrs, length(Rceattle)))
-    ssb_sd <- array(NA, dim = c(nspp, nspp,  nyrs, length(Rceattle)))
+    B_eaten_prop <-
+      array(NA, dim = c(nspp * 2, nspp * 2, nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
-      for(rsp in 1:nspp){
-        for(ksp in 1:nspp){
+      for(rsp in 1:(nspp)){
+        for(ksp in 1:(nspp)){
           for(yr in 1:nyrs_vec[i]){
-            B_eaten[rsp, ksp, yr, i] <- sum(Rceattle[[i]]$quantities$B_eaten_prop[rsp,ksp,,,,,yr])
+            B_eaten_prop[rsp, ksp,yr,i] <- sum(Rceattle[[i]]$quantities$B_eaten_prop[c(rsp, rsp + nspp),c(ksp, ksp + nspp),,,yr])
           }
         }
       }
     }
 
-
-
     ind = 1
-
-    B_eaten <- B_eaten
-    ssb_sd <- ssb_sd
-    SSB_upper <- B_eaten + ssb_sd * 1.92
-    SSB_lower <- B_eaten - ssb_sd * 1.92
+    B_eaten_prop <- B_eaten_prop/1000000
 
     # Plot limits
     ymax <- c()
     ymin <- c()
-    for (i in 1:dim(B_eaten)[1]) {
-      ymax[i] <- max(c(B_eaten[,i, , ], SSB_lower[,i, , ], SSB_upper[,i, , ], 0), na.rm = T)
-      ymin[i] <- min(c(B_eaten[,i, , ], SSB_lower[,i, , ], SSB_upper[,i, , ], 0), na.rm = T)
+    for (ksp in 1:dim(B_eaten_prop)[2]) { # Loop through prey
+      ymax[ksp] <- max(c(B_eaten_prop[,ksp, , ], 0), na.rm = T)
+      ymin[ksp] <- min(c(B_eaten_prop[,ksp, , ], 0), na.rm = T)
     }
     ymax <- ymax + 0.15 * ymax
 
@@ -1598,7 +1592,7 @@ plot_b_eaten_prop <-
         legend("topleft", spnames[j], bty = "n", cex = 0.8)
 
         if(!is.null(mohns)){
-          legend("top", paste0("B_eaten Rho = ",  round(mohns[2,j+1], 2) ), bty = "n", cex = 0.8) # B_eaten rho
+          legend("top", paste0("B_eaten_prop Rho = ",  round(mohns[2,j+1], 2) ), bty = "n", cex = 0.8) # B_eaten_prop rho
         }
 
         if (j == 1) {
@@ -1619,7 +1613,7 @@ plot_b_eaten_prop <-
           legend(
             "topright",
             legend = c("Predator:", spnames),
-            lty = 1:nspp,
+            lty = c(NA, 1:nspp),
             lwd = lwd,
             col = c(0, rep(1, nspp)),
             bty = "n",
@@ -1629,15 +1623,15 @@ plot_b_eaten_prop <-
 
 
 
-        # Mean B_eaten
-        for (k in 1:dim(B_eaten)[4]) {
+        # Mean B_eaten_prop
+        for (mod in 1:dim(B_eaten_prop)[4]) {
           for(pred in 1:nspp){
             lines(
               x = Years[[k]],
-              y = B_eaten[pred, j, 1:length(Years[[k]]), k],
+              y = B_eaten_prop[pred, j, 1:length(Years[[k]]), mod],
               lwd = lwd,
               lty = pred,
-              col = line_col[k]) # Median
+              col = line_col[mod]) # Median
           }
         }
       }
