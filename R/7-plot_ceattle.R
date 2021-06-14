@@ -1257,6 +1257,7 @@ plot_ssb <-
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
 #' @param spnames Species names for legend
+#' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
 #' @param lwd Line width as specified by user
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
@@ -1271,6 +1272,7 @@ plot_b_eaten <-
            model_names = NULL,
            line_col = NULL,
            spnames = NULL,
+           species = NULL,
            lwd = 3,
            right_adj = 0,
            mohns = NULL,
@@ -1309,44 +1311,31 @@ plot_b_eaten <-
 
     nspp <- Rceattle[[1]]$data_list$nspp
 
+    if(is.null(species)){
+      species <- 1:nspp
+    }
 
     # Get B_eaten
     B_eaten <-
       array(NA, dim = c(nspp, nyrs, length(Rceattle)))
-    ssb_sd <- array(NA, dim = c(nspp, nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
       for(sp in 1:nspp){
         for(yr in 1:nyrs_vec[i]){
           B_eaten[sp, yr, i] <- sum(Rceattle[[i]]$quantities$B_eaten[sp,,,yr])
-
-
-          # # Get SD of ssb
-          # if (add_ci) {
-          #   ssb_sd_sub <- which(names(Rceattle[[i]]$sdrep$value) == "biomassSSB")
-          #   ssb_sd_sub <- Rceattle[[i]]$sdrep$sd[ssb_sd_sub]
-          #   ssb_sd[, , i] <-
-          #     replace(ssb_sd[, , i], values = ssb_sd_sub[1:(nyrs_vec[i] * nspp)])
-          # }
         }
       }
     }
 
-
-
-
     ind = 1
 
     B_eaten <- B_eaten / 1000000
-    ssb_sd <- ssb_sd / 1000000
-    SSB_upper <- B_eaten + ssb_sd * 1.92
-    SSB_lower <- B_eaten - ssb_sd * 1.92
 
     # Plot limits
     ymax <- c()
     ymin <- c()
     for (i in 1:dim(B_eaten)[1]) {
-      ymax[i] <- max(c(B_eaten[i, , ], SSB_lower[i, , ], SSB_upper[i, , ], 0), na.rm = T)
-      ymin[i] <- min(c(B_eaten[i, , ], SSB_lower[i, , ], SSB_upper[i, , ], 0), na.rm = T)
+      ymax[i] <- max(c(B_eaten[i, , ], 0), na.rm = T)
+      ymin[i] <- min(c(B_eaten[i, , ], 0), na.rm = T)
     }
     ymax <- ymax + 0.15 * ymax
 
@@ -1371,7 +1360,7 @@ plot_b_eaten <-
       }
 
       # Plot configuration
-      layout(matrix(1:(nspp + 2), nrow = (nspp + 2)), heights = c(0.1, rep(1, nspp), 0.2))
+      layout(matrix(1:(length(species) + 2), nrow = (length(species) + 2)), heights = c(0.1, rep(1, length(species)), 0.2))
       par(
         mar = c(0, 3 , 0 , 1) ,
         oma = c(0 , 0 , 0 , 0),
@@ -1380,15 +1369,16 @@ plot_b_eaten <-
       )
       plot.new()
 
-      for (j in 1:nspp) {
+      for (j in 1:length(species)) {
+        spp = species[j]
         plot(
           y = NA,
           x = NA,
-          ylim = c(ymin[j], ymax[j]),
+          ylim = c(ymin[spp], ymax[spp]),
           xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
           xlab = "Year",
           ylab = "Biomass consumed (million t)",
-          xaxt = c(rep("n", nspp - 1), "s")[j]
+          xaxt = c(rep("n", length(species) - 1), "s")[j]
         )
 
         # Horizontal line
@@ -1397,10 +1387,10 @@ plot_b_eaten <-
         }
 
         # Legends
-        legend("topleft", spnames[j], bty = "n", cex = 0.8)
+        legend("topleft", spnames[spp], bty = "n", cex = 1)
 
         if(!is.null(mohns)){
-          legend("top", paste0("B_eaten Rho = ",  round(mohns[2,j+1], 2) ), bty = "n", cex = 0.8) # B_eaten rho
+          legend("top", paste0("B_eaten Rho = ",  round(mohns[2,spp+1], 2) ), bty = "n", cex = 1) # B_eaten rho
         }
 
         if (j == 1) {
@@ -1412,7 +1402,7 @@ plot_b_eaten <-
               lwd = lwd,
               col = line_col,
               bty = "n",
-              cex = 0.8
+              cex = 1
             )
           }
         }
@@ -1423,25 +1413,12 @@ plot_b_eaten <-
         for (k in 1:dim(B_eaten)[3]) {
           lines(
             x = Years[[k]],
-            y = B_eaten[j, 1:length(Years[[k]]), k],
+            y = B_eaten[spp, 1:length(Years[[k]]), k],
             lty = 1,
             lwd = lwd,
             col = line_col[k]
           ) # Median
         }
-
-        # Credible interval
-        if (add_ci) {
-          for (k in 1:dim(B_eaten)[3]) {
-            polygon(
-              x = c(Years[[k]], rev(Years[[k]])),
-              y = c(SSB_upper[j, 1:length(Years[[k]]), k], rev(SSB_lower[j, 1:length(Years[[k]]), k])),
-              col = adjustcolor( line_col[k], alpha.f = 0.4),
-              border = NA
-            )
-          }
-        }
-
       }
 
 
@@ -1463,6 +1440,7 @@ plot_b_eaten <-
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
 #' @param spnames Species names for legend
+#' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
 #' @param lwd Line width as specified by user
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
@@ -1477,6 +1455,7 @@ plot_b_eaten_prop <-
            model_names = NULL,
            line_col = NULL,
            spnames = NULL,
+           species = NULL,
            lwd = 3,
            right_adj = 0,
            mohns = NULL,
@@ -1515,6 +1494,10 @@ plot_b_eaten_prop <-
     max_age <- max(Rceattle[[1]]$data_list$nages)
 
     nspp <- Rceattle[[1]]$data_list$nspp
+
+    if(is.null(species)){
+      species <- 1:nspp
+    }
 
 
     # Get B_eaten
@@ -1563,7 +1546,7 @@ plot_b_eaten_prop <-
       }
 
       # Plot configuration
-      layout(matrix(1:(nspp + 2), nrow = (nspp + 2)), heights = c(0.1, rep(1, nspp), 0.2))
+      layout(matrix(1:(length(species) + 2), nrow = (length(species) + 2)), heights = c(0.1, rep(1, length(species)), 0.2))
       par(
         mar = c(0, 3 , 0 , 1) ,
         oma = c(0 , 0 , 0 , 0),
@@ -1572,15 +1555,16 @@ plot_b_eaten_prop <-
       )
       plot.new()
 
-      for (j in 1:nspp) {
+      for (j in 1:length(species)) {
+        spp <- species[j]
         plot(
           y = NA,
           x = NA,
-          ylim = c(ymin[j], ymax[j]),
+          ylim = c(ymin[spp], ymax[spp]),
           xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
           xlab = "Year",
           ylab = "Biomass consumed (million t)",
-          xaxt = c(rep("n", nspp - 1), "s")[j]
+          xaxt = c(rep("n", length(species) - 1), "s")[j]
         )
 
         # Horizontal line
@@ -1589,10 +1573,10 @@ plot_b_eaten_prop <-
         }
 
         # Legends
-        legend("topleft", spnames[j], bty = "n", cex = 0.8)
+        legend("topleft", spnames[spp], bty = "n", cex = 1)
 
         if(!is.null(mohns)){
-          legend("top", paste0("B_eaten_prop Rho = ",  round(mohns[2,j+1], 2) ), bty = "n", cex = 0.8) # B_eaten_prop rho
+          legend("top", paste0("B_eaten_prop Rho = ",  round(mohns[2,spp+1], 2) ), bty = "n", cex = 0.8) # B_eaten_prop rho
         }
 
         if (j == 1) {
@@ -1604,12 +1588,12 @@ plot_b_eaten_prop <-
               lwd = lwd,
               col = line_col,
               bty = "n",
-              cex = 0.8
+              cex = 1
             )
           }
         }
 
-        if (j == 2) {
+        if (j == 2 | length(species) == 1) {
           legend(
             "topright",
             legend = c("Predator:", spnames),
@@ -1617,7 +1601,7 @@ plot_b_eaten_prop <-
             lwd = lwd,
             col = c(0, rep(1, nspp)),
             bty = "n",
-            cex = 0.8
+            cex = 1
           )
         }
 
@@ -1627,27 +1611,14 @@ plot_b_eaten_prop <-
         for (mod in 1:dim(B_eaten_prop)[4]) {
           for(pred in 1:nspp){
             lines(
-              x = Years[[k]],
-              y = B_eaten_prop[pred, j, 1:length(Years[[k]]), mod],
+              x = Years[[mod]],
+              y = B_eaten_prop[pred, spp, 1:length(Years[[mod]]), mod],
               lwd = lwd,
               lty = pred,
               col = line_col[mod]) # Median
           }
         }
       }
-
-      # # Credible interval
-      # if (add_ci) {
-      #   for (k in 1:dim(B_eaten)[3]) {
-      #     polygon(
-      #       x = c(Years[[k]], rev(Years[[k]])),
-      #       y = c(SSB_upper[j, 1:length(Years[[k]]), k], rev(SSB_lower[j, 1:length(Years[[k]]), k])),
-      #       col = adjustcolor( line_col[k], alpha.f = 0.4),
-      #       border = NA
-      #     )
-      #   }
-      # }
-
 
 
       if (i == 2) {
