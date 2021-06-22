@@ -1725,8 +1725,6 @@ plot_m_at_age <-
       }
     }
 
-    ind = 1
-
     # Plot limits
     ymax <- matrix(0, nrow = nspp, ncol = 2)
     ymin <- matrix(0, nrow = nspp, ncol = 2)
@@ -1768,12 +1766,14 @@ plot_m_at_age <-
         mgp = c(1.75, 0.5, 0)
       )
       plot.new()
+      ind = 0
 
       for (j in 1:length(species)) {
 
         spp = species[j]
 
         for(sex in 1:nsex[spp]){
+          ind = ind+1
 
           # Get sex for legend
           legend_sex = sex
@@ -1833,7 +1833,6 @@ plot_m_at_age <-
           if(incl_mean){
             abline(h = mean(m_at_age[spp, sex, 1:length(Years[[1]]), ]), lwd  = lwd, col = "grey", lty = 1)
           }
-          ind= ind+1
         }
       }
 
@@ -1931,8 +1930,6 @@ plot_m2_at_age_prop <-
       }
     }
 
-    ind = 1
-
     # Plot limits
     ymax <- matrix(0, nrow = nspp, ncol = 2)
     ymin <- matrix(0, nrow = nspp, ncol = 2)
@@ -1973,12 +1970,15 @@ plot_m2_at_age_prop <-
         mgp = c(1.75, 0.5, 0)
       )
       plot.new()
+      ind = 0
 
       for (j in 1:length(species)) {
 
         spp = species[j]
 
         for(sex in 1:nsex[spp]){
+
+          ind = ind+1
 
           # Get sex for legend
           legend_sex = sex
@@ -2022,7 +2022,7 @@ plot_m2_at_age_prop <-
           }
 
           # Predator legend
-          if (j == 2 | length(species) == 1) {
+          if (ind == 2 | length(species) == 1) {
             legend(
               "topright",
               legend = c("Predator:", spnames),
@@ -2051,7 +2051,6 @@ plot_m2_at_age_prop <-
               }
             }
           }
-          ind = ind+1
         }
       }
 
