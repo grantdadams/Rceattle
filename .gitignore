@@ -2,31 +2,6 @@
 .Rhistory
 .RData
 .Ruserdata
-inst/doc
-inst/CEATTLE_BSAI_MS_v01.dll
-*.dll
-Report/GSS_MS_no_re.RData
-<<<<<<< HEAD
-Report/GSS_MS_no_re2.RData
-Report/GSS_MS_no_re1.RData
-=======
-Report/GSS/Models/GSS_ms_admb.RData
-Report/GSS/Models/GSS_MS_no_re.RData
-Report/GSS/Models/GSS_MS_re.RData
-Report/GSS/Models/GSS_ss_admb.RData
-Report/GSS/Models/GSS_SS_no_re.RData
-Report/GSS/Models/GSS_SS_re.RData
-Report/GSS_ms_admb.RData
-Report/GSS_MS_re - Copy.RData
-Report/GSS_MS_re.RData
-Report/GSS_ss_admb.RData
-Report/GSS_SS_no_re.RData
-Report/GSS_SS_re.RData
-Report/Old runs/GSS_MS_no_re.RData
-Report/Old runs/GSS_MS_no_refull.RData
-Report/Old runs/GSS_MS_re.RData
-Report/Old runs/GSS_MS_re_1.RData
-Report/Old runs/GSS_SS_no_re.RData
-Report/Old runs/GSS_SS_re.RData
->>>>>>> 5556a711b5a154d4c39b1e22339399beed61184f
-*.RData
+src/*.o
+src/*.so
+src/*.dll

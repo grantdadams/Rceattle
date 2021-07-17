@@ -14,7 +14,7 @@ install.packages('TMB', type = 'source')
 # Try "TMB::runExample(all = TRUE)" to see if TMB works
 
 # Install Rceattle
-devtools::install_github("grantdadams/Rceattle", ref = "grant/time_varying_q_and_sel", auth_token = "4925b42ac46f1e0aefd671e9dc0c1cf1b3157017")
+devtools::install_github("grantdadams/Rceattle", ref = "grant/time_varying_q_sel_2sex2", auth_token = "4925b42ac46f1e0aefd671e9dc0c1cf1b3157017")
 
 
 ################################################
@@ -29,6 +29,7 @@ library(Rceattle)
 # Example
 # To run the 2017 single species assessment for the Bering Sea, a data file must first be loaded:
 data(BS2017SS) # ?BS2017SS for more information on the data
+BS2017SS$projyr <- 2030
 
 # Write data to excel
 Rceattle::write_data(data_list = BS2017SS, file = "BS2017SS.xlsx")
@@ -42,7 +43,23 @@ mydata <- Rceattle::read_data( file = "BS2017SS.xlsx")
 # Estimation
 ################################################
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
-ss_run <- Rceattle::fit_mod(data_list = mydata,
+ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
+                             inits = NULL, # Initial parameters = 0
+                             file = NULL, # Don't save
+                             debug = 0, # Estimate
+                             random_rec = FALSE, # No random recruitment
+                             msmMode = 0, # Single species mode
+                             silent = TRUE,
+                             recompile = FALSE)
+# Type ?fit_mod for more details
+
+# The you can plot the model results using using
+plot_biomass(Rceattle =  ss_run)
+plot_recruitment(Rceattle =  ss_run, add_ci = TRUE)
+plot_mortality(Rceattle = ms_run, maxage = 21)
+
+# Note: fitting the model updates the composition weights using the harmonic mean MacCallister-Ianelli method, refitting the model will change the MLE based on the new weighting
+ss_run_weighted <- Rceattle::fit_mod(data_list = ss_run$data_list,
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save
                             debug = 0, # Estimate
@@ -50,22 +67,22 @@ ss_run <- Rceattle::fit_mod(data_list = mydata,
                             msmMode = 0, # Single species mode
                             silent = TRUE,
                             recompile = FALSE)
-# Type ?fit_mod for more details
 
 # The you can plot the model results using using
-plot_biomass(Rceattle =  ss_run)
-plot_recruitment(Rceattle =  ss_run)
+plot_biomass(Rceattle =  list(ss_run, ss_run_weighted))
+plot_recruitment(Rceattle =  list(ss_run, ss_run_weighted))
 
 
 # For the a multispecies model starting from the single species parameters, the following can be specified to load the data:
 data("BS2017MS") # Note: the only difference is the residual mortality (M1_base) is lower
 # Or we can use the previous data set
+BS2017MS$projyr <- 2030
 
 ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
                             inits = ss_run$estimated_params, # Initial parameters from single species ests
                             file = NULL, # Don't save
                             debug = 0, # Estimate
-                            niter = 10, # 10 iterations around population and predation dynamics
+                            niter = 5, # 10 iterations around population and predation dynamics
                             random_rec = FALSE, # No random recruitment
                             msmMode = 1, # MSVPA based
                             suitMode = 0, # empirical suitability
@@ -73,7 +90,7 @@ ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
 
 # We can plot both runs as well:
 mod_list <- list(ss_run, ms_run)
-mod_names <- c("SS", "MS")
+mod_names <- c("Single-species", "Multi-species")
 
 # Plot biomass trajectory
 plot_biomass(Rceattle = mod_list, model_names = mod_names)
@@ -217,12 +234,13 @@ plot_recruitment(Rceattle = mod_list, model_names = mod_names)
 # For recruitment, the model can estimate recruitment deviates as random effects
 ss_re <- Rceattle::fit_mod(
   data_list = mydata,
-  inits = NULL, # Initial parameters = 0
+  inits = ss_re$estimated_params, # Initial parameters = 0
   file = NULL, # Don't save
   debug = 0, # Estimate
   random_rec = TRUE, # Turn of recruitment deviations as random effects
   msmMode = 0, # Single species mode
-  silent = TRUE)
+  silent = TRUE,
+  phase = NULL)
 
 # Diet estimation
 ms_gamma <- Rceattle::fit_mod(
