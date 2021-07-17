@@ -19,6 +19,8 @@ Imports:
     oce,
     readxl,
     TMB (>= 1.7.20),
+    TMBhelper,
     writexl
 LinkingTo: 
     TMB
+Remotes: kaskr/TMB_contrib_R/TMBhelper
