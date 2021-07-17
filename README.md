@@ -10,7 +10,7 @@ CEATTLE is short for Climate-Enhanced, Age-based model with Temperature-specific
 
 'Rceattle' is an 'R' package designed to implement the CEATTLE model using Template Model Builder ('TMB'; Kristensen et al. 2015), which can be installed using following https://github.com/kaskr/adcomp/wiki/Download. Rceattle is structured similar to the original manuscript in terms of modularization. Seperate functions estimate retrospective temperature- and size-specific predator rations, prey preference, and weight-at- age. These are then used as inputs to the CEATTLE model to evaluate how predation mortality, recruitment, and survival of three target species change under historical climate conditions and harvest rates.
 
-Code and function examples using data from the Bering Sea groundfish application can be found in the "Examples" folder.
+Code and function examples using data from the Bering Sea groundfish application can be found in the [examples](https://github.com/grantdadams/Rceattle/tree/master/examples) folder.
 
 
 References
