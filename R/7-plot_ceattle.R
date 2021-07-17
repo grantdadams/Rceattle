@@ -1,3 +1,24 @@
+#' Make a vector of colors.
+#'
+#' A subset of rich.colors by Arni Magnusson from the gplots package, with the
+#' addition of alpha transparency (which is now available in the gplots version
+#' as well)
+#'
+#'
+#' @param n Number of colors to generate.
+#' @param alpha Alpha transparency value for all colors in vector. Value is
+#' passed to rgb function.
+#' @author Arni Magnusson, Ian Taylor
+#' @export
+rich.colors.short <- function(n,alpha=1){
+  x <- seq(0, 1, length = n)
+  r <- 1/(1 + exp(20 - 35 * x))
+  g <- pmin(pmax(0, -0.8 + 6 * x - 5 * x^2), 1)
+  b <- dnorm(x, 0.25, 0.15)/max(dnorm(x, 0.25, 0.15))
+  rgb.m <- matrix(c(r, g, b), ncol = 3)
+  rich.vector <- apply(rgb.m, 1, function(v) rgb(v[1], v[2], v[3], alpha=alpha))
+}
+
 #' plot_biomass
 #'
 #' @description Function the plots the biomass and spawning stock biomass trends as estimated from Rceattle
@@ -7,7 +28,8 @@
 #' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
-#' @param species Species names for legend
+#' @param spnames Species names for legend
+#' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
 #' @param lwd Line width as specified by user
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
@@ -17,11 +39,11 @@
 #' @export
 plot_biomass <-
   function(Rceattle,
-           tmp_list = NULL,
            file = NULL,
            model_names = NULL,
            line_col = NULL,
            species = NULL,
+           spnames = NULL,
            lwd = 3,
            right_adj = 0,
            mohns = NULL,
@@ -33,8 +55,8 @@ plot_biomass <-
     }
 
     # Species names
-    if(is.null(species)){
-      species =  Rceattle[[1]]$data_list$spnames
+    if(is.null(spnames)){
+      spnames =  Rceattle[[1]]$data_list$spnames
     }
 
 
@@ -56,41 +78,26 @@ plot_biomass <-
     maxyr <- max((sapply(Years, max)))
     minyr <- min((sapply(Years, min)))
 
-    nspp <- Rceattle[[1]]$data_list$nspp
+    if(is.null(species)){
+      nspp <- Rceattle[[1]]$data_list$nspp
+      species <- 1:nspp
+    }
+
+    nspp <- length(species)
 
     # Get biomass
     Biomass <-
-      array(NA, dim = c(nspp, nyrs, length(Rceattle) + length(tmp_list)))
+      array(NA, dim = c(nspp, nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
-      Biomass[, 1:length(Years[[i]]), i] <- Rceattle[[i]]$quantities$biomass[,1:nyrs_vec[i]]
-    }
-
-    ind = 1
-    if (!is.null(tmp_list)) {
-      for (i in (length(Rceattle) + 1):(length(Rceattle) + length(tmp_list))) {
-        for (k in 1:nspp) {
-          Biomass[k, , i] <- tmp_list[[ind]][[paste0("Biomass_", k)]]
-        }
-        ind = ind + 1
-      }
+      Biomass[species - min(species) + 1, 1:length(Years[[i]]), i] <- Rceattle[[i]]$quantities$biomass[species,1:nyrs_vec[i]]
     }
     Biomass <- Biomass / 1000000
 
     # Get SSB
     SSB <-
-      array(NA, dim = c(nspp, nyrs, length(Rceattle) + length(tmp_list)))
+      array(NA, dim = c(nspp, nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
-      SSB[, 1:length(Years[[i]]), i] <- Rceattle[[i]]$quantities$biomassSSB[,1:nyrs_vec[i]]
-    }
-
-    ind = 1
-    if (!is.null(tmp_list)) {
-      for (i in (length(Rceattle) + 1):(length(Rceattle) + length(tmp_list))) {
-        for (k in 1:nspp) {
-          SSB[k, , i] <- tmp_list[[ind]][[paste0("BiomassSSB_", k)]]
-        }
-        ind = ind + 1
-      }
+      SSB[species - min(species) + 1, 1:length(Years[[i]]), i] <- Rceattle[[i]]$quantities$biomassSSB[species,1:nyrs_vec[i]]
     }
 
     SSB <- SSB / 1000000
@@ -139,7 +146,7 @@ plot_biomass <-
           y = NA,
           x = NA,
           ylim = c(ymin[j], ymax[j]),
-          xlim = c(minyr, maxyr + right_adj),
+          xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
           xlab = "Year",
           ylab = "Biomass (million t)",
           xaxt = c(rep("n", nspp - 1), "s")[j]
@@ -147,14 +154,14 @@ plot_biomass <-
 
         # Horizontal line
         if(incl_proj){
-abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
+          abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
         }
 
         # Legends
-        legend("topleft", species[j], bty = "n", cex = 1.4)
+        legend("topleft", spnames[species[j]], bty = "n", cex = 1)
 
         if(!is.null(mohns)){
-          legend("top", paste0("B Rho = ", round(mohns[1,j+1], 2), "; SSB Rho = ",  round(mohns[2,j+1], 2) ), bty = "n", cex = 1) # Biomass rho
+          legend("top", paste0("B Rho = ", round(mohns[1,j+1], 2), "; SSB Rho = ",  round(mohns[2,j+1], 2) ), bty = "n", cex = 0.8) # Biomass rho
         }
 
         if (j == 1) {
@@ -166,7 +173,7 @@ abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
               lwd = lwd,
               col = line_col,
               bty = "n",
-              cex = 1.175
+              cex = 0.72
             )
           }
         }
@@ -179,7 +186,7 @@ abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
             lwd = lwd,
             col = c(1, 1),
             bty = "n",
-            cex = 1.175
+            cex = 1
           )
         }
 
@@ -223,6 +230,7 @@ abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
 
 
 
+
 #' plot_recruitment
 #'
 #' @description Function the plots the mean recruitment and 95% CI trends as estimated from Rceattle
@@ -232,7 +240,8 @@ abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
 #' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
-#' @param species Species names for legend
+#' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
+#' @param spnames Species names for legend
 #' @param add_ci If the confidence interval is to be added
 #' @param lwd Line width as specified by user
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
@@ -243,11 +252,11 @@ abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
 #' @return Returns and saves a figure with the population trajectory.
 plot_recruitment <-
   function(Rceattle,
-           tmp_list = NULL,
            file = NULL,
            model_names = NULL,
            line_col = NULL,
            species = NULL,
+           spnames = NULL,
            add_ci = FALSE,
            lwd = 3,
            save_rec = FALSE,
@@ -261,8 +270,8 @@ plot_recruitment <-
     }
 
     # Species names
-    if(is.null(species)){
-      species =  Rceattle[[1]]$data_list$spnames
+    if(is.null(spnames)){
+      spnames =  Rceattle[[1]]$data_list$spnames
     }
 
     # Extract data objects
@@ -283,15 +292,23 @@ plot_recruitment <-
     maxyr <- max((sapply(Years, max)))
     minyr <- min((sapply(Years, min)))
 
+    spp <- which(Rceattle[[1]]$data_list$estDynamics == 0)
     nspp <- Rceattle[[1]]$data_list$nspp
     minage <- Rceattle[[1]]$data_list$minage
+
+    if(is.null(species)){
+
+      species <- 1:nspp
+    }
+
+    spp <- spp[which(spp %in% species)]
 
 
     # Get biomass
     recruitment <-
-      array(NA, dim = c(nspp, nyrs,  length(Rceattle) + length(tmp_list)))
+      array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
     recruitment_sd <-
-      array(NA, dim = c(nspp, nyrs,  length(Rceattle) + length(tmp_list)))
+      array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
     for (i in 1:length(Rceattle)) {
       recruitment[, 1:length(Years[[i]]) , i] <- Rceattle[[i]]$quantities$R[,1:nyrs_vec[i]]
 
@@ -301,18 +318,6 @@ plot_recruitment <-
         sd_rec <- Rceattle[[i]]$sdrep$sd[sd_rec]
         recruitment_sd[, , i] <-
           replace(recruitment_sd[, , i], values = sd_rec[1:(nyrs_vec[i] * nspp)])
-      }
-    }
-
-    ind = 1
-    if (!is.null(tmp_list)) {
-      for (i in (length(Rceattle) + 1):(length(Rceattle) + length(tmp_list))) {
-        for (k in 1:nspp) {
-          recruitment[k, , i] <- tmp_list[[ind]][[paste0("R_", k)]]
-          recruitment_sd[k, , i] <-
-            replace(recruitment_sd[k, , i], values = rep(NA, length(recruitment_sd[k, , i])))
-        }
-        ind = ind + 1
       }
     }
 
@@ -380,7 +385,7 @@ plot_recruitment <-
       }
 
       # Plot configuration
-      layout(matrix(1:(nspp + 2), nrow = (nspp + 2)), heights = c(0.1, rep(1, nspp), 0.2))
+      layout(matrix(1:(length(spp) + 2), nrow = (length(spp) + 2)), heights = c(0.1, rep(1, length(spp)), 0.2))
       par(
         mar = c(0, 3 , 0 , 1) ,
         oma = c(0 , 0 , 0 , 0),
@@ -389,15 +394,15 @@ plot_recruitment <-
       )
       plot.new()
 
-      for (j in 1:nspp) {
+      for (j in 1:length(spp)) {
         plot(
           y = NA,
           x = NA,
-          ylim = c(ymin[j], ymax[j]),
-          xlim = c(minyr, maxyr + right_adj),
+          ylim = c(ymin[spp[j]], ymax[spp[j]]),
+          xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
           xlab = "Year",
           ylab = "Recruitment (millions)",
-          xaxt = c(rep("n", nspp - 1), "s")[j]
+          xaxt = c(rep("n", length(spp) - 1), "s")[j]
         )
 
         # Horizontal line at end yr
@@ -407,15 +412,15 @@ plot_recruitment <-
 
         # Legends
         legend("topleft",
-               legend = species[j],
+               legend = spnames[spp[j]],
                bty = "n",
-               cex = 1.4)
+               cex = 1)
 
         if(!is.null(mohns)){
-          legend("top", paste0("Rho = ", round(mohns[3,j+1], 2) ), bty = "n", cex = 1.4) # Biomass rho
+          legend("top", paste0("Rho = ", round(mohns[3,spp[j]+1], 2) ), bty = "n", cex = 0.8) # Biomass rho
         }
 
-        if (j == 1) {
+        if (spp[j] == 1) {
           if(!is.null(model_names)){
             legend(
               "topright",
@@ -424,7 +429,7 @@ plot_recruitment <-
               lwd = lwd,
               col = line_col,
               bty = "n",
-              cex = 1.175
+              cex = 0.72
             )
           }
 
@@ -436,7 +441,7 @@ plot_recruitment <-
           for (k in 1:dim(recruitment)[3]) {
             polygon(
               x = c(Years[[k]], rev(Years[[k]])),
-              y = c(recruitment_upper[j, 1:length(Years[[k]]), k], rev(recruitment_lower[j, 1:length(Years[[k]]), k])),
+              y = c(recruitment_upper[spp[j], 1:length(Years[[k]]), k], rev(recruitment_lower[spp[j], 1:length(Years[[k]]), k])),
               col = adjustcolor( line_col[k], alpha.f = 0.4),
               border = NA
             ) # 95% CI
@@ -447,7 +452,7 @@ plot_recruitment <-
         for (k in 1:dim(recruitment)[3]) {
           lines(
             x = Years[[k]],
-            y = recruitment[j, 1:length(Years[[k]]), k],
+            y = recruitment[spp[j], 1:length(Years[[k]]), k],
             lty = 1,
             lwd = lwd,
             col = line_col[k]
@@ -480,7 +485,6 @@ plot_recruitment <-
 #' @export
 plot_selectivity <-
   function(Rceattle,
-           tmp_list = NULL,
            file = NULL,
            model_names = NULL,
            line_col = NULL,
@@ -503,195 +507,159 @@ plot_selectivity <-
     minyr <- min((sapply(Years, min)))
 
     nspp <- Rceattle[[1]]$data_list$nspp
-    srv_control <- Rceattle[[1]]$data_list$srv_control
-    fsh_control <- Rceattle[[1]]$data_list$fsh_control
-    nsrv <- nrow(Rceattle[[1]]$data_list$srv_control)
-    nfsh <- nrow(Rceattle[[1]]$data_list$fsh_control)
+    fleet_control <- Rceattle[[1]]$data_list$fleet_control
+    nflt <- nrow(Rceattle[[1]]$data_list$fleet_control)
     nages <- Rceattle[[1]]$data_list$nages
+    minage <- Rceattle[[1]]$data_list$minage
+    nsex <- Rceattle[[1]]$data_list$nsex
+    est_dynamics <- Rceattle[[1]]$data_list$estDynamics
 
     # Get biomass
-    srv_selectivity <-
-      array(NA, dim = c(nsrv, max(nages), length(Rceattle) + length(tmp_list)))
+    selectivity_array <-
+      array(NA, dim = c(nflt, 2, max(nages), nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
-      srv_selectivity[, , i] <- Rceattle[[i]]$quantities$srv_sel[,,1]
-    }
-
-    ind = 1
-    if (!is.null(tmp_list)) {
-      for (i in (length(Rceattle) + 1):(length(Rceattle) + length(tmp_list))) {
-        for (k in 1:nspp) {
-          srv_selectivity[k,1:nages[k], i] <- tmp_list[[ind]][[paste0("srv_sel_", k)]]
-        }
-        ind = ind + 1
-      }
-    }
-
-    # Get SSB
-    fsh_selectivity <-
-      array(NA, dim = c(nfsh, max(nages), length(Rceattle) + length(tmp_list)))
-    for (i in 1:length(Rceattle)) {
-      fsh_selectivity[, , i] <- Rceattle[[i]]$quantities$fsh_sel[,,1]
-    }
-
-    ind = 1
-    if (!is.null(tmp_list)) {
-      for (i in (length(Rceattle) + 1):(length(Rceattle) + length(tmp_list))) {
-        for (k in 1:nspp) {
-          fsh_selectivity[k, , i] <- tmp_list[[ind]][[paste0("fsh_sel_", k)]]
-        }
-        ind = ind + 1
-      }
+      selectivity_array[, , , ,i] <- Rceattle[[i]]$quantities$sel[,,,]
     }
 
     # Plot limits
-    ymax_srv <- c()
-    ymin_srv <- c()
-
-    ymax_fsh <- c()
-    ymin_fsh <- c()
-    for (i in 1:dim(srv_selectivity)[1]) {
-      ymax_srv[i] <- max(c(srv_selectivity[i,,], 0), na.rm = T)
-      ymin_srv[i] <- min(c(srv_selectivity[i,,], 0), na.rm = T)
+    ymax_sel <- c()
+    ymin_sel <- c()
+    for (i in 1:dim(selectivity_array)[1]) {
+      ymax_sel[i] <- max(c(selectivity_array[i,,,,], 0), na.rm = T)
+      ymin_sel[i] <- min(c(selectivity_array[i,,,,], 0), na.rm = T)
     }
-
-    for (i in 1:dim(fsh_selectivity)[1]) {
-      ymax_fsh[i] <- max(c(fsh_selectivity[i,, ], 0), na.rm = T)
-      ymin_fsh[i] <- min(c(fsh_selectivity[i,, ], 0), na.rm = T)
-    }
-    ymax_srv <- ymax_srv + 0.15 * ymax_srv
-    ymax_fsh <- ymax_fsh + 0.15 * ymax_fsh
 
     if (is.null(line_col)) {
       line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
     }
 
+    max_obj <- nflt
 
-    max_obj <- max(c(nsrv, nfsh))
 
     # Plot trajectory
     loops <- ifelse(is.null(file), 1, 2)
-    for (i in 1:loops) {
-      if (i == 2) {
-        filename <- paste0(file, "_selectivity", ".png")
-        png(
-          file = filename ,
-          width = 7,# 169 / 25.4,
-          height = 6.5, # 150 / 25.4,
 
-          units = "in",
-          res = 300
-        )
-      }
+    #################################
+    # Selectivity time series
+    #################################
+    for(j in 1:nflt){
+      for (i in 1:loops) {
+        # Species
+        sp <- fleet_control$Species[which(fleet_control$Fleet_code == j)]
 
-      # Plot configuration
-      layout(matrix(1:((max_obj + 2)*2), nrow = (max_obj + 2), ncol = 2, byrow = FALSE), heights = c(0.1, rep(1, max_obj), 0.3))
-      par(
-        mar = c(0, 3 , 0 , 1) ,
-        oma = c(0 , 0 , 0 , 0),
-        tcl = -0.35,
-        mgp = c(1.75, 0.5, 0)
-      )
+        for(sex in 1:nsex[sp]){
 
-      plot.new()
+          # Get sex for legend
+          legend_sex = sex
+          legend_sex2 = ifelse(sex == 1, "Female", "Male")
+          if(nsex[sp] == 1){
+            legend_sex <- 0
+            legend_sex2 = "Combined"
+          }
 
-      # Survey selectivity
-      for(j in 1:nsrv){
-        sp <- srv_control$Species[which(srv_control$Survey_code == j)]
-        plot(
-          y = NA,
-          x = NA,
-          ylim = c(ymin_srv[j], ymax_srv[j]),
-          xlim = c(min(0),  max(nages, na.rm = TRUE)),
-          xlab = "Age",
-          ylab = "Survey selectivity",
-          xaxt = c(rep("n", nsrv - 1), "s")[j]
-        )
+          if (i == 2) {
+            filename <- paste0(file, "time-varying_selectivity_fleet",j,"_sex",legend_sex, ".png")
+            png(
+              file = filename ,
+              width = 7,# 169 / 25.4,
+              height = 6.5, # 150 / 25.4,
 
-        if(j == nsrv){
-          mtext(side = 1, "Age", cex  = 0.75, line = 2)
-        }
-
-        # Mean selectivity
-        for (k in 1:dim(srv_selectivity)[3]) {
-          lines(
-            x = 1:nages[sp],
-            y = srv_selectivity[j, 1:nages[sp], k],
-            lty = 1,
-            lwd = lwd,
-            col = line_col[k]
-          )
-        }
-
-        # Legends
-        legend("bottomright", as.character(srv_control$Survey_name[j]), bty = "n", cex = 1.4)
-      }
-
-      # Add empty plots
-      if(nsrv >= nfsh){
-        plot.new()
-      }
-
-      if(nsrv < nfsh){
-        for(i in 1:(nfsh - nsrv)){
-          plot.new()
-        }
-      }
-
-
-      # Fishery selectivity
-      plot.new()
-      for (j in 1:nfsh) {
-        sp <- fsh_control$Species[which(fsh_control$Fishery_code == j)]
-        plot(
-          y = NA,
-          x = NA,
-          ylim = c(ymin_fsh[j], ymax_fsh[j]),
-          xlim = c(min(0), max(nages, na.rm = TRUE)),
-          xlab = "Age",
-          ylab = "Fishery selectivity",
-          xaxt = c(rep("n", nfsh - 1), "s")[j]
-        )
-
-        if(j == nfsh){
-          mtext(side = 1, "Age", cex  = 0.75, line = 2)
-        }
-
-        # Mean selectivity
-        for (k in 1:dim(fsh_selectivity)[3]) {
-          lines(
-            x = 1:nages[sp],
-            y = fsh_selectivity[j, 1:nages[sp], k],
-            lty = 1,
-            lwd = lwd,
-            col = line_col[k]
-          )
-        }
-
-        # Legends
-        legend("bottomright", as.character(fsh_control$Fishery_name[j]), bty = "n", cex = 1.4)
-
-        if (j == 1) {
-          if(!is.null(model_names)){
-            legend(
-              "bottomright",
-              legend = model_names,
-              lty = rep(1, length(line_col)),
-              lwd = lwd,
-              col = line_col,
-              bty = "n",
-              cex = 1.175
+              units = "in",
+              res = 300
             )
+          }
+          sel_subset <- (selectivity_array[j, sex, 1:nages[sp], 1:nyrs, 1])
+
+          par(
+            mar = c(3.2, 3.2 , 1 , 0.5) ,
+            oma = c(0 , 0 , 0 , 0),
+            tcl = -0.8,
+            mgp = c(10, 0.6, 0)
+          )
+          persp(y = Years[[1]], x =  (1:nages[sp]) - 1 + minage[sp], z = sel_subset, col="white",xlab = "Age",ylab= "\n\nYear", zlab= "\n\nSelectivity",expand=0.5,box=TRUE,ticktype="detailed",phi=35,theta=-19, main = NA, zlim = c(ymin_sel[i], ymax_sel[j]))
+          mtext(text = paste(legend_sex2, as.character(fleet_control$Fleet_name[j])), side = 3, cex = 0.8, line = -.5)
+
+          if (i == 2) {
+            dev.off()
           }
         }
       }
+    }
 
+    #################################
+    # Terminal selectivity
+    #################################
+    for(sp in 1:nspp){
+      if(est_dynamics[sp] == 0){
+        for(sex in 1:nsex[sp]){
 
+          # Get sex for legend
+          legend_sex = sex
+          legend_sex2 = ifelse(sex == 1, "Female", "Male")
+          if(nsex[sp] == 1){
+            legend_sex <- 0
+            legend_sex2 = "Combined"
+          }
 
-      if (i == 2) {
-        dev.off()
+          for (i in 1:loops) {
+            if (i == 2) {
+
+              filename <- paste0(file, "_terminal_selectivity_species",sp,"_sex",legend_sex, ".png")
+              png(
+                file = filename ,
+                width = 7,# 169 / 25.4,
+                height = 6.5, # 150 / 25.4,
+
+                units = "in",
+                res = 300
+              )
+            }
+
+            fleets <- fleet_control$Fleet_code[which(fleet_control$Species == sp)]
+            flt_colors <- rich.colors.short(length(fleets))
+
+            # Plot configuration
+            par(
+              mar = c(3.2, 3.2 , 0.5 , 0.5) ,
+              oma = c(0 , 0 , 0 , 0),
+              tcl = -0.35,
+              mgp = c(1.75, 0.5, 0)
+            )
+
+            plot(
+              y = NA,
+              x = NA,
+              ylim = c(min(ymin_sel[fleets]), max(ymax_sel[fleets])),
+              xlim = c(min(0),  max(nages[sp], na.rm = TRUE)),
+              xlab = "Age",
+              ylab = "Terminal selectivity"
+            )
+
+            # Mean selectivity
+            for (flt in 1:length(fleets)) {
+              lines(
+                x = 1:nages[sp],
+                y = selectivity_array[fleets[flt], sex, 1:nages[sp], nyrs, 1],
+                lty = 1,
+                lwd = lwd,
+                col = flt_colors[flt]
+              )
+            }
+
+            # Legends
+            legend("bottomright", paste(legend_sex2, as.character(fleet_control$Fleet_name[fleets])), col = flt_colors, bty = "n", lty = rep(1, length(fleets)), lwd = rep(2, length(fleets)), cex = 0.8)
+
+            # Save plot
+            if (i == 2) {
+              dev.off()
+            }
+          }
+        }
       }
     }
   }
+
+
 
 
 #' Plot functional form
@@ -775,261 +743,184 @@ plot_form <- function( params = NULL, pred = 1, pred_age = 1, prey = 1, msmMode 
 }
 
 
-#' plot_M2
+
+#' Plot M1 + M2
 #'
-#' @description Function the plots the predation mortality trends as estimated from Rceattle
+#' @description Function the plots the M1 and M2 as estimated from Rceattle
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
 #' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
-#' @param model_names Names of models to be used in legend
-#' @param line_col Colors of models to be used for line color
+#' @param incl_proj Include the projection years (TRUE/FALSE)
+#' @param zlim zlim for M1 + M2 plots. Character - use max range across species in model. NULL - use species specific ranges. Vector of two.
+#' @param contour If plot it to be done as contours rather than tiles.
 #' @param species Species names for legend
-#' @param lwd Line width as specified by user
-#' @param age Age specified
-#' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
-#' @param M2_only TRUE/FALSE plot only M1 and M2
-#' @param incl_proj TRUE/FALSE include projection years?
+#' @param width Plot width when saved "inches"
+#' @param height Plot height when saved "inches"
+#' @param title Additional title to add. Will also add species names if not NULL
+#' @param title_cex Font size for title
+#' @param spp Species to plot. Plots all if null.
+#' @param log TRUE/FALSE use log M1 + M2
+#' @param maxage Plot up to this age. Plots all ages if NULL
 #'
-#'
-#' @return Returns and saves a figure with the population trajectory.
 #' @export
-plot_mort <-
+plot_mortality <-
   function(Rceattle,
-           tmp_list = NULL,
            file = NULL,
-           model_names = NULL,
-           line_col = NULL,
-           species = NULL,
-           lwd = 3,
-           age = 3,
-           right_adj = 0,
-           M2_only = FALSE,
-           incl_proj = FALSE){
+           incl_proj = FALSE,
+           zlim = NULL,
+           contour = FALSE,
+           width = NULL,
+           height = NULL,
+           title = NULL,
+           log = FALSE,
+           spp = NULL,
+           maxage = NULL,
+           title_cex = 10) {
 
     # Convert single one into a list
     if(class(Rceattle) == "Rceattle"){
       Rceattle <- list(Rceattle)
     }
 
+    if(length(Rceattle) > 1){
+      stop("Can only plot one model")
+    }
+
     # Extract data objects
     Years <- list()
-    Endyrs <- list()
     for(i in 1:length(Rceattle)){
-      Endyrs[[i]] <- Rceattle[[i]]$data_list$endyr
-      if(incl_proj == FALSE){
-        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
-      }
+      Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
       if(incl_proj){
         Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$projyr
       }
     }
-    max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
     nyrs_vec <- sapply(Years, length)
     nyrs <- max(nyrs_vec)
     maxyr <- max((sapply(Years, max)))
     minyr <- min((sapply(Years, min)))
 
     nspp <- Rceattle[[1]]$data_list$nspp
-    max_age <- max(Rceattle[[1]]$data_list$nages)
-
-    # Species names
-    if(is.null(species)){
-      species =  Rceattle[[1]]$data_list$spnames
+    spnames <- Rceattle[[1]]$data_list$spnames
+    estdynamics <- Rceattle[[1]]$data_list$estDynamics
+    nages <- Rceattle[[1]]$data_list$nages
+    for(i in 1:length(nages)){
+      nages[i] <- ifelse(nages[i] > maxage, maxage, nages[i] )
     }
 
-    # Get M2
-    M2 <-
-      array(NA, dim = c(nspp, max_age, nyrs, length(Rceattle) + length(tmp_list)))
+
+    minage <- Rceattle[[1]]$data_list$minage
+    nsex <- Rceattle[[1]]$data_list$nsex
+
+    # Get biomass
+    m_array <-
+      array(NA, dim = c(nspp, 2, max(nages), nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
-      M2[, , 1:length(Years[[i]]),i] <- Rceattle[[i]]$quantities$M2[,,1:nyrs_vec[i]]
+      m_array[, , , ,i] <- Rceattle[[i]]$quantities$M[,,1:maxage,1:nyrs]
     }
 
-    # ind = 1
-    # if (!is.null(tmp_list)) {
-    #   for (i in (length(Rceattle) + 1):(length(Rceattle) + length(tmp_list))) {
-    #     for (k in 1:nspp) {
-    #       M2[k, , i] <- tmp_list[[ind]][[paste0("M2_", k)]]
-    #     }
-    #     ind = ind + 1
-    #   }
-    # }
-
-    # Get f_mat
-    f_mat <-
-      array(NA, dim = c(nspp, max_age, nyrs, length(Rceattle) + length(tmp_list)))
-    for (i in 1:length(Rceattle)) {
-      f_mat[, , 1:length(Years[[i]]) ,i] <- Rceattle[[i]]$quantities$F_tot[,,1:nyrs_vec[i]]
+    if(log){
+      m_array = log(m_array)
     }
-
-    m_mat <-
-      array(NA, dim = c(nspp, max_age, length(Rceattle) + length(tmp_list)))
-    for (i in 1:length(Rceattle)) {
-      m_mat[, ,i] <- Rceattle[[i]]$quantities$M1[,1:max_age]
-    }
-
-    # ind = 1
-    # if (!is.null(tmp_list)) {
-    #   for (i in (length(Rceattle) + 1):(length(Rceattle) + length(tmp_list))) {
-    #     for (k in 1:nspp) {
-    #       f_mat[k, , i] <- tmp_list[[ind]][[paste0("F_", k)]]
-    #     }
-    #     ind = ind + 1
-    #   }
-    # }
 
     # Plot limits
-    #if(fishing){
-    ymax <- c()
-    ymin <- c()
-    for (i in 1:dim(M2)[1]) {
-      if(M2_only){
-        ymax[i] <- max(c(M2[i, age, ,], m_mat[i, age,], 0), na.rm = T)
-        ymin[i] <- min(c(M2[i, age, ,], m_mat[i, age,], 0), na.rm = T)
-      } else{
-        ymax[i] <- max(c(M2[i, age, ,], f_mat[i, age, ,], m_mat[i, age,], 0), na.rm = T)
-        ymin[i] <- min(c(M2[i, age, ,], f_mat[i, age, ,], m_mat[i, age,], 0), na.rm = T)
-      }
-    }
-    ymax <- ymax + 0.15 * ymax
-    # }
-    # if(fishing == FALSE){
-    #   ymax <- c()
-    #   ymin <- c()
-    #   for (i in 1:dim(M2)[1]) {
-    #     ymax[i] <- max(c(M2[i, , ,], 0), na.rm = T)
-    #     ymin[i] <- min(c(M2[i, , ,], 0), na.rm = T)
-    #   }
-    #   ymax <- ymax + 0.15 * ymax
-    # }
-
-    if (is.null(line_col)) {
-      line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
+    zmax <- c()
+    zmin <- c()
+    for (i in 1:dim(m_array)[1]) {
+      zmax[i] <- max(c(m_array[i,,,,], 0), na.rm = T)
+      zmin[i] <- min(c(m_array[i,,,,], 0), na.rm = T)
     }
 
 
     # Plot trajectory
     loops <- ifelse(is.null(file), 1, 2)
-    for (i in 1:loops) {
-      if (i == 2) {
-        filename <- paste0(file,"_age",age, "_mortality_trajectory", ".png")
-        png(
-          file = filename ,
-          width = 7,# 169 / 25.4,
-          height = 6.5,# 150 / 25.4,
 
-          units = "in",
-          res = 300
-        )
-      }
+    #################################
+    # Mortality time series
+    #################################
+    if(is.null(spp)){
+      spp <- 1:nspp
+    }
 
-      # Plot configuration
-      layout(matrix(1:(nspp + 2), nrow = (nspp + 2)), heights = c(0.1, rep(1, nspp), 0.2))
-      par(
-        mar = c(0, 3 , 0 , 1) ,
-        oma = c(0 , 0 , 0 , 0),
-        tcl = -0.35,
-        mgp = c(1.75, 0.5, 0)
-      )
-      plot.new()
 
-      for (j in 1:nspp) {
-        plot(
-          y = NA,
-          x = NA,
-          ylim = c(ymin[j], ymax[j]),
-          xlim = c(minyr, maxyr + right_adj),
-          xlab = "Year",
-          ylab = "Mortality",
-          xaxt = c(rep("n", nspp - 1), "s")[j]
-        )
+    # Species
+    for(j in 1:nspp){
+      sp <- j
 
-        # Horizontal line at end yr
-        if(incl_proj){
-          abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
-        }
+      if(estdynamics[j] == 0 & sp %in% spp){
 
-        # Legends
-        legend("topleft", species[j], bty = "n", cex = 1.4)
+        # Sexes
+        for(sex in 1:nsex[sp]){
 
-        if (j == 1) {
-          if(!is.null(model_names)){
-            legend(
-              "topright",
-              legend = model_names,
-              lty = rep(1, length(line_col)),
-              lwd = lwd,
-              col = line_col,
-              bty = "n",
-              cex = 1.175
-            )
+          # Get sex for legend
+          legend_sex = sex
+          legend_sex2 = ifelse(sex == 1, "Female", "Male")
+          if(nsex[sp] == 1){
+            legend_sex <- 0
+            legend_sex2 = "Combined"
+          }
+
+          # Save
+          for (i in 1:loops) {
+            if (i == 2) {
+              filename <- paste0(file, "predation_and_residual_mortality_spp_",sp,"_sex_",legend_sex2,".png")
+              png(
+                file = filename ,
+                width = ifelse(is.null(width), 8, width),
+                height = ifelse(is.null(height), 5.5, height),
+
+                units = "in",
+                res = 300
+              )
+            }
+
+            # Subset mortality data
+            m_subset <- (m_array[j, sex, (1:nages[sp]), 1:nyrs, 1])
+
+            # Get ages
+            ages <- (1:(nages[sp])) - 1 + minage[sp]
+
+            # Rearrange data
+            data <- data.frame(Year = rep(Years[[1]], each = length(ages)), Age = rep(ages, length(Years[[1]])), M = c(m_subset))
+
+            # Plot limits
+            if(is.null(zlim)){
+              zlim <- c(zmin[sp], zmax[sp])
+            }
+
+            if(is.character(zlim)){
+              zlim <- c(min(zmin), max(zmax))
+            }
+
+            # Plot as contours
+            if(contour){
+              print(ggplot2::ggplot(data, aes(y = Age, x = Year, z = M, zmin = zlim[1], zmax = zlim[2])) + geom_contour(colour = 1, size = 0.5) + geom_contour_filled()  + scale_y_continuous(expand = c(0, 0), breaks=seq(0,max(ages),round(nages[sp]/5))) +  scale_x_continuous(expand = c(0, 0)) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_rect(colour = "black", size = 6)) + scale_fill_viridis_d("M1 + M2"))
+            }
+
+            # Plot as tiles
+            if(contour == FALSE){
+              p = ggplot2::ggplot(data, aes(y = Age, x = Year, zmin = zlim[1], zmax = zlim[2])) + geom_tile(aes(fill = M))  + scale_y_continuous(expand = c(0, 0), breaks=seq(0,max(ages),round(nages[sp]/5))) + coord_equal() +  scale_x_continuous(expand = c(0, 0))+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_rect(colour = "black", size = 6))
+              if(!is.null(title)){
+                p = p + ggtitle(paste0(title,": ",spnames[j] )) + theme(plot.title = element_text(size = title_cex))
+              }
+              if(log){
+                p = p + scale_fill_viridis_c("log(M1 + M2)", limits = c(zlim[1], zlim[2]))
+              } else {
+                p = p + scale_fill_viridis_c("M1 + M2", limits = c(zlim[1], zlim[2]))
+              }
+              print(p)
+            }
+            if (i == 2) {
+              dev.off()
+            }
           }
         }
-
-        if (j == 2) {
-          if(M2_only){
-            legend(
-              "topright",
-              legend = c("M1", "M2"),
-              lty = c(3, 1),
-              lwd = lwd,
-              col = c(1, 1),
-              bty = "n",
-              cex = 1.175
-            )
-          } else{
-            legend(
-              "topright",
-              legend = c("M1", "M2", "F"),
-              lty = c(3, 1, 2),
-              lwd = lwd,
-              col = c(1, 1, 1),
-              bty = "n",
-              cex = 1.175
-            )
-          }
-        }
-
-
-
-        # Mean M2
-        for (k in 1:dim(M2)[4]) {
-          #if(fishing == FALSE){
-          lines(
-            x = Years[[k]],
-            y = M2[j, age, 1:length(Years[[k]]) , k],
-            lty = 1,
-            lwd = lwd,
-            col = line_col[k]
-          ) # Median
-          #}
-          #if(fishing){
-          if(M2_only == FALSE){
-            lines(
-              x = Years[[k]],
-              y = f_mat[j, age, 1:length(Years[[k]]), k],
-              lty = 2,
-              lwd = lwd,
-              col = line_col[k]
-            ) # Median
-          }
-          # M
-          abline(
-            h = m_mat[j, age, k],
-            lty = 3,
-            lwd = lwd,
-            col = line_col[k]
-          ) # Median
-          #}
-        }
-      }
-
-
-      if (i == 2) {
-        dev.off()
       }
     }
   }
+
+
+
 
 
 #' Plot maturity
@@ -1132,7 +1023,7 @@ plot_maturity <-
         }
 
         # Species legends
-        legend("topleft", species[j], bty = "n", cex = 1.4)
+        legend("topleft", species[j], bty = "n", cex = 1)
 
         # Model name legends
         if (j == 1) {
@@ -1144,7 +1035,7 @@ plot_maturity <-
               lwd = lwd,
               col = line_col,
               bty = "n",
-              cex = 1.175
+              cex = 0.72
             )
           }
         }
@@ -1166,7 +1057,7 @@ plot_maturity <-
 #' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
-#' @param species Species names for legend
+#' @param spnames Species names for legend
 #' @param lwd Line width as specified by user
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
@@ -1177,11 +1068,11 @@ plot_maturity <-
 #'
 plot_ssb <-
   function(Rceattle,
-           tmp_list = NULL,
            file = NULL,
            model_names = NULL,
            line_col = NULL,
            species = NULL,
+           spnames = NULL,
            lwd = 3,
            right_adj = 0,
            mohns = NULL,
@@ -1194,8 +1085,8 @@ plot_ssb <-
     }
 
     # Species names
-    if(is.null(species)){
-      species =  Rceattle[[1]]$data_list$spnames
+    if(is.null(spnames)){
+      spnames =  Rceattle[[1]]$data_list$spnames
     }
 
 
@@ -1216,14 +1107,17 @@ plot_ssb <-
     nyrs <- max(nyrs_vec)
     maxyr <- max((sapply(Years, max)))
     minyr <- min((sapply(Years, min)))
-
     nspp <- Rceattle[[1]]$data_list$nspp
+
+    if(is.null(species)){
+      species <- 1:nspp
+    }
 
 
     # Get SSB
     SSB <-
-      array(NA, dim = c(nspp, nyrs, length(Rceattle) + length(tmp_list)))
-    ssb_sd <- array(NA, dim = c(nspp, nyrs, length(Rceattle) + length(tmp_list)))
+      array(NA, dim = c(nspp, nyrs, length(Rceattle)))
+    ssb_sd <- array(NA, dim = c(nspp, nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
       SSB[, 1:length(Years[[i]]), i] <- Rceattle[[i]]$quantities$biomassSSB[,1:nyrs_vec[i]]
 
@@ -1233,16 +1127,6 @@ plot_ssb <-
         ssb_sd_sub <- Rceattle[[i]]$sdrep$sd[ssb_sd_sub]
         ssb_sd[, , i] <-
           replace(ssb_sd[, , i], values = ssb_sd_sub[1:(nyrs_vec[i] * nspp)])
-      }
-    }
-
-    ind = 1
-    if (!is.null(tmp_list)) {
-      for (i in (length(Rceattle) + 1):(length(Rceattle) + length(tmp_list))) {
-        for (k in 1:nspp) {
-          SSB[k, , i] <- tmp_list[[ind]][[paste0("BiomassSSB_", k)]]
-        }
-        ind = ind + 1
       }
     }
 
@@ -1281,7 +1165,7 @@ plot_ssb <-
       }
 
       # Plot configuration
-      layout(matrix(1:(nspp + 2), nrow = (nspp + 2)), heights = c(0.1, rep(1, nspp), 0.2))
+      layout(matrix(1:(length(species) + 2), nrow = (length(species) + 2)), heights = c(0.1, rep(1, length(species)), 0.2))
       par(
         mar = c(0, 3 , 0 , 1) ,
         oma = c(0 , 0 , 0 , 0),
@@ -1290,12 +1174,12 @@ plot_ssb <-
       )
       plot.new()
 
-      for (j in 1:nspp) {
+      for (j in species) {
         plot(
           y = NA,
           x = NA,
           ylim = c(ymin[j], ymax[j]),
-          xlim = c(minyr, maxyr + right_adj),
+          xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
           xlab = "Year",
           ylab = "SSB (million t)",
           xaxt = c(rep("n", nspp - 1), "s")[j]
@@ -1307,10 +1191,10 @@ plot_ssb <-
         }
 
         # Legends
-        legend("topleft", species[j], bty = "n", cex = 1.4)
+        legend("topleft", spnames[j], bty = "n", cex = 1)
 
         if(!is.null(mohns)){
-          legend("top", paste0("SSB Rho = ",  round(mohns[2,j+1], 2) ), bty = "n", cex = 1) # SSB rho
+          legend("top", paste0("SSB Rho = ",  round(mohns[2,j+1], 2) ), bty = "n", cex = 0.8) # SSB rho
         }
 
         if (j == 1) {
@@ -1322,7 +1206,7 @@ plot_ssb <-
               lwd = lwd,
               col = line_col,
               bty = "n",
-              cex = 1.175
+              cex = 0.72
             )
           }
         }
@@ -1352,6 +1236,822 @@ plot_ssb <-
           }
         }
 
+      }
+
+
+      if (i == 2) {
+        dev.off()
+      }
+    }
+  }
+
+
+
+#' Plot biomass eaten
+#'
+#' @description Function the plots the biomass consumed trends as estimated from Rceattle. Returns and saves a figure with the biomass eaten trajectory.
+#'
+#' @param file name of a file to identified the files exported by the
+#'   function.
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param model_names Names of models to be used in legend
+#' @param line_col Colors of models to be used for line color
+#' @param spnames Species names for legend
+#' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
+#' @param lwd Line width as specified by user
+#' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
+#' @param incl_proj TRUE/FALSE include projections years
+#' @param incl_mean TRUE/FALSE include time series mean as horizontal line
+#' @param add_ci TRUE/FALSE, includes 95 percent confidence interval
+#'
+#' @export
+#'
+plot_b_eaten <-
+  function(Rceattle,
+           file = NULL,
+           model_names = NULL,
+           line_col = NULL,
+           spnames = NULL,
+           species = NULL,
+           lwd = 3,
+           right_adj = 0,
+           mohns = NULL,
+           incl_proj = FALSE,
+           incl_mean = FALSE,
+           add_ci = FALSE) {
+
+    # Convert single one into a list
+    if(class(Rceattle) == "Rceattle"){
+      Rceattle <- list(Rceattle)
+    }
+
+    # Species names
+    if(is.null(spnames)){
+      spnames =  Rceattle[[1]]$data_list$spnames
+    }
+
+
+    # Extract data objects
+    Years <- list()
+    Endyrs <- list()
+    for(i in 1:length(Rceattle)){
+      Endyrs[[i]] <- Rceattle[[i]]$data_list$endyr
+      if(incl_proj == FALSE){
+        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
+      }
+      if(incl_proj){
+        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$projyr
+      }
+    }
+
+    max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
+    nyrs_vec <- sapply(Years, length)
+    nyrs <- max(nyrs_vec)
+    maxyr <- max((sapply(Years, max)))
+    minyr <- min((sapply(Years, min)))
+
+    nspp <- Rceattle[[1]]$data_list$nspp
+
+    if(is.null(species)){
+      species <- 1:nspp
+    }
+
+    # Get B_eaten
+    B_eaten <-
+      array(NA, dim = c(nspp, nyrs, length(Rceattle)))
+    for (i in 1:length(Rceattle)) {
+      for(sp in 1:nspp){
+        for(yr in 1:nyrs_vec[i]){
+          B_eaten[sp, yr, i] <- sum(Rceattle[[i]]$quantities$B_eaten[sp,,,yr])
+        }
+      }
+    }
+
+    ind = 1
+
+    B_eaten <- B_eaten / 1000000
+
+    # Plot limits
+    ymax <- c()
+    ymin <- c()
+    for (i in 1:dim(B_eaten)[1]) {
+      ymax[i] <- max(c(B_eaten[i, , ], 0), na.rm = T)
+      ymin[i] <- min(c(B_eaten[i, , ], 0), na.rm = T)
+    }
+    ymax <- ymax + 0.15 * ymax
+
+    if (is.null(line_col)) {
+      line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
+    }
+
+
+    # Plot trajectory
+    loops <- ifelse(is.null(file), 1, 2)
+    for (i in 1:loops) {
+      if (i == 2) {
+        filename <- paste0(file, "_b_eaten_trajectory", ".png")
+        png(
+          file = filename ,
+          width = 7,# 169 / 25.4,
+          height = 6.5,# 150 / 25.4,
+
+          units = "in",
+          res = 300
+        )
+      }
+
+      # Plot configuration
+      layout(matrix(1:(length(species) + 2), nrow = (length(species) + 2)), heights = c(0.1, rep(1, length(species)), 0.2))
+      par(
+        mar = c(0, 3 , 0 , 1) ,
+        oma = c(0 , 0 , 0 , 0),
+        tcl = -0.35,
+        mgp = c(1.75, 0.5, 0)
+      )
+      plot.new()
+
+      for (j in 1:length(species)) {
+        spp = species[j]
+        plot(
+          y = NA,
+          x = NA,
+          ylim = c(ymin[spp], ymax[spp]),
+          xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
+          xlab = "Year",
+          ylab = "Biomass consumed (million t)",
+          xaxt = c(rep("n", length(species) - 1), "s")[j]
+        )
+
+        # Horizontal line
+        if(incl_proj){
+          abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
+        }
+
+        # Legends
+        legend("topleft", spnames[spp], bty = "n", cex = 1)
+
+        if(!is.null(mohns)){
+          legend("top", paste0("B_eaten Rho = ",  round(mohns[2,spp+1], 2) ), bty = "n", cex = 1) # B_eaten rho
+        }
+
+        if (j == 1) {
+          if(!is.null(model_names)){
+            legend(
+              "topright",
+              legend = model_names,
+              lty = rep(1, length(line_col)),
+              lwd = lwd,
+              col = line_col,
+              bty = "n",
+              cex = 0.72
+            )
+          }
+        }
+
+
+
+        # Mean B_eaten
+        for (k in 1:dim(B_eaten)[3]) {
+          lines(
+            x = Years[[k]],
+            y = B_eaten[spp, 1:length(Years[[k]]), k],
+            lty = 1,
+            lwd = lwd,
+            col = line_col[k]
+          ) # Median
+        }
+
+        # Average across time
+        if(incl_mean){
+          abline(h = mean(B_eaten[spp, 1:length(Years[[1]]), ]), lwd  = lwd, col = "grey", lty = 1)
+        }
+      }
+
+
+      if (i == 2) {
+        dev.off()
+      }
+    }
+  }
+
+
+
+#' Plot biomass eaten by predator
+#'
+#' @description Function the plots the biomass consumed trends as estimated from Rceattle. Returns and saves a figure with the biomass eaten trajectory.
+#'
+#' @param file name of a file to identified the files exported by the
+#'   function.
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param model_names Names of models to be used in legend
+#' @param line_col Colors of models to be used for line color
+#' @param spnames Species names for legend
+#' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
+#' @param lwd Line width as specified by user
+#' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
+#' @param incl_proj TRUE/FALSE include projections years
+#' @param incl_mean TRUE/FALSE include horizontal long term mean
+#' @param add_ci TRUE/FALSE, includes 95 percent confidence interval
+#'
+#' @export
+#'
+plot_b_eaten_prop <-
+  function(Rceattle,
+           file = NULL,
+           model_names = NULL,
+           line_col = NULL,
+           spnames = NULL,
+           species = NULL,
+           lwd = 3,
+           right_adj = 0,
+           mohns = NULL,
+           incl_proj = FALSE,
+           incl_mean = FALSE,
+           add_ci = FALSE) {
+
+    # Convert single one into a list
+    if(class(Rceattle) == "Rceattle"){
+      Rceattle <- list(Rceattle)
+    }
+
+    # Species names
+    if(is.null(spnames)){
+      spnames =  Rceattle[[1]]$data_list$spnames
+    }
+
+
+    # Extract data objects
+    Years <- list()
+    Endyrs <- list()
+    for(i in 1:length(Rceattle)){
+      Endyrs[[i]] <- Rceattle[[i]]$data_list$endyr
+      if(incl_proj == FALSE){
+        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
+      }
+      if(incl_proj){
+        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$projyr
+      }
+    }
+
+    max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
+    nyrs_vec <- sapply(Years, length)
+    nyrs <- max(nyrs_vec)
+    maxyr <- max((sapply(Years, max)))
+    minyr <- min((sapply(Years, min)))
+    max_age <- max(Rceattle[[1]]$data_list$nages)
+
+    nspp <- Rceattle[[1]]$data_list$nspp
+
+    if(is.null(species)){
+      species <- 1:nspp
+    }
+
+
+    # Get B_eaten
+    B_eaten_prop <-
+      array(NA, dim = c(nspp * 2, nspp * 2, nyrs, length(Rceattle)))
+    for (i in 1:length(Rceattle)) {
+      for(rsp in 1:(nspp)){
+        for(ksp in 1:(nspp)){
+          for(yr in 1:nyrs_vec[i]){
+            B_eaten_prop[rsp, ksp,yr,i] <- sum(Rceattle[[i]]$quantities$B_eaten_prop[c(rsp, rsp + nspp),c(ksp, ksp + nspp),,,yr])
+          }
+        }
+      }
+    }
+
+    ind = 1
+    B_eaten_prop <- B_eaten_prop/1000000
+
+    # Plot limits
+    ymax <- c()
+    ymin <- c()
+    for (ksp in 1:dim(B_eaten_prop)[2]) { # Loop through prey
+      ymax[ksp] <- max(c(B_eaten_prop[,ksp, , ], 0), na.rm = T)
+      ymin[ksp] <- min(c(B_eaten_prop[,ksp, , ], 0), na.rm = T)
+    }
+    ymax <- ymax + 0.15 * ymax
+
+    if (is.null(line_col)) {
+      line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
+    }
+
+
+    # Plot trajectory
+    loops <- ifelse(is.null(file), 1, 2)
+    for (i in 1:loops) {
+      if (i == 2) {
+        filename <- paste0(file, "_b_eaten_prop_trajectory", ".png")
+        png(
+          file = filename ,
+          width = 7,# 169 / 25.4,
+          height = 6.5,# 150 / 25.4,
+
+          units = "in",
+          res = 300
+        )
+      }
+
+      # Plot configuration
+      layout(matrix(1:(length(species) + 2), nrow = (length(species) + 2)), heights = c(0.1, rep(1, length(species)), 0.2))
+      par(
+        mar = c(0, 3 , 0 , 1) ,
+        oma = c(0 , 0 , 0 , 0),
+        tcl = -0.35,
+        mgp = c(1.75, 0.5, 0)
+      )
+      plot.new()
+
+      for (j in 1:length(species)) {
+        spp <- species[j]
+        plot(
+          y = NA,
+          x = NA,
+          ylim = c(ymin[spp], ymax[spp]),
+          xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
+          xlab = "Year",
+          ylab = "Biomass consumed (million t)",
+          xaxt = c(rep("n", length(species) - 1), "s")[j]
+        )
+
+        # Horizontal line
+        if(incl_proj){
+          abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
+        }
+
+        # Legends
+        legend("topleft", spnames[spp], bty = "n", cex = 1)
+
+        if(!is.null(mohns)){
+          legend("top", paste0("B_eaten_prop Rho = ",  round(mohns[2,spp+1], 2) ), bty = "n", cex = 0.8) # B_eaten_prop rho
+        }
+
+        if (j == 1) {
+          if(!is.null(model_names)){
+            legend(
+              "topright",
+              legend = model_names,
+              lty = rep(1, length(line_col)),
+              lwd = lwd,
+              col = line_col,
+              bty = "n",
+              cex = 0.72
+            )
+          }
+        }
+
+        if (j == 2 | length(species) == 1) {
+          legend(
+            "topright",
+            legend = c("Predator:", spnames),
+            lty = c(NA, 1:nspp),
+            lwd = lwd,
+            col = c(0, rep(1, nspp)),
+            bty = "n",
+            cex = 1
+          )
+        }
+
+
+
+        # Mean B_eaten_prop
+        for(pred in 1:nspp){
+          for (mod in 1:dim(B_eaten_prop)[4]) {
+            lines(
+              x = Years[[mod]],
+              y = B_eaten_prop[pred, spp, 1:length(Years[[mod]]), mod],
+              lwd = lwd,
+              lty = pred,
+              col = line_col[mod]) # Median
+          }
+
+          # Average across time
+          if(incl_mean){
+            abline(h = mean(B_eaten_prop[pred, spp, 1:length(Years[[1]]), ]), lwd  = lwd, col = "grey", lty = pred)
+          }
+        }
+      }
+
+
+      if (i == 2) {
+        dev.off()
+      }
+    }
+  }
+
+
+
+#' Plot natural mortality by age
+#'
+#' @description Function the plots the natural mortality at age (M1 + M2) as estimated from Rceattle. Returns and saves a figure with the M-at-age trajectory.
+#'
+#' @param file name of a file to identified the files exported by the
+#'   function.
+#' @param age Age to plot M at age
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param model_names Names of models to be used in legend
+#' @param line_col Colors of models to be used for line color
+#' @param spnames Species names for legend
+#' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
+#' @param lwd Line width as specified by user
+#' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
+#' @param incl_proj TRUE/FALSE include projections years
+#' @param incl_mean TRUE/FALSE include time series mean as horizontal line
+#' @param add_ci TRUE/FALSE, includes 95 percent confidence interval
+#'
+#' @export
+#'
+plot_m_at_age <-
+  function(Rceattle,
+           file = NULL,
+           age = 1,
+           model_names = NULL,
+           line_col = NULL,
+           spnames = NULL,
+           species = NULL,
+           lwd = 3,
+           right_adj = 0,
+           incl_proj = FALSE,
+           incl_mean = FALSE,
+           add_ci = FALSE) {
+
+    # Convert single one into a list
+    if(class(Rceattle) == "Rceattle"){
+      Rceattle <- list(Rceattle)
+    }
+
+    # Species names
+    if(is.null(spnames)){
+      spnames =  Rceattle[[1]]$data_list$spnames
+    }
+
+
+    # Extract data objects
+    Years <- list()
+    Endyrs <- list()
+    for(i in 1:length(Rceattle)){
+      Endyrs[[i]] <- Rceattle[[i]]$data_list$endyr
+      if(incl_proj == FALSE){
+        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
+      }
+      if(incl_proj){
+        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$projyr
+      }
+    }
+
+    max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
+    nyrs_vec <- sapply(Years, length)
+    nyrs <- max(nyrs_vec)
+    maxyr <- max((sapply(Years, max)))
+    minyr <- min((sapply(Years, min)))
+    nsex <- Rceattle[[1]]$data_list$nsex
+    nspp <- Rceattle[[1]]$data_list$nspp
+
+    if(is.null(species)){
+      species <- 1:nspp
+    }
+
+    # Get B_eaten
+    m_at_age <-
+      array(NA, dim = c(nspp, 2, nyrs, length(Rceattle)))
+    for (i in 1:length(Rceattle)) {
+      for(sp in 1:nspp){
+        for(yr in 1:nyrs_vec[i]){
+          m_at_age[sp, , yr, i] <- Rceattle[[i]]$quantities$M[sp,,age,yr]
+        }
+      }
+    }
+
+    # Plot limits
+    ymax <- matrix(0, nrow = nspp, ncol = 2)
+    ymin <- matrix(0, nrow = nspp, ncol = 2)
+    for (i in 1:dim(m_at_age)[1]) {
+      for(sex in 1:nsex[sp]){
+        ymax[i,sex] <- max(c(m_at_age[i,sex,, ],0), na.rm = T)
+        ymin[i,sex] <- min(c(m_at_age[i,sex,, ]), na.rm = T)
+      }
+    }
+    ymax <- ymax + 0.15 * ymax
+    ymin <- ymin - 0.15 * ymin
+
+    if (is.null(line_col)) {
+      line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
+    }
+
+
+    # Plot trajectory
+    loops <- ifelse(is.null(file), 1, 2)
+    for (i in 1:loops) {
+      if (i == 2) {
+        filename <- paste0(file, "_m_at_age",age,"_trajectory", ".png")
+        png(
+          file = filename ,
+          width = 7,# 169 / 25.4,
+          height = 6.5,# 150 / 25.4,
+
+          units = "in",
+          res = 300
+        )
+      }
+
+      # Plot configuration
+      layout(matrix(1:(sum(nsex[species]) + 2), nrow = (sum(nsex[species]) + 2)), heights = c(0.1, rep(1, sum(nsex[species])), 0.2))
+      par(
+        mar = c(0, 3 , 0 , 1) ,
+        oma = c(0 , 0 , 0 , 0),
+        tcl = -0.35,
+        mgp = c(1.75, 0.5, 0)
+      )
+      plot.new()
+      ind = 0
+
+      for (j in 1:length(species)) {
+
+        spp = species[j]
+
+        for(sex in 1:nsex[spp]){
+          ind = ind+1
+
+          # Get sex for legend
+          legend_sex = sex
+          legend_sex2 = ifelse(sex == 1, "female", "male")
+          if(nsex[spp] == 1){
+            legend_sex <- 0
+            legend_sex2 = "combined"
+          }
+
+          plot(
+            y = NA,
+            x = NA,
+            ylim = c(ymin[spp,sex], ymax[spp,sex]),
+            xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
+            xlab = "Year",
+            ylab = paste0("M-at-age-",age),
+            xaxt = c(rep("n", sum(nsex[species]) - 1), "s")[ind]
+          )
+
+
+          # Horizontal line
+          if(incl_proj){
+            abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
+          }
+
+          # Species legends
+          legend("topleft", paste0(spnames[spp], " ", legend_sex2), bty = "n", cex = 1)
+
+          # Model names legends
+          if (ind == 1) {
+            if(!is.null(model_names)){
+              legend(
+                "topright",
+                legend = model_names,
+                lty = rep(1, length(line_col)),
+                lwd = lwd,
+                col = line_col,
+                bty = "n",
+                cex = 0.72
+              )
+            }
+          }
+
+          # M-at-age
+          for (k in 1:dim(m_at_age)[4]) {
+            lines(
+              x = Years[[k]],
+              y = m_at_age[spp, sex, 1:length(Years[[k]]), k],
+              lty = 1,
+              lwd = lwd,
+              col = line_col[k]
+            ) # Median
+          }
+
+
+          # Average across time
+          if(incl_mean){
+            abline(h = mean(m_at_age[spp, sex, 1:length(Years[[1]]), ]), lwd  = lwd, col = "grey", lty = 1)
+          }
+        }
+      }
+
+
+      if (i == 2) {
+        dev.off()
+      }
+    }
+  }
+
+
+#' Plot predation mortality by age and predator
+#'
+#' @description Function the plots the predation mortality at age (M2) by predator as estimated from Rceattle. Returns and saves a figure with the M-at-age trajectory.
+#'
+#' @param file name of a file to identified the files exported by the
+#'   function.
+#' @param age Age to plot M at age
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param model_names Names of models to be used in legend
+#' @param line_col Colors of models to be used for line color
+#' @param spnames Species names for legend
+#' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
+#' @param lwd Line width as specified by user
+#' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
+#' @param incl_proj TRUE/FALSE include projections years
+#' @param incl_mean TRUE/FALSE include time series mean as horizontal line
+#' @param add_ci TRUE/FALSE, includes 95 percent confidence interval
+#'
+#' @export
+#'
+plot_m2_at_age_prop <-
+  function(Rceattle,
+           file = NULL,
+           age = 1,
+           model_names = NULL,
+           line_col = NULL,
+           spnames = NULL,
+           species = NULL,
+           lwd = 3,
+           right_adj = 0,
+           incl_proj = FALSE,
+           incl_mean = FALSE,
+           add_ci = FALSE) {
+
+    # Convert single one into a list
+    if(class(Rceattle) == "Rceattle"){
+      Rceattle <- list(Rceattle)
+    }
+
+    # Species names
+    if(is.null(spnames)){
+      spnames =  Rceattle[[1]]$data_list$spnames
+    }
+
+
+    # Extract data objects
+    Years <- list()
+    Endyrs <- list()
+    for(i in 1:length(Rceattle)){
+      Endyrs[[i]] <- Rceattle[[i]]$data_list$endyr
+      if(incl_proj == FALSE){
+        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
+      }
+      if(incl_proj){
+        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$projyr
+      }
+    }
+
+    max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
+    nyrs_vec <- sapply(Years, length)
+    nyrs <- max(nyrs_vec)
+    maxyr <- max((sapply(Years, max)))
+    minyr <- min((sapply(Years, min)))
+    nsex <- Rceattle[[1]]$data_list$nsex
+    nspp <- Rceattle[[1]]$data_list$nspp
+
+    if(is.null(species)){
+      species <- 1:nspp
+    }
+
+    # Get B_eaten
+    m2_at_age_prop <-
+      array(NA, dim = c(nspp, nspp, 2, nyrs, length(Rceattle)))
+    for (i in 1:length(Rceattle)) {
+      for(ksp in 1:nspp){
+        for(k_sex in 1:nsex[ksp]){
+          for(rsp in 1:nspp){
+            for(yr in 1:nyrs_vec[i]){
+              m2_at_age_prop[rsp, ksp, k_sex, yr, i] <- sum(Rceattle[[i]]$quantities$M2_prop[c(rsp, rsp + nspp),ksp + (nspp*(k_sex-1)),,age,yr])
+            }
+          }
+        }
+      }
+    }
+
+    # Plot limits
+    ymax <- matrix(0, nrow = nspp, ncol = 2)
+    ymin <- matrix(0, nrow = nspp, ncol = 2)
+    for (i in 1:nspp) {
+      for(sex in 1:nsex[sp]){
+        ymax[i,sex] <- max(c(m2_at_age_prop[,i,sex,, ], 0), na.rm = T)
+        ymin[i,sex] <- min(c(m2_at_age_prop[,i,sex,, ], 0), na.rm = T)
+      }
+    }
+    ymax <- ymax + 0.15 * ymax
+
+    if (is.null(line_col)) {
+      line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
+    }
+
+
+    # Plot trajectory
+    loops <- ifelse(is.null(file), 1, 2)
+    for (i in 1:loops) {
+      if (i == 2) {
+        filename <- paste0(file, "_m2_at_age_prop",age,"_trajectory", ".png")
+        png(
+          file = filename ,
+          width = 7,# 169 / 25.4,
+          height = 6.5,# 150 / 25.4,
+
+          units = "in",
+          res = 300
+        )
+      }
+
+      # Plot configuration
+      layout(matrix(1:(sum(nsex[species]) + 2), nrow = (sum(nsex[species]) + 2)), heights = c(0.1, rep(1, sum(nsex[species])), 0.2))
+      par(
+        mar = c(0, 3 , 0 , 1) ,
+        oma = c(0 , 0 , 0 , 0),
+        tcl = -0.35,
+        mgp = c(1.75, 0.5, 0)
+      )
+      plot.new()
+      ind = 0
+
+      for (j in 1:length(species)) {
+
+        spp = species[j]
+
+        for(sex in 1:nsex[spp]){
+
+          ind = ind+1
+
+          # Get sex for legend
+          legend_sex = sex
+          legend_sex2 = ifelse(sex == 1, "Female", "Male")
+          if(nsex[spp] == 1){
+            legend_sex <- 0
+            legend_sex2 = "Combined"
+          }
+
+          plot(
+            y = NA,
+            x = NA,
+            ylim = c(ymin[spp,sex], ymax[spp,sex]),
+            xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
+            xlab = "Year",
+            ylab = paste0("M-at-age-",age),
+            xaxt = c(rep("n", sum(nsex[species]) - 1), "s")[ind]
+          )
+
+          # Horizontal line
+          if(incl_proj){
+            abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
+          }
+
+          # Species legends
+          legend("topleft", paste0(spnames[spp], " ", legend_sex2), bty = "n", cex = 1)
+
+          # Model names legends
+          if (ind == 1) {
+            if(!is.null(model_names)){
+              legend(
+                "topright",
+                legend = model_names,
+                lty = rep(1, length(line_col)),
+                lwd = lwd,
+                col = line_col,
+                bty = "n",
+                cex = 0.72
+              )
+            }
+          }
+
+          # Predator legend
+          if (ind == 2 | length(species) == 1) {
+            legend(
+              "topright",
+              legend = c("Predator:", spnames),
+              lty = c(NA, 1:nspp),
+              lwd = lwd,
+              col = c(0, rep(1, nspp)),
+              bty = "n",
+              cex = 1
+            )
+          }
+
+          # M-at-age
+          for (k in 1:dim(m2_at_age_prop)[5]) {
+            for(rsp in 1:nspp){
+              lines(
+                x = Years[[k]],
+                y = m2_at_age_prop[rsp, spp, sex, 1:length(Years[[k]]), k],
+                lty = rsp,
+                lwd = lwd,
+                col = line_col[k]
+              ) # Median
+
+              # Average across time
+              if(incl_mean){
+                abline(h = mean(m2_at_age_prop[rsp, spp, sex, 1:length(Years[[1]]), ]), lwd  = lwd, col = "grey", lty = rsp)
+              }
+            }
+          }
+        }
       }
 
 
