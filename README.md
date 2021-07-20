@@ -4,7 +4,7 @@ Rceattle: an R package for estimation of CEATTLE using template model builder
 
 
 
-CEATTLE is short for Climate-Enhanced, Age-based model with Temperature-specific Trophic Linkages and Energetics, which is a multi-species age-structured assessment model developed for groundfish in the Bering Sea, USA by Holsman et al. (2015). To incorporate the impacts of climate, the model includes temperature-dependent temperature-specific, bioenergetics-based predation interactions. Inputs of the model include survey/fishery index, catch, and length/age composition data in addition to empirical weight-at-age, diet proportion, and ration data. Outputs include historical estimates of predation mortality, fishing mortality, biomass, recruitment, etc.
+CEATTLE is short for Climate-Enhanced, Age-based model with Temperature-specific Trophic Linkages and Energetics, which is a multi-species age-structured assessment model developed for groundfish in the Bering Sea, USA by Holsman et al. (2015). To incorporate the impacts of climate, the model includes temperature-specific, bioenergetics-based predation interactions. Inputs of the model include survey/fishery index, catch, and length/age composition data in addition to empirical weight-at-age, diet proportion, and ration data. Outputs include historical estimates of predation mortality, fishing mortality, biomass, recruitment, etc.
 
 
 
