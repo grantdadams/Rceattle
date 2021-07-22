@@ -36,7 +36,9 @@
 //  Fixme: denominator is zero somewhere. Log of negative number. Check suitability. Make other prey a very large number.
 //  Look at M2: suitability: and consumption. Make sure positive.
 // 20. Added analytical q for time-varying survey sigma inputs
-// 21. All kinzey predation bits are commented out in v&
+// 21. All kinzey predation bits are commented out
+// 22. All random effect selectivity and catchability deviates are commented out
+// 23. Estimate M1 for sex/species
 //
 //  INDEX:
 //  0. Load dependencies
@@ -607,7 +609,7 @@ Type objective_function<Type>::operator() () {
   vector<Type>  SB0(nspp); SB0.setZero();                                           // Estimated spawning biomass per recruit at F = 0
   matrix<Type>  FSPR(nspp, 2); FSPR = exp(ln_FSPR.array());
   matrix<Type>  proj_FABC(nspp, nyrs); proj_FABC.setZero();                         // Projected FABC using tier 3 harvest control rule
-  // matrix<Type>  FSPR(nspp, 2); FSPR = exp(ln_FSPR.array());
+
 
   // -- 4.5. Survey components
   vector<Type>  sigma_srv_index(n_flt); sigma_srv_index.setZero();                  // Vector of standard deviation of survey index; n = [1, n_srv]

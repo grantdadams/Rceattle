@@ -32,6 +32,7 @@ rich.colors.short <- function(n,alpha=1){
 #' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
 #' @param lwd Line width as specified by user
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#' @param minyr First year to plot
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
 #' @param incl_proj TRUE/FALSE include projections years
 #'
@@ -46,6 +47,7 @@ plot_biomass <-
            spnames = NULL,
            lwd = 3,
            right_adj = 0,
+           minyr = NULL,
            mohns = NULL,
            incl_proj = FALSE) {
 
@@ -61,22 +63,17 @@ plot_biomass <-
 
 
     # Extract data objects
-    Years <- list()
-    Endyrs <- list()
-    for(i in 1:length(Rceattle)){
-      Endyrs[[i]] <- Rceattle[[i]]$data_list$endyr
-      if(incl_proj == FALSE){
-        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
-      }
-      if(incl_proj){
-        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$projyr
-      }
+    Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
+    Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
+    if(incl_proj){
+      Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
     }
+
     max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
     nyrs_vec <- sapply(Years, length)
     nyrs <- max(nyrs_vec)
     maxyr <- max((sapply(Years, max)))
-    minyr <- min((sapply(Years, min)))
+    if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
 
     if(is.null(species)){
       nspp <- Rceattle[[1]]$data_list$nspp
@@ -246,6 +243,7 @@ plot_biomass <-
 #' @param lwd Line width as specified by user
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
+#' @param minyr First year to plot
 #' @param incl_proj TRUE/FALSE, include projection years
 #' @export
 #'
@@ -262,6 +260,7 @@ plot_recruitment <-
            save_rec = FALSE,
            right_adj = 0,
            mohns = NULL,
+           minyr = NULL,
            incl_proj = FALSE) {
 
     # Convert single one into a list
@@ -275,22 +274,17 @@ plot_recruitment <-
     }
 
     # Extract data objects
-    Years <- list()
-    Endyrs <- list()
-    for(i in 1:length(Rceattle)){
-      Endyrs[[i]] <- Rceattle[[i]]$data_list$endyr
-      if(incl_proj == FALSE){
-        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
-      }
-      if(incl_proj){
-        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$projyr
-      }
+    Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
+    Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
+    if(incl_proj){
+      Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
     }
+
     max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
     nyrs_vec <- sapply(Years, length)
     nyrs <- max(nyrs_vec)
     maxyr <- max((sapply(Years, max)))
-    minyr <- min((sapply(Years, min)))
+    if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
 
     spp <- which(Rceattle[[1]]$data_list$estDynamics == 0)
     nspp <- Rceattle[[1]]$data_list$nspp
@@ -497,10 +491,7 @@ plot_selectivity <-
     }
 
     # Extract data objects
-    Years <- list()
-    for(i in 1:length(Rceattle)){
-      Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
-    }
+    Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
     nyrs_vec <- sapply(Years, length)
     nyrs <- max(nyrs_vec)
     maxyr <- max((sapply(Years, max)))
@@ -788,13 +779,11 @@ plot_mortality <-
     }
 
     # Extract data objects
-    Years <- list()
-    for(i in 1:length(Rceattle)){
-      Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
-      if(incl_proj){
-        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$projyr
-      }
+    Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
+    if(incl_proj){
+      Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
     }
+
     nyrs_vec <- sapply(Years, length)
     nyrs <- max(nyrs_vec)
     maxyr <- max((sapply(Years, max)))
@@ -1060,6 +1049,7 @@ plot_maturity <-
 #' @param spnames Species names for legend
 #' @param lwd Line width as specified by user
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#' @param minyr first year to plot
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
 #' @param incl_proj TRUE/FALSE include projections years
 #' @param add_ci TRUE/FALSE, includes 95 percent confidence interval
@@ -1076,6 +1066,7 @@ plot_ssb <-
            lwd = 3,
            right_adj = 0,
            mohns = NULL,
+           minyr = NULL,
            incl_proj = FALSE,
            add_ci = FALSE) {
 
@@ -1091,22 +1082,16 @@ plot_ssb <-
 
 
     # Extract data objects
-    Years <- list()
-    Endyrs <- list()
-    for(i in 1:length(Rceattle)){
-      Endyrs[[i]] <- Rceattle[[i]]$data_list$endyr
-      if(incl_proj == FALSE){
-        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
-      }
-      if(incl_proj){
-        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$projyr
-      }
+    Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
+    Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
+    if(incl_proj){
+      Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
     }
-    max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
+    max_endyr <- max(Endyrs, na.rm = TRUE)
     nyrs_vec <- sapply(Years, length)
     nyrs <- max(nyrs_vec)
     maxyr <- max((sapply(Years, max)))
-    minyr <- min((sapply(Years, min)))
+    if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
     nspp <- Rceattle[[1]]$data_list$nspp
 
     if(is.null(species)){
@@ -1261,6 +1246,7 @@ plot_ssb <-
 #' @param lwd Line width as specified by user
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
+#' @param minyr first year to plot
 #' @param incl_proj TRUE/FALSE include projections years
 #' @param incl_mean TRUE/FALSE include time series mean as horizontal line
 #' @param add_ci TRUE/FALSE, includes 95 percent confidence interval
@@ -1277,6 +1263,7 @@ plot_b_eaten <-
            lwd = 3,
            right_adj = 0,
            mohns = NULL,
+           minyr = NULL,
            incl_proj = FALSE,
            incl_mean = FALSE,
            add_ci = FALSE) {
@@ -1293,23 +1280,17 @@ plot_b_eaten <-
 
 
     # Extract data objects
-    Years <- list()
-    Endyrs <- list()
-    for(i in 1:length(Rceattle)){
-      Endyrs[[i]] <- Rceattle[[i]]$data_list$endyr
-      if(incl_proj == FALSE){
-        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
-      }
-      if(incl_proj){
-        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$projyr
-      }
+    Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
+    Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
+    if(incl_proj){
+      Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
     }
 
     max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
     nyrs_vec <- sapply(Years, length)
     nyrs <- max(nyrs_vec)
     maxyr <- max((sapply(Years, max)))
-    minyr <- min((sapply(Years, min)))
+    if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
 
     nspp <- Rceattle[[1]]$data_list$nspp
 
@@ -1450,6 +1431,7 @@ plot_b_eaten <-
 #' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
 #' @param lwd Line width as specified by user
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#' @param minyr first year to plot
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
 #' @param incl_proj TRUE/FALSE include projections years
 #' @param incl_mean TRUE/FALSE include horizontal long term mean
@@ -1466,6 +1448,7 @@ plot_b_eaten_prop <-
            species = NULL,
            lwd = 3,
            right_adj = 0,
+           minyr = NULL,
            mohns = NULL,
            incl_proj = FALSE,
            incl_mean = FALSE,
@@ -1483,23 +1466,17 @@ plot_b_eaten_prop <-
 
 
     # Extract data objects
-    Years <- list()
-    Endyrs <- list()
-    for(i in 1:length(Rceattle)){
-      Endyrs[[i]] <- Rceattle[[i]]$data_list$endyr
-      if(incl_proj == FALSE){
-        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
-      }
-      if(incl_proj){
-        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$projyr
-      }
+    Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
+    Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
+    if(incl_proj){
+      Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
     }
 
     max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
     nyrs_vec <- sapply(Years, length)
     nyrs <- max(nyrs_vec)
     maxyr <- max((sapply(Years, max)))
-    minyr <- min((sapply(Years, min)))
+    if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
     max_age <- max(Rceattle[[1]]$data_list$nages)
 
     nspp <- Rceattle[[1]]$data_list$nspp
@@ -1657,6 +1634,7 @@ plot_b_eaten_prop <-
 #' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
 #' @param lwd Line width as specified by user
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#' @param minyr first year to plot
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
 #' @param incl_proj TRUE/FALSE include projections years
 #' @param incl_mean TRUE/FALSE include time series mean as horizontal line
@@ -1674,6 +1652,7 @@ plot_m_at_age <-
            species = NULL,
            lwd = 3,
            right_adj = 0,
+           minyr = NULL,
            incl_proj = FALSE,
            incl_mean = FALSE,
            add_ci = FALSE) {
@@ -1690,23 +1669,17 @@ plot_m_at_age <-
 
 
     # Extract data objects
-    Years <- list()
-    Endyrs <- list()
-    for(i in 1:length(Rceattle)){
-      Endyrs[[i]] <- Rceattle[[i]]$data_list$endyr
-      if(incl_proj == FALSE){
-        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
-      }
-      if(incl_proj){
-        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$projyr
-      }
+    Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
+    Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
+    if(incl_proj){
+      Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
     }
 
     max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
     nyrs_vec <- sapply(Years, length)
     nyrs <- max(nyrs_vec)
     maxyr <- max((sapply(Years, max)))
-    minyr <- min((sapply(Years, min)))
+    if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
     nsex <- Rceattle[[1]]$data_list$nsex
     nspp <- Rceattle[[1]]$data_list$nspp
 
@@ -1858,6 +1831,7 @@ plot_m_at_age <-
 #' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
 #' @param lwd Line width as specified by user
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#' @param minyr first year to plot
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
 #' @param incl_proj TRUE/FALSE include projections years
 #' @param incl_mean TRUE/FALSE include time series mean as horizontal line
@@ -1875,6 +1849,7 @@ plot_m2_at_age_prop <-
            species = NULL,
            lwd = 3,
            right_adj = 0,
+           minyr = NULL,
            incl_proj = FALSE,
            incl_mean = FALSE,
            add_ci = FALSE) {
@@ -1891,23 +1866,17 @@ plot_m2_at_age_prop <-
 
 
     # Extract data objects
-    Years <- list()
-    Endyrs <- list()
-    for(i in 1:length(Rceattle)){
-      Endyrs[[i]] <- Rceattle[[i]]$data_list$endyr
-      if(incl_proj == FALSE){
-        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
-      }
-      if(incl_proj){
-        Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$projyr
-      }
+    Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
+    Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
+    if(incl_proj){
+      Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
     }
 
     max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
     nyrs_vec <- sapply(Years, length)
     nyrs <- max(nyrs_vec)
     maxyr <- max((sapply(Years, max)))
-    minyr <- min((sapply(Years, min)))
+    if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
     nsex <- Rceattle[[1]]$data_list$nsex
     nspp <- Rceattle[[1]]$data_list$nspp
 
