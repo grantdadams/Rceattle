@@ -244,7 +244,9 @@ plot_biomass <-
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
 #' @param minyr First year to plot
+#' @param save_rec
 #' @param incl_proj TRUE/FALSE, include projection years
+#'
 #' @export
 #'
 #' @return Returns and saves a figure with the population trajectory.
@@ -745,13 +747,13 @@ plot_form <- function( params = NULL, pred = 1, pred_age = 1, prey = 1, msmMode 
 #' @param incl_proj Include the projection years (TRUE/FALSE)
 #' @param zlim zlim for M1 + M2 plots. Character - use max range across species in model. NULL - use species specific ranges. Vector of two.
 #' @param contour If plot it to be done as contours rather than tiles.
-#' @param species Species names for legend
 #' @param width Plot width when saved "inches"
 #' @param height Plot height when saved "inches"
 #' @param title Additional title to add. Will also add species names if not NULL
 #' @param title_cex Font size for title
 #' @param spp Species to plot. Plots all if null.
 #' @param log TRUE/FALSE use log M1 + M2
+#' @param minyr First year to plot
 #' @param maxage Plot up to this age. Plots all ages if NULL
 #'
 #' @export
@@ -765,6 +767,7 @@ plot_mortality <-
            height = NULL,
            title = NULL,
            log = FALSE,
+           minyr = NULL,
            spp = NULL,
            maxage = NULL,
            title_cex = 10) {
@@ -779,15 +782,15 @@ plot_mortality <-
     }
 
     # Extract data objects
-    Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
-    if(incl_proj){
-      Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
-    }
+    if(is.null(minyr)){ minyr <- Rceattle[[1]]$data_list$styr}
 
-    nyrs_vec <- sapply(Years, length)
+    Years <- minyr:Rceattle[[1]]$data_list$endyr
+    if(incl_proj){
+      Years <- minyr:Rceattle[[1]]$data_list$projyr
+    }
+    nyrs_vec <- length(Years)
     nyrs <- max(nyrs_vec)
     maxyr <- max((sapply(Years, max)))
-    minyr <- min((sapply(Years, min)))
 
     nspp <- Rceattle[[1]]$data_list$nspp
     spnames <- Rceattle[[1]]$data_list$spnames
@@ -805,7 +808,7 @@ plot_mortality <-
     m_array <-
       array(NA, dim = c(nspp, 2, max(nages), nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
-      m_array[, , , ,i] <- Rceattle[[i]]$quantities$M[,,1:maxage,1:nyrs]
+      m_array[, , , ,i] <- Rceattle[[i]]$quantities$M[,,1:maxage,(1:nyrs)+(minyr - Rceattle[[1]]$data_list$styr)]
     }
 
     if(log){
@@ -870,7 +873,7 @@ plot_mortality <-
             ages <- (1:(nages[sp])) - 1 + minage[sp]
 
             # Rearrange data
-            data <- data.frame(Year = rep(Years[[1]], each = length(ages)), Age = rep(ages, length(Years[[1]])), M = c(m_subset))
+            data <- data.frame(Year = rep(Years, each = length(ages)), Age = rep(ages, length(Years)), M = c(m_subset))
 
             # Plot limits
             if(is.null(zlim)){
@@ -883,12 +886,12 @@ plot_mortality <-
 
             # Plot as contours
             if(contour){
-              print(ggplot2::ggplot(data, aes(y = Age, x = Year, z = M, zmin = zlim[1], zmax = zlim[2])) + geom_contour(colour = 1, size = 0.5) + geom_contour_filled()  + scale_y_continuous(expand = c(0, 0), breaks=seq(0,max(ages),round(nages[sp]/5))) +  scale_x_continuous(expand = c(0, 0)) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_rect(colour = "black", size = 6)) + scale_fill_viridis_d("M1 + M2"))
+              print(ggplot2::ggplot(data, aes(y = Age, x = Year, z = M, zmin = zlim[1], zmax = zlim[2])) + geom_contour(colour = 1, size = 0.5) + geom_contour_filled()  + scale_y_continuous(expand = c(0, 0), breaks=seq(0,max(ages),round(nages[sp]/5))) +  scale_x_continuous(expand = c(0, 0)) + theme( panel.border = element_rect(colour = "black", fill=NA, size=1)) + scale_fill_viridis_d("M1 + M2"))
             }
 
             # Plot as tiles
             if(contour == FALSE){
-              p = ggplot2::ggplot(data, aes(y = Age, x = Year, zmin = zlim[1], zmax = zlim[2])) + geom_tile(aes(fill = M))  + scale_y_continuous(expand = c(0, 0), breaks=seq(0,max(ages),round(nages[sp]/5))) + coord_equal() +  scale_x_continuous(expand = c(0, 0))+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_rect(colour = "black", size = 6))
+              p = ggplot2::ggplot(data, aes(y = Age, x = Year, zmin = zlim[1], zmax = zlim[2])) + geom_tile(aes(fill = M))  + scale_y_continuous(expand = c(0, 0), breaks=seq(0,max(ages),round(nages[sp]/5))) + coord_equal() +  scale_x_continuous(expand = c(0, 0))+ theme( panel.border = element_rect(colour = "black", fill=NA, size=1))
               if(!is.null(title)){
                 p = p + ggtitle(paste0(title,": ",spnames[j] )) + theme(plot.title = element_text(size = title_cex))
               }
