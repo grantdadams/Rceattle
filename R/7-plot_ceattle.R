@@ -64,9 +64,9 @@ plot_biomass <-
 
     # Extract data objects
     Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
-    Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
+    Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
     if(incl_proj){
-      Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
+      Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
     }
 
     max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
@@ -277,9 +277,9 @@ plot_recruitment <-
 
     # Extract data objects
     Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
-    Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
+    Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
     if(incl_proj){
-      Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
+      Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
     }
 
     max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
@@ -493,7 +493,7 @@ plot_selectivity <-
     }
 
     # Extract data objects
-    Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
+    Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
     nyrs_vec <- sapply(Years, length)
     nyrs <- max(nyrs_vec)
     maxyr <- max((sapply(Years, max)))
@@ -1086,9 +1086,9 @@ plot_ssb <-
 
     # Extract data objects
     Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
-    Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
+    Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
     if(incl_proj){
-      Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
+      Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
     }
     max_endyr <- max(Endyrs, na.rm = TRUE)
     nyrs_vec <- sapply(Years, length)
@@ -1284,9 +1284,9 @@ plot_b_eaten <-
 
     # Extract data objects
     Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
-    Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
+    Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
     if(incl_proj){
-      Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
+      Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
     }
 
     max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
@@ -1470,9 +1470,9 @@ plot_b_eaten_prop <-
 
     # Extract data objects
     Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
-    Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
+    Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
     if(incl_proj){
-      Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
+      Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
     }
 
     max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
@@ -1673,9 +1673,9 @@ plot_m_at_age <-
 
     # Extract data objects
     Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
-    Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
+    Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
     if(incl_proj){
-      Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
+      Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
     }
 
     max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
@@ -1870,9 +1870,9 @@ plot_m2_at_age_prop <-
 
     # Extract data objects
     Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
-    Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
+    Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
     if(incl_proj){
-      Years <- sapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
+      Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
     }
 
     max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
