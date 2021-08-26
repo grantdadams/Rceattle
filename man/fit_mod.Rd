@@ -24,7 +24,7 @@ fit_mod(
   use_gradient = TRUE,
   rel_tol = 1,
   control = list(eval.max = 1e+09, iter.max = 1e+09, trace = 0),
-  getHessian = TRUE,
+  getJointPrecision = TRUE,
   loopnum = 5,
   newtonsteps = 0
 )
@@ -66,7 +66,7 @@ fit_mod(
 
 \item{control}{A list of control parameters. For details see \code{?nlminb}}
 
-\item{getHessian}{return Hessian for usage in later code}
+\item{getJointPrecision}{return full Hessian of fixed and random effects.}
 
 \item{loopnum}{number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})}
 

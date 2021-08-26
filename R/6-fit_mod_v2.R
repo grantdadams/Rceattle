@@ -20,7 +20,7 @@
 #' @param control A list of control parameters. For details see \code{?nlminb}
 #' @param loopnum number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})
 #' @param newtonsteps number of extra newton steps to take after optimization (alternative to \code{loopnum})
-#' @param getHessian return Hessian for usage in later code
+#' @param getJointPrecision return full Hessian of fixed and random effects.
 #' @details
 #' CEATTLE is an age-structured population dynamics model that can be fit with or without predation mortality. The default is to exclude predation mortality by setting \code{msmMode} to 0. Predation mortality can be included by setting \code{msmMode} with the following options:
 #' \itemize{
@@ -133,7 +133,7 @@ fit_mod <-
            rel_tol = 1,
            control = list(eval.max = 1e+09,
                           iter.max = 1e+09, trace = 0),
-           getHessian = TRUE,
+           getJointPrecision = TRUE,
            loopnum = 5,
            newtonsteps = 0) {
     start_time <- Sys.time()
@@ -376,7 +376,7 @@ fit_mod <-
                               loopnum = loopnum,
                               getsd = getsd,
                               control = control,
-                              getHessian = getHessian,
+                              getJointPrecision = getJointPrecision,
                               quiet = silent,
       )
     }
@@ -436,7 +436,7 @@ fit_mod <-
       last_par <- params
     }
     else{
-      last_par = suppressWarnings(obj$env$parList(obj$env$last.par.best))
+      last_par = obj$env$parList() # FIXME: maybe add obj$env$last.par.best inside?
     }
 
     run_time = ((Sys.time() - start_time))
@@ -463,7 +463,7 @@ fit_mod <-
     }
 
     if(debug == 0){
-      if(is.null(opt$SD) & getsd & !getHessian){
+      if(is.null(opt$SD) & getsd){
         identified <- suppressMessages(TMBhelper::check_estimability(obj))
 
         # Make into list

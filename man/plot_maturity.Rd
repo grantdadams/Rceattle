@@ -10,6 +10,8 @@ plot_maturity(
   model_names = NULL,
   line_col = NULL,
   species = NULL,
+  width = 4,
+  height = 5.5,
   lwd = 3
 )
 }
