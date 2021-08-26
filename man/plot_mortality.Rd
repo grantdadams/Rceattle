@@ -10,10 +10,11 @@ plot_mortality(
   incl_proj = FALSE,
   zlim = NULL,
   contour = FALSE,
-  width = NULL,
-  height = NULL,
+  width = 8,
+  height = 5.5,
   title = NULL,
   log = FALSE,
+  minyr = NULL,
   spp = NULL,
   maxage = NULL,
   title_cex = 10
@@ -39,13 +40,13 @@ function.}
 
 \item{log}{TRUE/FALSE use log M1 + M2}
 
+\item{minyr}{First year to plot}
+
 \item{spp}{Species to plot. Plots all if null.}
 
 \item{maxage}{Plot up to this age. Plots all ages if NULL}
 
 \item{title_cex}{Font size for title}
-
-\item{species}{Species names for legend}
 }
 \description{
 Function the plots the M1 and M2 as estimated from Rceattle

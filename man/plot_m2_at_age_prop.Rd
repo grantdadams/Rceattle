@@ -14,6 +14,10 @@ plot_m2_at_age_prop(
   species = NULL,
   lwd = 3,
   right_adj = 0,
+  top_adj = 0.15,
+  minyr = NULL,
+  width = 7,
+  height = 6.5,
   incl_proj = FALSE,
   incl_mean = FALSE,
   add_ci = FALSE
@@ -38,6 +42,8 @@ function.}
 \item{lwd}{Line width as specified by user}
 
 \item{right_adj}{How many units of the x-axis to add to the right side of the figure for fitting the legend.}
+
+\item{minyr}{first year to plot}
 
 \item{incl_proj}{TRUE/FALSE include projections years}
 

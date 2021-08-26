@@ -13,9 +13,14 @@ plot_ssb(
   spnames = NULL,
   lwd = 3,
   right_adj = 0,
+  top_adj = 0.15,
   mohns = NULL,
+  minyr = NULL,
+  width = 7,
+  height = 6.5,
   incl_proj = FALSE,
-  add_ci = FALSE
+  add_ci = FALSE,
+  mod_cex = 1
 )
 }
 \arguments{
@@ -36,9 +41,13 @@ function.}
 
 \item{mohns}{data.frame of mohn's rows extracted from \code{\link{retrospective}}}
 
+\item{minyr}{first year to plot}
+
 \item{incl_proj}{TRUE/FALSE include projections years}
 
 \item{add_ci}{TRUE/FALSE, includes 95 percent confidence interval}
+
+\item{mod_cex}{Cex of text for model name legend}
 }
 \description{
 Function the plots the spawning stock biomass trends as estimated from Rceattle. Returns and saves a figure with the ssb trajectory.

@@ -35,6 +35,9 @@ rich.colors.short <- function(n,alpha=1){
 #' @param minyr First year to plot
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
 #' @param incl_proj TRUE/FALSE include projections years
+#' @param width Width of saved png (inches)
+#' @param height Height of saved png (inches)
+#' @param mod_cex Cex of text for model name legend
 #'
 #' @return Returns and saves a figure with the population trajectory.
 #' @export
@@ -47,8 +50,12 @@ plot_biomass <-
            spnames = NULL,
            lwd = 3,
            right_adj = 0,
+           top_adj = 0.15,
            minyr = NULL,
+           width = 7,
+           height = 6.5,
            mohns = NULL,
+           mod_cex = 1,
            incl_proj = FALSE) {
 
     # Convert single one into a list
@@ -106,7 +113,7 @@ plot_biomass <-
       ymax[i] <- max(c(Biomass[i, , ], SSB[i, , ], 0), na.rm = T)
       ymin[i] <- min(c(Biomass[i, , ], SSB[i, , ], 0), na.rm = T)
     }
-    ymax <- ymax + 0.15 * ymax
+    ymax <- ymax + top_adj * ymax
 
     if (is.null(line_col)) {
       line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
@@ -120,9 +127,8 @@ plot_biomass <-
         filename <- paste0(file, "_biomass_trajectory", ".png")
         png(
           file = filename ,
-          width = 7,# 169 / 25.4,
-          height = 6.5,# 150 / 25.4,
-
+          width = width,
+          height = height,
           units = "in",
           res = 300
         )
@@ -170,7 +176,7 @@ plot_biomass <-
               lwd = lwd,
               col = line_col,
               bty = "n",
-              cex = 0.72
+              cex = mod_cex
             )
           }
         }
@@ -190,6 +196,7 @@ plot_biomass <-
 
         # Mean biomass
         for (k in 1:dim(Biomass)[3]) {
+          if(k != 2 & j !=4){
           lines(
             x = Years[[k]],
             y = Biomass[j, 1:length(Years[[k]]), k],
@@ -204,6 +211,7 @@ plot_biomass <-
             lwd = lwd,
             col = line_col[k]
           ) # Median
+          }
         }
 
         # # Credible interval
@@ -244,14 +252,16 @@ plot_biomass <-
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
 #' @param minyr First year to plot
-#' @param save_rec
+#' @param height
+#' @param width
+#' @param save_rec Save recruitment?
 #' @param incl_proj TRUE/FALSE, include projection years
+#' @param mod_cex Cex of text for model name legend
 #'
 #' @export
 #'
 #' @return Returns and saves a figure with the population trajectory.
-plot_recruitment <-
-  function(Rceattle,
+plot_recruitment <- function(Rceattle,
            file = NULL,
            model_names = NULL,
            line_col = NULL,
@@ -262,8 +272,11 @@ plot_recruitment <-
            save_rec = FALSE,
            right_adj = 0,
            mohns = NULL,
+           width = 7,
+           height = 6.5,
            minyr = NULL,
-           incl_proj = FALSE) {
+           incl_proj = FALSE,
+           mod_cex = 1) {
 
     # Convert single one into a list
     if(class(Rceattle) == "Rceattle"){
@@ -312,16 +325,18 @@ plot_recruitment <-
       if (add_ci) {
         sd_rec <- which(names(Rceattle[[i]]$sdrep$value) == "R")
         sd_rec <- Rceattle[[i]]$sdrep$sd[sd_rec]
-        recruitment_sd[, , i] <-
-          replace(recruitment_sd[, , i], values = sd_rec[1:(nyrs_vec[i] * nspp)])
+        recruitment_sd[,  1:length(Years[[i]]), i] <-
+          replace(recruitment_sd[, 1:length(Years[[i]]), i], values = sd_rec[1:(nyrs_vec[i] * nspp)])
       }
     }
-
-
-    recruitment <- recruitment / 1000000
-    recruitment_sd <- recruitment_sd / 1000000
+     # 95% CI
     recruitment_upper <- recruitment + recruitment_sd * 1.92
     recruitment_lower <- recruitment - recruitment_sd * 1.92
+
+    # Rescale
+    recruitment <- recruitment / 1000000
+    recruitment_upper <- recruitment_upper / 1000000
+    recruitment_lower <- recruitment_lower / 1000000
 
     if (save_rec) {
       for (i in 1:nspp) {
@@ -373,8 +388,8 @@ plot_recruitment <-
         filename <- paste0(file, "_recruitment_trajectory", ".png")
         png(
           file = filename ,
-          width = 7,# 169 / 25.4,
-          height = 6.5,# 150 / 25.4,
+          width = width,# 169 / 25.4,
+          height = height,# 150 / 25.4,
           units = "in",
           res = 300
         )
@@ -425,7 +440,7 @@ plot_recruitment <-
               lwd = lwd,
               col = line_col,
               bty = "n",
-              cex = 0.72
+              cex = mod_cex
             )
           }
 
@@ -484,6 +499,8 @@ plot_selectivity <-
            file = NULL,
            model_names = NULL,
            line_col = NULL,
+           width = 7,
+           height = 6.5,
            species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"),
            lwd = 3) {
 
@@ -554,9 +571,8 @@ plot_selectivity <-
             filename <- paste0(file, "time-varying_selectivity_fleet",j,"_sex",legend_sex, ".png")
             png(
               file = filename ,
-              width = 7,# 169 / 25.4,
-              height = 6.5, # 150 / 25.4,
-
+              width = width,
+              height = height,
               units = "in",
               res = 300
             )
@@ -600,9 +616,8 @@ plot_selectivity <-
               filename <- paste0(file, "_terminal_selectivity_species",sp,"_sex",legend_sex, ".png")
               png(
                 file = filename ,
-                width = 7,# 169 / 25.4,
-                height = 6.5, # 150 / 25.4,
-
+                width = width,
+                height = height,
                 units = "in",
                 res = 300
               )
@@ -763,8 +778,8 @@ plot_mortality <-
            incl_proj = FALSE,
            zlim = NULL,
            contour = FALSE,
-           width = NULL,
-           height = NULL,
+           width = 8,
+           height = 5.5,
            title = NULL,
            log = FALSE,
            minyr = NULL,
@@ -858,9 +873,8 @@ plot_mortality <-
               filename <- paste0(file, "predation_and_residual_mortality_spp_",sp,"_sex_",legend_sex2,".png")
               png(
                 file = filename ,
-                width = ifelse(is.null(width), 8, width),
-                height = ifelse(is.null(height), 5.5, height),
-
+                width = width,
+                height = height,
                 units = "in",
                 res = 300
               )
@@ -934,6 +948,8 @@ plot_maturity <-
            model_names = NULL,
            line_col = NULL,
            species = NULL,
+           width = 4,
+           height = 5.5,
            lwd = 3) {
 
     # Convert single one into a list
@@ -969,8 +985,8 @@ plot_maturity <-
         filename <- paste0(file, "_maturity", ".png")
         png(
           file = filename ,
-          width = 4,# 169 / 25.4,
-          height = 6.5, # 150 / 25.4,
+          width = width,
+          height = height,
           units = "in",
           res = 300
         )
@@ -1053,9 +1069,12 @@ plot_maturity <-
 #' @param lwd Line width as specified by user
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
 #' @param minyr first year to plot
+#' @param width
+#' @param height
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
 #' @param incl_proj TRUE/FALSE include projections years
 #' @param add_ci TRUE/FALSE, includes 95 percent confidence interval
+#' @param mod_cex Cex of text for model name legend
 #'
 #' @export
 #'
@@ -1068,10 +1087,14 @@ plot_ssb <-
            spnames = NULL,
            lwd = 3,
            right_adj = 0,
+           top_adj = 0.15,
            mohns = NULL,
            minyr = NULL,
+           width = 7,
+           height = 6.5,
            incl_proj = FALSE,
-           add_ci = FALSE) {
+           add_ci = FALSE,
+           mod_cex = 1) {
 
     # Convert single one into a list
     if(class(Rceattle) == "Rceattle"){
@@ -1113,8 +1136,8 @@ plot_ssb <-
       if (add_ci) {
         ssb_sd_sub <- which(names(Rceattle[[i]]$sdrep$value) == "biomassSSB")
         ssb_sd_sub <- Rceattle[[i]]$sdrep$sd[ssb_sd_sub]
-        ssb_sd[, , i] <-
-          replace(ssb_sd[, , i], values = ssb_sd_sub[1:(nyrs_vec[i] * nspp)])
+        ssb_sd[, 1:length(Years[[i]]), i] <-
+          replace(ssb_sd[, 1:length(Years[[i]]), i], values = ssb_sd_sub[1:(nyrs_vec[i] * nspp)])
       }
     }
 
@@ -1130,7 +1153,7 @@ plot_ssb <-
       ymax[i] <- max(c(SSB[i, , ], SSB_lower[i, , ], SSB_upper[i, , ], 0), na.rm = T)
       ymin[i] <- min(c(SSB[i, , ], SSB_lower[i, , ], SSB_upper[i, , ], 0), na.rm = T)
     }
-    ymax <- ymax + 0.15 * ymax
+    ymax <- ymax + top_adj * ymax
 
     if (is.null(line_col)) {
       line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
@@ -1144,9 +1167,8 @@ plot_ssb <-
         filename <- paste0(file, "_ssb_trajectory", ".png")
         png(
           file = filename ,
-          width = 7,# 169 / 25.4,
-          height = 6.5,# 150 / 25.4,
-
+          width = width,
+          height = height,
           units = "in",
           res = 300
         )
@@ -1194,7 +1216,7 @@ plot_ssb <-
               lwd = lwd,
               col = line_col,
               bty = "n",
-              cex = 0.72
+              cex = mod_cex
             )
           }
         }
@@ -1265,11 +1287,15 @@ plot_b_eaten <-
            species = NULL,
            lwd = 3,
            right_adj = 0,
+           top_adj = 0.15,
            mohns = NULL,
            minyr = NULL,
+           width = 7,
+           height = 6.5,
            incl_proj = FALSE,
            incl_mean = FALSE,
-           add_ci = FALSE) {
+           add_ci = FALSE,
+           mod_cex = 1) {
 
     # Convert single one into a list
     if(class(Rceattle) == "Rceattle"){
@@ -1323,7 +1349,7 @@ plot_b_eaten <-
       ymax[i] <- max(c(B_eaten[i, , ], 0), na.rm = T)
       ymin[i] <- min(c(B_eaten[i, , ], 0), na.rm = T)
     }
-    ymax <- ymax + 0.15 * ymax
+    ymax <- ymax + top_adj * ymax
 
     if (is.null(line_col)) {
       line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
@@ -1337,9 +1363,8 @@ plot_b_eaten <-
         filename <- paste0(file, "_b_eaten_trajectory", ".png")
         png(
           file = filename ,
-          width = 7,# 169 / 25.4,
-          height = 6.5,# 150 / 25.4,
-
+          width = width,
+          height = height,
           units = "in",
           res = 300
         )
@@ -1379,7 +1404,7 @@ plot_b_eaten <-
           legend("top", paste0("B_eaten Rho = ",  round(mohns[2,spp+1], 2) ), bty = "n", cex = 1) # B_eaten rho
         }
 
-        if (j == 1) {
+        if (j == 2) {
           if(!is.null(model_names)){
             legend(
               "topright",
@@ -1388,7 +1413,7 @@ plot_b_eaten <-
               lwd = lwd,
               col = line_col,
               bty = "n",
-              cex = 0.72
+              cex = mod_cex
             )
           }
         }
@@ -1451,11 +1476,15 @@ plot_b_eaten_prop <-
            species = NULL,
            lwd = 3,
            right_adj = 0,
+           top_adj = 0.15,
            minyr = NULL,
            mohns = NULL,
+           width = 7,
+           height = 6.5,
            incl_proj = FALSE,
            incl_mean = FALSE,
-           add_ci = FALSE) {
+           add_ci = FALSE,
+           mod_cex = 1) {
 
     # Convert single one into a list
     if(class(Rceattle) == "Rceattle"){
@@ -1512,7 +1541,7 @@ plot_b_eaten_prop <-
       ymax[ksp] <- max(c(B_eaten_prop[,ksp, , ], 0), na.rm = T)
       ymin[ksp] <- min(c(B_eaten_prop[,ksp, , ], 0), na.rm = T)
     }
-    ymax <- ymax + 0.15 * ymax
+    ymax <- ymax + top_adj * ymax
 
     if (is.null(line_col)) {
       line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
@@ -1526,9 +1555,8 @@ plot_b_eaten_prop <-
         filename <- paste0(file, "_b_eaten_prop_trajectory", ".png")
         png(
           file = filename ,
-          width = 7,# 169 / 25.4,
-          height = 6.5,# 150 / 25.4,
-
+          width = width,
+          height = height,
           units = "in",
           res = 300
         )
@@ -1568,7 +1596,7 @@ plot_b_eaten_prop <-
           legend("top", paste0("B_eaten_prop Rho = ",  round(mohns[2,spp+1], 2) ), bty = "n", cex = 0.8) # B_eaten_prop rho
         }
 
-        if (j == 1) {
+        if (j == 2) {
           if(!is.null(model_names)){
             legend(
               "topright",
@@ -1577,7 +1605,7 @@ plot_b_eaten_prop <-
               lwd = lwd,
               col = line_col,
               bty = "n",
-              cex = 0.72
+              cex = mod_cex
             )
           }
         }
@@ -1656,6 +1684,8 @@ plot_m_at_age <-
            lwd = 3,
            right_adj = 0,
            minyr = NULL,
+           width = 7,
+           height = 6.5,
            incl_proj = FALSE,
            incl_mean = FALSE,
            add_ci = FALSE) {
@@ -1725,9 +1755,8 @@ plot_m_at_age <-
         filename <- paste0(file, "_m_at_age",age,"_trajectory", ".png")
         png(
           file = filename ,
-          width = 7,# 169 / 25.4,
-          height = 6.5,# 150 / 25.4,
-
+          width = width,
+          height = height,
           units = "in",
           res = 300
         )
@@ -1852,7 +1881,10 @@ plot_m2_at_age_prop <-
            species = NULL,
            lwd = 3,
            right_adj = 0,
+           top_adj = 0.15,
            minyr = NULL,
+           width = 7,
+           height = 6.5,
            incl_proj = FALSE,
            incl_mean = FALSE,
            add_ci = FALSE) {
@@ -1911,7 +1943,7 @@ plot_m2_at_age_prop <-
         ymin[i,sex] <- min(c(m2_at_age_prop[,i,sex,, ], 0), na.rm = T)
       }
     }
-    ymax <- ymax + 0.15 * ymax
+    ymax <- ymax + top_adj * ymax
 
     if (is.null(line_col)) {
       line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
@@ -1925,9 +1957,8 @@ plot_m2_at_age_prop <-
         filename <- paste0(file, "_m2_at_age_prop",age,"_trajectory", ".png")
         png(
           file = filename ,
-          width = 7,# 169 / 25.4,
-          height = 6.5,# 150 / 25.4,
-
+          width = width,
+          height = height,
           units = "in",
           res = 300
         )

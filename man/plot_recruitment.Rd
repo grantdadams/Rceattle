@@ -16,7 +16,11 @@ plot_recruitment(
   save_rec = FALSE,
   right_adj = 0,
   mohns = NULL,
-  incl_proj = FALSE
+  width = 7,
+  height = 6.5,
+  minyr = NULL,
+  incl_proj = FALSE,
+  mod_cex = 1
 )
 }
 \arguments{
@@ -37,11 +41,17 @@ function.}
 
 \item{lwd}{Line width as specified by user}
 
+\item{save_rec}{Save recruitment?}
+
 \item{right_adj}{How many units of the x-axis to add to the right side of the figure for fitting the legend.}
 
 \item{mohns}{data.frame of mohn's rows extracted from \code{\link{retrospective}}}
 
+\item{minyr}{First year to plot}
+
 \item{incl_proj}{TRUE/FALSE, include projection years}
+
+\item{mod_cex}{Cex of text for model name legend}
 }
 \value{
 Returns and saves a figure with the population trajectory.

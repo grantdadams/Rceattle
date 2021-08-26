@@ -9,6 +9,8 @@ plot_selectivity(
   file = NULL,
   model_names = NULL,
   line_col = NULL,
+  width = 7,
+  height = 6.5,
   species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"),
   lwd = 3
 )

@@ -4,9 +4,9 @@
 \name{Rceattle-package}
 \alias{Rceattle}
 \alias{Rceattle-package}
-\title{Rceattle: What the Package Does (One Line, Title Case)}
+\title{Rceattle: Fits the multispecies assessment model (CEATTLE) using TMB}
 \description{
-What the package does (one paragraph).
+'Rceattle' is an 'R' package designed to implement the CEATTLE model using Template Model Builder ('TMB'; Kristensen et al. 2015), which can be installed using following https://github.com/kaskr/adcomp/wiki/Download. Rceattle is structured similar to the original manuscript in terms of modularization. Seperate functions estimate retrospective temperature- and size-specific predator rations, prey preference, and weight-at- age. These are then used as inputs to the CEATTLE model to evaluate how predation mortality, recruitment, and survival of three target species change under historical climate conditions and harvest rates.
 
 CEATTLE is short for Climate-Enhanced, Age-based model with Temperature-specific Trophic Linkages and Energetics, which is a multi-species age-structured assessment model developed for groundfish in the Bering Sea, USA by Holsman et al. (2015). To incorporate the impacts of climate, the model includes temperature-dependent von Bertalanffy weight-at-age functions (VBGF) and temperature-specific, bioenergetics-based predation interactions. Inputs of the model include U.S. National Marine Fisheries Service Alaska Fisheries Science Center (AFSC) survey and fishery data. Outputs include historical estimates of predation mortality, fishing mortality, biomass, recruitment, etc.
 }
@@ -21,10 +21,10 @@ CEATTLE is short for Climate-Enhanced, Age-based model with Temperature-specific
 }
 }
 \author{
-\strong{Maintainer}: First Last \email{first.last@example.com} (\href{https://orcid.org/YOUR-ORCID-ID}{ORCID})
+\strong{Maintainer}: Grant Adams \email{adamsgd@uw.edu} (\href{https://orcid.org/YOUR-ORCID-ID}{ORCID})
 
 
-\strong{Maintainer}: First Last \email{first.last@example.com} (\href{https://orcid.org/YOUR-ORCID-ID}{ORCID})
+\strong{Maintainer}: Grant Adams \email{adamsgd@uw.edu} (\href{https://orcid.org/YOUR-ORCID-ID}{ORCID})
 
 }
 \keyword{internal}
