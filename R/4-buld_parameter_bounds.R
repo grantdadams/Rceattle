@@ -95,8 +95,8 @@ build_bounds <- function(param_list = NULL, data_list) {
         for (i in 1:length(param_list)) {
             lower_check[[i]] <- param_list[[i]] < lower_bnd[[i]]
             upper_check[[i]] <- param_list[[i]] > upper_bnd[[i]]
-            param_check$Lower[i] <- sum(lower_check[[i]])
-            param_check$Upper[i] <- sum(upper_check[[i]])
+            param_check$Lower[i] <- sum(lower_check[[i]], na.rm = TRUE)
+            param_check$Upper[i] <- sum(upper_check[[i]], na.rm = TRUE)
         }
 
         print("Non-zero value indicates error in initial value")
