@@ -1137,9 +1137,9 @@ if(flt_type(flt) == 1){
     for (sp = 0; sp < nspp; sp++) {
       for(sex = 0; sex < nsex(sp); sex ++){
         for (age = 0; age < nages(sp); age++) {
-          // Estimated abundance
-          if(estDynamics(sp) == 0){
+          switch(estDynamics){
 
+          case 0: // Estimated abundance
             if ((age > 0) & (age < nages(sp) - 1)) {
 
               // Sum M1 until age - 1
@@ -1158,21 +1158,19 @@ if(flt_type(flt) == 1){
               }
               NByage(sp, sex, age, 0) = exp(ln_mean_rec(sp) - mort_sum + init_dev(sp, age - 1)) / (1 - exp(-M1(sp, sex, nages(sp) - 1))) * R_sexr(sp); // NOTE: This solves for the geometric series
             }
-          }
+          break;
 
-          // Fixed numbers-at-age - fixed scalar
-          if(estDynamics(sp) == 1){
+          case 1: // Fixed numbers-at-age - fixed scalar
             NByage(sp, sex, age, 0) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, 0);
-          }
+          break;
 
-          // Fixed numbers-at-age age-independent scalar
-          if(estDynamics(sp) == 2){
+          case 2: // Fixed numbers-at-age age-independent scalar
             NByage(sp, sex, age, 0) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, 0);
-          }
+          break;
 
-          // Fixed numbers-at-age age-dependent scalar
-          if(estDynamics(sp) == 3){
+          case 3: // Fixed numbers-at-age age-dependent scalar
             NByage(sp, sex, age, 0) = pop_scalar(sp, age) * NByageFixed(sp, sex, age, 0);
+            break;
           }
         }
       }
@@ -1187,8 +1185,8 @@ if(flt_type(flt) == 1){
       for (age = 0; age < nages(sp); age++) {
         for (yr = 1; yr < nyrs_hind; yr++) {
           for(sex = 0; sex < nsex(sp); sex ++){
-            // Estimated numbers-at-age
-            if(estDynamics(sp) == 0){
+            switch(estDynamics){
+            case 0: // Estimated numbers-at-age
               // -- 6.3.1.  Where 1 <= age < Ai
               if (age < (nages(sp) - 1)) {
                 NByage(sp, sex, age + 1, yr) = NByage(sp, sex, age, yr - 1) * S(sp, sex, age, yr - 1);
@@ -1198,21 +1196,19 @@ if(flt_type(flt) == 1){
               if (age == (nages(sp) - 1)) {
                 NByage(sp, sex, age, yr) = NByage(sp, sex, age - 1, yr - 1) * S(sp, sex, age - 1, yr - 1) + NByage(sp, sex, age, yr - 1) * S(sp, sex, age, yr - 1);
               }
-            }
+            break;
 
-            // Fixed numbers-at-age - fixed scalar
-            if(estDynamics(sp) == 1){
+            case 1: // Fixed numbers-at-age - fixed scalar
               NByage(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
-            }
+            break;
 
-            // Fixed numbers-at-age age-independent scalar
-            if(estDynamics(sp) == 2){
+            case 2: // Fixed numbers-at-age age-independent scalar
               NByage(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
-            }
+            break;
 
-            // Fixed numbers-at-age age-dependent scalar
-            if(estDynamics(sp) == 3){
+            case 3: // Fixed numbers-at-age age-dependent scalar
               NByage(sp, sex, age, yr) = pop_scalar(sp, age) * NByageFixed(sp, sex, age, yr);
+              break;
             }
 
             // Constrain to reduce population collapse
@@ -1243,9 +1239,8 @@ if(flt_type(flt) == 1){
         for (age = 0; age < nages(sp); age++) {
 
           for(sex = 0; sex < nsex(sp); sex ++){
-
-            // Estimated numbers-at-age
-            if(estDynamics(sp) == 0){
+switch(estDynamics){
+            case 0: // Estimated numbers-at-age
               // -- 6.3.1.  Where 1 <= age < Ai
               if (age < (nages(sp) - 1)) {
                 NByage(sp, sex, age + 1, yr) = NByage(sp, sex, age, yr - 1) * S(sp, sex, age, yr - 1);
@@ -1255,22 +1250,20 @@ if(flt_type(flt) == 1){
               if (age == (nages(sp) - 1)) {
                 NByage(sp, sex, age, yr) = NByage(sp, sex, age - 1, yr - 1) * S(sp, sex, age - 1, yr - 1) + NByage(sp, sex, age, yr - 1) * S(sp, sex, age, yr - 1);
               }
-            }
+            break;
 
 
-            // Fixed numbers-at-age - fixed scalar
-            if(estDynamics(sp) == 1){
+            case 1: // Fixed numbers-at-age - fixed scalar
               NByage(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
-            }
+            break;
 
-            // Fixed numbers-at-age age-independent scalar
-            if(estDynamics(sp) == 2){
+            case 2: // Fixed numbers-at-age age-independent scalar
               NByage(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
-            }
+            break;
 
-            // Fixed numbers-at-age age-dependent scalar
-            if(estDynamics(sp) == 3){
+            case 3: // Fixed numbers-at-age age-dependent scalar
               NByage(sp, sex, age, yr) = pop_scalar(sp, age) * NByageFixed(sp, sex, age, yr);
+              break;
             }
 
             // Hard constraint to reduce population collapse
@@ -1333,9 +1326,8 @@ if(flt_type(flt) == 1){
         // Rerun projection
         for (age = 0; age < nages(sp); age++) {
           for(sex = 0; sex < nsex(sp); sex ++){
-
-            // Estimated numbers-at-age
-            if(estDynamics(sp) == 0){
+switch(estDynamics){
+            case 0: // Estimated numbers-at-age
               // -- 6.3.1.  Where 1 <= age < Ai
               if (age < (nages(sp) - 1)) {
                 NByage(sp, sex, age + 1, yr) = NByage(sp, sex, age, yr - 1) * S(sp, sex, age, yr - 1);
@@ -1345,23 +1337,21 @@ if(flt_type(flt) == 1){
               if (age == (nages(sp) - 1)) {
                 NByage(sp, sex, age, yr) = NByage(sp, sex, age - 1, yr - 1) * S(sp, sex, age - 1, yr - 1) + NByage(sp, sex, age, yr - 1) * S(sp, sex, age, yr - 1);
               }
-            }
+            break;
 
 
-            // Fixed numbers-at-age - fixed scalar
-            if(estDynamics(sp) == 1){
+            case 1: // Fixed numbers-at-age - fixed scalar
               NByage(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
-            }
+            break;
 
-            // Fixed numbers-at-age age-independent scalar
-            if(estDynamics(sp) == 2){
+            case 2:// Fixed numbers-at-age age-independent scalar
               NByage(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
-            }
+            break;
 
-            // Fixed numbers-at-age age-dependent scalar
-            if(estDynamics(sp) == 3){
+            case 3:// Fixed numbers-at-age age-dependent scalar
               NByage(sp, sex, age, yr) = pop_scalar(sp, age) * NByageFixed(sp, sex, age, yr);
-            }
+            break;
+          }
 
             // Hard constraint to reduce population collapse
             if(NByage(sp, sex, age, yr) < minNByage){
@@ -1406,14 +1396,16 @@ if(flt_type(flt) == 1){
       for(sex = 0; sex < nsex(sp); sex ++){
         for (age = 0; age < nages(sp); age++) {
           for (yr = 0; yr < nyrs; yr++) {
-            if (avgnMode == 0) {
-              AvgN(sp, sex, age, yr) = NByage(sp, sex, age, yr) * (1 - S(sp, sex, age, yr)) / Zed(sp, sex, age, yr); // MSVPA approach
-            }else if (avgnMode == 1) {
-              AvgN(sp, sex, age, yr) = NByage(sp, sex, age, yr) * exp(- Zed(sp, sex, age, yr) / 2); // Kinzey and Punt (2009) approximation
-            }else if (avgnMode == 2) {
-              AvgN(sp, sex, age, yr) = NByage(sp, sex, age, yr); // Van Kirk et al (2010) approximation
-            } else{
-              error("Invalid 'avgnMode'");
+            switch(avgnMode){
+            case 0: // MSVPA approach
+              AvgN(sp, sex, age, yr) = NByage(sp, sex, age, yr) * (1 - S(sp, sex, age, yr)) / Zed(sp, sex, age, yr); 
+              break;
+            case 1: // Kinzey and Punt (2009) approximation
+              AvgN(sp, sex, age, yr) = NByage(sp, sex, age, yr) * exp(- Zed(sp, sex, age, yr) / 2); 
+            break;
+            case 2: // Van Kirk et al (2010) approximation
+              AvgN(sp, sex, age, yr) = NByage(sp, sex, age, yr); 
+            break;
             }
           }
         }
@@ -1439,23 +1431,21 @@ if(flt_type(flt) == 1){
     Type Kb = 0;
     for (sp = 0; sp < nspp; sp++) {
       for (yr = 0; yr < nyrs; yr++) {
+        switch(Ceq(sp)){
 
-        // Exponential function from Stewart et al. 1983
-        if ( Ceq(sp) == 1) {
+        case 1: // Exponential function from Stewart et al. 1983
           fT(sp, yr) = exp(Qc(sp) * env_index_hat(yr, Cindex(sp)));
-        }
+        break;
 
-        // Temperature dependence for warm-water-species from Kitchell et al. 1977
-        if ( Ceq(sp) == 2) {
+        case 2: // Temperature dependence for warm-water-species from Kitchell et al. 1977
           Yc = log( Qc(sp) ) * (Tcm(sp) - Tco(sp) + 2);
           Zc = log( Qc(sp) ) * (Tcm(sp) - Tco(sp));
           Vc = (Tcm(sp) - env_index_hat(yr, Cindex(sp))) / (Tcm(sp) - Tco(sp));
           Xc = pow(Zc, 2) * pow((1 + pow((1 + 40 / Yc), 0.5)), 2) / 400;
           fT(sp, yr) = pow(Vc, Xc) * exp(Xc * (1 - Vc));
-        }
+        break;
 
-        // Temperature dependence for cool and cold-water species from Thornton and Lessem 1979
-        if (Ceq(sp) == 3) {
+        case 3: // Temperature dependence for cool and cold-water species from Thornton and Lessem 1979
           G2 = (1 / (Tcl(sp) - Tcm(sp))) * log((0.98 * (1 - CK4(sp))) / (CK4(sp) * 0.02));
           L2 = exp(G2 * (Tcl( sp ) -  env_index_hat(yr, Cindex(sp))));
           Kb = (CK4(sp) * L2) / (1 + CK4(sp) * (L2 - 1));
@@ -1463,6 +1453,7 @@ if(flt_type(flt) == 1){
           L1 = exp(G1 * (env_index_hat(yr, Cindex(sp)) - Qc(sp)));
           Ka = (CK1(sp) * L1) / (1 + CK1(sp) * (L1 - 1));
           fT(sp, yr) = Ka * Kb;
+          break;
         }
       }
     }
@@ -2106,23 +2097,24 @@ if(flt_type(flt) == 1){
                          M2_prop(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind);
                          }
                          */
-
+switch(msmMode){
                         // Type 2 MSVPA
-                        if(msmMode == 1){
+                        case 1:
                           M2(ksp, k_sex, k_age, yr) += (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr); // #FIXME - include indices of overlap
                           M2_prop(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr);
                           B_eaten(ksp, k_sex, k_age, yr) += AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)/ avail_food(rsp, r_sex, r_age, yr);
                           B_eaten_prop(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
-                        }
+                        break;
 
 
                         // Type 3 MSVPA
-                        if(msmMode == 2){
+                        case 2:
                           M2(ksp, k_sex, k_age, yr) += pow(AvgN(ksp, k_sex, k_age, yr) , msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr)
                                                                                                                              * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / (AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind)); // #FIXME - include indices of overlap
                           M2_prop(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / (AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind));
                           B_eaten(ksp, k_sex, k_age, yr) += pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
                           B_eaten_prop(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) *  AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
+                        break;
                         }
                       }
                     }
