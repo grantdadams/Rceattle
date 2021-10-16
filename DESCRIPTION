@@ -19,9 +19,11 @@ Imports:
     MASS,
     oce,
     readxl,
-    TMB (>= 1.7.20),
+    TMB (>= 1.7.16),
     TMBhelper,
-    writexl
+    writexl,
+    reshape2,
+    gplots
 LinkingTo: 
     TMB
 Remotes: kaskr/TMB_contrib_R/TMBhelper

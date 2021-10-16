@@ -11,7 +11,7 @@ install.packages('TMB', type = 'source')
 # Try "TMB::runExample(all = TRUE)" to see if TMB works
 
 # Install Rceattle
-devtools::install_github("grantdadams/Rceattle", auth_token = "4925b42ac46f1e0aefd671e9dc0c1cf1b3157017")
+devtools::install_github("grantdadams/Rceattle")
 
 library(Rceattle)
 
@@ -36,7 +36,7 @@ mydata$est_M1 <- c(0,0,0)
 # Estimation
 ################################################
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
-mydata$fleet_control$proj_F_prop <-rep(0,7)
+mydata$fleet_control$proj_F_prop <- c(rep(1,3), rep(0,4))
 ss_run <- Rceattle::fit_mod(data_list = mydata,
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save
@@ -50,7 +50,7 @@ ss_run <- Rceattle::fit_mod(data_list = mydata,
 mydata_M <- mydata
 mydata_M$est_M1 <- c(1,0,0)
 ss_run_M <- Rceattle::fit_mod(data_list = mydata_M,
-                            inits = NULL, # Initial parameters = 0
+                            inits = ss_run$estimated_params, # Initial parameters = 0
                             file = NULL, # Don't save
                             debug = FALSE, # Estimate
                             random_rec = FALSE, # No random recruitment
@@ -60,8 +60,8 @@ ss_run_M <- Rceattle::fit_mod(data_list = mydata_M,
                             recompile = FALSE)
 
 # The you can plot the model results using using
-plot_biomass(Rceattle =  list(ss_run, ss_run_M))
-plot_recruitment(Rceattle =  ss_run, add_ci = TRUE)
+plot_biomass(Rceattle =  list(ss_run, ss_run_M), model_names = c("Fixed M", "Est M"), line_col = c(1,2))
+plot_recruitment(Rceattle =  list(ss_run, ss_run_M), add_ci = TRUE)
 plot_catch(Rceattle =  ss_run, incl_proj = T)
 
 
@@ -82,7 +82,7 @@ ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
 
 
 # We can plot both runs as well:
-mod_list <- list(ss_run, ms_run)
+Rceattle <- list(ss_run, ms_run)
 mod_names <- c("Single-species", "Multi-species")
 
 # Plot biomass trajectory
