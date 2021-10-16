@@ -39,8 +39,6 @@ mydata <- Rceattle::read_data( file = "BS2017SS.xlsx")
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
 mydata$fleet_control$proj_F_prop <-rep(1,7)
 ss_run <- Rceattle::fit_mod(data_list = mydata,
-                            TMBfilename = "ceattle_v01_06",
-                            cpp_directory = "inst/executables",
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save
                             debug = FALSE, # Estimate
@@ -50,8 +48,6 @@ ss_run <- Rceattle::fit_mod(data_list = mydata,
                             silent = TRUE,
                             recompile = TRUE)
 
-plot_catch(ss_run, incl_proj = TRUE)
-mse <- mse_run(operating_model = ss_run, estimation_model = ss_run, nsim = 1, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
 # The you can plot the model results using using
 plot_biomass(Rceattle =  ss_run, incl_proj = T)
 plot_recruitment(Rceattle =  ss_run, add_ci = TRUE)
@@ -62,19 +58,15 @@ plot_catch(Rceattle =  ss_run, incl_proj = FALSE)
 data("BS2017MS") # Note: the only difference is the residual mortality (M1_base) is lower
 
 ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
-                            TMBfilename = "ceattle_v01_06",
-                            cpp_directory = "inst/executables",
                             inits = ss_run$estimated_params, # Initial parameters from single species ests
                             file = NULL, # Don't save
                             debug = 0, # Estimate
-                            niter = 10, # 10 iterations around population and predation dynamics
+                            niter = 3, # 10 iterations around population and predation dynamics
                             random_rec = FALSE, # No random recruitment
                             msmMode = 1, # MSVPA based
                             suitMode = 0, # empirical suitability
                             silent = TRUE,
                             recompile = FALSE)
-
-ms_mse <- mse_run(operating_model = ms_run, estimation_model = ss_run, nsim = 1, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
 
 # We can plot both runs as well:
 mod_list <- list(ss_run, ms_run)
@@ -88,7 +80,12 @@ plot_selectivity(Rceattle = mod_list, model_names = mod_names)
 plot_mort(Rceattle = mod_list, model_names = mod_names, age = 2)
 
 # Run diagnostics
-plot_fsh_comp(ms_run) # Fitted fishery composition data
-plot_srv_comp(ms_run) # Fitted survey composition data
+plot_comp(ms_run) # Fitted fishery composition data
 plot_index(ms_run) # Fitted indices of abundance
 plot_catch(ms_run) # Fitted catch series
+
+# Run MSE
+ms_mse <- mse_run(operating_model = ms_run, estimation_model = ss_run, nsim = 2, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
+
+plot_biomass(c(list(ms_mse$Rceattle_OM_list[[1]]), ms_mse$Rceattle_EM_list$OM_Sim_1), model_names = c("OM", paste0("EM",1:16)))
+

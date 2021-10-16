@@ -5,7 +5,7 @@
 \title{Run a management strategy evaluation}
 \usage{
 mse_run(
-  operating_model = ss_run,
+  operating_model = ms_run,
   estimation_model = ss_run,
   nsim = 10,
   assessment_period = 1,
@@ -31,8 +31,8 @@ mse_run(
 \item{cap}{A cap on the catch in the projection. Can be a single number or vector. Default = NULL}
 }
 \value{
-A list of
+A list of operating models (differ by simulated recruitment determined by \code{nsim}) and estimation models fit to each operating model (differ by terminal year).
 }
 \description{
-Run a management strategy evaluation
+Runs a forward projecting MSE. Main assumptions are the projected selectivity/catchability, foraging days, and weight-at-age are the same as the terminal year of the hindcast in the operating model. Assumes survey sd is same as average across historic time series, while comp data sample size is same as last year. No implementation error!
 }

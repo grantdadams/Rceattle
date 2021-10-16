@@ -1,5 +1,7 @@
 #' Run a management strategy evaluation
 #'
+#' @description Runs a forward projecting MSE. Main assumptions are the projected selectivity/catchability, foraging days, and weight-at-age are the same as the terminal year of the hindcast in the operating model. Assumes survey sd is same as average across historic time series, while comp data sample size is same as last year. No implementation error!
+#'
 #' @param operating_model CEATTLE model object exported from \code{\link{Rceattle}}
 #' @param estimation_model CEATTLE model object exported from \code{\link{Rceattle}}
 #' @param nsim Number of simulations to run (default 10)
@@ -8,11 +10,11 @@
 #' @param simulate Include simulated random error proportional to that estimated/provided.
 #' @param cap A cap on the catch in the projection. Can be a single number or vector. Default = NULL
 #'
-#' @return A list of
+#' @return A list of operating models (differ by simulated recruitment determined by \code{nsim}) and estimation models fit to each operating model (differ by terminal year).
 #' @export
 #'
 #' @examples
-mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 10, assessment_period = 1, sampling_period = 1, simulate = TRUE, cap = NULL, seed = 666){
+mse_run <- function(operating_model = ms_run, estimation_model = ss_run, nsim = 10, assessment_period = 1, sampling_period = 1, simulate = TRUE, cap = NULL, seed = 666){
   '%!in%' <- function(x,y)!('%in%'(x,y))
 
   set.seed(seed)
@@ -23,7 +25,8 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
   # Update data-files in OM so we can fill in updated years
   # -- srv_biom
   for(flt in (unique(operating_model$data_list$srv_biom$Fleet_code))){
-    srv_biom_sub <- operating_model$data_list$srv_biom[which(operating_model$data_list$srv_biom$Fleet_code == flt),]
+    sub_rows <- which(operating_model$data_list$srv_biom$Fleet_code == flt)
+    srv_biom_sub <- operating_model$data_list$srv_biom[sub_rows,]
     yrs_proj <- (operating_model$data_list$endyr + 1):operating_model$data_list$projyr
     nyrs_proj <- length(yrs_proj)
     proj_srv_biom <- data.frame(Fleet_name = rep(srv_biom_sub$Fleet_name[1], nyrs_proj),
@@ -34,11 +37,11 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
                                 Selectivity_block = rep(srv_biom_sub$Selectivity_block[length(srv_biom_sub$Selectivity_block)], nyrs_proj),
                                 Q_block = rep(srv_biom_sub$Selectivity_block[length(srv_biom_sub$Selectivity_block)], nyrs_proj),
                                 Observation = rep(NA, nyrs_proj),
-                                CV = rep(mean(srv_biom_sub$CV, na.rm = TRUE), nyrs_proj)) # FIXME: not sure what the best is to put here, using mean
+                                Log_sd = rep(mean(operating_model$quantities$srv_log_sd_hat[sub_rows], na.rm = TRUE), nyrs_proj)) # FIXME: not sure what the best is to put here, using mean
     operating_model$data_list$srv_biom <- rbind(operating_model$data_list$srv_biom, proj_srv_biom)
   }
   operating_model$data_list$srv_biom <- operating_model$data_list$srv_biom[
-    with(operating_model$data_list$srv_biom, order(Fleet_code, Year)),]
+    with(operating_model$data_list$srv_biom, order(Fleet_code, abs(Year))),]
 
 
   # -- comp_data
@@ -51,7 +54,7 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
                                  Species = rep(comp_data_sub$Species[1], nyrs_proj),
                                  Sex = rep(comp_data_sub$Sex[length(comp_data_sub$Sex)], nyrs_proj),
                                  Age0_Length1 = rep(comp_data_sub$Age0_Length1[length(comp_data_sub$Age0_Length1)], nyrs_proj),
-                                 Year = -yrs_proj,
+                                 Year = -yrs_proj, # Negative year for predicting
                                  Month = rep(comp_data_sub$Month[length(comp_data_sub$Month)], nyrs_proj),
                                  Sample_size = rep(comp_data_sub$Sample_size[length(comp_data_sub$Sample_size)], nyrs_proj))
     proj_comps <- data.frame(matrix(0, ncol = ncol(comp_data_sub) - ncol(proj_comp_data), nrow = nyrs_proj))
@@ -61,7 +64,7 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
     operating_model$data_list$comp_data <- rbind(operating_model$data_list$comp_data, proj_comp_data)
   }
   operating_model$data_list$comp_data <- operating_model$data_list$comp_data[
-    with(operating_model$data_list$comp_data, order(Fleet_code, Year)),]
+    with(operating_model$data_list$comp_data, order(Fleet_code, abs(Year))),]
 
   # -- emp_sel - Use terminal year
   for(flt in (unique(operating_model$data_list$emp_sel$Fleet_code))){
@@ -91,8 +94,8 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
     proj_wt <- data.frame(Wt_name = rep(wt_sub$Wt_name[1], nyrs_proj),
                           Wt_index = rep(flt, nyrs_proj),
                           Species = rep(wt_sub$Species[1], nyrs_proj),
-                          Year = yrs_proj,
-                          Sex = rep(wt_sub$Sex[length(wt_sub$Sex)], nyrs_proj)
+                          Sex = rep(wt_sub$Sex[length(wt_sub$Sex)], nyrs_proj),
+                          Year = yrs_proj
     )
     proj_comps <- data.frame(matrix(wt_sub[nrow(wt_sub), (ncol(proj_wt)+1) : ncol(wt_sub)], ncol = ncol(wt_sub) - ncol(proj_wt), nrow = nyrs_proj, byrow = TRUE))
     colnames(proj_comps) <-paste0("Age", 1:ncol(proj_comps))
@@ -123,7 +126,8 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
     with(operating_model$data_list$Pyrs, order(Species, Year)),]
 
 
-  # Update emp sel in EM
+  # Update data in EM
+  #FIXME - assuming same as terminal year of hindcast
   # -- emp_sel - Use terminal year
   for(flt in (unique(estimation_model$data_list$emp_sel$Fleet_code))){
     emp_sel_sub <- estimation_model$data_list$emp_sel[which(estimation_model$data_list$emp_sel$Fleet_code == flt),]
@@ -153,8 +157,8 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
     proj_wt <- data.frame(Wt_name = rep(wt_sub$Wt_name[1], nyrs_proj),
                           Wt_index = rep(flt, nyrs_proj),
                           Species = rep(wt_sub$Species[1], nyrs_proj),
-                          Year = yrs_proj,
-                          Sex = rep(wt_sub$Sex[length(wt_sub$Sex)], nyrs_proj)
+                          Sex = rep(wt_sub$Sex[length(wt_sub$Sex)], nyrs_proj),
+                          Year = yrs_proj
     )
     proj_comps <- data.frame(matrix(wt_sub[nrow(wt_sub), (ncol(proj_wt)+1) : ncol(wt_sub)], ncol = ncol(wt_sub) - ncol(proj_wt), nrow = nyrs_proj, byrow = TRUE))
     colnames(proj_comps) <-paste0("Age", 1:ncol(proj_comps))
@@ -221,7 +225,11 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
     # Run through model
     for(k in 1:length(assess_yrs)){
 
-      # Get projected catch data from EM
+      # ------------------------------------------------------------
+      # 1. OBSERVATION MODEL
+      # ------------------------------------------------------------
+
+      # - Get projected catch data from EM
       new_catch_data <- estimation_model_use$data_list$fsh_biom
       new_years <- proj_yrs[which(proj_yrs <= assess_yrs[k] & proj_yrs > operating_model_use$data_list$endyr)]
       dat_fill_ind <- which(new_catch_data$Year %in% new_years & is.na(new_catch_data$Catch))
@@ -230,59 +238,72 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
         new_catch_data$Catch[dat_fill_ind] <- ifelse(new_catch_data$Catch[dat_fill_ind] > cap, cap, new_catch_data$Catch[dat_fill_ind])
       }
 
-      # Update catch data in OM and EM
+      # - Update catch data in OM and EM
       operating_model_use$data_list$fsh_biom <- new_catch_data
       estimation_model_use$data_list$fsh_biom <- new_catch_data
 
-      # Update endyr of OM
+      # - Update endyr of OM
       nyrs_hind <- operating_model_use$data_list$endyr - operating_model_use$data_list$styr + 1
       operating_model_use$data_list$endyr <- assess_yrs[k]
 
-      # Update parameters
+      # - Update parameters
       # -- F_dev
       operating_model_use$estimated_params$F_dev <- cbind(operating_model_use$estimated_params$F_dev, matrix(0, nrow= nrow(operating_model_use$estimated_params$F_dev), ncol = length(new_years)))
 
       # -- Time-varing survey catachbilitiy - Assume last year - filled by columns
       operating_model_use$estimated_params$ln_srv_q_dev <- cbind(operating_model_use$estimated_params$ln_srv_q_dev, matrix(operating_model_use$estimated_params$ln_srv_q_dev[,ncol(operating_model_use$estimated_params$ln_srv_q_dev)], nrow= nrow(operating_model_use$estimated_params$ln_srv_q_dev), ncol = length(new_years)))
-      operating_model_use$estimated_params$ln_srv_q_dev_re <- cbind(operating_model_use$estimated_params$ln_srv_q_dev_re, matrix(operating_model_use$estimated_params$ln_srv_q_dev_re[,ncol(operating_model_use$estimated_params$ln_srv_q_dev_re)], nrow= nrow(operating_model_use$estimated_params$ln_srv_q_dev_re), ncol = length(new_years)))
+
+      #FIXME: update random effects q if used again
+      # operating_model_use$estimated_params$ln_srv_q_dev_re <- cbind(operating_model_use$estimated_params$ln_srv_q_dev_re, matrix(operating_model_use$estimated_params$ln_srv_q_dev_re[,ncol(operating_model_use$estimated_params$ln_srv_q_dev_re)], nrow= nrow(operating_model_use$estimated_params$ln_srv_q_dev_re), ncol = length(new_years)))
 
       # -- Time-varing selectivity - Assume last year - filled by columns
       n_selectivities <- nrow(operating_model_use$data_list$fleet_control)
 
-      sel_slp_dev = array(0, dim = c(2, n_selectivities, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic; n = [2, nspp]
+      ln_sel_slp_dev = array(0, dim = c(2, n_selectivities, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic; n = [2, nspp]
       sel_inf_dev = array(0, dim = c(2, n_selectivities, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic; n = [2, nspp]
 
-      sel_slp_dev_re = array(0, dim = c(2, n_selectivities, 2, nyrs_hind + length(new_years)))  # selectivity random effect deviations paramaters for logistic; n = [2, nspp]
-      sel_inf_dev_re = array(0, dim = c(2, n_selectivities, 2, nyrs_hind + length(new_years)))  # selectivity random effectdeviations paramaters for logistic; n = [2, nspp]
+      #FIXME: update random effects sel if used again
+      # sel_slp_dev_re = array(0, dim = c(2, n_selectivities, 2, nyrs_hind + length(new_years)))  # selectivity random effect deviations paramaters for logistic; n = [2, nspp]
+      # sel_inf_dev_re = array(0, dim = c(2, n_selectivities, 2, nyrs_hind + length(new_years)))  # selectivity random effectdeviations paramaters for logistic; n = [2, nspp]
 
-      sel_slp_dev[,,,1:nyrs_hind] <- operating_model_use$estimated_params$sel_slp_dev
+      ln_sel_slp_dev[,,,1:nyrs_hind] <- operating_model_use$estimated_params$ln_sel_slp_dev
       sel_inf_dev[,,,1:nyrs_hind] <- operating_model_use$estimated_params$sel_inf_dev
-      sel_slp_dev_re[,,,1:nyrs_hind] <- operating_model_use$estimated_params$sel_slp_dev_re
-      sel_inf_dev_re[,,,1:nyrs_hind] <- operating_model_use$estimated_params$sel_inf_dev_re
 
-      sel_slp_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_slp_dev[,,,nyrs_hind]
+      #FIXME: update random effects sel if used again
+      # sel_slp_dev_re[,,,1:nyrs_hind] <- operating_model_use$estimated_params$sel_slp_dev_re
+      # sel_inf_dev_re[,,,1:nyrs_hind] <- operating_model_use$estimated_params$sel_inf_dev_re
+
+      ln_sel_slp_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- ln_sel_slp_dev[,,,nyrs_hind]
       sel_inf_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_inf_dev[,,,nyrs_hind]
-      sel_slp_dev_re[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_slp_dev_re[,,,nyrs_hind]
-      sel_inf_dev_re[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_inf_dev_re[,,,nyrs_hind]
+      #FIXME: update random effects sel if used again
+      # sel_slp_dev_re[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_slp_dev_re[,,,nyrs_hind]
+      # sel_inf_dev_re[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_inf_dev_re[,,,nyrs_hind]
 
-      operating_model_use$estimated_params$sel_slp_dev <- sel_slp_dev
+      operating_model_use$estimated_params$ln_sel_slp_dev <- ln_sel_slp_dev
       operating_model_use$estimated_params$sel_inf_dev <- sel_inf_dev
-      operating_model_use$estimated_params$sel_slp_dev_re <- sel_slp_dev_re
-      operating_model_use$estimated_params$sel_inf_dev_re <- sel_inf_dev_re
+      #FIXME: update random effects sel if used again
+      # operating_model_use$estimated_params$sel_slp_dev_re <- sel_slp_dev_re
+      # operating_model_use$estimated_params$sel_inf_dev_re <- sel_inf_dev_re
 
 
-      # Update map (Only new parameter we are estimating in OM is the F_dev of the new years)
-      operating_model_use$map <- Rceattle::build_map(operating_model_use$data_list, params = operating_model_use$estimated_params, debug = operating_model_use$data_list$debug, random_rec = FALSE)
+      # - Update map (Only new parameter we are estimating in OM is the F_dev of the new years)
+      operating_model_use$map <- Rceattle::build_map(
+        data_list = operating_model_use$data_list,
+        params = operating_model_use$estimated_params,
+        debug = operating_model_use$data_list$debug,
+        random_rec = operating_model_use$data_list$random_rec)
 
+      # -- Fill in with NA's
       for (i in 1:length(operating_model_use$map[[2]])) {
         operating_model_use$map[[2]][[i]] <- replace(operating_model_use$map[[2]][[i]], values = rep(NA, length(operating_model_use$map[[2]][[i]])))
       }
 
+      # -- Estimate terminal F for catch
       new_f_ind <- (ncol(operating_model_use$map[[2]]$F_dev) - length(new_years) + 1) : ncol(operating_model_use$map[[2]]$F_dev)
       operating_model_use$map[[2]]$F_dev[,new_f_ind] <- replace(operating_model_use$map[[2]]$F_dev[,new_f_ind], values = 1:length(operating_model_use$map[[2]]$F_dev[,new_f_ind]))
 
 
-      # -- Map out surveys
+      # --- Turn off F for surveys
       for (i in 1:nrow(operating_model_use$data_list$fleet_control)) {
         # Turn of F and F dev if not estimating of it is a Survey
         if (operating_model_use$data_list$fleet_control$Fleet_type[i] %in% c(0, 2)) {
@@ -302,124 +323,125 @@ mse_run <- function(operating_model = ss_run, estimation_model = ss_run, nsim = 
 
       operating_model_use$estimated_params$ln_FSPR <- replace(operating_model_use$estimated_params$ln_FSPR, values = rep(-10, length(operating_model_use$estimated_params$ln_FSPR)))
 
-      # Fit OM with new catch data
-      operating_model_use <- fit_mod(TMBfilename = operating_model_use$TMBfilename,
-                                         cpp_directory = operating_model_use$cpp_directory,
-                                         data_list = operating_model_use$data_list,
-                                         inits = operating_model_use$estimated_params,
-                                         map =  operating_model_use$map,
-                                         bounds = NULL,
-                                         file = NULL,
-                                         debug = operating_model_use$data_list$debug,
-                                         random_rec = operating_model_use$data_list$random_rec,
-                                         niter = operating_model_use$data_list$niter,
-                                         msmMode = operating_model_use$data_list$msmMode,
-                                         avgnMode = operating_model_use$data_list$avgnMode,
-                                         minNByage = operating_model_use$data_list$debug,
-                                         suitMode = operating_model_use$data_list$suitMode,
-                                         phase = NULL,
-                                         silent = TRUE,
-                                         getsd = FALSE,
-                                         recompile = FALSE)
+      # - Fit OM with new catch data
+      operating_model_use <- fit_mod(
+        data_list = operating_model_use$data_list,
+        inits = operating_model_use$estimated_params,
+        map =  operating_model_use$map,
+        bounds = NULL,
+        file = NULL,
+        debug = operating_model_use$data_list$debug,
+        random_rec = operating_model_use$data_list$random_rec,
+        niter = operating_model_use$data_list$niter,
+        msmMode = operating_model_use$data_list$msmMode,
+        avgnMode = operating_model_use$data_list$avgnMode,
+        minNByage = operating_model_use$data_list$debug,
+        suitMode = operating_model_use$data_list$suitMode,
+        phase = NULL,
+        silent = TRUE,
+        getsd = FALSE,
+        recompile = FALSE)
 
-      # Update standard error from survey for simulation
-      operating_model_use$data_list$srv_biom$CV <- operating_model_use$quantities$srv_cv_hat
-
-      # Simulate new survey and comp data
+      # ------------------------------------------------------------
+      # 2. ESTIMATION MODEL
+      # ------------------------------------------------------------
+      # - Simulate new survey and comp data
       sim_dat <- sim_mod(operating_model_use, simulate = simulate)
 
       years_include <- sample_yrs[which(sample_yrs > estimation_model_use$data_list$endyr & sample_yrs <= assess_yrs[k])]
 
-      # -- Add survey data to EM
+      # -- Add newly simulated survey data to EM
       new_srv_biom <- sim_dat$srv_biom[which(abs(sim_dat$srv_biom$Year) %in% years_include),]
       new_srv_biom$Year <- -new_srv_biom$Year
       estimation_model_use$data_list$srv_biom <- rbind(estimation_model_use$data_list$srv_biom, new_srv_biom)
       estimation_model_use$data_list$srv_biom <- estimation_model_use$data_list$srv_biom[
-        with(estimation_model_use$data_list$srv_biom, order(Fleet_code, Year)),]
+        with(estimation_model_use$data_list$srv_biom, order(Fleet_code, abs(Year))),]
 
-      # -- Add comp data to EM
+      # -- Add newly simulated comp data to EM
       new_comp_data <- sim_dat$comp_data[which(abs(sim_dat$comp_data$Year) %in% years_include),]
       new_comp_data$Year <- -new_comp_data$Year
       estimation_model_use$data_list$comp_data <- rbind(estimation_model_use$data_list$comp_data, new_comp_data)
-
       estimation_model_use$data_list$comp_data <- estimation_model_use$data_list$comp_data[
-        with(estimation_model_use$data_list$comp_data, order(Fleet_code, Year)),]
+        with(estimation_model_use$data_list$comp_data, order(Fleet_code, abs(Year))),]
 
       # Update end year and re-estimate
       estimation_model_use$data_list$endyr <- assess_yrs[k]
-
 
       # Update parameters
       # -- F_dev
       estimation_model_use$estimated_params$F_dev <- cbind(estimation_model_use$estimated_params$F_dev, matrix(0, nrow= nrow(estimation_model_use$estimated_params$F_dev), ncol = length(new_years)))
 
-      # -- Time-varing survey catachbilitiy - Assume last year - filled by columns
+      # -- Time-varying survey catachbilitiy - Assume last year - filled by columns
       estimation_model_use$estimated_params$ln_srv_q_dev <- cbind(estimation_model_use$estimated_params$ln_srv_q_dev, matrix(estimation_model_use$estimated_params$ln_srv_q_dev[,ncol(estimation_model_use$estimated_params$ln_srv_q_dev)], nrow= nrow(estimation_model_use$estimated_params$ln_srv_q_dev), ncol = length(new_years)))
-      estimation_model_use$estimated_params$ln_srv_q_dev_re <- cbind(estimation_model_use$estimated_params$ln_srv_q_dev_re, matrix(estimation_model_use$estimated_params$ln_srv_q_dev_re[,ncol(estimation_model_use$estimated_params$ln_srv_q_dev_re)], nrow= nrow(estimation_model_use$estimated_params$ln_srv_q_dev_re), ncol = length(new_years)))
+      # estimation_model_use$estimated_params$ln_srv_q_dev_re <- cbind(estimation_model_use$estimated_params$ln_srv_q_dev_re, matrix(estimation_model_use$estimated_params$ln_srv_q_dev_re[,ncol(estimation_model_use$estimated_params$ln_srv_q_dev_re)], nrow= nrow(estimation_model_use$estimated_params$ln_srv_q_dev_re), ncol = length(new_years)))
 
       # -- Time-varing selectivity - Assume last year - filled by columns
       n_selectivities <- nrow(estimation_model_use$data_list$fleet_control)
 
-      sel_slp_dev = array(0, dim = c(2, n_selectivities, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic; n = [2, nspp]
+      ln_sel_slp_dev = array(0, dim = c(2, n_selectivities, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic; n = [2, nspp]
       sel_inf_dev = array(0, dim = c(2, n_selectivities, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic; n = [2, nspp]
 
-      sel_slp_dev_re = array(0, dim = c(2, n_selectivities, 2, nyrs_hind + length(new_years)))  # selectivity random effect deviations paramaters for logistic; n = [2, nspp]
-      sel_inf_dev_re = array(0, dim = c(2, n_selectivities, 2, nyrs_hind + length(new_years)))  # selectivity random effectdeviations paramaters for logistic; n = [2, nspp]
+      # sel_slp_dev_re = array(0, dim = c(2, n_selectivities, 2, nyrs_hind + length(new_years)))  # selectivity random effect deviations paramaters for logistic; n = [2, nspp]
+      # sel_inf_dev_re = array(0, dim = c(2, n_selectivities, 2, nyrs_hind + length(new_years)))  # selectivity random effectdeviations paramaters for logistic; n = [2, nspp]
 
-      sel_slp_dev[,,,1:nyrs_hind] <- estimation_model_use$estimated_params$sel_slp_dev
+      ln_sel_slp_dev[,,,1:nyrs_hind] <- estimation_model_use$estimated_params$ln_sel_slp_dev
       sel_inf_dev[,,,1:nyrs_hind] <- estimation_model_use$estimated_params$sel_inf_dev
-      sel_slp_dev_re[,,,1:nyrs_hind] <- estimation_model_use$estimated_params$sel_slp_dev_re
-      sel_inf_dev_re[,,,1:nyrs_hind] <- estimation_model_use$estimated_params$sel_inf_dev_re
+      # sel_slp_dev_re[,,,1:nyrs_hind] <- estimation_model_use$estimated_params$sel_slp_dev_re
+      # sel_inf_dev_re[,,,1:nyrs_hind] <- estimation_model_use$estimated_params$sel_inf_dev_re
 
-      sel_slp_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_slp_dev[,,,nyrs_hind]
+      # - Initialize next year with terminal year
+      ln_sel_slp_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- ln_sel_slp_dev[,,,nyrs_hind]
       sel_inf_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_inf_dev[,,,nyrs_hind]
-      sel_slp_dev_re[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_slp_dev_re[,,,nyrs_hind]
-      sel_inf_dev_re[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_inf_dev_re[,,,nyrs_hind]
+      # sel_slp_dev_re[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_slp_dev_re[,,,nyrs_hind]
+      # sel_inf_dev_re[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_inf_dev_re[,,,nyrs_hind]
 
-      estimation_model_use$estimated_params$sel_slp_dev <- sel_slp_dev
+      estimation_model_use$estimated_params$ln_sel_slp_dev <- ln_sel_slp_dev
       estimation_model_use$estimated_params$sel_inf_dev <- sel_inf_dev
-      estimation_model_use$estimated_params$sel_slp_dev_re <- sel_slp_dev_re
-      estimation_model_use$estimated_params$sel_inf_dev_re <- sel_inf_dev_re
+      # estimation_model_use$estimated_params$sel_slp_dev_re <- sel_slp_dev_re
+      # estimation_model_use$estimated_params$sel_inf_dev_re <- sel_inf_dev_re
 
 
       # Restimate
-      estimation_model_use <- fit_mod(TMBfilename = estimation_model_use$TMBfilename,
-                                      cpp_directory = estimation_model_use$cpp_directory,
-                                      data_list = estimation_model_use$data_list,
-                                      inits = estimation_model_use$estimated_params,
-                                      map =  NULL,
-                                      bounds = NULL,
-                                      file = NULL,
-                                      debug = estimation_model_use$data_list$debug,
-                                      random_rec = estimation_model_use$data_list$random_rec,
-                                      niter = estimation_model_use$data_list$niter,
-                                      msmMode = estimation_model_use$data_list$msmMode,
-                                      avgnMode = estimation_model_use$data_list$avgnMode,
-                                      minNByage = estimation_model_use$data_list$debug,
-                                      suitMode = estimation_model_use$data_list$suitMode,
-                                      phase = "default",
-                                      silent = TRUE,
-                                      getsd = FALSE,
-                                      recompile = FALSE)
-      #plot_biomass(list(estimation_model_use, operating_model_use), model_names = c("EM", "OM"))
+      estimation_model_use <- fit_mod(
+        data_list = estimation_model_use$data_list,
+        inits = estimation_model_use$estimated_params,
+        map =  NULL,
+        bounds = NULL,
+        file = NULL,
+        debug = estimation_model_use$data_list$debug,
+        random_rec = estimation_model_use$data_list$random_rec,
+        niter = estimation_model_use$data_list$niter,
+        msmMode = estimation_model_use$data_list$msmMode,
+        avgnMode = estimation_model_use$data_list$avgnMode,
+        minNByage = estimation_model_use$data_list$debug,
+        suitMode = estimation_model_use$data_list$suitMode,
+        phase = NULL,
+        silent = TRUE,
+        getsd = FALSE,
+        recompile = FALSE)
+      # plot_biomass(list(estimation_model_use, operating_model_use), model_names = c("EM", "OM"))
       # End year of assessment
 
+      # - Remove unneeded bits for memory reasons
       estimation_model_use$initial_params <- NULL
       estimation_model_use$bounds <- NULL
       estimation_model_use$map <- NULL
       estimation_model_use$obj <- NULL
       estimation_model_use$opt <- NULL
       estimation_model_use$sdrep <- NULL
-      estimation_model_use$quantities[[names(estimation_model_use$quantities) %!in% c("catch_hat", "biomass", "mn_rec", "SB0", "biomassSSB" , "R", "srv_cv_hat")]] <- NULL
+      estimation_model_use$quantities[names(estimation_model_use$quantities) %!in% c("fsh_bio_hat", "biomass", "mn_rec", "SB0", "SB40", "F40_tot" , "biomassSSB" , "R", "srv_log_sd_hat")] <- NULL
 
       Rceattle_EM_list[[sim]][[k+1]] <- estimation_model_use
     }
 
-    plot_biomass(list(estimation_model_use, operating_model_use), model_names = c("EM", "OM"))
-
     # Save models
     Rceattle_OM_list[[sim]] <- operating_model_use
+    names(Rceattle_EM_list[[sim]]) <- c("EM", paste0("OM_Sim_",sim,". EM_projyr_", assess_yrs))
   }
 
-  return(list(Rceattle_OM_list = Rceattle_OM_list, Rceattle_EM_list = Rceattle_EM_list))
+  # - Name them
+  names(Rceattle_OM_list) <- paste0("OM_Sim_",1:nsim)
+  names(Rceattle_EM_list) <- paste0("OM_Sim_",1:nsim)
+
+  return(list(OM_list = Rceattle_OM_list, EM_list = Rceattle_EM_list))
 }
