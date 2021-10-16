@@ -436,7 +436,11 @@ fit_mod <-
       last_par <- params
     }
     else{
-      last_par = obj$env$parList() # FIXME: maybe add obj$env$last.par.best inside?
+      if(!random_rec){
+      last_par = try(obj$env$parList(obj$env$last.par.best)) # FIXME: maybe add obj$env$last.par.best inside?
+      } else {
+        last_par = try(obj$env$parList())
+      }
     }
 
     run_time = ((Sys.time() - start_time))

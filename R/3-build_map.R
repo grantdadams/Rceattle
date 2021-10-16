@@ -860,7 +860,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
     # Check proj F if proj F prop is all 0
     prop_check <- data_list$fleet_control$proj_F_prop[which(data_list$fleet_control$Species == sp & data_list$fleet_control$Fleet_type == 1)]
-    if(sum(as.numeric(prop_check == 0)) != 0){
+    if(sum(as.numeric(prop_check == 0)) != 0){ # If all fisheries for a species have no F in F_prop, turn off future F
       map_list$ln_FSPR[sp,] <- NA
     }
 
