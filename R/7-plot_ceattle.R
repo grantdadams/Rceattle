@@ -196,7 +196,6 @@ plot_biomass <-
 
         # Mean biomass
         for (k in 1:dim(Biomass)[3]) {
-          if(k != 2 & j !=4){
           lines(
             x = Years[[k]],
             y = Biomass[j, 1:length(Years[[k]]), k],
@@ -211,7 +210,6 @@ plot_biomass <-
             lwd = lwd,
             col = line_col[k]
           ) # Median
-          }
         }
 
         # # Credible interval

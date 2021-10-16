@@ -881,7 +881,8 @@ Type objective_function<Type>::operator() () {
 
 
       // 6.1.1. Logisitic selectivity
-      if (sel_type == 1) {
+      switch(sel_type){
+      case 1:
         for (age = 0; age < nages(sp); age++){
           for (yr = 0; yr < nyrs_hind; yr++) {
             for(sex = 0; sex < nsex(sp); sex++){
@@ -897,10 +898,10 @@ Type objective_function<Type>::operator() () {
             }
           }
         }
-      }
+        break;
 
-      // 6.1.2. Non-parametric selectivity fit to age ranges. NOTE: This can likely be improved
-      if (sel_type == 2) {
+        // 6.1.2. Non-parametric selectivity fit to age ranges. NOTE: This can likely be improved
+      case 2:
         for(sex = 0; sex < nsex(sp); sex++){
           for (age = 0; age < nselages; age++) {
             sel_tmp(flt, sex, age) = sel_coff(flt, sex, age);
@@ -938,11 +939,11 @@ Type objective_function<Type>::operator() () {
             }
           }
         }
-      }
+        break;
 
 
-      // 6.1.3. Double logistic (Dorn and Methot 1990)
-      if (sel_type == 3) {
+        // 6.1.3. Double logistic (Dorn and Methot 1990)
+      case 3:
         for (age = 0; age < nages(sp); age++){
           for (yr = 0; yr < nyrs_hind; yr++) {
             for(sex = 0; sex < nsex(sp); sex++){
@@ -961,11 +962,11 @@ Type objective_function<Type>::operator() () {
             }
           }
         }
-      }
+        break;
 
 
-      // 6.1.4. Descending logistic (Dorn and Methot 1990)
-      if (sel_type == 4) {
+        // 6.1.4. Descending logistic (Dorn and Methot 1990)
+      case 4:
         for (age = 0; age < nages(sp); age++){
           for (yr = 0; yr < nyrs_hind; yr++) {
             for(sex = 0; sex < nsex(sp); sex++){
@@ -982,6 +983,7 @@ Type objective_function<Type>::operator() () {
             }
           }
         }
+        break;
       }
 
 
@@ -1198,11 +1200,9 @@ Type objective_function<Type>::operator() () {
             case 1: // Fixed numbers-at-age - fixed scalar
               NByage(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
               break;
-
             case 2: // Fixed numbers-at-age age-independent scalar
               NByage(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
               break;
-
             case 3: // Fixed numbers-at-age age-dependent scalar
               NByage(sp, sex, age, yr) = pop_scalar(sp, age) * NByageFixed(sp, sex, age, yr);
               break;
@@ -1221,8 +1221,8 @@ Type objective_function<Type>::operator() () {
           for(sex = 0; sex < nsex(sp); sex ++){
             biomassByage(sp, age, yr) += NByage(sp, sex, age, yr) * wt( pop_wt_index(sp), sex, age, yr ); // 6.5.
             biomassSSBByage(sp, age, yr) = NByage(sp, 0, age, yr) * pow(S(sp, 0, age, yr), spawn_month(sp)/12) * wt(ssb_wt_index(sp), 0, age, yr ) * pmature(sp, age); // 6.6.
-
           }
+
           biomass(sp, yr) += biomassByage(sp, age, yr);
           biomassSSB(sp, yr) += biomassSSBByage(sp, age, yr);
         }
@@ -1427,17 +1427,19 @@ Type objective_function<Type>::operator() () {
     for (sp = 0; sp < nspp; sp++) {
       for (yr = 0; yr < nyrs; yr++) {
         switch(Ceq(sp)){
-        case 1: // Exponential function from Stewart et al. 1983
+        case 1:// Exponential function from Stewart et al. 1983
           fT(sp, yr) = exp(Qc(sp) * env_index_hat(yr, Cindex(sp)));
           break;
-        case 2: // Temperature dependence for warm-water-species from Kitchell et al. 1977
+
+        case 2:// Temperature dependence for warm-water-species from Kitchell et al. 1977
           Yc = log( Qc(sp) ) * (Tcm(sp) - Tco(sp) + 2);
           Zc = log( Qc(sp) ) * (Tcm(sp) - Tco(sp));
           Vc = (Tcm(sp) - env_index_hat(yr, Cindex(sp))) / (Tcm(sp) - Tco(sp));
           Xc = pow(Zc, 2) * pow((1 + pow((1 + 40 / Yc), 0.5)), 2) / 400;
           fT(sp, yr) = pow(Vc, Xc) * exp(Xc * (1 - Vc));
           break;
-        case 3: // Temperature dependence for cool and cold-water species from Thornton and Lessem 1979
+
+        case 3:// Temperature dependence for cool and cold-water species from Thornton and Lessem 1979
           G2 = (1 / (Tcl(sp) - Tcm(sp))) * log((0.98 * (1 - CK4(sp))) / (CK4(sp) * 0.02));
           L2 = exp(G2 * (Tcl( sp ) -  env_index_hat(yr, Cindex(sp))));
           Kb = (CK4(sp) * L2) / (1 + CK4(sp) * (L2 - 1));
@@ -1446,8 +1448,6 @@ Type objective_function<Type>::operator() () {
           Ka = (CK1(sp) * L1) / (1 + CK1(sp) * (L1 - 1));
           fT(sp, yr) = Ka * Kb;
           break;
-        default:
-          error("Invalid 'Ceq'");
         }
       }
     }
@@ -2091,9 +2091,9 @@ Type objective_function<Type>::operator() () {
                          M2_prop(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind);
                          }
                          */
+
                         switch(msmMode){
-                        // Type 2 MSVPA
-                        case 1:
+                        case 1: // Type 2 MSVPA
                           M2(ksp, k_sex, k_age, yr) += (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr); // #FIXME - include indices of overlap
                           M2_prop(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr);
                           B_eaten(ksp, k_sex, k_age, yr) += AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)/ avail_food(rsp, r_sex, r_age, yr);
@@ -2101,15 +2101,13 @@ Type objective_function<Type>::operator() () {
                           break;
 
 
-                          // Type 3 MSVPA
-                        case 2:
-                          M2(ksp, k_sex, k_age, yr) += pow(AvgN(ksp, k_sex, k_age, yr) , msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / (AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind)); // #FIXME - include indices of overlap
+                        case 2: // Type 3 MSVPA
+                          M2(ksp, k_sex, k_age, yr) += pow(AvgN(ksp, k_sex, k_age, yr) , msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr)
+                                                                                                                                                     * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / (AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind)); // #FIXME - include indices of overlap
                           M2_prop(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / (AvgN(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind));
                           B_eaten(ksp, k_sex, k_age, yr) += pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
                           B_eaten_prop(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) *  AvgN(rsp, r_sex, r_age, yr) * ration2Age(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
                           break;
-                        default:
-                          error("Invalid 'msmMode'");
                         }
                       }
                     }
@@ -2670,39 +2668,37 @@ Type objective_function<Type>::operator() () {
       for (age = 0; age < nages(sp); age++) {
 
 
-        // Fishery
-        if(flt_type(flt) == 1){
-          // Sexes combined or 1 sex assessment
-          if((flt_sex == 0) | (nsex(sp) == 1)){
+        switch(flt_type(flt)){
+        case 1: // - Fishery
+          switch(flt_sex){
+          case 0: // Sexes combined or 1 sex assessment
             for(sex = 0; sex < nsex(sp); sex ++){
               age_hat(comp_ind, age ) += F(flt, sex, age, yr) / Zed(sp, sex, age, yr) * (1 - exp(-Zed(sp, sex, age, yr))) * NByage(sp, sex, age, yr); // 5.4.
               n_hat( comp_ind ) += F(flt, sex, age, yr) / Zed(sp, sex, age, yr) * (1 - exp(-Zed(sp, sex, age, yr))) * NByage(sp, sex, age, yr);
             }
-          }
+            break;
 
-          // Sex specific composition data
-          if((flt_sex == 1)| (flt_sex == 2)){
+          case 1: case 2: // Sex-specific composition data
             sex = flt_sex - 1;
             age_hat(comp_ind, age ) = F(flt, sex, age, yr) / Zed(sp, sex, age, yr) * (1 - exp(-Zed(sp, sex, age, yr))) * NByage(sp, sex, age, yr);
             n_hat( comp_ind ) += F(flt, sex, age, yr) / Zed(sp, sex, age, yr) * (1 - exp(-Zed(sp, sex, age, yr))) * NByage(sp, sex, age, yr);
-          }
+            break;
 
-          // Joint composition data
-          if(flt_sex == 3){
+          case 3: // Joint composition data
             for(sex = 0; sex < nsex(sp); sex ++){
               // Survey catch-at-age
               age_hat(comp_ind, age + nages(sp) * sex ) = F(flt, sex, age, yr) / Zed(sp, sex, age, yr) * (1 - exp(-Zed(sp, sex, age, yr))) * NByage(sp, sex, age, yr);
               // Total numbers
               n_hat(comp_ind) += F(flt, sex, age, yr) / Zed(sp, sex, age, yr) * (1 - exp(-Zed(sp, sex, age, yr))) * NByage(sp, sex, age, yr);
             }
+            break;
           }
-        }
+          break;
 
 
-        // Survey
-        if(flt_type(flt) == 2){
-          // Sexes combined or 1 sex assessment
-          if((flt_sex == 0) | (nsex(sp) == 1)){
+        case 2: // - Survey
+          switch(flt_sex){
+          case 0: // Sexes combined or 1 sex assessment
             for(sex = 0; sex < nsex(sp); sex ++){
               // Survey catch-at-age
               age_hat(comp_ind, age ) += NByage(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * srv_q(flt, yr_ind) * exp( - Type(mo/12) * Zed(sp, sex, age, yr));
@@ -2710,25 +2706,24 @@ Type objective_function<Type>::operator() () {
               n_hat(comp_ind) += NByage(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * srv_q(flt, yr_ind) * exp( - Type(mo/12) * Zed(sp, sex, age, yr));   // Total numbers
               // FIXME - put power in for catchability
             }
-          }
+            break;
 
-          // Sex specific composition data
-          if((flt_sex == 1) | (flt_sex == 2)){
+          case 1: case 2: // Sex-specific composition data
             sex = flt_sex - 1;
             // Survey catch-at-age
             age_hat(comp_ind, age ) = NByage(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * srv_q(flt, yr_ind) * exp( - Type(mo/12) * Zed(sp, sex, age, yr));
             // Total numbers
             n_hat(comp_ind) += NByage(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * srv_q(flt, yr_ind) * exp( - Type(mo/12) * Zed(sp, sex, age, yr));
-          }
+            break;
 
-          // Joint composition data
-          if(flt_sex == 3){
+          case 3: // Joint composition data
             for(sex = 0; sex < nsex(sp); sex ++){
               // Survey catch-at-age
               age_hat(comp_ind, age + nages(sp) * sex ) = NByage(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * srv_q(flt, yr_ind) * exp( - Type(mo/12) * Zed(sp, sex, age, yr));
               // Total numbers
               n_hat(comp_ind) += NByage(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * srv_q(flt, yr_ind) * exp( - Type(mo/12) * Zed(sp, sex, age, yr));
             }
+            break;
           }
         }
       }
@@ -2741,7 +2736,9 @@ Type objective_function<Type>::operator() () {
 
       // Get true age comp
       for (age = 0; age < nages(sp) * joint_adjust(comp_ind); age++) {
-        true_age_comp_hat(comp_ind, age ) = age_hat(comp_ind, age ) / n_hat(comp_ind);
+        if(n_hat(comp_ind) > 0){ //FIXME - not differentiable
+          true_age_comp_hat(comp_ind, age ) = age_hat(comp_ind, age ) / n_hat(comp_ind);
+        }
       }
 
 
@@ -2770,7 +2767,9 @@ Type objective_function<Type>::operator() () {
       //  Survey catch-at-age - standardize to sum to 1
       if (comp_type == 0) {
         for (age = 0; age < nages(sp) * joint_adjust(comp_ind); age++) {
-          comp_hat(comp_ind, age) = age_obs_hat(comp_ind, age ) / n_hat(comp_ind);
+          if(n_hat(comp_ind) > 0){ //FIXME - not differentiable
+            comp_hat(comp_ind, age) = age_obs_hat(comp_ind, age ) / n_hat(comp_ind);
+          }
         }
       }
 
@@ -2813,7 +2812,9 @@ Type objective_function<Type>::operator() () {
 
         // Standardize to sum to 1
         for (ln = 0; ln < nlengths(sp) * joint_adjust(comp_ind); ln++) {
-          comp_hat(comp_ind, ln ) = comp_hat(comp_ind, ln) / n_hat(comp_ind);
+          if(n_hat(comp_ind) > 0){ //FIXME - not differentiable
+            comp_hat(comp_ind, ln ) = comp_hat(comp_ind, ln) / n_hat(comp_ind);
+          }
         }
       }
     }

@@ -46,7 +46,7 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
             if(dat_sim$comp_data$Sex[obs] %in% c(0,1)){
 
                 # If the model is all combined sex, this will throw an error
-                if(Rceattle$data_list$nsex[sp] !=1){
+                if(Rceattle$data_list$nsex[sp] != 1){
                     Rceattle$quantities$comp_hat[obs, (age_length+1):(2*age_length)] <- 0 # Set males to 0
                 }
                 values <- rmultinom(n = 1, size = dat_sim$comp_data$Sample_size[obs], prob = Rceattle$quantities$comp_hat[obs,])
