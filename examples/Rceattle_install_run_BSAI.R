@@ -36,8 +36,19 @@ mydata$est_M1 <- c(0,0,0)
 # Estimation
 ################################################
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
+mydata$projyr <- 2100
 mydata$fleet_control$proj_F_prop <- c(rep(1,3), rep(0,4))
 ss_run <- Rceattle::fit_mod(data_list = mydata,
+                            inits = NULL, # Initial parameters = 0
+                            file = NULL, # Don't save
+                            debug = FALSE, # Estimate
+                            random_rec = FALSE, # No random recruitment
+                            msmMode = 0, # Single species mode
+                            phase = "default",
+                            silent = TRUE)
+
+mydata$fleet_control$proj_F_prop <- c(rep(0,7))
+ss_run_proj <- Rceattle::fit_mod(data_list = mydata,
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save
                             debug = FALSE, # Estimate
