@@ -1088,8 +1088,8 @@ Type objective_function<Type>::operator() () {
     SB40.setZero();
     for (sp = 0; sp < nspp; sp++) {
       NbyageSPR(0, sp, 0) = exp(ln_mean_rec(sp)); // F = 0
-      NbyageSPR(1, sp, 0) = exp(ln_mean_rec(sp)); // F35
-      NbyageSPR(2, sp, 0) = exp(ln_mean_rec(sp)); // F40
+      NbyageSPR(1, sp, 0) = exp(ln_mean_rec(sp)); // F = F35
+      NbyageSPR(2, sp, 0) = exp(ln_mean_rec(sp)); // F = F40
 
       for (age = 1; age < nages(sp)-1; age++) {
         NbyageSPR(0, sp, age) =  NbyageSPR(0, sp, age-1) * exp(-M(sp, 0, age-1, nyrs_hind - 1));

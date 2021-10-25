@@ -20,6 +20,7 @@
 #' @param control A list of control parameters. For details see \code{?nlminb}
 #' @param loopnum number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})
 #' @param newtonsteps number of extra newton steps to take after optimization (alternative to \code{loopnum})
+#' @param verbose Include updates of model fit
 #' @param getJointPrecision return full Hessian of fixed and random effects.
 #' @details
 #' CEATTLE is an age-structured population dynamics model that can be fit with or without predation mortality. The default is to exclude predation mortality by setting \code{msmMode} to 0. Predation mortality can be included by setting \code{msmMode} with the following options:
@@ -127,7 +128,6 @@ fit_mod <-
            suitMode = 0,
            phase = NULL,
            silent = FALSE,
-           recompile = FALSE,
            getsd = TRUE,
            use_gradient = TRUE,
            rel_tol = 1,
@@ -135,6 +135,7 @@ fit_mod <-
                           iter.max = 1e+09, trace = 0),
            getJointPrecision = TRUE,
            loopnum = 5,
+           verbose = TRUE,
            newtonsteps = 0) {
     start_time <- Sys.time()
 
@@ -218,7 +219,7 @@ fit_mod <-
       params <- inits
     }
     start_par <- params
-    message("Step 1: Parameter build complete")
+    if(verbose) {message("Step 1: Parameter build complete")}
 
 
 
@@ -229,7 +230,7 @@ fit_mod <-
     } else{
       map <- map
     }
-    message("Step 2: Map build complete")
+    if(verbose) {message("Step 2: Map build complete")}
 
 
     # STEP 3 - Get bounds
@@ -238,7 +239,7 @@ fit_mod <-
     } else {
       bounds = bounds
     }
-    message("Step 3: Param bounds complete")
+    if(verbose) {message("Step 3: Param bounds complete")}
 
 
     # STEP 4 - Setup random effects
@@ -303,7 +304,7 @@ fit_mod <-
     # - Get cpp file if not provided
     TMBfilename <- "ceattle_v01_07"
 
-    message("Step 4: Compile CEATTLE complete")
+
 
 
     # STEP 6 - Reorganize data and build model object
@@ -316,6 +317,7 @@ fit_mod <-
       params$comp_weights = data_list$fleet_control$Comp_weights
     }
 
+    if(verbose) {message("Step 4: Data rearranged complete")}
 
     # STEP 7 - Set up parameter bounds
     L <- c()
@@ -347,7 +349,7 @@ fit_mod <-
 
       start_par <- phase_pars
 
-      message(paste0("Step ", step,": Phasing complete - getting final estimates"))
+      if(verbose) {message(paste0("Step ", step,": Phasing complete - getting final estimates"))}
       step = step + 1
     }
 
@@ -362,7 +364,7 @@ fit_mod <-
       silent = silent
     )
 
-    message(paste0("Step ",step, ": final build complete"))
+    if(verbose) {message(paste0("Step ",step, ": final build complete. Optimizing."))}
     step = step + 1
 
     # Optimize
@@ -381,7 +383,7 @@ fit_mod <-
       )
     }
 
-    message("Step ",step, ": Final optimization complete")
+    if(verbose) {message("Step ",step, ": Final optimization complete")}
 
     # Get quantities
     quantities <- obj$report(obj$env$last.par.best)

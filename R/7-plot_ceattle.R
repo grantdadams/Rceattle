@@ -1936,7 +1936,7 @@ plot_m2_at_age_prop <-
     ymax <- matrix(0, nrow = nspp, ncol = 2)
     ymin <- matrix(0, nrow = nspp, ncol = 2)
     for (i in 1:nspp) {
-      for(sex in 1:nsex[sp]){
+      for(sex in 1:nsex[i]){
         ymax[i,sex] <- max(c(m2_at_age_prop[,i,sex,, ], 0), na.rm = T)
         ymin[i,sex] <- min(c(m2_at_age_prop[,i,sex,, ], 0), na.rm = T)
       }

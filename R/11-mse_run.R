@@ -340,7 +340,7 @@ mse_run <- function(operating_model = ms_run, estimation_model = ss_run, nsim = 
         phase = NULL,
         silent = TRUE,
         getsd = FALSE,
-        recompile = FALSE)
+        verbose = FALSE)
 
       # ------------------------------------------------------------
       # 2. ESTIMATION MODEL
@@ -418,7 +418,7 @@ mse_run <- function(operating_model = ms_run, estimation_model = ss_run, nsim = 
         phase = NULL,
         silent = TRUE,
         getsd = FALSE,
-        recompile = FALSE)
+        verbose = FALSE)
       # plot_biomass(list(estimation_model_use, operating_model_use), model_names = c("EM", "OM"))
       # End year of assessment
 
@@ -432,6 +432,7 @@ mse_run <- function(operating_model = ms_run, estimation_model = ss_run, nsim = 
       estimation_model_use$quantities[names(estimation_model_use$quantities) %!in% c("fsh_bio_hat", "biomass", "mn_rec", "SB0", "SB40", "F40_tot" , "biomassSSB" , "R", "srv_log_sd_hat")] <- NULL
 
       Rceattle_EM_list[[sim]][[k+1]] <- estimation_model_use
+      message(paste0("Sim ",sim, " - EM Year", assess_yrs[k], " COMPLETE"))
     }
 
     # Save models
