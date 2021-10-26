@@ -1,3 +1,23 @@
+
+# Not working so cpied from https://rdrr.io/cran/TMB/src/R/TMB.R
+## Test for invalid external pointer
+isNullPointer <- function(pointer) {
+  .Call("isNullPointer", pointer, PACKAGE="TMB")
+}
+
+## Add external pointer finalizer
+registerFinalizer <- function(ADFun, DLL) {
+  finalizer <- function(ptr) {
+    if ( ! isNullPointer(ptr) ) {
+      .Call("FreeADFunObject", ptr, PACKAGE=DLL)
+    } else {
+      ## Nothing to free
+    }
+  }
+  reg.finalizer(ADFun$ptr, finalizer)
+}
+
+
 #' Model average of derived quantities
 #'
 #' @param Rceattle list of Rceattle model objects
