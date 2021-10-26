@@ -19,7 +19,7 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
   if(is.null(weights)){
     weights = rep(1/length(Rceattle), length(Rceattle))
   }
-  weights <- weights/sum(weights)
+  weights <- weights/sum(weights) # Normalize
 
   # Extract number of species of each model
   nspp <- sapply(Rceattle, function(x) x$data_list$nspp)
@@ -338,17 +338,17 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
 
 
     # - Pointers
-    weights <- round(weights * nboot)
-    nrows <- 1:sum(weights)
-    rowid <- rep(1:length(weights), weights)
+    draws <- round(weights * nboot)
+    nrows <- 1:sum(draws)
+    rowid <- rep(1:length(draws), draws)
 
     # List to save samples of SSB, B, and R
     recruitment <-
-      array(NA, dim = c(nspp, length(mod_avg_rel_proj_yrs),  sum(weights)))
+      array(NA, dim = c(nspp, length(mod_avg_rel_proj_yrs),  sum(draws)))
     biomassSSB <-
-      array(NA, dim = c(nspp, length(mod_avg_rel_proj_yrs),  sum(weights)))
+      array(NA, dim = c(nspp, length(mod_avg_rel_proj_yrs),  sum(draws)))
     biomass <-
-      array(NA, dim = c(nspp, length(mod_avg_rel_proj_yrs),  sum(weights)))
+      array(NA, dim = c(nspp, length(mod_avg_rel_proj_yrs),  sum(draws)))
 
 
     # Loop across models
@@ -365,7 +365,7 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
         mle <- Rceattle[[i]]$obj$env$last.par.best # Includes fixed and random
         vcov <- solve(Rceattle[[i]]$sdrep$cov.fixed) # names(mle) == rownames(vcov)
       }
-      samples <- MASS::mvrnorm(weights[i], mu = mle, Sigma = vcov)
+      samples <- MASS::mvrnorm(draws[i], mu = mle, Sigma = vcov)
 
       # - Get quantities
       quantities <- apply(samples, 1, function(x) Rceattle[[i]]$obj$report(x)[c("biomass", "biomassSSB", "R")]) # Only want uncertainty in SSB, B, and R
