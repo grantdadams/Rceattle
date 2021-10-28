@@ -136,8 +136,8 @@ plot_biomass <- function(Rceattle,
   for (i in 1:length(Rceattle)) {
     if(mod_avg[i]){
       biomass[,,i] <- qlnorm(0.5, meanlog = log_biomass_mu[,,i], sdlog = log_biomass_sd[,,i]) / 1000000
-      biomass_upper[,,i] <- qlnorm(0.95, meanlog = log_biomass_mu[,,i], sdlog = log_biomass_sd[,,i]) / 1000000
-      biomass_lower[,,i] <- qlnorm(0.05, meanlog = log_biomass_mu[,,i], sdlog = log_biomass_sd[,,i]) / 1000000
+      biomass_upper[,,i] <- qlnorm(0.975, meanlog = log_biomass_mu[,,i], sdlog = log_biomass_sd[,,i]) / 1000000
+      biomass_lower[,,i] <- qlnorm(0.025, meanlog = log_biomass_mu[,,i], sdlog = log_biomass_sd[,,i]) / 1000000
     }
   }
 
@@ -403,8 +403,8 @@ plot_recruitment <- function(Rceattle,
   for (i in 1:length(Rceattle)) {
     if(mod_avg[i]){
       recruitment[,,i] <- qlnorm(0.5, meanlog = log_recruitment_mu[,,i], sdlog = log_recruitment_sd[,,i]) / 1000000
-      recruitment_upper[,,i] <- qlnorm(0.95, meanlog = log_recruitment_mu[,,i], sdlog = log_recruitment_sd[,,i]) / 1000000
-      recruitment_lower[,,i] <- qlnorm(0.05, meanlog = log_recruitment_mu[,,i], sdlog = log_recruitment_sd[,,i]) / 1000000
+      recruitment_upper[,,i] <- qlnorm(0.975, meanlog = log_recruitment_mu[,,i], sdlog = log_recruitment_sd[,,i]) / 1000000
+      recruitment_lower[,,i] <- qlnorm(0.025, meanlog = log_recruitment_mu[,,i], sdlog = log_recruitment_sd[,,i]) / 1000000
     }
   }
 
@@ -1245,8 +1245,8 @@ plot_ssb <- function(Rceattle,
   for (i in 1:length(Rceattle)) {
     if(mod_avg[i]){
       ssb[,,i] <- qlnorm(0.5, meanlog = log_ssb_mu[,,i], sdlog = log_ssb_sd[,,i]) / 1000000
-      ssb_upper[,,i] <- qlnorm(0.95, meanlog = log_ssb_mu[,,i], sdlog = log_ssb_sd[,,i]) / 1000000
-      ssb_lower[,,i] <- qlnorm(0.05, meanlog = log_ssb_mu[,,i], sdlog = log_ssb_sd[,,i]) / 1000000
+      ssb_upper[,,i] <- qlnorm(0.975, meanlog = log_ssb_mu[,,i], sdlog = log_ssb_sd[,,i]) / 1000000
+      ssb_lower[,,i] <- qlnorm(0.025, meanlog = log_ssb_mu[,,i], sdlog = log_ssb_sd[,,i]) / 1000000
     }
   }
 
@@ -1539,10 +1539,10 @@ plot_b_eaten <-
           legend("top", paste0("B_eaten Rho = ",  round(mohns[2,spp+1], 2) ), bty = "n", cex = 1) # B_eaten rho
         }
 
-        if (j == 2) {
+        if (j == 1) {
           if(!is.null(model_names)){
             legend(
-              "topright",
+              "top",
               legend = model_names,
               lty = rep(1, length(line_col)),
               lwd = lwd,
@@ -1731,10 +1731,10 @@ plot_b_eaten_prop <-
           legend("top", paste0("B_eaten_prop Rho = ",  round(mohns[2,spp+1], 2) ), bty = "n", cex = 0.8) # B_eaten_prop rho
         }
 
-        if (j == 2) {
+        if (j == 1) {
           if(!is.null(model_names)){
             legend(
-              "topright",
+              "top",
               legend = model_names,
               lty = rep(1, length(line_col)),
               lwd = lwd,
