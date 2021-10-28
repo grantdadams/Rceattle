@@ -1,11 +1,25 @@
 
-# Not working so cpied from https://rdrr.io/cran/TMB/src/R/TMB.R
-## Test for invalid external pointer
+# Not working via TMB so copied from https://rdrr.io/cran/TMB/src/R/TMB.R
+#' Test for invalid external pointer
+#'
+#' @param pointer
+#'
+#' @return
+#' @export
+#'
 isNullPointer <- function(pointer) {
   .Call("isNullPointer", pointer, PACKAGE="TMB")
 }
 
-## Add external pointer finalizer
+
+#' Add external pointer finalizer
+#'
+#' @param ADFun
+#' @param DLL
+#'
+#' @return
+#' @export
+#'
 registerFinalizer <- function(ADFun, DLL) {
   finalizer <- function(ptr) {
     if ( ! isNullPointer(ptr) ) {
