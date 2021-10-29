@@ -86,8 +86,8 @@ plot_biomass <- function(Rceattle,
   maxyr <- max((sapply(Years, max)))
   if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
 
-  spp <- which(Rceattle[[1]]$data_list$estDynamics == 0)
   nspp <- Rceattle[[1]]$data_list$nspp
+  spp <- 1:nspp
   minage <- Rceattle[[1]]$data_list$minage
 
   if(is.null(species)){
@@ -112,10 +112,12 @@ plot_biomass <- function(Rceattle,
     biomass[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$biomass[,1:nyrs_vec[i]]
 
     # Get SD of biomass
-    sd_temp <- which(names(Rceattle[[i]]$sdrep$value) == "biomass")
-    sd_temp <- Rceattle[[i]]$sdrep$sd[sd_temp]
-    biomass_sd[,  1:nyrs_vec[i], i] <-
-      replace(biomass_sd[, 1:nyrs_vec[i], i], values = sd_temp[1:(nyrs_vec[i] * nspp)])
+    if(add_ci){
+      sd_temp <- which(names(Rceattle[[i]]$sdrep$value) == "biomass")
+      sd_temp <- Rceattle[[i]]$sdrep$sd[sd_temp]
+      biomass_sd[,  1:nyrs_vec[i], i] <-
+        replace(biomass_sd[, 1:nyrs_vec[i], i], values = sd_temp[1:(nyrs_vec[i] * nspp)])
+    }
 
     if(mod_avg[i]){
       log_biomass_sd[,  1:nyrs_vec[i], i] <- apply(Rceattle[[i]]$asymptotic_samples$biomass[,1:nyrs_vec[i],], c(1,2), function(x) sd(as.vector(log(x))))
@@ -380,10 +382,12 @@ plot_recruitment <- function(Rceattle,
     recruitment[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$R[,1:nyrs_vec[i]]
 
     # Get SD of recruitment
-    sd_temp <- which(names(Rceattle[[i]]$sdrep$value) == "R")
-    sd_temp <- Rceattle[[i]]$sdrep$sd[sd_temp]
-    recruitment_sd[,  1:nyrs_vec[i], i] <-
-      replace(recruitment_sd[, 1:nyrs_vec[i], i], values = sd_temp[1:(nyrs_vec[i] * nspp)])
+    if(add_ci){
+      sd_temp <- which(names(Rceattle[[i]]$sdrep$value) == "R")
+      sd_temp <- Rceattle[[i]]$sdrep$sd[sd_temp]
+      recruitment_sd[,  1:nyrs_vec[i], i] <-
+        replace(recruitment_sd[, 1:nyrs_vec[i], i], values = sd_temp[1:(nyrs_vec[i] * nspp)])
+    }
 
     if(mod_avg[i]){
       log_recruitment_sd[,  1:nyrs_vec[i], i] <- apply(Rceattle[[i]]$asymptotic_samples$recruitment[,1:nyrs_vec[i],], c(1,2), function(x) sd(as.vector(log(x))))
@@ -1197,8 +1201,8 @@ plot_ssb <- function(Rceattle,
   maxyr <- max((sapply(Years, max)))
   if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
 
-  spp <- which(Rceattle[[1]]$data_list$estDynamics == 0)
   nspp <- Rceattle[[1]]$data_list$nspp
+  spp <- 1:nspp
   minage <- Rceattle[[1]]$data_list$minage
 
   if(is.null(species)){
@@ -1223,10 +1227,12 @@ plot_ssb <- function(Rceattle,
     ssb[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$biomassSSB[,1:nyrs_vec[i]]
 
     # Get SD of ssb
-    sd_temp <- which(names(Rceattle[[i]]$sdrep$value) == "biomassSSB")
-    sd_temp <- Rceattle[[i]]$sdrep$sd[sd_temp]
-    ssb_sd[,  1:nyrs_vec[i], i] <-
-      replace(ssb_sd[, 1:nyrs_vec[i], i], values = sd_temp[1:(nyrs_vec[i] * nspp)])
+    if(add_ci){
+      sd_temp <- which(names(Rceattle[[i]]$sdrep$value) == "biomassSSB")
+      sd_temp <- Rceattle[[i]]$sdrep$sd[sd_temp]
+      ssb_sd[,  1:nyrs_vec[i], i] <-
+        replace(ssb_sd[, 1:nyrs_vec[i], i], values = sd_temp[1:(nyrs_vec[i] * nspp)])
+    }
 
     if(mod_avg[i]){
       log_ssb_sd[,  1:nyrs_vec[i], i] <- apply(Rceattle[[i]]$asymptotic_samples$biomassSSB[,1:nyrs_vec[i],], c(1,2), function(x) sd(as.vector(log(x))))
