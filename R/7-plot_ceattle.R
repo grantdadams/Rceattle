@@ -89,6 +89,7 @@ plot_biomass <- function(Rceattle,
   nspp <- Rceattle[[1]]$data_list$nspp
   spp <- 1:nspp
   minage <- Rceattle[[1]]$data_list$minage
+  estDynamics <- Rceattle[[1]]$data_list$estDynamics
 
   if(is.null(species)){
 
@@ -173,7 +174,7 @@ plot_biomass <- function(Rceattle,
   ymax <- c()
   ymin <- c()
   for (sp in 1:nspp) {
-    if (add_ci) {
+    if (add_ci & (estDynamics[sp] == 0)) {
       ymax[sp] <- max(c(biomass_upper[sp, , ], 0), na.rm = T)
       ymin[sp] <- min(c(biomass_upper[sp, , ], 0), na.rm = T)
     } else{
@@ -255,14 +256,16 @@ plot_biomass <- function(Rceattle,
 
 
       # Credible interval
-      if (add_ci) {
-        for (k in 1:dim(biomass)[3]) {
-          polygon(
-            x = c(Years[[k]], rev(Years[[k]])),
-            y = c(biomass_upper[spp[j], 1:length(Years[[k]]), k], rev(biomass_lower[spp[j], 1:length(Years[[k]]), k])),
-            col = adjustcolor( line_col[k], alpha.f = alpha),
-            border = NA
-          ) # 95% CI
+      if(estDynamics[spp[j]] == 0){
+        if (add_ci) {
+          for (k in 1:dim(biomass)[3]) {
+            polygon(
+              x = c(Years[[k]], rev(Years[[k]])),
+              y = c(biomass_upper[spp[j], 1:length(Years[[k]]), k], rev(biomass_lower[spp[j], 1:length(Years[[k]]), k])),
+              col = adjustcolor( line_col[k], alpha.f = alpha),
+              border = NA
+            ) # 95% CI
+          }
         }
       }
 
@@ -359,6 +362,7 @@ plot_recruitment <- function(Rceattle,
   spp <- which(Rceattle[[1]]$data_list$estDynamics == 0)
   nspp <- Rceattle[[1]]$data_list$nspp
   minage <- Rceattle[[1]]$data_list$minage
+  estDynamics <- Rceattle[[1]]$data_list$estDynamics
 
   if(is.null(species)){
 
@@ -443,7 +447,7 @@ plot_recruitment <- function(Rceattle,
   ymax <- c()
   ymin <- c()
   for (sp in 1:nspp) {
-    if (add_ci) {
+    if (add_ci & (estDynamics[sp] == 0)) {
       ymax[sp] <- max(c(recruitment_upper[sp, , ], 0), na.rm = T)
       ymin[sp] <- min(c(recruitment_upper[sp, , ], 0), na.rm = T)
     } else{
@@ -489,7 +493,7 @@ plot_recruitment <- function(Rceattle,
         ylim = c(ymin[spp[j]], ymax[spp[j]]),
         xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
         xlab = "Year",
-        ylab = "Biomass (million mt)",
+        ylab = "Age-1 recruits (millions)",
         xaxt = c(rep("n", length(spp) - 1), "s")[j]
       )
 
@@ -525,7 +529,7 @@ plot_recruitment <- function(Rceattle,
 
 
       # Credible interval
-      if (add_ci) {
+      if (add_ci & (estDynamics[spp[j]] == 0)) {
         for (k in 1:dim(recruitment)[3]) {
           polygon(
             x = c(Years[[k]], rev(Years[[k]])),
@@ -1201,6 +1205,7 @@ plot_ssb <- function(Rceattle,
   maxyr <- max((sapply(Years, max)))
   if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
 
+  estDynamics <- Rceattle[[1]]$data_list$estDynamics
   nspp <- Rceattle[[1]]$data_list$nspp
   spp <- 1:nspp
   minage <- Rceattle[[1]]$data_list$minage
@@ -1288,7 +1293,7 @@ plot_ssb <- function(Rceattle,
   ymax <- c()
   ymin <- c()
   for (sp in 1:nspp) {
-    if (add_ci) {
+    if (add_ci & (estDynamics[sp] == 0)) {
       ymax[sp] <- max(c(ssb_upper[sp, , ], 0), na.rm = T)
       ymin[sp] <- min(c(ssb_upper[sp, , ], 0), na.rm = T)
     } else{
@@ -1334,7 +1339,7 @@ plot_ssb <- function(Rceattle,
         ylim = c(ymin[spp[j]], ymax[spp[j]]),
         xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
         xlab = "Year",
-        ylab = "Biomass (million mt)",
+        ylab = "Spawning stock biomass (million mt)",
         xaxt = c(rep("n", length(spp) - 1), "s")[j]
       )
 
@@ -1370,7 +1375,7 @@ plot_ssb <- function(Rceattle,
 
 
       # Credible interval
-      if (add_ci) {
+      if (add_ci & (estDynamics[spp[j]] == 0)) {
         for (k in 1:dim(ssb)[3]) {
           polygon(
             x = c(Years[[k]], rev(Years[[k]])),
