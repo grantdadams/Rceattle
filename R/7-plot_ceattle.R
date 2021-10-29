@@ -60,6 +60,7 @@ plot_biomass <- function(Rceattle,
                          minyr = NULL,
                          incl_proj = FALSE,
                          mod_cex = 1,
+                         alpha = 0.4,
                          mod_avg = rep(FALSE, length(Rceattle))) {
 
   # Convert single one into a list
@@ -257,7 +258,7 @@ plot_biomass <- function(Rceattle,
           polygon(
             x = c(Years[[k]], rev(Years[[k]])),
             y = c(biomass_upper[spp[j], 1:length(Years[[k]]), k], rev(biomass_lower[spp[j], 1:length(Years[[k]]), k])),
-            col = adjustcolor( line_col[k], alpha.f = 0.4),
+            col = adjustcolor( line_col[k], alpha.f = alpha),
             border = NA
           ) # 95% CI
         }
@@ -327,6 +328,7 @@ plot_recruitment <- function(Rceattle,
                              minyr = NULL,
                              incl_proj = FALSE,
                              mod_cex = 1,
+                             alpha = 0.4,
                              mod_avg = rep(FALSE, length(Rceattle))) {
 
   # Convert single one into a list
@@ -524,7 +526,7 @@ plot_recruitment <- function(Rceattle,
           polygon(
             x = c(Years[[k]], rev(Years[[k]])),
             y = c(recruitment_upper[spp[j], 1:length(Years[[k]]), k], rev(recruitment_lower[spp[j], 1:length(Years[[k]]), k])),
-            col = adjustcolor( line_col[k], alpha.f = 0.4),
+            col = adjustcolor( line_col[k], alpha.f = alpha),
             border = NA
           ) # 95% CI
         }
@@ -1169,6 +1171,7 @@ plot_ssb <- function(Rceattle,
                      minyr = NULL,
                      incl_proj = FALSE,
                      mod_cex = 1,
+                     alpha = 0.4,
                      mod_avg = rep(FALSE, length(Rceattle))) {
 
   # Convert single one into a list
@@ -1366,7 +1369,7 @@ plot_ssb <- function(Rceattle,
           polygon(
             x = c(Years[[k]], rev(Years[[k]])),
             y = c(ssb_upper[spp[j], 1:length(Years[[k]]), k], rev(ssb_lower[spp[j], 1:length(Years[[k]]), k])),
-            col = adjustcolor( line_col[k], alpha.f = 0.4),
+            col = adjustcolor( line_col[k], alpha.f = alpha),
             border = NA
           ) # 95% CI
         }

@@ -37,7 +37,7 @@ plot_comp <-
 
 
     # Get colors
-    colvec=c(rgb(1,0,0,.7),rgb(0,0,1,.7),rgb(.1,.1,.1,.7))
+    colvec=c("red", "blue", "black")
 
     # Extract data objects
     # Get observed
@@ -165,7 +165,7 @@ plot_comp <-
     #############################################
     # Plot comps Type 2 - Pearson residual
     #############################################
-    for(comp_type in c(0,1)){
+    for(comp_type in c(0,1)){ # Age0, Length 1
 
       srv <- unique(comp_data$Fleet_code[which(comp_data$Age0_Length1 == comp_type)])
       nsrv <- length(srv)
@@ -229,7 +229,7 @@ plot_comp <-
               y = NA,
               x = NA,
               ylim = c(0, nages[sp] * 1.25),
-              xlim = c(min(comp_data$Year, na.rm = TRUE), max(comp_data$Year, na.rm = TRUE) + right_adj),
+              xlim = c(min(abs(comp_tmp$Year), na.rm = TRUE), max(abs(comp_tmp$Year), na.rm = TRUE) + right_adj),
               xlab = "Year",
               ylab = c("Pearson residual: Age comp", "Pearson residual: Length comp")[comp_type + 1],
               xaxt = "s"
@@ -250,12 +250,12 @@ plot_comp <-
             }
 
             # Positive
-            x_loc <- c(max(comp_data$Year, na.rm = T) - 6, max(comp_data$Year, na.rm = T) - 3.5, max(comp_data$Year, na.rm = T) - 1)
+            x_loc <- c(max(abs(comp_tmp$Year), na.rm = T) - 6, max(abs(comp_tmp$Year), na.rm = T) - 3.5, max(abs(comp_tmp$Year), na.rm = T) - 1)
             symbols( x = x_loc , y = rep(nages[sp] * 1.1, 3) , circle = round(seq(from = 1, to = max_pearson, length.out = 3) , round), inches=0.20,add=T, bg = colvec[3])
             text(x = x_loc, y = rep(nages[sp] * 1.23, 3), labels = round(seq(from = 1, to = max_pearson, length.out = 3) , round))
 
             # Negative
-            x_loc <- c(max(comp_data$Year, na.rm = T) - 8.5, max(comp_data$Year, na.rm = T) - 11, max(comp_data$Year, na.rm = T) - 13.5)
+            x_loc <- c(max(abs(comp_tmp$Year), na.rm = T) - 8.5, max(abs(comp_tmp$Year), na.rm = T) - 11, max(abs(comp_tmp$Year), na.rm = T) - 13.5)
             symbols( x = x_loc , y = rep(nages[sp] * 1.1, 3) , circle = -round(seq(from = -1, to = -max_pearson, length.out = 3) , round), inches=0.20,add=T, bg = NA)
             text(x = x_loc, y = rep(nages[sp] * 1.23, 3), labels = round(seq(from = -1, to = -max_pearson, length.out = 3) , round) )
 
@@ -348,7 +348,7 @@ plot_comp <-
             sp <- fleet_control$Species[which(fleet_control$Fleet_code == srv[j])]
             nages <- list(Rceattle$data_list$nages, Rceattle$data_list$nlengths)[[comp_type + 1]]
 
-            yrs <- sort(unique(c(comp_hat_tmp$Year, comp_tmp$Year)))
+            yrs <- sort(unique(c(abs(comp_hat_tmp$Year), abs(comp_tmp$Year))))
             nyrs <- length(yrs)
 
             # Min and max
@@ -377,7 +377,7 @@ plot_comp <-
               row_cnt = row_cnt + 1
 
               # Subset year for observed and predicted comp
-              comp_tmp_yr <- comp_tmp[which(comp_tmp$Year == yrs[yr]),]
+              comp_tmp_yr <- comp_tmp[which(abs(comp_tmp$Year) == yrs[yr]),]
 
               # Get lower bound for joint sex
               lowercomp <- 0
@@ -454,11 +454,11 @@ plot_comp <-
 
                 # Plot females
                 polygon(x = c(0,comp_tmp_yr_females$age, nages[sp] + 1), y = c(0, comp_tmp_yr_females$comp, 0),col='grey80',border=NA)
-                lines(x = c(0,comp_tmp_yr_females$age, nages[sp] + 1), y =  c(0, comp_tmp_yr_females$comp_hat, 0),col = colvec[1], lwd = lwd)
+                lines(x = c(0,comp_tmp_yr_females$age, nages[sp] + 1), y =  c(0, comp_tmp_yr_females$comp_hat, 0),col = colvec[1], lwd = lwd, lty = ifelse(comp_tmp_yr$Year > 0, 1, 2))
 
                 # Plot males
                 polygon(x = c(0,comp_tmp_yr_males$age, nages[sp] + 1), y = c(0, -comp_tmp_yr_males$comp, 0),col='grey80',border=NA)
-                lines(x = c(0,comp_tmp_yr_males$age, nages[sp] + 1), y = c(0, -comp_tmp_yr_males$comp_hat, 0),col = colvec[2], lwd = lwd)
+                lines(x = c(0,comp_tmp_yr_males$age, nages[sp] + 1), y = c(0, -comp_tmp_yr_males$comp_hat, 0),col = colvec[2], lwd = lwd, lty = ifelse(comp_tmp_yr$Year > 0, 1, 2))
 
                 # Middle line
                 abline( h = 0, col = 1)
@@ -526,14 +526,15 @@ plot_comp <-
             # Reorganize and clean
             comp_tmp <- tidyr::gather(comp_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_tmp)))
             comp_tmp$age <- as.numeric(gsub("Comp_", "", comp_tmp$age))
+            comp_tmp <- comp_tmp[which(comp_tmp$Year > 0),]
 
             comp_hat_tmp <- tidyr::gather(comp_hat_tmp, key = "age", value = "comp", grep("Comp_", colnames(comp_hat_tmp)))
             comp_hat_tmp$age <- as.numeric(gsub("Comp_", "", comp_hat_tmp$age))
+            comp_hat_tmp <- comp_hat_tmp[which(comp_hat_tmp$Year > 0),]
 
             # Combine
             comp_tmp$comp_hat <- comp_hat_tmp$comp
             comp_tmp <- comp_tmp[which(!is.na(comp_tmp$comp)),]
-
 
             # Combine across year for observed and predicted comp
             comp_tmp_sum <- aggregate(comp_tmp$comp, by=list(Category=comp_tmp$age), FUN=sum)
@@ -593,7 +594,7 @@ plot_comp <-
               axis(side = 2, at = y_axis, labels = y_axis)
             }
 
-            mtext(text =  paste0(c("Age comp", "Length comp"))[comp_type + 1],
+            mtext(text =  paste0(c("Aggregated age comp", "Aggregated length comp"))[comp_type + 1],
                   side = 2, line = 2, cex = 0.7)
 
 
