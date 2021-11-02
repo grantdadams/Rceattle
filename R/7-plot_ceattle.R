@@ -242,7 +242,7 @@ plot_biomass <- function(Rceattle,
       if (spp[j] == 1) {
         if(!is.null(model_names)){
           legend(
-            "topright",
+            "top",
             legend = model_names,
             lty = rep(1, length(line_col)),
             lwd = lwd,
