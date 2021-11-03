@@ -22,6 +22,17 @@ mse_run <- function(operating_model = ms_run, estimation_model = ss_run, nsim = 
   Rceattle_OM_list <- list()
   Rceattle_EM_list <- list()
 
+  # - Adjust cap
+  if(!is.null(cap)){
+    if(length(cap) == 1){
+      cap = rep(cap, operating_model$data_list$nspp)
+    }
+
+    if(length(cap) != operating_model$data_list$nspp){
+      stop("cap is not length 1 or length nspp")
+    }
+  }
+
   # Update data-files in OM so we can fill in updated years
   # -- srv_biom
   for(flt in (unique(operating_model$data_list$srv_biom$Fleet_code))){
@@ -223,19 +234,19 @@ mse_run <- function(operating_model = ms_run, estimation_model = ss_run, nsim = 
 
 
     # Run through model
-    for(k in 1:length(assess_yrs)){
+    for(k in 1:(length(assess_yrs))){
 
       # ------------------------------------------------------------
       # 1. OBSERVATION MODEL
       # ------------------------------------------------------------
+      new_years <- proj_yrs[which(proj_yrs <= assess_yrs[k] & proj_yrs > operating_model_use$data_list$endyr)]
 
       # - Get projected catch data from EM
       new_catch_data <- estimation_model_use$data_list$fsh_biom
-      new_years <- proj_yrs[which(proj_yrs <= assess_yrs[k] & proj_yrs > operating_model_use$data_list$endyr)]
       dat_fill_ind <- which(new_catch_data$Year %in% new_years & is.na(new_catch_data$Catch))
       new_catch_data$Catch[dat_fill_ind] <- estimation_model_use$quantities$fsh_bio_hat[dat_fill_ind]
       if(!is.null(cap)){
-        new_catch_data$Catch[dat_fill_ind] <- ifelse(new_catch_data$Catch[dat_fill_ind] > cap, cap, new_catch_data$Catch[dat_fill_ind])
+        new_catch_data$Catch[dat_fill_ind] <- ifelse(new_catch_data$Catch[dat_fill_ind] > cap[new_catch_data$Species[dat_fill_ind]], cap[new_catch_data$Species[dat_fill_ind]], new_catch_data$Catch[dat_fill_ind])
       }
 
       # - Update catch data in OM and EM
@@ -321,8 +332,9 @@ mse_run <- function(operating_model = ms_run, estimation_model = ss_run, nsim = 
         operating_model_use$map[[1]][[i]] <- factor( operating_model_use$map[[2]][[i]])
       }
 
-      operating_model_use$estimated_params$ln_FSPR <- replace(operating_model_use$estimated_params$ln_FSPR, values = rep(-10, length(operating_model_use$estimated_params$ln_FSPR)))
+      # operating_model_use$estimated_params$ln_FSPR <- replace(operating_model_use$estimated_params$ln_FSPR, values = rep(-10, length(operating_model_use$estimated_params$ln_FSPR)))
 
+      operating_model_use$data_lis$endyr <- 2018
       # - Fit OM with new catch data
       operating_model_use <- fit_mod(
         data_list = operating_model_use$data_list,
@@ -335,7 +347,7 @@ mse_run <- function(operating_model = ms_run, estimation_model = ss_run, nsim = 
         niter = operating_model_use$data_list$niter,
         msmMode = operating_model_use$data_list$msmMode,
         avgnMode = operating_model_use$data_list$avgnMode,
-        minNByage = operating_model_use$data_list$debug,
+        minNByage = operating_model_use$data_list$minNByage,
         suitMode = operating_model_use$data_list$suitMode,
         phase = NULL,
         silent = TRUE,
@@ -413,7 +425,7 @@ mse_run <- function(operating_model = ms_run, estimation_model = ss_run, nsim = 
         niter = estimation_model_use$data_list$niter,
         msmMode = estimation_model_use$data_list$msmMode,
         avgnMode = estimation_model_use$data_list$avgnMode,
-        minNByage = estimation_model_use$data_list$debug,
+        minNByage = estimation_model_use$data_list$minNByage,
         suitMode = estimation_model_use$data_list$suitMode,
         phase = NULL,
         silent = TRUE,
@@ -429,10 +441,10 @@ mse_run <- function(operating_model = ms_run, estimation_model = ss_run, nsim = 
       estimation_model_use$obj <- NULL
       estimation_model_use$opt <- NULL
       estimation_model_use$sdrep <- NULL
-      estimation_model_use$quantities[names(estimation_model_use$quantities) %!in% c("fsh_bio_hat", "biomass", "mn_rec", "SB0", "SB40", "F40_tot" , "biomassSSB" , "R", "srv_log_sd_hat")] <- NULL
+      estimation_model_use$quantities[names(estimation_model_use$quantities) %!in% c("fsh_bio_hat", "biomass", "F", "F_tot", "mn_rec", "SB0", "SB40", "F40_tot" , "F35_tot" , "biomassSSB" , "R", "srv_log_sd_hat", "FSPR")] <- NULL
 
       Rceattle_EM_list[[sim]][[k+1]] <- estimation_model_use
-      message(paste0("Sim ",sim, " - EM Year", assess_yrs[k], " COMPLETE"))
+      message(paste0("Sim ",sim, " - EM Year ", assess_yrs[k], " COMPLETE"))
     }
 
     # Save models
@@ -444,5 +456,5 @@ mse_run <- function(operating_model = ms_run, estimation_model = ss_run, nsim = 
   names(Rceattle_OM_list) <- paste0("OM_Sim_",1:nsim)
   names(Rceattle_EM_list) <- paste0("OM_Sim_",1:nsim)
 
-  return(list(OM_list = Rceattle_OM_list, EM_list = Rceattle_EM_list))
+  return(list(OM_list = Rceattle_OM_list, EM_list = Rceattle_EM_list, OM = operating_model, EM = estimation_model))
 }
