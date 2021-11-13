@@ -23,7 +23,8 @@ Imports:
     TMBhelper,
     writexl,
     reshape2,
-    gplots
+    gplots,
+    tidyr
 LinkingTo: 
     TMB
 Remotes: kaskr/TMB_contrib_R/TMBhelper
