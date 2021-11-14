@@ -14,7 +14,7 @@ install.packages('TMB', type = 'source')
 # Try "TMB::runExample(all = TRUE)" to see if TMB works
 
 # Install Rceattle
-devtools::install_github("grantdadams/Rceattle", ref = "grant/time_varying_q_sel_2sex2", auth_token = "4925b42ac46f1e0aefd671e9dc0c1cf1b3157017")
+devtools::install_github("grantdadams/Rceattle")
 
 
 ################################################
@@ -49,8 +49,7 @@ ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
                              debug = 0, # Estimate
                              random_rec = FALSE, # No random recruitment
                              msmMode = 0, # Single species mode
-                             silent = TRUE,
-                             recompile = FALSE)
+                             verbose = 1)
 # Type ?fit_mod for more details
 
 # The you can plot the model results using using
@@ -65,8 +64,7 @@ ss_run_weighted <- Rceattle::fit_mod(data_list = ss_run$data_list,
                             debug = 0, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
-                            silent = TRUE,
-                            recompile = FALSE)
+                            verbose = 1)
 
 # The you can plot the model results using using
 plot_biomass(Rceattle =  list(ss_run, ss_run_weighted))
@@ -86,7 +84,7 @@ ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
                             random_rec = FALSE, # No random recruitment
                             msmMode = 1, # MSVPA based
                             suitMode = 0, # empirical suitability
-                            silent = TRUE)
+                            verbose = 1)
 
 # We can plot both runs as well:
 mod_list <- list(ss_run, ms_run)
@@ -132,7 +130,7 @@ ms_run_proj <- Rceattle::fit_mod(data_list = BS2017MS,
                                  random_rec = FALSE, # No random recruitment
                                  msmMode = 1, # MSVPA based
                                  suitMode = 0, # empirical suitability
-                                 silent = TRUE)
+                                 verbose = 1)
 
 
 
@@ -161,7 +159,7 @@ ms_run_proj2 <- Rceattle::fit_mod(data_list = BS2017MS,
                                   random_rec = FALSE, # No random recruitment
                                   msmMode = 1, # MSVPA based
                                   suitMode = 0, # empirical suitability
-                                  silent = TRUE)
+                                  verbose = 1)
 
 
 # plot
@@ -204,7 +202,7 @@ ss_sim_run <- Rceattle::fit_mod(
   debug = 0, # Estimate
   random_rec = FALSE, # No random recruitment
   msmMode = 0, # Single species mode
-  silent = TRUE)
+  verbose = 1)
 
 # Simulate the multispecies model
 ms_sim <- sim_mod(ms_run)
@@ -216,7 +214,7 @@ ms_sim_run <- Rceattle::fit_mod(
   debug = 0, # Estimate
   random_rec = FALSE, # No random recruitment
   msmMode = 1, # Holsman MS mode
-  silent = TRUE)
+  verbose = 1)
 
 # We can plot the simulated runs
 mod_list <- list(ss_sim_run, ms_sim_run)
@@ -239,7 +237,7 @@ ss_re <- Rceattle::fit_mod(
   debug = 0, # Estimate
   random_rec = TRUE, # Turn of recruitment deviations as random effects
   msmMode = 0, # Single species mode
-  silent = TRUE,
+  verbose = 1,
   phase = NULL)
 
 # Diet estimation
@@ -252,7 +250,7 @@ ms_gamma <- Rceattle::fit_mod(
   random_rec = FALSE, # No random recruitment
   msmMode = 1, # MSVPA based
   suitMode = 1, # Have a gamma function with time-independent length ratio for suitability. Includes diet proportion by weight in likelihood as multinomial
-  silent = TRUE)
+  verbose = 1)
 # Can try different functions. Look at ?fit_mod suitmode
 
 

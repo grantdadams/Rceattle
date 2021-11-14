@@ -45,7 +45,7 @@ ss_run <- Rceattle::fit_mod(data_list = mydata,
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
                             phase = "default",
-                            silent = TRUE)
+                            verbose = 1)
 
 mydata$fleet_control$proj_F_prop <- c(rep(0,7))
 ss_run_proj <- Rceattle::fit_mod(data_list = mydata,
@@ -55,7 +55,7 @@ ss_run_proj <- Rceattle::fit_mod(data_list = mydata,
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
                             phase = "default",
-                            silent = TRUE)
+                            verbose = 1)
 
 # Estimate pollock M
 mydata_M <- mydata
@@ -67,7 +67,7 @@ ss_run_M <- Rceattle::fit_mod(data_list = mydata_M,
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
                             phase = "default",
-                            silent = TRUE,
+                            verbose = 1,
                             recompile = FALSE)
 
 # The you can plot the model results using using
@@ -88,7 +88,7 @@ ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
                             random_rec = FALSE, # No random recruitment
                             msmMode = 1, # MSVPA based
                             suitMode = 0, # empirical suitability
-                            silent = TRUE,
+                            verbose = 1,
                             recompile = FALSE)
 
 

@@ -13,14 +13,16 @@ plot_recruitment(
   spnames = NULL,
   add_ci = FALSE,
   lwd = 3,
-  save_rec = FALSE,
+  save = FALSE,
   right_adj = 0,
   mohns = NULL,
   width = 7,
   height = 6.5,
   minyr = NULL,
   incl_proj = FALSE,
-  mod_cex = 1
+  mod_cex = 1,
+  alpha = 0.4,
+  mod_avg = rep(FALSE, length(Rceattle))
 )
 }
 \arguments{
@@ -41,7 +43,7 @@ function.}
 
 \item{lwd}{Line width as specified by user}
 
-\item{save_rec}{Save recruitment?}
+\item{save}{Save recruitment?}
 
 \item{right_adj}{How many units of the x-axis to add to the right side of the figure for fitting the legend.}
 

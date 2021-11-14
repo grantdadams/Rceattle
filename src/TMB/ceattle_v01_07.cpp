@@ -372,8 +372,10 @@ Type objective_function<Type>::operator() () {
   // 1.2. Temporal dimensions
   DATA_INTEGER( styr );                      // Start year
   DATA_INTEGER( endyr );                     // End of estimation years
+  DATA_INTEGER( suityr );                    // The last year used to calculate average suitability.
   DATA_INTEGER( projyr );                    // End year of projection
   int nyrs = projyr - styr + 1;
+  int nyrs_suit = suityr - styr + 1;
   int nyrs_hind = endyr - styr + 1;
 
   // 1.3. Number of species
@@ -1701,14 +1703,14 @@ Type objective_function<Type>::operator() () {
         // 8.1.1.2. Calculate suitability
         suit_main.setZero();
         suit_other.setZero();
-        for (rsp = 0; rsp < nspp; rsp++) {                      // Predator species loop
-          for(r_sex = 0; r_sex < nsex(rsp); r_sex++){           // Predator sex
-            for (r_age = 0; r_age < nages(rsp); r_age++) {        // Predator age loop
-              suit_other(rsp, r_sex, r_age) = Type( 1 );                 // Initialize other suitability
-              for (ksp = 0; ksp < nspp; ksp++) {                  // Prey species loop
-                for(k_sex = 0; k_sex < nsex(ksp); k_sex++){       // Prey sex loop
+        for (rsp = 0; rsp < nspp; rsp++) {                          // Predator species loop
+          for(r_sex = 0; r_sex < nsex(rsp); r_sex++){               // Predator sex
+            for (r_age = 0; r_age < nages(rsp); r_age++) {          // Predator age loop
+              suit_other(rsp, r_sex, r_age) = Type( 1 );            // Initialize other suitability
+              for (ksp = 0; ksp < nspp; ksp++) {                    // Prey species loop
+                for(k_sex = 0; k_sex < nsex(ksp); k_sex++){         // Prey sex loop
                   for (k_age = 0; k_age < nages(ksp); k_age++) {    // Prey age loop
-                    for (yr = 0; yr < nyrs; yr++) {                 // Year loop
+                    for (yr = 0; yr < nyrs_suit; yr++) {            // Suit year loop
 
                       // Average suitability across years
                       if( suma_suit(rsp, r_sex, r_age, yr ) + of_stomKir(rsp, r_sex, r_age, yr) > 0){
@@ -1717,7 +1719,7 @@ Type objective_function<Type>::operator() () {
                     }       // End year loop
 
                     // FIXME - Add in interannual variability here
-                    suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) /= nyrs;
+                    suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) /= nyrs_suit;
                     suit_other(rsp, r_sex, r_age) -= suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0); // Subtract observed suitability from entire suitability (ksp.e. 1)
 
                     // Remove NAs from crashing populations

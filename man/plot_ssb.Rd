@@ -2,7 +2,7 @@
 % Please edit documentation in R/7-plot_ceattle.R
 \name{plot_ssb}
 \alias{plot_ssb}
-\title{Plot SSB}
+\title{plot_ssb}
 \usage{
 plot_ssb(
   Rceattle,
@@ -11,16 +11,18 @@ plot_ssb(
   line_col = NULL,
   species = NULL,
   spnames = NULL,
+  add_ci = FALSE,
   lwd = 3,
+  save = FALSE,
   right_adj = 0,
-  top_adj = 0.15,
   mohns = NULL,
-  minyr = NULL,
   width = 7,
   height = 6.5,
+  minyr = NULL,
   incl_proj = FALSE,
-  add_ci = FALSE,
-  mod_cex = 1
+  mod_cex = 1,
+  alpha = 0.4,
+  mod_avg = rep(FALSE, length(Rceattle))
 )
 }
 \arguments{
@@ -33,22 +35,31 @@ function.}
 
 \item{line_col}{Colors of models to be used for line color}
 
+\item{species}{Which species to plot e.g. c(1,4). Default = NULL plots them all}
+
 \item{spnames}{Species names for legend}
 
+\item{add_ci}{If the confidence interval is to be added}
+
 \item{lwd}{Line width as specified by user}
+
+\item{save}{Save ssb?}
 
 \item{right_adj}{How many units of the x-axis to add to the right side of the figure for fitting the legend.}
 
 \item{mohns}{data.frame of mohn's rows extracted from \code{\link{retrospective}}}
 
-\item{minyr}{first year to plot}
+\item{minyr}{First year to plot}
 
-\item{incl_proj}{TRUE/FALSE include projections years}
-
-\item{add_ci}{TRUE/FALSE, includes 95 percent confidence interval}
+\item{incl_proj}{TRUE/FALSE, include projection years}
 
 \item{mod_cex}{Cex of text for model name legend}
+
+\item{mod_avg}{Vector of length Rceattle denoting if it is a model average object}
+}
+\value{
+Returns and saves a figure with the population trajectory.
 }
 \description{
-Function the plots the spawning stock biomass trends as estimated from Rceattle. Returns and saves a figure with the ssb trajectory.
+Function the plots the mean ssb and 95\% CI trends as estimated from Rceattle
 }

@@ -12,15 +12,15 @@
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.
 #' @param minNByage Minimum numbers at age to put in a hard constraint that the number-at-age can not go below.
 #' @param phase Optional. List of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R. If NULL, will not phase model. If set to \code{"default"}, will use default phasing.
-#' @param silent logical. IF TRUE, includes TMB estimation progress
-#' @param suitMode Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma selectivity from Kinzey and Punt (2009), 2 = time-varying length based gamma selectivity from Kinzey and Punt (2009), 3 = time-varying weight based gamma selectivity from Kinzey and Punt (2009), 4 = length based lognormal selectivity, 5 = time-varying length based lognormal selectivity, 6 = time-varying weight based lognormal selectivity,
+#' @param suitMode Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), DEPRECATED: 1 = length based gamma selectivity from Kinzey and Punt (2009), 2 = time-varying length based gamma selectivity from Kinzey and Punt (2009), 3 = time-varying weight based gamma selectivity from Kinzey and Punt (2009), 4 = length based lognormal selectivity, 5 = time-varying length based lognormal selectivity, 6 = time-varying weight based lognormal selectivity.
+#' @param suityr Integer. The last year used to calculate average suitability. Defaults to $endyr$ in $data_list$. Used for MSE runs where suitability is held at the value estimated from the years used to condition the OM, but F is estimated for years beyond those used to condition the OM to account for projected catch.
 #' @param getsd	Boolean whether to run standard error calculation
 #' @param use_gradient use the gradient to phase. Default = TRUE
 #' @param rel_tol The relative tolerance for discontinuous likelihood warnings. Set to 1. This evaluates the difference between the TMB object likelihood and the nlminb likelihood.
 #' @param control A list of control parameters. For details see \code{?nlminb}
 #' @param loopnum number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})
 #' @param newtonsteps number of extra newton steps to take after optimization (alternative to \code{loopnum})
-#' @param verbose Include updates of model fit
+#' @param verbose 0 = Silent, 1 = print updates of model fit, 2 = print updates of model fit and TMB estimation progress.
 #' @param getJointPrecision return full Hessian of fixed and random effects.
 #' @details
 #' CEATTLE is an age-structured population dynamics model that can be fit with or without predation mortality. The default is to exclude predation mortality by setting \code{msmMode} to 0. Predation mortality can be included by setting \code{msmMode} with the following options:
@@ -57,7 +57,6 @@
 #'
 #'
 #' @examples
-#'
 #'# Load package and data
 #'library(Rceattle)
 #'data(BS2017SS) # ?BS2017SS for more information on the data
@@ -111,7 +110,6 @@
 #'    silent = TRUE)
 #'
 #' @export
-
 fit_mod <-
   function(
            data_list = NULL,
@@ -126,8 +124,8 @@ fit_mod <-
            avgnMode = 0,
            minNByage = 0,
            suitMode = 0,
+           suityr = NULL,
            phase = NULL,
-           silent = FALSE,
            getsd = TRUE,
            use_gradient = TRUE,
            rel_tol = 1,
@@ -135,7 +133,7 @@ fit_mod <-
                           iter.max = 1e+09, trace = 0),
            getJointPrecision = TRUE,
            loopnum = 5,
-           verbose = TRUE,
+           verbose = 1,
            newtonsteps = 0) {
     start_time <- Sys.time()
 
@@ -206,6 +204,9 @@ fit_mod <-
     data_list$msmMode <- msmMode
     data_list$suitMode <- as.numeric(suitMode)
     data_list$minNByage <- as.numeric(minNByage)
+    if(is.null(data_list$suityr)){
+      data_list$suityr <- data_list$endyr
+    }
 
 
     # STEP 1 - LOAD PARAMETERS
@@ -219,7 +220,7 @@ fit_mod <-
       params <- inits
     }
     start_par <- params
-    if(verbose) {message("Step 1: Parameter build complete")}
+    if(verbose > 0) {message("Step 1: Parameter build complete")}
 
 
 
@@ -230,7 +231,7 @@ fit_mod <-
     } else{
       map <- map
     }
-    if(verbose) {message("Step 2: Map build complete")}
+    if(verbose > 0) {message("Step 2: Map build complete")}
 
 
     # STEP 3 - Get bounds
@@ -239,7 +240,7 @@ fit_mod <-
     } else {
       bounds = bounds
     }
-    if(verbose) {message("Step 3: Param bounds complete")}
+    if(verbose > 0) {message("Step 3: Param bounds complete")}
 
 
     # STEP 4 - Setup random effects
@@ -312,12 +313,13 @@ fit_mod <-
     data_list_reorganized <- Rceattle::rearrange_dat(data_list)
     data_list_reorganized = c(list(model = "ceattle_v01_07"),data_list_reorganized)
 
-    # - Update comp weights from data
+    # - Update comp weights and F_prop from data
     if(!is.null(data_list$fleet_control$Comp_weights)){
       params$comp_weights = data_list$fleet_control$Comp_weights
     }
+    params$proj_F_prop = data_list$fleet_control$proj_F_prop
 
-    if(verbose) {message("Step 4: Data rearranged complete")}
+    if(verbose > 0) {message("Step 4: Data rearranged complete")}
 
     # STEP 7 - Set up parameter bounds
     L <- c()
@@ -342,14 +344,14 @@ fit_mod <-
         random = random_vars,
         phases = phase,
         model_name = TMBfilename,
-        silent = silent,
+        silent = verbose != 2,
         use_gradient = use_gradient,
         control = control
       )
 
       start_par <- phase_pars
 
-      if(verbose) {message(paste0("Step ", step,": Phasing complete - getting final estimates"))}
+      if(verbose > 0) {message(paste0("Step ", step,": Phasing complete - getting final estimates"))}
       step = step + 1
     }
 
@@ -361,10 +363,10 @@ fit_mod <-
       DLL = TMBfilename,
       map = map[[1]],
       random = random_vars,
-      silent = silent
+      silent = verbose != 2
     )
 
-    if(verbose) {message(paste0("Step ",step, ": final build complete. Optimizing."))}
+    if(verbose > 0) {message(paste0("Step ",step, ": final build complete. Optimizing."))}
     step = step + 1
 
     # Optimize
@@ -379,11 +381,11 @@ fit_mod <-
                               getsd = getsd,
                               control = control,
                               getJointPrecision = getJointPrecision,
-                              quiet = silent,
+                              quiet = verbose == 2,
       )
     }
 
-    if(verbose) {message("Step ",step, ": Final optimization complete")}
+    if(verbose > 0) {message("Step ",step, ": Final optimization complete")}
 
     # Get quantities
     quantities <- obj$report(obj$env$last.par.best)

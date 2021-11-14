@@ -17,15 +17,15 @@ fit_mod(
   avgnMode = 0,
   minNByage = 0,
   suitMode = 0,
+  suityr = NULL,
   phase = NULL,
-  silent = FALSE,
-  recompile = FALSE,
   getsd = TRUE,
   use_gradient = TRUE,
   rel_tol = 1,
   control = list(eval.max = 1e+09, iter.max = 1e+09, trace = 0),
   getJointPrecision = TRUE,
   loopnum = 5,
+  verbose = 1,
   newtonsteps = 0
 )
 }
@@ -52,11 +52,11 @@ fit_mod(
 
 \item{minNByage}{Minimum numbers at age to put in a hard constraint that the number-at-age can not go below.}
 
-\item{suitMode}{Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma selectivity from Kinzey and Punt (2009), 2 = time-varying length based gamma selectivity from Kinzey and Punt (2009), 3 = time-varying weight based gamma selectivity from Kinzey and Punt (2009), 4 = length based lognormal selectivity, 5 = time-varying length based lognormal selectivity, 6 = time-varying weight based lognormal selectivity,}
+\item{suitMode}{Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), DEPRECATED: 1 = length based gamma selectivity from Kinzey and Punt (2009), 2 = time-varying length based gamma selectivity from Kinzey and Punt (2009), 3 = time-varying weight based gamma selectivity from Kinzey and Punt (2009), 4 = length based lognormal selectivity, 5 = time-varying length based lognormal selectivity, 6 = time-varying weight based lognormal selectivity.}
+
+\item{suityr}{Integer. The last year used to calculate average suitability. Defaults to $endyr$ in $data_list$. Used for MSE runs where suitability is held at the value estimated from the years used to condition the OM, but F is estimated for years beyond those used to condition the OM to account for projected catch.}
 
 \item{phase}{Optional. List of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R. If NULL, will not phase model. If set to \code{"default"}, will use default phasing.}
-
-\item{silent}{logical. IF TRUE, includes TMB estimation progress}
 
 \item{getsd}{Boolean whether to run standard error calculation}
 
@@ -69,6 +69,8 @@ fit_mod(
 \item{getJointPrecision}{return full Hessian of fixed and random effects.}
 
 \item{loopnum}{number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})}
+
+\item{verbose}{0 = Silent, 1 = print updates of model fit, 2 = print updates of model fit and TMB estimation progress.}
 
 \item{newtonsteps}{number of extra newton steps to take after optimization (alternative to \code{loopnum})}
 }
@@ -106,7 +108,6 @@ CEATTLE is an age-structured population dynamics model that can be fit with or w
 }
 }
 \examples{
-
 # Load package and data
 library(Rceattle)
 data(BS2017SS) # ?BS2017SS for more information on the data
