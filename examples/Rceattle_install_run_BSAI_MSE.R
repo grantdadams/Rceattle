@@ -46,7 +46,7 @@ ss_run <- Rceattle::fit_mod(data_list = mydata,
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
                             phase = "default",
-                            silent = TRUE)
+                            verbose = 1)
 
 # The you can plot the model results using using
 plot_biomass(Rceattle =  ss_run, incl_proj = T)
@@ -64,7 +64,7 @@ ss_run_M <- Rceattle::fit_mod(data_list = mydata_M,
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
                               phase = "default",
-                              silent = TRUE)
+                              verbose = 1)
 
 
 
@@ -80,7 +80,7 @@ ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
                             random_rec = FALSE, # No random recruitment
                             msmMode = 1, # MSVPA based
                             suitMode = 0, # empirical suitability
-                            silent = TRUE)
+                            verbose = 1)
 
 # We can plot both runs as well:
 mod_list <- list(ss_run, ms_run)

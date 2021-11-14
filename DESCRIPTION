@@ -24,7 +24,8 @@ Imports:
     writexl,
     reshape2,
     gplots,
-    tidyr
+    tidyr,
+    testthat
 LinkingTo: 
     TMB
 Remotes: kaskr/TMB_contrib_R/TMBhelper

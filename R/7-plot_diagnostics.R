@@ -114,7 +114,7 @@ plot_index <- function(Rceattle,
         }
 
 
-        minyr <- min(sapply(Srv_list, function(x) min(x[which(x$Fleet_code == srvs[srv]),]$Year)))
+        minyr <- min(sapply(Srv_list, function(x) min(x[which(x$Fleet_code == srvs[srv] & x$Year > 0),]$Year)))
         maxyr <- max(sapply(Srv_list, function(x) max(x[which(x$Fleet_code == srvs[srv]),]$Year)))
 
         par(Par)
@@ -174,7 +174,7 @@ plot_index <- function(Rceattle,
 
 
       for(srv in 1:nsrv){
-        minyr <- min(sapply(Srv_list, function(x) min(x[which(x$Fleet_code == srvs[srv]),]$Year)))
+        minyr <- min(sapply(Srv_list, function(x) min(x[which(x$Fleet_code == srvs[srv] & x$Year > 0),]$Year)))
         maxyr <- max(sapply(Srv_list, function(x) max(x[which(x$Fleet_code == srvs[srv]),]$Year)))
 
         xlim <- c(minyr, maxyr)
@@ -510,16 +510,17 @@ plot_logindex <- function(Rceattle,
     }
 
     # Get observed
-    Srv_list[[i]] <- Rceattle[[i]]$data_list$srv_biom
-    Srv_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$srv_log_sd_hat
+
+    Srv_list[[i]] <- Rceattle[[i]]$data_list$srv_biom[which(Rceattle[[i]]$data_list$srv_biom$Year > 0),]
+    Srv_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$srv_log_sd_hat[which(Rceattle[[i]]$data_list$srv_biom$Year > 0)]
     Srv_list[[i]]$Upper95 <- qlnorm(0.975, meanlog = log(Srv_list[[i]]$Observation), sdlog = Srv_list[[i]]$Log_sd)
     Srv_list[[i]]$Lower95 <- qlnorm(0.025, meanlog = log(Srv_list[[i]]$Observation), sdlog = Srv_list[[i]]$Log_sd)
 
 
     # Get estimated
-    Srv_hat_list[[i]] <- Rceattle[[i]]$data_list$srv_biom
-    Srv_hat_list[[i]]$Observation <- Rceattle[[i]]$quantities$srv_bio_hat
-    Srv_hat_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$srv_log_sd_hat
+    Srv_hat_list[[i]] <- Rceattle[[i]]$data_list$srv_biom[which(Rceattle[[i]]$data_list$srv_biom$Year > 0),]
+    Srv_hat_list[[i]]$Observation <- Rceattle[[i]]$quantities$srv_bio_hat[which(Rceattle[[i]]$data_list$srv_biom$Year > 0)]
+    Srv_hat_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$srv_log_sd_hat[which(Rceattle[[i]]$data_list$srv_biom$Year > 0)]
   }
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
   nyrs_vec <- sapply(Years, length)
@@ -569,7 +570,7 @@ plot_logindex <- function(Rceattle,
         }
 
 
-        minyr <- min(sapply(Srv_list, function(x) min(x[which(x$Fleet_code == srvs[srv]),]$Year)))
+        minyr <- min(sapply(Srv_list, function(x) min(x[which(x$Fleet_code == srvs[srv] & x$Year > 0),]$Year)))
         maxyr <- max(sapply(Srv_list, function(x) max(x[which(x$Fleet_code == srvs[srv]),]$Year)))
 
         par(Par)
@@ -629,7 +630,7 @@ plot_logindex <- function(Rceattle,
 
 
       for(srv in 1:nsrv){
-        minyr <- min(sapply(Srv_list, function(x) min(x[which(x$Fleet_code == srvs[srv]),]$Year)))
+        minyr <- min(sapply(Srv_list, function(x) min(x[which(x$Fleet_code == srvs[srv] & x$Year > 0),]$Year)))
         maxyr <- max(sapply(Srv_list, function(x) max(x[which(x$Fleet_code == srvs[srv]),]$Year)))
 
         xlim <- c(minyr, maxyr)
@@ -803,7 +804,7 @@ plot_indexresidual <- function(Rceattle,
           png(file = filename, width = width, height = height, res = 200, units = "in")
         }
 
-        minyr <- min(sapply(Srv_hat_list, function(x) min(x[which(x$Fleet_code == srvs[srv]),]$Year)))
+        minyr <- min(sapply(Srv_hat_list, function(x) min(x[which(x$Fleet_code == srvs[srv] & x$Year > 0),]$Year)))
         maxyr <- max(sapply(Srv_hat_list, function(x) max(x[which(x$Fleet_code == srvs[srv]),]$Year)))
 
         par(Par)
@@ -865,7 +866,7 @@ plot_indexresidual <- function(Rceattle,
 
 
       for(srv in 1:nsrv){
-        minyr <- min(sapply(Srv_hat_list, function(x) min(x[which(x$Fleet_code == srvs[srv]),]$Year)))
+        minyr <- min(sapply(Srv_hat_list, function(x) min(x[which(x$Fleet_code == srvs[srv] & x$Year > 0),]$Year)))
         maxyr <- max(sapply(Srv_hat_list, function(x) max(x[which(x$Fleet_code == srvs[srv]),]$Year)))
 
         xlim <- c(minyr, maxyr)

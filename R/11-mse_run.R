@@ -53,6 +53,8 @@ mse_run <- function(operating_model = ms_run, estimation_model = ss_run, nsim = 
   }
   operating_model$data_list$srv_biom <- operating_model$data_list$srv_biom[
     with(operating_model$data_list$srv_biom, order(Fleet_code, abs(Year))),]
+  operating_model$quantities$srv_log_sd_hat <- operating_model$data_list$srv_biom$Log_sd
+  operating_model$quantities$srv_bio_hat <- operating_model$data_list$srv_biom$Observation
 
 
   # -- comp_data
@@ -298,7 +300,7 @@ mse_run <- function(operating_model = ms_run, estimation_model = ss_run, nsim = 
 
 
       # - Update map (Only new parameter we are estimating in OM is the F_dev of the new years)
-      operating_model_use$map <- Rceattle::build_map(
+      operating_model_use$map <- build_map(
         data_list = operating_model_use$data_list,
         params = operating_model_use$estimated_params,
         debug = operating_model_use$data_list$debug,
@@ -334,7 +336,6 @@ mse_run <- function(operating_model = ms_run, estimation_model = ss_run, nsim = 
 
       # operating_model_use$estimated_params$ln_FSPR <- replace(operating_model_use$estimated_params$ln_FSPR, values = rep(-10, length(operating_model_use$estimated_params$ln_FSPR)))
 
-      operating_model_use$data_lis$endyr <- 2018
       # - Fit OM with new catch data
       operating_model_use <- fit_mod(
         data_list = operating_model_use$data_list,
@@ -342,17 +343,17 @@ mse_run <- function(operating_model = ms_run, estimation_model = ss_run, nsim = 
         map =  operating_model_use$map,
         bounds = NULL,
         file = NULL,
-        debug = operating_model_use$data_list$debug,
+        debug = 0,
         random_rec = operating_model_use$data_list$random_rec,
         niter = operating_model_use$data_list$niter,
         msmMode = operating_model_use$data_list$msmMode,
         avgnMode = operating_model_use$data_list$avgnMode,
         minNByage = operating_model_use$data_list$minNByage,
         suitMode = operating_model_use$data_list$suitMode,
+        suityr = operating_model$data_list$endyr,
         phase = NULL,
-        silent = TRUE,
         getsd = FALSE,
-        verbose = FALSE)
+        verbose = 0)
 
       # ------------------------------------------------------------
       # 2. ESTIMATION MODEL
@@ -428,9 +429,8 @@ mse_run <- function(operating_model = ms_run, estimation_model = ss_run, nsim = 
         minNByage = estimation_model_use$data_list$minNByage,
         suitMode = estimation_model_use$data_list$suitMode,
         phase = NULL,
-        silent = TRUE,
         getsd = FALSE,
-        verbose = FALSE)
+        verbose = 0)
       # plot_biomass(list(estimation_model_use, operating_model_use), model_names = c("EM", "OM"))
       # End year of assessment
 
