@@ -343,7 +343,7 @@ mse_run <- function(operating_model = ms_run, estimation_model = ss_run, nsim = 
         map =  operating_model_use$map,
         bounds = NULL,
         file = NULL,
-        debug = 0,
+        debug = operating_model_use$data_list$debug,
         random_rec = operating_model_use$data_list$random_rec,
         niter = operating_model_use$data_list$niter,
         msmMode = operating_model_use$data_list$msmMode,
