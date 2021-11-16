@@ -39,6 +39,7 @@
 // 21. All kinzey predation bits are commented out
 // 22. All random effect selectivity and catchability deviates are commented out
 // 23. Estimate M1 for sex/species
+// 24. Fixed suitability estimation (use hindcast only)
 //
 //  INDEX:
 //  0. Load dependencies

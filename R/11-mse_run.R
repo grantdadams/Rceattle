@@ -15,8 +15,9 @@
 #'
 #' @examples
 mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, sampling_period = 1, simulate = TRUE, cap = NULL, seed = 666){
+  om = ms_run; em = ss_run
   '%!in%' <- function(x,y)!('%in%'(x,y))
-
+  library(dplyr)
   set.seed(seed)
 
   Rceattle_OM_list <- list()
@@ -33,210 +34,91 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
     }
   }
 
-  # Update data-files in OM so we can fill in updated years
-  # -- srv_biom
-  for(flt in (unique(om$data_list$srv_biom$Fleet_code))){
-    sub_rows <- which(om$data_list$srv_biom$Fleet_code == flt)
-    srv_biom_sub <- om$data_list$srv_biom[sub_rows,]
-    yrs_proj <- (om$data_list$endyr + 1):om$data_list$projyr
-    nyrs_proj <- length(yrs_proj)
-    proj_srv_biom <- data.frame(Fleet_name = rep(srv_biom_sub$Fleet_name[1], nyrs_proj),
-                                Fleet_code = rep(flt, nyrs_proj),
-                                Species = rep(srv_biom_sub$Species[1], nyrs_proj),
-                                Year = -yrs_proj,
-                                Month = rep(srv_biom_sub$Month[length(srv_biom_sub$Month)], nyrs_proj),
-                                Selectivity_block = rep(srv_biom_sub$Selectivity_block[length(srv_biom_sub$Selectivity_block)], nyrs_proj),
-                                Q_block = rep(srv_biom_sub$Selectivity_block[length(srv_biom_sub$Selectivity_block)], nyrs_proj),
-                                Observation = rep(NA, nyrs_proj),
-                                Log_sd = rep(mean(om$quantities$srv_log_sd_hat[sub_rows], na.rm = TRUE), nyrs_proj)) # FIXME: not sure what the best is to put here, using mean
-    om$data_list$srv_biom <- rbind(om$data_list$srv_biom, proj_srv_biom)
-  }
-  om$data_list$srv_biom <- om$data_list$srv_biom[
-    with(om$data_list$srv_biom, order(Fleet_code, abs(Year))),]
-  om$quantities$srv_log_sd_hat <- om$data_list$srv_biom$Log_sd
-  om$quantities$srv_bio_hat <- om$data_list$srv_biom$Observation
-
-
-  # -- Nbyage
-  for(spp in 1:om$data_list$nspp){
-    if(om$data_list$estDynamics[spp] > 0){
-      for(sex in 1:om$data_list$nsex){
-        sub_rows <- which(om$data_list$NByageFixed$Species == spp &
-                            om$data_list$NByageFixed$Sex == sex)
-        NByageFixed_sub <- om$data_list$NByageFixed[sub_rows,]
-        yrs_proj <- (om$data_list$endyr + 1):om$data_list$projyr
-        yrs_proj <- yrs_proj[which(yrs_proj %!in% NByageFixed_sub$Year)] # What projection years are not present
-        nyrs_proj <- length(yrs_proj)
-
-        proj_NByageFixed <- data.frame(Species_name = rep(comp_data_sub$Fleet_name[1], nyrs_proj),
-                                       Species  = rep(flt, nyrs_proj),
-                                     Sex = rep(comp_data_sub$Sex[length(comp_data_sub$Sex)], nyrs_proj),
-                                     Year = -yrs_proj) # Negative year for predicting
-        proj_nbyage <- data.frame(matrix(0, ncol = ncol(NByageFixed_sub) - ncol(proj_NByageFixed), nrow = nyrs_proj))
-        colnames(proj_nbyage) <-paste0("Age", 1:ncol(proj_comps))
-        proj_NByageFixed <-cbind(proj_NByageFixed, proj_nbyage)
-        om$data_list$NByageFixed <- rbind(om$data_list$NByageFixed, proj_NByageFixed)
-      }
-    }
-  }
-  om$data_list$NByageFixed <- om$data_list$NByageFixed[
-    with(om$data_list$NByageFixed, order(Species, abs(Year))),]
-
-
-  # -- comp_data
-  #FIXME may not work if male/females composition is separate
-  for(flt in (unique(om$data_list$comp_data$Fleet_code))){
-    comp_data_sub <- om$data_list$comp_data[which(om$data_list$comp_data$Fleet_code == flt),]
-    yrs_proj <- (om$data_list$endyr + 1):om$data_list$projyr
-    nyrs_proj <- length(yrs_proj)
-    proj_comp_data <- data.frame(Fleet_name = rep(comp_data_sub$Fleet_name[1], nyrs_proj),
-                                 Fleet_code = rep(flt, nyrs_proj),
-                                 Species = rep(comp_data_sub$Species[1], nyrs_proj),
-                                 Sex = rep(comp_data_sub$Sex[length(comp_data_sub$Sex)], nyrs_proj),
-                                 Age0_Length1 = rep(comp_data_sub$Age0_Length1[length(comp_data_sub$Age0_Length1)], nyrs_proj),
-                                 Year = -yrs_proj, # Negative year for predicting
-                                 Month = rep(comp_data_sub$Month[length(comp_data_sub$Month)], nyrs_proj),
-                                 Sample_size = rep(comp_data_sub$Sample_size[length(comp_data_sub$Sample_size)], nyrs_proj))
-    proj_comps <- data.frame(matrix(0, ncol = ncol(comp_data_sub) - ncol(proj_comp_data), nrow = nyrs_proj))
-    colnames(proj_comps) <-paste0("Comp_", 1:ncol(proj_comps))
-    proj_comp_data <-cbind(proj_comp_data, proj_comps)
-
-    om$data_list$comp_data <- rbind(om$data_list$comp_data, proj_comp_data)
-  }
-  om$data_list$comp_data <- om$data_list$comp_data[
-    with(om$data_list$comp_data, order(Fleet_code, abs(Year))),]
-
-  # -- emp_sel - Use terminal year
-  for(flt in (unique(om$data_list$emp_sel$Fleet_code))){
-    emp_sel_sub <- om$data_list$emp_sel[which(om$data_list$emp_sel$Fleet_code == flt),]
-    yrs_proj <- (om$data_list$endyr + 1):om$data_list$projyr
-    nyrs_proj <- length(yrs_proj)
-    proj_emp_sel <- data.frame(Fleet_name = rep(emp_sel_sub$Fleet_name[1], nyrs_proj),
-                               Fleet_code = rep(flt, nyrs_proj),
-                               Species = rep(emp_sel_sub$Species[1], nyrs_proj),
-                               Sex = rep(emp_sel_sub$Sex[length(emp_sel_sub$Sex)], nyrs_proj),
-                               Year = yrs_proj)
-    proj_comps <- data.frame(matrix(emp_sel_sub[nrow(emp_sel_sub), (ncol(proj_emp_sel) + 1) : ncol(emp_sel_sub)], ncol = ncol(emp_sel_sub) - ncol(proj_emp_sel), nrow = nyrs_proj, byrow = TRUE))
-    colnames(proj_comps) <-paste0("Comp_", 1:ncol(proj_comps))
-    proj_emp_sel <-cbind(proj_emp_sel, proj_comps)
-
-    om$data_list$emp_sel <- rbind(om$data_list$emp_sel, proj_emp_sel)
-  }
-  om$data_list$emp_sel <- om$data_list$emp_sel[
-    with(om$data_list$emp_sel, order(Fleet_code, Year)),]
-
-  # -- wt
-  for(flt in (unique(om$data_list$wt$Wt_index))){
-    wt_sub <- om$data_list$wt[which(om$data_list$wt$Wt_index == flt),]
-    yrs_proj <- (om$data_list$endyr + 1):om$data_list$projyr
-    yrs_proj <- yrs_proj[which(yrs_proj %!in% wt_sub$Year)]
-    nyrs_proj <- length(yrs_proj)
-    proj_wt <- data.frame(Wt_name = rep(wt_sub$Wt_name[1], nyrs_proj),
-                          Wt_index = rep(flt, nyrs_proj),
-                          Species = rep(wt_sub$Species[1], nyrs_proj),
-                          Sex = rep(wt_sub$Sex[length(wt_sub$Sex)], nyrs_proj),
-                          Year = yrs_proj
-    )
-    proj_comps <- data.frame(matrix(wt_sub[nrow(wt_sub), (ncol(proj_wt)+1) : ncol(wt_sub)], ncol = ncol(wt_sub) - ncol(proj_wt), nrow = nyrs_proj, byrow = TRUE))
-    colnames(proj_comps) <-paste0("Age", 1:ncol(proj_comps))
-    proj_wt <-cbind(proj_wt, proj_comps)
-    colnames(proj_wt) <- colnames(om$data_list$wt)
-    om$data_list$wt <- rbind(om$data_list$wt, proj_wt)
-  }
-  om$data_list$wt <- om$data_list$wt[
-    with(om$data_list$wt, order(Wt_index, Year)),]
-
-
-  # -- Pyrs
-  for(flt in (unique(om$data_list$wt$Species))){
-    Pyrs_sub <- om$data_list$Pyrs[which(om$data_list$Pyrs$Species == flt),]
-    yrs_proj <- (om$data_list$endyr + 1):om$data_list$projyr
-    nyrs_proj <- length(yrs_proj)
-    proj_Pyrs <- data.frame(Species = rep(Pyrs_sub$Species[1], nyrs_proj),
-                            Sex = rep(Pyrs_sub$Sex[length(Pyrs_sub$Sex)], nyrs_proj),
-                            Year = yrs_proj)
-
-    proj_comps <- data.frame(matrix(Pyrs_sub[nrow(Pyrs_sub), (ncol(proj_Pyrs)+1) : ncol(Pyrs_sub)], ncol = ncol(Pyrs_sub) - ncol(proj_Pyrs), nrow = nyrs_proj, byrow = TRUE))
-    colnames(proj_comps) <-paste0("Age", 1:ncol(proj_comps))
-    proj_Pyrs <-cbind(proj_Pyrs, proj_comps)
-    colnames(proj_Pyrs) <- colnames(om$data_list$Pyrs)
-    om$data_list$Pyrs <- rbind(om$data_list$Pyrs, proj_Pyrs)
-  }
-  om$data_list$Pyrs <- om$data_list$Pyrs[
-    with(om$data_list$Pyrs, order(Species, Year)),]
-
-
-  # Update data in EM
-  #FIXME - assuming same as terminal year of hindcast
-  # -- emp_sel - Use terminal year
-  for(flt in (unique(em$data_list$emp_sel$Fleet_code))){
-    emp_sel_sub <- em$data_list$emp_sel[which(em$data_list$emp_sel$Fleet_code == flt),]
-    yrs_proj <- (em$data_list$endyr + 1):em$data_list$projyr
-    nyrs_proj <- length(yrs_proj)
-    proj_emp_sel <- data.frame(Fleet_name = rep(emp_sel_sub$Fleet_name[1], nyrs_proj),
-                               Fleet_code = rep(flt, nyrs_proj),
-                               Species = rep(emp_sel_sub$Species[1], nyrs_proj),
-                               Sex = rep(emp_sel_sub$Sex[length(emp_sel_sub$Sex)], nyrs_proj),
-                               Year = yrs_proj)
-    proj_comps <- data.frame(matrix(emp_sel_sub[nrow(emp_sel_sub), (ncol(proj_emp_sel) + 1) : ncol(emp_sel_sub)], ncol = ncol(emp_sel_sub) - ncol(proj_emp_sel), nrow = nyrs_proj, byrow = TRUE))
-    colnames(proj_comps) <-paste0("Comp_", 1:ncol(proj_comps))
-    proj_emp_sel <-cbind(proj_emp_sel, proj_comps)
-
-    em$data_list$emp_sel <- rbind(em$data_list$emp_sel, proj_emp_sel)
-  }
-  em$data_list$emp_sel <- em$data_list$emp_sel[
-    with(em$data_list$emp_sel, order(Fleet_code, Year)),]
-
-
-  # -- wt
-  for(flt in (unique(em$data_list$wt$Wt_index))){
-    wt_sub <- em$data_list$wt[which(em$data_list$wt$Wt_index == flt),]
-    yrs_proj <- (em$data_list$endyr + 1):em$data_list$projyr
-    yrs_proj <- yrs_proj[which(yrs_proj %!in% wt_sub$Year)]
-    nyrs_proj <- length(yrs_proj)
-    proj_wt <- data.frame(Wt_name = rep(wt_sub$Wt_name[1], nyrs_proj),
-                          Wt_index = rep(flt, nyrs_proj),
-                          Species = rep(wt_sub$Species[1], nyrs_proj),
-                          Sex = rep(wt_sub$Sex[length(wt_sub$Sex)], nyrs_proj),
-                          Year = yrs_proj
-    )
-    proj_comps <- data.frame(matrix(wt_sub[nrow(wt_sub), (ncol(proj_wt)+1) : ncol(wt_sub)], ncol = ncol(wt_sub) - ncol(proj_wt), nrow = nyrs_proj, byrow = TRUE))
-    colnames(proj_comps) <-paste0("Age", 1:ncol(proj_comps))
-    proj_wt <-cbind(proj_wt, proj_comps)
-    colnames(proj_wt) <- colnames(om$data_list$wt)
-    em$data_list$wt <- rbind(em$data_list$wt, proj_wt)
-  }
-  em$data_list$wt <- em$data_list$wt[
-    with(em$data_list$wt, order(Wt_index, Year)),]
-
-
-  # -- Pyrs
-  for(flt in (unique(em$data_list$wt$Species))){
-    Pyrs_sub <- em$data_list$Pyrs[which(em$data_list$Pyrs$Species == flt),]
-    yrs_proj <- (em$data_list$endyr + 1):em$data_list$projyr
-    nyrs_proj <- length(yrs_proj)
-    proj_Pyrs <- data.frame(Species = rep(Pyrs_sub$Species[1], nyrs_proj),
-                            Sex = rep(Pyrs_sub$Sex[length(Pyrs_sub$Sex)], nyrs_proj),
-                            Year = yrs_proj)
-
-    proj_comps <- data.frame(matrix(Pyrs_sub[nrow(Pyrs_sub), (ncol(proj_Pyrs)+1) : ncol(Pyrs_sub)], ncol = ncol(Pyrs_sub) - ncol(proj_Pyrs), nrow = nyrs_proj, byrow = TRUE))
-    colnames(proj_comps) <-paste0("Age", 1:ncol(proj_comps))
-    proj_Pyrs <-cbind(proj_Pyrs, proj_comps)
-    colnames(proj_Pyrs) <- colnames(om$data_list$Pyrs)
-    em$data_list$Pyrs <- rbind(em$data_list$Pyrs, proj_Pyrs)
-  }
-  em$data_list$Pyrs <- em$data_list$Pyrs[
-    with(em$data_list$Pyrs, order(Species, Year)),]
-
-
-
   # Years for simulations
   proj_yrs <- (em$data_list$endyr + 1) : em$data_list$projyr
   proj_nyrs <- length(proj_yrs)
   assess_yrs <- seq(from = em$data_list$endyr + assessment_period, to = em$data_list$projyr,  by = assessment_period)
   sample_yrs <- seq(from = em$data_list$endyr + sampling_period, to = em$data_list$projyr,  by = sampling_period)
 
+  # Update data-files in OM so we can fill in updated years
+  # -- srv_biom
+  proj_srv <- om$data_list$srv_biom %>%
+    group_by(Fleet_code) %>%
+    slice(rep(n(),  proj_nyrs)) %>%
+    mutate(Year = -proj_yrs)
+  om$data_list$srv_biom  <- rbind(om$data_list$srv_biom, proj_srv)
+  om$data_list$srv_biom <- dplyr::arrange(om$data_list$srv_biom, Fleet_code, abs(Year))
 
+  # -- Nbyage
+  #FIXME: overwrites forecasted nbyage
+  proj_nbyage <- om$data_list$NByageFixed %>%
+    group_by(Species, Sex) %>%
+    slice(rep(n(),  proj_nyrs)) %>%
+    mutate(Year = proj_yrs)
+  om$data_list$NByageFixed  <- rbind(om$data_list$NByageFixed, proj_nbyage)
+  om$data_list$NByageFixed <- dplyr::arrange(om$data_list$NByageFixed, Species, Year)
+
+  # -- comp_data
+  proj_comp <- om$data_list$comp_data %>%
+    group_by(Fleet_code, Sex) %>%
+    slice(rep(n(),  proj_nyrs)) %>%
+    mutate(Year = -proj_yrs)
+  om$data_list$comp_data  <- rbind(om$data_list$comp_data, proj_comp)
+  om$data_list$comp_data <- dplyr::arrange(om$data_list$comp_data, Fleet_code, abs(Year))
+
+  # -- emp_sel - Use terminal year
+  proj_emp_sel <- om$data_list$emp_sel %>%
+    group_by(Fleet_code, Sex) %>%
+    slice(rep(n(),  proj_nyrs)) %>%
+    mutate(Year = proj_yrs)
+  om$data_list$emp_sel  <- rbind(om$data_list$emp_sel, proj_emp_sel)
+  om$data_list$emp_sel <- dplyr::arrange(om$data_list$emp_sel, Fleet_code, Year)
+
+  # -- wt
+  proj_wt <- om$data_list$wt %>%
+    group_by(Wt_index , Sex) %>%
+    slice(rep(n(),  proj_nyrs)) %>%
+    mutate(Year = proj_yrs)
+  om$data_list$wt  <- rbind(om$data_list$wt, proj_wt)
+  om$data_list$wt <- dplyr::arrange(om$data_list$wt, Wt_index, Year)
+
+  # -- Pyrs
+  proj_Pyrs <- om$data_list$Pyrs %>%
+    group_by(Species, Sex) %>%
+    slice(rep(n(),  proj_nyrs)) %>%
+    mutate(Year = proj_yrs)
+  om$data_list$Pyrs  <- rbind(om$data_list$Pyrs, proj_Pyrs)
+  om$data_list$Pyrs <- dplyr::arrange(om$data_list$Pyrs, Species, Year)
+
+
+  #--------------------------------------------------
+  # Update data in EM
+  #FIXME - assuming same as terminal year of hindcast
+  # -- EM emp_sel - Use terminal year
+  proj_emp_sel <- em$data_list$emp_sel %>%
+    group_by(Fleet_code, Sex) %>%
+    slice(rep(n(),  proj_nyrs)) %>%
+    mutate(Year = proj_yrs)
+  em$data_list$emp_sel  <- rbind(em$data_list$emp_sel, proj_emp_sel)
+  em$data_list$emp_sel <- dplyr::arrange(em$data_list$emp_sel, Fleet_code, Year)
+
+  # -- EM wt
+  proj_wt <- em$data_list$wt %>%
+    group_by(Wt_index , Sex) %>%
+    slice(rep(n(),  proj_nyrs)) %>%
+    mutate(Year = proj_yrs)
+  em$data_list$wt  <- rbind(em$data_list$wt, proj_wt)
+  em$data_list$wt <- dplyr::arrange(em$data_list$wt, Wt_index, Year)
+
+  # -- EM Pyrs
+  proj_Pyrs <- em$data_list$Pyrs %>%
+    group_by(Species, Sex) %>%
+    slice(rep(n(),  proj_nyrs)) %>%
+    mutate(Year = proj_yrs)
+  em$data_list$Pyrs  <- rbind(em$data_list$Pyrs, proj_Pyrs)
+  em$data_list$Pyrs <- dplyr::arrange(em$data_list$Pyrs, Species, Year)
+
+  #--------------------------------------------------
   # Do the MSE
   for(sim in 1:nsim){
 
@@ -245,8 +127,6 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
     Rceattle_EM_list[[sim]][[1]] <- em
     em_use <- em
     om_use <- om
-
-
 
     # Replace future rec_devs with numbers
     if(simulate){
@@ -330,26 +210,15 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
       om_use$map <- build_map(
         data_list = om_use$data_list,
         params = om_use$estimated_params,
-        debug = om_use$data_list$debug,
+        debug = TRUE,
         random_rec = om_use$data_list$random_rec)
+      om_use$map[[1]]$dummy <- as.factor(NA); om_use$map[[2]]$dummy <- NA
 
-      # -- Fill in with NA's
-      for (i in 1:length(om_use$map[[2]])) {
-        om_use$map[[2]][[i]] <- replace(om_use$map[[2]][[i]], values = rep(NA, length(om_use$map[[2]][[i]])))
-      }
 
       # -- Estimate terminal F for catch
-      new_f_ind <- (ncol(om_use$map[[2]]$F_dev) - length(new_years) + 1) : ncol(om_use$map[[2]]$F_dev)
-      om_use$map[[2]]$F_dev[,new_f_ind] <- replace(om_use$map[[2]]$F_dev[,new_f_ind], values = 1:length(om_use$map[[2]]$F_dev[,new_f_ind]))
-
-
-      # --- Turn off F for surveys
-      for (i in 1:nrow(om_use$data_list$fleet_control)) {
-        # Turn of F and F dev if not estimating of it is a Survey
-        if (om_use$data_list$fleet_control$Fleet_type[i] %in% c(0, 2)) {
-          om_use$map[[2]]$F_dev[i, ] <- NA
-        }
-      }
+      new_f_yrs <- (ncol(om_use$map[[2]]$F_dev) - length(new_years) + 1) : ncol(om_use$map[[2]]$F_dev) # - Years of new F
+      f_fleets <- om_use$data_list$fleet_control$Fleet_code[which(om_use$data_list$fleet_control$Fleet_type == 1)] # Fleet rows for F
+      om_use$map[[2]]$F_dev[f_fleets,new_f_yrs] <- replace(om_use$map[[2]]$F_dev[f_fleets,new_f_yrs], values = 1:length(om_use$map[[2]]$F_dev[f_fleets,new_f_yrs]))
 
       # -- Map out Fdev for years with 0 catch to very low number
       fsh_biom <- om_use$data_list$fsh_biom
@@ -357,9 +226,8 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
       yr_ind <- fsh_biom$Year[which(fsh_biom$Catch == 0)] - om_use$data_list$styr + 1
       om_use$map[[2]]$F_dev[fsh_ind, yr_ind] <- NA
 
-      for (i in 1:length( om_use$map[[2]])) {
-        om_use$map[[1]][[i]] <- factor( om_use$map[[2]][[i]])
-      }
+
+      om_use$map[[1]]$F_dev <- factor( om_use$map[[2]]$F_dev)
 
       # om_use$estimated_params$ln_FSPR <- replace(om_use$estimated_params$ln_FSPR, values = rep(-10, length(om_use$estimated_params$ln_FSPR)))
 
