@@ -130,7 +130,7 @@ plot_index <- function(Rceattle,
           srv_hat_tmp <- Srv_hat_list[[k]][which(Srv_list[[k]]$Fleet_code == srvs[srv]),]
 
           # Plot predicted CPUE
-          lines(srv_hat_tmp$Year, (srv_hat_tmp$Observation),lwd=2,col=line_col[k])
+          lines(abs(srv_hat_tmp$Year), (srv_hat_tmp$Observation),lwd=2,col=line_col[k])
 
           # Plot observed CPUE
           gplots::plotCI(srv_tmp$Year, (srv_tmp$Observation), ui=(srv_tmp$Upper95), li=(srv_tmp$Lower95),add=T,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
@@ -210,7 +210,7 @@ plot_index <- function(Rceattle,
           srv_hat_tmp <- Srv_hat_list[[k]][which(Srv_list[[k]]$Fleet_code == srvs[srv]),]
 
           # Plot predicted CPUE
-          lines(srv_hat_tmp$Year, (srv_hat_tmp$Observation),lwd=2,col=line_col[k])
+          lines(abs(srv_hat_tmp$Year), (srv_hat_tmp$Observation),lwd=2,col=line_col[k])
 
           # Plot observed CPUE
           gplots::plotCI(srv_tmp$Year, (srv_tmp$Observation), ui=(srv_tmp$Upper95), li=(srv_tmp$Lower95),add=T,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
