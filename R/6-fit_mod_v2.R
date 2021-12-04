@@ -7,6 +7,8 @@
 #' @param file (Optional) Filename where files will be saved. If NULL, no file is saved.
 #' @param debug 0 = Fit the model. 1 = runs the model through MakeADFun, but not nlminb, 2 = runs the model without estimating parameters to get derived quantities given initial parameter values (maps out all parameters).
 #' @param random_rec logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE.
+#' @param random_q logical. If TRUE, treats annual catchability deviations as random effects.The default is FALSE.
+#' @param random_rec logical. If TRUE, treats annual selectivity deviations as random effects.The default is FALSE.
 #' @param niter Number of iterations for multispecies model
 #' @param msmMode The predation mortality functions to used. Defaults to no predation mortality used.
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.
@@ -76,10 +78,10 @@
 #'   ln_srv_q = 3,
 #'   srv_q_pow = 4,
 #'   ln_srv_q_dev = 5,
-#'   ln_srv_q_dev_re = 4,
 #'   ln_sigma_srv_q = 4,
 #'   ln_sigma_time_varying_srv_q = 4,
 #'   sel_coff = 3,
+#'   sel_coff_dev = 4,
 #'   sel_curve_pen = 4,
 #'   ln_sex_ratio_sigma = 3,
 #'   ln_sel_slp = 3,
@@ -87,8 +89,6 @@
 #'   sel_inf = 3,
 #'   ln_sel_slp_dev = 5,
 #'   sel_inf_dev = 5,
-#'   ln_sel_slp_dev_re = 4,
-#'   sel_inf_dev_re = 4,
 #'   ln_sigma_sel = 4,
 #'   ln_sigma_srv_index = 2,
 #'   ln_sigma_fsh_catch = 2,
@@ -119,6 +119,8 @@ fit_mod <-
            file = NULL,
            debug = 0,
            random_rec = TRUE,
+           random_q = TRUE,
+           random_sel = TRUE,
            niter = 3,
            msmMode = 0,
            avgnMode = 0,
@@ -244,9 +246,15 @@ fit_mod <-
 
 
     # STEP 4 - Setup random effects
-    random_vars <- c() # c("ln_srv_q_dev_re", "ln_sel_slp_dev_re", "sel_inf_dev_re")
-    if (random_rec == TRUE) {
+    random_vars <- c()
+    if (random_rec) {
       random_vars <- c(random_vars , "rec_dev", "init_dev")
+    }
+    if(random_q){
+      random_vars <- c(random_vars , "ln_srv_q_dev")
+    }
+    if(random_sel){
+      random_vars <- c(random_vars , "ln_sel_slp_dev", "sel_inf_dev", "sel_coff_dev")
     }
 
 
@@ -269,10 +277,10 @@ fit_mod <-
             ln_srv_q = 3,
             # srv_q_pow = 4,
             ln_srv_q_dev = 5,
-            # ln_srv_q_dev_re = 4,
             ln_sigma_srv_q = 4,
             ln_sigma_time_varying_srv_q = 4,
             sel_coff = 3,
+            sel_coff_dev = 4,
             sel_curve_pen = 4,
             ln_sex_ratio_sigma = 3,
             ln_sel_slp = 3,
@@ -280,8 +288,6 @@ fit_mod <-
             sel_inf = 3,
             ln_sel_slp_dev = 5,
             sel_inf_dev = 5,
-            # ln_sel_slp_dev_re = 4,
-            # sel_inf_dev_re = 4,
             ln_sigma_sel = 4,
             ln_sigma_srv_index = 2,
             ln_sigma_fsh_catch = 2,
@@ -399,11 +405,11 @@ fit_mod <-
       "Age/length composition data",
       "Sex ratio",
       "Non-parametric selectivity",
-      "Selectivity random walk deviates",
-      "Selectivity random effect deviates",
+      "Selectivity deviates",
+      "NA",
       "Selectivity normalization",
-      "Catchability random walk deviates",
-      "Catchability random effect deviates",
+      "Catchability prior",
+      "Catchability deviates",
       "Recruitment deviates",
       "Initial abundance deviates",
       "Fishing mortality deviates",
