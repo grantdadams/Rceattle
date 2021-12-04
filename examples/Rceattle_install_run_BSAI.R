@@ -79,19 +79,6 @@ ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
                             verbose = 1)
 
 
-BS2017MS3 <- BS2017MS
-BS2017MS3$Ceq <- rep(3,3)
-ms_run3 <- Rceattle::fit_mod(data_list = BS2017MS3,
-                            inits = ss_run_M$estimated_params, # Initial parameters from single species ests
-                            file = NULL, # Don't save
-                            debug = 0, # Estimate
-                            niter = 3, # 10 iterations around population and predation dynamics
-                            random_rec = FALSE, # No random recruitment
-                            msmMode = 1, # MSVPA based
-                            suitMode = 0, # empirical suitability
-                            verbose = 1)
-
-
 
 # We can plot both runs as well:
 Rceattle <- list(ss_run, ms_run)
