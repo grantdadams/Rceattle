@@ -82,7 +82,6 @@ build_params <- function(data_list, inits = NULL) {
   param_list$ln_srv_q = log(data_list$fleet_control$Q_prior)   # Survey catchability; n = [sum(n_srv)]
   # param_list$srv_q_pow = rep(0, nrow(data_list$fleet_control))
   param_list$ln_srv_q_dev = matrix(0, nrow = nrow(data_list$fleet_control), ncol = nyrs_hind)   # Survey catchability deviations; n = [sum(n_srv)]
-  #param_list$ln_srv_q_dev_re = matrix(0, nrow = nrow(data_list$fleet_control), ncol = nyrs_hind)   # Survey catchability deviations; n = [sum(n_srv)]
   param_list$ln_sigma_srv_q <- log(data_list$fleet_control$Q_sd_prior)
   param_list$ln_sigma_time_varying_srv_q <- log(data_list$fleet_control$Time_varying_q_sd_prior)
   # Log standard deviation for survey selectivity random walk - used for logistic
@@ -91,6 +90,7 @@ build_params <- function(data_list, inits = NULL) {
   # -- 3.6. Selectivity parameters
   n_selectivities <- nrow(data_list$fleet_control)
   param_list$sel_coff = suppressWarnings( array(0, dim = c(n_selectivities, 2, max(1, as.numeric(c(data_list$fleet_control$Nselages) ), na.rm = T))))  # Non-parametric selectivity coef; n = [nspp, nselages]
+  param_list$sel_coff_dev = suppressWarnings( array(0, dim = c(n_selectivities, 2, max(1, as.numeric(c(data_list$fleet_control$Nselages) ), na.rm = T), nyrs_hind)))  # Non-parametric selectivity coef annual deviates
   param_list$sel_curve_pen = suppressWarnings( matrix( c(data_list$fleet_control$Time_varying_sel, data_list$fleet_control$Sel_sd_prior), nrow = n_selectivities, ncol = 2)) # Non-parametric selectivity penalties
   param_list$ln_sel_slp = array(0.5, dim = c(2, n_selectivities, 2))  # selectivity paramaters for logistic; n = [2, nspp, 2 sexes]
   param_list$sel_inf = array(0, dim = c(2, n_selectivities, 2))  # selectivity paramaters for logistic; n = [2, nspp, 2 sexes]
@@ -100,10 +100,6 @@ build_params <- function(data_list, inits = NULL) {
   # --- 3.5.2. Time varying selectivity parameters
   param_list$ln_sel_slp_dev = array(0, dim = c(2, n_selectivities, 2, nyrs_hind))  # selectivity deviations paramaters for logistic; n = [2, nspp]
   param_list$sel_inf_dev = array(0, dim = c(2, n_selectivities, 2, nyrs_hind))  # selectivity deviations paramaters for logistic; n = [2, nspp]
-
-  #param_list$ln_sel_slp_dev_re = array(0, dim = c(2, n_selectivities, 2, nyrs_hind))  # selectivity random effect deviations paramaters for logistic; n = [2, nspp]
-  #param_list$sel_inf_dev_re = array(0, dim = c(2, n_selectivities, 2, nyrs_hind))  # selectivity random effectdeviations paramaters for logistic; n = [2, nspp]
-
   param_list$ln_sigma_sel <- log(data_list$fleet_control$Sel_sd_prior)          # Log standard deviation for  selectivity random walk - used for logistic
 
 

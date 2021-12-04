@@ -29,3 +29,7 @@ Imports:
 LinkingTo: 
     TMB
 Remotes: kaskr/TMB_contrib_R/TMBhelper
+Suggests: 
+    rmarkdown,
+    knitr
+VignetteBuilder: knitr
