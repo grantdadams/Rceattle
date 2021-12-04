@@ -19,6 +19,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   nyrs_hind <- data_list$endyr - data_list$styr + 1
   nyrs_proj <- data_list$projyr - data_list$styr + 1
   yrs_proj <- (nyrs_hind + 1):nyrs_proj
+  yrs_hind <- 1:nyrs_hind
   if(nyrs_hind == nyrs_proj){
     yrs_proj = NULL
   }
@@ -119,30 +120,30 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   ind_inf_re <- 1
   ind_slp_re <- 1
 
-  # Map out non-parametric selectivity penalties. Leaving as parameters in case we want to estimate down the line.
+  # -- Map out non-parametric selectivity penalties. Leaving as parameters in case we want to estimate down the line.
   map_list$sel_curve_pen <- replace(map_list$sel_curve_pen, values = rep(NA, length(map_list$sel_curve_pen)))
-
 
   # Loop through fleets
   for (i in 1:nrow(data_list$fleet_control)) {
     flt = data_list$fleet_control$Fleet_code[i]
 
     # -- Turn off sex-specific parameters if 1 sex model
-    nsex <- data_list$nsex[data_list$fleet_control$Species[flt]]
+    spp <- data_list$fleet_control$Species[flt]
+    nsex <- data_list$nsex[spp]
 
     # -- Turn of selectivity deviates for years not in composition data
     comp_sub <- data_list$comp_data[which(data_list$comp_data$Fleet_code == flt),]
     comp_sub <- comp_sub[which(comp_sub$Year <= data_list$endyr),]
     comp_sub_yrs <- unique(comp_sub$Year) - data_list$styr + 1
     comp_sub_yrs <- comp_sub_yrs[which(comp_sub_yrs > 0)]
+    comp_miss_yrs <- yrs_hind[which(yrs_hind %!in% comp_sub_yrs)]
 
     # -- 4.0.  Empirical or not Fit - sel_type = 0
     if (data_list$fleet_control$Selectivity[flt] == 0 | data_list$fleet_control$Fleet_type[flt] == 0) {
 
-
       # Map out non-parametric
-      map_list$sel_coff[flt,, ] <- replace(map_list$sel_coff[flt,, ], values = rep(NA, length(map_list$sel_coff[flt,,
-      ])))
+      map_list$sel_coff[flt,, ] <- NA
+      map_list$sel_coff_dev[flt,,,] <- NA
 
       # Map out logistic and double logistic
       map_list$ln_sel_slp[1:2, flt, ] <- NA
@@ -152,10 +153,6 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$ln_sel_slp_dev[1:2, flt, ,] <- NA
       map_list$sel_inf_dev[1:2, flt, ,] <- NA
 
-      # Turn off random effects
-      #map_list$ln_sel_slp_dev_re[1:2, flt, ,] <- NA
-      #map_list$sel_inf_dev_re[1:2, flt, ,] <- NA
-
       # Map out selectivity var
       map_list$ln_sigma_sel[flt] <- NA
     }
@@ -164,10 +161,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     # -- 4.1. Logitistic - sel_type = 1
     if (data_list$fleet_control$Selectivity[flt] == 1) {
 
-
       # Map out non-parametric
-      map_list$sel_coff[flt,, ] <- replace(map_list$sel_coff[flt,, ], values = rep(NA, length(map_list$sel_coff[flt,,
-      ])))
+      map_list$sel_coff[flt,, ] <- NA
+      map_list$sel_coff_dev[flt,,,] <- NA
 
       # Map out double logistic
       map_list$ln_sel_slp[2, flt, ] <- NA
@@ -177,43 +173,20 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$ln_sel_slp_dev[2, flt, ,] <- NA
       map_list$sel_inf_dev[2, flt, ,] <- NA
 
-      #map_list$ln_sel_slp_dev_re[2, flt, ,] <- NA
-      #map_list$sel_inf_dev_re[2, flt, ,] <- NA
-
       # Map out time varying parameters if not used
       if(data_list$fleet_control$Time_varying_sel[flt] == 0){
         map_list$ln_sel_slp_dev[1, flt, ,] <- NA
         map_list$sel_inf_dev[1, flt, ,] <- NA
-
-        #map_list$ln_sel_slp_dev_re[1, flt, ,] <- NA
-        #map_list$sel_inf_dev_re[1, flt, ,] <- NA
       }
 
-      # Penalized likelihood or random walk (turn off random effects)
-      if(data_list$fleet_control$Time_varying_sel[flt] %in% c(1,4)){
-        #map_list$ln_sel_slp_dev_re[1, flt, ,] <- NA
-        #map_list$sel_inf_dev_re[1, flt, ,] <- NA
-
+      # Penalized deviate or random walk
+      if(data_list$fleet_control$Time_varying_sel[flt] %in% c(1,2,4)){
         for(sex in 1:nsex){
           map_list$ln_sel_slp_dev[1, flt, sex, comp_sub_yrs] <- ind_slp + 1:length(map_list$ln_sel_slp_dev[1, flt, sex, comp_sub_yrs]) - 1
           map_list$sel_inf_dev[1, flt, sex, comp_sub_yrs] <- ind_inf + 1:length(map_list$sel_inf_dev[1, flt, sex, comp_sub_yrs]) - 1
 
           ind_slp <- ind_slp + length(map_list$ln_sel_slp_dev[1, flt, sex, comp_sub_yrs])
           ind_inf <- ind_inf + length(map_list$sel_inf_dev[1, flt, sex, comp_sub_yrs])
-        }
-      }
-
-      # Random effects (turn off random walk deviates)
-      if(data_list$fleet_control$Time_varying_sel[flt] == 2){
-        map_list$ln_sel_slp_dev[1, flt, ,] <- NA
-        map_list$sel_inf_dev[1, flt, , ] <- NA
-
-        for(sex in 1:nsex){
-          #map_list$ln_sel_slp_dev_re[1, flt, sex,comp_sub_yrs] <- ind_slp_re + 1:length(map_list$ln_sel_slp_dev_re[1, flt, sex,comp_sub_yrs]) - 1
-          #map_list$sel_inf_dev_re[1, flt, sex,comp_sub_yrs] <- ind_inf_re + 1:length(map_list$sel_inf_dev_re[1, flt, sex,comp_sub_yrs]) - 1
-
-          #ind_slp_re <- ind_slp_re + length(map_list$ln_sel_slp_dev_re[1, flt, sex,comp_sub_yrs])
-          #ind_inf_re <- ind_inf_re + length(map_list$sel_inf_dev_re[1, flt, sex,comp_sub_yrs])
         }
       }
 
@@ -240,10 +213,6 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
           biom_yrs <- biom_yrs[which(biom_yrs <= nyrs_hind)]
         }
 
-        # Turn off random effects
-        #map_list$ln_sel_slp_dev_re[1, flt, ,] <- NA
-        #map_list$sel_inf_dev_re[1, flt, ,] <- NA
-
         # Map out double logistic
         map_list$ln_sel_slp[1:2, flt ,] <- NA
         map_list$sel_inf[1:2, flt ,] <- NA
@@ -265,22 +234,26 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     }
 
 
-    # -- 4.2. Non-parametric - sel_type = 2
+    # -- 4.2. Non-parametric - sel_type = 2 (Ianelli et al 20??)
     if(data_list$fleet_control$Selectivity[flt] == 2){ # Non-parametric at age
+      # -- Map out time-varying deviates
+      map_list$sel_coff_dev[flt,,,] <- NA
 
-      # If nselages is  < max(nselages)
-      for(sex in 1:nsex){
+      # Map out nselages  < max(nselages)
+      if(data_list$fleet_control$Nselages[flt] < max(data_list$fleet_control$Nselages, na.rm = TRUE)){
+        mapped_ages <- (data_list$fleet_control$Nselages[flt] + 1):max(data_list$fleet_control$Nselages, na.rm = T)
+        map_list$sel_coff[flt, , mapped_ages]  <- NA
+      }
 
-        if(data_list$fleet_control$Nselages[flt] < max(data_list$fleet_control$Nselages, na.rm = TRUE)){
-          mapped_ages <- (data_list$fleet_control$Nselages[flt] + 1):max(data_list$fleet_control$Nselages, na.rm = T)
-
-          map_list$sel_coff[flt, sex, mapped_ages]  <- replace(map_list$sel_coff[flt, sex, mapped_ages], values = rep(NA, length(map_list$sel_coff[flt, sex, mapped_ages])))
-        }
+      # -- Map out ages < Amin
+      if(data_list$minage[spp] < data_list$fleet_control$Age_first_selected[flt]){
+        mapped_ages <- data_list$minage[spp]:(data_list$fleet_control$Age_first_selected[flt]-1)
+        map_list$sel_coff[flt, , mapped_ages]  <- NA
       }
 
       # 1-sex model
       if(nsex == 1){
-        map_list$sel_coff[flt, 2, ]  <- replace(map_list$sel_coff[flt, 2, ], values = rep(NA, length(map_list$sel_coff[flt, 2, ])))
+        map_list$sel_coff[flt, 2, ]  <- NA
       }
 
       # Map out logistic and double logistic
@@ -291,10 +264,6 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$ln_sel_slp_dev[1:2, flt, ,] <- NA
       map_list$sel_inf_dev[1:2, flt, ,] <- NA
 
-      # Map out random effect deviates
-      #map_list$ln_sel_slp_dev_re[1:2, flt, ,] <- NA
-      #map_list$sel_inf_dev_re[1:2, flt, ,] <- NA
-
       # Map out selectivity var
       map_list$ln_sigma_sel[flt] <- NA
     }
@@ -303,22 +272,17 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     if(data_list$fleet_control$Selectivity[flt] == 3){ # Double logistic
 
       # Map out non-parametric
-      map_list$sel_coff[flt,,] <- replace(map_list$sel_coff[flt,,], values = rep(NA, length(map_list$sel_coff[flt,,])))
+      map_list$sel_coff[flt,, ] <- NA
+      map_list$sel_coff_dev[flt,,,] <- NA
 
       # Map out time varying parameters if not used
       if(data_list$fleet_control$Time_varying_sel[flt] == 0){
         map_list$ln_sel_slp_dev[1:2, flt, ,] <- NA
         map_list$sel_inf_dev[1:2, flt, ,] <- NA
-
-        #map_list$ln_sel_slp_dev_re[1:2, flt, ,] <- NA
-        #map_list$sel_inf_dev_re[1:2, flt, ,] <- NA
       }
 
       # Penalized likelihood or random walk (turn of random effects)
-      if(data_list$fleet_control$Time_varying_sel[flt] %in% c(1,4,5)){
-        #map_list$ln_sel_slp_dev_re[1:2, flt, ,] <- NA
-        #map_list$sel_inf_dev_re[1:2, flt, ,] <- NA
-
+      if(data_list$fleet_control$Time_varying_sel[flt] %in% c(1,2,4,5)){
         for(j in 1:2){
           for(sex in 1:nsex){
             map_list$ln_sel_slp_dev[j, flt, sex,comp_sub_yrs] <- ind_slp + 1:length(map_list$ln_sel_slp_dev[j, flt, sex,comp_sub_yrs]) - 1
@@ -333,22 +297,6 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
         if(data_list$fleet_control$Time_varying_sel[flt] %in% c(5)){
           map_list$ln_sel_slp_dev[2, flt, ,] <- NA
           map_list$sel_inf_dev[2, flt, ,] <- NA
-        }
-      }
-
-      # Random effects (turn off random deviates)
-      if(data_list$fleet_control$Time_varying_sel[flt] == 2){
-        map_list$ln_sel_slp_dev[1:2, flt, ,] <- NA
-        map_list$sel_inf_dev[1:2, flt, ,] <- NA
-
-        for(j in 1:2){
-          for(sex in 1:nsex){
-            # map_list$ln_sel_slp_dev_re[j, flt, sex,comp_sub_yrs] <- ind_slp_re + 1:length(map_list$ln_sel_slp_dev_re[j, flt, sex,comp_sub_yrs]) - 1
-            # map_list$sel_inf_dev_re[j, flt, sex,comp_sub_yrs] <- ind_inf_re + 1:length(map_list$sel_inf_dev_re[j, flt, sex,comp_sub_yrs]) - 1
-            #
-            # ind_slp_re <- ind_slp_re + length(map_list$ln_sel_slp_dev_re[j, flt, sex,comp_sub_yrs])
-            # ind_inf_re <- ind_inf_re + length(map_list$sel_inf_dev_re[j, flt, sex,comp_sub_yrs])
-          }
         }
       }
 
@@ -376,10 +324,6 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
           biom_yrs <- biom_yrs[which(biom_yrs <= nyrs_hind)]
         }
 
-        # Turn off random effects
-        #map_list$ln_sel_slp_dev_re[1:2, flt, ,] <- NA
-        #map_list$sel_inf_dev_re[1:2, flt, ,] <- NA
-
         # Map out logistic
         map_list$ln_sel_slp[1:2, flt ,] <- NA
         map_list$sel_inf[1:2, flt, ] <- NA
@@ -406,36 +350,26 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     # -- 4.4. Descending logitistic - sel_type = 4
     if (data_list$fleet_control$Selectivity[flt] == 4) {
 
-
       # Map out non-parametric
-      map_list$sel_coff[flt,, ] <- replace(map_list$sel_coff[flt,, ], values = rep(NA, length(map_list$sel_coff[flt,,
-      ])))
+      map_list$sel_coff[flt,, ] <- NA
+      map_list$sel_coff_dev[flt,,,] <- NA
 
-      # Map out double logistic
+      # Map out ascending logistic
       map_list$ln_sel_slp[1, flt, ] <- NA
       map_list$sel_inf[1, flt, ] <- NA
 
-      # Map out double logistic deviates
+      # Map out ascending logistic deviates
       map_list$ln_sel_slp_dev[1, flt, ,] <- NA
       map_list$sel_inf_dev[1, flt, ,] <- NA
-
-      # map_list$ln_sel_slp_dev_re[1, flt, ,] <- NA
-      # map_list$sel_inf_dev_re[1, flt, ,] <- NA
 
       # Map out time varying parameters if not used
       if(data_list$fleet_control$Time_varying_sel[flt] == 0){
         map_list$ln_sel_slp_dev[2, flt, ,] <- NA
         map_list$sel_inf_dev[2, flt, ,] <- NA
-
-        # map_list$ln_sel_slp_dev_re[2, flt, ,] <- NA
-        # map_list$sel_inf_dev_re[2, flt, ,] <- NA
       }
 
-      # Penalized likelihood or random walk (turn of random effects)
-      if(data_list$fleet_control$Time_varying_sel[flt] %in% c(1,4)){
-        # map_list$ln_sel_slp_dev_re[2, flt, ,] <- NA
-        # map_list$sel_inf_dev_re[2, flt, ,] <- NA
-
+      # Penalized/random deviate or random walk
+      if(data_list$fleet_control$Time_varying_sel[flt] %in% c(1,2,4)){
         for(sex in 1:nsex){
           map_list$ln_sel_slp_dev[2, flt, sex, comp_sub_yrs] <- ind_slp + 1:length(map_list$ln_sel_slp_dev[2, flt, sex, comp_sub_yrs]) - 1
           map_list$sel_inf_dev[2, flt, sex, comp_sub_yrs] <- ind_inf + 1:length(map_list$sel_inf_dev[2, flt, sex, comp_sub_yrs]) - 1
@@ -445,21 +379,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
         }
       }
 
-      # Random effects (turn off random walk deviates)
-      if(data_list$fleet_control$Time_varying_sel[flt] == 2){
-        map_list$ln_sel_slp_dev[2, flt, ,] <- NA
-        map_list$sel_inf_dev[2, flt, , ] <- NA
-
-        for(sex in 1:nsex){
-          # map_list$ln_sel_slp_dev_re[2, flt, sex, comp_sub_yrs] <- ind_slp_re + 1:length(map_list$ln_sel_slp_dev_re[2, flt, sex, comp_sub_yrs]) - 1
-          # map_list$sel_inf_dev_re[2, flt, sex, comp_sub_yrs] <- ind_inf_re + 1:length(map_list$sel_inf_dev_re[2, flt, sex, comp_sub_yrs]) - 1
-          #
-          # ind_slp_re <- ind_slp_re + length(map_list$ln_sel_slp_dev_re[2, flt, sex, comp_sub_yrs])
-          # ind_inf_re <- ind_inf_re + length(map_list$sel_inf_dev_re[2, flt, sex, comp_sub_yrs])
-        }
-      }
-
-      # Map selectivity blocks together
+      # Selectivity block
       if(data_list$fleet_control$Time_varying_sel[flt] == 3){
 
         # If a fishery use the years from the fishery
@@ -482,10 +402,6 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
           biom_yrs <- biom_yrs[which(biom_yrs <= nyrs_hind)]
         }
 
-        # Turn off random effects
-        # map_list$ln_sel_slp_dev_re[2, flt, ,] <- NA
-        # map_list$sel_inf_dev_re[2, flt, ,] <- NA
-
         # Map out double logistic
         map_list$ln_sel_slp[1:2, flt ,] <- NA
         map_list$sel_inf[1:2, flt ,] <- NA
@@ -506,6 +422,44 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       }
     }
 
+    # -- 4.5. Non-parametric similar to Hake (Taylor et al 2014) - sel_type = 5
+    if(data_list$fleet_control$Selectivity[flt] == 5){ # Non-parametric at age
+
+      # -- Turn off time-varying coefs if not used
+      if(data_list$fleet_control$Time_varying_sel[flt] == 0){ # 0 = off, 1 = penalized like, 2 = random effects (NOT Implemented),...
+        map_list$sel_coff_dev[flt,,,] <- NA
+      }
+
+      # -- If nselages is  < max(nselages) map out
+      if(data_list$fleet_control$Nselages[flt] < max(data_list$fleet_control$Nselages, na.rm = TRUE)){
+        mapped_ages <- (data_list$fleet_control$Nselages[flt] + 1):max(data_list$fleet_control$Nselages, na.rm = T)
+
+        map_list$sel_coff[flt, , mapped_ages]  <- NA
+        map_list$sel_coff_dev[flt, , mapped_ages,]  <- NA
+      }
+
+      # -- Map out ages <= Amin
+      mapped_ages <- data_list$minage[spp]:data_list$fleet_control$Age_first_selected[flt]
+      map_list$sel_coff[flt, , mapped_ages]  <- NA
+      map_list$sel_coff_dev[flt, , mapped_ages,]  <- NA
+
+      # -- Map out years where comp data do not exist (set to average selectivity)
+      map_list$sel_coff_dev[flt, , mapped_ages,comp_miss_yrs]  <- NA
+
+      # Map out logistic and double logistic
+      map_list$ln_sel_slp[1:2, flt ,] <- NA
+      map_list$sel_inf[1:2, flt ,] <- NA
+
+      # Map out logistic and double logistic deviates
+      map_list$ln_sel_slp_dev[1:2, flt, ,] <- NA
+      map_list$sel_inf_dev[1:2, flt, ,] <- NA
+
+      # Map out selectivity var
+      if(data_list$fleet_control$Time_varying_sel[flt] != 2){ # 0 = off, 1 = penalized like, 2 = random effects,...
+        map_list$ln_sigma_sel[flt] <- NA
+      }
+    }
+
 
     # Map out 2nd sex parameters if 1 sex model
     if(nsex == 1){
@@ -517,9 +471,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$ln_sel_slp_dev[1:2, flt, 2,] <- NA
       map_list$sel_inf_dev[1:2, flt, 2,] <- NA
 
-      # map_list$ln_sel_slp_dev_re[1:2, flt, 2,] <- NA
-      # map_list$sel_inf_dev_re[1:2, flt, 2,] <- NA
-
+      # -- Non-parametric
+      map_list$sel_coff[flt, 2, ]  <- NA
+      map_list$sel_coff_dev[flt,2,,] <- NA
     }
   }
 
@@ -549,7 +503,6 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$ln_srv_q[flt] <- NA
       # map_list$srv_q_pow[flt] <- NA
       map_list$ln_srv_q_dev[flt,] <- NA
-      #map_list$ln_srv_q_dev_re[flt,] <- NA
       map_list$ln_sigma_srv_q[flt] <- NA
       map_list$ln_sigma_time_varying_srv_q[flt] <- NA
     }
@@ -563,7 +516,6 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     # If not estimating turn of. Also turns off if using environmental index Est_q = 5.
     if(data_list$fleet_control$Time_varying_q[flt] %in% c(0, NA) | data_list$fleet_control$Estimate_q[flt] %in% c(5)){
       map_list$ln_srv_q_dev[flt,] <- NA
-      #map_list$ln_srv_q_dev_re[flt,] <- NA
       map_list$ln_sigma_srv_q[flt] <- NA
       map_list$ln_sigma_time_varying_srv_q[flt] <- NA
     }
@@ -572,19 +524,12 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     if(data_list$fleet_control$Time_varying_q[flt] %in% c(1, 4)){
       map_list$ln_sigma_srv_q[flt] <- NA
       map_list$ln_sigma_time_varying_srv_q[flt] <- NA
-      #map_list$ln_srv_q_dev_re[flt,] <- NA
-    }
-
-    # Random effect - map out devs
-    if(data_list$fleet_control$Time_varying_q[flt] %in% c(2)){
-      map_list$ln_srv_q_dev[flt,] <- NA
     }
 
     # Time block - map out q_sd
     if(data_list$fleet_control$Time_varying_q[flt] %in% c(3)){
       map_list$ln_sigma_srv_q[flt] <- NA
       map_list$ln_sigma_time_varying_srv_q[flt] <- NA
-      #map_list$ln_srv_q_dev_re[flt,] <- NA
       map_list$ln_srv_q[flt] <- NA
     }
 
@@ -593,22 +538,16 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
       # Set all to NA
       map_list$ln_srv_q_dev[flt,] <- NA
-      #map_list$ln_srv_q_dev_re[flt,] <- NA
 
       # Extract survey years where data is provided
       srv_biom <- data_list$srv_biom[which(data_list$srv_biom$Fleet_code == flt & data_list$srv_biom$Year > data_list$styr & data_list$srv_biom$Year <= data_list$endyr),]
       srv_biom_yrs <- srv_biom$Year - data_list$styr + 1
+      srv_biom_yrs_miss <- yrs_hind[which(yrs_hind %!in% srv_biom_yrs)]
 
-      # Penalized likelihood or random walk
-      if(data_list$fleet_control$Time_varying_q[flt] %in% c(1,4)){
-        map_list$ln_srv_q_dev[flt, srv_biom_yrs] <- ind_q + (1:length(srv_biom_yrs)) - 1
+      # Penalized deviate or random walk
+      if(data_list$fleet_control$Time_varying_q[flt] %in% c(1,2,4)){
+        map_list$ln_srv_q_dev[flt, srv_biom_yrs_miss] <- ind_q + (1:length(srv_biom_yrs)) - 1
         ind_q <- ind_q + length(srv_biom_yrs)
-      }
-
-      # Random effects
-      if(data_list$fleet_control$Time_varying_q[flt] == 2){
-        #map_list$ln_srv_q_dev_re[flt, srv_biom_yrs] <- ind_q_re + (1:length(srv_biom_yrs)) - 1
-        ind_q_re <- ind_q_re + length(srv_biom_yrs)
       }
 
       # Time blocks
@@ -666,10 +605,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$ln_sel_slp[1:2, flt,] <- map_list$ln_sel_slp[1:2, sel_duplicate,]
       map_list$sel_inf[1:2, flt,] <- map_list$sel_inf[1:2, sel_duplicate,]
       map_list$sel_coff[flt,,] <- map_list$sel_coff[sel_duplicate,,]
+      map_list$sel_coff_dev[flt,,,] <- map_list$sel_coff_dev[sel_duplicate,,,]
       map_list$ln_sel_slp_dev[1:2, flt,,] <- map_list$ln_sel_slp_dev[1:2, sel_duplicate,,]
       map_list$sel_inf_dev[1:2, flt,,] <- map_list$sel_inf_dev[1:2, sel_duplicate,,]
-      #map_list$ln_sel_slp_dev_re[1:2, flt,,] <- map_list$ln_sel_slp_dev_re[1:2, sel_duplicate,,]
-      #map_list$sel_inf_dev_re[1:2, flt,,] <- map_list$sel_inf_dev_re[1:2, sel_duplicate,,]
       map_list$ln_sigma_sel[flt] <- map_list$ln_sigma_sel[sel_duplicate]
       map_list$sel_curve_pen[flt,] <- map_list$sel_curve_pen[sel_duplicate,]
     }
@@ -699,7 +637,6 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$ln_srv_q[flt] <- map_list$ln_srv_q[q_duplicate]
       # map_list$srv_q_pow[flt] <- map_list$srv_q_pow[q_duplicate]
       map_list$ln_srv_q_dev[flt,] <- map_list$ln_srv_q_dev[q_duplicate,]
-      #map_list$ln_srv_q_dev_re[flt,] <- map_list$ln_srv_q_dev_re[q_duplicate,]
       map_list$ln_sigma_srv_q[flt] <- map_list$ln_sigma_srv_q[q_duplicate]
       map_list$ln_sigma_time_varying_srv_q[flt] <- map_list$ln_sigma_time_varying_srv_q[q_duplicate]
     }
@@ -891,16 +828,14 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$ln_srv_q[flts] <- NA
       # map_list$srv_q_pow[flts] <- NA
       map_list$ln_srv_q_dev[flts,] <- NA
-      #map_list$ln_srv_q_dev_re[flts,] <- NA
       map_list$ln_sigma_srv_q[flts] <- NA
       map_list$ln_sigma_time_varying_srv_q[flts] <- NA
-      map_list$sel_coff[flts,1:2,] <- NA
-      map_list$ln_sel_slp[1:2, flts, ] <- NA
-      map_list$sel_inf[1:2, flts, ] <- NA
-      map_list$ln_sel_slp_dev[1:2, flts, ,] <- NA
-      map_list$sel_inf_dev[1:2, flts, ,] <- NA
-      #map_list$ln_sel_slp_dev_re[1:2, flts, ,] <- NA
-      #map_list$sel_inf_dev_re[1:2, flts, ,] <- NA
+      map_list$sel_coff[flts,,] <- NA
+      map_list$sel_coff_dev[flts,,,] <- NA
+      map_list$ln_sel_slp[, flts, ] <- NA
+      map_list$sel_inf[, flts, ] <- NA
+      map_list$ln_sel_slp_dev[, flts, ,] <- NA
+      map_list$sel_inf_dev[, flts, ,] <- NA
       map_list$ln_sigma_sel[flts] <- NA
       map_list$ln_sigma_srv_index[flts] <- NA
       map_list$ln_sigma_fsh_catch[flts] <- NA
