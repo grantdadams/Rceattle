@@ -1,0 +1,22 @@
+---
+title: "Rceattle documentation"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Rceattle_documentation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+# Population dynamics
+
+# Selectivity parameterizations
+## Logistic selectivity
+`
+
+# Catchability parameterizations
