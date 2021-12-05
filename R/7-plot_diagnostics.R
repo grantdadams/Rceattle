@@ -673,7 +673,7 @@ plot_logindex <- function(Rceattle,
           }
         }
 
-        if(srv == nsrv & (nsrv %% 2) != 0){
+        if(srv == nsrv & (nsrv %% 2) != 0 & nsrv > 1){
           plot(NA, NA, ylab="", xlab="", ylim = c((ymin[srv]), (ymax[srv])), xlim = xlim, type='n', xaxt="n", yaxt="n", bty = "n")
           if(!is.null(model_names)){
             legend(
