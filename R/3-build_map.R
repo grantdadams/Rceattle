@@ -174,7 +174,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$sel_inf_dev[2, flt, ,] <- NA
 
       # Map out time varying parameters if not used
-      if(data_list$fleet_control$Time_varying_sel[flt] == 0){
+      if(data_list$fleet_control$Time_varying_sel[flt] %in% c(NA, 0)){
         map_list$ln_sel_slp_dev[1, flt, ,] <- NA
         map_list$sel_inf_dev[1, flt, ,] <- NA
       }
@@ -228,7 +228,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       }
 
       # Map out selectivity var if not using time-varying, penalized likelihood, or using random walk
-      if(data_list$fleet_control$Time_varying_sel[flt] %in% c(0, 1, 3, 4)){
+      if(data_list$fleet_control$Time_varying_sel[flt] %in% c(NA, 0, 1, 3, 4)){
         map_list$ln_sigma_sel[flt] <- NA
       }
     }
@@ -247,7 +247,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
       # -- Map out ages < Amin
       if(data_list$minage[spp] < data_list$fleet_control$Age_first_selected[flt]){
-        mapped_ages <- data_list$minage[spp]:(data_list$fleet_control$Age_first_selected[flt]-1)
+        mapped_ages <- (data_list$minage[spp]:(data_list$fleet_control$Age_first_selected[flt]-1))- data_list$minage[spp] + 1
         map_list$sel_coff[flt, , mapped_ages]  <- NA
       }
 
@@ -276,12 +276,12 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$sel_coff_dev[flt,,,] <- NA
 
       # Map out time varying parameters if not used
-      if(data_list$fleet_control$Time_varying_sel[flt] == 0){
+      if(data_list$fleet_control$Time_varying_sel[flt] %in% c(NA, 0)){
         map_list$ln_sel_slp_dev[1:2, flt, ,] <- NA
         map_list$sel_inf_dev[1:2, flt, ,] <- NA
       }
 
-      # Penalized likelihood or random walk (turn of random effects)
+      # Penalized likelihood or random walk
       if(data_list$fleet_control$Time_varying_sel[flt] %in% c(1,2,4,5)){
         for(j in 1:2){
           for(sex in 1:nsex){
@@ -341,7 +341,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       }
 
       # Map out selectivity var if not using time-varying, penalized likelihood, or using random walk
-      if(data_list$fleet_control$Time_varying_sel[flt] %in% c(0, 1, 3, 4, 5)){
+      if(data_list$fleet_control$Time_varying_sel[flt] %in% c(NA, 0, 1, 3, 4, 5)){
         map_list$ln_sigma_sel[flt] <- NA
       }
     }
@@ -363,7 +363,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$sel_inf_dev[1, flt, ,] <- NA
 
       # Map out time varying parameters if not used
-      if(data_list$fleet_control$Time_varying_sel[flt] == 0){
+      if(data_list$fleet_control$Time_varying_sel[flt] %in% c(NA,0)){
         map_list$ln_sel_slp_dev[2, flt, ,] <- NA
         map_list$sel_inf_dev[2, flt, ,] <- NA
       }
@@ -417,7 +417,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       }
 
       # Map out selectivity var if not using time-varying, penalized likelihood, or using random walk
-      if(data_list$fleet_control$Time_varying_sel[flt] %in% c(0, 1, 3, 4)){
+      if(data_list$fleet_control$Time_varying_sel[flt] %in% c(NA, 0, 1, 3, 4)){
         map_list$ln_sigma_sel[flt] <- NA
       }
     }
@@ -426,7 +426,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     if(data_list$fleet_control$Selectivity[flt] == 5){ # Non-parametric at age
 
       # -- Turn off time-varying coefs if not used
-      if(data_list$fleet_control$Time_varying_sel[flt] == 0){ # 0 = off, 1 = penalized like, 2 = random effects (NOT Implemented),...
+      if(data_list$fleet_control$Time_varying_sel[flt] %in% c(0,NA)){ # 0 = off, 1 = penalized like, 2 = random effects (NOT Implemented),...
         map_list$sel_coff_dev[flt,,,] <- NA
       }
 
@@ -439,12 +439,12 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       }
 
       # -- Map out ages <= Amin
-      mapped_ages <- data_list$minage[spp]:data_list$fleet_control$Age_first_selected[flt]
+      mapped_ages <- (data_list$minage[spp]:data_list$fleet_control$Age_first_selected[flt])- data_list$minage[spp] + 1
       map_list$sel_coff[flt, , mapped_ages]  <- NA
       map_list$sel_coff_dev[flt, , mapped_ages,]  <- NA
 
       # -- Map out years where comp data do not exist (set to average selectivity)
-      map_list$sel_coff_dev[flt, , mapped_ages,comp_miss_yrs]  <- NA
+      map_list$sel_coff_dev[flt, , ,comp_miss_yrs]  <- NA
 
       # Map out logistic and double logistic
       map_list$ln_sel_slp[1:2, flt ,] <- NA

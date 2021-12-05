@@ -11,7 +11,9 @@ fit_mod(
   bounds = NULL,
   file = NULL,
   debug = 0,
-  random_rec = TRUE,
+  random_rec = FALSE,
+  random_q = FALSE,
+  random_sel = FALSE,
   niter = 3,
   msmMode = 0,
   avgnMode = 0,
@@ -42,7 +44,9 @@ fit_mod(
 
 \item{debug}{0 = Fit the model. 1 = runs the model through MakeADFun, but not nlminb, 2 = runs the model without estimating parameters to get derived quantities given initial parameter values (maps out all parameters).}
 
-\item{random_rec}{logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE.}
+\item{random_rec}{logical. If TRUE, treats annual selectivity deviations as random effects.The default is FALSE.}
+
+\item{random_q}{logical. If TRUE, treats annual catchability deviations as random effects.The default is FALSE.}
 
 \item{niter}{Number of iterations for multispecies model}
 
@@ -126,10 +130,10 @@ data(BS2017SS) # ?BS2017SS for more information on the data
   ln_srv_q = 3,
   srv_q_pow = 4,
   ln_srv_q_dev = 5,
-  ln_srv_q_dev_re = 4,
   ln_sigma_srv_q = 4,
   ln_sigma_time_varying_srv_q = 4,
   sel_coff = 3,
+  sel_coff_dev = 4,
   sel_curve_pen = 4,
   ln_sex_ratio_sigma = 3,
   ln_sel_slp = 3,
@@ -137,8 +141,6 @@ data(BS2017SS) # ?BS2017SS for more information on the data
   sel_inf = 3,
   ln_sel_slp_dev = 5,
   sel_inf_dev = 5,
-  ln_sel_slp_dev_re = 4,
-  sel_inf_dev_re = 4,
   ln_sigma_sel = 4,
   ln_sigma_srv_index = 2,
   ln_sigma_fsh_catch = 2,

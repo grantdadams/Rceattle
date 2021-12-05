@@ -39,17 +39,20 @@ mydata <- Rceattle::read_data( file = "BS2017SS.xlsx")
 ################################################
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
 mydata$fleet_control$proj_F_prop <-rep(1,7)
-ss_run <- Rceattle::fit_mod(data_list = mydata,
+mydata$fleet_control$Selectivity[1] = 5
+mydata$fleet_control$Time_varying_sel[1] = 0
+mydata$fleet_control$Sel_sd_prior[1] = NA
+ss_run2 <- Rceattle::fit_mod(data_list = mydata,
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save
                             debug = FALSE, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
                             phase = "default",
-                            verbose = 1)
+                            verbose = 2)
 
 # The you can plot the model results using using
-plot_biomass(Rceattle =  ss_run, incl_proj = T)
+plot_biomass(Rceattle =  list(ss_run, ss_run2), incl_proj = F)
 plot_recruitment(Rceattle =  ss_run, add_ci = TRUE)
 plot_catch(Rceattle =  ss_run, incl_proj = FALSE)
 

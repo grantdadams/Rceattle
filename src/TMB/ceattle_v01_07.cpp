@@ -990,6 +990,14 @@ Type objective_function<Type>::operator() () {
         // -- For each age, sum coefficients from first age selected to age
         for (yr = 0; yr < nyrs_hind; yr++) {
           for(sex = 0; sex < nsex(sp); sex++){
+            for (age = 0; age < nages(sp); age++) {
+              sel(flt, sex, age, yr) = 0;
+            }
+          }
+        }
+
+        for (yr = 0; yr < nyrs_hind; yr++) {
+          for(sex = 0; sex < nsex(sp); sex++){
             for (age = flt_sel_age(flt); age < nselages; age++) {
               for (int age_tmp = flt_sel_age(flt); age_tmp <= age; age_tmp++) {
                 sel(flt, sex, age, yr) += sel_coff(flt, sex, age_tmp) + sel_coff_dev(flt, sex, age_tmp, yr);
@@ -1002,7 +1010,7 @@ Type objective_function<Type>::operator() () {
         for (yr = 0; yr < nyrs_hind; yr++) {
           for(sex = 0; sex < nsex(sp); sex++){
             Type max_sel = 0;
-            for (age = 0; age < nages(sp); age++){
+            for (age = flt_sel_age(flt); age < nselages; age++) {
               // Max
               if(sel(flt, sex, age, yr) > max_sel){
                 max_sel = sel(flt, sex, age, yr);
@@ -1015,7 +1023,7 @@ Type objective_function<Type>::operator() () {
 
             // Fill in rest of ages
             for (age = nselages-1; age < nages(sp); age++) {
-              sel(flt, sex, age, yr) = sel(flt, sex, nselages-1, yr)
+              sel(flt, sex, age, yr) = sel(flt, sex, nselages-1, yr);
             }
           }
         }
@@ -1039,29 +1047,31 @@ Type objective_function<Type>::operator() () {
 
 
         // Find max for each fishery and year across ages, and sexes
-        // FIXME: there is probably a more elegant way to do this
-        for (yr = 0; yr < nyrs_hind; yr++) {
-          Type max_sel = 0;
-          for (age = 0; age < nages(sp); age++){
-            for(sex = 0; sex < nsex(sp); sex++){
+        // FIXME: may not be necessary
+        if (sel_type < 5) {
+          for (yr = 0; yr < nyrs_hind; yr++) {
+            Type max_sel = 0;
+            for (age = 0; age < nages(sp); age++){
+              for(sex = 0; sex < nsex(sp); sex++){
 
-              // Normalize by specific age
-              if((nselages > 0) & (sel_type != 2)){
-                max_sel = sel(flt, sex, sel_norm_age(flt), yr);
-              }
+                // Normalize by specific age
+                if((nselages > 0) & (sel_type != 2)){
+                  max_sel = sel(flt, sex, sel_norm_age(flt), yr);
+                }
 
 
-              // Normalize by max
-              if(sel(flt, sex, age, yr) > max_sel){
-                max_sel = sel(flt, sex, age, yr);
+                // Normalize by max
+                if(sel(flt, sex, age, yr) > max_sel){
+                  max_sel = sel(flt, sex, age, yr);
+                }
               }
             }
-          }
 
-          // Normalize selectivity
-          for (age = 0; age < nages(sp); age++){
-            for(sex = 0; sex < nsex(sp); sex++){
-              sel(flt, sex, age, yr) /= max_sel;
+            // Normalize selectivity
+            for (age = 0; age < nages(sp); age++){
+              for(sex = 0; sex < nsex(sp); sex++){
+                sel(flt, sex, age, yr) /= max_sel;
+              }
             }
           }
         }
@@ -3272,57 +3282,57 @@ Type objective_function<Type>::operator() () {
     }
 
     // Penalized/random effect likelihood time-varying non-parametric (Taylor et al 2014) selectivity deviates
-      if(((flt_varying_sel(flt) == 1) | (flt_varying_sel(flt) == 2)) & (flt_sel_type(flt) == 5) & (flt_type(flt) > 0)){
-        for(age = 0; age < nages(sp); age++){ //NOTE: extends beyond selectivity age range, but should be mapped to 0 in map function
-          for(sex = 0; sex < nsex(sp); sex++){
-            for(yr = 0; yr < nyrs_hind; yr++){
-              jnll_comp(5, flt) -= dnorm(sel_coff_dev(age, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
-            }
-          }
-        }
-      }
-
-
-      // Random walk: Type 4 = random walk on ascending and descending for double logistic; Type 5 = ascending only for double logistics
-      if(((flt_varying_sel(flt) == 4)|(flt_varying_sel(flt) == 5)) & (flt_sel_type(flt) != 2) & (flt_sel_type(flt) != 5) & (flt_type(flt) > 0)){
-        for(sex = 0; sex < nsex(sp); sex ++){
-          for(yr = 1; yr < nyrs_hind; yr++){ // Start at second year
-
-            // Logistic deviates
-            sel_inf_dev_ll(flt, yr) = -dnorm(sel_inf_dev(0, flt, sex, yr) - sel_inf_dev(0, flt, sex, yr-1), Type(0.0), sigma_sel(flt), true);
-            sel_slp_dev_ll(flt, yr) = -dnorm(ln_sel_slp_dev(0, flt, sex, yr) - ln_sel_slp_dev(0, flt, sex, yr-1), Type(0.0), sigma_sel(flt), true);
-
-            // Logistic deviates
-            jnll_comp(5, flt) -= dnorm(ln_sel_slp_dev(0, flt, sex, yr) - ln_sel_slp_dev(0, flt, sex, yr-1), Type(0.0), sigma_sel(flt), true);
-            jnll_comp(5, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr) - sel_inf_dev(0, flt, sex, yr-1), Type(0.0), 4 * sigma_sel(flt), true);
-
-            // Double logistic deviates
-            if((flt_sel_type(flt) == 3) & (flt_varying_sel(flt) == 4)){
-              jnll_comp(5, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr) - sel_inf_dev(1, flt, sex, yr-1), Type(0.0), sigma_sel(flt), true);
-              jnll_comp(5, flt) -= dnorm(ln_sel_slp_dev(1, flt, sex, yr) - ln_sel_slp_dev(1, flt, sex, yr-1), Type(0.0), sigma_sel(flt), true);
-            }
-          }
-
-          // Sum to zero constraint
-          Type sel_slp_dev1_sum = 0;
-          Type sel_inf_dev1_sum = 0;
-          Type sel_slp_dev2_sum = 0;
-          Type sel_inf_dev2_sum = 0;
-
+    if(((flt_varying_sel(flt) == 1) | (flt_varying_sel(flt) == 2)) & (flt_sel_type(flt) == 5) & (flt_type(flt) > 0)){
+      for(age = 0; age < nages(sp); age++){ //NOTE: extends beyond selectivity age range, but should be mapped to 0 in map function
+        for(sex = 0; sex < nsex(sp); sex++){
           for(yr = 0; yr < nyrs_hind; yr++){
-            sel_slp_dev1_sum += ln_sel_slp_dev(0, flt, sex, yr);
-            sel_inf_dev1_sum += sel_inf_dev(0, flt, sex, yr);
-            sel_slp_dev2_sum += ln_sel_slp_dev(1, flt, sex, yr);
-            sel_inf_dev2_sum += sel_inf_dev(1, flt, sex, yr);
+            jnll_comp(5, flt) -= dnorm(sel_coff_dev(flt, sex, age, yr), Type(0.0), sigma_sel(flt), true);
           }
-
-
-          jnll_comp(7, flt) += square(sel_slp_dev1_sum) * 10000;
-          jnll_comp(7, flt) += square(sel_inf_dev1_sum) * 10000;
-          jnll_comp(7, flt) += square(sel_slp_dev2_sum) * 10000;
-          jnll_comp(7, flt) += square(sel_inf_dev2_sum) * 10000;
         }
       }
+    }
+
+
+    // Random walk: Type 4 = random walk on ascending and descending for double logistic; Type 5 = ascending only for double logistics
+    if(((flt_varying_sel(flt) == 4)|(flt_varying_sel(flt) == 5)) & (flt_sel_type(flt) != 2) & (flt_sel_type(flt) != 5) & (flt_type(flt) > 0)){
+      for(sex = 0; sex < nsex(sp); sex ++){
+        for(yr = 1; yr < nyrs_hind; yr++){ // Start at second year
+
+          // Logistic deviates
+          sel_inf_dev_ll(flt, yr) = -dnorm(sel_inf_dev(0, flt, sex, yr) - sel_inf_dev(0, flt, sex, yr-1), Type(0.0), sigma_sel(flt), true);
+          sel_slp_dev_ll(flt, yr) = -dnorm(ln_sel_slp_dev(0, flt, sex, yr) - ln_sel_slp_dev(0, flt, sex, yr-1), Type(0.0), sigma_sel(flt), true);
+
+          // Logistic deviates
+          jnll_comp(5, flt) -= dnorm(ln_sel_slp_dev(0, flt, sex, yr) - ln_sel_slp_dev(0, flt, sex, yr-1), Type(0.0), sigma_sel(flt), true);
+          jnll_comp(5, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr) - sel_inf_dev(0, flt, sex, yr-1), Type(0.0), 4 * sigma_sel(flt), true);
+
+          // Double logistic deviates
+          if((flt_sel_type(flt) == 3) & (flt_varying_sel(flt) == 4)){
+            jnll_comp(5, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr) - sel_inf_dev(1, flt, sex, yr-1), Type(0.0), sigma_sel(flt), true);
+            jnll_comp(5, flt) -= dnorm(ln_sel_slp_dev(1, flt, sex, yr) - ln_sel_slp_dev(1, flt, sex, yr-1), Type(0.0), sigma_sel(flt), true);
+          }
+        }
+
+        // Sum to zero constraint
+        Type sel_slp_dev1_sum = 0;
+        Type sel_inf_dev1_sum = 0;
+        Type sel_slp_dev2_sum = 0;
+        Type sel_inf_dev2_sum = 0;
+
+        for(yr = 0; yr < nyrs_hind; yr++){
+          sel_slp_dev1_sum += ln_sel_slp_dev(0, flt, sex, yr);
+          sel_inf_dev1_sum += sel_inf_dev(0, flt, sex, yr);
+          sel_slp_dev2_sum += ln_sel_slp_dev(1, flt, sex, yr);
+          sel_inf_dev2_sum += sel_inf_dev(1, flt, sex, yr);
+        }
+
+
+        jnll_comp(7, flt) += square(sel_slp_dev1_sum) * 10000;
+        jnll_comp(7, flt) += square(sel_inf_dev1_sum) * 10000;
+        jnll_comp(7, flt) += square(sel_slp_dev2_sum) * 10000;
+        jnll_comp(7, flt) += square(sel_inf_dev2_sum) * 10000;
+      }
+    }
   } // End selectivity loop
 
 

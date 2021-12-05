@@ -5,8 +5,8 @@
 \title{Run a management strategy evaluation}
 \usage{
 mse_run(
-  operating_model = ms_run,
-  estimation_model = ss_run,
+  om = ms_run,
+  em = ss_run,
   nsim = 10,
   assessment_period = 1,
   sampling_period = 1,
@@ -16,9 +16,9 @@ mse_run(
 )
 }
 \arguments{
-\item{operating_model}{CEATTLE model object exported from \code{\link{Rceattle}}}
+\item{om}{CEATTLE model object exported from \code{\link{Rceattle}}}
 
-\item{estimation_model}{CEATTLE model object exported from \code{\link{Rceattle}}}
+\item{em}{CEATTLE model object exported from \code{\link{Rceattle}}}
 
 \item{nsim}{Number of simulations to run (default 10)}
 
