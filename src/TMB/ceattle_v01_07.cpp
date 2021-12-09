@@ -1187,6 +1187,13 @@ Type objective_function<Type>::operator() () {
         for (age = 0; age < nages(sp); age++) {
           switch(estDynamics(sp)){
           case 0: // Estimated abundance
+
+            // -- 6.5.1. Amin (i.e. recruitment)
+            if(age == 0){
+
+            }
+
+            // -- 6.5.2. Age Amin+1:Amax-1
             if ((age > 0) & (age < nages(sp) - 1)) {
 
               // Sum M1 until age - 1
@@ -1196,7 +1203,7 @@ Type objective_function<Type>::operator() () {
               }
               NByage(sp, sex, age, 0) = exp(ln_mean_rec(sp) - mort_sum + init_dev(sp, age - 1)) * R_sexr(sp);
             }
-            // -- 6.2.2. Where yr = 1 and age > Ai.
+            // -- 6.5.3. Amax
             if (age == (nages(sp) - 1)) {
               // Sum M1 until age - 1
               Type mort_sum = 0;

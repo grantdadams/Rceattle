@@ -246,9 +246,11 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       }
 
       # -- Map out ages < Amin
-      if(data_list$minage[spp] < data_list$fleet_control$Age_first_selected[flt]){
-        mapped_ages <- (data_list$minage[spp]:(data_list$fleet_control$Age_first_selected[flt]-1))- data_list$minage[spp] + 1
-        map_list$sel_coff[flt, , mapped_ages]  <- NA
+      if(!is.na(data_list$fleet_control$Age_first_selected[flt])){
+        if(data_list$minage[spp] < data_list$fleet_control$Age_first_selected[flt]){
+          mapped_ages <- (data_list$minage[spp]:(data_list$fleet_control$Age_first_selected[flt]-1))- data_list$minage[spp] + 1
+          map_list$sel_coff[flt, , mapped_ages]  <- NA
+        }
       }
 
       # 1-sex model
@@ -439,9 +441,11 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       }
 
       # -- Map out ages <= Amin
-      mapped_ages <- (data_list$minage[spp]:data_list$fleet_control$Age_first_selected[flt])- data_list$minage[spp] + 1
-      map_list$sel_coff[flt, , mapped_ages]  <- NA
-      map_list$sel_coff_dev[flt, , mapped_ages,]  <- NA
+      if(!is.na(data_list$fleet_control$Age_first_selected[flt])){
+        mapped_ages <- (data_list$minage[spp]:data_list$fleet_control$Age_first_selected[flt])- data_list$minage[spp] + 1
+        map_list$sel_coff[flt, , mapped_ages]  <- NA
+        map_list$sel_coff_dev[flt, , mapped_ages,]  <- NA
+      }
 
       # -- Map out years where comp data do not exist (set to average selectivity)
       map_list$sel_coff_dev[flt, , ,comp_miss_yrs]  <- NA
@@ -546,7 +550,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
       # Penalized deviate or random walk
       if(data_list$fleet_control$Time_varying_q[flt] %in% c(1,2,4)){
-        map_list$ln_srv_q_dev[flt, srv_biom_yrs_miss] <- ind_q + (1:length(srv_biom_yrs)) - 1
+        map_list$ln_srv_q_dev[flt, srv_biom_yrs] <- ind_q + (1:length(srv_biom_yrs)) - 1
         ind_q <- ind_q + length(srv_biom_yrs)
       }
 
