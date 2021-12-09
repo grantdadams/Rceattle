@@ -309,7 +309,7 @@ fit_mod <-
 
     # STEP 5 - Compile CEATTLE is providing cpp file
     # - Get cpp file if not provided
-    TMBfilename <- "ceattle_v01_07"
+    TMBfilename <- "ceattle_v01_08"
 
 
 
@@ -317,7 +317,7 @@ fit_mod <-
     # STEP 6 - Reorganize data and build model object
     Rceattle:::data_check(data_list)
     data_list_reorganized <- Rceattle::rearrange_dat(data_list)
-    data_list_reorganized = c(list(model = "ceattle_v01_07"),data_list_reorganized)
+    data_list_reorganized = c(list(model = "ceattle_v01_08"),data_list_reorganized)
 
     # - Update comp weights and F_prop from data
     if(!is.null(data_list$fleet_control$Comp_weights)){

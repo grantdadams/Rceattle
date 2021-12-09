@@ -1157,7 +1157,7 @@ Type objective_function<Type>::operator() () {
     }
 
 
-    // 6.4. ESTIMATE RECRUITMENT T1.1
+    // 6.5. ESTIMATE INITIAL ABUNDANCE AT AGE AND YEAR-1: T1.2
     for (sp = 0; sp < nspp; sp++) {
 
       if(nsex(sp)  == 1){
@@ -1165,32 +1165,14 @@ Type objective_function<Type>::operator() () {
       }
 
       for(sex = 0; sex < nsex(sp); sex ++){
-        for (yr = 0; yr < nyrs; yr++) {
-          R(sp, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr));
-
-          // Estimated numbers-at-age
-          if(estDynamics(sp) == 0){
-            NByage(sp, sex, 0, yr) = R(sp, yr) * R_sexr(sp);
-          }
-          // Fixed numbers-at-age
-          if(estDynamics(sp) > 0){
-            NByage(sp, sex, 0, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, 0, yr);
-          }
-        }
-      }
-    }
-
-
-    // 6.5. ESTIMATE INITIAL ABUNDANCE AT AGE AND YEAR-1: T1.2
-    for (sp = 0; sp < nspp; sp++) {
-      for(sex = 0; sex < nsex(sp); sex ++){
         for (age = 0; age < nages(sp); age++) {
           switch(estDynamics(sp)){
           case 0: // Estimated abundance
 
             // -- 6.5.1. Amin (i.e. recruitment)
             if(age == 0){
-
+              R(sp, 0) = exp(ln_mean_rec(sp) + rec_dev(sp, 0));
+              NByage(sp, sex, 0, 0) = R(sp, 0) * R_sexr(sp);
             }
 
             // -- 6.5.2. Age Amin+1:Amax-1
@@ -1240,12 +1222,17 @@ Type objective_function<Type>::operator() () {
           for(sex = 0; sex < nsex(sp); sex ++){
             switch(estDynamics(sp)){
             case 0: // Estimated numbers-at-age
-              // -- 6.3.1.  Where 1 <= age < Ai
+
+              // -- 6.6.1. Amin (i.e. recruitment)
+              R(sp, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr));
+              NByage(sp, sex, 0, yr) = R(sp, yr) * R_sexr(sp);
+
+              // -- 6.6.2.  Where Amin < age < Amax
               if (age < (nages(sp) - 1)) {
                 NByage(sp, sex, age + 1, yr) = NByage(sp, sex, age, yr - 1) * S(sp, sex, age, yr - 1);
               }
 
-              // -- 6.3.2. Plus group where age > Ai. NOTE: This is not the same as T1.3 because sp used age = A_i rather than age > A_i.
+              // -- 6.6.3. Plus group where age > Amax. NOTE: This is not the same as T1.3 because sp used age = A_i rather than age > A_i.
               if (age == (nages(sp) - 1)) {
                 NByage(sp, sex, age, yr) = NByage(sp, sex, age - 1, yr - 1) * S(sp, sex, age - 1, yr - 1) + NByage(sp, sex, age, yr - 1) * S(sp, sex, age, yr - 1);
               }
@@ -1269,7 +1256,7 @@ Type objective_function<Type>::operator() () {
           }
         }
 
-        // -- 6.3.3. Estimate Biomass and SSB
+        // -- 6.6.4. Estimate Biomass and SSB
         for (yr = 0; yr < nyrs_hind; yr++) {
           for(sex = 0; sex < nsex(sp); sex ++){
             biomassByage(sp, age, yr) += NByage(sp, sex, age, yr) * wt( pop_wt_index(sp), sex, age, yr ); // 6.5.
@@ -1292,12 +1279,17 @@ Type objective_function<Type>::operator() () {
           for(sex = 0; sex < nsex(sp); sex ++){
             switch(estDynamics(sp)){
             case 0: // Estimated numbers-at-age
-              // -- 6.3.1.  Where 1 <= age < Ai
+
+              // -- 6.7.1. Amin (i.e. recruitment)
+              R(sp, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr));
+              NByage(sp, sex, 0, yr) = R(sp, yr) * R_sexr(sp);
+
+              // -- 6.7.2.  Where 1 <= age < Ai
               if (age < (nages(sp) - 1)) {
                 NByage(sp, sex, age + 1, yr) = NByage(sp, sex, age, yr - 1) * S(sp, sex, age, yr - 1);
               }
 
-              // -- 6.3.2. Plus group where age > Ai. NOTE: This is not the same as T1.3 because sp used age = A_i rather than age > A_i.
+              // -- 6.7.3. Plus group where age > Ai. NOTE: This is not the same as T1.3 because sp used age = A_i rather than age > A_i.
               if (age == (nages(sp) - 1)) {
                 NByage(sp, sex, age, yr) = NByage(sp, sex, age - 1, yr - 1) * S(sp, sex, age - 1, yr - 1) + NByage(sp, sex, age, yr - 1) * S(sp, sex, age, yr - 1);
               }
@@ -1321,7 +1313,7 @@ Type objective_function<Type>::operator() () {
             }
 
 
-            // -- 6.3.3. Estimate Biomass and SSB
+            // -- 6.7.4. Estimate Biomass and SSB
             biomassByage(sp, age, yr) += NByage(sp, sex, age, yr) * wt( pop_wt_index(sp), sex, age, nyrs_hind-1 ); // 6.5.
             biomassSSBByage(sp, age, yr) = NByage(sp, 0, age, yr) * pow(S(sp, 0, age, yr), spawn_month(sp)/12) * wt(ssb_wt_index(sp), 0, age, nyrs_hind-1 ) * pmature(sp, age); // 6.6.
 
@@ -1376,12 +1368,17 @@ Type objective_function<Type>::operator() () {
           for(sex = 0; sex < nsex(sp); sex ++){
             switch(estDynamics(sp)){
             case 0: // Estimated numbers-at-age
-              // -- 6.3.1.  Where 1 <= age < Ai
+
+              // -- 6.7.5. Amin (i.e. recruitment)
+              R(sp, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr));
+              NByage(sp, sex, 0, yr) = R(sp, yr) * R_sexr(sp);
+
+              // -- 6.7.6.  Where Amin < age < Amax
               if (age < (nages(sp) - 1)) {
                 NByage(sp, sex, age + 1, yr) = NByage(sp, sex, age, yr - 1) * S(sp, sex, age, yr - 1);
               }
 
-              // -- 6.3.2. Plus group where age > Ai. NOTE: This is not the same as T1.3 because sp used age = A_i rather than age > A_i.
+              // -- 6.7.7. Plus group where age > Ai. NOTE: This is not the same as T1.3 because sp used age = A_i rather than age > A_i.
               if (age == (nages(sp) - 1)) {
                 NByage(sp, sex, age, yr) = NByage(sp, sex, age - 1, yr - 1) * S(sp, sex, age - 1, yr - 1) + NByage(sp, sex, age, yr - 1) * S(sp, sex, age, yr - 1);
               }
@@ -1403,7 +1400,6 @@ Type objective_function<Type>::operator() () {
             if(NByage(sp, sex, age, yr) < minNByage){
               NByage(sp, sex, age, yr) = minNByage;
             }
-
 
             // -- 6.3.3. Estimate Biomass and SSB
             biomassByage(sp, age, yr) += NByage(sp, sex, age, yr) * wt( pop_wt_index(sp), sex, age, nyrs_hind-1 ); // 6.5.
@@ -3701,12 +3697,6 @@ Type objective_function<Type>::operator() () {
     REPORT(srv_biom_obs);          // Report the simulation
     REPORT(fsh_biom_obs);
   }
-
-  REPORT( jnll_comp );
-  REPORT( biomass );
-  REPORT( biomassSSB );
-  REPORT( R );
-  REPORT( comp_hat );
 
   // ------------------------------------------------------------------------- //
   // 14. END MODEL                                                             //
