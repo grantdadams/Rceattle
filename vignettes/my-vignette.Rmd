@@ -1,8 +1,8 @@
 ---
-title: "Rceattle documentation"
+title: "my-vignette"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Rceattle documentation}
+  %\VignetteIndexEntry{my-vignette}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -13,6 +13,10 @@ knitr::opts_chunk$set(
   comment = "#>"
 )
 ```
+
+```{r setup}
+library(Rceattle)
+```
 # Population dynamics
 
 # Selectivity parameterizations
@@ -20,7 +24,7 @@ Multiple age-based selectivity functions are supported by Rceattle. They are con
 
 * `Selectivity_index`:	index to use if selectivities of different surveys are to be the same
 * `Selectivity`:	Selectivity parameterization to use for the species: 0 = empirical selectivity provided in `srv_emp_sel`; 1 = logistic selectivity; 2 = non-parametric selecitivty sensu Ianelli et al 2018; 3 = double logistic; 4 = descending logistic; 5 = non-parametric selectivity sensu Taylor et al 2014 (Hake)
-* `Nselages`:	Number of ages to estimate non-parametric selectivity for Selectivity = 2 & 5. For example, if `minage = 1` and selectivity parameters are estimated up till age-6, `Nselages = 6` and if `minage = 0` and selectivity parameters are estimated up till age-6, `Nselages = 7`.  Not used otherwise
+* `Nselages`:	Number of ages to estimate non-parametric selectivity for Selectivity = 2 & 5. For example, if `minage = 1` and selectivity parameters are estimated up till age-6, `Nselages = 6` and if `minage = 0` and selectivity parameters are estimated up till age-6, * * * * `Nselages = 7`.  Not used otherwise
 * `Time_varying_sel`:	Whether a time-varying selectivity should be estimated for logistic, double logistic selectivity, descending logistic, or non-parametric selectivity (`Selectivity = 5`). 0 = no, 1 = penalized deviates given sel_sd_prior, 2 = penalized deviates and estimate sel_sd_prior, 3 = time blocks with no penalty, 4 = random walk following Dorn, 5 = random walk on ascending portion of double logistic only. If selectivity is set to type = 2 (non-parametric) this value will be the 1st penalty on selectivity.
 * `Sel_sd_prior`:	The sd to use for the random walk of time varying selectivity if set to 1. If selectivity is set to type = 2 (non-parametric) this value will be the 2nd penalty on selectivity.
 * `Age_first_selected`:	Age at which selectivity is non-zero. Selectivity before this age will be set to 0.
