@@ -41,11 +41,12 @@ mydata$fleet_control$proj_F_prop <- c(rep(1,3), rep(0,4))
 ss_run <- Rceattle::fit_mod(data_list = mydata,
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save
-                            debug = FALSE, # Estimate
+                            debug = 1, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
                             phase = "default",
                             verbose = 1)
+ss_run$quantities$jnll_comp
 
 # Estimate M
 mydata_M <- mydata

@@ -14,8 +14,108 @@ knitr::opts_chunk$set(
 )
 ```
 # Population dynamics
+CEATTLE is an age-structured model that follows cohorts of individuals of a species, age, and sex through time. Annual recruitment and the initial age-structure are estimated and are treated as random effects or as penalized deviates, with the variance in recruitment estimated or fixed, respectively. Populations can be modelled as 1- or 2-sexes via `nsex` in the data. The sex-ratio at birth $\rho_{i1}$ is set in the `sex_ratio` data for the first age. Natural mortality is partitioned into predation mortality (M2) and non-predation related mortality (M1), the latter of which is either input or estimated (`estM1`), and accounts for mortality related to causes other than predation by the species included in the model. Predation can be turned off by setting `msmMode = 0` (see below for more detail).
 
-# Selectivity parameterizations
+$$N_{is1,y} = R_{is,y} = \bar{R}_{i }e^{\tau_{i,y}}*\rho_{i1}$$
+$$N_{isa,1} = \left \{ \begin{array}{} \bar{R}_ie^{ \left( -j M1_{isa} \right)}*\rho_{i1} \\ \frac{\bar{R}_ie^{ \left( -\sum^{a-1} M1_{isa} \right)}} {\left(1 - e^{\left( -\sum^{a-1} M1_{is A_i} \right)} \right)} *\rho_{i1} \end{array} \right.$$
+$$N_{is a+1, y+1} = N_{isa,y} e^{-Z_{isa,y}}$$
+$$N_{is A_i, y+1} = N_{is A_{i}-1,y} e^{-Z_{is A_{i}-1,y}} + N_{is A_{i},y} e^{-Z_{is A_{i},y}}$$
+$$B_{isa,y} = N_{isa,y} W_{isa,y}$$
+$$SSB_{isa,y} = B_{isa,y} \rho_{ia}$$
+$$Z_{isa,y} = M1_{isa} + M2_{isa,y} + F_{isa,y}$$
+
+# Predation sub-model
+Multiple age-based predation parameterizations are supported by Rceattle and are controlled by `suitMode` defining the predator-prey preference (suitability/predator selectivity) and `msmMode` defining the functional response of predation. The data used to parameterize the predation model include the proportion of prey-at-age in the diet of a predator-at-age (`UobsAgeWt` in the data) and the ration/consumption data (defined below).
+
+## Suitability
+Suitability represents a predator’s prey and size preference and factors such as spatial overlap in the distribution of predators and prey. 
+
+### MSVPA Type 2 based suitability
+Suitability can be derived empirically from the ratio of mean proportion (by weight) of prey-at-age in the stomach of predators-at-age. Magnusson (1995) provides details on the derivation of suitability coefficients.
+`suitMode = 0`
+Predator-prey suitability for predators of species $p$, sex $b$, age $j$, and prey of species $i$, sex $s$ and age $a$
+$$\hat{S}_{pbjisa} = \frac{1}{n_y} \sum_y \left( \frac{ \frac{\bar{U}_{pbjisa}} {B_{isa,y}} } {\sum_{isa} \left( \frac{\bar{U}_{pbjisa}} {B_{isa,y}} \right) + \frac{1 + \sum_{isa} \bar{U}_{pbjisa}} {B_p^{other}} } \right)$$
+
+Mean gravimetric diet proportion (proportion of prey-at-age in the diet of a predator-at-age: `UobsAgeWt` in data):
+$$\bar{U}_{pbjisa} = \frac{\sum_y {U_{pbjisa,y}}} {n_y}$$
+
+## Predation mortality
+
+### Single-species mode
+`msmMode = 0`
+
+### MSVPA Type 2 based predation mortality
+`msmMode = 1`
+
+Predation mortality equations for predators of species $p$, sex $b$, age $j$, and prey of species $i$, sex $s$ and age $a$
+$$M2_{isa,y} = \sum_{pbj} \left( \frac{N_{pbj,y} \delta_{pbj,y} {S}_{pbjisa}} {\sum_{isa} \left({S}_{pbjisa} B_{isa,y} \right) + B_p^{other} \left(1 - \sum_{isa} \left({S}_{pbjisa} \right) \right)} \right)$$
+
+
+## Consumption
+Multiple age-based consumption parameterizations are supported by Rceattle. They include a environmentally driven bioenergetics consumption and direction input of consumption-at-age. The consumption model is controlled by the following objects in the data (`bioenergetics_control` sheet of the excel data input):
+
+* `Ceq`	Integer: switch for which bioenergetics equation to use for each species for ft to scale max consumtion: 1 = Exponential (Stewart et al 1983), 2 = Temperature-dependendence for warm-water species (Kitchell et al 1977; sensu Holsman et al 2015), 3 = temperature dependence for cool and cold-water species (Thornton and Lessem 1979); 4 = 1 for direct input of consumption in Pyrs  where consumption at age = Wt * `Pyrs` (CA set to 1, fday set to 1, CB set to 0)
+* `Cindex`	Integer: which environmental index in env_data to use to use for $T_y$ for bioenergetics based ration
+* `Pvalue`	Tuning parameter $\varphi_p$ that scales the maximum consumption used for ration for each species
+* `fday` Data $Fday_p$ number of foraging days per year for each species
+* `CA`	Parameter $\alpha^{\delta}_p$ for slope of allometric mass function for calculating maximum consumption: CA * Weight ^ CB
+* `CB`	Parameter $\beta^{\delta}_p$ for slope of allometric mass function for calculating maximum consumption: CA * Weight ^ 1+CB
+* `Qc`	Parameter $Q^c_p$ for temperature scaling function of maximum consumption specified by `Ceq`
+* `Tco`	Parameter $T^{co}_p$ for temperature scaling function of maximum consumption specified by `Ceq`
+* `Tcm`	Parameter $T^{cm}_p$ for temperature scaling function of maximum consumption specified by `Ceq`
+* `Tcl`	Parameter $T^{cl}_p$ for temperature scaling function of maximum consumption specified by `Ceq`
+* `CK1`	Parameter $CK1_p$ for temperature scaling function of maximum consumption specified by `Ceq`
+* `CK4`	Parameter $CK4_p$ for temperature scaling function of maximum consumption specified by `Ceq`
+
+`Pyrs` $RFR_{pbj,y}$ is the relative foraging rate data used to modify ration. Essentially relative foraging rate and, subsequently, ration can be tuned via `fday` and `pvalue`.
+
+The weight-at-age used for the consumption equations is specified by `pop_wt_index`
+
+### Bioenergetics based ration
+`Ceq %in% 1:3`
+Individual specific ration ($\delta_{pbj,y}$ $(kg~kg^{-1}~yr^{-1})$) of predator $p$ of sex $b$ and age $j$ in year $y$:
+$$\delta_{pbj,y} = RFR_{pbj,y}*Fday_p *\alpha^{\delta}_p W_{pbj,y}^{\left(1+\beta^{\delta}_p\right)} *f\left(T_y \right)_p$$
+Ration can be tuned by adjusting `Pvalue`:
+$$\delta_{pbj,y} = \varphi_p * \delta_{pbj,y}$$
+
+*Temperature scaling algorithms. *
+
+`Ceq = 1`: Exponential function from Stewart et al. 1983:
+$$f \left(T_y \right)_p = e^{Q^c_p *T_y}$$
+
+`Ceq = 2`: Temperature dependence for warm-water-species from Kitchell et al. 1977:
+$$f \left(T_y \right)_p = V^X e^{\left(X \left(1-V \right) \right)}$$
+$$V = \left( T^{cm}_p - T_y \right)/ \left( T^{cm}_p - T^{co}_p \right)$$
+$$X = \left(Z^2 \left(1+ \left( 1 + 40 /Y \right)^{0.5} \right)^2 \right)/400$$
+$$Z = ln\left(Q^c_p \right) \left( T^{cm}_p - T^{co}_p \right)$$
+$$Y = ln\left(Q^c_p \right) \left( T^{cm}_p - T^{co}_p + 2\right)$$
+
+`Ceq = 3`: Temperature dependence for cool and cold-water species from Thornton and Lessem 1979:
+$$f \left(T_y \right)_p = Ka * Kb$$
+$$Ka = C^{K1}_p * L_1 / (1+C^{K1}_p * (L_1 - 1 ))$$
+$$L_1 = e^{G_1 * (T_y - Q^c_p)}$$
+$$G_1 = \frac{1}{T^{co}_p-Q^c_p}*\log\left(\frac{0.98*(1-CK1_p)}{CK1_p*0.02}\right)$$
+$$Kb = \frac{CK4_p *L_2} {1+CK4_p*(L_2-1)}$$
+$$L_2 = e^{G_2 (T^{cl}_p - T_y)}$$
+$$G_2 = \frac{1}{T^{cl}_p-T^{cm}_p}*\log\left( \frac{0.98*(1-CK4_p)}{CK4_p*0.02}\right)$$
+
+### Input ration-at-age
+`Ceq = 4` and for directly input of consumption-at-sex/age in the `Pyrs` data sheet for $RFR_{pbj,y}$. Set `CA = 1`, `fday = 1`, and `CB = 0`.
+$$\delta_{pbj,y} = RFR_{pbj,y}* W_{pbj,y} $$
+
+
+# Fishery and survey observation model
+CEATTLE is fit to time series of fishery and survey biomass, sex-ratio, and length- or age-composition data. Log-fishery catch, log-survey biomass and sex-ratio are assumed to be normally distributed, while age- and length-composition data are fit assuming multinomial distributions. Variance parameters for the lognormal distributions and initial input sample size for the multinomial distributions can be assumed known or for surveys also estimated as a free parameter or estimated analytically following Walters and Ludwig (1994). Separate selectivity and catchability functions can be estimated or input for each survey or fishery.
+
+Catch is estimated in the model following the Baranov catch equation:
+$$\hat{C}_{isa,y} = \frac{F_{isa,y}} {Z_{isa,y}} \left( 1 - e^{-Z_{isa,y}} \right) N_{isa,y}$$
+$$\hat{C}_{i,y} = \sum_s\sum_a^{A_i} \frac{F_isa,y} {Z_{isa,y}} \left( 1 - e^{-Z_{isa,y}} \right) N_{isa,y} W_{isa,y}$$
+$$F_{isa,y} = \bar{F}_{f_i}e^{\epsilon_{{f_i},y} s_{{f_i}sa}}$$
+$$\hat{CPUE:B}_{{f_i},y} = \sum_s\sum_a \left( N_{isa,y} e^{-0.5 Z_{isa,y}} W_{{f_i}sa,y} S_{{f_i}isa,y} * q_{{f_i}y} \right)$$
+$$\hat{CPUE:I}_{{f_i},y} = \sum_s\sum_a \left( N_{isa,y} e^{-0.5 Z_{isa,y}} S_{{f_i}isa,y} * q_{{f_i}y} \right)$$
+
+
+## Selectivity parameterizations
 Multiple age-based selectivity functions are supported by Rceattle. They are controlled by `Selectivity_index`, `Selectivity`, `Nselages`, `Time_varying_sel`, `Sel_sd_prior`, and `Age_first_selected` in fleet_control sheet of an Rceattle data file. They are defined as follows:
 
 * `Selectivity_index`:	index to use if selectivities of different surveys are to be the same
@@ -25,21 +125,25 @@ Multiple age-based selectivity functions are supported by Rceattle. They are con
 * `Sel_sd_prior`:	The sd to use for the random walk of time varying selectivity if set to 1. If selectivity is set to type = 2 (non-parametric) this value will be the 2nd penalty on selectivity.
 * `Age_first_selected`:	Age at which selectivity is non-zero. Selectivity before this age will be set to 0.
 
-## Non-parametric (Type 1)
+### Fixed selectivity
+Input:
+`Selectivity = 0` and input selectivity-at-age in the `emp_sel` data.
+
+### Non-parametric (Type 1)
 Input:
 `Selectivity = 2`, `Nselages = 6`, `Time_varying_sel = 12.5`, `Sel_sd_prior = 200`, and `Age_first_selected = 1`
 
 Equation:
 $$sel_{f_i sa}=e^{\phi_{f_isa}}$$
 
-## Logistic
+### Logistic
 Input:
 `Selectivity = 1`, `Nselages = NA`, `Time_varying_sel = 0`, and `Sel_sd_prior = NA`
 
 Equation:
 $$sel_{f_i sa}=1/(1+e^{-Slp_{f_i} (a-Inf_{f_i} ) } )$$
 
-## Time-varying logistic
+### Time-varying logistic
 Input:
 `Selectivity = 1`, `Nselages = NA`, and `Sel_sd_prior = 0.1` or other desired value. 
 
@@ -54,14 +158,14 @@ $$\phi_{f_i sy} = \phi_{f_i sy_{block}}$$
 Penalized likelihood random walk `Time_varying_sel = 4`
 $$\phi_{f_i sy}-\phi_{f_i sy-1} \sim N(0,\sigma^{\phi}_{f_i}) $$
 
-## Double logistic
+### Double logistic
 Input:
 `Selectivity = 3`, `Nselages = NA`, `Time_varying_sel = 0`, and `Sel_sd_prior = NA`
 
 Equation:
 $$sel_{f_i sa}=1/(1+e^{-Slp1_{f_i} (a-Inf1_{f_i} ) } )(1-1/(1+e^{-Slp2_{f_i} (a-Inf2_{f_i} ) } ))$$
 
-## Time-varying double logistic 1	(ascending and descending time-varying parameters)
+### Time-varying double logistic 1	(ascending and descending time-varying parameters)
 $$sel_{f_i sa}=1/(1+e^{-(Slp1_{f_i}+e^{\phi_{f_i sy}^{slp1} } ) (a-(Inf1_{f_i}+\phi_{f_i sy}^{Inf1} ) ) } )(1-1/(1+e^{-(Slp2_{f_i}+e^{\phi_{f_i sy}^{slp2} } ) (a-(Inf2_{f_i}+\phi_{f_i sy}^{Inf2} ) ) } ))$$
 
 Penalized likelihood: `Time_varying_sel = 1`
@@ -73,7 +177,7 @@ $$\phi_{f_i sy} = \phi_{f_i sy_{block}}$$
 Penalized likelihood random walk `Time_varying_sel = 4`
 $$\phi_{f_i sy}-\phi_{f_i sy-1} \sim N(0,\sigma^{\phi}_{f_i}) $$
 
-## Time-varying double logistic 2	(random walk ascending-time varying parameters)
+### Time-varying double logistic 2	(random walk ascending-time varying parameters)
 Input:
 `Selectivity = 3`, `Nselages = NA`, `Time_varying_sel = 5`, and `Sel_sd_prior = NA`
 
@@ -82,14 +186,14 @@ $$sel_{f_i sa}=1/(1+e^{-(Slp1_{f_i}+e^{\phi_{f_i sy}^{slp1} } ) (a-(Inf1_{f_i}+\
 
 $$\phi_{f_i sy} - \phi_{f_i sy-1} \sim N(0,\sigma^{\phi}_{f_i}) $$
 
-## Descending logistic
+### Descending logistic
 Input:
 `Selectivity = 4`, `Nselages = NA`, `Time_varying_sel = 0`, and `Sel_sd_prior = NA`
 
 Equation:
 $$sel_{f_i sa}=1-1/(1+e^{-Slp2_{f_i} (a-Inf2_{f_i} ) } )$$
 
-## Time-varying descending logistic	
+### Time-varying descending logistic	
 Input:
 `Selectivity = 4`, `Nselages = NA`, `Time_varying_sel = 1` or `2` , and `Sel_sd_prior = NA`
 
@@ -105,7 +209,7 @@ $$\phi_{f_i sy} = \phi_{f_i sy_{block}}$$
 Penalized likelihood random walk `Time_varying_sel = 4`
 $$\phi_{f_i sy}-\phi_{f_i sy-1} \sim N(0,\sigma^{\phi}_{f_i}) $$
 
-## Non-parametric (Type 2)
+### Non-parametric (Type 2)
 For each age $a \geq A_{min}$ there is an incremental selectivity parameter $p_{f_i say}$ for the fleet $f_i$. Selectivity at age is calculated as follows:
 
 $$sel_{f_i sa}=e^{sel^{`}_{f_i sa} - max(sel^{`}_{f_i sa})}$$
@@ -116,7 +220,7 @@ Selectivity is fixed at $sel_{f_i sa} = 0$ for $a < A_{min}$ and $p_{f_i sa} = 0
 Input:
 `Selectivity = 5`, `Nselages = 6`, `Time_varying_sel = NA`,  `Sel_sd_prior = NA`, and `Age_first_selected = `$A_{min}$
 
-## Time-varying non-parametric (Type 2)
+### Time-varying non-parametric (Type 2)
 As above, but a set of deviations on $p_a$ is used  to control annual changes in selectivity given a fixed or estimated standard deviation ($\sigma^{\phi}_{f_i}$):
 $$p_{f_i say}=p_{f_i sa}+\phi_{f_i say}$$
 
@@ -129,5 +233,5 @@ Random effect: `Time_varying_sel = 2` $\hat\sigma^{\phi}_{f_i}$ is estimated
 $$\phi_{f_i sy} \sim N(0,\hat\sigma^{\phi}_{f_i}) $$
 
 
-# Catchability parameterizations
+## Catchability parameterizations
 
