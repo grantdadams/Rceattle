@@ -683,6 +683,7 @@ DATA_ARRAY( wt );                       // Weight-at-age by year; n = [nweight, 
   array<Type> ration_hat(nspp, 2, max_age, nyrs); ration_hat.setZero();                   // Annual ration by predator age each year
   array<Type> ration_hat_ave(nspp, 2, max_age); ration_hat_ave.setZero();                 // Annual ration by predator age averaged over years
 
+
   // ------------------------------------------------------------------------- //
   // 5. INITIAL CALCULATIONS                                                   //
   // ------------------------------------------------------------------------- //
@@ -1531,14 +1532,28 @@ for (int iter = 0; iter < niter; iter++) {
 
     // Predator
     // 1 sex model
-r_sexes(stom_ind, 0) = 0; r_sexes(stom_ind, 1) = 1;
-      k_sexes(stom_ind, 0) = 0; k_sexes(stom_ind, 1) = 1;
+    r_sexes(stom_ind, 0) = 0; r_sexes(stom_ind, 1) = 1;
+    k_sexes(stom_ind, 0) = 0; k_sexes(stom_ind, 1) = 1;
+
+    // This is to account for situations where there are 2 sex but sex = 0 in the data
+    // 2 sex model
+    if(nsex(rsp) = 2){
+      // But k_sex = 0 (indicating diet data is for both sexes)
+      r_sexes(stom_ind, 0) = 0; r_sexes(stom_ind, 1) = 1;
+
       if(r_sex > 0){
         r_sexes(stom_ind, 0) = r_sex - 1;  r_sexes(stom_ind, 1) = r_sex - 1;
       }
+    }
+
+    if(nsex(ksp) = 2){
+      // But k_sex = 0 (indicating diet data is for both sexes)
+      k_sexes(stom_ind, 0) = 0; k_sexes(stom_ind, 1) = 1;
+
       if(k_sex > 0){
         k_sexes(stom_ind, 0) = k_sex - 1;  k_sexes(stom_ind, 1) = k_sex - 1;
       }
+    }
 
 
     for(int j = 0; j < 2; j ++){
@@ -2283,7 +2298,7 @@ r_sexes(stom_ind, 0) = 0; r_sexes(stom_ind, 1) = 1;
 
         // By numbers
         if(flt_units(flt) == 2){
-          fsh_bio_hat(fsh_ind) += F(flt, sex, age, flt_yr) / Zed(sp, sex, age, flt_yr) * (1 - exp(-Zed(sp, sex, age, flt_yr))) * NByage(sp, sex, age, flt_yr);
+          fsh_bio_hat(fsh_ind) += F(flt, sex, age, flt_yr) / Zed(sp, sex, age, flt_yr) * (1 - exp(-Zed(sp, sex, age, flt_yr))) * NByage(sp, sex, age, flt_yr); // 5.5.
         }
       }
     }
@@ -2504,7 +2519,7 @@ r_sexes(stom_ind, 0) = 0; r_sexes(stom_ind, 1) = 1;
 
     // 2 sex model
     // This is to account for situations where nsex = 2, but r_sex or k_sex = 0 should be weighted average
-    if(nsex(rsp) == 2){
+    if(nsex(rsp) = 2){
       // But k_sex = 0 (indicating diet data is for both sexes)
       r_sexes(stom_ind, 0) = 0; r_sexes(stom_ind, 1) = 1;
 
@@ -2513,7 +2528,7 @@ r_sexes(stom_ind, 0) = 0; r_sexes(stom_ind, 1) = 1;
       }
     }
 
-    if(nsex(ksp) == 2){
+    if(nsex(ksp) = 2){
       // But k_sex = 0 (indicating diet data is for both sexes)
       k_sexes(stom_ind, 0) = 0; k_sexes(stom_ind, 1) = 1;
 
@@ -2810,12 +2825,12 @@ for(sp = 0; sp < nspp; sp++){
   for(yr = 0; yr < nyrs_hind; yr++){
     if((nsex(sp) == 2) & (estDynamics(sp) == 0)){
       if(est_sex_ratio(sp) == 1){
-        jnll_comp(3, sp) -= dnorm(sex_ratio_mean_hat(sp, yr), sex_ratio(sp, 1), sex_ratio_sigma(sp)); // Using the 2nd age here, cause recruitment is assumed to be age 1 (c++ 0)
+        jnll_comp(4, sp) -= dnorm(sex_ratio_mean_hat(sp, yr), sex_ratio(sp, 1), sex_ratio_sigma(sp)); // Using the 2nd age here, cause recruitment is assumed to be age 1 (c++ 0)
       }
 
       if(est_sex_ratio(sp) == 2){
         for(age = 1; age < nages(sp); age++){ // Start at age 2 because age 1 is fixed
-          jnll_comp(3, sp) -= dnorm(sex_ratio_hat(sp, age, yr), sex_ratio(sp, age), sex_ratio_sigma(sp));
+          jnll_comp(4, sp) -= dnorm(sex_ratio_hat(sp, age, yr), sex_ratio(sp, age), sex_ratio_sigma(sp));
         }
       }
     }
@@ -2853,7 +2868,7 @@ for(flt = 0; flt < n_flt; flt++){ // Loop around surveys
         for (age = 0; age < nages(sp) - 2; age++) {
 
           sel_tmp(age) = first_difference( first_difference( sel_tmp ) )(age);
-          // jnll_comp(4, flt) += sel_curve_pen(flt, 1) * pow( sel_tmp(age) , 2);
+          jnll_comp(4, flt) += sel_curve_pen(flt, 1) * pow( sel_tmp(age) , 2);
         }
       }
     }
@@ -3120,7 +3135,6 @@ if (msmMode > 2){
   REPORT( emp_sel_obs );
   REPORT( sel_tmp );
   REPORT( sigma_sel );
-  REPORT( sel_curve_pen );
 
 
   // -- 12.3. Survey components

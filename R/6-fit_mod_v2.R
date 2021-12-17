@@ -14,7 +14,7 @@
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.
 #' @param minNByage Minimum numbers at age to put in a hard constraint that the number-at-age can not go below.
 #' @param phase Optional. List of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R. If NULL, will not phase model. If set to \code{"default"}, will use default phasing.
-#' @param suitMode Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), DEPRECATED: 1 = length based gamma selectivity from Kinzey and Punt (2009), 2 = time-varying length based gamma selectivity from Kinzey and Punt (2009), 3 = time-varying weight based gamma selectivity from Kinzey and Punt (2009), 4 = length based lognormal selectivity, 5 = time-varying length based lognormal selectivity, 6 = time-varying weight based lognormal selectivity.
+#' @param suitMode Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma suitability, 2 = weight based gamma suitability, 3 = length based lognormal selectivity, 4 = time-varying length based lognormal selectivity.
 #' @param suityr Integer. The last year used to calculate average suitability. Defaults to $endyr$ in $data_list$. Used for MSE runs where suitability is held at the value estimated from the years used to condition the OM, but F is estimated for years beyond those used to condition the OM to account for projected catch.
 #' @param getsd	Boolean whether to run standard error calculation
 #' @param use_gradient use the gradient to phase. Default = TRUE
@@ -270,6 +270,8 @@ fit_mod <-
             ln_rec_sigma = 2,
             rec_dev = 2,
             init_dev = 2,
+            ln_sex_ratio_sigma = 3,
+            ln_M1 = 4,
             ln_mean_F = 1,
             ln_FSPR = 3,
             proj_F_prop = 1,
@@ -281,20 +283,24 @@ fit_mod <-
             ln_sigma_time_varying_srv_q = 4,
             sel_coff = 3,
             sel_coff_dev = 4,
-            sel_curve_pen = 4,
-            ln_sex_ratio_sigma = 3,
             ln_sel_slp = 3,
-            ln_M1 = 4,
             sel_inf = 3,
             ln_sel_slp_dev = 5,
             sel_inf_dev = 5,
             ln_sigma_sel = 4,
+            sel_curve_pen = 4,
             ln_sigma_srv_index = 2,
             ln_sigma_fsh_catch = 2,
-            # log_gam_a = 4,
-            # log_gam_b = 4,
-            # log_phi = 4,
-            comp_weights = 4
+            comp_weights = 4,
+            logH_1 = 6,
+            logH_1a = 6,
+            logH_1b = 6,
+            logH_2 = 6,
+            logH_3 = 6,
+            H_4 = 6,
+            log_gam_a = 5,
+            log_gam_b = 5,
+            log_phi = 5
           )
         }
       }
@@ -417,8 +423,7 @@ fit_mod <-
       "Zero n-at-age penalty",
       "Ration",
       "Ration penalties",
-      "Stomach content weight",
-      "Stomach content numbers"
+      "Stomach content proportion by weight"
     )
 
 

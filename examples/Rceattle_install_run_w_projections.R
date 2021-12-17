@@ -44,8 +44,8 @@ mydata <- Rceattle::read_data( file = "BS2017SS.xlsx")
 ################################################
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
 ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
+                            file = NULL,
                              inits = NULL, # Initial parameters = 0
-                             file = NULL, # Don't save
                              debug = 0, # Estimate
                              random_rec = FALSE, # No random recruitment
                              msmMode = 0, # Single species mode

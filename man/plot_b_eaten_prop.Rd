@@ -2,7 +2,7 @@
 % Please edit documentation in R/7-plot_ceattle.R
 \name{plot_b_eaten_prop}
 \alias{plot_b_eaten_prop}
-\title{Plot biomass eaten by predator}
+\title{Plot biomass consumbed of each prey species by predator}
 \usage{
 plot_b_eaten_prop(
   Rceattle,

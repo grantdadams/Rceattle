@@ -1477,26 +1477,26 @@ plot_b_eaten <-
     }
 
     # Get B_eaten
-    B_eaten <-
+    B_eaten_as_prey <-
       array(NA, dim = c(nspp, nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
       for(sp in 1:nspp){
         for(yr in 1:nyrs_vec[i]){
-          B_eaten[sp, yr, i] <- sum(Rceattle[[i]]$quantities$B_eaten[sp,,,yr])
+          B_eaten_as_prey[sp, yr, i] <- sum(Rceattle[[i]]$quantities$B_eaten_as_prey[sp,,,yr])
         }
       }
     }
 
     ind = 1
 
-    B_eaten <- B_eaten / 1000000
+    B_eaten_as_prey <- B_eaten_as_prey / 1000000
 
     # Plot limits
     ymax <- c()
     ymin <- c()
-    for (i in 1:dim(B_eaten)[1]) {
-      ymax[i] <- max(c(B_eaten[i, , ], 0), na.rm = T)
-      ymin[i] <- min(c(B_eaten[i, , ], 0), na.rm = T)
+    for (i in 1:dim(B_eaten_as_prey)[1]) {
+      ymax[i] <- max(c(B_eaten_as_prey[i, , ], 0), na.rm = T)
+      ymin[i] <- min(c(B_eaten_as_prey[i, , ], 0), na.rm = T)
     }
     ymax <- ymax + top_adj * ymax
 
@@ -1509,7 +1509,7 @@ plot_b_eaten <-
     loops <- ifelse(is.null(file), 1, 2)
     for (i in 1:loops) {
       if (i == 2) {
-        filename <- paste0(file, "_b_eaten_trajectory", ".png")
+        filename <- paste0(file, "_B_eaten_as_prey_trajectory", ".png")
         png(
           file = filename ,
           width = width,
@@ -1550,7 +1550,7 @@ plot_b_eaten <-
         legend("topleft", spnames[spp], bty = "n", cex = 1)
 
         if(!is.null(mohns)){
-          legend("top", paste0("B_eaten Rho = ",  round(mohns[2,spp+1], 2) ), bty = "n", cex = 1) # B_eaten rho
+          legend("top", paste0("B_eaten_as_prey Rho = ",  round(mohns[2,spp+1], 2) ), bty = "n", cex = 1) # B_eaten_as_prey rho
         }
 
         if (j == 1) {
@@ -1569,11 +1569,11 @@ plot_b_eaten <-
 
 
 
-        # Mean B_eaten
-        for (k in 1:dim(B_eaten)[3]) {
+        # Mean B_eaten_as_prey
+        for (k in 1:dim(B_eaten_as_prey)[3]) {
           lines(
             x = Years[[k]],
-            y = B_eaten[spp, 1:length(Years[[k]]), k],
+            y = B_eaten_as_prey[spp, 1:length(Years[[k]]), k],
             lty = 1,
             lwd = lwd,
             col = line_col[k]
@@ -1582,7 +1582,7 @@ plot_b_eaten <-
 
         # Average across time
         if(incl_mean){
-          abline(h = mean(B_eaten[spp, 1:length(Years[[1]]), ]), lwd  = lwd, col = "grey", lty = 1)
+          abline(h = mean(B_eaten_as_prey[spp, 1:length(Years[[1]]), ]), lwd  = lwd, col = "grey", lty = 1)
         }
       }
 
@@ -1595,7 +1595,7 @@ plot_b_eaten <-
 
 
 
-#' Plot biomass eaten by predator
+#' Plot biomass consumbed of each prey species by predator
 #'
 #' @description Function the plots the biomass consumed trends as estimated from Rceattle. Returns and saves a figure with the biomass eaten trajectory.
 #'
@@ -1668,27 +1668,27 @@ plot_b_eaten_prop <-
 
 
     # Get B_eaten
-    B_eaten_prop <-
+    B_eaten <-
       array(NA, dim = c(nspp * 2, nspp * 2, nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
       for(rsp in 1:(nspp)){
         for(ksp in 1:(nspp)){
           for(yr in 1:nyrs_vec[i]){
-            B_eaten_prop[rsp, ksp,yr,i] <- sum(Rceattle[[i]]$quantities$B_eaten_prop[c(rsp, rsp + nspp),c(ksp, ksp + nspp),,,yr])
+            B_eaten[rsp, ksp,yr,i] <- sum(Rceattle[[i]]$quantities$B_eaten[c(rsp, rsp + nspp),c(ksp, ksp + nspp),,,yr])
           }
         }
       }
     }
 
     ind = 1
-    B_eaten_prop <- B_eaten_prop/1000000
+    B_eaten <- B_eaten/1000000
 
     # Plot limits
     ymax <- c()
     ymin <- c()
-    for (ksp in 1:dim(B_eaten_prop)[2]) { # Loop through prey
-      ymax[ksp] <- max(c(B_eaten_prop[,ksp, , ], 0), na.rm = T)
-      ymin[ksp] <- min(c(B_eaten_prop[,ksp, , ], 0), na.rm = T)
+    for (ksp in 1:dim(B_eaten)[2]) { # Loop through prey
+      ymax[ksp] <- max(c(B_eaten[,ksp, , ], 0), na.rm = T)
+      ymin[ksp] <- min(c(B_eaten[,ksp, , ], 0), na.rm = T)
     }
     ymax <- ymax + top_adj * ymax
 
@@ -1701,7 +1701,7 @@ plot_b_eaten_prop <-
     loops <- ifelse(is.null(file), 1, 2)
     for (i in 1:loops) {
       if (i == 2) {
-        filename <- paste0(file, "_b_eaten_prop_trajectory", ".png")
+        filename <- paste0(file, "_B_eaten_trajectory", ".png")
         png(
           file = filename ,
           width = width,
@@ -1742,7 +1742,7 @@ plot_b_eaten_prop <-
         legend("topleft", spnames[spp], bty = "n", cex = 1)
 
         if(!is.null(mohns)){
-          legend("top", paste0("B_eaten_prop Rho = ",  round(mohns[2,spp+1], 2) ), bty = "n", cex = 0.8) # B_eaten_prop rho
+          legend("top", paste0("B_eaten Rho = ",  round(mohns[2,spp+1], 2) ), bty = "n", cex = 0.8) # B_eaten rho
         }
 
         if (j == 1) {
@@ -1773,12 +1773,12 @@ plot_b_eaten_prop <-
 
 
 
-        # Mean B_eaten_prop
+        # Mean B_eaten
         for(pred in 1:nspp){
-          for (mod in 1:dim(B_eaten_prop)[4]) {
+          for (mod in 1:dim(B_eaten)[4]) {
             lines(
               x = Years[[mod]],
-              y = B_eaten_prop[pred, spp, 1:length(Years[[mod]]), mod],
+              y = B_eaten[pred, spp, 1:length(Years[[mod]]), mod],
               lwd = lwd,
               lty = pred,
               col = line_col[mod]) # Median
@@ -1786,7 +1786,7 @@ plot_b_eaten_prop <-
 
           # Average across time
           if(incl_mean){
-            abline(h = mean(B_eaten_prop[pred, spp, 1:length(Years[[1]]), ]), lwd  = lwd, col = "grey", lty = pred)
+            abline(h = mean(B_eaten[pred, spp, 1:length(Years[[1]]), ]), lwd  = lwd, col = "grey", lty = pred)
           }
         }
       }
