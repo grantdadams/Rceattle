@@ -1519,48 +1519,50 @@ for (int iter = 0; iter < niter; iter++) {
   }
 
 
-  // 7.4. Reorganize UobsWTAge content
-  for(int stom_ind = 0; stom_ind < UobsWtAge.rows(); stom_ind++){
-    rsp = UobsWtAge_ctl(stom_ind, 0) - 1; // Index of pred
-    ksp = UobsWtAge_ctl(stom_ind, 1) - 1; // Index of prey
-    r_sex = UobsWtAge_ctl(stom_ind, 2); // Index of pred sex
-    k_sex = UobsWtAge_ctl(stom_ind, 3); // Index of prey sex
-    r_age = UobsWtAge_ctl(stom_ind, 4) - minage(rsp); // Index of pred age
-    k_age = UobsWtAge_ctl(stom_ind, 5) - minage(ksp); // Index of prey age
-    flt_yr = UobsWtAge_ctl(stom_ind, 6); // Index of year
+// 7.4. Reorganize UobsWTAge content
+for(int stom_ind = 0; stom_ind < UobsWtAge.rows(); stom_ind++){
+      rsp = UobsWtAge_ctl(stom_ind, 0) - 1; // Index of pred
+      ksp = UobsWtAge_ctl(stom_ind, 1) - 1; // Index of prey
+      r_sex = UobsWtAge_ctl(stom_ind, 2); // Index of pred sex
+      k_sex = UobsWtAge_ctl(stom_ind, 3); // Index of prey sex
+      r_age = UobsWtAge_ctl(stom_ind, 4) - minage(rsp); // Index of pred age
+      k_age = UobsWtAge_ctl(stom_ind, 5) - minage(ksp); // Index of prey age
+      flt_yr = UobsWtAge_ctl(stom_ind, 6); // Index of year
 
-    // Predator
-    // 1 sex model
-r_sexes(stom_ind, 0) = 0; r_sexes(stom_ind, 1) = 1;
+      // Predator
+      // 1 sex model
+      r_sexes(stom_ind, 0) = 0; r_sexes(stom_ind, 1) = 1;
       k_sexes(stom_ind, 0) = 0; k_sexes(stom_ind, 1) = 1;
+
       if(r_sex > 0){
         r_sexes(stom_ind, 0) = r_sex - 1;  r_sexes(stom_ind, 1) = r_sex - 1;
       }
+
       if(k_sex > 0){
         k_sexes(stom_ind, 0) = k_sex - 1;  k_sexes(stom_ind, 1) = k_sex - 1;
       }
 
 
-    for(int j = 0; j < 2; j ++){
-      for(int k = 0; k < 2; k ++){
+      for(int j = 0; j < 2; j ++){
+        for(int k = 0; k < 2; k ++){
 
-        if(flt_yr > 0){
-          yr = flt_yr - styr;
+          if(flt_yr > 0){
+            yr = flt_yr - styr;
 
-          if(yr < nyrs_hind){
-            diet_prop_weight(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr) = UobsWtAge(stom_ind, 1);
+            if(yr < nyrs_hind){
+              diet_prop_weight(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr) = UobsWtAge(stom_ind, 1);
+            }
           }
-        }
 
-        // Average of years
-        if(flt_yr == 0){
-          for (yr = 0; yr < nyrs; yr++) {
-            diet_prop_weight(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr) = UobsWtAge(stom_ind, 1);
+          // Average of years
+          if(flt_yr == 0){
+            for (yr = 0; yr < nyrs; yr++) {
+              diet_prop_weight(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr) = UobsWtAge(stom_ind, 1);
+            }
           }
         }
       }
     }
-  }
 
 
   // 7.5. Calculate other food stomach content
@@ -1654,7 +1656,6 @@ r_sexes(stom_ind, 0) = 0; r_sexes(stom_ind, 1) = 1;
       for (rsp = 0; rsp < nspp; rsp++) {                          // Predator species loop
         for(r_sex = 0; r_sex < nsex(rsp); r_sex++){               // Predator sex
           for (r_age = 0; r_age < nages(rsp); r_age++) {          // Predator age loop
-            suit_other(rsp, r_sex, r_age) = Type( 1 );            // Initialize other suitability
             for (ksp = 0; ksp < nspp; ksp++) {                    // Prey species loop
               for(k_sex = 0; k_sex < nsex(ksp); k_sex++){         // Prey sex loop
                 for (k_age = 0; k_age < nages(ksp); k_age++) {    // Prey age loop
@@ -1668,8 +1669,7 @@ r_sexes(stom_ind, 0) = 0; r_sexes(stom_ind, 1) = 1;
 
                   // FIXME - Add in interannual variability here
                   suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) /= nyrs_suit;
-                  suit_other(rsp, r_sex, r_age) -= suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0); // Subtract observed suitability from entire suitability (ksp.e. 1)
-
+                  
                   // Remove NAs from crashing populations
                   if(!isFinite(suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0))){
                     suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) = 0;
@@ -1678,8 +1678,12 @@ r_sexes(stom_ind, 0) = 0; r_sexes(stom_ind, 1) = 1;
                   // Fill in years
                   for (yr = 1; yr < nyrs; yr++) {                 // Year loop
                     suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0);
-                    // suit_other(rsp, r_sex, r_age, yr) += suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr); // FIXME - include overlap indices
-                  }
+                    }
+
+                  // Other suitabilitity
+for (yr = 0; yr < nyrs; yr++) {   
+                  suit_other(rsp, r_sex, r_age, yr) += suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr); // FIXME - include overlap indices
+                }
                 }
               }
             }
@@ -1708,7 +1712,7 @@ r_sexes(stom_ind, 0) = 0; r_sexes(stom_ind, 1) = 1;
         for (ksp = 0; ksp < nspp; ksp++) {                            // Prey loop
           vulnerability(rsp,ksp) = exp(log_phi(rsp,ksp))/(1+sum_phi(rsp)); // multinomial logistic transformation
         }
-        vulnerability_other(rsp) = 1-vulnerability.row(rsp).sum(); // vulnerability-other=1-sum-vulnerability but transform so sum_vuln+vuln_other=1
+        vulnerability_other(rsp) = vulnerability.row(rsp).sum(); // vulnerability-other=1-sum-vulnerability but transform so sum_vuln+vuln_other=1
       }
 
       // 8.1.3. GAMMA suitability
@@ -1719,11 +1723,12 @@ r_sexes(stom_ind, 0) = 0; r_sexes(stom_ind, 1) = 1;
         for (rsp = 0; rsp < nspp; rsp++) {                           // Pred loop
           for (r_age = 0; r_age < nages(rsp); r_age++) {             // Pred age
             for(r_sex = 0; r_sex < nsex(rsp); r_sex++){
-              suit_other(rsp, r_sex, r_age) = vulnerability_other(rsp);
               for (ksp = 0; ksp < nspp; ksp++) {                     // Prey loop
                 for(k_sex = 0; k_sex < nsex(ksp); k_sex++){
                   for (k_age = 0; k_age < nages(ksp); k_age++) {     // Prey age
                     for (yr = 0; yr < nyrs; yr++) {                  // Year loop
+
+              suit_other(rsp, r_sex, r_age, yr) = vulnerability_other(rsp);
 
                       switch(suitMode){
                         case 1: // Length-based GAMMA suitability
@@ -1754,11 +1759,12 @@ r_sexes(stom_ind, 0) = 0; r_sexes(stom_ind, 1) = 1;
         for (rsp = 0; rsp < nspp; rsp++) {                                // Pred loop
           for(r_sex = 0; r_sex < nsex(rsp); r_sex ++){
             for (r_age = 0; r_age < nages(rsp); r_age++) {                  // Pred age
-              suit_other(rsp, r_sex, r_age) = vulnerability_other(rsp);
               for (ksp = 0; ksp < nspp; ksp++) {                            // Prey loop
                 for(k_sex = 0; k_sex < nsex(ksp); k_sex ++){
                   for (k_age = 0; k_age < nages(ksp); k_age++) {              // Prey age
                     for(yr = 0; yr < nyrs; yr++){
+
+              suit_other(rsp, r_sex, r_age, yr) = vulnerability_other(rsp);
 
                       switch(suitMode){
                         case 3: // Length-based lognormal suitability
@@ -1811,7 +1817,7 @@ r_sexes(stom_ind, 0) = 0; r_sexes(stom_ind, 1) = 1;
                 }
               }
               // Other food
-              avail_food(rsp, r_sex, r_age, yr) += other_food(rsp) * suit_other(rsp, r_sex, r_age);
+              avail_food(rsp, r_sex, r_age, yr) += other_food(rsp) * (Type(1) - suit_other(rsp, r_sex, r_age, yr));
             }
           }
         }
