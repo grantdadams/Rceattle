@@ -43,6 +43,7 @@ $$\bar{U}_{pbjisa} = \frac{\sum_y {U_{pbjisa,y}}} {n_y}$$
 
 ### Single-species mode
 `msmMode = 0`
+$$M2_{isa,y} = 0$$
 
 ### MSVPA Type 2 based predation mortality
 `msmMode = 1`
@@ -111,8 +112,9 @@ Catch is estimated in the model following the Baranov catch equation:
 $$\hat{C}_{isa,y} = \frac{F_{isa,y}} {Z_{isa,y}} \left( 1 - e^{-Z_{isa,y}} \right) N_{isa,y}$$
 $$\hat{C}_{i,y} = \sum_s\sum_a^{A_i} \frac{F_isa,y} {Z_{isa,y}} \left( 1 - e^{-Z_{isa,y}} \right) N_{isa,y} W_{isa,y}$$
 $$F_{isa,y} = \bar{F}_{f_i}e^{\epsilon_{{f_i},y} s_{{f_i}sa}}$$
-$$\hat{CPUE:B}_{{f_i},y} = \sum_s\sum_a \left( N_{isa,y} e^{-0.5 Z_{isa,y}} W_{{f_i}sa,y} S_{{f_i}isa,y} * q_{{f_i}y} \right)$$
-$$\hat{CPUE:I}_{{f_i},y} = \sum_s\sum_a \left( N_{isa,y} e^{-0.5 Z_{isa,y}} S_{{f_i}isa,y} * q_{{f_i}y} \right)$$
+CPUE data is estimated given catchability $q_{f_iy}$, selectivity $S_{f_isa,y}$, and fleet month $Month_{f_i}$ and can either be in biomass $\hat{CPUE:B}_{{f_i},y}$ or numbers $\hat{CPUE:I}_{{f_i},y}$:
+$$\hat{CPUE:B}_{{f_i},y} = \sum_s\sum_a \left( N_{isa,y} e^{-Month_{f_i} Z_{isa,y}} W_{{f_i}sa,y} S_{{f_i}isa,y} * q_{{f_i}y} \right)$$
+$$\hat{CPUE:I}_{{f_i},y} = \sum_s\sum_a \left( N_{isa,y} e^{-Month_{f_i} Z_{isa,y}} S_{{f_i}isa,y} * q_{{f_i}y} \right)$$
 
 
 ## Selectivity parameterizations
@@ -234,4 +236,55 @@ $$\phi_{f_i sy} \sim N(0,\hat\sigma^{\phi}_{f_i}) $$
 
 
 ## Catchability parameterizations
+Separate selectivity and catchability functions can be estimated for each survey or fishery. Additionally, catchability can be set the same for multiple surveys by setting `Q_index` to the same value. Catchability is controlled by the following parameters in the `fleet_control` sheet of the data
+
+* `Q_index`	index to use if catchability coefficients are to be set the same
+* `Estimate_q`	Estimate catchability? (0 = fixed at prior; - 1 = Estimate single parameter; - 2 = Estimate single parameter with prior; - 3 = Estimate analytical q  from Ludwig and Walters 1994;  - 4 = Estimate power equation (Not supported); - 5 - Linear equation (Not yet supported) log(q_y) = q_mu + beta * index_y)
+* `Q_prior`	Starting value or fixed value for catchability
+* `Q_sd_prior`	Variance of q prior: dnorm (log_q, log_q_prior, q_sd_prior)
+* `Time_varying_q`	Wether a time-varying q should be estimated. 0 = no, 1 = penalized deviate, 2 = random effect, 3 = time blocks with no penalty; 4 = random walk from mean following Dorn 2018 (dnorm(q_y - q_y-1, 0, sigma). If Estimate_q = 5, this determines the environmental index to be used in the equation log(q_y) = q_mu + beta * index_y
+* `Time_varying_q_sd_prior`	The sd to use for the random walk of time varying q if set to 1
+
+### Linear time-invariant catchability formulations
+`Time_varying_q = 0` for all formulations
+`Estimate_q = 0`
+
+$q_{f_i} =$ `Q_prior` from data
+
+`Estimate_q = 1` A freely estimated catchability parameter $\hat{q}_{f_i}$ is estimated for survey/index fleet $f_i$
+
+$$q_{f_i} = \hat{q}_{f_i}$$
+
+`Estimate_q = 2` A freely estimated catchability parameter $\hat{q}_{f_i}$ is estimated for survey/index fleet $f_i$ assuming a lognormal prior
+
+$$ \hat{q}_{f_i} \sim lognormal(log(Q\ prior), Q\ sd\ prior) $$
+
+`Estimate_q = 3` Catchability $\hat{q}_{f_i}$ is analytically derived for survey/index fleet $f_i$ following Walters and Ludwig (1994). 
+* For CPUE in weight with time-invariant standard error of the survey:
+$$\hat{q}_{f_i} = \exp\left( \sum_y log \left[ \frac{CPUE:B_{{f_i},y}}  {\sum_s\sum_a \left( N_{isa,y} e^{-Month_{f_i} Z_{isa,y}} W_{{f_i}sa,y} S_{{f_i}isa,y} \right)} \right]/n \right)$$
+* For CPUE in numbers with time-invariant standard error of the survey
+$$\hat{q}_{f_i} = \exp\left( \sum_y log \left[ \frac{CPUE:I_{{f_i},y}}  {\sum_s\sum_a \left( N_{isa,y} e^{-Month_{f_i} Z_{isa,y}} S_{{f_i}isa,y} \right)} \right]/n \right)$$
+* For CPUE in weight with time-varying standard error of the survey
+$$\hat{q}_{f_i} = \exp\left( \sum_y \left( log \left[ \frac{CPUE:B_{{f_i},y}}  {\sum_s\sum_a N_{isa,y} e^{-Month_{f_i} Z_{isa,y}} W_{{f_i}sa,y} S_{{f_i}isa,y}} \right]/\sigma^{2}_{f_iy} \right)/ \sum_y{\frac{1}{\sigma^{2}_{f_iy}}} \right)$$
+* For CPUE in numbers with time-varying standard error of the survey
+$$\hat{q}_{f_i} = \exp\left( \sum_y \left( log \left[ \frac{CPUE:I_{{f_i},y}}  {\sum_s\sum_a N_{isa,y} e^{-Month_{f_i} Z_{isa,y}} S_{{f_i}isa,y}} \right]/\sigma^{2}_{f_iy} \right)/ \sum_y{\frac{1}{\sigma^{2}_{f_iy}}} \right)$$
+
+### Time-varying catchability formulations
+*Annual catchability estimated via penalized likelihood or as random effects* 
+
+NOTE: If `Estimate_q = 2` a prior will be put on mean catchability as above.
+`Estimate_q %in% c(1:2)` and `Time_varying_q %in% c(1:2)`
+$$\hat{q}_{f_iy} = e^{\bar{q}_{f_i}+ \omega_{f_iy}}$$
+$\omega_{f_iy} \sim N(0,$`Time_varying_q_sd_prior`$)$ where `Time_varying_q_sd_prior` is either fixed `Time_varying_q = 1` or estimated `Time_varying_q = 2` & `random_q = TRUE` in \function{fit_mod}
+
+*Catchability time-blocks*
+
+`Estimate_q %in% c(1:2)`, `Time_varying_q = 3` where the blocks are based on the blocks in `srv_biom` data sheet.
+$$\hat{q}_{f_iy} = e^{\omega_{f_i block_y}}$$
+
+*Annual catchability via random walk*
+
+`Estimate_q %in% c(1:2)`, `Time_varying_q = 4`
+$$\hat{q}_{f_iy} = e^{\bar{q}_{f_i}+ \omega_{f_iy}}$$
+$\omega_{f_iy} \sim N(\omega_{f_iy-1},$`Time_varying_q_sd_prior`$)$
 
