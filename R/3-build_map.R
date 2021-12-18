@@ -775,13 +775,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       map_list$log_phi <- replace(map_list$log_phi, values = rep(NA, length(map_list$log_phi)))
     }
 
-    # 2.2. GAMMA suitability
-    if (data_list$suitMode %in% c(1:3)) {
-      map_list$log_phi <- replace(map_list$log_phi, values = rep(NA, length(map_list$log_phi)))
-    }
-
-    # 2.3. and 2.4 Lognormal
-    if (data_list$suitMode %in% c(4:5)) {
+    # 2.2. GAMMA or lognormal suitability
+    if (data_list$suitMode %in% c(1:4)) {
       # Use all the parameters
     }
   }
