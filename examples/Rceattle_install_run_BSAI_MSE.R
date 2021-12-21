@@ -38,10 +38,7 @@ mydata <- Rceattle::read_data( file = "BS2017SS.xlsx")
 # Estimation
 ################################################
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
-mydata$fleet_control$proj_F_prop <-rep(1,7)
-mydata$fleet_control$Selectivity[1] = 5
-mydata$fleet_control$Time_varying_sel[1] = 0
-mydata$fleet_control$Sel_sd_prior[1] = NA
+mydata$fleet_control$proj_F_prop <-rep(1,7) # All species have one fishing fleet
 ss_run2 <- Rceattle::fit_mod(data_list = mydata,
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save
