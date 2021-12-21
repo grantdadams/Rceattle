@@ -9,6 +9,7 @@
 #' @param random_rec logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE.
 #' @param random_q logical. If TRUE, treats annual catchability deviations as random effects.The default is FALSE.
 #' @param random_rec logical. If TRUE, treats annual selectivity deviations as random effects.The default is FALSE.
+#' @param hcr and HCR list object from \code{\link[build_hcr]}.
 #' @param niter Number of iterations for multispecies model
 #' @param msmMode The predation mortality functions to used. Defaults to no predation mortality used.
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.
@@ -112,31 +113,32 @@
 #' @export
 fit_mod <-
   function(
-           data_list = NULL,
-           inits = NULL,
-           map = NULL,
-           bounds = NULL,
-           file = NULL,
-           debug = 0,
-           random_rec = FALSE,
-           random_q = FALSE,
-           random_sel = FALSE,
-           niter = 3,
-           msmMode = 0,
-           avgnMode = 0,
-           minNByage = 0,
-           suitMode = 0,
-           suityr = NULL,
-           phase = NULL,
-           getsd = TRUE,
-           use_gradient = TRUE,
-           rel_tol = 1,
-           control = list(eval.max = 1e+09,
-                          iter.max = 1e+09, trace = 0),
-           getJointPrecision = TRUE,
-           loopnum = 5,
-           verbose = 1,
-           newtonsteps = 0) {
+    data_list = NULL,
+    inits = NULL,
+    map = NULL,
+    bounds = NULL,
+    file = NULL,
+    debug = 0,
+    random_rec = FALSE,
+    random_q = FALSE,
+    random_sel = FALSE,
+    hcr = build_hcr(),
+    niter = 3,
+    msmMode = 0,
+    avgnMode = 0,
+    minNByage = 0,
+    suitMode = 0,
+    suityr = NULL,
+    phase = NULL,
+    getsd = TRUE,
+    use_gradient = TRUE,
+    rel_tol = 1,
+    control = list(eval.max = 1e+09,
+                   iter.max = 1e+09, trace = 0),
+    getJointPrecision = TRUE,
+    loopnum = 5,
+    verbose = 1,
+    newtonsteps = 0) {
     start_time <- Sys.time()
 
     setwd(getwd())
@@ -210,18 +212,26 @@ fit_mod <-
       data_list$suityr <- data_list$endyr
     }
 
+    # HCR Switches
+    data_list$HCR = hcr$HCR
+    data_list$DynamicHCR = hcr$DynamicHCR
+    data_list$FXSPRtarget = hcr$FXSPRtarget
+    data_list$FXSPRlimit = hcr$FXSPRlimit
+    data_list$Ptarget = hcr$Ptarget
+    data_list$Plimit = hcr$Plimit
+    data_list$Alpha = hcr$Alpha
+    data_list$QnormHCR = qnorm(hcr$Pstar, 0, hcr$Sigma)
 
     # STEP 1 - LOAD PARAMETERS
     if (is.character(inits) | is.null(inits)) {
-      params <- suppressWarnings(Rceattle::build_params(
+      start_par <- suppressWarnings(Rceattle::build_params(
         data_list = data_list,
         inits = inits
       ))
     } else{
       # inits$proj_F <- data_list$fleet_control$proj_F
-      params <- inits
+      start_par <- inits
     }
-    start_par <- params
     if(verbose > 0) {message("Step 1: Parameter build complete")}
 
 
@@ -229,7 +239,7 @@ fit_mod <-
     # STEP 2 - BUILD MAP
     if (is.null(map)) {
       map <-
-        suppressWarnings(build_map(data_list, params, debug = debug > 1, random_rec = random_rec))
+        suppressWarnings(build_map(data_list, start_par, debug = debug > 1, random_rec = random_rec))
     } else{
       map <- map
     }
@@ -238,7 +248,7 @@ fit_mod <-
 
     # STEP 3 - Get bounds
     if (is.null(bounds)) {
-      bounds <- Rceattle::build_bounds(param_list = params, data_list)
+      bounds <- Rceattle::build_bounds(param_list = start_par, data_list)
     } else {
       bounds = bounds
     }
@@ -324,22 +334,23 @@ fit_mod <-
     Rceattle:::data_check(data_list)
     data_list_reorganized <- Rceattle::rearrange_dat(data_list)
     data_list_reorganized = c(list(model = "ceattle_v01_08"),data_list_reorganized)
+    data_list_reorganized$HCR = 0 # Estimate model with F = 0 for the projection
 
     # - Update comp weights and F_prop from data
     if(!is.null(data_list$fleet_control$Comp_weights)){
-      params$comp_weights = data_list$fleet_control$Comp_weights
+      start_par$comp_weights = data_list$fleet_control$Comp_weights
     }
-    params$proj_F_prop = data_list$fleet_control$proj_F_prop
+    start_par$proj_F_prop = data_list$fleet_control$proj_F_prop
 
     if(verbose > 0) {message("Step 4: Data rearranged complete")}
 
     # STEP 7 - Set up parameter bounds
     L <- c()
     U <- c()
-    for(i in 1:length(map[[1]])){
-      if(names(map[[1]])[i] %!in% random_vars){ # Dont have bounds for random effects
-        L = c(L, unlist(bounds$lower[[i]])[which(!is.na(unlist(map[[1]][[i]])) & !duplicated(unlist(map[[1]][[i]])))])
-        U = c(U, unlist(bounds$upper[[i]])[which(!is.na(unlist(map[[1]][[i]])) & !duplicated(unlist(map[[1]][[i]])))])
+    for(i in 1:length(map$mapFactor)){
+      if(names(map$mapFactor)[i] %!in% random_vars){ # Dont have bounds for random effects
+        L = c(L, unlist(bounds$lower[[i]])[which(!is.na(unlist(map$mapFactor[[i]])) & !duplicated(unlist(map$mapFactor[[i]])))])
+        U = c(U, unlist(bounds$upper[[i]])[which(!is.na(unlist(map$mapFactor[[i]])) & !duplicated(unlist(map$mapFactor[[i]])))])
       }
     }
 
@@ -351,8 +362,8 @@ fit_mod <-
       message(paste0("Step ", step,": Phasing begin"))
       phase_pars <- Rceattle::TMBphase(
         data = data_list_reorganized,
-        parameters = params,
-        map = map[[1]],
+        parameters = start_par,
+        map = map$mapFactor,
         random = random_vars,
         phases = phase,
         model_name = TMBfilename,
@@ -373,7 +384,7 @@ fit_mod <-
       data_list_reorganized,
       parameters = start_par,
       DLL = TMBfilename,
-      map = map[[1]],
+      map = map$mapFactor,
       random = random_vars,
       silent = verbose != 2
     )
@@ -381,7 +392,7 @@ fit_mod <-
     if(verbose > 0) {message(paste0("Step ",step, ": final build complete. Optimizing."))}
     step = step + 1
 
-    # Optimize
+    # -- Optimize
     if(debug %in% c(0,2)){
       opt = Rceattle::fit_tmb(obj = obj,
                               fn=obj$fn,
@@ -395,9 +406,68 @@ fit_mod <-
                               getJointPrecision = getJointPrecision,
                               quiet = verbose == 2,
       )
+      if(verbose > 0) {message("Step ",step, ": Final optimization complete")}
+      step = step + 1
     }
 
-    if(verbose > 0) {message("Step ",step, ": Final optimization complete")}
+    # -- Get MLEs
+    if (debug > 0) {
+      last_par <- start_par
+    }
+    else{
+      if(!random_rec){
+        last_par = try(obj$env$parList(obj$env$last.par.best)) # FIXME: maybe add obj$env$last.par.best inside?
+      } else {
+        last_par = try(obj$env$parList())
+      }
+    }
+
+
+    # Step 10 - Run HCR projections
+    if(debug %in% c(0,2)){
+      if(data_list$HCR > 2){
+        data_list_reorganized$HCR = data_list$HCR # Set HCR back to original
+
+        # -- Update map in obs
+        hcr_map <- build_hcr_map(data_list, map)
+        obj = TMB::MakeADFun(
+          data_list_reorganized,
+          parameters = last_par,
+          DLL = TMBfilename,
+          map = hcr_map$mapFactor,
+          random = random_vars,
+          silent = verbose != 2
+        )
+
+        # -- Optimize
+        opt = Rceattle::fit_tmb(obj = obj,
+                                fn=obj$fn,
+                                gr=obj$gr,
+                                startpar=obj$par,
+                                lower = L,
+                                upper = U,
+                                loopnum = loopnum,
+                                getsd = getsd,
+                                control = control,
+                                getJointPrecision = FALSE,
+                                quiet = verbose == 2,
+        )
+
+        # -- Update MLEs
+        if (debug > 0) {
+          last_par <- start_par
+        }
+        else{
+          if(!random_rec){
+            last_par = try(obj$env$parList(obj$env$last.par.best)) # FIXME: maybe add obj$env$last.par.best inside?
+          } else {
+            last_par = try(obj$env$parList())
+          }
+        }
+      }
+    }
+
+
 
     # Get quantities
     quantities <- obj$report(obj$env$last.par.best)
@@ -446,18 +516,6 @@ fit_mod <-
       data_list$fleet_control$Est_weights_mcallister[which(data_list$fleet_control$Fleet_code == flt)] <- ((1/length(comp_sub))*sum((eff_n_mcallister[comp_sub]/data_list$comp_data$Sample_size[comp_sub])^-1))^-1
     }
 
-
-    if (debug > 0) {
-      last_par <- params
-    }
-    else{
-      if(!random_rec){
-      last_par = try(obj$env$parList(obj$env$last.par.best)) # FIXME: maybe add obj$env$last.par.best inside?
-      } else {
-        last_par = try(obj$env$parList())
-      }
-    }
-
     run_time = ((Sys.time() - start_time))
 
 
@@ -466,7 +524,7 @@ fit_mod <-
       list(
         TMBfilename = TMBfilename,
         data_list = data_list,
-        initial_params = params,
+        initial_params = start_par,
         bounds = bounds,
         map = map,
         obj = obj,

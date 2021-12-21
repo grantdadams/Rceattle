@@ -96,7 +96,7 @@ BS2017MS$est_M1 <- rep(0,3)
 ms_suit <- list()
 for(i in 1:4){
   ms_suit[[i]] <- list()
-  for(j in 3:9){
+  for(j in 1:2){
     ms_suit[[i]][[j]] <- try(Rceattle::fit_mod(data_list = BS2017MS,
                                           inits = ss_run$estimated_params, # Initial parameters from single species ests
                                           file = NULL, # Don't save
@@ -109,4 +109,7 @@ for(i in 1:4){
   }
 }
 
-plot_biomass(c(list(ss_run),ms_suit[[1]][5:9], ms_suit[[2]][5:9]))
+for(i in 1:4){
+  print(sapply(ms_suit[[i]],class))}
+
+plot_biomass(c(list(ss_run),ms_suit[[1]][5:9], ms_suit[[2]][5:9], ms_suit[[3]][5:9], ms_suit[[4]][5:9]))
