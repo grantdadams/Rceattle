@@ -14,6 +14,7 @@ fit_mod(
   random_rec = FALSE,
   random_q = FALSE,
   random_sel = FALSE,
+  hcr = build_hcr(),
   niter = 3,
   msmMode = 0,
   avgnMode = 0,
@@ -47,6 +48,8 @@ fit_mod(
 \item{random_rec}{logical. If TRUE, treats annual selectivity deviations as random effects.The default is FALSE.}
 
 \item{random_q}{logical. If TRUE, treats annual catchability deviations as random effects.The default is FALSE.}
+
+\item{hcr}{and HCR list object from \code{\link[build_hcr]}.}
 
 \item{niter}{Number of iterations for multispecies model}
 

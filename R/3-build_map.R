@@ -27,10 +27,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   # Convert parameters to map object
   map_list <- params
 
-  # Se each item in map_list to seperate value
-  for (i in 1:length(map_list)) {
-    map_list[[i]] <- replace(map_list[[i]], values = c(1:length(map_list[[i]])))
-  }
+  # Set each item in map_list to seperate value
+  sapply(map_list, function(x) replace(x, values = c(1:length(x))))
 
 
   # -----------------------------------------------------------
@@ -50,9 +48,11 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   map_list$rec_dev[, yrs_proj] <- as.numeric(replace(map_list$rec_dev[, yrs_proj],
                                                      values = rep(NA, length(map_list$rec_dev[, yrs_proj]))))
 
-  # -- FSPR mapped out unless hcr mode
-    map_list$ln_FSPR <- replace(map_list$ln_FSPR,
-                                values = rep(NA, length(map_list$ln_FSPR)))
+  # -- FSPR mapped out
+  map_list$ln_Flimit <- replace(map_list$ln_Flimit,
+                              values = rep(NA, length(map_list$ln_Flimit)))
+  map_list$ln_Ftarget <- replace(map_list$ln_Ftarget,
+                                values = rep(NA, length(map_list$ln_Ftarget)))
 
 
   # -- 1.4. Map out initial population deviations not to be estimated - map out last age and ages not seen
@@ -781,13 +781,10 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     }
   }
 
-
   # STEP 3 - set up debug - I.E. turn off all parameters besides dummy
   map_list$dummy <- NA
   if (debug == TRUE) {
-    for (i in 1:length(map_list)) {
-      map_list[[i]] <- replace(map_list[[i]], values = rep(NA, length(map_list[[i]])))
-    }
+    sapply(map_list, function(x) replace(x, values = rep(NA, length(x))))
     map_list$dummy = 1
   }
 
@@ -797,17 +794,10 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   # - I.E. turn off all parameters besides for species
   for(sp in 1:data_list$nspp){
 
-    # Check proj F if proj F prop is all 0
-    prop_check <- data_list$fleet_control$proj_F_prop[which(data_list$fleet_control$Species == sp & data_list$fleet_control$Fleet_type == 1)]
-    if(sum(as.numeric(prop_check == 0)) != 0){ # If all fisheries for a species have no F in F_prop, turn off future F
-      map_list$ln_FSPR[sp,] <- NA
-    }
-
     # Fixed n-at-age: Turn off most parameters
     if(data_list$estDynamics[sp] > 0){
 
       # Population parameters
-      map_list$ln_FSPR[sp,] <- NA
       map_list$ln_mean_rec[sp] <- NA
       map_list$ln_rec_sigma[sp] <- NA
       map_list$ln_sex_ratio_sigma[sp] <- NA
@@ -858,12 +848,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
   # STEP 5 -- Convert to factor
   map_list_grande <- list()
-  map_list_grande[[1]] <- map_list
-  map_list_grande[[2]] <- map_list
-
-  for (i in 1:length(map_list_grande[[1]])) {
-    map_list_grande[[1]][[i]] <- factor(map_list_grande[[1]][[i]])
-  }
+  map_list_grande$mapFactor <- sapply(map_list, factor)
+  map_list_grande$mapList <- map_list
 
   return(map_list_grande)
 }
