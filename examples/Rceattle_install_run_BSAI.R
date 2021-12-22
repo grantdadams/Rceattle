@@ -21,7 +21,6 @@ library(Rceattle)
 # Example
 # To run the 2017 single species assessment for the Bering Sea, a data file must first be loaded:
 data(BS2017SS) # ?BS2017SS for more information on the data
-BS2017SS$projyr <- 2030
 
 # Write data to excel
 Rceattle::write_data(data_list = BS2017SS, file = "BS2017SS.xlsx")
@@ -41,12 +40,11 @@ mydata$fleet_control$proj_F_prop <- c(rep(1,3), rep(0,4))
 ss_run <- Rceattle::fit_mod(data_list = mydata,
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save
-                            debug = 1, # Estimate
+                            estimateMode = 0, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
                             phase = "default",
                             verbose = 1)
-ss_run$quantities$jnll_comp
 
 # Estimate M
 mydata_M <- mydata
@@ -54,7 +52,7 @@ mydata_M$est_M1 <- c(1,1,1)
 ss_run_M <- Rceattle::fit_mod(data_list = mydata_M,
                               inits = ss_run$estimated_params, # Initial parameters = 0
                               file = NULL, # Don't save
-                              debug = FALSE, # Estimate
+                              estimateMode = 0, # Estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
                               phase = "default",
@@ -72,7 +70,7 @@ BS2017MS$est_M1 <- c(1,1,1) # Estimate residual M
 ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
                             inits = ss_run_M$estimated_params, # Initial parameters from single species ests
                             file = NULL, # Don't save
-                            debug = 0, # Estimate
+                            estimateMode = 0, # Estimate
                             niter = 3, # 10 iterations around population and predation dynamics
                             random_rec = FALSE, # No random recruitment
                             msmMode = 1, # MSVPA based
@@ -93,7 +91,6 @@ plot_selectivity(Rceattle = mod_list, model_names = mod_names)
 plot_mort(Rceattle = mod_list, model_names = mod_names, age = 2)
 
 # Run diagnostics
-plot_fsh_comp(ms_run) # Fitted fishery composition data
-plot_srv_comp(ms_run) # Fitted survey composition data
+plot_comp(ms_run) # Fitted survey composition data
 plot_index(ms_run) # Fitted indices of abundance
 plot_catch(ms_run) # Fitted catch series

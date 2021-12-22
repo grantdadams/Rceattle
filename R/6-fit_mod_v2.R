@@ -5,7 +5,7 @@
 #' @param map (Optional) A map object from \code{\link{build_map}}.
 #' @param bounds (Optional) A bounds object from \code{\link{build_bounds}}.
 #' @param file (Optional) Filename where files will be saved. If NULL, no file is saved.
-#' @param debug 0 = Fit the model. 1 = runs the model through MakeADFun, but not nlminb, 2 = runs the model without estimating parameters to get derived quantities given initial parameter values (maps out all parameters).
+#' @param estimateMode 0 = Fit the hindcast model and projection with HCR specified via \code{hcr}. 1 = Fit the hindcast model only (no projection). 2 = Run the projection only with HCR specified via \code{hcr} given the initial parameters in \code{inits}.  3 = debug mode 1: runs the model through MakeADFun, but not nlminb, 4 = runs the model through MakeADFun and nlminb (will all parameters mapped out).
 #' @param random_rec logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE.
 #' @param random_q logical. If TRUE, treats annual catchability deviations as random effects.The default is FALSE.
 #' @param random_rec logical. If TRUE, treats annual selectivity deviations as random effects.The default is FALSE.
@@ -73,7 +73,8 @@
 #'   rec_dev = 2,
 #'   init_dev = 2,
 #'   ln_mean_F = 1,
-#'   ln_FSPR = 3,
+#'   ln_Flimit = 3,
+#'   ln_Ftarget = 3,
 #'   proj_F_prop = 1,
 #'   F_dev = 1,
 #'   ln_srv_q = 3,
@@ -103,7 +104,7 @@
 #'ss_run <- fit_mod(data_list = BS2017SS,
 #'    inits = NULL, # Initial parameters = 0
 #'    file = NULL, # Don't save
-#'    debug = 0, # Estimate
+#'    estimateMode = 0, # Estimate
 #'    random_rec = FALSE, # No random recruitment
 #'    msmMode = 0, # Single species mode
 #'    avgnMode = 0,
@@ -118,7 +119,7 @@ fit_mod <-
     map = NULL,
     bounds = NULL,
     file = NULL,
-    debug = 0,
+    estimateMode = 0,
     random_rec = FALSE,
     random_q = FALSE,
     random_sel = FALSE,
@@ -202,7 +203,7 @@ fit_mod <-
 
     # Switches
     data_list$random_rec <- as.numeric(random_rec)
-    data_list$debug <- debug
+    data_list$debug <- estimateMode
     data_list$niter <- niter
     data_list$avgnMode <- avgnMode
     data_list$msmMode <- msmMode
@@ -220,7 +221,7 @@ fit_mod <-
     data_list$Ptarget = hcr$Ptarget
     data_list$Plimit = hcr$Plimit
     data_list$Alpha = hcr$Alpha
-    data_list$QnormHCR = qnorm(hcr$Pstar, 0, hcr$Sigma)
+    data_list$QnormHCR = ifelse(hcr$HCR == 4, qnorm(hcr$Pstar, 0, hcr$Sigma), 0) # Pstar HCR
 
     # STEP 1 - LOAD PARAMETERS
     if (is.character(inits) | is.null(inits)) {
@@ -239,7 +240,7 @@ fit_mod <-
     # STEP 2 - BUILD MAP
     if (is.null(map)) {
       map <-
-        suppressWarnings(build_map(data_list, start_par, debug = debug > 1, random_rec = random_rec))
+        suppressWarnings(build_map(data_list, start_par, debug = estimateMode > 3, random_rec = random_rec))
     } else{
       map <- map
     }
@@ -283,7 +284,8 @@ fit_mod <-
             ln_sex_ratio_sigma = 3,
             ln_M1 = 4,
             ln_mean_F = 1,
-            ln_FSPR = 3,
+            ln_Flimit = 3,
+            ln_Ftarget = 3,
             proj_F_prop = 1,
             F_dev = 1,
             ln_srv_q = 3,
@@ -325,7 +327,7 @@ fit_mod <-
 
     # STEP 5 - Compile CEATTLE is providing cpp file
     # - Get cpp file if not provided
-    TMBfilename <- "ceattle_v01_08"
+    TMBfilename <- "ceattle_v01_09"
 
 
 
@@ -333,7 +335,7 @@ fit_mod <-
     # STEP 6 - Reorganize data and build model object
     Rceattle:::data_check(data_list)
     data_list_reorganized <- Rceattle::rearrange_dat(data_list)
-    data_list_reorganized = c(list(model = "ceattle_v01_08"),data_list_reorganized)
+    data_list_reorganized = c(list(model = "ceattle_v01_09"),data_list_reorganized)
     data_list_reorganized$HCR = 0 # Estimate model with F = 0 for the projection
 
     # - Update comp weights and F_prop from data
@@ -355,10 +357,10 @@ fit_mod <-
     }
 
 
-    # STEP 8 - Fit model object
+    # STEP 8 - Fit hindcast
     step = 5
-    # If phased
-    if(!is.null(phase) & debug == 0 ){
+    # If phase: phase hindcast
+    if(!is.null(phase) & estimateMode %in% c(0,1) ){
       message(paste0("Step ", step,": Phasing begin"))
       phase_pars <- Rceattle::TMBphase(
         data = data_list_reorganized,
@@ -379,7 +381,7 @@ fit_mod <-
     }
 
 
-    # STEP 9 - Fit final model
+    # STEP 9 - Fit final hindcast model
     obj = TMB::MakeADFun(
       data_list_reorganized,
       parameters = start_par,
@@ -389,11 +391,22 @@ fit_mod <-
       silent = verbose != 2
     )
 
+    # -- Save objects
+    mod_objects <-
+      list(
+        TMBfilename = TMBfilename,
+        initial_params = start_par,
+        bounds = bounds,
+        map = map,
+        obj = obj
+      )
+
     if(verbose > 0) {message(paste0("Step ",step, ": final build complete. Optimizing."))}
     step = step + 1
 
-    # -- Optimize
-    if(debug %in% c(0,2)){
+
+    # -- Optimize hindcast
+    if(estimateMode %in% c(0,1,4)){
       opt = Rceattle::fit_tmb(obj = obj,
                               fn=obj$fn,
                               gr=obj$gr,
@@ -408,10 +421,36 @@ fit_mod <-
       )
       if(verbose > 0) {message("Step ",step, ": Final optimization complete")}
       step = step + 1
+
+      # -- Convergence warnings
+      if(estimateMode %in% c(0,1)){
+        # Bad parameter identification
+        if(is.null(opt$SD) & getsd){
+          identified <- suppressMessages(TMBhelper::check_estimability(obj))
+
+          # Make into list
+          identified_param_list <- obj$env$parList(identified$BadParams$Param_check)
+          identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==0,"Not estimated",x), how = "replace")
+          identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==1,"OK",x), how = "replace")
+          identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==2,"BAD",x), how = "replace")
+          identified$param_list <- identified_param_list
+          mod_objects$identified <- identified
+        }
+
+
+        # Warning for discontinuous likelihood
+        if(!is.null(opt$SD) & random_rec == FALSE){
+          if(abs(opt$objective - quantities$jnll) > rel_tol){
+            message( "#########################" )
+            message( "Convergence warning (8)" )
+            message( "#########################" )
+          }
+        }
+      }
     }
 
     # -- Get MLEs
-    if (debug > 0) {
+    if (estimateMode > 1) { # Debugging and projection only: use initial parameters
       last_par <- start_par
     }
     else{
@@ -424,7 +463,7 @@ fit_mod <-
 
 
     # Step 10 - Run HCR projections
-    if(debug %in% c(0,2)){
+    if(estimateMode %in% c(0,2,4)){
       if(data_list$HCR > 2){
         data_list_reorganized$HCR = data_list$HCR # Set HCR back to original
 
@@ -454,7 +493,7 @@ fit_mod <-
         )
 
         # -- Update MLEs
-        if (debug > 0) {
+        if (estimateMode > 2) { # Debugging, give initial parameters
           last_par <- start_par
         }
         else{
@@ -467,6 +506,8 @@ fit_mod <-
       }
     }
 
+    # -- Save estimated parameters
+    mod_objects$estimated_params <- last_par
 
 
     # Get quantities
@@ -503,6 +544,9 @@ fit_mod <-
     rownames(quantities$biomassSSB) <- data_list$spnames
     rownames(quantities$R) <- data_list$spnames
 
+    # -- Save derived quantities
+    mod_objects$quantities <- quantities
+
     # Calculate Mcallister-Iannelli coefficients
     # Effective sample size for the length data for year y
 
@@ -516,59 +560,18 @@ fit_mod <-
       data_list$fleet_control$Est_weights_mcallister[which(data_list$fleet_control$Fleet_code == flt)] <- ((1/length(comp_sub))*sum((eff_n_mcallister[comp_sub]/data_list$comp_data$Sample_size[comp_sub])^-1))^-1
     }
 
-    run_time = ((Sys.time() - start_time))
+    # -- Save data w/ mcallister
+    mod_objects$data_list <- data_list
 
 
-    # Return objects
-    mod_objects <-
-      list(
-        TMBfilename = TMBfilename,
-        data_list = data_list,
-        initial_params = start_par,
-        bounds = bounds,
-        map = map,
-        obj = obj,
-        estimated_params = last_par,
-        quantities = quantities,
-        run_time = run_time
-      )
+    # -- Save objects
+    mod_objects$run_time = ((Sys.time() - start_time))
 
-    if(debug == 0){
+    if(estimateMode < 3){
       mod_objects$opt = opt
       mod_objects$sdrep = opt$SD
 
     }
-
-    if(debug == 0){
-      if(is.null(opt$SD) & getsd){
-        identified <- suppressMessages(TMBhelper::check_estimability(obj))
-
-        # Make into list
-        identified_param_list <- obj$env$parList(identified$BadParams$Param_check)
-        identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==0,"Not estimated",x), how = "replace")
-        identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==1,"OK",x), how = "replace")
-        identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==2,"BAD",x), how = "replace")
-
-        identified$param_list <- identified_param_list
-
-        mod_objects$identified <- identified
-      }
-    }
-
-
-    if(debug == 0){
-      if(!is.null(opt$SD) & random_rec == FALSE){
-        # Warning for discontinuous likelihood
-        if(abs(opt$objective - quantities$jnll) > rel_tol){
-          message( "#########################" )
-          message( "Convergence warning (8)" )
-          message( "#########################" )
-        }
-      }
-    }
-
-
-
 
     class(mod_objects) <- "Rceattle"
 

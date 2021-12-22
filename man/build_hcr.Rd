@@ -5,7 +5,7 @@
 \title{Specify the harvest control rule (HCR) used for Rceattle}
 \usage{
 build_hcr(
-  HCR = 1,
+  HCR = 0,
   DynamicHCR = FALSE,
   FXSPRtarget = 0.4,
   FXSPRlimit = 0.35,
@@ -17,7 +17,7 @@ build_hcr(
 )
 }
 \arguments{
-\item{HCR}{Function to be used for harvest control rule (see below)}
+\item{HCR}{Function to be used for harvest control rule (see below). Default = 0}
 
 \item{DynamicHCR}{TRUE/FALSE. Wether to use static or dynamic reference points (default = FALSE)}
 

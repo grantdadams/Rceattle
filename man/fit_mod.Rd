@@ -10,7 +10,7 @@ fit_mod(
   map = NULL,
   bounds = NULL,
   file = NULL,
-  debug = 0,
+  estimateMode = 0,
   random_rec = FALSE,
   random_q = FALSE,
   random_sel = FALSE,
@@ -43,7 +43,7 @@ fit_mod(
 
 \item{file}{(Optional) Filename where files will be saved. If NULL, no file is saved.}
 
-\item{debug}{0 = Fit the model. 1 = runs the model through MakeADFun, but not nlminb, 2 = runs the model without estimating parameters to get derived quantities given initial parameter values (maps out all parameters).}
+\item{estimateMode}{0 = Fit the hindcast model and projection with HCR specified via \code{hcr}. 1 = Fit the hindcast model only (no projection). 2 = Run the projection only with HCR specified via \code{hcr} given the initial parameters in \code{inits}.  3 = debug mode 1: runs the model through MakeADFun, but not nlminb, 4 = runs the model through MakeADFun and nlminb (will all parameters mapped out).}
 
 \item{random_rec}{logical. If TRUE, treats annual selectivity deviations as random effects.The default is FALSE.}
 
@@ -157,7 +157,7 @@ data(BS2017SS) # ?BS2017SS for more information on the data
 ss_run <- fit_mod(data_list = BS2017SS,
    inits = NULL, # Initial parameters = 0
    file = NULL, # Don't save
-   debug = 0, # Estimate
+   estimateMode = 0, # Estimate
    random_rec = FALSE, # No random recruitment
    msmMode = 0, # Single species mode
    avgnMode = 0,
