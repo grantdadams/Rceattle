@@ -3440,12 +3440,12 @@ Type objective_function<Type>::operator() () {
   Type jnll = 0;
 
   // Estimation mode
-  if (debug == 0) {
+  if (debug < 3) {
     jnll = jnll_comp.sum();
   }
 
   // Debug mode
-  if (debug > 0) {
+  if (debug > 2) {
     jnll = dummy * dummy;
   }
 
