@@ -28,7 +28,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   map_list <- params
 
   # Set each item in map_list to seperate value
-  sapply(map_list, function(x) replace(x, values = c(1:length(x))))
+  map_list <- sapply(map_list, function(x) replace(x, values = c(1:length(x))))
 
 
   # -----------------------------------------------------------
@@ -784,7 +784,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   # STEP 3 - set up debug - I.E. turn off all parameters besides dummy
   map_list$dummy <- NA
   if (debug == TRUE) {
-    sapply(map_list, function(x) replace(x, values = rep(NA, length(x))))
+    map_list <- sapply(map_list, function(x) replace(x, values = rep(NA, length(x))))
     map_list$dummy = 1
   }
 

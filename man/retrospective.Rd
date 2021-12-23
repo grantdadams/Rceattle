@@ -2,7 +2,7 @@
 % Please edit documentation in R/10-retrospective_bias.R
 \name{retrospective}
 \alias{retrospective}
-\title{Retrospective peels}
+\title{Retrospective peels (DEPRECATED)}
 \usage{
 retrospective(Rceattle = NULL, peels = NULL)
 }
