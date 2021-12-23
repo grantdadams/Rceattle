@@ -49,7 +49,7 @@ ss_run <- Rceattle::fit_mod(data_list = mydata,
                             verbose = 2)
 
 # The you can plot the model results using using
-plot_biomass(Rceattle =  ss_run), incl_proj = F)
+plot_biomass(Rceattle =  ss_run, incl_proj = F)
 plot_recruitment(Rceattle =  ss_run, add_ci = TRUE)
 plot_catch(Rceattle =  ss_run, incl_proj = FALSE)
 
