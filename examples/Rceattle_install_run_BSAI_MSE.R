@@ -39,7 +39,7 @@ mydata <- Rceattle::read_data( file = "BS2017SS.xlsx")
 ################################################
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
 mydata$fleet_control$proj_F_prop <-rep(1,7) # All species have one fishing fleet
-ss_run2 <- Rceattle::fit_mod(data_list = mydata,
+ss_run <- Rceattle::fit_mod(data_list = mydata,
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save
                             debug = FALSE, # Estimate
@@ -49,7 +49,7 @@ ss_run2 <- Rceattle::fit_mod(data_list = mydata,
                             verbose = 2)
 
 # The you can plot the model results using using
-plot_biomass(Rceattle =  list(ss_run, ss_run2), incl_proj = F)
+plot_biomass(Rceattle =  ss_run), incl_proj = F)
 plot_recruitment(Rceattle =  ss_run, add_ci = TRUE)
 plot_catch(Rceattle =  ss_run, incl_proj = FALSE)
 
