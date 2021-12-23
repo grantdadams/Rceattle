@@ -1322,12 +1322,6 @@ Type objective_function<Type>::operator() () {
 
       // Year 2+
       for (yr = 1; yr < nyrs; yr++) {
-        if(yr < nyrs_hind){
-          yr_ind = yr;
-        }
-        if(yr >= nyrs_hind){
-          yr_ind = nyrs_hind - 1;
-        }
 
         // Recruitment
         NByage0(sp, age , 0) = exp(ln_mean_rec(sp)) * R_sexr(sp);
@@ -1347,8 +1341,17 @@ Type objective_function<Type>::operator() () {
         DynamicNbyageSPR(0, sp, nages(sp)-1, yr) = DynamicNbyageSPR(0, sp, nages(sp)-2, yr - 1) * exp(-M(sp, 0, nages(sp)-2, yr - 1))  + DynamicNbyageSPR(0, sp, nages(sp)-1, yr - 1) * exp(-M(sp, 0, nages(sp)-1, yr - 1));
         DynamicNbyageSPR(1, sp, nages(sp)-1, yr) = DynamicNbyageSPR(1, sp, nages(sp)-2, yr - 1) * exp(-M(sp, 0, nages(sp)-2, yr - 1) - DynamicFlimitSPR(sp, 0,  nages(sp) - 2, yr-1)) + DynamicNbyageSPR(1, sp, nages(sp)-1, yr - 1) * exp(-M(sp, 0, nages(sp)-1, yr - 1) + DynamicFlimitSPR(sp, 0,  nages(sp) - 1, yr-1)) ;
         DynamicNbyageSPR(2, sp, nages(sp)-1, yr) = DynamicNbyageSPR(2, sp, nages(sp)-2, yr - 1) * exp(-M(sp, 0, nages(sp)-2, yr - 1) - DynamicFtargetSPR(sp, 0,  nages(sp) - 2, yr-1)) + DynamicNbyageSPR(2, sp, nages(sp)-1, yr - 1) * exp(-M(sp, 0, nages(sp)-1, yr - 1) + DynamicFtargetSPR(sp, 0,  nages(sp) - 1, yr-1)) ;
+      }
 
-        // Calulcate SPR and Dynamic SB0
+
+      // Calulcate SPR BRPs and Dynamic SB0
+      for (yr = 1; yr < nyrs; yr++) {
+        if(yr < nyrs_hind){
+          yr_ind = yr;
+        }
+        if(yr >= nyrs_hind){
+          yr_ind = nyrs_hind - 1;
+        }
         for (age = 0; age < nages(sp); age++) {
           DynamicSB0(sp, yr) +=  DynamicNByage0(sp, age, yr) *  wt( ssb_wt_index(sp), 0, age, yr_ind ) * pmature(sp, age) * exp(-M(sp, 0, age, yr) * spawn_month(sp)/12);
           DynamicSPR0(sp, yr) +=  DynamicNbyageSPR(0, sp, age, yr) *  wt( ssb_wt_index(sp), 0, age, yr_ind ) * pmature(sp, age) * exp(-M(sp, 0, age, yr) * spawn_month(sp)/12);
@@ -3047,9 +3050,8 @@ Type objective_function<Type>::operator() () {
           }
 
           for (age = 0; age < nages(sp) - 2; age++) {
-
             sel_tmp(age) = first_difference( first_difference( sel_tmp ) )(age);
-            // jnll_comp(4, flt) += sel_curve_pen(flt, 1) * pow( sel_tmp(age) , 2);
+            jnll_comp(4, flt) += sel_curve_pen(flt, 1) * pow( sel_tmp(age) , 2);
           }
         }
       }
@@ -3189,15 +3191,21 @@ Type objective_function<Type>::operator() () {
 
   // Slot 13 -- SPR reference point penalties
   for (sp = 0; sp < nspp; sp++) {
-    if((msmMode == 0) & (proj_F_prop.sum() > 0)){
-      // -- Static reference points
-      jnll_comp(13, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-FXSPRlimit);
-      jnll_comp(13, sp)  += 200*square((SPRtarget(sp)/SPR0(sp))-FXSPRtarget);
+    if(HCR > 2){
+      if((msmMode == 0) & (proj_F_prop.sum() > 0)){
+        // -- Static reference points
+        if(DynamicHCR == 0){
+          jnll_comp(13, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-FXSPRlimit);
+          jnll_comp(13, sp)  += 200*square((SPRtarget(sp)/SPR0(sp))-FXSPRtarget);
+        }
 
-      // -- Dynamic referene points
-      for(yr = 0 ; yr < nyrs; yr++){
-        jnll_comp(13, sp)  += 200*square((DynamicSPRlimit(sp, yr)/DynamicSPR0(sp, yr))-FXSPRlimit);
-        jnll_comp(13, sp)  += 200*square((DynamicSPRtarget(sp, yr)/DynamicSPR0(sp, yr))-FXSPRtarget);
+        // -- Dynamic referene points
+        if(DynamicHCR == 1){
+          for(yr = 0 ; yr < nyrs; yr++){
+            jnll_comp(13, sp)  += 200*square((DynamicSPRlimit(sp, yr)/DynamicSPR0(sp, yr))-FXSPRlimit);
+            jnll_comp(13, sp)  += 200*square((DynamicSPRtarget(sp, yr)/DynamicSPR0(sp, yr))-FXSPRtarget);
+          }
+        }
       }
     }
   }
@@ -3317,6 +3325,8 @@ Type objective_function<Type>::operator() () {
 
   // -- 12.2. Biological reference points
   REPORT( NbyageSPR);
+  REPORT( SB0 );
+  REPORT( DynamicSB0 );
   REPORT( SPR0 );
   REPORT( SPRlimit );
   REPORT( SPRtarget );

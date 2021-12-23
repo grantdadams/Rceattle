@@ -10,7 +10,7 @@
 build_hcr_map <- function(data_list, map){
 
   # Step 1 - Turn off all population/fleet parameters and turn on Fspr parameters
-  map$mapList[[i]] = sapply(map$mapList[[i]], function(x) replace(x, values = rep(NA, length(x))))
+  map$mapList = sapply(map$mapList, function(x) replace(x, values = rep(NA, length(x))))
 
   # Step 2 - Turn on Fspr parameters depending on HCR
   # -- HCR = 0: No catch - Params off
@@ -60,6 +60,6 @@ build_hcr_map <- function(data_list, map){
   }
 
   # STEP 5 -- Convert to factor
-  map$mapFactor[[i]] <- sapply(map$mapList, factor)
+  map$mapFactor <- sapply(map$mapList, factor)
   return(map)
 }

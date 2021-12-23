@@ -139,7 +139,7 @@ fit_mod <-
     getJointPrecision = TRUE,
     loopnum = 5,
     verbose = 1,
-    newtonsteps = 0) {
+    newtonsteps = 0){
     start_time <- Sys.time()
 
     setwd(getwd())
@@ -397,8 +397,7 @@ fit_mod <-
         TMBfilename = TMBfilename,
         initial_params = start_par,
         bounds = bounds,
-        map = map,
-        obj = obj
+        map = map
       )
 
     if(verbose > 0) {message(paste0("Step ",step, ": final build complete. Optimizing."))}
@@ -419,8 +418,9 @@ fit_mod <-
                               getJointPrecision = getJointPrecision,
                               quiet = verbose == 2,
       )
-      if(verbose > 0) {message("Step ",step, ": Final optimization complete")}
-      step = step + 1
+      if(verbose > 0) {message("Step ",step, ": Final optimization complete")
+        step = step + 1
+      }
 
       # -- Convergence warnings
       if(estimateMode %in% c(0,1)){
@@ -435,16 +435,6 @@ fit_mod <-
           identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==2,"BAD",x), how = "replace")
           identified$param_list <- identified_param_list
           mod_objects$identified <- identified
-        }
-
-
-        # Warning for discontinuous likelihood
-        if(!is.null(opt$SD) & random_rec == FALSE){
-          if(abs(opt$objective - quantities$jnll) > rel_tol){
-            message( "#########################" )
-            message( "Convergence warning (8)" )
-            message( "#########################" )
-          }
         }
       }
     }
@@ -491,6 +481,7 @@ fit_mod <-
                                 getJointPrecision = FALSE,
                                 quiet = verbose == 2,
         )
+        if(verbose > 0) {message("Step ",step, ": Projections complete")}
 
         # -- Update MLEs
         if (estimateMode > 2) { # Debugging, give initial parameters
@@ -508,11 +499,22 @@ fit_mod <-
 
     # -- Save estimated parameters
     mod_objects$estimated_params <- last_par
+    mod_objects$obj = obj
 
 
     # Get quantities
     quantities <- obj$report(obj$env$last.par.best)
 
+    # Warning for discontinuous likelihood
+    if(estimateMode %in% c(0:2)){
+      if(!is.null(opt$SD) & random_rec == FALSE){
+        if(abs(opt$objective - quantities$jnll) > rel_tol){
+          message( "#########################" )
+          message( "Convergence warning (8)" )
+          message( "#########################" )
+        }
+      }
+    }
 
     # Rename jnll
     colnames(quantities$jnll_comp) <- paste0("Sp/Srv/Fsh_", 1:ncol(quantities$jnll_comp))
