@@ -5,11 +5,11 @@
 #' @param map (Optional) A map object from \code{\link{build_map}}.
 #' @param bounds (Optional) A bounds object from \code{\link{build_bounds}}.
 #' @param file (Optional) Filename where files will be saved. If NULL, no file is saved.
-#' @param estimateMode 0 = Fit the hindcast model and projection with HCR specified via \code{hcr}. 1 = Fit the hindcast model only (no projection). 2 = Run the projection only with HCR specified via \code{hcr} given the initial parameters in \code{inits}.  3 = debug mode 1: runs the model through MakeADFun, but not nlminb, 4 = runs the model through MakeADFun and nlminb (will all parameters mapped out).
+#' @param estimateMode 0 = Fit the hindcast model and projection with HCR specified via \code{HCR}. 1 = Fit the hindcast model only (no projection). 2 = Run the projection only with HCR specified via \code{HCR} given the initial parameters in \code{inits}.  3 = debug mode 1: runs the model through MakeADFun, but not nlminb, 4 = runs the model through MakeADFun and nlminb (will all parameters mapped out).
 #' @param random_rec logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE.
 #' @param random_q logical. If TRUE, treats annual catchability deviations as random effects.The default is FALSE.
 #' @param random_rec logical. If TRUE, treats annual selectivity deviations as random effects.The default is FALSE.
-#' @param hcr and HCR list object from \code{\link[build_hcr]}.
+#' @param HCR and HCR list object from \code{\link[build_hcr]}.
 #' @param niter Number of iterations for multispecies model
 #' @param msmMode The predation mortality functions to used. Defaults to no predation mortality used.
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.
@@ -123,7 +123,7 @@ fit_mod <-
     random_rec = FALSE,
     random_q = FALSE,
     random_sel = FALSE,
-    hcr = build_hcr(),
+    HCR = build_hcr(),
     niter = 3,
     msmMode = 0,
     avgnMode = 0,
@@ -140,6 +140,35 @@ fit_mod <-
     loopnum = 5,
     verbose = 1,
     newtonsteps = 0){
+
+    # data_list = NULL;
+    # inits = NULL;
+    # map = NULL;
+    # bounds = NULL;
+    # file = NULL;
+    # estimateMode = 0;
+    # random_rec = FALSE;
+    # random_q = FALSE;
+    # random_sel = FALSE;
+    # HCR = build_hcr();
+    # niter = 3;
+    # msmMode = 0;
+    # avgnMode = 0;
+    # minNByage = 0;
+    # suitMode = 0;
+    # suityr = NULL;
+    # phase = NULL;
+    # getsd = TRUE;
+    # use_gradient = TRUE;
+    # rel_tol = 1;
+    # control = list(eval.max = 1e+09,
+    #                iter.max = 1e+09, trace = 0);
+    # getJointPrecision = TRUE;
+    # loopnum = 5;
+    # verbose = 1;
+    # newtonsteps = 0
+
+
     start_time <- Sys.time()
 
     setwd(getwd())
@@ -182,6 +211,13 @@ fit_mod <-
 
     # - Extend catch data to proj year for projections
     if(data_list$projyr > data_list$endyr){
+      # yrs_proj <- (data_list$endyr + 1):data_list$projyr
+      # proj_fsh_biom <- data_list$fsh_biom %>%
+      #   group_by(Fleet_code) %>%
+      #   slice(rep(n(),  length(yrs_proj))) %>%
+      #   mutate(Year = yrs_proj, Catch = NA)
+      # data_list$fsh_biom <- rbind(data_list$fsh_biom, proj_fsh_biom)
+
       for(flt in (unique(data_list$fsh_biom$Fleet_code))){
         fsh_biom_sub <- data_list$fsh_biom[which(data_list$fsh_biom$Fleet_code == flt),]
         yrs_proj <- (data_list$endyr + 1):data_list$projyr
@@ -214,14 +250,14 @@ fit_mod <-
     }
 
     # HCR Switches
-    data_list$HCR = hcr$HCR
-    data_list$DynamicHCR = hcr$DynamicHCR
-    data_list$FXSPRtarget = hcr$FXSPRtarget
-    data_list$FXSPRlimit = hcr$FXSPRlimit
-    data_list$Ptarget = hcr$Ptarget
-    data_list$Plimit = hcr$Plimit
-    data_list$Alpha = hcr$Alpha
-    data_list$QnormHCR = ifelse(hcr$HCR == 4, qnorm(hcr$Pstar, 0, hcr$Sigma), 0) # Pstar HCR
+    data_list$HCR = HCR$HCR
+    data_list$DynamicHCR = HCR$DynamicHCR
+    data_list$FXSPRtarget = HCR$FXSPRtarget
+    data_list$FXSPRlimit = HCR$FXSPRlimit
+    data_list$Ptarget = HCR$Ptarget
+    data_list$Plimit = HCR$Plimit
+    data_list$Alpha = HCR$Alpha
+    data_list$QnormHCR = ifelse(HCR$HCR == 4, qnorm(HCR$Pstar, 0, HCR$Sigma), 0) # Pstar HCR
 
     # STEP 1 - LOAD PARAMETERS
     if (is.character(inits) | is.null(inits)) {
@@ -442,8 +478,7 @@ fit_mod <-
     # -- Get MLEs
     if (estimateMode > 1) { # Debugging and projection only: use initial parameters
       last_par <- start_par
-    }
-    else{
+    } else{
       if(!random_rec){
         last_par = try(obj$env$parList(obj$env$last.par.best)) # FIXME: maybe add obj$env$last.par.best inside?
       } else {
@@ -452,13 +487,14 @@ fit_mod <-
     }
 
 
-    # Step 10 - Run HCR projections
+    # STEP 10 - Run HCR projections
     if(estimateMode %in% c(0,2,4)){
       if(data_list$HCR > 2){
         data_list_reorganized$HCR = data_list$HCR # Set HCR back to original
 
         # -- Update map in obs
-        hcr_map <- build_hcr_map(data_list, map)
+        hcr_map <- build_hcr_map(data_list, map, debug = estimateMode > 3)
+
         obj = TMB::MakeADFun(
           data_list_reorganized,
           parameters = last_par,
@@ -473,8 +509,6 @@ fit_mod <-
                                 fn=obj$fn,
                                 gr=obj$gr,
                                 startpar=obj$par,
-                                lower = L,
-                                upper = U,
                                 loopnum = loopnum,
                                 getsd = getsd,
                                 control = control,

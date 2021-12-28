@@ -242,7 +242,7 @@ plot_biomass <- function(Rceattle,
       if (spp[j] == 1) {
         if(!is.null(model_names)){
           legend(
-            "top",
+            "topright",
             legend = model_names,
             lty = rep(1, length(line_col)),
             lwd = lwd,
@@ -1041,7 +1041,7 @@ plot_maturity <-
     # Extract data objects
     maturity <- list()
     for(i in 1:length(Rceattle)){
-      maturity[[i]] <- Rceattle[[i]]$data_list$pmature
+      maturity[[i]] <- Rceattle[[i]]$data_list$pmature[,-1] # Remove species column
     }
 
     nspp <- Rceattle[[1]]$data_list$nspp
@@ -1556,7 +1556,7 @@ plot_b_eaten <-
         if (j == 1) {
           if(!is.null(model_names)){
             legend(
-              "top",
+              "topright",
               legend = model_names,
               lty = rep(1, length(line_col)),
               lwd = lwd,
@@ -1748,7 +1748,7 @@ plot_b_eaten_prop <-
         if (j == 1) {
           if(!is.null(model_names)){
             legend(
-              "top",
+              "topright",
               legend = model_names,
               lty = rep(1, length(line_col)),
               lwd = lwd,
