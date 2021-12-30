@@ -14,7 +14,7 @@ fit_mod(
   random_rec = FALSE,
   random_q = FALSE,
   random_sel = FALSE,
-  hcr = build_hcr(),
+  HCR = build_hcr(),
   niter = 3,
   msmMode = 0,
   avgnMode = 0,
@@ -43,13 +43,13 @@ fit_mod(
 
 \item{file}{(Optional) Filename where files will be saved. If NULL, no file is saved.}
 
-\item{estimateMode}{0 = Fit the hindcast model and projection with HCR specified via \code{hcr}. 1 = Fit the hindcast model only (no projection). 2 = Run the projection only with HCR specified via \code{hcr} given the initial parameters in \code{inits}.  3 = debug mode 1: runs the model through MakeADFun, but not nlminb, 4 = runs the model through MakeADFun and nlminb (will all parameters mapped out).}
+\item{estimateMode}{0 = Fit the hindcast model and projection with HCR specified via \code{HCR}. 1 = Fit the hindcast model only (no projection). 2 = Run the projection only with HCR specified via \code{HCR} given the initial parameters in \code{inits}.  3 = debug mode 1: runs the model through MakeADFun, but not nlminb, 4 = runs the model through MakeADFun and nlminb (will all parameters mapped out).}
 
 \item{random_rec}{logical. If TRUE, treats annual selectivity deviations as random effects.The default is FALSE.}
 
 \item{random_q}{logical. If TRUE, treats annual catchability deviations as random effects.The default is FALSE.}
 
-\item{hcr}{and HCR list object from \code{\link[build_hcr]}.}
+\item{HCR}{and HCR list object from \code{\link[build_hcr]}.}
 
 \item{niter}{Number of iterations for multispecies model}
 

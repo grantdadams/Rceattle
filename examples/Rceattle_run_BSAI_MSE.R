@@ -76,7 +76,7 @@ plot_selectivity(Rceattle = mod_list, model_names = mod_names)
 ss_run_Tier3 <- Rceattle::fit_mod(data_list = mydata,
                             inits = ss_run$estimated_params, # Initial parameters from ss_run
                             estimateMode = 2, # Run projection only
-                            HCR = build_hcr(HCR = 3, # Tier3 HCR
+                            HCR = build_hcr(HCR = 5, # Tier3 HCR
                                             FXSPRtarget = 0.4, # F40%
                                             FXSPRlimit = 0.35, # F35%
                                             Plimit = 0.2, # No fishing when SB<SB20
@@ -88,7 +88,7 @@ ss_run_Tier3 <- Rceattle::fit_mod(data_list = mydata,
 ss_run_dynamicTier3 <- Rceattle::fit_mod(data_list = mydata,
                                   inits = ss_run$estimated_params, # Initial parameters from ss_run
                                   estimateMode = 2, # Run projection only
-                                  HCR = build_hcr(HCR = 3, # Tier3 HCR
+                                  HCR = build_hcr(HCR = 5, # Tier3 HCR
                                                   DynamicHCR = TRUE, # Use dynamic reference points
                                                   FXSPRtarget = 0.4, # F40%
                                                   FXSPRlimit = 0.35, # F35%
@@ -101,7 +101,7 @@ ss_run_dynamicTier3 <- Rceattle::fit_mod(data_list = mydata,
 ss_run_Cat1 <- Rceattle::fit_mod(data_list = mydata,
                                   inits = ss_run$estimated_params, # Initial parameters from ss_run
                                   estimateMode = 2, # Run projection only
-                                  HCR = build_hcr(HCR = 4, # Cat 1 HCR
+                                  HCR = build_hcr(HCR = 6, # Cat 1 HCR
                                                   FXSPRlimit = 0.45, # F45%
                                                   Ptarget = 0.4, # Target is 40% B0
                                                   Plimit = 0.1, # No fishing when SB<SB10
@@ -113,7 +113,7 @@ ss_run_Cat1 <- Rceattle::fit_mod(data_list = mydata,
 ss_run_dynamicCat1 <- Rceattle::fit_mod(data_list = mydata,
                                  inits = ss_run$estimated_params, # Initial parameters from ss_run
                                  estimateMode = 2, # Run projection only
-                                 HCR = build_hcr(HCR = 4, # Cat 1 HCR
+                                 HCR = build_hcr(HCR = 6, # Cat 1 HCR
                                                  DynamicHCR = TRUE, # Use dynamic reference points
                                                  FXSPRlimit = 0.45, # F45%
                                                  Ptarget = 0.4, # Target is 40% SB0
@@ -127,7 +127,7 @@ ss_run_dynamicCat1 <- Rceattle::fit_mod(data_list = mydata,
 ss_run_Tier1 <- Rceattle::fit_mod(data_list = mydata,
                                   inits = ss_run$estimated_params, # Initial parameters from ss_run
                                   estimateMode = 2, # Run projection only
-                                  HCR = build_hcr(HCR = 5, # Tier 1 HCR
+                                  HCR = build_hcr(HCR = 7, # Tier 1 HCR
                                                   FXSPRtarget = 0.48, # F40%
                                                   FXSPRlimit = 0.20, # F20%
                                                   Ptarget = 0.35, # Target is 35% SSB0
@@ -140,7 +140,7 @@ ss_run_Tier1 <- Rceattle::fit_mod(data_list = mydata,
 ss_run_dynamicTier1 <- Rceattle::fit_mod(data_list = mydata,
                                   inits = ss_run$estimated_params, # Initial parameters from ss_run
                                   estimateMode = 2, # Run projection only
-                                  HCR = build_hcr(HCR = 5, # Tier 1 HCR
+                                  HCR = build_hcr(HCR = 7, # Tier 1 HCR
                                                   DynamicHCR = TRUE,
                                                   FXSPRtarget = 0.48, # F40%
                                                   FXSPRlimit = 0.20, # F20%

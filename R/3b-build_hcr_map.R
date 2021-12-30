@@ -16,19 +16,24 @@ build_hcr_map <- function(data_list, map, debug = FALSE){
 
   # Step 2 - Turn on Fspr parameters depending on HCR
   # -- HCR = 0: No catch - Params off
-  # -- HCR = 1: Constant F - Params off
-  # -- HCR = 2: Constant catch - Params off
-  # -- HCR = 3: NPFMC Tier 3 - Flimit and Ftarget on
-  # -- HCR = 4: PFMC Cat 1 - Flimit on
-  # -- HCR = 5: SESSF Tier 1 - Flimit and Ftarget on
+  # -- HCR = 1: Constant catch - Params off
+  # -- HCR = 2: Constant input F - Params off
+  # -- HCR = 3: F that acheives X% of SSB0 in the end of the projection - Ftarget on
+  # -- HCR = 4: Constant target Fspr - Ftarget on
+  # -- HCR = 5: NPFMC Tier 3 - Flimit and Ftarget on
+  # -- HCR = 6: PFMC Cat 1 - Flimit on
+  # -- HCR = 7: SESSF Tier 1 - Flimit and Ftarget on
   # --- Dynamic BRPS - 1 value per species and year
   if(!debug){
     if(data_list$DynamicHCR){
-      if(data_list$HCR %in% c(3,5)){
+      if(data_list$HCR %in% c(3,4)){
+        map$mapList$ln_Ftarget <- replace(map$mapList$ln_Ftarget, values = c(1:length(map$mapList$ln_Ftarget)))
+      }
+      if(data_list$HCR %in% c(5,7)){
         map$mapList$ln_Ftarget <- replace(map$mapList$ln_Ftarget, values = c(1:length(map$mapList$ln_Ftarget)))
         map$mapList$ln_Flimit <- replace(map$mapList$ln_Flimit, values = c(1:length(map$mapList$ln_Flimit)))
       }
-      if(data_list$HCR == 4){
+      if(data_list$HCR == 6){
         map$mapList$ln_Flimit <- replace(map$mapList$ln_Flimit, values = c(1:length(map$mapList$ln_Flimit)))
       }
 
@@ -37,11 +42,14 @@ build_hcr_map <- function(data_list, map, debug = FALSE){
     }
     # --- Static BRPS - 1 value per species
     if(data_list$DynamicHCR == FALSE){
-      if(data_list$HCR %in% c(3,5)){
+      if(data_list$HCR %in% c(3,4)){
+        map$mapList$ln_Ftarget <- replace(map$mapList$ln_Ftarget, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Ftarget)))
+      }
+      if(data_list$HCR %in% c(5,7)){
         map$mapList$ln_Ftarget <- replace(map$mapList$ln_Ftarget, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Ftarget)))
         map$mapList$ln_Flimit <- replace(map$mapList$ln_Flimit, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Flimit)))
       }
-      if(data_list$HCR == 4){
+      if(data_list$HCR == 6){
         map$mapList$ln_Flimit <- replace(map$mapList$ln_Flimit, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Flimit)))
       }
     }
