@@ -257,7 +257,7 @@ fit_mod <-
     data_list$Ptarget = HCR$Ptarget
     data_list$Plimit = HCR$Plimit
     data_list$Alpha = HCR$Alpha
-    data_list$QnormHCR = ifelse(HCR$HCR == 4, qnorm(HCR$Pstar, 0, HCR$Sigma), 0) # Pstar HCR
+    data_list$QnormHCR = ifelse(HCR$HCR == 6, qnorm(HCR$Pstar, 0, HCR$Sigma), 0) # Pstar HCR
 
     # STEP 1 - LOAD PARAMETERS
     if (is.character(inits) | is.null(inits)) {
@@ -418,14 +418,16 @@ fit_mod <-
 
 
     # STEP 9 - Fit final hindcast model
-    obj = TMB::MakeADFun(
-      data_list_reorganized,
-      parameters = start_par,
-      DLL = TMBfilename,
-      map = map$mapFactor,
-      random = random_vars,
-      silent = verbose != 2
-    )
+    if(estimateMode != 2){ # dont build if projection
+      obj = TMB::MakeADFun(
+        data_list_reorganized,
+        parameters = start_par,
+        DLL = TMBfilename,
+        map = map$mapFactor,
+        random = random_vars,
+        silent = verbose != 2
+      )
+    }
 
     # -- Save objects
     mod_objects <-

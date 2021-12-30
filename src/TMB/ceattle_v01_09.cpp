@@ -1112,20 +1112,28 @@ Type objective_function<Type>::operator() () {
                   proj_F(sp, yr) = 0;
                   break;
 
-                case 1: // Constant F
+                case 2: // Constant F
                   proj_F(sp, yr) = Ftarget(sp, yr);
                   break;
 
-                case 3: // NPFMC Tier 3 HCR
+                case 3: // Constant F that acheives X% of SSB0
+                  proj_F(sp, yr) = Ftarget(sp, yr);
+                  break;
+
+                case 4: // Constant Fspr
+                  proj_F(sp, yr) = Ftarget(sp, yr);
+                  break;
+
+                case 5: // NPFMC Tier 3 HCR
                   proj_F(sp, yr) = Ftarget(sp, yr); // Used Fabc of FtargetSPR%
                   break;
 
-                case 4: // PFMC Category 1 HCR
+                case 6: // PFMC Category 1 HCR
                   proj_F(sp, yr) = Flimit(sp, yr) + QnormHCR;
                   Ftarget(sp, yr) = Flimit(sp, yr) + QnormHCR;
                   break;
 
-                case 5: // SESSF Tier 1 HCR
+                case 7: // SESSF Tier 1 HCR
                   proj_F(sp, yr) = Ftarget(sp, yr); // Used Fabc of FtargetSPR%
                   break;
                 }
@@ -1325,16 +1333,15 @@ Type objective_function<Type>::operator() () {
 
         // Recruitment - SB0 and Dynamic SB0
         // FIXME account for S-R relationship down the line
-        NByage0(sp, age , 0) = exp(ln_mean_rec(sp)) * R_sexr(sp);
-        DynamicNByage0(sp, 0, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr)) * R_sexr(sp);
+        NByage0(sp, 0 , yr) = exp(ln_mean_rec(sp)) * R_sexr(sp);
 
         // Recruitment - Dynamic SPR
-        DynamicNbyageSPR(2, sp, 0, yr) = DynamicNbyageSPR(1, sp, 0, yr) = DynamicNbyageSPR(0, sp, 0, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr)) * R_sexr(sp);
+        DynamicNByage0(sp, 0, yr)  = DynamicNbyageSPR(2, sp, 0, yr) = DynamicNbyageSPR(1, sp, 0, yr) = DynamicNbyageSPR(0, sp, 0, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr)) * R_sexr(sp);
 
 
         // N-at-age -- No fishing
         for (age = 1; age < nages(sp)-1; age++) {
-          NByage0(sp, age, 0) =  NByage0(sp, age, 0) * exp(-M(sp, 0, age-1, yr - 1)); // F = 0
+          NByage0(sp, age, yr) =  NByage0(sp, age-1, yr-1) * exp(-M(sp, 0, age-1, yr-1)); // F = 0
           DynamicNByage0(sp, age, yr) =  DynamicNByage0(sp, age-1, yr-1) * exp(-M(sp, 0, age-1, yr - 1)); // F = 0
           DynamicNbyageSPR(0, sp, age, yr) =  DynamicNbyageSPR(0, sp, age-1, yr - 1) * exp(-M(sp, 0, age-1, yr - 1)); // F = 0
         }
@@ -1438,11 +1445,19 @@ Type objective_function<Type>::operator() () {
             proj_F(sp, yr) = 0;
             break;
 
-          case 1: // Constant F
+          case 2: // Constant F
             proj_F(sp, yr) = proj_F(sp, yr);
             break;
 
-          case 3: // NPFMC Tier 3 HCR
+          case 3: // Constant F to acheive X% of SB0
+            proj_F(sp, yr) = proj_F(sp, yr);
+            break;
+
+          case 4: // Constant Fspr
+            proj_F(sp, yr) = proj_F(sp, yr);
+            break;
+
+          case 5: // NPFMC Tier 3 HCR
             if(biomassSSB(sp, yr) < SPRtarget(sp)){
               proj_F(sp, yr) = Ftarget(sp, 0) * (((biomassSSB(sp, yr)/SPRtarget(sp))-Alpha)/(1-Alpha)); // Used Fabc of FtargetSPR%
             }
@@ -1451,7 +1466,7 @@ Type objective_function<Type>::operator() () {
             }
             break;
 
-          case 4: // PFMC Category 1 HCR
+          case 6: // PFMC Category 1 HCR
             if(biomassSSB(sp, yr) < SB0(sp) * Ptarget){
               proj_F(sp, yr) = (Flimit(sp, 0) + QnormHCR) * (SB0(sp) * Ptarget * (biomassSSB(sp, yr) - SB0(sp) * Plimit)) / (biomassSSB(sp, yr) * (SB0(sp) * (Ptarget - Plimit)));
             }
@@ -1460,7 +1475,7 @@ Type objective_function<Type>::operator() () {
             }
             break;
 
-          case 5: // SESSF Tier 1 HCR
+          case 7: // SESSF Tier 1 HCR
             if(biomassSSB(sp, yr) < SB0(sp) * Ptarget){
               proj_F(sp, yr) = Ftarget(sp, 0) * ((biomassSSB(sp, yr)/(SB0(sp) * Plimit))-1); // Used Fabc of FtargetSPR%
             }
@@ -1478,11 +1493,19 @@ Type objective_function<Type>::operator() () {
             proj_F(sp, yr) = 0;
             break;
 
-          case 1: // Constant F
+          case 2: // Constant F
             proj_F(sp, yr) = proj_F(sp, yr);
             break;
 
-          case 3: // NPFMC Tier 3 HCR
+          case 3: // Constant F to acheive X% of SB0
+            proj_F(sp, yr) = proj_F(sp, yr);
+            break;
+
+          case 4: // Constant Fspr
+            proj_F(sp, yr) = proj_F(sp, yr);
+            break;
+
+          case 5: // NPFMC Tier 3 HCR
             if(biomassSSB(sp, yr) < DynamicSPRtarget(sp, yr)){
               proj_F(sp, yr) = Ftarget(sp, yr) * (((biomassSSB(sp, yr)/DynamicSPRtarget(sp, yr))-Alpha)/(1-Alpha)); // Used Fabc of FtargetSPR%
             }
@@ -1491,7 +1514,7 @@ Type objective_function<Type>::operator() () {
             }
             break;
 
-          case 4: // PFMC Category 1 HCR
+          case 6: // PFMC Category 1 HCR
             if(biomassSSB(sp, yr) < DynamicSB0(sp, yr) * Ptarget){
               proj_F(sp, yr) = (Flimit(sp, yr) + QnormHCR) * (DynamicSB0(sp, yr) * Ptarget * (biomassSSB(sp, yr) - DynamicSB0(sp, yr) * Plimit)) / (biomassSSB(sp, yr) * (DynamicSB0(sp, yr) * (Ptarget - Plimit)));
             }
@@ -1500,7 +1523,7 @@ Type objective_function<Type>::operator() () {
             }
             break;
 
-          case 5: // SESSF Tier 1 HCR
+          case 7: // SESSF Tier 1 HCR
             if(biomassSSB(sp, yr) < DynamicSB0(sp, yr) * Ptarget){
               proj_F(sp, yr) = Ftarget(sp, yr) * ((biomassSSB(sp, yr)/(DynamicSB0(sp, yr) * Plimit))-1); // Used Fabc of FtargetSPR%
             }
@@ -3202,22 +3225,27 @@ Type objective_function<Type>::operator() () {
   }
 
 
-  // Slot 13 -- SPR reference point penalties
+  // Slot 13 -- Reference point penalties
   for (sp = 0; sp < nspp; sp++) {
-    if(HCR > 2){
-      if((msmMode == 0) & (proj_F_prop.sum() > 0)){
-        // -- Static reference points
-        if(DynamicHCR == 0){
-          jnll_comp(13, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-FXSPRlimit);
-          jnll_comp(13, sp)  += 200*square((SPRtarget(sp)/SPR0(sp))-FXSPRtarget);
-        }
+    // F that acheives \code{Ftarget}% of SSB0 in the end of the projection
+    if(HCR == 3){
+      jnll_comp(13, sp)  += 200*square((biomassSSB(sp, nyrs-1)/SB0(sp))-FXSPRtarget);
+    }
 
-        // -- Dynamic referene points
-        if(DynamicHCR == 1){
-          for(yr = 1; yr < nyrs; yr++){ // No initial abundance
-            jnll_comp(13, sp)  += 200*square((DynamicSPRlimit(sp, yr)/DynamicSPR0(sp, yr))-FXSPRlimit);
-            jnll_comp(13, sp)  += 200*square((DynamicSPRtarget(sp, yr)/DynamicSPR0(sp, yr))-FXSPRtarget);
-          }
+
+    // -- SPR
+    if(HCR > 3){
+      // -- Static reference points
+      if(DynamicHCR == 0){
+        jnll_comp(13, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-FXSPRlimit);
+        jnll_comp(13, sp)  += 200*square((SPRtarget(sp)/SPR0(sp))-FXSPRtarget);
+      }
+
+      // -- Dynamic referene points
+      if(DynamicHCR == 1){
+        for(yr = 1; yr < nyrs; yr++){ // No initial abundance
+          jnll_comp(13, sp)  += 200*square((DynamicSPRlimit(sp, yr)/DynamicSPR0(sp, yr))-FXSPRlimit);
+          jnll_comp(13, sp)  += 200*square((DynamicSPRtarget(sp, yr)/DynamicSPR0(sp, yr))-FXSPRtarget);
         }
       }
     }
@@ -3338,6 +3366,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 12.2. Biological reference points
   REPORT( NByage0);
+  REPORT( DynamicNByage0);
   REPORT( NbyageSPR);
   REPORT( SB0 );
   REPORT( DynamicSB0 );

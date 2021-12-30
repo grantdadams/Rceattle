@@ -4,12 +4,14 @@
 \alias{build_hcr_map}
 \title{Function to construct the TMB map argument for CEATTLE for projecting under alternative harvest control rules}
 \usage{
-build_hcr_map(data_list, map)
+build_hcr_map(data_list, map, debug = FALSE)
 }
 \arguments{
 \item{data_list}{a data_list created from \code{\link{build_dat}}.}
 
 \item{map}{a map object created from \code{\link{build_map}}.}
+
+\item{TRUE/FALSE}{map out all parameters}
 }
 \value{
 a list of map arguments for each parameter
