@@ -70,6 +70,49 @@ plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE)
 ################################################
 # Alternative harvest control rules
 ################################################
+# -- Constant F as a percentage of SB0
+ss_run_fb0 <- Rceattle::fit_mod(data_list = mydata,
+                                  inits = ss_run$estimated_params, # Initial parameters from ss_run
+                                  estimateMode = 2, # Run projection only
+                                  HCR = build_hcr(HCR = 3, # Tier3 HCR
+                                                  DynamicHCR = FALSE, # Use dynamic reference points
+                                                  FsprTarget = 0.4), # F that achieves 40% SB0
+                                  msmMode = 0, # Single species mode
+                                  verbose = 1)
+
+
+ss_run_dynamicfb0 <- Rceattle::fit_mod(data_list = mydata,
+                                         inits = ss_run$estimated_params, # Initial parameters from ss_run
+                                         estimateMode = 2, # Run projection only
+                                         HCR = build_hcr(HCR = 3, # Tier3 HCR
+                                                         DynamicHCR = TRUE, # Use dynamic reference points
+                                                         FsprTarget = 0.4), # F that achieves 40% SB0
+                                         msmMode = 0, # Single species mode
+                                         verbose = 1)
+
+
+# -- Constant Fspr
+ss_run_Fspr <- Rceattle::fit_mod(data_list = mydata,
+                                  inits = ss_run$estimated_params, # Initial parameters from ss_run
+                                  estimateMode = 2, # Run projection only
+                                  HCR = build_hcr(HCR = 4, # Tier3 HCR
+                                                  FsprTarget = 0.4 # F40%
+                                                  ),
+                                  msmMode = 0, # Single species mode
+                                  verbose = 1)
+
+
+ss_run_dynamicFspr <- Rceattle::fit_mod(data_list = mydata,
+                                         inits = ss_run$estimated_params, # Initial parameters from ss_run
+                                         estimateMode = 2, # Run projection only
+                                         HCR = build_hcr(HCR = 4, # Tier3 HCR
+                                                         DynamicHCR = TRUE, # Use dynamic reference points
+                                                         FsprTarget = 0.4 # F40%
+                                                         ),
+                                         msmMode = 0, # Single species mode
+                                         verbose = 1)
+
+
 # -- NPFMC Tier 3
 ss_run_Tier3 <- Rceattle::fit_mod(data_list = mydata,
                                   inits = ss_run$estimated_params, # Initial parameters from ss_run
@@ -149,15 +192,17 @@ ss_run_dynamicTier1 <- Rceattle::fit_mod(data_list = mydata,
                                          verbose = 1)
 
 # -- Plot
-mod_list <- list(ss_run, ss_run_Tier3, ss_run_Cat1, ss_run_Tier1)
-model_names <- c("F=0", "NPFMC Tier 3", "PFMC Cat 1", "SESSF Tier 1")
+mod_list <- list(ss_run, ss_run_fb0, ss_run_Fspr, ss_run_Tier3, ss_run_Cat1, ss_run_Tier1)
+model_names <- c("F=0","F 40% B0", "Fspr 40%", "NPFMC Tier 3", "PFMC Cat 1", "SESSF Tier 1")
 plot_biomass(mod_list, model_names = model_names, incl_proj = TRUE)
 plot_ssb(mod_list, model_names = model_names, incl_proj = TRUE)
+
+sapply(mod_list, function(x) x$quantities$SPRtarget/x$quantities$SPR0)
 sapply(mod_list, function(x) x$quantities$SPRlimit/x$quantities$SPR0)
 
 
-dynamic_mod_list <- list(ss_run, ss_run_dynamicTier3, ss_run_dynamicCat1, ss_run_dynamicTier1)
-dynamic_model_names <- c("F=0", "NPFMC Tier 3", "PFMC Cat 1", "SESSF Tier 1")
+dynamic_mod_list <- list(ss_run, ss_run_dynamicfb0, ss_run_dynamicFspr, ss_run_dynamicTier3, ss_run_dynamicCat1, ss_run_dynamicTier1)
+dynamic_model_names <- c("F=0","F 40% B0", "Fspr 40%", "NPFMC Tier 3", "PFMC Cat 1", "SESSF Tier 1")
 plot_biomass(dynamic_mod_list, model_names = dynamic_mod_list, incl_proj = TRUE)
 plot_ssb(dynamic_mod_list, model_names = dynamic_mod_list, incl_proj = TRUE)
 lapply(dynamic_mod_list, function(x) (x$quantities$DynamicSPRtarget/x$quantities$DynamicSPR0)[,1:10])

@@ -1356,11 +1356,11 @@ Type objective_function<Type>::operator() () {
       // -- With fishing applied to NBaygeSPR0
       for (yr = 1; yr < nyrs; yr++) {
         for (age = 1; age < nages(sp)-1; age++) {
-          DynamicNbyageSPR(1, sp, age, yr) =  DynamicNbyageSPR(0, sp, age-1, yr) * exp(-(M(sp, 0, age-1, yr) + DynamicFlimitSPR(sp, 0, age-1, yr))); // F=FsprLimit
-          DynamicNbyageSPR(2, sp, age, yr) =  DynamicNbyageSPR(0, sp, age-1, yr) * exp(-(M(sp, 0, age-1, yr) + DynamicFtargetSPR(sp, 0, age-1, yr))); // F = FsprTarget
+          DynamicNbyageSPR(1, sp, age, yr) =  DynamicNbyageSPR(0, sp, age-1, yr) * exp(-M(sp, 0, age-1, yr) - DynamicFlimitSPR(sp, 0, age-1, yr)); // F=FsprLimit
+          DynamicNbyageSPR(2, sp, age, yr) =  DynamicNbyageSPR(0, sp, age-1, yr) * exp(-M(sp, 0, age-1, yr) - DynamicFtargetSPR(sp, 0, age-1, yr)); // F = FsprTarget
         }
-        DynamicNbyageSPR(1, sp, nages(sp)-1, yr) = DynamicNbyageSPR(0, sp, nages(sp)-2, yr) * exp(-M(sp, 0, nages(sp)-2, yr) - DynamicFlimitSPR(sp, 0,  nages(sp) - 2, yr)) + DynamicNbyageSPR(0, sp, nages(sp)-1, yr) * exp(-M(sp, 0, nages(sp)-1, yr) + DynamicFlimitSPR(sp, 0,  nages(sp) - 1, yr));
-        DynamicNbyageSPR(2, sp, nages(sp)-1, yr) = DynamicNbyageSPR(0, sp, nages(sp)-2, yr) * exp(-M(sp, 0, nages(sp)-2, yr) - DynamicFtargetSPR(sp, 0,  nages(sp) - 2, yr)) + DynamicNbyageSPR(0, sp, nages(sp)-1, yr) * exp(-M(sp, 0, nages(sp)-1, yr) + DynamicFtargetSPR(sp, 0,  nages(sp) - 1, yr)) ;
+        DynamicNbyageSPR(1, sp, nages(sp)-1, yr) = DynamicNbyageSPR(0, sp, nages(sp)-2, yr) * exp(-M(sp, 0, nages(sp)-2, yr) - DynamicFlimitSPR(sp, 0,  nages(sp) - 2, yr)) + DynamicNbyageSPR(0, sp, nages(sp)-1, yr) * exp(-M(sp, 0, nages(sp)-1, yr) - DynamicFlimitSPR(sp, 0,  nages(sp) - 1, yr));
+        DynamicNbyageSPR(2, sp, nages(sp)-1, yr) = DynamicNbyageSPR(0, sp, nages(sp)-2, yr) * exp(-M(sp, 0, nages(sp)-2, yr) - DynamicFtargetSPR(sp, 0,  nages(sp) - 2, yr)) + DynamicNbyageSPR(0, sp, nages(sp)-1, yr) * exp(-M(sp, 0, nages(sp)-1, yr) - DynamicFtargetSPR(sp, 0,  nages(sp) - 1, yr)) ;
       }
 
 
