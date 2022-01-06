@@ -395,8 +395,8 @@ Type objective_function<Type>::operator() () {
   DATA_INTEGER(DynamicHCR);               // TRUE/FALSE. Wether to use static or dynamic reference points (default = FALSE)
   DATA_SCALAR(Ptarget);                   // Target spawning-stock biomass as a percentage of static or dynamic spawning-stock-biomass at F = 0
   DATA_SCALAR(Plimit);                    // Limit spawning-stock biomass as a percentage of static or dynamic spawning-stock-biomass at F = 0
-  DATA_SCALAR(FXSPRtarget);               // Percentage of spawning-stock biomass per recruit at F = 0 used to find the target F-spr
-  DATA_SCALAR(FXSPRlimit);                // Percentage of spawning-stock biomass per recruit at F = 0 used to find the limit F-spr
+  DATA_SCALAR(FsprTarget);               // Percentage of spawning-stock biomass per recruit at F = 0 used to find the target F-spr
+  DATA_SCALAR(FsprLimit);                // Percentage of spawning-stock biomass per recruit at F = 0 used to find the limit F-spr
   DATA_SCALAR(Alpha);                     // Parameter used in NPFMC Tier 3 HCR
   DATA_SCALAR(QnormHCR);                  // Add to Flimit to set Ftarget based on the Pstar approach: Flimit + qnorm(Pstar, 0, Sigma)
 
@@ -581,8 +581,6 @@ Type objective_function<Type>::operator() () {
   array<Type>   M(nspp, 2, max_age, nyrs); M.setZero();                             // Total natural mortality at age
   array<Type>   M1(ln_M1.dim); M1 = exp(ln_M1);                                     // Residual or total natural mortality at age
   array<Type>   NByage(nspp, 2, max_age, nyrs); NByage.setZero();                   // Numbers at age
-  array<Type>   NByage0(nspp, max_age, nyrs); NByage0.setZero();                    // Female numbers at age at mean recruitment and F = 0
-  array<Type>   DynamicNByage0(nspp, max_age, nyrs); DynamicNByage0.setZero();      // Female numbers at age at F = 0 (accounts for annual recruitment)
   array<Type>   AvgN(nspp, 2, max_age, nyrs); AvgN.setZero();                       // Average numbers-at-age
   array<Type>   sex_ratio_hat(nspp, max_age, nyrs); sex_ratio_hat.setZero();        // Estimated age-specific sex ratin
   matrix<Type>  sex_ratio_mean_hat(nspp, nyrs); sex_ratio_mean_hat.setZero();       // Estimated sex ratio across all ages
@@ -611,6 +609,8 @@ Type objective_function<Type>::operator() () {
   vector<Type>  fsh_log_sd_hat(fsh_biom_obs.rows()); fsh_log_sd_hat.setZero();      // Estimated/fixed fishery log_sd (kg)
 
   // -- 4.5. Biological reference points
+  array<Type>   NByage0(nspp, max_age, nyrs); NByage0.setZero();                    // Female numbers at age at mean recruitment and F = 0
+  array<Type>   DynamicNByage0(nspp, max_age, nyrs); DynamicNByage0.setZero();      // Female numbers at age at F = 0 (accounts for annual recruitment)
   array<Type>   NbyageSPR(3, nspp, max_age);                                        // Estimated numbers at age for spawning biomass per recruit reference points
   vector<Type>  SPRlimit(nspp); SPRlimit.setZero();                                 // Estimated Plimit SPR
   vector<Type>  SPRtarget(nspp); SPRtarget.setZero();                               // Estimated Ptarget SPR
@@ -1356,8 +1356,8 @@ Type objective_function<Type>::operator() () {
       // -- With fishing applied to NBaygeSPR0
       for (yr = 1; yr < nyrs; yr++) {
         for (age = 1; age < nages(sp)-1; age++) {
-          DynamicNbyageSPR(1, sp, age, yr) =  DynamicNbyageSPR(0, sp, age-1, yr) * exp(-(M(sp, 0, age-1, yr) + DynamicFlimitSPR(sp, 0, age-1, yr))); // F=FXSPRlimit
-          DynamicNbyageSPR(2, sp, age, yr) =  DynamicNbyageSPR(0, sp, age-1, yr) * exp(-(M(sp, 0, age-1, yr) + DynamicFtargetSPR(sp, 0, age-1, yr))); // F = FXSPRtarget
+          DynamicNbyageSPR(1, sp, age, yr) =  DynamicNbyageSPR(0, sp, age-1, yr) * exp(-(M(sp, 0, age-1, yr) + DynamicFlimitSPR(sp, 0, age-1, yr))); // F=FsprLimit
+          DynamicNbyageSPR(2, sp, age, yr) =  DynamicNbyageSPR(0, sp, age-1, yr) * exp(-(M(sp, 0, age-1, yr) + DynamicFtargetSPR(sp, 0, age-1, yr))); // F = FsprTarget
         }
         DynamicNbyageSPR(1, sp, nages(sp)-1, yr) = DynamicNbyageSPR(0, sp, nages(sp)-2, yr) * exp(-M(sp, 0, nages(sp)-2, yr) - DynamicFlimitSPR(sp, 0,  nages(sp) - 2, yr)) + DynamicNbyageSPR(0, sp, nages(sp)-1, yr) * exp(-M(sp, 0, nages(sp)-1, yr) + DynamicFlimitSPR(sp, 0,  nages(sp) - 1, yr));
         DynamicNbyageSPR(2, sp, nages(sp)-1, yr) = DynamicNbyageSPR(0, sp, nages(sp)-2, yr) * exp(-M(sp, 0, nages(sp)-2, yr) - DynamicFtargetSPR(sp, 0,  nages(sp) - 2, yr)) + DynamicNbyageSPR(0, sp, nages(sp)-1, yr) * exp(-M(sp, 0, nages(sp)-1, yr) + DynamicFtargetSPR(sp, 0,  nages(sp) - 1, yr)) ;
@@ -3227,25 +3227,32 @@ Type objective_function<Type>::operator() () {
 
   // Slot 13 -- Reference point penalties
   for (sp = 0; sp < nspp; sp++) {
-    // F that acheives \code{Ftarget}% of SSB0 in the end of the projection
-    if(HCR == 3){
-      jnll_comp(13, sp)  += 200*square((biomassSSB(sp, nyrs-1)/SB0(sp))-FXSPRtarget);
-    }
-
-
-    // -- SPR
-    if(HCR > 3){
-      // -- Static reference points
-      if(DynamicHCR == 0){
-        jnll_comp(13, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-FXSPRlimit);
-        jnll_comp(13, sp)  += 200*square((SPRtarget(sp)/SPR0(sp))-FXSPRtarget);
+    // -- Static reference points
+    if(DynamicHCR == 0){
+      // F that acheives \code{Ftarget}% of SSB0 in the end of the projection
+      if(HCR == 3){
+        jnll_comp(13, sp)  += 200*square((biomassSSB(sp, nyrs-1)/SB0(sp))-FsprTarget);
       }
 
-      // -- Dynamic referene points
-      if(DynamicHCR == 1){
-        for(yr = 1; yr < nyrs; yr++){ // No initial abundance
-          jnll_comp(13, sp)  += 200*square((DynamicSPRlimit(sp, yr)/DynamicSPR0(sp, yr))-FXSPRlimit);
-          jnll_comp(13, sp)  += 200*square((DynamicSPRtarget(sp, yr)/DynamicSPR0(sp, yr))-FXSPRtarget);
+      // -- SPR
+      if(HCR > 3){
+        jnll_comp(13, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-FsprLimit);
+        jnll_comp(13, sp)  += 200*square((SPRtarget(sp)/SPR0(sp))-FsprTarget);
+      }
+    }
+
+    // -- Dynamic referene points
+    if(DynamicHCR == 1){
+      for(yr = 1; yr < nyrs; yr++){ // No initial abundance
+        // F that acheives \code{Ftarget}% of SSB0 in the end of the projection
+        if(HCR == 3){
+          jnll_comp(13, sp)  += 200*square((biomassSSB(sp, yr)/DynamicSB0(sp, yr))-FsprTarget);
+        }
+
+        // -- SPR
+        if(HCR > 3){
+          jnll_comp(13, sp)  += 200*square((DynamicSPRlimit(sp, yr)/DynamicSPR0(sp, yr))-FsprLimit);
+          jnll_comp(13, sp)  += 200*square((DynamicSPRtarget(sp, yr)/DynamicSPR0(sp, yr))-FsprTarget);
         }
       }
     }

@@ -66,101 +66,105 @@ mod_names <- c("SS", "SS-M", "MS")
 plot_biomass(Rceattle = mod_list, model_names = mod_names)
 plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE)
 
-plot_selectivity(Rceattle = mod_list, model_names = mod_names)
-
 
 ################################################
 # Alternative harvest control rules
 ################################################
 # -- NPFMC Tier 3
 ss_run_Tier3 <- Rceattle::fit_mod(data_list = mydata,
-                            inits = ss_run$estimated_params, # Initial parameters from ss_run
-                            estimateMode = 2, # Run projection only
-                            HCR = build_hcr(HCR = 5, # Tier3 HCR
-                                            FXSPRtarget = 0.4, # F40%
-                                            FXSPRlimit = 0.35, # F35%
-                                            Plimit = 0.2, # No fishing when SB<SB20
-                                            Alpha = 0.05),
-                            msmMode = 0, # Single species mode
-                            verbose = 1)
-
-
-ss_run_dynamicTier3 <- Rceattle::fit_mod(data_list = mydata,
                                   inits = ss_run$estimated_params, # Initial parameters from ss_run
                                   estimateMode = 2, # Run projection only
                                   HCR = build_hcr(HCR = 5, # Tier3 HCR
-                                                  DynamicHCR = TRUE, # Use dynamic reference points
-                                                  FXSPRtarget = 0.4, # F40%
-                                                  FXSPRlimit = 0.35, # F35%
+                                                  FsprTarget = 0.4, # F40%
+                                                  FsprLimit = 0.35, # F35%
                                                   Plimit = 0.2, # No fishing when SB<SB20
                                                   Alpha = 0.05),
                                   msmMode = 0, # Single species mode
                                   verbose = 1)
 
+
+ss_run_dynamicTier3 <- Rceattle::fit_mod(data_list = mydata,
+                                         inits = ss_run$estimated_params, # Initial parameters from ss_run
+                                         estimateMode = 2, # Run projection only
+                                         HCR = build_hcr(HCR = 5, # Tier3 HCR
+                                                         DynamicHCR = TRUE, # Use dynamic reference points
+                                                         FsprTarget = 0.4, # F40%
+                                                         FsprLimit = 0.35, # F35%
+                                                         Plimit = 0.2, # No fishing when SB<SB20
+                                                         Alpha = 0.05),
+                                         msmMode = 0, # Single species mode
+                                         verbose = 1)
+
 # -- PFMC Category 1
 ss_run_Cat1 <- Rceattle::fit_mod(data_list = mydata,
-                                  inits = ss_run$estimated_params, # Initial parameters from ss_run
-                                  estimateMode = 2, # Run projection only
-                                  HCR = build_hcr(HCR = 6, # Cat 1 HCR
-                                                  FXSPRlimit = 0.45, # F45%
-                                                  Ptarget = 0.4, # Target is 40% B0
-                                                  Plimit = 0.1, # No fishing when SB<SB10
-                                                  Pstar = 0.45,
-                                                  Sigma = 0.5),
-                                  msmMode = 0, # Single species mode
-                                  verbose = 1)
-
-ss_run_dynamicCat1 <- Rceattle::fit_mod(data_list = mydata,
                                  inits = ss_run$estimated_params, # Initial parameters from ss_run
                                  estimateMode = 2, # Run projection only
                                  HCR = build_hcr(HCR = 6, # Cat 1 HCR
-                                                 DynamicHCR = TRUE, # Use dynamic reference points
-                                                 FXSPRlimit = 0.45, # F45%
-                                                 Ptarget = 0.4, # Target is 40% SB0
+                                                 FsprLimit = 0.45, # F45%
+                                                 Ptarget = 0.4, # Target is 40% B0
                                                  Plimit = 0.1, # No fishing when SB<SB10
                                                  Pstar = 0.45,
                                                  Sigma = 0.5),
                                  msmMode = 0, # Single species mode
                                  verbose = 1)
 
+ss_run_dynamicCat1 <- Rceattle::fit_mod(data_list = mydata,
+                                        inits = ss_run$estimated_params, # Initial parameters from ss_run
+                                        estimateMode = 2, # Run projection only
+                                        HCR = build_hcr(HCR = 6, # Cat 1 HCR
+                                                        DynamicHCR = TRUE, # Use dynamic reference points
+                                                        FsprLimit = 0.45, # F45%
+                                                        Ptarget = 0.4, # Target is 40% SB0
+                                                        Plimit = 0.1, # No fishing when SB<SB10
+                                                        Pstar = 0.45,
+                                                        Sigma = 0.5),
+                                        msmMode = 0, # Single species mode
+                                        verbose = 1)
+
 # -- SESSF Tier 1
 ss_run_Tier1 <- Rceattle::fit_mod(data_list = mydata,
                                   inits = ss_run$estimated_params, # Initial parameters from ss_run
                                   estimateMode = 2, # Run projection only
                                   HCR = build_hcr(HCR = 7, # Tier 1 HCR
-                                                  FXSPRtarget = 0.48, # F40%
-                                                  FXSPRlimit = 0.20, # F20%
-                                                  Ptarget = 0.35, # Target is 35% SSB0
-                                                  Plimit = 0.20, # No fishing when B<B20
-                                                  ),
-                                  msmMode = 0, # Single species mode
-                                  verbose = 1)
-
-
-ss_run_dynamicTier1 <- Rceattle::fit_mod(data_list = mydata,
-                                  inits = ss_run$estimated_params, # Initial parameters from ss_run
-                                  estimateMode = 2, # Run projection only
-                                  HCR = build_hcr(HCR = 7, # Tier 1 HCR
-                                                  DynamicHCR = TRUE,
-                                                  FXSPRtarget = 0.48, # F40%
-                                                  FXSPRlimit = 0.20, # F20%
+                                                  FsprTarget = 0.48, # F40%
+                                                  FsprLimit = 0.20, # F20%
                                                   Ptarget = 0.35, # Target is 35% SSB0
                                                   Plimit = 0.20, # No fishing when B<B20
                                   ),
                                   msmMode = 0, # Single species mode
                                   verbose = 1)
 
+
+ss_run_dynamicTier1 <- Rceattle::fit_mod(data_list = mydata,
+                                         inits = ss_run$estimated_params, # Initial parameters from ss_run
+                                         estimateMode = 2, # Run projection only
+                                         HCR = build_hcr(HCR = 7, # Tier 1 HCR
+                                                         DynamicHCR = TRUE,
+                                                         FsprTarget = 0.48, # F40%
+                                                         FsprLimit = 0.20, # F20%
+                                                         Ptarget = 0.35, # Target is 35% SSB0
+                                                         Plimit = 0.20, # No fishing when B<B20
+                                         ),
+                                         msmMode = 0, # Single species mode
+                                         verbose = 1)
+
 # -- Plot
 mod_list <- list(ss_run, ss_run_Tier3, ss_run_Cat1, ss_run_Tier1)
 model_names <- c("F=0", "NPFMC Tier 3", "PFMC Cat 1", "SESSF Tier 1")
 plot_biomass(mod_list, model_names = model_names, incl_proj = TRUE)
 plot_ssb(mod_list, model_names = model_names, incl_proj = TRUE)
+sapply(mod_list, function(x) x$quantities$SPRlimit/x$quantities$SPR0)
 
 
-mod_list <- list(ss_run, ss_run_dynamicTier3, ss_run_dynamicCat1, ss_run_dynamicTier1)
-model_names <- c("F=0", "NPFMC Tier 3", "PFMC Cat 1", "SESSF Tier 1")
-plot_biomass(mod_list, model_names = model_names, incl_proj = TRUE)
-plot_ssb(mod_list, model_names = model_names, incl_proj = TRUE)
+dynamic_mod_list <- list(ss_run, ss_run_dynamicTier3, ss_run_dynamicCat1, ss_run_dynamicTier1)
+dynamic_model_names <- c("F=0", "NPFMC Tier 3", "PFMC Cat 1", "SESSF Tier 1")
+plot_biomass(dynamic_mod_list, model_names = dynamic_mod_list, incl_proj = TRUE)
+plot_ssb(dynamic_mod_list, model_names = dynamic_mod_list, incl_proj = TRUE)
+lapply(dynamic_mod_list, function(x) (x$quantities$DynamicSPRtarget/x$quantities$DynamicSPR0)[,1:10])
+lapply(dynamic_mod_list, function(x) (x$quantities$DynamicSPRlimit/x$quantities$DynamicSPR0)[,1:10])
+lapply(dynamic_mod_list, function(x) x$quantities$DynamicSPR0)
+lapply(dynamic_mod_list, function(x) x$quantities$DynamicSB0)
+lapply(dynamic_mod_list, function(x) x$quantities$SB0)
 
 ################################################
 # Management strategy evaluation
