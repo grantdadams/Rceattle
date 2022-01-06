@@ -8,13 +8,20 @@ library(Rceattle)
 data(BS2017SS) # ?BS2017SS for more information on the data
 BS2017SS$projyr <- 2060
 
+# Write data to excel
+Rceattle::write_data(data_list = BS2017SS, file = "BS2017SS.xlsx")
+
+# Change the data how you want in excel
+# Read the data back in
+mydata <- Rceattle::read_data( file = "BS2017SS.xlsx")
+
 
 ################################################
 # Estimation
 ################################################
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
-BS2017SS$fleet_control$proj_F_prop <-rep(1,7)
-ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
+mydata$fleet_control$proj_F_prop <-rep(1,7)
+ss_run <- Rceattle::fit_mod(data_list = mydata,
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save
                             estimateMode = 1, # Estimate hindcast only
@@ -22,6 +29,7 @@ ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
                             msmMode = 0, # Single species mode
                             phase = "default",
                             verbose = 1)
+
 
 
 
@@ -68,6 +76,33 @@ HCR = build_hcr(HCR = 5, # Tier3 HCR
                 Alpha = 0.05)
 msmMode = 0 # Single species mode
 verbose = 1
+# ### For debugging
+# data_list = NULL;
+# inits = NULL;
+# map = NULL;
+# bounds = NULL;
+# file = NULL;
+# estimateMode = 0;
+# random_rec = FALSE;
+# random_q = FALSE;
+# random_sel = FALSE;
+# HCR = build_hcr();
+# niter = 3;
+# msmMode = 0;
+# avgnMode = 0;
+# minNByage = 0;
+# suitMode = 0;
+# suityr = NULL;
+# phase = NULL;
+# getsd = TRUE;
+# use_gradient = TRUE;
+# rel_tol = 1;
+# control = list(eval.max = 1e+09,
+#                iter.max = 1e+09, trace = 0);
+# getJointPrecision = TRUE;
+# loopnum = 5;
+# verbose = 1;
+# newtonsteps = 0
 
 
 start_time <- Sys.time()
@@ -391,32 +426,61 @@ if (estimateMode > 1) { # Debugging and projection only: use initial parameters
 
 
 # STEP 10 - Run HCR projections
+if(estimateMode %in% c(0,2,4)){
+  if(data_list$HCR > 2){
+    data_list_reorganized$HCR = data_list$HCR # Set HCR back to original
 
 
-# START HERE
-# -- Update map in obs
-hcr_map <- build_hcr_map(data_list, map, debug = estimateMode > 3)
+    # START HERE
+    # -- Update map in obs
+    hcr_map <- build_hcr_map(data_list, map, debug = estimateMode > 3)
 
-obj = TMB::MakeADFun(
-  data_list_reorganized,
-  parameters = last_par,
-  DLL = TMBfilename,
-  map = hcr_map$mapFactor,
-  random = random_vars,
-  silent = verbose != 2
-)
+    obj = TMB::MakeADFun(
+      data_list_reorganized,
+      parameters = last_par,
+      DLL = TMBfilename,
+      map = hcr_map$mapFactor,
+      random = random_vars,
+      silent = verbose != 2
+    )
 
-# -- Optimize
-opt = Rceattle::fit_tmb(obj = obj,
-                        fn=obj$fn,
-                        gr=obj$gr,
-                        startpar=obj$par,
-                        loopnum = loopnum,
-                        getsd = getsd,
-                        control = control,
-                        getJointPrecision = FALSE,
-                        quiet = verbose == 2,
-)
+    # -- Optimize
+    opt = Rceattle::fit_tmb(obj = obj,
+                            fn=obj$fn,
+                            gr=obj$gr,
+                            startpar=obj$par,
+                            loopnum = loopnum,
+                            getsd = getsd,
+                            control = control,
+                            getJointPrecision = FALSE,
+                            quiet = verbose == 2,
+    )
+
+    # obj$report()$DynamicSPRtarget/obj$report()$DynamicSPR0
+    # obj$report()$DynamicSPRlimit/obj$report()$DynamicSPR0
+    #
+    # obj$report()$SPRtarget/obj$report()$SPR0
+    # obj$report()$SPRlimit/obj$report()$SPR0
+    #
+    # obj$report()$SPR0
+    # obj$report()$SB0
+
+    if(verbose > 0) {message("Step ",step, ": Projections complete")}
+
+    # -- Update MLEs
+    if (estimateMode > 2) { # Debugging, give initial parameters
+      last_par <- start_par
+    }
+    else{
+      if(!random_rec){
+        last_par = try(obj$env$parList(obj$env$last.par.best)) # FIXME: maybe add obj$env$last.par.best inside?
+      } else {
+        last_par = try(obj$env$parList())
+      }
+    }
+  }
+}
+
 
 obj$report()$DynamicSPRtarget/obj$report()$DynamicSPR0
 obj$report()$DynamicSPRlimit/obj$report()$DynamicSPR0
@@ -431,6 +495,6 @@ obj$report()$SB0
 obj$report(opt$opt$par)$dynamicsprlimitcheck
 
 data_list_reorganized$DynamicHCR
-round(obj$report(opt$opt$par+1)$jnll_comp[12:15,1:3])
-round(obj$report(opt$opt$par-1)$jnll_comp[12:15,1:3])
-round(obj$report(opt$opt$par+1)$jnll_comp[12:15,1:3])
+round(obj$report(opt$par)$jnll_comp[12:15,1:3])
+round(obj$report(opt$par-1)$jnll_comp[12:15,1:3])
+round(obj$report(opt$par+1)$jnll_comp[12:15,1:3])
