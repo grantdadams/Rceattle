@@ -9,7 +9,7 @@
 #' @param random_rec logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE.
 #' @param random_q logical. If TRUE, treats annual catchability deviations as random effects.The default is FALSE.
 #' @param random_rec logical. If TRUE, treats annual selectivity deviations as random effects.The default is FALSE.
-#' @param HCR and HCR list object from \code{\link[build_hcr]}.
+#' @param HCR HCR list object from \code{\link[build_hcr]}
 #' @param niter Number of iterations for multispecies model
 #' @param msmMode The predation mortality functions to used. Defaults to no predation mortality used.
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.
@@ -49,7 +49,7 @@
 #'  \item{bounds: Parameter bounds used for estimation}
 #'  \item{map: List of map used in TMB}
 #'  \item{obj: TMB model object}
-#'  \item{opt: Optimized model object from `nlimb``}
+#'  \item{opt: Optimized model object from `nlimb`}
 #'  \item{sdrep: Object of class `sdreport` exported by TMB including the standard errors of estimated parameters}
 #'  \item{estimated_params: List of estimated parameters}
 #'  \item{quantities: Derived quantities from CEATTLE}
@@ -141,6 +141,8 @@ fit_mod <-
     verbose = 1,
     newtonsteps = 0){
 
+
+    # ### For debugging
     # data_list = NULL;
     # inits = NULL;
     # map = NULL;
@@ -252,8 +254,8 @@ fit_mod <-
     # HCR Switches
     data_list$HCR = HCR$HCR
     data_list$DynamicHCR = HCR$DynamicHCR
-    data_list$FXSPRtarget = HCR$FXSPRtarget
-    data_list$FXSPRlimit = HCR$FXSPRlimit
+    data_list$FsprTarget = HCR$FsprTarget
+    data_list$FsprLimit = HCR$FsprLimit
     data_list$Ptarget = HCR$Ptarget
     data_list$Plimit = HCR$Plimit
     data_list$Alpha = HCR$Alpha
@@ -494,6 +496,8 @@ fit_mod <-
       if(data_list$HCR > 2){
         data_list_reorganized$HCR = data_list$HCR # Set HCR back to original
 
+
+        # START HERE
         # -- Update map in obs
         hcr_map <- build_hcr_map(data_list, map, debug = estimateMode > 3)
 
@@ -517,6 +521,16 @@ fit_mod <-
                                 getJointPrecision = FALSE,
                                 quiet = verbose == 2,
         )
+
+        # obj$report()$DynamicSPRtarget/obj$report()$DynamicSPR0
+        # obj$report()$DynamicSPRlimit/obj$report()$DynamicSPR0
+        #
+        # obj$report()$SPRtarget/obj$report()$SPR0
+        # obj$report()$SPRlimit/obj$report()$SPR0
+        #
+        # obj$report()$SPR0
+        # obj$report()$SB0
+
         if(verbose > 0) {message("Step ",step, ": Projections complete")}
 
         # -- Update MLEs

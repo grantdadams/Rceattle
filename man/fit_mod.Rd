@@ -90,7 +90,8 @@ A list of class "Rceattle" including:
 \item{bounds: Parameter bounds used for estimation}
 \item{map: List of map used in TMB}
 \item{obj: TMB model object}
-\item{opt: Optimized model object from \verb{nlimb``\} \\item\{sdrep: Object of class }sdreport` exported by TMB including the standard errors of estimated parameters}
+\item{opt: Optimized model object from \code{nlimb}}
+\item{sdrep: Object of class \code{sdreport} exported by TMB including the standard errors of estimated parameters}
 \item{estimated_params: List of estimated parameters}
 \item{quantities: Derived quantities from CEATTLE}
 \item{run_time: Model run time}
