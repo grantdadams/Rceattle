@@ -39,6 +39,10 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
   proj_nyrs <- length(proj_yrs)
   assess_yrs <- seq(from = em$data_list$endyr + assessment_period, to = em$data_list$projyr,  by = assessment_period)
   sample_yrs <- seq(from = em$data_list$endyr + sampling_period, to = em$data_list$projyr,  by = sampling_period)
+  
+  nflts = nrow(om$data_list$fleet_control)
+  nselages_om <- max(om$data_list$fleet_control$Nselages, na.rm = TRUE)
+  nselages_em <- max(em$data_list$fleet_control$Nselages, na.rm = TRUE)
 
   # Update data-files in OM so we can fill in updated years
   # -- srv_biom
@@ -177,34 +181,21 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
       # om_use$estimated_params$ln_srv_q_dev_re <- cbind(om_use$estimated_params$ln_srv_q_dev_re, matrix(om_use$estimated_params$ln_srv_q_dev_re[,ncol(om_use$estimated_params$ln_srv_q_dev_re)], nrow= nrow(om_use$estimated_params$ln_srv_q_dev_re), ncol = length(new_years)))
 
       # -- Time-varing selectivity - Assume last year - filled by columns
-      n_selectivities <- nrow(om_use$data_list$fleet_control)
+    ln_sel_slp_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
+    sel_inf_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
+    sel_coff_dev = array(0, dim = c(nflts, 2, nselages_om, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for non-parameteric
 
-      ln_sel_slp_dev = array(0, dim = c(2, n_selectivities, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic; n = [2, nspp]
-      sel_inf_dev = array(0, dim = c(2, n_selectivities, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic; n = [2, nspp]
+    ln_sel_slp_dev[,,,1:nyrs_hind] <- om_use$estimated_params$ln_sel_slp_dev
+    sel_inf_dev[,,,1:nyrs_hind] <- om_use$estimated_params$sel_inf_dev
+    sel_coff_dev[,,,1:nyrs_hind] <- om_use$estimated_params$sel_coff_dev
 
-      #FIXME: update random effects sel if used again
-      # sel_slp_dev_re = array(0, dim = c(2, n_selectivities, 2, nyrs_hind + length(new_years)))  # selectivity random effect deviations paramaters for logistic; n = [2, nspp]
-      # sel_inf_dev_re = array(0, dim = c(2, n_selectivities, 2, nyrs_hind + length(new_years)))  # selectivity random effectdeviations paramaters for logistic; n = [2, nspp]
+    ln_sel_slp_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- ln_sel_slp_dev[,,,nyrs_hind]
+    sel_inf_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_inf_dev[,,,nyrs_hind]
+    sel_coff_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_coff_dev[,,,nyrs_hind]
 
-      ln_sel_slp_dev[,,,1:nyrs_hind] <- om_use$estimated_params$ln_sel_slp_dev
-      sel_inf_dev[,,,1:nyrs_hind] <- om_use$estimated_params$sel_inf_dev
-
-      #FIXME: update random effects sel if used again
-      # sel_slp_dev_re[,,,1:nyrs_hind] <- om_use$estimated_params$sel_slp_dev_re
-      # sel_inf_dev_re[,,,1:nyrs_hind] <- om_use$estimated_params$sel_inf_dev_re
-
-      ln_sel_slp_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- ln_sel_slp_dev[,,,nyrs_hind]
-      sel_inf_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_inf_dev[,,,nyrs_hind]
-      #FIXME: update random effects sel if used again
-      # sel_slp_dev_re[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_slp_dev_re[,,,nyrs_hind]
-      # sel_inf_dev_re[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_inf_dev_re[,,,nyrs_hind]
-
-      om_use$estimated_params$ln_sel_slp_dev <- ln_sel_slp_dev
-      om_use$estimated_params$sel_inf_dev <- sel_inf_dev
-      #FIXME: update random effects sel if used again
-      # om_use$estimated_params$sel_slp_dev_re <- sel_slp_dev_re
-      # om_use$estimated_params$sel_inf_dev_re <- sel_inf_dev_re
-
+    om_use$estimated_params$ln_sel_slp_dev <- ln_sel_slp_dev
+    om_use$estimated_params$sel_inf_dev <- sel_inf_dev
+    om_use$estimated_params$sel_coff_dev <- sel_coff_dev
 
       # - Update map (Only new parameter we are estimating in OM is the F_dev of the new years)
       om_use$map <- build_map(
@@ -284,30 +275,22 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
       # em_use$estimated_params$ln_srv_q_dev_re <- cbind(em_use$estimated_params$ln_srv_q_dev_re, matrix(em_use$estimated_params$ln_srv_q_dev_re[,ncol(em_use$estimated_params$ln_srv_q_dev_re)], nrow= nrow(em_use$estimated_params$ln_srv_q_dev_re), ncol = length(new_years)))
 
       # -- Time-varing selectivity - Assume last year - filled by columns
-      n_selectivities <- nrow(em_use$data_list$fleet_control)
+      ln_sel_slp_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic; n = [2, nspp]
+      sel_inf_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic; n = [2, nspp]
+    sel_coff_dev = array(0, dim = c(nflts, 2, nselages_em, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for non-parameteric
 
-      ln_sel_slp_dev = array(0, dim = c(2, n_selectivities, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic; n = [2, nspp]
-      sel_inf_dev = array(0, dim = c(2, n_selectivities, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic; n = [2, nspp]
+    ln_sel_slp_dev[,,,1:nyrs_hind] <- om_use$estimated_params$ln_sel_slp_dev
+    sel_inf_dev[,,,1:nyrs_hind] <- om_use$estimated_params$sel_inf_dev
+    sel_coff_dev[,,,1:nyrs_hind] <- om_use$estimated_params$sel_coff_dev
 
-      # sel_slp_dev_re = array(0, dim = c(2, n_selectivities, 2, nyrs_hind + length(new_years)))  # selectivity random effect deviations paramaters for logistic; n = [2, nspp]
-      # sel_inf_dev_re = array(0, dim = c(2, n_selectivities, 2, nyrs_hind + length(new_years)))  # selectivity random effectdeviations paramaters for logistic; n = [2, nspp]
-
-      ln_sel_slp_dev[,,,1:nyrs_hind] <- em_use$estimated_params$ln_sel_slp_dev
-      sel_inf_dev[,,,1:nyrs_hind] <- em_use$estimated_params$sel_inf_dev
-      # sel_slp_dev_re[,,,1:nyrs_hind] <- em_use$estimated_params$sel_slp_dev_re
-      # sel_inf_dev_re[,,,1:nyrs_hind] <- em_use$estimated_params$sel_inf_dev_re
+    ln_sel_slp_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- ln_sel_slp_dev[,,,nyrs_hind]
+    sel_inf_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_inf_dev[,,,nyrs_hind]
+    sel_coff_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_coff_dev[,,,nyrs_hind]
 
       # - Initialize next year with terminal year
-      ln_sel_slp_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- ln_sel_slp_dev[,,,nyrs_hind]
-      sel_inf_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_inf_dev[,,,nyrs_hind]
-      # sel_slp_dev_re[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_slp_dev_re[,,,nyrs_hind]
-      # sel_inf_dev_re[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_inf_dev_re[,,,nyrs_hind]
-
-      em_use$estimated_params$ln_sel_slp_dev <- ln_sel_slp_dev
-      em_use$estimated_params$sel_inf_dev <- sel_inf_dev
-      # em_use$estimated_params$sel_slp_dev_re <- sel_slp_dev_re
-      # em_use$estimated_params$sel_inf_dev_re <- sel_inf_dev_re
-
+    em_use$estimated_params$ln_sel_slp_dev <- ln_sel_slp_dev
+    em_use$estimated_params$sel_inf_dev <- sel_inf_dev
+    em_use$estimated_params$sel_coff_dev <- sel_coff_dev
 
       # Restimate
       em_use <- fit_mod(
