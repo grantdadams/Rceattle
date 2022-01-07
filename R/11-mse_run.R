@@ -275,19 +275,19 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
       # em_use$estimated_params$ln_srv_q_dev_re <- cbind(em_use$estimated_params$ln_srv_q_dev_re, matrix(em_use$estimated_params$ln_srv_q_dev_re[,ncol(em_use$estimated_params$ln_srv_q_dev_re)], nrow= nrow(em_use$estimated_params$ln_srv_q_dev_re), ncol = length(new_years)))
 
       # -- Time-varing selectivity - Assume last year - filled by columns
-      ln_sel_slp_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic; n = [2, nspp]
-      sel_inf_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic; n = [2, nspp]
-    sel_coff_dev = array(0, dim = c(nflts, 2, nselages_em, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for non-parameteric
+      ln_sel_slp_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
+    sel_inf_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
+    sel_coff_dev = array(0, dim = c(nflts, 2, nselages_om, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for non-parameteric
 
-    ln_sel_slp_dev[,,,1:nyrs_hind] <- om_use$estimated_params$ln_sel_slp_dev
-    sel_inf_dev[,,,1:nyrs_hind] <- om_use$estimated_params$sel_inf_dev
-    sel_coff_dev[,,,1:nyrs_hind] <- om_use$estimated_params$sel_coff_dev
+    ln_sel_slp_dev[,,,1:nyrs_hind] <- em_use$estimated_params$ln_sel_slp_dev
+    sel_inf_dev[,,,1:nyrs_hind] <- em_use$estimated_params$sel_inf_dev
+    sel_coff_dev[,,,1:nyrs_hind] <- em_use$estimated_params$sel_coff_dev
 
+    # - Initialize new years with last year
     ln_sel_slp_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- ln_sel_slp_dev[,,,nyrs_hind]
     sel_inf_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_inf_dev[,,,nyrs_hind]
     sel_coff_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_coff_dev[,,,nyrs_hind]
 
-      # - Initialize next year with terminal year
     em_use$estimated_params$ln_sel_slp_dev <- ln_sel_slp_dev
     em_use$estimated_params$sel_inf_dev <- sel_inf_dev
     em_use$estimated_params$sel_coff_dev <- sel_coff_dev
