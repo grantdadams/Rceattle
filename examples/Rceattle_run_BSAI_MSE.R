@@ -197,68 +197,60 @@ model_names <- c("F=0","F 40% B0", "Fspr 40%", "NPFMC Tier 3", "PFMC Cat 1", "SE
 plot_biomass(mod_list, model_names = model_names, incl_proj = TRUE)
 plot_ssb(mod_list, model_names = model_names, incl_proj = TRUE)
 
-sapply(mod_list, function(x) x$quantities$SPRtarget/x$quantities$SPR0)
-sapply(mod_list, function(x) x$quantities$SPRlimit/x$quantities$SPR0)
-
 
 dynamic_mod_list <- list(ss_run, ss_run_dynamicfb0, ss_run_dynamicFspr, ss_run_dynamicTier3, ss_run_dynamicCat1, ss_run_dynamicTier1)
 dynamic_model_names <- c("F=0","F 40% B0", "Fspr 40%", "NPFMC Tier 3", "PFMC Cat 1", "SESSF Tier 1")
-plot_biomass(dynamic_mod_list, model_names = dynamic_mod_list, incl_proj = TRUE)
-plot_ssb(dynamic_mod_list, model_names = dynamic_mod_list, incl_proj = TRUE)
-lapply(dynamic_mod_list, function(x) (x$quantities$DynamicSPRtarget/x$quantities$DynamicSPR0)[,1:10])
-lapply(dynamic_mod_list, function(x) (x$quantities$DynamicSPRlimit/x$quantities$DynamicSPR0)[,1:10])
-lapply(dynamic_mod_list, function(x) x$quantities$DynamicSPR0)
-lapply(dynamic_mod_list, function(x) x$quantities$DynamicSB0)
-lapply(dynamic_mod_list, function(x) x$quantities$SB0)
+plot_biomass(dynamic_mod_list, model_names = dynamic_model_names, incl_proj = TRUE)
+plot_ssb(dynamic_mod_list, model_names = dynamic_model_names, incl_proj = TRUE)
 
 ################################################
 # Management strategy evaluation
 ################################################
 # -- No F
 # - MS-OM: SS-EM No F
-mse1 <- mse_run(operating_model = ms_run, estimation_model = ss_run, nsim = 50, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
+mse1 <- mse_run(om = ms_run, em = ss_run, nsim = 50, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
 
 # - SS-OM: SS-EM No F
-mse2 <- mse_run(operating_model = ss_run_M, estimation_model = ss_run, nsim = 50, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
+mse2 <- mse_run(om = ss_run_M, em = ss_run, nsim = 50, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
 
 
 # -- NPFMC Tier 3 HCRs
 # - MS-OM: SS-EM Tier 3 HCR
-mse1 <- mse_run(operating_model = ms_run, estimation_model = ss_run_Tier3, nsim = 50, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
+mse3 <- mse_run(om = ms_run, em = ss_run_Tier3, nsim = 50, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
 
 # - SS-OM: SS-EM Tier 3 HCR
-mse2 <- mse_run(operating_model = ss_run_M, estimation_model = ss_run_Tier3, nsim = 50, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
+mse4 <- mse_run(om = ss_run_M, em = ss_run_Tier3, nsim = 50, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
 
 # - MS-OM: SS-EM dynamic Tier 3 HCR
-mse1 <- mse_run(operating_model = ms_run, estimation_model = ss_run_dynamicTier3, nsim = 50, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
+mse5 <- mse_run(om = ms_run, em = ss_run_dynamicTier3, nsim = 1, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
 
 # - SS-OM: SS-EM dynamic Tier 3 HCR
-mse2 <- mse_run(operating_model = ss_run_M, estimation_model = ss_run_dynamicTier3, nsim = 50, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
+mse6 <- mse_run(om = ss_run_M, em = ss_run_dynamicTier3, nsim = 1, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
 
 
 # -- PFMC Category 1 HCRs
 # - MS-OM: SS-EM Tier 3 HCR
-mse1 <- mse_run(operating_model = ms_run, estimation_model = ss_run_Cat1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
+mse7 <- mse_run(om = ms_run, em = ss_run_Cat1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
 
 # - SS-OM: SS-EM Tier 3 HCR
-mse2 <- mse_run(operating_model = ss_run_M, estimation_model = ss_run_Cat1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
+mse8 <- mse_run(om = ss_run_M, em = ss_run_Cat1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
 
 # - MS-OM: SS-EM dynamic Tier 3 HCR
-mse1 <- mse_run(operating_model = ms_run, estimation_model = ss_run_dynamicCat1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
+mse9 <- mse_run(om = ms_run, em = ss_run_dynamicCat1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
 
 # - SS-OM: SS-EM dynamic Tier 3 HCR
-mse2 <- mse_run(operating_model = ss_run_M, estimation_model = ss_run_dynamicCat1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
+mse10 <- mse_run(om = ss_run_M, em = ss_run_dynamicCat1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
 
 
 # -- SESSF Tier 1 HCRs
 # - MS-OM: SS-EM Tier 3 HCR
-mse1 <- mse_run(operating_model = ms_run, estimation_model = ss_run_Tier1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
+mse11 <- mse_run(om = ms_run, em = ss_run_Tier1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
 
 # - SS-OM: SS-EM Tier 3 HCR
-mse2 <- mse_run(operating_model = ss_run_M, estimation_model = ss_run_Tier1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
+mse12 <- mse_run(om = ss_run_M, em = ss_run_Tier1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
 
 # - MS-OM: SS-EM dynamic Tier 3 HCR
-mse1 <- mse_run(operating_model = ms_run, estimation_model = ss_run_dynamicTier1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
+mse13 <- mse_run(om = ms_run, em = ss_run_dynamicTier1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
 
 # - SS-OM: SS-EM dynamic Tier 3 HCR
-mse2 <- mse_run(operating_model = ss_run_M, estimation_model = ss_run_dynamicTier1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
+mse14 <- mse_run(om = ss_run_M, em = ss_run_dynamicTier1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate = TRUE, cap = c(1500000))
