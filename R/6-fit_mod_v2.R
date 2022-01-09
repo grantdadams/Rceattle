@@ -241,7 +241,7 @@ fit_mod <-
 
     # Switches
     data_list$random_rec <- as.numeric(random_rec)
-    data_list$debug <- estimateMode
+    data_list$estimateMode <- estimateMode
     data_list$niter <- niter
     data_list$avgnMode <- avgnMode
     data_list$msmMode <- msmMode
@@ -259,6 +259,8 @@ fit_mod <-
     data_list$Ptarget = HCR$Ptarget
     data_list$Plimit = HCR$Plimit
     data_list$Alpha = HCR$Alpha
+    data_list$Pstar = HCR$Pstar
+    data_list$Sigma = HCR$Sigma
     data_list$QnormHCR = ifelse(HCR$HCR == 6, qnorm(HCR$Pstar, 0, HCR$Sigma), 0) # Pstar HCR
 
     # STEP 1 - LOAD PARAMETERS
@@ -421,6 +423,7 @@ fit_mod <-
 
     # STEP 9 - Fit final hindcast model
     if(estimateMode != 2){ # dont build if projection
+      if(sum(as.numeric(unlist(map$mapFactor)), na.rm = TRUE) == 0){stop("Map of length 0: all NAs")}
       obj = TMB::MakeADFun(
         data_list_reorganized,
         parameters = start_par,
@@ -456,7 +459,7 @@ fit_mod <-
                               getsd = getsd,
                               control = control,
                               getJointPrecision = getJointPrecision,
-                              quiet = verbose == 2,
+                              quiet = verbose < 2,
       )
       if(verbose > 0) {message("Step ",step, ": Final optimization complete")
         step = step + 1
@@ -500,6 +503,7 @@ fit_mod <-
         # START HERE
         # -- Update map in obs
         hcr_map <- build_hcr_map(data_list, map, debug = estimateMode > 3)
+        if(sum(as.numeric(unlist(hcr_map$mapFactor)), na.rm = TRUE) == 0){stop("HCR map of length 0: all NAs")}
 
         obj = TMB::MakeADFun(
           data_list_reorganized,
@@ -519,7 +523,7 @@ fit_mod <-
                                 getsd = getsd,
                                 control = control,
                                 getJointPrecision = FALSE,
-                                quiet = verbose == 2,
+                                quiet = verbose < 2,
         )
 
         # obj$report()$DynamicSPRtarget/obj$report()$DynamicSPR0

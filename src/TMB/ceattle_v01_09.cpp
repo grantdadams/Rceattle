@@ -343,7 +343,7 @@ Type objective_function<Type>::operator() () {
   // 1. MODEL CONFIGURATION                                                    //
   // ------------------------------------------------------------------------- //
   // 1.1. CONFIGURE MODEL (this section sets up the switches)
-  DATA_INTEGER(debug);                    // Logical to debug or not
+  DATA_INTEGER(estimateMode);             // Logical to debug or not
   DATA_SCALAR( minNByage );               // Hard constraint that the lowest a numbers at age can be is 1
   DATA_INTEGER(msmMode);
   //    0 = run in single species mode
@@ -1458,6 +1458,7 @@ Type objective_function<Type>::operator() () {
             break;
 
           case 5: // NPFMC Tier 3 HCR
+          proj_F(sp, yr) = proj_F(sp, yr);
             if(biomassSSB(sp, yr) < SPRtarget(sp)){
               proj_F(sp, yr) = Ftarget(sp, 0) * (((biomassSSB(sp, yr)/SPRtarget(sp))-Alpha)/(1-Alpha)); // Used Fabc of FtargetSPR%
             }
@@ -1467,6 +1468,7 @@ Type objective_function<Type>::operator() () {
             break;
 
           case 6: // PFMC Category 1 HCR
+          proj_F(sp, yr) = proj_F(sp, yr);
             if(biomassSSB(sp, yr) < SB0(sp) * Ptarget){
               proj_F(sp, yr) = (Flimit(sp, 0) + QnormHCR) * (SB0(sp) * Ptarget * (biomassSSB(sp, yr) - SB0(sp) * Plimit)) / (biomassSSB(sp, yr) * (SB0(sp) * (Ptarget - Plimit)));
             }
@@ -1476,6 +1478,7 @@ Type objective_function<Type>::operator() () {
             break;
 
           case 7: // SESSF Tier 1 HCR
+          proj_F(sp, yr) = proj_F(sp, yr);
             if(biomassSSB(sp, yr) < SB0(sp) * Ptarget){
               proj_F(sp, yr) = Ftarget(sp, 0) * ((biomassSSB(sp, yr)/(SB0(sp) * Plimit))-1); // Used Fabc of FtargetSPR%
             }
@@ -1506,6 +1509,7 @@ Type objective_function<Type>::operator() () {
             break;
 
           case 5: // NPFMC Tier 3 HCR
+          proj_F(sp, yr) = proj_F(sp, yr);
             if(biomassSSB(sp, yr) < DynamicSPRtarget(sp, yr)){
               proj_F(sp, yr) = Ftarget(sp, yr) * (((biomassSSB(sp, yr)/DynamicSPRtarget(sp, yr))-Alpha)/(1-Alpha)); // Used Fabc of FtargetSPR%
             }
@@ -1515,6 +1519,7 @@ Type objective_function<Type>::operator() () {
             break;
 
           case 6: // PFMC Category 1 HCR
+          proj_F(sp, yr) = proj_F(sp, yr);
             if(biomassSSB(sp, yr) < DynamicSB0(sp, yr) * Ptarget){
               proj_F(sp, yr) = (Flimit(sp, yr) + QnormHCR) * (DynamicSB0(sp, yr) * Ptarget * (biomassSSB(sp, yr) - DynamicSB0(sp, yr) * Plimit)) / (biomassSSB(sp, yr) * (DynamicSB0(sp, yr) * (Ptarget - Plimit)));
             }
@@ -1524,6 +1529,7 @@ Type objective_function<Type>::operator() () {
             break;
 
           case 7: // SESSF Tier 1 HCR
+          proj_F(sp, yr) = proj_F(sp, yr);
             if(biomassSSB(sp, yr) < DynamicSB0(sp, yr) * Ptarget){
               proj_F(sp, yr) = Ftarget(sp, yr) * ((biomassSSB(sp, yr)/(DynamicSB0(sp, yr) * Plimit))-1); // Used Fabc of FtargetSPR%
             }
@@ -3500,12 +3506,12 @@ Type objective_function<Type>::operator() () {
   Type jnll = 0;
 
   // Estimation mode
-  if (debug < 3) {
+  if (estimateMode < 3) {
     jnll = jnll_comp.sum();
   }
 
   // Debug mode
-  if (debug > 2) {
+  if (estimateMode > 2) {
     jnll = dummy * dummy;
   }
 
