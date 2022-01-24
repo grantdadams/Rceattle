@@ -602,8 +602,7 @@ Type objective_function<Type>::operator() () {
   array<Type>   F_flt(n_flt, 2, max_age, nyrs); F_flt.setZero();                    // Estimated fishing mortality for each fishery
   array<Type>   FlimitSPR(nspp, 2, max_age); FlimitSPR.setZero();                   // Estimated fishing mortality for each species that leads to SPRlimit
   array<Type>   FtargetSPR(nspp, 2, max_age); FtargetSPR.setZero();                 // Estimated fishing mortality for each species that leads to SPRtarget
-  array<Type>   DynamicFlimitSPR(nspp, 2, max_age, nyrs); DynamicFlimitSPR.setZero();// Estimated fishing mortality for each species that leads to SPRlimit
-  array<Type>   DynamicFtargetSPR(nspp, 2, max_age, nyrs); DynamicFtargetSPR.setZero(); // Estimated fishing mortality for each species that leads to SPRtarget
+  array<Type>   DynamicFtarget(nspp, 2, max_age, nyrs); DynamicFtarget.setZero();   // Estimated fishing mortality for each species that leads to Ptarget * DynamicSSB0
   array<Type>   F_spp(nspp, 2, max_age, nyrs+1); F_spp.setZero();                   // Sum of annual estimated fishing mortalities for each species-at-age
   vector<Type>  fsh_bio_hat(fsh_biom_obs.rows()); fsh_bio_hat.setZero();            // Estimated fishery yield (kg)
   vector<Type>  fsh_log_sd_hat(fsh_biom_obs.rows()); fsh_log_sd_hat.setZero();      // Estimated/fixed fishery log_sd (kg)
@@ -611,6 +610,9 @@ Type objective_function<Type>::operator() () {
   // -- 4.5. Biological reference points
   array<Type>   NByage0(nspp, max_age, nyrs); NByage0.setZero();                    // Female numbers at age at mean recruitment and F = 0
   array<Type>   DynamicNByage0(nspp, max_age, nyrs); DynamicNByage0.setZero();      // Female numbers at age at F = 0 (accounts for annual recruitment)
+  array<Type>   DynamicNByageF(nspp, max_age, nyrs); DynamicNByageF.setZero();      // Female numbers at age at F = Ftarget (accounts for annual recruitment)
+  matrix<Type>  DynamicSB0(nspp, nyrs); DynamicSB0.setZero();                       // Estimated dynamic spawning biomass at F = 0 (accounts for S-R curve)
+  matrix<Type>  DynamicSBF(nspp, nyrs); DynamicSBF.setZero();                       // Estimated dynamic spawning biomass at F = Ftarget (accounts for S-R curve)
   array<Type>   NbyageSPR(3, nspp, max_age);                                        // Estimated numbers at age for spawning biomass per recruit reference points
   vector<Type>  SPRlimit(nspp); SPRlimit.setZero();                                 // Estimated Plimit SPR
   vector<Type>  SPRtarget(nspp); SPRtarget.setZero();                               // Estimated Ptarget SPR
@@ -620,11 +622,6 @@ Type objective_function<Type>::operator() () {
   matrix<Type>  Ftarget = exp(ln_Ftarget.array());                                  // Limit F parameter on natural scale
   matrix<Type>  proj_F(nspp, nyrs); proj_F.setZero();                               // Projected F using harvest control rule
 
-  array<Type>   DynamicNbyageSPR(3, nspp, max_age, nyrs); DynamicNbyageSPR.setZero();// Estimated numbers at age for dynamic spawning biomass per recruit reference points
-  matrix<Type>  DynamicSPRlimit(nspp, nyrs); DynamicSPRlimit.setZero();             // Estimated Plimit SPR
-  matrix<Type>  DynamicSPRtarget(nspp, nyrs); DynamicSPRtarget.setZero();           // Estimated Ptarget SPR
-  matrix<Type>  DynamicSPR0(nspp, nyrs); DynamicSPR0.setZero();                     // Estimated dynamic sPR at F = 0
-  matrix<Type>  DynamicSB0(nspp, nyrs); DynamicSB0.setZero();                       // Estimated dynamic spawning biomass at F = 0 (accounts for S-R curve)
 
   // -- 4.6. Survey components
   vector<Type>  sigma_srv_index(n_flt); sigma_srv_index.setZero();                  // Vector of standard deviation of survey index
@@ -1086,8 +1083,7 @@ Type objective_function<Type>::operator() () {
     F_spp.setZero();
     FtargetSPR.setZero();
     FlimitSPR.setZero();
-    DynamicFtargetSPR.setZero();
-    DynamicFlimitSPR.setZero();
+    DynamicFtarget.setZero();
     for (flt = 0; flt < n_flt; flt++) {
 
       sp = flt_spp(flt);  // Temporary index of fishery survey
@@ -1099,8 +1095,7 @@ Type objective_function<Type>::operator() () {
               // Hindcast
               if( yr < nyrs_hind){
                 F_flt(flt, sex, age, yr) = sel(flt, sex, age, yr) * exp(ln_mean_F(flt) + F_dev(flt, yr));
-                DynamicFlimitSPR(sp, sex, age, yr) += sel(flt, sex, age, yr) * proj_F_prop(flt) * Flimit(sp, yr);
-                DynamicFtargetSPR(sp, sex, age, yr) += sel(flt, sex, age, yr) * proj_F_prop(flt) * Ftarget(sp, yr);
+                DynamicFtarget(sp, sex, age, yr) += sel(flt, sex, age, yr) * proj_F_prop(flt) * Ftarget(sp, yr);
               }
 
               // Forecast
@@ -1140,8 +1135,7 @@ Type objective_function<Type>::operator() () {
                 F_flt(flt, sex, age, yr) = sel(flt, sex, age, nyrs_hind - 1) * proj_F_prop(flt) * proj_F(sp, yr); // FIXME using last year of selectivity
 
                 // -- Calculate dynamic reference points
-                DynamicFlimitSPR(sp, sex, age, yr) += sel(flt, sex, age, nyrs_hind - 1) * proj_F_prop(flt) * Flimit(sp, yr);
-                DynamicFtargetSPR(sp, sex, age, yr) += sel(flt, sex, age, nyrs_hind - 1) * proj_F_prop(flt) * Ftarget(sp, yr);
+                DynamicFtarget(sp, sex, age, yr) += sel(flt, sex, age, nyrs_hind - 1) * proj_F_prop(flt) * Ftarget(sp, yr);
               }
 
               // -- Sum F across fleets
@@ -1317,14 +1311,12 @@ Type objective_function<Type>::operator() () {
     // 6.4. Dynamic SPR based reference points and SB0
     SB0.setZero();
     DynamicSB0.setZero();
-    DynamicSPR0.setZero();
-    DynamicSPRlimit.setZero();
-    DynamicSPRtarget.setZero();
+    DynamicSBF.setZero();
     for (sp = 0; sp < nspp; sp++) {
       // Year 1
       // Initial abundance-at-age is the same as the hindcast
       for(age = 0; age < nages(sp); age++){
-        NByage0(sp, age , 0) = DynamicNByage0(sp, age, 0) = DynamicNbyageSPR(0, sp, age, 0) = DynamicNbyageSPR(1, sp, age, 0) = DynamicNbyageSPR(2, sp, age, 0) = NByage(sp,0,age,0);
+        NByage0(sp, age , 0) = DynamicNByage0(sp, age, 0) = DynamicNByageF(sp, age, 0) = NByage(sp,0,age,0);
       }
 
 
@@ -1336,31 +1328,20 @@ Type objective_function<Type>::operator() () {
         NByage0(sp, 0 , yr) = exp(ln_mean_rec(sp)) * R_sexr(sp);
 
         // Recruitment - Dynamic SPR
-        DynamicNByage0(sp, 0, yr)  = DynamicNbyageSPR(2, sp, 0, yr) = DynamicNbyageSPR(1, sp, 0, yr) = DynamicNbyageSPR(0, sp, 0, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr)) * R_sexr(sp);
+        DynamicNByage0(sp, 0, yr) = DynamicNByageF(sp, 0, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr)) * R_sexr(sp);
 
 
         // N-at-age -- No fishing
         for (age = 1; age < nages(sp)-1; age++) {
           NByage0(sp, age, yr) =  NByage0(sp, age-1, yr-1) * exp(-M(sp, 0, age-1, yr-1)); // F = 0
           DynamicNByage0(sp, age, yr) =  DynamicNByage0(sp, age-1, yr-1) * exp(-M(sp, 0, age-1, yr - 1)); // F = 0
-          DynamicNbyageSPR(0, sp, age, yr) =  DynamicNbyageSPR(0, sp, age-1, yr - 1) * exp(-M(sp, 0, age-1, yr - 1)); // F = 0
+          DynamicNByageF(sp, age, yr) =  DynamicNByageF(sp, age-1, yr-1) * exp(-M(sp, 0, age-1, yr - 1)); // F = 0
         }
 
         // Plus group  -- No fishing
         NByage0(sp, nages(sp)-1, yr) = NByage0(sp, nages(sp)-2, yr - 1) * exp(-M(sp, 0, nages(sp)-2, yr - 1))  + NByage0(sp, nages(sp)-1, yr - 1) * exp(-M(sp, 0, nages(sp)-1, yr - 1));
         DynamicNByage0(sp, nages(sp)-1, yr) = DynamicNByage0(sp, nages(sp)-2, yr - 1) * exp(-M(sp, 0, nages(sp)-2, yr - 1))  + DynamicNByage0(sp, nages(sp)-1, yr - 1) * exp(-M(sp, 0, nages(sp)-1, yr - 1));
-        DynamicNbyageSPR(0, sp, nages(sp)-1, yr) = DynamicNbyageSPR(0, sp, nages(sp)-2, yr - 1) * exp(-M(sp, 0, nages(sp)-2, yr - 1)) + DynamicNbyageSPR(0, sp, nages(sp)-1, yr - 1) * exp(-M(sp, 0, nages(sp)-1, yr - 1));
-      }
-
-
-      // -- With fishing applied to NBaygeSPR0
-      for (yr = 1; yr < nyrs; yr++) {
-        for (age = 1; age < nages(sp)-1; age++) {
-          DynamicNbyageSPR(1, sp, age, yr) =  DynamicNbyageSPR(0, sp, age-1, yr) * exp(-M(sp, 0, age-1, yr) - DynamicFlimitSPR(sp, 0, age-1, yr)); // F=FsprLimit
-          DynamicNbyageSPR(2, sp, age, yr) =  DynamicNbyageSPR(0, sp, age-1, yr) * exp(-M(sp, 0, age-1, yr) - DynamicFtargetSPR(sp, 0, age-1, yr)); // F = FsprTarget
-        }
-        DynamicNbyageSPR(1, sp, nages(sp)-1, yr) = DynamicNbyageSPR(0, sp, nages(sp)-2, yr) * exp(-M(sp, 0, nages(sp)-2, yr) - DynamicFlimitSPR(sp, 0,  nages(sp) - 2, yr)) + DynamicNbyageSPR(0, sp, nages(sp)-1, yr) * exp(-M(sp, 0, nages(sp)-1, yr) - DynamicFlimitSPR(sp, 0,  nages(sp) - 1, yr));
-        DynamicNbyageSPR(2, sp, nages(sp)-1, yr) = DynamicNbyageSPR(0, sp, nages(sp)-2, yr) * exp(-M(sp, 0, nages(sp)-2, yr) - DynamicFtargetSPR(sp, 0,  nages(sp) - 2, yr)) + DynamicNbyageSPR(0, sp, nages(sp)-1, yr) * exp(-M(sp, 0, nages(sp)-1, yr) - DynamicFtargetSPR(sp, 0,  nages(sp) - 1, yr)) ;
+        DynamicNByageF(sp, nages(sp)-1, yr) = DynamicNByageF(sp, nages(sp)-2, yr - 1) * exp(-M(sp, 0, nages(sp)-2, yr - 1))  + DynamicNByageF(sp, nages(sp)-1, yr - 1) * exp(-M(sp, 0, nages(sp)-1, yr - 1));
       }
 
 
@@ -1374,9 +1355,7 @@ Type objective_function<Type>::operator() () {
         }
         for (age = 0; age < nages(sp); age++) {
           DynamicSB0(sp, yr) +=  DynamicNByage0(sp, age, yr) *  wt( ssb_wt_index(sp), 0, age, yr_ind ) * pmature(sp, age) * exp(-M(sp, 0, age, yr) * spawn_month(sp)/12);
-          DynamicSPR0(sp, yr) +=  DynamicNbyageSPR(0, sp, age, yr) *  wt( ssb_wt_index(sp), 0, age, yr_ind ) * pmature(sp, age) * exp(-M(sp, 0, age, yr) * spawn_month(sp)/12);
-          DynamicSPRlimit(sp, yr) +=  DynamicNbyageSPR(1, sp, age, yr) *  wt( ssb_wt_index(sp), 0, age, yr_ind) * pmature(sp, age) * exp(-(M(sp, 0,  age, yr) + DynamicFlimitSPR(sp, 0,  age, yr)) * spawn_month(sp)/12);
-          DynamicSPRtarget(sp, yr) +=  DynamicNbyageSPR(2, sp, age, yr) *  wt( ssb_wt_index(sp), 0, age, yr_ind) * pmature(sp, age) * exp(-(M(sp, 0,  age, yr) + DynamicFtargetSPR(sp, 0,  age, yr)) * spawn_month(sp)/12);
+          DynamicSBF(sp, yr) +=  DynamicNByageF(sp, age, yr) *  wt( ssb_wt_index(sp), 0, age, yr_ind ) * pmature(sp, age) * exp(-M(sp, 0, age, yr) * spawn_month(sp)/12);
         }
       }
 
@@ -1509,11 +1488,12 @@ Type objective_function<Type>::operator() () {
             break;
 
           case 5: // NPFMC Tier 3 HCR
+          //FIXME: Using DynamicSB0 * Ptarget rather than DynamicSPRtarget because they are the same with no S-R curve
           proj_F(sp, yr) = proj_F(sp, yr);
-            if(biomassSSB(sp, yr) < DynamicSPRtarget(sp, yr)){
-              proj_F(sp, yr) = Ftarget(sp, yr) * (((biomassSSB(sp, yr)/DynamicSPRtarget(sp, yr))-Alpha)/(1-Alpha)); // Used Fabc of FtargetSPR%
+            if(biomassSSB(sp, yr) < DynamicSB0(sp, yr) * Ptarget){
+              proj_F(sp, yr) = Ftarget(sp, yr) * (((biomassSSB(sp, yr)/(DynamicSB0(sp, yr) * Ptarget))-Alpha)/(1-Alpha)); // Used Fabc of FtargetSPR%
             }
-            if((biomassSSB(sp, yr) < DynamicSB0(sp, yr) * Plimit) | (biomassSSB(sp, yr) / DynamicSPRtarget(sp, yr) < Alpha)){ // If overfished
+            if((biomassSSB(sp, yr) < DynamicSB0(sp, yr) * Plimit) | (biomassSSB(sp, yr) / (DynamicSB0(sp, yr) * Ptarget) < Alpha)){ // If overfished
               proj_F(sp, yr) =  0;
             }
             break;
@@ -2990,7 +2970,7 @@ Type objective_function<Type>::operator() () {
       // Number of ages/lengths
       Type n_comp = 0;
       if(comp_type == 0){
-        n_comp = nages(sp) * joint_adjust(comp_ind);
+        n_comp = nages(sp) * joint_adjust(comp_ind); // For sex = 3 (joint sex comp data)
 
         // Accumulation age
         for(age = 0; age < n_comp; age++){
@@ -3001,19 +2981,18 @@ Type objective_function<Type>::operator() () {
 
           // Lower
           if(age_test < flt_accum_age_lower(flt)){
-
-            comp_obs(comp_ind, flt_accum_age_lower(flt)) += comp_obs(comp_ind, age);
+            comp_obs(comp_ind, flt_accum_age_lower(flt) + (nages(sp) * joint_adjust(comp_ind)-1)) += comp_obs(comp_ind, age);
             comp_obs(comp_ind, age) = 0;
 
-            comp_hat(comp_ind, flt_accum_age_lower(flt)) += comp_hat(comp_ind, age);
+            comp_hat(comp_ind, flt_accum_age_lower(flt) + (nages(sp) * joint_adjust(comp_ind)-1)) += comp_hat(comp_ind, age);
             comp_hat(comp_ind, age) = 0;
           }
           // Upper
           if(age_test > flt_accum_age_upper(flt)){
-            comp_obs(comp_ind, flt_accum_age_upper(flt)) += comp_obs(comp_ind, age);
+            comp_obs(comp_ind, flt_accum_age_upper(flt) + (nages(sp) * joint_adjust(comp_ind)-1)) += comp_obs(comp_ind, age);
             comp_obs(comp_ind, age) = 0;
 
-            comp_hat(comp_ind, flt_accum_age_upper(flt)) += comp_hat(comp_ind, age);
+            comp_hat(comp_ind, flt_accum_age_upper(flt) + (nages(sp) * joint_adjust(comp_ind)-1)) += comp_hat(comp_ind, age);
             comp_hat(comp_ind, age) = 0;
           }
         }
@@ -3252,14 +3231,14 @@ Type objective_function<Type>::operator() () {
       for(yr = 1; yr < nyrs; yr++){ // No initial abundance
         // F that acheives \code{Ftarget}% of SSB0 in the end of the projection
         if(HCR == 3){
-          jnll_comp(13, sp)  += 200*square((biomassSSB(sp, yr)/DynamicSB0(sp, yr))-FsprTarget);
+          jnll_comp(13, sp)  += 200*square((DynamicSBF(sp, yr)/DynamicSB0(sp, yr))-FsprTarget);
         }
+      }
 
-        // -- SPR
-        if(HCR > 3){
-          jnll_comp(13, sp)  += 200*square((DynamicSPRlimit(sp, yr)/DynamicSPR0(sp, yr))-FsprLimit);
-          jnll_comp(13, sp)  += 200*square((DynamicSPRtarget(sp, yr)/DynamicSPR0(sp, yr))-FsprTarget);
-        }
+      // -- SPR
+      if(HCR > 3){
+        jnll_comp(13, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-FsprLimit);
+        jnll_comp(13, sp)  += 200*square((SPRtarget(sp)/SPR0(sp))-FsprTarget);
       }
     }
   }
@@ -3386,17 +3365,12 @@ Type objective_function<Type>::operator() () {
   REPORT( SPR0 );
   REPORT( SPRlimit );
   REPORT( SPRtarget );
-  REPORT( DynamicNbyageSPR);
-  REPORT( DynamicSPR0 );
-  REPORT( DynamicSPRlimit );
-  REPORT( DynamicSPRtarget );
   REPORT( proj_F );
   REPORT( Ftarget );
   REPORT( Flimit );
   REPORT( FlimitSPR );
   REPORT( FtargetSPR );
-  REPORT( DynamicFlimitSPR );
-  REPORT( DynamicFtargetSPR );
+  REPORT( DynamicFtarget );
 
 
   // -- 12.3. Selectivity
