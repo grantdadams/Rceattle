@@ -74,7 +74,7 @@ plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE)
 ss_run_fb0 <- Rceattle::fit_mod(data_list = mydata,
                                   inits = ss_run$estimated_params, # Initial parameters from ss_run
                                   estimateMode = 2, # Run projection only
-                                  HCR = build_hcr(HCR = 3, # Tier3 HCR
+                                  HCR = build_hcr(HCR = 3, # Constant F HCR
                                                   DynamicHCR = FALSE, # Use dynamic reference points
                                                   FsprTarget = 0.4), # F that achieves 40% SB0
                                   msmMode = 0, # Single species mode
@@ -84,7 +84,7 @@ ss_run_fb0 <- Rceattle::fit_mod(data_list = mydata,
 ss_run_dynamicfb0 <- Rceattle::fit_mod(data_list = mydata,
                                          inits = ss_run$estimated_params, # Initial parameters from ss_run
                                          estimateMode = 2, # Run projection only
-                                         HCR = build_hcr(HCR = 3, # Tier3 HCR
+                                         HCR = build_hcr(HCR = 3, # Constant F HCR
                                                          DynamicHCR = TRUE, # Use dynamic reference points
                                                          FsprTarget = 0.4), # F that achieves 40% SB0
                                          msmMode = 0, # Single species mode
