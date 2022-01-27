@@ -1362,12 +1362,12 @@ Type objective_function<Type>::operator() () {
             for (flt = 0; flt < n_flt; flt++) {
               if(flt_spp(flt) == sp){
                 for (age = 1; age < nages(sp)-1; age++) {
-                  DynamicNByageF(F_yr, sp, age, yr) =  DynamicNByageF(F_yr, sp, age-1, yr-1) ;//* exp(-M(sp, 0, age-1, yr - 1) - sel(flt, 0, age-1, yr_ind-1) * proj_F_prop(flt) * Ftarget(sp, F_yr)); // F = 0
+                  DynamicNByageF(F_yr, sp, age, yr) =  DynamicNByageF(F_yr, sp, age-1, yr-1) * exp(-M(sp, 0, age-1, yr - 1) - sel(flt, 0, age-1, yr_ind-1) * proj_F_prop(flt) * Ftarget(sp, F_yr)); // F = 0
                 }
 
                 // Plus group  -- No fishing
                 DynamicNByageF(F_yr, sp, nages(sp)-1, yr) = DynamicNByageF(F_yr, sp, nages(sp)-2, yr - 1) * exp(-M(sp, 0, nages(sp)-2, yr - 1) - sel(flt, 0, nages(sp)-2, yr_ind - 1) * proj_F_prop(flt) * Ftarget(sp, F_yr))
-                  + DynamicNByageF(F_yr, sp, nages(sp)-1, yr - 1) * exp(-M(sp, 0, nages(sp)-1, yr - 1)- sel(flt, 0, nages(sp)-1, yr_ind - 1) * proj_F_prop(flt) * Ftarget(sp, F_yr));
+                  + DynamicNByageF(F_yr, sp, nages(sp)-1, yr - 1) * exp(-M(sp, 0, nages(sp)-1, yr - 1) - sel(flt, 0, nages(sp)-1, yr_ind - 1) * proj_F_prop(flt) * Ftarget(sp, F_yr));
               }
             }
           }
@@ -1526,7 +1526,7 @@ Type objective_function<Type>::operator() () {
           case 5: // NPFMC Tier 3 HCR
             //FIXME: Using DynamicSB0 * Ptarget rather than DynamicSPRtarget because they are the same with no S-R curve
             proj_F(sp, yr) = proj_F(sp, yr);
-            if(biomassSSB(sp, yr) < DynamicSB0(sp, yr) * Ptarget){
+            if(biomassSSB(sp, yr) < DynamicSB0(sp, yr) * FsprTarget){
               proj_F(sp, yr) = Ftarget(sp, yr) * (((biomassSSB(sp, yr)/(DynamicSB0(sp, yr) * Ptarget))-Alpha)/(1-Alpha)); // Used Fabc of FtargetSPR%
             }
             if((biomassSSB(sp, yr) < DynamicSB0(sp, yr) * Plimit) | (biomassSSB(sp, yr) / (DynamicSB0(sp, yr) * Ptarget) < Alpha)){ // If overfished
@@ -3399,6 +3399,7 @@ Type objective_function<Type>::operator() () {
   REPORT( NbyageSPR);
   REPORT( SB0 );
   REPORT( DynamicSB0 );
+  REPORT( DynamicSBF );
   REPORT( SPR0 );
   REPORT( SPRlimit );
   REPORT( SPRtarget );
