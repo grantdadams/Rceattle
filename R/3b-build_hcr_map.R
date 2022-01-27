@@ -26,8 +26,16 @@ build_hcr_map <- function(data_list, map, debug = FALSE){
   # --- Dynamic BRPS - 1 value per species and year
   if(!debug){
     if(data_list$DynamicHCR){
-      if(data_list$HCR %in% c(3,4)){
+      if(data_list$HCR %in% c(3)){
         map$mapList$ln_Ftarget <- replace(map$mapList$ln_Ftarget, values = c(1:length(map$mapList$ln_Ftarget)))
+        map$mapList$ln_Flimit[,1] <- NA # Initial abundance
+        map$mapList$ln_Ftarget[,1] <- NA # Initial abundance
+      }
+      if(data_list$HCR %in% c(4)){
+        warning("No dynamic Fspr")
+        map$mapList$ln_Ftarget <- replace(map$mapList$ln_Ftarget, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Ftarget)))
+        map$mapList$ln_Flimit[,1] <- NA # Initial abundance
+        map$mapList$ln_Ftarget[,1] <- NA # Initial abundance
       }
       if(data_list$HCR %in% c(5,7)){
         map$mapList$ln_Ftarget <- replace(map$mapList$ln_Ftarget, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Ftarget)))
@@ -36,9 +44,6 @@ build_hcr_map <- function(data_list, map, debug = FALSE){
       if(data_list$HCR == 6){
         map$mapList$ln_Flimit <- replace(map$mapList$ln_Flimit, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Flimit)))
       }
-
-      map$mapList$ln_Flimit[,1] <- NA # Initial abundance
-      map$mapList$ln_Ftarget[,1] <- NA # Initial abundance
     }
     # --- Static BRPS - 1 value per species
     if(data_list$DynamicHCR == FALSE){
