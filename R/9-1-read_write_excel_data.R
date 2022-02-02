@@ -95,16 +95,6 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 
     names_used <- c(names_used, "M1_base")
 
-
-    # Mn_LatAge
-    Mn_LatAge <- data_list$Mn_LatAge
-    colnames(Mn_LatAge) <- c("Species", "Sex", paste0("Age", 1:max(data_list$nages)))
-    Mn_LatAge <- as.data.frame(Mn_LatAge)
-
-    xcel_list$Mn_LatAge <- Mn_LatAge
-
-    names_used <- c(names_used, "Mn_LatAge")
-
     # aLW
     aLW <- as.data.frame(data_list$aLW)
     xcel_list$aLW <- aLW
@@ -141,22 +131,15 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
     data_names[data_names %!in% names_used]
 
 
-    # Temperature stuff
+    # Temperature
     xcel_list$env_data <- data_list$env_data
     names_used <- c(names_used, c("env_data"))
-
-
 
     # Diet information Pyrs
     xcel_list$Pyrs <- as.data.frame(data_list$Pyrs)
     names_used <- c(names_used, "Pyrs")
 
-
-    # UobsAge
-    xcel_list$UobsAge <- as.data.frame(data_list$UobsAge)
-    names_used <- c(names_used, "UobsAge")
-
-    # UobsAge
+    # UobsWtAge
     xcel_list$UobsWtAge <- as.data.frame(data_list$UobsWtAge)
     names_used <- c(names_used, "UobsWtAge")
 
@@ -262,12 +245,6 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     M1_base <- suppressMessages(as.data.frame(readxl::read_xlsx(file, sheet = "M1_base")))
     data_list$M1_base <- M1_base
 
-
-    # Mn_LatAge
-    Mn_LatAge <- suppressMessages(as.data.frame(readxl::read_xlsx(file, sheet = "Mn_LatAge")))
-    data_list$Mn_LatAge <- Mn_LatAge
-
-
     # aLW
     aLW <- as.data.frame(readxl::read_xlsx(file, sheet = "aLW"))
     data_list$aLW <- aLW
@@ -283,20 +260,13 @@ read_data <- function(file = "Rceattle_data.xlsx") {
 
 
 
-    # Temperature stuff
+    # Temperature
     env_data <- as.data.frame(readxl::read_xlsx(file, sheet = "env_data"))
     data_list$env_data <- env_data
-
-
-
 
     # Diet information Pyrs
     pyrs_matrix <- as.data.frame(readxl::read_xlsx(file, sheet = "Pyrs"))
     data_list$Pyrs <- pyrs_matrix
-
-    # Diet UobsAge
-    UobsAge <- as.data.frame(readxl::read_xlsx(file, sheet = "UobsAge"))
-    data_list$UobsAge <- UobsAge
 
     # Diet UobsWtAge
     UobsWtAge <- as.data.frame(readxl::read_xlsx(file, sheet = "UobsWtAge"))
