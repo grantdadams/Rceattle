@@ -463,12 +463,9 @@ Type objective_function<Type>::operator() () {
   // 2.3.6. Diet data
   DATA_VECTOR( fday );                    // number of foraging days for each predator; n = [1, nspp]
   DATA_ARRAY( Pyrs );                     // Relative-foraging rate;  n = [nspp, nyrs+1, nages]: #FIXME - Assuming this is the same as Pby_yr?
-  DATA_MATRIX( UobsAge );                 // pred, prey, predA, preyA U observations (mean number of prey in each pred age); n = [nspp, nspp, max_age, max_age]
-  DATA_IMATRIX( UobsAge_ctl );            // Info on pred, prey, predA, preyA U matrix (mean number of prey in each pred age); n = [nspp, nspp, max_age, max_age]
   DATA_MATRIX( UobsWtAge );               // pred, prey, predA, preyA U observations (mean wt_hat of prey in each pred age); n = [nspp, nspp, max_age, max_age]
   DATA_IMATRIX( UobsWtAge_ctl );          // Info on pred, prey, predA, preyA U matrix (mean wt_hat of prey in each pred age); n = [nspp, nspp, max_age, max_age]
-  DATA_ARRAY( Mn_LatAge );                // Mean length-at-age; n = [nspp, sex, nages], ALSO: mean_laa in Kinzey
-
+  
   // 2.3.7. Environmental data
   DATA_IVECTOR( env_yrs );                // Years of hindcast data; n = [1, nTyrs] #FIXME - changed the name of this in retro_data2017_asssmnt.dat
   DATA_MATRIX( env_index );               // Matrix o environmental predictors such as bottom temperature; n = [1,  nTyrs ]
@@ -654,7 +651,6 @@ Type objective_function<Type>::operator() () {
   array<Type>   diet_prop_weight_hat(nspp * 2, nspp * 2, max_age, max_age, nyrs); diet_prop_weight_hat.setZero();   // Predicted stomach proportion by weight U
   array<Type>   diet_prop_weight_ave_hat(nspp * 2, nspp * 2, max_age, max_age); diet_prop_weight_ave_hat.setZero();// Average predicted stomach proportion by weight across years U
   array<Type>   other_food_diet_prop_weight(nspp, 2, max_age, nyrs); other_food_diet_prop_weight.setZero();         // Other food diet proportion by weight
-  matrix<Type>  UobsAge_hat = UobsAge; UobsAge.setZero();                                                           // Estimated stomach proportion by weight U
   matrix<Type>  UobsWtAge_hat = UobsWtAge; UobsWtAge_hat.setZero();                                                 // Estimated stomach proportion by weight U
 
   // -- 4.10. Suitability components
@@ -3477,7 +3473,6 @@ Type objective_function<Type>::operator() () {
   REPORT( B_eaten_as_pred );
   REPORT( B_eaten );
   REPORT( N_eaten );
-  REPORT( UobsAge_hat );
   REPORT( UobsWtAge_hat );
 
   // -- 12.10. Kinzey predation functions
