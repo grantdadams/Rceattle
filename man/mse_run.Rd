@@ -11,8 +11,13 @@ mse_run(
   assessment_period = 1,
   sampling_period = 1,
   simulate = TRUE,
+  rec_trend = 0,
+  fut_sample = 1,
   cap = NULL,
-  seed = 666
+  seed = 666,
+  loopnum = 1,
+  file = NULL,
+  dir = NULL
 )
 }
 \arguments{
@@ -24,11 +29,21 @@ mse_run(
 
 \item{assessment_period}{Period of years that each assessment is taken}
 
-\item{sampling_period}{Period of years data sampling is conducted}
+\item{sampling_period}{Period of years data sampling is conducted. Single value or vector the same length as the number of fleets.}
 
 \item{simulate}{Include simulated random error proportional to that estimated/provided.}
 
+\item{rec_trend}{Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier mean rec * (1 + (rec_trend/projection years) * 1:projection years)}
+
+\item{fut_sample}{future sampling effort relative to last year.  \code{ Log_sd * 1/fut_sample} for index and \code{ Sample_size * fut_sample} for comps}
+
 \item{cap}{A cap on the catch in the projection. Can be a single number or vector. Default = NULL}
+
+\item{loopnum}{number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})}
+
+\item{file}{(Optional) Filename where each OM simulation with EMs will be saved. If NULL, no files are saved.}
+
+\item{dir}{(Optional) Directory where each OM simulation is saved}
 }
 \value{
 A list of operating models (differ by simulated recruitment determined by \code{nsim}) and estimation models fit to each operating model (differ by terminal year).

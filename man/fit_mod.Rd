@@ -49,7 +49,7 @@ fit_mod(
 
 \item{random_q}{logical. If TRUE, treats annual catchability deviations as random effects.The default is FALSE.}
 
-\item{HCR}{and HCR list object from \code{\link[build_hcr]}.}
+\item{HCR}{HCR list object from \code{\link[build_hcr]}}
 
 \item{niter}{Number of iterations for multispecies model}
 
