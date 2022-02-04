@@ -9,15 +9,17 @@
 #' @param sampling_period Period of years data sampling is conducted. Single value or vector the same length as the number of fleets.
 #' @param simulate Include simulated random error proportional to that estimated/provided.
 #' @param rec_trend Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier mean rec * (1 + (rec_trend/projection years) * 1:projection years)
+#' @param fut_sample future sampling effort relative to last year.  \code{ Log_sd * 1/fut_sample} for index and \code{ Sample_size * fut_sample} for comps
 #' @param cap A cap on the catch in the projection. Can be a single number or vector. Default = NULL
 #' @param loopnum number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})
 #' @param file (Optional) Filename where each OM simulation with EMs will be saved. If NULL, no files are saved.
+#' @param dir (Optional) Directory where each OM simulation is saved
 #'
 #' @return A list of operating models (differ by simulated recruitment determined by \code{nsim}) and estimation models fit to each operating model (differ by terminal year).
 #' @export
 #'
 #' @examples
-mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, sampling_period = 1, simulate = TRUE, rec_trend = 0, cap = NULL, seed = 666, loopnum = 1, file = NULL){
+mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, sampling_period = 1, simulate = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, seed = 666, loopnum = 1, file = NULL, dir = NULL){
   '%!in%' <- function(x,y)!('%in%'(x,y))
   library(dplyr)
   set.seed(seed)
@@ -72,6 +74,7 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
     group_by(Fleet_code) %>%
     slice(rep(n(),  proj_nyrs)) %>%
     mutate(Year = -proj_yrs)
+  proj_srv$Log_sd <- proj_srv$Log_sd * 1/fut_sample
   om$data_list$srv_biom  <- rbind(om$data_list$srv_biom, proj_srv)
   om$data_list$srv_biom <- dplyr::arrange(om$data_list$srv_biom, Fleet_code, abs(Year))
 
@@ -91,6 +94,7 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
     group_by(Fleet_code, Sex) %>%
     slice(rep(n(),  proj_nyrs)) %>%
     mutate(Year = -proj_yrs)
+  proj_comp$Sample_size <- proj_comp$Sample_size * fut_sample # Adjust future sampling effort
   om$data_list$comp_data  <- rbind(om$data_list$comp_data, proj_comp)
   om$data_list$comp_data <- dplyr::arrange(om$data_list$comp_data, Fleet_code, abs(Year))
 
@@ -391,7 +395,8 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
     names(Rceattle_EM_list[[sim]]) <- c("EM", paste0("OM_Sim_",sim,". EM_projyr_", assess_yrs))
 
     if(!is.null(file)){
-      saveRDS(list(OM = om_use, EM = Rceattle_EM_list[[sim]]), file = paste0(file, "EMs_from_OM_Sim_",sim, ".rds"))
+      dir.create(file.path(getwd(), dir), showWarnings = FALSE)
+      saveRDS(list(OM = om_use, EM = Rceattle_EM_list[[sim]]), file = paste0(dir, "/", file, "EMs_from_OM_Sim_",sim, ".rds"))
       Rceattle_EM_list[[sim]] <- NULL
     }
   }
