@@ -254,7 +254,7 @@ fit_mod <-
     # HCR Switches
     data_list$HCR = HCR$HCR
     data_list$DynamicHCR = HCR$DynamicHCR
-    data_list$FsprTarget = HCR$FsprTarget
+    data_list$FsprTarget = HCR$FsprTarget[1]
     data_list$FsprLimit = HCR$FsprLimit
     data_list$Ptarget = HCR$Ptarget
     data_list$Plimit = HCR$Plimit
@@ -262,6 +262,8 @@ fit_mod <-
     data_list$Pstar = HCR$Pstar
     data_list$Sigma = HCR$Sigma
     data_list$QnormHCR = ifelse(HCR$HCR == 6, qnorm(HCR$Pstar, 0, HCR$Sigma), 0) # Pstar HCR
+
+    if(data_list$HCR == 2 & estimateMode == 2){estimateMode = 4} # If projecting under constant F, run parmeters through obj only
 
     # STEP 1 - LOAD PARAMETERS
     if (is.character(inits) | is.null(inits)) {
@@ -376,13 +378,17 @@ fit_mod <-
     Rceattle:::data_check(data_list)
     data_list_reorganized <- Rceattle::rearrange_dat(data_list)
     data_list_reorganized = c(list(model = "ceattle_v01_09"),data_list_reorganized)
-    data_list_reorganized$HCR = 0 # Estimate model with F = 0 for the projection
+    # data_list_reorganized$HCR = 0 # Estimate model with F = 0 for the projection
 
     # - Update comp weights and F_prop from data
     if(!is.null(data_list$fleet_control$Comp_weights)){
       start_par$comp_weights = data_list$fleet_control$Comp_weights
     }
     start_par$proj_F_prop = data_list$fleet_control$proj_F_prop
+    nyrs_proj <- data_list$projyr - data_list$styr + 1
+    if(!is.null(HCR$FsprTarget)){
+      start_par$ln_Ftarget = matrix(log(HCR$FsprTarget), nrow = data_list$nspp, ncol = nyrs_proj) # Future fishing mortality for projections for each species
+    }
 
     if(verbose > 0) {message("Step 4: Data rearranged complete")}
 
@@ -422,7 +428,7 @@ fit_mod <-
 
 
     # STEP 9 - Fit final hindcast model
-    if(estimateMode != 2){ # dont build if projection
+    if(estimateMode != 2){ # dont build if projection and estimating HCR parameters
       if(sum(as.numeric(unlist(map$mapFactor)), na.rm = TRUE) == 0){stop("Map of length 0: all NAs")}
       obj = TMB::MakeADFun(
         data_list_reorganized,
