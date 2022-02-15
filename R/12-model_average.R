@@ -79,9 +79,8 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
   if(!uncertainty){mod_avg$sdrep <- NULL}
 
   # -- Set all quantities to zero
-  for(i in 1:length(mod_avg$quantities)){
-    mod_avg$quantities[[i]] <- replace(mod_avg$quantities[[i]], values = rep(0, length(mod_avg$quantities[[i]])))
-  }
+    mod_avg$quantities <- sapply(mod_avg$quantities, function(x) replace(x, values = rep(0, length(x))))
+
 
 
   # Average out derived quantities (Note: dimensions may be different)
@@ -104,11 +103,7 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
     mod_avg$quantities$sel[,,,mod_avg_rel_hind_yrs] <- mod_avg$quantities$sel[,,,mod_avg_rel_hind_yrs] + Rceattle[[i]]$quantities$sel[,,,sub_rel_hind_yrs] * weights[i]
 
     # // -- Reference points
-    mod_avg$quantities$NbyageSPR <- mod_avg$quantities$NbyageSPR + mod_avg$quantities$NbyageSPR * weights[i]
     mod_avg$quantities$SB0 <- mod_avg$quantities$SB0 + Rceattle[[i]]$quantities$SB0 * weights[i]
-    mod_avg$quantities$SB35 <- mod_avg$quantities$SB35 + Rceattle[[i]]$quantities$SB35 * weights[i]
-    mod_avg$quantities$SB40 <- mod_avg$quantities$SB40 + Rceattle[[i]]$quantities$SB40 * weights[i]
-
 
     # // -- Survey components
     # mod_avg$quantities$srv_bio_hat );
@@ -116,14 +111,8 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
 
 
     # // Fishery components
-    mod_avg$quantities$F[,,,mod_avg_rel_proj_yrs] <- mod_avg$quantities$F[,,,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$F[,,,sub_rel_proj_yrs] * weights[i]
-    mod_avg$quantities$F_tot[,,,mod_avg_rel_proj_yrs] <- mod_avg$quantities$F_tot[,,,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$F_tot[,,,sub_rel_proj_yrs] * weights[i]
     # mod_avg$quantities$fsh_bio_hat );
     # mod_avg$quantities$fsh_log_sd_hat );
-    mod_avg$quantities$proj_FABC[,mod_avg_rel_proj_yrs] <- mod_avg$quantities$proj_FABC[,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$proj_FABC[,sub_rel_proj_yrs] * weights[i]
-    mod_avg$quantities$FSPR <- mod_avg$quantities$FSPR + Rceattle[[i]]$quantities$FSPR * weights[i]
-    mod_avg$quantities$F35_tot <- mod_avg$quantities$F35_tot + Rceattle[[i]]$quantities$F35_tot * weights[i]
-    mod_avg$quantities$F40_tot <- mod_avg$quantities$F40_tot + Rceattle[[i]]$quantities$F40_tot * weights[i]
 
 
     # // 12.5. Age/length composition
@@ -365,7 +354,7 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
       }
 
       if(sum(length_ran) != length(Rceattle)){
-        stop("Does not currently support both purely fixed and random effects models")
+        stop("Does not currently support purely fixed and random effects models together")
       }
     }
 
@@ -393,10 +382,13 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
       if(sum(length_ran) > 0){
       mle <- Rceattle[[i]]$obj$env$last.par.best # Includes fixed and random
       vcov <- solve(Rceattle[[i]]$sdrep$jointPrecision) # names(mle) == rownames(vcov)
+      vcov[1,1] <- 100
       }
+
+
       # - Fixed effects models
       if(sum(length_ran) == 0){
-        mle <- Rceattle[[i]]$obj$env$last.par.best # Includes fixed and random
+        mle <- Rceattle[[i]]$obj$env$last.par.best # Includes fixed
         vcov <- solve(Rceattle[[i]]$sdrep$cov.fixed) # names(mle) == rownames(vcov)
       }
       samples <- MASS::mvrnorm(draws[i], mu = mle, Sigma = vcov)
@@ -412,7 +404,7 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
       biomassSSB[1:nspp, 1:length(mod_avg_rel_proj_yrs), nrows[which(rowid == i)]] <- unlist(lapply(quantities, function(x) x$biomassSSB[, sub_rel_proj_yrs]))
       biomass[1:nspp, 1:length(mod_avg_rel_proj_yrs), nrows[which(rowid == i)]] <- unlist(lapply(quantities, function(x) x$biomass[, sub_rel_proj_yrs]))
     }
-
+    plot_ssb(mod_avg, mod_avg = FALSE, add_ci = TRUE)
 
     # - Calculate SD
     rec_rows <- which(names(mod_avg$sdrep$value) == "R")

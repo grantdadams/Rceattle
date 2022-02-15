@@ -77,6 +77,8 @@ plot_index <- function(Rceattle,
   fleet_control <- (Rceattle[[1]]$data_list$fleet_control)
   srv_biom <- (Rceattle[[1]]$data_list$srv_biom)
   srvs <- sort(unique(srv_biom$Fleet_code))
+  srvs <- srvs[which(srvs %in% fleet_control$Fleet_code[which(fleet_control$Fleet_type == 2)])] # Only use surveys that are estimates
+  #FIXME assumes all surveys are the same across models
   nsrv <- length(srvs)
 
   ymax <- c()
@@ -533,6 +535,7 @@ plot_logindex <- function(Rceattle,
   fleet_control <- (Rceattle[[1]]$data_list$fleet_control)
   srv_biom <- (Rceattle[[1]]$data_list$srv_biom)
   srvs <- sort(unique(srv_biom$Fleet_code))
+  srvs <- srvs[which(srvs %in% fleet_control$Fleet_code[which(fleet_control$Fleet_type == 2)])] # Only use surveys that are estimates
   nsrv <- length(srvs)
 
   ymax <- c()
@@ -679,7 +682,7 @@ plot_logindex <- function(Rceattle,
             legend(
               "top",
               legend = model_names,
-              pch = rep(16, length(line_col)), cex=1,
+              pch = rep(16, length(line_col)), cex=0.75,
               col = line_col,
               bty = "n"
             )
