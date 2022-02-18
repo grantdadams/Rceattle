@@ -25,7 +25,9 @@ Imports:
     reshape2,
     gplots,
     tidyr,
-    testthat
+    testthat,
+    foreach,
+    doParallel
 LinkingTo: 
     TMB
 Remotes: kaskr/TMB_contrib_R/TMBhelper
