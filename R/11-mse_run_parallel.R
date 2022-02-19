@@ -20,7 +20,7 @@
 #' @export
 #'
 #' @examples
-mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, sampling_period = 1, simulate = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, seed = 666, loopnum = 1, parallel = FALSE, file = NULL, dir = NULL){
+mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, sampling_period = 1, simulate = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, seed = 666, loopnum = 1, parallel = FALSE, file = NULL, dir = NULL){
   library(dplyr)
   '%!in%' <- function(x,y)!('%in%'(x,y))
 
