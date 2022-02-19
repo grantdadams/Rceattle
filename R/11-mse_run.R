@@ -395,7 +395,7 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
     names(Rceattle_EM_list[[sim]]) <- c("EM", paste0("OM_Sim_",sim,". EM_projyr_", assess_yrs))
 
     if(!is.null(file) | !is.null(dir)){
-      dir.create(file.path(getwd(), dir), showWarnings = FALSE)
+      dir.create(file.path(getwd(), dir), showWarnings = FALSE, recursive = TRUE)
       saveRDS(list(OM = om_use, EM = Rceattle_EM_list[[sim]]), file = paste0(dir, "/", file, "EMs_from_OM_Sim_",sim, ".rds"))
       Rceattle_EM_list[[sim]] <- NULL
     }
