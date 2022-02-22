@@ -280,7 +280,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, assessment_per
       om_use <- fit_mod(
         data_list = om_use$data_list,
         inits = om_use$estimated_params,
-        map =  NULL,
+        map =  om_use$map,
         bounds = NULL,
         file = NULL,
         estimateMode = ifelse(om_use$data_list$estimateMode < 3, 1, om_use$data_list$estimateMode), # Estimate hindcast only if estimating
@@ -388,8 +388,8 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, assessment_per
       em_use$sdrep <- NULL
       em_use$quantities[names(em_use$quantities) %!in% c("fsh_bio_hat",
                                                          "biomass",
-                                                         "F",
-                                                         "F_tot",
+                                                         "F_spp",
+                                                         "F_flt",
                                                          "mn_rec"  ,
                                                          "biomassSSB" ,
                                                          "R",
