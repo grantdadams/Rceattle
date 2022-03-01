@@ -9,15 +9,20 @@
 #' @param sampling_period Period of years data sampling is conducted. Single value or vector the same length as the number of fleets.
 #' @param simulate Include simulated random error proportional to that estimated/provided.
 #' @param rec_trend Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier mean rec * (1 + (rec_trend/projection years) * 1:projection years)
+#' @param fut_sample future sampling effort relative to last year.  \code{ Log_sd * 1/fut_sample} for index and \code{ Sample_size * fut_sample} for comps
 #' @param cap A cap on the catch in the projection. Can be a single number or vector. Default = NULL
 #' @param loopnum number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})
 #' @param file (Optional) Filename where each OM simulation with EMs will be saved. If NULL, no files are saved.
+#' @param dir (Optional) Directory where each OM simulation is saved
 #'
 #' @return A list of operating models (differ by simulated recruitment determined by \code{nsim}) and estimation models fit to each operating model (differ by terminal year).
 #' @export
 #'
 #' @examples
-mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, sampling_period = 1, simulate = TRUE, rec_trend = 0, cap = NULL, seed = 666, loopnum = 1, file = NULL){
+mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, sampling_period = 1, simulate = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, seed = 666, loopnum = 1, file = NULL, dir = NULL){
+
+  # om = ms_run; em = ss_run; nsim = 10; assessment_period = 1; sampling_period = 1; simulate = TRUE; rec_trend = 0; fut_sample = 1; cap = NULL; seed = 666; loopnum = 1; file = NULL; dir = NULL
+
   '%!in%' <- function(x,y)!('%in%'(x,y))
   library(dplyr)
   set.seed(seed)
@@ -72,6 +77,7 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
     group_by(Fleet_code) %>%
     slice(rep(n(),  proj_nyrs)) %>%
     mutate(Year = -proj_yrs)
+  proj_srv$Log_sd <- proj_srv$Log_sd * 1/fut_sample
   om$data_list$srv_biom  <- rbind(om$data_list$srv_biom, proj_srv)
   om$data_list$srv_biom <- dplyr::arrange(om$data_list$srv_biom, Fleet_code, abs(Year))
 
@@ -91,6 +97,7 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
     group_by(Fleet_code, Sex) %>%
     slice(rep(n(),  proj_nyrs)) %>%
     mutate(Year = -proj_yrs)
+  proj_comp$Sample_size <- proj_comp$Sample_size * fut_sample # Adjust future sampling effort
   om$data_list$comp_data  <- rbind(om$data_list$comp_data, proj_comp)
   om$data_list$comp_data <- dplyr::arrange(om$data_list$comp_data, Fleet_code, abs(Year))
 
@@ -151,11 +158,15 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
 
   #--------------------------------------------------
   # Do the MSE
+  MSE_list <- list()
   for(sim in 1:nsim){
 
-    # Set models
-    Rceattle_EM_list[[sim]] <- list()
-    Rceattle_EM_list[[sim]][[1]] <- em
+    set.seed(seed = seed + sim) # setting unique seed for each simulation
+
+    # Set models objects
+    sim_list <- list(EM = list())
+    sim_list$EM[[1]] <- em
+
     em_use <- em
     om_use <- om
 
@@ -176,8 +187,7 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
     }
 
 
-
-    # Run through model
+    # Run through assessment years
     for(k in 1:(length(assess_yrs))){
 
       # ------------------------------------------------------------
@@ -251,7 +261,7 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
       om_use <- fit_mod(
         data_list = om_use$data_list,
         inits = om_use$estimated_params,
-        map =  NULL,
+        map =  om_use$map,
         bounds = NULL,
         file = NULL,
         estimateMode = ifelse(om_use$data_list$estimateMode < 3, 1, om_use$data_list$estimateMode), # Estimate hindcast only if estimating
@@ -262,7 +272,7 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
         minNByage = om_use$data_list$minNByage,
         suitMode = om_use$data_list$suitMode,
         suityr = om$data_list$endyr,
-        loopnum = loopnum,
+        loopnum = 2,
         phase = NULL,
         getsd = FALSE,
         verbose = 0)
@@ -359,8 +369,8 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
       em_use$sdrep <- NULL
       em_use$quantities[names(em_use$quantities) %!in% c("fsh_bio_hat",
                                                          "biomass",
-                                                         "F",
-                                                         "F_tot",
+                                                         "F_spp",
+                                                         "F_flt",
                                                          "mn_rec"  ,
                                                          "biomassSSB" ,
                                                          "R",
@@ -382,23 +392,25 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
                                                          "DynamicFlimitSPR",
                                                          "DynamicFtargetSPR")] <- NULL
 
-      Rceattle_EM_list[[sim]][[k+1]] <- em_use
+      sim_list$EM[[k+1]] <- em_use
       message(paste0("Sim ",sim, " - EM Year ", assess_yrs[k], " COMPLETE"))
     }
 
     # Save models
-    Rceattle_OM_list[[sim]] <- om_use
-    names(Rceattle_EM_list[[sim]]) <- c("EM", paste0("OM_Sim_",sim,". EM_projyr_", assess_yrs))
+    sim_list$OM <- om_use
+    names(sim_list$EM) <- c("EM", paste0("OM_Sim_",sim,". EM_yr_", assess_yrs))
 
-    if(!is.null(file)){
-      saveRDS(list(OM = om_use, EM = Rceattle_EM_list[[sim]]), file = paste0(file, "EMs_from_OM_Sim_",sim, ".rds"))
-      Rceattle_EM_list[[sim]] <- NULL
+    if(!is.null(file) | !is.null(dir)){
+      dir.create(file.path(getwd(), dir), showWarnings = FALSE, recursive = TRUE)
+      saveRDS(sim_list, file = paste0(dir, "/", file, "EMs_from_OM_Sim_",sim, ".rds"))
+      sim_list <- NULL
     }
+
+    MSE_list <- c(MSE_list, sim_list)
   }
 
   # - Name them
-  names(Rceattle_OM_list) <- paste0("OM_Sim_",1:nsim)
-  names(Rceattle_EM_list) <- paste0("OM_Sim_",1:nsim)
+  names(MSE_list) <- paste0("Sim_",1:nsim)
 
-  return(list(OM_list = Rceattle_OM_list, EM_list = Rceattle_EM_list, OM = om, EM = em))
+  return(MSE_list)
 }
