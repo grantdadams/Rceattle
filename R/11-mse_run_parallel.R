@@ -12,6 +12,7 @@
 #' @param fut_sample future sampling effort relative to last year.  \code{ Log_sd * 1/fut_sample} for index and \code{ Sample_size * fut_sample} for comps
 #' @param cap A cap on the catch in the projection. Can be a single number or vector. Default = NULL
 #' @param loopnum number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})
+#' @parallel TRUE/FALSE run the MSE simulations in parallel.
 #' @param file (Optional) Filename where each OM simulation with EMs will be saved. If NULL, no files are saved.
 #' @param dir (Optional) Directory where each OM simulation is saved
 #'
@@ -19,16 +20,9 @@
 #' @export
 #'
 #' @examples
-mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, sampling_period = 1, simulate = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, seed = 666, loopnum = 1, file = NULL, dir = NULL){
-
-  # om = ms_run; em = ss_run; nsim = 10; assessment_period = 1; sampling_period = 1; simulate = TRUE; rec_trend = 0; fut_sample = 1; cap = NULL; seed = 666; loopnum = 1; file = NULL; dir = NULL
-
-  '%!in%' <- function(x,y)!('%in%'(x,y))
+mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, sampling_period = 1, simulate = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, seed = 666, loopnum = 1, parallel = FALSE, file = NULL, dir = NULL){
   library(dplyr)
-  set.seed(seed)
-
-  Rceattle_OM_list <- list()
-  Rceattle_EM_list <- list()
+  '%!in%' <- function(x,y)!('%in%'(x,y))
 
   # - Adjust cap
   if(!is.null(cap)){
@@ -156,11 +150,35 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
   em$data_list$Pyrs  <- rbind(em$data_list$Pyrs, proj_Pyrs)
   em$data_list$Pyrs <- dplyr::arrange(em$data_list$Pyrs, Species, Year)
 
+
+  #--------------------------------------------------
+  # Set up parallel computing https://www.blasbenito.com/post/02_parallelizing_loops_with_r/
+
+  # -- Number of cores
+  if(parallel){
+    n.cores <- parallel::detectCores() - 1
+  } else {
+    n.cores <- 1
+  }
+
+  # -- Create the cluster
+  my.cluster <- parallel::makeCluster(
+    n.cores,
+    type = "PSOCK"
+  )
+
+  # -- Register it to be used by %dopar%
+  doParallel::registerDoParallel(cl = my.cluster)
+
   #--------------------------------------------------
   # Do the MSE
-  MSE_list <- list()
-  for(sim in 1:nsim){
+  MSE_list <- foreach(
+    sim = 1:nsim,
+    .combine = 'c'
+  ) %dopar% {
 
+    library(Rceattle)
+    library(dplyr)
     set.seed(seed = seed + sim) # setting unique seed for each simulation
 
     # Set models objects
@@ -187,7 +205,8 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
     }
 
 
-    # Run through assessment years
+
+    # Run through model
     for(k in 1:(length(assess_yrs))){
 
       # ------------------------------------------------------------
@@ -272,7 +291,7 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
         minNByage = om_use$data_list$minNByage,
         suitMode = om_use$data_list$suitMode,
         suityr = om$data_list$endyr,
-        loopnum = 2,
+        loopnum = loopnum,
         phase = NULL,
         getsd = FALSE,
         verbose = 0)
@@ -405,12 +424,11 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
       saveRDS(sim_list, file = paste0(dir, "/", file, "EMs_from_OM_Sim_",sim, ".rds"))
       sim_list <- NULL
     }
-
-    MSE_list <- c(MSE_list, sim_list)
+    list(sim_list)
   }
 
   # - Name them
   names(MSE_list) <- paste0("Sim_",1:nsim)
 
-  return(MSE_list)
+  return(list(MSE_list, OM = om, EM = em))
 }
