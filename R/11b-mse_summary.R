@@ -68,16 +68,11 @@ mse_summary <- function(mse){
 
   ## MSE Output
   # - Catch is by fleet
-  catch_summary_stats <- data.frame(matrix(0, nrow = nflts+nspp+1, ncol = 6))
-  colnames(catch_summary_stats) <- c("Species", "Fleet_name", "Fleet_code","Average Catch", "Catch IAV", "% Years closed")
-  catch_summary_stats$Fleet_name <- c(mse$Sim_1$OM$data_list$fleet_control$Fleet_name[flts], mse$Sim_1$OM$data_list$spnames, "All")
-  catch_summary_stats$Fleet_code <- c(mse$Sim_1$OM$data_list$fleet_control$Fleet_code[flts], mse$Sim_1$OM$data_list$spnames, "All")
-  catch_summary_stats$Species <- c(mse$Sim_1$OM$data_list$fleet_control$Species[flts], mse$Sim_1$OM$data_list$spnames, "All")
-
-  # - Biomass is by species
-  biomass_summary_stats <-  data.frame(matrix(0, nrow = nspp, ncol = 9))
-  colnames(biomass_summary_stats) <-   c("Species", "Avg terminal SSB MSE", "EM: P(Fy > Flimit)", "EM: P(SSB < SSBlimit)", "EM: P(SSB < Dynamic SSBlimit)", "OM: P(Fy > Flimit)", "OM: P(SSB < SSBlimit)", "OM: P(SSB < Dynamic SSBlimit)", "OM: Terminal SSB/SSBtarget")
-  biomass_summary_stats$Species <- c(mse$Sim_1$OM$data_list$spnames)
+  mse_summary <- data.frame(matrix(NA, nrow = nflts+nspp+1, ncol = 14))
+  colnames(mse_summary) <- c("Species", "Fleet_name", "Fleet_code","Average Catch", "Catch IAV", "% Years closed", "Avg terminal SSB MSE", "EM: P(Fy > Flimit)", "EM: P(SSB < SSBlimit)", "EM: P(SSB < Dynamic SSBlimit)", "OM: P(Fy > Flimit)", "OM: P(SSB < SSBlimit)", "OM: P(SSB < Dynamic SSBlimit)", "OM: Terminal SSB/SSBtarget")
+  mse_summary$Fleet_name <- c(rep(NA, nspp), mse$Sim_1$OM$data_list$fleet_control$Fleet_name[flts], "All")
+  mse_summary$Fleet_code <- c(rep(NA, nspp), mse$Sim_1$OM$data_list$fleet_control$Fleet_code[flts], "All")
+  mse_summary$Species <- c(mse$Sim_1$OM$data_list$spnames, mse$Sim_1$OM$data_list$fleet_control$Species[flts], "All")
 
 
   ############################################
@@ -90,25 +85,26 @@ mse_summary <- function(mse){
     flt = flts[i]
 
     # - Mean catch by fleet
-    catch_summary_stats$`Average Catch`[flt] <- mean(sapply(mse, function(x)
-      x[[1]]$data_list$fsh_biom$Catch[which(x[[1]]$data_list$fsh_biom$Fleet_code == flt &
-                                              x[[1]]$data_list$fsh_biom$Year %in% projyrs)]), na.rm = TRUE)
+    mse_summary$`Average Catch`[i+nspp] <- mean(sapply(mse, function(x)
+      x$OM$data_list$fsh_biom$Catch[which(x$OM$data_list$fsh_biom$Fleet_code == flt &
+                                              x$OM$data_list$fsh_biom$Year %in% projyrs)]), na.rm = TRUE)
 
     # - Catch IAV by fleet
     catch_list_tmp <- lapply(mse, function(x)
-      x[[1]]$data_list$fsh_biom$Catch[which(x[[1]]$data_list$fsh_biom$Fleet_code == flt &
-                                              x[[1]]$data_list$fsh_biom$Year %in% projyrs)])
+      x$OM$data_list$fsh_biom$Catch[which(x$OM$data_list$fsh_biom$Fleet_code == flt &
+                                              x$OM$data_list$fsh_biom$Year %in% projyrs)])
 
     # -- Average across simulations by fleet
+    mse_summary$`Catch IAV`[i+nspp] = 0
     for(sim in 1:nsim){
-      catch_summary_stats$`Catch IAV`[flt] <- catch_summary_stats$`Catch IAV`[flt] + (sum((catch_list_tmp[[sim]][projyrs_ind[-1]] - catch_list_tmp[[sim]][projyrs_ind[-length(projyrs_ind)]])^2, na.rm = TRUE)/(length(projyrs_ind) - 1) / (sum(catch_list_tmp[[sim]][projyrs_ind], na.rm = TRUE)/ length(projyrs_ind)))/nsim
+      mse_summary$`Catch IAV`[i+nspp] <- mse_summary$`Catch IAV`[flt+nspp] + (sum((catch_list_tmp[[sim]][projyrs_ind[-1]] - catch_list_tmp[[sim]][projyrs_ind[-length(projyrs_ind)]])^2, na.rm = TRUE)/(length(projyrs_ind) - 1) / (sum(catch_list_tmp[[sim]][projyrs_ind], na.rm = TRUE)/ length(projyrs_ind)))/nsim
     }
 
     # - % Years closed by fleet
-    catch_summary_stats$`% Years closed`[flt] <- mean(sapply(mse, function(x)
-      length(x[[1]]$data_list$fsh_biom$Catch[which(x[[1]]$data_list$fsh_biom$Fleet_code == flt &
-                                                     x[[1]]$data_list$fsh_biom$Year %in% projyrs &
-                                                     x[[1]]$data_list$fsh_biom$Catch < 1)]) # Using less than 1 here just in case super small catches and fishery is effectively close
+    mse_summary$`% Years closed`[i+nspp] <- mean(sapply(mse, function(x)
+      length(x$OM$data_list$fsh_biom$Catch[which(x$OM$data_list$fsh_biom$Fleet_code == flt &
+                                                     x$OM$data_list$fsh_biom$Year %in% projyrs &
+                                                     x$OM$data_list$fsh_biom$Catch < 1)]) # Using less than 1 here just in case super small catches and fishery is effectively close
       /length(projyrs) * 100))
   }
 
@@ -121,24 +117,25 @@ mse_summary <- function(mse){
   for(sp in 1:nspp){
 
     # - Mean catch by species
-    catch_summary_stats$`Average Catch`[sp + nflts] <- mean(sapply(mse, function(x)
-      x[[1]]$data_list$fsh_biom$Catch[which(x[[1]]$data_list$fsh_biom$Species == sp &
-                                              x[[1]]$data_list$fsh_biom$Year %in% projyrs)]), na.rm = TRUE)
+    mse_summary$`Average Catch`[sp] <- mean(sapply(mse, function(x)
+      x$OM$data_list$fsh_biom$Catch[which(x$OM$data_list$fsh_biom$Species == sp &
+                                              x$OM$data_list$fsh_biom$Year %in% projyrs)]), na.rm = TRUE)
 
     # - Catch IAV by species
-    catch_list_tmp <- lapply(mse, function(x)
-      x[[1]]$data_list$fsh_biom %>%
+    catch_list_tmp <- suppressMessages(lapply(mse, function(x)
+      x$OM$data_list$fsh_biom %>%
         filter(Species == sp & Year > endyr) %>%
         group_by(Year) %>%
-        summarise(Catch = sum(Catch))) # Sum catch across species
+        summarise(Catch = sum(Catch)))) # Sum catch across species
 
     # -- Average across simulations
+    mse_summary$`Catch IAV`[sp] <- 0 # Initialize
     for(sim in 1:nsim){
-      catch_summary_stats$`Catch IAV`[sp+nflts] <- catch_summary_stats$`Catch IAV`[sp+nflts] + (sum((catch_list_tmp[[sim]]$Catch[projyrs_ind[-1]] - catch_list_tmp[[sim]]$Catch[projyrs_ind[-length(projyrs_ind)]])^2, na.rm = TRUE)/(length(projyrs_ind) - 1) / (sum(catch_list_tmp[[sim]]$Catch[projyrs_ind], na.rm = TRUE)/ length(projyrs_ind)))/nsim
+      mse_summary$`Catch IAV`[sp] <- mse_summary$`Catch IAV`[sp] + (sum((catch_list_tmp[[sim]]$Catch[projyrs_ind[-1]] - catch_list_tmp[[sim]]$Catch[projyrs_ind[-length(projyrs_ind)]])^2, na.rm = TRUE)/(length(projyrs_ind) - 1) / (sum(catch_list_tmp[[sim]]$Catch[projyrs_ind], na.rm = TRUE)/ length(projyrs_ind)))/nsim
     }
 
     # - % Years closed by species
-    catch_summary_stats$`% Years closed`[sp+nflts] <- mean(sapply(catch_list_tmp, function(x)
+    mse_summary$`% Years closed`[sp] <- mean(sapply(catch_list_tmp, function(x)
       length(which(x$Catch < 1)) # Using less than 1 here just in case super small catches and fishery is effectively close
       /length(x$Catch) * 100))
   }
@@ -149,23 +146,21 @@ mse_summary <- function(mse){
   # - Average catch
   # - Catch IAV
   # - % Years closed
-  catch_list_tmp <- lapply(mse, function(x)
-    x[[1]]$data_list$fsh_biom %>%
+  catch_list_tmp <- suppressMessages(lapply(mse, function(x)
+    x$OM$data_list$fsh_biom %>%
       filter(Year > endyr) %>%
       group_by(Year) %>%
-      summarise(Catch = sum(Catch))) # Sum catch across species
+      summarise(Catch = sum(Catch)))) # Sum catch across species
 
   # - Mean catch across species
-  catch_summary_stats$`Average Catch`[nspp + nflts + 1] <- mean(sapply(catch_list_tmp, function(x) mean(x$Catch)), na.rm = TRUE)
+  mse_summary$`Average Catch`[nspp + nflts + 1] <- mean(sapply(catch_list_tmp, function(x) mean(x$Catch)), na.rm = TRUE)
 
   # - Catch IAV across species
   # -- Average across simulations
+  mse_summary$`Catch IAV`[nspp + nflts + 1] <- 0 # Initialize
   for(sim in 1:nsim){
-    catch_summary_stats$`Catch IAV`[nspp + nflts + 1] <- catch_summary_stats$`Catch IAV`[nspp + nflts + 1] + (sum((catch_list_tmp[[sim]]$Catch[projyrs_ind[-1]] - catch_list_tmp[[sim]]$Catch[projyrs_ind[-length(projyrs_ind)]])^2, na.rm = TRUE)/(length(projyrs_ind) - 1) / (sum(catch_list_tmp[[sim]]$Catch[projyrs_ind], na.rm = TRUE)/ length(projyrs_ind)))/nsim
+    mse_summary$`Catch IAV`[nspp + nflts + 1] <- mse_summary$`Catch IAV`[nspp + nflts + 1] + (sum((catch_list_tmp[[sim]]$Catch[projyrs_ind[-1]] - catch_list_tmp[[sim]]$Catch[projyrs_ind[-length(projyrs_ind)]])^2, na.rm = TRUE)/(length(projyrs_ind) - 1) / (sum(catch_list_tmp[[sim]]$Catch[projyrs_ind], na.rm = TRUE)/ length(projyrs_ind)))/nsim
   }
-
-  # - % Years closed across species
-  catch_summary_stats$`% Years closed`[nspp + nflts + 1] <- NA
 
 
   ############################################
@@ -213,13 +208,13 @@ mse_summary <- function(mse){
 
     ## Summarize
     # - EM: P(F > Flimit)
-    biomass_summary_stats$`EM: P(Fy > Flimit)`[sp] <- length(which(flimit_ratio_tmp > 1))/length(flimit_ratio_tmp)
+    mse_summary$`EM: P(Fy > Flimit)`[sp] <- length(which(flimit_ratio_tmp > 1))/length(flimit_ratio_tmp)
 
     # - EM: P(SSB < SSBlimit)
-    biomass_summary_stats$`EM: P(SSB < SSBlimit)`[sp] <- length(which(sb_sblimit_tmp < 1))/length(sb_sblimit_tmp)
+    mse_summary$`EM: P(SSB < SSBlimit)`[sp] <- length(which(sb_sblimit_tmp < 1))/length(sb_sblimit_tmp)
 
     # - EM: P(SSB < Dynamic SSBlimit)
-    biomass_summary_stats$`EM: P(SSB < Dynamic SSBlimit)`[sp] <- length(which(sb_sblimit_tmp < 1))/length(sb_sblimit_tmp)
+    mse_summary$`EM: P(SSB < Dynamic SSBlimit)`[sp] <- length(which(sb_sblimit_tmp < 1))/length(sb_sblimit_tmp)
 
     ## Actual status
     # - OM: P(F > Flimit)
@@ -227,31 +222,31 @@ mse_summary <- function(mse){
                                                             + x$OM$estimated_params$F_dev)[spp_rows,])
                                / (x$OM$quantities$Flimit[sp,]))
     flimit_ratio_tmp <- unlist(flimit_ratio_tmp)
-    biomass_summary_stats$`OM: P(Fy > Flimit)`[sp] <- length(which(flimit_ratio_tmp > 1))/length(flimit_ratio_tmp)
+    mse_summary$`OM: P(Fy > Flimit)`[sp] <- length(which(flimit_ratio_tmp > 1))/length(flimit_ratio_tmp)
 
 
     # - OM: P(SSB < SSBlimit)
     sb_sblimit_tmp <- lapply(mse, function(x) x$OM$quantities$biomassSSB[sp, (projyrs - styr + 1)]/ (x$OM$quantities$SB0[sp] * x$OM$data_list$Plimit))
     sb_sblimit_tmp <- unlist(sb_sblimit_tmp)
-    biomass_summary_stats$`OM: P(SSB < SSBlimit)`[sp] <- length(which(sb_sblimit_tmp < 1))/length(sb_sblimit_tmp)
+    mse_summary$`OM: P(SSB < SSBlimit)`[sp] <- length(which(sb_sblimit_tmp < 1))/length(sb_sblimit_tmp)
 
 
     # - OM: P(SSB < Dynamic SSBlimit)
     sb_sblimit_tmp <- lapply(mse, function(x) x$OM$quantities$biomassSSB[sp, (projyrs - styr + 1)]/ (x$OM$quantities$DynamicSB0[sp,projyrs - styr + 1] * x$OM$data_list$Plimit))
     sb_sblimit_tmp <- unlist(sb_sblimit_tmp)
-    biomass_summary_stats$`OM: P(SSB < Dynamic SSBlimit)`[sp] <- length(which(sb_sblimit_tmp < 1))/length(sb_sblimit_tmp)
+    mse_summary$`OM: P(SSB < Dynamic SSBlimit)`[sp] <- length(which(sb_sblimit_tmp < 1))/length(sb_sblimit_tmp)
 
     # - Bias in terminal SSB
     sb_em_tmp <- lapply(mse, function(x) x$EM[[length(x$EM)]]$quantities$biomassSSB[sp, (projyrs - styr + 1)])
     sb_om_tmp <- lapply(mse, function(x) x$OM$quantities$biomassSSB[sp, (projyrs - styr + 1)])
 
-    biomass_summary_stats$`Avg terminal SSB MSE`[sp] = mean((unlist(sb_em_tmp) -  unlist(sb_om_tmp))^2, na.rm = TRUE)
+    mse_summary$`Avg terminal SSB MSE`[sp] = mean((unlist(sb_em_tmp) -  unlist(sb_om_tmp))^2, na.rm = TRUE)
 
     # - OM: Terminal SSB/SSBtarget status
     sb_sbtarget_tmp <- lapply(mse, function(x) x$OM$quantities$biomassSSB[sp, (projyrs - styr + 1)]/ (x$OM$quantities$SB0[sp] * x$OM$data_list$Ptarget))
     sb_sbtarget_tmp <- unlist(sb_sbtarget_tmp)
-    biomass_summary_stats$`OM: Terminal SSB/SSBtarget`[sp] <- mean(sb_sbtarget_tmp)
+    mse_summary$`OM: Terminal SSB/SSBtarget`[sp] <- mean(sb_sbtarget_tmp)
   }
 
-  return(list(biomass_summary_stats = biomass_summary_stats, catch_summary_stats = catch_summary_stats))
+  return(mse_summary = mse_summary)
 }

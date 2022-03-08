@@ -174,15 +174,12 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
     if(simulate){
       for(sp in 1:om_use$data_list$nspp){
         rec_dev <- rnorm( length(om_use$estimated_params$rec_dev[sp,proj_yrs - om_use$data_list$styr + 1]),
-                          mean = log((1+(rec_trend/proj_nyrs) * 1:proj_nyrs)),
-                          sd = exp(om_use$estimated_params$ln_rec_sigma[sp]))
+                          mean = log((1+(rec_trend/proj_nyrs) * 1:proj_nyrs)) - sqrt(exp(om_use$estimated_params$ln_rec_sigma[sp])) / 2, # lognormal adjustment
+                          sd = exp(om_use$estimated_params$ln_rec_sigma[sp])) # Assumed value from penalized likelihood
 
         om_use$estimated_params$rec_dev[sp,proj_yrs - om_use$data_list$styr + 1] <- replace(
           om_use$estimated_params$rec_dev[sp,proj_yrs - om_use$data_list$styr + 1],
-          values = rnorm( length(om_use$estimated_params$rec_dev[sp,proj_yrs - om_use$data_list$styr + 1]),
-                          mean = 0,
-                          sd = exp(om_use$estimated_params$ln_rec_sigma[sp])) # Assumed value from penalized likelihood
-        )
+          values =  rec_dev)
       }
     }
 
