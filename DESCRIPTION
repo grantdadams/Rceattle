@@ -1,12 +1,12 @@
 Package: Rceattle
 Title: Fits the multispecies assessment model (CEATTLE) using TMB
-Version: 0.0.0.9000
+Version: 1.0.0.0000
 Authors@R: 
     person(given = "Grant",
            family = "Adams",
            role = c("aut", "cre"),
            email = "adamsgd@uw.edu",
-           comment = c(ORCID = "YOUR-ORCID-ID"))
+           comment = c(ORCID = "0000-0003-0297-8347"))
 Description: 'Rceattle' is an 'R' package designed to implement the CEATTLE model using Template Model Builder ('TMB'; Kristensen et al. 2015), which can be installed using following https://github.com/kaskr/adcomp/wiki/Download. Rceattle is structured similar to the original manuscript in terms of modularization. Seperate functions estimate retrospective temperature- and size-specific predator rations, prey preference, and weight-at- age. These are then used as inputs to the CEATTLE model to evaluate how predation mortality, recruitment, and survival of three target species change under historical climate conditions and harvest rates.
 License: GPL (>= 2)
 Encoding: UTF-8
