@@ -243,7 +243,7 @@ mse_summary <- function(mse){
     mse_summary$`Avg terminal SSB MSE`[sp] = mean((unlist(sb_em_tmp) -  unlist(sb_om_tmp))^2, na.rm = TRUE)
 
     # - OM: Terminal SSB/SSBtarget status
-    sb_sbtarget_tmp <- lapply(mse, function(x) x$OM$quantities$biomassSSB[sp, (projyrs - styr + 1)]/ (x$OM$quantities$SB0[sp] * x$OM$data_list$Ptarget))
+    sb_sbtarget_tmp <- lapply(mse, function(x) x$OM$quantities$biomassSSB[sp, (projyrs - styr + 1)]/ (x$OM$quantities$SB0[sp]))
     sb_sbtarget_tmp <- unlist(sb_sbtarget_tmp)
     mse_summary$`OM: Terminal SSB/SSBtarget`[sp] <- mean(sb_sbtarget_tmp)
   }

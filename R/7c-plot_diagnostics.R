@@ -296,7 +296,10 @@ plot_catch <- function(Rceattle,
     fsh_hat_list[[i]]$Catch <- Rceattle[[i]]$quantities$fsh_bio_hat[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% Years[[i]] )]
     fsh_hat_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$fsh_log_sd_hat[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% Years[[i]] )]
   }
-  max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
+
+  # Plot
+  minyr <- min(unlist(Years), na.rm = TRUE)
+  maxyr <- max(unlist(Years), na.rm = TRUE)
   nyrs_vec <- sapply(Years, length)
   nyrs <- max(nyrs_vec)
 
@@ -342,10 +345,6 @@ plot_catch <- function(Rceattle,
           filename <- paste0(file, "fleet",fshs[j]," ",as.character(fleet_control$Fleet_name[fshs[fsh]]), "_fishery_catch", ".png")
           png(file = filename, width = width, height = height, res = 200, units = "in")
         }
-
-
-        minyr <- min(sapply(fsh_list, function(x) min(x[which(x$Fleet_code == fshs[fsh]),]$Year)))
-        maxyr <- max_endyr
 
         par(Par)
         plot(NA, NA, ylab="Catch", xlab="Year", ylim = c((ymin[fsh]), (ymax[fsh])), xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj), type='n', xaxt="n", yaxt="n")
@@ -404,8 +403,6 @@ plot_catch <- function(Rceattle,
 
 
       for(fsh in 1:nfsh){
-        minyr <- min(sapply(fsh_list, function(x) min(x[which(x$Fleet_code == fshs[fsh]),]$Year)))
-        maxyr <- max_endyr
 
         xlim <- c(minyr, maxyr)
         if(fsh == 1){
@@ -452,6 +449,9 @@ plot_catch <- function(Rceattle,
     }
   }
 } # End of fit
+
+
+
 
 #' log(CPUE) fits
 #'
