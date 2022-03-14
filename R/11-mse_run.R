@@ -365,6 +365,9 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
       em_use$opt <- NULL
       em_use$sdrep <- NULL
       em_use$quantities[names(em_use$quantities) %!in% c("fsh_bio_hat",
+                                                         "fsh_log_sd_hat",
+                                                         "depletion",
+                                                         "depletionSSB",
                                                          "biomass",
                                                          "F_spp",
                                                          "F_flt",
