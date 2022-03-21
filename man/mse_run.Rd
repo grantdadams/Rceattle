@@ -10,7 +10,8 @@ mse_run(
   nsim = 10,
   assessment_period = 1,
   sampling_period = 1,
-  simulate = TRUE,
+  simulate_data = TRUE,
+  sample_rec = TRUE,
   rec_trend = 0,
   fut_sample = 1,
   cap = NULL,
@@ -31,7 +32,9 @@ mse_run(
 
 \item{sampling_period}{Period of years data sampling is conducted. Single value or vector the same length as the number of fleets.}
 
-\item{simulate}{Include simulated random error proportional to that estimated/provided.}
+\item{simulate_data}{Include simulated random error proportional to that estimated/provided for the data from the OM.}
+
+\item{sample_rec}{Include resampled recruitment deviates from the"hindcast" in the projection of the OM. Resampled deviates are used rather than sampling from N(0, sigmaR) because initial deviates bias R0 low. If false, uses mean of recruitment deviates.}
 
 \item{rec_trend}{Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier mean rec * (1 + (rec_trend/projection years) * 1:projection years)}
 

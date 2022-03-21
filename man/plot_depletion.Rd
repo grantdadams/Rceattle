@@ -56,5 +56,5 @@ function.}
 Returns and saves a figure with the population trajectory.
 }
 \description{
-Function the plots the mean depletion of spawning stock biomass (SSB) as estimated from Rceattle
+Function the plots the mean depletion of total biomass as estimated from Rceattle
 }
