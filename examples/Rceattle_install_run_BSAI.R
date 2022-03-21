@@ -35,7 +35,6 @@ mydata$est_M1 <- c(0,0,0)
 # Estimation
 ################################################
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
-mydata$projyr <- 2100
 mydata$fleet_control$proj_F_prop <- c(rep(1,3), rep(0,4))
 ss_run <- Rceattle::fit_mod(data_list = mydata,
                             inits = NULL, # Initial parameters = 0
@@ -48,7 +47,7 @@ ss_run <- Rceattle::fit_mod(data_list = mydata,
 
 # Estimate M
 mydata_M <- mydata
-mydata_M$est_M1 <- c(1,1,1)
+mydata_M$est_M1 <- c(1,1,1) # Estimate age-invariant M (M2/predation = 0)
 ss_run_M <- Rceattle::fit_mod(data_list = mydata_M,
                               inits = ss_run$estimated_params, # Initial parameters = 0
                               file = NULL, # Don't save
@@ -68,7 +67,7 @@ plot_catch(Rceattle =  ss_run, incl_proj = T)
 data("BS2017MS") # Note: the only difference is the residual mortality (M1_base) is lower
 BS2017MS$est_M1 <- c(1,1,1) # Estimate residual M
 ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
-                            inits = ss_run_M$estimated_params, # Initial parameters from single species ests
+                            inits = ss_run$estimated_params, # Initial parameters from single species ests
                             file = NULL, # Don't save
                             estimateMode = 0, # Estimate
                             niter = 3, # 10 iterations around population and predation dynamics

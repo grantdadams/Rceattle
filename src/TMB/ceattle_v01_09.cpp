@@ -571,7 +571,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 4.2. Estimated population quantities
   matrix<Type>  pop_scalar = ln_pop_scalar;  pop_scalar = exp(ln_pop_scalar.array());// Fixed n-at-age scaling coefficient; n = [nspp, nages]
-  vector<Type>  mn_rec = exp(ln_mean_rec);                                          // Mean recruitment; n = [nspp]
+  vector<Type>  mean_rec(nspp); mean_rec.setZero();                                     // Mean recruitment of hindcast; n = [nspp]
   array<Type>   biomassByage(nspp, max_age, nyrs); biomassByage.setZero();          // Estimated biomass-at-age (kg)
   matrix<Type>  biomass(nspp, nyrs); biomass.setZero();                             // Estimated biomass (kg)
   matrix<Type>  biomassSSB(nspp, nyrs); biomassSSB.setZero();                       // Estimated spawning stock biomass (kg)
@@ -1168,41 +1168,7 @@ Type objective_function<Type>::operator() () {
     }
 
 
-    // 6.3. Static SPR based reference points
-    SPR0.setZero();
-    SPRlimit.setZero();
-    SPRtarget.setZero();
-    for (sp = 0; sp < nspp; sp++) {
-
-      if(nsex(sp)  == 1){
-        R_sexr(sp) = 1; // We multiply by pmature later on which is sex-ratio * maturity for 1 sex and maturity for 2-sex
-      }
-
-      NbyageSPR(0, sp, 0) = exp(ln_mean_rec(sp)) * R_sexr(sp); // F = 0
-      NbyageSPR(1, sp, 0) = exp(ln_mean_rec(sp)) * R_sexr(sp); // F = Flimit
-      NbyageSPR(2, sp, 0) = exp(ln_mean_rec(sp)) * R_sexr(sp); // F = Ftarget
-
-      for (age = 1; age < nages(sp)-1; age++) {
-        NbyageSPR(0, sp, age) =  NbyageSPR(0, sp, age-1) * exp(-M(sp, 0, age-1, nyrs_hind - 1));
-        NbyageSPR(1, sp, age) =  NbyageSPR(1, sp, age-1) * exp(-(M(sp, 0, age-1, nyrs_hind - 1) + FlimitSPR(sp, 0, age-1)));
-        NbyageSPR(2, sp, age) =  NbyageSPR(2, sp, age-1) * exp(-(M(sp, 0, age-1, nyrs_hind - 1) + FtargetSPR(sp, 0, age-1)));
-      }
-
-      // Plus group
-      NbyageSPR(0, sp, nages(sp) - 1) = NbyageSPR(0, sp, nages(sp) - 2) * exp(-M(sp, 0, nages(sp) - 2, nyrs_hind - 1)) / (1 - exp(-M(sp, 0, nages(sp) - 1, nyrs_hind - 1)));
-      NbyageSPR(1, sp, nages(sp) - 1) = NbyageSPR(1, sp, nages(sp) - 2) * exp(-(M(sp, 0,  nages(sp) - 2, nyrs_hind - 1) + FlimitSPR(sp, 0,  nages(sp) - 2))) / (1 - exp(-(M(sp, 0,  nages(sp) - 1, nyrs_hind - 1) + FlimitSPR(sp, 0,  nages(sp) - 1))));
-      NbyageSPR(2, sp, nages(sp) - 1) = NbyageSPR(2, sp, nages(sp) - 2) * exp(-(M(sp, 0,  nages(sp) - 2, nyrs_hind - 1) + FtargetSPR(sp, 0,  nages(sp) - 2))) / (1 - exp(-(M(sp, 0,  nages(sp) - 1, nyrs_hind - 1) + FtargetSPR(sp, 0,  nages(sp) - 1))));
-
-      // Calulcate SPR
-      for (age = 0; age < nages(sp); age++) {
-        SPR0(sp) +=  NbyageSPR(0, sp, age) *  wt( ssb_wt_index(sp), 0, age, (nyrs_hind - 1) ) * pmature(sp, age) * exp(-M(sp, 0, age, nyrs_hind - 1) * spawn_month(sp)/12);
-        SPRlimit(sp) +=  NbyageSPR(1, sp, age) *  wt( ssb_wt_index(sp), 0, age, (nyrs_hind - 1) ) * pmature(sp, age) * exp(-(M(sp, 0,  age, nyrs_hind - 1) + FlimitSPR(sp, 0,  age)) * spawn_month(sp)/12);
-        SPRtarget(sp) +=  NbyageSPR(2, sp, age) *  wt( ssb_wt_index(sp), 0, age, (nyrs_hind - 1) ) * pmature(sp, age) * exp(-(M(sp, 0,  age, nyrs_hind - 1) + FtargetSPR(sp, 0,  age)) * spawn_month(sp)/12);
-      }
-    }
-
-
-    // 6.5. ESTIMATE INITIAL ABUNDANCE AT AGE AND YEAR-1: T1.2
+    // 6.3. ESTIMATE INITIAL ABUNDANCE AT AGE AND YEAR-1
     for (sp = 0; sp < nspp; sp++) {
 
       if(nsex(sp)  == 1){
@@ -1257,7 +1223,7 @@ Type objective_function<Type>::operator() () {
     }
 
 
-    // 6.6. ESTIMATE HINDCAST NUMBERS AT AGE, BIOMASS-AT-AGE (kg), and SSB-AT-AGE (kg)
+    // 6.4. ESTIMATE HINDCAST NUMBERS AT AGE, BIOMASS-AT-AGE (kg), and SSB-AT-AGE (kg)
     biomass.setZero();
     biomassSSB.setZero();
     biomassByage.setZero();
@@ -1311,7 +1277,49 @@ Type objective_function<Type>::operator() () {
     }
 
 
-    // 6.4. Dynamic SPR based reference points and SB0
+    // 6.5. Static SPR based reference points
+    // -- calculate mean recruitment
+    mean_rec.setZero();
+    for (sp = 0; sp < nspp; sp++) {
+      for (yr = 0; yr < nyrs_hind; yr++) {
+        mean_rec(sp) += R(sp, yr)/nyrs_hind; // Update mean rec
+      }
+    }
+
+    SPR0.setZero();
+    SPRlimit.setZero();
+    SPRtarget.setZero();
+    for (sp = 0; sp < nspp; sp++) {
+
+      if(nsex(sp)  == 1){
+        R_sexr(sp) = 1; // We multiply by pmature later on which is sex-ratio * maturity for 1 sex and maturity for 2-sex
+      }
+
+      NbyageSPR(0, sp, 0) = mean_rec(sp) * R_sexr(sp); // F = 0
+      NbyageSPR(1, sp, 0) = mean_rec(sp) * R_sexr(sp); // F = Flimit
+      NbyageSPR(2, sp, 0) = mean_rec(sp) * R_sexr(sp); // F = Ftarget
+
+      for (age = 1; age < nages(sp)-1; age++) {
+        NbyageSPR(0, sp, age) =  NbyageSPR(0, sp, age-1) * exp(-M(sp, 0, age-1, nyrs_hind - 1));
+        NbyageSPR(1, sp, age) =  NbyageSPR(1, sp, age-1) * exp(-(M(sp, 0, age-1, nyrs_hind - 1) + FlimitSPR(sp, 0, age-1)));
+        NbyageSPR(2, sp, age) =  NbyageSPR(2, sp, age-1) * exp(-(M(sp, 0, age-1, nyrs_hind - 1) + FtargetSPR(sp, 0, age-1)));
+      }
+
+      // Plus group
+      NbyageSPR(0, sp, nages(sp) - 1) = NbyageSPR(0, sp, nages(sp) - 2) * exp(-M(sp, 0, nages(sp) - 2, nyrs_hind - 1)) / (1 - exp(-M(sp, 0, nages(sp) - 1, nyrs_hind - 1)));
+      NbyageSPR(1, sp, nages(sp) - 1) = NbyageSPR(1, sp, nages(sp) - 2) * exp(-(M(sp, 0,  nages(sp) - 2, nyrs_hind - 1) + FlimitSPR(sp, 0,  nages(sp) - 2))) / (1 - exp(-(M(sp, 0,  nages(sp) - 1, nyrs_hind - 1) + FlimitSPR(sp, 0,  nages(sp) - 1))));
+      NbyageSPR(2, sp, nages(sp) - 1) = NbyageSPR(2, sp, nages(sp) - 2) * exp(-(M(sp, 0,  nages(sp) - 2, nyrs_hind - 1) + FtargetSPR(sp, 0,  nages(sp) - 2))) / (1 - exp(-(M(sp, 0,  nages(sp) - 1, nyrs_hind - 1) + FtargetSPR(sp, 0,  nages(sp) - 1))));
+
+      // Calulcate SPR
+      for (age = 0; age < nages(sp); age++) {
+        SPR0(sp) +=  NbyageSPR(0, sp, age) *  wt( ssb_wt_index(sp), 0, age, (nyrs_hind - 1) ) * pmature(sp, age) * exp(-M(sp, 0, age, nyrs_hind - 1) * spawn_month(sp)/12);
+        SPRlimit(sp) +=  NbyageSPR(1, sp, age) *  wt( ssb_wt_index(sp), 0, age, (nyrs_hind - 1) ) * pmature(sp, age) * exp(-(M(sp, 0,  age, nyrs_hind - 1) + FlimitSPR(sp, 0,  age)) * spawn_month(sp)/12);
+        SPRtarget(sp) +=  NbyageSPR(2, sp, age) *  wt( ssb_wt_index(sp), 0, age, (nyrs_hind - 1) ) * pmature(sp, age) * exp(-(M(sp, 0,  age, nyrs_hind - 1) + FtargetSPR(sp, 0,  age)) * spawn_month(sp)/12);
+      }
+    }
+
+
+    // 6.6. Dynamic SPR based reference points and SB0
     B0.setZero();
     SB0.setZero();
     DynamicB0.setZero();
@@ -1330,10 +1338,10 @@ Type objective_function<Type>::operator() () {
 
         // Recruitment - SB0 and Dynamic SB0
         // FIXME account for S-R relationship down the line
-        NByage0(sp, 0 , yr) = exp(ln_mean_rec(sp)) * R_sexr(sp);
+        NByage0(sp, 0 , yr) = mean_rec(sp) * R_sexr(sp); // Using mean rec because R0 is biased
 
         // Recruitment - Dynamic SPR
-        DynamicNByage0(sp, 0, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr)) * R_sexr(sp);
+        DynamicNByage0(sp, 0, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr)) * R_sexr(sp); // Using R0 because mse functions adjust rec_devs to account for bias
 
 
         // N-at-age -- No fishing
@@ -1366,7 +1374,7 @@ Type objective_function<Type>::operator() () {
           if(yr > 0){
             // Recruitment - Dynamic SBF
             // FIXME account for S-R relationship down the line
-            DynamicNByageF(F_yr, sp, 0, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr)) * R_sexr(sp);
+            DynamicNByageF(F_yr, sp, 0, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr)) * R_sexr(sp); // Using R0 because mse_functions account for bias
 
             // N-at-age -- With fishing
             for (flt = 0; flt < n_flt; flt++) {
@@ -1414,7 +1422,7 @@ Type objective_function<Type>::operator() () {
     }
 
 
-    // 6.7. ESTIMATE FORECAST NUMBERS AT AGE, BIOMASS-AT-AGE (kg), and SSB-AT-AGE (kg)
+    // 6.7. FORECAST NUMBERS AT AGE, BIOMASS-AT-AGE (kg), and SSB-AT-AGE (kg)
     // Includes Harvest Control Rules
     for (sp = 0; sp < nspp; sp++) {
       for (yr = nyrs_hind; yr < nyrs; yr++){
@@ -1424,7 +1432,7 @@ Type objective_function<Type>::operator() () {
             case 0: // Estimated numbers-at-age
 
               // -- 6.7.1. Amin (i.e. recruitment)
-              R(sp, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr));
+              R(sp, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr)); // Projections should account for bias
               NByage(sp, sex, 0, yr) = R(sp, yr) * R_sexr(sp);
 
               // -- 6.7.2.  Where 1 <= age < Ai
@@ -1455,13 +1463,14 @@ Type objective_function<Type>::operator() () {
               NByage(sp, sex, age, yr) = minNByage;
             }
 
-            // -- 6.7.4. Estimate Biomass and SSB
+            // -- 6.7.4. FORECAST SSB
             biomassByage(sp, age, yr) += NByage(sp, sex, age, yr) * wt( pop_wt_index(sp), sex, age, nyrs_hind-1 ); // 6.5.
-            biomassSSBByage(sp, age, yr) = NByage(sp, 0, age, yr) * pow(S(sp, 0, age, yr), spawn_month(sp)/12) * wt(ssb_wt_index(sp), 0, age, nyrs_hind-1 ) * pmature(sp, age); // 6.6.
-
             biomass(sp, yr) += biomassByage(sp, age, yr);
-            biomassSSB(sp, yr) += biomassSSBByage(sp, age, yr);
-          }
+          } // End sex loop
+
+          // -- FORECAST DEPLETION
+          biomassSSBByage(sp, age, yr) = NByage(sp, 0, age, yr) * pow(S(sp, 0, age, yr), spawn_month(sp)/12) * wt(ssb_wt_index(sp), 0, age, nyrs_hind-1 ) * pmature(sp, age); // 6.6.
+          biomassSSB(sp, yr) += biomassSSBByage(sp, age, yr);
         }
 
         // -- Apply HCRs
@@ -1610,7 +1619,8 @@ Type objective_function<Type>::operator() () {
             switch(estDynamics(sp)){
             case 0: // Estimated numbers-at-age
 
-              // -- 6.7.5. Amin (i.e. recruitment)
+              // -- 6.7.5. Amin (i.e. recruitment):
+              // This is repetitive and can probably get rid of it
               R(sp, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr));
               NByage(sp, sex, 0, yr) = R(sp, yr) * R_sexr(sp);
 
@@ -1642,13 +1652,14 @@ Type objective_function<Type>::operator() () {
               NByage(sp, sex, age, yr) = minNByage;
             }
 
-            // -- 6.3.3. Estimate Biomass and SSB
+            // -- 6.3.3. FORECAST Biomass
             biomassByage(sp, age, yr) += NByage(sp, sex, age, yr) * wt( pop_wt_index(sp), sex, age, nyrs_hind-1 ); // 6.5.
-            biomassSSBByage(sp, age, yr) = NByage(sp, 0, age, yr) * pow(S(sp, 0, age, yr), spawn_month(sp)/12) * wt(ssb_wt_index(sp), 0, age, nyrs_hind-1 ) * pmature(sp, age); // 6.6.
-
             biomass(sp, yr) += biomassByage(sp, age, yr);
-            biomassSSB(sp, yr) += biomassSSBByage(sp, age, yr);
           }
+
+          // -- 6.3.3. FORECAST SSB
+          biomassSSBByage(sp, age, yr) = NByage(sp, 0, age, yr) * pow(S(sp, 0, age, yr), spawn_month(sp)/12) * wt(ssb_wt_index(sp), 0, age, nyrs_hind-1 ) * pmature(sp, age); // 6.6.
+          biomassSSB(sp, yr) += biomassSSBByage(sp, age, yr);
         }
       }
     }
@@ -3268,16 +3279,16 @@ Type objective_function<Type>::operator() () {
   } // End q loop
 
 
-  // Slots 9-11 -- PRIORS: PUT RANDOM EFFECTS SWITCH HERE
+  // Slots 10-12 -- RECRUITMENT DEVIATES
   for (sp = 0; sp < nspp; sp++) {
     // Slot 10 -- init_dev -- Initial abundance-at-age
     for (age = 1; age < nages(sp); age++) {
-      jnll_comp(11, sp) -= dnorm( init_dev(sp, age - 1) - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);
+      jnll_comp(11, sp) -= dnorm( init_dev(sp, age - 1), Type(- square(r_sigma(sp)) / 2), r_sigma(sp), true);
     }
 
     for (yr = 0; yr < nyrs_hind; yr++) {
       // Slot 11 -- Tau -- Annual recruitment deviation
-      jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr)  - square(r_sigma(sp)) / 2, Type(0.0), r_sigma(sp), true);    // Recruitment deviation using random effects.
+      jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr), Type(- square(r_sigma(sp)) / 2), r_sigma(sp), true);    // Recruitment deviation using random effects.
     }
   }
 
@@ -3404,7 +3415,7 @@ Type objective_function<Type>::operator() () {
 
   // 12.1. Population components
   REPORT( pop_scalar );
-  REPORT( mn_rec );
+  REPORT( mean_rec );
   REPORT( pmature );
   REPORT( Zed );
   REPORT( NByage );

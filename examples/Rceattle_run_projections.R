@@ -204,7 +204,7 @@ plot_recruitment(Rceattle = mod_list, model_names = mod_names)
 
 
 ################################################
-# Model variants
+# Model variants: NOT YET WORKING
 ################################################
 
 # For recruitment, the model can estimate recruitment deviates as random effects
