@@ -2215,7 +2215,7 @@ plot_m2_at_age_prop <-
 
 
 
-#' plot_depletion
+#' plot_depletionSSB
 #'
 #' @description Function the plots the mean depletion of spawning stock biomass (SSB) as estimated from Rceattle
 #'
@@ -2239,7 +2239,7 @@ plot_m2_at_age_prop <-
 #' @export
 #'
 #' @return Returns and saves a figure with the population trajectory.
-plot_depletion <- function(Rceattle,
+plot_depletionSSB <- function(Rceattle,
                            file = NULL,
                            model_names = NULL,
                            line_col = NULL,
@@ -2420,6 +2420,278 @@ plot_depletion <- function(Rceattle,
         xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
         xlab = "Year",
         ylab = "SSB depletion",
+        xaxt = c(rep("n", length(spp) - 1), "s")[j]
+      )
+
+      # Horizontal line at end yr
+      if(incl_proj){
+        abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
+      }
+
+      # Legends
+      legend("topleft",
+             legend = spnames[spp[j]],
+             bty = "n",
+             cex = 1)
+
+      if (spp[j] == 1) {
+        if(!is.null(model_names)){
+          legend(
+            "topright",
+            legend = model_names,
+            lty = rep(1, length(line_col)),
+            lwd = lwd,
+            col = line_col,
+            bty = "n",
+            cex = mod_cex
+          )
+        }
+      }
+
+
+      # Credible interval
+      if(estDynamics[spp[j]] == 0){
+        if (add_ci) {
+          for (k in 1:dim(depletion)[3]) {
+            polygon(
+              x = c(Years[[k]], rev(Years[[k]])),
+              y = c(depletion_upper[spp[j], 1:length(Years[[k]]), k], rev(depletion_lower[spp[j], 1:length(Years[[k]]), k])),
+              col = adjustcolor( line_col[k], alpha.f = alpha),
+              border = NA
+            ) # 95% CI
+          }
+        }
+      }
+
+      # Mean depletion
+      for (k in 1:dim(depletion)[3]) {
+        lines(
+          x = Years[[k]],
+          y = depletion[spp[j], 1:length(Years[[k]]), k],
+          lty = 1,
+          lwd = lwd,
+          col = line_col[k]
+        ) # Median
+
+        # Ptarget and plimit
+        abline(h= ptarget[k], lwd = lwd/2, col = "blue")
+        abline(h= plimit[k], lwd = lwd/2, col = "red")
+      }
+    }
+
+
+    if (i == 2) {
+      dev.off()
+    }
+  }
+}
+
+
+#' plot_depletion
+#'
+#' @description Function the plots the mean depletion of total biomass as estimated from Rceattle
+#'
+#' @param file name of a file to identified the files exported by the
+#'   function.
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param model_names Names of models to be used in legend
+#' @param line_col Colors of models to be used for line color
+#' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
+#' @param spnames Species names for legend
+#' @param add_ci NOT WORKING If the confidence interval is to be added
+#' @param lwd Line width as specified by user
+#' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#' @param minyr First year to plot
+#' @param height
+#' @param width
+#' @param save Save depletion?
+#' @param incl_proj TRUE/FALSE, include projection years
+#' @param mod_cex Cex of text for model name legend
+#'
+#' @export
+#'
+#' @return Returns and saves a figure with the population trajectory.
+plot_depletion <- function(Rceattle,
+                              file = NULL,
+                              model_names = NULL,
+                              line_col = NULL,
+                              species = NULL,
+                              spnames = NULL,
+                              add_ci = FALSE,
+                              lwd = 3,
+                              save = FALSE,
+                              right_adj = 0,
+                              width = 7,
+                              height = 6.5,
+                              minyr = NULL,
+                              incl_proj = FALSE,
+                              mod_cex = 1,
+                              alpha = 0.4,
+                              mod_avg = rep(FALSE, length(Rceattle))) {
+
+  # Convert single one into a list
+  if(class(Rceattle) == "Rceattle"){
+    Rceattle <- list(Rceattle)
+  }
+
+  # Species names
+  if(is.null(spnames)){
+    spnames =  Rceattle[[1]]$data_list$spnames
+  }
+
+  # Extract data objects
+  Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
+  Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
+  if(incl_proj){
+    Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
+  }
+
+  max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
+  nyrs_vec <- sapply(Years, length)
+  nyrs <- max(nyrs_vec)
+  maxyr <- max((sapply(Years, max)))
+  if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
+
+  nspp <- Rceattle[[1]]$data_list$nspp
+  spp <- 1:nspp
+  minage <- Rceattle[[1]]$data_list$minage
+  estDynamics <- Rceattle[[1]]$data_list$estDynamics
+
+  if(is.null(species)){
+
+    species <- 1:nspp
+  }
+
+  spp <- spp[which(spp %in% species)]
+
+
+  # Get depletion
+  depletion <-
+    array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
+  depletion_sd <-
+    array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
+  log_depletion_sd <-
+    array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
+  log_depletion_mu <-
+    array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
+  ptarget = c()
+  plimit = c()
+
+  for (i in 1:length(Rceattle)) {
+    ptarget[i] <- Rceattle[[i]]$data_list$Ptarget
+    plimit[i] <- Rceattle[[i]]$data_list$Plimit
+
+    if(Rceattle[[i]]$data_list$DynamicHCR){ # Dynamic B0
+      depletion[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$biomass[,1:nyrs_vec[i]]/Rceattle[[i]]$quantities$DynamicB0[,1:nyrs_vec[i]]
+    } else { # Equilibrium B0
+      depletion[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$biomass[,1:nyrs_vec[i]]/Rceattle[[i]]$quantities$B0
+    }
+
+
+    # Get SD of depletion
+    if(add_ci){
+      sd_temp <- which(names(Rceattle[[i]]$sdrep$value) == "depletionSSB")
+      sd_temp <- Rceattle[[i]]$sdrep$sd[sd_temp]
+      depletion_sd[,  1:nyrs_vec[i], i] <-
+        replace(depletion_sd[, 1:nyrs_vec[i], i], values = sd_temp[1:(nyrs_vec[i] * nspp)])
+    }
+    #
+    # if(mod_avg[i]){
+    #   log_depletion_sd[,  1:nyrs_vec[i], i] <- apply(Rceattle[[i]]$asymptotic_samples$depletionSSB[,1:nyrs_vec[i],], c(1,2), function(x) sd(as.vector(log(x))))
+    #   log_depletion_mu[,  1:nyrs_vec[i], i] <- apply(Rceattle[[i]]$asymptotic_samples$depletionSSB[,1:nyrs_vec[i],], c(1,2), function(x) mean(as.vector(log(x))))
+    # }
+  }
+
+
+  # 95% CI
+  depletion_upper <- depletion + depletion_sd * 1.92
+  depletion_lower <- depletion - depletion_sd * 1.92
+
+  # # Model Average
+  # for (i in 1:length(Rceattle)) {
+  #   if(mod_avg[i]){
+  #     depletion[,,i] <- qlnorm(0.5, meanlog = log_depletion_mu[,,i], sdlog = log_depletion_sd[,,i]) / 1000000
+  #     depletion_upper[,,i] <- qlnorm(0.975, meanlog = log_depletion_mu[,,i], sdlog = log_depletion_sd[,,i]) / 1000000
+  #     depletion_lower[,,i] <- qlnorm(0.025, meanlog = log_depletion_mu[,,i], sdlog = log_depletion_sd[,,i]) / 1000000
+  #   }
+  # }
+
+
+  if (save) {
+    for (i in 1:nspp) {
+      dat <- data.frame(depletion[i, , ])
+      datup <- data.frame(depletion_upper[i, , ])
+      datlow <- data.frame(depletion_lower[i, , ])
+
+      dat_new <- cbind(dat[, 1], datlow[, 1], datup[, 1])
+      colnames(dat_new) <- rep(model_names[1], 3)
+
+      for (j in 2:ncol(dat)) {
+        dat_new2 <- cbind(dat[, j], datlow[, j], datup[, j])
+        colnames(dat_new2) <- rep(model_names[j], 3)
+        dat_new <- cbind(dat_new, dat_new2)
+
+      }
+
+
+      filename <-
+        paste0(file, "_depletion_species_", i, ".csv")
+      write.csv(dat_new, file = filename)
+    }
+  }
+
+
+  # Plot limits
+  ymax <- c()
+  ymin <- c()
+  for (sp in 1:nspp) {
+    if (add_ci & (estDynamics[sp] == 0)) {
+      ymax[sp] <- max(c(depletion_upper[sp, , ], 0), na.rm = T)
+      ymin[sp] <- min(c(depletion_upper[sp, , ], 0), na.rm = T)
+    } else{
+      ymax[sp] <- max(c(depletion[sp, , ], 0), na.rm = T)
+      ymin[sp] <- min(c(depletion[sp, , ], 0), na.rm = T)
+    }
+  }
+  ymax <- ymax * 1.2
+
+  if (is.null(line_col)) {
+    line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
+  }
+
+
+  # Plot trajectory
+  loops <- ifelse(is.null(file), 1, 2)
+  for (i in 1:loops) {
+    if (i == 2) {
+      filename <- paste0(file, "_depletion_trajectory", ".png")
+      png(
+        file = filename ,
+        width = width,# 169 / 25.4,
+        height = height,# 150 / 25.4,
+        units = "in",
+        res = 300
+      )
+    }
+
+    # Plot configuration
+    layout(matrix(1:(length(spp) + 2), nrow = (length(spp) + 2)), heights = c(0.1, rep(1, length(spp)), 0.2))
+    par(
+      mar = c(0, 3 , 0 , 1) ,
+      oma = c(0 , 0 , 0 , 0),
+      tcl = -0.35,
+      mgp = c(1.75, 0.5, 0)
+    )
+    plot.new()
+
+    for (j in 1:length(spp)) {
+      plot(
+        y = NA,
+        x = NA,
+        ylim = c(ymin[spp[j]], ymax[spp[j]]),
+        xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
+        xlab = "Year",
+        ylab = "Biomass depletion",
         xaxt = c(rep("n", length(spp) - 1), "s")[j]
       )
 

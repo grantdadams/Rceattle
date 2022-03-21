@@ -7,7 +7,8 @@
 #' @param nsim Number of simulations to run (default 10)
 #' @param assessment_period Period of years that each assessment is taken
 #' @param sampling_period Period of years data sampling is conducted. Single value or vector the same length as the number of fleets.
-#' @param simulate Include simulated random error proportional to that estimated/provided.
+#' @param simulate_data Include simulated random error proportional to that estimated/provided for the data from the OM.
+#' @param sample_rec Include resampled recruitment deviates from the"hindcast" in the projection of the OM. Resampled deviates are used rather than sampling from N(0, sigmaR) because initial deviates bias R0 low. If false, uses mean of recruitment deviates.
 #' @param rec_trend Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier mean rec * (1 + (rec_trend/projection years) * 1:projection years)
 #' @param fut_sample future sampling effort relative to last year.  \code{ Log_sd * 1/fut_sample} for index and \code{ Sample_size * fut_sample} for comps
 #' @param cap A cap on the catch in the projection. Can be a single number or vector. Default = NULL
@@ -19,7 +20,7 @@
 #' @export
 #'
 #' @examples
-mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, sampling_period = 1, simulate = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, seed = 666, loopnum = 1, file = NULL, dir = NULL){
+mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, seed = 666, loopnum = 1, file = NULL, dir = NULL){
 
   # om = ms_run; em = ss_run; nsim = 10; assessment_period = 1; sampling_period = 1; simulate = TRUE; rec_trend = 0; fut_sample = 1; cap = NULL; seed = 666; loopnum = 1; file = NULL; dir = NULL
 
@@ -42,6 +43,8 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
   }
 
   # - Years for simulations
+  hind_yrs <- (em$data_list$styr) : em$data_list$endyr
+  hind_nyrs <- length(hind_yrs)
   proj_yrs <- (em$data_list$endyr + 1) : em$data_list$projyr
   proj_nyrs <- length(proj_yrs)
   nflts = nrow(om$data_list$fleet_control)
@@ -170,17 +173,19 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
     em_use <- em
     om_use <- om
 
-    # Replace simulate future rec devs
-    if(simulate){
-      for(sp in 1:om_use$data_list$nspp){
-        rec_dev <- rnorm( length(om_use$estimated_params$rec_dev[sp,proj_yrs - om_use$data_list$styr + 1]),
-                          mean = log((1+(rec_trend/proj_nyrs) * 1:proj_nyrs)) - sqrt(exp(om_use$estimated_params$ln_rec_sigma[sp])) / 2, # lognormal adjustment
-                          sd = exp(om_use$estimated_params$ln_rec_sigma[sp])) # Assumed value from penalized likelihood
-
-        om_use$estimated_params$rec_dev[sp,proj_yrs - om_use$data_list$styr + 1] <- replace(
-          om_use$estimated_params$rec_dev[sp,proj_yrs - om_use$data_list$styr + 1],
-          values =  rec_dev)
+    # Replace future rec devs
+    for(sp in 1:om_use$data_list$nspp){
+      if(sample_rec){ # Sample devs from hindcast
+        rec_dev <- sample(x = om_use$estimated_params$rec_dev[sp, 1:hind_nyrs], size = proj_nyrs, replace = TRUE)
+      } else{ # Use mean R from hindcast because R0 is biased
+        rec_dev <- rep(log(mean(om_use$quantities$R[sp,1:hind_nyrs])) - om_use$estimated_params$ln_mean_rec[sp],
+                       times = proj_nyrs)
       }
+
+      # - Update OM with devs
+      om_use$estimated_params$rec_dev[sp,proj_yrs - om_use$data_list$styr + 1] <- replace(
+        om_use$estimated_params$rec_dev[sp,proj_yrs - om_use$data_list$styr + 1],
+        values =  rec_dev)
     }
 
 
@@ -279,7 +284,7 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
       # 2. ESTIMATION MODEL
       # ------------------------------------------------------------
       # - Simulate new survey and comp data
-      sim_dat <- sim_mod(om_use, simulate = simulate)
+      sim_dat <- sim_mod(om_use, simulate = simulate_data)
 
       years_include <- sample_yrs[which(sample_yrs$Year > em_use$data_list$endyr & sample_yrs$Year <= assess_yrs[k]),]
 
@@ -375,7 +380,9 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
                                                          "biomassSSB" ,
                                                          "R",
                                                          "srv_log_sd_hat",
+                                                         "BO",
                                                          "SB0",
+                                                         "DynamicB0",
                                                          "DynamicSB0",
                                                          "SPR0",
                                                          "SPRlimit",

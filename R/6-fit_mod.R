@@ -372,8 +372,6 @@ fit_mod <-
     TMBfilename <- "ceattle_v01_09"
 
 
-
-
     # STEP 6 - Reorganize data and build model object
     Rceattle:::data_check(data_list)
     data_list_reorganized <- Rceattle::rearrange_dat(data_list)
@@ -402,10 +400,15 @@ fit_mod <-
       }
     }
 
+    # Dimension check
+    dim_check <- sapply(start_par, unlist(length)) == sapply(map$mapFactor, unlist(length))
+    if(sum(dim_check) != length(dim_check)){
+      stop(print(paste0("Map and parameter objects are not the same size for: ", names(dim_check)[which(dim_check == FALSE)])))
+    }
 
-    # STEP 8 - Fit hindcast
+
+    # STEP 8 - Phase hindcast
     step = 5
-    # If phase: phase hindcast
     if(!is.null(phase) & estimateMode %in% c(0,1) ){
       message(paste0("Step ", step,": Phasing begin"))
       phase_pars <- Rceattle::TMBphase(
