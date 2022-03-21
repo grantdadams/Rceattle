@@ -21,10 +21,10 @@ CEATTLE is short for Climate-Enhanced, Age-based model with Temperature-specific
 }
 }
 \author{
-\strong{Maintainer}: Grant Adams \email{adamsgd@uw.edu} (\href{https://orcid.org/YOUR-ORCID-ID}{ORCID})
+\strong{Maintainer}: Grant Adams \email{adamsgd@uw.edu} (\href{https://orcid.org/0000-0003-0297-8347}{ORCID})
 
 
-\strong{Maintainer}: Grant Adams \email{adamsgd@uw.edu} (\href{https://orcid.org/YOUR-ORCID-ID}{ORCID})
+\strong{Maintainer}: Grant Adams \email{adamsgd@uw.edu} (\href{https://orcid.org/0000-0003-0297-8347}{ORCID})
 
 }
 \keyword{internal}

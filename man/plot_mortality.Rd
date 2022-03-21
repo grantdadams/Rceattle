@@ -9,15 +9,17 @@ plot_mortality(
   file = NULL,
   incl_proj = FALSE,
   zlim = NULL,
-  contour = FALSE,
+  type = 0,
   width = 8,
   height = 5.5,
   title = NULL,
   log = FALSE,
   minyr = NULL,
+  theta = 155,
   spp = NULL,
   maxage = NULL,
-  title_cex = 10
+  title_cex = 10,
+  M2 = TRUE
 )
 }
 \arguments{
@@ -30,7 +32,7 @@ function.}
 
 \item{zlim}{zlim for M1 + M2 plots. Character - use max range across species in model. NULL - use species specific ranges. Vector of two.}
 
-\item{contour}{If plot it to be done as contours rather than tiles.}
+\item{type}{0 = Tiles, 1 = contour, 2 = facet lines, 3 = persp}
 
 \item{width}{Plot width when saved "inches"}
 
@@ -42,11 +44,15 @@ function.}
 
 \item{minyr}{First year to plot}
 
+\item{theta}{theta for persp plot}
+
 \item{spp}{Species to plot. Plots all if null.}
 
 \item{maxage}{Plot up to this age. Plots all ages if NULL}
 
 \item{title_cex}{Font size for title}
+
+\item{M2}{TRUE/FALSE Use M2 only (True) or total M (False)}
 }
 \description{
 Function the plots the M1 and M2 as estimated from Rceattle
