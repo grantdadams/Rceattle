@@ -1,4 +1,4 @@
-tmb_name <- "ceattle_v01_08"
+tmb_name <- "ceattle_v01_09"
 tmb_flags <- commandArgs(trailingOnly = TRUE)
 
 if(file.exists(paste0(tmb_name, ".cpp"))) {

@@ -7,12 +7,12 @@
 #' @param nsim Number of simulations to run (default 10)
 #' @param assessment_period Period of years that each assessment is taken
 #' @param sampling_period Period of years data sampling is conducted. Single value or vector the same length as the number of fleets.
-#' @param simulate_data Include simulated random error proportional to that estimated/provided for the data from the OM.
-#' @param sample_rec Include resampled recruitment deviates from the"hindcast" in the projection of the OM. Resampled deviates are used rather than sampling from N(0, sigmaR) because initial deviates bias R0 low. If false, uses mean of recruitment deviates.
+#' @param simulate Include simulated random error proportional to that estimated/provided.
 #' @param rec_trend Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier mean rec * (1 + (rec_trend/projection years) * 1:projection years)
 #' @param fut_sample future sampling effort relative to last year.  \code{ Log_sd * 1/fut_sample} for index and \code{ Sample_size * fut_sample} for comps
 #' @param cap A cap on the catch in the projection. Can be a single number or vector. Default = NULL
 #' @param loopnum number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})
+#' @parallel TRUE/FALSE run the MSE simulations in parallel.
 #' @param file (Optional) Filename where each OM simulation with EMs will be saved. If NULL, no files are saved.
 #' @param dir (Optional) Directory where each OM simulation is saved
 #'
@@ -20,16 +20,9 @@
 #' @export
 #'
 #' @examples
-mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, seed = 666, loopnum = 1, file = NULL, dir = NULL){
-
-  # om = ms_run; em = ss_run; nsim = 10; assessment_period = 1; sampling_period = 1; simulate = TRUE; rec_trend = 0; fut_sample = 1; cap = NULL; seed = 666; loopnum = 1; file = NULL; dir = NULL
-
-  '%!in%' <- function(x,y)!('%in%'(x,y))
+mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, sampling_period = 1, simulate = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, seed = 666, loopnum = 1, parallel = FALSE, file = NULL, dir = NULL){
   library(dplyr)
-  set.seed(seed)
-
-  Rceattle_OM_list <- list()
-  Rceattle_EM_list <- list()
+  '%!in%' <- function(x,y)!('%in%'(x,y))
 
   # - Adjust cap
   if(!is.null(cap)){
@@ -43,8 +36,6 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
   }
 
   # - Years for simulations
-  hind_yrs <- (em$data_list$styr) : em$data_list$endyr
-  hind_nyrs <- length(hind_yrs)
   proj_yrs <- (em$data_list$endyr + 1) : em$data_list$projyr
   proj_nyrs <- length(proj_yrs)
   nflts = nrow(om$data_list$fleet_control)
@@ -159,11 +150,35 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
   em$data_list$Pyrs  <- rbind(em$data_list$Pyrs, proj_Pyrs)
   em$data_list$Pyrs <- dplyr::arrange(em$data_list$Pyrs, Species, Year)
 
+
+  #--------------------------------------------------
+  # Set up parallel computing https://www.blasbenito.com/post/02_parallelizing_loops_with_r/
+
+  # -- Number of cores
+  if(parallel){
+    n.cores <- parallel::detectCores() - 1
+  } else {
+    n.cores <- 1
+  }
+
+  # -- Create the cluster
+  my.cluster <- parallel::makeCluster(
+    n.cores,
+    type = "PSOCK"
+  )
+
+  # -- Register it to be used by %dopar%
+  doParallel::registerDoParallel(cl = my.cluster)
+
   #--------------------------------------------------
   # Do the MSE
-  MSE_list <- list()
-  for(sim in 1:nsim){
+  MSE_list <- foreach(
+    sim = 1:nsim,
+    .combine = 'c'
+  ) %dopar% {
 
+    library(Rceattle)
+    library(dplyr)
     set.seed(seed = seed + sim) # setting unique seed for each simulation
 
     # Set models objects
@@ -173,23 +188,25 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
     em_use <- em
     om_use <- om
 
-    # Replace future rec devs
-    for(sp in 1:om_use$data_list$nspp){
-      if(sample_rec){ # Sample devs from hindcast
-        rec_dev <- sample(x = om_use$estimated_params$rec_dev[sp, 1:hind_nyrs], size = proj_nyrs, replace = TRUE)
-      } else{ # Use mean R from hindcast because R0 is biased
-        rec_dev <- rep(log(mean(om_use$quantities$R[sp,1:hind_nyrs])) - om_use$estimated_params$ln_mean_rec[sp],
-                       times = proj_nyrs)
-      }
+    # Replace simulate future rec devs
+    if(simulate){
+      for(sp in 1:om_use$data_list$nspp){
+        rec_dev <- rnorm( length(om_use$estimated_params$rec_dev[sp,proj_yrs - om_use$data_list$styr + 1]),
+                          mean = log((1+(rec_trend/proj_nyrs) * 1:proj_nyrs)),
+                          sd = exp(om_use$estimated_params$ln_rec_sigma[sp]))
 
-      # - Update OM with devs
-      om_use$estimated_params$rec_dev[sp,proj_yrs - om_use$data_list$styr + 1] <- replace(
-        om_use$estimated_params$rec_dev[sp,proj_yrs - om_use$data_list$styr + 1],
-        values =  rec_dev)
+        om_use$estimated_params$rec_dev[sp,proj_yrs - om_use$data_list$styr + 1] <- replace(
+          om_use$estimated_params$rec_dev[sp,proj_yrs - om_use$data_list$styr + 1],
+          values = rnorm( length(om_use$estimated_params$rec_dev[sp,proj_yrs - om_use$data_list$styr + 1]),
+                          mean = 0,
+                          sd = exp(om_use$estimated_params$ln_rec_sigma[sp])) # Assumed value from penalized likelihood
+        )
+      }
     }
 
 
-    # Run through assessment years
+
+    # Run through model
     for(k in 1:(length(assess_yrs))){
 
       # ------------------------------------------------------------
@@ -274,7 +291,7 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
         minNByage = om_use$data_list$minNByage,
         suitMode = om_use$data_list$suitMode,
         suityr = om$data_list$endyr,
-        loopnum = 2,
+        loopnum = loopnum,
         phase = NULL,
         getsd = FALSE,
         verbose = 0)
@@ -284,7 +301,7 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
       # 2. ESTIMATION MODEL
       # ------------------------------------------------------------
       # - Simulate new survey and comp data
-      sim_dat <- sim_mod(om_use, simulate = simulate_data)
+      sim_dat <- sim_mod(om_use, simulate = simulate)
 
       years_include <- sample_yrs[which(sample_yrs$Year > em_use$data_list$endyr & sample_yrs$Year <= assess_yrs[k]),]
 
@@ -370,9 +387,6 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
       em_use$opt <- NULL
       em_use$sdrep <- NULL
       em_use$quantities[names(em_use$quantities) %!in% c("fsh_bio_hat",
-                                                         "fsh_log_sd_hat",
-                                                         "depletion",
-                                                         "depletionSSB",
                                                          "biomass",
                                                          "F_spp",
                                                          "F_flt",
@@ -380,9 +394,7 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
                                                          "biomassSSB" ,
                                                          "R",
                                                          "srv_log_sd_hat",
-                                                         "BO",
                                                          "SB0",
-                                                         "DynamicB0",
                                                          "DynamicSB0",
                                                          "SPR0",
                                                          "SPRlimit",
@@ -412,12 +424,11 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
       saveRDS(sim_list, file = paste0(dir, "/", file, "EMs_from_OM_Sim_",sim, ".rds"))
       sim_list <- NULL
     }
-
-    MSE_list <- c(MSE_list, sim_list)
+    list(sim_list)
   }
 
   # - Name them
   names(MSE_list) <- paste0("Sim_",1:nsim)
 
-  return(MSE_list)
+  return(list(MSE_list, OM = om, EM = em))
 }

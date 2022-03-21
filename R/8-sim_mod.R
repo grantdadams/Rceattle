@@ -37,13 +37,13 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
             age_length = Rceattle$data_list$nlengths[sp]
         }
 
-        if (simulate) {
+        if (simulate & (sum(Rceattle$quantities$comp_hat[obs,], na.rm = TRUE) > 0)) {
             # Simulate
             # Sex (0 = combined, 1 = female, 2 = male, 3 = joint)
             #FIXME add dirichlet multinomial
 
-            # Combined or females
-            if(dat_sim$comp_data$Sex[obs] %in% c(0,1)){
+            # Combined, females, or males
+            if(dat_sim$comp_data$Sex[obs] %in% c(0,1,2)){
 
                 # If the model is all combined sex, this will throw an error
                 if(Rceattle$data_list$nsex[sp] != 1){
@@ -51,11 +51,11 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
                 }
                 values <- rmultinom(n = 1, size = dat_sim$comp_data$Sample_size[obs], prob = Rceattle$quantities$comp_hat[obs,])
             }
-            # Males
-            if(dat_sim$comp_data$Sex[obs] %in% c(2)){
-                Rceattle$quantities$comp_hat[obs, 1:age_length] <- 0 # Set females to 0
-                values <- rmultinom(n = 1, size = dat_sim$comp_data$Sample_size[obs], prob = Rceattle$quantities$comp_hat[obs,])
-            }
+            # # Males
+            # if(dat_sim$comp_data$Sex[obs] %in% c(2)){
+            #     Rceattle$quantities$comp_hat[obs, 1:age_length] <- 0 # Set females to 0
+            #     values <- rmultinom(n = 1, size = dat_sim$comp_data$Sample_size[obs], prob = Rceattle$quantities$comp_hat[obs,])
+            # }
             # Joint
             if(dat_sim$comp_data$Sex[obs] %in% c(3)){
                 values <- rmultinom(n = 1, size = dat_sim$comp_data$Sample_size[obs], prob = Rceattle$quantities$comp_hat[obs,])

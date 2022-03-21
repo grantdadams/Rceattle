@@ -14,9 +14,9 @@ knitr::opts_chunk$set(
 )
 ```
 # Population dynamics
-CEATTLE is an age-structured model that follows cohorts of individuals of a species, age, and sex through time. Annual recruitment and the initial age-structure are estimated and are treated as random effects or as penalized deviates, with the variance in recruitment estimated or fixed, respectively. Populations can be modelled as 1- or 2-sexes via `nsex` in the data. The sex-ratio at birth $\rho_{i1}$ is set in the `sex_ratio` data for the first age. Natural mortality is partitioned into predation mortality (M2) and non-predation related mortality (M1), the latter of which is either input or estimated (`estM1`), and accounts for mortality related to causes other than predation by the species included in the model. Predation can be turned off by setting `msmMode = 0` (see below for more detail).
+CEATTLE is an age-structured model that follows cohorts of individuals of a species $i$, age $a$, and sex $s$ through time $y$. Annual recruitment and the initial age-structure are estimated and are treated as random effects or as penalized deviates, with the variance in recruitment estimated or fixed, respectively. Note that because the initial age-structure is estimated (assuming the population is depleted prior to the first year of the model), the mean recruitment parameter ($\bar{R}_{i}$ will be biased low and projected recruitment will have to account for that (e.g. resemble recruitment deviates from hindcast). Similarly, biomass reference points should use the mean of annual recruitment. Populations can be modelled as 1- or 2-sexes via `nsex` in the data. The sex-ratio at birth $\rho_{i1}$ is set in the `sex_ratio` data for the first age. Natural mortality is partitioned into predation mortality (M2) and non-predation related mortality (M1), the latter of which is either input or estimated (`estM1`), and accounts for mortality related to causes other than predation by the species included in the model. Predation can be turned off by setting `msmMode = 0` (see below for more detail).
 
-$$N_{is1,y} = R_{is,y} = \bar{R}_{i }e^{\tau_{i,y}}*\rho_{i1}$$
+$$N_{is1,y} = R_{isy} = \bar{R}_{i }e^{\tau_{i,y}}*\rho_{i1}$$
 $$N_{isa,1} = \left \{ \begin{array}{} \bar{R}_ie^{ \left( -j M1_{isa} \right)}*\rho_{i1} \\ \frac{\bar{R}_ie^{ \left( -\sum^{a-1} M1_{isa} \right)}} {\left(1 - e^{\left( -\sum^{a-1} M1_{is A_i} \right)} \right)} *\rho_{i1} \end{array} \right.$$
 $$N_{is a+1, y+1} = N_{isa,y} e^{-Z_{isa,y}}$$
 $$N_{is A_i, y+1} = N_{is A_{i}-1,y} e^{-Z_{is A_{i}-1,y}} + N_{is A_{i},y} e^{-Z_{is A_{i},y}}$$
@@ -31,24 +31,21 @@ Multiple age-based predation parameterizations are supported by Rceattle and are
 Suitability represents a predator’s prey and size preference and factors such as spatial overlap in the distribution of predators and prey. 
 
 ### MSVPA Type 2 based suitability
-Suitability can be derived empirically from the ratio of mean proportion (by weight) of prey-at-age in the stomach of predators-at-age. Magnusson (1995) provides details on the derivation of suitability coefficients.
+Suitability is derived empirically from the ratio of mean proportion (by weight) of prey-at-age in the stomach of predators-at-age $\bar{U}_{pbjisa}$ (`UobsAgeWt` in the data). Magnusson (1995) provides details on the derivation of suitability coefficients. Magnusson (1995) provides details on the derivation of suitability coefficients.
 `suitMode = 0`
 Predator-prey suitability for predators of species $p$, sex $b$, age $j$, and prey of species $i$, sex $s$ and age $a$
 $$\hat{S}_{pbjisa} = \frac{1}{n_y} \sum_y \left( \frac{ \frac{\bar{U}_{pbjisa}} {B_{isa,y}} } {\sum_{isa} \left( \frac{\bar{U}_{pbjisa}} {B_{isa,y}} \right) + \frac{1 + \sum_{isa} \bar{U}_{pbjisa}} {B_p^{other}} } \right)$$
 
-Mean gravimetric diet proportion (proportion of prey-at-age in the diet of a predator-at-age: `UobsAgeWt` in data):
-$$\bar{U}_{pbjisa} = \frac{\sum_y {U_{pbjisa,y}}} {n_y}$$
-
 ## Predation mortality
 
 ### Single-species mode
+This is essentially multiple single-species age strcutured models where all mortality is due to input or estimated natural morality ($M = M1$) and fishing.
 `msmMode = 0`
 $$M2_{isa,y} = 0$$
 
 ### MSVPA Type 2 based predation mortality
 `msmMode = 1`
-
-Predation mortality equations for predators of species $p$, sex $b$, age $j$, and prey of species $i$, sex $s$ and age $a$
+Predation mortality can be modelled following previous MSCAA models (Curti et al., 2013; Holsman et al., 2016; Tsehaye et al., 2014) based on MSPVA. Predation mortality due to a predator-at-age in the model is derived from estimated or empirically derived suitability coefficients $\hat{S}_{pbjisa}$, input estimates of annual ration/consumption (see below), estimated or input biomass, and input biomass of other prey in the system for predator $p$ ($B_p^other$). Estimated average biomass is used to derive predation mortality and because of the interdependence between predation and biomass, predation mortality and the underlying age-structured dynamics are iteratively estimated until convergence. Preliminary analysis suggested that three to five iterations are sufficient for convergence. Models are generally insensitive to a range of $B_p^other$, but historically they have been derived from ecosystem-wide biomass estimates. Predation mortality equations for predators of species $p$, sex $b$, age $j$, and prey of species $i$, sex $s$ and age $a$
 $$M2_{isa,y} = \sum_{pbj} \left( \frac{N_{pbj,y} \delta_{pbj,y} {S}_{pbjisa}} {\sum_{isa} \left({S}_{pbjisa} B_{isa,y} \right) + B_p^{other} \left(1 - \sum_{isa} \left({S}_{pbjisa} \right) \right)} \right)$$
 
 
@@ -76,7 +73,7 @@ The weight-at-age used for the consumption equations is specified by `pop_wt_ind
 `Ceq %in% 1:3`
 Individual specific ration ($\delta_{pbj,y}$ $(kg~kg^{-1}~yr^{-1})$) of predator $p$ of sex $b$ and age $j$ in year $y$:
 $$\delta_{pbj,y} = RFR_{pbj,y}*Fday_p *\alpha^{\delta}_p W_{pbj,y}^{\left(1+\beta^{\delta}_p\right)} *f\left(T_y \right)_p$$
-Ration can be tuned by adjusting `Pvalue`:
+Ration can be tuned by adjusting `Pvalue` ($\varphi_p$) to help convergence:
 $$\delta_{pbj,y} = \varphi_p * \delta_{pbj,y}$$
 
 *Temperature scaling algorithms. *

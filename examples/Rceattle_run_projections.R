@@ -1,22 +1,3 @@
-# Grant Adams, Kirstin Holsman, Andre Punt - April 2019
-# Function to run CEATTLE model in TMB
-# Citation:
-# Holsman, K. K., Ianelli, J., Aydin, K., Punt, A. E., and Moffitt, E. A. 2015. A comparison of fisheries biological reference points estimated from temperature-specific multi-species and single-species climate-enhanced stock assessment models. Deep-Sea Research Part II: Topical Studies in Oceanography, 134: 360–378.
-
-################################################
-# Installation
-################################################
-# Install devtools if you don't already have it
-install.packages("devtools")
-# Install TMB and rtools
-# Instructions can be found here for non-pc: https://github.com/kaskr/adcomp/wiki/Download
-install.packages('TMB', type = 'source')
-# Try "TMB::runExample(all = TRUE)" to see if TMB works
-
-# Install Rceattle
-devtools::install_github("grantdadams/Rceattle")
-
-
 ################################################
 # Setup
 ################################################
@@ -44,9 +25,9 @@ mydata <- Rceattle::read_data( file = "BS2017SS.xlsx")
 ################################################
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
 ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
+                            file = NULL,
                              inits = NULL, # Initial parameters = 0
-                             file = NULL, # Don't save
-                             debug = 0, # Estimate
+                             estimateMode = 0, # Estimate
                              random_rec = FALSE, # No random recruitment
                              msmMode = 0, # Single species mode
                              verbose = 1)
@@ -61,7 +42,7 @@ plot_mortality(Rceattle = ms_run, maxage = 21)
 ss_run_weighted <- Rceattle::fit_mod(data_list = ss_run$data_list,
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save
-                            debug = 0, # Estimate
+                            estimateMode = 0, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
                             verbose = 1)
@@ -79,7 +60,7 @@ BS2017MS$projyr <- 2030
 ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
                             inits = ss_run$estimated_params, # Initial parameters from single species ests
                             file = NULL, # Don't save
-                            debug = 0, # Estimate
+                            estimateMode = 0, # Estimate
                             niter = 5, # 10 iterations around population and predation dynamics
                             random_rec = FALSE, # No random recruitment
                             msmMode = 1, # MSVPA based
@@ -113,19 +94,16 @@ write_results(Rceattle = ms_run, file = "yourresults.xlsx")
 ################################################
 
 # PROJECTION 1: CHANGING F
-# Rceattle automatically projects the population forward when estimating
-# To check to see what the F rates are for each fishery we can check:
-BS2017MS$fsh_control$proj_F
+# Rceattle automatically projects the population forward when estimating under no fishing
 BS2017MS$projyr # Year the population is projected forward
-
-# We can then change the F - For example, mean historical F
-BS2017MS$fsh_control$proj_F <- c(0.2342936, 0.513, 0.0774777)
 
 # Re-run, without estimating
 ms_run_proj <- Rceattle::fit_mod(data_list = BS2017MS,
                                  inits = ms_run$estimated_params, # Initial parameters from single species ests
                                  file = NULL, # Don't save
-                                 debug = TRUE, # Do not estimate. Not changing parameters right now
+                                 estimateMode = 2, # Run in projection mode
+                                 hcr = build_hcr(HCR = 1,
+                                                 FXSPRtarget = c(0.2342936, 0.513, 0.0774777)), # Set projection F mean historical F
                                  niter = 10, # 10 iterations around population and predation dynamics
                                  random_rec = FALSE, # No random recruitment
                                  msmMode = 1, # MSVPA based
@@ -154,7 +132,7 @@ ms_run$estimated_params$rec_dev[,yrs_proj] <- replace(
 ms_run_proj2 <- Rceattle::fit_mod(data_list = BS2017MS,
                                   inits = ms_run$estimated_params, # Initial parameters from single species ests
                                   file = NULL, # Don't save
-                                  debug = TRUE, # Do not estimate. Not changing parameters right now
+                                  estimateMode = 3, # Do not estimate. Not changing parameters right now
                                   niter = 10, # 10 iterations around population and predation dynamics
                                   random_rec = FALSE, # No random recruitment
                                   msmMode = 1, # MSVPA based
@@ -199,7 +177,7 @@ ss_sim_run <- Rceattle::fit_mod(
   data_list = ss_sim,
   inits = NULL, # Initial parameters = 0
   file = NULL, # Don't save
-  debug = 0, # Estimate
+  estimateMode = 0, # Estimate
   random_rec = FALSE, # No random recruitment
   msmMode = 0, # Single species mode
   verbose = 1)
@@ -211,7 +189,7 @@ ms_sim_run <- Rceattle::fit_mod(
   data_list = ms_sim,
   inits = ss_run$estimated_params, # Initial parameters = 0
   file = NULL, # Don't save
-  debug = 0, # Estimate
+  estimateMode = 0, # Estimate
   random_rec = FALSE, # No random recruitment
   msmMode = 1, # Holsman MS mode
   verbose = 1)
@@ -226,7 +204,7 @@ plot_recruitment(Rceattle = mod_list, model_names = mod_names)
 
 
 ################################################
-# Model variants
+# Model variants: NOT YET WORKING
 ################################################
 
 # For recruitment, the model can estimate recruitment deviates as random effects
@@ -234,7 +212,7 @@ ss_re <- Rceattle::fit_mod(
   data_list = mydata,
   inits = ss_re$estimated_params, # Initial parameters = 0
   file = NULL, # Don't save
-  debug = 0, # Estimate
+  estimateMode = 0, # Estimate
   random_rec = TRUE, # Turn of recruitment deviations as random effects
   msmMode = 0, # Single species mode
   verbose = 1,
@@ -245,36 +223,11 @@ ms_gamma <- Rceattle::fit_mod(
   data_list = mydata,
   inits = ss_run$estimated_params, # Initial parameters from single species ests
   file = NULL, # Don't save
-  debug = 0, # Estimate
+  estimateMode = 0, # Estimate
   niter = 10, # 10 iterations around population and predation dynamics
   random_rec = FALSE, # No random recruitment
   msmMode = 1, # MSVPA based
-  suitMode = 1, # Have a gamma function with time-independent length ratio for suitability. Includes diet proportion by weight in likelihood as multinomial
+  suitMode = 1, # Have a gamma function based on predator-prey length ratio for suitability. Includes diet proportion by weight in likelihood as multinomial
   verbose = 1)
 # Can try different functions. Look at ?fit_mod suitmode
-
-
-ms_gamma2 <- Rceattle::fit_mod(
-  data_list = mydata,
-  inits = ms_run$estimated_params, # Initial parameters from single species ests
-  file = NULL, # Don't save
-  debug = 1, # Estimate
-  niter = 10, # 10 iterations around population and predation dynamics
-  random_rec = FALSE, # No random recruitment
-  msmMode = 4, # MSVPA based
-  suitMode = 0, # Have a gamma function with time-independent length ratio for suitability. Includes diet proportion by weight in likelihood as multinomial
-  silent = FALSE)
-
-ms_gamma2$quantities$jnll_comp
-sum(is.nan(ms_gamma2$quantities$T_hat))
-
-################################################
-# Included files
-################################################
-# If we want to extract the cpp file
-cpp_directory <- system.file("executables",package="Rceattle")
-TMBfilename <- "ceattle_v01_04"
-cpp_file <- paste0(cpp_directory, "/", TMBfilename, ".cpp")
-cpp_file <- file(cpp_file)
-cpp_file <- readLines(cpp_file)
 

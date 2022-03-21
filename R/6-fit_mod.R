@@ -5,16 +5,17 @@
 #' @param map (Optional) A map object from \code{\link{build_map}}.
 #' @param bounds (Optional) A bounds object from \code{\link{build_bounds}}.
 #' @param file (Optional) Filename where files will be saved. If NULL, no file is saved.
-#' @param debug 0 = Fit the model. 1 = runs the model through MakeADFun, but not nlminb, 2 = runs the model without estimating parameters to get derived quantities given initial parameter values (maps out all parameters).
+#' @param estimateMode 0 = Fit the hindcast model and projection with HCR specified via \code{HCR}. 1 = Fit the hindcast model only (no projection). 2 = Run the projection only with HCR specified via \code{HCR} given the initial parameters in \code{inits}.  3 = debug mode 1: runs the model through MakeADFun, but not nlminb, 4 = runs the model through MakeADFun and nlminb (will all parameters mapped out).
 #' @param random_rec logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE.
 #' @param random_q logical. If TRUE, treats annual catchability deviations as random effects.The default is FALSE.
 #' @param random_rec logical. If TRUE, treats annual selectivity deviations as random effects.The default is FALSE.
+#' @param HCR HCR list object from \code{\link[build_hcr]}
 #' @param niter Number of iterations for multispecies model
 #' @param msmMode The predation mortality functions to used. Defaults to no predation mortality used.
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.
 #' @param minNByage Minimum numbers at age to put in a hard constraint that the number-at-age can not go below.
 #' @param phase Optional. List of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R. If NULL, will not phase model. If set to \code{"default"}, will use default phasing.
-#' @param suitMode Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), DEPRECATED: 1 = length based gamma selectivity from Kinzey and Punt (2009), 2 = time-varying length based gamma selectivity from Kinzey and Punt (2009), 3 = time-varying weight based gamma selectivity from Kinzey and Punt (2009), 4 = length based lognormal selectivity, 5 = time-varying length based lognormal selectivity, 6 = time-varying weight based lognormal selectivity.
+#' @param suitMode Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma suitability, 2 = weight based gamma suitability, 3 = length based lognormal selectivity, 4 = time-varying length based lognormal selectivity.
 #' @param suityr Integer. The last year used to calculate average suitability. Defaults to $endyr$ in $data_list$. Used for MSE runs where suitability is held at the value estimated from the years used to condition the OM, but F is estimated for years beyond those used to condition the OM to account for projected catch.
 #' @param getsd	Boolean whether to run standard error calculation
 #' @param use_gradient use the gradient to phase. Default = TRUE
@@ -48,7 +49,7 @@
 #'  \item{bounds: Parameter bounds used for estimation}
 #'  \item{map: List of map used in TMB}
 #'  \item{obj: TMB model object}
-#'  \item{opt: Optimized model object from `nlimb``}
+#'  \item{opt: Optimized model object from `nlimb`}
 #'  \item{sdrep: Object of class `sdreport` exported by TMB including the standard errors of estimated parameters}
 #'  \item{estimated_params: List of estimated parameters}
 #'  \item{quantities: Derived quantities from CEATTLE}
@@ -72,7 +73,8 @@
 #'   rec_dev = 2,
 #'   init_dev = 2,
 #'   ln_mean_F = 1,
-#'   ln_FSPR = 3,
+#'   ln_Flimit = 3,
+#'   ln_Ftarget = 3,
 #'   proj_F_prop = 1,
 #'   F_dev = 1,
 #'   ln_srv_q = 3,
@@ -102,7 +104,7 @@
 #'ss_run <- fit_mod(data_list = BS2017SS,
 #'    inits = NULL, # Initial parameters = 0
 #'    file = NULL, # Don't save
-#'    debug = 0, # Estimate
+#'    estimateMode = 0, # Estimate
 #'    random_rec = FALSE, # No random recruitment
 #'    msmMode = 0, # Single species mode
 #'    avgnMode = 0,
@@ -112,31 +114,63 @@
 #' @export
 fit_mod <-
   function(
-           data_list = NULL,
-           inits = NULL,
-           map = NULL,
-           bounds = NULL,
-           file = NULL,
-           debug = 0,
-           random_rec = FALSE,
-           random_q = FALSE,
-           random_sel = FALSE,
-           niter = 3,
-           msmMode = 0,
-           avgnMode = 0,
-           minNByage = 0,
-           suitMode = 0,
-           suityr = NULL,
-           phase = NULL,
-           getsd = TRUE,
-           use_gradient = TRUE,
-           rel_tol = 1,
-           control = list(eval.max = 1e+09,
-                          iter.max = 1e+09, trace = 0),
-           getJointPrecision = TRUE,
-           loopnum = 5,
-           verbose = 1,
-           newtonsteps = 0) {
+    data_list = NULL,
+    inits = NULL,
+    map = NULL,
+    bounds = NULL,
+    file = NULL,
+    estimateMode = 0,
+    random_rec = FALSE,
+    random_q = FALSE,
+    random_sel = FALSE,
+    HCR = build_hcr(),
+    niter = 3,
+    msmMode = 0,
+    avgnMode = 0,
+    minNByage = 0,
+    suitMode = 0,
+    suityr = NULL,
+    phase = NULL,
+    getsd = TRUE,
+    use_gradient = TRUE,
+    rel_tol = 1,
+    control = list(eval.max = 1e+09,
+                   iter.max = 1e+09, trace = 0),
+    getJointPrecision = TRUE,
+    loopnum = 5,
+    verbose = 1,
+    newtonsteps = 0){
+
+
+    # ### For debugging
+    # data_list = NULL;
+    # inits = NULL;
+    # map = NULL;
+    # bounds = NULL;
+    # file = NULL;
+    # estimateMode = 0;
+    # random_rec = FALSE;
+    # random_q = FALSE;
+    # random_sel = FALSE;
+    # HCR = build_hcr();
+    # niter = 3;
+    # msmMode = 0;
+    # avgnMode = 0;
+    # minNByage = 0;
+    # suitMode = 0;
+    # suityr = NULL;
+    # phase = NULL;
+    # getsd = TRUE;
+    # use_gradient = TRUE;
+    # rel_tol = 1;
+    # control = list(eval.max = 1e+09,
+    #                iter.max = 1e+09, trace = 0);
+    # getJointPrecision = TRUE;
+    # loopnum = 5;
+    # verbose = 1;
+    # newtonsteps = 0
+
+
     start_time <- Sys.time()
 
     setwd(getwd())
@@ -179,6 +213,13 @@ fit_mod <-
 
     # - Extend catch data to proj year for projections
     if(data_list$projyr > data_list$endyr){
+      # yrs_proj <- (data_list$endyr + 1):data_list$projyr
+      # proj_fsh_biom <- data_list$fsh_biom %>%
+      #   group_by(Fleet_code) %>%
+      #   slice(rep(n(),  length(yrs_proj))) %>%
+      #   mutate(Year = yrs_proj, Catch = NA)
+      # data_list$fsh_biom <- rbind(data_list$fsh_biom, proj_fsh_biom)
+
       for(flt in (unique(data_list$fsh_biom$Fleet_code))){
         fsh_biom_sub <- data_list$fsh_biom[which(data_list$fsh_biom$Fleet_code == flt),]
         yrs_proj <- (data_list$endyr + 1):data_list$projyr
@@ -200,7 +241,7 @@ fit_mod <-
 
     # Switches
     data_list$random_rec <- as.numeric(random_rec)
-    data_list$debug <- debug
+    data_list$estimateMode <- estimateMode
     data_list$niter <- niter
     data_list$avgnMode <- avgnMode
     data_list$msmMode <- msmMode
@@ -210,18 +251,30 @@ fit_mod <-
       data_list$suityr <- data_list$endyr
     }
 
+    # HCR Switches
+    data_list$HCR = HCR$HCR
+    data_list$DynamicHCR = HCR$DynamicHCR
+    data_list$FsprTarget = HCR$FsprTarget[1]
+    data_list$FsprLimit = HCR$FsprLimit
+    data_list$Ptarget = HCR$Ptarget
+    data_list$Plimit = HCR$Plimit
+    data_list$Alpha = HCR$Alpha
+    data_list$Pstar = HCR$Pstar
+    data_list$Sigma = HCR$Sigma
+    data_list$QnormHCR = ifelse(HCR$HCR == 6, qnorm(HCR$Pstar, 0, HCR$Sigma), 0) # Pstar HCR
+
+    if(data_list$HCR == 2 & estimateMode == 2){estimateMode = 4} # If projecting under constant F, run parmeters through obj only
 
     # STEP 1 - LOAD PARAMETERS
     if (is.character(inits) | is.null(inits)) {
-      params <- suppressWarnings(Rceattle::build_params(
+      start_par <- suppressWarnings(Rceattle::build_params(
         data_list = data_list,
         inits = inits
       ))
     } else{
       # inits$proj_F <- data_list$fleet_control$proj_F
-      params <- inits
+      start_par <- inits
     }
-    start_par <- params
     if(verbose > 0) {message("Step 1: Parameter build complete")}
 
 
@@ -229,7 +282,7 @@ fit_mod <-
     # STEP 2 - BUILD MAP
     if (is.null(map)) {
       map <-
-        suppressWarnings(build_map(data_list, params, debug = debug > 1, random_rec = random_rec))
+        suppressWarnings(build_map(data_list, start_par, debug = estimateMode > 3, random_rec = random_rec))
     } else{
       map <- map
     }
@@ -238,7 +291,7 @@ fit_mod <-
 
     # STEP 3 - Get bounds
     if (is.null(bounds)) {
-      bounds <- Rceattle::build_bounds(param_list = params, data_list)
+      bounds <- Rceattle::build_bounds(param_list = start_par, data_list)
     } else {
       bounds = bounds
     }
@@ -270,8 +323,11 @@ fit_mod <-
             ln_rec_sigma = 2,
             rec_dev = 2,
             init_dev = 2,
+            ln_sex_ratio_sigma = 3,
+            ln_M1 = 4,
             ln_mean_F = 1,
-            ln_FSPR = 3,
+            ln_Flimit = 3,
+            ln_Ftarget = 3,
             proj_F_prop = 1,
             F_dev = 1,
             ln_srv_q = 3,
@@ -281,20 +337,24 @@ fit_mod <-
             ln_sigma_time_varying_srv_q = 4,
             sel_coff = 3,
             sel_coff_dev = 4,
-            sel_curve_pen = 4,
-            ln_sex_ratio_sigma = 3,
             ln_sel_slp = 3,
-            ln_M1 = 4,
             sel_inf = 3,
             ln_sel_slp_dev = 5,
             sel_inf_dev = 5,
             ln_sigma_sel = 4,
+            sel_curve_pen = 4,
             ln_sigma_srv_index = 2,
             ln_sigma_fsh_catch = 2,
-            # log_gam_a = 4,
-            # log_gam_b = 4,
-            # log_phi = 4,
-            comp_weights = 4
+            comp_weights = 4,
+            logH_1 = 6,
+            logH_1a = 6,
+            logH_1b = 6,
+            logH_2 = 6,
+            logH_3 = 6,
+            H_4 = 6,
+            log_gam_a = 5,
+            log_gam_b = 5,
+            log_phi = 5
           )
         }
       }
@@ -309,44 +369,52 @@ fit_mod <-
 
     # STEP 5 - Compile CEATTLE is providing cpp file
     # - Get cpp file if not provided
-    TMBfilename <- "ceattle_v01_08"
-
-
+    TMBfilename <- "ceattle_v01_09"
 
 
     # STEP 6 - Reorganize data and build model object
     Rceattle:::data_check(data_list)
     data_list_reorganized <- Rceattle::rearrange_dat(data_list)
-    data_list_reorganized = c(list(model = "ceattle_v01_08"),data_list_reorganized)
+    data_list_reorganized = c(list(model = "ceattle_v01_09"),data_list_reorganized)
+    # data_list_reorganized$HCR = 0 # Estimate model with F = 0 for the projection
 
     # - Update comp weights and F_prop from data
     if(!is.null(data_list$fleet_control$Comp_weights)){
-      params$comp_weights = data_list$fleet_control$Comp_weights
+      start_par$comp_weights = data_list$fleet_control$Comp_weights
     }
-    params$proj_F_prop = data_list$fleet_control$proj_F_prop
+    start_par$proj_F_prop = data_list$fleet_control$proj_F_prop
+    nyrs_proj <- data_list$projyr - data_list$styr + 1
+    if(!is.null(HCR$FsprTarget)){
+      start_par$ln_Ftarget = matrix(log(HCR$FsprTarget), nrow = data_list$nspp, ncol = nyrs_proj) # Future fishing mortality for projections for each species
+    }
 
     if(verbose > 0) {message("Step 4: Data rearranged complete")}
 
     # STEP 7 - Set up parameter bounds
     L <- c()
     U <- c()
-    for(i in 1:length(map[[1]])){
-      if(names(map[[1]])[i] %!in% random_vars){ # Dont have bounds for random effects
-        L = c(L, unlist(bounds$lower[[i]])[which(!is.na(unlist(map[[1]][[i]])) & !duplicated(unlist(map[[1]][[i]])))])
-        U = c(U, unlist(bounds$upper[[i]])[which(!is.na(unlist(map[[1]][[i]])) & !duplicated(unlist(map[[1]][[i]])))])
+    for(i in 1:length(map$mapFactor)){
+      if(names(map$mapFactor)[i] %!in% random_vars){ # Dont have bounds for random effects
+        L = c(L, unlist(bounds$lower[[i]])[which(!is.na(unlist(map$mapFactor[[i]])) & !duplicated(unlist(map$mapFactor[[i]])))])
+        U = c(U, unlist(bounds$upper[[i]])[which(!is.na(unlist(map$mapFactor[[i]])) & !duplicated(unlist(map$mapFactor[[i]])))])
       }
     }
 
+    # Dimension check
+    dim_check <- sapply(start_par, unlist(length)) == sapply(map$mapFactor, unlist(length))
+    if(sum(dim_check) != length(dim_check)){
+      stop(print(paste0("Map and parameter objects are not the same size for: ", names(dim_check)[which(dim_check == FALSE)])))
+    }
 
-    # STEP 8 - Fit model object
+
+    # STEP 8 - Phase hindcast
     step = 5
-    # If phased
-    if(!is.null(phase) & debug == 0 ){
+    if(!is.null(phase) & estimateMode %in% c(0,1) ){
       message(paste0("Step ", step,": Phasing begin"))
       phase_pars <- Rceattle::TMBphase(
         data = data_list_reorganized,
-        parameters = params,
-        map = map[[1]],
+        parameters = start_par,
+        map = map$mapFactor,
         random = random_vars,
         phases = phase,
         model_name = TMBfilename,
@@ -362,21 +430,34 @@ fit_mod <-
     }
 
 
-    # STEP 9 - Fit final model
-    obj = TMB::MakeADFun(
-      data_list_reorganized,
-      parameters = start_par,
-      DLL = TMBfilename,
-      map = map[[1]],
-      random = random_vars,
-      silent = verbose != 2
-    )
+    # STEP 9 - Fit final hindcast model
+    if(estimateMode != 2){ # dont build if projection and estimating HCR parameters
+      if(sum(as.numeric(unlist(map$mapFactor)), na.rm = TRUE) == 0){stop("Map of length 0: all NAs")}
+      obj = TMB::MakeADFun(
+        data_list_reorganized,
+        parameters = start_par,
+        DLL = TMBfilename,
+        map = map$mapFactor,
+        random = random_vars,
+        silent = verbose != 2
+      )
+    }
+
+    # -- Save objects
+    mod_objects <-
+      list(
+        TMBfilename = TMBfilename,
+        initial_params = start_par,
+        bounds = bounds,
+        map = map
+      )
 
     if(verbose > 0) {message(paste0("Step ",step, ": final build complete. Optimizing."))}
     step = step + 1
 
-    # Optimize
-    if(debug %in% c(0,2)){
+
+    # -- Optimize hindcast
+    if(estimateMode %in% c(0,1,4)){
       opt = Rceattle::fit_tmb(obj = obj,
                               fn=obj$fn,
                               gr=obj$gr,
@@ -387,15 +468,116 @@ fit_mod <-
                               getsd = getsd,
                               control = control,
                               getJointPrecision = getJointPrecision,
-                              quiet = verbose == 2,
+                              quiet = verbose < 2,
       )
+      if(verbose > 0) {message("Step ",step, ": Final optimization complete")
+        step = step + 1
+      }
+
+      # -- Convergence warnings
+      if(estimateMode %in% c(0,1)){
+        # Bad parameter identification
+        if(is.null(opt$SD) & getsd){
+          identified <- suppressMessages(TMBhelper::check_estimability(obj))
+
+          # Make into list
+          identified_param_list <- obj$env$parList(identified$BadParams$Param_check)
+          identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==0,"Not estimated",x), how = "replace")
+          identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==1,"OK",x), how = "replace")
+          identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==2,"BAD",x), how = "replace")
+          identified$param_list <- identified_param_list
+          mod_objects$identified <- identified
+        }
+      }
     }
 
-    if(verbose > 0) {message("Step ",step, ": Final optimization complete")}
+    # -- Get MLEs
+    if (estimateMode > 1) { # Debugging and projection only: use initial parameters
+      last_par <- start_par
+    } else{
+      if(!random_rec){
+        last_par = try(obj$env$parList(obj$env$last.par.best)) # FIXME: maybe add obj$env$last.par.best inside?
+      } else {
+        last_par = try(obj$env$parList())
+      }
+    }
+
+
+    # STEP 10 - Run HCR projections
+    if(estimateMode %in% c(0,2,4)){
+      if(data_list$HCR > 2){
+        data_list_reorganized$HCR = data_list$HCR # Set HCR back to original
+
+
+        # START HERE
+        # -- Update map in obs
+        hcr_map <- build_hcr_map(data_list, map, debug = estimateMode > 3)
+        if(sum(as.numeric(unlist(hcr_map$mapFactor)), na.rm = TRUE) == 0){stop("HCR map of length 0: all NAs")}
+
+        obj = TMB::MakeADFun(
+          data_list_reorganized,
+          parameters = last_par,
+          DLL = TMBfilename,
+          map = hcr_map$mapFactor,
+          random = random_vars,
+          silent = verbose != 2
+        )
+
+        # -- Optimize
+        opt = Rceattle::fit_tmb(obj = obj,
+                                fn=obj$fn,
+                                gr=obj$gr,
+                                startpar=obj$par,
+                                loopnum = loopnum,
+                                getsd = getsd,
+                                control = control,
+                                getJointPrecision = FALSE,
+                                quiet = verbose < 2,
+        )
+
+        # obj$report()$DynamicSPRtarget/obj$report()$DynamicSPR0
+        # obj$report()$DynamicSPRlimit/obj$report()$DynamicSPR0
+        #
+        # obj$report()$SPRtarget/obj$report()$SPR0
+        # obj$report()$SPRlimit/obj$report()$SPR0
+        #
+        # obj$report()$SPR0
+        # obj$report()$SB0
+
+        if(verbose > 0) {message("Step ",step, ": Projections complete")}
+
+        # -- Update MLEs
+        if (estimateMode > 2) { # Debugging, give initial parameters
+          last_par <- start_par
+        }
+        else{
+          if(!random_rec){
+            last_par = try(obj$env$parList(obj$env$last.par.best)) # FIXME: maybe add obj$env$last.par.best inside?
+          } else {
+            last_par = try(obj$env$parList())
+          }
+        }
+      }
+    }
+
+    # -- Save estimated parameters
+    mod_objects$estimated_params <- last_par
+    mod_objects$obj = obj
+
 
     # Get quantities
     quantities <- obj$report(obj$env$last.par.best)
 
+    # Warning for discontinuous likelihood
+    if(estimateMode %in% c(0:2)){
+      if(!is.null(opt$SD) & random_rec == FALSE){
+        if(abs(opt$objective - quantities$jnll) > rel_tol){
+          message( "#########################" )
+          message( "Convergence warning (8)" )
+          message( "#########################" )
+        }
+      }
+    }
 
     # Rename jnll
     colnames(quantities$jnll_comp) <- paste0("Sp/Srv/Fsh_", 1:ncol(quantities$jnll_comp))
@@ -417,8 +599,7 @@ fit_mod <-
       "Zero n-at-age penalty",
       "Ration",
       "Ration penalties",
-      "Stomach content weight",
-      "Stomach content numbers"
+      "Stomach content proportion by weight"
     )
 
 
@@ -427,6 +608,9 @@ fit_mod <-
 
     rownames(quantities$biomassSSB) <- data_list$spnames
     rownames(quantities$R) <- data_list$spnames
+
+    # -- Save derived quantities
+    mod_objects$quantities <- quantities
 
     # Calculate Mcallister-Iannelli coefficients
     # Effective sample size for the length data for year y
@@ -441,71 +625,18 @@ fit_mod <-
       data_list$fleet_control$Est_weights_mcallister[which(data_list$fleet_control$Fleet_code == flt)] <- ((1/length(comp_sub))*sum((eff_n_mcallister[comp_sub]/data_list$comp_data$Sample_size[comp_sub])^-1))^-1
     }
 
-
-    if (debug > 0) {
-      last_par <- params
-    }
-    else{
-      if(!random_rec){
-      last_par = try(obj$env$parList(obj$env$last.par.best)) # FIXME: maybe add obj$env$last.par.best inside?
-      } else {
-        last_par = try(obj$env$parList())
-      }
-    }
-
-    run_time = ((Sys.time() - start_time))
+    # -- Save data w/ mcallister
+    mod_objects$data_list <- data_list
 
 
-    # Return objects
-    mod_objects <-
-      list(
-        TMBfilename = TMBfilename,
-        data_list = data_list,
-        initial_params = params,
-        bounds = bounds,
-        map = map,
-        obj = obj,
-        estimated_params = last_par,
-        quantities = quantities,
-        run_time = run_time
-      )
+    # -- Save objects
+    mod_objects$run_time = ((Sys.time() - start_time))
 
-    if(debug == 0){
+    if(estimateMode < 3){
       mod_objects$opt = opt
       mod_objects$sdrep = opt$SD
 
     }
-
-    if(debug == 0){
-      if(is.null(opt$SD) & getsd){
-        identified <- suppressMessages(TMBhelper::check_estimability(obj))
-
-        # Make into list
-        identified_param_list <- obj$env$parList(identified$BadParams$Param_check)
-        identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==0,"Not estimated",x), how = "replace")
-        identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==1,"OK",x), how = "replace")
-        identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==2,"BAD",x), how = "replace")
-
-        identified$param_list <- identified_param_list
-
-        mod_objects$identified <- identified
-      }
-    }
-
-
-    if(debug == 0){
-      if(!is.null(opt$SD) & random_rec == FALSE){
-        # Warning for discontinuous likelihood
-        if(abs(opt$objective - quantities$jnll) > rel_tol){
-          message( "#########################" )
-          message( "Convergence warning (8)" )
-          message( "#########################" )
-        }
-      }
-    }
-
-
-
 
     class(mod_objects) <- "Rceattle"
 

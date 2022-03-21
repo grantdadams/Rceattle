@@ -1,0 +1,113 @@
+---
+title: "Stock_synthesis_to_Rceattle"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Stock_synthesis_to_Rceattle}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+This is a working document describing how to convert a stock synthesis (SS) model to Rceattle. I am using the 2019 Pacific hake assessment because I found the stock synthesis files online on Nis’s MSE github (https://github.com/nissandjac/PacifichakeMSE/tree/master/inst/extdata/SS32019). All the information needed (apart from consumption and diet) for Rceattle should be within the SS data, wattage, and control files. Information in each of those can then be copied over to an Rceattle excel file. I am formatting this as if you are reading the SS files from top to bottom and adding to Rceattle. Rceattle variable names will be in italics.
+
+Starting with the SS data file (hake_data.ss) 
+For model controls
+1.	Copy styr (1966) to the styr on the Rceattle excel file (sheet “control”)
+2.	Copy endyr (2019) to the endyr on the Rceattle excel file (sheet “control”)
+3.	Copy Nsexes (1) to the nsex on the Rceattle excel file (sheet “control”)
+4.	Copy Nages (20) to the nages on the Rceattle excel file (sheet “control”)
+5.	copy _spawn_month to spawn_month on the Rceattle excel file (sheet “control”)
+6.	Set minage on the Rceattle excel file (sheet “control”) to 1 (currently age-1 can only be used for the first age… need to fix on my end)
+7.	Set projyr on the Rceattle excel file (sheet “control”) to whatever year you want to project to
+
+#fleetinfo on the SS data file and fleet_control sheet on the Rceattle excel file
+•	On the Rceattle excel file sheet “fleet_control” create a row for each fleet 
+•	Copy fleetname to the Fleet_name on Rceattle excel file (sheet “fleet_control”)
+•	Give a unique number to each fleet on Fleet_code (NOTE: The numbers must be in order)
+•	Set fleet_type in Rceattle to 1 for fishery or 2 for survey or 0 for don’t fit
+•	Set Species in “fleet_control” to the species the SS file is associated with
+•	Additional observation model parameterization set up can be found in the meta_data sheet of the Excel Rceattle file
+
+Copy the catch data in SS to “fsh_biom” Rceattle excel sheet
+•	Copy year to Year
+•	Copy season to Month (doesn’t do anything because Rceattle uses the Baranov on an annual timestep)
+•	Copy fleet to fleet_code (Note: may need to adjust if codes differ between Rceattle and SS)
+o	Also add in Fleet_names on Rceattle
+•	Copy catch in SS to Catch (NOTE: usually work with 1000 mt, but units are flexible, but you would need to adjust the units on the plotting functions)
+•	Copy catch_se to Log_sd (NOTE: Rceattle assumes a lognormal distribution and estimates annual F_devs)
+
+Copy the CPUE_and_surveyabundance_observations data in SS to “fleet_control” Rceattle excel sheet
+•	For units in SS, Rceattle can only do numbers or biomass. On the “fleet_control” sheet in Rceattle set Weight1_Numbers2 to 1 if biomass or 2 if numbers
+•	Rceattle currently only has lognormal distribution implemented
+•	But you can estimate the SD of the index by adjusting Estimate_survey_sd on the “fleet_control” sheet in Rceattle
+o	For hake, survey SDs are derived from the acoustic survey and do not need to be estimated (Estimate_survey_sd
+ = 0)
+
+CPUE data in SS to “srv_biom” Rceattle excel sheet
+•	Copy index to fleet_code (Note: may need to adjust if codes differ between Rceattle and SS)
+o	Also add in Fleet_names on Rceattle
+o	NOTE: In SS, when an index observation is predicted, but not included in the model likelihood, the index is set to the negative (e.g. -2 for the acoustic survey of hake in 1996). In Rceattle you set the Year to the negative of the year to predict the observation, but not include it in the likelihood.
+•	Copy year to Year
+•	Copy season to Month (adjusts biomass or numbers based on mortality at that point in the year)
+•	Copy OBS to Observation (NOTE: usually work with 1000 mt, but units are flexible, but you would need to adjust the units on the plotting functions)
+•	Copy se_log to Log_sd (NOTE: Rceattle assumes a lognormal distribution) 
+
+Discards are currently not implemented in Rceattle (would have to include as an additional fishery)
+
+_meanbodywt in SS is similar to pop_wt_index on the “control” sheet of Rceattle (see below)
+
+Length comp data (_lencomp in SS) to “comp_data” sheet in Rceattle
+•	_N_lbins (26) in SS to nlengths on the “control” sheet of Rceattle (see below). 
+•	No length comp data in the hake model (but see _agecomp set up below for same details)
+
+Ageing error in SS to Rceattle
+•	Rceattle currently only supports 1 time/sex-invariant ageing error matrix for each species on the “age_error” sheet
+o	For the hake model, it looks like the ageing error matrices are the same across years (great!)
+•	Convert aging error to ageing error matrix (details in SS manual)
+•	Copy to “age_error” sheet in Rceattle
+_age_info in SS (age-comp data) to “fleet_control” data in Rceattle
+•	addtocomp is by default 0.00001 in Rceattle
+•	combine_M_F is defined by “Sex” in the “comp_data” Rceattle sheet
+o	Hake is single-sex
+•	Not sure what CompressBins	CompError	ParmSelect	minsamplesize do in SS?
+
+Copy age comp data (under _age_info in SS) to the Rceattle sheet “comp_data”. This would be similar for length data if there was some
+•	Copy FltSvy to fleet_code (Note: may need to adjust if codes differ between Rceattle and SS)
+o	Also add in Fleet_names on Rceattle
+•	Copy year to Year
+•	Copy season to Month (adjusts comp based on mortality at that point in the year)
+•	Copy gender to Sex (see meta_data on sex definitions in Rceattle)
+•	Part	Ageerr	Lbin_lo	Lbin_hi in SS can be ignored (not implemented in Rceattle)
+•	Copy Nsamp to Sample_size (note: Rceattle currently only supports the multinomial distribution for comp data)
+•	Copy columns a1, a2, …. in SS to columns Comp_1, Comp_2,….
+o	NOTE: because the comp data only uses 15 ages, but nages is 20 in SS you can either 1) leave it be in Rceattle and it will assume the comp observations for ages 16 to 20 are 0, or 2) set Accumulation_age_upper on the “fleet_control” sheet in Rceattle to 15 where all comp observations for ages 15 to 20 are grouped together into age 15. I would look at the assessment doc or ask the authors to see whats up.
+
+_MeanSize_at_Age_obs and below
+•	Rceattle uses empirical weight at age.
+•	Look at “meta_data” in Rceattle for more specifications
+
+Weight at age date from the SS data file (wtatage.ss) to “wt” in Rceattle
+•	Rceattle uses empirical weight-at-age
+o	If SS estimates weight-at-age you can copy data from wattage_new.ss (although it is somewhat conditional on the SS population model)
+•	Copy wtatage data to the “wt” sheet in Rceattle
+o	For each weight-at-age matrix in SS generate a Wt_name and Wt_index for Rceattle
+o	Copy year to Year
+o	Copy gender to Sex (see meta_data on sex definitions in Rceattle) 
+o	Copy columns a1, a2, … to Age1, Age 2,…
+•	On the “fleet_control” sheet in Rceattle set Weight_index for each fleet to the appropriate Wt_index generated above from the “wt” sheet
+•	On the “control” sheet in Rceattle set pop_wt_index and ssb_wt_index for each species to the appropriate Wt_index generated above from the “wt” sheet
+o	NOTE: for spawning stock biomass (SSB), SSB = sum across ages(N-at-age * wt-at-age * maturity-at-age). I hacked it a bit and set spawning weight (ssb_wt_index) to the weight*maturity in the SS wattage.ss file. I then set maturity to 1 for all ages on the “pmature” sheet in Rceattle.
+
+Other bits in Rceattle
+•	On the “sex_ratio” sheet I set sex ratio to 0.5 for all ages (I think this is what the assessment does?)
+•	On the “M1_base” sheet, I set M1 to the value from the assessment doc. You can also estimate it by adjusting est_M1
+ on the control sheet
+•	On the “age_trans_matrix” sheet I set everything to 0 because there are no length data in the assessment. This sheet converts age to length. 
+•	The “Mn_LatAge” and “aLW” sheets are not used.
+
+Comparing the SS model to Rceattle
+•	Run the stock synthesis model (Nis already did in this example)
+o	open admb terminal
+o	type “cd “ then drag the folder where the ss model is into the terminal then press enter
+o	type “ss” then enter
+•	Using r4ss or the report.ss file. I copied selectivity for each fleet to the emp_sel sheet and copied numbers-at-age to the “NByageFixed” sheet
+•	I then ran the hake model (setting Selectivity for each fleet to 0 and estDynamics to 1 to fix selectivity and numbers-at-age) without estimating

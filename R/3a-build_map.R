@@ -27,10 +27,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   # Convert parameters to map object
   map_list <- params
 
-  # Se each item in map_list to seperate value
-  for (i in 1:length(map_list)) {
-    map_list[[i]] <- replace(map_list[[i]], values = c(1:length(map_list[[i]])))
-  }
+  # Set each item in map_list to seperate value
+  map_list <- sapply(map_list, function(x) replace(x, values = c(1:length(x))))
 
 
   # -----------------------------------------------------------
@@ -50,10 +48,11 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   map_list$rec_dev[, yrs_proj] <- as.numeric(replace(map_list$rec_dev[, yrs_proj],
                                                      values = rep(NA, length(map_list$rec_dev[, yrs_proj]))))
 
-  if(data_list$msmMode > 0){
-    map_list$ln_FSPR <- replace(map_list$ln_FSPR,
-                                values = rep(NA, length(map_list$ln_FSPR)))
-  }
+  # -- FSPR mapped out
+  map_list$ln_Flimit <- replace(map_list$ln_Flimit,
+                              values = rep(NA, length(map_list$ln_Flimit)))
+  map_list$ln_Ftarget <- replace(map_list$ln_Ftarget,
+                                values = rep(NA, length(map_list$ln_Ftarget)))
 
 
   # -- 1.4. Map out initial population deviations not to be estimated - map out last age and ages not seen
@@ -690,79 +689,77 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   #####################################################
   # Predation bits 1. Turn off all predation parameters for single species
   #####################################################
-  if (data_list$msmMode == 0) {
+  if (data_list$msmMode == 0) { # Single-species
 
     # Suitability parameters
-    # map_list$log_gam_a <- replace(map_list$log_gam_a, values = rep(NA, length(map_list$log_gam_a)))
-    # map_list$log_gam_b <- replace(map_list$log_gam_b, values = rep(NA, length(map_list$log_gam_b)))
-    # map_list$log_phi <- replace(map_list$log_phi, values = rep(NA, length(map_list$log_phi)))
+    map_list$log_gam_a <- replace(map_list$log_gam_a, values = rep(NA, length(map_list$log_gam_a)))
+    map_list$log_gam_b <- replace(map_list$log_gam_b, values = rep(NA, length(map_list$log_gam_b)))
+    map_list$log_phi <- replace(map_list$log_phi, values = rep(NA, length(map_list$log_phi)))
 
-    # # Multispecies
-    # map_list$logH_1 <- replace(map_list$logH_1, values = rep(NA, length(map_list$logH_1)))
-    # map_list$logH_1a <- replace(map_list$logH_1a, values = rep(NA, length(map_list$logH_1a)))
-    # map_list$logH_1b <- replace(map_list$logH_1b, values = rep(NA, length(map_list$logH_1b)))
-    #
-    # map_list$logH_2 <- replace(map_list$logH_2, values = rep(NA, length(map_list$logH_2)))
-    # map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
-    # map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
+    # # Multispecies kinzey parameters
+    map_list$logH_1 <- replace(map_list$logH_1, values = rep(NA, length(map_list$logH_1)))
+    map_list$logH_1a <- replace(map_list$logH_1a, values = rep(NA, length(map_list$logH_1a)))
+    map_list$logH_1b <- replace(map_list$logH_1b, values = rep(NA, length(map_list$logH_1b)))
+
+    map_list$logH_2 <- replace(map_list$logH_2, values = rep(NA, length(map_list$logH_2)))
+    map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
+    map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
 
   }
 
   # 2. MSVPA based predation
   if (data_list$msmMode %in% c(1,2)) {
-    # # Multispecies
-    # map_list$logH_1 <- replace(map_list$logH_1, values = rep(NA, length(map_list$logH_1)))
-    # map_list$logH_1a <- replace(map_list$logH_1a, values = rep(NA, length(map_list$logH_1a)))
-    # map_list$logH_1b <- replace(map_list$logH_1b, values = rep(NA, length(map_list$logH_1b)))
-    #
-    # map_list$logH_2 <- replace(map_list$logH_2, values = rep(NA, length(map_list$logH_2)))
-    # map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
-    # map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
+    # Multispecies (Turn off kinzey)
+    map_list$logH_1 <- replace(map_list$logH_1, values = rep(NA, length(map_list$logH_1)))
+    map_list$logH_1a <- replace(map_list$logH_1a, values = rep(NA, length(map_list$logH_1a)))
+    map_list$logH_1b <- replace(map_list$logH_1b, values = rep(NA, length(map_list$logH_1b)))
+
+    map_list$logH_2 <- replace(map_list$logH_2, values = rep(NA, length(map_list$logH_2)))
+    map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
+    map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
 
   }
 
   # 3. Kinzey and Punt predation equations
   if (data_list$msmMode > 2) {
-    stop("Kinzey predation is depricated")
+    # Holling Type 1
+    if (data_list$msmMode == 3) {
+      map_list$logH_2 <- replace(map_list$logH_2, values = rep(NA, length(map_list$logH_2)))
+      map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
+      map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
+    }
 
-    # # Holling Type 1
-    # if (data_list$msmMode == 3) {
-    #   map_list$logH_2 <- replace(map_list$logH_2, values = rep(NA, length(map_list$logH_2)))
-    #   map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
-    #   map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
-    # }
-    #
-    # # Holling Type 2
-    # if (data_list$msmMode == 4) {
-    #   map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
-    #   map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
-    # }
-    #
-    # # Holling Type 3
-    # if (data_list$msmMode == 5) {
-    #   map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
-    # }
-    #
-    # # Predator interference
-    # if (data_list$msmMode == 6) {
-    #   map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
-    # }
-    #
-    # # Predator preemption
-    # if (data_list$msmMode == 7) {
-    #   map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
-    # }
-    #
-    # # Hassell-Varley
-    # if (data_list$msmMode == 8) {
-    #   map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
-    # }
-    #
-    # # Ecosim
-    # if (data_list$msmMode == 9) {
-    #   map_list$logH_2 <- replace(map_list$logH_2, values = rep(NA, length(map_list$logH_2)))
-    #   map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
-    # }
+    # Holling Type 2
+    if (data_list$msmMode == 4) {
+      map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
+      map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
+    }
+
+    # Holling Type 3
+    if (data_list$msmMode == 5) {
+      map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
+    }
+
+    # Predator interference
+    if (data_list$msmMode == 6) {
+      map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
+    }
+
+    # Predator preemption
+    if (data_list$msmMode == 7) {
+      map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
+    }
+
+    # Hassell-Varley
+    if (data_list$msmMode == 8) {
+      map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
+    }
+
+    # Ecosim
+    if (data_list$msmMode == 9) {
+      map_list$logH_2 <- replace(map_list$logH_2, values = rep(NA, length(map_list$logH_2)))
+      map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
+    }
   }
 
 
@@ -773,29 +770,21 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
     # 2.1. Empirical suitability
     if (data_list$suitMode == 0) {
-      # map_list$log_gam_a <- replace(map_list$log_gam_a, values = rep(NA, length(map_list$log_gam_a)))
-      # map_list$log_gam_b <- replace(map_list$log_gam_b, values = rep(NA, length(map_list$log_gam_b)))
-      # map_list$log_phi <- replace(map_list$log_phi, values = rep(NA, length(map_list$log_phi)))
+      map_list$log_gam_a <- replace(map_list$log_gam_a, values = rep(NA, length(map_list$log_gam_a)))
+      map_list$log_gam_b <- replace(map_list$log_gam_b, values = rep(NA, length(map_list$log_gam_b)))
+      map_list$log_phi <- replace(map_list$log_phi, values = rep(NA, length(map_list$log_phi)))
     }
 
-    # 2.2. GAMMA suitability
-    if (data_list$suitMode %in% c(1:3)) {
-      # map_list$log_phi <- replace(map_list$log_phi, values = rep(NA, length(map_list$log_phi)))
-    }
-
-    # 2.3. and 2.4 Lognormal
-    if (data_list$suitMode %in% c(4:5)) {
+    # 2.2. GAMMA or lognormal suitability
+    if (data_list$suitMode %in% c(1:4)) {
       # Use all the parameters
     }
   }
 
-
   # STEP 3 - set up debug - I.E. turn off all parameters besides dummy
   map_list$dummy <- NA
-  if (debug == TRUE) {
-    for (i in 1:length(map_list)) {
-      map_list[[i]] <- replace(map_list[[i]], values = rep(NA, length(map_list[[i]])))
-    }
+  if(debug){
+    map_list <- sapply(map_list, function(x) replace(x, values = rep(NA, length(x))))
     map_list$dummy = 1
   }
 
@@ -805,17 +794,10 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   # - I.E. turn off all parameters besides for species
   for(sp in 1:data_list$nspp){
 
-    # Check proj F if proj F prop is all 0
-    prop_check <- data_list$fleet_control$proj_F_prop[which(data_list$fleet_control$Species == sp & data_list$fleet_control$Fleet_type == 1)]
-    if(sum(as.numeric(prop_check == 0)) != 0){ # If all fisheries for a species have no F in F_prop, turn off future F
-      map_list$ln_FSPR[sp,] <- NA
-    }
-
     # Fixed n-at-age: Turn off most parameters
     if(data_list$estDynamics[sp] > 0){
 
       # Population parameters
-      map_list$ln_FSPR[sp,] <- NA
       map_list$ln_mean_rec[sp] <- NA
       map_list$ln_rec_sigma[sp] <- NA
       map_list$ln_sex_ratio_sigma[sp] <- NA
@@ -866,12 +848,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
   # STEP 5 -- Convert to factor
   map_list_grande <- list()
-  map_list_grande[[1]] <- map_list
-  map_list_grande[[2]] <- map_list
-
-  for (i in 1:length(map_list_grande[[1]])) {
-    map_list_grande[[1]][[i]] <- factor(map_list_grande[[1]][[i]])
-  }
+  map_list_grande$mapFactor <- sapply(map_list, factor)
+  map_list_grande$mapList <- map_list
 
   return(map_list_grande)
 }
