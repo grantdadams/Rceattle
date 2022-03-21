@@ -7,7 +7,7 @@ data(BS2017SS)
 ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save
-                            debug = FALSE, # Estimate
+                            estimateMode = 0, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
                             phase = "default",
@@ -21,7 +21,7 @@ BS2017SS_weighted$fleet_control$Comp_weights <- ss_run$data_list$fleet_control$E
 ss_run_reweighted <- Rceattle::fit_mod(data_list = BS2017SS_weighted,
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save
-                            debug = FALSE, # Estimate
+                            estimateMode = 0, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
                             phase = "default",

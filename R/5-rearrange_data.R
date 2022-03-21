@@ -33,10 +33,6 @@ rearrange_dat <- function(data_list){
   data_list$UobsWtAge_ctl <- data_list$UobsWtAge[,c("Pred", "Prey", "Pred_sex", "Prey_sex", "Pred_age", "Prey_age", "Year")]
   data_list$UobsWtAge <- data_list$UobsWtAge[,c("Sample_size", "Stomach_proportion_by_weight")]
 
-  data_list$UobsAge_ctl <- data_list$UobsAge[,c("Pred", "Prey", "Pred_sex", "Prey_sex", "Pred_age", "Prey_age", "Year")]
-  data_list$UobsAge <- data_list$UobsAge[,c("Sample_size", "Stomach_proportion_by_number")]
-
-
   # Step 6 -  Seperate survey empirical selectivity info from observation
   yrs <- data_list$styr:data_list$endyr
   if(nrow(data_list$emp_sel) > 0 ){
@@ -202,20 +198,6 @@ rearrange_dat <- function(data_list){
   data_list$wt <- wt
 
 
-  # Set up Mn_LatAge array
-  Mn_LatAge <- array(0, dim = c(data_list$nspp, 2, max(data_list$nages, na.rm = T)))
-
-  for (i in 1:nrow(data_list$Mn_LatAge)) {
-    sp <- as.numeric(as.character(data_list$Mn_LatAge$Species[i]))
-    sex <- as.numeric(as.character(data_list$Mn_LatAge$Sex[i]))
-    if(sex == 0){ sex = c(1, 2)}
-    for(j in 1:length(sex)){
-      Mn_LatAge[sp, sex[j], 1:max(data_list$nages, na.rm = T)] <- as.numeric(data_list$Mn_LatAge[i,(1:max(data_list$nages, na.rm = T)) + 2])
-    }
-  }
-  data_list$Mn_LatAge <- Mn_LatAge
-
-
   # Set up NByageFixed array
   NByageFixed <- array(0, dim = c(data_list$nspp, 2, max(data_list$nages, na.rm = T), length(data_list$styr:data_list$projyr)))
 
@@ -249,16 +231,18 @@ rearrange_dat <- function(data_list){
   # Set up pyrs array
   Pyrs <- array(0, dim = c(data_list$nspp, 2, max(data_list$nages), length(data_list$styr:data_list$endyr))) # FIXME: Change for forecast
 
-  for (i in 1:nrow(data_list$Pyrs)) {
-    sp <- as.numeric(as.character(data_list$Pyrs$Species[i]))
-    sex <- as.numeric(as.character(data_list$Pyrs$Sex[i]))
-    if(sex == 0){
-      sex = c(1,2)
-    }
-    yr <- as.numeric(as.character(data_list$Pyrs$Year[i])) - data_list$styr + 1
+  if(nrow(data_list$Pyrs)>0){
+    for (i in 1:nrow(data_list$Pyrs)) {
+      sp <- as.numeric(as.character(data_list$Pyrs$Species[i]))
+      sex <- as.numeric(as.character(data_list$Pyrs$Sex[i]))
+      if(sex == 0){
+        sex = c(1,2)
+      }
+      yr <- as.numeric(as.character(data_list$Pyrs$Year[i])) - data_list$styr + 1
 
-    if(yr <= (data_list$endyr - data_list$styr + 1)){
-      Pyrs[sp, sex, 1:data_list$nages[sp], yr] <- as.numeric(as.character(as.matrix(unlist(data_list$Pyrs[i, (1:data_list$nages[sp]) + 3]))))
+      if(yr <= (data_list$endyr - data_list$styr + 1)){
+        Pyrs[sp, sex, 1:data_list$nages[sp], yr] <- as.numeric(as.character(as.matrix(unlist(data_list$Pyrs[i, (1:data_list$nages[sp]) + 3]))))
+      }
     }
   }
   data_list$Pyrs <- Pyrs

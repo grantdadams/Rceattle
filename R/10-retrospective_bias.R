@@ -1,4 +1,4 @@
-#' Retrospective peels
+#' Retrospective peels (DEPRECATED)
 #'
 #' @description Calculate Mohn's rho and run retrospective peels for an Rceattle model
 #'
