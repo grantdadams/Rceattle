@@ -15,14 +15,14 @@
 // Changes from 2017 assessment
 // 1. Normalize age-transition matrix prior to use (PCod rows did not sum to 1)
 // 2. Added log-normal recruitment deviation bias correction
-// 3. BT survey age/length composition estimated for month 6 rather than 0, similar to BT survey biomass
+// 3. Added month to survey index calculation. EBS specific. BT survey age/length composition estimated for month 6 rather than 0, similar to BT survey biomass
 // 4. Fixed mis-specification of multinomial for fishery composition
 // 5. Normalized survey and fishery selectivity so that max = 1
 // 6. Fixed initialization of population
 // 7. Fixed estimation routine of suitability coefficients (N used to caclulate suitability is no-longer different)
 // 8. Changed ration calculation over nyrs rather than nTyrs
 // 9. Allowed retrospective estimation
-// 10. Acoustic comp and biomass data are assumed to come from month 6 rather than 0, given they survey in the summer
+// 10. Added month to comp caclulation. EBS specific: Acoustic comp and biomass data are assumed to come from month 6 rather than 0, given they survey in the summer
 // 11. Added time varying selectivity and catchability
 // 12. Can make survey selectivity and/or catchability equal across surveys
 // 13. Added cabability to have a two sex model
