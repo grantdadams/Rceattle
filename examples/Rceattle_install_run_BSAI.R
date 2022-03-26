@@ -20,7 +20,8 @@ library(Rceattle)
 ################################################
 # Example
 # To run the 2017 single species assessment for the Bering Sea, a data file must first be loaded:
-data(BS2017SS) # ?BS2017SS for more information on the data
+data("BS2017SS") # Single-species data. ?BS2017SS for more information on the data
+data("BS2017MS") # Multi-species data. Note: the only difference is the residual mortality (M1_base) is lower
 
 # Write data to excel
 Rceattle::write_data(data_list = BS2017SS, file = "BS2017SS.xlsx")
@@ -28,12 +29,13 @@ Rceattle::write_data(data_list = BS2017SS, file = "BS2017SS.xlsx")
 # Change the data how you want in excel
 # Read the data back in
 mydata <- Rceattle::read_data( file = "BS2017SS.xlsx")
-mydata$est_M1 <- c(0,0,0)
+mydata$est_M1 <- c(0,0,0) # Fix M1 to input value (M1_base)
 
 
 ################################################
 # Estimation
 ################################################
+# - Single-species
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
 mydata$fleet_control$proj_F_prop <- c(rep(1,3), rep(0,4))
 ss_run <- Rceattle::fit_mod(data_list = mydata,
@@ -45,7 +47,8 @@ ss_run <- Rceattle::fit_mod(data_list = mydata,
                             phase = "default",
                             verbose = 1)
 
-# Estimate M
+
+# Single-species, but estimate M
 mydata_M <- mydata
 mydata_M$est_M1 <- c(1,1,1) # Estimate age-invariant M (M2/predation = 0)
 ss_run_M <- Rceattle::fit_mod(data_list = mydata_M,
@@ -57,39 +60,40 @@ ss_run_M <- Rceattle::fit_mod(data_list = mydata_M,
                               phase = "default",
                               verbose = 1)
 
-# The you can plot the model results using using
-plot_biomass(Rceattle =  list(ss_run, ss_run_M), model_names = c("Fixed M", "Est M"), line_col = c(1,2))
-plot_recruitment(Rceattle =  list(ss_run, ss_run_M), add_ci = TRUE)
-plot_catch(Rceattle =  ss_run, incl_proj = T)
 
-
-# For the a multispecies model starting from the single species parameters, the following can be specified to load the data:
-data("BS2017MS") # Note: the only difference is the residual mortality (M1_base) is lower
-BS2017MS$est_M1 <- c(1,1,1) # Estimate residual M
+# - Multi-species
+# For the a multispecies model we from the single species parameters.
+BS2017MS$est_M1 <- c(0,0,0) # Do not estimate residual M
 ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
                             inits = ss_run$estimated_params, # Initial parameters from single species ests
                             file = NULL, # Don't save
                             estimateMode = 0, # Estimate
-                            niter = 3, # 10 iterations around population and predation dynamics
+                            niter = 3, # 3 iterations around population and predation dynamics
                             random_rec = FALSE, # No random recruitment
                             msmMode = 1, # MSVPA based
                             suitMode = 0, # empirical suitability
                             verbose = 1)
 
 
-
-# We can plot both runs as well:
-Rceattle <- list(ss_run, ms_run)
-mod_names <- c("Single-species", "Multi-species")
+################################################
+# Plotting
+################################################
+# We can plot all runs
+mod_list <- list(ss_run, ss_run_M, ms_run)
+mod_names <- c("Single-species", "Single-species estimate M", "Multi-species")
 
 # Plot biomass trajectory
 plot_biomass(Rceattle = mod_list, model_names = mod_names)
+plot_depletionSSB(Rceattle = mod_list, model_names = mod_names)
 plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE)
 
-plot_selectivity(Rceattle = mod_list, model_names = mod_names)
-plot_mort(Rceattle = mod_list, model_names = mod_names, age = 2)
+# Plot mortality and predation
+plot_b_eaten(Rceattle = mod_list, model_names = mod_names) # Biomass eaten as prey
+plot_b_eaten_prop(Rceattle = mod_list, model_names = mod_names) # Biomass eaten as prey by each predator
+plot_mort(Rceattle = ms_run, type = 3) # Mortality-at-age time series
 
 # Run diagnostics
+plot_selectivity(Rceattle = ms_run)
 plot_comp(ms_run) # Fitted survey composition data
 plot_index(ms_run) # Fitted indices of abundance
 plot_catch(ms_run) # Fitted catch series
