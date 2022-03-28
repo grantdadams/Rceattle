@@ -388,6 +388,22 @@ fit_mod <-
       start_par$ln_Ftarget = matrix(log(HCR$FsprTarget), nrow = data_list$nspp, ncol = nyrs_proj) # Future fishing mortality for projections for each species
     }
 
+    # - Update M1 for inits
+    m1 <- array(0, dim = c(data_list$nspp, 2, max(data_list$nages, na.rm = T))) # Set up array
+
+    # Initialize from inputs
+    for (i in 1:nrow(data_list$M1_base)) {
+      sp <- as.numeric(as.character(data_list$M1_base$Species[i]))
+      sex <- as.numeric(as.character(data_list$M1_base$Sex[i]))
+
+      # Fill in M1 array from fixed values for each sex
+      if(sex == 0){ sex = c(1, 2)} # If sex = combined/both males and females, fill in both dimensions
+      for(j in 1:length(sex)){
+        m1[sp, sex[j], 1:max(data_list$nages, na.rm = T)] <- as.numeric(data_list$M1_base[i,(1:max(data_list$nages, na.rm = T)) + 2])
+      }
+    }
+    start_par$ln_M1 <- log(m1)
+
     if(verbose > 0) {message("Step 4: Data rearranged complete")}
 
     # STEP 7 - Set up parameter bounds
