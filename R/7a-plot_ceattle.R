@@ -40,6 +40,8 @@ rich.colors.short <- function(n,alpha=1){
 #' @param save Save biomass?
 #' @param incl_proj TRUE/FALSE, include projection years
 #' @param mod_cex Cex of text for model name legend
+#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}
+#' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
 #'
 #' @export
 #'
@@ -54,19 +56,33 @@ plot_biomass <- function(Rceattle,
                          lwd = 3,
                          save = FALSE,
                          right_adj = 0,
-                         mohns = NULL,
                          width = 7,
                          height = 6.5,
                          minyr = NULL,
                          incl_proj = FALSE,
                          mod_cex = 1,
                          alpha = 0.4,
-                         mod_avg = rep(FALSE, length(Rceattle))) {
+                         mod_avg = rep(FALSE, length(Rceattle)),
+                         mse = FALSE,
+                         OM = TRUE) {
+
+  # Convert mse object to Rceattle list
+  if(mse){
+    if(OM){
+      Rceattle <- lapply(Rceattle, function(x) x$OM)
+    }
+    if(!OM){
+      Rceattle <- lapply(Rceattle, function(x) x$EM[[length(x$EM)]])
+    }
+    add_ci = TRUE
+  }
+
 
   # Convert single one into a list
   if(class(Rceattle) == "Rceattle"){
     Rceattle <- list(Rceattle)
   }
+
 
   # Species names
   if(is.null(spnames)){
@@ -91,66 +107,97 @@ plot_biomass <- function(Rceattle,
   minage <- Rceattle[[1]]$data_list$minage
   estDynamics <- Rceattle[[1]]$data_list$estDynamics
 
-  if(is.null(species)){
 
+  if(is.null(species)){
     species <- 1:nspp
   }
-
   spp <- spp[which(spp %in% species)]
 
 
-  # Get biomass
-  biomass <-
+  # Get depletion
+  quantity <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
-  biomass_sd <-
+  quantity_sd <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
-  log_biomass_sd <-
+  log_quantity_sd <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
-  log_biomass_mu <-
+  log_quantity_mu <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
+  ptarget = c()
+  plimit = c()
 
   for (i in 1:length(Rceattle)) {
-    biomass[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$biomass[,1:nyrs_vec[i]]
 
-    # Get SD of biomass
-    if(add_ci){
+    # - Get quantities
+    ptarget[i] <- Rceattle[[i]]$data_list$Ptarget
+    plimit[i] <- Rceattle[[i]]$data_list$Plimit
+    quantity[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$biomass[,1:nyrs_vec[i]]
+
+    # Get SD of quantity
+    if(add_ci & !mse){
       sd_temp <- which(names(Rceattle[[i]]$sdrep$value) == "biomass")
       sd_temp <- Rceattle[[i]]$sdrep$sd[sd_temp]
-      biomass_sd[,  1:nyrs_vec[i], i] <-
-        replace(biomass_sd[, 1:nyrs_vec[i], i], values = sd_temp[1:(nyrs_vec[i] * nspp)])
+      quantity_sd[,  1:nyrs_vec[i], i] <-
+        replace(quantity_sd[, 1:nyrs_vec[i], i], values = sd_temp[1:(nyrs_vec[i] * nspp)])
     }
 
+    # - Model average
     if(mod_avg[i]){
-      log_biomass_sd[,  1:nyrs_vec[i], i] <- apply(Rceattle[[i]]$asymptotic_samples$biomass[,1:nyrs_vec[i],], c(1,2), function(x) sd(as.vector(log(x))))
-      log_biomass_mu[,  1:nyrs_vec[i], i] <- apply(Rceattle[[i]]$asymptotic_samples$biomass[,1:nyrs_vec[i],], c(1,2), function(x) mean(as.vector(log(x))))
+      log_quantity_sd[,  1:nyrs_vec[i], i] <- apply(Rceattle[[i]]$asymptotic_samples$biomass[,1:nyrs_vec[i],], c(1,2), function(x) sd(as.vector(log(x))))
+      log_quantity_mu[,  1:nyrs_vec[i], i] <- apply(Rceattle[[i]]$asymptotic_samples$biomass[,1:nyrs_vec[i],], c(1,2), function(x) mean(as.vector(log(x))))
     }
   }
 
+  ## Get confidence intervals
+  # - Single model
+  if(!mse){
+    quantity_upper95 <- quantity + quantity_sd * 1.92
+    quantity_lower95 <- quantity - quantity_sd * 1.92
+  }
 
-  # 95% CI
-  biomass_upper <- biomass + biomass_sd * 1.92
-  biomass_lower <- biomass - biomass_sd * 1.92
+  # - MSE objects
+  if(mse){
+    ptarget <- ptarget[1]
+    plimit <- plimit[1]
 
-  # Rescale
-  biomass <- biomass / 1000000
-  biomass_upper <- biomass_upper / 1000000
-  biomass_lower <- biomass_lower / 1000000
+    # -- Get quantiles and mean across simulations
+    quantity_upper95 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.975) )
+    quantity_lower95 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.025) )
+    quantity_upper50 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.75) )
+    quantity_lower50 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.25) )
+    quantity <- apply( quantity, c(1,2), mean ) # Get mean quantity
 
-  # Model Average
+    # -- Put back in array for indexing below
+    quantity <- array(quantity, dim = c(nspp, nyrs,  1))
+    quantity_upper95 <- array(quantity_upper95, dim = c(nspp, nyrs,  1))
+    quantity_lower95 <- array(quantity_lower95, dim = c(nspp, nyrs,  1))
+    quantity_upper50 <- array(quantity_upper50, dim = c(nspp, nyrs,  1))
+    quantity_lower50<- array(quantity_lower50, dim = c(nspp, nyrs,  1))
+  }
+
+  # - Model Average
   for (i in 1:length(Rceattle)) {
     if(mod_avg[i]){
-      biomass[,,i] <- qlnorm(0.5, meanlog = log_biomass_mu[,,i], sdlog = log_biomass_sd[,,i]) / 1000000
-      biomass_upper[,,i] <- qlnorm(0.975, meanlog = log_biomass_mu[,,i], sdlog = log_biomass_sd[,,i]) / 1000000
-      biomass_lower[,,i] <- qlnorm(0.025, meanlog = log_biomass_mu[,,i], sdlog = log_biomass_sd[,,i]) / 1000000
+      quantity[,,i] <- qlnorm(0.5, meanlog = log_quantity_mu[,,i], sdlog = log_quantity_sd[,,i])
+      quantity_upper95[,,i] <- qlnorm(0.975, meanlog = log_quantity_mu[,,i], sdlog = log_quantity_sd[,,i])
+      quantity_lower95[,,i] <- qlnorm(0.025, meanlog = log_quantity_mu[,,i], sdlog = log_quantity_sd[,,i])
     }
   }
 
+  # - Rescale
+  quantity <- quantity / 1000000
+  quantity_upper95 <- quantity_upper95 / 1000000
+  quantity_lower95 <- quantity_lower95 / 1000000
+  quantity_upper50 <- quantity_upper50 / 1000000
+  quantity_lower50 <- quantity_lower50 / 1000000
 
+
+  ## Save
   if (save) {
     for (i in 1:nspp) {
-      dat <- data.frame(biomass[i, , ])
-      datup <- data.frame(biomass_upper[i, , ])
-      datlow <- data.frame(biomass_lower[i, , ])
+      dat <- data.frame(quantity[i, , ])
+      datup <- data.frame(quantity_upper95[i, , ])
+      datlow <- data.frame(quantity_lower95[i, , ])
 
       dat_new <- cbind(dat[, 1], datlow[, 1], datup[, 1])
       colnames(dat_new) <- rep(model_names[1], 3)
@@ -162,30 +209,32 @@ plot_biomass <- function(Rceattle,
 
       }
 
-
-      filename <-
-        paste0(file, "_biomass_species_", i, ".csv")
-      write.csv(dat_new, file = filename)
+      write.csv(dat_new, file = paste0(file, "_biomass_species_", i, ".csv"))
     }
   }
 
 
-  # Plot limits
+  ## Plot limits
   ymax <- c()
   ymin <- c()
   for (sp in 1:nspp) {
     if (add_ci & (estDynamics[sp] == 0)) {
-      ymax[sp] <- max(c(biomass_upper[sp, , ], 0), na.rm = T)
-      ymin[sp] <- min(c(biomass_upper[sp, , ], 0), na.rm = T)
+      ymax[sp] <- max(c(quantity_upper95[sp, , ], 0), na.rm = T)
+      ymin[sp] <- min(c(quantity_upper95[sp, , ], 0), na.rm = T)
     } else{
-      ymax[sp] <- max(c(biomass[sp, , ], 0), na.rm = T)
-      ymin[sp] <- min(c(biomass[sp, , ], 0), na.rm = T)
+      ymax[sp] <- max(c(quantity[sp, , ], 0), na.rm = T)
+      ymin[sp] <- min(c(quantity[sp, , ], 0), na.rm = T)
     }
   }
   ymax <- ymax * 1.2
 
   if (is.null(line_col)) {
-    line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
+    if(!mse){
+      line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
+    }
+    if(mse){
+      line_col <- 1
+    }
   }
 
 
@@ -220,7 +269,7 @@ plot_biomass <- function(Rceattle,
         ylim = c(ymin[spp[j]], ymax[spp[j]]),
         xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
         xlab = "Year",
-        ylab = "Biomass (million mt)",
+        ylab = "Age-1+ biomass (million mt)",
         xaxt = c(rep("n", length(spp) - 1), "s")[j]
       )
 
@@ -235,10 +284,6 @@ plot_biomass <- function(Rceattle,
              bty = "n",
              cex = 1)
 
-      if(!is.null(mohns)){
-        legend("top", paste0("Rho = ", round(mohns[3,spp[j]+1], 2) ), bty = "n", cex = 0.8) # Biomass rho
-      }
-
       if (spp[j] == 1) {
         if(!is.null(model_names)){
           legend(
@@ -251,29 +296,39 @@ plot_biomass <- function(Rceattle,
             cex = mod_cex
           )
         }
-
       }
 
 
       # Credible interval
       if(estDynamics[spp[j]] == 0){
         if (add_ci) {
-          for (k in 1:dim(biomass)[3]) {
+          for (k in 1:dim(quantity)[3]) {
+            # - 95% CI
             polygon(
               x = c(Years[[k]], rev(Years[[k]])),
-              y = c(biomass_upper[spp[j], 1:length(Years[[k]]), k], rev(biomass_lower[spp[j], 1:length(Years[[k]]), k])),
-              col = adjustcolor( line_col[k], alpha.f = alpha),
+              y = c(quantity_upper95[spp[j], 1:length(Years[[k]]), k], rev(quantity_lower95[spp[j], 1:length(Years[[k]]), k])),
+              col = adjustcolor( line_col[k], alpha.f = alpha/2),
               border = NA
-            ) # 95% CI
+            )
+
+            # - 50% CI
+            if(mse){
+              polygon(
+                x = c(Years[[k]], rev(Years[[k]])),
+                y = c(quantity_upper50[spp[j], 1:length(Years[[k]]), k], rev(quantity_lower50[spp[j], 1:length(Years[[k]]), k])),
+                col = adjustcolor( line_col[k], alpha.f = alpha),
+                border = NA
+              )
+            }
           }
         }
       }
 
-      # Mean biomass
-      for (k in 1:dim(biomass)[3]) {
+      # Mean quantity
+      for (k in 1:dim(quantity)[3]) {
         lines(
           x = Years[[k]],
-          y = biomass[spp[j], 1:length(Years[[k]]), k],
+          y = quantity[spp[j], 1:length(Years[[k]]), k],
           lty = 1,
           lwd = lwd,
           col = line_col[k]
@@ -287,7 +342,6 @@ plot_biomass <- function(Rceattle,
     }
   }
 }
-
 
 
 
@@ -1203,6 +1257,8 @@ plot_maturity <-
 #' @param incl_proj TRUE/FALSE, include projection years
 #' @param mod_cex Cex of text for model name legend
 #' @param mod_avg Vector of length Rceattle denoting if it is a model average object
+#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}
+#' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
 #'
 #' @export
 #'
@@ -1217,19 +1273,33 @@ plot_ssb <- function(Rceattle,
                      lwd = 3,
                      save = FALSE,
                      right_adj = 0,
-                     mohns = NULL,
                      width = 7,
                      height = 6.5,
                      minyr = NULL,
                      incl_proj = FALSE,
                      mod_cex = 1,
                      alpha = 0.4,
-                     mod_avg = rep(FALSE, length(Rceattle))) {
+                     mod_avg = rep(FALSE, length(Rceattle)),
+                     mse = FALSE,
+                     OM = TRUE) {
+
+  # Convert mse object to Rceattle list
+  if(mse){
+    if(OM){
+      Rceattle <- lapply(Rceattle, function(x) x$OM)
+    }
+    if(!OM){
+      Rceattle <- lapply(Rceattle, function(x) x$EM[[length(x$EM)]])
+    }
+    add_ci = TRUE
+  }
+
 
   # Convert single one into a list
   if(class(Rceattle) == "Rceattle"){
     Rceattle <- list(Rceattle)
   }
+
 
   # Species names
   if(is.null(spnames)){
@@ -1249,71 +1319,102 @@ plot_ssb <- function(Rceattle,
   maxyr <- max((sapply(Years, max)))
   if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
 
-  estDynamics <- Rceattle[[1]]$data_list$estDynamics
   nspp <- Rceattle[[1]]$data_list$nspp
   spp <- 1:nspp
   minage <- Rceattle[[1]]$data_list$minage
+  estDynamics <- Rceattle[[1]]$data_list$estDynamics
+
 
   if(is.null(species)){
-
     species <- 1:nspp
   }
-
   spp <- spp[which(spp %in% species)]
 
 
-  # Get ssb
-  ssb <-
+  # Get depletion
+  quantity <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
-  ssb_sd <-
+  quantity_sd <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
-  log_ssb_sd <-
+  log_quantity_sd <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
-  log_ssb_mu <-
+  log_quantity_mu <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
+  ptarget = c()
+  plimit = c()
 
   for (i in 1:length(Rceattle)) {
-    ssb[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$biomassSSB[,1:nyrs_vec[i]]
 
-    # Get SD of ssb
-    if(add_ci){
+    # - Get quantities
+    ptarget[i] <- Rceattle[[i]]$data_list$Ptarget
+    plimit[i] <- Rceattle[[i]]$data_list$Plimit
+    quantity[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$biomassSSB[,1:nyrs_vec[i]]
+
+    # Get SD of quantity
+    if(add_ci & !mse){
       sd_temp <- which(names(Rceattle[[i]]$sdrep$value) == "biomassSSB")
       sd_temp <- Rceattle[[i]]$sdrep$sd[sd_temp]
-      ssb_sd[,  1:nyrs_vec[i], i] <-
-        replace(ssb_sd[, 1:nyrs_vec[i], i], values = sd_temp[1:(nyrs_vec[i] * nspp)])
+      quantity_sd[,  1:nyrs_vec[i], i] <-
+        replace(quantity_sd[, 1:nyrs_vec[i], i], values = sd_temp[1:(nyrs_vec[i] * nspp)])
     }
 
+    # - Model average
     if(mod_avg[i]){
-      log_ssb_sd[,  1:nyrs_vec[i], i] <- apply(Rceattle[[i]]$asymptotic_samples$biomassSSB[,1:nyrs_vec[i],], c(1,2), function(x) sd(as.vector(log(x))))
-      log_ssb_mu[,  1:nyrs_vec[i], i] <- apply(Rceattle[[i]]$asymptotic_samples$biomassSSB[,1:nyrs_vec[i],], c(1,2), function(x) mean(as.vector(log(x))))
+      log_quantity_sd[,  1:nyrs_vec[i], i] <- apply(Rceattle[[i]]$asymptotic_samples$biomassSSB[,1:nyrs_vec[i],], c(1,2), function(x) sd(as.vector(log(x))))
+      log_quantity_mu[,  1:nyrs_vec[i], i] <- apply(Rceattle[[i]]$asymptotic_samples$biomassSSB[,1:nyrs_vec[i],], c(1,2), function(x) mean(as.vector(log(x))))
     }
   }
 
+  ## Get confidence intervals
+  # - Single model
+  if(!mse){
+    quantity_upper95 <- quantity + quantity_sd * 1.92
+    quantity_lower95 <- quantity - quantity_sd * 1.92
+  }
 
-  # 95% CI
-  ssb_upper <- ssb + ssb_sd * 1.92
-  ssb_lower <- ssb - ssb_sd * 1.92
+  # - MSE objects
+  if(mse){
+    ptarget <- ptarget[1]
+    plimit <- plimit[1]
 
-  # Rescale
-  ssb <- ssb / 1000000
-  ssb_upper <- ssb_upper / 1000000
-  ssb_lower <- ssb_lower / 1000000
+    # -- Get quantiles and mean across simulations
+    quantity_upper95 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.975) )
+    quantity_lower95 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.025) )
+    quantity_upper50 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.75) )
+    quantity_lower50 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.25) )
+    quantity <- apply( quantity, c(1,2), mean ) # Get mean quantity
 
-  # Model Average
+    # -- Put back in array for indexing below
+    quantity <- array(quantity, dim = c(nspp, nyrs,  1))
+    quantity_upper95 <- array(quantity_upper95, dim = c(nspp, nyrs,  1))
+    quantity_lower95 <- array(quantity_lower95, dim = c(nspp, nyrs,  1))
+    quantity_upper50 <- array(quantity_upper50, dim = c(nspp, nyrs,  1))
+    quantity_lower50<- array(quantity_lower50, dim = c(nspp, nyrs,  1))
+  }
+
+  # - Model Average
   for (i in 1:length(Rceattle)) {
     if(mod_avg[i]){
-      ssb[,,i] <- qlnorm(0.5, meanlog = log_ssb_mu[,,i], sdlog = log_ssb_sd[,,i]) / 1000000
-      ssb_upper[,,i] <- qlnorm(0.975, meanlog = log_ssb_mu[,,i], sdlog = log_ssb_sd[,,i]) / 1000000
-      ssb_lower[,,i] <- qlnorm(0.025, meanlog = log_ssb_mu[,,i], sdlog = log_ssb_sd[,,i]) / 1000000
+      quantity[,,i] <- qlnorm(0.5, meanlog = log_quantity_mu[,,i], sdlog = log_quantity_sd[,,i])
+      quantity_upper95[,,i] <- qlnorm(0.975, meanlog = log_quantity_mu[,,i], sdlog = log_quantity_sd[,,i])
+      quantity_lower95[,,i] <- qlnorm(0.025, meanlog = log_quantity_mu[,,i], sdlog = log_quantity_sd[,,i])
     }
   }
 
+  # - Rescale
+  quantity <- quantity / 1000000
+  quantity_upper95 <- quantity_upper95 / 1000000
+  quantity_lower95 <- quantity_lower95 / 1000000
+  quantity_upper50 <- quantity_upper50 / 1000000
+  quantity_lower50 <- quantity_lower50 / 1000000
 
+
+  ## Save
   if (save) {
     for (i in 1:nspp) {
-      dat <- data.frame(ssb[i, , ])
-      datup <- data.frame(ssb_upper[i, , ])
-      datlow <- data.frame(ssb_lower[i, , ])
+      dat <- data.frame(quantity[i, , ])
+      datup <- data.frame(quantity_upper95[i, , ])
+      datlow <- data.frame(quantity_lower95[i, , ])
 
       dat_new <- cbind(dat[, 1], datlow[, 1], datup[, 1])
       colnames(dat_new) <- rep(model_names[1], 3)
@@ -1325,30 +1426,32 @@ plot_ssb <- function(Rceattle,
 
       }
 
-
-      filename <-
-        paste0(file, "_ssb_species_", i, ".csv")
-      write.csv(dat_new, file = filename)
+      write.csv(dat_new, file = paste0(file, "_ssb_species_", i, ".csv"))
     }
   }
 
 
-  # Plot limits
+  ## Plot limits
   ymax <- c()
   ymin <- c()
   for (sp in 1:nspp) {
     if (add_ci & (estDynamics[sp] == 0)) {
-      ymax[sp] <- max(c(ssb_upper[sp, , ], 0), na.rm = T)
-      ymin[sp] <- min(c(ssb_upper[sp, , ], 0), na.rm = T)
+      ymax[sp] <- max(c(quantity_upper95[sp, , ], 0), na.rm = T)
+      ymin[sp] <- min(c(quantity_upper95[sp, , ], 0), na.rm = T)
     } else{
-      ymax[sp] <- max(c(ssb[sp, , ], 0), na.rm = T)
-      ymin[sp] <- min(c(ssb[sp, , ], 0), na.rm = T)
+      ymax[sp] <- max(c(quantity[sp, , ], 0), na.rm = T)
+      ymin[sp] <- min(c(quantity[sp, , ], 0), na.rm = T)
     }
   }
   ymax <- ymax * 1.2
 
   if (is.null(line_col)) {
-    line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
+    if(!mse){
+      line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
+    }
+    if(mse){
+      line_col <- 1
+    }
   }
 
 
@@ -1398,10 +1501,6 @@ plot_ssb <- function(Rceattle,
              bty = "n",
              cex = 1)
 
-      if(!is.null(mohns)){
-        legend("top", paste0("Rho = ", round(mohns[3,spp[j]+1], 2) ), bty = "n", cex = 0.8) # Biomass rho
-      }
-
       if (spp[j] == 1) {
         if(!is.null(model_names)){
           legend(
@@ -1414,27 +1513,39 @@ plot_ssb <- function(Rceattle,
             cex = mod_cex
           )
         }
-
       }
 
 
       # Credible interval
-      if (add_ci & (estDynamics[spp[j]] == 0)) {
-        for (k in 1:dim(ssb)[3]) {
-          polygon(
-            x = c(Years[[k]], rev(Years[[k]])),
-            y = c(ssb_upper[spp[j], 1:length(Years[[k]]), k], rev(ssb_lower[spp[j], 1:length(Years[[k]]), k])),
-            col = adjustcolor( line_col[k], alpha.f = alpha),
-            border = NA
-          ) # 95% CI
+      if(estDynamics[spp[j]] == 0){
+        if (add_ci) {
+          for (k in 1:dim(quantity)[3]) {
+            # - 95% CI
+            polygon(
+              x = c(Years[[k]], rev(Years[[k]])),
+              y = c(quantity_upper95[spp[j], 1:length(Years[[k]]), k], rev(quantity_lower95[spp[j], 1:length(Years[[k]]), k])),
+              col = adjustcolor( line_col[k], alpha.f = alpha/2),
+              border = NA
+            )
+
+            # - 50% CI
+            if(mse){
+              polygon(
+                x = c(Years[[k]], rev(Years[[k]])),
+                y = c(quantity_upper50[spp[j], 1:length(Years[[k]]), k], rev(quantity_lower50[spp[j], 1:length(Years[[k]]), k])),
+                col = adjustcolor( line_col[k], alpha.f = alpha),
+                border = NA
+              )
+            }
+          }
         }
       }
 
-      # Mean ssb
-      for (k in 1:dim(ssb)[3]) {
+      # Mean quantity
+      for (k in 1:dim(quantity)[3]) {
         lines(
           x = Years[[k]],
-          y = ssb[spp[j], 1:length(Years[[k]]), k],
+          y = quantity[spp[j], 1:length(Years[[k]]), k],
           lty = 1,
           lwd = lwd,
           col = line_col[k]
@@ -1471,171 +1582,302 @@ plot_ssb <- function(Rceattle,
 #'
 #' @export
 #'
-plot_b_eaten <-
-  function(Rceattle,
-           file = NULL,
-           model_names = NULL,
-           line_col = NULL,
-           spnames = NULL,
-           species = NULL,
-           lwd = 3,
-           right_adj = 0,
-           top_adj = 0.15,
-           mohns = NULL,
-           minyr = NULL,
-           width = 7,
-           height = 6.5,
-           incl_proj = FALSE,
-           incl_mean = FALSE,
-           add_ci = FALSE,
-           mod_cex = 1) {
+plot_b_eaten <-  function(Rceattle,
+                          file = NULL,
+                          model_names = NULL,
+                          line_col = NULL,
+                          species = NULL,
+                          spnames = NULL,
+                          add_ci = FALSE,
+                          lwd = 3,
+                          save = FALSE,
+                          right_adj = 0,
+                          width = 7,
+                          height = 6.5,
+                          minyr = NULL,
+                          incl_proj = FALSE,
+                          mod_cex = 1,
+                          alpha = 0.4,
+                          mod_avg = rep(FALSE, length(Rceattle)),
+                          mse = FALSE,
+                          OM = TRUE) {
 
-    # Convert single one into a list
-    if(class(Rceattle) == "Rceattle"){
-      Rceattle <- list(Rceattle)
+  # Convert mse object to Rceattle list
+  if(mse){
+    if(OM){
+      Rceattle <- lapply(Rceattle, function(x) x$OM)
+    }
+    if(!OM){
+      Rceattle <- lapply(Rceattle, function(x) x$EM[[length(x$EM)]])
+    }
+    add_ci = TRUE
+  }
+
+
+  # Convert single one into a list
+  if(class(Rceattle) == "Rceattle"){
+    Rceattle <- list(Rceattle)
+  }
+
+
+  # Species names
+  if(is.null(spnames)){
+    spnames =  Rceattle[[1]]$data_list$spnames
+  }
+
+  # Extract data objects
+  Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
+  Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
+  if(incl_proj){
+    Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
+  }
+
+  max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
+  nyrs_vec <- sapply(Years, length)
+  nyrs <- max(nyrs_vec)
+  maxyr <- max((sapply(Years, max)))
+  if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
+
+  nspp <- Rceattle[[1]]$data_list$nspp
+  spp <- 1:nspp
+  minage <- Rceattle[[1]]$data_list$minage
+  estDynamics <- Rceattle[[1]]$data_list$estDynamics
+
+
+  if(is.null(species)){
+    species <- 1:nspp
+  }
+  spp <- spp[which(spp %in% species)]
+
+
+  # Get depletion
+  quantity <-
+    array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
+  quantity_sd <-
+    array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
+  log_quantity_sd <-
+    array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
+  log_quantity_mu <-
+    array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
+  ptarget = c()
+  plimit = c()
+
+  for (i in 1:length(Rceattle)) {
+
+    # - Get quantities
+    ptarget[i] <- Rceattle[[i]]$data_list$Ptarget
+    plimit[i] <- Rceattle[[i]]$data_list$Plimit
+    quantity[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$B_eaten_as_prey[,1:nyrs_vec[i]]
+
+    # Get SD of quantity
+    if(add_ci & !mse){
+      sd_temp <- which(names(Rceattle[[i]]$sdrep$value) == "B_eaten_as_prey")
+      sd_temp <- Rceattle[[i]]$sdrep$sd[sd_temp]
+      quantity_sd[,  1:nyrs_vec[i], i] <-
+        replace(quantity_sd[, 1:nyrs_vec[i], i], values = sd_temp[1:(nyrs_vec[i] * nspp)])
     }
 
-    # Species names
-    if(is.null(spnames)){
-      spnames =  Rceattle[[1]]$data_list$spnames
-    }
-
-
-    # Extract data objects
-    Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
-    Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
-    if(incl_proj){
-      Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
-    }
-
-    max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
-    nyrs_vec <- sapply(Years, length)
-    nyrs <- max(nyrs_vec)
-    maxyr <- max((sapply(Years, max)))
-    if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
-
-    nspp <- Rceattle[[1]]$data_list$nspp
-
-    if(is.null(species)){
-      species <- 1:nspp
-    }
-
-    # Get B_eaten
-    B_eaten_as_prey <-
-      array(NA, dim = c(nspp, nyrs, length(Rceattle)))
-    for (i in 1:length(Rceattle)) {
-      for(sp in 1:nspp){
-        for(yr in 1:nyrs_vec[i]){
-          B_eaten_as_prey[sp, yr, i] <- sum(Rceattle[[i]]$quantities$B_eaten_as_prey[sp,,,yr])
-        }
-      }
-    }
-
-    ind = 1
-
-    B_eaten_as_prey <- B_eaten_as_prey / 1000000
-
-    # Plot limits
-    ymax <- c()
-    ymin <- c()
-    for (i in 1:dim(B_eaten_as_prey)[1]) {
-      ymax[i] <- max(c(B_eaten_as_prey[i, , ], 0), na.rm = T)
-      ymin[i] <- min(c(B_eaten_as_prey[i, , ], 0), na.rm = T)
-    }
-    ymax <- ymax + top_adj * ymax
-
-    if (is.null(line_col)) {
-      line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
-    }
-
-
-    # Plot trajectory
-    loops <- ifelse(is.null(file), 1, 2)
-    for (i in 1:loops) {
-      if (i == 2) {
-        filename <- paste0(file, "_B_eaten_as_prey_trajectory", ".png")
-        png(
-          file = filename ,
-          width = width,
-          height = height,
-          units = "in",
-          res = 300
-        )
-      }
-
-      # Plot configuration
-      layout(matrix(1:(length(species) + 2), nrow = (length(species) + 2)), heights = c(0.1, rep(1, length(species)), 0.2))
-      par(
-        mar = c(0, 3 , 0 , 1) ,
-        oma = c(0 , 0 , 0 , 0),
-        tcl = -0.35,
-        mgp = c(1.75, 0.5, 0)
-      )
-      plot.new()
-
-      for (j in 1:length(species)) {
-        spp = species[j]
-        plot(
-          y = NA,
-          x = NA,
-          ylim = c(ymin[spp], ymax[spp]),
-          xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
-          xlab = "Year",
-          ylab = "Biomass consumed (million t)",
-          xaxt = c(rep("n", length(species) - 1), "s")[j]
-        )
-
-        # Horizontal line
-        if(incl_proj){
-          abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
-        }
-
-        # Legends
-        legend("topleft", spnames[spp], bty = "n", cex = 1)
-
-        if(!is.null(mohns)){
-          legend("top", paste0("B_eaten_as_prey Rho = ",  round(mohns[2,spp+1], 2) ), bty = "n", cex = 1) # B_eaten_as_prey rho
-        }
-
-        if (j == 1) {
-          if(!is.null(model_names)){
-            legend(
-              "topright",
-              legend = model_names,
-              lty = rep(1, length(line_col)),
-              lwd = lwd,
-              col = line_col,
-              bty = "n",
-              cex = mod_cex
-            )
-          }
-        }
-
-
-
-        # Mean B_eaten_as_prey
-        for (k in 1:dim(B_eaten_as_prey)[3]) {
-          lines(
-            x = Years[[k]],
-            y = B_eaten_as_prey[spp, 1:length(Years[[k]]), k],
-            lty = 1,
-            lwd = lwd,
-            col = line_col[k]
-          ) # Median
-        }
-
-        # Average across time
-        if(incl_mean){
-          abline(h = mean(B_eaten_as_prey[spp, 1:length(Years[[1]]), ]), lwd  = lwd, col = "grey", lty = 1)
-        }
-      }
-
-
-      if (i == 2) {
-        dev.off()
-      }
+    # - Model average
+    if(mod_avg[i]){
+      log_quantity_sd[,  1:nyrs_vec[i], i] <- apply(Rceattle[[i]]$asymptotic_samples$B_eaten_as_prey[,1:nyrs_vec[i],], c(1,2), function(x) sd(as.vector(log(x))))
+      log_quantity_mu[,  1:nyrs_vec[i], i] <- apply(Rceattle[[i]]$asymptotic_samples$B_eaten_as_prey[,1:nyrs_vec[i],], c(1,2), function(x) mean(as.vector(log(x))))
     }
   }
+
+  ## Get confidence intervals
+  # - Single model
+  if(!mse){
+    quantity_upper95 <- quantity + quantity_sd * 1.92
+    quantity_lower95 <- quantity - quantity_sd * 1.92
+  }
+
+  # - MSE objects
+  if(mse){
+    ptarget <- ptarget[1]
+    plimit <- plimit[1]
+
+    # -- Get quantiles and mean across simulations
+    quantity_upper95 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.975) )
+    quantity_lower95 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.025) )
+    quantity_upper50 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.75) )
+    quantity_lower50 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.25) )
+    quantity <- apply( quantity, c(1,2), mean ) # Get mean quantity
+
+    # -- Put back in array for indexing below
+    quantity <- array(quantity, dim = c(nspp, nyrs,  1))
+    quantity_upper95 <- array(quantity_upper95, dim = c(nspp, nyrs,  1))
+    quantity_lower95 <- array(quantity_lower95, dim = c(nspp, nyrs,  1))
+    quantity_upper50 <- array(quantity_upper50, dim = c(nspp, nyrs,  1))
+    quantity_lower50<- array(quantity_lower50, dim = c(nspp, nyrs,  1))
+  }
+
+  # - Model Average
+  for (i in 1:length(Rceattle)) {
+    if(mod_avg[i]){
+      quantity[,,i] <- qlnorm(0.5, meanlog = log_quantity_mu[,,i], sdlog = log_quantity_sd[,,i])
+      quantity_upper95[,,i] <- qlnorm(0.975, meanlog = log_quantity_mu[,,i], sdlog = log_quantity_sd[,,i])
+      quantity_lower95[,,i] <- qlnorm(0.025, meanlog = log_quantity_mu[,,i], sdlog = log_quantity_sd[,,i])
+    }
+  }
+
+  # - Rescale
+  quantity <- quantity / 1000000
+  quantity_upper95 <- quantity_upper95 / 1000000
+  quantity_lower95 <- quantity_lower95 / 1000000
+  quantity_upper50 <- quantity_upper50 / 1000000
+  quantity_lower50 <- quantity_lower50 / 1000000
+
+
+  ## Save
+  if (save) {
+    for (i in 1:nspp) {
+      dat <- data.frame(quantity[i, , ])
+      datup <- data.frame(quantity_upper95[i, , ])
+      datlow <- data.frame(quantity_lower95[i, , ])
+
+      dat_new <- cbind(dat[, 1], datlow[, 1], datup[, 1])
+      colnames(dat_new) <- rep(model_names[1], 3)
+
+      for (j in 2:ncol(dat)) {
+        dat_new2 <- cbind(dat[, j], datlow[, j], datup[, j])
+        colnames(dat_new2) <- rep(model_names[j], 3)
+        dat_new <- cbind(dat_new, dat_new2)
+
+      }
+
+      write.csv(dat_new, file = paste0(file, "_b_eaten_as_prey_trajectory", i, ".csv"))
+    }
+  }
+
+
+  ## Plot limits
+  ymax <- c()
+  ymin <- c()
+  for (sp in 1:nspp) {
+    if (add_ci & (estDynamics[sp] == 0)) {
+      ymax[sp] <- max(c(quantity_upper95[sp, , ], 0), na.rm = T)
+      ymin[sp] <- min(c(quantity_upper95[sp, , ], 0), na.rm = T)
+    } else{
+      ymax[sp] <- max(c(quantity[sp, , ], 0), na.rm = T)
+      ymin[sp] <- min(c(quantity[sp, , ], 0), na.rm = T)
+    }
+  }
+  ymax <- ymax * 1.2
+
+  if (is.null(line_col)) {
+    if(!mse){
+      line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
+    }
+    if(mse){
+      line_col <- 1
+    }
+  }
+
+
+  # Plot trajectory
+  loops <- ifelse(is.null(file), 1, 2)
+  for (i in 1:loops) {
+    if (i == 2) {
+      filename <- paste0(file, "_b_eaten_as_prey_trajectory", ".png")
+      png(
+        file = filename ,
+        width = width,# 169 / 25.4,
+        height = height,# 150 / 25.4,
+        units = "in",
+        res = 300
+      )
+    }
+
+    # Plot configuration
+    layout(matrix(1:(length(spp) + 2), nrow = (length(spp) + 2)), heights = c(0.1, rep(1, length(spp)), 0.2))
+    par(
+      mar = c(0, 3 , 0 , 1) ,
+      oma = c(0 , 0 , 0 , 0),
+      tcl = -0.35,
+      mgp = c(1.75, 0.5, 0)
+    )
+    plot.new()
+
+    for (j in 1:length(spp)) {
+      plot(
+        y = NA,
+        x = NA,
+        ylim = c(ymin[spp[j]], ymax[spp[j]]),
+        xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
+        xlab = "Year",
+        ylab = "Biomass consumed (million t)",
+        xaxt = c(rep("n", length(spp) - 1), "s")[j]
+      )
+
+      # Horizontal line at end yr
+      if(incl_proj){
+        abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
+      }
+
+      # Legends
+      legend("topleft",
+             legend = spnames[spp[j]],
+             bty = "n",
+             cex = 1)
+
+      if (spp[j] == 1) {
+        if(!is.null(model_names)){
+          legend(
+            "topright",
+            legend = model_names,
+            lty = rep(1, length(line_col)),
+            lwd = lwd,
+            col = line_col,
+            bty = "n",
+            cex = mod_cex
+          )
+        }
+      }
+
+
+      # Credible interval
+      if(estDynamics[spp[j]] == 0){
+        if (add_ci) {
+          for (k in 1:dim(quantity)[3]) {
+            # - 95% CI
+            polygon(
+              x = c(Years[[k]], rev(Years[[k]])),
+              y = c(quantity_upper95[spp[j], 1:length(Years[[k]]), k], rev(quantity_lower95[spp[j], 1:length(Years[[k]]), k])),
+              col = adjustcolor( line_col[k], alpha.f = alpha/2),
+              border = NA
+            )
+
+            # - 50% CI
+            if(mse){
+              polygon(
+                x = c(Years[[k]], rev(Years[[k]])),
+                y = c(quantity_upper50[spp[j], 1:length(Years[[k]]), k], rev(quantity_lower50[spp[j], 1:length(Years[[k]]), k])),
+                col = adjustcolor( line_col[k], alpha.f = alpha),
+                border = NA
+              )
+            }
+          }
+        }
+      }
+
+      # Mean quantity
+      for (k in 1:dim(quantity)[3]) {
+        lines(
+          x = Years[[k]],
+          y = quantity[spp[j], 1:length(Years[[k]]), k],
+          lty = 1,
+          lwd = lwd,
+          col = line_col[k]
+        ) # Median
+      }
+    }
+
+
+    if (i == 2) {
+      dev.off()
+    }
+  }
+}
 
 
 
@@ -2276,35 +2518,52 @@ plot_m2_at_age_prop <-
 #' @param minyr First year to plot
 #' @param height
 #' @param width
-#' @param save Save depletion?
+#' @param save Save output?
 #' @param incl_proj TRUE/FALSE, include projection years
 #' @param mod_cex Cex of text for model name legend
+#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}
+#' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
 #'
 #' @export
 #'
 #' @return Returns and saves a figure with the population trajectory.
 plot_depletionSSB <- function(Rceattle,
-                           file = NULL,
-                           model_names = NULL,
-                           line_col = NULL,
-                           species = NULL,
-                           spnames = NULL,
-                           add_ci = FALSE,
-                           lwd = 3,
-                           save = FALSE,
-                           right_adj = 0,
-                           width = 7,
-                           height = 6.5,
-                           minyr = NULL,
-                           incl_proj = FALSE,
-                           mod_cex = 1,
-                           alpha = 0.4,
-                           mod_avg = rep(FALSE, length(Rceattle))) {
+                              file = NULL,
+                              model_names = NULL,
+                              line_col = NULL,
+                              species = NULL,
+                              spnames = NULL,
+                              add_ci = FALSE,
+                              lwd = 3,
+                              save = FALSE,
+                              right_adj = 0,
+                              width = 7,
+                              height = 6.5,
+                              minyr = NULL,
+                              incl_proj = FALSE,
+                              mod_cex = 1,
+                              alpha = 0.4,
+                              mod_avg = rep(FALSE, length(Rceattle)),
+                              mse = FALSE,
+                              OM = TRUE) {
+
+  # Convert mse object to Rceattle list
+  if(mse){
+    if(OM){
+      Rceattle <- lapply(Rceattle, function(x) x$OM)
+    }
+    if(!OM){
+      Rceattle <- lapply(Rceattle, function(x) x$EM[[length(x$EM)]])
+    }
+    add_ci = TRUE
+  }
+
 
   # Convert single one into a list
   if(class(Rceattle) == "Rceattle"){
     Rceattle <- list(Rceattle)
   }
+
 
   # Species names
   if(is.null(spnames)){
@@ -2329,22 +2588,21 @@ plot_depletionSSB <- function(Rceattle,
   minage <- Rceattle[[1]]$data_list$minage
   estDynamics <- Rceattle[[1]]$data_list$estDynamics
 
-  if(is.null(species)){
 
+  if(is.null(species)){
     species <- 1:nspp
   }
-
   spp <- spp[which(spp %in% species)]
 
 
   # Get depletion
-  depletion <-
+  quantity <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
-  depletion_sd <-
+  quantity_sd <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
-  log_depletion_sd <-
+  log_quantity_sd <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
-  log_depletion_mu <-
+  log_quantity_mu <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
   ptarget = c()
   plimit = c()
@@ -2352,48 +2610,61 @@ plot_depletionSSB <- function(Rceattle,
   for (i in 1:length(Rceattle)) {
     ptarget[i] <- Rceattle[[i]]$data_list$Ptarget
     plimit[i] <- Rceattle[[i]]$data_list$Plimit
-
-    if(Rceattle[[i]]$data_list$DynamicHCR){ # Dynamic B0
-      depletion[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$biomassSSB[,1:nyrs_vec[i]]/Rceattle[[i]]$quantities$DynamicSB0[,1:nyrs_vec[i]]
-    } else { # Equilibrium B0
-      depletion[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$biomassSSB[,1:nyrs_vec[i]]/Rceattle[[i]]$quantities$SB0
-    }
+    quantity[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$depletionSSB[,1:nyrs_vec[i]]
 
 
-    # Get SD of depletion
-    if(add_ci){
+    # Get SD of quantity
+    if(add_ci & !mse){
       sd_temp <- which(names(Rceattle[[i]]$sdrep$value) == "depletionSSB")
       sd_temp <- Rceattle[[i]]$sdrep$sd[sd_temp]
-      depletion_sd[,  1:nyrs_vec[i], i] <-
-        replace(depletion_sd[, 1:nyrs_vec[i], i], values = sd_temp[1:(nyrs_vec[i] * nspp)])
+      quantity_sd[,  1:nyrs_vec[i], i] <-
+        replace(quantity_sd[, 1:nyrs_vec[i], i], values = sd_temp[1:(nyrs_vec[i] * nspp)])
     }
-    #
-    # if(mod_avg[i]){
-    #   log_depletion_sd[,  1:nyrs_vec[i], i] <- apply(Rceattle[[i]]$asymptotic_samples$depletionSSB[,1:nyrs_vec[i],], c(1,2), function(x) sd(as.vector(log(x))))
-    #   log_depletion_mu[,  1:nyrs_vec[i], i] <- apply(Rceattle[[i]]$asymptotic_samples$depletionSSB[,1:nyrs_vec[i],], c(1,2), function(x) mean(as.vector(log(x))))
-    # }
   }
 
+  ## Get confidence intervals
+  # - Single model
+  if(!mse){
+    quantity_upper95 <- quantity + quantity_sd * 1.92
+    quantity_lower95 <- quantity - quantity_sd * 1.92
+  }
 
-  # 95% CI
-  depletion_upper <- depletion + depletion_sd * 1.92
-  depletion_lower <- depletion - depletion_sd * 1.92
+  # - MSE objects
+  if(mse){
+    ptarget <- ptarget[1]
+    plimit <- plimit[1]
 
-  # # Model Average
+    # -- Get quantiles and mean across simulations
+    quantity_upper95 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.975) )
+    quantity_lower95 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.025) )
+    quantity_upper50 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.75) )
+    quantity_lower50 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.25) )
+    quantity <- apply( quantity, c(1,2), mean ) # Get mean quantity
+
+    # -- Put back in array for indexing below
+    quantity <- array(quantity, dim = c(nspp, nyrs,  1))
+    quantity_upper95 <- array(quantity_upper95, dim = c(nspp, nyrs,  1))
+    quantity_lower95 <- array(quantity_lower95, dim = c(nspp, nyrs,  1))
+    quantity_upper50 <- array(quantity_upper50, dim = c(nspp, nyrs,  1))
+    quantity_lower50<- array(quantity_lower50, dim = c(nspp, nyrs,  1))
+  }
+
+  # # - Model Average
   # for (i in 1:length(Rceattle)) {
   #   if(mod_avg[i]){
-  #     depletion[,,i] <- qlnorm(0.5, meanlog = log_depletion_mu[,,i], sdlog = log_depletion_sd[,,i]) / 1000000
-  #     depletion_upper[,,i] <- qlnorm(0.975, meanlog = log_depletion_mu[,,i], sdlog = log_depletion_sd[,,i]) / 1000000
-  #     depletion_lower[,,i] <- qlnorm(0.025, meanlog = log_depletion_mu[,,i], sdlog = log_depletion_sd[,,i]) / 1000000
+  #     quantity[,,i] <- qlnorm(0.5, meanlog = log_quantity_mu[,,i], sdlog = log_quantity_sd[,,i]) / 1000000
+  #     quantity_upper95[,,i] <- qlnorm(0.975, meanlog = log_quantity_mu[,,i], sdlog = log_quantity_sd[,,i]) / 1000000
+  #     quantity_lower95[,,i] <- qlnorm(0.025, meanlog = log_quantity_mu[,,i], sdlog = log_quantity_sd[,,i]) / 1000000
   #   }
   # }
 
 
+  ## Save
   if (save) {
     for (i in 1:nspp) {
-      dat <- data.frame(depletion[i, , ])
-      datup <- data.frame(depletion_upper[i, , ])
-      datlow <- data.frame(depletion_lower[i, , ])
+      dat <- data.frame(quantity[i, , ])
+      datup <- data.frame(quantity_upper95[i, , ])
+      datlow <- data.frame(quantity_lower95[i, , ])
 
       dat_new <- cbind(dat[, 1], datlow[, 1], datup[, 1])
       colnames(dat_new) <- rep(model_names[1], 3)
@@ -2405,30 +2676,32 @@ plot_depletionSSB <- function(Rceattle,
 
       }
 
-
-      filename <-
-        paste0(file, "_depletion_species_", i, ".csv")
-      write.csv(dat_new, file = filename)
+      write.csv(dat_new, file = paste0(file, "_depletionssb_species_", i, ".csv"))
     }
   }
 
 
-  # Plot limits
+  ## Plot limits
   ymax <- c()
   ymin <- c()
   for (sp in 1:nspp) {
     if (add_ci & (estDynamics[sp] == 0)) {
-      ymax[sp] <- max(c(depletion_upper[sp, , ], 0), na.rm = T)
-      ymin[sp] <- min(c(depletion_upper[sp, , ], 0), na.rm = T)
+      ymax[sp] <- max(c(quantity_upper95[sp, , ], 0), na.rm = T)
+      ymin[sp] <- min(c(quantity_upper95[sp, , ], 0), na.rm = T)
     } else{
-      ymax[sp] <- max(c(depletion[sp, , ], 0), na.rm = T)
-      ymin[sp] <- min(c(depletion[sp, , ], 0), na.rm = T)
+      ymax[sp] <- max(c(quantity[sp, , ], 0), na.rm = T)
+      ymin[sp] <- min(c(quantity[sp, , ], 0), na.rm = T)
     }
   }
   ymax <- ymax * 1.2
 
   if (is.null(line_col)) {
-    line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
+    if(!mse){
+      line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
+    }
+    if(mse){
+      line_col <- 1
+    }
   }
 
 
@@ -2436,7 +2709,7 @@ plot_depletionSSB <- function(Rceattle,
   loops <- ifelse(is.null(file), 1, 2)
   for (i in 1:loops) {
     if (i == 2) {
-      filename <- paste0(file, "_depletion_trajectory", ".png")
+      filename <- paste0(file, "_depletionssb_trajectory", ".png")
       png(
         file = filename ,
         width = width,# 169 / 25.4,
@@ -2496,22 +2769,33 @@ plot_depletionSSB <- function(Rceattle,
       # Credible interval
       if(estDynamics[spp[j]] == 0){
         if (add_ci) {
-          for (k in 1:dim(depletion)[3]) {
+          for (k in 1:dim(quantity)[3]) {
+            # - 95% CI
             polygon(
               x = c(Years[[k]], rev(Years[[k]])),
-              y = c(depletion_upper[spp[j], 1:length(Years[[k]]), k], rev(depletion_lower[spp[j], 1:length(Years[[k]]), k])),
-              col = adjustcolor( line_col[k], alpha.f = alpha),
+              y = c(quantity_upper95[spp[j], 1:length(Years[[k]]), k], rev(quantity_lower95[spp[j], 1:length(Years[[k]]), k])),
+              col = adjustcolor( line_col[k], alpha.f = alpha/2),
               border = NA
-            ) # 95% CI
+            )
+
+            # - 50% CI
+            if(mse){
+              polygon(
+                x = c(Years[[k]], rev(Years[[k]])),
+                y = c(quantity_upper50[spp[j], 1:length(Years[[k]]), k], rev(quantity_lower50[spp[j], 1:length(Years[[k]]), k])),
+                col = adjustcolor( line_col[k], alpha.f = alpha),
+                border = NA
+              )
+            }
           }
         }
       }
 
-      # Mean depletion
-      for (k in 1:dim(depletion)[3]) {
+      # Mean quantity
+      for (k in 1:dim(quantity)[3]) {
         lines(
           x = Years[[k]],
-          y = depletion[spp[j], 1:length(Years[[k]]), k],
+          y = quantity[spp[j], 1:length(Years[[k]]), k],
           lty = 1,
           lwd = lwd,
           col = line_col[k]
@@ -2556,27 +2840,42 @@ plot_depletionSSB <- function(Rceattle,
 #'
 #' @return Returns and saves a figure with the population trajectory.
 plot_depletion <- function(Rceattle,
-                              file = NULL,
-                              model_names = NULL,
-                              line_col = NULL,
-                              species = NULL,
-                              spnames = NULL,
-                              add_ci = FALSE,
-                              lwd = 3,
-                              save = FALSE,
-                              right_adj = 0,
-                              width = 7,
-                              height = 6.5,
-                              minyr = NULL,
-                              incl_proj = FALSE,
-                              mod_cex = 1,
-                              alpha = 0.4,
-                              mod_avg = rep(FALSE, length(Rceattle))) {
+                           file = NULL,
+                           model_names = NULL,
+                           line_col = NULL,
+                           species = NULL,
+                           spnames = NULL,
+                           add_ci = FALSE,
+                           lwd = 3,
+                           save = FALSE,
+                           right_adj = 0,
+                           width = 7,
+                           height = 6.5,
+                           minyr = NULL,
+                           incl_proj = FALSE,
+                           mod_cex = 1,
+                           alpha = 0.4,
+                           mod_avg = rep(FALSE, length(Rceattle)),
+                           mse = FALSE,
+                           OM = TRUE) {
+
+  # Convert mse object to Rceattle list
+  if(mse){
+    if(OM){
+      Rceattle <- lapply(Rceattle, function(x) x$OM)
+    }
+    if(!OM){
+      Rceattle <- lapply(Rceattle, function(x) x$EM[[length(x$EM)]])
+    }
+    add_ci = TRUE
+  }
+
 
   # Convert single one into a list
   if(class(Rceattle) == "Rceattle"){
     Rceattle <- list(Rceattle)
   }
+
 
   # Species names
   if(is.null(spnames)){
@@ -2601,22 +2900,21 @@ plot_depletion <- function(Rceattle,
   minage <- Rceattle[[1]]$data_list$minage
   estDynamics <- Rceattle[[1]]$data_list$estDynamics
 
-  if(is.null(species)){
 
+  if(is.null(species)){
     species <- 1:nspp
   }
-
   spp <- spp[which(spp %in% species)]
 
 
   # Get depletion
-  depletion <-
+  quantity <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
-  depletion_sd <-
+  quantity_sd <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
-  log_depletion_sd <-
+  log_quantity_sd <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
-  log_depletion_mu <-
+  log_quantity_mu <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
   ptarget = c()
   plimit = c()
@@ -2624,48 +2922,61 @@ plot_depletion <- function(Rceattle,
   for (i in 1:length(Rceattle)) {
     ptarget[i] <- Rceattle[[i]]$data_list$Ptarget
     plimit[i] <- Rceattle[[i]]$data_list$Plimit
-
-    if(Rceattle[[i]]$data_list$DynamicHCR){ # Dynamic B0
-      depletion[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$biomass[,1:nyrs_vec[i]]/Rceattle[[i]]$quantities$DynamicB0[,1:nyrs_vec[i]]
-    } else { # Equilibrium B0
-      depletion[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$biomass[,1:nyrs_vec[i]]/Rceattle[[i]]$quantities$B0
-    }
+    quantity[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$depletionSSB[,1:nyrs_vec[i]]
 
 
-    # Get SD of depletion
-    if(add_ci){
+    # Get SD of quantity
+    if(add_ci & !mse){
       sd_temp <- which(names(Rceattle[[i]]$sdrep$value) == "depletionSSB")
       sd_temp <- Rceattle[[i]]$sdrep$sd[sd_temp]
-      depletion_sd[,  1:nyrs_vec[i], i] <-
-        replace(depletion_sd[, 1:nyrs_vec[i], i], values = sd_temp[1:(nyrs_vec[i] * nspp)])
+      quantity_sd[,  1:nyrs_vec[i], i] <-
+        replace(quantity_sd[, 1:nyrs_vec[i], i], values = sd_temp[1:(nyrs_vec[i] * nspp)])
     }
-    #
-    # if(mod_avg[i]){
-    #   log_depletion_sd[,  1:nyrs_vec[i], i] <- apply(Rceattle[[i]]$asymptotic_samples$depletionSSB[,1:nyrs_vec[i],], c(1,2), function(x) sd(as.vector(log(x))))
-    #   log_depletion_mu[,  1:nyrs_vec[i], i] <- apply(Rceattle[[i]]$asymptotic_samples$depletionSSB[,1:nyrs_vec[i],], c(1,2), function(x) mean(as.vector(log(x))))
-    # }
   }
 
+  ## Get confidence intervals
+  # - Single model
+  if(!mse){
+    quantity_upper95 <- quantity + quantity_sd * 1.92
+    quantity_lower95 <- quantity - quantity_sd * 1.92
+  }
 
-  # 95% CI
-  depletion_upper <- depletion + depletion_sd * 1.92
-  depletion_lower <- depletion - depletion_sd * 1.92
+  # - MSE objects
+  if(mse){
+    ptarget <- ptarget[1]
+    plimit <- plimit[1]
 
-  # # Model Average
+    # -- Get quantiles and mean across simulations
+    quantity_upper95 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.975) )
+    quantity_lower95 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.025) )
+    quantity_upper50 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.75) )
+    quantity_lower50 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.25) )
+    quantity <- apply( quantity, c(1,2), mean ) # Get mean quantity
+
+    # -- Put back in array for indexing below
+    quantity <- array(quantity, dim = c(nspp, nyrs,  1))
+    quantity_upper95 <- array(quantity_upper95, dim = c(nspp, nyrs,  1))
+    quantity_lower95 <- array(quantity_lower95, dim = c(nspp, nyrs,  1))
+    quantity_upper50 <- array(quantity_upper50, dim = c(nspp, nyrs,  1))
+    quantity_lower50<- array(quantity_lower50, dim = c(nspp, nyrs,  1))
+  }
+
+  # # - Model Average
   # for (i in 1:length(Rceattle)) {
   #   if(mod_avg[i]){
-  #     depletion[,,i] <- qlnorm(0.5, meanlog = log_depletion_mu[,,i], sdlog = log_depletion_sd[,,i]) / 1000000
-  #     depletion_upper[,,i] <- qlnorm(0.975, meanlog = log_depletion_mu[,,i], sdlog = log_depletion_sd[,,i]) / 1000000
-  #     depletion_lower[,,i] <- qlnorm(0.025, meanlog = log_depletion_mu[,,i], sdlog = log_depletion_sd[,,i]) / 1000000
+  #     quantity[,,i] <- qlnorm(0.5, meanlog = log_quantity_mu[,,i], sdlog = log_quantity_sd[,,i]) / 1000000
+  #     quantity_upper95[,,i] <- qlnorm(0.975, meanlog = log_quantity_mu[,,i], sdlog = log_quantity_sd[,,i]) / 1000000
+  #     quantity_lower95[,,i] <- qlnorm(0.025, meanlog = log_quantity_mu[,,i], sdlog = log_quantity_sd[,,i]) / 1000000
   #   }
   # }
 
 
+  ## Save
   if (save) {
     for (i in 1:nspp) {
-      dat <- data.frame(depletion[i, , ])
-      datup <- data.frame(depletion_upper[i, , ])
-      datlow <- data.frame(depletion_lower[i, , ])
+      dat <- data.frame(quantity[i, , ])
+      datup <- data.frame(quantity_upper95[i, , ])
+      datlow <- data.frame(quantity_lower95[i, , ])
 
       dat_new <- cbind(dat[, 1], datlow[, 1], datup[, 1])
       colnames(dat_new) <- rep(model_names[1], 3)
@@ -2677,30 +2988,32 @@ plot_depletion <- function(Rceattle,
 
       }
 
-
-      filename <-
-        paste0(file, "_depletion_species_", i, ".csv")
-      write.csv(dat_new, file = filename)
+      write.csv(dat_new, file = paste0(file, "_depletion_species_", i, ".csv"))
     }
   }
 
 
-  # Plot limits
+  ## Plot limits
   ymax <- c()
   ymin <- c()
   for (sp in 1:nspp) {
     if (add_ci & (estDynamics[sp] == 0)) {
-      ymax[sp] <- max(c(depletion_upper[sp, , ], 0), na.rm = T)
-      ymin[sp] <- min(c(depletion_upper[sp, , ], 0), na.rm = T)
+      ymax[sp] <- max(c(quantity_upper95[sp, , ], 0), na.rm = T)
+      ymin[sp] <- min(c(quantity_upper95[sp, , ], 0), na.rm = T)
     } else{
-      ymax[sp] <- max(c(depletion[sp, , ], 0), na.rm = T)
-      ymin[sp] <- min(c(depletion[sp, , ], 0), na.rm = T)
+      ymax[sp] <- max(c(quantity[sp, , ], 0), na.rm = T)
+      ymin[sp] <- min(c(quantity[sp, , ], 0), na.rm = T)
     }
   }
   ymax <- ymax * 1.2
 
   if (is.null(line_col)) {
-    line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
+    if(!mse){
+      line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
+    }
+    if(mse){
+      line_col <- 1
+    }
   }
 
 
@@ -2768,22 +3081,33 @@ plot_depletion <- function(Rceattle,
       # Credible interval
       if(estDynamics[spp[j]] == 0){
         if (add_ci) {
-          for (k in 1:dim(depletion)[3]) {
+          for (k in 1:dim(quantity)[3]) {
+            # - 95% CI
             polygon(
               x = c(Years[[k]], rev(Years[[k]])),
-              y = c(depletion_upper[spp[j], 1:length(Years[[k]]), k], rev(depletion_lower[spp[j], 1:length(Years[[k]]), k])),
-              col = adjustcolor( line_col[k], alpha.f = alpha),
+              y = c(quantity_upper95[spp[j], 1:length(Years[[k]]), k], rev(quantity_lower95[spp[j], 1:length(Years[[k]]), k])),
+              col = adjustcolor( line_col[k], alpha.f = alpha/2),
               border = NA
-            ) # 95% CI
+            )
+
+            # - 50% CI
+            if(mse){
+              polygon(
+                x = c(Years[[k]], rev(Years[[k]])),
+                y = c(quantity_upper50[spp[j], 1:length(Years[[k]]), k], rev(quantity_lower50[spp[j], 1:length(Years[[k]]), k])),
+                col = adjustcolor( line_col[k], alpha.f = alpha),
+                border = NA
+              )
+            }
           }
         }
       }
 
-      # Mean depletion
-      for (k in 1:dim(depletion)[3]) {
+      # Mean quantity
+      for (k in 1:dim(quantity)[3]) {
         lines(
           x = Years[[k]],
-          y = depletion[spp[j], 1:length(Years[[k]]), k],
+          y = quantity[spp[j], 1:length(Years[[k]]), k],
           lty = 1,
           lwd = lwd,
           col = line_col[k]
@@ -2792,6 +3116,323 @@ plot_depletion <- function(Rceattle,
         # Ptarget and plimit
         abline(h= ptarget[k], lwd = lwd/2, col = "blue")
         abline(h= plimit[k], lwd = lwd/2, col = "red")
+      }
+    }
+
+
+    if (i == 2) {
+      dev.off()
+    }
+  }
+}
+
+
+#' plot F
+#'
+#' @description Function the plots the F time series per species from Rceattle
+#'
+#' @param file name of a file to identified the files exported by the
+#'   function.
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param model_names Names of models to be used in legend
+#' @param line_col Colors of models to be used for line color
+#' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
+#' @param spnames Species names for legend
+#' @param add_ci NOT WORKING If the confidence interval is to be added
+#' @param lwd Line width as specified by user
+#' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#' @param minyr First year to plot
+#' @param height
+#' @param width
+#' @param save Save output?
+#' @param incl_proj TRUE/FALSE, include projection years
+#' @param mod_cex Cex of text for model name legend
+#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}
+#' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
+#'
+#' @export
+#'
+#' @return Returns and saves a figure with the population trajectory.
+plot_f <- function(Rceattle,
+                   file = NULL,
+                   model_names = NULL,
+                   line_col = NULL,
+                   species = NULL,
+                   spnames = NULL,
+                   add_ci = FALSE,
+                   lwd = 3,
+                   save = FALSE,
+                   right_adj = 0,
+                   width = 7,
+                   height = 6.5,
+                   minyr = NULL,
+                   incl_proj = FALSE,
+                   mod_cex = 1,
+                   alpha = 0.4,
+                   mod_avg = rep(FALSE, length(Rceattle)),
+                   mse = FALSE,
+                   OM = TRUE) {
+
+  # Convert mse object to Rceattle list
+  if(mse){
+    if(OM){
+      Rceattle <- lapply(Rceattle, function(x) x$OM)
+    }
+    if(!OM){
+      Rceattle <- lapply(Rceattle, function(x) x$EM[[length(x$EM)]])
+    }
+    add_ci = TRUE
+  }
+
+
+  # Convert single one into a list
+  if(class(Rceattle) == "Rceattle"){
+    Rceattle <- list(Rceattle)
+  }
+
+
+  # Species names
+  if(is.null(spnames)){
+    spnames =  Rceattle[[1]]$data_list$spnames
+  }
+
+  # Extract data objects
+  Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
+  Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
+  if(incl_proj){
+    Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
+  }
+
+  max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
+  nyrs_vec <- sapply(Years, length)
+  nyrs <- max(nyrs_vec)
+  maxyr <- max((sapply(Years, max)))
+  if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
+
+  nspp <- Rceattle[[1]]$data_list$nspp
+  spp <- 1:nspp
+  minage <- Rceattle[[1]]$data_list$minage
+  estDynamics <- Rceattle[[1]]$data_list$estDynamics
+
+
+  if(is.null(species)){
+    species <- 1:nspp
+  }
+  spp <- spp[which(spp %in% species)]
+
+
+  # Get depletion
+  quantity <- quantity_sd <- log_quantity_sd <- log_quantity_mu <-  ptarget <- plimit <- array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
+
+  for (i in 1:length(Rceattle)) {
+    ptarget[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$Ftarget[,1:nyrs_vec[i]]
+    plimit[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$Flimit[,1:nyrs_vec[i]]
+    quantity[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$F_spp[,1:nyrs_vec[i]]
+
+
+    # Get SD of quantity
+    if(add_ci & !mse){
+      sd_temp <- which(names(Rceattle[[i]]$sdrep$value) == "F_spp")
+      sd_temp <- Rceattle[[i]]$sdrep$sd[sd_temp]
+      quantity_sd[,  1:nyrs_vec[i], i] <-
+        replace(quantity_sd[, 1:nyrs_vec[i], i], values = sd_temp[1:(nyrs_vec[i] * nspp)])
+    }
+  }
+
+  ## Get confidence intervals
+  # - Single model
+  if(!mse){
+    quantity_upper95 <- quantity + quantity_sd * 1.92
+    quantity_lower95 <- quantity - quantity_sd * 1.92
+  }
+
+  # - MSE objects
+  if(mse){
+
+    # -- Get quantiles and mean across simulations
+    quantity_upper95 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.975) )
+    quantity_lower95 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.025) )
+    quantity_upper50 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.75) )
+    quantity_lower50 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.25) )
+    quantity <- apply( quantity, c(1,2), mean ) # Get mean quantity
+
+    # -- Put back in array for indexing below
+    quantity <- array(quantity, dim = c(nspp, nyrs,  1))
+    quantity_upper95 <- array(quantity_upper95, dim = c(nspp, nyrs,  1))
+    quantity_lower95 <- array(quantity_lower95, dim = c(nspp, nyrs,  1))
+    quantity_upper50 <- array(quantity_upper50, dim = c(nspp, nyrs,  1))
+    quantity_lower50<- array(quantity_lower50, dim = c(nspp, nyrs,  1))
+  }
+
+  # # - Model Average
+  # for (i in 1:length(Rceattle)) {
+  #   if(mod_avg[i]){
+  #     quantity[,,i] <- qlnorm(0.5, meanlog = log_quantity_mu[,,i], sdlog = log_quantity_sd[,,i]) / 1000000
+  #     quantity_upper95[,,i] <- qlnorm(0.975, meanlog = log_quantity_mu[,,i], sdlog = log_quantity_sd[,,i]) / 1000000
+  #     quantity_lower95[,,i] <- qlnorm(0.025, meanlog = log_quantity_mu[,,i], sdlog = log_quantity_sd[,,i]) / 1000000
+  #   }
+  # }
+
+
+  ## Save
+  if (save) {
+    for (i in 1:nspp) {
+      dat <- data.frame(quantity[i, , ])
+      datup <- data.frame(quantity_upper95[i, , ])
+      datlow <- data.frame(quantity_lower95[i, , ])
+
+      dat_new <- cbind(dat[, 1], datlow[, 1], datup[, 1])
+      colnames(dat_new) <- rep(model_names[1], 3)
+
+      for (j in 2:ncol(dat)) {
+        dat_new2 <- cbind(dat[, j], datlow[, j], datup[, j])
+        colnames(dat_new2) <- rep(model_names[j], 3)
+        dat_new <- cbind(dat_new, dat_new2)
+
+      }
+
+      write.csv(dat_new, file = paste0(file, "_f_species_", i, ".csv"))
+    }
+  }
+
+
+  ## Plot limits
+  ymax <- c()
+  ymin <- c()
+  for (sp in 1:nspp) {
+    if (add_ci & (estDynamics[sp] == 0)) {
+      ymax[sp] <- max(c(quantity_upper95[sp, , ], 0), na.rm = T)
+      ymin[sp] <- min(c(quantity_upper95[sp, , ], 0), na.rm = T)
+    } else{
+      ymax[sp] <- max(c(quantity[sp, , ], 0), na.rm = T)
+      ymin[sp] <- min(c(quantity[sp, , ], 0), na.rm = T)
+    }
+  }
+  ymax <- ymax * 1.2
+
+  if (is.null(line_col)) {
+    if(!mse){
+      line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
+    }
+    if(mse){
+      line_col <- 1
+    }
+  }
+
+
+  # Plot trajectory
+  loops <- ifelse(is.null(file), 1, 2)
+  for (i in 1:loops) {
+    if (i == 2) {
+      filename <- paste0(file, "_f_trajectory", ".png")
+      png(
+        file = filename ,
+        width = width,# 169 / 25.4,
+        height = height,# 150 / 25.4,
+        units = "in",
+        res = 300
+      )
+    }
+
+    # Plot configuration
+    layout(matrix(1:(length(spp) + 2), nrow = (length(spp) + 2)), heights = c(0.1, rep(1, length(spp)), 0.2))
+    par(
+      mar = c(0, 3 , 0 , 1) ,
+      oma = c(0 , 0 , 0 , 0),
+      tcl = -0.35,
+      mgp = c(1.75, 0.5, 0)
+    )
+    plot.new()
+
+    for (j in 1:length(spp)) {
+      plot(
+        y = NA,
+        x = NA,
+        ylim = c(ymin[spp[j]], ymax[spp[j]]),
+        xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
+        xlab = "Year",
+        ylab = "Fishing mortality",
+        xaxt = c(rep("n", length(spp) - 1), "s")[j]
+      )
+
+      # Horizontal line at end yr
+      if(incl_proj){
+        abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
+      }
+
+      # Legends
+      legend("topleft",
+             legend = spnames[spp[j]],
+             bty = "n",
+             cex = 1)
+
+      if (spp[j] == 1) {
+        if(!is.null(model_names)){
+          legend(
+            "topright",
+            legend = model_names,
+            lty = rep(1, length(line_col)),
+            lwd = lwd,
+            col = line_col,
+            bty = "n",
+            cex = mod_cex
+          )
+        }
+      }
+
+
+      # Credible interval
+      if(estDynamics[spp[j]] == 0){
+        if (add_ci) {
+          for (k in 1:dim(quantity)[3]) {
+            # - 95% CI
+            polygon(
+              x = c(Years[[k]], rev(Years[[k]])),
+              y = c(quantity_upper95[spp[j], 1:length(Years[[k]]), k], rev(quantity_lower95[spp[j], 1:length(Years[[k]]), k])),
+              col = adjustcolor( line_col[k], alpha.f = alpha/2),
+              border = NA
+            )
+
+            # - 50% CI
+            if(mse){
+              polygon(
+                x = c(Years[[k]], rev(Years[[k]])),
+                y = c(quantity_upper50[spp[j], 1:length(Years[[k]]), k], rev(quantity_lower50[spp[j], 1:length(Years[[k]]), k])),
+                col = adjustcolor( line_col[k], alpha.f = alpha),
+                border = NA
+              )
+            }
+          }
+        }
+      }
+
+      # Mean quantity
+      for (k in 1:dim(quantity)[3]) {
+        lines(
+          x = Years[[k]],
+          y = quantity[spp[j], 1:length(Years[[k]]), k],
+          lty = 1,
+          lwd = lwd,
+          col = line_col[k]
+        ) # Median
+
+        # - Ftarget
+        lines(
+          x = Years[[k]],
+          y = ptarget[spp[j], 1:length(Years[[k]]), k],
+          lty = 1,
+          lwd = lwd/2,
+          col = "blue"
+        )
+
+        # - Flimit
+        lines(
+          x = Years[[k]],
+          y = plimit[spp[j], 1:length(Years[[k]]), k],
+          lty = 1,
+          lwd = lwd/2,
+          col = "red"
+        )
       }
     }
 
