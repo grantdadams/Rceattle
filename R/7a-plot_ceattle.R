@@ -153,6 +153,9 @@ plot_biomass <- function(Rceattle,
   if(!mse){
     quantity_upper95 <- quantity + quantity_sd * 1.92
     quantity_lower95 <- quantity - quantity_sd * 1.92
+
+    quantity_upper50 <- quantity + quantity_sd * 0.674
+    quantity_lower50 <- quantity - quantity_sd * 0.674
   }
 
   # - MSE objects
@@ -1370,6 +1373,9 @@ plot_ssb <- function(Rceattle,
   if(!mse){
     quantity_upper95 <- quantity + quantity_sd * 1.92
     quantity_lower95 <- quantity - quantity_sd * 1.92
+
+    quantity_upper50 <- quantity + quantity_sd * 0.674
+    quantity_lower50 <- quantity - quantity_sd * 0.674
   }
 
   # - MSE objects
@@ -1689,6 +1695,9 @@ plot_b_eaten <-  function(Rceattle,
   if(!mse){
     quantity_upper95 <- quantity + quantity_sd * 1.92
     quantity_lower95 <- quantity - quantity_sd * 1.92
+
+    quantity_upper50 <- quantity + quantity_sd * 0.674
+    quantity_lower50 <- quantity - quantity_sd * 0.674
   }
 
   # - MSE objects
@@ -2627,6 +2636,9 @@ plot_depletionSSB <- function(Rceattle,
   if(!mse){
     quantity_upper95 <- quantity + quantity_sd * 1.92
     quantity_lower95 <- quantity - quantity_sd * 1.92
+
+    quantity_upper50 <- quantity + quantity_sd * 0.674
+    quantity_lower50 <- quantity - quantity_sd * 0.674
   }
 
   # - MSE objects
@@ -2922,12 +2934,12 @@ plot_depletion <- function(Rceattle,
   for (i in 1:length(Rceattle)) {
     ptarget[i] <- Rceattle[[i]]$data_list$Ptarget
     plimit[i] <- Rceattle[[i]]$data_list$Plimit
-    quantity[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$depletionSSB[,1:nyrs_vec[i]]
+    quantity[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$depletion[,1:nyrs_vec[i]]
 
 
     # Get SD of quantity
     if(add_ci & !mse){
-      sd_temp <- which(names(Rceattle[[i]]$sdrep$value) == "depletionSSB")
+      sd_temp <- which(names(Rceattle[[i]]$sdrep$value) == "depletion")
       sd_temp <- Rceattle[[i]]$sdrep$sd[sd_temp]
       quantity_sd[,  1:nyrs_vec[i], i] <-
         replace(quantity_sd[, 1:nyrs_vec[i], i], values = sd_temp[1:(nyrs_vec[i] * nspp)])
@@ -2939,6 +2951,9 @@ plot_depletion <- function(Rceattle,
   if(!mse){
     quantity_upper95 <- quantity + quantity_sd * 1.92
     quantity_lower95 <- quantity - quantity_sd * 1.92
+
+    quantity_upper50 <- quantity + quantity_sd * 0.674
+    quantity_lower50 <- quantity - quantity_sd * 0.674
   }
 
   # - MSE objects
@@ -3244,6 +3259,9 @@ plot_f <- function(Rceattle,
   if(!mse){
     quantity_upper95 <- quantity + quantity_sd * 1.92
     quantity_lower95 <- quantity - quantity_sd * 1.92
+
+    quantity_upper50 <- quantity + quantity_sd * 0.674
+    quantity_lower50 <- quantity - quantity_sd * 0.674
   }
 
   # - MSE objects

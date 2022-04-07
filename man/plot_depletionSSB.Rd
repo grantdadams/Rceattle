@@ -21,7 +21,9 @@ plot_depletionSSB(
   incl_proj = FALSE,
   mod_cex = 1,
   alpha = 0.4,
-  mod_avg = rep(FALSE, length(Rceattle))
+  mod_avg = rep(FALSE, length(Rceattle)),
+  mse = FALSE,
+  OM = TRUE
 )
 }
 \arguments{
@@ -42,7 +44,7 @@ function.}
 
 \item{lwd}{Line width as specified by user}
 
-\item{save}{Save depletion?}
+\item{save}{Save output?}
 
 \item{right_adj}{How many units of the x-axis to add to the right side of the figure for fitting the legend.}
 
@@ -51,6 +53,10 @@ function.}
 \item{incl_proj}{TRUE/FALSE, include projection years}
 
 \item{mod_cex}{Cex of text for model name legend}
+
+\item{mse}{Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}}
+
+\item{OM}{if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?}
 }
 \value{
 Returns and saves a figure with the population trajectory.
