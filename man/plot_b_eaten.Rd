@@ -9,19 +9,21 @@ plot_b_eaten(
   file = NULL,
   model_names = NULL,
   line_col = NULL,
-  spnames = NULL,
   species = NULL,
+  spnames = NULL,
+  add_ci = FALSE,
   lwd = 3,
+  save = FALSE,
   right_adj = 0,
-  top_adj = 0.15,
-  mohns = NULL,
-  minyr = NULL,
   width = 7,
   height = 6.5,
+  minyr = NULL,
   incl_proj = FALSE,
-  incl_mean = FALSE,
-  add_ci = FALSE,
-  mod_cex = 1
+  mod_cex = 1,
+  alpha = 0.4,
+  mod_avg = rep(FALSE, length(Rceattle)),
+  mse = FALSE,
+  OM = TRUE
 )
 }
 \arguments{
@@ -34,23 +36,23 @@ function.}
 
 \item{line_col}{Colors of models to be used for line color}
 
+\item{species}{Which species to plot e.g. c(1,4). Default = NULL plots them all}
+
 \item{spnames}{Species names for legend}
 
-\item{species}{Which species to plot e.g. c(1,4). Default = NULL plots them all}
+\item{add_ci}{TRUE/FALSE, includes 95 percent confidence interval}
 
 \item{lwd}{Line width as specified by user}
 
 \item{right_adj}{How many units of the x-axis to add to the right side of the figure for fitting the legend.}
 
-\item{mohns}{data.frame of mohn's rows extracted from \code{\link{retrospective}}}
-
 \item{minyr}{first year to plot}
 
 \item{incl_proj}{TRUE/FALSE include projections years}
 
-\item{incl_mean}{TRUE/FALSE include time series mean as horizontal line}
+\item{mohns}{data.frame of mohn's rows extracted from \code{\link{retrospective}}}
 
-\item{add_ci}{TRUE/FALSE, includes 95 percent confidence interval}
+\item{incl_mean}{TRUE/FALSE include time series mean as horizontal line}
 }
 \description{
 Function the plots the biomass consumed trends as estimated from Rceattle. Returns and saves a figure with the biomass eaten trajectory.
