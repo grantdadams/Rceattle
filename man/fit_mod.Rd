@@ -20,7 +20,7 @@ fit_mod(
   avgnMode = 0,
   minNByage = 0,
   suitMode = 0,
-  suityr = NULL,
+  meanyr = NULL,
   phase = NULL,
   getsd = TRUE,
   use_gradient = TRUE,
@@ -61,7 +61,7 @@ fit_mod(
 
 \item{suitMode}{Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma suitability, 2 = weight based gamma suitability, 3 = length based lognormal selectivity, 4 = time-varying length based lognormal selectivity.}
 
-\item{suityr}{Integer. The last year used to calculate average suitability. Defaults to $endyr$ in $data_list$. Used for MSE runs where suitability is held at the value estimated from the years used to condition the OM, but F is estimated for years beyond those used to condition the OM to account for projected catch.}
+\item{meanyr}{Integer. The last year used to calculate mean suitability and recruitment, starting at \code{styr}. Defaults to $endyr$ in $data_list$. Used for MSE runs where suitability and mean recruitment is held at the value estimated from the years used to condition the OM, but F is estimated for years beyond those used to condition the OM to account for projected catch.}
 
 \item{phase}{Optional. List of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R. If NULL, will not phase model. If set to \code{"default"}, will use default phasing.}
 
