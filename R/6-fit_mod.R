@@ -16,7 +16,7 @@
 #' @param minNByage Minimum numbers at age to put in a hard constraint that the number-at-age can not go below.
 #' @param phase Optional. List of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R. If NULL, will not phase model. If set to \code{"default"}, will use default phasing.
 #' @param suitMode Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma suitability, 2 = weight based gamma suitability, 3 = length based lognormal selectivity, 4 = time-varying length based lognormal selectivity.
-#' @param suityr Integer. The last year used to calculate average suitability. Defaults to $endyr$ in $data_list$. Used for MSE runs where suitability is held at the value estimated from the years used to condition the OM, but F is estimated for years beyond those used to condition the OM to account for projected catch.
+#' @param meanyr Integer. The last year used to calculate mean suitability and recruitment, starting at \code{styr}. Defaults to $endyr$ in $data_list$. Used for MSE runs where suitability and mean recruitment is held at the value estimated from the years used to condition the OM, but F is estimated for years beyond those used to condition the OM to account for projected catch.
 #' @param getsd	Boolean whether to run standard error calculation
 #' @param use_gradient use the gradient to phase. Default = TRUE
 #' @param rel_tol The relative tolerance for discontinuous likelihood warnings. Set to 1. This evaluates the difference between the TMB object likelihood and the nlminb likelihood.
@@ -129,7 +129,7 @@ fit_mod <-
     avgnMode = 0,
     minNByage = 0,
     suitMode = 0,
-    suityr = NULL,
+    meanyr = NULL,
     phase = NULL,
     getsd = TRUE,
     use_gradient = TRUE,
@@ -158,7 +158,7 @@ fit_mod <-
     # avgnMode = 0;
     # minNByage = 0;
     # suitMode = 0;
-    # suityr = NULL;
+    # meanyr = NULL;
     # phase = NULL;
     # getsd = TRUE;
     # use_gradient = TRUE;
@@ -247,8 +247,8 @@ fit_mod <-
     data_list$msmMode <- msmMode
     data_list$suitMode <- as.numeric(suitMode)
     data_list$minNByage <- as.numeric(minNByage)
-    if(is.null(data_list$suityr)){
-      data_list$suityr <- data_list$endyr
+    if(is.null(data_list$meanyr)){
+      data_list$meanyr <- data_list$endyr
     }
 
     # HCR Switches

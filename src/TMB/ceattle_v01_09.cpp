@@ -374,10 +374,10 @@ Type objective_function<Type>::operator() () {
   // 1.2. Temporal dimensions
   DATA_INTEGER( styr );                   // Start year
   DATA_INTEGER( endyr );                  // End of estimation years
-  DATA_INTEGER( suityr );                 // The last year used to calculate average suitability.
+  DATA_INTEGER( meanyr );                 // The last year used to calculate population averages.
   DATA_INTEGER( projyr );                 // End year of projection
   int nyrs = projyr - styr + 1;
-  int nyrs_suit = suityr - styr + 1;
+  int nyrs_mean = meanyr - styr + 1;
   int nyrs_hind = endyr - styr + 1;
 
   // 1.3. Number of species
@@ -1281,8 +1281,8 @@ Type objective_function<Type>::operator() () {
     // -- calculate mean recruitment
     mean_rec.setZero();
     for (sp = 0; sp < nspp; sp++) {
-      for (yr = 0; yr < nyrs_hind; yr++) {
-        mean_rec(sp) += R(sp, yr)/nyrs_hind; // Update mean rec
+      for (yr = 0; yr < nyrs_mean; yr++) {
+        mean_rec(sp) += R(sp, yr)/nyrs_mean; // Update mean rec
       }
     }
 
@@ -1930,7 +1930,7 @@ Type objective_function<Type>::operator() () {
               for (ksp = 0; ksp < nspp; ksp++) {                    // Prey species loop
                 for(k_sex = 0; k_sex < nsex(ksp); k_sex++){         // Prey sex loop
                   for (k_age = 0; k_age < nages(ksp); k_age++) {    // Prey age loop
-                    for (yr = 0; yr < nyrs_suit; yr++) {            // Suit year loop
+                    for (yr = 0; yr < nyrs_mean; yr++) {            // Suit year loop
 
                       // Average suitability across years
                       if( suma_suit(rsp, r_sex, r_age, yr ) + other_food_diet_prop_weight(rsp, r_sex, r_age, yr) > 0){
@@ -1939,7 +1939,7 @@ Type objective_function<Type>::operator() () {
                     }       // End year loop
 
                     // FIXME - Add in interannual variability here
-                    suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) /= nyrs_suit;
+                    suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) /= nyrs_mean;
 
                     // Remove NAs from crashing populations
                     if(!isFinite(suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0))){
