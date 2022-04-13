@@ -1,7 +1,7 @@
 # Grant Adams, Kirstin Holsman, Andre Punt - April 2021
 # Function to run Gulf of Alaska single-species CEATTLE models in TMB
 # Citation:
-# Holsman, K. K., Ianelli, J., Aydin, K., Punt, A. E., and Moffitt, E. A. 2015. A comparison of fisheries biological reference points estimated from temperature-specific multi-species and single-species climate-enhanced stock assessment models. Deep-Sea Research Part II: Topical Studies in Oceanography, 134: 360–378.
+# Adams, G. D., Holsman, K. K., Barbeaux, S. J., Dorn, M. W., Ianelli, J. N., Spies, I., … Punt, A. E. (2022). An ensemble approach to understand predation mortality for groundfish in the Gulf of Alaska. Fisheries Research, 251(October 2021), 106303. https://doi.org/10.1016/j.fishres.2022.106303
 
 ################################################
 # Load packages
