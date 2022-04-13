@@ -8,8 +8,10 @@
 install.packages("devtools")
 # Install TMB and rtools https://cran.r-project.org/bin/windows/Rtools/
 # Instructions can be found here for non-pc: https://github.com/kaskr/adcomp/wiki/Download
+
 install.packages('TMB', type = 'source')
 # Try "TMB::runExample(all = TRUE)" to see if TMB works
+
 devtools::install_github("kaskr/TMB_contrib_R/TMBhelper") # install tmb helper
 
 # Install Rceattle

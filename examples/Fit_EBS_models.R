@@ -1,17 +1,7 @@
 # Grant Adams, Kirstin Holsman, Andre Punt - April 2019
-# Function to run CEATTLE model in TMB
+# Code to run Bering Sea CEATTLE model in TMB
 # Citation:
 # Holsman, K. K., Ianelli, J., Aydin, K., Punt, A. E., and Moffitt, E. A. 2015. A comparison of fisheries biological reference points estimated from temperature-specific multi-species and single-species climate-enhanced stock assessment models. Deep-Sea Research Part II: Topical Studies in Oceanography, 134: 360–378.
-
-# Install devtools if you don't already have it
-install.packages("devtools")
-# Install TMB and rtools https://cran.r-project.org/bin/windows/Rtools/
-# Instructions can be found here for non-pc: https://github.com/kaskr/adcomp/wiki/Download
-install.packages('TMB', type = 'source')
-# Try "TMB::runExample(all = TRUE)" to see if TMB works
-
-# Install Rceattle
-devtools::install_github("grantdadams/Rceattle")
 
 library(Rceattle)
 
