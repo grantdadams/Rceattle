@@ -1647,6 +1647,7 @@ plot_b_eaten <-  function(Rceattle,
   nspp <- Rceattle[[1]]$data_list$nspp
   spp <- 1:nspp
   minage <- Rceattle[[1]]$data_list$minage
+  maxage <- max(Rceattle[[1]]$data_list$nages)
   estDynamics <- Rceattle[[1]]$data_list$estDynamics
 
 
@@ -1660,33 +1661,34 @@ plot_b_eaten <-  function(Rceattle,
   quantity <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
   quantity_sd <-
-    array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
+    array(0, dim = c(nspp, nyrs,  length(Rceattle)))
   log_quantity_sd <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
   log_quantity_mu <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
-  ptarget = c()
-  plimit = c()
 
   for (i in 1:length(Rceattle)) {
 
     # - Get quantities
-    ptarget[i] <- Rceattle[[i]]$data_list$Ptarget
-    plimit[i] <- Rceattle[[i]]$data_list$Plimit
-    quantity[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$B_eaten_as_prey[,1:nyrs_vec[i]]
+    quantity[,1:nyrs_vec[i] , i] <- apply(Rceattle[[i]]$quantities$B_eaten_as_prey[,,,1:nyrs_vec[i]], c(1,4), sum)
 
-    # Get SD of quantity
-    if(add_ci & !mse){
-      sd_temp <- which(names(Rceattle[[i]]$sdrep$value) == "B_eaten_as_prey")
-      sd_temp <- Rceattle[[i]]$sdrep$sd[sd_temp]
-      quantity_sd[,  1:nyrs_vec[i], i] <-
-        replace(quantity_sd[, 1:nyrs_vec[i], i], values = sd_temp[1:(nyrs_vec[i] * nspp)])
-    }
+    # # Get SD of quantity
+    # # NOTE: No uncertainty estimates currently
+    # if(add_ci & !mse){
+    #   sd_temp <- which(names(Rceattle[[i]]$sdrep$value) == "B_eaten_as_prey")
+    #   sd_temp <- Rceattle[[i]]$sdrep$sd[sd_temp]
+    #   quantity_sd[,  1:nyrs_vec[i], i] <-
+    #     replace(quantity_sd[,,,, i], values = sd_temp)
+    # }
 
     # - Model average
     if(mod_avg[i]){
-      log_quantity_sd[,  1:nyrs_vec[i], i] <- apply(Rceattle[[i]]$asymptotic_samples$B_eaten_as_prey[,1:nyrs_vec[i],], c(1,2), function(x) sd(as.vector(log(x))))
-      log_quantity_mu[,  1:nyrs_vec[i], i] <- apply(Rceattle[[i]]$asymptotic_samples$B_eaten_as_prey[,1:nyrs_vec[i],], c(1,2), function(x) mean(as.vector(log(x))))
+      log_quantity_sd[,1:nyrs_vec[i], i] <- apply(
+        apply(Rceattle[[i]]$asymptotic_samples$B_eaten_as_prey[,,,1:nyrs_vec[i],], c(1,4), function(x) sum), # Sum across age-sex
+        c(1,2), sd(as.vector(log(x)))) # SD across samples
+      log_quantity_mu[,1:nyrs_vec[i], i] <- apply(
+        apply(Rceattle[[i]]$asymptotic_samples$B_eaten_as_prey[,,,1:nyrs_vec[i],], c(1,4), function(x) sum), # Sum across age-sex
+        c(1,2), mean(as.vector(log(x)))) # Mean across samples
     }
   }
 
@@ -1702,8 +1704,6 @@ plot_b_eaten <-  function(Rceattle,
 
   # - MSE objects
   if(mse){
-    ptarget <- ptarget[1]
-    plimit <- plimit[1]
 
     # -- Get quantiles and mean across simulations
     quantity_upper95 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.975) )
