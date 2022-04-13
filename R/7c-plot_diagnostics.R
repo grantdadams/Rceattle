@@ -242,6 +242,7 @@ plot_index <- function(Rceattle,
 #' @param incl_proj TRUE/FALSE include projections years
 #' @param width plot width
 #' @param height plot hight
+#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}. Will plot data from OMs.
 #' @export
 
 plot_catch <- function(Rceattle,
@@ -254,8 +255,15 @@ plot_catch <- function(Rceattle,
                        incl_proj = FALSE,
                        single.plots=FALSE,
                        width=NULL,
-                       height=NULL){
+                       height=NULL,
+                       alpha = 0.4,
+                       mse = TRUE){
 
+  # Convert mse object to Rceattle list
+  if(mse){
+    Rceattle <- lapply(Rceattle, function(x) x$OM)
+    incl_proj = TRUE
+  }
 
   # Convert single one into a list
   if(class(Rceattle) == "Rceattle"){
@@ -269,19 +277,19 @@ plot_catch <- function(Rceattle,
 
 
   # Extract data objects
-  Years <- list()
-  Endyrs <- list()
+  if(incl_proj == FALSE){
+    Years <- lapply(Rceattle, function(x) x$data_list$styr: x$data_list$endyr)
+  }
+  if(incl_proj){
+    Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
+  }
+  Endyrs <- lapply(Rceattle, function(x) x$data_list$endyr)
+  meanyrs <- lapply(Rceattle, function(x) x$data_list$meanyr)
   fsh_list <- list()
   fsh_hat_list <- list()
-  for(i in 1:length(Rceattle)){
-    Endyrs[[i]] <- Rceattle[[i]]$data_list$endyr
-    if(incl_proj == FALSE){
-      Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$endyr
-    }
-    if(incl_proj){
-      Years[[i]] <- Rceattle[[i]]$data_list$styr:Rceattle[[i]]$data_list$projyr
-    }
+  nmods = length(Rceattle)
 
+  for(i in 1:length(Rceattle)){
     # Get observed
     fsh_list[[i]] <- Rceattle[[i]]$data_list$fsh_biom[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% Years[[i]] ),]
     fsh_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$fsh_log_sd_hat[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% Years[[i]] )]
@@ -297,6 +305,19 @@ plot_catch <- function(Rceattle,
     fsh_hat_list[[i]] <- Rceattle[[i]]$data_list$fsh_biom[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% Years[[i]] ),]
     fsh_hat_list[[i]]$Catch <- Rceattle[[i]]$quantities$fsh_bio_hat[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% Years[[i]] )]
     fsh_hat_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$fsh_log_sd_hat[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% Years[[i]] )]
+  }
+
+
+  # - MSE objects
+  if(mse){
+    # -- Get quantiles and mean across simulations
+    catch_list_tmp <- simplify2array(lapply(fsh_hat_list, function(x) x$Catch))
+    fsh_hat_list[[1]]$Upper95 <- apply( catch_list_tmp, 1, function(x) quantile(x, probs = 0.975) )
+    fsh_hat_list[[1]]$Lower95 <- apply( catch_list_tmp, 1, function(x) quantile(x, probs = 0.025) )
+    fsh_hat_list[[1]]$Upper50 <- apply( catch_list_tmp, 1, function(x) quantile(x, probs = 0.75) )
+    fsh_hat_list[[1]]$Lower50 <- apply( catch_list_tmp, 1, function(x) quantile(x, probs = 0.25) )
+    fsh_hat_list[[1]]$Catch <- apply( catch_list_tmp, 1, function(x) mean(x) ) # Get mean quantity
+    nmods = 1
   }
 
   # Plot
@@ -318,10 +339,16 @@ plot_catch <- function(Rceattle,
   ymin <- c()
 
   for(fsh in 1:nfsh){
-    for(i in 1:length(Rceattle)){
+    for(i in 1:nmods){
       fsh_ind <- which(fsh_list[[i]]$Fleet_code == fshs[fsh])
       ymax[fsh] <- max(c(fsh_list[[i]]$Upper95[fsh_ind], fsh_hat_list[[i]]$Catch[fsh_ind], ymax[fsh]), na.rm = T)
       ymin[fsh] <- min(c(fsh_list[[i]]$Lower95[fsh_ind], fsh_hat_list[[i]]$Catch[fsh_ind], ymin[fsh]), na.rm = T)
+
+      if(mse){
+        ymax[fsh] <- max(c(fsh_hat_list[[i]]$Upper95[fsh_ind], ymax[fsh]), na.rm = T)
+        ymin[fsh] <- min(c(fsh_hat_list[[i]]$Lower95[fsh_ind], ymin[fsh]), na.rm = T)
+
+      }
     }
   }
   ymax <- ymax + top_adj * (ymax-ymin)
@@ -354,17 +381,48 @@ plot_catch <- function(Rceattle,
         axis(2,labels=TRUE,cex=0.8)
 
         # Loop through models
-        for (k in 1:length(Rceattle)) {
+        for (k in 1:nmods) {
 
           # Subset data by fleet and model
-          fsh_tmp <- fsh_list[[k]][which(fsh_list[[k]]$Fleet_code == fshs[fsh]),]
-          fsh_hat_tmp <- fsh_hat_list[[k]][which(fsh_list[[k]]$Fleet_code == fshs[fsh]),]
+          fsh_tmp <- fsh_list[[k]] %>%
+            filter(Fleet_code == fshs[fsh])
 
-          # Plot predicted CPUE
+          if(mse){
+            fsh_tmp <- fsh_tmp %>% filter(Year <= meanyrs[k]) # Only show historical catch if MSE models
+          }
+
+          fsh_hat_tmp <- fsh_hat_list[[k]] %>%
+            filter(Fleet_code == fshs[fsh])
+
+
+          # - Plot predicted CPUE
           lines(fsh_hat_tmp$Year, (fsh_hat_tmp$Catch),lwd=2,col=line_col[k])
 
-          # Plot observed CPUE
+          # - Plot observed CPUE
           gplots::plotCI(fsh_tmp$Year, (fsh_tmp$Catch), ui=(fsh_tmp$Upper95), li=(fsh_tmp$Lower95),add=T,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
+
+          # - Plot MSE shading
+          if(mse){
+            fsh_hat_tmp <- fsh_hat_list[[k]] %>%
+              filter(Year > meanyrs[k] & Fleet_code == fshs[fsh])
+
+            # 95% CI
+            polygon(
+              x = c(fsh_hat_tmp$Year, rev(fsh_hat_tmp$Year)),
+              y = c(fsh_hat_tmp$Upper95, rev(fsh_hat_tmp$Lower95)),
+              col = adjustcolor( line_col[k], alpha.f = alpha),
+              border = NA
+            )
+
+            # 50% CI
+            polygon(
+              x = c(fsh_hat_tmp$Year, rev(fsh_hat_tmp$Year)),
+              y = c(fsh_hat_tmp$Upper50, rev(fsh_hat_tmp$Lower50)),
+              col = adjustcolor( line_col[k], alpha.f = alpha),
+              border = NA
+            )
+
+          }
         }
 
         # Index name
@@ -432,17 +490,48 @@ plot_catch <- function(Rceattle,
         }
 
         # Loop through models
-        for (k in 1:length(Rceattle)) {
+        for (k in 1:nmods) {
 
           # Subset data by fleet and model
-          fsh_tmp <- fsh_list[[k]][which(fsh_list[[k]]$Fleet_code == fshs[fsh]),]
-          fsh_hat_tmp <- fsh_hat_list[[k]][which(fsh_list[[k]]$Fleet_code == fshs[fsh]),]
+          fsh_tmp <- fsh_list[[k]] %>%
+            filter(Fleet_code == fshs[fsh])
 
-          # Plot predicted CPUE
+          if(mse){
+            fsh_tmp <- fsh_tmp %>% filter(Year <= meanyrs[k]) # Only show historical catch if MSE models
+          }
+
+          fsh_hat_tmp <- fsh_hat_list[[k]] %>%
+            filter(Fleet_code == fshs[fsh])
+
+
+          # - Plot predicted CPUE
           lines(fsh_hat_tmp$Year, (fsh_hat_tmp$Catch),lwd=2,col=line_col[k])
 
-          # Plot observed CPUE
+          # - Plot observed CPUE
           gplots::plotCI(fsh_tmp$Year, (fsh_tmp$Catch), ui=(fsh_tmp$Upper95), li=(fsh_tmp$Lower95),add=T,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
+
+          # - Plot MSE shading
+          if(mse){
+            fsh_hat_tmp <- fsh_hat_list[[k]] %>%
+              filter(Year > meanyrs[k] & Fleet_code == fshs[fsh])
+
+            # 95% CI
+            polygon(
+              x = c(fsh_hat_tmp$Year, rev(fsh_hat_tmp$Year)),
+              y = c(fsh_hat_tmp$Upper95, rev(fsh_hat_tmp$Lower95)),
+              col = adjustcolor( line_col[k], alpha.f = alpha),
+              border = NA
+            )
+
+            # 50% CI
+            polygon(
+              x = c(fsh_hat_tmp$Year, rev(fsh_hat_tmp$Year)),
+              y = c(fsh_hat_tmp$Upper50, rev(fsh_hat_tmp$Lower50)),
+              col = adjustcolor( line_col[k], alpha.f = alpha),
+              border = NA
+            )
+
+          }
         }
       }
       mtext(paste("Year"), side=1, outer=TRUE, at=0.5,line=1,cex=1)
@@ -451,6 +540,8 @@ plot_catch <- function(Rceattle,
     }
   }
 } # End of fit
+
+
 
 
 
