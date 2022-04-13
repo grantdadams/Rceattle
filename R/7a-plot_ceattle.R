@@ -367,36 +367,52 @@ plot_biomass <- function(Rceattle,
 #' @param minyr First year to plot
 #' @param height
 #' @param width
-#' @param save Save recruitment?
+#' @param save Save biomass?
 #' @param incl_proj TRUE/FALSE, include projection years
 #' @param mod_cex Cex of text for model name legend
+#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}
+#' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
 #'
 #' @export
 #'
 #' @return Returns and saves a figure with the population trajectory.
 plot_recruitment <- function(Rceattle,
-                             file = NULL,
-                             model_names = NULL,
-                             line_col = NULL,
-                             species = NULL,
-                             spnames = NULL,
-                             add_ci = FALSE,
-                             lwd = 3,
-                             save = FALSE,
-                             right_adj = 0,
-                             mohns = NULL,
-                             width = 7,
-                             height = 6.5,
-                             minyr = NULL,
-                             incl_proj = FALSE,
-                             mod_cex = 1,
-                             alpha = 0.4,
-                             mod_avg = rep(FALSE, length(Rceattle))) {
+                         file = NULL,
+                         model_names = NULL,
+                         line_col = NULL,
+                         species = NULL,
+                         spnames = NULL,
+                         add_ci = FALSE,
+                         lwd = 3,
+                         save = FALSE,
+                         right_adj = 0,
+                         width = 7,
+                         height = 6.5,
+                         minyr = NULL,
+                         incl_proj = FALSE,
+                         mod_cex = 1,
+                         alpha = 0.4,
+                         mod_avg = rep(FALSE, length(Rceattle)),
+                         mse = FALSE,
+                         OM = TRUE) {
+
+  # Convert mse object to Rceattle list
+  if(mse){
+    if(OM){
+      Rceattle <- lapply(Rceattle, function(x) x$OM)
+    }
+    if(!OM){
+      Rceattle <- lapply(Rceattle, function(x) x$EM[[length(x$EM)]])
+    }
+    add_ci = TRUE
+  }
+
 
   # Convert single one into a list
   if(class(Rceattle) == "Rceattle"){
     Rceattle <- list(Rceattle)
   }
+
 
   # Species names
   if(is.null(spnames)){
@@ -416,71 +432,105 @@ plot_recruitment <- function(Rceattle,
   maxyr <- max((sapply(Years, max)))
   if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
 
-  spp <- which(Rceattle[[1]]$data_list$estDynamics == 0)
   nspp <- Rceattle[[1]]$data_list$nspp
+  spp <- 1:nspp
   minage <- Rceattle[[1]]$data_list$minage
   estDynamics <- Rceattle[[1]]$data_list$estDynamics
 
-  if(is.null(species)){
 
+  if(is.null(species)){
     species <- 1:nspp
   }
-
   spp <- spp[which(spp %in% species)]
 
 
-  # Get recruitment
-  recruitment <-
+  # Get depletion
+  quantity <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
-  recruitment_sd <-
+  quantity_sd <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
-  log_recruitment_sd <-
+  log_quantity_sd <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
-  log_recruitment_mu <-
+  log_quantity_mu <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
+  ptarget = c()
+  plimit = c()
 
   for (i in 1:length(Rceattle)) {
-    recruitment[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$R[,1:nyrs_vec[i]]
 
-    # Get SD of recruitment
-    if(add_ci){
+    # - Get quantities
+    ptarget[i] <- Rceattle[[i]]$data_list$Ptarget
+    plimit[i] <- Rceattle[[i]]$data_list$Plimit
+    quantity[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$R[,1:nyrs_vec[i]]
+
+    # Get SD of quantity
+    if(add_ci & !mse){
       sd_temp <- which(names(Rceattle[[i]]$sdrep$value) == "R")
       sd_temp <- Rceattle[[i]]$sdrep$sd[sd_temp]
-      recruitment_sd[,  1:nyrs_vec[i], i] <-
-        replace(recruitment_sd[, 1:nyrs_vec[i], i], values = sd_temp[1:(nyrs_vec[i] * nspp)])
+      quantity_sd[,  1:nyrs_vec[i], i] <-
+        replace(quantity_sd[, 1:nyrs_vec[i], i], values = sd_temp[1:(nyrs_vec[i] * nspp)])
     }
 
+    # - Model average
     if(mod_avg[i]){
-      log_recruitment_sd[,  1:nyrs_vec[i], i] <- apply(Rceattle[[i]]$asymptotic_samples$recruitment[,1:nyrs_vec[i],], c(1,2), function(x) sd(as.vector(log(x))))
-      log_recruitment_mu[,  1:nyrs_vec[i], i] <- apply(Rceattle[[i]]$asymptotic_samples$recruitment[,1:nyrs_vec[i],], c(1,2), function(x) mean(as.vector(log(x))))
+      log_quantity_sd[,  1:nyrs_vec[i], i] <- apply(Rceattle[[i]]$asymptotic_samples$R[,1:nyrs_vec[i],], c(1,2), function(x) sd(as.vector(log(x))))
+      log_quantity_mu[,  1:nyrs_vec[i], i] <- apply(Rceattle[[i]]$asymptotic_samples$R[,1:nyrs_vec[i],], c(1,2), function(x) mean(as.vector(log(x))))
     }
   }
 
+  ## Get confidence intervals
+  # - Single model
+  if(!mse){
+    quantity_upper95 <- quantity + quantity_sd * 1.92
+    quantity_lower95 <- quantity - quantity_sd * 1.92
 
-  # 95% CI
-  recruitment_upper <- recruitment + recruitment_sd * 1.92
-  recruitment_lower <- recruitment - recruitment_sd * 1.92
+    quantity_upper50 <- quantity + quantity_sd * 0.674
+    quantity_lower50 <- quantity - quantity_sd * 0.674
+  }
 
-  # Rescale
-  recruitment <- recruitment / 1000000
-  recruitment_upper <- recruitment_upper / 1000000
-  recruitment_lower <- recruitment_lower / 1000000
+  # - MSE objects
+  if(mse){
+    ptarget <- ptarget[1]
+    plimit <- plimit[1]
 
-  # Model Average
+    # -- Get quantiles and mean across simulations
+    quantity_upper95 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.975) )
+    quantity_lower95 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.025) )
+    quantity_upper50 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.75) )
+    quantity_lower50 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.25) )
+    quantity <- apply( quantity, c(1,2), mean ) # Get mean quantity
+
+    # -- Put back in array for indexing below
+    quantity <- array(quantity, dim = c(nspp, nyrs,  1))
+    quantity_upper95 <- array(quantity_upper95, dim = c(nspp, nyrs,  1))
+    quantity_lower95 <- array(quantity_lower95, dim = c(nspp, nyrs,  1))
+    quantity_upper50 <- array(quantity_upper50, dim = c(nspp, nyrs,  1))
+    quantity_lower50<- array(quantity_lower50, dim = c(nspp, nyrs,  1))
+  }
+
+  # - Model Average
   for (i in 1:length(Rceattle)) {
     if(mod_avg[i]){
-      recruitment[,,i] <- qlnorm(0.5, meanlog = log_recruitment_mu[,,i], sdlog = log_recruitment_sd[,,i]) / 1000000
-      recruitment_upper[,,i] <- qlnorm(0.975, meanlog = log_recruitment_mu[,,i], sdlog = log_recruitment_sd[,,i]) / 1000000
-      recruitment_lower[,,i] <- qlnorm(0.025, meanlog = log_recruitment_mu[,,i], sdlog = log_recruitment_sd[,,i]) / 1000000
+      quantity[,,i] <- qlnorm(0.5, meanlog = log_quantity_mu[,,i], sdlog = log_quantity_sd[,,i])
+      quantity_upper95[,,i] <- qlnorm(0.975, meanlog = log_quantity_mu[,,i], sdlog = log_quantity_sd[,,i])
+      quantity_lower95[,,i] <- qlnorm(0.025, meanlog = log_quantity_mu[,,i], sdlog = log_quantity_sd[,,i])
     }
   }
 
+  # - Rescale
+  quantity <- quantity / 1000000
+  quantity_upper95 <- quantity_upper95 / 1000000
+  quantity_lower95 <- quantity_lower95 / 1000000
+  quantity_upper50 <- quantity_upper50 / 1000000
+  quantity_lower50 <- quantity_lower50 / 1000000
 
+
+  ## Save
   if (save) {
     for (i in 1:nspp) {
-      dat <- data.frame(recruitment[i, , ])
-      datup <- data.frame(recruitment_upper[i, , ])
-      datlow <- data.frame(recruitment_lower[i, , ])
+      dat <- data.frame(quantity[i, , ])
+      datup <- data.frame(quantity_upper95[i, , ])
+      datlow <- data.frame(quantity_lower95[i, , ])
 
       dat_new <- cbind(dat[, 1], datlow[, 1], datup[, 1])
       colnames(dat_new) <- rep(model_names[1], 3)
@@ -492,30 +542,32 @@ plot_recruitment <- function(Rceattle,
 
       }
 
-
-      filename <-
-        paste0(file, "_recruitment_species_", i, ".csv")
-      write.csv(dat_new, file = filename)
+      write.csv(dat_new, file = paste0(file, "_recruitment_species_", i, ".csv"))
     }
   }
 
 
-  # Plot limits
+  ## Plot limits
   ymax <- c()
   ymin <- c()
   for (sp in 1:nspp) {
     if (add_ci & (estDynamics[sp] == 0)) {
-      ymax[sp] <- max(c(recruitment_upper[sp, , ], 0), na.rm = T)
-      ymin[sp] <- min(c(recruitment_upper[sp, , ], 0), na.rm = T)
+      ymax[sp] <- max(c(quantity_upper95[sp, , ], 0), na.rm = T)
+      ymin[sp] <- min(c(quantity_upper95[sp, , ], 0), na.rm = T)
     } else{
-      ymax[sp] <- max(c(recruitment[sp, , ], 0), na.rm = T)
-      ymin[sp] <- min(c(recruitment[sp, , ], 0), na.rm = T)
+      ymax[sp] <- max(c(quantity[sp, , ], 0), na.rm = T)
+      ymin[sp] <- min(c(quantity[sp, , ], 0), na.rm = T)
     }
   }
   ymax <- ymax * 1.2
 
   if (is.null(line_col)) {
-    line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
+    if(!mse){
+      line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
+    }
+    if(mse){
+      line_col <- 1
+    }
   }
 
 
@@ -550,7 +602,7 @@ plot_recruitment <- function(Rceattle,
         ylim = c(ymin[spp[j]], ymax[spp[j]]),
         xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
         xlab = "Year",
-        ylab = "Age-1 recruits (millions)",
+        ylab = "Age-1 recruits (million)",
         xaxt = c(rep("n", length(spp) - 1), "s")[j]
       )
 
@@ -565,10 +617,6 @@ plot_recruitment <- function(Rceattle,
              bty = "n",
              cex = 1)
 
-      if(!is.null(mohns)){
-        legend("top", paste0("Rho = ", round(mohns[3,spp[j]+1], 2) ), bty = "n", cex = 0.8) # Biomass rho
-      }
-
       if (spp[j] == 1) {
         if(!is.null(model_names)){
           legend(
@@ -581,27 +629,39 @@ plot_recruitment <- function(Rceattle,
             cex = mod_cex
           )
         }
-
       }
 
 
       # Credible interval
-      if (add_ci & (estDynamics[spp[j]] == 0)) {
-        for (k in 1:dim(recruitment)[3]) {
-          polygon(
-            x = c(Years[[k]], rev(Years[[k]])),
-            y = c(recruitment_upper[spp[j], 1:length(Years[[k]]), k], rev(recruitment_lower[spp[j], 1:length(Years[[k]]), k])),
-            col = adjustcolor( line_col[k], alpha.f = alpha),
-            border = NA
-          ) # 95% CI
+      if(estDynamics[spp[j]] == 0){
+        if (add_ci) {
+          for (k in 1:dim(quantity)[3]) {
+            # - 95% CI
+            polygon(
+              x = c(Years[[k]], rev(Years[[k]])),
+              y = c(quantity_upper95[spp[j], 1:length(Years[[k]]), k], rev(quantity_lower95[spp[j], 1:length(Years[[k]]), k])),
+              col = adjustcolor( line_col[k], alpha.f = alpha/2),
+              border = NA
+            )
+
+            # - 50% CI
+            if(mse){
+              polygon(
+                x = c(Years[[k]], rev(Years[[k]])),
+                y = c(quantity_upper50[spp[j], 1:length(Years[[k]]), k], rev(quantity_lower50[spp[j], 1:length(Years[[k]]), k])),
+                col = adjustcolor( line_col[k], alpha.f = alpha),
+                border = NA
+              )
+            }
+          }
         }
       }
 
-      # Mean recruitment
-      for (k in 1:dim(recruitment)[3]) {
+      # Mean quantity
+      for (k in 1:dim(quantity)[3]) {
         lines(
           x = Years[[k]],
-          y = recruitment[spp[j], 1:length(Years[[k]]), k],
+          y = quantity[spp[j], 1:length(Years[[k]]), k],
           lty = 1,
           lwd = lwd,
           col = line_col[k]
