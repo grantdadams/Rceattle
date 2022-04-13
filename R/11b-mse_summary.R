@@ -58,7 +58,7 @@ mse_summary <- function(mse){
   nflts = length(flts)
   flt_spp <- mse$Sim_1$OM$data_list$fleet_control$Species
   styr <- mse$Sim_1$OM$data_list$styr
-  endyr <- mse$Sim_1$OM$data_list$suityr
+  endyr <- mse$Sim_1$OM$data_list$meanyr
   projyr <- mse$Sim_1$OM$data_list$projyr
   projyrs <- (endyr+1):projyr
   projyrs_ind <- projyrs - endyr
