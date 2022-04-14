@@ -21,6 +21,7 @@ fit_mod(
   minNByage = 0,
   suitMode = 0,
   meanyr = NULL,
+  updateM1 = TRUE,
   phase = NULL,
   getsd = TRUE,
   use_gradient = TRUE,
@@ -63,11 +64,13 @@ fit_mod(
 
 \item{meanyr}{Integer. The last year used to calculate mean suitability and recruitment, starting at \code{styr}. Defaults to $endyr$ in $data_list$. Used for MSE runs where suitability and mean recruitment is held at the value estimated from the years used to condition the OM, but F is estimated for years beyond those used to condition the OM to account for projected catch.}
 
+\item{updateM1}{TRUE/FALSE whether to update M1 from data, if inits are used (default = TRUE). Useful for phasing in multi-species models from single-species models, but the data have updated residual mortality (M1) for the multi-species model.}
+
 \item{phase}{Optional. List of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R. If NULL, will not phase model. If set to \code{"default"}, will use default phasing.}
 
-\item{getsd}{Boolean whether to run standard error calculation}
+\item{getsd}{TRUE/FALSE whether to run standard error calculation (default = TRUE).}
 
-\item{use_gradient}{use the gradient to phase. Default = TRUE}
+\item{use_gradient}{use the gradient to phase (default = TRUE).}
 
 \item{rel_tol}{The relative tolerance for discontinuous likelihood warnings. Set to 1. This evaluates the difference between the TMB object likelihood and the nlminb likelihood.}
 

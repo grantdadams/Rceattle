@@ -257,7 +257,7 @@ plot_catch <- function(Rceattle,
                        width=NULL,
                        height=NULL,
                        alpha = 0.4,
-                       mse = TRUE){
+                       mse = FALSE){
 
   # Convert mse object to Rceattle list
   if(mse){

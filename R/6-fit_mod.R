@@ -17,8 +17,9 @@
 #' @param phase Optional. List of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R. If NULL, will not phase model. If set to \code{"default"}, will use default phasing.
 #' @param suitMode Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma suitability, 2 = weight based gamma suitability, 3 = length based lognormal selectivity, 4 = time-varying length based lognormal selectivity.
 #' @param meanyr Integer. The last year used to calculate mean suitability and recruitment, starting at \code{styr}. Defaults to $endyr$ in $data_list$. Used for MSE runs where suitability and mean recruitment is held at the value estimated from the years used to condition the OM, but F is estimated for years beyond those used to condition the OM to account for projected catch.
-#' @param getsd	Boolean whether to run standard error calculation
-#' @param use_gradient use the gradient to phase. Default = TRUE
+#' @param updateM1 TRUE/FALSE whether to update M1 from data, if inits are used (default = TRUE). Useful for phasing in multi-species models from single-species models, but the data have updated residual mortality (M1) for the multi-species model.
+#' @param getsd	TRUE/FALSE whether to run standard error calculation (default = TRUE).
+#' @param use_gradient use the gradient to phase (default = TRUE).
 #' @param rel_tol The relative tolerance for discontinuous likelihood warnings. Set to 1. This evaluates the difference between the TMB object likelihood and the nlminb likelihood.
 #' @param control A list of control parameters. For details see \code{?nlminb}
 #' @param loopnum number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})
@@ -130,6 +131,7 @@ fit_mod <-
     minNByage = 0,
     suitMode = 0,
     meanyr = NULL,
+    updateM1 = TRUE,
     phase = NULL,
     getsd = TRUE,
     use_gradient = TRUE,
@@ -389,20 +391,22 @@ fit_mod <-
     }
 
     # - Update M1 for inits
-    m1 <- array(0, dim = c(data_list$nspp, 2, max(data_list$nages, na.rm = T))) # Set up array
+    if(updateM1){
+      m1 <- array(0, dim = c(data_list$nspp, 2, max(data_list$nages, na.rm = T))) # Set up array
 
-    # Initialize from inputs
-    for (i in 1:nrow(data_list$M1_base)) {
-      sp <- as.numeric(as.character(data_list$M1_base$Species[i]))
-      sex <- as.numeric(as.character(data_list$M1_base$Sex[i]))
+      # Initialize from inputs
+      for (i in 1:nrow(data_list$M1_base)) {
+        sp <- as.numeric(as.character(data_list$M1_base$Species[i]))
+        sex <- as.numeric(as.character(data_list$M1_base$Sex[i]))
 
-      # Fill in M1 array from fixed values for each sex
-      if(sex == 0){ sex = c(1, 2)} # If sex = combined/both males and females, fill in both dimensions
-      for(j in 1:length(sex)){
-        m1[sp, sex[j], 1:max(data_list$nages, na.rm = T)] <- as.numeric(data_list$M1_base[i,(1:max(data_list$nages, na.rm = T)) + 2])
+        # Fill in M1 array from fixed values for each sex
+        if(sex == 0){ sex = c(1, 2)} # If sex = combined/both males and females, fill in both dimensions
+        for(j in 1:length(sex)){
+          m1[sp, sex[j], 1:max(data_list$nages, na.rm = T)] <- as.numeric(data_list$M1_base[i,(1:max(data_list$nages, na.rm = T)) + 2])
+        }
       }
+      start_par$ln_M1 <- log(m1)
     }
-    start_par$ln_M1 <- log(m1)
 
     if(verbose > 0) {message("Step 4: Data rearranged complete")}
 
