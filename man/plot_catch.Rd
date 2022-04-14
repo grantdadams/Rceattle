@@ -15,7 +15,9 @@ plot_catch(
   incl_proj = FALSE,
   single.plots = FALSE,
   width = NULL,
-  height = NULL
+  height = NULL,
+  alpha = 0.4,
+  mse = FALSE
 )
 }
 \arguments{
@@ -41,6 +43,8 @@ function.}
 \item{width}{plot width}
 
 \item{height}{plot hight}
+
+\item{mse}{Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}. Will plot data from OMs.}
 }
 \description{
 Plot of fitted landings data on natural-scale (r4ss-style)

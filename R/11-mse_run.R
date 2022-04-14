@@ -274,6 +274,7 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
         minNByage = om_use$data_list$minNByage,
         suitMode = om_use$data_list$suitMode,
         meanyr = om$data_list$endyr,
+        updateM1 = FALSE, # Dont update M1 from data, fix at previous parameters
         loopnum = 2,
         phase = NULL,
         getsd = FALSE,
