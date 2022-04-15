@@ -32,7 +32,7 @@ rich.colors.short <- function(n,alpha=1){
 #' @param spnames Species names for legend
 #' @param add_ci If the confidence interval is to be added
 #' @param lwd Line width as specified by user
-#' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
 #' @param minyr First year to plot
 #' @param height
@@ -64,7 +64,8 @@ plot_biomass <- function(Rceattle,
                          alpha = 0.4,
                          mod_avg = rep(FALSE, length(Rceattle)),
                          mse = FALSE,
-                         OM = TRUE) {
+                         OM = TRUE,
+                         reference = NULL) {
 
   # Convert mse object to Rceattle list
   if(mse){
@@ -74,7 +75,9 @@ plot_biomass <- function(Rceattle,
     if(!OM){
       Rceattle <- lapply(Rceattle, function(x) x$EM[[length(x$EM)]])
     }
+    nmse = length(Rceattle)
     add_ci = TRUE
+    incl_proj = TRUE
   }
 
 
@@ -83,6 +86,10 @@ plot_biomass <- function(Rceattle,
     Rceattle <- list(Rceattle)
   }
 
+  # Add reference model
+  if(!is.null(reference)){
+    Rceattle <- c(Rceattle, list(reference))
+  }
 
   # Species names
   if(is.null(spnames)){
@@ -164,18 +171,25 @@ plot_biomass <- function(Rceattle,
     plimit <- plimit[1]
 
     # -- Get quantiles and mean across simulations
-    quantity_upper95 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.975) )
-    quantity_lower95 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.025) )
-    quantity_upper50 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.75) )
-    quantity_lower50 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.25) )
-    quantity <- apply( quantity, c(1,2), mean ) # Get mean quantity
+    quantity_upper95 <- apply( quantity[,,1:nmse], c(1,2), function(x) quantile(x, probs = 0.975) )
+    quantity_lower95 <- apply( quantity[,,1:nmse], c(1,2), function(x) quantile(x, probs = 0.025) )
+    quantity_upper50 <- apply( quantity[,,1:nmse], c(1,2), function(x) quantile(x, probs = 0.75) )
+    quantity_lower50 <- apply( quantity[,,1:nmse], c(1,2), function(x) quantile(x, probs = 0.25) )
 
     # -- Put back in array for indexing below
-    quantity <- array(quantity, dim = c(nspp, nyrs,  1))
-    quantity_upper95 <- array(quantity_upper95, dim = c(nspp, nyrs,  1))
-    quantity_lower95 <- array(quantity_lower95, dim = c(nspp, nyrs,  1))
-    quantity_upper50 <- array(quantity_upper50, dim = c(nspp, nyrs,  1))
-    quantity_lower50<- array(quantity_lower50, dim = c(nspp, nyrs,  1))
+    if(is.null(reference)){
+      quantity <- array(apply( quantity[,,1:nmse], c(1,2), mean ), dim = c(nspp, nyrs,  1))
+      quantity_upper95 <- array(quantity_upper95, dim = c(nspp, nyrs,  1))
+      quantity_lower95 <- array(quantity_lower95, dim = c(nspp, nyrs,  1))
+      quantity_upper50 <- array(quantity_upper50, dim = c(nspp, nyrs,  1))
+      quantity_lower50<- array(quantity_lower50, dim = c(nspp, nyrs,  1))
+    } else {
+      quantity_upper95 <- array(c(quantity_upper95, quantity[,,nmse+1]), dim = c(nspp, nyrs,  2))
+      quantity_lower95 <- array(c(quantity_lower95, quantity[,,nmse+1]), dim = c(nspp, nyrs,  2))
+      quantity_upper50 <- array(c(quantity_upper50, quantity[,,nmse+1]), dim = c(nspp, nyrs,  2))
+      quantity_lower50<- array(c(quantity_lower50, quantity[,,nmse+1]), dim = c(nspp, nyrs,  2))
+      quantity <- array(c(apply( quantity[,,1:nmse], c(1,2), mean ), quantity[,,nmse+1]), dim = c(nspp, nyrs,  2))
+    }
   }
 
   # - Model Average
@@ -238,6 +252,9 @@ plot_biomass <- function(Rceattle,
     if(mse){
       line_col <- 1
     }
+  }
+  if(!is.null(reference)){
+    line_col <- c(line_col, 1)
   }
 
 
@@ -362,7 +379,7 @@ plot_biomass <- function(Rceattle,
 #' @param spnames Species names for legend
 #' @param add_ci If the confidence interval is to be added
 #' @param lwd Line width as specified by user
-#' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
 #' @param minyr First year to plot
 #' @param height
@@ -377,24 +394,24 @@ plot_biomass <- function(Rceattle,
 #'
 #' @return Returns and saves a figure with the population trajectory.
 plot_recruitment <- function(Rceattle,
-                         file = NULL,
-                         model_names = NULL,
-                         line_col = NULL,
-                         species = NULL,
-                         spnames = NULL,
-                         add_ci = FALSE,
-                         lwd = 3,
-                         save = FALSE,
-                         right_adj = 0,
-                         width = 7,
-                         height = 6.5,
-                         minyr = NULL,
-                         incl_proj = FALSE,
-                         mod_cex = 1,
-                         alpha = 0.4,
-                         mod_avg = rep(FALSE, length(Rceattle)),
-                         mse = FALSE,
-                         OM = TRUE) {
+                             file = NULL,
+                             model_names = NULL,
+                             line_col = NULL,
+                             species = NULL,
+                             spnames = NULL,
+                             add_ci = FALSE,
+                             lwd = 3,
+                             save = FALSE,
+                             right_adj = 0,
+                             width = 7,
+                             height = 6.5,
+                             minyr = NULL,
+                             incl_proj = FALSE,
+                             mod_cex = 1,
+                             alpha = 0.4,
+                             mod_avg = rep(FALSE, length(Rceattle)),
+                             mse = FALSE,
+                             OM = TRUE) {
 
   # Convert mse object to Rceattle list
   if(mse){
@@ -1311,7 +1328,7 @@ plot_maturity <-
 #' @param spnames Species names for legend
 #' @param add_ci If the confidence interval is to be added
 #' @param lwd Line width as specified by user
-#' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
 #' @param minyr First year to plot
 #' @param height
@@ -1344,7 +1361,8 @@ plot_ssb <- function(Rceattle,
                      alpha = 0.4,
                      mod_avg = rep(FALSE, length(Rceattle)),
                      mse = FALSE,
-                     OM = TRUE) {
+                     OM = TRUE,
+                     reference = NULL) {
 
   # Convert mse object to Rceattle list
   if(mse){
@@ -1354,7 +1372,9 @@ plot_ssb <- function(Rceattle,
     if(!OM){
       Rceattle <- lapply(Rceattle, function(x) x$EM[[length(x$EM)]])
     }
+    nmse = length(Rceattle)
     add_ci = TRUE
+    incl_proj = TRUE
   }
 
 
@@ -1363,6 +1383,10 @@ plot_ssb <- function(Rceattle,
     Rceattle <- list(Rceattle)
   }
 
+  # Add reference model
+  if(!is.null(reference)){
+    Rceattle <- c(Rceattle, list(reference))
+  }
 
   # Species names
   if(is.null(spnames)){
@@ -1444,18 +1468,25 @@ plot_ssb <- function(Rceattle,
     plimit <- plimit[1]
 
     # -- Get quantiles and mean across simulations
-    quantity_upper95 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.975) )
-    quantity_lower95 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.025) )
-    quantity_upper50 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.75) )
-    quantity_lower50 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.25) )
-    quantity <- apply( quantity, c(1,2), mean ) # Get mean quantity
+    quantity_upper95 <- apply( quantity[,,1:nmse], c(1,2), function(x) quantile(x, probs = 0.975) )
+    quantity_lower95 <- apply( quantity[,,1:nmse], c(1,2), function(x) quantile(x, probs = 0.025) )
+    quantity_upper50 <- apply( quantity[,,1:nmse], c(1,2), function(x) quantile(x, probs = 0.75) )
+    quantity_lower50 <- apply( quantity[,,1:nmse], c(1,2), function(x) quantile(x, probs = 0.25) )
 
     # -- Put back in array for indexing below
-    quantity <- array(quantity, dim = c(nspp, nyrs,  1))
-    quantity_upper95 <- array(quantity_upper95, dim = c(nspp, nyrs,  1))
-    quantity_lower95 <- array(quantity_lower95, dim = c(nspp, nyrs,  1))
-    quantity_upper50 <- array(quantity_upper50, dim = c(nspp, nyrs,  1))
-    quantity_lower50<- array(quantity_lower50, dim = c(nspp, nyrs,  1))
+    if(is.null(reference)){
+      quantity <- array(apply( quantity[,,1:nmse], c(1,2), mean ), dim = c(nspp, nyrs,  1))
+      quantity_upper95 <- array(quantity_upper95, dim = c(nspp, nyrs,  1))
+      quantity_lower95 <- array(quantity_lower95, dim = c(nspp, nyrs,  1))
+      quantity_upper50 <- array(quantity_upper50, dim = c(nspp, nyrs,  1))
+      quantity_lower50<- array(quantity_lower50, dim = c(nspp, nyrs,  1))
+    } else {
+      quantity_upper95 <- array(c(quantity_upper95, quantity[,,nmse+1]), dim = c(nspp, nyrs,  2))
+      quantity_lower95 <- array(c(quantity_lower95, quantity[,,nmse+1]), dim = c(nspp, nyrs,  2))
+      quantity_upper50 <- array(c(quantity_upper50, quantity[,,nmse+1]), dim = c(nspp, nyrs,  2))
+      quantity_lower50<- array(c(quantity_lower50, quantity[,,nmse+1]), dim = c(nspp, nyrs,  2))
+      quantity <- array(c(apply( quantity[,,1:nmse], c(1,2), mean ), quantity[,,nmse+1]), dim = c(nspp, nyrs,  2))
+    }
   }
 
   # - Model Average
@@ -1497,7 +1528,7 @@ plot_ssb <- function(Rceattle,
   }
 
 
-  ## Plot limits
+  # - Plot limits
   ymax <- c()
   ymin <- c()
   for (sp in 1:nspp) {
@@ -1511,6 +1542,8 @@ plot_ssb <- function(Rceattle,
   }
   ymax <- ymax * 1.2
 
+
+  # - Line colors
   if (is.null(line_col)) {
     if(!mse){
       line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
@@ -1518,6 +1551,9 @@ plot_ssb <- function(Rceattle,
     if(mse){
       line_col <- 1
     }
+  }
+  if(!is.null(reference)){
+    line_col <- c(line_col, 1)
   }
 
 
@@ -1639,7 +1675,7 @@ plot_ssb <- function(Rceattle,
 #' @param spnames Species names for legend
 #' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
 #' @param lwd Line width as specified by user
-#' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
 #' @param minyr first year to plot
 #' @param incl_proj TRUE/FALSE include projections years
@@ -1962,7 +1998,7 @@ plot_b_eaten <-  function(Rceattle,
 #' @param spnames Species names for legend
 #' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
 #' @param lwd Line width as specified by user
-#' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
 #' @param minyr first year to plot
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
 #' @param incl_proj TRUE/FALSE include projections years
@@ -2168,7 +2204,7 @@ plot_b_eaten_prop <-
 #' @param spnames Species names for legend
 #' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
 #' @param lwd Line width as specified by user
-#' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
 #' @param minyr first year to plot
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
 #' @param incl_proj TRUE/FALSE include projections years
@@ -2366,7 +2402,7 @@ plot_m_at_age <-
 #' @param spnames Species names for legend
 #' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
 #' @param lwd Line width as specified by user
-#' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
 #' @param minyr first year to plot
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
 #' @param incl_proj TRUE/FALSE include projections years
@@ -2583,7 +2619,8 @@ plot_m2_at_age_prop <-
 #' @param spnames Species names for legend
 #' @param add_ci NOT WORKING If the confidence interval is to be added
 #' @param lwd Line width as specified by user
-#' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
+#' @param top_adj Multiplier for y-axis to add to the top side of the figure for fitting the legend.
 #' @param minyr First year to plot
 #' @param height
 #' @param width
@@ -2606,6 +2643,7 @@ plot_depletionSSB <- function(Rceattle,
                               lwd = 3,
                               save = FALSE,
                               right_adj = 0,
+                              top_adj = 1.2,
                               width = 7,
                               height = 6.5,
                               minyr = NULL,
@@ -2614,7 +2652,8 @@ plot_depletionSSB <- function(Rceattle,
                               alpha = 0.4,
                               mod_avg = rep(FALSE, length(Rceattle)),
                               mse = FALSE,
-                              OM = TRUE) {
+                              OM = TRUE,
+                              reference = NULL) {
 
   # Convert mse object to Rceattle list
   if(mse){
@@ -2624,13 +2663,20 @@ plot_depletionSSB <- function(Rceattle,
     if(!OM){
       Rceattle <- lapply(Rceattle, function(x) x$EM[[length(x$EM)]])
     }
+    nmse = length(Rceattle)
     add_ci = TRUE
+    incl_proj = TRUE
   }
 
 
   # Convert single one into a list
   if(class(Rceattle) == "Rceattle"){
     Rceattle <- list(Rceattle)
+  }
+
+  # Add reference model
+  if(!is.null(reference)){
+    Rceattle <- c(Rceattle, list(reference))
   }
 
 
@@ -2707,18 +2753,25 @@ plot_depletionSSB <- function(Rceattle,
     plimit <- plimit[1]
 
     # -- Get quantiles and mean across simulations
-    quantity_upper95 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.975) )
-    quantity_lower95 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.025) )
-    quantity_upper50 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.75) )
-    quantity_lower50 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.25) )
-    quantity <- apply( quantity, c(1,2), mean ) # Get mean quantity
+    quantity_upper95 <- apply( quantity[,,1:nmse], c(1,2), function(x) quantile(x, probs = 0.975) )
+    quantity_lower95 <- apply( quantity[,,1:nmse], c(1,2), function(x) quantile(x, probs = 0.025) )
+    quantity_upper50 <- apply( quantity[,,1:nmse], c(1,2), function(x) quantile(x, probs = 0.75) )
+    quantity_lower50 <- apply( quantity[,,1:nmse], c(1,2), function(x) quantile(x, probs = 0.25) )
 
     # -- Put back in array for indexing below
-    quantity <- array(quantity, dim = c(nspp, nyrs,  1))
-    quantity_upper95 <- array(quantity_upper95, dim = c(nspp, nyrs,  1))
-    quantity_lower95 <- array(quantity_lower95, dim = c(nspp, nyrs,  1))
-    quantity_upper50 <- array(quantity_upper50, dim = c(nspp, nyrs,  1))
-    quantity_lower50<- array(quantity_lower50, dim = c(nspp, nyrs,  1))
+    if(is.null(reference)){
+      quantity <- array(apply( quantity[,,1:nmse], c(1,2), mean ), dim = c(nspp, nyrs,  1))
+      quantity_upper95 <- array(quantity_upper95, dim = c(nspp, nyrs,  1))
+      quantity_lower95 <- array(quantity_lower95, dim = c(nspp, nyrs,  1))
+      quantity_upper50 <- array(quantity_upper50, dim = c(nspp, nyrs,  1))
+      quantity_lower50<- array(quantity_lower50, dim = c(nspp, nyrs,  1))
+    } else {
+      quantity_upper95 <- array(c(quantity_upper95, quantity[,,nmse+1]), dim = c(nspp, nyrs,  2))
+      quantity_lower95 <- array(c(quantity_lower95, quantity[,,nmse+1]), dim = c(nspp, nyrs,  2))
+      quantity_upper50 <- array(c(quantity_upper50, quantity[,,nmse+1]), dim = c(nspp, nyrs,  2))
+      quantity_lower50<- array(c(quantity_lower50, quantity[,,nmse+1]), dim = c(nspp, nyrs,  2))
+      quantity <- array(c(apply( quantity[,,1:nmse], c(1,2), mean ), quantity[,,nmse+1]), dim = c(nspp, nyrs,  2))
+    }
   }
 
   # # - Model Average
@@ -2765,7 +2818,7 @@ plot_depletionSSB <- function(Rceattle,
       ymin[sp] <- min(c(quantity[sp, , ], 0), na.rm = T)
     }
   }
-  ymax <- ymax * 1.2
+  ymax <- ymax * top_adj
 
   if (is.null(line_col)) {
     if(!mse){
@@ -2774,6 +2827,9 @@ plot_depletionSSB <- function(Rceattle,
     if(mse){
       line_col <- 1
     }
+  }
+  if(!is.null(reference)){
+    line_col <- c(line_col, 1)
   }
 
 
@@ -2900,7 +2956,7 @@ plot_depletionSSB <- function(Rceattle,
 #' @param spnames Species names for legend
 #' @param add_ci NOT WORKING If the confidence interval is to be added
 #' @param lwd Line width as specified by user
-#' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
 #' @param minyr First year to plot
 #' @param height
 #' @param width
@@ -3215,7 +3271,7 @@ plot_depletion <- function(Rceattle,
 #' @param spnames Species names for legend
 #' @param add_ci NOT WORKING If the confidence interval is to be added
 #' @param lwd Line width as specified by user
-#' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
 #' @param minyr First year to plot
 #' @param height
 #' @param width

@@ -380,14 +380,15 @@ fit_mod <-
     data_list_reorganized = c(list(model = "ceattle_v01_09"),data_list_reorganized)
     # data_list_reorganized$HCR = 0 # Estimate model with F = 0 for the projection
 
-    # - Update comp weights and F_prop from data
+    # - Update comp weights, future F (if input) and F_prop from data
     if(!is.null(data_list$fleet_control$Comp_weights)){
       start_par$comp_weights = data_list$fleet_control$Comp_weights
     }
     start_par$proj_F_prop = data_list$fleet_control$proj_F_prop
+
     nyrs_proj <- data_list$projyr - data_list$styr + 1
-    if(!is.null(HCR$FsprTarget)){
-      start_par$ln_Ftarget = matrix(log(HCR$FsprTarget), nrow = data_list$nspp, ncol = nyrs_proj) # Future fishing mortality for projections for each species
+    if(!is.null(HCR$FsprTarget) & HCR$HCR == 2){
+      start_par$ln_Ftarget = matrix(log(HCR$FsprTarget), nrow = data_list$nspp, ncol = nyrs_proj) # Fixed fishing mortality for projections for each species
     }
 
     # - Update M1 for inits
