@@ -68,8 +68,8 @@ mse_summary <- function(mse){
 
   ## MSE Output
   # - Catch is by fleet
-  mse_summary <- data.frame(matrix(NA, nrow = nflts+nspp+1, ncol = 14))
-  colnames(mse_summary) <- c("Species", "Fleet_name", "Fleet_code","Average Catch", "Catch IAV", "% Years closed", "Avg terminal SSB MSE", "EM: P(Fy > Flimit)", "EM: P(SSB < SSBlimit)", "EM: P(SSB < Dynamic SSBlimit)", "OM: P(Fy > Flimit)", "OM: P(SSB < SSBlimit)", "OM: P(SSB < Dynamic SSBlimit)", "OM: Terminal SSB/SSBtarget")
+  mse_summary <- data.frame(matrix(NA, nrow = nflts+nspp+1, ncol = 12))
+  colnames(mse_summary) <- c("Species", "Fleet_name", "Fleet_code","Average Catch", "Catch IAV", "% Years closed", "Avg terminal SSB MSE", "EM: P(Fy > Flimit)", "EM: P(SSB < Dynamic SSBlimit)", "OM: P(Fy > Flimit)", "OM: P(SSB < SSBlimit)", "OM: Terminal SSB/SSBtarget")
   mse_summary$Fleet_name <- c(rep(NA, nspp), mse$Sim_1$OM$data_list$fleet_control$Fleet_name[flts], "All")
   mse_summary$Fleet_code <- c(rep(NA, nspp), mse$Sim_1$OM$data_list$fleet_control$Fleet_code[flts], "All")
   mse_summary$Species <- c(mse$Sim_1$OM$data_list$spnames, mse$Sim_1$OM$data_list$fleet_control$Species[flts], "All")
@@ -166,14 +166,11 @@ mse_summary <- function(mse){
   ############################################
   ## Conservation performance metrics
   ############################################
-  #FIXME currently based on EM rather than OM
   # - Avg terminal SSB MSE
   # - EM: P(Fy > Flimit)
   # - EM: P(SSB < SSBlimit)
-  # - EM: P(SSB < Dynamic SSBlimit)
   # - OM: P(Fy > Flimit)
   # - OM: P(SSB < SSBlimit)
-  # - OM: P(SSB < Dynamic SSBlimit)
   # - OM: Terminal SSB/SSBtarget
   for(sp in 1:nspp){
 
@@ -196,12 +193,7 @@ mse_summary <- function(mse){
 
         # - EM: P(SSB < SSBlimit)
         sb_sblimit_tmp <- c(sb_sblimit_tmp,
-                            mse[[sim]]$EM[[em]]$quantities$biomassSSB[sp, (projyrs - styr + 1)]/ (mse[[sim]]$EM[[em]]$quantities$SB0[sp] * mse[[sim]]$EM[[em]]$data_list$Plimit)
-        )
-
-        # - EM: P(SSB < Dynamic SSBlimit)
-        sb_sblimit_dynamic_tmp <- c(sb_sblimit_dynamic_tmp,
-                                    mse[[sim]]$EM[[em]]$quantities$biomassSSB[sp, (projyrs - styr + 1)]/ (mse[[sim]]$EM[[em]]$quantities$DynamicSB0[sp] * mse[[sim]]$EM[[em]]$data_list$Plimit)
+                            mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, (projyrs - styr + 1)] < mse[[sim]]$EM[[em]]$data_list$Plimit)
         )
       }
     }
@@ -211,10 +203,7 @@ mse_summary <- function(mse){
     mse_summary$`EM: P(Fy > Flimit)`[sp] <- length(which(flimit_ratio_tmp > 1))/length(flimit_ratio_tmp)
 
     # - EM: P(SSB < SSBlimit)
-    mse_summary$`EM: P(SSB < SSBlimit)`[sp] <- length(which(sb_sblimit_tmp < 1))/length(sb_sblimit_tmp)
-
-    # - EM: P(SSB < Dynamic SSBlimit)
-    mse_summary$`EM: P(SSB < Dynamic SSBlimit)`[sp] <- length(which(sb_sblimit_tmp < 1))/length(sb_sblimit_tmp)
+    mse_summary$`EM: P(SSB < SSBlimit)`[sp] <- sum(sb_sblimit_tmp)/length(sb_sblimit_tmp)
 
     ## Actual status
     # - OM: P(F > Flimit)
@@ -224,17 +213,10 @@ mse_summary <- function(mse){
     flimit_ratio_tmp <- unlist(flimit_ratio_tmp)
     mse_summary$`OM: P(Fy > Flimit)`[sp] <- length(which(flimit_ratio_tmp > 1))/length(flimit_ratio_tmp)
 
-
     # - OM: P(SSB < SSBlimit)
-    sb_sblimit_tmp <- lapply(mse, function(x) x$OM$quantities$biomassSSB[sp, (projyrs - styr + 1)]/ (x$OM$quantities$SB0[sp] * x$OM$data_list$Plimit))
+    sb_sblimit_tmp <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)] < x$OM$data_list$Plimit))
     sb_sblimit_tmp <- unlist(sb_sblimit_tmp)
-    mse_summary$`OM: P(SSB < SSBlimit)`[sp] <- length(which(sb_sblimit_tmp < 1))/length(sb_sblimit_tmp)
-
-
-    # - OM: P(SSB < Dynamic SSBlimit)
-    sb_sblimit_tmp <- lapply(mse, function(x) x$OM$quantities$biomassSSB[sp, (projyrs - styr + 1)]/ (x$OM$quantities$DynamicSB0[sp,projyrs - styr + 1] * x$OM$data_list$Plimit))
-    sb_sblimit_tmp <- unlist(sb_sblimit_tmp)
-    mse_summary$`OM: P(SSB < Dynamic SSBlimit)`[sp] <- length(which(sb_sblimit_tmp < 1))/length(sb_sblimit_tmp)
+    mse_summary$`OM: P(SSB < SSBlimit)`[sp] <- sum(sb_sblimit_tmp)/length(sb_sblimit_tmp)
 
     # - Bias in terminal SSB
     sb_em_tmp <- lapply(mse, function(x) x$EM[[length(x$EM)]]$quantities$biomassSSB[sp, (projyrs - styr + 1)])
