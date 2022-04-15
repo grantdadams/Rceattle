@@ -87,12 +87,12 @@ mse_summary <- function(mse){
     # - Mean catch by fleet
     mse_summary$`Average Catch`[i+nspp] <- mean(sapply(mse, function(x)
       x$OM$data_list$fsh_biom$Catch[which(x$OM$data_list$fsh_biom$Fleet_code == flt &
-                                              x$OM$data_list$fsh_biom$Year %in% projyrs)]), na.rm = TRUE)
+                                            x$OM$data_list$fsh_biom$Year %in% projyrs)]), na.rm = TRUE)
 
     # - Catch IAV by fleet
     catch_list_tmp <- lapply(mse, function(x)
       x$OM$data_list$fsh_biom$Catch[which(x$OM$data_list$fsh_biom$Fleet_code == flt &
-                                              x$OM$data_list$fsh_biom$Year %in% projyrs)])
+                                            x$OM$data_list$fsh_biom$Year %in% projyrs)])
 
     # -- Average across simulations by fleet
     mse_summary$`Catch IAV`[i+nspp] = 0
@@ -103,8 +103,8 @@ mse_summary <- function(mse){
     # - % Years closed by fleet
     mse_summary$`% Years closed`[i+nspp] <- mean(sapply(mse, function(x)
       length(x$OM$data_list$fsh_biom$Catch[which(x$OM$data_list$fsh_biom$Fleet_code == flt &
-                                                     x$OM$data_list$fsh_biom$Year %in% projyrs &
-                                                     x$OM$data_list$fsh_biom$Catch < 1)]) # Using less than 1 here just in case super small catches and fishery is effectively close
+                                                   x$OM$data_list$fsh_biom$Year %in% projyrs &
+                                                   x$OM$data_list$fsh_biom$Catch < 1)]) # Using less than 1 here just in case super small catches and fishery is effectively close
       /length(projyrs) * 100))
   }
 
@@ -119,7 +119,7 @@ mse_summary <- function(mse){
     # - Mean catch by species
     mse_summary$`Average Catch`[sp] <- mean(sapply(mse, function(x)
       x$OM$data_list$fsh_biom$Catch[which(x$OM$data_list$fsh_biom$Species == sp &
-                                              x$OM$data_list$fsh_biom$Year %in% projyrs)]), na.rm = TRUE)
+                                            x$OM$data_list$fsh_biom$Year %in% projyrs)]), na.rm = TRUE)
 
     # - Catch IAV by species
     catch_list_tmp <- suppressMessages(lapply(mse, function(x)
@@ -194,7 +194,6 @@ mse_summary <- function(mse){
         # - EM: P(SSB < SSBlimit)
         sb_sblimit_tmp <- c(sb_sblimit_tmp,
                             mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, (projyrs - styr + 1)] < mse[[sim]]$EM[[em]]$data_list$Plimit)
-        )
       }
     }
 
@@ -214,7 +213,7 @@ mse_summary <- function(mse){
     mse_summary$`OM: P(Fy > Flimit)`[sp] <- length(which(flimit_ratio_tmp > 1))/length(flimit_ratio_tmp)
 
     # - OM: P(SSB < SSBlimit)
-    sb_sblimit_tmp <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)] < x$OM$data_list$Plimit))
+    sb_sblimit_tmp <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)] < x$OM$data_list$Plimit)
     sb_sblimit_tmp <- unlist(sb_sblimit_tmp)
     mse_summary$`OM: P(SSB < SSBlimit)`[sp] <- sum(sb_sblimit_tmp)/length(sb_sblimit_tmp)
 
