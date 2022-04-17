@@ -144,39 +144,39 @@ fit_mod <-
     newtonsteps = 0){
 
 
-    # ### For debugging
-    # data_list = NULL;
-    # inits = NULL;
-    # map = NULL;
-    # bounds = NULL;
-    # file = NULL;
-    # estimateMode = 0;
-    # random_rec = FALSE;
-    # random_q = FALSE;
-    # random_sel = FALSE;
-    # HCR = build_hcr();
-    # niter = 3;
-    # msmMode = 0;
-    # avgnMode = 0;
-    # minNByage = 0;
-    # suitMode = 0;
-    # meanyr = NULL;
-    # phase = NULL;
-    # getsd = TRUE;
-    # use_gradient = TRUE;
-    # rel_tol = 1;
-    # control = list(eval.max = 1e+09,
-    #                iter.max = 1e+09, trace = 0);
-    # getJointPrecision = TRUE;
-    # loopnum = 5;
-    # verbose = 1;
-    # newtonsteps = 0
+    ### For debugging
+    data_list = NULL;
+    inits = NULL;
+    map = NULL;
+    bounds = NULL;
+    file = NULL;
+    estimateMode = 0;
+    random_rec = FALSE;
+    random_q = FALSE;
+    random_sel = FALSE;
+    HCR = build_hcr();
+    niter = 3;
+    msmMode = 0;
+    avgnMode = 0;
+    updateM1 = TRUE;
+    minNByage = 0;
+    suitMode = 0;
+    meanyr = NULL;
+    phase = NULL;
+    getsd = TRUE;
+    use_gradient = TRUE;
+    rel_tol = 1;
+    control = list(eval.max = 1e+09,
+                   iter.max = 1e+09, trace = 0);
+    getJointPrecision = TRUE;
+    loopnum = 5;
+    verbose = 1;
+    newtonsteps = 0
 
 
     start_time <- Sys.time()
 
     setwd(getwd())
-    '%!in%' <- function(x,y)!('%in%'(x,y))
 
     #--------------------------------------------------
     # 1. DATA and MODEL PREP
@@ -187,59 +187,7 @@ fit_mod <-
       stop("Missing data_list object")
     }
 
-    # - Remove years of data previous to start year
-    data_list$UobsWtAge <- as.data.frame(data_list$UobsWtAge)
-    data_list$UobsAge <- as.data.frame(data_list$UobsAge)
-    data_list$wt <- data_list$wt[which(data_list$wt$Year == 0 | data_list$wt$Year >= data_list$styr),]
-    data_list$UobsAge <- data_list$UobsAge[which(data_list$UobsAge$Year == 0 | data_list$UobsAge$Year >= data_list$styr),]
-    data_list$UobsWtAge <- data_list$UobsWtAge[which(data_list$UobsWtAge$Year == 0 | data_list$UobsWtAge$Year >= data_list$styr),]
-    data_list$srv_biom <- data_list$srv_biom[which(abs(data_list$srv_biom$Year) >= data_list$styr),]
-    data_list$fsh_biom <- data_list$fsh_biom[which(abs(data_list$fsh_biom$Year) >= data_list$styr),]
-    data_list$comp_data <- data_list$comp_data[which(abs(data_list$comp_data$Year) >= data_list$styr),]
-    data_list$emp_sel <- data_list$emp_sel[which(data_list$emp_sel$Year == 0 | data_list$emp_sel$Year >= data_list$styr),]
-    data_list$NByageFixed <- data_list$NByageFixed[which(data_list$NByageFixed$Year == 0 | data_list$NByageFixed$Year >= data_list$styr),]
-    data_list$Pyrs <- data_list$Pyrs[which(data_list$Pyrs$Year == 0 | data_list$Pyrs$Year >= data_list$styr),]
-
-
-    # - Remove years of data after to proj year
-    data_list$wt <- data_list$wt[which(data_list$wt$Year <= data_list$projyr),]
-    data_list$UobsAge <- data_list$UobsAge[which(data_list$UobsAge$Year <= data_list$projyr),]
-    data_list$UobsWtAge <- data_list$UobsWtAge[which(data_list$UobsWtAge$Year <= data_list$projyr),]
-    data_list$srv_biom <- data_list$srv_biom[which(abs(data_list$srv_biom$Year) <= data_list$projyr),]
-    data_list$fsh_biom <- data_list$fsh_biom[which(abs(data_list$fsh_biom$Year) <= data_list$projyr),]
-    data_list$comp_data <- data_list$comp_data[which(abs(data_list$comp_data$Year) <= data_list$projyr),]
-    data_list$emp_sel <- data_list$emp_sel[which(data_list$emp_sel$Year <= data_list$projyr),]
-    data_list$NByageFixed <- data_list$NByageFixed[which(data_list$NByageFixed$Year <= data_list$projyr),]
-    data_list$Pyrs <- data_list$Pyrs[which(data_list$Pyrs$Year <= data_list$projyr),]
-
-
-    # - Extend catch data to proj year for projections
-    if(data_list$projyr > data_list$endyr){
-      # yrs_proj <- (data_list$endyr + 1):data_list$projyr
-      # proj_fsh_biom <- data_list$fsh_biom %>%
-      #   group_by(Fleet_code) %>%
-      #   slice(rep(n(),  length(yrs_proj))) %>%
-      #   mutate(Year = yrs_proj, Catch = NA)
-      # data_list$fsh_biom <- rbind(data_list$fsh_biom, proj_fsh_biom)
-
-      for(flt in (unique(data_list$fsh_biom$Fleet_code))){
-        fsh_biom_sub <- data_list$fsh_biom[which(data_list$fsh_biom$Fleet_code == flt),]
-        yrs_proj <- (data_list$endyr + 1):data_list$projyr
-        yrs_proj <- yrs_proj[which(yrs_proj %!in% fsh_biom_sub$Year)]
-        nyrs_proj <- length(yrs_proj)
-        proj_fsh_biom <- data.frame(Fleet_name = rep(fsh_biom_sub$Fleet_name[1], nyrs_proj),
-                                    Fleet_code = rep(flt, nyrs_proj),
-                                    Species = rep(fsh_biom_sub$Species[1], nyrs_proj),
-                                    Year = yrs_proj,
-                                    Month = rep(fsh_biom_sub$Month[length(fsh_biom_sub$Month)], nyrs_proj),
-                                    Selectivity_block = rep(fsh_biom_sub$Selectivity_block[length(fsh_biom_sub$Selectivity_block)], nyrs_proj),
-                                    Catch = rep(NA, nyrs_proj),
-                                    Log_sd = rep(fsh_biom_sub$Log_sd[length(fsh_biom_sub$Log_sd)], nyrs_proj))
-        data_list$fsh_biom <- rbind(data_list$fsh_biom, proj_fsh_biom)
-      }
-    }
-    data_list$fsh_biom <- data_list$fsh_biom[
-      with(data_list$fsh_biom, order(Fleet_code, Year)),]
+    data_list <- Rceattle::clean_data(data_list)
 
     # Switches
     data_list$random_rec <- as.numeric(random_rec)
@@ -378,7 +326,9 @@ fit_mod <-
     Rceattle:::data_check(data_list)
     data_list_reorganized <- Rceattle::rearrange_dat(data_list)
     data_list_reorganized = c(list(model = "ceattle_v01_09"),data_list_reorganized)
-    # data_list_reorganized$HCR = 0 # Estimate model with F = 0 for the projection
+    if(msmMode > 0 & data_list$HCR == 3){
+      data_list_reorganized$HCR = 0 # Estimate model with F = 0 for the projection if multispecies
+    }
 
     # - Update comp weights, future F (if input) and F_prop from data
     if(!is.null(data_list$fleet_control$Comp_weights)){
@@ -527,35 +477,104 @@ fit_mod <-
     # STEP 10 - Run HCR projections
     if(estimateMode %in% c(0,2,4)){
       if(data_list$HCR > 2){
-        data_list_reorganized$HCR = data_list$HCR # Set HCR back to original
+
+        # - Single species mode
+        if(msmMode == 0){
+
+          # -- Update map in obs
+          hcr_map <- build_hcr_map(data_list, map, debug = estimateMode > 3)
+          if(sum(as.numeric(unlist(hcr_map$mapFactor)), na.rm = TRUE) == 0){stop("HCR map of length 0: all NAs")}
+
+          obj = TMB::MakeADFun(
+            data_list_reorganized,
+            parameters = last_par,
+            DLL = TMBfilename,
+            map = hcr_map$mapFactor,
+            random = random_vars,
+            silent = verbose != 2
+          )
+
+          # -- Optimize
+          opt = Rceattle::fit_tmb(obj = obj,
+                                  fn=obj$fn,
+                                  gr=obj$gr,
+                                  startpar=obj$par,
+                                  loopnum = loopnum,
+                                  getsd = getsd,
+                                  control = control,
+                                  getJointPrecision = FALSE,
+                                  quiet = verbose < 2,
+          )
+        }
 
 
-        # START HERE
-        # -- Update map in obs
-        hcr_map <- build_hcr_map(data_list, map, debug = estimateMode > 3)
-        if(sum(as.numeric(unlist(hcr_map$mapFactor)), na.rm = TRUE) == 0){stop("HCR map of length 0: all NAs")}
+        # - Multi-species mode
+        if(msmMode > 0){
 
-        obj = TMB::MakeADFun(
-          data_list_reorganized,
-          parameters = last_par,
-          DLL = TMBfilename,
-          map = hcr_map$mapFactor,
-          random = random_vars,
-          silent = verbose != 2
-        )
+          # -- Update map in obs
+          hcr_map <- build_hcr_map(data_list, map, debug = estimateMode > 3)
+          if(sum(as.numeric(unlist(hcr_map$mapFactor)), na.rm = TRUE) == 0){stop("HCR map of length 0: all NAs")}
 
-        # -- Optimize
-        opt = Rceattle::fit_tmb(obj = obj,
-                                fn=obj$fn,
-                                gr=obj$gr,
-                                startpar=obj$par,
-                                loopnum = loopnum,
-                                getsd = getsd,
-                                control = control,
-                                getJointPrecision = FALSE,
-                                quiet = verbose < 2,
-        )
+          # -- Project model forward under mean recruitment
+          hind_yrs <- (data_list$styr) : data_list$endyr
+          hind_nyrs <- length(hind_yrs)
+          proj_yrs <- (data_list$endyr + 1) : data_list$projyr
+          proj_nyrs <- length(proj_yrs)
 
+          # --- Replace future rec devs
+          for(sp in 1:data_list$nspp){
+            rec_dev <- rep(log(mean(exp(last_par$ln_mean_rec[sp] + last_par$rec_dev[sp,1:hind_nyrs]))) - last_par$ln_mean_rec[sp],
+                           times = proj_nyrs)
+
+            # - Update OM with devs
+            last_par$rec_dev[sp,proj_yrs - data_list$styr + 1] <- replace(
+              last_par$rec_dev[sp,proj_yrs - data_list$styr + 1],
+              values =  rec_dev)
+          }
+
+          # --- Update model object for mean rec
+          obj = TMB::MakeADFun(
+            data_list_reorganized,
+            parameters = last_par,
+            DLL = TMBfilename,
+            map = hcr_map$mapFactor,
+            random = random_vars,
+            silent = verbose != 2
+          )
+
+          # -- Get quantities
+          quantities <- obj$report(obj$env$last.par.best)
+
+          # -- Get SB0: SSB when model is projected forward under no fishing
+          SB0 <- quantities$biomassSSB[, ncol(quantities$biomassSSB)]
+          B0 <- quantities$biomass[, ncol(quantities$biomass)]
+          data_list_reorganized$MSSB0 <- SB0
+
+          # -- Set HCR back to original
+          data_list_reorganized$HCR <- data_list$HCR
+
+          # --- Update model object for HCR
+          obj = TMB::MakeADFun(
+            data_list_reorganized,
+            parameters = last_par,
+            DLL = TMBfilename,
+            map = hcr_map$mapFactor,
+            random = random_vars,
+            silent = verbose != 2
+          )
+
+          # -- Optimize
+          opt = Rceattle::fit_tmb(obj = obj,
+                                  fn=obj$fn,
+                                  gr=obj$gr,
+                                  startpar=obj$par,
+                                  loopnum = loopnum,
+                                  getsd = getsd,
+                                  control = control,
+                                  getJointPrecision = FALSE,
+                                  quiet = verbose < 2,
+          )
+        }
         # obj$report()$DynamicSPRtarget/obj$report()$DynamicSPR0
         # obj$report()$DynamicSPRlimit/obj$report()$DynamicSPR0
         #
@@ -581,15 +600,14 @@ fit_mod <-
       }
     }
 
-    # -- Save estimated parameters
+    # - Save estimated parameters
     mod_objects$estimated_params <- last_par
     mod_objects$obj = obj
 
-
-    # Get quantities
+    # - Get quantities
     quantities <- obj$report(obj$env$last.par.best)
 
-    # Warning for discontinuous likelihood
+    # -- Warning for discontinuous likelihood
     if(estimateMode %in% c(0:2)){
       if(!is.null(opt$SD) & random_rec == FALSE){
         if(abs(opt$objective - quantities$jnll) > rel_tol){
@@ -600,7 +618,7 @@ fit_mod <-
       }
     }
 
-    # Rename jnll
+    # -- Rename jnll
     colnames(quantities$jnll_comp) <- paste0("Sp/Srv/Fsh_", 1:ncol(quantities$jnll_comp))
     rownames(quantities$jnll_comp) <- c(
       "Survey biomass",
@@ -633,7 +651,8 @@ fit_mod <-
     # -- Save derived quantities
     mod_objects$quantities <- quantities
 
-    # Calculate Mcallister-Iannelli coefficients
+
+    # - Calculate Mcallister-Iannelli coefficients
     # Effective sample size for the length data for year y
 
     eff_n_mcallister <- rowSums(quantities$comp_hat * (1 - quantities$comp_hat), na.rm = TRUE)/rowSums((data_list_reorganized$comp_obs - quantities$comp_hat)^2, na.rm = TRUE) # sum_length (p_hat * (1 - p_hat))/ sum_length ((p - p_hat) ^ 2)
@@ -650,7 +669,7 @@ fit_mod <-
     mod_objects$data_list <- data_list
 
 
-    # -- Save objects
+    # - Save objects
     mod_objects$run_time = ((Sys.time() - start_time))
 
     if(estimateMode < 3){
@@ -672,4 +691,74 @@ fit_mod <-
     TMB::FreeADFun(obj)
   }
 
+
+
+#' Function to clean data for Rceattle runs
+#'
+#' @param data_list
+#'
+#' @export
+#'
+clean_data <- function(data_list){
+
+  # - Remove years of data previous to start year
+  data_list$UobsWtAge <- as.data.frame(data_list$UobsWtAge)
+  data_list$UobsAge <- as.data.frame(data_list$UobsAge)
+  data_list$wt <- data_list$wt[which(data_list$wt$Year == 0 | data_list$wt$Year >= data_list$styr),]
+  data_list$UobsAge <- data_list$UobsAge[which(data_list$UobsAge$Year == 0 | data_list$UobsAge$Year >= data_list$styr),]
+  data_list$UobsWtAge <- data_list$UobsWtAge[which(data_list$UobsWtAge$Year == 0 | data_list$UobsWtAge$Year >= data_list$styr),]
+  data_list$srv_biom <- data_list$srv_biom[which(abs(data_list$srv_biom$Year) >= data_list$styr),]
+  data_list$fsh_biom <- data_list$fsh_biom[which(abs(data_list$fsh_biom$Year) >= data_list$styr),]
+  data_list$comp_data <- data_list$comp_data[which(abs(data_list$comp_data$Year) >= data_list$styr),]
+  data_list$emp_sel <- data_list$emp_sel[which(data_list$emp_sel$Year == 0 | data_list$emp_sel$Year >= data_list$styr),]
+  data_list$NByageFixed <- data_list$NByageFixed[which(data_list$NByageFixed$Year == 0 | data_list$NByageFixed$Year >= data_list$styr),]
+  data_list$Pyrs <- data_list$Pyrs[which(data_list$Pyrs$Year == 0 | data_list$Pyrs$Year >= data_list$styr),]
+
+  # - Add temp multi-species SB0
+  data_list$MSSB0 <- rep(999, data_list$nspp)
+
+  # - Remove years of data after to proj year
+  data_list$wt <- data_list$wt[which(data_list$wt$Year <= data_list$projyr),]
+  data_list$UobsAge <- data_list$UobsAge[which(data_list$UobsAge$Year <= data_list$projyr),]
+  data_list$UobsWtAge <- data_list$UobsWtAge[which(data_list$UobsWtAge$Year <= data_list$projyr),]
+  data_list$srv_biom <- data_list$srv_biom[which(abs(data_list$srv_biom$Year) <= data_list$projyr),]
+  data_list$fsh_biom <- data_list$fsh_biom[which(abs(data_list$fsh_biom$Year) <= data_list$projyr),]
+  data_list$comp_data <- data_list$comp_data[which(abs(data_list$comp_data$Year) <= data_list$projyr),]
+  data_list$emp_sel <- data_list$emp_sel[which(data_list$emp_sel$Year <= data_list$projyr),]
+  data_list$NByageFixed <- data_list$NByageFixed[which(data_list$NByageFixed$Year <= data_list$projyr),]
+  data_list$Pyrs <- data_list$Pyrs[which(data_list$Pyrs$Year <= data_list$projyr),]
+
+
+  # - Extend catch data to proj year for projections
+  if(data_list$projyr > data_list$endyr){
+    # yrs_proj <- (data_list$endyr + 1):data_list$projyr
+    # proj_fsh_biom <- data_list$fsh_biom %>%
+    #   group_by(Fleet_code) %>%
+    #   slice(rep(n(),  length(yrs_proj))) %>%
+    #   mutate(Year = yrs_proj, Catch = NA)
+    # data_list$fsh_biom <- rbind(data_list$fsh_biom, proj_fsh_biom)
+
+    for(flt in (unique(data_list$fsh_biom$Fleet_code))){
+      fsh_biom_sub <- data_list$fsh_biom[which(data_list$fsh_biom$Fleet_code == flt),]
+      yrs_proj <- (data_list$endyr + 1):data_list$projyr
+      yrs_proj <- yrs_proj[which(yrs_proj %!in% fsh_biom_sub$Year)]
+      nyrs_proj <- length(yrs_proj)
+      proj_fsh_biom <- data.frame(Fleet_name = rep(fsh_biom_sub$Fleet_name[1], nyrs_proj),
+                                  Fleet_code = rep(flt, nyrs_proj),
+                                  Species = rep(fsh_biom_sub$Species[1], nyrs_proj),
+                                  Year = yrs_proj,
+                                  Month = rep(fsh_biom_sub$Month[length(fsh_biom_sub$Month)], nyrs_proj),
+                                  Selectivity_block = rep(fsh_biom_sub$Selectivity_block[length(fsh_biom_sub$Selectivity_block)], nyrs_proj),
+                                  Catch = rep(NA, nyrs_proj),
+                                  Log_sd = rep(fsh_biom_sub$Log_sd[length(fsh_biom_sub$Log_sd)], nyrs_proj))
+      data_list$fsh_biom <- rbind(data_list$fsh_biom, proj_fsh_biom)
+    }
+  }
+  data_list$fsh_biom <- data_list$fsh_biom[
+    with(data_list$fsh_biom, order(Fleet_code, Year)),]
+
+  return(data_list)
+}
+
+'%!in%' <- function(x,y){!('%in%'(x,y))}
 

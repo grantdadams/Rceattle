@@ -54,6 +54,7 @@ ss_run_M <- Rceattle::fit_mod(data_list = mydata_M,
 # - Multi-species
 # For the a multispecies model we from the single species parameters.
 BS2017MS$est_M1 <- c(0,0,0) # Do not estimate residual M
+BS2017MS$fleet_control$proj_F_prop <- c(rep(1,3), rep(0,4))
 ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
                             inits = ss_run$estimated_params, # Initial parameters from single species ests
                             file = NULL, # Don't save

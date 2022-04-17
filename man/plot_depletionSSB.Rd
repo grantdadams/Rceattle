@@ -15,6 +15,7 @@ plot_depletionSSB(
   lwd = 3,
   save = FALSE,
   right_adj = 0,
+  top_adj = 1.2,
   width = 7,
   height = 6.5,
   minyr = NULL,
@@ -23,7 +24,8 @@ plot_depletionSSB(
   alpha = 0.4,
   mod_avg = rep(FALSE, length(Rceattle)),
   mse = FALSE,
-  OM = TRUE
+  OM = TRUE,
+  reference = NULL
 )
 }
 \arguments{
@@ -46,7 +48,9 @@ function.}
 
 \item{save}{Save output?}
 
-\item{right_adj}{How many units of the x-axis to add to the right side of the figure for fitting the legend.}
+\item{right_adj}{Multiplier for to add to the right side of the figure for fitting the legend.}
+
+\item{top_adj}{Multiplier for y-axis to add to the top side of the figure for fitting the legend.}
 
 \item{minyr}{First year to plot}
 

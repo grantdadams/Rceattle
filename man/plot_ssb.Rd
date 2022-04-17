@@ -23,7 +23,8 @@ plot_ssb(
   alpha = 0.4,
   mod_avg = rep(FALSE, length(Rceattle)),
   mse = FALSE,
-  OM = TRUE
+  OM = TRUE,
+  reference = NULL
 )
 }
 \arguments{
@@ -46,7 +47,7 @@ function.}
 
 \item{save}{Save ssb?}
 
-\item{right_adj}{How many units of the x-axis to add to the right side of the figure for fitting the legend.}
+\item{right_adj}{Multiplier for to add to the right side of the figure for fitting the legend.}
 
 \item{minyr}{First year to plot}
 

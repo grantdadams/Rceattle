@@ -432,6 +432,7 @@ Type objective_function<Type>::operator() () {
   DATA_ARRAY( NByageFixed );              // Provided estimates of numbers- or index-at-age to be multiplied (or not) by pop_scalar to get Nbyage
   Type stom_tau = 20;                     // Stomach sample size: FIXME - have as input
   int max_age = imax(nages);              // Integer of maximum nages to make the arrays; n = [1]
+  DATA_VECTOR( MSSB0 );                   // SB0 from projecting the model forward in multi-species mode under no fishing
 
   // 2.3. Data controls (i.e. how to assign data to objects)
   DATA_IMATRIX( fleet_control );          // Fleet specifications
@@ -1453,6 +1454,11 @@ Type objective_function<Type>::operator() () {
         for(sex = 0; sex < nsex(sp); sex ++){
           B0(sp) +=  NByage0(sp, sex, age, nyrs-1) *  wt( pop_wt_index(sp), sex, age, nyrs_hind - 1 );
         }
+      }
+
+      // Input SB0 (if running in multi-species mode)
+      if(msmMode > 0){
+        SB0(sp) = MSSB0(sp);
       }
     }
 
