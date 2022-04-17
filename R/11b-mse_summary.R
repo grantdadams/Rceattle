@@ -69,7 +69,7 @@ mse_summary <- function(mse){
   ## MSE Output
   # - Catch is by fleet
   mse_summary <- data.frame(matrix(NA, nrow = nflts+nspp+1, ncol = 12))
-  colnames(mse_summary) <- c("Species", "Fleet_name", "Fleet_code","Average Catch", "Catch IAV", "% Years closed", "Avg terminal SSB MSE", "EM: P(Fy > Flimit)", "EM: P(SSB < Dynamic SSBlimit)", "OM: P(Fy > Flimit)", "OM: P(SSB < SSBlimit)", "OM: Terminal SSB/SSBtarget")
+  colnames(mse_summary) <- c("Species", "Fleet_name", "Fleet_code","Average Catch", "Catch IAV", "% Years closed", "Avg terminal SSB MSE", "EM: P(Fy > Flimit)", "EM: P(SSB < SSBlimit)", "OM: P(Fy > Flimit)", "OM: P(SSB < SSBlimit)", "OM: Terminal SSB/SSBtarget")
   mse_summary$Fleet_name <- c(rep(NA, nspp), mse$Sim_1$OM$data_list$fleet_control$Fleet_name[flts], "All")
   mse_summary$Fleet_code <- c(rep(NA, nspp), mse$Sim_1$OM$data_list$fleet_control$Fleet_code[flts], "All")
   mse_summary$Species <- c(mse$Sim_1$OM$data_list$spnames, mse$Sim_1$OM$data_list$fleet_control$Species[flts], "All")
@@ -179,7 +179,6 @@ mse_summary <- function(mse){
 
     flimit_ratio_tmp <- c()
     sb_sblimit_tmp <- c()
-    sb_sblimit_dynamic_tmp <- c()
 
     for(sim in 1:length(mse)){
       for(em in 2:length(mse[[sim]]$EM)){ # First EM is conditioned model

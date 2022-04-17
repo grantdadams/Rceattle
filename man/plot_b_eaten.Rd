@@ -44,7 +44,7 @@ function.}
 
 \item{lwd}{Line width as specified by user}
 
-\item{right_adj}{How many units of the x-axis to add to the right side of the figure for fitting the legend.}
+\item{right_adj}{Multiplier for to add to the right side of the figure for fitting the legend.}
 
 \item{minyr}{first year to plot}
 
