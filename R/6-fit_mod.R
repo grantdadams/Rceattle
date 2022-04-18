@@ -144,34 +144,34 @@ fit_mod <-
     newtonsteps = 0){
 
 
-    ### For debugging
-    data_list = NULL;
-    inits = NULL;
-    map = NULL;
-    bounds = NULL;
-    file = NULL;
-    estimateMode = 0;
-    random_rec = FALSE;
-    random_q = FALSE;
-    random_sel = FALSE;
-    HCR = build_hcr();
-    niter = 3;
-    msmMode = 0;
-    avgnMode = 0;
-    updateM1 = TRUE;
-    minNByage = 0;
-    suitMode = 0;
-    meanyr = NULL;
-    phase = NULL;
-    getsd = TRUE;
-    use_gradient = TRUE;
-    rel_tol = 1;
-    control = list(eval.max = 1e+09,
-                   iter.max = 1e+09, trace = 0);
-    getJointPrecision = TRUE;
-    loopnum = 5;
-    verbose = 1;
-    newtonsteps = 0
+    # ### For debugging
+    # data_list = NULL;
+    # inits = NULL;
+    # map = NULL;
+    # bounds = NULL;
+    # file = NULL;
+    # estimateMode = 0;
+    # random_rec = FALSE;
+    # random_q = FALSE;
+    # random_sel = FALSE;
+    # HCR = build_hcr();
+    # niter = 3;
+    # msmMode = 0;
+    # avgnMode = 0;
+    # updateM1 = TRUE;
+    # minNByage = 0;
+    # suitMode = 0;
+    # meanyr = NULL;
+    # phase = NULL;
+    # getsd = TRUE;
+    # use_gradient = TRUE;
+    # rel_tol = 1;
+    # control = list(eval.max = 1e+09,
+    #                iter.max = 1e+09, trace = 0);
+    # getJointPrecision = TRUE;
+    # loopnum = 5;
+    # verbose = 1;
+    # newtonsteps = 0
 
 
     start_time <- Sys.time()
@@ -515,34 +515,17 @@ fit_mod <-
           hcr_map <- build_hcr_map(data_list, map, debug = estimateMode > 3)
           if(sum(as.numeric(unlist(hcr_map$mapFactor)), na.rm = TRUE) == 0){stop("HCR map of length 0: all NAs")}
 
-          # -- Project model forward under mean recruitment
-          hind_yrs <- (data_list$styr) : data_list$endyr
-          hind_nyrs <- length(hind_yrs)
-          proj_yrs <- (data_list$endyr + 1) : data_list$projyr
-          proj_nyrs <- length(proj_yrs)
-
-          # --- Replace future rec devs
-          for(sp in 1:data_list$nspp){
-            rec_dev <- rep(log(mean(exp(last_par$ln_mean_rec[sp] + last_par$rec_dev[sp,1:hind_nyrs]))) - last_par$ln_mean_rec[sp],
-                           times = proj_nyrs)
-
-            # - Update OM with devs
-            last_par$rec_dev[sp,proj_yrs - data_list$styr + 1] <- replace(
-              last_par$rec_dev[sp,proj_yrs - data_list$styr + 1],
-              values =  rec_dev)
-          }
-
-          # --- Update model object for mean rec
-          obj = TMB::MakeADFun(
-            data_list_reorganized,
-            parameters = last_par,
-            DLL = TMBfilename,
-            map = hcr_map$mapFactor,
-            random = random_vars,
-            silent = verbose != 2
-          )
-
           # -- Get quantities
+          if(estimateMode == 2){ # Build obj if we havent done so already
+            obj = TMB::MakeADFun(
+              data_list_reorganized,
+              parameters = last_par,
+              DLL = TMBfilename,
+              map = hcr_map$mapFactor,
+              random = random_vars,
+              silent = verbose != 2
+            )
+          }
           quantities <- obj$report(obj$env$last.par.best)
 
           # -- Get SB0: SSB when model is projected forward under no fishing
@@ -760,5 +743,12 @@ clean_data <- function(data_list){
   return(data_list)
 }
 
+#' Not in function
+#'
+#' @param x
+#' @param y
+#'
+#' @export
+#'
 '%!in%' <- function(x,y){!('%in%'(x,y))}
 

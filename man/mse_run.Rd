@@ -2,7 +2,19 @@
 % Please edit documentation in R/11-mse_run.R
 \name{mse_run}
 \alias{mse_run}
-\title{Run a management strategy evaluation}
+\title{#' Function to take a fitted Rceattle model and update future rec devs to match mean recruitment in the hindcast.
+#'
+#' @param Rceattle Rceattle model
+#' @param update Update model
+#' @param sample_rec sample hindcast rec devs
+#'
+#' @export
+#'
+proj_mean_rec <- function(Rceattle, update = FALSE, sample_rec = FALSE){
+hind_yrs <- (Rceattle$data_list$styr) : Rceattle$data_list$endyr
+hind_nyrs <- length(hind_yrs)
+proj_yrs <- (Rceattle$data_list$endyr + 1) : Rceattle$data_list$projyr
+proj_nyrs <- length(proj_yrs)}
 \usage{
 mse_run(
   om = ms_run,
@@ -54,3 +66,7 @@ A list of operating models (differ by simulated recruitment determined by \code{
 \description{
 Runs a forward projecting MSE. Main assumptions are the projected selectivity/catchability, foraging days, and weight-at-age are the same as the terminal year of the hindcast in the operating model. Assumes survey sd is same as average across historic time series, while comp data sample size is same as last year. No implementation error!
 }
+\section{Replace future rec devs}{
+
+}
+

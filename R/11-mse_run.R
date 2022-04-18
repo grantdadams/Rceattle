@@ -1,54 +1,56 @@
-#' Function to take a fitted Rceattle model and update future rec devs to match mean recruitment in the hindcast.
+#' #' Function to take a fitted Rceattle model and update future rec devs to match mean recruitment in the hindcast.
+#' #'
+#' #' @param Rceattle Rceattle model
+#' #' @param update Update model
+#' #' @param sample_rec sample hindcast rec devs
+#' #'
+#' #' @export
+#' #'
+#' proj_mean_rec <- function(Rceattle, update = FALSE, sample_rec = FALSE){
+#'   hind_yrs <- (Rceattle$data_list$styr) : Rceattle$data_list$endyr
+#'   hind_nyrs <- length(hind_yrs)
+#'   proj_yrs <- (Rceattle$data_list$endyr + 1) : Rceattle$data_list$projyr
+#'   proj_nyrs <- length(proj_yrs)
 #'
-#' @param Rceattle Rceattle model
-#' @param update Update model
-#' @param sample_rec sample hindcast rec devs
+#'   # Replace future rec devs
+#'   for(sp in 1:Rceattle$data_list$nspp){
+#'     if(sample_rec){ # Sample devs from hindcast
+#'       rec_dev <- sample(x = Rceattle$estimated_params$rec_dev[sp, 1:hind_nyrs], size = proj_nyrs, replace = TRUE)
+#'     } else{ # Use mean R from hindcast because R0 is biased
+#'       rec_dev <- rep(log(mean(Rceattle$quantities$R[sp,1:hind_nyrs])) - Rceattle$estimated_params$ln_mean_rec[sp],
+#'                      times = proj_nyrs)
+#'     }
 #'
-proj_mean_rec <- function(Rceattle, update = FALSE, sample_rec = FALSE){
-  hind_yrs <- (Rceattle$data_list$styr) : Rceattle$data_list$endyr
-  hind_nyrs <- length(hind_yrs)
-  proj_yrs <- (Rceattle$data_list$endyr + 1) : Rceattle$data_list$projyr
-  proj_nyrs <- length(proj_yrs)
-
-  # Replace future rec devs
-  for(sp in 1:Rceattle$data_list$nspp){
-    if(sample_rec){ # Sample devs from hindcast
-      rec_dev <- sample(x = Rceattle$estimated_params$rec_dev[sp, 1:hind_nyrs], size = proj_nyrs, replace = TRUE)
-    } else{ # Use mean R from hindcast because R0 is biased
-      rec_dev <- rep(log(mean(Rceattle$quantities$R[sp,1:hind_nyrs])) - Rceattle$estimated_params$ln_mean_rec[sp],
-                     times = proj_nyrs)
-    }
-
-    # - Update OM with devs
-    Rceattle$estimated_params$rec_dev[sp,proj_yrs - Rceattle$data_list$styr + 1] <- replace(
-      Rceattle$estimated_params$rec_dev[sp,proj_yrs - Rceattle$data_list$styr + 1],
-      values =  rec_dev)
-  }
-
-  if(update){
-    estimateMode <- Rceattle$data_list$estimateMode
-    Rceattle <- fit_mod(
-      data_list = Rceattle$data_list,
-      inits = Rceattle$estimated_params,
-      map =  Rceattle$map,
-      bounds = NULL,
-      file = NULL,
-      estimateMode = 3, # No estimation, but dont map out parameters
-      random_rec = Rceattle$data_list$random_rec,
-      niter = Rceattle$data_list$niter,
-      msmMode = Rceattle$data_list$msmMode,
-      avgnMode = Rceattle$data_list$avgnMode,
-      minNByage = Rceattle$data_list$minNByage,
-      suitMode = Rceattle$data_list$suitMode,
-      meanyr = om$data_list$meanyr,
-      updateM1 = FALSE, # Dont update M1 from data, fix at previous parameters
-      phase = NULL,
-      getsd = FALSE,
-      verbose = 0)
-    Rceattle$data_list$estimateMode <- estimateMode
-  }
-  return(Rceattle)
-}
+#'     # - Update OM with devs
+#'     Rceattle$estimated_params$rec_dev[sp,proj_yrs - Rceattle$data_list$styr + 1] <- replace(
+#'       Rceattle$estimated_params$rec_dev[sp,proj_yrs - Rceattle$data_list$styr + 1],
+#'       values =  rec_dev)
+#'   }
+#'
+#'   if(update){
+#'     estimateMode <- Rceattle$data_list$estimateMode
+#'     Rceattle <- fit_mod(
+#'       data_list = Rceattle$data_list,
+#'       inits = Rceattle$estimated_params,
+#'       map =  Rceattle$map,
+#'       bounds = NULL,
+#'       file = NULL,
+#'       estimateMode = 3, # No estimation, but dont map out parameters
+#'       random_rec = Rceattle$data_list$random_rec,
+#'       niter = Rceattle$data_list$niter,
+#'       msmMode = Rceattle$data_list$msmMode,
+#'       avgnMode = Rceattle$data_list$avgnMode,
+#'       minNByage = Rceattle$data_list$minNByage,
+#'       suitMode = Rceattle$data_list$suitMode,
+#'       meanyr = om$data_list$meanyr,
+#'       updateM1 = FALSE, # Dont update M1 from data, fix at previous parameters
+#'       phase = NULL,
+#'       getsd = FALSE,
+#'       verbose = 0)
+#'     Rceattle$data_list$estimateMode <- estimateMode
+#'   }
+#'   return(Rceattle)
+#' }
 
 
 #' Run a management strategy evaluation
@@ -229,10 +231,10 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
     # Replace future rec devs
     for(sp in 1:om_use$data_list$nspp){
       if(sample_rec){ # Sample devs from hindcast
-        rec_dev <- sample(x = om_use$estimated_params$rec_dev[sp, 1:hind_nyrs], size = proj_nyrs, replace = TRUE)
-      } else{ # Use mean R from hindcast because R0 is biased
-        rec_dev <- rep(log(mean(om_use$quantities$R[sp,1:hind_nyrs])) - om_use$estimated_params$ln_mean_rec[sp],
-                       times = proj_nyrs)
+        # - Adjust for Mean R
+        rec_dev <- sample(x = log(om_use$quantities$R[sp, 1:hind_nyrs]) - log(mean(om_use$quantities$R[sp,1:hind_nyrs])), size = proj_nyrs, replace = TRUE)
+      } else{ # Set to 0 otherwise
+        rec_dev <- rep(0, times = proj_nyrs)
       }
 
       # - Update OM with devs
