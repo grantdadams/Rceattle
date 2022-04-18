@@ -444,7 +444,7 @@ plot_catch <- function(Rceattle,
       }
     }
 
-    # Plot/save each survey individually
+    # Plot/save each survey together
     if(single.plots==FALSE){
 
       # Set heights of plot
@@ -452,7 +452,7 @@ plot_catch <- function(Rceattle,
       if(is.null(height)) height = ifelse(nfsh==1,5,ifelse(nfsh==2,3.,2.5))*round(nfsh/2+0.01,0)
 
 
-      Par = list(mfrow=c(round(nfsh/2+0.01,0),ifelse(nfsh==1,1,2)),mai=c(0.35,0.15,0,.15),omi = c(0.2,0.25,0.2,0) + 0.1,mgp=c(2,0.5,0), tck = -0.02,cex=0.8)
+      Par = list(mfrow=c(round(nfsh/3+0.01,0),ifelse(nfsh==1,1,3)),mai=c(0.35,0.15,0,.15),omi = c(0.2,0.25,0.2,0) + 0.1,mgp=c(2,0.5,0), tck = -0.02,cex=0.8)
 
       # Save
       if(j == 2){

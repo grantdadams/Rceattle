@@ -1368,9 +1368,14 @@ Type objective_function<Type>::operator() () {
         NByage0(sp, 1, 0 , yr) = mean_rec(sp) * (1 - R_sexr(sp)); // Using mean rec because R0 is biased
 
         // Recruitment - Dynamic SPR
-        DynamicNByage0(sp, 0, 0, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr)) * R_sexr(sp); // Using R0 because mse functions adjust rec_devs to account for bias
-        DynamicNByage0(sp, 1, 0, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr)) * (1-R_sexr(sp)); // Using R0 because mse functions adjust rec_devs to account for bias
-
+        if(yr < nyrs_hind){ // Hindcast using R0
+          DynamicNByage0(sp, 0, 0, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr)) * R_sexr(sp); // Using R0 because mse functions adjust rec_devs to account for bias
+          DynamicNByage0(sp, 1, 0, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr)) * (1-R_sexr(sp)); // Using R0 because mse functions adjust rec_devs to account for bias
+        }
+        if(yr >= nyrs_hind){ // Forecast using mean rec
+          DynamicNByage0(sp, 0, 0, yr) = exp(log(mean_rec(sp)) + rec_dev(sp, yr)) * R_sexr(sp); // Using R0 because mse functions adjust rec_devs to account for bias
+          DynamicNByage0(sp, 1, 0, yr) = exp(log(mean_rec(sp)) + rec_dev(sp, yr)) * (1-R_sexr(sp)); // Using R0 because mse functions adjust rec_devs to account for bias
+        }
 
         // N-at-age -- No fishing
         for(sex = 0; sex < nsex(sp); sex ++){
@@ -1405,7 +1410,13 @@ Type objective_function<Type>::operator() () {
           if(yr > 0){
             // Recruitment - Dynamic SBF
             // FIXME account for S-R relationship down the line
-            DynamicNByageF(F_yr, sp, 0, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr)) * R_sexr(sp); // Using R0 because mse_functions account for bias
+            if(yr < nyrs_hind){ // Hindcast using R0
+              DynamicNByageF(F_yr, sp, 0, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr)) * R_sexr(sp); // Using R0 because mse_functions account for bias
+
+            }
+            if(yr >= nyrs_hind){ // Forecast using mean R
+              DynamicNByageF(F_yr, sp, 0, yr) = exp(log(mean_rec(sp)) + rec_dev(sp, yr)) * R_sexr(sp); // Using R0 because mse_functions account for bias
+            }
 
             // N-at-age -- With fishing
             for (flt = 0; flt < n_flt; flt++) {
@@ -1473,7 +1484,7 @@ Type objective_function<Type>::operator() () {
             case 0: // Estimated numbers-at-age
 
               // -- 6.7.1. Amin (i.e. recruitment)
-              R(sp, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr)); // Projections should account for bias
+              R(sp, yr) = exp(log(mean_rec(sp)) + rec_dev(sp, yr)); // Projections use mean R given bias in R0
               NByage(sp, 0, 0, yr) = R(sp, yr) * R_sexr(sp);
               NByage(sp, 1, 0, yr) = R(sp, yr) * (1-R_sexr(sp));
 
@@ -1662,7 +1673,7 @@ Type objective_function<Type>::operator() () {
 
               // -- 6.7.5. Amin (i.e. recruitment):
               // This is repetitive and can probably get rid of it
-              R(sp, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr));
+              R(sp, yr) = exp(log(mean_rec(sp)) + rec_dev(sp, yr));
               NByage(sp, 0, 0, yr) = R(sp, yr) * R_sexr(sp);
               NByage(sp, 1, 0, yr) = R(sp, yr) * (1-R_sexr(sp));
 
