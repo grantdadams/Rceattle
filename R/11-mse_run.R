@@ -231,10 +231,10 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
     # Replace future rec devs
     for(sp in 1:om_use$data_list$nspp){
       if(sample_rec){ # Sample devs from hindcast
-        # - Adjust for Mean R
-        rec_dev <- sample(x = log(om_use$quantities$R[sp, 1:hind_nyrs]) - log(mean(om_use$quantities$R[sp,1:hind_nyrs])), size = proj_nyrs, replace = TRUE)
-      } else{ # Set to 0 otherwise
-        rec_dev <- rep(0, times = proj_nyrs)
+        rec_dev <- sample(x = om_use$estimated_params$rec_dev[sp, 1:hind_nyrs], size = proj_nyrs, replace = TRUE)
+      } else{ # Set to mean rec otherwise
+        rec_dev <- rep(log(mean(om_use$quantities$R[sp,1:hind_nyrs])) - om_use$estimated_params$ln_mean_rec[sp],
+                       times = proj_nyrs)
       }
 
       # - Update OM with devs
@@ -435,6 +435,7 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
                                                          "mn_rec"  ,
                                                          "biomassSSB" ,
                                                          "R",
+                                                         "mean_rec",
                                                          "srv_log_sd_hat",
                                                          "BO",
                                                          "SB0",
