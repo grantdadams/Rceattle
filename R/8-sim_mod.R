@@ -51,11 +51,7 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
                 }
                 values <- rmultinom(n = 1, size = dat_sim$comp_data$Sample_size[obs], prob = Rceattle$quantities$comp_hat[obs,])
             }
-            # # Males
-            # if(dat_sim$comp_data$Sex[obs] %in% c(2)){
-            #     Rceattle$quantities$comp_hat[obs, 1:age_length] <- 0 # Set females to 0
-            #     values <- rmultinom(n = 1, size = dat_sim$comp_data$Sample_size[obs], prob = Rceattle$quantities$comp_hat[obs,])
-            # }
+
             # Joint
             if(dat_sim$comp_data$Sex[obs] %in% c(3)){
                 values <- rmultinom(n = 1, size = dat_sim$comp_data$Sample_size[obs], prob = Rceattle$quantities$comp_hat[obs,])

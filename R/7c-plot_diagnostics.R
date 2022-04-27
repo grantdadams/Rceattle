@@ -188,6 +188,10 @@ plot_index <- function(Rceattle,
         axis(1,labels=TRUE,cex=0.8)
         axis(2,labels=TRUE,cex=0.8)
 
+        # Horizontal line at end yr
+          abline(v = Rceattle[[length(Rceattle)]]$data_list$meanyr, lwd  = 2, col = "grey", lty = 2)
+
+
         # Index name
         legend('topleft',as.character(fleet_control$Fleet_name[srvs[srv]]),bty="n",y.intersp = -0.2,cex=0.8)
 
@@ -472,6 +476,11 @@ plot_catch <- function(Rceattle,
         plot(NA, NA, ylab="", xlab="", ylim = c((ymin[fsh]), (ymax[fsh])), xlim = xlim, type='n', xaxt="n", yaxt="n")
         axis(1,labels=TRUE,cex=0.8)
         axis(2,labels=TRUE,cex=0.8)
+
+        # Horizontal line at end yr
+        if(incl_proj){
+          abline(v = Rceattle[[length(Rceattle)]]$data_list$meanyr, lwd  = 2, col = "grey", lty = 2)
+        }
 
         # Index name
         legend('topleft',as.character(fleet_control$Fleet_name[fshs[fsh]]),bty="n",y.intersp = -0.2,cex=0.8)
