@@ -642,8 +642,8 @@ Type objective_function<Type>::operator() () {
   // -- 4.7. Composition data - FIXME: will blow up in nlengths is less than nages
   vector<Type>  n_hat(comp_obs.rows()) ; n_hat.setZero() ;                          // Estimated catch (numbers)
   matrix<Type>  age_hat = comp_obs; age_hat.setZero();                              // Estimated catch at true age
-  matrix<Type>  true_age_comp_hat = comp_obs; true_age_comp_hat.setZero();          // True age composition
-  matrix<Type>  age_obs_hat = comp_obs; age_obs_hat.setZero();                      // Estimated catch at observed age
+  matrix<Type>  true_age_comp_hat = comp_obs; true_age_comp_hat.setZero();          // True estimated age composition
+  matrix<Type>  age_obs_hat = comp_obs; age_obs_hat.setZero();                      // Estimated catch at observed age (accounts for ageing error)
   matrix<Type>  comp_hat = comp_obs; comp_hat.setZero();                            // Estimated comp
 
   // -- 4.8. Ration components
@@ -3117,18 +3117,18 @@ Type objective_function<Type>::operator() () {
 
           // Lower
           if(age_test < flt_accum_age_lower(flt)){
-            comp_obs(comp_ind, flt_accum_age_lower(flt) + (nages(sp) * joint_adjust(comp_ind)-1)) += comp_obs(comp_ind, age);
+            comp_obs(comp_ind, flt_accum_age_lower(flt) + (nages(sp) * (joint_adjust(comp_ind)-1))) += comp_obs(comp_ind, age);
             comp_obs(comp_ind, age) = 0;
 
-            comp_hat(comp_ind, flt_accum_age_lower(flt) + (nages(sp) * joint_adjust(comp_ind)-1)) += comp_hat(comp_ind, age);
+            comp_hat(comp_ind, flt_accum_age_lower(flt) + (nages(sp) * (joint_adjust(comp_ind)-1))) += comp_hat(comp_ind, age);
             comp_hat(comp_ind, age) = 0;
           }
           // Upper
           if(age_test > flt_accum_age_upper(flt)){
-            comp_obs(comp_ind, flt_accum_age_upper(flt) + (nages(sp) * joint_adjust(comp_ind)-1)) += comp_obs(comp_ind, age);
+            comp_obs(comp_ind, flt_accum_age_upper(flt) + (nages(sp) * (joint_adjust(comp_ind)-1))) += comp_obs(comp_ind, age);
             comp_obs(comp_ind, age) = 0;
 
-            comp_hat(comp_ind, flt_accum_age_upper(flt) + (nages(sp) * joint_adjust(comp_ind)-1)) += comp_hat(comp_ind, age);
+            comp_hat(comp_ind, flt_accum_age_upper(flt) + (nages(sp) * (joint_adjust(comp_ind)-1))) += comp_hat(comp_ind, age);
             comp_hat(comp_ind, age) = 0;
           }
         }
