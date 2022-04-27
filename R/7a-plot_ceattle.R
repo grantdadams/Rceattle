@@ -295,7 +295,7 @@ plot_biomass <- function(Rceattle,
 
       # Horizontal line at end yr
       if(incl_proj){
-        abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
+        abline(v = Rceattle[[length(Rceattle)]]$data_list$meanyr, lwd  = lwd, col = "grey", lty = 2)
       }
 
       # Legends
@@ -625,7 +625,7 @@ plot_recruitment <- function(Rceattle,
 
       # Horizontal line at end yr
       if(incl_proj){
-        abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
+        abline(v = Rceattle[[length(Rceattle)]]$data_list$meanyr, lwd  = lwd, col = "grey", lty = 2)
       }
 
       # Legends
@@ -1594,7 +1594,7 @@ plot_ssb <- function(Rceattle,
 
       # Horizontal line at end yr
       if(incl_proj){
-        abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
+        abline(v = Rceattle[[length(Rceattle)]]$data_list$meanyr, lwd  = lwd, col = "grey", lty = 2)
       }
 
       # Legends
@@ -1916,7 +1916,7 @@ plot_b_eaten <-  function(Rceattle,
 
       # Horizontal line at end yr
       if(incl_proj){
-        abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
+        abline(v = Rceattle[[length(Rceattle)]]$data_list$meanyr, lwd  = lwd, col = "grey", lty = 2)
       }
 
       # Legends
@@ -2126,7 +2126,7 @@ plot_b_eaten_prop <-
 
         # Horizontal line
         if(incl_proj){
-          abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
+          abline(v = Rceattle[[length(Rceattle)]]$data_list$meanyr, lwd  = lwd, col = "grey", lty = 2)
         }
 
         # Legends
@@ -2341,7 +2341,7 @@ plot_m_at_age <-
 
           # Horizontal line
           if(incl_proj){
-            abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
+            abline(v = Rceattle[[length(Rceattle)]]$data_list$meanyr, lwd  = lwd, col = "grey", lty = 2)
           }
 
           # Species legends
@@ -2543,7 +2543,7 @@ plot_m2_at_age_prop <-
 
           # Horizontal line
           if(incl_proj){
-            abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
+            abline(v = Rceattle[[length(Rceattle)]]$data_list$meanyr, lwd  = lwd, col = "grey", lty = 2)
           }
 
           # Species legends
@@ -2870,7 +2870,7 @@ plot_depletionSSB <- function(Rceattle,
 
       # Horizontal line at end yr
       if(incl_proj){
-        abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
+        abline(v = Rceattle[[length(Rceattle)]]$data_list$meanyr, lwd  = lwd, col = "grey", lty = 2)
       }
 
       # Legends
@@ -3185,7 +3185,7 @@ plot_depletion <- function(Rceattle,
 
       # Horizontal line at end yr
       if(incl_proj){
-        abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
+        abline(v = Rceattle[[length(Rceattle)]]$data_list$meanyr, lwd  = lwd, col = "grey", lty = 2)
       }
 
       # Legends
@@ -3491,7 +3491,7 @@ plot_f <- function(Rceattle,
 
       # Horizontal line at end yr
       if(incl_proj){
-        abline(v = max_endyr, lwd  = lwd, col = "grey", lty = 2)
+        abline(v = Rceattle[[length(Rceattle)]]$data_list$meanyr, lwd  = lwd, col = "grey", lty = 2)
       }
 
       # Legends

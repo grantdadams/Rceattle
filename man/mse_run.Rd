@@ -2,19 +2,7 @@
 % Please edit documentation in R/11-mse_run.R
 \name{mse_run}
 \alias{mse_run}
-\title{#' Function to take a fitted Rceattle model and update future rec devs to match mean recruitment in the hindcast.
-#'
-#' @param Rceattle Rceattle model
-#' @param update Update model
-#' @param sample_rec sample hindcast rec devs
-#'
-#' @export
-#'
-proj_mean_rec <- function(Rceattle, update = FALSE, sample_rec = FALSE){
-hind_yrs <- (Rceattle$data_list$styr) : Rceattle$data_list$endyr
-hind_nyrs <- length(hind_yrs)
-proj_yrs <- (Rceattle$data_list$endyr + 1) : Rceattle$data_list$projyr
-proj_nyrs <- length(proj_yrs)}
+\title{Run a management strategy evaluation}
 \usage{
 mse_run(
   om = ms_run,
@@ -23,6 +11,7 @@ mse_run(
   assessment_period = 1,
   sampling_period = 1,
   simulate_data = TRUE,
+  regenerate_past = FALSE,
   sample_rec = TRUE,
   rec_trend = 0,
   fut_sample = 1,
@@ -46,13 +35,17 @@ mse_run(
 
 \item{simulate_data}{Include simulated random error proportional to that estimated/provided for the data from the OM.}
 
+\item{regenerate_past}{Refits the EM to historical/conditioning data prior to the MSE, where the data are generated from the OM with \code{simulate_data = TRUE} or without \code{simulate_data = FALSE} sampling error.}
+
 \item{sample_rec}{Include resampled recruitment deviates from the"hindcast" in the projection of the OM. Resampled deviates are used rather than sampling from N(0, sigmaR) because initial deviates bias R0 low. If false, uses mean of recruitment deviates.}
 
-\item{rec_trend}{Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier mean rec * (1 + (rec_trend/projection years) * 1:projection years)}
+\item{rec_trend}{Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier \code{mean rec * (1 + (rec_trend/projection years) * 1:projection years)}}
 
-\item{fut_sample}{future sampling effort relative to last year.  \code{ Log_sd * 1/fut_sample} for index and \code{ Sample_size * fut_sample} for comps}
+\item{fut_sample}{future sampling effort relative to last year.  \code{ Log_sd * 1 / fut_sample} for index and \code{ Sample_size * fut_sample} for comps}
 
 \item{cap}{A cap on the catch in the projection. Can be a single number or vector. Default = NULL}
+
+\item{seed}{}
 
 \item{loopnum}{number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})}
 
@@ -66,7 +59,3 @@ A list of operating models (differ by simulated recruitment determined by \code{
 \description{
 Runs a forward projecting MSE. Main assumptions are the projected selectivity/catchability, foraging days, and weight-at-age are the same as the terminal year of the hindcast in the operating model. Assumes survey sd is same as average across historic time series, while comp data sample size is same as last year. No implementation error!
 }
-\section{Replace future rec devs}{
-
-}
-

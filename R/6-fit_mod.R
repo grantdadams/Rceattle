@@ -197,9 +197,13 @@ fit_mod <-
     data_list$msmMode <- msmMode
     data_list$suitMode <- as.numeric(suitMode)
     data_list$minNByage <- as.numeric(minNByage)
-    if(is.null(data_list$meanyr)){
+    if(is.null(meanyr) & is.null(data_list$meanyr)){ # If no meanyear is provided in data or function, use end year
       data_list$meanyr <- data_list$endyr
     }
+    if(!is.null(meanyr)){ # If mean year is provided in function, override data
+      data_list$meanyr <- meanyr
+    }
+
 
     # HCR Switches
     data_list$HCR = HCR$HCR
@@ -381,7 +385,7 @@ fit_mod <-
     # STEP 8 - Phase hindcast
     step = 5
     if(!is.null(phase) & estimateMode %in% c(0,1) ){
-      message(paste0("Step ", step,": Phasing begin"))
+      if(verbose > 0) {message(paste0("Step ", step,": Phasing begin"))}
       phase_pars <- Rceattle::TMBphase(
         data = data_list_reorganized,
         parameters = start_par,

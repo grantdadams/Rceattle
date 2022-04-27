@@ -1,56 +1,50 @@
-#' #' Function to take a fitted Rceattle model and update future rec devs to match mean recruitment in the hindcast.
-#' #'
-#' #' @param Rceattle Rceattle model
-#' #' @param update Update model
-#' #' @param sample_rec sample hindcast rec devs
-#' #'
-#' #' @export
-#' #'
-#' proj_mean_rec <- function(Rceattle, update = FALSE, sample_rec = FALSE){
-#'   hind_yrs <- (Rceattle$data_list$styr) : Rceattle$data_list$endyr
-#'   hind_nyrs <- length(hind_yrs)
-#'   proj_yrs <- (Rceattle$data_list$endyr + 1) : Rceattle$data_list$projyr
-#'   proj_nyrs <- length(proj_yrs)
-#'
-#'   # Replace future rec devs
-#'   for(sp in 1:Rceattle$data_list$nspp){
-#'     if(sample_rec){ # Sample devs from hindcast
-#'       rec_dev <- sample(x = Rceattle$estimated_params$rec_dev[sp, 1:hind_nyrs], size = proj_nyrs, replace = TRUE)
-#'     } else{ # Use mean R from hindcast because R0 is biased
-#'       rec_dev <- rep(log(mean(Rceattle$quantities$R[sp,1:hind_nyrs])) - Rceattle$estimated_params$ln_mean_rec[sp],
-#'                      times = proj_nyrs)
-#'     }
-#'
-#'     # - Update OM with devs
-#'     Rceattle$estimated_params$rec_dev[sp,proj_yrs - Rceattle$data_list$styr + 1] <- replace(
-#'       Rceattle$estimated_params$rec_dev[sp,proj_yrs - Rceattle$data_list$styr + 1],
-#'       values =  rec_dev)
-#'   }
-#'
-#'   if(update){
-#'     estimateMode <- Rceattle$data_list$estimateMode
-#'     Rceattle <- fit_mod(
-#'       data_list = Rceattle$data_list,
-#'       inits = Rceattle$estimated_params,
-#'       map =  Rceattle$map,
-#'       bounds = NULL,
-#'       file = NULL,
-#'       estimateMode = 3, # No estimation, but dont map out parameters
-#'       random_rec = Rceattle$data_list$random_rec,
-#'       niter = Rceattle$data_list$niter,
-#'       msmMode = Rceattle$data_list$msmMode,
-#'       avgnMode = Rceattle$data_list$avgnMode,
-#'       minNByage = Rceattle$data_list$minNByage,
-#'       suitMode = Rceattle$data_list$suitMode,
-#'       meanyr = om$data_list$meanyr,
-#'       updateM1 = FALSE, # Dont update M1 from data, fix at previous parameters
-#'       phase = NULL,
-#'       getsd = FALSE,
-#'       verbose = 0)
-#'     Rceattle$data_list$estimateMode <- estimateMode
-#'   }
-#'   return(Rceattle)
-#' }
+
+# proj_mean_rec <- function(Rceattle, update = FALSE, sample_rec = FALSE){
+#   hind_yrs <- (Rceattle$data_list$styr) : Rceattle$data_list$endyr
+#   hind_nyrs <- length(hind_yrs)
+#   proj_yrs <- (Rceattle$data_list$endyr + 1) : Rceattle$data_list$projyr
+#   proj_nyrs <- length(proj_yrs)
+#
+#   # Replace future rec devs
+#   for(sp in 1:Rceattle$data_list$nspp){
+#     if(sample_rec){ # Sample devs from hindcast
+#       rec_dev <- sample(x = Rceattle$estimated_params$rec_dev[sp, 1:hind_nyrs], size = proj_nyrs, replace = TRUE)
+#     } else{ # Use mean R from hindcast because R0 is biased
+#       rec_dev <- rep(log(mean(Rceattle$quantities$R[sp,1:hind_nyrs])) - Rceattle$estimated_params$ln_mean_rec[sp],
+#                      times = proj_nyrs)
+#     }
+#
+#     # - Update OM with devs
+#     Rceattle$estimated_params$rec_dev[sp,proj_yrs - Rceattle$data_list$styr + 1] <- replace(
+#       Rceattle$estimated_params$rec_dev[sp,proj_yrs - Rceattle$data_list$styr + 1],
+#       values =  rec_dev)
+#   }
+#
+#   if(update){
+#     estimateMode <- Rceattle$data_list$estimateMode
+#     Rceattle <- fit_mod(
+#       data_list = Rceattle$data_list,
+#       inits = Rceattle$estimated_params,
+#       map =  Rceattle$map,
+#       bounds = NULL,
+#       file = NULL,
+#       estimateMode = 3, # No estimation, but dont map out parameters
+#       random_rec = Rceattle$data_list$random_rec,
+#       niter = Rceattle$data_list$niter,
+#       msmMode = Rceattle$data_list$msmMode,
+#       avgnMode = Rceattle$data_list$avgnMode,
+#       minNByage = Rceattle$data_list$minNByage,
+#       suitMode = Rceattle$data_list$suitMode,
+#       meanyr = om$data_list$meanyr,
+#       updateM1 = FALSE, # Dont update M1 from data, fix at previous parameters
+#       phase = NULL,
+#       getsd = FALSE,
+#       verbose = 0)
+#     Rceattle$data_list$estimateMode <- estimateMode
+#   }
+#   return(Rceattle)
+# }
+
 
 
 #' Run a management strategy evaluation
@@ -63,19 +57,21 @@
 #' @param assessment_period Period of years that each assessment is taken
 #' @param sampling_period Period of years data sampling is conducted. Single value or vector the same length as the number of fleets.
 #' @param simulate_data Include simulated random error proportional to that estimated/provided for the data from the OM.
+#' @param regenerate_past Refits the EM to historical/conditioning data prior to the MSE, where the data are generated from the OM with \code{simulate_data = TRUE} or without \code{simulate_data = FALSE} sampling error.
 #' @param sample_rec Include resampled recruitment deviates from the"hindcast" in the projection of the OM. Resampled deviates are used rather than sampling from N(0, sigmaR) because initial deviates bias R0 low. If false, uses mean of recruitment deviates.
-#' @param rec_trend Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier mean rec * (1 + (rec_trend/projection years) * 1:projection years)
-#' @param fut_sample future sampling effort relative to last year.  \code{ Log_sd * 1/fut_sample} for index and \code{ Sample_size * fut_sample} for comps
+#' @param rec_trend Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier \code{mean rec * (1 + (rec_trend/projection years) * 1:projection years)}
+#' @param fut_sample future sampling effort relative to last year.  \code{ Log_sd * 1 / fut_sample} for index and \code{ Sample_size * fut_sample} for comps
 #' @param cap A cap on the catch in the projection. Can be a single number or vector. Default = NULL
 #' @param loopnum number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})
 #' @param file (Optional) Filename where each OM simulation with EMs will be saved. If NULL, no files are saved.
 #' @param dir (Optional) Directory where each OM simulation is saved
+#' @param seed
 #'
 #' @return A list of operating models (differ by simulated recruitment determined by \code{nsim}) and estimation models fit to each operating model (differ by terminal year).
 #' @export
 #'
-#' @examples
-mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, seed = 666, loopnum = 1, file = NULL, dir = NULL){
+#'
+mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, regenerate_past = FALSE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, seed = 666, loopnum = 1, file = NULL, dir = NULL){
 
   # om = ms_run; em = ss_run; nsim = 10; assessment_period = 1; sampling_period = 1; simulate = TRUE; rec_trend = 0; fut_sample = 1; cap = NULL; seed = 666; loopnum = 1; file = NULL; dir = NULL
 
@@ -129,7 +125,51 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
   }
   sample_yrs = data.frame(Fleet_code = unlist(fleet_id), Year = unlist(sample_yrs))
 
+  #--------------------------------------------------
+  # Regenerate past data from OM and refit EM
+  #--------------------------------------------------
+  if(regenerate_past){
+
+    # - Simulate index and comp data and updatae EM
+    sim_dat <- sim_mod(om, simulate = simulate_data)
+
+    em$data_list$srv_biom <- sim_dat$srv_biom
+    em$data_list$comp_data <- sim_dat$comp_data
+
+    # Restimate
+    em <- fit_mod(
+      data_list = em$data_list,
+      inits = em$estimated_params,
+      map =  NULL,
+      bounds = NULL,
+      file = NULL,
+      estimateMode = ifelse(em$data_list$estimateMode < 3, 0, em$data_list$estimateMode), # Run hindcast and projection, otherwise debug
+      HCR = build_hcr(HCR = em$data_list$HCR, # Tier3 HCR
+                      DynamicHCR = em$data_list$DynamicHCR,
+                      FsprTarget = em$data_list$FsprTarget,
+                      FsprLimit = em$data_list$FsprLimit,
+                      Ptarget = em$data_list$Ptarget,
+                      Plimit = em$data_list$Plimit,
+                      Alpha = em$data_list$Alpha,
+                      Pstar = em$data_list$Pstar,
+                      Sigma = em$data_list$Sigma
+      ),
+      random_rec = em$data_list$random_rec,
+      niter = em$data_list$niter,
+      msmMode = em$data_list$msmMode,
+      avgnMode = em$data_list$avgnMode,
+      minNByage = em$data_list$minNByage,
+      suitMode = em$data_list$suitMode,
+      phase = "default",
+      updateM1 = FALSE,
+      loopnum = 3,
+      getsd = FALSE,
+      verbose = 0)
+  }
+
+  #--------------------------------------------------
   # Update data-files in OM so we can fill in updated years
+  #--------------------------------------------------
   # -- srv_biom
   proj_srv <- om$data_list$srv_biom %>%
     group_by(Fleet_code) %>%
@@ -189,6 +229,7 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
 
   #--------------------------------------------------
   # Update data in EM
+  #--------------------------------------------------
   #FIXME - assuming same as terminal year of hindcast
   # -- EM emp_sel - Use terminal year
   proj_emp_sel <- em$data_list$emp_sel %>%
@@ -216,14 +257,16 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
 
   #--------------------------------------------------
   # Do the MSE
+  #--------------------------------------------------
   MSE_list <- list()
   for(sim in 1:nsim){
 
     set.seed(seed = seed + sim) # setting unique seed for each simulation
 
     # Set models objects
-    sim_list <- list(EM = list())
+    sim_list <- list(EM = list())# , OM = list())
     sim_list$EM[[1]] <- em
+    # sim_list$OM[[1]] <- om
 
     em_use <- em
     om_use <- om
@@ -244,11 +287,13 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
     }
 
 
+
+
     # Run through assessment years
     for(k in 1:(length(assess_yrs))){
 
       # ------------------------------------------------------------
-      # 1. OBSERVATION MODEL
+      # 1. GET RECOMMENDED TAC FROM EM-HCR
       # ------------------------------------------------------------
       new_years <- proj_yrs[which(proj_yrs <= assess_yrs[k] & proj_yrs > om_use$data_list$endyr)]
 
@@ -264,6 +309,9 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
       om_use$data_list$fsh_biom <- new_catch_data
       em_use$data_list$fsh_biom <- new_catch_data
 
+      # ------------------------------------------------------------
+      # 2. UPDATE OBSERVATION MODEL
+      # ------------------------------------------------------------
       # - Update endyr of OM
       nyrs_hind <- om_use$data_list$endyr - om_use$data_list$styr + 1
       om_use$data_list$endyr <- assess_yrs[k]
@@ -337,7 +385,7 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
 
 
       # ------------------------------------------------------------
-      # 2. ESTIMATION MODEL
+      # 3. REFIT ESTIMATION MODEL AND HCR
       # ------------------------------------------------------------
       # - Simulate new survey and comp data
       sim_dat <- sim_mod(om_use, simulate = simulate_data)
@@ -412,6 +460,8 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
         minNByage = em_use$data_list$minNByage,
         suitMode = em_use$data_list$suitMode,
         phase = NULL,
+        meanyr = em_use$data_list$endyr, # Update end year
+        updateM1 = FALSE,
         loopnum = loopnum,
         getsd = FALSE,
         verbose = 0)
@@ -435,7 +485,10 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
                                                          "mn_rec"  ,
                                                          "biomassSSB" ,
                                                          "R",
+                                                         "M",
+                                                         "M1",
                                                          "mean_rec",
+                                                         "srv_bio_hat",
                                                          "srv_log_sd_hat",
                                                          "BO",
                                                          "SB0",
@@ -457,12 +510,14 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
                                                          "DynamicFtargetSPR")] <- NULL
 
       sim_list$EM[[k+1]] <- em_use
+      #sim_list$OM[[k+1]] <- om_use
       message(paste0("Sim ",sim, " - EM Year ", assess_yrs[k], " COMPLETE"))
     }
 
     # Save models
     sim_list$OM <- om_use
     names(sim_list$EM) <- c("EM", paste0("OM_Sim_",sim,". EM_yr_", assess_yrs))
+    #names(sim_list$OM) <- c("OM", paste0("OM_Sim_",sim,". OM_yr_", assess_yrs))
 
     if(!is.null(file) | !is.null(dir)){
       dir.create(file.path(getwd(), dir), showWarnings = FALSE, recursive = TRUE)
