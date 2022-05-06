@@ -274,10 +274,9 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
     # Replace future rec devs
     for(sp in 1:om_use$data_list$nspp){
       if(sample_rec){ # Sample devs from hindcast
-        rec_dev <- sample(x = om_use$estimated_params$rec_dev[sp, 1:hind_nyrs], size = proj_nyrs, replace = TRUE)
+        rec_dev <- sample(x = om_use$estimated_params$rec_dev[sp, 1:hind_nyrs], size = proj_nyrs, replace = TRUE) + log((1+(rec_trend/proj_nyrs) * 1:proj_nyrs)) # - Scale mean rec for rec trend
       } else{ # Set to mean rec otherwise
-        rec_dev <- rep(log(mean(om_use$quantities$R[sp,1:hind_nyrs])) - om_use$estimated_params$ln_mean_rec[sp],
-                       times = proj_nyrs)
+        rec_dev <- log(mean(om_use$quantities$R[sp,1:hind_nyrs]) * (1+(rec_trend/proj_nyrs) * 1:proj_nyrs))  - om_use$estimated_params$ln_mean_rec[sp] # - Scale mean rec for rec trend
       }
 
       # - Update OM with devs

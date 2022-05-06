@@ -189,7 +189,7 @@ plot_index <- function(Rceattle,
         axis(2,labels=TRUE,cex=0.8)
 
         # Horizontal line at end yr
-          abline(v = Rceattle[[length(Rceattle)]]$data_list$meanyr, lwd  = 2, col = "grey", lty = 2)
+        abline(v = Rceattle[[length(Rceattle)]]$data_list$meanyr, lwd  = 2, col = "grey", lty = 2)
 
 
         # Index name
@@ -242,7 +242,7 @@ plot_index <- function(Rceattle,
 #' @param line_col Colors of models to be used for line color
 #' @param species Species names for legend
 #' @param right_adj How much right side of the x-axis for fitting the legend. As percentage.
-#' @param top_adj How much top side of the y-axis for fitting the legend. As percentage.
+#' @param top_adj How much top side of the y-axis for fitting the legend. As percentage (default = 1.2).
 #' @param incl_proj TRUE/FALSE include projections years
 #' @param width plot width
 #' @param height plot hight
@@ -255,12 +255,13 @@ plot_catch <- function(Rceattle,
                        line_col = NULL,
                        species = NULL,
                        right_adj = 0,
-                       top_adj = 0.05,
+                       top_adj = 1.2,
                        incl_proj = FALSE,
                        single.plots=FALSE,
                        width=NULL,
                        height=NULL,
                        alpha = 0.4,
+                       ymax = NULL,
                        mse = FALSE){
 
   # Convert mse object to Rceattle list
@@ -287,10 +288,12 @@ plot_catch <- function(Rceattle,
   if(incl_proj){
     Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
   }
+  ProjYears <- lapply(Rceattle, function(x) x$data_list$endyr:x$data_list$projyr)
   Endyrs <- lapply(Rceattle, function(x) x$data_list$endyr)
   meanyrs <- lapply(Rceattle, function(x) x$data_list$meanyr)
   fsh_list <- list()
   fsh_hat_list <- list()
+  proj_fsh_hat_list <- list()
   nmods = length(Rceattle)
 
   for(i in 1:length(Rceattle)){
@@ -309,6 +312,10 @@ plot_catch <- function(Rceattle,
     fsh_hat_list[[i]] <- Rceattle[[i]]$data_list$fsh_biom[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% Years[[i]] ),]
     fsh_hat_list[[i]]$Catch <- Rceattle[[i]]$quantities$fsh_bio_hat[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% Years[[i]] )]
     fsh_hat_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$fsh_log_sd_hat[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% Years[[i]] )]
+
+    # Porjected
+    proj_fsh_hat_list[[i]] <- Rceattle[[i]]$data_list$fsh_biom[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% ProjYears[[i]] ),]
+    proj_fsh_hat_list[[i]]$Catch <- Rceattle[[i]]$quantities$fsh_bio_hat[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% ProjYears[[i]] )]
   }
 
 
@@ -333,29 +340,41 @@ plot_catch <- function(Rceattle,
   nspp <- Rceattle[[1]]$data_list$nspp
 
 
-  # Plot limits
+  # Fleet characteristics
   fleet_control <- (Rceattle[[1]]$data_list$fleet_control)
   fsh_biom <- (Rceattle[[1]]$data_list$fsh_biom)
-  fshs <- sort(unique(fsh_biom$Fleet_code))
-  nfsh <- length(fshs)
+  flts <- sort(unique(fsh_biom$Fleet_code))
+  nflts <- length(flts)
 
-  ymax <- c()
-  ymin <- c()
 
-  for(fsh in 1:nfsh){
-    for(i in 1:nmods){
-      fsh_ind <- which(fsh_list[[i]]$Fleet_code == fshs[fsh])
-      ymax[fsh] <- max(c(fsh_list[[i]]$Upper95[fsh_ind], fsh_hat_list[[i]]$Catch[fsh_ind], ymax[fsh]), na.rm = T)
-      ymin[fsh] <- min(c(fsh_list[[i]]$Lower95[fsh_ind], fsh_hat_list[[i]]$Catch[fsh_ind], ymin[fsh]), na.rm = T)
+  # Median catch across projection for MSE
+  median_catch <- data.frame(Fleet = flts, Median = rep(0, nflts))
 
-      if(mse){
-        ymax[fsh] <- max(c(fsh_hat_list[[i]]$Upper95[fsh_ind], ymax[fsh]), na.rm = T)
-        ymin[fsh] <- min(c(fsh_hat_list[[i]]$Lower95[fsh_ind], ymin[fsh]), na.rm = T)
+  for(i in 1:nflts){
+    flt = flts[i]
 
+    # - Mean catch by fleet
+    median_catch$Median[i] <- median(sapply(proj_fsh_hat_list, function(x)
+      x$Catch[which(x$Fleet_code == flt]), na.rm = TRUE)
+  }
+
+
+  # Axis
+  if(is.null(ymax)){
+    ymax <- c()
+
+    for(fsh in 1:nflts){
+      for(i in 1:nmods){
+        fsh_ind <- which(fsh_list[[i]]$Fleet_code == flts[fsh])
+        ymax[fsh] <- max(c(fsh_list[[i]]$Upper95[fsh_ind], fsh_hat_list[[i]]$Catch[fsh_ind], ymax[fsh]), na.rm = T)
+
+        if(mse){
+          ymax[fsh] <- max(c(fsh_hat_list[[i]]$Upper95[fsh_ind], ymax[fsh]), na.rm = T)
+        }
       }
     }
+    ymax <- top_adj * ymax
   }
-  ymax <- ymax + top_adj * (ymax-ymin)
 
   # Assume colors if not provided
   if (is.null(line_col)) {
@@ -370,17 +389,17 @@ plot_catch <- function(Rceattle,
     if(single.plots==TRUE){
       if(is.null(width)) width = 5
       if(is.null(height)) height = 3.5
-      for(fsh in 1:nfsh){
+      for(fsh in 1:nflts){
         Par = list(mfrow=c(1,1),mar = c(3.5, 3.5, 0.5, 0.1), mgp =c(2.,0.5,0), tck = -0.02,cex=0.8)
 
         # Save
         if(j == 2){
-          filename <- paste0(file, "fleet",fshs[j]," ",as.character(fleet_control$Fleet_name[fshs[fsh]]), "_fishery_catch", ".png")
+          filename <- paste0(file, "fleet",flts[j]," ",as.character(fleet_control$Fleet_name[flts[fsh]]), "_fishery_catch", ".png")
           png(file = filename, width = width, height = height, res = 200, units = "in")
         }
 
         par(Par)
-        plot(NA, NA, ylab="Catch", xlab="Year", ylim = c((ymin[fsh]), (ymax[fsh])), xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj), type='n', xaxt="n", yaxt="n")
+        plot(NA, NA, ylab="Catch", xlab="Year", ylim = c(0, (ymax[fsh])), xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj), type='n', xaxt="n", yaxt="n")
         axis(1,labels=TRUE,cex=0.8)
         axis(2,labels=TRUE,cex=0.8)
 
@@ -389,14 +408,14 @@ plot_catch <- function(Rceattle,
 
           # Subset data by fleet and model
           fsh_tmp <- fsh_list[[k]] %>%
-            filter(Fleet_code == fshs[fsh])
+            filter(Fleet_code == flts[fsh])
 
           if(mse){
             fsh_tmp <- fsh_tmp %>% filter(Year <= meanyrs[k]) # Only show historical catch if MSE models
           }
 
           fsh_hat_tmp <- fsh_hat_list[[k]] %>%
-            filter(Fleet_code == fshs[fsh])
+            filter(Fleet_code == flts[fsh])
 
 
           # - Plot predicted CPUE
@@ -408,7 +427,7 @@ plot_catch <- function(Rceattle,
           # - Plot MSE shading
           if(mse){
             fsh_hat_tmp <- fsh_hat_list[[k]] %>%
-              filter(Year > meanyrs[k] & Fleet_code == fshs[fsh])
+              filter(Year > meanyrs[k] & Fleet_code == flts[fsh])
 
             # 95% CI
             polygon(
@@ -430,7 +449,7 @@ plot_catch <- function(Rceattle,
         }
 
         # Index name
-        legend('topleft',as.character(fleet_control$Fleet_name[fshs[fsh]]),bty="n",y.intersp = -0.2,cex=0.8)
+        legend('topleft',as.character(fleet_control$Fleet_name[flts[fsh]]),bty="n",y.intersp = -0.2,cex=0.8)
 
         # Model names
         if(!is.null(model_names)){
@@ -448,15 +467,17 @@ plot_catch <- function(Rceattle,
       }
     }
 
+    #---------------------------------------------
     # Plot/save each survey together
+    #---------------------------------------------
     if(single.plots==FALSE){
 
       # Set heights of plot
       if(is.null(width)) width = 7
-      if(is.null(height)) height = ifelse(nfsh==1,5,ifelse(nfsh==2,3.,2.5))*round(nfsh/2+0.01,0)
+      if(is.null(height)) height = ifelse(nflts==1,5,ifelse(nflts==2,3.,2.5))*round(nflts/2+0.01,0)
 
 
-      Par = list(mfrow=c(round(nfsh/3+0.01,0),ifelse(nfsh==1,1,3)),mai=c(0.35,0.15,0,.15),omi = c(0.2,0.25,0.2,0) + 0.1,mgp=c(2,0.5,0), tck = -0.02,cex=0.8)
+      Par = list(mfrow=c(round(nflts/3+0.01,0),ifelse(nflts==1,1,3)),mai=c(0.35,0.15,0,.15),omi = c(0.2,0.25,0.2,0) + 0.1,mgp=c(2,0.5,0), tck = -0.02,cex=0.8)
 
       # Save
       if(j == 2){
@@ -466,14 +487,14 @@ plot_catch <- function(Rceattle,
       par(Par)
 
 
-      for(fsh in 1:nfsh){
+      for(fsh in 1:nflts){
 
         xlim <- c(minyr, maxyr)
         if(fsh == 1){
           xlim <- c(minyr, maxyr + (maxyr - minyr) * right_adj)
         }
 
-        plot(NA, NA, ylab="", xlab="", ylim = c((ymin[fsh]), (ymax[fsh])), xlim = xlim, type='n', xaxt="n", yaxt="n")
+        plot(NA, NA, ylab="", xlab="", ylim = c(0, (ymax[fsh])), xlim = xlim, type='n', xaxt="n", yaxt="n")
         axis(1,labels=TRUE,cex=0.8)
         axis(2,labels=TRUE,cex=0.8)
 
@@ -483,7 +504,7 @@ plot_catch <- function(Rceattle,
         }
 
         # Index name
-        legend('topleft',as.character(fleet_control$Fleet_name[fshs[fsh]]),bty="n",y.intersp = -0.2,cex=0.8)
+        legend('topleft',as.character(fleet_control$Fleet_name[flts[fsh]]),bty="n",y.intersp = -0.2,cex=0.8)
 
         # Model names
         if(fsh == 1){
@@ -503,14 +524,14 @@ plot_catch <- function(Rceattle,
 
           # Subset data by fleet and model
           fsh_tmp <- fsh_list[[k]] %>%
-            filter(Fleet_code == fshs[fsh])
+            filter(Fleet_code == flts[fsh])
 
           if(mse){
             fsh_tmp <- fsh_tmp %>% filter(Year <= meanyrs[k]) # Only show historical catch if MSE models
           }
 
           fsh_hat_tmp <- fsh_hat_list[[k]] %>%
-            filter(Fleet_code == fshs[fsh])
+            filter(Fleet_code == flts[fsh])
 
 
           # - Plot predicted CPUE
@@ -522,7 +543,7 @@ plot_catch <- function(Rceattle,
           # - Plot MSE shading
           if(mse){
             fsh_hat_tmp <- fsh_hat_list[[k]] %>%
-              filter(Year > meanyrs[k] & Fleet_code == fshs[fsh])
+              filter(Year > meanyrs[k] & Fleet_code == flts[fsh])
 
             # 95% CI
             polygon(
@@ -539,6 +560,9 @@ plot_catch <- function(Rceattle,
               col = adjustcolor( line_col[k], alpha.f = alpha),
               border = NA
             )
+
+            # Horizontal median line of projection
+            abline(h = median_catch$Median[flts[fsh]], lty = 2, lwd = 2)
 
           }
         }

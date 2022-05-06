@@ -55,6 +55,7 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
 
 
   #TODO
+  # Simulate sex ratio
   # # Slot 5 -- Diet composition from lognormal suitability 4D
   # if (length(dim(dat_sim$UobsWtAge)) == 4) {
   #     for (sp in 1:dat_sim$nspp) {
