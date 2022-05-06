@@ -288,7 +288,7 @@ plot_catch <- function(Rceattle,
   if(incl_proj){
     Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
   }
-  ProjYears <- lapply(Rceattle, function(x) x$data_list$endyr:x$data_list$projyr)
+  ProjYears <- lapply(Rceattle, function(x) x$data_list$meanyr:x$data_list$projyr)
   Endyrs <- lapply(Rceattle, function(x) x$data_list$endyr)
   meanyrs <- lapply(Rceattle, function(x) x$data_list$meanyr)
   fsh_list <- list()
@@ -355,7 +355,7 @@ plot_catch <- function(Rceattle,
 
     # - Mean catch by fleet
     median_catch$Median[i] <- median(sapply(proj_fsh_hat_list, function(x)
-      x$Catch[which(x$Fleet_code == flt)], na.rm = TRUE))
+      x$Catch[which(x$Fleet_code == flt)]), na.rm = TRUE)
   }
 
 
@@ -562,7 +562,7 @@ plot_catch <- function(Rceattle,
             )
 
             # Horizontal median line of projection
-            abline(h = median_catch$Median[flts[fsh]], lty = 2, lwd = 2)
+            abline(h = median_catch$Median[fsh], lty = 2, lwd = 2)
 
           }
         }
