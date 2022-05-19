@@ -110,7 +110,7 @@ plot_biomass <- function(Rceattle,
   if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
 
   nspp <- Rceattle[[1]]$data_list$nspp
-  spp <- 1:nspp
+
   minage <- Rceattle[[1]]$data_list$minage
   estDynamics <- Rceattle[[1]]$data_list$estDynamics
 
@@ -118,7 +118,7 @@ plot_biomass <- function(Rceattle,
   if(is.null(species)){
     species <- 1:nspp
   }
-  spp <- spp[which(spp %in% species)]
+  spp <- species
 
 
   # Get depletion
@@ -450,7 +450,7 @@ plot_recruitment <- function(Rceattle,
   if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
 
   nspp <- Rceattle[[1]]$data_list$nspp
-  spp <- 1:nspp
+
   minage <- Rceattle[[1]]$data_list$minage
   estDynamics <- Rceattle[[1]]$data_list$estDynamics
 
@@ -458,7 +458,7 @@ plot_recruitment <- function(Rceattle,
   if(is.null(species)){
     species <- 1:nspp
   }
-  spp <- spp[which(spp %in% species)]
+  spp <- species
 
 
   # Get depletion
@@ -1003,7 +1003,7 @@ plot_mortality <-
            log = FALSE,
            minyr = NULL,
            theta = 155,
-           spp = NULL,
+           species = NULL,
            maxage = NULL,
            title_cex = 10,
            M2 = TRUE) {
@@ -1076,9 +1076,10 @@ plot_mortality <-
     #################################
     # Mortality time series
     #################################
-    if(is.null(spp)){
-      spp <- 1:nspp
+    if(is.null(species)){
+      species <- 1:nspp
     }
+    spp <- species
 
 
     # Species
@@ -1407,7 +1408,7 @@ plot_ssb <- function(Rceattle,
   if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
 
   nspp <- Rceattle[[1]]$data_list$nspp
-  spp <- 1:nspp
+
   minage <- Rceattle[[1]]$data_list$minage
   estDynamics <- Rceattle[[1]]$data_list$estDynamics
 
@@ -1415,7 +1416,7 @@ plot_ssb <- function(Rceattle,
   if(is.null(species)){
     species <- 1:nspp
   }
-  spp <- spp[which(spp %in% species)]
+  spp <- species
 
 
   # Get depletion
@@ -1741,7 +1742,7 @@ plot_b_eaten <-  function(Rceattle,
   if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
 
   nspp <- Rceattle[[1]]$data_list$nspp
-  spp <- 1:nspp
+
   minage <- Rceattle[[1]]$data_list$minage
   maxage <- max(Rceattle[[1]]$data_list$nages)
   estDynamics <- Rceattle[[1]]$data_list$estDynamics
@@ -1750,7 +1751,7 @@ plot_b_eaten <-  function(Rceattle,
   if(is.null(species)){
     species <- 1:nspp
   }
-  spp <- spp[which(spp %in% species)]
+  spp <- species
 
 
   # Get depletion
@@ -2699,7 +2700,7 @@ plot_depletionSSB <- function(Rceattle,
   if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
 
   nspp <- Rceattle[[1]]$data_list$nspp
-  spp <- 1:nspp
+
   minage <- Rceattle[[1]]$data_list$minage
   estDynamics <- Rceattle[[1]]$data_list$estDynamics
 
@@ -2707,7 +2708,7 @@ plot_depletionSSB <- function(Rceattle,
   if(is.null(species)){
     species <- 1:nspp
   }
-  spp <- spp[which(spp %in% species)]
+  spp <- species
 
 
   # Get depletion
@@ -3024,7 +3025,7 @@ plot_depletion <- function(Rceattle,
   if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
 
   nspp <- Rceattle[[1]]$data_list$nspp
-  spp <- 1:nspp
+
   minage <- Rceattle[[1]]$data_list$minage
   estDynamics <- Rceattle[[1]]$data_list$estDynamics
 
@@ -3032,7 +3033,7 @@ plot_depletion <- function(Rceattle,
   if(is.null(species)){
     species <- 1:nspp
   }
-  spp <- spp[which(spp %in% species)]
+  spp <- species
 
 
   # Get depletion
@@ -3341,7 +3342,6 @@ plot_f <- function(Rceattle,
   if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
 
   nspp <- Rceattle[[1]]$data_list$nspp
-  spp <- 1:nspp
   minage <- Rceattle[[1]]$data_list$minage
   estDynamics <- Rceattle[[1]]$data_list$estDynamics
 
@@ -3349,7 +3349,7 @@ plot_f <- function(Rceattle,
   if(is.null(species)){
     species <- 1:nspp
   }
-  spp <- spp[which(spp %in% species)]
+  spp <- species
 
 
   # Get depletion
