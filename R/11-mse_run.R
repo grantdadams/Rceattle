@@ -528,7 +528,9 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
   }
 
   # - Name them
-  names(MSE_list) <- paste0("Sim_",1:nsim)
+  if(is.null(file) & is.null(dir)){
+    names(MSE_list) <- paste0("Sim_",1:nsim)
+  }
 
   return(MSE_list)
 }
