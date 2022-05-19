@@ -1484,7 +1484,7 @@ Type objective_function<Type>::operator() () {
             case 0: // Estimated numbers-at-age
 
               // -- 6.7.1. Amin (i.e. recruitment)
-              R(sp, yr) = exp(log(mean_rec(sp)) + rec_dev(sp, yr)); // Projections use mean R given bias in R0
+              R(sp, yr) = mean_rec(sp); //  exp(+ rec_dev(sp, yr)); // Projections use mean R given bias in R0
               NByage(sp, 0, 0, yr) = R(sp, yr) * R_sexr(sp);
               NByage(sp, 1, 0, yr) = R(sp, yr) * (1-R_sexr(sp));
 
@@ -1670,12 +1670,6 @@ Type objective_function<Type>::operator() () {
           for(sex = 0; sex < nsex(sp); sex ++){
             switch(estDynamics(sp)){
             case 0: // Estimated numbers-at-age
-
-              // -- 6.7.5. Amin (i.e. recruitment):
-              // This is repetitive and can probably get rid of it
-              R(sp, yr) = exp(log(mean_rec(sp)) + rec_dev(sp, yr));
-              NByage(sp, 0, 0, yr) = R(sp, yr) * R_sexr(sp);
-              NByage(sp, 1, 0, yr) = R(sp, yr) * (1-R_sexr(sp));
 
               // -- 6.7.6.  Where Amin < age < Amax
               if (age < (nages(sp) - 1)) {
@@ -3336,12 +3330,12 @@ Type objective_function<Type>::operator() () {
   for (sp = 0; sp < nspp; sp++) {
     // Slot 10 -- init_dev -- Initial abundance-at-age
     for (age = 1; age < nages(sp); age++) {
-      jnll_comp(11, sp) -= dnorm( init_dev(sp, age - 1), Type(- square(r_sigma(sp)) / 2), r_sigma(sp), true);
+      jnll_comp(11, sp) -= dnorm( init_dev(sp, age - 1), Type(square(r_sigma(sp)) / 2), r_sigma(sp), true);
     }
 
     for (yr = 0; yr < nyrs_hind; yr++) {
       // Slot 11 -- Tau -- Annual recruitment deviation
-      jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr), Type(- square(r_sigma(sp)) / 2), r_sigma(sp), true);    // Recruitment deviation using random effects.
+      jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr), Type(square(r_sigma(sp)) / 2), r_sigma(sp), true);    // Recruitment deviation using random effects.
     }
   }
 
