@@ -2737,6 +2737,7 @@ plot_depletionSSB <- function(Rceattle,
         replace(quantity_sd[, 1:nyrs_vec[i], i], values = sd_temp[1:(nyrs_vec[i] * nspp)])
     }
   }
+  quantity[is.infinite(quantity)] <- NA # for dynamicB0
 
   ## Get confidence intervals
   # - Single model
