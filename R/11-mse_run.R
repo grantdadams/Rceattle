@@ -59,7 +59,7 @@
 #' @param simulate_data Include simulated random error proportional to that estimated/provided for the data from the OM.
 #' @param regenerate_past Refits the EM to historical/conditioning data prior to the MSE, where the data are generated from the OM with \code{simulate_data = TRUE} or without \code{simulate_data = FALSE} sampling error.
 #' @param sample_rec Include resampled recruitment deviates from the"hindcast" in the projection of the OM. Resampled deviates are used rather than sampling from N(0, sigmaR) because initial deviates bias R0 low. If false, uses mean of recruitment deviates.
-#' @param rec_trend Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier \code{mean rec * (1 + (rec_trend/projection years) * 1:projection years)}
+#' @param rec_trend Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier \code{mean rec * (1 + (rec_trend/projection years) * 1:projection years)}. Can be of length 1 or of length nspp. If length 1, all species get the same trend.
 #' @param fut_sample future sampling effort relative to last year.  \code{ Log_sd * 1 / fut_sample} for index and \code{ Sample_size * fut_sample} for comps
 #' @param cap A cap on the catch in the projection. Can be a single number or vector. Default = NULL
 #' @param loopnum number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})
@@ -93,6 +93,11 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
     }
   }
 
+  # - Adjust rec trend
+  if(length(rec_trend)==1){
+    rec_trend = rep(rec_trend, om$data_list$nspp)
+  }
+
   # - Years for simulations
   hind_yrs <- (em$data_list$styr) : em$data_list$endyr
   hind_nyrs <- length(hind_yrs)
@@ -110,6 +115,7 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
     sampling_period = rep(sampling_period, nflts)
 
   }
+
   if(nflts != nrow(em$data_list$fleet_control)){
     stop("OM and EM fleets do not match or sampling period length is mispecified")
   }
@@ -274,9 +280,9 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
     # Replace future rec devs
     for(sp in 1:om_use$data_list$nspp){
       if(sample_rec){ # Sample devs from hindcast
-        rec_dev <- sample(x = om_use$estimated_params$rec_dev[sp, 1:hind_nyrs], size = proj_nyrs, replace = TRUE) + log((1+(rec_trend/proj_nyrs) * 1:proj_nyrs)) # - Scale mean rec for rec trend
+        rec_dev <- sample(x = om_use$estimated_params$rec_dev[sp, 1:hind_nyrs], size = proj_nyrs, replace = TRUE) + log((1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs)) # - Scale mean rec for rec trend
       } else{ # Set to mean rec otherwise
-        rec_dev <- log(mean(om_use$quantities$R[sp,1:hind_nyrs]) * (1+(rec_trend/proj_nyrs) * 1:proj_nyrs))  - om_use$estimated_params$ln_mean_rec[sp] # - Scale mean rec for rec trend
+        rec_dev <- log(mean(om_use$quantities$R[sp,1:hind_nyrs]) * (1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs))  - om_use$estimated_params$ln_mean_rec[sp] # - Scale mean rec for rec trend
       }
 
       # - Update OM with devs
