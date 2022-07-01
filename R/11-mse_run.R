@@ -1,52 +1,3 @@
-
-# proj_mean_rec <- function(Rceattle, update = FALSE, sample_rec = FALSE){
-#   hind_yrs <- (Rceattle$data_list$styr) : Rceattle$data_list$endyr
-#   hind_nyrs <- length(hind_yrs)
-#   proj_yrs <- (Rceattle$data_list$endyr + 1) : Rceattle$data_list$projyr
-#   proj_nyrs <- length(proj_yrs)
-#
-#   # Replace future rec devs
-#   for(sp in 1:Rceattle$data_list$nspp){
-#     if(sample_rec){ # Sample devs from hindcast
-#       rec_dev <- sample(x = Rceattle$estimated_params$rec_dev[sp, 1:hind_nyrs], size = proj_nyrs, replace = TRUE)
-#     } else{ # Use mean R from hindcast because R0 is biased
-#       rec_dev <- rep(log(mean(Rceattle$quantities$R[sp,1:hind_nyrs])) - Rceattle$estimated_params$ln_mean_rec[sp],
-#                      times = proj_nyrs)
-#     }
-#
-#     # - Update OM with devs
-#     Rceattle$estimated_params$rec_dev[sp,proj_yrs - Rceattle$data_list$styr + 1] <- replace(
-#       Rceattle$estimated_params$rec_dev[sp,proj_yrs - Rceattle$data_list$styr + 1],
-#       values =  rec_dev)
-#   }
-#
-#   if(update){
-#     estimateMode <- Rceattle$data_list$estimateMode
-#     Rceattle <- fit_mod(
-#       data_list = Rceattle$data_list,
-#       inits = Rceattle$estimated_params,
-#       map =  Rceattle$map,
-#       bounds = NULL,
-#       file = NULL,
-#       estimateMode = 3, # No estimation, but dont map out parameters
-#       random_rec = Rceattle$data_list$random_rec,
-#       niter = Rceattle$data_list$niter,
-#       msmMode = Rceattle$data_list$msmMode,
-#       avgnMode = Rceattle$data_list$avgnMode,
-#       minNByage = Rceattle$data_list$minNByage,
-#       suitMode = Rceattle$data_list$suitMode,
-#       meanyr = om$data_list$meanyr,
-#       updateM1 = FALSE, # Dont update M1 from data, fix at previous parameters
-#       phase = NULL,
-#       getsd = FALSE,
-#       verbose = 0)
-#     Rceattle$data_list$estimateMode <- estimateMode
-#   }
-#   return(Rceattle)
-# }
-
-
-
 #' Run a management strategy evaluation
 #'
 #' @description Runs a forward projecting MSE. Main assumptions are the projected selectivity/catchability, foraging days, and weight-at-age are the same as the terminal year of the hindcast in the operating model. Assumes survey sd is same as average across historic time series, while comp data sample size is same as last year. No implementation error!
@@ -71,13 +22,13 @@
 #' @export
 #'
 #'
-mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, regenerate_past = FALSE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, seed = 666, loopnum = 1, file = NULL, dir = NULL){
+mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, regenerate_past = FALSE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, seed = 666, regenerate_seed = seed, loopnum = 1, file = NULL, dir = NULL){
 
   # om = ms_run; em = ss_run; nsim = 10; assessment_period = 1; sampling_period = 1; simulate = TRUE; rec_trend = 0; fut_sample = 1; cap = NULL; seed = 666; loopnum = 1; file = NULL; dir = NULL
 
   '%!in%' <- function(x,y)!('%in%'(x,y))
   library(dplyr)
-  set.seed(seed)
+  set.seed(regenerate_seed)
 
   Rceattle_OM_list <- list()
   Rceattle_EM_list <- list()
@@ -171,6 +122,40 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, 
       loopnum = 3,
       getsd = FALSE,
       verbose = 0)
+
+    # Update avg F given model fit to regenerated data
+    if(em$data_list$HCR == 2){
+
+      # - Get avg F
+      avg_F <- (exp(em$estimated_params$ln_mean_F+em$estimated_params$F_dev)) # Average F from last 5 years
+      avg_F <- rowMeans(avg_F[,(ncol(avg_F)-4) : ncol(avg_F)])
+      avg_F <- data.frame(avg_F = avg_F, spp = em$data_list$fleet_control$Species)
+      avg_F <- avg_F %>%
+        group_by(spp) %>%
+        summarise(avg_F = sum(avg_F)) %>%
+        arrange(spp)
+
+      # - Update model
+      em <- Rceattle::fit_mod(data_list = em$data_list,
+                              inits = em$estimated_params,
+                              estimateMode = 2, # Don't estimate
+                              HCR = build_hcr(HCR = 2, # Input F
+                                              FsprTarget = avg_F$avg_F,
+                                              Ptarget = em$data_list$Ptarget,
+                                              Plimit = em$data_list$Plimit
+                              ),
+                              random_rec = em$data_list$random_rec,
+                              niter = em$data_list$niter,
+                              msmMode = em$data_list$msmMode,
+                              avgnMode = em$data_list$avgnMode,
+                              minNByage = em$data_list$minNByage,
+                              suitMode = em$data_list$suitMode,
+                              phase = "default",
+                              updateM1 = FALSE,
+                              loopnum = 3,
+                              getsd = FALSE,
+                              verbose = 0)
+    }
   }
 
   #--------------------------------------------------
