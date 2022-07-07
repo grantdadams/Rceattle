@@ -74,8 +74,8 @@ mse_summary <- function(mse){
                              "Fleet_code",
                              "Average Catch",
                              "Catch IAV",
-                             "% Years closed",
-                             "Avg terminal SSB MSE",
+                             "P(Closed)",
+                             "Avg terminal SSB Relative MSE",
                              "EM: P(Fy > Flimit)",
                              "EM: P(SSB < SSBlimit)",
                              "OM: P(Fy > Flimit)",
@@ -96,7 +96,7 @@ mse_summary <- function(mse){
   ############################################
   # - Average catch
   # - Catch IAV
-  # - % Years closed
+  # - P(Closed)
   for(i in 1:nflts){
     flt = flts[i]
 
@@ -116,12 +116,12 @@ mse_summary <- function(mse){
       mse_summary$`Catch IAV`[i+nspp] <- mse_summary$`Catch IAV`[flt+nspp] + (sum((catch_list_tmp[[sim]][projyrs_ind[-1]] - catch_list_tmp[[sim]][projyrs_ind[-length(projyrs_ind)]])^2, na.rm = TRUE)/(length(projyrs_ind) - 1) / (sum(catch_list_tmp[[sim]][projyrs_ind], na.rm = TRUE)/ length(projyrs_ind)))/nsim
     }
 
-    # - % Years closed by fleet
-    mse_summary$`% Years closed`[i+nspp] <- mean(sapply(mse, function(x)
+    # - P(Closed) by fleet
+    mse_summary$`P(Closed)`[i+nspp] <- sum(sapply(mse, function(x)
       length(x$OM$data_list$fsh_biom$Catch[which(x$OM$data_list$fsh_biom$Fleet_code == flt &
                                                    x$OM$data_list$fsh_biom$Year %in% projyrs &
-                                                   x$OM$data_list$fsh_biom$Catch < 1)]) # Using less than 1 here just in case super small catches and fishery is effectively close
-      /length(projyrs) * 100))
+                                                   x$OM$data_list$fsh_biom$Catch < 1)]))) # Using less than 1 here just in case super small catches and fishery is effectively close
+      /length(projyrs)/nsim
   }
 
 
@@ -129,7 +129,7 @@ mse_summary <- function(mse){
   ## Catch performance metrics by species
   # - Average catch
   # - Catch IAV
-  # - % Years closed
+  # - P(Closed)
   for(sp in 1:nspp){
 
     # - Mean catch by species
@@ -150,10 +150,10 @@ mse_summary <- function(mse){
       mse_summary$`Catch IAV`[sp] <- mse_summary$`Catch IAV`[sp] + (sum((catch_list_tmp[[sim]]$Catch[projyrs_ind[-1]] - catch_list_tmp[[sim]]$Catch[projyrs_ind[-length(projyrs_ind)]])^2, na.rm = TRUE)/(length(projyrs_ind) - 1) / (sum(catch_list_tmp[[sim]]$Catch[projyrs_ind], na.rm = TRUE)/ length(projyrs_ind)))/nsim
     }
 
-    # - % Years closed by species
-    mse_summary$`% Years closed`[sp] <- mean(sapply(catch_list_tmp, function(x)
+    # - P(Closed) by species
+    mse_summary$`P(Closed)`[sp] <- sum(sapply(catch_list_tmp, function(x)
       length(which(x$Catch < 1)) # Using less than 1 here just in case super small catches and fishery is effectively close
-      /length(x$Catch) * 100))
+      /length(x$Catch)))/nsim
   }
 
 
@@ -161,7 +161,7 @@ mse_summary <- function(mse){
   ## Catch performance metrics across species
   # - Average catch
   # - Catch IAV
-  # - % Years closed
+  # - P(Closed)
   catch_list_tmp <- suppressMessages(lapply(mse, function(x)
     x$OM$data_list$fsh_biom %>%
       filter(Year > endyr) %>%
@@ -262,7 +262,7 @@ mse_summary <- function(mse){
     sb_em <- lapply(mse, function(x) x$EM[[length(x$EM)]]$quantities$biomassSSB[sp, (projyrs - styr + 1)])
     sb_om <- lapply(mse, function(x) x$OM$quantities$biomassSSB[sp, (projyrs - styr + 1)])
 
-    mse_summary$`Avg terminal SSB MSE`[sp] = mean((unlist(sb_em) -  unlist(sb_om))^2 / unlist(sb_om)^2, na.rm = TRUE)
+    mse_summary$`Avg terminal SSB Relative MSE`[sp] = mean((unlist(sb_em) -  unlist(sb_om))^2 / unlist(sb_om)^2, na.rm = TRUE)
 
     # - OM: Terminal SSB/SSBtarget status
     sb_sbtarget <- lapply(mse, function(x) x$OM$quantities$biomassSSB[sp, (projyrs - styr + 1)]/ (x$OM$quantities$SB0[sp]))
