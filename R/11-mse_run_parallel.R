@@ -250,6 +250,13 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   #--------------------------------------------------
   # Do the MSE
   #--------------------------------------------------
+  ### Set up parallel processing
+  library(foreach)
+  library(doParallel)
+
+  cores = detectCores() - 2
+  registerDoParallel(cores)
+
   foreach(sim = start_sim:nsim) %dopar% {
     library(Rceattle)
     library(dplyr)
@@ -514,4 +521,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
     saveRDS(sim_list, file = paste0(dir, "/", file, "EMs_from_OM_Sim_",sim, ".rds"))
     sim_list <- NULL
   }
+
+  # When you're done, clean up the cluster
+  stopImplicitCluster()
 }
