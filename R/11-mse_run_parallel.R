@@ -5,6 +5,7 @@
 #' @param om CEATTLE model object exported from \code{\link{Rceattle}}
 #' @param em CEATTLE model object exported from \code{\link{Rceattle}}
 #' @param nsim Number of simulations to run (default 10)
+#' @param start_sim First simulation number to start at. Useful if the code stops at specific seed/sim (default = 1).
 #' @param assessment_period Period of years that each assessment is taken
 #' @param sampling_period Period of years data sampling is conducted. Single value or vector the same length as the number of fleets.
 #' @param simulate_data Include simulated random error proportional to that estimated/provided for the data from the OM.
@@ -22,7 +23,7 @@
 #' @export
 #'
 #'
-mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, regenerate_past = FALSE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, seed = 666, regenerate_seed = seed, loopnum = 1, file = NULL, dir = NULL){
+mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, regenerate_past = FALSE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, seed = 666, regenerate_seed = seed, loopnum = 1, file = NULL, dir = NULL){
 
   # om = ms_run; em = ss_run; nsim = 10; assessment_period = 1; sampling_period = 1; simulate = TRUE; rec_trend = 0; fut_sample = 1; cap = NULL; seed = 666; loopnum = 1; file = NULL; dir = NULL
 
@@ -249,7 +250,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, assessment_per
   #--------------------------------------------------
   # Do the MSE
   #--------------------------------------------------
-  foreach(sim = 1:nsim) %dopar% {
+  foreach(sim = start_sim:nsim) %dopar% {
     library(Rceattle)
     library(dplyr)
 
