@@ -120,8 +120,8 @@ mse_summary <- function(mse){
     mse_summary$`P(Closed)`[i+nspp] <- sum(sapply(mse, function(x)
       length(x$OM$data_list$fsh_biom$Catch[which(x$OM$data_list$fsh_biom$Fleet_code == flt &
                                                    x$OM$data_list$fsh_biom$Year %in% projyrs &
-                                                   x$OM$data_list$fsh_biom$Catch < 1)]))) # Using less than 1 here just in case super small catches and fishery is effectively close
-      /length(projyrs)/nsim
+                                                   x$OM$data_list$fsh_biom$Catch < 1)])))/length(projyrs)/nsim # Using less than 1 here just in case super small catches and fishery is effectively close
+
   }
 
 
