@@ -2660,13 +2660,14 @@ plot_depletionSSB <- function(Rceattle,
   if(mse){
     if(OM){
       Rceattle <- lapply(Rceattle, function(x) x$OM)
+      incl_proj = TRUE
     }
     if(!OM){
       Rceattle <- lapply(Rceattle, function(x) x$EM[[length(x$EM)]])
+      incl_proj = FALSE
     }
     nmse = length(Rceattle)
     add_ci = TRUE
-    incl_proj = TRUE
   }
 
 
