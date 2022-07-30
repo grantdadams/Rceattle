@@ -205,17 +205,17 @@ fit_mod <-
     }
 
 
-    # HCR Switches
+    # HCR Switches (make length of nspp if not)
     data_list$HCR = HCR$HCR
     data_list$DynamicHCR = HCR$DynamicHCR
-    data_list$FsprTarget = HCR$FsprTarget[1]
-    data_list$FsprLimit = HCR$FsprLimit
-    data_list$Ptarget = HCR$Ptarget
-    data_list$Plimit = HCR$Plimit
-    data_list$Alpha = HCR$Alpha
-    data_list$Pstar = HCR$Pstar
-    data_list$Sigma = HCR$Sigma
-    data_list$QnormHCR = ifelse(HCR$HCR == 6, qnorm(HCR$Pstar, 0, HCR$Sigma), 0) # Pstar HCR
+    data_list$FsprTarget = HCR$FsprTarget[1] # NOTE: if fixed F, inputs it again below
+    data_list$FsprLimit = ifelse(length(HCR$FsprLimit) == data_list$nspp, HCR$FsprLimit, rep(HCR$FsprLimit, data_list$nspp))
+    data_list$Ptarget = ifelse(length(HCR$Ptarget) == data_list$nspp, HCR$Ptarget, rep(HCR$Ptarget, data_list$nspp))
+    data_list$Plimit = ifelse(length(HCR$Plimit) == data_list$nspp, HCR$Plimit, rep(HCR$Plimit, data_list$nspp))
+    data_list$Alpha = ifelse(length(HCR$Alpha) == data_list$nspp, HCR$Alpha, rep(HCR$Alpha, data_list$nspp))
+    data_list$Pstar = ifelse(length(HCR$Pstar) == data_list$nspp, HCR$Pstar, rep(HCR$Pstar, data_list$nspp))
+    data_list$Sigma = ifelse(length(HCR$Sigma) == data_list$nspp, HCR$Sigma, rep(HCR$Sigma, data_list$nspp))
+    data_list$QnormHCR = ifelse(HCR$HCR == 6, qnorm(HCR$Pstar, 0, HCR$Sigma), rep(0, data_list$nspp)) # Pstar HCR
 
     if(data_list$HCR == 2 & estimateMode == 2){estimateMode = 4} # If projecting under constant F, run parmeters through obj only
 
