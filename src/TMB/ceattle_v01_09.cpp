@@ -394,12 +394,12 @@ Type objective_function<Type>::operator() () {
   // 1.4. HCR and projection settings
   DATA_INTEGER(HCR);                      // Function to be used for harvest control rule
   DATA_INTEGER(DynamicHCR);               // TRUE/FALSE. Wether to use static or dynamic reference points (default = FALSE)
-  DATA_SCALAR(Ptarget);                   // Target spawning-stock biomass as a percentage of static or dynamic spawning-stock-biomass at F = 0
-  DATA_SCALAR(Plimit);                    // Limit spawning-stock biomass as a percentage of static or dynamic spawning-stock-biomass at F = 0
-  DATA_SCALAR(FsprTarget);                // Percentage of spawning-stock biomass per recruit at F = 0 used to find the target F-spr
-  DATA_SCALAR(FsprLimit);                 // Percentage of spawning-stock biomass per recruit at F = 0 used to find the limit F-spr
-  DATA_SCALAR(Alpha);                     // Parameter used in NPFMC Tier 3 HCR
-  DATA_SCALAR(QnormHCR);                  // Add to Flimit to set Ftarget based on the Pstar approach: Flimit + qnorm(Pstar, 0, Sigma)
+  DATA_VECTOR(Ptarget);                   // Target spawning-stock biomass as a percentage of static or dynamic spawning-stock-biomass at F = 0
+  DATA_VECTOR(Plimit);                    // Limit spawning-stock biomass as a percentage of static or dynamic spawning-stock-biomass at F = 0
+  DATA_VECTOR(FsprTarget);                // Percentage of spawning-stock biomass per recruit at F = 0 used to find the target F-spr
+  DATA_VECTOR(FsprLimit);                 // Percentage of spawning-stock biomass per recruit at F = 0 used to find the limit F-spr
+  DATA_VECTOR(Alpha);                     // Parameter used in NPFMC Tier 3 HCR
+  DATA_VECTOR(QnormHCR);                  // Add to Flimit to set Ftarget based on the Pstar approach: Flimit + qnorm(Pstar, 0, Sigma)
 
 
   // 1.5. MODEL OBJECTS
@@ -1126,8 +1126,8 @@ Type objective_function<Type>::operator() () {
                   break;
 
                 case 6: // PFMC Category 1 HCR
-                  proj_F(sp, yr) = Flimit(sp, yr) + QnormHCR;
-                  Ftarget(sp, yr) = Flimit(sp, yr) + QnormHCR;
+                  proj_F(sp, yr) = Flimit(sp, yr) + QnormHCR(sp);
+                  Ftarget(sp, yr) = Flimit(sp, yr) + QnormHCR(sp);
                   break;
 
                 case 7: // SESSF Tier 1 HCR
@@ -1549,29 +1549,29 @@ Type objective_function<Type>::operator() () {
           case 5: // NPFMC Tier 3 HCR
             proj_F(sp, yr) = proj_F(sp, yr);
             if(biomassSSB(sp, yr) < SPRtarget(sp)){
-              proj_F(sp, yr) = Ftarget(sp, 0) * (((biomassSSB(sp, yr)/SPRtarget(sp))-Alpha)/(1-Alpha)); // Used Fabc of FtargetSPR%
+              proj_F(sp, yr) = Ftarget(sp, 0) * (((biomassSSB(sp, yr)/SPRtarget(sp))-Alpha(sp))/(1-Alpha(sp))); // Used Fabc of FtargetSPR%
             }
-            if((biomassSSB(sp, yr) < SB0(sp) * Plimit) | (biomassSSB(sp, yr) / SPRtarget(sp) < Alpha)){ // If overfished
+            if((biomassSSB(sp, yr) < SB0(sp) * Plimit(sp)) | (biomassSSB(sp, yr) / SPRtarget(sp) < Alpha(sp))){ // If overfished
               proj_F(sp, yr) =  0;
             }
             break;
 
           case 6: // PFMC Category 1 HCR
             proj_F(sp, yr) = proj_F(sp, yr);
-            if(biomassSSB(sp, yr) < SB0(sp) * Ptarget){
-              proj_F(sp, yr) = (Flimit(sp, 0) + QnormHCR) * (SB0(sp) * Ptarget * (biomassSSB(sp, yr) - SB0(sp) * Plimit)) / (biomassSSB(sp, yr) * (SB0(sp) * (Ptarget - Plimit)));
+            if(biomassSSB(sp, yr) < SB0(sp) * Ptarget(sp)){
+              proj_F(sp, yr) = (Flimit(sp, 0) + QnormHCR(sp)) * (SB0(sp) * Ptarget(sp) * (biomassSSB(sp, yr) - SB0(sp) * Plimit(sp))) / (biomassSSB(sp, yr) * (SB0(sp) * (Ptarget(sp) - Plimit(sp))));
             }
-            if(biomassSSB(sp, yr) < SB0(sp) * Plimit){ // If overfished
+            if(biomassSSB(sp, yr) < SB0(sp) * Plimit(sp)){ // If overfished
               proj_F(sp, yr) =  0;
             }
             break;
 
           case 7: // SESSF Tier 1 HCR
             proj_F(sp, yr) = proj_F(sp, yr);
-            if(biomassSSB(sp, yr) < SB0(sp) * Ptarget){
-              proj_F(sp, yr) = Ftarget(sp, 0) * ((biomassSSB(sp, yr)/(SB0(sp) * Plimit))-1); // Used Fabc of FtargetSPR%
+            if(biomassSSB(sp, yr) < SB0(sp) * Ptarget(sp)){
+              proj_F(sp, yr) = Ftarget(sp, 0) * ((biomassSSB(sp, yr)/(SB0(sp) * Plimit(sp)))-1); // Used Fabc of FtargetSPR%
             }
-            if(biomassSSB(sp, yr) < SB0(sp) * Plimit){ // If overfished
+            if(biomassSSB(sp, yr) < SB0(sp) * Plimit(sp)){ // If overfished
               proj_F(sp, yr) =  0;
             }
             break;
@@ -1598,32 +1598,32 @@ Type objective_function<Type>::operator() () {
             break;
 
           case 5: // NPFMC Tier 3 HCR
-            //FIXME: Using DynamicSB0 * Ptarget rather than DynamicSPRtarget because they are the same with no S-R curve
+            //FIXME: Using DynamicSB0 * Ptarget(sp) rather than DynamicSPRtarget because they are the same with no S-R curve
             proj_F(sp, yr) = proj_F(sp, yr);
-            if(biomassSSB(sp, yr) < DynamicSB0(sp, yr) * FsprTarget){
-              proj_F(sp, yr) = Ftarget(sp, yr) * (((biomassSSB(sp, yr)/(DynamicSB0(sp, yr) * Ptarget))-Alpha)/(1-Alpha)); // Used Fabc of FtargetSPR%
+            if(biomassSSB(sp, yr) < DynamicSB0(sp, yr) * FsprTarget(sp)){
+              proj_F(sp, yr) = Ftarget(sp, yr) * (((biomassSSB(sp, yr)/(DynamicSB0(sp, yr) * Ptarget(sp)))-Alpha(sp))/(1-Alpha(sp))); // Used Fabc of FtargetSPR%
             }
-            if((biomassSSB(sp, yr) < DynamicSB0(sp, yr) * Plimit) | (biomassSSB(sp, yr) / (DynamicSB0(sp, yr) * Ptarget) < Alpha)){ // If overfished
+            if((biomassSSB(sp, yr) < DynamicSB0(sp, yr) * Plimit(sp)) | (biomassSSB(sp, yr) / (DynamicSB0(sp, yr) * Ptarget(sp)) < Alpha(sp))){ // If overfished
               proj_F(sp, yr) =  0;
             }
             break;
 
           case 6: // PFMC Category 1 HCR
             proj_F(sp, yr) = proj_F(sp, yr);
-            if(biomassSSB(sp, yr) < DynamicSB0(sp, yr) * Ptarget){
-              proj_F(sp, yr) = (Flimit(sp, yr) + QnormHCR) * (DynamicSB0(sp, yr) * Ptarget * (biomassSSB(sp, yr) - DynamicSB0(sp, yr) * Plimit)) / (biomassSSB(sp, yr) * (DynamicSB0(sp, yr) * (Ptarget - Plimit)));
+            if(biomassSSB(sp, yr) < DynamicSB0(sp, yr) * Ptarget(sp)){
+              proj_F(sp, yr) = (Flimit(sp, yr) + QnormHCR(sp)) * (DynamicSB0(sp, yr) * Ptarget(sp) * (biomassSSB(sp, yr) - DynamicSB0(sp, yr) * Plimit(sp))) / (biomassSSB(sp, yr) * (DynamicSB0(sp, yr) * (Ptarget(sp) - Plimit(sp))));
             }
-            if(biomassSSB(sp, yr) < DynamicSB0(sp, yr) * Plimit){ // If overfished
+            if(biomassSSB(sp, yr) < DynamicSB0(sp, yr) * Plimit(sp)){ // If overfished
               proj_F(sp, yr) =  0;
             }
             break;
 
           case 7: // SESSF Tier 1 HCR
             proj_F(sp, yr) = proj_F(sp, yr);
-            if(biomassSSB(sp, yr) < DynamicSB0(sp, yr) * Ptarget){
-              proj_F(sp, yr) = Ftarget(sp, yr) * ((biomassSSB(sp, yr)/(DynamicSB0(sp, yr) * Plimit))-1); // Used Fabc of FtargetSPR%
+            if(biomassSSB(sp, yr) < DynamicSB0(sp, yr) * Ptarget(sp)){
+              proj_F(sp, yr) = Ftarget(sp, yr) * ((biomassSSB(sp, yr)/(DynamicSB0(sp, yr) * Plimit(sp)))-1); // Used Fabc of FtargetSPR%
             }
-            if(biomassSSB(sp, yr) < DynamicSB0(sp, yr) * Plimit){ // If overfished
+            if(biomassSSB(sp, yr) < DynamicSB0(sp, yr) * Plimit(sp)){ // If overfished
               proj_F(sp, yr) =  0;
             }
             break;
@@ -3346,13 +3346,13 @@ Type objective_function<Type>::operator() () {
     if(DynamicHCR == 0){
       // F that acheives \code{Ftarget}% of SSB0 in the end of the projection
       if(HCR == 3){
-        jnll_comp(13, sp)  += 200*square((biomassSSB(sp, nyrs-1)/SB0(sp))-FsprTarget);
+        jnll_comp(13, sp)  += 200*square((biomassSSB(sp, nyrs-1)/SB0(sp))-FsprTarget(sp));
       }
 
       // -- SPR
       if(HCR > 3){
-        jnll_comp(13, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-FsprLimit);
-        jnll_comp(13, sp)  += 200*square((SPRtarget(sp)/SPR0(sp))-FsprTarget);
+        jnll_comp(13, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-FsprLimit(sp));
+        jnll_comp(13, sp)  += 200*square((SPRtarget(sp)/SPR0(sp))-FsprTarget(sp));
       }
     }
 
@@ -3361,14 +3361,14 @@ Type objective_function<Type>::operator() () {
       for(yr = 1; yr < nyrs; yr++){ // No initial abundance
         // F that acheives \code{Ftarget}% of SSB0 in the end of the projection
         if(HCR == 3){
-          jnll_comp(13, sp)  += 200*square((DynamicSBF(sp, yr)/DynamicSB0(sp, yr))-FsprTarget);
+          jnll_comp(13, sp)  += 200*square((DynamicSBF(sp, yr)/DynamicSB0(sp, yr))-FsprTarget(sp));
         }
       }
 
       // -- SPR
       if(HCR > 3){
-        jnll_comp(13, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-FsprLimit);
-        jnll_comp(13, sp)  += 200*square((SPRtarget(sp)/SPR0(sp))-FsprTarget);
+        jnll_comp(13, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-FsprLimit(sp));
+        jnll_comp(13, sp)  += 200*square((SPRtarget(sp)/SPR0(sp))-FsprTarget(sp));
       }
     }
   }
