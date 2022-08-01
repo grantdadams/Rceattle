@@ -226,7 +226,7 @@ mse_summary <- function(mse){
 
         # - EM: P(F > Flimit)
         em_f_flimit <- c(em_f_flimit,
-                              sum(exp(mse[[sim]]$EM[[em]]$estimated_params$ln_mean_F + mse[[sim]]$EM[[em]]$estimated_params$F_dev)[spp_rows,end_yr_col])
+                         mse[[sim]]$EM[[em]]$quantities$F_spp[sp,end_yr_col]
                               > mse[[sim]]$EM[[em]]$quantities$Flimit[sp,end_yr_col]
         )
 
