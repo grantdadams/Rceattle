@@ -61,7 +61,7 @@
 ##' @return A \code{list} containing the harvest control rule and associated biological reference points
 ##' @export
 ##'
-build_hcr <- function(HCR = 0, DynamicHCR = FALSE, FsprTarget = 0.40, FsprLimit = 0.35, Ptarget = 0.4, Plimit = 0.2, Alpha = 0.05, Pstar = NULL, Sigma = NULL) {
+build_hcr <- function(HCR = 0, DynamicHCR = FALSE, FsprTarget = 0.40, FsprLimit = 0.35, Ptarget = 0.4, Plimit = 0.2, Alpha = 0.05, Pstar = 0.45, Sigma = 0.5) {
   if(Alpha == 0 & HCR == 5){stop(paste0("Alpha = 0 for Tier 3 HCR, divide by zero error"))}
   list(HCR = HCR, DynamicHCR = DynamicHCR, FsprTarget = FsprTarget, FsprLimit = FsprLimit, Ptarget = Ptarget, Plimit = Plimit, Alpha = Alpha, Pstar = Pstar, Sigma = Sigma)
 }
