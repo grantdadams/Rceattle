@@ -6,6 +6,7 @@
 #' @param bounds (Optional) A bounds object from \code{\link{build_bounds}}.
 #' @param file (Optional) Filename where files will be saved. If NULL, no file is saved.
 #' @param estimateMode 0 = Fit the hindcast model and projection with HCR specified via \code{HCR}. 1 = Fit the hindcast model only (no projection). 2 = Run the projection only with HCR specified via \code{HCR} given the initial parameters in \code{inits}.  3 = debug mode 1: runs the model through MakeADFun, but not nlminb, 4 = runs the model through MakeADFun and nlminb (will all parameters mapped out).
+#' @param proj_mean_rec Project the model using: 0 = mean recruitment (average R of hindcast) or 1 = exp(ln_R0 + rec_devs)
 #' @param random_rec logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE.
 #' @param random_q logical. If TRUE, treats annual catchability deviations as random effects.The default is FALSE.
 #' @param random_rec logical. If TRUE, treats annual selectivity deviations as random effects.The default is FALSE.
@@ -121,6 +122,7 @@ fit_mod <-
     bounds = NULL,
     file = NULL,
     estimateMode = 0,
+    proj_mean_rec = 0,
     random_rec = FALSE,
     random_q = FALSE,
     random_sel = FALSE,
@@ -197,6 +199,7 @@ fit_mod <-
     data_list$msmMode <- msmMode
     data_list$suitMode <- as.numeric(suitMode)
     data_list$minNByage <- as.numeric(minNByage)
+    data_list$proj_mean_rec <- proj_mean_rec
     if(is.null(meanyr) & is.null(data_list$meanyr)){ # If no meanyear is provided in data or function, use end year
       data_list$meanyr <- data_list$endyr
     }

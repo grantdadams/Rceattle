@@ -363,6 +363,9 @@ Type objective_function<Type>::operator() () {
   //    0 = AvgN
   //    1 = N*exp(-Z / 2))
   //    2 = N
+  DATA_INTEGER(proj_mean_rec);
+  //    0 = project recruitment using ln_R0 and rec devs
+  //    1 = project recruitment using mean rec (can also have adjusted rec devs)
 
   // DATA_INTEGER( random_rec );          // Logical of whether to treate recruitment deviations as random effects
   DATA_INTEGER( niter );                  // Number of loops for MSM mode
@@ -1372,9 +1375,17 @@ Type objective_function<Type>::operator() () {
           DynamicNByage0(sp, 0, 0, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr)) * R_sexr(sp); // Using R0 because mse functions adjust rec_devs to account for bias
           DynamicNByage0(sp, 1, 0, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr)) * (1-R_sexr(sp)); // Using R0 because mse functions adjust rec_devs to account for bias
         }
-        if(yr >= nyrs_hind){ // Forecast using mean rec
-          DynamicNByage0(sp, 0, 0, yr) = exp(log(mean_rec(sp)) + rec_dev(sp, yr)) * R_sexr(sp); // Using R0 because mse functions adjust rec_devs to account for bias
-          DynamicNByage0(sp, 1, 0, yr) = exp(log(mean_rec(sp)) + rec_dev(sp, yr)) * (1-R_sexr(sp)); // Using R0 because mse functions adjust rec_devs to account for bias
+        if(yr >= nyrs_hind){ // Forecast
+          // - Use mean rec
+          if(proj_mean_rec == 1){
+            DynamicNByage0(sp, 0, 0, yr) = exp(log(mean_rec(sp)) + rec_dev(sp, yr)) * R_sexr(sp); // Using R0 because mse functions adjust rec_devs to account for bias
+            DynamicNByage0(sp, 1, 0, yr) = exp(log(mean_rec(sp)) + rec_dev(sp, yr)) * (1-R_sexr(sp)); // Using R0 because mse functions adjust rec_devs to account for bias
+          }
+          // -- Use rec dev
+          if(proj_mean_rec == 0){
+            DynamicNByage0(sp, 0, 0 , yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr)) * R_sexr(sp);
+            DynamicNByage0(sp, 1, 0 , yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr)) * (1 - R_sexr(sp));
+          }
         }
 
         // N-at-age -- No fishing
@@ -1415,7 +1426,12 @@ Type objective_function<Type>::operator() () {
 
             }
             if(yr >= nyrs_hind){ // Forecast using mean R
-              DynamicNByageF(F_yr, sp, 0, yr) = exp(log(mean_rec(sp)) + rec_dev(sp, yr)) * R_sexr(sp); // Using R0 because mse_functions account for bias
+              if(proj_mean_rec == 1){
+                DynamicNByageF(F_yr, sp, 0, yr) = exp(log(mean_rec(sp)) + rec_dev(sp, yr)) * R_sexr(sp); // Using R0 because mse_functions account for bias
+              }
+              if(proj_mean_rec == 0){
+                DynamicNByageF(F_yr, sp, 0, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr)) * R_sexr(sp);
+              }
             }
 
             // N-at-age -- With fishing
@@ -1484,9 +1500,19 @@ Type objective_function<Type>::operator() () {
             case 0: // Estimated numbers-at-age
 
               // -- 6.7.1. Amin (i.e. recruitment)
-              R(sp, yr) = mean_rec(sp); //  exp(+ rec_dev(sp, yr)); // Projections use mean R given bias in R0
-              NByage(sp, 0, 0, yr) = R(sp, yr) * R_sexr(sp);
-              NByage(sp, 1, 0, yr) = R(sp, yr) * (1-R_sexr(sp));
+              // - Use mean rec
+              if(proj_mean_rec == 1){
+                R(sp, yr) = exp(log(mean_rec(sp)) + rec_dev(sp, yr)); //  exp(+ rec_dev(sp, yr)); // Projections use mean R given bias in R0
+                NByage(sp, 0, 0, yr) = R(sp, yr) * R_sexr(sp);
+                NByage(sp, 1, 0, yr) = R(sp, yr) * (1-R_sexr(sp));
+              }
+
+              // - Use S-R/rec devs
+              if(proj_mean_rec == 0){
+                R(sp, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr));
+                NByage(sp, 0, 0 , yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr)) * R_sexr(sp);
+                NByage(sp, 1, 0 , yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr)) * (1 - R_sexr(sp));
+              }
 
               // -- 6.7.2.  Where 1 <= age < Ai
               if (age < (nages(sp) - 1)) {
