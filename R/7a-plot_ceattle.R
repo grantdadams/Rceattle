@@ -2154,7 +2154,7 @@ plot_b_eaten_prop <-
         if (j == 2 | length(species) == 1) {
           legend(
             "topright",
-            legend = c("Predator:", spnames),
+            legend = c("Predator:", spnames[species]),
             lty = c(NA, 1:nspp),
             lwd = lwd,
             col = c(0, rep(1, nspp)),
@@ -2166,13 +2166,14 @@ plot_b_eaten_prop <-
 
 
         # Mean B_eaten
-        for(pred in 1:nspp){
+        for (k in 1:length(species)) {
+          pred <- species[k]
           for (mod in 1:dim(B_eaten)[4]) {
             lines(
               x = Years[[mod]],
               y = B_eaten[pred, spp, 1:length(Years[[mod]]), mod],
               lwd = lwd,
-              lty = pred,
+              lty = k,
               col = line_col[mod]) # Median
           }
 
