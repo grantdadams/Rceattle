@@ -139,9 +139,6 @@ remove_rec_dev_and_F <- function(Rceattle, rec_trend = 0){
     verbose = 0)
 
   Rceattle$data_list$estimateMode <- estMode
-  plot_biomass(list(ms_run, Rceattle), incl_proj = TRUE)
-  plot_recruitment(list(ms_run, Rceattle), incl_proj = TRUE)
-  plot_ssb(list(ms_run, Rceattle), incl_proj = TRUE)
   return(Rceattle)
 
 }

@@ -2934,8 +2934,8 @@ plot_depletionSSB <- function(Rceattle,
         ) # Median
 
         # Ptarget and plimit
-        abline(h= ptarget[k,spp[j]], lwd = lwd/2, col = "blue")
-        abline(h= plimit[k,spp[j]], lwd = lwd/2, col = "red")
+        abline(h= ptarget[spp[j]], lwd = lwd/2, col = "blue")
+        abline(h= plimit[spp[j]], lwd = lwd/2, col = "red")
       }
     }
 
@@ -3249,8 +3249,8 @@ plot_depletion <- function(Rceattle,
         ) # Median
 
         # Ptarget and plimit
-        abline(h= ptarget[k,spp[j]], lwd = lwd/2, col = "blue")
-        abline(h= plimit[k,spp[j]], lwd = lwd/2, col = "red")
+        abline(h= ptarget[spp[j]], lwd = lwd/2, col = "blue")
+        abline(h= plimit[spp[j]], lwd = lwd/2, col = "red")
       }
     }
 
