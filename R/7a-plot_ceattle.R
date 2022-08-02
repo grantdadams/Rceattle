@@ -130,14 +130,14 @@ plot_biomass <- function(Rceattle,
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
   log_quantity_mu <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
-  ptarget = c()
-  plimit = c()
+  ptarget = matrix(NA, nrow = length(Rceattle), ncol = nspp)
+  plimit = matrix(NA, nrow = length(Rceattle), ncol = nspp)
 
   for (i in 1:length(Rceattle)) {
 
     # - Get quantities
-    ptarget[i] <- Rceattle[[i]]$data_list$Ptarget
-    plimit[i] <- Rceattle[[i]]$data_list$Plimit
+    ptarget[i,] <- Rceattle[[i]]$data_list$Ptarget
+    plimit[i,] <- Rceattle[[i]]$data_list$Plimit
     quantity[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$biomass[,1:nyrs_vec[i]]
 
     # Get SD of quantity
@@ -167,8 +167,8 @@ plot_biomass <- function(Rceattle,
 
   # - MSE objects
   if(mse){
-    ptarget <- ptarget[1]
-    plimit <- plimit[1]
+    ptarget <- ptarget[1,]
+    plimit <- plimit[1,]
 
     # -- Get quantiles and mean across simulations
     quantity_upper95 <- apply( quantity[,,1:nmse], c(1,2), function(x) quantile(x, probs = 0.975) )
@@ -470,14 +470,14 @@ plot_recruitment <- function(Rceattle,
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
   log_quantity_mu <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
-  ptarget = c()
-  plimit = c()
+  ptarget = matrix(NA, nrow = length(Rceattle), ncol = nspp)
+  plimit = matrix(NA, nrow = length(Rceattle), ncol = nspp)
 
   for (i in 1:length(Rceattle)) {
 
     # - Get quantities
-    ptarget[i] <- Rceattle[[i]]$data_list$Ptarget
-    plimit[i] <- Rceattle[[i]]$data_list$Plimit
+    ptarget[i,] <- Rceattle[[i]]$data_list$Ptarget
+    plimit[i,] <- Rceattle[[i]]$data_list$Plimit
     quantity[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$R[,1:nyrs_vec[i]]
 
     # Get SD of quantity
@@ -507,8 +507,8 @@ plot_recruitment <- function(Rceattle,
 
   # - MSE objects
   if(mse){
-    ptarget <- ptarget[1]
-    plimit <- plimit[1]
+    ptarget <- ptarget[1,]
+    plimit <- plimit[1,]
 
     # -- Get quantiles and mean across simulations
     quantity_upper95 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.975) )
@@ -1428,14 +1428,14 @@ plot_ssb <- function(Rceattle,
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
   log_quantity_mu <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
-  ptarget = c()
-  plimit = c()
+  ptarget = matrix(NA, nrow = length(Rceattle), ncol = nspp)
+  plimit = matrix(NA, nrow = length(Rceattle), ncol = nspp)
 
   for (i in 1:length(Rceattle)) {
 
     # - Get quantities
-    ptarget[i] <- Rceattle[[i]]$data_list$Ptarget
-    plimit[i] <- Rceattle[[i]]$data_list$Plimit
+    ptarget[i,] <- Rceattle[[i]]$data_list$Ptarget
+    plimit[i,] <- Rceattle[[i]]$data_list$Plimit
     quantity[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$biomassSSB[,1:nyrs_vec[i]]
 
     # Get SD of quantity
@@ -1465,8 +1465,8 @@ plot_ssb <- function(Rceattle,
 
   # - MSE objects
   if(mse){
-    ptarget <- ptarget[1]
-    plimit <- plimit[1]
+    ptarget <- ptarget[1,]
+    plimit <- plimit[1,]
 
     # -- Get quantiles and mean across simulations
     quantity_upper95 <- apply( quantity[,,1:nmse], c(1,2), function(x) quantile(x, probs = 0.975) )
@@ -2722,12 +2722,12 @@ plot_depletionSSB <- function(Rceattle,
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
   log_quantity_mu <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
-  ptarget = c()
-  plimit = c()
+  ptarget = matrix(NA, nrow = length(Rceattle), ncol = nspp)
+  plimit = matrix(NA, nrow = length(Rceattle), ncol = nspp)
 
   for (i in 1:length(Rceattle)) {
-    ptarget[i] <- Rceattle[[i]]$data_list$Ptarget
-    plimit[i] <- Rceattle[[i]]$data_list$Plimit
+    ptarget[i,] <- Rceattle[[i]]$data_list$Ptarget
+    plimit[i,] <- Rceattle[[i]]$data_list$Plimit
     quantity[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$depletionSSB[,1:nyrs_vec[i]]
 
 
@@ -2753,8 +2753,8 @@ plot_depletionSSB <- function(Rceattle,
 
   # - MSE objects
   if(mse){
-    ptarget <- ptarget[1]
-    plimit <- plimit[1]
+    ptarget <- ptarget[1,]
+    plimit <- plimit[1,]
 
     # -- Get quantiles and mean across simulations
     quantity_upper95 <- apply( quantity[,,1:nmse], c(1,2), function(x) quantile(x, probs = 0.975, na.rm = TRUE) )
@@ -2934,8 +2934,8 @@ plot_depletionSSB <- function(Rceattle,
         ) # Median
 
         # Ptarget and plimit
-        abline(h= ptarget[k], lwd = lwd/2, col = "blue")
-        abline(h= plimit[k], lwd = lwd/2, col = "red")
+        abline(h= ptarget[k,spp[j]], lwd = lwd/2, col = "blue")
+        abline(h= plimit[k,spp[j]], lwd = lwd/2, col = "red")
       }
     }
 
@@ -3048,12 +3048,12 @@ plot_depletion <- function(Rceattle,
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
   log_quantity_mu <-
     array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
-  ptarget = c()
-  plimit = c()
+  ptarget = matrix(NA, nrow = length(Rceattle), ncol = nspp)
+  plimit = matrix(NA, nrow = length(Rceattle), ncol = nspp)
 
   for (i in 1:length(Rceattle)) {
-    ptarget[i] <- Rceattle[[i]]$data_list$Ptarget
-    plimit[i] <- Rceattle[[i]]$data_list$Plimit
+    ptarget[i,] <- Rceattle[[i]]$data_list$Ptarget
+    plimit[i,] <- Rceattle[[i]]$data_list$Plimit
     quantity[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$depletion[,1:nyrs_vec[i]]
 
 
@@ -3078,8 +3078,8 @@ plot_depletion <- function(Rceattle,
 
   # - MSE objects
   if(mse){
-    ptarget <- ptarget[1]
-    plimit <- plimit[1]
+    ptarget <- ptarget[1,]
+    plimit <- plimit[1,]
 
     # -- Get quantiles and mean across simulations
     quantity_upper95 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.975) )
@@ -3249,8 +3249,8 @@ plot_depletion <- function(Rceattle,
         ) # Median
 
         # Ptarget and plimit
-        abline(h= ptarget[k], lwd = lwd/2, col = "blue")
-        abline(h= plimit[k], lwd = lwd/2, col = "red")
+        abline(h= ptarget[k,spp[j]], lwd = lwd/2, col = "blue")
+        abline(h= plimit[k,spp[j]], lwd = lwd/2, col = "red")
       }
     }
 
@@ -3356,11 +3356,11 @@ plot_f <- function(Rceattle,
 
 
   # Get depletion
-  quantity <- quantity_sd <- log_quantity_sd <- log_quantity_mu <-  ptarget <- plimit <- array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
+  quantity <- quantity_sd <- log_quantity_sd <- log_quantity_mu <-  ftarget <- flimit <- array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
 
   for (i in 1:length(Rceattle)) {
-    ptarget[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$Ftarget[,1:nyrs_vec[i]]
-    plimit[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$Flimit[,1:nyrs_vec[i]]
+    ftarget[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$Ftarget[,1:nyrs_vec[i]]
+    flimit[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$Flimit[,1:nyrs_vec[i]]
     quantity[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$F_spp[,1:nyrs_vec[i]]
 
 
@@ -3556,7 +3556,7 @@ plot_f <- function(Rceattle,
         # - Ftarget
         lines(
           x = Years[[k]],
-          y = ptarget[spp[j], 1:length(Years[[k]]), k],
+          y = ftarget[spp[j], 1:length(Years[[k]]), k],
           lty = 1,
           lwd = lwd/2,
           col = "blue"
@@ -3565,7 +3565,7 @@ plot_f <- function(Rceattle,
         # - Flimit
         lines(
           x = Years[[k]],
-          y = plimit[spp[j], 1:length(Years[[k]]), k],
+          y = flimit[spp[j], 1:length(Years[[k]]), k],
           lty = 1,
           lwd = lwd/2,
           col = "red"

@@ -4,7 +4,7 @@
 \alias{project_trend}
 \title{Updates a model projection with a recruitment trend}
 \usage{
-project_trend(Rceattle, rec_trend = 0)
+project_trend(Rceattle, rec_trend = 0, sample_rec = FALSE)
 }
 \arguments{
 \item{Rceattle}{Rceattle model}

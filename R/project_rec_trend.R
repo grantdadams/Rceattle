@@ -64,3 +64,84 @@ project_trend <- function(Rceattle, rec_trend = 0, sample_rec = FALSE){
   Rceattle$data_list$estimateMode <- estMode
   return(Rceattle)
 }
+
+
+#' Function to update hindcast removing, setting F to 0 and rec to mean recruitment
+#'
+#' @param Rceattle
+#'
+#' @return
+#' @export
+#'
+#' @examples
+remove_rec_dev_and_F <- function(Rceattle, rec_trend = 0){
+
+  # - Years for projection
+  hind_yrs <- (Rceattle$data_list$styr) : Rceattle$data_list$endyr
+  hind_nyrs <- length(hind_yrs)
+  proj_yrs <- (Rceattle$data_list$endyr + 1) : Rceattle$data_list$projyr
+  proj_nyrs <- length(proj_yrs)
+
+  Rceattle$data_list$proj_mean_rec <- FALSE
+
+  # - Adjust rec trend
+  if(length(rec_trend)==1){
+    rec_trend = rep(rec_trend, Rceattle$data_list$nspp)
+  }
+
+  # - Replace hindcast rec devs
+  for(sp in 1:Rceattle$data_list$nspp){
+    ## HINDCAST
+    # Get dev from mean rec to ln_R0 for hindcast
+    rec_dev <- log(mean(Rceattle$quantities$R[sp,1:hind_nyrs])) - Rceattle$estimated_params$ln_mean_rec[sp] # - Scale mean rec for rec trend
+
+    # - Update OM with devs
+    Rceattle$estimated_params$rec_dev[sp,1:hind_nyrs] <- replace(
+      Rceattle$estimated_params$rec_dev[sp,1:hind_nyrs],
+      values =  rec_dev)
+
+    ## PROJECTION
+    # -- Projection uses exp(ln_R0)
+    rec_dev <- log(mean(Rceattle$quantities$R[sp,1:hind_nyrs]) * (1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs))  - Rceattle$estimated_params$ln_mean_rec[sp] # - Scale mean rec for rec trend
+
+
+    # - Update OM with devs
+    Rceattle$estimated_params$rec_dev[sp,proj_yrs - Rceattle$data_list$styr + 1] <- replace(
+      Rceattle$estimated_params$rec_dev[sp,proj_yrs - Rceattle$data_list$styr + 1],
+      values =  rec_dev)
+  }
+
+  # Set fishing to 0
+  Rceattle$estimated_params$F_dev <- replace(Rceattle$estimated_params$F_dev, values = 0)
+  Rceattle$estimated_params$ln_mean_F <- replace(Rceattle$estimated_params$ln_mean_F, values = -999)
+
+  # - Update
+  estMode <- Rceattle$data_list$estimateMode
+  Rceattle <- fit_mod(
+    data_list = Rceattle$data_list,
+    inits = Rceattle$estimated_params,
+    map =  Rceattle$map,
+    bounds = NULL,
+    file = NULL,
+    estimateMode = 3, # Update quantities, not parameters
+    random_rec = Rceattle$data_list$random_rec,
+    niter = Rceattle$data_list$niter,
+    msmMode = Rceattle$data_list$msmMode,
+    avgnMode = Rceattle$data_list$avgnMode,
+    minNByage = Rceattle$data_list$minNByage,
+    suitMode = Rceattle$data_list$suitMode,
+    meanyr = Rceattle$data_list$endyr,
+    proj_mean_rec = FALSE,
+    updateM1 = FALSE, # Dont update M1 from data, fix at previous parameters
+    loopnum = 2,
+    phase = NULL,
+    getsd = FALSE,
+    verbose = 0)
+
+  Rceattle$data_list$estimateMode <- estMode
+  plot_biomass(list(ms_run, Rceattle), incl_proj = TRUE)
+  plot_recruitment(list(ms_run, Rceattle), incl_proj = TRUE)
+  plot_ssb(list(ms_run, Rceattle), incl_proj = TRUE)
+  return(Rceattle)
+
+}
