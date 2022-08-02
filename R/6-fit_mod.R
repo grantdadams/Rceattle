@@ -145,36 +145,36 @@ fit_mod <-
     verbose = 1,
     newtonsteps = 0){
 
-
-    # ### For debugging
-    # data_list = NULL;
-    # inits = NULL;
-    # map = NULL;
-    # bounds = NULL;
-    # file = NULL;
-    # estimateMode = 0;
-    # random_rec = FALSE;
-    # random_q = FALSE;
-    # random_sel = FALSE;
-    # HCR = build_hcr();
-    # niter = 3;
-    # msmMode = 0;
-    # avgnMode = 0;
-    # updateM1 = TRUE;
-    # minNByage = 0;
-    # suitMode = 0;
-    # meanyr = NULL;
-    # phase = NULL;
-    # getsd = TRUE;
-    # use_gradient = TRUE;
-    # rel_tol = 1;
-    # control = list(eval.max = 1e+09,
-    #                iter.max = 1e+09, trace = 0);
-    # getJointPrecision = TRUE;
-    # loopnum = 5;
-    # verbose = 1;
-    # newtonsteps = 0
-    # proj_mean_rec = TRUE
+    #
+    #     ### For debugging
+    #     data_list = NULL;
+    #     inits = NULL;
+    #     map = NULL;
+    #     bounds = NULL;
+    #     file = NULL;
+    #     estimateMode = 0;
+    #     random_rec = FALSE;
+    #     random_q = FALSE;
+    #     random_sel = FALSE;
+    #     HCR = build_hcr();
+    #     niter = 3;
+    #     msmMode = 0;
+    #     avgnMode = 0;
+    #     updateM1 = TRUE;
+    #     minNByage = 0;
+    #     suitMode = 0;
+    #     meanyr = NULL;
+    #     phase = NULL;
+    #     getsd = TRUE;
+    #     use_gradient = TRUE;
+    #     rel_tol = 1;
+    #     control = list(eval.max = 1e+09,
+    #                    iter.max = 1e+09, trace = 0);
+    #     getJointPrecision = TRUE;
+    #     loopnum = 5;
+    #     verbose = 1;
+    #     newtonsteps = 0
+    #     proj_mean_rec = TRUE
 
 
     start_time <- Sys.time()
@@ -219,6 +219,8 @@ fit_mod <-
     data_list$DynamicHCR = HCR$DynamicHCR
     if(HCR$HCR != 2){ # FsprTarget is also used for fixed F (so may be of length nflts)
       data_list$FsprTarget = extend_length(HCR$FsprTarget)
+    } else {
+      data_list$FsprTarget = HCR$FsprTarget
     }
     data_list$FsprLimit = extend_length(HCR$FsprLimit)
     data_list$Ptarget = extend_length(HCR$Ptarget)
