@@ -245,14 +245,12 @@ mse_summary <- function(mse){
 
     ## Actual status
     # - OM: P(F > Flimit)
-    om_f_flimit <- lapply(mse, function(x) colSums(exp(x$OM$estimated_params$ln_mean_F
-                                                            + x$OM$estimated_params$F_dev)[spp_rows,])
-                               > (x$OM$quantities$Flimit[sp,]))
+    om_f_flimit <- lapply(mse, function(x) x$OM$quantities$F_spp[sp, (projyrs - styr + 1)] > (x$OM$quantities$Flimit[sp,(projyrs - styr + 1)]))
     om_f_flimit <- unlist(om_f_flimit)
     mse_summary$`OM: P(Fy > Flimit)`[sp] <- sum(om_f_flimit)/length(om_f_flimit)
 
     # - OM: P(SSB < SSBlimit)
-    om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)] < x$OM$data_list$Plimit)
+    om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)] < x$OM$data_list$Plimit[sp])
     om_sb_sblimit <- unlist(om_sb_sblimit)
     mse_summary$`OM: P(SSB < SSBlimit)`[sp] <- sum(om_sb_sblimit)/length(om_sb_sblimit)
 
