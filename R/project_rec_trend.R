@@ -7,7 +7,7 @@
 #' @export
 #'
 #' @examples
-project_trend <- function(Rceattle, rec_trend = 0){
+project_trend <- function(Rceattle, rec_trend = 0, sample_rec = FALSE){
 
   # - Years for projection
   hind_yrs <- (Rceattle$data_list$styr) : Rceattle$data_list$endyr
@@ -17,7 +17,7 @@ project_trend <- function(Rceattle, rec_trend = 0){
 
   # - Adjust rec trend
   if(length(rec_trend)==1){
-    rec_trend = rep(rec_trend, om$data_list$nspp)
+    rec_trend = rep(rec_trend, Rceattle$data_list$nspp)
   }
 
   # - Replace future rec devs
@@ -25,12 +25,12 @@ project_trend <- function(Rceattle, rec_trend = 0){
 
     # -- Projection uses mean R of hindcast
     if(Rceattle$data_list$proj_mean_rec == 1){
-      rec_dev <- log(mean(Rceattle$quantities$R[sp,1:hind_nyrs]) * (1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs))  - Rceattle$estimated_params$ln_mean_rec[sp] # - Scale mean rec for rec trend
+      rec_dev <- log((1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs)) # - Scale mean rec for rec trend
     }
 
     # -- Projection uses exp(ln_R0)
     if(Rceattle$data_list$proj_mean_rec == 0){
-      rec_dev <- log((1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs)) # - Scale mean rec for rec trend
+      rec_dev <- log(mean(Rceattle$quantities$R[sp,1:hind_nyrs]) * (1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs))  - Rceattle$estimated_params$ln_mean_rec[sp] # - Scale mean rec for rec trend
     }
 
     # - Update OM with devs
@@ -54,7 +54,7 @@ project_trend <- function(Rceattle, rec_trend = 0){
     avgnMode = Rceattle$data_list$avgnMode,
     minNByage = Rceattle$data_list$minNByage,
     suitMode = Rceattle$data_list$suitMode,
-    meanyr = om$data_list$endyr,
+    meanyr = Rceattle$data_list$endyr,
     updateM1 = FALSE, # Dont update M1 from data, fix at previous parameters
     loopnum = 2,
     phase = NULL,

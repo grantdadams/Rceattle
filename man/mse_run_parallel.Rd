@@ -8,15 +8,18 @@ mse_run_parallel(
   om = ms_run,
   em = ss_run,
   nsim = 10,
+  start_sim = 1,
   assessment_period = 1,
   sampling_period = 1,
-  simulate = TRUE,
+  simulate_data = TRUE,
+  regenerate_past = FALSE,
+  sample_rec = TRUE,
   rec_trend = 0,
   fut_sample = 1,
   cap = NULL,
   seed = 666,
+  regenerate_seed = seed,
   loopnum = 1,
-  parallel = FALSE,
   file = NULL,
   dir = NULL
 )
@@ -28,17 +31,25 @@ mse_run_parallel(
 
 \item{nsim}{Number of simulations to run (default 10)}
 
+\item{start_sim}{First simulation number to start at. Useful if the code stops at specific seed/sim (default = 1).}
+
 \item{assessment_period}{Period of years that each assessment is taken}
 
 \item{sampling_period}{Period of years data sampling is conducted. Single value or vector the same length as the number of fleets.}
 
-\item{simulate}{Include simulated random error proportional to that estimated/provided.}
+\item{simulate_data}{Include simulated random error proportional to that estimated/provided for the data from the OM.}
 
-\item{rec_trend}{Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier mean rec * (1 + (rec_trend/projection years) * 1:projection years)}
+\item{regenerate_past}{Refits the EM to historical/conditioning data prior to the MSE, where the data are generated from the OM with \code{simulate_data = TRUE} or without \code{simulate_data = FALSE} sampling error.}
 
-\item{fut_sample}{future sampling effort relative to last year.  \code{ Log_sd * 1/fut_sample} for index and \code{ Sample_size * fut_sample} for comps}
+\item{sample_rec}{Include resampled recruitment deviates from the"hindcast" in the projection of the OM. Resampled deviates are used rather than sampling from N(0, sigmaR) because initial deviates bias R0 low. If false, uses mean of recruitment deviates.}
+
+\item{rec_trend}{Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier \code{mean rec * (1 + (rec_trend/projection years) * 1:projection years)}. Can be of length 1 or of length nspp. If length 1, all species get the same trend.}
+
+\item{fut_sample}{future sampling effort relative to last year.  \code{ Log_sd * 1 / fut_sample} for index and \code{ Sample_size * fut_sample} for comps}
 
 \item{cap}{A cap on the catch in the projection. Can be a single number or vector. Default = NULL}
+
+\item{seed}{}
 
 \item{loopnum}{number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})}
 
