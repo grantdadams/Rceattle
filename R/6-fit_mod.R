@@ -122,7 +122,7 @@ fit_mod <-
     bounds = NULL,
     file = NULL,
     estimateMode = 0,
-    proj_mean_rec = 0,
+    proj_mean_rec = TRUE,
     random_rec = FALSE,
     random_q = FALSE,
     random_sel = FALSE,
@@ -174,6 +174,7 @@ fit_mod <-
     # loopnum = 5;
     # verbose = 1;
     # newtonsteps = 0
+    # proj_mean_rec = TRUE
 
 
     start_time <- Sys.time()
@@ -209,16 +210,23 @@ fit_mod <-
 
 
     # HCR Switches (make length of nspp if not)
+    extend_length <- function(x){
+      if(length(x) == data_list$nspp){ return(x)}
+      else {return(rep(x, data_list$nspp))}
+    }
+
     data_list$HCR = HCR$HCR
     data_list$DynamicHCR = HCR$DynamicHCR
-    data_list$FsprTarget = HCR$FsprTarget[1] # NOTE: if fixed F, inputs it again below
-    data_list$FsprLimit = ifelse(length(HCR$FsprLimit) == data_list$nspp, HCR$FsprLimit, rep(HCR$FsprLimit, data_list$nspp))
-    data_list$Ptarget = ifelse(length(HCR$Ptarget) == data_list$nspp, HCR$Ptarget, rep(HCR$Ptarget, data_list$nspp))
-    data_list$Plimit = ifelse(length(HCR$Plimit) == data_list$nspp, HCR$Plimit, rep(HCR$Plimit, data_list$nspp))
-    data_list$Alpha = ifelse(length(HCR$Alpha) == data_list$nspp, HCR$Alpha, rep(HCR$Alpha, data_list$nspp))
-    data_list$Pstar = ifelse(length(HCR$Pstar) == data_list$nspp, HCR$Pstar, rep(HCR$Pstar, data_list$nspp))
-    data_list$Sigma = ifelse(length(HCR$Sigma) == data_list$nspp, HCR$Sigma, rep(HCR$Sigma, data_list$nspp))
-    data_list$QnormHCR = ifelse(HCR$HCR == 6, qnorm(HCR$Pstar, 0, HCR$Sigma), rep(0, data_list$nspp)) # Pstar HCR
+    if(HCR$HCR != 2){ # FsprTarget is also used for fixed F (so may be of length nflts)
+      data_list$FsprTarget = extend_length(HCR$FsprTarget)
+    }
+    data_list$FsprLimit = extend_length(HCR$FsprLimit)
+    data_list$Ptarget = extend_length(HCR$Ptarget)
+    data_list$Plimit = extend_length(HCR$Plimit)
+    data_list$Alpha = extend_length(HCR$Alpha)
+    data_list$Pstar = extend_length(HCR$Pstar)
+    data_list$Sigma = extend_length(HCR$Sigma)
+    data_list$QnormHCR = qnorm(data_list$Pstar, 0, data_list$Sigma)
 
     if(data_list$HCR == 2 & estimateMode == 2){estimateMode = 4} # If projecting under constant F, run parmeters through obj only
 
