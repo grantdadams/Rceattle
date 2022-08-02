@@ -8,6 +8,7 @@ mse_run(
   om = ms_run,
   em = ss_run,
   nsim = 10,
+  start_sim = 1,
   assessment_period = 1,
   sampling_period = 1,
   simulate_data = TRUE,
@@ -17,6 +18,7 @@ mse_run(
   fut_sample = 1,
   cap = NULL,
   seed = 666,
+  regenerate_seed = seed,
   loopnum = 1,
   file = NULL,
   dir = NULL
@@ -29,6 +31,8 @@ mse_run(
 
 \item{nsim}{Number of simulations to run (default 10)}
 
+\item{start_sim}{First simulation number to start at. Useful if the code stops at specific seed/sim (default = 1).}
+
 \item{assessment_period}{Period of years that each assessment is taken}
 
 \item{sampling_period}{Period of years data sampling is conducted. Single value or vector the same length as the number of fleets.}
@@ -39,7 +43,7 @@ mse_run(
 
 \item{sample_rec}{Include resampled recruitment deviates from the"hindcast" in the projection of the OM. Resampled deviates are used rather than sampling from N(0, sigmaR) because initial deviates bias R0 low. If false, uses mean of recruitment deviates.}
 
-\item{rec_trend}{Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier \code{mean rec * (1 + (rec_trend/projection years) * 1:projection years)}}
+\item{rec_trend}{Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier \code{mean rec * (1 + (rec_trend/projection years) * 1:projection years)}. Can be of length 1 or of length nspp. If length 1, all species get the same trend.}
 
 \item{fut_sample}{future sampling effort relative to last year.  \code{ Log_sd * 1 / fut_sample} for index and \code{ Sample_size * fut_sample} for comps}
 

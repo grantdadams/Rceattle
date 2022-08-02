@@ -12,8 +12,8 @@ build_hcr(
   Ptarget = 0.4,
   Plimit = 0.2,
   Alpha = 0.05,
-  Pstar = NULL,
-  Sigma = NULL
+  Pstar = 0.45,
+  Sigma = 0.5
 )
 }
 \arguments{

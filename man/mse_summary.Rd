@@ -19,7 +19,7 @@ data.frame 1
 }
 
 data.frame 2
-4.	Average mean squared error in estimate of spawning biomass in the terminal year across simulations
+4.	Average relative mean squared error in estimate of spawning biomass in the terminal year across simulations
 5. \% of years in which the population is perceived as undergoing overfishing as determined from F_Limit across simulations via \code{\link{build_hcr}} in the EM
 6.	\% of years in which the population is perceived to be overfished  as determined from B_Limit across simulations via \code{\link{build_hcr}} in the EM
 7. \% of years in which the population is undergoing overfishing as determined from the “true” F_Limit across simulations via \code{\link{build_hcr}} in the OM

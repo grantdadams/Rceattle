@@ -11,12 +11,13 @@ plot_catch(
   line_col = NULL,
   species = NULL,
   right_adj = 0,
-  top_adj = 0.05,
+  top_adj = 1.2,
   incl_proj = FALSE,
   single.plots = FALSE,
   width = NULL,
   height = NULL,
   alpha = 0.4,
+  ymax = NULL,
   mse = FALSE
 )
 }
@@ -34,7 +35,7 @@ function.}
 
 \item{right_adj}{How much right side of the x-axis for fitting the legend. As percentage.}
 
-\item{top_adj}{How much top side of the y-axis for fitting the legend. As percentage.}
+\item{top_adj}{How much top side of the y-axis for fitting the legend. As percentage (default = 1.2).}
 
 \item{incl_proj}{TRUE/FALSE include projections years}
 

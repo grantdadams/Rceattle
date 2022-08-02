@@ -34,6 +34,9 @@ mse_run <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
   Rceattle_OM_list <- list()
   Rceattle_EM_list <- list()
 
+  # - Set om to project from R0
+  om$data_list$proj_mean_rec = 0 # - Sample rec devs assuming this down the line
+
   # - Adjust cap
   if(!is.null(cap)){
     if(length(cap) == 1){
