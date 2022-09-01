@@ -79,6 +79,16 @@ mse_summary <- function(mse){
   projyr <- mse$Sim_1$OM$data_list$projyr
   projyrs <- (endyr+1):projyr
   projyrs_ind <- projyrs - endyr
+  HCR <- mse$Sim_1$EM$`OM_Sim_1. EM_yr_2019`$data_list$HCR
+  Ptarget <- mse$Sim_1$EM$`OM_Sim_1. EM_yr_2019`$data_list$Ptarget
+  # -- HCR = 0: No catch - Params off
+  # -- HCR = 1: Constant catch - Params off
+  # -- HCR = 2: Constant input F - Params off
+  # -- HCR = 3: F that acheives X% of SSB0 in the end of the projection - Ftarget on
+  # -- HCR = 4: Constant target Fspr - Ftarget on
+  # -- HCR = 5: NPFMC Tier 3 - Flimit and Ftarget on
+  # -- HCR = 6: PFMC Cat 1 - Flimit on
+  # -- HCR = 7: SESSF Tier 1 - Flimit and Ftarget on
 
   ## MSE specifications
   nsim <- length(mse)
@@ -225,14 +235,54 @@ mse_summary <- function(mse){
         end_yr_col <- mse[[sim]]$EM[[em]]$data_list$endyr - styr+1
 
         # - EM: P(F > Flimit)
-        em_f_flimit <- c(em_f_flimit,
-                         mse[[sim]]$EM[[em]]$quantities$F_spp[sp,end_yr_col]
-                              > mse[[sim]]$EM[[em]]$quantities$Flimit[sp,end_yr_col]
-        )
+        if(HCR == 5){ # Adjust Tier 3
+          if(mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] >= mse[[sim]]$EM[[em]]$data_list$Ptarget[sp]){ # Above target
+            em_f_flimit <- c(em_f_flimit,
+                             mse[[sim]]$EM[[em]]$quantities$F_spp[sp,end_yr_col]
+                             > mse[[sim]]$EM[[em]]$quantities$Flimit[sp,end_yr_col]
+            )
+          }else if(mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] < mse[[sim]]$EM[[em]]$data_list$Ptarget[sp] & mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] > mse[[sim]]$EM[[em]]$data_list$Alpha[sp] * mse[[sim]]$EM[[em]]$data_list$Ptarget[sp]){ # Below target, but above limit
+
+            em_f_flimit <- c(em_f_flimit,
+
+                             mse[[sim]]$EM[[em]]$quantities$F_spp[sp,end_yr_col]
+                             > mse[[sim]]$EM[[em]]$quantities$Flimit[sp,end_yr_col] * (mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col]/mse[[sim]]$EM[[em]]$data_list$Ptarget[sp] - mse[[sim]]$EM[[em]]$data_list$Alpha[sp])/(1-mse[[sim]]$EM[[em]]$data_list$Alpha[sp])
+            )
+          }else{ # Below limit
+            em_f_flimit <- c(em_f_flimit,
+                             mse[[sim]]$EM[[em]]$quantities$F_spp[sp,end_yr_col]
+                             > 0)
+          }
+        } else{
+          em_f_flimit <- c(em_f_flimit,
+                           mse[[sim]]$EM[[em]]$quantities$F_spp[sp,end_yr_col]
+                           > mse[[sim]]$EM[[em]]$quantities$Flimit[sp,end_yr_col]
+          )
+        }
+
 
         # - EM: P(SSB < SSBlimit)
-        em_sb_sblimit <- c(em_sb_sblimit,
-                            mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] < mse[[sim]]$EM[[em]]$data_list$Plimit)
+        # Update over fished definition for the following because Plimit is used for something else
+        # -- HCR = 5: NPFMC Tier 3 - Flimit and Ftarget on
+        # -- HCR = 6: PFMC Cat 1 - Flimit on
+
+        if(HCR == 5){
+          em_sb_sblimit <- c(em_sb_sblimit,
+                             mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] < 0.5 * 0.35) # 0.5 * SB35%
+        } else if(HCR == 6){
+          if(Ptarget[sp] == 0.25){
+            em_sb_sblimit <- c(em_sb_sblimit,
+                               mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] < 0.125) # 0.125 * SB0
+          }
+
+          if(Ptarget[sp] == 0.4){
+            em_sb_sblimit <- c(em_sb_sblimit,
+                               mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] < 0.25) # 0.125 * SB0
+          }
+        } else {
+          em_sb_sblimit <- c(em_sb_sblimit,
+                             mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] < Plimit[sp])
+        }
       }
     }
 
@@ -243,14 +293,58 @@ mse_summary <- function(mse){
     # - EM: P(SSB < SSBlimit)
     mse_summary$`EM: P(SSB < SSBlimit)`[sp] <- sum(em_sb_sblimit)/length(em_sb_sblimit)
 
+
     ## Actual status
     # - OM: P(F > Flimit)
     om_f_flimit <- lapply(mse, function(x) x$OM$quantities$F_spp[sp, (projyrs - styr + 1)] > (x$OM$quantities$Flimit[sp,(projyrs - styr + 1)]))
+
+    # -- Tier 3 for single-species OMs
+    tier3_fun <- function(depletion, ptarget, alpha, Flimit){
+      for(i in 1:length(depletion)){
+        if(depletion[i] >= ptarget){
+          Flimit[i] = Flimit[i]
+        }else if(depletion[i] < ptarget & depletion[i] > alpha * ptarget){
+          Flimit[i] = Flimit[i] * (depletion[i]/0.4 - alpha)/(1-alpha)
+        }else{
+          Flimit[i] = 0
+        }
+      }
+      return(Flimit)
+    }
+
+    if(mse$Sim_1$OM$data_list$msmMode == 0){
+      om_f_flimit <- lapply(mse, function(x) x$OM$quantities$F_spp[sp, (projyrs - styr + 1)] > tier3_fun(
+        depletion = x$OM$quantities$depletionSSB[sp,(projyrs - styr + 1)],
+        ptarget = x$OM$data_list$Ptarget[sp],
+        alpha  = x$OM$data_list$Alpha[sp],
+        Flimit = x$OM$quantities$Flimit[sp,(projyrs - styr + 1)]))
+    }
+
     om_f_flimit <- unlist(om_f_flimit)
     mse_summary$`OM: P(Fy > Flimit)`[sp] <- sum(om_f_flimit)/length(om_f_flimit)
 
     # - OM: P(SSB < SSBlimit)
     om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)] < x$OM$data_list$Plimit[sp])
+
+    # Update over fished definition for the following because Plimit is used for something else
+    # -- HCR = 5: NPFMC Tier 3 - Flimit and Ftarget on
+    # -- HCR = 6: PFMC Cat 1 - Flimit on
+    if(mse$Sim_1$OM$data_list$msmMode == 0){
+      if(HCR == 5){
+        om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)] < 0.5*0.35) # 0.5 * SB35%
+      }
+
+      if(HCR == 6){
+        if(Ptarget[sp] == 0.25){
+          om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)] < 0.125) # 0.125 * SB0
+        }
+
+        if(Ptarget[sp] == 0.4){
+          om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)] < 0.25) # 0.25 * SB0
+        }
+      }
+    }
+
     om_sb_sblimit <- unlist(om_sb_sblimit)
     mse_summary$`OM: P(SSB < SSBlimit)`[sp] <- sum(om_sb_sblimit)/length(om_sb_sblimit)
 
