@@ -81,6 +81,7 @@ mse_summary <- function(mse){
   projyrs_ind <- projyrs - endyr
   HCR <- mse$Sim_1$EM$`OM_Sim_1. EM_yr_2019`$data_list$HCR
   Ptarget <- mse$Sim_1$EM$`OM_Sim_1. EM_yr_2019`$data_list$Ptarget
+  Plimit <- mse$Sim_1$EM$`OM_Sim_1. EM_yr_2019`$data_list$Plimit
   # -- HCR = 0: No catch - Params off
   # -- HCR = 1: Constant catch - Params off
   # -- HCR = 2: Constant input F - Params off
