@@ -313,7 +313,7 @@ mse_summary <- function(mse){
       return(Flimit)
     }
 
-    if(mse$Sim_1$OM$data_list$msmMode == 0){
+    if(mse$Sim_1$OM$data_list$msmMode == 0 & HCR == 5){
       om_f_flimit <- lapply(mse, function(x) x$OM$quantities$F_spp[sp, (projyrs - styr + 1)] > tier3_fun(
         depletion = x$OM$quantities$depletionSSB[sp,(projyrs - styr + 1)],
         ptarget = x$OM$data_list$Ptarget[sp],
