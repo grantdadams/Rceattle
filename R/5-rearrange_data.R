@@ -28,6 +28,7 @@ rearrange_dat <- function(data_list){
   data_list$comp_ctl <- data_list$comp_data[,c("Fleet_code", "Species", "Sex", "Age0_Length1", "Year")]
   data_list$comp_n <- data_list$comp_data[,c("Month", "Sample_size")]
   data_list$comp_obs <- data_list$comp_data[,grep("Comp_", colnames(data_list$comp_data))]
+  if(sum(rowSums(data_list$comp_obs, na.rm = TRUE) %in% 0) > 0){stop("Some rows of composition data sum to 0: please remove or set all to 1 and sample size to 0")}
 
   # Step 5 -  Seperate uobs info from observation
   data_list$UobsWtAge_ctl <- data_list$UobsWtAge[,c("Pred", "Prey", "Pred_sex", "Prey_sex", "Pred_age", "Prey_age", "Year")]
