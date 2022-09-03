@@ -66,6 +66,12 @@ mse_summary <- function(mse){
   ############################################
   library(dplyr)
 
+  # HCR Switches (make length of nspp if not)
+  extend_length <- function(x){
+    if(length(x) == nspp){ return(x)}
+    else {return(rep(x, nspp))}
+  }
+
   ## Operating model dimensions
   # - determined from OM sim 1
   # - should be the same as for the EM
@@ -80,8 +86,9 @@ mse_summary <- function(mse){
   projyrs <- (endyr+1):projyr
   projyrs_ind <- projyrs - endyr
   HCR <- mse$Sim_1$EM$`OM_Sim_1. EM_yr_2019`$data_list$HCR
-  Ptarget <- mse$Sim_1$EM$`OM_Sim_1. EM_yr_2019`$data_list$Ptarget
-  Plimit <- mse$Sim_1$EM$`OM_Sim_1. EM_yr_2019`$data_list$Plimit
+  Ptarget <- extend_length(mse$Sim_1$EM$`OM_Sim_1. EM_yr_2019`$data_list$Ptarget)
+  Plimit <- extend_length(mse$Sim_1$EM$`OM_Sim_1. EM_yr_2019`$data_list$Plimit)
+  Alpha <- extend_length(mse$Sim_1$EM$`OM_Sim_1. EM_yr_2019`$data_list$Alpha)
   # -- HCR = 0: No catch - Params off
   # -- HCR = 1: Constant catch - Params off
   # -- HCR = 2: Constant input F - Params off
@@ -237,17 +244,17 @@ mse_summary <- function(mse){
 
         # - EM: P(F > Flimit)
         if(HCR == 5){ # Adjust Tier 3
-          if(mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] >= mse[[sim]]$EM[[em]]$data_list$Ptarget[sp]){ # Above target
+          if(mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] >= Ptarget[sp]){ # Above target
             em_f_flimit <- c(em_f_flimit,
                              mse[[sim]]$EM[[em]]$quantities$F_spp[sp,end_yr_col]
                              > mse[[sim]]$EM[[em]]$quantities$Flimit[sp,end_yr_col]
             )
-          }else if(mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] < mse[[sim]]$EM[[em]]$data_list$Ptarget[sp] & mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] > mse[[sim]]$EM[[em]]$data_list$Alpha[sp] * mse[[sim]]$EM[[em]]$data_list$Ptarget[sp]){ # Below target, but above limit
+          }else if(mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] < Ptarget[sp] & mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] > Alpha[sp] * Ptarget[sp]){ # Below target, but above limit
 
             em_f_flimit <- c(em_f_flimit,
 
                              mse[[sim]]$EM[[em]]$quantities$F_spp[sp,end_yr_col]
-                             > mse[[sim]]$EM[[em]]$quantities$Flimit[sp,end_yr_col] * (mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col]/mse[[sim]]$EM[[em]]$data_list$Ptarget[sp] - mse[[sim]]$EM[[em]]$data_list$Alpha[sp])/(1-mse[[sim]]$EM[[em]]$data_list$Alpha[sp])
+                             > mse[[sim]]$EM[[em]]$quantities$Flimit[sp,end_yr_col] * (mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col]/Ptarget[sp] - Alpha[sp])/(1-Alpha[sp])
             )
           }else{ # Below limit
             em_f_flimit <- c(em_f_flimit,
@@ -270,7 +277,7 @@ mse_summary <- function(mse){
         if(HCR == 5){
           em_sb_sblimit <- c(em_sb_sblimit,
                              mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] < 0.5 * 0.35) # 0.5 * SB35%
-        } else if(HCR == 6){
+        }else if(HCR == 6){
           if(Ptarget[sp] == 0.25){
             em_sb_sblimit <- c(em_sb_sblimit,
                                mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] < 0.125) # 0.125 * SB0
@@ -280,7 +287,7 @@ mse_summary <- function(mse){
             em_sb_sblimit <- c(em_sb_sblimit,
                                mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] < 0.25) # 0.125 * SB0
           }
-        } else {
+        }else{
           em_sb_sblimit <- c(em_sb_sblimit,
                              mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] < Plimit[sp])
         }
