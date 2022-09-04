@@ -66,12 +66,6 @@ mse_summary <- function(mse){
   ############################################
   library(dplyr)
 
-  # HCR Switches (make length of nspp if not)
-  extend_length <- function(x){
-    if(length(x) == nspp){ return(x)}
-    else {return(rep(x, nspp))}
-  }
-
   ## Operating model dimensions
   # - determined from OM sim 1
   # - should be the same as for the EM
@@ -86,9 +80,9 @@ mse_summary <- function(mse){
   projyrs <- (endyr+1):projyr
   projyrs_ind <- projyrs - endyr
   HCR <- mse$Sim_1$EM$`OM_Sim_1. EM_yr_2019`$data_list$HCR
-  Ptarget <- extend_length(mse$Sim_1$EM$`OM_Sim_1. EM_yr_2019`$data_list$Ptarget)
-  Plimit <- extend_length(mse$Sim_1$EM$`OM_Sim_1. EM_yr_2019`$data_list$Plimit)
-  Alpha <- extend_length(mse$Sim_1$EM$`OM_Sim_1. EM_yr_2019`$data_list$Alpha)
+  Ptarget <- mse$Sim_1$EM$`OM_Sim_1. EM_yr_2019`$data_list$Ptarget
+  Plimit <- mse$Sim_1$EM$`OM_Sim_1. EM_yr_2019`$data_list$Plimit
+  Alpha <- mse$Sim_1$EM$`OM_Sim_1. EM_yr_2019`$data_list$Alpha
   # -- HCR = 0: No catch - Params off
   # -- HCR = 1: Constant catch - Params off
   # -- HCR = 2: Constant input F - Params off
@@ -120,7 +114,7 @@ mse_summary <- function(mse){
                              "EM: P(SSB < SSBlimit) but OM: P(SSB > SSBlimit)",
                              "EM: P(SSB > SSBlimit) but OM: P(SSB < SSBlimit)",
                              # "OM: Recovery Time",
-                             "OM: Terminal SSB/SSBtarget")
+                             "OM: Terminal SSB Depletion")
   mse_summary$Fleet_name <- c(rep(NA, nspp), mse$Sim_1$OM$data_list$fleet_control$Fleet_name[flts], "All")
   mse_summary$Fleet_code <- c(rep(NA, nspp), mse$Sim_1$OM$data_list$fleet_control$Fleet_code[flts], "All")
   mse_summary$Species <- c(mse$Sim_1$OM$data_list$spnames, mse$Sim_1$OM$data_list$fleet_control$Species[flts], "All")
@@ -381,10 +375,10 @@ mse_summary <- function(mse){
 
     mse_summary$`Avg terminal SSB Relative MSE`[sp] = mean((unlist(sb_em) -  unlist(sb_om))^2 / unlist(sb_om)^2, na.rm = TRUE)
 
-    # - OM: Terminal SSB/SSBtarget status
-    sb_sbtarget <- lapply(mse, function(x) x$OM$quantities$biomassSSB[sp, (projyrs - styr + 1)]/ (x$OM$quantities$SB0[sp]))
-    sb_sbtarget <- unlist(sb_sbtarget)
-    mse_summary$`OM: Terminal SSB/SSBtarget`[sp] <- mean(sb_sbtarget)
+    # - OM: Terminal SSB depletion
+    sb_depletion <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)]))
+sb_depletion <- unlist(sb_sbtarget)
+    mse_summary$`OM: Terminal SSB Depletion`[sp] <- mean(sb_depletion)
   }
 
   return(mse_summary = mse_summary)
