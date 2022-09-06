@@ -376,8 +376,8 @@ mse_summary <- function(mse){
     mse_summary$`Avg terminal SSB Relative MSE`[sp] = mean((unlist(sb_em) -  unlist(sb_om))^2 / unlist(sb_om)^2, na.rm = TRUE)
 
     # - OM: Terminal SSB depletion
-    sb_depletion <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)]))
-sb_depletion <- unlist(sb_sbtarget)
+    sb_depletion <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)])
+sb_depletion <- unlist(sb_depletion)
     mse_summary$`OM: Terminal SSB Depletion`[sp] <- mean(sb_depletion)
   }
 
