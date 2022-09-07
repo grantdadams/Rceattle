@@ -142,3 +142,86 @@ remove_rec_dev_and_F <- function(Rceattle, rec_trend = 0){
   return(Rceattle)
 
 }
+
+
+
+#' Function to project the model until proj yr under no rec, then again under n proj years given rec trend
+#'
+#' @param Rceattle
+#'
+#' @return
+#' @export
+#'
+#' @examples
+equilibrate_and_project <- function(Rceattle, rec_trend = 0){
+
+  # - Years for projection
+  hind_yrs <- (Rceattle$data_list$styr) : Rceattle$data_list$endyr
+  hind_nyrs <- length(hind_yrs)
+  proj_yrs <- (Rceattle$data_list$endyr + 1) : Rceattle$data_list$projyr
+  proj_nyrs <- length(proj_yrs)
+
+  new_projyr <- Rceattle$data_list$projyr + proj_nyrs
+  new_projyrs <- (Rceattle$data_list$projyr + 1):new_projyr
+
+  Rceattle$data_list$projyr <- new_projyr
+
+  Rceattle$data_list$proj_mean_rec <- FALSE
+
+  # - Adjust rec trend
+  if(length(rec_trend)==1){
+    rec_trend = rep(rec_trend, Rceattle$data_list$nspp)
+  }
+
+  # Lengthen rec devs and F paramers
+  Rceattle$estimated_params$rec_dev <- cbind(Rceattle$estimated_params$rec_dev, matrix(NA, nrow = Rceattle$data_list$nspp, ncol = proj_nyrs))
+  Rceattle$estimated_params$ln_Flimit <- cbind(Rceattle$estimated_params$ln_Flimit, matrix(Rceattle$estimated_params$ln_Flimit[,ncol(Rceattle$estimated_params$ln_Flimit)], nrow = Rceattle$data_list$nspp, ncol = proj_nyrs))
+  Rceattle$estimated_params$ln_Ftarget <- cbind(Rceattle$estimated_params$rec_dev, matrix(Rceattle$estimated_params$ln_Ftarget[,ncol(Rceattle$estimated_params$ln_Ftarget)], nrow = Rceattle$data_list$nspp, ncol = proj_nyrs))
+
+  # - Replace hindcast rec devs
+  for(sp in 1:Rceattle$data_list$nspp){
+
+    ## PROJECTION
+    # -- Projection uses exp(ln_R0)
+    rec_dev_old_proj <- log(mean(Rceattle$quantities$R[sp,1:hind_nyrs]) * (1+(0/proj_nyrs) * 1:proj_nyrs))  - Rceattle$estimated_params$ln_mean_rec[sp] # - Scale mean rec for rec trend
+
+    rec_dev_new_proj <- log(mean(Rceattle$quantities$R[sp,1:hind_nyrs]) * (1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs))  - Rceattle$estimated_params$ln_mean_rec[sp] # - Scale mean rec for rec trend
+
+
+    # - Update OM with devs
+    Rceattle$estimated_params$rec_dev[sp,proj_yrs - Rceattle$data_list$styr + 1] <- replace(
+      Rceattle$estimated_params$rec_dev[sp,proj_yrs - Rceattle$data_list$styr + 1],
+      values =  rec_dev_old_proj)
+
+    Rceattle$estimated_params$rec_dev[sp,new_projyrs - Rceattle$data_list$styr + 1] <- replace(
+      Rceattle$estimated_params$rec_dev[sp,new_projyrs - Rceattle$data_list$styr + 1],
+      values =  rec_dev_new_proj)
+  }
+
+  # - Update
+  estMode <- Rceattle$data_list$estimateMode
+  Rceattle <- fit_mod(
+    data_list = Rceattle$data_list,
+    inits = Rceattle$estimated_params,
+    map =  NULL,
+    bounds = NULL,
+    file = NULL,
+    estimateMode = 3, # Update quantities, not parameters
+    random_rec = Rceattle$data_list$random_rec,
+    niter = Rceattle$data_list$niter,
+    msmMode = Rceattle$data_list$msmMode,
+    avgnMode = Rceattle$data_list$avgnMode,
+    minNByage = Rceattle$data_list$minNByage,
+    suitMode = Rceattle$data_list$suitMode,
+    meanyr = Rceattle$data_list$endyr,
+    proj_mean_rec = FALSE,
+    updateM1 = FALSE, # Dont update M1 from data, fix at previous parameters
+    loopnum = 2,
+    phase = NULL,
+    getsd = FALSE,
+    verbose = 0)
+
+  Rceattle$data_list$estimateMode <- estMode
+  return(Rceattle)
+
+}
