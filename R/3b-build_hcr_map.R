@@ -34,6 +34,7 @@ build_hcr_map <- function(data_list, map, debug = FALSE){
       if(data_list$HCR %in% c(4)){
         warning("No dynamic Fspr")
         map$mapList$ln_Ftarget <- replace(map$mapList$ln_Ftarget, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Ftarget)))
+        map$mapList$ln_Flimit <- replace(map$mapList$ln_Flimit, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Flimit)))
         map$mapList$ln_Flimit[,1] <- NA # Initial abundance
         map$mapList$ln_Ftarget[,1] <- NA # Initial abundance
       }
