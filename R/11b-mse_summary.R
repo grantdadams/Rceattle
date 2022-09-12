@@ -66,6 +66,12 @@ mse_summary <- function(mse){
   ############################################
   library(dplyr)
 
+  # HCR Switches (make length of nspp if not)
+  extend_length <- function(x, nspp){
+    if(length(x) == nspp){ return(x)}
+    else {return(rep(x, nspp))}
+  }
+
   ## Operating model dimensions
   # - determined from OM sim 1
   # - should be the same as for the EM
@@ -80,9 +86,9 @@ mse_summary <- function(mse){
   projyrs <- (endyr+1):projyr
   projyrs_ind <- projyrs - endyr
   HCR <- mse$Sim_1$EM$`OM_Sim_1. EM_yr_2019`$data_list$HCR
-  Ptarget <- mse$Sim_1$EM$`OM_Sim_1. EM_yr_2019`$data_list$Ptarget
-  Plimit <- mse$Sim_1$EM$`OM_Sim_1. EM_yr_2019`$data_list$Plimit
-  Alpha <- mse$Sim_1$EM$`OM_Sim_1. EM_yr_2019`$data_list$Alpha
+  Ptarget <- extend_length(mse$Sim_1$EM$`OM_Sim_1. EM_yr_2019`$data_list$Ptarget, nspp)
+  Plimit <- extend_length(mse$Sim_1$EM$`OM_Sim_1. EM_yr_2019`$data_list$Plimit, nspp)
+  Alpha <- extend_length(mse$Sim_1$EM$`OM_Sim_1. EM_yr_2019`$data_list$Alpha, nspp)
   # -- HCR = 0: No catch - Params off
   # -- HCR = 1: Constant catch - Params off
   # -- HCR = 2: Constant input F - Params off
