@@ -25,6 +25,7 @@ build_hcr_map <- function(data_list, map, debug = FALSE){
   # -- HCR = 7: SESSF Tier 1 - Flimit and Ftarget on
   # --- Dynamic BRPS - 1 value per species and year
   if(!debug){
+    # - Dynamic HCR
     if(data_list$DynamicHCR){
       if(data_list$HCR %in% c(3)){
         map$mapList$ln_Ftarget <- replace(map$mapList$ln_Ftarget, values = c(1:length(map$mapList$ln_Ftarget)))
@@ -50,6 +51,7 @@ build_hcr_map <- function(data_list, map, debug = FALSE){
     if(data_list$DynamicHCR == FALSE){
       if(data_list$HCR %in% c(3,4)){
         map$mapList$ln_Ftarget <- replace(map$mapList$ln_Ftarget, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Ftarget)))
+        map$mapList$ln_Flimit <- replace(map$mapList$ln_Flimit, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Flimit)))
       }
       if(data_list$HCR %in% c(5,7)){
         map$mapList$ln_Ftarget <- replace(map$mapList$ln_Ftarget, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Ftarget)))
