@@ -324,9 +324,9 @@ mse_summary <- function(mse){
           mse_summary$`M var`[ind] <- mse_summary$`M var`[ind] + (mse[[sim]]$EM[[em]]$quantities$M[sp,sex,1,2] - mse_summary$`Average M`[ind])^2
         }
       }
-      mse_summary$`M var`[ind] = mse_summary$`M var`[ind]/(length(mse)*length(mse[[sim]]$EM-1)
+      mse_summary$`M var`[ind] = mse_summary$`M var`[ind]/(length(mse)*length(mse[[sim]]$EM)-1)
 
-                                                           ind <- ind+1
+      ind <- ind+1
     }
 
 
