@@ -3370,6 +3370,12 @@ Type objective_function<Type>::operator() () {
   for (sp = 0; sp < nspp; sp++) {
     // -- Static reference points
     if(DynamicHCR == 0){
+
+      // -- Avg F (have F limit)
+      if(HCR == 2){
+        jnll_comp(13, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-FsprLimit(sp));
+      }
+
       // F that acheives \code{Ftarget}% of SSB0 in the end of the projection
       if(HCR == 3){
         jnll_comp(13, sp)  += 200*square((biomassSSB(sp, nyrs-1)/SB0(sp))-FsprTarget(sp));
@@ -3384,8 +3390,14 @@ Type objective_function<Type>::operator() () {
 
     // -- Dynamic referene points
     if(DynamicHCR == 1){
+
+      // -- Avg F (have F limit)
+      if(HCR == 2){
+        jnll_comp(13, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-FsprLimit(sp));
+      }
+
       for(yr = 1; yr < nyrs; yr++){ // No initial abundance
-        // F that acheives \code{Ftarget}% of SSB0 in the end of the projection
+        // F that acheives Ftarget% of SSB0y
         if(HCR == 3){
           jnll_comp(13, sp)  += 200*square((DynamicSBF(sp, yr)/DynamicSB0(sp, yr))-FsprTarget(sp));
         }
