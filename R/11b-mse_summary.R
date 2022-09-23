@@ -104,7 +104,7 @@ mse_summary <- function(mse){
 
   ## MSE Output
   # - Catch is by fleet
-  mse_summary <- data.frame(matrix(NA, nrow = nflts+nspp+1, ncol = 18))
+  mse_summary <- data.frame(matrix(NA, nrow = nflts+nspp+1, ncol = 20))
   colnames(mse_summary) <- c("Species",
                              "Fleet_name",
                              "Fleet_code",
@@ -123,7 +123,9 @@ mse_summary <- function(mse){
                              # "OM: Recovery Time",
                              "OM: Terminal SSB Depletion",
                              "Average M",
-                             "M var")
+                             "M var",
+                             "Min M",
+                             "Max M")
   mse_summary$Fleet_name <- c(rep(NA, nspp), mse$Sim_1$OM$data_list$fleet_control$Fleet_name[flts], "All")
   mse_summary$Fleet_code <- c(rep(NA, nspp), mse$Sim_1$OM$data_list$fleet_control$Fleet_code[flts], "All")
   mse_summary$Species <- c(mse$Sim_1$OM$data_list$spnames, mse$Sim_1$OM$data_list$fleet_control$Species[flts], "All")
@@ -308,17 +310,29 @@ mse_summary <- function(mse){
 
 
     # - EM: Average age-1 M
-    # - EM: Variance of age-1 M
     for(sex in 1:nsex[sp]){
+
+      mse_summary$`Min M`[ind] <- 100
+      mse_summary$`Max M`[ind] <- 0
+      mse_summary$`Average M`[ind] <- 0
 
       # - EM: Average age-1 M
       for(sim in 1:length(mse)){
         for(em in 2:length(mse[[sim]]$EM)){ # First EM is conditioned model
           mse_summary$`Average M`[ind] <- mse_summary$`Average M`[ind] + mse[[sim]]$EM[[em]]$quantities$M[sp,sex,1,2]/length(mse)/length(mse[[sim]]$EM)
+
+          # - Range of M
+          if(mse[[sim]]$EM[[em]]$quantities$M[sp,sex,1,2] < mse_summary$`Min M`[ind]){
+            mse_summary$`Min M`[ind] <- mse[[sim]]$EM[[em]]$quantities$M[sp,sex,1,2]
+          }
+          if(mse[[sim]]$EM[[em]]$quantities$M[sp,sex,1,2] > mse_summary$`Max M`[ind]){
+            mse_summary$`Max M`[ind] <- mse[[sim]]$EM[[em]]$quantities$M[sp,sex,1,2]
+          }
         }
       }
 
       # - EM: Variance of age-1 M
+      mse_summary$`M var`[ind] <- 0
       for(sim in 1:length(mse)){
         for(em in 2:length(mse[[sim]]$EM)){ # First EM is conditioned model
           mse_summary$`M var`[ind] <- mse_summary$`M var`[ind] + (mse[[sim]]$EM[[em]]$quantities$M[sp,sex,1,2] - mse_summary$`Average M`[ind])^2
