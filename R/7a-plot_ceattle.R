@@ -28,7 +28,6 @@ rich.colors.short <- function(n,alpha=1){
 #' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
-#' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
 #' @param spnames Species names for legend
 #' @param add_ci If the confidence interval is to be added
 #' @param lwd Line width as specified by user
@@ -2945,7 +2944,7 @@ plot_depletionSSB <- function(Rceattle,
         lines(
           x = Years[[k]],
           y = quantity[spp[j], 1:length(Years[[k]]), k],
-          lty = 1,
+          lty = ifelse(reference * mse == TRUE, c(1,2)[k], 1),
           lwd = lwd,
           col = line_col[k]
         ) # Median

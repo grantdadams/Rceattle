@@ -76,6 +76,7 @@ mse_summary <- function(mse){
   # - determined from OM sim 1
   # - should be the same as for the EM
   nspp <- mse$Sim_1$OM$data_list$nspp
+  nsex <- mse$Sim_1$OM$data_list$nsex
   flt_type <- mse$Sim_1$OM$data_list$fleet_control$Fleet_type
   flts <- mse$Sim_1$OM$data_list$fleet_control$Fleet_code[which(flt_type == 1)]
   nflts = length(flts)
@@ -103,7 +104,7 @@ mse_summary <- function(mse){
 
   ## MSE Output
   # - Catch is by fleet
-  mse_summary <- data.frame(matrix(NA, nrow = nflts+nspp+1, ncol = 16))
+  mse_summary <- data.frame(matrix(NA, nrow = nflts+nspp+1, ncol = 20))
   colnames(mse_summary) <- c("Species",
                              "Fleet_name",
                              "Fleet_code",
@@ -120,7 +121,11 @@ mse_summary <- function(mse){
                              "EM: P(SSB < SSBlimit) but OM: P(SSB > SSBlimit)",
                              "EM: P(SSB > SSBlimit) but OM: P(SSB < SSBlimit)",
                              # "OM: Recovery Time",
-                             "OM: Terminal SSB Depletion")
+                             "OM: Terminal SSB Depletion",
+                             "Average M",
+                             "M var",
+                             "Min M",
+                             "Max M")
   mse_summary$Fleet_name <- c(rep(NA, nspp), mse$Sim_1$OM$data_list$fleet_control$Fleet_name[flts], "All")
   mse_summary$Fleet_code <- c(rep(NA, nspp), mse$Sim_1$OM$data_list$fleet_control$Fleet_code[flts], "All")
   mse_summary$Species <- c(mse$Sim_1$OM$data_list$spnames, mse$Sim_1$OM$data_list$fleet_control$Species[flts], "All")
@@ -227,7 +232,9 @@ mse_summary <- function(mse){
   # - EM: P(SSB < SSBlimit) but OM: P(SSB > SSBlimit)
   # - EM: P(SSB > SSBlimit) but OM: P(SSB < SSBlimit)
   # - OM: Terminal SSB/SSBtarget
-
+  # - EM: Average age-1 M
+  # - EM: Variance of age-1 M
+  ind <-  1
   for(sp in 1:nspp){
 
     ## Perceived status
@@ -274,7 +281,7 @@ mse_summary <- function(mse){
         # -- HCR = 5: NPFMC Tier 3 - Flimit and Ftarget on
         # -- HCR = 6: PFMC Cat 1 - Flimit on
 
-        if(HCR == 5){
+        if(HCR %in% c(2,5)){
           em_sb_sblimit <- c(em_sb_sblimit,
                              mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] < 0.5 * 0.35) # 0.5 * SB35%
         }else if(HCR == 6){
@@ -302,6 +309,43 @@ mse_summary <- function(mse){
     mse_summary$`EM: P(SSB < SSBlimit)`[sp] <- sum(em_sb_sblimit)/length(em_sb_sblimit)
 
 
+    # - EM: Average age-1 M
+    for(sex in 1:nsex[sp]){
+
+      mse_summary$`Min M`[ind] <- 100
+      mse_summary$`Max M`[ind] <- 0
+      mse_summary$`Average M`[ind] <- 0
+
+      # - EM: Average age-1 M
+      for(sim in 1:length(mse)){
+        for(em in 2:length(mse[[sim]]$EM)){ # First EM is conditioned model
+          mse_summary$`Average M`[ind] <- mse_summary$`Average M`[ind] + mse[[sim]]$EM[[em]]$quantities$M[sp,sex,1,2]/length(mse)/length(mse[[sim]]$EM)
+
+          # - Range of M
+          if(mse[[sim]]$EM[[em]]$quantities$M[sp,sex,1,2] < mse_summary$`Min M`[ind]){
+            mse_summary$`Min M`[ind] <- mse[[sim]]$EM[[em]]$quantities$M[sp,sex,1,2]
+          }
+          if(mse[[sim]]$EM[[em]]$quantities$M[sp,sex,1,2] > mse_summary$`Max M`[ind]){
+            mse_summary$`Max M`[ind] <- mse[[sim]]$EM[[em]]$quantities$M[sp,sex,1,2]
+          }
+        }
+      }
+
+      # - EM: Variance of age-1 M
+      mse_summary$`M var`[ind] <- 0
+      for(sim in 1:length(mse)){
+        for(em in 2:length(mse[[sim]]$EM)){ # First EM is conditioned model
+          mse_summary$`M var`[ind] <- mse_summary$`M var`[ind] + (mse[[sim]]$EM[[em]]$quantities$M[sp,sex,1,2] - mse_summary$`Average M`[ind])^2
+        }
+      }
+      mse_summary$`M var`[ind] = mse_summary$`M var`[ind]/(length(mse)*length(mse[[sim]]$EM)-1)
+
+      ind <- ind+1
+    }
+
+
+
+    #-------------------------------
     ## Actual status
     # - OM: P(F > Flimit)
     om_f_flimit <- lapply(mse, function(x) x$OM$quantities$F_spp[sp, (projyrs - styr + 1)] > (x$OM$quantities$Flimit[sp,(projyrs - styr + 1)]))
@@ -338,7 +382,7 @@ mse_summary <- function(mse){
     # -- HCR = 5: NPFMC Tier 3 - Flimit and Ftarget on
     # -- HCR = 6: PFMC Cat 1 - Flimit on
     if(mse$Sim_1$OM$data_list$msmMode == 0){
-      if(HCR == 5){
+      if(HCR %in% c(2,5)){
         om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)] < 0.5*0.35) # 0.5 * SB35%
       }
 
@@ -383,7 +427,7 @@ mse_summary <- function(mse){
 
     # - OM: Terminal SSB depletion
     sb_depletion <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)])
-sb_depletion <- unlist(sb_depletion)
+    sb_depletion <- unlist(sb_depletion)
     mse_summary$`OM: Terminal SSB Depletion`[sp] <- mean(sb_depletion)
   }
 
