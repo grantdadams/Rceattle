@@ -289,9 +289,13 @@ plot_biomass <- function(Rceattle,
         ylim = c(ymin[spp[j]], ymax[spp[j]]),
         xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
         xlab = "Year",
-        ylab = "Age-1+ biomass (million mt)",
+        ylab = NA,
         xaxt = c(rep("n", length(spp) - 1), "s")[j]
       )
+
+      if(j == 2){
+        mtext("Age-1+ biomass (million mt)", side = 2, line = 1.7, cex = 0.9)
+      }
 
       # Horizontal line at end yr
       if(incl_proj){
@@ -619,9 +623,13 @@ plot_recruitment <- function(Rceattle,
         ylim = c(ymin[spp[j]], ymax[spp[j]]),
         xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
         xlab = "Year",
-        ylab = "Age-1 recruits (million)",
+        ylab = NA,
         xaxt = c(rep("n", length(spp) - 1), "s")[j]
       )
+
+      if(j == 2){
+        mtext("Age-1 recruits (million)", side = 2, line = 1.7, cex = 0.9)
+      }
 
       # Horizontal line at end yr
       if(incl_proj){
@@ -1589,9 +1597,13 @@ plot_ssb <- function(Rceattle,
         ylim = c(ymin[spp[j]], ymax[spp[j]]),
         xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
         xlab = "Year",
-        ylab = "Spawning stock biomass (million mt)",
+        ylab = NA,
         xaxt = c(rep("n", length(spp) - 1), "s")[j]
       )
+
+      if(j == 2){
+        mtext("Spawning stock biomass (million mt)", side = 2, line = 1.7, cex = 0.9)
+      }
 
       # Horizontal line at end yr
       if(incl_proj){
@@ -2121,9 +2133,14 @@ plot_b_eaten_prop <-
           ylim = c(ymin[spp], ymax[spp]),
           xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj),
           xlab = "Year",
-          ylab = "Biomass consumed (million t)",
+          ylab = NA,
           xaxt = c(rep("n", length(species) - 1), "s")[j]
         )
+
+        if(j == 2){
+          mtext("Biomass consumed (million t)", side = 2, line = 1.6, cex = 0.8)
+        }
+
 
         # Horizontal line
         if(incl_proj){
