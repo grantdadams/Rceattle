@@ -576,7 +576,7 @@ Type objective_function<Type>::operator() () {
   // -- 4.2. Estimated population quantities
   matrix<Type>  pop_scalar = ln_pop_scalar;  pop_scalar = exp(ln_pop_scalar.array());// Fixed n-at-age scaling coefficient; n = [nspp, nages]
   vector<Type>  mean_rec(nspp); mean_rec.setZero();                                     // Mean recruitment of hindcast; n = [nspp]
-  array<Type>   biomassByage(nspp, max_age, nyrs); biomassByage.setZero();          // Estimated biomass-at-age (kg)
+  array<Type>   biomassByage(nspp, 2, max_age, nyrs); biomassByage.setZero();          // Estimated biomass-at-age (kg)
   matrix<Type>  biomass(nspp, nyrs); biomass.setZero();                             // Estimated biomass (kg)
   matrix<Type>  biomassSSB(nspp, nyrs); biomassSSB.setZero();                       // Estimated spawning stock biomass (kg)
   matrix<Type>  depletion(nspp, nyrs); depletion.setZero();                         // Estimated biomass depletion
@@ -1294,11 +1294,11 @@ Type objective_function<Type>::operator() () {
         // -- 6.6.4. Estimate Biomass and SSB
         for (yr = 0; yr < nyrs_hind; yr++) {
           for(sex = 0; sex < nsex(sp); sex ++){
-            biomassByage(sp, age, yr) += NByage(sp, sex, age, yr) * wt( pop_wt_index(sp), sex, age, yr ); // 6.5.
+            biomassByage(sp, sex, age, yr) = NByage(sp, sex, age, yr) * wt( pop_wt_index(sp), sex, age, yr ); // 6.5.
             biomassSSBByage(sp, age, yr) = NByage(sp, 0, age, yr) * pow(S(sp, 0, age, yr), spawn_month(sp)/12) * wt(ssb_wt_index(sp), 0, age, yr ) * pmature(sp, age); // 6.6.
+            biomass(sp, yr) += biomassByage(sp, sex, age, yr);
           }
 
-          biomass(sp, yr) += biomassByage(sp, age, yr);
           biomassSSB(sp, yr) += biomassSSBByage(sp, age, yr);
         }
       }
@@ -1543,8 +1543,8 @@ Type objective_function<Type>::operator() () {
             }
 
             // -- 6.7.4. FORECAST SSB
-            biomassByage(sp, age, yr) += NByage(sp, sex, age, yr) * wt( pop_wt_index(sp), sex, age, nyrs_hind-1 ); // 6.5.
-            biomass(sp, yr) += biomassByage(sp, age, yr);
+            biomassByage(sp, sex, age, yr) = NByage(sp, sex, age, yr) * wt( pop_wt_index(sp), sex, age, nyrs_hind-1 ); // 6.5.
+            biomass(sp, yr) += biomassByage(sp, sex, age, yr);
           } // End sex loop
 
           // -- FORECAST DEPLETION
@@ -1680,8 +1680,8 @@ Type objective_function<Type>::operator() () {
         }
 
         for (age = 0; age < nages(sp); age++) {
-          biomassByage(sp, age, yr) = 0;
           for(sex = 0; sex < nsex(sp); sex ++){
+            biomassByage(sp, sex, age, yr) = 0;
             M(sp, sex, age, yr) = M1(sp, sex, age) + M2(sp, sex, age, yr);
             Zed(sp, sex, age, yr) = M1(sp, sex, age) + F_spp_age(sp, sex, age, yr) + M2(sp, sex, age, yr);
             S(sp, sex, age, yr) = exp(-Zed(sp, sex, age, yr));
@@ -1726,8 +1726,8 @@ Type objective_function<Type>::operator() () {
             }
 
             // -- 6.3.3. FORECAST Biomass
-            biomassByage(sp, age, yr) += NByage(sp, sex, age, yr) * wt( pop_wt_index(sp), sex, age, nyrs_hind-1 ); // 6.5.
-            biomass(sp, yr) += biomassByage(sp, age, yr);
+            biomassByage(sp, sex, age, yr) = NByage(sp, sex, age, yr) * wt( pop_wt_index(sp), sex, age, nyrs_hind-1 ); // 6.5.
+            biomass(sp, yr) += biomassByage(sp, sex, age, yr);
           }
 
           // -- 6.3.3. FORECAST SSB
@@ -3506,6 +3506,9 @@ Type objective_function<Type>::operator() () {
   REPORT( R_sexr );
   REPORT( R );
   REPORT( M );
+
+  ADREPORT( B_eaten_as_prey );
+  ADREPORT( M );
   ADREPORT( Zed );
   ADREPORT( depletion );
   ADREPORT( depletionSSB );
