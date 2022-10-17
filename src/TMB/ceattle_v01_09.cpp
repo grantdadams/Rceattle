@@ -402,6 +402,7 @@ Type objective_function<Type>::operator() () {
   DATA_VECTOR(FsprTarget);                // Percentage of spawning-stock biomass per recruit at F = 0 used to find the target F-spr
   DATA_VECTOR(FsprLimit);                 // Percentage of spawning-stock biomass per recruit at F = 0 used to find the limit F-spr
   DATA_VECTOR(Alpha);                     // Parameter used in NPFMC Tier 3 HCR
+  DATA_VECTOR(Fmult);                     // Multiplier for target fishing mortality (Fmult * Ftarget). For example 0.75 * F40%.
   DATA_VECTOR(QnormHCR);                  // Add to Flimit to set Ftarget based on the Pstar approach: Flimit + qnorm(Pstar, 0, Sigma)
 
 
@@ -853,6 +854,9 @@ Type objective_function<Type>::operator() () {
       sex = emp_sel_ctl(sel_ind, 2);            // Temporary index for sex
       yr = emp_sel_ctl(sel_ind, 3) - styr;      // Temporary index for years of data
 
+      // Switch to make sure it doesnt fill out selectivity
+      if(flt_sel_type(flt) == 0){
+
       // 1 sex model
       vector<int> sexes(1); sexes(0) = 0;
 
@@ -874,6 +878,7 @@ Type objective_function<Type>::operator() () {
           }
         }
       }
+    }
     }      // FIXME - set all empirical selectivities after nyrs_hind to the terminal year
 
     // 6.1. ESTIMATE SELECTIVITY
@@ -1121,7 +1126,7 @@ Type objective_function<Type>::operator() () {
                   break;
 
                 case 4: // Constant Fspr
-                  proj_F(sp, yr) = Ftarget(sp, yr);
+                  proj_F(sp, yr) = Ftarget(sp, yr) * Fmult(sp);
                   break;
 
                 case 5: // NPFMC Tier 3 HCR
@@ -1569,7 +1574,7 @@ Type objective_function<Type>::operator() () {
             break;
 
           case 4: // Constant Fspr
-            proj_F(sp, yr) = proj_F(sp, yr);
+            proj_F(sp, yr) = proj_F(sp, yr) * Fmult(sp);
             break;
 
           case 5: // NPFMC Tier 3 HCR
@@ -1620,7 +1625,7 @@ Type objective_function<Type>::operator() () {
             break;
 
           case 4: // Constant Fspr
-            proj_F(sp, yr) = proj_F(sp, yr);
+            proj_F(sp, yr) = proj_F(sp, yr) * Fmult(sp);
             break;
 
           case 5: // NPFMC Tier 3 HCR
@@ -3621,6 +3626,8 @@ Type objective_function<Type>::operator() () {
   REPORT( B_eaten );
   REPORT( N_eaten );
   REPORT( UobsWtAge_hat );
+  REPORT( flt_accum_age_upper );
+  REPORT( flt_accum_age_lower );
 
 
   // -- 12.10. Kinzey predation functions
