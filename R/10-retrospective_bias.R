@@ -26,12 +26,12 @@ retrospective <- function(Rceattle = NULL, peels = NULL) {
     stop("Object is not of class 'Rceattle'")
   }
 
+  library(dplyr)
   # Get objects
   mod_list <- list(Rceattle)
-  data_list <- Rceattle$data_list
-  endyr <- data_list$endyr
-  styr <- data_list$styr
-  projyr <- data_list$projyr
+  endyr <- Rceattle$data_list$endyr
+  styr <- Rceattle$data_list$styr
+  projyr <- Rceattle$data_list$projyr
   nyrs_proj <- projyr - styr + 1
 
   #####################################
@@ -39,8 +39,25 @@ retrospective <- function(Rceattle = NULL, peels = NULL) {
   #####################################
   ind <- 2
   for (i in 1:peels) {
+    data_list <- Rceattle$data_list
     data_list$endyr <- endyr - i
     nyrs <- (endyr - i) - styr + 1
+
+    # Adjust data
+    data_list$srv_biom <- data_list$srv_biom %>%
+      filter(Year <= data_list$endyr)
+
+    data_list$wt <- data_list$wt %>%
+      filter(Year <= data_list$endyr)
+
+    data_list$comp_data <- data_list$comp_data %>%
+      filter(Year <= data_list$endyr)
+
+    data_list$fsh_biom <- data_list$fsh_biom %>%
+      filter(Year <= data_list$endyr)
+
+    data_list$Pyrs <- data_list$Pyrs %>%
+      filter(Year <= data_list$endyr)
 
     # Adjust initial parameters
     inits <- Rceattle$estimated_params
@@ -57,7 +74,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL) {
     newmod <- suppressWarnings(
       Rceattle::fit_mod(
         data_list = data_list,
-        inits = inits,
+        inits = NULL,
         map =  NULL,
         bounds = NULL,
         file = NULL,
@@ -78,7 +95,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL) {
         avgnMode = data_list$avgnMode,
         minNByage = data_list$minNByage,
         suitMode = data_list$suitMode,
-        phase = NULL,
+        phase = "default",
         meanyr = data_list$endyr, # Update end year
         updateM1 = FALSE,
         getsd = FALSE,

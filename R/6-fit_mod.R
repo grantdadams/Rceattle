@@ -228,6 +228,7 @@ fit_mod <-
     data_list$Alpha = extend_length(HCR$Alpha)
     data_list$Pstar = extend_length(HCR$Pstar)
     data_list$Sigma = extend_length(HCR$Sigma)
+    data_list$Fmult = extend_length(HCR$Fmult)
     data_list$QnormHCR = qnorm(data_list$Pstar, 0, data_list$Sigma)
 
     if(data_list$HCR == 2 & estimateMode == 2){estimateMode = 4} # If projecting under constant F, run parmeters through obj only
