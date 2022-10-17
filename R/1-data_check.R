@@ -12,14 +12,14 @@ data_check <- function(data_list) {
     stop("Other food for one species is negative")
   }
 
-  # Age matrix
-
-  if(ncol(data_list$NByageFixed) != max(data_list$nages, na.rm = T)+4){
-    print(paste0("NByageFixed does not include all ages"))
-  }
-
-  if(ncol(data_list$wt) != max(data_list$nages, na.rm = T)+4){
-    stop(paste0("Weight-at-age (wt) does not include all ages"))
-  }
+  # # Age matrix
+  #
+  # if(ncol(data_list$NByageFixed) != max(data_list$nages, na.rm = T)+4){
+  #   print(paste0("NByageFixed does not include all ages"))
+  # }
+  #
+  # if(ncol(data_list$wt) != max(data_list$nages, na.rm = T)+4){
+  #   stop(paste0("Weight-at-age (wt) does not include all ages"))
+  # }
 
 }
