@@ -12,6 +12,12 @@ data_check <- function(data_list) {
     stop("Other food for one species is negative")
   }
 
+  for(sp in 1:data_list$nspp){
+    if(sum(data_list$nages[sp] < data_list$fleet_control$Nselages[which(data_list$fleet_control$Species == sp)], na.rm = TRUE) > 1){
+      stop(paste("Nselages is greater than nages for species", sp))
+    }
+  }
+
   # # Age matrix
   #
   # if(ncol(data_list$NByageFixed) != max(data_list$nages, na.rm = T)+4){
