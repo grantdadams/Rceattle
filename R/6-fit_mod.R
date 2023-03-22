@@ -6,14 +6,15 @@
 #' @param bounds (Optional) A bounds object from \code{\link{build_bounds}}.
 #' @param file (Optional) Filename where files will be saved. If NULL, no file is saved.
 #' @param estimateMode 0 = Fit the hindcast model and projection with HCR specified via \code{HCR}. 1 = Fit the hindcast model only (no projection). 2 = Run the projection only with HCR specified via \code{HCR} given the initial parameters in \code{inits}.  3 = debug mode 1: runs the model through MakeADFun, but not nlminb, 4 = runs the model through MakeADFun and nlminb (will all parameters mapped out).
-#' @param proj_mean_rec Project the model using: 0 = mean recruitment (average R of hindcast) or 1 = exp(ln_R0 + rec_devs)
 #' @param random_rec logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE.
 #' @param random_q logical. If TRUE, treats annual catchability deviations as random effects.The default is FALSE.
 #' @param random_rec logical. If TRUE, treats annual selectivity deviations as random effects.The default is FALSE.
 #' @param HCR HCR list object from \code{\link[build_hcr]}
 #' @param niter Number of iterations for multispecies model
+#' @param recFun The stock recruit-relationship parameterization from \code{\link{build_srr}}.
 #' @param msmMode The predation mortality functions to used. Defaults to no predation mortality used.
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.
+#' @param initMode how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = estimated as function of mortality (M1) and initial population deviates.
 #' @param minNByage Minimum numbers at age to put in a hard constraint that the number-at-age can not go below.
 #' @param phase Optional. List of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R. If NULL, will not phase model. If set to \code{"default"}, will use default phasing.
 #' @param suitMode Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma suitability, 2 = weight based gamma suitability, 3 = length based lognormal selectivity, 4 = time-varying length based lognormal selectivity.
@@ -122,14 +123,15 @@ fit_mod <-
     bounds = NULL,
     file = NULL,
     estimateMode = 0,
-    proj_mean_rec = TRUE,
     random_rec = FALSE,
     random_q = FALSE,
     random_sel = FALSE,
     HCR = build_hcr(),
     niter = 3,
+    recFun = build_srr(),
     msmMode = 0,
     avgnMode = 0,
+    initMode = 0,
     minNByage = 0,
     suitMode = 0,
     meanyr = NULL,
@@ -174,10 +176,15 @@ fit_mod <-
     #     loopnum = 5;
     #     verbose = 1;
     #     newtonsteps = 0
-    #     proj_mean_rec = TRUE
+    #     rec_fun = build_srr()
 
 
     start_time <- Sys.time()
+
+    extend_length <- function(x){
+      if(length(x) == data_list$nspp){ return(x)}
+      else {return(rep(x, data_list$nspp))}
+    }
 
     setwd(getwd())
 
@@ -197,9 +204,12 @@ fit_mod <-
     data_list$estimateMode <- estimateMode
     data_list$niter <- niter
     data_list$avgnMode <- avgnMode
+    data_list$initMode <- initMode
     data_list$msmMode <- msmMode
     data_list$suitMode <- as.numeric(suitMode)
     data_list$minNByage <- as.numeric(minNByage)
+
+
     data_list$proj_mean_rec <- proj_mean_rec
     if(is.null(meanyr) & is.null(data_list$meanyr)){ # If no meanyear is provided in data or function, use end year
       data_list$meanyr <- data_list$endyr
@@ -208,13 +218,14 @@ fit_mod <-
       data_list$meanyr <- meanyr
     }
 
+    # Recruitment switches
+    data_list$srr_fun <- recFun$srr_fun
+    data_list$proj_mean_rec <- recFun$proj_mean_rec
+    data_list$srr_use_prior <- recFun$srr_use_prior
+    data_list$srr_prior_mean <- recFun$srr_prior_mean
+    data_list$srr_prior_sd <- recFun$srr_prior_sd
 
     # HCR Switches (make length of nspp if not)
-    extend_length <- function(x){
-      if(length(x) == data_list$nspp){ return(x)}
-      else {return(rep(x, data_list$nspp))}
-    }
-
     data_list$HCR = HCR$HCR
     data_list$DynamicHCR = HCR$DynamicHCR
     if(HCR$HCR != 2){ # FsprTarget is also used for fixed F (so may be of length nflts)
@@ -268,7 +279,11 @@ fit_mod <-
     # STEP 4 - Setup random effects
     random_vars <- c()
     if (random_rec) {
-      random_vars <- c(random_vars , "rec_dev", "init_dev")
+      if(initMode > 0){
+        random_vars <- c(random_vars , "rec_dev", "init_dev")
+      } else{
+        random_vars <- c(random_vars , "rec_dev")
+      }
     }
     if(random_q){
       random_vars <- c(random_vars , "ln_srv_q_dev")
@@ -286,7 +301,7 @@ fit_mod <-
           phase = list(
             dummy = 1,
             ln_pop_scalar = 4,
-            ln_mean_rec = 1,
+            rec_pars = 1,
             ln_rec_sigma = 2,
             rec_dev = 2,
             init_dev = 2,
@@ -627,10 +642,10 @@ fit_mod <-
       "Sex ratio",
       "Non-parametric selectivity",
       "Selectivity deviates",
-      "NA",
       "Selectivity normalization",
       "Catchability prior",
       "Catchability deviates",
+      "Stock-recruit prior",
       "Recruitment deviates",
       "Initial abundance deviates",
       "Fishing mortality deviates",

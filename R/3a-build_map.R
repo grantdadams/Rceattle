@@ -50,15 +50,21 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
   # -- FSPR mapped out
   map_list$ln_Flimit <- replace(map_list$ln_Flimit,
-                              values = rep(NA, length(map_list$ln_Flimit)))
+                                values = rep(NA, length(map_list$ln_Flimit)))
   map_list$ln_Ftarget <- replace(map_list$ln_Ftarget,
-                                values = rep(NA, length(map_list$ln_Ftarget)))
+                                 values = rep(NA, length(map_list$ln_Ftarget)))
 
 
   # -- 1.4. Map out initial population deviations not to be estimated - map out last age and ages not seen
   for(sp in 1:data_list$nspp) {
-    if((data_list$nages[sp] - 1) < ncol(map_list$init_dev)) {
-      map_list$init_dev[sp, (data_list$nages[sp]):ncol(map_list$init_dev)] <- NA
+    if(data_list$initMode > 0){
+      if((data_list$nages[sp] - 1) < ncol(map_list$init_dev)) {
+        map_list$init_dev[sp, (data_list$nages[sp]):ncol(map_list$init_dev)] <- NA
+      }
+    }else{
+      if((data_list$nages[sp]) < ncol(map_list$init_dev)) {
+        map_list$init_dev[sp, (data_list$nages[sp]):ncol(map_list$init_dev)] <- NA
+      }
     }
   }
 
@@ -111,7 +117,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
 
   # -----------------------------------------------------------
-  # STEP 2: Selectivity
+  # Selectivity
   # -----------------------------------------------------------
   # -- Selectivity  inds
   ind_slp <- 1
@@ -481,7 +487,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   }
 
   # -----------------------------------------------------------
-  # STEP 3: Catchability
+  # Catchability
   # -----------------------------------------------------------
   # -- Catchability indices
   ind_q_re <- 1
@@ -651,7 +657,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   }
 
 
-  # -- 8. Fishery control
+  # -----------------------------------------------------------
+  # - Fishery control
+  # -----------------------------------------------------------
   for (i in 1:nrow(data_list$fleet_control)) {
     flt = data_list$fleet_control$Fleet_code[i]
     # Standard deviation of fishery time series If not estimating turn of
@@ -668,13 +676,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   }
 
 
-  # -- 9. Recruitment deviation sigmas - turn off if not estimating
-  if(random_rec == FALSE){
-    map_list$ln_rec_sigma <- replace(map_list$ln_rec_sigma, values = rep(NA, length(map_list$ln_rec_sigma)))
-  }
-
-
-  # -- 10. Map out Fdev for years with 0 catch to very low number
+  # - Map out Fdev for years with 0 catch to very low number
   fsh_biom <- data_list$fsh_biom[which(data_list$fsh_biom$Year <= data_list$endyr),]
   fsh_ind <- fsh_biom$Fleet_code[which(fsh_biom$Catch == 0)]
   yr_ind <- fsh_biom$Year[which(fsh_biom$Catch == 0)] - data_list$styr + 1
@@ -686,9 +688,24 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   #map_list$sel_inf_dev_re[1:2, fsh_ind, 1:2, yr_ind] <- NA
 
 
-  #####################################################
-  # Predation bits 1. Turn off all predation parameters for single species
-  #####################################################
+  # -----------------------------------------------------------
+  # Recruitment
+  # -----------------------------------------------------------
+  # -- Recruitment deviation sigmas - turn off if not estimating
+  if(random_rec == FALSE){
+    map_list$ln_rec_sigma <- replace(map_list$ln_rec_sigma, values = rep(NA, length(map_list$ln_rec_sigma)))
+  }
+
+  # -- Stock recruit parameters (turning off 2nd par if only using mean rec)
+  if(data_list$srr_fun == 0){
+    map_list$rec_pars[sp,1] <- NA
+  }
+
+
+  # -----------------------------------------------------------
+  # Predation bits
+  # (e.g. Turn off all predation parameters for single species)
+  # -----------------------------------------------------------
   if (data_list$msmMode == 0) { # Single-species
 
     # Suitability parameters
@@ -763,9 +780,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   }
 
 
-  ######################################################
+  # -----------------------------------------------------------
   # Suitability bits
-  ######################################################
+  # -----------------------------------------------------------
   if (data_list$msmMode > 0) {
 
     # 2.1. Empirical suitability
@@ -788,9 +805,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     map_list$dummy = 1
   }
 
-  #####################################################
-  # STEP 4 - set up fixed n-at-age
-  #####################################################
+  # -----------------------------------------------------------
+  # Set up fixed n-at-age
+  # -----------------------------------------------------------
   # - I.E. turn off all parameters besides for species
   for(sp in 1:data_list$nspp){
 
@@ -798,7 +815,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     if(data_list$estDynamics[sp] > 0){
 
       # Population parameters
-      map_list$ln_mean_rec[sp] <- NA
+      map_list$rec_pars[sp,] <- NA
       map_list$ln_rec_sigma[sp] <- NA
       map_list$ln_sex_ratio_sigma[sp] <- NA
       map_list$rec_dev[sp,] <- NA
@@ -846,7 +863,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   }
 
 
+  # -----------------------------------------------------------
   # STEP 5 -- Convert to factor
+  # -----------------------------------------------------------
   map_list_grande <- list()
   map_list_grande$mapFactor <- sapply(map_list, factor)
   map_list_grande$mapList <- map_list
