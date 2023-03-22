@@ -27,7 +27,7 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 
 
     # control
-    control <- matrix(NA, ncol = data_list$nspp, nrow = 20)
+    control <- matrix(NA, ncol = data_list$nspp, nrow = 19)
     control[1, 1] <- data_list$nspp
     control[2, 1] <- data_list$styr
     control[3, 1] <- data_list$endyr
@@ -44,10 +44,9 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
     control[14, ] <- data_list$sigma_rec_prior
     control[15, ] <- data_list$other_food
     control[16, ] <- data_list$estDynamics
-    control[17, ] <- data_list$proj_F
-    control[18, ] <- data_list$est_sex_ratio
-    control[19, ] <- data_list$sex_ratio_sigma
-    control[20, ] <- data_list$est_M1
+    control[17, ] <- data_list$est_sex_ratio
+    control[18, ] <- data_list$sex_ratio_sigma
+    control[19, ] <- data_list$est_M1
     control <- as.data.frame(control)
     control <- cbind(c("nspp", "styr", "endyr", "projyr", "nsex", "spawn_month", "R_sexr", "nages", "minage", "nlengths", "pop_wt_index", "ssb_wt_index","pop_age_transition_index", "sigma_rec_prior",
                        "other_food", "estDynamics", "proj_F", "est_sex_ratio", "sex_ratio_sigma", "est_M1"), control)
@@ -197,7 +196,6 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     data_list$sigma_rec_prior <- as.numeric(sheet1[14, 2:(data_list$nspp + 1)])
     data_list$other_food <- as.numeric(sheet1[15, 2:(data_list$nspp + 1)])
     data_list$estDynamics <- as.numeric(sheet1[16, 2:(data_list$nspp + 1)])
-    data_list$proj_F <- as.numeric(sheet1[17, 2:(data_list$nspp + 1)])
     data_list$est_sex_ratio <- as.numeric(sheet1[18, 2:(data_list$nspp + 1)])
     data_list$sex_ratio_sigma <- as.numeric(sheet1[19, 2:(data_list$nspp + 1)])
     data_list$est_M1 <- as.numeric(sheet1[20, 2:(data_list$nspp + 1)])

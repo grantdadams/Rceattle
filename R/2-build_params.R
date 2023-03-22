@@ -29,13 +29,17 @@ build_params <- function(data_list, inits = NULL) {
   param_list$ln_pop_scalar = matrix(0, nrow = data_list$nspp, ncol = max(data_list$nages))
 
   # -- 3.1. Recruitment parameters
-  param_list$ln_mean_rec = rep(9, data_list$nspp)  # Mean recruitment; n = [1, nspp]
+  param_list$rec_pars = matrix(9, nrow = data_list$nspp, ncol = 2)  # Recruitment parameters; n = [nspp, 2]
   param_list$ln_rec_sigma = log(as.numeric(data_list$sigma_rec_prior))  # Standard deviation of recruitment deviations; n = [1, nspp]
   param_list$rec_dev = matrix(0, nrow = data_list$nspp, ncol = nyrs_proj)  # Annual recruitment deviation; n = [nspp, nyrs_hind]
 
 
   # -- 3.2. Abundance parameters
-  param_list$init_dev = matrix(0, nrow = data_list$nspp, ncol = max(data_list$nages)-1)  # Initial abundance-at-age; n = [nspp, nages] # NOTE: Need to figure out how to best vectorize this
+  if(data_list$initMode > 0){
+    param_list$init_dev = matrix(0, nrow = data_list$nspp, ncol = max(data_list$nages)-1)  # Initial abundance-at-age; n = [nspp, nages] # NOTE: Need to figure out how to best vectorize this
+  } else{
+    param_list$init_dev = matrix(0, nrow = data_list$nspp, ncol = max(data_list$nages))  # Initial abundance-at-age; n = [nspp, nages] # NOTE: Need to figure out how to best vectorize this
+  }
 
   # -- 3.3. Residual natural mortality
   m1 <- array(0, dim = c(data_list$nspp, 2, max(data_list$nages, na.rm = T))) # Set up array
