@@ -21,9 +21,9 @@
 ##' \code{hcr = 2} Constant input F set at \code{FsprTarget} for each species (vector or single F)
 ##'
 ##'
-##' \code{hcr = 3} F that acheives \code{FsprTarget}% of SSB0 in the end of the projection
+##' \code{hcr = 3} F that achieves \code{FsprTarget}% of SSB0 in the end of the projection
 ##'
-##' \code{hcr = 4} Constant Fspr set at \code{FsprTarget} for each species.
+##' \code{hcr = 4} Constant Fspr set at \code{FsprTarget} for each species. Can be multiplied by \code{Fmult} following NEFSC.
 ##'
 ##' \code{hcr = 5} The North Pacific Fishery Management Council (NPFMC) Tier 3 spawner-per-recruit-based harvest control rule:
 ##' 	Stock status: \eqn{ SB > SB at FsprTarget)}
@@ -61,7 +61,7 @@
 ##' @return A \code{list} containing the harvest control rule and associated biological reference points
 ##' @export
 ##'
-build_hcr <- function(HCR = 0, DynamicHCR = FALSE, FsprTarget = 0.40, FsprLimit = 0.35, Ptarget = 0.4, Plimit = 0.2, Alpha = 0.05, Pstar = 0.45, Sigma = 0.5) {
+build_hcr <- function(HCR = 0, DynamicHCR = FALSE, FsprTarget = 0.40, FsprLimit = 0.35, Ptarget = 0.4, Plimit = 0.2, Alpha = 0.05, Pstar = 0.45, Sigma = 0.5, Fmult = 1) {
   if(0 %in% Alpha & HCR == 5){stop(paste0("Alpha = 0 for Tier 3 HCR, divide by zero error"))}
-  list(HCR = HCR, DynamicHCR = DynamicHCR, FsprTarget = FsprTarget, FsprLimit = FsprLimit, Ptarget = Ptarget, Plimit = Plimit, Alpha = Alpha, Pstar = Pstar, Sigma = Sigma)
+  list(HCR = HCR, DynamicHCR = DynamicHCR, FsprTarget = FsprTarget, FsprLimit = FsprLimit, Ptarget = Ptarget, Plimit = Plimit, Alpha = Alpha, Pstar = Pstar, Sigma = Sigma, Fmult = Fmult)
 }
