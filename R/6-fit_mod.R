@@ -67,41 +67,6 @@
 #'library(Rceattle)
 #'data(BS2017SS) # ?BS2017SS for more information on the data
 #'
-#'# Set up phases, also the default
-# phase = list(
-#'   dummy = 1,
-#'   ln_pop_scalar = 4,
-#'   ln_mean_rec = 1,
-#'   ln_rec_sigma = 2,
-#'   rec_dev = 2,
-#'   init_dev = 2,
-#'   ln_mean_F = 1,
-#'   ln_Flimit = 3,
-#'   ln_Ftarget = 3,
-#'   proj_F_prop = 1,
-#'   F_dev = 1,
-#'   ln_srv_q = 3,
-#'   srv_q_pow = 4,
-#'   ln_srv_q_dev = 5,
-#'   ln_sigma_srv_q = 4,
-#'   ln_sigma_time_varying_srv_q = 4,
-#'   sel_coff = 3,
-#'   sel_coff_dev = 4,
-#'   sel_curve_pen = 4,
-#'   ln_sex_ratio_sigma = 3,
-#'   ln_sel_slp = 3,
-#'   ln_M1 = 4,
-#'   sel_inf = 3,
-#'   ln_sel_slp_dev = 5,
-#'   sel_inf_dev = 5,
-#'   ln_sigma_sel = 4,
-#'   ln_sigma_srv_index = 2,
-#'   ln_sigma_fsh_catch = 2,
-#'   log_gam_a = 4,
-#'   log_gam_b = 4,
-#'   log_phi = 4,
-#'   comp_weights = 4
-#')
 #'
 #'# Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
 #'ss_run <- fit_mod(data_list = BS2017SS,
@@ -239,6 +204,7 @@ fit_mod <-
     data_list$Alpha = extend_length(HCR$Alpha)
     data_list$Pstar = extend_length(HCR$Pstar)
     data_list$Sigma = extend_length(HCR$Sigma)
+    data_list$Fmult = extend_length(HCR$Fmult)
     data_list$QnormHCR = qnorm(data_list$Pstar, 0, data_list$Sigma)
 
     if(data_list$HCR == 2 & estimateMode == 2){estimateMode = 4} # If projecting under constant F, run parmeters through obj only
@@ -626,9 +592,9 @@ fit_mod <-
     if(estimateMode %in% c(0:2)){
       if(!is.null(opt$SD) & random_rec == FALSE){
         if(abs(opt$objective - quantities$jnll) > rel_tol){
-          message( "#########################" )
-          message( "Convergence warning (8)" )
-          message( "#########################" )
+          message( "#################################################" )
+          message( "Convergence warning (8): discontinuous likelihood" )
+          message( "#################################################" )
         }
       }
     }

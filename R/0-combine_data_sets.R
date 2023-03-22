@@ -13,14 +13,14 @@ combine_data <- function(data_list1 = NULL, data_list2 = NULL){
 
   names_not_used <- c("nspp", "styr", "endyr", "projyr")
 
-  vec_names <- c("spnames", "nsex", "spawn_month", "R_sexr", "nages", "minage", "nlengths","pop_wt_index", "ssb_wt_index", "pop_alk_index", "sigma_rec_prior", "other_food", "estDynamics", "proj_F", "est_sex_ratio", "sex_ratio_sigma","Ceq", "Cindex","Pvalue", "fday", "CA","CB", "Qc", "Tco",  "Tcm",  "Tcl",  "CK1", "CK4") # Object names of vectors
+  vec_names <- c("spnames", "nsex", "spawn_month", "R_sexr", "nages", "minage", "nlengths","pop_wt_index", "ssb_wt_index", "est_M1", "pop_alk_index", "sigma_rec_prior", "other_food", "estDynamics", "proj_F", "est_sex_ratio", "sex_ratio_sigma","Ceq", "Cindex","Pvalue", "fday", "CA","CB", "Qc", "Tco",  "Tcm",  "Tcl",  "CK1", "CK4") # Object names of vectors
 
-  mat_names <- c("fleet_control", "srv_biom", "fsh_biom", "comp_data", "emp_sel", "NByageFixed", "age_trans_matrix", "age_error", "wt",   "pmature", "sex_ratio", "M1_base", "Mn_LatAge", "aLW", "Pyrs", "UobsAge", "UobsWtAge", "env_data") # Object names of matrices
+  mat_names <- c("fleet_control", "srv_biom", "fsh_biom", "comp_data", "emp_sel", "NByageFixed", "age_trans_matrix", "age_error", "wt",   "pmature", "sex_ratio", "M1_base", "Mn_LatAge", "aLW", "Pyrs", "UobsWtAge") # Object names of matrices
 
   # Get index from data_set1 of the 4 indices
   fleet_index1 <- max(data_list1$fleet_control$Fleet_code, na.rm = TRUE)
   weight_index1 <- max(data_list1$wt$Wt_index, na.rm = TRUE)
-  alk_index1 <- max(data_list1$age_trans_matrix$ALK_index, na.rm = TRUE)
+  alk_index1 <- max(data_list1$age_trans_matrix$Age_transition_index, na.rm = TRUE)
   nspp1 <- data_list1$nspp
   q_index1 <- max(data_list1$fleet_control$Q_index, na.rm = TRUE)
   sel_index1 <- max(data_list1$fleet_control$Selectivity_index, na.rm = TRUE)
@@ -28,10 +28,10 @@ combine_data <- function(data_list1 = NULL, data_list2 = NULL){
   # Update vector indices
   data_list2[["pop_wt_index"]] <- data_list2[["pop_wt_index"]] + weight_index1
   data_list2[["ssb_wt_index"]] <- data_list2[["ssb_wt_index"]] + weight_index1
-  data_list2[["pop_alk_index"]] <- data_list2[["pop_alk_index"]] + alk_index1
+  data_list2[["pop_age_transition_index"]] <- data_list2[["pop_age_transition_index"]] + alk_index1
 
   # Update fleet control
-  data_list2$fleet_control$ALK_index <- data_list2$fleet_control$ALK_index + alk_index1
+  data_list2$fleet_control$Age_transition_index <- data_list2$fleet_control$Age_transition_index + alk_index1
   data_list2$fleet_control$Selectivity_index <- data_list2$fleet_control$Selectivity_index + sel_index1
   data_list2$fleet_control$Q_index <- data_list2$fleet_control$Q_index + q_index1
   data_list2$fleet_control$Species <- data_list2$fleet_control$Species + nspp1
@@ -49,14 +49,12 @@ combine_data <- function(data_list1 = NULL, data_list2 = NULL){
   }
 
   # Update stomach pred sp and prey sp
-  for(i in 16:17){
-    data_list2[[mat_names[i]]]$Pred <- data_list2[[mat_names[i]]]$Pred + nspp1
-    data_list2[[mat_names[i]]]$Prey <- data_list2[[mat_names[i]]]$Prey + nspp1
-  }
+  data_list2$UobsWtAge$Pred <- data_list2$UobsWtAge$Pred + nspp1
+  data_list2$UobsWtAge$Prey <- data_list2$UobsWtAge$Prey + nspp1
 
   # Update wt and alk indices
   data_list2$wt$Wt_index <- data_list2$wt$Wt_index + weight_index1
-  data_list2$age_trans_matrix$ALK_index <- data_list2$age_trans_matrix$ALK_index + alk_index1
+  data_list2$age_trans_matrix$Age_transition_index <- data_list2$age_trans_matrix$Age_transition_index + alk_index1
 
 
 
@@ -69,6 +67,8 @@ combine_data <- function(data_list1 = NULL, data_list2 = NULL){
   for(i in mat_names[1:17]){
     data_list_new[[i]] <- plyr::rbind.fill(data_list1[[i]], data_list2[[i]])
   }
+
+  data_list1$env_data <- merge(data_list1$env_data, data_list2$env_data, by = "Year", all = TRUE)
 
 
   # Add new species
