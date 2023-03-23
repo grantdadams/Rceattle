@@ -394,8 +394,8 @@ Type objective_function<Type>::operator() () {
   //    0 = project recruitment using ln_R0 and rec devs
   //    1 = project recruitment using mean rec (can also have adjusted rec devs)
   DATA_INTEGER(srr_use_prior);            // Logical of wether to add normal prior to stock recruit-relationship
-  DATA_INTEGER(srr_prior_mean);           // Prior mean for stock recruit relationship parameter
-  DATA_INTEGER(srr_prior_sd);             // Prior sd for stock recruit relationship parameter
+  DATA_VECTOR(srr_prior_mean);           // Prior mean for stock recruit relationship parameter
+  DATA_VECTOR(srr_prior_sd);             // Prior sd for stock recruit relationship parameter
   DATA_INTEGER( niter );                  // Number of loops for MSM mode
 
 
@@ -1229,25 +1229,25 @@ Type objective_function<Type>::operator() () {
     // 6.4. STOCK-RECRUIT PARAMETERS
     // -- For beverton-holt, steepness and R0 are derived from SPR0
     for ( sp = 0; sp < nspp ; sp++) {
-      switch(srr_fun){
-      case 0: // Random about mean (e.g. Alaska)
-        Steepness(sp) = 0.99;
-        R0(sp) = exp(rec_pars(sp, 0));
-        break;
-
-      case 1: // Beverton-Holt
-        Steepness(sp) = exp(rec_pars(sp, 0)) * SPR0(sp)/(4.0 + exp(rec_pars(sp, 0)) * SPR0(sp));
-        R0(sp) = (exp(rec_pars(sp, 0))-1/SPR0(sp)) / exp(rec_pars(sp, 1)); // (Alpha-1/SPR0)/beta
-        break;
-
-      case 2: // Beverton-Holt with environmental impacts on alpha
-        Steepness(sp) = exp(rec_pars(sp, 0)) * SPR0(sp)/(4.0 + exp(rec_pars(sp, 0)) * SPR0(sp));
-        R0(sp) = (exp(rec_pars(sp, 0))-1/SPR0(sp)) / exp(rec_pars(sp, 1)); // (Alpha-1/SPR0)/beta
-        break;
-
-      default:
-        error("Invalid 'srr_fun'");
-      }
+      // switch(srr_fun){
+      // case 0: // Random about mean (e.g. Alaska)
+      //   Steepness(sp) = 0.99;
+      //   R0(sp) = exp(rec_pars(sp, 0));
+      //   break;
+      //
+      // case 1: // Beverton-Holt
+      //   Steepness(sp) = exp(rec_pars(sp, 0)) * SPR0(sp)/(4.0 + exp(rec_pars(sp, 0)) * SPR0(sp));
+      //   R0(sp) = (exp(rec_pars(sp, 0))-1/SPR0(sp)) / exp(rec_pars(sp, 1)); // (Alpha-1/SPR0)/beta
+      //   break;
+      //
+      // case 2: // Beverton-Holt with environmental impacts on alpha
+      //   Steepness(sp) = exp(rec_pars(sp, 0)) * SPR0(sp)/(4.0 + exp(rec_pars(sp, 0)) * SPR0(sp));
+      //   R0(sp) = (exp(rec_pars(sp, 0))-1/SPR0(sp)) / exp(rec_pars(sp, 1)); // (Alpha-1/SPR0)/beta
+      //   break;
+      //
+      // default:
+      //   error("Invalid 'srr_fun'");
+      // }
     }
 
 
@@ -1356,23 +1356,23 @@ Type objective_function<Type>::operator() () {
     for (sp = 0; sp < nspp; sp++) {
       for (yr = 1; yr < nyrs_hind; yr++) {
 
-        // -- 6.6.1. Recruitment
-        switch(srr_fun){
-        case 0: // Random about mean (e.g. Alaska)
-          R(sp, yr) = R0(sp) * exp(rec_dev(sp, yr));
-          break;
-
-        case 1: // Beverton-Holt
-          R(sp, yr) = exp(rec_pars(sp, 0)) * biomassSSB(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)));
-          break;
-
-        case 2: // Beverton-Holt with environmental impacts on alpha
-          R(sp, yr) = exp(rec_pars(sp, 0)) * biomassSSB(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)));
-          break;
-
-        default:
-          error("Invalid 'srr_fun'");
-        }
+        // // -- 6.6.1. Recruitment
+        // switch(srr_fun){
+        // case 0: // Random about mean (e.g. Alaska)
+        //   R(sp, yr) = R0(sp) * exp(rec_dev(sp, yr));
+        //   break;
+        //
+        // case 1: // Beverton-Holt
+        //   R(sp, yr) = exp(rec_pars(sp, 0)) * biomassSSB(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)));
+        //   break;
+        //
+        // case 2: // Beverton-Holt with environmental impacts on alpha
+        //   R(sp, yr) = exp(rec_pars(sp, 0)) * biomassSSB(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)));
+        //   break;
+        //
+        // default:
+        //   error("Invalid 'srr_fun'");
+        // }
 
         NByage(sp, 0, 0, yr) = R(sp, yr) * R_sexr(sp);
         NByage(sp, 1, 0, yr) = R(sp, yr) * (1-R_sexr(sp));
@@ -1448,7 +1448,7 @@ Type objective_function<Type>::operator() () {
         if(yr == 0){
           for(sex = 0; sex < nsex(sp); sex ++){
             for(age = 0; age < nages(sp); age++){
-              NByage0(sp, sex, age , 0) = DynamicNByageF(F_yr, sp, age, 0) = DynamicNByage0(sp, sex, age, 0) = NByage(sp,sex,age,0);
+              NByage0(sp, sex, age , 0) = DynamicNByageF(sp, sex, age, 0) = DynamicNByage0(sp, sex, age, 0) = NByage(sp,sex,age,0);
             }
           }
         }
@@ -1459,22 +1459,28 @@ Type objective_function<Type>::operator() () {
           // Recruitment
           switch(srr_fun){
           case 0: // Random about mean (e.g. Alaska)
-            NByage0 = exp(rec_pars(sp, 0));
+            NByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 0));
+
             DynamicNByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 0) + rec_dev(sp, yr));
+
             DynamicNByageF(sp, 0, 0, yr) = exp(rec_pars(sp, 0) + rec_dev(sp, yr));
             break;
 
           case 1: // Beverton-Holt
             // FIXME: error if minage > 1
-            NByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 0)) * SB0(sp, yr-minage(sp))) / (1+exp(rec_pars(sp, 1)) * SB0(sp, yr-minage(sp)));
+            NByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 0)) * SB0(sp, yr-minage(sp)) / (1+exp(rec_pars(sp, 1)) * SB0(sp, yr-minage(sp)));
+
             DynamicNByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 0)) * DynamicSB0(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 1)) * DynamicSB0(sp, yr-minage(sp)));
+
             DynamicNByageF(sp, 0, 0, yr) = exp(rec_pars(sp, 0)) * DynamicSBF(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 1)) * DynamicSBF(sp, yr-minage(sp)));
             break;
 
           case 2: // Beverton-Holt with environmental impacts on alpha
             // FIXME: error if minage > 1
-            NByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 0)) * SB0(sp, yr-minage(sp))) / (1+exp(rec_pars(sp, 1)) * SB0(sp, yr-minage(sp)));
+            NByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 0)) * SB0(sp, yr-minage(sp)) / (1+exp(rec_pars(sp, 1)) * SB0(sp, yr-minage(sp)));
+
             DynamicNByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 0)) * DynamicSB0(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 1)) * DynamicSB0(sp, yr-minage(sp)));
+
             DynamicNByageF(sp, 0, 0, yr) = exp(rec_pars(sp, 0)) * DynamicSBF(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 1)) * DynamicSBF(sp, yr-minage(sp)));
             break;
 
@@ -1496,14 +1502,18 @@ Type objective_function<Type>::operator() () {
           for(sex = 0; sex < nsex(sp); sex ++){
             for (age = 1; age < nages(sp)-1; age++) {
               NByage0(sp, sex, age, yr) =  NByage0(sp, sex, age-1, yr-1) * exp(-M(sp, sex, age-1, yr-1)); // F = 0
+
               DynamicNByage0(sp, sex, age, yr) =  DynamicNByage0(sp, sex, age-1, yr-1) * exp(-M(sp, sex, age-1, yr - 1)); // F = 0
-              DynamicNByageF(sp, sex, age, yr) =  DynamicNByageF(sp, sex, age-1, yr-1) * exp(-M(sp, sex, age-1, yr - 1) - Ftarget_age_flt(sp, sex, age-1, yr)); // F = Ftarget
+
+              DynamicNByageF(sp, sex, age, yr) =  DynamicNByageF(sp, sex, age-1, yr-1) * exp(-M(sp, sex, age-1, yr - 1) - Ftarget_age_flt(sp, sex, age-1, yr-1)); // F = Ftarget
             }
 
             // Plus group  -- No fishing
             NByage0(sp, sex, nages(sp)-1, yr) = NByage0(sp, sex, nages(sp)-2, yr - 1) * exp(-M(sp, sex, nages(sp)-2, yr - 1))  + NByage0(sp, sex, nages(sp)-1, yr - 1) * exp(-M(sp, sex, nages(sp)-1, yr - 1));
+
             DynamicNByage0(sp, sex, nages(sp)-1, yr) = DynamicNByage0(sp, sex, nages(sp)-2, yr - 1) * exp(-M(sp, sex, nages(sp)-2, yr - 1))  + DynamicNByage0(sp, sex, nages(sp)-1, yr - 1) * exp(-M(sp, sex, nages(sp)-1, yr - 1));
-            DynamicNByageF(sp, sex, nages(sp)-1, yr) = DynamicNByageF(sp, sex, nages(sp)-2, yr - 1) * exp(-M(sp, sex, nages(sp)-2, yr - 1) - Ftarget_age_flt(sp, sex, nages(sp)-2, yr))  + DynamicNByageF(sp, sex, nages(sp)-1, yr - 1) * exp(-M(sp, sex, nages(sp)-1, yr - 1) - - Ftarget_age_flt(sp, sex, nages(sp)-1, nyr));
+
+            DynamicNByageF(sp, sex, nages(sp)-1, yr) = DynamicNByageF(sp, sex, nages(sp)-2, yr - 1) * exp(-M(sp, sex, nages(sp)-2, yr - 1) - Ftarget_age_flt(sp, sex, nages(sp)-2, yr-1))  + DynamicNByageF(sp, sex, nages(sp)-1, yr - 1) * exp(-M(sp, sex, nages(sp)-1, yr - 1) - Ftarget_age_flt(sp, sex, nages(sp)-1, yr-1));
 
           }
         }
@@ -1689,15 +1699,13 @@ Type objective_function<Type>::operator() () {
         // - Option 1: Use mean rec
         if(proj_mean_rec == 1){
           R(sp, yr) = exp(log(mean_rec(sp)) + rec_dev(sp, yr)); //  // Projections use mean R given bias in R0
-          NByage(sp, 0, 0, yr) = R(sp, yr) * R_sexr(sp);
-          NByage(sp, 1, 0, yr) = R(sp, yr) * (1-R_sexr(sp));
         }
 
         // - Option 2: Use SRR and rec devs
         if(proj_mean_rec == 0){
           switch(srr_fun){
           case 0: // Random about mean (e.g. Alaska)
-            R(sp, yr) = Ro(sp) * exp(rec_dev(sp, yr));
+            R(sp, yr) = R0(sp) * exp(rec_dev(sp, yr));
             break;
 
           case 1: // Beverton-Holt
@@ -1711,10 +1719,10 @@ Type objective_function<Type>::operator() () {
           default:
             error("Invalid 'srr_fun'");
           }
-
-          NByage(sp, 0, 0 , yr) = R(sp, yr) * R_sexr(sp);
-          NByage(sp, 1, 0 , yr) = R(sp, yr) * (1 - R_sexr(sp));
         }
+
+        NByage(sp, 0, 0 , yr) = R(sp, yr) * R_sexr(sp);
+        NByage(sp, 1, 0 , yr) = R(sp, yr) * (1 - R_sexr(sp));
 
 
         // -- 6.9.2. Ages > recruitment
@@ -3333,7 +3341,7 @@ Type objective_function<Type>::operator() () {
   for (sp = 0; sp < nspp; sp++) {
     // sLOT 9 -- storck-recruit prior
     if(srr_use_prior == 1){
-      jnll_comp(9, sp) -= dnorm(rec_pars(sp, 0), srr_prior_mean(sp), srr_prior_sd(sp), true);
+      // jnll_comp(9, sp) -= dnorm(rec_pars(sp, 0), srr_prior_mean(sp), srr_prior_sd(sp), true);
     }
 
 

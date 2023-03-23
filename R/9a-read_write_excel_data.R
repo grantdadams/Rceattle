@@ -49,7 +49,7 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
     control[19, ] <- data_list$est_M1
     control <- as.data.frame(control)
     control <- cbind(c("nspp", "styr", "endyr", "projyr", "nsex", "spawn_month", "R_sexr", "nages", "minage", "nlengths", "pop_wt_index", "ssb_wt_index","pop_age_transition_index", "sigma_rec_prior",
-                       "other_food", "estDynamics", "proj_F", "est_sex_ratio", "sex_ratio_sigma", "est_M1"), control)
+                       "other_food", "estDynamics", "est_sex_ratio", "sex_ratio_sigma", "est_M1"), control)
     colnames(control) <- c("Object", data_list$spnames)
     names_used <- c(names_used, as.character(control$Object))
 
