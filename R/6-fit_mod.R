@@ -175,7 +175,6 @@ fit_mod <-
     data_list$minNByage <- as.numeric(minNByage)
 
 
-    data_list$proj_mean_rec <- proj_mean_rec
     if(is.null(meanyr) & is.null(data_list$meanyr)){ # If no meanyear is provided in data or function, use end year
       data_list$meanyr <- data_list$endyr
     }
@@ -187,8 +186,8 @@ fit_mod <-
     data_list$srr_fun <- recFun$srr_fun
     data_list$proj_mean_rec <- recFun$proj_mean_rec
     data_list$srr_use_prior <- recFun$srr_use_prior
-    data_list$srr_prior_mean <- recFun$srr_prior_mean
-    data_list$srr_prior_sd <- recFun$srr_prior_sd
+    data_list$srr_prior_mean <- extend_length(recFun$srr_prior_mean)
+    data_list$srr_prior_sd <- extend_length(recFun$srr_prior_sd)
 
     # HCR Switches (make length of nspp if not)
     data_list$HCR = HCR$HCR
@@ -317,13 +316,13 @@ fit_mod <-
 
     # STEP 5 - Compile CEATTLE is providing cpp file
     # - Get cpp file if not provided
-    TMBfilename <- "ceattle_v01_09"
+    TMBfilename <- "ceattle_v01_10"
 
 
     # STEP 6 - Reorganize data and build model object
     Rceattle:::data_check(data_list)
     data_list_reorganized <- Rceattle::rearrange_dat(data_list)
-    data_list_reorganized = c(list(model = "ceattle_v01_09"),data_list_reorganized)
+    data_list_reorganized = c(list(model = "ceattle_v01_10"),data_list_reorganized)
     if(msmMode > 0 & data_list$HCR == 3){
       data_list_reorganized$HCR = 0 # Estimate model with F = 0 for the projection if multispecies
     }
