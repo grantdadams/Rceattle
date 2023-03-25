@@ -445,7 +445,14 @@ Type objective_function<Type>::operator() () {
   int max_age = imax(nages);              // Integer of maximum nages to make the arrays; n = [1]
   DATA_VECTOR( MSSB0 );                   // SB0 from projecting the model forward in multi-species mode under no fishing
 
-  // 2.3. Data controls (i.e. how to assign data to objects)
+  // -- M1 attributes
+  DATA_IVECTOR(M1_model);
+  DATA_IVECTOR(M1_use_prior);
+  DATA_IVECTOR(M2_use_prior);
+  DATA_VECTOR(M1_prior_mean);
+  DATA_VECTOR(M1_prior_sd);
+
+  // -- 2.3. Data controls (i.e. how to assign data to objects)
   DATA_IMATRIX( fleet_control );          // Fleet specifications
 
   // -- 2.3.1 Fishery Components
@@ -2992,7 +2999,7 @@ Type objective_function<Type>::operator() () {
   // ------------------------------------------------------------------------- //
 
   // 14.0. OBJECTIVE FUNCTION
-  matrix<Type> jnll_comp(18, n_flt); jnll_comp.setZero();  // matrix of negative log-likelihood components
+  matrix<Type> jnll_comp(19, n_flt); jnll_comp.setZero();  // matrix of negative log-likelihood components
 
   // -- Data likelihood components
   // Slot 0 -- Survey biomass
@@ -3011,10 +3018,11 @@ Type objective_function<Type>::operator() () {
   // Slot 12 -- Epsilon -- Annual fishing mortality deviation
   // Slot 13 -- SPR penalities
   // Slot 14 -- N-at-age < 0 penalty
+  // Slot 15 -- M prior
   // -- M2 likelihood components
-  // Slot 15 -- Ration likelihood
-  // Slot 16 -- Ration penalties
-  // Slot 17 -- Diet proportion by weight likelihood
+  // Slot 16 -- Ration likelihood
+  // Slot 17 -- Ration penalties
+  // Slot 18 -- Diet proportion by weight likelihood
 
 
   // 14.1. FIT OBJECTIVE FUNCTION
@@ -3436,6 +3444,39 @@ Type objective_function<Type>::operator() () {
   }
 
 
+  // Slots 15 -- M prior
+  // M1_model 0 = use fixed natural mortality from M1_base, 1 = estimate sex- and age-invariant M1, 2 = sex-specific (two-sex model), age-invariant M1, 3 =   estimate sex- and age-specific M1.
+  for (sp = 0; sp < nspp; sp++) {
+    // Prior on M1 only and using species specific M1
+    if( M1_model(sp) == 1 & M1_use_prior(sp) == 1 & M2_use_prior(sp) == 0){
+      jnll_comp(15, sp) += dnorm(log(M1(sp, 0, 0)), log(M1_prior_mean(sp)), M1_prior_sd(sp), true);
+    }
+
+    for(sex = 0; sex < nsex(sp); sex ++){
+      // Prior on M1 only and using species and sex specific M1
+      if( M1_model(sp) == 2 & M1_use_prior(sp) == 1 & M2_use_prior(sp) == 0){
+        jnll_comp(15, sp) += dnorm(log(M1(sp, sex, 0)), log(M1_prior_mean(sp)), M1_prior_sd(sp), true);
+      }
+
+      for (age = 0; age < nages(sp); age++) {
+
+        // Prior on M1 only and using species and sex specific M1
+        if( M1_model(sp) == 3 & M1_use_prior(sp) == 1 & M2_use_prior(sp) == 0){
+          jnll_comp(15, sp) += dnorm(log(M1(sp, sex, age)), log(M1_prior_mean(sp)), M1_prior_sd(sp), true);
+        }
+
+        for (yr = 0; yr < nyrs; yr++) {
+
+          // Prior on total M (M1 and M2)
+          if( M1_use_prior(sp) == 1 & M2_use_prior(sp) == 1){
+            jnll_comp(15, sp) += dnorm(log(M(sp, sex, age, yr)), log(M1_prior_mean(sp)), M1_prior_sd(sp), true);
+          }
+        }
+      }
+    }
+  }
+
+
   // 14.3. Diet likelihood components from MSVPA with estimated suitability and Kinzey and Punt
   if ((msmMode > 2) | (suitMode > 0)) {
     // Slot 15 -- Diet weight likelihood
@@ -3443,7 +3484,7 @@ Type objective_function<Type>::operator() () {
 
       rsp = UobsWtAge_ctl(stom_ind, 0) - 1; // Index of pred
       if(UobsWtAge_hat(stom_ind, 1) > 0){
-        jnll_comp(17, rsp) -= Type(UobsWtAge(stom_ind, 0)) * (UobsWtAge(stom_ind, 1)) * log(UobsWtAge_hat(stom_ind, 1)/UobsWtAge(stom_ind, 1));
+        jnll_comp(18, rsp) -= Type(UobsWtAge(stom_ind, 0)) * (UobsWtAge(stom_ind, 1)) * log(UobsWtAge_hat(stom_ind, 1)/UobsWtAge(stom_ind, 1));
       }
     }
   } // End diet proportion by weight component
@@ -3458,7 +3499,7 @@ Type objective_function<Type>::operator() () {
           for (age = 1; age < nages(sp); age++) { // don't include age zero in likelihood
             if(ration(sp, sex, age, yr) > 0){
               if(ration_hat(sp, sex, age, yr) > 0){
-                jnll_comp(15, sp) -= dnorm(log(ration(sp, sex, age, yr))  - square(sd_ration) / 2,  log( ration_hat(sp, sex, age, yr)), sd_ration, true);
+                jnll_comp(16, sp) -= dnorm(log(ration(sp, sex, age, yr))  - square(sd_ration) / 2,  log( ration_hat(sp, sex, age, yr)), sd_ration, true);
               }
             }
           }
@@ -3473,7 +3514,7 @@ Type objective_function<Type>::operator() () {
         for (age = 0; age < nages(sp); age++) {
           for (yr = 0; yr < nyrs_hind; yr++) {
             if(ration_hat(sp, sex, age, yr) > 0){
-              //jnll_comp(16, sp) += 20 *  pow(ration_hat(sp, sex, age, yr) - ration_hat_ave(sp, sex, age), 2);
+              //jnll_comp(17, sp) += 20 *  pow(ration_hat(sp, sex, age, yr) - ration_hat_ave(sp, sex, age), 2);
             }
           }
         }

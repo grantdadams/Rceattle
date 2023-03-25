@@ -94,13 +94,16 @@ fit_mod <-
     HCR = build_hcr(),
     niter = 3,
     recFun = build_srr(),
+    M1Fun = build_M1(
+      updateM1 = TRUE,
+      M1_prior_mean = .2,
+      M1_prior_sd = .2),
     msmMode = 0,
     avgnMode = 0,
     initMode = 0,
     minNByage = 0,
     suitMode = 0,
     meanyr = NULL,
-    updateM1 = TRUE,
     phase = NULL,
     getsd = TRUE,
     use_gradient = TRUE,
@@ -188,6 +191,15 @@ fit_mod <-
     data_list$srr_use_prior <- recFun$srr_use_prior
     data_list$srr_prior_mean <- extend_length(recFun$srr_prior_mean)
     data_list$srr_prior_sd <- extend_length(recFun$srr_prior_sd)
+
+    # M1
+    data_list$M1_model= extend_length(M1Fun$M1_model)
+    updateM1 = M1Fun$updateM1
+    data_list$M1_use_prior = extend_length(M1Fun$M1_use_prior)
+    data_list$M2_use_prior = extend_length(M1Fun$M2_use_prior)
+    if(msmMode == 0){data_list$M2_use_prior = replace(data_list$M2_use_prior, values = rep(FALSE, length(data_list$M2_use_prior)))} # Dont use M2 prior if single-species mode
+    data_list$M1_prior_mean = extend_length(M1Fun$M1_prior_mean)
+    data_list$M1_prior_sd = extend_length(M1Fun$M1_prior_sd)
 
     # HCR Switches (make length of nspp if not)
     data_list$HCR = HCR$HCR
@@ -616,6 +628,7 @@ fit_mod <-
       "Fishing mortality deviates",
       "SPR Calculation",
       "Zero n-at-age penalty",
+      "M prior",
       "Ration",
       "Ration penalties",
       "Stomach content proportion by weight"

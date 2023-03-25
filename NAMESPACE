@@ -3,6 +3,7 @@
 export("%!in%")
 export(TMBAIC)
 export(TMBphase)
+export(build_M1)
 export(build_bounds)
 export(build_dat)
 export(build_hcr)
