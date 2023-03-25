@@ -59,7 +59,7 @@ build_bounds <- function(param_list = NULL, data_list) {
 
 
     # N0
-    lower_bnd$init_dev <- replace(lower_bnd$init_dev, values = rep(-15, length(lower_bnd$init_dev)))
+    lower_bnd$init_dev <- replace(lower_bnd$init_dev, values = rep(-1000, length(lower_bnd$init_dev)))
     upper_bnd$init_dev <- replace(upper_bnd$init_dev, values = rep(23, length(upper_bnd$init_dev)))
 
     # Survey variance

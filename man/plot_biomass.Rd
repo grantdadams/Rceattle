@@ -37,8 +37,6 @@ function.}
 
 \item{line_col}{Colors of models to be used for line color}
 
-\item{species}{Which species to plot e.g. c(1,4). Default = NULL plots them all}
-
 \item{spnames}{Species names for legend}
 
 \item{add_ci}{If the confidence interval is to be added}

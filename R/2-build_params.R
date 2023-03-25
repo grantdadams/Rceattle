@@ -35,10 +35,15 @@ build_params <- function(data_list, inits = NULL) {
 
 
   # -- 3.2. Abundance parameters
-  if(data_list$initMode > 0){
-    param_list$init_dev = matrix(0, nrow = data_list$nspp, ncol = max(data_list$nages)-1)  # Initial abundance-at-age; n = [nspp, nages] # NOTE: Need to figure out how to best vectorize this
-  } else{
-    param_list$init_dev = matrix(0, nrow = data_list$nspp, ncol = max(data_list$nages))  # Initial abundance-at-age; n = [nspp, nages] # NOTE: Need to figure out how to best vectorize this
+  if(data_list$initMode > 0){ # Estimate as devs
+    param_list$init_dev = matrix(0, nrow = data_list$nspp, ncol = max(data_list$nages)-1)
+  } else { # Estimate as free parameters
+    param_list$init_dev = matrix(4, nrow = data_list$nspp, ncol = max(data_list$nages))
+    for(sp in 1:data_list$nspp){
+      if(data_list$nages[sp] != max(data_list$nages)){
+        param_list$init_dev[sp,(data_list$nages[sp]+1):max(data_list$nages)] = -999
+      }
+    }
   }
 
   # -- 3.3. Residual natural mortality
