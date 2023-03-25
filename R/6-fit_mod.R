@@ -100,7 +100,7 @@ fit_mod <-
       M1_prior_sd = .2),
     msmMode = 0,
     avgnMode = 0,
-    initMode = 0,
+    initMode = 1,
     minNByage = 0,
     suitMode = 0,
     meanyr = NULL,
@@ -195,9 +195,8 @@ fit_mod <-
     # M1
     data_list$M1_model= extend_length(M1Fun$M1_model)
     updateM1 = M1Fun$updateM1
-    data_list$M1_use_prior = extend_length(M1Fun$M1_use_prior)
-    data_list$M2_use_prior = extend_length(M1Fun$M2_use_prior)
-    if(msmMode == 0){data_list$M2_use_prior = replace(data_list$M2_use_prior, values = rep(FALSE, length(data_list$M2_use_prior)))} # Dont use M2 prior if single-species mode
+    data_list$M1_use_prior = extend_length(M1Fun$M1_use_prior) * (data_list$M1_model > 0) # Sets to 0 if M1 is fixed
+    data_list$M2_use_prior = extend_length(M1Fun$M2_use_prior) * (msmMode > 0) # Sets to 0 if single-species
     data_list$M1_prior_mean = extend_length(M1Fun$M1_prior_mean)
     data_list$M1_prior_sd = extend_length(M1Fun$M1_prior_sd)
 
