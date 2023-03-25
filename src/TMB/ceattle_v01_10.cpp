@@ -1299,8 +1299,8 @@ Type objective_function<Type>::operator() () {
                 for(int age_tmp = 0; age_tmp < age; age_tmp++){
                   mort_sum += M1(sp, sex, age_tmp);
                 }
-                if(sex ==0){
-                  NByage(sp, 0, age, 0) = R0(sp) * exp( - mort_sum + init_dev(sp, age - 1)) * R_sexr(sp); // NOTE: could be better by having 1 loop and multiplying by exp(init_dev) at the end
+                if(sex == 0){
+                  NByage(sp, 0, age, 0) = R0(sp) * exp( - mort_sum + init_dev(sp, age - 1)) * R_sexr(sp);
                 }
                 if(sex == 1){
                   NByage(sp, 1, age, 0) = R0(sp) * exp( - mort_sum + init_dev(sp, age - 1)) * (1-R_sexr(sp));
@@ -1309,16 +1309,19 @@ Type objective_function<Type>::operator() () {
 
               // -- 6.5.3. Amax
               if (age == (nages(sp) - 1)) {
+
                 // Sum M1 until age - 1
                 Type mort_sum = 0;
                 for(int age_tmp = 0; age_tmp < age; age_tmp++){
                   mort_sum += M1(sp, sex, age_tmp);
                 }
+
                 if(sex ==0){
-                  NByage(sp, 0, age, 0) = rec_pars(sp, 0) * exp( - mort_sum + init_dev(sp, age - 1)) / (1 - exp(-M1(sp, sex, nages(sp) - 1))) * R_sexr(sp); // NOTE: This solves for the geometric series
+                  NByage(sp, 0, age, 0) = R0(sp) * exp( - mort_sum + init_dev(sp, age - 1)) / (1 - exp(-M1(sp, sex, nages(sp) - 1))) * R_sexr(sp); // NOTE: This solves for the geometric series
                 }
+
                 if(sex == 1){
-                  NByage(sp, 1, age, 0) = rec_pars(sp, 0) * exp( - mort_sum + init_dev(sp, age - 1)) / (1 - exp(-M1(sp, sex, nages(sp) - 1))) * (1-R_sexr(sp)); // NOTE: This solves for the geometric series
+                  NByage(sp, 1, age, 0) = R0(sp) * exp( - mort_sum + init_dev(sp, age - 1)) / (1 - exp(-M1(sp, sex, nages(sp) - 1))) * (1-R_sexr(sp)); // NOTE: This solves for the geometric series
                 }
               }
             }
@@ -1349,19 +1352,6 @@ Type objective_function<Type>::operator() () {
         biomassSSBByage(sp, age, 0) = NByage(sp, 0, age, 0) * pow(S(sp, 0, age, 0), spawn_month(sp)/12) * wt(ssb_wt_index(sp), 0, age, 0 ) * pmature(sp, age); // 6.6.
         biomassSSB(sp, 0) += biomassSSBByage(sp, age, 0);
       }
-
-      /*
-       // Martin's initialization
-       NByage(sp, 0, 1, 0) = R0(sp) * exp(  rec_dev(sp, 0) - M1(sp,0,0));
-       for (age=1;age<nages(sp);age++){
-       NByage(sp, 0, age, 0)= NByage(sp, 0, age-1, 0)*exp(-M1(sp, 0, age));
-       }
-       NByage(sp, 0, nages(sp)-1, 0) /= (1.0 - exp(-M1(sp,0,nages(sp)-1)));
-       //devs for initN are turned off
-       for (age=1;age<nages(sp);age++){
-       NByage(sp, 0, age, 0) = NByage(sp, 0, age, 0)*exp(init_dev(sp,age-1));
-       }
-       */
     }
 
 

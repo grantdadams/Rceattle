@@ -31,12 +31,7 @@ ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
                             verbose = 1,
-                            recFun = build_srr(srr_fun = 3,
-                                               srr_use_prior = TRUE,
-                                               srr_prior_mean = 5,
-                                               srr_prior_sd = 5),
-                            phase = "default",
-                            initMode = 0)
+                            phase = "default")
 # Type ?fit_mod for more details
 
 plot_biomass(list(ss_run, mod_objects))
