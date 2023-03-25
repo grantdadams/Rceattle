@@ -34,5 +34,35 @@ build_srr <- function(srr_fun = 0,
        srr_use_prior = srr_use_prior,
        srr_prior_mean = srr_prior_mean,
        srr_prior_sd = srr_prior_sd
-       )
+  )
+}
+
+
+
+#' Define M1 specifications
+#'
+#' @param M1_model
+#' @param updateM1
+#' @param M1_use_prior
+#' @param M1_prior_mean
+#' @param M1_prior_sd
+#'
+#' @return
+#' @export
+#'
+#' @examples
+build_M1 <- function(M1_model = 0, #FIXME est_M1 from data
+                     updateM1 = 0,
+                     M1_use_prior = FALSE,
+                     M2_use_prior = FALSE,
+                     M1_prior_mean = 0.40,
+                     M1_prior_sd = 0.35){
+  list(
+    M1_model= M1_model,
+    updateM1 = updateM1,
+    M1_use_prior = M1_use_prior,
+    M2_use_prior = M2_use_prior,
+    M1_prior_mean = M1_prior_mean,
+    M1_prior_sd = M1_prior_sd
+  )
 }

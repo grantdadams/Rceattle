@@ -83,14 +83,14 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     map_list$ln_M1[sp,,] <- NA
 
     # Turn on
-    # - est_M1 = 1: sex- and age-invariant M1
-    if(data_list$est_M1[sp] == 1){
+    # - M1_model = 1: sex- and age-invariant M1
+    if(data_list$M1_model[sp] == 1){
       map_list$ln_M1[sp,,1:data_list$nages[sp]] <- M1_ind
       M1_ind = M1_ind + 1
     }
 
-    # - est_M1 = 2: sex-specific, age-invariant M1
-    if(data_list$est_M1[sp] == 2){
+    # - M1_model = 2: sex-specific, age-invariant M1
+    if(data_list$M1_model[sp] == 2){
       if(data_list$nsex[sp] == 1){ # One sex population
         map_list$ln_M1[sp,,1:data_list$nages[sp]] <- M1_ind
         M1_ind = M1_ind + 1
@@ -102,8 +102,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       }
     }
 
-    # - est_M1 = 3: sex-specific, age-specific M1
-    if(data_list$est_M1[sp] == 3){
+    # - M1_model = 3: sex-specific, age-specific M1
+    if(data_list$M1_model[sp] == 3){
       if(data_list$nsex[sp] == 1){ # One sex population
         map_list$ln_M1[sp,1,1:data_list$nages[sp]] <- M1_ind: (M1_ind + data_list$nages[sp] - 1) # Females (one-sex though)
         map_list$ln_M1[sp,2,1:data_list$nages[sp]] <- M1_ind: (M1_ind + data_list$nages[sp] - 1) # Males (one-sex though)
