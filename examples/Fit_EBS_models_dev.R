@@ -35,28 +35,48 @@ ss_run <- Rceattle::fit_mod(data_list = mydata,
                             msmMode = 0, # Single species mode
                             phase = "default",
                             verbose = 1)
+load("~/GitHub/ss.RData")
+plot_biomass(list(ss_run, mod_objects))
+
+
 
 
 # Single-species, but estimate M
+load("~/GitHub/ssm.RData")
+inits <- mod_objects$estimated_params
+inits$rec_pars <- matrix(9, nrow = mod_objects$data_list$nspp, ncol = 2)
+inits$rec_pars[,1] <- inits$ln_mean_rec
+inits$ln_mean_rec <- NULL
+
 ss_run_M <- Rceattle::fit_mod(data_list = mydata,
-                              inits = ss_run$estimated_params, # Initial parameters = 0
+                              inits = inits, # Initial parameters = 0
                               file = NULL, # Don't save
-                              estimateMode = 0, # Estimate
+                              estimateMode = 3, # Estimate
                               M1Fun = build_M1(M1_model = 1,
                                                M1_use_prior = FALSE,
                                                M2_use_prior = FALSE),
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
                               phase = "default",
+                              initMode = 1,
                               verbose = 1)
 
+plot_biomass(list(ss_run_M, mod_objects))
+plot_recruitment(list(ss_run_M, mod_objects))
+plot_ssb(list(ss_run_M, mod_objects))
+round(ss_run_M$quantities$jnll_comp,3)[1:3,] - round(mod_objects$quantities$jnll_comp,3)[1:3,]
+round(ss_run_M$quantities$NByage[1,1,1:12,1:5]-mod_objects$quantities$NByage[1,1,1:12,1:5],3)
+round(ss_run_M$quantities$NByage[1,1,1:12,1]-mod_objects$quantities$NByage[1,1,1:12,1],3)
+
+ss_run_M$quantities$NByage[1,,12,1]
+ss_run_M$quantities$R0[1] * exp(- sum(ss_run_M$quantities$M1[1,1,1:11]) + ss_run_M$estimated_params$init_dev[1,11])/(1-exp(-ss_run_M$quantities$M1[1,1,12]))
 
 # - Multi-species
 # For the a multispecies model we from the single species parameters.
 BS2017MS$fleet_control$proj_F_prop <- c(rep(1,3), rep(0,4))
 ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
                             inits = ss_run$estimated_params, # Initial parameters from single species ests
-                            M1Fun = build_M1(M1_model = 1,
+                            M1Fun = build_M1(M1_model = 0,
                                              updateM1 = TRUE,
                                              M1_use_prior = FALSE,
                                              M2_use_prior = FALSE),
@@ -67,6 +87,9 @@ ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
                             msmMode = 1, # MSVPA based
                             suitMode = 0, # empirical suitability
                             verbose = 1)
+
+load("~/GitHub/ms.RData")
+plot_biomass(list(ms_run, mod_objects))
 
 
 ################################################
