@@ -11,14 +11,15 @@ fit_mod(
   bounds = NULL,
   file = NULL,
   estimateMode = 0,
-  proj_mean_rec = TRUE,
   random_rec = FALSE,
   random_q = FALSE,
   random_sel = FALSE,
   HCR = build_hcr(),
   niter = 3,
+  recFun = build_srr(),
   msmMode = 0,
   avgnMode = 0,
+  initMode = 0,
   minNByage = 0,
   suitMode = 0,
   meanyr = NULL,
@@ -47,8 +48,6 @@ fit_mod(
 
 \item{estimateMode}{0 = Fit the hindcast model and projection with HCR specified via \code{HCR}. 1 = Fit the hindcast model only (no projection). 2 = Run the projection only with HCR specified via \code{HCR} given the initial parameters in \code{inits}.  3 = debug mode 1: runs the model through MakeADFun, but not nlminb, 4 = runs the model through MakeADFun and nlminb (will all parameters mapped out).}
 
-\item{proj_mean_rec}{Project the model using: 0 = mean recruitment (average R of hindcast) or 1 = exp(ln_R0 + rec_devs)}
-
 \item{random_rec}{logical. If TRUE, treats annual selectivity deviations as random effects.The default is FALSE.}
 
 \item{random_q}{logical. If TRUE, treats annual catchability deviations as random effects.The default is FALSE.}
@@ -57,9 +56,13 @@ fit_mod(
 
 \item{niter}{Number of iterations for multispecies model}
 
+\item{recFun}{The stock recruit-relationship parameterization from \code{\link{build_srr}}.}
+
 \item{msmMode}{The predation mortality functions to used. Defaults to no predation mortality used.}
 
 \item{avgnMode}{The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.}
+
+\item{initMode}{how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = estimated as function of mortality (M1) and initial population deviates.}
 
 \item{minNByage}{Minimum numbers at age to put in a hard constraint that the number-at-age can not go below.}
 
@@ -126,40 +129,6 @@ CEATTLE is an age-structured population dynamics model that can be fit with or w
 library(Rceattle)
 data(BS2017SS) # ?BS2017SS for more information on the data
 
-# Set up phases, also the default
-  dummy = 1,
-  ln_pop_scalar = 4,
-  ln_mean_rec = 1,
-  ln_rec_sigma = 2,
-  rec_dev = 2,
-  init_dev = 2,
-  ln_mean_F = 1,
-  ln_Flimit = 3,
-  ln_Ftarget = 3,
-  proj_F_prop = 1,
-  F_dev = 1,
-  ln_srv_q = 3,
-  srv_q_pow = 4,
-  ln_srv_q_dev = 5,
-  ln_sigma_srv_q = 4,
-  ln_sigma_time_varying_srv_q = 4,
-  sel_coff = 3,
-  sel_coff_dev = 4,
-  sel_curve_pen = 4,
-  ln_sex_ratio_sigma = 3,
-  ln_sel_slp = 3,
-  ln_M1 = 4,
-  sel_inf = 3,
-  ln_sel_slp_dev = 5,
-  sel_inf_dev = 5,
-  ln_sigma_sel = 4,
-  ln_sigma_srv_index = 2,
-  ln_sigma_fsh_catch = 2,
-  log_gam_a = 4,
-  log_gam_b = 4,
-  log_phi = 4,
-  comp_weights = 4
-)
 
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
 ss_run <- fit_mod(data_list = BS2017SS,

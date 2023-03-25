@@ -1229,25 +1229,31 @@ Type objective_function<Type>::operator() () {
     // 6.4. STOCK-RECRUIT PARAMETERS
     // -- For beverton-holt, steepness and R0 are derived from SPR0
     for ( sp = 0; sp < nspp ; sp++) {
-      // switch(srr_fun){
-      // case 0: // Random about mean (e.g. Alaska)
-      //   Steepness(sp) = 0.99;
-      //   R0(sp) = exp(rec_pars(sp, 0));
-      //   break;
-      //
-      // case 1: // Beverton-Holt
-      //   Steepness(sp) = exp(rec_pars(sp, 0)) * SPR0(sp)/(4.0 + exp(rec_pars(sp, 0)) * SPR0(sp));
-      //   R0(sp) = (exp(rec_pars(sp, 0))-1/SPR0(sp)) / exp(rec_pars(sp, 1)); // (Alpha-1/SPR0)/beta
-      //   break;
-      //
-      // case 2: // Beverton-Holt with environmental impacts on alpha
-      //   Steepness(sp) = exp(rec_pars(sp, 0)) * SPR0(sp)/(4.0 + exp(rec_pars(sp, 0)) * SPR0(sp));
-      //   R0(sp) = (exp(rec_pars(sp, 0))-1/SPR0(sp)) / exp(rec_pars(sp, 1)); // (Alpha-1/SPR0)/beta
-      //   break;
-      //
-      // default:
-      //   error("Invalid 'srr_fun'");
-      // }
+      switch(srr_fun){
+      case 0: // Random about mean (e.g. Alaska)
+        Steepness(sp) = 0.99;
+        R0(sp) = exp(rec_pars(sp, 0));
+        break;
+
+      case 1: // Beverton-Holt
+        Steepness(sp) = exp(rec_pars(sp, 0)) * SPR0(sp)/(4.0 + exp(rec_pars(sp, 0)) * SPR0(sp));
+        R0(sp) = (exp(rec_pars(sp, 0))-1/SPR0(sp)) / exp(rec_pars(sp, 1)); // (Alpha-1/SPR0)/beta
+        break;
+
+      case 2: // Beverton-Holt with environmental impacts on alpha
+        //FIXME make time-varying
+        Steepness(sp) = exp(rec_pars(sp, 0)) * SPR0(sp)/(4.0 + exp(rec_pars(sp, 0)) * SPR0(sp));
+        R0(sp) = (exp(rec_pars(sp, 0))-1/SPR0(sp)) / exp(rec_pars(sp, 1)); // (Alpha-1/SPR0)/beta
+        break;
+
+      case 3: // Ricker
+        Steepness(sp) = 0.2 * exp(0.8*log(exp(rec_pars(sp, 0)) * SPR0(sp))); //
+        R0(sp) = log(exp(rec_pars(sp, 0)) * SPR0(sp))/(exp(rec_pars(sp, 1)) * SPR0(sp)); // FIXME - make time-varying
+        break;
+
+      default:
+        error("Invalid 'srr_fun'");
+      }
     }
 
 
@@ -1264,9 +1270,9 @@ Type objective_function<Type>::operator() () {
 
             // - Estimate as free parameters
             if(initMode == 0){
+              R(sp, 0) = exp(init_dev(sp, 0));
               NByage(sp, 0, age, 0) = exp(init_dev(sp, age)) * R_sexr(sp);
               NByage(sp, 1, age, 0) = exp(init_dev(sp, age)) * (1-R_sexr(sp));
-
             }
 
             // - Estimate as function of R0, mortality, and init devs (No S-R Curve)
@@ -1356,23 +1362,27 @@ Type objective_function<Type>::operator() () {
     for (sp = 0; sp < nspp; sp++) {
       for (yr = 1; yr < nyrs_hind; yr++) {
 
-        // // -- 6.6.1. Recruitment
-        // switch(srr_fun){
-        // case 0: // Random about mean (e.g. Alaska)
-        //   R(sp, yr) = R0(sp) * exp(rec_dev(sp, yr));
-        //   break;
-        //
-        // case 1: // Beverton-Holt
-        //   R(sp, yr) = exp(rec_pars(sp, 0)) * biomassSSB(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)));
-        //   break;
-        //
-        // case 2: // Beverton-Holt with environmental impacts on alpha
-        //   R(sp, yr) = exp(rec_pars(sp, 0)) * biomassSSB(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)));
-        //   break;
-        //
-        // default:
-        //   error("Invalid 'srr_fun'");
-        // }
+        // -- 6.6.1. Recruitment
+        switch(srr_fun){
+        case 0: // Random about mean (e.g. Alaska)
+          R(sp, yr) = R0(sp) * exp(rec_dev(sp, yr));
+          break;
+
+        case 1: // Beverton-Holt
+          R(sp, yr) = exp(rec_pars(sp, 0)) * biomassSSB(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)));
+          break;
+
+        case 2: // Beverton-Holt with environmental impacts on alpha
+          R(sp, yr) = exp(rec_pars(sp, 0)) * biomassSSB(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)));
+          break;
+
+        case 3: // Ricker
+          R(sp, yr) = exp(rec_pars(sp, 0)) * biomassSSB(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp))) * exp(rec_dev(sp, yr));
+          break;
+
+        default:
+          error("Invalid 'srr_fun'");
+        }
 
         NByage(sp, 0, 0, yr) = R(sp, yr) * R_sexr(sp);
         NByage(sp, 1, 0, yr) = R(sp, yr) * (1-R_sexr(sp));
@@ -1459,11 +1469,11 @@ Type objective_function<Type>::operator() () {
           // Recruitment
           switch(srr_fun){
           case 0: // Random about mean (e.g. Alaska)
-            NByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 0));
+            NByage0(sp, 0, 0, yr) = R0(sp);
 
-            DynamicNByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 0) + rec_dev(sp, yr));
+            DynamicNByage0(sp, 0, 0, yr) = R0(sp) * exp(rec_dev(sp, yr));
 
-            DynamicNByageF(sp, 0, 0, yr) = exp(rec_pars(sp, 0) + rec_dev(sp, yr));
+            DynamicNByageF(sp, 0, 0, yr) = R0(sp) * exp(rec_dev(sp, yr));
             break;
 
           case 1: // Beverton-Holt
@@ -1482,6 +1492,15 @@ Type objective_function<Type>::operator() () {
             DynamicNByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 0)) * DynamicSB0(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 1)) * DynamicSB0(sp, yr-minage(sp)));
 
             DynamicNByageF(sp, 0, 0, yr) = exp(rec_pars(sp, 0)) * DynamicSBF(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 1)) * DynamicSBF(sp, yr-minage(sp)));
+            break;
+
+          case 3: // Ricker
+            // FIXME: error if minage > 1
+            NByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 0)) * SB0(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 1)) * SB0(sp, yr-minage(sp)));
+
+            DynamicNByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 0)) * DynamicSB0(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 1)) * DynamicSB0(sp, yr-minage(sp))) * exp(rec_dev(sp, yr));
+
+            DynamicNByageF(sp, 0, 0, yr) = exp(rec_pars(sp, 0)) * DynamicSBF(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 1)) * DynamicSBF(sp, yr-minage(sp))) * exp(rec_dev(sp, yr));
             break;
 
           default:
@@ -1714,6 +1733,10 @@ Type objective_function<Type>::operator() () {
 
           case 2: // Beverton-Holt with environmental impacts on alpha
             R(sp, yr) = exp(rec_pars(sp, 0)) * biomassSSB(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)));
+            break;
+
+          case 3: // Ricker
+            R(sp, yr) = exp(rec_pars(sp, 0)) * biomassSSB(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)))* exp(rec_dev(sp, yr));
             break;
 
           default:
@@ -3505,6 +3528,7 @@ Type objective_function<Type>::operator() () {
   REPORT( biomassSSB );
   REPORT(r_sigma);
   REPORT( R_sexr );
+  REPORT( R0 );
   REPORT( R );
   REPORT( M );
 

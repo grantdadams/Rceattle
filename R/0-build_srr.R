@@ -17,6 +17,9 @@
 ##' \code{srr_fun = 2} Beverton-holt stock-recruitment relationship with environmental covariates impacting larval survival rate
 ##'   \deqn{R_y = \frac{\alpha * e^{X * \Beta} * SB_{y-minage}}{1+\beta * SB_{y-minage}}}. Prior is on alpha.
 ##'
+##' \code{srr_fun = 3} Ricker stock-recruitment relationship.
+##'   \deqn{R_y = \alpha * SB_{y-minage}} * exp(-beta * SB_{y-minage})}. Prior is on alpha.
+##'
 ##'
 ##' @return A \code{list} containing the stock recruitment relationship settings
 ##' @export

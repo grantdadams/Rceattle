@@ -48,6 +48,11 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   map_list$rec_dev[, yrs_proj] <- as.numeric(replace(map_list$rec_dev[, yrs_proj],
                                                      values = rep(NA, length(map_list$rec_dev[, yrs_proj]))))
 
+  # -- Map out first year rec devs if estimating initial abundance as free parameters
+  if(data_list$initMode == 0){
+    map_list$rec_dev[, 1] <- NA
+  }
+
   # -- FSPR mapped out
   map_list$ln_Flimit <- replace(map_list$ln_Flimit,
                                 values = rep(NA, length(map_list$ln_Flimit)))
@@ -63,7 +68,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       }
     }else{
       if((data_list$nages[sp]) < ncol(map_list$init_dev)) {
-        map_list$init_dev[sp, (data_list$nages[sp]):ncol(map_list$init_dev)] <- NA
+        map_list$init_dev[sp, (data_list$nages[sp]+1):ncol(map_list$init_dev)] <- NA
       }
     }
   }
@@ -699,7 +704,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
   # -- Stock recruit parameters (turning off 2nd par if only using mean rec)
   if(data_list$srr_fun == 0){
-    map_list$rec_pars[sp,1] <- NA
+    map_list$rec_pars[, 2] <- NA
   }
 
 
