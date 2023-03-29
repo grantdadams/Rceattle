@@ -34,6 +34,7 @@ ss_run <- Rceattle::fit_mod(data_list = mydata,
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
                             phase = "default",
+                            initMode = 2,
                             verbose = 1)
 load("~/GitHub/ss.RData")
 plot_biomass(list(ss_run, mod_objects))
@@ -43,15 +44,15 @@ plot_biomass(list(ss_run, mod_objects))
 
 # Single-species, but estimate M
 load("~/GitHub/ssm.RData")
-inits <- mod_objects$estimated_params
-inits$rec_pars <- matrix(9, nrow = mod_objects$data_list$nspp, ncol = 2)
-inits$rec_pars[,1] <- inits$ln_mean_rec
-inits$ln_mean_rec <- NULL
+# inits <- mod_objects$estimated_params
+# inits$rec_pars <- matrix(9, nrow = mod_objects$data_list$nspp, ncol = 2)
+# inits$rec_pars[,1] <- inits$ln_mean_rec
+# inits$ln_mean_rec <- NULL
 
 ss_run_M <- Rceattle::fit_mod(data_list = mydata,
-                              inits = inits, # Initial parameters = 0
+                              inits = NULL, # Initial parameters = 0
                               file = NULL, # Don't save
-                              estimateMode = 3, # Estimate
+                              estimateMode = 0, # Estimate
                               M1Fun = build_M1(M1_model = 1,
                                                M1_use_prior = FALSE,
                                                M2_use_prior = FALSE),
@@ -64,12 +65,12 @@ ss_run_M <- Rceattle::fit_mod(data_list = mydata,
 plot_biomass(list(ss_run_M, mod_objects))
 plot_recruitment(list(ss_run_M, mod_objects))
 plot_ssb(list(ss_run_M, mod_objects))
-round(ss_run_M$quantities$jnll_comp,3)[1:3,] - round(mod_objects$quantities$jnll_comp,3)[1:3,]
-round(ss_run_M$quantities$NByage[1,1,1:12,1:5]-mod_objects$quantities$NByage[1,1,1:12,1:5],3)
-round(ss_run_M$quantities$NByage[1,1,1:12,1]-mod_objects$quantities$NByage[1,1,1:12,1],3)
-
-ss_run_M$quantities$NByage[1,,12,1]
-ss_run_M$quantities$R0[1] * exp(- sum(ss_run_M$quantities$M1[1,1,1:11]) + ss_run_M$estimated_params$init_dev[1,11])/(1-exp(-ss_run_M$quantities$M1[1,1,12]))
+# round(ss_run_M$quantities$jnll_comp,3)[1:3,] - round(mod_objects$quantities$jnll_comp,3)[1:3,]
+# round(ss_run_M$quantities$NByage[1,1,1:12,1:5]-mod_objects$quantities$NByage[1,1,1:12,1:5],3)
+# round(ss_run_M$quantities$NByage[1,1,1:12,1]-mod_objects$quantities$NByage[1,1,1:12,1],3)
+#
+# ss_run_M$quantities$NByage[1,,12,1]
+# ss_run_M$quantities$R0[1] * exp(- sum(ss_run_M$quantities$M1[1,1,1:11]) + ss_run_M$estimated_params$init_dev[1,11])/(1-exp(-ss_run_M$quantities$M1[1,1,12]))
 
 # - Multi-species
 # For the a multispecies model we from the single species parameters.

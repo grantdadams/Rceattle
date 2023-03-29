@@ -68,6 +68,7 @@ build_params <- function(data_list, inits = NULL) {
   param_list$ln_mean_F = rep(-0.8, nrow(data_list$fleet_control))  # Log mean fishing mortality; n = [1, nspp]
   param_list$ln_Flimit = matrix(0, nrow = data_list$nspp, ncol = nyrs_proj) # Future fishing mortality for projections for each species
   param_list$ln_Ftarget = matrix(ifelse(is.null(data_list$FsprTarget), 0, log(data_list$FsprTarget)), nrow = data_list$nspp, ncol = nyrs_proj) # Future fishing mortality for projections for each species
+  param_list$ln_Finit = rep(-10, data_list$nspp)
   param_list$proj_F_prop = data_list$fleet_control$proj_F_prop  # Proportion of future fishing mortality for projections for each fleet
   param_list$F_dev = matrix(0, nrow = nrow(data_list$fleet_control), ncol = nyrs_hind)  # Annual fishing mortality deviations
 

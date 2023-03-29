@@ -53,6 +53,10 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     map_list$rec_dev[, 1] <- NA
   }
 
+  if(data_list$initMode != 2){
+    map_list$ln_Finit <- rep(NA, data_list$nspp)
+  }
+
   # -- FSPR mapped out
   map_list$ln_Flimit <- replace(map_list$ln_Flimit,
                                 values = rep(NA, length(map_list$ln_Flimit)))

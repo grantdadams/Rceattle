@@ -6,7 +6,7 @@
 \usage{
 build_M1(
   M1_model = 0,
-  updateM1 = 0,
+  updateM1 = FALSE,
   M1_use_prior = FALSE,
   M2_use_prior = FALSE,
   M1_prior_mean = 0.4,
@@ -14,10 +14,20 @@ build_M1(
 )
 }
 \arguments{
-\item{M1_prior_sd}{}
+\item{M1_model}{M1 set-up. 0 = use fixed natural mortality from M1_base in data, 1 = estimate sex- and age-invariant M1, 2 = sex-specific (two-sex model), age-invariant M1, 3 =   estimate sex- and age-specific M1.}
+
+\item{updateM1}{If using initial parameters, use M1 from data instead.}
+
+\item{M1_use_prior}{Have M1 come from a lognormal prior}
+
+\item{M2_use_prior}{Include M2 in prior for multi-species models}
+
+\item{M1_prior_mean}{Mean of M prior on natural scale}
+
+\item{M1_prior_sd}{SD of lognormal M prior.}
 }
 \value{
-
+A list of switches for defining the M1 model
 }
 \description{
 Define M1 specifications
