@@ -41,18 +41,18 @@ build_srr <- function(srr_fun = 0,
 
 #' Define M1 specifications
 #'
-#' @param M1_model
-#' @param updateM1
-#' @param M1_use_prior
-#' @param M1_prior_mean
-#' @param M1_prior_sd
+#' @param M1_model M1 set-up. 0 = use fixed natural mortality from M1_base in data, 1 = estimate sex- and age-invariant M1, 2 = sex-specific (two-sex model), age-invariant M1, 3 =   estimate sex- and age-specific M1.
+#' @param updateM1 If using initial parameters, use M1 from data instead.
+#' @param M1_use_prior Have M1 come from a lognormal prior
+#' @param M2_use_prior Include M2 in prior for multi-species models
+#' @param M1_prior_mean Mean of M prior on natural scale
+#' @param M1_prior_sd SD of lognormal M prior.
 #'
-#' @return
+#' @return A list of switches for defining the M1 model
 #' @export
 #'
-#' @examples
 build_M1 <- function(M1_model = 0, #FIXME est_M1 from data
-                     updateM1 = 0,
+                     updateM1 = FALSE,
                      M1_use_prior = FALSE,
                      M2_use_prior = FALSE,
                      M1_prior_mean = 0.40,

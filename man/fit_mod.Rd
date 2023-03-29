@@ -20,7 +20,7 @@ fit_mod(
   M1Fun = build_M1(updateM1 = TRUE, M1_prior_mean = 0.2, M1_prior_sd = 0.2),
   msmMode = 0,
   avgnMode = 0,
-  initMode = 0,
+  initMode = 1,
   minNByage = 0,
   suitMode = 0,
   meanyr = NULL,
@@ -62,7 +62,7 @@ fit_mod(
 
 \item{avgnMode}{The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.}
 
-\item{initMode}{how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = estimated as function of mortality (M1) and initial population deviates.}
+\item{initMode}{how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 2 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates.}
 
 \item{minNByage}{Minimum numbers at age to put in a hard constraint that the number-at-age can not go below.}
 

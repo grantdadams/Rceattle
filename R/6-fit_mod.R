@@ -14,7 +14,7 @@
 #' @param recFun The stock recruit-relationship parameterization from \code{\link{build_srr}}.
 #' @param msmMode The predation mortality functions to used. Defaults to no predation mortality used.
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.
-#' @param initMode how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = estimated as function of mortality (M1) and initial population deviates.
+#' @param initMode how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 2 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates.
 #' @param minNByage Minimum numbers at age to put in a hard constraint that the number-at-age can not go below.
 #' @param phase Optional. List of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R. If NULL, will not phase model. If set to \code{"default"}, will use default phasing.
 #' @param suitMode Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma suitability, 2 = weight based gamma suitability, 3 = length based lognormal selectivity, 4 = time-varying length based lognormal selectivity.
@@ -94,10 +94,7 @@ fit_mod <-
     HCR = build_hcr(),
     niter = 3,
     recFun = build_srr(),
-    M1Fun = build_M1(
-      updateM1 = TRUE,
-      M1_prior_mean = .2,
-      M1_prior_sd = .2),
+    M1Fun = build_M1(),
     msmMode = 0,
     avgnMode = 0,
     initMode = 1,
@@ -115,36 +112,38 @@ fit_mod <-
     verbose = 1,
     newtonsteps = 0){
 
-    #
-    #     ### For debugging
-    #     data_list = NULL;
-    #     inits = NULL;
-    #     map = NULL;
-    #     bounds = NULL;
-    #     file = NULL;
-    #     estimateMode = 0;
-    #     random_rec = FALSE;
-    #     random_q = FALSE;
-    #     random_sel = FALSE;
-    #     HCR = build_hcr();
-    #     niter = 3;
-    #     msmMode = 0;
-    #     avgnMode = 0;
-    #     updateM1 = TRUE;
-    #     minNByage = 0;
-    #     suitMode = 0;
-    #     meanyr = NULL;
-    #     phase = NULL;
-    #     getsd = TRUE;
-    #     use_gradient = TRUE;
-    #     rel_tol = 1;
-    #     control = list(eval.max = 1e+09,
-    #                    iter.max = 1e+09, trace = 0);
-    #     getJointPrecision = TRUE;
-    #     loopnum = 5;
-    #     verbose = 1;
-    #     newtonsteps = 0
-    #     rec_fun = build_srr()
+
+    # ### For debugging
+    # data_list = NULL;
+    # inits = NULL;
+    # map = NULL;
+    # bounds = NULL;
+    # file = NULL;
+    # estimateMode = 0;
+    # random_rec = FALSE;
+    # random_q = FALSE;
+    # random_sel = FALSE;
+    # HCR = build_hcr();
+    # niter = 3;
+    # msmMode = 0;
+    # avgnMode = 0;
+    # initMode = 1
+    # updateM1 = TRUE;
+    # minNByage = 0;
+    # suitMode = 0;
+    # meanyr = NULL;
+    # phase = NULL;
+    # getsd = TRUE;
+    # use_gradient = TRUE;
+    # rel_tol = 1;
+    # control = list(eval.max = 1e+09,
+    #                iter.max = 1e+09, trace = 0);
+    # getJointPrecision = TRUE;
+    # loopnum = 5;
+    # verbose = 1;
+    # newtonsteps = 0
+    # recFun = build_srr()
+    # M1Fun = build_M1()
 
 
     start_time <- Sys.time()
@@ -276,43 +275,43 @@ fit_mod <-
         if(tolower(phase) == "default"){
           phase = list(
             dummy = 1,
-            ln_pop_scalar = 4,
-            rec_pars = 1,
-            ln_rec_sigma = 2,
-            rec_dev = 2,
-            init_dev = 2,
-            ln_sex_ratio_sigma = 3,
-            ln_M1 = 4,
-            ln_mean_F = 1,
-            ln_Flimit = 3,
-            ln_Ftarget = 3,
-            proj_F_prop = 1,
-            F_dev = 1,
-            ln_srv_q = 3,
-            # srv_q_pow = 4,
-            ln_srv_q_dev = 5,
-            ln_sigma_srv_q = 4,
-            ln_sigma_time_varying_srv_q = 4,
-            sel_coff = 3,
-            sel_coff_dev = 4,
-            ln_sel_slp = 3,
-            sel_inf = 3,
-            ln_sel_slp_dev = 5,
-            sel_inf_dev = 5,
-            ln_sigma_sel = 4,
-            sel_curve_pen = 4,
-            ln_sigma_srv_index = 2,
-            ln_sigma_fsh_catch = 2,
-            comp_weights = 4,
-            logH_1 = 6,
-            logH_1a = 6,
-            logH_1b = 6,
-            logH_2 = 6,
-            logH_3 = 6,
-            H_4 = 6,
-            log_gam_a = 5,
-            log_gam_b = 5,
-            log_phi = 5
+            ln_pop_scalar = 4, # Scalar for input numbers-at-age
+            rec_pars = 1, # Stock-recruit parameters or log(mean rec) if no stock-recruit relationship
+            ln_rec_sigma = 2, # Variance for annual recruitment deviats
+            rec_dev = 2, # Annual recruitment deviats
+            init_dev = 2, # Age specific initial age-structure deviates or parameters
+            ln_sex_ratio_sigma = 3, # Variance of sex ratio (usually fixed)
+            ln_M1 = 4, #  Estimated natural or residual mortality
+            ln_mean_F = 1, # Mean fleet-specific fishing mortality
+            ln_Flimit = 3, # Estimated F limit
+            ln_Ftarget = 3, # Estimated F target
+            ln_Finit = 3, # Estimated fishing mortality for non-equilibrium initial age-structure
+            proj_F_prop = 1, # Fixed fleet-specific proportion of Flimit and Ftarget apportioned within each species
+            F_dev = 1, # Annual fleet specific fishing mortality deviates
+            ln_srv_q = 3, # Survey catchability
+            ln_srv_q_dev = 5, # Annual survey catchability deviates (if time-varying)
+            ln_sigma_srv_q = 4, # Prior SD for survey catchability deviates
+            ln_sigma_time_varying_srv_q = 4, # SD for annual survey catchability deviates (if time-varying)
+            sel_coff = 3, # Non-parametric selectivity coefficients
+            sel_coff_dev = 4, # Annual deviates for non-parametric selectivity coefficients
+            ln_sel_slp = 3, # Slope parameters for logistic forms of selectivity
+            sel_inf = 3, # Asymptote parameters for logistic forms of selectivity
+            ln_sel_slp_dev = 5, # Annual deviates for slope parameters for logistic forms of selectivity (if time-varying)
+            sel_inf_dev = 5, # Annual deviates for asymptote parameters for logistic forms of selectivity (if time-varying)
+            ln_sigma_sel = 4, # SD for annual selectivity deviates (if time-varying)
+            sel_curve_pen = 4, # Penalty for non-parametric selectivity
+            ln_sigma_srv_index = 2, # Log SD for survey lognormal index likelihood (usually input)
+            ln_sigma_fsh_catch = 2, # Log SD for lognormal catch likelihood (usually input)
+            comp_weights = 4, # Weights for multinomial comp likelihood
+            logH_1 = 6,  # Functional form parameter (not used in MSVPA functional form)
+            logH_1a = 6, # Functional form parameter (not used in MSVPA functional form)
+            logH_1b = 6, # Functional form parameter (not used in MSVPA functional form)
+            logH_2 = 6, # Functional form parameter (not used in MSVPA functional form)
+            logH_3 = 6, # Functional form parameter (not used in MSVPA functional form)
+            H_4 = 6, # Functional form parameter (not used in MSVPA functional form)
+            log_gam_a = 5, # Suitability parameter (not used in MSVPA style)
+            log_gam_b = 5, # Suitability parameter (not used in MSVPA style)
+            log_phi = 5 # Suitability parameter (not used in MSVPA style)
           )
         }
       }
@@ -325,19 +324,18 @@ fit_mod <-
     }
 
 
-    # STEP 5 - Compile CEATTLE is providing cpp file
-    # - Get cpp file if not provided
+    # STEP 5 - Reorganize data
     TMBfilename <- "ceattle_v01_10"
-
-
-    # STEP 6 - Reorganize data and build model object
     Rceattle:::data_check(data_list)
     data_list_reorganized <- Rceattle::rearrange_dat(data_list)
-    data_list_reorganized = c(list(model = "ceattle_v01_10"),data_list_reorganized)
+    data_list_reorganized = c(list(model = TMBfilename),data_list_reorganized)
     if(msmMode > 0 & data_list$HCR == 3){
       data_list_reorganized$HCR = 0 # Estimate model with F = 0 for the projection if multispecies
     }
+    data_list_reorganized$forecast <- FALSE # Don't include BRPs in likelihood of hindcast
 
+
+    # STEP 6 - Reorganize F and M vectors based on switches
     # - Update comp weights, future F (if input) and F_prop from data
     if(!is.null(data_list$fleet_control$Comp_weights)){
       start_par$comp_weights = data_list$fleet_control$Comp_weights
@@ -368,6 +366,7 @@ fit_mod <-
     }
 
     if(verbose > 0) {message("Step 4: Data rearranged complete")}
+
 
     # STEP 7 - Set up parameter bounds
     L <- c()
@@ -482,16 +481,17 @@ fit_mod <-
     }
 
 
-    # STEP 10 - Run HCR projections
-    if(estimateMode %in% c(0,2,4)){
-      if(data_list$HCR > 2){
+    # STEP 10 - Run forecast (for HCRs with estimable BRPs)
+    if(estimateMode %in% c(0,2,4)){ # Hindcast and forecast, forecast, run model through
+      if(data_list$HCR > 2){ # Estimable HCRs/BRPs
+        data_list_reorganized$forecast <- TRUE
 
         # - Single species mode
         if(msmMode == 0){
 
           # -- Update map in obs
           hcr_map <- build_hcr_map(data_list, map, debug = estimateMode > 3)
-          if(sum(as.numeric(unlist(hcr_map$mapFactor)), na.rm = TRUE) == 0){stop("HCR map of length 0: all NAs")}
+          if(sum(!is.na(unlist(hcr_map$mapFactor))) == 0){stop("HCR map of length 0: all NAs")}
 
           obj = TMB::MakeADFun(
             data_list_reorganized,
