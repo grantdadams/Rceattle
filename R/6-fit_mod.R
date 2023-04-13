@@ -312,6 +312,7 @@ fit_mod <-
     if(msmMode > 0 & data_list$HCR == 3){
       data_list_reorganized$HCR = 0 # Estimate model with F = 0 for the projection if multispecies
     }
+    data_list_reorganized$forecast <- FALSE # Don't include BRPs in likelihood of hindcast
 
     # - Update comp weights, future F (if input) and F_prop from data
     if(!is.null(data_list$fleet_control$Comp_weights)){
@@ -460,6 +461,7 @@ fit_mod <-
     # STEP 10 - Run HCR projections
     if(estimateMode %in% c(0,2,4)){
       if(data_list$HCR > 2){
+        data_list_reorganized$forecast <- TRUE # Turn BRP estimation on within likelihood
 
         # - Single species mode
         if(msmMode == 0){

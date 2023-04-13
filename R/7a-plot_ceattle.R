@@ -2622,8 +2622,6 @@ plot_m2_at_age_prop <-
     }
   }
 
-
-
 #' plot_depletionSSB
 #'
 #' @description Function the plots the mean depletion of spawning stock biomass (SSB) as estimated from Rceattle
@@ -2944,7 +2942,7 @@ plot_depletionSSB <- function(Rceattle,
         lines(
           x = Years[[k]],
           y = quantity[spp[j], 1:length(Years[[k]]), k],
-          lty = ifelse(!is.null(reference) * mse == TRUE, c(1,2)[k], 1),
+          lty = ifelse(!is.null(reference) == TRUE & mse == TRUE, c(1,2)[k], 1),
           lwd = lwd,
           col = line_col[k]
         ) # Median
