@@ -196,6 +196,7 @@ mod_list <- list(ss_run, ss_run_fb0, ss_run_Fspr, ss_run_Tier3, ss_run_Cat1, ss_
 model_names <- c("F=0","F 40% B0", "Fspr 40%", "NPFMC Tier 3", "PFMC Cat 1", "SESSF Tier 1")
 plot_biomass(mod_list, model_names = model_names, incl_proj = TRUE)
 plot_ssb(mod_list, model_names = model_names, incl_proj = TRUE)
+plot_recruitment(mod_list, model_names = model_names, incl_proj = TRUE)
 
 
 dynamic_mod_list <- list(ss_run, ss_run_dynamicfb0, ss_run_dynamicFspr, ss_run_dynamicTier3, ss_run_dynamicCat1, ss_run_dynamicTier1)
