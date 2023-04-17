@@ -48,6 +48,12 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   map_list$rec_dev[, yrs_proj] <- as.numeric(replace(map_list$rec_dev[, yrs_proj],
                                                      values = rep(NA, length(map_list$rec_dev[, yrs_proj]))))
 
+
+  # -- Stock recruit parameters (turning off 2nd par if only using mean rec)
+  if(data_list$srr_fun == 0){
+    map_list$rec_pars[, 2] <- NA
+  }
+
   # -- FSPR mapped out
   map_list$ln_Flimit <- replace(map_list$ln_Flimit,
                               values = rep(NA, length(map_list$ln_Flimit)))
@@ -799,7 +805,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     if(data_list$estDynamics[sp] > 0){
 
       # Population parameters
-      map_list$ln_mean_rec[sp] <- NA
+      map_list$rec_pars[sp,] <- NA
       map_list$ln_rec_sigma[sp] <- NA
       map_list$ln_sex_ratio_sigma[sp] <- NA
       map_list$rec_dev[sp,] <- NA
