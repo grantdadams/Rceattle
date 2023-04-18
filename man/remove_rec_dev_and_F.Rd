@@ -9,9 +9,6 @@ remove_rec_dev_and_F(Rceattle, rec_trend = 0)
 \arguments{
 \item{Rceattle}{}
 }
-\value{
-
-}
 \description{
 Function to update hindcast removing, setting F to 0 and rec to mean recruitment
 }

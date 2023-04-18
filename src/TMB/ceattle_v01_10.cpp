@@ -2156,6 +2156,14 @@ Type objective_function<Type>::operator() () {
 
                         suit_other(rsp, r_sex, r_age, yr) = vulnerability_other(rsp);
 
+                        // Year ind
+                        if(yr < nyrs_hind){
+                          yr_ind = yr;
+                        }
+                        if(yr >= nyrs_hind){
+                          yr_ind = nyrs_hind - 1;
+                        }
+
                         switch(suitMode){
                         case 1: // Length-based GAMMA suitability
                           log_size_ratio = log(LbyAge( rsp, r_sex, r_age, yr) / LbyAge( ksp, k_sex, k_age, yr) ); // Log ratio of lengths
@@ -2191,6 +2199,14 @@ Type objective_function<Type>::operator() () {
                       for(yr = 0; yr < nyrs; yr++){
 
                         suit_other(rsp, r_sex, r_age, yr) = vulnerability_other(rsp);
+
+                        // Year ind
+                        if(yr < nyrs_hind){
+                          yr_ind = yr;
+                        }
+                        if(yr >= nyrs_hind){
+                          yr_ind = nyrs_hind - 1;
+                        }
 
                         switch(suitMode){
                         case 3: // Length-based lognormal suitability

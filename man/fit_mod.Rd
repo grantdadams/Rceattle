@@ -17,7 +17,7 @@ fit_mod(
   HCR = build_hcr(),
   niter = 3,
   recFun = build_srr(),
-  M1Fun = build_M1(updateM1 = TRUE, M1_prior_mean = 0.2, M1_prior_sd = 0.2),
+  M1Fun = build_M1(),
   msmMode = 0,
   avgnMode = 0,
   initMode = 1,
