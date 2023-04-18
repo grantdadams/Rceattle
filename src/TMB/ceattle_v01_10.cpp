@@ -1321,10 +1321,10 @@ Type objective_function<Type>::operator() () {
               if ((age > 0) & (age < nages(sp) - 1)) {
 
                 if(sex == 0){
-                  NByage(sp, 0, age, 0) = R0(sp) * exp( - mort_sum + init_dev(sp, age - 1)) * R_sexr(sp);
+                  NByage(sp, 0, age, 0) = Rinit(sp) * exp( - mort_sum + init_dev(sp, age - 1)) * R_sexr(sp);
                 }
                 if(sex == 1){
-                  NByage(sp, 1, age, 0) = R0(sp) * exp( - mort_sum + init_dev(sp, age - 1)) * (1-R_sexr(sp));
+                  NByage(sp, 1, age, 0) = Rinit(sp) * exp( - mort_sum + init_dev(sp, age - 1)) * (1-R_sexr(sp));
                 }
               }
 
@@ -1332,11 +1332,11 @@ Type objective_function<Type>::operator() () {
               if (age == (nages(sp) - 1)) {
 
                 if(sex ==0){// NOTE: This solves for the geometric series
-                  NByage(sp, 0, age, 0) = R0(sp) * exp( - mort_sum + init_dev(sp, age - 1)) / (1 - exp(-M1(sp, sex, nages(sp) - 1))) * R_sexr(sp);
+                  NByage(sp, 0, age, 0) = Rinit(sp) * exp( - mort_sum + init_dev(sp, age - 1)) / (1 - exp(-M1(sp, sex, nages(sp) - 1))) * R_sexr(sp);
                 }
 
                 if(sex == 1){
-                  NByage(sp, 1, age, 0) = R0(sp) * exp( - mort_sum + init_dev(sp, age - 1)) / (1 - exp(-M1(sp, sex, nages(sp) - 1))) * (1-R_sexr(sp));
+                  NByage(sp, 1, age, 0) = Rinit(sp) * exp( - mort_sum + init_dev(sp, age - 1)) / (1 - exp(-M1(sp, sex, nages(sp) - 1))) * (1-R_sexr(sp));
                 }
               }
             }
@@ -3402,7 +3402,7 @@ Type objective_function<Type>::operator() () {
   for (sp = 0; sp < nspp; sp++) {
     // sLOT 9 -- storck-recruit prior
     if(srr_use_prior == 1){
-      // jnll_comp(9, sp) -= dnorm(rec_pars(sp, 0), srr_prior_mean(sp), srr_prior_sd(sp), true);
+      jnll_comp(9, sp) -= dnorm(rec_pars(sp, 0), srr_prior_mean(sp), srr_prior_sd(sp), true);
     }
 
 
