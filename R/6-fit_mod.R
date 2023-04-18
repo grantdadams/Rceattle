@@ -87,6 +87,7 @@ fit_mod <-
     bounds = NULL,
     file = NULL,
     estimateMode = 0,
+    initMode = 1,
     recFun = build_srr(),
     random_rec = FALSE,
     random_q = FALSE,
@@ -160,6 +161,7 @@ fit_mod <-
     # Switches
     data_list$random_rec <- as.numeric(random_rec)
     data_list$estimateMode <- estimateMode
+    data_list$initMode = initMode
     data_list$niter <- niter
     data_list$avgnMode <- avgnMode
     data_list$msmMode <- msmMode
@@ -267,7 +269,7 @@ fit_mod <-
             ln_mean_F = 1, # Mean fleet-specific fishing mortality
             ln_Flimit = 3, # Estimated F limit
             ln_Ftarget = 3, # Estimated F target
-            ln_Finit = 3, # Estimated fishing mortality for non-equilibrium initial age-structure
+            # ln_Finit = 3, # Estimated fishing mortality for non-equilibrium initial age-structure
             proj_F_prop = 1, # Fixed fleet-specific proportion of Flimit and Ftarget apportioned within each species
             F_dev = 1, # Annual fleet specific fishing mortality deviates
             ln_srv_q = 3, # Survey catchability
@@ -308,7 +310,7 @@ fit_mod <-
 
     # STEP 5 - Compile CEATTLE is providing cpp file
     # - Get cpp file if not provided
-    TMBfilename <- "ceattle_v01_09"
+    TMBfilename <- "ceattle_v01_10"
 
 
     # STEP 6 - Reorganize data and build model object
