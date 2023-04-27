@@ -3453,16 +3453,16 @@ Type objective_function<Type>::operator() () {
   REPORT( R );
   REPORT( M );
 
-  ADREPORT( B_eaten_as_prey );
-  ADREPORT( M );
-  ADREPORT( Zed );
+  //ADREPORT( B_eaten_as_prey );
+  //ADREPORT( M );
+  //ADREPORT( Zed );
   ADREPORT( depletion );
   ADREPORT( depletionSSB );
   ADREPORT( biomass );
   ADREPORT( biomassSSB );
-  ADREPORT( r_sigma );
+  // ADREPORT( r_sigma );
   ADREPORT( R );
-  ADREPORT( pop_scalar );
+  //ADREPORT( pop_scalar );
 
 
   // -- 12.2. Biological reference points
