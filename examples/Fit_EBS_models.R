@@ -37,6 +37,8 @@ ss_run <- Rceattle::fit_mod(data_list = mydata,
                             phase = "default",
                             verbose = 1)
 
+plot_biomass(ss_run, add_ci = TRUE)
+
 
 # Single-species, but estimate M
 mydata_M <- mydata
@@ -49,6 +51,8 @@ ss_run_M <- Rceattle::fit_mod(data_list = mydata_M,
                               msmMode = 0, # Single species mode
                               phase = "default",
                               verbose = 1)
+
+plot_biomass(ss_run_M, add_ci = TRUE)
 
 
 # - Multi-species
@@ -65,6 +69,7 @@ ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
                             suitMode = 0, # empirical suitability
                             verbose = 1)
 
+plot_biomass(ms_run, add_ci = TRUE)
 
 ################################################
 # Plotting

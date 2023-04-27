@@ -126,40 +126,6 @@ CEATTLE is an age-structured population dynamics model that can be fit with or w
 library(Rceattle)
 data(BS2017SS) # ?BS2017SS for more information on the data
 
-# Set up phases, also the default
-  dummy = 1,
-  ln_pop_scalar = 4,
-  ln_mean_rec = 1,
-  ln_rec_sigma = 2,
-  rec_dev = 2,
-  init_dev = 2,
-  ln_mean_F = 1,
-  ln_Flimit = 3,
-  ln_Ftarget = 3,
-  proj_F_prop = 1,
-  F_dev = 1,
-  ln_srv_q = 3,
-  srv_q_pow = 4,
-  ln_srv_q_dev = 5,
-  ln_sigma_srv_q = 4,
-  ln_sigma_time_varying_srv_q = 4,
-  sel_coff = 3,
-  sel_coff_dev = 4,
-  sel_curve_pen = 4,
-  ln_sex_ratio_sigma = 3,
-  ln_sel_slp = 3,
-  ln_M1 = 4,
-  sel_inf = 3,
-  ln_sel_slp_dev = 5,
-  sel_inf_dev = 5,
-  ln_sigma_sel = 4,
-  ln_sigma_srv_index = 2,
-  ln_sigma_fsh_catch = 2,
-  log_gam_a = 4,
-  log_gam_b = 4,
-  log_phi = 4,
-  comp_weights = 4
-)
 
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
 ss_run <- fit_mod(data_list = BS2017SS,
