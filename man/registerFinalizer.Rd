@@ -9,6 +9,9 @@ registerFinalizer(ADFun, DLL)
 \arguments{
 \item{DLL}{}
 }
+\value{
+
+}
 \description{
 Add external pointer finalizer
 }
