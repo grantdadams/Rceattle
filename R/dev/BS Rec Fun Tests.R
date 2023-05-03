@@ -38,7 +38,7 @@ ss_run_ricker2 <- Rceattle::fit_mod(data_list = BS2017SS,
                                    recFun = build_srr(srr_fun = 3,
                                                       proj_mean_rec = FALSE,
                                                       srr_use_prior = TRUE,
-                                                      srr_prior_mean = 4,
+                                                      srr_prior_mean = 2,
                                                       srr_prior_sd = 2),
                                    random_rec = FALSE, # No random recruitment
                                    msmMode = 0, # Single species mode
@@ -49,14 +49,32 @@ ss_run_ricker2 <- Rceattle::fit_mod(data_list = BS2017SS,
 ss_run_ricker3 <- Rceattle::fit_mod(data_list = BS2017SS,
                                    inits = NULL, # Initial parameters = 0
                                    file = NULL, # Don't save
-                                   estimateMode = 1, # Estimate hindcast only
+                                   estimateMode = 0, # Estimate hindcast only
                                    recFun = build_srr(srr_fun = 3,
                                                       proj_mean_rec = FALSE,
                                                       srr_use_prior = TRUE,
-                                                      srr_prior_mean = 4,
+                                                      srr_prior_mean = 2,
                                                       srr_prior_sd = 2),
                                    random_rec = FALSE, # No random recruitment
                                    msmMode = 0, # Single species mode
                                    phase = "default",
                                    verbose = 1,
                                    initMode = 2)
+
+
+
+
+data_list = BS2017SS;
+inits = NULL; # Initial parameters = 0
+file = NULL; # Don't save
+estimateMode = 0; # Estimate hindcast only
+recFun = build_srr(srr_fun = 3,
+                   proj_mean_rec = FALSE,
+                   srr_use_prior = TRUE,
+                   srr_prior_mean = 4,
+                   srr_prior_sd = 2);
+random_rec = FALSE; # No random recruitment
+msmMode = 0; # Single species mode
+phase = "default";
+verbose = 1;
+initMode = 2
