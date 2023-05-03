@@ -2622,8 +2622,6 @@ plot_m2_at_age_prop <-
     }
   }
 
-
-
 #' plot_depletionSSB
 #'
 #' @description Function the plots the mean depletion of spawning stock biomass (SSB) as estimated from Rceattle
