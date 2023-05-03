@@ -9,6 +9,9 @@ equilibrate_and_project(Rceattle, rec_trend = 0)
 \arguments{
 \item{Rceattle}{}
 }
+\value{
+
+}
 \description{
 Function to project the model until proj yr under no rec, then again under n proj years given rec trend
 }

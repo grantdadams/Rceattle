@@ -3479,27 +3479,27 @@ Type objective_function<Type>::operator() () {
   for (sp = 0; sp < nspp; sp++) {
     // Prior on M1 only and using species specific M1
     if( M1_model(sp) == 1 & M1_use_prior(sp) == 1 & M2_use_prior(sp) == 0){
-      jnll_comp(15, sp) += dnorm(log(M1(sp, 0, 0)), log(M1_prior_mean(sp)) + square(M1_prior_sd(sp))/2, M1_prior_sd(sp), true);
+      jnll_comp(15, sp) -= dnorm(log(M1(sp, 0, 0)), log(M1_prior_mean(sp)) + square(M1_prior_sd(sp))/2, M1_prior_sd(sp), true);
     }
 
     for(sex = 0; sex < nsex(sp); sex ++){
       // Prior on M1 only and using species and sex specific M1
       if( M1_model(sp) == 2 & M1_use_prior(sp) == 1 & M2_use_prior(sp) == 0){
-        jnll_comp(15, sp) += dnorm(log(M1(sp, sex, 0)), log(M1_prior_mean(sp)) + square(M1_prior_sd(sp))/2, M1_prior_sd(sp), true);
+        jnll_comp(15, sp) -= dnorm(log(M1(sp, sex, 0)), log(M1_prior_mean(sp)) + square(M1_prior_sd(sp))/2, M1_prior_sd(sp), true);
       }
 
       for (age = 0; age < nages(sp); age++) {
 
         // Prior on M1 only and using species and sex specific M1
         if( M1_model(sp) == 3 & M1_use_prior(sp) == 1 & M2_use_prior(sp) == 0){
-          jnll_comp(15, sp) += dnorm(log(M1(sp, sex, age)), log(M1_prior_mean(sp)) + square(M1_prior_sd(sp))/2, M1_prior_sd(sp), true);
+          jnll_comp(15, sp) -= dnorm(log(M1(sp, sex, age)), log(M1_prior_mean(sp)) + square(M1_prior_sd(sp))/2, M1_prior_sd(sp), true);
         }
 
         for (yr = 0; yr < nyrs; yr++) {
 
           // Prior on total M (M1 and M2)
           if( M1_use_prior(sp) == 1 & M2_use_prior(sp) == 1){
-            jnll_comp(15, sp) += dnorm(log(M(sp, sex, age, yr)), log(M1_prior_mean(sp)) + square(M1_prior_sd(sp))/2, M1_prior_sd(sp), true);
+            jnll_comp(15, sp) -= dnorm(log(M(sp, sex, age, yr)), log(M1_prior_mean(sp)) + square(M1_prior_sd(sp))/2, M1_prior_sd(sp), true);
           }
         }
       }
@@ -3603,16 +3603,16 @@ Type objective_function<Type>::operator() () {
   REPORT( R );
   REPORT( M );
 
-  ADREPORT( B_eaten_as_prey );
-  ADREPORT( M );
-  ADREPORT( Zed );
-  ADREPORT( depletion );
-  ADREPORT( depletionSSB );
+  // ADREPORT( B_eaten_as_prey );
+  // ADREPORT( M );
+  // ADREPORT( Zed );
+  // ADREPORT( depletion );
+  // ADREPORT( depletionSSB );
   ADREPORT( biomass );
   ADREPORT( biomassSSB );
-  ADREPORT( r_sigma );
+  // ADREPORT( r_sigma );
   ADREPORT( R );
-  ADREPORT( pop_scalar );
+  // ADREPORT( pop_scalar );
 
 
   // -- 12.2. Biological reference points
