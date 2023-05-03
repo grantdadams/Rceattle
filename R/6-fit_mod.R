@@ -6,6 +6,7 @@
 #' @param bounds (Optional) A bounds object from \code{\link{build_bounds}}.
 #' @param file (Optional) Filename where files will be saved. If NULL, no file is saved.
 #' @param estimateMode 0 = Fit the hindcast model and projection with HCR specified via \code{HCR}. 1 = Fit the hindcast model only (no projection). 2 = Run the projection only with HCR specified via \code{HCR} given the initial parameters in \code{inits}.  3 = debug mode 1: runs the model through MakeADFun, but not nlminb, 4 = runs the model through MakeADFun and nlminb (will all parameters mapped out).
+#' @param projection_uncertainty account for hindcast parameter uncertainty in projections when using an HCR? Default is FALSE for speed.
 #' @param random_rec logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE.
 #' @param random_q logical. If TRUE, treats annual catchability deviations as random effects.The default is FALSE.
 #' @param random_rec logical. If TRUE, treats annual selectivity deviations as random effects.The default is FALSE.
@@ -88,6 +89,7 @@ fit_mod <-
     bounds = NULL,
     file = NULL,
     estimateMode = 0,
+    projection_uncertainty = FALSE,
     random_rec = FALSE,
     random_q = FALSE,
     random_sel = FALSE,
@@ -144,6 +146,7 @@ fit_mod <-
     # newtonsteps = 0
     # recFun = build_srr()
     # M1Fun = build_M1()
+    # projection_uncertainty = TRUE
 
 
     start_time <- Sys.time()
@@ -155,11 +158,10 @@ fit_mod <-
 
     setwd(getwd())
 
-    #--------------------------------------------------
-    # 1. DATA and MODEL PREP
-    #--------------------------------------------------
 
+    #--------------------------------------------------
     # STEP 1 - LOAD DATA
+    #--------------------------------------------------
     if (is.null(data_list)) {
       stop("Missing data_list object")
     }
@@ -231,8 +233,9 @@ fit_mod <-
     if(verbose > 0) {message("Step 1: Parameter build complete")}
 
 
-
+    #--------------------------------------------------
     # STEP 2 - BUILD MAP
+    #--------------------------------------------------
     if (is.null(map)) {
       map <-
         suppressWarnings(build_map(data_list, start_par, debug = estimateMode > 3, random_rec = random_rec))
@@ -242,7 +245,9 @@ fit_mod <-
     if(verbose > 0) {message("Step 2: Map build complete")}
 
 
+    #--------------------------------------------------
     # STEP 3 - Get bounds
+    #--------------------------------------------------
     if (is.null(bounds)) {
       bounds <- Rceattle::build_bounds(param_list = start_par, data_list)
     } else {
@@ -251,7 +256,9 @@ fit_mod <-
     if(verbose > 0) {message("Step 3: Param bounds complete")}
 
 
+    #--------------------------------------------------
     # STEP 4 - Setup random effects
+    #--------------------------------------------------
     random_vars <- c()
     if (random_rec) {
       if(initMode > 0){
@@ -268,7 +275,78 @@ fit_mod <-
     }
 
 
+    #--------------------------------------------------
+    # STEP 5 - Compile CEATTLE is providing cpp file
+    #--------------------------------------------------
+    # - Get cpp file if not provided
+    TMBfilename <- "ceattle_v01_10"
 
+
+    #------------------------------------------
+    # STEP 6 - Reorganize data and build model object
+    #--------------------------------------------------
+    Rceattle:::data_check(data_list)
+    data_list_reorganized <- Rceattle::rearrange_dat(data_list)
+    data_list_reorganized = c(list(model = TMBfilename), data_list_reorganized)
+    if(msmMode > 0 & data_list$HCR == 3){
+      data_list_reorganized$HCR = 0 # Estimate model with F = 0 for the projection if multispecies
+    }
+    data_list_reorganized$forecast <- FALSE # Don't include BRPs in likelihood of hindcast
+
+    # - Update comp weights, future F (if input) and F_prop from data
+    if(!is.null(data_list$fleet_control$Comp_weights)){
+      start_par$comp_weights = data_list$fleet_control$Comp_weights
+    }
+    start_par$proj_F_prop = data_list$fleet_control$proj_F_prop
+
+    nyrs_proj <- data_list$projyr - data_list$styr + 1
+    if(!is.null(HCR$FsprTarget) & HCR$HCR == 2){
+      start_par$ln_Ftarget = matrix(log(HCR$FsprTarget), nrow = data_list$nspp, ncol = nyrs_proj) # Fixed fishing mortality for projections for each species
+    }
+
+    # - Update M1 for inits
+    if(updateM1){
+      m1 <- array(0, dim = c(data_list$nspp, 2, max(data_list$nages, na.rm = T))) # Set up array
+
+      # Initialize from inputs
+      for (i in 1:nrow(data_list$M1_base)) {
+        sp <- as.numeric(as.character(data_list$M1_base$Species[i]))
+        sex <- as.numeric(as.character(data_list$M1_base$Sex[i]))
+
+        # Fill in M1 array from fixed values for each sex
+        if(sex == 0){ sex = c(1, 2)} # If sex = combined/both males and females, fill in both dimensions
+        for(j in 1:length(sex)){
+          m1[sp, sex[j], 1:max(data_list$nages, na.rm = T)] <- as.numeric(data_list$M1_base[i,(1:max(data_list$nages, na.rm = T)) + 2])
+        }
+      }
+      start_par$ln_M1 <- log(m1)
+    }
+
+    if(verbose > 0) {message("Step 4: Data rearranged complete")}
+
+
+    #--------------------------------------------------
+    # STEP 7 - Set up parameter bounds
+    #--------------------------------------------------
+    L <- c()
+    U <- c()
+    for(i in 1:length(map$mapFactor)){
+      if(names(map$mapFactor)[i] %!in% random_vars){ # Dont have bounds for random effects
+        L = c(L, unlist(bounds$lower[[i]])[which(!is.na(unlist(map$mapFactor[[i]])) & !duplicated(unlist(map$mapFactor[[i]])))])
+        U = c(U, unlist(bounds$upper[[i]])[which(!is.na(unlist(map$mapFactor[[i]])) & !duplicated(unlist(map$mapFactor[[i]])))])
+      }
+    }
+
+    # Dimension check
+    dim_check <- sapply(start_par, unlist(length)) == sapply(map$mapFactor, unlist(length))
+    if(sum(dim_check) != length(dim_check)){
+      stop(print(paste0("Map and parameter objects are not the same size for: ", names(dim_check)[which(dim_check == FALSE)])))
+    }
+
+
+    #--------------------------------------------------
+    # STEP 8 - Phase hindcast
+    #--------------------------------------------------
     # Set default phasing
     if(!is.null(phase)){
       if(class(phase) == "character"){
@@ -323,69 +401,6 @@ fit_mod <-
       }
     }
 
-
-    # STEP 5 - Reorganize data
-    TMBfilename <- "ceattle_v01_10"
-    Rceattle:::data_check(data_list)
-    data_list_reorganized <- Rceattle::rearrange_dat(data_list)
-    data_list_reorganized = c(list(model = TMBfilename),data_list_reorganized)
-    if(msmMode > 0 & data_list$HCR == 3){
-      data_list_reorganized$HCR = 0 # Estimate model with F = 0 for the projection if multispecies
-    }
-    data_list_reorganized$forecast <- FALSE # Don't include BRPs in likelihood of hindcast
-
-
-    # STEP 6 - Reorganize F and M vectors based on switches
-    # - Update comp weights, future F (if input) and F_prop from data
-    if(!is.null(data_list$fleet_control$Comp_weights)){
-      start_par$comp_weights = data_list$fleet_control$Comp_weights
-    }
-    start_par$proj_F_prop = data_list$fleet_control$proj_F_prop
-
-    nyrs_proj <- data_list$projyr - data_list$styr + 1
-    if(!is.null(HCR$FsprTarget) & HCR$HCR == 2){
-      start_par$ln_Ftarget = matrix(log(HCR$FsprTarget), nrow = data_list$nspp, ncol = nyrs_proj) # Fixed fishing mortality for projections for each species
-    }
-
-    # - Update M1 for inits
-    if(updateM1){
-      m1 <- array(0, dim = c(data_list$nspp, 2, max(data_list$nages, na.rm = T))) # Set up array
-
-      # Initialize from inputs
-      for (i in 1:nrow(data_list$M1_base)) {
-        sp <- as.numeric(as.character(data_list$M1_base$Species[i]))
-        sex <- as.numeric(as.character(data_list$M1_base$Sex[i]))
-
-        # Fill in M1 array from fixed values for each sex
-        if(sex == 0){ sex = c(1, 2)} # If sex = combined/both males and females, fill in both dimensions
-        for(j in 1:length(sex)){
-          m1[sp, sex[j], 1:max(data_list$nages, na.rm = T)] <- as.numeric(data_list$M1_base[i,(1:max(data_list$nages, na.rm = T)) + 2])
-        }
-      }
-      start_par$ln_M1 <- log(m1)
-    }
-
-    if(verbose > 0) {message("Step 4: Data rearranged complete")}
-
-
-    # STEP 7 - Set up parameter bounds
-    L <- c()
-    U <- c()
-    for(i in 1:length(map$mapFactor)){
-      if(names(map$mapFactor)[i] %!in% random_vars){ # Dont have bounds for random effects
-        L = c(L, unlist(bounds$lower[[i]])[which(!is.na(unlist(map$mapFactor[[i]])) & !duplicated(unlist(map$mapFactor[[i]])))])
-        U = c(U, unlist(bounds$upper[[i]])[which(!is.na(unlist(map$mapFactor[[i]])) & !duplicated(unlist(map$mapFactor[[i]])))])
-      }
-    }
-
-    # Dimension check
-    dim_check <- sapply(start_par, unlist(length)) == sapply(map$mapFactor, unlist(length))
-    if(sum(dim_check) != length(dim_check)){
-      stop(print(paste0("Map and parameter objects are not the same size for: ", names(dim_check)[which(dim_check == FALSE)])))
-    }
-
-
-    # STEP 8 - Phase hindcast
     step = 5
     if(!is.null(phase) & estimateMode %in% c(0,1) ){
       if(verbose > 0) {message(paste0("Step ", step,": Phasing begin"))}
@@ -408,7 +423,9 @@ fit_mod <-
     }
 
 
+    #--------------------------------------------------
     # STEP 9 - Fit final hindcast model
+    #--------------------------------------------------
     if(estimateMode != 2){ # dont build if projection and estimating HCR parameters
       if(sum(as.numeric(unlist(map$mapFactor)), na.rm = TRUE) == 0){stop("Map of length 0: all NAs")}
       obj = TMB::MakeADFun(
@@ -481,10 +498,12 @@ fit_mod <-
     }
 
 
-    # STEP 10 - Run forecast (for HCRs with estimable BRPs)
-    if(estimateMode %in% c(0,2,4)){ # Hindcast and forecast, forecast, run model through
-      if(data_list$HCR > 2){ # Estimable HCRs/BRPs
-        data_list_reorganized$forecast <- TRUE
+    #--------------------------------------------------
+    # STEP 10 - Run HCR projections
+    #--------------------------------------------------
+    if(estimateMode %in% c(0,2,4)){
+      if(data_list$HCR > 2){
+        data_list_reorganized$forecast <- TRUE # Turn BRP estimation on within likelihood
 
         # - Single species mode
         if(msmMode == 0){
@@ -580,17 +599,42 @@ fit_mod <-
         # -- Update MLEs
         if (estimateMode > 2) { # Debugging, give initial parameters
           last_par <- start_par
-        }
-        else{
+        }else{
           if(!random_rec){
             last_par = try(obj$env$parList(obj$env$last.par.best)) # FIXME: maybe add obj$env$last.par.best inside?
           } else {
             last_par = try(obj$env$parList())
           }
         }
-      }
-    }
 
+        # Updates the model with all hindcast and BRP parameters "turned on" to get out uncertainty estimates in the projection
+        if(projection_uncertainty){
+
+          # -- Update both map in to have BRP and hindcast parameters on
+          hcr_map_proj <- build_hcr_map_projection(data_list, map, debug = estimateMode > 3)
+          if(sum(as.numeric(unlist(hcr_map_proj$mapFactor)), na.rm = TRUE) == 0){stop("HCR projection map of length 0: all NAs")}
+
+          # --- Update model object with BRP and hindcast parameters turned for BRP and hindcast
+          obj = TMB::MakeADFun(
+            data_list_reorganized,
+            parameters = last_par,
+            DLL = TMBfilename,
+            map = hcr_map_proj$mapFactor,
+            random = random_vars,
+            silent = verbose != 2
+          )
+
+          # -- Replace sdreport with new sdreport
+          opt$SD <- TMB::sdreport(obj)
+        }
+
+      } # End estimable BRP/HCR projections
+    } # End projection
+
+
+    #--------------------------------------------------
+    # STEP 11: Save output
+    #--------------------------------------------------
     # - Save estimated parameters
     mod_objects$estimated_params <- last_par
     mod_objects$obj = obj

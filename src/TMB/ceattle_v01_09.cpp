@@ -395,6 +395,7 @@ Type objective_function<Type>::operator() () {
   pop_age_transition_index -= 1;          // Indexing starts at 0
 
   // 1.4. HCR and projection settings
+  DATA_INTEGER(forecast);                 // Switch, wether or not we are estimating the hindcast or forecast
   DATA_INTEGER(HCR);                      // Function to be used for harvest control rule
   DATA_INTEGER(DynamicHCR);               // TRUE/FALSE. Wether to use static or dynamic reference points (default = FALSE)
   DATA_VECTOR(Ptarget);                   // Target spawning-stock biomass as a percentage of static or dynamic spawning-stock-biomass at F = 0
@@ -1508,67 +1509,10 @@ Type objective_function<Type>::operator() () {
     }
 
 
-    // 6.7. FORECAST NUMBERS AT AGE, BIOMASS-AT-AGE (kg), and SSB-AT-AGE (kg)
+    // 6.7. HCR and FORECAST NUMBERS AT AGE, BIOMASS-AT-AGE (kg), and SSB-AT-AGE (kg)
     // Includes Harvest Control Rules
     for (sp = 0; sp < nspp; sp++) {
       for (yr = nyrs_hind; yr < nyrs; yr++){
-        for (age = 0; age < nages(sp); age++) {
-          for(sex = 0; sex < nsex(sp); sex ++){
-            switch(estDynamics(sp)){
-            case 0: // Estimated numbers-at-age
-
-              // -- 6.7.1. Amin (i.e. recruitment)
-              // - Use mean rec
-              if(proj_mean_rec == 1){
-                R(sp, yr) = exp(log(mean_rec(sp)) + rec_dev(sp, yr)); //  exp(+ rec_dev(sp, yr)); // Projections use mean R given bias in R0
-                NByage(sp, 0, 0, yr) = R(sp, yr) * R_sexr(sp);
-                NByage(sp, 1, 0, yr) = R(sp, yr) * (1-R_sexr(sp));
-              }
-
-              // - Use S-R/rec devs
-              if(proj_mean_rec == 0){
-                R(sp, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr));
-                NByage(sp, 0, 0 , yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr)) * R_sexr(sp);
-                NByage(sp, 1, 0 , yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr)) * (1 - R_sexr(sp));
-              }
-
-              // -- 6.7.2.  Where 1 <= age < Ai
-              if (age < (nages(sp) - 1)) {
-                NByage(sp, sex, age + 1, yr) = NByage(sp, sex, age, yr - 1) * S(sp, sex, age, yr - 1);
-              }
-
-              // -- 6.7.3. Plus group where age > Ai. NOTE: This is not the same as T1.3 because sp used age = A_i rather than age > A_i.
-              if (age == (nages(sp) - 1)) {
-                NByage(sp, sex, age, yr) = NByage(sp, sex, age - 1, yr - 1) * S(sp, sex, age - 1, yr - 1) + NByage(sp, sex, age, yr - 1) * S(sp, sex, age, yr - 1);
-              }
-              break;
-            case 1: // Fixed numbers-at-age - fixed scalar
-              NByage(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
-              break;
-            case 2: // Fixed numbers-at-age age-independent scalar
-              NByage(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
-              break;
-            case 3: // Fixed numbers-at-age age-dependent scalar
-              NByage(sp, sex, age, yr) = pop_scalar(sp, age) * NByageFixed(sp, sex, age, yr);
-              break;
-            default:
-              error("Invalid 'estDynamics'");
-            }
-
-            // Hard constraint to reduce population collapse
-            if(NByage(sp, sex, age, yr) < minNByage){
-              NByage(sp, sex, age, yr) = minNByage;
-            }
-
-            // -- 6.7.4. FORECAST SSB
-            biomassByage(sp, sex, age, yr) = NByage(sp, sex, age, yr) * wt( pop_wt_index(sp), sex, age, nyrs_hind-1 ); // 6.5.
-            biomass(sp, yr) += biomassByage(sp, sex, age, yr);
-          } // End sex loop
-
-          // -- FORECAST DEPLETION
-          biomassSSBByage(sp, age, yr) = NByage(sp, 0, age, yr) * pow(S(sp, 0, age, yr), spawn_month(sp)/12) * wt(ssb_wt_index(sp), 0, age, nyrs_hind-1 ) * pmature(sp, age); // 6.6.
-          biomassSSB(sp, yr) += biomassSSBByage(sp, age, yr);
-        }
 
         // -- Apply HCRs
         // Static Harvest Control Rules
@@ -1592,30 +1536,30 @@ Type objective_function<Type>::operator() () {
 
           case 5: // NPFMC Tier 3 HCR
             proj_F(sp, yr) = proj_F(sp, yr);
-            if(biomassSSB(sp, yr) < SPRtarget(sp)){
-              proj_F(sp, yr) = Ftarget(sp, 0) * (((biomassSSB(sp, yr)/SPRtarget(sp))-Alpha(sp))/(1-Alpha(sp))); // Used Fabc of FtargetSPR%
+            if(biomassSSB(sp, nyrs_hind - 1) < SPRtarget(sp)){
+              proj_F(sp, yr) = Ftarget(sp, 0) * (((biomassSSB(sp, nyrs_hind-1)/SPRtarget(sp))-Alpha(sp))/(1-Alpha(sp))); // Used Fabc of FtargetSPR%
             }
-            if((biomassSSB(sp, yr) < SB0(sp) * Plimit(sp)) | (biomassSSB(sp, yr) / SPRtarget(sp) < Alpha(sp))){ // If overfished
+            if((biomassSSB(sp, nyrs_hind-1) < SB0(sp) * Plimit(sp)) | (biomassSSB(sp, nyrs_hind-1) / SPRtarget(sp) < Alpha(sp))){ // If overfished
               proj_F(sp, yr) =  0;
             }
             break;
 
           case 6: // PFMC Category 1 HCR
             proj_F(sp, yr) = proj_F(sp, yr);
-            if(biomassSSB(sp, yr) < SB0(sp) * Ptarget(sp)){
-              proj_F(sp, yr) = (Flimit(sp, 0) + QnormHCR(sp)) * (SB0(sp) * Ptarget(sp) * (biomassSSB(sp, yr) - SB0(sp) * Plimit(sp))) / (biomassSSB(sp, yr) * (SB0(sp) * (Ptarget(sp) - Plimit(sp))));
+            if(biomassSSB(sp, nyrs_hind-1) < SB0(sp) * Ptarget(sp)){
+              proj_F(sp, yr) = (Flimit(sp, 0) + QnormHCR(sp)) * (SB0(sp) * Ptarget(sp) * (biomassSSB(sp, nyrs_hind-1) - SB0(sp) * Plimit(sp))) / (biomassSSB(sp, nyrs_hind-1) * (SB0(sp) * (Ptarget(sp) - Plimit(sp))));
             }
-            if(biomassSSB(sp, yr) < SB0(sp) * Plimit(sp)){ // If overfished
+            if(biomassSSB(sp, nyrs_hind-1) < SB0(sp) * Plimit(sp)){ // If overfished
               proj_F(sp, yr) =  0;
             }
             break;
 
           case 7: // SESSF Tier 1 HCR
             proj_F(sp, yr) = proj_F(sp, yr);
-            if(biomassSSB(sp, yr) < SB0(sp) * Ptarget(sp)){
-              proj_F(sp, yr) = Ftarget(sp, 0) * ((biomassSSB(sp, yr)/(SB0(sp) * Plimit(sp)))-1); // Used Fabc of FtargetSPR%
+            if(biomassSSB(sp, nyrs_hind-1) < SB0(sp) * Ptarget(sp)){
+              proj_F(sp, yr) = Ftarget(sp, 0) * ((biomassSSB(sp, nyrs_hind-1)/(SB0(sp) * Plimit(sp)))-1); // Used Fabc of FtargetSPR%
             }
-            if(biomassSSB(sp, yr) < SB0(sp) * Plimit(sp)){ // If overfished
+            if(biomassSSB(sp, nyrs_hind-1) < SB0(sp) * Plimit(sp)){ // If overfished
               proj_F(sp, yr) =  0;
             }
             break;
@@ -1644,30 +1588,30 @@ Type objective_function<Type>::operator() () {
           case 5: // NPFMC Tier 3 HCR
             //FIXME: Using DynamicSB0 * Ptarget(sp) rather than DynamicSPRtarget because they are the same with no S-R curve
             proj_F(sp, yr) = proj_F(sp, yr);
-            if(biomassSSB(sp, yr) < DynamicSB0(sp, yr) * FsprTarget(sp)){
-              proj_F(sp, yr) = Ftarget(sp, yr) * (((biomassSSB(sp, yr)/(DynamicSB0(sp, yr) * Ptarget(sp)))-Alpha(sp))/(1-Alpha(sp))); // Used Fabc of FtargetSPR%
+            if(biomassSSB(sp, nyrs_hind-1) < DynamicSB0(sp, nyrs_hind-1) * FsprTarget(sp)){
+              proj_F(sp, yr) = Ftarget(sp, yr) * (((biomassSSB(sp, nyrs_hind-1)/(DynamicSB0(sp, nyrs_hind-1) * Ptarget(sp)))-Alpha(sp))/(1-Alpha(sp))); // Used Fabc of FtargetSPR%
             }
-            if((biomassSSB(sp, yr) < DynamicSB0(sp, yr) * Plimit(sp)) | (biomassSSB(sp, yr) / (DynamicSB0(sp, yr) * Ptarget(sp)) < Alpha(sp))){ // If overfished
+            if((biomassSSB(sp, nyrs_hind-1) < DynamicSB0(sp, nyrs_hind-1) * Plimit(sp)) | (biomassSSB(sp, nyrs_hind-1) / (DynamicSB0(sp, nyrs_hind-1) * Ptarget(sp)) < Alpha(sp))){ // If overfished
               proj_F(sp, yr) =  0;
             }
             break;
 
           case 6: // PFMC Category 1 HCR
             proj_F(sp, yr) = proj_F(sp, yr);
-            if(biomassSSB(sp, yr) < DynamicSB0(sp, yr) * Ptarget(sp)){
-              proj_F(sp, yr) = (Flimit(sp, yr) + QnormHCR(sp)) * (DynamicSB0(sp, yr) * Ptarget(sp) * (biomassSSB(sp, yr) - DynamicSB0(sp, yr) * Plimit(sp))) / (biomassSSB(sp, yr) * (DynamicSB0(sp, yr) * (Ptarget(sp) - Plimit(sp))));
+            if(biomassSSB(sp, nyrs_hind-1) < DynamicSB0(sp, nyrs_hind-1) * Ptarget(sp)){
+              proj_F(sp, yr) = (Flimit(sp, yr) + QnormHCR(sp)) * (DynamicSB0(sp, nyrs_hind-1) * Ptarget(sp) * (biomassSSB(sp, nyrs_hind-1) - DynamicSB0(sp, nyrs_hind-1) * Plimit(sp))) / (biomassSSB(sp, nyrs_hind-1) * (DynamicSB0(sp, nyrs_hind-1) * (Ptarget(sp) - Plimit(sp))));
             }
-            if(biomassSSB(sp, yr) < DynamicSB0(sp, yr) * Plimit(sp)){ // If overfished
+            if(biomassSSB(sp, nyrs_hind-1) < DynamicSB0(sp, nyrs_hind-1) * Plimit(sp)){ // If overfished
               proj_F(sp, yr) =  0;
             }
             break;
 
           case 7: // SESSF Tier 1 HCR
             proj_F(sp, yr) = proj_F(sp, yr);
-            if(biomassSSB(sp, yr) < DynamicSB0(sp, yr) * Ptarget(sp)){
-              proj_F(sp, yr) = Ftarget(sp, yr) * ((biomassSSB(sp, yr)/(DynamicSB0(sp, yr) * Plimit(sp)))-1); // Used Fabc of FtargetSPR%
+            if(biomassSSB(sp, nyrs_hind-1) < DynamicSB0(sp, nyrs_hind-1) * Ptarget(sp)){
+              proj_F(sp, yr) = Ftarget(sp, yr) * ((biomassSSB(sp, nyrs_hind-1)/(DynamicSB0(sp, nyrs_hind-1) * Plimit(sp)))-1); // Used Fabc of FtargetSPR%
             }
-            if(biomassSSB(sp, yr) < DynamicSB0(sp, yr) * Plimit(sp)){ // If overfished
+            if(biomassSSB(sp, nyrs_hind-1) < DynamicSB0(sp, nyrs_hind-1) * Plimit(sp)){ // If overfished
               proj_F(sp, yr) =  0;
             }
             break;
@@ -1707,7 +1651,7 @@ Type objective_function<Type>::operator() () {
         }
 
 
-        // Update NbyAge and B/SSB for the projection
+        // -- Estimate NbyAge and B/SSB for the projection given the HCR
         biomass(sp, yr) = 0;
         biomassSSB(sp, yr) = 0;
         for (age = 0; age < nages(sp); age++) {
@@ -1715,12 +1659,27 @@ Type objective_function<Type>::operator() () {
             switch(estDynamics(sp)){
             case 0: // Estimated numbers-at-age
 
-              // -- 6.7.6.  Where Amin < age < Amax
+              // -- 6.7.1. Amin (i.e. recruitment)
+              // - Use mean rec
+              if(proj_mean_rec == 1){
+                R(sp, yr) = exp(log(mean_rec(sp)) + rec_dev(sp, yr)); //  exp(+ rec_dev(sp, yr)); // Projections use mean R given bias in R0
+                NByage(sp, 0, 0, yr) = R(sp, yr) * R_sexr(sp);
+                NByage(sp, 1, 0, yr) = R(sp, yr) * (1-R_sexr(sp));
+              }
+
+              // - Use S-R/rec devs
+              if(proj_mean_rec == 0){
+                R(sp, yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr));
+                NByage(sp, 0, 0 , yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr)) * R_sexr(sp);
+                NByage(sp, 1, 0 , yr) = exp(ln_mean_rec(sp) + rec_dev(sp, yr)) * (1 - R_sexr(sp));
+              }
+
+              // -- 6.7.2.  Where Amin < age < Amax
               if (age < (nages(sp) - 1)) {
                 NByage(sp, sex, age + 1, yr) = NByage(sp, sex, age, yr - 1) * S(sp, sex, age, yr - 1);
               }
 
-              // -- 6.7.7. Plus group where age > Ai. NOTE: This is not the same as T1.3 because sp used age = A_i rather than age > A_i.
+              // -- 6.7.3. Plus group where age > Ai. NOTE: This is not the same as T1.3 because sp used age = A_i rather than age > A_i.
               if (age == (nages(sp) - 1)) {
                 NByage(sp, sex, age, yr) = NByage(sp, sex, age - 1, yr - 1) * S(sp, sex, age - 1, yr - 1) + NByage(sp, sex, age, yr - 1) * S(sp, sex, age, yr - 1);
               }
@@ -2090,6 +2049,13 @@ Type objective_function<Type>::operator() () {
                     for (k_age = 0; k_age < nages(ksp); k_age++) {     // Prey age
                       for (yr = 0; yr < nyrs; yr++) {                  // Year loop
 
+                        if(yr < nyrs_hind){
+                          yr_ind = yr;
+                        }
+                        if(yr >= nyrs_hind){
+                          yr_ind = nyrs_hind - 1;
+                        }
+
                         suit_other(rsp, r_sex, r_age, yr) = vulnerability_other(rsp);
 
                         switch(suitMode){
@@ -2125,6 +2091,13 @@ Type objective_function<Type>::operator() () {
                   for(k_sex = 0; k_sex < nsex(ksp); k_sex ++){
                     for (k_age = 0; k_age < nages(ksp); k_age++) {              // Prey age
                       for(yr = 0; yr < nyrs; yr++){
+
+                        if(yr < nyrs_hind){
+                          yr_ind = yr;
+                        }
+                        if(yr >= nyrs_hind){
+                          yr_ind = nyrs_hind - 1;
+                        }
 
                         suit_other(rsp, r_sex, r_age, yr) = vulnerability_other(rsp);
 
@@ -3136,7 +3109,7 @@ Type objective_function<Type>::operator() () {
 
                 // Martin's
                 jnll_comp(2, flt) -= comp_weights(flt) * Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + 0.00001) * log((comp_hat(comp_ind, ln)+0.00001) / (comp_obs(comp_ind, ln) + 0.00001)) ;
-                
+
               }
             }
           }
@@ -3334,7 +3307,7 @@ Type objective_function<Type>::operator() () {
   // Slot 13 -- Reference point penalties
   for (sp = 0; sp < nspp; sp++) {
     // -- Static reference points
-    if(DynamicHCR == 0){
+    if((DynamicHCR == 0) & (forecast == 1)){
 
       // -- Avg F (have F limit)
       if(HCR == 2){
@@ -3354,7 +3327,7 @@ Type objective_function<Type>::operator() () {
     }
 
     // -- Dynamic referene points
-    if(DynamicHCR == 1){
+    if((DynamicHCR == 1) & (forecast == 1)){
 
       // -- Avg F (have F limit)
       if(HCR == 2){
@@ -3480,16 +3453,16 @@ Type objective_function<Type>::operator() () {
   REPORT( R );
   REPORT( M );
 
-  ADREPORT( B_eaten_as_prey );
-  ADREPORT( M );
-  ADREPORT( Zed );
+  //ADREPORT( B_eaten_as_prey );
+  //ADREPORT( M );
+  //ADREPORT( Zed );
   ADREPORT( depletion );
   ADREPORT( depletionSSB );
   ADREPORT( biomass );
   ADREPORT( biomassSSB );
-  ADREPORT( r_sigma );
+  // ADREPORT( r_sigma );
   ADREPORT( R );
-  ADREPORT( pop_scalar );
+  //ADREPORT( pop_scalar );
 
 
   // -- 12.2. Biological reference points
