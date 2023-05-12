@@ -3402,7 +3402,7 @@ Type objective_function<Type>::operator() () {
   for (sp = 0; sp < nspp; sp++) {
     // sLOT 9 -- storck-recruit prior
     if(srr_use_prior == 1){
-      jnll_comp(9, sp) -= dnorm(exp(rec_pars(sp, 0)), srr_prior_mean(sp), srr_prior_sd(sp), true);
+      jnll_comp(9, sp) -= dnorm((rec_pars(sp, 0)), log(srr_prior_mean(sp)) + square(srr_prior_sd(sp))/2, srr_prior_sd(sp), true);
     }
 
 
