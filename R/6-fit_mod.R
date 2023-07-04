@@ -114,8 +114,9 @@ fit_mod <-
     verbose = 1,
     newtonsteps = 0){
 
-
-    # ### For debugging
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # Debugging section ----
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # data_list = NULL;
     # inits = NULL;
     # map = NULL;
@@ -148,7 +149,9 @@ fit_mod <-
     # M1Fun = build_M1()
     # projection_uncertainty = TRUE
 
-
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # STEP 0 - Start ----
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     start_time <- Sys.time()
 
     extend_length <- function(x){
@@ -159,9 +162,9 @@ fit_mod <-
     setwd(getwd())
 
 
-    #--------------------------------------------------
-    # STEP 1 - LOAD DATA
-    #--------------------------------------------------
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # STEP 1 - Load data ----
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.null(data_list)) {
       stop("Missing data_list object")
     }
@@ -188,8 +191,9 @@ fit_mod <-
 
     # Recruitment switches
     data_list$srr_fun <- recFun$srr_fun
+    data_list$srr_pred_fun <- recFun$srr_pred_fun
     data_list$proj_mean_rec <- recFun$proj_mean_rec
-    data_list$srr_use_prior <- recFun$srr_use_prior
+    data_list$srr_est_mode <- recFun$srr_est_mode
     data_list$srr_prior_mean <- extend_length(recFun$srr_prior_mean)
     data_list$srr_prior_sd <- extend_length(recFun$srr_prior_sd)
 
@@ -220,34 +224,32 @@ fit_mod <-
 
     if(data_list$HCR == 2 & estimateMode == 2){estimateMode = 4} # If projecting under constant F, run parmeters through obj only
 
-    # STEP 1 - LOAD PARAMETERS
+
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # STEP 2: Load/build parameters ----
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.character(inits) | is.null(inits)) {
-      start_par <- suppressWarnings(Rceattle::build_params(
-        data_list = data_list,
-        inits = inits
-      ))
+      start_par <- suppressWarnings(Rceattle::build_params(data_list = data_list))
     } else{
-      # inits$proj_F <- data_list$fleet_control$proj_F
       start_par <- inits
     }
     if(verbose > 0) {message("Step 1: Parameter build complete")}
 
 
-    #--------------------------------------------------
-    # STEP 2 - BUILD MAP
-    #--------------------------------------------------
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # STEP 3: Load/build map ----
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.null(map)) {
-      map <-
-        suppressWarnings(build_map(data_list, start_par, debug = estimateMode > 3, random_rec = random_rec))
+      map <- suppressWarnings(build_map(data_list, start_par, debug = estimateMode > 3, random_rec = random_rec))
     } else{
       map <- map
     }
     if(verbose > 0) {message("Step 2: Map build complete")}
 
 
-    #--------------------------------------------------
-    # STEP 3 - Get bounds
-    #--------------------------------------------------
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # STEP 4: Get bounds ----
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.null(bounds)) {
       bounds <- Rceattle::build_bounds(param_list = start_par, data_list)
     } else {
@@ -256,9 +258,9 @@ fit_mod <-
     if(verbose > 0) {message("Step 3: Param bounds complete")}
 
 
-    #--------------------------------------------------
-    # STEP 4 - Setup random effects
-    #--------------------------------------------------
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # STEP 5: Setup random effects ----
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     random_vars <- c()
     if (random_rec) {
       if(initMode > 0){
@@ -275,17 +277,13 @@ fit_mod <-
     }
 
 
-    #--------------------------------------------------
-    # STEP 5 - Compile CEATTLE is providing cpp file
-    #--------------------------------------------------
-    # - Get cpp file if not provided
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # STEP 6: Reorganize data ----
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     TMBfilename <- "ceattle_v01_10"
 
-
-    #------------------------------------------
-    # STEP 6 - Reorganize data and build model object
-    #--------------------------------------------------
     Rceattle:::data_check(data_list)
+
     data_list_reorganized <- Rceattle::rearrange_dat(data_list)
     data_list_reorganized = c(list(model = TMBfilename), data_list_reorganized)
     if(msmMode > 0 & data_list$HCR == 3){
@@ -304,7 +302,7 @@ fit_mod <-
       start_par$ln_Ftarget = matrix(log(HCR$FsprTarget), nrow = data_list$nspp, ncol = nyrs_proj) # Fixed fishing mortality for projections for each species
     }
 
-    # - Update M1 for inits
+    # - Update M1 parameter object from data if initial parameter values input
     if(updateM1){
       m1 <- array(0, dim = c(data_list$nspp, 2, max(data_list$nages, na.rm = T))) # Set up array
 
@@ -322,12 +320,17 @@ fit_mod <-
       start_par$ln_M1 <- log(m1)
     }
 
+    # - Update alpha for stock-recruit if fixed/prior and initial parameter values input
+    if(data_list$srr_est_mode %in% c(0,2)){
+      start_par$rec_pars[,2] <- log(data_list$srr_prior_mean)
+    }
+
     if(verbose > 0) {message("Step 4: Data rearranged complete")}
 
 
-    #--------------------------------------------------
-    # STEP 7 - Set up parameter bounds
-    #--------------------------------------------------
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # STEP 7: Set up parameter bounds ----
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     L <- c()
     U <- c()
     for(i in 1:length(map$mapFactor)){
@@ -344,9 +347,9 @@ fit_mod <-
     }
 
 
-    #--------------------------------------------------
-    # STEP 8 - Phase hindcast
-    #--------------------------------------------------
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # STEP 8: Phase hindcast ----
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # Set default phasing
     if(!is.null(phase)){
       if(class(phase) == "character"){
@@ -391,6 +394,48 @@ fit_mod <-
             log_gam_b = 5, # Suitability parameter (not used in MSVPA style)
             log_phi = 5 # Suitability parameter (not used in MSVPA style)
           )
+
+
+          # debugphase = list(
+          #   dummy = 1,
+          #   ln_pop_scalar = 5, # Scalar for input numbers-at-age
+          #   rec_pars = 1, # Stock-recruit parameters or log(mean rec) if no stock-recruit relationship
+          #   ln_rec_sigma = 4, # Variance for annual recruitment deviats
+          #   rec_dev = 2, # Annual recruitment deviats
+          #   init_dev = 3, # Age specific initial age-structure deviates or parameters
+          #   ln_sex_ratio_sigma = 3, # Variance of sex ratio (usually fixed)
+          #   ln_M1 = 4, #  Estimated natural or residual mortality
+          #   ln_mean_F = 6, # Mean fleet-specific fishing mortality
+          #   ln_Flimit = 15, # Estimated F limit
+          #   ln_Ftarget = 15, # Estimated F target
+          #   ln_Finit = 7, # Estimated fishing mortality for non-equilibrium initial age-structure
+          #   proj_F_prop = 14, # Fixed fleet-specific proportion of Flimit and Ftarget apportioned within each species
+          #   F_dev = 7, # Annual fleet specific fishing mortality deviates
+          #   ln_srv_q = 10, # Survey catchability
+          #   ln_srv_q_dev = 11, # Annual survey catchability deviates (if time-varying)
+          #   ln_sigma_srv_q = 15, # Prior SD for survey catchability deviates
+          #   ln_sigma_time_varying_srv_q = 15, # SD for annual survey catchability deviates (if time-varying)
+          #   sel_coff = 8, # Non-parametric selectivity coefficients
+          #   sel_coff_dev = 11, # Annual deviates for non-parametric selectivity coefficients
+          #   ln_sel_slp = 9, # Slope parameters for logistic forms of selectivity
+          #   sel_inf = 9, # Asymptote parameters for logistic forms of selectivity
+          #   ln_sel_slp_dev = 11, # Annual deviates for slope parameters for logistic forms of selectivity (if time-varying)
+          #   sel_inf_dev = 11, # Annual deviates for asymptote parameters for logistic forms of selectivity (if time-varying)
+          #   ln_sigma_sel = 12, # SD for annual selectivity deviates (if time-varying)
+          #   sel_curve_pen = 13, # Penalty for non-parametric selectivity
+          #   ln_sigma_srv_index = 14, # Log SD for survey lognormal index likelihood (usually input)
+          #   ln_sigma_fsh_catch = 14, # Log SD for lognormal catch likelihood (usually input)
+          #   comp_weights = 15, # Weights for multinomial comp likelihood
+          #   logH_1 = 15,  # Functional form parameter (not used in MSVPA functional form)
+          #   logH_1a = 15, # Functional form parameter (not used in MSVPA functional form)
+          #   logH_1b = 15, # Functional form parameter (not used in MSVPA functional form)
+          #   logH_2 = 15, # Functional form parameter (not used in MSVPA functional form)
+          #   logH_3 = 15, # Functional form parameter (not used in MSVPA functional form)
+          #   H_4 = 15, # Functional form parameter (not used in MSVPA functional form)
+          #   log_gam_a = 15, # Suitability parameter (not used in MSVPA style)
+          #   log_gam_b = 15, # Suitability parameter (not used in MSVPA style)
+          #   log_phi = 15 # Suitability parameter (not used in MSVPA style)
+          # )
         }
       }
 
@@ -423,9 +468,9 @@ fit_mod <-
     }
 
 
-    #--------------------------------------------------
-    # STEP 9 - Fit final hindcast model
-    #--------------------------------------------------
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # STEP 9: Fit hindcast ----
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if(estimateMode != 2){ # dont build if projection and estimating HCR parameters
       if(sum(as.numeric(unlist(map$mapFactor)), na.rm = TRUE) == 0){stop("Map of length 0: all NAs")}
       obj = TMB::MakeADFun(
@@ -498,9 +543,9 @@ fit_mod <-
     }
 
 
-    #--------------------------------------------------
-    # STEP 10 - Run HCR projections
-    #--------------------------------------------------
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # STEP 10: Run HCR projections ----
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if(estimateMode %in% c(0,2,4)){
       if(data_list$HCR > 2){
         data_list_reorganized$forecast <- TRUE # Turn BRP estimation on within likelihood
@@ -632,9 +677,9 @@ fit_mod <-
     } # End projection
 
 
-    #--------------------------------------------------
-    # STEP 11: Save output
-    #--------------------------------------------------
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # STEP 11: Save output ----
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # - Save estimated parameters
     mod_objects$estimated_params <- last_par
     mod_objects$obj = obj

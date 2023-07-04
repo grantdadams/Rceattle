@@ -3,11 +3,10 @@
 #' @description Function to read a TMB cpp file and construct parameter list object for Rceattle
 #'
 #' @param data_list A data_list object created by \code{\link{build_dat}}
-#' @param inits Character vector of named initial values from ADMB \code{.std} or \code{.par} files or list of previous parameter estimates from Rceattle model.
 #'
 #' @return a list of map arguments for each parameter
 #' @export
-build_params <- function(data_list, inits = NULL) {
+build_params <- function(data_list) {
   # closeAllConnections()
 
   data_list$nspp2 = data_list$nspp + 1
@@ -29,20 +28,24 @@ build_params <- function(data_list, inits = NULL) {
   param_list$ln_pop_scalar = matrix(0, nrow = data_list$nspp, ncol = max(data_list$nages))
 
   # -- 3.1. Recruitment parameters
-  param_list$rec_pars = matrix(9, nrow = data_list$nspp, ncol = 2)  # Recruitment parameters; n = [nspp, 2]
+  param_list$rec_pars = matrix(9, nrow = data_list$nspp, ncol = 3)  # col 1 = mean rec, col 2 = alpha from srr curve, col 3 = beta from srr curve
+  param_list$rec_pars[,3] <- log(3) # Starting low here for beta
+  param_list$rec_pars[,2] <- log(data_list$srr_prior_mean)
+
   param_list$ln_rec_sigma = log(as.numeric(data_list$sigma_rec_prior))  # Standard deviation of recruitment deviations; n = [1, nspp]
   param_list$rec_dev = matrix(0, nrow = data_list$nspp, ncol = nyrs_proj)  # Annual recruitment deviation; n = [nspp, nyrs_hind]
 
 
-  # -- 3.2. Abundance parameters
-  if(data_list$initMode > 0){ # Estimate as devs
-    param_list$init_dev = matrix(0, nrow = data_list$nspp, ncol = max(data_list$nages)-1)
-  } else { # Estimate as free parameters
-    param_list$init_dev = matrix(4, nrow = data_list$nspp, ncol = max(data_list$nages))
-    for(sp in 1:data_list$nspp){
+  # -- 3.2. Initial age-structure parameters
+  param_list$init_dev = matrix(4, nrow = data_list$nspp, ncol = max(data_list$nages))
+  for(sp in 1:data_list$nspp){
+    if(data_list$initMode == 0){ # Estimate as free parameters (fill in ages above max age with -999)
       if(data_list$nages[sp] != max(data_list$nages)){
         param_list$init_dev[sp,(data_list$nages[sp]+1):max(data_list$nages)] = -999
       }
+    }
+    if(data_list$initMode > 0){ # Estimate as devs (fill in ages above max age - 1 with -999)
+      param_list$init_dev[sp,data_list$nages[sp]:max(data_list$nages)] = -999
     }
   }
 
@@ -144,17 +147,6 @@ build_params <- function(data_list, inits = NULL) {
 
   # -- 3.10. Preference parameters
   param_list$log_phi = matrix(0.5, data_list$nspp, data_list$nspp)
-
-
-
-  #---------------------------------------------------------------------
-  # Step 4 -- Replace inits with previous parameters if desired
-  #---------------------------------------------------------------------
-  if(class(inits) == "list"){
-    for(i in 1:length(inits)){
-      param_list[[names(inits)[i]]] = inits[[names(inits)[i]]]
-    }
-  }
 
 
   return(param_list)

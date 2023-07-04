@@ -17,12 +17,12 @@ GOA2018SS$fleet_control$proj_F_prop <- rep(1, length(GOA2018SS$fleet_control$pro
 
 
 DATA_SET <-BS2017SS
-# DATA_SET <-GOA2018SS
+DATA_SET <-GOA2018SS
 
 # For EBS MS:
 alpha = exp(c(4.121, 2.119, 1.553))
 # For GOA MS:
-# alpha = exp(c(3.143, 1.975, 1.44))
+alpha = exp(c(3.143, 1.975, 1.44))
 
 #--------------------------------------------------------------------
 # SINGLE-SPECIES FIX M
@@ -35,7 +35,7 @@ ss_run <- Rceattle::fit_mod(
   random_rec = FALSE, # No random recruitment
   msmMode = 0, # Single species mode
   phase = "default",
-  initMode = 1,
+  initMode = 2,
   verbose = 1)
 
 ss_run_ricker1 <- Rceattle::fit_mod(
@@ -99,7 +99,7 @@ ss_run_M <- Rceattle::fit_mod(
   inits = NULL,#ss_run$estimated_params, # Initial parameters = 0
   file = NULL, # Don't save
   estimateMode = 0, # Estimate
-  M1Fun = build_M1(M1_model = c(1,1,1)), # Estimate M
+  M1Fun = build_M1(M1_model = c(1,2,1)), # Estimate M
   random_rec = FALSE, # No random recruitment
   msmMode = 0, # Single species mode
   phase = "default",
@@ -119,7 +119,7 @@ ss_run_M_ricker1 <- Rceattle::fit_mod(
                      srr_prior_sd = 1),
   random_rec = FALSE, # No random recruitment
   msmMode = 0, # Single species mode
-  M1Fun = build_M1(M1_model = c(1,1,1)),
+  M1Fun = build_M1(M1_model = c(1,2,1)),
   phase = "default",
   verbose = 1,
   initMode = 0)
@@ -136,7 +136,7 @@ ss_run_M_ricker2 <- Rceattle::fit_mod(
                      srr_prior_sd = 1),
   random_rec = FALSE, # No random recruitment
   msmMode = 0, # Single species mode
-  M1Fun = build_M1(M1_model = c(1,1,1)),
+  M1Fun = build_M1(M1_model = c(1,2,1)),
   phase = "default",
   verbose = 1,
   initMode = 1)
@@ -153,7 +153,7 @@ ss_run_M_ricker3 <- Rceattle::fit_mod(
                      srr_prior_sd = 1),
   random_rec = FALSE, # No random recruitment
   msmMode = 0, # Single species mode
-  M1Fun = build_M1(M1_model = c(1,1,1)),
+  M1Fun = build_M1(M1_model = c(1,2,1)),
   phase = "default",
   verbose = 1,
   initMode = 2)
@@ -168,7 +168,7 @@ ms_run <- Rceattle::fit_mod(
   inits = ss_run_M$estimated_params, # Initial parameters from single species ests
   file = NULL, # Don't save
   estimateMode = 0, # Estimate
-  M1Fun = build_M1(M1_model = c(1,1,1)),
+  M1Fun = build_M1(M1_model = c(1,2,1)),
   niter = 3, # 3 iterations around population and predation dynamics
   random_rec = FALSE, # No random recruitment
   msmMode = 1, # MSVPA based
@@ -191,7 +191,7 @@ ms_run_ricker1 <- Rceattle::fit_mod(
                      srr_prior_sd = 1),#;
   random_rec = FALSE,#; # No random recruitment
   msmMode = 1,#; # Single species mode
-  M1Fun = build_M1(M1_model = c(1,1,1)),#;
+  M1Fun = build_M1(M1_model = c(1,2,1)),#;
   phase = default,#;
   verbose = 1,#;
   initMode = 0
@@ -211,7 +211,7 @@ ms_run_ricker2 <- Rceattle::fit_mod(
                      srr_prior_sd = 1),
   random_rec = FALSE, # No random recruitment
   msmMode = 1, # Single species mode
-  M1Fun = build_M1(M1_model = c(1,1,1)),
+  M1Fun = build_M1(M1_model = c(1,2,1)),
   phase = "default",
   verbose = 1,
   initMode = 1)
@@ -230,7 +230,7 @@ ms_run_ricker3 <- Rceattle::fit_mod(
                      srr_prior_sd = 1),#;
   random_rec = FALSE,#; # No random recruitment
   msmMode = 1,#; # Single species mode
-  M1Fun = build_M1(M1_model = c(1,1,1)),#;
+  M1Fun = build_M1(M1_model = c(1,2,1)),#;
   phase = "default",#;
   verbose = 1,#;
   initMode = 2)
@@ -249,7 +249,7 @@ ms_run_ricker3_prior <- Rceattle::fit_mod(
                      srr_prior_sd = 1),
   random_rec = FALSE, # No random recruitment
   msmMode = 1, # Single species mode
-  M1Fun = build_M1(M1_model = c(1,1,1)),
+  M1Fun = build_M1(M1_model = c(1,2,1)),
   phase = "default",
   verbose = 1,
   initMode = 2)
@@ -268,7 +268,7 @@ ms_run_ricker3_fixed <- Rceattle::fit_mod(
                      srr_prior_sd = 1),
   random_rec = FALSE, # No random recruitment
   msmMode = 1, # Single species mode
-  M1Fun = build_M1(M1_model = c(1,1,1)),
+  M1Fun = build_M1(M1_model = c(1,2,1)),
   phase = "default",
   verbose = 1,
   initMode = 2)
@@ -288,7 +288,7 @@ ms_run_ricker3_Ianelli <- Rceattle::fit_mod(
                      srr_prior_sd = 1),
   random_rec = FALSE, # No random recruitment
   msmMode = 1, # Single species mode
-  M1Fun = build_M1(M1_model = c(1,1,1)),
+  M1Fun = build_M1(M1_model = c(1,2,1)),
   phase = "default",
   verbose = 1,
   initMode = 2)
@@ -308,10 +308,11 @@ ms_run_ricker3_Ianelli_prior <- Rceattle::fit_mod(
                      srr_prior_sd = 1),
   random_rec = FALSE, # No random recruitment
   msmMode = 1, # Single species mode
-  M1Fun = build_M1(M1_model = c(1,1,1)),
+  M1Fun = build_M1(M1_model = c(1,2,1)),
   phase = "default",
   verbose = 1,
   initMode = 2)
+
 
 # Plot it
 pars <- exp(ms_run_ricker3_Ianelli_prior$estimated_params$rec_pars)
@@ -331,7 +332,7 @@ for(i in 1:3){
   plot(x = ssb[sp,], y = r[sp,], xlab = "SSB", ylab = "R", pch = 16, col = 2, xlim = c(0, max(ssb[sp,])), ylim = c(0, max(r[sp,])))
   curve(exp(mod$coefficients[1]) * x * exp(mod$coefficients[2] * x), from = 0, add=TRUE, to = max(ssb[sp,]), col = 2, lwd = 2)
 
-  # sr penalty
+# sr penalty
   ssb <- ms_run_ricker3_Ianelli_prior$quantities$biomassSSB[,1:41]
   r <- ms_run_ricker3_Ianelli_prior$quantities$R[,2:42]
   points(x = ssb[sp,], y = r[sp,], pch = 16, col = 1)

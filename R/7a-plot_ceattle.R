@@ -97,16 +97,16 @@ plot_biomass <- function(Rceattle,
 
   # Extract data objects
   Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
-  Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
+  years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
   if(incl_proj){
-    Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
+    years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
   }
 
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
-  nyrs_vec <- sapply(Years, length)
+  nyrs_vec <- sapply(years, length)
   nyrs <- max(nyrs_vec)
-  maxyr <- max((sapply(Years, max)))
-  if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
+  maxyr <- max((sapply(years, max)))
+  if(is.null(minyr)){minyr <- min((sapply(years, min)))}
 
   nspp <- Rceattle[[1]]$data_list$nspp
 
@@ -328,8 +328,8 @@ plot_biomass <- function(Rceattle,
           for (k in 1:dim(quantity)[3]) {
             # - 95% CI
             polygon(
-              x = c(Years[[k]], rev(Years[[k]])),
-              y = c(quantity_upper95[spp[j], 1:length(Years[[k]]), k], rev(quantity_lower95[spp[j], 1:length(Years[[k]]), k])),
+              x = c(years[[k]], rev(years[[k]])),
+              y = c(quantity_upper95[spp[j], 1:length(years[[k]]), k], rev(quantity_lower95[spp[j], 1:length(years[[k]]), k])),
               col = adjustcolor( line_col[k], alpha.f = alpha/2),
               border = NA
             )
@@ -337,8 +337,8 @@ plot_biomass <- function(Rceattle,
             # - 50% CI
             if(mse){
               polygon(
-                x = c(Years[[k]], rev(Years[[k]])),
-                y = c(quantity_upper50[spp[j], 1:length(Years[[k]]), k], rev(quantity_lower50[spp[j], 1:length(Years[[k]]), k])),
+                x = c(years[[k]], rev(years[[k]])),
+                y = c(quantity_upper50[spp[j], 1:length(years[[k]]), k], rev(quantity_lower50[spp[j], 1:length(years[[k]]), k])),
                 col = adjustcolor( line_col[k], alpha.f = alpha),
                 border = NA
               )
@@ -350,8 +350,8 @@ plot_biomass <- function(Rceattle,
       # Mean quantity
       for (k in 1:dim(quantity)[3]) {
         lines(
-          x = Years[[k]],
-          y = quantity[spp[j], 1:length(Years[[k]]), k],
+          x = years[[k]],
+          y = quantity[spp[j], 1:length(years[[k]]), k],
           lty = 1,
           lwd = lwd,
           col = line_col[k]
@@ -441,16 +441,16 @@ plot_recruitment <- function(Rceattle,
 
   # Extract data objects
   Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
-  Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
+  years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
   if(incl_proj){
-    Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
+    years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
   }
 
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
-  nyrs_vec <- sapply(Years, length)
+  nyrs_vec <- sapply(years, length)
   nyrs <- max(nyrs_vec)
-  maxyr <- max((sapply(Years, max)))
-  if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
+  maxyr <- max((sapply(years, max)))
+  if(is.null(minyr)){minyr <- min((sapply(years, min)))}
 
   nspp <- Rceattle[[1]]$data_list$nspp
 
@@ -662,8 +662,8 @@ plot_recruitment <- function(Rceattle,
           for (k in 1:dim(quantity)[3]) {
             # - 95% CI
             polygon(
-              x = c(Years[[k]], rev(Years[[k]])),
-              y = c(quantity_upper95[spp[j], 1:length(Years[[k]]), k], rev(quantity_lower95[spp[j], 1:length(Years[[k]]), k])),
+              x = c(years[[k]], rev(years[[k]])),
+              y = c(quantity_upper95[spp[j], 1:length(years[[k]]), k], rev(quantity_lower95[spp[j], 1:length(years[[k]]), k])),
               col = adjustcolor( line_col[k], alpha.f = alpha/2),
               border = NA
             )
@@ -671,8 +671,8 @@ plot_recruitment <- function(Rceattle,
             # - 50% CI
             if(mse){
               polygon(
-                x = c(Years[[k]], rev(Years[[k]])),
-                y = c(quantity_upper50[spp[j], 1:length(Years[[k]]), k], rev(quantity_lower50[spp[j], 1:length(Years[[k]]), k])),
+                x = c(years[[k]], rev(years[[k]])),
+                y = c(quantity_upper50[spp[j], 1:length(years[[k]]), k], rev(quantity_lower50[spp[j], 1:length(years[[k]]), k])),
                 col = adjustcolor( line_col[k], alpha.f = alpha),
                 border = NA
               )
@@ -684,8 +684,8 @@ plot_recruitment <- function(Rceattle,
       # Mean quantity
       for (k in 1:dim(quantity)[3]) {
         lines(
-          x = Years[[k]],
-          y = quantity[spp[j], 1:length(Years[[k]]), k],
+          x = years[[k]],
+          y = quantity[spp[j], 1:length(years[[k]]), k],
           lty = 1,
           lwd = lwd,
           col = line_col[k]
@@ -732,11 +732,12 @@ plot_selectivity <-
     }
 
     # Extract data objects
-    Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
-    nyrs_vec <- sapply(Years, length)
-    nyrs <- max(nyrs_vec)
-    maxyr <- max((sapply(Years, max)))
-    minyr <- min((sapply(Years, min)))
+    years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
+    hindyears <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
+    nyrs <- max(sapply(years, length))
+    nyrshind <- max(sapply(hindyears, length))
+    maxyr <- max((sapply(years, max)))
+    minyr <- min((sapply(years, min)))
 
     nspp <- Rceattle[[1]]$data_list$nspp
     fleet_control <- Rceattle[[1]]$data_list$fleet_control
@@ -750,7 +751,7 @@ plot_selectivity <-
     selectivity_array <-
       array(NA, dim = c(nflt, 2, max(nages), nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
-      selectivity_array[, , , ,i] <- Rceattle[[i]]$quantities$sel[,,,]
+      selectivity_array[, , , years[[i]]-minyr+1,i] <- Rceattle[[i]]$quantities$sel[,,,]
     }
 
     # Plot limits
@@ -799,7 +800,7 @@ plot_selectivity <-
               res = 300
             )
           }
-          sel_subset <- (selectivity_array[j, sex, 1:nages[sp], 1:nyrs, 1])
+          sel_subset <- (selectivity_array[j, sex, 1:nages[sp], 1:nyrshind, 1])
 
           par(
             mar = c(3.2, 3.2 , 1 , 0.5) ,
@@ -807,7 +808,7 @@ plot_selectivity <-
             tcl = -0.8,
             mgp = c(10, 0.6, 0)
           )
-          persp(y = Years[[1]], x =  (1:nages[sp]) - 1 + minage[sp], z = sel_subset, col="white",xlab = "Age",ylab= "\n\nYear", zlab= "\n\nSelectivity",expand=0.5,box=TRUE,ticktype="detailed",phi=35,theta=-19, main = NA, zlim = c(ymin_sel[i], ymax_sel[j]))
+          persp(y = hindyears[[1]], x =  (1:nages[sp]) - 1 + minage[sp], z = sel_subset, col="white",xlab = "Age",ylab= "\n\nYear", zlab= "\n\nSelectivity",expand=0.5,box=TRUE,ticktype="detailed",phi=35,theta=-19, main = NA, zlim = c(ymin_sel[i], ymax_sel[j]))
           mtext(text = paste(legend_sex2, as.character(fleet_control$Fleet_name[j])), side = 3, cex = 0.8, line = -.5)
 
           if (i == 2) {
@@ -869,7 +870,7 @@ plot_selectivity <-
             for (flt in 1:length(fleets)) {
               lines(
                 x = 1:nages[sp],
-                y = selectivity_array[fleets[flt], sex, 1:nages[sp], nyrs, 1],
+                y = selectivity_array[fleets[flt], sex, 1:nages[sp], nyrshind, 1],
                 lty = 1,
                 lwd = lwd,
                 col = flt_colors[flt]
@@ -1027,13 +1028,13 @@ plot_mortality <-
     # Extract data objects
     if(is.null(minyr)){ minyr <- Rceattle[[1]]$data_list$styr}
 
-    Years <- minyr:Rceattle[[1]]$data_list$endyr
+    years <- minyr:Rceattle[[1]]$data_list$endyr
     if(incl_proj){
-      Years <- minyr:Rceattle[[1]]$data_list$projyr
+      years <- minyr:Rceattle[[1]]$data_list$projyr
     }
-    nyrs_vec <- length(Years)
+    nyrs_vec <- length(years)
     nyrs <- max(nyrs_vec)
-    maxyr <- max((sapply(Years, max)))
+    maxyr <- max((sapply(years, max)))
 
     nspp <- Rceattle[[1]]$data_list$nspp
     spnames <- Rceattle[[1]]$data_list$spnames
@@ -1126,7 +1127,7 @@ plot_mortality <-
             ages <- (1:(nages[sp])) - 1 + minage[sp]
 
             # Rearrange data
-            data <- data.frame(Year = rep(Years, each = length(ages)), Age = rep(ages, length(Years)), M = c(m_subset))
+            data <- data.frame(Year = rep(years, each = length(ages)), Age = rep(ages, length(years)), M = c(m_subset))
 
             # Plot limits
             if(is.null(zlim)){
@@ -1166,7 +1167,7 @@ plot_mortality <-
             # Plot as persp
             if(type == 3){
               par( mar=c(1 , 2 , 1 , 1) , tcl=-.25 , mgp=c(2 ,  1 ,  0) ,  oma=c(0 , 2 , 0 , 0))
-              pmat = persp(y = Years, x = ages, z = m_subset, zlab = NA, zlim = zlim, xlab = "Age", ylab = "Year", theta = theta, ticktype = "detailed")
+              pmat = persp(y = years, x = ages, z = m_subset, zlab = NA, zlim = zlim, xlab = "Age", ylab = "Year", theta = theta, ticktype = "detailed")
               mtext(ifelse(M2, "M2", "M"), side = 2, line = 0.5, at = 0)
               if(M2){
                 text(-0.25,.15, labels = paste0("M1 = ",round((M1_array[j, sex, 1, 1]), 3)))
@@ -1403,16 +1404,16 @@ plot_ssb <- function(Rceattle,
 
   # Extract data objects
   Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
-  Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
+  years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
   if(incl_proj){
-    Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
+    years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
   }
 
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
-  nyrs_vec <- sapply(Years, length)
+  nyrs_vec <- sapply(years, length)
   nyrs <- max(nyrs_vec)
-  maxyr <- max((sapply(Years, max)))
-  if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
+  maxyr <- max((sapply(years, max)))
+  if(is.null(minyr)){minyr <- min((sapply(years, min)))}
 
   nspp <- Rceattle[[1]]$data_list$nspp
 
@@ -1636,8 +1637,8 @@ plot_ssb <- function(Rceattle,
           for (k in 1:dim(quantity)[3]) {
             # - 95% CI
             polygon(
-              x = c(Years[[k]], rev(Years[[k]])),
-              y = c(quantity_upper95[spp[j], 1:length(Years[[k]]), k], rev(quantity_lower95[spp[j], 1:length(Years[[k]]), k])),
+              x = c(years[[k]], rev(years[[k]])),
+              y = c(quantity_upper95[spp[j], 1:length(years[[k]]), k], rev(quantity_lower95[spp[j], 1:length(years[[k]]), k])),
               col = adjustcolor( line_col[k], alpha.f = alpha/2),
               border = NA
             )
@@ -1645,8 +1646,8 @@ plot_ssb <- function(Rceattle,
             # - 50% CI
             if(mse){
               polygon(
-                x = c(Years[[k]], rev(Years[[k]])),
-                y = c(quantity_upper50[spp[j], 1:length(Years[[k]]), k], rev(quantity_lower50[spp[j], 1:length(Years[[k]]), k])),
+                x = c(years[[k]], rev(years[[k]])),
+                y = c(quantity_upper50[spp[j], 1:length(years[[k]]), k], rev(quantity_lower50[spp[j], 1:length(years[[k]]), k])),
                 col = adjustcolor( line_col[k], alpha.f = alpha),
                 border = NA
               )
@@ -1658,8 +1659,8 @@ plot_ssb <- function(Rceattle,
       # Mean quantity
       for (k in 1:dim(quantity)[3]) {
         lines(
-          x = Years[[k]],
-          y = quantity[spp[j], 1:length(Years[[k]]), k],
+          x = years[[k]],
+          y = quantity[spp[j], 1:length(years[[k]]), k],
           lty = 1,
           lwd = lwd,
           col = line_col[k]
@@ -1741,16 +1742,16 @@ plot_b_eaten <-  function(Rceattle,
 
   # Extract data objects
   Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
-  Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
+  years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
   if(incl_proj){
-    Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
+    years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
   }
 
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
-  nyrs_vec <- sapply(Years, length)
+  nyrs_vec <- sapply(years, length)
   nyrs <- max(nyrs_vec)
-  maxyr <- max((sapply(Years, max)))
-  if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
+  maxyr <- max((sapply(years, max)))
+  if(is.null(minyr)){minyr <- min((sapply(years, min)))}
 
   nspp <- Rceattle[[1]]$data_list$nspp
 
@@ -1958,8 +1959,8 @@ plot_b_eaten <-  function(Rceattle,
           for (k in 1:dim(quantity)[3]) {
             # - 95% CI
             polygon(
-              x = c(Years[[k]], rev(Years[[k]])),
-              y = c(quantity_upper95[spp[j], 1:length(Years[[k]]), k], rev(quantity_lower95[spp[j], 1:length(Years[[k]]), k])),
+              x = c(years[[k]], rev(years[[k]])),
+              y = c(quantity_upper95[spp[j], 1:length(years[[k]]), k], rev(quantity_lower95[spp[j], 1:length(years[[k]]), k])),
               col = adjustcolor( line_col[k], alpha.f = alpha/2),
               border = NA
             )
@@ -1967,8 +1968,8 @@ plot_b_eaten <-  function(Rceattle,
             # - 50% CI
             if(mse){
               polygon(
-                x = c(Years[[k]], rev(Years[[k]])),
-                y = c(quantity_upper50[spp[j], 1:length(Years[[k]]), k], rev(quantity_lower50[spp[j], 1:length(Years[[k]]), k])),
+                x = c(years[[k]], rev(years[[k]])),
+                y = c(quantity_upper50[spp[j], 1:length(years[[k]]), k], rev(quantity_lower50[spp[j], 1:length(years[[k]]), k])),
                 col = adjustcolor( line_col[k], alpha.f = alpha),
                 border = NA
               )
@@ -1980,8 +1981,8 @@ plot_b_eaten <-  function(Rceattle,
       # Mean quantity
       for (k in 1:dim(quantity)[3]) {
         lines(
-          x = Years[[k]],
-          y = quantity[spp[j], 1:length(Years[[k]]), k],
+          x = years[[k]],
+          y = quantity[spp[j], 1:length(years[[k]]), k],
           lty = 1,
           lwd = lwd,
           col = line_col[k]
@@ -2051,16 +2052,16 @@ plot_b_eaten_prop <-
 
     # Extract data objects
     Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
-    Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
+    years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
     if(incl_proj){
-      Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
+      years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
     }
 
     max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
-    nyrs_vec <- sapply(Years, length)
+    nyrs_vec <- sapply(years, length)
     nyrs <- max(nyrs_vec)
-    maxyr <- max((sapply(Years, max)))
-    if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
+    maxyr <- max((sapply(years, max)))
+    if(is.null(minyr)){minyr <- min((sapply(years, min)))}
     max_age <- max(Rceattle[[1]]$data_list$nages)
 
     nspp <- Rceattle[[1]]$data_list$nspp
@@ -2186,8 +2187,8 @@ plot_b_eaten_prop <-
           pred <- species[k]
           for (mod in 1:dim(B_eaten)[4]) {
             lines(
-              x = Years[[mod]],
-              y = B_eaten[pred, spp, 1:length(Years[[mod]]), mod],
+              x = years[[mod]],
+              y = B_eaten[pred, spp, 1:length(years[[mod]]), mod],
               lwd = lwd,
               lty = k,
               col = line_col[mod]) # Median
@@ -2195,7 +2196,7 @@ plot_b_eaten_prop <-
 
           # Average across time
           if(incl_mean){
-            abline(h = mean(B_eaten[pred, spp, 1:length(Years[[1]]), ]), lwd  = lwd, col = "grey", lty = pred)
+            abline(h = mean(B_eaten[pred, spp, 1:length(years[[1]]), ]), lwd  = lwd, col = "grey", lty = pred)
           }
         }
       }
@@ -2261,16 +2262,16 @@ plot_m_at_age <-
 
     # Extract data objects
     Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
-    Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
+    years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
     if(incl_proj){
-      Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
+      years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
     }
 
     max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
-    nyrs_vec <- sapply(Years, length)
+    nyrs_vec <- sapply(years, length)
     nyrs <- max(nyrs_vec)
-    maxyr <- max((sapply(Years, max)))
-    if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
+    maxyr <- max((sapply(years, max)))
+    if(is.null(minyr)){minyr <- min((sapply(years, min)))}
     nsex <- Rceattle[[1]]$data_list$nsex
     nspp <- Rceattle[[1]]$data_list$nspp
 
@@ -2383,8 +2384,8 @@ plot_m_at_age <-
           # M-at-age
           for (k in 1:dim(m_at_age)[4]) {
             lines(
-              x = Years[[k]],
-              y = m_at_age[spp, sex, 1:length(Years[[k]]), k],
+              x = years[[k]],
+              y = m_at_age[spp, sex, 1:length(years[[k]]), k],
               lty = 1,
               lwd = lwd,
               col = line_col[k]
@@ -2394,7 +2395,7 @@ plot_m_at_age <-
 
           # Average across time
           if(incl_mean){
-            abline(h = mean(m_at_age[spp, sex, 1:length(Years[[1]]), ]), lwd  = lwd, col = "grey", lty = 1)
+            abline(h = mean(m_at_age[spp, sex, 1:length(years[[1]]), ]), lwd  = lwd, col = "grey", lty = 1)
           }
         }
       }
@@ -2460,16 +2461,16 @@ plot_m2_at_age_prop <-
 
     # Extract data objects
     Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
-    Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
+    years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
     if(incl_proj){
-      Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
+      years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
     }
 
     max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
-    nyrs_vec <- sapply(Years, length)
+    nyrs_vec <- sapply(years, length)
     nyrs <- max(nyrs_vec)
-    maxyr <- max((sapply(Years, max)))
-    if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
+    maxyr <- max((sapply(years, max)))
+    if(is.null(minyr)){minyr <- min((sapply(years, min)))}
     nsex <- Rceattle[[1]]$data_list$nsex
     nspp <- Rceattle[[1]]$data_list$nspp
 
@@ -2599,8 +2600,8 @@ plot_m2_at_age_prop <-
           for (k in 1:dim(m2_at_age_prop)[5]) {
             for(rsp in 1:nspp){
               lines(
-                x = Years[[k]],
-                y = m2_at_age_prop[rsp, spp, sex, 1:length(Years[[k]]), k],
+                x = years[[k]],
+                y = m2_at_age_prop[rsp, spp, sex, 1:length(years[[k]]), k],
                 lty = rsp,
                 lwd = lwd,
                 col = line_col[k]
@@ -2608,7 +2609,7 @@ plot_m2_at_age_prop <-
 
               # Average across time
               if(incl_mean){
-                abline(h = mean(m2_at_age_prop[rsp, spp, sex, 1:length(Years[[1]]), ]), lwd  = lwd, col = "grey", lty = rsp)
+                abline(h = mean(m2_at_age_prop[rsp, spp, sex, 1:length(years[[1]]), ]), lwd  = lwd, col = "grey", lty = rsp)
               }
             }
           }
@@ -2704,16 +2705,16 @@ plot_depletionSSB <- function(Rceattle,
 
   # Extract data objects
   Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
-  Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
+  years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
   if(incl_proj){
-    Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
+    years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
   }
 
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
-  nyrs_vec <- sapply(Years, length)
+  nyrs_vec <- sapply(years, length)
   nyrs <- max(nyrs_vec)
-  maxyr <- max((sapply(Years, max)))
-  if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
+  maxyr <- max((sapply(years, max)))
+  if(is.null(minyr)){minyr <- min((sapply(years, min)))}
 
   nspp <- Rceattle[[1]]$data_list$nspp
 
@@ -2918,8 +2919,8 @@ plot_depletionSSB <- function(Rceattle,
           for (k in 1:dim(quantity)[3]) {
             # - 95% CI
             polygon(
-              x = c(Years[[k]], rev(Years[[k]])),
-              y = c(quantity_upper95[spp[j], 1:length(Years[[k]]), k], rev(quantity_lower95[spp[j], 1:length(Years[[k]]), k])),
+              x = c(years[[k]], rev(years[[k]])),
+              y = c(quantity_upper95[spp[j], 1:length(years[[k]]), k], rev(quantity_lower95[spp[j], 1:length(years[[k]]), k])),
               col = adjustcolor( line_col[k], alpha.f = alpha/2),
               border = NA
             )
@@ -2927,8 +2928,8 @@ plot_depletionSSB <- function(Rceattle,
             # - 50% CI
             if(mse){
               polygon(
-                x = c(Years[[k]], rev(Years[[k]])),
-                y = c(quantity_upper50[spp[j], 1:length(Years[[k]]), k], rev(quantity_lower50[spp[j], 1:length(Years[[k]]), k])),
+                x = c(years[[k]], rev(years[[k]])),
+                y = c(quantity_upper50[spp[j], 1:length(years[[k]]), k], rev(quantity_lower50[spp[j], 1:length(years[[k]]), k])),
                 col = adjustcolor( line_col[k], alpha.f = alpha),
                 border = NA
               )
@@ -2940,8 +2941,8 @@ plot_depletionSSB <- function(Rceattle,
       # Mean quantity
       for (k in 1:dim(quantity)[3]) {
         lines(
-          x = Years[[k]],
-          y = quantity[spp[j], 1:length(Years[[k]]), k],
+          x = years[[k]],
+          y = quantity[spp[j], 1:length(years[[k]]), k],
           lty = ifelse(is.null(reference) == FALSE & mse == TRUE, c(1,2)[k], 1),
           lwd = lwd,
           col = line_col[k]
@@ -3030,16 +3031,16 @@ plot_depletion <- function(Rceattle,
 
   # Extract data objects
   Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
-  Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
+  years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
   if(incl_proj){
-    Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
+    years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
   }
 
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
-  nyrs_vec <- sapply(Years, length)
+  nyrs_vec <- sapply(years, length)
   nyrs <- max(nyrs_vec)
-  maxyr <- max((sapply(Years, max)))
-  if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
+  maxyr <- max((sapply(years, max)))
+  if(is.null(minyr)){minyr <- min((sapply(years, min)))}
 
   nspp <- Rceattle[[1]]$data_list$nspp
 
@@ -3233,8 +3234,8 @@ plot_depletion <- function(Rceattle,
           for (k in 1:dim(quantity)[3]) {
             # - 95% CI
             polygon(
-              x = c(Years[[k]], rev(Years[[k]])),
-              y = c(quantity_upper95[spp[j], 1:length(Years[[k]]), k], rev(quantity_lower95[spp[j], 1:length(Years[[k]]), k])),
+              x = c(years[[k]], rev(years[[k]])),
+              y = c(quantity_upper95[spp[j], 1:length(years[[k]]), k], rev(quantity_lower95[spp[j], 1:length(years[[k]]), k])),
               col = adjustcolor( line_col[k], alpha.f = alpha/2),
               border = NA
             )
@@ -3242,8 +3243,8 @@ plot_depletion <- function(Rceattle,
             # - 50% CI
             if(mse){
               polygon(
-                x = c(Years[[k]], rev(Years[[k]])),
-                y = c(quantity_upper50[spp[j], 1:length(Years[[k]]), k], rev(quantity_lower50[spp[j], 1:length(Years[[k]]), k])),
+                x = c(years[[k]], rev(years[[k]])),
+                y = c(quantity_upper50[spp[j], 1:length(years[[k]]), k], rev(quantity_lower50[spp[j], 1:length(years[[k]]), k])),
                 col = adjustcolor( line_col[k], alpha.f = alpha),
                 border = NA
               )
@@ -3255,8 +3256,8 @@ plot_depletion <- function(Rceattle,
       # Mean quantity
       for (k in 1:dim(quantity)[3]) {
         lines(
-          x = Years[[k]],
-          y = quantity[spp[j], 1:length(Years[[k]]), k],
+          x = years[[k]],
+          y = quantity[spp[j], 1:length(years[[k]]), k],
           lty = 1,
           lwd = lwd,
           col = line_col[k]
@@ -3347,16 +3348,16 @@ plot_f <- function(Rceattle,
 
   # Extract data objects
   Endyrs <-  sapply(Rceattle, function(x) x$data_list$endyr)
-  Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
+  years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
   if(incl_proj){
-    Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
+    years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
   }
 
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
-  nyrs_vec <- sapply(Years, length)
+  nyrs_vec <- sapply(years, length)
   nyrs <- max(nyrs_vec)
-  maxyr <- max((sapply(Years, max)))
-  if(is.null(minyr)){minyr <- min((sapply(Years, min)))}
+  maxyr <- max((sapply(years, max)))
+  if(is.null(minyr)){minyr <- min((sapply(years, min)))}
 
   nspp <- Rceattle[[1]]$data_list$nspp
   minage <- Rceattle[[1]]$data_list$minage
@@ -3538,8 +3539,8 @@ plot_f <- function(Rceattle,
           for (k in 1:dim(quantity)[3]) {
             # - 95% CI
             polygon(
-              x = c(Years[[k]], rev(Years[[k]])),
-              y = c(quantity_upper95[spp[j], 1:length(Years[[k]]), k], rev(quantity_lower95[spp[j], 1:length(Years[[k]]), k])),
+              x = c(years[[k]], rev(years[[k]])),
+              y = c(quantity_upper95[spp[j], 1:length(years[[k]]), k], rev(quantity_lower95[spp[j], 1:length(years[[k]]), k])),
               col = adjustcolor( line_col[k], alpha.f = alpha/2),
               border = NA
             )
@@ -3547,8 +3548,8 @@ plot_f <- function(Rceattle,
             # - 50% CI
             if(mse){
               polygon(
-                x = c(Years[[k]], rev(Years[[k]])),
-                y = c(quantity_upper50[spp[j], 1:length(Years[[k]]), k], rev(quantity_lower50[spp[j], 1:length(Years[[k]]), k])),
+                x = c(years[[k]], rev(years[[k]])),
+                y = c(quantity_upper50[spp[j], 1:length(years[[k]]), k], rev(quantity_lower50[spp[j], 1:length(years[[k]]), k])),
                 col = adjustcolor( line_col[k], alpha.f = alpha),
                 border = NA
               )
@@ -3560,8 +3561,8 @@ plot_f <- function(Rceattle,
       # Mean quantity
       for (k in 1:dim(quantity)[3]) {
         lines(
-          x = Years[[k]],
-          y = quantity[spp[j], 1:length(Years[[k]]), k],
+          x = years[[k]],
+          y = quantity[spp[j], 1:length(years[[k]]), k],
           lty = 1,
           lwd = lwd,
           col = line_col[k]
@@ -3569,8 +3570,8 @@ plot_f <- function(Rceattle,
 
         # - Ftarget
         lines(
-          x = Years[[k]],
-          y = ftarget[spp[j], 1:length(Years[[k]]), k],
+          x = years[[k]],
+          y = ftarget[spp[j], 1:length(years[[k]]), k],
           lty = 1,
           lwd = lwd/2,
           col = "blue"
@@ -3578,8 +3579,8 @@ plot_f <- function(Rceattle,
 
         # - Flimit
         lines(
-          x = Years[[k]],
-          y = flimit[spp[j], 1:length(Years[[k]]), k],
+          x = years[[k]],
+          y = flimit[spp[j], 1:length(years[[k]]), k],
           lty = 1,
           lwd = lwd/2,
           col = "red"

@@ -5,9 +5,7 @@
 //               Multispecies Statistical Model                              //
 //          Bioenergetic-based Assessment for Understanding                  //
 //              Biomass Linkages To The Environment                          //
-//                  in the Bering Sea                                        //
-// AUTHORS:   Kirstin Holsman, Jim Ianelli                                   //
-//            Modified by Grant Adams                                        //
+// AUTHORS:   Grant Adams                                                    //
 // CITATIONS:                                                                //
 // 1. Holsman, K. K., Ianelli, J., Aydin, K., Punt, A. E., & Moffitt, E. A. (2015). A comparison of fisheries biological reference points estimated from temperature-specific multi-species and single-species climate-enhanced stock assessment models. Deep-Sea Research Part II: Topical Studies in Oceanography, 134, 360–378. https://doi.org/10.1016/j.dsr2.2015.08.001
 // ------------------------------------------------------------------------- //
@@ -81,6 +79,17 @@ Type imax(const vector<Type> &x)
   return res;
 }
 
+
+template<class Type>
+Type posfun(Type x, Type eps, Type &penalty) {
+  Type denom = 2;
+  denom -= x/eps;
+  Type ans = CppAD::CondExpGe(x, eps, x, eps/denom);   // tune a new candidate x given eps
+  penalty += CppAD::CondExpGe(x, eps, Type(0), 0.01 * (x - eps) * (x - eps));  // penalize via x vs eps
+  return ans;
+}
+
+
 // Function for taking the maximum of a matrix
 template<class Type>
 Type max_matrix(matrix<Type> m1)
@@ -109,14 +118,6 @@ bool isNA(Type x){
 template<class Type>
 bool isFinite(Type x){
   return R_finite(asDouble(x));
-}
-
-
-// Positive function
-template<class Type>
-Type posfun(Type x, Type eps, Type &pen){
-  pen += CppAD::CondExpLt(x,eps,Type(0.01)*pow(x-eps,2),Type(0));
-  return CppAD::CondExpGe(x,eps,x,eps/(Type(2)-x/eps));
 }
 
 
@@ -389,11 +390,12 @@ Type objective_function<Type>::operator() () {
 
 
   // 1.4. RECRUITMENT SETTINGS
-  DATA_INTEGER(srr_fun);                  // Stock recruit relationship
+  DATA_INTEGER(srr_fun);                  // Stock recruit relationship for hindcast estimation
+  DATA_INTEGER(srr_pred_fun);             // Stock recruit relationship for projection/brps/penalty
   DATA_INTEGER(proj_mean_rec);
   //    0 = project recruitment using ln_R0 and rec devs
   //    1 = project recruitment using mean rec (can also have adjusted rec devs)
-  DATA_INTEGER(srr_use_prior);            // Logical of wether to add normal prior to stock recruit-relationship
+  DATA_INTEGER(srr_est_mode);            // Logical of wether to add normal prior to stock recruit-relationship
   DATA_VECTOR(srr_prior_mean);           // Prior mean for stock recruit relationship parameter
   DATA_VECTOR(srr_prior_sd);             // Prior sd for stock recruit relationship parameter
   DATA_INTEGER( niter );                  // Number of loops for MSM mode
@@ -525,7 +527,7 @@ Type objective_function<Type>::operator() () {
   PARAMETER_MATRIX( ln_pop_scalar );              // Scalar to multiply supplied numbers at age by; n = [nspp, nages]
 
   // -- 3.1. Recruitment parameters
-  PARAMETER_MATRIX( rec_pars );                // Mean recruitment; n = [1, nspp]
+  PARAMETER_MATRIX( rec_pars );                   // Stock-recruit parameters: col1 = mean rec, col2 = SRR alpha, col3 = SRR beta
   PARAMETER_VECTOR( ln_rec_sigma );               // Standard deviation of recruitment deviations; n = [1, nspp]
   PARAMETER_MATRIX( rec_dev );                    // Annual recruitment deviation; n = [nspp, nyrs]
   PARAMETER_MATRIX( init_dev );                   // Initial abundance-at-age; n = [nspp, nages] # NOTE: Need to figure out how to best vectorize this
@@ -589,12 +591,16 @@ Type objective_function<Type>::operator() () {
   int max_bin = imax( nlengths );                                                   // Integer of maximum number of length/age bins.
   int n_flt = fleet_control.rows();
   vector<int> joint_adjust(comp_obs.rows()); joint_adjust.setZero();
+  Type pen = 0;
+  Type ricker_intercept = 0;
 
   // -- 4.2. Estimated population quantities
   matrix<Type>  pop_scalar = ln_pop_scalar;  pop_scalar = exp(ln_pop_scalar.array());// Fixed n-at-age scaling coefficient; n = [nspp, nages]
-  vector<Type>  mean_rec(nspp); mean_rec.setZero();                                 // Mean recruitment of hindcast; n = [nspp]
-  vector<Type>  R0(nspp); R0.setZero();                                             // Expected recruitment at F = 0.
-  vector<Type>  Rinit(nspp); Rinit.setZero();                                       // Expected recruitment at F = Finit (non-equilibrium).
+  vector<Type>  mean_rec(nspp); mean_rec.setZero();                                 // Mean recruitment of hindcast
+  matrix<Type>  R_hat(nspp, nyrs); R_hat.setZero();                             // Expected recruitment given SR curve
+  vector<Type>  R0(nspp); R0.setZero();                                             // Equilibrium recruitment at F = 0.
+  vector<Type>  Rinit(nspp); Rinit.setZero();                                       // Equilibrium recruitment at F = Finit (non-equilibrium).
+  matrix<Type>  R(nspp, nyrs); R.setZero();                                         // Estimated recruitment (n)
   vector<Type>  Steepness(nspp); Steepness.setZero();                               // Expected % of R0 at 20% SSB0.
   array<Type>   biomassByage(nspp, 2, max_age, nyrs); biomassByage.setZero();       // Estimated biomass-at-age (kg)
   matrix<Type>  biomass(nspp, nyrs); biomass.setZero();                             // Estimated biomass (kg)
@@ -608,7 +614,6 @@ Type objective_function<Type>::operator() () {
   array<Type>   AvgN(nspp, 2, max_age, nyrs); AvgN.setZero();                       // Average numbers-at-age
   array<Type>   sex_ratio_hat(nspp, max_age, nyrs); sex_ratio_hat.setZero();        // Estimated age-specific sex ratin
   matrix<Type>  sex_ratio_mean_hat(nspp, nyrs); sex_ratio_mean_hat.setZero();       // Estimated sex ratio across all ages
-  matrix<Type>  R(nspp, nyrs); R.setZero();                                         // Estimated recruitment (n)
   array<Type>   S(nspp, 2, max_age, nyrs); S.setZero();                             // Survival at age
   array<Type>   Zed(nspp, 2, max_age, nyrs); Zed.setZero();                         // Total mortality at age
   vector<Type>  r_sigma(nspp); r_sigma.setZero();                                   // Standard deviation of recruitment variation
@@ -1105,7 +1110,7 @@ Type objective_function<Type>::operator() () {
   // 6. POPULATION DYNAMICS EQUATIONS                                          //
   // ------------------------------------------------------------------------- //
   // NOTE: Remember indexing starts at 0
-  // Start iterations
+  // Start iterations for multi-species convergence
   for (int iter = 0; iter < niter; iter++) {
 
     // 6.1. FISHING MORTALITY and FSPRs
@@ -1212,6 +1217,7 @@ Type objective_function<Type>::operator() () {
     // 6.3. SPR BASED REFERENCE POINTS
     //FIXME - make time-varying?
     SPR0.setZero();
+    SPRFinit.setZero();
     SPRlimit.setZero();
     SPRtarget.setZero();
     for (sp = 0; sp < nspp; sp++) {
@@ -1229,7 +1235,7 @@ Type objective_function<Type>::operator() () {
         NbyageSPR(0, sp, age) =  NbyageSPR(0, sp, age-1) * exp(-M(sp, 0, age-1, nyrs_hind - 1));
         NbyageSPR(1, sp, age) =  NbyageSPR(1, sp, age-1) * exp(-(M(sp, 0, age-1, nyrs_hind - 1) + Flimit_age_flt(sp, 0, age-1, nyrs_hind - 1)));
         NbyageSPR(2, sp, age) =  NbyageSPR(2, sp, age-1) * exp(-(M(sp, 0, age-1, nyrs_hind - 1) + Ftarget_age_flt(sp, 0, age-1, nyrs_hind - 1)));
-        NbyageSPR(3, sp, age) =  NbyageSPR(3, sp, age-1) * exp(-(M(sp, 0, age-1, 0) + Finit(sp)));
+        NbyageSPR(3, sp, age) =  NbyageSPR(3, sp, age-1) * exp(-(M1(sp, 0, age-1) + Finit(sp)));
 
       }
 
@@ -1237,20 +1243,22 @@ Type objective_function<Type>::operator() () {
       NbyageSPR(0, sp, nages(sp) - 1) = NbyageSPR(0, sp, nages(sp) - 2) * exp(-M(sp, 0, nages(sp) - 2, nyrs_hind - 1)) / (1 - exp(-M(sp, 0, nages(sp) - 1, nyrs_hind - 1)));
       NbyageSPR(1, sp, nages(sp) - 1) = NbyageSPR(1, sp, nages(sp) - 2) * exp(-(M(sp, 0,  nages(sp) - 2, nyrs_hind - 1) + Flimit_age_flt(sp, 0,  nages(sp) - 2, nyrs_hind - 1))) / (1 - exp(-(M(sp, 0,  nages(sp) - 1, nyrs_hind - 1) + Flimit_age_flt(sp, 0,  nages(sp) - 1, nyrs_hind - 1))));
       NbyageSPR(2, sp, nages(sp) - 1) = NbyageSPR(2, sp, nages(sp) - 2) * exp(-(M(sp, 0,  nages(sp) - 2, nyrs_hind - 1) + Ftarget_age_flt(sp, 0,  nages(sp) - 2, nyrs_hind - 1))) / (1 - exp(-(M(sp, 0,  nages(sp) - 1, nyrs_hind - 1) + Ftarget_age_flt(sp, 0,  nages(sp) - 1, nyrs_hind - 1))));
-      NbyageSPR(3, sp, nages(sp) - 1) = NbyageSPR(3, sp, nages(sp) - 2) * exp(-(M(sp, 0,  nages(sp) - 2, 0) + Finit(sp))) / (1 - exp(-(M(sp, 0,  nages(sp) - 1, 0) + Finit(sp))));
+      NbyageSPR(3, sp, nages(sp) - 1) = NbyageSPR(3, sp, nages(sp) - 2) * exp(-(M1(sp, 0,  nages(sp) - 2) + Finit(sp))) / (1 - exp(-(M1(sp, 0,  nages(sp) - 1) + Finit(sp))));
 
       // Calulcate SPR
       for (age = 0; age < nages(sp); age++) {
-        SPR0(sp) +=  NbyageSPR(0, sp, age) *  wt( ssb_wt_index(sp), 0, age, (nyrs_hind - 1) ) * pmature(sp, age) * exp(-M(sp, 0, age, nyrs_hind - 1) * spawn_month(sp)/12);
+        SPR0(sp) +=  NbyageSPR(0, sp, age) *  wt( ssb_wt_index(sp), 0, age, (nyrs_hind - 1) ) * pmature(sp, age) * exp(-M(sp, 0,  age, nyrs_hind - 1) * spawn_month(sp)/12);
         SPRlimit(sp) +=  NbyageSPR(1, sp, age) *  wt( ssb_wt_index(sp), 0, age, (nyrs_hind - 1) ) * pmature(sp, age) * exp(-(M(sp, 0,  age, nyrs_hind - 1) + Flimit_age_flt(sp, 0,  age, nyrs_hind - 1)) * spawn_month(sp)/12);
         SPRtarget(sp) +=  NbyageSPR(2, sp, age) *  wt( ssb_wt_index(sp), 0, age, (nyrs_hind - 1) ) * pmature(sp, age) * exp(-(M(sp, 0,  age, nyrs_hind - 1) + Ftarget_age_flt(sp, 0,  age, nyrs_hind - 1)) * spawn_month(sp)/12);
-        SPRFinit(sp) +=  NbyageSPR(3, sp, age) *  wt( ssb_wt_index(sp), 0, age, 0) * pmature(sp, age) * exp(-(M(sp, 0,  age, 0) + Finit(sp)) * spawn_month(sp)/12);
+        SPRFinit(sp) +=  NbyageSPR(3, sp, age) *  wt( ssb_wt_index(sp), 0, age, 0) * pmature(sp, age) * exp(-(M1(sp, 0,  age) + Finit(sp)) * spawn_month(sp)/12);
       }
     }
 
 
     // 6.4. STOCK-RECRUIT PARAMETERS
     // -- For beverton-holt, steepness and R0 are derived from SPR0
+    pen = 0;
+    zero_pop_pen.setZero();
     for ( sp = 0; sp < nspp ; sp++) {
       switch(srr_fun){
       case 0: // Random about mean (e.g. Alaska)
@@ -1259,22 +1267,43 @@ Type objective_function<Type>::operator() () {
         break;
 
       case 1: // Beverton-Holt
-        Steepness(sp) = exp(rec_pars(sp, 0)) * SPR0(sp)/(4.0 + exp(rec_pars(sp, 0)) * SPR0(sp));
-        R0(sp) = (exp(rec_pars(sp, 0))-1/SPR0(sp)) / exp(rec_pars(sp, 1)); // (Alpha-1/SPR0)/beta
-        Rinit(sp) = (exp(rec_pars(sp, 0))-1/SPRFinit(sp)) / exp(rec_pars(sp, 1)); // (Alpha-1/SPR0)/beta
+        Steepness(sp) = exp(rec_pars(sp, 1)) * SPR0(sp)/(4.0 + exp(rec_pars(sp, 1)) * SPR0(sp));
+        R0(sp) = (exp(rec_pars(sp, 1))-1/SPR0(sp)) / exp(rec_pars(sp, 2)); // (Alpha-1/SPR0)/beta
+        Rinit(sp) = (exp(rec_pars(sp, 1))-1/SPRFinit(sp)) / exp(rec_pars(sp, 2)); // (Alpha-1/SPR0)/beta
         break;
 
       case 2: // Beverton-Holt with environmental impacts on alpha
         //FIXME make time-varying
-        Steepness(sp) = exp(rec_pars(sp, 0)) * SPR0(sp)/(4.0 + exp(rec_pars(sp, 0)) * SPR0(sp));
-        R0(sp) = (exp(rec_pars(sp, 0))-1/SPR0(sp)) / exp(rec_pars(sp, 1)); // (Alpha-1/SPR0)/beta
-        Rinit(sp) = (exp(rec_pars(sp, 0))-1/SPRFinit(sp)) / exp(rec_pars(sp, 1)); // (Alpha-1/SPR0)/beta
+        Steepness(sp) = exp(rec_pars(sp, 1)) * SPR0(sp)/(4.0 + exp(rec_pars(sp, 1)) * SPR0(sp));
+        R0(sp) = (exp(rec_pars(sp, 1))-1/SPR0(sp)) / exp(rec_pars(sp, 2)); // (Alpha-1/SPR0)/beta
+        Rinit(sp) = (exp(rec_pars(sp, 1))-1/SPRFinit(sp)) / exp(rec_pars(sp, 2)); // (Alpha-1/SPR0)/beta
         break;
 
       case 3: // Ricker
-        Steepness(sp) = 0.2 * exp(0.8*log(exp(rec_pars(sp, 0)) * SPR0(sp))); //
-        R0(sp) = log(exp(rec_pars(sp, 0)) * SPR0(sp))/(exp(rec_pars(sp, 1)) * SPR0(sp)); // FIXME - make time-varying
-        Rinit(sp) = log(exp(rec_pars(sp, 0)) * SPRFinit(sp))/(exp(rec_pars(sp, 1)) * SPRFinit(sp)); // FIXME - make time-varying
+        Steepness(sp) = 0.2 * exp(0.8*log(exp(rec_pars(sp, 1)) * SPR0(sp))); //
+
+        ricker_intercept = exp(rec_pars(sp, 1)) * SPR0(sp) - Type(1.0);
+        ricker_intercept =  posfun(ricker_intercept, Type(0.001), pen) + Type(1.0);
+        R0(sp) = log(ricker_intercept)/(exp(rec_pars(sp, 2)) * SPR0(sp)/1000000); // FIXME - make time-varying
+
+        ricker_intercept = exp(rec_pars(sp, 1)) * SPRFinit(sp) - Type(1.0);
+        ricker_intercept =  posfun(ricker_intercept, Type(0.001), pen) + Type(1.0);
+        Rinit(sp) = log(ricker_intercept)/(exp(rec_pars(sp, 2)) * SPRFinit(sp)/1000000); // FIXME - make time-varying
+        zero_pop_pen(sp) += pen;
+        break;
+
+      case 4: // Ricker with environmental impacts on alpha
+        //FIXME make time-varying
+        Steepness(sp) = 0.2 * exp(0.8*log(exp(rec_pars(sp, 1)) * SPR0(sp))); //
+
+        ricker_intercept = exp(rec_pars(sp, 1)) * SPR0(sp) - Type(1.0);
+        ricker_intercept =  posfun(ricker_intercept, Type(0.001), pen) + Type(1.0);
+        R0(sp) = log(ricker_intercept)/(exp(rec_pars(sp, 2)) * SPR0(sp)/1000000); // FIXME - make time-varying
+
+        ricker_intercept = exp(rec_pars(sp, 1)) * SPRFinit(sp) - Type(1.0);
+        ricker_intercept =  posfun(ricker_intercept, Type(0.001), pen) + Type(1.0);
+        Rinit(sp) = log(ricker_intercept)/(exp(rec_pars(sp, 2)) * SPRFinit(sp)/1000000); // FIXME - make time-varying
+        zero_pop_pen(sp) += pen;
         break;
 
       default:
@@ -1371,6 +1400,7 @@ Type objective_function<Type>::operator() () {
 
 
     // 6.6. HINDCAST NUMBERS AT AGE, BIOMASS-AT-AGE (kg), and SSB-AT-AGE (kg)
+    pen = 0;
     for (sp = 0; sp < nspp; sp++) {
       for (yr = 1; yr < nyrs_hind; yr++) {
 
@@ -1381,15 +1411,21 @@ Type objective_function<Type>::operator() () {
           break;
 
         case 1: // Beverton-Holt
-          R(sp, yr) = exp(rec_pars(sp, 0)) * biomassSSB(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)));
+          R(sp, yr) = exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 2)) * biomassSSB(sp, yr-minage(sp)));
           break;
 
         case 2: // Beverton-Holt with environmental impacts on alpha
-          R(sp, yr) = exp(rec_pars(sp, 0)) * biomassSSB(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)));
+          // FIXME: include env effects
+          R(sp, yr) = exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 2)) * biomassSSB(sp, yr-minage(sp)));
           break;
 
         case 3: // Ricker
-          R(sp, yr) = exp(rec_pars(sp, 0)) * biomassSSB(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp))) * exp(rec_dev(sp, yr));
+          R(sp, yr) = exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 2)) * biomassSSB(sp, yr-minage(sp))/1000000) * exp(rec_dev(sp, yr));
+          break;
+
+        case 4: // Ricker with environmental impacts on alpha
+          // FIXME: include env effects
+          R(sp, yr) = exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 2)) * biomassSSB(sp, yr-minage(sp))/1000000) * exp(rec_dev(sp, yr));
           break;
 
         default:
@@ -1432,6 +1468,13 @@ Type objective_function<Type>::operator() () {
             default:
               error("Invalid 'estDynamics'");
             }
+
+            // Hard constraint to reduce population collapse
+            // if(NByage(sp, sex, age, yr) < minNByage){
+            //   NByage(sp, sex, age, yr) = minNByage;
+            // }
+            NByage(sp, sex, age, yr) = posfun(NByage(sp, sex, age, yr), Type(0.001), pen);
+            zero_pop_pen(sp) += pen;
 
             // -- 6.6.3. Estimate total biomass
             biomassByage(sp, sex, age, yr) = NByage(sp, sex, age, yr) * wt( pop_wt_index(sp), sex, age, yr );
@@ -1487,7 +1530,7 @@ Type objective_function<Type>::operator() () {
           if(proj_mean_rec == 0){
 
             // Recruitment
-            switch(srr_fun){
+            switch(srr_pred_fun){
             case 0: // Random about mean (e.g. Alaska)
               NByage0(sp, 0, 0, yr) = R0(sp);
 
@@ -1498,29 +1541,38 @@ Type objective_function<Type>::operator() () {
 
             case 1: // Beverton-Holt
               // FIXME: error if minage > 1
-              NByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 0)) * SB0(sp, yr-minage(sp)) / (1+exp(rec_pars(sp, 1)) * SB0(sp, yr-minage(sp)));
+              NByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 1)) * SB0(sp, yr-minage(sp)) / (1+exp(rec_pars(sp, 2)) * SB0(sp, yr-minage(sp)));
 
-              DynamicNByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 0)) * DynamicSB0(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 1)) * DynamicSB0(sp, yr-minage(sp)));
+              DynamicNByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 1)) * DynamicSB0(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 2)) * DynamicSB0(sp, yr-minage(sp)));
 
-              DynamicNByageF(sp, 0, 0, yr) = exp(rec_pars(sp, 0)) * DynamicSBF(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 1)) * DynamicSBF(sp, yr-minage(sp)));
+              DynamicNByageF(sp, 0, 0, yr) = exp(rec_pars(sp, 1)) * DynamicSBF(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 2)) * DynamicSBF(sp, yr-minage(sp)));
               break;
 
             case 2: // Beverton-Holt with environmental impacts on alpha
               // FIXME: error if minage > 1
-              NByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 0)) * SB0(sp, yr-minage(sp)) / (1+exp(rec_pars(sp, 1)) * SB0(sp, yr-minage(sp)));
+              NByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 1)) * SB0(sp, yr-minage(sp)) / (1+exp(rec_pars(sp, 2)) * SB0(sp, yr-minage(sp)));
 
-              DynamicNByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 0)) * DynamicSB0(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 1)) * DynamicSB0(sp, yr-minage(sp)));
+              DynamicNByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 1)) * DynamicSB0(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 2)) * DynamicSB0(sp, yr-minage(sp)));
 
-              DynamicNByageF(sp, 0, 0, yr) = exp(rec_pars(sp, 0)) * DynamicSBF(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 1)) * DynamicSBF(sp, yr-minage(sp)));
+              DynamicNByageF(sp, 0, 0, yr) = exp(rec_pars(sp, 1)) * DynamicSBF(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 2)) * DynamicSBF(sp, yr-minage(sp)));
               break;
 
             case 3: // Ricker
               // FIXME: error if minage > 1
-              NByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 0)) * SB0(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 1)) * SB0(sp, yr-minage(sp)));
+              NByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 1)) * SB0(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 2)) * SB0(sp, yr-minage(sp))/1000000);
 
-              DynamicNByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 0)) * DynamicSB0(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 1)) * DynamicSB0(sp, yr-minage(sp))) * exp(rec_dev(sp, yr));
+              DynamicNByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 1)) * DynamicSB0(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 2)) * DynamicSB0(sp, yr-minage(sp))/1000000) * exp(rec_dev(sp, yr));
 
-              DynamicNByageF(sp, 0, 0, yr) = exp(rec_pars(sp, 0)) * DynamicSBF(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 1)) * DynamicSBF(sp, yr-minage(sp))) * exp(rec_dev(sp, yr));
+              DynamicNByageF(sp, 0, 0, yr) = exp(rec_pars(sp, 1)) * DynamicSBF(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 2)) * DynamicSBF(sp, yr-minage(sp))/1000000) * exp(rec_dev(sp, yr));
+              break;
+
+            case 4: // Ricker with environmental impacts on alpha
+              // FIXME: error if minage > 1
+              NByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 1)) * SB0(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 2)) * SB0(sp, yr-minage(sp))/1000000);
+
+              DynamicNByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 1)) * DynamicSB0(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 2)) * DynamicSB0(sp, yr-minage(sp))/1000000) * exp(rec_dev(sp, yr));
+
+              DynamicNByageF(sp, 0, 0, yr) = exp(rec_pars(sp, 1)) * DynamicSBF(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 2)) * DynamicSBF(sp, yr-minage(sp))/1000000) * exp(rec_dev(sp, yr));
               break;
 
             default:
@@ -1743,25 +1795,29 @@ Type objective_function<Type>::operator() () {
 
         // - Option 2: Use SRR and rec devs
         if(proj_mean_rec == 0){
-          switch(srr_fun){
+          switch(srr_pred_fun){
           case 0: // Random about mean (e.g. Alaska)
             R(sp, yr) = R0(sp) * exp(rec_dev(sp, yr));
             break;
 
           case 1: // Beverton-Holt
-            R(sp, yr) = exp(rec_pars(sp, 0)) * biomassSSB(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)));
+            R(sp, yr) = exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 2)) * biomassSSB(sp, yr-minage(sp)));
             break;
 
           case 2: // Beverton-Holt with environmental impacts on alpha
-            R(sp, yr) = exp(rec_pars(sp, 0)) * biomassSSB(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)));
+            R(sp, yr) = exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 2)) * biomassSSB(sp, yr-minage(sp)));
             break;
 
           case 3: // Ricker
-            R(sp, yr) = exp(rec_pars(sp, 0)) * biomassSSB(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)))* exp(rec_dev(sp, yr));
+            R(sp, yr) = exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 2)) * biomassSSB(sp, yr-minage(sp))/1000000)* exp(rec_dev(sp, yr));
+            break;
+
+          case 4: // Ricker with environmental impacts on alpha
+            R(sp, yr) = exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 2)) * biomassSSB(sp, yr-minage(sp))/1000000)* exp(rec_dev(sp, yr));
             break;
 
           default:
-            error("Invalid 'srr_fun'");
+            error("Invalid 'srr_pred_fun'");
           }
         }
 
@@ -1803,6 +1859,7 @@ Type objective_function<Type>::operator() () {
             }
 
             // Hard constraint to reduce population collapse
+            // - Not using posfun here because not part of likelihood
             if(NByage(sp, sex, age, yr) < minNByage){
               NByage(sp, sex, age, yr) = minNByage;
             }
@@ -1820,7 +1877,65 @@ Type objective_function<Type>::operator() () {
     }
 
 
-    // 6.10. ESTIMATE SEX RATIO
+    // 6.10. EXPECTED RECRUITMENT
+    for (sp = 0; sp < nspp; sp++) {
+
+      // Year 1
+      switch(srr_pred_fun){
+      case 0: // Random about mean (e.g. Alaska)
+        R_hat(sp, 0)  = R0(sp);
+        break;
+      case 1: // Beverton-Holt
+        R_hat(sp, 0) = (exp(rec_pars(sp, 1))-1/SPRFinit(sp)) / exp(rec_pars(sp, 2)); // (Alpha-1/SPR0)/beta
+        break;
+
+      case 2: // Beverton-Holt with environmental impacts on alpha
+        //FIXME make time-varying
+        R_hat(sp, 0) = (exp(rec_pars(sp, 1))-1/SPRFinit(sp)) / exp(rec_pars(sp, 2)); // (Alpha-1/SPR0)/beta
+        break;
+
+      case 3: // Ricker
+        R_hat(sp, 0) = log(exp(rec_pars(sp, 1)) * SPRFinit(sp))/(exp(rec_pars(sp, 2)) * SPRFinit(sp)/1000000); // FIXME - make time-varying
+        break;
+
+      case 4: // Ricker with environmental impacts on alpha
+        R_hat(sp, 0) = log(exp(rec_pars(sp, 1)) * SPRFinit(sp))/(exp(rec_pars(sp, 2)) * SPRFinit(sp)/1000000); // FIXME - make time-varying
+        break;
+      default:
+        error("Invalid 'srr_pred_fun'");
+      }
+
+      // Year 1+
+      for (yr = 1; yr < nyrs; yr++){
+        switch(srr_pred_fun){
+        case 0: // Random about mean (e.g. Alaska)
+          R_hat(sp, yr)  = R0(sp);
+          break;
+
+        case 1: // Beverton-Holt
+          R_hat(sp, yr) = exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)) / (1+exp(rec_pars(sp, 2)) * biomassSSB(sp, yr-minage(sp)));
+          break;
+
+        case 2: // Beverton-Holt with environmental impacts on alpha
+          R_hat(sp, yr) = exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)) / (1+exp(rec_pars(sp, 2)) * biomassSSB(sp, yr-minage(sp)));
+          break;
+
+        case 3: // Ricker
+          R_hat(sp, yr) = exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 2)) * biomassSSB(sp, yr-minage(sp))/1000000); // Divide by 1e6 for numerical stability
+          break;
+
+        case 4: // Ricker with environmental impacts on alpha
+          R_hat(sp, yr) = exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 2)) * biomassSSB(sp, yr-minage(sp))/1000000);
+          break;
+
+        default:
+          error("Invalid 'srr_pred_fun'");
+        }
+      }
+    }
+
+
+    // 6.11. ESTIMATE SEX RATIO
     sex_ratio_hat.setZero();
     Type sexr_denom = 0; // Denominator for sex ration across ages
     Type sexr_nom = 0; // Nominator for sex ratio across ages
@@ -1840,7 +1955,7 @@ Type objective_function<Type>::operator() () {
 
 
 
-    // 6.11. ESTIMATE AVERAGE NUMBERS AT AGE
+    // 6.12. ESTIMATE AVERAGE NUMBERS AT AGE
     for (sp = 0; sp < nspp; sp++) {
       for(sex = 0; sex < nsex(sp); sex ++){
         for (age = 0; age < nages(sp); age++) {
@@ -3133,7 +3248,7 @@ Type objective_function<Type>::operator() () {
       // Add only years from hindcast
       if(flt_type(flt) == 1){
         if(flt_yr <= endyr){
-          if(fsh_biom_obs(fsh_ind, 0) > 0){
+          if(fsh_biom_obs(fsh_ind, 0) * fsh_bio_hat(fsh_ind) > 0){ //FIXME: dont like the fsh_bio_hat bit
             jnll_comp(1, flt) -= dnorm(log(fsh_biom_obs(fsh_ind, 0)) - square(fsh_std_dev)/2, log(fsh_bio_hat(fsh_ind)), fsh_std_dev, true) ;
 
             // Martin's
@@ -3400,9 +3515,9 @@ Type objective_function<Type>::operator() () {
 
   // Slots 9-12 -- RECRUITMENT PARAMETERS
   for (sp = 0; sp < nspp; sp++) {
-    // sLOT 9 -- storck-recruit prior
-    if(srr_use_prior == 1){
-      jnll_comp(9, sp) -= dnorm((rec_pars(sp, 0)), log(srr_prior_mean(sp)) + square(srr_prior_sd(sp))/2, srr_prior_sd(sp), true);
+    // Slot 9 -- stock-recruit prior
+    if(srr_est_mode == 2 & srr_fun > 0){
+      jnll_comp(9, sp) -= dnorm((rec_pars(sp, 1)), log(srr_prior_mean(sp)) + square(srr_prior_sd(sp))/2, srr_prior_sd(sp), true);
     }
 
 
@@ -3413,9 +3528,16 @@ Type objective_function<Type>::operator() () {
       }
     }
 
+    // Slot 11 -- Tau -- Annual recruitment deviation
     for (yr = 0; yr < nyrs_hind; yr++) {
-      // Slot 11 -- Tau -- Annual recruitment deviation
       jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr), Type(square(r_sigma(sp)) / 2), r_sigma(sp), true);    // Recruitment deviation using random effects.
+    }
+
+    // Additional penalty for SRR curve (sensu AMAK/Ianelli)
+    if(srr_fun == 0 & srr_pred_fun  > 0){
+      for (yr = 1; yr < nyrs_hind; yr++) {
+        jnll_comp(10, sp) -= dnorm( log(R(sp, yr)), log(R_hat(sp,yr)) + Type(square(r_sigma(sp)) / 2), r_sigma(sp), true);
+      }
     }
   }
 
@@ -3600,7 +3722,9 @@ Type objective_function<Type>::operator() () {
   REPORT(r_sigma);
   REPORT( R_sexr );
   REPORT( R0 );
+  REPORT( Rinit );
   REPORT( R );
+  REPORT( R_hat );
   REPORT( M );
 
   // ADREPORT( B_eaten_as_prey );
@@ -3626,6 +3750,7 @@ Type objective_function<Type>::operator() () {
   REPORT( DynamicSB0 );
   REPORT( DynamicSBF );
   REPORT( SPR0 );
+  REPORT( SPRFinit );
   REPORT( SPRlimit );
   REPORT( SPRtarget );
   REPORT( proj_F );
