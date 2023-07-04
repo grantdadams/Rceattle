@@ -6,18 +6,21 @@
 \usage{
 build_srr(
   srr_fun = 0,
+  srr_pred_fun = srr_fun,
   proj_mean_rec = TRUE,
-  srr_use_prior = FALSE,
-  srr_prior_mean = 0.4,
-  srr_prior_sd = 0.35
+  srr_est_mode = 1,
+  srr_prior_mean = 4,
+  srr_prior_sd = 1
 )
 }
 \arguments{
-\item{srr_fun}{Stock recruit function to be used for Rceattle (see below). Default = 0}
+\item{srr_fun}{Stock recruit function to be used for hindcast estimation of Rceattle (see below). Default = 0}
+
+\item{srr_pred_fun}{stock recruit function for projection, reference points, and penalties to be used for Rceattle (see below) when \code{srr_fun == 0}. It treats treat the stock-recruit curve as an additional penalty onto the annualy estimated recruitment from the hindcast (sensu AMAK and Jim Ianelli's pollock model). If \code{srr_fun > 0} then \code{srr_pred_fun <- srr_fun} and no additional penalty is included.}
 
 \item{proj_mean_rec}{Project the model using: 0 = mean recruitment (average R of hindcast) or 1 = SRR(omega, rec_devs)}
 
-\item{srr_use_prior}{TRUE or FALSE to use normally distributed prior on stock recruit parameter.}
+\item{srr_est_mode}{Switch to determine estimation mode. 0 = fix alpha to prior mean, 1 = freely estimate alpha and beta, 2 = use lognormally distributed prior for alpha.}
 
 \item{srr_prior_mean}{mean for normally distributed prior for stock-recruit parameter}
 

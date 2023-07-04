@@ -1,8 +1,9 @@
 ##' Specify the stock-recruit relationship (SRR) for Rceattle
 ##'
-##' @param srr_fun Stock recruit function to be used for Rceattle (see below). Default = 0
+##' @param srr_fun Stock recruit function to be used for hindcast estimation of Rceattle (see below). Default = 0
+##' @param srr_pred_fun stock recruit function for projection, reference points, and penalties to be used for Rceattle (see below) when \code{srr_fun == 0}. It treats treat the stock-recruit curve as an additional penalty onto the annualy estimated recruitment from the hindcast (sensu AMAK and Jim Ianelli's pollock model). If \code{srr_fun > 0} then \code{srr_pred_fun <- srr_fun} and no additional penalty is included.
 ##' @param proj_mean_rec Project the model using: 0 = mean recruitment (average R of hindcast) or 1 = SRR(omega, rec_devs)
-##' @param srr_use_prior TRUE or FALSE to use normally distributed prior on stock recruit parameter.
+##' @param srr_est_mode Switch to determine estimation mode. 0 = fix alpha to prior mean, 1 = freely estimate alpha and beta, 2 = use lognormally distributed prior for alpha.
 ##' @param srr_prior_mean mean for normally distributed prior for stock-recruit parameter
 ##' @param srr_prior_sd Prior standard deviation for stock-recruit parameter
 ##' @details
@@ -17,21 +18,31 @@
 ##' \code{srr_fun = 2} Beverton-holt stock-recruitment relationship with environmental covariates impacting larval survival rate
 ##'   \deqn{R_y = \frac{\alpha * e^{X * \Beta} * SB_{y-minage}}{1+\beta * SB_{y-minage}}}. Prior is on alpha.
 ##'
-##' \code{srr_fun = 3} Ricker stock-recruitment relationship.
+##' \code{srr_fun = 3} Ricker stock-recruitment relationship
 ##'   \deqn{R_y = \alpha * SB_{y-minage}} * exp(-beta * SB_{y-minage})}. Prior is on alpha.
 ##'
+##' \code{srr_fun = 4} Ricker stock-recruitment relationship with environmental covariates impacting larval survival rate
+##'   \deqn{R_y = \alpha e^{X * \Beta}  * SB_{y-minage}} * exp(-beta * SB_{y-minage})}. Prior is on alpha.
 ##'
 ##' @return A \code{list} containing the stock recruitment relationship settings
 ##' @export
 ##'
 build_srr <- function(srr_fun = 0,
+                      srr_pred_fun = srr_fun,
                       proj_mean_rec = TRUE,
-                      srr_use_prior = FALSE,
-                      srr_prior_mean = 0.40,
-                      srr_prior_sd = 0.35){
+                      srr_est_mode = 1,
+                      srr_prior_mean = 4,
+                      srr_prior_sd = 1){
+
+  # Set pred/RP/penalty to same as SR curve if SR fun > 0
+  if(srr_fun > 0){
+    srr_pred_fun = srr_fun
+  }
+
   list(srr_fun = srr_fun,
+       srr_pred_fun = srr_pred_fun,
        proj_mean_rec = proj_mean_rec,
-       srr_use_prior = srr_use_prior,
+       srr_est_mode = srr_est_mode,
        srr_prior_mean = srr_prior_mean,
        srr_prior_sd = srr_prior_sd
   )

@@ -66,11 +66,11 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
 
   # -- 1.4. Map out initial population deviations not to be estimated - map out last age and ages not seen
   for(sp in 1:data_list$nspp) {
-    if(data_list$initMode > 0){
+    if(data_list$initMode > 0){ # Unfinished or fished equilibrium
       if((data_list$nages[sp] - 1) < ncol(map_list$init_dev)) {
         map_list$init_dev[sp, (data_list$nages[sp]):ncol(map_list$init_dev)] <- NA
       }
-    }else{
+    }else{ # Free parameters
       if((data_list$nages[sp]) < ncol(map_list$init_dev)) {
         map_list$init_dev[sp, (data_list$nages[sp]+1):ncol(map_list$init_dev)] <- NA
       }
@@ -706,8 +706,20 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
     map_list$ln_rec_sigma <- replace(map_list$ln_rec_sigma, values = rep(NA, length(map_list$ln_rec_sigma)))
   }
 
-  # -- Stock recruit parameters (turning off 2nd par if only using mean rec)
-  if(data_list$srr_fun == 0){
+  # -- Stock recruit relationship (SRR) parameters:
+  # col1 = mean rec, col2 = SRR alpha, col3 = SRR beta
+  # - Turning off 2nd and 3rd par if only using mean rec
+  if(data_list$srr_fun == 0 & data_list$srr_pred_fun == 0){
+    map_list$rec_pars[, 2:3] <- NA
+  }
+
+  # - Turning off 1st if using SRR
+  if(data_list$srr_fun > 0){
+    map_list$rec_pars[, 1] <- NA
+  }
+
+  # - Fix first parameter in SRR (if SRR not used, will be NA anyway)
+  if(data_list$srr_est_mode == 0){
     map_list$rec_pars[, 2] <- NA
   }
 
