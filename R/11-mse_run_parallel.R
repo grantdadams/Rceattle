@@ -25,7 +25,7 @@
 #'
 mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, regenerate_past = FALSE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, seed = 666, regenerate_seed = seed, loopnum = 1, file = NULL, dir = NULL){
 
-  # om = ms_run; em = ss_run; nsim = 10; assessment_period = 1; sampling_period = 1; simulate = TRUE; rec_trend = 0; fut_sample = 1; cap = NULL; seed = 666; loopnum = 1; file = NULL; dir = NULL
+  # om = ms_run; em = ss_run; nsim = 10; start_sim = 1; assessment_period = 1; sampling_period = 1; simulate_data = TRUE; regenerate_past = FALSE; sample_rec = TRUE; rec_trend = 0; fut_sample = 1; cap = NULL; seed = 666; regenerate_seed = seed; loopnum = 1; file = NULL; dir = NULL
 
   #--------------------------------------------------
   # MSE SPECIFICATIONS ----
@@ -285,7 +285,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   cores = detectCores() - 2
   registerDoParallel(cores)
 
-  foreach(sim = start_sim:nsim) %dopar% {
+  sim_list <- foreach(sim = start_sim:nsim) %dopar% {
     library(Rceattle)
     library(dplyr)
 
@@ -300,11 +300,12 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
     om_use <- om
 
     # Replace future rec devs
+    #FIXME - update non-sample rec for stock recruit relationship
     for(sp in 1:om_use$data_list$nspp){
       if(sample_rec){ # Sample devs from hindcast
         rec_dev <- sample(x = om_use$estimated_params$rec_dev[sp, 1:hind_nyrs], size = proj_nyrs, replace = TRUE) + log((1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs)) # - Scale mean rec for rec trend
       } else{ # Set to mean rec otherwise
-        rec_dev <- log(mean(om_use$quantities$R[sp,1:hind_nyrs]) * (1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs))  - om_use$quantities$R0[sp] # - Scale mean rec for rec trend
+        rec_dev <- log(mean(om_use$quantities$R[sp,1:hind_nyrs]) * (1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs))  - log(om_use$quantities$R0[sp]) # - Scale mean rec for rec trend
       }
 
       # - Update OM with devs
@@ -567,11 +568,19 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
     sim_list$OM <- om_use
     names(sim_list$EM) <- c("EM", paste0("OM_Sim_",sim,". EM_yr_", assess_yrs))
     #names(sim_list$OM) <- c("OM", paste0("OM_Sim_",sim,". OM_yr_", assess_yrs))
-    dir.create(file.path(getwd(), dir), showWarnings = FALSE, recursive = TRUE)
-    saveRDS(sim_list, file = paste0(dir, "/", file, "EMs_from_OM_Sim_",sim, ".rds"))
-    sim_list <- NULL
+    if(!is.null(dir)){ # Save
+      dir.create(file.path(getwd(), dir), showWarnings = FALSE, recursive = TRUE)
+      saveRDS(sim_list, file = paste0(dir, "/", file, "EMs_from_OM_Sim_",sim, ".rds"))
+      sim_list <- NULL
+    } else{
+      sim_list # Return simlist
+    }
   }
 
   # When you're done, clean up the cluster
   stopImplicitCluster()
+
+  if(is.null(dir)){
+    return(sim_list)
+  }
 }
