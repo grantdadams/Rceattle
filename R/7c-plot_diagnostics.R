@@ -354,8 +354,8 @@ plot_catch <- function(Rceattle,
     flt = flts[i]
 
     # - Mean catch by fleet
-    median_catch$Median[i] <- median(sapply(proj_fsh_hat_list, function(x)
-      x$Catch[which(x$Fleet_code == flt)]), na.rm = TRUE)
+    median_catch$Median[i] <- median(unlist(sapply(proj_fsh_hat_list, function(x)
+      x$Catch[which(x$Fleet_code == flt)])), na.rm = TRUE)
   }
 
 
