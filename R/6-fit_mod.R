@@ -198,12 +198,16 @@ fit_mod <-
     data_list$srr_prior_sd <- extend_length(recFun$srr_prior_sd)
 
     # M1
-    data_list$M1_model= extend_length(M1Fun$M1_model)
+    if(!is.null(data_list$M1_model)){
+      data_list$M1_model= extend_length(M1Fun$M1_model)
+    }
+    # FIXME: may want to pull from data here too
     updateM1 = M1Fun$updateM1
     data_list$M1_use_prior = extend_length(M1Fun$M1_use_prior) * (data_list$M1_model > 0) # Sets to 0 if M1 is fixed
     data_list$M2_use_prior = extend_length(M1Fun$M2_use_prior) * (msmMode > 0) # Sets to 0 if single-species
     data_list$M1_prior_mean = extend_length(M1Fun$M1_prior_mean)
     data_list$M1_prior_sd = extend_length(M1Fun$M1_prior_sd)
+
 
     # HCR Switches (make length of nspp if not)
     data_list$HCR = HCR$HCR
