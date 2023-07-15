@@ -1518,12 +1518,13 @@ Type objective_function<Type>::operator() () {
           }
         }
 
-        // - Year > 1
+        // - Recruitment Year > 1
         if(yr > 0){
 
           // - Option 1: Use mean rec
           if(proj_mean_rec == 1){
-            DynamicNByageF(sp, 0, 0, yr) = DynamicNByage0(sp, 0, 0, yr) = NByage0(sp, 0, 0, yr) = exp(log(mean_rec(sp)) + rec_dev(sp, yr)); //  // Projections use mean R given bias in R0
+            NByage0(sp, 0, 0, yr) = mean_rec(sp);
+            DynamicNByageF(sp, 0, 0, yr) = DynamicNByage0(sp, 0, 0, yr) = exp(log(mean_rec(sp)) + rec_dev(sp, yr)); //  // Projections use mean R given bias in R0
           }
 
           // - Option 2: Use SRR and rec devs
@@ -1532,7 +1533,7 @@ Type objective_function<Type>::operator() () {
             // Recruitment
             switch(srr_pred_fun){
             case 0: // Random about mean (e.g. Alaska)
-              NByage0(sp, 0, 0, yr) = R0(sp);
+              NByage0(sp, 0, 0, yr) = mean_rec(sp);
 
               DynamicNByage0(sp, 0, 0, yr) = R0(sp) * exp(rec_dev(sp, yr));
 
@@ -1580,6 +1581,7 @@ Type objective_function<Type>::operator() () {
             }
           }
 
+          // Account for sex ratio
           NByage0(sp, 0, 0, yr) = NByage0(sp, 0, 0, yr) * R_sexr(sp); // Females
           NByage0(sp, 1, 0, yr) = NByage0(sp, 0, 0, yr) * (1-R_sexr(sp)); // Males
 
@@ -1590,7 +1592,7 @@ Type objective_function<Type>::operator() () {
           DynamicNByageF(sp, 1, 0, yr) = DynamicNByageF(sp, 0, 0, yr) * (1-R_sexr(sp)); // Males
 
 
-          // N-at-age
+          // N-at-age year > 1
           for(sex = 0; sex < nsex(sp); sex ++){
             for (age = 1; age < nages(sp)-1; age++) {
               NByage0(sp, sex, age, yr) =  NByage0(sp, sex, age-1, yr-1) * exp(-M(sp, sex, age-1, yr-1)); // F = 0
