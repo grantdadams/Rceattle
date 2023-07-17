@@ -198,7 +198,7 @@ fit_mod <-
     data_list$srr_prior_sd <- extend_length(recFun$srr_prior_sd)
 
     # M1
-    if(!is.null(data_list$M1_model)){
+    if(is.null(data_list$M1_model)){
       data_list$M1_model= extend_length(M1Fun$M1_model)
     }
     # FIXME: may want to pull from data here too
