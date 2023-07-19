@@ -58,10 +58,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   }
 
   # -- FSPR mapped out
-  map_list$ln_Flimit <- replace(map_list$ln_Flimit,
-                                values = rep(NA, length(map_list$ln_Flimit)))
-  map_list$ln_Ftarget <- replace(map_list$ln_Ftarget,
-                                 values = rep(NA, length(map_list$ln_Ftarget)))
+  map_list$ln_Flimit <- rep(NA, data_list$nspp)
+  map_list$ln_Ftarget <- rep(NA, data_list$nspp)
 
 
   # -- 1.4. Map out initial population deviations not to be estimated - map out last age and ages not seen

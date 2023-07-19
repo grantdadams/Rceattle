@@ -539,8 +539,8 @@ Type objective_function<Type>::operator() () {
 
   // -- 3.3. fishing mortality parameters
   PARAMETER_VECTOR( ln_mean_F );                  // Log mean fishing mortality; n = [1, n_fsh]
-  PARAMETER_MATRIX( ln_Flimit );                  // Target fishing mortality for projections on log scale; n = [nspp, nyrs]
-  PARAMETER_MATRIX( ln_Ftarget );                 // Target fishing mortality for projections on log scale; n = [nspp, nyrs]
+  PARAMETER_VECTOR( ln_Flimit );                  // Target fishing mortality for projections on log scale; n = [nspp, nyrs]
+  PARAMETER_VECTOR( ln_Ftarget );                 // Target fishing mortality for projections on log scale; n = [nspp, nyrs]
   PARAMETER_VECTOR( ln_Finit );                   // Fishing mortality for initial population to induce non-equilibrium; n = [nspp]
   PARAMETER_VECTOR( proj_F_prop );                // Proportion of fishing mortality from each fleet for projections; n = [n_fsh]
   PARAMETER_MATRIX( F_dev );                      // Annual fishing mortality deviations; n = [n_fsh, nyrs] # NOTE: The size of this will likely change
@@ -651,8 +651,8 @@ Type objective_function<Type>::operator() () {
   vector<Type>  SPRFinit(nspp); SPRFinit.setZero();                                 // Estimated spawning biomass per recruit at Finit
   matrix<Type>  SB0(nspp, nyrs); SB0.setZero();                                     // Estimated spawning stock biomass at F = 0 (Accounts for S-R)
   vector<Type>  B0(nspp); B0.setZero();                                             // Estimated biomass at F = 0 (Accounts for S-R)
-  matrix<Type>  Flimit = exp(ln_Flimit.array());                                    // Target F parameter on natural scale
-  matrix<Type>  Ftarget = exp(ln_Ftarget.array());                                  // Limit F parameter on natural scale
+  vector<Type>  Flimit = exp(ln_Flimit);                                    // Target F parameter on natural scale
+  vector<Type>  Ftarget = exp(ln_Ftarget);                                  // Limit F parameter on natural scale
   vector<Type>  Finit = exp(ln_Finit);                                              // Initial F for non-equilibrium age-structure
   matrix<Type>  proj_F(nspp, nyrs); proj_F.setZero();                               // Projected F using harvest control rule
 
@@ -1143,28 +1143,28 @@ Type objective_function<Type>::operator() () {
                   break;
 
                 case 2: // Constant F
-                  proj_F(sp, yr) = Ftarget(sp, yr);
+                  proj_F(sp, yr) = Ftarget(sp);
                   break;
 
                 case 3: // Constant F that acheives X% of SSB0
-                  proj_F(sp, yr) = Ftarget(sp, yr);
+                  proj_F(sp, yr) = Ftarget(sp);
                   break;
 
                 case 4: // Constant Fspr
-                  proj_F(sp, yr) = Ftarget(sp, yr) * Fmult(sp);
+                  proj_F(sp, yr) = Ftarget(sp) * Fmult(sp);
                   break;
 
                 case 5: // NPFMC Tier 3 HCR
-                  proj_F(sp, yr) = Ftarget(sp, yr); // Used Fabc of Ftarget_age%
+                  proj_F(sp, yr) = Ftarget(sp); // Used Fabc of Ftarget_age%
                   break;
 
                 case 6: // PFMC Category 1 HCR
-                  proj_F(sp, yr) = Flimit(sp, yr) + QnormHCR(sp);
-                  Ftarget(sp, yr) = Flimit(sp, yr) + QnormHCR(sp);
+                  proj_F(sp, yr) = Flimit(sp) + QnormHCR(sp);
+                  Ftarget(sp) = Flimit(sp) + QnormHCR(sp);
                   break;
 
                 case 7: // SESSF Tier 1 HCR
-                  proj_F(sp, yr) = Ftarget(sp, yr); // Used Fabc of Ftarget_age%
+                  proj_F(sp, yr) = Ftarget(sp); // Used Fabc of Ftarget_age%
                   break;
                 }
 
@@ -1176,8 +1176,8 @@ Type objective_function<Type>::operator() () {
               F_spp_age(sp, sex, age, yr) += F_flt_age(flt, sex, age, yr);
 
               // -- Calculate F target by age and sex for reference points
-              Flimit_age_flt(sp, sex, age, yr) += sel(flt, sex, age, yr) * proj_F_prop(flt) * Flimit(sp, 0); // account for time-varying sel
-              Ftarget_age_flt(sp, sex, age, yr) += sel(flt, sex, age, yr) * proj_F_prop(flt) * Ftarget(sp, 0); // account for time-varying sel
+              Flimit_age_flt(sp, sex, age, yr) += sel(flt, sex, age, yr) * proj_F_prop(flt) * Flimit(sp); // account for time-varying sel
+              Ftarget_age_flt(sp, sex, age, yr) += sel(flt, sex, age, yr) * proj_F_prop(flt) * Ftarget(sp); // account for time-varying sel
             }
           }
         }
@@ -1666,7 +1666,7 @@ Type objective_function<Type>::operator() () {
           case 5: // NPFMC Tier 3 HCR
             proj_F(sp, yr) = proj_F(sp, yr);
             if(biomassSSB(sp, nyrs_hind-1) < SPRtarget(sp)){
-              proj_F(sp, yr) = Ftarget(sp, 0) * (((biomassSSB(sp, nyrs_hind-1)/SPRtarget(sp))-Alpha(sp))/(1-Alpha(sp))); // Used Fabc of FtargetSPR%
+              proj_F(sp, yr) = Ftarget(sp) * (((biomassSSB(sp, nyrs_hind-1)/SPRtarget(sp))-Alpha(sp))/(1-Alpha(sp))); // Used Fabc of FtargetSPR%
             }
             if((biomassSSB(sp, nyrs_hind-1) < SB0(sp, nyrs-1) * Plimit(sp)) | (biomassSSB(sp, nyrs_hind-1) / SPRtarget(sp) < Alpha(sp))){ // If overfished
               proj_F(sp, yr) =  0;
@@ -1676,7 +1676,7 @@ Type objective_function<Type>::operator() () {
           case 6: // PFMC Category 1 HCR
             proj_F(sp, yr) = proj_F(sp, yr);
             if(biomassSSB(sp, nyrs_hind-1) < SB0(sp, nyrs-1) * Ptarget(sp)){
-              proj_F(sp, yr) = (Flimit(sp, 0) + QnormHCR(sp)) * (SB0(sp, nyrs-1) * Ptarget(sp) * (biomassSSB(sp, nyrs_hind-1) - SB0(sp, nyrs-1) * Plimit(sp))) / (biomassSSB(sp, nyrs_hind-1) * (SB0(sp, nyrs-1) * (Ptarget(sp) - Plimit(sp))));
+              proj_F(sp, yr) = (Flimit(sp) + QnormHCR(sp)) * (SB0(sp, nyrs-1) * Ptarget(sp) * (biomassSSB(sp, nyrs_hind-1) - SB0(sp, nyrs-1) * Plimit(sp))) / (biomassSSB(sp, nyrs_hind-1) * (SB0(sp, nyrs-1) * (Ptarget(sp) - Plimit(sp))));
             }
             if(biomassSSB(sp, nyrs_hind-1) < SB0(sp, nyrs-1) * Plimit(sp)){ // If overfished
               proj_F(sp, yr) =  0;
@@ -1686,7 +1686,7 @@ Type objective_function<Type>::operator() () {
           case 7: // SESSF Tier 1 HCR
             proj_F(sp, yr) = proj_F(sp, yr);
             if(biomassSSB(sp, nyrs_hind-1) < SB0(sp, nyrs-1) * Ptarget(sp)){
-              proj_F(sp, yr) = Ftarget(sp, 0) * ((biomassSSB(sp, nyrs_hind-1)/(SB0(sp, nyrs-1) * Plimit(sp)))-1); // Used Fabc of FtargetSPR%
+              proj_F(sp, yr) = Ftarget(sp) * ((biomassSSB(sp, nyrs_hind-1)/(SB0(sp, nyrs-1) * Plimit(sp)))-1); // Used Fabc of FtargetSPR%
             }
             if(biomassSSB(sp, nyrs_hind-1) < SB0(sp, nyrs-1) * Plimit(sp)){ // If overfished
               proj_F(sp, yr) =  0;
@@ -1718,7 +1718,7 @@ Type objective_function<Type>::operator() () {
             //FIXME: Using DynamicSB0 * Ptarget(sp) rather than DynamicSPRtarget because they are the same with no S-R curve
             proj_F(sp, yr) = proj_F(sp, yr);
             if(biomassSSB(sp, nyrs_hind-1) < DynamicSB0(sp, yr) * FsprTarget(sp)){
-              proj_F(sp, yr) = Ftarget(sp, yr) * (((biomassSSB(sp, nyrs_hind-1)/(DynamicSB0(sp, yr) * Ptarget(sp)))-Alpha(sp))/(1-Alpha(sp))); // Used Fabc of FtargetSPR%
+              proj_F(sp, yr) = Ftarget(sp) * (((biomassSSB(sp, nyrs_hind-1)/(DynamicSB0(sp, yr) * Ptarget(sp)))-Alpha(sp))/(1-Alpha(sp))); // Used Fabc of FtargetSPR%
             }
             if((biomassSSB(sp, nyrs_hind-1) < DynamicSB0(sp, yr) * Plimit(sp)) | (biomassSSB(sp, nyrs_hind-1) / (DynamicSB0(sp, yr) * Ptarget(sp)) < Alpha(sp))){ // If overfished
               proj_F(sp, yr) =  0;
@@ -1728,7 +1728,7 @@ Type objective_function<Type>::operator() () {
           case 6: // PFMC Category 1 HCR
             proj_F(sp, yr) = proj_F(sp, yr);
             if(biomassSSB(sp, nyrs_hind-1) < DynamicSB0(sp, yr) * Ptarget(sp)){
-              proj_F(sp, yr) = (Flimit(sp, yr) + QnormHCR(sp)) * (DynamicSB0(sp, yr) * Ptarget(sp) * (biomassSSB(sp, nyrs_hind-1) - DynamicSB0(sp, yr) * Plimit(sp))) / (biomassSSB(sp, nyrs_hind-1) * (DynamicSB0(sp, yr) * (Ptarget(sp) - Plimit(sp))));
+              proj_F(sp, yr) = (Flimit(sp) + QnormHCR(sp)) * (DynamicSB0(sp, yr) * Ptarget(sp) * (biomassSSB(sp, nyrs_hind-1) - DynamicSB0(sp, yr) * Plimit(sp))) / (biomassSSB(sp, nyrs_hind-1) * (DynamicSB0(sp, yr) * (Ptarget(sp) - Plimit(sp))));
             }
             if(biomassSSB(sp, nyrs_hind-1) < DynamicSB0(sp, yr) * Plimit(sp)){ // If overfished
               proj_F(sp, yr) =  0;
@@ -1738,7 +1738,7 @@ Type objective_function<Type>::operator() () {
           case 7: // SESSF Tier 1 HCR
             proj_F(sp, yr) = proj_F(sp, yr);
             if(biomassSSB(sp, nyrs_hind-1) < DynamicSB0(sp, yr) * Ptarget(sp)){
-              proj_F(sp, yr) = Ftarget(sp, yr) * ((biomassSSB(sp, nyrs_hind-1)/(DynamicSB0(sp, yr) * Plimit(sp)))-1); // Used Fabc of FtargetSPR%
+              proj_F(sp, yr) = Ftarget(sp) * ((biomassSSB(sp, nyrs_hind-1)/(DynamicSB0(sp, yr) * Plimit(sp)))-1); // Used Fabc of FtargetSPR%
             }
             if(biomassSSB(sp, nyrs_hind-1) < DynamicSB0(sp, yr) * Plimit(sp)){ // If overfished
               proj_F(sp, yr) =  0;
@@ -2976,7 +2976,7 @@ Type objective_function<Type>::operator() () {
       // Adjust for aging error
       for (int obs_age = 0; obs_age < nages(sp); obs_age++) {
         for (int true_age = 0; true_age < nages(sp); true_age++) {
-          age_obs_hat(comp_ind, obs_age) += age_hat(comp_ind, true_age ) * age_error(sp, true_age, obs_age);
+          age_obs_hat(comp_ind, obs_age) += age_hat(comp_ind, true_age )* age_error(sp, true_age, obs_age);
         }
       }
 
@@ -3205,16 +3205,10 @@ Type objective_function<Type>::operator() () {
       if(flt_type(srv) > 0){
         if(flt_yr <= endyr){
           if(srv_bio_hat(srv_ind) > 0){
-            jnll_comp(0, srv) -= dnorm(log(srv_biom_obs(srv_ind, 0)) - square(srv_std_dev)/2, log(srv_bio_hat(srv_ind)), srv_std_dev, true);  // pow(log(srv_biom_obs(srv_ind, 0)) - log(srv_bio_hat(srv_ind)), 2) / (2 * square( srv_std_dev )); // NOTE: This is not quite the lognormal and biohat will be the median.
+            jnll_comp(0, srv) -= dnorm(log(srv_biom_obs(srv_ind, 0)), log(srv_bio_hat(srv_ind)), srv_std_dev, true);
 
             // Martin's
             // jnll_comp(0, srv)+= 0.5*square((log(srv_biom_obs(srv_ind, 0))-log(srv_bio_hat(srv_ind))+square(srv_std_dev)/2.0)/srv_std_dev);
-
-
-            SIMULATE {
-              srv_biom_obs(srv_ind, 0) = rnorm(log(srv_bio_hat(srv_ind)), srv_std_dev);  // Simulate response
-              srv_biom_obs(srv_ind, 0) = exp(srv_biom_obs(srv_ind, 0));
-            }
           }
         }
       }
@@ -3251,16 +3245,10 @@ Type objective_function<Type>::operator() () {
       if(flt_type(flt) == 1){
         if(flt_yr <= endyr){
           if(fsh_biom_obs(fsh_ind, 0) * fsh_bio_hat(fsh_ind) > 0){ //FIXME: dont like the fsh_bio_hat bit
-            jnll_comp(1, flt) -= dnorm(log(fsh_biom_obs(fsh_ind, 0)) - square(fsh_std_dev)/2, log(fsh_bio_hat(fsh_ind)), fsh_std_dev, true) ;
+            jnll_comp(1, flt) -= dnorm(log(fsh_biom_obs(fsh_ind, 0)), log(fsh_bio_hat(fsh_ind)), fsh_std_dev, true) ;
 
             // Martin's
             // jnll_comp(1, flt)+= 0.5*square((log(fsh_biom_obs(fsh_ind, 0))-log(fsh_bio_hat(fsh_ind)))/fsh_std_dev);
-
-
-            SIMULATE {
-              fsh_biom_obs(fsh_ind, 0) = rnorm(log(fsh_bio_hat(fsh_ind)), fsh_std_dev);  // Simulate response
-              fsh_biom_obs(fsh_ind, 0) = exp(fsh_biom_obs(fsh_ind, 0));
-            }
 
 
             // Slot 12 -- Epsilon -- Annual fishing mortality deviation
@@ -3273,7 +3261,7 @@ Type objective_function<Type>::operator() () {
 
 
 
-  // Slot 2 -- Age composition
+  // Slot 2 -- Age/length composition
   for (comp_ind = 0; comp_ind < comp_obs.rows(); comp_ind++) {
 
     flt = comp_ctl(comp_ind, 0) - 1;        // Temporary survey index
@@ -3290,7 +3278,7 @@ Type objective_function<Type>::operator() () {
         joint_adjust(comp_ind) = 2;
       }
 
-      // Number of ages/lengths
+      // Number of ages
       Type n_comp = 0;
       if(comp_type == 0){
         n_comp = nages(sp) * joint_adjust(comp_ind); // For sex = 3 (joint sex comp data)
@@ -3302,22 +3290,25 @@ Type objective_function<Type>::operator() () {
             age_test = age - nages(sp);
           }
 
-          // Lower
-          if(age_test < flt_accum_age_lower(flt)){
-            comp_obs(comp_ind, flt_accum_age_lower(flt) + (nages(sp) * (joint_adjust(comp_ind)-1))) += comp_obs(comp_ind, age);
-            comp_obs(comp_ind, age) = 0;
+          /*
+           // Lower
+           if(age_test < flt_accum_age_lower(flt)){
+           comp_obs(comp_ind, flt_accum_age_lower(flt) + (nages(sp) * (joint_adjust(comp_ind)-1))) += comp_obs(comp_ind, age);
+           comp_obs(comp_ind, age) = 0;
 
-            comp_hat(comp_ind, flt_accum_age_lower(flt) + (nages(sp) * (joint_adjust(comp_ind)-1))) += comp_hat(comp_ind, age);
-            comp_hat(comp_ind, age) = 0;
-          }
-          // Upper
-          if(age_test > flt_accum_age_upper(flt)){
-            comp_obs(comp_ind, flt_accum_age_upper(flt) + (nages(sp) * (joint_adjust(comp_ind)-1))) += comp_obs(comp_ind, age);
-            comp_obs(comp_ind, age) = 0;
+           comp_hat(comp_ind, flt_accum_age_lower(flt) + (nages(sp) * (joint_adjust(comp_ind)-1))) += comp_hat(comp_ind, age);
+           comp_hat(comp_ind, age) = 0;
+           }
 
-            comp_hat(comp_ind, flt_accum_age_upper(flt) + (nages(sp) * (joint_adjust(comp_ind)-1))) += comp_hat(comp_ind, age);
-            comp_hat(comp_ind, age) = 0;
-          }
+           // Upper
+           if(age_test > flt_accum_age_upper(flt)){
+           comp_obs(comp_ind, flt_accum_age_upper(flt) + (nages(sp) * (joint_adjust(comp_ind)-1))) += comp_obs(comp_ind, age);
+           comp_obs(comp_ind, age) = 0;
+
+           comp_hat(comp_ind, flt_accum_age_upper(flt) + (nages(sp) * (joint_adjust(comp_ind)-1))) += comp_hat(comp_ind, age);
+           comp_hat(comp_ind, age) = 0;
+           }
+           */
         }
       }
       if(comp_type == 1){
@@ -3330,11 +3321,9 @@ Type objective_function<Type>::operator() () {
           for (ln = 0; ln < n_comp; ln++) {
             if(!isNA( comp_obs(comp_ind, ln) )){
               if(comp_hat(comp_ind, ln) > 0){
-                // jnll_comp(2, flt) -= comp_weights(flt) * Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + 0.00001) * log(comp_hat(comp_ind, ln) + 0.00001) ;
 
                 // Martin's
                 jnll_comp(2, flt) -= comp_weights(flt) * Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + 0.00001) * log((comp_hat(comp_ind, ln)+0.00001) / (comp_obs(comp_ind, ln) + 0.00001)) ;
-
               }
             }
           }
@@ -3487,7 +3476,7 @@ Type objective_function<Type>::operator() () {
 
     // Prior on catchability
     if( est_srv_q(flt) == 2){
-      jnll_comp(7, flt) -= dnorm(ln_srv_q(flt) - square(sigma_srv_q(flt))/2, ln_srv_q_prior(flt), sigma_srv_q(flt), true);
+      jnll_comp(7, flt) -= dnorm(ln_srv_q(flt), ln_srv_q_prior(flt), sigma_srv_q(flt), true);
     }
 
     // Penalized/random deviate likelihood
@@ -3509,7 +3498,7 @@ Type objective_function<Type>::operator() () {
       jnll_comp(8, flt) += square(q_dev_sum) * 10000;
 
       for(yr = 1; yr < nyrs_hind; yr++){
-        jnll_comp(8, flt) -= dnorm(ln_srv_q_dev(flt, yr) - ln_srv_q_dev(flt, yr-1), Type(0.0), time_varying_sigma_srv_q(flt), true );
+        jnll_comp(8, flt) -= dnorm(ln_srv_q_dev(flt, yr), Type(0.0), time_varying_sigma_srv_q(flt), true );
       }
     }
   } // End q loop
@@ -3519,26 +3508,26 @@ Type objective_function<Type>::operator() () {
   for (sp = 0; sp < nspp; sp++) {
     // Slot 9 -- stock-recruit prior
     if(srr_est_mode == 2 & srr_fun > 0){
-      jnll_comp(9, sp) -= dnorm((rec_pars(sp, 1)), log(srr_prior_mean(sp)) + square(srr_prior_sd(sp))/2, srr_prior_sd(sp), true);
+      jnll_comp(9, sp) -= dnorm((rec_pars(sp, 1)), log(srr_prior_mean(sp)), srr_prior_sd(sp), true);
     }
 
 
     // Slot 10 -- init_dev -- Initial abundance-at-age
     if(initMode > 0){
       for (age = 1; age < nages(sp); age++) {
-        jnll_comp(11, sp) -= dnorm( init_dev(sp, age - 1), Type(square(r_sigma(sp)) / 2), r_sigma(sp), true);
+        jnll_comp(11, sp) -= dnorm( init_dev(sp, age - 1), Type(0), r_sigma(sp), true);
       }
     }
 
     // Slot 11 -- Tau -- Annual recruitment deviation
     for (yr = 0; yr < nyrs_hind; yr++) {
-      jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr), Type(square(r_sigma(sp)) / 2), r_sigma(sp), true);    // Recruitment deviation using random effects.
+      jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr), Type(0), r_sigma(sp), true);    // Recruitment deviation using random effects.
     }
 
     // Additional penalty for SRR curve (sensu AMAK/Ianelli)
     if(srr_fun == 0 & srr_pred_fun  > 0){
       for (yr = 1; yr < nyrs_hind; yr++) {
-        jnll_comp(10, sp) -= dnorm( log(R(sp, yr)), log(R_hat(sp,yr)) + Type(square(r_sigma(sp)) / 2), r_sigma(sp), true);
+        jnll_comp(10, sp) -= dnorm( log(R(sp, yr)), log(R_hat(sp,yr)), r_sigma(sp), true);
       }
     }
   }

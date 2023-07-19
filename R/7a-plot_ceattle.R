@@ -3371,11 +3371,12 @@ plot_f <- function(Rceattle,
 
 
   # Get depletion
-  quantity <- quantity_sd <- log_quantity_sd <- log_quantity_mu <-  ftarget <- flimit <- array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
+  quantity <- quantity_sd <- log_quantity_sd <- log_quantity_mu <- array(NA, dim = c(nspp, nyrs,  length(Rceattle)))
+  ftarget <- flimit <- matrix(NA, nrow = nspp, ncol = length(Rceattle))
 
   for (i in 1:length(Rceattle)) {
-    ftarget[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$Ftarget[,1:nyrs_vec[i]]
-    flimit[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$Flimit[,1:nyrs_vec[i]]
+    ftarget[, i] <- Rceattle[[i]]$quantities$Ftarget
+    flimit[, i] <- Rceattle[[i]]$quantities$Flimit
     quantity[, 1:nyrs_vec[i] , i] <- Rceattle[[i]]$quantities$F_spp[,1:nyrs_vec[i]]
 
 
@@ -3569,18 +3570,16 @@ plot_f <- function(Rceattle,
         ) # Median
 
         # - Ftarget
-        lines(
-          x = years[[k]],
-          y = ftarget[spp[j], 1:length(years[[k]]), k],
+        abline(
+          h = ftarget[spp[j], k],
           lty = 1,
           lwd = lwd/2,
           col = "blue"
         )
 
         # - Flimit
-        lines(
-          x = years[[k]],
-          y = flimit[spp[j], 1:length(years[[k]]), k],
+        abline(
+          h = flimit[spp[j], k],
           lty = 1,
           lwd = lwd/2,
           col = "red"

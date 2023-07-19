@@ -176,7 +176,9 @@ fit_mod <-
     data_list$estimateMode <- estimateMode
     data_list$niter <- niter
     data_list$avgnMode <- avgnMode
-    data_list$initMode <- initMode
+    if(is.null(data_list$initMode)){
+      data_list$initMode <- initMode
+    }
     data_list$msmMode <- msmMode
     data_list$suitMode <- as.numeric(suitMode)
     data_list$minNByage <- as.numeric(minNByage)
@@ -303,7 +305,7 @@ fit_mod <-
 
     nyrs_proj <- data_list$projyr - data_list$styr + 1
     if(!is.null(HCR$FsprTarget) & HCR$HCR == 2){
-      start_par$ln_Ftarget = matrix(log(HCR$FsprTarget), nrow = data_list$nspp, ncol = nyrs_proj) # Fixed fishing mortality for projections for each species
+      start_par$ln_Ftarget = HCR$FsprTarget # Fixed fishing mortality for projections for each species
     }
 
     # - Update M1 parameter object from data if initial parameter values input
