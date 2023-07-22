@@ -192,7 +192,7 @@ ms_run_ricker1 <- Rceattle::fit_mod(
   random_rec = FALSE,#; # No random recruitment
   msmMode = 1,#; # Single species mode
   M1Fun = build_M1(M1_model = c(1,2,1)),#;
-  phase = default,#;
+  phase = "default",#;
   verbose = 1,#;
   initMode = 0
 )

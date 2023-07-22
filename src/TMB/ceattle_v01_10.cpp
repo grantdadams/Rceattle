@@ -591,7 +591,7 @@ Type objective_function<Type>::operator() () {
   int max_bin = imax( nlengths );                                                   // Integer of maximum number of length/age bins.
   int n_flt = fleet_control.rows();
   vector<int> joint_adjust(comp_obs.rows()); joint_adjust.setZero();
-  Type pen = 0;
+  Type penalty = 0;
   Type ricker_intercept = 0;
 
   // -- 4.2. Estimated population quantities
@@ -1257,7 +1257,7 @@ Type objective_function<Type>::operator() () {
 
     // 6.4. STOCK-RECRUIT PARAMETERS
     // -- For beverton-holt, steepness and R0 are derived from SPR0
-    pen = 0;
+    penalty = 0;
     zero_pop_pen.setZero();
     for ( sp = 0; sp < nspp ; sp++) {
       switch(srr_fun){
@@ -1283,13 +1283,13 @@ Type objective_function<Type>::operator() () {
         Steepness(sp) = 0.2 * exp(0.8*log(exp(rec_pars(sp, 1)) * SPR0(sp))); //
 
         ricker_intercept = exp(rec_pars(sp, 1)) * SPR0(sp) - Type(1.0);
-        ricker_intercept =  posfun(ricker_intercept, Type(0.001), pen) + Type(1.0);
+        ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + Type(1.0);
         R0(sp) = log(ricker_intercept)/(exp(rec_pars(sp, 2)) * SPR0(sp)/1000000); // FIXME - make time-varying
 
         ricker_intercept = exp(rec_pars(sp, 1)) * SPRFinit(sp) - Type(1.0);
-        ricker_intercept =  posfun(ricker_intercept, Type(0.001), pen) + Type(1.0);
+        ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + Type(1.0);
         Rinit(sp) = log(ricker_intercept)/(exp(rec_pars(sp, 2)) * SPRFinit(sp)/1000000); // FIXME - make time-varying
-        zero_pop_pen(sp) += pen;
+        zero_pop_pen(sp) += penalty;
         break;
 
       case 4: // Ricker with environmental impacts on alpha
@@ -1297,13 +1297,13 @@ Type objective_function<Type>::operator() () {
         Steepness(sp) = 0.2 * exp(0.8*log(exp(rec_pars(sp, 1)) * SPR0(sp))); //
 
         ricker_intercept = exp(rec_pars(sp, 1)) * SPR0(sp) - Type(1.0);
-        ricker_intercept =  posfun(ricker_intercept, Type(0.001), pen) + Type(1.0);
+        ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + Type(1.0);
         R0(sp) = log(ricker_intercept)/(exp(rec_pars(sp, 2)) * SPR0(sp)/1000000); // FIXME - make time-varying
 
         ricker_intercept = exp(rec_pars(sp, 1)) * SPRFinit(sp) - Type(1.0);
-        ricker_intercept =  posfun(ricker_intercept, Type(0.001), pen) + Type(1.0);
+        ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + Type(1.0);
         Rinit(sp) = log(ricker_intercept)/(exp(rec_pars(sp, 2)) * SPRFinit(sp)/1000000); // FIXME - make time-varying
-        zero_pop_pen(sp) += pen;
+        zero_pop_pen(sp) += penalty;
         break;
 
       default:
@@ -1400,7 +1400,7 @@ Type objective_function<Type>::operator() () {
 
 
     // 6.6. HINDCAST NUMBERS AT AGE, BIOMASS-AT-AGE (kg), and SSB-AT-AGE (kg)
-    pen = 0;
+    penalty = 0;
     for (sp = 0; sp < nspp; sp++) {
       for (yr = 1; yr < nyrs_hind; yr++) {
 
@@ -1473,8 +1473,8 @@ Type objective_function<Type>::operator() () {
             // if(NByage(sp, sex, age, yr) < minNByage){
             //   NByage(sp, sex, age, yr) = minNByage;
             // }
-            NByage(sp, sex, age, yr) = posfun(NByage(sp, sex, age, yr), Type(0.001), pen);
-            zero_pop_pen(sp) += pen;
+            NByage(sp, sex, age, yr) = posfun(NByage(sp, sex, age, yr), Type(0.001), penalty);
+            zero_pop_pen(sp) += penalty;
 
             // -- 6.6.3. Estimate total biomass
             biomassByage(sp, sex, age, yr) = NByage(sp, sex, age, yr) * wt( pop_wt_index(sp), sex, age, yr );
