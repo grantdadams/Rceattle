@@ -2,7 +2,7 @@
 % Please edit documentation in R/3b-build_hcr_map.R
 \name{build_hcr_map_projection}
 \alias{build_hcr_map_projection}
-\title{Function to construct the TMB map argument for CEATTLE for projecting under alternative harvest control rules}
+\title{Function to construct the TMB map argument for CEATTLE for projecting under alternative harvest control rules. Leaves hindcast parameters turned on, so SD report can be used to get uncertainty out of everything.}
 \usage{
 build_hcr_map_projection(data_list, map, debug = FALSE)
 }
