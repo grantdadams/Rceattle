@@ -1282,13 +1282,18 @@ Type objective_function<Type>::operator() () {
       case 3: // Ricker
         Steepness(sp) = 0.2 * exp(0.8*log(exp(rec_pars(sp, 1)) * SPR0(sp))); //
 
+        // - R at F0
         ricker_intercept = exp(rec_pars(sp, 1)) * SPR0(sp) - Type(1.0);
         ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + Type(1.0);
+
         R0(sp) = log(ricker_intercept)/(exp(rec_pars(sp, 2)) * SPR0(sp)/1000000); // FIXME - make time-varying
 
+        // R at equilibrium F
         ricker_intercept = exp(rec_pars(sp, 1)) * SPRFinit(sp) - Type(1.0);
         ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + Type(1.0);
+
         Rinit(sp) = log(ricker_intercept)/(exp(rec_pars(sp, 2)) * SPRFinit(sp)/1000000); // FIXME - make time-varying
+
         zero_pop_pen(sp) += penalty;
         break;
 
@@ -1419,7 +1424,7 @@ Type objective_function<Type>::operator() () {
           R(sp, yr) = exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 2)) * biomassSSB(sp, yr-minage(sp)));
           break;
 
-        case 3: // Ricker
+        case 3: // Ricker: a * SSB * exp(-beta * SSB). Beta is divided by 1,000,000 for estimation
           R(sp, yr) = exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 2)) * biomassSSB(sp, yr-minage(sp))/1000000) * exp(rec_dev(sp, yr));
           break;
 
