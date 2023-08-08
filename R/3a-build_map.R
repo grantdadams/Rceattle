@@ -6,10 +6,11 @@
 #' @param params a parameter list created from \code{\link{build_params}}.
 #' @param debug Runs the model without estimating parameters to get derived quantities given initial parameter values. If TRUE, sets all map values to NA except dummy
 #' @param random_rec logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE, which sets the map for ln_rec_sigma to NA
+#' @param random_sel logical. If TRUE, treats selectivity deviations as random effects.The default is FALSE, which sets the map for ln_sigma_sel to NA. Only viable for logisitc, Double Logistic, Descending Logistic, and Hake Non-parametric with Random walk or deviates.
 #'
 #' @return a list of map arguments for each parameter
 #' @export
-build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
+build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, random_sel = FALSE) {
   # functions
   '%!in%' <- function(x,y)!('%in%'(x,y))
 
@@ -133,7 +134,23 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
   ind_inf_re <- 1
   ind_slp_re <- 1
 
-  # -- Map out non-parametric selectivity penalties. Leaving as parameters in case we want to estimate down the line.
+  # -- Random effects for selectivity
+  # -- Map out time-varying selectivity variance
+  map_list$ln_sigma_sel <- replace(map_list$ln_sigma_sel, values = rep(NA, length(map_list$ln_sigma_sel)))
+
+  if(random_sel){
+    for (i in 1:nrow(data_list$fleet_control)) {
+      flt = data_list$fleet_control$Fleet_code[i]
+      # - Logisitc, Double Logistic, Descending Logistic, and Hake Non-parametric
+      # - Random walk or deviate
+      if (data_list$fleet_control$Selectivity[flt] %in% c(1,3,4,5) & data_list$fleet_control$Time_varying_sel[flt] %in% c(1,2,4)) {
+        map_list$ln_sigma_sel[flt] <- flt
+      }
+    }
+  }
+
+
+  # -- Map out non-parametric selectivity penalties. Leaving as parameters in case we want to estimate down the line
   map_list$sel_curve_pen <- replace(map_list$sel_curve_pen, values = rep(NA, length(map_list$sel_curve_pen)))
 
   # Loop through fleets
@@ -238,11 +255,6 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
           ind_slp <- ind_slp + max(Selectivity_block)
           ind_inf <- ind_inf + max(Selectivity_block)
         }
-      }
-
-      # Map out selectivity var if not using time-varying, penalized likelihood, or using random walk
-      if(data_list$fleet_control$Time_varying_sel[flt] %in% c(NA, 0, 1, 3, 4)){
-        map_list$ln_sigma_sel[flt] <- NA
       }
     }
 
@@ -354,11 +366,6 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
           }
         }
       }
-
-      # Map out selectivity var if not using time-varying, penalized likelihood, or using random walk
-      if(data_list$fleet_control$Time_varying_sel[flt] %in% c(NA, 0, 1, 3, 4, 5)){
-        map_list$ln_sigma_sel[flt] <- NA
-      }
     }
 
 
@@ -430,18 +437,13 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
           ind_inf <- ind_inf + max(Selectivity_block)
         }
       }
-
-      # Map out selectivity var if not using time-varying, penalized likelihood, or using random walk
-      if(data_list$fleet_control$Time_varying_sel[flt] %in% c(NA, 0, 1, 3, 4)){
-        map_list$ln_sigma_sel[flt] <- NA
-      }
     }
 
     # -- 4.5. Non-parametric similar to Hake (Taylor et al 2014) - sel_type = 5
     if(data_list$fleet_control$Selectivity[flt] == 5){ # Non-parametric at age
 
       # -- Turn off time-varying coefs if not used
-      if(data_list$fleet_control$Time_varying_sel[flt] %in% c(0,NA)){ # 0 = off, 1 = penalized like, 2 = random effects (NOT Implemented),...
+      if(data_list$fleet_control$Time_varying_sel[flt] %in% c(0, NA, 3)){ # 0 = off, 1 = penalized like, 2 = random effects (NOT Implemented),...
         map_list$sel_coff_dev[flt,,,] <- NA
       }
 
@@ -470,11 +472,6 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE) {
       # Map out logistic and double logistic deviates
       map_list$ln_sel_slp_dev[1:2, flt, ,] <- NA
       map_list$sel_inf_dev[1:2, flt, ,] <- NA
-
-      # Map out selectivity var
-      if(data_list$fleet_control$Time_varying_sel[flt] != 2){ # 0 = off, 1 = penalized like, 2 = random effects,...
-        map_list$ln_sigma_sel[flt] <- NA
-      }
     }
 
 

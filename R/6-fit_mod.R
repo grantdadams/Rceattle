@@ -9,7 +9,7 @@
 #' @param projection_uncertainty account for hindcast parameter uncertainty in projections when using an HCR? Default is FALSE for speed.
 #' @param random_rec logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE.
 #' @param random_q logical. If TRUE, treats annual catchability deviations as random effects.The default is FALSE.
-#' @param random_rec logical. If TRUE, treats annual selectivity deviations as random effects.The default is FALSE.
+#' @param random_sel logical. If TRUE, treats annual selectivity deviations as random effects.The default is FALSE.
 #' @param HCR HCR list object from \code{\link[build_hcr]}
 #' @param niter Number of iterations for multispecies model
 #' @param recFun The stock recruit-relationship parameterization from \code{\link{build_srr}}.
@@ -246,7 +246,7 @@ fit_mod <-
     # STEP 3: Load/build map ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.null(map)) {
-      map <- suppressWarnings(build_map(data_list, start_par, debug = estimateMode > 3, random_rec = random_rec))
+      map <- suppressWarnings(build_map(data_list, start_par, debug = estimateMode > 3, random_rec = random_rec, random_sel = random_sel))
     } else{
       map <- map
     }
@@ -496,6 +496,7 @@ fit_mod <-
         initial_params = start_par,
         bounds = bounds,
         map = map
+        , quantities <- obj$report(obj$env$last.par.best)
       )
 
     if(verbose > 0) {message(paste0("Step ",step, ": final build complete. Optimizing."))}
