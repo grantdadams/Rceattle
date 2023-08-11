@@ -246,7 +246,7 @@ fit_mod <-
     # STEP 3: Load/build map ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.null(map)) {
-      map <- suppressWarnings(build_map(data_list, start_par, debug = estimateMode > 3, random_rec = random_rec, random_sel = random_sel))
+      map <- suppressWarnings(build_map(data_list, start_par, debug = estimateMode == 4, random_rec = random_rec, random_sel = random_sel))
     } else{
       map <- map
     }
@@ -496,7 +496,6 @@ fit_mod <-
         initial_params = start_par,
         bounds = bounds,
         map = map
-        , quantities <- obj$report(obj$env$last.par.best)
       )
 
     if(verbose > 0) {message(paste0("Step ",step, ": final build complete. Optimizing."))}
