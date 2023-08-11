@@ -25,25 +25,20 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
     yrs_proj = NULL
   }
 
-  # Convert parameters to map object
-  map_list <- params
-
-  # Set each item in map_list to seperate value
-  map_list <- sapply(map_list, function(x) replace(x, values = c(1:length(x))))
+  # Convert parameters to map object and
+  # - Set each item in map_list to seperate value
+  map_list <- sapply(params, function(x) replace(x, values = c(1:length(x))))
 
 
   # -----------------------------------------------------------
   # STEP 1: Base population dynamics
   # -----------------------------------------------------------
   # -- 1.1. Map out future fishing mortality and sex ratio variance
-  map_list$proj_F_prop <- as.numeric(replace(map_list$proj_F_prop,
-                                             values = rep(NA, length(map_list$proj_F_prop))))
-  map_list$ln_sex_ratio_sigma <- as.numeric(replace(map_list$ln_sex_ratio_sigma,
-                                                    values = rep(NA, length(map_list$ln_sex_ratio_sigma))))
+  map_list$proj_F_prop <- map_list$proj_F_prop * NA
+  map_list$ln_sex_ratio_sigma <- map_list$ln_sex_ratio_sigma * NA
 
   # -- 1.2. Map out comp weights
-  map_list$comp_weights <- as.numeric(replace(map_list$comp_weights,
-                                              values = rep(NA, length(map_list$comp_weights))))
+  map_list$comp_weights <- map_list$comp_weights * NA
 
   # -- 1.3. Map out future recruitment deviations
   map_list$rec_dev[, yrs_proj] <- as.numeric(replace(map_list$rec_dev[, yrs_proj],
@@ -136,7 +131,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
   # -- Random effects for selectivity
   # -- Map out time-varying selectivity variance
-  map_list$ln_sigma_sel <- replace(map_list$ln_sigma_sel, values = rep(NA, length(map_list$ln_sigma_sel)))
+  map_list$ln_sigma_sel <- map_list$ln_sigma_sel * NA
 
   if(random_sel){
     for (i in 1:nrow(data_list$fleet_control)) {
@@ -151,7 +146,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
 
   # -- Map out non-parametric selectivity penalties. Leaving as parameters in case we want to estimate down the line
-  map_list$sel_curve_pen <- replace(map_list$sel_curve_pen, values = rep(NA, length(map_list$sel_curve_pen)))
+  map_list$sel_curve_pen <- map_list$sel_curve_pen * NA
 
   # Loop through fleets
   for (i in 1:nrow(data_list$fleet_control)) {
@@ -698,7 +693,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   # -----------------------------------------------------------
   # -- Recruitment deviation sigmas - turn off if not estimating
   if(random_rec == FALSE){
-    map_list$ln_rec_sigma <- replace(map_list$ln_rec_sigma, values = rep(NA, length(map_list$ln_rec_sigma)))
+    map_list$ln_rec_sigma <- map_list$ln_rec_sigma * NA
   }
 
   # -- Stock recruit relationship (SRR) parameters:
@@ -708,7 +703,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
     map_list$rec_pars[, 2:3] <- NA
   }
 
-  # - Turning off 1st if using SRR
+  # - Turning off mean rec par if using SRR
   if(data_list$srr_fun > 0){
     map_list$rec_pars[, 1] <- NA
   }
@@ -726,31 +721,32 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   if (data_list$msmMode == 0) { # Single-species
 
     # Suitability parameters
-    map_list$log_gam_a <- replace(map_list$log_gam_a, values = rep(NA, length(map_list$log_gam_a)))
-    map_list$log_gam_b <- replace(map_list$log_gam_b, values = rep(NA, length(map_list$log_gam_b)))
-    map_list$log_phi <- replace(map_list$log_phi, values = rep(NA, length(map_list$log_phi)))
+    map_list$log_gam_a <- map_list$log_gam_a * NA
+    map_list$log_gam_b <- map_list$log_gam_b * NA
+    map_list$log_phi <- map_list$log_phi * NA
 
     # # Multispecies kinzey parameters
-    map_list$logH_1 <- replace(map_list$logH_1, values = rep(NA, length(map_list$logH_1)))
-    map_list$logH_1a <- replace(map_list$logH_1a, values = rep(NA, length(map_list$logH_1a)))
-    map_list$logH_1b <- replace(map_list$logH_1b, values = rep(NA, length(map_list$logH_1b)))
+    map_list$logH_1 <- map_list$logH_1 * NA
+    map_list$logH_1a <- map_list$logH_1a * NA
+    map_list$logH_1b <- map_list$logH_1b * NA
 
-    map_list$logH_2 <- replace(map_list$logH_2, values = rep(NA, length(map_list$logH_2)))
-    map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
-    map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
+    map_list$logH_2 <- map_list$logH_2 * NA
+    map_list$logH_3 <- map_list$logH_3 * NA
+    map_list$H_4 <- map_list$H_4 * NA
 
   }
 
   # 2. MSVPA based predation
   if (data_list$msmMode %in% c(1,2)) {
-    # Multispecies (Turn off kinzey)
-    map_list$logH_1 <- replace(map_list$logH_1, values = rep(NA, length(map_list$logH_1)))
-    map_list$logH_1a <- replace(map_list$logH_1a, values = rep(NA, length(map_list$logH_1a)))
-    map_list$logH_1b <- replace(map_list$logH_1b, values = rep(NA, length(map_list$logH_1b)))
 
-    map_list$logH_2 <- replace(map_list$logH_2, values = rep(NA, length(map_list$logH_2)))
-    map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
-    map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
+    # Multispecies kinzey parameters
+    map_list$logH_1 <- map_list$logH_1 * NA
+    map_list$logH_1a <- map_list$logH_1a * NA
+    map_list$logH_1b <- map_list$logH_1b * NA
+
+    map_list$logH_2 <- map_list$logH_2 * NA
+    map_list$logH_3 <- map_list$logH_3 * NA
+    map_list$H_4 <- map_list$H_4 * NA
 
   }
 
@@ -765,34 +761,34 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
     # Holling Type 2
     if (data_list$msmMode == 4) {
-      map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
-      map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
+      map_list$logH_3 <- map_list$logH_3 * NA
+      map_list$H_4 <- map_list$H_4 * NA
     }
 
     # Holling Type 3
     if (data_list$msmMode == 5) {
-      map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
+      map_list$logH_3 <- map_list$logH_3 * NA
     }
 
     # Predator interference
     if (data_list$msmMode == 6) {
-      map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
+      map_list$H_4 <- map_list$H_4 * NA
     }
 
     # Predator preemption
     if (data_list$msmMode == 7) {
-      map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
+      map_list$H_4 <- map_list$H_4 * NA
     }
 
     # Hassell-Varley
     if (data_list$msmMode == 8) {
-      map_list$logH_3 <- replace(map_list$logH_3, values = rep(NA, length(map_list$logH_3)))
+      map_list$logH_3 <- map_list$logH_3 * NA
     }
 
     # Ecosim
     if (data_list$msmMode == 9) {
-      map_list$logH_2 <- replace(map_list$logH_2, values = rep(NA, length(map_list$logH_2)))
-      map_list$H_4 <- replace(map_list$H_4, values = rep(NA, length(map_list$H_4)))
+      map_list$logH_2 <- map_list$logH_2 * NA
+      map_list$H_4 <- map_list$H_4 * NA
     }
   }
 
@@ -804,9 +800,10 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
     # 2.1. Empirical suitability
     if (data_list$suitMode == 0) {
-      map_list$log_gam_a <- replace(map_list$log_gam_a, values = rep(NA, length(map_list$log_gam_a)))
-      map_list$log_gam_b <- replace(map_list$log_gam_b, values = rep(NA, length(map_list$log_gam_b)))
-      map_list$log_phi <- replace(map_list$log_phi, values = rep(NA, length(map_list$log_phi)))
+      # Suitability parameters
+      map_list$log_gam_a <- map_list$log_gam_a * NA
+      map_list$log_gam_b <- map_list$log_gam_b * NA
+      map_list$log_phi <- map_list$log_phi * NA
     }
 
     # 2.2. GAMMA or lognormal suitability
