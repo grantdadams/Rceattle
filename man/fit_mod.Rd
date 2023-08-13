@@ -51,9 +51,11 @@ fit_mod(
 
 \item{projection_uncertainty}{account for hindcast parameter uncertainty in projections when using an HCR? Default is FALSE for speed.}
 
-\item{random_rec}{logical. If TRUE, treats annual selectivity deviations as random effects.The default is FALSE.}
+\item{random_rec}{logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE.}
 
 \item{random_q}{logical. If TRUE, treats annual catchability deviations as random effects.The default is FALSE.}
+
+\item{random_sel}{logical. If TRUE, treats annual selectivity deviations as random effects.The default is FALSE.}
 
 \item{HCR}{HCR list object from \code{\link[build_hcr]}}
 

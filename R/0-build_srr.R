@@ -6,6 +6,7 @@
 ##' @param srr_est_mode Switch to determine estimation mode. 0 = fix alpha to prior mean, 1 = freely estimate alpha and beta, 2 = use lognormally distributed prior for alpha.
 ##' @param srr_prior_mean mean for normally distributed prior for stock-recruit parameter
 ##' @param srr_prior_sd Prior standard deviation for stock-recruit parameter
+##' @param Bmsy_lim Upper limit for ricker based SSB-MSY (e.g 1/Beta). Will add a likelihood penalty if beta is estimated above this limit.
 ##' @details
 ##'
 ##' **Stock recruitment relationships currently implemented in Rceattle:**
@@ -32,11 +33,16 @@ build_srr <- function(srr_fun = 0,
                       proj_mean_rec = TRUE,
                       srr_est_mode = 1,
                       srr_prior_mean = 4,
-                      srr_prior_sd = 1){
+                      srr_prior_sd = 1,
+                      Bmsy_lim = Inf){
 
   # Set pred/RP/penalty to same as SR curve if SR fun > 0
   if(srr_fun > 0){
     srr_pred_fun = srr_fun
+  }
+
+  if(!srr_fun %in% c(3,4)){
+    Bmsy_lim = Inf
   }
 
   list(srr_fun = srr_fun,
@@ -44,7 +50,8 @@ build_srr <- function(srr_fun = 0,
        proj_mean_rec = proj_mean_rec,
        srr_est_mode = srr_est_mode,
        srr_prior_mean = srr_prior_mean,
-       srr_prior_sd = srr_prior_sd
+       srr_prior_sd = srr_prior_sd,
+       Bmsy_lim = Bmsy_lim,
   )
 }
 

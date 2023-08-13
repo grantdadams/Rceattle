@@ -198,12 +198,17 @@ fit_mod <-
     data_list$srr_est_mode <- recFun$srr_est_mode
     data_list$srr_prior_mean <- extend_length(recFun$srr_prior_mean)
     data_list$srr_prior_sd <- extend_length(recFun$srr_prior_sd)
+    data_list$Bmsy_lim <- extend_length(recFun$Bmsy_lim)
 
     # M1
-    if(is.null(data_list$M1_model)){
-      data_list$M1_model= extend_length(M1Fun$M1_model)
+    if(!is.null(data_list$M1_model)){
+      if(sum(data_list$M1_model != extend_length(M1Fun$M1_model))){
+        warning("M1_model in data is different than in call `fit_mod`")
+      }
     }
+
     # FIXME: may want to pull from data here too
+    data_list$M1_model= extend_length(M1Fun$M1_model)
     updateM1 = M1Fun$updateM1
     data_list$M1_use_prior = extend_length(M1Fun$M1_use_prior) * (data_list$M1_model > 0) # Sets to 0 if M1 is fixed
     data_list$M2_use_prior = extend_length(M1Fun$M2_use_prior) * (msmMode > 0) # Sets to 0 if single-species
