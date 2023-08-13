@@ -395,10 +395,11 @@ Type objective_function<Type>::operator() () {
   DATA_INTEGER(proj_mean_rec);
   //    0 = project recruitment using ln_R0 and rec devs
   //    1 = project recruitment using mean rec (can also have adjusted rec devs)
-  DATA_INTEGER(srr_est_mode);            // Logical of wether to add normal prior to stock recruit-relationship
-  DATA_VECTOR(srr_prior_mean);           // Prior mean for stock recruit relationship parameter
-  DATA_VECTOR(srr_prior_sd);             // Prior sd for stock recruit relationship parameter
+  DATA_INTEGER(srr_est_mode);             // Logical of wether to add normal prior to stock recruit-relationship
+  DATA_VECTOR(srr_prior_mean);            // Prior mean for stock recruit relationship parameter
+  DATA_VECTOR(srr_prior_sd);              // Prior sd for stock recruit relationship parameter
   DATA_INTEGER( niter );                  // Number of loops for MSM mode
+  DATA_VECTOR( Bmsy_lim );                // Upper limit for Bmsy in ricker function. Will add penalty if 1/beta > lim
 
 
   // 1.5. HARVEST CONTROL RULE (HCR) SETTINGS
@@ -3524,10 +3525,18 @@ Type objective_function<Type>::operator() () {
 
 
   // Slots 9-12 -- RECRUITMENT PARAMETERS
+  penalty = 0;
   for (sp = 0; sp < nspp; sp++) {
     // Slot 9 -- stock-recruit prior
     if(srr_est_mode == 2 & srr_fun > 0){
       jnll_comp(9, sp) -= dnorm((rec_pars(sp, 1)), log(srr_prior_mean(sp)), srr_prior_sd(sp), true);
+    }
+
+    // Slot 9 -- penalty for Bmsy > Bmsy_lim
+    if((srr_fun == 3) | (srr_fun == 4)){
+      Type bmsy = 1/(exp(rec_pars(sp, 2))/1000000);
+      bmsy =  posfun(Bmsy_lim(sp) - bmsy, Type(0.001), penalty);
+      jnll_comp(9, sp) += penalty;
     }
 
 

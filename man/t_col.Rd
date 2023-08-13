@@ -7,14 +7,7 @@
 t_col(color, percent = 50, name = NULL)
 }
 \arguments{
-\item{color}{}
-
-\item{percent}{}
-
 \item{name}{}
-}
-\value{
-
 }
 \description{
 #https://www.dataanalytics.org.uk/make-transparent-colors-in-r/
