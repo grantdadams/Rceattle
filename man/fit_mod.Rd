@@ -63,6 +63,8 @@ fit_mod(
 
 \item{recFun}{The stock recruit-relationship parameterization from \code{\link{build_srr}}.}
 
+\item{M1Fun}{M1 parameterizations and priors. Use \code{build_M1}.}
+
 \item{msmMode}{The predation mortality functions to used. Defaults to no predation mortality used.}
 
 \item{avgnMode}{The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.}
@@ -92,8 +94,6 @@ fit_mod(
 \item{verbose}{0 = Silent, 1 = print updates of model fit, 2 = print updates of model fit and TMB estimation progress.}
 
 \item{newtonsteps}{number of extra newton steps to take after optimization (alternative to \code{loopnum})}
-
-\item{updateM1}{TRUE/FALSE whether to update M1 from data, if inits are used (default = TRUE). Useful for phasing in multi-species models from single-species models, but the data have updated residual mortality (M1) for the multi-species model.}
 }
 \value{
 A list of class "Rceattle" including:

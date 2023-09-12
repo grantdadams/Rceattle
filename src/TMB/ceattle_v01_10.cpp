@@ -448,6 +448,7 @@ Type objective_function<Type>::operator() () {
   Type stom_tau = 20;                     // Stomach sample size: FIXME - have as input
   int max_age = imax(nages);              // Integer of maximum nages to make the arrays; n = [1]
   DATA_VECTOR( MSSB0 );                   // SB0 from projecting the model forward in multi-species mode under no fishing
+  DATA_VECTOR( MSB0 );                    // B0 from projecting the model forward in multi-species mode under no fishing
 
   // -- M1 attributes
   DATA_IVECTOR(M1_model);
@@ -1654,6 +1655,7 @@ Type objective_function<Type>::operator() () {
         // Input SB0 (if running in multi-species mode)
         if(msmMode > 0){
           SB0(sp, yr) = MSSB0(sp);
+          B0(sp, yr) = MSB0(sp);
         }
       }
     }
@@ -3563,8 +3565,9 @@ Type objective_function<Type>::operator() () {
 
   // Slot 13 -- Reference point penalties
   for (sp = 0; sp < nspp; sp++) {
-    // -- Static reference points
-    if(DynamicHCR == 0 & forecast == 1){
+    // -- Single-species static reference points
+    if(DynamicHCR == 0 & forecast == 1 & msmMode == 0){
+
 
       // -- Avg F (have F limit)
       if(HCR == 2){
@@ -3583,8 +3586,8 @@ Type objective_function<Type>::operator() () {
       }
     }
 
-    // -- Dynamic reference points
-    if(DynamicHCR == 1 & forecast == 1){
+    // -- Single-species dynamic reference points
+    if(DynamicHCR == 1 & forecast == 1 & msmMode == 0){
 
       // -- Avg F (have F limit)
       if(HCR == 2){
@@ -3602,6 +3605,26 @@ Type objective_function<Type>::operator() () {
       if(HCR > 3){
         jnll_comp(13, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-FsprLimit(sp));
         jnll_comp(13, sp)  += 200*square((SPRtarget(sp)/SPR0(sp))-FsprTarget(sp));
+      }
+    }
+
+
+    // -- Multi-species static reference points (all depletion based)
+    if(forecast == 1 & msmMode > 0){
+
+      // -- Avg F (have F limit)
+      if(HCR == 2){
+        jnll_comp(13, sp)  += 200*square((biomassSSB(sp, nyrs-1)/SB0(sp, nyrs-1))-FsprLimit(sp));
+      }
+
+      // F that achieves \code{Ftarget}% of SSB0 in the end of the projection
+      if(HCR == 3){
+        jnll_comp(13, sp)  += 200*square((biomassSSB(sp, nyrs-1)/SB0(sp, nyrs-1))-FsprTarget(sp));
+      }
+
+      // Tiered HCRs with Limit and Targets
+      if(HCR == 6){
+        jnll_comp(13, sp)  += 200*square((biomassSSB(sp, nyrs-1)/SB0(sp, nyrs-1))-FsprLimit(sp));
       }
     }
   }
