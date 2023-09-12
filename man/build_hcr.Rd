@@ -89,4 +89,6 @@ Stock status: \eqn{Ptarget > SB > SB0*Plimit}
 Stock status: \eqn{SB < SB0*Plimit}
 \deqn{Fofl=0}
 \deqn{Fuse=0}
+
+NOTE: only HCRs 2, 3, and 6 will work in multi-species mode
 }

@@ -58,6 +58,9 @@
 ##' 	\deqn{Fofl=0}
 ##' 	\deqn{Fuse=0}
 ##'
+##'
+##'  NOTE: only HCRs 2, 3, and 6 will work in multi-species mode
+##'
 ##' @return A \code{list} containing the harvest control rule and associated biological reference points
 ##' @export
 ##'

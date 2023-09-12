@@ -51,7 +51,7 @@ build_srr <- function(srr_fun = 0,
        srr_est_mode = srr_est_mode,
        srr_prior_mean = srr_prior_mean,
        srr_prior_sd = srr_prior_sd,
-       Bmsy_lim = Bmsy_lim,
+       Bmsy_lim = Bmsy_lim
   )
 }
 

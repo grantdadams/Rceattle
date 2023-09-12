@@ -1,5 +1,6 @@
 #' This functions runs CEATTLE
 #' @description This function estimates population parameters of CEATTLE using maximum likelihood in TMB.
+#'
 #' @param data_list a data_list created from BSAI CEATTLE dat files \code{\link{build_dat}}, prebuilt data_list \code{\link{BS2017SS}}, or read in using \code{\link{read_excel}}.
 #' @param inits (Optional) Character vector of named initial values from previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters. Can also construct using \code{\link{build_params}}
 #' @param map (Optional) A map object from \code{\link{build_map}}.
@@ -20,7 +21,6 @@
 #' @param phase Optional. List of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R. If NULL, will not phase model. If set to \code{"default"}, will use default phasing.
 #' @param suitMode Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma suitability, 2 = weight based gamma suitability, 3 = length based lognormal selectivity, 4 = time-varying length based lognormal selectivity.
 #' @param meanyr Integer. The last year used to calculate mean suitability and recruitment, starting at \code{styr}. Defaults to $endyr$ in $data_list$. Used for MSE runs where suitability and mean recruitment is held at the value estimated from the years used to condition the OM, but F is estimated for years beyond those used to condition the OM to account for projected catch.
-#' @param updateM1 TRUE/FALSE whether to update M1 from data, if inits are used (default = TRUE). Useful for phasing in multi-species models from single-species models, but the data have updated residual mortality (M1) for the multi-species model.
 #' @param getsd	TRUE/FALSE whether to run standard error calculation (default = TRUE).
 #' @param use_gradient use the gradient to phase (default = TRUE).
 #' @param rel_tol The relative tolerance for discontinuous likelihood warnings. Set to 1. This evaluates the difference between the TMB object likelihood and the nlminb likelihood.
@@ -28,7 +28,9 @@
 #' @param loopnum number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})
 #' @param newtonsteps number of extra newton steps to take after optimization (alternative to \code{loopnum})
 #' @param verbose 0 = Silent, 1 = print updates of model fit, 2 = print updates of model fit and TMB estimation progress.
+#' @param M1Fun M1 parameterizations and priors. Use \code{build_M1}.
 #' @param getJointPrecision return full Hessian of fixed and random effects.
+#'
 #' @details
 #' CEATTLE is an age-structured population dynamics model that can be fit with or without predation mortality. The default is to exclude predation mortality by setting \code{msmMode} to 0. Predation mortality can be included by setting \code{msmMode} with the following options:
 #' \itemize{
@@ -234,6 +236,9 @@ fit_mod <-
     data_list$QnormHCR = qnorm(data_list$Pstar, 0, data_list$Sigma)
 
     if(data_list$HCR == 2 & estimateMode == 2){estimateMode = 4} # If projecting under constant F, run parmeters through obj only
+    if(data_list$msmMode > 0 & !data_list$HCR %in% c(2,3,6)){
+      warning("WARNING:: Only HCRs 2, 3, and 6 work in multi-species mode currently")
+    }
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -297,7 +302,7 @@ fit_mod <-
 
     data_list_reorganized <- Rceattle::rearrange_dat(data_list)
     data_list_reorganized = c(list(model = TMBfilename), data_list_reorganized)
-    if(msmMode > 0 & data_list$HCR == 3){
+    if(msmMode > 0){
       data_list_reorganized$HCR = 0 # Estimate model with F = 0 for the projection if multispecies
     }
     data_list_reorganized$forecast <- FALSE # Don't include BRPs in likelihood of hindcast
@@ -615,6 +620,7 @@ fit_mod <-
           SB0 <- quantities$biomassSSB[, ncol(quantities$biomassSSB)]
           B0 <- quantities$biomass[, ncol(quantities$biomass)]
           data_list_reorganized$MSSB0 <- SB0
+          data_list_reorganized$MSB0 <- B0
 
           # -- Set HCR back to original
           data_list_reorganized$HCR <- data_list$HCR
@@ -641,14 +647,6 @@ fit_mod <-
                                   quiet = verbose < 2,
           )
         }
-        # obj$report()$DynamicSPRtarget/obj$report()$DynamicSPR0
-        # obj$report()$DynamicSPRlimit/obj$report()$DynamicSPR0
-        #
-        # obj$report()$SPRtarget/obj$report()$SPR0
-        # obj$report()$SPRlimit/obj$report()$SPR0
-        #
-        # obj$report()$SPR0
-        # obj$report()$SB0
 
         if(verbose > 0) {message("Step ",step, ": Projections complete")}
 
@@ -808,6 +806,7 @@ clean_data <- function(data_list){
 
   # - Add temp multi-species SB0
   data_list$MSSB0 <- rep(999, data_list$nspp)
+  data_list$MSB0 <- rep(999, data_list$nspp)
 
   # - Remove years of data after to proj year
   data_list$wt <- data_list$wt[which(data_list$wt$Year <= data_list$projyr),]

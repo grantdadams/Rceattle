@@ -64,6 +64,12 @@ ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
                                              updateM1 = TRUE,
                                              M1_use_prior = FALSE,
                                              M2_use_prior = FALSE),
+                            HCR = Rceattle::build_hcr(HCR = 6, # Cat 1 HCR
+                                                      FsprLimit = 0.4, # F40%
+                                                      Ptarget = 0.4, # Target is 40% B0
+                                                      Plimit = 0.1, # No fishing when SB<SB10
+                                                      Pstar = 0.45,
+                                                      Sigma = 0.5),
                             file = NULL, # Don't save
                             estimateMode = 0, # Estimate
                             niter = 3, # 3 iterations around population and predation dynamics
@@ -72,7 +78,26 @@ ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
                             suitMode = 0, # empirical suitability
                             verbose = 1)
 
-plot_biomass(ms_run, add_ci = TRUE)
+
+ms_run3 <- Rceattle::fit_mod(data_list = BS2017MS,
+                            inits = ss_run$estimated_params, # Initial parameters from single species ests
+                            M1Fun = build_M1(M1_model = 1,
+                                             updateM1 = TRUE,
+                                             M1_use_prior = FALSE,
+                                             M2_use_prior = FALSE),
+                            HCR = Rceattle::build_hcr(HCR = 3, # Cat 1 HCR
+                                                      FsprTarget = 0.4),
+                            file = NULL, # Don't save
+                            estimateMode = 0, # Estimate
+                            niter = 3, # 3 iterations around population and predation dynamics
+                            random_rec = FALSE, # No random recruitment
+                            msmMode = 1, # MSVPA based
+                            suitMode = 0, # empirical suitability
+                            verbose = 1)
+
+plot_biomass(list(ms_run, ms_run3), add_ci = TRUE, incl_proj = TRUE)
+plot_depletionSSB(list(ms_run, ms_run3), add_ci = TRUE, incl_proj = TRUE)
+
 
 sp <- 3
 y <- log(ms_run$quantities$R[sp,1:42]/ms_run$quantities$biomassSSB[sp,1:42])
