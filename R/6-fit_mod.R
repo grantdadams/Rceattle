@@ -236,7 +236,7 @@ fit_mod <-
     data_list$QnormHCR = qnorm(data_list$Pstar, 0, data_list$Sigma)
 
     if(data_list$HCR == 2 & estimateMode == 2){estimateMode = 4} # If projecting under constant F, run parmeters through obj only
-    if(data_list$msmMode > 0 & !data_list$HCR %in% c(2,3,6)){
+    if(data_list$msmMode > 0 & !data_list$HCR %in% c(0, 2,3,6)){
       warning("WARNING:: Only HCRs 2, 3, and 6 work in multi-species mode currently")
     }
 
