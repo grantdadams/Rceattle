@@ -41,7 +41,7 @@ build_srr <- function(srr_fun = 0,
     srr_pred_fun = srr_fun
   }
 
-  if(!srr_fun %in% c(3,4)){
+  if(!srr_pred_fun %in% c(3,4)){
     Bmsy_lim = Inf
   }
 
