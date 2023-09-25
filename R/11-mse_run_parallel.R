@@ -317,8 +317,6 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
     }
 
 
-
-
     # Run through assessment years
     for(k in 1:(length(assess_yrs))){
 

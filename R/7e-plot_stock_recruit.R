@@ -22,7 +22,8 @@ plot_stock_recruit <-
            height = 6.5,
            species = NULL,
            spnames = NULL,
-           lwd = 3) {
+           lwd = 3,
+           mod_cex = 1) {
 
     # Convert single one into a list
     if(class(Rceattle) == "Rceattle"){
