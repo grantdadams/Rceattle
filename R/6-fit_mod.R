@@ -133,7 +133,6 @@ fit_mod <-
     # msmMode = 0;
     # avgnMode = 0;
     # initMode = 1
-    # updateM1 = TRUE;
     # minNByage = 0;
     # suitMode = 0;
     # meanyr = NULL;
