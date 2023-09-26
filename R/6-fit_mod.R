@@ -314,7 +314,7 @@ fit_mod <-
 
     nyrs_proj <- data_list$projyr - data_list$styr + 1
     if(!is.null(HCR$FsprTarget) & HCR$HCR == 2){
-      start_par$ln_Ftarget = HCR$FsprTarget # Fixed fishing mortality for projections for each species
+      start_par$ln_Ftarget = log(HCR$FsprTarget) # Fixed fishing mortality for projections for each species
     }
 
     # - Update M1 parameter object from data if initial parameter values input
