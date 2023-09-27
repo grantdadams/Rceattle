@@ -376,6 +376,7 @@ Type objective_function<Type>::operator() () {
   int nyrs = projyr - styr + 1;
   int nyrs_mean = meanyr - styr + 1;
   int nyrs_hind = endyr - styr + 1;
+  if(nyrs_mean > nyrs_hind){nyrs_mean = nyrs_hind;}
 
   // 1.3. Number of species
   DATA_INTEGER( nspp );                   // Number of species (prey)
@@ -1412,8 +1413,14 @@ Type objective_function<Type>::operator() () {
     for (sp = 0; sp < nspp; sp++) {
       for (yr = 1; yr < nyrs_hind; yr++) {
 
+        // Switch for srr (for MSEs if using Ianelli SRR method)
+        int srr_switch = srr_fun;
+        if(yr >= nyrs_mean){
+          srr_switch = srr_pred_fun;
+        }
+
         // -- 6.6.1. Recruitment
-        switch(srr_fun){
+        switch(srr_switch){
         case 0: // Random about mean (e.g. Alaska)
           R(sp, yr) = R0(sp) * exp(rec_dev(sp, yr));
           break;
