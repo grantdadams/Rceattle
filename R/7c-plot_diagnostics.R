@@ -390,7 +390,7 @@ plot_catch <- function(Rceattle,
       if(is.null(width)) width = 5
       if(is.null(height)) height = 3.5
       for(fsh in 1:nflts){
-        Par = list(mfrow=c(1,1),mar = c(3.5, 3.5, 0.5, 0.1), mgp =c(2.,0.5,0), tck = -0.02,cex=0.8)
+        Par = list(mfrow=c(1,1), mar = c(3.5, 3.5, 0.5, 0.1), mgp =c(2.,0.5,0), tck = -0.02,cex=0.8)
 
         # Save
         if(j == 2){
@@ -477,7 +477,7 @@ plot_catch <- function(Rceattle,
       if(is.null(height)) height = ifelse(nflts==1,5,ifelse(nflts==2,3.,2.5))*round(nflts/2+0.01,0)
 
 
-      Par = list(mfrow=c(round(nflts/3+0.01,0),ifelse(nflts==1,1,3)),mai=c(0.35,0.15,0,.15),omi = c(0.2,0.25,0.2,0) + 0.1,mgp=c(2,0.5,0), tck = -0.02,cex=0.8)
+      Par = list(mfrow=c(ifelse(nflts == 1, 1, round(nflts/3+0.01,0)),ifelse(nflts==1,1,3)),mai=c(0.35,0.15,0,.15),omi = c(0.2,0.25,0.2,0) + 0.1,mgp=c(2,0.5,0), tck = -0.02,cex=0.8)
 
       # Save
       if(j == 2){
