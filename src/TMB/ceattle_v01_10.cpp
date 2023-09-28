@@ -3527,8 +3527,14 @@ Type objective_function<Type>::operator() () {
   // Slots 9-12 -- RECRUITMENT PARAMETERS
   penalty = 0;
   for (sp = 0; sp < nspp; sp++) {
-    // Slot 9 -- stock-recruit prior
-    if(srr_est_mode == 2 & srr_fun > 0){
+
+    // Slot 9 -- stock-recruit prior for Beverton
+    if((srr_est_mode == 2 & srr_pred_fun == 1) | (srr_est_mode == 2 & srr_pred_fun == 2)){
+      jnll_comp(9, sp) -= dnorm(log(Steepness(sp)), log(srr_prior_mean(sp)) + square(srr_prior_sd(sp))/2, srr_prior_sd(sp), true);
+    }
+
+    // Slot 9 -- stock-recruit prior for Ricker
+    if((srr_est_mode == 2 & srr_pred_fun == 3) | (srr_est_mode == 2 & srr_pred_fun == 4)){
       jnll_comp(9, sp) -= dnorm((rec_pars(sp, 1)), log(srr_prior_mean(sp)), srr_prior_sd(sp), true);
     }
 
@@ -3543,13 +3549,13 @@ Type objective_function<Type>::operator() () {
     // Slot 10 -- init_dev -- Initial abundance-at-age
     if(initMode > 0){
       for (age = 1; age < nages(sp); age++) {
-        jnll_comp(11, sp) -= dnorm( init_dev(sp, age - 1), Type(0), r_sigma(sp), true);
+        jnll_comp(11, sp) -= dnorm( init_dev(sp, age - 1), square(r_sigma(sp))/2, r_sigma(sp), true);
       }
     }
 
     // Slot 11 -- Tau -- Annual recruitment deviation
     for (yr = 0; yr < nyrs_hind; yr++) {
-      jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr), Type(0), r_sigma(sp), true);    // Recruitment deviation using random effects.
+      jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr),  square(r_sigma(sp))/2, r_sigma(sp), true);    // Recruitment deviation using random effects.
     }
 
     // Additional penalty for SRR curve (sensu AMAK/Ianelli)
