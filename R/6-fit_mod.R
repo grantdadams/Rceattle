@@ -114,7 +114,8 @@ fit_mod <-
     getJointPrecision = TRUE,
     loopnum = 5,
     verbose = 1,
-    newtonsteps = 0){
+    newtonsteps = 0,
+    catch_hcr = FALSE){
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # Debugging section ----
@@ -235,7 +236,7 @@ fit_mod <-
     data_list$QnormHCR = qnorm(data_list$Pstar, 0, data_list$Sigma)
 
     if(data_list$HCR == 2 & estimateMode == 2){estimateMode = 4} # If projecting under constant F, run parmeters through obj only
-    if(data_list$msmMode > 0 & !data_list$HCR %in% c(0, 2,3,6)){
+    if(data_list$msmMode > 0 & !data_list$HCR %in% c(0, 2, 3, 6)){
       warning("WARNING:: Only HCRs 2, 3, and 6 work in multi-species mode currently")
     }
 
@@ -301,7 +302,7 @@ fit_mod <-
 
     data_list_reorganized <- Rceattle::rearrange_dat(data_list)
     data_list_reorganized = c(list(model = TMBfilename), data_list_reorganized)
-    if(msmMode > 0){
+    if(msmMode > 0 & !catch_hcr){
       data_list_reorganized$HCR = 0 # Estimate model with F = 0 for the projection if multispecies
     }
     data_list_reorganized$forecast <- FALSE # Don't include BRPs in likelihood of hindcast
@@ -804,8 +805,10 @@ clean_data <- function(data_list){
   data_list$Pyrs <- data_list$Pyrs[which(data_list$Pyrs$Year == 0 | data_list$Pyrs$Year >= data_list$styr),]
 
   # - Add temp multi-species SB0
-  data_list$MSSB0 <- rep(999, data_list$nspp)
-  data_list$MSB0 <- rep(999, data_list$nspp)
+  if(is.null(data_list$MSSB0)){
+    data_list$MSSB0 <- rep(999, data_list$nspp)
+    data_list$MSB0 <- rep(999, data_list$nspp)
+  }
 
   # - Remove years of data after to proj year
   data_list$wt <- data_list$wt[which(data_list$wt$Year <= data_list$projyr),]
