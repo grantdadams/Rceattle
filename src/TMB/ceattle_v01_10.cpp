@@ -3312,6 +3312,7 @@ Type objective_function<Type>::operator() () {
 
 
           // Lower
+          /*
           if(age_test < flt_accum_age_lower(flt)){
             comp_obs(comp_ind, flt_accum_age_lower(flt) + (nages(sp) * (joint_adjust(comp_ind)-1))) += comp_obs(comp_ind, age);
             comp_obs(comp_ind, age) = 0;
@@ -3328,6 +3329,7 @@ Type objective_function<Type>::operator() () {
             comp_hat(comp_ind, flt_accum_age_upper(flt) + (nages(sp) * (joint_adjust(comp_ind)-1))) += comp_hat(comp_ind, age);
             comp_hat(comp_ind, age) = 0;
           }
+           */
         }
       }
       if(comp_type == 1){

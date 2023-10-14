@@ -33,7 +33,8 @@ fit_mod(
   getJointPrecision = TRUE,
   loopnum = 5,
   verbose = 1,
-  newtonsteps = 0
+  newtonsteps = 0,
+  catch_hcr = FALSE
 )
 }
 \arguments{
