@@ -31,7 +31,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
 
   # -----------------------------------------------------------
-  # STEP 1: Base population dynamics
+  # STEP 1: Base population dynamics ----
   # -----------------------------------------------------------
   # -- 1.1. Map out future fishing mortality and sex ratio variance
   map_list$proj_F_prop <- map_list$proj_F_prop * NA
@@ -121,7 +121,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
 
   # -----------------------------------------------------------
-  # Selectivity
+  # Selectivity ----
   # -----------------------------------------------------------
   # -- Selectivity  inds
   ind_slp <- 1
@@ -138,7 +138,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       flt = data_list$fleet_control$Fleet_code[i]
       # - Logisitc, Double Logistic, Descending Logistic, and Hake Non-parametric
       # - Random walk or deviate
-      if (data_list$fleet_control$Selectivity[flt] %in% c(1,3,4,5) & data_list$fleet_control$Time_varying_sel[flt] %in% c(1,2,4)) {
+      if (data_list$fleet_control$Selectivity[i] %in% c(1,3,4,5) & data_list$fleet_control$Time_varying_sel[i] %in% c(1,2,4)) {
         map_list$ln_sigma_sel[flt] <- flt
       }
     }
@@ -153,7 +153,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
     flt = data_list$fleet_control$Fleet_code[i]
 
     # -- Turn off sex-specific parameters if 1 sex model
-    spp <- data_list$fleet_control$Species[flt]
+    spp <- data_list$fleet_control$Species[i]
     nsex <- data_list$nsex[spp]
 
     # -- Turn of selectivity deviates for years not in composition data
@@ -164,7 +164,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
     comp_miss_yrs <- yrs_hind[which(yrs_hind %!in% comp_sub_yrs)]
 
     # -- 4.0.  Empirical or not Fit - sel_type = 0
-    if (data_list$fleet_control$Selectivity[flt] == 0 | data_list$fleet_control$Fleet_type[flt] == 0) {
+    if (data_list$fleet_control$Selectivity[i] == 0 | data_list$fleet_control$Fleet_type[i] == 0) {
 
       # Map out non-parametric
       map_list$sel_coff[flt,, ] <- NA
@@ -184,7 +184,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
 
     # -- 4.1. Logitistic - sel_type = 1
-    if (data_list$fleet_control$Selectivity[flt] == 1) {
+    if (data_list$fleet_control$Selectivity[i] == 1) {
 
       # Map out non-parametric
       map_list$sel_coff[flt,, ] <- NA
@@ -199,13 +199,13 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       map_list$sel_inf_dev[2, flt, ,] <- NA
 
       # Map out time varying parameters if not used
-      if(data_list$fleet_control$Time_varying_sel[flt] %in% c(NA, 0)){
+      if(data_list$fleet_control$Time_varying_sel[i] %in% c(NA, 0)){
         map_list$ln_sel_slp_dev[1, flt, ,] <- NA
         map_list$sel_inf_dev[1, flt, ,] <- NA
       }
 
       # Penalized deviate or random walk
-      if(data_list$fleet_control$Time_varying_sel[flt] %in% c(1,2,4)){
+      if(data_list$fleet_control$Time_varying_sel[i] %in% c(1,2,4)){
         for(sex in 1:nsex){
           map_list$ln_sel_slp_dev[1, flt, sex, comp_sub_yrs] <- ind_slp + 1:length(map_list$ln_sel_slp_dev[1, flt, sex, comp_sub_yrs]) - 1
           map_list$sel_inf_dev[1, flt, sex, comp_sub_yrs] <- ind_inf + 1:length(map_list$sel_inf_dev[1, flt, sex, comp_sub_yrs]) - 1
@@ -216,10 +216,10 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       }
 
       # Map selectivity blocks together
-      if(data_list$fleet_control$Time_varying_sel[flt] == 3){
+      if(data_list$fleet_control$Time_varying_sel[i] == 3){
 
         # If a fishery use the years from the fishery
-        if(data_list$fleet_control$Fleet_type[flt] == 1){
+        if(data_list$fleet_control$Fleet_type[i] == 1){
           fsh_biom <- data_list$fsh_biom[which(data_list$fsh_biom$Fleet_code == flt),]
           Selectivity_block <- fsh_biom$Selectivity_block
           biom_yrs <- fsh_biom$Year - data_list$styr + 1
@@ -229,7 +229,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
         }
 
         # if a survey use the survey years
-        if(data_list$fleet_control$Fleet_type[flt] == 2){
+        if(data_list$fleet_control$Fleet_type[i] == 2){
           srv_biom <- data_list$srv_biom[which(data_list$srv_biom$Fleet_code == flt),]
           Selectivity_block <- srv_biom$Selectivity_block
           biom_yrs <- srv_biom$Year - data_list$styr + 1
@@ -255,20 +255,20 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
 
     # -- 4.2. Non-parametric - sel_type = 2 (Ianelli et al 20??)
-    if(data_list$fleet_control$Selectivity[flt] == 2){ # Non-parametric at age
+    if(data_list$fleet_control$Selectivity[i] == 2){ # Non-parametric at age
       # -- Map out time-varying deviates
       map_list$sel_coff_dev[flt,,,] <- NA
 
       # Map out nselages  < max(nselages)
-      if(data_list$fleet_control$Nselages[flt] < max(data_list$fleet_control$Nselages, na.rm = TRUE)){
-        mapped_ages <- (data_list$fleet_control$Nselages[flt] + 1):max(data_list$fleet_control$Nselages, na.rm = T)
+      if(data_list$fleet_control$Nselages[i] < max(data_list$fleet_control$Nselages, na.rm = TRUE)){
+        mapped_ages <- (data_list$fleet_control$Nselages[i] + 1):max(data_list$fleet_control$Nselages, na.rm = T)
         map_list$sel_coff[flt, , mapped_ages]  <- NA
       }
 
       # -- Map out ages < Amin
-      if(!is.na(data_list$fleet_control$Age_first_selected[flt])){
-        if(data_list$minage[spp] < data_list$fleet_control$Age_first_selected[flt]){
-          mapped_ages <- (data_list$minage[spp]:(data_list$fleet_control$Age_first_selected[flt]-1))- data_list$minage[spp] + 1
+      if(!is.na(data_list$fleet_control$Age_first_selected[i])){
+        if(data_list$minage[spp] < data_list$fleet_control$Age_first_selected[i]){
+          mapped_ages <- (data_list$minage[spp]:(data_list$fleet_control$Age_first_selected[i]-1))- data_list$minage[spp] + 1
           map_list$sel_coff[flt, , mapped_ages]  <- NA
         }
       }
@@ -291,20 +291,20 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
     }
 
     # -- 4.3. Double logistic - sel_type = 3
-    if(data_list$fleet_control$Selectivity[flt] == 3){ # Double logistic
+    if(data_list$fleet_control$Selectivity[i] == 3){ # Double logistic
 
       # Map out non-parametric
       map_list$sel_coff[flt,, ] <- NA
       map_list$sel_coff_dev[flt,,,] <- NA
 
       # Map out time varying parameters if not used
-      if(data_list$fleet_control$Time_varying_sel[flt] %in% c(NA, 0)){
+      if(data_list$fleet_control$Time_varying_sel[i] %in% c(NA, 0)){
         map_list$ln_sel_slp_dev[1:2, flt, ,] <- NA
         map_list$sel_inf_dev[1:2, flt, ,] <- NA
       }
 
       # Penalized likelihood or random walk
-      if(data_list$fleet_control$Time_varying_sel[flt] %in% c(1,2,4,5)){
+      if(data_list$fleet_control$Time_varying_sel[i] %in% c(1,2,4,5)){
         for(j in 1:2){
           for(sex in 1:nsex){
             map_list$ln_sel_slp_dev[j, flt, sex,comp_sub_yrs] <- ind_slp + 1:length(map_list$ln_sel_slp_dev[j, flt, sex,comp_sub_yrs]) - 1
@@ -316,7 +316,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
         }
 
         # If only doing the ascending portion
-        if(data_list$fleet_control$Time_varying_sel[flt] %in% c(5)){
+        if(data_list$fleet_control$Time_varying_sel[i] %in% c(5)){
           map_list$ln_sel_slp_dev[2, flt, ,] <- NA
           map_list$sel_inf_dev[2, flt, ,] <- NA
         }
@@ -324,10 +324,10 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
 
       # Selectivity blocks
-      if(data_list$fleet_control$Time_varying_sel[flt] == 3){
+      if(data_list$fleet_control$Time_varying_sel[i] == 3){
 
         # If a fishery use the years from the fishery
-        if(data_list$fleet_control$Fleet_type[flt] == 1){
+        if(data_list$fleet_control$Fleet_type[i] == 1){
           fsh_biom <- data_list$fsh_biom[which(data_list$fsh_biom$Fleet_code == flt),]
           Selectivity_block <- fsh_biom$Selectivity_block
           biom_yrs <- fsh_biom$Year - data_list$styr + 1
@@ -337,7 +337,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
         }
 
         # if a survey use the survey years
-        if(data_list$fleet_control$Fleet_type[flt] == 2){
+        if(data_list$fleet_control$Fleet_type[i] == 2){
           srv_biom <- data_list$srv_biom[which(data_list$srv_biom$Fleet_code == flt),]
           Selectivity_block <- srv_biom$Selectivity_block
           biom_yrs <- srv_biom$Year - data_list$styr + 1
@@ -365,7 +365,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
 
     # -- 4.4. Descending logitistic - sel_type = 4
-    if (data_list$fleet_control$Selectivity[flt] == 4) {
+    if (data_list$fleet_control$Selectivity[i] == 4) {
 
       # Map out non-parametric
       map_list$sel_coff[flt,, ] <- NA
@@ -380,13 +380,13 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       map_list$sel_inf_dev[1, flt, ,] <- NA
 
       # Map out time varying parameters if not used
-      if(data_list$fleet_control$Time_varying_sel[flt] %in% c(NA,0)){
+      if(data_list$fleet_control$Time_varying_sel[i] %in% c(NA,0)){
         map_list$ln_sel_slp_dev[2, flt, ,] <- NA
         map_list$sel_inf_dev[2, flt, ,] <- NA
       }
 
       # Penalized/random deviate or random walk
-      if(data_list$fleet_control$Time_varying_sel[flt] %in% c(1,2,4)){
+      if(data_list$fleet_control$Time_varying_sel[i] %in% c(1,2,4)){
         for(sex in 1:nsex){
           map_list$ln_sel_slp_dev[2, flt, sex, comp_sub_yrs] <- ind_slp + 1:length(map_list$ln_sel_slp_dev[2, flt, sex, comp_sub_yrs]) - 1
           map_list$sel_inf_dev[2, flt, sex, comp_sub_yrs] <- ind_inf + 1:length(map_list$sel_inf_dev[2, flt, sex, comp_sub_yrs]) - 1
@@ -397,10 +397,10 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       }
 
       # Selectivity block
-      if(data_list$fleet_control$Time_varying_sel[flt] == 3){
+      if(data_list$fleet_control$Time_varying_sel[i] == 3){
 
         # If a fishery use the years from the fishery
-        if(data_list$fleet_control$Fleet_type[flt] == 1){
+        if(data_list$fleet_control$Fleet_type[i] == 1){
           fsh_biom <- data_list$fsh_biom[which(data_list$fsh_biom$Fleet_code == flt),]
           Selectivity_block <- fsh_biom$Selectivity_block
           biom_yrs <- fsh_biom$Year - data_list$styr + 1
@@ -410,7 +410,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
         }
 
         # if a survey use the survey years
-        if(data_list$fleet_control$Fleet_type[flt] == 2){
+        if(data_list$fleet_control$Fleet_type[i] == 2){
           srv_biom <- data_list$srv_biom[which(data_list$srv_biom$Fleet_code == flt),]
           Selectivity_block <- srv_biom$Selectivity_block
           biom_yrs <- srv_biom$Year - data_list$styr + 1
@@ -435,26 +435,28 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
     }
 
     # -- 4.5. Non-parametric similar to Hake (Taylor et al 2014) - sel_type = 5
-    if(data_list$fleet_control$Selectivity[flt] == 5){ # Non-parametric at age
+    if(data_list$fleet_control$Selectivity[i] == 5){ # Non-parametric at age
 
       # -- Turn off time-varying coefs if not used
-      if(data_list$fleet_control$Time_varying_sel[flt] %in% c(0, NA, 3)){ # 0 = off, 1 = penalized like, 2 = random effects (NOT Implemented),...
+      if(data_list$fleet_control$Time_varying_sel[i] %in% c(0, NA, 3)){ # 0 = off, 1 = penalized like, 2 = random effects (NOT Implemented),...
         map_list$sel_coff_dev[flt,,,] <- NA
       }
 
       # -- If nselages is  < max(nselages) map out
-      if(data_list$fleet_control$Nselages[flt] < max(data_list$fleet_control$Nselages, na.rm = TRUE)){
-        mapped_ages <- (data_list$fleet_control$Nselages[flt] + 1):max(data_list$fleet_control$Nselages, na.rm = T)
+      if(data_list$fleet_control$Nselages[i] < max(data_list$fleet_control$Nselages, na.rm = TRUE)){
+        mapped_ages <- (data_list$fleet_control$Nselages[i] + 1):max(data_list$fleet_control$Nselages, na.rm = T)
 
         map_list$sel_coff[flt, , mapped_ages]  <- NA
         map_list$sel_coff_dev[flt, , mapped_ages,]  <- NA
       }
 
       # -- Map out ages <= Amin
-      if(!is.na(data_list$fleet_control$Age_first_selected[flt])){
-        mapped_ages <- (data_list$minage[spp]:data_list$fleet_control$Age_first_selected[flt])- data_list$minage[spp] + 1
+      if(!is.na(data_list$fleet_control$Age_first_selected[i])){
+        if(data_list$minage[spp] < data_list$fleet_control$Age_first_selected[i]){
+        mapped_ages <- (data_list$minage[spp]:data_list$fleet_control$Age_first_selected[i])- data_list$minage[spp]
         map_list$sel_coff[flt, , mapped_ages]  <- NA
         map_list$sel_coff_dev[flt, , mapped_ages,]  <- NA
+        }
       }
 
       # -- Map out years where comp data do not exist (set to average selectivity)
@@ -487,7 +489,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   }
 
   # -----------------------------------------------------------
-  # Catchability
+  # Catchability ----
   # -----------------------------------------------------------
   # -- Catchability indices
   ind_q_re <- 1
@@ -508,7 +510,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
     map_list$ln_sigma_srv_q[flt] <- NA
 
     # Catchability of surveys If not estimating turn of
-    if (data_list$fleet_control$Estimate_q[flt] %in% c(NA, 0, 3) | data_list$fleet_control$Fleet_type[flt] == 0) {
+    if (data_list$fleet_control$Estimate_q[i] %in% c(NA, 0, 3) | data_list$fleet_control$Fleet_type[i] == 0) {
       map_list$ln_srv_q[flt] <- NA
       # map_list$srv_q_pow[flt] <- NA
       map_list$ln_srv_q_dev[flt,] <- NA
@@ -517,13 +519,13 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
     }
 
     # Just turn off catchability power coeficient for single parameter.
-    if (data_list$fleet_control$Estimate_q[flt] %in% c(1,2, 3) | data_list$fleet_control$Fleet_type[flt] == 0) {
+    if (data_list$fleet_control$Estimate_q[i] %in% c(1,2, 3) | data_list$fleet_control$Fleet_type[i] == 0) {
       # map_list$srv_q_pow[flt] <- NA
     }
 
     # Time-varying catchability of surveys
     # If not estimating turn of. Also turns off if using environmental index Est_q = 5.
-    if(data_list$fleet_control$Time_varying_q[flt] %in% c(0, NA) | data_list$fleet_control$Estimate_q[flt] %in% c(5)){
+    if(data_list$fleet_control$Time_varying_q[i] %in% c(0, NA) | data_list$fleet_control$Estimate_q[i] %in% c(5)){
       map_list$ln_srv_q_dev[flt,] <- NA
       map_list$ln_sigma_srv_q[flt] <- NA
       map_list$ln_sigma_time_varying_srv_q[flt] <- NA
@@ -536,14 +538,14 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
     }
 
     # Time block - map out q_sd
-    if(data_list$fleet_control$Time_varying_q[flt] %in% c(3)){
+    if(data_list$fleet_control$Time_varying_q[i] %in% c(3)){
       map_list$ln_sigma_srv_q[flt] <- NA
       map_list$ln_sigma_time_varying_srv_q[flt] <- NA
       map_list$ln_srv_q[flt] <- NA
     }
 
     # Set up time varying catchability if used (account for missing years)
-    if(data_list$fleet_control$Time_varying_q[flt] %!in% c(NA, 0)){
+    if(data_list$fleet_control$Time_varying_q[i] %!in% c(NA, 0)){
 
       # Set all to NA
       map_list$ln_srv_q_dev[flt,] <- NA
@@ -554,20 +556,20 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       srv_biom_yrs_miss <- yrs_hind[which(yrs_hind %!in% srv_biom_yrs)]
 
       # Penalized deviate or random walk
-      if(data_list$fleet_control$Time_varying_q[flt] %in% c(1,2,4)){
+      if(data_list$fleet_control$Time_varying_q[i] %in% c(1,2,4)){
         map_list$ln_srv_q_dev[flt, srv_biom_yrs] <- ind_q + (1:length(srv_biom_yrs)) - 1
         ind_q <- ind_q + length(srv_biom_yrs)
       }
 
       # Time blocks
-      if(data_list$fleet_control$Time_varying_q[flt] == 3){
+      if(data_list$fleet_control$Time_varying_q[i] == 3){
         map_list$ln_srv_q_dev[flt, srv_biom_yrs] <- ind_q + srv_biom$Selectivity_block - 1
         ind_q <- ind_q + max(srv_biom$Selectivity_block)
       }
     }
 
     # Standard deviation of surveys index If not estimating turn of
-    if (data_list$fleet_control$Estimate_survey_sd[flt] %in% c(NA, 0, 2) | data_list$fleet_control$Fleet_type[flt] == 0) {
+    if (data_list$fleet_control$Estimate_survey_sd[i] %in% c(NA, 0, 2) | data_list$fleet_control$Fleet_type[flt] == 0) {
       map_list$ln_sigma_srv_index[flt] <- NA
     }
   }
@@ -658,17 +660,17 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
 
   # -----------------------------------------------------------
-  # - Fishery control
+  # - Fishery control ----
   # -----------------------------------------------------------
   for (i in 1:nrow(data_list$fleet_control)) {
     flt = data_list$fleet_control$Fleet_code[i]
     # Standard deviation of fishery time series If not estimating turn of
-    if (data_list$fleet_control$Estimate_catch_sd[flt] %in% c(NA, 0, 2)) {
+    if (data_list$fleet_control$Estimate_catch_sd[i] %in% c(NA, 0, 2)) {
       map_list$ln_sigma_fsh_catch[flt] <- NA
     }
 
     # Turn of F and F dev if not estimating of it is a Survey
-    if (data_list$fleet_control$Fleet_type[flt] %in% c(0, 2)) {
+    if (data_list$fleet_control$Fleet_type[i] %in% c(0, 2)) {
       map_list$ln_sigma_fsh_catch[flt] <- NA
       map_list$F_dev[flt, ] <- NA
       map_list$ln_mean_F[flt] <- NA
@@ -689,7 +691,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
 
   # -----------------------------------------------------------
-  # Recruitment
+  # Recruitment ----
   # -----------------------------------------------------------
   # -- Recruitment deviation sigmas - turn off if not estimating
   if(random_rec == FALSE){
@@ -715,7 +717,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
 
   # -----------------------------------------------------------
-  # Predation bits
+  # Predation bits ----
   # (e.g. Turn off all predation parameters for single species)
   # -----------------------------------------------------------
   if (data_list$msmMode == 0) { # Single-species
@@ -794,7 +796,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
 
   # -----------------------------------------------------------
-  # Suitability bits
+  # Suitability bits ----
   # -----------------------------------------------------------
   if (data_list$msmMode > 0) {
 
@@ -820,7 +822,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   }
 
   # -----------------------------------------------------------
-  # Set up fixed n-at-age
+  # Set up fixed n-at-age ----
   # -----------------------------------------------------------
   # - I.E. turn off all parameters besides for species
   for(sp in 1:data_list$nspp){
@@ -878,7 +880,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
 
   # -----------------------------------------------------------
-  # STEP 5 -- Convert to factor
+  # STEP 5 -- Convert to factor ----
   # -----------------------------------------------------------
   map_list_grande <- list()
   map_list_grande$mapFactor <- sapply(map_list, factor)
