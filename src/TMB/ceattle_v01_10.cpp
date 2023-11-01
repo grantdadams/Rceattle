@@ -3414,12 +3414,12 @@ Type objective_function<Type>::operator() () {
         for(yr = 0; yr < nyrs_hind; yr++){
 
           jnll_comp(5, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
-          jnll_comp(5, flt) -= dnorm(ln_sel_slp_dev(0, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
+          jnll_comp(5, flt) -= dnorm(ln_sel_slp_dev(0, flt, sex, yr), Type(0.0), 4 * sigma_sel(flt), true);
 
           // Double logistic deviates
           if(flt_sel_type(flt) == 3){
             jnll_comp(5, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
-            jnll_comp(5, flt) -= dnorm(ln_sel_slp_dev(1, flt, sex, yr), Type(0.0), sigma_sel(flt), true);
+            jnll_comp(5, flt) -= dnorm(ln_sel_slp_dev(1, flt, sex, yr), Type(0.0), 4 * sigma_sel(flt), true);
           }
         }
       }
@@ -3443,17 +3443,13 @@ Type objective_function<Type>::operator() () {
         for(yr = 1; yr < nyrs_hind; yr++){ // Start at second year
 
           // Logistic deviates
-          sel_inf_dev_ll(flt, yr) = -dnorm(sel_inf_dev(0, flt, sex, yr) - sel_inf_dev(0, flt, sex, yr-1), Type(0.0), sigma_sel(flt), true);
-          sel_slp_dev_ll(flt, yr) = -dnorm(ln_sel_slp_dev(0, flt, sex, yr) - ln_sel_slp_dev(0, flt, sex, yr-1), Type(0.0), sigma_sel(flt), true);
-
-          // Logistic deviates
           jnll_comp(5, flt) -= dnorm(ln_sel_slp_dev(0, flt, sex, yr) - ln_sel_slp_dev(0, flt, sex, yr-1), Type(0.0), sigma_sel(flt), true);
           jnll_comp(5, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr) - sel_inf_dev(0, flt, sex, yr-1), Type(0.0), 4 * sigma_sel(flt), true);
 
           // Double logistic deviates
           if((flt_sel_type(flt) == 3) & (flt_varying_sel(flt) == 4)){
             jnll_comp(5, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr) - sel_inf_dev(1, flt, sex, yr-1), Type(0.0), sigma_sel(flt), true);
-            jnll_comp(5, flt) -= dnorm(ln_sel_slp_dev(1, flt, sex, yr) - ln_sel_slp_dev(1, flt, sex, yr-1), Type(0.0), sigma_sel(flt), true);
+            jnll_comp(5, flt) -= dnorm(ln_sel_slp_dev(1, flt, sex, yr) - ln_sel_slp_dev(1, flt, sex, yr-1), Type(0.0), sigma_sel(flt) * 4, true);
           }
         }
 
@@ -3774,8 +3770,8 @@ Type objective_function<Type>::operator() () {
   REPORT( R_hat );
   REPORT( M );
 
-  // ADREPORT( B_eaten_as_prey );
-  // ADREPORT( M );
+  ADREPORT( B_eaten_as_prey );
+  ADREPORT( M );
   // ADREPORT( Zed );
   // ADREPORT( depletion );
   // ADREPORT( depletionSSB );
