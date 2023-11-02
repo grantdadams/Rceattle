@@ -36,7 +36,7 @@
 ##' 	\deqn{Fofl=0}
 ##' 	\deqn{Fuse=0}
 ##'
-##' \code{hcr = 6} An HCR based on the The Pacific Fishery Management Council (PFMC) category 1 40-10 annual catch limit (ABC) harvest control rule assuming Fofl is normally distributed with a standard deviation (sigma) = 0.5 and an uncertainty quantile buffer (P∗) of 0.45 (PFMC 2020). Target biological reference points are calculated based on the normal cumulative distribution function (Φ(quantile,mean,standard deviation)), P∗, and sigma as follows:
+##' \code{hcr = 6} An HCR based on the The Pacific Fishery Management Council (PFMC) category 1 40-10 annual catch limit (ABC) harvest control rule assuming Fofl is normally distributed with a standard deviation (sigma) = 0.5 and an uncertainty quantile buffer (P∗) of 0.45 (PFMC 2020). The model uses Fspr if single-species or F that acheives X% of SSB0 for multi-species. Target biological reference points are calculated based on the normal cumulative distribution function (Φ(quantile,mean,standard deviation)), P∗, and sigma as follows:
 ##' 	Stock status: \eqn{ SB > SB0*Ptarget)}
 ##' 	\deqn{Fofl = FsprLimit}
 ##' 	\deqn{Fuse = Φ(Pstar, FsprLimit, Sigma)}
@@ -57,6 +57,9 @@
 ##' 	Stock status: \eqn{SB < SB0*Plimit}
 ##' 	\deqn{Fofl=0}
 ##' 	\deqn{Fuse=0}
+##'
+##'
+##'  NOTE: only HCRs 2, 3, and 6 will work in multi-species mode
 ##'
 ##' @return A \code{list} containing the harvest control rule and associated biological reference points
 ##' @export

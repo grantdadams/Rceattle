@@ -4,12 +4,10 @@
 \alias{build_params}
 \title{Build parameter list from cpp file}
 \usage{
-build_params(data_list, inits = NULL)
+build_params(data_list)
 }
 \arguments{
 \item{data_list}{A data_list object created by \code{\link{build_dat}}}
-
-\item{inits}{Character vector of named initial values from ADMB \code{.std} or \code{.par} files or list of previous parameter estimates from Rceattle model.}
 }
 \value{
 a list of map arguments for each parameter
