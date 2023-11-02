@@ -52,7 +52,7 @@ TMBphase <- function(data, parameters, map, random, phases, model_name,
   for (phase_cur in 1:max(unlist(phases))) {
     #phase_cur <- 1
 
-    #work out the map for this phase
+    # work out the map for this phase
     # if phases for parameters is less than the current phase
     # then map will contain a factor filled with NAs
     map_use <- map
@@ -63,7 +63,6 @@ TMBphase <- function(data, parameters, map, random, phases, model_name,
         map_use[[map_val]] <- fill_vals(map[[map_val]],NA)
       }
     }
-    #map_use
 
     #remove the random effects if they are not estimated
     random_use <- random
@@ -74,10 +73,7 @@ TMBphase <- function(data, parameters, map, random, phases, model_name,
 
     # Fit the model
     obj <- TMB::MakeADFun(data,parameters =  params_use,random=random_use,DLL=model_name,map=map_use, silent = silent)
-    #obj <- TMB::MakeADFun(data,params_use,DLL=DLL_use,map=map_use)
-    # TMB::newtonOption(obj,smartsearch=FALSE)
-    #obj$fn()
-    #obj$gr()
+
     if(use_gradient){
       opt <- nlminb(obj$par,obj$fn,obj$gr, control = control)
     }else{
@@ -85,6 +81,7 @@ TMBphase <- function(data, parameters, map, random, phases, model_name,
     }
     last_par = suppressWarnings(obj$env$parList(obj$env$last.par.best))
 
+    # write.csv(phase_cur, file = paste0("Phase",phase_cur))
     #close phase loop
   }
 

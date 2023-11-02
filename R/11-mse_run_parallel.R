@@ -25,8 +25,11 @@
 #'
 mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, regenerate_past = FALSE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, seed = 666, regenerate_seed = seed, loopnum = 1, file = NULL, dir = NULL){
 
-  # om = ms_run; em = ss_run; nsim = 10; assessment_period = 1; sampling_period = 1; simulate = TRUE; rec_trend = 0; fut_sample = 1; cap = NULL; seed = 666; loopnum = 1; file = NULL; dir = NULL
+  # om = ms_run; em = ss_run; nsim = 10; start_sim = 1; assessment_period = 1; sampling_period = 1; simulate_data = TRUE; regenerate_past = FALSE; sample_rec = TRUE; rec_trend = 0; fut_sample = 1; cap = NULL; seed = 666; regenerate_seed = seed; loopnum = 1; file = NULL; dir = NULL
 
+  #--------------------------------------------------
+  # MSE SPECIFICATIONS ----
+  #--------------------------------------------------
   '%!in%' <- function(x,y)!('%in%'(x,y))
   library(dplyr)
   set.seed(regenerate_seed)
@@ -87,7 +90,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   sample_yrs = data.frame(Fleet_code = unlist(fleet_id), Year = unlist(sample_yrs))
 
   #--------------------------------------------------
-  # Regenerate past data from OM and refit EM
+  # Regenerate past data from OM and refit EM ----
   #--------------------------------------------------
   if(regenerate_past){
 
@@ -113,16 +116,30 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
                       Plimit = em$data_list$Plimit,
                       Alpha = em$data_list$Alpha,
                       Pstar = em$data_list$Pstar,
-                      Sigma = em$data_list$Sigma
+                      Sigma = em$data_list$Sigma,
+                      Fmult = em$data_list$Fmult
       ),
+      recFun = build_srr(srr_fun = em$data_list$srr_fun,
+                         srr_pred_fun  = em$data_list$srr_pred_fun ,
+                         proj_mean_rec  = em$data_list$proj_mean_rec ,
+                         srr_est_mode  = em$data_list$srr_est_mode ,
+                         srr_prior_mean  = em$data_list$srr_prior_mean,
+                         srr_prior_sd   = em$data_list$srr_prior_sd,
+                         Bmsy_lim = em$data_list$Bmsy_lim),
+      M1Fun =     build_M1(M1_model= em$data_list$M1_model,
+                           updateM1 = FALSE,
+                           M1_use_prior = em$data_list$M1_use_prior,
+                           M2_use_prior = em$data_list$M2_use_prior,
+                           M1_prior_mean = em$data_list$M1_prior_mean,
+                           M1_prior_sd = em$data_list$M1_prior_sd),
       random_rec = em$data_list$random_rec,
       niter = em$data_list$niter,
       msmMode = em$data_list$msmMode,
       avgnMode = em$data_list$avgnMode,
       minNByage = em$data_list$minNByage,
       suitMode = em$data_list$suitMode,
-      phase = "default",
-      updateM1 = FALSE,
+      initMode = em$data_list$initMode,
+      phase = NULL,
       loopnum = 3,
       getsd = FALSE,
       verbose = 0)
@@ -154,16 +171,29 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
                               avgnMode = em$data_list$avgnMode,
                               minNByage = em$data_list$minNByage,
                               suitMode = em$data_list$suitMode,
-                              phase = "default",
-                              updateM1 = FALSE,
+                              phase = NULL,
+                              recFun = build_srr(srr_fun = em$data_list$srr_fun,
+                                                 srr_pred_fun  = em$data_list$srr_pred_fun ,
+                                                 proj_mean_rec  = em$data_list$proj_mean_rec ,
+                                                 srr_est_mode  = em$data_list$srr_est_mode ,
+                                                 srr_prior_mean  = em$data_list$srr_prior_mean,
+                                                 srr_prior_sd   = em$data_list$srr_prior_sd,
+                                                 Bmsy_lim = em$data_list$Bmsy_lim ),
+                              M1Fun =     build_M1(M1_model= em$data_list$M1_model,
+                                                   updateM1 = FALSE,
+                                                   M1_use_prior = em$data_list$M1_use_prior,
+                                                   M2_use_prior = em$data_list$M2_use_prior,
+                                                   M1_prior_mean = em$data_list$M1_prior_mean,
+                                                   M1_prior_sd = em$data_list$M1_prior_sd),
                               loopnum = 3,
+                              initMode = em$data_list$initMode,
                               getsd = FALSE,
                               verbose = 0)
     }
   }
 
   #--------------------------------------------------
-  # Update data-files in OM so we can fill in updated years
+  # Update data-files in OM so we can fill in updated years ----
   #--------------------------------------------------
   # -- srv_biom
   proj_srv <- om$data_list$srv_biom %>%
@@ -223,7 +253,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
 
 
   #--------------------------------------------------
-  # Update data in EM
+  # Update data in EM ----
   #--------------------------------------------------
   #FIXME - assuming same as terminal year of hindcast
   # -- EM emp_sel - Use terminal year
@@ -251,7 +281,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   em$data_list$Pyrs <- dplyr::arrange(em$data_list$Pyrs, Species, Year)
 
   #--------------------------------------------------
-  # Do the MSE
+  # Do the MSE ----
   #--------------------------------------------------
   ### Set up parallel processing
   library(foreach)
@@ -260,7 +290,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   cores = detectCores() - 2
   registerDoParallel(cores)
 
-  foreach(sim = start_sim:nsim) %dopar% {
+  sim_list <- foreach(sim = start_sim:nsim) %dopar% {
     library(Rceattle)
     library(dplyr)
 
@@ -275,11 +305,12 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
     om_use <- om
 
     # Replace future rec devs
+    #FIXME - update non-sample rec for stock recruit relationship
     for(sp in 1:om_use$data_list$nspp){
       if(sample_rec){ # Sample devs from hindcast
         rec_dev <- sample(x = om_use$estimated_params$rec_dev[sp, 1:hind_nyrs], size = proj_nyrs, replace = TRUE) + log((1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs)) # - Scale mean rec for rec trend
       } else{ # Set to mean rec otherwise
-        rec_dev <- log(mean(om_use$quantities$R[sp,1:hind_nyrs]) * (1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs))  - om_use$estimated_params$ln_mean_rec[sp] # - Scale mean rec for rec trend
+        rec_dev <- log(mean(om_use$quantities$R[sp,1:hind_nyrs]) * (1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs))  - log(om_use$quantities$R0[sp]) # - Scale mean rec for rec trend
       }
 
       # - Update OM with devs
@@ -289,13 +320,11 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
     }
 
 
-
-
     # Run through assessment years
     for(k in 1:(length(assess_yrs))){
 
       # ------------------------------------------------------------
-      # 1. GET RECOMMENDED TAC FROM EM-HCR
+      # 1. GET RECOMMENDED TAC FROM EM-HCR ----
       # ------------------------------------------------------------
       new_years <- proj_yrs[which(proj_yrs <= assess_yrs[k] & proj_yrs > om_use$data_list$endyr)]
 
@@ -312,7 +341,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       em_use$data_list$fsh_biom <- new_catch_data
 
       # ------------------------------------------------------------
-      # 2. UPDATE OBSERVATION MODEL
+      # 2. UPDATE OBSERVATION MODEL ----
       # ------------------------------------------------------------
       # - Update endyr of OM
       nyrs_hind <- om_use$data_list$endyr - om_use$data_list$styr + 1
@@ -378,16 +407,28 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
         avgnMode = om_use$data_list$avgnMode,
         minNByage = om_use$data_list$minNByage,
         suitMode = om_use$data_list$suitMode,
+        initMode = om_use$data_list$initMode,
         meanyr = om$data_list$endyr,
-        updateM1 = FALSE, # Dont update M1 from data, fix at previous parameters
-        loopnum = 2,
+        recFun = build_srr(srr_fun = om_use$data_list$srr_fun,
+                           srr_pred_fun = om_use$data_list$srr_pred_fun ,
+                           proj_mean_rec = om_use$data_list$proj_mean_rec,
+                           srr_est_mode  = om_use$data_list$srr_est_mode ,
+                           srr_prior_mean = om_use$data_list$srr_prior_mean,
+                           srr_prior_sd = om_use$data_list$srr_prior_sd),
+        M1Fun =     build_M1(M1_model= om_use$data_list$M1_model,
+                             updateM1 = FALSE,
+                             M1_use_prior = om_use$data_list$M1_use_prior,
+                             M2_use_prior = om_use$data_list$M2_use_prior,
+                             M1_prior_mean = om_use$data_list$M1_prior_mean,
+                             M1_prior_sd = om_use$data_list$M1_prior_sd), # Dont update M1 from data, fix at previous parameters
+        loopnum = 3,
         phase = NULL,
         getsd = FALSE,
         verbose = 0)
 
 
       # ------------------------------------------------------------
-      # 3. REFIT ESTIMATION MODEL AND HCR
+      # 3. REFIT ESTIMATION MODEL AND HCR ----
       # ------------------------------------------------------------
       # - Simulate new survey and comp data
       sim_dat <- sim_mod(om_use, simulate = simulate_data)
@@ -453,17 +494,30 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
                         Plimit = em_use$data_list$Plimit,
                         Alpha = em_use$data_list$Alpha,
                         Pstar = em_use$data_list$Pstar,
-                        Sigma = em_use$data_list$Sigma
+                        Sigma = em_use$data_list$Sigma,
+                        Fmult = em_use$data_list$Fmult
         ),
+        recFun = build_srr(srr_fun = em_use$data_list$srr_fun,
+                           srr_pred_fun = em_use$data_list$srr_pred_fun,
+                           proj_mean_rec = em_use$data_list$proj_mean_rec,
+                           srr_est_mode  = em_use$data_list$srr_est_mode ,
+                           srr_prior_mean = em_use$data_list$srr_prior_mean,
+                           srr_prior_sd = em_use$data_list$srr_prior_sd),
+        M1Fun =     build_M1(M1_model= em_use$data_list$M1_model,
+                             updateM1 = FALSE,
+                             M1_use_prior = em_use$data_list$M1_use_prior,
+                             M2_use_prior = em_use$data_list$M2_use_prior,
+                             M1_prior_mean = em_use$data_list$M1_prior_mean,
+                             M1_prior_sd = em_use$data_list$M1_prior_sd),
         random_rec = em_use$data_list$random_rec,
         niter = em_use$data_list$niter,
         msmMode = em_use$data_list$msmMode,
         avgnMode = em_use$data_list$avgnMode,
         minNByage = em_use$data_list$minNByage,
         suitMode = em_use$data_list$suitMode,
+        initMode = em_use$data_list$initMode,
         phase = NULL,
         meanyr = em_use$data_list$endyr, # Update end year
-        updateM1 = FALSE,
         loopnum = loopnum,
         getsd = FALSE,
         verbose = 0)
@@ -520,11 +574,19 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
     sim_list$OM <- om_use
     names(sim_list$EM) <- c("EM", paste0("OM_Sim_",sim,". EM_yr_", assess_yrs))
     #names(sim_list$OM) <- c("OM", paste0("OM_Sim_",sim,". OM_yr_", assess_yrs))
-    dir.create(file.path(getwd(), dir), showWarnings = FALSE, recursive = TRUE)
-    saveRDS(sim_list, file = paste0(dir, "/", file, "EMs_from_OM_Sim_",sim, ".rds"))
-    sim_list <- NULL
+    if(!is.null(dir)){ # Save
+      dir.create(file.path(getwd(), dir), showWarnings = FALSE, recursive = TRUE)
+      saveRDS(sim_list, file = paste0(dir, "/", file, "EMs_from_OM_Sim_",sim, ".rds"))
+      sim_list <- NULL
+    } else{
+      sim_list # Return simlist
+    }
   }
 
   # When you're done, clean up the cluster
   stopImplicitCluster()
+
+  if(is.null(dir)){
+    return(sim_list)
+  }
 }

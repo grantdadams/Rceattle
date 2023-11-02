@@ -23,7 +23,6 @@ Control
 \item{sigma_rec_prior}{Standard deviation to use for recruitment}
 \item{other_food}{Other food in the ecosystem for each species}
 \item{estDynamics}{Estimate or fix numbers-at-age: 0 = estimate dynamics, 1 = use input numbers-at-age in NbyageFixed, 2 = multiply input numbers-at-age (NbyageFixed) by a single scaling coefficient, 3 = multiply input numbers-at-age (NbyageFixed) by age specific scaling coefficient.}
-\item{proj_F}{Unused}
 \item{est_sex_ratio}{Is sex ration F/(M+F) to be included in the likelihood (assumed normal); 0 = no, 1 = use annual average across ages (uses 2nd age in propF data), 2 = age, and year specific (TBD)}
 \item{sex_ratio_sigma}{Initial value or fixed value for sd of normal likelihood for sex ration. Not yet able to estimate.}
 \item{est_M1}{Estimate residual (multi-species mode) or total natural mortality (single-species mode). 0 = use fixed natural mortality from M1_base, 1 = estimate sex- and age-invariant M1, 2 = sex-specific (two-sex model), age-invariant M1, 3 =   estimate sex- and age-specific M1.}
