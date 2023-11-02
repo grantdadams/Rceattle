@@ -3770,8 +3770,8 @@ Type objective_function<Type>::operator() () {
   REPORT( R_hat );
   REPORT( M );
 
-  ADREPORT( B_eaten_as_prey );
-  ADREPORT( M );
+  // ADREPORT( B_eaten_as_prey );
+  // ADREPORT( M );
   // ADREPORT( Zed );
   // ADREPORT( depletion );
   // ADREPORT( depletionSSB );
