@@ -35,6 +35,9 @@ build_params <- function(data_list) {
   param_list$ln_rec_sigma = log(as.numeric(data_list$sigma_rec_prior))  # Standard deviation of recruitment deviations; n = [1, nspp]
   param_list$rec_dev = matrix(0, nrow = data_list$nspp, ncol = nyrs_proj)  # Annual recruitment deviation; n = [nspp, nyrs_hind]
 
+  # - Env regression parameters for recruitment
+  param_list$beta_rec_pars <- matrix(0, nrow = data_list$nspp, ncol = length(data_list$srr_env_indices))
+
 
   # -- 3.2. Initial age-structure parameters
   param_list$init_dev = matrix(4, nrow = data_list$nspp, ncol = max(data_list$nages))

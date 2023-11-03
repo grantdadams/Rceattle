@@ -6,6 +6,7 @@
 ##' @param srr_est_mode Switch to determine estimation mode. 0 = fix alpha to prior mean, 1 = freely estimate alpha and beta, 2 = use lognormally distributed prior for alpha.
 ##' @param srr_prior_mean mean for normally distributed prior for stock-recruit parameter
 ##' @param srr_prior_sd Prior standard deviation for stock-recruit parameter
+##' @param srr_env_indices vector or single index indicating the columns of \code{env_data} to use in a environmentally driven stock recruit curve.
 ##' @param Bmsy_lim Upper limit for ricker based SSB-MSY (e.g 1/Beta). Will add a likelihood penalty if beta is estimated above this limit.
 ##' @details
 ##'
@@ -13,16 +14,18 @@
 ##'
 ##' \code{srr_fun = 0} No stock recruit relationship. Recruitment is a function of \deqn{R_y = exp(R0 + R_{dev,y})}. Sensu Alaska, steepness = 0.99.
 ##'
-##' \code{srr_fun = 1} Beverton-holt stock-recruitment relationship
+##' \code{srr_fun = 1} Environmentally driven recruitment \deqn{R_y = exp(R0 + R_{dev,y} + X * \Beta)}
+##'
+##' \code{srr_fun = 2} Beverton-holt stock-recruitment relationship
 ##'   \deqn{R_y = \frac{\alpha * SB_{y-minage}}{1+\beta * SB_{y-minage}}}. Prior is on alpha.
 ##'
-##' \code{srr_fun = 2} Beverton-holt stock-recruitment relationship with environmental covariates impacting larval survival rate
+##' \code{srr_fun = 3} Beverton-holt stock-recruitment relationship with environmental covariates impacting larval survival rate
 ##'   \deqn{R_y = \frac{\alpha * e^{X * \Beta} * SB_{y-minage}}{1+\beta * SB_{y-minage}}}. Prior is on alpha.
 ##'
-##' \code{srr_fun = 3} Ricker stock-recruitment relationship
+##' \code{srr_fun = 4} Ricker stock-recruitment relationship
 ##'   \deqn{R_y = \alpha * SB_{y-minage}} * exp(-beta * SB_{y-minage})}. Prior is on alpha.
 ##'
-##' \code{srr_fun = 4} Ricker stock-recruitment relationship with environmental covariates impacting larval survival rate
+##' \code{srr_fun = 5} Ricker stock-recruitment relationship with environmental covariates impacting larval survival rate
 ##'   \deqn{R_y = \alpha e^{X * \Beta}  * SB_{y-minage}} * exp(-beta * SB_{y-minage})}. Prior is on alpha.
 ##'
 ##' @return A \code{list} containing the stock recruitment relationship settings
@@ -34,6 +37,7 @@ build_srr <- function(srr_fun = 0,
                       srr_est_mode = 1,
                       srr_prior_mean = 4,
                       srr_prior_sd = 1,
+                      srr_env_indices = 1,
                       Bmsy_lim = Inf){
 
   # Set pred/RP/penalty to same as SR curve if SR fun > 0
@@ -51,6 +55,7 @@ build_srr <- function(srr_fun = 0,
        srr_est_mode = srr_est_mode,
        srr_prior_mean = srr_prior_mean,
        srr_prior_sd = srr_prior_sd,
+       srr_env_indices = srr_env_indices,
        Bmsy_lim = Bmsy_lim
   )
 }
