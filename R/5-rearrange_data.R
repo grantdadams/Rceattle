@@ -224,9 +224,17 @@ rearrange_dat <- function(data_list){
 
 
   # Set up environmental indices
-  data_list$env_yrs <-  data_list$env_data$Year
-  env_cols <- ncol(data_list$env_data) - 1
-  data_list$env_index <-  as.matrix(data_list$env_data[,2:ncol(data_list$env_data)],ncol = env_cols)
+  # - Fill in missing years with column mean
+  data_list$env_index <- merge(data_list$env_data, data.frame(Year = data_list$styr:data_list$projyr), all = TRUE)
+  data_list$env_index <-  data_list$env_index %>%
+    select(-Year) %>%
+    mutate_all(~ifelse(is.na(.x), mean(.x, na.rm = TRUE), .x)) %>%
+    as.matrix()
+
+  # - Create matrix for srr curve
+  if(sum(sapply(data_list$srr_env_indices, function(x) x>ncol(data_list$env_index))) > 0){stop("srr_env_indices greater than the number of indices included")}
+  data_list$env_index_srr <-  data_list$env_index[, data_list$srr_env_indices] %>%
+    as.matrix()
 
 
   # Set up pyrs array

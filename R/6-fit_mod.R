@@ -173,7 +173,7 @@ fit_mod <-
 
     data_list <- Rceattle::clean_data(data_list)
 
-    # Switches
+    # Add switches from function call
     data_list$random_rec <- as.numeric(random_rec)
     data_list$estimateMode <- estimateMode
     data_list$niter <- niter
@@ -193,16 +193,17 @@ fit_mod <-
       data_list$meanyr <- meanyr
     }
 
-    # Recruitment switches
+    # - Recruitment switches
     data_list$srr_fun <- recFun$srr_fun
     data_list$srr_pred_fun <- recFun$srr_pred_fun
     data_list$proj_mean_rec <- recFun$proj_mean_rec
     data_list$srr_est_mode <- recFun$srr_est_mode
     data_list$srr_prior_mean <- extend_length(recFun$srr_prior_mean)
     data_list$srr_prior_sd <- extend_length(recFun$srr_prior_sd)
+    data_list$srr_env_indices <- recFun$srr_env_indices
     data_list$Bmsy_lim <- extend_length(recFun$Bmsy_lim)
 
-    # M1
+    # - M1 switches
     if(!is.null(data_list$M1_model)){
       if(sum(data_list$M1_model != extend_length(M1Fun$M1_model))){
         warning("M1_model in data is different than in call `fit_mod`")
@@ -218,7 +219,7 @@ fit_mod <-
     data_list$M1_prior_sd = extend_length(M1Fun$M1_prior_sd)
 
 
-    # HCR Switches (make length of nspp if not)
+    # - HCR Switches (make length of nspp if not)
     data_list$HCR = HCR$HCR
     data_list$DynamicHCR = HCR$DynamicHCR
     if(HCR$HCR != 2){ # FsprTarget is also used for fixed F (so may be of length nflts)

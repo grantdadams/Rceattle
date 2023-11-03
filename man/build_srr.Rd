@@ -11,6 +11,7 @@ build_srr(
   srr_est_mode = 1,
   srr_prior_mean = 4,
   srr_prior_sd = 1,
+  srr_env_indices = 1,
   Bmsy_lim = Inf
 )
 }
@@ -26,6 +27,8 @@ build_srr(
 \item{srr_prior_mean}{mean for normally distributed prior for stock-recruit parameter}
 
 \item{srr_prior_sd}{Prior standard deviation for stock-recruit parameter}
+
+\item{srr_env_indices}{vector or single index indicating the columns of \code{env_data} to use in a environmentally driven stock recruit curve.}
 
 \item{Bmsy_lim}{Upper limit for ricker based SSB-MSY (e.g 1/Beta). Will add a likelihood penalty if beta is estimated above this limit.}
 }

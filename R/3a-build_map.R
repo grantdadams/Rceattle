@@ -453,9 +453,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       # -- Map out ages <= Amin
       if(!is.na(data_list$fleet_control$Age_first_selected[i])){
         if(data_list$minage[spp] < data_list$fleet_control$Age_first_selected[i]){
-        mapped_ages <- (data_list$minage[spp]:data_list$fleet_control$Age_first_selected[i])- data_list$minage[spp]
-        map_list$sel_coff[flt, , mapped_ages]  <- NA
-        map_list$sel_coff_dev[flt, , mapped_ages,]  <- NA
+          mapped_ages <- (data_list$minage[spp]:data_list$fleet_control$Age_first_selected[i])- data_list$minage[spp]
+          map_list$sel_coff[flt, , mapped_ages]  <- NA
+          map_list$sel_coff_dev[flt, , mapped_ages,]  <- NA
         }
       }
 
@@ -701,12 +701,12 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   # -- Stock recruit relationship (SRR) parameters:
   # col1 = mean rec, col2 = SRR alpha, col3 = SRR beta
   # - Turning off 2nd and 3rd par if only using mean rec
-  if(data_list$srr_fun == 0 & data_list$srr_pred_fun == 0){
+  if(data_list$srr_fun %in% c(0, 1) & data_list$srr_pred_fun  %in% c(0, 1)){
     map_list$rec_pars[, 2:3] <- NA
   }
 
   # - Turning off mean rec par if using SRR
-  if(data_list$srr_fun > 0){
+  if(data_list$srr_fun > 1){
     map_list$rec_pars[, 1] <- NA
   }
 
@@ -715,6 +715,10 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
     map_list$rec_pars[, 2] <- NA
   }
 
+  # - Environmental linkages
+  if(!data_list$srr_pred_fun %in% c(1, 3, 5)){
+    map_list$beta_rec_pars[] <- NA
+  }
 
   # -----------------------------------------------------------
   # Predation bits ----
