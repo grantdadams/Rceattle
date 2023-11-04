@@ -375,6 +375,7 @@ fit_mod <-
             dummy = 1,
             ln_pop_scalar = 4, # Scalar for input numbers-at-age
             rec_pars = 1, # Stock-recruit parameters or log(mean rec) if no stock-recruit relationship
+            beta_rec_pars = 3,
             ln_rec_sigma = 2, # Variance for annual recruitment deviats
             rec_dev = 2, # Annual recruitment deviats
             init_dev = 2, # Age specific initial age-structure deviates or parameters
