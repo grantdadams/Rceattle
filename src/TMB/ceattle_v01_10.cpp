@@ -1537,11 +1537,19 @@ Type objective_function<Type>::operator() () {
         // - Recruitment Year > 1
         if(yr > 0){
 
-          // - Option 1: Use mean rec
-          if(proj_mean_rec == 1){
+          // - Option 1a: Use mean rec
+          if(proj_mean_rec == 1 & srr_pred_fun > 1){
             NByage0(sp, 0, 0, yr) = mean_rec(sp);
             DynamicNByageF(sp, 0, 0, yr) = DynamicNByage0(sp, 0, 0, yr) = exp(log(mean_rec(sp)) + rec_dev(sp, yr)); //  // Projections use mean R given bias in R0
           }
+
+          // - Option 1b: Use mean rec and env
+          if(proj_mean_rec == 1 & srr_pred_fun < 2){
+            srr_mult = env_index_srr.row(yr) * beta_rec_pars.row(sp);
+            NByage0(sp, 0, 0, yr) = mean_rec(sp) * exp(srr_mult.sum());
+            DynamicNByageF(sp, 0, 0, yr) = DynamicNByage0(sp, 0, 0, yr) = exp(log(mean_rec(sp)) + rec_dev(sp, yr) + srr_mult.sum()); //  // Projections use mean R given bias in R0
+          }
+
 
           // - Option 2: Use SRR
           if(proj_mean_rec == 0){
@@ -1824,8 +1832,13 @@ Type objective_function<Type>::operator() () {
 
         // -- 6.9.1. Forecasted recruitment
         // - Option 1: Use mean rec
-        if(proj_mean_rec == 1){
+        if(proj_mean_rec == 1 & srr_pred_fun > 1){
           R(sp, yr) = exp(log(mean_rec(sp)) + rec_dev(sp, yr)); //  // Projections use mean R given bias in R0
+        }
+
+        if(proj_mean_rec == 1 & srr_pred_fun < 2){
+          srr_mult = env_index_srr.row(yr) * beta_rec_pars.row(sp);
+          R(sp, yr) = exp(log(mean_rec(sp)) + rec_dev(sp, yr)) * exp(srr_mult.sum());
         }
 
         // - Option 2: Use SRR and rec devs
