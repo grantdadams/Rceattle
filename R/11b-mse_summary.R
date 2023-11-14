@@ -83,13 +83,13 @@ mse_summary <- function(mse){
   flt_spp <- mse$Sim_1$OM$data_list$fleet_control$Species
   styr <- mse$Sim_1$OM$data_list$styr
   endyr <- mse$Sim_1$OM$data_list$meanyr
-  projyr <- mse$Sim_1$OM$data_list$projyr
+  projyr <- mse$Sim_1$EM$EM$data_list$projyr
   projyrs <- (endyr+1):projyr
   projyrs_ind <- projyrs - endyr
-  HCR <- mse$Sim_1$EM$`OM_Sim_1. EM_yr_2019`$data_list$HCR
-  Ptarget <- extend_length(mse$Sim_1$EM$`OM_Sim_1. EM_yr_2019`$data_list$Ptarget, nspp)
-  Plimit <- extend_length(mse$Sim_1$EM$`OM_Sim_1. EM_yr_2019`$data_list$Plimit, nspp)
-  Alpha <- extend_length(mse$Sim_1$EM$`OM_Sim_1. EM_yr_2019`$data_list$Alpha, nspp)
+  HCR <- mse$Sim_1$EM[[1]]$data_list$HCR
+  Ptarget <- extend_length(mse$Sim_1$EM[[1]]$data_list$Ptarget, nspp)
+  Plimit <- extend_length(mse$Sim_1$EM[[1]]$data_list$Plimit, nspp)
+  Alpha <- extend_length(mse$Sim_1$EM[[1]]$data_list$Alpha, nspp)
   # -- HCR = 0: No catch - Params off
   # -- HCR = 1: Constant catch - Params off
   # -- HCR = 2: Constant input F - Params off
@@ -250,14 +250,14 @@ mse_summary <- function(mse){
           if(mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] >= Ptarget[sp]){ # Above target
             em_f_flimit <- c(em_f_flimit,
                              mse[[sim]]$EM[[em]]$quantities$F_spp[sp,end_yr_col]
-                             > mse[[sim]]$EM[[em]]$quantities$Flimit[sp,end_yr_col]
+                             > mse[[sim]]$EM[[em]]$quantities$Flimit[sp]
             )
           }else if(mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] < Ptarget[sp] & mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] > Alpha[sp] * Ptarget[sp]){ # Below target, but above limit
 
             em_f_flimit <- c(em_f_flimit,
 
                              mse[[sim]]$EM[[em]]$quantities$F_spp[sp,end_yr_col]
-                             > mse[[sim]]$EM[[em]]$quantities$Flimit[sp,end_yr_col] * (mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col]/Ptarget[sp] - Alpha[sp])/(1-Alpha[sp])
+                             > mse[[sim]]$EM[[em]]$quantities$Flimit[sp] * (mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col]/Ptarget[sp] - Alpha[sp])/(1-Alpha[sp])
             )
           }else{ # Below limit
             em_f_flimit <- c(em_f_flimit,
@@ -267,7 +267,7 @@ mse_summary <- function(mse){
         } else{
           em_f_flimit <- c(em_f_flimit,
                            mse[[sim]]$EM[[em]]$quantities$F_spp[sp,end_yr_col]
-                           > mse[[sim]]$EM[[em]]$quantities$Flimit[sp,end_yr_col]
+                           > mse[[sim]]$EM[[em]]$quantities$Flimit[sp]
           )
         }
 
@@ -309,7 +309,7 @@ mse_summary <- function(mse){
     #-------------------------------
     ## Actual status
     # - OM: P(F > Flimit)
-    om_f_flimit <- lapply(mse, function(x) x$OM$quantities$F_spp[sp, (projyrs - styr + 1)] > (x$OM$quantities$Flimit[sp,(projyrs - styr + 1)]))
+    om_f_flimit <- lapply(mse, function(x) x$OM$quantities$F_spp[sp, (projyrs - styr + 1)] > (x$OM$quantities$Flimit[sp]))
 
     # -- Tier 3 for single-species OMs
     tier3_fun <- function(depletion, ptarget, alpha, Flimit){
@@ -330,7 +330,7 @@ mse_summary <- function(mse){
         depletion = x$OM$quantities$depletionSSB[sp,(projyrs - styr + 1)],
         ptarget = x$OM$data_list$Ptarget[sp],
         alpha  = x$OM$data_list$Alpha[sp],
-        Flimit = x$OM$quantities$Flimit[sp,(projyrs - styr + 1)]))
+        Flimit = x$OM$quantities$Flimit[sp]))
     }
 
     om_f_flimit <- unlist(om_f_flimit)
