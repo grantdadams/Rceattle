@@ -181,6 +181,7 @@ fit_mod <-
     if(is.null(data_list$initMode)){
       data_list$initMode <- initMode
     }
+    data_list$loopnum <- loopnum
     data_list$msmMode <- msmMode
     data_list$suitMode <- as.numeric(suitMode)
     data_list$minNByage <- as.numeric(minNByage)

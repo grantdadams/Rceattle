@@ -140,7 +140,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       suitMode = em$data_list$suitMode,
       initMode = em$data_list$initMode,
       phase = NULL,
-      loopnum = 3,
+      loopnum = loopnum,
       getsd = FALSE,
       verbose = 0)
 
@@ -185,7 +185,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
                                                    M2_use_prior = em$data_list$M2_use_prior,
                                                    M1_prior_mean = em$data_list$M1_prior_mean,
                                                    M1_prior_sd = em$data_list$M1_prior_sd),
-                              loopnum = 3,
+                              loopnum = loopnum,
                               initMode = em$data_list$initMode,
                               getsd = FALSE,
                               verbose = 0)
@@ -421,7 +421,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
                              M2_use_prior = om_use$data_list$M2_use_prior,
                              M1_prior_mean = om_use$data_list$M1_prior_mean,
                              M1_prior_sd = om_use$data_list$M1_prior_sd), # Dont update M1 from data, fix at previous parameters
-        loopnum = 3,
+        loopnum = loopnum,
         phase = NULL,
         getsd = FALSE,
         verbose = 0)

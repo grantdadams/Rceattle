@@ -149,7 +149,8 @@ mse_summary <- function(mse){
     # -- Average across simulations by fleet
     mse_summary$`Catch IAV`[i+nspp] = 0
     for(sim in 1:nsim){
-      mse_summary$`Catch IAV`[i+nspp] <- mse_summary$`Catch IAV`[flt+nspp] + (sum((catch_list_tmp[[sim]][projyrs_ind[-1]] - catch_list_tmp[[sim]][projyrs_ind[-length(projyrs_ind)]])^2, na.rm = TRUE)/(length(projyrs_ind) - 1) / (sum(catch_list_tmp[[sim]][projyrs_ind], na.rm = TRUE)/ length(projyrs_ind)))/nsim
+      iav_tmp <- (sum((catch_list_tmp[[sim]][projyrs_ind[-1]] - catch_list_tmp[[sim]][projyrs_ind[-length(projyrs_ind)]])^2, na.rm = TRUE)/(length(projyrs_ind) - 1) / (sum(catch_list_tmp[[sim]][projyrs_ind], na.rm = TRUE)/ length(projyrs_ind)))/nsim
+      mse_summary$`Catch IAV`[i+nspp] <- mse_summary$`Catch IAV`[i+nspp] + iav_tmp
     }
 
     # - P(Closed) by fleet
