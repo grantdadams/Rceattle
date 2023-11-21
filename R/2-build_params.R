@@ -88,7 +88,10 @@ build_params <- function(data_list) {
   fsh_biom <- data_list$fsh_biom
   fsh_ind <- fsh_biom$Fleet_code[which(fsh_biom$Catch == 0)]
   yr_ind <- fsh_biom$Year[which(fsh_biom$Catch == 0)] - data_list$styr + 1
-  param_list$F_dev[fsh_ind, yr_ind] <- -999
+  for(i in 1:length(fsh_ind)){
+    param_list$F_dev[fsh_ind[i], yr_ind[i]] <- -999
+  }
+
 
 
   # -- 3.5. Survey catchability parameters

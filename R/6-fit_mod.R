@@ -252,6 +252,16 @@ fit_mod <-
     }
     if(verbose > 0) {message("Step 1: Parameter build complete")}
 
+    # Set Fdev for years with 0 catch to very low number
+    fsh_biom_sub <- data_list$fsh_biom %>%
+      filter(Year <= data_list$endyr)
+    fsh_ind <- fsh_biom_sub$Fleet_code[which(fsh_biom_sub$Catch == 0)]
+    yr_ind <- fsh_biom_sub$Year[which(fsh_biom_sub$Catch == 0)] - data_list$styr + 1
+    for(i in 1:length(fsh_ind)){
+      start_par$F_dev[fsh_ind[i], yr_ind[i]] <- -999
+    }
+    rm(fsh_biom_sub)
+
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # STEP 3: Load/build map ----
