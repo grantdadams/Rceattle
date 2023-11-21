@@ -321,7 +321,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
 
 
     # Run through assessment years
-    for(k in 1:(length(assess_yrs))){
+    for(k in 1:length(assess_yrs)){
 
       # ------------------------------------------------------------
       # 1. GET RECOMMENDED TAC FROM EM-HCR ----
@@ -332,6 +332,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       new_catch_data <- em_use$data_list$fsh_biom
       dat_fill_ind <- which(new_catch_data$Year %in% new_years & is.na(new_catch_data$Catch))
       new_catch_data$Catch[dat_fill_ind] <- em_use$quantities$fsh_bio_hat[dat_fill_ind]
+
       if(!is.null(cap)){
         new_catch_data$Catch[dat_fill_ind] <- ifelse(new_catch_data$Catch[dat_fill_ind] > cap[new_catch_data$Species[dat_fill_ind]], cap[new_catch_data$Species[dat_fill_ind]], new_catch_data$Catch[dat_fill_ind])
       }
@@ -390,8 +391,12 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       fsh_biom <- om_use$data_list$fsh_biom
       fsh_ind <- fsh_biom$Fleet_code[which(fsh_biom$Catch == 0)]
       yr_ind <- fsh_biom$Year[which(fsh_biom$Catch == 0)] - om_use$data_list$styr + 1
-      om_use$map$mapList$F_dev[fsh_ind, yr_ind] <- NA
-      om_use$map$mapFactor$F_dev <- factor( om_use$map$mapList$F_dev)
+
+      for(i in 1:length(fsh_ind)){
+          om_use$estimated_params$F_dev[fsh_ind[i], yr_ind[i]] <- -999
+          om_use$map$mapList$F_dev[fsh_ind[i], yr_ind[i]] <- NA
+      }
+      om_use$map$mapFactor$F_dev <- factor(om_use$map$mapList$F_dev)
 
       # - Fit OM with new catch data
       om_use <- fit_mod(
@@ -445,6 +450,8 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       # -- Add newly simulated comp data to EM
       new_comp_data <- sim_dat$comp_data[which(abs(sim_dat$comp_data$Year) %in% years_include$Year & sim_dat$comp_data$Fleet_code %in% years_include$Fleet_code),]
       new_comp_data$Year <- -new_comp_data$Year
+      new_comp_data$Sample_size <- new_comp_data$Sample_size * as.numeric(rowSums(new_comp_data[,9:ncol(new_comp_data)]) > 0) # Set sample size to 0 if catch is 0
+      new_comp_data[,9:ncol(new_comp_data)] <- new_comp_data[,9:ncol(new_comp_data)] + 1 * as.numeric(new_comp_data$Sample_size == 0) # Set all values to 1 if catch is 0
       em_use$data_list$comp_data <- rbind(em_use$data_list$comp_data, new_comp_data)
       em_use$data_list$comp_data <- em_use$data_list$comp_data[
         with(em_use$data_list$comp_data, order(Fleet_code, abs(Year))),]
@@ -581,7 +588,8 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
     } else{
       sim_list # Return simlist
     }
-  }
+
+  } # End sim loop
 
   # When you're done, clean up the cluster
   stopImplicitCluster()
