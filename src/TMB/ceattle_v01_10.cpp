@@ -1692,10 +1692,10 @@ Type objective_function<Type>::operator() () {
 
         case 5: // NPFMC Tier 3 HCR
           proj_F(sp) = proj_F(sp);
-          if(biomassSSB(sp, nyrs_hind-1) < SPRtarget(sp)){
-            proj_F(sp) = Ftarget(sp) * (((biomassSSB(sp, nyrs_hind-1)/SPRtarget(sp))-Alpha(sp))/(1-Alpha(sp))); // Used Fabc of FtargetSPR%
+          if(biomassSSB(sp, nyrs_hind-1) < (SPRtarget(sp) * mean_rec(sp))){
+            proj_F(sp) = Ftarget(sp) * (((biomassSSB(sp, nyrs_hind-1)/(SPRtarget(sp) * mean_rec(sp)))-Alpha(sp))/(1-Alpha(sp))); // Used Fabc of FtargetSPR%
           }
-          if((biomassSSB(sp, nyrs_hind-1) < SB0(sp, nyrs-1) * Plimit(sp)) | (biomassSSB(sp, nyrs_hind-1) / SPRtarget(sp) < Alpha(sp))){ // If overfished
+          if((biomassSSB(sp, nyrs_hind-1) < SB0(sp, nyrs-1) * Plimit(sp)) | (biomassSSB(sp, nyrs_hind-1) / (SPRtarget(sp) * mean_rec(sp))< Alpha(sp))){ // If overfished
             proj_F(sp) =  0;
           }
           break;
