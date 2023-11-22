@@ -248,6 +248,7 @@ mse_summary <- function(mse){
 
         # - EM: P(F > Flimit)
         if(HCR == 5){ # Adjust Tier 3
+          #FIXME: using Ptarget rather than SPR
           if(mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] >= Ptarget[sp]){ # Above target
             em_f_flimit <- c(em_f_flimit,
                              mse[[sim]]$EM[[em]]$quantities$F_spp[sp,end_yr_col]
