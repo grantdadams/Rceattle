@@ -313,25 +313,31 @@ mse_summary <- function(mse){
     om_f_flimit <- lapply(mse, function(x) x$OM$quantities$F_spp[sp, (projyrs - styr + 1)] > (x$OM$quantities$Flimit[sp]))
 
     # -- Tier 3 for single-species OMs
-    tier3_fun <- function(depletion, ptarget, alpha, Flimit){
+    # - Produces vectors of Flimits given depletion and input Flimit (Fspr)
+    # - Note, it doesnt have Plimit because thats for cod
+    #FIXME: update for stock-recruit
+    flimit_vec_tier3_fun <- function(depletion, ptarget, alpha, Flimit){
+      dynamic_tier3_flimit <- c()
       for(i in 1:length(depletion)){
         if(depletion[i] >= ptarget){
-          Flimit[i] = Flimit[i]
+          dynamic_tier3_flimit[i] = Flimit
         }else if(depletion[i] < ptarget & depletion[i] > alpha * ptarget){
-          Flimit[i] = Flimit[i] * (depletion[i]/0.4 - alpha)/(1-alpha)
+          dynamic_tier3_flimit[i] = Flimit * (depletion[i]/0.4 - alpha)/(1-alpha)
         }else{
-          Flimit[i] = 0
+          dynamic_tier3_flimit[i] = 0
         }
       }
       return(Flimit)
     }
 
     if(mse$Sim_1$OM$data_list$msmMode == 0 & HCR == 5){
-      om_f_flimit <- lapply(mse, function(x) x$OM$quantities$F_spp[sp, (projyrs - styr + 1)] > tier3_fun(
+      om_f_flimit <- lapply(mse, function(x) x$OM$quantities$F_spp[sp, (projyrs - styr + 1)] > flimit_vec_tier3_fun(
         depletion = x$OM$quantities$depletionSSB[sp,(projyrs - styr + 1)],
         ptarget = x$OM$data_list$Ptarget[sp],
         alpha  = x$OM$data_list$Alpha[sp],
-        Flimit = x$OM$quantities$Flimit[sp]))
+        Flimit = x$OM$quantities$Flimit[sp]
+        )
+      )
     }
 
     om_f_flimit <- unlist(om_f_flimit)
