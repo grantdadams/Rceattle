@@ -683,9 +683,11 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   fsh_ind <- fsh_biom$Fleet_code[which(fsh_biom$Catch == 0)]
   yr_ind <- fsh_biom$Year[which(fsh_biom$Catch == 0)] - data_list$styr + 1
 
-  map_list$F_dev[fsh_ind, yr_ind] <- NA
-  map_list$ln_sel_slp_dev[1:2, fsh_ind, 1:2, yr_ind] <- NA
-  map_list$sel_inf_dev[1:2, fsh_ind, 1:2, yr_ind] <- NA
+  for(i in 1:length(yr_ind)){
+    map_list$F_dev[fsh_ind[i], yr_ind[i]] <- NA
+    map_list$ln_sel_slp_dev[1:2, fsh_ind[i], 1:2, yr_ind[i]] <- NA
+    map_list$sel_inf_dev[1:2, fsh_ind[i], 1:2, yr_ind[i]] <- NA
+  }
   #map_list$ln_sel_slp_dev_re[1:2, fsh_ind, 1:2, yr_ind] <- NA
   #map_list$sel_inf_dev_re[1:2, fsh_ind, 1:2, yr_ind] <- NA
 

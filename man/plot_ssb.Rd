@@ -18,6 +18,7 @@ plot_ssb(
   width = 7,
   height = 6.5,
   minyr = NULL,
+  maxyr = NULL,
   incl_proj = FALSE,
   mod_cex = 1,
   alpha = 0.4,

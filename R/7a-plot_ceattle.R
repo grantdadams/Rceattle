@@ -58,6 +58,7 @@ plot_biomass <- function(Rceattle,
                          width = 7,
                          height = 6.5,
                          minyr = NULL,
+                         maxyr = NULL,
                          incl_proj = FALSE,
                          mod_cex = 1,
                          alpha = 0.4,
@@ -105,8 +106,8 @@ plot_biomass <- function(Rceattle,
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
   nyrs_vec <- sapply(years, length)
   nyrs <- max(nyrs_vec)
-  maxyr <- max((sapply(years, max)))
   if(is.null(minyr)){minyr <- min((sapply(years, min)))}
+  if(is.null(maxyr)){maxyr <- max((sapply(years, max)))}
 
   nspp <- Rceattle[[1]]$data_list$nspp
 
@@ -409,6 +410,7 @@ plot_recruitment <- function(Rceattle,
                              width = 7,
                              height = 6.5,
                              minyr = NULL,
+                             maxyr = NULL,
                              incl_proj = FALSE,
                              mod_cex = 1,
                              alpha = 0.4,
@@ -449,7 +451,8 @@ plot_recruitment <- function(Rceattle,
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
   nyrs_vec <- sapply(years, length)
   nyrs <- max(nyrs_vec)
-  maxyr <- max((sapply(years, max)))
+
+  if(is.null(maxyr)){maxyr <- max((sapply(years, max)))}
   if(is.null(minyr)){minyr <- min((sapply(years, min)))}
 
   nspp <- Rceattle[[1]]$data_list$nspp
@@ -1365,6 +1368,7 @@ plot_ssb <- function(Rceattle,
                      width = 7,
                      height = 6.5,
                      minyr = NULL,
+                     maxyr = NULL,
                      incl_proj = FALSE,
                      mod_cex = 1,
                      alpha = 0.4,
@@ -1412,7 +1416,7 @@ plot_ssb <- function(Rceattle,
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
   nyrs_vec <- sapply(years, length)
   nyrs <- max(nyrs_vec)
-  maxyr <- max((sapply(years, max)))
+  if(is.null(maxyr)){maxyr <- max((sapply(years, max)))}
   if(is.null(minyr)){minyr <- min((sapply(years, min)))}
 
   nspp <- Rceattle[[1]]$data_list$nspp
@@ -2670,6 +2674,7 @@ plot_depletionSSB <- function(Rceattle,
                               width = 7,
                               height = 6.5,
                               minyr = NULL,
+                              maxyr = NULL,
                               incl_proj = FALSE,
                               mod_cex = 1,
                               alpha = 0.4,
@@ -2719,7 +2724,8 @@ plot_depletionSSB <- function(Rceattle,
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
   nyrs_vec <- sapply(years, length)
   nyrs <- max(nyrs_vec)
-  maxyr <- max((sapply(years, max)))
+
+  if(is.null(maxyr)){maxyr <- max((sapply(years, max)))}
   if(is.null(minyr)){minyr <- min((sapply(years, min)))}
 
   nspp <- Rceattle[[1]]$data_list$nspp
@@ -3005,6 +3011,7 @@ plot_depletion <- function(Rceattle,
                            width = 7,
                            height = 6.5,
                            minyr = NULL,
+                           maxyr = NULL,
                            incl_proj = FALSE,
                            mod_cex = 1,
                            alpha = 0.4,
@@ -3045,7 +3052,8 @@ plot_depletion <- function(Rceattle,
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
   nyrs_vec <- sapply(years, length)
   nyrs <- max(nyrs_vec)
-  maxyr <- max((sapply(years, max)))
+
+  if(is.null(maxyr)){maxyr <- max((sapply(years, max)))}
   if(is.null(minyr)){minyr <- min((sapply(years, min)))}
 
   nspp <- Rceattle[[1]]$data_list$nspp
@@ -3322,6 +3330,7 @@ plot_f <- function(Rceattle,
                    width = 7,
                    height = 6.5,
                    minyr = NULL,
+                   maxyr = NULL,
                    incl_proj = FALSE,
                    mod_cex = 1,
                    alpha = 0.4,
@@ -3362,7 +3371,8 @@ plot_f <- function(Rceattle,
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
   nyrs_vec <- sapply(years, length)
   nyrs <- max(nyrs_vec)
-  maxyr <- max((sapply(years, max)))
+
+  if(is.null(maxyr)){maxyr <- max((sapply(years, max)))}
   if(is.null(minyr)){minyr <- min((sapply(years, min)))}
 
   nspp <- Rceattle[[1]]$data_list$nspp

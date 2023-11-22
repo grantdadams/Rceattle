@@ -39,6 +39,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
 
   # - Set om to project from R0
   om$data_list$proj_mean_rec = 0 # - Sample rec devs assuming this down the line
+  #FIXME: SB0 for equilibrium HCRs will have to be adjusted
 
   # - Adjust cap
   if(!is.null(cap)){
@@ -140,7 +141,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       suitMode = em$data_list$suitMode,
       initMode = em$data_list$initMode,
       phase = NULL,
-      loopnum = 3,
+      loopnum = loopnum,
       getsd = FALSE,
       verbose = 0)
 
@@ -185,7 +186,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
                                                    M2_use_prior = em$data_list$M2_use_prior,
                                                    M1_prior_mean = em$data_list$M1_prior_mean,
                                                    M1_prior_sd = em$data_list$M1_prior_sd),
-                              loopnum = 3,
+                              loopnum = loopnum,
                               initMode = em$data_list$initMode,
                               getsd = FALSE,
                               verbose = 0)
@@ -321,7 +322,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
 
 
     # Run through assessment years
-    for(k in 1:(length(assess_yrs))){
+    for(k in 1:length(assess_yrs)){
 
       # ------------------------------------------------------------
       # 1. GET RECOMMENDED TAC FROM EM-HCR ----
@@ -332,9 +333,11 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       new_catch_data <- em_use$data_list$fsh_biom
       dat_fill_ind <- which(new_catch_data$Year %in% new_years & is.na(new_catch_data$Catch))
       new_catch_data$Catch[dat_fill_ind] <- em_use$quantities$fsh_bio_hat[dat_fill_ind]
+
       if(!is.null(cap)){
         new_catch_data$Catch[dat_fill_ind] <- ifelse(new_catch_data$Catch[dat_fill_ind] > cap[new_catch_data$Species[dat_fill_ind]], cap[new_catch_data$Species[dat_fill_ind]], new_catch_data$Catch[dat_fill_ind])
       }
+      new_catch_switch <- sum(new_catch_data$Catch[dat_fill_ind])
 
       # - Update catch data in OM and EM
       om_use$data_list$fsh_biom <- new_catch_data
@@ -390,8 +393,21 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       fsh_biom <- om_use$data_list$fsh_biom
       fsh_ind <- fsh_biom$Fleet_code[which(fsh_biom$Catch == 0)]
       yr_ind <- fsh_biom$Year[which(fsh_biom$Catch == 0)] - om_use$data_list$styr + 1
-      om_use$map$mapList$F_dev[fsh_ind, yr_ind] <- NA
-      om_use$map$mapFactor$F_dev <- factor( om_use$map$mapList$F_dev)
+
+      for(i in 1:length(fsh_ind)){
+        om_use$estimated_params$F_dev[fsh_ind[i], yr_ind[i]] <- -999
+        om_use$map$mapList$F_dev[fsh_ind[i], yr_ind[i]] <- NA
+      }
+      om_use$map$mapFactor$F_dev <- factor(om_use$map$mapList$F_dev)
+
+      # -- Set estimate mode
+      estimate_mode_base <- om_use$data_list$estimateMode
+      estimate_mode_use <- ifelse(
+        new_catch_switch == 0, 3, # Run in debug mode if catch is 0 for all species
+        ifelse(
+          estimate_mode_base < 3, 1, # Estimate hindcast only if estimating
+          estimate_mode_base)
+      )
 
       # - Fit OM with new catch data
       om_use <- fit_mod(
@@ -400,7 +416,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
         map =  om_use$map,
         bounds = NULL,
         file = NULL,
-        estimateMode = ifelse(om_use$data_list$estimateMode < 3, 1, om_use$data_list$estimateMode), # Estimate hindcast only if estimating
+        estimateMode = estimate_mode_use,
         random_rec = om_use$data_list$random_rec,
         niter = om_use$data_list$niter,
         msmMode = om_use$data_list$msmMode,
@@ -409,9 +425,19 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
         suitMode = om_use$data_list$suitMode,
         initMode = om_use$data_list$initMode,
         meanyr = om$data_list$endyr,
+        HCR = build_hcr(HCR = om_use$data_list$HCR,
+                        DynamicHCR = om_use$data_list$DynamicHCR,
+                        FsprTarget = om_use$data_list$FsprTarget,
+                        FsprLimit = om_use$data_list$FsprLimit,
+                        Ptarget = om_use$data_list$Ptarget,
+                        Plimit = om_use$data_list$Plimit,
+                        Alpha = om_use$data_list$Alpha,
+                        Pstar = om_use$data_list$Pstar,
+                        Sigma = om_use$data_list$Sigma
+        ),
         recFun = build_srr(srr_fun = om_use$data_list$srr_fun,
                            srr_pred_fun = om_use$data_list$srr_pred_fun ,
-                           proj_mean_rec = om_use$data_list$proj_mean_rec,
+                           proj_mean_rec = om_use$data_list$proj_mean_rec, # This will update anyway to False as devs are added
                            srr_est_mode  = om_use$data_list$srr_est_mode ,
                            srr_prior_mean = om_use$data_list$srr_prior_mean,
                            srr_prior_sd = om_use$data_list$srr_prior_sd),
@@ -421,10 +447,13 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
                              M2_use_prior = om_use$data_list$M2_use_prior,
                              M1_prior_mean = om_use$data_list$M1_prior_mean,
                              M1_prior_sd = om_use$data_list$M1_prior_sd), # Dont update M1 from data, fix at previous parameters
-        loopnum = 3,
+        loopnum = loopnum,
         phase = NULL,
         getsd = FALSE,
         verbose = 0)
+
+      # -- Set estimate mode back to original
+      om_use$data_list$estimateMode <- estimate_mode_base
 
 
       # ------------------------------------------------------------
@@ -445,6 +474,8 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       # -- Add newly simulated comp data to EM
       new_comp_data <- sim_dat$comp_data[which(abs(sim_dat$comp_data$Year) %in% years_include$Year & sim_dat$comp_data$Fleet_code %in% years_include$Fleet_code),]
       new_comp_data$Year <- -new_comp_data$Year
+      new_comp_data$Sample_size <- new_comp_data$Sample_size * as.numeric(rowSums(new_comp_data[,9:ncol(new_comp_data)]) > 0) # Set sample size to 0 if catch is 0
+      new_comp_data[,9:ncol(new_comp_data)] <- new_comp_data[,9:ncol(new_comp_data)] + 1 * as.numeric(new_comp_data$Sample_size == 0) # Set all values to 1 if catch is 0
       em_use$data_list$comp_data <- rbind(em_use$data_list$comp_data, new_comp_data)
       em_use$data_list$comp_data <- em_use$data_list$comp_data[
         with(em_use$data_list$comp_data, order(Fleet_code, abs(Year))),]
@@ -581,7 +612,8 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
     } else{
       sim_list # Return simlist
     }
-  }
+
+  } # End sim loop
 
   # When you're done, clean up the cluster
   stopImplicitCluster()
