@@ -1540,8 +1540,16 @@ Type objective_function<Type>::operator() () {
 
           // - Option 1: Use mean rec
           if(proj_mean_rec == 1){
+            // Equilibrium RPs used mean rec across all years
             NByage0(sp, 0, 0, yr) = mean_rec(sp);
-            DynamicNByageF(sp, 0, 0, yr) = DynamicNByage0(sp, 0, 0, yr) = exp(log(mean_rec(sp)) + rec_dev(sp, yr)); //  // Projections use mean R given bias in R0
+
+            // Dynamic RPs use mean rec for forecast and observed rec for hindcast
+            if(yr < nyrs_hind){
+              DynamicNByageF(sp, 0, 0, yr) = DynamicNByage0(sp, 0, 0, yr) = R(sp, yr); // Hindcast use observed R
+            }
+            if(yr >= nyrs_hind){
+              DynamicNByageF(sp, 0, 0, yr) = DynamicNByage0(sp, 0, 0, yr) = exp(log(mean_rec(sp)) + rec_dev(sp, yr)); // Projections use mean R given bias in R0
+            }
           }
 
           // - Option 2: Use SRR
