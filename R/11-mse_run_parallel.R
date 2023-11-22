@@ -39,6 +39,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
 
   # - Set om to project from R0
   om$data_list$proj_mean_rec = 0 # - Sample rec devs assuming this down the line
+  #FIXME: SB0 for equilibrium HCRs will have to be adjusted
 
   # - Adjust cap
   if(!is.null(cap)){
@@ -336,6 +337,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       if(!is.null(cap)){
         new_catch_data$Catch[dat_fill_ind] <- ifelse(new_catch_data$Catch[dat_fill_ind] > cap[new_catch_data$Species[dat_fill_ind]], cap[new_catch_data$Species[dat_fill_ind]], new_catch_data$Catch[dat_fill_ind])
       }
+      new_catch_switch <- sum(new_catch_data$Catch[dat_fill_ind])
 
       # - Update catch data in OM and EM
       om_use$data_list$fsh_biom <- new_catch_data
@@ -393,10 +395,19 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       yr_ind <- fsh_biom$Year[which(fsh_biom$Catch == 0)] - om_use$data_list$styr + 1
 
       for(i in 1:length(fsh_ind)){
-          om_use$estimated_params$F_dev[fsh_ind[i], yr_ind[i]] <- -999
-          om_use$map$mapList$F_dev[fsh_ind[i], yr_ind[i]] <- NA
+        om_use$estimated_params$F_dev[fsh_ind[i], yr_ind[i]] <- -999
+        om_use$map$mapList$F_dev[fsh_ind[i], yr_ind[i]] <- NA
       }
       om_use$map$mapFactor$F_dev <- factor(om_use$map$mapList$F_dev)
+
+      # -- Set estimate mode
+      estimate_mode_base <- om_use$data_list$estimateMode
+      estimate_mode_use <- ifelse(
+        new_catch_switch == 0, 3, # Run in debug mode if catch is 0 for all species
+        ifelse(
+          estimate_mode_base < 3, 1, # Estimate hindcast only if estimating
+          estimate_mode_base)
+      )
 
       # - Fit OM with new catch data
       om_use <- fit_mod(
@@ -405,7 +416,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
         map =  om_use$map,
         bounds = NULL,
         file = NULL,
-        estimateMode = ifelse(om_use$data_list$estimateMode < 3, 1, om_use$data_list$estimateMode), # Estimate hindcast only if estimating
+        estimateMode = estimate_mode_use,
         random_rec = om_use$data_list$random_rec,
         niter = om_use$data_list$niter,
         msmMode = om_use$data_list$msmMode,
@@ -430,6 +441,9 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
         phase = NULL,
         getsd = FALSE,
         verbose = 0)
+
+      # -- Set estimate mode back to original
+      om_use$data_list$estimateMode <- estimate_mode_base
 
 
       # ------------------------------------------------------------
