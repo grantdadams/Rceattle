@@ -82,10 +82,12 @@ mse_summary <- function(mse){
   nflts = length(flts)
   flt_spp <- mse$Sim_1$OM$data_list$fleet_control$Species
   styr <- mse$Sim_1$OM$data_list$styr
-  endyr <- mse$Sim_1$OM$data_list$meanyr
+  endyr <- mse$Sim_1$EM$EM$data_list$endyr
   projyr <- mse$Sim_1$EM$EM$data_list$projyr
   projyrs <- (endyr+1):projyr
   projyrs_ind <- projyrs - endyr
+
+  ## HCR ----
   HCR <- mse$Sim_1$EM[[1]]$data_list$HCR
   Ptarget <- extend_length(mse$Sim_1$EM[[1]]$data_list$Ptarget, nspp)
   Plimit <- extend_length(mse$Sim_1$EM[[1]]$data_list$Plimit, nspp)
@@ -137,27 +139,33 @@ mse_summary <- function(mse){
     flt = flts[i]
 
     # - Mean catch by fleet
-    mse_summary$`Average Catch`[i+nspp] <- mean(sapply(mse, function(x)
-      x$OM$data_list$fsh_biom$Catch[which(x$OM$data_list$fsh_biom$Fleet_code == flt &
-                                            x$OM$data_list$fsh_biom$Year %in% projyrs)]), na.rm = TRUE)
+    mse_summary$`Average Catch`[i+nspp] <- mean(
+      sapply(mse, function(x)
+        x$OM$data_list$fsh_biom %>%
+          filter(Fleet_code == flt & Year %in% projyrs) %>%
+          pull(Catch)
+      ), na.rm = TRUE)
 
     # - Catch IAV by fleet
     catch_list_tmp <- lapply(mse, function(x)
-      x$OM$data_list$fsh_biom$Catch[which(x$OM$data_list$fsh_biom$Fleet_code == flt &
-                                            x$OM$data_list$fsh_biom$Year %in% projyrs)])
+      x$OM$data_list$fsh_biom %>%
+        filter(Fleet_code == flt & Year %in% projyrs) %>%
+        pull(Catch)
+    )
 
     # -- Average across simulations by fleet
     mse_summary$`Catch IAV`[i+nspp] = 0
     for(sim in 1:nsim){
-      iav_tmp <- (sum((catch_list_tmp[[sim]][projyrs_ind[-1]] - catch_list_tmp[[sim]][projyrs_ind[-length(projyrs_ind)]])^2, na.rm = TRUE)/(length(projyrs_ind) - 1) / (sum(catch_list_tmp[[sim]][projyrs_ind], na.rm = TRUE)/ length(projyrs_ind)))/nsim
+      iav_tmp <- sum((lag(catch_list_tmp[[sim]], 1) - catch_list_tmp[[sim]])^2, na.rm = TRUE)/(length(projyrs) - 1) # Squared difference
+      iav_tmp <- iav_tmp / (sum(catch_list_tmp[[sim]], na.rm = TRUE)/ length(projyrs))/nsim # Divide by mean
       mse_summary$`Catch IAV`[i+nspp] <- mse_summary$`Catch IAV`[i+nspp] + iav_tmp
     }
 
     # - P(Closed) by fleet
-    mse_summary$`P(Closed)`[i+nspp] <- sum(sapply(mse, function(x)
-      length(x$OM$data_list$fsh_biom$Catch[which(x$OM$data_list$fsh_biom$Fleet_code == flt &
-                                                   x$OM$data_list$fsh_biom$Year %in% projyrs &
-                                                   x$OM$data_list$fsh_biom$Catch < 1)])))/length(projyrs)/nsim # Using less than 1 here just in case super small catches and fishery is effectively close
+    mse_summary$`P(Closed)`[i+nspp] <- sum(
+      sapply(catch_list_tmp, function(x)
+        length(which(x < 1)) # Using less than 1 here just in case super small catches and fishery is effectively close
+        /length(x)))/nsim
 
   }
 
@@ -170,27 +178,35 @@ mse_summary <- function(mse){
   for(sp in 1:nspp){
 
     # - Mean catch by species
-    mse_summary$`Average Catch`[sp] <- mean(sapply(mse, function(x)
-      x$OM$data_list$fsh_biom$Catch[which(x$OM$data_list$fsh_biom$Species == sp &
-                                            x$OM$data_list$fsh_biom$Year %in% projyrs)]), na.rm = TRUE)
+    mse_summary$`Average Catch`[sp] <- mean(
+      sapply(mse, function(x)
+        x$OM$data_list$fsh_biom %>%
+          filter(Species == sp & Year %in% projyrs) %>%
+          pull(Catch)
+      ), na.rm = TRUE)
 
     # - Catch IAV by species
     catch_list_tmp <- suppressMessages(lapply(mse, function(x)
       x$OM$data_list$fsh_biom %>%
-        filter(Species == sp & Year > endyr) %>%
+        filter(Species == sp & Year %in% projyrs) %>%
         group_by(Year) %>%
-        summarise(Catch = sum(Catch)))) # Sum catch across species
+        summarise(Catch = sum(Catch)) %>%
+        pull(Catch)
+    )) # Sum catch across species
 
     # -- Average across simulations
     mse_summary$`Catch IAV`[sp] <- 0 # Initialize
     for(sim in 1:nsim){
-      mse_summary$`Catch IAV`[sp] <- mse_summary$`Catch IAV`[sp] + (sum((catch_list_tmp[[sim]]$Catch[projyrs_ind[-1]] - catch_list_tmp[[sim]]$Catch[projyrs_ind[-length(projyrs_ind)]])^2, na.rm = TRUE)/(length(projyrs_ind) - 1) / (sum(catch_list_tmp[[sim]]$Catch[projyrs_ind], na.rm = TRUE)/ length(projyrs_ind)))/nsim
+      iav_tmp <- sum((lag(catch_list_tmp[[sim]], 1) - catch_list_tmp[[sim]])^2, na.rm = TRUE)/(length(projyrs) - 1) # Squared difference
+      iav_tmp <- iav_tmp / (sum(catch_list_tmp[[sim]], na.rm = TRUE)/ length(projyrs))/nsim # Divide by mean
+      mse_summary$`Catch IAV`[sp] <- mse_summary$`Catch IAV`[sp] + iav_tmp
     }
 
     # - P(Closed) by species
-    mse_summary$`P(Closed)`[sp] <- sum(sapply(catch_list_tmp, function(x)
-      length(which(x$Catch < 1)) # Using less than 1 here just in case super small catches and fishery is effectively close
-      /length(x$Catch)))/nsim
+    mse_summary$`P(Closed)`[sp] <- sum(
+      sapply(catch_list_tmp, function(x)
+        length(which(x < 1)) # Using less than 1 here just in case super small catches and fishery is effectively close
+        /length(x)))/nsim
   }
 
 
@@ -201,18 +217,23 @@ mse_summary <- function(mse){
   # - P(Closed)
   catch_list_tmp <- suppressMessages(lapply(mse, function(x)
     x$OM$data_list$fsh_biom %>%
-      filter(Year > endyr) %>%
+      filter(Year %in% projyrs) %>%
       group_by(Year) %>%
-      summarise(Catch = sum(Catch)))) # Sum catch across species
+      summarise(Catch = sum(Catch)) %>%
+      pull(Catch)
+  )
+  ) # Sum catch across species
 
   # - Mean catch across species
-  mse_summary$`Average Catch`[nspp + nflts + 1] <- mean(sapply(catch_list_tmp, function(x) mean(x$Catch)), na.rm = TRUE)
+  mse_summary$`Average Catch`[nspp + nflts + 1] <- mean(unlist(catch_list_tmp), na.rm = TRUE)
 
   # - Catch IAV across species
   # -- Average across simulations
   mse_summary$`Catch IAV`[nspp + nflts + 1] <- 0 # Initialize
   for(sim in 1:nsim){
-    mse_summary$`Catch IAV`[nspp + nflts + 1] <- mse_summary$`Catch IAV`[nspp + nflts + 1] + (sum((catch_list_tmp[[sim]]$Catch[projyrs_ind[-1]] - catch_list_tmp[[sim]]$Catch[projyrs_ind[-length(projyrs_ind)]])^2, na.rm = TRUE)/(length(projyrs_ind) - 1) / (sum(catch_list_tmp[[sim]]$Catch[projyrs_ind], na.rm = TRUE)/ length(projyrs_ind)))/nsim
+    iav_tmp <- sum((lag(catch_list_tmp[[sim]], 1) - catch_list_tmp[[sim]])^2, na.rm = TRUE)/(length(projyrs) - 1) # Squared difference
+    iav_tmp <- iav_tmp / (sum(catch_list_tmp[[sim]], na.rm = TRUE)/ length(projyrs))/nsim # Divide by mean
+    mse_summary$`Catch IAV`[nspp + nflts + 1] <- mse_summary$`Catch IAV`[nspp + nflts + 1] + iav_tmp
   }
 
 
@@ -241,7 +262,7 @@ mse_summary <- function(mse){
     em_sb_sblimit <- c()
 
     for(sim in 1:length(mse)){
-      for(em in 2:length(mse[[sim]]$EM)){ # First EM is conditioned model
+      for(em in 2:length(mse[[sim]]$EM)){ # First EM is "conditioned" model
 
         # Terminal year of intermediate assessment
         end_yr_col <- mse[[sim]]$EM[[em]]$data_list$endyr - styr+1
@@ -337,7 +358,7 @@ mse_summary <- function(mse){
         ptarget = x$OM$data_list$Ptarget[sp],
         alpha  = x$OM$data_list$Alpha[sp],
         Flimit = x$OM$quantities$Flimit[sp]
-        )
+      )
       )
     }
 
