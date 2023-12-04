@@ -72,7 +72,7 @@ mse_summary <- function(mse){
     else {return(rep(x, nspp))}
   }
 
-  ## Operating model dimensions
+  ## OM dimensions ----
   # - determined from OM sim 1
   # - should be the same as for the EM
   nspp <- mse$Sim_1$OM$data_list$nspp
@@ -104,7 +104,7 @@ mse_summary <- function(mse){
   ## MSE specifications
   nsim <- length(mse)
 
-  ## MSE Output
+  ## MSE Output ----
   # - Catch is by fleet
   mse_summary <- data.frame(matrix(NA, nrow = nflts+nspp+1, ncol = 16))
   colnames(mse_summary) <- c("Species",
@@ -129,16 +129,14 @@ mse_summary <- function(mse){
   mse_summary$Species <- c(mse$Sim_1$OM$data_list$spnames, mse$Sim_1$OM$data_list$fleet_control$Species[flts], "All")
 
 
-  ############################################
-  ## Catch performance metrics by fleet
-  ############################################
+  ## Catch performance metrics by fleet ----
   # - Average catch
   # - Catch IAV
   # - P(Closed)
   for(i in 1:nflts){
     flt = flts[i]
 
-    # - Mean catch by fleet
+    # * Mean catch ----
     mse_summary$`Average Catch`[i+nspp] <- mean(
       sapply(mse, function(x)
         x$OM$data_list$fsh_biom %>%
@@ -146,7 +144,7 @@ mse_summary <- function(mse){
           pull(Catch)
       ), na.rm = TRUE)
 
-    # - Catch IAV by fleet
+    # * Catch IAV ----
     catch_list_tmp <- lapply(mse, function(x)
       x$OM$data_list$fsh_biom %>%
         filter(Fleet_code == flt & Year %in% projyrs) %>%
@@ -161,7 +159,7 @@ mse_summary <- function(mse){
       mse_summary$`Catch IAV`[i+nspp] <- mse_summary$`Catch IAV`[i+nspp] + iav_tmp
     }
 
-    # - P(Closed) by fleet
+    # * P(Closed) ----
     mse_summary$`P(Closed)`[i+nspp] <- sum(
       sapply(catch_list_tmp, function(x)
         length(which(x < 1)) # Using less than 1 here just in case super small catches and fishery is effectively close
@@ -170,14 +168,13 @@ mse_summary <- function(mse){
   }
 
 
-  ############################################
-  ## Catch performance metrics by species
+  ## Catch performance metrics by species ----
   # - Average catch
   # - Catch IAV
   # - P(Closed)
   for(sp in 1:nspp){
 
-    # - Mean catch by species
+    # * Mean catch ----
     mse_summary$`Average Catch`[sp] <- mean(
       sapply(mse, function(x)
         x$OM$data_list$fsh_biom %>%
@@ -185,7 +182,7 @@ mse_summary <- function(mse){
           pull(Catch)
       ), na.rm = TRUE)
 
-    # - Catch IAV by species
+    # - Catch IAV ----
     catch_list_tmp <- suppressMessages(lapply(mse, function(x)
       x$OM$data_list$fsh_biom %>%
         filter(Species == sp & Year %in% projyrs) %>%
@@ -194,7 +191,7 @@ mse_summary <- function(mse){
         pull(Catch)
     )) # Sum catch across species
 
-    # -- Average across simulations
+    # - Average across simulations
     mse_summary$`Catch IAV`[sp] <- 0 # Initialize
     for(sim in 1:nsim){
       iav_tmp <- sum((lag(catch_list_tmp[[sim]], 1) - catch_list_tmp[[sim]])^2, na.rm = TRUE)/(length(projyrs) - 1) # Squared difference
@@ -202,7 +199,7 @@ mse_summary <- function(mse){
       mse_summary$`Catch IAV`[sp] <- mse_summary$`Catch IAV`[sp] + iav_tmp
     }
 
-    # - P(Closed) by species
+    # * P(Closed) ----
     mse_summary$`P(Closed)`[sp] <- sum(
       sapply(catch_list_tmp, function(x)
         length(which(x < 1)) # Using less than 1 here just in case super small catches and fishery is effectively close
@@ -210,8 +207,7 @@ mse_summary <- function(mse){
   }
 
 
-  ############################################
-  ## Catch performance metrics across species
+  ## Catch performance metrics across species ----
   # - Average catch
   # - Catch IAV
   # - P(Closed)
@@ -224,10 +220,10 @@ mse_summary <- function(mse){
   )
   ) # Sum catch across species
 
-  # - Mean catch across species
+  # * Mean catch ----
   mse_summary$`Average Catch`[nspp + nflts + 1] <- mean(unlist(catch_list_tmp), na.rm = TRUE)
 
-  # - Catch IAV across species
+  # * Catch IAV ----
   # -- Average across simulations
   mse_summary$`Catch IAV`[nspp + nflts + 1] <- 0 # Initialize
   for(sim in 1:nsim){
@@ -237,9 +233,7 @@ mse_summary <- function(mse){
   }
 
 
-  ############################################
-  ## Conservation performance metrics
-  ############################################
+  ## Conservation performance metrics ----
   # - Avg terminal SSB MSE
   # - EM: P(Fy > Flimit)
   # - EM: P(SSB < SSBlimit)
@@ -252,6 +246,24 @@ mse_summary <- function(mse){
   # - OM: Terminal SSB/SSBtarget
   # - EM: Average age-1 M
   # - EM: Variance of age-1 M
+
+  # -- Tier 3 for single-species models
+  # - Produces vectors of Flimits given depletion and input Flimit (Fspr)
+  # - Note, it doesnt have Plimit because thats for cod
+  flimit_vec_tier3_fun <- function(depletion, ptarget, alpha, Flimit){
+    dynamic_tier3_flimit <- c()
+    for(i in 1:length(depletion)){
+      if(depletion[i] >= ptarget){
+        dynamic_tier3_flimit[i] = Flimit
+      }else if(depletion[i] < ptarget & depletion[i] > alpha * ptarget){
+        dynamic_tier3_flimit[i] = Flimit * (depletion[i]/0.4 - alpha)/(1-alpha)
+      }else{
+        dynamic_tier3_flimit[i] = 0
+      }
+    }
+    return(Flimit)
+  }
+
   ind <-  1
   for(sp in 1:nspp){
 
@@ -267,7 +279,8 @@ mse_summary <- function(mse){
         # Terminal year of intermediate assessment
         end_yr_col <- mse[[sim]]$EM[[em]]$data_list$endyr - styr+1
 
-        # - EM: P(F > Flimit)
+        # * EM: P(F > Flimit) ----
+        # - Tier 3
         if(HCR == 5){ # Adjust Tier 3
           #FIXME: using Ptarget rather than SPR
           if(mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] >= Ptarget[sp]){ # Above target
@@ -295,7 +308,7 @@ mse_summary <- function(mse){
         }
 
 
-        # - EM: P(SSB < SSBlimit)
+        # * EM: P(SSB < SSBlimit) ----
         # Update over fished definition for the following because Plimit is used for something else
         # -- HCR = 5: NPFMC Tier 3 - Flimit and Ftarget on
         # -- HCR = 6: PFMC Cat 1 - Flimit on
@@ -329,28 +342,10 @@ mse_summary <- function(mse){
 
 
 
-    #-------------------------------
-    ## Actual status
-    # - OM: P(F > Flimit)
-    om_f_flimit <- lapply(mse, function(x) x$OM$quantities$F_spp[sp, (projyrs - styr + 1)] > (x$OM$quantities$Flimit[sp]))
 
-    # -- Tier 3 for single-species OMs
-    # - Produces vectors of Flimits given depletion and input Flimit (Fspr)
-    # - Note, it doesnt have Plimit because thats for cod
-    #FIXME: update for stock-recruit
-    flimit_vec_tier3_fun <- function(depletion, ptarget, alpha, Flimit){
-      dynamic_tier3_flimit <- c()
-      for(i in 1:length(depletion)){
-        if(depletion[i] >= ptarget){
-          dynamic_tier3_flimit[i] = Flimit
-        }else if(depletion[i] < ptarget & depletion[i] > alpha * ptarget){
-          dynamic_tier3_flimit[i] = Flimit * (depletion[i]/0.4 - alpha)/(1-alpha)
-        }else{
-          dynamic_tier3_flimit[i] = 0
-        }
-      }
-      return(Flimit)
-    }
+    ## Actual status
+    # * OM: P(F > Flimit) ----
+    om_f_flimit <- lapply(mse, function(x) x$OM$quantities$F_spp[sp, (projyrs - styr + 1)] > (x$OM$quantities$Flimit[sp]))
 
     if(mse$Sim_1$OM$data_list$msmMode == 0 & HCR == 5){
       om_f_flimit <- lapply(mse, function(x) x$OM$quantities$F_spp[sp, (projyrs - styr + 1)] > flimit_vec_tier3_fun(
@@ -365,7 +360,8 @@ mse_summary <- function(mse){
     om_f_flimit <- unlist(om_f_flimit)
     mse_summary$`OM: P(Fy > Flimit)`[sp] <- sum(om_f_flimit)/length(om_f_flimit)
 
-    # - OM: P(SSB < SSBlimit)
+
+    # * OM: P(SSB < SSBlimit) ----
     om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)] < x$OM$data_list$Plimit[sp])
 
     # Update over fished definition for the following because Plimit is used for something else
