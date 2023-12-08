@@ -264,7 +264,7 @@ mse_summary <- function(mse){
     return(Flimit)
   }
 
-  ind <-  1
+
   for(sp in 1:nspp){
 
     ## Perceived status
