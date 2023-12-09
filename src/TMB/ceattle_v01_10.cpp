@@ -1716,7 +1716,7 @@ Type objective_function<Type>::operator() () {
           if(biomassSSB(sp, nyrs_hind-1) < SBF(sp, nyrs-1)){
             proj_F(sp) = Ftarget(sp) * (((biomassSSB(sp, nyrs_hind-1)/SBF(sp, nyrs-1))-Alpha(sp))/(1-Alpha(sp))); // Used Fabc of FtargetSPR%
           }
-          if((biomassSSB(sp, nyrs_hind-1) < SB0(sp, nyrs-1) * Plimit(sp)) | (biomassSSB(sp, nyrs_hind-1) / (SBF(sp, nyrs-1) < Alpha(sp))){ // If overfished
+          if((biomassSSB(sp, nyrs_hind-1) < SB0(sp, nyrs-1) * Plimit(sp)) | (biomassSSB(sp, nyrs_hind-1) / SBF(sp, nyrs-1) < Alpha(sp))){ // If overfished
             proj_F(sp) =  0;
           }
           break;
@@ -1767,7 +1767,7 @@ Type objective_function<Type>::operator() () {
           if(biomassSSB(sp, nyrs_hind-1) < DynamicSBF(sp, nyrs_hind-1)){
             proj_F(sp) = Ftarget(sp) * (((biomassSSB(sp, nyrs_hind-1)/(DynamicSBF(sp, nyrs_hind-1)))-Alpha(sp))/(1-Alpha(sp))); // Used Fabc of FtargetSPR%
           }
-          if((biomassSSB(sp, nyrs_hind-1) < DynamicSBF(sp, nyrs_hind-1)) | (biomassSSB(sp, nyrs_hind-1) / (DynamicSBF(sp, nyrs_hind-1)) < Alpha(sp))){ // If overfished
+          if((biomassSSB(sp, nyrs_hind-1) < DynamicSB0(sp, nyrs_hind-1) * Plimit(sp)) | (biomassSSB(sp, nyrs_hind-1) / (DynamicSBF(sp, nyrs_hind-1)) < Alpha(sp))){ // If overfished
             proj_F(sp) =  0;
           }
           break;
