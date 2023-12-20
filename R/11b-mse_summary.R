@@ -420,9 +420,9 @@ mse_summary <- function(mse){
 
       # - Tier 3 SPR Based
       if(HCR == 5 & !DynamicHCR){
-        om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)] < 0.5 * x$OM$quantities$SBF[sp, length(projyrs)]) # 0.5 * SB35%
+        om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$biomassSSB[sp, (projyrs - styr + 1)] < 0.5 * x$OM$quantities$SBF[sp, length(projyrs)]) # 0.5 * SB35%
       }else if(HCR == 5 & DynamicHCR){ # Dynamic Tier 3 SPR Based
-        om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)] < 0.5 * x$OM$quantities$DynamicSBF[sp, length(projyrs)]) # 0.5 * SB35%
+        om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$biomassSSB[sp, (projyrs - styr + 1)] < 0.5 * x$OM$quantities$DynamicSBF[sp, length(projyrs)]) # 0.5 * SB35%
       }
 
       # - Cat 1 Depletion based
