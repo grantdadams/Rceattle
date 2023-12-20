@@ -288,6 +288,11 @@ mse_summary <- function(mse){
         end_yr_col <- mse[[sim]]$EM[[em]]$data_list$endyr - styr+1
 
         # * EM: P(F > Flimit) ----
+        em_f_flimit <- c(em_f_flimit,
+                         mse[[sim]]$EM[[em]]$quantities$F_spp[sp,end_yr_col]
+                         > mse[[sim]]$EM[[em]]$quantities$Flimit[sp]
+        )
+
         # - Tier 3
         if(HCR == 5 & DynamicHCR == FALSE){ # Adjust Tier 3
           em_f_flimit <- c(em_f_flimit,
@@ -301,6 +306,7 @@ mse_summary <- function(mse){
           )
         }
 
+        # Dynamic Tier 3
         if(HCR == 5 & DynamicHCR == TRUE){ # Adjust Tier 3
           em_f_flimit <- c(em_f_flimit,
                            mse[[sim]]$EM[[em]]$quantities$F_spp[sp,end_yr_col] >
@@ -310,13 +316,6 @@ mse_summary <- function(mse){
                                SBF = mse[[sim]]$EM[[em]]$quantities$DynamicSBF[sp,length(projyrs)],
                                Plimit[sp], Alpha[sp], mse[[sim]]$EM[[em]]$quantities$Flimit[sp]
                              )
-          )
-        }
-
-        if(HCR != 5){ # All except HCR 5: Tier-3
-          em_f_flimit <- c(em_f_flimit,
-                           mse[[sim]]$EM[[em]]$quantities$F_spp[sp,end_yr_col]
-                           > mse[[sim]]$EM[[em]]$quantities$Flimit[sp]
           )
         }
 
@@ -367,6 +366,7 @@ mse_summary <- function(mse){
     # * OM: P(F > Flimit) ----
     om_f_flimit <- lapply(mse, function(x) x$OM$quantities$F_spp[sp, (projyrs - styr + 1)] > (x$OM$quantities$Flimit[sp]))
 
+    # - Tier 3
     if(mse$Sim_1$OM$data_list$msmMode == 0 & HCR == 5 & DynamicHCR == FALSE){
       om_f_flimit <- lapply(mse, function(x) x$OM$quantities$F_spp[sp, (projyrs - styr + 1)] >
                               flimit_tier3_fun(
@@ -378,6 +378,7 @@ mse_summary <- function(mse){
       )
     }
 
+    # - Dynamic Tier 3
     if(mse$Sim_1$OM$data_list$msmMode == 0 & HCR == 5 & DynamicHCR == TRUE){
       om_f_flimit <- lapply(mse, function(x) x$OM$quantities$F_spp[sp, (projyrs - styr + 1)] >
                               flimit_tier3_fun(
@@ -401,27 +402,37 @@ mse_summary <- function(mse){
     # -- HCR = 5: NPFMC Tier 3 - Flimit and Ftarget on
     # -- HCR = 6: PFMC Cat 1 - Flimit on
     if(mse$Sim_1$OM$data_list$msmMode == 0){
-      if(HCR == 2){ # Avg F SPR based
-        om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)] < 0.5 * x$OM$quantities$SBF[sp, length(projyrs)]) # 0.5 * SB35%
-      }else if(HCR == 4 & !DynamicHCR){ # New England SPR based
-        om_sb_sblimit <-lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)] < 0.5 * x$OM$quantities$SBF[sp, length(projyrs)]) # 0.5 * SB40%
+
+      # Default is depletion based
+      om_sb_sblimit <-lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)] < x$OM$data_list$Plimit[sp])
+
+      # - Avg F SPR based
+      if(HCR == 2){
+        om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$biomassSSB[sp, (projyrs - styr + 1)] < 0.5 * x$OM$quantities$SBF[sp, length(projyrs)]) # 0.5 * SB35%
+      }
+
+      # - New England SPR based
+      if(HCR == 4 & !DynamicHCR){
+        om_sb_sblimit <-lapply(mse, function(x) x$OM$quantities$biomassSSB[sp, (projyrs - styr + 1)] < 0.5 * x$OM$quantities$SBF[sp, length(projyrs)]) # 0.5 * SB40%
       }else if(HCR == 4 & DynamicHCR){ # Dynamic New England SPR based
-        om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)] < 0.5 * x$OM$quantities$DynamicSBF[sp, length(projyrs)]) # 0.5 * SB40%
-      }else if(HCR == 5 & !DynamicHCR){ # Tier 3 SPR Based
+        om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$biomassSSB[sp, (projyrs - styr + 1)] < 0.5 * x$OM$quantities$DynamicSBF[sp, length(projyrs)]) # 0.5 * SB40%
+      }
+
+      # - Tier 3 SPR Based
+      if(HCR == 5 & !DynamicHCR){
         om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)] < 0.5 * x$OM$quantities$SBF[sp, length(projyrs)]) # 0.5 * SB35%
       }else if(HCR == 5 & DynamicHCR){ # Dynamic Tier 3 SPR Based
         om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)] < 0.5 * x$OM$quantities$DynamicSBF[sp, length(projyrs)]) # 0.5 * SB35%
-      }else if(HCR == 6){ # Cat 1 Depletion based
+      }
+
+      # - Cat 1 Depletion based
+      if(HCR == 6){
         if(Ptarget[sp] == 0.25){
           om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)] < 0.125) # 0.125 * SB0
         }
         if(Ptarget[sp] == 0.4){
           om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)] < 0.25) # 0.25 * SB0
         }
-      }else if(HCR == 7){ # Tier 1 Depletion based
-        om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)] < Plimit[sp])
-      } else { # Otherwise depletion based
-        om_sb_sblimit <-lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)] < Plimit[sp])
       }
     }
 
@@ -429,7 +440,7 @@ mse_summary <- function(mse){
     mse_summary$`OM: P(SSB < SSBlimit)`[sp] <- sum(om_sb_sblimit)/length(om_sb_sblimit)
 
 
-    ## Perceived status relative to actual status
+    ## * Perceived status relative to actual status ----
     # - EM: P(Fy > Flimit) but OM: P(Fy < Flimit)
     mse_summary$`EM: P(Fy > Flimit) but OM: P(Fy < Flimit)`[sp] <- sum(em_f_flimit == 1 & om_f_flimit == 0)/length(om_f_flimit)
 
@@ -443,11 +454,7 @@ mse_summary <- function(mse){
     mse_summary$`EM: P(SSB > SSBlimit) but OM: P(SSB < SSBlimit)`[sp] <- sum(em_sb_sblimit == 0 & om_sb_sblimit == 1)/length(om_sb_sblimit)
 
 
-    ## Average recovery time
-    # om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)] < x$OM$data_list$Plimit)=
-    # mse_summary$`OM: Recovery Time`[sp] <-
-
-    ## Bias in terminal SSB
+    ## Bias in terminal SSB ----
     sb_em <- lapply(mse, function(x) x$EM[[length(x$EM)]]$quantities$biomassSSB[sp, (projyrs - styr + 1)])
     sb_om <- lapply(mse, function(x) x$OM$quantities$biomassSSB[sp, (projyrs - styr + 1)])
 

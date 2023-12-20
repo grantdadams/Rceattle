@@ -164,7 +164,7 @@ mse <- mse_run_parallel(om = om,
                         dir = "check",
                         file = NULL,
                         regenerate_past = TRUE)
-EMs_from_OM_Sim_1 <- readRDS("~/GitHub/Rceattle/check/EMs_from_OM_Sim_1.rds")
+EMs_from_OM_Sim_1 <- readRDS("check/EMs_from_OM_Sim_1.rds")
 mod_list <- list(ss_run_dynamicTier3, ss_run_ricker, EMs_from_OM_Sim_1$OM, EMs_from_OM_Sim_1$EM$`OM_Sim_1. EM_yr_2060`)
 plot_ssb(mod_list, incl_proj = TRUE)
 plot_stock_recruit(mod_list)
