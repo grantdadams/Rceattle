@@ -102,7 +102,7 @@ ss_run_dynamicTier3$quantities$R[1,1:10]
 
 
 # Update OM to have save HCR as EM to calculate performance metrics
-om <- ss_run_ricker
+om <- ss_run
 em <- ss_run_dynamicTier3
 
 om <- Rceattle::fit_mod(
@@ -153,8 +153,8 @@ print(paste0("Running OM ",om, " and EM ", em))
 # Run MSE
 mse <- mse_run_parallel(om = om,
                         em = em,
-                        nsim = 1,
-                        start_sim = 1,
+                        nsim = 2,
+                        start_sim = 2,
                         seed = 666,
                         regenerate_seed = 666,
                         assessment_period = 1,
@@ -164,8 +164,10 @@ mse <- mse_run_parallel(om = om,
                         dir = "check",
                         file = NULL,
                         regenerate_past = TRUE)
-EMs_from_OM_Sim_1 <- readRDS("check/EMs_from_OM_Sim_1.rds")
-mod_list <- list(ss_run_dynamicTier3, ss_run_ricker, EMs_from_OM_Sim_1$OM, EMs_from_OM_Sim_1$EM$`OM_Sim_1. EM_yr_2060`)
-plot_ssb(mod_list, incl_proj = TRUE)
-plot_stock_recruit(mod_list)
-plot_depletionSSB(mod_list, incl_proj = TRUE)
+
+#
+# EMs_from_OM_Sim_1 <- readRDS("check/EMs_from_OM_Sim_1.rds")
+# mod_list <- list(ss_run_dynamicTier3, ss_run_ricker, EMs_from_OM_Sim_1$OM, EMs_from_OM_Sim_1$EM$`OM_Sim_1. EM_yr_2060`)
+# plot_ssb(mod_list, incl_proj = TRUE)
+# plot_stock_recruit(mod_list)
+# plot_depletionSSB(mod_list, incl_proj = TRUE)
