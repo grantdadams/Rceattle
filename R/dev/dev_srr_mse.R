@@ -102,9 +102,8 @@ ss_run_dynamicTier3$quantities$R[1,1:10]
 
 
 # Update OM to have save HCR as EM to calculate performance metrics
-om <- ss_run_M
-om$data_list$fleet_control$proj_F_prop <- ss_run_M_Tier3$data_list$fleet_control$proj_F_prop
-em <- ss_run_M_Tier3
+om <- ss_run
+em <- ss_run_Tier3
 
 om <- Rceattle::fit_mod(
   data_list = om$data_list,

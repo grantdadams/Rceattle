@@ -96,7 +96,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   if(regenerate_past){
 
     # - Simulate index and comp data and updatae EM
-    sim_dat <- sim_mod(om, simulate = simulate_data)
+    sim_dat <- sim_mod(om, simulate = FALSE)
 
     em$data_list$srv_biom <- sim_dat$srv_biom
     em$data_list$comp_data <- sim_dat$comp_data
