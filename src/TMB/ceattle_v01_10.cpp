@@ -3253,7 +3253,7 @@ Type objective_function<Type>::operator() () {
       if(flt_type(srv) > 0){
         if(flt_yr <= endyr){
           if(srv_bio_hat(srv_ind) > 0){
-            jnll_comp(0, srv) -= dnorm(log(srv_biom_obs(srv_ind, 0)), log(srv_bio_hat(srv_ind)), srv_std_dev, true);
+            jnll_comp(0, srv) -= dnorm(log(srv_biom_obs(srv_ind, 0)), log(srv_bio_hat(srv_ind)) - square(srv_std_dev)/2.0, srv_std_dev, true);
 
             // Martin's
             // jnll_comp(0, srv)+= 0.5*square((log(srv_biom_obs(srv_ind, 0))-log(srv_bio_hat(srv_ind))+square(srv_std_dev)/2.0)/srv_std_dev);
@@ -3293,7 +3293,7 @@ Type objective_function<Type>::operator() () {
       if(flt_type(flt) == 1){
         if(flt_yr <= endyr){
           if(fsh_biom_obs(fsh_ind, 0) * fsh_bio_hat(fsh_ind) > 0){ //FIXME: dont like the fsh_bio_hat bit
-            jnll_comp(1, flt) -= dnorm(log(fsh_biom_obs(fsh_ind, 0)), log(fsh_bio_hat(fsh_ind)), fsh_std_dev, true) ;
+            jnll_comp(1, flt) -= dnorm(log(fsh_biom_obs(fsh_ind, 0)), log(fsh_bio_hat(fsh_ind)) - square(fsh_std_dev)/2.0, fsh_std_dev, true) ;
 
             // Martin's
             // jnll_comp(1, flt)+= 0.5*square((log(fsh_biom_obs(fsh_ind, 0))-log(fsh_bio_hat(fsh_ind)))/fsh_std_dev);
