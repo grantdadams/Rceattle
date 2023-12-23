@@ -102,8 +102,9 @@ ss_run_dynamicTier3$quantities$R[1,1:10]
 
 
 # Update OM to have save HCR as EM to calculate performance metrics
-om <- ss_run
-em <- ss_run_dynamicTier3
+om <- ss_run_M
+om$data_list$fleet_control$proj_F_prop <- ss_run_M_Tier3$data_list$fleet_control$proj_F_prop
+em <- ss_run_M_Tier3
 
 om <- Rceattle::fit_mod(
   data_list = om$data_list,
@@ -153,15 +154,15 @@ print(paste0("Running OM ",om, " and EM ", em))
 # Run MSE
 mse <- mse_run_parallel(om = om,
                         em = em,
-                        nsim = 2,
-                        start_sim = 2,
+                        nsim = 1,
+                        start_sim = 1,
                         seed = 666,
                         regenerate_seed = 666,
                         assessment_period = 1,
                         simulate_data = TRUE,
                         sample_rec = TRUE,
                         cap = NULL,
-                        dir = "check",
+                        dir = "checkGOA",
                         file = NULL,
                         regenerate_past = TRUE)
 
