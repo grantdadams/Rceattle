@@ -187,7 +187,6 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
                               suitMode = em$data_list$suitMode,
                               initMode = em$data_list$initMode,
                               loopnum = loopnum,
-                              initMode = em$data_list$initMode,
                               getsd = FALSE,
                               verbose = 0)
     }
