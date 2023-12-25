@@ -603,6 +603,7 @@ Type objective_function<Type>::operator() () {
   matrix<Type>  R_hat(nspp, nyrs); R_hat.setZero();                             // Expected recruitment given SR curve
   vector<Type>  R0(nspp); R0.setZero();                                             // Equilibrium recruitment at F = 0.
   vector<Type>  Rinit(nspp); Rinit.setZero();                                       // Equilibrium recruitment at F = Finit (non-equilibrium).
+  Type SrrAlpha = 0;
   matrix<Type>  R(nspp, nyrs); R.setZero();                                         // Estimated recruitment (n)
   vector<Type>  Steepness(nspp); Steepness.setZero();                               // Expected % of R0 at 20% SSB0.
   array<Type>   biomassByage(nspp, 2, max_age, nyrs); biomassByage.setZero();       // Estimated biomass-at-age (kg)
@@ -659,7 +660,6 @@ Type objective_function<Type>::operator() () {
   vector<Type>  Flimit = exp(ln_Flimit);                                            // Target F parameter on natural scale
   vector<Type>  Ftarget = exp(ln_Ftarget);                                          // Limit F parameter on natural scale
   vector<Type>  Finit = exp(ln_Finit);                                              // Initial F for non-equilibrium age-structure
-  matrix<Type>  proj_F(nspp, nyrs); proj_F.setZero();                               // Projected F using harvest control rule
   vector<Type>  srr_mult(beta_rec_pars.cols()); srr_mult.setZero();                 // Environmental design matrix mult
   vector<Type>  proj_F(nspp); proj_F.setZero();                                     // Projected F using harvest control rule
 
@@ -1429,7 +1429,6 @@ Type objective_function<Type>::operator() () {
           break;
 
         case 3: // Beverton-Holt with environmental impacts on alpha
-          // FIXME: include env effects
           srr_mult = env_index_srr.row(yr) * beta_rec_pars.row(sp);
           SrrAlpha = exp(rec_pars(sp, 1) + srr_mult.sum());
           R(sp, yr) = SrrAlpha * biomassSSB(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 2)) * biomassSSB(sp, yr-minage(sp)));
@@ -1862,6 +1861,7 @@ Type objective_function<Type>::operator() () {
           R(sp, yr) = exp(log(mean_rec(sp)) + rec_dev(sp, yr)); //  // Projections use mean R given bias in R0
         }
 
+        // - Mean rec and environment
         if(proj_mean_rec == 1 & srr_pred_fun < 2){
           srr_mult = env_index_srr.row(yr) * beta_rec_pars.row(sp);
           R(sp, yr) = exp(log(mean_rec(sp)) + rec_dev(sp, yr)) * exp(srr_mult.sum());
