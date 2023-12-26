@@ -30,13 +30,11 @@ mydata$fleet_control$proj_F_prop <- c(rep(1,3), rep(0,4))
 ss_run <- Rceattle::fit_mod(data_list = mydata,
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save
-                            estimateMode = 4, # Estimate
+                            estimateMode = 0, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
                             phase = "default",
                             verbose = 1)
-round(ss_run$quantities$jnll_comp, 3)
-plot_biomass(ss_run, add_ci = TRUE)
 
 plot_biomass(ss_run, add_ci = TRUE)
 
