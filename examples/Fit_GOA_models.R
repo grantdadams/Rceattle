@@ -3,6 +3,7 @@
 # Adams, G. D., Holsman, K. K., Barbeaux, S. J., Dorn, M. W., Ianelli, J. N., Spies, I., ... & Punt, A. E. (2022). An ensemble approach to understand predation mortality for groundfish in the Gulf of Alaska. Fisheries Research, 251, 106303.
 
 library(Rceattle)
+library(dplyr)
 
 ################################################
 # Data
