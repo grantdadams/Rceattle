@@ -27,6 +27,11 @@ build_hcr_map <- function(data_list, map, debug = FALSE){
   if(!debug){
     # - Dynamic HCR
     if(data_list$DynamicHCR){
+      if(data_list$HCR %in% c(1)){ # CMSY
+        warning("No dynamic CMSY")
+        map$mapList$ln_Ftarget <- 1:data_list$nspp
+      }
+
       if(data_list$HCR %in% c(2)){ # Fixed F - still have Flimit
         warning("No dynamic avg F")
         map$mapList$ln_Flimit <- 1:data_list$nspp
@@ -50,6 +55,9 @@ build_hcr_map <- function(data_list, map, debug = FALSE){
     }
     # --- Static BRPS - 1 value per species
     if(data_list$DynamicHCR == FALSE){
+      if(data_list$HCR == 1){ # CMSY
+        map$mapList$ln_Ftarget <- 1:data_list$nspp
+      }
       if(data_list$HCR == 2){ # Fixed F - still have Flimit
         map$mapList$ln_Flimit <- 1:data_list$nspp
       }

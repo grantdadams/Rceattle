@@ -1133,6 +1133,10 @@ Type objective_function<Type>::operator() () {
                   proj_F(sp) = 0;
                   break;
 
+                case 1: // CMSY
+                  proj_F(sp) = Ftarget(sp);
+                  break;
+
                 case 2: // Constant F
                   proj_F(sp) = Ftarget(sp);
                   break;
@@ -1720,6 +1724,10 @@ Type objective_function<Type>::operator() () {
           proj_F(sp) = 0;
           break;
 
+        case 1: // CMSY
+          proj_F(sp) = proj_F(sp);
+          break;
+
         case 2: // Constant F
           proj_F(sp) = proj_F(sp);
           break;
@@ -1769,6 +1777,10 @@ Type objective_function<Type>::operator() () {
         switch(HCR){
         case 0: // No fishing
           proj_F(sp) = 0;
+          break;
+
+        case 1: // CMSY
+          proj_F(sp) = proj_F(sp);
           break;
 
         case 2: // Constant F
@@ -3651,6 +3663,24 @@ Type objective_function<Type>::operator() () {
     // -- Single-species static reference points
     if(DynamicHCR == 0 & forecast == 1 & msmMode == 0){
 
+      // -- CMSY
+      if(HCR == 1){
+
+        // -- Loop through catch data
+        for(fsh_ind = 0; fsh_ind < fsh_biom_ctl.rows(); fsh_ind++){
+
+          flt = fsh_biom_ctl(fsh_ind, 0) - 1;
+          sp = fsh_biom_ctl(fsh_ind, 1) - 1;
+          flt_yr = fsh_biom_ctl(fsh_ind, 2);
+
+          // Add fishery data from terminal year
+          if(flt_type(flt) == 1){
+            if(flt_yr == projyr){
+              jnll_comp(13, sp)  -= fsh_bio_hat(fsh_ind);
+            }
+          }
+        }
+      }
 
       // -- Avg F (have F limit)
       if(HCR == 2){
@@ -3672,6 +3702,25 @@ Type objective_function<Type>::operator() () {
 
     // -- Single-species dynamic reference points
     if(DynamicHCR == 1 & forecast == 1 & msmMode == 0){
+
+      // -- CMSY
+      if(HCR == 1){
+
+        // -- Loop through catch data
+        for(fsh_ind = 0; fsh_ind < fsh_biom_ctl.rows(); fsh_ind++){
+
+          flt = fsh_biom_ctl(fsh_ind, 0) - 1;
+          sp = fsh_biom_ctl(fsh_ind, 1) - 1;
+          flt_yr = fsh_biom_ctl(fsh_ind, 2);
+
+          // Add fishery data from terminal year
+          if(flt_type(flt) == 1){
+            if(flt_yr == projyr){
+              jnll_comp(13, sp)  -= fsh_bio_hat(fsh_ind);
+            }
+          }
+        }
+      }
 
       // -- Avg F (have F limit)
       if(HCR == 2){
@@ -3695,6 +3744,25 @@ Type objective_function<Type>::operator() () {
 
     // -- Multi-species static reference points (all depletion based)
     if(forecast == 1 & msmMode > 0){
+
+      // -- CMSY
+      if(HCR == 1){
+
+        // -- Loop through catch data
+        for(fsh_ind = 0; fsh_ind < fsh_biom_ctl.rows(); fsh_ind++){
+
+          flt = fsh_biom_ctl(fsh_ind, 0) - 1;
+          sp = fsh_biom_ctl(fsh_ind, 1) - 1;
+          flt_yr = fsh_biom_ctl(fsh_ind, 2);
+
+          // Add fishery data from terminal year
+          if(flt_type(flt) == 1){
+            if(flt_yr == projyr){
+              jnll_comp(13, sp)  -= fsh_bio_hat(fsh_ind);
+            }
+          }
+        }
+      }
 
       // -- Avg F (have F limit)
       if(HCR == 2){

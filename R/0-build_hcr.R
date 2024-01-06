@@ -16,10 +16,9 @@
 ##'
 ##' \code{hcr = 0} No catch. Estimate the hindcast.
 ##'
-##' \code{hcr = 1} Constant catch set at \code{Ctarget}
+##' \code{hcr = 1} CMSY. Maximize catch across all species simultaneously.
 ##'
 ##' \code{hcr = 2} Constant input F set at \code{FsprTarget} for each species (vector or single F). SPR based Flimit can be specified via FsprLimit.
-##'
 ##'
 ##' \code{hcr = 3} F that achieves \code{FsprTarget}% of SSB0 in the end of the projection
 ##'
