@@ -189,7 +189,7 @@ plot_index <- function(Rceattle,
         axis(2,labels=TRUE,cex=0.8)
 
         # Horizontal line at end yr
-        abline(v = Rceattle[[length(Rceattle)]]$data_list$meanyr, lwd  = 2, col = "grey", lty = 2)
+        abline(v = Rceattle[[length(Rceattle)]]$data_list$endyr, lwd  = 2, col = "grey", lty = 2)
 
 
         # Index name
@@ -288,9 +288,9 @@ plot_catch <- function(Rceattle,
   if(incl_proj){
     Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
   }
-  ProjYears <- lapply(Rceattle, function(x) x$data_list$meanyr:x$data_list$projyr)
+  ProjYears <- lapply(Rceattle, function(x) x$data_list$endyr:x$data_list$projyr)
   Endyrs <- lapply(Rceattle, function(x) x$data_list$endyr)
-  meanyrs <- lapply(Rceattle, function(x) x$data_list$meanyr)
+  meanyrs <- lapply(Rceattle, function(x) x$data_list$srr_meanyr)
   fsh_list <- list()
   fsh_hat_list <- list()
   proj_fsh_hat_list <- list()
@@ -500,7 +500,7 @@ plot_catch <- function(Rceattle,
 
         # Horizontal line at end yr
         if(incl_proj){
-          abline(v = Rceattle[[length(Rceattle)]]$data_list$meanyr, lwd  = 2, col = "grey", lty = 2)
+          abline(v = Rceattle[[length(Rceattle)]]$data_list$endyr, lwd  = 2, col = "grey", lty = 2)
         }
 
         # Index name
