@@ -40,18 +40,18 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
 
 
 
-  # Slot 2 -- Total catch -- Fishery observer data
-  fsh_biom_lse = Rceattle$quantities$fsh_log_sd_hat
-
-  if (simulate) {
-    # Simulate
-    values <- exp(rnorm(length(dat_sim$fsh_biom$Catch), mean = log(Rceattle$quantities$fsh_bio_hat) - (fsh_biom_lse^2)/2, sd = fsh_biom_lse))
-  } else {
-    # simulate value
-    values <- Rceattle$quantities$fsh_bio_hat
-  }
-
-  dat_sim$fsh_biom$Catch = values
+  # # Slot 2 -- Total catch -- Fishery observer data
+  # fsh_biom_lse = Rceattle$quantities$fsh_log_sd_hat
+  #
+  # if (simulate) {
+  #   # Simulate
+  #   values <- exp(rnorm(length(dat_sim$fsh_biom$Catch), mean = log(Rceattle$quantities$fsh_bio_hat) - (fsh_biom_lse^2)/2, sd = fsh_biom_lse))
+  # } else {
+  #   # simulate value
+  #   values <- Rceattle$quantities$fsh_bio_hat
+  # }
+  #
+  # dat_sim$fsh_biom$Catch = values
 
 
   #TODO

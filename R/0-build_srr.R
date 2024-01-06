@@ -3,6 +3,7 @@
 ##' @param srr_fun Stock recruit function to be used for hindcast estimation of Rceattle (see below). Default = 0
 ##' @param srr_pred_fun stock recruit function for projection, reference points, and penalties to be used for Rceattle (see below) when \code{srr_fun == 0}. It treats treat the stock-recruit curve as an additional penalty onto the annualy estimated recruitment from the hindcast (sensu AMAK and Jim Ianelli's pollock model). If \code{srr_fun > 0} then \code{srr_pred_fun <- srr_fun} and no additional penalty is included.
 ##' @param proj_mean_rec Project the model using: 0 = mean recruitment (average R of hindcast) or 1 = SRR(omega, rec_devs)
+##' @param srr_meanyr Integer. The last year used to calculate mean recruitment, starting at \code{styr}. Defaults to $endyr$ in $data_list$. Used for MSE runs where mean recruitment is held at the value estimated from the years used to condition the OM, but F is estimated for years beyond those used to condition the OM to account for projected catch.
 ##' @param srr_est_mode Switch to determine estimation mode. 0 = fix alpha to prior mean, 1 = freely estimate alpha and beta, 2 = use lognormally distributed prior for alpha.
 ##' @param srr_prior_mean mean for normally distributed prior for stock-recruit parameter
 ##' @param srr_prior_sd Prior standard deviation for stock-recruit parameter
@@ -34,6 +35,7 @@
 build_srr <- function(srr_fun = 0,
                       srr_pred_fun = srr_fun,
                       proj_mean_rec = TRUE,
+                      srr_meanyr = NULL,
                       srr_est_mode = 1,
                       srr_prior_mean = 4,
                       srr_prior_sd = 1,
@@ -52,6 +54,7 @@ build_srr <- function(srr_fun = 0,
   list(srr_fun = srr_fun,
        srr_pred_fun = srr_pred_fun,
        proj_mean_rec = proj_mean_rec,
+       srr_meanyr = srr_meanyr,
        srr_est_mode = srr_est_mode,
        srr_prior_mean = srr_prior_mean,
        srr_prior_sd = srr_prior_sd,
