@@ -244,8 +244,8 @@ fit_mod <-
     data_list$QnormHCR = qnorm(data_list$Pstar, 0, data_list$Sigma)
 
     if(data_list$HCR == 2 & estimateMode == 2){estimateMode = 4} # If projecting under constant F, run parmeters through obj only
-    if(data_list$msmMode > 0 & !data_list$HCR %in% c(0, 2, 3, 6)){
-      warning("WARNING:: Only HCRs 2, 3, and 6 work in multi-species mode currently")
+    if(data_list$msmMode > 0 & !data_list$HCR %in% c(0, 1, 2, 3, 6)){
+      warning("WARNING:: Only HCRs 1, 2, 3, and 6 work in multi-species mode currently")
     }
 
 
@@ -582,10 +582,10 @@ fit_mod <-
     # STEP 10: Run HCR projections ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if(estimateMode %in% c(0,2,4)){
-      if(data_list$HCR > 2){
+      if(!data_list$HCR %in% c(0, 2)){ # - All HCRs except no F and fixed F
         data_list_reorganized$forecast <- TRUE # Turn BRP estimation on within likelihood
 
-        # - Single species mode
+        # * Single species mode ----
         if(msmMode == 0){
 
           # -- Update map in obs
@@ -615,7 +615,7 @@ fit_mod <-
         }
 
 
-        # - Multi-species mode
+        # * Multi-species mode ----
         if(msmMode > 0){
 
           # -- Update map in obs
@@ -680,6 +680,7 @@ fit_mod <-
           }
         }
 
+        # * Projection uncertainty ----
         # Updates the model with all hindcast and BRP parameters "turned on" to get out uncertainty estimates in the projection
         if(projection_uncertainty){
 

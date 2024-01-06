@@ -28,4 +28,12 @@ data_check <- function(data_list) {
   #   stop(paste0("Weight-at-age (wt) does not include all ages"))
   # }
 
+  # Check catch units are all the same if HCR is CMSY
+  if(data_list$HCR == 1){
+    if(length(unique(
+      data_list$fleet_control$Weight1_Numbers2[which(data_list$fleet_control$Fleet_type == 1)])) > 1
+    ){
+      stop("HCR == 1 (CMSY), but catch units are not the same")
+    }
+  }
 }
