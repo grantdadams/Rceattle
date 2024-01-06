@@ -43,7 +43,8 @@ retrospective <- function(Rceattle = NULL, peels = NULL) {
     data_list$endyr <- endyr - i
     nyrs <- (endyr - i) - styr + 1
 
-    # Adjust data
+
+    # * Adjust data ----
     data_list$srv_biom <- data_list$srv_biom %>%
       filter(Year <= data_list$endyr)
 
@@ -59,22 +60,25 @@ retrospective <- function(Rceattle = NULL, peels = NULL) {
     data_list$Pyrs <- data_list$Pyrs %>%
       filter(Year <= data_list$endyr)
 
-    # Adjust initial parameters
+
+    # * Adjust initial parameters ----
     inits <- Rceattle$estimated_params
     inits$rec_dev[, (nyrs + 1):nyrs_proj] <- 0
     inits$F_dev <- inits$F_dev[, 1:nyrs]
 
-    # Adjust parameter size
+
+    # * Adjust parameter size ----
     inits$ln_srv_q_dev <- inits$ln_srv_q_dev[,1:nyrs]
     inits$ln_sel_slp_dev <- inits$ln_sel_slp_dev[,,,1:nyrs]
     inits$sel_inf_dev <- inits$sel_inf_dev[,,,1:nyrs]
     inits$sel_coff_dev <- array(inits$sel_coff_dev[,,,1:nyrs], dim = c(dim(Rceattle$estimated_params$sel_coff_dev )[1:3], nyrs))
 
-    # Refit
+
+    # * Refit ----
     newmod <- suppressWarnings(
       Rceattle::fit_mod(
         data_list = data_list,
-        inits = NULL,
+        inits = inits,
         map =  NULL,
         bounds = NULL,
         file = NULL,
@@ -87,17 +91,33 @@ retrospective <- function(Rceattle = NULL, peels = NULL) {
                         Plimit = data_list$Plimit,
                         Alpha = data_list$Alpha,
                         Pstar = data_list$Pstar,
-                        Sigma = data_list$Sigma
+                        Sigma = data_list$Sigma,
+                        Fmult = data_list$Fmult
         ),
+        recFun = build_srr(srr_fun = data_list$srr_fun,
+                           srr_pred_fun = data_list$srr_pred_fun,
+                           proj_mean_rec = data_list$proj_mean_rec,
+                           srr_meanyr = data_list$endyr, # Update end year
+                           srr_est_mode  = data_list$srr_est_mode ,
+                           srr_prior_mean = data_list$srr_prior_mean,
+                           srr_prior_sd = data_list$srr_prior_sd,
+                           Bmsy_lim = data_list$Bmsy_lim,
+                           srr_env_indices = data_list$srr_env_indices),
+        M1Fun =     build_M1(M1_model= data_list$M1_model,
+                             updateM1 = FALSE,
+                             M1_use_prior = data_list$M1_use_prior,
+                             M2_use_prior = data_list$M2_use_prior,
+                             M1_prior_mean = data_list$M1_prior_mean,
+                             M1_prior_sd = data_list$M1_prior_sd),
         random_rec = data_list$random_rec,
         niter = data_list$niter,
         msmMode = data_list$msmMode,
         avgnMode = data_list$avgnMode,
         minNByage = data_list$minNByage,
         suitMode = data_list$suitMode,
+        suit_meanyr = data_list$endyr, # Update to endyr (before projection)
+        initMode = data_list$initMode,
         phase = "default",
-        meanyr = data_list$endyr, # Update end year
-        updateM1 = FALSE,
         getsd = FALSE,
         verbose = 0)
 
