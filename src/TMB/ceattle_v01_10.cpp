@@ -1957,7 +1957,7 @@ Type objective_function<Type>::operator() () {
             }
 
             // Hard constraint to reduce population collapse
-            // - Not using posfun here because not part of likelihood
+            // FIXME: change to posfun
             if(NByage(sp, sex, age, yr) < minNByage){
               NByage(sp, sex, age, yr) = minNByage;
             }
@@ -3659,28 +3659,46 @@ Type objective_function<Type>::operator() () {
 
 
   // Slot 13 -- Reference point penalties
-  for (sp = 0; sp < nspp; sp++) {
-    // -- Single-species static reference points
-    if(DynamicHCR == 0 & forecast == 1 & msmMode == 0){
+  // -- CMSY
+  Type CMSY = 0;
+  if((HCR == 1) & (forecast == 1)){
 
-      // -- CMSY
-      if(HCR == 1){
+    // --- Sum terminal catch across species
+    for (sp = 0; sp < nspp; sp++) {
 
-        // -- Loop through catch data
-        for(fsh_ind = 0; fsh_ind < fsh_biom_ctl.rows(); fsh_ind++){
+      // -- Loop through catch data
+      for(fsh_ind = 0; fsh_ind < fsh_biom_ctl.rows(); fsh_ind++){
 
-          flt = fsh_biom_ctl(fsh_ind, 0) - 1;
-          sp = fsh_biom_ctl(fsh_ind, 1) - 1;
-          flt_yr = fsh_biom_ctl(fsh_ind, 2);
+        flt = fsh_biom_ctl(fsh_ind, 0) - 1;
+        sp = fsh_biom_ctl(fsh_ind, 1) - 1;
+        flt_yr = fsh_biom_ctl(fsh_ind, 2);
 
-          // Add fishery data from terminal year
-          if(flt_type(flt) == 1){
-            if(flt_yr == projyr){
-              jnll_comp(13, sp)  -= fsh_bio_hat(fsh_ind);
-            }
+        // Add fishery data from terminal year
+        if(flt_type(flt) == 1){
+          if(flt_yr == projyr){
+            CMSY  += fsh_bio_hat(fsh_ind);
           }
         }
       }
+    }
+
+    jnll_comp(13, 0) = - square(CMSY/1000000); // CMSY is ll
+
+
+    // --- Add depletion constraint
+    for (sp = 0; sp < nspp; sp++) {
+      penalty = 0;
+      Type nothing_useful =  posfun( (depletionSSB(sp, nyrs-1) - Plimit(sp)), Type(0.0001), penalty);
+      jnll_comp(13, sp) += 500 * square(CMSY/1000) * penalty; // CMSY
+
+      //jnll_comp(13, sp) += 500 * square(CMSY/100000)*(1 - 1/(1 + exp(-200 * (depletionSSB(sp, nyrs-1) - Plimit(sp))))); // CMSY
+    }
+  }
+
+
+  for (sp = 0; sp < nspp; sp++) {
+    // -- Single-species static reference points
+    if(DynamicHCR == 0 & forecast == 1 & msmMode == 0){
 
       // -- Avg F (have F limit)
       if(HCR == 2){
@@ -3702,25 +3720,6 @@ Type objective_function<Type>::operator() () {
 
     // -- Single-species dynamic reference points
     if(DynamicHCR == 1 & forecast == 1 & msmMode == 0){
-
-      // -- CMSY
-      if(HCR == 1){
-
-        // -- Loop through catch data
-        for(fsh_ind = 0; fsh_ind < fsh_biom_ctl.rows(); fsh_ind++){
-
-          flt = fsh_biom_ctl(fsh_ind, 0) - 1;
-          sp = fsh_biom_ctl(fsh_ind, 1) - 1;
-          flt_yr = fsh_biom_ctl(fsh_ind, 2);
-
-          // Add fishery data from terminal year
-          if(flt_type(flt) == 1){
-            if(flt_yr == projyr){
-              jnll_comp(13, sp)  -= fsh_bio_hat(fsh_ind);
-            }
-          }
-        }
-      }
 
       // -- Avg F (have F limit)
       if(HCR == 2){
@@ -3744,25 +3743,6 @@ Type objective_function<Type>::operator() () {
 
     // -- Multi-species static reference points (all depletion based)
     if(forecast == 1 & msmMode > 0){
-
-      // -- CMSY
-      if(HCR == 1){
-
-        // -- Loop through catch data
-        for(fsh_ind = 0; fsh_ind < fsh_biom_ctl.rows(); fsh_ind++){
-
-          flt = fsh_biom_ctl(fsh_ind, 0) - 1;
-          sp = fsh_biom_ctl(fsh_ind, 1) - 1;
-          flt_yr = fsh_biom_ctl(fsh_ind, 2);
-
-          // Add fishery data from terminal year
-          if(flt_type(flt) == 1){
-            if(flt_yr == projyr){
-              jnll_comp(13, sp)  -= fsh_bio_hat(fsh_ind);
-            }
-          }
-        }
-      }
 
       // -- Avg F (have F limit)
       if(HCR == 2){
