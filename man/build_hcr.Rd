@@ -14,7 +14,8 @@ build_hcr(
   Alpha = 0.05,
   Pstar = 0.45,
   Sigma = 0.5,
-  Fmult = 1
+  Fmult = 1,
+  HCRorder = 1
 )
 }
 \arguments{
@@ -35,6 +36,8 @@ build_hcr(
 \item{Pstar}{Quantile used for uncertainty buffer given \code{FsprLimit} and \code{Sigma}}
 
 \item{Sigma}{Standard deviation used for normally distributed uncertainty buffer given \code{FsprLimit} and \code{Pstar}}
+
+\item{HCRorder}{for multi-species models, the order in which to project fishing (e.g. predators first, then prey)}
 
 \item{Ctarget}{Target catch (mt)}
 }

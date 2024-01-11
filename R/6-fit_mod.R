@@ -241,6 +241,7 @@ fit_mod <-
     data_list$Pstar = extend_length(HCR$Pstar)
     data_list$Sigma = extend_length(HCR$Sigma)
     data_list$Fmult = extend_length(HCR$Fmult)
+    data_list$HCRorder = extend_length(HCR$HCRorder)
     data_list$QnormHCR = qnorm(data_list$Pstar, 0, data_list$Sigma)
 
     if(data_list$HCR == 2 & estimateMode == 2){estimateMode = 4} # If projecting under constant F, run parmeters through obj only
@@ -618,12 +619,37 @@ fit_mod <-
         # * Multi-species mode ----
         if(msmMode > 0){
 
-          # -- Update map in obs
-          hcr_map <- build_hcr_map(data_list, map, debug = estimateMode > 3)
-          if(sum(as.numeric(unlist(hcr_map$mapFactor)), na.rm = TRUE) == 0){stop("HCR map of length 0: all NAs")}
-
           # -- Get quantities
           if(estimateMode == 2){ # Build obj if we havent done so already
+            obj = TMB::MakeADFun(
+              data_list_reorganized,
+              parameters = last_par,
+              DLL = TMBfilename,
+              map = map$mapFactor,
+              random = random_vars,
+              silent = verbose != 2
+            )
+          }
+
+          # Loop across species orders
+          for(HCRiter in 1:max(data_list$HCRorder)){
+
+            # -- Update map in obs
+            hcr_map <- build_hcr_map(data_list, map, debug = estimateMode > 3, all_params_on = FALSE, HCRiter = HCRiter)
+            if(sum(as.numeric(unlist(hcr_map$mapFactor)), na.rm = TRUE) == 0){stop("HCR map of length 0: all NAs")}
+
+            # -- Get SB0: SSB when model is projected forward under no fishing
+            params_on <- c(1:data_list$nspp)[which(data_list$HCRorder == HCRiter)]
+            quantities <- obj$report(obj$env$last.par.best)
+            SB0 <- quantities$biomassSSB[, ncol(quantities$biomassSSB)]
+            B0 <- quantities$biomass[, ncol(quantities$biomass)]
+            data_list_reorganized$MSSB0[params_on] <- SB0[params_on]
+            data_list_reorganized$MSB0[params_on] <- B0[params_on]
+
+            # -- Set HCR back to original
+            data_list_reorganized$HCR <- data_list$HCR
+
+            # --- Update model object for HCR
             obj = TMB::MakeADFun(
               data_list_reorganized,
               parameters = last_par,
@@ -632,39 +658,19 @@ fit_mod <-
               random = random_vars,
               silent = verbose != 2
             )
+
+            # -- Optimize
+            opt = Rceattle::fit_tmb(obj = obj,
+                                    fn=obj$fn,
+                                    gr=obj$gr,
+                                    startpar=obj$par,
+                                    loopnum = loopnum,
+                                    getsd = getsd,
+                                    control = control,
+                                    getJointPrecision = FALSE,
+                                    quiet = verbose < 2,
+            )
           }
-          quantities <- obj$report(obj$env$last.par.best)
-
-          # -- Get SB0: SSB when model is projected forward under no fishing
-          SB0 <- quantities$biomassSSB[, ncol(quantities$biomassSSB)]
-          B0 <- quantities$biomass[, ncol(quantities$biomass)]
-          data_list_reorganized$MSSB0 <- SB0
-          data_list_reorganized$MSB0 <- B0
-
-          # -- Set HCR back to original
-          data_list_reorganized$HCR <- data_list$HCR
-
-          # --- Update model object for HCR
-          obj = TMB::MakeADFun(
-            data_list_reorganized,
-            parameters = last_par,
-            DLL = TMBfilename,
-            map = hcr_map$mapFactor,
-            random = random_vars,
-            silent = verbose != 2
-          )
-
-          # -- Optimize
-          opt = Rceattle::fit_tmb(obj = obj,
-                                  fn=obj$fn,
-                                  gr=obj$gr,
-                                  startpar=obj$par,
-                                  loopnum = loopnum,
-                                  getsd = getsd,
-                                  control = control,
-                                  getJointPrecision = FALSE,
-                                  quiet = verbose < 2,
-          )
         }
 
         if(verbose > 0) {message("Step ",step, ": Projections complete")}
@@ -685,7 +691,7 @@ fit_mod <-
         if(projection_uncertainty){
 
           # -- Update both map in to have BRP and hindcast parameters on
-          hcr_map_proj <- build_hcr_map_projection(data_list, map, debug = estimateMode > 3)
+          hcr_map_proj <- build_hcr_map(data_list, map, debug = estimateMode > 3, all_params_on = TRUE)
           if(sum(as.numeric(unlist(hcr_map_proj$mapFactor)), na.rm = TRUE) == 0){stop("HCR projection map of length 0: all NAs")}
 
           # --- Update model object with BRP and hindcast parameters turned for BRP and hindcast

@@ -4,12 +4,20 @@
 \alias{build_hcr_map}
 \title{Function to construct the TMB map argument for CEATTLE for projecting under alternative harvest control rules}
 \usage{
-build_hcr_map(data_list, map, debug = FALSE)
+build_hcr_map(
+  data_list,
+  map,
+  debug = FALSE,
+  all_params_on = FALSE,
+  HCRiter = 1
+)
 }
 \arguments{
 \item{data_list}{a data_list created from \code{\link{build_dat}}.}
 
 \item{map}{a map object created from \code{\link{build_map}}.}
+
+\item{HCRiter}{for multi-species models, the order in which to project fishing (e.g. predators first, then prey)}
 
 \item{TRUE/FALSE}{map out all parameters}
 }

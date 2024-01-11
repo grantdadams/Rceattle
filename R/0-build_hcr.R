@@ -10,6 +10,7 @@
 ##' @param Alpha Parameter used in NPFMC Tier 3 HCR
 ##' @param Pstar Quantile used for uncertainty buffer given \code{FsprLimit} and \code{Sigma}
 ##' @param Sigma Standard deviation used for normally distributed uncertainty buffer given \code{FsprLimit} and \code{Pstar}
+##' @param HCRorder for multi-species models, the order in which to project fishing (e.g. predators first, then prey)
 ##' @details
 ##'
 ##' **Harvest control rule formulations currently implemented in Rceattle:**
@@ -63,7 +64,7 @@
 ##' @return A \code{list} containing the harvest control rule and associated biological reference points
 ##' @export
 ##'
-build_hcr <- function(HCR = 0, DynamicHCR = FALSE, FsprTarget = 0.40, FsprLimit = 0.35, Ptarget = 0.4, Plimit = 0.0, Alpha = 0.05, Pstar = 0.45, Sigma = 0.5, Fmult = 1) {
+build_hcr <- function(HCR = 0, DynamicHCR = FALSE, FsprTarget = 0.40, FsprLimit = 0.35, Ptarget = 0.4, Plimit = 0.0, Alpha = 0.05, Pstar = 0.45, Sigma = 0.5, Fmult = 1, HCRorder = 1) {
   if(0 %in% Alpha & HCR == 5){stop(paste0("Alpha = 0 for Tier 3 HCR, divide by zero error"))}
-  list(HCR = HCR, DynamicHCR = DynamicHCR, FsprTarget = FsprTarget, FsprLimit = FsprLimit, Ptarget = Ptarget, Plimit = Plimit, Alpha = Alpha, Pstar = Pstar, Sigma = Sigma, Fmult = Fmult)
+  list(HCR = HCR, DynamicHCR = DynamicHCR, FsprTarget = FsprTarget, FsprLimit = FsprLimit, Ptarget = Ptarget, Plimit = Plimit, Alpha = Alpha, Pstar = Pstar, Sigma = Sigma, Fmult = Fmult, HCRorder = HCRorder)
 }
