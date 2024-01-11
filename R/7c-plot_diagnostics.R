@@ -262,6 +262,7 @@ plot_catch <- function(Rceattle,
                        height=NULL,
                        alpha = 0.4,
                        ymax = NULL,
+                       maxyr = NULL,
                        mse = FALSE){
 
   # Convert mse object to Rceattle list
@@ -288,7 +289,10 @@ plot_catch <- function(Rceattle,
   if(incl_proj){
     Years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
   }
-  ProjYears <- lapply(Rceattle, function(x) x$data_list$endyr:x$data_list$projyr)
+  if(!is.null(maxyr)){
+    Years <- lapply(Rceattle, function(x) x$data_list$styr:min(c(maxyr, x$data_list$projyr)))
+  }
+  ProjYears <- lapply(Rceattle, function(x) x$data_list$meanyr:x$data_list$projyr)
   Endyrs <- lapply(Rceattle, function(x) x$data_list$endyr)
   meanyrs <- lapply(Rceattle, function(x) x$data_list$srr_meanyr)
   fsh_list <- list()
@@ -333,7 +337,7 @@ plot_catch <- function(Rceattle,
 
   # Plot
   minyr <- min(unlist(Years), na.rm = TRUE)
-  maxyr <- max(unlist(Years), na.rm = TRUE)
+  if(is.null(maxyr)){maxyr <- max((sapply(Years, max)))}
   nyrs_vec <- sapply(Years, length)
   nyrs <- max(nyrs_vec)
 

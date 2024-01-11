@@ -102,6 +102,9 @@ plot_biomass <- function(Rceattle,
   if(incl_proj){
     years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
   }
+  if(!is.null(maxyr)){
+    years <- lapply(Rceattle, function(x) x$data_list$styr:min(c(maxyr, x$data_list$projyr)))
+  }
 
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
   nyrs_vec <- sapply(years, length)
@@ -446,6 +449,9 @@ plot_recruitment <- function(Rceattle,
   years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
   if(incl_proj){
     years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
+  }
+  if(!is.null(maxyr)){
+    years <- lapply(Rceattle, function(x) x$data_list$styr:min(c(maxyr, x$data_list$projyr)))
   }
 
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
@@ -1411,6 +1417,9 @@ plot_ssb <- function(Rceattle,
   years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
   if(incl_proj){
     years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
+  }
+  if(!is.null(maxyr)){
+    years <- lapply(Rceattle, function(x) x$data_list$styr:min(c(maxyr, x$data_list$projyr)))
   }
 
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
@@ -2720,6 +2729,9 @@ plot_depletionSSB <- function(Rceattle,
   if(incl_proj){
     years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
   }
+  if(!is.null(maxyr)){
+    years <- lapply(Rceattle, function(x) x$data_list$styr:min(c(maxyr, x$data_list$projyr)))
+  }
 
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
   nyrs_vec <- sapply(years, length)
@@ -3047,6 +3059,9 @@ plot_depletion <- function(Rceattle,
   years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
   if(incl_proj){
     years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
+  }
+  if(!is.null(maxyr)){
+    years <- lapply(Rceattle, function(x) x$data_list$styr:min(c(maxyr, x$data_list$projyr)))
   }
 
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
