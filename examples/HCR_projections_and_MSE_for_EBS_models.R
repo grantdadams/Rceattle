@@ -1,7 +1,7 @@
 library(Rceattle)
 
 ################################################
-# Data
+# Data ----
 ################################################
 # Example
 # To run the 2017 single species assessment for the Bering Sea, a data file must first be loaded:
@@ -17,7 +17,7 @@ mydata <- Rceattle::read_data( file = "BS2017SS.xlsx")
 
 
 ################################################
-# Estimation
+# Estimation ----
 ################################################
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
 mydata$fleet_control$proj_F_prop <-rep(1,7)
@@ -48,6 +48,7 @@ ss_run_M <- Rceattle::fit_mod(data_list = mydata_M,
 data("BS2017MS") # Note: the only difference is the residual mortality (M1_base) is lower
 BS2017MS$est_M1 <- c(1,1,1) # Estimate residual M
 BS2017MS$projyr <- 2060
+BS2017MS$fleet_control$proj_F_prop <-rep(1,7)
 ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
                             inits = ss_run_M$estimated_params, # Initial parameters from single species ests
                             file = NULL, # Don't save
@@ -68,7 +69,77 @@ plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE)
 
 
 ################################################
-# Alternative harvest control rules
+# Multi-species harvest control rules ----
+################################################
+# -- F that acheives 40% of SB0, where SB0 is derived from projecting all species simultaneously under no fishing
+ms_run_fb40 <- Rceattle::fit_mod(data_list = BS2017MS,
+                                 inits = ss_run_M$estimated_params, # Initial parameters from single species ests
+                                 file = NULL, # Don't save
+                                 estimateMode = 0, # Estimate hindcast only
+                                 niter = 3, # 10 iterations around population and predation dynamics
+                                 random_rec = FALSE, # No random recruitment
+                                 HCR = build_hcr(HCR = 3, # Constant F HCR
+                                                 DynamicHCR = FALSE, # Use dynamic reference points
+                                                 FsprTarget = 0.4), # F that achieves 40% SB0
+                                 msmMode = 1, # MSVPA based
+                                 suitMode = 0, # empirical suitability
+                                 verbose = 1)
+
+
+# -- F that acheives 40% of SB0, where SB0 is derived from first projecting arrowtooth and cod under no fishing, then projecting pollock under no fishing and cod/arrowtooth at SB40.
+ms_run_fb40iter <- Rceattle::fit_mod(data_list = BS2017MS,
+                                     inits = ss_run_M$estimated_params, # Initial parameters from single species ests
+                                     file = NULL, # Don't save
+                                     estimateMode = 0, # Estimate hindcast only
+                                     niter = 3, # 10 iterations around population and predation dynamics
+                                     random_rec = FALSE, # No random recruitment
+                                     HCR = build_hcr(HCR = 3, # Constant F HCR
+                                                     DynamicHCR = FALSE, # Use dynamic reference points
+                                                     FsprTarget = 0.4,
+                                                     HCRorder = c(2,1,1)), # F that achieves 40% SB0
+                                     msmMode = 1, # MSVPA based
+                                     suitMode = 0, # empirical suitability
+                                     verbose = 1)
+
+
+# -- Multi-species CMSY
+ms_run_cmsy <- Rceattle::fit_mod(data_list = BS2017MS,
+                                     inits = ss_run_M$estimated_params, # Initial parameters from single species ests
+                                     file = NULL, # Don't save
+                                     estimateMode = 0, # Estimate hindcast only
+                                     niter = 3, # 10 iterations around population and predation dynamics
+                                     random_rec = FALSE, # No random recruitment
+                                     HCR = build_hcr(HCR = 1),
+                                     msmMode = 1, # MSVPA based
+                                     suitMode = 0, # empirical suitability
+                                     verbose = 1)
+
+# -- Multi-species CMSY, constrained so that species don't fall below 20% SB0
+# -- SB0 is derived from projecting all species simultaneously under no fishing
+ms_run_concmsy <- Rceattle::fit_mod(data_list = BS2017MS,
+                                 inits = ss_run_M$estimated_params, # Initial parameters from single species ests
+                                 file = NULL, # Don't save
+                                 estimateMode = 0, # Estimate hindcast only
+                                 niter = 3, # 10 iterations around population and predation dynamics
+                                 random_rec = FALSE, # No random recruitment
+                                 HCR = build_hcr(HCR = 1,
+                                                 Plimit = 0.2),
+                                 msmMode = 1, # MSVPA based
+                                 suitMode = 0, # empirical suitability
+                                 verbose = 1)
+
+
+# -- Plot
+mod_list <- list(ms_run_fb40, ms_run_fb40iter, ms_run_cmsy, ms_run_concmsy)
+model_names <- c("F40","F40 - iter", "MS-CMSY", "Constrained CMSY")
+plot_biomass(mod_list, model_names = model_names, incl_proj = TRUE)
+plot_ssb(mod_list, model_names = model_names, incl_proj = TRUE)
+plot_recruitment(mod_list, model_names = model_names, incl_proj = TRUE)
+plot_catch(mod_list, model_names = model_names, incl_proj = TRUE)
+
+
+################################################
+# Single species harvest control rules ----
 ################################################
 # -- Constant F as a percentage of SB0
 ss_run_fb0 <- Rceattle::fit_mod(data_list = mydata,
@@ -205,7 +276,7 @@ plot_biomass(dynamic_mod_list, model_names = dynamic_model_names, incl_proj = TR
 plot_ssb(dynamic_mod_list, model_names = dynamic_model_names, incl_proj = TRUE)
 
 ################################################
-# Management strategy evaluation
+# Management strategy evaluation ----
 ################################################
 # -- No F
 # - MS-OM: SS-EM No F
