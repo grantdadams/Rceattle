@@ -450,13 +450,11 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
         map_list$sel_coff_dev[flt, , mapped_ages,]  <- NA
       }
 
-      # -- Map out ages <= Amin
+      # -- Map out ages <= Age first selected
       if(!is.na(data_list$fleet_control$Age_first_selected[i])){
-        if(data_list$minage[spp] < data_list$fleet_control$Age_first_selected[i]){
-          mapped_ages <- (data_list$minage[spp]:data_list$fleet_control$Age_first_selected[i])- data_list$minage[spp]
-          map_list$sel_coff[flt, , mapped_ages]  <- NA
-          map_list$sel_coff_dev[flt, , mapped_ages,]  <- NA
-        }
+        mapped_ages <- (data_list$minage[spp]:data_list$fleet_control$Age_first_selected[i])- data_list$minage[spp] + 1
+        map_list$sel_coff[flt, , mapped_ages]  <- NA
+        map_list$sel_coff_dev[flt, , mapped_ages,]  <- NA
       }
 
       # -- Map out years where comp data do not exist (set to average selectivity)

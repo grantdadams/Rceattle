@@ -3472,14 +3472,16 @@ Type objective_function<Type>::operator() () {
   matrix<Type> sel_inf_dev_ll(n_flt, nyrs_hind);sel_inf_dev_ll.setZero();
   for(flt = 0; flt < n_flt; flt++){ // Loop around surveys
     jnll_comp(4, flt) = 0;
+    jnll_comp(5, flt) = 0;
     sp = flt_spp(flt);
 
+    // Ianelli non-parametic selectivity penalties
     if(flt_type(flt) > 0){
       if (flt_sel_type(flt) == 2) {
 
         for(sex = 0; sex < nsex(sp); sex++){
-          for (age = 0; age < (nages(sp) - 1); age++) {
-            if ( sel(flt, sex, age, 0) > sel(flt, sex, age + 1, 0)) {
+          for(age = 0; age < (nages(sp) - 1); age++) {
+            if( sel(flt, sex, age, 0) > sel(flt, sex, age + 1, 0)) {
               jnll_comp(4, flt) += sel_curve_pen(flt, 0) * pow( log(sel(flt, sex, age, 0) / sel(flt, sex, age + 1, 0) ), 2);
             }
           }
@@ -3992,6 +3994,7 @@ Type objective_function<Type>::operator() () {
   REPORT( suit_other );
   REPORT( stom_div_bio2 );
   REPORT( diet_prop_weight );
+  REPORT( diet_prop_weight_hat );
   REPORT( avail_food );
   REPORT( other_food_diet_prop_weight );
   REPORT( M1 );
