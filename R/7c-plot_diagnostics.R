@@ -337,7 +337,7 @@ plot_catch <- function(Rceattle,
 
   # Plot
   minyr <- min(unlist(Years), na.rm = TRUE)
-  if(is.null(maxyr)){maxyr <- max((sapply(years, max)))}
+  if(is.null(maxyr)){maxyr <- max((sapply(Years, max)))}
   nyrs_vec <- sapply(Years, length)
   nyrs <- max(nyrs_vec)
 
