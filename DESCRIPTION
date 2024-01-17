@@ -14,7 +14,6 @@ LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.2.3
 Imports: 
-    dplyr,
     ggplot2,
     MASS,
     oce,
@@ -36,4 +35,5 @@ Suggests:
     knitr
 VignetteBuilder: knitr
 Depends: 
+    dplyr,
     R (>= 2.10)

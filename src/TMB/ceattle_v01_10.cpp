@@ -3893,7 +3893,7 @@ Type objective_function<Type>::operator() () {
   REPORT( suit_other );
   REPORT( stom_div_bio2 );
   REPORT( diet_prop_weight );
-  REPORT( diet_prop_weight_hat );
+  //REPORT( diet_prop_weight_hat );
   REPORT( avail_food );
   REPORT( other_food_diet_prop_weight );
   REPORT( M1 );
