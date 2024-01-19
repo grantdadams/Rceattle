@@ -67,7 +67,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   nselages_em <- max(em$data_list$fleet_control$Nselages, na.rm = TRUE)
 
   # - Assessment period
-  assess_yrs <- seq(from = em$data_list$endyr + assessment_period, to = em$data_list$projyr,  by = assessment_period)
+  assess_yrs <- seq(from = min(c(om$data_list$endyr,em$data_list$endyr)) + assessment_period, to = em$data_list$projyr,  by = assessment_period)
 
   # - Data sampling period
   if(length(sampling_period)==1){
