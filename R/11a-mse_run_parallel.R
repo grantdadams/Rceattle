@@ -60,8 +60,11 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   # - Years for simulations
   hind_yrs <- (em$data_list$styr) : em$data_list$endyr
   hind_nyrs <- length(hind_yrs)
-  proj_yrs <- (em$data_list$endyr + 1) : em$data_list$projyr
-  proj_nyrs <- length(proj_yrs)
+  om_proj_yrs <- (om$data_list$endyr + 1) : om$data_list$projyr
+  om_proj_nyrs <- length(om_proj_yrs)
+
+  em_proj_yrs <- (em$data_list$endyr + 1) : em$data_list$projyr
+  em_proj_nyrs <- length(em_proj_yrs)
   nflts = nrow(om$data_list$fleet_control)
   nselages_om <- max(om$data_list$fleet_control$Nselages, na.rm = TRUE)
   nselages_em <- max(em$data_list$fleet_control$Nselages, na.rm = TRUE)
@@ -204,8 +207,8 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   # -- srv_biom
   proj_srv <- om$data_list$srv_biom %>%
     group_by(Fleet_code) %>%
-    slice(rep(n(),  proj_nyrs)) %>%
-    mutate(Year = -proj_yrs)
+    slice(rep(n(),  om_proj_nyrs)) %>%
+    mutate(Year = -om_proj_yrs)
   proj_srv$Log_sd <- proj_srv$Log_sd * 1/fut_sample
   om$data_list$srv_biom  <- rbind(om$data_list$srv_biom, proj_srv)
   om$data_list$srv_biom <- dplyr::arrange(om$data_list$srv_biom, Fleet_code, abs(Year))
@@ -214,9 +217,9 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   if(nrow(om$data_list$NByageFixed) > 0){
     proj_nbyage <- om$data_list$NByageFixed %>%
       group_by(Species, Sex) %>%
-      slice(rep(n(),  proj_nyrs)) %>%
-      mutate(Year = proj_yrs)
-    proj_nbyage <- proj_nbyage[which(proj_yrs %!in% om$data_list$NByageFixed$Year),] # Subset rows already forcasted
+      slice(rep(n(),  om_proj_nyrs)) %>%
+      mutate(Year = om_proj_yrs)
+    proj_nbyage <- proj_nbyage[which(om_proj_yrs %!in% om$data_list$NByageFixed$Year),] # Subset rows already forcasted
     om$data_list$NByageFixed  <- rbind(om$data_list$NByageFixed, proj_nbyage)
     om$data_list$NByageFixed <- dplyr::arrange(om$data_list$NByageFixed, Species, Year)
   }
@@ -224,8 +227,8 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   # -- comp_data
   proj_comp <- om$data_list$comp_data %>%
     group_by(Fleet_code, Sex) %>%
-    slice(rep(n(),  proj_nyrs)) %>%
-    mutate(Year = -proj_yrs)
+    slice(rep(n(),  om_proj_nyrs)) %>%
+    mutate(Year = -om_proj_yrs)
   proj_comp$Sample_size <- proj_comp$Sample_size * fut_sample # Adjust future sampling effort
   om$data_list$comp_data  <- rbind(om$data_list$comp_data, proj_comp)
   om$data_list$comp_data <- dplyr::arrange(om$data_list$comp_data, Fleet_code, abs(Year))
@@ -234,8 +237,8 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   if(nrow(om$data_list$emp_sel) > 0){
     proj_emp_sel <- om$data_list$emp_sel %>%
       group_by(Fleet_code, Sex) %>%
-      slice(rep(n(),  proj_nyrs)) %>%
-      mutate(Year = proj_yrs)
+      slice(rep(n(),  om_proj_nyrs)) %>%
+      mutate(Year = om_proj_yrs)
     om$data_list$emp_sel  <- rbind(om$data_list$emp_sel, proj_emp_sel)
     om$data_list$emp_sel <- dplyr::arrange(om$data_list$emp_sel, Fleet_code, Year)
   }
@@ -244,16 +247,16 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   #FIXME ignrores forecasted growth
   proj_wt <- om$data_list$wt %>%
     group_by(Wt_index , Sex) %>%
-    slice(rep(n(),  proj_nyrs)) %>%
-    mutate(Year = proj_yrs)
+    slice(rep(n(),  om_proj_nyrs)) %>%
+    mutate(Year = om_proj_yrs)
   om$data_list$wt  <- rbind(om$data_list$wt, proj_wt)
   om$data_list$wt <- dplyr::arrange(om$data_list$wt, Wt_index, Year)
 
   # -- Pyrs
   proj_Pyrs <- om$data_list$Pyrs %>%
     group_by(Species, Sex) %>%
-    slice(rep(n(),  proj_nyrs)) %>%
-    mutate(Year = proj_yrs)
+    slice(rep(n(),  om_proj_nyrs)) %>%
+    mutate(Year = om_proj_yrs)
   om$data_list$Pyrs  <- rbind(om$data_list$Pyrs, proj_Pyrs)
   om$data_list$Pyrs <- dplyr::arrange(om$data_list$Pyrs, Species, Year)
 
@@ -265,24 +268,24 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   # -- EM emp_sel - Use terminal year
   proj_emp_sel <- em$data_list$emp_sel %>%
     group_by(Fleet_code, Sex) %>%
-    slice(rep(n(),  proj_nyrs)) %>%
-    mutate(Year = proj_yrs)
+    slice(rep(n(),  em_proj_nyrs)) %>%
+    mutate(Year = em_proj_yrs)
   em$data_list$emp_sel  <- rbind(em$data_list$emp_sel, proj_emp_sel)
   em$data_list$emp_sel <- dplyr::arrange(em$data_list$emp_sel, Fleet_code, Year)
 
   # -- EM wt
   proj_wt <- em$data_list$wt %>%
     group_by(Wt_index , Sex) %>%
-    slice(rep(n(),  proj_nyrs)) %>%
-    mutate(Year = proj_yrs)
+    slice(rep(n(),  em_proj_nyrs)) %>%
+    mutate(Year = em_proj_yrs)
   em$data_list$wt  <- rbind(em$data_list$wt, proj_wt)
   em$data_list$wt <- dplyr::arrange(em$data_list$wt, Wt_index, Year)
 
   # -- EM Pyrs
   proj_Pyrs <- em$data_list$Pyrs %>%
     group_by(Species, Sex) %>%
-    slice(rep(n(),  proj_nyrs)) %>%
-    mutate(Year = proj_yrs)
+    slice(rep(n(),  em_proj_nyrs)) %>%
+    mutate(Year = em_proj_yrs)
   em$data_list$Pyrs  <- rbind(em$data_list$Pyrs, proj_Pyrs)
   em$data_list$Pyrs <- dplyr::arrange(em$data_list$Pyrs, Species, Year)
 
@@ -314,14 +317,14 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
     #FIXME - update non-sample rec for stock recruit relationship
     for(sp in 1:om_use$data_list$nspp){
       if(sample_rec){ # Sample devs from hindcast
-        rec_dev <- sample(x = om_use$estimated_params$rec_dev[sp, 1:hind_nyrs], size = proj_nyrs, replace = TRUE) + log((1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs)) # - Scale mean rec for rec trend
+        rec_dev <- sample(x = om_use$estimated_params$rec_dev[sp, 1:hind_nyrs], size = om_proj_nyrs, replace = TRUE) + log((1+(rec_trend[sp]/om_proj_nyrs) * 1:om_proj_nyrs)) # - Scale mean rec for rec trend
       } else{ # Set to mean rec otherwise
-        rec_dev <- log(mean(om_use$quantities$R[sp,1:hind_nyrs]) * (1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs))  - log(om_use$quantities$R0[sp]) # - Scale mean rec for rec trend
+        rec_dev <- log(mean(om_use$quantities$R[sp,1:hind_nyrs]) * (1+(rec_trend[sp]/om_proj_nyrs) * 1:om_proj_nyrs))  - log(om_use$quantities$R0[sp]) # - Scale mean rec for rec trend
       }
 
       # - Update OM with devs
-      om_use$estimated_params$rec_dev[sp,proj_yrs - om_use$data_list$styr + 1] <- replace(
-        om_use$estimated_params$rec_dev[sp,proj_yrs - om_use$data_list$styr + 1],
+      om_use$estimated_params$rec_dev[sp,om_proj_yrs - om_use$data_list$styr + 1] <- replace(
+        om_use$estimated_params$rec_dev[sp,om_proj_yrs - om_use$data_list$styr + 1],
         values =  rec_dev)
     }
 
@@ -332,7 +335,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       # ------------------------------------------------------------
       # 1. GET RECOMMENDED TAC FROM EM-HCR ----
       # ------------------------------------------------------------
-      new_years <- proj_yrs[which(proj_yrs <= assess_yrs[k] & proj_yrs > om_use$data_list$endyr)]
+      new_years <- om_proj_yrs[which(om_proj_yrs <= assess_yrs[k] & om_proj_yrs > om_use$data_list$endyr)]
 
       # - Get projected catch data from EM
       new_catch_data <- em_use$data_list$fsh_biom
