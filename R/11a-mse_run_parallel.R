@@ -13,7 +13,7 @@
 #' @param sample_rec Include resampled recruitment deviates from the"hindcast" in the projection of the OM. Resampled deviates are used rather than sampling from N(0, sigmaR) because initial deviates bias R0 low. If false, uses mean of recruitment deviates.
 #' @param rec_trend Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier \code{mean rec * (1 + (rec_trend/projection years) * 1:projection years)}. Can be of length 1 or of length nspp. If length 1, all species get the same trend.
 #' @param fut_sample future sampling effort relative to last year.  \code{ Log_sd * 1 / fut_sample} for index and \code{ Sample_size * fut_sample} for comps
-#' @param cap A cap on the catch in the projection. Can be a single number or vector. Default = NULL
+#' @param cap A cap on the catch in the projection. Can be a single number or vector of length nspp. Default = NULL
 #' @param loopnum number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})
 #' @param file (Optional) Filename where each OM simulation with EMs will be saved. If NULL, no files are saved.
 #' @param dir (Optional) Directory where each OM simulation is saved
@@ -343,7 +343,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       new_catch_data$Catch[dat_fill_ind] <- em_use$quantities$fsh_bio_hat[dat_fill_ind]
 
       if(!is.null(cap)){
-        new_catch_data$Catch[dat_fill_ind] <- new_catch_data$Catch[dat_fill_ind] * cap[new_catch_data$Species[dat_fill_ind]]
+        new_catch_data$Catch[dat_fill_ind] <- ifelse(new_catch_data$Catch[dat_fill_ind] > cap[new_catch_data$Species[dat_fill_ind]], cap[new_catch_data$Species[dat_fill_ind]], new_catch_data$Catch[dat_fill_ind])
       }
       new_catch_switch <- sum(new_catch_data$Catch[dat_fill_ind])
 
