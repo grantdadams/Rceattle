@@ -123,7 +123,7 @@ ms_run_concmsy <- Rceattle::fit_mod(data_list = BS2017MS,
                                  niter = 3, # 10 iterations around population and predation dynamics
                                  random_rec = FALSE, # No random recruitment
                                  HCR = build_hcr(HCR = 1,
-                                                 Plimit = 0.2),
+                                                 Plimit = 0.35),
                                  msmMode = 1, # MSVPA based
                                  suitMode = 0, # empirical suitability
                                  verbose = 1)
