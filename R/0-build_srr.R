@@ -40,7 +40,7 @@ build_srr <- function(srr_fun = 0,
                       srr_prior_mean = 4,
                       srr_prior_sd = 1,
                       srr_env_indices = 1,
-                      Bmsy_lim = Inf){
+                      Bmsy_lim = -999){
 
   # Set pred/RP/penalty to same as SR curve if SR fun > 0
   if(srr_fun > 0){
@@ -48,7 +48,7 @@ build_srr <- function(srr_fun = 0,
   }
 
   if(!srr_pred_fun %in% c(3,4)){
-    Bmsy_lim = Inf
+    Bmsy_lim = -999
   }
 
   list(srr_fun = srr_fun,
