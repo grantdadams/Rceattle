@@ -597,8 +597,8 @@ Type objective_function<Type>::operator() () {
   int max_bin = imax( nlengths );                                                   // Integer of maximum number of length/age bins.
   int n_flt = fleet_control.rows();
   vector<int> joint_adjust(comp_obs.rows()); joint_adjust.setZero();
-  Type penalty = 0;
-  Type ricker_intercept = 0;
+  Type penalty = 0.0;
+  Type ricker_intercept = 0.0;
 
   // -- 4.2. Estimated population quantities
   matrix<Type>  pop_scalar = ln_pop_scalar;  pop_scalar = exp(ln_pop_scalar.array());// Fixed n-at-age scaling coefficient; n = [nspp, nages]
@@ -606,7 +606,7 @@ Type objective_function<Type>::operator() () {
   matrix<Type>  R_hat(nspp, nyrs); R_hat.setZero();                             // Expected recruitment given SR curve
   vector<Type>  R0(nspp); R0.setZero();                                             // Equilibrium recruitment at F = 0.
   vector<Type>  Rinit(nspp); Rinit.setZero();                                       // Equilibrium recruitment at F = Finit (non-equilibrium).
-  Type SrrAlpha = 0;
+  Type SrrAlpha = 0.0;
   matrix<Type>  R(nspp, nyrs); R.setZero();                                         // Estimated recruitment (n)
   vector<Type>  Steepness(nspp); Steepness.setZero();                               // Expected % of R0 at 20% SSB0.
   array<Type>   biomassByage(nspp, 2, max_age, nyrs); biomassByage.setZero();       // Estimated biomass-at-age (kg)
@@ -1254,7 +1254,7 @@ Type objective_function<Type>::operator() () {
 
     // 6.4. STOCK-RECRUIT PARAMETERS
     // -- For beverton-holt, steepness and R0 are derived from SPR0
-    penalty = 0;
+    penalty = 0.0;
     zero_pop_pen.setZero();
     for ( sp = 0; sp < nspp ; sp++) {
       switch(srr_fun){
@@ -1271,7 +1271,7 @@ Type objective_function<Type>::operator() () {
 
       case 2: // Beverton-Holt
         Steepness(sp) = exp(rec_pars(sp, 1)) * SPR0(sp)/(4.0 + exp(rec_pars(sp, 1)) * SPR0(sp));
-        R0(sp) = (exp(rec_pars(sp, 1))-1/SPR0(sp)) / exp(rec_pars(sp, 2)); // (Alpha-1/SPR0)/beta
+        R0(sp) = (exp(rec_pars(sp, 1))-1.0/SPR0(sp)) / exp(rec_pars(sp, 2)); // (Alpha-1/SPR0)/beta
         Rinit(sp) = (exp(rec_pars(sp, 1))-1/SPRFinit(sp)) / exp(rec_pars(sp, 2)); // (Alpha-1/SPR0)/beta
         break;
 
@@ -1280,22 +1280,22 @@ Type objective_function<Type>::operator() () {
         srr_mult = env_index_srr.row(0) * beta_rec_pars.row(sp);
         SrrAlpha = exp(rec_pars(sp, 1) + srr_mult.sum());
         Steepness(sp) = SrrAlpha * SPR0(sp)/(4.0 + SrrAlpha * SPR0(sp));
-        R0(sp) = (SrrAlpha-1/SPR0(sp)) / exp(rec_pars(sp, 2)); // (Alpha-1/SPR0)/beta
-        Rinit(sp) = (SrrAlpha-1/SPRFinit(sp)) / exp(rec_pars(sp, 2)); // (Alpha-1/SPR0)/beta
+        R0(sp) = (SrrAlpha-1.0/SPR0(sp)) / exp(rec_pars(sp, 2)); // (Alpha-1/SPR0)/beta
+        Rinit(sp) = (SrrAlpha-1.0/SPRFinit(sp)) / exp(rec_pars(sp, 2)); // (Alpha-1/SPR0)/beta
         break;
 
       case 4: // Ricker
         Steepness(sp) = 0.2 * exp(0.8*log(exp(rec_pars(sp, 1)) * SPR0(sp))); //
 
         // - R at F0
-        ricker_intercept = exp(rec_pars(sp, 1)) * SPR0(sp) - Type(1.0);
-        ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + Type(1.0);
+        ricker_intercept = exp(rec_pars(sp, 1)) * SPR0(sp) - 1.0;
+        ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + 1.0;
 
         R0(sp) = log(ricker_intercept)/(exp(rec_pars(sp, 2)) * SPR0(sp)/1000000.0); // FIXME - make time-varying
 
         // R at equilibrium F
-        ricker_intercept = exp(rec_pars(sp, 1)) * SPRFinit(sp) - Type(1.0);
-        ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + Type(1.0);
+        ricker_intercept = exp(rec_pars(sp, 1)) * SPRFinit(sp) - 1.0;
+        ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + 1.0;
 
         Rinit(sp) = log(ricker_intercept)/(exp(rec_pars(sp, 2)) * SPRFinit(sp)/1000000.0); // FIXME - make time-varying
 
@@ -1307,12 +1307,12 @@ Type objective_function<Type>::operator() () {
         SrrAlpha = exp(rec_pars(sp, 1) + srr_mult.sum());
         Steepness(sp) = 0.2 * exp(0.8*log(SrrAlpha * SPR0(sp))); //
 
-        ricker_intercept = SrrAlpha * SPR0(sp) - Type(1.0);
-        ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + Type(1.0);
+        ricker_intercept = SrrAlpha * SPR0(sp) - 1.0;
+        ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + 1.0;
         R0(sp) = log(ricker_intercept)/(exp(rec_pars(sp, 2)) * SPR0(sp)/1000000.0); // FIXME - make time-varying
 
-        ricker_intercept = SrrAlpha * SPRFinit(sp) - Type(1.0);
-        ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + Type(1.0);
+        ricker_intercept = SrrAlpha * SPRFinit(sp) - 1.0;
+        ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + 1.0;
         Rinit(sp) = log(ricker_intercept)/(exp(rec_pars(sp, 2)) * SPRFinit(sp)/1000000.0); // FIXME - make time-varying
         zero_pop_pen(sp) += penalty;
         break;
@@ -1433,13 +1433,13 @@ Type objective_function<Type>::operator() () {
           break;
 
         case 2: // Beverton-Holt
-          R(sp, yr) = exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 2)) * biomassSSB(sp, yr-minage(sp)));
+          R(sp, yr) = exp(rec_pars(sp, 1)) * biomassSSB(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1.0+exp(rec_pars(sp, 2)) * biomassSSB(sp, yr-minage(sp)));
           break;
 
         case 3: // Beverton-Holt with environmental impacts on alpha
           srr_mult = env_index_srr.row(yr) * beta_rec_pars.row(sp);
           SrrAlpha = exp(rec_pars(sp, 1) + srr_mult.sum());
-          R(sp, yr) = SrrAlpha * biomassSSB(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 2)) * biomassSSB(sp, yr-minage(sp)));
+          R(sp, yr) = SrrAlpha * biomassSSB(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1.0+exp(rec_pars(sp, 2)) * biomassSSB(sp, yr-minage(sp)));
           break;
 
         case 4: // Ricker: a * SSB * exp(-beta * SSB). Beta is divided by 1,000,000 for estimation
@@ -3615,7 +3615,7 @@ Type objective_function<Type>::operator() () {
       for(yr = 0; yr < nyrs_hind; yr++){
         q_dev_sum += ln_srv_q_dev(flt, yr);
       }
-      jnll_comp(8, flt) += square(q_dev_sum) * 10000;
+      jnll_comp(8, flt) += square(q_dev_sum) * 10000.0;
 
       for(yr = 1; yr < nyrs_hind; yr++){
         jnll_comp(8, flt) -= dnorm(ln_srv_q_dev(flt, yr), Type(0.0), time_varying_sigma_srv_q(flt), true );
@@ -3625,23 +3625,23 @@ Type objective_function<Type>::operator() () {
 
 
   // Slots 9-12 -- RECRUITMENT PARAMETERS
-  penalty = 0;
+  penalty = 0.0;
   for (sp = 0; sp < nspp; sp++) {
 
     // Slot 9 -- stock-recruit prior for Beverton
-    if((srr_est_mode == 2 & srr_pred_fun == 2) | (srr_est_mode == 2 & srr_pred_fun == 3)){
-      jnll_comp(9, sp) -= dnorm(log(Steepness(sp)), log(srr_prior_mean(sp)) + square(srr_prior_sd(sp))/2, srr_prior_sd(sp), true);
+    if(srr_est_mode == 2 & (srr_pred_fun == 2 | srr_pred_fun == 3)){
+      jnll_comp(9, sp) -= dnorm(log(Steepness(sp)), log(srr_prior_mean(sp)) + square(srr_prior_sd(sp))/2.0, srr_prior_sd(sp), true);
     }
 
     // Slot 9 -- stock-recruit prior for Ricker
-    if((srr_est_mode == 2 & srr_pred_fun == 4) | (srr_est_mode == 2 & srr_pred_fun == 5)){
+    if(srr_est_mode == 2 & (srr_pred_fun == 4 | srr_pred_fun == 5)){
       jnll_comp(9, sp) -= dnorm((rec_pars(sp, 1)), log(srr_prior_mean(sp)), srr_prior_sd(sp), true);
     }
 
     // Slot 9 -- penalty for Bmsy > Bmsy_lim for Ricker
-    if((srr_pred_fun == 4) | (srr_pred_fun == 5)){ // Using pred_fun in case ianelli method is used
-      Type bmsy = 1/(exp(rec_pars(sp, 2))/1000000.0);
-      bmsy =  posfun(Bmsy_lim(sp) - bmsy, Type(0.001), penalty);
+    if(Bmsy_lim(sp) > 0 & (srr_pred_fun == 4) | (srr_pred_fun == 5)){ // Using pred_fun in case ianelli method is used
+      Type bmsy = 1.0/exp(rec_pars(sp, 2));
+      bmsy =  posfun(Bmsy_lim(sp)/Type(1000000.0) - bmsy, Type(0.001), penalty);
       jnll_comp(9, sp) += penalty;
     }
 
@@ -3649,13 +3649,13 @@ Type objective_function<Type>::operator() () {
     // Slot 10 -- init_dev -- Initial abundance-at-age
     if(initMode > 0){
       for (age = 1; age < nages(sp); age++) {
-        jnll_comp(11, sp) -= dnorm( init_dev(sp, age - 1), square(r_sigma(sp))/2, r_sigma(sp), true);
+        jnll_comp(11, sp) -= dnorm( init_dev(sp, age - 1), square(r_sigma(sp))/2.0, r_sigma(sp), true);
       }
     }
 
     // Slot 11 -- Tau -- Annual recruitment deviation
     for (yr = 0; yr < nyrs_hind; yr++) {
-      jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr),  square(r_sigma(sp))/2, r_sigma(sp), true);    // Recruitment deviation using random effects.
+      jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr),  square(r_sigma(sp))/2.0, r_sigma(sp), true);    // Recruitment deviation using random effects.
     }
 
     // Additional penalty for SRR curve (sensu AMAK/Ianelli)
@@ -3696,9 +3696,9 @@ Type objective_function<Type>::operator() () {
 
     // --- Add depletion constraint
     for (sp = 0; sp < nspp; sp++) {
-      penalty = 0;
+      penalty = 0.0;
       Type nothing_useful =  posfun( (depletionSSB(sp, nyrs-1) - Plimit(sp)), Type(0.0001), penalty);
-      jnll_comp(13, sp) += 500 * square(CMSY/1000.0) * penalty; // CMSY
+      jnll_comp(13, sp) += 500.0 * square(CMSY/1000.0) * penalty; // CMSY
 
       //jnll_comp(13, sp) += 500 * square(CMSY/100000)*(1 - 1/(1 + exp(-200 * (depletionSSB(sp, nyrs-1) - Plimit(sp))))); // CMSY
     }
@@ -3907,9 +3907,9 @@ Type objective_function<Type>::operator() () {
   //REPORT(r_sigma);
   //REPORT( R_sexr );
   REPORT( R0 );
-  //REPORT( Rinit );
+  REPORT( Rinit );
   REPORT( R );
-  //REPORT( R_hat );
+  REPORT( R_hat );
   REPORT( M );
 
   // ADREPORT( B_eaten_as_prey );
