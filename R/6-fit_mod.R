@@ -150,6 +150,7 @@ fit_mod <-
     # recFun = build_srr()
     # M1Fun = build_M1()
     # projection_uncertainty = TRUE
+    # catch_hcr = FALSE
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # STEP 0 - Start ----

@@ -9,7 +9,7 @@
 ##' @param srr_prior_sd Prior standard deviation for stock-recruit parameter
 ##' @param srr_env_indices vector or single index indicating the columns of \code{env_data} to use in a environmentally driven stock recruit curve.
 ##' @param Bmsy_lim Upper limit for ricker based SSB-MSY (e.g 1/Beta). Will add a likelihood penalty if beta is estimated above this limit.
-##' @details
+##' @description
 ##'
 ##' **Stock recruitment relationships currently implemented in Rceattle:**
 ##'

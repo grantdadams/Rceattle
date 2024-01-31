@@ -28,7 +28,7 @@ ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
                             phase = "default",
                             verbose = 1)
 
-plot_biomass(ss_run, add_ci = TRUE)
+plot_biomass(ss_run)
 
 
 # Single-species, but estimate M
@@ -42,7 +42,7 @@ ss_run_M <- Rceattle::fit_mod(data_list = GOA2018SS,
                               phase = "default",
                               verbose = 1)
 
-plot_biomass(ss_run_M, add_ci = TRUE)
+plot_biomass(ss_run_M)
 
 # - Multi-species
 # For the a multispecies model we from the single species parameters.
@@ -57,7 +57,7 @@ ms_run <- Rceattle::fit_mod(data_list = GOA2018SS,
                             suitMode = 0, # empirical suitability
                             verbose = 1)
 
-plot_biomass(ms_run, add_ci = TRUE)
+plot_biomass(ms_run)
 
 
 ################################################
