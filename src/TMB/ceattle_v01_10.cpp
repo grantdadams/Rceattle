@@ -574,19 +574,23 @@ Type objective_function<Type>::operator() () {
   PARAMETER_VECTOR( comp_weights );               // MacCallister-Ianelli weights for fisheries data
 
   // -- 3.7. Kinzery predation function parameters
+  /*
   PARAMETER_MATRIX(logH_1);                       // Predation functional form; n = [nspp, nspp2];
   PARAMETER_VECTOR(logH_1a);                      // Age adjustment to H_1; n = [1, nspp]; // FIXME: make matrix
   PARAMETER_VECTOR(logH_1b);                      // Age adjustment to H_1; n = [1, nspp]; // FIXME: make matrix
   PARAMETER_MATRIX(logH_2);                       // Predation functional form; n = [nspp, nspp]
   PARAMETER_MATRIX(logH_3);                       // Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH3,UpperBoundH3;
   PARAMETER_MATRIX(H_4);                          // Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH4,UpperBoundH4;
+  */
 
   // 3.8. Gamma selectivity parameters
+  /*
   PARAMETER_VECTOR( log_gam_a );                  // Log predator selectivity; n = [1,nspp]; FIXME: bounds = 1.0e-10 and 19.9
   PARAMETER_VECTOR( log_gam_b );                  // Log predator selectivity; n = [1,nspp]; FIXME: bounds = -5.2 and 10
 
   // 3.9. Preference
   PARAMETER_MATRIX( log_phi );                    // Species preference coefficient; n = [nspp, nspp]
+  */
 
 
   // ------------------------------------------------------------------------- //
@@ -709,11 +713,13 @@ Type objective_function<Type>::operator() () {
   array<Type>   suma_suit(nspp, 2, max_age, nyrs); suma_suit.setZero();                                             // Sum of suitabilities
 
   // -- 4.11. Suitability parameters
+  /*
   vector<Type> gam_a = exp(log_gam_a);                                    // Predator size-selectivity: shape parameter for gamma suitability, mean for normal of logs
   vector<Type> gam_b = exp(log_gam_b);                                    // Predator size-selectivity: scale parameter for gamma suitability, sd for normal of logs
   vector<Type> sum_phi(nspp); sum_phi.setZero();                          // Sum of predator-prey preference coefficients for multinomial transformation
   matrix<Type> vulnerability(nspp, nspp); vulnerability.setZero();        // Predator-prey preference coefficients
   vector<Type> vulnerability_other(nspp); vulnerability_other.setZero();  // Preference for other food
+  */
 
   // -- 4.12. Predation components
   array<Type>   M2(nspp, 2, max_age, nyrs); M2.setZero();                                   // Predation mortality at age
@@ -724,6 +730,7 @@ Type objective_function<Type>::operator() () {
   array<Type>   N_eaten(nspp * 2, nspp * 2, max_age, max_age, nyrs); N_eaten.setZero();     // Number of prey of age a eaten by predator age u
 
   // -- 4.13. Kinzey Functional response parameters
+  /*
   matrix<Type> H_1(nspp, nspp + 1); H_1 = exp(logH_1.array());
   vector<Type> H_1a(nspp); H_1a = exp(logH_1a);
   vector<Type> H_1b(nspp); H_1b = exp(logH_1b);
@@ -741,7 +748,7 @@ Type objective_function<Type>::operator() () {
 
   array<Type> ration_hat(nspp, 2, max_age, nyrs); ration_hat.setZero();                   // Annual ration by predator age each year
   array<Type> ration_hat_ave(nspp, 2, max_age); ration_hat_ave.setZero();                 // Annual ration by predator age averaged over years
-
+*/
 
   // ------------------------------------------------------------------------- //
   // 5. INITIAL CALCULATIONS                                                   //
@@ -2356,6 +2363,7 @@ Type objective_function<Type>::operator() () {
 
 
       // 8.1.2. Estimate suitability
+      /*
       if(suitMode > 0){
 
         // -- Transform predator-prey preference parameters
@@ -2464,7 +2472,7 @@ Type objective_function<Type>::operator() () {
           }
         } // End lognormal selectivity
       } // End suitability estimation
-
+*/
 
       // ------------------------------------------------------------------------- //
       // 8. PREDATION MORTALITY EQUATIONS                                          //
@@ -2557,6 +2565,7 @@ Type objective_function<Type>::operator() () {
 
 
       // 8.2. KINZEY PREDATION EQUATIONS
+      /*
       if (msmMode > 2) {
 
         // 8.2.3. Initialize counters
@@ -2778,6 +2787,7 @@ Type objective_function<Type>::operator() () {
         // - END LOOP - END LOOP - END LOOP - END LOOP - END LOOP - //
       } // End 8.2. Kinzey predation
       // - END LOOP - END LOOP - END LOOP - END LOOP - END LOOP - //
+      */
     } // End 8. Predation mortality
     // - END LOOP - END LOOP - END LOOP - END LOOP - END LOOP - //
 
@@ -3826,6 +3836,7 @@ Type objective_function<Type>::operator() () {
 
 
   // 14.4. Diet likelihood components for Kinzey and Punt predation
+  /*
   if (msmMode > 2){
     // Slot 15 -- Ration likelihood
     for (yr = 0; yr < nyrs_hind; yr++) {
@@ -3856,6 +3867,7 @@ Type objective_function<Type>::operator() () {
       }
     }
   } // End if statement for Kinzey diet likelihood
+  */
 
 
   // ------------------------------------------------------------------------- //

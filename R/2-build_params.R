@@ -136,23 +136,23 @@ build_params <- function(data_list) {
   }
 
 
-  # -- 3.9. Kinzery predation function parameters
-  param_list$logH_1 = matrix(-8.5, nrow = data_list$nspp, ncol = data_list$nspp2)  # Predation functional form; n = [nspp, nspp2]; # FIXME: make matrix; nspp2 = nspp + 1
-  param_list$logH_1a = rep(-3, data_list$nspp)  # Age adjustment to H_1; n = [1, nspp]; # FIXME: make matrix
-  param_list$logH_1b = rep(0, data_list$nspp)  # Age adjustment to H_1; n = [1, nspp]; # FIXME: make matrix
-
-  param_list$logH_2 = matrix(-9, nrow = data_list$nspp, ncol = data_list$nspp)  # Predation functional form; n = [nspp, nspp]
-  param_list$logH_3 = matrix(-9, nrow = data_list$nspp, ncol = data_list$nspp)  # Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH3,UpperBoundH3;
-  param_list$H_4 = matrix(1, nrow = data_list$nspp, ncol = data_list$nspp)  # Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH4,UpperBoundH4;
-
-
-  # -- 3.9. Gamma selectivity parameters
-  param_list$log_gam_a = rep(0.5, data_list$nspp)  # Log predator selectivity; n = [1,nspp]; FIXME: bounds = 1.0e-10 and 19.9
-  param_list$log_gam_b = rep(-.5, data_list$nspp)  # Log predator selectivity; n = [1,nspp]; FIXME: bounds = -5.2 and 10
-
-
-  # -- 3.10. Preference parameters
-  param_list$log_phi = matrix(0.5, data_list$nspp, data_list$nspp)
+  # # -- 3.9. Kinzery predation function parameters
+  # param_list$logH_1 = matrix(-8.5, nrow = data_list$nspp, ncol = data_list$nspp2)  # Predation functional form; n = [nspp, nspp2]; # FIXME: make matrix; nspp2 = nspp + 1
+  # param_list$logH_1a = rep(-3, data_list$nspp)  # Age adjustment to H_1; n = [1, nspp]; # FIXME: make matrix
+  # param_list$logH_1b = rep(0, data_list$nspp)  # Age adjustment to H_1; n = [1, nspp]; # FIXME: make matrix
+  #
+  # param_list$logH_2 = matrix(-9, nrow = data_list$nspp, ncol = data_list$nspp)  # Predation functional form; n = [nspp, nspp]
+  # param_list$logH_3 = matrix(-9, nrow = data_list$nspp, ncol = data_list$nspp)  # Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH3,UpperBoundH3;
+  # param_list$H_4 = matrix(1, nrow = data_list$nspp, ncol = data_list$nspp)  # Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH4,UpperBoundH4;
+  #
+  #
+  # # -- 3.9. Gamma selectivity parameters
+  # param_list$log_gam_a = rep(0.5, data_list$nspp)  # Log predator selectivity; n = [1,nspp]; FIXME: bounds = 1.0e-10 and 19.9
+  # param_list$log_gam_b = rep(-.5, data_list$nspp)  # Log predator selectivity; n = [1,nspp]; FIXME: bounds = -5.2 and 10
+  #
+  #
+  # # -- 3.10. Preference parameters
+  # param_list$log_phi = matrix(0.5, data_list$nspp, data_list$nspp)
 
 
   return(param_list)
