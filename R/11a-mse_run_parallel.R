@@ -368,19 +368,19 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       # -- Time-varing selectivity - Assume last year - filled by columns
       ln_sel_slp_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
       sel_inf_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
-      sel_coff_dev = array(0, dim = c(nflts, 2, nselages_om, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for non-parameteric
+      # sel_coff_dev = array(0, dim = c(nflts, 2, nselages_om, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for non-parameteric
 
       ln_sel_slp_dev[,,,1:nyrs_hind] <- om_use$estimated_params$ln_sel_slp_dev
       sel_inf_dev[,,,1:nyrs_hind] <- om_use$estimated_params$sel_inf_dev
-      sel_coff_dev[,,,1:nyrs_hind] <- om_use$estimated_params$sel_coff_dev
+      # sel_coff_dev[,,,1:nyrs_hind] <- om_use$estimated_params$# sel_coff_dev
 
       ln_sel_slp_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- ln_sel_slp_dev[,,,nyrs_hind]
       sel_inf_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_inf_dev[,,,nyrs_hind]
-      sel_coff_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_coff_dev[,,,nyrs_hind]
+      # sel_coff_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- # sel_coff_dev[,,,nyrs_hind]
 
       om_use$estimated_params$ln_sel_slp_dev <- ln_sel_slp_dev
       om_use$estimated_params$sel_inf_dev <- sel_inf_dev
-      om_use$estimated_params$sel_coff_dev <- sel_coff_dev
+      # om_use$estimated_params$# sel_coff_dev <- # sel_coff_dev
 
 
       # - Update map (Only new parameter we are estimating in OM is the F_dev of the new years)
@@ -453,7 +453,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
                            srr_prior_sd = om_use$data_list$srr_prior_sd,
                            Bmsy_lim = om_use$data_list$Bmsy_lim,
                            srr_env_indices = om_use$data_list$srr_env_indices),
-        M1Fun =     build_M1(M1_model= om_use$data_list$M1_model,
+        M1Fun = build_M1(M1_model= om_use$data_list$M1_model,
                              updateM1 = FALSE,
                              M1_use_prior = om_use$data_list$M1_use_prior,
                              M2_use_prior = om_use$data_list$M2_use_prior,
@@ -505,20 +505,20 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       # -- Time-varing selectivity - Assume last year - filled by columns
       ln_sel_slp_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
       sel_inf_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
-      sel_coff_dev = array(0, dim = c(nflts, 2, nselages_om, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for non-parameteric
+      # sel_coff_dev = array(0, dim = c(nflts, 2, nselages_om, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for non-parameteric
 
       ln_sel_slp_dev[,,,1:nyrs_hind] <- em_use$estimated_params$ln_sel_slp_dev
       sel_inf_dev[,,,1:nyrs_hind] <- em_use$estimated_params$sel_inf_dev
-      sel_coff_dev[,,,1:nyrs_hind] <- em_use$estimated_params$sel_coff_dev
+      # sel_coff_dev[,,,1:nyrs_hind] <- em_use$estimated_params$# sel_coff_dev
 
       # - Initialize new years with last year
       ln_sel_slp_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- ln_sel_slp_dev[,,,nyrs_hind]
       sel_inf_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_inf_dev[,,,nyrs_hind]
-      sel_coff_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_coff_dev[,,,nyrs_hind]
+      # sel_coff_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- # sel_coff_dev[,,,nyrs_hind]
 
       em_use$estimated_params$ln_sel_slp_dev <- ln_sel_slp_dev
       em_use$estimated_params$sel_inf_dev <- sel_inf_dev
-      em_use$estimated_params$sel_coff_dev <- sel_coff_dev
+      # em_use$estimated_params$# sel_coff_dev <- # sel_coff_dev
 
 
       # Restimate
