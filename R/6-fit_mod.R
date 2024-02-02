@@ -392,7 +392,7 @@ fit_mod <-
         if(tolower(phase) == "default"){
           phase = list(
             dummy = 1,
-            ln_pop_scalar = 4, # Scalar for input numbers-at-age
+            # ln_pop_scalar = 4, # Scalar for input numbers-at-age
             rec_pars = 1, # Stock-recruit parameters or log(mean rec) if no stock-recruit relationship
             beta_rec_pars = 3,
             ln_rec_sigma = 2, # Variance for annual recruitment deviats
@@ -411,7 +411,7 @@ fit_mod <-
             ln_sigma_srv_q = 4, # Prior SD for survey catchability deviates
             ln_sigma_time_varying_srv_q = 4, # SD for annual survey catchability deviates (if time-varying)
             sel_coff = 3, # Non-parametric selectivity coefficients
-            sel_coff_dev = 4, # Annual deviates for non-parametric selectivity coefficients
+            # sel_coff_dev = 4, # Annual deviates for non-parametric selectivity coefficients
             ln_sel_slp = 3, # Slope parameters for logistic forms of selectivity
             sel_inf = 3, # Asymptote parameters for logistic forms of selectivity
             ln_sel_slp_dev = 5, # Annual deviates for slope parameters for logistic forms of selectivity (if time-varying)
@@ -420,16 +420,16 @@ fit_mod <-
             sel_curve_pen = 4, # Penalty for non-parametric selectivity
             ln_sigma_srv_index = 2, # Log SD for survey lognormal index likelihood (usually input)
             ln_sigma_fsh_catch = 2, # Log SD for lognormal catch likelihood (usually input)
-            comp_weights = 4, # Weights for multinomial comp likelihood
-            logH_1 = 6,  # Functional form parameter (not used in MSVPA functional form)
-            logH_1a = 6, # Functional form parameter (not used in MSVPA functional form)
-            logH_1b = 6, # Functional form parameter (not used in MSVPA functional form)
-            logH_2 = 6, # Functional form parameter (not used in MSVPA functional form)
-            logH_3 = 6, # Functional form parameter (not used in MSVPA functional form)
-            H_4 = 6, # Functional form parameter (not used in MSVPA functional form)
-            log_gam_a = 5, # Suitability parameter (not used in MSVPA style)
-            log_gam_b = 5, # Suitability parameter (not used in MSVPA style)
-            log_phi = 5 # Suitability parameter (not used in MSVPA style)
+            comp_weights = 4 # Weights for multinomial comp likelihood
+            # ,logH_1 = 6,  # Functional form parameter (not used in MSVPA functional form)
+            # logH_1a = 6, # Functional form parameter (not used in MSVPA functional form)
+            # logH_1b = 6, # Functional form parameter (not used in MSVPA functional form)
+            # logH_2 = 6, # Functional form parameter (not used in MSVPA functional form)
+            # logH_3 = 6, # Functional form parameter (not used in MSVPA functional form)
+            # H_4 = 6, # Functional form parameter (not used in MSVPA functional form)
+            # log_gam_a = 5, # Suitability parameter (not used in MSVPA style)
+            # log_gam_b = 5, # Suitability parameter (not used in MSVPA style)
+            # log_phi = 5 # Suitability parameter (not used in MSVPA style)
           )
 
 

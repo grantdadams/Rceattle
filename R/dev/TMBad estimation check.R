@@ -1,7 +1,51 @@
 library(Rceattle)
-library(readxl)
-data("GOAatf")
-GOAatf$styr = 1977 #
+
+################################################
+# Data ----
+################################################
+# Example
+# To run the 2017 single species assessment for the Bering Sea, a data file must first be loaded:
+data(BS2017SS) # ?BS2017SS for more information on the data
+BS2017SS$projyr <- 2060
+BS2017SS$fleet_control$proj_F_prop <-rep(1,7)
+
+
+################################################
+# Estimation ----
+################################################
+# Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
+ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
+                            inits = NULL, # Initial parameters = 0
+                            file = NULL, # Don't save
+                            estimateMode = 1, # Estimate hindcast only
+                            random_rec = FALSE, # No random recruitment
+                            msmMode = 0, # Single species mode
+                            phase = "default",
+                            verbose = 1)
+
+# Estimate single-species and estimate M
+mydata_M <- BS2017SS
+mydata_M$est_M1 <- c(1,1,1)
+ss_run_M <- Rceattle::fit_mod(data_list = mydata_M,
+                              inits = ss_run$estimated_params, # Initial parameters = 0
+                              file = NULL, # Don't save
+                              estimateMode = 1, # Estimate hindcast only
+                              random_rec = FALSE, # No random recruitment
+                              msmMode = 0, # Single species mode
+                              phase = "default",
+                              M1Fun = build_M1(M1_model = c(1),
+                                               updateM1 = FALSE,
+                                               M1_use_prior = FALSE,
+                                               M2_use_prior = FALSE),
+                              verbose = 1)
+
+
+
+# For the a multispecies model starting from the single species parameters, the following can be specified to load the data:
+data("BS2017MS") # Note: the only difference is the residual mortality (M1_base) is lower
+BS2017MS$est_M1 <- c(1,1,1) # Estimate residual M
+BS2017MS$projyr <- 2060
+BS2017MS$fleet_control$proj_F_prop <-rep(1,7)
 
 
 
@@ -33,7 +77,7 @@ control = list(eval.max = 1e+09,
                iter.max = 1e+09, trace = 0);
 getJointPrecision = TRUE;
 loopnum = 5;
-verbose = 1;
+verbose = 2;
 newtonsteps = 0
 recFun = build_srr()
 M1Fun = build_M1()
@@ -41,14 +85,19 @@ projection_uncertainty = TRUE
 catch_hcr = FALSE
 
 
-data_list = GOAatf;
-inits = NULL; # Initial parameters = 0
+data_list = BS2017MS;
+inits = ss_run_M$estimated_params; # Initial parameters from single species ests
 file = NULL; # Don't save
-estimateMode = 0; # 0 = Estimate; 1 = Dont run estimation
+estimateMode = 0; # Estimate hindcast only
+niter = 3; # 10 iterations around population and predation dynamics
 random_rec = FALSE; # No random recruitment
-msmMode = 0; # 0 = Single species mode; 1 = MSVPA multi-species mode
-verbose = 1; # Silence optimization output
-phase = "default"
+HCR = build_hcr(HCR = 3, # Constant F HCR
+                DynamicHCR = FALSE, # Use dynamic reference points
+                FsprTarget = 0.4); # F that achieves 40% SB0
+msmMode = 1; # MSVPA based
+suitMode = 0; # empirical suitability
+verbose = 2
+
 
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # STEP 0 - Start ----
@@ -220,10 +269,11 @@ Rceattle:::data_check(data_list)
 
 data_list_reorganized <- Rceattle::rearrange_dat(data_list)
 data_list_reorganized = c(list(model = TMBfilename), data_list_reorganized)
-if(msmMode > 0 & !catch_hcr){
-  data_list_reorganized$HCR = 0 # Estimate model with F = 0 for the projection if multispecies
-}
-data_list_reorganized$forecast <- FALSE # Don't include BRPs in likelihood of hindcast
+# if(msmMode > 0 & !catch_hcr){
+#   data_list_reorganized$HCR = 0 # Estimate model with F = 0 for the projection if multispecies
+# }
+data_list_reorganized$forecast <- -1 # Don't include BRPs in likelihood of hindcast
+data_list_reorganized$params_on <- rep(-1, data_list$nspp) # Don't include BRPs in likelihood of hindcast
 
 # - Update comp weights, future F (if input) and F_prop from data
 if(!is.null(data_list$fleet_control$Comp_weights)){
@@ -318,59 +368,17 @@ if(!is.null(phase)){
         sel_curve_pen = 4, # Penalty for non-parametric selectivity
         ln_sigma_srv_index = 2, # Log SD for survey lognormal index likelihood (usually input)
         ln_sigma_fsh_catch = 2, # Log SD for lognormal catch likelihood (usually input)
-        comp_weights = 4, # Weights for multinomial comp likelihood
-        logH_1 = 6,  # Functional form parameter (not used in MSVPA functional form)
-        logH_1a = 6, # Functional form parameter (not used in MSVPA functional form)
-        logH_1b = 6, # Functional form parameter (not used in MSVPA functional form)
-        logH_2 = 6, # Functional form parameter (not used in MSVPA functional form)
-        logH_3 = 6, # Functional form parameter (not used in MSVPA functional form)
-        H_4 = 6, # Functional form parameter (not used in MSVPA functional form)
-        log_gam_a = 5, # Suitability parameter (not used in MSVPA style)
-        log_gam_b = 5, # Suitability parameter (not used in MSVPA style)
-        log_phi = 5 # Suitability parameter (not used in MSVPA style)
+        comp_weights = 4 # Weights for multinomial comp likelihood
+        # ,logH_1 = 6,  # Functional form parameter (not used in MSVPA functional form)
+        # logH_1a = 6, # Functional form parameter (not used in MSVPA functional form)
+        # logH_1b = 6, # Functional form parameter (not used in MSVPA functional form)
+        # logH_2 = 6, # Functional form parameter (not used in MSVPA functional form)
+        # logH_3 = 6, # Functional form parameter (not used in MSVPA functional form)
+        # H_4 = 6, # Functional form parameter (not used in MSVPA functional form)
+        # log_gam_a = 5, # Suitability parameter (not used in MSVPA style)
+        # log_gam_b = 5, # Suitability parameter (not used in MSVPA style)
+        # log_phi = 5 # Suitability parameter (not used in MSVPA style)
       )
-
-
-      # debugphase = list(
-      #   dummy = 1,
-      #   ln_pop_scalar = 5, # Scalar for input numbers-at-age
-      #   rec_pars = 1, # Stock-recruit parameters or log(mean rec) if no stock-recruit relationship
-      #   ln_rec_sigma = 4, # Variance for annual recruitment deviats
-      #   rec_dev = 2, # Annual recruitment deviats
-      #   init_dev = 3, # Age specific initial age-structure deviates or parameters
-      #   ln_sex_ratio_sigma = 3, # Variance of sex ratio (usually fixed)
-      #   ln_M1 = 4, #  Estimated natural or residual mortality
-      #   ln_mean_F = 6, # Mean fleet-specific fishing mortality
-      #   ln_Flimit = 15, # Estimated F limit
-      #   ln_Ftarget = 15, # Estimated F target
-      #   ln_Finit = 7, # Estimated fishing mortality for non-equilibrium initial age-structure
-      #   proj_F_prop = 14, # Fixed fleet-specific proportion of Flimit and Ftarget apportioned within each species
-      #   F_dev = 7, # Annual fleet specific fishing mortality deviates
-      #   ln_srv_q = 10, # Survey catchability
-      #   ln_srv_q_dev = 11, # Annual survey catchability deviates (if time-varying)
-      #   ln_sigma_srv_q = 15, # Prior SD for survey catchability deviates
-      #   ln_sigma_time_varying_srv_q = 15, # SD for annual survey catchability deviates (if time-varying)
-      #   sel_coff = 8, # Non-parametric selectivity coefficients
-      #   sel_coff_dev = 11, # Annual deviates for non-parametric selectivity coefficients
-      #   ln_sel_slp = 9, # Slope parameters for logistic forms of selectivity
-      #   sel_inf = 9, # Asymptote parameters for logistic forms of selectivity
-      #   ln_sel_slp_dev = 11, # Annual deviates for slope parameters for logistic forms of selectivity (if time-varying)
-      #   sel_inf_dev = 11, # Annual deviates for asymptote parameters for logistic forms of selectivity (if time-varying)
-      #   ln_sigma_sel = 12, # SD for annual selectivity deviates (if time-varying)
-      #   sel_curve_pen = 13, # Penalty for non-parametric selectivity
-      #   ln_sigma_srv_index = 14, # Log SD for survey lognormal index likelihood (usually input)
-      #   ln_sigma_fsh_catch = 14, # Log SD for lognormal catch likelihood (usually input)
-      #   comp_weights = 15, # Weights for multinomial comp likelihood
-      #   logH_1 = 15,  # Functional form parameter (not used in MSVPA functional form)
-      #   logH_1a = 15, # Functional form parameter (not used in MSVPA functional form)
-      #   logH_1b = 15, # Functional form parameter (not used in MSVPA functional form)
-      #   logH_2 = 15, # Functional form parameter (not used in MSVPA functional form)
-      #   logH_3 = 15, # Functional form parameter (not used in MSVPA functional form)
-      #   H_4 = 15, # Functional form parameter (not used in MSVPA functional form)
-      #   log_gam_a = 15, # Suitability parameter (not used in MSVPA style)
-      #   log_gam_b = 15, # Suitability parameter (not used in MSVPA style)
-      #   log_phi = 15 # Suitability parameter (not used in MSVPA style)
-      # )
     }
   }
 
@@ -434,16 +442,16 @@ step = step + 1
 # -- Optimize hindcast
 if(estimateMode %in% c(0,1,4)){
   opt = Rceattle::fit_tmb(obj = obj,
-                           fn=obj$fn,
-                           gr=obj$gr,
-                           startpar=obj$par,
-                           lower = L,
-                           upper = U,
-                           loopnum = loopnum,
-                           getsd = getsd,
-                           control = control,
-                           getJointPrecision = getJointPrecision,
-                           quiet = verbose < 2,
+                          fn=obj$fn,
+                          gr=obj$gr,
+                          startpar=obj$par,
+                          lower = L,
+                          upper = U,
+                          loopnum = loopnum,
+                          getsd = getsd,
+                          control = control,
+                          getJointPrecision = getJointPrecision,
+                          quiet = verbose < 2,
   )
   if(verbose > 0) {message("Step ",step, ": Final optimization complete")
     step = step + 1
@@ -476,4 +484,241 @@ if (estimateMode > 1) { # Debugging and projection only: use initial parameters
     last_par = try(obj$env$parList())
   }
 }
+
+
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# STEP 10: Run HCR projections ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# - Local functions to get the gradient and objective function when only optimizing Flimit and Ftarget in the forecast
+fn2 <- function(Fparams){
+  par <- obj$env$last.par.best
+  Find <- which(names(par) %in% c("ln_Flimit", "ln_Ftarget"))
+  par[Find] <- Fparams
+  obj$fn(par)
+}
+
+gr2 <- function(Fparams){
+  par <- obj$env$last.par.best
+  Find <- which(names(par) %in% c("ln_Flimit", "ln_Ftarget"))
+  par[Find] <- Fparams
+  as.numeric(obj$gr(par)[Find])
+}
+
+# - Run projection
+if(estimateMode %in% c(0,2,4)){
+  if(!data_list$HCR %in% c(0, 2)){ # - All HCRs except no F and fixed F
+
+    obj$env$data$forecast <- 1 # Turn BRP estimation on within likelihood
+    data_list$forecast <- 1
+    data_list_reorganized$forecast <- 1
+
+    # * Single species mode ----
+    if(msmMode == 0){
+      obj$env$data$params_on <- rep(1, data_list$nspp)
+
+      # -- Optimize
+      par <- obj$env$last.par.best
+      Find <- which(names(par) %in% c("ln_Flimit", "ln_Ftarget"))
+      parameter_estimates = nlminb(start=par[Find], objective=fn2, gradient=gr2, control = list(eval.max=1e4, iter.max=1e4, trace=0))
+    }
+
+
+    # * Multi-species mode ----
+    if(msmMode > 0){
+
+      # -- Get quantities
+      if(estimateMode == 2){ # Build obj if we havent done so already
+        obj = TMB::MakeADFun(
+          data_list_reorganized,
+          parameters = last_par,
+          DLL = TMBfilename,
+          map = map$mapFactor,
+          random = random_vars,
+          silent = verbose != 2
+        )
+      }
+
+      # Loop across species orders
+      for(HCRiter in 1:max(data_list$HCRorder)){
+
+        # -- Get SB0: SSB when model is projected forward under no fishing
+        params_on <- data_list$HCRorder == HCRiter
+        quantities <- obj$report(obj$env$last.par.best)
+
+        SB0 <- quantities$biomassSSB[, ncol(quantities$biomassSSB)]
+        obj$env$data$MSSB0[params_on] <- SB0[params_on]
+        data_list$MSSB0[params_on] <- SB0[params_on]
+        data_list_reorganized$MSSB0[params_on] <- SB0[params_on]
+
+        B0 <- quantities$biomass[, ncol(quantities$biomass)]
+        obj$env$data$MSB0[params_on] <- B0[params_on]
+        data_list$MSB0[params_on] <- B0[params_on]
+        data_list_reorganized$MSB0[params_on] <- B0[params_on]
+
+        obj$env$data$params_on <- (as.numeric(params_on) * 2 ) - 1
+        data_list$params_on <- obj$env$data$params_on
+        data_list_reorganized$params_on <- obj$env$data$params_on
+
+
+        # -- Optimize
+        Fparams <- c(-8, -1, -1)
+        par <- obj$env$last.par.best
+        Find <- which(names(par) %in% c("ln_Flimit", "ln_Ftarget"))
+        par[Find] <- Fparams
+        parameter_estimates = optim(par=par[Find], fn=fn2)
+
+        check <- obj$env$report(par)
+        check$jnll_comp[14:15,]
+        check$jnll
+        obj$fn(x = par)
+
+        as.numeric(gr2(Fparams))
+
+
+        # -- Update both map in to have BRP and hindcast parameters on
+        hcr_map_proj <- build_hcr_map(data_list, map, debug = estimateMode > 3, HCRiter = HCRiter)
+        if(sum(as.numeric(unlist(hcr_map_proj$mapFactor)), na.rm = TRUE) == 0){stop("HCR projection map of length 0: all NAs")}
+
+        # --- Update model object with BRP and hindcast parameters turned for BRP and hindcast
+        obj = TMB::MakeADFun(
+          data_list_reorganized,
+          parameters = last_par,
+          DLL = TMBfilename,
+          map = hcr_map_proj$mapFactor,
+          random = random_vars,
+          silent = verbose != 2
+        )
+
+        obj$par
+        obj$gr()
+        obj$fn()
+
+        check2 <- obj$env$report()
+        check2$jnll_comp[14:15,]
+      }
+    }
+
+    if(verbose > 0) {message("Step ",step, ": Projections complete")}
+
+    # -- Update MLEs
+    if (estimateMode > 2) { # Debugging, give initial parameters
+      last_par <- start_par
+    }else{
+      if(!random_rec){
+        last_par = try(obj$env$parList(obj$env$last.par.best)) # FIXME: maybe add obj$env$last.par.best inside?
+      } else {
+        last_par = try(obj$env$parList())
+      }
+    }
+
+    # * Projection uncertainty ----
+    # Updates the model with all hindcast and BRP parameters "turned on" to get out uncertainty estimates in the projection
+    if(projection_uncertainty){
+
+      # -- Update both map in to have BRP and hindcast parameters on
+      hcr_map_proj <- build_hcr_map(data_list, map, debug = estimateMode > 3, all_params_on = TRUE)
+      if(sum(as.numeric(unlist(hcr_map_proj$mapFactor)), na.rm = TRUE) == 0){stop("HCR projection map of length 0: all NAs")}
+
+      # --- Update model object with BRP and hindcast parameters turned for BRP and hindcast
+      obj = TMB::MakeADFun(
+        data_list_reorganized,
+        parameters = last_par,
+        DLL = TMBfilename,
+        map = hcr_map_proj$mapFactor,
+        random = random_vars,
+        silent = verbose != 2
+      )
+
+      # -- Replace sdreport with new sdreport
+      opt$SD <- TMB::sdreport(obj)
+    }
+
+  } # End estimable BRP/HCR projections
+} # End projection
+
+
+
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# STEP 11: Save output ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# - Save estimated parameters
+mod_objects$estimated_params <- last_par
+mod_objects$obj = obj
+
+# - Get quantities
+quantities <- obj$report()
+
+# -- Warning for discontinuous likelihood
+if(estimateMode %in% c(0:2)){
+  if(!is.null(opt$SD) & random_rec == FALSE){
+    if(abs(opt$objective - sum(quantities$jnll_comp[-14,])) > rel_tol){
+      message( "#################################################" )
+      message( "Convergence warning (8): discontinuous likelihood" )
+      message( "#################################################" )
+    }
+  }
+}
+
+# -- Rename jnll
+colnames(quantities$jnll_comp) <- paste0("Sp/Srv/Fsh_", 1:ncol(quantities$jnll_comp))
+rownames(quantities$jnll_comp) <- c(
+  "Survey biomass",
+  "Total catch",
+  "Age/length composition data",
+  "Sex ratio",
+  "Non-parametric selectivity",
+  "Selectivity deviates",
+  "Selectivity normalization",
+  "Catchability prior",
+  "Catchability deviates",
+  "Stock-recruit prior",
+  "Recruitment deviates",
+  "Initial abundance deviates",
+  "Fishing mortality deviates",
+  "SPR Calculation",
+  "Zero n-at-age penalty",
+  "M prior",
+  "Ration",
+  "Ration penalties",
+  "Stomach content proportion by weight"
+)
+
+
+colnames(quantities$biomassSSB) <- data_list$styr:data_list$projyr
+colnames(quantities$R) <- data_list$styr:data_list$projyr
+
+rownames(quantities$biomassSSB) <- data_list$spnames
+rownames(quantities$R) <- data_list$spnames
+
+# -- Save derived quantities
+mod_objects$quantities <- quantities
+
+
+# - Calculate Mcallister-Iannelli coefficients
+# Effective sample size for the length data for year y
+
+eff_n_mcallister <- rowSums(quantities$comp_hat * (1 - quantities$comp_hat), na.rm = TRUE)/rowSums((data_list_reorganized$comp_obs - quantities$comp_hat)^2, na.rm = TRUE) # sum_length (p_hat * (1 - p_hat))/ sum_length ((p - p_hat) ^ 2)
+
+
+# Loop fleets and take harmonic mean
+data_list$fleet_control$Est_weights_mcallister <- NA
+for(flt in unique(data_list$comp_data$Fleet_code)){
+  comp_sub <- which(data_list$comp_data$Fleet_code == flt & data_list$comp_data$Year > 0)
+  data_list$fleet_control$Est_weights_mcallister[which(data_list$fleet_control$Fleet_code == flt)] <- ((1/length(comp_sub))*sum((eff_n_mcallister[comp_sub]/data_list$comp_data$Sample_size[comp_sub])^-1))^-1
+}
+
+# -- Save data w/ mcallister
+mod_objects$data_list <- data_list
+
+
+# - Save objects
+mod_objects$run_time = ((Sys.time() - start_time))
+
+if(estimateMode < 3){
+  mod_objects$opt = opt
+  mod_objects$sdrep = opt$SD
+}
+
+class(mod_objects) <- "Rceattle"
+plot_catch(mod_objects, incl_proj = T)
 

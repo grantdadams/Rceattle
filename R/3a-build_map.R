@@ -168,7 +168,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
       # Map out non-parametric
       map_list$sel_coff[flt,, ] <- NA
-      map_list$sel_coff_dev[flt,,,] <- NA
+      # map_list$sel_coff_dev[flt,,,] <- NA
 
       # Map out logistic and double logistic
       map_list$ln_sel_slp[1:2, flt, ] <- NA
@@ -188,7 +188,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
       # Map out non-parametric
       map_list$sel_coff[flt,, ] <- NA
-      map_list$sel_coff_dev[flt,,,] <- NA
+      # map_list$sel_coff_dev[flt,,,] <- NA
 
       # Map out double logistic
       map_list$ln_sel_slp[2, flt, ] <- NA
@@ -257,7 +257,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
     # -- 4.2. Non-parametric - sel_type = 2 (Ianelli et al 20??)
     if(data_list$fleet_control$Selectivity[i] == 2){ # Non-parametric at age
       # -- Map out time-varying deviates
-      map_list$sel_coff_dev[flt,,,] <- NA
+      # map_list$sel_coff_dev[flt,,,] <- NA
 
       # Map out nselages  < max(nselages)
       if(data_list$fleet_control$Nselages[i] < max(data_list$fleet_control$Nselages, na.rm = TRUE)){
@@ -295,7 +295,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
       # Map out non-parametric
       map_list$sel_coff[flt,, ] <- NA
-      map_list$sel_coff_dev[flt,,,] <- NA
+      # map_list$sel_coff_dev[flt,,,] <- NA
 
       # Map out time varying parameters if not used
       if(data_list$fleet_control$Time_varying_sel[i] %in% c(NA, 0)){
@@ -369,7 +369,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
       # Map out non-parametric
       map_list$sel_coff[flt,, ] <- NA
-      map_list$sel_coff_dev[flt,,,] <- NA
+      # map_list$sel_coff_dev[flt,,,] <- NA
 
       # Map out ascending logistic
       map_list$ln_sel_slp[1, flt, ] <- NA
@@ -439,7 +439,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
       # -- Turn off time-varying coefs if not used
       if(data_list$fleet_control$Time_varying_sel[i] %in% c(0, NA, 3)){ # 0 = off, 1 = penalized like, 2 = random effects (NOT Implemented),...
-        map_list$sel_coff_dev[flt,,,] <- NA
+        # map_list$sel_coff_dev[flt,,,] <- NA
       }
 
       # -- If nselages is  < max(nselages) map out
@@ -447,18 +447,18 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
         mapped_ages <- (data_list$fleet_control$Nselages[i] + 1):max(data_list$fleet_control$Nselages, na.rm = T)
 
         map_list$sel_coff[flt, , mapped_ages]  <- NA
-        map_list$sel_coff_dev[flt, , mapped_ages,]  <- NA
+        # map_list$sel_coff_dev[flt, , mapped_ages,]  <- NA
       }
 
       # -- Map out ages <= Age first selected
       if(!is.na(data_list$fleet_control$Age_first_selected[i])){
         mapped_ages <- (data_list$minage[spp]:data_list$fleet_control$Age_first_selected[i])- data_list$minage[spp] + 1
         map_list$sel_coff[flt, , mapped_ages]  <- NA
-        map_list$sel_coff_dev[flt, , mapped_ages,]  <- NA
+        # map_list$sel_coff_dev[flt, , mapped_ages,]  <- NA
       }
 
       # -- Map out years where comp data do not exist (set to average selectivity)
-      map_list$sel_coff_dev[flt, , ,comp_miss_yrs]  <- NA
+      # map_list$sel_coff_dev[flt, , ,comp_miss_yrs]  <- NA
 
       # Map out logistic and double logistic
       map_list$ln_sel_slp[1:2, flt ,] <- NA
@@ -482,7 +482,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
       # -- Non-parametric
       map_list$sel_coff[flt, 2, ]  <- NA
-      map_list$sel_coff_dev[flt,2,,] <- NA
+      # map_list$sel_coff_dev[flt,2,,] <- NA
     }
   }
 
@@ -614,7 +614,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       map_list$ln_sel_slp[1:2, flt,] <- map_list$ln_sel_slp[1:2, sel_duplicate,]
       map_list$sel_inf[1:2, flt,] <- map_list$sel_inf[1:2, sel_duplicate,]
       map_list$sel_coff[flt,,] <- map_list$sel_coff[sel_duplicate,,]
-      map_list$sel_coff_dev[flt,,,] <- map_list$sel_coff_dev[sel_duplicate,,,]
+      # map_list$sel_coff_dev[flt,,,] <- map_list$sel_coff_dev[sel_duplicate,,,]
       map_list$ln_sel_slp_dev[1:2, flt,,] <- map_list$ln_sel_slp_dev[1:2, sel_duplicate,,]
       map_list$sel_inf_dev[1:2, flt,,] <- map_list$sel_inf_dev[1:2, sel_duplicate,,]
       map_list$ln_sigma_sel[flt] <- map_list$ln_sigma_sel[sel_duplicate]
@@ -854,7 +854,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       map_list$ln_sigma_srv_q[flts] <- NA
       map_list$ln_sigma_time_varying_srv_q[flts] <- NA
       map_list$sel_coff[flts,,] <- NA
-      map_list$sel_coff_dev[flts,,,] <- NA
+      # map_list$sel_coff_dev[flts,,,] <- NA
       map_list$ln_sel_slp[, flts, ] <- NA
       map_list$sel_inf[, flts, ] <- NA
       map_list$ln_sel_slp_dev[, flts, ,] <- NA
@@ -864,22 +864,22 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       map_list$ln_sigma_fsh_catch[flts] <- NA
     }
 
-    # Don't estimate the scalar
-    if(data_list$estDynamics[sp] < 2 | data_list$msmMode == 0){
-      map_list$ln_pop_scalar[sp,] <- NA
-    }
-
-    # Age-independent scalar
-    if(data_list$estDynamics[sp] == 2 | data_list$msmMode != 0){
-      map_list$ln_pop_scalar[sp,2:ncol(map_list$ln_pop_scalar)] <- NA # Only estimate first parameter
-    }
-
-    # Age-dependent scalar
-    if(data_list$estDynamics[sp] == 3 | data_list$msmMode != 0){
-      if(data_list$nages[sp] < ncol(map_list$ln_pop_scalar)){ # Map out ages beyond maxage of the species
-        map_list$ln_pop_scalar[sp,(data_list$nages[sp]+1):ncol(map_list$ln_pop_scalar)] <- NA # Only estimate parameters for each age of species
-      }
-    }
+    # # Don't estimate the scalar
+    # if(data_list$estDynamics[sp] < 2 | data_list$msmMode == 0){
+    #   map_list$ln_pop_scalar[sp,] <- NA
+    # }
+    #
+    # # Age-independent scalar
+    # if(data_list$estDynamics[sp] == 2 | data_list$msmMode != 0){
+    #   map_list$ln_pop_scalar[sp,2:ncol(map_list$ln_pop_scalar)] <- NA # Only estimate first parameter
+    # }
+    #
+    # # Age-dependent scalar
+    # if(data_list$estDynamics[sp] == 3 | data_list$msmMode != 0){
+    #   if(data_list$nages[sp] < ncol(map_list$ln_pop_scalar)){ # Map out ages beyond maxage of the species
+    #     map_list$ln_pop_scalar[sp,(data_list$nages[sp]+1):ncol(map_list$ln_pop_scalar)] <- NA # Only estimate parameters for each age of species
+    #   }
+    # }
   }
 
 
