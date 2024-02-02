@@ -361,7 +361,7 @@ Type objective_function<Type>::operator() () {
   //    9 = Ecosim
   // DATA_INTEGER(est_diet);              // Include diet data in the likelihood
   DATA_INTEGER(suitMode);                 // Estimate suitability
-  DATA_INTEGER(avgnMode);                 // N used for predation function
+  // DATA_INTEGER(avgnMode);                 // N used for predation function
   //    0 = AvgN
   //    1 = N*exp(-Z / 2))
   //    2 = N
@@ -503,7 +503,7 @@ Type objective_function<Type>::operator() () {
   // -- 2.4.1. Bioenergetics parameters (BP)
   DATA_VECTOR( other_food );              // Biomass of other prey (kg); n = [1, nspp]
   DATA_VECTOR( Pvalue );                  // This scales the pvalue used, proportion of Cmax; Pvalue is P in Cmax*fT*Pvalue*PAge; n = [1, nspp]
-  DATA_IVECTOR( Ceq );                    // Ceq: which Comsumption equation to use; n = [1, nspp]; Currently all sp = 1
+  // DATA_IVECTOR( Ceq );                    // Ceq: which Comsumption equation to use; n = [1, nspp]; Currently all sp = 1
   DATA_IVECTOR( Cindex );                 // Cindex, which environmental index in env_index should drive bioenergetics.
   DATA_VECTOR( CA );                      // Wt specific intercept of Cmax=CA*W^CB; n = [1, nspp]
   DATA_VECTOR( CB );                      // Wt specific slope of Cmax=CA*W^CB; n = [1, nspp]
@@ -613,19 +613,19 @@ Type objective_function<Type>::operator() () {
   Type SrrAlpha = 0.0;
   matrix<Type>  R(nspp, nyrs); R.setZero();                                         // Estimated recruitment (n)
   vector<Type>  Steepness(nspp); Steepness.setZero();                               // Expected % of R0 at 20% SSB0.
-  array<Type>   biomassByage(nspp, 2, max_age, nyrs); biomassByage.setZero();       // Estimated biomass-at-age (kg)
+  // array<Type>   biomassByage(nspp, 2, max_age, nyrs); biomassByage.setZero();       // Estimated biomass-at-age (kg)
   matrix<Type>  biomass(nspp, nyrs); biomass.setZero();                             // Estimated biomass (kg)
   matrix<Type>  biomassSSB(nspp, nyrs); biomassSSB.setZero();                       // Estimated spawning stock biomass (kg)
   matrix<Type>  depletion(nspp, nyrs); depletion.setZero();                         // Estimated biomass depletion
   matrix<Type>  depletionSSB(nspp, nyrs); depletionSSB.setZero();                   // Estimated depletion of spawning stock biomass
-  array<Type>   biomassSSBByage(nspp, max_age, nyrs); biomassSSBByage.setZero();    // Spawning biomass at age (kg)
+  // array<Type>   biomassSSBByage(nspp, max_age, nyrs); biomassSSBByage.setZero();    // Spawning biomass at age (kg)
   array<Type>   M(nspp, 2, max_age, nyrs); M.setZero();                             // Total natural mortality at age
   array<Type>   M1(ln_M1.dim); M1 = exp(ln_M1);                                     // Residual or total natural mortality at age
   array<Type>   NByage(nspp, 2, max_age, nyrs); NByage.setZero();                   // Numbers at age
   array<Type>   AvgN(nspp, 2, max_age, nyrs); AvgN.setZero();                       // Average numbers-at-age
   array<Type>   sex_ratio_hat(nspp, max_age, nyrs); sex_ratio_hat.setZero();        // Estimated age-specific sex ratin
   matrix<Type>  sex_ratio_mean_hat(nspp, nyrs); sex_ratio_mean_hat.setZero();       // Estimated sex ratio across all ages
-  array<Type>   S(nspp, 2, max_age, nyrs); S.setZero();                             // Survival at age
+  // array<Type>   S(nspp, 2, max_age, nyrs); S.setZero();                             // Survival at age
   array<Type>   Zed(nspp, 2, max_age, nyrs); Zed.setZero();                         // Total mortality at age
   vector<Type>  r_sigma(nspp); r_sigma.setZero();                                   // Standard deviation of recruitment variation
   vector<Type>  zero_pop_pen(nspp); zero_pop_pen.setZero();                         // Additional penalty to add to likelihood if n-at-age goes < 0
@@ -1213,7 +1213,7 @@ Type objective_function<Type>::operator() () {
           for(sex = 0; sex < nsex(sp); sex ++){
             M(sp, sex, age, yr) = M1(sp, sex, age) + M2(sp, sex, age, yr);
             Zed(sp, sex, age, yr) = M1(sp, sex, age) + F_spp_age(sp, sex, age, yr) + M2(sp, sex, age, yr);
-            S(sp, sex, age, yr) = exp(-Zed(sp, sex, age, yr));
+            // S(sp, sex, age, yr) = exp(-Zed(sp, sex, age, yr));
           }
         }
       }
@@ -1336,7 +1336,7 @@ Type objective_function<Type>::operator() () {
     // 6.5. INITIAL ABUNDANCE AT AGE, BIOMASS, AND SSB (YEAR 1)
     biomass.setZero();
     biomassSSB.setZero();
-    biomassByage.setZero();
+    //biomassByage.setZero();
     for (sp = 0; sp < nspp; sp++) {
       for (age = 0; age < nages(sp); age++){
         for(sex = 0; sex < nsex(sp); sex ++){
@@ -1412,13 +1412,20 @@ Type objective_function<Type>::operator() () {
           */
 
           // -- 6.5.3. Estimate total biomass in year 1
+            /*
           biomassByage(sp, sex, age, 0) = NByage(sp, sex, age, 0) * wt( pop_wt_index(sp), sex, age, 0);
           biomass(sp, 0) += biomassByage(sp, sex, age, 0);
+          */
+            biomass(sp, 0) += NByage(sp, sex, age, 0) * wt( pop_wt_index(sp), sex, age, 0);
         }
 
         // -- 6.5.4. Estimated initial female SSB
+        /*
         biomassSSBByage(sp, age, 0) = NByage(sp, 0, age, 0) * pow(S(sp, 0, age, 0), spawn_month(sp)/12.0) * wt(ssb_wt_index(sp), 0, age, 0 ) * pmature(sp, age); // 6.6.
         biomassSSB(sp, 0) += biomassSSBByage(sp, age, 0);
+        */
+
+        biomassSSB(sp, 0) += NByage(sp, 0, age, 0) * pow( exp(-Zed(sp, 0, age, 0)), spawn_month(sp)/12.0) * wt(ssb_wt_index(sp), 0, age, 0 ) * pmature(sp, age); // 6.6.
       }
     }
 
@@ -1482,12 +1489,12 @@ Type objective_function<Type>::operator() () {
 
               // -- Where Amin < age < Amax
               if (age < (nages(sp) - 1)) {
-                NByage(sp, sex, age + 1, yr) = NByage(sp, sex, age, yr - 1) * S(sp, sex, age, yr - 1);
+                NByage(sp, sex, age + 1, yr) = NByage(sp, sex, age, yr - 1) * exp(-Zed(sp, sex, age, yr-1));// S(sp, sex, age, yr - 1);
               }
 
               // -- Plus group where age = Amax.
               if (age == (nages(sp) - 1)) {
-                NByage(sp, sex, age, yr) = NByage(sp, sex, age - 1, yr - 1) * S(sp, sex, age - 1, yr - 1) + NByage(sp, sex, age, yr - 1) * S(sp, sex, age, yr - 1);
+                NByage(sp, sex, age, yr) = NByage(sp, sex, age - 1, yr - 1) * exp(-Zed(sp, sex, age-1, yr-1)) + NByage(sp, sex, age, yr - 1) * exp(-Zed(sp, sex, age, yr-1)); // S(sp, sex, age, yr - 1);
               }
 
               /*
@@ -1518,13 +1525,19 @@ Type objective_function<Type>::operator() () {
             zero_pop_pen(sp) += penalty;
 
             // -- 6.6.3. Estimate total biomass
+            /*
             biomassByage(sp, sex, age, yr) = NByage(sp, sex, age, yr) * wt( pop_wt_index(sp), sex, age, yr );
             biomass(sp, yr) += biomassByage(sp, sex, age, yr);
+            */
+            biomass(sp, yr) += NByage(sp, sex, age, yr) * wt( pop_wt_index(sp), sex, age, yr );
           }
 
           // -- 6.6.4. Estimated female SSB
+          /*
           biomassSSBByage(sp, age, yr) = NByage(sp, 0, age, yr) * pow(S(sp, 0, age, yr), spawn_month(sp)/12.0) * wt(ssb_wt_index(sp), 0, age, yr ) * pmature(sp, age); // 6.6.
           biomassSSB(sp, yr) += biomassSSBByage(sp, age, yr);
+          */
+          biomassSSB(sp, yr) += NByage(sp, 0, age, yr) * pow(exp(-Zed(sp, 0, age, yr)), spawn_month(sp)/12.0) * wt(ssb_wt_index(sp), 0, age, yr ) * pmature(sp, age); // 6.6.
         }
       }
     }
@@ -1877,12 +1890,10 @@ Type objective_function<Type>::operator() () {
           for(sex = 0; sex < nsex(sp); sex ++){
             M(sp, sex, age, yr) = M1(sp, sex, age) + M2(sp, sex, age, yr);
             Zed(sp, sex, age, yr) = M1(sp, sex, age) + F_spp_age(sp, sex, age, yr) + M2(sp, sex, age, yr);
-            S(sp, sex, age, yr) = exp(-Zed(sp, sex, age, yr));
+            //S(sp, sex, age, yr) = exp(-Zed(sp, sex, age, yr));
           }
         }
       }
-
-
     }
 
 
@@ -1952,12 +1963,12 @@ Type objective_function<Type>::operator() () {
 
               // -- 6.9.2.  Where minage + 1 <= age < Ai
               if (age < (nages(sp) - 1)) {
-                NByage(sp, sex, age + 1, yr) = NByage(sp, sex, age, yr - 1) * S(sp, sex, age, yr - 1);
+                NByage(sp, sex, age + 1, yr) = NByage(sp, sex, age, yr - 1) * exp(-Zed(sp, sex, age, yr-1));// S(sp, sex, age, yr - 1);
               }
 
               // -- 6.9.3. Plus group where age > Ai.
               if (age == (nages(sp) - 1)) {
-                NByage(sp, sex, age, yr) = NByage(sp, sex, age - 1, yr - 1) * S(sp, sex, age - 1, yr - 1) + NByage(sp, sex, age, yr - 1) * S(sp, sex, age, yr - 1);
+                NByage(sp, sex, age, yr) = NByage(sp, sex, age - 1, yr - 1) * exp(-Zed(sp, sex, age-1, yr-1)) + NByage(sp, sex, age, yr - 1) * exp(-Zed(sp, sex, age, yr-1));// S(sp, sex, age, yr - 1);
               }
 
               /*
@@ -1988,13 +1999,19 @@ Type objective_function<Type>::operator() () {
             }
 
             // -- 6.9.4. FORECAST SSB BY AGE
+            /*
             biomassByage(sp, sex, age, yr) = NByage(sp, sex, age, yr) * wt( pop_wt_index(sp), sex, age, nyrs_hind-1 ); // 6.5.
             biomass(sp, yr) += biomassByage(sp, sex, age, yr);
+            */
+            biomass(sp, yr) += NByage(sp, sex, age, yr) * wt( pop_wt_index(sp), sex, age, nyrs_hind-1 ); // 6.5.
           } // End sex loop
 
           // -- 6.9.5. FORECAST SSB (SUM ACROSS AGES)
+          /*
           biomassSSBByage(sp, age, yr) = NByage(sp, 0, age, yr) * pow(S(sp, 0, age, yr), spawn_month(sp)/12.0) * wt(ssb_wt_index(sp), 0, age, nyrs_hind-1 ) * pmature(sp, age); // 6.6.
           biomassSSB(sp, yr) += biomassSSBByage(sp, age, yr);
+          */
+          biomassSSB(sp, yr) += NByage(sp, 0, age, yr) * pow(exp(-Zed(sp, 0, age, yr)), spawn_month(sp)/12.0) * wt(ssb_wt_index(sp), 0, age, nyrs_hind-1 ) * pmature(sp, age); // 6.6.
         }
       }
     }
@@ -2101,9 +2118,10 @@ Type objective_function<Type>::operator() () {
       for(sex = 0; sex < nsex(sp); sex ++){
         for (age = 0; age < nages(sp); age++) {
           for (yr = 0; yr < nyrs; yr++) {
-            switch(avgnMode){
-            case 0: // MSVPA approach
-              AvgN(sp, sex, age, yr) = NByage(sp, sex, age, yr) * (1 - S(sp, sex, age, yr)) / Zed(sp, sex, age, yr);
+            // switch(avgnMode){
+            // case 0: // MSVPA approach
+              AvgN(sp, sex, age, yr) = NByage(sp, sex, age, yr) * (1 - exp(-Zed(sp, sex, age, yr))) / Zed(sp, sex, age, yr);
+              /*
               break;
             case 1: // Kinzey and Punt (2009) approximation
               AvgN(sp, sex, age, yr) = NByage(sp, sex, age, yr) * exp(- Zed(sp, sex, age, yr) / 2);
@@ -2114,6 +2132,7 @@ Type objective_function<Type>::operator() () {
             default:
               error("Invalid 'avgnMode'");
             }
+            */
           }
         }
       }
@@ -2138,17 +2157,20 @@ Type objective_function<Type>::operator() () {
     Type Kb = 0.0;
     for (sp = 0; sp < nspp; sp++) {
       for (yr = 0; yr < nyrs; yr++) {
+        /*
         switch(Ceq(sp)){
         case 1:// Exponential function from Stewart et al. 1983
           fT(sp, yr) = exp(Qc(sp) * env_index(yr, Cindex(sp)));
           break;
 
         case 2:// Temperature dependence for warm-water-species from Kitchell et al. 1977
+          */
           Yc = log( Qc(sp) ) * (Tcm(sp) - Tco(sp) + 2.0);
           Zc = log( Qc(sp) ) * (Tcm(sp) - Tco(sp));
           Vc = (Tcm(sp) - env_index(yr, Cindex(sp))) / (Tcm(sp) - Tco(sp));
           Xc = pow(Zc, 2) * pow((1.0 + pow((1.0 + 40.0 / Yc), 0.5)), 2) / 400.0;
           fT(sp, yr) = pow(Vc, Xc) * exp(Xc * (1.0 - Vc));
+          /*
           break;
 
         case 3:// Temperature dependence for cool and cold-water species from Thornton and Lessem 1979
@@ -2165,6 +2187,7 @@ Type objective_function<Type>::operator() () {
           fT(sp, yr) = 1.0;
           break;
         }
+        */
       }
     }
 
@@ -3354,7 +3377,7 @@ Type objective_function<Type>::operator() () {
       // Only include years from hindcast
       if(flt_type(srv) > 0){
         if(flt_yr <= endyr){
-          if(srv_bio_hat(srv_ind) > 0){
+          if(srv_biom_obs(srv_ind) > 0){
             jnll_comp(0, srv) -= dnorm(log(srv_biom_obs(srv_ind, 0)), log(srv_bio_hat(srv_ind)) - square(srv_std_dev)/2.0, srv_std_dev, true);
 
             // Martin's
@@ -3394,7 +3417,7 @@ Type objective_function<Type>::operator() () {
       // Add only years from hindcast
       if(flt_type(flt) == 1){
         if(flt_yr <= endyr){
-          if(fsh_biom_obs(fsh_ind, 0) * fsh_bio_hat(fsh_ind) > 0){ //FIXME: dont like the fsh_bio_hat bit
+          if(fsh_biom_obs(fsh_ind, 0) > 0){ 
             jnll_comp(1, flt) -= dnorm(log(fsh_biom_obs(fsh_ind, 0)), log(fsh_bio_hat(fsh_ind)) - square(fsh_std_dev)/2.0, fsh_std_dev, true) ;
 
             // Martin's
@@ -3471,7 +3494,7 @@ Type objective_function<Type>::operator() () {
         if(yr <= endyr){
           for (ln = 0; ln < n_comp; ln++) {
             if(!isNA( comp_obs(comp_ind, ln) )){
-              if(comp_hat(comp_ind, ln) > 0){
+              if(comp_obs(comp_ind, ln) * comp_n(comp_ind, 1) > 0){
 
                 // Martin's
                 jnll_comp(2, flt) -= comp_weights(flt) * Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + 0.00001) * log((comp_hat(comp_ind, ln)+0.00001) / (comp_obs(comp_ind, ln) + 0.00001)) ;
