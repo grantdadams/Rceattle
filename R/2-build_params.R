@@ -25,7 +25,7 @@ build_params <- function(data_list) {
   param_list$dummy = 0  # Variable to test derived quantities given input parameters; n = [1]
 
   # -- 3.0. Population scalar/ sex ratio variance
-  param_list$ln_pop_scalar = matrix(0, nrow = data_list$nspp, ncol = max(data_list$nages))
+  # param_list$ln_pop_scalar = matrix(0, nrow = data_list$nspp, ncol = max(data_list$nages))
 
   # -- 3.1. Recruitment parameters
   param_list$rec_pars = matrix(9, nrow = data_list$nspp, ncol = 3)  # col 1 = mean rec, col 2 = alpha from srr curve, col 3 = beta from srr curve
@@ -110,7 +110,7 @@ build_params <- function(data_list) {
   # -- 3.6. Selectivity parameters
   n_selectivities <- nrow(data_list$fleet_control)
   param_list$sel_coff = suppressWarnings( array(0, dim = c(n_selectivities, 2, max(1, as.numeric(c(data_list$fleet_control$Nselages) ), na.rm = T))))  # Non-parametric selectivity coef; n = [nspp, nselages]
-  param_list$sel_coff_dev = suppressWarnings( array(0, dim = c(n_selectivities, 2, max(1, as.numeric(c(data_list$fleet_control$Nselages) ), na.rm = T), nyrs_hind)))  # Non-parametric selectivity coef annual deviates
+  #param_list$sel_coff_dev = suppressWarnings( array(0, dim = c(n_selectivities, 2, max(1, as.numeric(c(data_list$fleet_control$Nselages) ), na.rm = T), nyrs_hind)))  # Non-parametric selectivity coef annual deviates
   param_list$ln_sel_slp = array(0.5, dim = c(2, n_selectivities, 2))  # selectivity paramaters for logistic; n = [2, nspp, 2 sexes]
   param_list$sel_inf = array(0, dim = c(2, n_selectivities, 2))  # selectivity paramaters for logistic; n = [2, nspp, 2 sexes]
   param_list$sel_inf[1,,] <- 5

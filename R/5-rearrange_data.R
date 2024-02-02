@@ -264,7 +264,8 @@ rearrange_dat <- function(data_list){
   df_to_mat <- which(sapply(data_list, function(x) class(x)[1]) == "data.frame")
   data_list[df_to_mat] <- lapply(data_list[df_to_mat], as.matrix)
 
-  items_to_remove <- c("emp_sel",  "fsh_comp",    "srv_comp",    "fsh_biom",    "srv_biom", "comp_data", "env_data", "spnames")
+  items_to_remove <- c("emp_sel",  "fsh_comp",    "srv_comp",    "fsh_biom",    "srv_biom", "comp_data", "env_data", "spnames",
+                       "aLW", "M1_use_prior", "M2_use_prior", "M1_prior_mean", "M1_prior_sd", "NByageFixed", "estDynamics", "srr_prior_mean", "srr_prior_sd", "srr_est_mode")
   data_list[items_to_remove] <- NULL
 
   return(data_list)
