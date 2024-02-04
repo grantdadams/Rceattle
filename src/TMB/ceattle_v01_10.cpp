@@ -2023,7 +2023,7 @@ Type objective_function<Type>::operator() () {
     // 6.10. EXPECTED RECRUITMENT
     for (sp = 0; sp < nspp; sp++) {
 
-      // Year 1
+      // Year 1 (arent fit in likelihood)
       switch(srr_pred_fun){
       case 0: // Random about mean (e.g. Alaska)
         R_hat(sp, 0)  = R0(sp);
@@ -3426,11 +3426,11 @@ Type objective_function<Type>::operator() () {
             // Martin's
             // jnll_comp(1, flt)+= 0.5*square((log(fsh_biom_obs(fsh_ind, 0))-log(fsh_bio_hat(fsh_ind)))/fsh_std_dev);
 
-
             // Slot 12 -- Epsilon -- Annual fishing mortality deviation
             jnll_comp(12, flt) += square(F_dev(flt, yr));      // Fishing mortality deviation using penalized likelihood.
-          } else{
-            jnll_comp(12, flt) += square(F_dev(flt, yr)+10);   // If catch is zero, penalize F_dev to -10
+          }
+          if(fsh_biom_obs(fsh_ind, 0) == 0){
+            jnll_comp(12, flt) += square(F_dev(flt, yr) + 10);   // If catch is zero, penalize F_dev to -10
           }
         }
       }
