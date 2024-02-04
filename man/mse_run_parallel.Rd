@@ -47,7 +47,7 @@ mse_run_parallel(
 
 \item{fut_sample}{future sampling effort relative to last year.  \code{ Log_sd * 1 / fut_sample} for index and \code{ Sample_size * fut_sample} for comps}
 
-\item{cap}{A cap on the catch in the projection. Can be a single number or vector. Default = NULL}
+\item{cap}{A cap on the catch in the projection. Can be a single number or vector of length nspp. Default = NULL}
 
 \item{seed}{}
 

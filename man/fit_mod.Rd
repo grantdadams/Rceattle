@@ -22,7 +22,6 @@ fit_mod(
   msmMode = 0,
   avgnMode = 0,
   initMode = 1,
-  minNByage = 0,
   suitMode = 0,
   suit_meanyr = NULL,
   phase = NULL,
@@ -71,8 +70,6 @@ fit_mod(
 \item{avgnMode}{The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.}
 
 \item{initMode}{how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 2 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates.}
-
-\item{minNByage}{Minimum numbers at age to put in a hard constraint that the number-at-age can not go below.}
 
 \item{suitMode}{Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma suitability, 2 = weight based gamma suitability, 3 = length based lognormal selectivity, 4 = time-varying length based lognormal selectivity.}
 

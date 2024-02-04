@@ -2,7 +2,6 @@
 % Please edit documentation in R/Rceattle-package.R, R/Rceattle.R
 \docType{package}
 \name{Rceattle-package}
-\alias{Rceattle}
 \alias{Rceattle-package}
 \title{Rceattle: Fits the multispecies assessment model (CEATTLE) using TMB}
 \description{

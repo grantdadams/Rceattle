@@ -347,7 +347,6 @@ Type objective_function<Type>::operator() () {
   // ------------------------------------------------------------------------- //
   // 1.1. CONFIGURE MODEL (this section sets up the switches)
   DATA_INTEGER(estimateMode);             // Logical to debug or not
-  DATA_SCALAR( minNByage );               // Hard constraint that the lowest a numbers at age can be is 1
   DATA_INTEGER(msmMode);
   //    0 = run in single species mode
   //    1 = run in Type II MSVPA based (sensu Holsman et al (2015))
@@ -361,11 +360,12 @@ Type objective_function<Type>::operator() () {
   //    9 = Ecosim
   // DATA_INTEGER(est_diet);              // Include diet data in the likelihood
   DATA_INTEGER(suitMode);                 // Estimate suitability
-  // DATA_INTEGER(avgnMode);                 // N used for predation function
+  // DATA_INTEGER(avgnMode);              // N used for predation function
   //    0 = AvgN
   //    1 = N*exp(-Z / 2))
   //    2 = N
   DATA_INTEGER(initMode);                 // How the age-structure is initialized
+  DATA_INTEGER(forecast);                 // Run the model in forecast mo
 
 
   // 1.2. Temporal dimensions
@@ -407,7 +407,6 @@ Type objective_function<Type>::operator() () {
 
 
   // 1.5. HARVEST CONTROL RULE (HCR) SETTINGS
-  DATA_INTEGER(forecast);                 // Switch, wether or not we are estimating the hindcast or forecast
   DATA_INTEGER(HCR);                      // Function to be used for harvest control rule
   DATA_INTEGER(DynamicHCR);               // TRUE/FALSE. Wether to use static or dynamic reference points (default = FALSE)
   DATA_VECTOR(Ptarget);                   // Target spawning-stock biomass as a percentage of static or dynamic spawning-stock-biomass at F = 0
@@ -467,7 +466,7 @@ Type objective_function<Type>::operator() () {
   // -- 2.3.1 Fishery Components
   DATA_IMATRIX( fsh_biom_ctl );           // Info for fishery biomass; columns = Fishery_name, Fishery_code, Species, Year
   DATA_IMATRIX( fsh_biom_n );             // Info for fishery biomass; columns = Month
-  DATA_MATRIX( fsh_biom_obs );            // Observed fishery catch biomass (kg) and log_sd; n = [nobs_fish_biom, 2]; columns = Observation, Error
+  DATA_MATRIX(fsh_biom_obs); DATA_UPDATE(fsh_biom_obs) // Observed fishery catch biomass (kg) and log_sd; n = [nobs_fish_biom, 2]; columns = Observation, Error
 
   // -- 2.3.2 Survey components
   DATA_IMATRIX( srv_biom_ctl );           // Info for survey biomass; columns = Survey_name, Survey_code, Species, Year
@@ -1174,6 +1173,11 @@ Type objective_function<Type>::operator() () {
                   break;
                 }
 
+                // Set F to zero if not running forecast
+                if(forecast == 0){
+                  proj_F(sp) = 0;
+                }
+
 
                 F_flt_age(flt, sex, age, yr) = sel(flt, sex, age, yr) * proj_F_prop(flt) * proj_F(sp); // FIXME using last year of selectivity
               }
@@ -1517,10 +1521,6 @@ Type objective_function<Type>::operator() () {
 
             */
 
-            // Hard constraint to reduce population collapse
-            // if(NByage(sp, sex, age, yr) < minNByage){
-            //   NByage(sp, sex, age, yr) = minNByage;
-            // }
             NByage(sp, sex, age, yr) = posfun(NByage(sp, sex, age, yr), Type(0.001), penalty);
             zero_pop_pen(sp) += penalty;
 
@@ -1859,6 +1859,11 @@ Type objective_function<Type>::operator() () {
         }
       }
 
+      // Set F to 0 if not forecast
+      if(forecast == 0){
+        proj_F(sp) =  0.0;
+      }
+
       // Adjust F*selex
       for (yr = nyrs_hind; yr < nyrs; yr++){
         // -- 6.8.3. Update F for the projection (account for selectivity and fleets)
@@ -1992,11 +1997,9 @@ Type objective_function<Type>::operator() () {
 
             */
 
-            // Hard constraint to reduce population collapse
-            // FIXME: change to posfun
-            if(NByage(sp, sex, age, yr) < minNByage){
-              NByage(sp, sex, age, yr) = minNByage;
-            }
+            //  Constraint to reduce population collapse
+            // NByage(sp, sex, age, yr) = posfun(NByage(sp, sex, age, yr), Type(0.001), penalty);
+            // zero_pop_pen(sp) += penalty;
 
             // -- 6.9.4. FORECAST SSB BY AGE
             /*
@@ -3426,6 +3429,8 @@ Type objective_function<Type>::operator() () {
 
             // Slot 12 -- Epsilon -- Annual fishing mortality deviation
             jnll_comp(12, flt) += square(F_dev(flt, yr));      // Fishing mortality deviation using penalized likelihood.
+          } else{
+            jnll_comp(12, flt) += square(F_dev(flt, yr)+10);   // If catch is zero, penalize F_dev to -10
           }
         }
       }

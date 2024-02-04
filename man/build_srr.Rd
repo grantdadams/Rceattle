@@ -13,7 +13,7 @@ build_srr(
   srr_prior_mean = 4,
   srr_prior_sd = 1,
   srr_env_indices = 1,
-  Bmsy_lim = Inf
+  Bmsy_lim = -999
 )
 }
 \arguments{
@@ -39,8 +39,5 @@ build_srr(
 A \code{list} containing the stock recruitment relationship settings
 }
 \description{
-Specify the stock-recruit relationship (SRR) for Rceattle
-}
-\details{
 
 }

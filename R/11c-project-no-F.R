@@ -51,7 +51,6 @@ remove_F <- function(Rceattle){
     niter = Rceattle$data_list$niter,
     msmMode = Rceattle$data_list$msmMode,
     avgnMode = Rceattle$data_list$avgnMode,
-    minNByage = Rceattle$data_list$minNByage,
     suitMode = Rceattle$data_list$suitMode,
     suit_meanyr = Rceattle$data_list$suit_meanyr,
     initMode = Rceattle$data_list$initMode,

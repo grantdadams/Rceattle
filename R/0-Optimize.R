@@ -166,3 +166,127 @@ fit_tmb = function( obj, fn=obj$fn, gr=obj$gr, startpar=obj$par, lower=rep(-Inf,
   # Return stuff
   return( parameter_estimates )
 }
+
+
+
+
+
+
+
+
+
+#' Optimize a TMB model, but no SD (for mse purposes)
+#'
+#' \code{fit_tmb} runs a TMB model and generates standard diagnostics
+#'
+#' @param startpar Starting values for fixed effects
+#' @inheritParams stats::nlminb
+#' @inheritParams TMB::sdreport
+#' @param control A list of control parameters. For details see \code{?nlminb}
+#' @param bias.correct Boolean whether to do epsilon bias-correction
+#' @param bias.correct.control tagged list of options for epsilon bias-correction, where \code{vars_to_correct} is a character-vector of ADREPORT variables that should be bias-corrected
+#' @param savedir directory to save results (if \code{savedir=NULL}, then results aren't saved)
+#' @param loopnum number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})
+#' @param newtonsteps number of extra newton steps to take after optimization (alternative to \code{loopnum})
+#' @param n sample sizes (if \code{n!=Inf} then \code{n} is used to calculate BIC and AICc)
+#' @param quiet Boolean whether to print additional messages results to terminal
+#' @param ... list of settings to pass to \code{TMB::sdreport}
+#'
+#' @return the standard output from \code{nlminb}, except with additional diagnostics and timing info, and a new slot containing the output from \code{TMB::sdreport}
+
+#' @examples
+#' TMBhelper::Optimize( Obj ) # where Obj is a compiled TMB object
+#'
+#' @author Jim Thorson (https://github.com/kaskr/TMB_contrib_R/blob/master/TMBhelper/R/fit_tmb.R)
+
+#' @export
+fit_tmb_mse = function( fn=obj$fn, gr=obj$gr, startpar=obj$par, lower=rep(-Inf,length(startpar)), upper=rep(Inf,length(startpar)),
+                    control=list(eval.max=1e4, iter.max=1e4, trace=0), bias.correct=FALSE,
+                    bias.correct.control=list(sd=FALSE, split=NULL, nsplit=NULL, vars_to_correct=NULL),
+                    savedir=NULL, loopnum=3, newtonsteps=0, n=Inf,
+                    quiet=FALSE, ... ){
+
+  # Check for issues
+  List = list(...)
+  #if( !is.null(List$jointJointPrecision) ){
+  #  if( getJointPrecision==FALSE & getReportCovariance==TRUE ){
+  #    stop("Some versions of TMB appear to throw an error when `getJointPrecision=TRUE` and `getReportCovariance=FALSE`")
+  #  }
+  #}
+
+  # Local function -- combine two lists
+  combine_lists = function( default, input ){
+    output = default
+    for( i in seq_along(input) ){
+      if( names(input)[i] %in% names(default) ){
+        output[[names(input)[i]]] = input[[i]]
+      }else{
+        output = c( output, input[i] )
+      }
+    }
+    return( output )
+  }
+
+  # Replace defaults for `BS.control` with provided values (if any)
+  BS.control = list(sd=FALSE, split=NULL, nsplit=NULL, vars_to_correct=NULL)
+  BS.control = combine_lists( default=BS.control, input=bias.correct.control )
+
+  # Replace defaults for `control` with provided values if any
+  nlminb.control = list(eval.max=1e4, iter.max=1e4, trace=0)
+  nlminb.control = combine_lists( default=nlminb.control, input=control )
+
+  # Run first time
+  start_time = Sys.time()
+  parameter_estimates = nlminb( start=startpar, objective=fn, gradient=gr, control=nlminb.control, lower=lower, upper=upper )
+
+  # Re-run to further decrease final gradient
+  for( i in seq(2,loopnum,length=max(0,loopnum-1)) ){
+    Temp = parameter_estimates[c('iterations','evaluations')]
+    parameter_estimates = nlminb( start=parameter_estimates$par, objective=fn, gradient=gr, control=nlminb.control, lower=lower, upper=upper )
+    parameter_estimates[['iterations']] = parameter_estimates[['iterations']] + Temp[['iterations']]
+    parameter_estimates[['evaluations']] = parameter_estimates[['evaluations']] + Temp[['evaluations']]
+  }
+
+  ## Run some Newton steps
+  for(i in seq_len(newtonsteps)) {
+    g = as.numeric( gr(parameter_estimates$par) )
+    h = optimHess(parameter_estimates$par, fn=fn, gr=gr)
+    parameter_estimates$par = parameter_estimates$par - solve(h, g)
+    parameter_estimates$objective = fn(parameter_estimates$par)
+  }
+
+  # Exclude difficult-to-interpret messages
+  parameter_estimates = parameter_estimates[c('par','objective','iterations','evaluations', 'message')]
+
+  # Add diagnostics
+  parameter_estimates[["time_for_MLE"]] = Sys.time() - start_time
+  parameter_estimates[["max_gradient"]] = max(abs(gr(parameter_estimates$par)))
+  parameter_estimates[["Convergence_check"]] = ifelse( parameter_estimates[["max_gradient"]]<0.0001, "There is no evidence that the model is not converged", paste0("Final gradient is ", round(parameter_estimates[["max_gradient"]], 5)))
+  parameter_estimates[["number_of_coefficients"]] = c("Total"=length(startpar), "Fixed"=length(startpar))
+  parameter_estimates[["AIC"]] = TMBhelper::TMBAIC( opt=parameter_estimates )
+  if( n!=Inf ){
+    parameter_estimates[["AICc"]] = TMBhelper::TMBAIC( opt=parameter_estimates, n=n )
+    parameter_estimates[["BIC"]] = TMBhelper::TMBAIC( opt=parameter_estimates, p=log(n) )
+  }
+  parameter_estimates[["diagnostics"]] = data.frame( "Param"=names(startpar), "starting_value"=startpar, "Lower"=lower, "MLE"=parameter_estimates$par, "Upper"=upper, "final_gradient"=as.vector(gr(parameter_estimates$par)) )
+
+
+  parameter_estimates[["time_for_run"]] = Sys.time() - start_time
+
+  # Save results
+  if( !is.null(savedir) ){
+    save( parameter_estimates, file=file.path(savedir,"parameter_estimates.RData"))
+    capture.output( parameter_estimates, file=file.path(savedir,"parameter_estimates.txt"))
+  }
+
+  # Print warning to screen
+  if( quiet==FALSE & parameter_estimates[["Convergence_check"]] != "There is no evidence that the model is not converged" ){
+    message( "#########################" )
+    message( parameter_estimates[["Convergence_check"]] )
+    message( "#########################" )
+  }
+
+  # Return stuff
+  return( parameter_estimates )
+}
+

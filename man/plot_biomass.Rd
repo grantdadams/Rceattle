@@ -21,6 +21,7 @@ plot_biomass(
   maxyr = NULL,
   incl_proj = FALSE,
   mod_cex = 1,
+  lty = rep(1, length(Rceattle)),
   alpha = 0.4,
   mod_avg = rep(FALSE, length(Rceattle)),
   mse = FALSE,
