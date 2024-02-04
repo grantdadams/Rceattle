@@ -17,7 +17,6 @@
 #' @param msmMode The predation mortality functions to used. Defaults to no predation mortality used.
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.
 #' @param initMode how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 2 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates.
-#' @param minNByage Minimum numbers at age to put in a hard constraint that the number-at-age can not go below.
 #' @param phase Optional. List of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R. If NULL, will not phase model. If set to \code{"default"}, will use default phasing.
 #' @param suitMode Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma suitability, 2 = weight based gamma suitability, 3 = length based lognormal selectivity, 4 = time-varying length based lognormal selectivity.
 #' @param suit_meanyr Integer. The last year used to calculate mean suitability, starting at \code{styr}. Defaults to $endyr$ in $data_list$. Used for MSE runs where suitability is held at the value estimated from the years used to condition the OM, but F is estimated for years beyond those used to condition the OM to account for projected catch.
@@ -102,7 +101,6 @@ fit_mod <-
     msmMode = 0,
     avgnMode = 0,
     initMode = 1,
-    minNByage = 0,
     suitMode = 0,
     suit_meanyr = NULL,
     phase = NULL,
@@ -185,7 +183,6 @@ fit_mod <-
     data_list$loopnum <- loopnum
     data_list$msmMode <- msmMode
     data_list$suitMode <- as.numeric(suitMode)
-    data_list$minNByage <- as.numeric(minNByage)
 
 
     if(is.null(suit_meanyr) & is.null(data_list$suit_meanyr)){ # If no meanyear is provided in data or function, use end year
@@ -322,9 +319,6 @@ fit_mod <-
 
     data_list_reorganized <- Rceattle::rearrange_dat(data_list)
     data_list_reorganized = c(list(model = TMBfilename), data_list_reorganized)
-    if(msmMode > 0 & !catch_hcr){
-      data_list_reorganized$HCR = 0 # Estimate model with F = 0 for the projection if multispecies
-    }
     data_list_reorganized$forecast <- FALSE # Don't include BRPs in likelihood of hindcast
 
     # - Update comp weights, future F (if input) and F_prop from data
@@ -647,9 +641,6 @@ fit_mod <-
             data_list_reorganized$MSSB0[params_on] <- SB0[params_on]
             data_list_reorganized$MSB0[params_on] <- B0[params_on]
 
-            # -- Set HCR back to original
-            data_list_reorganized$HCR <- data_list$HCR
-
             # --- Update model object for HCR
             obj = TMB::MakeADFun(
               data_list_reorganized,
@@ -784,7 +775,6 @@ fit_mod <-
 
     # -- Save data w/ mcallister
     mod_objects$data_list <- data_list
-
 
     # - Save objects
     mod_objects$run_time = ((Sys.time() - start_time))

@@ -135,7 +135,7 @@ plot_catch(mod_list, model_names = model_names, incl_proj = TRUE)
 # Single species harvest control rules ----
 ################################################
 # -- Constant F as a percentage of SB0
-ss_run_fb0 <- Rceattle::fit_mod(data_list = mydata,
+ss_run_fb0 <- Rceattle::fit_mod(data_list = BS2017SS,
                                   inits = ss_run$estimated_params, # Initial parameters from ss_run
                                   estimateMode = 2, # Run projection only
                                   HCR = build_hcr(HCR = 3, # Constant F HCR
@@ -145,7 +145,7 @@ ss_run_fb0 <- Rceattle::fit_mod(data_list = mydata,
                                   verbose = 1)
 
 
-ss_run_dynamicfb0 <- Rceattle::fit_mod(data_list = mydata,
+ss_run_dynamicfb0 <- Rceattle::fit_mod(data_list = BS2017SS,
                                          inits = ss_run$estimated_params, # Initial parameters from ss_run
                                          estimateMode = 2, # Run projection only
                                          HCR = build_hcr(HCR = 3, # Constant F HCR
@@ -156,7 +156,7 @@ ss_run_dynamicfb0 <- Rceattle::fit_mod(data_list = mydata,
 
 
 # -- Constant Fspr
-ss_run_Fspr <- Rceattle::fit_mod(data_list = mydata,
+ss_run_Fspr <- Rceattle::fit_mod(data_list = BS2017SS,
                                   inits = ss_run$estimated_params, # Initial parameters from ss_run
                                   estimateMode = 2, # Run projection only
                                   HCR = build_hcr(HCR = 4, # Tier3 HCR
@@ -166,7 +166,7 @@ ss_run_Fspr <- Rceattle::fit_mod(data_list = mydata,
                                   verbose = 1)
 
 
-ss_run_dynamicFspr <- Rceattle::fit_mod(data_list = mydata,
+ss_run_dynamicFspr <- Rceattle::fit_mod(data_list = BS2017SS,
                                          inits = ss_run$estimated_params, # Initial parameters from ss_run
                                          estimateMode = 2, # Run projection only
                                          HCR = build_hcr(HCR = 4, # Tier3 HCR
@@ -178,7 +178,7 @@ ss_run_dynamicFspr <- Rceattle::fit_mod(data_list = mydata,
 
 
 # -- NPFMC Tier 3
-ss_run_Tier3 <- Rceattle::fit_mod(data_list = mydata,
+ss_run_Tier3 <- Rceattle::fit_mod(data_list = BS2017SS,
                                   inits = ss_run$estimated_params, # Initial parameters from ss_run
                                   estimateMode = 2, # Run projection only
                                   HCR = build_hcr(HCR = 5, # Tier3 HCR
@@ -190,7 +190,7 @@ ss_run_Tier3 <- Rceattle::fit_mod(data_list = mydata,
                                   verbose = 1)
 
 
-ss_run_dynamicTier3 <- Rceattle::fit_mod(data_list = mydata,
+ss_run_dynamicTier3 <- Rceattle::fit_mod(data_list = BS2017SS,
                                          inits = ss_run$estimated_params, # Initial parameters from ss_run
                                          estimateMode = 2, # Run projection only
                                          HCR = build_hcr(HCR = 5, # Tier3 HCR
@@ -203,7 +203,7 @@ ss_run_dynamicTier3 <- Rceattle::fit_mod(data_list = mydata,
                                          verbose = 1)
 
 # -- PFMC Category 1
-ss_run_Cat1 <- Rceattle::fit_mod(data_list = mydata,
+ss_run_Cat1 <- Rceattle::fit_mod(data_list = BS2017SS,
                                  inits = ss_run$estimated_params, # Initial parameters from ss_run
                                  estimateMode = 2, # Run projection only
                                  HCR = build_hcr(HCR = 6, # Cat 1 HCR
@@ -215,7 +215,7 @@ ss_run_Cat1 <- Rceattle::fit_mod(data_list = mydata,
                                  msmMode = 0, # Single species mode
                                  verbose = 1)
 
-ss_run_dynamicCat1 <- Rceattle::fit_mod(data_list = mydata,
+ss_run_dynamicCat1 <- Rceattle::fit_mod(data_list = BS2017SS,
                                         inits = ss_run$estimated_params, # Initial parameters from ss_run
                                         estimateMode = 2, # Run projection only
                                         HCR = build_hcr(HCR = 6, # Cat 1 HCR
@@ -229,7 +229,7 @@ ss_run_dynamicCat1 <- Rceattle::fit_mod(data_list = mydata,
                                         verbose = 1)
 
 # -- SESSF Tier 1
-ss_run_Tier1 <- Rceattle::fit_mod(data_list = mydata,
+ss_run_Tier1 <- Rceattle::fit_mod(data_list = BS2017SS,
                                   inits = ss_run$estimated_params, # Initial parameters from ss_run
                                   estimateMode = 2, # Run projection only
                                   HCR = build_hcr(HCR = 7, # Tier 1 HCR
@@ -242,7 +242,7 @@ ss_run_Tier1 <- Rceattle::fit_mod(data_list = mydata,
                                   verbose = 1)
 
 
-ss_run_dynamicTier1 <- Rceattle::fit_mod(data_list = mydata,
+ss_run_dynamicTier1 <- Rceattle::fit_mod(data_list = BS2017SS,
                                          inits = ss_run$estimated_params, # Initial parameters from ss_run
                                          estimateMode = 2, # Run projection only
                                          HCR = build_hcr(HCR = 7, # Tier 1 HCR
@@ -273,49 +273,49 @@ plot_ssb(dynamic_mod_list, model_names = dynamic_model_names, incl_proj = TRUE)
 ################################################
 # -- No F
 # - MS-OM: SS-EM No F
-mse1 <- mse_run(om = ms_run, em = ss_run, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+mse1 <- mse_run_parallel(om = ms_run, em = ss_run, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
 
 # - SS-OM: SS-EM No F
-mse2 <- mse_run(om = ss_run_M, em = ss_run, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+mse2 <- mse_run_parallel(om = ss_run_M, em = ss_run, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
 
 
 # -- NPFMC Tier 3 HCRs
 # - MS-OM: SS-EM Tier 3 HCR
-mse3 <- mse_run(om = ms_run, em = ss_run_Tier3, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+mse3 <- mse_run_parallel_fast(om = ss_run, em = ss_run_Tier3, nsim = 5, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, sample_rec = TRUE)
 
 # - SS-OM: SS-EM Tier 3 HCR
-mse4 <- mse_run(om = ss_run_M, em = ss_run_Tier3, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+mse4 <- mse_run_parallel(om = ss_run_M, em = ss_run_Tier3, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
 
 # - MS-OM: SS-EM dynamic Tier 3 HCR
-mse5 <- mse_run(om = ms_run, em = ss_run_dynamicTier3, nsim = 1, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+mse5 <- mse_run_parallel(om = ms_run, em = ss_run_dynamicTier3, nsim = 1, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
 
 # - SS-OM: SS-EM dynamic Tier 3 HCR
-mse6 <- mse_run(om = ss_run_M, em = ss_run_dynamicTier3, nsim = 1, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+mse6 <- mse_run_parallel(om = ss_run_M, em = ss_run_dynamicTier3, nsim = 1, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
 
 
 # -- PFMC Category 1 HCRs
 # - MS-OM: SS-EM Tier 3 HCR
-mse7 <- mse_run(om = ms_run, em = ss_run_Cat1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+mse7 <- mse_run_parallel(om = ms_run, em = ss_run_Cat1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
 
 # - SS-OM: SS-EM Tier 3 HCR
-mse8 <- mse_run(om = ss_run_M, em = ss_run_Cat1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+mse8 <- mse_run_parallel(om = ss_run_M, em = ss_run_Cat1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
 
 # - MS-OM: SS-EM dynamic Tier 3 HCR
-mse9 <- mse_run(om = ms_run, em = ss_run_dynamicCat1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+mse9 <- mse_run_parallel(om = ms_run, em = ss_run_dynamicCat1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
 
 # - SS-OM: SS-EM dynamic Tier 3 HCR
-mse10 <- mse_run(om = ss_run_M, em = ss_run_dynamicCat1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+mse10 <- mse_run_parallel(om = ss_run_M, em = ss_run_dynamicCat1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
 
 
 # -- SESSF Tier 1 HCRs
 # - MS-OM: SS-EM Tier 3 HCR
-mse11 <- mse_run(om = ms_run, em = ss_run_Tier1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+mse11 <- mse_run_parallel(om = ms_run, em = ss_run_Tier1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
 
 # - SS-OM: SS-EM Tier 3 HCR
-mse12 <- mse_run(om = ss_run_M, em = ss_run_Tier1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+mse12 <- mse_run_parallel(om = ss_run_M, em = ss_run_Tier1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
 
 # - MS-OM: SS-EM dynamic Tier 3 HCR
-mse13 <- mse_run(om = ms_run, em = ss_run_dynamicTier1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+mse13 <- mse_run_parallel(om = ms_run, em = ss_run_dynamicTier1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
 
 # - SS-OM: SS-EM dynamic Tier 3 HCR
-mse14 <- mse_run(om = ss_run_M, em = ss_run_dynamicTier1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+mse14 <- mse_run_parallel(om = ss_run_M, em = ss_run_dynamicTier1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
