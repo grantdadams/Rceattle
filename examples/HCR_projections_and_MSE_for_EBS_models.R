@@ -1,7 +1,7 @@
 library(Rceattle)
 
 ################################################
-# Data
+# Data ----
 ################################################
 # Example
 # To run the 2017 single species assessment for the Bering Sea, a data file must first be loaded:
@@ -17,7 +17,7 @@ mydata <- Rceattle::read_data( file = "BS2017SS.xlsx")
 
 
 ################################################
-# Estimation
+# Estimation ----
 ################################################
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
 mydata$fleet_control$proj_F_prop <-rep(1,7)
@@ -68,7 +68,7 @@ plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE)
 
 
 ################################################
-# Alternative harvest control rules
+# Alternative harvest control rules ----
 ################################################
 # -- Constant F as a percentage of SB0
 ss_run_fb0 <- Rceattle::fit_mod(data_list = mydata,
@@ -205,7 +205,7 @@ plot_biomass(dynamic_mod_list, model_names = dynamic_model_names, incl_proj = TR
 plot_ssb(dynamic_mod_list, model_names = dynamic_model_names, incl_proj = TRUE)
 
 ################################################
-# Management strategy evaluation
+# Management strategy evaluation ----
 ################################################
 # -- No F
 # - MS-OM: SS-EM No F

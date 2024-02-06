@@ -1668,9 +1668,9 @@ Type objective_function<Type>::operator() () {
 
         for (age = 0; age < nages(sp); age++) {
           SB0(sp, yr) +=  NByage0(sp, 0, age, yr) *  wt( ssb_wt_index(sp), 0, age, nyrs_hind - 1 ) * pmature(sp, age) * exp(-M(sp, 0, age, yr) * spawn_month(sp)/12);
-          SBF(sp, yr) +=  NByageF(sp, 0, age, yr) *  wt( ssb_wt_index(sp), 0, age, nyrs_hind - 1 ) * pmature(sp, age) * exp(-(M(sp, 0, age, yr) + Ftarget_age_flt(sp, sex, age, yr)) * spawn_month(sp)/12);
+          SBF(sp, yr) +=  NByageF(sp, 0, age, yr) *  wt( ssb_wt_index(sp), 0, age, nyrs_hind - 1 ) * pmature(sp, age) * exp(-(M(sp, 0, age, yr) + Ftarget_age_flt(sp, 0, age, yr)) * spawn_month(sp)/12);
           DynamicSB0(sp, yr) +=  DynamicNByage0(sp, 0, age, yr) *  wt( ssb_wt_index(sp), 0, age, yr_ind ) * pmature(sp, age) * exp(-M(sp, 0, age, yr) * spawn_month(sp)/12);
-          DynamicSBF(sp, yr) +=  DynamicNByageF(sp, 0, age, yr) *  wt( ssb_wt_index(sp), 0, age, yr_ind ) * pmature(sp, age) * exp(-(M(sp, 0, age, yr) +  Ftarget_age_flt(sp, sex, age, yr)) * spawn_month(sp)/12);
+          DynamicSBF(sp, yr) +=  DynamicNByageF(sp, 0, age, yr) *  wt( ssb_wt_index(sp), 0, age, yr_ind ) * pmature(sp, age) * exp(-(M(sp, 0, age, yr) +  Ftarget_age_flt(sp, 0, age, yr)) * spawn_month(sp)/12);
 
           for(sex = 0; sex < nsex(sp); sex ++){
             B0(sp, yr) +=  NByage0(sp, sex, age, yr) *  wt( ssb_wt_index(sp), sex, age, nyrs_hind - 1 );
