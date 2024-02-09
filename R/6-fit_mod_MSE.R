@@ -5,16 +5,9 @@
 #' @param inits (Optional) Character vector of named initial values from previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters. Can also construct using \code{\link{build_params}}
 #' @param map (Optional) A map object from \code{\link{build_map}}.
 #' @param estimateMode 0 = Fit the hindcast model and projection with HCR specified via \code{HCR}. 1 = Fit the hindcast model only (no projection). 2 = Run the projection only with HCR specified via \code{HCR} given the initial parameters in \code{inits}.  3 = debug mode 1: runs the model through MakeADFun, but not nlminb, 4 = runs the model through MakeADFun and nlminb (will all parameters mapped out).
-#' @param random_rec logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE.
-#' @param random_q logical. If TRUE, treats annual catchability deviations as random effects.The default is FALSE.
-#' @param random_sel logical. If TRUE, treats annual selectivity deviations as random effects.The default is FALSE.
-#' @param HCR HCR list object from \code{\link[build_hcr]}
 #' @param niter Number of iterations for multispecies model
-#' @param recFun The stock recruit-relationship parameterization from \code{\link{build_srr}}.
 #' @param msmMode The predation mortality functions to used. Defaults to no predation mortality used.
-#' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.
 #' @param initMode how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 2 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates.
-#' @param minNByage Minimum numbers at age to put in a hard constraint that the number-at-age can not go below.
 #' @param suitMode Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma suitability, 2 = weight based gamma suitability, 3 = length based lognormal selectivity, 4 = time-varying length based lognormal selectivity.
 #' @param suit_meanyr Integer. The last year used to calculate mean suitability, starting at \code{styr}. Defaults to $endyr$ in $data_list$. Used for MSE runs where suitability is held at the value estimated from the years used to condition the OM, but F is estimated for years beyond those used to condition the OM to account for projected catch.
 #' @param use_gradient use the gradient to phase (default = TRUE).
@@ -23,7 +16,7 @@
 #' @param loopnum number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})
 #' @param newtonsteps number of extra newton steps to take after optimization (alternative to \code{loopnum})
 #' @param verbose 0 = Silent, 1 = print updates of model fit, 2 = print updates of model fit and TMB estimation progress.
-#' @param M1Fun M1 parameterizations and priors. Use \code{build_M1}.
+#'
 #' @return A list of class "Rceattle" including:
 #'
 #' \itemize{
@@ -45,7 +38,6 @@ fit_mod_mse <-
     estimateMode = 0,
     niter = 3,
     msmMode = 0,
-    avgnMode = 0,
     initMode = 1,
     suitMode = 0,
     suit_meanyr = NULL,
@@ -60,41 +52,31 @@ fit_mod_mse <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # Debugging section ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # data_list = NULL;
-    # inits = NULL;
-    # map = NULL;
-    # file = NULL;
-    # estimateMode = 0;
-    # random_rec = FALSE;
-    # random_q = FALSE;
-    # random_sel = FALSE;
-    # HCR = build_hcr();
-    # niter = 3;
-    # msmMode = 0;
-    # avgnMode = 0;
-    # initMode = 1
-    # minNByage = 0;
-    # suitMode = 0;
-    # suit_meanyr = NULL;
-    # phase = NULL;
-    # getsd = TRUE;
-    # use_gradient = TRUE;
-    # rel_tol = 1;
-    # control = list(eval.max = 1e+09,
-    #                iter.max = 1e+09, trace = 0);
-    # getJointPrecision = TRUE;
-    # loopnum = 5;
-    # verbose = 1;
-    # newtonsteps = 0
-    # recFun = build_srr()
-    # M1Fun = build_M1()
-    # projection_uncertainty = TRUE
-    # catch_hcr = FALSE
+#
+#     use_gradient = TRUE;
+#     rel_tol = 1;
+#     control = list(eval.max = 1e+09,
+#                    iter.max = 1e+09, trace = 0);
+#     loopnum = 1;
+#     verbose = 1;
+#     newtonsteps = 0
+#     data_list = em_use$data_list;
+#     inits = em_use$estimated_params;
+#     map =  NULL;
+#     estimateMode = 0; # Run hindcast and projection; otherwise debug
+#     niter = em_use$data_list$niter;
+#     msmMode = em_use$data_list$msmMode;
+#     suitMode = em_use$data_list$suitMode;
+#     suit_meanyr = em_use$data_list$suit_meanyr;
+#     initMode = em_use$data_list$initMode;
+#     loopnum = loopnum;
+#     verbose = 2
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # STEP 1 - Load data ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    start_time <- Sys.time()
     if (is.null(data_list)) {
       stop("Missing data_list object")
     }
@@ -114,16 +96,21 @@ fit_mod_mse <-
     }
     rm(fsh_biom_sub)
 
+    # Start Flimit at 0 so forecast is 0
+    start_par$ln_Flimit[] <- -10
+    start_par$ln_Ftarget[] <- -10
+
+
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # STEP 3: Load/build map ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.null(map)) {
-      map <- suppressWarnings(build_map(data_list, start_par, debug = estimateMode == 4, random_rec = random_rec, random_sel = random_sel))
+      map <- suppressWarnings(build_map(data_list, start_par, debug = estimateMode == 4, random_rec = FALSE, random_sel = FALSE, MSE = TRUE))
     } else{
       map <- map
     }
-    if(verbose > 0) {message("Step 2: Map build complete")}
+    if(verbose > 0) {message("Step 1: Map build complete")}
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -136,29 +123,12 @@ fit_mod_mse <-
     data_list_reorganized <- Rceattle::rearrange_dat(data_list)
     data_list_reorganized = c(list(model = TMBfilename), data_list_reorganized)
 
-    # - Update comp weights, future F (if input) and F_prop from data
-    if(!is.null(data_list$fleet_control$Comp_weights)){
-      start_par$comp_weights = data_list$fleet_control$Comp_weights
-    }
-    start_par$proj_F_prop = data_list$fleet_control$proj_F_prop
-
-    nyrs_proj <- data_list$projyr - data_list$styr + 1
-    if(!is.null(HCR$FsprTarget) & HCR$HCR == 2){
-      start_par$ln_Ftarget = log(HCR$FsprTarget) # Fixed fishing mortality for projections for each species
-    }
-
-    # - Update alpha for stock-recruit if fixed/prior and initial parameter values input
-    if(data_list$srr_est_mode %in% c(0,2)){
-      start_par$rec_pars[,2] <- log(data_list$srr_prior_mean)
-    }
-
     # Include BRPs in likelihood of hindcast
     # -- but set Ftarget and Flimit to 0
     data_list_reorganized$forecast <- TRUE
-    start_par$ln_Flimit[] <- -10
-    start_par$ln_Ftarget[] <- -10
-
-    if(verbose > 0) {message("Step 3: Data rearranged complete")}
+    data_list_reorganized$MSSB0[params_on] <- 0
+    data_list_reorganized$MSB0[params_on] <- 0
+    if(verbose > 0) {message("Step 2: Data rearranged complete")}
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -183,23 +153,22 @@ fit_mod_mse <-
         map = map
       )
 
-    if(verbose > 0) {message(paste0("Step ",step, ": final build complete. Optimizing."))}
-    step = step + 1
+    if(verbose > 0) {message(paste0("Step 3: final build complete. Optimizing."))}
 
 
     # -- Optimize hindcast
     fn1 <- function(Fparams){
       par <- obj$env$last.par.best
-      Find <- which(!names(par) %in% c("ln_Flimit", "ln_Ftarget"))
-      par[Find] <- Fparams
+      notFind <- which(!names(par) %in% c("ln_Flimit", "ln_Ftarget"))
+      par[notFind] <- Fparams
       obj$fn(par)
     }
 
     gr1 <- function(Fparams){
       par <- obj$env$last.par.best
-      Find <- which(!names(par) %in% c("ln_Flimit", "ln_Ftarget"))
-      par[Find] <- Fparams
-      as.numeric(obj$gr(par)[Find])
+      notFind <- which(!names(par) %in% c("ln_Flimit", "ln_Ftarget"))
+      par[notFind] <- Fparams
+      as.numeric(obj$gr(par)[notFind])
     }
 
     par <- obj$env$last.par.best
@@ -208,15 +177,14 @@ fit_mod_mse <-
 
     if(estimateMode %in% c(0,1,4)){
       opt = Rceattle::fit_tmb_mse(
-        fn=obj1,
-        gr=fn1,
+        fn=fn1,
+        gr=gr1,
         startpar=par[notFind],
         loopnum = loopnum,
         control = control,
         quiet = verbose < 2
       )
-      if(verbose > 0) {message("Step ",step, ": Final optimization complete")
-        step = step + 1
+      if(verbose > 0) {message("Step 5: Final optimization complete")
       }
     }
 
@@ -235,7 +203,11 @@ fit_mod_mse <-
     fn2 <- function(Fparams){
       par <- obj$env$last.par.best
       Flimitind <- which(names(par) == "ln_Flimit")[params_on]
+      Flimitind <- Flimitind[which(!is.na(Flimitind))]
+
       Ftargetind <- which(names(par) == "ln_Ftarget")[params_on]
+      Ftargetind <- Ftargetind[which(!is.na(Ftargetind))]
+
       par[c(Flimitind, Ftargetind)] <- Fparams
       obj$fn(par)
     }
@@ -243,9 +215,13 @@ fit_mod_mse <-
     gr2 <- function(Fparams){
       par <- obj$env$last.par.best
       Flimitind <- which(names(par) == "ln_Flimit")[params_on]
+      Flimitind <- Flimitind[which(!is.na(Flimitind))]
+
       Ftargetind <- which(names(par) == "ln_Ftarget")[params_on]
+      Ftargetind <- Ftargetind[which(!is.na(Ftargetind))]
+
       par[c(Flimitind, Ftargetind)] <- Fparams
-      as.numeric(obj$gr(par)[Find])
+      as.numeric(obj$gr(par)[c(Flimitind, Ftargetind)])
     }
 
     if(estimateMode %in% c(0,2,4)){
@@ -255,16 +231,28 @@ fit_mod_mse <-
         if(msmMode == 0){
 
           # -- Parameters to optimize
-          params_on <- rep(1, data_list$nspp)
+          params_on <- 1:data_list$nspp
           par <- obj$env$last.par.best
           Flimitind <- which(names(par) == "ln_Flimit")[params_on]
+          Flimitind <- Flimitind[which(!is.na(Flimitind))]
+
           Ftargetind <- which(names(par) == "ln_Ftarget")[params_on]
+          Ftargetind <- Ftargetind[which(!is.na(Ftargetind))]
+
+          # -- Start from previous MLEs
+          Fstartpar <- suppressWarnings(
+            c(inits$ln_Flimit[Flimitind - min(Flimitind)+1],
+              inits$ln_Ftarget[Ftargetind - min(Ftargetind)+1]
+            )
+          )
+          names(Fstartpar) <- names(par[c(Flimitind, Ftargetind)])
 
           # -- Optimize
+          # opt <- optim(par = par[c(Flimitind, Ftargetind)], fn = fn2, gr = gr2, control = list(maxit = 1e9))
           opt = Rceattle::fit_tmb_mse(
-            fn=obj2,
-            gr=fn2,
-            startpar=par[c(Flimitind, Ftargetind)],
+            fn=fn2,
+            gr=gr2,
+            startpar=Fstartpar,
             loopnum = loopnum,
             control = control,
             quiet = verbose < 2
@@ -292,37 +280,53 @@ fit_mod_mse <-
             params_on <- c(1:data_list$nspp)[which(data_list$HCRorder == HCRiter)]
 
             # -- Get SB0: SSB when model is projected forward under no fishing
-            quantities <- obj$report(obj$env$last.par.best)
+            quantities <- obj$report(obj$env$last.par)
             SB0 <- quantities$biomassSSB[, ncol(quantities$biomassSSB)]
             B0 <- quantities$biomass[, ncol(quantities$biomass)]
             data_list_reorganized$MSSB0[params_on] <- SB0[params_on]
             data_list_reorganized$MSB0[params_on] <- B0[params_on]
+            obj$env$data$MSSB0 <- data_list_reorganized$MSSB0
+            obj$env$data$MSB0 <- data_list_reorganized$MSB0
 
             # -- Parameters to optimize
-            par <- obj$env$last.par.best
-            Flimitind <- which(names(par) == "ln_Flimit")[params_on]
-            Ftargetind <- which(names(par) == "ln_Ftarget")[params_on]
+            par <- obj$env$last.par
+            Flimitind <- which(names(par) == "ln_Flimit")
+            Flimitind <- Flimitind[which(!is.na(Flimitind))]
+
+            Ftargetind <- which(names(par) == "ln_Ftarget")
+            Ftargetind <- Ftargetind[which(!is.na(Ftargetind))]
+
+            # -- Start from previous MLEs
+            Fstartpar <- suppressWarnings(
+              c(inits$ln_Flimit[Flimitind - min(Flimitind)+1][params_on],
+                inits$ln_Ftarget[Ftargetind - min(Ftargetind)+1][params_on]
+              )
+            )
+            Fstartpar <- Fstartpar[which(!is.na(Fstartpar))]
+            Fparnames <- names(par[c(Flimitind[params_on],
+                                            Ftargetind[params_on])])
+            names(Fstartpar) <- Fparnames[which(!is.na(Fparnames))]
 
             # -- Optimize
-            opt = Rceattle::fit_tmb_mse(
-              fn=obj2,
-              gr=fn2,
-              startpar=par[c(Flimitind, Ftargetind)],
-              loopnum = loopnum,
-              control = control,
-              quiet = verbose < 2
-            )
+            opt <- optim(par = Fstartpar, fn = fn2, control = list(maxit = 1e9))
+            # opt = Rceattle::fit_tmb_mse(
+            #   fn=fn2,
+            #   gr=gr2,
+            #   startpar=Fstartpar,
+            #   loopnum = loopnum,
+            #   control = control,
+            #   quiet = verbose < 2
+            # )
           }
         }
 
-        if(verbose > 0) {message("Step ",step, ": Projections complete")}
+        if(verbose > 0) {message("Step 6: Projections complete")}
 
         # -- Update MLEs
         if (estimateMode > 2) { # Debugging, give initial parameters
           last_par <- start_par
         }else{
           last_par = try(obj$env$parList())
-
         }
       } # End estimable BRP/HCR projections
     } # End projection
@@ -336,7 +340,7 @@ fit_mod_mse <-
     mod_objects$obj = obj
 
     # - Get quantities
-    quantities <- obj$report(obj$env$last.par.best)
+    quantities <- obj$report(obj$env$last.par) # Last par rather than last par best
 
     # -- Rename jnll
     colnames(quantities$jnll_comp) <- paste0("Sp/Srv/Fsh_", 1:ncol(quantities$jnll_comp))

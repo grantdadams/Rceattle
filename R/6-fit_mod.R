@@ -391,7 +391,7 @@ fit_mod <-
             beta_rec_pars = 3,
             ln_rec_sigma = 2, # Variance for annual recruitment deviats
             rec_dev = 2, # Annual recruitment deviats
-            init_dev = 2, # Age specific initial age-structure deviates or parameters
+            init_dev = 2, # Age specific initial age-structure deviates or parameters,
             ln_sex_ratio_sigma = 3, # Variance of sex ratio (usually fixed)
             ln_M1 = 4, #  Estimated natural or residual mortality
             ln_mean_F = 1, # Mean fleet-specific fishing mortality
@@ -823,8 +823,8 @@ clean_data <- function(data_list){
 
   # - Add temp multi-species SB0
   if(is.null(data_list$MSSB0)){
-    data_list$MSSB0 <- rep(999, data_list$nspp)
-    data_list$MSB0 <- rep(999, data_list$nspp)
+    data_list$MSSB0 <- rep(0, data_list$nspp)
+    data_list$MSB0 <- rep(0, data_list$nspp)
   }
 
   # - Remove years of data after to proj year

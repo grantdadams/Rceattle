@@ -15,7 +15,6 @@ build_hcr_map <- function(data_list, map, debug = FALSE, all_params_on = FALSE, 
   params_on <- 1:data_list$nspp
   if(!all_params_on){
     map$mapList = sapply(map$mapList, function(x) replace(x, values = rep(NA, length(x))))
-    yrs_proj = data_list$endyr:data_list$projyr - data_list$styr
     params_on <- c(1:data_list$nspp)[which(data_list$HCRorder <= HCRiter)]
   }
 
@@ -73,6 +72,7 @@ build_hcr_map <- function(data_list, map, debug = FALSE, all_params_on = FALSE, 
       }
     }
   }
+
   if(debug){
     map$mapList$dummy = 1
   }

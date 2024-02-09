@@ -10,11 +10,11 @@
 #'
 #' @return a list of map arguments for each parameter
 #' @export
-build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, random_sel = FALSE) {
+build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, random_sel = FALSE, MSE = FALSE) {
   # functions
   '%!in%' <- function(x,y)!('%in%'(x,y))
 
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # -- Setup
   # Get year objects
   nyrs_hind <- data_list$endyr - data_list$styr + 1
@@ -30,9 +30,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   map_list <- sapply(params, function(x) replace(x, values = c(1:length(x))))
 
 
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # STEP 1: Base population dynamics ----
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # -- 1.1. Map out future fishing mortality and sex ratio variance
   map_list$proj_F_prop <- map_list$proj_F_prop * NA
   map_list$ln_sex_ratio_sigma <- map_list$ln_sex_ratio_sigma * NA
@@ -120,9 +120,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   }
 
 
-  # -----------------------------------------------------------
-  # Selectivity ----
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  # STEP 2: Selectivity ----
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # -- Selectivity  inds
   ind_slp <- 1
   ind_inf <- 1
@@ -486,9 +486,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
     }
   }
 
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Catchability ----
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # -- Catchability indices
   ind_q_re <- 1
   ind_q <- 1
@@ -657,9 +657,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   }
 
 
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # - Fishery control ----
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   for (i in 1:nrow(data_list$fleet_control)) {
     flt = data_list$fleet_control$Fleet_code[i]
     # Standard deviation of fishery time series If not estimating turn of
@@ -690,9 +690,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   #map_list$sel_inf_dev_re[1:2, fsh_ind, 1:2, yr_ind] <- NA
 
 
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Recruitment ----
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # -- Recruitment deviation sigmas - turn off if not estimating
   if(random_rec == FALSE){
     map_list$ln_rec_sigma <- map_list$ln_rec_sigma * NA
@@ -720,10 +720,10 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
     map_list$beta_rec_pars[] <- NA
   }
 
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Predation bits ----
   # (e.g. Turn off all predation parameters for single species)
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # if (data_list$msmMode == 0) { # Single-species
   #
   #   # Suitability parameters
@@ -799,9 +799,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   # }
 
 
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Suitability bits ----
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # if (data_list$msmMode > 0) {
   #
   #   # 2.1. Empirical suitability
@@ -825,9 +825,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
     map_list$dummy = 1
   }
 
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Set up fixed n-at-age ----
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # - I.E. turn off all parameters besides for species
   for(sp in 1:data_list$nspp){
 
@@ -882,10 +882,72 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
     # }
   }
 
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  # HCR Bits ----
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  # -- HCR = 0: No catch - Params off
+  # -- HCR = 1: Constant catch - Params off
+  # -- HCR = 2: Constant input F - Params off
+  # -- HCR = 3: F that acheives X% of SSB0 in the end of the projection - Ftarget on
+  # -- HCR = 4: Constant target Fspr - Ftarget on
+  # -- HCR = 5: NPFMC Tier 3 - Flimit and Ftarget on
+  # -- HCR = 6: PFMC Cat 1 - Flimit on
+  # -- HCR = 7: SESSF Tier 1 - Flimit and Ftarget on
+  # --- Dynamic BRPS - 1 value per species and year
+  if(MSE){
+    params_on <- 1:data_list$nspp
+    if(!debug){
+      if(data_list$HCR %in% c(1)){ # CMSY
+        map_list$ln_Ftarget[params_on] <- params_on
+      }
 
-  # -----------------------------------------------------------
+      if(data_list$HCR %in% c(2)){ # Fixed F - still have Flimit
+        map_list$ln_Flimit[params_on] <- params_on
+      }
+      if(data_list$HCR %in% c(3)){
+        map_list$ln_Ftarget[params_on] <- params_on
+      }
+      if(data_list$HCR %in% c(4)){
+        map_list$ln_Ftarget[params_on] <- params_on
+        map_list$ln_Flimit[params_on] <- params_on
+      }
+      if(data_list$HCR %in% c(5,7)){
+        map_list$ln_Ftarget[params_on] <- params_on
+        map_list$ln_Flimit[params_on] <- params_on
+      }
+      if(data_list$HCR == 6){
+        map_list$ln_Flimit[params_on] <- params_on
+      }
+
+
+      # Step 3 - Turn off SPR parameters for special cases
+      # -- Turn off SPR parameters for species with no fishing (sum(proj_F_prop) == 0)
+      # -- Turn off SPR parameters for species with fixed Nbyage
+      for(sp in 1:data_list$nspp){
+
+        # Check proj F if proj F prop is all 0
+        prop_check <- data_list$fleet_control$proj_F_prop[which(data_list$fleet_control$Species == sp & data_list$fleet_control$Fleet_type == 1)]
+        if(sum(as.numeric(prop_check == 0)) != 0){ # If all fisheries for a species have no F in F_prop, turn off future F
+          print(paste("F_prop for species",sp,"sums to 0"))
+          map_list$ln_Ftarget[sp] <- NA
+          map_list$ln_Flimit[sp] <- NA
+        }
+
+        # Fixed n-at-age: Turn off parameters
+        if(data_list$estDynamics[sp] > 0){
+          map_list$ln_Ftarget[sp] <- NA
+          map_list$ln_Flimit[sp] <- NA
+        }
+      }
+    }
+  }
+
+
+
+
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # STEP 5 -- Convert to factor ----
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   map_list_grande <- list()
   map_list_grande$mapFactor <- sapply(map_list, factor)
   map_list_grande$mapList <- map_list

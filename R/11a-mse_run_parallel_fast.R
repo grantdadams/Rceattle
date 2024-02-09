@@ -25,7 +25,7 @@
 #'
 mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, regenerate_past = FALSE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, seed = 666, regenerate_seed = seed, loopnum = 1, file = NULL, dir = NULL){
 
-  # om = ms_run; em = ss_run; nsim = 10; start_sim = 1; assessment_period = 1; sampling_period = 1; simulate_data = TRUE; regenerate_past = FALSE; sample_rec = TRUE; rec_trend = 0; fut_sample = 1; cap = NULL; seed = 666; regenerate_seed = seed; loopnum = 1; file = NULL; dir = NULL
+  # om = ss_mod; em = ms_run_fb40iter; nsim = 1; start_sim = 1; assessment_period = 1; sampling_period = 1; simulate_data = TRUE; regenerate_past = FALSE; sample_rec = TRUE; rec_trend = 0; fut_sample = 1; cap = NULL; seed = 666; regenerate_seed = seed; loopnum = 1; file = NULL; dir = NULL
 
   #--------------------------------------------------
   # 1) MSE SPECIFICATIONS ----
@@ -290,7 +290,7 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
 
 
   # ------------------------------------------------------------
-  # 5) UPDATE OBSERVATION MODEL ----
+  # 5) Update parameters in OM ----
   # ------------------------------------------------------------
 
   # - Updates the model object of the OM to the full time-period
@@ -306,7 +306,6 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
 
   # - Update catch data in OM
   om$data_list$fsh_biom <- new_catch_data
-
 
   # * Update parameters ----
   # -- F_dev
@@ -360,14 +359,16 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
   #--------------------------------------------------
   # 6) Do the MSE ----
   #--------------------------------------------------
-  ### Set up parallel processing
-  library(foreach)
-  library(doParallel)
+  # ### Set up parallel processing
+  # library(foreach)
+  # library(doParallel)
+  #
+  # cores = detectCores() - 2
+  # registerDoParallel(cores)
+  #
+  # sim_list <- foreach(sim = start_sim:nsim) %dopar% {
 
-  cores = detectCores() - 2
-  registerDoParallel(cores)
-
-  sim_list <- foreach(sim = start_sim:nsim) %dopar% {
+    sim = 1
     library(Rceattle)
     library(dplyr)
 
@@ -444,8 +445,8 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
 
 
     # Run through assessment years
-    for(k in 1:length(assess_yrs)){
-
+    # for(k in 1:length(assess_yrs)){
+      k = 1
       # ------------------------------------------------------------
       # 6.1) GET RECOMMENDED TAC FROM EM-HCR ----
       # ------------------------------------------------------------
@@ -476,17 +477,17 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
       om_use$obj$env$data$fsh_biom_obs <- as.matrix(om_use$data_list$fsh_biom[,c("Catch", "Log_sd")])
 
       om_use$opt = Rceattle::fit_tmb(obj = om_use$obj,
-                              fn=om_use$obj$fn,
-                              gr=om_use$obj$gr,
-                              startpar=om_use$obj$env$last.par.best,
-                              loopnum = loopnum,
-                              getsd = FALSE,
-                              lower = -1000,
-                              upper = 10,
-                              control = list(eval.max = 1e+09,
-                                                       iter.max = 1e+09, trace = 0),
-                              getJointPrecision = FALSE,
-                              quiet = TRUE,
+                                     fn=om_use$obj$fn,
+                                     gr=om_use$obj$gr,
+                                     startpar=om_use$obj$env$last.par.best,
+                                     loopnum = loopnum,
+                                     getsd = FALSE,
+                                     lower = -1000,
+                                     upper = 10,
+                                     control = list(eval.max = 1e+09,
+                                                    iter.max = 1e+09, trace = 0),
+                                     getJointPrecision = FALSE,
+                                     quiet = TRUE,
       )
 
 
@@ -534,7 +535,7 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
       # ------------------------------------------------------------
       # 6.3) REFIT ESTIMATION MODEL AND HCR ----
       # ------------------------------------------------------------
-      # - Simulate new survey and comp data
+      # * Simulate new data ----
       sim_dat <- sim_mod(om_use, simulate = simulate_data)
 
       years_include <- sample_yrs[which(sample_yrs$Year > em_use$data_list$endyr & sample_yrs$Year <= assess_yrs[k]),]
@@ -558,7 +559,8 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
       # Update end year and re-estimate
       em_use$data_list$endyr <- assess_yrs[k]
 
-      # Update parameters
+
+      # * Update EM parameters ----
       # -- F_dev
       em_use$estimated_params$F_dev <- cbind(em_use$estimated_params$F_dev, matrix(0, nrow= nrow(em_use$estimated_params$F_dev), ncol = length(new_years)))
 
@@ -584,52 +586,22 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
       # em_use$estimated_params$# sel_coff_dev <- # sel_coff_dev
 
 
-      # Restimate
-      em_use <- fit_mod(
+      # * Restimate ----
+      check <- fit_mod_mse(
         data_list = em_use$data_list,
         inits = em_use$estimated_params,
         map =  NULL,
-        bounds = NULL,
-        file = NULL,
         estimateMode = ifelse(em_use$data_list$estimateMode < 3, 0, em_use$data_list$estimateMode), # Run hindcast and projection, otherwise debug
-        HCR = build_hcr(HCR = em_use$data_list$HCR, # Tier3 HCR
-                        DynamicHCR = em_use$data_list$DynamicHCR,
-                        FsprTarget = em_use$data_list$FsprTarget,
-                        FsprLimit = em_use$data_list$FsprLimit,
-                        Ptarget = em_use$data_list$Ptarget,
-                        Plimit = em_use$data_list$Plimit,
-                        Alpha = em_use$data_list$Alpha,
-                        Pstar = em_use$data_list$Pstar,
-                        Sigma = em_use$data_list$Sigma,
-                        Fmult = em_use$data_list$Fmult
-        ),
-        recFun = build_srr(srr_fun = em_use$data_list$srr_fun,
-                           srr_pred_fun = em_use$data_list$srr_pred_fun,
-                           proj_mean_rec = em_use$data_list$proj_mean_rec,
-                           srr_meanyr = em_use$data_list$endyr, # Update end year
-                           srr_est_mode  = em_use$data_list$srr_est_mode ,
-                           srr_prior_mean = em_use$data_list$srr_prior_mean,
-                           srr_prior_sd = em_use$data_list$srr_prior_sd,
-                           Bmsy_lim = em_use$data_list$Bmsy_lim,
-                           srr_env_indices = em_use$data_list$srr_env_indices),
-        M1Fun =     build_M1(M1_model= em_use$data_list$M1_model,
-                             updateM1 = FALSE,
-                             M1_use_prior = em_use$data_list$M1_use_prior,
-                             M2_use_prior = em_use$data_list$M2_use_prior,
-                             M1_prior_mean = em_use$data_list$M1_prior_mean,
-                             M1_prior_sd = em_use$data_list$M1_prior_sd),
-        random_rec = em_use$data_list$random_rec,
         niter = em_use$data_list$niter,
         msmMode = em_use$data_list$msmMode,
-        avgnMode = em_use$data_list$avgnMode,
         suitMode = em_use$data_list$suitMode,
         suit_meanyr = em_use$data_list$suit_meanyr,
         initMode = em_use$data_list$initMode,
-        phase = NULL,
         loopnum = loopnum,
-        getsd = FALSE,
-        verbose = 0)
-      # plot_biomass(list(em_use, om_use), model_names = c("EM", "OM"))
+        verbose = 2)
+      plot_biomass(list(check, om, em), model_names = c("EM use", "OM", "EM"), incl_proj = T)
+      plot_depletionSSB(list(check, om, em), model_names = c("EM use", "OM", "EM"), incl_proj = T)
+      plot_catch(list(check, em), model_names = c("EM use", "EM"), incl_proj = T)
       # End year of assessment
 
       # - Remove unneeded bits for memory reasons
@@ -667,7 +639,7 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
       sim_list$EM[[k+1]] <- em_use
       #sim_list$OM[[k+1]] <- om_use
       message(paste0("Sim ",sim, " - EM Year ", assess_yrs[k], " COMPLETE"))
-    }
+    # }
 
     # 7) Save ----
     # * Save sims ----
@@ -684,7 +656,7 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
       sim_list # Return simlist
     }
 
-  } # End sim loop
+  # } # End sim loop
 
   # When you're done, clean up the cluster
   stopImplicitCluster()
