@@ -302,7 +302,7 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
   # * Arbitrarily set projected catch to 1000
   new_catch_data <- om$data_list$fsh_biom
   dat_fill_ind <- which(new_catch_data$Year %in% new_years & is.na(new_catch_data$Catch))
-  new_catch_data$Catch[dat_fill_ind] <- 1000
+  new_catch_data$Catch[dat_fill_ind] <- 0
 
   # - Update catch data in OM
   om$data_list$fsh_biom <- new_catch_data
