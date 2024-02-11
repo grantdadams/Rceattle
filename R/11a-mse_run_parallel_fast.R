@@ -301,8 +301,8 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
 
   # * Arbitrarily set projected catch to 1000
   new_catch_data <- om$data_list$fsh_biom
-  dat_fill_ind <- which(new_catch_data$Year %in% new_years & is.na(new_catch_data$Catch))
-  new_catch_data$Catch[dat_fill_ind] <- 0
+  om_dat_fill_ind <- which(new_catch_data$Year %in% new_years & is.na(new_catch_data$Catch))
+  new_catch_data$Catch[om_dat_fill_ind] <- 0
 
   # - Update catch data in OM
   om$data_list$fsh_biom <- new_catch_data
@@ -453,17 +453,18 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
       new_years <- om_proj_yrs[which(om_proj_yrs <= assess_yrs[k] & om_proj_yrs > em_use$data_list$endyr)]
 
       # - Get projected catch data from EM
-      new_catch_data <- em_use$data_list$fsh_biom
-      dat_fill_ind <- which(new_catch_data$Year %in% new_years)
-      new_catch_data$Catch[dat_fill_ind] <- em_use$quantities$fsh_bio_hat[dat_fill_ind]
+      new_catch_data <- om_use$data_list$fsh_biom
+      om_dat_fill_ind <- which(new_catch_data$Year %in% new_years)
+      em_dat_fill_ind <- which(em_use$data_list$fsh_biom$Year %in% new_years)
+      new_catch_data$Catch[om_dat_fill_ind] <- em_use$quantities$fsh_bio_hat[em_dat_fill_ind]
 
       # - Apply cap
       if(!is.null(cap)){
-        new_catch_data$Catch[dat_fill_ind] <- ifelse(new_catch_data$Catch[dat_fill_ind] > cap[new_catch_data$Species[dat_fill_ind]], cap[new_catch_data$Species[dat_fill_ind]], new_catch_data$Catch[dat_fill_ind])
+        new_catch_data$Catch[om_dat_fill_ind] <- ifelse(new_catch_data$Catch[om_dat_fill_ind] > cap[new_catch_data$Species[om_dat_fill_ind]], cap[new_catch_data$Species[om_dat_fill_ind]], new_catch_data$Catch[om_dat_fill_ind])
       }
 
       # # Set - catch to 1 if 0 for estimation reasons
-      # new_catch_data$Catch[dat_fill_ind] <- ifelse(new_catch_data$Catch[dat_fill_ind] < 1, 1, new_catch_data$Catch[dat_fill_ind])
+      # new_catch_data$Catch[om_dat_fill_ind] <- ifelse(new_catch_data$Catch[om_dat_fill_ind] < 1, 1, new_catch_data$Catch[om_dat_fill_ind])
 
       # - Update catch data in OM and EM
       om_use$data_list$fsh_biom <- new_catch_data
