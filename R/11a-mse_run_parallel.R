@@ -329,6 +329,8 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       new_years <- proj_yrs[which(proj_yrs <= assess_yrs[k] & proj_yrs > om_use$data_list$endyr)]
 
       # - Get projected catch data from EM
+      # - NOTE, dimensions may not match between OM and EM, but fit_mod extended or cuts the time series
+      # - using the EM will keep the catch series consistent
       new_catch_data <- em_use$data_list$fsh_biom
       dat_fill_ind <- which(new_catch_data$Year %in% new_years & is.na(new_catch_data$Catch))
       new_catch_data$Catch[dat_fill_ind] <- em_use$quantities$fsh_bio_hat[dat_fill_ind]
