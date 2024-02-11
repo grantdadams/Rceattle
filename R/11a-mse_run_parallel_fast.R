@@ -453,7 +453,7 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
       new_years <- om_proj_yrs[which(om_proj_yrs <= assess_yrs[k] & om_proj_yrs > em_use$data_list$endyr)]
 
       # - Get projected catch data from EM
-      new_catch_data <- om_use$data_list$fsh_biom
+      new_catch_data <- em_use$data_list$fsh_biom
       dat_fill_ind <- which(new_catch_data$Year %in% new_years)
       new_catch_data$Catch[dat_fill_ind] <- em_use$quantities$fsh_bio_hat[dat_fill_ind]
 
