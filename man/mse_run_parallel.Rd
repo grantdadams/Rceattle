@@ -21,7 +21,8 @@ mse_run_parallel(
   regenerate_seed = seed,
   loopnum = 1,
   file = NULL,
-  dir = NULL
+  dir = NULL,
+  timeout = 999
 )
 }
 \arguments{
@@ -49,13 +50,17 @@ mse_run_parallel(
 
 \item{cap}{A cap on the catch in the projection. Can be a single number or vector of length nspp. Default = NULL}
 
-\item{seed}{}
+\item{seed}{seed for the simulation}
+
+\item{regenerate_seed}{seed for regenerating data}
 
 \item{loopnum}{number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})}
 
 \item{file}{(Optional) Filename where each OM simulation with EMs will be saved. If NULL, no files are saved.}
 
 \item{dir}{(Optional) Directory where each OM simulation is saved}
+
+\item{timeout}{length of time (minutes) estimation will run before stopping a sim (default 999 minutes)}
 }
 \value{
 A list of operating models (differ by simulated recruitment determined by \code{nsim}) and estimation models fit to each operating model (differ by terminal year).

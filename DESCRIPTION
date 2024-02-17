@@ -26,7 +26,8 @@ Imports:
     tidyr,
     testthat,
     foreach,
-    doParallel
+    doParallel,
+    R.utils
 LinkingTo: 
     TMB
 Remotes: kaskr/TMB_contrib_R/TMBhelper
