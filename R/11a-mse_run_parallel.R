@@ -641,7 +641,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
 
     # - Rename models
     sim_list$OM <- om_use # OM
-    if(!is.null(om_use)){
+    if(!is.null(om_use) & !is.null(em_use)){
       sim_list$OM_no_F <- Rceattle::remove_F(om_use) # OM with no Fishing
       names(sim_list$EM) <- c("EM", paste0("OM_Sim_",sim,". EM_yr_", assess_yrs))
     } else{
