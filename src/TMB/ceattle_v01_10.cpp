@@ -3429,9 +3429,9 @@ Type objective_function<Type>::operator() () {
             // Slot 12 -- Epsilon -- Annual fishing mortality deviation
             jnll_comp(12, flt) += square(F_dev(flt, yr));      // Fishing mortality deviation using penalized likelihood.
           }
-          if(fsh_biom_obs(fsh_ind, 0) == 0){
-            jnll_comp(12, flt) += square(F_dev(flt, yr) + 10);   // If catch is zero, penalize F_dev to -10
-          }
+          //if(fsh_biom_obs(fsh_ind, 0) == 0){
+            //jnll_comp(12, flt) += square(F_dev(flt, yr) + 10);   // If catch is zero, penalize F_dev to -10
+          //}
         }
       }
     }
