@@ -299,7 +299,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   cores = detectCores() - 2
   registerDoParallel(cores)
 
-  sim_list <- foreach(sim = start_sim:nsim) %do% {
+  sim_list <- foreach(sim = start_sim:nsim) %dopar% {
     library(Rceattle)
     library(dplyr)
 
