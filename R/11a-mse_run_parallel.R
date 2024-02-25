@@ -1,6 +1,6 @@
 #' Run a management strategy evaluation
 #'
-#' @description Runs a forward projecting MSE. Main assumptions are the projected selectivity/catchability, foraging days, and weight-at-age are the same as the terminal year of the hindcast in the operating model. Assumes survey sd is same as average across historic time series, while comp data sample size is same as last year. No implementation error!
+#' @description Runs a forward projecting MSE. Main assumptions are the projected selectivity/catchability, foraging days, and weight-at-age are the same as the terminal year of the hindcast in the operating model. Assumes survey sd is same as average across historic time series, while comp data sample size is same as last year. No implementation error and no observation error for catch!
 #'
 #' @param om CEATTLE model object exported from \code{\link{Rceattle}}
 #' @param em CEATTLE model object exported from \code{\link{Rceattle}}
@@ -299,7 +299,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   cores = detectCores() - 2
   registerDoParallel(cores)
 
-  sim_list <- foreach(sim = start_sim:nsim) %dopar% {
+  sim_list <- foreach(sim = start_sim:nsim) %do% {
     library(Rceattle)
     library(dplyr)
 
@@ -486,7 +486,22 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
 
 
       # ------------------------------------------------------------
-      # 3. REFIT ESTIMATION MODEL AND HCR ----
+      # 3. GET ACTUAL CATCH FROM OM ----
+      # - Maybe the OM can't support the TAC
+      # ------------------------------------------------------------
+
+      # - Get realized catch data from OM
+      new_catch_data <- om_use$data_list$fsh_biom
+      dat_fill_ind <- which(new_catch_data$Year %in% new_years)
+      new_catch_data$Catch[dat_fill_ind] <- om_use$quantities$fsh_bio_hat[dat_fill_ind] # Catch from OM
+
+      # - Update catch data in OM and EM
+      om_use$data_list$fsh_biom <- new_catch_data
+      em_use$data_list$fsh_biom <- new_catch_data
+
+
+      # ------------------------------------------------------------
+      # 4. REFIT ESTIMATION MODEL AND HCR ----
       # ------------------------------------------------------------
       # - Simulate new survey and comp data
       sim_dat <- sim_mod(om_use, simulate = simulate_data)
