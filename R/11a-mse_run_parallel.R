@@ -27,7 +27,7 @@
 #'
 mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, regenerate_past = FALSE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, seed = 666, regenerate_seed = seed, loopnum = 1, file = NULL, dir = NULL, timeout = 999){
 
-  # om = ms_run; em = ss_run; nsim = 10; start_sim = 1; assessment_period = 1; sampling_period = 1; simulate_data = TRUE; regenerate_past = FALSE; sample_rec = TRUE; rec_trend = 0; fut_sample = 1; cap = NULL; seed = 666; regenerate_seed = seed; loopnum = 1; file = NULL; dir = NULL
+  # om = ss_run; em = ss_run_Tier3; nsim = 1; start_sim = 1; assessment_period = 1; sampling_period = 1; simulate_data = TRUE; regenerate_past = FALSE; sample_rec = TRUE; rec_trend = 0; fut_sample = 1; cap = NULL; seed = 666; regenerate_seed = seed; loopnum = 1; file = NULL; dir = NULL
 
   #--------------------------------------------------
   # MSE SPECIFICATIONS ----
@@ -299,7 +299,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   cores = detectCores() - 2
   registerDoParallel(cores)
 
-  sim_list <- foreach(sim = start_sim:nsim) %dopar% {
+  sim_list <- foreach(sim = start_sim:nsim) %do% {
     library(Rceattle)
     library(dplyr)
 
@@ -420,9 +420,9 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       )
 
       # * Fit OM with new catch data ----
-      om_use <- tryCatch({
+      kill_sim <- tryCatch({
         R.utils::withTimeout({
-          fit_mod(
+          om_use <- fit_mod(
             data_list = om_use$data_list,
             inits = om_use$estimated_params,
             map =  om_use$map,
@@ -435,7 +435,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
             avgnMode = om_use$data_list$avgnMode,
             suitMode = om_use$data_list$suitMode,
             initMode = om_use$data_list$initMode,
-            suit_meanyr = om$data_list$suit_meanyr,
+            suit_meanyr = om$data_list$suit_meanyr, # This stays the same as original OM
             HCR = build_hcr(HCR = om_use$data_list$HCR,
                             DynamicHCR = om_use$data_list$DynamicHCR,
                             FsprTarget = om_use$data_list$FsprTarget,
@@ -450,7 +450,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
             recFun = build_srr(srr_fun = om_use$data_list$srr_fun,
                                srr_pred_fun = om_use$data_list$srr_pred_fun ,
                                proj_mean_rec = om_use$data_list$proj_mean_rec, # This will update anyway to False as devs are added
-                               srr_meanyr = om_use$data_list$srr_meanyr,
+                               srr_meanyr = om$data_list$srr_meanyr, # This stays the same as original OM
                                srr_est_mode  = om_use$data_list$srr_est_mode ,
                                srr_prior_mean = om_use$data_list$srr_prior_mean,
                                srr_prior_sd = om_use$data_list$srr_prior_sd,
@@ -466,18 +466,18 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
             phase = NULL,
             getsd = FALSE,
             verbose = 0)
+          return(FALSE)
         },
         timeout = 60*timeout)
       },
-      error = function(ex) {
-          return(NULL)
+      error = function(e){
+        return(TRUE)
         },
-      TimeoutException = function(ex) {
-        return(NULL)
+      TimeoutException = function(e){
+        return(TRUE)
       })
 
-      if(is.null(om_use)){
-        kill_sim <- TRUE
+      if(kill_sim){
         break()
       }
 
@@ -604,8 +604,8 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
         timeout = 60*timeout)
       },
       error = function(ex) {
-          return(NULL)
-        },
+        return(NULL)
+      },
       TimeoutException = function(ex) {
         return(NULL)
       })
@@ -655,12 +655,11 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
     }
 
     # - Rename models
+    sim_list$use_sim <- !kill_sim
     sim_list$OM <- om_use # OM
-    if(!is.null(om_use) & !is.null(em_use)){
-      sim_list$OM_no_F <- Rceattle::remove_F(om_use) # OM with no Fishing
+    sim_list$OM_no_F <- Rceattle::remove_F(om_use) # OM with no Fishing
+    if(!kill_sim){
       names(sim_list$EM) <- c("EM", paste0("OM_Sim_",sim,". EM_yr_", assess_yrs))
-    } else{
-      sim_list$OM_no_F <- NULL
     }
 
     # - Save
