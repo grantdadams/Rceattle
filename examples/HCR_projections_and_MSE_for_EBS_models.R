@@ -11,9 +11,9 @@ BS2017SS$fleet_control$proj_F_prop <-rep(1,7)
 
 
 ################################################
-# Estimation ----
+# Operating Models ----
 ################################################
-# Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
+# Single-species with fixed M
 ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save
@@ -23,7 +23,23 @@ ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
                             phase = "default",
                             verbose = 1)
 
-# Estimate single-species and estimate M
+# Single-species with fixed M with Ricker curve
+ss_run_ricker <- Rceattle::fit_mod(data_list = BS2017SS,
+                                   inits = NULL, # Initial parameters = 0
+                                   file = NULL, # Don't save
+                                   estimateMode = 1, # Estimate hindcast only
+                                   random_rec = FALSE, # No random recruitment
+                                   msmMode = 0, # Single species mode
+                                   phase = "default",
+                                   verbose = 1,
+                                   recFun = build_srr(srr_fun = 0,
+                                                      srr_pred_fun = 4, # Ricker (but fit sensu Ianelli)
+                                                      proj_mean_rec = FALSE,
+                                                      srr_est_mode = 1
+                                   )
+)
+
+#  Single-species with estimated M
 mydata_M <- BS2017SS
 mydata_M$est_M1 <- c(1,1,1)
 ss_run_M <- Rceattle::fit_mod(data_list = mydata_M,
@@ -37,7 +53,7 @@ ss_run_M <- Rceattle::fit_mod(data_list = mydata_M,
 
 
 
-# For the a multispecies model starting from the single species parameters, the following can be specified to load the data:
+# Multispecies model
 data("BS2017MS") # Note: the only difference is the residual mortality (M1_base) is lower
 BS2017MS$est_M1 <- c(1,1,1) # Estimate residual M
 BS2017MS$projyr <- 2060
@@ -52,11 +68,9 @@ ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
                             suitMode = 0, # empirical suitability
                             verbose = 1)
 
-# We can plot both runs as well:
+# Plot OMs:
 mod_list <- list(ss_run, ss_run_M, ms_run)
 mod_names <- c("SS", "SS-M", "MS")
-
-# Plot biomass trajectory
 plot_biomass(Rceattle = mod_list, model_names = mod_names)
 plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE)
 
@@ -66,7 +80,7 @@ plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE)
 ################################################
 # -- F that acheives 40% of SB0, where SB0 is derived from projecting all species simultaneously under no fishing
 ms_run_fb40 <- Rceattle::fit_mod(data_list = BS2017MS,
-                                 inits = ss_run_M$estimated_params, # Initial parameters from single species ests
+                                 inits = ms_run$estimated_params, # Initial parameters from single species ests
                                  file = NULL, # Don't save
                                  estimateMode = 0, # Estimate hindcast only
                                  niter = 3, # 10 iterations around population and predation dynamics
@@ -97,29 +111,29 @@ ms_run_fb40iter <- Rceattle::fit_mod(data_list = BS2017MS,
 
 # -- Multi-species CMSY
 ms_run_cmsy <- Rceattle::fit_mod(data_list = BS2017MS,
-                                     inits = ss_run_M$estimated_params, # Initial parameters from single species ests
-                                     file = NULL, # Don't save
-                                     estimateMode = 0, # Estimate hindcast only
-                                     niter = 3, # 10 iterations around population and predation dynamics
-                                     random_rec = FALSE, # No random recruitment
-                                     HCR = build_hcr(HCR = 1),
-                                     msmMode = 1, # MSVPA based
-                                     suitMode = 0, # empirical suitability
-                                     verbose = 1)
-
-# -- Multi-species CMSY, constrained so that species don't fall below 20% SB0
-# -- SB0 is derived from projecting all species simultaneously under no fishing
-ms_run_concmsy <- Rceattle::fit_mod(data_list = BS2017MS,
                                  inits = ss_run_M$estimated_params, # Initial parameters from single species ests
                                  file = NULL, # Don't save
                                  estimateMode = 0, # Estimate hindcast only
                                  niter = 3, # 10 iterations around population and predation dynamics
                                  random_rec = FALSE, # No random recruitment
-                                 HCR = build_hcr(HCR = 1,
-                                                 Plimit = 0.35),
+                                 HCR = build_hcr(HCR = 1),
                                  msmMode = 1, # MSVPA based
                                  suitMode = 0, # empirical suitability
                                  verbose = 1)
+
+# -- Multi-species CMSY, constrained so that species don't fall below 20% SB0
+# -- SB0 is derived from projecting all species simultaneously under no fishing
+ms_run_concmsy <- Rceattle::fit_mod(data_list = BS2017MS,
+                                    inits = ss_run_M$estimated_params, # Initial parameters from single species ests
+                                    file = NULL, # Don't save
+                                    estimateMode = 0, # Estimate hindcast only
+                                    niter = 3, # 10 iterations around population and predation dynamics
+                                    random_rec = FALSE, # No random recruitment
+                                    HCR = build_hcr(HCR = 1,
+                                                    Plimit = 0.35),
+                                    msmMode = 1, # MSVPA based
+                                    suitMode = 0, # empirical suitability
+                                    verbose = 1)
 
 
 # -- Plot
@@ -136,45 +150,45 @@ plot_catch(mod_list, model_names = model_names, incl_proj = TRUE)
 ################################################
 # -- Constant F as a percentage of SB0
 ss_run_fb0 <- Rceattle::fit_mod(data_list = BS2017SS,
-                                  inits = ss_run$estimated_params, # Initial parameters from ss_run
-                                  estimateMode = 2, # Run projection only
-                                  HCR = build_hcr(HCR = 3, # Constant F HCR
-                                                  DynamicHCR = FALSE, # Use dynamic reference points
-                                                  FsprTarget = 0.4), # F that achieves 40% SB0
-                                  msmMode = 0, # Single species mode
-                                  verbose = 1)
+                                inits = ss_run$estimated_params, # Initial parameters from ss_run
+                                estimateMode = 2, # Run projection only
+                                HCR = build_hcr(HCR = 3, # Constant F HCR
+                                                DynamicHCR = FALSE, # Use dynamic reference points
+                                                FsprTarget = 0.4), # F that achieves 40% SB0
+                                msmMode = 0, # Single species mode
+                                verbose = 1)
 
 
 ss_run_dynamicfb0 <- Rceattle::fit_mod(data_list = BS2017SS,
-                                         inits = ss_run$estimated_params, # Initial parameters from ss_run
-                                         estimateMode = 2, # Run projection only
-                                         HCR = build_hcr(HCR = 3, # Constant F HCR
-                                                         DynamicHCR = TRUE, # Use dynamic reference points
-                                                         FsprTarget = 0.4), # F that achieves 40% SB0
-                                         msmMode = 0, # Single species mode
-                                         verbose = 1)
+                                       inits = ss_run$estimated_params, # Initial parameters from ss_run
+                                       estimateMode = 2, # Run projection only
+                                       HCR = build_hcr(HCR = 3, # Constant F HCR
+                                                       DynamicHCR = TRUE, # Use dynamic reference points
+                                                       FsprTarget = 0.4), # F that achieves 40% SB0
+                                       msmMode = 0, # Single species mode
+                                       verbose = 1)
 
 
 # -- Constant Fspr
 ss_run_Fspr <- Rceattle::fit_mod(data_list = BS2017SS,
-                                  inits = ss_run$estimated_params, # Initial parameters from ss_run
-                                  estimateMode = 2, # Run projection only
-                                  HCR = build_hcr(HCR = 4, # Tier3 HCR
-                                                  FsprTarget = 0.4 # F40%
-                                                  ),
-                                  msmMode = 0, # Single species mode
-                                  verbose = 1)
+                                 inits = ss_run$estimated_params, # Initial parameters from ss_run
+                                 estimateMode = 2, # Run projection only
+                                 HCR = build_hcr(HCR = 4, # Tier3 HCR
+                                                 FsprTarget = 0.4 # F40%
+                                 ),
+                                 msmMode = 0, # Single species mode
+                                 verbose = 1)
 
 
 ss_run_dynamicFspr <- Rceattle::fit_mod(data_list = BS2017SS,
-                                         inits = ss_run$estimated_params, # Initial parameters from ss_run
-                                         estimateMode = 2, # Run projection only
-                                         HCR = build_hcr(HCR = 4, # Tier3 HCR
-                                                         DynamicHCR = TRUE, # Use dynamic reference points
-                                                         FsprTarget = 0.4 # F40%
-                                                         ),
-                                         msmMode = 0, # Single species mode
-                                         verbose = 1)
+                                        inits = ss_run$estimated_params, # Initial parameters from ss_run
+                                        estimateMode = 2, # Run projection only
+                                        HCR = build_hcr(HCR = 4, # Tier3 HCR
+                                                        DynamicHCR = TRUE, # Use dynamic reference points
+                                                        FsprTarget = 0.4 # F40%
+                                        ),
+                                        msmMode = 0, # Single species mode
+                                        verbose = 1)
 
 
 # -- NPFMC Tier 3
@@ -273,7 +287,7 @@ plot_ssb(dynamic_mod_list, model_names = dynamic_model_names, incl_proj = TRUE)
 ################################################
 # -- No F
 # - MS-OM: SS-EM No F
-mse1 <- mse_run_parallel(om = ms_run, em = ss_run, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+mse1 <- mse_run_parallel(om = ss_run_ricker, em = ss_run, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
 
 # - SS-OM: SS-EM No F
 mse2 <- mse_run_parallel(om = ss_run_M, em = ss_run, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
