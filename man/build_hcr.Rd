@@ -51,7 +51,7 @@ Specify the harvest control rule (HCR) used for Rceattle
 
 \code{hcr = 1} Constant catch set at \code{Ctarget}
 
-\code{hcr = 2} Constant input F set at \code{FsprTarget} for each species (vector or single F)
+\code{hcr = 2} Constant input F set at \code{FsprTarget} for each species (vector or single F). SPR based Flimit can be specified via FsprLimit.
 
 \code{hcr = 3} F that achieves \code{FsprTarget}\% of SSB0 in the end of the projection
 
@@ -68,7 +68,7 @@ Stock status: \eqn{SB/SB at FsprTarget ≤ Alpha} or \eqn{SB < Plimit*SB0}
 \deqn{Fofl=0}
 \deqn{Fuse=0}
 
-\code{hcr = 6} An HCR based on the The Pacific Fishery Management Council (PFMC) category 1 40-10 annual catch limit (ABC) harvest control rule assuming Fofl is normally distributed with a standard deviation (sigma) = 0.5 and an uncertainty quantile buffer (P∗) of 0.45 (PFMC 2020). The model uses Fspr if single-species or F that acheives X\% of SSB0 for multi-species. Target biological reference points are calculated based on the normal cumulative distribution function (Φ(quantile,mean,standard deviation)), P∗, and sigma as follows:
+\code{hcr = 6} An HCR based on the The Pacific Fishery Management Council (PFMC) category 1 40-10 annual catch limit (ABC) harvest control rule assuming Fofl is normally distributed with a standard deviation (sigma) = 0.5 and an uncertainty quantile buffer (P∗) of 0.45 (PFMC 2020). The model uses Fspr if single-species or F that achieves X\% of SSB0 for multi-species. Target biological reference points are calculated based on the normal cumulative distribution function (Φ(quantile,mean,standard deviation)), P∗, and sigma as follows:
 Stock status: \eqn{ SB > SB0*Ptarget)}
 \deqn{Fofl = FsprLimit}
 \deqn{Fuse = Φ(Pstar, FsprLimit, Sigma)}
