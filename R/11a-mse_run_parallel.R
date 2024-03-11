@@ -27,7 +27,7 @@
 #'
 mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, regenerate_past = FALSE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, seed = 666, regenerate_seed = seed, loopnum = 1, file = NULL, dir = NULL, timeout = 999){
 
-  # om = ss_run; em = ss_run_Tier3; nsim = 1; start_sim = 1; assessment_period = 1; sampling_period = 1; simulate_data = TRUE; regenerate_past = FALSE; sample_rec = TRUE; rec_trend = 0; fut_sample = 1; cap = NULL; seed = 666; regenerate_seed = seed; loopnum = 1; file = NULL; dir = NULL
+  # om = ss_run; em = ss_run_Tier3; nsim = 1; start_sim = 1; assessment_period = 1; sampling_period = 1; simulate_data = TRUE; regenerate_past = FALSE; sample_rec = TRUE; rec_trend = 0; fut_sample = 1; cap = NULL; seed = 666; regenerate_seed = seed; loopnum = 1; file = NULL; dir = NULL; timeout = 999
 
   #--------------------------------------------------
   # MSE SPECIFICATIONS ----
@@ -295,7 +295,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   cores = detectCores() - 2
   registerDoParallel(cores)
 
-  sim_list <- foreach(sim = start_sim:nsim) %do% {
+  sim_list <- foreach(sim = start_sim:nsim) %dopar% {
     library(Rceattle)
     library(dplyr)
 
@@ -377,7 +377,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
 
       om_use$estimated_params$ln_sel_slp_dev <- ln_sel_slp_dev
       om_use$estimated_params$sel_inf_dev <- sel_inf_dev
-      # om_use$estimated_params$sel_coff_dev <- sel_coff_dev
+      om_use$estimated_params$sel_coff_dev <- sel_coff_dev
 
 
       # * Update map ----
@@ -544,7 +544,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
 
       em_use$estimated_params$ln_sel_slp_dev <- ln_sel_slp_dev
       em_use$estimated_params$sel_inf_dev <- sel_inf_dev
-      # em_use$estimated_params$sel_coff_dev <- sel_coff_dev
+      em_use$estimated_params$sel_coff_dev <- sel_coff_dev
 
 
       # Restimate
@@ -649,7 +649,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
     # - Rename models
     sim_list$use_sim <- !kill_sim
     sim_list$OM <- om_use # OM
-    sim_list$OM_no_F <- Rceattle::remove_F(om_use) # OM with no Fishing
+    sim_list$OM_no_F <- remove_F(om_use) # OM with no Fishing
     if(!kill_sim){
       names(sim_list$EM) <- c("EM", paste0("OM_Sim_",sim,". EM_yr_", assess_yrs))
     }
