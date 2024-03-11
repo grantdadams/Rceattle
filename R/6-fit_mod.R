@@ -255,6 +255,11 @@ fit_mod <-
       start_par <- suppressWarnings(Rceattle::build_params(data_list = data_list))
     } else{
       start_par <- inits
+
+      # - Adjust srr parameters
+      if(ncol(start_par$beta_rec_pars) != length(data_list$srr_env_indices)){
+        start_par$beta_rec_pars <- matrix(0, nrow = data_list$nspp, ncol = length(data_list$srr_env_indices))
+      }
     }
     if(verbose > 0) {message("Step 1: Parameter build complete")}
 
