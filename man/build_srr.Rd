@@ -9,6 +9,7 @@ build_srr(
   srr_pred_fun = srr_fun,
   proj_mean_rec = TRUE,
   srr_meanyr = NULL,
+  R_hat_yr = NULL,
   srr_est_mode = 1,
   srr_prior_mean = 4,
   srr_prior_sd = 1,
@@ -24,6 +25,8 @@ build_srr(
 \item{proj_mean_rec}{Project the model using: 0 = mean recruitment (average R of hindcast) or 1 = SRR(omega, rec_devs)}
 
 \item{srr_meanyr}{Integer. The last year used to calculate mean recruitment, starting at \code{styr}. Defaults to $endyr$ in $data_list$. Used for MSE runs where mean recruitment is held at the value estimated from the years used to condition the OM, but F is estimated for years beyond those used to condition the OM to account for projected catch.}
+
+\item{R_hat_yr}{Integer. The last year used to calculate predicted recruitment for estimating recruitment functions as additional penalties sensu AMAK and Jim Ianelli's pollock model, starting at \code{styr}. Defaults to $endyr$ in $data_list$. Useful if environmental data used to condition stock-recruit relationships is not available until end-year, but projections are desired.}
 
 \item{srr_est_mode}{Switch to determine estimation mode. 0 = fix alpha to prior mean, 1 = freely estimate alpha and beta, 2 = use lognormally distributed prior for alpha.}
 

@@ -41,6 +41,7 @@ remove_F <- function(Rceattle){
                        srr_pred_fun = Rceattle$data_list$srr_pred_fun,
                        proj_mean_rec = Rceattle$data_list$proj_mean_rec,
                        srr_meanyr = Rceattle$data_list$srr_meanyr,
+                       R_hat_yr = Rceattle$data_list$R_hat_yr,
                        srr_est_mode  = Rceattle$data_list$srr_est_mode ,
                        srr_prior_mean = Rceattle$data_list$srr_prior_mean,
                        srr_prior_sd = Rceattle$data_list$srr_prior_sd,

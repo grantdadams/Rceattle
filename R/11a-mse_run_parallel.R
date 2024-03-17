@@ -14,6 +14,7 @@
 #' @param rec_trend Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier \code{mean rec * (1 + (rec_trend/projection years) * 1:projection years)}. Can be of length 1 or of length nspp. If length 1, all species get the same trend.
 #' @param fut_sample future sampling effort relative to last year.  \code{ Log_sd * 1 / fut_sample} for index and \code{ Sample_size * fut_sample} for comps
 #' @param cap A cap on the catch in the projection. Can be a single number or vector of length nspp. Default = NULL
+#' @param catch_mult A multiplier for the catch in the projection. Can be a single number or vector of length nspp. Default = NULL
 #' @param loopnum number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})
 #' @param file (Optional) Filename where each OM simulation with EMs will be saved. If NULL, no files are saved.
 #' @param dir (Optional) Directory where each OM simulation is saved
@@ -25,9 +26,9 @@
 #' @export
 #'
 #'
-mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, regenerate_past = FALSE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, seed = 666, regenerate_seed = seed, loopnum = 1, file = NULL, dir = NULL, timeout = 999){
+mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, regenerate_past = FALSE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, catch_mult = NULL, seed = 666, regenerate_seed = seed, loopnum = 1, file = NULL, dir = NULL, timeout = 999){
 
-  # om = ss_run; em = ss_run_Tier3; nsim = 1; start_sim = 1; assessment_period = 1; sampling_period = 1; simulate_data = TRUE; regenerate_past = FALSE; sample_rec = TRUE; rec_trend = 0; fut_sample = 1; cap = NULL; seed = 666; regenerate_seed = seed; loopnum = 1; file = NULL; dir = NULL
+  # om = ss_run; em = ss_run_Tier3; nsim = 1; start_sim = 1; assessment_period = 1; sampling_period = 1; simulate_data = TRUE; regenerate_past = FALSE; sample_rec = TRUE; rec_trend = 0; fut_sample = 1; cap = NULL; catch_mult = NULL; seed = 666; regenerate_seed = seed; loopnum = 1; file = NULL; dir = NULL
 
   #--------------------------------------------------
   # MSE SPECIFICATIONS ----
@@ -51,6 +52,16 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
 
     if(length(cap) != om$data_list$nspp){
       stop("cap is not length 1 or length nspp")
+    }
+  }
+
+  if(!is.null(catch_mult)){
+    if(length(catch_mult) == 1){
+      catch_mult = rep(catch_mult, om$data_list$nspp)
+    }
+
+    if(length(catch_mult) != om$data_list$nspp){
+      stop("catch_mult is not length 1 or length nspp")
     }
   }
 
@@ -129,6 +140,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
                          srr_pred_fun  = em$data_list$srr_pred_fun ,
                          proj_mean_rec  = em$data_list$proj_mean_rec ,
                          srr_meanyr = em$data_list$srr_meanyr,
+                         R_hat_yr = em$data_list$R_hat_yr,
                          srr_est_mode  = em$data_list$srr_est_mode ,
                          srr_prior_mean  = em$data_list$srr_prior_mean,
                          srr_prior_sd   = em$data_list$srr_prior_sd,
@@ -177,6 +189,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
                                                  srr_pred_fun  = em$data_list$srr_pred_fun ,
                                                  proj_mean_rec  = em$data_list$proj_mean_rec ,
                                                  srr_meanyr = em$data_list$srr_meanyr,
+                                                 R_hat_yr = em$data_list$R_hat_yr,
                                                  srr_est_mode  = em$data_list$srr_est_mode ,
                                                  srr_prior_mean  = em$data_list$srr_prior_mean,
                                                  srr_prior_sd   = em$data_list$srr_prior_sd,
@@ -343,6 +356,10 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       dat_fill_ind <- which(new_catch_data$Year %in% new_years & is.na(new_catch_data$Catch))
       new_catch_data$Catch[dat_fill_ind] <- em_use$quantities$fsh_bio_hat[dat_fill_ind]
 
+      if(!is.null(catch_mult)){
+        new_catch_data$Catch[dat_fill_ind] <- new_catch_data$Catch[dat_fill_ind] * catch_mult[new_catch_data$Species[dat_fill_ind]]
+      }
+
       if(!is.null(cap)){
         new_catch_data$Catch[dat_fill_ind] <- ifelse(new_catch_data$Catch[dat_fill_ind] > cap[new_catch_data$Species[dat_fill_ind]], cap[new_catch_data$Species[dat_fill_ind]], new_catch_data$Catch[dat_fill_ind])
       }
@@ -451,6 +468,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
                                srr_pred_fun = om_use$data_list$srr_pred_fun ,
                                proj_mean_rec = om_use$data_list$proj_mean_rec, # This will update anyway to False as devs are added
                                srr_meanyr = om$data_list$srr_meanyr, # This stays the same as original OM
+                               R_hat_yr = om$data_list$R_hat_yr,
                                srr_est_mode  = om_use$data_list$srr_est_mode ,
                                srr_prior_mean = om_use$data_list$srr_prior_mean,
                                srr_prior_sd = om_use$data_list$srr_prior_sd,
@@ -472,7 +490,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       },
       error = function(e){
         return(TRUE)
-        },
+      },
       TimeoutException = function(e){
         return(TRUE)
       })
@@ -578,6 +596,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
                                srr_pred_fun = em_use$data_list$srr_pred_fun,
                                proj_mean_rec = em_use$data_list$proj_mean_rec,
                                srr_meanyr = em_use$data_list$endyr, # Update end year
+                               R_hat_yr = em_use$data_list$R_hat_yr,
                                srr_est_mode  = em_use$data_list$srr_est_mode ,
                                srr_prior_mean = em_use$data_list$srr_prior_mean,
                                srr_prior_sd = em_use$data_list$srr_prior_sd,
