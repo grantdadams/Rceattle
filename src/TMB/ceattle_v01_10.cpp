@@ -372,12 +372,14 @@ Type objective_function<Type>::operator() () {
   DATA_INTEGER( styr );                   // Start year
   DATA_INTEGER( endyr );                  // End of estimation years
   DATA_INTEGER( srr_meanyr );             // The last year used to calculate average recruitment.
+  DATA_INTEGER( R_hat_yr );               // Terminal year of env-rec relationship estimation
   DATA_INTEGER( suit_meanyr );            // The last year used to calculate average suitability.
   DATA_INTEGER( projyr );                 // End year of projection
   int nyrs = projyr - styr + 1;
   int nyrs_srrmean = srr_meanyr - styr + 1;
   int nyrs_suitmean = suit_meanyr - styr + 1;
   int nyrs_hind = endyr - styr + 1;
+  int nyrs_R_hat = R_hat_yr - styr + 1;
   if(nyrs_srrmean > nyrs_hind){nyrs_srrmean = nyrs_hind;}
   if(nyrs_suitmean > nyrs_hind){nyrs_suitmean = nyrs_hind;}
 
@@ -3763,7 +3765,7 @@ Type objective_function<Type>::operator() () {
 
     // Additional penalty for SRR curve (sensu AMAK/Ianelli)
     if(srr_fun == 0 & srr_pred_fun  > 0){
-      for (yr = 1; yr < nyrs_hind; yr++) {
+      for (yr = 1; yr < nyrs_R_hat; yr++) {
         jnll_comp(10, sp) -= dnorm( log(R(sp, yr)), log(R_hat(sp,yr)), r_sigma(sp), true);
       }
     }

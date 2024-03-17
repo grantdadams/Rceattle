@@ -17,6 +17,7 @@ mse_run_parallel(
   rec_trend = 0,
   fut_sample = 1,
   cap = NULL,
+  catch_mult = NULL,
   seed = 666,
   regenerate_seed = seed,
   loopnum = 1,
@@ -50,6 +51,8 @@ mse_run_parallel(
 
 \item{cap}{A cap on the catch in the projection. Can be a single number or vector of length nspp. Default = NULL}
 
+\item{catch_mult}{A multiplier for the catch in the projection. Can be a single number or vector of length nspp. Default = NULL}
+
 \item{seed}{seed for the simulation}
 
 \item{regenerate_seed}{seed for regenerating data}
@@ -66,5 +69,5 @@ mse_run_parallel(
 A list of operating models (differ by simulated recruitment determined by \code{nsim}) and estimation models fit to each operating model (differ by terminal year).
 }
 \description{
-Runs a forward projecting MSE. Main assumptions are the projected selectivity/catchability, foraging days, and weight-at-age are the same as the terminal year of the hindcast in the operating model. Assumes survey sd is same as average across historic time series, while comp data sample size is same as last year. No implementation error!
+Runs a forward projecting MSE. Main assumptions are the projected selectivity/catchability, foraging days, and weight-at-age are the same as the terminal year of the hindcast in the operating model. Assumes survey sd is same as average across historic time series, while comp data sample size is same as last year. No implementation error and no observation error for catch!
 }

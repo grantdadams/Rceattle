@@ -192,7 +192,7 @@ fit_mod <-
       data_list$suit_meanyr <- suit_meanyr
     }
 
-    # - Recruitment switches
+    # * Recruitment switches ----
     data_list$srr_fun <- recFun$srr_fun
     data_list$srr_pred_fun <- recFun$srr_pred_fun
     data_list$proj_mean_rec <- recFun$proj_mean_rec
@@ -202,13 +202,20 @@ fit_mod <-
     if(!is.null(recFun$srr_meanyr)){ # If mean year is provided in function, override data
       data_list$srr_meanyr <- recFun$srr_meanyr
     }
+
+    if(is.null(recFun$R_hat_yr) & is.null(data_list$R_hat_yr)){ # If no meanyear is provided in data or function, use end year
+      data_list$R_hat_yr <- data_list$endyr
+    }
+    if(!is.null(recFun$R_hat_yr)){ # If mean year is provided in function, override data
+      data_list$R_hat_yr <- recFun$R_hat_yr
+    }
     data_list$srr_est_mode <- recFun$srr_est_mode
     data_list$srr_prior_mean <- extend_length(recFun$srr_prior_mean)
     data_list$srr_prior_sd <- extend_length(recFun$srr_prior_sd)
     data_list$srr_env_indices <- recFun$srr_env_indices
     data_list$Bmsy_lim <- extend_length(recFun$Bmsy_lim)
 
-    # - M1 switches
+    # * M1 switches ----
     if(!is.null(data_list$M1_model)){
       if(sum(data_list$M1_model != extend_length(M1Fun$M1_model))){
         warning("M1_model in data is different than in call `fit_mod`")
