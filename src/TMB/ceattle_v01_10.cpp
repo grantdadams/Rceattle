@@ -671,7 +671,7 @@ Type objective_function<Type>::operator() () {
   vector<Type>  srr_mult(beta_rec_pars.cols()); srr_mult.setZero();                 // Environmental design matrix mult
   vector<Type>  beta_rec_tmp(beta_rec_pars.cols()); beta_rec_tmp.setZero();         // Temporary vector to store beta parameters by species for matrix mult
   vector<Type>  env_rec_tmp(beta_rec_pars.cols()); env_rec_tmp.setZero();           // Temporary vector to store env data by year for matrix mult
-  vector<Type>  proj_F(nspp); proj_F.setZero();                                     // Projected F using harvest control rule
+  matrix<Type>  proj_F(nspp, nyrs); proj_F.setZero();                               // Projected F (Fabc/Ftac/etc) using harvest control rule
 
 
   // -- 4.6. Survey components
@@ -1144,46 +1144,45 @@ Type objective_function<Type>::operator() () {
                 // -- Apply HCRs
                 switch(HCR){
                 case 0: // No fishing
-                  proj_F(sp) = 0;
+                  proj_F(sp, yr) = 0;
                   break;
 
                 case 1: // CMSY
-                  proj_F(sp) = Ftarget(sp);
+                  proj_F(sp, yr) = Ftarget(sp);
                   break;
 
                 case 2: // Constant F
-                  proj_F(sp) = Ftarget(sp);
+                  proj_F(sp, yr) = Ftarget(sp);
                   break;
 
                 case 3: // Constant F that acheives X% of SSB0
-                  proj_F(sp) = Ftarget(sp);
+                  proj_F(sp, yr) = Ftarget(sp);
                   break;
 
                 case 4: // Constant Fspr
-                  proj_F(sp) = Ftarget(sp) * Fmult(sp);
+                  proj_F(sp, yr) = Ftarget(sp) * Fmult(sp);
                   break;
 
                 case 5: // NPFMC Tier 3 HCR
-                  proj_F(sp) = Ftarget(sp); // Used Fabc of Ftarget_age%
+                  proj_F(sp, yr) = Ftarget(sp); // Used Fabc of Ftarget_age%
                   break;
 
                 case 6: // PFMC Category 1 HCR
-                  proj_F(sp) = Flimit(sp) + QnormHCR(sp);
-                  Ftarget(sp) = Flimit(sp) + QnormHCR(sp);
+                  proj_F(sp, yr) = Ftarget(sp) = Flimit(sp) + QnormHCR(sp);
                   break;
 
                 case 7: // SESSF Tier 1 HCR
-                  proj_F(sp) = Ftarget(sp); // Used Fabc of Ftarget_age%
+                  proj_F(sp, yr) = Ftarget(sp); // Used Fabc of Ftarget_age%
                   break;
                 }
 
                 // Set F to zero if not running forecast
                 if(forecast == 0){
-                  proj_F(sp) = 0;
+                  proj_F(sp, yr) = 0;
                 }
 
 
-                F_flt_age(flt, sex, age, yr) = sel(flt, sex, age, yr) * proj_F_prop(flt) * proj_F(sp); // FIXME using last year of selectivity
+                F_flt_age(flt, sex, age, yr) = sel(flt, sex, age, yr) * proj_F_prop(flt) * proj_F(sp, yr); // FIXME using last year of selectivity
               }
 
               // -- Sum F across fleets
@@ -1206,8 +1205,8 @@ Type objective_function<Type>::operator() () {
 
           // Forecast
           if( yr >= nyrs_hind){
-            F_flt(flt, yr) = proj_F_prop(flt) * proj_F(sp);
-            F_spp(sp, yr) +=  proj_F_prop(flt) * proj_F(sp);
+            F_flt(flt, yr) = proj_F_prop(flt) * proj_F(sp, yr);
+            F_spp(sp, yr) +=  proj_F_prop(flt) * proj_F(sp, yr);
           }
         }
       }
@@ -1768,128 +1767,128 @@ Type objective_function<Type>::operator() () {
       }
     }
 
-
-    // 6.8. HARVEST CONTROL RULES FOR PROJECTION (i.e. SB0 and dynamic SB0)
-    // -- Use SSB from terminal year
+    // 6.8-6.9. FORECAST NUMBERS AT AGE, BIOMASS-AT-AGE (kg), and SSB-AT-AGE (kg)
+    // Includes Harvest Control Rules
     for (sp = 0; sp < nspp; sp++) {
-
-      // -- 6.8.1. Static Harvest Control Rules
-      if(DynamicHCR == 0){
-        switch(HCR){
-        case 0: // No fishing
-          proj_F(sp) = 0.0;
-          break;
-
-        case 1: // CMSY
-          proj_F(sp) = proj_F(sp);
-          break;
-
-        case 2: // Constant F
-          proj_F(sp) = proj_F(sp);
-          break;
-
-        case 3: // Constant F to acheive X% of SB0
-          proj_F(sp) = proj_F(sp);
-          break;
-
-        case 4: // Constant Fspr
-          proj_F(sp) = proj_F(sp) * Fmult(sp);
-          break;
-
-        case 5: // NPFMC Tier 3 HCR
-          proj_F(sp) = proj_F(sp);
-          if(biomassSSB(sp, nyrs_hind-1) < SBF(sp, nyrs-1)){
-            proj_F(sp) = Ftarget(sp) * (((biomassSSB(sp, nyrs_hind-1)/SBF(sp, nyrs-1))-Alpha(sp))/(1-Alpha(sp))); // Used Fabc of FtargetSPR%
-          }
-          if((biomassSSB(sp, nyrs_hind-1) < SB0(sp, nyrs-1) * Plimit(sp)) | (biomassSSB(sp, nyrs_hind-1) / SBF(sp, nyrs-1) < Alpha(sp))){ // If overfished
-            proj_F(sp) = 0.0;
-          }
-          break;
-
-        case 6: // PFMC Category 1 HCR
-          proj_F(sp) = proj_F(sp);
-          if(biomassSSB(sp, nyrs_hind-1) < SB0(sp, nyrs-1) * Ptarget(sp)){
-            proj_F(sp) = (Flimit(sp) + QnormHCR(sp)) * (SB0(sp, nyrs-1) * Ptarget(sp) * (biomassSSB(sp, nyrs_hind-1) - SB0(sp, nyrs-1) * Plimit(sp))) / (biomassSSB(sp, nyrs_hind-1) * (SB0(sp, nyrs-1) * (Ptarget(sp) - Plimit(sp))));
-          }
-          if(biomassSSB(sp, nyrs_hind-1) < SB0(sp, nyrs-1) * Plimit(sp)){ // If overfished
-            proj_F(sp) = 0.0;
-          }
-          break;
-
-        case 7: // SESSF Tier 1 HCR
-          proj_F(sp) = proj_F(sp);
-          if(biomassSSB(sp, nyrs_hind-1) < SB0(sp, nyrs-1) * Ptarget(sp)){
-            proj_F(sp) = Ftarget(sp) * ((biomassSSB(sp, nyrs_hind-1)/(SB0(sp, nyrs-1) * Plimit(sp)))-1); // Used Fabc of FtargetSPR%
-          }
-          if(biomassSSB(sp, nyrs_hind-1) < SB0(sp, nyrs-1) * Plimit(sp)){ // If overfished
-            proj_F(sp) = 0.0;
-          }
-          break;
-        }
-      }
-
-      // Dynamic Harvest Control Rules
-      if(DynamicHCR == 1){
-        switch(HCR){
-        case 0: // No fishing
-          proj_F(sp) = 0.0;
-          break;
-
-        case 1: // CMSY
-          proj_F(sp) = proj_F(sp);
-          break;
-
-        case 2: // Constant F
-          proj_F(sp) = proj_F(sp);
-          break;
-
-        case 3: // Constant F to acheive X% of SB0
-          proj_F(sp) = proj_F(sp);
-          break;
-
-        case 4: // Constant Fspr
-          proj_F(sp) = proj_F(sp) * Fmult(sp);
-          break;
-
-        case 5: // NPFMC Tier 3 HCR
-          proj_F(sp) = proj_F(sp);
-          if(biomassSSB(sp, nyrs_hind-1) < DynamicSBF(sp, nyrs_hind-1)){
-            proj_F(sp) = Ftarget(sp) * (((biomassSSB(sp, nyrs_hind-1)/(DynamicSBF(sp, nyrs_hind-1)))-Alpha(sp))/(1-Alpha(sp))); // Used Fabc of FtargetSPR%
-          }
-          if((biomassSSB(sp, nyrs_hind-1) < DynamicSB0(sp, nyrs_hind-1) * Plimit(sp)) | (biomassSSB(sp, nyrs_hind-1) / (DynamicSBF(sp, nyrs_hind-1)) < Alpha(sp))){ // If overfished
-            proj_F(sp) = 0.0;
-          }
-          break;
-
-        case 6: // PFMC Category 1 HCR
-          proj_F(sp) = proj_F(sp);
-          if(biomassSSB(sp, nyrs_hind-1) < DynamicSB0(sp, nyrs_hind-1) * Ptarget(sp)){
-            proj_F(sp) = (Flimit(sp) + QnormHCR(sp)) * (DynamicSB0(sp, nyrs_hind-1) * Ptarget(sp) * (biomassSSB(sp, nyrs_hind-1) - DynamicSB0(sp, nyrs_hind-1) * Plimit(sp))) / (biomassSSB(sp, nyrs_hind-1) * (DynamicSB0(sp, nyrs_hind-1) * (Ptarget(sp) - Plimit(sp))));
-          }
-          if(biomassSSB(sp, nyrs_hind-1) < DynamicSB0(sp, nyrs_hind-1) * Plimit(sp)){ // If overfished
-            proj_F(sp) = 0.0;
-          }
-          break;
-
-        case 7: // SESSF Tier 1 HCR
-          proj_F(sp) = proj_F(sp);
-          if(biomassSSB(sp, nyrs_hind-1) < DynamicSB0(sp, nyrs_hind-1) * Ptarget(sp)){
-            proj_F(sp) = Ftarget(sp) * ((biomassSSB(sp, nyrs_hind-1)/(DynamicSB0(sp, nyrs_hind-1) * Plimit(sp)))-1); // Used Fabc of FtargetSPR%
-          }
-          if(biomassSSB(sp, nyrs_hind-1) < DynamicSB0(sp, nyrs_hind-1) * Plimit(sp)){ // If overfished
-            proj_F(sp) =  0.0;
-          }
-          break;
-        }
-      }
-
-      // Set F to 0 if not forecast
-      if(forecast == 0){
-        proj_F(sp) =  0.0;
-      }
-
-      // Adjust F*selex
       for (yr = nyrs_hind; yr < nyrs; yr++){
+
+        // 6.8. HARVEST CONTROL RULES FOR PROJECTION (i.e. SB0 and dynamic SB0)
+        // -- Equilibrium Harvest Control Rules
+        if(DynamicHCR == 0){
+          switch(HCR){
+          case 0: // No fishing
+            proj_F(sp, yr) = 0.0;
+            break;
+
+          case 1: // CMSY
+            proj_F(sp, yr) = proj_F(sp, yr);
+            break;
+
+          case 2: // Constant F
+            proj_F(sp, yr) = proj_F(sp, yr);
+            break;
+
+          case 3: // Constant F to acheive X% of SB0
+            proj_F(sp, yr) = proj_F(sp, yr);
+            break;
+
+          case 4: // Constant Fspr with multiplier
+            proj_F(sp, yr) = proj_F(sp, yr) * Fmult(sp);
+            break;
+
+          case 5: // NPFMC Tier 3 HCR
+            proj_F(sp, yr) = proj_F(sp, yr);
+            if(biomassSSB(sp, yr-1) < SBF(sp, nyrs-1)){
+              proj_F(sp, yr) = Ftarget(sp) * (((biomassSSB(sp, yr-1)/SBF(sp, nyrs-1))-Alpha(sp))/(1-Alpha(sp))); // Used Fabc of FtargetSPR%
+            }
+            if((biomassSSB(sp, nyrs_hind-1) < SB0(sp, nyrs-1) * Plimit(sp)) | (biomassSSB(sp, yr-1) / SBF(sp, nyrs-1) < Alpha(sp))){ // If overfished
+              proj_F(sp, yr) = 0.0;
+            }
+            break;
+
+          case 6: // PFMC Category 1 HCR
+            proj_F(sp, yr) = proj_F(sp, yr);
+            if(biomassSSB(sp, yr-1) < SB0(sp, nyrs-1) * Ptarget(sp)){
+              proj_F(sp, yr) = (Flimit(sp) + QnormHCR(sp)) * (SB0(sp, nyrs-1) * Ptarget(sp) * (biomassSSB(sp, yr-1) - SB0(sp, nyrs-1) * Plimit(sp))) / (biomassSSB(sp, yr-1) * (SB0(sp, nyrs-1) * (Ptarget(sp) - Plimit(sp))));
+            }
+            if(biomassSSB(sp, yr-1) < SB0(sp, nyrs-1) * Plimit(sp)){ // If overfished
+              proj_F(sp, yr) = 0.0;
+            }
+            break;
+
+          case 7: // SESSF Tier 1 HCR
+            proj_F(sp, yr) = proj_F(sp, yr);
+            if(biomassSSB(sp, yr-1) < SB0(sp, nyrs-1) * Ptarget(sp)){
+              proj_F(sp, yr) = Ftarget(sp) * ((biomassSSB(sp, yr-1)/(SB0(sp, nyrs-1) * Plimit(sp)))-1); // Used Fabc of FtargetSPR%
+            }
+            if(biomassSSB(sp, yr-1) < SB0(sp, nyrs-1) * Plimit(sp)){ // If overfished
+              proj_F(sp, yr) = 0.0;
+            }
+            break;
+          }
+        }
+
+        // Dynamic Harvest Control Rules
+        if(DynamicHCR == 1){
+          switch(HCR){
+          case 0: // No fishing
+            proj_F(sp, yr) = 0.0;
+            break;
+
+          case 1: // CMSY
+            proj_F(sp, yr) = proj_F(sp, yr);
+            break;
+
+          case 2: // Constant F
+            proj_F(sp, yr) = proj_F(sp, yr);
+            break;
+
+          case 3: // Constant F to acheive X% of SB0
+            proj_F(sp, yr) = proj_F(sp, yr);
+            break;
+
+          case 4: // Constant Fspr with multiplier
+            proj_F(sp, yr) = proj_F(sp, yr) * Fmult(sp);
+            break;
+
+          case 5: // NPFMC Tier 3 HCR
+            proj_F(sp, yr) = proj_F(sp, yr);
+            if(biomassSSB(sp, yr-1) < DynamicSBF(sp, yr-1)){
+              proj_F(sp, yr) = Ftarget(sp) * (((biomassSSB(sp, yr-1)/(DynamicSBF(sp, yr-1)))-Alpha(sp))/(1-Alpha(sp))); // Used Fabc of FtargetSPR%
+            }
+            if((biomassSSB(sp, yr-1) < DynamicSB0(sp, yr-1) * Plimit(sp)) | (biomassSSB(sp, yr-1) / (DynamicSBF(sp, yr-1)) < Alpha(sp))){ // If overfished
+              proj_F(sp, yr) = 0.0;
+            }
+            break;
+
+          case 6: // PFMC Category 1 HCR
+            proj_F(sp, yr) = proj_F(sp, yr);
+            if(biomassSSB(sp, yr-1) < DynamicSB0(sp, yr-1) * Ptarget(sp)){
+              proj_F(sp, yr) = (Flimit(sp) + QnormHCR(sp)) * (DynamicSB0(sp, yr-1) * Ptarget(sp) * (biomassSSB(sp, yr-1) - DynamicSB0(sp, yr-1) * Plimit(sp))) / (biomassSSB(sp, yr-1) * (DynamicSB0(sp, yr-1) * (Ptarget(sp) - Plimit(sp))));
+            }
+            if(biomassSSB(sp, yr-1) < DynamicSB0(sp, yr-1) * Plimit(sp)){ // If overfished
+              proj_F(sp, yr) = 0.0;
+            }
+            break;
+
+          case 7: // SESSF Tier 1 HCR
+            proj_F(sp, yr) = proj_F(sp, yr);
+            if(biomassSSB(sp, yr-1) < DynamicSB0(sp, yr-1) * Ptarget(sp)){
+              proj_F(sp, yr) = Ftarget(sp) * ((biomassSSB(sp, yr-1)/(DynamicSB0(sp, yr-1) * Plimit(sp)))-1); // Used Fabc of FtargetSPR%
+            }
+            if(biomassSSB(sp, yr-1) < DynamicSB0(sp, yr-1) * Plimit(sp)){ // If overfished
+              proj_F(sp, yr) =  0.0;
+            }
+            break;
+          }
+        }
+
+        // Set F to 0 if not forecast
+        if(forecast == 0){
+          proj_F(sp, yr) =  0.0;
+        }
+
+        // Adjust F*selex
         // -- 6.8.3. Update F for the projection (account for selectivity and fleets)
         for (age = 0; age < nages(sp); age++) {
           for(sex = 0; sex < nsex(sp); sex ++){
@@ -1898,13 +1897,13 @@ Type objective_function<Type>::operator() () {
         }
 
         // -- Multiply F from HCR by selectivity and fleet proportion
-        F_spp(sp, yr) = proj_F(sp);
+        F_spp(sp, yr) = proj_F(sp, yr);
         for (flt = 0; flt < n_flt; flt++) {
           if(sp == flt_spp(flt)){
-            F_flt(sp, yr) = proj_F_prop(flt) * proj_F(sp);
+            F_flt(sp, yr) = proj_F_prop(flt) * proj_F(sp, yr);
             for (age = 0; age < nages(sp); age++) {
               for(sex = 0; sex < nsex(sp); sex ++){
-                F_flt_age(flt, sex, age, yr) = sel(flt, sex, age, nyrs_hind - 1) * proj_F_prop(flt) * proj_F(sp); // FIXME using last year of selectivity
+                F_flt_age(flt, sex, age, yr) = sel(flt, sex, age, nyrs_hind - 1) * proj_F_prop(flt) * proj_F(sp, yr); // FIXME using last year of selectivity
                 if(flt_type(flt) == 1){
                   F_spp_age(sp, sex, age, yr) += F_flt_age(flt, sex, age, yr);
                 }
@@ -1922,15 +1921,9 @@ Type objective_function<Type>::operator() () {
             //S(sp, sex, age, yr) = exp(-Zed(sp, sex, age, yr));
           }
         }
-      }
-    }
 
 
-    // 6.9. FORECAST NUMBERS AT AGE, BIOMASS-AT-AGE (kg), and SSB-AT-AGE (kg)
-    // Includes Harvest Control Rules
-    for (sp = 0; sp < nspp; sp++) {
-      for (yr = nyrs_hind; yr < nyrs; yr++){
-
+        // 6.9. FORECAST NUMBERS AT AGE, BIOMASS-AT-AGE (kg), and SSB-AT-AGE (kg)
         // -- 6.9.1. Forecasted recruitment
         // - Option 1: Use mean rec
         if(proj_mean_rec == 1 & srr_pred_fun > 1){
@@ -3728,9 +3721,8 @@ Type objective_function<Type>::operator() () {
 
 
   // Slots 9-12 -- RECRUITMENT PARAMETERS
-  penalty = 0.0;
   for (sp = 0; sp < nspp; sp++) {
-
+    penalty = 0.0;
     /*
      // Slot 9 -- stock-recruit prior for Beverton
      if(srr_est_mode == 2 & (srr_pred_fun == 2 | srr_pred_fun == 3)){
@@ -3747,7 +3739,7 @@ Type objective_function<Type>::operator() () {
     if(Bmsy_lim(sp) > 0 & (srr_pred_fun == 4) | (srr_pred_fun == 5)){ // Using pred_fun in case ianelli method is used
       Type bmsy = 1.0/exp(rec_pars(sp, 2));
       bmsy =  posfun(Bmsy_lim(sp)/Type(1000000.0) - bmsy, Type(0.001), penalty);
-      jnll_comp(9, sp) += penalty;
+      jnll_comp(9, sp) += 100 * penalty;
     }
 
 
