@@ -209,49 +209,49 @@ plot_ssb(dynamic_mod_list, model_names = dynamic_model_names, incl_proj = TRUE)
 ################################################
 # -- No F
 # - MS-OM: SS-EM No F
-mse1 <- mse_run(om = ms_run, em = ss_run, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+mse1 <- mse_run_parallel(om = ms_run, em = ss_run, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
 
 # - SS-OM: SS-EM No F
-mse2 <- mse_run(om = ss_run_M, em = ss_run, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+mse2 <- mse_run_parallel(om = ss_run_M, em = ss_run, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
 
 
 # -- NPFMC Tier 3 HCRs
 # - MS-OM: SS-EM Tier 3 HCR
-mse3 <- mse_run(om = ms_run, em = ss_run_Tier3, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+mse3 <- mse_run_parallel(om = ms_run, em = ss_run_Tier3, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
 
 # - SS-OM: SS-EM Tier 3 HCR
-mse4 <- mse_run(om = ss_run_M, em = ss_run_Tier3, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+mse4 <- mse_run_parallel(om = ss_run_M, em = ss_run_Tier3, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
 
 # - MS-OM: SS-EM dynamic Tier 3 HCR
-mse5 <- mse_run(om = ms_run, em = ss_run_dynamicTier3, nsim = 1, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+mse5 <- mse_run_parallel(om = ms_run, em = ss_run_dynamicTier3, nsim = 1, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
 
 # - SS-OM: SS-EM dynamic Tier 3 HCR
-mse6 <- mse_run(om = ss_run_M, em = ss_run_dynamicTier3, nsim = 1, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+mse6 <- mse_run_parallel(om = ss_run_M, em = ss_run_dynamicTier3, nsim = 1, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
 
 
 # -- PFMC Category 1 HCRs
 # - MS-OM: SS-EM Tier 3 HCR
-mse7 <- mse_run(om = ms_run, em = ss_run_Cat1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+mse7 <- mse_run_parallel(om = ms_run, em = ss_run_Cat1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
 
 # - SS-OM: SS-EM Tier 3 HCR
-mse8 <- mse_run(om = ss_run_M, em = ss_run_Cat1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+mse8 <- mse_run_parallel(om = ss_run_M, em = ss_run_Cat1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
 
 # - MS-OM: SS-EM dynamic Tier 3 HCR
-mse9 <- mse_run(om = ms_run, em = ss_run_dynamicCat1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+mse9 <- mse_run_parallel(om = ms_run, em = ss_run_dynamicCat1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
 
 # - SS-OM: SS-EM dynamic Tier 3 HCR
-mse10 <- mse_run(om = ss_run_M, em = ss_run_dynamicCat1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+mse10 <- mse_run_parallel(om = ss_run_M, em = ss_run_dynamicCat1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
 
 
 # -- SESSF Tier 1 HCRs
 # - MS-OM: SS-EM Tier 3 HCR
-mse11 <- mse_run(om = ms_run, em = ss_run_Tier1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+mse11 <- mse_run_parallel(om = ms_run, em = ss_run_Tier1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
 
 # - SS-OM: SS-EM Tier 3 HCR
-mse12 <- mse_run(om = ss_run_M, em = ss_run_Tier1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+mse12 <- mse_run_parallel(om = ss_run_M, em = ss_run_Tier1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
 
 # - MS-OM: SS-EM dynamic Tier 3 HCR
-mse13 <- mse_run(om = ms_run, em = ss_run_dynamicTier1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+mse13 <- mse_run_parallel(om = ms_run, em = ss_run_dynamicTier1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
 
 # - SS-OM: SS-EM dynamic Tier 3 HCR
-mse14 <- mse_run(om = ss_run_M, em = ss_run_dynamicTier1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+mse14 <- mse_run_parallel(om = ss_run_M, em = ss_run_dynamicTier1, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
