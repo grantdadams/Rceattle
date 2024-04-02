@@ -3451,7 +3451,7 @@ Type objective_function<Type>::operator() () {
 
     // Penalized/random effect likelihood time-varying non-parametric (Taylor et al 2014) selectivity deviates
     if(((flt_varying_sel(flt) == 1) | (flt_varying_sel(flt) == 2)) & (flt_sel_type(flt) == 5) & (flt_type(flt) > 0)){
-      for(age = 0; age < nages(sp); age++){ //NOTE: extends beyond selectivity age range, but should be mapped to 0 in map function
+      for(age = 0; age < flt_nselages(flt); age++){ //NOTE: extends beyond selectivity age range, but should be mapped to 0 in map function
         for(sex = 0; sex < nsex(sp); sex++){
           for(yr = 0; yr < nyrs_hind; yr++){
             jnll_comp(5, flt) -= dnorm(sel_coff_dev(flt, sex, age, yr), Type(0.0), sigma_sel(flt), true);
