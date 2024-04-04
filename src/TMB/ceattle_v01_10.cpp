@@ -3561,9 +3561,11 @@ Type objective_function<Type>::operator() () {
 
     // Slot 9 -- penalty for Bmsy > Bmsy_lim
     if((srr_pred_fun == 3) | (srr_pred_fun == 4)){ // Using pred_fun in case ianelli method is used
+      if(Bmsy_lim(sp) > 0){
       Type bmsy = 1/(exp(rec_pars(sp, 2))/1000000);
       bmsy =  posfun(Bmsy_lim(sp) - bmsy, Type(0.001), penalty);
       jnll_comp(9, sp) += penalty;
+      }
     }
 
 
