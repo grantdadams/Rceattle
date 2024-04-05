@@ -156,7 +156,7 @@ mse_summary <- function(mse){
     mse_summary$`Catch IAV`[i+nspp] = 0
     for(sim in 1:nsim){
       iav_tmp <- sum((lag(catch_list_tmp[[sim]], 1) - catch_list_tmp[[sim]])^2, na.rm = TRUE)/(length(projyrs) - 1) # Squared difference
-      iav_tmp <- iav_tmp / (sum(catch_list_tmp[[sim]], na.rm = TRUE)/ length(projyrs))/nsim # Divide by mean
+      iav_tmp <- sqrt(iav_tmp) / (sum(catch_list_tmp[[sim]], na.rm = TRUE)/ length(projyrs))/nsim # Divide by mean
       mse_summary$`Catch IAV`[i+nspp] <- mse_summary$`Catch IAV`[i+nspp] + iav_tmp
     }
 
@@ -196,7 +196,7 @@ mse_summary <- function(mse){
     mse_summary$`Catch IAV`[sp] <- 0 # Initialize
     for(sim in 1:nsim){
       iav_tmp <- sum((lag(catch_list_tmp[[sim]], 1) - catch_list_tmp[[sim]])^2, na.rm = TRUE)/(length(projyrs) - 1) # Squared difference
-      iav_tmp <- iav_tmp / (sum(catch_list_tmp[[sim]], na.rm = TRUE)/ length(projyrs))/nsim # Divide by mean
+      iav_tmp <- sqrt(iav_tmp) / (sum(catch_list_tmp[[sim]], na.rm = TRUE)/ length(projyrs))/nsim # Divide by mean
       mse_summary$`Catch IAV`[sp] <- mse_summary$`Catch IAV`[sp] + iav_tmp
     }
 
@@ -229,7 +229,7 @@ mse_summary <- function(mse){
   mse_summary$`Catch IAV`[nspp + nflts + 1] <- 0 # Initialize
   for(sim in 1:nsim){
     iav_tmp <- sum((lag(catch_list_tmp[[sim]], 1) - catch_list_tmp[[sim]])^2, na.rm = TRUE)/(length(projyrs) - 1) # Squared difference
-    iav_tmp <- iav_tmp / (sum(catch_list_tmp[[sim]], na.rm = TRUE)/ length(projyrs))/nsim # Divide by mean
+    iav_tmp <- sqrt(iav_tmp) / (sum(catch_list_tmp[[sim]], na.rm = TRUE)/ length(projyrs))/nsim # Divide by mean
     mse_summary$`Catch IAV`[nspp + nflts + 1] <- mse_summary$`Catch IAV`[nspp + nflts + 1] + iav_tmp
   }
 
