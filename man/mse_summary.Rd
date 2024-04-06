@@ -16,15 +16,14 @@ data.frame 1
 \item Average annual catch across projection years and simulations per fleet and across fleets
 \item Average interannual variation in catch (IAV) across projection years (n) per fleet and across fleets
 \item \% of years in which the fishery is closed across simulations (s)
+\item Average relative mean squared error in estimate of spawning biomass in the terminal year across simulations
+\item \% of years in which the population is perceived as undergoing overfishing as determined from F_Limit across simulations via \code{\link{build_hcr}} in the EM
+\item \% of years in which the population is perceived to be overfished  as determined from B_Limit across simulations via \code{\link{build_hcr}} in the EM
+\item \% of years in which the population is undergoing overfishing as determined from the “true” F_Limit across simulations via \code{\link{build_hcr}} in the OM
+\item \% of years in which the population is overfished as determined from the “true” B_Limit across simulations via \code{\link{build_hcr}} in the OM
+\item Average ratio of spawning biomass over B_target in the terminal year across simulations in the OM
+10-14. Terminal biomass, SSB, SSB depletion (relative to equilibrium), SSB depletion (relative to dynamic SB0)
 }
-
-data.frame 2
-4.	Average relative mean squared error in estimate of spawning biomass in the terminal year across simulations
-5. \% of years in which the population is perceived as undergoing overfishing as determined from F_Limit across simulations via \code{\link{build_hcr}} in the EM
-6.	\% of years in which the population is perceived to be overfished  as determined from B_Limit across simulations via \code{\link{build_hcr}} in the EM
-7. \% of years in which the population is undergoing overfishing as determined from the “true” F_Limit across simulations via \code{\link{build_hcr}} in the OM
-8. \% of years in which the population is overfished as determined from the “true” B_Limit across simulations via \code{\link{build_hcr}} in the OM
-9.	Average ratio of spawning biomass over B_target in the terminal year across simulations in the OM
 }
 \description{
 Management strategy evaluation performance metric summary

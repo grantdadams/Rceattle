@@ -48,14 +48,13 @@ load_mse <- function(dir = NULL, file = NULL){
 #' 1.	Average annual catch across projection years and simulations per fleet and across fleets
 #' 2.	Average interannual variation in catch (IAV) across projection years (n) per fleet and across fleets
 #' 3.	% of years in which the fishery is closed across simulations (s)
-#'
-#' data.frame 2
 #' 4.	Average relative mean squared error in estimate of spawning biomass in the terminal year across simulations
 #' 5. % of years in which the population is perceived as undergoing overfishing as determined from F_Limit across simulations via \code{\link{build_hcr}} in the EM
 #' 6.	% of years in which the population is perceived to be overfished  as determined from B_Limit across simulations via \code{\link{build_hcr}} in the EM
 #' 7. % of years in which the population is undergoing overfishing as determined from the “true” F_Limit across simulations via \code{\link{build_hcr}} in the OM
 #' 8. % of years in which the population is overfished as determined from the “true” B_Limit across simulations via \code{\link{build_hcr}} in the OM
 #' 9.	Average ratio of spawning biomass over B_target in the terminal year across simulations in the OM
+#' 10-14. Terminal biomass, SSB, SSB depletion (relative to equilibrium), SSB depletion (relative to dynamic SB0)
 #'
 #' @export
 #'
@@ -75,6 +74,7 @@ mse_summary <- function(mse){
   ## OM dimensions ----
   # - determined from OM sim 1
   # - should be the same as for the EM
+  msmMode <- mse$Sim_1$OM$data_list$msmMode
   nspp <- mse$Sim_1$OM$data_list$nspp
   nsex <- mse$Sim_1$OM$data_list$nsex
   flt_type <- mse$Sim_1$OM$data_list$fleet_control$Fleet_type
@@ -85,7 +85,6 @@ mse_summary <- function(mse){
   endyr <- mse$Sim_1$EM$EM$data_list$endyr
   projyr <- mse$Sim_1$EM$EM$data_list$projyr
   projyrs <- (endyr+1):projyr
-  projyrs_ind <- projyrs - endyr
 
   ## HCR ----
   HCR <- mse$Sim_1$EM[[1]]$data_list$HCR
@@ -107,7 +106,7 @@ mse_summary <- function(mse){
 
   ## MSE Output ----
   # - Catch is by fleet
-  mse_summary <- data.frame(matrix(NA, nrow = nflts+nspp+1, ncol = 16))
+  mse_summary <- data.frame(matrix(NA, nrow = nflts+nspp+1, ncol = 19))
   colnames(mse_summary) <- c("Species",
                              "Fleet_name",
                              "Fleet_code",
@@ -124,7 +123,10 @@ mse_summary <- function(mse){
                              "EM: P(SSB < SSBlimit) but OM: P(SSB > SSBlimit)",
                              "EM: P(SSB > SSBlimit) but OM: P(SSB < SSBlimit)",
                              # "OM: Recovery Time",
-                             "OM: Terminal SSB Depletion")
+                             "OM: Terminal B",
+                             "OM: Terminal SSB",
+                             "OM: Terminal SSB Depletion",
+                             "OM: Terminal SSB Depletion (Dynamic)")
   mse_summary$Fleet_name <- c(rep(NA, nspp), mse$Sim_1$OM$data_list$fleet_control$Fleet_name[flts], "All")
   mse_summary$Fleet_code <- c(rep(NA, nspp), mse$Sim_1$OM$data_list$fleet_control$Fleet_code[flts], "All")
   mse_summary$Species <- c(mse$Sim_1$OM$data_list$spnames, mse$Sim_1$OM$data_list$fleet_control$Species[flts], "All")
@@ -244,7 +246,8 @@ mse_summary <- function(mse){
   # - EM: P(Fy < Flimit) but OM: P(Fy > Flimit)
   # - EM: P(SSB < SSBlimit) but OM: P(SSB > SSBlimit)
   # - EM: P(SSB > SSBlimit) but OM: P(SSB < SSBlimit)
-  # - OM: Terminal SSB/SSBtarget
+  # - OM: Terminal Depletion Relative to equilibrium SB0
+  # - OM: Terminal Depletion Relative to dynamic SB0
   # - EM: Average age-1 M
   # - EM: Variance of age-1 M
 
@@ -454,16 +457,25 @@ mse_summary <- function(mse){
     mse_summary$`EM: P(SSB > SSBlimit) but OM: P(SSB < SSBlimit)`[sp] <- sum(em_sb_sblimit == 0 & om_sb_sblimit == 1)/length(om_sb_sblimit)
 
 
-    ## Bias in terminal SSB ----
-    sb_em <- lapply(mse, function(x) x$EM[[length(x$EM)]]$quantities$biomassSSB[sp, (projyrs - styr + 1)])
-    sb_om <- lapply(mse, function(x) x$OM$quantities$biomassSSB[sp, (projyrs - styr + 1)])
+    # * Bias in terminal SSB ----
+    terminal_b_om <- sapply(mse, function(x) x$OM$quantities$biomass[sp, (projyr - styr + 1)])
+    terminal_ssb_om <- sapply(mse, function(x) x$OM$quantities$biomassSSB[sp, (projyr - styr + 1)])
+    terminal_ssb_em <- sapply(mse, function(x) x$EM[[length(x$EM)]]$quantities$biomassSSB[sp, (projyr - styr + 1)])
 
-    mse_summary$`Avg terminal SSB Relative MSE`[sp] = mean((unlist(sb_em) -  unlist(sb_om))^2 / unlist(sb_om)^2, na.rm = TRUE)
+    mse_summary$`Avg terminal SSB Relative MSE`[sp] = mean((terminal_ssb_em -  terminal_ssb_om)^2 / terminal_ssb_om^2, na.rm = TRUE)
 
-    # - OM: Terminal SSB depletion
-    sb_depletion <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)])
-    sb_depletion <- unlist(sb_depletion)
-    mse_summary$`OM: Terminal SSB Depletion`[sp] <- mean(sb_depletion)
+    # * OM: Terminal B, SSB, depletion ----
+    terminal_sb0_om <- sapply(mse, function(x) x$OM$quantities$SB0[sp, (projyr - styr + 1)])
+    terminal_dynamic_sb0_om <- sapply(mse, function(x) x$OM$quantities$DynamicSB0[sp, (projyr - styr + 1)])
+
+    if(msmMode > 0){ # Take dynamic SB0 for multi-species model from OM projected with no F
+      terminal_dynamic_sb0_om <- sapply(mse, function(x) x$OM_no_F$quantities$biomassSSB[sp, (projyr - styr + 1)])
+    }
+
+    mse_summary$`OM: Terminal B`[sp] <- mean(terminal_b_om)
+    mse_summary$`OM: Terminal SSB`[sp] <- mean(terminal_ssb_om)
+    mse_summary$`OM: Terminal SSB Depletion`[sp] <- mean(terminal_ssb_om/terminal_sb0_om)
+    mse_summary$`OM: Terminal SSB Depletion (Dynamic)`[sp] <- mean(terminal_ssb_om/terminal_dynamic_sb0_om)
   }
 
   return(mse_summary = mse_summary)

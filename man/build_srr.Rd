@@ -11,7 +11,7 @@ build_srr(
   srr_est_mode = 1,
   srr_prior_mean = 4,
   srr_prior_sd = 1,
-  Bmsy_lim = Inf
+  Bmsy_lim = -999
 )
 }
 \arguments{
