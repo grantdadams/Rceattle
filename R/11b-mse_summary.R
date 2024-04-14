@@ -7,27 +7,108 @@
 #' @export
 #'
 load_mse <- function(dir = NULL, file = NULL){
+
+  # - Get file names
   mse_files <- list.files(path = dir, pattern = paste0(file, "EMs_from_OM_Sim_"))
   mse_order <- as.numeric(gsub(".rds", "", sapply(strsplit(mse_files, "EMs_from_OM_Sim_"), "[[", 2)))
   mse_files <- mse_files[order(mse_order)]
-  mse = list()
-  for(i in 1:length(mse_files)){
-    mse[[i]] <- readRDS(file = paste0(dir,"/", mse_files[i]))
-    mse[[i]]$OM$bounds <- NULL
-    for(em in 2:length(mse[[i]]$EM)){
-      mse[[i]]$EM[[em]]$data_list$wt <- NULL
-      mse[[i]]$EM[[em]]$data_list$emp_sel <- NULL
-      mse[[i]]$EM[[em]]$data_list$age_trans_matrix <- NULL
-      mse[[i]]$EM[[em]]$data_list$age_error <- NULL
-      mse[[i]]$EM[[em]]$data_list$NByageFixed <- NULL
-      mse[[i]]$EM[[em]]$data_list$aLW <- NULL
-      mse[[i]]$EM[[em]]$data_list$UobsWtAge <- NULL
-      mse[[i]]$EM[[em]]$data_list$Pyrs <- NULL
-      mse[[i]]$EM[[em]]$data_list$aLW <- NULL
-      mse[[i]]$EM[[em]]$estimated_params <- NULL
+
+  ### Set up parallel processing
+  library(foreach)
+  library(doParallel)
+
+  cores = (detectCores()/2)-1
+  registerDoParallel(cores)
+
+  mse <- foreach(i = 1:length(mse_files),
+                 .combine = "c") %dopar% {
+    mse_tmp <- list(readRDS(file = paste0(dir,"/", mse_files[i])))
+
+    for(em in 2:length(mse_tmp[[1]]$EM)){
+      mse_tmp[[1]]$EM[[em]]$data_list$wt <- NULL
+      mse_tmp[[1]]$EM[[em]]$data_list$emp_sel <- NULL
+      mse_tmp[[1]]$EM[[em]]$data_list$age_trans_matrix <- NULL
+      mse_tmp[[1]]$EM[[em]]$data_list$age_error <- NULL
+      mse_tmp[[1]]$EM[[em]]$data_list$NByageFixed <- NULL
+      mse_tmp[[1]]$EM[[em]]$data_list$aLW <- NULL
+      mse_tmp[[1]]$EM[[em]]$data_list$UobsWtAge <- NULL
+      mse_tmp[[1]]$EM[[em]]$data_list$Pyrs <- NULL
+      mse_tmp[[1]]$EM[[em]]$data_list$aLW <- NULL
+      mse_tmp[[1]]$EM[[em]]$estimated_params <- NULL
     }
+
+    # Only use these bits for OM
+    mse_tmp[[1]]$OM$initial_params <- NULL
+    mse_tmp[[1]]$OM$bounds <- NULL
+    mse_tmp[[1]]$OM$map <- NULL
+    mse_tmp[[1]]$OM$obj <- NULL
+    mse_tmp[[1]]$OM$opt <- NULL
+    mse_tmp[[1]]$OM$sdrep <- NULL
+    mse_tmp[[1]]$OM$quantities[!names(mse_tmp[[1]]$OM$quantities) %in% c("fsh_bio_hat",
+                                                                 "fsh_log_sd_hat",
+                                                                 "srv_bio_hat",
+                                                                 "srv_log_sd_hat",
+                                                                 "depletion",
+                                                                 "depletionSSB",
+                                                                 "biomass",
+                                                                 "biomassSSB",
+                                                                 "BO",
+                                                                 "SB0",
+                                                                 "SBF",
+                                                                 "F_spp",
+                                                                 "R",
+                                                                 "M1",
+                                                                 "M",
+                                                                 "mean_rec",
+                                                                 "DynamicB0",
+                                                                 "DynamicSB0",
+                                                                 "DynamicSBF",
+                                                                 "SPR0",
+                                                                 "SPRlimit",
+                                                                 "SPRtarget",
+                                                                 "Ftarget",
+                                                                 "Flimit")] <- NULL
+
+
+    # Only use these bits for OM no F
+    mse_tmp[[1]]$OM_no_F$initial_params <- NULL
+    mse_tmp[[1]]$OM_no_F$bounds <- NULL
+    mse_tmp[[1]]$OM_no_F$map <- NULL
+    mse_tmp[[1]]$OM_no_F$obj <- NULL
+    mse_tmp[[1]]$OM_no_F$opt <- NULL
+    mse_tmp[[1]]$OM_no_F$sdrep <- NULL
+    mse_tmp[[1]]$OM_no_F$quantities[!names(mse_tmp[[1]]$OM_no_F$quantities) %in% c("fsh_bio_hat",
+                                                                           "fsh_log_sd_hat",
+                                                                           "srv_bio_hat",
+                                                                           "srv_log_sd_hat",
+                                                                           "depletion",
+                                                                           "depletionSSB",
+                                                                           "biomass",
+                                                                           "biomassSSB",
+                                                                           "BO",
+                                                                           "SB0",
+                                                                           "SBF",
+                                                                           "F_spp",
+                                                                           "R",
+                                                                           "M1",
+                                                                           "M",
+                                                                           "mean_rec",
+                                                                           "DynamicB0",
+                                                                           "DynamicSB0",
+                                                                           "DynamicSBF",
+                                                                           "SPR0",
+                                                                           "SPRlimit",
+                                                                           "SPRtarget",
+                                                                           "Ftarget",
+                                                                           "Flimit")] <- NULL
+
+    # - Return
+    mse_tmp[[1]]$name <- mse_files[i]
+    mse_tmp
   }
   # mse <- lapply(mse_files, function(x) readRDS(file = paste0(dir,"/", x)))
+  closeAllConnections()
+
   names(mse) <- paste0("Sim_", 1:length(mse))
   return(mse)
 }
@@ -458,17 +539,25 @@ mse_summary <- function(mse){
 
 
     # * Bias in terminal SSB ----
-    terminal_b_om <- sapply(mse, function(x) x$OM$quantities$biomass[sp, (projyr - styr + 1)])
-    terminal_ssb_om <- sapply(mse, function(x) x$OM$quantities$biomassSSB[sp, (projyr - styr + 1)])
-    terminal_ssb_em <- sapply(mse, function(x) x$EM[[length(x$EM)]]$quantities$biomassSSB[sp, (projyr - styr + 1)])
+    ssb_om <- lapply(mse, function(x) x$OM$quantities$biomass[sp, (projyrs - styr + 1)])
+    terminal_ssb_em <- list()
+    for(i in 1:length(mse)){
+      terminal_ssb_em[[i]] <- sapply(mse[[i]]$EM[-1], function(x) x$quantities$biomassSSB[sp, (x$data_list$endyr - styr + 1)])
+    }
 
-    mse_summary$`Avg terminal SSB Relative MSE`[sp] = mean((terminal_ssb_em -  terminal_ssb_om)^2 / terminal_ssb_om^2, na.rm = TRUE)
+    mse_summary$`Avg terminal SSB Relative MSE`[sp] = mean((unlist(terminal_ssb_em) -  unlist(ssb_om))^2 / unlist(ssb_om)^2, na.rm = TRUE)
 
     # * OM: Terminal B, SSB, depletion ----
-    terminal_sb0_om <- sapply(mse, function(x) x$OM$quantities$SB0[sp, (projyr - styr + 1)])
-    terminal_dynamic_sb0_om <- sapply(mse, function(x) x$OM$quantities$DynamicSB0[sp, (projyr - styr + 1)])
+    terminal_b_om <- sapply(mse, function(x) x$OM$quantities$biomass[sp, (projyr - styr + 1)])
+    terminal_ssb_om <- sapply(mse, function(x) x$OM$quantities$biomassSSB[sp, (projyr - styr + 1)])
+
+    if(msmMode == 0){ # Take dynamic SB0 for multi-species model from OM projected with no F
+      terminal_sb0_om <- sapply(mse, function(x) x$OM$quantities$SB0[sp, (projyr - styr + 1)])
+      terminal_dynamic_sb0_om <- sapply(mse, function(x) x$OM$quantities$DynamicSB0[sp, (projyr - styr + 1)])
+    }
 
     if(msmMode > 0){ # Take dynamic SB0 for multi-species model from OM projected with no F
+      terminal_sb0_om <- sapply(mse, function(x) x$OM$quantities$SB0) # FIXME: SBO is adjusted in wrapper function
       terminal_dynamic_sb0_om <- sapply(mse, function(x) x$OM_no_F$quantities$biomassSSB[sp, (projyr - styr + 1)])
     }
 
