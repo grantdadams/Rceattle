@@ -309,7 +309,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   library(foreach)
   library(doParallel)
 
-  cores = detectCores() - 2
+  cores = detectCores() - 4
   registerDoParallel(cores)
 
   sim_list <- foreach(sim = start_sim:nsim) %dopar% {
@@ -330,10 +330,24 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
     # Replace future rec devs
     #FIXME - update non-sample rec for stock recruit relationship
     for(sp in 1:om_use$data_list$nspp){
-      if(sample_rec){ # Sample devs from hindcast
-        rec_dev <- sample(x = om_use$estimated_params$rec_dev[sp, 1:hind_nyrs], size = om_proj_nyrs, replace = TRUE) + log((1+(rec_trend[sp]/om_proj_nyrs) * 1:om_proj_nyrs)) # - Scale mean rec for rec trend
-      } else{ # Set to mean rec otherwise
-        rec_dev <- log(mean(om_use$quantities$R[sp,1:hind_nyrs]) * (1+(rec_trend[sp]/om_proj_nyrs) * 1:om_proj_nyrs))  - log(om_use$quantities$R0[sp]) # - Scale mean rec for rec trend
+
+      # -- OMs where SR curve is estimated directly
+      if(om_use$data_list$srr_fun == om_use$data_list$srr_pred_fun){
+        if(sample_rec){ # Sample devs from hindcast
+          rec_dev <- sample(x = om_use$estimated_params$rec_dev[sp, 1:hind_nyrs], size = om_proj_nyrs, replace = TRUE) + log((1+(rec_trend[sp]/om_proj_nyrs) * 1:om_proj_nyrs)) # - Scale mean rec for rec trend
+        } else{ # Set to mean rec otherwise
+          rec_dev <- log(mean(om_use$quantities$R[sp,1:hind_nyrs]) * (1+(rec_trend[sp]/om_proj_nyrs) * 1:om_proj_nyrs))  - log(om_use$quantities$R0[sp]) # - Scale mean rec for rec trend
+        }
+      }
+
+      # -- OMs where SR curve is estimated as penalty (sensu Ianelli)
+      if(om_use$data_list$srr_fun != om_use$data_list$srr_pred_fun){
+        if(sample_rec){ # Sample devs from hindcast
+          rec_dev <- sample(x = (log(om_use$quantities$R) - log(om_use$quantities$R_hat))[sp, 1:hind_nyrs],
+                            size = om_proj_nyrs, replace = TRUE) + log((1+(rec_trend[sp]/om_proj_nyrs) * 1:om_proj_nyrs)) # - Scale mean rec for rec trend
+        } else{ # Set to mean rec otherwise
+          rec_dev <- log(mean((log(om_use$quantities$R) - log(om_use$quantities$R_hat))[sp, 1:hind_nyrs]) * (1+(rec_trend[sp]/om_proj_nyrs) * 1:om_proj_nyrs)) # - Scale mean rec for rec trend
+        }
       }
 
       # - Update OM with devs
