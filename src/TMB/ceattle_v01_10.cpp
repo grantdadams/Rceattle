@@ -616,6 +616,7 @@ Type objective_function<Type>::operator() () {
   vector<Type>  Steepness(nspp); Steepness.setZero();                               // Expected % of R0 at 20% SSB0.
   // array<Type>   biomassByage(nspp, 2, max_age, nyrs); biomassByage.setZero();       // Estimated biomass-at-age (kg)
   matrix<Type>  biomass(nspp, nyrs); biomass.setZero();                             // Estimated biomass (kg)
+  matrix<Type>  biomassExpl(nspp, nyrs); biomassExpl.setZero();                     // Estimated exploitable biomass (kg)
   matrix<Type>  biomassSSB(nspp, nyrs); biomassSSB.setZero();                       // Estimated spawning stock biomass (kg)
   matrix<Type>  depletion(nspp, nyrs); depletion.setZero();                         // Estimated biomass depletion
   matrix<Type>  depletionSSB(nspp, nyrs); depletionSSB.setZero();                   // Estimated depletion of spawning stock biomass
@@ -646,7 +647,8 @@ Type objective_function<Type>::operator() () {
   array<Type>   Flimit_age_spp(nspp, 2, max_age, nyrs); Flimit_age_spp.setZero();   // Estimated target fishing mortality-at-age/sex for each species
   array<Type>   Ftarget_age_spp(nspp, 2, max_age, nyrs); Ftarget_age_spp.setZero(); // Estimated limit fishing mortality-at-age/sex for each species
   array<Type>   F_spp_age(nspp, 2, max_age, nyrs+1); F_spp_age.setZero();           // Sum of annual estimated fishing mortalities for each species-at-age
-  vector<Type>  fsh_bio_hat(fsh_biom_obs.rows()); fsh_bio_hat.setZero();            // Estimated fishery yield (kg)
+  vector<Type>  fsh_bio_hat(fsh_biom_obs.rows()); fsh_bio_hat.setZero();            // Estimated fishery yield/numbers (kg)
+  vector<Type>  expl_bio_hat(fsh_biom_obs.rows()); expl_bio_hat.setZero();          // Estimated exploitable biomass/numbers by fleet (kg)
   vector<Type>  fsh_log_sd_hat(fsh_biom_obs.rows()); fsh_log_sd_hat.setZero();      // Estimated/fixed fishery log_sd (kg)
 
   // -- 4.5. Biological reference points
@@ -3022,15 +3024,16 @@ Type objective_function<Type>::operator() () {
     // ------------------------------------------------------------------------- //
     // 10. FISHERY COMPONENTS EQUATIONS                                          //
     // ------------------------------------------------------------------------- //
-    // 10.5. ESTIMATE CATCH-AT-AGE and TOTAL YIELD (kg)
+    // 10.1. ESTIMATE CATCH-AT-AGE and TOTAL YIELD (kg)
     for(fsh_ind = 0; fsh_ind < fsh_biom_ctl.rows(); fsh_ind++){
 
-      flt = fsh_biom_ctl(fsh_ind, 0) - 1;            // Temporary fishery index
-      sp = fsh_biom_ctl(fsh_ind, 1) - 1;             // Temporary index of species
+      flt = fsh_biom_ctl(fsh_ind, 0) - 1;     // Temporary fishery index
+      sp = fsh_biom_ctl(fsh_ind, 1) - 1;      // Temporary index of species
       flt_yr = fsh_biom_ctl(fsh_ind, 2);      // Temporary index for years of data
-      mo = fsh_biom_n(fsh_ind, 0);                   // Temporary index for month
+      mo = fsh_biom_n(fsh_ind, 0);            // Temporary index for month
 
-      fsh_bio_hat(fsh_ind) = 0.0;                      // Initialize
+      fsh_bio_hat(fsh_ind) = 0.0;  // Initialize
+      expl_bio_hat(fsh_ind) = 0.0; // Initialize
 
       if(flt_yr > 0){
         flt_yr = flt_yr - styr;
@@ -3056,11 +3059,39 @@ Type objective_function<Type>::operator() () {
           // By weight
           if(flt_units(flt) == 1){
             fsh_bio_hat(fsh_ind) += F_flt_age(flt, sex, age, flt_yr) / Zed(sp, sex, age, flt_yr) * (1.0 - exp(-Zed(sp, sex, age, flt_yr))) * NByage(sp, sex, age, flt_yr) * wt( flt_wt_index(flt), sex, age, yr_ind ); // 5.5.
+            expl_bio_hat(fsh_ind) += NByage(sp, sex, age, flt_yr) * wt( flt_wt_index(flt), sex, age, yr_ind ) * sel(flt, sex, age, nyrs_hind - 1) * proj_F_prop(flt); // FIXME using last year of selectivity;
           }
 
           // By numbers
           if(flt_units(flt) == 2){
             fsh_bio_hat(fsh_ind) += F_flt_age(flt, sex, age, flt_yr) / Zed(sp, sex, age, flt_yr) * (1.0 - exp(-Zed(sp, sex, age, flt_yr))) * NByage(sp, sex, age, flt_yr);
+            expl_bio_hat(fsh_ind) += NByage(sp, sex, age, flt_yr) * sel(flt, sex, age, nyrs_hind - 1) * proj_F_prop(flt); // FIXME using last year of selectivity;
+          }
+        }
+      }
+    }
+
+    // 10.2 Exploitable biomass ----
+    biomassExpl.setZero();
+
+
+    for (flt = 0; flt < n_flt; flt++) {
+      sp == flt_spp(flt);
+      for (yr = 0; yr < nyrs; yr++) {
+
+        // Hindcast
+        if(yr < nyrs_hind){
+          yr_ind = flt_yr;
+        }
+
+        // Projection
+        if(yr >= nyrs_hind){
+          yr_ind = nyrs_hind - 1;
+        }
+
+        for (age = 0; age < nages(sp); age++) {
+          for(sex = 0; sex < nsex(sp); sex ++){
+            biomassExpl(sp, yr) += NByage(sp, sex, age, yr) * wt( pop_wt_index(flt), sex, age, yr_ind ) * sel(flt, sex, age, nyrs_hind - 1) * proj_F_prop(flt); // FIXME: using last years weight and selectivity for projection
           }
         }
       }
@@ -3071,7 +3102,7 @@ Type objective_function<Type>::operator() () {
     // 11. COMPOSITION EQUATIONS                                                  //
     // ------------------------------------------------------------------------- //
 
-    // -- 10.3. Composition
+    // -- 11.1. Composition
     age_obs_hat.setZero();
     comp_hat.setZero();
     age_hat.setZero();
@@ -3602,6 +3633,11 @@ Type objective_function<Type>::operator() () {
             jnll_comp(4, flt) += sel_curve_pen(flt, 1) * pow( sel_tmp(age) , 2);
           }
         }
+
+        // Survey selectivity normalization (non-parametric)
+        for(sex = 0; sex < nsex(sp); sex++){
+          jnll_comp(4, flt) += 50 * square(avgsel(flt, sex));
+        }
       }
     }
 
@@ -3674,18 +3710,6 @@ Type objective_function<Type>::operator() () {
       }
     }
   } // End selectivity loop
-
-
-
-  // Slot 7 -- Add survey selectivity normalization (non-parametric)
-  for(flt = 0; flt < n_flt; flt++){
-    sp = flt_spp(flt);
-    for(sex = 0; sex < nsex(sp); sex++){
-      if(flt_type(flt) > 0){
-        jnll_comp(6, flt) += 50 * square(avgsel(flt, sex));
-      }
-    }
-  }
 
 
   // Slot 8-9 -- Survey catchability deviates
@@ -4008,6 +4032,7 @@ Type objective_function<Type>::operator() () {
   REPORT( depletionSSB );
   REPORT( biomass );
   REPORT( biomassSSB );
+  REPORT( biomassExpl );
   //REPORT(r_sigma);
   //REPORT( R_sexr );
   REPORT( R0 );
@@ -4081,6 +4106,7 @@ Type objective_function<Type>::operator() () {
   //REPORT( F_flt_age );
   //REPORT( F_spp_age );
   REPORT( fsh_bio_hat );
+  REPORT( expl_bio_hat );
   REPORT( fsh_log_sd_hat );
 
 
