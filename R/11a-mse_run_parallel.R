@@ -377,7 +377,17 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       if(!is.null(cap)){
         new_catch_data$Catch[dat_fill_ind] <- ifelse(new_catch_data$Catch[dat_fill_ind] > cap[new_catch_data$Species[dat_fill_ind]], cap[new_catch_data$Species[dat_fill_ind]], new_catch_data$Catch[dat_fill_ind])
       }
-      new_catch_switch <- sum(new_catch_data$Catch[dat_fill_ind])
+
+      # - If projected catch > exploitable biomass in OM, reduce to exploitable biomass
+      exploitable_biomass_data <- om_use$data_list$fsh_biom
+      dat_fill_ind_expl <- which(exploitable_biomass_data$Year %in% new_years)
+      exploitable_biomass_data$Catch[dat_fill_ind_expl] <- om_use$quantities$expl_bio_hat[dat_fill_ind_expl]
+
+      new_catch_data$Catch[dat_fill_ind] <- ifelse(new_catch_data$Catch[dat_fill_ind] > exploitable_biomass_data$Catch[dat_fill_ind_expl],
+             exploitable_biomass_data$Catch[dat_fill_ind_expl],
+             new_catch_data$Catch[dat_fill_ind])
+
+      new_catch_switch <- sum(new_catch_data$Catch[dat_fill_ind]) #FIXME: need to adjust for assessments that occur less than annually
 
       # - Update catch data in OM and EM
       om_use$data_list$fsh_biom <- new_catch_data
