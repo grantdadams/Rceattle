@@ -3059,13 +3059,13 @@ Type objective_function<Type>::operator() () {
           // By weight
           if(flt_units(flt) == 1){
             fsh_bio_hat(fsh_ind) += F_flt_age(flt, sex, age, flt_yr) / Zed(sp, sex, age, flt_yr) * (1.0 - exp(-Zed(sp, sex, age, flt_yr))) * NByage(sp, sex, age, flt_yr) * wt( flt_wt_index(flt), sex, age, yr_ind ); // 5.5.
-            expl_bio_hat(fsh_ind) += NByage(sp, sex, age, flt_yr) * wt( flt_wt_index(flt), sex, age, yr_ind ) * sel(flt, sex, age, nyrs_hind - 1) * proj_F_prop(flt); // FIXME using last year of selectivity;
+            expl_bio_hat(fsh_ind) += NByage(sp, sex, age, flt_yr) * wt( flt_wt_index(flt), sex, age, yr_ind ) * sel(flt, sex, age, yr_ind) * proj_F_prop(flt); // FIXME using last year of selectivity;
           }
 
           // By numbers
           if(flt_units(flt) == 2){
             fsh_bio_hat(fsh_ind) += F_flt_age(flt, sex, age, flt_yr) / Zed(sp, sex, age, flt_yr) * (1.0 - exp(-Zed(sp, sex, age, flt_yr))) * NByage(sp, sex, age, flt_yr);
-            expl_bio_hat(fsh_ind) += NByage(sp, sex, age, flt_yr) * sel(flt, sex, age, nyrs_hind - 1) * proj_F_prop(flt); // FIXME using last year of selectivity;
+            expl_bio_hat(fsh_ind) += NByage(sp, sex, age, flt_yr) * sel(flt, sex, age, yr_ind) * proj_F_prop(flt); // FIXME using last year of selectivity;
           }
         }
       }
@@ -3074,24 +3074,27 @@ Type objective_function<Type>::operator() () {
     // 10.2 Exploitable biomass ----
     biomassExpl.setZero();
 
-
     for (flt = 0; flt < n_flt; flt++) {
-      sp == flt_spp(flt);
-      for (yr = 0; yr < nyrs; yr++) {
 
-        // Hindcast
-        if(yr < nyrs_hind){
-          yr_ind = flt_yr;
-        }
+      sp = flt_spp(flt);
 
-        // Projection
-        if(yr >= nyrs_hind){
-          yr_ind = nyrs_hind - 1;
-        }
+      if(flt_type(flt) == 1){ //Fishery only
+        for (yr = 0; yr < nyrs; yr++) {
 
-        for (age = 0; age < nages(sp); age++) {
-          for(sex = 0; sex < nsex(sp); sex ++){
-            biomassExpl(sp, yr) += NByage(sp, sex, age, yr) * wt( pop_wt_index(flt), sex, age, yr_ind ) * sel(flt, sex, age, nyrs_hind - 1) * proj_F_prop(flt); // FIXME: using last years weight and selectivity for projection
+          // Hindcast
+          if(yr < nyrs_hind){
+            yr_ind = yr;
+          }
+
+          // Projection
+          if(yr >= nyrs_hind){
+            yr_ind = nyrs_hind - 1;
+          }
+
+          for (age = 0; age < nages(sp); age++) {
+            for(sex = 0; sex < nsex(sp); sex ++){
+              biomassExpl(sp, yr) += NByage(sp, sex, age, flt_yr) * wt( flt_wt_index(flt), sex, age, yr_ind ) * sel(flt, sex, age, yr_ind) * proj_F_prop(flt); // FIXME using last year of selectivity;
+            }
           }
         }
       }
