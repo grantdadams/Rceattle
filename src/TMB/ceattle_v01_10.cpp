@@ -410,6 +410,7 @@ Type objective_function<Type>::operator() () {
 
   // 1.5. HARVEST CONTROL RULE (HCR) SETTINGS
   DATA_INTEGER(HCR);                      // Function to be used for harvest control rule
+  DATA_IVECTOR(HCRiter);                  // For iterative multi-species harvest control rules (turn on F)
   DATA_INTEGER(DynamicHCR);               // TRUE/FALSE. Wether to use static or dynamic reference points (default = FALSE)
   DATA_VECTOR(Ptarget);                   // Target spawning-stock biomass as a percentage of static or dynamic spawning-stock-biomass at F = 0
   DATA_VECTOR(Plimit);                    // Limit spawning-stock biomass as a percentage of static or dynamic spawning-stock-biomass at F = 0
@@ -3880,17 +3881,23 @@ Type objective_function<Type>::operator() () {
 
       // -- Avg F (have F limit)
       if(HCR == 2){
-        jnll_comp(13, sp)  += 200*square((biomassSSB(sp, nyrs-1)/SB0(sp, nyrs-1))-FsprLimit(sp));
+        if(HCRiter(sp) == 1){
+          jnll_comp(13, sp)  += 200*square((biomassSSB(sp, nyrs-1)/SB0(sp, nyrs-1))-FsprLimit(sp));
+        }
       }
 
       // F that achieves \code{Ftarget}% of SSB0 in the end of the projection
       if(HCR == 3){
-        jnll_comp(13, sp)  += 200*square((biomassSSB(sp, nyrs-1)/SB0(sp, nyrs-1))-FsprTarget(sp));
+        if(HCRiter(sp) == 1){
+          jnll_comp(13, sp)  += 200*square((biomassSSB(sp, nyrs-1)/SB0(sp, nyrs-1))-FsprTarget(sp));
+        }
       }
 
       // Tiered HCRs with Limit and Targets
       if(HCR == 6){
-        jnll_comp(13, sp)  += 200*square((biomassSSB(sp, nyrs-1)/SB0(sp, nyrs-1))-FsprLimit(sp));
+        if(HCRiter(sp) == 1){
+          jnll_comp(13, sp)  += 200*square((biomassSSB(sp, nyrs-1)/SB0(sp, nyrs-1))-FsprLimit(sp));
+        }
       }
     }
   }

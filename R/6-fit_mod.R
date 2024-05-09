@@ -115,9 +115,9 @@ fit_mod <-
     newtonsteps = 0,
     catch_hcr = FALSE){
 
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # Debugging section ----
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # # Debugging section ----
+    # #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # data_list = NULL;
     # inits = NULL;
     # map = NULL;
@@ -332,6 +332,7 @@ fit_mod <-
     data_list_reorganized <- Rceattle::rearrange_dat(data_list)
     data_list_reorganized = c(list(model = TMBfilename), data_list_reorganized)
     data_list_reorganized$forecast <- FALSE # Don't include BRPs in likelihood of hindcast
+    data_list_reorganized$HCRiter <- rep(0, data_list_reorganized$nspp) # Switch for multi-species HCR
 
     # - Update comp weights, future F (if input) and F_prop from data
     if(!is.null(data_list$fleet_control$Comp_weights)){
@@ -646,12 +647,18 @@ fit_mod <-
             if(sum(as.numeric(unlist(hcr_map$mapFactor)), na.rm = TRUE) == 0){stop("HCR map of length 0: all NAs")}
 
             # -- Get SB0: SSB when model is projected forward under no fishing
-            params_on <- c(1:data_list$nspp)[which(data_list$HCRorder == HCRiter)]
+            data_list_reorganized$HCRiter <- data_list$HCRorder <= HCRiter
+            params_on <- c(1:data_list$nspp)[which(data_list$HCRorder == HCRiter)] # Only update the one being estimated (not all)
             quantities <- obj$report(obj$env$last.par.best)
             SB0 <- quantities$biomassSSB[, ncol(quantities$biomassSSB)]
             B0 <- quantities$biomass[, ncol(quantities$biomass)]
             data_list_reorganized$MSSB0[params_on] <- SB0[params_on]
             data_list_reorganized$MSB0[params_on] <- B0[params_on]
+
+            # --- Adjust Ftarget inits
+            params_off <- c(1:data_list$nspp)[which(data_list$HCRorder > HCRiter)]
+            last_par$ln_Ftarget[params_on] <- 0
+            last_par$ln_Ftarget[params_off] <- -999
 
             # --- Update model object for HCR
             obj = TMB::MakeADFun(
@@ -674,6 +681,9 @@ fit_mod <-
                                     getJointPrecision = FALSE,
                                     quiet = verbose < 2,
             )
+
+            # --- Update F from opt
+            last_par$ln_Ftarget[params_on] <- opt$par[1:length(params_on)]
           }
         }
 
