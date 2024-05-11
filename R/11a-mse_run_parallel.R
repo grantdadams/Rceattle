@@ -135,7 +135,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
                       Pstar = em$data_list$Pstar,
                       Sigma = em$data_list$Sigma,
                       Fmult = em$data_list$Fmult,
-                      HCRorder = em$data_list$Fmult
+                      HCRorder = em$data_list$HCRorder
       ),
       recFun = build_srr(srr_fun = em$data_list$srr_fun,
                          srr_pred_fun  = em$data_list$srr_pred_fun ,
@@ -488,7 +488,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
                             Pstar = om_use$data_list$Pstar,
                             Sigma = om_use$data_list$Sigma,
                             Fmult = om_use$data_list$Fmult,
-                            HCRorder = em$data_list$Fmult
+                            HCRorder = em$data_list$HCRorder
             ),
             recFun = build_srr(srr_fun = om_use$data_list$srr_fun,
                                srr_pred_fun = om_use$data_list$srr_pred_fun ,
@@ -617,7 +617,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
                             Pstar = em_use$data_list$Pstar,
                             Sigma = em_use$data_list$Sigma,
                             Fmult = em_use$data_list$Fmult,
-                            HCRorder = em$data_list$Fmult
+                            HCRorder = em$data_list$HCRorder
             ),
             recFun = build_srr(srr_fun = em_use$data_list$srr_fun,
                                srr_pred_fun = em_use$data_list$srr_pred_fun,
