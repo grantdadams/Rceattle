@@ -331,8 +331,7 @@ fit_mod <-
 
     data_list_reorganized <- Rceattle::rearrange_dat(data_list)
     data_list_reorganized = c(list(model = TMBfilename), data_list_reorganized)
-    data_list_reorganized$forecast <- FALSE # Don't include BRPs in likelihood of hindcast
-    data_list_reorganized$HCRiter <- rep(0, data_list_reorganized$nspp) # Switch for multi-species HCR
+    data_list_reorganized$forecast <- rep(0, data_list_reorganized$nspp) # Don't include BRPs in likelihood of hindcast
 
     # - Update comp weights, future F (if input) and F_prop from data
     if(!is.null(data_list$fleet_control$Comp_weights)){
@@ -592,10 +591,12 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if(estimateMode %in% c(0,2,4)){
       if(!data_list$HCR %in% c(0, 2)){ # - All HCRs except no F and fixed F
-        data_list_reorganized$forecast <- TRUE # Turn BRP estimation on within likelihood
 
         # * Single species mode ----
         if(msmMode == 0){
+
+          # Turn BRP estimation on within likelihood
+          data_list_reorganized$forecast <- rep(1, data_list_reorganized$nspp)
 
           # -- Update map in obs
           hcr_map <- build_hcr_map(data_list, map, debug = estimateMode > 3)
@@ -647,7 +648,7 @@ fit_mod <-
             if(sum(as.numeric(unlist(hcr_map$mapFactor)), na.rm = TRUE) == 0){stop("HCR map of length 0: all NAs")}
 
             # -- Get SB0: SSB when model is projected forward under no fishing
-            data_list_reorganized$HCRiter <- data_list$HCRorder <= HCRiter
+            data_list_reorganized$forecast <- data_list$HCRorder <= HCRiter # What species to include in likelihood
             params_on <- c(1:data_list$nspp)[which(data_list$HCRorder == HCRiter)] # Only update the one being estimated (not all)
             quantities <- obj$report(obj$env$last.par.best)
             SB0 <- quantities$biomassSSB[, ncol(quantities$biomassSSB)]

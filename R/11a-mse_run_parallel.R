@@ -26,7 +26,7 @@
 #' @export
 #'
 #'
-mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, regenerate_past = FALSE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, catch_mult = NULL, seed = 666, regenerate_seed = seed, loopnum = 1, file = NULL, dir = NULL, timeout = 999){
+mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, regenerate_past = FALSE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, catch_mult = NULL, seed = 666, regenerate_seed = seed, loopnum = 1, file = NULL, dir = NULL, timeout = 999, endyr = NA){
 
   # om = ss_run; em = ss_run_Tier3; nsim = 1; start_sim = 1; assessment_period = 1; sampling_period = 1; simulate_data = TRUE; regenerate_past = FALSE; sample_rec = TRUE; rec_trend = 0; fut_sample = 1; cap = NULL; catch_mult = NULL; seed = 666; regenerate_seed = seed; loopnum = 1; file = NULL; dir = NULL
 
@@ -65,6 +65,10 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
     }
   }
 
+  if(sum(om$data_list$fleet_control$proj_F_prop) == 0){
+    stop("F prop per fllet 'proj_F_prop' is zero")
+  }
+
   # - Adjust rec trend
   if(length(rec_trend)==1){
     rec_trend = rep(rec_trend, om$data_list$nspp)
@@ -83,7 +87,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   nselages_em <- max(em$data_list$fleet_control$Nselages, na.rm = TRUE)
 
   # - Assessment period
-  assess_yrs <- seq(from = om$data_list$endyr + assessment_period, to =  min(c(om$data_list$projyr, em$data_list$projyr)),  by = assessment_period)
+  assess_yrs <- seq(from = om$data_list$endyr + assessment_period, to =  min(c(om$data_list$projyr, em$data_list$projyr, endyr)),  by = assessment_period)
 
   # - Data sampling period
   if(length(sampling_period)==1){
@@ -318,7 +322,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
     library(dplyr)
 
     set.seed(seed = seed + sim) # setting unique seed for each simulation
-    kill_sim <- FALSE
+    kill_sim <- list(kill_sim = FALSE, failure = NA)
 
     # Set models objects
     sim_list <- list(EM = list())# , OM = list())
@@ -385,8 +389,8 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       exploitable_biomass_data$Catch[dat_fill_ind_expl] <- om_use$quantities$expl_bio_hat[dat_fill_ind_expl]
 
       new_catch_data$Catch[dat_fill_ind] <- ifelse(new_catch_data$Catch[dat_fill_ind] > exploitable_biomass_data$Catch[dat_fill_ind_expl],
-             exploitable_biomass_data$Catch[dat_fill_ind_expl],
-             new_catch_data$Catch[dat_fill_ind])
+                                                   exploitable_biomass_data$Catch[dat_fill_ind_expl],
+                                                   new_catch_data$Catch[dat_fill_ind])
 
       new_catch_switch <- sum(new_catch_data$Catch[dat_fill_ind]) #FIXME: need to adjust for assessments that occur less than annually
 
@@ -461,13 +465,17 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
           estimate_mode_base)
       )
 
+      if(new_catch_switch == 0){
+        om_use$map = NULL
+      }
+
       # * Fit OM with new catch data ----
       kill_sim <- tryCatch({
         R.utils::withTimeout({
           om_use <- fit_mod(
             data_list = om_use$data_list,
             inits = om_use$estimated_params,
-            map =  om_use$map,
+            map = om_use$map,
             bounds = NULL,
             file = NULL,
             estimateMode = estimate_mode_use,
@@ -510,18 +518,18 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
             phase = NULL,
             getsd = FALSE,
             verbose = 0)
-          return(FALSE)
+          return(list(kill_sim = FALSE, failure = NA))
         },
         timeout = 60*timeout)
       },
       error = function(e){
-        return(TRUE)
+        return(list(kill_sim = TRUE, failure = OM))
       },
       TimeoutException = function(e){
-        return(TRUE)
+        return(list(kill_sim = TRUE, failure = OM))
       })
 
-      if(kill_sim){
+      if(kill_sim$kill_sim){
         break()
       }
 
@@ -598,9 +606,9 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
 
 
       # Restimate
-      em_use <- tryCatch({
+      kill_sim <- tryCatch({
         R.utils::withTimeout({
-          fit_mod(
+          em_use <- fit_mod(
             data_list = em_use$data_list,
             inits = em_use$estimated_params,
             map =  NULL,
@@ -646,18 +654,19 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
             loopnum = loopnum,
             getsd = FALSE,
             verbose = 0)
+          return(list(kill_sim = FALSE, failure = NA))
         },
         timeout = 60*timeout)
       },
       error = function(ex) {
-        return(NULL)
+        return(list(kill_sim = TRUE, failure = "EM"))
       },
       TimeoutException = function(ex) {
-        return(NULL)
+        return(list(kill_sim = TRUE, failure = "EM"))
       })
 
       if(is.null(em_use)){
-        kill_sim <- TRUE
+        return(list(kill_sim = TRUE, failure = "EM"))
         break()
       }
       # plot_biomass(list(em_use, om_use), model_names = c("EM", "OM"))
@@ -700,11 +709,13 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       message(paste0("Sim ",sim, " - EM Year ", assess_yrs[k], " COMPLETE"))
     }
 
+
     # - Rename models
-    sim_list$use_sim <- !kill_sim
+    sim_list$use_sim <- !kill_sim$kill_sim
+    sim_list$failure = kill_sim$failure
     sim_list$OM <- om_use # OM
     sim_list$OM_no_F <- Rceattle::remove_F(om_use) # OM with no Fishing
-    if(!kill_sim){
+    if(!kill_sim$kill_sim){
       names(sim_list$EM) <- c("EM", paste0("OM_Sim_",sim,". EM_yr_", assess_yrs))
     }
 

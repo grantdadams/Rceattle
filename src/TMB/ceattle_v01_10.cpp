@@ -365,7 +365,7 @@ Type objective_function<Type>::operator() () {
   //    1 = N*exp(-Z / 2))
   //    2 = N
   DATA_INTEGER(initMode);                 // How the age-structure is initialized
-  DATA_INTEGER(forecast);                 // Run the model in forecast mo
+  DATA_IVECTOR(forecast);                 // Run the model in forecast mo
 
 
   // 1.2. Temporal dimensions
@@ -410,7 +410,6 @@ Type objective_function<Type>::operator() () {
 
   // 1.5. HARVEST CONTROL RULE (HCR) SETTINGS
   DATA_INTEGER(HCR);                      // Function to be used for harvest control rule
-  DATA_IVECTOR(HCRiter);                  // For iterative multi-species harvest control rules (turn on F)
   DATA_INTEGER(DynamicHCR);               // TRUE/FALSE. Wether to use static or dynamic reference points (default = FALSE)
   DATA_VECTOR(Ptarget);                   // Target spawning-stock biomass as a percentage of static or dynamic spawning-stock-biomass at F = 0
   DATA_VECTOR(Plimit);                    // Limit spawning-stock biomass as a percentage of static or dynamic spawning-stock-biomass at F = 0
@@ -1180,7 +1179,7 @@ Type objective_function<Type>::operator() () {
                 }
 
                 // Set F to zero if not running forecast
-                if(forecast == 0){
+                if(forecast(sp) == 0){
                   proj_F(sp, yr) = 0;
                 }
 
@@ -1888,7 +1887,7 @@ Type objective_function<Type>::operator() () {
         }
 
         // Set F to 0 if not forecast
-        if(forecast == 0){
+        if(forecast(sp) == 0){
           proj_F(sp, yr) =  0.0;
         }
 
@@ -3796,10 +3795,10 @@ Type objective_function<Type>::operator() () {
   // Slot 13 -- Reference point penalties
   // -- CMSY
   Type CMSY = 0;
-  if((HCR == 1) & (forecast == 1)){
 
-    // --- Sum terminal catch across species
-    for (sp = 0; sp < nspp; sp++) {
+  // --- Sum terminal catch across species
+  for (sp = 0; sp < nspp; sp++) {
+    if((HCR == 1) & (forecast(sp) == 1)){
 
       // -- Loop through catch data
       for(fsh_ind = 0; fsh_ind < fsh_biom_ctl.rows(); fsh_ind++){
@@ -3833,7 +3832,7 @@ Type objective_function<Type>::operator() () {
 
   for (sp = 0; sp < nspp; sp++) {
     // -- Single-species static reference points
-    if(DynamicHCR == 0 & forecast == 1 & msmMode == 0){
+    if(DynamicHCR == 0 & forecast(sp) == 1 & msmMode == 0){
 
       // -- Avg F (have F limit)
       if(HCR == 2){
@@ -3854,7 +3853,7 @@ Type objective_function<Type>::operator() () {
     }
 
     // -- Single-species dynamic reference points
-    if(DynamicHCR == 1 & forecast == 1 & msmMode == 0){
+    if(DynamicHCR == 1 & forecast(sp) == 1 & msmMode == 0){
 
       // -- Avg F (have F limit)
       if(HCR == 2){
@@ -3877,27 +3876,21 @@ Type objective_function<Type>::operator() () {
 
 
     // -- Multi-species static reference points (all depletion based)
-    if(forecast == 1 & msmMode > 0){
+    if(forecast(sp) == 1 & msmMode > 0){
 
       // -- Avg F (have F limit)
       if(HCR == 2){
-        if(HCRiter(sp) == 1){
-          jnll_comp(13, sp)  += 200*square((biomassSSB(sp, nyrs-1)/SB0(sp, nyrs-1))-FsprLimit(sp));
-        }
+        jnll_comp(13, sp)  += 200*square((biomassSSB(sp, nyrs-1)/SB0(sp, nyrs-1))-FsprLimit(sp));
       }
 
       // F that achieves \code{Ftarget}% of SSB0 in the end of the projection
       if(HCR == 3){
-        if(HCRiter(sp) == 1){
-          jnll_comp(13, sp)  += 200*square((biomassSSB(sp, nyrs-1)/SB0(sp, nyrs-1))-FsprTarget(sp));
-        }
+        jnll_comp(13, sp)  += 200*square((biomassSSB(sp, nyrs-1)/SB0(sp, nyrs-1))-FsprTarget(sp));
       }
 
       // Tiered HCRs with Limit and Targets
       if(HCR == 6){
-        if(HCRiter(sp) == 1){
-          jnll_comp(13, sp)  += 200*square((biomassSSB(sp, nyrs-1)/SB0(sp, nyrs-1))-FsprLimit(sp));
-        }
+        jnll_comp(13, sp)  += 200*square((biomassSSB(sp, nyrs-1)/SB0(sp, nyrs-1))-FsprLimit(sp));
       }
     }
   }
