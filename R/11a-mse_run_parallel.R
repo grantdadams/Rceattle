@@ -500,7 +500,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
             ),
             recFun = build_srr(srr_fun = om_use$data_list$srr_fun,
                                srr_pred_fun = om_use$data_list$srr_pred_fun ,
-                               proj_mean_rec = om_use$data_list$proj_mean_rec, # This will update anyway to False as devs are added
+                               proj_mean_rec = FALSE, # This will update anyway to False as devs are added
                                srr_meanyr = om$data_list$srr_meanyr, # This stays the same as original OM
                                R_hat_yr = om$data_list$R_hat_yr,
                                srr_est_mode  = om_use$data_list$srr_est_mode ,
