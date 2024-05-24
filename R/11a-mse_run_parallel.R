@@ -523,10 +523,10 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
         timeout = 60*timeout)
       },
       error = function(e){
-        return(list(kill_sim = TRUE, failure = OM))
+        return(list(kill_sim = TRUE, failure = "OM"))
       },
       TimeoutException = function(e){
-        return(list(kill_sim = TRUE, failure = OM))
+        return(list(kill_sim = TRUE, failure = "OM"))
       })
 
       if(kill_sim$kill_sim){
