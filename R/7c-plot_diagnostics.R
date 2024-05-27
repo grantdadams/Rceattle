@@ -261,6 +261,7 @@ plot_catch <- function(Rceattle,
                        width=NULL,
                        height=NULL,
                        alpha = 0.4,
+                       lwd = 2,
                        ymax = NULL,
                        maxyr = NULL,
                        mse = FALSE,
@@ -427,7 +428,7 @@ plot_catch <- function(Rceattle,
 
 
           # - Plot predicted CPUE
-          lines(fsh_hat_tmp$Year, (fsh_hat_tmp$Catch),lwd=2,col=line_col[k])
+          lines(x = fsh_hat_tmp$Year, y = fsh_hat_tmp$Catch, lwd=lwd, col=line_col[k])
 
           # - Plot observed CPUE
           gplots::plotCI(fsh_tmp$Year, (fsh_tmp$Catch), ui=(fsh_tmp$Upper95), li=(fsh_tmp$Lower95),add=T,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
@@ -543,10 +544,13 @@ plot_catch <- function(Rceattle,
 
 
           # - Plot predicted CPUE
-          lines(fsh_hat_tmp$Year, (fsh_hat_tmp$Catch),lwd=2,col=line_col[k])
+          lines(x = fsh_hat_tmp$Year, y = fsh_hat_tmp$Catch, lwd=lwd, col=line_col[k])
 
           # - Plot observed CPUE
-          gplots::plotCI(fsh_tmp$Year, (fsh_tmp$Catch), ui=(fsh_tmp$Upper95), li=(fsh_tmp$Lower95),add=T,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
+          gplots::plotCI(x = fsh_tmp$Year, y = fsh_tmp$Catch,
+                         ui = fsh_tmp$Upper95, li= fsh_tmp$Lower95,
+                         add=T, gap=0, pch=21,
+                         xaxt="n", yaxt="n", pt.bg = "white")
 
           # - Plot MSE shading
           if(mse){
