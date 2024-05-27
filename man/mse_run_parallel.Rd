@@ -23,7 +23,8 @@ mse_run_parallel(
   loopnum = 1,
   file = NULL,
   dir = NULL,
-  timeout = 999
+  timeout = 999,
+  endyr = NA
 )
 }
 \arguments{
