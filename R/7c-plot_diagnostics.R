@@ -263,7 +263,8 @@ plot_catch <- function(Rceattle,
                        alpha = 0.4,
                        ymax = NULL,
                        maxyr = NULL,
-                       mse = FALSE){
+                       mse = FALSE,
+                       fleets = NULL){
 
   # Convert mse object to Rceattle list
   if(mse){
@@ -340,7 +341,6 @@ plot_catch <- function(Rceattle,
   if(is.null(maxyr)){maxyr <- max((sapply(Years, max)))}
   nyrs_vec <- sapply(Years, length)
   nyrs <- max(nyrs_vec)
-
   nspp <- Rceattle[[1]]$data_list$nspp
 
 
@@ -349,6 +349,10 @@ plot_catch <- function(Rceattle,
   fsh_biom <- (Rceattle[[1]]$data_list$fsh_biom)
   flts <- sort(unique(fsh_biom$Fleet_code))
   nflts <- length(flts)
+
+  if(is.null(fleets)){
+    fleets <- 1:nflts
+  }
 
 
   # Median catch across projection for MSE
@@ -478,10 +482,10 @@ plot_catch <- function(Rceattle,
 
       # Set heights of plot
       if(is.null(width)) width = 7
-      if(is.null(height)) height = ifelse(nflts==1,5,ifelse(nflts==2,3.,2.5))*round(nflts/2+0.01,0)
+      if(is.null(height)) height = ifelse(length(fleets)==1,5,ifelse(length(fleets)==2,3.,2.5))*round(length(fleets)/2+0.01,0)
 
 
-      Par = list(mfrow=c(ifelse(nflts == 1, 1, round(nflts/3+0.01,0)),ifelse(nflts==1,1,3)),mai=c(0.35,0.15,0,.15),omi = c(0.2,0.25,0.2,0) + 0.1,mgp=c(2,0.5,0), tck = -0.02,cex=0.8)
+      Par = list(mfrow=c(ifelse(length(fleets) == 1, 1, round(length(fleets)/3+0.01,0)),ifelse(length(fleets)==1,1,3)),mai=c(0.35,0.15,0,.15),omi = c(0.2,0.25,0.2,0) + 0.1,mgp=c(2,0.5,0), tck = -0.02,cex=0.8)
 
       # Save
       if(j == 2){
@@ -491,14 +495,14 @@ plot_catch <- function(Rceattle,
       par(Par)
 
 
-      for(fsh in 1:nflts){
+      for(fsh in 1:length(fleets)){
 
         xlim <- c(minyr, maxyr)
         if(fsh == 1){
           xlim <- c(minyr, maxyr + (maxyr - minyr) * right_adj)
         }
 
-        plot(NA, NA, ylab="", xlab="", ylim = c(0, (ymax[fsh])), xlim = xlim, type='n', xaxt="n", yaxt="n")
+        plot(NA, NA, ylab="", xlab="", ylim = c(0, (ymax[fleets[fsh]])), xlim = xlim, type='n', xaxt="n", yaxt="n")
         axis(1,labels=TRUE,cex=0.8)
         axis(2,labels=TRUE,cex=0.8)
 
@@ -508,7 +512,7 @@ plot_catch <- function(Rceattle,
         }
 
         # Index name
-        legend('topleft',as.character(fleet_control$Fleet_name[flts[fsh]]),bty="n",y.intersp = -0.2,cex=0.8)
+        legend('topleft',as.character(fleet_control$Fleet_name[flts[fleets[fsh]]]),bty="n",y.intersp = -0.2,cex=0.8)
 
         # Model names
         if(fsh == 1){
@@ -528,14 +532,14 @@ plot_catch <- function(Rceattle,
 
           # Subset data by fleet and model
           fsh_tmp <- fsh_list[[k]] %>%
-            filter(Fleet_code == flts[fsh])
+            filter(Fleet_code == flts[fleets[fsh]])
 
           if(mse){
             fsh_tmp <- fsh_tmp %>% filter(Year <= meanyrs[k]) # Only show historical catch if MSE models
           }
 
           fsh_hat_tmp <- fsh_hat_list[[k]] %>%
-            filter(Fleet_code == flts[fsh])
+            filter(Fleet_code == flts[fleets[fsh]])
 
 
           # - Plot predicted CPUE
@@ -547,7 +551,7 @@ plot_catch <- function(Rceattle,
           # - Plot MSE shading
           if(mse){
             fsh_hat_tmp <- fsh_hat_list[[k]] %>%
-              filter(Year > meanyrs[k] & Fleet_code == flts[fsh])
+              filter(Year > meanyrs[k] & Fleet_code == flts[fleets[fsh]])
 
             # 95% CI
             polygon(
@@ -566,8 +570,7 @@ plot_catch <- function(Rceattle,
             )
 
             # Horizontal median line of projection
-            abline(h = median_catch$Median[fsh], lty = 2, lwd = 2)
-
+            abline(h = median_catch$Median[fleets[fsh]], lty = 2, lwd = 2)
           }
         }
       }
