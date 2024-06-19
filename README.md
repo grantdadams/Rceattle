@@ -1,6 +1,6 @@
 # Rceattle
 
-Rceattle: an R package for estimation of CEATTLE using template model builder
+Rceattle: an R package for estimation of CEATTLE using template model builder. NOTE: This branch is a test branch for faster MSE runs using data_update.
 
 
 
