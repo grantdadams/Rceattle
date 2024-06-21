@@ -2279,15 +2279,20 @@ Type objective_function<Type>::operator() () {
 
       // Predator
       // 1 sex model
-      r_sexes(stom_ind, 0) = 0; r_sexes(stom_ind, 1) = 1;
-      k_sexes(stom_ind, 0) = 0; k_sexes(stom_ind, 1) = 1;
+      r_sexes(stom_ind, 0) = 0; // Female predators
+      r_sexes(stom_ind, 1) = 1; // Male predators
+
+      k_sexes(stom_ind, 0) = 0; // Female prey
+      k_sexes(stom_ind, 1) = 1; // Male prey
 
       if(r_sex > 0){
-        r_sexes(stom_ind, 0) = r_sex - 1;  r_sexes(stom_ind, 1) = r_sex - 1;
+        r_sexes(stom_ind, 0) = r_sex - 1; // Females
+        r_sexes(stom_ind, 1) = r_sex - 1; // Males
       }
 
       if(k_sex > 0){
-        k_sexes(stom_ind, 0) = k_sex - 1;  k_sexes(stom_ind, 1) = k_sex - 1;
+        k_sexes(stom_ind, 0) = k_sex - 1; // Females
+        k_sexes(stom_ind, 1) = k_sex - 1; // Males
       }
 
 
