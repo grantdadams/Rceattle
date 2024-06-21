@@ -325,7 +325,7 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # STEP 6: Reorganize data ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    TMBfilename <- "ceattle_v01_10"
+    TMBfilename <- "ceattle_v01_11"
 
     Rceattle:::data_check(data_list)
 
