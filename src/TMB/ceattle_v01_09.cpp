@@ -2003,7 +2003,7 @@ Type objective_function<Type>::operator() () {
 
                     // Other suitabilitity
                     for (yr = 0; yr < nyrs; yr++) {
-                      suit_other(rsp, r_sex, r_age, yr) += suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr); // FIXME - include overlap indices
+                      suit_other(rsp, r_sex, r_age, yr) += suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr); // FIXME - include overlap indices (subtract by 1)
                     }
                   }
                 }
