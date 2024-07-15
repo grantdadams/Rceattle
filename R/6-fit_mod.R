@@ -29,6 +29,7 @@
 #' @param verbose 0 = Silent, 1 = print updates of model fit, 2 = print updates of model fit and TMB estimation progress.
 #' @param M1Fun M1 parameterizations and priors. Use \code{build_M1}.
 #' @param getJointPrecision return full Hessian of fixed and random effects.
+#' @param TMBfilename if a seperate TMB file is to be used for development. Includes location and does not include ".cpp" at the end.
 #'
 #' @details
 #' CEATTLE is an age-structured population dynamics model that can be fit with or without predation mortality. The default is to exclude predation mortality by setting \code{msmMode} to 0. Predation mortality can be included by setting \code{msmMode} with the following options:
@@ -113,7 +114,8 @@ fit_mod <-
     loopnum = 5,
     verbose = 1,
     newtonsteps = 0,
-    catch_hcr = FALSE){
+    catch_hcr = FALSE,
+    TMBfilename = NULL){
 
     # #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # # Debugging section ----
@@ -325,7 +327,15 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # STEP 6: Reorganize data ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    TMBfilename <- "ceattle_v01_11"
+    if(!is.null(TMBfilename)){
+      TMB::compile(paste0(TMBfilename,".cpp"))
+      dyn.load(dynlib(TMBfilename))
+      TMBfilename <- basename(TMBfilename)
+
+    }
+    if(is.null(TMBfilename)){
+      TMBfilename <- "ceattle_v01_11"
+    }
 
     Rceattle:::data_check(data_list)
 
