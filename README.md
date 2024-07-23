@@ -8,7 +8,13 @@ CEATTLE is short for Climate-Enhanced, Age-based model with Temperature-specific
 
 
 
-'Rceattle' is an 'R' package designed to implement the CEATTLE model using Template Model Builder ('TMB'; Kristensen et al. 2015), which can be installed using following https://github.com/kaskr/adcomp/wiki/Download. Rceattle is structured similar to Adams et al (2022). Data are read in via an excel document for model fitting (see [examples](https://github.com/grantdadams/Rceattle/tree/master/examples) folder). Projections can be conducted under alternative harvest control rules, climate projections, and recruitment. Model diagnostic, validation, simulation, and closed loop simulation testing (management strategy evaluation) functions are included as well. The package supports one- or -two sex models with multiple fisheries and surveys with flexible catchability and selectivity parameterizations. See vignette (in progress) for model parameterizations. 
+
+'Rceattle' is an 'R' package designed to implement the CEATTLE model using Template Model Builder ('TMB'; Kristensen et al. 2015), which can be installed using following https://github.com/kaskr/adcomp/wiki/Download. Rceattle is structured similar to Adams et al (2022). Data are read in via an excel document for model fitting (see [examples](https://github.com/grantdadams/Rceattle/tree/master/examples) folder). Projections can be conducted under alternative harvest control rules, climate projections, and recruitment. Model diagnostic, validation, simulation, and closed loop simulation testing (management strategy evaluation) functions are included as well. The package supports one- or -two sex models with multiple fisheries and surveys with flexible catchability and selectivity parameterizations. See vignette and examples for model parameterizations. 
+
+
+* single- or multi-species statistical catch-at-age model 
+* sex- and age-structured
+* selectivity, catchability, and recruitment can be treated as "random effects"
 
 Code and function examples using data from the Bering Sea and Gulf of Alaska groundfish application can be found in the [examples](https://github.com/grantdadams/Rceattle/tree/master/examples) folder.
 
