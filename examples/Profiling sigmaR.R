@@ -17,7 +17,7 @@ ebs_run <- Rceattle::fit_mod(data_list = BS2017SS,
 
 # -- Treat recruitment as random effects
 ebs_run_re <- Rceattle::fit_mod(data_list = BS2017SS,
-                                inits = ebs_run$estimated_params, # Initial parameters = 0
+                                inits = ebs_run$estimated_params, # Initial parameters from previous
                                 file = NULL, # Don't save
                                 estimateMode = 0, # Estimate
                                 random_rec = TRUE, # Random recruitment
@@ -45,11 +45,12 @@ ebs_ricker_run <- Rceattle::fit_mod(
   msmMode = 0, # Single species mode
   phase = "default",
   verbose = 1,
-  initMode = 2)
+  initMode = 2) # Start at fished equilibrium (biases alpha and beta otherwise)
 
+# -- Treat recruitment as random effects
 ebs_ricker_run_re <- Rceattle::fit_mod(
   data_list = BS2017SS,
-  inits = ebs_ricker_run$estimated_params, # Initial parameters = 0
+  inits = ebs_ricker_run$estimated_params, # Initial parameters from previous
   file = NULL, # Don't save
   estimateMode = 1, # Estimate hindcast only
   M1Fun = build_M1(M1_model = 0,
@@ -61,7 +62,7 @@ ebs_ricker_run_re <- Rceattle::fit_mod(
                      srr_est_mode = 1,
                      srr_prior_mean = alpha,
                      srr_prior_sd = 0.2),
-  random_rec = TRUE, # No random recruitment
+  random_rec = TRUE, # Random recruitment
   msmMode = 0, # Single species mode
   phase = NULL,
   verbose = 1,
@@ -82,7 +83,7 @@ ebs_ricker_run_re <- Rceattle::fit_mod(
 #
 # # -- Treat recruitment as random effects
 # goa_run_re <- Rceattle::fit_mod(data_list = GOA2018SS,
-#                                 inits = goa_run$estimated_params, # Initial parameters = 0
+#                                 inits = goa_run$estimated_params, # Initial parameters from previous
 #                                 file = NULL, # Don't save
 #                                 estimateMode = 0, # Estimate
 #                                 random_rec = TRUE, # Random recruitment
@@ -98,21 +99,21 @@ pollock_model <- Rceattle::fit_mod(
   data_list = GOApollock,
   inits = NULL, # Initial parameters = 0
   file = NULL, # Don't save
-  estimateMode = 0, # 0 = Estimate, 1 = Dont run estimation
+  estimateMode = 0,
   random_rec = FALSE, # No random recruitment
-  msmMode = 0, # 0 = Single species mode, 1 = MSVPA multi-species mode
+  msmMode = 0,
   verbose = 1, # Silence optimization output
   phase = "default") # Use default phasing
 
 pollock_model_re <- Rceattle::fit_mod(
   data_list = GOApollock,
-  inits = pollock_model$estimated_params, # Initial parameters = 0
+  inits = pollock_model$estimated_params, # Initial parameters from previous
   file = NULL, # Don't save
-  estimateMode = 0, # 0 = Estimate, 1 = Dont run estimation
-  random_rec = TRUE, # No random recruitment
-  msmMode = 0, # 0 = Single species mode, 1 = MSVPA multi-species mode
+  estimateMode = 0,
+  random_rec = TRUE, # Random recruitment
+  msmMode = 0,
   verbose = 1, # Silence optimization output
-  phase = NULL) # Use default phasing
+  phase = NULL)
 
 
 # * GOA Arrowtooth flounder ----
@@ -122,21 +123,21 @@ atf_model <- Rceattle::fit_mod(
   data_list = GOAatf,
   inits = NULL, # Initial parameters = 0
   file = NULL, # Don't save
-  estimateMode = 0, # 0 = Estimate, 1 = Dont run estimation
+  estimateMode = 0,
   random_rec = FALSE, # No random recruitment
-  msmMode = 0, # 0 = Single species mode, 1 = MSVPA multi-species mode
+  msmMode = 0,
   verbose = 1, # Silence optimization output
   phase = "default") # Use default phasing
 
 atf_model_re <- Rceattle::fit_mod(
   data_list = GOAatf,
-  inits = atf_model$estimated_params, # Initial parameters = 0
+  inits = atf_model$estimated_params, # Initial parameters from previous
   file = NULL, # Don't save
-  estimateMode = 0, # 0 = Estimate, 1 = Dont run estimation
-  random_rec = TRUE, # No random recruitment
-  msmMode = 0, # 0 = Single species mode, 1 = MSVPA multi-species mode
+  estimateMode = 0,
+  random_rec = TRUE, # Random recruitment
+  msmMode = 0,
   verbose = 1, # Silence optimization output
-  phase = NULL) # Use default phasing
+  phase = NULL)
 
 
 # * GOA Cod ----
@@ -146,21 +147,21 @@ cod_model <- Rceattle::fit_mod(
   data_list = GOAcod,
   inits = NULL, # Initial parameters = 0
   file = NULL, # Don't save
-  estimateMode = 0, # 0 = Estimate, 1 = Dont run estimation
+  estimateMode = 0,
   random_rec = FALSE, # No random recruitment
-  msmMode = 0, # 0 = Single species mode, 1 = MSVPA multi-species mode
+  msmMode = 0,
   verbose = 1, # Silence optimization output
   phase = "default") # Use default phasing
 
 cod_model_re <- Rceattle::fit_mod(
   data_list = GOAcod,
-  inits = cod_model$estimated_params, # Initial parameters = 0
+  inits = cod_model$estimated_params, # Initial parameters from previous
   file = NULL, # Don't save
-  estimateMode = 0, # 0 = Estimate, 1 = Dont run estimation
-  random_rec = TRUE, # No random recruitment
-  msmMode = 0, # 0 = Single species mode, 1 = MSVPA multi-species mode
+  estimateMode = 0,
+  random_rec =TRUE, # Random recruitment
+  msmMode = 0,
   verbose = 1, # Silence optimization output
-  phase = NULL) # Use default phasing
+  phase = NULL)
 
 
 # PROFILE ----
