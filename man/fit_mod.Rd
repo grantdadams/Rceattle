@@ -33,11 +33,12 @@ fit_mod(
   loopnum = 5,
   verbose = 1,
   newtonsteps = 0,
-  catch_hcr = FALSE
+  catch_hcr = FALSE,
+  TMBfilename = NULL
 )
 }
 \arguments{
-\item{data_list}{a data_list created from BSAI CEATTLE dat files \code{\link{build_dat}}, prebuilt data_list \code{\link{BS2017SS}}, or read in using \code{\link{read_excel}}.}
+\item{data_list}{a data_list read in using \code{\link{read_excel}}.}
 
 \item{inits}{(Optional) Character vector of named initial values from previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters. Can also construct using \code{\link{build_params}}}
 
@@ -92,6 +93,8 @@ fit_mod(
 \item{verbose}{0 = Silent, 1 = print updates of model fit, 2 = print updates of model fit and TMB estimation progress.}
 
 \item{newtonsteps}{number of extra newton steps to take after optimization (alternative to \code{loopnum})}
+
+\item{TMBfilename}{if a seperate TMB file is to be used for development. Includes location and does not include ".cpp" at the end.}
 }
 \value{
 A list of class "Rceattle" including:
