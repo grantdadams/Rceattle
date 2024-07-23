@@ -1,7 +1,7 @@
 #' This functions runs CEATTLE
 #' @description This function estimates population parameters of CEATTLE using maximum likelihood in TMB.
 #'
-#' @param data_list a data_list created from BSAI CEATTLE dat files \code{\link{build_dat}}, prebuilt data_list \code{\link{BS2017SS}}, or read in using \code{\link{read_excel}}.
+#' @param data_list a data_list read in using \code{\link{read_excel}}.
 #' @param inits (Optional) Character vector of named initial values from previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters. Can also construct using \code{\link{build_params}}
 #' @param map (Optional) A map object from \code{\link{build_map}}.
 #' @param bounds (Optional) A bounds object from \code{\link{build_bounds}}.
@@ -841,6 +841,17 @@ fit_mod <-
 #'
 clean_data <- function(data_list){
 
+  # Transpose fleet_control if long format
+  if(sum(colnames(data_list$fleet_control)[1:6] == c("Fleet_name", "Fleet_code", "Fleet_type", "Species", "Selectivity_index", "Selectivity")) != 6){
+    data_list$fleet_control <- as.data.frame(t(data_list$fleet_control))
+    colnames(data_list$fleet_control) <- data_list$fleet_control[1,]
+    data_list$fleet_control <- data_list$fleet_control[-1,]
+    data_list$fleet_control <- cbind(data.frame(Fleet_name = rownames(data_list$fleet_control)),
+                                     data_list$fleet_control)
+    rownames(data_list$fleet_control) = NULL
+    data_list$fleet_control[,2:ncol(data_list$fleet_control)] <- apply(data_list$fleet_control[,2:ncol(data_list$fleet_control)], 2, as.numeric)
+  }
+
   # - Remove years of data previous to start year
   data_list$UobsWtAge <- as.data.frame(data_list$UobsWtAge)
   data_list$UobsAge <- as.data.frame(data_list$UobsAge)
@@ -860,7 +871,7 @@ clean_data <- function(data_list){
     data_list$MSB0 <- rep(999, data_list$nspp)
   }
 
-  # - Remove years of data after to proj year
+  # - Remove years of data after proj year
   data_list$wt <- data_list$wt[which(data_list$wt$Year <= data_list$projyr),]
   data_list$UobsAge <- data_list$UobsAge[which(data_list$UobsAge$Year <= data_list$projyr),]
   data_list$UobsWtAge <- data_list$UobsWtAge[which(data_list$UobsWtAge$Year <= data_list$projyr),]

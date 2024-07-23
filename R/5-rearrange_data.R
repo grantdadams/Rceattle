@@ -76,7 +76,8 @@ rearrange_dat <- function(data_list){
                   Age_first_selected = ifelse(is.na(Age_first_selected), data_list$minage[Species], Age_first_selected)
     )
 
-  # Rearrange age-transition matrix
+
+  # Rearrange age-transition matrix ----
   age_trans_matrix <- data_list$age_trans_matrix
   unique_age_transition <- unique(as.character(age_trans_matrix$Age_transition_index))
   if(sum(data_list$pop_age_transition_index %!in% unique_age_transition) > 0){
@@ -110,7 +111,7 @@ rearrange_dat <- function(data_list){
   data_list$age_trans_matrix <- age_transition
 
 
-  # Rearrange age_error matrices
+  # Rearrange age_error matrices ----
   arm <- array(0, dim = c(data_list$nspp, max(data_list$nages, na.rm = T), max(data_list$nages, na.rm = T)))
 
   data_list$age_error <- as.data.frame(data_list$age_error) # FIXME: somethin is up with data.frames
@@ -254,6 +255,7 @@ rearrange_dat <- function(data_list){
     }
   }
   data_list$Pyrs <- Pyrs
+
 
   # Remove species column from alw, pmature, sex_ratio
   data_list$sex_ratio <- data_list$sex_ratio[,-1]

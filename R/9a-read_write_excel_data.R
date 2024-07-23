@@ -47,16 +47,21 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
     control[17, ] <- data_list$est_sex_ratio
     control[18, ] <- data_list$sex_ratio_sigma
     control <- as.data.frame(control)
-    control <- cbind(c("nspp", "styr", "endyr", "projyr", "nsex", "spawn_month", "R_sexr", "nages", "minage", "nlengths", "pop_wt_index", "ssb_wt_index","pop_age_transition_index", "sigma_rec_prior",
-                       "other_food", "estDynamics", "est_sex_ratio", "sex_ratio_sigma"), control)
+    control <- cbind(c("nspp", "styr", "endyr", "projyr", "nsex", "spawn_month", "R_sexr", "nages", "minage",
+                       "nlengths", "pop_wt_index", "ssb_wt_index","pop_age_transition_index", "sigma_rec_prior",
+                       "other_food", "estDynamics", "est_sex_ratio", "sex_ratio_sigma"),
+                     control)
     colnames(control) <- c("Object", data_list$spnames)
     names_used <- c(names_used, as.character(control$Object))
 
     xcel_list$control <- control
 
+    # Fleet control
+    xcel_list$fleet_control <- as.data.frame(data_list$fleet_control)
+    names_used <- c(names_used, "fleet_control")
 
     # srv and fsh bits
-    srv_bits <- c("fleet_control", "srv_biom", "fsh_biom", "comp_data",  "emp_sel", "NByageFixed", "age_trans_matrix")
+    srv_bits <- c("srv_biom", "fsh_biom", "comp_data",  "emp_sel", "NByageFixed", "age_trans_matrix")
     for (i in 1:length(srv_bits)) {
         xcel_list[[srv_bits[i]]] <- data_list[[srv_bits[i]]]
     }
@@ -200,7 +205,6 @@ read_data <- function(file = "Rceattle_data.xlsx") {
 
     nyrs <- data_list$endyr - data_list$styr + 1
 
-
     # srv and fsh bits
     srv_bits <- c("fleet_control", "srv_biom", "fsh_biom" , "comp_data", "emp_sel", "NByageFixed")
     for (i in 1:length(srv_bits)) {
@@ -209,8 +213,6 @@ read_data <- function(file = "Rceattle_data.xlsx") {
 
         data_list[[srv_bits[i]]] <- sheet
     }
-
-    data_list$fleet_control$Nselages <- suppressWarnings(as.numeric(data_list$fleet_control$Nselages))
 
     # age_trans_matrix
     age_trans_matrix <- as.data.frame(readxl::read_xlsx(file, sheet = "age_trans_matrix"))
