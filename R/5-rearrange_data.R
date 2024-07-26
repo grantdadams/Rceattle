@@ -62,8 +62,9 @@ rearrange_dat <- function(data_list){
   data_list$emp_sel_ctl <- as.matrix(data_list$emp_sel[,c("Fleet_code", "Species", "Sex", "Year")])
   data_list$emp_sel_obs <- matrix(as.numeric(unlist(data_list$emp_sel[,grep("Comp_", colnames(data_list$emp_sel))])), nrow = nrow(data_list$emp_sel_ctl))
 
-  # Make data_list names different
+  # Convert fleet control to numeric
   data_list$fleet_control$Fleet_name <- suppressWarnings(as.numeric(as.character(data_list$fleet_control$Fleet_name)))
+  data_list$fleet_control$Time_varying_q <- suppressWarnings(as.numeric(as.character(data_list$fleet_control$Time_varying_q)))
 
   # Species names
   data_list$spnames <- NULL

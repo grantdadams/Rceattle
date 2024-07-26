@@ -106,6 +106,7 @@ fit_mod <-
     suit_meanyr = NULL,
     phase = NULL,
     getsd = TRUE,
+    bias.correct = FALSE,
     use_gradient = TRUE,
     rel_tol = 1,
     control = list(eval.max = 1e+09,
@@ -425,6 +426,7 @@ fit_mod <-
             ln_srv_q = 3, # Survey catchability
             ln_srv_q_dev = 5, # Annual survey catchability deviates (if time-varying)
             ln_sigma_srv_q = 4, # Prior SD for survey catchability deviates
+            srv_q_beta = 4, # Regression coefficients for environmental linkage
             ln_sigma_time_varying_srv_q = 4, # SD for annual survey catchability deviates (if time-varying)
             sel_coff = 3, # Non-parametric selectivity coefficients
             # sel_coff_dev = 4, # Annual deviates for non-parametric selectivity coefficients
@@ -560,6 +562,8 @@ fit_mod <-
                               loopnum = loopnum,
                               getsd = getsd,
                               control = control,
+                              bias.correct = bias.correct,
+                              bias.correct.control=list(sd=getsd),
                               getJointPrecision = getJointPrecision,
                               quiet = verbose < 2,
       )
@@ -629,6 +633,8 @@ fit_mod <-
                                   loopnum = loopnum,
                                   getsd = getsd,
                                   control = control,
+                                  bias.correct = bias.correct,
+                                  bias.correct.control=list(sd=getsd),
                                   getJointPrecision = FALSE,
                                   quiet = verbose < 2,
           )
@@ -688,6 +694,8 @@ fit_mod <-
                                     startpar=obj$par,
                                     loopnum = loopnum,
                                     getsd = getsd,
+                                    bias.correct = bias.correct,
+                                    bias.correct.control=list(sd=getsd),
                                     control = control,
                                     getJointPrecision = FALSE,
                                     quiet = verbose < 2,
@@ -842,14 +850,15 @@ fit_mod <-
 clean_data <- function(data_list){
 
   # Transpose fleet_control if long format
-  if(sum(colnames(data_list$fleet_control)[1:6] == c("Fleet_name", "Fleet_code", "Fleet_type", "Species", "Selectivity_index", "Selectivity")) != 6){
+  if(sum(colnames(data_list$fleet_control)[1:2] == c("Fleet_name", "Fleet_code")) != 2){ #, "Fleet_type", "Species", "Selectivity_index", "Selectivity")) != 6){
     data_list$fleet_control <- as.data.frame(t(data_list$fleet_control))
     colnames(data_list$fleet_control) <- data_list$fleet_control[1,]
     data_list$fleet_control <- data_list$fleet_control[-1,]
     data_list$fleet_control <- cbind(data.frame(Fleet_name = rownames(data_list$fleet_control)),
                                      data_list$fleet_control)
     rownames(data_list$fleet_control) = NULL
-    data_list$fleet_control[,2:ncol(data_list$fleet_control)] <- apply(data_list$fleet_control[,2:ncol(data_list$fleet_control)], 2, as.numeric)
+    data_list$fleet_control[,-which(colnames(data_list$fleet_control) %in% c("Fleet_name", "Time_varying_q"))] <- apply(
+      data_list$fleet_control[,-which(colnames(data_list$fleet_control) %in% c("Fleet_name", "Time_varying_q"))], 2, as.numeric)
   }
 
   # - Remove years of data previous to start year

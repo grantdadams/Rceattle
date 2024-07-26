@@ -100,6 +100,7 @@ build_params <- function(data_list) {
   # -- 3.5. Survey catchability parameters
   # Random effects version
   param_list$ln_srv_q = log(data_list$fleet_control$Q_prior)   # Survey catchability; n = [sum(n_srv)]
+  param_list$srv_q_beta = matrix(0, nrow = nrow(data_list$fleet_control), ncol = ncol(data_list$env_data) -1) # Regression coefficients for environment-q linkage
   # param_list$srv_q_pow = rep(0, nrow(data_list$fleet_control))
   param_list$ln_srv_q_dev = matrix(0, nrow = nrow(data_list$fleet_control), ncol = nyrs_hind)   # Survey catchability deviations; n = [sum(n_srv)]
   param_list$ln_sigma_srv_q <- log(data_list$fleet_control$Q_sd_prior)
