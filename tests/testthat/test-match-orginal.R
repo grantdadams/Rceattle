@@ -1,11 +1,24 @@
 test_that("Dynamics match CEATTLE classic", {
 
   # Load old model
-  load("~/GitHub/Rceattle/inst/extdata/CEATTLE_classic_SS.Rdata")
+  load("inst/extdata/CEATTLE_classic_ss.Rdata")
 
 
   # Load data and set up inits
+  library(Rceattle)
   data(BS2017SS) # ?BS2017SS for more information on the data
+
+  BS2017SS$fleet_control <- as.data.frame(t(BS2017SS$fleet_control))
+  colnames(BS2017SS$fleet_control) <- BS2017SS$fleet_control[1,]
+  BS2017SS$fleet_control <- BS2017SS$fleet_control[-1,]
+  BS2017SS$fleet_control <- cbind(data.frame(Fleet_name = rownames(BS2017SS$fleet_control)),
+                                   BS2017SS$fleet_control)
+  rownames(BS2017SS$fleet_control) = NULL
+  BS2017SS$fleet_control[,-which(colnames(BS2017SS$fleet_control) %in% c("Fleet_name", "Time_varying_q"))] <- apply(
+    BS2017SS$fleet_control[,-which(colnames(BS2017SS$fleet_control) %in% c("Fleet_name", "Time_varying_q"))], 2, as.numeric)
+  BS2017SS$M1_base[,-c(1:2)] <- ss_run$quantities$M1 # + 0.0001 is in the old one
+
+
   BS2017SS$srr_prior_mean <- 9
   BS2017SS$initMode  <- 1
   inits <- build_params(BS2017SS)
@@ -19,7 +32,7 @@ test_that("Dynamics match CEATTLE classic", {
   inits$sel_coff[1:3,1,] <- ss_run$estimated_params$fsh_sel_coff
 
 
-  ss_run_old_params <- Rceattle::fit_mod(data_list = mydata,
+  ss_run_old_params <- Rceattle::fit_mod(data_list = BS2017SS,
                                          inits = inits, # Initial parameters = 0
                                          file = NULL, # Don't save
                                          estimateMode = 3, # Estimate
@@ -29,7 +42,7 @@ test_that("Dynamics match CEATTLE classic", {
                                          verbose = 1)
 
   # - Estimate instead
-  ss_run_new <- Rceattle::fit_mod(data_list = mydata,
+  ss_run_new <- Rceattle::fit_mod(data_list = BS2017SS,
                                   inits = NULL, # Initial parameters = 0
                                   file = NULL, # Don't save
                                   estimateMode = 0, # Estimate
@@ -48,6 +61,7 @@ test_that("Dynamics match CEATTLE classic", {
   # Plot
   plot_recruitment(list(ss_run_new, ss_run_old_params, ss_run_old))
   plot_biomass(list(ss_run_new, ss_run_old_params, ss_run_old))
+  plot_ssb(list(ss_run_new, ss_run_old_params, ss_run_old))
 })
 #> Test passed 😀
 #>
@@ -57,11 +71,22 @@ test_that("Dynamics match CEATTLE classic", {
 test_that("Dynamics match multi-species CEATTLE classic", {
 
   # Load old model
-  load("~/GitHub/Rceattle/inst/extdata/CEATTLE_classic_MS.Rdata")
+  load("inst/extdata/CEATTLE_classic_ms.Rdata")
 
   # Load data and set up inits
   data("BS2017SS")
   data("BS2017MS")
+
+  BS2017MS$fleet_control <- as.data.frame(t(BS2017MS$fleet_control))
+  colnames(BS2017MS$fleet_control) <- BS2017MS$fleet_control[1,]
+  BS2017MS$fleet_control <- BS2017MS$fleet_control[-1,]
+  BS2017MS$fleet_control <- cbind(data.frame(Fleet_name = rownames(BS2017MS$fleet_control)),
+                                  BS2017MS$fleet_control)
+  rownames(BS2017MS$fleet_control) = NULL
+  BS2017MS$fleet_control[,-which(colnames(BS2017MS$fleet_control) %in% c("Fleet_name", "Time_varying_q"))] <- apply(
+    BS2017MS$fleet_control[,-which(colnames(BS2017MS$fleet_control) %in% c("Fleet_name", "Time_varying_q"))], 2, as.numeric)
+  BS2017MS$M1_base[,-c(1:2)] <- ss_run$quantities$M1 # + 0.0001 is in the old one
+
   BS2017MS$srr_prior_mean <- 9
   BS2017MS$initMode  <- 1
   BS2017MS$M1_base[,-c(1:2)] <- ms_run$quantities$M1 # + 0.0001 is in the old one
@@ -130,7 +155,7 @@ test_that("Dynamics match multi-species CEATTLE classic", {
 
 
   # Plot
-  plot_recruitment(list(ms_run_old_params, ms_run_old))
+  plot_recruitment(list(ms_run_new, ms_run_old_params, ms_run_old))
   plot_biomass(list(ms_run_new, ms_run_old_params, ms_run_old))
   plot_ssb(list(ms_run_new, ms_run_old_params, ms_run_old))
 
