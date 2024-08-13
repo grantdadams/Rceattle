@@ -1,6 +1,6 @@
 # Rceattle
 
-Rceattle: an R package for estimation of CEATTLE using template model builder
+Rceattle: an R package for estimation of CEATTLE using template model builder. The "dev_srr" branch is the most up to date and will be pushed to master once the corresponding publication come out.
 
 
 
