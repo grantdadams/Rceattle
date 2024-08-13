@@ -229,7 +229,7 @@ Type objective_function<Type>::operator() () {
     // -- 2.8.2.1 Check to make sure the first year of survey data are not before start year
     for (sp = 0; sp < nspp; sp++) {
       if (yrs_tc_biom(sp, 0) < styr) {
-        std::cerr << "First year of total catch biomass of species " << sp + 1 << " is before specified start year" << std::endl;
+        //std::cerr << "First year of total catch biomass of species " << sp + 1 << " is before specified start year" << std::endl;
         return (0);
       }
     }
@@ -237,7 +237,7 @@ Type objective_function<Type>::operator() () {
     // -- 2.8.2.2 Check to make sure the first year of survey data are not before start year
     for (sp = 0; sp < nspp; sp++) {
       if (yrs_srv_biom(sp, 0) < styr) {
-        std::cerr << "First year of survey biomass of species " << sp + 1 << " is before specified start year" << std::endl;
+        //std::cerr << "First year of survey biomass of species " << sp + 1 << " is before specified start year" << std::endl;
         return (0);
       }
     }
@@ -245,13 +245,13 @@ Type objective_function<Type>::operator() () {
     // -- 2.8.2.3. Check to make sure the years of survey data biomass and age are the same
     for (sp = 0; sp < nspp; sp++) {
       if (nyrs_srv_biom(sp) != nyrs_srv_age(sp)) {
-        std::cerr << "Nyrs of survey biomass and age-comp of species " << sp + 1 << " do not match" << std::endl;
+        //std::cerr << "Nyrs of survey biomass and age-comp of species " << sp + 1 << " do not match" << std::endl;
         return (0);
       }
     }
 
     if (yrs_eit(0) < styr) {
-      std::cerr << "First year of EIT survey biomass is before specified start year" << std::endl;
+      //std::cerr << "First year of EIT survey biomass is before specified start year" << std::endl;
       return (0);
     }
   }

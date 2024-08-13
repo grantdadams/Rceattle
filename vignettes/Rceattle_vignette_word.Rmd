@@ -51,7 +51,7 @@ For the 2017 multispecies model starting from the single species parameters, the
 data(BS2017MS) # ?BS2017MS for more information on the data 
 
 ms_run <- Rceattle(
-                   data_list = data_list_ms,
+                   data_list = BS2017MS,
                    inits = ss_run$estimated_params, # Initial parameters from ss run
                    file_name = NULL, # Don't save
                    debug = 0, # Estimate
