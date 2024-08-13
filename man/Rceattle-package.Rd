@@ -2,7 +2,6 @@
 % Please edit documentation in R/Rceattle-package.R, R/Rceattle.R
 \docType{package}
 \name{Rceattle-package}
-\alias{Rceattle}
 \alias{Rceattle-package}
 \title{Rceattle: Fits the multispecies assessment model (CEATTLE) using TMB}
 \description{
@@ -21,9 +20,6 @@ CEATTLE is short for Climate-Enhanced, Age-based model with Temperature-specific
 }
 }
 \author{
-\strong{Maintainer}: Grant Adams \email{adamsgd@uw.edu} (\href{https://orcid.org/0000-0003-0297-8347}{ORCID})
-
-
 \strong{Maintainer}: Grant Adams \email{adamsgd@uw.edu} (\href{https://orcid.org/0000-0003-0297-8347}{ORCID})
 
 }

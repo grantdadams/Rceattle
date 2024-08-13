@@ -13,6 +13,7 @@ plot_m_at_age(
   spnames = NULL,
   species = NULL,
   lwd = 3,
+  lty = 1,
   right_adj = 0,
   minyr = NULL,
   width = 7,

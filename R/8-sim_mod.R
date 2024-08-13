@@ -16,7 +16,7 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
 
   if (simulate) {
     # Simulate
-    values <- exp(rnorm(length(dat_sim$srv_biom$Observation), mean = log(Rceattle$quantities$srv_bio_hat), sd = srv_biom_lse))
+    values <- exp(rnorm(length(dat_sim$srv_biom$Observation), mean = log(Rceattle$quantities$srv_bio_hat) - (srv_biom_lse^2)/2, sd = srv_biom_lse))
   } else {
     # Estimated value
     values <- Rceattle$quantities$srv_bio_hat
@@ -45,7 +45,7 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
 
   if (simulate) {
     # Simulate
-    values <- exp(rnorm(length(dat_sim$fsh_biom$Catch), mean = log(Rceattle$quantities$fsh_bio_hat), sd = fsh_biom_lse))
+    values <- exp(rnorm(length(dat_sim$fsh_biom$Catch), mean = log(Rceattle$quantities$fsh_bio_hat) - (fsh_biom_lse^2)/2, sd = fsh_biom_lse))
   } else {
     # simulate value
     values <- Rceattle$quantities$fsh_bio_hat

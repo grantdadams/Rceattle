@@ -1,6 +1,6 @@
 #' Run a management strategy evaluation
 #'
-#' @description Runs a forward projecting MSE. Main assumptions are the projected selectivity/catchability, foraging days, and weight-at-age are the same as the terminal year of the hindcast in the operating model. Assumes survey sd is same as average across historic time series, while comp data sample size is same as last year. No implementation error!
+#' @description Runs a forward projecting MSE. Main assumptions are the projected selectivity/catchability, foraging days, and weight-at-age are the same as the terminal year of the hindcast in the operating model. Assumes survey sd is same as average across historic time series, while comp data sample size is same as last year. No implementation error and no observation error for catch!
 #'
 #' @param om CEATTLE model object exported from \code{\link{Rceattle}}
 #' @param em CEATTLE model object exported from \code{\link{Rceattle}}
@@ -13,20 +13,25 @@
 #' @param sample_rec Include resampled recruitment deviates from the"hindcast" in the projection of the OM. Resampled deviates are used rather than sampling from N(0, sigmaR) because initial deviates bias R0 low. If false, uses mean of recruitment deviates.
 #' @param rec_trend Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier \code{mean rec * (1 + (rec_trend/projection years) * 1:projection years)}. Can be of length 1 or of length nspp. If length 1, all species get the same trend.
 #' @param fut_sample future sampling effort relative to last year.  \code{ Log_sd * 1 / fut_sample} for index and \code{ Sample_size * fut_sample} for comps
-#' @param cap A cap on the catch in the projection. Can be a single number or vector. Default = NULL
+#' @param cap A cap on the catch in the projection. Can be a single number or vector of length nspp. Default = NULL
 #' @param loopnum number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})
 #' @param file (Optional) Filename where each OM simulation with EMs will be saved. If NULL, no files are saved.
 #' @param dir (Optional) Directory where each OM simulation is saved
-#' @param seed
+#' @param seed seed for the simulation
+#' @param regenerate_seed seed for regenerating data
+#' @param timeout length of time (minutes) estimation will run before stopping a sim (default 999 minutes)
 #'
 #' @return A list of operating models (differ by simulated recruitment determined by \code{nsim}) and estimation models fit to each operating model (differ by terminal year).
 #' @export
 #'
 #'
-mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, regenerate_past = FALSE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, seed = 666, regenerate_seed = seed, loopnum = 1, file = NULL, dir = NULL){
+mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, regenerate_past = FALSE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, seed = 666, regenerate_seed = seed, loopnum = 1, file = NULL, dir = NULL, timeout = 999){
 
-  # om = ms_run; em = ss_run; nsim = 10; assessment_period = 1; sampling_period = 1; simulate = TRUE; rec_trend = 0; fut_sample = 1; cap = NULL; seed = 666; loopnum = 1; file = NULL; dir = NULL
+  # om = ss_run; em = ss_run_Tier3; nsim = 1; start_sim = 1; assessment_period = 1; sampling_period = 1; simulate_data = TRUE; regenerate_past = FALSE; sample_rec = TRUE; rec_trend = 0; fut_sample = 1; cap = NULL; seed = 666; regenerate_seed = seed; loopnum = 1; file = NULL; dir = NULL; timeout = 999
 
+  #--------------------------------------------------
+  # MSE SPECIFICATIONS ----
+  #--------------------------------------------------
   '%!in%' <- function(x,y)!('%in%'(x,y))
   library(dplyr)
   set.seed(regenerate_seed)
@@ -36,6 +41,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
 
   # - Set om to project from R0
   om$data_list$proj_mean_rec = 0 # - Sample rec devs assuming this down the line
+  #FIXME: SB0 for equilibrium HCRs will have to be adjusted
 
   # - Adjust cap
   if(!is.null(cap)){
@@ -56,14 +62,17 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   # - Years for simulations
   hind_yrs <- (em$data_list$styr) : em$data_list$endyr
   hind_nyrs <- length(hind_yrs)
-  proj_yrs <- (em$data_list$endyr + 1) : em$data_list$projyr
-  proj_nyrs <- length(proj_yrs)
+  om_proj_yrs <- (om$data_list$endyr + 1) : om$data_list$projyr
+  om_proj_nyrs <- length(om_proj_yrs)
+
+  em_proj_yrs <- (em$data_list$endyr + 1) : em$data_list$projyr
+  em_proj_nyrs <- length(em_proj_yrs)
   nflts = nrow(om$data_list$fleet_control)
   nselages_om <- max(om$data_list$fleet_control$Nselages, na.rm = TRUE)
   nselages_em <- max(em$data_list$fleet_control$Nselages, na.rm = TRUE)
 
   # - Assessment period
-  assess_yrs <- seq(from = em$data_list$endyr + assessment_period, to = em$data_list$projyr,  by = assessment_period)
+  assess_yrs <- seq(from = om$data_list$endyr + assessment_period, to =  min(c(om$data_list$projyr, em$data_list$projyr)),  by = assessment_period)
 
   # - Data sampling period
   if(length(sampling_period)==1){
@@ -87,12 +96,12 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   sample_yrs = data.frame(Fleet_code = unlist(fleet_id), Year = unlist(sample_yrs))
 
   #--------------------------------------------------
-  # Regenerate past data from OM and refit EM
+  # Regenerate past data from OM and refit EM ----
   #--------------------------------------------------
   if(regenerate_past){
 
     # - Simulate index and comp data and updatae EM
-    sim_dat <- sim_mod(om, simulate = simulate_data)
+    sim_dat <- sim_mod(om, simulate = FALSE)
 
     em$data_list$srv_biom <- sim_dat$srv_biom
     em$data_list$comp_data <- sim_dat$comp_data
@@ -113,17 +122,31 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
                       Plimit = em$data_list$Plimit,
                       Alpha = em$data_list$Alpha,
                       Pstar = em$data_list$Pstar,
-                      Sigma = em$data_list$Sigma
+                      Sigma = em$data_list$Sigma,
+                      Fmult = em$data_list$Fmult
       ),
+      recFun = build_srr(srr_fun = em$data_list$srr_fun,
+                         srr_pred_fun  = em$data_list$srr_pred_fun ,
+                         proj_mean_rec  = em$data_list$proj_mean_rec,
+                         srr_est_mode  = em$data_list$srr_est_mode ,
+                         srr_prior_mean  = em$data_list$srr_prior_mean,
+                         srr_prior_sd   = em$data_list$srr_prior_sd,
+                         Bmsy_lim = em$data_list$Bmsy_lim),
+      M1Fun =     build_M1(M1_model= em$data_list$M1_model,
+                           updateM1 = FALSE,
+                           M1_use_prior = em$data_list$M1_use_prior,
+                           M2_use_prior = em$data_list$M2_use_prior,
+                           M1_prior_mean = em$data_list$M1_prior_mean,
+                           M1_prior_sd = em$data_list$M1_prior_sd),
       random_rec = em$data_list$random_rec,
       niter = em$data_list$niter,
       msmMode = em$data_list$msmMode,
       avgnMode = em$data_list$avgnMode,
-      minNByage = em$data_list$minNByage,
       suitMode = em$data_list$suitMode,
-      phase = "default",
-      updateM1 = FALSE,
-      loopnum = 3,
+      meanyr = em$data_list$meanyr,
+      initMode = em$data_list$initMode,
+      phase = NULL,
+      loopnum = loopnum,
       getsd = FALSE,
       verbose = 0)
 
@@ -148,28 +171,40 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
                                               Ptarget = em$data_list$Ptarget,
                                               Plimit = em$data_list$Plimit
                               ),
+                              recFun = build_srr(srr_fun = em$data_list$srr_fun,
+                                                 srr_pred_fun  = em$data_list$srr_pred_fun ,
+                                                 proj_mean_rec  = em$data_list$proj_mean_rec ,
+                                                 srr_est_mode  = em$data_list$srr_est_mode ,
+                                                 srr_prior_mean  = em$data_list$srr_prior_mean,
+                                                 srr_prior_sd   = em$data_list$srr_prior_sd,
+                                                 Bmsy_lim = em$data_list$Bmsy_lim),
+                              M1Fun =     build_M1(M1_model= em$data_list$M1_model,
+                                                   updateM1 = FALSE,
+                                                   M1_use_prior = em$data_list$M1_use_prior,
+                                                   M2_use_prior = em$data_list$M2_use_prior,
+                                                   M1_prior_mean = em$data_list$M1_prior_mean,
+                                                   M1_prior_sd = em$data_list$M1_prior_sd),
                               random_rec = em$data_list$random_rec,
                               niter = em$data_list$niter,
                               msmMode = em$data_list$msmMode,
                               avgnMode = em$data_list$avgnMode,
-                              minNByage = em$data_list$minNByage,
                               suitMode = em$data_list$suitMode,
-                              phase = "default",
-                              updateM1 = FALSE,
-                              loopnum = 3,
+                              meanyr = em$data_list$meanyr,
+                              initMode = em$data_list$initMode,
+                              loopnum = loopnum,
                               getsd = FALSE,
                               verbose = 0)
     }
   }
 
   #--------------------------------------------------
-  # Update data-files in OM so we can fill in updated years
+  # Update data-files in OM so we can fill in updated years ----
   #--------------------------------------------------
   # -- srv_biom
   proj_srv <- om$data_list$srv_biom %>%
     group_by(Fleet_code) %>%
-    slice(rep(n(),  proj_nyrs)) %>%
-    mutate(Year = -proj_yrs)
+    slice(rep(n(),  om_proj_nyrs)) %>%
+    mutate(Year = -om_proj_yrs)
   proj_srv$Log_sd <- proj_srv$Log_sd * 1/fut_sample
   om$data_list$srv_biom  <- rbind(om$data_list$srv_biom, proj_srv)
   om$data_list$srv_biom <- dplyr::arrange(om$data_list$srv_biom, Fleet_code, abs(Year))
@@ -178,9 +213,9 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   if(nrow(om$data_list$NByageFixed) > 0){
     proj_nbyage <- om$data_list$NByageFixed %>%
       group_by(Species, Sex) %>%
-      slice(rep(n(),  proj_nyrs)) %>%
-      mutate(Year = proj_yrs)
-    proj_nbyage <- proj_nbyage[which(proj_yrs %!in% om$data_list$NByageFixed$Year),] # Subset rows already forcasted
+      slice(rep(n(),  om_proj_nyrs)) %>%
+      mutate(Year = om_proj_yrs)
+    proj_nbyage <- proj_nbyage[which(om_proj_yrs %!in% om$data_list$NByageFixed$Year),] # Subset rows already forcasted
     om$data_list$NByageFixed  <- rbind(om$data_list$NByageFixed, proj_nbyage)
     om$data_list$NByageFixed <- dplyr::arrange(om$data_list$NByageFixed, Species, Year)
   }
@@ -188,8 +223,8 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   # -- comp_data
   proj_comp <- om$data_list$comp_data %>%
     group_by(Fleet_code, Sex) %>%
-    slice(rep(n(),  proj_nyrs)) %>%
-    mutate(Year = -proj_yrs)
+    slice(rep(n(),  om_proj_nyrs)) %>%
+    mutate(Year = -om_proj_yrs)
   proj_comp$Sample_size <- proj_comp$Sample_size * fut_sample # Adjust future sampling effort
   om$data_list$comp_data  <- rbind(om$data_list$comp_data, proj_comp)
   om$data_list$comp_data <- dplyr::arrange(om$data_list$comp_data, Fleet_code, abs(Year))
@@ -198,8 +233,8 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   if(nrow(om$data_list$emp_sel) > 0){
     proj_emp_sel <- om$data_list$emp_sel %>%
       group_by(Fleet_code, Sex) %>%
-      slice(rep(n(),  proj_nyrs)) %>%
-      mutate(Year = proj_yrs)
+      slice(rep(n(),  om_proj_nyrs)) %>%
+      mutate(Year = om_proj_yrs)
     om$data_list$emp_sel  <- rbind(om$data_list$emp_sel, proj_emp_sel)
     om$data_list$emp_sel <- dplyr::arrange(om$data_list$emp_sel, Fleet_code, Year)
   }
@@ -208,50 +243,50 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   #FIXME ignrores forecasted growth
   proj_wt <- om$data_list$wt %>%
     group_by(Wt_index , Sex) %>%
-    slice(rep(n(),  proj_nyrs)) %>%
-    mutate(Year = proj_yrs)
+    slice(rep(n(),  om_proj_nyrs)) %>%
+    mutate(Year = om_proj_yrs)
   om$data_list$wt  <- rbind(om$data_list$wt, proj_wt)
   om$data_list$wt <- dplyr::arrange(om$data_list$wt, Wt_index, Year)
 
   # -- Pyrs
   proj_Pyrs <- om$data_list$Pyrs %>%
     group_by(Species, Sex) %>%
-    slice(rep(n(),  proj_nyrs)) %>%
-    mutate(Year = proj_yrs)
+    slice(rep(n(),  om_proj_nyrs)) %>%
+    mutate(Year = om_proj_yrs)
   om$data_list$Pyrs  <- rbind(om$data_list$Pyrs, proj_Pyrs)
   om$data_list$Pyrs <- dplyr::arrange(om$data_list$Pyrs, Species, Year)
 
 
   #--------------------------------------------------
-  # Update data in EM
+  # Update data in EM ----
   #--------------------------------------------------
   #FIXME - assuming same as terminal year of hindcast
   # -- EM emp_sel - Use terminal year
   proj_emp_sel <- em$data_list$emp_sel %>%
     group_by(Fleet_code, Sex) %>%
-    slice(rep(n(),  proj_nyrs)) %>%
-    mutate(Year = proj_yrs)
+    slice(rep(n(),  em_proj_nyrs)) %>%
+    mutate(Year = em_proj_yrs)
   em$data_list$emp_sel  <- rbind(em$data_list$emp_sel, proj_emp_sel)
   em$data_list$emp_sel <- dplyr::arrange(em$data_list$emp_sel, Fleet_code, Year)
 
   # -- EM wt
   proj_wt <- em$data_list$wt %>%
     group_by(Wt_index , Sex) %>%
-    slice(rep(n(),  proj_nyrs)) %>%
-    mutate(Year = proj_yrs)
+    slice(rep(n(),  em_proj_nyrs)) %>%
+    mutate(Year = em_proj_yrs)
   em$data_list$wt  <- rbind(em$data_list$wt, proj_wt)
   em$data_list$wt <- dplyr::arrange(em$data_list$wt, Wt_index, Year)
 
   # -- EM Pyrs
   proj_Pyrs <- em$data_list$Pyrs %>%
     group_by(Species, Sex) %>%
-    slice(rep(n(),  proj_nyrs)) %>%
-    mutate(Year = proj_yrs)
+    slice(rep(n(),  em_proj_nyrs)) %>%
+    mutate(Year = em_proj_yrs)
   em$data_list$Pyrs  <- rbind(em$data_list$Pyrs, proj_Pyrs)
   em$data_list$Pyrs <- dplyr::arrange(em$data_list$Pyrs, Species, Year)
 
   #--------------------------------------------------
-  # Do the MSE
+  # Do the MSE ----
   #--------------------------------------------------
   ### Set up parallel processing
   library(foreach)
@@ -260,11 +295,12 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   cores = detectCores() - 2
   registerDoParallel(cores)
 
-  foreach(sim = start_sim:nsim) %dopar% {
+  sim_list <- foreach(sim = start_sim:nsim) %dopar% {
     library(Rceattle)
     library(dplyr)
 
     set.seed(seed = seed + sim) # setting unique seed for each simulation
+    kill_sim <- FALSE
 
     # Set models objects
     sim_list <- list(EM = list())# , OM = list())
@@ -275,50 +311,51 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
     om_use <- om
 
     # Replace future rec devs
+    #FIXME - update non-sample rec for stock recruit relationship
     for(sp in 1:om_use$data_list$nspp){
       if(sample_rec){ # Sample devs from hindcast
-        rec_dev <- sample(x = om_use$estimated_params$rec_dev[sp, 1:hind_nyrs], size = proj_nyrs, replace = TRUE) + log((1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs)) # - Scale mean rec for rec trend
+        rec_dev <- sample(x = om_use$estimated_params$rec_dev[sp, 1:hind_nyrs], size = om_proj_nyrs, replace = TRUE) + log((1+(rec_trend[sp]/om_proj_nyrs) * 1:om_proj_nyrs)) # - Scale mean rec for rec trend
       } else{ # Set to mean rec otherwise
-        rec_dev <- log(mean(om_use$quantities$R[sp,1:hind_nyrs]) * (1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs))  - om_use$estimated_params$ln_mean_rec[sp] # - Scale mean rec for rec trend
+        rec_dev <- log(mean(om_use$quantities$R[sp,1:hind_nyrs]) * (1+(rec_trend[sp]/om_proj_nyrs) * 1:om_proj_nyrs))  - log(om_use$quantities$R0[sp]) # - Scale mean rec for rec trend
       }
 
       # - Update OM with devs
-      om_use$estimated_params$rec_dev[sp,proj_yrs - om_use$data_list$styr + 1] <- replace(
-        om_use$estimated_params$rec_dev[sp,proj_yrs - om_use$data_list$styr + 1],
+      om_use$estimated_params$rec_dev[sp,om_proj_yrs - om_use$data_list$styr + 1] <- replace(
+        om_use$estimated_params$rec_dev[sp,om_proj_yrs - om_use$data_list$styr + 1],
         values =  rec_dev)
     }
 
 
-
-
     # Run through assessment years
-    for(k in 1:(length(assess_yrs))){
+    for(k in 1:length(assess_yrs)){
 
       # ------------------------------------------------------------
-      # 1. GET RECOMMENDED TAC FROM EM-HCR
+      # 1. GET RECOMMENDED TAC FROM EM-HCR ----
       # ------------------------------------------------------------
-      new_years <- proj_yrs[which(proj_yrs <= assess_yrs[k] & proj_yrs > om_use$data_list$endyr)]
+      new_years <- om_proj_yrs[which(om_proj_yrs <= assess_yrs[k] & om_proj_yrs > om_use$data_list$endyr)]
 
       # - Get projected catch data from EM
       new_catch_data <- em_use$data_list$fsh_biom
       dat_fill_ind <- which(new_catch_data$Year %in% new_years & is.na(new_catch_data$Catch))
       new_catch_data$Catch[dat_fill_ind] <- em_use$quantities$fsh_bio_hat[dat_fill_ind]
+
       if(!is.null(cap)){
         new_catch_data$Catch[dat_fill_ind] <- ifelse(new_catch_data$Catch[dat_fill_ind] > cap[new_catch_data$Species[dat_fill_ind]], cap[new_catch_data$Species[dat_fill_ind]], new_catch_data$Catch[dat_fill_ind])
       }
+      new_catch_switch <- sum(new_catch_data$Catch[dat_fill_ind])
 
       # - Update catch data in OM and EM
       om_use$data_list$fsh_biom <- new_catch_data
       em_use$data_list$fsh_biom <- new_catch_data
 
       # ------------------------------------------------------------
-      # 2. UPDATE OBSERVATION MODEL
+      # 2. UPDATE OBSERVATION MODEL ----
       # ------------------------------------------------------------
       # - Update endyr of OM
       nyrs_hind <- om_use$data_list$endyr - om_use$data_list$styr + 1
       om_use$data_list$endyr <- assess_yrs[k]
 
-      # - Update parameters
+      # * Update parameters ----
       # -- F_dev
       om_use$estimated_params$F_dev <- cbind(om_use$estimated_params$F_dev, matrix(0, nrow= nrow(om_use$estimated_params$F_dev), ncol = length(new_years)))
 
@@ -343,7 +380,8 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       om_use$estimated_params$sel_coff_dev <- sel_coff_dev
 
 
-      # - Update map (Only new parameter we are estimating in OM is the F_dev of the new years)
+      # * Update map ----
+      # -(Only new parameter we are estimating in OM is the F_dev of the new years)
       om_use$map <- build_map(
         data_list = om_use$data_list,
         params = om_use$estimated_params,
@@ -361,33 +399,103 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       fsh_biom <- om_use$data_list$fsh_biom
       fsh_ind <- fsh_biom$Fleet_code[which(fsh_biom$Catch == 0)]
       yr_ind <- fsh_biom$Year[which(fsh_biom$Catch == 0)] - om_use$data_list$styr + 1
-      om_use$map$mapList$F_dev[fsh_ind, yr_ind] <- NA
-      om_use$map$mapFactor$F_dev <- factor( om_use$map$mapList$F_dev)
 
-      # - Fit OM with new catch data
-      om_use <- fit_mod(
-        data_list = om_use$data_list,
-        inits = om_use$estimated_params,
-        map =  om_use$map,
-        bounds = NULL,
-        file = NULL,
-        estimateMode = ifelse(om_use$data_list$estimateMode < 3, 1, om_use$data_list$estimateMode), # Estimate hindcast only if estimating
-        random_rec = om_use$data_list$random_rec,
-        niter = om_use$data_list$niter,
-        msmMode = om_use$data_list$msmMode,
-        avgnMode = om_use$data_list$avgnMode,
-        minNByage = om_use$data_list$minNByage,
-        suitMode = om_use$data_list$suitMode,
-        meanyr = om$data_list$endyr,
-        updateM1 = FALSE, # Dont update M1 from data, fix at previous parameters
-        loopnum = 2,
-        phase = NULL,
-        getsd = FALSE,
-        verbose = 0)
+      for(i in 1:length(fsh_ind)){
+        om_use$estimated_params$F_dev[fsh_ind[i], yr_ind[i]] <- -999
+        om_use$map$mapList$F_dev[fsh_ind[i], yr_ind[i]] <- NA
+      }
+      om_use$map$mapFactor$F_dev <- factor(om_use$map$mapList$F_dev)
+
+      # -- Set estimate mode
+      estimate_mode_base <- om_use$data_list$estimateMode
+      estimate_mode_use <- ifelse(
+        new_catch_switch == 0, 3, # Run in debug mode if catch is 0 for all species
+        ifelse(
+          estimate_mode_base < 3, 1, # Estimate hindcast only if estimating
+          estimate_mode_base)
+      )
+
+      # * Fit OM with new catch data ----
+      kill_sim <- tryCatch({
+        R.utils::withTimeout({
+          om_use <- fit_mod(
+            data_list = om_use$data_list,
+            inits = om_use$estimated_params,
+            map =  om_use$map,
+            bounds = NULL,
+            file = NULL,
+            estimateMode = estimate_mode_use,
+            random_rec = om_use$data_list$random_rec,
+            niter = om_use$data_list$niter,
+            msmMode = om_use$data_list$msmMode,
+            avgnMode = om_use$data_list$avgnMode,
+            suitMode = om_use$data_list$suitMode,
+            initMode = om_use$data_list$initMode,
+            meanyr = om$data_list$endyr, # This stays the same as original OM
+            HCR = build_hcr(HCR = om_use$data_list$HCR,
+                            DynamicHCR = om_use$data_list$DynamicHCR,
+                            FsprTarget = om_use$data_list$FsprTarget,
+                            FsprLimit = om_use$data_list$FsprLimit,
+                            Ptarget = om_use$data_list$Ptarget,
+                            Plimit = om_use$data_list$Plimit,
+                            Alpha = om_use$data_list$Alpha,
+                            Pstar = om_use$data_list$Pstar,
+                            Sigma = om_use$data_list$Sigma,
+                            Fmult = om_use$data_list$Fmult
+            ),
+            recFun = build_srr(srr_fun = om_use$data_list$srr_fun,
+                               srr_pred_fun = om_use$data_list$srr_pred_fun ,
+                               proj_mean_rec = om_use$data_list$proj_mean_rec, # This will update anyway to False as devs are added
+                               srr_est_mode  = om_use$data_list$srr_est_mode ,
+                               srr_prior_mean = om_use$data_list$srr_prior_mean,
+                               srr_prior_sd = om_use$data_list$srr_prior_sd,
+                               Bmsy_lim = om_use$data_list$Bmsy_lim),
+            M1Fun = build_M1(M1_model= om_use$data_list$M1_model,
+                             updateM1 = FALSE,
+                             M1_use_prior = om_use$data_list$M1_use_prior,
+                             M2_use_prior = om_use$data_list$M2_use_prior,
+                             M1_prior_mean = om_use$data_list$M1_prior_mean,
+                             M1_prior_sd = om_use$data_list$M1_prior_sd), # Dont update M1 from data, fix at previous parameters
+            loopnum = loopnum,
+            phase = NULL,
+            getsd = FALSE,
+            verbose = 0)
+          return(FALSE)
+        },
+        timeout = 60*timeout)
+      },
+      error = function(e){
+        return(TRUE)
+      },
+      TimeoutException = function(e){
+        return(TRUE)
+      })
+
+      if(kill_sim){
+        break()
+      }
+
+      # -- Set estimate mode back to original
+      om_use$data_list$estimateMode <- estimate_mode_base
 
 
       # ------------------------------------------------------------
-      # 3. REFIT ESTIMATION MODEL AND HCR
+      # 3. GET ACTUAL CATCH FROM OM ----
+      # - Maybe the OM can't support the TAC
+      # ------------------------------------------------------------
+
+      # - Get realized catch data from OM
+      new_catch_data <- om_use$data_list$fsh_biom
+      dat_fill_ind <- which(new_catch_data$Year %in% new_years)
+      new_catch_data$Catch[dat_fill_ind] <- om_use$quantities$fsh_bio_hat[dat_fill_ind] # Catch from OM
+
+      # - Update catch data in OM and EM
+      om_use$data_list$fsh_biom <- new_catch_data
+      em_use$data_list$fsh_biom <- new_catch_data
+
+
+      # ------------------------------------------------------------
+      # 4. REFIT ESTIMATION MODEL AND HCR ----
       # ------------------------------------------------------------
       # - Simulate new survey and comp data
       sim_dat <- sim_mod(om_use, simulate = simulate_data)
@@ -404,6 +512,8 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       # -- Add newly simulated comp data to EM
       new_comp_data <- sim_dat$comp_data[which(abs(sim_dat$comp_data$Year) %in% years_include$Year & sim_dat$comp_data$Fleet_code %in% years_include$Fleet_code),]
       new_comp_data$Year <- -new_comp_data$Year
+      new_comp_data$Sample_size <- new_comp_data$Sample_size * as.numeric(rowSums(new_comp_data[,9:ncol(new_comp_data)]) > 0) # Set sample size to 0 if catch is 0
+      new_comp_data[,9:ncol(new_comp_data)] <- new_comp_data[,9:ncol(new_comp_data)] + 1 * as.numeric(new_comp_data$Sample_size == 0) # Set all values to 1 if catch is 0
       em_use$data_list$comp_data <- rbind(em_use$data_list$comp_data, new_comp_data)
       em_use$data_list$comp_data <- em_use$data_list$comp_data[
         with(em_use$data_list$comp_data, order(Fleet_code, abs(Year))),]
@@ -438,35 +548,64 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
 
 
       # Restimate
-      em_use <- fit_mod(
-        data_list = em_use$data_list,
-        inits = em_use$estimated_params,
-        map =  NULL,
-        bounds = NULL,
-        file = NULL,
-        estimateMode = ifelse(em_use$data_list$estimateMode < 3, 0, em_use$data_list$estimateMode), # Run hindcast and projection, otherwise debug
-        HCR = build_hcr(HCR = em_use$data_list$HCR, # Tier3 HCR
-                        DynamicHCR = em_use$data_list$DynamicHCR,
-                        FsprTarget = em_use$data_list$FsprTarget,
-                        FsprLimit = em_use$data_list$FsprLimit,
-                        Ptarget = em_use$data_list$Ptarget,
-                        Plimit = em_use$data_list$Plimit,
-                        Alpha = em_use$data_list$Alpha,
-                        Pstar = em_use$data_list$Pstar,
-                        Sigma = em_use$data_list$Sigma
-        ),
-        random_rec = em_use$data_list$random_rec,
-        niter = em_use$data_list$niter,
-        msmMode = em_use$data_list$msmMode,
-        avgnMode = em_use$data_list$avgnMode,
-        minNByage = em_use$data_list$minNByage,
-        suitMode = em_use$data_list$suitMode,
-        phase = NULL,
-        meanyr = em_use$data_list$endyr, # Update end year
-        updateM1 = FALSE,
-        loopnum = loopnum,
-        getsd = FALSE,
-        verbose = 0)
+      em_use <- tryCatch({
+        R.utils::withTimeout({
+          fit_mod(
+            data_list = em_use$data_list,
+            inits = em_use$estimated_params,
+            map =  NULL,
+            bounds = NULL,
+            file = NULL,
+            estimateMode = ifelse(em_use$data_list$estimateMode < 3, 0, em_use$data_list$estimateMode), # Run hindcast and projection, otherwise debug
+            HCR = build_hcr(HCR = em_use$data_list$HCR, # Tier3 HCR
+                            DynamicHCR = em_use$data_list$DynamicHCR,
+                            FsprTarget = em_use$data_list$FsprTarget,
+                            FsprLimit = em_use$data_list$FsprLimit,
+                            Ptarget = em_use$data_list$Ptarget,
+                            Plimit = em_use$data_list$Plimit,
+                            Alpha = em_use$data_list$Alpha,
+                            Pstar = em_use$data_list$Pstar,
+                            Sigma = em_use$data_list$Sigma,
+                            Fmult = em_use$data_list$Fmult
+            ),
+            recFun = build_srr(srr_fun = em_use$data_list$srr_fun,
+                               srr_pred_fun = em_use$data_list$srr_pred_fun,
+                               proj_mean_rec = em_use$data_list$proj_mean_rec,
+                               srr_est_mode  = em_use$data_list$srr_est_mode ,
+                               srr_prior_mean = em_use$data_list$srr_prior_mean,
+                               srr_prior_sd = em_use$data_list$srr_prior_sd,
+                               Bmsy_lim = em_use$data_list$Bmsy_lim),
+            M1Fun =     build_M1(M1_model= em_use$data_list$M1_model,
+                                 updateM1 = FALSE,
+                                 M1_use_prior = em_use$data_list$M1_use_prior,
+                                 M2_use_prior = em_use$data_list$M2_use_prior,
+                                 M1_prior_mean = em_use$data_list$M1_prior_mean,
+                                 M1_prior_sd = em_use$data_list$M1_prior_sd),
+            random_rec = em_use$data_list$random_rec,
+            niter = em_use$data_list$niter,
+            msmMode = em_use$data_list$msmMode,
+            avgnMode = em_use$data_list$avgnMode,
+            suitMode = em_use$data_list$suitMode,
+            meanyr = em_use$data_list$meanyr,
+            initMode = em_use$data_list$initMode,
+            phase = NULL,
+            loopnum = loopnum,
+            getsd = FALSE,
+            verbose = 0)
+        },
+        timeout = 60*timeout)
+      },
+      error = function(ex) {
+        return(NULL)
+      },
+      TimeoutException = function(ex) {
+        return(NULL)
+      })
+
+      if(is.null(em_use)){
+        kill_sim <- TRUE
+        break()
+      }
       # plot_biomass(list(em_use, om_use), model_names = c("EM", "OM"))
       # End year of assessment
 
@@ -479,52 +618,57 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       em_use$sdrep <- NULL
       em_use$quantities[names(em_use$quantities) %!in% c("fsh_bio_hat",
                                                          "fsh_log_sd_hat",
+                                                         "srv_bio_hat",
+                                                         "srv_log_sd_hat",
                                                          "depletion",
                                                          "depletionSSB",
                                                          "biomass",
-                                                         "F_spp",
-                                                         "F_flt",
-                                                         "mn_rec"  ,
-                                                         "biomassSSB" ,
-                                                         "R",
-                                                         "M",
-                                                         "M1",
-                                                         "mean_rec",
-                                                         "srv_bio_hat",
-                                                         "srv_log_sd_hat",
+                                                         "biomassSSB",
                                                          "BO",
                                                          "SB0",
+                                                         "SBF",
+                                                         "F_spp",
+                                                         "R",
+                                                         "M1",
+                                                         "M",
+                                                         "mean_rec",
                                                          "DynamicB0",
                                                          "DynamicSB0",
+                                                         "DynamicSBF",
                                                          "SPR0",
                                                          "SPRlimit",
                                                          "SPRtarget",
-                                                         "DynamicNbyageSPR",
-                                                         "DynamicSPR0",
-                                                         "DynamicSPRlimit",
-                                                         "DynamicSPRtarget",
-                                                         "proj_F",
                                                          "Ftarget",
-                                                         "Flimit",
-                                                         "FlimitSPR",
-                                                         "FtargetSPR",
-                                                         "DynamicFlimitSPR",
-                                                         "DynamicFtargetSPR")] <- NULL
+                                                         "Flimit")] <- NULL
 
       sim_list$EM[[k+1]] <- em_use
       #sim_list$OM[[k+1]] <- om_use
       message(paste0("Sim ",sim, " - EM Year ", assess_yrs[k], " COMPLETE"))
     }
 
-    # Save models
-    sim_list$OM <- om_use
-    names(sim_list$EM) <- c("EM", paste0("OM_Sim_",sim,". EM_yr_", assess_yrs))
-    #names(sim_list$OM) <- c("OM", paste0("OM_Sim_",sim,". OM_yr_", assess_yrs))
-    dir.create(file.path(getwd(), dir), showWarnings = FALSE, recursive = TRUE)
-    saveRDS(sim_list, file = paste0(dir, "/", file, "EMs_from_OM_Sim_",sim, ".rds"))
-    sim_list <- NULL
-  }
+    # - Rename models
+    sim_list$use_sim <- !kill_sim
+    sim_list$OM <- om_use # OM
+    sim_list$OM_no_F <- remove_F(om_use) # OM with no Fishing
+    if(!kill_sim){
+      names(sim_list$EM) <- c("EM", paste0("OM_Sim_",sim,". EM_yr_", assess_yrs))
+    }
+
+    # - Save
+    if(!is.null(dir)){
+      dir.create(file.path(getwd(), dir), showWarnings = FALSE, recursive = TRUE)
+      saveRDS(sim_list, file = paste0(dir, "/", file, "EMs_from_OM_Sim_",sim, ".rds"))
+      sim_list <- NULL
+    } else{
+      sim_list # Return simlist
+    }
+
+  } # End sim loop
 
   # When you're done, clean up the cluster
   stopImplicitCluster()
+
+  if(is.null(dir)){
+    return(sim_list)
+  }
 }
