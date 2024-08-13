@@ -21,10 +21,10 @@ Code and function examples using data from the Bering Sea and Gulf of Alaska gro
 
 # References
 
-[Adams, G.D., Holsman, K.K., Barbeaux, S.J., Dorn, M.W., Ianelli, J.N., Spies, I., Stewart, I.J., Punt, A.E., 2022. An ensemble approach to understand predation mortality for groundfish in the Gulf of Alaska. Fish. Res. 251, 106303. doi:10.1016/j.fishres.2022.106303](https://www.sciencedirect.com/science/article/pii/S0165783622000807)
+Adams, G.D., Holsman, K.K., Barbeaux, S.J., Dorn, M.W., Ianelli, J.N., Spies, I., Stewart, I.J., Punt, A.E., 2022. An ensemble approach to understand predation mortality for groundfish in the Gulf of Alaska. Fish. Res. 251, 106303. [doi:10.1016/j.fishres.2022.106303](https://www.sciencedirect.com/science/article/pii/S0165783622000807)
 
-[Holsman, K. K., Ianelli, J., Aydin, K., Punt, A. E., & Moffitt, E. A. (2016). A comparison of fisheries biological reference points estimated from temperature-specific multi-species and single-species climate-enhanced stock assessment models. Deep Sea Research Part II: Topical Studies in Oceanography, 134, 360-378.](https://www.sciencedirect.com/science/article/pii/S0967064515002751)
+Holsman, K. K., Ianelli, J., Aydin, K., Punt, A. E., & Moffitt, E. A. (2016). A comparison of fisheries biological reference points estimated from temperature-specific multi-species and single-species climate-enhanced stock assessment models. Deep Sea Research Part II: Topical Studies in Oceanography, 134, 360-378.[doi:10.1016/j.dsr2.2015.08.001](https://www.sciencedirect.com/science/article/pii/S0967064515002751)
 
-[Kristensen, K., Nielsen, A., Berg, C. W., Skaug, H., & Bell, B. M. (2016). TMB: Automatic Differentiation and Laplace Approximation. Journal of Statistical Software, 70(i05).](https://www.jstatsoft.org/article/view/v070i05)
+Kristensen, K., Nielsen, A., Berg, C. W., Skaug, H., & Bell, B. M. (2016). TMB: Automatic Differentiation and Laplace Approximation. Journal of Statistical Software, 70(i05). [doi:10.18637/jss.v070.i05](https://www.jstatsoft.org/article/view/v070i05)
 
-[Wassermann, S. N., Adams, G. D., Haltuch, M. A., Kaplan, I. C., Marshall, K. N., & Punt, A. E. (2024). Even low levels of cannibalism can bias population estimates for Pacific hake. ICES Journal of Marine Science, fsae064.](https://academic.oup.com/icesjms/advance-article/doi/10.1093/icesjms/fsae064/7675094)
+Wassermann, S. N., Adams, G. D., Haltuch, M. A., Kaplan, I. C., Marshall, K. N., & Punt, A. E. (2024). Even low levels of cannibalism can bias population estimates for Pacific hake. ICES Journal of Marine Science, fsae064. [doi:10.1093/icesjms/fsae064](https://academic.oup.com/icesjms/advance-article/doi/10.1093/icesjms/fsae064/7675094)
