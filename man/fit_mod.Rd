@@ -34,7 +34,8 @@ fit_mod(
   loopnum = 5,
   verbose = 1,
   newtonsteps = 0,
-  catch_hcr = FALSE
+  catch_hcr = FALSE,
+  TMBfilename = NULL
 )
 }
 \arguments{
@@ -95,6 +96,8 @@ fit_mod(
 \item{verbose}{0 = Silent, 1 = print updates of model fit, 2 = print updates of model fit and TMB estimation progress.}
 
 \item{newtonsteps}{number of extra newton steps to take after optimization (alternative to \code{loopnum})}
+
+\item{TMBfilename}{TMB filename and location to use if not using the default. Do not include ".cpp" at the end.}
 }
 \value{
 A list of class "Rceattle" including:
