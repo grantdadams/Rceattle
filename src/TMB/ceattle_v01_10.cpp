@@ -441,7 +441,7 @@ Type objective_function<Type>::operator() () {
   // -- 2.2.2. Species attributes
   DATA_IVECTOR( nsex );                   // Number of sexes to be modelled; n = [1, nspp]; 1 = sexes combined/single sex, 2 = 2 sexes
   DATA_VECTOR( spawn_month );             // Month of spawning to adjust mortality; n = [1, nspp]
-  DATA_VECTOR( R_sexr );                  // Sex ratio of recruitment; n = [1, nspp]; R_sexr = R to females/ R to females and males
+  DATA_VECTOR( R_sexr );                  // Sex ratio of recruitment; n = [1, nspp]; R_sexr = R to females/ R to females and males FIXME: just use sex-ratio matrix
   DATA_IVECTOR( nages );                  // Number of species (prey) ages; n = [1, nspp]
   DATA_IVECTOR( minage );                 // Minimum age of each species; n = [1, nspp]
   DATA_IVECTOR( nlengths );               // Number of species (prey) lengths; n = [1, nspp]
@@ -3796,6 +3796,7 @@ Type objective_function<Type>::operator() () {
   REPORT( R );
   REPORT( R_hat );
   REPORT( M );
+  REPORT( Steepness );
 
   // ADREPORT( B_eaten_as_prey );
   // ADREPORT( M );
