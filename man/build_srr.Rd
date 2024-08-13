@@ -36,5 +36,20 @@ A \code{list} containing the stock recruitment relationship settings
 Specify the stock-recruit relationship (SRR) for Rceattle
 }
 \details{
+\strong{Stock recruitment relationships currently implemented in Rceattle:}
 
+\code{srr_fun = 0} No stock recruit relationship. Recruitment is a function of R0 and annual deviates (i.e. steepness = 0.99).
+\deqn{R_y = exp(R0 + R_{dev,y})}
+
+\code{srr_fun = 1} Beverton-holt stock-recruitment relationship
+\deqn{R_y = \frac{\alpha_{srr} * SB_{y-minage}}{1+\beta_{srr} * SB_{y-minage}}}
+
+\code{srr_fun = 2} Beverton-holt stock-recruitment relationship with environmental covariates impacting larval survival rate and prior is on alpha.
+\deqn{R_y = \frac{\alpha_{srr} * e^{X * \beta_X} * SB_{y-minage}}{1+\beta_{srr} * SB_{y-minage}}}
+
+\code{srr_fun = 3} Ricker stock-recruitment relationship
+\deqn{R_y = \alpha_{srr} * SB_{y-minage} * exp(-\beta_{srr} * SB_{y-minage})}
+
+\code{srr_fun = 4} Ricker stock-recruitment relationship with environmental covariates impacting larval survival rate and prior is on alpha.
+\deqn{R_y = \alpha_{srr} e^{X * \beta_X} * SB_{y-minage} * exp(-\beta_{srr} * SB_{y-minage})}
 }
