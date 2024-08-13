@@ -14,21 +14,24 @@
 ##'
 ##' **Stock recruitment relationships currently implemented in Rceattle:**
 ##'
-##' \code{srr_fun = 0} No stock recruit relationship. Recruitment is a function of \deqn{R_y = exp(R0 + R_{dev,y})}. Sensu Alaska, steepness = 0.99.
+##' \code{srr_fun = 0} No stock recruit relationship. Recruitment is a function of R0 and annual deviates (i.e. steepness = 0.99).
+##'  \deqn{R_y = exp(R0 + R_{dev,y})}
 ##'
-##' \code{srr_fun = 1} Environmentally driven recruitment \deqn{R_y = exp(R0 + R_{dev,y} + X * \Beta)}
+##' \code{srr_fun = 1} Environmentally driven recruitment without stock recruit relationship
+##'  \deqn{R_y = exp(R0 + R_{dev,y} + X * \beta_X)}
 ##'
 ##' \code{srr_fun = 2} Beverton-holt stock-recruitment relationship
-##'   \deqn{R_y = \frac{\alpha * SB_{y-minage}}{1+\beta * SB_{y-minage}}}. Prior is on alpha.
+##'   \deqn{R_y = \frac{\alpha_{srr} * SB_{y-minage}}{1+\beta_{srr} * SB_{y-minage}}}
 ##'
-##' \code{srr_fun = 3} Beverton-holt stock-recruitment relationship with environmental covariates impacting larval survival rate
-##'   \deqn{R_y = \frac{\alpha * e^{X * \Beta} * SB_{y-minage}}{1+\beta * SB_{y-minage}}}. Prior is on alpha.
+##' \code{srr_fun = 3} Beverton-holt stock-recruitment relationship with environmental covariates impacting larval survival rate and prior is on alpha.
+##'   \deqn{R_y = \frac{\alpha_{srr} * e^{X * \beta_X} * SB_{y-minage}}{1+\beta_{srr} * SB_{y-minage}}}
 ##'
 ##' \code{srr_fun = 4} Ricker stock-recruitment relationship
-##'   \deqn{R_y = \alpha * SB_{y-minage}} * exp(-beta * SB_{y-minage})}. Prior is on alpha.
+##'   \deqn{R_y = \alpha_{srr} * SB_{y-minage} * exp(-\beta_{srr} * SB_{y-minage})}
 ##'
-##' \code{srr_fun = 5} Ricker stock-recruitment relationship with environmental covariates impacting larval survival rate
-##'   \deqn{R_y = \alpha e^{X * \Beta}  * SB_{y-minage}} * exp(-beta * SB_{y-minage})}. Prior is on alpha.
+##' \code{srr_fun = 5} Ricker stock-recruitment relationship with environmental covariates impacting larval survival rate and prior is on alpha.
+##'   \deqn{R_y = \alpha_{srr} e^{X * \beta_X} * SB_{y-minage} * exp(-\beta_{srr} * SB_{y-minage})}
+##'
 ##'
 ##' @return A \code{list} containing the stock recruitment relationship settings
 ##' @export
