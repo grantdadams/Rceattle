@@ -14,8 +14,8 @@ fit_tmb(
   getsd = TRUE,
   control = list(eval.max = 10000, iter.max = 10000, trace = 0),
   bias.correct = FALSE,
-  bias.correct.control = list(sd = FALSE, split = NULL, nsplit = NULL, vars_to_correct
-    = NULL),
+  bias.correct.control = list(sd = FALSE, split = NULL, nsplit = NULL, vars_to_correct =
+    NULL),
   savedir = NULL,
   loopnum = 3,
   newtonsteps = 0,
@@ -32,13 +32,7 @@ fit_tmb(
 
 \item{startpar}{Starting values for fixed effects}
 
-\item{lower}{
-    vectors of lower and upper bounds, replicated to be as long as
-    \code{start}.  If unspecified, all parameters are assumed to be
-    unconstrained.
-  }
-
-\item{upper}{
+\item{lower, upper}{
     vectors of lower and upper bounds, replicated to be as long as
     \code{start}.  If unspecified, all parameters are assumed to be
     unconstrained.

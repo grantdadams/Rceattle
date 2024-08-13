@@ -29,43 +29,39 @@ build_hcr_map <- function(data_list, map, debug = FALSE){
     if(data_list$DynamicHCR){
       if(data_list$HCR %in% c(2)){ # Fixed F - still have Flimit
         warning("No dynamic avg F")
-        map$mapList$ln_Flimit <- replace(map$mapList$ln_Flimit, values = c(1:length(map$mapList$ln_Flimit)))
+        map$mapList$ln_Flimit <- 1:data_list$nspp
       }
       if(data_list$HCR %in% c(3)){
         warning("No dynamic Fx%")
-        map$mapList$ln_Ftarget <- replace(map$mapList$ln_Ftarget, values = c(1:length(map$mapList$ln_Ftarget)))
-        map$mapList$ln_Flimit[,1] <- NA # Initial abundance
-        map$mapList$ln_Ftarget[,1] <- NA # Initial abundance
+        map$mapList$ln_Ftarget <- 1:data_list$nspp
       }
       if(data_list$HCR %in% c(4)){
         warning("No dynamic Fspr")
-        map$mapList$ln_Ftarget <- replace(map$mapList$ln_Ftarget, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Ftarget)))
-        map$mapList$ln_Flimit <- replace(map$mapList$ln_Flimit, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Flimit)))
-        map$mapList$ln_Flimit[,1] <- NA # Initial abundance
-        map$mapList$ln_Ftarget[,1] <- NA # Initial abundance
+        map$mapList$ln_Ftarget <- 1:data_list$nspp
+        map$mapList$ln_Flimit <- 1:data_list$nspp
       }
       if(data_list$HCR %in% c(5,7)){
-        map$mapList$ln_Ftarget <- replace(map$mapList$ln_Ftarget, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Ftarget)))
-        map$mapList$ln_Flimit <- replace(map$mapList$ln_Flimit, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Flimit)))
+        map$mapList$ln_Ftarget <- 1:data_list$nspp
+        map$mapList$ln_Flimit <- 1:data_list$nspp
       }
       if(data_list$HCR == 6){
-        map$mapList$ln_Flimit <- replace(map$mapList$ln_Flimit, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Flimit)))
+        map$mapList$ln_Flimit <- 1:data_list$nspp
       }
     }
     # --- Static BRPS - 1 value per species
     if(data_list$DynamicHCR == FALSE){
       if(data_list$HCR == 2){ # Fixed F - still have Flimit
-        map$mapList$ln_Flimit <- replace(map$mapList$ln_Flimit, values = c(1:length(map$mapList$ln_Flimit)))
+        map$mapList$ln_Flimit <- 1:data_list$nspp
       }
       if(data_list$HCR == 3){
-        map$mapList$ln_Ftarget <- replace(map$mapList$ln_Ftarget, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Ftarget)))
+        map$mapList$ln_Ftarget <- 1:data_list$nspp
       }
       if(data_list$HCR %in% c(4,5,7)){
-        map$mapList$ln_Ftarget <- replace(map$mapList$ln_Ftarget, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Ftarget)))
-        map$mapList$ln_Flimit <- replace(map$mapList$ln_Flimit, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Flimit)))
+        map$mapList$ln_Ftarget <- 1:data_list$nspp
+        map$mapList$ln_Flimit <- 1:data_list$nspp
       }
       if(data_list$HCR == 6){
-        map$mapList$ln_Flimit <- replace(map$mapList$ln_Flimit, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Flimit)))
+        map$mapList$ln_Flimit <- 1:data_list$nspp
       }
     }
 
@@ -78,14 +74,14 @@ build_hcr_map <- function(data_list, map, debug = FALSE){
       prop_check <- data_list$fleet_control$proj_F_prop[which(data_list$fleet_control$Species == sp & data_list$fleet_control$Fleet_type == 1)]
       if(sum(as.numeric(prop_check == 0)) != 0){ # If all fisheries for a species have no F in F_prop, turn off future F
         print(paste("F_prop for species",sp,"sums to 0"))
-        map$mapList$ln_Ftarget[sp,] <- NA
-        map$mapList$ln_Flimit[sp,] <- NA
+        map$mapList$ln_Ftarget[sp] <- NA
+        map$mapList$ln_Flimit[sp] <- NA
       }
 
       # Fixed n-at-age: Turn off parameters
       if(data_list$estDynamics[sp] > 0){
-        map$mapList$ln_Ftarget[sp,] <- NA
-        map$mapList$ln_Flimit[sp,] <- NA
+        map$mapList$ln_Ftarget[sp] <- NA
+        map$mapList$ln_Flimit[sp] <- NA
       }
     }
   }
@@ -102,7 +98,7 @@ build_hcr_map <- function(data_list, map, debug = FALSE){
 
 
 
-#' Function to construct the TMB map argument for CEATTLE for projecting under alternative harvest control rules
+#' Function to construct the TMB map argument for CEATTLE for projecting under alternative harvest control rules. Leaves hindcast parameters turned on, so SD report can be used to get uncertainty out of everything.
 #'
 #' @description Reads a data list and map to update the map argument based on the HCR specified in \code{\link{build_hcr}}. Leaves all parameters from the hindcast "turned on" to allow uncertainty estimation via sdrep of an already optimized model.
 #'
@@ -129,43 +125,39 @@ build_hcr_map_projection <- function(data_list, map, debug = FALSE){
     if(data_list$DynamicHCR){
       if(data_list$HCR %in% c(2)){ # Fixed F - still have Flimit
         warning("No dynamic avg F")
-        map$mapList$ln_Flimit <- replace(map$mapList$ln_Flimit, values = c(1:length(map$mapList$ln_Flimit)))
+        map$mapList$ln_Flimit <- 1:data_list$nspp
       }
       if(data_list$HCR %in% c(3)){
         warning("No dynamic Fx%")
-        map$mapList$ln_Ftarget <- replace(map$mapList$ln_Ftarget, values = c(1:length(map$mapList$ln_Ftarget)))
-        map$mapList$ln_Flimit[,1] <- NA # Initial abundance
-        map$mapList$ln_Ftarget[,1] <- NA # Initial abundance
+        map$mapList$ln_Ftarget <- 1:data_list$nspp
       }
       if(data_list$HCR %in% c(4)){
         warning("No dynamic Fspr")
-        map$mapList$ln_Ftarget <- replace(map$mapList$ln_Ftarget, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Ftarget)))
-        map$mapList$ln_Flimit <- replace(map$mapList$ln_Flimit, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Flimit)))
-        map$mapList$ln_Flimit[,1] <- NA # Initial abundance
-        map$mapList$ln_Ftarget[,1] <- NA # Initial abundance
+        map$mapList$ln_Ftarget <- 1:data_list$nspp
+        map$mapList$ln_Flimit <- 1:data_list$nspp
       }
       if(data_list$HCR %in% c(5,7)){
-        map$mapList$ln_Ftarget <- replace(map$mapList$ln_Ftarget, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Ftarget)))
-        map$mapList$ln_Flimit <- replace(map$mapList$ln_Flimit, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Flimit)))
+        map$mapList$ln_Ftarget <- 1:data_list$nspp
+        map$mapList$ln_Flimit <- 1:data_list$nspp
       }
       if(data_list$HCR == 6){
-        map$mapList$ln_Flimit <- replace(map$mapList$ln_Flimit, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Flimit)))
+        map$mapList$ln_Flimit <- 1:data_list$nspp
       }
     }
     # --- Static BRPS - 1 value per species
     if(data_list$DynamicHCR == FALSE){
       if(data_list$HCR == 2){ # Fixed F - still have Flimit
-        map$mapList$ln_Flimit <- replace(map$mapList$ln_Flimit, values = c(1:length(map$mapList$ln_Flimit)))
+        map$mapList$ln_Flimit <- 1:data_list$nspp
       }
       if(data_list$HCR == 3){
-        map$mapList$ln_Ftarget <- replace(map$mapList$ln_Ftarget, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Ftarget)))
+        map$mapList$ln_Ftarget <- 1:data_list$nspp
       }
       if(data_list$HCR %in% c(4,5,7)){
-        map$mapList$ln_Ftarget <- replace(map$mapList$ln_Ftarget, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Ftarget)))
-        map$mapList$ln_Flimit <- replace(map$mapList$ln_Flimit, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Flimit)))
+        map$mapList$ln_Ftarget <- 1:data_list$nspp
+        map$mapList$ln_Flimit <- 1:data_list$nspp
       }
       if(data_list$HCR == 6){
-        map$mapList$ln_Flimit <- replace(map$mapList$ln_Flimit, values = rep(1:data_list$nspp, ncol(map$mapList$ln_Flimit)))
+        map$mapList$ln_Flimit <- 1:data_list$nspp
       }
     }
 
@@ -178,14 +170,14 @@ build_hcr_map_projection <- function(data_list, map, debug = FALSE){
       prop_check <- data_list$fleet_control$proj_F_prop[which(data_list$fleet_control$Species == sp & data_list$fleet_control$Fleet_type == 1)]
       if(sum(as.numeric(prop_check == 0)) != 0){ # If all fisheries for a species have no F in F_prop, turn off future F
         print(paste("F_prop for species",sp,"sums to 0"))
-        map$mapList$ln_Ftarget[sp,] <- NA
-        map$mapList$ln_Flimit[sp,] <- NA
+        map$mapList$ln_Ftarget[sp] <- NA
+        map$mapList$ln_Flimit[sp] <- NA
       }
 
       # Fixed n-at-age: Turn off parameters
       if(data_list$estDynamics[sp] > 0){
-        map$mapList$ln_Ftarget[sp,] <- NA
-        map$mapList$ln_Flimit[sp,] <- NA
+        map$mapList$ln_Ftarget[sp] <- NA
+        map$mapList$ln_Flimit[sp] <- NA
       }
     }
   }

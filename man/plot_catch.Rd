@@ -18,6 +18,7 @@ plot_catch(
   height = NULL,
   alpha = 0.4,
   ymax = NULL,
+  maxyr = NULL,
   mse = FALSE
 )
 }

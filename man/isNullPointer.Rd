@@ -9,9 +9,6 @@ isNullPointer(pointer)
 \arguments{
 \item{pointer}{}
 }
-\value{
-
-}
 \description{
 Test for invalid external pointer
 }
