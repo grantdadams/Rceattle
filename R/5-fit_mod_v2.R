@@ -187,7 +187,7 @@
 
 Rceattle <-
   function(TMBfilename = "ceattle_v01_02",
-           cpp_directory = NULL,
+           cpp_directory = "inst/executables",
            data_list = NULL,
            inits = NULL,
            map = NULL,
