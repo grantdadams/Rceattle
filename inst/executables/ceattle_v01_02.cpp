@@ -685,7 +685,7 @@ Type objective_function<Type>::operator() () {
 
           if (C_model( sp ) == 1) {
             ConsumAge(sp, age, yr) = CA(sp) * pow(wt(yr, age, sp) * Type(1000), CB( sp )) * fT(sp, yr) * fday( sp ) * wt(yr, age, sp) * 1000;//g/pred.yr
-            ConsumAge(sp, age, yr) = ConsumAge(sp, age, yr) * Pvalue(sp) * Pyrs(yr, age, sp); //
+            ConsumAge(sp, age, yr) = ConsumAge(sp, age, yr) * Pvalue(sp); // * Pyrs(yr, age, sp); //
           }
 
           ration2Age(sp, age, yr) = ConsumAge(sp, age, yr) / 1000;      // Annual ration kg/yr //aLW(predd)*pow(lengths(predd,age),bLW(predd));//mnwt_bin(predd,age);
@@ -1991,6 +1991,7 @@ Type objective_function<Type>::operator() () {
 
 
   // -- 12.5. Ration components
+  REPORT( Pyrs );
   REPORT( ConsumAge );
   REPORT( Consum_livingAge );
   REPORT( S2Age );
