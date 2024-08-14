@@ -2253,6 +2253,10 @@ Type objective_function<Type>::operator() () {
 
             // Hindcast
             if(yr < nyrs_hind){
+
+              //ConsumAge(sp, age, yr) = CA(sp) * pow(wt(yr, age, sp) * Type(1000), CB( sp )) * fT(sp, yr) * fday( sp ) * wt(yr, age, sp) * 1000;//g/pred.yr
+              //ConsumAge(sp, age, yr) = ConsumAge(sp, age, yr) * Pvalue(sp) * Pyrs(yr, age, sp); //
+
               ConsumAge(sp, sex, age, yr) = CA(sp) * pow(wt( pop_wt_index(sp), sex, age, yr ) * Type(1000.0), 1 + CB( sp )) //  C_max = CA * W ^ 1+CB; where C_max is grams consumed per grams of predator per day
               * fT(sp, yr) * fday( sp );                           //  C_max * f(T) * wt * fday g/pred.yr
               ConsumAge(sp, sex, age, yr) = ConsumAge(sp, sex, age, yr) * Pvalue(sp) * Pyrs(sp, sex, age, yr); //
@@ -4143,14 +4147,13 @@ Type objective_function<Type>::operator() () {
 
 
   // -- 12.8. Ration components
-  /*
    REPORT( ConsumAge );
-   REPORT( LbyAge );
-   REPORT( mnWt_obs );
+   // REPORT( LbyAge );
+   // REPORT( mnWt_obs );
    REPORT( fT );
    REPORT( ration );
 
-
+   /*
    // 12.9. Suitability components
    REPORT( suma_suit );
    REPORT( suit_main );
