@@ -8,6 +8,8 @@ test_that("Dynamics match CEATTLE classic", {
   library(Rceattle)
   data(BS2017SS) # ?BS2017SS for more information on the data
 
+
+  # - Reorganize fleet control
   BS2017SS$fleet_control <- as.data.frame(t(BS2017SS$fleet_control))
   colnames(BS2017SS$fleet_control) <- BS2017SS$fleet_control[1,]
   BS2017SS$fleet_control <- BS2017SS$fleet_control[-1,]
@@ -58,11 +60,6 @@ test_that("Dynamics match CEATTLE classic", {
   ss_run_old$quantities$biomassSSB[,1:39] <- CEATTLE_classic_SS$quantities$biomassSSB
 
 
-  CEATTLE_classic_SS$quantities$ration2Age[1,1:10,1:39]
-  ss_run_old_params$quantities$ration[1,1,1:10,1:39]
-
-
-
   # Plot
   plot_recruitment(list(ss_run_old_params, ss_run_old), model_names = 1:2)
   plot_biomass(list(ss_run_old_params, ss_run_old), model_names = 1:2)
@@ -80,12 +77,14 @@ test_that("Dynamics match CEATTLE classic", {
 test_that("Dynamics match multi-species CEATTLE classic", {
 
   # Load old model
+  library(Rceattle)
   load("inst/extdata/CEATTLE_classic_MS.Rdata")
 
   # Load data and set up inits
   data("BS2017SS")
   data("BS2017MS")
 
+  # - Reorganize fleet control
   BS2017MS$fleet_control <- as.data.frame(t(BS2017MS$fleet_control))
   colnames(BS2017MS$fleet_control) <- BS2017MS$fleet_control[1,]
   BS2017MS$fleet_control <- BS2017MS$fleet_control[-1,]
@@ -94,11 +93,11 @@ test_that("Dynamics match multi-species CEATTLE classic", {
   rownames(BS2017MS$fleet_control) = NULL
   BS2017MS$fleet_control[,-which(colnames(BS2017MS$fleet_control) %in% c("Fleet_name", "Time_varying_q"))] <- apply(
     BS2017MS$fleet_control[,-which(colnames(BS2017MS$fleet_control) %in% c("Fleet_name", "Time_varying_q"))], 2, as.numeric)
-  BS2017MS$M1_base[,-c(1:2)] <- CEATTLE_classic_MS$quantities$M1 # + 0.0001 is in the old one
 
   BS2017MS$srr_prior_mean <- 9
   BS2017MS$initMode  <- 1
-  BS2017MS$M1_base[,-c(1:2)] <- CEATTLE_classic_MS$quantities$M1 # + 0.0001 is in the old one
+  # BS2017MS$M1_base[,-c(1:2)] <- CEATTLE_classic_MS$quantities$M1 # + 0.0001 is in the old one
+
   inits <- build_params(BS2017MS)
 
   # - Update population dynamics from old parameters
@@ -185,32 +184,34 @@ test_that("Dynamics match multi-species CEATTLE classic", {
   plot_biomass(list(ms_run_old_params, ms_run_old))
   plot_ssb(list(ms_run_old_params, ms_run_old))
 
-  ms_run_old$quantities$M1[,1,]
-  CEATTLE_classic_MS$quantities$M1
-  CEATTLE_classic_MS$quantities$ration2Age[1,1:10,1:39]
-  ms_run_old_params$quantities$ration[1,1,1:10,1:39]
-
-
-  CEATTLE_classic_MS$quantities$ConsumAge[1,1:10,1:39] - ms_run_old_params$quantities$ConsumAge[1,1,1:10,1:39]
-
-  head(t(CEATTLE_classic_MS$quantities$ConsumAge[1,1:12,1:39]))
-  head(t(ms_run_old_params$quantities$ConsumAge[1,1,1:10,1:39]))
-
-
-  ms_run_old_params$data_list$pop_wt_index
-
-  # Weight
-  CEATTLE_classic_MS$data_list$wt[,1:12,1] - ms_run_old_params$data_list$wt %>%
-    filter(Wt_index == 1) %>%
-    dplyr::select(paste0("Age", 1:12)) %>%
-    as.matrix()
-
-
-  CEATTLE_classic_MS$quantities$fT[,1:39] == ms_run_old_params$quantities$fT[,1:39]
-
-  CEATTLE_classic_MS$data_list$CA == ms_run_old_params$data_list$CA
-
-  CEATTLE_classic_MS$data_list$CB == ms_run_old_params$data_list$CB
+  # ms_run_old$quantities$M1[,1,]
+  # CEATTLE_classic_MS$quantities$M1
+  # CEATTLE_classic_MS$quantities$ration2Age[1,1:10,1:39]
+  # ms_run_old_params$quantities$ration[1,1,1:10,1:39]
+  #
+  #
+  # CEATTLE_classic_MS$quantities$ConsumAge[1,1:10,1:39] - ms_run_old_params$quantities$ConsumAge[1,1,1:10,1:39]
+  #
+  # CEATTLE_classic_MS$quantities$Pyrs[1:39,1:12,1] - t(ms_run_old_params$quantities$Pyrs[1,1,1:12,1:39])
+  #
+  # head(t(CEATTLE_classic_MS$quantities$ConsumAge[1,1:12,1:39]))
+  # head(t(ms_run_old_params$quantities$ConsumAge[1,1,1:10,1:39]))
+  #
+  #
+  # ms_run_old_params$data_list$pop_wt_index
+  #
+  # # Weight
+  # CEATTLE_classic_MS$data_list$wt[,1:12,1] - ms_run_old_params$data_list$wt %>%
+  #   filter(Wt_index == 1) %>%
+  #   dplyr::select(paste0("Age", 1:12)) %>%
+  #   as.matrix()
+  #
+  #
+  # CEATTLE_classic_MS$quantities$fT[,1:39] == ms_run_old_params$quantities$fT[,1:39]
+  #
+  # CEATTLE_classic_MS$data_list$CA == ms_run_old_params$data_list$CA
+  #
+  # CEATTLE_classic_MS$data_list$CB == ms_run_old_params$data_list$CB
 
   plot_recruitment(list(ms_run_new, ms_run_old_params, ms_run_old))
   plot_biomass(list(ms_run_new, ms_run_old_params, ms_run_old))
