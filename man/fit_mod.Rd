@@ -26,6 +26,7 @@ fit_mod(
   suit_meanyr = NULL,
   phase = NULL,
   getsd = TRUE,
+  bias.correct = FALSE,
   use_gradient = TRUE,
   rel_tol = 1,
   control = list(eval.max = 1e+09, iter.max = 1e+09, trace = 0),

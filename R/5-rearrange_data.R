@@ -246,7 +246,6 @@ rearrange_dat <- function(data_list){
       if(sex == 0){
         sex = c(1,2)
       }
-      yr <- as.numeric(as.character(data_list$Pyrs$Year[i])) - data_list$styr + 1
 
       if(yr <= (data_list$endyr - data_list$styr + 1)){
         for(j in 1:length(sex)){
