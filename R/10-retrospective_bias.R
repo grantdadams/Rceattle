@@ -71,7 +71,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL) {
     inits$ln_srv_q_dev <- inits$ln_srv_q_dev[,1:nyrs]
     inits$ln_sel_slp_dev <- inits$ln_sel_slp_dev[,,,1:nyrs]
     inits$sel_inf_dev <- inits$sel_inf_dev[,,,1:nyrs]
-    inits$sel_coff_dev <- array(inits$sel_coff_dev[,,,1:nyrs], dim = c(dim(Rceattle$estimated_params$sel_coff_dev )[1:3], nyrs))
+    # inits$sel_coff_dev <- array(inits$sel_coff_dev[,,,1:nyrs], dim = c(dim(Rceattle$estimated_params$sel_coff_dev )[1:3], nyrs))
 
 
     # * Refit ----
@@ -92,15 +92,17 @@ retrospective <- function(Rceattle = NULL, peels = NULL) {
                         Alpha = data_list$Alpha,
                         Pstar = data_list$Pstar,
                         Sigma = data_list$Sigma,
-                        Fmult = data_list$Fmult
+                        Fmult = data_list$Fmult,
+                        HCRorder = data_list$HCRorder
         ),
         recFun = build_srr(srr_fun = data_list$srr_fun,
-                           srr_pred_fun = data_list$srr_pred_fun,
-                           proj_mean_rec = data_list$proj_mean_rec,
-                           srr_meanyr = data_list$endyr, # Update end year
+                           srr_pred_fun  = data_list$srr_pred_fun ,
+                           proj_mean_rec  = data_list$proj_mean_rec ,
+                           srr_meanyr = min(data_list$srr_meanyr, data_list$endyr), # Update end year if less than srr_meanyr
+                           R_hat_yr = data_list$R_hat_yr,
                            srr_est_mode  = data_list$srr_est_mode ,
-                           srr_prior_mean = data_list$srr_prior_mean,
-                           srr_prior_sd = data_list$srr_prior_sd,
+                           srr_prior_mean  = data_list$srr_prior_mean,
+                           srr_prior_sd   = data_list$srr_prior_sd,
                            Bmsy_lim = data_list$Bmsy_lim,
                            srr_env_indices = data_list$srr_env_indices),
         M1Fun =     build_M1(M1_model= data_list$M1_model,
@@ -113,14 +115,13 @@ retrospective <- function(Rceattle = NULL, peels = NULL) {
         niter = data_list$niter,
         msmMode = data_list$msmMode,
         avgnMode = data_list$avgnMode,
-        minNByage = data_list$minNByage,
         suitMode = data_list$suitMode,
-        suit_meanyr = data_list$endyr, # Update to endyr (before projection)
+        suit_meanyr = min(data_list$suit_meanyr, data_list$endyr), # Update to end year if less than suit_meanyr
         initMode = data_list$initMode,
-        phase = "default",
-        getsd = FALSE,
+        phase = NULL,
+        loopnum = data_list$loopnum,
+        getsd = TRUE,
         verbose = 0)
-
     )
 
     # Refit model If converged
