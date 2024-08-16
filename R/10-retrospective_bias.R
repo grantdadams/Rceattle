@@ -46,19 +46,19 @@ retrospective <- function(Rceattle = NULL, peels = NULL) {
 
     # * Adjust data ----
     data_list$srv_biom <- data_list$srv_biom %>%
-      filter(Year <= data_list$endyr)
+      dplyr::filter(Year <= data_list$endyr)
 
     data_list$wt <- data_list$wt %>%
-      filter(Year <= data_list$endyr)
+      dplyr::filter(Year <= data_list$endyr)
 
     data_list$comp_data <- data_list$comp_data %>%
-      filter(Year <= data_list$endyr)
+      dplyr::filter(Year <= data_list$endyr)
 
     data_list$fsh_biom <- data_list$fsh_biom %>%
-      filter(Year <= data_list$endyr)
+      dplyr::filter(Year <= data_list$endyr)
 
     data_list$Pyrs <- data_list$Pyrs %>%
-      filter(Year <= data_list$endyr)
+      dplyr::filter(Year <= data_list$endyr)
 
 
     # * Adjust initial parameters ----
