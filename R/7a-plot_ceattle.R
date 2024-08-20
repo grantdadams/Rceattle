@@ -297,7 +297,7 @@ plot_biomass <- function(Rceattle,
         xaxt = c(rep("n", length(spp) - 1), "s")[j]
       )
 
-      if(j == 2){
+      if((j == 2 & length(species > 1)) | (j == 1 & length(species == 1)) ){
         mtext("Age-1+ biomass (million mt)", side = 2, line = 1.7, cex = 0.9)
       }
 
@@ -637,7 +637,7 @@ plot_recruitment <- function(Rceattle,
         xaxt = c(rep("n", length(spp) - 1), "s")[j]
       )
 
-      if(j == 2){
+      if((j == 2 & length(species > 1)) | (j == 1 & length(species == 1)) ){
         mtext("Age-1 recruits (million)", side = 2, line = 1.7, cex = 0.9)
       }
 
@@ -1617,7 +1617,7 @@ plot_ssb <- function(Rceattle,
         xaxt = c(rep("n", length(spp) - 1), "s")[j]
       )
 
-      if(j == 2){
+      if((j == 2 & length(species > 1)) | (j == 1 & length(species == 1)) ){
         mtext("Spawning stock biomass (million mt)", side = 2, line = 1.7, cex = 0.9)
       }
 
@@ -2153,7 +2153,7 @@ plot_b_eaten_prop <-
           xaxt = c(rep("n", length(species) - 1), "s")[j]
         )
 
-        if(j == 2){
+        if((j == 2 & length(species > 1)) | (j == 1 & length(species == 1)) ){
           mtext("Biomass consumed (million t)", side = 2, line = 1.6, cex = 0.8)
         }
 
