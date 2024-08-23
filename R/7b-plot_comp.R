@@ -58,6 +58,13 @@ plot_comp <-
     # #############################################
     # for(comp_type in c(0,1)){
     #
+    # TMB:::install.contrib("https://github.com/vtrijoulet/OSA_multivariate_dists/archive/main.zip")
+    ## devtools::install_github("fishfollower/compResidual/compResidual")
+    # o <- round(Neff*obs/rowSums(obs),0); p=exp/rowSums(exp)
+    # ## default output
+    # res <-  compResidual::resMulti(t(o), t(p))
+
+    #
     #   srv <- unique(comp_data$Fleet_code[which(comp_data$Age0_Length1 == comp_type)])
     #   nsrv <- length(srv)
     #

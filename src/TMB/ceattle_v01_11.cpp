@@ -637,7 +637,7 @@ Type objective_function<Type>::operator() () {
   // -- 4.3. Selectivity parameters
   matrix<Type>  avgsel(n_flt, 2); avgsel.setZero();                                 // Average selectivity
   array<Type>   sel(n_flt, 2, max_age, nyrs); sel.setZero();                   // Estimated selectivity at age
-  array<Type>   sel_tmp(n_flt, 2, max_age); sel_tmp.setZero();                      // Temporary saved selectivity at age for estimated bits
+  array<Type>   non_par_sel(n_flt, 2, max_age); non_par_sel.setZero();                      // Temporary saved selectivity at age for estimated bits
   vector<Type>  sigma_sel(n_flt); sigma_sel.setZero();                              // Standard deviation of selectivity deviates
 
   // -- 4.4. Fishery components
@@ -919,7 +919,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 5.7.2 ESTIMATED SELECTIVITY
   avgsel.setZero();
-  sel_tmp.setZero();
+  non_par_sel.setZero();
   for (flt = 0; flt < n_flt; flt++) {
 
     // Temporay indices
@@ -948,7 +948,7 @@ Type objective_function<Type>::operator() () {
     case 2:  // 6.1.2. Non-parametric selectivity fit to age ranges (Ianelli 20??). NOTE: This can likely be improved
       for(sex = 0; sex < nsex(sp); sex++){
         for (age = 0; age < nselages; age++) {
-          sel_tmp(flt, sex, age) = sel_coff(flt, sex, age);
+          non_par_sel(flt, sex, age) = sel_coff(flt, sex, age);
           avgsel(flt, sex) +=  exp(sel_coff(flt, sex, age));
         }
         //  Average selectivity up to nselages
@@ -956,20 +956,20 @@ Type objective_function<Type>::operator() () {
 
         // Plus group selectivity
         for (age = nselages; age < nages(sp); age++) {
-          sel_tmp(flt, sex, age) = sel_tmp(flt, sex, nselages - 1);
+          non_par_sel(flt, sex, age) = non_par_sel(flt, sex, nselages - 1);
         }
 
         // Average selectivity across all ages
         avgsel_tmp = 0; // Temporary object for average selectivity across all ages
         for (age = 0; age < nages(sp); age++) {
-          avgsel_tmp += exp(sel_tmp(flt, sex, age));
+          avgsel_tmp += exp(non_par_sel(flt, sex, age));
         }
         avgsel_tmp = log(avgsel_tmp / nages(sp));
 
         // Standardize selectivity
         for (age = 0; age < nages(sp); age++) {
-          sel_tmp(flt, sex, age) -= avgsel_tmp;
-          sel_tmp(flt, sex, age) = exp(sel_tmp(flt, sex, age));
+          non_par_sel(flt, sex, age) -= avgsel_tmp;
+          non_par_sel(flt, sex, age) = exp(non_par_sel(flt, sex, age));
         }
       }
 
@@ -977,7 +977,7 @@ Type objective_function<Type>::operator() () {
       for (age = 0; age < nages(sp); age++){
         for(sex = 0; sex < nsex(sp); sex++){
           for (yr = 0; yr < nyrs_hind; yr++) {
-            sel(flt, sex, age, yr) = sel_tmp(flt, sex, age);
+            sel(flt, sex, age, yr) = non_par_sel(flt, sex, age);
           }
         }
       }
@@ -3627,13 +3627,14 @@ Type objective_function<Type>::operator() () {
     sp = flt_spp(flt);
 
     // Ianelli non-parametic selectivity penalties
+    // - using non-normalized selectivities following the arrowtooth ADMB model
     if(flt_type(flt) > 0){
       if (flt_sel_type(flt) == 2) {
 
         for(sex = 0; sex < nsex(sp); sex++){
           for(age = 0; age < (nages(sp) - 1); age++) {
-            if( sel(flt, sex, age, 0) > sel(flt, sex, age + 1, 0)) {
-              jnll_comp(4, flt) += sel_curve_pen(flt, 0) * pow( log(sel(flt, sex, age, 0) / sel(flt, sex, age + 1, 0) ), 2);
+            if( non_par_sel(flt, sex, age) > non_par_sel(flt, sex, age + 1)) {
+              jnll_comp(4, flt) += sel_curve_pen(flt, 0) * pow( log(non_par_sel(flt, sex, age) / non_par_sel(flt, sex, age + 1) ), 2);
             }
           }
         }
@@ -3643,7 +3644,7 @@ Type objective_function<Type>::operator() () {
           vector<Type> sel_tmp(nages(sp)); sel_tmp.setZero();
 
           for (age = 0; age < nages(sp); age++) {
-            sel_tmp(age) = log(sel(flt, sex, age, 0));
+            sel_tmp(age) = log(non_par_sel(flt, sex, age));
           }
 
           for (age = 0; age < nages(sp) - 2; age++) {
@@ -3654,7 +3655,7 @@ Type objective_function<Type>::operator() () {
 
         // Survey selectivity normalization (non-parametric)
         for(sex = 0; sex < nsex(sp); sex++){
-          jnll_comp(4, flt) += 50 * square(avgsel(flt, sex));
+          jnll_comp(4, flt) += 1.0 * square(avgsel(flt, sex));
         }
       }
     }
