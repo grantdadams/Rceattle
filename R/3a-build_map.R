@@ -268,7 +268,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
         # Turn on parameters for each sex
         for(sex in 1:nsex){
-          map_list$sel_coff[flt, sex, ] <- ind_coff + ages_on; ind_coff = ind_coff + max(ages_on)
+          map_list$sel_coff[flt, sex, ages_on] <- ind_coff + ages_on; ind_coff = ind_coff + max(ages_on)
 
           # --time-varying deviates
           if(data_list$fleet_control$Time_varying_sel[i] == 1){
