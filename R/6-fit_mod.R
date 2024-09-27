@@ -100,6 +100,7 @@ fit_mod <-
     recFun = build_srr(),
     M1Fun = build_M1(),
     msmMode = 0,
+    rec_mode = NULL, # set to -9 if running Grant's approach
     avgnMode = 0,
     initMode = 1,
     suitMode = 0,

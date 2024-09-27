@@ -183,6 +183,7 @@ test_that("Dynamics match multi-species CEATTLE classic", {
   plot_recruitment(list(ms_run_old_params, ms_run_old))
   plot_biomass(list(ms_run_old_params, ms_run_old))
   plot_ssb(list(ms_run_old_params, ms_run_old))
+  plot_index(list(ms_run_old_params, ms_run_old))
 
   # ms_run_old$quantities$M1[,1,]
   # CEATTLE_classic_MS$quantities$M1
