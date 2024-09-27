@@ -4,6 +4,7 @@
 #'
 #' @param Rceattle an Rceattle model fit using \code{\link{fit_mod}}
 #' @param peels the number of retrospective peels to use in the calculation of rho and for model estimation
+#' @param rescale rescale environmental predictors?
 #'
 #' @return a list of 1. list of Rceattle models and 2. vector of Mohn's rho for each species
 #'
@@ -21,7 +22,7 @@
 #'
 #' retro <- retrospective(ss_run, peels = 10)
 #' @export
-retrospective <- function(Rceattle = NULL, peels = NULL) {
+retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE) {
   if (class(Rceattle) != "Rceattle") {
     stop("Object is not of class 'Rceattle'")
   }
@@ -60,18 +61,40 @@ retrospective <- function(Rceattle = NULL, peels = NULL) {
     data_list$Pyrs <- data_list$Pyrs %>%
       dplyr::filter(Year <= data_list$endyr)
 
+    if(rescale){
+      data_list$env_data[,2:ncol(data_list$env_data)]<-scale(data_list$env_data[,2:ncol(data_list$env_data)])
+    }
+
 
     # * Adjust initial parameters ----
     inits <- Rceattle$estimated_params
+    map <- Rceattle$map
     inits$rec_dev[, (nyrs + 1):nyrs_proj] <- 0
-    inits$F_dev <- inits$F_dev[, 1:nyrs]
 
 
     # * Adjust parameter size ----
+    inits$F_dev <- inits$F_dev[, 1:nyrs]
     inits$ln_srv_q_dev <- inits$ln_srv_q_dev[,1:nyrs]
     inits$ln_sel_slp_dev <- inits$ln_sel_slp_dev[,,,1:nyrs]
     inits$sel_inf_dev <- inits$sel_inf_dev[,,,1:nyrs]
     # inits$sel_coff_dev <- array(inits$sel_coff_dev[,,,1:nyrs], dim = c(dim(Rceattle$estimated_params$sel_coff_dev )[1:3], nyrs))
+
+    # * Adjust map size ----
+    map$mapList$rec_dev[, (nyrs + 1):nyrs_proj] <- NA
+    map$mapFactor$rec_dev <- factor(map$mapList$rec_dev)
+
+    map$mapList$F_dev <- map$mapList$F_dev[, 1:nyrs]
+    map$mapFactor$F_dev <- factor(map$mapList$F_dev)
+
+    map$mapList$ln_srv_q_dev <- map$mapList$ln_srv_q_dev[,1:nyrs]
+    map$mapFactor$ln_srv_q_dev <- factor(map$mapList$ln_srv_q_dev)
+
+    map$mapList$ln_sel_slp_dev <- map$mapList$ln_sel_slp_dev[,,,1:nyrs]
+    map$mapFactor$ln_sel_slp_dev <- factor(map$mapList$ln_sel_slp_dev)
+
+    map$mapList$sel_inf_dev <- map$mapList$sel_inf_dev[,,,1:nyrs]
+    map$mapFactor$sel_inf_dev <- factor(map$mapList$sel_inf_dev)
+    # map$mapList$sel_coff_dev <- array(map$mapList$sel_coff_dev[,,,1:nyrs], dim = c(dim(Rceattle$estimated_params$sel_coff_dev )[1:3], nyrs))
 
 
     # * Refit ----
@@ -79,7 +102,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL) {
       Rceattle::fit_mod(
         data_list = data_list,
         inits = inits,
-        map =  NULL,
+        map =  map,
         bounds = NULL,
         file = NULL,
         estimateMode = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode), # Run hindcast and projection, otherwise debug
