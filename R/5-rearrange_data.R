@@ -218,7 +218,7 @@ rearrange_dat <- function(data_list){
   # - Fill in missing years with column mean
   data_list$env_index <- merge(data_list$env_data, data.frame(Year = data_list$styr:data_list$projyr), all = TRUE)
   data_list$env_index <-  data_list$env_index %>%
-    select(-Year) %>%
+    dplyr::select(-Year) %>%
     mutate_all(~ifelse(is.na(.x), mean(.x, na.rm = TRUE), .x)) %>%
     as.matrix()
 
