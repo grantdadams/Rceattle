@@ -487,8 +487,9 @@ Type objective_function<Type>::operator() () {
   DATA_ARRAY( age_trans_matrix);          // observed sp_age/size compositions; n = [nspp, nages, srv_age_bins]
   DATA_ARRAY( age_error );                // Array of aging error matrices for each species; n = [nspp, nages, nages]
 
-  // -- 2.3.5. Weight-at-age
-  DATA_ARRAY( wt );                       // Weight-at-age by year; n = [nweight, sex, nages, nyrs]: FIXME: Change nyrs to nyrs_wt_at_age if data don't span entire bit
+  // -- 2.3.5. Growth
+  DATA_ARRAY( wt );                       // Weight-at-age by year; n = [nweight, sex, nages, nyrs]
+  // DATA_ARRAY( laa );                      // Length-at-age by year; n = [nspp, sex, nages, nyrs]
 
   // 2.3.6. Diet data
   DATA_VECTOR( fday );                    // number of foraging days for each predator; n = [1, nspp]
@@ -517,10 +518,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 2.4.2. NOT USED von Bertalannfy growth function (VBGF): This is used to calculate future weight-at-age: NOT YET IMPLEMENTED
 
-  // -- 2.4.3. Weight-at-length parameters
-  // DATA_MATRIX( aLW );                     // LW a&b regression coefs for W=a*L^b; n = [2, nspp]
-
-  // -- 2.4.4. Others
+  // -- 2.4.3. Others
   DATA_MATRIX( sex_ratio );               // Proportion-at-age of females of population; n = [nspp, nages]
   DATA_MATRIX( pmature );                 // Proportion of mature females at age; [nspp, nages]
 
@@ -702,7 +700,6 @@ Type objective_function<Type>::operator() () {
   // -- 4.8. Ration components
   array<Type>   ConsumAge( nspp, 2, max_age, nyrs ); ConsumAge.setZero();           // Pre-allocated indiviudal consumption in grams per predator-age
   matrix<Type>  fT( nspp, nyrs ); fT.setZero();                                     // Pre-allocation of temperature function of consumption
-  // array<Type>   LbyAge( nspp, 2, max_age, nyrs ); LbyAge.setZero();                 // Length by age from LW regression
   // matrix<Type>  mnWt_obs( nspp, max_age ); mnWt_obs.setZero();                      // Mean observed weight at age (across years)
   array<Type>   ration( nspp, 2, max_age, nyrs ); ration.setZero();                 // Annual ration at age (kg/yr)
 
@@ -778,27 +775,6 @@ Type objective_function<Type>::operator() () {
       }
     }
   }
-
-
-
-  // 5.2. TIME-VARYING LENGTH-AT-AGE FROM WEIGHT-AT-AGE
-  /*
-   for (sp = 0; sp < nspp; sp++) {
-   for (age = 0; age < nages(sp); age++) {
-   for(sex = 0; sex < nsex(sp); sex ++){
-   for (yr = 0; yr < nyrs; yr++) {
-   // Hindcast
-   if(yr < nyrs_hind){
-   LbyAge( sp, sex, age, yr) = ( pow( ( 1 / aLW(sp, 0) ), (1 / aLW(sp, 1) ) ) )  * pow( ( wt(pop_wt_index(sp), sex, age, yr) * 1000.0), (1 / aLW(sp, 1))); // W = a L ^ b is the same as (W/a)^(1/b)
-   }
-   if(yr >= nyrs_hind){
-   LbyAge( sp, sex, age, yr) = ( pow( ( 1 / aLW(sp, 0) ), (1 / aLW(sp, 1) ) ) )  * pow( ( wt( pop_wt_index(sp), sex, age, (nyrs_hind - 1) ) * 1000.0), (1 / aLW(sp, 1))); // W = a L ^ b is the same as (W/a)^(1/b)
-   }
-   }
-   }
-   }
-   }
-   */
 
 
   // 5.4. DATA VARIANCE TERMS
@@ -2503,7 +2479,7 @@ Type objective_function<Type>::operator() () {
 
        switch(suitMode){
     case 1: // Length-based GAMMA suitability
-       log_size_ratio = log(LbyAge( rsp, r_sex, r_age, yr) / LbyAge( ksp, k_sex, k_age, yr) ); // Log ratio of lengths
+       log_size_ratio = log(laa( rsp, r_sex, r_age, yr_ind) / laa( ksp, k_sex, k_age, yr_ind) ); // Log ratio of lengths
        break;
     case 2: // Weight-based GAMMA suitability
        log_size_ratio = log(wt(pop_wt_index(rsp), r_sex, r_age, yr_ind) / wt(pop_wt_index(ksp), k_sex, k_age, yr_ind)); // Log ratio of weights
@@ -2547,7 +2523,7 @@ Type objective_function<Type>::operator() () {
 
        switch(suitMode){
     case 3: // Length-based lognormal suitability
-       log_size_ratio = log(LbyAge( rsp, r_sex, r_age, yr) / LbyAge( ksp, k_sex, k_age, yr) ); // Log ratio of lengths
+       log_size_ratio = log(laa( rsp, r_sex, r_age, yr_ind) / laa( ksp, k_sex, k_age, yr_ind) ); // Log ratio of lengths
        break;
     case 4: // Weight-based lognormal suitability
        log_size_ratio = log(wt(pop_wt_index(rsp), r_sex, r_age, yr_ind) / wt(pop_wt_index(ksp), k_sex, k_age, yr_ind)); // Log ratio of weights
@@ -4149,7 +4125,6 @@ Type objective_function<Type>::operator() () {
 
   // -- 12.8. Ration components
    REPORT( ConsumAge );
-   // REPORT( LbyAge );
    // REPORT( mnWt_obs );
    REPORT( fT );
    REPORT( ration );

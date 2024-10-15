@@ -425,7 +425,7 @@ Type objective_function<Type>::operator() () {
     //    0 = empirical weight at age: set wt_est to wt_est; for proj wt_est = last wt_est from the data
     //    1 = vonBEE weight at age;  Holsman et al. approach use VonBEE to set weight at age for future only
     //    2 = est weight at age;  Holsman et al. approach to est vonBEE parms internally and use for future
-  DATA_INTEGER(proj_mean_rec);
+    DATA_INTEGER(proj_mean_rec);
   //    0 = project recruitment using ln_R0 and rec devs
   //    1 = project recruitment using mean rec (can also have adjusted rec devs)
   //DATA_INTEGER(srr_est_mode);             // Logical of whether to add normal prior to stock recruit-relationship
@@ -499,7 +499,7 @@ Type objective_function<Type>::operator() () {
   DATA_MATRIX(fsh_biom_obs); DATA_UPDATE(fsh_biom_obs) // Observed fishery catch biomass (kg) and log_sd; n = [nobs_fish_biom, 2]; columns = Observation, Error
 
     // -- 2.3.2 Survey components
-  DATA_IMATRIX( srv_biom_ctl );           // Info for survey biomass; columns = Survey_name, Survey_code, Species, Year
+    DATA_IMATRIX( srv_biom_ctl );           // Info for survey biomass; columns = Survey_name, Survey_code, Species, Year
   DATA_MATRIX( srv_biom_n );              // Info for survey biomass; columns = Month
   DATA_MATRIX( srv_biom_obs );            // Observed survey biomass (kg) and log_sd; n = [nobs_srv_biom, 2]; columns = Observation, Error
   DATA_VECTOR( ln_srv_q_prior );          // Prior mean for survey catchability; n = [nflt]
@@ -529,8 +529,8 @@ Type objective_function<Type>::operator() () {
   DATA_VECTOR( env_yrs );                // Years of hindcast data; n = [1, nTyrs] #FIXME - changed the name of this in retro_data2017_asssmnt.dat
   int nTyrs = env_yrs.size();             // Number of temperature years; n = [1] #FIXME - changed the name of this in retro_data2017_asssmnt.dat
 
-    // Delete these (Holsman)
-   // DATA_MATRIX( env_index_srr );           // FIX - read in matrix Matrix o environmental predictors for recruitment
+  // Delete these (Holsman)
+  // DATA_MATRIX( env_index_srr );           // FIX - read in matrix Matrix o environmental predictors for recruitment
 
   // 2.4. INPUT PARAMETERS
   // -- 2.4.1. Bioenergetics parameters (BP)
@@ -953,104 +953,106 @@ Type objective_function<Type>::operator() () {
   env_index_hat = env_index;
 
   // 5.7 Holsman calculate weight at age (from ADMB code)
-    if( Wage_mode(sp)!=0 ){
-      if( Wage_mode(sp)!=1 ){
-        if( Wage_mode(sp)!=2 ){
-          error("Wage_mode must be 0 , 1, or 2, check data input!");
+  if( Wage_mode(sp)!=0 ){
+    if( Wage_mode(sp)!=1 ){
+      if( Wage_mode(sp)!=2 ){
+        error("Wage_mode must be 0 , 1, or 2, check data input!");
+      }
+    }
+  }
+  for (sp = 0; sp < nspp; sp++) {
+    // switch ( Wage_mode(sp) ) {
+    if(Wage_mode(sp)==0){
+      //case 0: // set wt_est to wt; for proj wt_est = last wt from the data
+      for (age = 0; age < nages(sp); age++) {
+        for(sex = 0; sex < nsex(sp); sex ++){
+          for (yr = 0; yr < nyrs; yr++) {
+            // Hindcast
+            //wt_est(nspp, 2, max_age, nyrs)
+            if(yr < nyrs_hind){
+              wt_est(sp,sex,age,yr ) = wt(pop_wt_index(sp), sex, age, yr) ;
+            }
+            // projection
+            if(yr >= nyrs_hind)
+              wt_est(sp,sex,age,yr )=  wt( pop_wt_index(sp), sex, age, nyrs_hind - 1 );
+          }
         }
       }
     }
-    for (sp = 0; sp < nspp; sp++) {
-      // switch ( Wage_mode(sp) ) {
-      if(Wage_mode(sp)==0){
-        //case 0: // set wt_est to wt; for proj wt_est = last wt from the data
-        for (age = 0; age < nages(sp); age++) {
-          for(sex = 0; sex < nsex(sp); sex ++){
-            for (yr = 0; yr < nyrs; yr++) {
-              // Hindcast
-              //wt_est(nspp, 2, max_age, nyrs)
-              if(yr < nyrs_hind){
-                wt_est(sp,sex,age,yr ) = wt(pop_wt_index(sp), sex, age, yr) ;
-              }
-              // projection
-              if(yr >= nyrs_hind)
-                wt_est(sp,sex,age,yr )=  wt( pop_wt_index(sp), sex, age, nyrs_hind - 1 );
+    //  break;
+    //    case 1:
+    if( Wage_mode(sp) == 1 ){
+      // 2024 added by Kir
+      // Holsman et al. approach use VonBEE to set weight at age for future only
+      matrix<Type> d(mf_type(sp),nyrs);    d.setZero();        // temporary par d for vonB
+      matrix<Type> Winf(mf_type(sp),nyrs); Winf.setZero();     // temporary par Winf for vonB
+      matrix<Type> Xcov(mf_type(sp),nyrs); Xcov.setZero();     // covariate factors
+      matrix<Type> logwt_fut( mf_type(sp), nages(sp) );logwt_fut.setZero();     // temporary par logwt_fut for vonB
+
+      for (yr = 0; yr < nyrs; yr++) {
+        for(sex = 0; sex < nsex(sp); sex ++){
+          for (age = 0; age < nages(sp); age++) {
+            // Hindcast
+            if(yr < nyrs_hind){
+              wt_est(sp,sex,age,yr ) = wt(pop_wt_index(sp), sex, age, yr) ;
             }
-          }
-        }
-      }
-      //  break;
-      //    case 1:
-      if( Wage_mode(sp) == 1 ){
-        // 2024 added by Kir
-        // Holsman et al. approach use VonBEE to set weight at age for future only
-        matrix<Type> d(mf_type(sp),nyrs);    d.setZero();        // temporary par d for vonB
-        matrix<Type> Winf(mf_type(sp),nyrs); Winf.setZero();     // temporary par Winf for vonB
-        matrix<Type> Xcov(mf_type(sp),nyrs); Xcov.setZero();     // covariate factors
-        for (yr = 0; yr < nyrs; yr++) {
-          matrix<Type> logwt_fut( mf_type(sp), nages(sp) );logwt_fut.setZero();     // temporary par logwt_fut for vonB
-          for(sex = 0; sex < nsex(sp); sex ++){
-            for (age = 0; age < nages(sp); age++) {
-              // Hindcast
-              if(yr < nyrs_hind){
-                wt_est(sp,sex,age,yr ) = wt(pop_wt_index(sp), sex, age, yr) ;
+
+            // projection
+            if(yr >= nyrs_hind){
+              for(mf = 0; mf < mf_type(sp) ; mf++){
+                for( cov = 0; cov < vonb_ncov; cov++){
+                  // if the covariate should be added to d parm...
+                  if( vonb_ncov_eval(sp,mf,cov) == 1){
+                    Xcov(mf,yr) += vonb_cov(sp,mf,cov)* env_index_hat(yr,vonBEE_env_index(sp, mf,cov));
+                  }
+                }
+                d(mf,yr)          = exp(log_mean_d(sp,mf) + Xcov(mf,yr)) ; // Holsman et al. 2016;2024 CE-growth approach
+                Winf(mf,yr)       = pow( ( exp(logH(sp,mf)) / exp(logK(sp,mf)) ), Type(1)/ ( Type(1) - d(mf,yr)) );
+                logwt_fut(mf,age) = (  log(Winf(mf,yr)) + ( Type(1) / ( Type(1) - d(mf,yr)) )*log( Type(1) - exp(-(exp(logK(sp,mf))) * (Type(1) - d(mf,yr)) * (Type(age) - t0(sp,mf)))) );
+              }  // end mf_type
+
+              // If only 1 sex, take first value
+              if( mf_type(sp) == 1 ){
+                // weight at age has 1 sex for the parms (as in EBS assessment)
+                if( nsex(sp) == 1)
+                  wt_est(sp,sex,age,yr ) =  exp(logwt_fut( mf_type(sp) - 1 , age )) / Type(1000);
+                if( nsex(sp) == 2 )
+                  error("Problem - check inputs\n weight at age mf_type(sp) = 1 but nsex(sp) == 2");
+                // there are 2 sexes in the model and only 1 weight at age sex
               }
-
-              // projection
-              if(yr >= nyrs_hind){
-                for(mf = 0; mf < mf_type(sp) ; mf++){
-                  for( cov = 0; cov < vonb_ncov; cov++){
-                    // if the covariate should be added to d parm...
-                    if( vonb_ncov_eval(sp,mf,cov) == 1)
-                      Xcov(mf,yr) += vonb_cov(sp,mf,cov)* env_index_hat(yr,vonBEE_env_index(sp, mf,cov));
-                  }
-                  d(mf,yr)          = exp(log_mean_d(sp,mf) + Xcov(mf,yr)) ; // Holsman et al. 2016;2024 CE-growth approach
-                  Winf(mf,yr)       = pow( ( exp(logH(sp,mf)) / exp(logK(sp,mf)) ), Type(1)/ ( Type(1) - d(mf,yr)) );
-                  logwt_fut(mf,age) = (  log(Winf(mf,yr)) + ( Type(1) / ( Type(1) - d(mf,yr)) )*log( Type(1) - exp(-(exp(logK(sp,mf))) * (Type(1) - d(mf,yr)) * (Type(age) - t0(sp,mf)))) );
-                }  // end mf_type
-
-                // If only 1 sex, take first value
-                if( mf_type(sp) == 1 ){
-                  // weight at age has 1 sex for the parms (as in EBS assessment)
-                  if( nsex(sp) == 1)
-                    wt_est(sp,sex,age,yr ) =  exp(logwt_fut( mf_type(sp) - 1 , age )) / Type(1000);
-                  if( nsex(sp) == 2 )
-                    error("Problem - check inputs\n weight at age mf_type(sp) = 1 but nsex(sp) == 2");
-                  // there are 2 sexes in the model and only 1 weight at age sex
+              if( mf_type(sp) == 2 ){
+                // weight at age has two sexes for the parms (as in EBS assessment)
+                if(nsex(sp) == 1){
+                  // there is only one sex in the model but two weight at age sexes
+                  // so use propFemale to get averaged weight at age (as in Holsman et al. 2016)
+                  wt_est(sp,sex,age,yr ) =   (( (exp(logwt_fut(0,age))*sex_ratio(sp,age)) +
+                    (exp(logwt_fut(1,age))*(1-sex_ratio(sp,age))) ) / ( sex_ratio(sp,age)+( 1-sex_ratio(sp,age) ) ))/Type(1000);
                 }
-                if( mf_type(sp) == 2 ){
-                  // weight at age has two sexes for the parms (as in EBS assessment)
-                  if(nsex(sp) == 1){
-                    // there is only one sex in the model but two weight at age sexes
-                    // so use propFemale to get averaged weight at age (as in Holsman et al. 2016)
-                    wt_est(sp,sex,age,yr ) =   (( (exp(logwt_fut(1,age))*sex_ratio(sp,age)) +
-                      (exp(logwt_fut(2,age))*(1-sex_ratio(sp,age))) ) / ( sex_ratio(sp,age)+( 1-sex_ratio(sp,age) ) ))/Type(1000);
-                  }
-                  if(nsex(sp) == 2)
-                    // there are 2 sexes in the model and 2 weight at age sexes
-                    wt_est(sp,sex,age,yr ) =  exp(logwt_fut( sex , age )) / Type(1000);
+                if(nsex(sp) == 2)
+                  // there are 2 sexes in the model and 2 weight at age sexes
+                  wt_est(sp,sex,age,yr ) =  exp(logwt_fut( sex , age )) / Type(1000);
 
-                }
-              }  // end if proj
-            } // end age
-          }
+              }
+            }  // end if proj
+          } // end age
         }
       }
-      // break;
-      if( Wage_mode(sp) == 2){
-        //case 2:
-        // Holsman et al. approach use VonBEE to set weight at age ;  fit statistically TBD
-      }
-      //break;
-      //} // end switch
-    } // end species loop
+    }
+    // break;
+    if( Wage_mode(sp) == 2){
+      //case 2:
+      // Holsman et al. approach use VonBEE to set weight at age ;  fit statistically TBD
+    }
+    //break;
+    //} // end switch
+  } // end species loop
 
 
 
   // 5.8. CATCHABILITY
   for(flt = 0; flt < n_flt; flt++){
     for(yr = 0; yr < nyrs_hind; yr++){
-        srv_q(flt, yr) = exp(ln_srv_q(flt) + ln_srv_q_dev(flt, yr));                 // Exponentiate
+      srv_q(flt, yr) = exp(ln_srv_q(flt) + ln_srv_q_dev(flt, yr));                 // Exponentiate
 
       // Q as a function of environmental index
       if(est_srv_q(flt) == 5){
@@ -1486,98 +1488,98 @@ Type objective_function<Type>::operator() () {
 
     }
     if(rec_mode ==-9){
-    // Grant's model'
-    for ( sp = 0; sp < nspp ; sp++) {
-      switch(srr_fun){
-      case 0: // Random about mean (e.g. Alaska)
-        Steepness(sp) = 0.99;
-        Rinit(sp) = R0(sp) = exp(rec_pars(sp, 0));
-        break;
+      // Grant's model'
+      for ( sp = 0; sp < nspp ; sp++) {
+        switch(srr_fun){
+        case 0: // Random about mean (e.g. Alaska)
+          Steepness(sp) = 0.99;
+          Rinit(sp) = R0(sp) = exp(rec_pars(sp, 0));
+          break;
 
-      case 1: // Random about mean with environmental linkage
-        Steepness(sp) = 0.99;
-        beta_rec_tmp = beta_rec_pars.row(sp);
-        //env_rec_tmp = env_index_srr.row(0);
-        // Holsman modification for more than one variable
-        srr_mult = 0;
-        for( cov = 0; cov < rec_ncov; cov++){
-          if( rec_ncov_eval(sp,cov) == 1)
-            srr_mult += rec_cov(sp,cov)* env_index_hat(yr,rec_env_index(sp,cov));
+        case 1: // Random about mean with environmental linkage
+          Steepness(sp) = 0.99;
+          beta_rec_tmp = beta_rec_pars.row(sp);
+          //env_rec_tmp = env_index_srr.row(0);
+          // Holsman modification for more than one variable
+          srr_mult = 0;
+          for( cov = 0; cov < rec_ncov; cov++){
+            if( rec_ncov_eval(sp,cov) == 1)
+              srr_mult += rec_cov(sp,cov)* env_index_hat(yr,rec_env_index(sp,cov));
+          }
+          //srr_mult += env_rec_tmp * beta_rec_tmp;
+          Rinit(sp) = R0(sp) = exp(rec_pars(sp, 0) + srr_mult.sum());
+          break;
+
+        case 2: // Beverton-Holt
+          Steepness(sp) = exp(rec_pars(sp, 1)) * SPR0(sp)/(4.0 + exp(rec_pars(sp, 1)) * SPR0(sp));
+          R0(sp) = (exp(rec_pars(sp, 1))-1.0/SPR0(sp)) / exp(rec_pars(sp, 2)); // (Alpha-1/SPR0)/beta
+          Rinit(sp) = (exp(rec_pars(sp, 1))-1/SPRFinit(sp)) / exp(rec_pars(sp, 2)); // (Alpha-1/SPR0)/beta
+          break;
+
+        case 3: // Beverton-Holt with environmental impacts on alpha
+          //FIXME make time-varying
+          beta_rec_tmp = beta_rec_pars.row(sp);
+          // env_rec_tmp = env_index_srr.row(0);
+          // srr_mult = env_rec_tmp * beta_rec_tmp;
+          // Holsman modification for more than one variable
+          srr_mult = 0;
+          for( cov = 0; cov < rec_ncov; cov++){
+            if( rec_ncov_eval(sp,cov) == 1)
+              srr_mult += rec_cov(sp,cov)* env_index_hat(yr,rec_env_index(sp,cov));
+          }
+          //srr_mult += env_rec_tmp * beta_rec_tmp;
+          SrrAlpha = exp(rec_pars(sp, 1) + srr_mult.sum());
+          Steepness(sp) = SrrAlpha * SPR0(sp)/(4.0 + SrrAlpha * SPR0(sp));
+          R0(sp) = (SrrAlpha-1.0/SPR0(sp)) / exp(rec_pars(sp, 2)); // (Alpha-1/SPR0)/beta
+          Rinit(sp) = (SrrAlpha-1.0/SPRFinit(sp)) / exp(rec_pars(sp, 2)); // (Alpha-1/SPR0)/beta
+          break;
+
+        case 4: // Ricker
+          Steepness(sp) = 0.2 * exp(0.8*log(exp(rec_pars(sp, 1)) * SPR0(sp))); //
+
+          // - R at F0
+          ricker_intercept = exp(rec_pars(sp, 1)) * SPR0(sp) - 1.0;
+          ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + 1.0;
+
+          R0(sp) = log(ricker_intercept)/(exp(rec_pars(sp, 2)) * SPR0(sp)/1000000.0); // FIXME - make time-varying
+
+          // R at equilibrium F
+          ricker_intercept = exp(rec_pars(sp, 1)) * SPRFinit(sp) - 1.0;
+          ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + 1.0;
+
+          Rinit(sp) = log(ricker_intercept)/(exp(rec_pars(sp, 2)) * SPRFinit(sp)/1000000.0); // FIXME - make time-varying
+
+          zero_pop_pen(sp) += penalty;
+          break;
+
+        case 5: // Ricker with environmental impacts on alpha
+          beta_rec_tmp = beta_rec_pars.row(sp);
+          // env_rec_tmp = env_index_srr.row(0);
+          // srr_mult = env_rec_tmp * beta_rec_tmp;
+          // Holsman modification for more than one variable
+          srr_mult = 0;
+          for( cov = 0; cov < rec_ncov; cov++){
+            if( rec_ncov_eval(sp,cov) == 1)
+              srr_mult += rec_cov(sp,cov)* env_index_hat(yr,rec_env_index(sp,cov));
+          }
+          //srr_mult += env_rec_tmp * beta_rec_tmp;
+          SrrAlpha = exp(rec_pars(sp, 1) + srr_mult.sum());
+          Steepness(sp) = 0.2 * exp(0.8*log(SrrAlpha * SPR0(sp))); //
+
+          ricker_intercept = SrrAlpha * SPR0(sp) - 1.0;
+          ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + 1.0;
+          R0(sp) = log(ricker_intercept)/(exp(rec_pars(sp, 2)) * SPR0(sp)/1000000.0); // FIXME - make time-varying
+
+          ricker_intercept = SrrAlpha * SPRFinit(sp) - 1.0;
+          ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + 1.0;
+          Rinit(sp) = log(ricker_intercept)/(exp(rec_pars(sp, 2)) * SPRFinit(sp)/1000000.0); // FIXME - make time-varying
+          zero_pop_pen(sp) += penalty;
+          break;
+
+        default:
+          error("Invalid 'srr_fun'");
         }
-        //srr_mult += env_rec_tmp * beta_rec_tmp;
-        Rinit(sp) = R0(sp) = exp(rec_pars(sp, 0) + srr_mult.sum());
-        break;
-
-      case 2: // Beverton-Holt
-        Steepness(sp) = exp(rec_pars(sp, 1)) * SPR0(sp)/(4.0 + exp(rec_pars(sp, 1)) * SPR0(sp));
-        R0(sp) = (exp(rec_pars(sp, 1))-1.0/SPR0(sp)) / exp(rec_pars(sp, 2)); // (Alpha-1/SPR0)/beta
-        Rinit(sp) = (exp(rec_pars(sp, 1))-1/SPRFinit(sp)) / exp(rec_pars(sp, 2)); // (Alpha-1/SPR0)/beta
-        break;
-
-      case 3: // Beverton-Holt with environmental impacts on alpha
-        //FIXME make time-varying
-        beta_rec_tmp = beta_rec_pars.row(sp);
-        // env_rec_tmp = env_index_srr.row(0);
-        // srr_mult = env_rec_tmp * beta_rec_tmp;
-        // Holsman modification for more than one variable
-        srr_mult = 0;
-        for( cov = 0; cov < rec_ncov; cov++){
-          if( rec_ncov_eval(sp,cov) == 1)
-            srr_mult += rec_cov(sp,cov)* env_index_hat(yr,rec_env_index(sp,cov));
-        }
-        //srr_mult += env_rec_tmp * beta_rec_tmp;
-        SrrAlpha = exp(rec_pars(sp, 1) + srr_mult.sum());
-        Steepness(sp) = SrrAlpha * SPR0(sp)/(4.0 + SrrAlpha * SPR0(sp));
-        R0(sp) = (SrrAlpha-1.0/SPR0(sp)) / exp(rec_pars(sp, 2)); // (Alpha-1/SPR0)/beta
-        Rinit(sp) = (SrrAlpha-1.0/SPRFinit(sp)) / exp(rec_pars(sp, 2)); // (Alpha-1/SPR0)/beta
-        break;
-
-      case 4: // Ricker
-        Steepness(sp) = 0.2 * exp(0.8*log(exp(rec_pars(sp, 1)) * SPR0(sp))); //
-
-        // - R at F0
-        ricker_intercept = exp(rec_pars(sp, 1)) * SPR0(sp) - 1.0;
-        ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + 1.0;
-
-        R0(sp) = log(ricker_intercept)/(exp(rec_pars(sp, 2)) * SPR0(sp)/1000000.0); // FIXME - make time-varying
-
-        // R at equilibrium F
-        ricker_intercept = exp(rec_pars(sp, 1)) * SPRFinit(sp) - 1.0;
-        ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + 1.0;
-
-        Rinit(sp) = log(ricker_intercept)/(exp(rec_pars(sp, 2)) * SPRFinit(sp)/1000000.0); // FIXME - make time-varying
-
-        zero_pop_pen(sp) += penalty;
-        break;
-
-      case 5: // Ricker with environmental impacts on alpha
-        beta_rec_tmp = beta_rec_pars.row(sp);
-        // env_rec_tmp = env_index_srr.row(0);
-        // srr_mult = env_rec_tmp * beta_rec_tmp;
-        // Holsman modification for more than one variable
-        srr_mult = 0;
-        for( cov = 0; cov < rec_ncov; cov++){
-          if( rec_ncov_eval(sp,cov) == 1)
-            srr_mult += rec_cov(sp,cov)* env_index_hat(yr,rec_env_index(sp,cov));
-        }
-        //srr_mult += env_rec_tmp * beta_rec_tmp;
-        SrrAlpha = exp(rec_pars(sp, 1) + srr_mult.sum());
-        Steepness(sp) = 0.2 * exp(0.8*log(SrrAlpha * SPR0(sp))); //
-
-        ricker_intercept = SrrAlpha * SPR0(sp) - 1.0;
-        ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + 1.0;
-        R0(sp) = log(ricker_intercept)/(exp(rec_pars(sp, 2)) * SPR0(sp)/1000000.0); // FIXME - make time-varying
-
-        ricker_intercept = SrrAlpha * SPRFinit(sp) - 1.0;
-        ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + 1.0;
-        Rinit(sp) = log(ricker_intercept)/(exp(rec_pars(sp, 2)) * SPRFinit(sp)/1000000.0); // FIXME - make time-varying
-        zero_pop_pen(sp) += penalty;
-        break;
-
-      default:
-        error("Invalid 'srr_fun'");
       }
-    }
     }
 
     // 6.5. INITIAL ABUNDANCE AT AGE, BIOMASS, AND SSB (YEAR 1)
@@ -2536,35 +2538,35 @@ Type objective_function<Type>::operator() () {
     for (sp = 0; sp < nspp; sp++) {
       for (yr = 0; yr < nyrs; yr++) {
 
-         switch(Ceq(sp)){
-      case 1:// Exponential function from Stewart et al. 1983
-         fT(sp, yr) = exp(Qc(sp) * env_index(yr, Cindex(sp)));
-         break;
+        switch(Ceq(sp)){
+        case 1:// Exponential function from Stewart et al. 1983
+          fT(sp, yr) = exp(Qc(sp) * env_index(yr, Cindex(sp)));
+          break;
 
-      case 2:// Temperature dependence for warm-water-species from Kitchell et al. 1977
+        case 2:// Temperature dependence for warm-water-species from Kitchell et al. 1977
 
-        Yc = log( Qc(sp) ) * (Tcm(sp) - Tco(sp) + 2.0);
-        Zc = log( Qc(sp) ) * (Tcm(sp) - Tco(sp));
-        Vc = (Tcm(sp) - env_index(yr, Cindex(sp))) / (Tcm(sp) - Tco(sp));
-        Xc = pow(Zc, 2) * pow((1.0 + pow((1.0 + 40.0 / Yc), 0.5)), 2) / 400.0;
-        fT(sp, yr) = pow(Vc, Xc) * exp(Xc * (1.0 - Vc));
+          Yc = log( Qc(sp) ) * (Tcm(sp) - Tco(sp) + 2.0);
+          Zc = log( Qc(sp) ) * (Tcm(sp) - Tco(sp));
+          Vc = (Tcm(sp) - env_index(yr, Cindex(sp))) / (Tcm(sp) - Tco(sp));
+          Xc = pow(Zc, 2) * pow((1.0 + pow((1.0 + 40.0 / Yc), 0.5)), 2) / 400.0;
+          fT(sp, yr) = pow(Vc, Xc) * exp(Xc * (1.0 - Vc));
 
-         break;
+          break;
 
-      case 3:// Temperature dependence for cool and cold-water species from Thornton and Lessem 1979
-         G2 = (1.0 / (Tcl(sp) - Tcm(sp))) * log((0.98 * (1.0 - CK4(sp))) / (CK4(sp) * 0.02));
-         L2 = exp(G2 * (Tcl( sp ) -  env_index(yr, Cindex(sp))));
-         Kb = (CK4(sp) * L2) / (1.0 + CK4(sp) * (L2 - 1.0));
-         G1 = (1.0 / (Tco(sp) - Qc(sp))) * log((0.98 * (1.0 - CK1(sp))) / (CK1(sp) * 0.02));
-         L1 = exp(G1 * (env_index(yr, Cindex(sp)) - Qc(sp)));
-         Ka = (CK1(sp) * L1) / (1.0 + CK1(sp) * (L1 - 1.0));
-         fT(sp, yr) = Ka * Kb;
-         break;
+        case 3:// Temperature dependence for cool and cold-water species from Thornton and Lessem 1979
+          G2 = (1.0 / (Tcl(sp) - Tcm(sp))) * log((0.98 * (1.0 - CK4(sp))) / (CK4(sp) * 0.02));
+          L2 = exp(G2 * (Tcl( sp ) -  env_index(yr, Cindex(sp))));
+          Kb = (CK4(sp) * L2) / (1.0 + CK4(sp) * (L2 - 1.0));
+          G1 = (1.0 / (Tco(sp) - Qc(sp))) * log((0.98 * (1.0 - CK1(sp))) / (CK1(sp) * 0.02));
+          L1 = exp(G1 * (env_index(yr, Cindex(sp)) - Qc(sp)));
+          Ka = (CK1(sp) * L1) / (1.0 + CK1(sp) * (L1 - 1.0));
+          fT(sp, yr) = Ka * Kb;
+          break;
 
-      // case 4:
-      //    fT(sp, yr) = 1.0;
-      //    break;
-         }
+          // case 4:
+          //    fT(sp, yr) = 1.0;
+          //    break;
+        }
 
       }
     }
@@ -2589,14 +2591,14 @@ Type objective_function<Type>::operator() () {
 
             // Hindcast
             //if(yr < nyrs_hind){
-              // effective consumption based on annual relative foraging rate
-              ConsumAge(sp, sex, age, yr) = C_MaxAge(sp, sex, age, yr) * Pvalue(sp) * Pyrs(sp, sex, age, yr); // C= Cmax *P actual/effective Consumption rate
+            // effective consumption based on annual relative foraging rate
+            ConsumAge(sp, sex, age, yr) = C_MaxAge(sp, sex, age, yr) * Pvalue(sp) * Pyrs(sp, sex, age, yr); // C= Cmax *P actual/effective Consumption rate
             //}
 
             // Projection
             //if(yr >= nyrs_hind){
-              // effective consumption based on last hindcast year RFR
-             // ConsumAge(sp, sex, age, yr) = C_MaxAge(sp, sex, age, yr) * Pvalue(sp) * Pyrs(sp, sex, age, (nyrs_hind-1));
+            // effective consumption based on last hindcast year RFR
+            // ConsumAge(sp, sex, age, yr) = C_MaxAge(sp, sex, age, yr) * Pvalue(sp) * Pyrs(sp, sex, age, (nyrs_hind-1));
             //}
 
             ration(sp, sex, age, yr) = ConsumAge(sp, sex, age, yr) / Type(1000.0);      // Annual ration kg/yr
@@ -2922,13 +2924,13 @@ Type objective_function<Type>::operator() () {
                     for (k_age = 0; k_age < nages(ksp); k_age++) {    // Prey age loop
                       //prev Rceattle version: avail_food(rsp, r_sex, r_age, yr) += suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) * pow(AvgN(ksp, k_sex, k_age, yr), msmMode) * wt_est(pop_wt_index(ksp), k_sex, k_age, yr_ind) ; // FIXME - include overlap indices: FIXME - mn_wt_stom?NO
                       // original ADMB code:
-                        // for (int prey=1;prey<=nspp;prey++)
-                        // {
-                        //   for (int prey_age =1;prey_age<=nages(prey);prey_age++)
-                        //     avail_food(pred,i,pred_age) += suit_main(pred,pred_age,prey,prey_age)*overlap(i,pred,prey) *AvgN(prey,i,prey_age) *wt(prey,i,prey_age);
-                        //   tmp_othersuit+=sum(suit_main(pred,pred_age,prey)*overlap(i,pred,prey));
-                        // }
-                        // avail_food(pred,i,pred_age) += other_food(pred)*(1.-(tmp_othersuit));
+                      // for (int prey=1;prey<=nspp;prey++)
+                      // {
+                      //   for (int prey_age =1;prey_age<=nages(prey);prey_age++)
+                      //     avail_food(pred,i,pred_age) += suit_main(pred,pred_age,prey,prey_age)*overlap(i,pred,prey) *AvgN(prey,i,prey_age) *wt(prey,i,prey_age);
+                      //   tmp_othersuit+=sum(suit_main(pred,pred_age,prey)*overlap(i,pred,prey));
+                      // }
+                      // avail_food(pred,i,pred_age) += other_food(pred)*(1.-(tmp_othersuit));
                       // Holsman: Fixed to include PredPrey overlap and dynamic (future) wt_est at age
                       avail_food(rsp, r_sex, r_age, yr) += suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) * overlap(rsp,ksp,yr)*AvgN(ksp, k_sex, k_age, yr)* wt_est(pop_wt_index(ksp), k_sex, k_age, yr) ; // KKHFIXed - include overlap indices
                       tmp_othersuit += suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) * overlap(rsp,ksp,yr);
@@ -2938,7 +2940,7 @@ Type objective_function<Type>::operator() () {
                 }
                 // Other food
                 avail_food(rsp, r_sex, r_age, yr) += other_food(rsp)*(1.-(tmp_othersuit));
-               // prev version: avail_food(rsp, r_sex, r_age, yr) += other_food(rsp) * (1.0 - suit_other(rsp, r_sex, r_age, yr));
+                // prev version: avail_food(rsp, r_sex, r_age, yr) += other_food(rsp) * (1.0 - suit_other(rsp, r_sex, r_age, yr));
               }
             }
           }
@@ -4490,12 +4492,12 @@ Type objective_function<Type>::operator() () {
   // -- 12.8. Ration components
   REPORT( C_MaxAge );
   REPORT( ConsumAge );
-   // REPORT( LbyAge );
-   // REPORT( mnWt_obs );
-   REPORT( fT );
-   REPORT( ration );
+  // REPORT( LbyAge );
+  // REPORT( mnWt_obs );
+  REPORT( fT );
+  REPORT( ration );
 
-   /*
+  /*
    // 12.9. Suitability components
    REPORT( suma_suit );
    REPORT( suit_main );
