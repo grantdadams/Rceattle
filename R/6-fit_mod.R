@@ -310,6 +310,7 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # STEP 5: Setup random effects ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # FIXME: this should be controled by fleet_control
     random_vars <- c()
     if (random_rec) {
       if(initMode > 0){
@@ -428,6 +429,7 @@ fit_mod <-
             ln_srv_q_dev = 5, # Annual survey catchability deviates (if time-varying)
             ln_sigma_srv_q = 4, # Prior SD for survey catchability deviates
             srv_q_beta = 4, # Regression coefficients for environmental linkage
+            srv_q_rho = 4, # AR1 correlation parameter
             ln_sigma_time_varying_srv_q = 4, # SD for annual survey catchability deviates (if time-varying)
             sel_coff = 3, # Non-parametric selectivity coefficients
             # sel_coff_dev = 4, # Annual deviates for non-parametric selectivity coefficients
@@ -439,7 +441,7 @@ fit_mod <-
             sel_curve_pen = 4, # Penalty for non-parametric selectivity
             ln_sigma_srv_index = 2, # Log SD for survey lognormal index likelihood (usually input)
             ln_sigma_fsh_catch = 2, # Log SD for lognormal catch likelihood (usually input)
-            comp_weights = 4 # Weights for multinomial comp likelihood
+            comp_weights = 5 # Weights for multinomial comp likelihood
             # ,logH_1 = 6,  # Functional form parameter (not used in MSVPA functional form)
             # logH_1a = 6, # Functional form parameter (not used in MSVPA functional form)
             # logH_1b = 6, # Functional form parameter (not used in MSVPA functional form)

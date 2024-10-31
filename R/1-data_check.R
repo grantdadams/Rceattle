@@ -1,9 +1,5 @@
 data_check <- function(data_list) {
 
-  if (length(data_list$BTempC) != length(data_list$Tyrs)) {
-    stop("Length of temperature series is not the same as the number of temperature years")
-  }
-
   if (length(data_list$M1_base) == 1) {
     stop("M1 is a single value, please make it age/species specific")
   }
@@ -12,10 +8,24 @@ data_check <- function(data_list) {
     stop("Other food for one species is negative")
   }
 
+  # Species checks
   for(sp in 1:data_list$nspp){
     if(sum(data_list$nages[sp] < data_list$fleet_control$Nselages[which(data_list$fleet_control$Species == sp)], na.rm = TRUE) > 1){
       stop(paste("Nselages is greater than nages for species", sp))
     }
+  }
+
+  # Fleet checks
+  for(flt in 1:nrow(data_list$fleet_control)){
+    if(!is.na(data_list$fleet_control$Estimate_q[flt])){
+      if((data_list$fleet_control$Estimate_q[flt] == 6 & data_list$fleet_control$Time_varying_q[flt] > (ncol(data_list$env_data) - 1))|
+         (data_list$fleet_control$Estimate_q[flt] == 6 & data_list$fleet_control$Time_varying_q[flt] < 1)){
+        stop("For catchability type 6 environmental index specified in 'Time_varying_q' is greater than number of indices in 'env_data'")
+      }
+    }
+
+    # Max sel age > nages
+    data_list$fleet_control$Age_max_selected[flt] <- ifelse(data_list$fleet_control$Age_max_selected[flt] > data_list$nages[data_list$fleet_control$Species[flt]], data_list$nages[data_list$fleet_control$Species[flt]], data_list$fleet_control$Age_max_selected[flt])
   }
 
   # # Age matrix

@@ -8,19 +8,6 @@ test_that("Dynamics match CEATTLE classic", {
   library(Rceattle)
   data(BS2017SS) # ?BS2017SS for more information on the data
 
-
-  # - Reorganize fleet control
-  BS2017SS$fleet_control <- as.data.frame(t(BS2017SS$fleet_control))
-  colnames(BS2017SS$fleet_control) <- BS2017SS$fleet_control[1,]
-  BS2017SS$fleet_control <- BS2017SS$fleet_control[-1,]
-  BS2017SS$fleet_control <- cbind(data.frame(Fleet_name = rownames(BS2017SS$fleet_control)),
-                                  BS2017SS$fleet_control)
-  rownames(BS2017SS$fleet_control) = NULL
-  BS2017SS$fleet_control[,-which(colnames(BS2017SS$fleet_control) %in% c("Fleet_name", "Time_varying_q"))] <- apply(
-    BS2017SS$fleet_control[,-which(colnames(BS2017SS$fleet_control) %in% c("Fleet_name", "Time_varying_q"))], 2, as.numeric)
-  BS2017SS$M1_base[,-c(1:2)] <- CEATTLE_classic_SS$quantities$M1 # + 0.0001 is in the old one
-
-
   BS2017SS$srr_prior_mean <- 9
   BS2017SS$initMode  <- 1
   inits <- build_params(BS2017SS)
@@ -64,6 +51,7 @@ test_that("Dynamics match CEATTLE classic", {
   plot_recruitment(list(ss_run_old_params, ss_run_old), model_names = 1:2)
   plot_biomass(list(ss_run_old_params, ss_run_old), model_names = 1:2)
   plot_ssb(list(ss_run_old_params, ss_run_old), model_names = 1:2)
+  plot_index(list(ss_run_old_params, ss_run_old), model_names = 1:2)
 
   plot_recruitment(list(ss_run_new, ss_run_old_params, ss_run_old), model_names = 1:3)
   plot_biomass(list(ss_run_new, ss_run_old_params, ss_run_old), model_names = 1:3)
