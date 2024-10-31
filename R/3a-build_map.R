@@ -8,13 +8,17 @@
 #' @param random_rec logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE, which sets the map for ln_rec_sigma to NA
 #' @param random_sel logical. If TRUE, treats selectivity deviations as random effects.The default is FALSE, which sets the map for ln_sigma_sel to NA. Only viable for logisitc, Double Logistic, Descending Logistic, and Hake Non-parametric with Random walk or deviates.
 #'
+#' @description
+#' TODO: turn on selectivity and catchability deviance variance parameters
+#'
+#'
 #' @return a list of map arguments for each parameter
 #' @export
 build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, random_sel = FALSE) {
   # functions
   '%!in%' <- function(x,y)!('%in%'(x,y))
 
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # -- Setup
   # Get year objects
   nyrs_hind <- data_list$endyr - data_list$styr + 1
@@ -30,17 +34,14 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   map_list <- sapply(params, function(x) replace(x, values = c(1:length(x))))
 
 
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Base population dynamics ----
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # -- 1.1. Map out future fishing mortality and sex ratio variance
   map_list$proj_F_prop <- map_list$proj_F_prop * NA
   map_list$ln_sex_ratio_sigma <- map_list$ln_sex_ratio_sigma * NA
 
-  # -- 1.2. Map out comp weights
-  map_list$comp_weights <- map_list$comp_weights * NA
-
-  # -- 1.3. Map out future recruitment deviations
+  # -- 1.2. Map out future recruitment deviations
   map_list$rec_dev[, yrs_proj] <- as.numeric(replace(map_list$rec_dev[, yrs_proj],
                                                      values = rep(NA, length(map_list$rec_dev[, yrs_proj]))))
 
@@ -120,9 +121,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   }
 
 
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Selectivity ----
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # SETTINGS
   # "Selectivity" determines shape of selectivity curve:
   # - 0 = empirical selectivity provided in "emp_sel"
@@ -190,18 +191,10 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
     spp <- data_list$fleet_control$Species[i]
     nsex <- data_list$nsex[spp]
 
-    # -- Turn off selectivity deviates for years not in composition data
-    comp_sub <- data_list$comp_data[which(data_list$comp_data$Fleet_code == flt),]
-    comp_sub <- comp_sub[which(comp_sub$Year <= data_list$endyr),]
-    comp_sub_yrs <- unique(comp_sub$Year) - data_list$styr + 1
-    comp_sub_yrs <- comp_sub_yrs[which(comp_sub_yrs > 0)]
-    comp_miss_yrs <- yrs_hind[which(!yrs_hind %in% comp_sub_yrs)]
-
-
     if(data_list$fleet_control$Fleet_type[i] > 0){ # If estimating observation model for fleet i
 
-
-      # --- 1) Logitistic - sel_type = 1
+      # * 1) Logitistic ----
+      # - sel_type = 1
       if (data_list$fleet_control$Selectivity[i] == 1) {
 
         # Turn on slp and asymptote for each sex
@@ -212,18 +205,25 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
 
         # Turn on time-varying parameters
-        # - Random walk or deviate
+        # ** Random walk or deviate
         if(data_list$fleet_control$Time_varying_sel[i] %in% c(1,2,4)){
           for(sex in 1:nsex){
-            map_list$ln_sel_slp_dev[1, flt, sex, comp_sub_yrs] <- ind_slp + 1:length(comp_sub_yrs) - 1
-            map_list$sel_inf_dev[1, flt, sex, comp_sub_yrs] <- ind_inf + 1:length(comp_sub_yrs) - 1
+            map_list$ln_sel_slp_dev[1, flt, sex, yrs_hind] <- ind_slp + 1:length(yrs_hind) - 1
+            map_list$sel_inf_dev[1, flt, sex, yrs_hind] <- ind_inf + 1:length(yrs_hind) - 1
 
-            ind_slp <- ind_slp + length(comp_sub_yrs)
-            ind_inf <- ind_inf + length(comp_sub_yrs)
+            ind_slp <- ind_slp + length(yrs_hind)
+            ind_inf <- ind_inf + length(yrs_hind)
           }
         }
 
-        # - Selectivity blocks
+        # Turn off mean-params for random walk
+        # - Ascending
+        if(data_list$fleet_control$Time_varying_sel[i] == 4){
+          map_list$ln_sel_slp[, flt,] <- NA
+          map_list$sel_inf[, flt,] <- NA
+        }
+
+        # ** Selectivity blocks
         if(data_list$fleet_control$Time_varying_sel[i] == 3){
 
           # If a fishery use the years from the fishery
@@ -258,7 +258,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       }
 
 
-      # -- 2) Non-parametric - sel_type = 2 (Ianelli et al 20??)
+      # * 2) Non-parametric ----
+      # - sel_type = 2 (Ianelli et al 20??)
       if(data_list$fleet_control$Selectivity[i] == 2){ # Non-parametric at age
 
         # Ages to turn on
@@ -272,14 +273,15 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
           # --time-varying deviates
           if(data_list$fleet_control$Time_varying_sel[i] == 1){
-            # map_list$sel_coff_dev[flt,sex,,comp_sub_yrs] <- ind_dev_coff + outer(ages_on, comp_sub_yrs); ind_dev_coff = ind_dev_coff + max(outer(ages_on, comp_sub_yrs))
+            # map_list$sel_coff_dev[flt,sex,,yrs_hind] <- ind_dev_coff + outer(ages_on, yrs_hind); ind_dev_coff = ind_dev_coff + max(outer(ages_on, yrs_hind))
           }
         }
       }
 
 
 
-      # -- 3) Double logistic - sel_type = 3
+      # * 3) Double logistic ----
+      # - sel_type = 3
       if(data_list$fleet_control$Selectivity[i] == 3){ # Double logistic
 
         # Turn on slp and asymptote for each sex
@@ -294,11 +296,11 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
         if(data_list$fleet_control$Time_varying_sel[i] %in% c(1,2,4,5)){
           for(j in 1:2){
             for(sex in 1:nsex){
-              map_list$ln_sel_slp_dev[j, flt, sex,comp_sub_yrs] <- ind_slp + 1:length(comp_sub_yrs) - 1
-              map_list$sel_inf_dev[j, flt, sex,comp_sub_yrs] <- ind_inf + 1:length(comp_sub_yrs) - 1
+              map_list$ln_sel_slp_dev[j, flt, sex,yrs_hind] <- ind_slp + 1:length(yrs_hind) - 1
+              map_list$sel_inf_dev[j, flt, sex,yrs_hind] <- ind_inf + 1:length(yrs_hind) - 1
 
-              ind_slp <- ind_slp + length(comp_sub_yrs)
-              ind_inf <- ind_inf + length(comp_sub_yrs)
+              ind_slp <- ind_slp + length(yrs_hind)
+              ind_inf <- ind_inf + length(yrs_hind)
             }
           }
 
@@ -307,6 +309,19 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
             map_list$ln_sel_slp_dev[2, flt, ,] <- NA
             map_list$sel_inf_dev[2, flt, ,] <- NA
           }
+        }
+
+        # Turn off mean-params for random walk
+        # - Ascending and descending
+        if(data_list$fleet_control$Time_varying_sel[i] == 4){
+          map_list$ln_sel_slp[, flt,] <- NA
+          map_list$sel_inf[, flt,] <- NA
+        }
+
+        # Ascending only
+        if(data_list$fleet_control$Time_varying_sel[i] == 5){
+          map_list$ln_sel_slp[1, flt,] <- NA
+          map_list$sel_inf[1, flt,] <- NA
         }
 
 
@@ -347,7 +362,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       }
 
 
-      # -- 4) Descending logitistic - sel_type = 4
+      # * 4) Descending logitistic ----
+      # - sel_type = 4
       if (data_list$fleet_control$Selectivity[i] == 4) {
 
         # Turn on descending slp and asymptote for each sex
@@ -359,12 +375,19 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
         # Penalized/random deviate or random walk
         if(data_list$fleet_control$Time_varying_sel[i] %in% c(1,2,4)){
           for(sex in 1:nsex){
-            map_list$ln_sel_slp_dev[2, flt, sex, comp_sub_yrs] <- ind_slp + 1:length(comp_sub_yrs) - 1
-            map_list$sel_inf_dev[2, flt, sex, comp_sub_yrs] <- ind_inf + 1:length(comp_sub_yrs) - 1
+            map_list$ln_sel_slp_dev[2, flt, sex, yrs_hind] <- ind_slp + 1:length(yrs_hind) - 1
+            map_list$sel_inf_dev[2, flt, sex, yrs_hind] <- ind_inf + 1:length(yrs_hind) - 1
 
-            ind_slp <- ind_slp + length(comp_sub_yrs)
-            ind_inf <- ind_inf + length(comp_sub_yrs)
+            ind_slp <- ind_slp + length(yrs_hind)
+            ind_inf <- ind_inf + length(yrs_hind)
           }
+        }
+
+        # Turn off mean-params for random walk
+        # - Descending
+        if(data_list$fleet_control$Time_varying_sel[i] == 4){
+          map_list$ln_sel_slp[, flt,] <- NA
+          map_list$sel_inf[, flt,] <- NA
         }
 
         # Selectivity block
@@ -401,7 +424,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
         }
       }
 
-      # -- 5) Non-parametric similar to Hake (Taylor et al 2014) - sel_type = 5
+      # * 5) Non-parametric similar to Hake ----
+      # (Taylor et al 2014) - sel_type = 5
       if(data_list$fleet_control$Selectivity[i] == 5){ # Non-parametric at age
         # Ages to turn on
         # Age_first_selected until (age_first_selected + nselages)
@@ -414,7 +438,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
           # -- time-varying deviates
           if(data_list$fleet_control$Time_varying_sel[i] == 1){
-            # map_list$sel_coff_dev[flt,sex,,comp_sub_yrs] <- ind_dev_coff + outer(ages_on, comp_sub_yrs); ind_dev_coff = ind_dev_coff + max(outer(ages_on, comp_sub_yrs))
+            # map_list$sel_coff_dev[flt,sex,,yrs_hind] <- ind_dev_coff + outer(ages_on, yrs_hind); ind_dev_coff = ind_dev_coff + max(outer(ages_on, yrs_hind))
           }
 
           if(!data_list$fleet_control$Time_varying_sel[i] %in% c(NA, 0, 1)){
@@ -426,21 +450,17 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   }
 
 
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Catchability ----
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # -- Catchability indices
   ind_q_re <- 1
   ind_q <- 1
   ind_beta_q <- 0
 
-  map_list$ln_srv_q <- replace(map_list$ln_srv_q, values = rep(NA, length(map_list$ln_srv_q)))
-  # map_list$srv_q_pow <- replace(map_list$srv_q_pow, values = rep(NA, length(x)))
-  map_list$srv_q_beta <- replace(map_list$srv_q_beta, values = rep(NA, length(map_list$srv_q_beta)))
-  map_list$ln_srv_q_dev <- replace(map_list$ln_srv_q_dev, values = rep(NA, length(map_list$ln_srv_q_dev)))
-  map_list$ln_sigma_srv_q <- replace(map_list$ln_sigma_srv_q, values = rep(NA, length(map_list$ln_sigma_srv_q)))
-  map_list$ln_sigma_time_varying_srv_q <- replace(map_list$ln_sigma_time_varying_srv_q, values = rep(NA, length(map_list$ln_sigma_time_varying_srv_q)))
-  map_list$ln_sigma_srv_index <- replace(map_list$ln_sigma_srv_index, values = rep(NA, length(map_list$ln_sigma_srv_index)))
+
+  catchability_params <- c("ln_srv_q", "srv_q_beta", "srv_q_rho", "ln_srv_q_dev", "ln_sigma_srv_q", "ln_sigma_time_varying_srv_q", "ln_sigma_srv_index") # "srv_q_pow"
+  map_list[catchability_params] <- lapply(map_list[catchability_params], function(x) replace(x, values = rep(NA, length(x))))
 
   # Loop through fleets
   for( i in 1: nrow(data_list$fleet_control)){
@@ -454,14 +474,16 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       # - 3 = Estimate analytical q
       # - 4 = Estimate power equation
       # - 5 = Use env index ln(q_y) = q_mu + beta * index_y
+      # - 6 = Fit to env index dnorm(d_y, env_index, sigma) [Rogers et al 2024]
 
 
-      # - Turn on q for:
+      # - Turn on mean q for:
       # - 1 = Estimate single parameter
       # - 2 = Estimate single parameter with prior
       # - 4 = Estimate power equation
       # - 5 = Use env index ln(q_y) = q_mu + beta * index_y
-      if(data_list$fleet_control$Estimate_q[i] %in% c(1, 2, 4, 5)){
+      # - 6 = Fit to env index
+      if(data_list$fleet_control$Estimate_q[i] %in% c(1, 2, 4, 5, 6)){
         map_list$ln_srv_q[flt] <- flt
       }
 
@@ -471,17 +493,19 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
         # map_list$srv_q_pow[flt] <- flt
       }
 
-      # Time- varying q parameters
+      # Time- varying q parameters "Time_varying_q"
       # - 0 = no,
       # - 1 = penalized deviate
       # - 2 = random effect
       # - 3 = time blocks with no penalty
       # - 4 = random walk from mean following Dorn 2018 (dnorm(q_y - q_y-1, 0, sigma)
-      # - If estimate_q == 5; this determines the environmental indices to be used in the equation log(q_y) = q_mu + beta * index_y
+      # - If estimate_q == 5 or 6; "Time_varying_q" determines the environmental indices to be used in the equation log(q_y) = q_mu + beta * index_y or to fit to.
+      # - Estimate_q = 6 turns on time-varying deviates
 
       # -- Set up time varying catchability if used (account for missing years)
-      if(data_list$fleet_control$Estimate_q[i] %in% c(1, 2) &
-         as.numeric(data_list$fleet_control$Time_varying_q[i]) %!in% c(1, 2, 3, 4)){
+      if((data_list$fleet_control$Estimate_q[i] %in% c(1, 2) &
+          as.numeric(data_list$fleet_control$Time_varying_q[i]) %!in% c(1, 2, 3, 4)) |
+         data_list$fleet_control$Estimate_q[i] == 6){
 
         # Extract survey years where data is provided
         srv_biom <- data_list$srv_biom[which(data_list$srv_biom$Fleet_code == flt & data_list$srv_biom$Year > data_list$styr & data_list$srv_biom$Year <= data_list$endyr),]
@@ -494,6 +518,11 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
           ind_q <- ind_q + length(srv_biom_yrs)
         }
 
+        # Turn of mean for random walk
+        if(data_list$fleet_control$Time_varying_q[i] == 4){
+          map_list$ln_srv_q[flt] <- NA
+        }
+
         # Time blocks
         if(data_list$fleet_control$Time_varying_q[i] == 3){
           map_list$ln_srv_q_dev[flt, srv_biom_yrs] <- ind_q + srv_biom$Selectivity_block - 1
@@ -504,9 +533,28 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       # - Turn on regression coefficients for:
       # - 5 = Estimate environmental linkage
       if (data_list$fleet_control$Estimate_q[i] == 5) {
-        turn_on <- as.numeric(unlist(strsplit(data_list$fleet_control$Time_varying_q[i],","))) # Parameters to turn on
+        if(nchar(data_list$fleet_control$Time_varying_q[i]) == 1){
+          turn_on <- as.numeric(data_list$fleet_control$Time_varying_q[i])
+        }else{
+          turn_on <- as.numeric(unlist(strsplit(data_list$fleet_control$Time_varying_q[i],","))) # Parameters to turn on
+        }
         map_list$srv_q_beta[flt, turn_on] <- turn_on + ind_beta_q
         ind_beta_q <- ind_beta_q + max(turn_on)
+      }
+
+      # - 6 = Fit to environmental index
+      if (data_list$fleet_control$Estimate_q[i] == 6) {
+        if(!nchar(data_list$fleet_control$Time_varying_q[i]) == 1){
+          warning("Cant fit catchability deviates to multiple indices")
+        }
+        map_list$srv_q_beta[flt, 1] <- 1 + ind_beta_q # The effect size
+        ind_beta_q <- ind_beta_q + 1
+
+        map_list$srv_q_rho[flt] <- flt # Correlation coeff
+
+        # Turn on standard deviations
+        map_list$ln_sigma_srv_q[flt] <- flt # Obseration error
+        map_list$ln_sigma_time_varying_srv_q[flt] <- flt # AR1 process error
       }
 
       # Standard deviation of surveys index
@@ -520,7 +568,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   }
 
 
-  # -- 7. Share survey q and selectivity
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  # Map shared q/selectivity ----
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   sel_index <- data_list$fleet_control$Selectivity_index
   sel_index_tested <- c()
 
@@ -589,9 +639,11 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
       # FIXME add checks for surveys q sigma
 
-      # Make catchability maps the same if selectivity is the same
+      # Make catchability maps the same
+      map_list$ln_srv_q[flt] <- map_list$ln_srv_q[q_duplicate]
       map_list$ln_srv_q[flt] <- map_list$ln_srv_q[q_duplicate]
       # map_list$srv_q_pow[flt] <- map_list$srv_q_pow[q_duplicate]
+      map_list$srv_q_rho[flt] <- map_list$srv_q_rho[q_duplicate]
       map_list$srv_q_beta[flt,] <- map_list$srv_q_beta[q_duplicate,]
       map_list$ln_srv_q_dev[flt,] <- map_list$ln_srv_q_dev[q_duplicate,]
       map_list$ln_sigma_srv_q[flt] <- map_list$ln_sigma_srv_q[q_duplicate]
@@ -605,9 +657,13 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   }
 
 
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # - Fishery control ----
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  comp_count <- data_list$comp_data %>% # Count comp obs by fleet
+    dplyr::filter(Year > 0) %>%
+    dplyr::count(Fleet_code)
+
   for (i in 1:nrow(data_list$fleet_control)) {
     flt = data_list$fleet_control$Fleet_code[i]
     # Standard deviation of fishery time series If not estimating turn of
@@ -620,6 +676,25 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       map_list$ln_sigma_fsh_catch[flt] <- NA
       map_list$F_dev[flt, ] <- NA
       map_list$ln_mean_F[flt] <- NA
+    }
+
+    # Map out comp weights if using multinomial
+    if(data_list$fleet_control$Comp_loglike[i] != 1) {
+      map_list$comp_weights[i] <- NA
+    }
+
+    # Map out comp weights if fleet is turned off or there are no comp data
+    if(data_list$fleet_control$Fleet_type[i] == 0) {
+      map_list$comp_weights[i] <- NA
+    }
+    if(!data_list$fleet_control$Fleet_code[i] %in% comp_count$Fleet_code){
+      map_list$comp_weights[i] <- NA
+    }
+
+    if(!data_list$fleet_control$Comp_loglike[i] %in% c(0, 1)){
+      if(!is.na(data_list$fleet_control$Comp_loglike[i])){
+        stop(paste0("Comp_loglike for fleet", i, "is not 0 or 1"))
+      }
     }
   }
 
@@ -638,9 +713,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   #map_list$sel_inf_dev_re[1:2, fsh_ind, 1:2, yr_ind] <- NA
 
 
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Recruitment ----
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # -- Recruitment deviation sigmas - turn off if not estimating
   if(random_rec == FALSE){
     map_list$ln_rec_sigma <- map_list$ln_rec_sigma * NA
@@ -664,14 +739,15 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   }
 
   # - Environmental linkages
+  #FIXME: make it so the covariates can vary by species
   if(!data_list$srr_pred_fun %in% c(1, 3, 5)){
     map_list$beta_rec_pars[] <- NA
   }
 
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Predation bits ----
   # (e.g. Turn off all predation parameters for single species)
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # if (data_list$msmMode == 0) { # Single-species
   #
   #   # Suitability parameters
@@ -747,9 +823,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   # }
 
 
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Suitability bits ----
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # if (data_list$msmMode > 0) {
   #
   #   # 2.1. Empirical suitability
@@ -773,9 +849,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
     map_list$dummy = 1
   }
 
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Set up fixed n-at-age ----
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # - I.E. turn off all parameters besides for species
   for(sp in 1:data_list$nspp){
 
@@ -810,6 +886,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       map_list$ln_sigma_sel[flts] <- NA
       map_list$ln_sigma_srv_index[flts] <- NA
       map_list$ln_sigma_fsh_catch[flts] <- NA
+      map_list$comp_weights[flts] <- NA
     }
 
     # # Don't estimate the scalar
@@ -831,9 +908,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   }
 
 
-  # -----------------------------------------------------------
-  # STEP 5 -- Convert to factor ----
-  # -----------------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  # Convert to factor ----
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   map_list_grande <- list()
   map_list_grande$mapFactor <- sapply(map_list, factor)
   map_list_grande$mapList <- map_list

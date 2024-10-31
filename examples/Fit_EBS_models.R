@@ -26,6 +26,9 @@ mydata <- Rceattle::read_data( file = "BS2017SS.xlsx")
 ################################################
 # - Single-species
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
+# mydata$fleet_control$Comp_loglike <- 0
+# mydata$fleet_control$Estimate_q[4] = 6
+# mydata$fleet_control$Time_varying_q[4] = 1
 ss_run <- Rceattle::fit_mod(data_list = mydata,
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save
@@ -34,8 +37,24 @@ ss_run <- Rceattle::fit_mod(data_list = mydata,
                             msmMode = 0, # Single species mode
                             phase = "default",
                             verbose = 1)
+load("~/Documents/GitHub/Rceattle/EBS_ss.RData")
+plot_biomass(list(mod_objects, ss_run))
+mod_objects$quantities$jnll_comp[1:3,]
+ss_run$quantities$jnll_comp[1:3,]
 
-plot_biomass(ss_run, add_ci = TRUE)
+dat <- rearrange_dat(ss_run$data_list)
+
+ind <- dat$comp_ctl[,1] == 1
+
+neff <- dat$comp_n[ind,2]
+obs <- dat$comp_obs[ind,]
+hat <- ss_run$quantities$comp_hat[ind,]
+ages = 1:12
+
+check <- (neff * obs[,ages] * log(hat[,ages]/obs[,ages]))
+
+sum(ss_run$data_list$comp_data != mod_objects$data_list$comp_data, na.rm = T)
+
 
 
 # Single-species, but estimate M
@@ -56,7 +75,7 @@ plot_biomass(ss_run_M, add_ci = TRUE)
 
 # - Multi-species
 # For the a multispecies model we from the single species parameters.
-ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
+ms_run3 <- Rceattle::fit_mod(data_list = BS2017MS,
                             inits = ss_run$estimated_params, # Initial parameters from single species ests
                             M1Fun = build_M1(M1_model = 1,
                                              updateM1 = TRUE,

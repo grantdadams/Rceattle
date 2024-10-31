@@ -7,12 +7,45 @@
 rearrange_dat <- function(data_list){
   '%!in%' <- function(x,y)!('%in%'(x,y))
 
-  # Step 1 - remove numeric objects from control
+  # Step 1 - remove non-integer objects from control
   data_list$ln_srv_q_prior <- log(data_list$fleet_control$Q_prior)
 
-  data_list$fleet_control <- data_list$fleet_control[,-which(colnames(data_list$fleet_control) %in% c("Sel_sd_prior", "Q_prior", "Q_sd_prior", "Time_varying_q_sd_prior", "Survey_sd_prior", "proj_F", "Catch_sd_prior"))]
+  data_list$fleet_control <- data_list$fleet_control %>%
+    dplyr::select(Fleet_name,
+                  Fleet_code,           # 1) Temporary survey index
+                  Fleet_type,           # 2) Fleet type; 0 = don't fit, 1 = fishery, 2 = survey
+                  Species,              # 3) Species
+                  Selectivity_index,    # 4) Survey selectivity index
+                  Selectivity,          # 5) Selectivity type
+                  Nselages,             # 6) Non-parametric selectivity ages
+                  Time_varying_sel,     # 7) Time-varying selectivity type.
+                  Age_first_selected,   # 8) First age selected
+                  Age_max_selected,     # 9) Age of max selectivity (used for normalization). If NA, does not normalize
+                  Comp_loglike,         # 10) Index indicating wether to do dirichlet multinomial for a multinomial)
+                  Weight1_Numbers2,     # 11) Survey units
+                  Weight_index,         # 12) Dim1 of wt (what weight-at-age data set)
+                  Age_transition_index, # 13) Dim3 of age transition matrix (what ALK to use)
+                  Q_index,              # 14) Index of survey q
+                  Estimate_q,           # 15) Parametric form of q
+                  Time_varying_q,       # 16) Time varying q type
+                  Estimate_survey_sd,   # 17) Wether to estimate standard deviation of survey time series
+                  Estimate_catch_sd     # 18) Wether to estimate standard deviation of fishery time series
+                  )
+  # Don't want: "Sel_sd_prior", "Q_prior", "Q_sd_prior", "Time_varying_q_sd_prior", "Survey_sd_prior", "proj_F", "Catch_sd_prior", "Comp_weights", "proj_F_prop"
 
   data_list$fleet_control$Time_varying_sel <- round(data_list$fleet_control$Time_varying_sel)
+  data_list$fleet_control$Fleet_name <- suppressWarnings(as.numeric(as.character(data_list$fleet_control$Fleet_name)))
+  data_list$fleet_control$Time_varying_q <- suppressWarnings(as.numeric(as.character(data_list$fleet_control$Time_varying_q)))
+
+  # Species names
+  data_list$spnames <- NULL
+
+  # - Input missing nselages and age first selected (use age range)
+  data_list$fleet_control <- data_list$fleet_control %>%
+    dplyr::mutate(Nselages = ifelse(is.na(Nselages), -999, Nselages),
+                  Age_max_selected = ifelse(is.na(Age_max_selected), -999, Age_max_selected),
+                  Age_first_selected = ifelse(is.na(Age_first_selected), data_list$minage[Species], Age_first_selected)
+    )
 
   # Step 2 -  Seperate survey biomass info from observation
   data_list$srv_biom_ctl <- data_list$srv_biom[,c("Fleet_code", "Species", "Year")]
@@ -62,23 +95,8 @@ rearrange_dat <- function(data_list){
   data_list$emp_sel_ctl <- as.matrix(data_list$emp_sel[,c("Fleet_code", "Species", "Sex", "Year")])
   data_list$emp_sel_obs <- matrix(as.numeric(unlist(data_list$emp_sel[,grep("Comp_", colnames(data_list$emp_sel))])), nrow = nrow(data_list$emp_sel_ctl))
 
-  # Convert fleet control to numeric
-  data_list$fleet_control$Fleet_name <- suppressWarnings(as.numeric(as.character(data_list$fleet_control$Fleet_name)))
-  data_list$fleet_control$Time_varying_q <- suppressWarnings(as.numeric(as.character(data_list$fleet_control$Time_varying_q)))
 
-  # Species names
-  data_list$spnames <- NULL
-
-  # Input missing acucmulation ages - defaults to age range
-  data_list$fleet_control <- data_list$fleet_control %>%
-    dplyr::mutate(Nselages = ifelse(is.na(Nselages), -999, Nselages),
-                  Accumatation_age_lower = ifelse(is.na(Accumatation_age_lower), -999, Nselages),
-                  Accumatation_age_upper = ifelse(is.na(Accumatation_age_upper), 999, Nselages),
-                  Age_first_selected = ifelse(is.na(Age_first_selected), data_list$minage[Species], Age_first_selected)
-    )
-
-
-  # Rearrange age-transition matrix ----
+  # Step 7 - Rearrange age-transition matrix ----
   age_trans_matrix <- data_list$age_trans_matrix
   unique_age_transition <- unique(as.character(age_trans_matrix$Age_transition_index))
   if(sum(data_list$pop_age_transition_index %!in% unique_age_transition) > 0){
@@ -112,7 +130,7 @@ rearrange_dat <- function(data_list){
   data_list$age_trans_matrix <- age_transition
 
 
-  # Rearrange age_error matrices ----
+  # Step 8 - Rearrange age_error matrices ----
   arm <- array(0, dim = c(data_list$nspp, max(data_list$nages, na.rm = T), max(data_list$nages, na.rm = T)))
 
   data_list$age_error <- as.data.frame(data_list$age_error) # FIXME: somethin is up with data.frames
@@ -135,11 +153,11 @@ rearrange_dat <- function(data_list){
   data_list$age_error <- arm
 
 
-  ## Normalize comp data ----
+  # Step 10 - Normalize comp data ----
   data_list$comp_obs <- t(apply(data_list$comp_obs, 1, function(x) as.numeric(x) / sum(as.numeric(x), na.rm = TRUE)))
 
 
-  ## Set up weight-at-age ----
+  # Step 11 - Set up weight-at-age ----
   # - Convert to array
   data_list$wt <- data_list$wt %>%
     mutate(
@@ -185,7 +203,7 @@ rearrange_dat <- function(data_list){
   data_list$wt <- wt
 
 
-  ## Set up NByageFixed ----
+  # Step 12 - Set up NByageFixed ----
   # - Convert to array
   data_list$NByageFixed <- data_list$NByageFixed %>%
     mutate(Species = as.numeric(as.character(Species)),
@@ -214,7 +232,7 @@ rearrange_dat <- function(data_list){
   data_list$NByageFixed <- NByageFixed
 
 
-  # Set up environmental indices
+  # Step 13 - Set up environmental indices
   # - Fill in missing years with column mean
   data_list$env_index <- merge(data_list$env_data, data.frame(Year = data_list$styr:data_list$projyr), all = TRUE)
   data_list$env_index <-  data_list$env_index %>%
@@ -228,7 +246,7 @@ rearrange_dat <- function(data_list){
     as.matrix()
 
 
-  ## Set up pyrs ----
+  # Step 14 - Set up pyrs ----
   # - Convert to array
   data_list$Pyrs <- data_list$Pyrs %>%
     mutate(Species = as.numeric(as.character(Species)),
@@ -257,12 +275,13 @@ rearrange_dat <- function(data_list){
   data_list$Pyrs <- Pyrs
 
 
-  # Remove species column from alw, pmature, sex_ratio
+  # Step 15 - Remove species column from alw, pmature, sex_ratio
   data_list$sex_ratio <- data_list$sex_ratio[,-1]
   data_list$pmature <- data_list$pmature[,-1]
   data_list$aLW <- data_list$aLW[,-1]
 
-  # Make data.frames into matrices
+
+  # Step 16 - Make data.frames into matrices
   df_to_mat <- which(sapply(data_list, function(x) class(x)[1]) == "data.frame")
   data_list[df_to_mat] <- lapply(data_list[df_to_mat], as.matrix)
 
