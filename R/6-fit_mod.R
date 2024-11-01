@@ -20,7 +20,9 @@
 #' @param minNByage Minimum numbers at age to put in a hard constraint that the number-at-age can not go below.
 #' @param phase Optional. List of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R. If NULL, will not phase model. If set to \code{"default"}, will use default phasing.
 #' @param suitMode Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma suitability, 2 = weight based gamma suitability, 3 = length based lognormal selectivity, 4 = time-varying length based lognormal selectivity.
-#' @param meanyr Integer. The last year used to calculate mean suitability and recruitment, starting at \code{styr}. Defaults to $endyr$ in $data_list$. Used for MSE runs where suitability and mean recruitment is held at the value estimated from the years used to condition the OM, but F is estimated for years beyond those used to condition the OM to account for projected catch.
+#' @param suit_styr Integer. The first year used to calculate mean suitability. Defaults to $styr$ in $data_list$. Used when diet data were sampled from a subset of years.
+#' @param suit_endyr Integer. The last year used to calculate mean suitability. Defaults to $endyr$ in $data_list$. Used when diet data were sampled from a subset of years.
+#' @param meanyr Integer. The last year used to calculate mean recruitment. Defaults to $endyr$ in $data_list$. Used for MSE runs mean recruitment is held at the value estimated from the years used to condition the OM, but F is estimated for years beyond those used to condition the OM to account for projected catch.
 #' @param getsd	TRUE/FALSE whether to run standard error calculation (default = TRUE).
 #' @param use_gradient use the gradient to phase (default = TRUE).
 #' @param rel_tol The relative tolerance for discontinuous likelihood warnings. Set to 1. This evaluates the difference between the TMB object likelihood and the nlminb likelihood.
@@ -31,6 +33,7 @@
 #' @param M1Fun M1 parameterizations and priors. Use \code{build_M1}.
 #' @param getJointPrecision return full Hessian of fixed and random effects.
 #' @param TMBfilename TMB filename and location to use if not using the default. Do not include ".cpp" at the end.
+#' @param catch_hcr
 #'
 #' @details
 #' CEATTLE is an age-structured population dynamics model that can be fit with or without predation mortality. The default is to exclude predation mortality by setting \code{msmMode} to 0. Predation mortality can be included by setting \code{msmMode} with the following options:
@@ -105,6 +108,8 @@ fit_mod <-
     initMode = 1,
     minNByage = 0,
     suitMode = 0,
+    suit_styr = NULL,
+    suit_endyr = NULL,
     meanyr = NULL,
     phase = NULL,
     getsd = TRUE,
@@ -138,6 +143,8 @@ fit_mod <-
     # initMode = 1
     # minNByage = 0;
     # suitMode = 0;
+    # suit_styr = NULL
+    # suit_endyr = NULL
     # meanyr = NULL;
     # phase = NULL;
     # getsd = TRUE;
@@ -188,12 +195,30 @@ fit_mod <-
     data_list$suitMode <- as.numeric(suitMode)
     data_list$minNByage <- as.numeric(minNByage)
 
-
+    # Year ranges for mean recruitment and suitability
+    # - Recruitment
     if(is.null(meanyr) & is.null(data_list$meanyr)){ # If no meanyear is provided in data or function, use end year
       data_list$meanyr <- data_list$endyr
     }
     if(!is.null(meanyr)){ # If mean year is provided in function, override data
       data_list$meanyr <- meanyr
+    }
+
+    # - Suitability
+    # -- Start year
+    if(is.null(suit_styr) & is.null(data_list$suit_styr)){ # If not provided in data or function, use start year
+      data_list$suit_styr <- data_list$styr
+    }
+    if(!is.null(suit_styr)){ # If provided in function, override data
+      data_list$suit_styr <- suit_styr
+    }
+
+    # -- End year
+    if(is.null(suit_endyr) & is.null(data_list$suit_endyr)){ # If not provided in data or function, use end year
+      data_list$suit_endyr <- data_list$endyr
+    }
+    if(!is.null(suit_endyr)){ # If provided in function, override data
+      data_list$suit_endyr <- suit_endyr
     }
 
     # Recruitment switches

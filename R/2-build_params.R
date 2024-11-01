@@ -68,7 +68,7 @@ build_params <- function(data_list) {
 
 
   # -- 3.4. fishing mortality parameters
-  param_list$ln_mean_F = rep(-0.8, nrow(data_list$fleet_control))  # Log mean fishing mortality; n = [1, nspp]
+  param_list$ln_mean_F = rep(-1.97, nrow(data_list$fleet_control))  # Log mean fishing mortality; n = [1, nspp]
   param_list$ln_Flimit = rep(0, data_list$nspp) # Future fishing mortality for projections for each species
   param_list$ln_Ftarget = rep(0, data_list$nspp) # Future fishing mortality for projections for each species
   param_list$ln_Finit = rep(-10, data_list$nspp)
