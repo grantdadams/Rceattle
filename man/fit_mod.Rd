@@ -24,6 +24,8 @@ fit_mod(
   initMode = 1,
   minNByage = 0,
   suitMode = 0,
+  suit_styr = NULL,
+  suit_endyr = NULL,
   meanyr = NULL,
   phase = NULL,
   getsd = TRUE,
@@ -77,7 +79,11 @@ fit_mod(
 
 \item{suitMode}{Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma suitability, 2 = weight based gamma suitability, 3 = length based lognormal selectivity, 4 = time-varying length based lognormal selectivity.}
 
-\item{meanyr}{Integer. The last year used to calculate mean suitability and recruitment, starting at \code{styr}. Defaults to $endyr$ in $data_list$. Used for MSE runs where suitability and mean recruitment is held at the value estimated from the years used to condition the OM, but F is estimated for years beyond those used to condition the OM to account for projected catch.}
+\item{suit_styr}{Integer. The first year used to calculate mean suitability. Defaults to $styr$ in $data_list$. Used when diet data were sampled from a subset of years.}
+
+\item{suit_endyr}{Integer. The last year used to calculate mean suitability. Defaults to $endyr$ in $data_list$. Used when diet data were sampled from a subset of years.}
+
+\item{meanyr}{Integer. The last year used to calculate mean recruitment. Defaults to $endyr$ in $data_list$. Used for MSE runs mean recruitment is held at the value estimated from the years used to condition the OM, but F is estimated for years beyond those used to condition the OM to account for projected catch.}
 
 \item{phase}{Optional. List of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R. If NULL, will not phase model. If set to \code{"default"}, will use default phasing.}
 
@@ -96,6 +102,8 @@ fit_mod(
 \item{verbose}{0 = Silent, 1 = print updates of model fit, 2 = print updates of model fit and TMB estimation progress.}
 
 \item{newtonsteps}{number of extra newton steps to take after optimization (alternative to \code{loopnum})}
+
+\item{catch_hcr}{}
 
 \item{TMBfilename}{TMB filename and location to use if not using the default. Do not include ".cpp" at the end.}
 }
