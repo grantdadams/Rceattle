@@ -28,6 +28,15 @@ data_check <- function(data_list) {
     data_list$fleet_control$Age_max_selected[flt] <- ifelse(data_list$fleet_control$Age_max_selected[flt] > data_list$nages[data_list$fleet_control$Species[flt]], data_list$nages[data_list$fleet_control$Species[flt]], data_list$fleet_control$Age_max_selected[flt])
   }
 
+  # Weight at age check
+  if(data_list$styr < min(data_list$wt$Year, na.rm = TRUE)){
+    stop("Weight data does not go back to the start year")
+  }
+
+  if(data_list$endyr > max(data_list$wt$Year, na.rm = TRUE)){
+    stop("Weight data does not to the end year")
+  }
+
   # # Age matrix
   #
   # if(ncol(data_list$NByageFixed) != max(data_list$nages, na.rm = T)+4){

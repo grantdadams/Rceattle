@@ -520,7 +520,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 3.5. Selectivity parameters
   PARAMETER_ARRAY( sel_coff );                    // selectivity parameters for non-parametric; n = [n_selectivities, nsex, nselages]
-  // PARAMETER_ARRAY( sel_coff_dev );                // Annual deviates for non-parametric selectivity parameters; n = [n_selectivities, nsex, nselages]
+  PARAMETER_ARRAY( sel_coff_dev );                // Annual deviates for non-parametric selectivity parameters; n = [n_selectivities, nsex, nselages]
   PARAMETER_ARRAY( ln_sel_slp );                  // selectivity paramaters for logistic; n = [2, n_selectivities, nsex]
   PARAMETER_ARRAY( sel_inf );                     // selectivity paramaters for logistic; n = [2, n_selectivities, nsex]
   PARAMETER_ARRAY( ln_sel_slp_dev );              // selectivity parameter deviate for logistic; n = [2, n_selectivities, nsex, n_sel_blocks]
@@ -778,7 +778,7 @@ Type objective_function<Type>::operator() () {
     flt_sel_type(flt) = fleet_control(flt_ind, 5);           // Selectivity type
     flt_nselages(flt) = fleet_control(flt_ind, 6);           // Non-parametric selectivity ages
     flt_varying_sel(flt) = fleet_control(flt_ind, 7);        // Time-varying selectivity type.
-    flt_sel_age(flt) = fleet_control(flt_ind, 8) - minage(flt_spp(flt));              // First age selected
+    flt_sel_age(flt) = fleet_control(flt_ind, 8) - minage(flt_spp(flt));                 // First age selected
     flt_sel_maxage(flt) = fleet_control(flt_ind, 9) - minage(flt_spp(flt));              // Age of max selectivity (used for normalization). If NA, does not normalize
     comp_ll_type(flt) = fleet_control(flt_ind, 10);          // Index indicating wether to do dirichlet multinomial for a fleet's composition data (0 = multinomial; 1 = dirichlet-multinomial)
     flt_units(flt) = fleet_control(flt_ind, 11);             // Survey units
@@ -947,50 +947,49 @@ Type objective_function<Type>::operator() () {
       }
       break;
 
-      /*
+
     case 5: // 6.1.5. Non-parametric selectivity fit to age ranges. Hake version (Taylor et al 2014)
-       // -- For each age, sum coefficients from first age selected to age
-       for (yr = 0; yr < nyrs_hind; yr++) {
-       for(sex = 0; sex < nsex(sp); sex++){
-       for (age = 0; age < nages(sp); age++) {
-       sel(flt, sex, age, yr) = 0;
-       }
-       }
-       }
+      // -- For each age, sum coefficients from first age selected to age
+      for (yr = 0; yr < nyrs_hind; yr++) {
+        for(sex = 0; sex < nsex(sp); sex++){
+          for (age = 0; age < nages(sp); age++) {
+            sel(flt, sex, age, yr) = 0;
+          }
+        }
+      }
 
-       for (yr = 0; yr < nyrs_hind; yr++) {
-       for(sex = 0; sex < nsex(sp); sex++){
-       for (age = flt_sel_age(flt); age < nselages; age++) {
-       for (int age_tmp = flt_sel_age(flt); age_tmp <= age; age_tmp++) {
-       sel(flt, sex, age, yr) += sel_coff(flt, sex, age_tmp) + sel_coff_dev(flt, sex, age_tmp, yr);
-       }
-       }
-       }
-       }
+      for (yr = 0; yr < nyrs_hind; yr++) {
+        for(sex = 0; sex < nsex(sp); sex++){
+          for (age = flt_sel_age(flt); age < nselages; age++) {
+            for (int age_tmp = flt_sel_age(flt); age_tmp <= age; age_tmp++) {
+              sel(flt, sex, age, yr) += sel_coff(flt, sex, age_tmp) + sel_coff_dev(flt, sex, age_tmp, yr);
+            }
+          }
+        }
+      }
 
-       // -- For each sex & year, subtract max sel across ages from sel and take exp
-       for (yr = 0; yr < nyrs_hind; yr++) {
-       for(sex = 0; sex < nsex(sp); sex++){
-       Type max_sel = 0;
-       for (age = flt_sel_age(flt); age < nselages; age++) {
-       // Max
-       if(sel(flt, sex, age, yr) > max_sel){
-       max_sel = sel(flt, sex, age, yr);
-       }
-       }
+      // -- For each sex & year, subtract max sel across ages from sel and take exp
+      for (yr = 0; yr < nyrs_hind; yr++) {
+        for(sex = 0; sex < nsex(sp); sex++){
+          Type max_sel = 0;
+          for (age = flt_sel_age(flt); age < nselages; age++) {
+            // Max
+            if(sel(flt, sex, age, yr) > max_sel){
+              max_sel = sel(flt, sex, age, yr);
+            }
+          }
 
-       for (age = flt_sel_age(flt); age < nselages; age++) {
-       sel(flt, sex, age, yr) = exp(sel(flt, sex, age, yr) - max_sel);
-       }
+          for (age = flt_sel_age(flt); age < nselages; age++) {
+            sel(flt, sex, age, yr) = exp(sel(flt, sex, age, yr) - max_sel);
+          }
 
-       // Fill in rest of ages
-       for (age = nselages-1; age < nages(sp); age++) {
-       sel(flt, sex, age, yr) = sel(flt, sex, nselages-1, yr);
-       }
-       }
-       }
-       break;
-       */
+          // Fill in rest of ages
+          for (age = nselages-1; age < nages(sp); age++) {
+            sel(flt, sex, age, yr) = sel(flt, sex, nselages-1, yr);
+          }
+        }
+      }
+      break;
     } // End selectivity switch
 
 
@@ -3572,17 +3571,15 @@ Type objective_function<Type>::operator() () {
     }
 
     // Penalized/random effect likelihood time-varying non-parametric (Taylor et al 2014) selectivity deviates
-    /*
-     if(((flt_varying_sel(flt) == 1) | (flt_varying_sel(flt) == 2)) & (flt_sel_type(flt) == 5) & (flt_type(flt) > 0)){
-     for(age = 0; age < flt_nselages(flt); age++){ //NOTE: extends beyond selectivity age range, but should be mapped to 0 in map function
-     for(sex = 0; sex < nsex(sp); sex++){
-     for(yr = 0; yr < nyrs_hind; yr++){
-     jnll_comp(5, flt) -= dnorm(sel_coff_dev(flt, sex, age, yr), Type(0.0), sigma_sel(flt), true);
-     }
-     }
-     }
-     }
-     */
+    if(((flt_varying_sel(flt) == 1) | (flt_varying_sel(flt) == 2)) & (flt_sel_type(flt) == 5) & (flt_type(flt) > 0)){
+      for(age = 0; age < flt_nselages(flt); age++){ //NOTE: extends beyond selectivity age range, but should be mapped to 0 in map function
+        for(sex = 0; sex < nsex(sp); sex++){
+          for(yr = 0; yr < nyrs_hind; yr++){
+            jnll_comp(5, flt) -= dnorm(sel_coff_dev(flt, sex, age, yr), Type(0.0), sigma_sel(flt), true);
+          }
+        }
+      }
+    }
 
 
     // Random walk: Type 4 = random walk on ascending and descending for double logistic; Type 5 = ascending only for double logistics

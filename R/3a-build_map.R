@@ -154,7 +154,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   # -- Map out parameters
   # - non-parametric
   map_list$sel_coff <- replace(map_list$sel_coff, values = rep(NA, length(map_list$sel_coff)))
-  # map_list$sel_coff_dev <- replace(map_list$sel_coff_dev, values = rep(NA, length(map_list$sel_coff_dev)))
+  map_list$sel_coff_dev <- replace(map_list$sel_coff_dev, values = rep(NA, length(map_list$sel_coff_dev)))
 
   # - logistic and double logistic
   map_list$ln_sel_slp <- replace(map_list$ln_sel_slp, values = rep(NA, length(map_list$ln_sel_slp)))
@@ -273,7 +273,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
           # --time-varying deviates
           if(data_list$fleet_control$Time_varying_sel[i] == 1){
-            # map_list$sel_coff_dev[flt,sex,,yrs_hind] <- ind_dev_coff + outer(ages_on, yrs_hind); ind_dev_coff = ind_dev_coff + max(outer(ages_on, yrs_hind))
+            map_list$sel_coff_dev[flt,sex, ages_on, yrs_hind] <- ind_dev_coff + 1:(length(ages_on) * length(yrs_hind))
+            ind_dev_coff = ind_dev_coff + (length(ages_on) * length(yrs_hind))
           }
         }
       }
@@ -430,15 +431,16 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
         # Ages to turn on
         # Age_first_selected until (age_first_selected + nselages)
         if(is.na(data_list$fleet_control$Age_first_selected[i])){data_list$fleet_control$Age_first_selected[i] = data_list$minage[spp]}
-        ages_on <- (data_list$fleet_control$Age_first_selected[i] - data_list$minage[spp] + 1):data_list$fleet_control$Nselages[i]
+        ages_on <- (data_list$fleet_control$Age_first_selected[i] - data_list$minage[spp] + 2):data_list$fleet_control$Nselages[i] # + 2 because first parameter is not-identifiable and is not estimated
 
         # Turn on parameters for each sex
         for(sex in 1:nsex){
-          map_list$sel_coff[flt, sex, ] <- ind_coff + ages_on; ind_coff = ind_coff + max(ages_on)
+          map_list$sel_coff[flt, sex, ages_on] <- ind_coff + ages_on; ind_coff = ind_coff + max(ages_on)
 
           # -- time-varying deviates
           if(data_list$fleet_control$Time_varying_sel[i] == 1){
-            # map_list$sel_coff_dev[flt,sex,,yrs_hind] <- ind_dev_coff + outer(ages_on, yrs_hind); ind_dev_coff = ind_dev_coff + max(outer(ages_on, yrs_hind))
+            map_list$sel_coff_dev[flt, sex, ages_on, yrs_hind] <- ind_dev_coff + 1:(length(ages_on) * length(yrs_hind))
+            ind_dev_coff = ind_dev_coff + (length(ages_on) * length(yrs_hind))
           }
 
           if(!data_list$fleet_control$Time_varying_sel[i] %in% c(NA, 0, 1)){
@@ -611,7 +613,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       map_list$ln_sel_slp[1:2, flt,] <- map_list$ln_sel_slp[1:2, sel_duplicate,]
       map_list$sel_inf[1:2, flt,] <- map_list$sel_inf[1:2, sel_duplicate,]
       map_list$sel_coff[flt,,] <- map_list$sel_coff[sel_duplicate,,]
-      # map_list$sel_coff_dev[flt,,,] <- map_list$sel_coff_dev[sel_duplicate,,,]
+      map_list$sel_coff_dev[flt,,,] <- map_list$sel_coff_dev[sel_duplicate,,,]
       map_list$ln_sel_slp_dev[1:2, flt,,] <- map_list$ln_sel_slp_dev[1:2, sel_duplicate,,]
       map_list$sel_inf_dev[1:2, flt,,] <- map_list$sel_inf_dev[1:2, sel_duplicate,,]
       map_list$ln_sigma_sel[flt] <- map_list$ln_sigma_sel[sel_duplicate]
@@ -878,7 +880,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       map_list$ln_sigma_srv_q[flts] <- NA
       map_list$ln_sigma_time_varying_srv_q[flts] <- NA
       map_list$sel_coff[flts,,] <- NA
-      # map_list$sel_coff_dev[flts,,,] <- NA
+      map_list$sel_coff_dev[flts,,,] <- NA
       map_list$ln_sel_slp[, flts, ] <- NA
       map_list$sel_inf[, flts, ] <- NA
       map_list$ln_sel_slp_dev[, flts, ,] <- NA
