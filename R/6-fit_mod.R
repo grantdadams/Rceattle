@@ -432,7 +432,7 @@ fit_mod <-
             srv_q_rho = 4, # AR1 correlation parameter
             ln_sigma_time_varying_srv_q = 4, # SD for annual survey catchability deviates (if time-varying)
             sel_coff = 3, # Non-parametric selectivity coefficients
-            # sel_coff_dev = 4, # Annual deviates for non-parametric selectivity coefficients
+            sel_coff_dev = 4, # Annual deviates for non-parametric selectivity coefficients
             ln_sel_slp = 3, # Slope parameters for logistic forms of selectivity
             sel_inf = 3, # Asymptote parameters for logistic forms of selectivity
             ln_sel_slp_dev = 5, # Annual deviates for slope parameters for logistic forms of selectivity (if time-varying)
