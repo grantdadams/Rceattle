@@ -38,11 +38,14 @@ build_bounds <- function(param_list = NULL, data_list) {
   lower_bnd$rec_dev <- replace(lower_bnd$rec_dev, values = rep(-15, length(lower_bnd$rec_dev)))
   upper_bnd$rec_dev <- replace(upper_bnd$rec_dev, values = rep(15, length(upper_bnd$rec_dev)))
 
-  # Selectivity
-  lower_bnd$ln_sel_slp <- replace(lower_bnd$ln_sel_slp, values = rep(0.01, length(lower_bnd$ln_sel_slp)))
-  for(flt in 1:nrow(data_list$fleet_control)){
-    upper_bnd$ln_sel_slp[,flt,] <- replace(upper_bnd$ln_sel_slp[,flt,], values = rep(data_list$nages[data_list$fleet_control$Species[flt]]+0.5, length(upper_bnd$ln_sel_slp[,flt,])))
-  }
+  # # Selectivity
+  # lower_bnd$ln_sel_slp <- replace(lower_bnd$ln_sel_slp, values = rep(log(0.01), length(lower_bnd$ln_sel_slp)))
+  # upper_bnd$ln_sel_slp <- replace(upper_bnd$ln_sel_slp, values = rep(log(100), length(upper_bnd$ln_sel_slp)))
+  #
+  # lower_bnd$sel_inf <- replace(lower_bnd$sel_inf, values = rep(0, length(lower_bnd$sel_inf)))
+  # for(flt in 1:nrow(data_list$fleet_control)){
+  #   upper_bnd$sel_inf[,flt,] <- replace(upper_bnd$sel_inf[,flt,], values = rep(data_list$nages[data_list$fleet_control$Species[flt]]+0.5, length(upper_bnd$sel_inf[,flt,])))
+  # }
 
 
   # Selectivity deviates
