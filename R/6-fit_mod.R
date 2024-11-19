@@ -183,9 +183,7 @@ fit_mod <-
     data_list$estimateMode <- estimateMode
     data_list$niter <- niter
     data_list$avgnMode <- avgnMode
-    if(is.null(data_list$initMode)){
-      data_list$initMode <- initMode
-    }
+    data_list$initMode <- initMode
     data_list$loopnum <- loopnum
     data_list$msmMode <- msmMode
     data_list$suitMode <- as.numeric(suitMode)

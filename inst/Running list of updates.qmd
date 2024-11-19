@@ -26,3 +26,5 @@ Started this late, but this is in reference to the srr_dev branch
 11/04/2024 – Added beta distibuted prior for steepness when using Beverton srr. Set `srr_est_mode = 3`.
 
 11/04/2024 - Renamed `M1_prior_sd` to `M_prior_sd` and `M1_prior_mean` to `M_prior` in `build_M1` and `srr_prior_mean` to `srr_prior`
+
+11/19/2024 - Updated `initMode` where 0 = estimate N-at-age as free parameters; 1 = estimate unfished equilibrium with no devs; 2 (default) = estimate unfished equilibrium with initial devs; and 3 = estimate fished equilibrium with initial devs
