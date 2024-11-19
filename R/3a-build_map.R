@@ -67,7 +67,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
   # -- 1.4. Map out initial population deviations not to be estimated - map out last age and ages not seen
   for(sp in 1:data_list$nspp) {
-    if(data_list$initMode > 0){ # Unfinished or fished equilibrium
+    if(data_list$initMode > 1){ # Unfinished or fished equilibrium
       if((data_list$nages[sp] - 1) < ncol(map_list$init_dev)) {
         map_list$init_dev[sp, (data_list$nages[sp]):ncol(map_list$init_dev)] <- NA
       }
