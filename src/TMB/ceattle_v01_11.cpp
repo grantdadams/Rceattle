@@ -330,17 +330,26 @@ Type objective_function<Type>::operator() () {
   // 1.2. Temporal dimensions
   DATA_INTEGER( styr );                   // Start year
   DATA_INTEGER( endyr );                  // End of estimation years
-  DATA_INTEGER( srr_meanyr );             // The last year used to calculate average recruitment.
-  DATA_INTEGER( R_hat_yr );               // Terminal year of env-rec relationship estimation
-  DATA_INTEGER( suit_meanyr );            // The last year used to calculate average suitability.
   DATA_INTEGER( projyr );                 // End year of projection
+
+  DATA_INTEGER( srr_meanyr );             // The last year used to calculate average recruitment. Used for MSE runs.
+  DATA_INTEGER( suit_styr );              // The first year used to calculate suitability averages.
+  DATA_INTEGER( suit_endyr );             // The last year used to calculate suitability averages.
+  DATA_INTEGER( srr_hat_styr );           // The first year used to calculate stock-recuitment penalties or env-rec relationship.
+  DATA_INTEGER( srr_hat_endyr );          // The last year used to calculate stock-recuitment penalties or env-rec relationship.
+
   int nyrs = projyr - styr + 1;
-  int nyrs_srrmean = srr_meanyr - styr + 1;
-  int nyrs_suitmean = suit_meanyr - styr + 1;
   int nyrs_hind = endyr - styr + 1;
-  int nyrs_R_hat = R_hat_yr - styr + 1;
+
+  suit_endyr = suit_endyr - styr;
+  suit_styr = suit_styr - styr;
+  int nyrs_suit = suit_endyr - suit_styr + 1;
+  int nyrs_srrmean = srr_meanyr - styr + 1;
+
+  srr_hat_styr = srr_hat_styr - styr;
+  srr_hat_endyr = srr_hat_endyr - styr;
   if(nyrs_srrmean > nyrs_hind){nyrs_srrmean = nyrs_hind;}
-  if(nyrs_suitmean > nyrs_hind){nyrs_suitmean = nyrs_hind;}
+  if(srr_hat_styr == 0){srr_hat_styr = 1;} // R_hat starts at year 1.
 
   // 1.3. Number of species
   DATA_INTEGER( nspp );                   // Number of species (prey)
@@ -360,9 +369,9 @@ Type objective_function<Type>::operator() () {
   DATA_INTEGER(proj_mean_rec);
   //    0 = project recruitment using ln_R0 and rec devs
   //    1 = project recruitment using mean rec (can also have adjusted rec devs)
-  //DATA_INTEGER(srr_est_mode);             // Logical of wether to add normal prior to stock recruit-relationship
-  //DATA_VECTOR(srr_prior_mean);            // Prior mean for stock recruit relationship parameter
-  //DATA_VECTOR(srr_prior_sd);              // Prior sd for stock recruit relationship parameter
+  DATA_INTEGER(srr_est_mode);             // Logical of wether to add normal prior to stock recruit-relationship
+  DATA_VECTOR(srr_prior);            // Prior mean for stock recruit relationship parameter
+  DATA_VECTOR(srr_prior_sd);              // Prior sd for stock recruit relationship parameter
   DATA_INTEGER( niter );                  // Number of loops for MSM mode
   DATA_VECTOR( Bmsy_lim );                // Upper limit for Bmsy in ricker function. Will add penalty if 1/beta > lim
 
@@ -416,10 +425,10 @@ Type objective_function<Type>::operator() () {
 
   // -- M1 attributes
   DATA_IVECTOR(M1_model);
-  //DATA_IVECTOR(M1_use_prior);
-  //DATA_IVECTOR(M2_use_prior);
-  //DATA_VECTOR(M1_prior_mean);
-  //DATA_VECTOR(M1_prior_sd);
+  DATA_IVECTOR(M1_use_prior);
+  DATA_IVECTOR(M2_use_prior);
+  DATA_VECTOR(M_prior);
+  DATA_VECTOR(M_prior_sd);
 
   // -- 2.3. Data controls (i.e. how to assign data to objects)
   DATA_IMATRIX( fleet_control );          // Fleet specifications
@@ -1009,15 +1018,39 @@ Type objective_function<Type>::operator() () {
       }
 
 
-      // Normalize by selectivity by specific age
-      if (flt_sel_maxage(flt) >= 0) {
-        for (yr = 0; yr < nyrs_hind; yr++) {
-          for(sex = 0; sex < nsex(sp); sex++){
-            Type max_sel = sel(flt, sex, flt_sel_maxage(flt), yr); // Get max sel by sex/year (split or otherwise, divides by 1 for ages > maxselage)
+      // // Normalize by selectivity by specific age
+      // if (flt_sel_maxage(flt) >= 0) {
+      //   for (yr = 0; yr < nyrs_hind; yr++) {
+      //     for(sex = 0; sex < nsex(sp); sex++){
+      //       Type max_sel = sel(flt, sex, flt_sel_maxage(flt), yr); // Get max sel by sex/year (split or otherwise, divides by 1 for ages > maxselage)
+      //
+      //       for (age = 0; age < nages(sp); age++){
+      //
+      //         // Normalize by max
+      //         sel(flt, sex, age, yr) /= max_sel;
+      //       }
+      //     }
+      //   }
+      // }
 
-            for (age = 0; age < nages(sp); age++){
+      // Find max for each fishery and year across ages, and sexes
+      if (sel_type < 5) {
+        for (yr = 0; yr < nyrs_hind; yr++) {
+          Type max_sel = 0;
+          for (age = 0; age < nages(sp); age++){
+            for(sex = 0; sex < nsex(sp); sex++){
+
 
               // Normalize by max
+              if(sel(flt, sex, age, yr) > max_sel){
+                max_sel = sel(flt, sex, age, yr);
+              }
+            }
+          }
+
+          // Normalize selectivity
+          for (age = 0; age < nages(sp); age++){
+            for(sex = 0; sex < nsex(sp); sex++){
               sel(flt, sex, age, yr) /= max_sel;
             }
           }
@@ -2347,7 +2380,7 @@ Type objective_function<Type>::operator() () {
               for (ksp = 0; ksp < nspp; ksp++) {                    // Prey species loop
                 for(k_sex = 0; k_sex < nsex(ksp); k_sex++){         // Prey sex loop
                   for (k_age = 0; k_age < nages(ksp); k_age++) {    // Prey age loop
-                    for (yr = 0; yr < nyrs_suitmean; yr++) {            // Suit year loop
+                    for (yr = suit_styr; yr <= suit_endyr; yr++) {  // Suit year loop (over specific years)
 
                       // Average suitability across years
                       if( suma_suit(rsp, r_sex, r_age, yr ) + other_food_diet_prop_weight(rsp, r_sex, r_age, yr) > 0){
@@ -2356,7 +2389,7 @@ Type objective_function<Type>::operator() () {
                     }       // End year loop
 
                     // FIXME - Add in interannual variability here
-                    suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) /= nyrs_suitmean;
+                    suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) /= nyrs_suit;
 
                     // Remove NAs from crashing populations
                     if(!isFinite(suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0))){
@@ -3493,6 +3526,14 @@ Type objective_function<Type>::operator() () {
       if((yr <= endyr) & (yr > 0) & (flt_type(flt) > 0)){
 
         switch(comp_ll_type(flt)){
+
+        case -1:
+          for (ln = 0; ln < n_comp; ln++) {
+            // Martin's
+            jnll_comp(2, flt) -= comp_weights(flt) * Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + 0.00001) * log((comp_hat(comp_ind, ln)+0.00001) / (comp_obs(comp_ind, ln) + 0.00001)) ;
+          }
+          break;
+
         case 0:  // Full multinomial
           jnll_comp(2, flt) -= comp_weights(flt) * dmultinom(comp_obs_tmp, comp_hat_tmp, true);
           break;
@@ -3650,17 +3691,24 @@ Type objective_function<Type>::operator() () {
   // Slots 9-12 -- RECRUITMENT PARAMETERS
   for (sp = 0; sp < nspp; sp++) {
     penalty = 0.0;
-    /*
-     // Slot 9 -- stock-recruit prior for Beverton
-     if(srr_est_mode == 2 & (srr_pred_fun == 2 | srr_pred_fun == 3)){
-     jnll_comp(9, sp) -= dnorm(log(Steepness(sp)), log(srr_prior_mean(sp)) + square(srr_prior_sd(sp))/2.0, srr_prior_sd(sp), true);
-     }
+    // Slot 9 -- stock-recruit prior for Beverton
+    // -- Lognormal
+    if((srr_est_mode == 2) & (srr_pred_fun == 2 | srr_pred_fun == 3)){
+      jnll_comp(9, sp) -= dnorm(log(Steepness(sp)), log(srr_prior(sp)) + square(srr_prior_sd(sp))/2.0, srr_prior_sd(sp), true);
+    }
 
-     // Slot 9 -- stock-recruit prior for Ricker
-     if(srr_est_mode == 2 & (srr_pred_fun == 4 | srr_pred_fun == 5)){
-     jnll_comp(9, sp) -= dnorm((rec_pars(sp, 1)), log(srr_prior_mean(sp)), srr_prior_sd(sp), true);
-     }
-     */
+    // -- Beta
+    if((srr_est_mode == 3) & (srr_pred_fun == 2 | srr_pred_fun == 3)){
+      // Convert mean and SD to beta params
+      Type beta_alpha = ((1 - srr_prior(sp))/ square(srr_prior_sd(sp)) - 1/srr_prior(sp)) * square(srr_prior(sp));
+      Type beta_beta = beta_alpha * (1/srr_prior(sp) - 1);
+      jnll_comp(9, sp) -= dbeta(Steepness(sp), beta_alpha, beta_beta, true);
+    }
+
+    // Slot 9 -- stock-recruit prior for Ricker
+    if((srr_est_mode == 2) & (srr_pred_fun == 4 | srr_pred_fun == 5)){
+      jnll_comp(9, sp) -= dnorm((rec_pars(sp, 1)), log(srr_prior(sp)), srr_prior_sd(sp), true);
+    }
 
     // Slot 9 -- penalty for Bmsy > Bmsy_lim for Ricker
     if((Bmsy_lim(sp) > 0) & ((srr_pred_fun == 4) | (srr_pred_fun == 5))){ // Using pred_fun in case ianelli method is used
@@ -3684,7 +3732,7 @@ Type objective_function<Type>::operator() () {
 
     // Additional penalty for SRR curve (sensu AMAK/Ianelli)
     if((srr_fun == 0) & (srr_pred_fun  > 0)){
-      for (yr = 1; yr < nyrs_R_hat; yr++) {
+      for (yr = srr_hat_styr; yr <= srr_hat_endyr; yr++) {
         jnll_comp(10, sp) -= dnorm( log(R(sp, yr)), log(R_hat(sp,yr)), r_sigma(sp), true);
       }
     }
@@ -3805,37 +3853,35 @@ Type objective_function<Type>::operator() () {
 
   // Slots 15 -- M prior
   // M1_model 0 = use fixed natural mortality from M1_base, 1 = estimate sex- and age-invariant M1, 2 = sex-specific (two-sex model), age-invariant M1, 3 =   estimate sex- and age-specific M1.
-  /*
-   for (sp = 0; sp < nspp; sp++) {
-   // Prior on M1 only and using species specific M1
-   if( M1_model(sp) == 1 & M1_use_prior(sp) == 1 & M2_use_prior(sp) == 0){
-   jnll_comp(15, sp) -= dnorm(log(M1(sp, 0, 0)), log(M1_prior_mean(sp)) + square(M1_prior_sd(sp))/2, M1_prior_sd(sp), true);
-   }
+  for (sp = 0; sp < nspp; sp++) {
+    // Prior on M1 only and using species specific M1
+    if( M1_model(sp) == 1 & M1_use_prior(sp) == 1 & M2_use_prior(sp) == 0){
+      jnll_comp(15, sp) -= dnorm(log(M1(sp, 0, 0)), log(M_prior(sp)) + square(M_prior_sd(sp))/2, M_prior_sd(sp), true);
+    }
 
-   for(sex = 0; sex < nsex(sp); sex ++){
-   // Prior on M1 only and using species and sex specific M1
-   if( M1_model(sp) == 2 & M1_use_prior(sp) == 1 & M2_use_prior(sp) == 0){
-   jnll_comp(15, sp) -= dnorm(log(M1(sp, sex, 0)), log(M1_prior_mean(sp)) + square(M1_prior_sd(sp))/2, M1_prior_sd(sp), true);
-   }
+    for(sex = 0; sex < nsex(sp); sex ++){
+      // Prior on M1 only and using species and sex specific M1
+      if( M1_model(sp) == 2 & M1_use_prior(sp) == 1 & M2_use_prior(sp) == 0){
+        jnll_comp(15, sp) -= dnorm(log(M1(sp, sex, 0)), log(M_prior(sp)) + square(M_prior_sd(sp))/2, M_prior_sd(sp), true);
+      }
 
-   for (age = 0; age < nages(sp); age++) {
+      for (age = 0; age < nages(sp); age++) {
 
-   // Prior on M1 only and using species and sex specific M1
-   if( M1_model(sp) == 3 & M1_use_prior(sp) == 1 & M2_use_prior(sp) == 0){
-   jnll_comp(15, sp) -= dnorm(log(M1(sp, sex, age)), log(M1_prior_mean(sp)) + square(M1_prior_sd(sp))/2, M1_prior_sd(sp), true);
-   }
+        // Prior on M1 only and using species and sex specific M1
+        if( M1_model(sp) == 3 & M1_use_prior(sp) == 1 & M2_use_prior(sp) == 0){
+          jnll_comp(15, sp) -= dnorm(log(M1(sp, sex, age)), log(M_prior(sp)) + square(M_prior_sd(sp))/2, M_prior_sd(sp), true);
+        }
 
-   for (yr = 0; yr < nyrs; yr++) {
+        for (yr = 0; yr < nyrs; yr++) {
 
-   // Prior on total M (M1 and M2)
-   if( M1_use_prior(sp) == 1 & M2_use_prior(sp) == 1){
-   jnll_comp(15, sp) -= dnorm(log(M(sp, sex, age, yr)), log(M1_prior_mean(sp)) + square(M1_prior_sd(sp))/2, M1_prior_sd(sp), true);
-   }
-   }
-   }
-   }
-   }
-   */
+          // Prior on total M (M1 and M2)
+          if( M1_use_prior(sp) == 1 & M2_use_prior(sp) == 1){
+            jnll_comp(15, sp) -= dnorm(log(M(sp, sex, age, yr)), log(M_prior(sp)) + square(M_prior_sd(sp))/2, M_prior_sd(sp), true);
+          }
+        }
+      }
+    }
+  }
 
 
   // 14.3. Diet likelihood components from MSVPA with estimated suitability and Kinzey and Punt
@@ -3970,6 +4016,7 @@ Type objective_function<Type>::operator() () {
   REPORT( SPRFinit );
   REPORT( SPRlimit );
   REPORT( SPRtarget );
+  REPORT( Steepness );
   REPORT( proj_F );
   REPORT( Ftarget );
   REPORT( Flimit );

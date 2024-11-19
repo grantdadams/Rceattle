@@ -16,10 +16,11 @@
 #' @param recFun The stock recruit-relationship parameterization from \code{\link{build_srr}}.
 #' @param msmMode The predation mortality functions to used. Defaults to no predation mortality used.
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.
-#' @param initMode how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 2 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates.
+#' @param initMode how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0 + dev-yr1,  mortality (M1); 2 = equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 3 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates.
 #' @param phase Optional. List of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R. If NULL, will not phase model. If set to \code{"default"}, will use default phasing.
 #' @param suitMode Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma suitability, 2 = weight based gamma suitability, 3 = length based lognormal selectivity, 4 = time-varying length based lognormal selectivity.
-#' @param suit_meanyr Integer. The last year used to calculate mean suitability, starting at \code{styr}. Defaults to $endyr$ in $data_list$. Used for MSE runs where suitability is held at the value estimated from the years used to condition the OM, but F is estimated for years beyond those used to condition the OM to account for projected catch.
+#' @param suit_styr Integer. The first year used to calculate mean suitability. Defaults to $styr$ in $data_list$. Used when diet data were sampled from a subset of years.
+#' @param suit_endyr Integer. The last year used to calculate mean suitability. Defaults to $endyr$ in $data_list$. Used when diet data were sampled from a subset of years.
 #' @param getsd	TRUE/FALSE whether to run standard error calculation (default = TRUE).
 #' @param use_gradient use the gradient to phase (default = TRUE).
 #' @param rel_tol The relative tolerance for discontinuous likelihood warnings. Set to 1. This evaluates the difference between the TMB object likelihood and the nlminb likelihood.
@@ -100,11 +101,11 @@ fit_mod <-
     recFun = build_srr(),
     M1Fun = build_M1(),
     msmMode = 0,
-    rec_mode = NULL, # set to -9 if running Grant's approach
     avgnMode = 0,
-    initMode = 1,
+    initMode = 2,
     suitMode = 0,
-    suit_meanyr = NULL,
+    suit_styr = NULL,
+    suit_endyr = NULL,
     phase = NULL,
     getsd = TRUE,
     bias.correct = FALSE,
@@ -135,10 +136,11 @@ fit_mod <-
     # niter = 3;
     # msmMode = 0;
     # avgnMode = 0;
-    # initMode = 1
+    # initMode = 2
     # minNByage = 0;
     # suitMode = 0;
-    # suit_meanyr = NULL;
+    # suit_styr = NULL;
+    # suit_endyr = NULL;
     # phase = NULL;
     # getsd = TRUE;
     # use_gradient = TRUE;
@@ -188,13 +190,23 @@ fit_mod <-
     data_list$msmMode <- msmMode
     data_list$suitMode <- as.numeric(suitMode)
 
+    # - Suitability
+    # -- Start year
+    if(is.null(suit_styr) & is.null(data_list$suit_styr)){ # If not provided in data or function, use start year
+      data_list$suit_styr <- data_list$styr
+    }
+    if(!is.null(suit_styr)){ # If provided in function, override data
+      data_list$suit_styr <- suit_styr
+    }
 
-    if(is.null(suit_meanyr) & is.null(data_list$suit_meanyr)){ # If no meanyear is provided in data or function, use end year
-      data_list$suit_meanyr <- data_list$endyr
+    # -- End year
+    if(is.null(suit_endyr) & is.null(data_list$suit_endyr)){ # If not provided in data or function, use end year
+      data_list$suit_endyr <- data_list$endyr
     }
-    if(!is.null(suit_meanyr)){ # If mean year is provided in function, override data
-      data_list$suit_meanyr <- suit_meanyr
+    if(!is.null(suit_endyr)){ # If provided in function, override data
+      data_list$suit_endyr <- suit_endyr
     }
+
 
     # * Recruitment switches ----
     data_list$srr_fun <- recFun$srr_fun
@@ -207,14 +219,24 @@ fit_mod <-
       data_list$srr_meanyr <- recFun$srr_meanyr
     }
 
-    if(is.null(recFun$R_hat_yr) & is.null(data_list$R_hat_yr)){ # If no meanyear is provided in data or function, use end year
-      data_list$R_hat_yr <- data_list$endyr
+    # -- Start year
+    if(is.null(recFun$srr_hat_styr) & is.null(data_list$srr_hat_styr)){ # If not provided in data or function, use start year
+      data_list$srr_hat_styr <- data_list$styr
     }
-    if(!is.null(recFun$R_hat_yr)){ # If mean year is provided in function, override data
-      data_list$R_hat_yr <- recFun$R_hat_yr
+    if(!is.null(recFun$srr_hat_styr)){ # If provided in function, override data
+      data_list$srr_hat_styr <- recFun$srr_hat_styr
     }
+
+    # -- End year
+    if(is.null(recFun$srr_hat_endyr) & is.null(data_list$srr_hat_endyr)){ # If not provided in data or function, use end year
+      data_list$srr_hat_endyr <- data_list$endyr
+    }
+    if(!is.null(recFun$srr_hat_endyr)){ # If provided in function, override data
+      data_list$srr_hat_endyr <- recFun$srr_hat_endyr
+    }
+
     data_list$srr_est_mode <- recFun$srr_est_mode
-    data_list$srr_prior_mean <- extend_length(recFun$srr_prior_mean)
+    data_list$srr_prior <- extend_length(recFun$srr_prior)
     data_list$srr_prior_sd <- extend_length(recFun$srr_prior_sd)
     data_list$srr_env_indices <- recFun$srr_env_indices
     data_list$Bmsy_lim <- extend_length(recFun$Bmsy_lim)
@@ -231,8 +253,8 @@ fit_mod <-
     updateM1 = M1Fun$updateM1
     data_list$M1_use_prior = extend_length(M1Fun$M1_use_prior) * (data_list$M1_model > 0) # Sets to 0 if M1 is fixed
     data_list$M2_use_prior = extend_length(M1Fun$M2_use_prior) * (msmMode > 0) # Sets to 0 if single-species
-    data_list$M1_prior_mean = extend_length(M1Fun$M1_prior_mean)
-    data_list$M1_prior_sd = extend_length(M1Fun$M1_prior_sd)
+    data_list$M_prior = extend_length(M1Fun$M_prior)
+    data_list$M_prior_sd = extend_length(M1Fun$M_prior_sd)
 
 
     # - HCR Switches (make length of nspp if not)
@@ -376,8 +398,8 @@ fit_mod <-
     }
 
     # - Update alpha for stock-recruit if fixed/prior and initial parameter values input
-    if(data_list$srr_est_mode %in% c(0,2)){
-      start_par$rec_pars[,2] <- log(data_list$srr_prior_mean)
+    if(data_list$srr_est_mode %in% c(0,2) & data_list$srr_pred_fun > 3){
+      start_par$rec_pars[,2] <- log(data_list$srr_prior)
     }
 
     if(verbose > 0) {message("Step 4: Data rearranged complete")}

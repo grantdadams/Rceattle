@@ -50,7 +50,13 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
     map_list$rec_dev[, 1] <- NA
   }
 
-  if(data_list$initMode != 2){
+  # -- Map out initial devs if starting at equilibrium with no devs
+  if(data_list$initMode == 1){
+    map_list$init_dev[] <- NA
+  }
+
+  # -- Map out initial F if starting at equilibrium
+  if(data_list$initMode != 3){
     map_list$ln_Finit <- rep(NA, data_list$nspp)
   }
 
@@ -693,7 +699,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       map_list$comp_weights[i] <- NA
     }
 
-    if(!data_list$fleet_control$Comp_loglike[i] %in% c(0, 1)){
+    if(!data_list$fleet_control$Comp_loglike[i] %in% c(-1, 0, 1)){
       if(!is.na(data_list$fleet_control$Comp_loglike[i])){
         stop(paste0("Comp_loglike for fleet", i, "is not 0 or 1"))
       }

@@ -30,7 +30,10 @@ build_params <- function(data_list) {
   # -- 3.1. Recruitment parameters
   param_list$rec_pars = matrix(9, nrow = data_list$nspp, ncol = 3)  # col 1 = mean rec, col 2 = alpha from srr curve, col 3 = beta from srr curve
   param_list$rec_pars[,3] <- log(3) # Starting low here for beta
-  param_list$rec_pars[,2] <- log(data_list$srr_prior_mean)
+  param_list$rec_pars[,2] <- log(data_list$srr_prior)
+  if(data_list$srr_est_mode == 3){
+    param_list$rec_pars[,2] <- 3
+  }
 
   param_list$ln_rec_sigma = log(as.numeric(data_list$sigma_rec_prior))  # Standard deviation of recruitment deviations; n = [1, nspp]
   param_list$rec_dev = matrix(0, nrow = data_list$nspp, ncol = nyrs_proj)  # Annual recruitment deviation; n = [nspp, nyrs_hind]
@@ -40,7 +43,7 @@ build_params <- function(data_list) {
 
 
   # -- 3.2. Initial age-structure parameters
-  param_list$init_dev = matrix(4, nrow = data_list$nspp, ncol = max(data_list$nages))
+  param_list$init_dev = matrix(0, nrow = data_list$nspp, ncol = max(data_list$nages))
   for(sp in 1:data_list$nspp){
     if(data_list$initMode == 0){ # Estimate as free parameters (fill in ages above max age with -999)
       if(data_list$nages[sp] != max(data_list$nages)){
