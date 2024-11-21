@@ -295,14 +295,14 @@ fit_mod <-
     if(verbose > 0) {message("Step 1: Parameter build complete")}
 
     # Set Fdev for years with 0 catch to very low number
-    fsh_biom_sub <- data_list$fsh_biom %>%
+    catch_data_sub <- data_list$catch_data %>%
       filter(Year <= data_list$endyr)
-    fsh_ind <- fsh_biom_sub$Fleet_code[which(fsh_biom_sub$Catch == 0)]
-    yr_ind <- fsh_biom_sub$Year[which(fsh_biom_sub$Catch == 0)] - data_list$styr + 1
+    fsh_ind <- catch_data_sub$Fleet_code[which(catch_data_sub$Catch == 0)]
+    yr_ind <- catch_data_sub$Year[which(catch_data_sub$Catch == 0)] - data_list$styr + 1
     for(i in 1:length(fsh_ind)){
       start_par$F_dev[fsh_ind[i], yr_ind[i]] <- -999
     }
-    rm(fsh_biom_sub)
+    rm(catch_data_sub)
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -340,7 +340,7 @@ fit_mod <-
       }
     }
     if(random_q){
-      random_vars <- c(random_vars , "ln_srv_q_dev")
+      random_vars <- c(random_vars , "index_q_dev")
     }
     if(random_sel){
       random_vars <- c(random_vars , "ln_sel_slp_dev", "sel_inf_dev", "sel_coff_dev")
@@ -434,10 +434,10 @@ fit_mod <-
             # ln_pop_scalar = 4, # Scalar for input numbers-at-age
             rec_pars = 1, # Stock-recruit parameters or log(mean rec) if no stock-recruit relationship
             beta_rec_pars = 3,
-            ln_rec_sigma = 2, # Variance for annual recruitment deviats
+            R_ln_sd = 2, # Variance for annual recruitment deviats
             rec_dev = 2, # Annual recruitment deviats
             init_dev = 2, # Age specific initial age-structure deviates or parameters
-            ln_sex_ratio_sigma = 3, # Variance of sex ratio (usually fixed)
+            sex_ratio_ln_sd = 3, # Variance of sex ratio (usually fixed)
             ln_M1 = 4, #  Estimated natural or residual mortality
             ln_mean_F = 1, # Mean fleet-specific fishing mortality
             ln_Flimit = 3, # Estimated F limit
@@ -445,22 +445,22 @@ fit_mod <-
             ln_Finit = 3, # Estimated fishing mortality for non-equilibrium initial age-structure
             proj_F_prop = 1, # Fixed fleet-specific proportion of Flimit and Ftarget apportioned within each species
             F_dev = 1, # Annual fleet specific fishing mortality deviates
-            ln_srv_q = 3, # Survey catchability
-            ln_srv_q_dev = 5, # Annual survey catchability deviates (if time-varying)
-            ln_sigma_srv_q = 4, # Prior SD for survey catchability deviates
-            srv_q_beta = 4, # Regression coefficients for environmental linkage
-            srv_q_rho = 4, # AR1 correlation parameter
-            ln_sigma_time_varying_srv_q = 4, # SD for annual survey catchability deviates (if time-varying)
+            index_ln_q = 3, # Survey catchability
+            index_q_dev = 5, # Annual survey catchability deviates (if time-varying)
+            index_q_ln_sd = 4, # Prior SD for survey catchability deviates
+            index_q_beta = 4, # Regression coefficients for environmental linkage
+            index_q_rho = 4, # AR1 correlation parameter
+            index_q_dev_ln_sd = 4, # SD for annual survey catchability deviates (if time-varying)
             sel_coff = 3, # Non-parametric selectivity coefficients
             sel_coff_dev = 4, # Annual deviates for non-parametric selectivity coefficients
             ln_sel_slp = 3, # Slope parameters for logistic forms of selectivity
             sel_inf = 3, # Asymptote parameters for logistic forms of selectivity
             ln_sel_slp_dev = 5, # Annual deviates for slope parameters for logistic forms of selectivity (if time-varying)
             sel_inf_dev = 5, # Annual deviates for asymptote parameters for logistic forms of selectivity (if time-varying)
-            ln_sigma_sel = 4, # SD for annual selectivity deviates (if time-varying)
+            sel_dev_ln_sd = 4, # SD for annual selectivity deviates (if time-varying)
             sel_curve_pen = 4, # Penalty for non-parametric selectivity
-            ln_sigma_srv_index = 2, # Log SD for survey lognormal index likelihood (usually input)
-            ln_sigma_fsh_catch = 2, # Log SD for lognormal catch likelihood (usually input)
+            index_ln_sd = 2, # Log SD for survey lognormal index likelihood (usually input)
+            catch_ln_sd = 2, # Log SD for lognormal catch likelihood (usually input)
             comp_weights = 5 # Weights for multinomial comp likelihood
             # ,logH_1 = 6,  # Functional form parameter (not used in MSVPA functional form)
             # logH_1a = 6, # Functional form parameter (not used in MSVPA functional form)
@@ -478,10 +478,10 @@ fit_mod <-
           #   dummy = 1,
           #   ln_pop_scalar = 5, # Scalar for input numbers-at-age
           #   rec_pars = 1, # Stock-recruit parameters or log(mean rec) if no stock-recruit relationship
-          #   ln_rec_sigma = 4, # Variance for annual recruitment deviats
+          #   R_ln_sd = 4, # Variance for annual recruitment deviats
           #   rec_dev = 2, # Annual recruitment deviats
           #   init_dev = 3, # Age specific initial age-structure deviates or parameters
-          #   ln_sex_ratio_sigma = 3, # Variance of sex ratio (usually fixed)
+          #   sex_ratio_ln_sd = 3, # Variance of sex ratio (usually fixed)
           #   ln_M1 = 4, #  Estimated natural or residual mortality
           #   ln_mean_F = 6, # Mean fleet-specific fishing mortality
           #   ln_Flimit = 15, # Estimated F limit
@@ -489,20 +489,20 @@ fit_mod <-
           #   ln_Finit = 7, # Estimated fishing mortality for non-equilibrium initial age-structure
           #   proj_F_prop = 14, # Fixed fleet-specific proportion of Flimit and Ftarget apportioned within each species
           #   F_dev = 7, # Annual fleet specific fishing mortality deviates
-          #   ln_srv_q = 10, # Survey catchability
-          #   ln_srv_q_dev = 11, # Annual survey catchability deviates (if time-varying)
-          #   ln_sigma_srv_q = 15, # Prior SD for survey catchability deviates
-          #   ln_sigma_time_varying_srv_q = 15, # SD for annual survey catchability deviates (if time-varying)
+          #   index_ln_q = 10, # Survey catchability
+          #   index_q_dev = 11, # Annual survey catchability deviates (if time-varying)
+          #   index_q_ln_sd = 15, # Prior SD for survey catchability deviates
+          #   index_q_dev_ln_sd = 15, # SD for annual survey catchability deviates (if time-varying)
           #   sel_coff = 8, # Non-parametric selectivity coefficients
           #   sel_coff_dev = 11, # Annual deviates for non-parametric selectivity coefficients
           #   ln_sel_slp = 9, # Slope parameters for logistic forms of selectivity
           #   sel_inf = 9, # Asymptote parameters for logistic forms of selectivity
           #   ln_sel_slp_dev = 11, # Annual deviates for slope parameters for logistic forms of selectivity (if time-varying)
           #   sel_inf_dev = 11, # Annual deviates for asymptote parameters for logistic forms of selectivity (if time-varying)
-          #   ln_sigma_sel = 12, # SD for annual selectivity deviates (if time-varying)
+          #   sel_dev_ln_sd = 12, # SD for annual selectivity deviates (if time-varying)
           #   sel_curve_pen = 13, # Penalty for non-parametric selectivity
-          #   ln_sigma_srv_index = 14, # Log SD for survey lognormal index likelihood (usually input)
-          #   ln_sigma_fsh_catch = 14, # Log SD for lognormal catch likelihood (usually input)
+          #   index_ln_sd = 14, # Log SD for survey lognormal index likelihood (usually input)
+          #   catch_ln_sd = 14, # Log SD for lognormal catch likelihood (usually input)
           #   comp_weights = 15, # Weights for multinomial comp likelihood
           #   logH_1 = 15,  # Functional form parameter (not used in MSVPA functional form)
           #   logH_1a = 15, # Functional form parameter (not used in MSVPA functional form)
@@ -690,7 +690,7 @@ fit_mod <-
             data_list_reorganized$forecast <- data_list$HCRorder <= HCRiter # What species to include in likelihood
             params_on <- c(1:data_list$nspp)[which(data_list$HCRorder == HCRiter)] # Only update the one being estimated (not all)
             quantities <- obj$report(obj$env$last.par.best)
-            SB0 <- quantities$biomassSSB[, ncol(quantities$biomassSSB)]
+            SB0 <- quantities$ssb[, ncol(quantities$ssb)]
             B0 <- quantities$biomass[, ncol(quantities$biomass)]
             data_list_reorganized$MSSB0[params_on] <- SB0[params_on]
             data_list_reorganized$MSB0[params_on] <- B0[params_on]
@@ -792,9 +792,9 @@ fit_mod <-
     # -- Rename jnll
     colnames(quantities$jnll_comp) <- paste0("Sp/Srv/Fsh_", 1:ncol(quantities$jnll_comp))
     rownames(quantities$jnll_comp) <- c(
-      "Survey biomass",
-      "Total catch",
-      "Age/length composition data",
+      "Index data",
+      "Catch data",
+      "Composition data",
       "Sex ratio",
       "Non-parametric selectivity",
       "Selectivity deviates",
@@ -810,14 +810,14 @@ fit_mod <-
       "M prior",
       "Ration",
       "Ration penalties",
-      "Stomach content proportion by weight"
+      "Stomach content data"
     )
 
 
-    colnames(quantities$biomassSSB) <- data_list$styr:data_list$projyr
+    colnames(quantities$ssb) <- data_list$styr:data_list$projyr
     colnames(quantities$R) <- data_list$styr:data_list$projyr
 
-    rownames(quantities$biomassSSB) <- data_list$spnames
+    rownames(quantities$ssb) <- data_list$spnames
     rownames(quantities$R) <- data_list$spnames
 
     # -- Save derived quantities
@@ -885,13 +885,12 @@ clean_data <- function(data_list){
   }
 
   # - Remove years of data previous to start year
-  data_list$UobsWtAge <- as.data.frame(data_list$UobsWtAge)
+  data_list$stom_prop_data <- as.data.frame(data_list$stom_prop_data)
   data_list$UobsAge <- as.data.frame(data_list$UobsAge)
   data_list$wt <- data_list$wt[which(data_list$wt$Year == 0 | data_list$wt$Year >= data_list$styr),]
-  data_list$UobsAge <- data_list$UobsAge[which(data_list$UobsAge$Year == 0 | data_list$UobsAge$Year >= data_list$styr),]
-  data_list$UobsWtAge <- data_list$UobsWtAge[which(data_list$UobsWtAge$Year == 0 | data_list$UobsWtAge$Year >= data_list$styr),]
-  data_list$srv_biom <- data_list$srv_biom[which(abs(data_list$srv_biom$Year) >= data_list$styr),]
-  data_list$fsh_biom <- data_list$fsh_biom[which(abs(data_list$fsh_biom$Year) >= data_list$styr),]
+  data_list$stom_prop_data <- data_list$stom_prop_data[which(data_list$stom_prop_data$Year == 0 | data_list$stom_prop_data$Year >= data_list$styr),]
+  data_list$index_data <- data_list$index_data[which(abs(data_list$index_data$Year) >= data_list$styr),]
+  data_list$catch_data <- data_list$catch_data[which(abs(data_list$catch_data$Year) >= data_list$styr),]
   data_list$comp_data <- data_list$comp_data[which(abs(data_list$comp_data$Year) >= data_list$styr),]
   data_list$emp_sel <- data_list$emp_sel[which(data_list$emp_sel$Year == 0 | data_list$emp_sel$Year >= data_list$styr),]
   data_list$NByageFixed <- data_list$NByageFixed[which(data_list$NByageFixed$Year == 0 | data_list$NByageFixed$Year >= data_list$styr),]
@@ -905,10 +904,9 @@ clean_data <- function(data_list){
 
   # - Remove years of data after proj year
   data_list$wt <- data_list$wt[which(data_list$wt$Year <= data_list$projyr),]
-  data_list$UobsAge <- data_list$UobsAge[which(data_list$UobsAge$Year <= data_list$projyr),]
-  data_list$UobsWtAge <- data_list$UobsWtAge[which(data_list$UobsWtAge$Year <= data_list$projyr),]
-  data_list$srv_biom <- data_list$srv_biom[which(abs(data_list$srv_biom$Year) <= data_list$projyr),]
-  data_list$fsh_biom <- data_list$fsh_biom[which(abs(data_list$fsh_biom$Year) <= data_list$projyr),]
+  data_list$stom_prop_data <- data_list$stom_prop_data[which(data_list$stom_prop_data$Year <= data_list$projyr),]
+  data_list$index_data <- data_list$index_data[which(abs(data_list$index_data$Year) <= data_list$projyr),]
+  data_list$catch_data <- data_list$catch_data[which(abs(data_list$catch_data$Year) <= data_list$projyr),]
   data_list$comp_data <- data_list$comp_data[which(abs(data_list$comp_data$Year) <= data_list$projyr),]
   data_list$emp_sel <- data_list$emp_sel[which(data_list$emp_sel$Year <= data_list$projyr),]
   data_list$NByageFixed <- data_list$NByageFixed[which(data_list$NByageFixed$Year <= data_list$projyr),]
@@ -918,30 +916,30 @@ clean_data <- function(data_list){
   # - Extend catch data to proj year for projections
   if(data_list$projyr > data_list$endyr){
     # yrs_proj <- (data_list$endyr + 1):data_list$projyr
-    # proj_fsh_biom <- data_list$fsh_biom %>%
+    # proj_catch_data <- data_list$catch_data %>%
     #   group_by(Fleet_code) %>%
     #   slice(rep(n(),  length(yrs_proj))) %>%
     #   mutate(Year = yrs_proj, Catch = NA)
-    # data_list$fsh_biom <- rbind(data_list$fsh_biom, proj_fsh_biom)
+    # data_list$catch_data <- rbind(data_list$catch_data, proj_catch_data)
 
-    for(flt in (unique(data_list$fsh_biom$Fleet_code))){
-      fsh_biom_sub <- data_list$fsh_biom[which(data_list$fsh_biom$Fleet_code == flt),]
+    for(flt in (unique(data_list$catch_data$Fleet_code))){
+      catch_data_sub <- data_list$catch_data[which(data_list$catch_data$Fleet_code == flt),]
       yrs_proj <- (data_list$endyr + 1):data_list$projyr
-      yrs_proj <- yrs_proj[which(yrs_proj %!in% fsh_biom_sub$Year)]
+      yrs_proj <- yrs_proj[which(yrs_proj %!in% catch_data_sub$Year)]
       nyrs_proj <- length(yrs_proj)
-      proj_fsh_biom <- data.frame(Fleet_name = rep(fsh_biom_sub$Fleet_name[1], nyrs_proj),
+      proj_catch_data <- data.frame(Fleet_name = rep(catch_data_sub$Fleet_name[1], nyrs_proj),
                                   Fleet_code = rep(flt, nyrs_proj),
-                                  Species = rep(fsh_biom_sub$Species[1], nyrs_proj),
+                                  Species = rep(catch_data_sub$Species[1], nyrs_proj),
                                   Year = yrs_proj,
-                                  Month = rep(fsh_biom_sub$Month[length(fsh_biom_sub$Month)], nyrs_proj),
-                                  Selectivity_block = rep(fsh_biom_sub$Selectivity_block[length(fsh_biom_sub$Selectivity_block)], nyrs_proj),
+                                  Month = rep(catch_data_sub$Month[length(catch_data_sub$Month)], nyrs_proj),
+                                  Selectivity_block = rep(catch_data_sub$Selectivity_block[length(catch_data_sub$Selectivity_block)], nyrs_proj),
                                   Catch = rep(NA, nyrs_proj),
-                                  Log_sd = rep(fsh_biom_sub$Log_sd[length(fsh_biom_sub$Log_sd)], nyrs_proj))
-      data_list$fsh_biom <- rbind(data_list$fsh_biom, proj_fsh_biom)
+                                  Log_sd = rep(catch_data_sub$Log_sd[length(catch_data_sub$Log_sd)], nyrs_proj))
+      data_list$catch_data <- rbind(data_list$catch_data, proj_catch_data)
     }
   }
-  data_list$fsh_biom <- data_list$fsh_biom[
-    with(data_list$fsh_biom, order(Fleet_code, Year)),]
+  data_list$catch_data <- data_list$catch_data[
+    with(data_list$catch_data, order(Fleet_code, Year)),]
 
   return(data_list)
 }

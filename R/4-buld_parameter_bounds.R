@@ -73,12 +73,12 @@ build_bounds <- function(param_list = NULL, data_list) {
   upper_bnd$init_dev <- replace(upper_bnd$init_dev, values = rep(23, length(upper_bnd$init_dev)))
 
   # Survey variance
-  lower_bnd$ln_sigma_srv_index <- replace(lower_bnd$ln_sigma_srv_index, values = rep(-10, length(lower_bnd$ln_sigma_srv_index)))
-  upper_bnd$ln_sigma_srv_index <- replace(upper_bnd$ln_sigma_srv_index, values = rep(10, length(upper_bnd$ln_sigma_srv_index)))
+  lower_bnd$index_ln_sd <- replace(lower_bnd$index_ln_sd, values = rep(-10, length(lower_bnd$index_ln_sd)))
+  upper_bnd$index_ln_sd <- replace(upper_bnd$index_ln_sd, values = rep(10, length(upper_bnd$index_ln_sd)))
 
   # Fishery variance
-  lower_bnd$ln_sigma_fsh_catch <- replace(lower_bnd$ln_sigma_fsh_catch, values = rep(-10, length(lower_bnd$ln_sigma_fsh_catch)))
-  upper_bnd$ln_sigma_fsh_catch <- replace(upper_bnd$ln_sigma_fsh_catch, values = rep(3, length(upper_bnd$ln_sigma_fsh_catch)))
+  lower_bnd$catch_ln_sd <- replace(lower_bnd$catch_ln_sd, values = rep(-10, length(lower_bnd$catch_ln_sd)))
+  upper_bnd$catch_ln_sd <- replace(upper_bnd$catch_ln_sd, values = rep(3, length(upper_bnd$catch_ln_sd)))
 
   # F
   lower_bnd$F_dev <- replace(lower_bnd$F_dev, values = rep(-1000, length(lower_bnd$F_dev)))

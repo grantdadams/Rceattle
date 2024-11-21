@@ -5,8 +5,8 @@
 #' @param data_list a data_list created from \code{\link{build_dat}}.
 #' @param params a parameter list created from \code{\link{build_params}}.
 #' @param debug Runs the model without estimating parameters to get derived quantities given initial parameter values. If TRUE, sets all map values to NA except dummy
-#' @param random_rec logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE, which sets the map for ln_rec_sigma to NA
-#' @param random_sel logical. If TRUE, treats selectivity deviations as random effects.The default is FALSE, which sets the map for ln_sigma_sel to NA. Only viable for logisitc, Double Logistic, Descending Logistic, and Hake Non-parametric with Random walk or deviates.
+#' @param random_rec logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE, which sets the map for R_ln_sd to NA
+#' @param random_sel logical. If TRUE, treats selectivity deviations as random effects.The default is FALSE, which sets the map for sel_dev_ln_sd to NA. Only viable for logisitc, Double Logistic, Descending Logistic, and Hake Non-parametric with Random walk or deviates.
 #'
 #' @description
 #' TODO: turn on selectivity and catchability deviance variance parameters
@@ -39,7 +39,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # -- 1.1. Map out future fishing mortality and sex ratio variance
   map_list$proj_F_prop <- map_list$proj_F_prop * NA
-  map_list$ln_sex_ratio_sigma <- map_list$ln_sex_ratio_sigma * NA
+  map_list$sex_ratio_ln_sd <- map_list$sex_ratio_ln_sd * NA
 
   # -- 1.2. Map out future recruitment deviations
   map_list$rec_dev[, yrs_proj] <- as.numeric(replace(map_list$rec_dev[, yrs_proj],
@@ -170,7 +170,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   map_list$sel_inf_dev <- replace(map_list$sel_inf_dev, values = rep(NA, length(map_list$sel_inf_dev)))
 
   # - time-varying selectivity variance
-  map_list$ln_sigma_sel <- map_list$ln_sigma_sel * NA
+  map_list$sel_dev_ln_sd <- map_list$sel_dev_ln_sd * NA
 
   # - non-parametric selectivity penalties. Leaving as parameters in case we want to estimate down the line
   map_list$sel_curve_pen <- map_list$sel_curve_pen * NA
@@ -183,7 +183,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       flt = data_list$fleet_control$Fleet_code[i]
       # - Logisitc, Double Logistic, Descending Logistic, and Hake Non-parametric
       if (data_list$fleet_control$Selectivity[i] %in% c(1,3,4,5) & data_list$fleet_control$Time_varying_sel[i] %in% c(1,2,4,5)) {
-        map_list$ln_sigma_sel[flt] <- flt
+        map_list$sel_dev_ln_sd[flt] <- flt
       }
     }
   }
@@ -234,9 +234,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
           # If a fishery use the years from the fishery
           if(data_list$fleet_control$Fleet_type[i] == 1){
-            fsh_biom <- data_list$fsh_biom[which(data_list$fsh_biom$Fleet_code == flt),]
-            Selectivity_block <- fsh_biom$Selectivity_block
-            biom_yrs <- fsh_biom$Year - data_list$styr + 1
+            catch_data <- data_list$catch_data[which(data_list$catch_data$Fleet_code == flt),]
+            Selectivity_block <- catch_data$Selectivity_block
+            biom_yrs <- catch_data$Year - data_list$styr + 1
 
             Selectivity_block <- Selectivity_block[which(biom_yrs <= nyrs_hind)]
             biom_yrs <- biom_yrs[which(biom_yrs <= nyrs_hind)]
@@ -244,9 +244,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
           # if a survey use the survey years
           if(data_list$fleet_control$Fleet_type[i] == 2){
-            srv_biom <- data_list$srv_biom[which(data_list$srv_biom$Fleet_code == flt),]
-            Selectivity_block <- srv_biom$Selectivity_block
-            biom_yrs <- srv_biom$Year - data_list$styr + 1
+            index_data <- data_list$index_data[which(data_list$index_data$Fleet_code == flt),]
+            Selectivity_block <- index_data$Selectivity_block
+            biom_yrs <- index_data$Year - data_list$styr + 1
 
             Selectivity_block <- Selectivity_block[which(biom_yrs <= nyrs_hind)]
             biom_yrs <- biom_yrs[which(biom_yrs <= nyrs_hind)]
@@ -337,9 +337,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
           # If a fishery use the years from the fishery
           if(data_list$fleet_control$Fleet_type[i] == 1){
-            fsh_biom <- data_list$fsh_biom[which(data_list$fsh_biom$Fleet_code == flt),]
-            Selectivity_block <- fsh_biom$Selectivity_block
-            biom_yrs <- fsh_biom$Year - data_list$styr + 1
+            catch_data <- data_list$catch_data[which(data_list$catch_data$Fleet_code == flt),]
+            Selectivity_block <- catch_data$Selectivity_block
+            biom_yrs <- catch_data$Year - data_list$styr + 1
 
             Selectivity_block <- Selectivity_block[which(biom_yrs <= nyrs_hind)]
             biom_yrs <- biom_yrs[which(biom_yrs <= nyrs_hind)]
@@ -347,9 +347,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
           # if a survey use the survey years
           if(data_list$fleet_control$Fleet_type[i] == 2){
-            srv_biom <- data_list$srv_biom[which(data_list$srv_biom$Fleet_code == flt),]
-            Selectivity_block <- srv_biom$Selectivity_block
-            biom_yrs <- srv_biom$Year - data_list$styr + 1
+            index_data <- data_list$index_data[which(data_list$index_data$Fleet_code == flt),]
+            Selectivity_block <- index_data$Selectivity_block
+            biom_yrs <- index_data$Year - data_list$styr + 1
 
             Selectivity_block <- Selectivity_block[which(biom_yrs <= nyrs_hind)]
             biom_yrs <- biom_yrs[which(biom_yrs <= nyrs_hind)]
@@ -402,9 +402,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
           # If a fishery use the years from the fishery
           if(data_list$fleet_control$Fleet_type[i] == 1){
-            fsh_biom <- data_list$fsh_biom[which(data_list$fsh_biom$Fleet_code == flt),]
-            Selectivity_block <- fsh_biom$Selectivity_block
-            biom_yrs <- fsh_biom$Year - data_list$styr + 1
+            catch_data <- data_list$catch_data[which(data_list$catch_data$Fleet_code == flt),]
+            Selectivity_block <- catch_data$Selectivity_block
+            biom_yrs <- catch_data$Year - data_list$styr + 1
 
             Selectivity_block <- Selectivity_block[which(biom_yrs <= nyrs_hind)]
             biom_yrs <- biom_yrs[which(biom_yrs <= nyrs_hind)]
@@ -412,9 +412,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
           # if a survey use the survey years
           if(data_list$fleet_control$Fleet_type[i] == 2){
-            srv_biom <- data_list$srv_biom[which(data_list$srv_biom$Fleet_code == flt),]
-            Selectivity_block <- srv_biom$Selectivity_block
-            biom_yrs <- srv_biom$Year - data_list$styr + 1
+            index_data <- data_list$index_data[which(data_list$index_data$Fleet_code == flt),]
+            Selectivity_block <- index_data$Selectivity_block
+            biom_yrs <- index_data$Year - data_list$styr + 1
 
             Selectivity_block <- Selectivity_block[which(biom_yrs <= nyrs_hind)]
             biom_yrs <- biom_yrs[which(biom_yrs <= nyrs_hind)]
@@ -467,7 +467,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   ind_beta_q <- 0
 
 
-  catchability_params <- c("ln_srv_q", "srv_q_beta", "srv_q_rho", "ln_srv_q_dev", "ln_sigma_srv_q", "ln_sigma_time_varying_srv_q", "ln_sigma_srv_index") # "srv_q_pow"
+  catchability_params <- c("index_ln_q", "index_q_beta", "index_q_rho", "index_q_dev", "index_q_ln_sd", "index_q_dev_ln_sd", "index_ln_sd") # "index_q_pow"
   map_list[catchability_params] <- lapply(map_list[catchability_params], function(x) replace(x, values = rep(NA, length(x))))
 
   # Loop through fleets
@@ -492,13 +492,13 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       # - 5 = Use env index ln(q_y) = q_mu + beta * index_y
       # - 6 = Fit to env index
       if(data_list$fleet_control$Estimate_q[i] %in% c(1, 2, 4, 5, 6)){
-        map_list$ln_srv_q[flt] <- flt
+        map_list$index_ln_q[flt] <- flt
       }
 
       # - Turn on power param for:
       # - 4 = Estimate power equation
       if (data_list$fleet_control$Estimate_q[i] %in% c(4)) {
-        # map_list$srv_q_pow[flt] <- flt
+        # map_list$index_q_pow[flt] <- flt
       }
 
       # Time- varying q parameters "Time_varying_q"
@@ -516,25 +516,25 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
          data_list$fleet_control$Estimate_q[i] == 6){
 
         # Extract survey years where data is provided
-        srv_biom <- data_list$srv_biom[which(data_list$srv_biom$Fleet_code == flt & data_list$srv_biom$Year > data_list$styr & data_list$srv_biom$Year <= data_list$endyr),]
-        srv_biom_yrs <- srv_biom$Year - data_list$styr + 1
+        index_data <- data_list$index_data[which(data_list$index_data$Fleet_code == flt & data_list$index_data$Year > data_list$styr & data_list$index_data$Year <= data_list$endyr),]
+        srv_biom_yrs <- index_data$Year - data_list$styr + 1
         srv_biom_yrs_miss <- yrs_hind[which(yrs_hind %!in% srv_biom_yrs)]
 
         # Penalized deviate or random walk
         if(data_list$fleet_control$Time_varying_q[i] %in% c(1,2,4)){
-          map_list$ln_srv_q_dev[flt, srv_biom_yrs] <- ind_q + (1:length(srv_biom_yrs)) - 1
+          map_list$index_q_dev[flt, srv_biom_yrs] <- ind_q + (1:length(srv_biom_yrs)) - 1
           ind_q <- ind_q + length(srv_biom_yrs)
         }
 
         # Turn of mean for random walk
         if(data_list$fleet_control$Time_varying_q[i] == 4){
-          map_list$ln_srv_q[flt] <- NA
+          map_list$index_ln_q[flt] <- NA
         }
 
         # Time blocks
         if(data_list$fleet_control$Time_varying_q[i] == 3){
-          map_list$ln_srv_q_dev[flt, srv_biom_yrs] <- ind_q + srv_biom$Selectivity_block - 1
-          ind_q <- ind_q + max(srv_biom$Selectivity_block)
+          map_list$index_q_dev[flt, srv_biom_yrs] <- ind_q + index_data$Selectivity_block - 1
+          ind_q <- ind_q + max(index_data$Selectivity_block)
         }
       }
 
@@ -546,7 +546,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
         }else{
           turn_on <- as.numeric(unlist(strsplit(data_list$fleet_control$Time_varying_q[i],","))) # Parameters to turn on
         }
-        map_list$srv_q_beta[flt, turn_on] <- turn_on + ind_beta_q
+        map_list$index_q_beta[flt, turn_on] <- turn_on + ind_beta_q
         ind_beta_q <- ind_beta_q + max(turn_on)
       }
 
@@ -555,22 +555,22 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
         if(!nchar(data_list$fleet_control$Time_varying_q[i]) == 1){
           warning("Cant fit catchability deviates to multiple indices")
         }
-        map_list$srv_q_beta[flt, 1] <- 1 + ind_beta_q # The effect size
+        map_list$index_q_beta[flt, 1] <- 1 + ind_beta_q # The effect size
         ind_beta_q <- ind_beta_q + 1
 
-        map_list$srv_q_rho[flt] <- flt # Correlation coeff
+        map_list$index_q_rho[flt] <- flt # Correlation coeff
 
         # Turn on standard deviations
-        map_list$ln_sigma_srv_q[flt] <- flt # Obseration error
-        map_list$ln_sigma_time_varying_srv_q[flt] <- flt # AR1 process error
+        map_list$index_q_ln_sd[flt] <- flt # Obseration error
+        map_list$index_q_dev_ln_sd[flt] <- flt # AR1 process error
       }
 
       # Standard deviation of surveys index
-      # - 0 = use CV from srv_biom
+      # - 0 = use CV from index_data
       # - 1 = estimate a free parameter
       # - 2 = analytically estimate following (Ludwig and Walters 1994)
       if (data_list$fleet_control$Estimate_survey_sd[i] == 1) {
-        map_list$ln_sigma_srv_index[flt] <- flt
+        map_list$index_ln_sd[flt] <- flt
       }
     }
   }
@@ -622,7 +622,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       map_list$sel_coff_dev[flt,,,] <- map_list$sel_coff_dev[sel_duplicate,,,]
       map_list$ln_sel_slp_dev[1:2, flt,,] <- map_list$ln_sel_slp_dev[1:2, sel_duplicate,,]
       map_list$sel_inf_dev[1:2, flt,,] <- map_list$sel_inf_dev[1:2, sel_duplicate,,]
-      map_list$ln_sigma_sel[flt] <- map_list$ln_sigma_sel[sel_duplicate]
+      map_list$sel_dev_ln_sd[flt] <- map_list$sel_dev_ln_sd[sel_duplicate]
       map_list$sel_curve_pen[flt,] <- map_list$sel_curve_pen[sel_duplicate,]
     }
 
@@ -648,14 +648,14 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       # FIXME add checks for surveys q sigma
 
       # Make catchability maps the same
-      map_list$ln_srv_q[flt] <- map_list$ln_srv_q[q_duplicate]
-      map_list$ln_srv_q[flt] <- map_list$ln_srv_q[q_duplicate]
-      # map_list$srv_q_pow[flt] <- map_list$srv_q_pow[q_duplicate]
-      map_list$srv_q_rho[flt] <- map_list$srv_q_rho[q_duplicate]
-      map_list$srv_q_beta[flt,] <- map_list$srv_q_beta[q_duplicate,]
-      map_list$ln_srv_q_dev[flt,] <- map_list$ln_srv_q_dev[q_duplicate,]
-      map_list$ln_sigma_srv_q[flt] <- map_list$ln_sigma_srv_q[q_duplicate]
-      map_list$ln_sigma_time_varying_srv_q[flt] <- map_list$ln_sigma_time_varying_srv_q[q_duplicate]
+      map_list$index_ln_q[flt] <- map_list$index_ln_q[q_duplicate]
+      map_list$index_ln_q[flt] <- map_list$index_ln_q[q_duplicate]
+      # map_list$index_q_pow[flt] <- map_list$index_q_pow[q_duplicate]
+      map_list$index_q_rho[flt] <- map_list$index_q_rho[q_duplicate]
+      map_list$index_q_beta[flt,] <- map_list$index_q_beta[q_duplicate,]
+      map_list$index_q_dev[flt,] <- map_list$index_q_dev[q_duplicate,]
+      map_list$index_q_ln_sd[flt] <- map_list$index_q_ln_sd[q_duplicate]
+      map_list$index_q_dev_ln_sd[flt] <- map_list$index_q_dev_ln_sd[q_duplicate]
     }
 
 
@@ -676,12 +676,12 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
     flt = data_list$fleet_control$Fleet_code[i]
     # Standard deviation of fishery time series If not estimating turn of
     if (data_list$fleet_control$Estimate_catch_sd[i] %in% c(NA, 0, 2)) {
-      map_list$ln_sigma_fsh_catch[flt] <- NA
+      map_list$catch_ln_sd[flt] <- NA
     }
 
     # Turn of F and F dev if not estimating of it is a Survey
     if (data_list$fleet_control$Fleet_type[i] %in% c(0, 2)) {
-      map_list$ln_sigma_fsh_catch[flt] <- NA
+      map_list$catch_ln_sd[flt] <- NA
       map_list$F_dev[flt, ] <- NA
       map_list$ln_mean_F[flt] <- NA
     }
@@ -708,9 +708,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
 
   # - Map out Fdev for years with 0 catch to very low number
-  fsh_biom <- data_list$fsh_biom[which(data_list$fsh_biom$Year <= data_list$endyr),]
-  fsh_ind <- fsh_biom$Fleet_code[which(fsh_biom$Catch == 0)]
-  yr_ind <- fsh_biom$Year[which(fsh_biom$Catch == 0)] - data_list$styr + 1
+  catch_data <- data_list$catch_data[which(data_list$catch_data$Year <= data_list$endyr),]
+  fsh_ind <- catch_data$Fleet_code[which(catch_data$Catch == 0)]
+  yr_ind <- catch_data$Year[which(catch_data$Catch == 0)] - data_list$styr + 1
 
   for(i in 1:length(yr_ind)){
     map_list$F_dev[fsh_ind[i], yr_ind[i]] <- NA
@@ -726,7 +726,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # -- Recruitment deviation sigmas - turn off if not estimating
   if(random_rec == FALSE){
-    map_list$ln_rec_sigma <- map_list$ln_rec_sigma * NA
+    map_list$R_ln_sd <- map_list$R_ln_sd * NA
   }
 
   # -- Stock recruit relationship (SRR) parameters:
@@ -868,8 +868,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
       # Population parameters
       map_list$rec_pars[sp,] <- NA
-      map_list$ln_rec_sigma[sp] <- NA
-      map_list$ln_sex_ratio_sigma[sp] <- NA
+      map_list$R_ln_sd[sp] <- NA
+      map_list$sex_ratio_ln_sd[sp] <- NA
       map_list$rec_dev[sp,] <- NA
       map_list$init_dev[sp,] <- NA
       map_list$ln_M1[sp,,] <- NA
@@ -880,20 +880,20 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
       map_list$ln_mean_F[flts] <- NA
       map_list$F_dev[flts,] <- NA
-      map_list$ln_srv_q[flts] <- NA
-      # map_list$srv_q_pow[flts] <- NA
-      map_list$ln_srv_q_dev[flts,] <- NA
-      map_list$ln_sigma_srv_q[flts] <- NA
-      map_list$ln_sigma_time_varying_srv_q[flts] <- NA
+      map_list$index_ln_q[flts] <- NA
+      # map_list$index_q_pow[flts] <- NA
+      map_list$index_q_dev[flts,] <- NA
+      map_list$index_q_ln_sd[flts] <- NA
+      map_list$index_q_dev_ln_sd[flts] <- NA
       map_list$sel_coff[flts,,] <- NA
       map_list$sel_coff_dev[flts,,,] <- NA
       map_list$ln_sel_slp[, flts, ] <- NA
       map_list$sel_inf[, flts, ] <- NA
       map_list$ln_sel_slp_dev[, flts, ,] <- NA
       map_list$sel_inf_dev[, flts, ,] <- NA
-      map_list$ln_sigma_sel[flts] <- NA
-      map_list$ln_sigma_srv_index[flts] <- NA
-      map_list$ln_sigma_fsh_catch[flts] <- NA
+      map_list$sel_dev_ln_sd[flts] <- NA
+      map_list$index_ln_sd[flts] <- NA
+      map_list$catch_ln_sd[flts] <- NA
       map_list$comp_weights[flts] <- NA
     }
 

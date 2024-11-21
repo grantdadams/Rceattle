@@ -110,14 +110,14 @@ mse_summary <- function(mse, om_only = FALSE){
     # * Mean catch ----
     mse_summary$`Average Catch`[i+nspp] <- mean(
       sapply(mse, function(x)
-        x$OM$data_list$fsh_biom %>%
+        x$OM$data_list$catch_data %>%
           filter(Fleet_code == flt & Year %in% projyrs) %>%
           pull(Catch)
       ), na.rm = TRUE)
 
     # * Catch IAV ----
     catch_list_tmp <- lapply(mse, function(x)
-      x$OM$data_list$fsh_biom %>%
+      x$OM$data_list$catch_data %>%
         filter(Fleet_code == flt & Year %in% projyrs) %>%
         pull(Catch)
     )
@@ -148,14 +148,14 @@ mse_summary <- function(mse, om_only = FALSE){
     # * Mean catch ----
     mse_summary$`Average Catch`[sp] <- mean(
       sapply(mse, function(x)
-        x$OM$data_list$fsh_biom %>%
+        x$OM$data_list$catch_data %>%
           filter(Species == sp & Year %in% projyrs) %>%
           pull(Catch)
       ), na.rm = TRUE)
 
     # - Catch IAV ----
     catch_list_tmp <- suppressMessages(lapply(mse, function(x)
-      x$OM$data_list$fsh_biom %>%
+      x$OM$data_list$catch_data %>%
         filter(Species == sp & Year %in% projyrs) %>%
         group_by(Year) %>%
         summarise(Catch = sum(Catch)) %>%
@@ -183,7 +183,7 @@ mse_summary <- function(mse, om_only = FALSE){
   # - Catch IAV
   # - P(Closed)
   catch_list_tmp <- suppressMessages(lapply(mse, function(x)
-    x$OM$data_list$fsh_biom %>%
+    x$OM$data_list$catch_data %>%
       filter(Year %in% projyrs) %>%
       group_by(Year) %>%
       summarise(Catch = sum(Catch)) %>%
@@ -216,27 +216,27 @@ mse_summary <- function(mse, om_only = FALSE){
   # - EM: P(SSB > SSBlimit) but OM: P(SSB < SSBlimit)
   # - OM: Terminal Depletion Relative to equilibrium SB0
   # - OM: Terminal Depletion Relative to dynamic SB0
-  # - EM: Average age-1 M
-  # - EM: Variance of age-1 M
+  # - EM: Average age-1 M_at_age
+  # - EM: Variance of age-1 M_at_age
 
   # -- Tier 3 for single-species models
   # - Produces vectors of Flimits given depletion and input Flimit (Fspr)
   # - Note, it doesnt have Plimit because thats for cod
-  flimit_tier3_fun <- function(depletionSSB, biomassSSB, SBF, plimit, alpha, Flimit){
+  flimit_tier3_fun <- function(ssb_depletion, ssb, SBF, plimit, alpha, Flimit){
     tier3_flimit <- c()
-    for(i in 1:length(biomassSSB)){
+    for(i in 1:length(ssb)){
 
       # Tier-3 HCR
-      if(biomassSSB[i] >= SBF[i]){
+      if(ssb[i] >= SBF[i]){
         tier3_flimit[i] = Flimit
-      }else if(biomassSSB[i] < SBF[i] & biomassSSB[i] > alpha * SBF[i]){
-        tier3_flimit[i] = Flimit * (biomassSSB[i]/SBF[i] - alpha)/(1-alpha)
+      }else if(ssb[i] < SBF[i] & ssb[i] > alpha * SBF[i]){
+        tier3_flimit[i] = Flimit * (ssb[i]/SBF[i] - alpha)/(1-alpha)
       }else{
         tier3_flimit[i] = 0
       }
 
       # If below 20%
-      if(depletionSSB[i] < plimit){
+      if(ssb_depletion[i] < plimit){
         tier3_flimit[i] = 0
       }
     }
@@ -270,8 +270,8 @@ mse_summary <- function(mse, om_only = FALSE){
             em_f_flimit <- c(em_f_flimit,
                              mse[[sim]]$EM[[em]]$quantities$F_spp[sp,end_yr_col] >
                                flimit_tier3_fun(
-                                 depletionSSB = mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp,end_yr_col],
-                                 biomassSSB = mse[[sim]]$EM[[em]]$quantities$biomassSSB[sp,end_yr_col],
+                                 ssb_depletion = mse[[sim]]$EM[[em]]$quantities$ssb_depletion[sp,end_yr_col],
+                                 ssb = mse[[sim]]$EM[[em]]$quantities$ssb[sp,end_yr_col],
                                  SBF = mse[[sim]]$EM[[em]]$quantities$SBF[sp,length(projyrs)],
                                  Plimit[sp], Alpha[sp], mse[[sim]]$EM[[em]]$quantities$Flimit[sp]
                                )
@@ -283,8 +283,8 @@ mse_summary <- function(mse, om_only = FALSE){
             em_f_flimit <- c(em_f_flimit,
                              mse[[sim]]$EM[[em]]$quantities$F_spp[sp,end_yr_col] >
                                flimit_tier3_fun(
-                                 depletionSSB = mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp,end_yr_col],
-                                 biomassSSB = mse[[sim]]$EM[[em]]$quantities$biomassSSB[sp,end_yr_col],
+                                 ssb_depletion = mse[[sim]]$EM[[em]]$quantities$ssb_depletion[sp,end_yr_col],
+                                 ssb = mse[[sim]]$EM[[em]]$quantities$ssb[sp,end_yr_col],
                                  SBF = mse[[sim]]$EM[[em]]$quantities$DynamicSBF[sp,length(projyrs)],
                                  Plimit[sp], Alpha[sp], mse[[sim]]$EM[[em]]$quantities$Flimit[sp]
                                )
@@ -299,28 +299,28 @@ mse_summary <- function(mse, om_only = FALSE){
           #FIXME: convert to SBF when using ricker in EM
           if(HCR == 2){ # Avg F SPR based
             em_sb_sblimit <- c(em_sb_sblimit,
-                               mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] < 0.5 * 0.35) # 0.5 * SB35%
+                               mse[[sim]]$EM[[em]]$quantities$ssb_depletion[sp, end_yr_col] < 0.5 * 0.35) # 0.5 * SB35%
           }else if(HCR == 4){ # New England SPR based
             em_sb_sblimit <- c(em_sb_sblimit,
-                               mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] < 0.5 * 0.4) # 0.5 * SB40%
+                               mse[[sim]]$EM[[em]]$quantities$ssb_depletion[sp, end_yr_col] < 0.5 * 0.4) # 0.5 * SB40%
           }else if(HCR == 5){ # Tier 3 SPR Based
             em_sb_sblimit <- c(em_sb_sblimit,
-                               mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] < 0.5 * 0.35) # 0.5 * SB35%
+                               mse[[sim]]$EM[[em]]$quantities$ssb_depletion[sp, end_yr_col] < 0.5 * 0.35) # 0.5 * SB35%
           }else if(HCR == 6){ # Cat 1 Depletion based
             if(Ptarget[sp] == 0.25){
               em_sb_sblimit <- c(em_sb_sblimit,
-                                 mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] < 0.125) # 0.125 * SB0
+                                 mse[[sim]]$EM[[em]]$quantities$ssb_depletion[sp, end_yr_col] < 0.125) # 0.125 * SB0
             }
             if(Ptarget[sp] == 0.4){
               em_sb_sblimit <- c(em_sb_sblimit,
-                                 mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] < 0.25) # 0.25 * SB0
+                                 mse[[sim]]$EM[[em]]$quantities$ssb_depletion[sp, end_yr_col] < 0.25) # 0.25 * SB0
             }
           }else if(HCR == 7){ # Tier 1 Depletion based
             em_sb_sblimit <- c(em_sb_sblimit,
-                               mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] < Plimit[sp])
+                               mse[[sim]]$EM[[em]]$quantities$ssb_depletion[sp, end_yr_col] < Plimit[sp])
           } else { # Otherwise depletion based
             em_sb_sblimit <- c(em_sb_sblimit,
-                               mse[[sim]]$EM[[em]]$quantities$depletionSSB[sp, end_yr_col] < Plimit[sp])
+                               mse[[sim]]$EM[[em]]$quantities$ssb_depletion[sp, end_yr_col] < Plimit[sp])
           }
         }
       }
@@ -342,8 +342,8 @@ mse_summary <- function(mse, om_only = FALSE){
     if(mse[[1]]$OM$data_list$msmMode == 0 & HCR == 5 & DynamicHCR == FALSE){
       om_f_flimit <- lapply(mse, function(x) x$OM$quantities$F_spp[sp, (projyrs - styr + 1)] >
                               flimit_tier3_fun(
-                                depletionSSB = x$OM$quantities$depletionSSB[sp,(projyrs - styr + 1)],
-                                biomassSSB = x$OM$quantities$biomassSSB[sp,(projyrs - styr + 1)],
+                                ssb_depletion = x$OM$quantities$ssb_depletion[sp,(projyrs - styr + 1)],
+                                ssb = x$OM$quantities$ssb[sp,(projyrs - styr + 1)],
                                 SBF = x$OM$quantities$SBF[sp,(projyrs - styr + 1)],
                                 Plimit[sp], Alpha[sp], Flimit = x$OM$quantities$Flimit[sp]
                               )
@@ -354,8 +354,8 @@ mse_summary <- function(mse, om_only = FALSE){
     if(mse[[1]]$OM$data_list$msmMode == 0 & HCR == 5 & DynamicHCR == TRUE){
       om_f_flimit <- lapply(mse, function(x) x$OM$quantities$F_spp[sp, (projyrs - styr + 1)] >
                               flimit_tier3_fun(
-                                depletionSSB = x$OM$quantities$depletionSSB[sp,(projyrs - styr + 1)],
-                                biomassSSB = x$OM$quantities$biomassSSB[sp,(projyrs - styr + 1)],
+                                ssb_depletion = x$OM$quantities$ssb_depletion[sp,(projyrs - styr + 1)],
+                                ssb = x$OM$quantities$ssb[sp,(projyrs - styr + 1)],
                                 SBF = x$OM$quantities$DynamicSBF[sp,(projyrs - styr + 1)],
                                 Plimit[sp], Alpha[sp], Flimit = x$OM$quantities$Flimit[sp]
                               )
@@ -368,7 +368,7 @@ mse_summary <- function(mse, om_only = FALSE){
 
     # * OM: P(SSB < SSBlimit) ----
     # - Multi-species
-    om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)] < x$OM$data_list$Plimit[sp])
+    om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$ssb_depletion[sp, (projyrs - styr + 1)] < x$OM$data_list$Plimit[sp])
 
     # Update over fished definition for the following because Plimit is used for something else
     # -- HCR = 5: NPFMC Tier 3 - Flimit and Ftarget on
@@ -376,34 +376,34 @@ mse_summary <- function(mse, om_only = FALSE){
     if(mse[[1]]$OM$data_list$msmMode == 0){
 
       # Default is depletion based
-      om_sb_sblimit <-lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)] < x$OM$data_list$Plimit[sp])
+      om_sb_sblimit <-lapply(mse, function(x) x$OM$quantities$ssb_depletion[sp, (projyrs - styr + 1)] < x$OM$data_list$Plimit[sp])
 
       # - Avg F SPR based
       if(HCR == 2){
-        om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$biomassSSB[sp, (projyrs - styr + 1)] < 0.5 * x$OM$quantities$SBF[sp, length(projyrs)]) # 0.5 * SB35%
+        om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$ssb[sp, (projyrs - styr + 1)] < 0.5 * x$OM$quantities$SBF[sp, length(projyrs)]) # 0.5 * SB35%
       }
 
       # - New England SPR based
       if(HCR == 4 & !DynamicHCR){
-        om_sb_sblimit <-lapply(mse, function(x) x$OM$quantities$biomassSSB[sp, (projyrs - styr + 1)] < 0.5 * x$OM$quantities$SBF[sp, length(projyrs)]) # 0.5 * SB40%
+        om_sb_sblimit <-lapply(mse, function(x) x$OM$quantities$ssb[sp, (projyrs - styr + 1)] < 0.5 * x$OM$quantities$SBF[sp, length(projyrs)]) # 0.5 * SB40%
       }else if(HCR == 4 & DynamicHCR){ # Dynamic New England SPR based
-        om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$biomassSSB[sp, (projyrs - styr + 1)] < 0.5 * x$OM$quantities$DynamicSBF[sp, length(projyrs)]) # 0.5 * SB40%
+        om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$ssb[sp, (projyrs - styr + 1)] < 0.5 * x$OM$quantities$DynamicSBF[sp, length(projyrs)]) # 0.5 * SB40%
       }
 
       # - Tier 3 SPR Based
       if(HCR == 5 & !DynamicHCR){
-        om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$biomassSSB[sp, (projyrs - styr + 1)] < 0.5 * x$OM$quantities$SBF[sp, length(projyrs)]) # 0.5 * SB35%
+        om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$ssb[sp, (projyrs - styr + 1)] < 0.5 * x$OM$quantities$SBF[sp, length(projyrs)]) # 0.5 * SB35%
       }else if(HCR == 5 & DynamicHCR){ # Dynamic Tier 3 SPR Based
-        om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$biomassSSB[sp, (projyrs - styr + 1)] < 0.5 * x$OM$quantities$DynamicSBF[sp, length(projyrs)]) # 0.5 * SB35%
+        om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$ssb[sp, (projyrs - styr + 1)] < 0.5 * x$OM$quantities$DynamicSBF[sp, length(projyrs)]) # 0.5 * SB35%
       }
 
       # - Cat 1 Depletion based
       if(HCR == 6){
         if(Ptarget[sp] == 0.25){
-          om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)] < 0.125) # 0.125 * SB0
+          om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$ssb_depletion[sp, (projyrs - styr + 1)] < 0.125) # 0.125 * SB0
         }
         if(Ptarget[sp] == 0.4){
-          om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)] < 0.25) # 0.25 * SB0
+          om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$ssb_depletion[sp, (projyrs - styr + 1)] < 0.25) # 0.25 * SB0
         }
       }
     }
@@ -431,8 +431,8 @@ mse_summary <- function(mse, om_only = FALSE){
     # * Bias in terminal SSB ----
     if(!om_only){
       # - last projection year
-      terminal_ssb_om <- sapply(mse, function(x) x$OM$quantities$biomassSSB[sp, (projyr - styr + 1)])
-      terminal_ssb_em <- lapply(mse, function(x) x$EM[[length(x$EM)]]$quantities$biomassSSB[sp, (projyr - styr + 1)])
+      terminal_ssb_om <- sapply(mse, function(x) x$OM$quantities$ssb[sp, (projyr - styr + 1)])
+      terminal_ssb_em <- lapply(mse, function(x) x$EM[[length(x$EM)]]$quantities$ssb[sp, (projyr - styr + 1)])
       mse_summary$`Avg terminal SSB Relative MSE`[sp] = mean((unlist(terminal_ssb_em) -  unlist(terminal_ssb_om))^2 / unlist(terminal_ssb_om)^2, na.rm = TRUE)
 
       # * Bias in terminal SSB ----
@@ -440,14 +440,14 @@ mse_summary <- function(mse, om_only = FALSE){
       ssb_om <- lapply(mse, function(x) x$OM$quantities$biomass[sp, (projyrs - styr + 1)])
       terminal_ssb_em_all <- list()
       for(i in 1:length(mse)){
-        terminal_ssb_em_all[[i]] <- sapply(mse[[i]]$EM[-1], function(x) x$quantities$biomassSSB[sp, (x$data_list$endyr - styr + 1)])
+        terminal_ssb_em_all[[i]] <- sapply(mse[[i]]$EM[-1], function(x) x$quantities$ssb[sp, (x$data_list$endyr - styr + 1)])
       }
       mse_summary$`Avg SSB Relative MSE`[sp] = mean((unlist(terminal_ssb_em_all) -  unlist(ssb_om))^2 / unlist(ssb_om)^2, na.rm = TRUE)
     }
 
     # * OM: Terminal B, SSB, depletion ----
     terminal_b_om <- sapply(mse, function(x) x$OM$quantities$biomass[sp, (projyr - styr + 1)])
-    terminal_ssb_om <- sapply(mse, function(x) x$OM$quantities$biomassSSB[sp, (projyr - styr + 1)])
+    terminal_ssb_om <- sapply(mse, function(x) x$OM$quantities$ssb[sp, (projyr - styr + 1)])
 
     if(mse[[1]]$OM$data_list$msmMode == 0){ # Take dynamic SB0 for multi-species model from OM projected with no F
       terminal_sb0_om <- sapply(mse, function(x) x$OM$quantities$SB0[sp, (projyr - styr + 1)])
@@ -456,7 +456,7 @@ mse_summary <- function(mse, om_only = FALSE){
 
     if(mse[[1]]$OM$data_list$msmMode > 0){ # Take dynamic SB0 for multi-species model from OM projected with no F
       terminal_sb0_om <- sapply(mse, function(x) x$OM$quantities$SB0[sp]) # FIXME: SBO is adjusted in wrapper function
-      terminal_dynamic_sb0_om <- sapply(mse, function(x) x$OM_no_F$quantities$biomassSSB[sp, (projyr - styr + 1)])
+      terminal_dynamic_sb0_om <- sapply(mse, function(x) x$OM_no_F$quantities$ssb[sp, (projyr - styr + 1)])
     }
 
     mse_summary$`OM: Terminal B`[sp] <- mean(terminal_b_om)
@@ -467,18 +467,18 @@ mse_summary <- function(mse, om_only = FALSE){
 
 
     # - OM: Average SSB depletion
-    sb_depletion <- lapply(mse, function(x) x$OM$quantities$depletionSSB[sp, (projyrs - styr + 1)])
+    sb_depletion <- lapply(mse, function(x) x$OM$quantities$ssb_depletion[sp, (projyrs - styr + 1)])
     sb_depletion <- unlist(sb_depletion)
     mse_summary$`OM: Average SSB Depletion`[sp] <- mean(sb_depletion)
 
     # * OM: Collapse ----
-    mse_summary$`OM no F: SSB Collapse`[sp] <- sum(sapply(mse, function(x) sum(x$OM_no_F$quantities$biomassSSB[sp, (projyrs - styr + 1)] < 1000) > 0))
-    mse_summary$`OM: SSB Collapse`[sp] <- sum(sapply(mse, function(x) sum(x$OM$quantities$biomassSSB[sp, (projyrs - styr + 1)] < 1000) > 0))
+    mse_summary$`OM no F: SSB Collapse`[sp] <- sum(sapply(mse, function(x) sum(x$OM_no_F$quantities$ssb[sp, (projyrs - styr + 1)] < 1000) > 0))
+    mse_summary$`OM: SSB Collapse`[sp] <- sum(sapply(mse, function(x) sum(x$OM$quantities$ssb[sp, (projyrs - styr + 1)] < 1000) > 0))
 
     # -- OM without F is above cutoff, but OM with F is below
     mse_summary$`OM: SSB Collapse from F`[sp] <- sum(sapply(mse,
-                                                            function(x) sum((x$OM$quantities$biomassSSB[sp, (projyrs - styr + 1)] < 1000) *
-                                                                              (x$OM_no_F$quantities$biomassSSB[sp, (projyrs - styr + 1)] > 1000)) > 0))
+                                                            function(x) sum((x$OM$quantities$ssb[sp, (projyrs - styr + 1)] < 1000) *
+                                                                              (x$OM_no_F$quantities$ssb[sp, (projyrs - styr + 1)] > 1000)) > 0))
   }
 
   return(mse_summary = mse_summary)
@@ -588,22 +588,22 @@ load_mse <- function(dir = NULL, file = NULL, exclude = NULL){
     mse_tmp[[i]]$OM$obj <- NULL
     mse_tmp[[i]]$OM$opt <- NULL
     mse_tmp[[i]]$OM$sdrep <- NULL
-    mse_tmp[[i]]$OM$quantities[!names(mse_tmp[[i]]$OM$quantities) %in% c("fsh_bio_hat",
-                                                                         "fsh_log_sd_hat",
-                                                                         "srv_bio_hat",
-                                                                         "srv_log_sd_hat",
-                                                                         "depletion",
-                                                                         "depletionSSB",
+    mse_tmp[[i]]$OM$quantities[!names(mse_tmp[[i]]$OM$quantities) %in% c("catch_hat",
+                                                                         "ln_catch_sd",
+                                                                         "index_hat",
+                                                                         "ln_index_sd",
+                                                                         "biomass_depletion",
+                                                                         "ssb_depletion",
                                                                          "biomass",
-                                                                         "biomassSSB",
+                                                                         "ssb",
                                                                          "BO",
                                                                          "SB0",
                                                                          "SBF",
                                                                          "F_spp",
                                                                          "R",
-                                                                         "M1",
-                                                                         "M",
-                                                                         "mean_rec",
+                                                                         "M1_at_age",
+                                                                         "M_at_age",
+                                                                         "avg_R",
                                                                          "DynamicB0",
                                                                          "DynamicSB0",
                                                                          "DynamicSBF",
@@ -621,22 +621,22 @@ load_mse <- function(dir = NULL, file = NULL, exclude = NULL){
     mse_tmp[[i]]$OM_no_F$obj <- NULL
     mse_tmp[[i]]$OM_no_F$opt <- NULL
     mse_tmp[[i]]$OM_no_F$sdrep <- NULL
-    mse_tmp[[i]]$OM_no_F$quantities[!names(mse_tmp[[i]]$OM_no_F$quantities) %in% c("fsh_bio_hat",
-                                                                                   "fsh_log_sd_hat",
-                                                                                   "srv_bio_hat",
-                                                                                   "srv_log_sd_hat",
-                                                                                   "depletion",
-                                                                                   "depletionSSB",
+    mse_tmp[[i]]$OM_no_F$quantities[!names(mse_tmp[[i]]$OM_no_F$quantities) %in% c("catch_hat",
+                                                                                   "ln_catch_sd",
+                                                                                   "index_hat",
+                                                                                   "ln_index_sd",
+                                                                                   "biomass_depletion",
+                                                                                   "ssb_depletion",
                                                                                    "biomass",
-                                                                                   "biomassSSB",
+                                                                                   "ssb",
                                                                                    "BO",
                                                                                    "SB0",
                                                                                    "SBF",
                                                                                    "F_spp",
                                                                                    "R",
-                                                                                   "M1",
-                                                                                   "M",
-                                                                                   "mean_rec",
+                                                                                   "M1_at_age",
+                                                                                   "M_at_age",
+                                                                                   "avg_R",
                                                                                    "DynamicB0",
                                                                                    "DynamicSB0",
                                                                                    "DynamicSBF",

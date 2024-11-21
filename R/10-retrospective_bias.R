@@ -46,7 +46,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE) {
 
 
     # * Adjust data ----
-    data_list$srv_biom <- data_list$srv_biom %>%
+    data_list$index_data <- data_list$index_data %>%
       dplyr::filter(Year <= data_list$endyr)
 
     data_list$wt <- data_list$wt %>%
@@ -55,10 +55,13 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE) {
     data_list$comp_data <- data_list$comp_data %>%
       dplyr::filter(Year <= data_list$endyr)
 
-    data_list$fsh_biom <- data_list$fsh_biom %>%
+    data_list$catch_data <- data_list$catch_data %>%
       dplyr::filter(Year <= data_list$endyr)
 
     data_list$Pyrs <- data_list$Pyrs %>%
+      dplyr::filter(Year <= data_list$endyr)
+
+    data_list$stom_prop_data <- data_list$stom_prop_data %>%
       dplyr::filter(Year <= data_list$endyr)
 
     if(rescale){
@@ -161,7 +164,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE) {
   #####################################
   # Calculate Mohs rho for each species
   #####################################
-  objects <- c("biomass", "biomassSSB", "R", "F_spp")
+  objects <- c("biomass", "SSB", "R", "F_spp")
 
   mohns <- data.frame(matrix(0, nrow = length(objects) + 1, ncol = 1 + data_list$nspp))
   colnames(mohns) <- c("Object", paste0("Spp/Fsh_", 1:max(c(data_list$nspp, nrow(data_list$fsh_control)))))

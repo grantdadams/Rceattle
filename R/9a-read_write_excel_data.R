@@ -61,7 +61,7 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
     names_used <- c(names_used, "fleet_control")
 
     # srv and fsh bits
-    srv_bits <- c("srv_biom", "fsh_biom", "comp_data",  "emp_sel", "NByageFixed", "age_trans_matrix")
+    srv_bits <- c("index_data", "catch_data", "comp_data",  "emp_sel", "NByageFixed", "age_trans_matrix")
     for (i in 1:length(srv_bits)) {
         xcel_list[[srv_bits[i]]] <- data_list[[srv_bits[i]]]
     }
@@ -142,9 +142,9 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
     xcel_list$Pyrs <- as.data.frame(data_list$Pyrs)
     names_used <- c(names_used, "Pyrs")
 
-    # UobsWtAge
-    xcel_list$UobsWtAge <- as.data.frame(data_list$UobsWtAge)
-    names_used <- c(names_used, "UobsWtAge")
+    # stom_prop_data
+    xcel_list$stom_prop_data <- as.data.frame(data_list$stom_prop_data)
+    names_used <- c(names_used, "stom_prop_data")
 
 
     data_names[data_names %!in% names_used]
@@ -206,12 +206,38 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     nyrs <- data_list$endyr - data_list$styr + 1
 
     # srv and fsh bits
-    srv_bits <- c("fleet_control", "srv_biom", "fsh_biom" , "comp_data", "emp_sel", "NByageFixed")
+    srv_bits <- c("fleet_control" , "comp_data", "emp_sel", "NByageFixed")
     for (i in 1:length(srv_bits)) {
         sheet <- as.data.frame(readxl::read_xlsx(file, sheet = srv_bits[i]))
         sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
 
         data_list[[srv_bits[i]]] <- sheet
+    }
+
+    # * Old names ----
+    sheetnames <- readxl::excel_sheets(file)
+    if("catch_data" %in% sheetnames){
+      sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "catch_data"))
+      sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
+      data_list$catch_data <- sheet
+    }
+
+    if("fsh_biom" %in% sheetnames){
+      sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "fsh_biom"))
+      sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
+      data_list$catch_data <- sheet
+    }
+
+    if("index_data" %in% sheetnames){
+      sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "index_data"))
+      sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
+      data_list$index_data <- sheet
+    }
+
+    if("srv_biom" %in% sheetnames){
+      sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "srv_biom"))
+      sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
+      data_list$index_data <- sheet
     }
 
     # age_trans_matrix
@@ -257,7 +283,6 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     }
 
 
-
     # Temperature
     env_data <- as.data.frame(readxl::read_xlsx(file, sheet = "env_data"))
     data_list$env_data <- env_data
@@ -266,9 +291,16 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     pyrs_matrix <- as.data.frame(readxl::read_xlsx(file, sheet = "Pyrs"))
     data_list$Pyrs <- pyrs_matrix
 
-    # Diet UobsWtAge
-    UobsWtAge <- as.data.frame(readxl::read_xlsx(file, sheet = "UobsWtAge"))
-    data_list$UobsWtAge <- UobsWtAge
+    # Diet stom_prop_data
+    if("stom_prop_data" %in% sheetnames){
+      sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "stom_prop_data"))
+      data_list$stom_prop_data <- sheet
+    }
+
+    if("UobsWtAge" %in% sheetnames){
+      sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "UobsWtAge"))
+      data_list$stom_prop_data <- sheet
+    }
 
 
     # write the data

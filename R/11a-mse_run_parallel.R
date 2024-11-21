@@ -118,7 +118,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
     # - Simulate index and comp data and updatae EM
     sim_dat <- sim_mod(om, simulate = FALSE)
 
-    em$data_list$srv_biom <- sim_dat$srv_biom
+    em$data_list$index_data <- sim_dat$index_data
     em$data_list$comp_data <- sim_dat$comp_data
 
     # Restimate
@@ -226,14 +226,14 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   #--------------------------------------------------
   # Update data-files in OM so we can fill in updated years ----
   #--------------------------------------------------
-  # -- srv_biom
-  proj_srv <- om$data_list$srv_biom %>%
+  # -- index_data
+  proj_srv <- om$data_list$index_data %>%
     group_by(Fleet_code) %>%
     slice(rep(n(),  om_proj_nyrs)) %>%
     mutate(Year = -om_proj_yrs)
   proj_srv$Log_sd <- proj_srv$Log_sd * 1/fut_sample
-  om$data_list$srv_biom  <- rbind(om$data_list$srv_biom, proj_srv)
-  om$data_list$srv_biom <- dplyr::arrange(om$data_list$srv_biom, Fleet_code, abs(Year))
+  om$data_list$index_data  <- rbind(om$data_list$index_data, proj_srv)
+  om$data_list$index_data <- dplyr::arrange(om$data_list$index_data, Fleet_code, abs(Year))
 
   # -- Nbyage
   if(nrow(om$data_list$NByageFixed) > 0){
@@ -375,7 +375,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       new_years <- om_proj_yrs[which(om_proj_yrs <= assess_yrs[k] & om_proj_yrs > om_use$data_list$endyr)]
 
       # - Get projected catch data from EM
-      new_catch_data <- em_use$data_list$fsh_biom
+      new_catch_data <- em_use$data_list$catch_data
       dat_fill_ind <- which(new_catch_data$Year %in% new_years & is.na(new_catch_data$Catch))
       new_catch_data$Catch[dat_fill_ind] <- em_use$quantities$fsh_bio_hat[dat_fill_ind]
 
@@ -388,7 +388,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       }
 
       # - If projected catch > exploitable biomass in OM, reduce to exploitable biomass
-      exploitable_biomass_data <- om_use$data_list$fsh_biom
+      exploitable_biomass_data <- om_use$data_list$catch_data
       dat_fill_ind_expl <- which(exploitable_biomass_data$Year %in% new_years)
       exploitable_biomass_data$Catch[dat_fill_ind_expl] <- om_use$quantities$expl_bio_hat[dat_fill_ind_expl]
 
@@ -399,8 +399,8 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       new_catch_switch <- sum(new_catch_data$Catch[dat_fill_ind]) #FIXME: need to adjust for assessments that occur less than annually
 
       # - Update catch data in OM and EM
-      om_use$data_list$fsh_biom <- new_catch_data
-      em_use$data_list$fsh_biom <- new_catch_data
+      om_use$data_list$catch_data <- new_catch_data
+      em_use$data_list$catch_data <- new_catch_data
 
       # ------------------------------------------------------------
       # 2. UPDATE OBSERVATION MODEL ----
@@ -450,9 +450,9 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       om_use$map$mapList$F_dev[f_fleets,new_f_yrs] <- replace(om_use$map$mapList$F_dev[f_fleets,new_f_yrs], values = 1:length(om_use$map$mapList$F_dev[f_fleets,new_f_yrs]))
 
       # -- Map out Fdev for years with 0 catch to very low number
-      fsh_biom <- om_use$data_list$fsh_biom
-      fsh_ind <- fsh_biom$Fleet_code[which(fsh_biom$Catch == 0)]
-      yr_ind <- fsh_biom$Year[which(fsh_biom$Catch == 0)] - om_use$data_list$styr + 1
+      catch_data <- om_use$data_list$catch_data
+      fsh_ind <- catch_data$Fleet_code[which(catch_data$Catch == 0)]
+      yr_ind <- catch_data$Year[which(catch_data$Catch == 0)] - om_use$data_list$styr + 1
 
       for(i in 1:length(fsh_ind)){
         om_use$estimated_params$F_dev[fsh_ind[i], yr_ind[i]] <- -999
@@ -549,13 +549,13 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       # ------------------------------------------------------------
 
       # - Get realized catch data from OM
-      new_catch_data <- om_use$data_list$fsh_biom
+      new_catch_data <- om_use$data_list$catch_data
       dat_fill_ind <- which(new_catch_data$Year %in% new_years)
       new_catch_data$Catch[dat_fill_ind] <- om_use$quantities$fsh_bio_hat[dat_fill_ind] # Catch from OM
 
       # - Update catch data in OM and EM
-      om_use$data_list$fsh_biom <- new_catch_data
-      em_use$data_list$fsh_biom <- new_catch_data
+      om_use$data_list$catch_data <- new_catch_data
+      em_use$data_list$catch_data <- new_catch_data
 
 
       # ------------------------------------------------------------
@@ -567,11 +567,11 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       years_include <- sample_yrs[which(sample_yrs$Year > em_use$data_list$endyr & sample_yrs$Year <= assess_yrs[k]),]
 
       # -- Add newly simulated survey data to EM
-      new_srv_biom <- sim_dat$srv_biom[which(abs(sim_dat$srv_biom$Year) %in% years_include$Year & sim_dat$srv_biom$Fleet_code %in% years_include$Fleet_code),]
+      new_srv_biom <- sim_dat$index_data[which(abs(sim_dat$index_data$Year) %in% years_include$Year & sim_dat$index_data$Fleet_code %in% years_include$Fleet_code),]
       new_srv_biom$Year <- -new_srv_biom$Year
-      em_use$data_list$srv_biom <- rbind(em_use$data_list$srv_biom, new_srv_biom)
-      em_use$data_list$srv_biom <- em_use$data_list$srv_biom[
-        with(em_use$data_list$srv_biom, order(Fleet_code, abs(Year))),]
+      em_use$data_list$index_data <- rbind(em_use$data_list$index_data, new_srv_biom)
+      em_use$data_list$index_data <- em_use$data_list$index_data[
+        with(em_use$data_list$index_data, order(Fleet_code, abs(Year))),]
 
       # -- Add newly simulated comp data to EM
       new_comp_data <- sim_dat$comp_data[which(abs(sim_dat$comp_data$Year) %in% years_include$Year & sim_dat$comp_data$Fleet_code %in% years_include$Fleet_code),]
@@ -687,22 +687,22 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       em_use$obj <- NULL
       em_use$opt <- NULL
       em_use$sdrep <- NULL
-      em_use$quantities[names(em_use$quantities) %!in% c("fsh_bio_hat",
-                                                         "fsh_log_sd_hat",
-                                                         "srv_bio_hat",
-                                                         "srv_log_sd_hat",
-                                                         "depletion",
-                                                         "depletionSSB",
+      em_use$quantities[names(em_use$quantities) %!in% c("catch_hat",
+                                                         "ln_catch_sd",
+                                                         "index_hat",
+                                                         "ln_index_sd",
+                                                         "ssb_depletion",
+                                                         "biomass_depletion",
                                                          "biomass",
-                                                         "biomassSSB",
+                                                         "ssb",
                                                          "BO",
                                                          "SB0",
                                                          "SBF",
                                                          "F_spp",
                                                          "R",
-                                                         "M1",
-                                                         "M",
-                                                         "mean_rec",
+                                                         "M1_at_age",
+                                                         "M_at_age",
+                                                         "avg_rec",
                                                          "DynamicB0",
                                                          "DynamicSB0",
                                                          "DynamicSBF",

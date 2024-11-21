@@ -35,7 +35,7 @@ build_params <- function(data_list) {
     param_list$rec_pars[,2] <- 3
   }
 
-  param_list$ln_rec_sigma = log(as.numeric(data_list$sigma_rec_prior))  # Standard deviation of recruitment deviations; n = [1, nspp]
+  param_list$R_ln_sd = log(as.numeric(data_list$sigma_rec_prior))  # Standard deviation of recruitment deviations; n = [1, nspp]
   param_list$rec_dev = matrix(0, nrow = data_list$nspp, ncol = nyrs_proj)  # Annual recruitment deviation; n = [nspp, nyrs_hind]
 
   # - Env regression parameters for recruitment
@@ -70,7 +70,7 @@ build_params <- function(data_list) {
     }
   }
   param_list$ln_M1 <- log(m1)
-  param_list$ln_sex_ratio_sigma = log(data_list$sex_ratio_sigma)
+  param_list$sex_ratio_ln_sd = log(data_list$sex_ratio_sigma)
 
 
   # -- 3.4. fishing mortality parameters
@@ -81,7 +81,7 @@ build_params <- function(data_list) {
   param_list$proj_F_prop = data_list$fleet_control$proj_F_prop  # Proportion of future fishing mortality for projections for each fleet
   param_list$F_dev = matrix(0, nrow = nrow(data_list$fleet_control), ncol = nyrs_hind)  # Annual fishing mortality deviations
 
-  # Make ln_mean_F very low if the fleet is turned off or not a fishery
+  # - Make ln_mean_F very low if the fleet is turned off or not a fishery
   for (i in 1:nrow(data_list$fleet_control)) {
     # Turn of F and F dev if not estimating
     if (data_list$fleet_control$Fleet_type[i] %in% c(0,2)) {
@@ -90,10 +90,10 @@ build_params <- function(data_list) {
   }
 
 
-  # Set Fdev for years with 0 catch to very low number
-  fsh_biom <- data_list$fsh_biom
-  fsh_ind <- fsh_biom$Fleet_code[which(fsh_biom$Catch == 0)]
-  yr_ind <- fsh_biom$Year[which(fsh_biom$Catch == 0)] - data_list$styr + 1
+  # - Set Fdev for years with 0 catch to very low number
+  catch_data <- data_list$catch_data
+  fsh_ind <- catch_data$Fleet_code[which(catch_data$Catch == 0)]
+  yr_ind <- catch_data$Year[which(catch_data$Catch == 0)] - data_list$styr + 1
   for(i in 1:length(fsh_ind)){
     param_list$F_dev[fsh_ind[i], yr_ind[i]] <- -999
   }
@@ -102,13 +102,13 @@ build_params <- function(data_list) {
 
   # -- 3.5. Survey catchability parameters
   # Random effects version
-  param_list$ln_srv_q = log(data_list$fleet_control$Q_prior)   # Survey catchability; n = [sum(n_srv)]
-  param_list$srv_q_beta = matrix(0, nrow = nrow(data_list$fleet_control), ncol = ncol(data_list$env_data) -1) # Regression coefficients for environment-q linkage
-  param_list$srv_q_rho = rep(0, nrow(data_list$fleet_control)) # Rho for environment-q linkage
-  # param_list$srv_q_pow = rep(0, nrow(data_list$fleet_control))
-  param_list$ln_srv_q_dev = matrix(0, nrow = nrow(data_list$fleet_control), ncol = nyrs_hind)   # Survey catchability deviations; n = [sum(n_srv)]
-  param_list$ln_sigma_srv_q <- log(data_list$fleet_control$Q_sd_prior)
-  param_list$ln_sigma_time_varying_srv_q <- log(data_list$fleet_control$Time_varying_q_sd_prior)
+  param_list$index_ln_q = log(data_list$fleet_control$Q_prior)   # Survey catchability; n = [sum(n_srv)]
+  param_list$index_q_beta = matrix(0, nrow = nrow(data_list$fleet_control), ncol = ncol(data_list$env_data) -1) # Regression coefficients for environment-q linkage
+  param_list$index_q_rho = rep(0, nrow(data_list$fleet_control)) # Rho for environment-q linkage
+  # param_list$index_q_pow = rep(0, nrow(data_list$fleet_control))
+  param_list$index_q_dev = matrix(0, nrow = nrow(data_list$fleet_control), ncol = nyrs_hind)   # Survey catchability deviations; n = [sum(n_srv)]
+  param_list$index_q_ln_sd <- log(data_list$fleet_control$Q_sd_prior)
+  param_list$index_q_dev_ln_sd <- log(data_list$fleet_control$Time_varying_q_sd_prior)
   # Log standard deviation for survey selectivity random walk - used for logistic
 
 
@@ -124,13 +124,13 @@ build_params <- function(data_list) {
   # --- 3.5.2. Time varying selectivity parameters
   param_list$ln_sel_slp_dev = array(0, dim = c(2, n_selectivities, 2, nyrs_hind))  # selectivity deviations paramaters for logistic; n = [2, nspp]
   param_list$sel_inf_dev = array(0, dim = c(2, n_selectivities, 2, nyrs_hind))  # selectivity deviations paramaters for logistic; n = [2, nspp]
-  param_list$ln_sigma_sel <- log(data_list$fleet_control$Sel_sd_prior)          # Log standard deviation for  selectivity random walk - used for logistic
+  param_list$sel_dev_ln_sd <- log(data_list$fleet_control$Sel_sd_prior)          # Log standard deviation for  selectivity random walk - used for logistic
   param_list$sel_curve_pen = suppressWarnings( matrix( c(data_list$fleet_control$Time_varying_sel, data_list$fleet_control$Sel_sd_prior), nrow = n_selectivities, ncol = 2)) # Non-parametric selectivity penalties
 
 
   # -- 3.7. Variance of survey and fishery time series
-  param_list$ln_sigma_srv_index = log(data_list$fleet_control$Survey_sd_prior)      # Log standard deviation of survey index time-series; n = [1, n_srv]
-  param_list$ln_sigma_fsh_catch = log(data_list$fleet_control$Catch_sd_prior)       # Log standard deviation of fishery catch time-series; n = [1, n_fsh]
+  param_list$index_ln_sd = log(data_list$fleet_control$Index_sd_prior)      # Log standard deviation of survey index time-series; n = [1, n_srv]
+  param_list$catch_ln_sd = log(data_list$fleet_control$Catch_sd_prior)       # Log standard deviation of fishery catch time-series; n = [1, n_fsh]
 
   # -- 3.8. Comp weighting
   if(!is.null(data_list$fleet_control$Comp_weights)){
