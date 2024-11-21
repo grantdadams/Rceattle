@@ -55,16 +55,16 @@ plot_index <- function(Rceattle,
     }
 
     # Get observed
-    Srv_list[[i]] <- Rceattle[[i]]$data_list$srv_biom
-    Srv_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$srv_log_sd_hat
+    Srv_list[[i]] <- Rceattle[[i]]$data_list$index_data
+    Srv_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$ln_index_sd
     Srv_list[[i]]$Upper95 <- qlnorm(0.975, meanlog = log(Srv_list[[i]]$Observation), sdlog = Srv_list[[i]]$Log_sd)
     Srv_list[[i]]$Lower95 <- qlnorm(0.025, meanlog = log(Srv_list[[i]]$Observation), sdlog = Srv_list[[i]]$Log_sd)
 
 
     # Get estimated
-    Srv_hat_list[[i]] <- Rceattle[[i]]$data_list$srv_biom
-    Srv_hat_list[[i]]$Observation <- Rceattle[[i]]$quantities$srv_bio_hat
-    Srv_hat_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$srv_log_sd_hat
+    Srv_hat_list[[i]] <- Rceattle[[i]]$data_list$index_data
+    Srv_hat_list[[i]]$Observation <- Rceattle[[i]]$quantities$index_hat
+    Srv_hat_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$ln_index_sd
   }
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
   nyrs_vec <- sapply(Years, length)
@@ -75,8 +75,8 @@ plot_index <- function(Rceattle,
 
   # Plot limits
   fleet_control <- (Rceattle[[1]]$data_list$fleet_control)
-  srv_biom <- (Rceattle[[1]]$data_list$srv_biom)
-  srvs <- sort(unique(srv_biom$Fleet_code))
+  index_data <- (Rceattle[[1]]$data_list$index_data)
+  srvs <- sort(unique(index_data$Fleet_code))
   srvs <- srvs[which(srvs %in% fleet_control$Fleet_code[which(fleet_control$Fleet_type == 2)])] # Only use surveys that are estimates
   #FIXME assumes all surveys are the same across models
   nsrv <- length(srvs)
@@ -304,8 +304,8 @@ plot_catch <- function(Rceattle,
 
   for(i in 1:length(Rceattle)){
     # Get observed
-    fsh_list[[i]] <- Rceattle[[i]]$data_list$fsh_biom[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% Years[[i]] ),]
-    fsh_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$fsh_log_sd_hat[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% Years[[i]] )]
+    fsh_list[[i]] <- Rceattle[[i]]$data_list$catch_data[which(Rceattle[[i]]$data_list$catch_data$Year %in% Years[[i]] ),]
+    fsh_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$ln_catch_sd[which(Rceattle[[i]]$data_list$catch_data$Year %in% Years[[i]] )]
 
     no_zero <- which(fsh_list[[i]]$Catch > 0)
     fsh_list[[i]]$Lower95 <- 0
@@ -315,13 +315,13 @@ plot_catch <- function(Rceattle,
 
 
     # Get estimated
-    fsh_hat_list[[i]] <- Rceattle[[i]]$data_list$fsh_biom[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% Years[[i]] ),]
-    fsh_hat_list[[i]]$Catch <- Rceattle[[i]]$quantities$fsh_bio_hat[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% Years[[i]] )]
-    fsh_hat_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$fsh_log_sd_hat[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% Years[[i]] )]
+    fsh_hat_list[[i]] <- Rceattle[[i]]$data_list$catch_data[which(Rceattle[[i]]$data_list$catch_data$Year %in% Years[[i]] ),]
+    fsh_hat_list[[i]]$Catch <- Rceattle[[i]]$quantities$catch_hat[which(Rceattle[[i]]$data_list$catch_data$Year %in% Years[[i]] )]
+    fsh_hat_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$ln_catch_sd[which(Rceattle[[i]]$data_list$catch_data$Year %in% Years[[i]] )]
 
     # Porjected
-    proj_fsh_hat_list[[i]] <- Rceattle[[i]]$data_list$fsh_biom[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% ProjYears[[i]] ),]
-    proj_fsh_hat_list[[i]]$Catch <- Rceattle[[i]]$quantities$fsh_bio_hat[which(Rceattle[[i]]$data_list$fsh_biom$Year %in% ProjYears[[i]] )]
+    proj_fsh_hat_list[[i]] <- Rceattle[[i]]$data_list$catch_data[which(Rceattle[[i]]$data_list$catch_data$Year %in% ProjYears[[i]] ),]
+    proj_fsh_hat_list[[i]]$Catch <- Rceattle[[i]]$quantities$catch_hat[which(Rceattle[[i]]$data_list$catch_data$Year %in% ProjYears[[i]] )]
   }
 
 
@@ -347,8 +347,8 @@ plot_catch <- function(Rceattle,
 
   # Fleet characteristics
   fleet_control <- (Rceattle[[1]]$data_list$fleet_control)
-  fsh_biom <- (Rceattle[[1]]$data_list$fsh_biom)
-  flts <- sort(unique(fsh_biom$Fleet_code))
+  catch_data <- (Rceattle[[1]]$data_list$catch_data)
+  flts <- sort(unique(catch_data$Fleet_code))
   nflts <- length(flts)
 
   if(is.null(fleets)){
@@ -648,16 +648,16 @@ plot_logindex <- function(Rceattle,
 
     # Get observed
 
-    Srv_list[[i]] <- Rceattle[[i]]$data_list$srv_biom[which(Rceattle[[i]]$data_list$srv_biom$Year > 0),]
-    Srv_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$srv_log_sd_hat[which(Rceattle[[i]]$data_list$srv_biom$Year > 0)]
+    Srv_list[[i]] <- Rceattle[[i]]$data_list$index_data[which(Rceattle[[i]]$data_list$index_data$Year > 0),]
+    Srv_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$ln_index_sd[which(Rceattle[[i]]$data_list$index_data$Year > 0)]
     Srv_list[[i]]$Upper95 <- qlnorm(0.975, meanlog = log(Srv_list[[i]]$Observation), sdlog = Srv_list[[i]]$Log_sd)
     Srv_list[[i]]$Lower95 <- qlnorm(0.025, meanlog = log(Srv_list[[i]]$Observation), sdlog = Srv_list[[i]]$Log_sd)
 
 
     # Get estimated
-    Srv_hat_list[[i]] <- Rceattle[[i]]$data_list$srv_biom[which(Rceattle[[i]]$data_list$srv_biom$Year > 0),]
-    Srv_hat_list[[i]]$Observation <- Rceattle[[i]]$quantities$srv_bio_hat[which(Rceattle[[i]]$data_list$srv_biom$Year > 0)]
-    Srv_hat_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$srv_log_sd_hat[which(Rceattle[[i]]$data_list$srv_biom$Year > 0)]
+    Srv_hat_list[[i]] <- Rceattle[[i]]$data_list$index_data[which(Rceattle[[i]]$data_list$index_data$Year > 0),]
+    Srv_hat_list[[i]]$Observation <- Rceattle[[i]]$quantities$index_hat[which(Rceattle[[i]]$data_list$index_data$Year > 0)]
+    Srv_hat_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$ln_index_sd[which(Rceattle[[i]]$data_list$index_data$Year > 0)]
   }
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
   nyrs_vec <- sapply(Years, length)
@@ -668,8 +668,8 @@ plot_logindex <- function(Rceattle,
 
   # Plot limits
   fleet_control <- (Rceattle[[1]]$data_list$fleet_control)
-  srv_biom <- (Rceattle[[1]]$data_list$srv_biom)
-  srvs <- sort(unique(srv_biom$Fleet_code))
+  index_data <- (Rceattle[[1]]$data_list$index_data)
+  srvs <- sort(unique(index_data$Fleet_code))
   srvs <- srvs[which(srvs %in% fleet_control$Fleet_code[which(fleet_control$Fleet_type == 2)])] # Only use surveys that are estimates
   nsrv <- length(srvs)
 
@@ -889,9 +889,9 @@ plot_indexresidual <- function(Rceattle,
     }
 
     # Get estimate and residual
-    Srv_hat_list[[i]] <- Rceattle[[i]]$data_list$srv_biom
-    Srv_hat_list[[i]]$Estimate <- Rceattle[[i]]$quantities$srv_bio_hat
-    Srv_hat_list[[i]]$Residual <- log(Rceattle[[i]]$quantities$srv_bio_hat) - log(Rceattle[[i]]$data_list$srv_biom$Observation)
+    Srv_hat_list[[i]] <- Rceattle[[i]]$data_list$index_data
+    Srv_hat_list[[i]]$Estimate <- Rceattle[[i]]$quantities$index_hat
+    Srv_hat_list[[i]]$Residual <- log(Rceattle[[i]]$quantities$index_hat) - log(Rceattle[[i]]$data_list$index_data$Observation)
   }
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
   nyrs_vec <- sapply(Years, length)
@@ -902,8 +902,8 @@ plot_indexresidual <- function(Rceattle,
 
   # Plot limits
   fleet_control <- (Rceattle[[1]]$data_list$fleet_control)
-  srv_biom <- (Rceattle[[1]]$data_list$srv_biom)
-  srvs <- sort(unique(srv_biom$Fleet_code))
+  index_data <- (Rceattle[[1]]$data_list$index_data)
+  srvs <- sort(unique(index_data$Fleet_code))
   nsrv <- length(srvs)
 
   ymax <- c()

@@ -8,7 +8,7 @@ rearrange_dat <- function(data_list){
   '%!in%' <- function(x,y)!('%in%'(x,y))
 
   # Step 1 - remove non-integer objects from control
-  data_list$ln_srv_q_prior <- log(data_list$fleet_control$Q_prior)
+  data_list$index_ln_q_prior <- log(data_list$fleet_control$Q_prior)
 
   data_list$fleet_control <- data_list$fleet_control %>%
     dplyr::select(Fleet_name,
@@ -28,7 +28,7 @@ rearrange_dat <- function(data_list){
                   Q_index,              # 14) Index of survey q
                   Estimate_q,           # 15) Parametric form of q
                   Time_varying_q,       # 16) Time varying q type
-                  Estimate_survey_sd,   # 17) Wether to estimate standard deviation of survey time series
+                  Estimate_index_sd,    # 17) Wether to estimate standard deviation of survey time series
                   Estimate_catch_sd     # 18) Wether to estimate standard deviation of fishery time series
                   )
   # Don't want: "Sel_sd_prior", "Q_prior", "Q_sd_prior", "Time_varying_q_sd_prior", "Survey_sd_prior", "proj_F", "Catch_sd_prior", "Comp_weights", "proj_F_prop"
@@ -48,14 +48,14 @@ rearrange_dat <- function(data_list){
     )
 
   # Step 2 -  Seperate survey biomass info from observation
-  data_list$srv_biom_ctl <- data_list$srv_biom[,c("Fleet_code", "Species", "Year")]
-  data_list$srv_biom_n <- as.matrix(data_list$srv_biom[,c("Month")])
-  data_list$srv_biom_obs <- data_list$srv_biom[,c("Observation", "Log_sd")]
+  data_list$index_ctl <- data_list$index_data[,c("Fleet_code", "Species", "Year")]
+  data_list$index_n <- as.matrix(data_list$index_data[,c("Month")])
+  data_list$index_obs <- data_list$index_data[,c("Observation", "Log_sd")]
 
   # Step 3 -  Seperate catch biomass info from observation
-  data_list$fsh_biom_ctl <- data_list$fsh_biom[,c("Fleet_code", "Species", "Year")]
-  data_list$fsh_biom_n <- as.matrix(data_list$fsh_biom[,c("Month")])
-  data_list$fsh_biom_obs <- data_list$fsh_biom[,c("Catch", "Log_sd")]
+  data_list$catch_ctl <- data_list$catch_data[,c("Fleet_code", "Species", "Year")]
+  data_list$catch_n <- as.matrix(data_list$catch_data[,c("Month")])
+  data_list$catch_obs <- data_list$catch_data[,c("Catch", "Log_sd")]
 
   # Step 4 -  Seperate survey comp info from observation
   data_list$comp_ctl <- data_list$comp_data[,c("Fleet_code", "Species", "Sex", "Age0_Length1", "Year")]
@@ -77,8 +77,8 @@ rearrange_dat <- function(data_list){
   data_list$comp_obs[is.na(data_list$comp_obs)] <- 0
 
   # Step 5 -  Seperate uobs info from observation
-  data_list$UobsWtAge_ctl <- data_list$UobsWtAge[,c("Pred", "Prey", "Pred_sex", "Prey_sex", "Pred_age", "Prey_age", "Year")]
-  data_list$UobsWtAge <- data_list$UobsWtAge[,c("Sample_size", "Stomach_proportion_by_weight")]
+  data_list$stom_prop_ctl <- data_list$stom_prop_data[,c("Pred", "Prey", "Pred_sex", "Prey_sex", "Pred_age", "Prey_age", "Year")]
+  data_list$stom_prop_obs <- data_list$stom_prop_data[,c("Sample_size", "Stomach_proportion_by_weight")]
 
   # Step 6 -  Seperate survey empirical selectivity info from observation
   yrs <- data_list$styr:data_list$endyr
@@ -298,7 +298,7 @@ rearrange_dat <- function(data_list){
   df_to_mat <- which(sapply(data_list, function(x) class(x)[1]) == "data.frame")
   data_list[df_to_mat] <- lapply(data_list[df_to_mat], as.matrix)
 
-  items_to_remove <- c("emp_sel",  "fsh_comp",    "srv_comp",    "fsh_biom",    "srv_biom", "comp_data", "env_data", "spnames",
+  items_to_remove <- c("emp_sel",  "fsh_comp",    "srv_comp",    "catch_data",    "index_data", "comp_data", "env_data", "spnames",
                        "aLW", "NByageFixed", "estDynamics",
                        "avgnMode", "Ceq", "minNByage")
   data_list[items_to_remove] <- NULL

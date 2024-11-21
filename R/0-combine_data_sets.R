@@ -15,7 +15,7 @@ combine_data <- function(data_list1 = NULL, data_list2 = NULL){
 
   vec_names <- c("spnames", "nsex", "spawn_month", "R_sexr", "nages", "minage", "nlengths","pop_wt_index", "ssb_wt_index", "est_M1", "pop_alk_index", "sigma_rec_prior", "other_food", "estDynamics", "proj_F", "est_sex_ratio", "sex_ratio_sigma","Ceq", "Cindex","Pvalue", "fday", "CA","CB", "Qc", "Tco",  "Tcm",  "Tcl",  "CK1", "CK4") # Object names of vectors
 
-  mat_names <- c("fleet_control", "srv_biom", "fsh_biom", "comp_data", "emp_sel", "NByageFixed", "age_trans_matrix", "age_error", "wt",   "pmature", "sex_ratio", "M1_base", "Mn_LatAge", "aLW", "Pyrs", "UobsWtAge") # Object names of matrices
+  mat_names <- c("fleet_control", "index_data", "catch_data", "comp_data", "emp_sel", "NByageFixed", "age_trans_matrix", "age_error", "wt",   "pmature", "sex_ratio", "M1_base", "Pyrs", "stom_prop_data") # Object names of matrices
 
   # Get index from data_set1 of the 4 indices
   fleet_index1 <- max(data_list1$fleet_control$Fleet_code, na.rm = TRUE)
@@ -49,8 +49,8 @@ combine_data <- function(data_list1 = NULL, data_list2 = NULL){
   }
 
   # Update stomach pred sp and prey sp
-  data_list2$UobsWtAge$Pred <- data_list2$UobsWtAge$Pred + nspp1
-  data_list2$UobsWtAge$Prey <- data_list2$UobsWtAge$Prey + nspp1
+  data_list2$stom_prop_data$Pred <- data_list2$stom_prop_data$Pred + nspp1
+  data_list2$stom_prop_data$Prey <- data_list2$stom_prop_data$Prey + nspp1
 
   # Update wt and alk indices
   data_list2$wt$Wt_index <- data_list2$wt$Wt_index + weight_index1
