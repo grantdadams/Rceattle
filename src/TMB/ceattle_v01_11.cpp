@@ -675,16 +675,15 @@ Type objective_function<Type>::operator() () {
   array<Type>   ration( nspp, 2, max_age, nyrs ); ration.setZero();                 // Annual ration at age (kg/yr)
 
   // -- 4.9. Diet components
-  array<Type>   diet_prop_weight(nspp * 2, nspp * 2, max_age, max_age, nyrs); diet_prop_weight.setZero();             // Stomach proportion by weight U
-  //array<Type>   diet_prop_weight_hat(nspp * 2, nspp * 2, max_age, max_age, nyrs); diet_prop_weight_hat.setZero();   // Predicted stomach proportion by weight U
-  //array<Type>   diet_prop_weight_avg_hat(nspp * 2, nspp * 2, max_age, max_age); diet_prop_weight_avg_hat.setZero(); // Average predicted stomach proportion by weight across years U
-  array<Type>   other_food_diet_prop_weight(nspp, 2, max_age, nyrs); other_food_diet_prop_weight.setZero();           // Other food diet proportion by weight
-  // matrix<Type>  stom_prop_data_hat = stom_prop_obs; stom_prop_data_hat.setZero();                                                // Estimated stomach proportion by weight U
+  array<Type>   diet_prop(nspp * 2, nspp * 2, max_age, max_age, nyrs); diet_prop.setZero();             // Stomach proportion by weight U
+  //array<Type>   diet_prop_hat(nspp * 2, nspp * 2, max_age, max_age, nyrs); diet_prop_hat.setZero();   // Predicted stomach proportion by weight U
+  //array<Type>   avg_diet_prop_hat(nspp * 2, nspp * 2, max_age, max_age); avg_diet_prop_hat.setZero(); // Average predicted stomach proportion by weight across years U
+  array<Type>   other_food_diet_prop(nspp, 2, max_age, nyrs); other_food_diet_prop.setZero();           // Other food diet proportion by weight
+  //matrix<Type>  stom_prop_hat = stom_prop_obs; stom_prop_hat.setZero();                              // Estimated stomach proportion by weight U (formated following data input)
 
   // -- 4.10. Suitability components
   array<Type>   avail_food(nspp, 2, max_age, nyrs); avail_food.setZero();                                           // Available food to predator
   array<Type>   stom_div_bio(nspp * 2, nspp * 2, max_age, max_age, nyrs); stom_div_bio.setZero();                   // Stomach proportion over biomass; U/ (W * N)
-  array<Type>   suit_tmp(nspp * 2, nspp * 2, max_age, max_age, nyrs); suit_tmp.setZero();                           // Temporary suitability storage U
   array<Type>   suit_main(nspp * 2, nspp * 2, max_age, max_age, nyrs); suit_main.setZero();                         // Suitability/gamma selectivity of predator age u on prey age a
   array<Type>   suit_other(nspp, 2, max_age, nyrs); suit_other.setZero();                                           // Suitability not accounted for by the included prey
   array<Type>   suma_suit(nspp, 2, max_age, nyrs); suma_suit.setZero();                                             // Sum of suitabilities
@@ -2270,14 +2269,14 @@ Type objective_function<Type>::operator() () {
             yr = flt_yr - styr;
 
             if(yr < nyrs_hind){
-              diet_prop_weight(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr) = stom_prop_obs(stom_ind, 1);
+              diet_prop(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr) = stom_prop_obs(stom_ind, 1);
             }
           }
 
           // Average of years
           if(flt_yr == 0){
             for (yr = 0; yr < nyrs; yr++) {
-              diet_prop_weight(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr) = stom_prop_obs(stom_ind, 1);
+              diet_prop(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr) = stom_prop_obs(stom_ind, 1);
             }
           }
         }
@@ -2286,24 +2285,24 @@ Type objective_function<Type>::operator() () {
 
 
     // 7.5. Calculate other food stomach content
-    other_food_diet_prop_weight.setZero();
+    other_food_diet_prop.setZero();
     for (yr = 0; yr < nyrs; yr++) {                           // Year loop
       for (rsp = 0; rsp < nspp; rsp++) {                      // Predator species loop
         for(r_sex = 0; r_sex < nsex(rsp); r_sex++){
           for (r_age = 0; r_age < nages(rsp); r_age++) {        // Predator age loop
-            other_food_diet_prop_weight(rsp, r_sex, r_age, yr) = Type( 1 );             // Initialize other suitability
+            other_food_diet_prop(rsp, r_sex, r_age, yr) = Type( 1 );             // Initialize other suitability
             for (ksp = 0; ksp < nspp; ksp++) {                  // Prey species loop
               for(k_sex = 0; k_sex < nsex(ksp); k_sex++){
                 for (k_age = 0; k_age < nages(ksp); k_age++) {    // Prey age loop
-                  other_food_diet_prop_weight(rsp, r_sex, r_age, yr) -= diet_prop_weight(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr);
+                  other_food_diet_prop(rsp, r_sex, r_age, yr) -= diet_prop(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr);
                 }
               }
             }
             if(other_food(rsp) > 0){
-              other_food_diet_prop_weight(rsp, r_sex, r_age, yr) /= other_food(rsp); // Penalize this
+              other_food_diet_prop(rsp, r_sex, r_age, yr) /= other_food(rsp); // Penalize this
             }
             if(other_food(rsp) == 0){
-              other_food_diet_prop_weight(rsp, r_sex, r_age, yr) = 0.0;
+              other_food_diet_prop(rsp, r_sex, r_age, yr) = 0.0;
             }
           }
         }
@@ -2329,7 +2328,7 @@ Type objective_function<Type>::operator() () {
                   for (r_age = 0; r_age < nages(rsp); r_age++) {    // Predator age loop
                     for (k_age = 0; k_age < nages(ksp); k_age++) {  // Prey age loop
 
-                      suit_tmp(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = 0.0;
+                      stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = 0.0;
 
                       if(yr < nyrs_hind){
                         yr_ind = yr;
@@ -2340,25 +2339,25 @@ Type objective_function<Type>::operator() () {
 
 
                       if(avgN_at_age(ksp, k_sex, k_age, yr) > 0){
-                        suit_tmp(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = diet_prop_weight(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / (avgN_at_age(ksp, k_sex, k_age, yr));
+                        stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = diet_prop(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / (avgN_at_age(ksp, k_sex, k_age, yr));
 
                         // Make into Type 3 MSVPA
                         // U =
                         if(msmMode == 2){
-                          suit_tmp(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) /= avgN_at_age(ksp, k_sex, k_age, yr);
+                          stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) /= avgN_at_age(ksp, k_sex, k_age, yr);
                         }
                       }
 
 
                       // Make sure it is a real number, if not set to 0
-                      if(!isFinite(suit_tmp(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr))){
-                        suit_tmp(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = 0.0;
+                      if(!isFinite(stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr))){
+                        stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = 0.0;
                       }
 
 
 
                       if (wt(pop_wt_index(ksp), k_sex, k_age, yr_ind ) != 0) {
-                        stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = suit_tmp(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / wt( pop_wt_index(ksp), k_sex, k_age, yr_ind );
+                        stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) /= wt( pop_wt_index(ksp), k_sex, k_age, yr_ind );
                         suma_suit(rsp, r_sex, r_age, yr ) += stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr); // Calculate sum of stom_div_bio across prey and  prey age for each predator, predator age, and year
                       }
                     }
@@ -2382,8 +2381,8 @@ Type objective_function<Type>::operator() () {
                     for (yr = suit_styr; yr <= suit_endyr; yr++) {  // Suit year loop (over specific years)
 
                       // Average suitability across years
-                      if( suma_suit(rsp, r_sex, r_age, yr ) + other_food_diet_prop_weight(rsp, r_sex, r_age, yr) > 0){
-                        suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) += stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / ( suma_suit(rsp, r_sex, r_age, yr ) + other_food_diet_prop_weight(rsp, r_sex, r_age, yr) );
+                      if( suma_suit(rsp, r_sex, r_age, yr ) + other_food_diet_prop(rsp, r_sex, r_age, yr) > 0){
+                        suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) += stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / ( suma_suit(rsp, r_sex, r_age, yr ) + other_food_diet_prop(rsp, r_sex, r_age, yr) );
                       }
                     }       // End year loop
 
@@ -2564,7 +2563,7 @@ Type objective_function<Type>::operator() () {
         // 8.1.3. Calculate predation mortality, diet proportion, and biomass easten
         M2_at_age.setZero();
         B_eaten_as_prey.setZero();
-        // diet_prop_weight_avg_hat.setZero();
+        // avg_diet_prop_hat.setZero();
         for (ksp = 0; ksp < nspp; ksp++) {                        // Prey species loop
           for(k_sex = 0; k_sex < nsex(ksp); k_sex++){
             for (k_age = 0; k_age < nages(ksp); k_age++) {          // Prey age loop
@@ -2588,7 +2587,7 @@ Type objective_function<Type>::operator() () {
                         //M2_prop(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = (avgN_at_age(rsp, r_sex, r_age, yr) * ration(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr);
                         B_eaten_as_prey(ksp, k_sex, k_age, yr) += avgN_at_age(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * avgN_at_age(rsp, r_sex, r_age, yr) * ration(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)/ avail_food(rsp, r_sex, r_age, yr);
                         // B_eaten(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = avgN_at_age(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * avgN_at_age(rsp, r_sex, r_age, yr) * ration(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
-                        //diet_prop_weight_hat(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = avgN_at_age(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)/ avail_food(rsp, r_sex, r_age, yr);
+                        //diet_prop_hat(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = avgN_at_age(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)/ avail_food(rsp, r_sex, r_age, yr);
                         //break;
 
                         /*
@@ -2598,7 +2597,7 @@ Type objective_function<Type>::operator() () {
                          M2_prop(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = pow(avgN_at_age(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * (avgN_at_age(rsp, r_sex, r_age, yr) * ration(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr) / (avgN_at_age(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind));
                          B_eaten_as_prey(ksp, k_sex, k_age, yr) += pow(avgN_at_age(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * avgN_at_age(rsp, r_sex, r_age, yr) * ration(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
                          B_eaten(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = pow(avgN_at_age(ksp, k_sex, k_age, yr), msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) *  avgN_at_age(rsp, r_sex, r_age, yr) * ration(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
-                         diet_prop_weight_hat(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = pow(avgN_at_age(ksp, k_sex, k_age, yr) , msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr) / (avgN_at_age(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind));
+                         diet_prop_hat(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = pow(avgN_at_age(ksp, k_sex, k_age, yr) , msmMode) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr) / (avgN_at_age(ksp, k_sex, k_age, yr) * wt(pop_wt_index(ksp), k_sex, k_age, yr_ind));
                          break;
                          }
                          */
@@ -2607,7 +2606,7 @@ Type objective_function<Type>::operator() () {
                     // Average diet proportion
                     /*
                      for (yr = 0; yr < nyrs_hind; yr++) {                       // Year loop
-                     diet_prop_weight_avg_hat(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age) += diet_prop_weight_hat(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)/nyrs_hind;
+                     avg_diet_prop_hat(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age) += diet_prop_hat(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)/nyrs_hind;
                      }
                      */
                   }
@@ -2793,16 +2792,20 @@ Type objective_function<Type>::operator() () {
 
        // 8.2.11. Predicted diet proportion as weight of prey-at-age in diet of predator-at-age (Eqn 15)
        // NOTE: Only including prey species in the model. Does not include other food
-       diet_prop_weight_avg_hat.setZero();
-       for (yr = 0; yr < nyrs_hind; yr++) {
+       avg_diet_prop_hat.setZero();
        for (rsp = 0; rsp  <  nspp; rsp++) {
        for(r_sex = 0; r_sex < nsex(rsp); r_sex ++){
        for (r_age = 0; r_age  <  nages(rsp); r_age++) {
        for (ksp = 0; ksp  <  nspp; ksp++) {
        for(k_sex = 0; k_sex < nsex(ksp); k_sex++){
        for (k_age = 0; k_age < nages(ksp); k_age++) {
-       diet_prop_weight_hat(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = B_eaten(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)/B_eaten_as_pred(rsp, r_sex, r_age, yr);
-       diet_prop_weight_avg_hat(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age) += diet_prop_weight_hat(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)/nyrs_hind; // FIXME: Only use years from the diet data
+       for (yr = 0; yr < nyrs_hind; yr++) {
+       diet_prop_hat(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = B_eaten(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)/B_eaten_as_pred(rsp, r_sex, r_age, yr);
+       }
+
+       for (yr = suit_styr; yr <= suit_endyr; yr++) {  // Suit year loop (average over specific years)
+       avg_diet_prop_hat(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age) += diet_prop_hat(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)/nyrs_hind; // FIXME: Only use years from the diet data
+       }
        }
        }
        }
@@ -2817,10 +2820,10 @@ Type objective_function<Type>::operator() () {
        Type denom;
 
        ration_hat_ave.setZero();
-       ration_hat.setZero();
-       for (rsp = 0; rsp < nspp; rsp++) {
-       for(r_sex = 0; r_sex < nsex(rsp); r_sex ++){
-       for (r_age = 0; r_age < nages(rsp); r_age++) {
+ ration_hat.setZero();
+ for (rsp = 0; rsp < nspp; rsp++) {
+ for(r_sex = 0; r_sex < nsex(rsp); r_sex ++){
+ for (r_age = 0; r_age < nages(rsp); r_age++) {
  numer = 0;
  denom = 0;
  // Calculate year-specific values
@@ -2836,11 +2839,11 @@ Type objective_function<Type>::operator() () {
  denom += avgN_at_age(rsp, r_sex, r_age, yr);
  }
  ration_hat_ave(rsp, r_sex, r_age) = numer / denom;
-       }
-       }
-       }
+ }
+ }
+ }
  // - END LOOP - END LOOP - END LOOP - END LOOP - END LOOP - //
-       } // End 8.2. Kinzey predation
+ } // End 8.2. Kinzey predation
  // - END LOOP - END LOOP - END LOOP - END LOOP - END LOOP - //
  */
     } // End 8. Predation mortality
@@ -3308,7 +3311,7 @@ Type objective_function<Type>::operator() () {
      }
 
      // Initialize
-     stom_prop_data_hat(stom_ind, 1) = 0;
+     stom_prop_hat(stom_ind, 1) = 0;
 
      for(int j = 0; j < 2; j ++){
      for(int k = 0; k < 2; k ++){
@@ -3317,14 +3320,14 @@ Type objective_function<Type>::operator() () {
      yr = flt_yr - styr;
 
      if(yr < nyrs_hind){
-     stom_prop_data_hat(stom_ind, 1) += diet_prop_weight_hat(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr)/4;; //FIXME: take weighted average
+     stom_prop_hat(stom_ind, 1) += diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr)/4;; //FIXME: take weighted average
      }
      }
 
      // Average of years
      if(flt_yr == 0){
      for (yr = 0; yr < nyrs_hind; yr++) {
-     stom_prop_data_hat(stom_ind, 1) += diet_prop_weight_avg_hat(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age)/4; //FIXME: take weighted average
+     stom_prop_hat(stom_ind, 1) += avg_diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age)/4; //FIXME: take weighted average
      }
      }
      }
@@ -3889,8 +3892,8 @@ Type objective_function<Type>::operator() () {
    for(int stom_ind = 0; stom_ind < stom_prop_obs.rows(); stom_ind++){
 
    rsp = stom_prop_ctl(stom_ind, 0) - 1; // Index of pred
-   if(stom_prop_data_hat(stom_ind, 1) > 0){
-   jnll_comp(18, rsp) -= Type(stom_prop_obs(stom_ind, 0)) * (stom_prop_obs(stom_ind, 1)) * log(stom_prop_data_hat(stom_ind, 1)/stom_prop_obs(stom_ind, 1));
+   if(stom_prop_hat(stom_ind, 1) > 0){
+   jnll_comp(18, rsp) -= Type(stom_prop_obs(stom_ind, 0)) * (stom_prop_obs(stom_ind, 1)) * log(stom_prop_hat(stom_ind, 1)/stom_prop_obs(stom_ind, 1));
    }
    }
    } // End diet proportion by weight component
@@ -4081,12 +4084,12 @@ Type objective_function<Type>::operator() () {
    REPORT( suit_main );
    REPORT( suit_other );
    REPORT( stom_div_bio );
-   REPORT( diet_prop_weight );
-   //REPORT( stom_prop_data_hat );
+   REPORT( diet_prop );
+   //REPORT( stom_prop_hat );
    REPORT( avail_food );
-   REPORT( other_food_diet_prop_weight );
+   REPORT( other_food_diet_prop );
    REPORT( M2_prop );
-   REPORT( diet_prop_weight_hat );
+   REPORT( diet_prop_hat );
    REPORT( B_eaten_as_pred );
    REPORT( B_eaten );
    REPORT( N_eaten );
