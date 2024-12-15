@@ -157,11 +157,11 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
     nsex <- data_list$nsex[spp]
 
     # -- Turn of selectivity deviates for years not in composition data
-    comp_sub <- data_list$comp_data[which(data_list$comp_data$Fleet_code == flt),]
-    comp_sub <- comp_sub[which(comp_sub$Year <= data_list$endyr),]
-    comp_sub_yrs <- unique(comp_sub$Year) - data_list$styr + 1
-    comp_sub_yrs <- comp_sub_yrs[which(comp_sub_yrs > 0)]
-    comp_miss_yrs <- yrs_hind[which(yrs_hind %!in% comp_sub_yrs)]
+    # comp_sub <- data_list$comp_data[which(data_list$comp_data$Fleet_code == flt),]
+    # comp_sub <- comp_sub[which(comp_sub$Year <= data_list$endyr),]
+    # comp_sub_yrs <- unique(comp_sub$Year) - data_list$styr + 1
+    # comp_sub_yrs <- comp_sub_yrs[which(comp_sub_yrs > 0)]
+    # comp_miss_yrs <- yrs_hind[which(yrs_hind %!in% comp_sub_yrs)]
 
     # -- 4.0.  Empirical or not Fit - sel_type = 0
     if (data_list$fleet_control$Selectivity[i] == 0 | data_list$fleet_control$Fleet_type[i] == 0) {
@@ -207,11 +207,11 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       # Penalized deviate or random walk
       if(data_list$fleet_control$Time_varying_sel[i] %in% c(1,2,4)){
         for(sex in 1:nsex){
-          map_list$ln_sel_slp_dev[1, flt, sex, comp_sub_yrs] <- ind_slp + 1:length(map_list$ln_sel_slp_dev[1, flt, sex, comp_sub_yrs]) - 1
-          map_list$sel_inf_dev[1, flt, sex, comp_sub_yrs] <- ind_inf + 1:length(map_list$sel_inf_dev[1, flt, sex, comp_sub_yrs]) - 1
+          map_list$ln_sel_slp_dev[1, flt, sex, ] <- ind_slp + 1:length(map_list$ln_sel_slp_dev[1, flt, sex, ]) - 1
+          map_list$sel_inf_dev[1, flt, sex, ] <- ind_inf + 1:length(map_list$sel_inf_dev[1, flt, sex, ]) - 1
 
-          ind_slp <- ind_slp + length(map_list$ln_sel_slp_dev[1, flt, sex, comp_sub_yrs])
-          ind_inf <- ind_inf + length(map_list$sel_inf_dev[1, flt, sex, comp_sub_yrs])
+          ind_slp <- ind_slp + length(map_list$ln_sel_slp_dev[1, flt, sex, ])
+          ind_inf <- ind_inf + length(map_list$sel_inf_dev[1, flt, sex, ])
         }
       }
 
@@ -307,11 +307,11 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       if(data_list$fleet_control$Time_varying_sel[i] %in% c(1,2,4,5)){
         for(j in 1:2){
           for(sex in 1:nsex){
-            map_list$ln_sel_slp_dev[j, flt, sex,comp_sub_yrs] <- ind_slp + 1:length(map_list$ln_sel_slp_dev[j, flt, sex,comp_sub_yrs]) - 1
-            map_list$sel_inf_dev[j, flt, sex,comp_sub_yrs] <- ind_inf + 1:length(map_list$sel_inf_dev[j, flt, sex,comp_sub_yrs]) - 1
+            map_list$ln_sel_slp_dev[j, flt, sex,] <- ind_slp + 1:length(map_list$ln_sel_slp_dev[j, flt, sex,]) - 1
+            map_list$sel_inf_dev[j, flt, sex,] <- ind_inf + 1:length(map_list$sel_inf_dev[j, flt, sex,]) - 1
 
-            ind_slp <- ind_slp + length(map_list$ln_sel_slp_dev[j, flt, sex,comp_sub_yrs])
-            ind_inf <- ind_inf + length(map_list$sel_inf_dev[j, flt, sex,comp_sub_yrs])
+            ind_slp <- ind_slp + length(map_list$ln_sel_slp_dev[j, flt, sex,])
+            ind_inf <- ind_inf + length(map_list$sel_inf_dev[j, flt, sex,])
           }
         }
 
@@ -388,11 +388,11 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       # Penalized/random deviate or random walk
       if(data_list$fleet_control$Time_varying_sel[i] %in% c(1,2,4)){
         for(sex in 1:nsex){
-          map_list$ln_sel_slp_dev[2, flt, sex, comp_sub_yrs] <- ind_slp + 1:length(map_list$ln_sel_slp_dev[2, flt, sex, comp_sub_yrs]) - 1
-          map_list$sel_inf_dev[2, flt, sex, comp_sub_yrs] <- ind_inf + 1:length(map_list$sel_inf_dev[2, flt, sex, comp_sub_yrs]) - 1
+          map_list$ln_sel_slp_dev[2, flt, sex, ] <- ind_slp + 1:length(map_list$ln_sel_slp_dev[2, flt, sex, ]) - 1
+          map_list$sel_inf_dev[2, flt, sex, ] <- ind_inf + 1:length(map_list$sel_inf_dev[2, flt, sex, ]) - 1
 
-          ind_slp <- ind_slp + length(map_list$ln_sel_slp_dev[2, flt, sex, comp_sub_yrs])
-          ind_inf <- ind_inf + length(map_list$sel_inf_dev[2, flt, sex, comp_sub_yrs])
+          ind_slp <- ind_slp + length(map_list$ln_sel_slp_dev[2, flt, sex, ])
+          ind_inf <- ind_inf + length(map_list$sel_inf_dev[2, flt, sex, ])
         }
       }
 
@@ -458,7 +458,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       }
 
       # -- Map out years where comp data do not exist (set to average selectivity)
-      map_list$sel_coff_dev[flt, , ,comp_miss_yrs]  <- NA
+      map_list$sel_coff_dev[flt, , ,]  <- NA
 
       # Map out logistic and double logistic
       map_list$ln_sel_slp[1:2, flt ,] <- NA
