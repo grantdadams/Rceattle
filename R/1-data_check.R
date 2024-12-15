@@ -18,6 +18,14 @@ data_check <- function(data_list) {
     }
   }
 
+  if(data_list$styr < min(data_list$wt$Year, na.rm = TRUE)){
+    stop("Weight data does not go back to the start year")
+  }
+
+  if(data_list$endyr > max(data_list$wt$Year, na.rm = TRUE)){
+    stop("Weight data does not to the end year")
+  }
+
   # # Age matrix
   #
   # if(ncol(data_list$NByageFixed) != max(data_list$nages, na.rm = T)+4){

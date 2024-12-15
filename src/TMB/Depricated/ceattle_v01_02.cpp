@@ -1060,8 +1060,7 @@ Type objective_function<Type>::operator() () {
             for (yr = 0; yr < nyrs; yr++) {                       // Year loop
               for (rsp = 0; rsp < nspp; rsp++) {                  // Predator species loop
                 for (r_age = 0; r_age < nages(rsp); r_age++) {    // Predator age loop
-                  M2(ksp, k_age, yr) += (AvgN(rsp, r_age, yr) * ration2Age(rsp, r_age, yr) * suit_main(rsp , ksp , r_age, k_age, yr))
-                  / avail_food(rsp, r_age, yr); // #FIXME - include indices of overlap
+                  M2(ksp, k_age, yr) += (AvgN(rsp, r_age, yr) * ration2Age(rsp, r_age, yr) * suit_main(rsp , ksp , r_age, k_age, yr)) / avail_food(rsp, r_age, yr); // #FIXME - include indices of overlap
                   B_eaten(ksp, k_age, yr) += AvgN(rsp, r_age, yr) * ration2Age(rsp, r_age, yr) * suit_main(rsp , ksp , r_age, k_age, yr);
 
                   // Estimated stomach proportion
