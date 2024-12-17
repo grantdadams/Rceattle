@@ -25,7 +25,7 @@ ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
                             estimateMode = 0, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
-                            phase = "default",
+                            phase = TRUE,
                             verbose = 1)
 
 
@@ -36,7 +36,7 @@ ss_run2 <- Rceattle::fit_mod(data_list = GOA2018SS,
                              estimateMode = 0, # Estimate
                              random_rec = FALSE, # No random recruitment
                              msmMode = 0, # Single species mode
-                             phase = "default",
+                             phase = TRUE,
                              verbose = 1)
 
 plot_biomass(list(ss_run, ss_run2))
@@ -50,7 +50,7 @@ ss_run_M <- Rceattle::fit_mod(data_list = GOA2018SS,
                               M1Fun = build_M1(M1_model = c(1,2,1)), # Estimate M
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              phase = "default",
+                              phase = TRUE,
                               verbose = 1)
 
 plot_biomass(ss_run_M)

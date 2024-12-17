@@ -17,7 +17,7 @@
 #' @param msmMode The predation mortality functions to used. Defaults to no predation mortality used.
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.
 #' @param initMode how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0 + dev-yr1,  mortality (M1); 2 = equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 3 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates.
-#' @param phase Optional. List of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R. If NULL, will not phase model. If set to \code{"default"}, will use default phasing.
+#' @param phase TRUE/FALSE If FALSE, will not phase model. If set to \code{"TRUE"}, will use default phasing. Can also accept a list of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R.
 #' @param suitMode Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma suitability, 2 = weight based gamma suitability, 3 = length based lognormal selectivity, 4 = time-varying length based lognormal selectivity.
 #' @param suit_styr Integer. The first year used to calculate mean suitability. Defaults to $styr$ in $data_list$. Used when diet data were sampled from a subset of years.
 #' @param suit_endyr Integer. The last year used to calculate mean suitability. Defaults to $endyr$ in $data_list$. Used when diet data were sampled from a subset of years.
@@ -80,7 +80,7 @@
 #'    random_rec = FALSE, # No random recruitment
 #'    msmMode = 0, # Single species mode
 #'    avgnMode = 0,
-#'    phase = phaseList,
+#'    phase = FALSE,
 #'    silent = TRUE)
 #'
 #' @export
@@ -106,7 +106,7 @@ fit_mod <-
     suitMode = 0,
     suit_styr = NULL,
     suit_endyr = NULL,
-    phase = NULL,
+    phase = FALSE,
     getsd = TRUE,
     bias.correct = FALSE,
     use_gradient = TRUE,
@@ -141,7 +141,7 @@ fit_mod <-
     # suitMode = 0;
     # suit_styr = NULL;
     # suit_endyr = NULL;
-    # phase = NULL;
+    # phase = FALSE;
     # getsd = TRUE;
     # use_gradient = TRUE;
     # rel_tol = 1;
@@ -426,113 +426,112 @@ fit_mod <-
     # STEP 8: Phase hindcast ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # Set default phasing
-    if(!is.null(phase)){
-      if(class(phase) == "character"){
-        if(tolower(phase) == "default"){
-          phase = list(
-            dummy = 1,
-            # ln_pop_scalar = 4, # Scalar for input numbers-at-age
-            rec_pars = 1, # Stock-recruit parameters or log(mean rec) if no stock-recruit relationship
-            beta_rec_pars = 3,
-            R_ln_sd = 2, # Variance for annual recruitment deviats
-            rec_dev = 2, # Annual recruitment deviats
-            init_dev = 2, # Age specific initial age-structure deviates or parameters
-            sex_ratio_ln_sd = 3, # Variance of sex ratio (usually fixed)
-            ln_M1 = 4, #  Estimated natural or residual mortality
-            ln_mean_F = 1, # Mean fleet-specific fishing mortality
-            ln_Flimit = 3, # Estimated F limit
-            ln_Ftarget = 3, # Estimated F target
-            ln_Finit = 3, # Estimated fishing mortality for non-equilibrium initial age-structure
-            proj_F_prop = 1, # Fixed fleet-specific proportion of Flimit and Ftarget apportioned within each species
-            F_dev = 1, # Annual fleet specific fishing mortality deviates
-            index_ln_q = 3, # Survey catchability
-            index_q_dev = 5, # Annual survey catchability deviates (if time-varying)
-            index_q_ln_sd = 4, # Prior SD for survey catchability deviates
-            index_q_beta = 4, # Regression coefficients for environmental linkage
-            index_q_rho = 4, # AR1 correlation parameter
-            index_q_dev_ln_sd = 4, # SD for annual survey catchability deviates (if time-varying)
-            sel_coff = 3, # Non-parametric selectivity coefficients
-            sel_coff_dev = 4, # Annual deviates for non-parametric selectivity coefficients
-            ln_sel_slp = 3, # Slope parameters for logistic forms of selectivity
-            sel_inf = 3, # Asymptote parameters for logistic forms of selectivity
-            ln_sel_slp_dev = 5, # Annual deviates for slope parameters for logistic forms of selectivity (if time-varying)
-            sel_inf_dev = 5, # Annual deviates for asymptote parameters for logistic forms of selectivity (if time-varying)
-            sel_dev_ln_sd = 4, # SD for annual selectivity deviates (if time-varying)
-            sel_curve_pen = 4, # Penalty for non-parametric selectivity
-            index_ln_sd = 2, # Log SD for survey lognormal index likelihood (usually input)
-            catch_ln_sd = 2, # Log SD for lognormal catch likelihood (usually input)
-            comp_weights = 5 # Weights for multinomial comp likelihood
-            # ,logH_1 = 6,  # Functional form parameter (not used in MSVPA functional form)
-            # logH_1a = 6, # Functional form parameter (not used in MSVPA functional form)
-            # logH_1b = 6, # Functional form parameter (not used in MSVPA functional form)
-            # logH_2 = 6, # Functional form parameter (not used in MSVPA functional form)
-            # logH_3 = 6, # Functional form parameter (not used in MSVPA functional form)
-            # H_4 = 6, # Functional form parameter (not used in MSVPA functional form)
-            # log_gam_a = 5, # Suitability parameter (not used in MSVPA style)
-            # log_gam_b = 5, # Suitability parameter (not used in MSVPA style)
-            # log_phi = 5 # Suitability parameter (not used in MSVPA style)
-          )
+    if(is.logical(phase)){
+      if(phase){
+        phaseList = list(
+          dummy = 1,
+          # ln_pop_scalar = 4, # Scalar for input numbers-at-age
+          rec_pars = 1, # Stock-recruit parameters or log(mean rec) if no stock-recruit relationship
+          beta_rec_pars = 3,
+          R_ln_sd = 2, # Variance for annual recruitment deviats
+          rec_dev = 2, # Annual recruitment deviats
+          init_dev = 2, # Age specific initial age-structure deviates or parameters
+          sex_ratio_ln_sd = 3, # Variance of sex ratio (usually fixed)
+          ln_M1 = 4, #  Estimated natural or residual mortality
+          ln_mean_F = 1, # Mean fleet-specific fishing mortality
+          ln_Flimit = 3, # Estimated F limit
+          ln_Ftarget = 3, # Estimated F target
+          ln_Finit = 3, # Estimated fishing mortality for non-equilibrium initial age-structure
+          proj_F_prop = 1, # Fixed fleet-specific proportion of Flimit and Ftarget apportioned within each species
+          F_dev = 1, # Annual fleet specific fishing mortality deviates
+          index_ln_q = 3, # Survey catchability
+          index_q_dev = 5, # Annual survey catchability deviates (if time-varying)
+          index_q_ln_sd = 4, # Prior SD for survey catchability deviates
+          index_q_beta = 4, # Regression coefficients for environmental linkage
+          index_q_rho = 4, # AR1 correlation parameter
+          index_q_dev_ln_sd = 4, # SD for annual survey catchability deviates (if time-varying)
+          sel_coff = 3, # Non-parametric selectivity coefficients
+          sel_coff_dev = 4, # Annual deviates for non-parametric selectivity coefficients
+          ln_sel_slp = 3, # Slope parameters for logistic forms of selectivity
+          sel_inf = 3, # Asymptote parameters for logistic forms of selectivity
+          ln_sel_slp_dev = 5, # Annual deviates for slope parameters for logistic forms of selectivity (if time-varying)
+          sel_inf_dev = 5, # Annual deviates for asymptote parameters for logistic forms of selectivity (if time-varying)
+          sel_dev_ln_sd = 4, # SD for annual selectivity deviates (if time-varying)
+          sel_curve_pen = 4, # Penalty for non-parametric selectivity
+          index_ln_sd = 2, # Log SD for survey lognormal index likelihood (usually input)
+          catch_ln_sd = 2, # Log SD for lognormal catch likelihood (usually input)
+          comp_weights = 5 # Weights for multinomial comp likelihood
+          # ,logH_1 = 6,  # Functional form parameter (not used in MSVPA functional form)
+          # logH_1a = 6, # Functional form parameter (not used in MSVPA functional form)
+          # logH_1b = 6, # Functional form parameter (not used in MSVPA functional form)
+          # logH_2 = 6, # Functional form parameter (not used in MSVPA functional form)
+          # logH_3 = 6, # Functional form parameter (not used in MSVPA functional form)
+          # H_4 = 6, # Functional form parameter (not used in MSVPA functional form)
+          # log_gam_a = 5, # Suitability parameter (not used in MSVPA style)
+          # log_gam_b = 5, # Suitability parameter (not used in MSVPA style)
+          # log_phi = 5 # Suitability parameter (not used in MSVPA style)
+        )
 
 
-          # debugphase = list(
-          #   dummy = 1,
-          #   ln_pop_scalar = 5, # Scalar for input numbers-at-age
-          #   rec_pars = 1, # Stock-recruit parameters or log(mean rec) if no stock-recruit relationship
-          #   R_ln_sd = 4, # Variance for annual recruitment deviats
-          #   rec_dev = 2, # Annual recruitment deviats
-          #   init_dev = 3, # Age specific initial age-structure deviates or parameters
-          #   sex_ratio_ln_sd = 3, # Variance of sex ratio (usually fixed)
-          #   ln_M1 = 4, #  Estimated natural or residual mortality
-          #   ln_mean_F = 6, # Mean fleet-specific fishing mortality
-          #   ln_Flimit = 15, # Estimated F limit
-          #   ln_Ftarget = 15, # Estimated F target
-          #   ln_Finit = 7, # Estimated fishing mortality for non-equilibrium initial age-structure
-          #   proj_F_prop = 14, # Fixed fleet-specific proportion of Flimit and Ftarget apportioned within each species
-          #   F_dev = 7, # Annual fleet specific fishing mortality deviates
-          #   index_ln_q = 10, # Survey catchability
-          #   index_q_dev = 11, # Annual survey catchability deviates (if time-varying)
-          #   index_q_ln_sd = 15, # Prior SD for survey catchability deviates
-          #   index_q_dev_ln_sd = 15, # SD for annual survey catchability deviates (if time-varying)
-          #   sel_coff = 8, # Non-parametric selectivity coefficients
-          #   sel_coff_dev = 11, # Annual deviates for non-parametric selectivity coefficients
-          #   ln_sel_slp = 9, # Slope parameters for logistic forms of selectivity
-          #   sel_inf = 9, # Asymptote parameters for logistic forms of selectivity
-          #   ln_sel_slp_dev = 11, # Annual deviates for slope parameters for logistic forms of selectivity (if time-varying)
-          #   sel_inf_dev = 11, # Annual deviates for asymptote parameters for logistic forms of selectivity (if time-varying)
-          #   sel_dev_ln_sd = 12, # SD for annual selectivity deviates (if time-varying)
-          #   sel_curve_pen = 13, # Penalty for non-parametric selectivity
-          #   index_ln_sd = 14, # Log SD for survey lognormal index likelihood (usually input)
-          #   catch_ln_sd = 14, # Log SD for lognormal catch likelihood (usually input)
-          #   comp_weights = 15, # Weights for multinomial comp likelihood
-          #   logH_1 = 15,  # Functional form parameter (not used in MSVPA functional form)
-          #   logH_1a = 15, # Functional form parameter (not used in MSVPA functional form)
-          #   logH_1b = 15, # Functional form parameter (not used in MSVPA functional form)
-          #   logH_2 = 15, # Functional form parameter (not used in MSVPA functional form)
-          #   logH_3 = 15, # Functional form parameter (not used in MSVPA functional form)
-          #   H_4 = 15, # Functional form parameter (not used in MSVPA functional form)
-          #   log_gam_a = 15, # Suitability parameter (not used in MSVPA style)
-          #   log_gam_b = 15, # Suitability parameter (not used in MSVPA style)
-          #   log_phi = 15 # Suitability parameter (not used in MSVPA style)
-          # )
-        }
-      }
-
-      if(class(phase) == "character"){
-        if(tolower(phase) != "default"){
-          warning("phase misspecified: please set to 'default' or list with the same order as parameters.")
-        }
+        # debugphase = list(
+        #   dummy = 1,
+        #   ln_pop_scalar = 5, # Scalar for input numbers-at-age
+        #   rec_pars = 1, # Stock-recruit parameters or log(mean rec) if no stock-recruit relationship
+        #   R_ln_sd = 4, # Variance for annual recruitment deviats
+        #   rec_dev = 2, # Annual recruitment deviats
+        #   init_dev = 3, # Age specific initial age-structure deviates or parameters
+        #   sex_ratio_ln_sd = 3, # Variance of sex ratio (usually fixed)
+        #   ln_M1 = 4, #  Estimated natural or residual mortality
+        #   ln_mean_F = 6, # Mean fleet-specific fishing mortality
+        #   ln_Flimit = 15, # Estimated F limit
+        #   ln_Ftarget = 15, # Estimated F target
+        #   ln_Finit = 7, # Estimated fishing mortality for non-equilibrium initial age-structure
+        #   proj_F_prop = 14, # Fixed fleet-specific proportion of Flimit and Ftarget apportioned within each species
+        #   F_dev = 7, # Annual fleet specific fishing mortality deviates
+        #   index_ln_q = 10, # Survey catchability
+        #   index_q_dev = 11, # Annual survey catchability deviates (if time-varying)
+        #   index_q_ln_sd = 15, # Prior SD for survey catchability deviates
+        #   index_q_dev_ln_sd = 15, # SD for annual survey catchability deviates (if time-varying)
+        #   sel_coff = 8, # Non-parametric selectivity coefficients
+        #   sel_coff_dev = 11, # Annual deviates for non-parametric selectivity coefficients
+        #   ln_sel_slp = 9, # Slope parameters for logistic forms of selectivity
+        #   sel_inf = 9, # Asymptote parameters for logistic forms of selectivity
+        #   ln_sel_slp_dev = 11, # Annual deviates for slope parameters for logistic forms of selectivity (if time-varying)
+        #   sel_inf_dev = 11, # Annual deviates for asymptote parameters for logistic forms of selectivity (if time-varying)
+        #   sel_dev_ln_sd = 12, # SD for annual selectivity deviates (if time-varying)
+        #   sel_curve_pen = 13, # Penalty for non-parametric selectivity
+        #   index_ln_sd = 14, # Log SD for survey lognormal index likelihood (usually input)
+        #   catch_ln_sd = 14, # Log SD for lognormal catch likelihood (usually input)
+        #   comp_weights = 15, # Weights for multinomial comp likelihood
+        #   logH_1 = 15,  # Functional form parameter (not used in MSVPA functional form)
+        #   logH_1a = 15, # Functional form parameter (not used in MSVPA functional form)
+        #   logH_1b = 15, # Functional form parameter (not used in MSVPA functional form)
+        #   logH_2 = 15, # Functional form parameter (not used in MSVPA functional form)
+        #   logH_3 = 15, # Functional form parameter (not used in MSVPA functional form)
+        #   H_4 = 15, # Functional form parameter (not used in MSVPA functional form)
+        #   log_gam_a = 15, # Suitability parameter (not used in MSVPA style)
+        #   log_gam_b = 15, # Suitability parameter (not used in MSVPA style)
+        #   log_phi = 15 # Suitability parameter (not used in MSVPA style)
+        # )
       }
     }
 
+    if(!is.logical(phase)){
+      warning("Using input phase. Please set phase = TRUE if using defaults.")
+      phaseList = phase
+      phase = TRUE
+    }
+
+
     step = 5
-    if(!is.null(phase) & estimateMode %in% c(0,1) ){
+    if(phase & estimateMode %in% c(0,1) ){
       if(verbose > 0) {message(paste0("Step ", step,": Phasing begin"))}
       phase_pars <- Rceattle::TMBphase(
         data = data_list_reorganized,
         parameters = start_par,
         map = map$mapFactor,
         random = random_vars,
-        phases = phase,
+        phases = phaseList,
         model_name = TMBfilename,
         silent = verbose != 2,
         use_gradient = use_gradient,
@@ -928,13 +927,13 @@ clean_data <- function(data_list){
       yrs_proj <- yrs_proj[which(yrs_proj %!in% catch_data_sub$Year)]
       nyrs_proj <- length(yrs_proj)
       proj_catch_data <- data.frame(Fleet_name = rep(catch_data_sub$Fleet_name[1], nyrs_proj),
-                                  Fleet_code = rep(flt, nyrs_proj),
-                                  Species = rep(catch_data_sub$Species[1], nyrs_proj),
-                                  Year = yrs_proj,
-                                  Month = rep(catch_data_sub$Month[length(catch_data_sub$Month)], nyrs_proj),
-                                  Selectivity_block = rep(catch_data_sub$Selectivity_block[length(catch_data_sub$Selectivity_block)], nyrs_proj),
-                                  Catch = rep(NA, nyrs_proj),
-                                  Log_sd = rep(catch_data_sub$Log_sd[length(catch_data_sub$Log_sd)], nyrs_proj))
+                                    Fleet_code = rep(flt, nyrs_proj),
+                                    Species = rep(catch_data_sub$Species[1], nyrs_proj),
+                                    Year = yrs_proj,
+                                    Month = rep(catch_data_sub$Month[length(catch_data_sub$Month)], nyrs_proj),
+                                    Selectivity_block = rep(catch_data_sub$Selectivity_block[length(catch_data_sub$Selectivity_block)], nyrs_proj),
+                                    Catch = rep(NA, nyrs_proj),
+                                    Log_sd = rep(catch_data_sub$Log_sd[length(catch_data_sub$Log_sd)], nyrs_proj))
       data_list$catch_data <- rbind(data_list$catch_data, proj_catch_data)
     }
   }

@@ -11,7 +11,7 @@ ebs_run <- Rceattle::fit_mod(data_list = BS2017SS,
                              estimateMode = 0, # Estimate
                              random_rec = FALSE, # No random recruitment
                              msmMode = 0, # Single species mode
-                             phase = "default",
+                             phase = TRUE,
                              verbose = 1)
 
 # -- Treat recruitment as random effects
@@ -21,7 +21,7 @@ ebs_run_re <- Rceattle::fit_mod(data_list = BS2017SS,
                                 estimateMode = 0, # Estimate
                                 random_rec = TRUE, # Random recruitment
                                 msmMode = 0, # Single species mode
-                                phase = NULL,
+                                phase = FALSE,
                                 verbose = 1)
 
 # * EBS with Ricker ----
@@ -42,7 +42,7 @@ ebs_ricker_run <- Rceattle::fit_mod(
                      srr_prior_sd = 0.2),
   random_rec = FALSE, # No random recruitment
   msmMode = 0, # Single species mode
-  phase = "default",
+  phase = TRUE,
   verbose = 1,
   initMode = 2) # Start at fished equilibrium (biases alpha and beta otherwise)
 
@@ -63,7 +63,7 @@ ebs_ricker_run_re <- Rceattle::fit_mod(
                      srr_prior_sd = 0.2),
   random_rec = TRUE, # Random recruitment
   msmMode = 0, # Single species mode
-  phase = NULL,
+  phase = FALSE,
   verbose = 1,
   initMode = 2)
 
@@ -83,7 +83,7 @@ yfs_model <- Rceattle::fit_mod(data_list = mydata_yfs,
                                random_rec = FALSE, # No random recruitment
                                msmMode = 0, # Single species mode
                                verbose = 1,
-                               phase = "default",
+                               phase = TRUE,
                                initMode = 2)
 
 yfs_model_re <- Rceattle::fit_mod(data_list = mydata_yfs,
@@ -93,7 +93,7 @@ yfs_model_re <- Rceattle::fit_mod(data_list = mydata_yfs,
                                   random_rec = TRUE, # Random recruitment
                                   msmMode = 0, # Single species mode
                                   verbose = 1,
-                                  phase = NULL,
+                                  phase = FALSE,
                                   initMode = 2)
 
 
@@ -106,7 +106,7 @@ yfs_model_re <- Rceattle::fit_mod(data_list = mydata_yfs,
 #                              estimateMode = 0, # Estimate
 #                              random_rec = FALSE, # No random recruitment
 #                              msmMode = 0, # Single species mode
-#                              phase = "default",
+#                              phase = TRUE,
 #                              verbose = 1)
 #
 # # -- Treat recruitment as random effects
@@ -116,7 +116,7 @@ yfs_model_re <- Rceattle::fit_mod(data_list = mydata_yfs,
 #                                 estimateMode = 0, # Estimate
 #                                 random_rec = TRUE, # Random recruitment
 #                                 msmMode = 0, # Single species mode
-#                                 phase = NULL,
+#                                 phase = FALSE,
 #                                 getsd = FALSE,
 #                                 verbose = 1)
 
@@ -131,7 +131,7 @@ pollock_model <- Rceattle::fit_mod(
   random_rec = FALSE, # No random recruitment
   msmMode = 0,
   verbose = 1, # Silence optimization output
-  phase = "default") # Use default phasing
+  phase = TRUE) # Use default phasing
 
 pollock_model_re <- Rceattle::fit_mod(
   data_list = GOApollock,
@@ -141,7 +141,7 @@ pollock_model_re <- Rceattle::fit_mod(
   random_rec = TRUE, # Random recruitment
   msmMode = 0,
   verbose = 1, # Silence optimization output
-  phase = NULL)
+  phase = FALSE)
 
 
 # * GOA Arrowtooth flounder ----
@@ -155,7 +155,7 @@ atf_model <- Rceattle::fit_mod(
   random_rec = FALSE, # No random recruitment
   msmMode = 0,
   verbose = 1, # Silence optimization output
-  phase = "default") # Use default phasing
+  phase = TRUE) # Use default phasing
 
 atf_model_re <- Rceattle::fit_mod(
   data_list = GOAatf,
@@ -165,7 +165,7 @@ atf_model_re <- Rceattle::fit_mod(
   random_rec = TRUE, # Random recruitment
   msmMode = 0,
   verbose = 1, # Silence optimization output
-  phase = NULL)
+  phase = FALSE)
 
 
 # * GOA Cod ----
@@ -179,7 +179,7 @@ cod_model <- Rceattle::fit_mod(
   random_rec = FALSE, # No random recruitment
   msmMode = 0,
   verbose = 1, # Silence optimization output
-  phase = "default") # Use default phasing
+  phase = TRUE) # Use default phasing
 
 cod_model_re <- Rceattle::fit_mod(
   data_list = GOAcod,
@@ -189,7 +189,7 @@ cod_model_re <- Rceattle::fit_mod(
   random_rec =TRUE, # Random recruitment
   msmMode = 0,
   verbose = 1, # Silence optimization output
-  phase = NULL)
+  phase = FALSE)
 
 
 # PROFILE ----
@@ -262,7 +262,7 @@ profile_rsigma <- function(model = NULL, rsigma_vec = NULL, species = NULL){
       suitMode = model$data_list$suitMode,
       suit_meanyr = model$data_list$suit_meanyr,
       initMode = model$data_list$initMode,
-      phase = NULL,
+      phase = FALSE,
       loopnum = 1,
       getsd = FALSE,
       verbose = 0)
@@ -434,7 +434,7 @@ fix_sigmaR <- function(model = NULL, fix_sigmaR = TRUE, bias.correct = FALSE){
     suit_meanyr = model$data_list$suit_meanyr,
     initMode = model$data_list$initMode,
     bias.correct = bias.correct,
-    phase = NULL,
+    phase = FALSE,
     loopnum = 3,
     getsd = TRUE,
     verbose = 0)
