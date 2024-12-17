@@ -3351,6 +3351,7 @@ Type objective_function<Type>::operator() () {
   ssb_depletion.setZero();
   for(sp = 0; sp < nspp; sp++){
     for(yr = 0; yr < nyrs; yr++){
+
       if(DynamicHCR == 0){
         biomass_depletion(sp, yr) = biomass(sp, yr)/B0(sp, nyrs-1);
         ssb_depletion(sp, yr) = ssb(sp, yr)/SB0(sp, nyrs-1);
@@ -3360,8 +3361,16 @@ Type objective_function<Type>::operator() () {
         biomass_depletion(sp, yr) = biomass(sp, yr)/DynamicB0(sp, yr);
         ssb_depletion(sp, yr) = ssb(sp, yr)/DynamicSB0(sp, yr);
       }
+
+      // Multi-species and no HCR (MSSB0 is input otherwises)
+      if((HCR == 0) & (msmMode > 0)){
+        biomass_depletion(sp, yr) = biomass(sp, yr)/biomass(sp, nyrs-1);
+        ssb_depletion(sp, yr) = ssb(sp, yr)/ssb(sp, nyrs-1);
+      }
     }
   }
+
+
 
 
   // ------------------------------------------------------------------------- //
