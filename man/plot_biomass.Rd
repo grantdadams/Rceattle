@@ -2,7 +2,7 @@
 % Please edit documentation in R/7a-plot_ceattle.R
 \name{plot_biomass}
 \alias{plot_biomass}
-\title{plot_biomass}
+\title{Plot biomass}
 \usage{
 plot_biomass(
   Rceattle,
@@ -39,15 +39,21 @@ function.}
 
 \item{line_col}{Colors of models to be used for line color}
 
+\item{species}{What species to include 1:nspp}
+
 \item{spnames}{Species names for legend}
 
 \item{add_ci}{If the confidence interval is to be added}
 
 \item{lwd}{Line width as specified by user}
 
-\item{save}{Save biomass?}
+\item{save}{Save derived quantity?}
 
 \item{right_adj}{Multiplier for to add to the right side of the figure for fitting the legend.}
+
+\item{width}{Figure width in inches}
+
+\item{height}{Figure height in inches}
 
 \item{minyr}{First year to plot}
 
@@ -55,11 +61,13 @@ function.}
 
 \item{mod_cex}{Cex of text for model name legend}
 
+\item{mod_avg}{TRUE/FALSE}
+
 \item{mse}{Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}}
 
 \item{OM}{if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?}
 
-\item{mohns}{data.frame of mohn's rows extracted from \code{\link{retrospective}}}
+\item{reference}{Reference model}
 }
 \value{
 Returns and saves a figure with the population trajectory.

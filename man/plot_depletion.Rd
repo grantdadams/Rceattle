@@ -2,7 +2,7 @@
 % Please edit documentation in R/7a-plot_ceattle.R
 \name{plot_depletion}
 \alias{plot_depletion}
-\title{plot_depletion}
+\title{Plot biomass depletion}
 \usage{
 plot_depletion(
   Rceattle,
@@ -21,10 +21,12 @@ plot_depletion(
   maxyr = NULL,
   incl_proj = FALSE,
   mod_cex = 1,
+  lty = rep(1, length(Rceattle)),
   alpha = 0.4,
   mod_avg = rep(FALSE, length(Rceattle)),
   mse = FALSE,
-  OM = TRUE
+  OM = TRUE,
+  reference = NULL
 )
 }
 \arguments{
@@ -37,27 +39,39 @@ function.}
 
 \item{line_col}{Colors of models to be used for line color}
 
-\item{species}{Which species to plot e.g. c(1,4). Default = NULL plots them all}
+\item{species}{What species to include 1:nspp}
 
 \item{spnames}{Species names for legend}
 
-\item{add_ci}{NOT WORKING If the confidence interval is to be added}
+\item{add_ci}{If the confidence interval is to be added}
 
 \item{lwd}{Line width as specified by user}
 
-\item{save}{Save depletion?}
+\item{save}{Save derived quantity?}
 
 \item{right_adj}{Multiplier for to add to the right side of the figure for fitting the legend.}
+
+\item{width}{Figure width in inches}
+
+\item{height}{Figure height in inches}
 
 \item{minyr}{First year to plot}
 
 \item{incl_proj}{TRUE/FALSE, include projection years}
 
 \item{mod_cex}{Cex of text for model name legend}
+
+\item{mod_avg}{TRUE/FALSE}
+
+\item{mse}{Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}}
+
+\item{OM}{if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?}
+
+\item{reference}{Reference model}
 }
 \value{
 Returns and saves a figure with the population trajectory.
 }
 \description{
-Function the plots the mean depletion of total biomass as estimated from Rceattle
+Function the plots the mean biomass depletion and 95\% CI trends as estimated from Rceattle
 }
