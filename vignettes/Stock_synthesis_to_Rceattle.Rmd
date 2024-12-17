@@ -9,6 +9,8 @@ vignette: >
 
 This is a working document describing how to convert a stock synthesis (SS) model to Rceattle. I am using the 2019 Pacific hake assessment because I found the stock synthesis files online on Nis’s MSE github (https://github.com/nissandjac/PacifichakeMSE/tree/master/inst/extdata/SS32019). All the information needed (apart from consumption and diet) for Rceattle should be within the SS data, wattage, and control files. Information in each of those can then be copied over to an Rceattle excel file. I am formatting this as if you are reading the SS files from top to bottom and adding to Rceattle. Rceattle variable names will be in italics.
 
+•	Look at “meta_data” in the Rceattle excel files for more specifics.
+
 Starting with the SS data file (hake_data.ss) 
 For model controls
 1.	Copy styr (1966) to the styr on the Rceattle excel file (sheet “control”)
@@ -42,7 +44,7 @@ Copy the CPUE_and_surveyabundance_observations data in SS to “fleet_control”
 o	For hake, survey SDs are derived from the acoustic survey and do not need to be estimated (Estimate_survey_sd
  = 0)
 
-CPUE data in SS to “srv_biom” Rceattle excel sheet
+CPUE data in SS to “index_data” Rceattle excel sheet
 •	Copy index to fleet_code (Note: may need to adjust if codes differ between Rceattle and SS)
 o	Also add in Fleet_names on Rceattle
 o	NOTE: In SS, when an index observation is predicted, but not included in the model likelihood, the index is set to the negative (e.g. -2 for the acoustic survey of hake in 1996). In Rceattle you set the Year to the negative of the year to predict the observation, but not include it in the likelihood.
@@ -81,10 +83,6 @@ o	Also add in Fleet_names on Rceattle
 •	Copy columns a1, a2, …. in SS to columns Comp_1, Comp_2,….
 o	NOTE: because the comp data only uses 15 ages, but nages is 20 in SS you can either 1) leave it be in Rceattle and it will assume the comp observations for ages 16 to 20 are 0, or 2) set Accumulation_age_upper on the “fleet_control” sheet in Rceattle to 15 where all comp observations for ages 15 to 20 are grouped together into age 15. I would look at the assessment doc or ask the authors to see whats up.
 
-_MeanSize_at_Age_obs and below
-•	Rceattle uses empirical weight at age.
-•	Look at “meta_data” in Rceattle for more specifications
-
 Weight at age date from the SS data file (wtatage.ss) to “wt” in Rceattle
 •	Rceattle uses empirical weight-at-age
 o	If SS estimates weight-at-age you can copy data from wattage_new.ss (although it is somewhat conditional on the SS population model)
@@ -102,7 +100,6 @@ Other bits in Rceattle
 •	On the “M1_base” sheet, I set M1 to the value from the assessment doc. You can also estimate it by adjusting est_M1
  on the control sheet
 •	On the “age_trans_matrix” sheet I set everything to 0 because there are no length data in the assessment. This sheet converts age to length. 
-•	The “Mn_LatAge” and “aLW” sheets are not used.
 
 Comparing the SS model to Rceattle
 •	Run the stock synthesis model (Nis already did in this example)
