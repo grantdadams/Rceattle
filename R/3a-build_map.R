@@ -298,6 +298,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
             map_list$sel_inf[j, flt, sex] <- ind_inf; ind_inf = ind_inf + 1
           }
         }
+
         # -- Time varying parameters
         # Penalized likelihood or random walk
         if(data_list$fleet_control$Time_varying_sel[i] %in% c(1,2,4,5)){
@@ -327,8 +328,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
         # Ascending only
         if(data_list$fleet_control$Time_varying_sel[i] == 5){
-          map_list$ln_sel_slp[1, flt,] <- NA
-          map_list$sel_inf[1, flt,] <- NA
+          # map_list$ln_sel_slp[1, flt,] <- NA
+          # map_list$sel_inf[1, flt,] <- NA
         }
 
 
@@ -472,9 +473,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
   # Loop through fleets
   for( i in 1: nrow(data_list$fleet_control)){
-    if(data_list$fleet_control$Fleet_type[flt] == 1){ # If survey
+    flt = data_list$fleet_control$Fleet_code[i]
 
-      flt = data_list$fleet_control$Fleet_code[i]
+    if(data_list$fleet_control$Fleet_type[flt] == 2){ # If survey
       # Q
       # - 0 = fixed at prior
       # - 1 = Estimate single parameter
