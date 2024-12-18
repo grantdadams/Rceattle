@@ -569,7 +569,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       # - 0 = use CV from index_data
       # - 1 = estimate a free parameter
       # - 2 = analytically estimate following (Ludwig and Walters 1994)
-      if (data_list$fleet_control$Estimate_survey_sd[i] == 1) {
+      if (data_list$fleet_control$Estimate_index_sd[i] == 1) {
         map_list$index_ln_sd[flt] <- flt
       }
     }
