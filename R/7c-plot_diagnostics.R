@@ -294,9 +294,9 @@ plot_catch <- function(Rceattle,
   if(!is.null(maxyr)){
     Years <- lapply(Rceattle, function(x) x$data_list$styr:min(c(maxyr, x$data_list$projyr)))
   }
-  ProjYears <- lapply(Rceattle, function(x) x$data_list$srr_meanyr:x$data_list$projyr)
+  ProjYears <- lapply(Rceattle, function(x) x$data_list$endyr:x$data_list$projyr)
   Endyrs <- lapply(Rceattle, function(x) x$data_list$endyr)
-  meanyrs <- lapply(Rceattle, function(x) x$data_list$srr_meanyr)
+  meanyrs <- lapply(Rceattle, function(x) x$data_list$endyr)
   fsh_list <- list()
   fsh_hat_list <- list()
   proj_fsh_hat_list <- list()
