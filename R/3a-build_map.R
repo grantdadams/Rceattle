@@ -39,7 +39,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # -- 1.1. Map out future fishing mortality and sex ratio variance
   map_list$proj_F_prop <- map_list$proj_F_prop * NA
-  map_list$sex_ratio_ln_sd <- map_list$sex_ratio_ln_sd * NA
+  # map_list$sex_ratio_ln_sd <- map_list$sex_ratio_ln_sd * NA
 
   # -- 1.2. Map out future recruitment deviations
   map_list$rec_dev[, yrs_proj] <- as.numeric(replace(map_list$rec_dev[, yrs_proj],
@@ -870,7 +870,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       # Population parameters
       map_list$rec_pars[sp,] <- NA
       map_list$R_ln_sd[sp] <- NA
-      map_list$sex_ratio_ln_sd[sp] <- NA
+      # map_list$sex_ratio_ln_sd[sp] <- NA
       map_list$rec_dev[sp,] <- NA
       map_list$init_dev[sp,] <- NA
       map_list$ln_M1[sp,,] <- NA

@@ -70,7 +70,7 @@ build_params <- function(data_list) {
     }
   }
   param_list$ln_M1 <- log(m1)
-  param_list$sex_ratio_ln_sd = log(data_list$sex_ratio_sigma)
+  # param_list$sex_ratio_ln_sd = log(data_list$sex_ratio_sigma)
 
 
   # -- 3.4. fishing mortality parameters

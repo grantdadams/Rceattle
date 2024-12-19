@@ -420,7 +420,7 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR( nages );                  // Number of species (prey) ages; n = [1, nspp]
   DATA_IVECTOR( minage );                 // Minimum age of each species; n = [1, nspp]
   DATA_IVECTOR( nlengths );               // Number of species (prey) lengths; n = [1, nspp]
-  // DATA_ARRAY( NByageFixed );              // Provided estimates of numbers- or index-at-age to be multiplied (or not) by pop_scalar to get Nbyage
+  // DATA_ARRAY( NByageFixed );              // Provided estimates of numbers- or index-at-age to be multiplied (or not) by pop_scalar to get N_at_age
   Type stom_tau = 20;                     // Stomach sample size: FIXME - have as input
   int max_age = imax(nages);              // Integer of maximum nages to make the arrays; n = [1]
   DATA_VECTOR( MSSB0 );                   // SB0 from projecting the model forward in multi-species mode under no fishing
@@ -510,7 +510,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 3.2. Population parameters
   PARAMETER_ARRAY( ln_M1 );                       // Natural mortality (residual if multispecies mode or total if single species mode); n = [nspp, nsex, nages]
-  PARAMETER_VECTOR( sex_ratio_ln_sd );         // Variance for sex ratio to be used; n = [nspp]
+  // PARAMETER_VECTOR( sex_ratio_ln_sd );         // Variance for sex ratio to be used; n = [nspp]
 
 
   // -- 3.3. Fishing mortality parameters
@@ -586,24 +586,24 @@ Type objective_function<Type>::operator() () {
   Type srr_alpha = 0.0;
   matrix<Type>  R(nspp, nyrs); R.setZero();                                         // Estimated recruitment (n)
   vector<Type>  steepness(nspp); steepness.setZero();                               // Expected % of R0 at 20% SSB0.
-  // array<Type>   biomass_by_age(nspp, 2, max_age, nyrs); biomass_by_age.setZero();// Estimated biomass-at-age (kg)
+  // array<Type>   biomass_at_age(nspp, 2, max_age, nyrs); biomass_at_age.setZero();// Estimated biomass-at-age (kg)
   matrix<Type>  biomass(nspp, nyrs); biomass.setZero();                             // Estimated biomass (kg)
   matrix<Type>  exploitable_biomass(nspp, nyrs); exploitable_biomass.setZero();     // Estimated exploitable biomass (kg)
   matrix<Type>  ssb(nspp, nyrs); ssb.setZero();                                     // Estimated spawning stock biomass (kg)
   matrix<Type>  biomass_depletion(nspp, nyrs); biomass_depletion.setZero();         // Estimated biomass biomass_depletion
   matrix<Type>  ssb_depletion(nspp, nyrs); ssb_depletion.setZero();                 // Estimated biomass_depletion of spawning stock biomass
-  // array<Type>   ssb_by_age(nspp, max_age, nyrs); ssb_by_age.setZero();           // Spawning biomass at age (kg)
+  // array<Type>   ssb_at_age(nspp, max_age, nyrs); ssb_at_age.setZero();           // Spawning biomass at age (kg)
   array<Type>   M_at_age(nspp, 2, max_age, nyrs); M_at_age.setZero();               // Total natural mortality at age
   array<Type>   M1_at_age(ln_M1.dim); M1_at_age = exp(ln_M1);                       // Residual or total natural mortality at age
   array<Type>   N_at_age(nspp, 2, max_age, nyrs); N_at_age.setZero();               // Numbers at age
   array<Type>   avgN_at_age(nspp, 2, max_age, nyrs); avgN_at_age.setZero();         // Average numbers-at-age
-  array<Type>   sex_ratio_hat(nspp, max_age, nyrs); sex_ratio_hat.setZero();        // Estimated age-specific sex ratin
-  matrix<Type>  avg_sex_ratio_hat(nspp, nyrs); avg_sex_ratio_hat.setZero();         // Estimated sex ratio across all ages
+  //array<Type>   sex_ratio_hat(nspp, max_age, nyrs); sex_ratio_hat.setZero();        // Estimated age-specific sex ratin
+  //matrix<Type>  avg_sex_ratio_hat(nspp, nyrs); avg_sex_ratio_hat.setZero();         // Estimated sex ratio across all ages
   // array<Type>   S_at_age(nspp, 2, max_age, nyrs); S_at_age.setZero();            // Survival at age
   array<Type>   Z_at_age(nspp, 2, max_age, nyrs); Z_at_age.setZero();               // Total mortality at age
   vector<Type>  R_sd(nspp); R_sd.setZero();                                         // Standard deviation of recruitment variation
   vector<Type>  zero_N_pen(nspp); zero_N_pen.setZero();                             // Additional penalty to add to likelihood if n-at-age goes < 0
-  vector<Type>  sex_ratio_sd(nspp); sex_ratio_sd.setZero();                         // Variance of sex ratio
+  // vector<Type>  sex_ratio_sd(nspp); sex_ratio_sd.setZero();                         // Variance of sex ratio
 
   // -- 4.3. Selectivity parameters
   array<Type>   sel(n_flt, 2, max_age, nyrs); sel.setZero();                        // Estimated selectivity at age
@@ -752,7 +752,7 @@ Type objective_function<Type>::operator() () {
   sel_dev_sd = exp(sel_dev_ln_sd) ;
   index_q_sd = exp(index_q_ln_sd) ;
   index_q_dev_sd = exp(index_q_dev_ln_sd) ;
-  sex_ratio_sd = exp(sex_ratio_ln_sd);
+  // sex_ratio_sd = exp(sex_ratio_ln_sd);
   Cindex -=1; // Subtract 1 from Cindex to deal with indexing start at 0
 
 
@@ -1305,19 +1305,21 @@ Type objective_function<Type>::operator() () {
     // 6.5. INITIAL ABUNDANCE AT AGE, BIOMASS, AND ssb (YEAR 1)
     biomass.setZero();
     ssb.setZero();
-    //biomass_by_age.setZero();
+    // ssb_at_age.setZero();
     for (sp = 0; sp < nspp; sp++) {
       for (age = 0; age < nages(sp); age++){
         for(sex = 0; sex < nsex(sp); sex ++){
 
-          //switch(estDynamics(sp)){
-          //case 0: // Estimated
+          /*
+           switch(estDynamics(sp)){
+        case 0: // Estimated
+           */
 
           // - Estimate as free parameters
           if(initMode == 0){
             R(sp, 0) = exp(init_dev(sp, 0));
             N_at_age(sp, 0, age, 0) = exp(init_dev(sp, age)) * R_sexr(sp);
-            N_at_age(sp, 1, age, 0) = exp(init_dev(sp, age)) * (1.0-R_sexr(sp));
+            N_at_age(sp, 1, age, 0) = exp(init_dev(sp, age)) * (1-R_sexr(sp));
           }
 
           // - Equilibrium or non-equilibrium estimated as function of R0, Finit, mortality, and init devs
@@ -1327,18 +1329,10 @@ Type objective_function<Type>::operator() () {
             if(age == 0){
               R(sp, 0) = R_init(sp) * exp(rec_dev(sp, 0));
               N_at_age(sp, 0, 0, 0) = R(sp, 0) * R_sexr(sp);
-              N_at_age(sp, 1, 0, 0) = R(sp, 0) * (1.0-R_sexr(sp));
+              N_at_age(sp, 1, 0, 0) = R(sp, 0) * (1-R_sexr(sp));
             }
 
-            // // Sum M1_at_age until age - 1
-            // Type mort_sum = M1_at_age(sp, sex, 0); // skipping age-2 M_at_age
-            // if(age > 1){
-            //   for(int age_tmp = 2; age_tmp <= age; age_tmp++){
-            //     mort_sum += M1_at_age(sp, sex, age_tmp) + Finit(sp);
-            //   }
-            // }
-
-            // Sum M1_at_age until age - 1
+            // Sum M1 until age - 1
             Type mort_sum = 0;
             for(int age_tmp = 0; age_tmp < age; age_tmp++){
               mort_sum += M1_at_age(sp, sex, age_tmp) + Finit(sp);
@@ -1351,7 +1345,7 @@ Type objective_function<Type>::operator() () {
                 N_at_age(sp, 0, age, 0) = R_init(sp) * exp( - mort_sum + init_dev(sp, age - 1)) * R_sexr(sp);
               }
               if(sex == 1){
-                N_at_age(sp, 1, age, 0) = R_init(sp) * exp( - mort_sum + init_dev(sp, age - 1)) * (1.0-R_sexr(sp));
+                N_at_age(sp, 1, age, 0) = R_init(sp) * exp( - mort_sum + init_dev(sp, age - 1)) * (1-R_sexr(sp));
               }
             }
 
@@ -1363,7 +1357,7 @@ Type objective_function<Type>::operator() () {
               }
 
               if(sex == 1){
-                N_at_age(sp, 1, age, 0) = R_init(sp) * exp( - mort_sum + init_dev(sp, age - 1)) / (1 - exp(-M1_at_age(sp, sex, nages(sp) - 1))) * (1.0-R_sexr(sp));
+                N_at_age(sp, 1, age, 0) = R_init(sp) * exp( - mort_sum + init_dev(sp, age - 1)) / (1 - exp(-M1_at_age(sp, sex, nages(sp) - 1))) * (1-R_sexr(sp));
               }
             }
           }
@@ -1389,20 +1383,13 @@ Type objective_function<Type>::operator() () {
            */
 
           // -- 6.5.3. Estimate total biomass in year 1
-          /*
-           biomass_by_age(sp, sex, age, 0) = N_at_age(sp, sex, age, 0) * wt( pop_wt_index(sp), sex, age, 0);
-           biomass(sp, 0) += biomass_by_age(sp, sex, age, 0);
-           */
-          biomass(sp, 0) += N_at_age(sp, sex, age, 0) * wt( pop_wt_index(sp), sex, age, 0);
+          // biomass_at_age(sp, sex, age, 0) = N_at_age(sp, sex, age, 0) * wt( pop_wt_index(sp), sex, age, 0);
+          biomass(sp, 0) += N_at_age(sp, sex, age, 0) * wt( pop_wt_index(sp), sex, age, 0); // biomassByage(sp, sex, age, 0);
         }
 
-        // -- 6.5.4. Estimated initial female ssb
-        /*
-         ssb_by_age(sp, age, 0) = N_at_age(sp, 0, age, 0) * pow(S_at_age(sp, 0, age, 0), spawn_month(sp)/12.0) * wt(ssb_wt_index(sp), 0, age, 0 ) * pmature(sp, age); // 6.6.
-         ssb(sp, 0) += ssb_by_age(sp, age, 0);
-         */
-
-        ssb(sp, 0) += N_at_age(sp, 0, age, 0) * pow( exp(-Z_at_age(sp, 0, age, 0)), spawn_month(sp)/12.0) * wt(ssb_wt_index(sp), 0, age, 0 ) * pmature(sp, age); // 6.6.
+        // -- 6.5.4. Estimated initial female SSB
+        // ssb_at_age(sp, age, 0) = N_at_age(sp, 0, age, 0) * pow(S(sp, 0, age, 0), spawn_month(sp)/12) * wt(ssb_wt_index(sp), 0, age, 0 ) * pmature(sp, age); // 6.6.
+        ssb(sp, 0) += N_at_age(sp, 0, age, 0) * exp(-Z_at_age(sp, 0, age, 0) * spawn_month(sp)/12) * wt(ssb_wt_index(sp), 0, age, 0 ) * pmature(sp, age); // 6.6. ssb_at_age(sp, age, 0);
       }
     }
 
@@ -1505,18 +1492,18 @@ Type objective_function<Type>::operator() () {
 
             // -- 6.6.3. Estimate total biomass
             /*
-             biomass_by_age(sp, sex, age, yr) = N_at_age(sp, sex, age, yr) * wt( pop_wt_index(sp), sex, age, yr );
-             biomass(sp, yr) += biomass_by_age(sp, sex, age, yr);
+             biomass_at_age(sp, sex, age, yr) = N_at_age(sp, sex, age, yr) * wt( pop_wt_index(sp), sex, age, yr );
+             biomass(sp, yr) += biomass_at_age(sp, sex, age, yr);
              */
             biomass(sp, yr) += N_at_age(sp, sex, age, yr) * wt( pop_wt_index(sp), sex, age, yr );
           }
 
           // -- 6.6.4. Estimated female ssb
           /*
-           ssb_by_age(sp, age, yr) = N_at_age(sp, 0, age, yr) * pow(S_at_age(sp, 0, age, yr), spawn_month(sp)/12.0) * wt(ssb_wt_index(sp), 0, age, yr ) * pmature(sp, age); // 6.6.
-           ssb(sp, yr) += ssb_by_age(sp, age, yr);
+           ssb_at_age(sp, age, yr) = N_at_age(sp, 0, age, yr) * pow(S_at_age(sp, 0, age, yr), spawn_month(sp)/12.0) * wt(ssb_wt_index(sp), 0, age, yr ) * pmature(sp, age); // 6.6.
+           ssb(sp, yr) += ssb_at_age(sp, age, yr);
            */
-          ssb(sp, yr) += N_at_age(sp, 0, age, yr) * pow(exp(-Z_at_age(sp, 0, age, yr)), spawn_month(sp)/12.0) * wt(ssb_wt_index(sp), 0, age, yr ) * pmature(sp, age); // 6.6.
+          ssb(sp, yr) += N_at_age(sp, 0, age, yr) * exp(-Z_at_age(sp, 0, age, yr) * spawn_month(sp)/12.0) * wt(ssb_wt_index(sp), 0, age, yr ) * pmature(sp, age); // 6.6.
         }
       }
     }
@@ -1993,18 +1980,18 @@ Type objective_function<Type>::operator() () {
 
             // -- 6.9.4. FORECAST ssb BY AGE
             /*
-             biomass_by_age(sp, sex, age, yr) = N_at_age(sp, sex, age, yr) * wt( pop_wt_index(sp), sex, age, nyrs_hind-1 ); // 6.5.
-             biomass(sp, yr) += biomass_by_age(sp, sex, age, yr);
+             biomass_at_age(sp, sex, age, yr) = N_at_age(sp, sex, age, yr) * wt( pop_wt_index(sp), sex, age, nyrs_hind-1 ); // 6.5.
+             biomass(sp, yr) += biomass_at_age(sp, sex, age, yr);
              */
             biomass(sp, yr) += N_at_age(sp, sex, age, yr) * wt( pop_wt_index(sp), sex, age, nyrs_hind-1 ); // 6.5.
           } // End sex loop
 
           // -- 6.9.5. FORECAST ssb (SUM ACROSS AGES)
           /*
-           ssb_by_age(sp, age, yr) = N_at_age(sp, 0, age, yr) * pow(S_at_age(sp, 0, age, yr), spawn_month(sp)/12.0) * wt(ssb_wt_index(sp), 0, age, nyrs_hind-1 ) * pmature(sp, age); // 6.6.
-           ssb(sp, yr) += ssb_by_age(sp, age, yr);
+           ssb_at_age(sp, age, yr) = N_at_age(sp, 0, age, yr) * pow(S_at_age(sp, 0, age, yr), spawn_month(sp)/12.0) * wt(ssb_wt_index(sp), 0, age, nyrs_hind-1 ) * pmature(sp, age); // 6.6.
+           ssb(sp, yr) += ssb_at_age(sp, age, yr);
            */
-          ssb(sp, yr) += N_at_age(sp, 0, age, yr) * pow(exp(-Z_at_age(sp, 0, age, yr)), spawn_month(sp)/12.0) * wt(ssb_wt_index(sp), 0, age, nyrs_hind-1 ) * pmature(sp, age); // 6.6.
+          ssb(sp, yr) += N_at_age(sp, 0, age, yr) * exp(-Z_at_age(sp, 0, age, yr) * spawn_month(sp)/12.0) * wt(ssb_wt_index(sp), 0, age, nyrs_hind-1 ) * pmature(sp, age); // 6.6.
         }
       }
     }
@@ -2100,22 +2087,24 @@ Type objective_function<Type>::operator() () {
 
 
     // 6.11. ESTIMATE SEX RATIO
-    sex_ratio_hat.setZero();
-    Type sexr_denom = 0; // Denominator for sex ration across ages
-    Type sexr_nom = 0; // Nominator for sex ratio across ages
-    for (sp = 0; sp < nspp; sp++) {
-      for (yr = 0; yr < nyrs; yr++) {
-        // Re-initialize
-        sexr_denom = 0;
-        sexr_nom = 0;
-        for (age = 0; age < nages(sp); age++) {
-          sex_ratio_hat(sp, age, yr) = N_at_age(sp, 0, age, yr) / (N_at_age(sp, 0, age, yr) + N_at_age(sp, 1, age, yr));
-          sexr_nom +=  N_at_age(sp, 0, age, yr); // Females
-          sexr_denom += (N_at_age(sp, 0, age, yr) + N_at_age(sp, 1, age, yr)); // Males
-        }
-        avg_sex_ratio_hat(sp, yr) = sexr_nom/sexr_denom;
-      }
-    }
+    /*
+     sex_ratio_hat.setZero();
+     Type sexr_denom = 0; // Denominator for sex ration across ages
+     Type sexr_nom = 0; // Nominator for sex ratio across ages
+     for (sp = 0; sp < nspp; sp++) {
+     for (yr = 0; yr < nyrs; yr++) {
+     // Re-initialize
+     sexr_denom = 0;
+     sexr_nom = 0;
+     for (age = 0; age < nages(sp); age++) {
+     sex_ratio_hat(sp, age, yr) = N_at_age(sp, 0, age, yr) / (N_at_age(sp, 0, age, yr) + N_at_age(sp, 1, age, yr));
+     sexr_nom +=  N_at_age(sp, 0, age, yr); // Females
+     sexr_denom += (N_at_age(sp, 0, age, yr) + N_at_age(sp, 1, age, yr)); // Females and males
+     }
+     avg_sex_ratio_hat(sp, yr) = sexr_nom/sexr_denom;
+     }
+     }
+     */
 
 
     // 6.12. ESTIMATE AVERAGE NUMBERS AT AGE
@@ -3482,11 +3471,8 @@ Type objective_function<Type>::operator() () {
             // jnll_comp(1, flt)+= 0.5*square((log(catch_obs(fsh_ind, 0))-log(catch_hat(fsh_ind)))/fsh_std_dev);
 
             // Slot 12 -- Epsilon -- Annual fishing mortality deviation
-            jnll_comp(12, flt) += square(F_dev(flt, yr));      // Fishing mortality deviation using penalized likelihood.
+            jnll_comp(12, flt) += square(F_dev(flt, yr));      //FIXME - move to single F per year
           }
-          //if(catch_obs(fsh_ind, 0) == 0){
-          //jnll_comp(12, flt) += square(F_dev(flt, yr) + 10);   // If catch is zero, penalize F_dev to -10
-          //}
         }
       }
     }
@@ -3559,11 +3545,28 @@ Type objective_function<Type>::operator() () {
     }
   }
 
+  /*
+   // Slot 3 -- Observed sex ratio
+   for(sp = 0; sp < nspp; sp++){
+   for(yr = 0; yr < nyrs_hind; yr++){
+   if((nsex(sp) == 2) & (estDynamics(sp) == 0)){
+   if(est_sex_ratio(sp) == 1){
+   jnll_comp(3, sp) -= dnorm(sex_ratio_mean_hat(sp, yr), sex_ratio(sp, 1), sex_ratio_sigma(sp)); // Using the 2nd age here, cause recruitment is assumed to be age 1 (c++ 0)
+   }
+
+   if(est_sex_ratio(sp) == 2){
+   for(age = 1; age < nages(sp); age++){ // Start at age 2 because age 1 is fixed
+   jnll_comp(3, sp) -= dnorm(sex_ratio_hat(sp, age, yr), sex_ratio(sp, age), sex_ratio_sigma(sp));
+   }
+   }
+   }
+   }
+   }
+   */
+
 
 
   // Slot 4-6 -- Selectivity
-  matrix<Type> sel_slp_dev_ll(n_flt, nyrs_hind);sel_slp_dev_ll.setZero();
-  matrix<Type> sel_inf_dev_ll(n_flt, nyrs_hind);sel_inf_dev_ll.setZero();
   for(flt = 0; flt < n_flt; flt++){ // Loop around surveys
     jnll_comp(4, flt) = 0;
     jnll_comp(5, flt) = 0;
@@ -3968,8 +3971,6 @@ Type objective_function<Type>::operator() () {
    REPORT( r_sexes );
    REPORT( k_sexes );
    REPORT( joint_adjust );
-   REPORT( sel_slp_dev_ll);
-   REPORT( sel_inf_dev_ll);
    */
 
 
@@ -3979,19 +3980,19 @@ Type objective_function<Type>::operator() () {
   //REPORT( pmature );
   REPORT( Z_at_age );
   REPORT( N_at_age );
-  //REPORT( avgN_at_age );
+  REPORT( avgN_at_age );
   //REPORT( sex_ratio_hat );
   //REPORT( avg_sex_ratio_hat );
   //REPORT( S_at_age );
-  //REPORT( biomass_by_age );
-  //REPORT( ssb_by_age );
+  //REPORT( biomass_at_age );
+  //REPORT( ssb_at_age );
   REPORT( biomass_depletion );
   REPORT( ssb_depletion );
   REPORT( biomass );
   REPORT( ssb );
   REPORT( exploitable_biomass );
   //REPORT(R_sd);
-  //REPORT( R_sexr );
+  REPORT( R_sexr );
   REPORT( R0 );
   REPORT( R_init );
   REPORT( R );
@@ -4059,9 +4060,9 @@ Type objective_function<Type>::operator() () {
 
   // -- 12.5. Fishery components
   REPORT( F_spp );
-  //REPORT( F_flt );
-  //REPORT( F_flt_age );
-  //REPORT( F_spp_at_age );
+  REPORT( F_flt );
+  REPORT( F_flt_age );
+  REPORT( F_spp_at_age );
   REPORT( catch_hat );
   REPORT( max_catch_hat );
   REPORT( ln_catch_sd );

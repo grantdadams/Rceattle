@@ -436,7 +436,7 @@ fit_mod <-
           R_ln_sd = 2, # Variance for annual recruitment deviats
           rec_dev = 2, # Annual recruitment deviats
           init_dev = 2, # Age specific initial age-structure deviates or parameters
-          sex_ratio_ln_sd = 3, # Variance of sex ratio (usually fixed)
+          # sex_ratio_ln_sd = 3, # Variance of sex ratio (usually fixed)
           ln_M1 = 4, #  Estimated natural or residual mortality
           ln_mean_F = 1, # Mean fleet-specific fishing mortality
           ln_Flimit = 3, # Estimated F limit
