@@ -118,7 +118,7 @@ build_params <- function(data_list) {
   param_list$sel_coff_dev = suppressWarnings( array(0, dim = c(n_selectivities, 2, max(1, as.numeric(c(data_list$fleet_control$Nselages) ), na.rm = T), nyrs_hind)))  # Non-parametric selectivity coef annual deviates
   param_list$ln_sel_slp = array(0.5, dim = c(2, n_selectivities, 2))  # selectivity paramaters for logistic; n = [2, nspp, 2 sexes]
   param_list$sel_inf = array(0, dim = c(2, n_selectivities, 2))  # selectivity paramaters for logistic; n = [2, nspp, 2 sexes]
-  param_list$sel_inf[1,,] <- 5
+  param_list$sel_inf[1,,] <- 0
   param_list$sel_inf[2,,] <- 10
 
   # --- 3.5.2. Time varying selectivity parameters

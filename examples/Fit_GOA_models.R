@@ -29,19 +29,6 @@ ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
                             verbose = 1)
 
 
-ss_run2 <- Rceattle::fit_mod(data_list = GOA2018SS,
-                             TMBfilename = "src/TMB/ceattle_v01_11_sel_norm",
-                             inits = NULL, # Initial parameters = 0
-                             file = NULL, # Don't save
-                             estimateMode = 0, # Estimate
-                             random_rec = FALSE, # No random recruitment
-                             msmMode = 0, # Single species mode
-                             phase = TRUE,
-                             verbose = 1)
-
-plot_biomass(list(ss_run, ss_run2))
-
-
 # Single-species, but estimate M
 ss_run_M <- Rceattle::fit_mod(data_list = GOA2018SS,
                               inits = ss_run$estimated_params, # Initial parameters = 0
