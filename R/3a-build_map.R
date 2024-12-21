@@ -225,8 +225,11 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
         # Turn off mean-params for random walk
         # - Ascending
         if(data_list$fleet_control$Time_varying_sel[i] == 4){
-          map_list$ln_sel_slp[, flt,] <- NA
-          map_list$sel_inf[, flt,] <- NA
+          # map_list$ln_sel_slp[, flt,] <- NA
+          # map_list$sel_inf[, flt,] <- NA
+
+          map_list$ln_sel_slp_dev[1, flt, sex, 1] <- NA
+          map_list$sel_inf_dev[1, flt, sex, 1] <- NA
         }
 
         # ** Selectivity blocks
@@ -319,17 +322,17 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
           }
         }
 
-        # Turn off mean-params for random walk
+        # Turn off first deviate for random walk
         # - Ascending and descending
         if(data_list$fleet_control$Time_varying_sel[i] == 4){
-          map_list$ln_sel_slp[, flt,] <- NA
-          map_list$sel_inf[, flt,] <- NA
+          map_list$ln_sel_slp_dev[j, flt, sex, 1] <- NA
+          map_list$sel_inf_dev[j, flt, sex, 1] <- NA
         }
 
-        # Ascending only
+        # - Ascending only
         if(data_list$fleet_control$Time_varying_sel[i] == 5){
-          # map_list$ln_sel_slp[1, flt,] <- NA
-          # map_list$sel_inf[1, flt,] <- NA
+          map_list$ln_sel_slp_dev[1, flt, sex, 1] <- NA
+          map_list$sel_inf_dev[1, flt, sex, 1] <- NA
         }
 
 
@@ -391,11 +394,11 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
           }
         }
 
-        # Turn off mean-params for random walk
+        # Turn off first deviate for random walk
         # - Descending
         if(data_list$fleet_control$Time_varying_sel[i] == 4){
-          map_list$ln_sel_slp[, flt,] <- NA
-          map_list$sel_inf[, flt,] <- NA
+          map_list$ln_sel_slp_dev[2, flt, sex, 1] <- NA
+          map_list$sel_inf_dev[2, flt, sex, 1] <- NA
         }
 
         # Selectivity block
@@ -523,13 +526,13 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
         # Penalized deviate or random walk
         if(data_list$fleet_control$Time_varying_q[i] %in% c(1,2,4)){
-          map_list$index_q_dev[flt, srv_biom_yrs] <- ind_q + (1:length(srv_biom_yrs)) - 1
-          ind_q <- ind_q + length(srv_biom_yrs)
+          map_list$index_q_dev[flt, yrs_hind] <- ind_q + (1:nyrs_hind) - 1
+          ind_q <- ind_q + nyrs_hind
         }
 
-        # Turn of mean for random walk
+        # Turn of first deviate for random walk
         if(data_list$fleet_control$Time_varying_q[i] == 4){
-          map_list$index_ln_q[flt] <- NA
+          map_list$index_q_dev[flt, 1] <- NA
         }
 
         # Time blocks

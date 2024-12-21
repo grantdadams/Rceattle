@@ -581,6 +581,7 @@ Type objective_function<Type>::operator() () {
   // matrix<Type>  pop_scalar = ln_pop_scalar;  pop_scalar = exp(ln_pop_scalar.array());// Fixed n-at-age scaling coefficient; n = [nspp, nages]
   vector<Type>  avg_R(nspp); avg_R.setZero();                                       // Mean recruitment of hindcast
   matrix<Type>  R_hat(nspp, nyrs); R_hat.setZero();                                 // Expected recruitment given SR curve
+  matrix<Type>  mort_sum(nspp, max_age); mort_sum.setZero();
   vector<Type>  R0(nspp); R0.setZero();                                             // Equilibrium recruitment at F = 0.
   vector<Type>  R_init(nspp); R_init.setZero();                                     // Equilibrium recruitment at F = Finit (non-equilibrium).
   Type srr_alpha = 0.0;
@@ -1016,23 +1017,23 @@ Type objective_function<Type>::operator() () {
       }
 
 
-      // // Normalize by selectivity by specific age
-      // if (flt_sel_maxage(flt) >= 0) {
-      //   for (yr = 0; yr < nyrs_hind; yr++) {
-      //     for(sex = 0; sex < nsex(sp); sex++){
-      //       Type max_sel = sel(flt, sex, flt_sel_maxage(flt), yr); // Get max sel by sex/year (split or otherwise, divides by 1 for ages > maxselage)
-      //
-      //       for (age = 0; age < nages(sp); age++){
-      //
-      //         // Normalize by max
-      //         sel(flt, sex, age, yr) /= max_sel;
-      //       }
-      //     }
-      //   }
-      // }
+      // Normalize by selectivity by specific age
+      if (flt_sel_maxage(flt) >= 0) {
+        for (yr = 0; yr < nyrs_hind; yr++) {
+          for(sex = 0; sex < nsex(sp); sex++){
+            Type max_sel = sel(flt, sex, flt_sel_maxage(flt), yr); // Get max sel by sex/year (split or otherwise, divides by 1 for ages > maxselage)
+
+            for (age = 0; age < nages(sp); age++){
+
+              // Normalize by max
+              sel(flt, sex, age, yr) /= max_sel;
+            }
+          }
+        }
+      }
 
       // Find max for each fishery and year across ages, and sexes
-      if (sel_type < 5) {
+      if (sel_type < 5 & flt_sel_maxage(flt) < 0) {
         for (yr = 0; yr < nyrs_hind; yr++) {
           Type max_sel = 0;
           for (age = 0; age < nages(sp); age++){
@@ -1191,7 +1192,7 @@ Type objective_function<Type>::operator() () {
     SPRtarget.setZero();
     for (sp = 0; sp < nspp; sp++) {
 
-      if(initMode != 2){
+      if(initMode != 3){
         Finit(sp) = 0; // If population starts out at equilibrium set Finit to 0 (R_init and R0 will be the same)
       }
 
@@ -1333,19 +1334,19 @@ Type objective_function<Type>::operator() () {
             }
 
             // Sum M1 until age - 1
-            Type mort_sum = 0;
+            mort_sum(sp, age) = 0;
             for(int age_tmp = 0; age_tmp < age; age_tmp++){
-              mort_sum += M1_at_age(sp, sex, age_tmp) + Finit(sp);
+              mort_sum(sp, age) += M1_at_age(sp, sex, age_tmp) + Finit(sp);
             }
 
             // -- 6.5.2. Age Amin+1:Amax-1 (initial abundance)
             if ((age > 0) & (age < nages(sp) - 1)) {
 
               if(sex == 0){
-                N_at_age(sp, 0, age, 0) = R_init(sp) * exp( - mort_sum + init_dev(sp, age - 1)) * R_sexr(sp);
+                N_at_age(sp, 0, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) * R_sexr(sp);
               }
               if(sex == 1){
-                N_at_age(sp, 1, age, 0) = R_init(sp) * exp( - mort_sum + init_dev(sp, age - 1)) * (1-R_sexr(sp));
+                N_at_age(sp, 1, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) * (1-R_sexr(sp));
               }
             }
 
@@ -1353,11 +1354,11 @@ Type objective_function<Type>::operator() () {
             if (age == (nages(sp) - 1)) {
 
               if(sex ==0){// NOTE: This solves for the geometric series
-                N_at_age(sp, 0, age, 0) = R_init(sp) * exp( - mort_sum + init_dev(sp, age - 1)) / (1 - exp(-M1_at_age(sp, sex, nages(sp) - 1))) * R_sexr(sp);
+                N_at_age(sp, 0, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) / (1 - exp(-M1_at_age(sp, sex, nages(sp) - 1))) * R_sexr(sp);
               }
 
               if(sex == 1){
-                N_at_age(sp, 1, age, 0) = R_init(sp) * exp( - mort_sum + init_dev(sp, age - 1)) / (1 - exp(-M1_at_age(sp, sex, nages(sp) - 1))) * (1-R_sexr(sp));
+                N_at_age(sp, 1, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) / (1 - exp(-M1_at_age(sp, sex, nages(sp) - 1))) * (1-R_sexr(sp));
               }
             }
           }
@@ -3650,6 +3651,7 @@ Type objective_function<Type>::operator() () {
             jnll_comp(5, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr) - sel_inf_dev(1, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt), true);
             jnll_comp(5, flt) -= dnorm(ln_sel_slp_dev(1, flt, sex, yr) - ln_sel_slp_dev(1, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt) * 4, true);
           }
+
         }
       }
     }
@@ -4132,6 +4134,10 @@ Type objective_function<Type>::operator() () {
    REPORT( ration_hat );
    REPORT( ration_hat_ave );
    */
+
+  REPORT(init_dev);
+  REPORT(mort_sum);
+  REPORT(Finit);
 
 
   // ------------------------------------------------------------------------- //

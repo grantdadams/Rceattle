@@ -48,24 +48,24 @@ build_bounds <- function(param_list = NULL, data_list) {
   # }
 
 
-  # Selectivity deviates
-  # - Slope
-  for(i in 1:nrow(data_list$fleet_control)){
-    # If using blocks don't put bounds on deviates, as these are estimated
-    if(data_list$fleet_control$Time_varying_sel[i] != 3){
-      lower_bnd$ln_sel_slp_dev[,i,,] <- replace(lower_bnd$ln_sel_slp_dev[,i,,], values = rep(-5, length(lower_bnd$ln_sel_slp_dev[,i,,])))
-      upper_bnd$ln_sel_slp_dev[,i,,] <- replace(upper_bnd$ln_sel_slp_dev[,i,,], values = rep(5, length(upper_bnd$ln_sel_slp_dev[,i,,])))
-    }
-  }
-
-  # - Asymptotic
-  for(i in 1:nrow(data_list$fleet_control)){
-    # If using blocks don't put bounds on deviates, as these are estimated
-    if(data_list$fleet_control$Time_varying_sel[i] != 3){
-      lower_bnd$sel_inf_dev[,i,,] <- replace(lower_bnd$sel_inf_dev[,i,,], values = rep(-5, length(lower_bnd$sel_inf_dev[,i,,])))
-      upper_bnd$sel_inf_dev[,i,,] <- replace(upper_bnd$sel_inf_dev[,i,,], values = rep(5, length(upper_bnd$sel_inf_dev[,i,,])))
-    }
-  }
+  # # Selectivity deviates
+  # # - Slope
+  # for(i in 1:nrow(data_list$fleet_control)){
+  #   # If using blocks don't put bounds on deviates, as these are estimated
+  #   if(data_list$fleet_control$Time_varying_sel[i] != 3){
+  #     lower_bnd$ln_sel_slp_dev[,i,,] <- replace(lower_bnd$ln_sel_slp_dev[,i,,], values = rep(-5, length(lower_bnd$ln_sel_slp_dev[,i,,])))
+  #     upper_bnd$ln_sel_slp_dev[,i,,] <- replace(upper_bnd$ln_sel_slp_dev[,i,,], values = rep(5, length(upper_bnd$ln_sel_slp_dev[,i,,])))
+  #   }
+  # }
+  #
+  # # - Asymptotic
+  # for(i in 1:nrow(data_list$fleet_control)){
+  #   # If using blocks don't put bounds on deviates, as these are estimated
+  #   if(data_list$fleet_control$Time_varying_sel[i] != 3){
+  #     lower_bnd$sel_inf_dev[,i,,] <- replace(lower_bnd$sel_inf_dev[,i,,], values = rep(-5, length(lower_bnd$sel_inf_dev[,i,,])))
+  #     upper_bnd$sel_inf_dev[,i,,] <- replace(upper_bnd$sel_inf_dev[,i,,], values = rep(5, length(upper_bnd$sel_inf_dev[,i,,])))
+  #   }
+  # }
 
 
   # N0
