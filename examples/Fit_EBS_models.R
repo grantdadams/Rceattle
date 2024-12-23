@@ -29,7 +29,7 @@ mydata <- Rceattle::read_data( file = "BS2017SS.xlsx")
 ss_run <- Rceattle::fit_mod(data_list = mydata,
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save
-                            estimateMode = 0, # Estimate
+                            estimateMode = 3, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
                             phase = TRUE,

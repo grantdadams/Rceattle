@@ -7,6 +7,11 @@
 rearrange_dat <- function(data_list){
   '%!in%' <- function(x,y)!('%in%'(x,y))
 
+  # Step 0 - Max functions on data
+  data_list$max_bin <- max(data_list$nlengths) # Integer of maximum number of length/age bins.
+  data_list$max_nsex <- max(data_list$nsex)
+  data_list$max_nages <- max(data_list$nages)
+
   # Step 1 - remove non-integer objects from control
   data_list$index_ln_q_prior <- log(data_list$fleet_control$Q_prior)
 
@@ -299,8 +304,7 @@ rearrange_dat <- function(data_list){
   data_list[df_to_mat] <- lapply(data_list[df_to_mat], as.matrix)
 
   items_to_remove <- c("emp_sel",  "fsh_comp",    "srv_comp",    "catch_data",    "index_data", "comp_data", "env_data", "spnames",
-                       "aLW", "NByageFixed", "estDynamics",
-                       "avgnMode", "Ceq", "minNByage")
+                       "aLW", "NByageFixed", "estDynamics", "minNByage")
   data_list[items_to_remove] <- NULL
 
   return(data_list)

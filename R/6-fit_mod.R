@@ -161,6 +161,7 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     start_time <- Sys.time()
 
+    compiler::enableJIT(0)
     extend_length <- function(x){
       if(length(x) == data_list$nspp){ return(x)}
       else {return(rep(x, data_list$nspp))}
@@ -550,10 +551,9 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if(estimateMode != 2){ # dont build if projection and estimating HCR parameters
       if(sum(as.numeric(unlist(map$mapFactor)), na.rm = TRUE) == 0){stop("Map of length 0: all NAs")}
-      obj = TMB::MakeADFun(
-        data_list_reorganized,
+      cmb <- function(f, d) function(p) f(p, d) ## Helper to make closure
+      obj <- RTMB::MakeADFun(cmb(rtmb_ceattle, data_list_reorganized),
         parameters = start_par,
-        DLL = TMBfilename,
         map = map$mapFactor,
         random = random_vars,
         silent = verbose != 2
@@ -638,13 +638,12 @@ fit_mod <-
           hcr_map <- build_hcr_map(data_list, map, debug = estimateMode > 3)
           if(sum(!is.na(unlist(hcr_map$mapFactor))) == 0){stop("HCR map of length 0: all NAs")}
 
-          obj = TMB::MakeADFun(
-            data_list_reorganized,
-            parameters = last_par,
-            DLL = TMBfilename,
-            map = hcr_map$mapFactor,
-            random = random_vars,
-            silent = verbose != 2
+          cmb <- function(f, d) function(p) f(p, d) ## Helper to make closure
+          obj <- RTMB::MakeADFun(cmb(rtmb_ceattle, data_list_reorganized),
+                                 parameters = last_par,
+                                 map = hcr_map$mapFactor,
+                                 random = random_vars,
+                                 silent = verbose != 2
           )
 
           # -- Optimize
@@ -668,13 +667,12 @@ fit_mod <-
 
           # -- Get quantities
           if(estimateMode == 2){ # Build obj if we havent done so already
-            obj = TMB::MakeADFun(
-              data_list_reorganized,
-              parameters = last_par,
-              DLL = TMBfilename,
-              map = map$mapFactor,
-              random = random_vars,
-              silent = verbose != 2
+            cmb <- function(f, d) function(p) f(p, d) ## Helper to make closure
+            obj <- RTMB::MakeADFun(cmb(rtmb_ceattle, data_list_reorganized),
+                                   parameters = last_par,
+                                   map = map$mapFactor,
+                                   random = random_vars,
+                                   silent = verbose != 2
             )
           }
 
@@ -700,13 +698,12 @@ fit_mod <-
             last_par$ln_Ftarget[params_off] <- -999
 
             # --- Update model object for HCR
-            obj = TMB::MakeADFun(
-              data_list_reorganized,
-              parameters = last_par,
-              DLL = TMBfilename,
-              map = hcr_map$mapFactor,
-              random = random_vars,
-              silent = verbose != 2
+            cmb <- function(f, d) function(p) f(p, d) ## Helper to make closure
+            obj <- RTMB::MakeADFun(cmb(rtmb_ceattle, data_list_reorganized),
+                                   parameters = last_par,
+                                   map = hcr_map$mapFactor,
+                                   random = random_vars,
+                                   silent = verbose != 2
             )
 
             # -- Optimize
@@ -750,13 +747,12 @@ fit_mod <-
           if(sum(as.numeric(unlist(hcr_map_proj$mapFactor)), na.rm = TRUE) == 0){stop("HCR projection map of length 0: all NAs")}
 
           # --- Update model object with BRP and hindcast parameters turned for BRP and hindcast
-          obj = TMB::MakeADFun(
-            data_list_reorganized,
-            parameters = last_par,
-            DLL = TMBfilename,
-            map = hcr_map_proj$mapFactor,
-            random = random_vars,
-            silent = verbose != 2
+          cmb <- function(f, d) function(p) f(p, d) ## Helper to make closure
+          obj <- RTMB::MakeADFun(cmb(rtmb_ceattle, data_list_reorganized),
+                                 parameters = last_par,
+                                 map = hcr_map_proj$mapFactor,
+                                 random = random_vars,
+                                 silent = verbose != 2
           )
 
           # -- Replace sdreport with new sdreport
