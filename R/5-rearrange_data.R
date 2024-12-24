@@ -82,8 +82,8 @@ rearrange_dat <- function(data_list){
   data_list$comp_obs[is.na(data_list$comp_obs)] <- 0
 
   # Step 5 -  Seperate uobs info from observation
-  data_list$stom_prop_ctl <- data_list$stom_prop_data[,c("Pred", "Prey", "Pred_sex", "Prey_sex", "Pred_age", "Prey_age", "Year")]
-  data_list$stom_prop_obs <- data_list$stom_prop_data[,c("Sample_size", "Stomach_proportion_by_weight")]
+  data_list$stom_prop_ctl <- as.matrix(data_list$stom_prop_data[,c("Pred", "Prey", "Pred_sex", "Prey_sex", "Pred_age", "Prey_age", "Year")])
+  data_list$stom_prop_obs <- as.matrix(data_list$stom_prop_data[,c("Sample_size", "Stomach_proportion_by_weight")])
 
   # Step 6 -  Seperate survey empirical selectivity info from observation
   yrs <- data_list$styr:data_list$endyr

@@ -939,37 +939,33 @@ reorganize_stomach_content <- function(stom_prop_obs, stom_prop_ctl, minage, nsp
   flt_yr <- stom_prop_ctl[, 7]   # Index of year
 
   # Set predator and prey sex indices
-  # if(max_nsex > 2){
-  #   r_sexes[, ] <- cbind(ifelse(r_sex > 0, r_sex-1, 0), ifelse(r_sex > 0, r_sex-1, 1))
-  #   k_sexes[, ] <- cbind(ifelse(k_sex > 0, k_sex-1, 0), ifelse(k_sex > 0, k_sex-1, 1))
-  # }
-  r_sexes[, ] <- 0
-  k_sexes[, ] <- 0
+  if(max_nsex > 2){
+    r_sexes[, ] <- cbind(ifelse(r_sex > 0, r_sex-1, 0), ifelse(r_sex > 0, r_sex-1, 1))
+    k_sexes[, ] <- cbind(ifelse(k_sex > 0, k_sex-1, 0), ifelse(k_sex > 0, k_sex-1, 1))
+  }
 
   # Process for each observation
   for(stom_ind in 1:n_obs) {
     # Extract current indices
-    current_rsp <- rsp[stom_ind]
-    current_ksp <- ksp[stom_ind]
-    current_r_age <- r_age[stom_ind]
-    current_k_age <- k_age[stom_ind]
-    current_flt_yr <- flt_yr[stom_ind]
+    current_rsp <- as.integer(rsp[stom_ind])
+    current_ksp <- as.integer(ksp[stom_ind])
+    current_r_age <- as.integer(r_age[stom_ind])
+    current_k_age <- as.integer(k_age[stom_ind])
+    current_flt_yr <- as.integer(flt_yr[stom_ind])
 
     if(current_flt_yr > 0) { # Annual diet data
       yr <- current_flt_yr - styr + 1
       if(yr < nyrs_hind) {
-        diet_prop[current_rsp + (nspp * r_sexes[stom_ind, 1]),
-                  current_ksp + (nspp * k_sexes[stom_ind, 1]),
-                  current_r_age, current_k_age, yr] <- stom_prop_obs[stom_ind, 2]
+        diet_prop[as.integer(current_rsp + (nspp * r_sexes[stom_ind, 1])), # as.integer because it became numeric
+                  as.integer(current_ksp + (nspp * k_sexes[stom_ind, 1])),
+                  current_r_age, current_k_age, yr] <- as.numeric(stom_prop_obs[stom_ind, 2])
       }
     }
 
     if(current_flt_yr == 0) { # Average diet data
-      for(yr in 1:nyrs) {
-        diet_prop[current_rsp + (nspp * r_sexes[stom_ind, 1]),
-                  current_ksp + (nspp * k_sexes[stom_ind, 1]),
-                  current_r_age, current_k_age, yr] <- stom_prop_obs[stom_ind, 2]
-      }
+      diet_prop[as.integer(current_rsp + (nspp * r_sexes[stom_ind, 1])), # as.integer because it became numeric
+                as.integer(current_ksp + (nspp * k_sexes[stom_ind, 1])),
+                current_r_age, current_k_age, ] <- stom_prop_obs[stom_ind, 2]
     }
   }
 
@@ -2126,10 +2122,10 @@ estimate_comp <- function(comp_ctl, comp_n, comp_obs, F_flt_age, Z_at_age, N_at_
 
       if (flt_type[flt] == 2) { # Survey
         if(flt_sex == 0) { # Combined sexes
-         if(nsex[sp] == 1){
+          if(nsex[sp] == 1){
             age_hat[comp_ind, age] <- N_at_age[sp, 1, age, yr] * sel[flt, 1, age, yr_ind] *
               index_q[flt, yr_ind] * exp(-(mo / 12.0) * Z_at_age[sp, 1, age, yr])
-         }
+          }
 
           if(nsex[sp] == 2){
             age_hat[comp_ind, age] <- N_at_age[sp, 1, age, yr] * sel[flt, 1, age, yr_ind] *
@@ -2206,7 +2202,7 @@ estimate_comp <- function(comp_ctl, comp_n, comp_obs, F_flt_age, Z_at_age, N_at_
   RTMB::REPORT(age_obs_hat)
   RTMB::REPORT(true_age_comp_hat)
 
-  return(comp_hat = matrix(as.numeric(comp_hat), nrow = nrow(comp_hat), ncol = ncol(comp_hat)))
+  return(comp_hat = comp_hat) # matrix(as.numeric(comp_hat), nrow = nrow(comp_hat), ncol = ncol(comp_hat)))
 }
 
 
@@ -2381,7 +2377,7 @@ calculate_comp_nll <- function(comp_obs, comp_hat, comp_ctl, comp_n, nages, nlen
   "diag<-" <- ADoverload("diag<-")
 
   jnll_comp[3, ] <- 0
-  comp_nll = matrix(0, nrow(comp_obs), ncol(comp_obs))
+  # comp_nll = matrix(0, nrow(comp_obs), ncol(comp_obs))
 
   for (comp_ind in 1:nrow(comp_obs)) {
 
@@ -2423,28 +2419,28 @@ calculate_comp_nll <- function(comp_obs, comp_hat, comp_ctl, comp_n, nages, nlen
                # case -1 (now case 1)
                {
                  for(ln in 1:n_comp) {
-                   # # Martin's
-                   # jnll_comp[3, flt] <- jnll_comp[3, flt] -
-                   #   (comp_weights[flt] * comp_n[comp_ind, 2] *
-                   #   (comp_obs[comp_ind, ln] + 0.00001) *
-                   #   log((comp_hat[comp_ind, ln] + 0.00001) / (comp_obs[comp_ind, ln] + 0.00001)))
-                   comp_nll[comp_ind, ln] <- comp_weights[flt] * comp_n[comp_ind, 2] *
+                   # Martin's
+                   jnll_comp[3, flt] <- jnll_comp[3, flt] -
+                     (comp_weights[flt] * comp_n[comp_ind, 2] *
                      (comp_obs[comp_ind, ln] + 0.00001) *
-                     log((comp_hat[comp_ind, ln] + 0.00001) / (comp_obs[comp_ind, ln] + 0.00001))
+                     log((comp_hat[comp_ind, ln] + 0.00001) / (comp_obs[comp_ind, ln] + 0.00001)))
+                   # comp_nll[comp_ind, ln] <- comp_weights[flt] * comp_n[comp_ind, 2] *
+                   #   (comp_obs[comp_ind, ln] + 0.00001) *
+                   #   log((comp_hat[comp_ind, ln] + 0.00001) / (comp_obs[comp_ind, ln] + 0.00001))
 
                  }
                },
 
                # case 0 (now case 2) -- Full multinomial
                {
-                 # jnll_comp[3, flt] <- jnll_comp[3, flt] -
-                 comp_nll[comp_ind, 1] <- comp_weights[flt] * dmultinom(comp_obs_tmp, prob = comp_hat_tmp, log = TRUE)
+                 jnll_comp[3, flt] <- jnll_comp[3, flt] -
+                 comp_weights[flt] * dmultinom(comp_obs_tmp, prob = comp_hat_tmp, log = TRUE)
                },
 
                # case 1 (now case 3) -- Dirichlet-multinomial
                {
-                 # jnll_comp[3, flt] <- jnll_comp[3, flt] -
-                 comp_nll[comp_ind, 1] <- ddirmultinom(comp_obs_tmp, alphas, log = TRUE)
+                 jnll_comp[3, flt] <- jnll_comp[3, flt] -
+                 ddirmultinom(comp_obs_tmp, alphas, log = TRUE)
                },
 
                # default
@@ -2454,9 +2450,10 @@ calculate_comp_nll <- function(comp_obs, comp_hat, comp_ctl, comp_n, nages, nlen
     }
   }
 
-  jnll_comp[3,1] <- sum(comp_nll)
-  return(list(jnll_comp = jnll_comp,
-              comp_nll = comp_nll))  # Return the updated jnll_comp matrix
+  return(jnll_comp)
+
+  # list(jnll_comp = jnll_comp,
+  #             comp_nll = comp_nll))  # Return the updated jnll_comp matrix
 }
 
 
@@ -2596,7 +2593,7 @@ calculate_selectivity_nll <- function(n_flt, flt_spp, flt_type, flt_sel_type, fl
           # }
         }
 
-        jnll_comp[5, flt] = jnll_comp[5, flt] + sum(sel_curve_pen[flt, 2] * diff( diff( log( as.numeric(non_par_sel[flt, sex, 1:nages[sp]])))) ^ 2)
+        jnll_comp[5, flt] = jnll_comp[5, flt] + sum(sel_curve_pen[flt, 2] * diff( diff( log( (non_par_sel[flt, sex, 1:nages[sp]])))) ^ 2)
       }
 
 
@@ -2902,14 +2899,14 @@ max2 <- function(x,y){
 #'
 #' @examples
 #'
-rtmb_ceattle <- function(params, data_list){
+rtmb_ceattle <- function(start_par, data_list_reorganized){
   require(RTMB)
   require(Rceattle)
   "[<-" <- RTMB::ADoverload("[<-") # AD overload https://groups.google.com/g/tmb-users/c/HlPqkfcCa1g?pli=1
   "c" <- ADoverload("c")
   "diag<-" <- ADoverload("diag<-")
 
-  RTMB::getAll(params, data_list)
+  RTMB::getAll(start_par, data_list_reorganized)
 
 
   # ------------------------------------------------------------------------- #
@@ -2931,7 +2928,7 @@ rtmb_ceattle <- function(params, data_list){
   mo = 0;                                                              # Month float
   if (msmMode == 0) { niter = 1 }                                      # Number of iterations for SS mode
   n_flt <- nrow(fleet_control)
-  comp_obs <- matrix(as.numeric(comp_obs), nrow = nrow(comp_obs), ncol = ncol(comp_obs))
+  # comp_obs <- matrix(as.numeric(comp_obs), nrow = nrow(comp_obs), ncol = ncol(comp_obs))
 
 
   # ------------------------------------------------------------------------- #
@@ -4110,16 +4107,14 @@ rtmb_ceattle <- function(params, data_list){
                                    F_dev, flt_type, styr, endyr)
 
   # * 14.3. COMPOSITION DATA ----
-  # comp_nll <- calculate_comp_nll(comp_obs, comp_hat, comp_ctl, comp_n, nages, nlengths,
-  #                                DM_pars, flt_type, comp_ll_type, comp_weights, jnll_comp, endyr)
-  # jnll_comp <- comp_nll$jnll_comp
+  jnll_comp <- calculate_comp_nll(comp_obs, comp_hat, comp_ctl, comp_n, nages, nlengths,
+                                 DM_pars, flt_type, comp_ll_type, comp_weights, jnll_comp, endyr)
 
   # * 14.5. SELECTIVITY ----
   jnll_comp <- calculate_selectivity_nll(n_flt, flt_spp, flt_type, flt_sel_type, flt_varying_sel,
                                          non_par_sel, sel_curve_pen, avg_sel, sel_inf_dev,
                                          ln_sel_slp_dev, sel_dev_sd, flt_nselages, nsex, nages,
                                          nyrs_hind, jnll_comp)
-
 
   # * 14.5. CATCHABILITY ----
   jnll_comp <- calculate_catchability_nll(n_flt, nyrs_hind, est_index_q, index_varying_q,
@@ -4151,4 +4146,6 @@ rtmb_ceattle <- function(params, data_list){
 
   return(jnll)
 }
+
+# source("~/Documents/GitHub/Rceattle/R/dev/rtmb dev.R", echo=TRUE)
 
