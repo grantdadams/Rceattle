@@ -955,14 +955,16 @@ reorganize_stomach_content <- function(stom_prop_obs, stom_prop_ctl, minage, nsp
     current_k_age <- k_age[stom_ind]
     current_flt_yr <- flt_yr[stom_ind]
 
-    if(current_flt_yr > 0) {
+    if(current_flt_yr > 0) { # Annual diet data
       yr <- current_flt_yr - styr + 1
       if(yr < nyrs_hind) {
         diet_prop[current_rsp + (nspp * r_sexes[stom_ind, 1]),
                   current_ksp + (nspp * k_sexes[stom_ind, 1]),
                   current_r_age, current_k_age, yr] <- stom_prop_obs[stom_ind, 2]
       }
-    } else {
+    }
+
+    if(current_flt_yr == 0) { # Average diet data
       for(yr in 1:nyrs) {
         diet_prop[current_rsp + (nspp * r_sexes[stom_ind, 1]),
                   current_ksp + (nspp * k_sexes[stom_ind, 1]),
@@ -1035,7 +1037,8 @@ calculate_other_food_diet_prop <- function(nyrs, nspp, nsex, nages, max_nsex, ma
           if(other_food[rsp] > 0) {
             other_food_diet_prop[rsp, r_sex, r_age, yr] <-
               other_food_diet_prop[rsp, r_sex, r_age, yr] / other_food[rsp]
-          } else {
+          }
+          if(other_food[rsp] == 0) {
             other_food_diet_prop[rsp, r_sex, r_age, yr] <- 0
           }
         }
@@ -1286,10 +1289,11 @@ calculate_gamma_suitability <- function(nspp, nages, nsex, nyrs, nyrs_hind,
           for(k_sex in 1:nsex[ksp]) {
             for(k_age in 1:nages[ksp]) {
               # Calculate size ratio based on mode
-              log_size_ratio <- if(suitMode == 1) {
-                laa[rsp, r_sex, r_age, ] / laa[ksp, k_sex, k_age, ]
-              } else {
-                wt[pop_wt_index[rsp], r_sex, r_age, ] / wt[pop_wt_index[ksp], k_sex, k_age, ]
+              if(suitMode == 1) {
+                log_size_ratio <- laa[rsp, r_sex, r_age, ] / laa[ksp, k_sex, k_age, ]
+              }
+              if(suitMode == 2) {
+                log_size_ratio <- wt[pop_wt_index[rsp], r_sex, r_age, ] / wt[pop_wt_index[ksp], k_sex, k_age, ]
               }
 
               log_size_ratio <- log(log_size_ratio)
@@ -1383,10 +1387,11 @@ calculate_lognormal_suitability <- function(nspp, nages, nsex, nyrs, nyrs_hind,
           for(k_sex in 1:nsex[ksp]) {
             for(k_age in 1:nages[ksp]) {
               # Calculate size ratio based on mode
-              log_size_ratio <- if(suitMode == 3) {
-                laa[rsp, r_sex, r_age, ] / laa[ksp, k_sex, k_age, ]
-              } else if(suitMode == 4) {
-                wt[pop_wt_index[rsp], r_sex, r_age, ] / wt[pop_wt_index[ksp], k_sex, k_age, ]
+              if(suitMode == 3) {
+                log_size_ratio <- laa[rsp, r_sex, r_age, ] / laa[ksp, k_sex, k_age, ]
+              }
+              if(suitMode == 4) {
+                log_size_ratio <- wt[pop_wt_index[rsp], r_sex, r_age, ] / wt[pop_wt_index[ksp], k_sex, k_age, ]
               }
 
               log_size_ratio <- log(log_size_ratio)
@@ -1547,7 +1552,8 @@ calculate_predation <- function(nspp, nsex, nages, nyrs, nyrs_hind,
                       suit_main[rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr] /
                       avail_food[rsp, r_sex, r_age, yr]
 
-                  } else if(msmMode == 2) { # Type 3 MSVPA
+                  }
+                  if(msmMode == 2) { # Type 3 MSVPA
                     # TODO
                   }
                 }
@@ -1638,7 +1644,7 @@ calculate_abundance_index <- function(index_ctl, index_n, N_at_age, Z_at_age, se
 
     # Set year index for selectivity/weight
     yr_ind <- flt_yr
-    if (yr > nyrs_hind) yr_ind = nyrs_hind
+    if (flt_yr > nyrs_hind) yr_ind = nyrs_hind
 
     # Loop over ages and sexes
     for(age in 1:nages[sp]) {  # Adjusted to use nages[sp]
@@ -1886,7 +1892,8 @@ estimate_catch <- function(catch_ctl, catch_n, F_flt_age, Z_at_age, N_at_age,
     }
 
     # Set year index for calculations
-    yr_ind <- if(flt_yr < nyrs_hind) flt_yr else nyrs_hind
+    yr_ind <- flt_yr
+    if(flt_yr > nyrs_hind) {yr_ind <- nyrs_hind}
 
     # Calculate catch by sex and age
     for(sex in 1:nsex[sp]) {
@@ -1907,7 +1914,7 @@ estimate_catch <- function(catch_ctl, catch_n, F_flt_age, Z_at_age, N_at_age,
 
         }
 
-          if(flt_units[flt] == 2) {  # By numbers
+        if(flt_units[flt] == 2) {  # By numbers
           catch_hat[fsh_ind] <- catch_hat[fsh_ind] +
             F_flt_age[flt, sex, age, flt_yr] / Z_at_age[sp, sex, age, flt_yr] *
             (1 - exp(-Z_at_age[sp, sex, age, flt_yr])) *
@@ -1969,7 +1976,8 @@ calculate_exploitable_biomass <- function(n_flt, flt_spp, flt_type, nyrs, nyrs_h
       for(yr in 1:nyrs) {
 
         # Set year index for hindcast vs projection
-        yr_ind <- if(yr <= nyrs_hind) yr else nyrs_hind
+        yr_ind <- yr
+        if(yr > nyrs_hind) {yr_ind <- nyrs_hind}
 
         # Sum across ages and sexes
         for(age in 1:nages[sp]) {
@@ -2020,7 +2028,6 @@ calculate_exploitable_biomass <- function(n_flt, flt_spp, flt_type, nyrs, nyrs_h
 #'   \item comp_hat: Matrix of predicted compositions
 #'   \item age_hat: Matrix of predicted age compositions before aging error
 #'   \item age_obs_hat: Matrix of predicted age compositions after aging error
-#'   \item n_hat: Vector of predicted total numbers
 #'   \item true_age_comp_hat: Matrix of true age compositions
 #' }
 #'
@@ -2035,7 +2042,7 @@ calculate_exploitable_biomass <- function(n_flt, flt_spp, flt_type, nyrs, nyrs_h
 #'
 #' @examples
 #' \dontrun{
-#' results <- calculate_compositions(
+#' results <- estimate_comp(
 #'   comp_ctl = comp_control_matrix,
 #'   comp_n = comp_sample_sizes,
 #'   F_flt_age = fishing_mortality,
@@ -2044,104 +2051,82 @@ calculate_exploitable_biomass <- function(n_flt, flt_spp, flt_type, nyrs, nyrs_h
 #' )
 #' }
 #'
-calculate_compositions <- function(comp_ctl, comp_n, comp_obs, F_flt_age, Z_at_age, N_at_age,
-                                   sel, index_q, age_error, age_trans_matrix,
-                                   flt_type, nages, nlengths, nsex, styr,
-                                   nyrs_hind, flt_age_transition_index) {
+estimate_comp <- function(comp_ctl, comp_n, comp_obs, F_flt_age, Z_at_age, N_at_age,
+                          sel, index_q, age_error, age_trans_matrix,
+                          flt_type, nages, nlengths, nsex, styr,
+                          nyrs_hind, flt_age_transition_index) {
 
   # Unsure what is tripping the function
-  "[<-" <- ADoverload("[<-") # https://groups.google.com/g/tmb-users/c/HlPqkfcCa1g
+  # "[<-" <- ADoverload("[<-") # https://groups.google.com/g/tmb-users/c/HlPqkfcCa1g
 
   # Initialize outputs
   age_obs_hat <- matrix(0, nrow=nrow(comp_obs), ncol=ncol(comp_obs))            # Estimated catch at observed age (accounts for ageing error)
   comp_hat <- matrix(0, nrow=nrow(comp_obs), ncol=ncol(comp_obs))               # Estimated comp
   age_hat <- matrix(0, nrow=nrow(comp_obs), ncol=ncol(comp_obs))                # Estimated catch at true age
   true_age_comp_hat  <- matrix(0, nrow=nrow(comp_obs), ncol=ncol(comp_obs))     # True estimated age composition
-  n_hat <- numeric(nrow(comp_ctl))
 
   # Loop through composition data
   for(comp_ind in 1:nrow(comp_ctl)) {
 
     # Extract indices
-    flt <- comp_ctl[comp_ind, 1] - 1
-    sp <- comp_ctl[comp_ind, 2] - 1
+    flt <- comp_ctl[comp_ind, 1]
+    sp <- comp_ctl[comp_ind, 2]
     flt_sex <- comp_ctl[comp_ind, 3]
     comp_type <- comp_ctl[comp_ind, 4]
     yr <- comp_ctl[comp_ind, 5]
     mo <- comp_n[comp_ind, 1]
 
     # Year calculations
-    if(yr > 0) yr <- yr - styr
-    if(yr < 0) yr <- -yr - styr
+    if(yr > 0) yr <- yr - styr + 1
+    if(yr < 0) yr <- -yr - styr + 1
 
     # Determine year index for projections
-    yr_ind <- if(yr < nyrs_hind) yr else nyrs_hind
+    yr_ind <- yr
+    if(yr > nyrs_hind) {yr_ind <- nyrs_hind}
 
     # Calculate catch at age
-    for(age in 1:nages[sp + 1]) {
+    for(age in 1:nages[sp]) {
 
-      if(flt_type[flt + 1] == 1) { # Fishery
+      if(flt_type[flt] == 1) { # Fishery
 
         # Handle different sex cases
         if(flt_sex == 0) { # Combined sexes
-          for(sex in 1:nsex[sp + 1]) {
-            age_hat[comp_ind, age] <- age_hat[comp_ind, age] +
-              F_flt_age[flt + 1, sex, age, yr + 1] / Z_at_age[sp + 1, sex, age, yr + 1] *
-              (1 - exp(-Z_at_age[sp + 1, sex, age, yr + 1])) * N_at_age[sp + 1, sex, age, yr + 1]
-            n_hat[comp_ind] <- n_hat[comp_ind] +
-              F_flt_age[flt + 1, sex, age, yr + 1] / Z_at_age[sp + 1, sex, age, yr + 1] *
-              (1 - exp(-Z_at_age[sp + 1, sex, age, yr + 1])) * N_at_age[sp + 1, sex, age, yr + 1]
-          }
+          age_hat[comp_ind, age] <- sum(
+            F_flt_age[flt, 1:nsex[sp], age, yr] / Z_at_age[sp, 1:nsex[sp], age, yr] *
+              (1 - exp(-Z_at_age[sp, 1:nsex[sp], age, yr])) * N_at_age[sp, 1:nsex[sp], age, yr])
         }
 
         if (flt_sex >= 1 && flt_sex <= 2) { # Sex-specific composition data
           sex <- flt_sex
-          age_hat[comp_ind, age] <- F_flt_age[flt + 1, sex, age, yr + 1] / Z_at_age[sp + 1, sex, age, yr + 1] *
-            (1 - exp(-Z_at_age[sp + 1, sex, age, yr + 1])) * N_at_age[sp + 1, sex, age, yr + 1]
-          n_hat[comp_ind] <- n_hat[comp_ind] +
-            F_flt_age[flt + 1, sex, age, yr + 1] / Z_at_age[sp + 1, sex, age, yr + 1] *
-            (1 - exp(-Z_at_age[sp + 1, sex, age, yr + 1])) * N_at_age[sp + 1, sex, age, yr + 1]
+          age_hat[comp_ind, age] <- F_flt_age[flt, sex, age, yr] / Z_at_age[sp, sex, age, yr] *
+            (1 - exp(-Z_at_age[sp, sex, age, yr])) * N_at_age[sp, sex, age, yr]
         }
 
         if (flt_sex == 3) { # Joint composition data
-          for(sex in 1:nsex[sp + 1]) {
-            age_hat[comp_ind, age + nages[sp + 1] * (sex - 1)] <- F_flt_age[flt + 1, sex, age, yr + 1] / Z_at_age[sp + 1, sex, age, yr + 1] *
-              (1 - exp(-Z_at_age[sp + 1, sex, age, yr + 1])) * N_at_age[sp + 1, sex, age, yr + 1]
-            n_hat[comp_ind] <- n_hat[comp_ind] +
-              F_flt_age[flt + 1, sex, age, yr + 1] / Z_at_age[sp + 1, sex, age, yr + 1] *
-              (1 - exp(-Z_at_age[sp + 1, sex, age, yr + 1])) * N_at_age[sp + 1, sex, age, yr + 1]
+          for(sex in 1:nsex[sp]) {
+            age_hat[comp_ind, age + nages[sp] * (sex - 1)] <- F_flt_age[flt, sex, age, yr] / Z_at_age[sp, sex, age, yr] *
+              (1 - exp(-Z_at_age[sp, sex, age, yr])) * N_at_age[sp, sex, age, yr]
           }
         }
       }
 
-      if (flt_type[flt + 1] == 2) { # Survey
+      if (flt_type[flt] == 2) { # Survey
         if(flt_sex == 0) { # Combined sexes
-          for(sex in 1:nsex[sp + 1]) {
-            age_hat[comp_ind, age] <- age_hat[comp_ind, age] +
-              N_at_age[sp + 1, sex, age, yr + 1] * sel[flt + 1, sex, age, yr_ind + 1] *
-              index_q[flt + 1, yr_ind + 1] * exp(-(mo / 12.0) * Z_at_age[sp + 1, sex, age, yr + 1])
-            n_hat[comp_ind] <- n_hat[comp_ind] +
-              N_at_age[sp + 1, sex, age, yr + 1] * sel[flt + 1, sex, age, yr_ind + 1] *
-              index_q[flt + 1, yr_ind + 1] * exp(-(mo / 12.0) * Z_at_age[sp + 1, sex, age, yr + 1])
-          }
+          age_hat[comp_ind, age] <- sum(N_at_age[sp, 1:nsex[sp], age, yr] * sel[flt, 1:nsex[sp], age, yr_ind] *
+                                          index_q[flt, yr_ind] * exp(-(mo / 12.0) * Z_at_age[sp, 1:nsex[sp], age, yr]))
+
         }
 
         if (flt_sex >= 1 && flt_sex <= 2) { # Sex-specific composition data
           sex <- flt_sex
-          age_hat[comp_ind, age] <- N_at_age[sp + 1, sex, age, yr + 1] * sel[flt + 1, sex, age, yr_ind + 1] *
-            index_q[flt + 1, yr_ind + 1] * exp(-(mo / 12.0) * Z_at_age[sp + 1, sex, age, yr + 1])
-          n_hat[comp_ind] <- n_hat[comp_ind] +
-            N_at_age[sp + 1, sex, age, yr + 1] * sel[flt + 1, sex, age, yr_ind + 1] *
-            index_q[flt + 1, yr_ind + 1] * exp(-(mo / 12.0) * Z_at_age[sp + 1, sex, age, yr + 1])
+          age_hat[comp_ind, age] <- N_at_age[sp, sex, age, yr] * sel[flt, sex, age, yr_ind] *
+            index_q[flt, yr_ind] * exp(-(mo / 12.0) * Z_at_age[sp, sex, age, yr])
         }
 
         if (flt_sex == 3) { # Joint composition data
-          for(sex in 1:nsex[sp + 1]) {
-            age_hat[comp_ind, age + nages[sp + 1] * (sex - 1)] <- N_at_age[sp + 1, sex, age, yr + 1] * sel[flt + 1, sex, age, yr_ind + 1] *
-              index_q[flt + 1, yr_ind + 1] * exp(-(mo / 12.0) * Z_at_age[sp + 1, sex, age, yr + 1])
-            n_hat[comp_ind] <- n_hat[comp_ind] +
-              N_at_age[sp + 1, sex, age, yr + 1] * sel[flt + 1, sex, age, yr_ind + 1] *
-              index_q[flt + 1, yr_ind + 1] * exp(-(mo / 12.0) * Z_at_age[sp + 1, sex, age, yr + 1])
+          for(sex in 1:nsex[sp]) {
+            age_hat[comp_ind, age + nages[sp] * (sex - 1)] <- N_at_age[sp, sex, age, yr] * sel[flt, sex, age, yr_ind] *
+              index_q[flt, yr_ind] * exp(-(mo / 12.0) * Z_at_age[sp, sex, age, yr])
           }
         }
       }
@@ -2149,81 +2134,51 @@ calculate_compositions <- function(comp_ctl, comp_n, comp_obs, F_flt_age, Z_at_a
 
     # Adjustment for joint sex composition data
     joint_adjust <- 1
-    joint_adjust <- if(flt_sex == 3) 2
+    if(flt_sex == 3){joint_adjust <- 2}
 
 
     # Get true age comp
-    for (age in 1:(nages[sp + 1] * joint_adjust)) {
-      if(n_hat[comp_ind] > 0) {
-        true_age_comp_hat[comp_ind, age] <- age_hat[comp_ind, age] / n_hat[comp_ind]
-      }
-    }
+    true_age_comp_hat[comp_ind, 1:(nages[sp] * joint_adjust)] <- age_hat[comp_ind, 1:(nages[sp] * joint_adjust)] / sum(age_hat[comp_ind, 1:(nages[sp] * joint_adjust)])
 
     # Adjust for aging error
-    for (obs_age in 1:nages[sp + 1]) {
-      for (true_age in 1:nages[sp + 1]) {
-        age_obs_hat[comp_ind, obs_age] <- age_obs_hat[comp_ind, obs_age] +
-          age_hat[comp_ind, true_age] * age_error[sp + 1, true_age, obs_age]
-      }
-    }
+    # - Combined or single-sex
+    age_obs_hat[comp_ind, 1:nages[sp]] <- age_hat[comp_ind, 1:nages[sp]] %*% age_error[sp, 1:nages[sp], 1:nages[sp]]
 
-    # Adjust for aging error for joint data
+    # # Adjust for aging error for
+    # - joint data
     if(flt_sex == 3) {
-      for (obs_age in (nages[sp + 1] + 1):(nages[sp + 1] * 2)) {
-        for (true_age in (nages[sp + 1] + 1):(nages[sp + 1] * 2)) {
-          true_age_tmp <- true_age - nages[sp + 1]
-          obs_age_tmp <- obs_age - nages[sp + 1]
-          age_obs_hat[comp_ind, obs_age] <- age_obs_hat[comp_ind, obs_age] +
-            age_hat[comp_ind, true_age] * age_error[sp + 1, true_age_tmp, obs_age_tmp]
-        }
-      }
+      age_obs_hat[comp_ind, (nages[sp] + 1):(nages[sp] * 2)] <- age_hat[comp_ind, (nages[sp] + 1):(nages[sp] * 2)] %*% age_error[sp, 1:nages[sp], 1:nages[sp]]
     }
 
     # Survey catch-at-age - standardize to sum to 1
     if (comp_type == 0) {
-      for (age in 1:(nages[sp + 1] * joint_adjust)) {
-        if(n_hat[comp_ind] > 0) {
-          comp_hat[comp_ind, age] <- age_obs_hat[comp_ind, age] / n_hat[comp_ind]
-        }
-      }
+      comp_hat[comp_ind, ] <- age_obs_hat[comp_ind, ] / sum(age_obs_hat[comp_ind, ])
     }
 
-    # Convert from catch-at-age to catch-at-length
+    # Catch-at-length
     if (comp_type == 1) {
-      for (ln in 1:nlengths[sp + 1]) {
-        for (age in 1:nages[sp + 1]) {
-          sex <- 1 #ifelse(flt_sex > 0 & flt_sex < 3, flt_sex, 1) # Adjust sex for males/females
-          comp_hat[comp_ind, ln] <- comp_hat[comp_ind, ln] +
-            age_obs_hat[comp_ind, age] * age_trans_matrix[flt_age_transition_index[flt + 1], sex, age, ln]
-        }
-      }
+      sex <- 1
+      if(flt_sex > 0 & flt_sex < 3) {sex = flt_sex} # Adjust sex for males/females
 
-      # Convert from catch-at-age to catch-at-length for joint comp data
+      # Convert from catch-at-age to catch-at-length
+      # - Combined or single-sex
+      comp_hat[comp_ind, 1:nlengths[sp]] <- age_obs_hat[comp_ind, 1:nages[sp]] %*% age_trans_matrix[flt_age_transition_index[flt], sex, 1:nages[sp], 1:nlengths[sp]]
+
+      # Convert from catch-at-age to catch-at-length for
+      # - joint comp data
       if (flt_sex == 3) {
-        for (ln in (nlengths[sp + 1] + 1):(nlengths[sp + 1] * 2)) {
-          for (age in (nages[sp + 1] + 1):(nages[sp + 1] * 2)) {
-            obs_age_tmp <- age - nages[sp + 1]
-            obs_ln_tmp <- ln - nlengths[sp + 1]
-            sex <- 1
-            comp_hat[comp_ind, ln] <- comp_hat[comp_ind, ln] +
-              age_obs_hat[comp_ind, age] * age_trans_matrix[flt_age_transition_index[flt + 1], sex, obs_age_tmp, obs_ln_tmp]
-          }
-        }
+        sex = 2
+        comp_hat[comp_ind, (nlengths[sp] + 1):(nlengths[sp] * 2)] <- age_obs_hat[comp_ind, (nages[sp] + 1):(nages[sp] * 2)] %*% age_trans_matrix[flt_age_transition_index[flt], sex, 1:nages[sp], 1:nlengths[sp]]
       }
 
       # Standardize to sum to 1
-      for (ln in 1:(nlengths[sp + 1] * joint_adjust)) {
-        if(n_hat[comp_ind] > 0) {
-          comp_hat[comp_ind, ln] <- comp_hat[comp_ind, ln] / n_hat[comp_ind]
-        }
-      }
+      comp_hat[comp_ind, ] <- comp_hat[comp_ind, ] / sum(comp_hat[comp_ind, ])
     }
   }
 
   # Report
   RTMB::REPORT(age_hat)
   RTMB::REPORT(age_obs_hat)
-  RTMB::REPORT(n_hat)
   RTMB::REPORT(true_age_comp_hat)
 
   return(comp_hat = comp_hat)
@@ -2397,6 +2352,7 @@ calculate_comp_nll <- function(comp_obs, comp_hat, comp_ctl, comp_n, nages, nlen
 
   # Unsure what is tripping the function
   "[<-" <- ADoverload("[<-") # https://groups.google.com/g/tmb-users/c/HlPqkfcCa1g
+  jnll_comp[3, ] <- 0
 
   for (comp_ind in 1:nrow(comp_obs)) {
 
@@ -2407,7 +2363,8 @@ calculate_comp_nll <- function(comp_obs, comp_hat, comp_ctl, comp_n, nages, nlen
     yr <- comp_ctl[comp_ind, 5]             # Temporary index for years of data
 
     # Adjustment for joint sex composition data
-    joint_adjust <- 1 # ifelse(flt_sex == 3, 2, 1)
+    joint_adjust <- 1
+    if(flt_sex == 3){joint_adjust <- 2}
 
     # Number of ages/lengths
     if(comp_type == 0){
@@ -2419,8 +2376,9 @@ calculate_comp_nll <- function(comp_obs, comp_hat, comp_ctl, comp_n, nages, nlen
     }
 
     # Select sections
-    comp_obs_tmp <- comp_obs[comp_ind, 1:n_comp] + 0.00001  # Observed proportion with offset
-    comp_hat_tmp <- comp_hat[comp_ind, 1:n_comp] + 0.00001  # Expected proportion with offset
+    # - as.numeric solves error in AD for some-reason
+    comp_obs_tmp <- (comp_obs[comp_ind, 1:n_comp]) + 0.00001  # Observed proportion with offset
+    comp_hat_tmp <- (comp_hat[comp_ind, 1:n_comp]) + 0.00001  # Expected proportion with offset
 
     # Convert observed prop to observed numbers
     comp_obs_tmp <- comp_obs_tmp * comp_n[comp_ind, 2]
@@ -2597,20 +2555,20 @@ calculate_selectivity_nll <- function(n_flt, flt_spp, flt_type, flt_sel_type, fl
 
       for(sex in 1:nsex[sp]) {
         for(age in 1:(nages[sp] - 1)) {
-          if( non_par_sel[flt, sex, age] > non_par_sel[flt, sex, age+1]) {
-            # Non-parametric selectivity penalties
-            jnll_comp[4, flt] = jnll_comp[4, flt] + sel_curve_pen[flt, 1] *
-              ( log(non_par_sel[flt, sex, age] / non_par_sel[flt, sex, age+1] )^2)
-          }
+          # if( non_par_sel[flt, sex, age] > non_par_sel[flt, sex, age+1]) { # not differentiable so using max2
+          # Non-parametric selectivity penalties
+          jnll_comp[5, flt] = jnll_comp[5, flt] + sel_curve_pen[flt, 1] *
+            max2( log(non_par_sel[flt, sex, age] / non_par_sel[flt, sex, age+1]), 1e-16)^2
+          # }
         }
 
-        jnll_comp[4, flt] = jnll_comp[4, flt] + sum(sel_curve_pen[flt, 2] * diff( diff( log(non_par_sel[flt, sex, 1:nages[sp]]))) ^ 2)
+        jnll_comp[5, flt] = jnll_comp[5, flt] + sum(sel_curve_pen[flt, 2] * diff( diff( log( as.numeric(non_par_sel[flt, sex, 1:nages[sp]])))) ^ 2)
       }
 
 
 
       # Survey selectivity normalization (non-parametric)
-      jnll_comp[4, flt] <- jnll_comp[4, flt] + sum(avg_sel[flt, 1:nsex[sp]]^2)
+      jnll_comp[5, flt] <- jnll_comp[5, flt] + sum(avg_sel[flt, 1:nsex[sp]]^2)
     }
 
     # Penalized/random effect likelihood time-varying logistic/double-logistic selectivity deviates
@@ -2742,7 +2700,7 @@ calculate_recruitment_nll <- function(nspp, srr_est_mode, srr_pred_fun, steepnes
     # Slot 10 -- init_dev -- Initial abundance-at-age
     if (initMode > 0) {
       for (age in 2:nages[sp]) {
-        jnll_comp[11, sp] <- jnll_comp[11, sp] - dnorm(init_dev[sp, age - 1],
+        jnll_comp[12, sp] <- jnll_comp[12, sp] - dnorm(init_dev[sp, age - 1],
                                                        (R_sd[sp])^2 / 2.0,
                                                        R_sd[sp],
                                                        log = TRUE)
@@ -2751,7 +2709,7 @@ calculate_recruitment_nll <- function(nspp, srr_est_mode, srr_pred_fun, steepnes
 
     # Slot 11 -- Tau -- Annual recruitment deviation
     for (yr in 1:nyrs_hind) {
-      jnll_comp[10, sp] <- jnll_comp[10, sp] - dnorm(rec_dev[sp, yr],
+      jnll_comp[11, sp] <- jnll_comp[11, sp] - dnorm(rec_dev[sp, yr],
                                                      (R_sd[sp])^2 / 2.0,
                                                      R_sd[sp],
                                                      log = TRUE)
@@ -2760,7 +2718,7 @@ calculate_recruitment_nll <- function(nspp, srr_est_mode, srr_pred_fun, steepnes
     # Additional penalty for SRR curve (sensu AMAK/Ianelli)
     if ((srr_fun == 0) && (srr_pred_fun > 0)) {
       for (yr in srr_hat_styr:srr_hat_endyr) {
-        jnll_comp[10, sp] <- jnll_comp[10, sp] - dnorm(log(R[sp, yr]),
+        jnll_comp[9, sp] <- jnll_comp[9, sp] - dnorm(log(R[sp, yr]),
                                                        log(R_hat[sp, yr]),
                                                        R_sd[sp],
                                                        log = TRUE)
@@ -2899,12 +2857,18 @@ first_difference <- function(x) {
 }
 
 
-# params <- mod_objects$estimated_params
-# data_list <- rearrange_dat(mod_objects$data_list)
-# data_list$forecast <- c(0,0,0)
-# data_list$Ceq = rep(1,3)
-# data_list$avgnMode = 0
+load("~/Documents/GitHub/Rceattle/ssrun tmb.RData")
+params <- mod_objects$estimated_params
+data_list <- rearrange_dat(mod_objects$data_list)
+data_list$forecast <- c(0,0,0)
+data_list$Ceq = rep(1,3)
+data_list$avgnMode = 0
+# rtmb_ceattle(params, data_list)
+# mod_objects$quantities$jnll_comp
 
+max2 <- function(x,y){
+  return(0.5*(abs(x-y)+x+y))
+}
 
 #' Title
 #'
@@ -2924,6 +2888,7 @@ rtmb_ceattle <- function(params, data_list){
   "diag<-" <- ADoverload("diag<-")
 
   RTMB::getAll(params, data_list)
+
 
   # ------------------------------------------------------------------------- #
   # 1. DATA TRANSFORMATION ----
@@ -2988,9 +2953,6 @@ rtmb_ceattle <- function(params, data_list){
   # ------------------------------------------------------------------------- #
   # 4. DERIVED QUANTITIES SECTION  ----
   # ------------------------------------------------------------------------- #
-
-  # # 4.1. Derived indices
-  # joint_adjust <- rep(0, nrow(comp_obs))                                       # Initialize joint_adjust with zeros
 
   # -- 4.2. Estimated population quantities
   M2_at_age <- array(0, dim=c(nspp, max_nsex, max_nages, nyrs))                    # Total predation mortality at age
@@ -3101,8 +3063,8 @@ rtmb_ceattle <- function(params, data_list){
   flt_sel_type <- fleet_control[flt_ind, 6]        # Selectivity type
   flt_nselages <- fleet_control[flt_ind, 7]        # Non-parametric selectivity ages
   flt_varying_sel <- fleet_control[flt_ind, 8]     # Time-varying selectivity type
-  flt_sel_age <- fleet_control[flt_ind, 9] - minage[flt_spp]  # First age selected
-  flt_sel_maxage <- fleet_control[flt_ind, 10] - minage[flt_spp]  # Age of max selectivity
+  flt_sel_age <- fleet_control[flt_ind, 9] - minage[flt_spp] + 1 # First age selected
+  flt_sel_maxage <- fleet_control[flt_ind, 10] - minage[flt_spp]  + 1# Age of max selectivity
   comp_ll_type <- fleet_control[flt_ind, 11]       # Index for dirichlet multinomial
   flt_units <- fleet_control[flt_ind, 12]          # Survey units
   flt_wt_index <- fleet_control[flt_ind, 13]       # Dim1 of wt
@@ -3293,11 +3255,14 @@ rtmb_ceattle <- function(params, data_list){
              # Normalize by maximum
              for(yr in 1:nyrs_hind) {
                for(sex in 1:nsex[sp]) {
-                 # max_sel <- max(sel[flt, sex, flt_sel_age[flt]:nselages, yr], na.rm = TRUE)
-                 # if (max_sel > 0) {
-                 #   sel[flt, sex, flt_sel_age[flt]:nselages, yr] <-
-                 #     exp(sel[flt, sex, flt_sel_age[flt]:nselages, yr] - max_sel)
-                 # }
+                 max_sel <- 0
+                 for(age in flt_sel_age[flt]:nselages) {
+                   max_sel <- max2(max_sel, sel[flt, sex, age, yr])
+                 }
+                 if (max_sel > 0) {
+                   sel[flt, sex, flt_sel_age[flt]:nselages, yr] <-
+                     exp(sel[flt, sex, flt_sel_age[flt]:nselages, yr] - max_sel)
+                 }
 
                  # Fill in rest of ages
                  sel[flt, sex, (nselages + 1):nages[sp], yr] <- sel[flt, sex, nselages, yr]
@@ -3335,10 +3300,14 @@ rtmb_ceattle <- function(params, data_list){
         # - Normalize by max
         if(sel_type < 5 & flt_sel_maxage[flt] < 0) {
           for(yr in 1:nyrs_hind) {
-            # max_sel <- max(sel[flt, , , yr], na.rm = TRUE)
-            # if (max_sel > 0) {
-            #   sel[flt, , , yr] <- sel[flt, , , yr] / max_sel
-            # }
+            for(sex in 1:nsex[sp]) {
+              max_sel <- 0
+              for(age in 1:nages[sp]) {
+                max_sel <- max2(max_sel, sel[flt, sex, age, yr])
+              }
+
+              sel[flt, sex, , yr] <- sel[flt, sex, , yr] / max_sel
+            }
           }
         }
       }
@@ -4034,10 +4003,10 @@ rtmb_ceattle <- function(params, data_list){
   # ------------------------------------------------------------------------- #
   # 11. COMPOSITION EQUATIONS ----
   # ------------------------------------------------------------------------- #
-  comp_hat <- calculate_compositions(comp_ctl, comp_n, comp_obs, F_results$F_flt_age, Z_at_age, N_at_age,
-                                     sel, index_q, age_error, age_trans_matrix,
-                                     flt_type, nages, nlengths, nsex, styr,
-                                     nyrs_hind, flt_age_transition_index)
+  comp_hat <- estimate_comp(comp_ctl, comp_n, comp_obs, F_results$F_flt_age, Z_at_age, N_at_age,
+                            sel, index_q, age_error, age_trans_matrix,
+                            flt_type, nages, nlengths, nsex, styr,
+                            nyrs_hind, flt_age_transition_index)
 
   # ------------------------------------------------------------------------- #
   # 12. ESTIMATED DIET ----
@@ -4072,6 +4041,9 @@ rtmb_ceattle <- function(params, data_list){
       }
     }
   }
+
+  RTMB::REPORT(biomass_depletion)
+  RTMB::REPORT(ssb_depletion)
 
 
   # ------------------------------------------------------------------------- #
@@ -4140,13 +4112,20 @@ rtmb_ceattle <- function(params, data_list){
   # * 14.7. MORTALITY ----
   jnll_comp <- calculate_mortality_nll(nspp, nsex, nages, nyrs, M1_model, M1_use_prior, M2_use_prior,
                                        M1_at_age, M_at_age, M_prior, M_prior_sd, jnll_comp)
+  round(mod_objects$quantities$jnll_comp - jnll_comp, 4)
 
+  jnll = sum(jnll_comp)
 
   # ------------------------------------------------------------------------- #
   # 15. REPORT SECTION ----
   # ------------------------------------------------------------------------- #
+  RTMB::REPORT(ssb)
+  RTMB::REPORT(biomass)
+  RTMB::REPORT(R)
+  RTMB::REPORT(jnll_comp)
+  RTMB::REPORT(comp_hat)
+  RTMB::REPORT(jnll)
 
-  jnll = sum(jnll_comp)
   return(jnll)
 }
 
