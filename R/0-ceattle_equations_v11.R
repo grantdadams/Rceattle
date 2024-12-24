@@ -2059,6 +2059,10 @@ estimate_comp <- function(comp_ctl, comp_n, comp_obs, F_flt_age, Z_at_age, N_at_
   # Unsure what is tripping the function
   # "[<-" <- ADoverload("[<-") # https://groups.google.com/g/tmb-users/c/HlPqkfcCa1g
 
+  "c" <- ADoverload("c")
+  "[<-" <- ADoverload("[<-")
+  "diag<-" <- ADoverload("diag<-")
+
   # Initialize outputs
   age_obs_hat <- matrix(0, nrow=nrow(comp_obs), ncol=ncol(comp_obs))            # Estimated catch at observed age (accounts for ageing error)
   comp_hat <- matrix(0, nrow=nrow(comp_obs), ncol=ncol(comp_obs))               # Estimated comp
@@ -2091,9 +2095,19 @@ estimate_comp <- function(comp_ctl, comp_n, comp_obs, F_flt_age, Z_at_age, N_at_
 
         # Handle different sex cases
         if(flt_sex == 0) { # Combined sexes
-          age_hat[comp_ind, age] <- sum(
-            F_flt_age[flt, 1:nsex[sp], age, yr] / Z_at_age[sp, 1:nsex[sp], age, yr] *
-              (1 - exp(-Z_at_age[sp, 1:nsex[sp], age, yr])) * N_at_age[sp, 1:nsex[sp], age, yr])
+          if(nsex[sp] == 1){
+            age_hat[comp_ind, age] <- F_flt_age[flt, 1, age, yr] / Z_at_age[sp, 1, age, yr] *
+              (1 - exp(-Z_at_age[sp, 1, age, yr])) * N_at_age[sp, 1, age, yr]
+          }
+          if(nsex[sp] == 2){
+            age_hat[comp_ind, age] <- F_flt_age[flt, 1, age, yr] / Z_at_age[sp, 1, age, yr] *
+              (1 - exp(-Z_at_age[sp, 1, age, yr])) * N_at_age[sp, 1, age, yr] +
+              F_flt_age[flt, 2, age, yr] / Z_at_age[sp, 2, age, yr] *
+              (1 - exp(-Z_at_age[sp, 2, age, yr])) * N_at_age[sp, 2, age, yr]
+          }
+          # age_hat[comp_ind, age] <- sum(
+          #   F_flt_age[flt, 1:nsex[sp], age, yr] / Z_at_age[sp, 1:nsex[sp], age, yr] *
+          #     (1 - exp(-Z_at_age[sp, 1:nsex[sp], age, yr])) * N_at_age[sp, 1:nsex[sp], age, yr])
         }
 
         if (flt_sex >= 1 && flt_sex <= 2) { # Sex-specific composition data
@@ -2112,8 +2126,19 @@ estimate_comp <- function(comp_ctl, comp_n, comp_obs, F_flt_age, Z_at_age, N_at_
 
       if (flt_type[flt] == 2) { # Survey
         if(flt_sex == 0) { # Combined sexes
-          age_hat[comp_ind, age] <- sum(N_at_age[sp, 1:nsex[sp], age, yr] * sel[flt, 1:nsex[sp], age, yr_ind] *
-                                          index_q[flt, yr_ind] * exp(-(mo / 12.0) * Z_at_age[sp, 1:nsex[sp], age, yr]))
+         if(nsex[sp] == 1){
+            age_hat[comp_ind, age] <- N_at_age[sp, 1, age, yr] * sel[flt, 1, age, yr_ind] *
+              index_q[flt, yr_ind] * exp(-(mo / 12.0) * Z_at_age[sp, 1, age, yr])
+         }
+
+          if(nsex[sp] == 2){
+            age_hat[comp_ind, age] <- N_at_age[sp, 1, age, yr] * sel[flt, 1, age, yr_ind] *
+              index_q[flt, yr_ind] * exp(-(mo / 12.0) * Z_at_age[sp, 1, age, yr]) +
+              N_at_age[sp, 2, age, yr] * sel[flt, 2, age, yr_ind] *
+              index_q[flt, yr_ind] * exp(-(mo / 12.0) * Z_at_age[sp, 2, age, yr])
+          }
+          # age_hat[comp_ind, age] <- sum(N_at_age[sp, 1:nsex[sp], age, yr] * sel[flt, 1:nsex[sp], age, yr_ind] *
+          #                                 index_q[flt, yr_ind] * exp(-(mo / 12.0) * Z_at_age[sp, 1:nsex[sp], age, yr]))
 
         }
 
@@ -2181,7 +2206,7 @@ estimate_comp <- function(comp_ctl, comp_n, comp_obs, F_flt_age, Z_at_age, N_at_
   RTMB::REPORT(age_obs_hat)
   RTMB::REPORT(true_age_comp_hat)
 
-  return(comp_hat = comp_hat)
+  return(comp_hat = matrix(as.numeric(comp_hat), nrow = nrow(comp_hat), ncol = ncol(comp_hat)))
 }
 
 
@@ -2352,7 +2377,11 @@ calculate_comp_nll <- function(comp_obs, comp_hat, comp_ctl, comp_n, nages, nlen
 
   # Unsure what is tripping the function
   "[<-" <- ADoverload("[<-") # https://groups.google.com/g/tmb-users/c/HlPqkfcCa1g
+  "c" <- ADoverload("c")
+  "diag<-" <- ADoverload("diag<-")
+
   jnll_comp[3, ] <- 0
+  comp_nll = matrix(0, nrow(comp_obs), ncol(comp_obs))
 
   for (comp_ind in 1:nrow(comp_obs)) {
 
@@ -2377,6 +2406,7 @@ calculate_comp_nll <- function(comp_obs, comp_hat, comp_ctl, comp_n, nages, nlen
 
     # Select sections
     # - as.numeric solves error in AD for some-reason
+    #FIXME
     comp_obs_tmp <- (comp_obs[comp_ind, 1:n_comp]) + 0.00001  # Observed proportion with offset
     comp_hat_tmp <- (comp_hat[comp_ind, 1:n_comp]) + 0.00001  # Expected proportion with offset
 
@@ -2393,26 +2423,28 @@ calculate_comp_nll <- function(comp_obs, comp_hat, comp_ctl, comp_n, nages, nlen
                # case -1 (now case 1)
                {
                  for(ln in 1:n_comp) {
-                   # Martin's
-                   if ((comp_obs[comp_ind, ln] + 0.00001) > 0 && (comp_hat[comp_ind, ln] + 0.00001) > 0) {
-                     jnll_comp[3, flt] <- jnll_comp[3, flt] -
-                       comp_weights[flt] * comp_n[comp_ind, 2] *
-                       (comp_obs[comp_ind, ln] + 0.00001) *
-                       log((comp_hat[comp_ind, ln] + 0.00001) / (comp_obs[comp_ind, ln] + 0.00001))
-                   }
+                   # # Martin's
+                   # jnll_comp[3, flt] <- jnll_comp[3, flt] -
+                   #   (comp_weights[flt] * comp_n[comp_ind, 2] *
+                   #   (comp_obs[comp_ind, ln] + 0.00001) *
+                   #   log((comp_hat[comp_ind, ln] + 0.00001) / (comp_obs[comp_ind, ln] + 0.00001)))
+                   comp_nll[comp_ind, ln] <- comp_weights[flt] * comp_n[comp_ind, 2] *
+                     (comp_obs[comp_ind, ln] + 0.00001) *
+                     log((comp_hat[comp_ind, ln] + 0.00001) / (comp_obs[comp_ind, ln] + 0.00001))
+
                  }
                },
 
                # case 0 (now case 2) -- Full multinomial
                {
-                 jnll_comp[3, flt] <- jnll_comp[3, flt] -
-                   comp_weights[flt] * dmultinom(comp_obs_tmp, prob = comp_hat_tmp, log = TRUE)
+                 # jnll_comp[3, flt] <- jnll_comp[3, flt] -
+                 comp_nll[comp_ind, 1] <- comp_weights[flt] * dmultinom(comp_obs_tmp, prob = comp_hat_tmp, log = TRUE)
                },
 
                # case 1 (now case 3) -- Dirichlet-multinomial
                {
-                 jnll_comp[3, flt] <- jnll_comp[3, flt] -
-                   ddirmultinom(comp_obs_tmp, alphas, log = TRUE)
+                 # jnll_comp[3, flt] <- jnll_comp[3, flt] -
+                 comp_nll[comp_ind, 1] <- ddirmultinom(comp_obs_tmp, alphas, log = TRUE)
                },
 
                # default
@@ -2422,7 +2454,9 @@ calculate_comp_nll <- function(comp_obs, comp_hat, comp_ctl, comp_n, nages, nlen
     }
   }
 
-  return(jnll_comp)  # Return the updated jnll_comp matrix
+  jnll_comp[3,1] <- sum(comp_nll)
+  return(list(jnll_comp = jnll_comp,
+              comp_nll = comp_nll))  # Return the updated jnll_comp matrix
 }
 
 
@@ -2719,9 +2753,9 @@ calculate_recruitment_nll <- function(nspp, srr_est_mode, srr_pred_fun, steepnes
     if ((srr_fun == 0) && (srr_pred_fun > 0)) {
       for (yr in srr_hat_styr:srr_hat_endyr) {
         jnll_comp[9, sp] <- jnll_comp[9, sp] - dnorm(log(R[sp, yr]),
-                                                       log(R_hat[sp, yr]),
-                                                       R_sd[sp],
-                                                       log = TRUE)
+                                                     log(R_hat[sp, yr]),
+                                                     R_sd[sp],
+                                                     log = TRUE)
       }
     }
   }
@@ -2845,25 +2879,13 @@ rho_trans <- function(x) {
 }
 
 
-#' Calculate the first difference of a vector
-#'
-#' @param x A numeric vector.
-#' @return A numeric vector of first differences.
-first_difference <- function(x) {
-  if (length(x) <= 1) {
-    stop("Error -- vector size too small in first_difference")
-  }
-  return(diff(x))
-}
-
-
-load("~/Documents/GitHub/Rceattle/ssrun tmb.RData")
-params <- mod_objects$estimated_params
-data_list <- rearrange_dat(mod_objects$data_list)
-data_list$forecast <- c(0,0,0)
-data_list$Ceq = rep(1,3)
-data_list$avgnMode = 0
-# rtmb_ceattle(params, data_list)
+# load("~/Documents/GitHub/Rceattle/ss ebs comp minus1.RData")
+# params <- mod_objects$estimated_params
+# data_list <- rearrange_dat(mod_objects$data_list)
+# data_list$forecast <- c(0,0,0)
+# data_list$Ceq = rep(1,3)
+# data_list$avgnMode = 0
+# # rtmb_ceattle(params, data_list)
 # mod_objects$quantities$jnll_comp
 
 max2 <- function(x,y){
@@ -2909,6 +2931,7 @@ rtmb_ceattle <- function(params, data_list){
   mo = 0;                                                              # Month float
   if (msmMode == 0) { niter = 1 }                                      # Number of iterations for SS mode
   n_flt <- nrow(fleet_control)
+  comp_obs <- matrix(as.numeric(comp_obs), nrow = nrow(comp_obs), ncol = ncol(comp_obs))
 
 
   # ------------------------------------------------------------------------- #
@@ -4087,8 +4110,9 @@ rtmb_ceattle <- function(params, data_list){
                                    F_dev, flt_type, styr, endyr)
 
   # * 14.3. COMPOSITION DATA ----
-  jnll_comp <- calculate_comp_nll(comp_obs, comp_hat, comp_ctl, comp_n, nages, nlengths,
-                                  DM_pars, flt_type, comp_ll_type, comp_weights, jnll_comp, endyr)
+  # comp_nll <- calculate_comp_nll(comp_obs, comp_hat, comp_ctl, comp_n, nages, nlengths,
+  #                                DM_pars, flt_type, comp_ll_type, comp_weights, jnll_comp, endyr)
+  # jnll_comp <- comp_nll$jnll_comp
 
   # * 14.5. SELECTIVITY ----
   jnll_comp <- calculate_selectivity_nll(n_flt, flt_spp, flt_type, flt_sel_type, flt_varying_sel,
@@ -4112,7 +4136,6 @@ rtmb_ceattle <- function(params, data_list){
   # * 14.7. MORTALITY ----
   jnll_comp <- calculate_mortality_nll(nspp, nsex, nages, nyrs, M1_model, M1_use_prior, M2_use_prior,
                                        M1_at_age, M_at_age, M_prior, M_prior_sd, jnll_comp)
-  round(mod_objects$quantities$jnll_comp - jnll_comp, 4)
 
   jnll = sum(jnll_comp)
 
