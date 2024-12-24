@@ -30,7 +30,6 @@
 #' @param verbose 0 = Silent, 1 = print updates of model fit, 2 = print updates of model fit and TMB estimation progress.
 #' @param M1Fun M1 parameterizations and priors. Use \code{build_M1}.
 #' @param getJointPrecision return full Hessian of fixed and random effects.
-#' @param TMBfilename if a seperate TMB file is to be used for development. Includes location and does not include ".cpp" at the end.
 #'
 #' @details
 #' CEATTLE is an age-structured population dynamics model that can be fit with or without predation mortality. The default is to exclude predation mortality by setting \code{msmMode} to 0. Predation mortality can be included by setting \code{msmMode} with the following options:
@@ -117,8 +116,7 @@ fit_mod <-
     loopnum = 5,
     verbose = 1,
     newtonsteps = 0,
-    catch_hcr = FALSE,
-    TMBfilename = NULL){
+    catch_hcr = FALSE){
 
     # #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # # Debugging section ----
@@ -351,20 +349,9 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # STEP 6: Reorganize data ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    if(!is.null(TMBfilename)){
-      TMB::compile(paste0(TMBfilename,".cpp"))
-      dyn.load(dynlib(TMBfilename))
-      TMBfilename <- basename(TMBfilename)
-
-    }
-    if(is.null(TMBfilename)){
-      TMBfilename <- "ceattle_v01_11"
-    }
-
     Rceattle:::data_check(data_list)
 
     data_list_reorganized <- Rceattle::rearrange_dat(data_list)
-    data_list_reorganized = c(list(model = TMBfilename), data_list_reorganized)
     data_list_reorganized$forecast <- rep(0, data_list_reorganized$nspp) # Don't include BRPs in likelihood of hindcast
 
     # - Update comp weights, future F (if input) and F_prop from data
@@ -533,7 +520,6 @@ fit_mod <-
         map = map$mapFactor,
         random = random_vars,
         phases = phaseList,
-        model_name = TMBfilename,
         silent = verbose != 2,
         use_gradient = use_gradient,
         control = control
@@ -563,7 +549,6 @@ fit_mod <-
     # -- Save objects
     mod_objects <-
       list(
-        TMBfilename = TMBfilename,
         initial_params = start_par,
         bounds = bounds,
         map = map
