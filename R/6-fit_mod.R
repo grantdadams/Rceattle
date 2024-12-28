@@ -219,7 +219,7 @@ fit_mod <-
 
     # -- Start year
     if(is.null(recFun$srr_hat_styr) & is.null(data_list$srr_hat_styr)){ # If not provided in data or function, use start year
-      data_list$srr_hat_styr <- data_list$styr
+      data_list$srr_hat_styr <- data_list$styr + 1
     }
     if(!is.null(recFun$srr_hat_styr)){ # If provided in function, override data
       data_list$srr_hat_styr <- recFun$srr_hat_styr

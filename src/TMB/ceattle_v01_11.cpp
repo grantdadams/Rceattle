@@ -302,6 +302,15 @@ matrix<Type> trim_vector(vector<Type> v1, int length){
 }
 
 
+// Function to get max of two values (differentiable)
+// https://groups.google.com/g/tmb-users/c/QAVmgj66OC0
+template <class Type>
+Type max2(Type x, Type y){
+  Type ans = 0.5*(CppAD::abs(x-y)+x+y);
+  return ans;
+}
+
+
 template<class Type>
 Type objective_function<Type>::operator() () {
   // ------------------------------------------------------------------------- //
@@ -2371,6 +2380,7 @@ Type objective_function<Type>::operator() () {
                     for (yr = suit_styr; yr <= suit_endyr; yr++) {  // Suit year loop (over specific years)
 
                       // Average suitability across years
+                      // FIXME: non-differentiable
                       if( suma_suit(rsp, r_sex, r_age, yr ) + other_food_diet_prop(rsp, r_sex, r_age, yr) > 0){
                         suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) += stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / ( suma_suit(rsp, r_sex, r_age, yr ) + other_food_diet_prop(rsp, r_sex, r_age, yr) );
                       }
@@ -2380,6 +2390,7 @@ Type objective_function<Type>::operator() () {
                     suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) /= nyrs_suit;
 
                     // Remove NAs from crashing populations
+                    // FIXME: non-differentiable
                     if(!isFinite(suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0))){
                       suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) = 0.0;
                     }
@@ -3518,30 +3529,28 @@ Type objective_function<Type>::operator() () {
     comp_obs_tmp *= comp_n(comp_ind, 1);
     vector<Type> alphas = sum(comp_obs_tmp) * comp_hat_tmp * DM_pars(flt); // DM alpha
 
-    if(!isNA(sum(comp_obs_tmp)) & (sum(comp_obs_tmp) > 0)){ // Error checking
-      // Only use years wanted
-      if((yr <= endyr) & (yr > 0) & (flt_type(flt) > 0)){
+    // Only use years wanted
+    if((yr <= endyr) & (yr > 0) & (flt_type(flt) > 0)){
 
-        switch(comp_ll_type(flt)){
+      switch(comp_ll_type(flt)){
 
-        case -1:
-          for (ln = 0; ln < n_comp; ln++) {
-            // Martin's
-            jnll_comp(2, flt) -= comp_weights(flt) * Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + 0.00001) * log((comp_hat(comp_ind, ln)+0.00001) / (comp_obs(comp_ind, ln) + 0.00001)) ;
-          }
-          break;
-
-        case 0:  // Full multinomial
-          jnll_comp(2, flt) -= comp_weights(flt) * dmultinom(comp_obs_tmp, comp_hat_tmp, true);
-          break;
-
-        case 1:  // Dirichlet-multinomial
-          jnll_comp(2, flt) -= ddirmultinom(comp_obs_tmp, alphas,  true);
-          break;
-
-        default:
-          error("Invalid 'comp_ll_type'");
+      case -1:
+        for (ln = 0; ln < n_comp; ln++) {
+          // Martin's
+          jnll_comp(2, flt) -= comp_weights(flt) * Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + 0.00001) * log((comp_hat(comp_ind, ln)+0.00001) / (comp_obs(comp_ind, ln) + 0.00001)) ;
         }
+        break;
+
+      case 0:  // Full multinomial
+        jnll_comp(2, flt) -= comp_weights(flt) * dmultinom(comp_obs_tmp, comp_hat_tmp, true);
+        break;
+
+      case 1:  // Dirichlet-multinomial
+        jnll_comp(2, flt) -= ddirmultinom(comp_obs_tmp, alphas,  true);
+        break;
+
+      default:
+        error("Invalid 'comp_ll_type'");
       }
     }
   }
@@ -3575,14 +3584,14 @@ Type objective_function<Type>::operator() () {
 
     // Ianelli non-parametic selectivity penalties
     // - using non-normalized selectivities following the arrowtooth ADMB model
+    // - updated to make differentiable using abs to only penalize when sel_ratio_tmp > 0 (decreasing sel)
     if(flt_type(flt) > 0){
       if (flt_sel_type(flt) == 2) {
 
         for(sex = 0; sex < nsex(sp); sex++){
           for(age = 0; age < (nages(sp) - 1); age++) {
-            if( non_par_sel(flt, sex, age) > non_par_sel(flt, sex, age + 1)) {
-              jnll_comp(4, flt) += sel_curve_pen(flt, 0) * pow( log(non_par_sel(flt, sex, age) / non_par_sel(flt, sex, age + 1) ), 2);
-            }
+            Type sel_ratio_tmp = log(non_par_sel(flt, sex, age) / non_par_sel(flt, sex, age + 1) );
+            jnll_comp(4, flt) += sel_curve_pen(flt, 0) * square( (CppAD::abs(sel_ratio_tmp) + sel_ratio_tmp)/2.0);
           }
         }
 
