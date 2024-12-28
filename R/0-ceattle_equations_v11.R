@@ -923,11 +923,11 @@ reorganize_stomach_content <- function(stom_prop_obs, stom_prop_ctl, minage, nsp
 
   # Initialize outputs
   n_obs <- nrow(stom_prop_obs)
-  r_sexes <- matrix(0, nrow=n_obs, ncol=2)
-  k_sexes <- matrix(0, nrow=n_obs, ncol=2)
+  r_sexes <- matrix(1, nrow=n_obs, ncol=2)
+  k_sexes <- matrix(1, nrow=n_obs, ncol=2)
 
   # Correct dimensions for diet_prop
-  diet_prop <- array(0, dim=c(nspp * max_nsex, nspp * max_nsex, max_nages, max_nages, nyrs))
+  diet_prop <- array(0, dim=c(nspp, max_nsex, max_nages, nspp, max_nsex, max_nages, nyrs))
 
   # Precompute indices for predator and prey
   rsp <- stom_prop_ctl[, 1]      # Index of predator
@@ -938,10 +938,11 @@ reorganize_stomach_content <- function(stom_prop_obs, stom_prop_ctl, minage, nsp
   k_age <- stom_prop_ctl[, 6] - minage[ksp] + 1 # Index of prey age
   flt_yr <- stom_prop_ctl[, 7]   # Index of year
 
-  # Set predator and prey sex indices
+  # Set predator and prey sex indices for joint sex data
+  # - Sex = 0 by nsex = 2
   if(max_nsex > 2){
-    r_sexes[, ] <- cbind(ifelse(r_sex > 0, r_sex-1, 0), ifelse(r_sex > 0, r_sex-1, 1))
-    k_sexes[, ] <- cbind(ifelse(k_sex > 0, k_sex-1, 0), ifelse(k_sex > 0, k_sex-1, 1))
+    r_sexes[, ] <- cbind(ifelse(r_sex > 0, r_sex, 1), ifelse(r_sex > 0, r_sex, 2))
+    k_sexes[, ] <- cbind(ifelse(k_sex > 0, k_sex, 1), ifelse(k_sex > 0, k_sex, 2))
   }
 
   # Process for each observation
@@ -951,21 +952,19 @@ reorganize_stomach_content <- function(stom_prop_obs, stom_prop_ctl, minage, nsp
     current_ksp <- as.integer(ksp[stom_ind])
     current_r_age <- as.integer(r_age[stom_ind])
     current_k_age <- as.integer(k_age[stom_ind])
-    current_flt_yr <- as.integer(flt_yr[stom_ind])
+    current_diet_yr <- as.integer(flt_yr[stom_ind])
 
-    if(current_flt_yr > 0) { # Annual diet data
-      yr <- current_flt_yr - styr + 1
+    if(current_diet_yr > 0) { # Annual diet data
+      yr <- current_diet_yr - styr + 1
       if(yr < nyrs_hind) {
-        diet_prop[as.integer(current_rsp + (nspp * r_sexes[stom_ind, 1])), # as.integer because it became numeric
-                  as.integer(current_ksp + (nspp * k_sexes[stom_ind, 1])),
-                  current_r_age, current_k_age, yr] <- as.numeric(stom_prop_obs[stom_ind, 2])
+        diet_prop[current_rsp, r_sexes[stom_ind, 1], current_r_age,
+                  current_ksp, k_sexes[stom_ind, 1], current_k_age, yr] <- as.numeric(stom_prop_obs[stom_ind, 2])
       }
     }
 
-    if(current_flt_yr == 0) { # Average diet data
-      diet_prop[as.integer(current_rsp + (nspp * r_sexes[stom_ind, 1])), # as.integer because it became numeric
-                as.integer(current_ksp + (nspp * k_sexes[stom_ind, 1])),
-                current_r_age, current_k_age, ] <- stom_prop_obs[stom_ind, 2]
+    if(current_diet_yr == 0) { # Average diet data
+      diet_prop[current_rsp, r_sexes[stom_ind, 1], current_r_age,
+                current_ksp, k_sexes[stom_ind, 1], current_k_age, ] <- stom_prop_obs[stom_ind, 2]
     }
   }
 
@@ -1006,28 +1005,13 @@ calculate_other_food_diet_prop <- function(nyrs, nspp, nsex, nages, max_nsex, ma
 
   # Loop through years
   for(yr in 1:nyrs) {
-    # Loop through predator species
-    for(rsp in 1:nspp) {
-      # Loop through predator sex
-      for(r_sex in 1:nsex[rsp]) {
-        # Loop through predator age
-        for(r_age in 1:nages[rsp]) {
+    for(rsp in 1:nspp) { # Loop through predator species
+      for(r_sex in 1:nsex[rsp]) { # Loop through predator sex
+        for(r_age in 1:nages[rsp]) { # Loop through predator age
 
-          # Calculate indices for diet_prop
-          pred_index <- (rsp - 1) * max_nsex + (r_sex - 1) + 1
-
-          # Subtract diet proportions for all prey species
-          for(ksp in 1:nspp) {
-            prey_index_base <- (ksp - 1) * max_nsex
-            for(k_sex in 1:nsex[ksp]) {
-              for(k_age in 1:nages[ksp]) {
-                prey_index <- prey_index_base + (k_sex - 1) + 1
-                other_food_diet_prop[rsp, r_sex, r_age, yr] <-
-                  other_food_diet_prop[rsp, r_sex, r_age, yr] -
-                  diet_prop[pred_index, prey_index, r_age, k_age, yr]
-              }
-            }
-          }
+          # Subtract diet proportions for all prey items
+          other_food_diet_prop[rsp, r_sex, r_age, yr] = 1 -
+            sum(diet_prop[rsp, r_sex, r_age, , , , yr])
 
           # Apply other food penalties
           if(other_food[rsp] > 0) {
@@ -1074,7 +1058,7 @@ calculate_other_food_diet_prop <- function(nyrs, nspp, nsex, nages, max_nsex, ma
 #' }
 #'
 calculate_MSVPA_suitability <- function(diet_prop, avgN_at_age, wt, pop_wt_index,
-                                        other_food_diet_prop, nspp, nsex, nages, nyrs,
+                                        other_food_diet_prop, nspp, nsex, max_nsex, nages, max_nages, nyrs,
                                         nyrs_hind, suit_styr, suit_endyr, nyrs_suit,
                                         msmMode) {
 
@@ -1082,10 +1066,10 @@ calculate_MSVPA_suitability <- function(diet_prop, avgN_at_age, wt, pop_wt_index
   "[<-" <- ADoverload("[<-") # https://groups.google.com/g/tmb-users/c/HlPqkfcCa1g
 
   # Initialize arrays
-  stom_div_bio <- array(0, dim = c(nspp * max_nsex, nspp * max_nsex, max_nages, max_nages, nyrs))
+  stom_div_bio <- array(0, dim = c(nspp, max_nsex, max_nages, nspp, max_nsex, max_nages, nyrs))
   suma_suit <- array(0, dim = c(nspp, max_nsex, max_nages, nyrs))
-  suit_main <- array(0, dim = c(nspp * max_nsex, nspp * max_nsex, max_nages, max_nages, nyrs))
-  suit_other <- array(0, dim = c(nspp, max_nsex, max_nages, nyrs))
+  suit_main <- array(0, dim = c(nspp, max_nsex, max_nages, nspp, max_nsex, max_nages, nyrs))
+  suit_other <- array(1, dim = c(nspp, max_nsex, max_nages, nyrs))
 
   # Calculate stomach proportion over biomass
   for(yr in 1:nyrs) {
@@ -1103,49 +1087,35 @@ calculate_MSVPA_suitability <- function(diet_prop, avgN_at_age, wt, pop_wt_index
                   yr_ind <- nyrs_hind
                 }
 
-                if(avgN_at_age[ksp, k_sex, k_age, yr] > 0) {
-                  stom_div_bio[rsp + (nspp * (r_sex-1)),
-                               ksp + (nspp * (k_sex-1)),
-                               r_age, k_age, yr] <-
-                    diet_prop[rsp + (nspp * (r_sex-1)),
-                              ksp + (nspp * (k_sex-1)),
-                              r_age, k_age, yr] /
+                #if(avgN_at_age[ksp, k_sex, k_age, yr] > 0) {
+                  stom_div_bio[rsp, r_sex, r_age, ksp, k_sex, k_age, yr] <-
+                    diet_prop[rsp, r_sex, r_age, ksp, k_sex, k_age, yr] /
                     avgN_at_age[ksp, k_sex, k_age, yr]
 
                   if(msmMode == 2) {
-                    stom_div_bio[rsp + (nspp * (r_sex-1)),
-                                 ksp + (nspp * (k_sex-1)),
-                                 r_age, k_age, yr] <-
-                      stom_div_bio[rsp + (nspp * (r_sex-1)),
-                                   ksp + (nspp * (k_sex-1)),
-                                   r_age, k_age, yr] /
+                    stom_div_bio[rsp, r_sex, r_age, ksp, k_sex, k_age, yr] <-
+                      stom_div_bio[rsp, r_sex, r_age, ksp, k_sex, k_age, yr] /
                       avgN_at_age[ksp, k_sex, k_age, yr]
                   }
-                }
+               # }
 
                 # Handle non-finite values
-                if(!is.finite(stom_div_bio[rsp + (nspp * (r_sex-1)),
-                                           ksp + (nspp * (k_sex-1)),
-                                           r_age, k_age, yr])) {
-                  stom_div_bio[rsp + (nspp * (r_sex-1)),
-                               ksp + (nspp * (k_sex-1)),
-                               r_age, k_age, yr] <- 0
-                }
+                # if(!is.finite(stom_div_bio[as.integer(rsp + (nspp * (r_sex-1))),
+                #                            as.integer(ksp + (nspp * (k_sex-1))),
+                #                            r_age, k_age, yr])) {
+                #   stom_div_bio[as.integer(rsp + (nspp * (r_sex-1))),
+                #                as.integer(ksp + (nspp * (k_sex-1))),
+                #                r_age, k_age, yr] <- 0
+                # }
 
                 if(wt[pop_wt_index[ksp], k_sex, k_age, yr_ind] != 0) {
-                  stom_div_bio[rsp + (nspp * (r_sex-1)),
-                               ksp + (nspp * (k_sex-1)),
-                               r_age, k_age, yr] <-
-                    stom_div_bio[rsp + (nspp * (r_sex-1)),
-                                 ksp + (nspp * (k_sex-1)),
-                                 r_age, k_age, yr] /
+                  stom_div_bio[rsp, r_sex, r_age, ksp, k_sex, k_age, yr] <-
+                    stom_div_bio[rsp, r_sex, r_age, ksp, k_sex, k_age, yr] /
                     wt[pop_wt_index[ksp], k_sex, k_age, yr_ind]
 
                   suma_suit[rsp, r_sex, r_age, yr] <-
                     suma_suit[rsp, r_sex, r_age, yr] +
-                    stom_div_bio[rsp + (nspp * (r_sex-1)),
-                                 ksp + (nspp * (k_sex-1)),
-                                 r_age, k_age, yr]
+                    stom_div_bio[rsp, r_sex, r_age, ksp, k_sex, k_age, yr]
                 }
               }
             }
@@ -1165,56 +1135,40 @@ calculate_MSVPA_suitability <- function(diet_prop, avgN_at_age, wt, pop_wt_index
 
               # Calculate average suitability
               for(yr in suit_styr:suit_endyr) {
-                if(suma_suit[rsp, r_sex, r_age, yr] +
-                   other_food_diet_prop[rsp, r_sex, r_age, yr] > 0) {
-                  suit_main[rsp + (nspp * (r_sex-1)),
-                            ksp + (nspp * (k_sex-1)),
-                            r_age, k_age, 1] <-
-                    suit_main[rsp + (nspp * (r_sex-1)),
-                              ksp + (nspp * (k_sex-1)),
-                              r_age, k_age, 1] +
-                    stom_div_bio[rsp + (nspp * (r_sex-1)),
-                                 ksp + (nspp * (k_sex-1)),
-                                 r_age, k_age, yr] /
-                    (suma_suit[rsp, r_sex, r_age, yr] +
-                       other_food_diet_prop[rsp, r_sex, r_age, yr])
-                }
+                # if(suma_suit[rsp, r_sex, r_age, yr] +
+                #    other_food_diet_prop[rsp, r_sex, r_age, yr] > 0) {
+                suit_main[rsp, r_sex, r_age, ksp, k_sex, k_age, 1] <-
+                  suit_main[rsp, r_sex, r_age, ksp, k_sex, k_age, 1] +
+                  stom_div_bio[rsp, r_sex, r_age, ksp, k_sex, k_age, yr] /
+                  (suma_suit[rsp, r_sex, r_age, yr] +
+                     other_food_diet_prop[rsp, r_sex, r_age, yr])
+                # }
               }
 
               # Average across years
-              suit_main[rsp + (nspp * (r_sex-1)),
-                        ksp + (nspp * (k_sex-1)),
-                        r_age, k_age, 1] <-
-                suit_main[rsp + (nspp * (r_sex-1)),
-                          ksp + (nspp * (k_sex-1)),
-                          r_age, k_age, 1] / nyrs_suit
+              suit_main[rsp, r_sex, r_age, ksp, k_sex, k_age, 1] <-
+                suit_main[rsp, r_sex, r_age, ksp, k_sex, k_age, 1] / nyrs_suit
 
-              # Handle non-finite values
-              if(!is.finite(suit_main[rsp + (nspp * (r_sex-1)),
-                                      ksp + (nspp * (k_sex-1)),
-                                      r_age, k_age, 1])) {
-                suit_main[rsp + (nspp * (r_sex-1)),
-                          ksp + (nspp * (k_sex-1)),
-                          r_age, k_age, 1] <- 0
-              }
+              # # Handle non-finite values
+              # if(!is.finite(suit_main[as.integer(rsp + (nspp * (r_sex-1))),
+              #                         as.integer(ksp + (nspp * (k_sex-1))),
+              #                         r_age, k_age, 1])) {
+              #   suit_main[as.integer(rsp + (nspp * (r_sex-1))),
+              #             as.integer(ksp + (nspp * (k_sex-1))),
+              #             r_age, k_age, 1] <- 0
+              # }
 
               # Fill in remaining years
               for(yr in 2:nyrs) {
-                suit_main[rsp + (nspp * (r_sex-1)),
-                          ksp + (nspp * (k_sex-1)),
-                          r_age, k_age, yr] <-
-                  suit_main[rsp + (nspp * (r_sex-1)),
-                            ksp + (nspp * (k_sex-1)),
-                            r_age, k_age, 1]
+                suit_main[rsp, r_sex, r_age, ksp, k_sex, k_age, yr] <-
+                  suit_main[rsp, r_sex, r_age, ksp, k_sex, k_age, 1]
               }
 
               # Calculate other suitability
               for(yr in 1:nyrs) {
                 suit_other[rsp, r_sex, r_age, yr] <-
-                  suit_other[rsp, r_sex, r_age, yr] +
-                  suit_main[rsp + (nspp * (r_sex-1)),
-                            ksp + (nspp * (k_sex-1)),
-                            r_age, k_age, yr]
+                  suit_other[rsp, r_sex, r_age, yr] -
+                  suit_main[rsp, r_sex, r_age, ksp, k_sex, k_age, yr]
               }
             }
           }
@@ -1252,7 +1206,7 @@ calculate_MSVPA_suitability <- function(diet_prop, avgN_at_age, wt, pop_wt_index
 #'
 #' @return List containing:
 #' \itemize{
-#'   \item suit_main: Array [pred_sp*sex, prey_sp*sex, pred_age, prey_age, year] of suitability values
+#'   \item suit_main: Array [pred_sp, pred_sex, pred_age, prey_sp, prey_sex, prey_age, year] of suitability values
 #'   \item suit_other: Array [pred_sp, pred_sex, pred_age, year] of other food suitability
 #' }
 #'
@@ -1270,8 +1224,8 @@ calculate_gamma_suitability <- function(nspp, nages, nsex, nyrs, nyrs_hind,
   "[<-" <- ADoverload("[<-") # https://groups.google.com/g/tmb-users/c/HlPqkfcCa1g
 
   # Initialize arrays
-  suit_main <- array(0, dim = c(nspp * max_nsex, nspp * max_nsex,
-                                max_nages, max_nages, nyrs))
+  suit_main <- array(0, dim = c(nspp, max_nsex, max_nages,
+                                nspp, max_nsex, max_nages, nyrs))
   suit_other <- array(0, dim = c(nspp, max_nsex, max_nages, nyrs))
 
   # Loop through all dimensions
@@ -1305,11 +1259,9 @@ calculate_gamma_suitability <- function(nspp, nages, nsex, nyrs, nyrs_hind,
                 }
 
                 if(log_size_ratio[yr] > 0) {
-                  pred_idx <- rsp + (nspp * (r_sex - 1))
-                  prey_idx <- ksp + (nspp * (k_sex - 1))
 
                   # https:#github.com/vtrijoulet/Multisp_model_JAE/blob/master/MS_SSM.cpp
-                  suit_main[pred_idx, prey_idx, r_age, k_age, yr] <-
+                  suit_main[rsp, r_sex, r_age, ksp, k_sex, k_age, yr] <-
                     vulnerability[rsp, ksp] *
                     dgamma(log_size_ratio[yr], gam_a[rsp], gam_b[rsp]) /
                     dgamma((gam_a[rsp]-1) * gam_b[rsp], gam_a[rsp], gam_b[rsp])
@@ -1368,8 +1320,8 @@ calculate_lognormal_suitability <- function(nspp, nages, nsex, nyrs, nyrs_hind,
   "[<-" <- ADoverload("[<-") # https://groups.google.com/g/tmb-users/c/HlPqkfcCa1g
 
   # Initialize arrays
-  suit_main <- array(0, dim = c(nspp * max_nsex, nspp * max_nsex,
-                                max_nages, max_nages, nyrs))
+  suit_main <- array(0, dim = c(nspp, max_nsex, max_nages,
+                                nspp, max_nsex, max_nages, nyrs))
   suit_other <- array(0, dim = c(nspp, max_nsex, max_nages, nyrs))
 
   # Loop through all dimensions
@@ -1404,10 +1356,8 @@ calculate_lognormal_suitability <- function(nspp, nages, nsex, nyrs, nyrs_hind,
 
                 if(log_size_ratio[yr] > 0) {
                   # Calculate suitability
-                  pred_idx <- rsp + (nspp * (r_sex - 1))
-                  prey_idx <- ksp + (nspp * (k_sex - 1))
 
-                  suit_main[pred_idx, prey_idx, r_age, k_age, yr] <-
+                  suit_main[rsp, r_sex, r_age, ksp, k_sex, k_age, yr] <-
                     vulnerability[rsp, ksp] *
                     dnorm(log_size_ratio[yr_ind], gam_a[rsp], gam_b[rsp]) /
                     dnorm(gam_a[rsp], gam_a[rsp], gam_b[rsp]) # Divide by mode to scale to 1
@@ -1469,10 +1419,11 @@ calculate_predation <- function(nspp, nsex, nages, nyrs, nyrs_hind,
   # Initialize arrays
   avail_food <- array(0, dim=c(nspp, max_nsex, max_nages, nyrs))
   M2_at_age <- array(0, dim=c(nspp, max_nsex, max_nages, nyrs))
+  M2_prop <- array(0, dim=c(nspp, max_nsex, max_nages, nspp, max_nsex, max_nages, nyrs))
   B_eaten_as_prey <- array(0, dim=c(nspp, max_nsex, max_nages, nyrs))
-  B_eaten <- array(0, dim=c(nspp * max_nsex, nspp * max_nsex, max_nages, max_nages, nyrs))
-  diet_prop_hat <- array(0, dim=c(nspp * max_nsex, nspp * max_nsex, max_nages, max_nages, nyrs))
-  avg_diet_prop_hat <- array(0, dim=c(nspp * max_nsex, nspp * max_nsex, max_nages, max_nages))
+  B_eaten <- array(0, dim=c(nspp, max_nsex, max_nages, nspp, max_nsex, max_nages, nyrs))
+  diet_prop_hat <- array(0, dim=c(nspp, max_nsex, max_nages, nspp, max_nsex, max_nages, nyrs))
+  avg_diet_prop_hat <- array(0, dim=c(nspp, max_nsex, max_nages, nspp, max_nsex, max_nages))
 
   # Calculate available food
   for(rsp in 1:nspp) {
@@ -1484,16 +1435,10 @@ calculate_predation <- function(nspp, nsex, nages, nyrs, nyrs_hind,
           if (yr > nyrs_hind) yr_ind = nyrs_hind
 
           # Sum across prey species
-          for(ksp in 1:nspp) {
-            for(k_sex in 1:nsex[ksp]) {
-              for(k_age in 1:nages[ksp]) {
-                avail_food[rsp, r_sex, r_age, yr] <- avail_food[rsp, r_sex, r_age, yr] +
-                  suit_main[rsp + (nspp * (r_sex - 1)), ksp + (nspp * (k_sex - 1)), r_age, k_age, yr] *
-                  avgN_at_age[ksp, k_sex, k_age, yr]^msmMode *
-                  wt[pop_wt_index[ksp], k_sex, k_age, yr_ind]
-              }
-            }
-          }
+          avail_food[rsp, r_sex, r_age, yr] <- sum(avail_food[rsp, r_sex, r_age, yr] +
+                                                     suit_main[rsp, r_sex, r_age, , , , yr] *
+                                                     avgN_at_age[, , , yr]^msmMode *
+                                                     wt[pop_wt_index, , , yr_ind])
 
           # Add other food
           avail_food[rsp, r_sex, r_age, yr] <- avail_food[rsp, r_sex, r_age, yr] +
@@ -1507,61 +1452,54 @@ calculate_predation <- function(nspp, nsex, nages, nyrs, nyrs_hind,
   for(ksp in 1:nspp) {
     for(k_sex in 1:nsex[ksp]) {
       for(k_age in 1:nages[ksp]) {
-        for(rsp in 1:nspp) {
-          for(r_sex in 1:nsex[rsp]) {
-            for(r_age in 1:nages[rsp]) {
-              for(yr in 1:nyrs) {
+        for(yr in 1:nyrs) {
 
-                yr_ind <- yr
-                if (yr > nyrs_hind) yr_ind = nyrs_hind
+          yr_ind <- yr
+          if (yr > nyrs_hind) yr_ind = nyrs_hind
 
-                if(avail_food[rsp, r_sex, r_age, yr] > 0) {
+          if(msmMode == 1) { # Type 2 MSVPA
 
-                  if(msmMode == 1) { # Type 2 MSVPA
+            # Calculate predation mortality proportion
+            M2_prop[, , , ksp, k_sex, k_age, yr] <-
+              (avgN_at_age[, , , yr] *
+                 ration[, , , yr] *
+                 suit_main[, , , ksp, k_sex, k_age, yr]) /
+              avail_food[, , , yr]
 
-                    # Calculate predation mortality proportion
-                    M2_prop[rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr] <-
-                      (avgN_at_age[rsp, r_sex, r_age, yr] *
-                         ration[rsp, r_sex, r_age, yr] *
-                         suit_main[rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr]) /
-                      avail_food[rsp, r_sex, r_age, yr]
+            # Calculate predation mortality
+            M2_at_age[ksp, k_sex, k_age, yr] <- sum(
+              M2_prop[, , , ksp, k_sex, k_age, yr]
+            )
 
-                    # Calculate predation mortality
-                    M2_at_age[ksp, k_sex, k_age, yr] <- M2_at_age[ksp, k_sex, k_age, yr] +
-                      M2_prop[rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr]
+            # Calculate biomass eaten by predator-prey combination
+            B_eaten[, , , ksp, k_sex, k_age, yr] <-
+              avgN_at_age[ksp, k_sex, k_age, yr] *
+              wt[pop_wt_index[ksp], k_sex, k_age, yr_ind] *
+              M2_prop[, , , ksp, k_sex, k_age, yr]
 
-                    # Calculate biomass eaten by predator-prey combination
-                    B_eaten[rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr] <-
-                      avgN_at_age[ksp, k_sex, k_age, yr] *
-                      wt[pop_wt_index[ksp], k_sex, k_age, yr] *
-                      M2_prop[rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr]
+            # Calculate biomass eaten as prey
+            B_eaten_as_prey[ksp, k_sex, k_age, yr] <- sum(
+              B_eaten[, , , ksp, k_sex, k_age, yr]
+            )
 
-                    # Calculate biomass eaten as prey
-                    B_eaten_as_prey[ksp, k_sex, k_age, yr] <-
-                      B_eaten_as_prey[ksp, k_sex, k_age, yr] +
-                      B_eaten[rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr]
+            # Calculate diet proportion
+            diet_prop_hat[, , , ksp, k_sex, k_age, yr] <-
+              avgN_at_age[ksp, k_sex, k_age, yr] *
+              wt[pop_wt_index[ksp], k_sex, k_age, yr_ind] *
+              suit_main[, , , ksp, k_sex, k_age, yr] /
+              avail_food[, , , yr]
 
-                    # Calculate diet proportion
-                    diet_prop_hat[rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr] <-
-                      avgN_at_age[ksp, k_sex, k_age, yr] *
-                      wt[pop_wt_index[ksp], k_sex, k_age, yr] *
-                      suit_main[rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr] /
-                      avail_food[rsp, r_sex, r_age, yr]
+          }
+          if(msmMode == 2) { # Type 3 MSVPA
+            # TODO
+          }
 
-                  }
-                  if(msmMode == 2) { # Type 3 MSVPA
-                    # TODO
-                  }
-                }
-              }
 
-              # Calculate average diet proportion
-              if(yr <= nyrs_hind) {
-                avg_diet_prop_hat[rsp + (nspp * (r_sex - 1)), ksp + (nspp * (k_sex - 1)), r_age, k_age] <-
-                  avg_diet_prop_hat[rsp + (nspp * (r_sex - 1)), ksp + (nspp * (k_sex - 1)), r_age, k_age] +
-                  diet_prop_hat[rsp + (nspp * (r_sex - 1)), ksp + (nspp * (k_sex - 1)), r_age, k_age, yr] / nyrs_hind
-              }
-            }
+          # Calculate average diet proportion
+          if(yr <= nyrs_hind) {
+            avg_diet_prop_hat[, , , ksp, k_sex, k_age] <-
+              avg_diet_prop_hat[, , , ksp, k_sex, k_age] +
+              diet_prop_hat[, , , ksp, k_sex, k_age, yr] / nyrs_hind
           }
         }
       }
@@ -2422,8 +2360,8 @@ calculate_comp_nll <- function(comp_obs, comp_hat, comp_ctl, comp_n, nages, nlen
                    # Martin's
                    jnll_comp[3, flt] <- jnll_comp[3, flt] -
                      (comp_weights[flt] * comp_n[comp_ind, 2] *
-                     (comp_obs[comp_ind, ln] + 0.00001) *
-                     log((comp_hat[comp_ind, ln] + 0.00001) / (comp_obs[comp_ind, ln] + 0.00001)))
+                        (comp_obs[comp_ind, ln] + 0.00001) *
+                        log((comp_hat[comp_ind, ln] + 0.00001) / (comp_obs[comp_ind, ln] + 0.00001)))
                    # comp_nll[comp_ind, ln] <- comp_weights[flt] * comp_n[comp_ind, 2] *
                    #   (comp_obs[comp_ind, ln] + 0.00001) *
                    #   log((comp_hat[comp_ind, ln] + 0.00001) / (comp_obs[comp_ind, ln] + 0.00001))
@@ -2434,13 +2372,13 @@ calculate_comp_nll <- function(comp_obs, comp_hat, comp_ctl, comp_n, nages, nlen
                # case 0 (now case 2) -- Full multinomial
                {
                  jnll_comp[3, flt] <- jnll_comp[3, flt] -
-                 comp_weights[flt] * dmultinom(comp_obs_tmp, prob = comp_hat_tmp, log = TRUE)
+                   comp_weights[flt] * dmultinom(comp_obs_tmp, prob = comp_hat_tmp, log = TRUE)
                },
 
                # case 1 (now case 3) -- Dirichlet-multinomial
                {
                  jnll_comp[3, flt] <- jnll_comp[3, flt] -
-                 ddirmultinom(comp_obs_tmp, alphas, log = TRUE)
+                   ddirmultinom(comp_obs_tmp, alphas, log = TRUE)
                },
 
                # default
@@ -2915,8 +2853,8 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
   nyrs = projyr - styr + 1
   nyrs_hind = endyr - styr + 1
 
-  suit_endyr = suit_endyr - styr
-  suit_styr = suit_styr - styr
+  suit_endyr = suit_endyr - styr + 1
+  suit_styr = suit_styr - styr + 1
   nyrs_suit = suit_endyr - suit_styr + 1
   nyrs_srrmean = srr_meanyr - styr + 1
 
@@ -3043,8 +2981,8 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
   #
   # # -- 4.10. Suitability components
   # avail_food <- array(0, dim = c(nspp, max_nsex, max_nages, nyrs))                     # Available food to predator
-  # stom_div_bio <- array(0, dim = c(nspp * max_nsex, nspp * max_nsex, max_nages, max_nages, nyrs)) # Stomach proportion over biomass; U/ (W * N)
-  # suit_main <- array(0, dim = c(nspp * max_nsex, nspp * max_nsex, max_nages, max_nages, nyrs))  # Suitability/gamma selectivity of predator age u on prey age a
+  # stom_div_bio <- array(0, dim = c(nspp, max_nsex, max_nages, nspp, max_nsex, max_nages, nyrs)) # Stomach proportion over biomass; U/ (W * N)
+  # suit_main <- array(0, dim = c(nspp, max_nsex, max_nages, nspp, max_nsex, max_nages, nyrs))  # Suitability/gamma selectivity of predator age u on prey age a
   # suit_other <- array(0, dim = c(nspp, max_nsex, max_nages, nyrs))                     # Suitability not accounted for by the included prey
   # suma_suit <- array(0, dim = c(nspp, max_nsex, max_nages, nyrs))                      # Sum of suitabilities
   # r_sexes <- matrix(0, nrow = nrow(stom_prop_obs), ncol = 2)
@@ -3884,6 +3822,7 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
         stop("Invalid 'avgnMode'")
       }
     )
+    avgN_at_age[is.nan(avgN_at_age)] <- 0 # Divide by 0 for ages not represented
 
 
     # ------------------------------------------------------------------------- #
@@ -3914,13 +3853,13 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
       # 8.1.1. Holsman and MSVPA based suitability # FIXME - not flexible for interannual variation
       if (suitMode == 0) {
         suit_list <- calculate_MSVPA_suitability(diet_prop, avgN_at_age, wt, pop_wt_index,
-                                                 other_food_diet_prop, nspp, nsex, nages, nyrs,
+                                                 other_food_diet_prop, nspp, nsex, max_nsex, nages, max_nages, nyrs,
                                                  nyrs_hind, suit_styr, suit_endyr, nyrs_suit,
                                                  msmMode)
       }
 
       # 8.1.2. GAMMA suitability
-      if(suitMode %in% c(0,1)){
+      if(suitMode %in% c(1,2)){
         suit_list <- calculate_gamma_suitability(nspp, nages, nsex, nyrs, nyrs_hind,
                                                  max_nages, max_nsex,
                                                  laa, wt, pop_wt_index, vulnerability,
@@ -3928,7 +3867,7 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
       }
 
       # 8.1.3. Lognormal suitability
-      if(suitMode %in% c(0,1)){
+      if(suitMode %in% c(3,4)){
         suit_list <- calculate_lognormal_suitability(nspp, nages, nsex, nyrs, nyrs_hind,
                                                      max_nages, max_nsex,
                                                      laa, wt, pop_wt_index, vulnerability,
@@ -4108,7 +4047,7 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
 
   # * 14.3. COMPOSITION DATA ----
   jnll_comp <- calculate_comp_nll(comp_obs, comp_hat, comp_ctl, comp_n, nages, nlengths,
-                                 DM_pars, flt_type, comp_ll_type, comp_weights, jnll_comp, endyr)
+                                  DM_pars, flt_type, comp_ll_type, comp_weights, jnll_comp, endyr)
 
   # * 14.5. SELECTIVITY ----
   jnll_comp <- calculate_selectivity_nll(n_flt, flt_spp, flt_type, flt_sel_type, flt_varying_sel,
@@ -4147,5 +4086,5 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
   return(jnll)
 }
 
-# source("~/Documents/GitHub/Rceattle/R/dev/rtmb dev.R", echo=TRUE)
+source("~/Documents/GitHub/Rceattle/R/dev/rtmb dev.R", echo=TRUE)
 

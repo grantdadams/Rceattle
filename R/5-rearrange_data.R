@@ -193,7 +193,7 @@ rearrange_dat <- function(data_list){
     stop("Check SSB weight index, not in weight file")
   }
 
-  wt <- array(0, dim = c(length(unique_wt), 2, max(data_list$nages, na.rm = T), length(data_list$styr:data_list$endyr)))
+  wt <- array(0, dim = c(length(unique_wt), max(data_list$nsex, na.rm = T), max(data_list$nages, na.rm = T), length(data_list$styr:data_list$endyr)))
 
   for (i in 1:nrow(data_list$wt)) {
 
@@ -209,7 +209,12 @@ rearrange_dat <- function(data_list){
         yr = 1:length(data_list$styr:data_list$endyr)
       }
 
-      if(sex == 0){ sex = c(1, 2)}
+      if(sex == 0 & data_list$nsex[sp] == 2){
+        sex = c(1, 2)
+      }
+      if(sex == 0 & data_list$nsex[sp] == 1){
+        sex = 1
+      }
       for(j in 1:length(sex)){
         if(sum(grepl("[[:space:]]", as.character(data_list$wt[i, (1:data_list$nages[sp]) + 5])))){
           stop(paste("Space found in wt data: row", i))
