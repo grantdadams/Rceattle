@@ -7,7 +7,7 @@
 rearrange_dat <- function(data_list){
   '%!in%' <- function(x,y)!('%in%'(x,y))
 
-  # Step 1 - remove non-integer objects from control
+  # Step 1 - remove non-integer objects from control ----
   data_list$index_ln_q_prior <- log(data_list$fleet_control$Q_prior)
 
   data_list$fleet_control <- data_list$fleet_control %>%
@@ -47,40 +47,28 @@ rearrange_dat <- function(data_list){
                   Age_first_selected = ifelse(is.na(Age_first_selected), data_list$minage[Species], Age_first_selected)
     )
 
-  # Step 2 -  Seperate survey biomass info from observation
+  # Step 2 -  Seperate survey biomass info from observation ----
   data_list$index_ctl <- data_list$index_data[,c("Fleet_code", "Species", "Year")]
   data_list$index_n <- as.matrix(data_list$index_data[,c("Month")])
   data_list$index_obs <- data_list$index_data[,c("Observation", "Log_sd")]
 
-  # Step 3 -  Seperate catch biomass info from observation
+  # Step 3 -  Seperate catch biomass info from observation ----
   data_list$catch_ctl <- data_list$catch_data[,c("Fleet_code", "Species", "Year")]
   data_list$catch_n <- as.matrix(data_list$catch_data[,c("Month")])
   data_list$catch_obs <- data_list$catch_data[,c("Catch", "Log_sd")]
 
-  # Step 4 -  Seperate survey comp info from observation
+  # Step 4 -  Seperate comp data from observation ----
   data_list$comp_ctl <- data_list$comp_data[,c("Fleet_code", "Species", "Sex", "Age0_Length1", "Year")]
   data_list$comp_n <- data_list$comp_data[,c("Month", "Sample_size")]
   data_list$comp_obs <- data_list$comp_data[,grep("Comp_", colnames(data_list$comp_data))]
 
-  if(sum(rowSums(data_list$comp_obs, na.rm = TRUE) %in% 0) > 0){stop("Some rows of composition data sum to 0: please remove or set all to 1 and sample size to 0")}
+  data_list <- check_composition_data(data_list)
 
-  # - NA to 0 if in obs
-  joint_adjust <- ifelse(data_list$nsex[data_list$comp_data$Species] == 2 & data_list$comp_data$Sex == 0, 2, 1)
-  col_adjust <- ifelse(data_list$comp_data$Age0_Length1 == 0,
-                       data_list$nages[data_list$comp_data$Species],
-                       data_list$nlengths[data_list$comp_data$Species])
-  col_adjust <- col_adjust * joint_adjust
-  na_check <- apply(cbind(col_adjust, data_list$comp_obs), 1, function(x) sum(x[2:(x[1] + 1)]))
-  if(is.na(sum(na_check))){
-    warning(paste0("Composition data have NAs in row ", paste(which(is.na(na_check)), collapse = ", "), ". Converting to 0s"))
-  }
-  data_list$comp_obs[is.na(data_list$comp_obs)] <- 0
-
-  # Step 5 -  Seperate uobs info from observation
+  # Step 5 -  Seperate diet info from observation ----
   data_list$stom_prop_ctl <- data_list$stom_prop_data[,c("Pred", "Prey", "Pred_sex", "Prey_sex", "Pred_age", "Prey_age", "Year")]
   data_list$stom_prop_obs <- data_list$stom_prop_data[,c("Sample_size", "Stomach_proportion_by_weight")]
 
-  # Step 6 -  Seperate survey empirical selectivity info from observation
+  # Step 6 -  Seperate survey empirical selectivity info from observation ----
   yrs <- data_list$styr:data_list$endyr
   if(nrow(data_list$emp_sel) > 0 ){
     for(i in 1:nrow(data_list$emp_sel)){
@@ -179,40 +167,42 @@ rearrange_dat <- function(data_list){
       Sex = as.numeric(as.character(Sex)),
       Year = as.numeric(as.character(Year)) - data_list$styr + 1)
 
+  # Pre-allocate the array
   unique_wt <- unique(as.numeric(data_list$wt$Wt_index))
-  if(sum(data_list$pop_wt_index %!in% unique_wt) > 0){
-    stop("Check population weight index, not in weight file")
+  wt <- array(0, dim = c(length(unique_wt), 2, max(data_list$nages, na.rm = TRUE), length(data_list$styr:data_list$endyr)))
+
+  # Convert weight data to numeric once, outside the loop
+  weight_matrix <- as.matrix(data_list$wt[, (1:max(data_list$nages, na.rm = TRUE)) + 5])
+  weight_matrix <- apply(weight_matrix, 2, function(x) as.numeric(as.character(x)))
+
+  # Check for spaces in the weight data
+  if (any(grepl("[[:space:]]", weight_matrix))) {
+    stop("Space found in wt data")
   }
 
-  if(sum(data_list$ssb_wt_index %!in% unique_wt) > 0){
-    stop("Check SSB weight index, not in weight file")
-  }
-
-  wt <- array(0, dim = c(length(unique_wt), 2, max(data_list$nages, na.rm = T), length(data_list$styr:data_list$endyr)))
-
-  for (i in 1:nrow(data_list$wt)) {
-
+  # Main processing
+  for (i in seq_len(nrow(data_list$wt))) {
     wt_ind <- data_list$wt$Wt_index[i]
     sp <- data_list$wt$Species[i]
     sex <- data_list$wt$Sex[i]
     yr <- data_list$wt$Year[i]
 
-    if(yr <= data_list$endyr - data_list$styr + 1){
-
-      # If year == 0, set weight to all years
-      if(yr == (-data_list$styr + 1)){
-        yr = 1:length(data_list$styr:data_list$endyr)
+    # Check if the year is within the valid range
+    if (yr <= data_list$endyr - data_list$styr + 1) {
+      # Handle year == 0 case
+      if (yr == 0) {
+        yr <- seq_len(length(data_list$styr:data_list$endyr))
       }
 
-      if(sex == 0){ sex = c(1, 2)}
-      for(j in 1:length(sex)){
-        if(sum(grepl("[[:space:]]", as.character(data_list$wt[i, (1:data_list$nages[sp]) + 5])))){
-          stop(paste("Space found in wt data: row", i))
-        }
-        wt[wt_ind, sex[j], 1:data_list$nages[sp], yr] <- as.numeric(as.character(data_list$wt[i, (1:data_list$nages[sp]) + 5]))
-      }
+      # Handle sex == 0 case for 2-sex species
+      sex_values <- if (sex == 0) 1:data_list$nsex[sp] else sex
+
+      # Assign weights to the array
+      wt[wt_ind, sex_values, 1:data_list$nages[sp], yr] <- rep(weight_matrix[i, 1:data_list$nages[sp]], each = length(sex_values))
     }
   }
+
+  # Update the data_list with the new weight array
   data_list$wt <- wt
 
 
@@ -288,13 +278,13 @@ rearrange_dat <- function(data_list){
   data_list$Pyrs <- Pyrs
 
 
-  # Step 15 - Remove species column from alw, pmature, sex_ratio
+  # Step 15 - Remove species column from alw, pmature, sex_ratio ----
   data_list$sex_ratio <- data_list$sex_ratio[,-1]
   data_list$pmature <- data_list$pmature[,-1]
   data_list$aLW <- data_list$aLW[,-1]
 
 
-  # Step 16 - Make data.frames into matrices
+  # Step 16 - Make data.frames into matrices ----
   df_to_mat <- which(sapply(data_list, function(x) class(x)[1]) == "data.frame")
   data_list[df_to_mat] <- lapply(data_list[df_to_mat], as.matrix)
 
@@ -305,3 +295,66 @@ rearrange_dat <- function(data_list){
 
   return(data_list)
 }
+
+
+
+#' Check and Clean Composition Data
+#'
+#' This function checks the composition data for zero sum rows, handles NA values,
+#' and verifies that the composition data spans the required range of ages/lengths.
+#'
+#' @param data_list A list containing the following components:
+#'   - comp_obs: A matrix or data frame of composition observations.
+#'   - comp_data: A data frame with metadata including species, sex, and age/length information.
+#'   - nsex: A vector of sex counts by species.
+#'   - nages: A vector of age counts by species.
+#'   - nlengths: A vector of length counts by species.
+#'
+#' @return The modified `data_list` with NA values in `comp_obs` converted to 0.
+#' @throws An error if any rows of `comp_obs` sum to 0 or if the composition data does not span the range of ages/lengths.
+#' @examples
+#' # Example usage:
+#' data_list <- list(
+#'   comp_obs = matrix(c(1, 2, 3, 0, 4, 5), nrow = 2),
+#'   comp_data = data.frame(Species = c(1, 2), Sex = c(1, 3), Age0_Length1 = c(0, 1)),
+#'   nsex = c(1, 2),
+#'   nages = c(5, 6),
+#'   nlengths = c(10, 12)
+#' )
+#' cleaned_data_list <- check_composition_data(data_list)
+#'
+#' @export
+check_composition_data <- function(data_list) {
+  # Check for zero sum rows in composition data
+  if (any(rowSums(data_list$comp_obs, na.rm = TRUE) == 0)) {
+    stop("Some rows of composition data sum to 0: please remove or set all to 1 and sample size to 0")
+  }
+
+  # Calculate adjustments for sex and age/length
+  joint_adjust <- ifelse(data_list$nsex[data_list$comp_data$Species] == 2 &
+                           data_list$comp_data$Sex == 3, 2, 1)
+
+  col_adjust <- ifelse(data_list$comp_data$Age0_Length1 == 0,
+                       data_list$nages[data_list$comp_data$Species],
+                       data_list$nlengths[data_list$comp_data$Species])
+
+  col_adjust <- col_adjust * joint_adjust
+
+  # Check for NAs in composition data and convert them to 0
+  na_check <- apply(cbind(col_adjust, data_list$comp_obs), 1, function(x) sum(x[2:(x[1] + 1)]))
+
+  if (any(is.na(na_check))) {
+    na_rows <- which(is.na(na_check))
+    warning(sprintf("Composition data have NAs in row(s): %s. Converting to 0s.",
+                    paste(na_rows, collapse = ", ")))
+    data_list$comp_obs[is.na(data_list$comp_obs)] <- 0
+  }
+
+  # Verify composition data size
+  if (ncol(data_list$comp_obs) < max(col_adjust)) {
+    stop("Comp data does not span range of ages/lengths")
+  }
+
+  return(data_list)
+}
+
