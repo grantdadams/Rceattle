@@ -61,7 +61,7 @@ plot_stock_recruit <-
     rec_pars <-
       array(NA, dim = c(nspp, 3, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
-      ssb_array[,1:nyrshind[i],i] <- Rceattle[[i]]$quantities$biomassSSB[,1:nyrshind[i]]/1000000
+      ssb_array[,1:nyrshind[i],i] <- Rceattle[[i]]$quantities$ssb[,1:nyrshind[i]]/1000000
       rec_array[,1:nyrshind[i],i] <- Rceattle[[i]]$quantities$R[,1:nyrshind[i]]/1000000
       rec_pars[,,i] <- Rceattle[[i]]$estimated_params$rec_pars
     }

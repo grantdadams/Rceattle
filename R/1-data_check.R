@@ -37,6 +37,32 @@ data_check <- function(data_list) {
     stop("Weight data does not to the end year")
   }
 
+
+  # Wt data
+  data_list$wt <- data_list$wt %>%
+    mutate(
+      Wt_index = as.numeric(as.character(Wt_index)),
+      Species = as.numeric(as.character(Species)),
+      Sex = as.numeric(as.character(Sex)),
+      Year = as.numeric(as.character(Year)) - data_list$styr + 1)
+
+  unique_wt <- unique(as.numeric(data_list$wt$Wt_index))
+
+  # - Data checks ----
+  if(any(data_list$pop_wt_index %!in% unique_wt)){
+    stop("Check population weight index, not in weight file")
+  }
+
+  if(any(data_list$ssb_wt_index %!in% unique_wt)){
+    stop("Check SSB weight index, not in weight file")
+  }
+
+  if(any(data_list$wt %>%
+         dplyr::select(-c(Wt_name, Wt_index, Species, Sex, Year)) %>%
+         ncol() < data_list$nages)){
+    stop("Weight data does not span range of ages")
+  }
+
   # # Age matrix
   #
   # if(ncol(data_list$NByageFixed) != max(data_list$nages, na.rm = T)+4){
