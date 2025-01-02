@@ -2298,7 +2298,7 @@ Type objective_function<Type>::operator() () {
               }
             }
             if(other_food(rsp) > 0){
-              other_food_diet_prop(rsp, r_sex, r_age, yr) /= other_food(rsp); // Penalize this
+              other_food_diet_prop(rsp, r_sex, r_age, yr) /= other_food(rsp);
             }
             if(other_food(rsp) == 0){
               other_food_diet_prop(rsp, r_sex, r_age, yr) = 0.0;

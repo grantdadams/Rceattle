@@ -806,6 +806,9 @@ calculate_ration <- function(nspp, nyrs, max_nsex, max_nages, nyrs_hind, Ceq, Qc
                              CK1, CK4, CA, CB, fday, env_index, Cindex,
                              wt, pop_wt_index, Pvalue, Pyrs, nsex, nages) {
 
+  # Unsure what is tripping the function
+  "[<-" <- ADoverload("[<-") # https://groups.google.com/g/tmb-users/c/HlPqkfcCa1g
+
   # Initialize outputs
   fT <- matrix(0, nrow = nspp, ncol = nyrs)
   consumption_at_age <- array(0, dim = c(nspp, max_nsex, max_nages, nyrs))
@@ -921,28 +924,31 @@ calculate_ration <- function(nspp, nyrs, max_nsex, max_nages, nyrs_hind, Ceq, Qc
 reorganize_stomach_content <- function(stom_prop_obs, stom_prop_ctl, minage, nspp,
                                        nyrs, nsex, nages, max_nsex, max_nages, nyrs_hind, styr) {
 
+  # Unsure what is tripping the function
+  "[<-" <- ADoverload("[<-") # https://groups.google.com/g/tmb-users/c/HlPqkfcCa1g
+
   # Initialize outputs
   n_obs <- nrow(stom_prop_obs)
-  r_sexes <- matrix(1, nrow=n_obs, ncol=2)
-  k_sexes <- matrix(1, nrow=n_obs, ncol=2)
+  r_sexes <- matrix(as.integer(1), nrow=n_obs, ncol=2)
+  k_sexes <- matrix(as.integer(1), nrow=n_obs, ncol=2)
 
   # Correct dimensions for diet_prop
   diet_prop <- array(0, dim=c(nspp, max_nsex, max_nages, nspp, max_nsex, max_nages, nyrs))
 
   # Precompute indices for predator and prey
-  rsp <- stom_prop_ctl[, 1]      # Index of predator
-  ksp <- stom_prop_ctl[, 2]      # Index of prey
-  r_sex <- stom_prop_ctl[, 3]    # Index of predator sex
-  k_sex <- stom_prop_ctl[, 4]    # Index of prey sex
-  r_age <- stom_prop_ctl[, 5] - minage[rsp] + 1  # Index of predator age
-  k_age <- stom_prop_ctl[, 6] - minage[ksp] + 1 # Index of prey age
-  flt_yr <- stom_prop_ctl[, 7]   # Index of year
+  rsp <- as.integer(stom_prop_ctl[, 1])      # Index of predator
+  ksp <- as.integer(stom_prop_ctl[, 2])      # Index of prey
+  r_sex <- as.integer(stom_prop_ctl[, 3])    # Index of predator sex
+  k_sex <- as.integer(stom_prop_ctl[, 4])    # Index of prey sex
+  r_age <- as.integer(stom_prop_ctl[, 5] - minage[rsp] + 1)  # Index of predator age
+  k_age <- as.integer(stom_prop_ctl[, 6] - minage[ksp] + 1)  # Index of prey age
+  flt_yr <- as.integer(stom_prop_ctl[, 7])   # Index of year
 
   # Set predator and prey sex indices for joint sex data
   # - Sex = 0 by nsex = 2
   if(max_nsex > 2){
-    r_sexes[, ] <- cbind(ifelse(r_sex > 0, r_sex, 1), ifelse(r_sex > 0, r_sex, 2))
-    k_sexes[, ] <- cbind(ifelse(k_sex > 0, k_sex, 1), ifelse(k_sex > 0, k_sex, 2))
+    r_sexes[, ] <- cbind(ifelse(r_sex > 0, r_sex, as.integer(1)), ifelse(r_sex > 0, r_sex, as.integer(2)))
+    k_sexes[, ] <- cbind(ifelse(k_sex > 0, k_sex, as.integer(1)), ifelse(k_sex > 0, k_sex, as.integer(2)))
   }
 
   # Process for each observation
@@ -957,14 +963,14 @@ reorganize_stomach_content <- function(stom_prop_obs, stom_prop_ctl, minage, nsp
     if(current_diet_yr > 0) { # Annual diet data
       yr <- current_diet_yr - styr + 1
       if(yr < nyrs_hind) {
-        diet_prop[current_rsp, r_sexes[stom_ind, 1], current_r_age,
-                  current_ksp, k_sexes[stom_ind, 1], current_k_age, yr] <- as.numeric(stom_prop_obs[stom_ind, 2])
+        diet_prop[current_rsp, as.integer(r_sexes[stom_ind, ]), current_r_age,
+                  current_ksp, as.integer(k_sexes[stom_ind, ]), current_k_age, yr] <- as.numeric(stom_prop_obs[stom_ind, 2])
       }
     }
 
     if(current_diet_yr == 0) { # Average diet data
-      diet_prop[current_rsp, r_sexes[stom_ind, 1], current_r_age,
-                current_ksp, k_sexes[stom_ind, 1], current_k_age, ] <- stom_prop_obs[stom_ind, 2]
+      diet_prop[current_rsp, as.integer(r_sexes[stom_ind, ]), current_r_age,
+                current_ksp, as.integer(k_sexes[stom_ind, ]), current_k_age, ] <- stom_prop_obs[stom_ind, 2]
     }
   }
 
@@ -1000,6 +1006,10 @@ reorganize_stomach_content <- function(stom_prop_obs, stom_prop_ctl, minage, nsp
 #' the proportion is penalized by dividing by the other food value.
 #'
 calculate_other_food_diet_prop <- function(nyrs, nspp, nsex, nages, max_nsex, max_nages, diet_prop, other_food) {
+
+  # Unsure what is tripping the function
+  "[<-" <- ADoverload("[<-") # https://groups.google.com/g/tmb-users/c/HlPqkfcCa1g
+
   # Initialize array for other food diet proportions
   other_food_diet_prop <- array(1, dim = c(nspp, max_nsex, max_nages, nyrs))
 
@@ -1088,16 +1098,16 @@ calculate_MSVPA_suitability <- function(diet_prop, avgN_at_age, wt, pop_wt_index
                 }
 
                 #if(avgN_at_age[ksp, k_sex, k_age, yr] > 0) {
-                  stom_div_bio[rsp, r_sex, r_age, ksp, k_sex, k_age, yr] <-
-                    diet_prop[rsp, r_sex, r_age, ksp, k_sex, k_age, yr] /
-                    avgN_at_age[ksp, k_sex, k_age, yr]
+                stom_div_bio[rsp, r_sex, r_age, ksp, k_sex, k_age, yr] <-
+                  diet_prop[rsp, r_sex, r_age, ksp, k_sex, k_age, yr] /
+                  avgN_at_age[ksp, k_sex, k_age, yr]
 
-                  if(msmMode == 2) {
-                    stom_div_bio[rsp, r_sex, r_age, ksp, k_sex, k_age, yr] <-
-                      stom_div_bio[rsp, r_sex, r_age, ksp, k_sex, k_age, yr] /
-                      avgN_at_age[ksp, k_sex, k_age, yr]
-                  }
-               # }
+                if(msmMode == 2) {
+                  stom_div_bio[rsp, r_sex, r_age, ksp, k_sex, k_age, yr] <-
+                    stom_div_bio[rsp, r_sex, r_age, ksp, k_sex, k_age, yr] /
+                    avgN_at_age[ksp, k_sex, k_age, yr]
+                }
+                # }
 
                 # Handle non-finite values
                 # if(!is.finite(stom_div_bio[as.integer(rsp + (nspp * (r_sex-1))),
@@ -1435,14 +1445,13 @@ calculate_predation <- function(nspp, nsex, nages, nyrs, nyrs_hind,
           if (yr > nyrs_hind) yr_ind = nyrs_hind
 
           # Sum across prey species
-          avail_food[rsp, r_sex, r_age, yr] <- sum(avail_food[rsp, r_sex, r_age, yr] +
-                                                     suit_main[rsp, r_sex, r_age, , , , yr] *
+          avail_food[rsp, r_sex, r_age, yr] <- sum(suit_main[rsp, r_sex, r_age, , , , yr] *
                                                      avgN_at_age[, , , yr]^msmMode *
                                                      wt[pop_wt_index, , , yr_ind])
 
           # Add other food
           avail_food[rsp, r_sex, r_age, yr] <- avail_food[rsp, r_sex, r_age, yr] +
-            other_food[rsp] * (1.0 - suit_other[rsp, r_sex, r_age, yr])
+            other_food[rsp] * suit_other[rsp, r_sex, r_age, yr]
         }
       }
     }
@@ -1468,7 +1477,7 @@ calculate_predation <- function(nspp, nsex, nages, nyrs, nyrs_hind,
 
             # Calculate predation mortality
             M2_at_age[ksp, k_sex, k_age, yr] <- sum(
-              M2_prop[, , , ksp, k_sex, k_age, yr]
+              M2_prop[, , , ksp, k_sex, k_age, yr], na.rm = TRUE
             )
 
             # Calculate biomass eaten by predator-prey combination
@@ -3303,6 +3312,8 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
   #   }
   # }
 
+  #TEST
+  # sum(sel[,1,,] != mod_objects$quantities$sel[,1,,])
 
   # ------------------------------------------------------------------------- #
   # 6. POPULATION DYNAMICS EQUATIONS -----
@@ -3328,6 +3339,11 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
         }
       }
     }
+
+    #TEST
+    # sum(M1_at_age[,1,] - mod_objects$quantities$M1_at_age[,1,], na.rm = TRUE)
+    # sum(M_at_age[,1,,] - mod_objects$quantities$M_at_age[,1,,], na.rm = TRUE)
+    # sum(F_results$F_spp_age[,1,,] - mod_objects$quantities$F_spp_age[,1,,], na.rm = TRUE)
 
     # * 6.3. SPR BASED REFERENCE POINTS -----
     spr_results <- calculate_spr_reference_points(nspp, nages, max_nages, nyrs, nyrs_hind,
@@ -3822,7 +3838,12 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
         stop("Invalid 'avgnMode'")
       }
     )
-    avgN_at_age[is.nan(avgN_at_age)] <- 0 # Divide by 0 for ages not represented
+    #FIXME -- doesnt work
+    # avgN_at_age[is.nan(avgN_at_age)] <- 0 # Divide by 0 for ages not represented
+
+    #TEST
+    # sum(N_at_age[1,1,,1:39] - mod_objects$quantities$N_at_age[1,1,,1:39])
+    # sum(avgN_at_age[,1,,] - mod_objects$quantities$avgN_at_age[,1,,])
 
 
     # ------------------------------------------------------------------------- #
@@ -3832,10 +3853,16 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
     ration <- calculate_ration(nspp, nyrs, max_nsex, max_nages, nyrs_hind, Ceq, Qc, Tcm, Tco, Tcl,
                                CK1, CK4, CA, CB, fday, env_index, Cindex,
                                wt, pop_wt_index, Pvalue, Pyrs, nsex, nages)
+    #TEST
+    #sum(ration[1,1,,1:39] - mod_objects$quantities$ration[1,1,,1:39])
 
     # * 7.2. Reorganize stomach content ----
     diet_prop <- reorganize_stomach_content(stom_prop_obs, stom_prop_ctl, minage, nspp,
                                             nyrs, nsex, nages, max_nsex, max_nages, nyrs_hind, styr)
+
+
+    #TEST
+    #sum(diet_prop[1,1,,1,1,,1:39] - mod_objects$quantities$diet_prop[1,1,,,1:39])
 
     # * 7.3. Calculate other food stomach content ----
     other_food_diet_prop <- calculate_other_food_diet_prop(nyrs, nspp, nsex, nages, max_nsex, max_nages,
@@ -3856,6 +3883,11 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
                                                  other_food_diet_prop, nspp, nsex, max_nsex, nages, max_nages, nyrs,
                                                  nyrs_hind, suit_styr, suit_endyr, nyrs_suit,
                                                  msmMode)
+
+        #TEST
+        #sum(suit_list$suit_main[1,1,,1,1,,1:39] - mod_objects$quantities$suit_main[1,1,,,1:39])
+        #TEST
+        #sum(suit_list$suit_other[,1,,] - mod_objects$quantities$suit_other[,1,,])
       }
 
       # 8.1.2. GAMMA suitability
@@ -3888,6 +3920,10 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
 
         # Update M2 array
         M2_at_age <- predation_results$M2_at_age
+
+
+        #TEST
+        #sum(M2_at_age[,1,,] - mod_objects$quantities$M2_at_age[,1,,])
       }
     } # Predation loop
   } # Population dynamics loop (niter)
@@ -3944,6 +3980,9 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
   # * 9.4. Calculate analytical sigma following Ludwig and Walters 1994 ----
   ln_index_analytical_sd <- calculate_analytical_sd(index_ctl, index_obs, index_hat, n_flt, nyrs_hind, styr)
 
+  #TEST
+  #sum(abs(index_hat - mod_objects$quantities$index_hat))
+
 
   # ------------------------------------------------------------------------- #
   # 10. FISHERY EQUATIONS  ----
@@ -3953,6 +3992,9 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
   catch_hat <- estimate_catch(catch_ctl, catch_n, F_results$F_flt_age, Z_at_age, N_at_age,
                               wt, sel, flt_wt_index, proj_F_prop, flt_units,
                               nsex, nages, styr, nyrs_hind)
+
+  #TEST
+  #sum(abs(catch_hat - mod_objects$quantities$catch_hat))
 
   # * 10.2 Exploitable biomass ----
   exploitable_biomass <- calculate_exploitable_biomass(n_flt, flt_spp, flt_type, nyrs, nyrs_hind,
@@ -3966,6 +4008,9 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
                             sel, index_q, age_error, age_trans_matrix,
                             flt_type, nages, nlengths, nsex, styr,
                             nyrs_hind, flt_age_transition_index)
+
+  #TEST
+  #sum(abs(comp_hat - mod_objects$quantities$comp_hat))
 
   # ------------------------------------------------------------------------- #
   # 12. ESTIMATED DIET ----
@@ -4049,6 +4094,11 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
   jnll_comp <- calculate_comp_nll(comp_obs, comp_hat, comp_ctl, comp_n, nages, nlengths,
                                   DM_pars, flt_type, comp_ll_type, comp_weights, jnll_comp, endyr)
 
+  # #TEST
+  # comp_obs - mod_objects$quantities$comp_obs
+  # mod_objects$quantities$jnll_comp
+  # sum(abs(comp_hat - mod_objects$quantities$comp_hat))
+
   # * 14.5. SELECTIVITY ----
   jnll_comp <- calculate_selectivity_nll(n_flt, flt_spp, flt_type, flt_sel_type, flt_varying_sel,
                                          non_par_sel, sel_curve_pen, avg_sel, sel_inf_dev,
@@ -4073,6 +4123,9 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
 
   jnll = sum(jnll_comp)
 
+  #TEST
+  #round(jnll_comp - mod_objects$quantities$jnll_comp,4)
+
   # ------------------------------------------------------------------------- #
   # 15. REPORT SECTION ----
   # ------------------------------------------------------------------------- #
@@ -4083,8 +4136,12 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
   RTMB::REPORT(comp_hat)
   RTMB::REPORT(jnll)
 
+  RTMB::ADREPORT(ssb)
+  RTMB::ADREPORT(biomass)
+  RTMB::ADREPORT(R)
+
   return(jnll)
 }
 
-source("~/Documents/GitHub/Rceattle/R/dev/rtmb dev.R", echo=TRUE)
+# source("~/Documents/GitHub/Rceattle/R/dev/rtmb dev.R", echo=TRUE)
 
