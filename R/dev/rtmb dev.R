@@ -1,14 +1,15 @@
 library(Rceattle)
 data("BS2017SS")
-BS2017SS$fleet_control$Comp_loglike <- -1
+load("~/Documents/GitHub/ms 1 iter.RData")
+mod_objects$data_list$fleet_control$Comp_loglike <- -1
 
 
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # Debugging section ----
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-data_list = BS2017SS;
-inits = NULL;
-map = NULL;
+data_list = mod_objects$data_list;
+inits = mod_objects$estimated_params;
+map = mod_objects$map;
 bounds = NULL;
 file = NULL;
 estimateMode = 0;
@@ -39,128 +40,129 @@ M1Fun = build_M1()
 projection_uncertainty = TRUE
 catch_hcr = FALSE
 
-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-# STEP 0 - Start ----
-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-start_time <- Sys.time()
-
-compiler::enableJIT(0)
-extend_length <- function(x){
-  if(length(x) == data_list$nspp){ return(x)}
-  else {return(rep(x, data_list$nspp))}
-}
-
-setwd(getwd())
-
-
-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-# STEP 1 - Load data ----
-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-if (is.null(data_list)) {
-  stop("Missing data_list object")
-}
-
-data_list <- Rceattle::clean_data(data_list)
-
-# Add switches from function call
-data_list$random_rec <- as.numeric(random_rec)
-data_list$estimateMode <- estimateMode
-data_list$niter <- niter
-data_list$avgnMode <- avgnMode
-data_list$initMode <- initMode
-data_list$loopnum <- loopnum
-data_list$msmMode <- msmMode
-data_list$suitMode <- as.numeric(suitMode)
-
-# - Suitability
-# -- Start year
-if(is.null(suit_styr) & is.null(data_list$suit_styr)){ # If not provided in data or function, use start year
-  data_list$suit_styr <- data_list$styr
-}
-if(!is.null(suit_styr)){ # If provided in function, override data
-  data_list$suit_styr <- suit_styr
-}
-
-# -- End year
-if(is.null(suit_endyr) & is.null(data_list$suit_endyr)){ # If not provided in data or function, use end year
-  data_list$suit_endyr <- data_list$endyr
-}
-if(!is.null(suit_endyr)){ # If provided in function, override data
-  data_list$suit_endyr <- suit_endyr
-}
-
-
-# * Recruitment switches ----
-data_list$srr_fun <- recFun$srr_fun
-data_list$srr_pred_fun <- recFun$srr_pred_fun
-data_list$proj_mean_rec <- recFun$proj_mean_rec
-if(is.null(recFun$srr_meanyr) & is.null(data_list$srr_meanyr)){ # If no meanyear is provided in data or function, use end year
-  data_list$srr_meanyr <- data_list$endyr
-}
-if(!is.null(recFun$srr_meanyr)){ # If mean year is provided in function, override data
-  data_list$srr_meanyr <- recFun$srr_meanyr
-}
-
-# -- Start year
-if(is.null(recFun$srr_hat_styr) & is.null(data_list$srr_hat_styr)){ # If not provided in data or function, use start year
-  data_list$srr_hat_styr <- data_list$styr
-}
-if(!is.null(recFun$srr_hat_styr)){ # If provided in function, override data
-  data_list$srr_hat_styr <- recFun$srr_hat_styr
-}
-
-# -- End year
-if(is.null(recFun$srr_hat_endyr) & is.null(data_list$srr_hat_endyr)){ # If not provided in data or function, use end year
-  data_list$srr_hat_endyr <- data_list$endyr
-}
-if(!is.null(recFun$srr_hat_endyr)){ # If provided in function, override data
-  data_list$srr_hat_endyr <- recFun$srr_hat_endyr
-}
-
-data_list$srr_est_mode <- recFun$srr_est_mode
-data_list$srr_prior <- extend_length(recFun$srr_prior)
-data_list$srr_prior_sd <- extend_length(recFun$srr_prior_sd)
-data_list$srr_env_indices <- recFun$srr_env_indices
-data_list$Bmsy_lim <- extend_length(recFun$Bmsy_lim)
-
-# * M1 switches ----
-if(!is.null(data_list$M1_model)){
-  if(sum(data_list$M1_model != extend_length(M1Fun$M1_model))){
-    warning("M1_model in data is different than in call `fit_mod`")
-  }
-}
-
-# FIXME: may want to pull from data here too
-data_list$M1_model= extend_length(M1Fun$M1_model)
-updateM1 = M1Fun$updateM1
-data_list$M1_use_prior = extend_length(M1Fun$M1_use_prior) * (data_list$M1_model > 0) # Sets to 0 if M1 is fixed
-data_list$M2_use_prior = extend_length(M1Fun$M2_use_prior) * (msmMode > 0) # Sets to 0 if single-species
-data_list$M_prior = extend_length(M1Fun$M_prior)
-data_list$M_prior_sd = extend_length(M1Fun$M_prior_sd)
-
-
-# - HCR Switches (make length of nspp if not)
-data_list$HCR = HCR$HCR
-data_list$DynamicHCR = HCR$DynamicHCR
-if(HCR$HCR != 2){ # FsprTarget is also used for fixed F (so may be of length nflts)
-  data_list$FsprTarget = extend_length(HCR$FsprTarget)
-} else {
-  data_list$FsprTarget = HCR$FsprTarget
-}
-data_list$FsprLimit = extend_length(HCR$FsprLimit)
-data_list$Ptarget = extend_length(HCR$Ptarget)
-data_list$Plimit = extend_length(HCR$Plimit)
-data_list$Alpha = extend_length(HCR$Alpha)
-data_list$Pstar = extend_length(HCR$Pstar)
-data_list$Sigma = extend_length(HCR$Sigma)
-data_list$Fmult = extend_length(HCR$Fmult)
-data_list$HCRorder = extend_length(HCR$HCRorder)
-data_list$QnormHCR = qnorm(data_list$Pstar, 0, data_list$Sigma)
-
-if(data_list$HCR == 2 & estimateMode == 2){estimateMode = 4} # If projecting under constant F, run parmeters through obj only
-if(data_list$msmMode > 0 & !data_list$HCR %in% c(0, 1, 2, 3, 6)){
-  warning("WARNING:: Only HCRs 1, 2, 3, and 6 work in multi-species mode currently")
-}
+# #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# # STEP 0 - Start ----
+# #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# start_time <- Sys.time()
+#
+# compiler::enableJIT(0)
+# extend_length <- function(x){
+#   if(length(x) == data_list$nspp){ return(x)}
+#   else {return(rep(x, data_list$nspp))}
+# }
+#
+# setwd(getwd())
+#
+#
+# #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# # STEP 1 - Load data ----
+# #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# if (is.null(data_list)) {
+#   stop("Missing data_list object")
+# }
+#
+# data_list <- Rceattle::clean_data(data_list)
+#
+# # Add switches from function call
+# data_list$random_rec <- as.numeric(random_rec)
+# data_list$estimateMode <- estimateMode
+# data_list$niter <- niter
+# data_list$avgnMode <- avgnMode
+# data_list$initMode <- initMode
+# data_list$loopnum <- loopnum
+# data_list$msmMode <- msmMode
+# data_list$suitMode <- as.numeric(suitMode)
+#
+# # - Suitability
+# # -- Start year
+# if(is.null(suit_styr) & is.null(data_list$suit_styr)){ # If not provided in data or function, use start year
+#   data_list$suit_styr <- data_list$styr
+# }
+# if(!is.null(suit_styr)){ # If provided in function, override data
+#   data_list$suit_styr <- suit_styr
+# }
+#
+# # -- End year
+# if(is.null(suit_endyr) & is.null(data_list$suit_endyr)){ # If not provided in data or function, use end year
+#   data_list$suit_endyr <- data_list$endyr
+# }
+# if(!is.null(suit_endyr)){ # If provided in function, override data
+#   data_list$suit_endyr <- suit_endyr
+# }
+#
+#
+# # * Recruitment switches ----
+# data_list$srr_fun <- recFun$srr_fun
+# data_list$srr_pred_fun <- recFun$srr_pred_fun
+# data_list$proj_mean_rec <- recFun$proj_mean_rec
+# if(is.null(recFun$srr_meanyr) & is.null(data_list$srr_meanyr)){ # If no meanyear is provided in data or function, use end year
+#   data_list$srr_meanyr <- data_list$endyr
+# }
+# if(!is.null(recFun$srr_meanyr)){ # If mean year is provided in function, override data
+#   data_list$srr_meanyr <- recFun$srr_meanyr
+# }
+#
+# # -- Start year
+# if(is.null(recFun$srr_hat_styr) & is.null(data_list$srr_hat_styr)){ # If not provided in data or function, use start year
+#   data_list$srr_hat_styr <- data_list$styr
+# }
+# if(!is.null(recFun$srr_hat_styr)){ # If provided in function, override data
+#   data_list$srr_hat_styr <- recFun$srr_hat_styr
+# }
+#
+# # -- End year
+# if(is.null(recFun$srr_hat_endyr) & is.null(data_list$srr_hat_endyr)){ # If not provided in data or function, use end year
+#   data_list$srr_hat_endyr <- data_list$endyr
+# }
+# if(!is.null(recFun$srr_hat_endyr)){ # If provided in function, override data
+#   data_list$srr_hat_endyr <- recFun$srr_hat_endyr
+# }
+#
+# data_list$srr_est_mode <- recFun$srr_est_mode
+# data_list$srr_prior <- extend_length(recFun$srr_prior)
+# data_list$srr_prior_sd <- extend_length(recFun$srr_prior_sd)
+# data_list$srr_env_indices <- recFun$srr_env_indices
+# data_list$Bmsy_lim <- extend_length(recFun$Bmsy_lim)
+#
+# # * M1 switches ----
+# if(!is.null(data_list$M1_model)){
+#   if(sum(data_list$M1_model != extend_length(M1Fun$M1_model))){
+#     warning("M1_model in data is different than in call `fit_mod`")
+#   }
+# }
+#
+# # FIXME: may want to pull from data here too
+# data_list$M1_model= extend_length(M1Fun$M1_model)
+# updateM1 = M1Fun$updateM1
+updateM1 = FALSE
+# data_list$M1_use_prior = extend_length(M1Fun$M1_use_prior) * (data_list$M1_model > 0) # Sets to 0 if M1 is fixed
+# data_list$M2_use_prior = extend_length(M1Fun$M2_use_prior) * (msmMode > 0) # Sets to 0 if single-species
+# data_list$M_prior = extend_length(M1Fun$M_prior)
+# data_list$M_prior_sd = extend_length(M1Fun$M_prior_sd)
+#
+#
+# # - HCR Switches (make length of nspp if not)
+# data_list$HCR = HCR$HCR
+# data_list$DynamicHCR = HCR$DynamicHCR
+# if(HCR$HCR != 2){ # FsprTarget is also used for fixed F (so may be of length nflts)
+#   data_list$FsprTarget = extend_length(HCR$FsprTarget)
+# } else {
+#   data_list$FsprTarget = HCR$FsprTarget
+# }
+# data_list$FsprLimit = extend_length(HCR$FsprLimit)
+# data_list$Ptarget = extend_length(HCR$Ptarget)
+# data_list$Plimit = extend_length(HCR$Plimit)
+# data_list$Alpha = extend_length(HCR$Alpha)
+# data_list$Pstar = extend_length(HCR$Pstar)
+# data_list$Sigma = extend_length(HCR$Sigma)
+# data_list$Fmult = extend_length(HCR$Fmult)
+# data_list$HCRorder = extend_length(HCR$HCRorder)
+# data_list$QnormHCR = qnorm(data_list$Pstar, 0, data_list$Sigma)
+#
+# if(data_list$HCR == 2 & estimateMode == 2){estimateMode = 4} # If projecting under constant F, run parmeters through obj only
+# if(data_list$msmMode > 0 & !data_list$HCR %in% c(0, 1, 2, 3, 6)){
+#   warning("WARNING:: Only HCRs 1, 2, 3, and 6 work in multi-species mode currently")
+# }
 
 
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#

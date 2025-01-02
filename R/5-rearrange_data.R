@@ -9,9 +9,9 @@ rearrange_dat <- function(data_list){
 
 
   # Step 0 - Max functions on data ----
-  data_list$max_bin <- max(data_list$nlengths) # Integer of maximum number of length/age bins.
-  data_list$max_nsex <- max(data_list$nsex)
-  data_list$max_nages <- max(data_list$nages)
+  data_list$max_bin <- as.integer(max(data_list$nlengths)) # Integer of maximum number of length/age bins.
+  data_list$max_nsex <- as.integer(max(data_list$nsex))
+  data_list$max_nages <- as.integer(max(data_list$nages))
 
   # Step 1 - remove non-integer objects from control ----
 
@@ -55,24 +55,24 @@ rearrange_dat <- function(data_list){
     )
 
   # Step 2 -  Seperate survey biomass info from observation ----
-  data_list$index_ctl <- data_list$index_data[,c("Fleet_code", "Species", "Year")]
+  data_list$index_ctl <- apply(data_list$index_data[,c("Fleet_code", "Species", "Year")], 2, as.integer)
   data_list$index_n <- as.matrix(data_list$index_data[,c("Month")])
   data_list$index_obs <- data_list$index_data[,c("Observation", "Log_sd")]
 
   # Step 3 -  Seperate catch biomass info from observation ----
-  data_list$catch_ctl <- data_list$catch_data[,c("Fleet_code", "Species", "Year")]
+  data_list$catch_ctl <- apply(data_list$catch_data[,c("Fleet_code", "Species", "Year")], 2, as.integer)
   data_list$catch_n <- as.matrix(data_list$catch_data[,c("Month")])
   data_list$catch_obs <- data_list$catch_data[,c("Catch", "Log_sd")]
 
   # Step 4 -  Seperate comp data from observation ----
-  data_list$comp_ctl <- data_list$comp_data[,c("Fleet_code", "Species", "Sex", "Age0_Length1", "Year")]
+  data_list$comp_ctl <- apply(data_list$comp_data[,c("Fleet_code", "Species", "Sex", "Age0_Length1", "Year")], 2, as.integer)
   data_list$comp_n <- data_list$comp_data[,c("Month", "Sample_size")]
   data_list$comp_obs <- data_list$comp_data[,grep("Comp_", colnames(data_list$comp_data))]
 
   data_list <- check_composition_data(data_list)
 
   # Step 5 -  Seperate uobs info from observation ----
-  data_list$stom_prop_ctl <- as.matrix(data_list$stom_prop_data[,c("Pred", "Prey", "Pred_sex", "Prey_sex", "Pred_age", "Prey_age", "Year")])
+  data_list$stom_prop_ctl <- apply(data_list$stom_prop_data[,c("Pred", "Prey", "Pred_sex", "Prey_sex", "Pred_age", "Prey_age", "Year")], 2, as.integer)
   data_list$stom_prop_obs <- as.matrix(data_list$stom_prop_data[,c("Sample_size", "Stomach_proportion_by_weight")])
 
   # Step 6 -  Seperate survey empirical selectivity info from observation ----
@@ -100,7 +100,7 @@ rearrange_dat <- function(data_list){
     }
   }
 
-  data_list$emp_sel_ctl <- as.matrix(data_list$emp_sel[,c("Fleet_code", "Species", "Sex", "Year")])
+  data_list$emp_sel_ctl <- sapply(data_list$emp_sel[,c("Fleet_code", "Species", "Sex", "Year")], as.integer)
   data_list$emp_sel_obs <- matrix(as.numeric(unlist(data_list$emp_sel[,grep("Comp_", colnames(data_list$emp_sel))])), nrow = nrow(data_list$emp_sel_ctl))
 
 
@@ -176,7 +176,7 @@ rearrange_dat <- function(data_list){
 
   # Pre-allocate the array
   unique_wt <- unique(as.numeric(data_list$wt$Wt_index))
-  wt <- array(0, dim = c(length(unique_wt), 2, max(data_list$nages, na.rm = TRUE), length(data_list$styr:data_list$endyr)))
+  wt <- array(0, dim = c(length(unique_wt), max(data_list$nsex), max(data_list$nages, na.rm = TRUE), length(data_list$styr:data_list$endyr)))
 
   # Convert weight data to numeric once, outside the loop
   weight_matrix <- as.matrix(data_list$wt[, (1:max(data_list$nages, na.rm = TRUE)) + 5])
