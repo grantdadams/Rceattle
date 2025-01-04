@@ -72,10 +72,10 @@ plot_timeseries <- function(Rceattle,
                             mod_cex = 1,
                             lty = rep(1, length(Rceattle)),
                             alpha = 0.4,
-                            mod_avg = rep(FALSE, length(Rceattle)),
                             mse = FALSE,
                             OM = TRUE,
-                            reference = NULL) {
+                            reference = NULL,
+                            mod_avg = rep(FALSE, length(Rceattle))) {
 
   ## Model object manipulation ----
   # Convert mse object to Rceattle list
@@ -97,9 +97,25 @@ plot_timeseries <- function(Rceattle,
     Rceattle <- list(Rceattle)
   }
 
-  # Add reference model
+
+  ## Line color ----
+  lwd <- rep(lwd, length(Rceattle))
+  if (is.null(line_col)) {
+    if(!mse){
+      line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
+    }
+    if(mse){
+      line_col <- 1
+    }
+  }
+
+  ## Add reference model
   if(!is.null(reference)){
     Rceattle <- c(Rceattle, list(reference))
+    mod_avg = c(mod_avg, FALSE)
+    lty = c(lty, 1)
+    line_col <- c(line_col, 1)
+    lwd <- c(lwd, lwd[1] * 1.5)
   }
 
   # Species names
@@ -263,20 +279,6 @@ plot_timeseries <- function(Rceattle,
   ymax <- ymax * 1.2
 
 
-  ## Line color ----
-  if (is.null(line_col)) {
-    if(!mse){
-      line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
-    }
-    if(mse){
-      line_col <- 1
-    }
-  }
-  if(!is.null(reference)){
-    line_col <- c(line_col, 1)
-  }
-
-
   ## Plot trajectory ----
   loops <- ifelse(is.null(file), 1, 2)
   for (i in 1:loops) {
@@ -319,7 +321,7 @@ plot_timeseries <- function(Rceattle,
 
       # Horizontal line at end yr
       if(incl_proj){
-        abline(v = Rceattle[[length(Rceattle)]]$data_list$endyr, lwd  = lwd, col = "grey", lty = 2)
+        abline(v = Rceattle[[length(Rceattle)]]$data_list$endyr, lwd = lwd[1], col = "grey", lty = 2)
       }
 
       # Species name legend
@@ -335,7 +337,7 @@ plot_timeseries <- function(Rceattle,
             "topright",
             legend = model_names,
             lty = lty,
-            lwd = lwd,
+            lwd = lwd[1],
             col = line_col,
             bty = "n",
             cex = mod_cex
@@ -375,7 +377,7 @@ plot_timeseries <- function(Rceattle,
           x = years[[k]],
           y = quantity[spp[j], 1:length(years[[k]]), k],
           lty = lty[k],
-          lwd = lwd,
+          lwd = lwd[k],
           col = line_col[k]
         ) # Median
       }

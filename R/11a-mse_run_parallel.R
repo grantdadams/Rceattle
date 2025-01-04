@@ -28,7 +28,7 @@
 #'
 mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, regenerate_past = FALSE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, catch_mult = NULL, seed = 666, regenerate_seed = seed, loopnum = 1, file = NULL, dir = NULL, timeout = 999, endyr = NA){
 
-  # om = ss_run; em = ss_run_Tier3; nsim = 1; start_sim = 1; assessment_period = 1; sampling_period = 1; simulate_data = TRUE; regenerate_past = FALSE; sample_rec = TRUE; rec_trend = 0; fut_sample = 1; cap = NULL; catch_mult = NULL; seed = 666; regenerate_seed = seed; loopnum = 1; file = NULL; dir = NULL
+  # om = ss_run; em = ss_run_Tier3; nsim = 1; start_sim = 1; assessment_period = 1; sampling_period = 1; simulate_data = TRUE; regenerate_past = FALSE; sample_rec = TRUE; rec_trend = 0; fut_sample = 1; cap = NULL; catch_mult = NULL; seed = 666; regenerate_seed = seed; loopnum = 1; file = NULL; dir = NULL; endyr = NA; timeout = 999
 
   #--------------------------------------------------
   # MSE SPECIFICATIONS ----
@@ -83,8 +83,19 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   em_proj_yrs <- (em$data_list$endyr + 1) : em$data_list$projyr
   em_proj_nyrs <- length(em_proj_yrs)
   nflts = nrow(om$data_list$fleet_control)
-  nselages_om <- max(om$data_list$fleet_control$Nselages, na.rm = TRUE)
-  nselages_em <- max(em$data_list$fleet_control$Nselages, na.rm = TRUE)
+
+  # - N sel ages for sel coff dev
+  if(all(is.na(om$data_list$fleet_control$Nselages))){
+    nselages_om = dim(om$estimated_params$sel_coff_dev)[3]
+  } else {
+    nselages_om <- max(om$data_list$fleet_control$Nselages, na.rm = TRUE)
+  }
+
+  if(all(is.na(em$data_list$fleet_control$Nselages))){
+    nselages_em = dim(em$estimated_params$sel_coff_dev)[3]
+  } else {
+    nselages_em <- max(em$data_list$fleet_control$Nselages, na.rm = TRUE)
+  }
 
   # - Assessment period
   assess_yrs <- seq(from = om$data_list$endyr + assessment_period, to =  min(c(om$data_list$projyr, em$data_list$projyr, endyr), na.rm = TRUE),  by = assessment_period)
@@ -377,7 +388,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       # - Get projected catch data from EM
       new_catch_data <- em_use$data_list$catch_data
       dat_fill_ind <- which(new_catch_data$Year %in% new_years & is.na(new_catch_data$Catch))
-      new_catch_data$Catch[dat_fill_ind] <- em_use$quantities$fsh_bio_hat[dat_fill_ind]
+      new_catch_data$Catch[dat_fill_ind] <- em_use$quantities$catch_hat[dat_fill_ind]
 
       if(!is.null(catch_mult)){
         new_catch_data$Catch[dat_fill_ind] <- new_catch_data$Catch[dat_fill_ind] * catch_mult[new_catch_data$Species[dat_fill_ind]]
@@ -390,7 +401,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       # - If projected catch > exploitable biomass in OM, reduce to exploitable biomass
       exploitable_biomass_data <- om_use$data_list$catch_data
       dat_fill_ind_expl <- which(exploitable_biomass_data$Year %in% new_years)
-      exploitable_biomass_data$Catch[dat_fill_ind_expl] <- om_use$quantities$expl_bio_hat[dat_fill_ind_expl]
+      exploitable_biomass_data$Catch[dat_fill_ind_expl] <- om_use$quantities$exploitable_biomass[dat_fill_ind_expl]
 
       new_catch_data$Catch[dat_fill_ind] <- ifelse(new_catch_data$Catch[dat_fill_ind] > exploitable_biomass_data$Catch[dat_fill_ind_expl],
                                                    exploitable_biomass_data$Catch[dat_fill_ind_expl],
@@ -414,7 +425,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       om_use$estimated_params$F_dev <- cbind(om_use$estimated_params$F_dev, matrix(0, nrow= nrow(om_use$estimated_params$F_dev), ncol = length(new_years)))
 
       # -- Time-varing survey catachbilitiy - Assume last year - filled by columns
-      om_use$estimated_params$ln_srv_q_dev <- cbind(om_use$estimated_params$ln_srv_q_dev, matrix(om_use$estimated_params$ln_srv_q_dev[,ncol(om_use$estimated_params$ln_srv_q_dev)], nrow= nrow(om_use$estimated_params$ln_srv_q_dev), ncol = length(new_years)))
+      om_use$estimated_params$index_q_dev <- cbind(om_use$estimated_params$index_q_dev, matrix(om_use$estimated_params$index_q_dev[,ncol(om_use$estimated_params$index_q_dev)], nrow= nrow(om_use$estimated_params$index_q_dev), ncol = length(new_years)))
 
       # -- Time-varing selectivity - Assume last year - filled by columns
       ln_sel_slp_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
@@ -521,7 +532,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
                              M_prior = om_use$data_list$M_prior,
                              M_prior_sd = om_use$data_list$M_prior_sd), # Dont update M1 from data, fix at previous parameters
             loopnum = loopnum,
-            phase = NULL,
+            phase = FALSE,
             getsd = FALSE,
             verbose = 0)
           return(list(kill_sim = FALSE, failure = NA))
@@ -551,7 +562,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       # - Get realized catch data from OM
       new_catch_data <- om_use$data_list$catch_data
       dat_fill_ind <- which(new_catch_data$Year %in% new_years)
-      new_catch_data$Catch[dat_fill_ind] <- om_use$quantities$fsh_bio_hat[dat_fill_ind] # Catch from OM
+      new_catch_data$Catch[dat_fill_ind] <- om_use$quantities$catch_hat[dat_fill_ind] # Catch from OM
 
       # - Update catch data in OM and EM
       om_use$data_list$catch_data <- new_catch_data
@@ -562,7 +573,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       # 4. REFIT ESTIMATION MODEL AND HCR ----
       # ------------------------------------------------------------
       # - Simulate new survey and comp data
-      sim_dat <- sim_mod(om_use, simulate = simulate_data)
+      sim_dat <- Rceattle::sim_mod(om_use, simulate = simulate_data)
 
       years_include <- sample_yrs[which(sample_yrs$Year > em_use$data_list$endyr & sample_yrs$Year <= assess_yrs[k]),]
 
@@ -590,12 +601,12 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       em_use$estimated_params$F_dev <- cbind(em_use$estimated_params$F_dev, matrix(0, nrow= nrow(em_use$estimated_params$F_dev), ncol = length(new_years)))
 
       # -- Time-varying survey catachbilitiy - Assume last year - filled by columns
-      em_use$estimated_params$ln_srv_q_dev <- cbind(em_use$estimated_params$ln_srv_q_dev, matrix(em_use$estimated_params$ln_srv_q_dev[,ncol(em_use$estimated_params$ln_srv_q_dev)], nrow= nrow(em_use$estimated_params$ln_srv_q_dev), ncol = length(new_years)))
+      em_use$estimated_params$index_q_dev <- cbind(em_use$estimated_params$index_q_dev, matrix(em_use$estimated_params$index_q_dev[,ncol(em_use$estimated_params$index_q_dev)], nrow= nrow(em_use$estimated_params$index_q_dev), ncol = length(new_years)))
 
       # -- Time-varing selectivity - Assume last year - filled by columns
       ln_sel_slp_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
       sel_inf_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
-      sel_coff_dev = array(0, dim = c(nflts, 2, nselages_om, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for non-parameteric
+      sel_coff_dev = array(0, dim = c(nflts, 2, nselages_em, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for non-parameteric
 
       ln_sel_slp_dev[,,,1:nyrs_hind] <- em_use$estimated_params$ln_sel_slp_dev
       sel_inf_dev[,,,1:nyrs_hind] <- em_use$estimated_params$sel_inf_dev
@@ -658,7 +669,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
             suit_styr = em_use$data_list$suit_styr,
             suit_endyr = em_use$data_list$suit_endyr,
             initMode = em_use$data_list$initMode,
-            phase = NULL,
+            phase = FALSE,
             loopnum = loopnum,
             getsd = FALSE,
             verbose = 0)
@@ -722,7 +733,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
     sim_list$use_sim <- !kill_sim$kill_sim
     sim_list$failure = kill_sim$failure
     sim_list$OM <- om_use # OM
-    sim_list$OM_no_F <- Rceattle::remove_F(om_use) # OM with no Fishing
+    sim_list$OM_no_F <- remove_F(om_use) # OM with no Fishing
     if(!kill_sim$kill_sim){
       names(sim_list$EM) <- c("EM", paste0("OM_Sim_",sim,". EM_yr_", assess_yrs))
     }

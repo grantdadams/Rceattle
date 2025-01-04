@@ -64,40 +64,44 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE) {
     data_list$stom_prop_data <- data_list$stom_prop_data %>%
       dplyr::filter(Year <= data_list$endyr)
 
+
+    # * Rescale environmental predictors ----
     if(rescale){
       data_list$env_data[,2:ncol(data_list$env_data)]<-scale(data_list$env_data[,2:ncol(data_list$env_data)])
     }
 
 
-    # * Adjust initial parameters ----
+    # * Adjust parameter size ----
     inits <- Rceattle$estimated_params
-    map <- Rceattle$map
+
     inits$rec_dev[, (nyrs + 1):nyrs_proj] <- 0
 
-
-    # * Adjust parameter size ----
     inits$F_dev <- inits$F_dev[, 1:nyrs]
-    inits$ln_srv_q_dev <- inits$ln_srv_q_dev[,1:nyrs]
+    inits$index_q_dev <- inits$index_q_dev[,1:nyrs]
     inits$ln_sel_slp_dev <- inits$ln_sel_slp_dev[,,,1:nyrs]
     inits$sel_inf_dev <- inits$sel_inf_dev[,,,1:nyrs]
-    # inits$sel_coff_dev <- array(inits$sel_coff_dev[,,,1:nyrs], dim = c(dim(Rceattle$estimated_params$sel_coff_dev )[1:3], nyrs))
+    inits$sel_coff_dev <- array(inits$sel_coff_dev[,,,1:nyrs], dim = c(dim(Rceattle$estimated_params$sel_coff_dev )[1:3], nyrs))
 
     # * Adjust map size ----
+    map <- Rceattle$map
+
     map$mapList$rec_dev[, (nyrs + 1):nyrs_proj] <- NA
     map$mapFactor$rec_dev <- factor(map$mapList$rec_dev)
 
     map$mapList$F_dev <- map$mapList$F_dev[, 1:nyrs]
     map$mapFactor$F_dev <- factor(map$mapList$F_dev)
 
-    map$mapList$ln_srv_q_dev <- map$mapList$ln_srv_q_dev[,1:nyrs]
-    map$mapFactor$ln_srv_q_dev <- factor(map$mapList$ln_srv_q_dev)
+    map$mapList$index_q_dev <- map$mapList$index_q_dev[,1:nyrs]
+    map$mapFactor$index_q_dev <- factor(map$mapList$index_q_dev)
 
     map$mapList$ln_sel_slp_dev <- map$mapList$ln_sel_slp_dev[,,,1:nyrs]
     map$mapFactor$ln_sel_slp_dev <- factor(map$mapList$ln_sel_slp_dev)
 
     map$mapList$sel_inf_dev <- map$mapList$sel_inf_dev[,,,1:nyrs]
     map$mapFactor$sel_inf_dev <- factor(map$mapList$sel_inf_dev)
-    # map$mapList$sel_coff_dev <- array(map$mapList$sel_coff_dev[,,,1:nyrs], dim = c(dim(Rceattle$estimated_params$sel_coff_dev )[1:3], nyrs))
+
+    map$mapList$sel_coff_dev <- array(map$mapList$sel_coff_dev[,,,1:nyrs], dim = c(dim(Rceattle$estimated_params$sel_coff_dev )[1:3], nyrs))
+    map$mapFactor$sel_coff_dev <- factor(map$mapList$sel_coff_dev)
 
 
     # * Refit ----
@@ -105,7 +109,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE) {
       Rceattle::fit_mod(
         data_list = data_list,
         inits = inits,
-        map =  map,
+        map =  NULL,
         bounds = NULL,
         file = NULL,
         estimateMode = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode), # Run hindcast and projection, otherwise debug
@@ -146,11 +150,21 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE) {
         suit_styr = data_list$suit_styr,
         suit_endyr = min(data_list$suit_endyr, data_list$endyr),   # Update to end year if less than suit_endyr
         initMode = data_list$initMode,
-        phase = NULL,
+        phase = FALSE,
         loopnum = data_list$loopnum,
         getsd = TRUE,
         verbose = 0)
     )
+
+    # gc()
+    #
+    # map$mapFactor <- map$mapFactor[names(newmod$map$mapFactor)]
+    # check <- c()
+    # check_na <- c()
+    # for(j in 1:length(map$mapList)){
+    #   check[j] <- sum(map$mapFactor[[j]] != newmod$map$mapFactor[[j]], na.rm = TRUE)
+    #   check_na[j] <- sum(is.na(map$mapFactor[[j]]) != is.na(newmod$map$mapFactor[[j]]), na.rm = TRUE)
+    # }
 
     # Refit model If converged
     if (!is.null(newmod$opt$Convergence_check)) {
@@ -164,7 +178,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE) {
   #####################################
   # Calculate Mohs rho for each species
   #####################################
-  objects <- c("biomass", "SSB", "R", "F_spp")
+  objects <- c("biomass", "ssb", "R", "F_spp")
 
   mohns <- data.frame(matrix(0, nrow = length(objects) + 1, ncol = 1 + data_list$nspp))
   colnames(mohns) <- c("Object", paste0("Spp/Fsh_", 1:max(c(data_list$nspp, nrow(data_list$fsh_control)))))
