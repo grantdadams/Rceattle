@@ -416,7 +416,8 @@ fit_mod <-
     }
 
     # Dimension check
-    dim_check <- sapply(start_par, unlist(length)) == sapply(map$mapFactor, unlist(length))
+    start_par <- start_par[names(map$mapFactor)]
+    dim_check <- sapply(start_par, function(x) length(unlist(x))) == sapply(map$mapFactor, function(x) length(unlist(x)))
     if(sum(dim_check) != length(dim_check)){
       stop(print(paste0("Map and parameter objects are not the same size for: ", names(dim_check)[which(dim_check == FALSE)])))
     }
