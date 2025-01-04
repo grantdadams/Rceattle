@@ -187,7 +187,7 @@ fit_mod <-
     data_list$msmMode <- msmMode
     data_list$suitMode <- as.numeric(suitMode)
 
-    # - Suitability
+    # * Suitability switches ----
     # -- Start year
     if(is.null(suit_styr) & is.null(data_list$suit_styr)){ # If not provided in data or function, use start year
       data_list$suit_styr <- data_list$styr
@@ -238,7 +238,7 @@ fit_mod <-
     data_list$srr_env_indices <- recFun$srr_env_indices
     data_list$Bmsy_lim <- extend_length(recFun$Bmsy_lim)
 
-    # * M1 switches ----
+    # * M switches ----
     if(!is.null(data_list$M1_model)){
       if(sum(data_list$M1_model != extend_length(M1Fun$M1_model))){
         warning("M1_model in data is different than in call `fit_mod`")
@@ -254,7 +254,8 @@ fit_mod <-
     data_list$M_prior_sd = extend_length(M1Fun$M_prior_sd)
 
 
-    # - HCR Switches (make length of nspp if not)
+    # * HCR Switches ----
+    # - make length of nspp if not
     data_list$HCR = HCR$HCR
     data_list$DynamicHCR = HCR$DynamicHCR
     if(HCR$HCR != 2){ # FsprTarget is also used for fixed F (so may be of length nflts)
@@ -273,6 +274,7 @@ fit_mod <-
     data_list$QnormHCR = qnorm(data_list$Pstar, 0, data_list$Sigma)
 
     if(data_list$HCR == 2 & estimateMode == 2){estimateMode = 4} # If projecting under constant F, run parmeters through obj only
+
     if(data_list$msmMode > 0 & !data_list$HCR %in% c(0, 1, 2, 3, 6)){
       warning("WARNING:: Only HCRs 1, 2, 3, and 6 work in multi-species mode currently")
     }
@@ -295,12 +297,11 @@ fit_mod <-
 
     # Set Fdev for years with 0 catch to very low number
     catch_data_sub <- data_list$catch_data %>%
-      filter(Year <= data_list$endyr)
-    fsh_ind <- catch_data_sub$Fleet_code[which(catch_data_sub$Catch == 0)]
-    yr_ind <- catch_data_sub$Year[which(catch_data_sub$Catch == 0)] - data_list$styr + 1
-    for(i in 1:length(fsh_ind)){
-      start_par$F_dev[fsh_ind[i], yr_ind[i]] <- -999
-    }
+      dplyr::filter(Year <= data_list$endyr)
+    fsh_ind <- catch_data_sub$Fleet_code[which(catch_data_sub$Catch == 0)]               # Rows
+    yr_ind <- catch_data_sub$Year[which(catch_data_sub$Catch == 0)] - data_list$styr + 1 # Columns
+    start_par$F_dev[cbind(fsh_ind, yr_ind)] <- -999
+
     rm(catch_data_sub)
 
 
@@ -329,7 +330,7 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # STEP 5: Setup random effects ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # FIXME: this should be controled by fleet_control
+    # FIXME: this should be controlled by fleet_control
     random_vars <- c()
     if (random_rec) {
       if(initMode > 0){
@@ -404,7 +405,8 @@ fit_mod <-
     }
 
     # Dimension check
-    dim_check <- sapply(start_par, unlist(length)) == sapply(map$mapFactor, unlist(length))
+    start_par <- start_par[names(map$mapFactor)]
+    dim_check <- sapply(start_par, function(x) length(unlist(x))) == sapply(map$mapFactor, function(x) length(unlist(x)))
     if(sum(dim_check) != length(dim_check)){
       stop(print(paste0("Map and parameter objects are not the same size for: ", names(dim_check)[which(dim_check == FALSE)])))
     }

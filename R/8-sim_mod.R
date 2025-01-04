@@ -12,14 +12,14 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
 
 
   # Slot 0 -- BT survey biomass -- NFMS annual BT survey
-  srv_biom_lse = Rceattle$quantities$srv_log_sd_hat
+  ln_index_sd = Rceattle$quantities$ln_index_sd
 
   if (simulate) {
     # Simulate
-    values <- exp(rnorm(length(dat_sim$index_data$Observation), mean = log(Rceattle$quantities$srv_bio_hat) - (srv_biom_lse^2)/2, sd = srv_biom_lse))
+    values <- exp(rnorm(length(dat_sim$index_data$Observation), mean = log(Rceattle$quantities$index_hat) - (ln_index_sd^2)/2, sd = ln_index_sd))
   } else {
     # Estimated value
-    values <- Rceattle$quantities$srv_bio_hat
+    values <- Rceattle$quantities$index_hat
   }
   dat_sim$index_data$Observation = values
 
