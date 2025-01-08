@@ -382,7 +382,7 @@ Type objective_function<Type>::operator() () {
   //    0 = project recruitment using ln_R0 and rec devs
   //    1 = project recruitment using mean rec (can also have adjusted rec devs)
   DATA_INTEGER(srr_est_mode);             // Logical of wether to add normal prior to stock recruit-relationship
-  DATA_VECTOR(srr_prior);            // Prior mean for stock recruit relationship parameter
+  DATA_VECTOR(srr_prior);                 // Prior mean for stock recruit relationship parameter
   DATA_VECTOR(srr_prior_sd);              // Prior sd for stock recruit relationship parameter
   DATA_INTEGER( niter );                  // Number of loops for MSM mode
   DATA_VECTOR( Bmsy_lim );                // Upper limit for Bmsy in ricker function. Will add penalty if 1/beta > lim
@@ -401,15 +401,16 @@ Type objective_function<Type>::operator() () {
 
 
   // 1.6. MODEL OBJECTS
-  // 1.5.1. LOOPING INDICES -- k = observation, sp = species, sex = sex (0 = combines; 1 = females; 2 = males), age = age, ln = length, ksp = prey, k_age = prey age (yr), k_ln = prey length, yr = year, rsp = predator, r_age = predator age (yr), r_ln = predator length
+  // 1.5.1. LOOPING INDICES -- k = observation, sp = species, sex = sex (0 = combined; 1 = females; 2 = males)
+  // age = age, ln = length, ksp = prey, k_age = prey age (yr), k_ln = prey length, yr = year, rsp = predator, r_age = predator age (yr), r_ln = predator length
   int sp, sex, age, ln, ksp, k_sex, k_age, k_ln, yr, rsp, r_sex, r_age, r_ln; // k
   int index, flt;                                                         // Survey and fishery indices
   int flt_yr, flt_sex, comp_type;
   int flt_ind, fsh_ind, index_ind, comp_ind, yr_ind;                      // Indices for survey sets
   int sel_type, nselages;
   int ncnt;    // Pointers
-  Type mo = 0;                                                          // Month float
-  if (msmMode == 0) { niter = 1; }                                      // Number of iterations for SS mode
+  Type mo = 0;                                                            // Month float
+  if (msmMode == 0) { niter = 1; }                                        // Number of iterations for SS mode
 
 
   // ------------------------------------------------------------------------- //
