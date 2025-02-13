@@ -3,7 +3,26 @@ template <class Type>
 array<Type> pred_LAA(matrix<Type> mLAA_jan1, int n_yrs, int n_years_model, vector<Type> expSD,
                      array<Type> GW_par, vector<Type> lengths, vector<Type> fracyr_vec, int growth_model, Type age_L1){
 
-  // --------------------------------------------------------------------------
+  // ------------------------------------------------------------------------- //
+  // 1. PARAMETER SECTION                                                      //
+  // ------------------------------------------------------------------------- //
+
+  PARAMETER_MATRIX(ln_mean_Linf);   // Mean asymptotic length [Sp, sex]
+  PARAMETER_MATRIX(ln_mean_K);      // Mean growth coefficient [Sp, sex]
+  PARAMETER_MATRIX(ln_mean_L1);     // Mean length at reference age-a [Sp, sex]
+
+  PARAMETER_ARRAY(Linf_dev);        // Time-varying deviate of asymptotic length [Sp, sex, year]
+  PARAMETER_ARRAY(K_dev);           // Time-varying deviate of growth coefficient [Sp, sex, year]
+  PARAMETER_ARRAY(L1_dev);          // Time-varying deviate of mean length at reference age-a [Sp, sex, year]
+
+  PARAMETER_VECTOR(Linf_dev_ln_sd); // Log standard deviation of time varying deviate of asymptotic length [Sp, sex, year]
+  PARAMETER_VECTOR(K_dev_ln_sd);    // Log standard deviation of time varying deviate of growth coefficient [Sp, sex, year]
+  PARAMETER_VECTOR(L1_dev_ln_sd);   // Log standard deviation of time varying deviate of mean length at reference age-a [Sp, sex, year]
+
+
+  // ------------------------------------------------------------------------- //
+  // 2. CALCULATE MEAN GROWTH AT TIME-STEP 0 (i.e. Jan 1)                      //
+  // ------------------------------------------------------------------------- //
   // Calculate mean-LAA, SDAA, and transition matrix, for all years:
   // lengths is vector with lengths mm (2, 4, 6, 8, etc)
   Type len_bin = lengths(1) - lengths(0);

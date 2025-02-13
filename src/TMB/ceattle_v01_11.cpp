@@ -504,13 +504,13 @@ Type objective_function<Type>::operator() () {
   // -- 3.1. Recruitment parameters
   PARAMETER_MATRIX( rec_pars );                   // Stock-recruit parameters: col1 = mean rec, col2 = SRR alpha, col3 = SRR beta
   PARAMETER_MATRIX( beta_rec_pars );              // Regression parameters for environmental linkage to stock-recruit function row is spp
-  PARAMETER_VECTOR( R_ln_sd );               // Standard deviation of recruitment deviations; n = [1, nspp]
+  PARAMETER_VECTOR( R_ln_sd );                    // Standard deviation of recruitment deviations; n = [1, nspp]
   PARAMETER_MATRIX( rec_dev );                    // Annual recruitment deviation; n = [nspp, nyrs]
   PARAMETER_MATRIX( init_dev );                   // Initial abundance-at-age; n = [nspp, nages] # NOTE: Need to figure out how to best vectorize this
 
   // -- 3.2. Population parameters
   PARAMETER_ARRAY( ln_M1 );                       // Natural mortality (residual if multispecies mode or total if single species mode); n = [nspp, nsex, nages]
-  PARAMETER_VECTOR( sex_ratio_ln_sd );         // Variance for sex ratio to be used; n = [nspp]
+  PARAMETER_VECTOR( sex_ratio_ln_sd );            // Variance for sex ratio to be used; n = [nspp]
 
 
   // -- 3.3. Fishing mortality parameters
@@ -522,13 +522,13 @@ Type objective_function<Type>::operator() () {
   PARAMETER_MATRIX( F_dev );                      // Annual fishing mortality deviations; n = [n_fsh, nyrs] # NOTE: The size of this will likely change
 
   // -- 3.4. Survey catchability parameters
-  PARAMETER_VECTOR( index_ln_q );                   // Survey catchability; n = [n_index]
-  PARAMETER_VECTOR( index_q_rho );                  // Correlation parameter for AR1 on natural scale; n = [n_index]
-  PARAMETER_MATRIX( index_q_beta );                 // Survey catchability regression coefficient and rho parameters
-  // PARAMETER_VECTOR( index_q_pow );               // Survey catchability power coefficient q * B ^ q_pow or beta ln(q_y) = q_mut + beta * index_y; n = [n_index]
-  PARAMETER_MATRIX( index_q_dev );               // Annual survey catchability deviates; n = [n_index, nyrs_hind]
-  PARAMETER_VECTOR( index_q_ln_sd );             // Log standard deviation of prior on survey catchability; n = [1, n_index]
-  PARAMETER_VECTOR( index_q_dev_ln_sd );// Log standard deviation of time varying survey catchability; n = [1, n_index]
+  PARAMETER_VECTOR( index_ln_q );                 // Survey catchability; n = [n_index]
+  PARAMETER_VECTOR( index_q_rho );                // Correlation parameter for AR1 on natural scale; n = [n_index]
+  PARAMETER_MATRIX( index_q_beta );               // Survey catchability regression coefficient and rho parameters
+  // PARAMETER_VECTOR( index_q_pow );             // Survey catchability power coefficient q * B ^ q_pow or beta ln(q_y) = q_mut + beta * index_y; n = [n_index]
+  PARAMETER_MATRIX( index_q_dev );                // Annual survey catchability deviates; n = [n_index, nyrs_hind]
+  PARAMETER_VECTOR( index_q_ln_sd );              // Log standard deviation of prior on survey catchability; n = [1, n_index]
+  PARAMETER_VECTOR( index_q_dev_ln_sd );          // Log standard deviation of time varying survey catchability; n = [1, n_index]
 
   // -- 3.5. Selectivity parameters
   PARAMETER_ARRAY( sel_coff );                    // selectivity parameters for non-parametric; n = [n_selectivities, nsex, nselages]
@@ -537,12 +537,12 @@ Type objective_function<Type>::operator() () {
   PARAMETER_ARRAY( sel_inf );                     // selectivity paramaters for logistic; n = [2, n_selectivities, nsex]
   PARAMETER_ARRAY( ln_sel_slp_dev );              // selectivity parameter deviate for logistic; n = [2, n_selectivities, nsex, n_sel_blocks]
   PARAMETER_ARRAY( sel_inf_dev );                 // selectivity parameter deviate for logistic; n = [2, n_selectivities, nsex, n_sel_blocks]
-  PARAMETER_VECTOR( sel_dev_ln_sd );               // Log standard deviation of selectivity; n = [1, n_selectivities]
+  PARAMETER_VECTOR( sel_dev_ln_sd );              // Log standard deviation of selectivity; n = [1, n_selectivities]
   PARAMETER_MATRIX( sel_curve_pen );              // Selectivity penalty for non-parametric selectivity, 2nd column is for monotonic bit
 
   // -- 3.6. Variance of survey and fishery time series
-  PARAMETER_VECTOR( index_ln_sd );             // Log standard deviation of survey index time-series; n = [1, n_index]
-  PARAMETER_VECTOR( catch_ln_sd );             // Log standard deviation of fishery catch time-series; n = [1, n_fsh]
+  PARAMETER_VECTOR( index_ln_sd );                // Log standard deviation of survey index time-series; n = [1, n_index]
+  PARAMETER_VECTOR( catch_ln_sd );                // Log standard deviation of fishery catch time-series; n = [1, n_fsh]
   PARAMETER_VECTOR( comp_weights );               // Weights for composition data
   vector<Type>  DM_pars = exp(comp_weights);      // Dirichlet-multinomial scalars
 
