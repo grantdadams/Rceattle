@@ -25,7 +25,8 @@ plot_recruitment(
   alpha = 0.4,
   mod_avg = rep(FALSE, length(Rceattle)),
   mse = FALSE,
-  OM = TRUE
+  OM = TRUE,
+  reference = NULL
 )
 }
 \arguments{
@@ -38,7 +39,7 @@ function.}
 
 \item{line_col}{Colors of models to be used for line color}
 
-\item{species}{Which species to plot e.g. c(1,4). Default = NULL plots them all}
+\item{species}{What species to include 1:nspp}
 
 \item{spnames}{Species names for legend}
 
@@ -46,9 +47,13 @@ function.}
 
 \item{lwd}{Line width as specified by user}
 
-\item{save}{Save biomass?}
+\item{save}{Save derived quantity?}
 
 \item{right_adj}{Multiplier for to add to the right side of the figure for fitting the legend.}
+
+\item{width}{Figure width in inches}
+
+\item{height}{Figure height in inches}
 
 \item{minyr}{First year to plot}
 
@@ -56,11 +61,13 @@ function.}
 
 \item{mod_cex}{Cex of text for model name legend}
 
+\item{mod_avg}{TRUE/FALSE}
+
 \item{mse}{Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}}
 
 \item{OM}{if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?}
 
-\item{mohns}{data.frame of mohn's rows extracted from \code{\link{retrospective}}}
+\item{reference}{Reference model}
 }
 \value{
 Returns and saves a figure with the population trajectory.

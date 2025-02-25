@@ -42,7 +42,7 @@ pollock_model <- Rceattle::fit_mod(
   random_rec = FALSE, # No random recruitment
   msmMode = 0, # 0 = Single species mode, 1 = MSVPA multi-species mode
   verbose = 1, # Silence optimization output
-  phase = "default") # Use default phasing
+  phase = TRUE) # Use default phasing
 
 
 # Arrowtooth flounder
@@ -55,7 +55,7 @@ atf_model <- Rceattle::fit_mod(
   random_rec = FALSE, # No random recruitment
   msmMode = 0, # 0 = Single species mode, 1 = MSVPA multi-species mode
   verbose = 1, # Silence optimization output
-  phase = "default") # Use default phasing
+  phase = TRUE) # Use default phasing
 
 
 # Cod
@@ -68,7 +68,7 @@ cod_model <- Rceattle::fit_mod(
   random_rec = FALSE, # No random recruitment
   msmMode = 0, # 0 = Single species mode, 1 = MSVPA multi-species mode
   verbose = 1, # Silence optimization output
-  phase = "default") # Use default phasing
+  phase = TRUE) # Use default phasing
 
 # Reweighting the cod model helps using Macalliser Ianelli weights
 mydata_pcod$fleet_control$Comp_weights <- cod_model$data_list$fleet_control$Est_weights_macallister
@@ -82,7 +82,7 @@ cod_model <- Rceattle::fit_mod(
   random_rec = FALSE, # No random recruitment
   msmMode = 0, # 0 = Single species mode, 1 = MSVPA multi-species mode
   verbose = 1, # Silence optimization output
-  phase = "default") # Phase
+  phase = TRUE) # Phase
 
 
 ################################################

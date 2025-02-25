@@ -89,69 +89,30 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
     sub_rel_hind_yrs <- (max_styr - Rceattle[[i]]$data_list$styr + 1) : (min_hindyr - Rceattle[[i]]$data_list$styr + 1) # Find years of overlap
 
     # Average quantities of interest
-    # // -- Biomass components
+    # Biomass components
     mod_avg$quantities$R[, mod_avg_rel_proj_yrs] <- mod_avg$quantities$R[, mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$R[, sub_rel_proj_yrs] * weights[i]
-    mod_avg$quantities$mn_rec <- mod_avg$quantities$mn_rec + Rceattle[[i]]$quantities$mn_rec * weights[i]
+    mod_avg$quantities$avg_R <- mod_avg$quantities$avg_R + Rceattle[[i]]$quantities$avg_R * weights[i]
 
-    mod_avg$quantities$NByage[,,,mod_avg_rel_proj_yrs] <- mod_avg$quantities$NByage[,,,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$NByage[,,,sub_rel_proj_yrs] * weights[i]
-    mod_avg$quantities$AvgN[,,,mod_avg_rel_proj_yrs] <- mod_avg$quantities$AvgN[,,,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$AvgN[,,,sub_rel_proj_yrs] * weights[i]
-    mod_avg$quantities$biomassByage[,,mod_avg_rel_proj_yrs] <- mod_avg$quantities$biomassByage[,,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$biomassByage[,,sub_rel_proj_yrs] * weights[i]
-    mod_avg$quantities$biomassSSBByage[,,mod_avg_rel_proj_yrs] <- mod_avg$quantities$biomassSSBByage[,,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$biomassSSBByage[,,sub_rel_proj_yrs] * weights[i]
+    mod_avg$quantities$N_at_age[,,,mod_avg_rel_proj_yrs] <- mod_avg$quantities$N_at_age[,,,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$N_at_age[,,,sub_rel_proj_yrs] * weights[i]
+    mod_avg$quantities$avgN_at_age[,,,mod_avg_rel_proj_yrs] <- mod_avg$quantities$avgN_at_age[,,,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$avgN_at_age[,,,sub_rel_proj_yrs] * weights[i]
+    mod_avg$quantities$biomass_at_age[,,mod_avg_rel_proj_yrs] <- mod_avg$quantities$biomass_at_age[,,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$biomass_at_age[,,sub_rel_proj_yrs] * weights[i]
+    mod_avg$quantities$ssb_at_age[,,mod_avg_rel_proj_yrs] <- mod_avg$quantities$ssb_at_age[,,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$ssb_at_age[,,sub_rel_proj_yrs] * weights[i]
     mod_avg$quantities$biomass[, mod_avg_rel_proj_yrs] <- mod_avg$quantities$biomass[, mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$biomass[, sub_rel_proj_yrs] * weights[i]
-    mod_avg$quantities$biomassSSB[, mod_avg_rel_proj_yrs] <- mod_avg$quantities$biomassSSB[, mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$biomassSSB[, sub_rel_proj_yrs] * weights[i]
+    mod_avg$quantities$ssb[, mod_avg_rel_proj_yrs] <- mod_avg$quantities$ssb[, mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$ssb[, sub_rel_proj_yrs] * weights[i]
     mod_avg$quantities$B_eaten[,,,mod_avg_rel_proj_yrs] <- mod_avg$quantities$B_eaten[,,,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$B_eaten[,,,sub_rel_proj_yrs] * weights[i]
     mod_avg$quantities$sel[,,,mod_avg_rel_hind_yrs] <- mod_avg$quantities$sel[,,,mod_avg_rel_hind_yrs] + Rceattle[[i]]$quantities$sel[,,,sub_rel_hind_yrs] * weights[i]
 
-    # // -- Reference points
+    # Reference points
     mod_avg$quantities$SB0 <- mod_avg$quantities$SB0 + Rceattle[[i]]$quantities$SB0 * weights[i]
 
-    # // -- Survey components
-    # mod_avg$quantities$srv_bio_hat );
-    # mod_avg$quantities$srv_log_sd_hat );
-
-
-    # // Fishery components
-    # mod_avg$quantities$fsh_bio_hat );
-    # mod_avg$quantities$fsh_log_sd_hat );
-
-
-    # // 12.5. Age/length composition
-    # mod_avg$quantities$age_obs_hat );
-    # mod_avg$quantities$age_hat );
-    # mod_avg$quantities$comp_obs );
-    # mod_avg$quantities$comp_hat );
-    # mod_avg$quantities$true_age_comp_hat );
-    # mod_avg$quantities$n_hat );
-    # mod_avg$quantities$comp_n );
-
-    # # -- Ration components
-    # mod_avg$quantities$ConsumAge );
-    # mod_avg$quantities$LbyAge );
-    # mod_avg$quantities$mnWt_obs );
-    # mod_avg$quantities$fT );
-    # mod_avg$quantities$env_index_hat );
-    # mod_avg$quantities$ration2Age );
-
-
     # Mortality components
-    # mod_avg$quantities$suma_suit );
-    # mod_avg$quantities$suit_main );
-    # mod_avg$quantities$suit_other );
-    # mod_avg$quantities$stom_div_bio2 );
-    # mod_avg$quantities$stomKir );
-    # mod_avg$quantities$stomKirWt );
-    # mod_avg$quantities$avail_food );
-    # mod_avg$quantities$othersuit );
-    # mod_avg$quantities$of_stomKir );
-    mod_avg$quantities$M1 <- mod_avg$quantities$M1 + Rceattle[[i]]$quantities$M1 * weights[i]
-    mod_avg$quantities$M2[,,,mod_avg_rel_proj_yrs] <- mod_avg$quantities$M2[,,,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$M2[,,,sub_rel_proj_yrs] * weights[i]
-    mod_avg$quantities$M[,,,mod_avg_rel_proj_yrs] <- mod_avg$quantities$M[,,,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$M[,,,sub_rel_proj_yrs] * weights[i]
-    mod_avg$quantities$Zed[,,,mod_avg_rel_proj_yrs] <- mod_avg$quantities$Zed[,,,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$Zed[,,,sub_rel_proj_yrs] * weights[i]
-    mod_avg$quantities$S[,,,mod_avg_rel_proj_yrs] <- mod_avg$quantities$S[,,,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$S[,,,sub_rel_proj_yrs] * weights[i]
+    mod_avg$quantities$M1_at_age <- mod_avg$quantities$M1_at_age + Rceattle[[i]]$quantities$M1_at_age * weights[i]
+    mod_avg$quantities$M2_at_age[,,,mod_avg_rel_proj_yrs] <- mod_avg$quantities$M2_at_age[,,,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$M2_at_age[,,,sub_rel_proj_yrs] * weights[i]
+    mod_avg$quantities$M_at_age[,,,mod_avg_rel_proj_yrs] <- mod_avg$quantities$M_at_age[,,,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$M_at_age[,,,sub_rel_proj_yrs] * weights[i]
+    mod_avg$quantities$Z_at_age[,,,mod_avg_rel_proj_yrs] <- mod_avg$quantities$Z_at_age[,,,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$Z_at_age[,,,sub_rel_proj_yrs] * weights[i]
+    mod_avg$quantities$S_at_age[,,,mod_avg_rel_proj_yrs] <- mod_avg$quantities$S_at_age[,,,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$S_at_age[,,,sub_rel_proj_yrs] * weights[i]
     mod_avg$quantities$M2_prop[,,,,mod_avg_rel_proj_yrs] <- mod_avg$quantities$M2_prop[,,,,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$M2_prop[,,,,sub_rel_proj_yrs] * weights[i]
     mod_avg$quantities$B_eaten_prop[,,,,mod_avg_rel_proj_yrs] <- mod_avg$quantities$B_eaten_prop[,,,,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$B_eaten_prop[,,,,sub_rel_proj_yrs] * weights[i]
-    # mod_avg$quantities$UobsAge_hat );
-    # mod_avg$quantities$UobsWtAge_hat );
   }
 
   # --------------------------------------------------------------------------------------------
@@ -160,7 +121,7 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
 
   if(uncertainty){
 
-    # # Buckland, S.T., Burnham, K.P., Augustin, N.H., 1997. Model Selection : An Integral Part of Inference. Biometrics 53, 603–618.
+    # # Buckland, S_at_age.T., Burnham, K.P., Augustin, N.H., 1997. Model Selection : An Integral Part of Inference. Biometrics 53, 603–618.
     # # - Calculate SD
     # # -- R
     # rec_rows <- which(names(mod_avg$sdrep$value) == "R")
@@ -175,7 +136,7 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
     #
     #
     # # -- SSB
-    # ssb_rows <- which(names(mod_avg$sdrep$value) == "biomassSSB")
+    # ssb_rows <- which(names(mod_avg$sdrep$value) == "ssb")
     # mod_avg$sdrep$sd[ssb_rows] <- 0
     # mod_avg$sdrep$value[ssb_rows] <- 0
     #
@@ -198,7 +159,7 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
     #
     #   # - SSB
     #   mu_biomassSSB <- array(NA, dim = c(nspp, nyrs[i]))
-    #   ssb_rows <- which(names(Rceattle[[i]]$sdrep$value) == "biomassSSB")
+    #   ssb_rows <- which(names(Rceattle[[i]]$sdrep$value) == "ssb")
     #   mu_biomassSSB <- replace(mu_biomassSSB, values = Rceattle[[i]]$sdrep$value[ssb_rows])[,sub_rel_proj_yrs] # Remove years not shared across models
     #
     #
@@ -214,7 +175,7 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
     #
     #
     #   # -- SSB
-    #   ssb_rows <- which(names(mod_avg$sdrep$value) == "biomassSSB")
+    #   ssb_rows <- which(names(mod_avg$sdrep$value) == "ssb")
     #   mod_avg$sdrep$value[ssb_rows] <- mod_avg$sdrep$value[ssb_rows] + c(mu_biomassSSB * weights[i])
     # }
     #
@@ -241,7 +202,7 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
     #   sd_biomassSSB <- array(NA, dim = c(nspp, nyrs[i]))
     #   mu_biomassSSB <- array(NA, dim = c(nspp, nyrs[i]))
     #
-    #   ssb_rows <- which(names(Rceattle[[i]]$sdrep$value) == "biomassSSB")
+    #   ssb_rows <- which(names(Rceattle[[i]]$sdrep$value) == "ssb")
     #   sd_biomassSSB <- replace(sd_biomassSSB, values = Rceattle[[i]]$sdrep$sd[ssb_rows])[,sub_rel_proj_yrs] # Remove years not shared across models
     #   mu_biomassSSB <- replace(mu_biomassSSB, values = Rceattle[[i]]$sdrep$value[ssb_rows])[,sub_rel_proj_yrs] # Remove years not shared across models
     #
@@ -258,7 +219,7 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
     #
     #
     #   # -- SSB
-    #   ssb_rows <- which(names(mod_avg$sdrep$value) == "biomassSSB")
+    #   ssb_rows <- which(names(mod_avg$sdrep$value) == "ssb")
     #   mod_avg$sdrep$sd[ssb_rows] <- mod_avg$sdrep$sd[ssb_rows] + weights[i] * sqrt(sd_biomassSSB^2 + (mu_biomassSSB - mod_avg$sdrep$value[ssb_rows])^2)
     # }
     #
@@ -308,7 +269,7 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
     #   sd_biomassSSB <- array(NA, dim = c(nspp, nyrs[i]))
     #   mu_biomassSSB <- array(NA, dim = c(nspp, nyrs[i]))
     #
-    #   ssb_rows <- which(names(Rceattle[[i]]$sdrep$value) == "biomassSSB")
+    #   ssb_rows <- which(names(Rceattle[[i]]$sdrep$value) == "ssb")
     #   sd_biomassSSB <- replace(sd_biomassSSB, values = Rceattle[[i]]$sdrep$sd[ssb_rows])[,sub_rel_proj_yrs] # Remove years not shared across models
     #   mu_biomassSSB <- replace(mu_biomassSSB, values = Rceattle[[i]]$sdrep$value[ssb_rows])[,sub_rel_proj_yrs] # Remove years not shared across models
     #
@@ -318,7 +279,7 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
     #
     # # - Save samples
     # mod_avg$asymptotic_samples <- list(recruitment = do.call(rbind, samples_rec),
-    #                                    biomassSSB = do.call(rbind, samples_biomassSSB),
+    #                                    ssb = do.call(rbind, samples_biomassSSB),
     #                                    biomass = do.call(rbind, samples_biomass))
     #
     # # - Calculate SD
@@ -339,9 +300,9 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
     #
     #
     # # -- SSB
-    # ssb_rows <- which(names(mod_avg$sdrep$value) == "biomassSSB")
-    # mod_avg$sdrep$sd[ssb_rows] <- sqrt(apply(mod_avg$asymptotic_samples$biomassSSB, 2, var))
-    # mod_avg$sdrep$value[ssb_rows] <- colMeans(mod_avg$asymptotic_samples$biomassSSB)
+    # ssb_rows <- which(names(mod_avg$sdrep$value) == "ssb")
+    # mod_avg$sdrep$sd[ssb_rows] <- sqrt(apply(mod_avg$asymptotic_samples$ssb, 2, var))
+    # mod_avg$sdrep$value[ssb_rows] <- colMeans(mod_avg$asymptotic_samples$ssb)
 
 
     # Assuming asymptotic multivariate normal
@@ -368,7 +329,7 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
     # List to save samples of SSB, B, and R
     recruitment <-
       array(NA, dim = c(nspp, length(mod_avg_rel_proj_yrs),  sum(draws)))
-    biomassSSB <-
+    ssb <-
       array(NA, dim = c(nspp, length(mod_avg_rel_proj_yrs),  sum(draws)))
     biomass <-
       array(NA, dim = c(nspp, length(mod_avg_rel_proj_yrs),  sum(draws)))
@@ -394,14 +355,14 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
       samples <- MASS::mvrnorm(draws[i], mu = mle, Sigma = vcov)
 
       # - Get quantities
-      quantities <- apply(samples, 1, function(x) Rceattle[[i]]$obj$report(x)[c("biomass", "biomassSSB", "R")]) # Only want uncertainty in SSB, B, and R
+      quantities <- apply(samples, 1, function(x) Rceattle[[i]]$obj$report(x)[c("biomass", "ssb", "R")]) # Only want uncertainty in SSB, B, and R
 
       # - Subset years of interest and assign to objects
       sub_rel_proj_yrs <- (max_styr - Rceattle[[i]]$data_list$styr + 1) : (min_projyr - Rceattle[[i]]$data_list$styr + 1) # Find years of overlap
 
       # Extract R, B, and SSB and assign to objects
       recruitment[1:nspp, 1:length(mod_avg_rel_proj_yrs), nrows[which(rowid == i)]] <- unlist(lapply(quantities, function(x) x$R[, sub_rel_proj_yrs]))
-      biomassSSB[1:nspp, 1:length(mod_avg_rel_proj_yrs), nrows[which(rowid == i)]] <- unlist(lapply(quantities, function(x) x$biomassSSB[, sub_rel_proj_yrs]))
+      ssb[1:nspp, 1:length(mod_avg_rel_proj_yrs), nrows[which(rowid == i)]] <- unlist(lapply(quantities, function(x) x$ssb[, sub_rel_proj_yrs]))
       biomass[1:nspp, 1:length(mod_avg_rel_proj_yrs), nrows[which(rowid == i)]] <- unlist(lapply(quantities, function(x) x$biomass[, sub_rel_proj_yrs]))
     }
     plot_ssb(mod_avg, mod_avg = FALSE, add_ci = TRUE)
@@ -413,11 +374,11 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
     biomass_rows <- which(names(mod_avg$sdrep$value) == "biomass")
     mod_avg$sdrep$sd[biomass_rows] <- sqrt(apply(biomass, c(1,2), var))
 
-    ssb_rows <- which(names(mod_avg$sdrep$value) == "biomassSSB")
-    mod_avg$sdrep$sd[ssb_rows] <- sqrt(apply(biomassSSB, c(1,2), var))
+    ssb_rows <- which(names(mod_avg$sdrep$value) == "ssb")
+    mod_avg$sdrep$sd[ssb_rows] <- sqrt(apply(ssb, c(1,2), var))
 
     # - Save samples
-    mod_avg$asymptotic_samples <- list(recruitment = recruitment, biomass = biomass, biomassSSB = biomassSSB)
+    mod_avg$asymptotic_samples <- list(recruitment = recruitment, biomass = biomass, ssb = ssb)
   }
 
   return(mod_avg)

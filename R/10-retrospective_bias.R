@@ -4,6 +4,7 @@
 #'
 #' @param Rceattle an Rceattle model fit using \code{\link{fit_mod}}
 #' @param peels the number of retrospective peels to use in the calculation of rho and for model estimation
+#' @param rescale rescale environmental predictors?
 #'
 #' @return a list of 1. list of Rceattle models and 2. vector of Mohn's rho for each species
 #'
@@ -21,7 +22,7 @@
 #'
 #' retro <- retrospective(ss_run, peels = 10)
 #' @export
-retrospective <- function(Rceattle = NULL, peels = NULL) {
+retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE) {
   if (class(Rceattle) != "Rceattle") {
     stop("Object is not of class 'Rceattle'")
   }
@@ -43,34 +44,68 @@ retrospective <- function(Rceattle = NULL, peels = NULL) {
     data_list$endyr <- endyr - i
     nyrs <- (endyr - i) - styr + 1
 
-    # Adjust data
-    data_list$srv_biom <- data_list$srv_biom %>%
-      filter(Year <= data_list$endyr)
+
+    # * Adjust data ----
+    data_list$index_data <- data_list$index_data %>%
+      dplyr::filter(Year <= data_list$endyr)
 
     data_list$wt <- data_list$wt %>%
-      filter(Year <= data_list$endyr)
+      dplyr::filter(Year <= data_list$endyr)
 
     data_list$comp_data <- data_list$comp_data %>%
-      filter(Year <= data_list$endyr)
+      dplyr::filter(Year <= data_list$endyr)
 
-    data_list$fsh_biom <- data_list$fsh_biom %>%
-      filter(Year <= data_list$endyr)
+    data_list$catch_data <- data_list$catch_data %>%
+      dplyr::filter(Year <= data_list$endyr)
 
     data_list$Pyrs <- data_list$Pyrs %>%
-      filter(Year <= data_list$endyr)
+      dplyr::filter(Year <= data_list$endyr)
 
-    # Adjust initial parameters
+    data_list$stom_prop_data <- data_list$stom_prop_data %>%
+      dplyr::filter(Year <= data_list$endyr)
+
+
+    # * Rescale environmental predictors ----
+    if(rescale){
+      data_list$env_data[,2:ncol(data_list$env_data)]<-scale(data_list$env_data[,2:ncol(data_list$env_data)])
+    }
+
+
+    # * Adjust parameter size ----
     inits <- Rceattle$estimated_params
-    inits$rec_dev[, (nyrs + 1):nyrs_proj] <- 0
-    inits$F_dev <- inits$F_dev[, 1:nyrs]
 
-    # Adjust parameter size
-    inits$ln_srv_q_dev <- inits$ln_srv_q_dev[,1:nyrs]
+    inits$rec_dev[, (nyrs + 1):nyrs_proj] <- 0
+
+    inits$F_dev <- inits$F_dev[, 1:nyrs]
+    inits$index_q_dev <- inits$index_q_dev[,1:nyrs]
     inits$ln_sel_slp_dev <- inits$ln_sel_slp_dev[,,,1:nyrs]
     inits$sel_inf_dev <- inits$sel_inf_dev[,,,1:nyrs]
     inits$sel_coff_dev <- array(inits$sel_coff_dev[,,,1:nyrs], dim = c(dim(Rceattle$estimated_params$sel_coff_dev )[1:3], nyrs))
 
-    # Refit
+
+    # * Adjust map size ----
+    map <- Rceattle$map
+
+    map$mapList$rec_dev[, (nyrs + 1):nyrs_proj] <- NA
+    map$mapFactor$rec_dev <- factor(map$mapList$rec_dev)
+
+    map$mapList$F_dev <- map$mapList$F_dev[, 1:nyrs]
+    map$mapFactor$F_dev <- factor(map$mapList$F_dev)
+
+    map$mapList$index_q_dev <- map$mapList$index_q_dev[,1:nyrs]
+    map$mapFactor$index_q_dev <- factor(map$mapList$index_q_dev)
+
+    map$mapList$ln_sel_slp_dev <- map$mapList$ln_sel_slp_dev[,,,1:nyrs]
+    map$mapFactor$ln_sel_slp_dev <- factor(map$mapList$ln_sel_slp_dev)
+
+    map$mapList$sel_inf_dev <- map$mapList$sel_inf_dev[,,,1:nyrs]
+    map$mapFactor$sel_inf_dev <- factor(map$mapList$sel_inf_dev)
+
+    map$mapList$sel_coff_dev <- array(map$mapList$sel_coff_dev[,,,1:nyrs], dim = c(dim(Rceattle$estimated_params$sel_coff_dev )[1:3], nyrs))
+    map$mapFactor$sel_coff_dev <- factor(map$mapList$sel_coff_dev)
+
+
+    # * Refit ----
     newmod <- suppressWarnings(
       Rceattle::fit_mod(
         data_list = data_list,
@@ -87,21 +122,50 @@ retrospective <- function(Rceattle = NULL, peels = NULL) {
                         Plimit = data_list$Plimit,
                         Alpha = data_list$Alpha,
                         Pstar = data_list$Pstar,
-                        Sigma = data_list$Sigma
+                        Sigma = data_list$Sigma,
+                        Fmult = data_list$Fmult,
+                        HCRorder = data_list$HCRorder
         ),
+        recFun = build_srr(srr_fun = data_list$srr_fun,
+                           srr_pred_fun  = data_list$srr_pred_fun ,
+                           proj_mean_rec  = data_list$proj_mean_rec ,
+                           srr_meanyr = min(data_list$srr_meanyr, data_list$endyr), # Update end year if less than srr_meanyr
+                           srr_hat_styr = data_list$srr_hat_styr,
+                           srr_hat_endyr = data_list$srr_hat_endyr,
+                           srr_est_mode  = data_list$srr_est_mode ,
+                           srr_prior  = data_list$srr_prior,
+                           srr_prior_sd   = data_list$srr_prior_sd,
+                           Bmsy_lim = data_list$Bmsy_lim,
+                           srr_env_indices = data_list$srr_env_indices),
+        M1Fun =     build_M1(M1_model= data_list$M1_model,
+                             updateM1 = FALSE,
+                             M1_use_prior = data_list$M1_use_prior,
+                             M2_use_prior = data_list$M2_use_prior,
+                             M_prior = data_list$M_prior,
+                             M_prior_sd = data_list$M_prior_sd),
         random_rec = data_list$random_rec,
         niter = data_list$niter,
         msmMode = data_list$msmMode,
         avgnMode = data_list$avgnMode,
-        minNByage = data_list$minNByage,
         suitMode = data_list$suitMode,
-        phase = "default",
-        meanyr = data_list$endyr, # Update end year
-        updateM1 = FALSE,
-        getsd = FALSE,
+        suit_styr = data_list$suit_styr,
+        suit_endyr = min(data_list$suit_endyr, data_list$endyr),   # Update to end year if less than suit_endyr
+        initMode = data_list$initMode,
+        phase = FALSE,
+        loopnum = data_list$loopnum,
+        getsd = TRUE,
         verbose = 0)
-
     )
+
+    # gc()
+    #
+    # map$mapFactor <- map$mapFactor[names(newmod$map$mapFactor)]
+    # check <- c()
+    # check_na <- c()
+    # for(j in 1:length(map$mapList)){
+    #   check[j] <- sum(map$mapFactor[[j]] != newmod$map$mapFactor[[j]], na.rm = TRUE)
+    #   check_na[j] <- sum(is.na(map$mapFactor[[j]]) != is.na(newmod$map$mapFactor[[j]]), na.rm = TRUE)
+    # }
 
     # Refit model If converged
     if (!is.null(newmod$opt$Convergence_check)) {
@@ -115,7 +179,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL) {
   #####################################
   # Calculate Mohs rho for each species
   #####################################
-  objects <- c("biomass", "biomassSSB", "R", "F_spp")
+  objects <- c("biomass", "ssb", "R", "F_spp")
 
   mohns <- data.frame(matrix(0, nrow = length(objects) + 1, ncol = 1 + data_list$nspp))
   colnames(mohns) <- c("Object", paste0("Spp/Fsh_", 1:max(c(data_list$nspp, nrow(data_list$fsh_control)))))

@@ -4,12 +4,14 @@
 \alias{retrospective}
 \title{Retrospective peels (DEPRECATED)}
 \usage{
-retrospective(Rceattle = NULL, peels = NULL)
+retrospective(Rceattle = NULL, peels = NULL, rescale = FALSE)
 }
 \arguments{
 \item{Rceattle}{an Rceattle model fit using \code{\link{fit_mod}}}
 
 \item{peels}{the number of retrospective peels to use in the calculation of rho and for model estimation}
+
+\item{rescale}{rescale environmental predictors?}
 }
 \value{
 a list of 1. list of Rceattle models and 2. vector of Mohn's rho for each species

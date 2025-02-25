@@ -26,11 +26,12 @@ mydata <- Rceattle::read_data( file = "BS2017SS.xlsx")
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
 ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
                             file = NULL,
-                             inits = NULL, # Initial parameters = 0
-                             estimateMode = 0, # Estimate
-                             random_rec = FALSE, # No random recruitment
-                             msmMode = 0, # Single species mode
-                             verbose = 1)
+                            phase = TRUE, # Phase the model
+                            inits = NULL, # Initial parameters = 0
+                            estimateMode = 0, # Estimate
+                            random_rec = FALSE, # No random recruitment
+                            msmMode = 0, # Single species mode
+                            verbose = 1)
 # Type ?fit_mod for more details
 
 # The you can plot the model results using using
@@ -176,6 +177,7 @@ ss_sim <- sim_mod(ss_run)
 ss_sim_run <- Rceattle::fit_mod(
   data_list = ss_sim,
   inits = NULL, # Initial parameters = 0
+  phase = TRUE,
   file = NULL, # Don't save
   estimateMode = 0, # Estimate
   random_rec = FALSE, # No random recruitment
@@ -216,7 +218,7 @@ ss_re <- Rceattle::fit_mod(
   random_rec = TRUE, # Turn of recruitment deviations as random effects
   msmMode = 0, # Single species mode
   verbose = 1,
-  phase = NULL)
+  phase = FALSE)
 
 # Diet estimation
 ms_gamma <- Rceattle::fit_mod(

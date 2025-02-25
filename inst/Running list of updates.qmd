@@ -1,0 +1,38 @@
+---
+title: "List of updates"
+author: "Grant Adams"
+format: docx
+editor: visual
+---
+
+# Running list of updates
+
+Started this late, but this is in reference to the srr_dev branch
+
+10/30/2024 - Removed accumulation age and associated switches in `fleet_control`
+
+10/30/2024 - Added dirichlet multinomial to composition likelihood. Specified using the `Comp_loglike = 1` column in the `fleet_control` sheet of the data.
+
+10/30/2024 - Removed normalize by max selectivity and allowed normalize by specified age using the `Age_max_selected` column in the `fleet_control` sheet of the data.
+
+11/04/2024 - Added `suit_styr` and `suit_endyr` to replace `suit_meanyr` in `fit_mod` so that the first and last year of suitability estimation is specified.
+
+11/04/2024 - Added `srr_hat_styr` and `srr_hat_endyr` to replace `R_hat_endyr` in `build_srr` so that the first and last year of stock recruitment relationship penalties can be specified. When `srr_pred_fun > 0` and `srr_fun = 0` recruitment in the hindcast is estimated as in `srr_fun = 0` $R_y = exp(R0 + R_{dev,y})$, but an additional stock recruitment relationship defined by `srr_pred_fun` is estimated between `srr_hat_styr` and `srr_hat_styr` and treated as an additional penalty. The stock recruitment relationship defined by `srr_pred_fun` is then used in the projection.
+
+11/04/2024 - If a NA is present in the composition data (within the range of ages/lengths for single or joint sex), those are converted to 0s and a warning is given.
+
+11/04/2024 - Added `Estimate_q = 6` where annual AR1 catchability deviates are fit to environmental index data sensu Rogers et al 2024 for the GOA pollock model.
+
+11/04/2024 – Added beta distibuted prior for steepness when using Beverton srr. Set `srr_est_mode = 3`.
+
+11/04/2024 - Renamed `M1_prior_sd` to `M_prior_sd` and `M1_prior_mean` to `M_prior` in `build_M1` and `srr_prior_mean` to `srr_prior`
+
+11/19/2024 - Updated `initMode` where 0 = estimate N-at-age as free parameters; 1 = estimate unfished equilibrium with no devs; 2 (default) = estimate unfished equilibrium with initial devs; and 3 = estimate fished equilibrium with initial devs
+
+11/20/2024 - Rename the following:
+
+-   stom_prop_data \<- UobsWtAge
+
+-   catch_data \<- fsh_biom
+
+-   index_data \<- srv_biom

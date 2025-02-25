@@ -17,18 +17,17 @@ data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the d
 ################################################
 # - Single-species
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
-GOA2018SS$fleet_control$proj_F_prop <- rep(1, nrow(GOA2018SS$fleet_control))
+# GOA2018SS$fleet_control$proj_F_prop <- rep(1, nrow(GOA2018SS$fleet_control))
 ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save
                             estimateMode = 0, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
-                            phase = "default",
+                            phase = TRUE,
                             verbose = 1)
 
 plot_biomass(ss_run, add_ci = TRUE)
-
 
 # Single-species, but estimate M
 ss_run_M <- Rceattle::fit_mod(data_list = GOA2018SS,
@@ -38,7 +37,7 @@ ss_run_M <- Rceattle::fit_mod(data_list = GOA2018SS,
                               M1Fun = build_M1(M1_model = c(1,2,1)), # Estimate M
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              phase = "default",
+                              phase = TRUE,
                               verbose = 1)
 
 plot_biomass(ss_run_M, add_ci = TRUE)

@@ -21,14 +21,13 @@ fit_mod(
   M1Fun = build_M1(),
   msmMode = 0,
   avgnMode = 0,
-  initMode = 1,
-  minNByage = 0,
+  initMode = 2,
   suitMode = 0,
   suit_styr = NULL,
   suit_endyr = NULL,
-  meanyr = NULL,
-  phase = NULL,
+  phase = FALSE,
   getsd = TRUE,
+  bias.correct = FALSE,
   use_gradient = TRUE,
   rel_tol = 1,
   control = list(eval.max = 1e+09, iter.max = 1e+09, trace = 0),
@@ -41,7 +40,7 @@ fit_mod(
 )
 }
 \arguments{
-\item{data_list}{a data_list created from BSAI CEATTLE dat files \code{\link{build_dat}}, prebuilt data_list \code{\link{BS2017SS}}, or read in using \code{\link{read_excel}}.}
+\item{data_list}{a data_list read in using \code{\link{read_excel}}.}
 
 \item{inits}{(Optional) Character vector of named initial values from previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters. Can also construct using \code{\link{build_params}}}
 
@@ -73,9 +72,7 @@ fit_mod(
 
 \item{avgnMode}{The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.}
 
-\item{initMode}{how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 2 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates.}
-
-\item{minNByage}{Minimum numbers at age to put in a hard constraint that the number-at-age can not go below.}
+\item{initMode}{how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0 + dev-yr1,  mortality (M1); 2 = equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 3 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates.}
 
 \item{suitMode}{Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma suitability, 2 = weight based gamma suitability, 3 = length based lognormal selectivity, 4 = time-varying length based lognormal selectivity.}
 
@@ -83,9 +80,7 @@ fit_mod(
 
 \item{suit_endyr}{Integer. The last year used to calculate mean suitability. Defaults to $endyr$ in $data_list$. Used when diet data were sampled from a subset of years.}
 
-\item{meanyr}{Integer. The last year used to calculate mean recruitment. Defaults to $endyr$ in $data_list$. Used for MSE runs mean recruitment is held at the value estimated from the years used to condition the OM, but F is estimated for years beyond those used to condition the OM to account for projected catch.}
-
-\item{phase}{Optional. List of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R. If NULL, will not phase model. If set to \code{"default"}, will use default phasing.}
+\item{phase}{TRUE/FALSE If FALSE, will not phase model. If set to \code{"TRUE"}, will use default phasing. Can also accept a list of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R.}
 
 \item{getsd}{TRUE/FALSE whether to run standard error calculation (default = TRUE).}
 
@@ -103,9 +98,7 @@ fit_mod(
 
 \item{newtonsteps}{number of extra newton steps to take after optimization (alternative to \code{loopnum})}
 
-\item{catch_hcr}{}
-
-\item{TMBfilename}{TMB filename and location to use if not using the default. Do not include ".cpp" at the end.}
+\item{TMBfilename}{if a seperate TMB file is to be used for development. Includes location and does not include ".cpp" at the end.}
 }
 \value{
 A list of class "Rceattle" including:
@@ -155,7 +148,7 @@ ss_run <- fit_mod(data_list = BS2017SS,
    random_rec = FALSE, # No random recruitment
    msmMode = 0, # Single species mode
    avgnMode = 0,
-   phase = phaseList,
+   phase = FALSE,
    silent = TRUE)
 
 }
