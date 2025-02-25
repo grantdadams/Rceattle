@@ -33,10 +33,8 @@ ss_run <- Rceattle::fit_mod(data_list = mydata,
                             estimateMode = 0, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
-                            phase = "default",
+                            phase = TRUE,
                             verbose = 1)
-
-plot_biomass(ss_run, add_ci = TRUE)
 
 
 # Single-species, but estimate M
@@ -49,7 +47,7 @@ ss_run_M <- Rceattle::fit_mod(data_list = mydata,
                                                M2_use_prior = FALSE),
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              phase = "default",
+                              phase = TRUE,
                               verbose = 1)
 
 plot_biomass(ss_run_M, add_ci = TRUE)

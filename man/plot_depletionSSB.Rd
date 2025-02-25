@@ -2,7 +2,7 @@
 % Please edit documentation in R/7a-plot_ceattle.R
 \name{plot_depletionSSB}
 \alias{plot_depletionSSB}
-\title{plot_depletionSSB}
+\title{Plot ssb depletion}
 \usage{
 plot_depletionSSB(
   Rceattle,
@@ -15,13 +15,13 @@ plot_depletionSSB(
   lwd = 3,
   save = FALSE,
   right_adj = 0,
-  top_adj = 1.2,
   width = 7,
   height = 6.5,
   minyr = NULL,
   maxyr = NULL,
   incl_proj = FALSE,
   mod_cex = 1,
+  lty = rep(1, length(Rceattle)),
   alpha = 0.4,
   mod_avg = rep(FALSE, length(Rceattle)),
   mse = FALSE,
@@ -39,19 +39,21 @@ function.}
 
 \item{line_col}{Colors of models to be used for line color}
 
-\item{species}{Which species to plot e.g. c(1,4). Default = NULL plots them all}
+\item{species}{What species to include 1:nspp}
 
 \item{spnames}{Species names for legend}
 
-\item{add_ci}{NOT WORKING If the confidence interval is to be added}
+\item{add_ci}{If the confidence interval is to be added}
 
 \item{lwd}{Line width as specified by user}
 
-\item{save}{Save output?}
+\item{save}{Save derived quantity?}
 
 \item{right_adj}{Multiplier for to add to the right side of the figure for fitting the legend.}
 
-\item{top_adj}{Multiplier for y-axis to add to the top side of the figure for fitting the legend.}
+\item{width}{Figure width in inches}
+
+\item{height}{Figure height in inches}
 
 \item{minyr}{First year to plot}
 
@@ -59,13 +61,17 @@ function.}
 
 \item{mod_cex}{Cex of text for model name legend}
 
+\item{mod_avg}{TRUE/FALSE}
+
 \item{mse}{Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}}
 
 \item{OM}{if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?}
+
+\item{reference}{Reference model}
 }
 \value{
 Returns and saves a figure with the population trajectory.
 }
 \description{
-Function the plots the mean depletion of spawning stock biomass (SSB) as estimated from Rceattle
+Function the plots the mean ssb depletion and 95\% CI trends as estimated from Rceattle
 }

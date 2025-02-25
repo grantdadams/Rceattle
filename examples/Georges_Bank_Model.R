@@ -28,7 +28,7 @@ ss_run <- Rceattle::fit_mod(data_list = georges_bank,
                             estimateMode = 1, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
-                            phase = "default",
+                            phase = TRUE,
                             verbose = 1)
 
 

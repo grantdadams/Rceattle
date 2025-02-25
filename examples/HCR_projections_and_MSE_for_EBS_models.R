@@ -27,8 +27,26 @@ ss_run <- Rceattle::fit_mod(data_list = mydata,
                             estimateMode = 1, # Estimate hindcast only
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
-                            phase = "default",
+                            phase = TRUE,
                             verbose = 1)
+
+
+# Single-species with fixed M with Ricker curve
+ss_run_ricker <- Rceattle::fit_mod(data_list = mydata,
+                                   inits = NULL, # Initial parameters = 0
+                                   file = NULL, # Don't save
+                                   estimateMode = 1, # Estimate hindcast only
+                                   random_rec = FALSE, # No random recruitment
+                                   msmMode = 0, # Single species mode
+                                   phase = TRUE,
+                                   verbose = 1,
+                                   recFun = build_srr(srr_fun = 0,
+                                                      srr_pred_fun = 4, # Ricker (but fit sensu Ianelli)
+                                                      proj_mean_rec = FALSE,
+                                                      srr_est_mode = 1
+                                   )
+)
+
 
 # Estimate single-species and estimate M
 mydata_M <- mydata
@@ -39,7 +57,7 @@ ss_run_M <- Rceattle::fit_mod(data_list = mydata_M,
                               estimateMode = 1, # Estimate hindcast only
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              phase = "default",
+                              phase = TRUE,
                               verbose = 1)
 
 

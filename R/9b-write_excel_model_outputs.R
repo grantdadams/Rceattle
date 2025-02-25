@@ -155,7 +155,7 @@ write_results <- function(Rceattle, file = "Rceattle_results.xlsx") {
     xcel_list$Biomass <- cbind(data.frame(Year = yrs), xcel_list$Biomass)
 
     # SSB
-    xcel_list$SSB <- as.data.frame(t(quantities$biomassSSB[, 1:nyrs]))
+    xcel_list$SSB <- as.data.frame(t(quantities$ssb[, 1:nyrs]))
     colnames(xcel_list$SSB) <- data_list$spnames
     xcel_list$SSB <- cbind(data.frame(Year = yrs), xcel_list$SSB)
 
@@ -167,15 +167,15 @@ write_results <- function(Rceattle, file = "Rceattle_results.xlsx") {
     colnames_sp <- c()
     for(sp in 1:data_list$nspp){
       for(sex in 1:data_list$nsex[sp]){
-      mortality[,ind] <- quantities$M2[sp, sex ,1,1:nyrs]; ind = ind + 1
-      mortality[,ind] <- quantities$F_tot[sp, sex,1,1:nyrs]; ind = ind + 1
-      mortality[,ind] <- quantities$Zed[sp, sex,1,1:nyrs]; ind = ind + 1
+      mortality[,ind] <- quantities$M2_at_age[sp, sex ,1,1:nyrs]; ind = ind + 1
+      mortality[,ind] <- quantities$F_spp[sp, sex,1,1:nyrs]; ind = ind + 1
+      mortality[,ind] <- quantities$Z_at_age[sp, sex,1,1:nyrs]; ind = ind + 1
       colnames_sex <- c(colnames_sex, ifelse(data_list$nsex[sp] == 0, 0, sex))
       colnames_sp <- c(colnames_sp, sp)
       }
     }
 
-    colnames(mortality) <- c("Year", paste0(rep(c("M2", "Ftot", "Z"), length(colnames_sex)), paste0("Sp", colnames_sp), paste0("_Sex",colnames_sex)))
+    colnames(mortality) <- c("Year", paste0(rep(c("M2_at_age", "F_spp", "Z_at_age"), length(colnames_sex)), paste0("Sp", colnames_sp), paste0("_Sex",colnames_sex)))
     xcel_list$Age1Mortality <- as.data.frame(mortality)
 
     ############################################################ write the data

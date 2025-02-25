@@ -19,13 +19,15 @@ build_map(
 
 \item{debug}{Runs the model without estimating parameters to get derived quantities given initial parameter values. If TRUE, sets all map values to NA except dummy}
 
-\item{random_rec}{logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE, which sets the map for ln_rec_sigma to NA}
+\item{random_rec}{logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE, which sets the map for R_ln_sd to NA}
 
-\item{random_sel}{logical. If TRUE, treats selectivity deviations as random effects.The default is FALSE, which sets the map for ln_sigma_sel to NA. Only viable for logisitc, Double Logistic, Descending Logistic, and Hake Non-parametric with Random walk or deviates.}
+\item{random_sel}{logical. If TRUE, treats selectivity deviations as random effects.The default is FALSE, which sets the map for sel_dev_ln_sd to NA. Only viable for logisitc, Double Logistic, Descending Logistic, and Hake Non-parametric with Random walk or deviates.}
 }
 \value{
 a list of map arguments for each parameter
 }
 \description{
 Reads a parameter list to construct map
+
+TODO: turn on selectivity and catchability deviance variance parameters
 }
