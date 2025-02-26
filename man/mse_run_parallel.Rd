@@ -17,12 +17,14 @@ mse_run_parallel(
   rec_trend = 0,
   fut_sample = 1,
   cap = NULL,
+  catch_mult = NULL,
   seed = 666,
   regenerate_seed = seed,
   loopnum = 1,
   file = NULL,
   dir = NULL,
-  timeout = 999
+  timeout = 999,
+  endyr = NA
 )
 }
 \arguments{
@@ -34,7 +36,7 @@ mse_run_parallel(
 
 \item{start_sim}{First simulation number to start at. Useful if the code stops at specific seed/sim (default = 1).}
 
-\item{assessment_period}{Period of years that each assessment is taken (default = 1). NOT YET UPDATED for > 1 (fix catch input)}
+\item{assessment_period}{Period of years that each assessment is taken}
 
 \item{sampling_period}{Period of years data sampling is conducted. Single value or vector the same length as the number of fleets.}
 
@@ -49,6 +51,8 @@ mse_run_parallel(
 \item{fut_sample}{future sampling effort relative to last year.  \code{ Log_sd * 1 / fut_sample} for index and \code{ Sample_size * fut_sample} for comps}
 
 \item{cap}{A cap on the catch in the projection. Can be a single number or vector of length nspp. Default = NULL}
+
+\item{catch_mult}{A multiplier for the catch in the projection. Can be a single number or vector of length nspp. Default = NULL}
 
 \item{seed}{seed for the simulation}
 

@@ -368,7 +368,7 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR( pop_wt_index );           // Dim 3 of wt to use for population dynamics
   DATA_IVECTOR( ssb_wt_index );           // Dim 3 of wt to use for spawning stock biomass calculation
   DATA_IVECTOR( pop_age_transition_index );// Dim 3 of wt to use for age_transition_matrix
-  //DATA_IVECTOR( estDynamics );          // Index indicating wether the population parameters are estimated (0), numbers-at-age are provided (1), or an index of numbers-at-age multiplied by an estimated scalar is used (2)
+  DATA_IVECTOR( estDynamics );          // Index indicating wether the population parameters are estimated (0), numbers-at-age are provided (1), or an index of numbers-at-age multiplied by an estimated scalar is used (2)
   DATA_IVECTOR( est_sex_ratio );          // Is sex ration F/(M_at_age+F) to be included in the likelihood; 0 = no, 1 = use annual average across ages (uses 2nd age in sex_ratio data), 2 = age, and year specific (TBD)
   pop_wt_index -= 1;                      // Indexing starts at 0
   ssb_wt_index -= 1;                      // Indexing starts at 0
@@ -382,7 +382,7 @@ Type objective_function<Type>::operator() () {
   //    0 = project recruitment using ln_R0 and rec devs
   //    1 = project recruitment using mean rec (can also have adjusted rec devs)
   DATA_INTEGER(srr_est_mode);             // Logical of wether to add normal prior to stock recruit-relationship
-  DATA_VECTOR(srr_prior);            // Prior mean for stock recruit relationship parameter
+  DATA_VECTOR(srr_prior);                 // Prior mean for stock recruit relationship parameter
   DATA_VECTOR(srr_prior_sd);              // Prior sd for stock recruit relationship parameter
   DATA_INTEGER( niter );                  // Number of loops for MSM mode
   DATA_VECTOR( Bmsy_lim );                // Upper limit for Bmsy in ricker function. Will add penalty if 1/beta > lim
@@ -401,15 +401,16 @@ Type objective_function<Type>::operator() () {
 
 
   // 1.6. MODEL OBJECTS
-  // 1.5.1. LOOPING INDICES -- k = observation, sp = species, sex = sex (0 = combines; 1 = females; 2 = males), age = age, ln = length, ksp = prey, k_age = prey age (yr), k_ln = prey length, yr = year, rsp = predator, r_age = predator age (yr), r_ln = predator length
+  // 1.5.1. LOOPING INDICES -- k = observation, sp = species, sex = sex (0 = combined; 1 = females; 2 = males)
+  // age = age, ln = length, ksp = prey, k_age = prey age (yr), k_ln = prey length, yr = year, rsp = predator, r_age = predator age (yr), r_ln = predator length
   int sp, sex, age, ln, ksp, k_sex, k_age, k_ln, yr, rsp, r_sex, r_age, r_ln; // k
   int index, flt;                                                         // Survey and fishery indices
   int flt_yr, flt_sex, comp_type;
   int flt_ind, fsh_ind, index_ind, comp_ind, yr_ind;                      // Indices for survey sets
   int sel_type, nselages;
   int ncnt;    // Pointers
-  Type mo = 0;                                                          // Month float
-  if (msmMode == 0) { niter = 1; }                                      // Number of iterations for SS mode
+  Type mo = 0;                                                            // Month float
+  if (msmMode == 0) { niter = 1; }                                        // Number of iterations for SS mode
 
 
   // ------------------------------------------------------------------------- //
@@ -429,7 +430,7 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR( nages );                  // Number of species (prey) ages; n = [1, nspp]
   DATA_IVECTOR( minage );                 // Minimum age of each species; n = [1, nspp]
   DATA_IVECTOR( nlengths );               // Number of species (prey) lengths; n = [1, nspp]
-  // DATA_ARRAY( NByageFixed );              // Provided estimates of numbers- or index-at-age to be multiplied (or not) by pop_scalar to get N_at_age
+  DATA_ARRAY( NByageFixed );              // Provided estimates of numbers- or index-at-age to be multiplied (or not) by pop_scalar to get N_at_age
   Type stom_tau = 20;                     // Stomach sample size: FIXME - have as input
   int max_age = imax(nages);              // Integer of maximum nages to make the arrays; n = [1]
   DATA_VECTOR( MSSB0 );                   // SB0 from projecting the model forward in multi-species mode under no fishing
@@ -508,7 +509,7 @@ Type objective_function<Type>::operator() () {
   // ------------------------------------------------------------------------- //
 
   PARAMETER( dummy );                             // Variable to test derived quantities given input parameters; n = [1]
-  // PARAMETER_MATRIX( ln_pop_scalar );              // Scalar to multiply supplied numbers at age by; n = [nspp, nages]
+  PARAMETER_MATRIX( ln_pop_scalar );              // Scalar to multiply supplied numbers at age by; n = [nspp, nages]
 
   // -- 3.1. Recruitment parameters
   PARAMETER_MATRIX( rec_pars );                   // Stock-recruit parameters: col1 = mean rec, col2 = SRR alpha, col3 = SRR beta
@@ -587,7 +588,7 @@ Type objective_function<Type>::operator() () {
   Type ricker_intercept = 0.0;
 
   // -- 4.2. Estimated population quantities
-  // matrix<Type>  pop_scalar = ln_pop_scalar;  pop_scalar = exp(ln_pop_scalar.array());// Fixed n-at-age scaling coefficient; n = [nspp, nages]
+  matrix<Type>  pop_scalar = ln_pop_scalar;  pop_scalar = exp(ln_pop_scalar.array());// Fixed n-at-age scaling coefficient; n = [nspp, nages]
   vector<Type>  avg_R(nspp); avg_R.setZero();                                       // Mean recruitment of hindcast
   matrix<Type>  R_hat(nspp, nyrs); R_hat.setZero();                                 // Expected recruitment given SR curve
   matrix<Type>  mort_sum(nspp, max_age); mort_sum.setZero();
@@ -1320,77 +1321,73 @@ Type objective_function<Type>::operator() () {
       for (age = 0; age < nages(sp); age++){
         for(sex = 0; sex < nsex(sp); sex ++){
 
-          /*
-           switch(estDynamics(sp)){
-        case 0: // Estimated
-           */
 
-          // - Estimate as free parameters
-          if(initMode == 0){
-            R(sp, 0) = exp(init_dev(sp, 0));
-            N_at_age(sp, 0, age, 0) = exp(init_dev(sp, age)) * R_sexr(sp);
-            N_at_age(sp, 1, age, 0) = exp(init_dev(sp, age)) * (1-R_sexr(sp));
+          switch(estDynamics(sp)){
+          case 0: // Estimated
+
+            // - Estimate as free parameters
+            if(initMode == 0){
+              R(sp, 0) = exp(init_dev(sp, 0));
+              N_at_age(sp, 0, age, 0) = exp(init_dev(sp, age)) * R_sexr(sp);
+              N_at_age(sp, 1, age, 0) = exp(init_dev(sp, age)) * (1-R_sexr(sp));
+            }
+
+            // - Equilibrium or non-equilibrium estimated as function of R0, Finit, mortality, and init devs
+            // Finit is set to 0 when initMode != 2
+            if(initMode > 0){
+              // -- 6.5.1. Amin (i.e. recruitment)
+              if(age == 0){
+                R(sp, 0) = R_init(sp) * exp(rec_dev(sp, 0));
+                N_at_age(sp, 0, 0, 0) = R(sp, 0) * R_sexr(sp);
+                N_at_age(sp, 1, 0, 0) = R(sp, 0) * (1-R_sexr(sp));
+              }
+
+              // Sum M1 until age - 1
+              mort_sum(sp, age) = 0;
+              for(int age_tmp = 0; age_tmp < age; age_tmp++){
+                mort_sum(sp, age) += M1_at_age(sp, sex, age_tmp) + Finit(sp);
+              }
+
+              // -- 6.5.2. Age Amin+1:Amax-1 (initial abundance)
+              if ((age > 0) & (age < nages(sp) - 1)) {
+
+                if(sex == 0){
+                  N_at_age(sp, 0, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) * R_sexr(sp);
+                }
+                if(sex == 1){
+                  N_at_age(sp, 1, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) * (1-R_sexr(sp));
+                }
+              }
+
+              // -- 6.5.3. Amax
+              if (age == (nages(sp) - 1)) {
+
+                if(sex ==0){// NOTE: This solves for the geometric series
+                  N_at_age(sp, 0, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) / (1 - exp(-M1_at_age(sp, sex, nages(sp) - 1))) * R_sexr(sp);
+                }
+
+                if(sex == 1){
+                  N_at_age(sp, 1, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) / (1 - exp(-M1_at_age(sp, sex, nages(sp) - 1))) * (1-R_sexr(sp));
+                }
+              }
+            }
+            break;
+
+          case 1: // Fixed numbers-at-age - fixed scalar
+            N_at_age(sp, sex, age, 0) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, 0);
+            break;
+
+          case 2: // Fixed numbers-at-age age-independent scalar
+            N_at_age(sp, sex, age, 0) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, 0);
+            break;
+
+          case 3: // Fixed numbers-at-age age-dependent scalar
+            N_at_age(sp, sex, age, 0) = pop_scalar(sp, age) * NByageFixed(sp, sex, age, 0);
+            break;
+
+          default:
+            error("Invalid 'estDynamics'");
           }
-
-          // - Equilibrium or non-equilibrium estimated as function of R0, Finit, mortality, and init devs
-          // Finit is set to 0 when initMode != 2
-          if(initMode > 0){
-            // -- 6.5.1. Amin (i.e. recruitment)
-            if(age == 0){
-              R(sp, 0) = R_init(sp) * exp(rec_dev(sp, 0));
-              N_at_age(sp, 0, 0, 0) = R(sp, 0) * R_sexr(sp);
-              N_at_age(sp, 1, 0, 0) = R(sp, 0) * (1-R_sexr(sp));
-            }
-
-            // Sum M1 until age - 1
-            mort_sum(sp, age) = 0;
-            for(int age_tmp = 0; age_tmp < age; age_tmp++){
-              mort_sum(sp, age) += M1_at_age(sp, sex, age_tmp) + Finit(sp);
-            }
-
-            // -- 6.5.2. Age Amin+1:Amax-1 (initial abundance)
-            if ((age > 0) & (age < nages(sp) - 1)) {
-
-              if(sex == 0){
-                N_at_age(sp, 0, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) * R_sexr(sp);
-              }
-              if(sex == 1){
-                N_at_age(sp, 1, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) * (1-R_sexr(sp));
-              }
-            }
-
-            // -- 6.5.3. Amax
-            if (age == (nages(sp) - 1)) {
-
-              if(sex ==0){// NOTE: This solves for the geometric series
-                N_at_age(sp, 0, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) / (1 - exp(-M1_at_age(sp, sex, nages(sp) - 1))) * R_sexr(sp);
-              }
-
-              if(sex == 1){
-                N_at_age(sp, 1, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) / (1 - exp(-M1_at_age(sp, sex, nages(sp) - 1))) * (1-R_sexr(sp));
-              }
-            }
-          }
-
-          /*
-           break;
-
-        case 1: // Fixed numbers-at-age - fixed scalar
-           N_at_age(sp, sex, age, 0) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, 0);
-           break;
-
-        case 2: // Fixed numbers-at-age age-independent scalar
-           N_at_age(sp, sex, age, 0) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, 0);
-           break;
-
-        case 3: // Fixed numbers-at-age age-dependent scalar
-           N_at_age(sp, sex, age, 0) = pop_scalar(sp, age) * NByageFixed(sp, sex, age, 0);
-           break;
-
-        default:
-           error("Invalid 'estDynamics'");
-           }
-           */
 
           // -- 6.5.3. Estimate total biomass in year 1
           // biomass_at_age(sp, sex, age, 0) = N_at_age(sp, sex, age, 0) * wt( pop_wt_index(sp), sex, age, 0);
@@ -1464,38 +1461,34 @@ Type objective_function<Type>::operator() () {
         for (age = 0; age < nages(sp); age++){
           for(sex = 0; sex < nsex(sp); sex ++){
 
-            //switch(estDynamics(sp)){
-            //case 0: // Estimated numbers-at-age
+            switch(estDynamics(sp)){
+            case 0: // Estimated numbers-at-age
 
-            // -- Where Amin < age < Amax
-            if (age < (nages(sp) - 1)) {
-              N_at_age(sp, sex, age + 1, yr) = N_at_age(sp, sex, age, yr - 1) * exp(-Z_at_age(sp, sex, age, yr-1));// S_at_age(sp, sex, age, yr - 1);
+              // -- Where Amin < age < Amax
+              if (age < (nages(sp) - 1)) {
+                N_at_age(sp, sex, age + 1, yr) = N_at_age(sp, sex, age, yr - 1) * exp(-Z_at_age(sp, sex, age, yr-1));// S_at_age(sp, sex, age, yr - 1);
+              }
+
+              // -- Plus group where age = Amax.
+              if (age == (nages(sp) - 1)) {
+                N_at_age(sp, sex, age, yr) = N_at_age(sp, sex, age - 1, yr - 1) * exp(-Z_at_age(sp, sex, age-1, yr-1)) + N_at_age(sp, sex, age, yr - 1) * exp(-Z_at_age(sp, sex, age, yr-1)); // S_at_age(sp, sex, age, yr - 1);
+              }
+              break;
+
+            case 1: // Fixed numbers-at-age - fixed scalar
+              N_at_age(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
+              break;
+
+            case 2: // Fixed numbers-at-age age-independent scalar
+              N_at_age(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
+              break;
+            case 3: // Fixed numbers-at-age age-dependent scalar
+              N_at_age(sp, sex, age, yr) = pop_scalar(sp, age) * NByageFixed(sp, sex, age, yr);
+              break;
+
+            default:
+              error("Invalid 'estDynamics'");
             }
-
-            // -- Plus group where age = Amax.
-            if (age == (nages(sp) - 1)) {
-              N_at_age(sp, sex, age, yr) = N_at_age(sp, sex, age - 1, yr - 1) * exp(-Z_at_age(sp, sex, age-1, yr-1)) + N_at_age(sp, sex, age, yr - 1) * exp(-Z_at_age(sp, sex, age, yr-1)); // S_at_age(sp, sex, age, yr - 1);
-            }
-
-            /*
-             break;
-
-          case 1: // Fixed numbers-at-age - fixed scalar
-             N_at_age(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
-             break;
-
-          case 2: // Fixed numbers-at-age age-independent scalar
-             N_at_age(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
-             break;
-          case 3: // Fixed numbers-at-age age-dependent scalar
-             N_at_age(sp, sex, age, yr) = pop_scalar(sp, age) * NByageFixed(sp, sex, age, yr);
-             break;
-
-          default:
-             error("Invalid 'estDynamics'");
-             }
-
-             */
 
             N_at_age(sp, sex, age, yr) = posfun(N_at_age(sp, sex, age, yr), Type(0.001), penalty);
             zero_N_pen(sp) += penalty;
@@ -1950,39 +1943,35 @@ Type objective_function<Type>::operator() () {
         // -- 6.9.2. Ages > recruitment
         for (age = 0; age < nages(sp); age++) {
           for(sex = 0; sex < nsex(sp); sex ++){
-            //switch(estDynamics(sp)){
-            //case 0: // Estimated numbers-at-age
+            switch(estDynamics(sp)){
+            case 0: // Estimated numbers-at-age
 
-            // -- 6.9.2.  Where minage + 1 <= age < Ai
-            if (age < (nages(sp) - 1)) {
-              N_at_age(sp, sex, age + 1, yr) = N_at_age(sp, sex, age, yr - 1) * exp(-Z_at_age(sp, sex, age, yr-1));// S_at_age(sp, sex, age, yr - 1);
+              // -- 6.9.2.  Where minage + 1 <= age < Ai
+              if (age < (nages(sp) - 1)) {
+                N_at_age(sp, sex, age + 1, yr) = N_at_age(sp, sex, age, yr - 1) * exp(-Z_at_age(sp, sex, age, yr-1));// S_at_age(sp, sex, age, yr - 1);
+              }
+
+              // -- 6.9.3. Plus group where age > Ai.
+              if (age == (nages(sp) - 1)) {
+                N_at_age(sp, sex, age, yr) = N_at_age(sp, sex, age - 1, yr - 1) * exp(-Z_at_age(sp, sex, age-1, yr-1)) + N_at_age(sp, sex, age, yr - 1) * exp(-Z_at_age(sp, sex, age, yr-1));// S_at_age(sp, sex, age, yr - 1);
+              }
+              break;
+
+            case 1: // Fixed numbers-at-age - fixed scalar
+              N_at_age(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
+              break;
+
+            case 2: // Fixed numbers-at-age age-independent scalar
+              N_at_age(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
+              break;
+
+            case 3: // Fixed numbers-at-age age-dependent scalar
+              N_at_age(sp, sex, age, yr) = pop_scalar(sp, age) * NByageFixed(sp, sex, age, yr);
+              break;
+
+            default: // Wrong estDynamics
+              error("Invalid 'estDynamics'");
             }
-
-            // -- 6.9.3. Plus group where age > Ai.
-            if (age == (nages(sp) - 1)) {
-              N_at_age(sp, sex, age, yr) = N_at_age(sp, sex, age - 1, yr - 1) * exp(-Z_at_age(sp, sex, age-1, yr-1)) + N_at_age(sp, sex, age, yr - 1) * exp(-Z_at_age(sp, sex, age, yr-1));// S_at_age(sp, sex, age, yr - 1);
-            }
-
-            /*
-             break;
-
-          case 1: // Fixed numbers-at-age - fixed scalar
-             N_at_age(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
-             break;
-
-          case 2: // Fixed numbers-at-age age-independent scalar
-             N_at_age(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
-             break;
-
-          case 3: // Fixed numbers-at-age age-dependent scalar
-             N_at_age(sp, sex, age, yr) = pop_scalar(sp, age) * NByageFixed(sp, sex, age, yr);
-             break;
-
-          default: // Wrong estDynamics
-             error("Invalid 'estDynamics'");
-             }
-
-             */
 
             //  Constraint to reduce population collapse
             // N_at_age(sp, sex, age, yr) = posfun(N_at_age(sp, sex, age, yr), Type(0.001), penalty);
@@ -2298,7 +2287,7 @@ Type objective_function<Type>::operator() () {
               }
             }
             if(other_food(rsp) > 0){
-              other_food_diet_prop(rsp, r_sex, r_age, yr) /= other_food(rsp);
+              other_food_diet_prop(rsp, r_sex, r_age, yr) /= other_food(rsp); // Penalize this
             }
             if(other_food(rsp) == 0){
               other_food_diet_prop(rsp, r_sex, r_age, yr) = 0.0;
@@ -3869,9 +3858,9 @@ Type objective_function<Type>::operator() () {
 
   // Slot 14 -- N-at-age < 0 penalty. See posfun
   for (sp = 0; sp < nspp; sp++){
-    //if(estDynamics(sp) == 0){
-    jnll_comp(14, sp) += zero_N_pen(sp);
-    //}
+    if(estDynamics(sp) == 0){
+      jnll_comp(14, sp) += zero_N_pen(sp);
+    }
   }
 
 
@@ -3986,7 +3975,7 @@ Type objective_function<Type>::operator() () {
 
 
   // 12.1. Population components
-  //REPORT( pop_scalar );
+  REPORT( pop_scalar );
   REPORT( avg_R );
   //REPORT( pmature );
   REPORT( Z_at_age );

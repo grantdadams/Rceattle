@@ -30,7 +30,7 @@ rearrange_dat <- function(data_list){
                   Time_varying_q,       # 16) Time varying q type
                   Estimate_index_sd,    # 17) Wether to estimate standard deviation of survey time series
                   Estimate_catch_sd     # 18) Wether to estimate standard deviation of fishery time series
-                  )
+    )
   # Don't want: "Sel_sd_prior", "Q_prior", "Q_sd_prior", "Time_varying_q_sd_prior", "Survey_sd_prior", "proj_F", "Catch_sd_prior", "Comp_weights", "proj_F_prop"
 
   data_list$fleet_control$Time_varying_sel <- round(data_list$fleet_control$Time_varying_sel)
@@ -294,7 +294,7 @@ rearrange_dat <- function(data_list){
   data_list[df_to_mat] <- lapply(data_list[df_to_mat], as.matrix)
 
   items_to_remove <- c("emp_sel",  "fsh_comp",    "srv_comp",    "catch_data",    "index_data", "comp_data", "env_data", "spnames",
-                       "aLW", "NByageFixed", "estDynamics",
+                       "aLW", # "NByageFixed", "estDynamics",
                        "avgnMode", "Ceq", "minNByage")
   data_list[items_to_remove] <- NULL
 

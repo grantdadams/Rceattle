@@ -10,11 +10,12 @@ build_hcr(
   FsprTarget = 0.4,
   FsprLimit = 0.35,
   Ptarget = 0.4,
-  Plimit = 0.2,
+  Plimit = 0,
   Alpha = 0.05,
   Pstar = 0.45,
   Sigma = 0.5,
-  Fmult = 1
+  Fmult = 1,
+  HCRorder = 1
 )
 }
 \arguments{
@@ -36,6 +37,8 @@ build_hcr(
 
 \item{Sigma}{Standard deviation used for normally distributed uncertainty buffer given \code{FsprLimit} and \code{Pstar}}
 
+\item{HCRorder}{for multi-species models, the order in which to project fishing (e.g. predators first, then prey)}
+
 \item{Ctarget}{Target catch (mt)}
 }
 \value{
@@ -49,7 +52,7 @@ Specify the harvest control rule (HCR) used for Rceattle
 
 \code{hcr = 0} No catch. Estimate the hindcast.
 
-\code{hcr = 1} Constant catch set at \code{Ctarget}
+\code{hcr = 1} CMSY. Maximize catch across all species simultaneously. CMSY can be constrained such that depletion does not fall below \code{Plimit}.
 
 \code{hcr = 2} Constant input F set at \code{FsprTarget} for each species (vector or single F). SPR based Flimit can be specified via FsprLimit.
 

@@ -20,7 +20,7 @@ data("GOApollock")
 
 # Cod
 data("GOAcod")
-mydata_pcod$pmature[1,2:13] <- 2 # Spawn wt from SS model includes sex-ratio and maturity already, so setting Pmature (age-at-maturity) to 2 to have CEATTLE calculations be the same
+GOAcod$pmature[1,2:13] <- 2 # Spawn wt from SS model includes sex-ratio and maturity already, so setting Pmature (age-at-maturity) to 2 to have CEATTLE calculations be the same
 # The cod model was  a bit trickier to recreate because of the use of internal age-length estimation/conditional age-at-length and more flexible selectivity parameterization than I currently have set up in CEATTLE. I use the output weight-at-age, mortality, and terminal year age-length-key from SS as inputs into CEATTLE and set age-based selectivity in CEATTLE to be the form that is most similar to the terminal year length-based selectivity pattern in SS. I fit the same index, catch, and length-at-age data as well as marginal age- and length-comp data that the SAFE model doesn't fit. I ignore annual varying selectivity (you could do it in CEATTLE... see meta_data sheet in the Excel file, I just stopped trying after some convergence issues). I ignored the aging error (could add in, but was having convergence problems). I also do not use the Taylor and Methot 2013 recruitment bias correction thats in SS and did not have a 2016 bump in mortality from the blob.
 
 # ATF
@@ -71,12 +71,12 @@ cod_model <- Rceattle::fit_mod(
   phase = TRUE) # Use default phasing
 
 # Reweighting the cod model helps using Macalliser Ianelli weights
-mydata_pcod$fleet_control$Comp_weights <- cod_model$data_list$fleet_control$Est_weights_macallister
+GOAcod$fleet_control$Comp_weights <- cod_model$data_list$fleet_control$Est_weights_macallister
 
 # -- Refit
 cod_model <- Rceattle::fit_mod(
-  data_list = mydata_pcod,
-  inits = mydata_pcod$estimated_params, # Start from the unweighted model's MLEs
+  data_list = GOAcod,
+  inits = cod_model$estimated_params, # Start from the unweighted model's MLEs
   file = NULL, # Don't save
   estimateMode = 0, # 0 = Estimate, 1 = Dont run estimation
   random_rec = FALSE, # No random recruitment

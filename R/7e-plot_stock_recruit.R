@@ -138,7 +138,7 @@ plot_stock_recruit <-
           }
 
           # - Beverton and holt
-          if(srr_pred_fun[k] %in% c(1,2)){
+          if(srr_pred_fun[k] %in% c(2,3)){
             curve(exp(rec_pars[spp[j], 2, k]) * x / (1+exp(rec_pars[spp[j], 3, k]) * x * 1000000),
                   from = 0, to = xmax[spp[j]],
                   lty = 1, lwd = lwd, col = line_col[k],
@@ -146,7 +146,7 @@ plot_stock_recruit <-
           }
 
           # - Ricker
-          if(srr_pred_fun[k] %in% c(3,4)){
+          if(srr_pred_fun[k] %in% c(4,5)){
             curve(exp(rec_pars[spp[j], 2, k]) * x * exp(-exp(rec_pars[spp[j], 3, k]) * x),
                   from = 0, to = xmax[spp[j]],
             lty = 1, lwd = lwd, col = line_col[k],
