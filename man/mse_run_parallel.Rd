@@ -34,7 +34,7 @@ mse_run_parallel(
 
 \item{start_sim}{First simulation number to start at. Useful if the code stops at specific seed/sim (default = 1).}
 
-\item{assessment_period}{Period of years that each assessment is taken}
+\item{assessment_period}{Period of years that each assessment is taken (default = 1). NOT YET UPDATED for > 1 (fix catch input)}
 
 \item{sampling_period}{Period of years data sampling is conducted. Single value or vector the same length as the number of fleets.}
 
