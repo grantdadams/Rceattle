@@ -25,10 +25,10 @@ plot_timeseries(
   mod_cex = 1,
   lty = rep(1, length(Rceattle)),
   alpha = 0.4,
+  mod_avg = rep(FALSE, length(Rceattle)),
   mse = FALSE,
   OM = TRUE,
-  reference = NULL,
-  mod_avg = rep(FALSE, length(Rceattle))
+  reference = NULL
 )
 }
 \arguments{
@@ -67,13 +67,13 @@ function.}
 
 \item{mod_cex}{Cex of text for model name legend}
 
+\item{mod_avg}{TRUE/FALSE}
+
 \item{mse}{Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}}
 
 \item{OM}{if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?}
 
 \item{reference}{Reference model}
-
-\item{mod_avg}{TRUE/FALSE}
 }
 \value{
 Returns and saves a figure with the population trajectory.

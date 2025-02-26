@@ -3,6 +3,7 @@
 # Adams, G. D., Holsman, K. K., Barbeaux, S. J., Dorn, M. W., Ianelli, J. N., Spies, I., ... & Punt, A. E. (2022). An ensemble approach to understand predation mortality for groundfish in the Gulf of Alaska. Fisheries Research, 251, 106303.
 
 library(Rceattle)
+library(dplyr)
 
 ################################################
 # Data
@@ -27,7 +28,6 @@ ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
                             phase = TRUE,
                             verbose = 1)
 
-plot_biomass(ss_run, add_ci = TRUE)
 
 # Single-species, but estimate M
 ss_run_M <- Rceattle::fit_mod(data_list = GOA2018SS,
@@ -40,7 +40,7 @@ ss_run_M <- Rceattle::fit_mod(data_list = GOA2018SS,
                               phase = TRUE,
                               verbose = 1)
 
-plot_biomass(ss_run_M, add_ci = TRUE)
+plot_biomass(ss_run_M)
 
 # - Multi-species
 # For the a multispecies model we from the single species parameters.
@@ -55,7 +55,7 @@ ms_run <- Rceattle::fit_mod(data_list = GOA2018SS,
                             suitMode = 0, # empirical suitability
                             verbose = 1)
 
-plot_biomass(ms_run, add_ci = TRUE)
+plot_biomass(ms_run)
 
 
 ################################################

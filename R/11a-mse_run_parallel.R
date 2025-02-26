@@ -6,7 +6,7 @@
 #' @param em CEATTLE model object exported from \code{\link{Rceattle}}
 #' @param nsim Number of simulations to run (default 10)
 #' @param start_sim First simulation number to start at. Useful if the code stops at specific seed/sim (default = 1).
-#' @param assessment_period Period of years that each assessment is taken (default = 1). NOT YET UPDATED for > 1 (fix catch input)
+#' @param assessment_period Period of years that each assessment is taken
 #' @param sampling_period Period of years data sampling is conducted. Single value or vector the same length as the number of fleets.
 #' @param simulate_data Include simulated random error proportional to that estimated/provided for the data from the OM.
 #' @param regenerate_past Refits the EM to historical/conditioning data prior to the MSE, where the data are generated from the OM with \code{simulate_data = TRUE} or without \code{simulate_data = FALSE} sampling error.
@@ -14,6 +14,7 @@
 #' @param rec_trend Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier \code{mean rec * (1 + (rec_trend/projection years) * 1:projection years)}. Can be of length 1 or of length nspp. If length 1, all species get the same trend.
 #' @param fut_sample future sampling effort relative to last year.  \code{ Log_sd * 1 / fut_sample} for index and \code{ Sample_size * fut_sample} for comps
 #' @param cap A cap on the catch in the projection. Can be a single number or vector of length nspp. Default = NULL
+#' @param catch_mult A multiplier for the catch in the projection. Can be a single number or vector of length nspp. Default = NULL
 #' @param loopnum number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})
 #' @param file (Optional) Filename where each OM simulation with EMs will be saved. If NULL, no files are saved.
 #' @param dir (Optional) Directory where each OM simulation is saved
@@ -25,11 +26,9 @@
 #' @export
 #'
 #'
-mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, regenerate_past = FALSE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, seed = 666, regenerate_seed = seed, loopnum = 1, file = NULL, dir = NULL, timeout = 999){
+mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, regenerate_past = FALSE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, catch_mult = NULL, seed = 666, regenerate_seed = seed, loopnum = 1, file = NULL, dir = NULL, timeout = 999, endyr = NA){
 
-  # # Debugging
   # om = ss_run; em = ss_run_Tier3; nsim = 1; start_sim = 1; assessment_period = 1; sampling_period = 1; simulate_data = TRUE; regenerate_past = FALSE; sample_rec = TRUE; rec_trend = 0; fut_sample = 1; cap = NULL; catch_mult = NULL; seed = 666; regenerate_seed = seed; loopnum = 1; file = NULL; dir = NULL; endyr = NA; timeout = 999
-
 
   #--------------------------------------------------
   # MSE SPECIFICATIONS ----
@@ -54,6 +53,20 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
     if(length(cap) != om$data_list$nspp){
       stop("cap is not length 1 or length nspp")
     }
+  }
+
+  if(!is.null(catch_mult)){
+    if(length(catch_mult) == 1){
+      catch_mult = rep(catch_mult, om$data_list$nspp)
+    }
+
+    if(length(catch_mult) != om$data_list$nspp){
+      stop("catch_mult is not length 1 or length nspp")
+    }
+  }
+
+  if(sum(om$data_list$fleet_control$proj_F_prop) == 0){
+    stop("F prop per fllet 'proj_F_prop' is zero")
   }
 
   # - Adjust rec trend
@@ -85,7 +98,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   }
 
   # - Assessment period
-  assess_yrs <- seq(from = om$data_list$endyr + assessment_period, to =  min(c(om$data_list$projyr, em$data_list$projyr)),  by = assessment_period)
+  assess_yrs <- seq(from = om$data_list$endyr + assessment_period, to =  min(c(om$data_list$projyr, em$data_list$projyr, endyr), na.rm = TRUE),  by = assessment_period)
 
   # - Data sampling period
   if(length(sampling_period)==1){
@@ -136,7 +149,8 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
                       Alpha = em$data_list$Alpha,
                       Pstar = em$data_list$Pstar,
                       Sigma = em$data_list$Sigma,
-                      Fmult = em$data_list$Fmult
+                      Fmult = em$data_list$Fmult,
+                      HCRorder = em$data_list$HCRorder
       ),
       recFun = build_srr(srr_fun = em$data_list$srr_fun,
                          srr_pred_fun  = em$data_list$srr_pred_fun ,
@@ -147,7 +161,8 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
                          srr_est_mode  = em$data_list$srr_est_mode ,
                          srr_prior  = em$data_list$srr_prior,
                          srr_prior_sd   = em$data_list$srr_prior_sd,
-                         Bmsy_lim = em$data_list$Bmsy_lim),
+                         Bmsy_lim = em$data_list$Bmsy_lim,
+                         srr_env_indices = em$data_list$srr_env_indices),
       M1Fun =     build_M1(M1_model= em$data_list$M1_model,
                            updateM1 = FALSE,
                            M1_use_prior = em$data_list$M1_use_prior,
@@ -197,7 +212,8 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
                                                  srr_est_mode  = em$data_list$srr_est_mode ,
                                                  srr_prior  = em$data_list$srr_prior,
                                                  srr_prior_sd   = em$data_list$srr_prior_sd,
-                                                 Bmsy_lim = em$data_list$Bmsy_lim),
+                                                 Bmsy_lim = em$data_list$Bmsy_lim,
+                                                 srr_env_indices = em$data_list$srr_env_indices),
                               M1Fun =     build_M1(M1_model= em$data_list$M1_model,
                                                    updateM1 = FALSE,
                                                    M1_use_prior = em$data_list$M1_use_prior,
@@ -313,7 +329,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   library(foreach)
   library(doParallel)
 
-  cores = detectCores() - 2
+  cores = detectCores() - 6
   registerDoParallel(cores)
 
   sim_list <- foreach(sim = start_sim:nsim) %dopar% {
@@ -321,7 +337,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
     library(dplyr)
 
     set.seed(seed = seed + sim) # setting unique seed for each simulation
-    kill_sim <- FALSE
+    kill_sim <- list(kill_sim = FALSE, failure = NA)
 
     # Set models objects
     sim_list <- list(EM = list())# , OM = list())
@@ -334,10 +350,24 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
     # Replace future rec devs
     #FIXME - update non-sample rec for stock recruit relationship
     for(sp in 1:om_use$data_list$nspp){
-      if(sample_rec){ # Sample devs from hindcast
-        rec_dev <- sample(x = om_use$estimated_params$rec_dev[sp, 1:hind_nyrs], size = om_proj_nyrs, replace = TRUE) + log((1+(rec_trend[sp]/om_proj_nyrs) * 1:om_proj_nyrs)) # - Scale mean rec for rec trend
-      } else{ # Set to mean rec otherwise
-        rec_dev <- log(mean(om_use$quantities$R[sp,1:hind_nyrs]) * (1+(rec_trend[sp]/om_proj_nyrs) * 1:om_proj_nyrs))  - log(om_use$quantities$R0[sp]) # - Scale mean rec for rec trend
+
+      # -- OMs where SR curve is estimated directly
+      if(om_use$data_list$srr_fun == om_use$data_list$srr_pred_fun){
+        if(sample_rec){ # Sample devs from hindcast
+          rec_dev <- sample(x = om_use$estimated_params$rec_dev[sp, 1:hind_nyrs], size = om_proj_nyrs, replace = TRUE) + log((1+(rec_trend[sp]/om_proj_nyrs) * 1:om_proj_nyrs)) # - Scale mean rec for rec trend
+        } else{ # Set to mean rec otherwise
+          rec_dev <- log(mean(om_use$quantities$R[sp,1:hind_nyrs]) * (1+(rec_trend[sp]/om_proj_nyrs) * 1:om_proj_nyrs))  - log(om_use$quantities$R0[sp]) # - Scale mean rec for rec trend
+        }
+      }
+
+      # -- OMs where SR curve is estimated as penalty (sensu Ianelli)
+      if(om_use$data_list$srr_fun != om_use$data_list$srr_pred_fun){
+        if(sample_rec){ # Sample devs from hindcast
+          rec_dev <- sample(x = (log(om_use$quantities$R) - log(om_use$quantities$R_hat))[sp, 1:hind_nyrs],
+                            size = om_proj_nyrs, replace = TRUE) + log((1+(rec_trend[sp]/om_proj_nyrs) * 1:om_proj_nyrs)) # - Scale mean rec for rec trend
+        } else{ # Set to mean rec otherwise
+          rec_dev <- log(mean((log(om_use$quantities$R) - log(om_use$quantities$R_hat))[sp, 1:hind_nyrs]) * (1+(rec_trend[sp]/om_proj_nyrs) * 1:om_proj_nyrs)) # - Scale mean rec for rec trend
+        }
       }
 
       # - Update OM with devs
@@ -359,6 +389,10 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       new_catch_data <- em_use$data_list$catch_data
       dat_fill_ind <- which(new_catch_data$Year %in% new_years & is.na(new_catch_data$Catch))
       new_catch_data$Catch[dat_fill_ind] <- em_use$quantities$catch_hat[dat_fill_ind]
+
+      if(!is.null(catch_mult)){
+        new_catch_data$Catch[dat_fill_ind] <- new_catch_data$Catch[dat_fill_ind] * catch_mult[new_catch_data$Species[dat_fill_ind]]
+      }
 
       if(!is.null(cap)){
         new_catch_data$Catch[dat_fill_ind] <- ifelse(new_catch_data$Catch[dat_fill_ind] > cap[new_catch_data$Species[dat_fill_ind]], cap[new_catch_data$Species[dat_fill_ind]], new_catch_data$Catch[dat_fill_ind])
@@ -446,13 +480,17 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
           estimate_mode_base)
       )
 
+      if(new_catch_switch == 0){
+        om_use$map = NULL
+      }
+
       # * Fit OM with new catch data ----
       kill_sim <- tryCatch({
         R.utils::withTimeout({
           om_use <- fit_mod(
             data_list = om_use$data_list,
             inits = om_use$estimated_params,
-            map =  om_use$map,
+            map = om_use$map,
             bounds = NULL,
             file = NULL,
             estimateMode = estimate_mode_use,
@@ -473,7 +511,8 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
                             Alpha = om_use$data_list$Alpha,
                             Pstar = om_use$data_list$Pstar,
                             Sigma = om_use$data_list$Sigma,
-                            Fmult = om_use$data_list$Fmult
+                            Fmult = om_use$data_list$Fmult,
+                            HCRorder = em$data_list$HCRorder
             ),
             recFun = build_srr(srr_fun = om_use$data_list$srr_fun,
                                srr_pred_fun = om_use$data_list$srr_pred_fun ,
@@ -484,7 +523,8 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
                                srr_est_mode  = om_use$data_list$srr_est_mode ,
                                srr_prior = om_use$data_list$srr_prior,
                                srr_prior_sd = om_use$data_list$srr_prior_sd,
-                               Bmsy_lim = om_use$data_list$Bmsy_lim),
+                               Bmsy_lim = om_use$data_list$Bmsy_lim,
+                               srr_env_indices = om_use$data_list$srr_env_indices),
             M1Fun = build_M1(M1_model= om_use$data_list$M1_model,
                              updateM1 = FALSE,
                              M1_use_prior = om_use$data_list$M1_use_prior,
@@ -495,18 +535,18 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
             phase = FALSE,
             getsd = FALSE,
             verbose = 0)
-          return(FALSE)
+          return(list(kill_sim = FALSE, failure = NA))
         },
         timeout = 60*timeout)
       },
       error = function(e){
-        return(TRUE)
+        return(list(kill_sim = TRUE, failure = "OM"))
       },
       TimeoutException = function(e){
-        return(TRUE)
+        return(list(kill_sim = TRUE, failure = "OM"))
       })
 
-      if(kill_sim){
+      if(kill_sim$kill_sim){
         break()
       }
 
@@ -583,9 +623,9 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
 
 
       # Restimate
-      em_use <- tryCatch({
+      kill_sim <- tryCatch({
         R.utils::withTimeout({
-          fit_mod(
+          em_use <- fit_mod(
             data_list = em_use$data_list,
             inits = em_use$estimated_params,
             map =  NULL,
@@ -601,7 +641,8 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
                             Alpha = em_use$data_list$Alpha,
                             Pstar = em_use$data_list$Pstar,
                             Sigma = em_use$data_list$Sigma,
-                            Fmult = em_use$data_list$Fmult
+                            Fmult = em_use$data_list$Fmult,
+                            HCRorder = em$data_list$HCRorder
             ),
             recFun = build_srr(srr_fun = em_use$data_list$srr_fun,
                                srr_pred_fun = em_use$data_list$srr_pred_fun,
@@ -612,7 +653,8 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
                                srr_est_mode  = em_use$data_list$srr_est_mode ,
                                srr_prior = em_use$data_list$srr_prior,
                                srr_prior_sd = em_use$data_list$srr_prior_sd,
-                               Bmsy_lim = em_use$data_list$Bmsy_lim),
+                               Bmsy_lim = em_use$data_list$Bmsy_lim,
+                               srr_env_indices = em_use$data_list$srr_env_indices),
             M1Fun =     build_M1(M1_model= em_use$data_list$M1_model,
                                  updateM1 = FALSE,
                                  M1_use_prior = em_use$data_list$M1_use_prior,
@@ -631,18 +673,19 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
             loopnum = loopnum,
             getsd = FALSE,
             verbose = 0)
+          return(list(kill_sim = FALSE, failure = NA))
         },
         timeout = 60*timeout)
       },
       error = function(ex) {
-        return(NULL)
+        return(list(kill_sim = TRUE, failure = "EM"))
       },
       TimeoutException = function(ex) {
-        return(NULL)
+        return(list(kill_sim = TRUE, failure = "EM"))
       })
 
       if(is.null(em_use)){
-        kill_sim <- TRUE
+        return(list(kill_sim = TRUE, failure = "EM"))
         break()
       }
       # plot_biomass(list(em_use, om_use), model_names = c("EM", "OM"))
@@ -685,8 +728,10 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       message(paste0("Sim ",sim, " - EM Year ", assess_yrs[k], " COMPLETE"))
     }
 
+
     # - Rename models
-    sim_list$use_sim <- !kill_sim
+    sim_list$use_sim <- !kill_sim$kill_sim
+    sim_list$failure = kill_sim$failure
     sim_list$OM <- om_use # OM
     sim_list$OM_no_F <- remove_F(om_use) # OM with no Fishing
     if(!kill_sim$kill_sim){

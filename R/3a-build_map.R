@@ -901,22 +901,22 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       map_list$comp_weights[flts] <- NA
     }
 
-    # # Don't estimate the scalar
-    # if(data_list$estDynamics[sp] < 2 | data_list$msmMode == 0){
-    #   map_list$ln_pop_scalar[sp,] <- NA
-    # }
-    #
-    # # Age-independent scalar
-    # if(data_list$estDynamics[sp] == 2 | data_list$msmMode != 0){
-    #   map_list$ln_pop_scalar[sp,2:ncol(map_list$ln_pop_scalar)] <- NA # Only estimate first parameter
-    # }
-    #
-    # # Age-dependent scalar
-    # if(data_list$estDynamics[sp] == 3 | data_list$msmMode != 0){
-    #   if(data_list$nages[sp] < ncol(map_list$ln_pop_scalar)){ # Map out ages beyond maxage of the species
-    #     map_list$ln_pop_scalar[sp,(data_list$nages[sp]+1):ncol(map_list$ln_pop_scalar)] <- NA # Only estimate parameters for each age of species
-    #   }
-    # }
+    # Don't estimate the scalar
+    if(data_list$estDynamics[sp] < 2 | data_list$msmMode == 0){
+      map_list$ln_pop_scalar[sp,] <- NA
+    }
+
+    # Age-independent scalar
+    if(data_list$estDynamics[sp] == 2 | data_list$msmMode != 0){
+      map_list$ln_pop_scalar[sp,2:ncol(map_list$ln_pop_scalar)] <- NA # Only estimate first parameter
+    }
+
+    # Age-dependent scalar
+    if(data_list$estDynamics[sp] == 3 | data_list$msmMode != 0){
+      if(data_list$nages[sp] < ncol(map_list$ln_pop_scalar)){ # Map out ages beyond maxage of the species
+        map_list$ln_pop_scalar[sp,(data_list$nages[sp]+1):ncol(map_list$ln_pop_scalar)] <- NA # Only estimate parameters for each age of species
+      }
+    }
   }
 
 

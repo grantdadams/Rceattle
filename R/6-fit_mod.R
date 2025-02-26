@@ -432,7 +432,7 @@ fit_mod <-
       if(phase){
         phaseList = list(
           dummy = 1,
-          # ln_pop_scalar = 4, # Scalar for input numbers-at-age
+          ln_pop_scalar = 4, # Scalar for input numbers-at-age
           rec_pars = 1, # Stock-recruit parameters or log(mean rec) if no stock-recruit relationship
           beta_rec_pars = 3,
           R_ln_sd = 2, # Variance for annual recruitment deviats

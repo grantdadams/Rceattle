@@ -82,7 +82,6 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE) {
     inits$sel_inf_dev <- inits$sel_inf_dev[,,,1:nyrs]
     inits$sel_coff_dev <- array(inits$sel_coff_dev[,,,1:nyrs], dim = c(dim(Rceattle$estimated_params$sel_coff_dev )[1:3], nyrs))
 
-
     # * Adjust map size ----
     map <- Rceattle$map
 
@@ -109,7 +108,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE) {
     newmod <- suppressWarnings(
       Rceattle::fit_mod(
         data_list = data_list,
-        inits = NULL,
+        inits = inits,
         map =  NULL,
         bounds = NULL,
         file = NULL,
