@@ -8,14 +8,14 @@ data_check <- function(data_list) {
     stop("Other food for one species is negative")
   }
 
-  # Species checks
+  # Species checks ----
   for(sp in 1:data_list$nspp){
     if(sum(data_list$nages[sp] < data_list$fleet_control$Nselages[which(data_list$fleet_control$Species == sp)], na.rm = TRUE) > 1){
       stop(paste("Nselages is greater than nages for species", sp))
     }
   }
 
-  # Fleet checks
+  # Fleet checks ----
   for(flt in 1:nrow(data_list$fleet_control)){
     if(!is.na(data_list$fleet_control$Estimate_q[flt])){
       if((data_list$fleet_control$Estimate_q[flt] == 6 & data_list$fleet_control$Time_varying_q[flt] > (ncol(data_list$env_data) - 1))|
@@ -28,24 +28,32 @@ data_check <- function(data_list) {
     data_list$fleet_control$Age_max_selected[flt] <- ifelse(data_list$fleet_control$Age_max_selected[flt] > data_list$nages[data_list$fleet_control$Species[flt]], data_list$nages[data_list$fleet_control$Species[flt]], data_list$fleet_control$Age_max_selected[flt])
   }
 
-  # Weight at age check
-  if(data_list$styr < min(data_list$wt$Year, na.rm = TRUE)){
-    stop("Weight data does not go back to the start year")
+  # Weight-at-age ----
+  # * Year range ----
+  wt_yr <- data_list$wt %>%
+    dplyr::group_by(Wt_index, Sex) %>%
+    dplyr::distinct(Year) %>%
+    dplyr::mutate(Tmp_ind = paste0("index = ", Wt_index," & sex = ", Sex))
+
+  for(ind in unique(wt_yr$Tmp_ind)){
+
+    tmp_wt <- wt_yr %>%
+      dplyr::filter(Tmp_ind == ind) %>%
+      dplyr::distinct(Year) %>%
+      dplyr::pull(Year)
+
+    # If not time-varying
+    if(length(tmp_wt) > 1){
+
+      # If time-varying, check weight spans range
+      if(any(!(data_list$styr:data_list$endyr) %in% tmp_wt)){
+        stop(paste0("Weight data for ", ind, " does not span all hindcast years"))
+      }
+    }
   }
 
-  if(data_list$endyr > max(data_list$wt$Year, na.rm = TRUE)){
-    stop("Weight data does not to the end year")
-  }
-  
 
-  # Wt data
-  data_list$wt <- data_list$wt %>%
-    mutate(
-      Wt_index = as.numeric(as.character(Wt_index)),
-      Species = as.numeric(as.character(Species)),
-      Sex = as.numeric(as.character(Sex)),
-      Year = as.numeric(as.character(Year)) - data_list$styr + 1)
-
+  # * Index checks ----
   unique_wt <- unique(as.numeric(data_list$wt$Wt_index))
 
   # - Data checks ----

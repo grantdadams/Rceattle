@@ -161,19 +161,24 @@ rearrange_dat <- function(data_list){
   # Step 11 - Set up weight-at-age ----
   # - Convert to array
   data_list$wt <- data_list$wt %>%
-    mutate(
+    dplyr::mutate(
       Wt_index = as.numeric(as.character(Wt_index)),
       Species = as.numeric(as.character(Species)),
       Sex = as.numeric(as.character(Sex)),
-      Year = as.numeric(as.character(Year)) - data_list$styr + 1)
+      Year = as.numeric(as.character(Year)),
+      Year = ifelse(Year == 0,
+                    0,
+                    Year - data_list$styr + 1)
+    )
 
   # Pre-allocate the array
   unique_wt <- unique(as.numeric(data_list$wt$Wt_index))
   wt <- array(0, dim = c(length(unique_wt), 2, max(data_list$nages, na.rm = TRUE), length(data_list$styr:data_list$endyr)))
 
   # Convert weight data to numeric once, outside the loop
-  weight_matrix <- as.matrix(data_list$wt[, (1:max(data_list$nages, na.rm = TRUE)) + 5])
+  weight_matrix <- data_list$wt[, (1:max(data_list$nages, na.rm = TRUE)) + 5]
   weight_matrix <- apply(weight_matrix, 2, function(x) as.numeric(as.character(x)))
+  weight_matrix <- matrix(weight_matrix, ncol = max(data_list$nages, na.rm = TRUE))
 
   # Check for spaces in the weight data
   if (any(grepl("[[:space:]]", weight_matrix))) {
@@ -190,7 +195,7 @@ rearrange_dat <- function(data_list){
     # Check if the year is within the valid range
     if (yr <= data_list$endyr - data_list$styr + 1) {
       # Handle year == 0 case
-      if (yr == 0) {
+      if(yr == 0) {
         yr <- seq_len(length(data_list$styr:data_list$endyr))
       }
 

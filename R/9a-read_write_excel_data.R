@@ -61,11 +61,11 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
     names_used <- c(names_used, "fleet_control")
 
     # srv and fsh bits
-    srv_bits <- c("index_data", "catch_data", "comp_data",  "emp_sel", "NByageFixed", "age_trans_matrix")
-    for (i in 1:length(srv_bits)) {
-        xcel_list[[srv_bits[i]]] <- data_list[[srv_bits[i]]]
+    matrix_data <- c("index_data", "catch_data", "comp_data",  "emp_sel", "NByageFixed", "age_trans_matrix")
+    for (i in 1:length(matrix_data)) {
+        xcel_list[[matrix_data[i]]] <- data_list[[matrix_data[i]]]
     }
-    names_used <- c(names_used, srv_bits)
+    names_used <- c(names_used, matrix_data)
 
     # age_error
     xcel_list$age_error <- as.data.frame(data_list$age_error)

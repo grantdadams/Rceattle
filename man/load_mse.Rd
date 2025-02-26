@@ -4,12 +4,14 @@
 \alias{load_mse}
 \title{Function to load .RDs files from MSE runs}
 \usage{
-load_mse(dir = NULL, file = NULL)
+load_mse(dir = NULL, file = NULL, exclude = NULL)
 }
 \arguments{
 \item{dir}{Directory used to save files from \code{\link{mse_run}}}
 
 \item{file}{file name used to save files from \code{\link{mse_run}}}
+
+\item{exclude}{index of MSE simulations not to load}
 }
 \value{
 list of MSE simulations/run

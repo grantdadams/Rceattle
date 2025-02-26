@@ -17,9 +17,11 @@ plot_catch(
   width = NULL,
   height = NULL,
   alpha = 0.4,
+  lwd = 2,
   ymax = NULL,
   maxyr = NULL,
-  mse = FALSE
+  mse = FALSE,
+  fleets = NULL
 )
 }
 \arguments{

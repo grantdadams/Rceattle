@@ -4,10 +4,12 @@
 \alias{mse_summary}
 \title{Management strategy evaluation performance metric summary}
 \usage{
-mse_summary(mse)
+mse_summary(mse, om_only = FALSE)
 }
 \arguments{
 \item{mse}{MSE runs from \code{\link{mse_run}} or \code{\link{load_mse}}}
+
+\item{om_only}{only include performance metrics from OMs}
 }
 \value{
 Alist of two data.frames with MSE summary statistics of performance metrics including:
