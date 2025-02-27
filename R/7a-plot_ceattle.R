@@ -1155,10 +1155,10 @@ plot_mortality <-
     for (i in 1:length(Rceattle)) {
       M1_array[, , ,i] <- Rceattle[[i]]$quantities$M1[,,1:max(nages)]
       if(!M2){
-        M_array[, , , ,i] <- Rceattle[[i]]$quantities$M[,,1:max(nages),(1:nyrs)+(minyr - Rceattle[[1]]$data_list$styr)]
+        M_array[, , , ,i] <- Rceattle[[i]]$quantities$M1_at_age[,,1:max(nages),(1:nyrs)+(minyr - Rceattle[[1]]$data_list$styr)]
       }
       if(M2){
-        M_array[, , , ,i] <- Rceattle[[i]]$quantities$M2[,,1:max(nages),(1:nyrs)+(minyr - Rceattle[[1]]$data_list$styr)]
+        M_array[, , , ,i] <- Rceattle[[i]]$quantities$M2_at_age[,,1:max(nages),(1:nyrs)+(minyr - Rceattle[[1]]$data_list$styr)]
       }
     }
 
@@ -2026,13 +2026,13 @@ plot_m_at_age <-
       species <- 1:nspp
     }
 
-    # Get B_eaten
+    # Get M
     m_at_age <-
       array(NA, dim = c(nspp, 2, nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
       for(sp in 1:nspp){
         for(yr in 1:nyrs_vec[i]){
-          m_at_age[sp, , yr, i] <- Rceattle[[i]]$quantities$M[sp,,age,yr]
+          m_at_age[sp, , yr, i] <- Rceattle[[i]]$quantities$M_at_age[sp,,age,yr]
         }
       }
     }

@@ -257,13 +257,17 @@ rearrange_dat <- function(data_list){
   # Step 14 - Set up pyrs ----
   # - Convert to array
   data_list$Pyrs <- data_list$Pyrs %>%
-    mutate(Species = as.numeric(as.character(Species)),
+    dplyr::mutate(Species = as.numeric(as.character(Species)),
            Sex = as.numeric(as.character(Sex)),
-           Year = as.numeric(as.character(Year)) - data_list$styr + 1)
+           Year = as.numeric(as.character(Year)),
+           Year = ifelse(Year == 0,
+                         0,
+                         Year - data_list$styr + 1)
+    )
 
   Pyrs <- array(0, dim = c(data_list$nspp, 2, max(data_list$nages), length(data_list$styr:data_list$endyr))) # FIXME: Change for forecast
 
-  if(nrow(data_list$Pyrs)>0){
+  if( nrow(data_list$Pyrs) > 0){
     for (i in 1:nrow(data_list$Pyrs)) {
       sp <- data_list$Pyrs$Species[i]
       sex <- data_list$Pyrs$Sex[i]
@@ -274,6 +278,13 @@ rearrange_dat <- function(data_list){
       }
 
       if(yr <= (data_list$endyr - data_list$styr + 1)){
+
+        # Handle year == 0 case
+        if(yr == 0) {
+          yr <- seq_len(length(data_list$styr:data_list$endyr))
+        }
+
+        # Fill in years
         for(j in 1:length(sex)){
           Pyrs[sp, sex[j], 1:data_list$nages[sp], yr] <- as.numeric(as.character(data_list$Pyrs[i, (1:data_list$nages[sp]) + 3]))
         }
