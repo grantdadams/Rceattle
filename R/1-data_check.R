@@ -54,21 +54,36 @@ data_check <- function(data_list) {
 
 
   # * Index checks ----
-  unique_wt <- unique(as.numeric(data_list$wt$Wt_index))
+  wt_index <- wt_index <- data_list$wt %>%
+    dplyr::distinct(Wt_index, Species, Sex)
 
   # - Data checks ----
-  if(any(data_list$pop_wt_index %!in% unique_wt)){
+  if(any(data_list$pop_wt_index %!in% wt_index$Wt_index)){
     stop("Check population weight index, not in weight file")
   }
 
-  if(any(data_list$ssb_wt_index %!in% unique_wt)){
+  if(any(data_list$ssb_wt_index %!in% wt_index$Wt_index)){
     stop("Check SSB weight index, not in weight file")
+  }
+
+  if(any(wt_index %>% dplyr::count(Wt_index) %>% dplyr::pull(n) > 1)){
+    stop("Check weight indices (Wt_index), the same weight index was used for multiple species")
   }
 
   if(any(data_list$wt %>%
          dplyr::select(-c(Wt_name, Wt_index, Species, Sex, Year)) %>%
          ncol() < data_list$nages)){
     stop("Weight data does not span range of ages")
+  }
+
+
+  # Biological data ----
+  if(ncol(data_list$pmature) < max(data_list$nages)){
+    stop("Maturity-at-age (pmature) does not span all ages")
+  }
+
+  if(ncol(data_list$sex_ratio) < max(data_list$nages)){
+    stop("Sex ratio does not span all ages")
   }
 
   # # Age matrix
