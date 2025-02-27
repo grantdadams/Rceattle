@@ -294,8 +294,8 @@ rearrange_dat <- function(data_list){
   data_list[df_to_mat] <- lapply(data_list[df_to_mat], as.matrix)
 
   items_to_remove <- c("emp_sel",  "fsh_comp",    "srv_comp",    "catch_data",    "index_data", "comp_data", "env_data", "spnames",
-                       "aLW", # "NByageFixed", "estDynamics",
-                       "avgnMode", "Ceq", "minNByage")
+                       "aLW", # "NByageFixed", "estDynamics", "Ceq",
+                       "avgnMode", "minNByage")
   data_list[items_to_remove] <- NULL
 
   return(data_list)
