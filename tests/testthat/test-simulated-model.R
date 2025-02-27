@@ -72,10 +72,10 @@ sim_pop_model <- function(years,
   }
 
   # Observation model
-  ObsCatch <- Catch * exp(rnorm(n_yrs, 0, sigma_catch))
+  ObsCatch <- Catch * rlnorm(n_yrs, 0, sigma_catch)
 
   # Survey observations
-  SrvIdx <- srv_q * Total_Biom * exp(rnorm(n_yrs, 0, sigma_srv))
+  SrvIdx <- srv_q * Total_Biom * rlnorm(n_yrs, 0, sigma_srv)
 
   # Age composition data (simplified multinomial)
   ObsFishAges <- array(0, dim=c(n_yrs, n_ages))
@@ -269,7 +269,7 @@ simData$sex_ratio <- cbind(data.frame(Species = 1),
 )
 
 # * Mortality ----
-mort <- as.data.frame(matrix(0.2, ncol = 15))
+mort <- as.data.frame(matrix(0.3, ncol = 15))
 colnames(mort) <- paste0("Age",1:15)
 simData$M1_base <- cbind(data.frame(Species = 1,
                                     Sex = 0),
@@ -286,7 +286,7 @@ pyrs <- as.data.frame(matrix(1, nrow = 20, ncol = 15))
 colnames(pyrs) <- paste0("Age",1:15)
 simData$Pyrs <- cbind(data.frame(Species = 1,
                                  Sex = 0,
-                                 Years = 1:20),
+                                 Year = 1:20),
                       pyrs
 )
 
@@ -300,3 +300,7 @@ ss_run <- Rceattle::fit_mod(data_list = simData,
                             msmMode = 0, # Single species mode
                             phase = TRUE,
                             verbose = 1)
+
+plot(x = sim$SSB, y = ss_run$quantities$ssb[1,1:20]); abline(1,1)
+plot(x = sim$Total_Biom, y = ss_run$quantities$biomass[1,1:20], ylab = "Rceattle biomass", xlab = "True biomass"); abline(1,1)
+plot(x = sim$NAA[1:20,1], y = ss_run$quantities$R[1,1:20]); abline(1,1)
