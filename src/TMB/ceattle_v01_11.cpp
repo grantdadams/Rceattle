@@ -418,7 +418,7 @@ Type objective_function<Type>::operator() () {
   // ------------------------------------------------------------------------- //
 
   // 2.1. FIXED VALUES
-  Type sd_ration = 0.05;                  // SD of ration likelihood
+  // Type sd_ration = 0.05;                  // SD of ration likelihood
 
 
   // 2.2. DIMENSIONS
@@ -431,7 +431,7 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR( minage );                 // Minimum age of each species; n = [1, nspp]
   DATA_IVECTOR( nlengths );               // Number of species (prey) lengths; n = [1, nspp]
   DATA_ARRAY( NByageFixed );              // Provided estimates of numbers- or index-at-age to be multiplied (or not) by pop_scalar to get N_at_age
-  Type stom_tau = 20;                     // Stomach sample size: FIXME - have as input
+  // Type stom_tau = 20;                     // Stomach sample size: FIXME - have as input
   int max_age = imax(nages);              // Integer of maximum nages to make the arrays; n = [1]
   DATA_VECTOR( MSSB0 );                   // SB0 from projecting the model forward in multi-species mode under no fishing
   DATA_VECTOR( MSB0 );                    // B0 from projecting the model forward in multi-species mode under no fishing
@@ -486,7 +486,7 @@ Type objective_function<Type>::operator() () {
   // -- 2.4.1. Bioenergetics parameters (BP)
   DATA_VECTOR( other_food );              // Biomass of other prey (kg); n = [1, nspp]
   DATA_VECTOR( Pvalue );                  // This scales the pvalue used, proportion of Cmax; Pvalue is P in Cmax*fT*Pvalue*PAge; n = [1, nspp]
-  // DATA_IVECTOR( Ceq );                    // Ceq: which Comsumption equation to use; n = [1, nspp]; Currently all sp = 1
+  DATA_IVECTOR( Ceq );                    // Ceq: which Comsumption equation to use; n = [1, nspp]; Currently all sp = 1
   DATA_IVECTOR( Cindex );                 // Cindex, which environmental index in env_index should drive bioenergetics.
   DATA_VECTOR( CA );                      // Wt specific intercept of Cmax=CA*W^CB; n = [1, nspp]
   DATA_VECTOR( CB );                      // Wt specific slope of Cmax=CA*W^CB; n = [1, nspp]
@@ -496,8 +496,6 @@ Type objective_function<Type>::operator() () {
   DATA_VECTOR( Tcl );                     // used in fT eq 3, limit; n = [1, nspp]
   DATA_VECTOR( CK1 );                     // used in fT eq 3, limit where C is .98 max (ascending); n = [1, nspp]
   DATA_VECTOR( CK4 );                     // used in fT eq 3, temp where C is .98 max (descending); n = [1, nspp]
-
-  // -- 2.4.2. NOT USED von Bertalannfy growth function (VBGF): This is used to calculate future weight-at-age: NOT YET IMPLEMENTED
 
   // -- 2.4.3. Others
   DATA_MATRIX( sex_ratio );               // Proportion-at-age of females of population; n = [nspp, nages]
@@ -2150,37 +2148,34 @@ Type objective_function<Type>::operator() () {
     Type Kb = 0.0;
     for (sp = 0; sp < nspp; sp++) {
       for (yr = 0; yr < nyrs; yr++) {
-        /*
-         switch(Ceq(sp)){
-      case 1:// Exponential function from Stewart et al. 1983
-         fT(sp, yr) = exp(Qc(sp) * env_index(yr, Cindex(sp)));
-         break;
 
-      case 2:// Temperature dependence for warm-water-species from Kitchell et al. 1977
-         */
-        Yc = log( Qc(sp) ) * (Tcm(sp) - Tco(sp) + 2.0);
-        Zc = log( Qc(sp) ) * (Tcm(sp) - Tco(sp));
-        Vc = (Tcm(sp) - env_index(yr, Cindex(sp))) / (Tcm(sp) - Tco(sp));
-        Xc = pow(Zc, 2) * pow((1.0 + pow((1.0 + 40.0 / Yc), 0.5)), 2) / 400.0;
-        fT(sp, yr) = pow(Vc, Xc) * exp(Xc * (1.0 - Vc));
-        /*
-         break;
+        switch(Ceq(sp)){
+        case 1:// Exponential function from Stewart et al. 1983
+          fT(sp, yr) = exp(Qc(sp) * env_index(yr, Cindex(sp)));
+          break;
 
-      case 3:// Temperature dependence for cool and cold-water species from Thornton and Lessem 1979
-         G2 = (1.0 / (Tcl(sp) - Tcm(sp))) * log((0.98 * (1.0 - CK4(sp))) / (CK4(sp) * 0.02));
-         L2 = exp(G2 * (Tcl( sp ) -  env_index(yr, Cindex(sp))));
-         Kb = (CK4(sp) * L2) / (1.0 + CK4(sp) * (L2 - 1.0));
-         G1 = (1.0 / (Tco(sp) - Qc(sp))) * log((0.98 * (1.0 - CK1(sp))) / (CK1(sp) * 0.02));
-         L1 = exp(G1 * (env_index(yr, Cindex(sp)) - Qc(sp)));
-         Ka = (CK1(sp) * L1) / (1.0 + CK1(sp) * (L1 - 1.0));
-         fT(sp, yr) = Ka * Kb;
-         break;
+        case 2:// Temperature dependence for warm-water-species from Kitchell et al. 1977
+          Yc = log( Qc(sp) ) * (Tcm(sp) - Tco(sp) + 2.0);
+          Zc = log( Qc(sp) ) * (Tcm(sp) - Tco(sp));
+          Vc = (Tcm(sp) - env_index(yr, Cindex(sp))) / (Tcm(sp) - Tco(sp));
+          Xc = pow(Zc, 2) * pow((1.0 + pow((1.0 + 40.0 / Yc), 0.5)), 2) / 400.0;
+          fT(sp, yr) = pow(Vc, Xc) * exp(Xc * (1.0 - Vc));
+          break;
 
-      case 4:
-         fT(sp, yr) = 1.0;
-         break;
-         }
-         */
+        case 3:// Temperature dependence for cool and cold-water species from Thornton and Lessem 1979
+          G2 = (1.0 / (Tcl(sp) - Tcm(sp))) * log((0.98 * (1.0 - CK4(sp))) / (CK4(sp) * 0.02));
+          L2 = exp(G2 * (Tcl( sp ) -  env_index(yr, Cindex(sp))));
+          Kb = (CK4(sp) * L2) / (1.0 + CK4(sp) * (L2 - 1.0));
+          G1 = (1.0 / (Tco(sp) - Qc(sp))) * log((0.98 * (1.0 - CK1(sp))) / (CK1(sp) * 0.02));
+          L1 = exp(G1 * (env_index(yr, Cindex(sp)) - Qc(sp)));
+          Ka = (CK1(sp) * L1) / (1.0 + CK1(sp) * (L1 - 1.0));
+          fT(sp, yr) = Ka * Kb;
+          break;
+
+        case 4:
+          fT(sp, yr) = 1.0;
+          break;
+        }
       }
     }
 
