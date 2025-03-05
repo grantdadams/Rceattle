@@ -2371,10 +2371,6 @@ calculate_comp_nll <- function(comp_obs, comp_hat, comp_ctl, comp_n, nages, nlen
                      (comp_weights[flt] * comp_n[comp_ind, 2] *
                         (comp_obs[comp_ind, ln] + 0.00001) *
                         log((comp_hat[comp_ind, ln] + 0.00001) / (comp_obs[comp_ind, ln] + 0.00001)))
-                   # comp_nll[comp_ind, ln] <- comp_weights[flt] * comp_n[comp_ind, 2] *
-                   #   (comp_obs[comp_ind, ln] + 0.00001) *
-                   #   log((comp_hat[comp_ind, ln] + 0.00001) / (comp_obs[comp_ind, ln] + 0.00001))
-
                  }
                },
 
