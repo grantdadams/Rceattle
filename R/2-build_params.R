@@ -18,6 +18,7 @@ build_params <- function(data_list) {
   nyrs_hind <- length(yrs_hind)
   nyrs_proj <- length(yrs_proj)
 
+
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # 1. Population dynamics parameters ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -38,7 +39,7 @@ build_params <- function(data_list) {
   if(!is.null(data_list$srr_prior)){
     param_list$rec_pars[,2] <- log(data_list$srr_prior)
   } else{
-    print("Warnings: alpha was not set to `srr_prior` from `build_srr`")
+    print("Warnings: alpha was not initialized to `srr_prior` from `build_srr`")
   }
 
   # - Rec devs
@@ -70,6 +71,7 @@ build_params <- function(data_list) {
       }
     }
   }
+
 
   # * 1.4. Residual natural mortality ----
   m1 <- array(0, dim = c(data_list$nspp, 2, max_age),

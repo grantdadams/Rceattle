@@ -11,7 +11,7 @@
 #' @export
 build_hcr_map <- function(data_list, map, debug = FALSE, all_params_on = FALSE, HCRiter = 1){
 
-  # Step 1 - Turn off all population/fleet parameters and turn on Fspr parameters
+  # Turn off all population/fleet parameters ---- and turn on Fspr parameters
   params_on <- 1:data_list$nspp
   if(!all_params_on){
     map$mapList = sapply(map$mapList, function(x) replace(x, values = rep(NA, length(x))))
@@ -19,7 +19,7 @@ build_hcr_map <- function(data_list, map, debug = FALSE, all_params_on = FALSE, 
     params_on <- c(1:data_list$nspp)[which(data_list$HCRorder <= HCRiter)]
   }
 
-  # Step 2 - Turn on Fspr parameters depending on HCR
+  # Turn on Fspr parameters depending on HCR ----
   # -- HCR = 0: No catch - Params off
   # -- HCR = 1: Constant catch - Params off
   # -- HCR = 2: Constant input F - Params off
@@ -53,7 +53,7 @@ build_hcr_map <- function(data_list, map, debug = FALSE, all_params_on = FALSE, 
     }
 
 
-    # Step 3 - Turn off SPR parameters for special cases
+    # Turn off SPR parameters for special cases ----
     # -- Turn off SPR parameters for species with no fishing (sum(proj_F_prop) == 0)
     # -- Turn off SPR parameters for species with fixed Nbyage
     for(sp in 1:data_list$nspp){
@@ -77,7 +77,7 @@ build_hcr_map <- function(data_list, map, debug = FALSE, all_params_on = FALSE, 
     map$mapList$dummy = 1
   }
 
-  # STEP 5 -- Convert to factor
+  # Convert to factor ----
   map$mapFactor <- sapply(map$mapList, factor)
   return(map)
 }
