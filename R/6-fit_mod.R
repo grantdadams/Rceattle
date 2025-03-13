@@ -157,7 +157,7 @@ fit_mod <-
     # catch_hcr = FALSE
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # STEP 0 - Start ----
+    # 0 - Start ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     start_time <- Sys.time()
 
@@ -170,7 +170,7 @@ fit_mod <-
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # STEP 1 - Load data ----
+    # 1 - Load data and switches ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.null(data_list)) {
       stop("Missing data_list object")
@@ -282,7 +282,7 @@ fit_mod <-
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # STEP 2: Load/build parameters ----
+    # 2: Load/build parameters ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.character(inits) | is.null(inits)) {
       start_par <- suppressWarnings(Rceattle::build_params(data_list = data_list))
@@ -307,7 +307,7 @@ fit_mod <-
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # STEP 3: Load/build map ----
+    # 3: Load/build map ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.null(map)) {
       map <- suppressWarnings(build_map(data_list, start_par, debug = estimateMode == 4, random_rec = random_rec, random_sel = random_sel))
@@ -318,7 +318,7 @@ fit_mod <-
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # STEP 4: Get bounds ----
+    # 4: Get bounds ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.null(bounds)) {
       bounds <- Rceattle::build_bounds(param_list = start_par, data_list)
@@ -329,7 +329,7 @@ fit_mod <-
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # STEP 5: Setup random effects ----
+    # 5: Setup random effects ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # FIXME: this should be controlled by fleet_control
     random_vars <- c()
@@ -349,7 +349,7 @@ fit_mod <-
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # STEP 6: Reorganize data ----
+    # 6: Reorganize data ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if(!is.null(TMBfilename)){
       TMB::compile(paste0(TMBfilename,".cpp"))
@@ -405,7 +405,7 @@ fit_mod <-
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # STEP 7: Set up parameter bounds ----
+    # 7: Set up parameter bounds ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     L <- c()
     U <- c()
@@ -425,7 +425,7 @@ fit_mod <-
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # STEP 8: Phase hindcast ----
+    # 8: Phase hindcast ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # Set default phasing
     if(is.logical(phase)){
@@ -548,7 +548,7 @@ fit_mod <-
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # STEP 9: Fit hindcast ----
+    # 9: Fit hindcast ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if(estimateMode != 2){ # dont build if projection and estimating HCR parameters
       if(sum(as.numeric(unlist(map$mapFactor)), na.rm = TRUE) == 0){stop("Map of length 0: all NAs")}
@@ -625,7 +625,7 @@ fit_mod <-
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # STEP 10: Run HCR projections ----
+    # 10: Run HCR projections ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if(estimateMode %in% c(0,2,4)){
       if(!data_list$HCR %in% c(0, 2)){ # - All HCRs except no F and fixed F
@@ -770,7 +770,7 @@ fit_mod <-
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # STEP 11: Save output ----
+    # 11: Save output ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # - Save estimated parameters
     mod_objects$estimated_params <- last_par
@@ -885,46 +885,40 @@ clean_data <- function(data_list){
       data_list$fleet_control[,-which(colnames(data_list$fleet_control) %in% c("Fleet_name", "Time_varying_q"))], 2, as.numeric)
   }
 
-  # - Remove years of data previous to start year
-  data_list$stom_prop_data <- as.data.frame(data_list$stom_prop_data)
-  data_list$UobsAge <- as.data.frame(data_list$UobsAge)
-  data_list$wt <- data_list$wt[which(data_list$wt$Year == 0 | data_list$wt$Year >= data_list$styr),]
-  data_list$stom_prop_data <- data_list$stom_prop_data[which(data_list$stom_prop_data$Year == 0 | data_list$stom_prop_data$Year >= data_list$styr),]
-  data_list$index_data <- data_list$index_data[which(abs(data_list$index_data$Year) >= data_list$styr),]
-  data_list$catch_data <- data_list$catch_data[which(abs(data_list$catch_data$Year) >= data_list$styr),]
-  data_list$comp_data <- data_list$comp_data[which(abs(data_list$comp_data$Year) >= data_list$styr),]
-  data_list$emp_sel <- data_list$emp_sel[which(data_list$emp_sel$Year == 0 | data_list$emp_sel$Year >= data_list$styr),]
-  data_list$NByageFixed <- data_list$NByageFixed[which(data_list$NByageFixed$Year == 0 | data_list$NByageFixed$Year >= data_list$styr),]
-  data_list$Pyrs <- data_list$Pyrs[which(data_list$Pyrs$Year == 0 | data_list$Pyrs$Year >= data_list$styr),]
+  # Remove years of data previous to start year and after end year
+  # - Data in likelihood
+  data_list$index_data <- data_list$index_data %>%
+    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr)
+  data_list$catch_data <- data_list$catch_data %>%
+    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr)
+  data_list$comp_data <- data_list$comp_data %>%
+    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr)
 
-  # - Add temp multi-species SB0
+  # - Fixed data
+  data_list$weight <- data_list$weight %>%
+    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
+  data_list$stom_prop_data <- as.data.frame(data_list$stom_prop_data) %>%
+    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
+  data_list$emp_sel <- data_list$emp_sel %>%
+    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
+  data_list$NByageFixed <- data_list$NByageFixed %>%
+    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
+  data_list$Pyrs <- data_list$Pyrs %>%
+    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
+
+
+  # Add temp multi-species SB0
   if(is.null(data_list$MSSB0)){
     data_list$MSSB0 <- rep(999, data_list$nspp)
     data_list$MSB0 <- rep(999, data_list$nspp)
   }
 
-  # - Remove years of data after proj year
-  data_list$wt <- data_list$wt[which(data_list$wt$Year <= data_list$projyr),]
-  data_list$stom_prop_data <- data_list$stom_prop_data[which(data_list$stom_prop_data$Year <= data_list$projyr),]
-  data_list$index_data <- data_list$index_data[which(abs(data_list$index_data$Year) <= data_list$projyr),]
-  data_list$catch_data <- data_list$catch_data[which(abs(data_list$catch_data$Year) <= data_list$projyr),]
-  data_list$comp_data <- data_list$comp_data[which(abs(data_list$comp_data$Year) <= data_list$projyr),]
-  data_list$emp_sel <- data_list$emp_sel[which(data_list$emp_sel$Year <= data_list$projyr),]
-  data_list$NByageFixed <- data_list$NByageFixed[which(data_list$NByageFixed$Year <= data_list$projyr),]
-  data_list$Pyrs <- data_list$Pyrs[which(data_list$Pyrs$Year <= data_list$projyr),]
 
-
-  # - Extend catch data to proj year for projections
+  # Extend catch data to proj year for projections (where data are missing)
   if(data_list$projyr > data_list$endyr){
-    # yrs_proj <- (data_list$endyr + 1):data_list$projyr
-    # proj_catch_data <- data_list$catch_data %>%
-    #   group_by(Fleet_code) %>%
-    #   slice(rep(n(),  length(yrs_proj))) %>%
-    #   mutate(Year = yrs_proj, Catch = NA)
-    # data_list$catch_data <- rbind(data_list$catch_data, proj_catch_data)
-
     for(flt in (unique(data_list$catch_data$Fleet_code))){
-      catch_data_sub <- data_list$catch_data[which(data_list$catch_data$Fleet_code == flt),]
+      catch_data_sub <- data_list$catch_data %>%
+        dplyr::filter(Fleet_code == flt)
       yrs_proj <- (data_list$endyr + 1):data_list$projyr
       yrs_proj <- yrs_proj[which(yrs_proj %!in% catch_data_sub$Year)]
       nyrs_proj <- length(yrs_proj)
@@ -939,6 +933,7 @@ clean_data <- function(data_list){
       data_list$catch_data <- rbind(data_list$catch_data, proj_catch_data)
     }
   }
+
   data_list$catch_data <- data_list$catch_data[
     with(data_list$catch_data, order(Fleet_code, Year)),]
 

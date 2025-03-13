@@ -24,8 +24,6 @@
 #'
 #' write_results(Rceattle = BS2017SS, file = 'Rceattle_results.xlsx')
 write_results <- function(Rceattle, file = "Rceattle_results.xlsx") {
-    "%!in%" <- function(x, y) !(x %in% y)
-
 
     # Make sure we are using only one model
     if (class(Rceattle) != "Rceattle") {

@@ -30,7 +30,7 @@ data_check <- function(data_list) {
 
   # Weight-at-age ----
   # * Year range ----
-  wt_yr <- data_list$wt %>%
+  wt_yr <- data_list$weight %>%
     dplyr::group_by(Wt_index, Sex) %>%
     dplyr::distinct(Year) %>%
     dplyr::mutate(Tmp_ind = paste0("index = ", Wt_index," & sex = ", Sex))
@@ -54,7 +54,7 @@ data_check <- function(data_list) {
 
 
   # * Index checks ----
-  wt_index <- wt_index <- data_list$wt %>%
+  wt_index <- wt_index <- data_list$weight %>%
     dplyr::distinct(Wt_index, Species, Sex)
 
   # - Data checks ----
@@ -70,7 +70,7 @@ data_check <- function(data_list) {
     stop("Check weight indices (Wt_index), the same weight index was used for multiple species")
   }
 
-  if(any(data_list$wt %>%
+  if(any(data_list$weight %>%
          dplyr::select(-c(Wt_name, Wt_index, Species, Sex, Year)) %>%
          ncol() < data_list$nages)){
     stop("Weight data does not span range of ages")
@@ -78,8 +78,8 @@ data_check <- function(data_list) {
 
 
   # Biological data ----
-  if(ncol(data_list$pmature) < max(data_list$nages)){
-    stop("Maturity-at-age (pmature) does not span all ages")
+  if(ncol(data_list$maturity) < max(data_list$nages)){
+    stop("Maturity-at-age (maturity) does not span all ages")
   }
 
   if(ncol(data_list$sex_ratio) < max(data_list$nages)){
@@ -92,8 +92,8 @@ data_check <- function(data_list) {
   #   print(paste0("NByageFixed does not include all ages"))
   # }
   #
-  # if(ncol(data_list$wt) != max(data_list$nages, na.rm = T)+4){
-  #   stop(paste0("Weight-at-age (wt) does not include all ages"))
+  # if(ncol(data_list$weight) != max(data_list$nages, na.rm = T)+4){
+  #   stop(paste0("Weight-at-age (weight) does not include all ages"))
   # }
 
 }
