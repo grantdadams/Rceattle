@@ -2193,23 +2193,19 @@ Type objective_function<Type>::operator() () {
 
             // Hindcast
             if(yr < nyrs_hind){
-
-              //consumption_at_age(sp, age, yr) = CA(sp) * pow(wt(yr, age, sp) * Type(1000), CB( sp )) * fT(sp, yr) * fday( sp ) * wt(yr, age, sp) * 1000;//g/pred.yr
-              //consumption_at_age(sp, age, yr) = consumption_at_age(sp, age, yr) * Pvalue(sp) * Pyrs(yr, age, sp); //
-
               consumption_at_age(sp, sex, age, yr) = CA(sp) * pow(wt( pop_wt_index(sp), sex, age, yr ) * Type(1000.0), 1 + CB( sp )) //  C_max = CA * W ^ 1+CB; where C_max is grams consumed per grams of predator per day
               * fT(sp, yr) * fday( sp );                           //  C_max * f(T) * wt * fday g/pred.yr
               consumption_at_age(sp, sex, age, yr) = consumption_at_age(sp, sex, age, yr) * Pvalue(sp) * Pyrs(sp, sex, age, yr); //
             }
 
-            // Projection
+            // Projection (wt indexing)
             if(yr >= nyrs_hind){
               consumption_at_age(sp, sex, age, yr) = CA(sp) * pow(wt( pop_wt_index(sp), sex, age, (nyrs_hind - 1) ) * Type(1000.0), 1 + CB( sp ))  //  C_max = CA * W ^ 1+CB; where C_max is grams consumed per grams of predator per day
               * fT(sp, yr) * fday( sp );                            //  C_max * f(T) * wt * fday g/pred.yr
               consumption_at_age(sp, sex, age, yr) = consumption_at_age(sp, sex, age, yr) * Pvalue(sp) * Pyrs(sp, sex, age, (nyrs_hind-1)); //
             }
 
-            ration(sp, sex, age, yr) = consumption_at_age(sp, sex, age, yr) / 1000.0;      // Annual ration kg/yr //aLW(predd)*pow(lengths(predd,age),bLW(predd));//mnwt_bin(predd,age);
+            ration(sp, sex, age, yr) = consumption_at_age(sp, sex, age, yr) / 1000.0;      // Annual ration kg/yr
           }
         }
       }
