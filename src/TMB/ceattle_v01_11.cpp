@@ -3414,14 +3414,12 @@ Type objective_function<Type>::operator() () {
 
 
       // Only include years from hindcast
-      if(flt_type(index) > 0){
-        if(flt_yr <= endyr){
-          if(index_obs(index_ind) > 0){
-            jnll_comp(0, index) -= dnorm(log(index_obs(index_ind, 0)), log(index_hat(index_ind)) - square(index_std_dev)/2.0, index_std_dev, true);
+      if(flt_yr <= endyr){
+        if(index_obs(index_ind) > 0){
+          jnll_comp(0, index) -= dnorm(log(index_obs(index_ind, 0)), log(index_hat(index_ind)) - square(index_std_dev)/2.0, index_std_dev, true);
 
-            // Martin's
-            // jnll_comp(0, index)+= 0.5*square((log(index_obs(index_ind, 0))-log(index_hat(index_ind))+square(index_std_dev)/2.0)/index_std_dev);
-          }
+          // Martin's
+          // jnll_comp(0, index)+= 0.5*square((log(index_obs(index_ind, 0))-log(index_hat(index_ind))+square(index_std_dev)/2.0)/index_std_dev);
         }
       }
     }
