@@ -2195,23 +2195,19 @@ Type objective_function<Type>::operator() () {
 
             // Hindcast
             if(yr < nyrs_hind){
-
-              //consumption_at_age(sp, age, yr) = CA(sp) * pow(weight(yr, age, sp) * Type(1000), CB( sp )) * fT(sp, yr) * fday( sp ) * weight(yr, age, sp) * 1000;//g/pred.yr
-              //consumption_at_age(sp, age, yr) = consumption_at_age(sp, age, yr) * Pvalue(sp) * Pyrs(yr, age, sp); //
-
               consumption_at_age(sp, sex, age, yr) = CA(sp) * pow(weight( pop_wt_index(sp), sex, age, yr ) * Type(1000.0), 1 + CB( sp )) //  C_max = CA * W ^ 1+CB; where C_max is grams consumed per grams of predator per day
               * fT(sp, yr) * fday( sp );                           //  C_max * f(T) * weight * fday g/pred.yr
               consumption_at_age(sp, sex, age, yr) = consumption_at_age(sp, sex, age, yr) * Pvalue(sp) * Pyrs(sp, sex, age, yr); //
             }
 
-            // Projection
+            // Projection (wt indexing)
             if(yr >= nyrs_hind){
               consumption_at_age(sp, sex, age, yr) = CA(sp) * pow(weight( pop_wt_index(sp), sex, age, (nyrs_hind - 1) ) * Type(1000.0), 1 + CB( sp ))  //  C_max = CA * W ^ 1+CB; where C_max is grams consumed per grams of predator per day
               * fT(sp, yr) * fday( sp );                            //  C_max * f(T) * weight * fday g/pred.yr
               consumption_at_age(sp, sex, age, yr) = consumption_at_age(sp, sex, age, yr) * Pvalue(sp) * Pyrs(sp, sex, age, (nyrs_hind-1)); //
             }
 
-            ration(sp, sex, age, yr) = consumption_at_age(sp, sex, age, yr) / 1000.0;      // Annual ration kg/yr //aLW(predd)*pow(lengths(predd,age),bLW(predd));//mnwt_bin(predd,age);
+            ration(sp, sex, age, yr) = consumption_at_age(sp, sex, age, yr) / 1000.0;      // Annual ration kg/yr
           }
         }
       }
@@ -3420,14 +3416,12 @@ Type objective_function<Type>::operator() () {
 
 
       // Only include years from hindcast
-      if(flt_type(index) > 0){
-        if(flt_yr <= endyr){
-          if(index_obs(index_ind) > 0){
-            jnll_comp(0, index) -= dnorm(log(index_obs(index_ind, 0)), log(index_hat(index_ind)) - square(index_std_dev)/2.0, index_std_dev, true);
+      if(flt_yr <= endyr){
+        if(index_obs(index_ind) > 0){
+          jnll_comp(0, index) -= dnorm(log(index_obs(index_ind, 0)), log(index_hat(index_ind)) - square(index_std_dev)/2.0, index_std_dev, true);
 
-            // Martin's
-            // jnll_comp(0, index)+= 0.5*square((log(index_obs(index_ind, 0))-log(index_hat(index_ind))+square(index_std_dev)/2.0)/index_std_dev);
-          }
+          // Martin's
+          // jnll_comp(0, index)+= 0.5*square((log(index_obs(index_ind, 0))-log(index_hat(index_ind))+square(index_std_dev)/2.0)/index_std_dev);
         }
       }
     }

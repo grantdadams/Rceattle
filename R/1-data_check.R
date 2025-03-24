@@ -86,6 +86,52 @@ data_check <- function(data_list) {
     stop("Sex ratio does not span all ages")
   }
 
+
+  # Pyrs ----
+  if(any(data_list$Pyrs %>%
+         dplyr::select(-c(Species, Sex, Year)) %>%
+         ncol() < data_list$nages)){
+    stop("Pyrs data does not span range of ages")
+  }
+
+
+  # Age transition matrix ----
+  if(any(data_list$age_trans_matrix %>%
+         dplyr::select(-c(Age_transition_name, Age_transition_index, Species, Sex, Age)) %>%
+         ncol() < data_list$nlengths)){
+    stop("`age_trans_matrix` data does not span range of lengths")
+  }
+
+  for(sp in 1:data_list$nspp){
+    ages_tmp <- data_list$age_trans_matrix %>%
+      as.data.frame() %>%
+      dplyr::filter(Species == sp) %>%
+      dplyr::pull(Age)
+    if(!all(data_list$minage[sp]:data_list$nages[sp] %in% ages_tmp)){
+      warning(paste("`age_trans_matrix` data does not span range of age for species", sp, "will fill with 0s"))
+    }
+  }
+
+
+  # Age error matrix ----
+  if(any(data_list$age_error %>%
+         as.data.frame() %>%
+         dplyr::select(-c(Species, True_age)) %>%
+         ncol() < data_list$nages)){
+    stop("`age_error` observed ages do not span range of ages")
+  }
+
+
+  for(sp in 1:data_list$nspp){
+    ages_tmp <- data_list$age_error %>%
+      as.data.frame() %>%
+      dplyr::filter(Species == sp) %>%
+      dplyr::pull(True_age)
+    if(!all(data_list$minage[sp]:data_list$nages[sp] %in% ages_tmp)){
+      warning(paste("`age_error` data does not span range of true ages for species", sp, "will fill with 0s"))
+    }
+  }
+
   # # Age matrix
   #
   # if(ncol(data_list$NByageFixed) != max(data_list$nages, na.rm = T)+4){
