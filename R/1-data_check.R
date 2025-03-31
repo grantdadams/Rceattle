@@ -66,8 +66,20 @@ data_check <- function(data_list) {
     stop("Check SSB weight index, not in weight file")
   }
 
-  if(any(wt_index %>% dplyr::count(Wt_index) %>% dplyr::pull(n) > 1)){
-    stop("Check weight indices (Wt_index), the same weight index was used for multiple species")
+  for(sp in 1:data_list$nspp){
+    wt_no <- data_list$weight %>%
+      dplyr::filter(Species != sp) %>% # Not species
+      dplyr::distinct(Wt_index) %>%
+      pull(Wt_index)
+
+    wt_yes <- data_list$weight %>%
+      dplyr::filter(Species == sp) %>% # Is species
+      dplyr::distinct(Wt_index) %>%
+      pull(Wt_index)
+
+    if(any( wt_no %in% wt_yes )){
+      stop("Check weight indices (Wt_index), the same weight index was used for multiple species")
+    }
   }
 
   if(any(data_list$weight %>%
