@@ -5,6 +5,7 @@
 #' @param Rceattle an Rceattle model fit using \code{\link{fit_mod}}
 #' @param peels the number of retrospective peels to use in the calculation of rho and for model estimation
 #' @param rescale rescale environmental predictors?
+#' @param nyrs_forecast Number of forecast years to calculate Mohn's Rho in addition to terminal year
 #'
 #' @return a list of 1. list of Rceattle models and 2. vector of Mohn's rho for each species
 #'
@@ -22,7 +23,7 @@
 #'
 #' retro <- retrospective(ss_run, peels = 10)
 #' @export
-retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE) {
+retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_forecast = 3) {
   if (class(Rceattle) != "Rceattle") {
     stop("Object is not of class 'Rceattle'")
   }
@@ -42,20 +43,20 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE) {
   for (i in 1:peels) {
     data_list <- Rceattle$data_list
     data_list$endyr <- endyr - i
-    nyrs <- (endyr - i) - styr + 1
+    nyrs <- (data_list$endyr) - styr + 1
 
 
     # * Adjust data ----
     data_list$index_data <- data_list$index_data %>%
       dplyr::filter(Year <= data_list$endyr)
 
-    data_list$wt <- data_list$wt %>%
+    data_list$catch_data <- data_list$catch_data %>%
       dplyr::filter(Year <= data_list$endyr)
 
     data_list$comp_data <- data_list$comp_data %>%
       dplyr::filter(Year <= data_list$endyr)
 
-    data_list$catch_data <- data_list$catch_data %>%
+    data_list$wt <- data_list$wt %>%
       dplyr::filter(Year <= data_list$endyr)
 
     data_list$Pyrs <- data_list$Pyrs %>%
@@ -150,7 +151,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE) {
         suit_styr = data_list$suit_styr,
         suit_endyr = min(data_list$suit_endyr, data_list$endyr),   # Update to end year if less than suit_endyr
         initMode = data_list$initMode,
-        phase = FALSE,
+        phase = TRUE,
         loopnum = data_list$loopnum,
         getsd = TRUE,
         verbose = 0)
@@ -180,27 +181,44 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE) {
   #####################################
   objects <- c("biomass", "ssb", "R", "F_spp")
 
-  mohns <- data.frame(matrix(0, nrow = length(objects) + 1, ncol = 1 + data_list$nspp))
-  colnames(mohns) <- c("Object", paste0("Spp/Fsh_", 1:max(c(data_list$nspp, nrow(data_list$fsh_control)))))
-  mohns$Object <- c(objects, "F")
+  mohns <- data.frame(matrix(0, nrow = length(objects) * (nyrs_forecast+1), ncol = 3 + data_list$nspp))
+  colnames(mohns) <- c("Object", "Forecast year", "N", data_list$spnames)
 
   # Loop around peels that converged
   for (i in 1:(length(mod_list) - 1)) {
     nyrs_peel <- mod_list[[i + 1]]$data_list$endyr - styr + 1
+    ind <- 1
 
     # Loop around derived quantitities
     for (j in 1:length(objects)) {
-      base <- mod_list[[1]]$quantities[[objects[j]]]
-      peel <- mod_list[[i + 1]]$quantities[[objects[j]]]
+      term_quantities <- mod_list[[1]]$quantities[[objects[j]]]
+      retro_quantities <- mod_list[[i + 1]]$quantities[[objects[j]]]
 
-      base <- base[, nyrs_peel]
-      peel <- peel[, nyrs_peel]
+      # Loop around forecast
+      for(yr in 0:nyrs_forecast){
 
-      rel_error <- ((peel - base)/base)/peels
+        # If data exist for these years
+        if(nyrs_peel + yr <= mod_list[[1]]$data_list$endyr - styr + 1){
 
-      mohns[j, 2:(data_list$nspp + 1) ] <- mohns[j, 2:(data_list$nspp + 1)] + rel_error
+          # Get full and peeled models
+          base <- term_quantities[, nyrs_peel + yr]
+          peel <- retro_quantities[, nyrs_peel + yr]
+          rel_error <- ((peel - base)/base)
+
+          # Save
+          mohns[ind, 1] <- objects[j]
+          mohns[ind, 2] <- yr
+          mohns[ind, 3] <- mohns[ind, 3] + 1
+          mohns[ind, 4:(data_list$nspp + 3) ] <- mohns[j, 4:(data_list$nspp + 3)] + rel_error
+        }
+        ind = ind+1
+      }
     }
   }
+
+  # Divide sum of RE by N
+  mohns[ind, 4:(data_list$nspp + 3) ] <- mohns[j, 4:(data_list$nspp + 3)]/mohns[ind, 3]
+
 
   return(list(Rceattle_list = rev(mod_list), mohns = mohns))
 }
