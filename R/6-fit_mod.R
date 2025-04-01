@@ -274,7 +274,7 @@ fit_mod <-
     data_list$HCRorder = extend_length(HCR$HCRorder)
     data_list$QnormHCR = qnorm(data_list$Pstar, 0, data_list$Sigma)
 
-    if(data_list$HCR == 2 & estimateMode == 2){estimateMode = 4} # If projecting under constant F, run parmeters through obj only
+    # if(data_list$HCR == 2 & estimateMode == 2){estimateMode = 4} # If projecting under constant F, run parmeters through obj only
 
     if(data_list$msmMode > 0 & !data_list$HCR %in% c(0, 1, 2, 3, 6)){
       warning("WARNING:: Only HCRs 1, 2, 3, and 6 work in multi-species mode currently")
@@ -631,21 +631,23 @@ fit_mod <-
             )
 
             # -- Optimize
-            opt = Rceattle::fit_tmb(obj = obj,
-                                    fn=obj$fn,
-                                    gr=obj$gr,
-                                    startpar=obj$par,
-                                    loopnum = loopnum,
-                                    getsd = getsd,
-                                    bias.correct = bias.correct,
-                                    bias.correct.control=list(sd=getsd),
-                                    control = control,
-                                    getJointPrecision = FALSE,
-                                    quiet = verbose < 2,
-            )
+            if(data_list$HCR != 2){ # Fixed F does not need estimation
+              opt = Rceattle::fit_tmb(obj = obj,
+                                      fn=obj$fn,
+                                      gr=obj$gr,
+                                      startpar=obj$par,
+                                      loopnum = loopnum,
+                                      getsd = getsd,
+                                      bias.correct = bias.correct,
+                                      bias.correct.control=list(sd=getsd),
+                                      control = control,
+                                      getJointPrecision = FALSE,
+                                      quiet = verbose < 2,
+              )
 
-            # --- Update F from opt
-            last_par$ln_Ftarget[params_on] <- opt$par[1:length(params_on)]
+              # --- Update F from opt
+              last_par$ln_Ftarget[params_on] <- opt$par[1:length(params_on)]
+            }
           }
         }
 

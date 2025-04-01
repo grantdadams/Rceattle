@@ -99,7 +99,7 @@ BS2017MS$fleet_control$proj_F_prop <- 1 # 1 fishing fleet per species
 ms_run_proj <- fit_mod(data_list = BS2017MS,
                                  inits = ms_run$estimated_params, # Initial parameters from single species ests
                                  file = NULL, # Don't save
-                                 estimateMode = 2, # Run in projection mode
+                                 estimateMode = 0, # Run in projection mode
                                  HCR = build_hcr(HCR = 2,
                                                  FsprTarget = c(0.2342936, 0.513, 0.0774777)), # Set projection F mean historical F
                                  niter = 5, # 5 iterations around population and predation dynamics
@@ -107,6 +107,7 @@ ms_run_proj <- fit_mod(data_list = BS2017MS,
                                  msmMode = 1, # MSVPA based
                                  suitMode = 0, # empirical suitability
                                  verbose = 1)
+plot_catch(ms_run_proj, incl_proj = T)
 
 
 

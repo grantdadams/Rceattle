@@ -34,7 +34,7 @@ build_hcr_map <- function(data_list, map, debug = FALSE, all_params_on = FALSE, 
       map$mapList$ln_Ftarget[params_on] <- params_on
     }
 
-    if(data_list$HCR %in% c(2)){ # Fixed F - still have Flimit
+    if(data_list$HCR %in% c(2)){ # Fixed F - still have Flimit for single-species
       map$mapList$ln_Flimit[params_on] <- params_on
     }
     if(data_list$HCR %in% c(3)){
