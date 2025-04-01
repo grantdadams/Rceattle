@@ -75,22 +75,15 @@ ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
 mod_list <- list(ss_run, ms_run)
 mod_names <- c("Single-species", "Multi-species")
 
-# Plot biomass trajectory
+# Plot trajectories
 plot_biomass(Rceattle = mod_list, model_names = mod_names)
 plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE)
-
-plot_selectivity(Rceattle = mod_list, model_names = mod_names)
-plot_mort(Rceattle = mod_list, model_names = mod_names, age = 2)
+plot_m_at_age(Rceattle = mod_list, model_names = mod_names, age = 2)
 
 # Run diagnostics
-plot_fsh_comp(ms_run) # Fitted fishery composition data
-plot_srv_comp(ms_run) # Fitted survey composition data
+plot_comp(ms_run) # Fitted composition data
 plot_index(ms_run) # Fitted indices of abundance
 plot_catch(ms_run) # Fitted catch series
-
-
-# Save results
-write_results(Rceattle = ms_run, file = "yourresults.xlsx")
 
 
 ################################################
@@ -100,12 +93,13 @@ write_results(Rceattle = ms_run, file = "yourresults.xlsx")
 # PROJECTION 1: CHANGING F
 # Rceattle automatically projects the population forward when estimating under no fishing
 BS2017MS$projyr # Year the population is projected forward
+BS2017MS$fleet_control$proj_F_prop <- 1 # 1 fishing fleet per species
 
 # Re-run, without estimating
-ms_run_proj <- Rceattle::fit_mod(data_list = BS2017MS,
+ms_run_proj <- fit_mod(data_list = BS2017MS,
                                  inits = ms_run$estimated_params, # Initial parameters from single species ests
                                  file = NULL, # Don't save
-                                 estimateMode = 0, # Run in projection mode
+                                 estimateMode = 2, # Run in projection mode
                                  HCR = build_hcr(HCR = 2,
                                                  FsprTarget = c(0.2342936, 0.513, 0.0774777)), # Set projection F mean historical F
                                  niter = 5, # 5 iterations around population and predation dynamics
@@ -145,12 +139,13 @@ ms_run_proj2 <- Rceattle::fit_mod(data_list = BS2017MS,
 
 
 # plot
-mod_list <- list(ss_run, ms_run, ms_run_proj, ms_run_proj2)
-mod_names <- c("SS", "MS no F", "MS mean historical F", "MS mean historical F w random rec")
+mod_list <- list(ms_run, ms_run_proj, ms_run_proj2)
+mod_names <- c("MS no F", "MS mean historical F", "MS mean historical F w random rec")
 
 # Plot biomass trajectory
 plot_biomass(Rceattle = mod_list, model_names = mod_names, incl_proj = TRUE)
 plot_recruitment(Rceattle = mod_list, model_names = mod_names, incl_proj = TRUE)
+plot_catch(Rceattle = mod_list, model_names = mod_names, incl_proj = TRUE)
 
 
 

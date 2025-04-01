@@ -68,58 +68,6 @@ ebs_ricker_run_re <- Rceattle::fit_mod(
   initMode = 2)
 
 
-# * EBS Yellowfin sole ----
-mydata_yfs <- Rceattle::read_data( file = "C:/Users/grant.adams/GitHub/yfs_ss3/Rceattle runs/Data/yfs_single_species_2022.xlsx")
-mydata_yfs$estDynamics = 0
-mydata_yfs$srv_biom$Log_sd <- mydata_yfs$srv_biom$Log_sd/mydata_yfs$srv_biom$Observation
-
-mydata_yfs$fsh_biom$Catch <- mydata_yfs$fsh_biom$Catch*1000
-
-
-yfs_model <- Rceattle::fit_mod(data_list = mydata_yfs,
-                               inits = NULL, # Initial parameters = 0
-                               file = NULL, # Don't save
-                               estimateMode = 0, # Estimate
-                               random_rec = FALSE, # No random recruitment
-                               msmMode = 0, # Single species mode
-                               verbose = 1,
-                               phase = TRUE,
-                               initMode = 2)
-
-yfs_model_re <- Rceattle::fit_mod(data_list = mydata_yfs,
-                                  inits = yfs_model$estimated_params, # Initial parameters = 0
-                                  file = NULL, # Don't save
-                                  estimateMode = 0, # Estimate
-                                  random_rec = TRUE, # Random recruitment
-                                  msmMode = 0, # Single species mode
-                                  verbose = 1,
-                                  phase = FALSE,
-                                  initMode = 2)
-
-
-# * GOA Combined ----
-# data("GOA2018SS")
-# GOA2018SS$fleet_control$proj_F_prop <- rep(1, nrow(GOA2018SS$fleet_control))
-# goa_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-#                              inits = NULL, # Initial parameters = 0
-#                              file = NULL, # Don't save
-#                              estimateMode = 0, # Estimate
-#                              random_rec = FALSE, # No random recruitment
-#                              msmMode = 0, # Single species mode
-#                              phase = TRUE,
-#                              verbose = 1)
-#
-# # -- Treat recruitment as random effects
-# goa_run_re <- Rceattle::fit_mod(data_list = GOA2018SS,
-#                                 inits = goa_run$estimated_params, # Initial parameters from previous
-#                                 file = NULL, # Don't save
-#                                 estimateMode = 0, # Estimate
-#                                 random_rec = TRUE, # Random recruitment
-#                                 msmMode = 0, # Single species mode
-#                                 phase = FALSE,
-#                                 getsd = FALSE,
-#                                 verbose = 1)
-
 # * GOA Pollock ----
 data("GOApollock")
 GOApollock$styr = 1977 # The SAFE model starts at 1970, so change styr to 1970 to run the full time series model (data is in there). I start them all at 1977 because thats the years with overlap.
@@ -467,17 +415,6 @@ ebs_ricker_run_re_est <- fix_sigmaR(ebs_ricker_run_re, fix_sigmaR = FALSE, bias.
 ebs_ricker_run_re_fixedBC <- fix_sigmaR(ebs_ricker_run_re, fix_sigmaR = TRUE, bias.correct = TRUE)
 ebs_ricker_run_re_estBC <- fix_sigmaR(ebs_ricker_run_re, fix_sigmaR = FALSE, bias.correct = TRUE)
 
-# * YFS ----
-yfs_model_est <- fix_sigmaR(yfs_model, fix_sigmaR = FALSE)
-yfs_model_fixed <- yfs_model
-yfs_model_fixed$estimated_params$ln_rec_sigma <- yfs_model_est$estimated_params$ln_rec_sigma
-yfs_model_fixed <- fix_sigmaR(yfs_model_fixed, fix_sigmaR = TRUE)
-
-yfs_model_re_fixed <- fix_sigmaR(yfs_model_re, fix_sigmaR = TRUE, bias.correct = FALSE)
-yfs_model_re_est <- fix_sigmaR(yfs_model_re, fix_sigmaR = FALSE, bias.correct = FALSE)
-yfs_model_re_fixedBC <- fix_sigmaR(yfs_model_re, fix_sigmaR = TRUE, bias.correct = TRUE)
-yfs_model_re_estBC <- fix_sigmaR(yfs_model_re, fix_sigmaR = FALSE, bias.correct = TRUE)
-
 
 # * GOA ----
 # -- Pollock
@@ -529,14 +466,6 @@ bias_correct_list <- list(
   ebs_ricker_run_re_est = ebs_ricker_run_re_est,
   ebs_ricker_run_re_fixedBC = ebs_ricker_run_re_fixedBC,
   ebs_ricker_run_re_estBC = ebs_ricker_run_re_estBC,
-
-  yfs_model = yfs_model,
-  yfs_model_est = yfs_model_est,
-  yfs_model_fixed = yfs_model_fixed,
-  yfs_model_re_fixed = yfs_model_re_fixed,
-  yfs_model_re_est = yfs_model_re_est,
-  yfs_model_re_fixedBC = yfs_model_re_fixedBC,
-  yfs_model_re_estBC = yfs_model_re_estBC,
 
   pollock_model = pollock_model,
   pollock_model_est = pollock_model_est,

@@ -73,7 +73,7 @@ plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE)
 # Plot mortality and predation
 plot_b_eaten(Rceattle = mod_list, model_names = mod_names) # Biomass eaten as prey
 plot_b_eaten_prop(Rceattle = mod_list, model_names = mod_names) # Biomass eaten as prey by each predator
-plot_mort(Rceattle = ms_run, type = 3) # Mortality-at-age time series
+plot_mortality(Rceattle = ms_run, type = 3) # Mortality-at-age time series
 
 # Run diagnostics
 plot_selectivity(Rceattle = ms_run)

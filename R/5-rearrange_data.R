@@ -69,8 +69,8 @@ rearrange_dat <- function(data_list){
 
 
   # 5 -  Seperate diet info from observation ----
-  data_list$stom_prop_ctl <- data_list$stom_prop_data[,c("Pred", "Prey", "Pred_sex", "Prey_sex", "Pred_age", "Prey_age", "Year")]
-  data_list$stom_prop_obs <- data_list$stom_prop_data[,c("Sample_size", "Stomach_proportion_by_weight")]
+  data_list$diet_ctl <- data_list$diet_data[,c("Pred", "Prey", "Pred_sex", "Prey_sex", "Pred_age", "Prey_age", "Year")]
+  data_list$diet_obs <- data_list$diet_data[,c("Sample_size", "Stomach_proportion_by_weight")]
 
 
   # 6 -  Seperate survey empirical selectivity info from observation ----
