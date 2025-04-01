@@ -1,5 +1,5 @@
-data("BS2017SS")
-data_list <- BS2017SS
+data("GeorgesBank3spp")
+data_list <- GeorgesBank3spp
 
 data_list$R_sexr <- NULL
 data_list$est_sex_ratio <- NULL
@@ -10,6 +10,9 @@ data_list$pmature <- NULL
 data_list$weight <- data_list$wt
 data_list$wt <- NULL
 
+data_list$diet_data <- data_list$stom_prop_data
+data_list$stom_prop_data <- NULL
+
 ss_run <- Rceattle::fit_mod(data_list = data_list,
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save
@@ -18,7 +21,8 @@ ss_run <- Rceattle::fit_mod(data_list = data_list,
                             msmMode = 0, # Single species mode
                             phase = TRUE,
                             verbose = 1)
+plot_biomass(ss_run)
 
-BS2017SS <- data_list
+GeorgesBank3spp <- data_list
 
-usethis::use_data()
+usethis::use_data(GeorgesBank3spp, overwrite = TRUE)

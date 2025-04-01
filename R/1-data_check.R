@@ -154,4 +154,18 @@ data_check <- function(data_list) {
   #   stop(paste0("Weight-at-age (weight) does not include all ages"))
   # }
 
+  # Switches ---
+  if(data_list$suitMode %in% c(1, 3)){
+    stop("Length based suitability not yet implemented")
+  }
+
+  flt_check <- data_list$fleet_control %>%
+    dplyr::mutate(proj_F_prop = ifelse(Fleet_type != 1, 0, proj_F_prop)) %>%
+    dplyr::group_by(Species) %>%
+    dplyr::summarise(sum_F_prop = sum(proj_F_prop))
+
+  if(any(flt_check$sum_F_prop == 0) & data_list$HCR > 0){
+    stop("HCR is > 0 and 'proj_F_prop' is 0")
+  }
+
 }

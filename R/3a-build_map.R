@@ -154,24 +154,23 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   # 3. Predation mortality (M2) ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # -- Turn off all predation parameters for single species
-  # if (data_list$msmMode == 0) { # Single-species
-  #
-  #   # Suitability parameters
-  #   map_list$log_gam_a <- map_list$log_gam_a * NA
-  #   map_list$log_gam_b <- map_list$log_gam_b * NA
-  #   map_list$log_phi <- map_list$log_phi * NA
-  #
-  #   # # Multispecies kinzey parameters
-  #   map_list$logH_1 <- map_list$logH_1 * NA
-  #   map_list$logH_1a <- map_list$logH_1a * NA
-  #   map_list$logH_1b <- map_list$logH_1b * NA
-  #
-  #   map_list$logH_2 <- map_list$logH_2 * NA
-  #   map_list$logH_3 <- map_list$logH_3 * NA
-  #   map_list$H_4 <- map_list$H_4 * NA
-  #
-  # }
-  #
+  if (data_list$msmMode == 0) { # Single-species
+
+    # Suitability parameters
+    map_list$log_gam_a <- map_list$log_gam_a * NA
+    map_list$log_gam_b <- map_list$log_gam_b * NA
+    map_list$log_phi <- map_list$log_phi * NA
+
+    # # Multispecies kinzey parameters
+    # map_list$logH_1 <- map_list$logH_1 * NA
+    # map_list$logH_1a <- map_list$logH_1a * NA
+    # map_list$logH_1b <- map_list$logH_1b * NA
+    #
+    # map_list$logH_2 <- map_list$logH_2 * NA
+    # map_list$logH_3 <- map_list$logH_3 * NA
+    # map_list$H_4 <- map_list$H_4 * NA
+  }
+
   # # * 3.1. Functional form ----
   # # ** MSVPA based predation ----
   # # Turn off all functional form parameters
@@ -232,21 +231,15 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
 
   # * 3.2. Suitability ----
-  # if (data_list$msmMode > 0) {
-  #
-  #   # 2.1. Empirical suitability
-  #   if (data_list$suitMode == 0) {
-  #     # Suitability parameters
-  #     map_list$log_gam_a <- map_list$log_gam_a * NA
-  #     map_list$log_gam_b <- map_list$log_gam_b * NA
-  #     map_list$log_phi <- map_list$log_phi * NA
-  #   }
-  #
-  #   # 2.2. GAMMA or lognormal suitability
-  #   if (data_list$suitMode %in% c(1:4)) {
-  #     # Use all the parameters
-  #   }
-  # }
+  if (data_list$msmMode > 0) {
+    # -- Empirical suitability
+    if (data_list$suitMode == 0) {
+      # Turn off suitability parameters
+      map_list$log_gam_a <- map_list$log_gam_a * NA
+      map_list$log_gam_b <- map_list$log_gam_b * NA
+      map_list$log_phi <- map_list$log_phi * NA
+    }
+  }
 
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#

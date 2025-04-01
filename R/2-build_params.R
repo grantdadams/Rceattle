@@ -238,13 +238,13 @@ build_params <- function(data_list) {
   # param_list$H_4 = matrix(1, nrow = data_list$nspp, ncol = data_list$nspp)  # Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH4,UpperBoundH4;
   #
   #
-  # # -- 3.9. Gamma selectivity parameters
-  # param_list$log_gam_a = rep(0.5, data_list$nspp)  # Log predator selectivity; n = [1,nspp]; FIXME: bounds = 1.0e-10 and 19.9
-  # param_list$log_gam_b = rep(-.5, data_list$nspp)  # Log predator selectivity; n = [1,nspp]; FIXME: bounds = -5.2 and 10
-  #
-  #
-  # # -- 3.10. Preference parameters
-  # param_list$log_phi = matrix(0.5, data_list$nspp, data_list$nspp)
+  # * 3.2. Suitability parameters ----
+  param_list$log_gam_a = rep(0.5, data_list$nspp)  # Log predator selectivity;
+  param_list$log_gam_b = rep(-.5, data_list$nspp)  # Log predator selectivity
+
+
+  # * 3.3. Preference parameters ----
+  param_list$log_phi = matrix(0.5, data_list$nspp, data_list$nspp)
 
 
   return(param_list)

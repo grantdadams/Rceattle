@@ -276,14 +276,14 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
     om$data_list$emp_sel <- dplyr::arrange(om$data_list$emp_sel, Fleet_code, Year)
   }
 
-  # -- wt
-  #FIXME ignrores forecasted growth
-  proj_wt <- om$data_list$wt %>%
+  # -- weight
+  #FIXME ignores forecasted growth
+  proj_wt <- om$data_list$weight %>%
     group_by(Wt_index , Sex) %>%
     slice(rep(n(),  om_proj_nyrs)) %>%
     mutate(Year = om_proj_yrs)
-  om$data_list$wt  <- rbind(om$data_list$wt, proj_wt)
-  om$data_list$wt <- dplyr::arrange(om$data_list$wt, Wt_index, Year)
+  om$data_list$weight  <- rbind(om$data_list$weight, proj_wt)
+  om$data_list$weight <- dplyr::arrange(om$data_list$weight, Wt_index, Year)
 
   # -- Pyrs
   proj_Pyrs <- om$data_list$Pyrs %>%
@@ -306,13 +306,13 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   em$data_list$emp_sel  <- rbind(em$data_list$emp_sel, proj_emp_sel)
   em$data_list$emp_sel <- dplyr::arrange(em$data_list$emp_sel, Fleet_code, Year)
 
-  # -- EM wt
-  proj_wt <- em$data_list$wt %>%
+  # -- EM weight
+  proj_wt <- em$data_list$weight %>%
     group_by(Wt_index , Sex) %>%
     slice(rep(n(),  em_proj_nyrs)) %>%
     mutate(Year = em_proj_yrs)
-  em$data_list$wt  <- rbind(em$data_list$wt, proj_wt)
-  em$data_list$wt <- dplyr::arrange(em$data_list$wt, Wt_index, Year)
+  em$data_list$weight  <- rbind(em$data_list$weight, proj_wt)
+  em$data_list$weight <- dplyr::arrange(em$data_list$weight, Wt_index, Year)
 
   # -- EM Pyrs
   proj_Pyrs <- em$data_list$Pyrs %>%

@@ -26,22 +26,22 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 
 
   # Control (model dimensions) ----
-  control <- matrix(NA, ncol = data_list$nspp, nrow = 18)
+  control <- matrix(NA, ncol = data_list$nspp, nrow = 15)
   control[1, 1] <- data_list$nspp
   control[2, 1] <- data_list$styr
   control[3, 1] <- data_list$endyr
   control[4, 1] <- data_list$projyr
   control[5, ] <- data_list$nsex
   control[6, ] <- data_list$spawn_month
-  control[8, ] <- data_list$nages
-  control[9, ] <- data_list$minage
-  control[10, ] <- data_list$nlengths
-  control[11, ] <- data_list$pop_wt_index
-  control[12, ] <- data_list$ssb_wt_index
-  control[13, ] <- data_list$pop_age_transition_index
-  control[14, ] <- data_list$sigma_rec_prior
-  control[15, ] <- data_list$other_food
-  control[16, ] <- data_list$estDynamics
+  control[7, ] <- data_list$nages
+  control[8, ] <- data_list$minage
+  control[9, ] <- data_list$nlengths
+  control[10, ] <- data_list$pop_wt_index
+  control[11, ] <- data_list$ssb_wt_index
+  control[12, ] <- data_list$pop_age_transition_index
+  control[13, ] <- data_list$sigma_rec_prior
+  control[14, ] <- data_list$other_food
+  control[15, ] <- data_list$estDynamics
   control <- as.data.frame(control)
   control <- cbind(c("nspp", "styr", "endyr", "projyr", "nsex", "spawn_month", "nages", "minage",
                      "nlengths", "pop_wt_index", "ssb_wt_index","pop_age_transition_index", "sigma_rec_prior",
@@ -77,9 +77,9 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 
 
   # Maturity-at-age ----
-  colnames(data_list$pmature) <- c("Species", paste0("Age", 1:max(data_list$nages)))
-  xcel_list$pmature <- as.data.frame(data_list$pmature)
-  names_used <- c(names_used, "pmature")
+  colnames(data_list$maturity) <- c("Species", paste0("Age", 1:max(data_list$nages)))
+  xcel_list$maturity <- as.data.frame(data_list$maturity)
+  names_used <- c(names_used, "maturity")
 
 
   # Sex ratio-at-age (proportion F) ----
@@ -135,8 +135,8 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 
   # Diet proportion ----
   # - Proportion of prey-at-age in the stomach of a predator-at-age
-  xcel_list$stom_prop_data <- as.data.frame(data_list$stom_prop_data)
-  names_used <- c(names_used, "stom_prop_data")
+  xcel_list$diet_data <- as.data.frame(data_list$diet_data)
+  names_used <- c(names_used, "diet_data")
 
 
   # data_names[!data_names %in% names_used]
@@ -298,14 +298,19 @@ read_data <- function(file = "Rceattle_data.xlsx") {
 
   # Diet proportion ----
   # - Proportion of prey-at-age in the stomach of a predator-at-age
-  if("stom_prop_data" %in% sheetnames){
-    sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "stom_prop_data"))
-    data_list$stom_prop_data <- sheet
+  if("diet_data" %in% sheetnames){
+    sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "diet_data"))
+    data_list$diet_data <- sheet
   }
 
   if("UobsWtAge" %in% sheetnames){ # Old name
     sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "UobsWtAge"))
-    data_list$stom_prop_data <- sheet
+    data_list$diet_data <- sheet
+  }
+
+  if("stom_prop_data" %in% sheetnames){
+    sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "stom_prop_data"))
+    data_list$diet_data <- sheet
   }
 
 
