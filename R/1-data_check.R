@@ -159,12 +159,7 @@ data_check <- function(data_list) {
     stop("Length based suitability not yet implemented")
   }
 
-  flt_check <- data_list$fleet_control %>%
-    dplyr::mutate(proj_F_prop = ifelse(Fleet_type != 1, 0, proj_F_prop)) %>%
-    dplyr::group_by(Species) %>%
-    dplyr::summarise(sum_F_prop = sum(proj_F_prop))
-
-  if(any(flt_check$sum_F_prop == 0) & data_list$HCR > 0){
+  if(sum(data_list$fleet_control$proj_F_prop, na.rm = TRUE) == 0 & data_list$HCR > 0){
     stop("HCR is > 0 and 'proj_F_prop' is 0")
   }
 

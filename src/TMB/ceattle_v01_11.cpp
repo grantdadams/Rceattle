@@ -114,14 +114,14 @@ vector<Type> first_difference(const vector<Type> &x)
 {
   int length = x.size() - 1;
 
-  if (length <= 0){
+  if(length <= 0){
     std::cerr << "Error -- vector size too small in first_difference(const dvector&)" << std::endl;
     return(0);
   }
 
   vector<Type> tmp(length);
 
-  for (int i = 0; i < length; i++){
+  for(int i = 0; i < length; i++){
     tmp(i) = x(i+1) - x(i);
   }
 
@@ -138,12 +138,12 @@ matrix<Type> elem_div(matrix<Type> m1, matrix<Type> m2){
   int m1c = m1.cols();
   int m2c = m1.cols();
 
-  if (m1r != m2r){
+  if(m1r != m2r){
     std::cerr << "Error -- number of rows in matrices does not match" << std::endl;
     return(0);
   }
 
-  if (m1c != m2c){
+  if(m1c != m2c){
     std::cerr << "Error -- number of columns in matrices does not match" << std::endl;
     return(0);
   }
@@ -233,7 +233,7 @@ matrix<Type> matrix_from_array_d1(array<Type> a1, int sheet){
 template <class Type>
 vector<Type> vec_mat_prod(vector<Type> v1, matrix<Type> m1){
 
-  if (v1.size() != m1.rows()){
+  if(v1.size() != m1.rows()){
     std::cerr << "Error -- length of vector does not equal the number of rows in the matrix" << std::endl;
     return(0);
   }
@@ -409,7 +409,7 @@ Type objective_function<Type>::operator() () {
   int flt_ind, fsh_ind, index_ind, comp_ind, yr_ind;                      // Indices for survey sets
   int sel_type, nselages;
   Type mo = 0;                                                            // Month float
-  if (msmMode == 0) { niter = 1; }                                        // Number of iterations for SS mode
+  if(msmMode == 0) { niter = 1; }                                        // Number of iterations for SS mode
 
 
   // ------------------------------------------------------------------------- //
@@ -449,8 +449,8 @@ Type objective_function<Type>::operator() () {
   DATA_IMATRIX( catch_n );                // Info for fishery biomass; columns = Month
   DATA_MATRIX( catch_obs ); DATA_UPDATE( catch_obs ) // Observed fishery catch biomass (kg) and log_sd; n = [nobs_fish_biom, 2]; columns = Observation, Error
 
-  // -- 2.3.2 Survey components
-  DATA_IMATRIX( index_ctl );            // Info for survey biomass; columns = Survey_name, Survey_code, Species, Year
+    // -- 2.3.2 Survey components
+    DATA_IMATRIX( index_ctl );            // Info for survey biomass; columns = Survey_name, Survey_code, Species, Year
   DATA_MATRIX( index_n );                 // Info for survey biomass; columns = Month
   DATA_MATRIX( index_obs );               // Observed survey biomass (kg) and log_sd; n = [nobs_index, 2]; columns = Observation, Error
   DATA_VECTOR( index_ln_q_prior );        // Prior mean for survey catchability; n = [nflt]
@@ -575,7 +575,7 @@ Type objective_function<Type>::operator() () {
   // ------------------------------------------------------------------------- //
 
   // 4.1. Derived indices
-  int max_bin = imax( nlengths );                                                   // Integer of maximum number of length/age bins.
+  // int max_bin = imax( nlengths );                                                   // Integer of maximum number of length/age bins.
   int n_flt = fleet_control.rows();
   vector<int> joint_adjust(comp_obs.rows()); joint_adjust.setZero();
   Type penalty = 0.0;
@@ -736,10 +736,10 @@ Type objective_function<Type>::operator() () {
 
   // 5.1. MATURITY AND SEX RATIO
   matrix<Type> mature_females = maturity;
-  for ( sp = 0; sp < nspp ; sp++) {
+  for( sp = 0; sp < nspp ; sp++) {
 
     // Sex ratio for SSB derivation
-    for ( age = 0 ; age < nages(sp); age++ ) {
+    for( age = 0 ; age < nages(sp); age++ ) {
       if(nsex(sp) == 1){
         mature_females( sp, age ) = maturity( sp, age ) * sex_ratio(sp, age); // Mulitply sex_ratio and maturity for 1 sex models
       }
@@ -782,7 +782,7 @@ Type objective_function<Type>::operator() () {
   vector<int> est_sigma_fsh(n_flt); est_sigma_fsh.setZero();                    // Vector to save wether sigma fishery is estimated
 
 
-  for (flt_ind = 0; flt_ind < n_flt; flt_ind++){
+  for(flt_ind = 0; flt_ind < n_flt; flt_ind++){
     flt = fleet_control(flt_ind, 1) - 1;                     // Temporary survey index
     flt_type(flt) = fleet_control(flt_ind, 2);               // Fleet type; 0 = don't fit, 1 = fishery, 2 = survey
     flt_spp(flt) = fleet_control(flt_ind, 3) - 1;            // Species
@@ -832,7 +832,7 @@ Type objective_function<Type>::operator() () {
   // 5.7. SELECTIVITY
   // -- 5.7.1 EMPIRICAL SELECTIVITY
   sel.setZero();
-  for (int sel_ind = 0; sel_ind < emp_sel_obs.rows(); sel_ind++){
+  for(int sel_ind = 0; sel_ind < emp_sel_obs.rows(); sel_ind++){
 
     // Fishery
     flt = emp_sel_ctl(sel_ind, 0) - 1;        // Temporary index
@@ -857,7 +857,7 @@ Type objective_function<Type>::operator() () {
 
       if(yr < nyrs_hind){
         for(sex = 0; sex < sexes.size(); sex++){
-          for (age = 0; age < nages(sp); age++) {
+          for(age = 0; age < nages(sp); age++) {
             if(!isNA(emp_sel_obs(sel_ind, age))){
               sel(flt, sexes(sex), age, yr) = emp_sel_obs(sel_ind, age);
             }
@@ -871,7 +871,7 @@ Type objective_function<Type>::operator() () {
   // -- 5.7.2 ESTIMATED SELECTIVITY
   avg_sel.setZero();
   non_par_sel.setZero();
-  for (flt = 0; flt < n_flt; flt++) {
+  for(flt = 0; flt < n_flt; flt++) {
 
     // Temporay indices
     sp = flt_spp(flt);             // Temporary index of species
@@ -882,8 +882,8 @@ Type objective_function<Type>::operator() () {
     switch(sel_type){
 
     case 1:  // 6.1.1. Logisitic selectivity
-      for (age = 0; age < nages(sp); age++){
-        for (yr = 0; yr < nyrs_hind; yr++) {
+      for(age = 0; age < nages(sp); age++){
+        for(yr = 0; yr < nyrs_hind; yr++) {
           for(sex = 0; sex < nsex(sp); sex++){
             // Random walk and block
             sel(flt, sex, age, yr) = 1 / (1 + exp( -exp(ln_sel_slp(0, flt, sex) + ln_sel_slp_dev(0, flt, sex, yr)) * ((age + 1) -( sel_inf(0, flt, sex) + sel_inf_dev(0, flt, sex, yr )))));
@@ -896,7 +896,7 @@ Type objective_function<Type>::operator() () {
 
     case 2:  // 6.1.2. Non-parametric selectivity fit to age ranges (Ianelli 20??). NOTE: This can likely be improved
       for(sex = 0; sex < nsex(sp); sex++){
-        for (age = 0; age < nselages; age++) {
+        for(age = 0; age < nselages; age++) {
           non_par_sel(flt, sex, age) = sel_coff(flt, sex, age);
           avg_sel(flt, sex) +=  exp(sel_coff(flt, sex, age));
         }
@@ -904,28 +904,28 @@ Type objective_function<Type>::operator() () {
         avg_sel(flt, sex) = log(avg_sel(flt, sex) / nselages);
 
         // Plus group selectivity
-        for (age = nselages; age < nages(sp); age++) {
+        for(age = nselages; age < nages(sp); age++) {
           non_par_sel(flt, sex, age) = non_par_sel(flt, sex, nselages - 1);
         }
 
         // Average selectivity across all ages
         avgsel_tmp = 0; // Temporary object for average selectivity across all ages
-        for (age = 0; age < nages(sp); age++) {
+        for(age = 0; age < nages(sp); age++) {
           avgsel_tmp += exp(non_par_sel(flt, sex, age));
         }
         avgsel_tmp = log(avgsel_tmp / nages(sp));
 
         // Standardize selectivity
-        for (age = 0; age < nages(sp); age++) {
+        for(age = 0; age < nages(sp); age++) {
           non_par_sel(flt, sex, age) -= avgsel_tmp;
           non_par_sel(flt, sex, age) = exp(non_par_sel(flt, sex, age));
         }
       }
 
       // Move to rest of years
-      for (age = 0; age < nages(sp); age++){
+      for(age = 0; age < nages(sp); age++){
         for(sex = 0; sex < nsex(sp); sex++){
-          for (yr = 0; yr < nyrs_hind; yr++) {
+          for(yr = 0; yr < nyrs_hind; yr++) {
             sel(flt, sex, age, yr) = non_par_sel(flt, sex, age);
           }
         }
@@ -934,8 +934,8 @@ Type objective_function<Type>::operator() () {
 
 
     case 3: // 6.1.3. Double logistic (Dorn and Methot 1990)
-      for (age = 0; age < nages(sp); age++){
-        for (yr = 0; yr < nyrs_hind; yr++) {
+      for(age = 0; age < nages(sp); age++){
+        for(yr = 0; yr < nyrs_hind; yr++) {
           for(sex = 0; sex < nsex(sp); sex++){
 
             // Random walk and block
@@ -948,8 +948,8 @@ Type objective_function<Type>::operator() () {
 
 
     case 4: // 6.1.4. Descending logistic (Dorn and Methot 1990)
-      for (age = 0; age < nages(sp); age++){
-        for (yr = 0; yr < nyrs_hind; yr++) {
+      for(age = 0; age < nages(sp); age++){
+        for(yr = 0; yr < nyrs_hind; yr++) {
           for(sex = 0; sex < nsex(sp); sex++){
 
             // Random walk and block
@@ -962,18 +962,18 @@ Type objective_function<Type>::operator() () {
 
     case 5: // 6.1.5. Non-parametric selectivity fit to age ranges. Hake version (Taylor et al 2014)
       // -- For each age, sum coefficients from first age selected to age
-      for (yr = 0; yr < nyrs_hind; yr++) {
+      for(yr = 0; yr < nyrs_hind; yr++) {
         for(sex = 0; sex < nsex(sp); sex++){
-          for (age = 0; age < nages(sp); age++) {
+          for(age = 0; age < nages(sp); age++) {
             sel(flt, sex, age, yr) = 0;
           }
         }
       }
 
-      for (yr = 0; yr < nyrs_hind; yr++) {
+      for(yr = 0; yr < nyrs_hind; yr++) {
         for(sex = 0; sex < nsex(sp); sex++){
-          for (age = flt_sel_age(flt); age < nselages; age++) {
-            for (int age_tmp = flt_sel_age(flt); age_tmp <= age; age_tmp++) {
+          for(age = flt_sel_age(flt); age < nselages; age++) {
+            for(int age_tmp = flt_sel_age(flt); age_tmp <= age; age_tmp++) {
               sel(flt, sex, age, yr) += sel_coff(flt, sex, age_tmp) + sel_coff_dev(flt, sex, age_tmp, yr);
             }
           }
@@ -981,22 +981,22 @@ Type objective_function<Type>::operator() () {
       }
 
       // -- For each sex & year, subtract max sel across ages from sel and take exp
-      for (yr = 0; yr < nyrs_hind; yr++) {
+      for(yr = 0; yr < nyrs_hind; yr++) {
         for(sex = 0; sex < nsex(sp); sex++){
           Type max_sel = 0;
-          for (age = flt_sel_age(flt); age < nselages; age++) {
+          for(age = flt_sel_age(flt); age < nselages; age++) {
             // Max
             if(sel(flt, sex, age, yr) > max_sel){
               max_sel = sel(flt, sex, age, yr);
             }
           }
 
-          for (age = flt_sel_age(flt); age < nselages; age++) {
+          for(age = flt_sel_age(flt); age < nselages; age++) {
             sel(flt, sex, age, yr) = exp(sel(flt, sex, age, yr) - max_sel);
           }
 
           // Fill in rest of ages
-          for (age = nselages-1; age < nages(sp); age++) {
+          for(age = nselages-1; age < nages(sp); age++) {
             sel(flt, sex, age, yr) = sel(flt, sex, nselages-1, yr);
           }
         }
@@ -1006,12 +1006,12 @@ Type objective_function<Type>::operator() () {
 
 
     // 6.1.6. Normalize and account for unselected ages
-    if (sel_type > 0) {
+    if(sel_type > 0) {
 
 
       // Ages not selected
-      for (yr = 0; yr < nyrs_hind; yr++) {
-        for (age = 0; age < nages(sp); age++){
+      for(yr = 0; yr < nyrs_hind; yr++) {
+        for(age = 0; age < nages(sp); age++){
           for(sex = 0; sex < nsex(sp); sex++){
             if(age < flt_sel_age(flt)){
               sel(flt, sex, age, yr) = 0;
@@ -1022,12 +1022,12 @@ Type objective_function<Type>::operator() () {
 
 
       // Normalize by selectivity by specific age
-      if (flt_sel_maxage(flt) >= 0) {
-        for (yr = 0; yr < nyrs_hind; yr++) {
+      if(flt_sel_maxage(flt) >= 0) {
+        for(yr = 0; yr < nyrs_hind; yr++) {
           for(sex = 0; sex < nsex(sp); sex++){
             Type max_sel = sel(flt, sex, flt_sel_maxage(flt), yr); // Get max sel by sex/year (split or otherwise, divides by 1 for ages > maxselage)
 
-            for (age = 0; age < nages(sp); age++){
+            for(age = 0; age < nages(sp); age++){
 
               // Normalize by max
               sel(flt, sex, age, yr) /= max_sel;
@@ -1037,10 +1037,10 @@ Type objective_function<Type>::operator() () {
       }
 
       // Find max for each fishery and year across ages, and sexes
-      if (sel_type < 5 & flt_sel_maxage(flt) < 0) {
-        for (yr = 0; yr < nyrs_hind; yr++) {
+      if((sel_type < 5) & (flt_sel_maxage(flt) < 0)) {
+        for(yr = 0; yr < nyrs_hind; yr++) {
           Type max_sel = 0;
-          for (age = 0; age < nages(sp); age++){
+          for(age = 0; age < nages(sp); age++){
             for(sex = 0; sex < nsex(sp); sex++){
 
 
@@ -1052,7 +1052,7 @@ Type objective_function<Type>::operator() () {
           }
 
           // Normalize selectivity
-          for (age = 0; age < nages(sp); age++){
+          for(age = 0; age < nages(sp); age++){
             for(sex = 0; sex < nsex(sp); sex++){
               sel(flt, sex, age, yr) /= max_sel;
             }
@@ -1062,8 +1062,8 @@ Type objective_function<Type>::operator() () {
     }
 
     // Project outwards assuming final years selectivity
-    for (yr = nyrs_hind; yr < nyrs; yr++) {
-      for (age = 0; age < nages(sp); age++){
+    for(yr = nyrs_hind; yr < nyrs; yr++) {
+      for(age = 0; age < nages(sp); age++){
         for(sex = 0; sex < nsex(sp); sex++){
           sel(flt, sex, age, yr) = sel(flt, sex, age, nyrs_hind - 1);
         }
@@ -1076,7 +1076,7 @@ Type objective_function<Type>::operator() () {
   // ------------------------------------------------------------------------- //
   // NOTE: Remember indexing starts at 0
   // Start iterations for multi-species convergence
-  for (int iter = 0; iter < niter; iter++) {
+  for(int iter = 0; iter < niter; iter++) {
 
 
     // 6.1. FISHING MORTALITY and FSPRs
@@ -1085,14 +1085,14 @@ Type objective_function<Type>::operator() () {
     F_spp_at_age.setZero();
     Ftarget_age_spp.setZero();
     Flimit_age_spp.setZero();
-    for (flt = 0; flt < n_flt; flt++) {
+    for(flt = 0; flt < n_flt; flt++) {
 
       sp = flt_spp(flt);  // Temporary index of fishery survey
 
       if(flt_type(flt) == 1){
-        for (age = 0; age < nages(sp); age++) {
+        for(age = 0; age < nages(sp); age++) {
           for(sex = 0; sex < nsex(sp); sex ++){
-            for (yr = 0; yr < nyrs; yr++) {
+            for(yr = 0; yr < nyrs; yr++) {
 
               // Hindcast
               if( yr < nyrs_hind){
@@ -1157,7 +1157,7 @@ Type objective_function<Type>::operator() () {
         }
 
         // F across fleets or species
-        for (yr = 0; yr < nyrs; yr++) {
+        for(yr = 0; yr < nyrs; yr++) {
           // Hindcast
           if( yr < nyrs_hind){
             F_flt(flt, yr) = exp(ln_mean_F(flt) + F_dev(flt, yr));
@@ -1175,9 +1175,9 @@ Type objective_function<Type>::operator() () {
 
 
     // 6.2. TOTAL MORTALITY-AT-AGE
-    for (sp = 0; sp < nspp; sp++) {
-      for (age = 0; age < nages(sp); age++) {
-        for (yr = 0; yr < nyrs; yr++) {
+    for(sp = 0; sp < nspp; sp++) {
+      for(age = 0; age < nages(sp); age++) {
+        for(yr = 0; yr < nyrs; yr++) {
           for(sex = 0; sex < nsex(sp); sex ++){
             M_at_age(sp, sex, age, yr) = M1_at_age(sp, sex, age) + M2_at_age(sp, sex, age, yr);
             Z_at_age(sp, sex, age, yr) = M1_at_age(sp, sex, age) + F_spp_at_age(sp, sex, age, yr) + M2_at_age(sp, sex, age, yr);
@@ -1194,7 +1194,7 @@ Type objective_function<Type>::operator() () {
     SPRFinit.setZero();
     SPRlimit.setZero();
     SPRtarget.setZero();
-    for (sp = 0; sp < nspp; sp++) {
+    for(sp = 0; sp < nspp; sp++) {
 
       if(initMode != 3){
         Finit(sp) = 0; // If population starts out at equilibrium set Finit to 0 (R_init and R0 will be the same)
@@ -1206,7 +1206,7 @@ Type objective_function<Type>::operator() () {
       NbyageSPR(2, sp, 0) = 1.0; // F = Ftarget
       NbyageSPR(3, sp, 0) = 1.0; // F = Finit
 
-      for (age = 1; age < nages(sp)-1; age++) {
+      for(age = 1; age < nages(sp)-1; age++) {
         NbyageSPR(0, sp, age) =  NbyageSPR(0, sp, age-1) * exp(-M_at_age(sp, 0, age-1, nyrs_hind - 1));
         NbyageSPR(1, sp, age) =  NbyageSPR(1, sp, age-1) * exp(-(M_at_age(sp, 0, age-1, nyrs_hind - 1) + Flimit_age_spp(sp, 0, age-1, nyrs_hind - 1)));
         NbyageSPR(2, sp, age) =  NbyageSPR(2, sp, age-1) * exp(-(M_at_age(sp, 0, age-1, nyrs_hind - 1) + Ftarget_age_spp(sp, 0, age-1, nyrs_hind - 1)));
@@ -1221,7 +1221,7 @@ Type objective_function<Type>::operator() () {
       NbyageSPR(3, sp, nages(sp) - 1) = NbyageSPR(3, sp, nages(sp) - 2) * exp(-(M1_at_age(sp, 0,  nages(sp) - 2) + Finit(sp))) / (1 - exp(-(M1_at_age(sp, 0,  nages(sp) - 1) + Finit(sp))));
 
       // Calulcate SPR
-      for (age = 0; age < nages(sp); age++) {
+      for(age = 0; age < nages(sp); age++) {
         SPR0(sp) +=  NbyageSPR(0, sp, age) *  weight( ssb_wt_index(sp), 0, age, (nyrs_hind - 1) ) * mature_females(sp, age) * exp(-M_at_age(sp, 0,  age, nyrs_hind - 1) * spawn_month(sp)/12.0);
         SPRlimit(sp) +=  NbyageSPR(1, sp, age) *  weight( ssb_wt_index(sp), 0, age, (nyrs_hind - 1) ) * mature_females(sp, age) * exp(-(M_at_age(sp, 0,  age, nyrs_hind - 1) + Flimit_age_spp(sp, 0,  age, nyrs_hind - 1)) * spawn_month(sp)/12.0);
         SPRtarget(sp) +=  NbyageSPR(2, sp, age) *  weight( ssb_wt_index(sp), 0, age, (nyrs_hind - 1) ) * mature_females(sp, age) * exp(-(M_at_age(sp, 0,  age, nyrs_hind - 1) + Ftarget_age_spp(sp, 0,  age, nyrs_hind - 1)) * spawn_month(sp)/12.0);
@@ -1235,7 +1235,7 @@ Type objective_function<Type>::operator() () {
     // -- For beverton-holt, steepness and R0 are derived from SPR0
     penalty = 0.0;
     zero_N_pen.setZero();
-    for ( sp = 0; sp < nspp ; sp++) {
+    for( sp = 0; sp < nspp ; sp++) {
       switch(srr_fun){
       case 0: // Random about mean (e.g. Alaska)
         steepness(sp) = 0.99;
@@ -1312,8 +1312,8 @@ Type objective_function<Type>::operator() () {
     biomass.setZero();
     ssb.setZero();
     // ssb_at_age.setZero();
-    for (sp = 0; sp < nspp; sp++) {
-      for (age = 0; age < nages(sp); age++){
+    for(sp = 0; sp < nspp; sp++) {
+      for(age = 0; age < nages(sp); age++){
         for(sex = 0; sex < nsex(sp); sex ++){
 
 
@@ -1344,7 +1344,7 @@ Type objective_function<Type>::operator() () {
               }
 
               // -- 6.5.2. Age Amin+1:Amax-1 (initial abundance)
-              if ((age > 0) & (age < nages(sp) - 1)) {
+              if((age > 0) & (age < nages(sp) - 1)) {
 
                 if(sex == 0){
                   N_at_age(sp, 0, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) * sex_ratio(sp, 0);
@@ -1355,7 +1355,7 @@ Type objective_function<Type>::operator() () {
               }
 
               // -- 6.5.3. Amax
-              if (age == (nages(sp) - 1)) {
+              if(age == (nages(sp) - 1)) {
 
                 if(sex ==0){// NOTE: This solves for the geometric series
                   N_at_age(sp, 0, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) / (1 - exp(-M1_at_age(sp, sex, nages(sp) - 1))) * sex_ratio(sp, 0);
@@ -1398,8 +1398,8 @@ Type objective_function<Type>::operator() () {
 
     // 6.6. HINDCAST NUMBERS AT AGE, BIOMASS-AT-AGE (kg), and ssb-AT-AGE (kg)
     penalty = 0.0;
-    for (sp = 0; sp < nspp; sp++) {
-      for (yr = 1; yr < nyrs_hind; yr++) {
+    for(sp = 0; sp < nspp; sp++) {
+      for(yr = 1; yr < nyrs_hind; yr++) {
 
         // Switch for srr (for MSEs if using Ianelli SRR method)
         int srr_switch = srr_fun;
@@ -1453,19 +1453,19 @@ Type objective_function<Type>::operator() () {
 
 
         // -- 6.6.2. Ages beyond recruitment
-        for (age = 0; age < nages(sp); age++){
+        for(age = 0; age < nages(sp); age++){
           for(sex = 0; sex < nsex(sp); sex ++){
 
             switch(estDynamics(sp)){
             case 0: // Estimated numbers-at-age
 
               // -- Where Amin < age < Amax
-              if (age < (nages(sp) - 1)) {
+              if(age < (nages(sp) - 1)) {
                 N_at_age(sp, sex, age + 1, yr) = N_at_age(sp, sex, age, yr - 1) * exp(-Z_at_age(sp, sex, age, yr-1));// S_at_age(sp, sex, age, yr - 1);
               }
 
               // -- Plus group where age = Amax.
-              if (age == (nages(sp) - 1)) {
+              if(age == (nages(sp) - 1)) {
                 N_at_age(sp, sex, age, yr) = N_at_age(sp, sex, age - 1, yr - 1) * exp(-Z_at_age(sp, sex, age-1, yr-1)) + N_at_age(sp, sex, age, yr - 1) * exp(-Z_at_age(sp, sex, age, yr-1)); // S_at_age(sp, sex, age, yr - 1);
               }
               break;
@@ -1490,8 +1490,8 @@ Type objective_function<Type>::operator() () {
 
             // -- 6.6.3. Estimate total biomass
 
-             biomass_at_age(sp, sex, age, yr) = N_at_age(sp, sex, age, yr) * weight( pop_wt_index(sp), sex, age, yr );
-             biomass(sp, yr) += biomass_at_age(sp, sex, age, yr);
+            biomass_at_age(sp, sex, age, yr) = N_at_age(sp, sex, age, yr) * weight( pop_wt_index(sp), sex, age, yr );
+            biomass(sp, yr) += biomass_at_age(sp, sex, age, yr);
           }
 
           // -- 6.6.4. Estimated female ssb
@@ -1508,8 +1508,8 @@ Type objective_function<Type>::operator() () {
     // 6.7. DEPLETION BASED BIOMASS REFERENCE POINTS (i.e. SB0 and dynamic SB0)
     // -- calculate mean recruitment
     avg_R.setZero();
-    for (sp = 0; sp < nspp; sp++) {
-      for (yr = 0; yr < nyrs_srrmean; yr++) {
+    for(sp = 0; sp < nspp; sp++) {
+      for(yr = 0; yr < nyrs_srrmean; yr++) {
         avg_R(sp) += R(sp, yr)/Type(nyrs_srrmean); // Update mean rec
       }
     }
@@ -1525,8 +1525,8 @@ Type objective_function<Type>::operator() () {
     DynamicB0.setZero();
     DynamicSB0.setZero();
     DynamicSBF.setZero();
-    for (sp = 0; sp < nspp; sp++) {
-      for (yr = 0; yr < nyrs; yr++) {
+    for(sp = 0; sp < nspp; sp++) {
+      for(yr = 0; yr < nyrs; yr++) {
 
         // - Year 1
         // -- Initial abundance-at-age is the same as the hindcast
@@ -1662,7 +1662,7 @@ Type objective_function<Type>::operator() () {
 
           // N-at-age year > 1
           for(sex = 0; sex < nsex(sp); sex ++){
-            for (age = 1; age < nages(sp)-1; age++) {
+            for(age = 1; age < nages(sp)-1; age++) {
               NByage0(sp, sex, age, yr) =  NByage0(sp, sex, age-1, yr-1) * exp(-M_at_age(sp, sex, age-1, yr-1)); // F = 0
 
               NByageF(sp, sex, age, yr) =  NByageF(sp, sex, age-1, yr-1) * exp(-M_at_age(sp, sex, age-1, yr-1) - Ftarget_age_spp(sp, sex, age-1, yr-1)); // F = target
@@ -1694,7 +1694,7 @@ Type objective_function<Type>::operator() () {
           yr_ind = nyrs_hind - 1;
         }
 
-        for (age = 0; age < nages(sp); age++) {
+        for(age = 0; age < nages(sp); age++) {
           SB0(sp, yr) +=  NByage0(sp, 0, age, yr) *  weight( ssb_wt_index(sp), 0, age, nyrs_hind - 1 ) * mature_females(sp, age) * exp(-M_at_age(sp, 0, age, yr) * spawn_month(sp)/12.0);
           SBF(sp, yr) +=  NByageF(sp, 0, age, yr) *  weight( ssb_wt_index(sp), 0, age, nyrs_hind - 1 ) * mature_females(sp, age) * exp(-(M_at_age(sp, 0, age, yr) + Ftarget_age_spp(sp, 0, age, yr)) * spawn_month(sp)/12.0);
           DynamicSB0(sp, yr) +=  DynamicNByage0(sp, 0, age, yr) *  weight( ssb_wt_index(sp), 0, age, yr_ind ) * mature_females(sp, age) * exp(-M_at_age(sp, 0, age, yr) * spawn_month(sp)/12.0);
@@ -1717,8 +1717,8 @@ Type objective_function<Type>::operator() () {
 
     // 6.8-6.9. FORECAST NUMBERS AT AGE, BIOMASS-AT-AGE (kg), and ssb-AT-AGE (kg)
     // Includes Harvest Control Rules
-    for (sp = 0; sp < nspp; sp++) {
-      for (yr = nyrs_hind; yr < nyrs; yr++){
+    for(sp = 0; sp < nspp; sp++) {
+      for(yr = nyrs_hind; yr < nyrs; yr++){
 
         // 6.8. HARVEST CONTROL RULES FOR PROJECTION (i.e. SB0 and dynamic SB0)
         // -- Equilibrium Harvest Control Rules
@@ -1838,7 +1838,7 @@ Type objective_function<Type>::operator() () {
 
         // Adjust F*selex
         // -- 6.8.3. Update F for the projection (account for selectivity and fleets)
-        for (age = 0; age < nages(sp); age++) {
+        for(age = 0; age < nages(sp); age++) {
           for(sex = 0; sex < nsex(sp); sex ++){
             F_spp_at_age(sp, sex, age, yr) = 0.0;
           }
@@ -1846,10 +1846,10 @@ Type objective_function<Type>::operator() () {
 
         // -- Multiply F from HCR by selectivity and fleet proportion
         F_spp(sp, yr) = proj_F(sp, yr);
-        for (flt = 0; flt < n_flt; flt++) {
+        for(flt = 0; flt < n_flt; flt++) {
           if(sp == flt_spp(flt)){
             F_flt(sp, yr) = proj_F_prop(flt) * proj_F(sp, yr);
-            for (age = 0; age < nages(sp); age++) {
+            for(age = 0; age < nages(sp); age++) {
               for(sex = 0; sex < nsex(sp); sex ++){
                 F_flt_age(flt, sex, age, yr) = sel(flt, sex, age, nyrs_hind - 1) * proj_F_prop(flt) * proj_F(sp, yr); // FIXME using last year of selectivity
                 if(flt_type(flt) == 1){
@@ -1862,7 +1862,7 @@ Type objective_function<Type>::operator() () {
 
 
         // -- 6.8.4. Update mortality for forcast
-        for (age = 0; age < nages(sp); age++) {
+        for(age = 0; age < nages(sp); age++) {
           for(sex = 0; sex < nsex(sp); sex ++){
             M_at_age(sp, sex, age, yr) = M1_at_age(sp, sex, age) + M2_at_age(sp, sex, age, yr);
             Z_at_age(sp, sex, age, yr) = M1_at_age(sp, sex, age) + F_spp_at_age(sp, sex, age, yr) + M2_at_age(sp, sex, age, yr);
@@ -1934,18 +1934,18 @@ Type objective_function<Type>::operator() () {
 
 
         // -- 6.9.2. Ages > recruitment
-        for (age = 0; age < nages(sp); age++) {
+        for(age = 0; age < nages(sp); age++) {
           for(sex = 0; sex < nsex(sp); sex ++){
             switch(estDynamics(sp)){
             case 0: // Estimated numbers-at-age
 
               // -- 6.9.2.  Where minage + 1 <= age < Ai
-              if (age < (nages(sp) - 1)) {
+              if(age < (nages(sp) - 1)) {
                 N_at_age(sp, sex, age + 1, yr) = N_at_age(sp, sex, age, yr - 1) * exp(-Z_at_age(sp, sex, age, yr-1));// S_at_age(sp, sex, age, yr - 1);
               }
 
               // -- 6.9.3. Plus group where age > Ai.
-              if (age == (nages(sp) - 1)) {
+              if(age == (nages(sp) - 1)) {
                 N_at_age(sp, sex, age, yr) = N_at_age(sp, sex, age - 1, yr - 1) * exp(-Z_at_age(sp, sex, age-1, yr-1)) + N_at_age(sp, sex, age, yr - 1) * exp(-Z_at_age(sp, sex, age, yr-1));// S_at_age(sp, sex, age, yr - 1);
               }
               break;
@@ -1971,8 +1971,8 @@ Type objective_function<Type>::operator() () {
             // zero_N_pen(sp) += penalty;
 
             // -- 6.9.4. FORECAST BIOMASS
-             biomass_at_age(sp, sex, age, yr) = N_at_age(sp, sex, age, yr) * weight( pop_wt_index(sp), sex, age, nyrs_hind-1 ); // 6.5.
-             biomass(sp, yr) += biomass_at_age(sp, sex, age, yr);
+            biomass_at_age(sp, sex, age, yr) = N_at_age(sp, sex, age, yr) * weight( pop_wt_index(sp), sex, age, nyrs_hind-1 ); // 6.5.
+            biomass(sp, yr) += biomass_at_age(sp, sex, age, yr);
           } // End sex loop
 
           // -- 6.9.5. FORECAST SSB (SUM ACROSS AGES)
@@ -1987,7 +1987,7 @@ Type objective_function<Type>::operator() () {
 
 
     // 6.10. EXPECTED RECRUITMENT
-    for (sp = 0; sp < nspp; sp++) {
+    for(sp = 0; sp < nspp; sp++) {
 
       // Year 1 (arent fit in likelihood)
       switch(srr_pred_fun){
@@ -2030,7 +2030,7 @@ Type objective_function<Type>::operator() () {
       }
 
       // Year 1+
-      for (yr = 1; yr < nyrs; yr++){
+      for(yr = 1; yr < nyrs; yr++){
         switch(srr_pred_fun){
         case 0: // Random about mean (e.g. Alaska)
           R_hat(sp, yr)  = R0(sp);
@@ -2080,12 +2080,12 @@ Type objective_function<Type>::operator() () {
      sex_ratio_hat.setZero();
      Type sexr_denom = 0; // Denominator for sex ration across ages
      Type sexr_nom = 0; // Nominator for sex ratio across ages
-     for (sp = 0; sp < nspp; sp++) {
-     for (yr = 0; yr < nyrs; yr++) {
+     for(sp = 0; sp < nspp; sp++) {
+     for(yr = 0; yr < nyrs; yr++) {
      // Re-initialize
      sexr_denom = 0;
      sexr_nom = 0;
-     for (age = 0; age < nages(sp); age++) {
+     for(age = 0; age < nages(sp); age++) {
      sex_ratio_hat(sp, age, yr) = N_at_age(sp, 0, age, yr) / (N_at_age(sp, 0, age, yr) + N_at_age(sp, 1, age, yr));
      sexr_nom +=  N_at_age(sp, 0, age, yr); // Females
      sexr_denom += (N_at_age(sp, 0, age, yr) + N_at_age(sp, 1, age, yr)); // Females and males
@@ -2097,10 +2097,10 @@ Type objective_function<Type>::operator() () {
 
 
     // 6.12. ESTIMATE AVERAGE NUMBERS AT AGE
-    for (sp = 0; sp < nspp; sp++) {
+    for(sp = 0; sp < nspp; sp++) {
       for(sex = 0; sex < nsex(sp); sex ++){
-        for (age = 0; age < nages(sp); age++) {
-          for (yr = 0; yr < nyrs; yr++) {
+        for(age = 0; age < nages(sp); age++) {
+          for(yr = 0; yr < nyrs; yr++) {
             // switch(avgnMode){
             // case 0: // MSVPA approach
             avgN_at_age(sp, sex, age, yr) = N_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) / Z_at_age(sp, sex, age, yr);
@@ -2138,8 +2138,8 @@ Type objective_function<Type>::operator() () {
     Type L1 = 0.0;
     Type Ka = 0.0;
     Type Kb = 0.0;
-    for (sp = 0; sp < nspp; sp++) {
-      for (yr = 0; yr < nyrs; yr++) {
+    for(sp = 0; sp < nspp; sp++) {
+      for(yr = 0; yr < nyrs; yr++) {
 
         switch(Ceq(sp)){
         case 1:// Exponential function from Stewart et al. 1983
@@ -2173,10 +2173,10 @@ Type objective_function<Type>::operator() () {
 
 
     // 7.3. Calculate historic ration
-    for (sp = 0; sp < nspp; sp++) {
+    for(sp = 0; sp < nspp; sp++) {
       for(sex = 0; sex < nsex(sp); sex++) {
-        for (age = 0; age < nages(sp); age++) {
-          for (yr = 0; yr < nyrs; yr++) {
+        for(age = 0; age < nages(sp); age++) {
+          for(yr = 0; yr < nyrs; yr++) {
             // p = proportion of maximum consumption
             // f(T) = temperature dependence function
             // CA = intercept of allometric mass function
@@ -2246,7 +2246,7 @@ Type objective_function<Type>::operator() () {
 
           // Average of years
           if(flt_yr == 0){
-            for (yr = 0; yr < nyrs; yr++) {
+            for(yr = 0; yr < nyrs; yr++) {
               diet_prop(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr) = diet_obs(stom_ind, 1);
             }
           }
@@ -2257,14 +2257,14 @@ Type objective_function<Type>::operator() () {
 
     // 7.5. Calculate other food stomach content
     other_food_diet_prop.setZero();
-    for (yr = 0; yr < nyrs; yr++) {                           // Year loop
-      for (rsp = 0; rsp < nspp; rsp++) {                      // Predator species loop
+    for(yr = 0; yr < nyrs; yr++) {                           // Year loop
+      for(rsp = 0; rsp < nspp; rsp++) {                      // Predator species loop
         for(r_sex = 0; r_sex < nsex(rsp); r_sex++){
-          for (r_age = 0; r_age < nages(rsp); r_age++) {        // Predator age loop
+          for(r_age = 0; r_age < nages(rsp); r_age++) {        // Predator age loop
             other_food_diet_prop(rsp, r_sex, r_age, yr) = Type( 1 );             // Initialize other suitability
-            for (ksp = 0; ksp < nspp; ksp++) {                  // Prey species loop
+            for(ksp = 0; ksp < nspp; ksp++) {                  // Prey species loop
               for(k_sex = 0; k_sex < nsex(ksp); k_sex++){
-                for (k_age = 0; k_age < nages(ksp); k_age++) {    // Prey age loop
+                for(k_age = 0; k_age < nages(ksp); k_age++) {    // Prey age loop
                   other_food_diet_prop(rsp, r_sex, r_age, yr) -= diet_prop(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr);
                 }
               }
@@ -2281,23 +2281,23 @@ Type objective_function<Type>::operator() () {
     }
 
     // START PREDATION
-    if (msmMode > 0) {
+    if(msmMode > 0) {
 
       // ------------------------------------------------------------------------- //
       // 8.1. SUITABILITY EQUATIONS                                                //
       // ------------------------------------------------------------------------- //
 
       // 8.1.1. Holsman and MSVPA based suitability // FIXME - not flexible for interannual variation
-      if (suitMode == 0) {
+      if(suitMode == 0) {
         // 8.1.1.1. Calculate stomach proportion over biomass; U/ (W * N)
         suma_suit.setZero();
-        for (yr = 0; yr < nyrs; yr++) {                         // Year loop
-          for (ksp = 0; ksp < nspp; ksp++) {                    // Prey species loop
-            for (rsp = 0; rsp < nspp; rsp++) {                  // Predator species loop
+        for(yr = 0; yr < nyrs; yr++) {                         // Year loop
+          for(ksp = 0; ksp < nspp; ksp++) {                    // Prey species loop
+            for(rsp = 0; rsp < nspp; rsp++) {                  // Predator species loop
               for(k_sex = 0; k_sex < nsex(ksp); k_sex++){
                 for(r_sex = 0; r_sex < nsex(rsp); r_sex++){
-                  for (r_age = 0; r_age < nages(rsp); r_age++) {    // Predator age loop
-                    for (k_age = 0; k_age < nages(ksp); k_age++) {  // Prey age loop
+                  for(r_age = 0; r_age < nages(rsp); r_age++) {    // Predator age loop
+                    for(k_age = 0; k_age < nages(ksp); k_age++) {  // Prey age loop
 
                       stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = 0.0;
 
@@ -2327,7 +2327,7 @@ Type objective_function<Type>::operator() () {
 
 
 
-                      if (weight(pop_wt_index(ksp), k_sex, k_age, yr_ind ) != 0) {
+                      if(weight(pop_wt_index(ksp), k_sex, k_age, yr_ind ) != 0) {
                         stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) /= weight( pop_wt_index(ksp), k_sex, k_age, yr_ind );
                         suma_suit(rsp, r_sex, r_age, yr ) += stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr); // Calculate sum of stom_div_bio across prey and  prey age for each predator, predator age, and year
                       }
@@ -2343,13 +2343,13 @@ Type objective_function<Type>::operator() () {
         // 8.1.1.2. Calculate suitability
         suit_main.setZero();
         suit_other.setZero();
-        for (rsp = 0; rsp < nspp; rsp++) {                          // Predator species loop
+        for(rsp = 0; rsp < nspp; rsp++) {                          // Predator species loop
           for(r_sex = 0; r_sex < nsex(rsp); r_sex++){               // Predator sex
-            for (r_age = 0; r_age < nages(rsp); r_age++) {          // Predator age loop
-              for (ksp = 0; ksp < nspp; ksp++) {                    // Prey species loop
+            for(r_age = 0; r_age < nages(rsp); r_age++) {          // Predator age loop
+              for(ksp = 0; ksp < nspp; ksp++) {                    // Prey species loop
                 for(k_sex = 0; k_sex < nsex(ksp); k_sex++){         // Prey sex loop
-                  for (k_age = 0; k_age < nages(ksp); k_age++) {    // Prey age loop
-                    for (yr = suit_styr; yr <= suit_endyr; yr++) {  // Suit year loop (over specific years)
+                  for(k_age = 0; k_age < nages(ksp); k_age++) {    // Prey age loop
+                    for(yr = suit_styr; yr <= suit_endyr; yr++) {  // Suit year loop (over specific years)
 
                       // Average suitability across years
                       // FIXME: non-differentiable
@@ -2368,12 +2368,12 @@ Type objective_function<Type>::operator() () {
                     }
 
                     // Fill in years
-                    for (yr = 1; yr < nyrs; yr++) {                 // Year loop
+                    for(yr = 1; yr < nyrs; yr++) {                 // Year loop
                       suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0);
                     }
 
                     // Other suitabilitity
-                    for (yr = 0; yr < nyrs; yr++) {
+                    for(yr = 0; yr < nyrs; yr++) {
                       suit_other(rsp, r_sex, r_age, yr) += suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr); // FIXME - include overlap indices
                     }
                   }
@@ -2397,11 +2397,11 @@ Type objective_function<Type>::operator() () {
         // 2. sum(predator-prey preference) + vuln_other = 1
         // 3. 0 <= sum(predator-prey preference) <= 1 (hence logit transformation)
         sum_phi.setZero();
-        for (rsp = 0; rsp < nspp; rsp++) {                              // Pred loop
-          for (ksp = 0; ksp < nspp; ksp++) {              // Prey loop
+        for(rsp = 0; rsp < nspp; rsp++) {                              // Pred loop
+          for(ksp = 0; ksp < nspp; ksp++) {              // Prey loop
             sum_phi(rsp) += exp(log_phi(rsp, ksp));
           }
-          for (ksp = 0; ksp < nspp; ksp++) {                            // Prey loop
+          for(ksp = 0; ksp < nspp; ksp++) {                            // Prey loop
             vulnerability(rsp,ksp) = exp(log_phi(rsp,ksp))/(1+sum_phi(rsp)); // multinomial logistic transformation
           }
           vulnerability_other(rsp) = vulnerability.row(rsp).sum(); // vulnerability-other=1-sum-vulnerability but transform so sum_vuln+vuln_other=1
@@ -2412,13 +2412,13 @@ Type objective_function<Type>::operator() () {
           Type log_size_ratio = 0;       // Log(mean(predLen@age)/mean(preyLen@age))
 
           suit_main.setZero();
-          for (rsp = 0; rsp < nspp; rsp++) {                           // Pred loop
-            for (r_age = 0; r_age < nages(rsp); r_age++) {             // Pred age
+          for(rsp = 0; rsp < nspp; rsp++) {                           // Pred loop
+            for(r_age = 0; r_age < nages(rsp); r_age++) {             // Pred age
               for(r_sex = 0; r_sex < nsex(rsp); r_sex++){
-                for (ksp = 0; ksp < nspp; ksp++) {                     // Prey loop
+                for(ksp = 0; ksp < nspp; ksp++) {                     // Prey loop
                   for(k_sex = 0; k_sex < nsex(ksp); k_sex++){
-                    for (k_age = 0; k_age < nages(ksp); k_age++) {     // Prey age
-                      for (yr = 0; yr < nyrs; yr++) {                  // Year loop
+                    for(k_age = 0; k_age < nages(ksp); k_age++) {     // Prey age
+                      for(yr = 0; yr < nyrs; yr++) {                  // Year loop
 
                         suit_other(rsp, r_sex, r_age, yr) = vulnerability_other(rsp);
 
@@ -2456,12 +2456,12 @@ Type objective_function<Type>::operator() () {
         if((suitMode == 3) | (suitMode == 4)){
           Type log_size_ratio = 0;       // Log(mean(predLen@age)/mean(preyLen@age))
           suit_main.setZero();
-          for (rsp = 0; rsp < nspp; rsp++) {                                // Pred loop
+          for(rsp = 0; rsp < nspp; rsp++) {                                // Pred loop
             for(r_sex = 0; r_sex < nsex(rsp); r_sex ++){
-              for (r_age = 0; r_age < nages(rsp); r_age++) {                  // Pred age
-                for (ksp = 0; ksp < nspp; ksp++) {                            // Prey loop
+              for(r_age = 0; r_age < nages(rsp); r_age++) {                  // Pred age
+                for(ksp = 0; ksp < nspp; ksp++) {                            // Prey loop
                   for(k_sex = 0; k_sex < nsex(ksp); k_sex ++){
-                    for (k_age = 0; k_age < nages(ksp); k_age++) {              // Prey age
+                    for(k_age = 0; k_age < nages(ksp); k_age++) {              // Prey age
                       for(yr = 0; yr < nyrs; yr++){
 
                         suit_other(rsp, r_sex, r_age, yr) = vulnerability_other(rsp);
@@ -2500,14 +2500,14 @@ Type objective_function<Type>::operator() () {
       // 8. PREDATION MORTALITY EQUATIONS                                          //
       // ------------------------------------------------------------------------- //
       // -- 8.1. HOLSMAN PREDATION MORTALITY
-      if ((msmMode == 1) | (msmMode == 2)) {
+      if((msmMode == 1) | (msmMode == 2)) {
 
         // 8.1.3. Calculate available food
         avail_food.setZero();
-        for (rsp = 0; rsp < nspp; rsp++) {                        // Predator species loop
+        for(rsp = 0; rsp < nspp; rsp++) {                        // Predator species loop
           for(r_sex = 0; r_sex < nsex(rsp); r_sex++){             // Predator sex loop
-            for (r_age = 0; r_age < nages(rsp); r_age++) {          // Predator age loop
-              for (yr = 0; yr < nyrs; yr++) {                       // Year loop
+            for(r_age = 0; r_age < nages(rsp); r_age++) {          // Predator age loop
+              for(yr = 0; yr < nyrs; yr++) {                       // Year loop
 
                 if(yr < nyrs_hind){
                   yr_ind = yr;
@@ -2516,9 +2516,9 @@ Type objective_function<Type>::operator() () {
                   yr_ind = nyrs_hind - 1;
                 }
 
-                for (ksp = 0; ksp < nspp; ksp++) {                  // Prey species loop
+                for(ksp = 0; ksp < nspp; ksp++) {                  // Prey species loop
                   for(k_sex = 0; k_sex < nsex(ksp); k_sex++){
-                    for (k_age = 0; k_age < nages(ksp); k_age++) {    // Prey age loop
+                    for(k_age = 0; k_age < nages(ksp); k_age++) {    // Prey age loop
                       avail_food(rsp, r_sex, r_age, yr) += suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) * pow(avgN_at_age(ksp, k_sex, k_age, yr), msmMode) * weight(pop_wt_index(ksp), k_sex, k_age, yr_ind) ; // FIXME - include overlap indices: FIXME - mn_wt_stom?
                     }
                   }
@@ -2534,13 +2534,13 @@ Type objective_function<Type>::operator() () {
         // 8.1.3. Calculate predation mortality, diet proportion, and biomass easten
         M2_at_age.setZero();
         B_eaten_as_prey.setZero();
-        for (ksp = 0; ksp < nspp; ksp++) {                        // Prey species loop
+        for(ksp = 0; ksp < nspp; ksp++) {                        // Prey species loop
           for(k_sex = 0; k_sex < nsex(ksp); k_sex++){
-            for (k_age = 0; k_age < nages(ksp); k_age++) {          // Prey age loop
-              for (rsp = 0; rsp < nspp; rsp++) {                  // Predator species loop
+            for(k_age = 0; k_age < nages(ksp); k_age++) {          // Prey age loop
+              for(rsp = 0; rsp < nspp; rsp++) {                  // Predator species loop
                 for(r_sex = 0; r_sex < nsex(rsp); r_sex++){
-                  for (r_age = 0; r_age < nages(rsp); r_age++) {    // Predator age loop
-                    for (yr = 0; yr < nyrs; yr++) {                       // Year loop
+                  for(r_age = 0; r_age < nages(rsp); r_age++) {    // Predator age loop
+                    for(yr = 0; yr < nyrs; yr++) {                       // Year loop
 
                       if(yr < nyrs_hind){
                         yr_ind = yr;
@@ -2584,7 +2584,7 @@ Type objective_function<Type>::operator() () {
 
       // 8.2. KINZEY PREDATION EQUATIONS
       /*
-       if (msmMode > 2) {
+       if(msmMode > 2) {
 
        // 8.2.3. Initialize counters
        Type Pred_ratio = 0.0;          // Predator ratio
@@ -2598,12 +2598,12 @@ Type objective_function<Type>::operator() () {
        // 8.2.4. Calculate equilibrium N predators and prey in styr_pred for each species X age: FIXME: May want to have this be the final year of a projection!
        N_pred_eq.setZero();
        N_prey_eq.setZero();
-       for (rsp = 0; rsp < nspp; rsp++) {
-       for (ksp = 0; ksp < nspp; ksp++) {
+       for(rsp = 0; rsp < nspp; rsp++) {
+       for(ksp = 0; ksp < nspp; ksp++) {
        for(r_sex = 0; r_sex < nsex(rsp); r_sex++){
        for(k_sex = 0; k_sex < nsex(ksp); k_sex++){
-       for (r_age = 0; r_age < nages(rsp); r_age++) {
-       for (k_age = 0; k_age < nages(ksp); k_age++) {
+       for(r_age = 0; r_age < nages(rsp); r_age++) {
+       for(k_age = 0; k_age < nages(ksp); k_age++) {
        N_pred_eq(rsp, r_sex, r_age) += N_at_age(rsp, r_sex, r_age, 0) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0); // Denominator of Eq. 17 Kinzey and Punt (2009) 1st year - FIXME: probably should use 2015
        N_prey_eq(ksp, k_sex, k_age) += N_at_age(ksp, k_sex, k_age, 0) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0); // Denominator of Eq. 16 Kinzey and Punt (2009) 1st year - FIXME: probably should use 2015
        }
@@ -2617,13 +2617,13 @@ Type objective_function<Type>::operator() () {
        // 8.2.5. Calculate available prey and predator for each year
        N_pred_yrs.setZero();
        N_prey_yrs.setZero();
-       for (yr = 0; yr < nyrs; yr++) {
-       for (rsp = 0; rsp < nspp; rsp++) {
-       for (ksp = 0; ksp < nspp; ksp++) {
+       for(yr = 0; yr < nyrs; yr++) {
+       for(rsp = 0; rsp < nspp; rsp++) {
+       for(ksp = 0; ksp < nspp; ksp++) {
        for(r_sex = 0; r_sex < nsex(rsp); r_sex++){
        for(k_sex = 0; k_sex < nsex(ksp); k_sex++){
-       for (r_age = 0; r_age < nages(rsp); r_age++) {
-       for (k_age = 0; k_age < nages(ksp); k_age++) {
+       for(r_age = 0; r_age < nages(rsp); r_age++) {
+       for(k_age = 0; k_age < nages(ksp); k_age++) {
        N_pred_yrs(rsp, r_sex, r_age, yr) += N_at_age(rsp, r_sex, r_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr); // Numerator of Eq. 17 Kinzey and Punt (2009) 1st year // FIXME: Use averageN?
        N_prey_yrs(ksp, k_sex, k_age, yr) += N_at_age(ksp, k_sex, k_age, yr) * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr); // Numerator of Eq. 16 Kinzey and Punt (2009) 1st year
        }
@@ -2636,17 +2636,17 @@ Type objective_function<Type>::operator() () {
 
 
        // 8.2.6. Calculate predator functional response (Table 1 Kinzey and Punt (2009))
-       for (rsp = 0; rsp < nspp; rsp++) {                          // Predator loop
-       for (ksp = 0; ksp < (nspp + 1); ksp++) {                  // Prey loop
+       for(rsp = 0; rsp < nspp; rsp++) {                          // Predator loop
+       for(ksp = 0; ksp < (nspp + 1); ksp++) {                  // Prey loop
        Term = 1.0e-10 + H_1(rsp, ksp) * (Type(1) + H_1a(rsp) * H_1b(rsp) / (Type(r_age) + H_1b(rsp) + Type(1.0e-10))); // Eq. 15 Kinzey and Punt (2009)
        for(r_sex = 0; r_sex < nsex(rsp); r_sex++){
-       for (r_age = 0; r_age < nages(rsp); r_age++) {        // Predator age loop
-       for (yr = 0; yr < nyrs; yr++) {                         // Year loop
+       for(r_age = 0; r_age < nages(rsp); r_age++) {        // Predator age loop
+       for(yr = 0; yr < nyrs; yr++) {                         // Year loop
 
        // Observed species
        if(ksp < nspp){
        for(k_sex = 0; k_sex < nsex(ksp); k_sex++){
-       for (k_age = 0; k_age < nages(ksp); k_age++) {    // Prey age loop
+       for(k_age = 0; k_age < nages(ksp); k_age++) {    // Prey age loop
 
        // Predator-prey ratios
        Pred_ratio = (N_pred_yrs(rsp, r_sex, r_age, yr) + Type(1.0e-10)) / (N_pred_eq(rsp, r_sex, r_age) + Type(1.0e-10)); // Eq. 17 Kinzey and Punt (2009): Predator biomass relative to equilibrium
@@ -2702,13 +2702,13 @@ Type objective_function<Type>::operator() () {
 
        // 8.2.7  Predation mortality: Eq. 6 & 7 Kinzey and Punt (2009)
        M2_at_age.setZero();
-       for (yr = 0; yr < nyrs; yr++) {
-       for (rsp = 0; rsp  <  nspp; rsp++) {
+       for(yr = 0; yr < nyrs; yr++) {
+       for(rsp = 0; rsp  <  nspp; rsp++) {
        for(r_sex = 0; r_sex < nsex(rsp); r_sex++){
-       for (ksp = 0; ksp  <  nspp; ksp++) {
+       for(ksp = 0; ksp  <  nspp; ksp++) {
        for(k_sex = 0; k_sex < nsex(ksp); k_sex ++){
-       for (r_age = 0; r_age < nages(rsp); r_age++) {
-       for (k_age = 0; k_age < nages(ksp); k_age++) {
+       for(r_age = 0; r_age < nages(rsp); r_age++) {
+       for(k_age = 0; k_age < nages(ksp); k_age++) {
        M2_prop(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = pred_resp(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)
        * suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) * N_at_age(rsp, r_sex, r_age, yr);
        M2_at_age(ksp, k_sex, k_age, yr) += M2_prop(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr);
@@ -2721,15 +2721,15 @@ Type objective_function<Type>::operator() () {
        }
 
        // 8.2.9. Numbers and mass eaten (of modeled prey species and "other prey"); Equations 8 and 9 from Kinzey and Punt 2009
-       for (yr = 0; yr < nyrs; yr++) {
-       for (rsp = 0; rsp  <  nspp; rsp++) {
+       for(yr = 0; yr < nyrs; yr++) {
+       for(rsp = 0; rsp  <  nspp; rsp++) {
        for(r_sex = 0; r_sex < nsex(rsp); r_sex ++){
-       for (r_age = 0; r_age  <  nages(rsp); r_age++) {
-       for (ksp = 0; ksp  <  nspp+1; ksp++) {
+       for(r_age = 0; r_age  <  nages(rsp); r_age++) {
+       for(ksp = 0; ksp  <  nspp+1; ksp++) {
        // Species included
-       if (ksp < nspp) {
+       if(ksp < nspp) {
        for(k_sex = 0; k_sex < nsex(ksp); k_sex++){
-       for (k_age = 0; k_age < nages(ksp); k_age++) {
+       for(k_age = 0; k_age < nages(ksp); k_age++) {
        // Year indices
        if(yr < nyrs_hind){
        yr_ind = yr;
@@ -2756,13 +2756,13 @@ Type objective_function<Type>::operator() () {
 
        // 8.2.11. Predicted diet proportion as weight of prey-at-age in diet of predator-at-age (Eqn 15)
        // NOTE: Only including prey species in the model. Does not include other food
-       for (rsp = 0; rsp  <  nspp; rsp++) {
+       for(rsp = 0; rsp  <  nspp; rsp++) {
        for(r_sex = 0; r_sex < nsex(rsp); r_sex ++){
-       for (r_age = 0; r_age  <  nages(rsp); r_age++) {
-       for (ksp = 0; ksp  <  nspp; ksp++) {
+       for(r_age = 0; r_age  <  nages(rsp); r_age++) {
+       for(ksp = 0; ksp  <  nspp; ksp++) {
        for(k_sex = 0; k_sex < nsex(ksp); k_sex++){
-       for (k_age = 0; k_age < nages(ksp); k_age++) {
-       for (yr = 0; yr < nyrs_hind; yr++) {
+       for(k_age = 0; k_age < nages(ksp); k_age++) {
+       for(yr = 0; yr < nyrs_hind; yr++) {
        diet_prop_hat(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = B_eaten(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)/B_eaten_as_pred(rsp, r_sex, r_age, yr);
        }
        }
@@ -2780,20 +2780,20 @@ Type objective_function<Type>::operator() () {
 
        ration_hat_ave.setZero();
        ration_hat.setZero();
-       for (rsp = 0; rsp < nspp; rsp++) {
+       for(rsp = 0; rsp < nspp; rsp++) {
        for(r_sex = 0; r_sex < nsex(rsp); r_sex ++){
-       for (r_age = 0; r_age < nages(rsp); r_age++) {
+       for(r_age = 0; r_age < nages(rsp); r_age++) {
        numer = 0;
  denom = 0;
  // Calculate year-specific values
- for (yr = 0; yr < nyrs; yr++) {
+ for(yr = 0; yr < nyrs; yr++) {
  if(avgN_at_age(rsp, r_sex, r_age, yr) > 0){
  ration_hat(rsp, r_sex, r_age, yr) = B_eaten_as_pred(rsp, r_sex, r_age, yr)/avgN_at_age(rsp, r_sex, r_age, yr); // NOTE: Divide by 365 to make into daily ration
  }
  }
 
  // Find average over hindcast// FIXME: suit_years?
- for (yr = 0; yr < nyrs_hind; yr++) {
+ for(yr = 0; yr < nyrs_hind; yr++) {
  numer += B_eaten_as_pred(rsp, r_sex, r_age, yr); // NOTE: Divide by 365 to make into daily ration
  denom += avgN_at_age(rsp, r_sex, r_age, yr);
  }
@@ -2842,7 +2842,7 @@ Type objective_function<Type>::operator() () {
         yr_ind = nyrs_hind - 1;
       }
 
-      for (age = 0; age < nages(sp); age++) {
+      for(age = 0; age < nages(sp); age++) {
         for(sex = 0; sex < nsex(sp); sex++){
           // Weight
           if(flt_units(index) == 1){
@@ -2876,13 +2876,13 @@ Type objective_function<Type>::operator() () {
         if(flt_yr < nyrs_hind){
 
           // If etimated standard deviation or analytical sigma (non-time-varying)
-          if (est_sigma_index(index) > 0) {
+          if(est_sigma_index(index) > 0) {
             index_n_obs(index) += 1; // Add one if survey is used
             index_q_analytical(index) += log(index_obs(index_ind, 0) / index_hat(index_ind));
           }
 
           // If time-varying sigma
-          if (est_sigma_index(index) == 0 ) {
+          if(est_sigma_index(index) == 0 ) {
             index_n_obs(index) += 1 / square(index_obs(index_ind, 1));
             index_q_analytical(index) += log(index_obs(index_ind, 0) / index_hat(index_ind)) / square(index_obs(index_ind, 1));
           }
@@ -2987,7 +2987,7 @@ Type objective_function<Type>::operator() () {
       }
 
       for(sex = 0; sex < nsex(sp); sex ++){
-        for (age = 0; age < nages(sp); age++) {
+        for(age = 0; age < nages(sp); age++) {
           // FIXME: add wt_yr_ind for MSE
 
           // By weight
@@ -3008,12 +3008,12 @@ Type objective_function<Type>::operator() () {
     // 10.2 Exploitable biomass ----
     exploitable_biomass.setZero();
 
-    for (flt = 0; flt < n_flt; flt++) {
+    for(flt = 0; flt < n_flt; flt++) {
 
       sp = flt_spp(flt);
 
       if(flt_type(flt) == 1){ //Fishery only
-        for (yr = 0; yr < nyrs; yr++) {
+        for(yr = 0; yr < nyrs; yr++) {
 
           // Hindcast
           if(yr < nyrs_hind){
@@ -3025,7 +3025,7 @@ Type objective_function<Type>::operator() () {
             yr_ind = nyrs_hind - 1;
           }
 
-          for (age = 0; age < nages(sp); age++) {
+          for(age = 0; age < nages(sp); age++) {
             for(sex = 0; sex < nsex(sp); sex ++){
               exploitable_biomass(sp, yr) += N_at_age(sp, sex, age, yr) * weight( flt_wt_index(flt), sex, age, yr_ind ) * sel(flt, sex, age, yr_ind) * proj_F_prop(flt); // FIXME using last year of selectivity;
             }
@@ -3072,7 +3072,7 @@ Type objective_function<Type>::operator() () {
       }
 
       // Get catch-at-age
-      for (age = 0; age < nages(sp); age++) {
+      for(age = 0; age < nages(sp); age++) {
 
 
         switch(flt_type(flt)){
@@ -3141,7 +3141,7 @@ Type objective_function<Type>::operator() () {
       }
 
       // Get true age comp
-      for (age = 0; age < nages(sp) * joint_adjust(comp_ind); age++) {
+      for(age = 0; age < nages(sp) * joint_adjust(comp_ind); age++) {
         if(n_hat(comp_ind) > 0){ //FIXME - not differentiable
           true_age_comp_hat(comp_ind, age ) = age_hat(comp_ind, age ) / n_hat(comp_ind);
         }
@@ -3149,16 +3149,16 @@ Type objective_function<Type>::operator() () {
 
 
       // Adjust for aging error
-      for (int obs_age = 0; obs_age < nages(sp); obs_age++) {
-        for (int true_age = 0; true_age < nages(sp); true_age++) {
+      for(int obs_age = 0; obs_age < nages(sp); obs_age++) {
+        for(int true_age = 0; true_age < nages(sp); true_age++) {
           age_obs_hat(comp_ind, obs_age) += age_hat(comp_ind, true_age )* age_error(sp, true_age, obs_age);
         }
       }
 
       // Adjust for aging error for joint data
       if(flt_sex == 3){
-        for (int obs_age = nages(sp); obs_age < nages(sp) * 2; obs_age++) {
-          for (int true_age = nages(sp); true_age < nages(sp) * 2; true_age++) {
+        for(int obs_age = nages(sp); obs_age < nages(sp) * 2; obs_age++) {
+          for(int true_age = nages(sp); true_age < nages(sp) * 2; true_age++) {
 
             // Adjust indexing for joint age/length comp
             int true_age_tmp = true_age - nages(sp);
@@ -3171,8 +3171,8 @@ Type objective_function<Type>::operator() () {
 
 
       //  Survey catch-at-age - standardize to sum to 1
-      if (comp_type == 0) {
-        for (age = 0; age < nages(sp) * joint_adjust(comp_ind); age++) {
+      if(comp_type == 0) {
+        for(age = 0; age < nages(sp) * joint_adjust(comp_ind); age++) {
           if(n_hat(comp_ind) > 0){ //FIXME - not differentiable
             comp_hat(comp_ind, age) = age_obs_hat(comp_ind, age ) / n_hat(comp_ind);
           }
@@ -3181,9 +3181,9 @@ Type objective_function<Type>::operator() () {
 
 
       // Convert from catch-at-age to catch-at-length
-      if ( comp_type == 1) {
-        for (ln = 0; ln < nlengths(sp); ln++) {
-          for (age = 0; age < nages(sp); age++) {
+      if( comp_type == 1) {
+        for(ln = 0; ln < nlengths(sp); ln++) {
+          for(age = 0; age < nages(sp); age++) {
 
             sex = 0;
 
@@ -3198,9 +3198,9 @@ Type objective_function<Type>::operator() () {
 
 
         // Convert from catch-at-age to catch-at-length for joint comp data
-        if ( flt_sex == 3) {
-          for (ln = nlengths(sp); ln < nlengths(sp) * 2; ln++) {
-            for (age = nages(sp); age < nages(sp) * 2; age++) {
+        if( flt_sex == 3) {
+          for(ln = nlengths(sp); ln < nlengths(sp) * 2; ln++) {
+            for(age = nages(sp); age < nages(sp) * 2; age++) {
 
               // Adjust indexing for joint age/length comp
               int obs_ln_tmp = ln;
@@ -3217,7 +3217,7 @@ Type objective_function<Type>::operator() () {
 
 
         // Standardize to sum to 1
-        for (ln = 0; ln < nlengths(sp) * joint_adjust(comp_ind); ln++) {
+        for(ln = 0; ln < nlengths(sp) * joint_adjust(comp_ind); ln++) {
           if(n_hat(comp_ind) > 0){ //FIXME - not differentiable
             comp_hat(comp_ind, ln ) = comp_hat(comp_ind, ln) / n_hat(comp_ind);
           }
@@ -3285,7 +3285,7 @@ Type objective_function<Type>::operator() () {
 
           // Average of years
           if(flt_yr == 0){
-            for (yr = suit_styr; yr <= suit_endyr; yr++) {  // Suit year loop (over specific years)
+            for(yr = suit_styr; yr <= suit_endyr; yr++) {  // Suit year loop (over specific years)
               diet_hat(stom_ind, 1) += diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr)/4/nyrs_suit; //FIXME: take weighted average (sex)
             }
           }
@@ -3365,7 +3365,7 @@ Type objective_function<Type>::operator() () {
   // 14.1. FIT OBJECTIVE FUNCTION
   // Slot 0 -- Survey biomass -- NFMS annual BT survey and EIT survey
   Type index_std_dev = 0;
-  for (index_ind = 0; index_ind < index_obs.rows(); index_ind++) {
+  for(index_ind = 0; index_ind < index_obs.rows(); index_ind++) {
 
     index = index_ctl(index_ind, 0) - 1;            // Temporary survey index
     sp = index_ctl(index_ind, 1) - 1;             // Species is the 2nd column
@@ -3405,7 +3405,7 @@ Type objective_function<Type>::operator() () {
 
   // Slot 1 -- Total catch -- Fishery observer dat
   Type fsh_std_dev = 0;
-  for (fsh_ind = 0; fsh_ind < catch_obs.rows(); fsh_ind++) {
+  for(fsh_ind = 0; fsh_ind < catch_obs.rows(); fsh_ind++) {
 
     flt = catch_ctl(fsh_ind, 0) - 1;            // Temporary fishery index
     sp = catch_ctl(fsh_ind, 1) - 1;             // Species is the column 3
@@ -3448,7 +3448,7 @@ Type objective_function<Type>::operator() () {
 
 
   // Slot 2 -- Age/length composition
-  for (comp_ind = 0; comp_ind < comp_obs.rows(); comp_ind++) {
+  for(comp_ind = 0; comp_ind < comp_obs.rows(); comp_ind++) {
 
     flt = comp_ctl(comp_ind, 0) - 1;        // Temporary fleet index
     sp = comp_ctl(comp_ind, 1) - 1;         // Temporary index of species
@@ -3490,7 +3490,7 @@ Type objective_function<Type>::operator() () {
       switch(comp_ll_type(flt)){
 
       case -1:
-        for (ln = 0; ln < n_comp; ln++) {
+        for(ln = 0; ln < n_comp; ln++) {
           // Martin's
           jnll_comp(2, flt) -= comp_weights(flt) * Type(comp_n(comp_ind, 1)) * (comp_obs(comp_ind, ln) + 0.00001) * log((comp_hat(comp_ind, ln)+0.00001) / (comp_obs(comp_ind, ln) + 0.00001)) ;
         }
@@ -3541,7 +3541,7 @@ Type objective_function<Type>::operator() () {
     // - using non-normalized selectivities following the arrowtooth ADMB model
     // - updated to make differentiable using abs to only penalize when sel_ratio_tmp > 0 (decreasing sel)
     if(flt_type(flt) > 0){
-      if (flt_sel_type(flt) == 2) {
+      if(flt_sel_type(flt) == 2) {
 
         for(sex = 0; sex < nsex(sp); sex++){
           for(age = 0; age < (nages(sp) - 1); age++) {
@@ -3554,11 +3554,11 @@ Type objective_function<Type>::operator() () {
           // Extract only the selectivities we want
           vector<Type> sel_tmp(nages(sp)); sel_tmp.setZero();
 
-          for (age = 0; age < nages(sp); age++) {
+          for(age = 0; age < nages(sp); age++) {
             sel_tmp(age) = log(non_par_sel(flt, sex, age));
           }
 
-          for (age = 0; age < nages(sp) - 2; age++) {
+          for(age = 0; age < nages(sp) - 2; age++) {
             sel_tmp(age) = first_difference( first_difference( sel_tmp ) )(age);
             jnll_comp(4, flt) += sel_curve_pen(flt, 1) * pow( sel_tmp(age) , 2);
           }
@@ -3642,7 +3642,7 @@ Type objective_function<Type>::operator() () {
       // Observation error
       // - Fit to environmental index
       int q_index = index_varying_q(flt) - 1;
-      for (yr = 0; yr < nyrs_hind; yr++){
+      for(yr = 0; yr < nyrs_hind; yr++){
         jnll_comp(8, flt) -= dnorm(env_index(yr, q_index), index_q_dev(flt, yr), index_q_sd(flt), true); //FIXME: index by env-year
       }
     }
@@ -3650,7 +3650,7 @@ Type objective_function<Type>::operator() () {
     // Penalized/random deviate likelihood
     // - Estimate_q = 1 or 2
     // - Time_varying_q  = 1 or 2
-    if(((index_varying_q(flt) == 1) | (index_varying_q(flt) == 2)) & (flt_type(flt) == 2) & (est_index_q(flt) == 1 | est_index_q(flt) == 2)){
+    if(((index_varying_q(flt) == 1) | (index_varying_q(flt) == 2)) & (flt_type(flt) == 2) & ((est_index_q(flt) == 1) | (est_index_q(flt) == 2))){
       for(yr = 0; yr < nyrs_hind; yr++){
         jnll_comp(8, flt) -= dnorm(index_q_dev(flt, yr), Type(0.0), index_q_dev_sd(flt), true );
       }
@@ -3659,7 +3659,7 @@ Type objective_function<Type>::operator() () {
     // Random walk
     // - Estimate_q = 1 or 2
     // - Time_varying_q  = 4
-    if((index_varying_q(flt) == 4) & (flt_type(flt) == 2) & (est_index_q(flt) == 1 | est_index_q(flt) == 2)){
+    if((index_varying_q(flt) == 4) & (flt_type(flt) == 2) & ((est_index_q(flt) == 1) | (est_index_q(flt) == 2))){
       for(yr = 1; yr < nyrs_hind; yr++){
         jnll_comp(8, flt) -= dnorm(index_q_dev(flt, yr) - index_q_dev(flt, yr-1), Type(0.0), index_q_dev_sd(flt), true );
       }
@@ -3668,16 +3668,16 @@ Type objective_function<Type>::operator() () {
 
 
   // Slots 9-12 -- RECRUITMENT PARAMETERS
-  for (sp = 0; sp < nspp; sp++) {
+  for(sp = 0; sp < nspp; sp++) {
     penalty = 0.0;
     // Slot 9 -- stock-recruit prior for Beverton
     // -- Lognormal
-    if((srr_est_mode == 2) & (srr_pred_fun == 2 | srr_pred_fun == 3)){
+    if((srr_est_mode == 2) & ((srr_pred_fun == 2) | (srr_pred_fun == 3))){
       jnll_comp(9, sp) -= dnorm(log(steepness(sp)), log(srr_prior(sp)) + square(srr_prior_sd(sp))/2.0, srr_prior_sd(sp), true);
     }
 
     // -- Beta
-    if((srr_est_mode == 3) & (srr_pred_fun == 2 | srr_pred_fun == 3)){
+    if((srr_est_mode == 3) & ((srr_pred_fun == 2) | (srr_pred_fun == 3))){
       // Convert mean and SD to beta params
       Type beta_alpha = ((1 - srr_prior(sp))/ square(srr_prior_sd(sp)) - 1/srr_prior(sp)) * square(srr_prior(sp));
       Type beta_beta = beta_alpha * (1/srr_prior(sp) - 1);
@@ -3685,7 +3685,7 @@ Type objective_function<Type>::operator() () {
     }
 
     // Slot 9 -- stock-recruit prior for Ricker
-    if((srr_est_mode == 2) & (srr_pred_fun == 4 | srr_pred_fun == 5)){
+    if((srr_est_mode == 2) & ((srr_pred_fun == 4) | (srr_pred_fun == 5))){
       jnll_comp(9, sp) -= dnorm((rec_pars(sp, 1)), log(srr_prior(sp)), srr_prior_sd(sp), true);
     }
 
@@ -3699,19 +3699,19 @@ Type objective_function<Type>::operator() () {
 
     // Slot 10 -- init_dev -- Initial abundance-at-age
     if(initMode > 0){
-      for (age = 1; age < nages(sp); age++) {
+      for(age = 1; age < nages(sp); age++) {
         jnll_comp(11, sp) -= dnorm( init_dev(sp, age - 1), square(R_sd(sp))/2.0, R_sd(sp), true);
       }
     }
 
     // Slot 11 -- Tau -- Annual recruitment deviation
-    for (yr = 0; yr < nyrs_hind; yr++) {
+    for(yr = 0; yr < nyrs_hind; yr++) {
       jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr),  square(R_sd(sp))/2.0, R_sd(sp), true);    // Recruitment deviation using random effects.
     }
 
     // Additional penalty for SRR curve (sensu AMAK/Ianelli)
     if((srr_fun == 0) & (srr_pred_fun  > 0)){
-      for (yr = srr_hat_styr; yr <= srr_hat_endyr; yr++) {
+      for(yr = srr_hat_styr; yr <= srr_hat_endyr; yr++) {
         jnll_comp(10, sp) -= dnorm( log(R(sp, yr)), log(R_hat(sp,yr)), R_sd(sp), true);
       }
     }
@@ -3723,7 +3723,7 @@ Type objective_function<Type>::operator() () {
   Type CMSY = 0;
 
   // --- Sum terminal catch across species
-  for (sp = 0; sp < nspp; sp++) {
+  for(sp = 0; sp < nspp; sp++) {
     if((HCR == 1) & (forecast(sp) == 1)){
 
       // -- Loop through catch data
@@ -3746,7 +3746,7 @@ Type objective_function<Type>::operator() () {
 
 
     // --- Add biomass_depletion constraint
-    for (sp = 0; sp < nspp; sp++) {
+    for(sp = 0; sp < nspp; sp++) {
       penalty = 0.0;
       Type nothing_useful =  posfun( (ssb_depletion(sp, nyrs-1) - Plimit(sp)), Type(0.0001), penalty);
       jnll_comp(13, sp) += 500.0 * square(CMSY/1000.0) * penalty; // CMSY
@@ -3756,7 +3756,7 @@ Type objective_function<Type>::operator() () {
   }
 
 
-  for (sp = 0; sp < nspp; sp++) {
+  for(sp = 0; sp < nspp; sp++) {
     // -- Single-species static reference points
     if((DynamicHCR == 0) & (forecast(sp) == 1) & (msmMode == 0)){
 
@@ -3823,7 +3823,7 @@ Type objective_function<Type>::operator() () {
 
 
   // Slot 14 -- N-at-age < 0 penalty. See posfun
-  for (sp = 0; sp < nspp; sp++){
+  for(sp = 0; sp < nspp; sp++){
     if(estDynamics(sp) == 0){
       jnll_comp(14, sp) += zero_N_pen(sp);
     }
@@ -3832,29 +3832,29 @@ Type objective_function<Type>::operator() () {
 
   // Slots 15 -- M_at_age prior
   // M1_model 0 = use fixed natural mortality from M1_base, 1 = estimate sex- and age-invariant M1_at_age, 2 = sex-specific (two-sex model), age-invariant M1_at_age, 3 =   estimate sex- and age-specific M1_at_age.
-  for (sp = 0; sp < nspp; sp++) {
+  for(sp = 0; sp < nspp; sp++) {
     // Prior on M1_at_age only and using species specific M1_at_age
-    if( M1_model(sp) == 1 & M1_use_prior(sp) == 1 & M2_use_prior(sp) == 0){
+    if( (M1_model(sp) == 1) & (M1_use_prior(sp) == 1) & (M2_use_prior(sp) == 0)){
       jnll_comp(15, sp) -= dnorm(log(M1_at_age(sp, 0, 0)), log(M_prior(sp)) + square(M_prior_sd(sp))/2, M_prior_sd(sp), true);
     }
 
     for(sex = 0; sex < nsex(sp); sex ++){
       // Prior on M1_at_age only and using species and sex specific M1_at_age
-      if( M1_model(sp) == 2 & M1_use_prior(sp) == 1 & M2_use_prior(sp) == 0){
+      if( (M1_model(sp) == 2) & (M1_use_prior(sp) == 1) & (M2_use_prior(sp) == 0)){
         jnll_comp(15, sp) -= dnorm(log(M1_at_age(sp, sex, 0)), log(M_prior(sp)) + square(M_prior_sd(sp))/2, M_prior_sd(sp), true);
       }
 
-      for (age = 0; age < nages(sp); age++) {
+      for(age = 0; age < nages(sp); age++) {
 
         // Prior on M1_at_age only and using species and sex specific M1_at_age
-        if( M1_model(sp) == 3 & M1_use_prior(sp) == 1 & M2_use_prior(sp) == 0){
+        if( (M1_model(sp) == 3) & (M1_use_prior(sp) == 1) & (M2_use_prior(sp) == 0)){
           jnll_comp(15, sp) -= dnorm(log(M1_at_age(sp, sex, age)), log(M_prior(sp)) + square(M_prior_sd(sp))/2, M_prior_sd(sp), true);
         }
 
-        for (yr = 0; yr < nyrs; yr++) {
+        for(yr = 0; yr < nyrs; yr++) {
 
           // Prior on total M_at_age (M1_at_age and M2_at_age)
-          if( M1_use_prior(sp) == 1 & M2_use_prior(sp) == 1){
+          if( (M1_use_prior(sp) == 1) & (M2_use_prior(sp) == 1)){
             jnll_comp(15, sp) -= dnorm(log(M_at_age(sp, sex, age, yr)), log(M_prior(sp)) + square(M_prior_sd(sp))/2, M_prior_sd(sp), true);
           }
         }
@@ -3865,7 +3865,7 @@ Type objective_function<Type>::operator() () {
 
   // 14.3. Diet likelihood components
   // -- MSVPA-based predation with estimated suitability AND Kinzey and Punt
-  if ((msmMode > 2) | (suitMode > 0)) {
+  if((msmMode > 2) | (suitMode > 0)) {
     // Slot 15 -- Diet weight likelihood
     for(int stom_ind = 0; stom_ind < diet_obs.rows(); stom_ind++){
 
@@ -3879,12 +3879,12 @@ Type objective_function<Type>::operator() () {
 
   // 14.4. Diet likelihood components for Kinzey and Punt predation
   /*
-   if (msmMode > 2){
+   if(msmMode > 2){
    // Slot 15 -- Ration likelihood
-   for (yr = 0; yr < nyrs_hind; yr++) {
-   for (sp = 0; sp < nspp; sp++) {
+   for(yr = 0; yr < nyrs_hind; yr++) {
+   for(sp = 0; sp < nspp; sp++) {
    for(sex = 0; sex < nsex(sp); sex ++){
-   for (age = 1; age < nages(sp); age++) { // don't include age zero in likelihood
+   for(age = 1; age < nages(sp); age++) { // don't include age zero in likelihood
    if(ration(sp, sex, age, yr) > 0){
    if(ration_hat(sp, sex, age, yr) > 0){
    jnll_comp(16, sp) -= dnorm(log(ration(sp, sex, age, yr))  - square(sd_ration) / 2,  log( ration_hat(sp, sex, age, yr)), sd_ration, true);
@@ -3897,10 +3897,10 @@ Type objective_function<Type>::operator() () {
 
 
    // Slot 16 -- Ration penalalties FIXME: not sure if necessary: talk to Andre
-   for (sp = 0; sp < nspp; sp++) {
+   for(sp = 0; sp < nspp; sp++) {
    for(sex = 0; sex < nsex(sp); sex ++){
-   for (age = 0; age < nages(sp); age++) {
-   for (yr = 0; yr < nyrs_hind; yr++) {
+   for(age = 0; age < nages(sp); age++) {
+   for(yr = 0; yr < nyrs_hind; yr++) {
    if(ration_hat(sp, sex, age, yr) > 0){
    //jnll_comp(17, sp) += 20 *  pow(ration_hat(sp, sex, age, yr) - ration_hat_ave(sp, sex, age), 2);
    }
@@ -4107,12 +4107,12 @@ Type objective_function<Type>::operator() () {
   Type jnll = 0;
 
   // Estimation mode
-  if (estimateMode < 3) {
+  if(estimateMode < 3) {
     jnll = jnll_comp.sum();
   }
 
   // Debug mode
-  if (estimateMode > 2) {
+  if(estimateMode > 2) {
     jnll = dummy * dummy;
   }
 
