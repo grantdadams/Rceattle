@@ -3780,66 +3780,69 @@ Type objective_function<Type>::operator() () {
 
 
   for (sp = 0; sp < nspp; sp++) {
-    // -- Single-species static reference points
-    if((DynamicHCR == 0) & (forecast(sp) == 1) & (msmMode == 0)){
+    if(estDynamics(sp) == 0){ // Only estimated species
 
-      // -- Avg F (have F limit)
-      if(HCR == 2){
-        jnll_comp(13, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-FsprLimit(sp));
-      }
+      // -- Single-species static reference points
+      if((DynamicHCR == 0) & (forecast(sp) == 1) & (msmMode == 0)){
 
-      // F that acheives \code{Ftarget}% of SSB0 in the end of the projection
-      if(HCR == 3){
-        // Using ssb rather than SBF because of multi-species interactions arent in SBF
-        jnll_comp(13, sp)  += 200*square((ssb(sp, nyrs-1)/SB0(sp, nyrs-1))-FsprTarget(sp));
-      }
+        // -- Avg F (have F limit)
+        if(HCR == 2){
+          jnll_comp(13, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-FsprLimit(sp));
+        }
 
-      // -- SPR
-      if(HCR > 3){
-        jnll_comp(13, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-FsprLimit(sp));
-        jnll_comp(13, sp)  += 200*square((SPRtarget(sp)/SPR0(sp))-FsprTarget(sp));
-      }
-    }
-
-    // -- Single-species dynamic reference points
-    if((DynamicHCR == 1) & (forecast(sp) == 1) & (msmMode == 0)){
-
-      // -- Avg F (have F limit)
-      if(HCR == 2){
-        jnll_comp(13, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-FsprLimit(sp));
-      }
-
-      for(yr = 1; yr < nyrs; yr++){ // No initial abundance
-        // F that acheives Ftarget% of SSB0y
+        // F that acheives \code{Ftarget}% of SSB0 in the end of the projection
         if(HCR == 3){
-          jnll_comp(13, sp)  += 200*square((DynamicSBF(sp, yr)/DynamicSB0(sp, yr))-FsprTarget(sp));
+          // Using ssb rather than SBF because of multi-species interactions arent in SBF
+          jnll_comp(13, sp)  += 200*square((ssb(sp, nyrs-1)/SB0(sp, nyrs-1))-FsprTarget(sp));
+        }
+
+        // -- SPR
+        if(HCR > 3){
+          jnll_comp(13, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-FsprLimit(sp));
+          jnll_comp(13, sp)  += 200*square((SPRtarget(sp)/SPR0(sp))-FsprTarget(sp));
         }
       }
 
-      // -- SPR
-      if(HCR > 3){
-        jnll_comp(13, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-FsprLimit(sp));
-        jnll_comp(13, sp)  += 200*square((SPRtarget(sp)/SPR0(sp))-FsprTarget(sp));
+      // -- Single-species dynamic reference points
+      if((DynamicHCR == 1) & (forecast(sp) == 1) & (msmMode == 0)){
+
+        // -- Avg F (have F limit)
+        if(HCR == 2){
+          jnll_comp(13, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-FsprLimit(sp));
+        }
+
+        for(yr = 1; yr < nyrs; yr++){ // No initial abundance
+          // F that acheives Ftarget% of SSB0y
+          if(HCR == 3){
+            jnll_comp(13, sp)  += 200*square((DynamicSBF(sp, yr)/DynamicSB0(sp, yr))-FsprTarget(sp));
+          }
+        }
+
+        // -- SPR
+        if(HCR > 3){
+          jnll_comp(13, sp)  += 200*square((SPRlimit(sp)/SPR0(sp))-FsprLimit(sp));
+          jnll_comp(13, sp)  += 200*square((SPRtarget(sp)/SPR0(sp))-FsprTarget(sp));
+        }
       }
-    }
 
 
-    // -- Multi-species static reference points (all biomass_depletion based)
-    if((forecast(sp) == 1) & (msmMode > 0)){
+      // -- Multi-species static reference points (all biomass_depletion based)
+      if((forecast(sp) == 1) & (msmMode > 0)){
 
-      // -- Avg F (have F limit)
-      if(HCR == 2){
-        jnll_comp(13, sp)  += 200*square((ssb(sp, nyrs-1)/SB0(sp, nyrs-1))-FsprLimit(sp));
-      }
+        // -- Avg F (have F limit)
+        if(HCR == 2){
+          jnll_comp(13, sp)  += 200*square((ssb(sp, nyrs-1)/SB0(sp, nyrs-1))-FsprLimit(sp));
+        }
 
-      // F that achieves \code{Ftarget}% of SSB0 in the end of the projection
-      if(HCR == 3){
-        jnll_comp(13, sp)  += 200*square((ssb(sp, nyrs-1)/SB0(sp, nyrs-1))-FsprTarget(sp));
-      }
+        // F that achieves \code{Ftarget}% of SSB0 in the end of the projection
+        if(HCR == 3){
+          jnll_comp(13, sp)  += 200*square((ssb(sp, nyrs-1)/SB0(sp, nyrs-1))-FsprTarget(sp));
+        }
 
-      // Tiered HCRs with Limit and Targets
-      if(HCR == 6){
-        jnll_comp(13, sp)  += 200*square((ssb(sp, nyrs-1)/SB0(sp, nyrs-1))-FsprLimit(sp));
+        // Tiered HCRs with Limit and Targets
+        if(HCR == 6){
+          jnll_comp(13, sp)  += 200*square((ssb(sp, nyrs-1)/SB0(sp, nyrs-1))-FsprLimit(sp));
+        }
       }
     }
   }
