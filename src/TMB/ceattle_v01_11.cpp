@@ -3744,39 +3744,37 @@ Type objective_function<Type>::operator() () {
   // Slot 13 -- Reference point penalties
   // -- CMSY
   Type CMSY = 0;
+  if(HCR == 1){
+    // --- Sum terminal catch across species
+    // -- Loop through catch data
+    for(fsh_ind = 0; fsh_ind < catch_ctl.rows(); fsh_ind++){
 
-  // --- Sum terminal catch across species
-  for (sp = 0; sp < nspp; sp++) {
-    if((HCR == 1) & (forecast(sp) == 1)){
+      flt = catch_ctl(fsh_ind, 0) - 1;
+      sp = catch_ctl(fsh_ind, 1) - 1;
+      flt_yr = catch_ctl(fsh_ind, 2);
 
-      // -- Loop through catch data
-      for(fsh_ind = 0; fsh_ind < catch_ctl.rows(); fsh_ind++){
-
-        flt = catch_ctl(fsh_ind, 0) - 1;
-        sp = catch_ctl(fsh_ind, 1) - 1;
-        flt_yr = catch_ctl(fsh_ind, 2);
-
-        // Add fishery data from terminal year
-        if(flt_type(flt) == 1){
-          if(flt_yr == projyr){
-            CMSY  += catch_hat(fsh_ind);
-          }
+      // Add fishery data from terminal year
+      if(flt_yr == projyr){
+        if(flt_type(flt) == 1 & (forecast(sp) == 1) & estDynamics(sp) == 0){
+          CMSY  += catch_hat(fsh_ind);
         }
       }
     }
 
+    // --- CMSY loss function
     jnll_comp(13, 0) = - square(CMSY/1000000.0); // CMSY is ll
 
 
-    // --- Add biomass_depletion constraint
+    // --- Add SSB depletion constraint for each species
     for (sp = 0; sp < nspp; sp++) {
-      penalty = 0.0;
-      Type nothing_useful =  posfun( (ssb_depletion(sp, nyrs-1) - Plimit(sp)), Type(0.0001), penalty);
-      jnll_comp(13, sp) += 500.0 * square(CMSY/1000.0) * penalty; // CMSY
-
-      //jnll_comp(13, sp) += 500 * square(CMSY/100000)*(1 - 1/(1 + exp(-200 * (ssb_depletion(sp, nyrs-1) - Plimit(sp))))); // CMSY
+      if(estDynamics(sp) == 0){ // Estimated species only
+        penalty = 0.0;
+        Type nothing_useful =  posfun( (ssb_depletion(sp, nyrs-1) - Plimit(sp)), Type(0.0001), penalty);
+        jnll_comp(13, sp) += 500.0 * square(CMSY/1000.0) * penalty; // CMSY
+      }
     }
   }
+
 
 
   for (sp = 0; sp < nspp; sp++) {
