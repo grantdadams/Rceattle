@@ -313,7 +313,8 @@ fit_mod <-
     # 3: Load/build map ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.null(map)) {
-      map <- suppressWarnings(build_map(data_list, start_par, debug = estimateMode == 4, random_rec = random_rec, random_sel = random_sel))
+      map <- suppressWarnings(build_map(data_list, start_par, debug = estimateMode %in% c(2, 4), # Turn off hindcast parameters if debugging or projection mode
+                                        random_rec = random_rec, random_sel = random_sel))
     } else{
       map <- map
     }
@@ -328,7 +329,7 @@ fit_mod <-
     } else {
       bounds = bounds
     }
-    if(verbose > 0) {message("Step 3: Param bounds complete")}
+    if(verbose > 0) {message("Step 3: Parameter bounds complete")}
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -404,7 +405,7 @@ fit_mod <-
       start_par$rec_pars[,2] <- log(data_list$srr_prior)
     }
 
-    if(verbose > 0) {message("Step 4: Data rearranged complete")}
+    if(verbose > 0) {message("Step 4: Data rearrange complete")}
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -469,17 +470,16 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 9: Fit hindcast ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    if(estimateMode != 2){ # dont build if projection and estimating HCR parameters
-      if(sum(as.numeric(unlist(map$mapFactor)), na.rm = TRUE) == 0){stop("Map of length 0: all NAs")}
-      obj = TMB::MakeADFun(
-        data_list_reorganized,
-        parameters = start_par,
-        DLL = TMBfilename,
-        map = map$mapFactor,
-        random = random_vars,
-        silent = verbose != 2
-      )
-    }
+    # * Build ----
+    if(sum(as.numeric(unlist(map$mapFactor)), na.rm = TRUE) == 0){stop("Map of length 0: all NAs")}
+    obj = TMB::MakeADFun(
+      data_list_reorganized,
+      parameters = start_par,
+      DLL = TMBfilename,
+      map = map$mapFactor,
+      random = random_vars,
+      silent = verbose != 2
+    )
 
     # -- Save objects
     mod_objects <-
@@ -490,12 +490,12 @@ fit_mod <-
         map = map
       )
 
-    if(verbose > 0) {message(paste0("Step ",step, ": final build complete. Optimizing."))}
+    if(verbose > 0) {message(paste0("Step ",step, ": Hindcast build complete. Optimizing."))}
     step = step + 1
 
 
-    # -- Optimize hindcast
-    if(estimateMode %in% c(0,1,4)){
+    # * Optimize hindcast ----
+    if(estimateMode %in% c(0,1,2,4)){
       opt = Rceattle::fit_tmb(obj = obj,
                               fn=obj$fn,
                               gr=obj$gr,
@@ -510,7 +510,7 @@ fit_mod <-
                               getJointPrecision = getJointPrecision,
                               quiet = verbose < 2,
       )
-      if(verbose > 0) {message("Step ",step, ": Final optimization complete")
+      if(verbose > 0) {message("Step ",step, ": Hindcast optimization complete.")
         step = step + 1
       }
 
@@ -531,7 +531,8 @@ fit_mod <-
       }
     }
 
-    # -- Get MLEs
+
+    # * Get MLEs ----
     if (estimateMode > 1) { # Debugging and projection only: use initial parameters
       last_par <- start_par
     } else{
@@ -568,6 +569,10 @@ fit_mod <-
             silent = verbose != 2
           )
 
+
+          if(verbose > 0) {message(paste0("Step ",step, ": Projection build complete. Optimizing."))}
+          step = step + 1
+
           # -- Optimize
           opt = Rceattle::fit_tmb(obj = obj,
                                   fn=obj$fn,
@@ -581,29 +586,24 @@ fit_mod <-
                                   getJointPrecision = FALSE,
                                   quiet = verbose < 2,
           )
+
+
+          if(verbose > 0) {message(paste0("Step ",step, ": projection optimization complete."))}
+          step = step + 1
         }
 
 
         # * Multi-species mode ----
         if(msmMode > 0){
 
-          # -- Get quantities
-          if(estimateMode == 2){ # Build obj if we havent done so already
-            obj = TMB::MakeADFun(
-              data_list_reorganized,
-              parameters = last_par,
-              DLL = TMBfilename,
-              map = map$mapFactor,
-              random = random_vars,
-              silent = verbose != 2
-            )
-          }
-
           # Loop across species orders
           for(HCRiter in 1:max(data_list$HCRorder)){
 
             # -- Update map in obs
-            hcr_map <- build_hcr_map(data_list, map, debug = estimateMode > 3, all_params_on = FALSE, HCRiter = HCRiter)
+            hcr_map <- build_hcr_map(data_list, map,
+                                     debug = estimateMode > 3,
+                                     all_params_on = FALSE,
+                                     HCRiter = HCRiter)
             if(sum(as.numeric(unlist(hcr_map$mapFactor)), na.rm = TRUE) == 0){stop("HCR map of length 0: all NAs")}
 
             # -- Get SB0: SSB when model is projected forward under no fishing
@@ -630,6 +630,9 @@ fit_mod <-
               silent = verbose != 2
             )
 
+            if(verbose > 0) {message(paste0("Step ",step," - HCRiter ",HCRiter, ": Projection build complete. Optimizing."))}
+            step = step + 1
+
             # -- Optimize
             if(data_list$HCR != 2){ # Fixed F does not need estimation
               opt = Rceattle::fit_tmb(obj = obj,
@@ -651,9 +654,12 @@ fit_mod <-
           }
         }
 
-        if(verbose > 0) {message("Step ",step, ": Projections complete")}
 
-        # -- Update MLEs
+        if(verbose > 0) {message(paste0("Step ",step, ": Projection optimization complete."))}
+        step = step + 1
+
+
+        # * Update MLEs ----
         if (estimateMode > 2) { # Debugging, give initial parameters
           last_par <- start_par
         }else{
@@ -663,6 +669,7 @@ fit_mod <-
             last_par = try(obj$env$parList())
           }
         }
+
 
         # * Projection uncertainty ----
         # Updates the model with all hindcast and BRP parameters "turned on" to get out uncertainty estimates in the projection
@@ -711,58 +718,15 @@ fit_mod <-
       }
     }
 
-    # -- Rename jnll
-    colnames(quantities$jnll_comp) <- paste0("Sp/Srv/Fsh_", 1:ncol(quantities$jnll_comp))
-    rownames(quantities$jnll_comp) <- c(
-      "Index data",
-      "Catch data",
-      "Composition data",
-      "Sex ratio",
-      "Non-parametric selectivity",
-      "Selectivity deviates",
-      "Selectivity normalization",
-      "Catchability prior",
-      "Catchability deviates",
-      "Stock-recruit prior",
-      "Recruitment deviates",
-      "Initial abundance deviates",
-      "Fishing mortality deviates",
-      "SPR Calculation",
-      "Zero n-at-age penalty",
-      "M prior",
-      "Ration",
-      "Ration penalties",
-      "Stomach content data"
-    )
 
-
-    colnames(quantities$ssb) <- data_list$styr:data_list$projyr
-    colnames(quantities$R) <- data_list$styr:data_list$projyr
-
-    rownames(quantities$ssb) <- data_list$spnames
-    rownames(quantities$R) <- data_list$spnames
 
     # -- Save derived quantities
-    mod_objects$quantities <- quantities
-
-
-    # - Calculate Mcallister-Iannelli coefficients
-    # Effective sample size for the length data for year y
-
-    eff_n_mcallister <- rowSums(quantities$comp_hat * (1 - quantities$comp_hat), na.rm = TRUE)/rowSums((data_list_reorganized$comp_obs - quantities$comp_hat)^2, na.rm = TRUE) # sum_length (p_hat * (1 - p_hat))/ sum_length ((p - p_hat) ^ 2)
-
-
-    # Loop fleets and take harmonic mean
-    data_list$fleet_control$Est_weights_mcallister <- NA
-    for(flt in unique(data_list$comp_data$Fleet_code)){
-      comp_sub <- which(data_list$comp_data$Fleet_code == flt & data_list$comp_data$Year > 0)
-      data_list$fleet_control$Est_weights_mcallister[which(data_list$fleet_control$Fleet_code == flt)] <- ((1/length(comp_sub))*sum((eff_n_mcallister[comp_sub]/data_list$comp_data$Sample_size[comp_sub])^-1))^-1
-    }
+    mod_objects$quantities <- rename_output(data_list = data_list, quantities = quantities)
 
     # -- Save data w/ mcallister
-    mod_objects$data_list <- data_list
+    mod_objects$data_list <- calc_mcall_ianelli(data_list = data_list, data_list_reorganized = data_list_reorganized, quantities = quantities)
 
-    # - Save objects
+    # -- Run time
     mod_objects$run_time = ((Sys.time() - start_time))
 
     if(estimateMode < 3){
@@ -777,11 +741,10 @@ fit_mod <-
       save(mod_objects, file = paste0(file, ".RData"))
     }
 
-    # suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file)))))
-    return(mod_objects)
-
     # Free up memory
     TMB::FreeADFun(obj)
+
+    return(mod_objects)
   }
 
 

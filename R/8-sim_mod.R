@@ -40,24 +40,23 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
 
 
 
-  # # Slot 2 -- Total catch -- Fishery observer data
-  # fsh_biom_lse = Rceattle$quantities$fsh_log_sd_hat
-  #
-  # if (simulate) {
-  #   # Simulate
-  #   values <- exp(rnorm(length(dat_sim$catch_data$Catch), mean = log(Rceattle$quantities$fsh_bio_hat) - (fsh_biom_lse^2)/2, sd = fsh_biom_lse))
-  # } else {
-  #   # simulate value
-  #   values <- Rceattle$quantities$fsh_bio_hat
-  # }
-  #
-  # dat_sim$catch_data$Catch = values
+  # Slot 2 -- Total catch -- Fishery observer data
+  fsh_biom_lse = Rceattle$quantities$ln_catch_sd
+
+  if (simulate) {
+    # Simulate
+    values <- exp(rnorm(length(dat_sim$catch_data$Catch), mean = log(Rceattle$quantities$catch_hat) - (fsh_biom_lse^2)/2, sd = fsh_biom_lse))
+  } else {
+    # simulate value
+    values <- Rceattle$quantities$catch_hat
+  }
+
+  dat_sim$catch_data$Catch = values
 
 
   #TODO
-  # Simulate sex ratio
   # # Slot 5 -- Diet composition from lognormal suitability 4D
-  # if (length(dim(dat_sim$stom_prop_data)) == 4) {
+  # if (length(dim(dat_sim$diet_data)) == 4) {
   #     for (sp in 1:dat_sim$nspp) {
   #         for (r_age in 1:dat_sim$nages[sp]) {
   #             if (Rceattle$data_list$suitMode > 0 & simulate & sum(Rceattle$quantities$mn_UobsWtAge_hat[sp, , r_age,
@@ -67,13 +66,13 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
   #             } else {
   #                 values <- Rceattle$quantities$mn_UobsWtAge_hat[sp, , r_age, ]
   #             }
-  #             dat_sim$stom_prop_data[sp, , r_age, ] <- replace(dat_sim$stom_prop_data[sp, , r_age, ], values = values)
+  #             dat_sim$diet_data[sp, , r_age, ] <- replace(dat_sim$diet_data[sp, , r_age, ], values = values)
   #         }
   #     }
   # }
   #
   # # 5D
-  # if (length(dim(dat_sim$stom_prop_data)) == 5) {
+  # if (length(dim(dat_sim$diet_data)) == 5) {
   #     for (sp in 1:dat_sim$nspp) {
   #         for (yr in 1:dat_sim$nyrs_fsh_comp[sp]) {
   #             for (r_age in 1:dat_sim$nages[sp]) {
@@ -84,7 +83,7 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
   #                 } else {
   #                     values <- Rceattle$quantities$UobsWtAge_hat[sp, , r_age, , yr]
   #                 }
-  #                 dat_sim$stom_prop_data[sp, , r_age, , yr] <- replace(dat_sim$stom_prop_data[sp, , r_age, , yr], values = values)
+  #                 dat_sim$diet_data[sp, , r_age, , yr] <- replace(dat_sim$diet_data[sp, , r_age, , yr], values = values)
   #             }
   #         }
   #     }

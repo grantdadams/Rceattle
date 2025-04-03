@@ -614,7 +614,7 @@ Type objective_function<Type>::operator() () {
   array<Type>   sel(n_flt, 2, max_age, nyrs); sel.setZero();                        // Estimated selectivity at age
   matrix<Type>  avg_sel(n_flt, 2); avg_sel.setZero();                               // Average selectivity
   array<Type>   non_par_sel(n_flt, 2, max_age); non_par_sel.setZero();              // Temporary saved selectivity at age for estimated bits
-  vector<Type>  sel_dev_sd(n_flt); sel_dev_sd.setZero();                              // Standard deviation of selectivity deviates
+  vector<Type>  sel_dev_sd(n_flt); sel_dev_sd.setZero();                            // Standard deviation of selectivity deviates
 
   // -- 4.4. Fishery components
   matrix<Type>  F_spp(nspp, nyrs); F_spp.setZero();                                 // Fully selected fishing mortality by species
@@ -622,10 +622,10 @@ Type objective_function<Type>::operator() () {
   array<Type>   F_flt_age(n_flt, 2, max_age, nyrs); F_flt_age.setZero();            // Estimated fishing mortality-at-age/sex for each fishery
   array<Type>   Flimit_age_spp(nspp, 2, max_age, nyrs); Flimit_age_spp.setZero();   // Estimated target fishing mortality-at-age/sex for each species
   array<Type>   Ftarget_age_spp(nspp, 2, max_age, nyrs); Ftarget_age_spp.setZero(); // Estimated limit fishing mortality-at-age/sex for each species
-  array<Type>   F_spp_at_age(nspp, 2, max_age, nyrs+1); F_spp_at_age.setZero();     // Sum of annual estimated fishing mortalities for each species-at-age
+  array<Type>   F_spp_at_age(nspp, 2, max_age, nyrs); F_spp_at_age.setZero();       // Sum of annual estimated fishing mortalities for each species-at-age
   vector<Type>  catch_hat(catch_obs.rows()); catch_hat.setZero();                   // Estimated fishery yield/numbers (kg)
   vector<Type>  max_catch_hat(catch_obs.rows()); max_catch_hat.setZero();           // Estimated exploitable biomass/numbers by fleet (kg)
-  vector<Type>  ln_catch_sd(catch_obs.rows()); ln_catch_sd.setZero();             // Estimated/fixed fishery log_sd (kg)
+  vector<Type>  ln_catch_sd(catch_obs.rows()); ln_catch_sd.setZero();               // Estimated/fixed fishery log_sd (kg)
 
   // -- 4.5. Biological reference points
   array<Type>   NByage0(nspp, 2, max_age, nyrs); NByage0.setZero();                 // Numbers at age at mean recruitment and F = 0
@@ -689,7 +689,7 @@ Type objective_function<Type>::operator() () {
   array<Type>   avail_food(nspp, 2, max_age, nyrs); avail_food.setZero();                                           // Available food to predator
   array<Type>   stom_div_bio(nspp * 2, nspp * 2, max_age, max_age, nyrs); stom_div_bio.setZero();                   // Stomach proportion over biomass; U/ (W * N)
   array<Type>   suit_main(nspp * 2, nspp * 2, max_age, max_age, nyrs); suit_main.setZero();                         // Suitability/gamma selectivity of predator age u on prey age a
-  array<Type>   suit_other(nspp, 2, max_age, nyrs); suit_other.setZero();                                           // Suitability not accounted for by the included prey
+  array<Type>   suit_other(nspp, 2, max_age, nyrs); suit_other.setZero();                                         // Suitability not accounted for by the included prey
   array<Type>   suma_suit(nspp, 2, max_age, nyrs); suma_suit.setZero();                                             // Sum of suitabilities
 
   // -- 4.11. Suitability parameters
@@ -703,7 +703,7 @@ Type objective_function<Type>::operator() () {
   // -- 4.12. Predation components
   array<Type>   M2_at_age(nspp, 2, max_age, nyrs); M2_at_age.setZero();                        // Predation mortality at age
   // array<Type>   M2_prop(nspp * 2, nspp * 2, max_age, max_age, nyrs); M2_prop.setZero();     // Relative predation mortality at age from each species at age
-  array<Type>   B_eaten(nspp * 2, nspp * 2, max_age, max_age, nyrs); B_eaten.setZero();     // Biomass of prey eaten via predation by a predator at age
+  array<Type>   B_eaten(nspp * 2, nspp * 2, max_age, max_age, nyrs); B_eaten.setZero();        // Biomass of prey eaten via predation by a predator at age
   array<Type>   B_eaten_as_prey(nspp, 2, max_age, nyrs); B_eaten_as_prey.setZero();            // Biomass eaten as prey via predation
   // array<Type>   B_eaten_as_pred(nspp, 2, max_age, nyrs); B_eaten_as_pred.setZero();         // Biomass eaten as predator via predation (used for Kinzey and Punt)
   // array<Type>   N_eaten(nspp * 2, nspp * 2, max_age, max_age, nyrs); N_eaten.setZero();     // Number of prey of age a eaten by predator age u
@@ -2342,10 +2342,12 @@ Type objective_function<Type>::operator() () {
 
         // 8.1.1.2. Calculate suitability
         suit_main.setZero();
-        suit_other.setZero();
         for(rsp = 0; rsp < nspp; rsp++) {                          // Predator species loop
           for(r_sex = 0; r_sex < nsex(rsp); r_sex++){               // Predator sex
             for(r_age = 0; r_age < nages(rsp); r_age++) {          // Predator age loop
+              for(yr = 0; yr < nyrs; yr++){
+                suit_other(rsp, r_sex, r_age, yr) = 1; // Initialize suitability for other prey at 1
+              }
               for(ksp = 0; ksp < nspp; ksp++) {                    // Prey species loop
                 for(k_sex = 0; k_sex < nsex(ksp); k_sex++){         // Prey sex loop
                   for(k_age = 0; k_age < nages(ksp); k_age++) {    // Prey age loop
@@ -2374,7 +2376,7 @@ Type objective_function<Type>::operator() () {
 
                     // Other suitabilitity
                     for(yr = 0; yr < nyrs; yr++) {
-                      suit_other(rsp, r_sex, r_age, yr) += suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr); // FIXME - include overlap indices
+                      suit_other(rsp, r_sex, r_age, yr) -= suit_main(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr); // FIXME - include overlap indices
                     }
                   }
                 }
@@ -2402,10 +2404,11 @@ Type objective_function<Type>::operator() () {
             sum_phi(rsp) += exp(log_phi(rsp, ksp));
           }
           for(ksp = 0; ksp < nspp; ksp++) {                            // Prey loop
-            vulnerability(rsp,ksp) = exp(log_phi(rsp,ksp))/(1+sum_phi(rsp)); // multinomial logistic transformation
+            vulnerability(rsp, ksp) = exp(log_phi(rsp, ksp))/(1+sum_phi(rsp)); // multinomial logistic transformation
           }
-          vulnerability_other(rsp) = vulnerability.row(rsp).sum(); // vulnerability-other=1-sum-vulnerability but transform so sum_vuln+vuln_other=1
+          vulnerability_other(rsp) = 1 - vulnerability.row(rsp).sum(); // vulnerability-other=1-sum-vulnerability but transform so sum_vuln+vuln_other=1
         }
+
 
         // 8.1.3. GAMMA suitability
         if((suitMode == 1) | (suitMode == 2)){
@@ -2524,7 +2527,7 @@ Type objective_function<Type>::operator() () {
                   }
                 }
                 // Other food
-                avail_food(rsp, r_sex, r_age, yr) += other_food(rsp) * (1.0 - suit_other(rsp, r_sex, r_age, yr));
+                avail_food(rsp, r_sex, r_age, yr) += other_food(rsp) * suit_other(rsp, r_sex, r_age, yr);
               }
             }
           }
@@ -3723,21 +3726,19 @@ Type objective_function<Type>::operator() () {
   Type CMSY = 0;
 
   // --- Sum terminal catch across species
-  for(sp = 0; sp < nspp; sp++) {
-    if((HCR == 1) & (forecast(sp) == 1)){
+  if(HCR == 1){
 
-      // -- Loop through catch data
-      for(fsh_ind = 0; fsh_ind < catch_ctl.rows(); fsh_ind++){
+    // -- Loop through catch data
+    for(fsh_ind = 0; fsh_ind < catch_ctl.rows(); fsh_ind++){
 
-        flt = catch_ctl(fsh_ind, 0) - 1;
-        sp = catch_ctl(fsh_ind, 1) - 1;
-        flt_yr = catch_ctl(fsh_ind, 2);
+      flt = catch_ctl(fsh_ind, 0) - 1;
+      sp = catch_ctl(fsh_ind, 1) - 1;
+      flt_yr = catch_ctl(fsh_ind, 2);
 
-        // Add fishery data from terminal year
-        if(flt_type(flt) == 1){
-          if(flt_yr == projyr){
-            CMSY  += catch_hat(fsh_ind);
-          }
+      // Add fishery data from terminal year
+      if((flt_type(flt) == 1) & (forecast(sp) == 1) & (estDynamics(sp) == 0)){
+        if(flt_yr == projyr){
+          CMSY  += catch_hat(fsh_ind);
         }
       }
     }
@@ -3747,18 +3748,18 @@ Type objective_function<Type>::operator() () {
 
     // --- Add biomass_depletion constraint
     for(sp = 0; sp < nspp; sp++) {
-      penalty = 0.0;
-      Type nothing_useful =  posfun( (ssb_depletion(sp, nyrs-1) - Plimit(sp)), Type(0.0001), penalty);
-      jnll_comp(13, sp) += 500.0 * square(CMSY/1000.0) * penalty; // CMSY
-
-      //jnll_comp(13, sp) += 500 * square(CMSY/100000)*(1 - 1/(1 + exp(-200 * (ssb_depletion(sp, nyrs-1) - Plimit(sp))))); // CMSY
+      if((forecast(sp) == 1) & (estDynamics(sp) == 0)){
+        penalty = 0.0;
+        Type nothing_useful =  posfun( (ssb_depletion(sp, nyrs-1) - Plimit(sp)), Type(0.0001), penalty);
+        jnll_comp(13, sp) += 500.0 * square(CMSY/1000.0) * penalty; // CMSY
+      }
     }
   }
 
 
   for(sp = 0; sp < nspp; sp++) {
     // -- Single-species static reference points
-    if((DynamicHCR == 0) & (forecast(sp) == 1) & (msmMode == 0)){
+    if((DynamicHCR == 0) & (forecast(sp) == 1) & (msmMode == 0) & (estDynamics(sp) == 0)){
 
       // -- Avg F (have F limit)
       if(HCR == 2){
@@ -3779,7 +3780,7 @@ Type objective_function<Type>::operator() () {
     }
 
     // -- Single-species dynamic reference points
-    if((DynamicHCR == 1) & (forecast(sp) == 1) & (msmMode == 0)){
+    if((DynamicHCR == 1) & (forecast(sp) == 1) & (msmMode == 0) & (estDynamics(sp) == 0)){
 
       // -- Avg F (have F limit)
       if(HCR == 2){
@@ -3802,7 +3803,7 @@ Type objective_function<Type>::operator() () {
 
 
     // -- Multi-species static reference points (all biomass_depletion based)
-    if((forecast(sp) == 1) & (msmMode > 0)){
+    if((forecast(sp) == 1) & (msmMode > 0) & (estDynamics(sp) == 0)){
 
       // -- Avg F (have F limit)
       if(HCR == 2){
@@ -3870,8 +3871,8 @@ Type objective_function<Type>::operator() () {
     for(int stom_ind = 0; stom_ind < diet_obs.rows(); stom_ind++){
 
       rsp = diet_ctl(stom_ind, 0) - 1; // Index of pred
-      if(diet_hat(stom_ind, 1) > 0){
-        jnll_comp(18, rsp) -= Type(diet_obs(stom_ind, 0)) * (diet_obs(stom_ind, 1)) * log(diet_hat(stom_ind, 1)/diet_obs(stom_ind, 1));
+      if(diet_obs(stom_ind, 1) > 0){
+        jnll_comp(18, rsp) -= Type(diet_obs(stom_ind, 0)) * (diet_obs(stom_ind, 1) + 0.00001) * log((diet_hat(stom_ind, 1) + 0.00001)/(diet_obs(stom_ind, 1) + 0.00001));
       }
     }
   } // End diet proportion by weight component

@@ -15,7 +15,7 @@ combine_data <- function(data_list1 = NULL, data_list2 = NULL){
 
   vec_names <- c("spnames", "nsex", "spawn_month", "nages", "minage", "nlengths","pop_wt_index", "ssb_wt_index", "est_M1", "pop_alk_index", "sigma_rec_prior", "other_food", "estDynamics", "Ceq", "Cindex","Pvalue", "fday", "CA","CB", "Qc", "Tco",  "Tcm",  "Tcl",  "CK1", "CK4") # Object names of vectors
 
-  mat_names <- c("fleet_control", "index_data", "catch_data", "comp_data", "emp_sel", "NByageFixed", "age_trans_matrix", "age_error", "weight",   "maturity", "sex_ratio", "M1_base", "Pyrs", "stom_prop_data") # Object names of matrices
+  mat_names <- c("fleet_control", "index_data", "catch_data", "comp_data", "emp_sel", "NByageFixed", "age_trans_matrix", "age_error", "weight",   "maturity", "sex_ratio", "M1_base", "Pyrs", "diet_data") # Object names of matrices
 
   # Get index from data_set1 of the 4 indices
   fleet_index1 <- max(data_list1$fleet_control$Fleet_code, na.rm = TRUE)

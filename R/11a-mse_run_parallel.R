@@ -751,6 +751,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
 
   # When you're done, clean up the cluster
   stopImplicitCluster()
+  names(sim_list) <- paste0("Sim_", start_sim:nsim)
 
   if(is.null(dir)){
     return(sim_list)
