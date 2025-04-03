@@ -99,7 +99,7 @@ BS2017MS$fleet_control$proj_F_prop <- 1 # 1 fishing fleet per species
 ms_run_proj <- fit_mod(data_list = BS2017MS,
                                  inits = ms_run$estimated_params, # Initial parameters from single species ests
                                  file = NULL, # Don't save
-                                 estimateMode = 0, # Run in projection mode
+                                 estimateMode = 2, # Run in projection mode
                                  HCR = build_hcr(HCR = 2,
                                                  FsprTarget = c(0.2342936, 0.513, 0.0774777)), # Set projection F mean historical F
                                  niter = 5, # 5 iterations around population and predation dynamics
@@ -210,7 +210,7 @@ plot_recruitment(Rceattle = mod_list, model_names = mod_names)
 # For recruitment, the model can estimate recruitment deviates as random effects
 ss_re <- Rceattle::fit_mod(
   data_list = mydata,
-  inits = ss_re$estimated_params, # Initial parameters = 0
+  inits = ss_run$estimated_params, # Initial parameters = 0
   file = NULL, # Don't save
   estimateMode = 0, # Estimate
   random_rec = TRUE, # Turn of recruitment deviations as random effects
@@ -219,15 +219,16 @@ ss_re <- Rceattle::fit_mod(
   phase = FALSE)
 
 # Diet estimation
+# - Set diet sample size arbitrarily to 10
+mydata$diet_data$Sample_size <- 10
 ms_gamma <- Rceattle::fit_mod(
   data_list = mydata,
-  inits = ss_run$estimated_params, # Initial parameters from single species ests
+  inits = ms_run$estimated_params, # Initial parameters from single species ests
   file = NULL, # Don't save
-  estimateMode = 0, # Estimate
-  niter = 5, # 10 iterations around population and predation dynamics
+  estimateMode = 3, # Estimate
+  niter = 5, # 5 iterations around population and predation dynamics
   random_rec = FALSE, # No random recruitment
   msmMode = 1, # MSVPA based
-  suitMode = 1, # Have a gamma function based on predator-prey length ratio for suitability. Includes diet proportion by weight in likelihood as multinomial
+  suitMode = 2, # Have a gamma function based on predator-prey weight ratio for suitability. Includes diet proportion by weight in likelihood as multinomial
   verbose = 1)
-# Can try different functions. Look at ?fit_mod suitmode
-
+# Can try different functions. Look at ?fit_mod suitMode

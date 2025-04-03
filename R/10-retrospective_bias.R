@@ -56,13 +56,13 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
     data_list$comp_data <- data_list$comp_data %>%
       dplyr::filter(Year <= data_list$endyr)
 
-    data_list$wt <- data_list$wt %>%
+    data_list$weight <- data_list$weight %>%
       dplyr::filter(Year <= data_list$endyr)
 
     data_list$Pyrs <- data_list$Pyrs %>%
       dplyr::filter(Year <= data_list$endyr)
 
-    data_list$stom_prop_data <- data_list$stom_prop_data %>%
+    data_list$diet_data <- data_list$diet_data %>%
       dplyr::filter(Year <= data_list$endyr)
 
 
@@ -217,7 +217,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
   }
 
   # Divide sum of RE by N
-  mohns[ind, 4:(data_list$nspp + 3) ] <- mohns[j, 4:(data_list$nspp + 3)]/mohns[ind, 3]
+  mohns[, 4:(data_list$nspp + 3) ] <- mohns[, 4:(data_list$nspp + 3)]/mohns[, 3]
 
 
   return(list(Rceattle_list = rev(mod_list), mohns = mohns))

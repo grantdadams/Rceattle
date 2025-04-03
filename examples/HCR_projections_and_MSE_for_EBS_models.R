@@ -295,7 +295,7 @@ mse2 <- mse_run_parallel(om = ss_run_M, em = ss_run, nsim = 50, assessment_perio
 
 # -- NPFMC Tier 3 HCRs
 # - MS-OM: SS-EM Tier 3 HCR
-mse3 <- mse_run_parallel_fast(om = ss_run, em = ss_run_Tier3, nsim = 5, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, sample_rec = TRUE)
+mse3 <- mse_run_parallel(om = ss_run, em = ss_run_Tier3, nsim = 1, assessment_period = 1, sampling_period = 1, simulate_data = FALSE, sample_rec = FALSE)
 
 # - SS-OM: SS-EM Tier 3 HCR
 mse4 <- mse_run_parallel(om = ss_run_M, em = ss_run_Tier3, nsim = 50, assessment_period = 2, sampling_period = 2, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
