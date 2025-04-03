@@ -2,6 +2,11 @@
 # Get rid of sex ratio in control
 # call "wt" "weight"
 # call "pmature" "maturity"
+# check B0 calculation and add some documentation (how does stock synthesis do it?)
+# dynamic sex array sizing
+# profile function
+# message about discontinuous likelihood
+# rel_tol documentation
 
 test_that("Simulated simple model the same" {
   # Simulate Data -----------------------------------------------------------
