@@ -581,22 +581,26 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       years_include <- sample_yrs[which(sample_yrs$Year > em_use$data_list$endyr & sample_yrs$Year <= assess_yrs[k]),]
 
       # -- Add newly simulated survey data to EM and OM
-      new_srv_biom <- sim_dat$index_data %>%
+      new_index_data <- sim_dat$index_data %>%
         dplyr::filter(abs(Year) %in% years_include$Year &
-                        Fleet_code %in% years_include$Fleet_code)
-      new_srv_biom$Year <- -new_srv_biom$Year
-      em_use$data_list$index_data <- rbind(em_use$data_list$index_data, new_srv_biom)
-      em_use$data_list$index_data <- em_use$data_list$index_data[
-        with(em_use$data_list$index_data, order(Fleet_code, abs(Year))),]
+                        Fleet_code %in% years_include$Fleet_code) %>%
+        dplyr::mutate(Year = -Year)
+
+      em_use$data_list$index_data <- rbind(em_use$data_list$index_data, new_index_data)
+      em_use$data_list$index_data <- em_use$data_list$index_data %>%
+        dplyr::arrange(Fleet_code, abs(Year))
 
       # -- Add newly simulated comp data to EM
-      new_comp_data <- sim_dat$comp_data[which(abs(sim_dat$comp_data$Year) %in% years_include$Year & sim_dat$comp_data$Fleet_code %in% years_include$Fleet_code),]
-      new_comp_data$Year <- -new_comp_data$Year
+      new_comp_data <- sim_dat$comp_data %>%
+        dplyr::filter(abs(Year) %in% years_include$Year &
+                        Fleet_code %in% years_include$Fleet_code) %>%
+        dplyr::mutate(Year = -Year)
+
       new_comp_data$Sample_size <- new_comp_data$Sample_size * as.numeric(rowSums(new_comp_data[,9:ncol(new_comp_data)]) > 0) # Set sample size to 0 if catch is 0
       new_comp_data[,9:ncol(new_comp_data)] <- new_comp_data[,9:ncol(new_comp_data)] + 1 * as.numeric(new_comp_data$Sample_size == 0) # Set all values to 1 if catch is 0
       em_use$data_list$comp_data <- rbind(em_use$data_list$comp_data, new_comp_data)
-      em_use$data_list$comp_data <- em_use$data_list$comp_data[
-        with(em_use$data_list$comp_data, order(Fleet_code, abs(Year))),]
+      em_use$data_list$comp_data <- em_use$data_list$comp_data %>%
+        dplyr::arrange(Fleet_code, abs(Year))
 
       #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # 5. Update EM and HCR ----
