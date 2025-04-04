@@ -30,9 +30,9 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
 
   # om = ss_run; em = ss_run_Tier3; nsim = 1; start_sim = 1; assessment_period = 1; sampling_period = 1; simulate_data = TRUE; regenerate_past = FALSE; sample_rec = TRUE; rec_trend = 0; fut_sample = 1; cap = NULL; catch_mult = NULL; seed = 666; regenerate_seed = seed; loopnum = 1; file = NULL; dir = NULL; endyr = NA; timeout = 999
 
-  #--------------------------------------------------
-  # MSE SPECIFICATIONS ----
-  #--------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  # MSE SETUP ----
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   '%!in%' <- function(x,y)!('%in%'(x,y))
   library(dplyr)
   set.seed(regenerate_seed)
@@ -121,9 +121,9 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   }
   sample_yrs = data.frame(Fleet_code = unlist(fleet_id), Year = unlist(sample_yrs))
 
-  #--------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Regenerate past data from OM and refit EM ----
-  #--------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   if(regenerate_past){
 
     # - Simulate index and comp data and updatae EM
@@ -234,9 +234,9 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
     }
   }
 
-  #--------------------------------------------------
-  # Update data-files in OM so we can fill in updated years ----
-  #--------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  # Expand OM data-dim ----
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # -- index_data
   proj_srv <- om$data_list$index_data %>%
     group_by(Fleet_code) %>%
@@ -294,9 +294,9 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   om$data_list$Pyrs <- dplyr::arrange(om$data_list$Pyrs, Species, Year)
 
 
-  #--------------------------------------------------
-  # Update data in EM ----
-  #--------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  # Expand EM data-dim ----
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   #FIXME - assuming same as terminal year of hindcast
   # -- EM emp_sel - Use terminal year
   proj_emp_sel <- em$data_list$emp_sel %>%
@@ -322,9 +322,9 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
   em$data_list$Pyrs  <- rbind(em$data_list$Pyrs, proj_Pyrs)
   em$data_list$Pyrs <- dplyr::arrange(em$data_list$Pyrs, Species, Year)
 
-  #--------------------------------------------------
-  # Do the MSE ----
-  #--------------------------------------------------
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  # DO THE MSE ----
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   ### Set up parallel processing
   library(foreach)
   library(doParallel)
@@ -380,9 +380,9 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
     # Run through assessment years
     for(k in 1:length(assess_yrs)){
 
-      # ------------------------------------------------------------
-      # 1. GET RECOMMENDED TAC FROM EM-HCR ----
-      # ------------------------------------------------------------
+      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+      # 1. Get recommended catch from the EM-HCR ----
+      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       new_years <- om_proj_yrs[which(om_proj_yrs <= assess_yrs[k] & om_proj_yrs > om_use$data_list$endyr)]
 
       # - Get projected catch data from EM
@@ -407,15 +407,17 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
                                                    exploitable_biomass_data$Catch[dat_fill_ind_expl],
                                                    new_catch_data$Catch[dat_fill_ind])
 
-      new_catch_switch <- sum(new_catch_data$Catch[dat_fill_ind]) #FIXME: need to adjust for assessments that occur less than annually
+      new_catch_switch <- sum(new_catch_data$Catch[dat_fill_ind]) #Switch to turn off re-running OM if new catch = 0
 
       # - Update catch data in OM and EM
       om_use$data_list$catch_data <- new_catch_data
       em_use$data_list$catch_data <- new_catch_data
 
-      # ------------------------------------------------------------
-      # 2. UPDATE OBSERVATION MODEL ----
-      # ------------------------------------------------------------
+
+      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+      # 2. Update the OM ----
+      # - Estimate Fdev and update dynamics
+      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # - Update endyr of OM
       nyrs_hind <- om_use$data_list$endyr - om_use$data_list$styr + 1
       om_use$data_list$endyr <- assess_yrs[k]
@@ -554,10 +556,11 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       om_use$data_list$estimateMode <- estimate_mode_base
 
 
-      # ------------------------------------------------------------
-      # 3. GET ACTUAL CATCH FROM OM ----
+      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+      # 3. Get actual catch from OM ----
       # - Maybe the OM can't support the TAC
-      # ------------------------------------------------------------
+      # (should be minimal with the < exploitable biomass check)
+      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
       # - Get realized catch data from OM
       new_catch_data <- om_use$data_list$catch_data
@@ -569,16 +572,18 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       em_use$data_list$catch_data <- new_catch_data
 
 
-      # ------------------------------------------------------------
-      # 4. REFIT ESTIMATION MODEL AND HCR ----
-      # ------------------------------------------------------------
+      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+      # 4. Simulate data from OM ----
+      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # - Simulate new survey and comp data
       sim_dat <- Rceattle::sim_mod(om_use, simulate = simulate_data)
 
       years_include <- sample_yrs[which(sample_yrs$Year > em_use$data_list$endyr & sample_yrs$Year <= assess_yrs[k]),]
 
-      # -- Add newly simulated survey data to EM
-      new_srv_biom <- sim_dat$index_data[which(abs(sim_dat$index_data$Year) %in% years_include$Year & sim_dat$index_data$Fleet_code %in% years_include$Fleet_code),]
+      # -- Add newly simulated survey data to EM and OM
+      new_srv_biom <- sim_dat$index_data %>%
+        dplyr::filter(abs(Year) %in% years_include$Year &
+                        Fleet_code %in% years_include$Fleet_code)
       new_srv_biom$Year <- -new_srv_biom$Year
       em_use$data_list$index_data <- rbind(em_use$data_list$index_data, new_srv_biom)
       em_use$data_list$index_data <- em_use$data_list$index_data[
@@ -593,6 +598,9 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       em_use$data_list$comp_data <- em_use$data_list$comp_data[
         with(em_use$data_list$comp_data, order(Fleet_code, abs(Year))),]
 
+      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+      # 5. Update EM and HCR ----
+      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # Update end year and re-estimate
       em_use$data_list$endyr <- assess_yrs[k]
 
@@ -726,6 +734,9 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       sim_list$EM[[k+1]] <- em_use
       #sim_list$OM[[k+1]] <- om_use
       message(paste0("Sim ",sim, " - EM Year ", assess_yrs[k], " COMPLETE"))
+      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+      # 6. End year loop ----
+      #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     }
 
 

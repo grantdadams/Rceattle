@@ -36,8 +36,8 @@ rename_output = function(data_list = NULL, quantities = NULL){
   names(quantities$steepness) <- data_list$spnames
 
   # - Fleets
-  names(quantities$ln_catch_sd) <- data_list$fleet_control$Fleet_name
-  names(quantities$ln_index_sd) <- data_list$fleet_control$Fleet_name
+  names(quantities$ln_catch_sd) <- data_list$catch_data$Fleet_name
+  names(quantities$ln_index_sd) <- data_list$index_data$Fleet_name
 
 
   # 2D array
