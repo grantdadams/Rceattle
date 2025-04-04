@@ -772,11 +772,11 @@ clean_data <- function(data_list){
   # Remove years of data previous to start year and after end year
   # - Data in likelihood
   data_list$index_data <- data_list$index_data %>%
-    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr)
+    dplyr::filter(abs(Year) >= data_list$styr & abs(Year) <= data_list$projyr)
   data_list$catch_data <- data_list$catch_data %>%
-    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr)
+    dplyr::filter(abs(Year) >= data_list$styr & abs(Year) <= data_list$projyr)
   data_list$comp_data <- data_list$comp_data %>%
-    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr)
+    dplyr::filter(abs(Year) >= data_list$styr & abs(Year) <= data_list$projyr)
 
   # - Fixed data
   data_list$weight <- data_list$weight %>%
