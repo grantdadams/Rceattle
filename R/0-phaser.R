@@ -79,12 +79,11 @@ set_phases <- function(){
     init_dev = 2, # Age specific initial age-structure deviates or parameters
     # sex_ratio_ln_sd = 3, # Variance of sex ratio (usually fixed)
     ln_M1 = 4, #  Estimated natural or residual mortality
-    ln_mean_F = 1, # Mean fleet-specific fishing mortality
     ln_Flimit = 3, # Estimated F limit
     ln_Ftarget = 3, # Estimated F target
     ln_Finit = 3, # Estimated fishing mortality for non-equilibrium initial age-structure
     proj_F_prop = 1, # Fixed fleet-specific proportion of Flimit and Ftarget apportioned within each species
-    F_dev = 1, # Annual fleet specific fishing mortality deviates
+    ln_F = 1, # Annual fleet specific fishing mortality
     index_ln_q = 3, # Survey catchability
     index_q_dev = 5, # Annual survey catchability deviates (if time-varying)
     index_q_ln_sd = 4, # Prior SD for survey catchability deviates

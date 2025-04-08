@@ -11,11 +11,11 @@ remove_F <- function(Rceattle){
   # * Years for F = 0 ----
   # - don't want hindcast or it will bias suitability in Multi-species models
   proj_years <- (Rceattle$data_list$suit_endyr+1):Rceattle$data_list$projyr - Rceattle$data_list$styr + 1
-  fdevs_cols <- 1:ncol(Rceattle$estimated_params$F_dev)
+  fdevs_cols <- 1:ncol(Rceattle$estimated_params$ln_F)
   fdevs_change <- which(fdevs_cols %in% proj_years)
 
   # * Set F to 0 ----
-  Rceattle$estimated_params$F_dev[,fdevs_change] <- replace(Rceattle$estimated_params$F_dev[,fdevs_change], values = -999)
+  Rceattle$estimated_params$ln_F[,fdevs_change] <- replace(Rceattle$estimated_params$ln_F[,fdevs_change], values = -999)
 
   # * Update fit ----
   estMode <- Rceattle$data_list$estimateMode

@@ -77,7 +77,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
 
     inits$rec_dev[, (nyrs + 1):nyrs_proj] <- 0
 
-    inits$F_dev <- inits$F_dev[, 1:nyrs]
+    inits$ln_F <- inits$ln_F[, 1:nyrs]
     inits$index_q_dev <- inits$index_q_dev[,1:nyrs]
     inits$ln_sel_slp_dev <- inits$ln_sel_slp_dev[,,,1:nyrs]
     inits$sel_inf_dev <- inits$sel_inf_dev[,,,1:nyrs]
@@ -89,8 +89,8 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
     map$mapList$rec_dev[, (nyrs + 1):nyrs_proj] <- NA
     map$mapFactor$rec_dev <- factor(map$mapList$rec_dev)
 
-    map$mapList$F_dev <- map$mapList$F_dev[, 1:nyrs]
-    map$mapFactor$F_dev <- factor(map$mapList$F_dev)
+    map$mapList$ln_F <- map$mapList$ln_F[, 1:nyrs]
+    map$mapFactor$ln_F <- factor(map$mapList$ln_F)
 
     map$mapList$index_q_dev <- map$mapList$index_q_dev[,1:nyrs]
     map$mapFactor$index_q_dev <- factor(map$mapList$index_q_dev)

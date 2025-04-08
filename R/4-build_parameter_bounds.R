@@ -81,8 +81,8 @@ build_bounds <- function(param_list = NULL, data_list) {
   upper_bnd$catch_ln_sd <- replace(upper_bnd$catch_ln_sd, values = rep(3, length(upper_bnd$catch_ln_sd)))
 
   # F ----
-  lower_bnd$F_dev <- replace(lower_bnd$F_dev, values = rep(-1000, length(lower_bnd$F_dev)))
-  upper_bnd$F_dev <- replace(upper_bnd$F_dev, values = rep(10, length(upper_bnd$F_dev)))
+  lower_bnd$ln_F <- replace(lower_bnd$ln_F, values = rep(-1000, length(lower_bnd$ln_F)))
+  upper_bnd$ln_F <- replace(upper_bnd$ln_F, values = rep(10, length(upper_bnd$ln_F)))
 
   lower_bnd$ln_M1 <- replace(lower_bnd$ln_M1, values = rep(log(0.001), length(lower_bnd$ln_M1)))
   upper_bnd$ln_M1 <- replace(upper_bnd$ln_M1, values = rep(log(2), length(upper_bnd$ln_M1)))

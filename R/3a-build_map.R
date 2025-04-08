@@ -816,8 +816,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
     # Turn of F and F dev if not estimating of it is a Survey
     if (data_list$fleet_control$Fleet_type[i] %in% c(0, 2)) {
       map_list$catch_ln_sd[flt] <- NA
-      map_list$F_dev[flt, ] <- NA
-      map_list$ln_mean_F[flt] <- NA
+      map_list$ln_F[flt, ] <- NA
     }
 
     # Map out comp weights if using multinomial
@@ -847,7 +846,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   yr_ind <- catch_data$Year[which(catch_data$Catch == 0)] - data_list$styr + 1
 
   for(i in 1:length(yr_ind)){
-    map_list$F_dev[fsh_ind[i], yr_ind[i]] <- NA
+    map_list$ln_F[fsh_ind[i], yr_ind[i]] <- NA
     map_list$ln_sel_slp_dev[1:2, fsh_ind[i], 1:2, yr_ind[i]] <- NA
     map_list$sel_inf_dev[1:2, fsh_ind[i], 1:2, yr_ind[i]] <- NA
   }
@@ -867,6 +866,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       # Population parameters
       map_list$rec_pars[sp,] <- NA
       map_list$R_ln_sd[sp] <- NA
+      map_list$ln_Finit[sp] <- NA
       # map_list$sex_ratio_ln_sd[sp] <- NA
       map_list$rec_dev[sp,] <- NA
       map_list$init_dev[sp,] <- NA
@@ -876,8 +876,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       flts <- data_list$fleet_control$Fleet_code[which(data_list$fleet_control$Species == sp)]
 
 
-      map_list$ln_mean_F[flts] <- NA
-      map_list$F_dev[flts,] <- NA
+      map_list$ln_F[flts,] <- NA
       map_list$index_ln_q[flts] <- NA
       # map_list$index_q_pow[flts] <- NA
       map_list$index_q_dev[flts,] <- NA

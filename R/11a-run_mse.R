@@ -182,7 +182,7 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
     if(em$data_list$HCR == 2){
 
       # - Get avg F
-      avg_F <- (exp(em$estimated_params$ln_mean_F+em$estimated_params$F_dev)) # Average F from last 5 years
+      avg_F <- exp(em$estimated_params$ln_F) # Average F from last 5 years
       avg_F <- rowMeans(avg_F[,(ncol(avg_F)-4) : ncol(avg_F)])
       avg_F <- data.frame(avg_F = avg_F, spp = em$data_list$fleet_control$Species)
       avg_F <- avg_F %>%
@@ -428,8 +428,8 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
       om_use$data_list$endyr <- assess_yrs[k]
 
       # * Update parameters ----
-      # -- F_dev
-      om_use$estimated_params$F_dev <- cbind(om_use$estimated_params$F_dev, matrix(0, nrow= nrow(om_use$estimated_params$F_dev), ncol = length(new_years)))
+      # -- ln_F
+      om_use$estimated_params$ln_F <- cbind(om_use$estimated_params$ln_F, matrix(0, nrow= nrow(om_use$estimated_params$ln_F), ncol = length(new_years)))
 
       # -- Time-varing survey catachbilitiy - Assume last year - filled by columns
       om_use$estimated_params$index_q_dev <- cbind(om_use$estimated_params$index_q_dev, matrix(om_use$estimated_params$index_q_dev[,ncol(om_use$estimated_params$index_q_dev)], nrow= nrow(om_use$estimated_params$index_q_dev), ncol = length(new_years)))
@@ -453,7 +453,7 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
 
 
       # * Update map ----
-      # -(Only new parameter we are estimating in OM is the F_dev of the new years)
+      # -(Only new parameter we are estimating in OM is the ln_F of the new years)
       om_use$map <- build_map(
         data_list = om_use$data_list,
         params = om_use$estimated_params,
@@ -463,9 +463,9 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
 
 
       # -- Estimate terminal F for catch
-      new_f_yrs <- (ncol(om_use$map$mapList$F_dev) - length(new_years) + 1) : ncol(om_use$map$mapList$F_dev) # - Years of new F
+      new_f_yrs <- (ncol(om_use$map$mapList$ln_F) - length(new_years) + 1) : ncol(om_use$map$mapList$ln_F) # - Years of new F
       f_fleets <- om_use$data_list$fleet_control$Fleet_code[which(om_use$data_list$fleet_control$Fleet_type == 1)] # Fleet rows for F
-      om_use$map$mapList$F_dev[f_fleets,new_f_yrs] <- replace(om_use$map$mapList$F_dev[f_fleets,new_f_yrs], values = 1:length(om_use$map$mapList$F_dev[f_fleets,new_f_yrs]))
+      om_use$map$mapList$ln_F[f_fleets,new_f_yrs] <- replace(om_use$map$mapList$ln_F[f_fleets,new_f_yrs], values = 1:length(om_use$map$mapList$ln_F[f_fleets,new_f_yrs]))
 
       # -- Map out Fdev for years with 0 catch to very low number
       catch_data <- om_use$data_list$catch_data
@@ -473,10 +473,10 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
       yr_ind <- catch_data$Year[which(catch_data$Catch == 0)] - om_use$data_list$styr + 1
 
       for(i in 1:length(fsh_ind)){
-        om_use$estimated_params$F_dev[fsh_ind[i], yr_ind[i]] <- -999
-        om_use$map$mapList$F_dev[fsh_ind[i], yr_ind[i]] <- NA
+        om_use$estimated_params$ln_F[fsh_ind[i], yr_ind[i]] <- -999
+        om_use$map$mapList$ln_F[fsh_ind[i], yr_ind[i]] <- NA
       }
-      om_use$map$mapFactor$F_dev <- factor(om_use$map$mapList$F_dev)
+      om_use$map$mapFactor$ln_F <- factor(om_use$map$mapList$ln_F)
 
       # -- Set estimate mode
       estimate_mode_base <- om_use$data_list$estimateMode
@@ -614,8 +614,8 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
       em_use$data_list$endyr <- assess_yrs[k]
 
       # Update parameters
-      # -- F_dev
-      em_use$estimated_params$F_dev <- cbind(em_use$estimated_params$F_dev, matrix(0, nrow= nrow(em_use$estimated_params$F_dev), ncol = length(new_years)))
+      # -- ln_F
+      em_use$estimated_params$ln_F <- cbind(em_use$estimated_params$ln_F, matrix(0, nrow= nrow(em_use$estimated_params$ln_F), ncol = length(new_years)))
 
       # -- Time-varying survey catachbilitiy - Assume last year - filled by columns
       em_use$estimated_params$index_q_dev <- cbind(em_use$estimated_params$index_q_dev, matrix(em_use$estimated_params$index_q_dev[,ncol(em_use$estimated_params$index_q_dev)], nrow= nrow(em_use$estimated_params$index_q_dev), ncol = length(new_years)))
