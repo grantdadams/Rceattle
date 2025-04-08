@@ -54,7 +54,7 @@ Specify the harvest control rule (HCR) used for Rceattle
 
 \code{hcr = 1} CMSY. Maximize catch across all species simultaneously. CMSY can be constrained such that depletion does not fall below \code{Plimit}.
 
-\code{hcr = 2} Constant input F set at \code{FsprTarget} for each species (vector or single F). SPR based Flimit can be specified via FsprLimit.
+\code{hcr = 2} Constant input F set at \code{FsprTarget} for each species (vector or single F). SPR (single-species only) based Flimit is specified via \code{FsprLimit}.
 
 \code{hcr = 3} F that achieves \code{FsprTarget}\% of SSB0 in the end of the projection
 

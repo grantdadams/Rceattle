@@ -520,12 +520,11 @@ Type objective_function<Type>::operator() () {
 
 
   // -- 3.3. Fishing mortality parameters
-  PARAMETER_VECTOR( ln_mean_F );                  // Log mean fishing mortality; n = [1, n_fsh]
   PARAMETER_VECTOR( ln_Flimit );                  // Target fishing mortality for projections on log scale; n = [nspp, nyrs]
   PARAMETER_VECTOR( ln_Ftarget );                 // Target fishing mortality for projections on log scale; n = [nspp, nyrs]
   PARAMETER_VECTOR( ln_Finit );                   // Fishing mortality for initial population to induce non-equilibrium; n = [nspp]
   PARAMETER_VECTOR( proj_F_prop );                // Proportion of fishing mortality from each fleet for projections; n = [n_fsh]
-  PARAMETER_MATRIX( F_dev );                      // Annual fishing mortality deviations; n = [n_fsh, nyrs] # NOTE: The size of this will likely change
+  PARAMETER_MATRIX( ln_F );                      // Annual fishing mortality; n = [n_fsh, nyrs] # NOTE: The size of this will likely change
 
   // -- 3.4. Survey catchability parameters
   PARAMETER_VECTOR( index_ln_q );                   // Survey catchability; n = [n_index]
@@ -1096,7 +1095,7 @@ Type objective_function<Type>::operator() () {
 
               // Hindcast
               if( yr < nyrs_hind){
-                F_flt_age(flt, sex, age, yr) = sel(flt, sex, age, yr) * exp(ln_mean_F(flt) + F_dev(flt, yr));
+                F_flt_age(flt, sex, age, yr) = sel(flt, sex, age, yr) * exp(ln_F(flt, yr));
               }
 
 
@@ -1160,8 +1159,8 @@ Type objective_function<Type>::operator() () {
         for(yr = 0; yr < nyrs; yr++) {
           // Hindcast
           if( yr < nyrs_hind){
-            F_flt(flt, yr) = exp(ln_mean_F(flt) + F_dev(flt, yr));
-            F_spp(sp, yr) += exp(ln_mean_F(flt) + F_dev(flt, yr)); // Fully selected fishing mortality
+            F_flt(flt, yr) = exp(ln_F(flt, yr));
+            F_spp(sp, yr) += exp(ln_F(flt, yr)); // Fully selected fishing mortality
           }
 
           // Forecast
@@ -3341,7 +3340,7 @@ Type objective_function<Type>::operator() () {
   // 14.0. OBJECTIVE FUNCTION
   matrix<Type> jnll_comp(19, n_flt); jnll_comp.setZero();  // matrix of negative log-likelihood components
 
-  // -- Data likelihood components
+  // -- Data likelihood components (Fleet specific)
   // Slot 0 -- Survey biomass
   // Slot 1 -- Total catch (kg)
   // Slot 2 -- Age/length composition
@@ -3351,11 +3350,10 @@ Type objective_function<Type>::operator() () {
   // Slot 6 -- Survey selectivity normalization
   // Slot 7 -- Survey catchability prior
   // Slot 8 -- Survey catchability annual deviates
-  // -- Priors/penalties
-  // Slot 9 -- Stock recruitment parameter (alpha) prior
-  // Slot 10 -- Tau -- Annual recruitment deviation
-  // Slot 11 -- init_dev -- Initial abundance-at-age
-  // Slot 12 -- Epsilon -- Annual fishing mortality deviation
+  // -- Species-specific priors/penalties
+  // Slot 10 -- Stock recruitment parameter (alpha) prior
+  // Slot 11 -- Annual recruitment deviation
+  // Slot 12 -- init_dev -- Initial abundance-at-age
   // Slot 13 -- SPR penalities
   // Slot 14 -- N-at-age < 0 penalty
   // Slot 15 -- M_at_age prior
@@ -3439,9 +3437,6 @@ Type objective_function<Type>::operator() () {
 
             // Martin's
             // jnll_comp(1, flt)+= 0.5*square((log(catch_obs(fsh_ind, 0))-log(catch_hat(fsh_ind)))/fsh_std_dev);
-
-            // Slot 12 -- Epsilon -- Annual fishing mortality deviation
-            jnll_comp(12, flt) += square(F_dev(flt, yr));      //FIXME - move to single F per year
           }
         }
       }
@@ -4156,3 +4151,4 @@ Type objective_function<Type>::operator() () {
 // 26. Added biomass_depletion and F
 // 27. Added stock-recruitment relationships
 // 28. Added dirichlet multinomial for age/length composition data
+// 29. Removed ln_mean_F + F_dev, converted to ln_F

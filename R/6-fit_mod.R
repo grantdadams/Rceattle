@@ -296,12 +296,12 @@ fit_mod <-
     }
     if(verbose > 0) {message("Step 1: Parameter build complete")}
 
-    # Set Fdev for years with 0 catch to very low number
+    # Set F for years with 0 catch to very low number
     catch_data_sub <- data_list$catch_data %>%
       dplyr::filter(Year <= data_list$endyr)
     fsh_ind <- catch_data_sub$Fleet_code[which(catch_data_sub$Catch == 0)]               # Rows
     yr_ind <- catch_data_sub$Year[which(catch_data_sub$Catch == 0)] - data_list$styr + 1 # Columns
-    start_par$F_dev[cbind(fsh_ind, yr_ind)] <- -999
+    start_par$ln_F[cbind(fsh_ind, yr_ind)] <- -999
 
     rm(catch_data_sub)
 
@@ -462,7 +462,7 @@ fit_mod <-
 
       start_par <- phase_pars
 
-      if(verbose > 0) {message(paste0("Step ", step,": Phasing complete - getting final estimates"))}
+      if(verbose > 0) {message(paste0("Step ", step,": Phasing complete"))}
       step = step + 1
     }
 
@@ -490,7 +490,7 @@ fit_mod <-
         map = map
       )
 
-    if(verbose > 0) {message(paste0("Step ",step, ": Hindcast build complete. Optimizing."))}
+    if(verbose > 0) {message(paste0("Step ",step, ": Hindcast build complete"))}
     step = step + 1
 
 
@@ -510,7 +510,12 @@ fit_mod <-
                               getJointPrecision = getJointPrecision,
                               quiet = verbose < 2,
       )
-      if(verbose > 0) {message("Step ",step, ": Hindcast optimization complete.")
+      if(verbose > 0 & estimateMode != 4) {
+        message("Step ",step, ": Hindcast optimization complete.")
+        step = step + 1
+      }
+      if(verbose > 0 & estimateMode == 4) {
+        message("Step ",step, ": 'dummy' optimization complete.")
         step = step + 1
       }
 
@@ -545,19 +550,19 @@ fit_mod <-
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # 10: Run HCR projections ----
+    # 10: Run projection ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if(estimateMode %in% c(0,2,4)){
       if(!data_list$HCR %in% c(0)){ # - All HCRs except no F and fixed F
 
-        # * Single species mode ----
+        # * 10.1: Single species mode ----
         if(msmMode == 0){
 
           # Turn BRP estimation on within likelihood
           data_list_reorganized$forecast <- rep(1, data_list_reorganized$nspp)
 
           # -- Update map in obs
-          hcr_map <- build_hcr_map(data_list, map, debug = estimateMode > 3)
+          hcr_map <- Rceattle::build_hcr_map(data_list, map, debug = estimateMode > 3)
           if(sum(!is.na(unlist(hcr_map$mapFactor))) == 0){stop("HCR map of length 0: all NAs")}
 
           obj = TMB::MakeADFun(
@@ -570,7 +575,7 @@ fit_mod <-
           )
 
 
-          if(verbose > 0) {message(paste0("Step ",step, ": Projection build complete. Optimizing."))}
+          if(verbose > 0) {message(paste0("Step ",step, ": Projection build complete"))}
           step = step + 1
 
           # -- Optimize
@@ -588,19 +593,19 @@ fit_mod <-
           )
 
 
-          if(verbose > 0) {message(paste0("Step ",step, ": projection optimization complete."))}
+          if(verbose > 0) {message(paste0("Step ",step, ": projection optimization complete"))}
           step = step + 1
         }
 
 
-        # * Multi-species mode ----
+        # * 10.2: Multi-species mode ----
         if(msmMode > 0){
 
           # Loop across species orders
           for(HCRiter in 1:max(data_list$HCRorder)){
 
             # -- Update map in obs
-            hcr_map <- build_hcr_map(data_list, map,
+            hcr_map <- Rceattle::build_hcr_map(data_list, map,
                                      debug = estimateMode > 3,
                                      all_params_on = FALSE,
                                      HCRiter = HCRiter)
@@ -676,7 +681,7 @@ fit_mod <-
         if(projection_uncertainty){
 
           # -- Update both map in to have BRP and hindcast parameters on
-          hcr_map_proj <- build_hcr_map(data_list, map, debug = estimateMode > 3, all_params_on = TRUE)
+          hcr_map_proj <- Rceattle::build_hcr_map(data_list, map, debug = estimateMode > 3, all_params_on = TRUE)
           if(sum(as.numeric(unlist(hcr_map_proj$mapFactor)), na.rm = TRUE) == 0){stop("HCR projection map of length 0: all NAs")}
 
           # --- Update model object with BRP and hindcast parameters turned for BRP and hindcast
@@ -721,10 +726,10 @@ fit_mod <-
 
 
     # -- Save derived quantities
-    mod_objects$quantities <- rename_output(data_list = data_list, quantities = quantities)
+    mod_objects$quantities <- Rceattle::rename_output(data_list = data_list, quantities = quantities)
 
     # -- Save data w/ mcallister
-    mod_objects$data_list <- calc_mcall_ianelli(data_list = data_list, data_list_reorganized = data_list_reorganized, quantities = quantities)
+    mod_objects$data_list <- Rceattle::calc_mcall_ianelli(data_list = data_list, data_list_reorganized = data_list_reorganized, quantities = quantities)
 
     # -- Run time
     mod_objects$run_time = ((Sys.time() - start_time))

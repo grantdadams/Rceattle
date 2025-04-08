@@ -133,8 +133,7 @@ remove_rec_dev_and_F <- function(Rceattle, rec_trend = 0){
   }
 
   # Set fishing to 0
-  Rceattle$estimated_params$F_dev <- replace(Rceattle$estimated_params$F_dev, values = 0)
-  Rceattle$estimated_params$ln_mean_F <- replace(Rceattle$estimated_params$ln_mean_F, values = -999)
+  Rceattle$estimated_params$ln_F <- replace(Rceattle$estimated_params$ln_F, values = -999)
 
   # - Update
   estMode <- Rceattle$data_list$estimateMode

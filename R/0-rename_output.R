@@ -92,16 +92,18 @@ rename_output = function(data_list = NULL, quantities = NULL){
   dimnames(quantities$sel) <- list(data_list$fleet_control$Fleet_name, c("Sex combines/females", "males"), paste0("Age", 1:max_age), yrs_proj)
 
   # 5D arrays
-  dimnames(quantities$B_eaten) <- list(paste("Pred:", data_list$spnames, rep(c("Sex combines/females", "males"), each = 3)),
-                                       paste("Prey:", data_list$spnames, rep(c("Sex combines/females", "males"), each = 3)),
+  dimnames(quantities$B_eaten) <- list(paste("Pred:", data_list$spnames, rep(c("Sex combines/females", "males"), each = data_list$nspp)),
+                                       paste("Prey:", data_list$spnames, rep(c("Sex combines/females", "males"), each = data_list$nspp)),
                                        paste0("Pred age", 1:max_age),
                                        paste0("Prey age", 1:max_age),
                                        yrs_proj)
 
 
   # Rename jnll
-  colnames(quantities$jnll_comp) <- paste0("Sp/Srv/Fsh_", 1:ncol(quantities$jnll_comp))
+  quantities$jnll_comp <- rbind(data_list$fleet_control$Fleet_name, quantities$jnll_comp)
+  colnames(quantities$jnll_comp) <- 1:ncol(quantities$jnll_comp)
   rownames(quantities$jnll_comp) <- c(
+    "1. Fleet components",
     "Index data",
     "Catch data",
     "Composition data",
@@ -111,10 +113,10 @@ rename_output = function(data_list = NULL, quantities = NULL){
     "Selectivity normalization",
     "Catchability prior",
     "Catchability deviates",
+    "2. Species components",
     "Stock-recruit prior",
     "Recruitment deviates",
     "Initial abundance deviates",
-    "Fishing mortality deviates",
     "SPR Calculation",
     "Zero n-at-age penalty",
     "M prior",
@@ -122,6 +124,7 @@ rename_output = function(data_list = NULL, quantities = NULL){
     "Ration penalties",
     "Stomach content data"
   )
+  quantities$jnll_comp[11, 1:data_list$nspp] <- data_list$spnames
 
   return(quantities)
 }

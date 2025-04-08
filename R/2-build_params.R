@@ -93,10 +93,6 @@ build_params <- function(data_list) {
 
 
   # * 1.5. fishing mortality parameters ----
-  # - Mean F
-  #FIXME: get rid of
-  param_list$ln_mean_F = rep(-0.8, nrow(data_list$fleet_control))  # Log mean fishing mortality; n = [1, nspp]
-  names(param_list$ln_mean_F) <- data_list$fleet_control$Fleet_name
 
   # Future fishing mortality limit
   param_list$ln_Flimit = rep(0, data_list$nspp)
@@ -115,14 +111,13 @@ build_params <- function(data_list) {
   names(param_list$proj_F_prop) <- data_list$fleet_control$Fleet_name
 
   # - Annual fishing mortality deviations
-  param_list$F_dev = matrix(0, nrow = nrow(data_list$fleet_control), ncol = nyrs_hind,
+  param_list$ln_F = matrix(0, nrow = nrow(data_list$fleet_control), ncol = nyrs_hind,
                             dimnames = list(data_list$fleet_control$Fleet_name, yrs_hind))
 
-  # -- Make ln_mean_F very low if the fleet is turned off or not a fishery
+  # -- Make ln_F very low if the fleet is turned off or not a fishery
   for (i in 1:nrow(data_list$fleet_control)) {
-    # Turn of F and F dev if not estimating
     if (data_list$fleet_control$Fleet_type[i] %in% c(0,2)) {
-      param_list$ln_mean_F[i] <- -999
+      param_list$ln_F[i,] <- -999
     }
   }
 
@@ -131,7 +126,7 @@ build_params <- function(data_list) {
   fsh_ind <- catch_data$Fleet_code[which(catch_data$Catch == 0)]
   yr_ind <- catch_data$Year[which(catch_data$Catch == 0)] - data_list$styr + 1
   for(i in 1:length(fsh_ind)){
-    param_list$F_dev[fsh_ind[i], yr_ind[i]] <- -999
+    param_list$ln_F[fsh_ind[i], yr_ind[i]] <- -999
   }
 
 
