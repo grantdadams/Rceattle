@@ -26,7 +26,7 @@
 #' @export
 #'
 #'
-mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, regenerate_past = FALSE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, catch_mult = NULL, seed = 666, regenerate_seed = seed, loopnum = 1, file = NULL, dir = NULL, timeout = 999, endyr = NA){
+run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, regenerate_past = FALSE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, catch_mult = NULL, seed = 666, regenerate_seed = seed, loopnum = 1, file = NULL, dir = NULL, timeout = 999, endyr = NA){
 
   # om = ss_run; em = ss_run_Tier3; nsim = 1; start_sim = 1; assessment_period = 1; sampling_period = 1; simulate_data = TRUE; regenerate_past = FALSE; sample_rec = TRUE; rec_trend = 0; fut_sample = 1; cap = NULL; catch_mult = NULL; seed = 666; regenerate_seed = seed; loopnum = 1; file = NULL; dir = NULL; endyr = NA; timeout = 999
 
@@ -388,6 +388,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       # - Get projected catch data from EM
       new_catch_data <- em_use$data_list$catch_data
       dat_fill_ind <- which(new_catch_data$Year %in% new_years & is.na(new_catch_data$Catch))
+      print(paste0("EM ", em_use$quantities$catch_hat[dat_fill_ind][1]))
       new_catch_data$Catch[dat_fill_ind] <- em_use$quantities$catch_hat[dat_fill_ind]
 
       if(!is.null(catch_mult)){
@@ -408,6 +409,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
                                                    new_catch_data$Catch[dat_fill_ind])
 
       new_catch_switch <- sum(new_catch_data$Catch[dat_fill_ind]) #Switch to turn off re-running OM if new catch = 0
+      print(paste("EM corrected", new_catch_data$Catch[dat_fill_ind][1]))
 
       # - Update catch data in OM and EM
       om_use$data_list$catch_data <- new_catch_data
@@ -514,7 +516,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
                             Pstar = om_use$data_list$Pstar,
                             Sigma = om_use$data_list$Sigma,
                             Fmult = om_use$data_list$Fmult,
-                            HCRorder = em$data_list$HCRorder
+                            HCRorder = om_use$data_list$HCRorder
             ),
             recFun = build_srr(srr_fun = om_use$data_list$srr_fun,
                                srr_pred_fun = om_use$data_list$srr_pred_fun ,
@@ -565,6 +567,7 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       # - Get realized catch data from OM
       new_catch_data <- om_use$data_list$catch_data
       dat_fill_ind <- which(new_catch_data$Year %in% new_years)
+      print(om_use$quantities$catch_hat[dat_fill_ind][1])
       new_catch_data$Catch[dat_fill_ind] <- om_use$quantities$catch_hat[dat_fill_ind] # Catch from OM
 
       # - Update catch data in OM and EM
@@ -706,34 +709,34 @@ mse_run_parallel <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1,
       # - Remove unneeded bits for memory reasons
       em_use$initial_params <- NULL
       em_use$bounds <- NULL
-      em_use$map <- NULL
+      # em_use$map <- NULL
       em_use$obj <- NULL
       em_use$opt <- NULL
       em_use$sdrep <- NULL
-      em_use$quantities[names(em_use$quantities) %!in% c("catch_hat",
-                                                         "ln_catch_sd",
-                                                         "index_hat",
-                                                         "ln_index_sd",
-                                                         "ssb_depletion",
-                                                         "biomass_depletion",
-                                                         "biomass",
-                                                         "ssb",
-                                                         "BO",
-                                                         "SB0",
-                                                         "SBF",
-                                                         "F_spp",
-                                                         "R",
-                                                         "M1_at_age",
-                                                         "M_at_age",
-                                                         "avg_rec",
-                                                         "DynamicB0",
-                                                         "DynamicSB0",
-                                                         "DynamicSBF",
-                                                         "SPR0",
-                                                         "SPRlimit",
-                                                         "SPRtarget",
-                                                         "Ftarget",
-                                                         "Flimit")] <- NULL
+      # em_use$quantities[names(em_use$quantities) %!in% c("catch_hat",
+      #                                                    "ln_catch_sd",
+      #                                                    "index_hat",
+      #                                                    "ln_index_sd",
+      #                                                    "ssb_depletion",
+      #                                                    "biomass_depletion",
+      #                                                    "biomass",
+      #                                                    "ssb",
+      #                                                    "BO",
+      #                                                    "SB0",
+      #                                                    "SBF",
+      #                                                    "F_spp",
+      #                                                    "R",
+      #                                                    "M1_at_age",
+      #                                                    "M_at_age",
+      #                                                    "avg_rec",
+      #                                                    "DynamicB0",
+      #                                                    "DynamicSB0",
+      #                                                    "DynamicSBF",
+      #                                                    "SPR0",
+      #                                                    "SPRlimit",
+      #                                                    "SPRtarget",
+      #                                                    "Ftarget",
+      #                                                    "Flimit")] <- NULL
 
       sim_list$EM[[k+1]] <- em_use
       #sim_list$OM[[k+1]] <- om_use

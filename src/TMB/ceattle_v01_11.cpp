@@ -1143,7 +1143,7 @@ Type objective_function<Type>::operator() () {
                 }
 
 
-                F_flt_age(flt, sex, age, yr) = sel(flt, sex, age, yr) * proj_F_prop(flt) * proj_F(sp, yr); // FIXME using last year of selectivity
+                F_flt_age(flt, sex, age, yr) = sel(flt, sex, age, yr) * proj_F_prop(flt) * proj_F(sp, yr);
               }
 
               // -- Sum F across fleets
