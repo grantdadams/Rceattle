@@ -13,7 +13,7 @@
 #' @param sample_rec Include resampled recruitment deviates from the"hindcast" in the projection of the OM. Resampled deviates are used rather than sampling from N(0, sigmaR) because initial deviates bias R0 low. If false, uses mean of recruitment deviates.
 #' @param rec_trend Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier \code{mean rec * (1 + (rec_trend/projection years) * 1:projection years)}. Can be of length 1 or of length nspp. If length 1, all species get the same trend.
 #' @param fut_sample future sampling effort relative to last year.  \code{ Log_sd * 1 / fut_sample} for index and \code{ Sample_size * fut_sample} for comps
-#' @param cap A cap on the catch in the projection. Can be a single number or vector of length nspp. Default = NULL
+#' @param cap A cap on the catch in the projection. Can be a single number applied to all species (proportional to recommended catch) or vector of length \code{nspp} applied to each species. Default = NULL
 #' @param catch_mult A multiplier for the catch in the projection. Can be a single number or vector of length nspp. Default = NULL
 #' @param loopnum number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})
 #' @param file (Optional) Filename where each OM simulation with EMs will be saved. If NULL, no files are saved.
@@ -46,11 +46,7 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
 
   # - Adjust cap
   if(!is.null(cap)){
-    if(length(cap) == 1){
-      cap = rep(cap, om$data_list$nspp)
-    }
-
-    if(length(cap) != om$data_list$nspp){
+    if(!length(cap) %in% c(1, om$data_list$nspp)){
       stop("cap is not length 1 or length nspp")
     }
   }
@@ -388,28 +384,35 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
       # - Get projected catch data from EM
       new_catch_data <- em_use$data_list$catch_data
       dat_fill_ind <- which(new_catch_data$Year %in% new_years & is.na(new_catch_data$Catch))
-      print(paste0("EM ", em_use$quantities$catch_hat[dat_fill_ind][1]))
       new_catch_data$Catch[dat_fill_ind] <- em_use$quantities$catch_hat[dat_fill_ind]
 
+      # * Catch multiplier ----
       if(!is.null(catch_mult)){
         new_catch_data$Catch[dat_fill_ind] <- new_catch_data$Catch[dat_fill_ind] * catch_mult[new_catch_data$Species[dat_fill_ind]]
       }
 
+      # * Apply cap ----
       if(!is.null(cap)){
-        new_catch_data$Catch[dat_fill_ind] <- ifelse(new_catch_data$Catch[dat_fill_ind] > cap[new_catch_data$Species[dat_fill_ind]], cap[new_catch_data$Species[dat_fill_ind]], new_catch_data$Catch[dat_fill_ind])
+        # Applied across species
+        if(length(cap) == 1){
+          new_catch_data$Catch[dat_fill_ind] <- ifelse(sum(new_catch_data$Catch[dat_fill_ind]) > cap,
+                                                       cap * new_catch_data$Catch[dat_fill_ind]/sum(new_catch_data$Catch[dat_fill_ind]),
+                                                       new_catch_data$Catch[dat_fill_ind]) # FIXME: does not work for assessments that don't occur annually
+        } else { # Species-specific
+          new_catch_data$Catch[dat_fill_ind] <- ifelse(new_catch_data$Catch[dat_fill_ind] > cap[new_catch_data$Species[dat_fill_ind]], cap[new_catch_data$Species[dat_fill_ind]], new_catch_data$Catch[dat_fill_ind])
+        }
       }
 
+      # * Exploitable biomass limit ----
       # - If projected catch > exploitable biomass in OM, reduce to exploitable biomass
       exploitable_biomass_data <- om_use$data_list$catch_data
-      dat_fill_ind_expl <- which(exploitable_biomass_data$Year %in% new_years)
-      exploitable_biomass_data$Catch[dat_fill_ind_expl] <- om_use$quantities$exploitable_biomass[dat_fill_ind_expl]
+      exploitable_biomass_data$Catch[dat_fill_ind] <- om_use$quantities$max_catch_hat[dat_fill_ind]
 
-      new_catch_data$Catch[dat_fill_ind] <- ifelse(new_catch_data$Catch[dat_fill_ind] > exploitable_biomass_data$Catch[dat_fill_ind_expl],
-                                                   exploitable_biomass_data$Catch[dat_fill_ind_expl],
+      new_catch_data$Catch[dat_fill_ind] <- ifelse(new_catch_data$Catch[dat_fill_ind] > exploitable_biomass_data$Catch[dat_fill_ind],
+                                                   exploitable_biomass_data$Catch[dat_fill_ind],
                                                    new_catch_data$Catch[dat_fill_ind])
 
       new_catch_switch <- sum(new_catch_data$Catch[dat_fill_ind]) #Switch to turn off re-running OM if new catch = 0
-      print(paste("EM corrected", new_catch_data$Catch[dat_fill_ind][1]))
 
       # - Update catch data in OM and EM
       om_use$data_list$catch_data <- new_catch_data
@@ -567,7 +570,6 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
       # - Get realized catch data from OM
       new_catch_data <- om_use$data_list$catch_data
       dat_fill_ind <- which(new_catch_data$Year %in% new_years)
-      print(om_use$quantities$catch_hat[dat_fill_ind][1])
       new_catch_data$Catch[dat_fill_ind] <- om_use$quantities$catch_hat[dat_fill_ind] # Catch from OM
 
       # - Update catch data in OM and EM
