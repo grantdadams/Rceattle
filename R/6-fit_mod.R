@@ -391,10 +391,12 @@ fit_mod <-
         sp <- as.numeric(as.character(data_list$M1_base$Species[i]))
         sex <- as.numeric(as.character(data_list$M1_base$Sex[i]))
 
+        # Handle sex == 0 case for 2-sex species
+        sex_values <- if (sex == 0) 1:data_list$nsex[sp] else sex
+
         # Fill in M1 array from fixed values for each sex
-        if(sex == 0){ sex = c(1, 2)} # If sex = combined/both males and females, fill in both dimensions
-        for(j in 1:length(sex)){
-          m1[sp, sex[j], 1:max(data_list$nages, na.rm = T)] <- as.numeric(data_list$M1_base[i,(1:max(data_list$nages, na.rm = T)) + 2])
+        for(j in 1:length(sex_values)){
+          m1[sp, sex_values[j], 1:max(data_list$nages, na.rm = T)] <- as.numeric(data_list$M1_base[i,(1:max(data_list$nages, na.rm = T)) + 2])
         }
       }
       start_par$ln_M1 <- log(m1)

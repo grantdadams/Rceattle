@@ -12,7 +12,11 @@ build_params <- function(data_list) {
   param_list <- list()
 
   max_age <- max(data_list$nages, na.rm = T)
-  max_sex <- max(data_list$nsex, na.rm = T)
+  max_sex <- 2 # max(data_list$nsex, na.rm = T)
+  sex_labels <- c("Sex combined or females", "males")
+  if(max_sex == 1){
+    sex_labels <- "Sex combined"
+  }
   yrs_hind <- data_list$styr:data_list$endyr
   yrs_proj <- data_list$styr:data_list$projyr
   nyrs_hind <- length(yrs_hind)
@@ -74,18 +78,21 @@ build_params <- function(data_list) {
 
 
   # * 1.4. Residual natural mortality ----
-  m1 <- array(0, dim = c(data_list$nspp, 2, max_age),
-              dimnames = list(data_list$spnames, c("Sex combines/females", "males"), paste0("Age", 1:max_age))) # Set up array
+  m1 <- array(1, dim = c(data_list$nspp, max_sex, max_age),
+              dimnames = list(data_list$spnames, sex_labels, paste0("Age", 1:max_age))) # Set up array
 
   # Initialize from inputs
   for (i in 1:nrow(data_list$M1_base)) {
     sp <- as.numeric(as.character(data_list$M1_base$Species[i]))
     sex <- as.numeric(as.character(data_list$M1_base$Sex[i]))
 
+
+    # Handle sex == 0 case for 2-sex species
+    sex_values <- if (sex == 0) 1:data_list$nsex[sp] else sex
+
     # Fill in M1 array from fixed values for each sex
-    if(sex == 0){ sex = c(1, 2)} # If sex = combined/both males and females, fill in both dimensions
-    for(j in 1:length(sex)){
-      m1[sp, sex[j], 1:max(data_list$nages, na.rm = T)] <- as.numeric(data_list$M1_base[i,(1:max(data_list$nages, na.rm = T)) + 2])
+    for(j in 1:length(sex_values)){
+      m1[sp, sex_values[j], 1:max_age] <- as.numeric(data_list$M1_base[i,(1:max(data_list$nages, na.rm = T)) + 2])
     }
   }
   param_list$ln_M1 <- log(m1)
@@ -167,33 +174,33 @@ build_params <- function(data_list) {
   max_sel_ages <- suppressWarnings(max(1, as.numeric(c(data_list$fleet_control$Nselages)), na.rm = T))
 
   # - Non-parametric selectivity coefficients
-  param_list$sel_coff =  array(0, dim = c(n_selectivities, 2, max_sel_ages),
-                               dimnames = list(data_list$fleet_control$Fleet_name, c("Sex combines/females", "males"), paste0("Age", 1:max_sel_ages)))
+  param_list$sel_coff =  array(0, dim = c(n_selectivities, max_sex, max_sel_ages),
+                               dimnames = list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Age", 1:max_sel_ages)))
 
   # - Non-parametric selectivity penalties (sensu Ianelli)
   param_list$sel_curve_pen = matrix( c(data_list$fleet_control$Time_varying_sel, data_list$fleet_control$Sel_sd_prior), nrow = n_selectivities, ncol = 2)
 
   # - Non-parametric selectivity coef annual deviates
-  param_list$sel_coff_dev = array(0, dim = c(n_selectivities, 2, max(1, as.numeric(c(data_list$fleet_control$Nselages) ), na.rm = T), nyrs_hind),
-                                  dimnames = list(data_list$fleet_control$Fleet_name, c("Sex combines/females", "males"), paste0("Age", 1:max_sel_ages), yrs_hind))
+  param_list$sel_coff_dev = array(0, dim = c(n_selectivities, max_sex, max(1, as.numeric(c(data_list$fleet_control$Nselages) ), na.rm = T), nyrs_hind),
+                                  dimnames = list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Age", 1:max_sel_ages), yrs_hind))
 
   # - Selectivity slope parameters for logistic
-  param_list$ln_sel_slp = array(0.5, dim = c(2, n_selectivities, 2),
-                                dimnames = list(c("Ascending" , "Descending"), data_list$fleet_control$Fleet_name, c("Sex combines/females", "males")))
+  param_list$ln_sel_slp = array(0.5, dim = c(2, n_selectivities, max_sex),
+                                dimnames = list(c("Ascending" , "Descending"), data_list$fleet_control$Fleet_name, sex_labels))
 
   # - Selectivity asymptotic parameters for logistic
-  param_list$sel_inf = array(0, dim = c(2, n_selectivities, 2),
-                             dimnames = list(c("Ascending" , "Descending"), data_list$fleet_control$Fleet_name, c("Sex combines/females", "males")))
+  param_list$sel_inf = array(0, dim = c(2, n_selectivities, max_sex),
+                             dimnames = list(c("Ascending" , "Descending"), data_list$fleet_control$Fleet_name, sex_labels))
   param_list$sel_inf[1,,] <- 0
   param_list$sel_inf[2,,] <- 10
 
   # - Annual selectivity slope deviation for logistic
-  param_list$ln_sel_slp_dev = array(0, dim = c(2, n_selectivities, 2, nyrs_hind),
-                                    dimnames = list(c("Ascending" , "Descending"), data_list$fleet_control$Fleet_name, c("Sex combines/females", "males"), yrs_hind))
+  param_list$ln_sel_slp_dev = array(0, dim = c(2, n_selectivities, max_sex, nyrs_hind),
+                                    dimnames = list(c("Ascending" , "Descending"), data_list$fleet_control$Fleet_name, sex_labels, yrs_hind))
 
   # - Annual selectivity asymptotic deviations for logistic
-  param_list$sel_inf_dev = array(0, dim = c(2, n_selectivities, 2, nyrs_hind),
-                                 dimnames = list(c("Ascending" , "Descending"), data_list$fleet_control$Fleet_name, c("Sex combines/females", "males"), yrs_hind))
+  param_list$sel_inf_dev = array(0, dim = c(2, n_selectivities, max_sex, nyrs_hind),
+                                 dimnames = list(c("Ascending" , "Descending"), data_list$fleet_control$Fleet_name, sex_labels, yrs_hind))
 
   # - Log standard deviation for selectivity random walk - used for logistic
   param_list$sel_dev_ln_sd <- log(data_list$fleet_control$Sel_sd_prior)

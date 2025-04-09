@@ -5,7 +5,15 @@
 #' @param data_list a data_list created from \code{\link{build_dat}}.
 #' @export
 rearrange_dat <- function(data_list){
-  '%!in%' <- function(x,y)!('%in%'(x,y))
+
+  # Data dimensions
+  max_sex <- 2 # max(data_list$nsex, na.rm = T)
+  max_age <- max(data_list$nages, na.rm = T)
+  max_length <- max(data_list$nlengths, na.rm = T)
+  yrs_hind <- data_list$styr:data_list$endyr
+  yrs_proj <- data_list$styr:data_list$projyr
+  nyrs_hind <- length(yrs_hind)
+  nyrs_proj <- length(yrs_proj)
 
   # 1 - remove non-integer objects from control ----
   data_list$index_ln_q_prior <- log(data_list$fleet_control$Q_prior)
@@ -105,10 +113,10 @@ rearrange_dat <- function(data_list){
   # 7 - Rearrange age-transition matrix ----
   age_trans_matrix <- data_list$age_trans_matrix
   unique_age_transition <- unique(as.character(age_trans_matrix$Age_transition_index))
-  if(sum(data_list$pop_age_transition_index %!in% unique_age_transition) > 0){
+  if(sum(!data_list$pop_age_transition_index %in% unique_age_transition) > 0){
     stop("Check population age_transition index, not in age_transition file")
   }
-  age_transition <- array(0, dim = c(length(unique_age_transition), 2, max(data_list$nages, na.rm = T), max(data_list$nlengths, na.rm = T)))
+  age_transition <- array(0, dim = c(length(unique_age_transition), max_sex, max_age, max_length))
 
 
   for (i in 1:nrow(age_trans_matrix)) {
@@ -124,20 +132,21 @@ rearrange_dat <- function(data_list){
       stop()
     }
 
-    # Assign
-    if(sex == 0){ sex = c(1, 2)}
-    for(j in 1:length(sex)){
-      age_transition[age_transition_ind, sex[j], age, 1:data_list$nlengths[sp]] <- as.numeric(as.character(age_trans_matrix[i, (1:data_list$nlengths[sp]) + 5]))
+    # Handle sex == 0 case for 2-sex species
+    sex_values <- if (sex == 0) 1:data_list$nsex[sp] else sex
+
+    for(j in 1:length(sex_values)){
+      age_transition[age_transition_ind, sex_values[j], age, 1:data_list$nlengths[sp]] <- as.numeric(as.character(age_trans_matrix[i, (1:data_list$nlengths[sp]) + 5]))
 
       # Normalize
-      age_transition[age_transition_ind, sex[j], age, 1:data_list$nlengths[sp]] <- age_transition[age_transition_ind, sex[j], age, 1:data_list$nlengths[sp]] / sum(age_transition[age_transition_ind, sex[j], age, 1:data_list$nlengths[sp]], na.rm = TRUE)
+      age_transition[age_transition_ind, sex_values[j], age, 1:data_list$nlengths[sp]] <- age_transition[age_transition_ind, sex_values[j], age, 1:data_list$nlengths[sp]] / sum(age_transition[age_transition_ind, sex_values[j], age, 1:data_list$nlengths[sp]], na.rm = TRUE)
     }
   }
   data_list$age_trans_matrix <- age_transition
 
 
   # 8 - Rearrange age_error matrices ----
-  arm <- array(0, dim = c(data_list$nspp, max(data_list$nages, na.rm = T), max(data_list$nages, na.rm = T)))
+  arm <- array(0, dim = c(data_list$nspp, max_age, max_age))
 
   data_list$age_error <- as.data.frame(data_list$age_error) # FIXME: somethin is up with data.frames
   for (i in 1:nrow(data_list$age_error)) {
@@ -178,12 +187,12 @@ rearrange_dat <- function(data_list){
 
   # Pre-allocate the array
   unique_wt <- unique(as.numeric(data_list$weight$Wt_index))
-  weight <- array(0, dim = c(length(unique_wt), 2, max(data_list$nages, na.rm = TRUE), length(data_list$styr:data_list$endyr)))
+  weight <- array(0, dim = c(length(unique_wt), max_length, max_age, nyrs_hind))
 
   # Convert weight data to numeric once, outside the loop
-  weight_matrix <- data_list$weight[, (1:max(data_list$nages, na.rm = TRUE)) + 5]
+  weight_matrix <- data_list$weight[, (1:max_age) + 5]
   weight_matrix <- apply(weight_matrix, 2, function(x) as.numeric(as.character(x)))
-  weight_matrix <- matrix(weight_matrix, ncol = max(data_list$nages, na.rm = TRUE))
+  weight_matrix <- matrix(weight_matrix, ncol = max_age)
 
   # Check for spaces in the weight data
   if (any(grepl("[[:space:]]", weight_matrix))) {
@@ -201,7 +210,7 @@ rearrange_dat <- function(data_list){
     if (yr <= data_list$endyr - data_list$styr + 1) {
       # Handle year == 0 case
       if(yr == 0) {
-        yr <- seq_len(length(data_list$styr:data_list$endyr))
+        yr <- seq_len(nyrs_hind)
       }
 
       # Handle sex == 0 case for 2-sex species
@@ -223,7 +232,7 @@ rearrange_dat <- function(data_list){
            Sex = as.numeric(as.character(Sex)),
            Year = as.numeric(as.character(Year)) - data_list$styr + 1)
 
-  NByageFixed <- array(0, dim = c(data_list$nspp, 2, max(data_list$nages, na.rm = T), length(data_list$styr:data_list$projyr)))
+  NByageFixed <- array(0, dim = c(data_list$nspp, max_sex, max_age, nyrs_proj))
 
   if(nrow(data_list$NByageFixed) > 0){
     for (i in 1:nrow(data_list$NByageFixed)) {
@@ -232,11 +241,12 @@ rearrange_dat <- function(data_list){
       sex <- data_list$NByageFixed$Sex[i]
       yr <- data_list$NByageFixed$Year[i]
 
-      if(sex == 0){ sex = c(1, 2)}
+      # Handle sex == 0 case for 2-sex species
+      sex_values <- if(sex == 0) 1:data_list$nsex[sp] else sex
 
-      for(j in 1:length(sex)){
+      for(j in 1:length(sex_values)){
         if(yr > 0){
-          NByageFixed[sp, sex[j], 1:max(data_list$nages, na.rm = T), yr] <- as.numeric(data_list$NByageFixed[i,c(1:max(data_list$nages, na.rm = T))+4])
+          NByageFixed[sp, sex_values[j], 1:max_age, yr] <- as.numeric(data_list$NByageFixed[i,c(1:max_age)+4])
         }
       }
     }
@@ -270,7 +280,7 @@ rearrange_dat <- function(data_list){
                          Year - data_list$styr + 1)
     )
 
-  Pyrs <- array(0, dim = c(data_list$nspp, 2, max(data_list$nages), length(data_list$styr:data_list$endyr))) # FIXME: Change for forecast
+  Pyrs <- array(0, dim = c(data_list$nspp, max_sex, max_age, nyrs_hind)) # FIXME: Change for forecast
 
   if( nrow(data_list$Pyrs) > 0){
     for (i in 1:nrow(data_list$Pyrs)) {
@@ -278,20 +288,19 @@ rearrange_dat <- function(data_list){
       sex <- data_list$Pyrs$Sex[i]
       yr <- data_list$Pyrs$Year[i]
 
-      if(sex == 0){
-        sex = c(1,2)
-      }
+      # Handle sex == 0 case for 2-sex species
+      sex_values <- if(sex == 0) 1:data_list$nsex[sp] else sex
 
       if(yr <= (data_list$endyr - data_list$styr + 1)){
 
         # Handle year == 0 case
         if(yr == 0) {
-          yr <- seq_len(length(data_list$styr:data_list$endyr))
+          yr <- seq_len(nyrs_hind)
         }
 
         # Fill in years
-        for(j in 1:length(sex)){
-          Pyrs[sp, sex[j], 1:data_list$nages[sp], yr] <- as.numeric(as.character(data_list$Pyrs[i, (1:data_list$nages[sp]) + 3]))
+        for(j in 1:length(sex_values)){
+          Pyrs[sp, sex_values[j], 1:data_list$nages[sp], yr] <- as.numeric(as.character(data_list$Pyrs[i, (1:data_list$nages[sp]) + 3]))
         }
       }
     }
