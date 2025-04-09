@@ -259,12 +259,12 @@ fit_mod <-
     # - make length of nspp if not
     data_list$HCR = HCR$HCR
     data_list$DynamicHCR = HCR$DynamicHCR
-    if(HCR$HCR != 2){ # FsprTarget is also used for fixed F (so may be of length nflts)
-      data_list$FsprTarget = extend_length(HCR$FsprTarget)
+    if(HCR$HCR != 2){ # Ftarget is also used for fixed F (so may be of length nflts)
+      data_list$Ftarget = extend_length(HCR$Ftarget)
     } else {
-      data_list$FsprTarget = HCR$FsprTarget
+      data_list$Ftarget = HCR$Ftarget
     }
-    data_list$FsprLimit = extend_length(HCR$FsprLimit)
+    data_list$Flimit = extend_length(HCR$Flimit)
     data_list$Ptarget = extend_length(HCR$Ptarget)
     data_list$Plimit = extend_length(HCR$Plimit)
     data_list$Alpha = extend_length(HCR$Alpha)
@@ -293,20 +293,21 @@ fit_mod <-
       if(ncol(start_par$beta_rec_pars) != length(data_list$srr_env_indices)){
         start_par$beta_rec_pars <- matrix(0, nrow = data_list$nspp, ncol = length(data_list$srr_env_indices))
       }
+
+      # Set F for years with 0 catch to very low number
+      zero_catch <- data_list$catch_data %>%
+        dplyr::filter(Year <= data_list$endyr &
+                        Catch == 0) %>%
+        dplyr::mutate(Year = Year - data_list$styr + 1) %>%
+        select(Fleet_code, Year) %>%
+        as.matrix()
+      start_par$ln_F[zero_catch] <- -999
+      rm(zero_catch)
+
+      # Update proj F prop
+      start_par$proj_F_prop <- data_list$fleet_control$proj_F_prop
     }
     if(verbose > 0) {message("Step 1: Parameter build complete")}
-
-    # Set F for years with 0 catch to very low number
-    catch_data_sub <- data_list$catch_data %>%
-      dplyr::filter(Year <= data_list$endyr)
-    fsh_ind <- catch_data_sub$Fleet_code[which(catch_data_sub$Catch == 0)]               # Rows
-    yr_ind <- catch_data_sub$Year[which(catch_data_sub$Catch == 0)] - data_list$styr + 1 # Columns
-    start_par$ln_F[cbind(fsh_ind, yr_ind)] <- -999
-
-    rm(catch_data_sub)
-
-    # Update proj F prop
-    start_par$proj_F_prop <- data_list$fleet_control$proj_F_prop
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -378,8 +379,8 @@ fit_mod <-
     start_par$proj_F_prop = data_list$fleet_control$proj_F_prop
 
     nyrs_proj <- data_list$projyr - data_list$styr + 1
-    if(!is.null(HCR$FsprTarget) & HCR$HCR == 2){
-      start_par$ln_Ftarget = log(HCR$FsprTarget) # Fixed fishing mortality for projections for each species
+    if(!is.null(HCR$Ftarget) & HCR$HCR == 2){
+      start_par$ln_Ftarget = log(HCR$Ftarget) # Fixed fishing mortality for projections for each species
     }
 
     # - Update M1 parameter object from data if initial parameter values input

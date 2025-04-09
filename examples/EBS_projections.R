@@ -1,14 +1,14 @@
-################################################
-# Setup
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Setup ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 library(Rceattle)
 library(dplyr)
 library(ggplot2)
 
 
-################################################
-# Data
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Data ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # Example
 # To run the 2017 single species assessment for the Bering Sea, a data file must first be loaded:
 data(BS2017SS) # ?BS2017SS for more information on the data
@@ -22,9 +22,9 @@ Rceattle::write_data(data_list = BS2017SS, file = "BS2017SS.xlsx")
 mydata <- Rceattle::read_data( file = "BS2017SS.xlsx")
 
 
-################################################
-# Estimation
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Estimation ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
 ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
                             file = NULL,
@@ -86,9 +86,9 @@ plot_index(ms_run) # Fitted indices of abundance
 plot_catch(ms_run) # Fitted catch series
 
 
-################################################
-# Projection
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Projection ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
 # PROJECTION 1: CHANGING F
 # Rceattle automatically projects the population forward when estimating under no fishing
@@ -101,7 +101,7 @@ ms_run_proj <- fit_mod(data_list = BS2017MS,
                                  file = NULL, # Don't save
                                  estimateMode = 2, # Run in projection mode
                                  HCR = build_hcr(HCR = 2,
-                                                 FsprTarget = c(0.2342936, 0.513, 0.0774777)), # Set projection F mean historical F
+                                                 Ftarget = c(0.2342936, 0.513, 0.0774777)), # Set projection F mean historical F
                                  niter = 5, # 5 iterations around population and predation dynamics
                                  random_rec = FALSE, # No random recruitment
                                  msmMode = 1, # MSVPA based
@@ -150,9 +150,9 @@ plot_catch(Rceattle = mod_list, model_names = mod_names, incl_proj = TRUE)
 
 
 
-################################################
-# Retrospective
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Retrospective ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # we can also do retrospective peels and calculate Mohn's Rho on the CEATTLE
 # NOTE: this is using mean historical F for projections as we changed it above
 ms_run_proj_retro <- retrospective(Rceattle = ms_run_proj, peels = 5)
@@ -167,9 +167,9 @@ plot_biomass(ms_run_proj_retro$Rceattle_list)
 plot_biomass(ms_run_proj_retro$Rceattle_list, incl_proj = TRUE)
 
 
-################################################
-# Simulation
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Simulation ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # Survey and composition data can be simulated from the estimated quantities using `sim_mod`:
 ss_sim <- sim_mod(ss_run, simulate = TRUE)
 
@@ -203,9 +203,9 @@ plot_biomass(Rceattle = mod_list, model_names = mod_names)
 plot_recruitment(Rceattle = mod_list, model_names = mod_names)
 
 
-################################################
-# Model variants
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Model variants ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
 # For recruitment, the model can estimate recruitment deviates as random effects
 ss_re <- Rceattle::fit_mod(
@@ -225,7 +225,7 @@ ms_gamma <- Rceattle::fit_mod(
   data_list = mydata,
   inits = ms_run$estimated_params, # Initial parameters from single species ests
   file = NULL, # Don't save
-  estimateMode = 3, # Estimate
+  estimateMode = 0, # Estimate
   niter = 5, # 5 iterations around population and predation dynamics
   random_rec = FALSE, # No random recruitment
   msmMode = 1, # MSVPA based

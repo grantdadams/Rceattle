@@ -138,8 +138,8 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
       estimateMode = ifelse(em$data_list$estimateMode < 3, 0, em$data_list$estimateMode), # Run hindcast and projection, otherwise debug
       HCR = build_hcr(HCR = em$data_list$HCR, # Tier3 HCR
                       DynamicHCR = em$data_list$DynamicHCR,
-                      FsprTarget = em$data_list$FsprTarget,
-                      FsprLimit = em$data_list$FsprLimit,
+                      Ftarget = em$data_list$Ftarget,
+                      Flimit = em$data_list$Flimit,
                       Ptarget = em$data_list$Ptarget,
                       Plimit = em$data_list$Plimit,
                       Alpha = em$data_list$Alpha,
@@ -195,7 +195,7 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
                               inits = em$estimated_params,
                               estimateMode = 2, # Don't estimate
                               HCR = build_hcr(HCR = 2, # Input F
-                                              FsprTarget = avg_F$avg_F,
+                                              Ftarget = avg_F$avg_F,
                                               Ptarget = em$data_list$Ptarget,
                                               Plimit = em$data_list$Plimit
                               ),
@@ -468,15 +468,16 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
       om_use$map$mapList$ln_F[f_fleets,new_f_yrs] <- replace(om_use$map$mapList$ln_F[f_fleets,new_f_yrs], values = 1:length(om_use$map$mapList$ln_F[f_fleets,new_f_yrs]))
 
       # -- Map out Fdev for years with 0 catch to very low number
-      catch_data <- om_use$data_list$catch_data
-      fsh_ind <- catch_data$Fleet_code[which(catch_data$Catch == 0)]
-      yr_ind <- catch_data$Year[which(catch_data$Catch == 0)] - om_use$data_list$styr + 1
-
-      for(i in 1:length(fsh_ind)){
-        om_use$estimated_params$ln_F[fsh_ind[i], yr_ind[i]] <- -999
-        om_use$map$mapList$ln_F[fsh_ind[i], yr_ind[i]] <- NA
-      }
+      zero_catch <- om_use$data_list$catch_data %>%
+        dplyr::filter(Year <= om_use$data_list$endyr &
+                        Catch == 0) %>%
+        dplyr::mutate(Year = Year - om_use$data_list$styr + 1) %>%
+        select(Fleet_code, Year) %>%
+        as.matrix()
+      om_use$estimated_params$ln_F[zero_catch] <- -999
+      om_use$map$mapList$ln_F[zero_catch] <- NA
       om_use$map$mapFactor$ln_F <- factor(om_use$map$mapList$ln_F)
+      rm(zero_catch)
 
       # -- Set estimate mode
       estimate_mode_base <- om_use$data_list$estimateMode
@@ -511,8 +512,8 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
             suit_endyr = om$data_list$suit_endyr,   # This stays the same as original OM to maintain constant suitability
             HCR = build_hcr(HCR = om_use$data_list$HCR,
                             DynamicHCR = om_use$data_list$DynamicHCR,
-                            FsprTarget = om_use$data_list$FsprTarget,
-                            FsprLimit = om_use$data_list$FsprLimit,
+                            Ftarget = om_use$data_list$Ftarget,
+                            Flimit = om_use$data_list$Flimit,
                             Ptarget = om_use$data_list$Ptarget,
                             Plimit = om_use$data_list$Plimit,
                             Alpha = om_use$data_list$Alpha,
@@ -651,8 +652,8 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
             estimateMode = ifelse(em_use$data_list$estimateMode < 3, 0, em_use$data_list$estimateMode), # Run hindcast and projection, otherwise debug
             HCR = build_hcr(HCR = em_use$data_list$HCR, # Tier3 HCR
                             DynamicHCR = em_use$data_list$DynamicHCR,
-                            FsprTarget = em_use$data_list$FsprTarget,
-                            FsprLimit = em_use$data_list$FsprLimit,
+                            Ftarget = em_use$data_list$Ftarget,
+                            Flimit = em_use$data_list$Flimit,
                             Ptarget = em_use$data_list$Ptarget,
                             Plimit = em_use$data_list$Plimit,
                             Alpha = em_use$data_list$Alpha,

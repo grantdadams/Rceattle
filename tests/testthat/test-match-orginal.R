@@ -16,8 +16,7 @@ test_that("Dynamics match CEATTLE classic", {
   inits$init_dev <- CEATTLE_classic_SS$estimated_params$init_dev
   inits$rec_dev[,1:39] <- CEATTLE_classic_SS$estimated_params$rec_dev
   inits$rec_pars[,1] <- CEATTLE_classic_SS$estimated_params$ln_mn_rec
-  inits$F_dev[1:3, 1:39] <- CEATTLE_classic_SS$estimated_params$F_dev[,1:39]
-  inits$ln_mean_F[1:3] <- CEATTLE_classic_SS$estimated_params$ln_mean_F
+  inits$ln_F[1:3, 1:39] <- CEATTLE_classic_SS$estimated_params$F_dev[,1:39] + CEATTLE_classic_SS$estimated_params$ln_mean_F
   inits$sel_coff[1:3,1,] <- CEATTLE_classic_SS$estimated_params$fsh_sel_coff
 
 
@@ -27,7 +26,7 @@ test_that("Dynamics match CEATTLE classic", {
                                          estimateMode = 3, # Estimate
                                          random_rec = FALSE, # No random recruitment
                                          msmMode = 0, # Single species mode
-                                         phase = "default",
+                                         phase = TRUE,
                                          verbose = 1)
 
   # - Estimate instead
@@ -37,14 +36,14 @@ test_that("Dynamics match CEATTLE classic", {
                                   estimateMode = 0, # Estimate
                                   random_rec = FALSE, # No random recruitment
                                   msmMode = 0, # Single species mode
-                                  phase = "default",
+                                  phase = TRUE,
                                   verbose = 1)
 
   # Previous time series
   ss_run_old <- ss_run_new
   ss_run_old$quantities$R[,1:39] <- CEATTLE_classic_SS$quantities$R[,1:39]
   ss_run_old$quantities$biomass[,1:39] <- CEATTLE_classic_SS$quantities$biomass
-  ss_run_old$quantities$biomassSSB[,1:39] <- CEATTLE_classic_SS$quantities$biomassSSB
+  ss_run_old$quantities$ssb[,1:39] <- CEATTLE_classic_SS$quantities$biomassSSB
 
 
   # Plot
@@ -72,16 +71,6 @@ test_that("Dynamics match multi-species CEATTLE classic", {
   data("BS2017SS")
   data("BS2017MS")
 
-  # - Reorganize fleet control
-  BS2017MS$fleet_control <- as.data.frame(t(BS2017MS$fleet_control))
-  colnames(BS2017MS$fleet_control) <- BS2017MS$fleet_control[1,]
-  BS2017MS$fleet_control <- BS2017MS$fleet_control[-1,]
-  BS2017MS$fleet_control <- cbind(data.frame(Fleet_name = rownames(BS2017MS$fleet_control)),
-                                  BS2017MS$fleet_control)
-  rownames(BS2017MS$fleet_control) = NULL
-  BS2017MS$fleet_control[,-which(colnames(BS2017MS$fleet_control) %in% c("Fleet_name", "Time_varying_q"))] <- apply(
-    BS2017MS$fleet_control[,-which(colnames(BS2017MS$fleet_control) %in% c("Fleet_name", "Time_varying_q"))], 2, as.numeric)
-
   BS2017MS$srr_prior_mean <- 9
   BS2017MS$initMode  <- 1
   # BS2017MS$M1_base[,-c(1:2)] <- CEATTLE_classic_MS$quantities$M1 # + 0.0001 is in the old one
@@ -92,23 +81,22 @@ test_that("Dynamics match multi-species CEATTLE classic", {
   inits$init_dev[,1:20] <- CEATTLE_classic_MS$estimated_params$init_dev
   inits$rec_dev[,1:39] <- CEATTLE_classic_MS$estimated_params$rec_dev
   inits$rec_pars[,1] <- CEATTLE_classic_MS$estimated_params$ln_mn_rec
-  inits$F_dev[1:3, 1:39] <- CEATTLE_classic_MS$estimated_params$F_dev[,1:39]
-  inits$ln_mean_F[1:3] <- CEATTLE_classic_MS$estimated_params$ln_mean_F
+  inits$ln_F[1:3, 1:39] <- CEATTLE_classic_MS$estimated_params$F_dev[,1:39] + CEATTLE_classic_MS$estimated_params$ln_mean_F
 
   # -- Sel
   inits$sel_coff[1:3,1,] <- CEATTLE_classic_MS$estimated_params$fsh_sel_coff
   inits$sel_inf[1,4:6,1] <- CEATTLE_classic_MS$estimated_params$srv_sel_inf[1,]
   inits$ln_sel_slp[1,4:6,1] <- log(CEATTLE_classic_MS$estimated_params$srv_sel_slp[1,])
-  inits$ln_srv_q[4:6] <- CEATTLE_classic_MS$estimated_params$log_srv_q
-  inits$ln_srv_q[7] <- CEATTLE_classic_MS$estimated_params$log_eit_q # Need to scale by max sel because selectivity is rescaled to max = 1 in the CPP
+  inits$index_ln_q[4:6] <- CEATTLE_classic_MS$estimated_params$log_srv_q
+  inits$index_ln_q[7] <- CEATTLE_classic_MS$estimated_params$log_eit_q # Need to scale by max sel because selectivity is rescaled to max = 1 in the CPP
 
   # - Update diet data
   BS2017MS_new <- BS2017MS
-  BS2017MS_new$UobsWtAge <- as.data.frame(BS2017MS_new$UobsWtAge)
-  for(i in 1:nrow(BS2017MS_new$UobsWtAge)){
-    BS2017MS_new$UobsWtAge$Stomach_proportion_by_weight[i] <- CEATTLE_classic_MS$data_list$UobsAge[
-      BS2017MS_new$UobsWtAge$Pred[i], BS2017MS_new$UobsWtAge$Prey[i],
-      BS2017MS_new$UobsWtAge$Pred_age[i], BS2017MS_new$UobsWtAge$Prey_age[i]
+  BS2017MS_new$diet_data <- as.data.frame(BS2017MS_new$diet_data)
+  for(i in 1:nrow(BS2017MS_new$diet_data)){
+    BS2017MS_new$diet_data$Stomach_proportion_by_weight[i] <- CEATTLE_classic_MS$data_list$UobsAge[
+      BS2017MS_new$diet_data$Pred[i], BS2017MS_new$diet_data$Prey[i],
+      BS2017MS_new$diet_data$Pred_age[i], BS2017MS_new$diet_data$Prey_age[i]
     ]
   }
 
@@ -170,18 +158,18 @@ test_that("Dynamics match multi-species CEATTLE classic", {
   ms_run_old <- ms_run_new
   ms_run_old$quantities$R[,1:39] <- CEATTLE_classic_MS$quantities$R[,1:39]
   ms_run_old$quantities$biomass[,1:39] <- CEATTLE_classic_MS$quantities$biomass
-  ms_run_old$quantities$biomassSSB[,1:39] <- CEATTLE_classic_MS$quantities$biomassSSB
-  ms_run_old$quantities$srv_bio_hat <- c(CEATTLE_classic_MS$quantities$srv_bio_hat[1,1:36],
+  ms_run_old$quantities$ssb[,1:39] <- CEATTLE_classic_MS$quantities$biomassSSB
+  ms_run_old$quantities$index_hat <- c(CEATTLE_classic_MS$quantities$srv_bio_hat[1,1:36],
                                          CEATTLE_classic_MS$quantities$srv_bio_hat[2,1:36],
                                          CEATTLE_classic_MS$quantities$srv_bio_hat[3,1:36],
                                          CEATTLE_classic_MS$quantities$eit_hat[1:20])
-  fsh_bio <- ms_run_old$data_list$fsh_biom
-  fsh_bio$Pred <- ms_run_old$quantities$fsh_bio_hat
+  fsh_bio <- ms_run_old$data_list$catch_data
+  fsh_bio$Pred <- ms_run_old$quantities$catch_hat
   fsh_bio$CatchOld <- NA
   fsh_bio$CatchOld[which(fsh_bio$Year < 2018)] <- c(CEATTLE_classic_MS$quantities$tc_biom_hat[1,],
                                                     CEATTLE_classic_MS$quantities$tc_biom_hat[2,],
                                                     CEATTLE_classic_MS$quantities$tc_biom_hat[3,])
-  ms_run_old$quantities$fsh_bio_hat <- fsh_bio$CatchOld
+  ms_run_old$quantities$catch_hat <- fsh_bio$CatchOld
 
   # Sel
   round(ms_run_old_params$quantities$sel[,1,,1], 5)

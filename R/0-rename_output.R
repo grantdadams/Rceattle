@@ -111,7 +111,7 @@ rename_output = function(data_list = NULL, quantities = NULL){
     "Index data",
     "Catch data",
     "Composition data",
-    "Sex ratio",
+    "EMPTY",
     "Non-parametric selectivity",
     "Selectivity deviates",
     "Selectivity normalization",
