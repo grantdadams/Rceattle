@@ -50,8 +50,8 @@ project_trend <- function(Rceattle, rec_trend = 0, sample_rec = FALSE){
     estimateMode = 3,
     HCR = build_hcr(HCR = Rceattle$data_list$HCR, # Tier3 HCR
                     DynamicHCR = Rceattle$data_list$DynamicHCR,
-                    FsprTarget = Rceattle$data_list$FsprTarget,
-                    FsprLimit = Rceattle$data_list$FsprLimit,
+                    Ftarget = Rceattle$data_list$Ftarget,
+                    Flimit = Rceattle$data_list$Flimit,
                     Ptarget = Rceattle$data_list$Ptarget,
                     Plimit = Rceattle$data_list$Plimit,
                     Alpha = Rceattle$data_list$Alpha,
@@ -146,8 +146,8 @@ remove_rec_dev_and_F <- function(Rceattle, rec_trend = 0){
     estimateMode = 3,
     HCR = build_hcr(HCR = Rceattle$data_list$HCR, # Tier3 HCR
                     DynamicHCR = Rceattle$data_list$DynamicHCR,
-                    FsprTarget = Rceattle$data_list$FsprTarget,
-                    FsprLimit = Rceattle$data_list$FsprLimit,
+                    Ftarget = Rceattle$data_list$Ftarget,
+                    Flimit = Rceattle$data_list$Flimit,
                     Ptarget = Rceattle$data_list$Ptarget,
                     Plimit = Rceattle$data_list$Plimit,
                     Alpha = Rceattle$data_list$Alpha,
@@ -249,8 +249,8 @@ equilibrate_and_project <- function(Rceattle, rec_trend = 0){
     estimateMode = 3,
     HCR = build_hcr(HCR = Rceattle$data_list$HCR, # Tier3 HCR
                     DynamicHCR = Rceattle$data_list$DynamicHCR,
-                    FsprTarget = Rceattle$data_list$FsprTarget,
-                    FsprLimit = Rceattle$data_list$FsprLimit,
+                    Ftarget = Rceattle$data_list$Ftarget,
+                    Flimit = Rceattle$data_list$Flimit,
                     Ptarget = Rceattle$data_list$Ptarget,
                     Plimit = Rceattle$data_list$Plimit,
                     Alpha = Rceattle$data_list$Alpha,

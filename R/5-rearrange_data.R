@@ -48,6 +48,10 @@ rearrange_dat <- function(data_list){
   # Species names
   data_list$spnames <- NULL
 
+  # * F reference points ----
+  data_list$Ftarget_percent <- data_list$Ftarget
+  data_list$Flimit_percent <- data_list$Flimit
+
   # - Input missing nselages and age first selected (use age range)
   data_list$fleet_control <- data_list$fleet_control %>%
     dplyr::mutate(Nselages = ifelse(is.na(Nselages), -999, Nselages),

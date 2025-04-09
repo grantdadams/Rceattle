@@ -119,7 +119,7 @@ build_params <- function(data_list) {
 
   # - Annual fishing mortality deviations
   param_list$ln_F = matrix(0, nrow = nrow(data_list$fleet_control), ncol = nyrs_hind,
-                            dimnames = list(data_list$fleet_control$Fleet_name, yrs_hind))
+                           dimnames = list(data_list$fleet_control$Fleet_name, yrs_hind))
 
   # -- Make ln_F very low if the fleet is turned off or not a fishery
   for (i in 1:nrow(data_list$fleet_control)) {
@@ -129,12 +129,13 @@ build_params <- function(data_list) {
   }
 
   # -- Set Fdev for years with 0 catch to very low number
-  catch_data <- data_list$catch_data
-  fsh_ind <- catch_data$Fleet_code[which(catch_data$Catch == 0)]
-  yr_ind <- catch_data$Year[which(catch_data$Catch == 0)] - data_list$styr + 1
-  for(i in 1:length(fsh_ind)){
-    param_list$ln_F[fsh_ind[i], yr_ind[i]] <- -999
-  }
+  zero_catch <- data_list$catch_data %>%
+    dplyr::filter(Year <= data_list$endyr &
+                    Catch == 0) %>%
+    dplyr::mutate(Year = Year - data_list$styr + 1) %>%
+    select(Fleet_code, Year) %>%
+    as.matrix()
+  param_list$ln_F[zero_catch] <- -999
 
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
