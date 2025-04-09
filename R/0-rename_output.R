@@ -12,7 +12,11 @@ rename_output = function(data_list = NULL, quantities = NULL){
 
   # Dimension attributed
   max_age <- max(data_list$nages, na.rm = T)
-  max_sex <- max(data_list$nsex, na.rm = T)
+  max_sex <- 2 # max(data_list$nsex, na.rm = T)
+  sex_labels <- c("Sex combined or females", "males")
+  if(max_sex == 1){
+    sex_labels <- "Sex combined"
+  }
   yrs_hind <- data_list$styr:data_list$endyr
   yrs_proj <- data_list$styr:data_list$projyr
   nyrs_hind <- length(yrs_hind)
@@ -71,29 +75,29 @@ rename_output = function(data_list = NULL, quantities = NULL){
   dimnames(quantities$index_q) <- list(data_list$fleet_control$Fleet_name, yrs_hind)
 
   # 3D
-  dimnames(quantities$M1_at_age) <- list(data_list$spnames, c("Sex combines/females", "males"), paste0("Age", 1:max_age))
+  dimnames(quantities$M1_at_age) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age))
 
   # 4D array
   # - Biological
-  dimnames(quantities$biomass_at_age) <- list(data_list$spnames, c("Sex combines/females", "males"), paste0("Age", 1:max_age), yrs_proj)
-  dimnames(quantities$consumption_at_age) <- list(data_list$spnames, c("Sex combines/females", "males"), paste0("Age", 1:max_age), yrs_proj)
-  dimnames(quantities$B_eaten_as_prey) <-  list(data_list$spnames, c("Sex combines/females", "males"), paste0("Age", 1:max_age), yrs_proj)
-  dimnames(quantities$F_spp_at_age) <- list(data_list$spnames, c("Sex combines/females", "males"), paste0("Age", 1:max_age), yrs_proj)
-  dimnames(quantities$M_at_age) <- list(data_list$spnames, c("Sex combines/females", "males"), paste0("Age", 1:max_age), yrs_proj)
-  dimnames(quantities$M2_at_age) <- list(data_list$spnames, c("Sex combines/females", "males"), paste0("Age", 1:max_age), yrs_proj)
-  dimnames(quantities$Z_at_age) <- list(data_list$spnames, c("Sex combines/females", "males"), paste0("Age", 1:max_age), yrs_proj)
-  dimnames(quantities$N_at_age) <- list(data_list$spnames, c("Sex combines/females", "males"), paste0("Age", 1:max_age), yrs_proj)
-  dimnames(quantities$NByage0) <- list(data_list$spnames, c("Sex combines/females", "males"), paste0("Age", 1:max_age), yrs_proj)
-  dimnames(quantities$NByageF) <- list(data_list$spnames, c("Sex combines/females", "males"), paste0("Age", 1:max_age), yrs_proj)
-  dimnames(quantities$ration) <- list(data_list$spnames, c("Sex combines/females", "males"), paste0("Age", 1:max_age), yrs_proj)
+  dimnames(quantities$biomass_at_age) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
+  dimnames(quantities$consumption_at_age) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
+  dimnames(quantities$B_eaten_as_prey) <-  list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
+  dimnames(quantities$F_spp_at_age) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
+  dimnames(quantities$M_at_age) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
+  dimnames(quantities$M2_at_age) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
+  dimnames(quantities$Z_at_age) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
+  dimnames(quantities$N_at_age) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
+  dimnames(quantities$NByage0) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
+  dimnames(quantities$NByageF) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
+  dimnames(quantities$ration) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
 
   # - Fleet
-  dimnames(quantities$F_flt_age) <- list(data_list$fleet_control$Fleet_name, c("Sex combines/females", "males"), paste0("Age", 1:max_age), yrs_proj)
-  dimnames(quantities$sel) <- list(data_list$fleet_control$Fleet_name, c("Sex combines/females", "males"), paste0("Age", 1:max_age), yrs_proj)
+  dimnames(quantities$F_flt_age) <- list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Age", 1:max_age), yrs_proj)
+  dimnames(quantities$sel) <- list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Age", 1:max_age), yrs_proj)
 
   # 5D arrays
-  dimnames(quantities$B_eaten) <- list(paste("Pred:", data_list$spnames, rep(c("Sex combines/females", "males"), each = data_list$nspp)),
-                                       paste("Prey:", data_list$spnames, rep(c("Sex combines/females", "males"), each = data_list$nspp)),
+  dimnames(quantities$B_eaten) <- list(paste("Pred:", data_list$spnames, rep(sex_labels, each = data_list$nspp)),
+                                       paste("Prey:", data_list$spnames, rep(sex_labels, each = data_list$nspp)),
                                        paste0("Pred age", 1:max_age),
                                        paste0("Prey age", 1:max_age),
                                        yrs_proj)
