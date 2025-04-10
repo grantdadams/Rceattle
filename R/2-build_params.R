@@ -96,7 +96,11 @@ build_params <- function(data_list) {
     }
   }
   param_list$ln_M1 <- log(m1)
-  # param_list$sex_ratio_ln_sd = log(data_list$sex_ratio_sigma)
+
+  # ** Annual deviates ----
+  ln_m1_dev <- array(0, dim = c(data_list$nspp, max_sex, nyrs_proj),
+              dimnames = list(data_list$spnames, sex_labels, yrs_proj)) # Set up array
+  param_list$ln_M1_dev <- ln_m1_dev
 
 
   # * 1.5. fishing mortality parameters ----

@@ -104,6 +104,7 @@ rename_output = function(data_list = NULL, quantities = NULL){
 
 
   # Rename jnll
+  quantities$jnll_comp[8,1:data_list$nspp] <- data_list$spnames
   quantities$jnll_comp <- rbind(data_list$fleet_control$Fleet_name, quantities$jnll_comp)
   colnames(quantities$jnll_comp) <- 1:ncol(quantities$jnll_comp)
   rownames(quantities$jnll_comp) <- c(
@@ -111,24 +112,23 @@ rename_output = function(data_list = NULL, quantities = NULL){
     "Index data",
     "Catch data",
     "Composition data",
-    "EMPTY",
     "Non-parametric selectivity",
     "Selectivity deviates",
-    "Selectivity normalization",
     "Catchability prior",
     "Catchability deviates",
-    "2. Species components",
+    "2. Species components", # Empty row
     "Stock-recruit prior",
-    "Recruitment deviates",
     "Initial abundance deviates",
-    "SPR Calculation",
+    "Recruitment deviates",
+    "Stock-recruit penalty",
+    "Reference point penalities",
     "Zero n-at-age penalty",
     "M prior",
+    "M random effects",
     "Ration",
     "Ration penalties",
     "Stomach content data"
   )
-  quantities$jnll_comp[11, 1:data_list$nspp] <- data_list$spnames
 
   return(quantities)
 }
