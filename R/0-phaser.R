@@ -79,6 +79,11 @@ set_phases <- function(){
     init_dev = 2, # Age specific initial age-structure deviates or parameters
     # sex_ratio_ln_sd = 3, # Variance of sex ratio (usually fixed)
     ln_M1 = 4, #  Estimated natural or residual mortality
+    ln_M1_dev = 5, #  Estimated natural or residual mortality
+    M1_beta = 5, #  Estimated natural or residual mortality
+    M1_rho = 5, #  Estimated natural or residual mortality
+    M1_dev_ln_sd = 5, #  Estimated natural or residual mortality
+    ln_M1 = 4, #  Estimated natural or residual mortality
     ln_Flimit = 3, # Estimated F limit
     ln_Ftarget = 3, # Estimated F target
     ln_Finit = 3, # Estimated fishing mortality for non-equilibrium initial age-structure

@@ -5,7 +5,7 @@
 
 test_that("Simulated simple model the same" {
   # Simulate Data -----------------------------------------------------------
-  # From Matt Cheng
+  # Adapted from Matt Cheng
   sim_pop_model <- function(years,
                             ages,
                             WAA,
@@ -17,6 +17,8 @@ test_that("Simulated simple model the same" {
                             fish_ISS,
                             srv_ISS,
                             M,
+                            sigmaM,
+                            rhoM,
                             fish_sel,
                             srv_sel,
                             Fmort,
@@ -40,10 +42,14 @@ test_that("Simulated simple model the same" {
     rec_devs <- rnorm(n_yrs, 0, sigma_R)
     init_devs <- rnorm(n_ages - 2, 0, sigma_R)
 
+    # Generate M deviations
+    M_vec <- arima.sim(n = n_yrs, list(order=c(1,0,0), ar=rhoM), sd = sigmaM)
+    M = M * exp(-M_vec)
+
     # Initialize population
     init_age_idx <- 1:(n_ages - 2)
-    NAA[1, init_age_idx + 1] <- mean_Rec * exp(init_devs - (init_age_idx * M))
-    NAA[1, n_ages] <- mean_Rec * exp(-(n_ages - 1) * M) / (1 - exp(-M))
+    NAA[1, init_age_idx + 1] <- mean_Rec * exp(init_devs - (init_age_idx * M[1]))
+    NAA[1, n_ages] <- mean_Rec * exp(-(n_ages - 1) * M[1]) / (1 - exp(-M[1]))
 
     # Project population forward
     for(y in 1:n_yrs) {
@@ -52,7 +58,7 @@ test_that("Simulated simple model the same" {
 
       # Calculate mortality
       FAA[y,] <- Fmort[y] * fish_sel
-      ZAA[y,] <- FAA[y,] + M
+      ZAA[y,] <- FAA[y,] + M[y]
 
       # Calculate catch
       CAA[y,] <- FAA[y,] / ZAA[y,] * NAA[y,] * (1 - exp(-ZAA[y,]))
@@ -113,14 +119,15 @@ test_that("Simulated simple model the same" {
   }
 
   # Set up simulation -------------------------------------------------------------
-  years <- 1:20
+  nyrs = 40
+  years <- 1:nyrs
   ages <- 1:15
   WAA <- 2 / (1 + exp(-0.8 * (ages - 3)))
   MatAA <- 1 / (1 + exp(-1 * (ages - 5)))
   sigma_R <- 0.3
   sigma_Catch <- 0.001
   sigma_SrvIdx <- 0.3
-  Fmort <- c(seq(0.02, 0.3, length.out = 10), seq(0.3, 0.05, length.out = 10))
+  Fmort <- c(seq(0.02, 0.3, length.out = nyrs/2), seq(0.3, 0.05, length.out = nyrs/2))
 
   # First, simulate some data for the model
   set.seed(123)
@@ -135,10 +142,17 @@ test_that("Simulated simple model the same" {
                        fish_ISS = 1e5,
                        srv_ISS = 1e5,
                        M = 0.3,
+                       sigmaM = 0.05,
+                       rhoM = 0.5,
                        fish_sel = 1 / (1 + exp(-2.5 * (ages - 6))),
                        srv_sel = 1 / (1 + exp(-2 * (ages - 3))),
                        Fmort = Fmort,
                        srv_q = 1)
+
+
+  # Plot ----
+  plot(y = sim$SSB, x = 1:nyrs, type = "l")
+  plot(y = sim$M, x = 1:nyrs, type = "l")
 
 
   # Set up Rceattle data -------------------------------------------------------------
@@ -149,8 +163,8 @@ test_that("Simulated simple model the same" {
   # * Data controls ----
   simData$nspp <- 1
   simData$styr <- 1
-  simData$endyr <- 20
-  simData$projyr <- 30
+  simData$endyr <- nyrs
+  simData$projyr <- nyrs+10
   simData$nsex <- 1
   simData$nages <- 15
   simData$minage <- 1
@@ -160,6 +174,7 @@ test_that("Simulated simple model the same" {
   simData$pop_age_transition_index <- 1
 
   # * Fleet control ----
+  simData$fleet_control <- GOAcod$fleet_control
   simData$fleet_control <- simData$fleet_control[c(1,3),] # BT and Trawl Fishery are both simple logistic
   simData$fleet_control$Fleet_name <- c("Survey", "Fishery")
   simData$fleet_control$Fleet_code <- 1:2
@@ -170,7 +185,7 @@ test_that("Simulated simple model the same" {
   simData$index_data <- data.frame(Fleet_name = "Survey",
                                    Fleet_code = 1,
                                    Species = 1,
-                                   Year = 1:20,
+                                   Year = 1:nyrs,
                                    Month = 0,
                                    Selectivity_block = 1,
                                    Q_block = 1,
@@ -181,7 +196,7 @@ test_that("Simulated simple model the same" {
   simData$catch_data <- data.frame(Fleet_name = "Fishery",
                                    Fleet_code = 2,
                                    Species = 1,
-                                   Year = 1:20,
+                                   Year = 1:nyrs,
                                    Month = 0,
                                    Selectivity_block = 1,
                                    Catch = sim$ObsCatch,
@@ -196,7 +211,7 @@ test_that("Simulated simple model the same" {
                                  Species = 1,
                                  Sex = 0,
                                  Age0_Length1 = 0,
-                                 Year = 1:20,
+                                 Year = 1:nyrs,
                                  Month = 0,
                                  Sample_size = rowSums(tmp)),
                       tmp
@@ -210,7 +225,7 @@ test_that("Simulated simple model the same" {
                                    Species = 1,
                                    Sex = 0,
                                    Age0_Length1 = 0,
-                                   Year = 1:20,
+                                   Year = 1:nyrs,
                                    Month = 0,
                                    Sample_size = rowSums(tmp)),
                         tmp
@@ -279,21 +294,25 @@ test_that("Simulated simple model the same" {
   )
 
   # * Environmental data ----
-  simData$env_data <- data.frame(Year = 1:20,
+  simData$env_data <- data.frame(Year = 1:nyrs,
                                  EnvData = 1)
 
 
   # * Relative foraging rate (days) ----
-  pyrs <- as.data.frame(matrix(1, nrow = 20, ncol = 15))
+  pyrs <- as.data.frame(matrix(1, nrow = nyrs, ncol = 15))
   colnames(pyrs) <- paste0("Age",1:15)
   simData$Pyrs <- cbind(data.frame(Species = 1,
                                    Sex = 0,
-                                   Year = 1:20),
+                                   Year = 1:nyrs),
                         pyrs
   )
 
+  simData$diet_data <- GOAcod$b
+  simData$diet_data <- GOAcod$diet_data
+
 
   # Fit Rceattle -------------------------------------------------------------
+  # - Fixed M
   ss_run <- Rceattle::fit_mod(data_list = simData,
                               inits = NULL, # Initial parameters = 0
                               file = NULL, # Don't save
@@ -303,9 +322,46 @@ test_that("Simulated simple model the same" {
                               phase = TRUE,
                               verbose = 1)
 
-  plot(x = sim$SSB, y = ss_run$quantities$ssb[1,1:20]); abline(1,1)
-  plot(x = sim$Total_Biom, y = ss_run$quantities$biomass[1,1:20], ylab = "Rceattle biomass", xlab = "True biomass"); abline(1,1)
-  plot(x = sim$NAA[1:20,1], y = ss_run$quantities$R[1,1:20]); abline(1,1)
+  plot(x = sim$SSB, y = ss_run$quantities$ssb[1,1:nyrs]); abline(1,1)
+  plot(x = sim$Total_Biom, y = ss_run$quantities$biomass[1,1:nyrs], ylab = "Rceattle biomass", xlab = "True biomass"); abline(1,1)
+  plot(x = sim$NAA[1:nyrs,1], y = ss_run$quantities$R[1,1:nyrs]); abline(1,1)
+
+  # - IID M
+  ss_run_re <- Rceattle::fit_mod(data_list = simData,
+                              inits = NULL, # Initial parameters = 0
+                              file = NULL, # Don't save
+                              estimateMode = 0, # Estimate
+                              M1Fun = build_M1(M1_model = 1,
+                                               M1_re = 2), # Estimate M with IID year devs
+                              random_rec = FALSE, # No random recruitment
+                              msmMode = 0, # Single species mode
+                              phase = TRUE,
+                              verbose = 1)
+
+  plot(x = sim$SSB, y = ss_run_re$quantities$ssb[1,1:nyrs]); abline(1,1)
+  plot(x = sim$Total_Biom, y = ss_run_re$quantities$biomass[1,1:nyrs], ylab = "Rceattle biomass", xlab = "True biomass"); abline(1,1)
+  plot(x = sim$NAA[1:nyrs,1], y = ss_run_re$quantities$R[1,1:nyrs]); abline(1,1)
+  plot(x = sim$M[1:nyrs], y = ss_run_re$quantities$M1_at_age[1,1,1,1:nyrs]); abline(1,1)
+
+  # - AR1 M
+  ss_run_AR1 <- Rceattle::fit_mod(data_list = simData,
+                                 inits = NULL, # Initial parameters = 0
+                                 file = NULL, # Don't save
+                                 estimateMode = 0, # Estimate
+                                 M1Fun = build_M1(M1_model = 1,
+                                                  M1_re = 5), # Estimate M with AR1 year devs
+                                 random_rec = FALSE, # No random recruitment
+                                 msmMode = 0, # Single species mode
+                                 phase = TRUE,
+                                 verbose = 1)
+
+  plot(x = sim$SSB, y = ss_run_AR1$quantities$ssb[1,1:nyrs]); abline(1,1)
+  plot(x = sim$Total_Biom, y = ss_run_AR1$quantities$biomass[1,1:nyrs], ylab = "Rceattle biomass", xlab = "True biomass"); abline(1,1)
+  plot(x = sim$NAA[1:nyrs,1], y = ss_run_AR1$quantities$R[1,1:nyrs]); abline(1,1)
+  plot(x = sim$M[1:nyrs], y = ss_run_AR1$quantities$M1_at_age[1,1,1,1:nyrs]); abline(1,1)
+
+
+
 
   expect_equal(sim$SSB[1], 45.80138, tolerance = 0.0001)
 })

@@ -141,7 +141,7 @@ Type max2(Type x, Type y){
 
 template<class Type>
 Type objective_function<Type>::operator() () {
-    using namespace density; // necessary to use AR1, SCALE, SEPARABLE
+  using namespace density; // necessary to use AR1, SCALE, SEPARABLE
 
   // ------------------------------------------------------------------------- //
   // 1. MODEL CONFIGURATION                                                    //
@@ -470,10 +470,13 @@ Type objective_function<Type>::operator() () {
   vector<Type>  Finit = exp(ln_Finit);                                              // Initial F for non-equilibrium age-structure
   vector<Type>  srr_mult(beta_rec_pars.cols()); srr_mult.setZero();                 // Environmental design matrix for rec
   vector<Type>  index_q_mult(index_q_beta.cols()); index_q_mult.setZero();          // Environmental design matrix for q
+  vector<Type>  M1_mult(M1_beta.dim(2)); M1_mult.setZero();                         // Environmental design matrix for M1
   vector<Type>  beta_rec_tmp(beta_rec_pars.cols()); beta_rec_tmp.setZero();         // Temporary vector to store beta parameters by species for matrix mult
   vector<Type>  env_rec_tmp(beta_rec_pars.cols()); env_rec_tmp.setZero();           // Temporary vector to store env data by year for matrix mult
   vector<Type>  beta_q_tmp(index_q_beta.cols()); beta_q_tmp.setZero();              // Temporary vector to store Q beta parameters by species for matrix mult
   vector<Type>  env_q_tmp(index_q_beta.cols()); env_q_tmp.setZero();                // Temporary vector to store Q env data by year for matrix mult
+  vector<Type>  beta_M1_tmp(M1_beta.dim(2)); beta_M1_tmp.setZero();                 // Temporary vector to store beta parameters by species for matrix mult
+  vector<Type>  env_M1_tmp(M1_beta.dim(2)); env_M1_tmp.setZero();                   // Temporary vector to store env data by year for matrix mult
   matrix<Type>  proj_F(nspp, nyrs); proj_F.setZero();                               // Projected F (Fabc/Ftac/etc) using harvest control rule
 
 
@@ -997,10 +1000,17 @@ Type objective_function<Type>::operator() () {
 
     // 6.2. TOTAL MORTALITY-AT-AGE
     for(sp = 0; sp < nspp; sp++) {
-      for(age = 0; age < nages(sp); age++) {
-        for(yr = 0; yr < nyrs; yr++) {
-          for(sex = 0; sex < nsex(sp); sex ++){
-            M1_at_age(sp, sex, age, yr) = exp(ln_M1(sp, sex, age) + ln_M1_dev(sp, sex, yr));
+      for(sex = 0; sex < nsex(sp); sex ++){
+        for(int i = 0; i < M1_beta.dim(2); i++){
+          beta_M1_tmp = M1_beta(sp, sex, i);
+        }
+        for(age = 0; age < nages(sp); age++) {
+          for(yr = 0; yr < nyrs; yr++) {
+            // Matrix multiplication from sliced arrays doesn't work
+            env_M1_tmp = env_index_M1.row(yr);
+            M1_mult = env_M1_tmp * beta_M1_tmp;
+
+            M1_at_age(sp, sex, age, yr) = exp(ln_M1(sp, sex, age) + ln_M1_dev(sp, sex, yr) + M1_mult.sum());
             M_at_age(sp, sex, age, yr) = M1_at_age(sp, sex, age, yr) + M2_at_age(sp, sex, age, yr);
             Z_at_age(sp, sex, age, yr) = M1_at_age(sp, sex, age, yr) + F_spp_at_age(sp, sex, age, yr) + M2_at_age(sp, sex, age, yr);
             // S_at_age(sp, sex, age, yr) = exp(-Z_at_age(sp, sex, age, yr));
