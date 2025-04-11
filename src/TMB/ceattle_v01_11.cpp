@@ -62,6 +62,7 @@ Type posfun(Type x, Type eps, Type &penalty) {
   return ans;
 }
 
+
 // Dirichlet multinomial (from WHAM)
 template<class Type>
 Type ddirmultinom(vector<Type> obs, vector<Type> alpha, int do_log)
@@ -128,179 +129,6 @@ vector<Type> first_difference(const vector<Type> &x)
   return tmp;
 }
 
-// Function for elementwise division
-template <class Type>
-matrix<Type> elem_div(matrix<Type> m1, matrix<Type> m2){
-
-  int m1r = m1.rows();
-  int m2r = m2.rows();
-
-  int m1c = m1.cols();
-  int m2c = m1.cols();
-
-  if(m1r != m2r){
-    std::cerr << "Error -- number of rows in matrices does not match" << std::endl;
-    return(0);
-  }
-
-  if(m1c != m2c){
-    std::cerr << "Error -- number of columns in matrices does not match" << std::endl;
-    return(0);
-  }
-
-  matrix<Type> m3(m1r, m1c);
-
-  // Elementwise division
-  for(int r = 0; r < m1r; r++){
-    for(int c = 0; c < m1c; c++){
-      m3(r, c) = m1(r, c) / m2(r, c);
-    }
-  }
-  return m3;
-}
-
-// Function for elementwise matrix exponential functions
-template <class Type>
-matrix<Type> elem_pow(matrix<Type> m1, Type exponent){
-
-  int nrow = m1.rows();
-  int ncol = m1.cols();
-
-  matrix<Type> m2(nrow, ncol);
-
-  // Elementwise division
-  for(int r = 0; r < nrow; r++){
-    for(int c = 0; c < ncol; c++){
-      m2(r, c) = pow( m1(r, c), exponent);
-    }
-  }
-  return m2;
-}
-
-// Function for to extract a layer from an array
-template<class Type>
-matrix<Type> matrix_from_array_d3(array<Type> a1, int sheet){
-  vector<int> a1_dim = a1.dim;
-  matrix<Type> m1(a1_dim(0), a1_dim(1));
-
-  // If array is array
-  if(a1_dim.size() == 3){
-    for(int row = 0; row < a1_dim(0); row++){
-      for(int col = 0; col < a1_dim(1); col++){
-        m1(row, col) = a1(row, col, sheet);
-      }
-    }
-  }
-
-  // If array is matrix
-  if(a1_dim.size() == 2){
-    for(int row = 0; row < a1_dim(0); row++){
-      for(int col = 0; col < a1_dim(1); col++){
-        m1(row, col) = a1(row, col);
-      }
-    }
-  }
-  return m1;
-}
-
-// Function for to extract a layer from an array
-template<class Type>
-matrix<Type> matrix_from_array_d1(array<Type> a1, int sheet){
-  vector<int> a1_dim = a1.dim;
-  matrix<Type> m1(a1_dim(1), a1_dim(2));
-
-  // If array is array
-  if(a1_dim.size() == 3){
-    for(int row = 0; row < a1_dim(1); row++){
-      for(int col = 0; col < a1_dim(2); col++){
-        m1(row, col) = a1(sheet, row, col);
-      }
-    }
-  }
-
-  // If array is matrix
-  if(a1_dim.size() == 2){
-    for(int row = 0; row < a1_dim(0); row++){
-      for(int col = 0; col < a1_dim(1); col++){
-        m1(row, col) = a1(row, col);
-      }
-    }
-  }
-  return m1;
-}
-
-// Function for the multiplaction of a vector and matrix: in r "v %*% m"
-template <class Type>
-vector<Type> vec_mat_prod(vector<Type> v1, matrix<Type> m1){
-
-  if(v1.size() != m1.rows()){
-    std::cerr << "Error -- length of vector does not equal the number of rows in the matrix" << std::endl;
-    return(0);
-  }
-
-  vector<Type> v2(m1.rows());
-  vector<Type> v3(m1.cols());
-
-  // Vector * matrix
-  for(int c = 0; c < m1.cols(); c++){
-    v2 = m1.col(c);
-    v3(c) = (v1 * v2).sum();
-  }
-  return v3;
-}
-
-
-// function to get row vector from array
-template<class Type>
-vector<Type> col_from_3D_array(array<Type> a1, int col, int sheet){
-  vector<int> a1_dim = a1.dim;
-  vector<Type> v1(a1_dim(0));
-
-  // If array is array
-  if(a1_dim.size() == 3){
-    for(int row = 0; row < a1_dim(0); row++){
-      v1(row) = a1(row, col, sheet);
-    }
-  }
-
-  // If array is matrix
-  if(a1_dim.size() == 2){
-    for(int row = 0; row < a1_dim(0); row++){
-      v1(row) = a1(row, col);
-    }
-  }
-  return v1;
-}
-
-
-// Function to trim matrix
-template<class Type>
-matrix<Type> trim_matrix(matrix<Type> m1, int nrow, int ncol){
-  // dim is a DATA_IMATRIX with structure nrow, ncol, ID # of object we wish to interogate
-  matrix<Type> m2(nrow, ncol);
-
-  // If array is matrix
-  for(int row = 0; row < nrow; row++){
-    for(int col = 0; col < ncol; col++){
-      m2(row, col) = m1(row, col);
-    }
-  }
-  return m2;
-}
-
-// Function to trim vector
-template<class Type>
-matrix<Type> trim_vector(vector<Type> v1, int length){
-  // dim is a DATA_IMATRIX with structure nrow, ncol, ID # of object we wish to interogate
-  vector<Type> v2(length);
-
-  // If array is matrix
-  for(int i = 0; i < length; i++){
-    v2(i) = v1(i);
-  }
-  return v2;
-}
-
 
 // Function to get max of two values (differentiable)
 // https://groups.google.com/g/tmb-users/c/QAVmgj66OC0
@@ -313,6 +141,8 @@ Type max2(Type x, Type y){
 
 template<class Type>
 Type objective_function<Type>::operator() () {
+    using namespace density; // necessary to use AR1, SCALE, SEPARABLE
+
   // ------------------------------------------------------------------------- //
   // 1. MODEL CONFIGURATION                                                    //
   // ------------------------------------------------------------------------- //
@@ -415,13 +245,7 @@ Type objective_function<Type>::operator() () {
   // 2. MODEL INPUTS                                                           //
   // ------------------------------------------------------------------------- //
 
-  // 2.1. FIXED VALUES
-  // Type sd_ration = 0.05;                  // SD of ration likelihood
-
-
-  // 2.2. DIMENSIONS
-
-  // -- 2.2.2. Species attributes
+  // -- 2.1. Species attributes
   DATA_IVECTOR( nsex );                   // Number of sexes to be modelled; 1 = sexes combined/single sex, 2 = 2 sexes
   DATA_VECTOR( spawn_month );             // Month of spawning to adjust mortality
   DATA_IVECTOR( nages );                  // Number of species (prey) ages
@@ -432,8 +256,9 @@ Type objective_function<Type>::operator() () {
   DATA_VECTOR( MSSB0 );                   // SB0 from projecting the model forward in multi-species mode under no fishing
   DATA_VECTOR( MSB0 );                    // B0 from projecting the model forward in multi-species mode under no fishing
 
-  // -- M1_at_age attributes
+  // -- 2.2. M1_at_age specifications
   DATA_IVECTOR(M1_model);
+  DATA_IVECTOR(M1_re);
   DATA_IVECTOR(M1_use_prior);
   DATA_IVECTOR(M2_use_prior);
   DATA_VECTOR(M_prior);
@@ -465,7 +290,7 @@ Type objective_function<Type>::operator() () {
   DATA_ARRAY( age_error );                // Array of aging error matrices for each species; n = [nspp, nages, nages]
 
   // -- 2.3.5. Growth
-  DATA_ARRAY( weight );                       // Weight-at-age by year; n = [nweight, sex, nages, nyrs]
+  DATA_ARRAY( weight );                   // Weight-at-age by year; n = [nweight, sex, nages, nyrs]
   // DATA_ARRAY( laa );                      // Length-at-age by year; n = [nspp, sex, nages, nyrs]
 
   // 2.3.6. Diet data
@@ -475,8 +300,9 @@ Type objective_function<Type>::operator() () {
   DATA_IMATRIX( diet_ctl );               // Info on pred, prey, predA, preyA U matrix (mean wt_hat of prey in each pred age)
 
   // 2.3.7. Environmental data
-  DATA_MATRIX( env_index );               // Matrix o environmental predictors such as bottom temperature
-  DATA_MATRIX( env_index_srr );           // Matrix o environmental predictors for recruitment
+  DATA_MATRIX( env_index );               // Matrix of environmental predictors such as bottom temperature
+  DATA_MATRIX( env_index_srr );           // Matrix of environmental predictors for recruitment
+  DATA_MATRIX( env_index_M1 );            // Matrix of environmental predictors for M1
 
   // 2.4. INPUT PARAMETERS
   // -- 2.4.1. Bioenergetics parameters (BP)
@@ -508,28 +334,31 @@ Type objective_function<Type>::operator() () {
   // -- 3.1. Recruitment parameters
   PARAMETER_MATRIX( rec_pars );                   // Stock-recruit parameters: col1 = mean rec, col2 = SRR alpha, col3 = SRR beta
   PARAMETER_MATRIX( beta_rec_pars );              // Regression parameters for environmental linkage to stock-recruit function row is spp
-  PARAMETER_VECTOR( R_ln_sd );               // Standard deviation of recruitment deviations
+  PARAMETER_VECTOR( R_ln_sd );                    // Standard deviation of recruitment deviations
   PARAMETER_MATRIX( rec_dev );                    // Annual recruitment deviation; n = [nspp, nyrs]
   PARAMETER_MATRIX( init_dev );                   // Initial abundance-at-age # NOTE: Need to figure out how to best vectorize this
 
-  // -- 3.2. Population parameters
+  // -- 3.2. Natural mortality (M1)
   PARAMETER_ARRAY( ln_M1 );                       // Natural mortality (residual if multispecies mode or total if single species mode); n = [nspp, nsex, nages]
   PARAMETER_ARRAY( ln_M1_dev );                   // Natural mortality annual deviate; n = [nspp, nsex, nyrs]
+  PARAMETER_ARRAY( M1_beta );                     // Regression coefficients for environmnetally linked M1; n = [nspp, nsex, n indices]
+  PARAMETER_ARRAY( M1_rho );                      // Correlation for AR1 random effects on age and year; n = [nspp, nsex, 2]
+  PARAMETER_ARRAY( M1_dev_ln_sd );                // Standard deviation of random effects on age and year; n = [nspp, nsex, 2]
 
   // -- 3.3. Fishing mortality parameters
   PARAMETER_VECTOR( ln_Flimit );                  // Target fishing mortality for projections on log scale; n = [nspp, nyrs]
   PARAMETER_VECTOR( ln_Ftarget );                 // Target fishing mortality for projections on log scale; n = [nspp, nyrs]
   PARAMETER_VECTOR( ln_Finit );                   // Fishing mortality for initial population to induce non-equilibrium; n = [nspp]
   PARAMETER_VECTOR( proj_F_prop );                // Proportion of fishing mortality from each fleet for projections; n = [n_fsh]
-  PARAMETER_MATRIX( ln_F );                      // Annual fishing mortality; n = [n_fsh, nyrs] # NOTE: The size of this will likely change
+  PARAMETER_MATRIX( ln_F );                       // Annual fishing mortality; n = [n_fsh, nyrs] # NOTE: The size of this will likely change
 
   // -- 3.4. Survey catchability parameters
-  PARAMETER_VECTOR( index_ln_q );                   // Survey catchability; n = [n_index]
-  PARAMETER_VECTOR( index_q_rho );                  // Correlation parameter for AR1 on natural scale; n = [n_index]
-  PARAMETER_MATRIX( index_q_beta );                 // Survey catchability regression coefficient and rho parameters
-  // PARAMETER_VECTOR( index_q_pow );               // Survey catchability power coefficient q * B ^ q_pow or beta ln(q_y) = q_mut + beta * index_y; n = [n_index]
-  PARAMETER_MATRIX( index_q_dev );               // Annual survey catchability deviates; n = [n_index, nyrs_hind]
-  PARAMETER_VECTOR( index_q_ln_sd );             // Log standard deviation of prior on survey catchability; n = [1, n_index]
+  PARAMETER_VECTOR( index_ln_q );                 // Survey catchability; n = [n_index]
+  PARAMETER_VECTOR( index_q_rho );                // Correlation parameter for AR1 on natural scale; n = [n_index]
+  PARAMETER_MATRIX( index_q_beta );               // Survey catchability regression coefficient and rho parameters
+  // PARAMETER_VECTOR( index_q_pow );             // Survey catchability power coefficient q * B ^ q_pow or beta ln(q_y) = q_mut + beta * index_y; n = [n_index]
+  PARAMETER_MATRIX( index_q_dev );                // Annual survey catchability deviates; n = [n_index, nyrs_hind]
+  PARAMETER_VECTOR( index_q_ln_sd );              // Log standard deviation of prior on survey catchability; n = [1, n_index]
   PARAMETER_VECTOR( index_q_dev_ln_sd );// Log standard deviation of time varying survey catchability; n = [1, n_index]
 
   // -- 3.5. Selectivity parameters
@@ -3483,7 +3312,7 @@ Type objective_function<Type>::operator() () {
   }
 
 
-   // Slot 3 -- EMPTY
+  // Slot 3 -- EMPTY
 
 
   // Slot 3-4 -- Selectivity
@@ -3587,7 +3416,6 @@ Type objective_function<Type>::operator() () {
 
     // QAR1 deviates fit to environmental index (sensu Rogers et al 2024; 10.1093/icesjms/fsae005)
     if(est_index_q(flt) == 6){
-      using namespace density;
 
       // AR1 process error
       Type rho=rho_trans(index_q_rho(flt));
@@ -3786,32 +3614,126 @@ Type objective_function<Type>::operator() () {
   // Slots 14-15 -- M_at_age prior
   // M1_model 0 = use fixed natural mortality from M1_base, 1 = estimate sex- and age-invariant M1_at_age, 2 = sex-specific (two-sex model), age-invariant M1_at_age, 3 =   estimate sex- and age-specific M1_at_age.
   for(sp = 0; sp < nspp; sp++) {
-    Type rho=rho_trans(index_q_rho(flt));
-
-    // PRIORs
+    // PRIORS
     // Prior on M1_at_age only and using species specific M1_at_age
     if( (M1_model(sp) == 1) & (M1_use_prior(sp) == 1) & (M2_use_prior(sp) == 0)){
       jnll_comp(15, sp) -= dnorm(ln_M1(sp, 0, 0), log(M_prior(sp)) + square(M_prior_sd(sp))/2, M_prior_sd(sp), true);
     }
 
     // Prior on M1_at_age only and using species and sex specific M1_at_age
-    for(sex = 0; sex < nsex(sp); sex ++){
-      if( (M1_model(sp) == 2) & (M1_use_prior(sp) == 1) & (M2_use_prior(sp) == 0)){
+    if( (M1_model(sp) == 2) & (M1_use_prior(sp) == 1) & (M2_use_prior(sp) == 0)){
+      for(sex = 0; sex < nsex(sp); sex ++){
         jnll_comp(15, sp) -= dnorm(ln_M1(sp, sex, 0), log(M_prior(sp)) + square(M_prior_sd(sp))/2, M_prior_sd(sp), true);
       }
+    }
 
-      // Prior on M1_at_age only and using species, sex, and age specific M1_at_age
-      for(age = 0; age < nages(sp); age++) {
-        if( (M1_model(sp) == 3) & (M1_use_prior(sp) == 1) & (M2_use_prior(sp) == 0)){
+    // Prior on M1_at_age only and using species, sex, and age specific M1_at_age
+    if( (M1_model(sp) == 3) & (M1_use_prior(sp) == 1) & (M2_use_prior(sp) == 0)){
+      for(sex = 0; sex < nsex(sp); sex ++){
+        for(age = 0; age < nages(sp); age++) {
           jnll_comp(15, sp) -= dnorm(ln_M1(sp, sex, age), log(M_prior(sp)) + square(M_prior_sd(sp))/2, M_prior_sd(sp), true);
         }
+      }
+    }
 
-        // Prior on total M_at_age (M1_at_age and M2_at_age)
-        for(yr = 0; yr < nyrs; yr++) {
-          if( (M1_use_prior(sp) == 1) & (M2_use_prior(sp) == 1)){
+    // Prior on total M_at_age (M1_at_age and M2_at_age)
+    if( M2_use_prior(sp) == 1){
+      for(sex = 0; sex < nsex(sp); sex ++){
+        for(age = 0; age < nages(sp); age++) {
+          for(yr = 0; yr < nyrs_hind; yr++) {
             jnll_comp(15, sp) -= dnorm(log(M_at_age(sp, sex, age, yr)), log(M_prior(sp)) + square(M_prior_sd(sp))/2, M_prior_sd(sp), true);
           }
         }
+      }
+    }
+
+
+    // RANDOM EFFECTS LIKELIHOOD
+    // M1 random effects are applied to each species if M1_model = 1 or each species AND sex if M1_model = 2.
+    // Variance and correlation coefficients are species-specific, but sex-invariant.
+    // - M1_re = 0: No random effects (default).
+    // - M1_re = 1: Random effects varies by age, but uncorrelated (IID) and constant over years.
+    // - M1_re = 2: Random effects varies by year, but uncorrelated (IID) and constant over ages.
+    // - M1_re = 3: Random effects varies by year and age, but uncorrelated (IID).
+    // - M1_re = 4: Correlated AR1 random effects varies by age, but constant over years.
+    // - M1_re = 5: Correlated AR1 random effects varies by year, but constant over ages.
+    // - M1_re = 6: Correlated 2D-AR1 random effects varies by year and age.
+
+    // M1_re = 1/4: Random effects varies by age (IID or AR1) and constant over years.
+    if((M1_re(sp) == 1) | (M1_re(sp) == 4)){
+      Type sigma_M = exp(M1_dev_ln_sd(sp, 0));
+      Type rho_M_a = rho_trans(M1_rho(sp, 0, 0));
+      Type Sigma_M = pow(pow(sigma_M, 2) / (1 - pow(rho_M_a, 2)), 0.5);
+
+
+      // likelihood of M deviations
+      vector<Type> M_re_age(nages(sp)); M_re_age.setZero();
+      for(age = 0; age < nages(sp); age++) {
+        M_re_age(age) = ln_M1_dev(sp, 0, age, 0);
+      }
+      jnll_comp(16, sp) += SCALE(AR1(rho_M_a), Sigma_M)(M_re_age);
+
+      // Add males for 2-sex M1
+      if(M1_model(sp) == 2){
+        for(age = 0; age < nages(sp); age++) {
+          M_re_age(age) = ln_M1_dev(sp, 1, age, 0);
+        }
+        jnll_comp(16, sp) += SCALE(AR1(rho_M_a), Sigma_M)(M_re_age);
+      }
+    }
+
+    // M1_re = 2/5: Random effects varies by year (IID or AR1) and constant over ages.
+    if((M1_re(sp) == 2) | (M1_re(sp) == 5)){
+
+      Type sigma_M = exp(M1_dev_ln_sd(sp, 0));
+      Type rho_M_y = rho_trans(M1_rho(sp, 0, 1));
+      Type Sigma_M = pow(pow(sigma_M, 2) / (1 - pow(rho_M_y, 2)), 0.5);
+
+
+      // likelihood of M deviations
+      vector<Type> M_re_yr(nyrs_hind); M_re_yr.setZero();
+      for(yr = 0; yr < nyrs_hind; yr++) {
+        M_re_yr(yr) = ln_M1_dev(sp, 0, 0, yr);
+      }
+      jnll_comp(16, sp) += SCALE(AR1(rho_M_y), Sigma_M)(M_re_yr);
+
+      // Add males for 2-sex M1
+      if(M1_model(sp) == 2){
+        for(yr = 0; yr < nyrs_hind; yr++) {
+          M_re_yr(yr) = ln_M1_dev(sp, 1, 0, yr);
+        }
+        jnll_comp(16, sp) += SCALE(AR1(rho_M_y), Sigma_M)(M_re_yr);
+      }
+    }
+
+
+    // M1_re = 3/6: Random effects varies by age and year (IID or 2D-AR1)
+    if((M1_re(sp) == 3) | (M1_re(sp) == 6)){
+
+      Type sigma_M = exp(M1_dev_ln_sd(sp, 0));
+      Type rho_M_a = rho_trans(M1_rho(sp, 0, 0));
+      Type rho_M_y = rho_trans(M1_rho(sp, 0, 1));
+      Type Sigma_M = pow(pow(sigma_M,2) / ((1-pow(rho_M_y,2))*(1-pow(rho_M_a,2))),0.5);
+
+
+      array<Type> M_re_a_yr(nages(sp), nyrs_hind);
+      for(age = 0; age < nages(sp); age++) {
+        for(yr = 0; yr < nyrs_hind; yr++) {
+          M_re_a_yr(age, yr) = ln_M1_dev(sp, 0, age, yr);
+        }
+      }
+
+      jnll_comp(16, sp) += SCALE(SEPARABLE(AR1(rho_M_a),AR1(rho_M_y)), Sigma_M)(M_re_a_yr); // must be array, not matrix!
+
+      // Add males for 2-sex M1
+      if(M1_model(sp) == 2){
+        for(age = 0; age < nages(sp); age++) {
+          for(yr = 0; yr < nyrs_hind; yr++) {
+            M_re_a_yr(age, yr) = ln_M1_dev(sp, 1, age, yr);
+          }
+        }
+
+        jnll_comp(16, sp) += SCALE(SEPARABLE(AR1(rho_M_a),AR1(rho_M_y)), Sigma_M)(M_re_a_yr); // must be array, not matrix!
       }
     }
   }

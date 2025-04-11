@@ -259,7 +259,7 @@ rearrange_dat <- function(data_list){
   data_list$NByageFixed <- NByageFixed
 
 
-  # 13 - Set up environmental indices
+  # 13 - Set up environmental indices ----
   # - Fill in missing years with column mean
   data_list$env_index <- merge(data_list$env_data, data.frame(Year = data_list$styr:data_list$projyr), all = TRUE)
   data_list$env_index <-  data_list$env_index %>%
@@ -268,8 +268,14 @@ rearrange_dat <- function(data_list){
     as.matrix()
 
   # - Create matrix for srr curve
-  if(sum(sapply(data_list$srr_env_indices, function(x) x>ncol(data_list$env_index))) > 0){stop("srr_env_indices greater than the number of indices included")}
-  data_list$env_index_srr <-  data_list$env_index[, data_list$srr_env_indices] %>%
+  if(sum(sapply(data_list$srr_indices, function(x) x>ncol(data_list$env_index))) > 0){stop("'srr_indices' greater than the number of indices included")}
+  data_list$env_index_srr <-  data_list$env_index[, data_list$srr_indices] %>%
+    as.matrix()
+
+
+  # - Create matrix for M1
+  if(sum(sapply(data_list$M1_indices, function(x) x>ncol(data_list$env_index))) > 0){stop("'M1_indices' greater than the number of indices included")}
+  data_list$env_index_M1 <-  data_list$env_index[, data_list$M1_indices] %>%
     as.matrix()
 
 
