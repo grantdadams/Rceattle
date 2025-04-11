@@ -101,50 +101,196 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # 2. Natural mortality (M1) ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  M1_ind = 1 # Generic indices for looping
+  M1_dev_ind = 0
+  M1_beta_ind = 0
+  M1_dev_ln_sd_ind = 0
 
-  # -- Map out natural mortality
-  M1_ind = 1 # Generic ind for looping
+  # -- Map out natural mortality parameters
+  map_list$ln_M1 <- replace(map_list$ln_M1,
+                            values = rep(NA, length(map_list$ln_M1)))
+  map_list$M1_beta <- replace(map_list$M1_beta,
+                              values = rep(NA, length(map_list$M1_beta)))
+  map_list$ln_M1_dev <- replace(map_list$ln_M1_dev,
+                                values = rep(NA, length(map_list$ln_M1_dev)))
+  map_list$M1_dev_ln_sd <- replace(map_list$M1_dev_ln_sd,
+                                   values = rep(NA, length(map_list$M1_dev_ln_sd)))
+  map_list$M1_rho <- replace(map_list$M1_rho,
+                             values = rep(NA, length(map_list$M1_rho)))
+
+  # -- Loop through and turn on based on model
   for(sp in 1:data_list$nspp){
-    # Dim = nspp, nsex (2), nages
 
-    # Turn off all
-    map_list$ln_M1[sp,,] <- NA
-
-    # Turn on
+    # * Fixed effects ----
     # - M1_model = 1: sex- and age-invariant M1
     if(data_list$M1_model[sp] == 1){
       map_list$ln_M1[sp,,1:data_list$nages[sp]] <- M1_ind
       M1_ind = M1_ind + 1
     }
 
-    # - M1_model = 2: sex-specific, age-invariant M1
+    # - M1_model = 2: sex-specific, but age-invariant M1
     if(data_list$M1_model[sp] == 2){
-      if(data_list$nsex[sp] == 1){ # One sex population
-        map_list$ln_M1[sp,,1:data_list$nages[sp]] <- M1_ind
-        M1_ind = M1_ind + 1
-      }
-      if(data_list$nsex[sp] == 2){ # Two sex population
-        map_list$ln_M1[sp,1,1:data_list$nages[sp]] <- M1_ind # Females
-        map_list$ln_M1[sp,2,1:data_list$nages[sp]] <- M1_ind + 1 # Males
-        M1_ind = M1_ind + 2
-      }
+      map_list$ln_M1[sp,1,1:data_list$nages[sp]] <- M1_ind # Females
+      map_list$ln_M1[sp,2,1:data_list$nages[sp]] <- M1_ind + 1 # Males
+      M1_ind = M1_ind + 2
     }
 
     # - M1_model = 3: sex-specific, age-specific M1
     if(data_list$M1_model[sp] == 3){
       if(data_list$nsex[sp] == 1){ # One sex population
-        map_list$ln_M1[sp,1,1:data_list$nages[sp]] <- M1_ind: (M1_ind + data_list$nages[sp] - 1) # Females (one-sex though)
-        map_list$ln_M1[sp,2,1:data_list$nages[sp]] <- M1_ind: (M1_ind + data_list$nages[sp] - 1) # Males (one-sex though)
+        map_list$ln_M1[sp,1, 1:data_list$nages[sp]] <- M1_ind: (M1_ind + data_list$nages[sp] - 1) # Females (one-sex though)
+        map_list$ln_M1[sp,2,] <- map_list$ln_M1[sp,1,]
         M1_ind = M1_ind + data_list$nages[sp]
       }
       if(data_list$nsex[sp] == 2){ # Two sex population
         # Females
-        map_list$ln_M1[sp,1,1:data_list$nages[sp]] <- M1_ind: (M1_ind + data_list$nages[sp] - 1)
+        map_list$ln_M1[sp,1, 1:data_list$nages[sp]] <- M1_ind: (M1_ind + data_list$nages[sp] - 1)
         M1_ind = M1_ind + data_list$nages[sp]
 
         # Males
-        map_list$ln_M1[sp,2,1:data_list$nages[sp]] <- M1_ind: (M1_ind + data_list$nages[sp] - 1)
+        map_list$ln_M1[sp,2, 1:data_list$nages[sp]] <- M1_ind: (M1_ind + data_list$nages[sp] - 1)
         M1_ind = M1_ind + data_list$nages[sp]
+      }
+    }
+
+    # - M1_model = 4: environmentally driven sex- and age-invariant M1
+    if(data_list$M1_model[sp] == 4){
+      # Mean M
+      map_list$ln_M1[sp,,1:data_list$nages[sp]] <- M1_ind
+      M1_ind = M1_ind + 1
+
+      # - Betas
+      map_list$M1_beta[sp,1,] <- M1_beta_ind + 1:ncol(map_list$M1_beta[sp,,])
+      map_list$M1_beta[sp,2,] <- map_list$M1_beta[sp,1,]
+      M1_beta_ind = M1_beta_ind + ncol(map_list$M1_beta[sp,,])
+    }
+
+    # - M1_model = 5: environmentally driven sex-specific, but age-invariant M1
+    if(data_list$M1_model[sp] == 2){
+      if(data_list$nsex[sp] == 1){ # One sex population
+        # - Mean M
+        map_list$ln_M1[sp,,1:data_list$nages[sp]] <- M1_ind
+        M1_ind = M1_ind + 1
+
+        # - Betas
+        map_list$M1_beta[sp,1,] <- M1_beta_ind + 1:ncol(map_list$M1_beta[sp,,])
+        map_list$M1_beta[sp,2,] <- map_list$M1_beta[sp,1,]
+        M1_beta_ind = M1_beta_ind + ncol(map_list$M1_beta[sp,,])
+      }
+      if(data_list$nsex[sp] == 2){ # Two sex population
+        # - Mean M
+        map_list$ln_M1[sp, 1, 1:data_list$nages[sp]] <- M1_ind # Females
+        map_list$ln_M1[sp, 2, 1:data_list$nages[sp]] <- M1_ind + 1 # Males
+        M1_ind = M1_ind + 2
+
+        # - Betas
+        # -- Females
+        map_list$M1_beta[sp,1,] <- M1_beta_ind + 1:ncol(map_list$M1_beta[sp,,]);
+        M1_beta_ind = M1_beta_ind + ncol(map_list$M1_beta[sp,,])
+
+        # -- Males
+        map_list$M1_beta[sp,2,] <- M1_beta_ind + 1:ncol(map_list$M1_beta[sp,,]);
+        M1_beta_ind = M1_beta_ind + ncol(map_list$M1_beta[sp,,])
+      }
+    }
+
+
+    # * Random effects ----
+    # - M1_re = 0: No random effects (default).
+    # - M1_re = 1: Random effects varies by age, but uncorrelated (IID) and constant over years.
+    # - M1_re = 2: Random effects varies by year, but uncorrelated (IID) and constant over ages.
+    # - M1_re = 3: Random effects varies by year and age, but uncorrelated (IID).
+    # - M1_re = 4: Correlated AR1 random effects varies by age, but constant over years.
+    # - M1_re = 5: Correlated AR1 random effects varies by year, but constant over ages.
+    # - M1_re = 6: Correlated 2D-AR1 random effects varies by year and age.
+
+    # - M1_re = 1/4: Random effects varies by age (IID or AR1) and constant over years.
+    if(data_list$M1_re[sp] %in% c(1, 4)){
+      if(data_list$M1_model[sp] == 1){ # Sex-invariant
+        # - Random effects
+        map_list$ln_M1_dev[sp,1, 1:data_list$nages[sp],] <- M1_dev_ind + 1:data_list$nages[sp]
+        map_list$ln_M1_dev[sp,2,,] <- map_list$ln_M1_dev[sp,1,,]
+        M1_dev_ind = M1_dev_ind + data_list$nages[sp]
+      }
+
+      if(data_list$M1_model[sp] == 2){ # Two sex population and sex-specific
+        # - Random effects
+        # -- Females
+        map_list$ln_M1_dev[sp, 1, 1:data_list$nages[sp],] <- M1_dev_ind + 1:data_list$nages[sp]
+        M1_dev_ind = M1_dev_ind + data_list$nages[sp]
+
+        # -- Males
+        map_list$ln_M1_dev[sp, 2, 1:data_list$nages[sp],] <- M1_dev_ind + 1:data_list$nages[sp]
+        M1_dev_ind = M1_dev_ind + data_list$nages[sp]
+      }
+
+
+      # - Standard deviation (shared across sexes)
+      map_list$M1_dev_ln_sd[sp,] = sp
+
+      # AR1 correlation (shared across sexes)
+      if(data_list$M1_re[sp] == 4){
+        map_list$M1_rho[sp,,1] =  sp
+      }
+    }
+
+    # - M1_re = 2/5: Random effects varies by year (IID or AR1) and constant over ages
+    if(data_list$M1_re[sp] %in% c(2, 5)){
+      if(data_list$M1_model[sp] == 1){ # Sex-invariant
+        # - Random effects
+        map_list$ln_M1_dev[sp,1,1:data_list$nages[sp], 1:nyrs_hind] <- rep(M1_dev_ind + 1:nyrs_hind, each = data_list$nages[sp])
+        map_list$ln_M1_dev[sp,2,,] <- map_list$ln_M1_dev[sp,1,,]
+        M1_dev_ind = M1_dev_ind + nyrs_hind
+      }
+
+      if(data_list$nsex[sp] == 2 & data_list$M1_model[sp] == 2){ # Two sex population and sex-specific
+        # - Random effects
+        # -- Females
+        map_list$ln_M1_dev[sp,1, 1:data_list$nages[sp], 1:nyrs_hind] <- rep(M1_dev_ind + 1:nyrs_hind, each = data_list$nages[sp])
+        M1_dev_ind = M1_dev_ind + nyrs_hind
+
+        # -- Males
+        map_list$ln_M1_dev[sp,2, 1:data_list$nages[sp], 1:nyrs_hind] <- rep(M1_dev_ind + 1:nyrs_hind, each = data_list$nages[sp])
+        M1_dev_ind = M1_dev_ind + nyrs_hind
+      }
+
+      # - Standard deviation (shared across sexes)
+      map_list$M1_dev_ln_sd[sp,] = sp
+
+      # AR1 correlation (shared across sexes)
+      if(data_list$M1_re[sp] == 5){
+        map_list$M1_rho[sp,,2] =  sp #FIXME: may want sex-varying?? Hard to estimate
+      }
+    }
+
+    # - M1_re = 3/6: Random effects varies by age and year (IID or 2D-AR1)
+    if(data_list$M1_re[sp] %in% c(3, 6)){
+      if(data_list$M1_model[sp] == 1){ # Sex-invariant
+        # - Random effects
+        map_list$ln_M1_dev[sp,1,1:data_list$nages[sp], 1:nyrs_hind] <- M1_dev_ind + (1:nyrs_hind * data_list$nages[sp])
+        map_list$ln_M1_dev[sp,2,,] <- map_list$ln_M1_dev[sp,1,,]
+        M1_dev_ind = M1_dev_ind + (nyrs_hind * data_list$nages[sp])
+      }
+
+      if(data_list$nsex[sp] == 2 & data_list$M1_model[sp] == 2){ # Two sex population and sex-specific
+        # - Random effects
+        # -- Females
+        map_list$ln_M1_dev[sp,1, 1:data_list$nages[sp], 1:nyrs_hind] <- M1_dev_ind + (1:nyrs_hind * data_list$nages[sp])
+        M1_dev_ind = M1_dev_ind + (nyrs_hind * data_list$nages[sp])
+
+        # -- Males
+        map_list$ln_M1_dev[sp,2, 1:data_list$nages[sp], 1:nyrs_hind] <- M1_dev_ind + (1:nyrs_hind * data_list$nages[sp])
+        M1_dev_ind = M1_dev_ind + (nyrs_hind * data_list$nages[sp])
+      }
+
+      # - Standard deviation (shared across sexes)
+      map_list$M1_dev_ln_sd[sp,] = sp
+
+      # AR1 correlation (shared across sexes)
+      if(data_list$M1_re[sp] == 5){
+        map_list$M1_rho[sp,1,] = M1_dev_ln_sd_ind + 1:2
+        map_list$M1_rho[sp,2,] = map_list$M1_rho[sp,1,]
+        M1_dev_ln_sd_ind = M1_dev_ln_sd_ind + 2  #FIXME: may want sex-varying?? Hard to estimate
       }
     }
   }

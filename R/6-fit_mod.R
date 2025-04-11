@@ -236,7 +236,7 @@ fit_mod <-
     data_list$srr_est_mode <- recFun$srr_est_mode
     data_list$srr_prior <- extend_length(recFun$srr_prior)
     data_list$srr_prior_sd <- extend_length(recFun$srr_prior_sd)
-    data_list$srr_env_indices <- recFun$srr_env_indices
+    data_list$srr_indices <- recFun$srr_indices
     data_list$Bmsy_lim <- extend_length(recFun$Bmsy_lim)
 
     # * M switches ----
@@ -246,13 +246,16 @@ fit_mod <-
       }
     }
 
-    # FIXME: may want to pull from data here too
+    # FIXME: may want to pull from data here too??
     data_list$M1_model= extend_length(M1Fun$M1_model)
+    data_list$M1_model = ifelse(data_list$nsex == 2 & data_list$M1_model == 2, 1, data_list$M1_model) # Sex specific to sex-invariant if 1-sex model
+    data_list$M1_re = extend_length(M1Fun$M1_re)
     updateM1 = M1Fun$updateM1
     data_list$M1_use_prior = extend_length(M1Fun$M1_use_prior) * (data_list$M1_model > 0) # Sets to 0 if M1 is fixed
     data_list$M2_use_prior = extend_length(M1Fun$M2_use_prior) * (msmMode > 0) # Sets to 0 if single-species
     data_list$M_prior = extend_length(M1Fun$M_prior)
     data_list$M_prior_sd = extend_length(M1Fun$M_prior_sd)
+    data_list$M1_indices <- recFun$M1_indices
 
 
     # * HCR Switches ----
@@ -289,12 +292,12 @@ fit_mod <-
     } else{
       start_par <- inits
 
-      # - Adjust srr parameters
-      if(ncol(start_par$beta_rec_pars) != length(data_list$srr_env_indices)){
-        start_par$beta_rec_pars <- matrix(0, nrow = data_list$nspp, ncol = length(data_list$srr_env_indices))
+      # - Adjust environmental index parameters
+      if(ncol(start_par$beta_rec_pars) != length(data_list$srr_indices)){
+        start_par$beta_rec_pars <- matrix(0, nrow = data_list$nspp, ncol = length(data_list$srr_indices))
       }
 
-      # Set F for years with 0 catch to very low number
+      # - Set F for years with 0 catch to very low number
       zero_catch <- data_list$catch_data %>%
         dplyr::filter(Year <= data_list$endyr &
                         Catch == 0) %>%

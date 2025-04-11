@@ -78,6 +78,7 @@ build_params <- function(data_list) {
 
 
   # * 1.4. Residual natural mortality ----
+  # ** Fixed effects ----
   m1 <- array(1, dim = c(data_list$nspp, max_sex, max_age),
               dimnames = list(data_list$spnames, sex_labels, paste0("Age", 1:max_age))) # Set up array
 
@@ -97,10 +98,23 @@ build_params <- function(data_list) {
   }
   param_list$ln_M1 <- log(m1)
 
-  # ** Annual deviates ----
-  ln_m1_dev <- array(0, dim = c(data_list$nspp, max_sex, nyrs_proj),
-              dimnames = list(data_list$spnames, sex_labels, yrs_proj)) # Set up array
-  param_list$ln_M1_dev <- ln_m1_dev
+
+  # ** Age and annual random effects ----
+  param_list$ln_M1_dev <- array(0, dim = c(data_list$nspp, max_sex, max_age, nyrs_proj),
+                                dimnames = list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)) # Set up array
+
+  # ** M1 fixed parameters ----
+  # - Regression coefficients for environment-M1 linkage
+  param_list$M1_beta = array(0, dim = c(data_list$nspp, max_sex, ncol(data_list$env_data) - 1),
+                             dimnames = list(data_list$spnames, sex_labels, colnames(data_list$env_data)[-1]))
+
+  # - Rho for AR1
+  param_list$M1_rho = array(0, dim = c(data_list$nspp, max_sex, 2),
+                            dimnames = list(data_list$spnames, sex_labels, c("Age", "Year")))
+
+  # - SD for random effects
+  param_list$M1_dev_ln_sd = array(0, dim = c(data_list$nspp, max_sex),
+                            dimnames = list(data_list$spnames, sex_labels))
 
 
   # * 1.5. fishing mortality parameters ----
