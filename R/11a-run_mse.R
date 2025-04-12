@@ -532,7 +532,7 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
             ),
             recFun = build_srr(srr_fun = om_use$data_list$srr_fun,
                                srr_pred_fun = om_use$data_list$srr_pred_fun ,
-                               proj_mean_rec = FALSE, # This will update anyway to False as devs are added
+                               proj_mean_rec = TRUE, # Use mean R for RPs
                                srr_meanyr = om$data_list$srr_meanyr, # This stays the same as original OM
                                srr_hat_styr = om$data_list$srr_hat_styr,
                                srr_hat_endyr = om$data_list$srr_hat_endyr,
