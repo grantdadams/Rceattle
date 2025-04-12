@@ -1,8 +1,8 @@
 library(Rceattle)
 
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # Data ----
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # Example
 # To run the 2017 single species assessment for the Bering Sea, a data file must first be loaded:
 data(BS2017SS) # ?BS2017SS for more information on the data
@@ -10,9 +10,9 @@ BS2017SS$projyr <- 2060
 BS2017SS$fleet_control$proj_F_prop <-rep(1,7)
 
 
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # Operating Models ----
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # Single-species with fixed M
 ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
                             inits = NULL, # Initial parameters = 0
@@ -74,9 +74,9 @@ plot_biomass(Rceattle = mod_list, model_names = mod_names)
 plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE)
 
 
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # Multi-species harvest control rules ----
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # -- F that acheives 40% of SB0, where SB0 is derived from projecting all species simultaneously under no fishing
 ms_run_fb40 <- Rceattle::fit_mod(data_list = BS2017MS,
                                  inits = ms_run$estimated_params, # Initial parameters from single species ests
@@ -144,9 +144,9 @@ plot_recruitment(mod_list, model_names = model_names, incl_proj = TRUE)
 plot_catch(mod_list, model_names = model_names, incl_proj = TRUE)
 
 
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # Single species harvest control rules ----
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # -- Constant F as a percentage of SB0
 ss_run_fb0 <- Rceattle::fit_mod(data_list = BS2017SS,
                                 inits = ss_run$estimated_params, # Initial parameters from ss_run
@@ -281,9 +281,9 @@ dynamic_model_names <- c("F=0","F 40% B0", "Fspr 40%", "NPFMC Tier 3", "PFMC Cat
 plot_biomass(dynamic_mod_list, model_names = dynamic_model_names, incl_proj = TRUE)
 plot_ssb(dynamic_mod_list, model_names = dynamic_model_names, incl_proj = TRUE)
 
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # Management strategy evaluation ----
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # -- No F
 # - MS-OM: SS-EM No F
 mse1 <- run_mse(om = ss_run_ricker, em = ss_run, nsim = 1, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))

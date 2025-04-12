@@ -81,7 +81,7 @@ plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE)
 plot_m_at_age(Rceattle = mod_list, model_names = mod_names, age = 2)
 
 # Run diagnostics
-plot_comp(ms_run) # Fitted composition data
+# plot_comp(ms_run) # Fitted composition data
 plot_index(ms_run) # Fitted indices of abundance
 plot_catch(ms_run) # Fitted catch series
 
@@ -155,7 +155,7 @@ plot_catch(Rceattle = mod_list, model_names = mod_names, incl_proj = TRUE)
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # we can also do retrospective peels and calculate Mohn's Rho on the CEATTLE
 # NOTE: this is using mean historical F for projections as we changed it above
-ms_run_proj_retro <- retrospective(Rceattle = ms_run_proj, peels = 5)
+ms_run_proj_retro <- Rceattle::retrospective(Rceattle = ms_run_proj, peels = 5)
 
 # Look at Mohns rho
 ms_run_proj_retro$mohns
@@ -166,6 +166,13 @@ plot_biomass(ms_run_proj_retro$Rceattle_list)
 # See how forecast changes
 plot_biomass(ms_run_proj_retro$Rceattle_list, incl_proj = TRUE)
 
+
+
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Jitter ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+jitters <- Rceattle::jitter(Rceattle = ss_run, njitter = 50, phase = TRUE)
+hist(log(jitters$nll - min(jitters$nll)))
 
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # Simulation ----

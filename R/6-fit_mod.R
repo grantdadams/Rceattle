@@ -159,14 +159,13 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 0 - Start ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    mod_objects <- list() # Objects for saving
     start_time <- Sys.time()
 
     extend_length <- function(x){
       if(length(x) == data_list$nspp){ return(x)}
       else {return(rep(x, data_list$nspp))}
     }
-
-    setwd(getwd())
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -310,6 +309,8 @@ fit_mod <-
       # Update proj F prop
       start_par$proj_F_prop <- data_list$fleet_control$proj_F_prop
     }
+
+    mod_objects$initial_params <- start_par
     if(verbose > 0) {message("Step 1: Parameter build complete")}
 
 
@@ -387,7 +388,9 @@ fit_mod <-
 
     # - Update M1 parameter object from data if initial parameter values input
     if(updateM1){
-      m1 <- array(0, dim = c(data_list$nspp, 2, max(data_list$nages, na.rm = T))) # Set up array
+      m1 <- array(0, dim = c(data_list$nspp,
+                             max(data_list$nsex, na.rm = T),
+                             max(data_list$nages, na.rm = T))) # Set up array
 
       # Initialize from inputs
       for (i in 1:nrow(data_list$M1_base)) {
@@ -465,6 +468,8 @@ fit_mod <-
         control = control
       )
 
+      # Save output
+      mod_objects$phase_params <- phase_pars
       start_par <- phase_pars
 
       if(verbose > 0) {message(paste0("Step ", step,": Phasing complete"))}
@@ -487,13 +492,13 @@ fit_mod <-
     )
 
     # -- Save objects
-    mod_objects <-
+    mod_objects <- c(
       list(
         TMBfilename = TMBfilename,
-        initial_params = start_par,
         bounds = bounds,
         map = map
-      )
+      ),
+      mod_objects)
 
     if(verbose > 0) {message(paste0("Step ",step, ": Hindcast build complete"))}
     step = step + 1
@@ -611,9 +616,9 @@ fit_mod <-
 
             # -- Update map in obs
             hcr_map <- Rceattle::build_hcr_map(data_list, map,
-                                     debug = estimateMode > 3,
-                                     all_params_on = FALSE,
-                                     HCRiter = HCRiter)
+                                               debug = estimateMode > 3,
+                                               all_params_on = FALSE,
+                                               HCRiter = HCRiter)
             if(sum(as.numeric(unlist(hcr_map$mapFactor)), na.rm = TRUE) == 0){stop("HCR map of length 0: all NAs")}
 
             # -- Get SB0: SSB when model is projected forward under no fishing

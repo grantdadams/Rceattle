@@ -12,7 +12,7 @@ build_params <- function(data_list) {
   param_list <- list()
 
   max_age <- max(data_list$nages, na.rm = T)
-  max_sex <- 2 # max(data_list$nsex, na.rm = T)
+  max_sex <- max(data_list$nsex, na.rm = T)
   sex_labels <- c("Sex combined or females", "males")
   if(max_sex == 1){
     sex_labels <- "Sex combined"
@@ -54,7 +54,7 @@ build_params <- function(data_list) {
   names(param_list$R_ln_sd) <- data_list$spnames
 
   # - Env regression parameters for recruitment
-  param_list$beta_rec_pars <- matrix(0, nrow = data_list$nspp, ncol = length(data_list$srr_env_indices))
+  param_list$beta_rec_pars <- matrix(0, nrow = data_list$nspp, ncol = length(data_list$srr_indices))
 
 
   # * 1.3. Initial age-structure parameters ----

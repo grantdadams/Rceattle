@@ -247,6 +247,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 2.1. Species attributes
   DATA_IVECTOR( nsex );                   // Number of sexes to be modelled; 1 = sexes combined/single sex, 2 = 2 sexes
+  int max_sex = imax(nsex);               // Integer of maximum sexes to make the arrays
   DATA_VECTOR( spawn_month );             // Month of spawning to adjust mortality
   DATA_IVECTOR( nages );                  // Number of species (prey) ages
   DATA_IVECTOR( minage );                 // Minimum age of each species
@@ -416,44 +417,44 @@ Type objective_function<Type>::operator() () {
   Type srr_alpha = 0.0;
   matrix<Type>  R(nspp, nyrs); R.setZero();                                         // Estimated recruitment (n)
   vector<Type>  steepness(nspp); steepness.setZero();                               // Expected % of R0 at 20% SSB0.
-  array<Type>   biomass_at_age(nspp, 2, max_age, nyrs); biomass_at_age.setZero();// Estimated biomass-at-age (kg)
+  array<Type>   biomass_at_age(nspp, max_sex, max_age, nyrs); biomass_at_age.setZero();// Estimated biomass-at-age (kg)
   matrix<Type>  biomass(nspp, nyrs); biomass.setZero();                             // Estimated biomass (kg)
   matrix<Type>  exploitable_biomass(nspp, nyrs); exploitable_biomass.setZero();     // Estimated exploitable biomass (kg)
   matrix<Type>  ssb(nspp, nyrs); ssb.setZero();                                     // Estimated spawning stock biomass (kg)
   matrix<Type>  biomass_depletion(nspp, nyrs); biomass_depletion.setZero();         // Estimated biomass biomass_depletion
   matrix<Type>  ssb_depletion(nspp, nyrs); ssb_depletion.setZero();                 // Estimated biomass_depletion of spawning stock biomass
   // array<Type>   ssb_at_age(nspp, max_age, nyrs); ssb_at_age.setZero();           // Spawning biomass at age (kg)
-  array<Type>   M_at_age(nspp, 2, max_age, nyrs); M_at_age.setZero();               // Total natural mortality at age
-  array<Type>   M1_at_age(nspp, 2, max_age, nyrs); M1_at_age.setZero();             // Residual or total natural mortality at age
-  array<Type>   N_at_age(nspp, 2, max_age, nyrs); N_at_age.setZero();               // Numbers at age
-  array<Type>   avgN_at_age(nspp, 2, max_age, nyrs); avgN_at_age.setZero();         // Average numbers-at-age
-  // array<Type>   S_at_age(nspp, 2, max_age, nyrs); S_at_age.setZero();            // Survival at age
-  array<Type>   Z_at_age(nspp, 2, max_age, nyrs); Z_at_age.setZero();               // Total mortality at age
+  array<Type>   M_at_age(nspp, max_sex, max_age, nyrs); M_at_age.setZero();               // Total natural mortality at age
+  array<Type>   M1_at_age(nspp, max_sex, max_age, nyrs); M1_at_age.setZero();             // Residual or total natural mortality at age
+  array<Type>   N_at_age(nspp, max_sex, max_age, nyrs); N_at_age.setZero();               // Numbers at age
+  array<Type>   avgN_at_age(nspp, max_sex, max_age, nyrs); avgN_at_age.setZero();         // Average numbers-at-age
+  // array<Type>   S_at_age(nspp, max_sex, max_age, nyrs); S_at_age.setZero();            // Survival at age
+  array<Type>   Z_at_age(nspp, max_sex, max_age, nyrs); Z_at_age.setZero();               // Total mortality at age
   vector<Type>  R_sd(nspp); R_sd.setZero();                                         // Standard deviation of recruitment variation
   vector<Type>  zero_N_pen(nspp); zero_N_pen.setZero();                             // Additional penalty to add to likelihood if n-at-age goes < 0
 
   // -- 4.3. Selectivity parameters
-  array<Type>   sel(n_flt, 2, max_age, nyrs); sel.setZero();                        // Estimated selectivity at age
-  matrix<Type>  avg_sel(n_flt, 2); avg_sel.setZero();                               // Average selectivity
-  array<Type>   non_par_sel(n_flt, 2, max_age); non_par_sel.setZero();              // Temporary saved selectivity at age for estimated bits
+  array<Type>   sel(n_flt, max_sex, max_age, nyrs); sel.setZero();                        // Estimated selectivity at age
+  matrix<Type>  avg_sel(n_flt, max_sex); avg_sel.setZero();                               // Average selectivity
+  array<Type>   non_par_sel(n_flt, max_sex, max_age); non_par_sel.setZero();              // Temporary saved selectivity at age for estimated bits
   vector<Type>  sel_dev_sd(n_flt); sel_dev_sd.setZero();                            // Standard deviation of selectivity deviates
 
   // -- 4.4. Fishery components
   matrix<Type>  F_spp(nspp, nyrs); F_spp.setZero();                                 // Fully selected fishing mortality by species
   matrix<Type>  F_flt(n_flt, nyrs); F_flt.setZero();                                // Fully selected fishing mortality by fleet
-  array<Type>   F_flt_age(n_flt, 2, max_age, nyrs); F_flt_age.setZero();            // Estimated fishing mortality-at-age/sex for each fishery
-  array<Type>   Flimit_age_spp(nspp, 2, max_age, nyrs); Flimit_age_spp.setZero();   // Estimated target fishing mortality-at-age/sex for each species
-  array<Type>   Ftarget_age_spp(nspp, 2, max_age, nyrs); Ftarget_age_spp.setZero(); // Estimated limit fishing mortality-at-age/sex for each species
-  array<Type>   F_spp_at_age(nspp, 2, max_age, nyrs); F_spp_at_age.setZero();       // Sum of annual estimated fishing mortalities for each species-at-age
+  array<Type>   F_flt_age(n_flt, max_sex, max_age, nyrs); F_flt_age.setZero();            // Estimated fishing mortality-at-age/sex for each fishery
+  array<Type>   Flimit_age_spp(nspp, max_sex, max_age, nyrs); Flimit_age_spp.setZero();   // Estimated target fishing mortality-at-age/sex for each species
+  array<Type>   Ftarget_age_spp(nspp, max_sex, max_age, nyrs); Ftarget_age_spp.setZero(); // Estimated limit fishing mortality-at-age/sex for each species
+  array<Type>   F_spp_at_age(nspp, max_sex, max_age, nyrs); F_spp_at_age.setZero();       // Sum of annual estimated fishing mortalities for each species-at-age
   vector<Type>  catch_hat(catch_obs.rows()); catch_hat.setZero();                   // Estimated fishery yield/numbers (kg)
   vector<Type>  max_catch_hat(catch_obs.rows()); max_catch_hat.setZero();           // Estimated exploitable biomass/numbers by fleet (kg)
   vector<Type>  ln_catch_sd(catch_obs.rows()); ln_catch_sd.setZero();               // Estimated/fixed fishery log_sd (kg)
 
   // -- 4.5. Biological reference points
-  array<Type>   NByage0(nspp, 2, max_age, nyrs); NByage0.setZero();                 // Numbers at age at mean recruitment and F = 0
-  array<Type>   NByageF(nspp, 2, max_age, nyrs); NByageF.setZero();                 // Numbers at age at mean recruitment and F = Flimit
-  array<Type>   DynamicNByage0(nspp, 2, max_age, nyrs); DynamicNByage0.setZero();   // Numbers at age at F = 0 (accounts for annual recruitment)
-  array<Type>   DynamicNByageF(nspp, 2, max_age, nyrs); DynamicNByageF.setZero();   // Female numbers at age at F = Ftarget (accounts for annual recruitment)
+  array<Type>   NByage0(nspp, max_sex, max_age, nyrs); NByage0.setZero();                 // Numbers at age at mean recruitment and F = 0
+  array<Type>   NByageF(nspp, max_sex, max_age, nyrs); NByageF.setZero();                 // Numbers at age at mean recruitment and F = Flimit
+  array<Type>   DynamicNByage0(nspp, max_sex, max_age, nyrs); DynamicNByage0.setZero();   // Numbers at age at F = 0 (accounts for annual recruitment)
+  array<Type>   DynamicNByageF(nspp, max_sex, max_age, nyrs); DynamicNByageF.setZero();   // Female numbers at age at F = Ftarget (accounts for annual recruitment)
   matrix<Type>  DynamicSB0(nspp, nyrs); DynamicSB0.setZero();                       // Estimated dynamic spawning biomass at F = 0 (accounts for S_at_age-R curve)
   matrix<Type>  DynamicB0(nspp, nyrs); DynamicB0.setZero();                         // Estimated dynamic  biomass at F = 0 (accounts for S_at_age-R curve)
   matrix<Type>  DynamicSBF(nspp, nyrs); DynamicSBF.setZero();                       // Estimated dynamic spawning biomass at F = Ftarget (accounts for S_at_age-R curve)
@@ -499,23 +500,23 @@ Type objective_function<Type>::operator() () {
   matrix<Type>  comp_hat = comp_obs; comp_hat.setZero();                            // Estimated comp
 
   // -- 4.8. Ration components
-  array<Type>   consumption_at_age( nspp, 2, max_age, nyrs ); consumption_at_age.setZero();           // Pre-allocated indiviudal consumption in grams per predator-age
+  array<Type>   consumption_at_age( nspp, max_sex, max_age, nyrs ); consumption_at_age.setZero();           // Pre-allocated indiviudal consumption in grams per predator-age
   matrix<Type>  fT( nspp, nyrs ); fT.setZero();                                     // Pre-allocation of temperature function of consumption
   // matrix<Type>  mnWt_obs( nspp, max_age ); mnWt_obs.setZero();                   // Mean observed weight at age (across years)
-  array<Type>   ration( nspp, 2, max_age, nyrs ); ration.setZero();                 // Annual ration at age (kg/yr)
+  array<Type>   ration( nspp, max_sex, max_age, nyrs ); ration.setZero();                 // Annual ration at age (kg/yr)
 
   // -- 4.9. Diet components
-  array<Type>   diet_prop(nspp * 2, nspp * 2, max_age, max_age, nyrs); diet_prop.setZero();             // Stomach proportion by weight U
-  array<Type>   diet_prop_hat(nspp * 2, nspp * 2, max_age, max_age, nyrs); diet_prop_hat.setZero();     // Predicted stomach proportion by weight U
-  array<Type>   other_food_diet_prop(nspp, 2, max_age, nyrs); other_food_diet_prop.setZero();           // Other food diet proportion by weight
+  array<Type>   diet_prop(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); diet_prop.setZero();             // Stomach proportion by weight U
+  array<Type>   diet_prop_hat(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); diet_prop_hat.setZero();     // Predicted stomach proportion by weight U
+  array<Type>   other_food_diet_prop(nspp, max_sex, max_age, nyrs); other_food_diet_prop.setZero();           // Other food diet proportion by weight
   matrix<Type>  diet_hat = diet_obs; diet_hat.setZero();                                                // Estimated stomach proportion by weight U (formated following data input)
 
   // -- 4.10. Suitability components
-  array<Type>   avail_food(nspp, 2, max_age, nyrs); avail_food.setZero();                                           // Available food to predator
-  array<Type>   stom_div_bio(nspp * 2, nspp * 2, max_age, max_age, nyrs); stom_div_bio.setZero();                   // Stomach proportion over biomass; U/ (W * N)
-  array<Type>   suit_main(nspp * 2, nspp * 2, max_age, max_age, nyrs); suit_main.setZero();                         // Suitability/gamma selectivity of predator age u on prey age a
-  array<Type>   suit_other(nspp, 2, max_age, nyrs); suit_other.setZero();                                           // Suitability not accounted for by the included prey
-  array<Type>   suma_suit(nspp, 2, max_age, nyrs); suma_suit.setZero();                                             // Sum of suitabilities
+  array<Type>   avail_food(nspp, max_sex, max_age, nyrs); avail_food.setZero();                                           // Available food to predator
+  array<Type>   stom_div_bio(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); stom_div_bio.setZero();                   // Stomach proportion over biomass; U/ (W * N)
+  array<Type>   suit_main(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); suit_main.setZero();                         // Suitability/gamma selectivity of predator age u on prey age a
+  array<Type>   suit_other(nspp, max_sex, max_age, nyrs); suit_other.setZero();                                           // Suitability not accounted for by the included prey
+  array<Type>   suma_suit(nspp, max_sex, max_age, nyrs); suma_suit.setZero();                                             // Sum of suitabilities
 
   // -- 4.11. Suitability parameters
   vector<Type> gam_a = exp(log_gam_a);                                    // Predator size-selectivity: shape parameter for gamma suitability, mean for normal of logs
@@ -526,12 +527,12 @@ Type objective_function<Type>::operator() () {
 
 
   // -- 4.12. Predation components
-  array<Type>   M2_at_age(nspp, 2, max_age, nyrs); M2_at_age.setZero();                        // Predation mortality at age
-  // array<Type>   M2_prop(nspp * 2, nspp * 2, max_age, max_age, nyrs); M2_prop.setZero();     // Relative predation mortality at age from each species at age
-  array<Type>   B_eaten(nspp * 2, nspp * 2, max_age, max_age, nyrs); B_eaten.setZero();        // Biomass of prey eaten via predation by a predator at age
-  array<Type>   B_eaten_as_prey(nspp, 2, max_age, nyrs); B_eaten_as_prey.setZero();            // Biomass eaten as prey via predation
-  // array<Type>   B_eaten_as_pred(nspp, 2, max_age, nyrs); B_eaten_as_pred.setZero();         // Biomass eaten as predator via predation (used for Kinzey and Punt)
-  // array<Type>   N_eaten(nspp * 2, nspp * 2, max_age, max_age, nyrs); N_eaten.setZero();     // Number of prey of age a eaten by predator age u
+  array<Type>   M2_at_age(nspp, max_sex, max_age, nyrs); M2_at_age.setZero();                        // Predation mortality at age
+  // array<Type>   M2_prop(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); M2_prop.setZero();     // Relative predation mortality at age from each species at age
+  array<Type>   B_eaten(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); B_eaten.setZero();        // Biomass of prey eaten via predation by a predator at age
+  array<Type>   B_eaten_as_prey(nspp, max_sex, max_age, nyrs); B_eaten_as_prey.setZero();            // Biomass eaten as prey via predation
+  // array<Type>   B_eaten_as_pred(nspp, max_sex, max_age, nyrs); B_eaten_as_pred.setZero();         // Biomass eaten as predator via predation (used for Kinzey and Punt)
+  // array<Type>   N_eaten(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); N_eaten.setZero();     // Number of prey of age a eaten by predator age u
 
   // -- 4.13. Kinzey Functional response parameters
   /*
@@ -541,17 +542,17 @@ Type objective_function<Type>::operator() () {
    matrix<Type> H_2(nspp, nspp); H_2 = exp(logH_2.array());
    matrix<Type> H_3(nspp, nspp); H_3 = exp(logH_3.array());
 
-   array<Type>  N_pred_yrs(nspp, 2, max_age, nyrs); N_pred_yrs.setZero();                // Effective numbers of predators for each age of prey FIXME: should be avgN_at_age?
-   array<Type>  N_prey_yrs(nspp, 2, max_age, nyrs); N_prey_yrs.setZero();                // Effective numbers of prey for each age of predator
-   array<Type>  N_pred_eq(nspp, 2, max_age); N_pred_eq.setZero();                        // Effective numbers of predators for each age of prey (styr_pred)
-   array<Type>  N_prey_eq(nspp, 2, max_age); N_prey_eq.setZero();                        // Effective numbers of prey for each age of predator
+   array<Type>  N_pred_yrs(nspp, max_sex, max_age, nyrs); N_pred_yrs.setZero();                // Effective numbers of predators for each age of prey FIXME: should be avgN_at_age?
+   array<Type>  N_prey_yrs(nspp, max_sex, max_age, nyrs); N_prey_yrs.setZero();                // Effective numbers of prey for each age of predator
+   array<Type>  N_pred_eq(nspp, max_sex, max_age); N_pred_eq.setZero();                        // Effective numbers of predators for each age of prey (styr_pred)
+   array<Type>  N_prey_eq(nspp, max_sex, max_age); N_prey_eq.setZero();                        // Effective numbers of prey for each age of predator
 
-   array<Type>  pred_resp(nspp * 2, (nspp * 2)+1, max_age, max_age, nyrs); pred_resp.setZero();// Predator functional response +1 for other species
-   array<Type>  Pred_r(nspp, 2, max_age, nyrs); Pred_r.setZero();                          // save Pred_ratio values
-   array<Type>  Prey_r(nspp, 2, max_age, nyrs); Prey_r.setZero();                          // save Prey_ratio values
+   array<Type>  pred_resp(nspp * max_sex, (nspp * max_sex)+1, max_age, max_age, nyrs); pred_resp.setZero();// Predator functional response +1 for other species
+   array<Type>  Pred_r(nspp, max_sex, max_age, nyrs); Pred_r.setZero();                          // save Pred_ratio values
+   array<Type>  Prey_r(nspp, max_sex, max_age, nyrs); Prey_r.setZero();                          // save Prey_ratio values
 
-   array<Type> ration_hat(nspp, 2, max_age, nyrs); ration_hat.setZero();                   // Annual ration by predator age each year
-   array<Type> ration_hat_ave(nspp, 2, max_age); ration_hat_ave.setZero();                 // Annual ration by predator age averaged over years
+   array<Type> ration_hat(nspp, max_sex, max_age, nyrs); ration_hat.setZero();                   // Annual ration by predator age each year
+   array<Type> ration_hat_ave(nspp, max_sex, max_age); ration_hat_ave.setZero();                 // Annual ration by predator age averaged over years
    */
 
   // ------------------------------------------------------------------------- //
