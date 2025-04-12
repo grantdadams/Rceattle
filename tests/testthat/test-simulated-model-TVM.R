@@ -139,11 +139,11 @@ test_that("Simulated simple model the same" {
                        sigma_R = sigma_R,
                        sigma_catch = sigma_Catch,
                        sigma_srv = sigma_SrvIdx,
-                       fish_ISS = 1e5,
-                       srv_ISS = 1e5,
+                       fish_ISS = 1e6,
+                       srv_ISS = 1e6,
                        M = 0.3,
                        sigmaM = 0.05,
-                       rhoM = 0.5,
+                       rhoM = 0.9,
                        fish_sel = 1 / (1 + exp(-2.5 * (ages - 6))),
                        srv_sel = 1 / (1 + exp(-2 * (ages - 3))),
                        Fmort = Fmort,
@@ -341,7 +341,8 @@ test_that("Simulated simple model the same" {
   plot(x = sim$SSB, y = ss_run_re$quantities$ssb[1,1:nyrs]); abline(1,1)
   plot(x = sim$Total_Biom, y = ss_run_re$quantities$biomass[1,1:nyrs], ylab = "Rceattle biomass", xlab = "True biomass"); abline(1,1)
   plot(x = sim$NAA[1:nyrs,1], y = ss_run_re$quantities$R[1,1:nyrs]); abline(1,1)
-  plot(x = sim$M[1:nyrs], y = ss_run_re$quantities$M1_at_age[1,1,1,1:nyrs]); abline(1,1)
+  plot(x = sim$M[1:nyrs], y = ss_run_re$quantities$M1_at_age[1,1,1,1:nyrs], ylab = "Rceattle M", xlab = "True M");
+  lines(0:1, 0:1)
 
   # - AR1 M
   ss_run_AR1 <- Rceattle::fit_mod(data_list = simData,
@@ -358,7 +359,7 @@ test_that("Simulated simple model the same" {
   plot(x = sim$SSB, y = ss_run_AR1$quantities$ssb[1,1:nyrs]); abline(1,1)
   plot(x = sim$Total_Biom, y = ss_run_AR1$quantities$biomass[1,1:nyrs], ylab = "Rceattle biomass", xlab = "True biomass"); abline(1,1)
   plot(x = sim$NAA[1:nyrs,1], y = ss_run_AR1$quantities$R[1,1:nyrs]); abline(1,1)
-  plot(x = sim$M[1:nyrs], y = ss_run_AR1$quantities$M1_at_age[1,1,1,1:nyrs]); abline(1,1)
+  plot(x = sim$M[1:nyrs], y = ss_run_AR1$quantities$M1_at_age[1,1,1,1:nyrs], ylab = "Rceattle M", xlab = "True M"); abline(1,1)
 
 
 

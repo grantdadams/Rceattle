@@ -1010,7 +1010,7 @@ Type objective_function<Type>::operator() () {
             env_M1_tmp = env_index_M1.row(yr);
             M1_mult = env_M1_tmp * beta_M1_tmp;
 
-            M1_at_age(sp, sex, age, yr) = exp(ln_M1(sp, sex, age) + ln_M1_dev(sp, sex, yr) + M1_mult.sum());
+            M1_at_age(sp, sex, age, yr) = exp(ln_M1(sp, sex, age) + ln_M1_dev(sp, sex, age, yr) + M1_mult.sum());
             M_at_age(sp, sex, age, yr) = M1_at_age(sp, sex, age, yr) + M2_at_age(sp, sex, age, yr);
             Z_at_age(sp, sex, age, yr) = M1_at_age(sp, sex, age, yr) + F_spp_at_age(sp, sex, age, yr) + M2_at_age(sp, sex, age, yr);
             // S_at_age(sp, sex, age, yr) = exp(-Z_at_age(sp, sex, age, yr));
