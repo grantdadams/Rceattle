@@ -1149,11 +1149,11 @@ plot_mortality <-
 
     # Get M
     M_array <-
-      array(NA, dim = c(nspp, 2, max(nages), nyrs, length(Rceattle)))
+      array(NA, dim = c(nspp, max(nsex), max(nages), nyrs, length(Rceattle)))
     M1_array <-
-      array(NA, dim = c(nspp, 2, max(nages), length(Rceattle)))
+      array(NA, dim = c(nspp, max(nsex), max(nages), nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
-      M1_array[, , ,i] <- Rceattle[[i]]$quantities$M1[,,1:max(nages)]
+      M1_array[, , , ,i] <- Rceattle[[i]]$quantities$M1_at_age[,,1:max(nages),(1:nyrs)+(minyr - Rceattle[[1]]$data_list$styr)]
       if(!M2){
         M_array[, , , ,i] <- Rceattle[[i]]$quantities$M1_at_age[,,1:max(nages),(1:nyrs)+(minyr - Rceattle[[1]]$data_list$styr)]
       }
@@ -1268,7 +1268,7 @@ plot_mortality <-
               pmat = persp(y = years, x = ages, z = m_subset, zlab = NA, zlim = zlim, xlab = "Age", ylab = "Year", theta = theta, ticktype = "detailed")
               mtext(ifelse(M2, "M2", "M"), side = 2, line = 0.5, at = 0)
               if(M2){
-                text(-0.25,.15, labels = paste0("M1 = ",round((M1_array[j, sex, 1, 1]), 3)))
+                text(-0.25,.15, labels = paste0("M1 = ",round((M1_array[j, sex, 1, 1, 1]), 3)))
               }
 
 

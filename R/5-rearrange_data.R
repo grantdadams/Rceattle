@@ -7,7 +7,7 @@
 rearrange_dat <- function(data_list){
 
   # Data dimensions
-  max_sex <- 2 # max(data_list$nsex, na.rm = T)
+  max_sex <- max(data_list$nsex, na.rm = T)
   max_age <- max(data_list$nages, na.rm = T)
   max_length <- max(data_list$nlengths, na.rm = T)
   yrs_hind <- data_list$styr:data_list$endyr

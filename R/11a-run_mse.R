@@ -28,7 +28,7 @@
 #'
 run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, regenerate_past = FALSE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, catch_mult = NULL, seed = 666, regenerate_seed = seed, loopnum = 1, file = NULL, dir = NULL, timeout = 999, endyr = NA){
 
-  # om = ss_run; em = ss_run_Tier3; nsim = 1; start_sim = 1; assessment_period = 1; sampling_period = 1; simulate_data = TRUE; regenerate_past = FALSE; sample_rec = TRUE; rec_trend = 0; fut_sample = 1; cap = NULL; catch_mult = NULL; seed = 666; regenerate_seed = seed; loopnum = 1; file = NULL; dir = NULL; endyr = NA; timeout = 999
+  # om = ss_run; em = ss_run_Tier3; nsim = 1; start_sim = 1; assessment_period = 1; sampling_period = 1; simulate_data = FALSE; regenerate_past = FALSE; sample_rec = FALSE; rec_trend = 0; fut_sample = 1; cap = NULL; catch_mult = NULL; seed = 666; regenerate_seed = seed; loopnum = 1; file = NULL; dir = NULL; endyr = NA; timeout = 999
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # MSE SETUP ----
@@ -435,6 +435,10 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
       # -- ln_F
       om_use$estimated_params$ln_F <- cbind(om_use$estimated_params$ln_F, matrix(0, nrow= nrow(om_use$estimated_params$ln_F), ncol = length(new_years)))
 
+      # -- M1_dev
+      #FIXME - simulate
+      # om_use$estimated_params$ln_M1_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- om_use$estimated_params$ln_M1_dev[,,,nyrs_hind]
+
       # -- Time-varing survey catachbilitiy - Assume last year - filled by columns
       om_use$estimated_params$index_q_dev <- cbind(om_use$estimated_params$index_q_dev, matrix(om_use$estimated_params$index_q_dev[,ncol(om_use$estimated_params$index_q_dev)], nrow= nrow(om_use$estimated_params$index_q_dev), ncol = length(new_years)))
 
@@ -620,9 +624,12 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
       # Update end year and re-estimate
       em_use$data_list$endyr <- assess_yrs[k]
 
-      # Update parameters
+      # Update parameter size and use previous estimates
       # -- ln_F
       em_use$estimated_params$ln_F <- cbind(em_use$estimated_params$ln_F, matrix(0, nrow= nrow(em_use$estimated_params$ln_F), ncol = length(new_years)))
+
+      # # -- ln_M1_dev
+      # em_use$estimated_params$ln_M1_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- em_use$estimated_params$ln_M1_dev[,,,nyrs_hind]
 
       # -- Time-varying survey catachbilitiy - Assume last year - filled by columns
       em_use$estimated_params$index_q_dev <- cbind(em_use$estimated_params$index_q_dev, matrix(em_use$estimated_params$index_q_dev[,ncol(em_use$estimated_params$index_q_dev)], nrow= nrow(em_use$estimated_params$index_q_dev), ncol = length(new_years)))
@@ -717,40 +724,40 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
       # plot_biomass(list(em_use, om_use), model_names = c("EM", "OM"))
       # End year of assessment
 
-      # - Remove unneeded bits for memory reasons
+      # - Remove unneeded bits for memory
       em_use$initial_params <- NULL
       em_use$bounds <- NULL
-      # em_use$map <- NULL
+      em_use$map <- NULL
+      em_use$phase_params <- NULL
       em_use$obj <- NULL
       em_use$opt <- NULL
       em_use$sdrep <- NULL
-      # em_use$quantities[names(em_use$quantities) %!in% c("catch_hat",
-      #                                                    "ln_catch_sd",
-      #                                                    "index_hat",
-      #                                                    "ln_index_sd",
-      #                                                    "ssb_depletion",
-      #                                                    "biomass_depletion",
-      #                                                    "biomass",
-      #                                                    "ssb",
-      #                                                    "BO",
-      #                                                    "SB0",
-      #                                                    "SBF",
-      #                                                    "F_spp",
-      #                                                    "R",
-      #                                                    "M1_at_age",
-      #                                                    "M_at_age",
-      #                                                    "avg_rec",
-      #                                                    "DynamicB0",
-      #                                                    "DynamicSB0",
-      #                                                    "DynamicSBF",
-      #                                                    "SPR0",
-      #                                                    "SPRlimit",
-      #                                                    "SPRtarget",
-      #                                                    "Ftarget",
-      #                                                    "Flimit")] <- NULL
+      em_use$quantities[names(em_use$quantities) %!in% c("catch_hat",
+                                                         "ln_catch_sd",
+                                                         "index_hat",
+                                                         "ln_index_sd",
+                                                         "ssb_depletion",
+                                                         "biomass_depletion",
+                                                         "biomass",
+                                                         "ssb",
+                                                         "BO",
+                                                         "SB0",
+                                                         "SBF",
+                                                         "F_spp",
+                                                         "R",
+                                                         "M1_at_age",
+                                                         "M_at_age",
+                                                         "avg_rec",
+                                                         "DynamicB0",
+                                                         "DynamicSB0",
+                                                         "DynamicSBF",
+                                                         "SPR0",
+                                                         "SPRlimit",
+                                                         "SPRtarget",
+                                                         "Ftarget",
+                                                         "Flimit")] <- NULL
 
       sim_list$EM[[k+1]] <- em_use
-      #sim_list$OM[[k+1]] <- om_use
       message(paste0("Sim ",sim, " - EM Year ", assess_yrs[k], " COMPLETE"))
       #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # 6. End year loop ----
