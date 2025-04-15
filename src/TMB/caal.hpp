@@ -5,47 +5,40 @@ array<Type> pred_length(matrix<Type> mLAA_jan1, int n_yrs, int n_years_model, ve
                         array<Type> growth_pars, vector<Type> lengths, vector<Type> fracyr_vec, int growth_model, Type age_L1){
 
   // ------------------------------------------------------------------------- //
-  // 1. PARAMETER SECTION                                                      //
+  // 1. DATA SECTION                                                           //
   // ------------------------------------------------------------------------- //
+  DATA_MATRIX(lengths); // Length bins for each species
 
-  PARAMETER_MATRIX(ln_mean_Linf);   // Mean asymptotic length [Sp, sex]
-  PARAMETER_MATRIX(ln_mean_K);      // Mean growth coefficient [Sp, sex]
-  PARAMETER_MATRIX(ln_mean_L1);     // Mean length at reference age-a [Sp, sex]
-
-  PARAMETER_ARRAY(Linf_dev);        // Time-varying deviate of asymptotic length [Sp, sex, year]
-  PARAMETER_ARRAY(K_dev);           // Time-varying deviate of growth coefficient [Sp, sex, year]
-  PARAMETER_ARRAY(L1_dev);          // Time-varying deviate of mean length at reference age-a [Sp, sex, year]
-
-  PARAMETER_VECTOR(Linf_dev_ln_sd); // Log standard deviation of time varying deviate of asymptotic length [Sp, sex, year]
-  PARAMETER_VECTOR(K_dev_ln_sd);    // Log standard deviation of time varying deviate of growth coefficient [Sp, sex, year]
-  PARAMETER_VECTOR(L1_dev_ln_sd);   // Log standard deviation of time varying deviate of mean length at reference age-a [Sp, sex, year]
+  // ------------------------------------------------------------------------- //
+  // 2. PARAMETER SECTION                                                      //
+  // ------------------------------------------------------------------------- //
+  PARAMETER_ARRAY(mu_growth_pars);  // Mean growth curve parameters [sp, sex, par]
+  PARAMETER_ARRAY(re_growth_pars);  // Annual random effects for growth curve parameters [sp, sex, year, par]
+  PARAMETER_ARRAY(length_ln_sd);    // Log standard deviation of length-at- min and max age [sp, sex, 2]
 
 
   // ------------------------------------------------------------------------- //
-  // 2. CALCULATE MEAN GROWTH AT TIME-STEP 0 (i.e. Jan 1)                      //
+  // 3. CALCULATE MEAN GROWTH AT TIME-STEP 0 (i.e. Jan 1)                      //
   // ------------------------------------------------------------------------- //
-  // Calculate mean-LAA, SDAA, and transition matrix, for all years:
+  // Calculate mean-length, SD, and growth matrix, for all years:
   // lengths is vector with lengths mm (2, 4, 6, 8, etc)
-  Type len_bin = lengths(1) - lengths(0);
   Type Fac1 = 0.0;
   Type Fac2 = 0.0;
-  Type Ll1p = 0.0;
-  Type Llp = 0.0;
   Type Slope = 0.0;
   Type b_len = 0.0;
   Type last_linear = 0.0;
 
   // required for mean length at age plus group:
-  Type current_size = 0.0;
   Type temp = 0.0;
   Type temp1 = 0.0;
   Type temp3 = 0.0;
   Type temp4 = 0.0;
   Type div_age = 0.0;
 
-  array<Type>   length_sd(nspp, max_sex, max_nages, nyrs); length_sd.setZero();             // SD in length-at-age
-  array<Type>   length(nspp, max_sex, max_nlengths, nyrs); length.setZero();            // Length-at-age
-  array<Type>   weight(nspp, max_sex, max_nages, nyrs); weight.setZero();               // Wength-at-age
+  array<Type> length_sd(nspp, max_sex, max_nages, nyrs); length_sd.setZero();     // SD in length-at-age
+  array<Type> length(nspp, max_sex, max_nages, nyrs); length.setZero();           // Length-at-age
+  array<Type> weight(nspp, max_sex, max_nages, nyrs); weight.setZero();           // Wength-at-age
+  array<Type> growth_matrix(nspp, max_sex, max_nlengths, max_nages, nyrs);        // Growth matrix
 
   // Loop through species, sex, ages, and years
   for(sp = 0; sp < nspp; sp++){
@@ -118,7 +111,7 @@ array<Type> pred_length(matrix<Type> mLAA_jan1, int n_yrs, int n_years_model, ve
             break;
 
           case 3: // Non-parametric (Free parameters)
-            length(sp, sex, age, yr) = exp(length_par(sp, sex, age) + length_par_re(sp, sex, age, yr));
+            // length(sp, sex, age, yr) = exp(length_par(sp, sex, age) + length_par_re(sp, sex, age, yr));
             break;
 
           default:
@@ -128,76 +121,81 @@ array<Type> pred_length(matrix<Type> mLAA_jan1, int n_yrs, int n_years_model, ve
           // Correction for oldest age (as in SS)
           // - parametric growth only
           if(growth_model < 3 & age == (nages(sp)-1)) {
-              current_size = length(sp, sex, age, yr);
-              temp = 0;
-              temp1 = 0;
-              temp3 = growth_pars(sp, sex, yr, 1) - current_size;
-              temp4 = 1;
-              for(int age = 0; age < nages(sp); age++) {
-                div_age = (age+0.0)/(nages(sp)+0.0);
-                temp += temp4 * (current_size + div_age*temp3);
-                temp1 += temp4;
-                temp4 *= exp(-0.2);
-              }
-              length(sp, sex, age, yr) = temp/temp1; // oldest age
+            temp = 0;
+            temp1 = 0;
+            temp3 = growth_pars(sp, sex, yr, 1) - length(sp, sex, age, yr);
+            temp4 = 1;
+            for(int age = 0; age < nages(sp); age++) {
+              div_age = (age+0.0)/(nages(sp)+0.0);
+              temp += temp4 * (length(sp, sex, nages(sp)-1, yr) + div_age * temp3); //  accumulate weight for mean size calculation
+              temp1 += temp4; //  accumulate numbers to create denominator for mean size calculation
+              temp4 *= exp(-0.2); //  decay numbers at age by exp(-0.xxx)
             }
+            length(sp, sex, age, yr) = temp/temp1; // oldest age
           }
         } // Year
-      } // Age
+      }  // Age
     } // Sex
   } // Species
 
 
+  // SD calculation:
+  for(sex = 0; sex < nsex(sp); sex ++){
+    for(age = 0; age < nages(sp); age++){
+      for(yr = 0; yr < nyrs; yr++){
 
-      // SD calculation:
-      if(growth_model < 3) { // for parametric approach
-        for(int age = 0; age < nages(sp); age++) {
+        // Parametric models
+        if(growth_model < 3) {
+
           if((age + 1.0) < age_L1) { // same as SD1
-            length_sd(sp, sex, age, yr) = exp(length_ln_sd(0, sp));
-          }
-        } else {
-
-        }
-      }
-
-
-      if(growth_model == 3) { // only works for yr effect
-
-        for(int age = 0; age < nages(sp); age++) {
-
-        }
-
-
-        Slope = (exp(length_ln_sd(1, sp)) - exp(length_ln_sd(0, sp)))/(length(yr, nages(sp)-1)-length(yr, 0));
-        length_sd(sp, sex, age, yr) = exp(length_ln_sd(0, sp)) + Slope*(length(sp, sex, age, yr)-length(yr, 0));
-      }
-
-      for(int ln = 0; ln < nlengths(sp); ln++) {
-
-        if(ln == 0) {
-          Fac1 = (Lmin_sp + len_bin - length(sp, sex, age, yr))/length_sd(sp, sex, age, yr); // upper limit smallest len bin, important colsums = 0
-          growth_matrix(sp, sex, age, ln, yr) = pnorm(Fac1);
-        } else {
-          if(ln == (nlengths(sp)-1)) {
-            Fac1 = (Lmax_sp - length(sp, sex, age, yr))/length_sd(sp, sex, age, yr);
-            growth_matrix(sp, sex, age, ln, yr) = 1.0 - pnorm(Fac1);
+            length_sd(sp, sex, age, yr) = exp(length_ln_sd(sp, sex, 0);
           } else {
-            Ll1p = lengths(ln+1);
-            Llp = lengths(ln);
-            Fac1 = (Ll1p - length(sp, sex, age, yr))/length_sd(sp, sex, age, yr);
-            Fac2 = (Llp - length(sp, sex, age, yr))/length_sd(sp, sex, age, yr);
-            growth_matrix(sp, sex, age, ln, yr) = pnorm(Fac1) - pnorm(Fac2);
+            if(age == (nages(sp)-1)) { // same as SDA
+              length_sd(sp, sex, age, yr) = exp(length_ln_sd(sp, sex, 1);
+            } else { // linear interpolation
+              Slope = (exp(length_ln_sd(sp, sex, 1) - exp(length_ln_sd(sp, sex, 0))/(growth_pars(sp, sex, yr, 1) - growth_pars(sp, sex, yr, 2));
+                             length_sd(sp, sex, age, yr) = exp(length_ln_sd(sp, sex, 0) + Slope * (length(sp, sex, age, yr) - growth_pars(sp, sex, yr, 2));
+            }
+          }
+
+          // Free parameters
+          if(growth_model == 3) {
+            // Slope = (exp(length_ln_sd(sp, sex, 1) - exp(length_ln_sd(sp, sex, 0))/(length(sp, sex, nages(sp)-1, yr) - length(sp, sex, 0, yr));
+            // length_sd(sp, sex, age, yr) = exp(length_ln_sd(sp, sex, 0) + Slope * (length(sp, sex, age, yr) - length(sp, sex, 0, yr));
           }
         }
+      }
+    }
 
-      }// loop length
-    } // End age loop
-  } // End yr loop
-} // End sex loop
-} // End sp loop
+    // Derive growth matrix
+    for(sex = 0; sex < nsex(sp); sex ++){
+      for(age = 0; age < nages(sp); age++){
+        for(yr = 0; yr < nyrs; yr++){
+          for(ln = 0; ln < nlengths(sp); ln++) {
 
-return growth_matrix;
+            if(ln == 0) {
+              Fac1 = (Lmin_sp + lengths(sp, 1) - lengths(sp, 0) - length(sp, sex, age, yr)) / length_sd(sp, sex, age, yr); // upper limit smallest len bin, important colsums = 0
+              growth_matrix(sp, sex, ln, age, yr) = pnorm(Fac1);
+            } else {
+              if(ln == (nlengths(sp)-1)) {
+                Fac1 = (Lmax_sp - length(sp, sex, age, yr)) / length_sd(sp, sex, age, yr);
+                growth_matrix(sp, sex, ln, age, yr) = 1.0 - pnorm(Fac1);
+              } else {
+                Fac1 = (lengths(sp, ln + 1) - length(sp, sex, age, yr)) / length_sd(sp, sex, age, yr);
+                Fac2 = (lengths(sp, ln) - length(sp, sex, age, yr)) / length_sd(sp, sex, age, yr);
+                growth_matrix(sp, sex, ln, age, yr) = pnorm(Fac1) - pnorm(Fac2);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+
+  return growth_matrix;
 }
+
 
 
 pred_CAAL(flt, sex, age, ln, yr_ind) = N_at_age(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr)) * growth_mat(sp, sex, age, ln, yr); //TODO length-based selectivity
