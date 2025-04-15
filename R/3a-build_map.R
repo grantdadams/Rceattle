@@ -1015,6 +1015,10 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       map_list$rec_dev[sp,] <- NA
       map_list$init_dev[sp,] <- NA
       map_list$ln_M1[sp,,] <- NA
+      map_list$ln_M1_dev[sp,,,] <- NA
+      map_list$M1_dev_ln_sd[sp,] <- NA
+      map_list$M1_rho[sp,,] <- NA
+      map_list$ln_Finit[sp] <- NA
 
       # Survey and fishery fleet parameters
       flts <- data_list$fleet_control$Fleet_code[which(data_list$fleet_control$Species == sp)]
