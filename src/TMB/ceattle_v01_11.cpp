@@ -2863,7 +2863,7 @@ Type objective_function<Type>::operator() () {
       flt = comp_ctl(comp_ind, 0) - 1;            // Temporary fishery index
       sp = comp_ctl(comp_ind, 1) - 1;             // Temporary index of species
       flt_sex = comp_ctl(comp_ind, 2);            // Temporary index for comp sex (0 = combined, 1 = female, 2 = male)
-      comp_type = comp_ctl(comp_ind, 3);          // Temporary index for comp type (0 = age, 1 = length)
+      comp_type = comp_ctl(comp_ind, 3);          // Temporary index for comp type (0 = age, 1 = length, 2 = CAAL)
       yr = comp_ctl(comp_ind, 4);                 // Temporary index for years of data
       mo = comp_n(comp_ind, 0);                   // Temporary index for month
 
@@ -2966,7 +2966,7 @@ Type objective_function<Type>::operator() () {
       // Adjust for aging error
       for(int obs_age = 0; obs_age < nages(sp); obs_age++) {
         for(int true_age = 0; true_age < nages(sp); true_age++) {
-          age_obs_hat(comp_ind, obs_age) += age_hat(comp_ind, true_age )* age_error(sp, true_age, obs_age);
+          age_obs_hat(comp_ind, obs_age) += age_hat(comp_ind, true_age ) * age_error(sp, true_age, obs_age);
         }
       }
 
