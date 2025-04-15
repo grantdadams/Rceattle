@@ -369,11 +369,13 @@ fit_mod <-
       TMBfilename <- "ceattle_v01_11"
     }
 
+    # - Check for data errors
     Rceattle:::data_check(data_list)
 
+    # - Reorganize data for .cpp file
     data_list_reorganized <- Rceattle::rearrange_dat(data_list)
     data_list_reorganized = c(list(model = TMBfilename), data_list_reorganized)
-    data_list_reorganized$forecast <- rep(0, data_list_reorganized$nspp) # Don't include BRPs in likelihood of hindcast
+    data_list_reorganized$forecast <- rep(0, data_list_reorganized$nspp) # Hindcast switch
 
     # - Update comp weights, future F (if input) and F_prop from data
     if(!is.null(data_list$fleet_control$Comp_weights)){
