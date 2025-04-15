@@ -253,7 +253,7 @@ test_that("Simulated simple model the same" {
   # * Weight-at-age ----
   WAA <- as.data.frame(matrix(WAA, ncol = 15))
   colnames(WAA) <- paste0("Age",1:15)
-  simData$weight <- cbind(data.frame(Wt_name = "Base",
+  simData$wt <- cbind(data.frame(Wt_name = "Base",
                                  Wt_index = 1,
                                  Species = 1,
                                  Sex = 0,
@@ -264,7 +264,7 @@ test_that("Simulated simple model the same" {
   # * Maturity ----
   MatAA <- as.data.frame(matrix(MatAA, ncol = 15))
   colnames(MatAA) <- paste0("Age",1:15)
-  simData$maturity <- cbind(data.frame(Species = 1),
+  simData$pmature <- cbind(data.frame(Species = 1),
                            MatAA
   )
 

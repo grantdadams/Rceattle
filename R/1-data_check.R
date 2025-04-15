@@ -30,7 +30,7 @@ data_check <- function(data_list) {
 
   # Weight-at-age ----
   # * Year range ----
-  wt_yr <- data_list$weight %>%
+  wt_yr <- data_list$wt %>%
     dplyr::group_by(Wt_index, Sex) %>%
     dplyr::distinct(Year) %>%
     dplyr::mutate(Tmp_ind = paste0("index = ", Wt_index," & sex = ", Sex))
@@ -54,7 +54,7 @@ data_check <- function(data_list) {
 
 
   # * Index checks ----
-  wt_index <- wt_index <- data_list$weight %>%
+  wt_index <- data_list$wt %>%
     dplyr::distinct(Wt_index, Species, Sex)
 
   # - Data checks ----
@@ -67,12 +67,12 @@ data_check <- function(data_list) {
   }
 
   for(sp in 1:data_list$nspp){
-    wt_no <- data_list$weight %>%
+    wt_no <- data_list$wt %>%
       dplyr::filter(Species != sp) %>% # Not species
       dplyr::distinct(Wt_index) %>%
       pull(Wt_index)
 
-    wt_yes <- data_list$weight %>%
+    wt_yes <- data_list$wt %>%
       dplyr::filter(Species == sp) %>% # Is species
       dplyr::distinct(Wt_index) %>%
       pull(Wt_index)
@@ -82,7 +82,8 @@ data_check <- function(data_list) {
     }
   }
 
-  if(any(data_list$weight %>%
+
+  if(any(data_list$wt %>%
          dplyr::select(-c(Wt_name, Wt_index, Species, Sex, Year)) %>%
          ncol() < data_list$nages)){
     stop("Weight data does not span range of ages")
@@ -90,8 +91,8 @@ data_check <- function(data_list) {
 
 
   # Biological data ----
-  if(ncol(data_list$maturity) < max(data_list$nages)){
-    stop("Maturity-at-age (maturity) does not span all ages")
+  if(ncol(data_list$pmature) < max(data_list$nages)){
+    stop("Maturity-at-age (pmature) does not span all ages")
   }
 
   if(ncol(data_list$sex_ratio) < max(data_list$nages)){
@@ -150,17 +151,8 @@ data_check <- function(data_list) {
   #   print(paste0("NByageFixed does not include all ages"))
   # }
   #
-  # if(ncol(data_list$weight) != max(data_list$nages, na.rm = T)+4){
-  #   stop(paste0("Weight-at-age (weight) does not include all ages"))
+  # if(ncol(data_list$wt) != max(data_list$nages, na.rm = T)+4){
+  #   stop(paste0("Weight-at-age (wt) does not include all ages"))
   # }
-
-  # Switches ---
-  if(data_list$suitMode %in% c(1, 3)){
-    stop("Length based suitability not yet implemented")
-  }
-
-  if(sum(data_list$fleet_control$proj_F_prop, na.rm = TRUE) == 0 & data_list$HCR > 0){
-    stop("HCR is > 0 and 'proj_F_prop' is 0")
-  }
 
 }

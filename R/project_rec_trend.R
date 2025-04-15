@@ -50,8 +50,8 @@ project_trend <- function(Rceattle, rec_trend = 0, sample_rec = FALSE){
     estimateMode = 3,
     HCR = build_hcr(HCR = Rceattle$data_list$HCR, # Tier3 HCR
                     DynamicHCR = Rceattle$data_list$DynamicHCR,
-                    Ftarget = Rceattle$data_list$Ftarget,
-                    Flimit = Rceattle$data_list$Flimit,
+                    FsprTarget = Rceattle$data_list$FsprTarget,
+                    FsprLimit = Rceattle$data_list$FsprLimit,
                     Ptarget = Rceattle$data_list$Ptarget,
                     Plimit = Rceattle$data_list$Plimit,
                     Alpha = Rceattle$data_list$Alpha,
@@ -133,7 +133,8 @@ remove_rec_dev_and_F <- function(Rceattle, rec_trend = 0){
   }
 
   # Set fishing to 0
-  Rceattle$estimated_params$ln_F <- replace(Rceattle$estimated_params$ln_F, values = -999)
+  Rceattle$estimated_params$F_dev <- replace(Rceattle$estimated_params$F_dev, values = 0)
+  Rceattle$estimated_params$ln_mean_F <- replace(Rceattle$estimated_params$ln_mean_F, values = -999)
 
   # - Update
   estMode <- Rceattle$data_list$estimateMode
@@ -146,8 +147,8 @@ remove_rec_dev_and_F <- function(Rceattle, rec_trend = 0){
     estimateMode = 3,
     HCR = build_hcr(HCR = Rceattle$data_list$HCR, # Tier3 HCR
                     DynamicHCR = Rceattle$data_list$DynamicHCR,
-                    Ftarget = Rceattle$data_list$Ftarget,
-                    Flimit = Rceattle$data_list$Flimit,
+                    FsprTarget = Rceattle$data_list$FsprTarget,
+                    FsprLimit = Rceattle$data_list$FsprLimit,
                     Ptarget = Rceattle$data_list$Ptarget,
                     Plimit = Rceattle$data_list$Plimit,
                     Alpha = Rceattle$data_list$Alpha,
@@ -249,8 +250,8 @@ equilibrate_and_project <- function(Rceattle, rec_trend = 0){
     estimateMode = 3,
     HCR = build_hcr(HCR = Rceattle$data_list$HCR, # Tier3 HCR
                     DynamicHCR = Rceattle$data_list$DynamicHCR,
-                    Ftarget = Rceattle$data_list$Ftarget,
-                    Flimit = Rceattle$data_list$Flimit,
+                    FsprTarget = Rceattle$data_list$FsprTarget,
+                    FsprLimit = Rceattle$data_list$FsprLimit,
                     Ptarget = Rceattle$data_list$Ptarget,
                     Plimit = Rceattle$data_list$Plimit,
                     Alpha = Rceattle$data_list$Alpha,

@@ -18,14 +18,14 @@ build_bounds <- function(param_list = NULL, data_list) {
     lower_bnd[[i]] <- replace(lower_bnd[[i]], values = rep(-Inf, length(lower_bnd[[i]])))
   }
 
-  # # Predator selectivity bounds for gamma suitability
-  if (data_list$suitMode %in% c(1:2)) {
-      lower_bnd$log_gam_a <- replace(lower_bnd$log_gam_a, values = rep(1e-10, length(lower_bnd$log_gam_a)))
-      upper_bnd$log_gam_a <- replace(upper_bnd$log_gam_a, values = rep(19.9, length(upper_bnd$log_gam_a)))
-  } else { # Lognormal
-      lower_bnd$log_gam_b <- replace(lower_bnd$log_gam_b, values = rep(-10, length(lower_bnd$log_gam_b)))
-      upper_bnd$log_gam_b <- replace(upper_bnd$log_gam_b, values = rep(20, length(upper_bnd$log_gam_b)))
-  }
+  # # Predator selectivity Bounds for gamma suitability
+  # if (data_list$suitMode %in% c(1:2)) {
+  #     lower_bnd$log_gam_a <- replace(lower_bnd$log_gam_a, values = rep(1e-10, length(lower_bnd$log_gam_a)))
+  #     upper_bnd$log_gam_a <- replace(upper_bnd$log_gam_a, values = rep(19.9, length(upper_bnd$log_gam_a)))
+  # } else {
+  #     lower_bnd$log_gam_b <- replace(lower_bnd$log_gam_b, values = rep(-10, length(lower_bnd$log_gam_b)))
+  #     upper_bnd$log_gam_b <- replace(upper_bnd$log_gam_b, values = rep(20, length(upper_bnd$log_gam_b)))
+  # }
   #
   # # Kinzey functional form
   # lower_bnd$logH_3 <- replace(lower_bnd$logH_3, values = rep(-30, length(lower_bnd$logH_3)))
@@ -34,16 +34,11 @@ build_bounds <- function(param_list = NULL, data_list) {
   # lower_bnd$H_4 <- replace(lower_bnd$H_4, values = rep(-0.1, length(lower_bnd$H_4)))
   # upper_bnd$H_4 <- replace(upper_bnd$H_4, values = rep(20, length(upper_bnd$H_4)))
 
-
-  # Recruitment ----
+  # Recruitment
   lower_bnd$rec_dev <- replace(lower_bnd$rec_dev, values = rep(-15, length(lower_bnd$rec_dev)))
   upper_bnd$rec_dev <- replace(upper_bnd$rec_dev, values = rep(15, length(upper_bnd$rec_dev)))
 
-  lower_bnd$init_dev <- replace(lower_bnd$init_dev, values = rep(-1000, length(lower_bnd$init_dev)))
-  upper_bnd$init_dev <- replace(upper_bnd$init_dev, values = rep(23, length(upper_bnd$init_dev)))
-
-
-  # # Selectivity ----
+  # # Selectivity
   # lower_bnd$ln_sel_slp <- replace(lower_bnd$ln_sel_slp, values = rep(log(0.01), length(lower_bnd$ln_sel_slp)))
   # upper_bnd$ln_sel_slp <- replace(upper_bnd$ln_sel_slp, values = rep(log(100), length(upper_bnd$ln_sel_slp)))
   #
@@ -53,7 +48,7 @@ build_bounds <- function(param_list = NULL, data_list) {
   # }
 
 
-  # # Selectivity deviates ----
+  # # Selectivity deviates
   # # - Slope
   # for(i in 1:nrow(data_list$fleet_control)){
   #   # If using blocks don't put bounds on deviates, as these are estimated
@@ -72,26 +67,31 @@ build_bounds <- function(param_list = NULL, data_list) {
   #   }
   # }
 
-  # Survey variance ----
+
+  # N0
+  lower_bnd$init_dev <- replace(lower_bnd$init_dev, values = rep(-1000, length(lower_bnd$init_dev)))
+  upper_bnd$init_dev <- replace(upper_bnd$init_dev, values = rep(23, length(upper_bnd$init_dev)))
+
+  # Survey variance
   lower_bnd$index_ln_sd <- replace(lower_bnd$index_ln_sd, values = rep(-10, length(lower_bnd$index_ln_sd)))
   upper_bnd$index_ln_sd <- replace(upper_bnd$index_ln_sd, values = rep(10, length(upper_bnd$index_ln_sd)))
 
-  # Fishery variance ----
+  # Fishery variance
   lower_bnd$catch_ln_sd <- replace(lower_bnd$catch_ln_sd, values = rep(-10, length(lower_bnd$catch_ln_sd)))
   upper_bnd$catch_ln_sd <- replace(upper_bnd$catch_ln_sd, values = rep(3, length(upper_bnd$catch_ln_sd)))
 
-  # F ----
-  lower_bnd$ln_F <- replace(lower_bnd$ln_F, values = rep(-1000, length(lower_bnd$ln_F)))
-  upper_bnd$ln_F <- replace(upper_bnd$ln_F, values = rep(10, length(upper_bnd$ln_F)))
+  # F
+  lower_bnd$F_dev <- replace(lower_bnd$F_dev, values = rep(-1000, length(lower_bnd$F_dev)))
+  upper_bnd$F_dev <- replace(upper_bnd$F_dev, values = rep(10, length(upper_bnd$F_dev)))
 
   lower_bnd$ln_M1 <- replace(lower_bnd$ln_M1, values = rep(log(0.001), length(lower_bnd$ln_M1)))
   upper_bnd$ln_M1 <- replace(upper_bnd$ln_M1, values = rep(log(2), length(upper_bnd$ln_M1)))
 
-
-  # Combine bounds in list ----
+  # Combine bounds in list
   bounds <- list(upper = upper_bnd, lower = lower_bnd)
 
-  # Make sure inits are within bounds ----
+
+  # Make sure inits are within bounds
   if (sum(unlist(bounds$upper) < as.numeric(unlist(param_list)), na.rm = TRUE) > 0 | sum(as.numeric(unlist(param_list)) <
                                                                                          unlist(bounds$lower), na.rm = TRUE) > 0) {
     lower_check <- param_list

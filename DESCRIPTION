@@ -37,4 +37,4 @@ Suggests:
 VignetteBuilder: knitr
 Depends: 
     dplyr,
-    R (>= 3.5)
+    R (>= 2.10)
