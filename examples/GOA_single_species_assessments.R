@@ -20,7 +20,7 @@ data("GOApollock")
 
 # Cod
 data("GOAcod")
-GOAcod$pmature[1,2:13] <- 2 # Spawn wt from SS model includes sex-ratio and maturity already, so setting Pmature (age-at-maturity) to 2 to have CEATTLE calculations be the same
+GOAcod$maturity[1,2:13] <- 2 # Spawn wt from SS model includes sex-ratio and maturity already, so setting Pmature (age-at-maturity) to 2 to have CEATTLE calculations be the same
 # The cod model was  a bit trickier to recreate because of the use of internal age-length estimation/conditional age-at-length and more flexible selectivity parameterization than I currently have set up in CEATTLE. I use the output weight-at-age, mortality, and terminal year age-length-key from SS as inputs into CEATTLE and set age-based selectivity in CEATTLE to be the form that is most similar to the terminal year length-based selectivity pattern in SS. I fit the same index, catch, and length-at-age data as well as marginal age- and length-comp data that the SAFE model doesn't fit. I ignore annual varying selectivity (you could do it in CEATTLE... see meta_data sheet in the Excel file, I just stopped trying after some convergence issues). I ignored the aging error (could add in, but was having convergence problems). I also do not use the Taylor and Methot 2013 recruitment bias correction thats in SS and did not have a 2016 bump in mortality from the blob.
 
 # ATF
@@ -101,15 +101,15 @@ cod_model_safe <- cod_model
 
 # - Pollock
 pollock_model_safe$quantities$biomass[1,1:42] <- t(safe2018biomass[1:42,c(2)]) * 1000 # Rescaling - SAFE outputs in 1,000 mt
-pollock_model_safe$quantities$biomassSSB[1,1:42] <- t(safe2018ssb[1:42,c(2)]) * 1000 # Rescaling - SAFE outputs in 1,000 mt
+pollock_model_safe$quantities$ssb[1,1:42] <- t(safe2018ssb[1:42,c(2)]) * 1000 # Rescaling - SAFE outputs in 1,000 mt
 
 # - ATF
 atf_model_safe$quantities$biomass[1,1:42] <- t(safe2018biomass[1:42,c(4)]) * 1000 # Rescaling - SAFE outputs in 1,000 mt
-atf_model_safe$quantities$biomassSSB[1,1:42] <- t(safe2018ssb[1:42,c(4)]) * 1000 # Rescaling - SAFE outputs in 1,000 mt
+atf_model_safe$quantities$ssb[1,1:42] <- t(safe2018ssb[1:42,c(4)]) * 1000 # Rescaling - SAFE outputs in 1,000 mt
 
 # - Cod
 cod_model_safe$quantities$biomass[1,1:42] <- t(safe2018biomass[1:42,c(3)])
-cod_model_safe$quantities$biomassSSB[1,1:42] <- t(safe2018ssb[1:42,c(3)])
+cod_model_safe$quantities$ssb[1,1:42] <- t(safe2018ssb[1:42,c(3)])
 
 # Convert Pollock to age-3 biomass rather than age-1 biomass a-la SAFE model
 pollock_model$quantities$biomass[1,1:49] <- colSums(pollock_model$quantities$biomassByage[1,3:10,1:49])

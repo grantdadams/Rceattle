@@ -40,31 +40,6 @@ Function with normal inputs, passed via “...”, plus two additional arguments
 Optimizer by default is nlminb
 phase is a tagged list where missing elements are populated with a vector of 1s, and non-missing elements are integers, and where the optimizer loops through values of phase while progressively changing map to turn on parameters
 }
-\examples{
- setwd("~/Dropbox/ADMB/TMBphase/R")
- Y<-scan('thetalog.dat', skip=3, quiet=TRUE)
- data <- list(Y=Y)
- parameters <- list(
-   X=data$Y*0,
-   logr0=0,
-   logtheta=0,
-   logK=6,
-   logQ=0,
-   logR=0
- )
-parameters$logQ <- -3
- random <- "X"
- model_name <- "thetalog"
- phases <- list(
-   X=2,
-   logr0=1,
-   logtheta=1,
-   logK=1,
-   logQ=2,
-   logR=1
- )
- TMBphase(data, parameters, random, model_name, optimizer = "nlminb")
-}
 \author{
 Gavin Fay https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R
 }

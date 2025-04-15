@@ -14,12 +14,12 @@ build_srr(
   srr_est_mode = 1,
   srr_prior = 4,
   srr_prior_sd = 1,
-  srr_env_indices = 1,
+  srr_indices = 1,
   Bmsy_lim = -999
 )
 }
 \arguments{
-\item{srr_fun}{Stock recruit function to be used for hindcast estimation of Rceattle (see below). Default = 0}
+\item{srr_fun}{Stock recruit function to be used for hindcast estimation of Rceattle (see @description below). Default = 0}
 
 \item{srr_pred_fun}{stock recruit function for projection, reference points, and penalties to be used for Rceattle (see below). When \code{srr_fun == 0}, it treats treat the stock-recruit curve as an additional penalty onto the annualy estimated recruitment from the hindcast (sensu AMAK and Jim Ianelli's pollock model). If \code{srr_fun > 0} then \code{srr_pred_fun = srr_fun} and no additional penalty is included.}
 
@@ -31,39 +31,35 @@ build_srr(
 
 \item{srr_hat_endyr}{Integer. The last year used for estimating recruitment functions as additional penalties sensu AMAK and Jim Ianelli's pollock model when \code{srr_pred_fun > 0} and \code{srr_fun = 0}, starting at \code{styr}. Recruitmen Defaults to $endyr$ in $data_list$. Useful if environmental data used to condition stock-recruit relationships is not available until end-year, but projections are desired.}
 
-\item{srr_est_mode}{Switch to determine estimation mode. 0 = fix alpha to prior mean, 1 = freely estimate alpha and beta, 2 = use lognormally distributed prior for alpha (ricker) or steepness (beverton), 3 = use beta distributed prior for steepness (beverton) given mean and sd.}
+\item{srr_est_mode}{Switch to determine estimation mode. 0 = fix alpha to prior mean, 1 = freely estimate alpha and beta, 2 = use lognormally distributed prior for alpha (Ricker) or steepness (Beverton), 3 = use beta distributed prior for steepness (Beverton) given mean and sd.}
 
 \item{srr_prior}{mean for normally distributed prior for stock-recruit parameter}
 
 \item{srr_prior_sd}{Prior standard deviation for stock-recruit parameter}
 
-\item{srr_env_indices}{vector or single index indicating the columns of \code{env_data} to use in a environmentally driven stock recruit curve.}
+\item{srr_indices}{vector or single index indicating the columns of \code{env_data} to use in a environmentally driven stock recruit curve.}
 
-\item{Bmsy_lim}{Upper limit for ricker based SSB-MSY (e.g 1/Beta). Will add a likelihood penalty if beta is estimated above this limit.}
+\item{Bmsy_lim}{Upper limit for Ricker based SSB-MSY (e.g 1/Beta). Will add a likelihood penalty if beta is estimated above this limit.}
 }
 \value{
 A \code{list} containing the stock recruitment relationship settings
 }
 \description{
 \strong{Stock recruitment relationships currently implemented in Rceattle:}
-
-\code{srr_fun = 0} No stock recruit relationship. Recruitment is a function of R0 and annual deviates (i.e. steepness = 0.99).
+\itemize{
+\item \code{srr_fun = 0} No stock recruit relationship. Recruitment is a function of R0 and annual deviates (i.e. steepness = 0.99).
 \deqn{R_y = exp(R0 + R_{dev,y})}
-
-\code{srr_fun = 1} Environmentally driven recruitment without stock recruit relationship
+\item \code{srr_fun = 1} Environmentally driven recruitment without stock recruit relationship
 \deqn{R_y = exp(R0 + R_{dev,y} + X * \beta_X)}
-
-\code{srr_fun = 2} Beverton-holt stock-recruitment relationship
+\item \code{srr_fun = 2} Beverton-holt stock-recruitment relationship
 \deqn{R_y = \frac{\alpha_{srr} * SB_{y-minage}}{1+\beta_{srr} * SB_{y-minage}}}
-
-\code{srr_fun = 3} Beverton-holt stock-recruitment relationship with environmental covariates impacting larval survival rate and prior is on alpha.
+\item \code{srr_fun = 3} Beverton-holt stock-recruitment relationship with environmental covariates impacting larval survival rate and prior is on alpha.
 \deqn{R_y = \frac{\alpha_{srr} * e^{X * \beta_X} * SB_{y-minage}}{1+\beta_{srr} * SB_{y-minage}}}
-
-\code{srr_fun = 4} Ricker stock-recruitment relationship
+\item \code{srr_fun = 4} Ricker stock-recruitment relationship
 \deqn{R_y = \alpha_{srr} * SB_{y-minage} * exp(-\beta_{srr} * SB_{y-minage})}
-
-\code{srr_fun = 5} Ricker stock-recruitment relationship with environmental covariates impacting larval survival rate and prior is on alpha.
+\item \code{srr_fun = 5} Ricker stock-recruitment relationship with environmental covariates impacting larval survival rate and prior is on alpha.
 \deqn{R_y = \alpha_{srr} e^{X * \beta_X} * SB_{y-minage} * exp(-\beta_{srr} * SB_{y-minage})}
+}
 
 When \code{srr_pred_fun > 0} and \code{srr_fun = 0} recruitment in the hindcast is estimated as in \code{srr_fun = 0} \deqn{R_y = exp(R0 + R_{dev,y})}, but an additional stock recruitment relationship defined by \code{srr_pred_fun} is estimated between \code{srr_hat_styr} and \code{srr_hat_styr} and treated as an additional penalty. The stock recruitment relationship defined by \code{srr_pred_fun} is then used in the projection.
 }

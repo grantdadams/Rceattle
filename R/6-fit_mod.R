@@ -18,7 +18,7 @@
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.
 #' @param initMode how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0 + dev-yr1,  mortality (M1); 2 = equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 3 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates.
 #' @param phase TRUE/FALSE If FALSE, will not phase model. If set to \code{"TRUE"}, will use default phasing. Can also accept a list of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R.
-#' @param suitMode Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma suitability, 2 = weight based gamma suitability, 3 = length based lognormal selectivity, 4 = time-varying length based lognormal selectivity.
+#' @param suitMode Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length-based gamma suitability (NOT WORKING), 2 = weight-based gamma suitability, 3 = length-based lognormal suitability (NOT WORKING), 4 = weight-based lognormal suitability.
 #' @param suit_styr Integer. The first year used to calculate mean suitability. Defaults to $styr$ in $data_list$. Used when diet data were sampled from a subset of years.
 #' @param suit_endyr Integer. The last year used to calculate mean suitability. Defaults to $endyr$ in $data_list$. Used when diet data were sampled from a subset of years.
 #' @param getsd	TRUE/FALSE whether to run standard error calculation (default = TRUE).
@@ -120,10 +120,10 @@ fit_mod <-
     catch_hcr = FALSE,
     TMBfilename = NULL){
 
-    # #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # # Debugging section ----
-    # #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # data_list = NULL;
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # Debugging section ----
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # data_list = BS2017SS;
     # inits = NULL;
     # map = NULL;
     # bounds = NULL;
@@ -157,8 +157,9 @@ fit_mod <-
     # catch_hcr = FALSE
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # STEP 0 - Start ----
+    # 0 - Start ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    mod_objects <- list() # Objects for saving
     start_time <- Sys.time()
 
     extend_length <- function(x){
@@ -166,11 +167,9 @@ fit_mod <-
       else {return(rep(x, data_list$nspp))}
     }
 
-    setwd(getwd())
-
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # STEP 1 - Load data ----
+    # 1 - Load data and switches ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.null(data_list)) {
       stop("Missing data_list object")
@@ -236,7 +235,7 @@ fit_mod <-
     data_list$srr_est_mode <- recFun$srr_est_mode
     data_list$srr_prior <- extend_length(recFun$srr_prior)
     data_list$srr_prior_sd <- extend_length(recFun$srr_prior_sd)
-    data_list$srr_env_indices <- recFun$srr_env_indices
+    data_list$srr_indices <- recFun$srr_indices
     data_list$Bmsy_lim <- extend_length(recFun$Bmsy_lim)
 
     # * M switches ----
@@ -246,25 +245,28 @@ fit_mod <-
       }
     }
 
-    # FIXME: may want to pull from data here too
+    # FIXME: may want to pull from data here too??
     data_list$M1_model= extend_length(M1Fun$M1_model)
+    data_list$M1_model = ifelse(data_list$nsex == 1 & data_list$M1_model == 2, 1, data_list$M1_model) # Sex specific to sex-invariant if 1-sex model
+    data_list$M1_re = extend_length(M1Fun$M1_re)
     updateM1 = M1Fun$updateM1
     data_list$M1_use_prior = extend_length(M1Fun$M1_use_prior) * (data_list$M1_model > 0) # Sets to 0 if M1 is fixed
     data_list$M2_use_prior = extend_length(M1Fun$M2_use_prior) * (msmMode > 0) # Sets to 0 if single-species
     data_list$M_prior = extend_length(M1Fun$M_prior)
     data_list$M_prior_sd = extend_length(M1Fun$M_prior_sd)
+    data_list$M1_indices <- M1Fun$M1_indices
 
 
     # * HCR Switches ----
     # - make length of nspp if not
     data_list$HCR = HCR$HCR
     data_list$DynamicHCR = HCR$DynamicHCR
-    if(HCR$HCR != 2){ # FsprTarget is also used for fixed F (so may be of length nflts)
-      data_list$FsprTarget = extend_length(HCR$FsprTarget)
+    if(HCR$HCR != 2){ # Ftarget is also used for fixed F (so may be of length nflts)
+      data_list$Ftarget = extend_length(HCR$Ftarget)
     } else {
-      data_list$FsprTarget = HCR$FsprTarget
+      data_list$Ftarget = HCR$Ftarget
     }
-    data_list$FsprLimit = extend_length(HCR$FsprLimit)
+    data_list$Flimit = extend_length(HCR$Flimit)
     data_list$Ptarget = extend_length(HCR$Ptarget)
     data_list$Plimit = extend_length(HCR$Plimit)
     data_list$Alpha = extend_length(HCR$Alpha)
@@ -274,7 +276,7 @@ fit_mod <-
     data_list$HCRorder = extend_length(HCR$HCRorder)
     data_list$QnormHCR = qnorm(data_list$Pstar, 0, data_list$Sigma)
 
-    if(data_list$HCR == 2 & estimateMode == 2){estimateMode = 4} # If projecting under constant F, run parmeters through obj only
+    # if(data_list$HCR == 2 & estimateMode == 2){estimateMode = 4} # If projecting under constant F, run parmeters through obj only
 
     if(data_list$msmMode > 0 & !data_list$HCR %in% c(0, 1, 2, 3, 6)){
       warning("WARNING:: Only HCRs 1, 2, 3, and 6 work in multi-species mode currently")
@@ -282,35 +284,42 @@ fit_mod <-
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # STEP 2: Load/build parameters ----
+    # 2: Load/build parameters ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.character(inits) | is.null(inits)) {
       start_par <- suppressWarnings(Rceattle::build_params(data_list = data_list))
     } else{
       start_par <- inits
 
-      # - Adjust srr parameters
-      if(ncol(start_par$beta_rec_pars) != length(data_list$srr_env_indices)){
-        start_par$beta_rec_pars <- matrix(0, nrow = data_list$nspp, ncol = length(data_list$srr_env_indices))
+      # - Adjust environmental index parameters
+      if(ncol(start_par$beta_rec_pars) != length(data_list$srr_indices)){
+        start_par$beta_rec_pars <- matrix(0, nrow = data_list$nspp, ncol = length(data_list$srr_indices))
       }
+
+      # - Set F for years with 0 catch to very low number
+      zero_catch <- data_list$catch_data %>%
+        dplyr::filter(Year <= data_list$endyr &
+                        Catch == 0) %>%
+        dplyr::mutate(Year = Year - data_list$styr + 1) %>%
+        select(Fleet_code, Year) %>%
+        as.matrix()
+      start_par$ln_F[zero_catch] <- -999
+      rm(zero_catch)
+
+      # Update proj F prop
+      start_par$proj_F_prop <- data_list$fleet_control$proj_F_prop
     }
+
+    mod_objects$initial_params <- start_par
     if(verbose > 0) {message("Step 1: Parameter build complete")}
 
-    # Set Fdev for years with 0 catch to very low number
-    catch_data_sub <- data_list$catch_data %>%
-      dplyr::filter(Year <= data_list$endyr)
-    fsh_ind <- catch_data_sub$Fleet_code[which(catch_data_sub$Catch == 0)]               # Rows
-    yr_ind <- catch_data_sub$Year[which(catch_data_sub$Catch == 0)] - data_list$styr + 1 # Columns
-    start_par$F_dev[cbind(fsh_ind, yr_ind)] <- -999
-
-    rm(catch_data_sub)
-
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # STEP 3: Load/build map ----
+    # 3: Load/build map ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.null(map)) {
-      map <- suppressWarnings(build_map(data_list, start_par, debug = estimateMode == 4, random_rec = random_rec, random_sel = random_sel))
+      map <- suppressWarnings(build_map(data_list, start_par, debug = estimateMode %in% c(2, 4), # Turn off hindcast parameters if debugging or projection mode
+                                        random_rec = random_rec, random_sel = random_sel))
     } else{
       map <- map
     }
@@ -318,21 +327,20 @@ fit_mod <-
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # STEP 4: Get bounds ----
+    # 4: Get bounds ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.null(bounds)) {
       bounds <- Rceattle::build_bounds(param_list = start_par, data_list)
     } else {
       bounds = bounds
     }
-    if(verbose > 0) {message("Step 3: Param bounds complete")}
+    if(verbose > 0) {message("Step 3: Parameter bounds complete")}
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # STEP 5: Setup random effects ----
+    # 5: Setup random effects ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # FIXME: this should be controlled by fleet_control
-    random_vars <- c()
+    random_vars <- c("ln_M1_dev")
     if (random_rec) {
       if(initMode > 0){
         random_vars <- c(random_vars , "rec_dev", "init_dev")
@@ -349,7 +357,7 @@ fit_mod <-
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # STEP 6: Reorganize data ----
+    # 6: Reorganize data ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if(!is.null(TMBfilename)){
       TMB::compile(paste0(TMBfilename,".cpp"))
@@ -361,11 +369,13 @@ fit_mod <-
       TMBfilename <- "ceattle_v01_11"
     }
 
+    # - Check for data errors
     Rceattle:::data_check(data_list)
 
+    # - Reorganize data for .cpp file
     data_list_reorganized <- Rceattle::rearrange_dat(data_list)
     data_list_reorganized = c(list(model = TMBfilename), data_list_reorganized)
-    data_list_reorganized$forecast <- rep(0, data_list_reorganized$nspp) # Don't include BRPs in likelihood of hindcast
+    data_list_reorganized$forecast <- rep(0, data_list_reorganized$nspp) # Hindcast switch
 
     # - Update comp weights, future F (if input) and F_prop from data
     if(!is.null(data_list$fleet_control$Comp_weights)){
@@ -374,23 +384,27 @@ fit_mod <-
     start_par$proj_F_prop = data_list$fleet_control$proj_F_prop
 
     nyrs_proj <- data_list$projyr - data_list$styr + 1
-    if(!is.null(HCR$FsprTarget) & HCR$HCR == 2){
-      start_par$ln_Ftarget = log(HCR$FsprTarget) # Fixed fishing mortality for projections for each species
+    if(!is.null(HCR$Ftarget) & HCR$HCR == 2){
+      start_par$ln_Ftarget = log(HCR$Ftarget) # Fixed fishing mortality for projections for each species
     }
 
     # - Update M1 parameter object from data if initial parameter values input
     if(updateM1){
-      m1 <- array(0, dim = c(data_list$nspp, 2, max(data_list$nages, na.rm = T))) # Set up array
+      m1 <- array(0, dim = c(data_list$nspp,
+                             max(data_list$nsex, na.rm = T),
+                             max(data_list$nages, na.rm = T))) # Set up array
 
       # Initialize from inputs
       for (i in 1:nrow(data_list$M1_base)) {
         sp <- as.numeric(as.character(data_list$M1_base$Species[i]))
         sex <- as.numeric(as.character(data_list$M1_base$Sex[i]))
 
+        # Handle sex == 0 case for 2-sex species
+        sex_values <- if (sex == 0) 1:data_list$nsex[sp] else sex
+
         # Fill in M1 array from fixed values for each sex
-        if(sex == 0){ sex = c(1, 2)} # If sex = combined/both males and females, fill in both dimensions
-        for(j in 1:length(sex)){
-          m1[sp, sex[j], 1:max(data_list$nages, na.rm = T)] <- as.numeric(data_list$M1_base[i,(1:max(data_list$nages, na.rm = T)) + 2])
+        for(j in 1:length(sex_values)){
+          m1[sp, sex_values[j], 1:max(data_list$nages, na.rm = T)] <- as.numeric(data_list$M1_base[i,(1:max(data_list$nages, na.rm = T)) + 2])
         }
       }
       start_par$ln_M1 <- log(m1)
@@ -401,11 +415,11 @@ fit_mod <-
       start_par$rec_pars[,2] <- log(data_list$srr_prior)
     }
 
-    if(verbose > 0) {message("Step 4: Data rearranged complete")}
+    if(verbose > 0) {message("Step 4: Data rearrange complete")}
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # STEP 7: Set up parameter bounds ----
+    # 7: Set up parameter bounds ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     L <- c()
     U <- c()
@@ -425,96 +439,12 @@ fit_mod <-
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # STEP 8: Phase hindcast ----
+    # 8: Phase hindcast ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # Set default phasing
     if(is.logical(phase)){
       if(phase){
-        phaseList = list(
-          dummy = 1,
-          ln_pop_scalar = 4, # Scalar for input numbers-at-age
-          rec_pars = 1, # Stock-recruit parameters or log(mean rec) if no stock-recruit relationship
-          beta_rec_pars = 3,
-          R_ln_sd = 2, # Variance for annual recruitment deviats
-          rec_dev = 2, # Annual recruitment deviats
-          init_dev = 2, # Age specific initial age-structure deviates or parameters
-          # sex_ratio_ln_sd = 3, # Variance of sex ratio (usually fixed)
-          ln_M1 = 4, #  Estimated natural or residual mortality
-          ln_mean_F = 1, # Mean fleet-specific fishing mortality
-          ln_Flimit = 3, # Estimated F limit
-          ln_Ftarget = 3, # Estimated F target
-          ln_Finit = 3, # Estimated fishing mortality for non-equilibrium initial age-structure
-          proj_F_prop = 1, # Fixed fleet-specific proportion of Flimit and Ftarget apportioned within each species
-          F_dev = 1, # Annual fleet specific fishing mortality deviates
-          index_ln_q = 3, # Survey catchability
-          index_q_dev = 5, # Annual survey catchability deviates (if time-varying)
-          index_q_ln_sd = 4, # Prior SD for survey catchability deviates
-          index_q_beta = 4, # Regression coefficients for environmental linkage
-          index_q_rho = 4, # AR1 correlation parameter
-          index_q_dev_ln_sd = 4, # SD for annual survey catchability deviates (if time-varying)
-          sel_coff = 3, # Non-parametric selectivity coefficients
-          sel_coff_dev = 4, # Annual deviates for non-parametric selectivity coefficients
-          ln_sel_slp = 3, # Slope parameters for logistic forms of selectivity
-          sel_inf = 3, # Asymptote parameters for logistic forms of selectivity
-          ln_sel_slp_dev = 5, # Annual deviates for slope parameters for logistic forms of selectivity (if time-varying)
-          sel_inf_dev = 5, # Annual deviates for asymptote parameters for logistic forms of selectivity (if time-varying)
-          sel_dev_ln_sd = 4, # SD for annual selectivity deviates (if time-varying)
-          sel_curve_pen = 4, # Penalty for non-parametric selectivity
-          index_ln_sd = 2, # Log SD for survey lognormal index likelihood (usually input)
-          catch_ln_sd = 2, # Log SD for lognormal catch likelihood (usually input)
-          comp_weights = 5 # Weights for multinomial comp likelihood
-          # ,logH_1 = 6,  # Functional form parameter (not used in MSVPA functional form)
-          # logH_1a = 6, # Functional form parameter (not used in MSVPA functional form)
-          # logH_1b = 6, # Functional form parameter (not used in MSVPA functional form)
-          # logH_2 = 6, # Functional form parameter (not used in MSVPA functional form)
-          # logH_3 = 6, # Functional form parameter (not used in MSVPA functional form)
-          # H_4 = 6, # Functional form parameter (not used in MSVPA functional form)
-          # log_gam_a = 5, # Suitability parameter (not used in MSVPA style)
-          # log_gam_b = 5, # Suitability parameter (not used in MSVPA style)
-          # log_phi = 5 # Suitability parameter (not used in MSVPA style)
-        )
-
-
-        # debugphase = list(
-        #   dummy = 1,
-        #   ln_pop_scalar = 5, # Scalar for input numbers-at-age
-        #   rec_pars = 1, # Stock-recruit parameters or log(mean rec) if no stock-recruit relationship
-        #   R_ln_sd = 4, # Variance for annual recruitment deviats
-        #   rec_dev = 2, # Annual recruitment deviats
-        #   init_dev = 3, # Age specific initial age-structure deviates or parameters
-        #   sex_ratio_ln_sd = 3, # Variance of sex ratio (usually fixed)
-        #   ln_M1 = 4, #  Estimated natural or residual mortality
-        #   ln_mean_F = 6, # Mean fleet-specific fishing mortality
-        #   ln_Flimit = 15, # Estimated F limit
-        #   ln_Ftarget = 15, # Estimated F target
-        #   ln_Finit = 7, # Estimated fishing mortality for non-equilibrium initial age-structure
-        #   proj_F_prop = 14, # Fixed fleet-specific proportion of Flimit and Ftarget apportioned within each species
-        #   F_dev = 7, # Annual fleet specific fishing mortality deviates
-        #   index_ln_q = 10, # Survey catchability
-        #   index_q_dev = 11, # Annual survey catchability deviates (if time-varying)
-        #   index_q_ln_sd = 15, # Prior SD for survey catchability deviates
-        #   index_q_dev_ln_sd = 15, # SD for annual survey catchability deviates (if time-varying)
-        #   sel_coff = 8, # Non-parametric selectivity coefficients
-        #   sel_coff_dev = 11, # Annual deviates for non-parametric selectivity coefficients
-        #   ln_sel_slp = 9, # Slope parameters for logistic forms of selectivity
-        #   sel_inf = 9, # Asymptote parameters for logistic forms of selectivity
-        #   ln_sel_slp_dev = 11, # Annual deviates for slope parameters for logistic forms of selectivity (if time-varying)
-        #   sel_inf_dev = 11, # Annual deviates for asymptote parameters for logistic forms of selectivity (if time-varying)
-        #   sel_dev_ln_sd = 12, # SD for annual selectivity deviates (if time-varying)
-        #   sel_curve_pen = 13, # Penalty for non-parametric selectivity
-        #   index_ln_sd = 14, # Log SD for survey lognormal index likelihood (usually input)
-        #   catch_ln_sd = 14, # Log SD for lognormal catch likelihood (usually input)
-        #   comp_weights = 15, # Weights for multinomial comp likelihood
-        #   logH_1 = 15,  # Functional form parameter (not used in MSVPA functional form)
-        #   logH_1a = 15, # Functional form parameter (not used in MSVPA functional form)
-        #   logH_1b = 15, # Functional form parameter (not used in MSVPA functional form)
-        #   logH_2 = 15, # Functional form parameter (not used in MSVPA functional form)
-        #   logH_3 = 15, # Functional form parameter (not used in MSVPA functional form)
-        #   H_4 = 15, # Functional form parameter (not used in MSVPA functional form)
-        #   log_gam_a = 15, # Suitability parameter (not used in MSVPA style)
-        #   log_gam_b = 15, # Suitability parameter (not used in MSVPA style)
-        #   log_phi = 15 # Suitability parameter (not used in MSVPA style)
-        # )
+        phaseList <- set_phases()
       }
     }
 
@@ -527,7 +457,7 @@ fit_mod <-
 
     step = 5
     if(phase & estimateMode %in% c(0,1) ){
-      if(verbose > 0) {message(paste0("Step ", step,": Phasing begin"))}
+      if(verbose > 0) {message(paste0("Step ", step,": Phasing begin"))}; step = step + 1
       phase_pars <- Rceattle::TMBphase(
         data = data_list_reorganized,
         parameters = start_par,
@@ -540,43 +470,44 @@ fit_mod <-
         control = control
       )
 
+      # Save output
+      mod_objects$phase_params <- phase_pars
       start_par <- phase_pars
 
-      if(verbose > 0) {message(paste0("Step ", step,": Phasing complete - getting final estimates"))}
+      if(verbose > 0) {message(paste0("Step ", step,": Phasing complete"))}
       step = step + 1
     }
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # STEP 9: Fit hindcast ----
+    # 9: Fit hindcast ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    if(estimateMode != 2){ # dont build if projection and estimating HCR parameters
-      if(sum(as.numeric(unlist(map$mapFactor)), na.rm = TRUE) == 0){stop("Map of length 0: all NAs")}
-      obj = TMB::MakeADFun(
-        data_list_reorganized,
-        parameters = start_par,
-        DLL = TMBfilename,
-        map = map$mapFactor,
-        random = random_vars,
-        silent = verbose != 2
-      )
-    }
+    # * Build ----
+    if(sum(as.numeric(unlist(map$mapFactor)), na.rm = TRUE) == 0){stop("Map of length 0: all NAs")}
+    obj = TMB::MakeADFun(
+      data_list_reorganized,
+      parameters = start_par,
+      DLL = TMBfilename,
+      map = map$mapFactor,
+      random = random_vars,
+      silent = verbose != 2
+    )
 
     # -- Save objects
-    mod_objects <-
+    mod_objects <- c(
       list(
         TMBfilename = TMBfilename,
-        initial_params = start_par,
         bounds = bounds,
         map = map
-      )
+      ),
+      mod_objects)
 
-    if(verbose > 0) {message(paste0("Step ",step, ": final build complete. Optimizing."))}
+    if(verbose > 0) {message(paste0("Step ",step, ": Hindcast build complete"))}
     step = step + 1
 
 
-    # -- Optimize hindcast
-    if(estimateMode %in% c(0,1,4)){
+    # * Optimize hindcast ----
+    if(estimateMode %in% c(0,1,2,4)){
       opt = Rceattle::fit_tmb(obj = obj,
                               fn=obj$fn,
                               gr=obj$gr,
@@ -591,7 +522,12 @@ fit_mod <-
                               getJointPrecision = getJointPrecision,
                               quiet = verbose < 2,
       )
-      if(verbose > 0) {message("Step ",step, ": Final optimization complete")
+      if(verbose > 0 & estimateMode != 4) {
+        message("Step ",step, ": Hindcast optimization complete.")
+        step = step + 1
+      }
+      if(verbose > 0 & estimateMode == 4) {
+        message("Step ",step, ": 'dummy' optimization complete.")
         step = step + 1
       }
 
@@ -612,7 +548,8 @@ fit_mod <-
       }
     }
 
-    # -- Get MLEs
+
+    # * Get MLEs ----
     if (estimateMode > 1) { # Debugging and projection only: use initial parameters
       last_par <- start_par
     } else{
@@ -625,19 +562,19 @@ fit_mod <-
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # STEP 10: Run HCR projections ----
+    # 10: Run projection ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if(estimateMode %in% c(0,2,4)){
-      if(!data_list$HCR %in% c(0, 2)){ # - All HCRs except no F and fixed F
+      if(!data_list$HCR %in% c(0)){ # - All HCRs except no F and fixed F
 
-        # * Single species mode ----
+        # * 10.1: Single species mode ----
         if(msmMode == 0){
 
           # Turn BRP estimation on within likelihood
           data_list_reorganized$forecast <- rep(1, data_list_reorganized$nspp)
 
           # -- Update map in obs
-          hcr_map <- build_hcr_map(data_list, map, debug = estimateMode > 3)
+          hcr_map <- Rceattle::build_hcr_map(data_list, map, debug = estimateMode > 3)
           if(sum(!is.na(unlist(hcr_map$mapFactor))) == 0){stop("HCR map of length 0: all NAs")}
 
           obj = TMB::MakeADFun(
@@ -648,6 +585,10 @@ fit_mod <-
             random = random_vars,
             silent = verbose != 2
           )
+
+
+          if(verbose > 0) {message(paste0("Step ",step, ": Projection build complete"))}
+          step = step + 1
 
           # -- Optimize
           opt = Rceattle::fit_tmb(obj = obj,
@@ -662,29 +603,24 @@ fit_mod <-
                                   getJointPrecision = FALSE,
                                   quiet = verbose < 2,
           )
+
+
+          if(verbose > 0) {message(paste0("Step ",step, ": projection optimization complete"))}
+          step = step + 1
         }
 
 
-        # * Multi-species mode ----
+        # * 10.2: Multi-species mode ----
         if(msmMode > 0){
-
-          # -- Get quantities
-          if(estimateMode == 2){ # Build obj if we havent done so already
-            obj = TMB::MakeADFun(
-              data_list_reorganized,
-              parameters = last_par,
-              DLL = TMBfilename,
-              map = map$mapFactor,
-              random = random_vars,
-              silent = verbose != 2
-            )
-          }
 
           # Loop across species orders
           for(HCRiter in 1:max(data_list$HCRorder)){
 
             # -- Update map in obs
-            hcr_map <- build_hcr_map(data_list, map, debug = estimateMode > 3, all_params_on = FALSE, HCRiter = HCRiter)
+            hcr_map <- Rceattle::build_hcr_map(data_list, map,
+                                               debug = estimateMode > 3,
+                                               all_params_on = FALSE,
+                                               HCRiter = HCRiter)
             if(sum(as.numeric(unlist(hcr_map$mapFactor)), na.rm = TRUE) == 0){stop("HCR map of length 0: all NAs")}
 
             # -- Get SB0: SSB when model is projected forward under no fishing
@@ -711,28 +647,36 @@ fit_mod <-
               silent = verbose != 2
             )
 
-            # -- Optimize
-            opt = Rceattle::fit_tmb(obj = obj,
-                                    fn=obj$fn,
-                                    gr=obj$gr,
-                                    startpar=obj$par,
-                                    loopnum = loopnum,
-                                    getsd = getsd,
-                                    bias.correct = bias.correct,
-                                    bias.correct.control=list(sd=getsd),
-                                    control = control,
-                                    getJointPrecision = FALSE,
-                                    quiet = verbose < 2,
-            )
+            if(verbose > 0) {message(paste0("Step ",step," - HCRiter ",HCRiter, ": Projection build complete. Optimizing."))}
+            step = step + 1
 
-            # --- Update F from opt
-            last_par$ln_Ftarget[params_on] <- opt$par[1:length(params_on)]
+            # -- Optimize
+            if(data_list$HCR != 2){ # Fixed F does not need estimation
+              opt = Rceattle::fit_tmb(obj = obj,
+                                      fn=obj$fn,
+                                      gr=obj$gr,
+                                      startpar=obj$par,
+                                      loopnum = loopnum,
+                                      getsd = getsd,
+                                      bias.correct = bias.correct,
+                                      bias.correct.control=list(sd=getsd),
+                                      control = control,
+                                      getJointPrecision = FALSE,
+                                      quiet = verbose < 2,
+              )
+
+              # --- Update F from opt
+              last_par$ln_Ftarget[params_on] <- opt$par[1:length(params_on)]
+            }
           }
         }
 
-        if(verbose > 0) {message("Step ",step, ": Projections complete")}
 
-        # -- Update MLEs
+        if(verbose > 0) {message(paste0("Step ",step, ": Projection optimization complete."))}
+        step = step + 1
+
+
+        # * Update MLEs ----
         if (estimateMode > 2) { # Debugging, give initial parameters
           last_par <- start_par
         }else{
@@ -743,12 +687,13 @@ fit_mod <-
           }
         }
 
+
         # * Projection uncertainty ----
         # Updates the model with all hindcast and BRP parameters "turned on" to get out uncertainty estimates in the projection
         if(projection_uncertainty){
 
           # -- Update both map in to have BRP and hindcast parameters on
-          hcr_map_proj <- build_hcr_map(data_list, map, debug = estimateMode > 3, all_params_on = TRUE)
+          hcr_map_proj <- Rceattle::build_hcr_map(data_list, map, debug = estimateMode > 3, all_params_on = TRUE)
           if(sum(as.numeric(unlist(hcr_map_proj$mapFactor)), na.rm = TRUE) == 0){stop("HCR projection map of length 0: all NAs")}
 
           # --- Update model object with BRP and hindcast parameters turned for BRP and hindcast
@@ -770,7 +715,7 @@ fit_mod <-
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # STEP 11: Save output ----
+    # 11: Save output ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # - Save estimated parameters
     mod_objects$estimated_params <- last_par
@@ -790,58 +735,15 @@ fit_mod <-
       }
     }
 
-    # -- Rename jnll
-    colnames(quantities$jnll_comp) <- paste0("Sp/Srv/Fsh_", 1:ncol(quantities$jnll_comp))
-    rownames(quantities$jnll_comp) <- c(
-      "Index data",
-      "Catch data",
-      "Composition data",
-      "Sex ratio",
-      "Non-parametric selectivity",
-      "Selectivity deviates",
-      "Selectivity normalization",
-      "Catchability prior",
-      "Catchability deviates",
-      "Stock-recruit prior",
-      "Recruitment deviates",
-      "Initial abundance deviates",
-      "Fishing mortality deviates",
-      "SPR Calculation",
-      "Zero n-at-age penalty",
-      "M prior",
-      "Ration",
-      "Ration penalties",
-      "Stomach content data"
-    )
 
-
-    colnames(quantities$ssb) <- data_list$styr:data_list$projyr
-    colnames(quantities$R) <- data_list$styr:data_list$projyr
-
-    rownames(quantities$ssb) <- data_list$spnames
-    rownames(quantities$R) <- data_list$spnames
 
     # -- Save derived quantities
-    mod_objects$quantities <- quantities
-
-
-    # - Calculate Mcallister-Iannelli coefficients
-    # Effective sample size for the length data for year y
-
-    eff_n_mcallister <- rowSums(quantities$comp_hat * (1 - quantities$comp_hat), na.rm = TRUE)/rowSums((data_list_reorganized$comp_obs - quantities$comp_hat)^2, na.rm = TRUE) # sum_length (p_hat * (1 - p_hat))/ sum_length ((p - p_hat) ^ 2)
-
-
-    # Loop fleets and take harmonic mean
-    data_list$fleet_control$Est_weights_mcallister <- NA
-    for(flt in unique(data_list$comp_data$Fleet_code)){
-      comp_sub <- which(data_list$comp_data$Fleet_code == flt & data_list$comp_data$Year > 0)
-      data_list$fleet_control$Est_weights_mcallister[which(data_list$fleet_control$Fleet_code == flt)] <- ((1/length(comp_sub))*sum((eff_n_mcallister[comp_sub]/data_list$comp_data$Sample_size[comp_sub])^-1))^-1
-    }
+    mod_objects$quantities <- Rceattle::rename_output(data_list = data_list, quantities = quantities)
 
     # -- Save data w/ mcallister
-    mod_objects$data_list <- data_list
+    mod_objects$data_list <- Rceattle::calc_mcall_ianelli(data_list = data_list, data_list_reorganized = data_list_reorganized, quantities = quantities)
 
-    # - Save objects
+    # -- Run time
     mod_objects$run_time = ((Sys.time() - start_time))
 
     if(estimateMode < 3){
@@ -856,11 +758,10 @@ fit_mod <-
       save(mod_objects, file = paste0(file, ".RData"))
     }
 
-    # suppressWarnings(try(dyn.unload(TMB::dynlib(paste0(cpp_file)))))
-    return(mod_objects)
-
     # Free up memory
     TMB::FreeADFun(obj)
+
+    return(mod_objects)
   }
 
 
@@ -885,46 +786,40 @@ clean_data <- function(data_list){
       data_list$fleet_control[,-which(colnames(data_list$fleet_control) %in% c("Fleet_name", "Time_varying_q"))], 2, as.numeric)
   }
 
-  # - Remove years of data previous to start year
-  data_list$stom_prop_data <- as.data.frame(data_list$stom_prop_data)
-  data_list$UobsAge <- as.data.frame(data_list$UobsAge)
-  data_list$wt <- data_list$wt[which(data_list$wt$Year == 0 | data_list$wt$Year >= data_list$styr),]
-  data_list$stom_prop_data <- data_list$stom_prop_data[which(data_list$stom_prop_data$Year == 0 | data_list$stom_prop_data$Year >= data_list$styr),]
-  data_list$index_data <- data_list$index_data[which(abs(data_list$index_data$Year) >= data_list$styr),]
-  data_list$catch_data <- data_list$catch_data[which(abs(data_list$catch_data$Year) >= data_list$styr),]
-  data_list$comp_data <- data_list$comp_data[which(abs(data_list$comp_data$Year) >= data_list$styr),]
-  data_list$emp_sel <- data_list$emp_sel[which(data_list$emp_sel$Year == 0 | data_list$emp_sel$Year >= data_list$styr),]
-  data_list$NByageFixed <- data_list$NByageFixed[which(data_list$NByageFixed$Year == 0 | data_list$NByageFixed$Year >= data_list$styr),]
-  data_list$Pyrs <- data_list$Pyrs[which(data_list$Pyrs$Year == 0 | data_list$Pyrs$Year >= data_list$styr),]
+  # Remove years of data previous to start year and after end year
+  # - Data in likelihood
+  data_list$index_data <- data_list$index_data %>%
+    dplyr::filter(abs(Year) >= data_list$styr & abs(Year) <= data_list$projyr)
+  data_list$catch_data <- data_list$catch_data %>%
+    dplyr::filter(abs(Year) >= data_list$styr & abs(Year) <= data_list$projyr)
+  data_list$comp_data <- data_list$comp_data %>%
+    dplyr::filter(abs(Year) >= data_list$styr & abs(Year) <= data_list$projyr)
 
-  # - Add temp multi-species SB0
+  # - Fixed data
+  data_list$weight <- data_list$weight %>%
+    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
+  data_list$diet_data <- as.data.frame(data_list$diet_data) %>%
+    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
+  data_list$emp_sel <- data_list$emp_sel %>%
+    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
+  data_list$NByageFixed <- data_list$NByageFixed %>%
+    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
+  data_list$Pyrs <- data_list$Pyrs %>%
+    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
+
+
+  # Add temp multi-species SB0
   if(is.null(data_list$MSSB0)){
     data_list$MSSB0 <- rep(999, data_list$nspp)
     data_list$MSB0 <- rep(999, data_list$nspp)
   }
 
-  # - Remove years of data after proj year
-  data_list$wt <- data_list$wt[which(data_list$wt$Year <= data_list$projyr),]
-  data_list$stom_prop_data <- data_list$stom_prop_data[which(data_list$stom_prop_data$Year <= data_list$projyr),]
-  data_list$index_data <- data_list$index_data[which(abs(data_list$index_data$Year) <= data_list$projyr),]
-  data_list$catch_data <- data_list$catch_data[which(abs(data_list$catch_data$Year) <= data_list$projyr),]
-  data_list$comp_data <- data_list$comp_data[which(abs(data_list$comp_data$Year) <= data_list$projyr),]
-  data_list$emp_sel <- data_list$emp_sel[which(data_list$emp_sel$Year <= data_list$projyr),]
-  data_list$NByageFixed <- data_list$NByageFixed[which(data_list$NByageFixed$Year <= data_list$projyr),]
-  data_list$Pyrs <- data_list$Pyrs[which(data_list$Pyrs$Year <= data_list$projyr),]
 
-
-  # - Extend catch data to proj year for projections
+  # Extend catch data to proj year for projections (where data are missing)
   if(data_list$projyr > data_list$endyr){
-    # yrs_proj <- (data_list$endyr + 1):data_list$projyr
-    # proj_catch_data <- data_list$catch_data %>%
-    #   group_by(Fleet_code) %>%
-    #   slice(rep(n(),  length(yrs_proj))) %>%
-    #   mutate(Year = yrs_proj, Catch = NA)
-    # data_list$catch_data <- rbind(data_list$catch_data, proj_catch_data)
-
     for(flt in (unique(data_list$catch_data$Fleet_code))){
-      catch_data_sub <- data_list$catch_data[which(data_list$catch_data$Fleet_code == flt),]
+      catch_data_sub <- data_list$catch_data %>%
+        dplyr::filter(Fleet_code == flt)
       yrs_proj <- (data_list$endyr + 1):data_list$projyr
       yrs_proj <- yrs_proj[which(yrs_proj %!in% catch_data_sub$Year)]
       nyrs_proj <- length(yrs_proj)
@@ -939,6 +834,7 @@ clean_data <- function(data_list){
       data_list$catch_data <- rbind(data_list$catch_data, proj_catch_data)
     }
   }
+
   data_list$catch_data <- data_list$catch_data[
     with(data_list$catch_data, order(Fleet_code, Year)),]
 
