@@ -74,7 +74,7 @@ fit_mod(
 
 \item{initMode}{how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0 + dev-yr1,  mortality (M1); 2 = equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 3 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates.}
 
-\item{suitMode}{Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma suitability, 2 = weight based gamma suitability, 3 = length based lognormal selectivity, 4 = time-varying length based lognormal selectivity.}
+\item{suitMode}{Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length-based gamma suitability (NOT WORKING), 2 = weight-based gamma suitability, 3 = length-based lognormal suitability (NOT WORKING), 4 = weight-based lognormal suitability.}
 
 \item{suit_styr}{Integer. The first year used to calculate mean suitability. Defaults to $styr$ in $data_list$. Used when diet data were sampled from a subset of years.}
 
