@@ -2268,7 +2268,7 @@ Type objective_function<Type>::operator() () {
 
 
         // 8.1.4. Lognormal suitability
-        if((suitMode == 3) | (suitMode == 4)){
+        if((suitMode == 3) | (suitMode == 4) | (suitMode == 5)| (suitMode == 6)){
           Type log_size_ratio = 0;       // Log(mean(predLen@age)/mean(preyLen@age))
           suitability.setZero();
           for(rsp = 0; rsp < nspp; rsp++) {                                // Pred loop
