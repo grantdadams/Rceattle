@@ -14,7 +14,7 @@ array<Type> pred_length(matrix<Type> mLAA_jan1, int n_yrs, int n_years_model, ve
   // ------------------------------------------------------------------------- //
   PARAMETER_ARRAY(mu_growth_pars);  // Mean growth curve parameters [sp, sex, par]
   PARAMETER_ARRAY(re_growth_pars);  // Annual random effects for growth curve parameters [sp, sex, year, par]
-  PARAMETER_ARRAY(length_ln_sd);    // Log standard deviation of length-at- min and max age [sp, sex, 2]
+  PARAMETER_ARRAY(growth_ln_sd);    // Log standard deviation of length-at- min and max age [sp, sex, 2]
 
 
   // ------------------------------------------------------------------------- //
@@ -148,20 +148,20 @@ array<Type> pred_length(matrix<Type> mLAA_jan1, int n_yrs, int n_years_model, ve
         if(growth_model < 3) {
 
           if((age + 1.0) < age_L1) { // same as SD1
-            length_sd(sp, sex, age, yr) = exp(length_ln_sd(sp, sex, 0);
+            length_sd(sp, sex, age, yr) = exp(growth_ln_sd(sp, sex, 0);
           } else {
             if(age == (nages(sp)-1)) { // same as SDA
-              length_sd(sp, sex, age, yr) = exp(length_ln_sd(sp, sex, 1);
+              length_sd(sp, sex, age, yr) = exp(growth_ln_sd(sp, sex, 1);
             } else { // linear interpolation
-              Slope = (exp(length_ln_sd(sp, sex, 1) - exp(length_ln_sd(sp, sex, 0))/(growth_pars(sp, sex, yr, 1) - growth_pars(sp, sex, yr, 2));
-                             length_sd(sp, sex, age, yr) = exp(length_ln_sd(sp, sex, 0) + Slope * (length(sp, sex, age, yr) - growth_pars(sp, sex, yr, 2));
+              Slope = (exp(growth_ln_sd(sp, sex, 1) - exp(growth_ln_sd(sp, sex, 0))/(growth_pars(sp, sex, yr, 1) - growth_pars(sp, sex, yr, 2));
+                             length_sd(sp, sex, age, yr) = exp(growth_ln_sd(sp, sex, 0) + Slope * (length(sp, sex, age, yr) - growth_pars(sp, sex, yr, 2));
             }
           }
 
           // Free parameters
           if(growth_model == 3) {
-            // Slope = (exp(length_ln_sd(sp, sex, 1) - exp(length_ln_sd(sp, sex, 0))/(length(sp, sex, nages(sp)-1, yr) - length(sp, sex, 0, yr));
-            // length_sd(sp, sex, age, yr) = exp(length_ln_sd(sp, sex, 0) + Slope * (length(sp, sex, age, yr) - length(sp, sex, 0, yr));
+            // Slope = (exp(growth_ln_sd(sp, sex, 1) - exp(growth_ln_sd(sp, sex, 0))/(length(sp, sex, nages(sp)-1, yr) - length(sp, sex, 0, yr));
+            // length_sd(sp, sex, age, yr) = exp(growth_ln_sd(sp, sex, 0) + Slope * (length(sp, sex, age, yr) - length(sp, sex, 0, yr));
           }
         }
       }
@@ -202,7 +202,23 @@ pred_CAAL(flt, sex, age, ln, yr_ind) = N_at_age(sp, sex, age, yr)  * sel(flt, se
 
 ;
 // * sel_l(flt, sex, ln, yr_ind)
-
+for(int f = 0; f < n_fleets; f++)
+{
+  lsum.setZero();
+  asum.setZero();
+  pred_catch(y,f) = 0.0;
+  for(int a = 0; a < n_ages; a++){
+    for(int l = 0; l < n_lengths; l++) {
+      // for model years, we can use either age or len selex: F vector goes until n_model_years
+      if(y < n_years_model) pred_CAAL(y,f,l,a) = selAA(selblock_pointer_fleets(usey,f)-1)(usey,a)*selLL(selblock_pointer_fleets(usey,f)-1)(usey,l)*catch_phi_mat(y,l,a)*NAA(y,a)*F(y,f)*(1-exp(-ZAA(y,a)))/ZAA(y,a);
+      // for projection years, we can only use selectivity at age as calculated above. TODO: implement len-selex for projection years.
+      if(y > n_years_model-1) pred_CAAL(y,f,l,a) = catch_phi_mat(y,l,a)*NAA(y,a)*FAA(y,f,a)*(1-exp(-ZAA(y,a)))/ZAA(y,a);
+      lsum(l) += pred_CAAL(y,f,l,a);
+      asum(a) += pred_CAAL(y,f,l,a);
+    }
+  }
+  for(int l = 0; l < n_lengths; l++) pred_CAL(y,f,l) = lsum(l); // predicted catch-at-length
+  for(int a = 0; a < n_ages; a++) pred_CAA(y,f,a) = asum(a); // predicted catch-at-age (numbers)
 
 // -- CAAL
 vector<Type> paa_obs_y(nages(sp));
