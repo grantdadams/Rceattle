@@ -831,7 +831,7 @@ plot_selectivity <-
 
     # Extract data objects
     years <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
-    hindyears <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$projyr)
+    hindyears <- lapply(Rceattle, function(x) x$data_list$styr:x$data_list$endyr)
     nyrs <- max(sapply(years, length))
     nyrshind <- max(sapply(hindyears, length))
     maxyr <- max((sapply(years, max)))
