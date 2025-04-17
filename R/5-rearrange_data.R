@@ -61,28 +61,53 @@ rearrange_dat <- function(data_list){
 
 
   # 2 -  Seperate survey biomass info from observation ----
-  data_list$index_ctl <- data_list$index_data[,c("Fleet_code", "Species", "Year")]
+  data_list$index_ctl <- data_list$index_data %>%
+    dplyr::select(Fleet_code, Species, Year) %>%
+    dplyr::mutate_all(as.numeric)
+
   data_list$index_n <- as.matrix(data_list$index_data[,c("Month")])
-  data_list$index_obs <- data_list$index_data[,c("Observation", "Log_sd")]
+
+  data_list$index_obs <- data_list$index_data %>%
+    dplyr::select(Observation, Log_sd) %>%
+    dplyr::mutate_all(as.integer)
 
 
   # 3 -  Seperate catch biomass info from observation ----
-  data_list$catch_ctl <- data_list$catch_data[,c("Fleet_code", "Species", "Year")]
+  data_list$catch_ctl <- data_list$catch_data %>%
+    dplyr::select(Fleet_code, Species, Year) %>%
+    dplyr::mutate_all(as.numeric)
+
   data_list$catch_n <- as.matrix(data_list$catch_data[,c("Month")])
-  data_list$catch_obs <- data_list$catch_data[,c("Catch", "Log_sd")]
+
+  data_list$catch_obs <- data_list$catch_data %>%
+    dplyr::select(Catch, Log_sd) %>%
+    dplyr::mutate_all(as.numeric)
 
 
   # 4 -  Seperate comp data from observation ----
-  data_list$comp_ctl <- data_list$comp_data[,c("Fleet_code", "Species", "Sex", "Age0_Length1", "Year")]
-  data_list$comp_n <- data_list$comp_data[,c("Month", "Sample_size")]
-  data_list$comp_obs <- data_list$comp_data[,grep("Comp_", colnames(data_list$comp_data))]
+  data_list$comp_ctl <- data_list$comp_data %>%
+    dplyr::select(Fleet_code, Species, Sex, Age0_Length1, Year) %>%
+    dplyr::mutate_all(as.integer)
+
+  data_list$comp_n <- data_list$comp_data %>%
+    dplyr::select(Month, Sample_size) %>%
+    dplyr::mutate_all(as.numeric)
+
+  data_list$comp_obs <- data_list$comp_data %>%
+    dplyr::select(contains("Comp_")) %>%
+    dplyr::mutate_all(as.numeric)
 
   data_list <- check_composition_data(data_list)
 
 
   # 5 -  Seperate diet info from observation ----
-  data_list$diet_ctl <- data_list$diet_data[,c("Pred", "Prey", "Pred_sex", "Prey_sex", "Pred_age", "Prey_age", "Year")]
-  data_list$diet_obs <- data_list$diet_data[,c("Sample_size", "Stomach_proportion_by_weight")]
+  data_list$diet_ctl <- data_list$diet_data %>%
+    dplyr::select(Pred, Prey, Pred_sex, Prey_sex, Pred_age, Prey_age, Year) %>%
+    dplyr::mutate_all(as.integer)
+
+  data_list$diet_obs <- data_list$diet_data %>%
+    dplyr::select(Sample_size, Stomach_proportion_by_weight) %>%
+    dplyr::mutate_all(as.numeric)
 
 
   # 6 -  Seperate survey empirical selectivity info from observation ----
@@ -110,8 +135,13 @@ rearrange_dat <- function(data_list){
     }
   }
 
-  data_list$emp_sel_ctl <- as.matrix(data_list$emp_sel[,c("Fleet_code", "Species", "Sex", "Year")])
-  data_list$emp_sel_obs <- matrix(as.numeric(unlist(data_list$emp_sel[,grep("Comp_", colnames(data_list$emp_sel))])), nrow = nrow(data_list$emp_sel_ctl))
+  data_list$emp_sel_ctl <- data_list$emp_sel %>%
+    dplyr::select(Fleet_code, Species, Sex, Year) %>%
+    dplyr::mutate_all(as.integer)
+
+  data_list$emp_sel_obs <- data_list$emp_sel %>%
+    dplyr::select(contains("Comp_")) %>%
+    dplyr::mutate_all(as.numeric)
 
 
   # 7 - Rearrange age-transition matrix ----
@@ -264,16 +294,18 @@ rearrange_dat <- function(data_list){
   data_list$env_index <- merge(data_list$env_data, data.frame(Year = data_list$styr:data_list$projyr), all = TRUE)
   data_list$env_index <-  data_list$env_index %>%
     dplyr::select(-Year) %>%
-    mutate_all(~ifelse(is.na(.x), mean(.x, na.rm = TRUE), .x)) %>%
+    dplyr::mutate_all(~ifelse(is.na(.x), mean(.x, na.rm = TRUE), .x)) %>%
     as.matrix()
 
   # - Create matrix for srr curve
+  if(is.null(data_list$srr_indices)){data_list$srr_indices <- 1:(ncol(data_list$env_index)-1)}
   if(sum(sapply(data_list$srr_indices, function(x) x>ncol(data_list$env_index))) > 0){stop("'srr_indices' greater than the number of indices included")}
   data_list$env_index_srr <-  data_list$env_index[, data_list$srr_indices] %>%
     as.matrix()
 
 
   # - Create matrix for M1
+  if(is.null(data_list$M1_indices)){data_list$M1_indices <- 1:(ncol(data_list$env_index)-1)}
   if(sum(sapply(data_list$M1_indices, function(x) x>ncol(data_list$env_index))) > 0){stop("'M1_indices' greater than the number of indices included")}
   data_list$env_index_M1 <-  data_list$env_index[, data_list$M1_indices] %>%
     as.matrix()
@@ -283,11 +315,11 @@ rearrange_dat <- function(data_list){
   # - Convert to array
   data_list$Pyrs <- data_list$Pyrs %>%
     dplyr::mutate(Species = as.numeric(as.character(Species)),
-           Sex = as.numeric(as.character(Sex)),
-           Year = as.numeric(as.character(Year)),
-           Year = ifelse(Year == 0,
-                         0,
-                         Year - data_list$styr + 1)
+                  Sex = as.numeric(as.character(Sex)),
+                  Year = as.numeric(as.character(Year)),
+                  Year = ifelse(Year == 0,
+                                0,
+                                Year - data_list$styr + 1)
     )
 
   Pyrs <- array(0, dim = c(data_list$nspp, max_sex, max_age, nyrs_hind)) # FIXME: Change for forecast
@@ -329,7 +361,7 @@ rearrange_dat <- function(data_list){
   data_list[df_to_mat] <- lapply(data_list[df_to_mat], as.matrix)
 
   items_to_remove <- c("emp_sel",  "fsh_comp",    "srv_comp",    "catch_data",    "index_data", "comp_data", "env_data", "spnames",
-                       "aLW", # "NByageFixed", "estDynamics", "Ceq",
+                       "aLW", "diet_data", # "NByageFixed", "estDynamics", "Ceq",
                        "avgnMode", "minNByage")
   data_list[items_to_remove] <- NULL
 

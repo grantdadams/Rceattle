@@ -1,0 +1,162 @@
+---
+title: "An overview of Rceattle"
+author: "Grant Adams"
+format: pptx
+editor: visual
+---
+
+## `Rceattle` overview
+
+Flexible code-base for single- and multi-species age structured modelling
+
+Empirical weight-at-age (internal growth estimation in dev)
+
+Species-, sex- and -age structured
+
+Flexible in the number of species and fleets
+
+Forecasting, simulation, and MSE capable
+
+## Background
+
+Developed from Kirstin's ADMB CEATTLE
+
+Ported to TMB during my PhD
+
+Code base and functionality developed to closely/exactly match CEATTLE (ADMB), GOA Pollock (ADMB/TMB), GOA ATF (ADMB), GOA Cod & Pacific Hake (Stock Synthesis)
+
+Designed to fit different model formulations, include environmental indices/predation, and run MSEs
+
+## Existing `Rceattle` applications
+
+-   Pacific hake: 1 species (Sophia Wasserman)
+
+-   GOA ATF SAFE model: 1 species (Kalei Shotwell and Grant Adams)
+
+-   Hake + ATF: 2 species (Raquel Ruiz Diaz)
+
+-   EBS CEATTLE: 3 species (Kirstin Holsman)
+
+-   GOA CEATTLE: 4 species (Grant Adams)
+
+## Motivation and goals
+
+1.  Tool for "easily" fitting single- and multi-species model variants
+
+2.  Fit models with random effects
+
+3.  Easily assess model performance via diagnostics, fit metrics, simulation, and MSE
+
+4.  Help build environmentally-linked research models and MSE test SAFE models
+
+5.  Eye towards flexibility and documentation from PhD angst recreating custom/hard-coded models
+
+## Broad `Rceattle` workflow
+
+Excel document to specify:
+
+-   Observation model and inputs (data, q, selectivity, likelihoods)
+
+-   "Fixed" population dynamics (number of species, years, empirical weight-at-age, fixed M, maturity, sex ratio, consumption)
+
+`R` wrapper function `fit_mod` to specify and fit
+
+-   Population dynamics model (M, initial conditions, recruitment, predation)
+
+-   Forecast (HCR form, BRPs, recruitment)
+
+-   Estimation controls and random effects
+
+## 
+
+## Broad `Rceattle` workflow
+
+```{r}
+library(Rceattle)
+
+mydata <- read_data( file = "mydata.xlsx")
+
+mymodel <- fit_mod(data_list = mydata,
+                   inits = NULL,       # Initial parameters at default
+                   estimateMode = 0,   # Estimate
+                   random_rec = FALSE, # No random recruitment
+                   msmMode = 0,        # Single species mode
+                   phase = TRUE,       # Phase model
+                   verbose = 1)
+```
+
+## 
+
+## Basic excel data
+
+-   *control*: species, year, age, length
+
+-   *fleet_control*: observation model specification
+
+-   *index_data*: survey or fishery CPUE data
+
+-   *catch_data*: fishery catches
+
+-   *comp_data*: age/length comp
+
+-   *weight*: empirical weight-at-age (time-varying, fleet specific)
+
+-   *maturity*: maturity-at-age (time-invariant)
+
+-   sex_ratio: sex-ratio-at-age (time-invariant)
+
+## Selectivity specifications (`fleet_control`)
+
+```         
+:::: {.columns}  
+
+::: {.column width="50%"} 
+
+`selectivity` 
+
+- 0: empirical selectivity
+- 1: logistic selectivity
+- 2: non-parametric selecitivty (Ianelli)
+- 3: double logistic
+- 4: descending logistic
+- 5: non-parametric selectivity  (Taylor/Hake)
+
+::: 
+
+::: {.column width="50%"}
+
+`Time_varying_sel`
+
+- 0: no
+- 1: random deviates
+- 3: time blocks
+- 4: random walk
+- 5: random walk on ascending portion of double logistic only. 
+
+:::
+```
+
+## Catchability specifications (`fleet_control`)
+
+:::: {.columns}
+
+::: {.column width="50%"}
+`Catchability`
+
+-   0 = fixed
+-   1 = Free parameter
+-   2 = Free w/ normal prior
+-   3 = Analytical
+-   4 = Power equation
+-   5 = q + beta \* index_y
+-   6 = environmental index sensu Rogers et al (2024)
+:::
+
+::: {.column width="50%"}
+`Time_varying_q`
+
+-   0: no
+-   1: random deviates
+-   3: time blocks
+-   4: random walk
+:::

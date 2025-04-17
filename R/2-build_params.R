@@ -54,6 +54,7 @@ build_params <- function(data_list) {
   names(param_list$R_ln_sd) <- data_list$spnames
 
   # - Env regression parameters for recruitment
+  if(is.null(data_list$srr_indices)){data_list$srr_indices <- 1:(ncol(data_list$env_data)-1)}
   param_list$beta_rec_pars <- matrix(0, nrow = data_list$nspp, ncol = length(data_list$srr_indices))
 
 
