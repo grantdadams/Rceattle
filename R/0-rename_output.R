@@ -101,6 +101,11 @@ rename_output = function(data_list = NULL, quantities = NULL){
                                        paste0("Pred age", 1:max_age),
                                        paste0("Prey age", 1:max_age),
                                        yrs_proj)
+  dimnames(quantities$suitability) <- list(paste("Pred:", data_list$spnames, rep(sex_labels, each = data_list$nspp)),
+                                       paste("Prey:", data_list$spnames, rep(sex_labels, each = data_list$nspp)),
+                                       paste0("Pred age", 1:max_age),
+                                       paste0("Prey age", 1:max_age),
+                                       yrs_proj)
 
 
   # Rename jnll
