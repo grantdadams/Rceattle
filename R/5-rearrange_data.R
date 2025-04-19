@@ -63,19 +63,19 @@ rearrange_dat <- function(data_list){
   # 2 -  Seperate survey biomass info from observation ----
   data_list$index_ctl <- data_list$index_data %>%
     dplyr::select(Fleet_code, Species, Year) %>%
-    dplyr::mutate_all(as.numeric)
+    dplyr::mutate_all(as.integer)
 
   data_list$index_n <- as.matrix(data_list$index_data[,c("Month")])
 
   data_list$index_obs <- data_list$index_data %>%
     dplyr::select(Observation, Log_sd) %>%
-    dplyr::mutate_all(as.integer)
+    dplyr::mutate_all(as.numeric)
 
 
   # 3 -  Seperate catch biomass info from observation ----
   data_list$catch_ctl <- data_list$catch_data %>%
     dplyr::select(Fleet_code, Species, Year) %>%
-    dplyr::mutate_all(as.numeric)
+    dplyr::mutate_all(as.integer)
 
   data_list$catch_n <- as.matrix(data_list$catch_data[,c("Month")])
 
