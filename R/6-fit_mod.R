@@ -508,20 +508,20 @@ fit_mod <-
 
     # * Optimize hindcast ----
     if(estimateMode %in% c(0,1,2,4)){
-      opt = Rceattle::fit_tmb(obj = obj,
-                              fn=obj$fn,
-                              gr=obj$gr,
-                              startpar=obj$par,
-                              lower = L,
-                              upper = U,
-                              loopnum = loopnum,
-                              getsd = getsd,
-                              control = control,
-                              bias.correct = bias.correct,
-                              bias.correct.control=list(sd=getsd),
-                              getJointPrecision = getJointPrecision,
-                              quiet = verbose < 2,
-      )
+      opt <- Rceattle::fit_tmb(obj = obj,
+                               fn=obj$fn,
+                               gr=obj$gr,
+                               startpar=obj$par,
+                               lower = L,
+                               upper = U,
+                               loopnum = loopnum,
+                               getsd = getsd,
+                               control = control,
+                               bias.correct = bias.correct,
+                               bias.correct.control=list(sd=getsd),
+                               getJointPrecision = getJointPrecision,
+                               quiet = verbose < 2)
+
       if(verbose > 0 & estimateMode != 4) {
         message("Step ",step, ": Hindcast optimization complete.")
         step = step + 1
@@ -533,16 +533,27 @@ fit_mod <-
 
       # -- Convergence warnings
       if(estimateMode %in% c(0,1)){
-        # Bad parameter identification
         if(is.null(opt$SD) & getsd){
-          identified <- suppressMessages(TMBhelper::check_estimability(obj))
 
-          # Make into list
-          identified_param_list <- obj$env$parList(identified$BadParams$Param_check)
-          identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==0,"Not estimated",x), how = "replace")
-          identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==1,"OK",x), how = "replace")
-          identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==2,"BAD",x), how = "replace")
-          identified$param_list <- identified_param_list
+          message( "#################################################" )
+          message( "Model did not converge, check 'identified'" )
+          message( "#################################################" )
+
+          # Bad parameter identification
+          identified <- tryCatch({suppressMessages(TMBhelper::check_estimability(obj))
+          },
+          error = function(e){
+            return("Some gradients are high, please improve optimization and only then use `Check_Identifiable`")
+          })
+
+          # Make into list if gradients were low for diagnostics
+          if(class(identified) != "character"){
+            identified_param_list <- obj$env$parList(identified$BadParams$Param_check)
+            identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==0,"Not estimated",x), how = "replace")
+            identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==1,"OK",x), how = "replace")
+            identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==2,"BAD",x), how = "replace")
+            identified$param_list <- identified_param_list
+          }
           mod_objects$identified <- identified
         }
       }
@@ -734,8 +745,6 @@ fit_mod <-
         }
       }
     }
-
-
 
     # -- Save derived quantities
     mod_objects$quantities <- Rceattle::rename_output(data_list = data_list, quantities = quantities)
