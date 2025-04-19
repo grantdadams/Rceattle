@@ -2876,6 +2876,7 @@ Type objective_function<Type>::operator() () {
 
       n_hat(comp_ind) = 0.0;                          // Initialize
 
+      // Likelihood (yr > 0) vs prediction (yr < 0)
       if(yr > 0){
         yr = yr - styr;
       }
@@ -2902,20 +2903,24 @@ Type objective_function<Type>::operator() () {
           switch(flt_sex){
           case 0: // Sexes combined or 1 sex assessment
             for(sex = 0; sex < nsex(sp); sex ++){
-              age_hat(comp_ind, age ) += F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr); // 5.4.
+              // Catch-at-age
+              age_hat(comp_ind, age ) += F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr);
+              // Total numbers
               n_hat( comp_ind ) += F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr);
             }
             break;
 
           case 1: case 2: // Sex-specific composition data
             sex = flt_sex - 1;
+            // Catch-at-age
             age_hat(comp_ind, age ) = F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr);
+            // Total numbers
             n_hat( comp_ind ) += F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr);
             break;
 
           case 3: // Joint composition data
             for(sex = 0; sex < nsex(sp); sex ++){
-              // Survey catch-at-age
+              // Catch-at-age
               age_hat(comp_ind, age + nages(sp) * sex ) = F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr);
               // Total numbers
               n_hat(comp_ind) += F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr);
@@ -2962,7 +2967,7 @@ Type objective_function<Type>::operator() () {
         joint_adjust(comp_ind) = 2;
       }
 
-      // Get true age comp
+      // True age comp standardize to sum to 1
       for(age = 0; age < nages(sp) * joint_adjust(comp_ind); age++) {
         if(n_hat(comp_ind) > 0){ //FIXME - not differentiable
           true_age_comp_hat(comp_ind, age ) = age_hat(comp_ind, age ) / n_hat(comp_ind);
@@ -2992,7 +2997,7 @@ Type objective_function<Type>::operator() () {
       }
 
 
-      //  Survey catch-at-age - standardize to sum to 1
+      //  Observed age comp standardize to sum to 1
       if(comp_type == 0) {
         for(age = 0; age < nages(sp) * joint_adjust(comp_ind); age++) {
           if(n_hat(comp_ind) > 0){ //FIXME - not differentiable
