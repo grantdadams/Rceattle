@@ -3190,7 +3190,7 @@ Type objective_function<Type>::operator() () {
 
 
   // 14.1. FIT OBJECTIVE FUNCTION
-  // Slot 0 -- Survey biomass -- NFMS annual BT survey and EIT survey
+  // Slot 0 -- Index of abundance biomass/numbers --
   Type index_std_dev = 0;
   for(index_ind = 0; index_ind < index_obs.rows(); index_ind++) {
 
@@ -3218,19 +3218,18 @@ Type objective_function<Type>::operator() () {
 
 
       // Only include years from hindcast
-      if(flt_yr <= endyr){
-        if(index_obs(index_ind) > 0){
-          jnll_comp(0, index) -= dnorm(log(index_obs(index_ind, 0)), log(index_hat(index_ind)) - square(index_std_dev)/2.0, index_std_dev, true);
-
-          // Martin's
-          // jnll_comp(0, index)+= 0.5*square((log(index_obs(index_ind, 0))-log(index_hat(index_ind))+square(index_std_dev)/2.0)/index_std_dev);
+      if(flt_type(index) > 0){
+        if(flt_yr <= endyr){
+          if(index_obs(index_ind) > 0){
+            jnll_comp(0, index) -= dnorm(log(index_obs(index_ind, 0)), log(index_hat(index_ind)) - square(index_std_dev)/2.0, index_std_dev, true);
+          }
         }
       }
     }
   }
 
 
-  // Slot 1 -- Total catch -- Fishery observer dat
+  // Slot 1 -- Total catch --
   Type fsh_std_dev = 0;
   for(fsh_ind = 0; fsh_ind < catch_obs.rows(); fsh_ind++) {
 
@@ -3333,9 +3332,6 @@ Type objective_function<Type>::operator() () {
       }
     }
   }
-
-
-  // Slot 3 -- EMPTY
 
 
   // Slot 3-4 -- Selectivity
