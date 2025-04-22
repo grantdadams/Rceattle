@@ -5,7 +5,6 @@
 #' @param data_list A data_list object created by \code{\link{build_dat}}
 #' @param quantities list of "report" objects from Rceattle.
 #'
-#' @return
 #' @export
 #'
 rename_output = function(data_list = NULL, quantities = NULL){
@@ -145,10 +144,8 @@ rename_output = function(data_list = NULL, quantities = NULL){
 #' @param data_list_reorganized reorganized data_list
 #' @param quantities list of "report" objects from Rceattle.
 #'
-#' @return
 #' @export
 #'
-#' @examples
 calc_mcall_ianelli <- function(data_list = NULL, data_list_reorganized = NULL, quantities = NULL){
 
 

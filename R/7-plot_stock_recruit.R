@@ -196,18 +196,12 @@ plot_stock_recruit <-
 
 #' #https://www.dataanalytics.org.uk/make-transparent-colors-in-r/
 #'
-#' @param color
-#' @param percent
-#' @param name
+#' @param color color name
+#' @param percent % transparency
+#' @param name an optional name for the color
 #'
-#' @return
-#' @export
 #'
-#' @examples
 t_col <- function(color, percent = 50, name = NULL) {
-  #      color = color name
-  #    percent = % transparency
-  #       name = an optional name for the color
 
   ## Get RGB values for named color
   rgb.val <- col2rgb(color)

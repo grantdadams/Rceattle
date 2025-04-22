@@ -14,6 +14,7 @@ check_composition_data(data_list)
 \item nsex: A vector of sex counts by species.
 \item nages: A vector of age counts by species.
 \item nlengths: A vector of length counts by species.
+throws An error if any rows of \code{comp_obs} sum to 0 or if the composition data does not span the range of ages/lengths.
 }}
 }
 \value{

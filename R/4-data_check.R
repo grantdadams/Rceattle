@@ -58,11 +58,11 @@ data_check <- function(data_list) {
     dplyr::distinct(Wt_index, Species, Sex)
 
   # - Data checks ----
-  if(any(data_list$pop_wt_index %!in% wt_index$Wt_index)){
+  if(any(!data_list$pop_wt_index %in% wt_index$Wt_index)){
     stop("Check population weight index, not in weight file")
   }
 
-  if(any(data_list$ssb_wt_index %!in% wt_index$Wt_index)){
+  if(any(!data_list$ssb_wt_index %in% wt_index$Wt_index)){
     stop("Check SSB weight index, not in weight file")
   }
 

@@ -14,8 +14,8 @@ build_srr(
   srr_est_mode = 1,
   srr_prior = 4,
   srr_prior_sd = 1,
-  srr_indices = 1,
-  Bmsy_lim = -999
+  srr_indices = NA,
+  Bmsy_lim = NA
 )
 }
 \arguments{
@@ -39,7 +39,7 @@ build_srr(
 
 \item{srr_indices}{vector or single index indicating the columns of \code{env_data} to use in a environmentally driven stock recruit curve.}
 
-\item{Bmsy_lim}{Upper limit for Ricker based SSB-MSY (e.g 1/Beta). Will add a likelihood penalty if beta is estimated above this limit.}
+\item{Bmsy_lim}{Upper limit for Ricker based SSB-MSY (e.g 1/Beta). Will add a likelihood penalty if beta is estimated above this limit. Default \code{NA} is not used.}
 }
 \value{
 A \code{list} containing the stock recruitment relationship settings

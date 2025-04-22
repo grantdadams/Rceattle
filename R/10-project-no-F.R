@@ -2,10 +2,8 @@
 #'
 #' @param Rceattle
 #'
-#' @return
 #' @export
 #'
-#' @examples
 remove_F <- function(Rceattle){
 
   # * Years for F = 0 ----

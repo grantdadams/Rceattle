@@ -9,7 +9,6 @@
 #' @param alpha Alpha transparency value for all colors in vector. Value is
 #' passed to rgb function.
 #' @author Arni Magnusson, Ian Taylor
-#' @export
 rich.colors.short <- function(n,alpha=1){
   x <- seq(0, 1, length = n)
   r <- 1/(1 + exp(20 - 35 * x))
@@ -43,9 +42,9 @@ rich.colors.short <- function(n,alpha=1){
 #' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}
 #' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
 #' @param species What species to include 1:nspp
-#' @param maxyr
-#' @param lty
-#' @param alpha
+#' @param maxyr max year to plot
+#' @param lty line type
+#' @param alpha shadding for confidence intervals
 #' @param mod_avg TRUE/FALSE
 #' @param reference Reference model
 #'
@@ -419,9 +418,9 @@ plot_timeseries <- function(Rceattle,
 #' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}
 #' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
 #' @param species What species to include 1:nspp
-#' @param maxyr
-#' @param lty
-#' @param alpha
+#' @param maxyr max year to plot
+#' @param lty line type
+#' @param alpha shadding for confidence intervals
 #' @param mod_avg TRUE/FALSE
 #' @param reference Reference model
 #'
@@ -500,9 +499,9 @@ plot_biomass <- function(Rceattle,
 #' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}
 #' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
 #' @param species What species to include 1:nspp
-#' @param maxyr
-#' @param lty
-#' @param alpha
+#' @param maxyr max year to plot
+#' @param lty line type
+#' @param alpha shadding for confidence intervals
 #' @param mod_avg TRUE/FALSE
 #' @param reference Reference model
 #'
@@ -581,9 +580,9 @@ plot_recruitment <- function(Rceattle,
 #' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}
 #' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
 #' @param species What species to include 1:nspp
-#' @param maxyr
-#' @param lty
-#' @param alpha
+#' @param maxyr max year to plot
+#' @param lty line type
+#' @param alpha shadding for confidence intervals
 #' @param mod_avg TRUE/FALSE
 #' @param reference Reference model
 #'
@@ -662,9 +661,9 @@ plot_ssb <- function(Rceattle,
 #' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}
 #' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
 #' @param species What species to include 1:nspp
-#' @param maxyr
-#' @param lty
-#' @param alpha
+#' @param maxyr max year to plot
+#' @param lty line type
+#' @param alpha shadding for confidence intervals
 #' @param mod_avg TRUE/FALSE
 #' @param reference Reference model
 #'
@@ -742,9 +741,9 @@ plot_depletionSSB <- function(Rceattle,
 #' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}
 #' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
 #' @param species What species to include 1:nspp
-#' @param maxyr
-#' @param lty
-#' @param alpha
+#' @param maxyr max year to plot
+#' @param lty line type
+#' @param alpha shadding for confidence intervals
 #' @param mod_avg TRUE/FALSE
 #' @param reference Reference model
 #'
@@ -2391,13 +2390,15 @@ plot_m2_at_age_prop <-
 #' @param lwd Line width as specified by user
 #' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
 #' @param minyr First year to plot
-#' @param height
-#' @param width
-#' @param save Save output?
+#' @param height plot height
+#' @param width plot width
 #' @param incl_proj TRUE/FALSE, include projection years
 #' @param mod_cex Cex of text for model name legend
 #' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}
 #' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
+#' @param maxyr max year to plot
+#' @param alpha shadding for confidence intervals
+#' @param mod_avg is the list a model average? (DEPRECATED)
 #'
 #' @export
 #'
@@ -2410,7 +2411,6 @@ plot_f <- function(Rceattle,
                    spnames = NULL,
                    add_ci = FALSE,
                    lwd = 3,
-                   save = FALSE,
                    right_adj = 0,
                    width = 7,
                    height = 6.5,
@@ -2526,28 +2526,6 @@ plot_f <- function(Rceattle,
   #     quantity_lower95[,,i] <- qlnorm(0.025, meanlog = log_quantity_mu[,,i], sdlog = log_quantity_sd[,,i]) / 1000000
   #   }
   # }
-
-
-  ## Save
-  if (save) {
-    for (i in 1:nspp) {
-      dat <- data.frame(quantity[i, , ])
-      datup <- data.frame(quantity_upper95[i, , ])
-      datlow <- data.frame(quantity_lower95[i, , ])
-
-      dat_new <- cbind(dat[, 1], datlow[, 1], datup[, 1])
-      colnames(dat_new) <- rep(model_names[1], 3)
-
-      for (j in 2:ncol(dat)) {
-        dat_new2 <- cbind(dat[, j], datlow[, j], datup[, j])
-        colnames(dat_new2) <- rep(model_names[j], 3)
-        dat_new <- cbind(dat_new, dat_new2)
-
-      }
-
-      write.csv(dat_new, file = paste0(file, "_f_species_", i, ".csv"))
-    }
-  }
 
 
   ## Plot limits

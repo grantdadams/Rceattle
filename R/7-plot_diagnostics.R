@@ -36,7 +36,7 @@ plot_index <- function(Rceattle,
 
   # Species names
   if(is.null(species)){
-    species =  Rceattle[[1]]$data_list$spnames
+    species =  1:Rceattle[[1]]$data_list$nspp
   }
 
 
@@ -65,6 +65,14 @@ plot_index <- function(Rceattle,
     Srv_hat_list[[i]] <- Rceattle[[i]]$data_list$index_data
     Srv_hat_list[[i]]$Observation <- Rceattle[[i]]$quantities$index_hat
     Srv_hat_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$ln_index_sd
+
+    # Filter species
+    Srv_hat_list[[i]] <- Srv_hat_list[[i]] %>%
+      dplyr::filter(Species %in% species)
+
+    # Filter species
+    Srv_list[[i]] <- Srv_list[[i]] %>%
+      dplyr::filter(Species %in% species)
   }
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
   nyrs_vec <- sapply(Years, length)
@@ -75,7 +83,7 @@ plot_index <- function(Rceattle,
 
   # Plot limits
   fleet_control <- (Rceattle[[1]]$data_list$fleet_control)
-  index_data <- (Rceattle[[1]]$data_list$index_data)
+  index_data <- Srv_list[[1]]
   srvs <- sort(unique(index_data$Fleet_code))
   srvs <- srvs[which(srvs %in% fleet_control$Fleet_code[which(fleet_control$Fleet_type == 2)])] # Only use surveys that are estimates
   #FIXME assumes all surveys are the same across models
