@@ -1,7 +1,7 @@
 #' Combine data sets. Will use the env_data data set from data_set1 and diet data will have to be updated.
 #'
-#' @param data_list1
-#' @param data_list2
+#' @param data_list1 Rceattle data_list 1
+#' @param data_list2 Rceattle data_list 2
 #'
 #' @export
 #'

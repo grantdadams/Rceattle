@@ -12,7 +12,7 @@ build_M1(
   M2_use_prior = FALSE,
   M_prior = 0.4,
   M_prior_sd = 0.35,
-  M1_indices = 1
+  M1_indices = NA
 )
 }
 \arguments{

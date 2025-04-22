@@ -424,7 +424,7 @@ fit_mod <-
     L <- c()
     U <- c()
     for(i in 1:length(map$mapFactor)){
-      if(names(map$mapFactor)[i] %!in% random_vars){ # Dont have bounds for random effects
+      if(!names(map$mapFactor)[i] %in% random_vars){ # Dont have bounds for random effects
         L = c(L, unlist(bounds$lower[[i]])[which(!is.na(unlist(map$mapFactor[[i]])) & !duplicated(unlist(map$mapFactor[[i]])))])
         U = c(U, unlist(bounds$upper[[i]])[which(!is.na(unlist(map$mapFactor[[i]])) & !duplicated(unlist(map$mapFactor[[i]])))])
       }
@@ -830,7 +830,7 @@ clean_data <- function(data_list){
       catch_data_sub <- data_list$catch_data %>%
         dplyr::filter(Fleet_code == flt)
       yrs_proj <- (data_list$endyr + 1):data_list$projyr
-      yrs_proj <- yrs_proj[which(yrs_proj %!in% catch_data_sub$Year)]
+      yrs_proj <- yrs_proj[which(!yrs_proj %in% catch_data_sub$Year)]
       nyrs_proj <- length(yrs_proj)
       proj_catch_data <- data.frame(Fleet_name = rep(catch_data_sub$Fleet_name[1], nyrs_proj),
                                     Fleet_code = rep(flt, nyrs_proj),
@@ -849,13 +849,4 @@ clean_data <- function(data_list){
 
   return(data_list)
 }
-
-#' Not in function
-#'
-#' @param x
-#' @param y
-#'
-#' @export
-#'
-'%!in%' <- function(x,y){!('%in%'(x,y))}
 

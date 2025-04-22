@@ -298,14 +298,18 @@ rearrange_dat <- function(data_list){
     as.matrix()
 
   # - Create matrix for srr curve
-  if(is.null(data_list$srr_indices)){data_list$srr_indices <- 1:(ncol(data_list$env_index)-1)}
+  if(is.na(data_list$srr_indices) | is.null(data_list$srr_indices)){
+    data_list$srr_indices <- 1:(ncol(data_list$env_index)-1)
+    }
   if(sum(sapply(data_list$srr_indices, function(x) x>ncol(data_list$env_index))) > 0){stop("'srr_indices' greater than the number of indices included")}
   data_list$env_index_srr <-  data_list$env_index[, data_list$srr_indices] %>%
     as.matrix()
 
 
   # - Create matrix for M1
-  if(is.null(data_list$M1_indices)){data_list$M1_indices <- 1:(ncol(data_list$env_index)-1)}
+  if(is.na(data_list$M1_indices) | is.null(data_list$M1_indices)){
+    data_list$M1_indices <- 1:(ncol(data_list$env_index)-1)
+    }
   if(sum(sapply(data_list$M1_indices, function(x) x>ncol(data_list$env_index))) > 0){stop("'M1_indices' greater than the number of indices included")}
   data_list$env_index_M1 <-  data_list$env_index[, data_list$M1_indices] %>%
     as.matrix()
@@ -381,9 +385,9 @@ rearrange_dat <- function(data_list){
 #'   - nsex: A vector of sex counts by species.
 #'   - nages: A vector of age counts by species.
 #'   - nlengths: A vector of length counts by species.
+#' throws An error if any rows of `comp_obs` sum to 0 or if the composition data does not span the range of ages/lengths.
 #'
 #' @return The modified `data_list` with NA values in `comp_obs` converted to 0.
-#' @throws An error if any rows of `comp_obs` sum to 0 or if the composition data does not span the range of ages/lengths.
 #' @examples
 #' # Example usage:
 #' data_list <- list(

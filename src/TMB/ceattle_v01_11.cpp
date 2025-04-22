@@ -3492,7 +3492,7 @@ Type objective_function<Type>::operator() () {
     }
 
     // Slot 9 -- penalty for Bmsy > Bmsy_lim for Ricker
-    if((Bmsy_lim(sp) > 0) & ((srr_pred_fun == 4) | (srr_pred_fun == 5))){ // Using pred_fun in case ianelli method is used
+    if(!isNA(Bmsy_lim(sp)) & ((srr_pred_fun == 4) | (srr_pred_fun == 5))){ // Using pred_fun in case ianelli method is used
       Type bmsy = 1.0/exp(rec_pars(sp, 2));
       bmsy =  posfun(Bmsy_lim(sp)/Type(1000000.0) - bmsy, Type(0.001), penalty);
       jnll_comp(8, sp) += 100 * penalty;

@@ -10,7 +10,7 @@
 #' @param srr_prior mean for normally distributed prior for stock-recruit parameter
 #' @param srr_prior_sd Prior standard deviation for stock-recruit parameter
 #' @param srr_indices vector or single index indicating the columns of \code{env_data} to use in a environmentally driven stock recruit curve.
-#' @param Bmsy_lim Upper limit for Ricker based SSB-MSY (e.g 1/Beta). Will add a likelihood penalty if beta is estimated above this limit.
+#' @param Bmsy_lim Upper limit for Ricker based SSB-MSY (e.g 1/Beta). Will add a likelihood penalty if beta is estimated above this limit. Default `NA` is not used.
 #'
 #' @description
 #'
@@ -49,8 +49,8 @@ build_srr <- function(srr_fun = 0,
                       srr_est_mode = 1,
                       srr_prior = 4,
                       srr_prior_sd = 1,
-                      srr_indices = 1,
-                      Bmsy_lim = -999){
+                      srr_indices = NA,
+                      Bmsy_lim = NA){
 
   # Set pred/RP/penalty to same as SR curve if SR fun > 0
   if(srr_fun > 0){
@@ -121,7 +121,7 @@ build_M1 <- function(M1_model = 0,
                      M2_use_prior = FALSE,
                      M_prior = 0.40,
                      M_prior_sd = 0.35,
-                     M1_indices = 1){
+                     M1_indices = NA){
   list(
     M1_model= M1_model,
     M1_re = M1_re,
