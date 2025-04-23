@@ -1524,7 +1524,7 @@ plot_b_eaten <-  function(Rceattle,
   for (i in 1:length(Rceattle)) {
 
     # - Get quantities
-    quantity[,1:nyrs_vec[i] , i] <- apply(Rceattle[[i]]$quantities$B_eaten_as_prey[,,,1:nyrs_vec[i]], c(1,4), sum)
+    quantity[,1:nyrs_vec[i] , i] <- apply(Rceattle[[i]]$quantities$B_eaten_as_prey[,,,1:nyrs_vec[i], drop = F], c(1,4), sum)
 
     # # Get SD of quantity
     # # NOTE: No uncertainty estimates currently
@@ -1538,10 +1538,10 @@ plot_b_eaten <-  function(Rceattle,
     # - Model average
     if(mod_avg[i]){
       log_quantity_sd[,1:nyrs_vec[i], i] <- apply(
-        apply(Rceattle[[i]]$asymptotic_samples$B_eaten_as_prey[,,,1:nyrs_vec[i],], c(1,4), function(x) sum), # Sum across age-sex
+        apply(Rceattle[[i]]$asymptotic_samples$B_eaten_as_prey[,,,1:nyrs_vec[i],, drop = F], c(1,4), function(x) sum), # Sum across age-sex
         c(1,2), sd(as.vector(log(x)))) # SD across samples
       log_quantity_mu[,1:nyrs_vec[i], i] <- apply(
-        apply(Rceattle[[i]]$asymptotic_samples$B_eaten_as_prey[,,,1:nyrs_vec[i],], c(1,4), function(x) sum), # Sum across age-sex
+        apply(Rceattle[[i]]$asymptotic_samples$B_eaten_as_prey[,,,1:nyrs_vec[i],, drop = F], c(1,4), function(x) sum), # Sum across age-sex
         c(1,2), mean(as.vector(log(x)))) # Mean across samples
     }
   }
@@ -1808,6 +1808,7 @@ plot_b_eaten_prop <-
     maxyr <- max((sapply(years, max)))
     if(is.null(minyr)){minyr <- min((sapply(years, min)))}
     max_age <- max(Rceattle[[1]]$data_list$nages)
+    max_sex <- max(Rceattle[[1]]$data_list$nsex)
 
     nspp <- Rceattle[[1]]$data_list$nspp
 
@@ -1823,7 +1824,7 @@ plot_b_eaten_prop <-
       for(rsp in 1:(nspp)){
         for(ksp in 1:(nspp)){
           for(yr in 1:nyrs_vec[i]){
-            B_eaten[rsp, ksp,yr,i] <- sum(Rceattle[[i]]$quantities$B_eaten[c(rsp, rsp + nspp),c(ksp, ksp + nspp),,,yr])
+            B_eaten[rsp, ksp,yr,i] <- sum(Rceattle[[i]]$quantities$B_eaten[c(rsp, (rsp + nspp) * (max_sex-1) ),c(ksp, (ksp + nspp) * (max_sex-1)),,,yr, drop = F])
           }
         }
       }

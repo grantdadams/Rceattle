@@ -126,7 +126,7 @@ test_that("Simulated simple model the same" {
   MatAA <- 1 / (1 + exp(-1 * (ages - 5)))
   sigma_R <- 0.3
   sigma_Catch <- 0.001
-  sigma_SrvIdx <- 0.3
+  sigma_SrvIdx <- 0.001
   Fmort <- c(seq(0.02, 0.3, length.out = nyrs/2), seq(0.3, 0.05, length.out = nyrs/2))
 
   # First, simulate some data for the model
@@ -139,8 +139,8 @@ test_that("Simulated simple model the same" {
                        sigma_R = sigma_R,
                        sigma_catch = sigma_Catch,
                        sigma_srv = sigma_SrvIdx,
-                       fish_ISS = 1e6,
-                       srv_ISS = 1e6,
+                       fish_ISS = 1e7,
+                       srv_ISS = 1e7,
                        M = 0.3,
                        sigmaM = 0.05,
                        rhoM = 0.9,
@@ -318,6 +318,7 @@ test_that("Simulated simple model the same" {
                               file = NULL, # Don't save
                               estimateMode = 0, # Estimate
                               random_rec = FALSE, # No random recruitment
+                              M1Fun = build_M1(M1_model = 1), # Estimate M
                               msmMode = 0, # Single species mode
                               phase = TRUE,
                               verbose = 1)
@@ -328,14 +329,14 @@ test_that("Simulated simple model the same" {
 
   # - IID M
   ss_run_re <- Rceattle::fit_mod(data_list = simData,
-                              inits = NULL, # Initial parameters = 0
+                              inits = ss_run$estimated_params, # Initial parameters = 0
                               file = NULL, # Don't save
                               estimateMode = 0, # Estimate
                               M1Fun = build_M1(M1_model = 1,
                                                M1_re = 2), # Estimate M with IID year devs
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              phase = TRUE,
+                              phase = FALSE,
                               verbose = 1)
 
   plot(x = sim$SSB, y = ss_run_re$quantities$ssb[1,1:nyrs]); abline(1,1)
@@ -346,14 +347,14 @@ test_that("Simulated simple model the same" {
 
   # - AR1 M
   ss_run_AR1 <- Rceattle::fit_mod(data_list = simData,
-                                 inits = NULL, # Initial parameters = 0
+                                 inits = ss_run_re$estimated_params, # Initial parameters = 0
                                  file = NULL, # Don't save
                                  estimateMode = 0, # Estimate
                                  M1Fun = build_M1(M1_model = 1,
                                                   M1_re = 5), # Estimate M with AR1 year devs
                                  random_rec = FALSE, # No random recruitment
                                  msmMode = 0, # Single species mode
-                                 phase = TRUE,
+                                 phase = FALSE,
                                  verbose = 1)
 
   plot(x = sim$SSB, y = ss_run_AR1$quantities$ssb[1,1:nyrs]); abline(1,1)

@@ -28,6 +28,16 @@ data_check <- function(data_list) {
     data_list$fleet_control$Age_max_selected[flt] <- ifelse(data_list$fleet_control$Age_max_selected[flt] > data_list$nages[data_list$fleet_control$Species[flt]], data_list$nages[data_list$fleet_control$Species[flt]], data_list$fleet_control$Age_max_selected[flt])
   }
 
+
+  if(is.null(data_list$fleet_control$Age_max_selected)){
+    data_list$fleet_control$Age_max_selected <- NA
+    print("'Age_max_selected' not specified in 'fleet_control', assuming 'NA'")
+  }
+  if(is.null(data_list$fleet_control$Comp_loglike)){
+    data_list$fleet_control$Comp_loglike <- -1
+    print("'Comp_loglike' not specified in 'fleet_control', assuming multinomial")
+  }
+
   # Weight-at-age ----
   # * Year range ----
   wt_yr <- data_list$weight %>%

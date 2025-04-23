@@ -73,7 +73,7 @@ Excel document to specify observation model:
 -   Estimation controls
 :::
 
-----
+------------------------------------------------------------------------
 
 ## Broad `Rceattle` workflow
 
@@ -88,12 +88,31 @@ mymodel <- fit_mod(data_list = mydata,
                    random_rec = FALSE, # No random recruitment
                    msmMode = 0,        # Single species mode
                    phase = TRUE,       # Phase model
-                   verbose = 1)
+                   verbose = 1)        # Minimal messaging
 
 plot_biomass(mymodel)
 ```
 
-----
+## Outputs
+
+```{r, echo = TRUE, eval= TRUE}
+library(Rceattle)
+
+data("GOApollock")                              # 2018 Pollock model 
+
+mymodel <- Rceattle::fit_mod(data_list = GOApollock,
+                            inits = NULL,       # Initial parameters = 0
+                            file = NULL,        # Don't save
+                            estimateMode = 0,   # Estimate
+                            random_rec = FALSE, # No random recruitment
+                            msmMode = 0,        # Single species mode
+                            phase = TRUE,
+                            verbose = 1)
+```
+
+```{r, echo = TRUE, eval = TRUE}
+names(mymodel)
+```
 
 ## Basic excel data
 
@@ -138,8 +157,8 @@ plot_biomass(mymodel)
 -   4: random walk
 -   5: random walk on ascending portion of double logistic only.
 :::
-
 :::
+
 :::
 
 ## Catchability specifications (`fleet_control`)
@@ -165,7 +184,7 @@ plot_biomass(mymodel)
 :::
 :::
 
-----
+------------------------------------------------------------------------
 
 ## Recruitment specifications
 
@@ -196,7 +215,7 @@ mymodel <- fit_mod(
 :::
 :::
 
-----
+------------------------------------------------------------------------
 
 ## Mortality specifications
 
@@ -227,7 +246,7 @@ mymodel <- fit_mod(
 :::
 :::
 
-----
+------------------------------------------------------------------------
 
 ## Harvest control rules
 
@@ -386,7 +405,7 @@ legend("bottomright", c("NPFMC", "PFMC 40-10", "PFMC 25-5", "SESSF", "NEFMC (Fsp
 :::
 :::
 
-----
+------------------------------------------------------------------------
 
 ## Time-series plotting
 
@@ -403,17 +422,16 @@ plot_mortality()
 
 ::: {.column width="50%"}
 ```{r, eval = TRUE, echo = FALSE}
-data("BS2017SS") # Single-species data. ?BS2017SS for more information on the data
+data("BS2017SS")
 BS2017SS$fleet_control$proj_F_prop <- 1
 mymodel <- Rceattle::fit_mod(data_list = BS2017SS,
-                            inits = NULL, # Initial parameters = 0
-                            file = NULL, # Don't save
-                            estimateMode = 0, # Estimate
+                            inits = NULL,       # Initial parameters = 0
+                            file = NULL,        # Don't save
+                            estimateMode = 0,   # Estimate
                             random_rec = FALSE, # No random recruitment
-                            msmMode = 0, # Single species mode
+                            msmMode = 0,        # Single species mode
                             phase = TRUE,
                             verbose = 1)
-
 
 mymodel_tier3 <- Rceattle::fit_mod(data_list = BS2017SS,
                             inits = NULL, # Initial parameters = 0
@@ -433,7 +451,7 @@ mymodel_tier3 <- Rceattle::fit_mod(data_list = BS2017SS,
 
 # Single-species, but estimate M
 ss_run_M <- Rceattle::fit_mod(data_list = BS2017SS,
-                              inits = ss_run$estimated_params, # Initial parameters = 0
+                              inits = mymodel$estimated_params, # Initial parameters = 0
                               file = NULL, # Don't save
                               estimateMode = 0, # Estimate
                               M1Fun = build_M1(M1_model = 1,
@@ -445,7 +463,7 @@ ss_run_M <- Rceattle::fit_mod(data_list = BS2017SS,
                               verbose = 1)
 
 ss_run_M_tier3 <- Rceattle::fit_mod(data_list = BS2017SS,
-                              inits = ss_run$estimated_params, # Initial parameters = 0
+                              inits = mymodel$estimated_params, # Initial parameters = 0
                               file = NULL, # Don't save
                               estimateMode = 0, # Estimate
                               M1Fun = build_M1(M1_model = 1,
@@ -475,7 +493,7 @@ plot_biomass(list(mymodel, mymodel_tier3, ss_run_M, ss_run_M_tier3),
 plot_index(mymodel, species = 1)
 ```
 
-----
+------------------------------------------------------------------------
 
 ```{r, echo = TRUE, eval = TRUE}
 plot_comp(mymodel)
@@ -493,9 +511,28 @@ plot_biomass(retro$Rceattle_list, species = 1)
 ## MSE
 
 ```{r, echo = TRUE, eval = TRUE}
+# ?run_mse for more options
+
 mse <- run_mse(
-  om = mymodel, em = mymodel_tier3, 
+  om = mymodel, 
+  em = mymodel_tier3, 
   nsim = 1, 
-  simulate_data = TRUE, sample_rec = FALSE)
-plot_depletionSSB(mse$Sim_1$EM, species = 1)
+  simulate_data = TRUE, 
+  sample_rec = FALSE)
 ```
+
+------------------------------------------------------------------------
+
+::: columns
+::: {.column width="50%"}
+```{r, echo = TRUE, eval = TRUE}
+plot_depletionSSB(mse$Sim_1$OM, species = 1, model_names = "OM")
+```
+:::
+
+::: {.column width="50%"}
+```{r, echo = TRUE, eval = TRUE}
+plot_depletionSSB(mse$Sim_1$EM, species = 1, model_names = "EMs")
+```
+:::
+:::

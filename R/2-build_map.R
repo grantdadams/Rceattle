@@ -209,7 +209,12 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       if(data_list$M1_model[sp] == 1){ # Sex-invariant
         # - Random effects
         map_list$ln_M1_dev[sp,1, 1:data_list$nages[sp],] <- M1_dev_ind + 1:data_list$nages[sp]
-        map_list$ln_M1_dev[sp,2,,] <- map_list$ln_M1_dev[sp,1,,]
+
+        # Males mapped the same, if present
+        if(data_list$nsex[sp] == 2){
+          map_list$ln_M1_dev[sp,2,,] <- map_list$ln_M1_dev[sp,1,,]
+        }
+
         M1_dev_ind = M1_dev_ind + data_list$nages[sp]
       }
 
@@ -239,7 +244,12 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       if(data_list$M1_model[sp] == 1){ # Sex-invariant
         # - Random effects
         map_list$ln_M1_dev[sp,1,1:data_list$nages[sp], 1:nyrs_hind] <- rep(M1_dev_ind + 1:nyrs_hind, each = data_list$nages[sp])
-        map_list$ln_M1_dev[sp,2,,] <- map_list$ln_M1_dev[sp,1,,]
+
+        # Males mapped the same, if present
+        if(data_list$nsex[sp] == 2){
+          map_list$ln_M1_dev[sp,2,,] <- map_list$ln_M1_dev[sp,1,,]
+        }
+
         M1_dev_ind = M1_dev_ind + nyrs_hind
       }
 
@@ -268,7 +278,12 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       if(data_list$M1_model[sp] == 1){ # Sex-invariant
         # - Random effects
         map_list$ln_M1_dev[sp,1,1:data_list$nages[sp], 1:nyrs_hind] <- M1_dev_ind + (1:nyrs_hind * data_list$nages[sp])
+
+        # Males mapped the same, if present
+        if(data_list$nsex[sp] == 2){
         map_list$ln_M1_dev[sp,2,,] <- map_list$ln_M1_dev[sp,1,,]
+        }
+
         M1_dev_ind = M1_dev_ind + (nyrs_hind * data_list$nages[sp])
       }
 
