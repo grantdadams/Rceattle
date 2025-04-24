@@ -2028,20 +2028,28 @@ Type objective_function<Type>::operator() () {
 
       // Predator
       // 1 sex model
-      r_sexes(stom_ind, 0) = 0; // Female predators
-      r_sexes(stom_ind, 1) = 1; // Male predators
+      r_sexes(stom_ind, 0) = 0; r_sexes(stom_ind, 1) = 0;
+      k_sexes(stom_ind, 0) = 0; k_sexes(stom_ind, 1) = 0;
 
-      k_sexes(stom_ind, 0) = 0; // Female prey
-      k_sexes(stom_ind, 1) = 1; // Male prey
+      // 2 sex model
+      // This is to account for situations where nsex = 2, but r_sex or k_sex = 0
+      if(nsex(rsp) == 2){
+        // But k_sex = 0 (indicating diet data is for both sexes)
+        r_sexes(stom_ind, 0) = 0; r_sexes(stom_ind, 1) = 1;
 
-      if(r_sex > 0){
-        r_sexes(stom_ind, 0) = r_sex - 1; // Females
-        r_sexes(stom_ind, 1) = r_sex - 1; // Males
+        if(r_sex > 0){
+          r_sexes(stom_ind, 0) = r_sex - 1;  r_sexes(stom_ind, 1) = r_sex - 1;
+        }
       }
 
-      if(k_sex > 0){
-        k_sexes(stom_ind, 0) = k_sex - 1; // Females
-        k_sexes(stom_ind, 1) = k_sex - 1; // Males
+      if(nsex(ksp) == 2){
+        // But k_sex = 0 (indicating diet data is for both sexes)
+        k_sexes(stom_ind, 0) = 0; k_sexes(stom_ind, 1) = 1;
+
+        // Sex-specific diet data
+        if(k_sex > 0){
+          k_sexes(stom_ind, 0) = k_sex - 1;  k_sexes(stom_ind, 1) = k_sex - 1;
+        }
       }
 
 
@@ -3069,7 +3077,6 @@ Type objective_function<Type>::operator() () {
       k_age = diet_ctl(stom_ind, 5) - minage(ksp); // Index of prey age
       flt_yr = diet_ctl(stom_ind, 6); // Index of year
 
-      // Predator
       // 1 sex model
       r_sexes(stom_ind, 0) = 0; r_sexes(stom_ind, 1) = 0;
       k_sexes(stom_ind, 0) = 0; k_sexes(stom_ind, 1) = 0;
