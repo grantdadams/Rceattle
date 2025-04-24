@@ -173,4 +173,25 @@ data_check <- function(data_list) {
     stop("HCR is > 0 and 'proj_F_prop' is 0")
   }
 
+
+  # Diet data ----
+  Max_age = data_list$diet_data %>%
+    dplyr::group_by(Pred) %>%
+    dplyr::summarise(Max_age = max(Pred_age)) %>%
+    dplyr::arrange(Pred)
+
+  if(any(Max_age$Max_age > data_list$nages)){
+    stop("Pred ages in 'diet_data' > 'nages'")
+  }
+
+
+  Max_age = data_list$diet_data %>%
+    dplyr::group_by(Prey) %>%
+    dplyr::summarise(Max_age = max(Pred_age)) %>%
+    dplyr::arrange(Prey)
+
+  if(any(Max_age$Max_age > data_list$nages)){
+    stop("Prey ages in 'diet_data' > 'nages'")
+  }
+
 }
