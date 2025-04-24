@@ -298,18 +298,24 @@ rearrange_dat <- function(data_list){
     as.matrix()
 
   # - Create matrix for srr curve
-  if(is.na(data_list$srr_indices) | is.null(data_list$srr_indices)){
+  if(is.null(data_list$srr_indices)){
     data_list$srr_indices <- 1:(ncol(data_list$env_index)-1)
-    }
+  }
+  if(any(is.na(data_list$srr_indices))){
+    data_list$srr_indices <- 1:(ncol(data_list$env_index)-1)
+  }
   if(sum(sapply(data_list$srr_indices, function(x) x>ncol(data_list$env_index))) > 0){stop("'srr_indices' greater than the number of indices included")}
   data_list$env_index_srr <-  data_list$env_index[, data_list$srr_indices] %>%
     as.matrix()
 
 
   # - Create matrix for M1
-  if(is.na(data_list$M1_indices) | is.null(data_list$M1_indices)){
+  if(is.null(data_list$M1_indices)){
     data_list$M1_indices <- 1:(ncol(data_list$env_index)-1)
-    }
+  }
+  if(any(is.na(data_list$M1_indices))){
+    data_list$M1_indices <- 1:(ncol(data_list$env_index)-1)
+  }
   if(sum(sapply(data_list$M1_indices, function(x) x>ncol(data_list$env_index))) > 0){stop("'M1_indices' greater than the number of indices included")}
   data_list$env_index_M1 <-  data_list$env_index[, data_list$M1_indices] %>%
     as.matrix()
