@@ -27,6 +27,12 @@ Code base and functionality developed to closely/exactly match CEATTLE (ADMB), G
 
 Designed to fit different model formulations, include environmental indices/predation, and run MSEs
 
+## Key links
+
+GitHub: <https://github.com/grantdadams/Rceattle>
+
+[On-boarding doc](https://docs.google.com/document/d/1JQiyiWdWmozMMWAuObB8Eo_u09peQBFUbJFBcwP51m8/edit?usp=sharing)
+
 ## Existing `Rceattle` applications
 
 -   Pacific hake: 1 species (Sophia Wasserman)
@@ -136,7 +142,7 @@ names(mymodel)
 
 ## Selectivity specifications (`fleet_control`)
 
-::: columns
+::::: columns
 ::: {.column width="50%"}
 `selectivity`
 
@@ -157,13 +163,13 @@ names(mymodel)
 -   4: random walk
 -   5: random walk on ascending portion of double logistic only.
 :::
-:::
+:::::
 
 :::
 
 ## Catchability specifications (`fleet_control`)
 
-::: columns
+::::: columns
 ::: {.column width="50%"}
 -   0 = Fixed
 -   1 = Free parameter
@@ -182,13 +188,13 @@ names(mymodel)
 -   3: time blocks
 -   4: random walk
 :::
-:::
+:::::
 
 ------------------------------------------------------------------------
 
 ## Recruitment specifications
 
-::: columns
+::::: columns
 ::: {.column width="50%"}
 -   Mean recruitment, Beverton, Ricker
 -   Env linkages to $mu$ or $\alpha$
@@ -213,13 +219,13 @@ mymodel <- fit_mod(
 )   
 ```
 :::
-:::
+:::::
 
 ------------------------------------------------------------------------
 
 ## Mortality specifications
 
-::: columns
+::::: columns
 ::: {.column width="50%"}
 -   Input M-at-age
 -   Fixed effects: species, sex, or age specific M
@@ -244,13 +250,13 @@ mymodel <- fit_mod(
 )   
 ```
 :::
-:::
+:::::
 
 ------------------------------------------------------------------------
 
 ## Harvest control rules
 
-::: columns
+::::: columns
 ::: {.column width="65%"}
 ```{r, eval = FALSE, echo = TRUE}
 ?build_hcr # See options
@@ -403,13 +409,13 @@ text(x=Pvals[1000], y = 0.75 * F40-0.07, expression('4) 0.75 * F'["40%"]), offse
 legend("bottomright", c("NPFMC", "PFMC 40-10", "PFMC 25-5", "SESSF", "NEFMC (Fspr)"), col = c(MPcols[1], MPcols[3], MPcols[4], MPcols[5], MPcols[7]), lty = 1, lwd = 4, bty = "n")
 ```
 :::
-:::
+:::::
 
 ------------------------------------------------------------------------
 
 ## Time-series plotting
 
-::: columns
+::::: columns
 ::: {.column width="50%"}
 ```{r, eval = FALSE, echo = TRUE}
 plot_biomass(mymodel)
@@ -485,7 +491,7 @@ plot_biomass(list(mymodel, mymodel_tier3, ss_run_M, ss_run_M_tier3),
              add_ci = TRUE, incl_proj = T, species = 1)
 ```
 :::
-:::
+:::::
 
 ## Diagnostics: `??Rceattle`
 
@@ -506,8 +512,6 @@ retro <- retrospective(mymodel, peels = 6)
 plot_biomass(retro$Rceattle_list, species = 1)
 ```
 
-## 
-
 ## MSE
 
 ```{r, echo = TRUE, eval = TRUE}
@@ -523,7 +527,7 @@ mse <- run_mse(
 
 ------------------------------------------------------------------------
 
-::: columns
+::::: columns
 ::: {.column width="50%"}
 ```{r, echo = TRUE, eval = TRUE}
 plot_depletionSSB(mse$Sim_1$OM, species = 1, model_names = "OM")
@@ -535,4 +539,30 @@ plot_depletionSSB(mse$Sim_1$OM, species = 1, model_names = "OM")
 plot_depletionSSB(mse$Sim_1$EM, species = 1, model_names = "EMs")
 ```
 :::
-:::
+:::::
+
+## MCMC with `tmbstan`
+
+```{r, echo = TRUE, eval = FALSE}
+## Run in parallel
+library(tmbstan)
+
+warmup = 6000       
+thin = 1
+iter = 6000    
+
+cores <- 3
+options(mc.cores = cores)
+fit <- tmbstan(mymodel$obj, 
+               init = mymodel$opt$par, # Start from MLE
+               chains=cores, 
+               open_progress=FALSE,
+               warmup = warmup,      
+               thin = thin,
+               iter = iter * thin + warmup,     
+               control = list(max_treedepth = 14))
+
+## To explore the fit use shinystan
+library(shinystan)
+launch_shinystan(fit)
+```

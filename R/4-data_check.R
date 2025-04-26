@@ -187,7 +187,7 @@ data_check <- function(data_list) {
 
   Max_age = data_list$diet_data %>%
     dplyr::group_by(Prey) %>%
-    dplyr::summarise(Max_age = max(Pred_age)) %>%
+    dplyr::summarise(Max_age = max(Prey_age)) %>%
     dplyr::arrange(Prey)
 
   if(any(Max_age$Max_age > data_list$nages)){
