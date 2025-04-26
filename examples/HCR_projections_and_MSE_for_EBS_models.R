@@ -79,7 +79,7 @@ plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE)
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # -- F that acheives 40% of SB0, where SB0 is derived from projecting all species simultaneously under no fishing
 ms_run_fb40 <- Rceattle::fit_mod(data_list = BS2017MS,
-                                 inits = ms_run$estimated_params, # Initial parameters from single species ests
+                                 inits = ss_run_M$estimated_params, # Initial parameters from single species ests
                                  file = NULL, # Don't save
                                  estimateMode = 0, # Estimate hindcast only
                                  niter = 3, # 10 iterations around population and predation dynamics

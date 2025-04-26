@@ -112,7 +112,7 @@ cod_model_safe$quantities$biomass[1,1:42] <- t(safe2018biomass[1:42,c(3)])
 cod_model_safe$quantities$ssb[1,1:42] <- t(safe2018ssb[1:42,c(3)])
 
 # Convert Pollock to age-3 biomass rather than age-1 biomass a-la SAFE model
-pollock_model$quantities$biomass[1,1:49] <- colSums(pollock_model$quantities$biomassByage[1,3:10,1:49])
+pollock_model$quantities$biomass[1,1:49] <- colSums(pollock_model$quantities$biomass_at_age[1,1,3:10,1:49])
 
 # Plot biomass trends
 plot_biomass(list(pollock_model, pollock_model_safe), model_names = c("CEATTLE", "SAFE"))

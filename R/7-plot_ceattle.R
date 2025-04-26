@@ -846,7 +846,7 @@ plot_selectivity <-
 
     # Get biomass
     selectivity_array <-
-      array(NA, dim = c(nflt, 2, max(nages), nyrs, length(Rceattle)))
+      array(NA, dim = c(nflt, max(nsex), max(nages), nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
       selectivity_array[, , , years[[i]]-minyr+1,i] <- Rceattle[[i]]$quantities$sel[,,,]
     }
@@ -897,7 +897,7 @@ plot_selectivity <-
               res = 300
             )
           }
-          sel_subset <- (selectivity_array[j, sex, 1:nages[sp], 1:nyrshind, 1])
+          sel_subset <- selectivity_array[j, sex, 1:nages[sp], 1:nyrshind, 1]
 
           par(
             mar = c(3.2, 3.2 , 1 , 0.5) ,
@@ -2028,7 +2028,7 @@ plot_m_at_age <-
 
     # Get M
     m_at_age <-
-      array(NA, dim = c(nspp, 2, nyrs, length(Rceattle)))
+      array(NA, dim = c(nspp, max(nsex), nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
       for(sp in 1:nspp){
         for(yr in 1:nyrs_vec[i]){
@@ -2238,7 +2238,7 @@ plot_m2_at_age_prop <-
         for(k_sex in 1:nsex[ksp]){
           for(rsp in 1:nspp){
             for(yr in 1:nyrs_vec[i]){
-              m2_at_age_prop[rsp, ksp, k_sex, yr, i] <- sum(Rceattle[[i]]$quantities$M2_prop[c(rsp, rsp + nspp),ksp + (nspp*(k_sex-1)),,age,yr])
+              m2_at_age_prop[rsp, ksp, k_sex, yr, i] <- sum(Rceattle[[i]]$quantities$M2_prop[c(rsp, (rsp + nspp)*(max(nsex)-1)), ksp + (nspp*(k_sex-1)),,age,yr])
             }
           }
         }
@@ -2749,7 +2749,7 @@ plot_ration <-
 
     # Get ration across ages
     ration <-
-      array(NA, dim = c(nspp, 2, nyrs, length(Rceattle)))
+      array(NA, dim = c(nspp, max(nsex), nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
       for(sp in 1:nspp){
         for(yr in 1:nyrs_vec[i]){
