@@ -262,11 +262,15 @@ build_params <- function(data_list) {
   #
   # * 3.2. Suitability parameters ----
   param_list$log_gam_a = rep(0.5, data_list$nspp)  # Log predator selectivity;
+  names(param_list$log_gam_a) = paste0("Pred: ", data_list$spnames)
+
   param_list$log_gam_b = rep(-.5, data_list$nspp)  # Log predator selectivity
+  names(param_list$log_gam_b) = paste0("Pred: ", data_list$spnames)
 
 
   # * 3.3. Preference parameters ----
-  param_list$log_phi = matrix(0.5, data_list$nspp, data_list$nspp)
+  param_list$log_phi = matrix(0.5, data_list$nspp, data_list$nspp,
+                              dimnames = list(paste0("Pred: ", data_list$spnames), paste0("Prey: ", data_list$spnames)))
 
 
   return(param_list)

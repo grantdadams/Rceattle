@@ -285,7 +285,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
         # Males mapped the same, if present
         if(data_list$nsex[sp] == 2){
-        map_list$ln_M1_dev[sp,2,,] <- map_list$ln_M1_dev[sp,1,,]
+          map_list$ln_M1_dev[sp,2,,] <- map_list$ln_M1_dev[sp,1,,]
         }
 
         M1_dev_ind = M1_dev_ind + (nyrs_hind * data_list$nages[sp])
@@ -398,11 +398,14 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   # * 3.2. Suitability ----
   if (data_list$msmMode > 0) {
     # -- Empirical suitability
-    if (data_list$suitMode == 0) {
-      # Turn off suitability parameters
-      map_list$log_gam_a <- map_list$log_gam_a * NA
-      map_list$log_gam_b <- map_list$log_gam_b * NA
-      map_list$log_phi <- map_list$log_phi * NA
+
+    for(sp in 1:data_list$nspp){
+      if (data_list$suitMode[sp] == 0) {
+        # Turn off suitability parameters
+        map_list$log_gam_a[sp] <- NA
+        map_list$log_gam_b[sp] <- NA
+        map_list$log_phi[sp,] <- NA
+      }
     }
   }
 

@@ -165,7 +165,7 @@ data_check <- function(data_list) {
   # }
 
   # Switches ---
-  if(data_list$suitMode %in% c(1, 3)){
+  if(any(data_list$suitMode %in% c(1, 3))){
     stop("Length based suitability not yet implemented")
   }
 

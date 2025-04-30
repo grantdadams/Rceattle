@@ -160,7 +160,7 @@ Type objective_function<Type>::operator() () {
   //    8 = Hassell-Varley
   //    9 = Ecosim
   // DATA_INTEGER(est_diet);              // Include diet data in the likelihood
-  DATA_INTEGER(suitMode);                 // Estimate suitability
+  DATA_IVECTOR(suitMode);                 // Estimate suitability
   // DATA_INTEGER(avgnMode);              // N used for predation function
   //    0 = avgN_at_age
   //    1 = N*exp(-Z / 2))
@@ -2107,13 +2107,18 @@ Type objective_function<Type>::operator() () {
       // 8.1. SUITABILITY EQUATIONS                                                //
       // ------------------------------------------------------------------------- //
 
-      // 8.1.1. Holsman and MSVPA based suitability // FIXME - not flexible for interannual variation
-      if(suitMode == 0) {
-        // 8.1.1.1. Calculate stomach proportion over biomass; U/ (W * N)
-        suma_suit.setZero();
-        for(yr = 0; yr < nyrs; yr++) {                         // Year loop
-          for(ksp = 0; ksp < nspp; ksp++) {                    // Prey species loop
-            for(rsp = 0; rsp < nspp; rsp++) {                  // Predator species loop
+      suitability.setZero();
+      suma_suit.setZero();
+      sum_phi.setZero();
+
+      for(rsp = 0; rsp < nspp; rsp++) {                  // Predator species loop
+
+        // 8.1.1. MSVPA based suitability // FIXME - not flexible for interannual variation
+        if(suitMode(rsp) == 0) {
+
+          // 8.1.1.1. Calculate stomach proportion over biomass; U/ (W * N)
+          for(yr = 0; yr < nyrs; yr++) {                         // Year loop
+            for(ksp = 0; ksp < nspp; ksp++) {                    // Prey species loop
               for(k_sex = 0; k_sex < nsex(ksp); k_sex++){
                 for(r_sex = 0; r_sex < nsex(rsp); r_sex++){
                   for(r_age = 0; r_age < nages(rsp); r_age++) {    // Predator age loop
@@ -2161,65 +2166,61 @@ Type objective_function<Type>::operator() () {
 
 
         // 8.1.1.2. Calculate suitability
-        suitability.setZero();
-        for(rsp = 0; rsp < nspp; rsp++) {                          // Predator species loop
-          for(r_sex = 0; r_sex < nsex(rsp); r_sex++){               // Predator sex
-            for(r_age = 0; r_age < nages(rsp); r_age++) {          // Predator age loop
-              for(yr = 0; yr < nyrs; yr++){
-                suit_other(rsp, r_sex, r_age, yr) = 1; // Initialize suitability for other prey at 1
-              }
-              for(ksp = 0; ksp < nspp; ksp++) {                    // Prey species loop
-                for(k_sex = 0; k_sex < nsex(ksp); k_sex++){         // Prey sex loop
-                  for(k_age = 0; k_age < nages(ksp); k_age++) {    // Prey age loop
-                    for(yr = suit_styr; yr <= suit_endyr; yr++) {  // Suit year loop (over specific years)
+        for(r_sex = 0; r_sex < nsex(rsp); r_sex++){               // Predator sex
+          for(r_age = 0; r_age < nages(rsp); r_age++) {          // Predator age loop
+            for(yr = 0; yr < nyrs; yr++){
+              suit_other(rsp, r_sex, r_age, yr) = 1; // Initialize suitability for other prey at 1
+            }
+            for(ksp = 0; ksp < nspp; ksp++) {                    // Prey species loop
+              for(k_sex = 0; k_sex < nsex(ksp); k_sex++){         // Prey sex loop
+                for(k_age = 0; k_age < nages(ksp); k_age++) {    // Prey age loop
+                  for(yr = suit_styr; yr <= suit_endyr; yr++) {  // Suit year loop (over specific years)
 
-                      // Average suitability across years
-                      // FIXME: non-differentiable
-                      if( suma_suit(rsp, r_sex, r_age, yr ) + other_food_diet_prop(rsp, r_sex, r_age, yr) > 0){
-                        suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) += stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / ( suma_suit(rsp, r_sex, r_age, yr ) + other_food_diet_prop(rsp, r_sex, r_age, yr) );
-                      }
-                    }       // End year loop
-
-                    // FIXME - Add in interannual variability here
-                    suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) /= nyrs_suit;
-
-                    // Remove NAs from crashing populations
+                    // Average suitability across years
                     // FIXME: non-differentiable
-                    if(!isFinite(suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0))){
-                      suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) = 0.0;
+                    if( suma_suit(rsp, r_sex, r_age, yr ) + other_food_diet_prop(rsp, r_sex, r_age, yr) > 0){
+                      suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) += stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / ( suma_suit(rsp, r_sex, r_age, yr ) + other_food_diet_prop(rsp, r_sex, r_age, yr) );
                     }
+                  }       // End year loop
 
-                    // Fill in years
-                    for(yr = 1; yr < nyrs; yr++) {                 // Year loop
-                      suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0);
-                    }
+                  // FIXME - Add in interannual variability here
+                  suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) /= nyrs_suit;
 
-                    // Other suitabilitity
-                    for(yr = 0; yr < nyrs; yr++) {
-                      suit_other(rsp, r_sex, r_age, yr) -= suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr); // FIXME - include overlap indices
-                    }
+                  // Remove NAs from crashing populations
+                  // FIXME: non-differentiable
+                  if(!isFinite(suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0))){
+                    suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) = 0.0;
+                  }
+
+                  // Fill in years
+                  for(yr = 1; yr < nyrs; yr++) {                 // Year loop
+                    suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0);
+                  }
+
+                  // Other suitabilitity
+                  for(yr = 0; yr < nyrs; yr++) {
+                    suit_other(rsp, r_sex, r_age, yr) -= suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr); // FIXME - include overlap indices
                   }
                 }
               }
             }
           }
-        }
-      } // End Holsman/MSVPA suitability
+        } // End Holsman/MSVPA suitability
 
 
 
-      // 8.1.2. Estimate suitability
-      if(suitMode > 0){
 
-        // -- Transform predator-prey preference parameters
-        // Adopted from https://github.com/vtrijoulet/Multisp_model_JAE/blob/master/MS_SSM.cpp (Trijoulet et al 2020)
-        // Suitability for other food = 1-sum(predator-prey preference)
-        // Criteria for predator-prey preference:
-        // 1. predator-prey preference > 0 (hence logs)
-        // 2. sum(predator-prey preference) + vuln_other = 1
-        // 3. 0 <= sum(predator-prey preference) <= 1 (hence logit transformation)
-        sum_phi.setZero();
-        for(rsp = 0; rsp < nspp; rsp++) {                              // Pred loop
+
+        // 8.1.2. Estimate suitability
+        if(suitMode(rsp) > 0){
+
+          // -- Transform predator-prey preference parameters
+          // Adopted from https://github.com/vtrijoulet/Multisp_model_JAE/blob/master/MS_SSM.cpp (Trijoulet et al 2020)
+          // Suitability for other food = 1-sum(predator-prey preference)
+          // Criteria for predator-prey preference:
+          // 1. predator-prey preference > 0 (hence logs)
+          // 2. sum(predator-prey preference) + vuln_other = 1
+          // 3. 0 <= sum(predator-prey preference) <= 1 (hence logit transformation)
           for(ksp = 0; ksp < nspp; ksp++) {              // Prey loop
             sum_phi(rsp) += exp(log_phi(rsp, ksp));
           }
@@ -2230,41 +2231,39 @@ Type objective_function<Type>::operator() () {
         }
 
 
+
         // 8.1.3. GAMMA suitability
-        if((suitMode == 1) | (suitMode == 2)){
+        if((suitMode(rsp) == 1) | (suitMode(rsp) == 2)){
           Type log_size_ratio = 0;       // Log(mean(predLen@age)/mean(preyLen@age))
 
-          suitability.setZero();
-          for(rsp = 0; rsp < nspp; rsp++) {                           // Pred loop
-            for(r_age = 0; r_age < nages(rsp); r_age++) {             // Pred age
-              for(r_sex = 0; r_sex < nsex(rsp); r_sex++){
-                for(ksp = 0; ksp < nspp; ksp++) {                     // Prey loop
-                  for(k_sex = 0; k_sex < nsex(ksp); k_sex++){
-                    for(k_age = 0; k_age < nages(ksp); k_age++) {     // Prey age
-                      for(yr = 0; yr < nyrs; yr++) {                  // Year loop
+          for(r_age = 0; r_age < nages(rsp); r_age++) {             // Pred age
+            for(r_sex = 0; r_sex < nsex(rsp); r_sex++){
+              for(ksp = 0; ksp < nspp; ksp++) {                     // Prey loop
+                for(k_sex = 0; k_sex < nsex(ksp); k_sex++){
+                  for(k_age = 0; k_age < nages(ksp); k_age++) {     // Prey age
+                    for(yr = 0; yr < nyrs; yr++) {                  // Year loop
 
-                        suit_other(rsp, r_sex, r_age, yr) = vulnerability_other(rsp);
+                      suit_other(rsp, r_sex, r_age, yr) = vulnerability_other(rsp);
 
-                        // Year ind
-                        if(yr < nyrs_hind){
-                          yr_ind = yr;
-                        }
-                        if(yr >= nyrs_hind){
-                          yr_ind = nyrs_hind - 1;
-                        }
+                      // Year ind
+                      if(yr < nyrs_hind){
+                        yr_ind = yr;
+                      }
+                      if(yr >= nyrs_hind){
+                        yr_ind = nyrs_hind - 1;
+                      }
 
-                        switch(suitMode){
-                        case 1: // Length-based GAMMA suitability
-                          // log_size_ratio = log(laa( rsp, r_sex, r_age, yr_ind) / laa( ksp, k_sex, k_age, yr_ind) ); // Log ratio of lengths
-                          break;
-                        case 2: // Weight-based GAMMA suitability
-                          log_size_ratio = log(weight(pop_wt_index(rsp), r_sex, r_age, yr_ind) / weight(pop_wt_index(ksp), k_sex, k_age, yr_ind)); // Log ratio of weights
-                          break;
-                        }
-                        if(log_size_ratio > 0){
-                          // See line 452 from https://github.com/vtrijoulet/Multisp_model_JAE/blob/master/MS_SSM.cpp
-                          suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = vulnerability(rsp, ksp) * dgamma(log_size_ratio, gam_a( rsp ), gam_b(rsp)) / dgamma((gam_a(rsp)-1) * gam_b(rsp), gam_a(rsp), gam_b(rsp)); // Scale to 0,1 by dividing by max
-                        }
+                      switch(suitMode(rsp)){
+                      case 1: // Length-based GAMMA suitability
+                        // log_size_ratio = log(laa( rsp, r_sex, r_age, yr_ind) / laa( ksp, k_sex, k_age, yr_ind) ); // Log ratio of lengths
+                        break;
+                      case 2: // Weight-based GAMMA suitability
+                        log_size_ratio = log(weight(pop_wt_index(rsp), r_sex, r_age, yr_ind) / weight(pop_wt_index(ksp), k_sex, k_age, yr_ind)); // Log ratio of weights
+                        break;
+                      }
+                      if(log_size_ratio > 0){
+                        // See line 452 from https://github.com/vtrijoulet/Multisp_model_JAE/blob/master/MS_SSM.cpp
+                        suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = vulnerability(rsp, ksp) * dgamma(log_size_ratio, gam_a( rsp ), gam_b(rsp)) / dgamma((gam_a(rsp)-1) * gam_b(rsp), gam_a(rsp), gam_b(rsp)); // Scale to 0,1 by dividing by max
                       }
                     }
                   }
@@ -2276,46 +2275,43 @@ Type objective_function<Type>::operator() () {
 
 
         // 8.1.4. Lognormal suitability
-        if((suitMode == 3) | (suitMode == 4) | (suitMode == 5)| (suitMode == 6)){
+        if((suitMode(rsp) == 3) | (suitMode(rsp) == 4) | (suitMode(rsp) == 5)| (suitMode(rsp) == 6)){
           Type log_size_ratio = 0;       // Log(mean(predLen@age)/mean(preyLen@age))
-          suitability.setZero();
-          for(rsp = 0; rsp < nspp; rsp++) {                                // Pred loop
-            for(r_sex = 0; r_sex < nsex(rsp); r_sex ++){
-              for(r_age = 0; r_age < nages(rsp); r_age++) {                  // Pred age
-                for(ksp = 0; ksp < nspp; ksp++) {                            // Prey loop
-                  for(k_sex = 0; k_sex < nsex(ksp); k_sex ++){
-                    for(k_age = 0; k_age < nages(ksp); k_age++) {              // Prey age
-                      for(yr = 0; yr < nyrs; yr++){
+          for(r_sex = 0; r_sex < nsex(rsp); r_sex ++){
+            for(r_age = 0; r_age < nages(rsp); r_age++) {                  // Pred age
+              for(ksp = 0; ksp < nspp; ksp++) {                            // Prey loop
+                for(k_sex = 0; k_sex < nsex(ksp); k_sex ++){
+                  for(k_age = 0; k_age < nages(ksp); k_age++) {              // Prey age
+                    for(yr = 0; yr < nyrs; yr++){
 
-                        suit_other(rsp, r_sex, r_age, yr) = vulnerability_other(rsp);
+                      suit_other(rsp, r_sex, r_age, yr) = vulnerability_other(rsp);
 
-                        // Year ind
-                        if(yr < nyrs_hind){
-                          yr_ind = yr;
-                        }
-                        if(yr >= nyrs_hind){
-                          yr_ind = nyrs_hind - 1;
-                        }
+                      // Year ind
+                      if(yr < nyrs_hind){
+                        yr_ind = yr;
+                      }
+                      if(yr >= nyrs_hind){
+                        yr_ind = nyrs_hind - 1;
+                      }
 
-                        switch(suitMode){
-                        case 3: // Length-based lognormal suitability
-                          // log_size_ratio = log(laa( rsp, r_sex, r_age, yr_ind) / laa( ksp, k_sex, k_age, yr_ind) ); // Log ratio of lengths
-                          break;
-                        case 4: // Weight-based lognormal suitability
-                          log_size_ratio = log(weight(pop_wt_index(rsp), r_sex, r_age, yr_ind) / weight(pop_wt_index(ksp), k_sex, k_age, yr_ind)); // Log ratio of weights
-                          break;
+                      switch(suitMode(rsp)){
+                      case 3: // Length-based lognormal suitability
+                        // log_size_ratio = log(laa( rsp, r_sex, r_age, yr_ind) / laa( ksp, k_sex, k_age, yr_ind) ); // Log ratio of lengths
+                        break;
+                      case 4: // Weight-based lognormal suitability
+                        log_size_ratio = log(weight(pop_wt_index(rsp), r_sex, r_age, yr_ind) / weight(pop_wt_index(ksp), k_sex, k_age, yr_ind)); // Log ratio of weights
+                        break;
 
-                        case 5: // Length-based normal suitability
-                          // log_size_ratio = laa( rsp, r_sex, r_age, yr_ind) / laa( ksp, k_sex, k_age, yr_ind); // Log ratio of lengths
-                          break;
-                        case 6: // Weight-based normal suitability
-                          log_size_ratio = weight(pop_wt_index(rsp), r_sex, r_age, yr_ind) / weight(pop_wt_index(ksp), k_sex, k_age, yr_ind); // Log ratio of weights
-                          break;
-                        }
-                        // if prey are smaller than predator:
-                        if(log_size_ratio > 0){
-                          suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = vulnerability(rsp, ksp) * dnorm(log_size_ratio, gam_a(rsp), gam_b(rsp)) / dnorm(gam_a(rsp), gam_a(rsp), gam_b(rsp)); // Divide by mode to scale to 1
-                        }
+                      case 5: // Length-based normal suitability
+                        // log_size_ratio = laa( rsp, r_sex, r_age, yr_ind) / laa( ksp, k_sex, k_age, yr_ind); // Log ratio of lengths
+                        break;
+                      case 6: // Weight-based normal suitability
+                        log_size_ratio = weight(pop_wt_index(rsp), r_sex, r_age, yr_ind) / weight(pop_wt_index(ksp), k_sex, k_age, yr_ind); // Log ratio of weights
+                        break;
+                      }
+                      // if prey are smaller than predator:
+                      if(log_size_ratio > 0){
+                        suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = vulnerability(rsp, ksp) * dnorm(log_size_ratio, gam_a(rsp), gam_b(rsp)) / dnorm(gam_a(rsp), gam_a(rsp), gam_b(rsp)); // Divide by mode to scale to 1
                       }
                     }
                   }
@@ -2323,8 +2319,8 @@ Type objective_function<Type>::operator() () {
               }
             }
           }
-        } // End lognormal selectivity
-      } // End suitability estimation
+        }// End lognormal selectivity
+      } // End  suitability estimation
 
       // ------------------------------------------------------------------------- //
       // 8. PREDATION MORTALITY EQUATIONS                                          //
@@ -3767,13 +3763,15 @@ Type objective_function<Type>::operator() () {
 
   // 14.3. Diet likelihood components
   // -- MSVPA-based predation with estimated suitability AND Kinzey and Punt
-  if((msmMode > 2) | (suitMode > 0)) {
+  if((msmMode > 2) | (imax(suitMode) > 0)) {
     // Slot 15 -- Diet weight likelihood
     for(int stom_ind = 0; stom_ind < diet_obs.rows(); stom_ind++){
 
       rsp = diet_ctl(stom_ind, 0) - 1; // Index of pred
-      if(diet_obs(stom_ind, 1) > 0){
-        jnll_comp(18, rsp) -= Type(diet_obs(stom_ind, 0)) * (diet_obs(stom_ind, 1) + 0.00001) * log((diet_hat(stom_ind, 1) + 0.00001)/(diet_obs(stom_ind, 1) + 0.00001));
+      if((msmMode > 2) | (suitMode(rsp) > 0)) {
+        if(diet_obs(stom_ind, 1) > 0){
+          jnll_comp(18, rsp) -= Type(diet_obs(stom_ind, 0)) * (diet_obs(stom_ind, 1) + 0.00001) * log((diet_hat(stom_ind, 1) + 0.00001)/(diet_obs(stom_ind, 1) + 0.00001));
+        }
       }
     }
   } // End diet proportion by weight component
