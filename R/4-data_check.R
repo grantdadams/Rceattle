@@ -108,15 +108,6 @@ data_check <- function(data_list) {
     stop("Sex ratio does not span all ages")
   }
 
-  # Sexes ----
-  m1_sex <- data_list$M1_base %>%
-    dplyr::group_by(Species) %>%
-    dplyr::summarise(max_sex = max(Sex)) %>%
-    dplyr::arrange(Species)
-
-  if(any(m1_sex > data_list$nsex)){
-    stop("'M1_base' has more sexes than specified in 'nsex'")
-  }
 
   # Pyrs ----
   if(any(data_list$Pyrs %>%
@@ -210,7 +201,7 @@ data_check <- function(data_list) {
     dplyr::summarise(max_sex = max(Sex)) %>%
     dplyr::arrange(Species)
 
-  if(any(m1_sex > data_list$nsex)){
+  if(any(m1_sex$max_sex > data_list$nsex)){
     stop("'M1_base' has more sexes than specified in 'nsex'")
   }
 
@@ -219,7 +210,7 @@ data_check <- function(data_list) {
     dplyr::summarise(max_sex = max(Sex)) %>%
     dplyr::arrange(Species)
 
-  if(any(wt_sex > data_list$nsex)){
+  if(any(wt_sex$max_sex > data_list$nsex)){
     stop("'weight' has more sexes than specified in 'nsex'")
   }
 

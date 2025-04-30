@@ -445,6 +445,7 @@ check_composition_data <- function(data_list) {
 #'
 #' @param data_list Rceattle data list
 #'
+#' @export
 transpose_fleet_control <- function(data_list){
 
   if(sum(colnames(data_list$fleet_control)[1:2] == c("Fleet_name", "Fleet_code")) != 2){ #, "Fleet_type", "Species", "Selectivity_index", "Selectivity")) != 6){
