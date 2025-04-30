@@ -33,6 +33,10 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   # Convert parameters to map object and
   # - Set each item in map_list to seperate value
   map_list <- sapply(params, function(x) replace(x, values = c(1:length(x))))
+  if(is.null(data_list$initMode)){
+    data_list$initMode = 2
+    print("'initMode' not input, setting to 2 (default)")
+  }
 
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
