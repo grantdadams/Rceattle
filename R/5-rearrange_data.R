@@ -440,3 +440,24 @@ check_composition_data <- function(data_list) {
   return(data_list)
 }
 
+
+#' Function to transpose fleet_control if long format
+#'
+#' @param data_list Rceattle data list
+#'
+transpose_fleet_control <- function(data_list){
+
+  if(sum(colnames(data_list$fleet_control)[1:2] == c("Fleet_name", "Fleet_code")) != 2){ #, "Fleet_type", "Species", "Selectivity_index", "Selectivity")) != 6){
+    data_list$fleet_control <- as.data.frame(t(data_list$fleet_control))
+    colnames(data_list$fleet_control) <- data_list$fleet_control[1,]
+    data_list$fleet_control <- data_list$fleet_control[-1,]
+    data_list$fleet_control <- cbind(data.frame(Fleet_name = rownames(data_list$fleet_control)),
+                                     data_list$fleet_control)
+    rownames(data_list$fleet_control) = NULL
+
+    data_list$fleet_control[,-which(colnames(data_list$fleet_control) %in% c("Fleet_name", "Time_varying_q"))] <- apply(
+      data_list$fleet_control[,-which(colnames(data_list$fleet_control) %in% c("Fleet_name", "Time_varying_q"))], 2, as.numeric)
+  }
+  return(data_list)
+}
+
