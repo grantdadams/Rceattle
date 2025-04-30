@@ -176,14 +176,14 @@ read_data <- function(file = "Rceattle_data.xlsx") {
 
   control_objects <- c("nspp", "styr", "endyr", "projyr")
   for (i in 1:length(control_objects)) {
-    data_list[[control_objects[i]]] <- control[[control_objects[i]]][1]
+    data_list[[control_objects[i]]] <- as.numeric(control[[control_objects[i]]][1])
   }
 
   vec_control_objects <- c("spnames", "nsex", "spawn_month", "nages", "minage", "nlengths",
                            "pop_wt_index", "ssb_wt_index", "pop_age_transition_index", "sigma_rec_prior",
                            "other_food", "estDynamics")
   for (i in 1:length(vec_control_objects)) {
-    data_list[[vec_control_objects[i]]] <- control[[vec_control_objects[i]]][1:data_list$nspp]
+    data_list[[vec_control_objects[i]]] <- as.numeric(control[[vec_control_objects[i]]][1:data_list$nspp])
   }
 
 
@@ -193,6 +193,17 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     sheet <- as.data.frame(readxl::read_xlsx(file, sheet = matrix_data[i]))
     sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
     data_list[[matrix_data[i]]] <- sheet
+  }
+
+  # Transpose data list if necessary
+  data_list <- Rceattle::transpose_fleet_control(data_list)
+
+  # -- Update names if necessary
+  if(length(data_list$fleet_control$Survey_sd_prior) > 0){
+    data_list$fleet_control <- data_list$fleet_control %>%
+      dplyr::rename(Estimate_index_sd = Estimate_survey_sd,
+                    Index_sd_prior = Survey_sd_prior)
+    print("Renaming 'Estimate_survey_sd' to 'Estimate_index_sd' and 'Survey_sd_prior' to 'Index_sd_prior'")
   }
 
   # Index and catch data ----
@@ -209,6 +220,7 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "fsh_biom"))
     sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
     data_list$catch_data <- sheet
+    print("Renaming 'fsh_biom' to 'catch_data'")
   }
 
   # -- Index
@@ -222,6 +234,7 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "srv_biom"))
     sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
     data_list$index_data <- sheet
+    print("Renaming 'srv_biom' to 'index_data'")
   }
 
 
@@ -247,6 +260,7 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "wt"))
     sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
     data_list$weight <- sheet
+    print("Renaming 'wt' to 'weight'")
   }
 
 
@@ -261,6 +275,7 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "maturity"))
     sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
     data_list$maturity <- sheet
+    print("Renaming 'pmature' to 'maturity'")
   }
 
 
@@ -306,11 +321,13 @@ read_data <- function(file = "Rceattle_data.xlsx") {
   if("UobsWtAge" %in% sheetnames){ # Old name
     sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "UobsWtAge"))
     data_list$diet_data <- sheet
+    print("Renaming 'UobsWtAge' to 'diet_data'")
   }
 
   if("stom_prop_data" %in% sheetnames){
     sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "stom_prop_data"))
     data_list$diet_data <- sheet
+    print("Renaming 'stom_prop_data' to 'diet_data'")
   }
 
 
