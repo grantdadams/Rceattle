@@ -123,38 +123,38 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # Debugging section ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    data_list = BS2017SS;
-    inits = NULL;
-    map = NULL;
-    bounds = NULL;
-    file = NULL;
-    estimateMode = 0;
-    random_rec = FALSE;
-    random_q = FALSE;
-    random_sel = FALSE;
-    HCR = build_hcr();
-    niter = 3;
-    msmMode = 0;
-    avgnMode = 0;
-    initMode = 2
-    minNByage = 0;
-    suitMode = 0;
-    suit_styr = NULL;
-    suit_endyr = NULL;
-    phase = FALSE;
-    getsd = TRUE;
-    use_gradient = TRUE;
-    rel_tol = 1;
-    control = list(eval.max = 1e+09,
-                   iter.max = 1e+09, trace = 0);
-    getJointPrecision = TRUE;
-    loopnum = 5;
-    verbose = 1;
-    newtonsteps = 0
-    recFun = build_srr()
-    M1Fun = build_M1()
-    projection_uncertainty = TRUE
-    catch_hcr = FALSE
+    # data_list = BS2017SS;
+    # inits = NULL;
+    # map = NULL;
+    # bounds = NULL;
+    # file = NULL;
+    # estimateMode = 0;
+    # random_rec = FALSE;
+    # random_q = FALSE;
+    # random_sel = FALSE;
+    # HCR = build_hcr();
+    # niter = 3;
+    # msmMode = 0;
+    # avgnMode = 0;
+    # initMode = 2
+    # minNByage = 0;
+    # suitMode = 0;
+    # suit_styr = NULL;
+    # suit_endyr = NULL;
+    # phase = FALSE;
+    # getsd = TRUE;
+    # use_gradient = TRUE;
+    # rel_tol = 1;
+    # control = list(eval.max = 1e+09,
+    #                iter.max = 1e+09, trace = 0);
+    # getJointPrecision = TRUE;
+    # loopnum = 5;
+    # verbose = 1;
+    # newtonsteps = 0
+    # recFun = build_srr()
+    # M1Fun = build_M1()
+    # projection_uncertainty = TRUE
+    # catch_hcr = FALSE
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 0 - Start ----
