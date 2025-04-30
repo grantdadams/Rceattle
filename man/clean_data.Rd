@@ -7,7 +7,7 @@
 clean_data(data_list)
 }
 \arguments{
-\item{data_list}{}
+\item{data_list}{Rceattle data list}
 }
 \description{
 Function to clean data for Rceattle runs
