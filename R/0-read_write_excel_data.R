@@ -179,7 +179,9 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     data_list[[control_objects[i]]] <- as.numeric(control[[control_objects[i]]][1])
   }
 
-  vec_control_objects <- c("spnames", "nsex", "spawn_month", "nages", "minage", "nlengths",
+  data_list[["spnames"]] <- control[["spnames"]][1:data_list$nspp]
+
+  vec_control_objects <- c("nsex", "spawn_month", "nages", "minage", "nlengths",
                            "pop_wt_index", "ssb_wt_index", "pop_age_transition_index", "sigma_rec_prior",
                            "other_food", "estDynamics")
   for (i in 1:length(vec_control_objects)) {
@@ -269,13 +271,13 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "pmature"))
     sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
     data_list$maturity <- sheet
+    print("Renaming 'pmature' to 'maturity'")
   }
 
   if("maturity" %in% sheetnames){
     sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "maturity"))
     sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
     data_list$maturity <- sheet
-    print("Renaming 'pmature' to 'maturity'")
   }
 
 

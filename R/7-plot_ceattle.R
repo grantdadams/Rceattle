@@ -1894,7 +1894,7 @@ plot_b_eaten_prop <-
         }
 
         # Legends
-        legend("topleft", spnames[spp], bty = "n", cex = 1)
+        legend("topleft", legend = spnames[spp], bty = "n", cex = 1)
 
         if(!is.null(mohns)){
           legend("top", paste0("B_eaten Rho = ",  round(mohns[2,spp+1], 2) ), bty = "n", cex = 0.8) # B_eaten rho

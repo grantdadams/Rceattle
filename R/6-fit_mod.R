@@ -777,14 +777,14 @@ fit_mod <-
 
 #' Function to clean data for Rceattle runs
 #'
-#' @param data_list
+#' @param data_list Rceattle data list
 #'
 #' @export
 #'
 clean_data <- function(data_list){
 
   # Transpose fleet control
-  data_list <- Rceattle:transpose_fleet_control(data_list)
+  data_list <- Rceattle::transpose_fleet_control(data_list)
 
   # Remove years of data previous to start year and after end year
   # - Data in likelihood
