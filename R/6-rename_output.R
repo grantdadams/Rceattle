@@ -198,6 +198,7 @@ calc_mcall_ianelli_diet <- function(data_list = NULL, quantities = NULL){
   # Take harmonic mean across predator ages
   data_list$Diet_weights_mcallister <- eff_n_mcallister %>%
     dplyr::group_by(Pred) %>%
+    filter(eff_n_mcallister != 0) %>%
     dplyr::summarise(Diet_weights_mcallister = (1/n() * sum((eff_n_mcallister /Sample_size)^-1))^-1 ) %>%
     dplyr::pull(Diet_weights_mcallister)
 
