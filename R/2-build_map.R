@@ -409,6 +409,10 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
     }
   }
 
+  # * 3.4. Diet multiplier ----
+  # TODO add in dirichlet multinomial switch
+  map_list$diet_comp_weights[] <- NA
+
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # 4. Selectivity ----

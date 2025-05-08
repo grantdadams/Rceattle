@@ -1,3 +1,82 @@
+#' Function to clean data for Rceattle runs
+#'
+#' @param data_list Rceattle data list
+#'
+#' @export
+#'
+clean_data <- function(data_list){
+
+  # Diet data weights
+  if(is.null(data_list$Diet_comp_weights)){
+    data_list$Diet_comp_weights <- rep(1, data_list$nspp)
+    print("'Diet_comp_weights' are not included in data, assuming 1")
+  }
+
+  # Transpose fleet control
+  data_list <- Rceattle::transpose_fleet_control(data_list)
+
+  # Remove years of data previous to start year and after end year
+  # - Data in likelihood
+  data_list$index_data <- data_list$index_data %>%
+    dplyr::filter(abs(Year) >= data_list$styr & abs(Year) <= data_list$projyr)
+  data_list$catch_data <- data_list$catch_data %>%
+    dplyr::filter(abs(Year) >= data_list$styr & abs(Year) <= data_list$projyr)
+  data_list$comp_data <- data_list$comp_data %>%
+    dplyr::filter(abs(Year) >= data_list$styr & abs(Year) <= data_list$projyr)
+
+  # - Fixed data
+  data_list$weight <- data_list$weight %>%
+    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
+  data_list$diet_data <- as.data.frame(data_list$diet_data) %>%
+    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
+  data_list$emp_sel <- data_list$emp_sel %>%
+    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
+  data_list$NByageFixed <- data_list$NByageFixed %>%
+    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
+  data_list$Pyrs <- data_list$Pyrs %>%
+    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
+
+
+  # Add temp multi-species SB0
+  if(is.null(data_list$MSSB0)){
+    data_list$MSSB0 <- rep(999, data_list$nspp)
+    data_list$MSB0 <- rep(999, data_list$nspp)
+  }
+
+
+  # Extend catch data to proj year for projections (where data are missing)
+  if(data_list$projyr > data_list$endyr){
+    for(flt in (unique(data_list$catch_data$Fleet_code))){
+      catch_data_sub <- data_list$catch_data %>%
+        dplyr::filter(Fleet_code == flt)
+      yrs_proj <- (data_list$endyr + 1):data_list$projyr
+      yrs_proj <- yrs_proj[which(!yrs_proj %in% catch_data_sub$Year)]
+      nyrs_proj <- length(yrs_proj)
+      proj_catch_data <- data.frame(Fleet_name = rep(catch_data_sub$Fleet_name[1], nyrs_proj),
+                                    Fleet_code = rep(flt, nyrs_proj),
+                                    Species = rep(catch_data_sub$Species[1], nyrs_proj),
+                                    Year = yrs_proj,
+                                    Month = rep(catch_data_sub$Month[length(catch_data_sub$Month)], nyrs_proj),
+                                    Selectivity_block = rep(catch_data_sub$Selectivity_block[length(catch_data_sub$Selectivity_block)], nyrs_proj),
+                                    Catch = rep(NA, nyrs_proj),
+                                    Log_sd = rep(catch_data_sub$Log_sd[length(catch_data_sub$Log_sd)], nyrs_proj))
+      data_list$catch_data <- rbind(data_list$catch_data, proj_catch_data)
+    }
+  }
+
+  data_list$catch_data <- data_list$catch_data[
+    with(data_list$catch_data, order(Fleet_code, Year)),]
+
+  return(data_list)
+}
+
+
+#' Function to check data for errors
+#'
+#' @param data_list Rceattle data list
+#'
+#' @export
+#'
 data_check <- function(data_list) {
 
   if (length(data_list$M1_base) == 1) {
@@ -213,5 +292,4 @@ data_check <- function(data_list) {
   if(any(wt_sex$max_sex > data_list$nsex)){
     stop("'weight' has more sexes than specified in 'nsex'")
   }
-
 }

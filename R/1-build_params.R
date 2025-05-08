@@ -115,7 +115,7 @@ build_params <- function(data_list) {
 
   # - SD for random effects
   param_list$M1_dev_ln_sd = array(0, dim = c(data_list$nspp, max_sex),
-                            dimnames = list(data_list$spnames, sex_labels))
+                                  dimnames = list(data_list$spnames, sex_labels))
 
 
   # * 1.5. fishing mortality parameters ----
@@ -272,6 +272,10 @@ build_params <- function(data_list) {
   param_list$log_phi = matrix(0.5, data_list$nspp, data_list$nspp,
                               dimnames = list(paste0("Pred: ", data_list$spnames), paste0("Prey: ", data_list$spnames)))
 
+
+  # * 3.4. Diet composition weighting ----
+  param_list$diet_comp_weights = data_list$Diet_comp_weights
+  names(param_list$diet_comp_weights) <- paste0("Pred: ", data_list$spnames)
 
   return(param_list)
 }

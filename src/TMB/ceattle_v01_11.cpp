@@ -372,11 +372,15 @@ Type objective_function<Type>::operator() () {
   PARAMETER_VECTOR( sel_dev_ln_sd );               // Log standard deviation of selectivity; n = [1, n_selectivities]
   PARAMETER_MATRIX( sel_curve_pen );              // Selectivity penalty for non-parametric selectivity, 2nd column is for monotonic bit
 
-  // -- 3.6. Variance of survey and fishery time series
-  PARAMETER_VECTOR( index_ln_sd );             // Log standard deviation of survey index time-series; n = [1, n_index]
-  PARAMETER_VECTOR( catch_ln_sd );             // Log standard deviation of fishery catch time-series; n = [1, n_fsh]
+  // -- 3.6. Data variance
+  //FIXME: remove ln_sd terms below
+  PARAMETER_VECTOR( index_ln_sd );                // Log standard deviation of survey index time-series; n = [1, n_index]
+  PARAMETER_VECTOR( catch_ln_sd );                // Log standard deviation of fishery catch time-series; n = [1, n_fsh]
   PARAMETER_VECTOR( comp_weights );               // Weights for composition data
   vector<Type>  DM_pars = exp(comp_weights);      // Dirichlet-multinomial scalars
+
+  PARAMETER_VECTOR( diet_comp_weights );          // Weights for diet composition data
+  // vector<Type>  DM_diet_pars = exp(diet_comp_weights);// Dirichlet-multinomial scalars
 
   // -- 3.7. Kinzery predation function parameters
   /*
@@ -2052,22 +2056,26 @@ Type objective_function<Type>::operator() () {
         }
       }
 
+      // Diet proportion of prey-at-at in predator-at-age
+      // if K_age < 0, data are diet proportion of prey-spp in predator-at-age (summed across prey ages)
+      // and are not used for MSVPA based suitability
+      if(k_age >= 0){
+        for(int j = 0; j < 2; j ++){
+          for(int k = 0; k < 2; k ++){
 
-      for(int j = 0; j < 2; j ++){
-        for(int k = 0; k < 2; k ++){
-
-          if(flt_yr > 0){
-            yr = flt_yr - styr;
-
-            if(yr < nyrs_hind){
-              diet_prop(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr) = diet_obs(stom_ind, 1);
+            // Annual data
+            if(flt_yr > 0){
+              yr = flt_yr - styr;
+              if(yr < nyrs_hind){
+                diet_prop(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr) = diet_obs(stom_ind, 1);
+              }
             }
-          }
 
-          // Average of years
-          if(flt_yr == 0){
-            for(yr = 0; yr < nyrs; yr++) {
-              diet_prop(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr) = diet_obs(stom_ind, 1);
+            // Average of years
+            if(flt_yr == 0){
+              for(yr = 0; yr < nyrs; yr++) {
+                diet_prop(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr) = diet_obs(stom_ind, 1);
+              }
             }
           }
         }
@@ -3107,16 +3115,39 @@ Type objective_function<Type>::operator() () {
           if(flt_yr > 0){
             yr = flt_yr - styr;
 
+            // Annual data
             if(yr < nyrs_hind){
-              // diet_prop_hat(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)
-              diet_hat(stom_ind, 1) += diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr)/4;; //FIXME: take weighted average (sex)
+              // Diet proportion of prey-at-age in predator-at-age
+              if(k_age >= 0){
+                diet_hat(stom_ind, 1) += diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr)/4; //FIXME: take weighted average for two-sex models?
+              }
+
+
+              // Diet proportion of prey-spp in predator-at-age (sum across prey ages)
+              if(k_age < 0){
+                for(k_age = 0; k_age < nages(ksp); k_age++){
+                  diet_hat(stom_ind, 1) += diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr)/4; //FIXME: take weighted average for two-sex models?
+                }
+              }
             }
           }
 
           // Average of years
           if(flt_yr == 0){
             for(yr = suit_styr; yr <= suit_endyr; yr++) {  // Suit year loop (over specific years)
-              diet_hat(stom_ind, 1) += diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr)/4/nyrs_suit; //FIXME: take weighted average (sex)
+
+              // Diet proportion of prey-at-age in predator-at-age
+              if(k_age >= 0){
+                diet_hat(stom_ind, 1) += diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr)/4/nyrs_suit; //FIXME: take weighted average for two-sex models?
+              }
+
+
+              // Diet proportion of prey-spp in predator-at-age (sum across prey ages)
+              if(k_age < 0){
+                for(k_age = 0; k_age < nages(ksp); k_age++){
+                  diet_hat(stom_ind, 1) += diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr)/4/nyrs_suit; //FIXME: take weighted average for two-sex models?
+                }
+              }
             }
           }
         }
@@ -3767,11 +3798,10 @@ Type objective_function<Type>::operator() () {
     // Slot 15 -- Diet weight likelihood
     for(int stom_ind = 0; stom_ind < diet_obs.rows(); stom_ind++){
 
-      rsp = diet_ctl(stom_ind, 0) - 1; // Index of pred
-      if((msmMode > 2) | (suitMode(rsp) > 0)) {
-        if(diet_obs(stom_ind, 1) > 0){
-          jnll_comp(18, rsp) -= Type(diet_obs(stom_ind, 0)) * (diet_obs(stom_ind, 1) + 0.00001) * log((diet_hat(stom_ind, 1) + 0.00001)/(diet_obs(stom_ind, 1) + 0.00001));
-        }
+      rsp = diet_ctl(stom_ind, 0) - 1; // Index of predator
+
+      if((msmMode > 2) | (suitMode(rsp) > 0)) { // If estimating
+        jnll_comp(18, rsp) -= diet_comp_weights(rsp) * Type(diet_obs(stom_ind, 0)) * (diet_obs(stom_ind, 1) + 0.00001) * log((diet_hat(stom_ind, 1) + 0.00001)/(diet_obs(stom_ind, 1) + 0.00001));
       }
     }
   } // End diet proportion by weight component

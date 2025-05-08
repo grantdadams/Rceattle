@@ -30,6 +30,7 @@
 #' @param verbose 0 = Silent, 1 = print updates of model fit, 2 = print updates of model fit and TMB estimation progress.
 #' @param M1Fun M1 parameterizations and priors. Use \code{build_M1}.
 #' @param getJointPrecision return full Hessian of fixed and random effects.
+#' @param getReportCovariance return variance covariance of ADREPORT variables
 #' @param TMBfilename if a seperate TMB file is to be used for development. Includes location and does not include ".cpp" at the end.
 #'
 #' @details
@@ -114,6 +115,7 @@ fit_mod <-
     control = list(eval.max = 1e+09,
                    iter.max = 1e+09, trace = 0),
     getJointPrecision = TRUE,
+    getReportCovariance = FALSE,
     loopnum = 5,
     verbose = 1,
     newtonsteps = 0,
@@ -520,6 +522,7 @@ fit_mod <-
                                bias.correct = bias.correct,
                                bias.correct.control=list(sd=getsd),
                                getJointPrecision = getJointPrecision,
+                               getReportCovariance = getReportCovariance,
                                quiet = verbose < 2)
 
       if(verbose > 0 & estimateMode != 4) {
@@ -751,6 +754,7 @@ fit_mod <-
 
     # -- Save data w/ mcallister
     mod_objects$data_list <- Rceattle::calc_mcall_ianelli(data_list = data_list, data_list_reorganized = data_list_reorganized, quantities = quantities)
+    mod_objects$data_list <- Rceattle::calc_mcall_ianelli_diet(data_list = data_list, quantities = quantities)
 
     # -- Run time
     mod_objects$run_time = ((Sys.time() - start_time))
@@ -772,75 +776,3 @@ fit_mod <-
 
     return(mod_objects)
   }
-
-
-
-#' Function to clean data for Rceattle runs
-#'
-#' @param data_list Rceattle data list
-#'
-#' @export
-#'
-clean_data <- function(data_list){
-
-  # Transpose fleet control
-  data_list <- Rceattle::transpose_fleet_control(data_list)
-
-  # Remove years of data previous to start year and after end year
-  # - Data in likelihood
-  data_list$index_data <- data_list$index_data %>%
-    dplyr::filter(abs(Year) >= data_list$styr & abs(Year) <= data_list$projyr)
-  data_list$catch_data <- data_list$catch_data %>%
-    dplyr::filter(abs(Year) >= data_list$styr & abs(Year) <= data_list$projyr)
-  data_list$comp_data <- data_list$comp_data %>%
-    dplyr::filter(abs(Year) >= data_list$styr & abs(Year) <= data_list$projyr)
-
-  # - Fixed data
-  data_list$weight <- data_list$weight %>%
-    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
-  data_list$diet_data <- as.data.frame(data_list$diet_data) %>%
-    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
-  data_list$emp_sel <- data_list$emp_sel %>%
-    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
-  data_list$NByageFixed <- data_list$NByageFixed %>%
-    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
-  data_list$Pyrs <- data_list$Pyrs %>%
-    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
-
-
-  # Add temp multi-species SB0
-  if(is.null(data_list$MSSB0)){
-    data_list$MSSB0 <- rep(999, data_list$nspp)
-    data_list$MSB0 <- rep(999, data_list$nspp)
-  }
-
-
-  # Extend catch data to proj year for projections (where data are missing)
-  if(data_list$projyr > data_list$endyr){
-    for(flt in (unique(data_list$catch_data$Fleet_code))){
-      catch_data_sub <- data_list$catch_data %>%
-        dplyr::filter(Fleet_code == flt)
-      yrs_proj <- (data_list$endyr + 1):data_list$projyr
-      yrs_proj <- yrs_proj[which(!yrs_proj %in% catch_data_sub$Year)]
-      nyrs_proj <- length(yrs_proj)
-      proj_catch_data <- data.frame(Fleet_name = rep(catch_data_sub$Fleet_name[1], nyrs_proj),
-                                    Fleet_code = rep(flt, nyrs_proj),
-                                    Species = rep(catch_data_sub$Species[1], nyrs_proj),
-                                    Year = yrs_proj,
-                                    Month = rep(catch_data_sub$Month[length(catch_data_sub$Month)], nyrs_proj),
-                                    Selectivity_block = rep(catch_data_sub$Selectivity_block[length(catch_data_sub$Selectivity_block)], nyrs_proj),
-                                    Catch = rep(NA, nyrs_proj),
-                                    Log_sd = rep(catch_data_sub$Log_sd[length(catch_data_sub$Log_sd)], nyrs_proj))
-      data_list$catch_data <- rbind(data_list$catch_data, proj_catch_data)
-    }
-  }
-
-  data_list$catch_data <- data_list$catch_data[
-    with(data_list$catch_data, order(Fleet_code, Year)),]
-
-  return(data_list)
-}
-
-
-
-

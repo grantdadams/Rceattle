@@ -99,7 +99,10 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 
 
   # Bioenergetics specifications  ----
-  bioenergetics_control <- matrix(NA, ncol = data_list$nspp, nrow = 12)
+  if(is.null(data_list$Diet_comp_weights)){
+    data_list$Diet_comp_weights <- rep(1, data_list$nspp)
+  }
+  bioenergetics_control <- matrix(NA, ncol = data_list$nspp, nrow = 13)
   bioenergetics_control[1, ] <- data_list$Ceq
   bioenergetics_control[2, ] <- data_list$Cindex
   bioenergetics_control[3, ] <- data_list$Pvalue
@@ -112,10 +115,11 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
   bioenergetics_control[10, ] <- data_list$Tcl
   bioenergetics_control[11, ] <- data_list$CK1
   bioenergetics_control[12, ] <- data_list$CK4
+  bioenergetics_control[13, ] <- data_list$Diet_comp_weights
 
   bioenergetics_control <- as.data.frame(bioenergetics_control)
 
-  bioenergetics_control <- cbind(c("Ceq", "Cindex","Pvalue", "fday", "CA", "CB", "Qc", "Tco", "Tcm", "Tcl", "CK1", "CK4"), bioenergetics_control)
+  bioenergetics_control <- cbind(c("Ceq", "Cindex","Pvalue", "fday", "CA", "CB", "Qc", "Tco", "Tcm", "Tcl", "CK1", "CK4", "Diet_comp_weights"), bioenergetics_control)
   colnames(bioenergetics_control) <- c("Object", data_list$spnames)
 
 
