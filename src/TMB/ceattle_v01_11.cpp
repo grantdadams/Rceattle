@@ -3901,6 +3901,9 @@ Type objective_function<Type>::operator() () {
   // ADREPORT( ssb_depletion );
   ADREPORT( biomass );
   ADREPORT( ssb );
+  matrix<Type>  log_ssb = ssb;  log_ssb = log(ssb.array());// Fixed n-at-age scaling coefficient
+  REPORT( log_ssb );
+  ADREPORT( log_ssb );
   // ADREPORT( R_sd );
   ADREPORT( R );
 
@@ -3944,6 +3947,9 @@ Type objective_function<Type>::operator() () {
   REPORT( index_hat );
   REPORT( ln_index_sd );
   REPORT( index_q );
+  vector<Type>  log_index_hat = index_hat;  log_index_hat = log(index_hat.array());// Fixed n-at-age scaling coefficient
+  REPORT( log_index_hat );
+  ADREPORT( log_index_hat );
   /*
    REPORT( index_q_analytical );
    REPORT( index_q_sd );
