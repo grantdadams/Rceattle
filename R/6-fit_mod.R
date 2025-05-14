@@ -157,6 +157,9 @@ fit_mod <-
     # M1Fun = build_M1()
     # projection_uncertainty = TRUE
     # catch_hcr = FALSE
+    # bias.correct = FALSE
+    # newtonsteps = 0
+    # getReportCovariance = FALSE
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 0 - Start ----
@@ -576,9 +579,10 @@ fit_mod <-
     if (estimateMode > 1) { # Debugging and projection only: use initial parameters
       last_par <- start_par
     } else{
-      if(length(random_vars) > 1){ # M1_dev automattically included
+      # Fixed effects
+      if(length(random_vars) == 0){
         last_par = try(obj$env$parList(obj$env$last.par.best)) # FIXME: maybe add obj$env$last.par.best inside?
-      } else {
+      } else { # Random effects
         last_par = try(obj$env$parList())
       }
     }
