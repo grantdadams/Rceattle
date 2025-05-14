@@ -179,9 +179,6 @@ fit_mod <-
 
     data_list <- Rceattle::clean_data(data_list)
 
-    # Fill out switches if missing
-    data_list <- Rceattle::switch_check(data_list)
-
     # Add switches from function call
     data_list$random_rec <- as.numeric(random_rec)
     data_list$estimateMode <- estimateMode
@@ -287,6 +284,8 @@ fit_mod <-
       warning("WARNING:: Only HCRs 1, 2, 3, and 6 work in multi-species mode currently")
     }
 
+    # Fill out switches if missing
+    data_list <- Rceattle::switch_check(data_list)
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 2: Load/build parameters ----
