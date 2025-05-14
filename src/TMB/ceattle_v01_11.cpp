@@ -700,6 +700,7 @@ Type objective_function<Type>::operator() () {
   // -- 5.7.2 ESTIMATED SELECTIVITY
   avg_sel.setZero();
   non_par_sel.setZero();
+  Type max_sel = 0;
   for(flt = 0; flt < n_flt; flt++) {
 
     // Temporay indices
@@ -791,6 +792,7 @@ Type objective_function<Type>::operator() () {
 
     case 5: // 6.1.5. Non-parametric selectivity fit to age ranges. Hake version (Taylor et al 2014)
       // -- For each age, sum coefficients from first age selected to age
+      // -- Setzero
       for(yr = 0; yr < nyrs_hind; yr++) {
         for(sex = 0; sex < nsex(sp); sex++){
           for(age = 0; age < nages(sp); age++) {
@@ -813,16 +815,16 @@ Type objective_function<Type>::operator() () {
       for(yr = 0; yr < nyrs_hind; yr++) {
         for(sex = 0; sex < nsex(sp); sex++){
 
-          Type max_sel = 0;
-
           // Single-normalization age
           if(flt_sel_maxage(flt) >= 0){
-            max_sel = sel(flt, sex, flt_sel_maxage(flt), yr);
+            max_sel = 0.001;
+            max_sel = max2(max_sel, sel(flt, sex, flt_sel_maxage(flt), yr)); // Get max sel by sex/year (split or otherwise, divides by 1 for ages > maxselage)
           }
 
           // Normalize by max
           //FIXME: non-differentiable
           if(flt_sel_maxage(flt) < 0){
+            max_sel = 0;
             for(age = flt_sel_age(flt); age < nselages; age++) {
               if(sel(flt, sex, age, yr) > max_sel){
                 max_sel = sel(flt, sex, age, yr);
@@ -832,6 +834,7 @@ Type objective_function<Type>::operator() () {
 
           // Normalize by age rage between max lower and max upper
           if((flt_sel_maxage(flt) >= 0) & (flt_sel_maxage_upper(flt) >= 0)){
+            max_sel = 0;
             for(age = flt_sel_maxage(flt); age < flt_sel_maxage_upper(flt); age++) {
               max_sel += sel(flt, sex, age, yr)/(flt_sel_maxage_upper(flt) - flt_sel_maxage(flt) + 1);
             }
@@ -873,15 +876,15 @@ Type objective_function<Type>::operator() () {
         for(yr = 0; yr < nyrs_hind; yr++) {
           for(sex = 0; sex < nsex(sp); sex++){
 
-            Type max_sel = 0;
-
             // Single-normalization age
             if(flt_sel_maxage(flt) >= 0){
-              Type max_sel = sel(flt, sex, flt_sel_maxage(flt), yr); // Get max sel by sex/year (split or otherwise, divides by 1 for ages > maxselage)
+              max_sel = 0.001;
+              max_sel = max2(max_sel, sel(flt, sex, flt_sel_maxage(flt), yr)); // Get max sel by sex/year (split or otherwise, divides by 1 for ages > maxselage)
             }
 
             //Normalize by age rage between max lower and max upper
             if((flt_sel_maxage(flt) >= 0) & (flt_sel_maxage_upper(flt) >= 0)){
+              max_sel = 0;
               for(age = flt_sel_maxage(flt); age < flt_sel_maxage_upper(flt); age++) {
                 max_sel += sel(flt, sex, age, yr)/(flt_sel_maxage_upper(flt) - flt_sel_maxage(flt) + 1);
               }
@@ -898,7 +901,7 @@ Type objective_function<Type>::operator() () {
       // Find max for each fishery and year across ages, and sexes
       if((sel_type < 5) & (flt_sel_maxage(flt) < 0)) {
         for(yr = 0; yr < nyrs_hind; yr++) {
-          Type max_sel = 0;
+          max_sel = 0;
           for(age = 0; age < nages(sp); age++){
             for(sex = 0; sex < nsex(sp); sex++){
 
@@ -2215,20 +2218,11 @@ Type objective_function<Type>::operator() () {
                   for(yr = suit_styr; yr <= suit_endyr; yr++) {  // Suit year loop (over specific years)
 
                     // Average suitability across years
-                    // FIXME: non-differentiable
-                    if( suma_suit(rsp, r_sex, r_age, yr ) + other_food_diet_prop(rsp, r_sex, r_age, yr) > 0){
-                      suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) += stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / ( suma_suit(rsp, r_sex, r_age, yr ) + other_food_diet_prop(rsp, r_sex, r_age, yr) );
-                    }
+                    suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) += stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / posfun((suma_suit(rsp, r_sex, r_age, yr ) + other_food_diet_prop(rsp, r_sex, r_age, yr)), Type(0.0001), penalty);
                   }       // End year loop
 
-                  // FIXME - Add in interannual variability here
+                  // FIXME - Add in interannual variability here?
                   suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) /= nyrs_suit;
-
-                  // Remove NAs from crashing populations
-                  // FIXME: non-differentiable
-                  if(!isFinite(suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0))){
-                    suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) = 0.0;
-                  }
 
                   // Fill in years
                   for(yr = 1; yr < nyrs; yr++) {                 // Year loop
@@ -3011,9 +3005,7 @@ Type objective_function<Type>::operator() () {
 
       // True age comp standardize to sum to 1
       for(age = 0; age < nages(sp) * joint_adjust(comp_ind); age++) {
-        if(n_hat(comp_ind) > 0){ //FIXME - not differentiable
-          true_age_comp_hat(comp_ind, age ) = age_hat(comp_ind, age ) / n_hat(comp_ind);
-        }
+        true_age_comp_hat(comp_ind, age ) = age_hat(comp_ind, age ) / posfun(n_hat(comp_ind), Type(0.0001), penalty);
       }
 
 
@@ -3042,9 +3034,7 @@ Type objective_function<Type>::operator() () {
       //  Observed age comp standardize to sum to 1
       if(comp_type == 0) {
         for(age = 0; age < nages(sp) * joint_adjust(comp_ind); age++) {
-          if(n_hat(comp_ind) > 0){ //FIXME - not differentiable
-            comp_hat(comp_ind, age) = age_obs_hat(comp_ind, age ) / n_hat(comp_ind);
-          }
+          comp_hat(comp_ind, age) = age_obs_hat(comp_ind, age ) / posfun(n_hat(comp_ind), Type(0.0001), penalty);
         }
       }
 
@@ -3087,9 +3077,7 @@ Type objective_function<Type>::operator() () {
 
         // Standardize to sum to 1
         for(ln = 0; ln < nlengths(sp) * joint_adjust(comp_ind); ln++) {
-          if(n_hat(comp_ind) > 0){ //FIXME - not differentiable
-            comp_hat(comp_ind, ln ) = comp_hat(comp_ind, ln) / n_hat(comp_ind);
-          }
+          comp_hat(comp_ind, ln ) = comp_hat(comp_ind, ln) / posfun(n_hat(comp_ind), Type(0.0001), penalty);
         }
       }
     }
