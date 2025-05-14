@@ -179,6 +179,9 @@ fit_mod <-
 
     data_list <- Rceattle::clean_data(data_list)
 
+    # Fill out switches if missing
+    data_list <- Rceattle::switch_check(data_list)
+
     # Add switches from function call
     data_list$random_rec <- as.numeric(random_rec)
     data_list$estimateMode <- estimateMode
@@ -243,7 +246,7 @@ fit_mod <-
     # * M switches ----
     if(!is.null(data_list$M1_model)){
       if(sum(data_list$M1_model != extend_length(M1Fun$M1_model))){
-        warning("M1_model in data is different than in call `fit_mod`")
+        warning("M1_model in data is different than in call `fit_mod`, using switch from 'fit_mod'")
       }
     }
 

@@ -28,7 +28,8 @@ rearrange_dat <- function(data_list){
                   Nselages,             # 6) Non-parametric selectivity ages
                   Time_varying_sel,     # 7) Time-varying selectivity type.
                   Age_first_selected,   # 8) First age selected
-                  Age_max_selected,     # 9) Age of max selectivity (used for normalization). If NA, does not normalize
+                  Age_max_selected,     # 9b) Age of max selectivity (used for normalization). If NA, does not normalize
+                  Age_max_selected_upper,# 9a) upper age of max selectivity (used for normalization). If NA, does not normalize
                   Comp_loglike,         # 10) Index indicating wether to do dirichlet multinomial for a multinomial)
                   Weight1_Numbers2,     # 11) Survey units
                   Weight_index,         # 12) Dim1 of weight (what weight-at-age data set)
@@ -56,6 +57,7 @@ rearrange_dat <- function(data_list){
   data_list$fleet_control <- data_list$fleet_control %>%
     dplyr::mutate(Nselages = ifelse(is.na(Nselages), -999, Nselages),
                   Age_max_selected = ifelse(is.na(Age_max_selected), -999, Age_max_selected),
+                  Age_max_selected_upper = ifelse(is.na(Age_max_selected_upper), -999, Age_max_selected_upper),
                   Age_first_selected = ifelse(is.na(Age_first_selected), data_list$minage[Species], Age_first_selected)
     )
 
@@ -295,29 +297,6 @@ rearrange_dat <- function(data_list){
   data_list$env_index <-  data_list$env_index %>%
     dplyr::select(-Year) %>%
     dplyr::mutate_all(~ifelse(is.na(.x), mean(.x, na.rm = TRUE), .x)) %>%
-    as.matrix()
-
-  # - Create matrix for srr curve
-  if(is.null(data_list$srr_indices)){
-    data_list$srr_indices <- 1:(ncol(data_list$env_index)-1)
-  }
-  if(any(is.na(data_list$srr_indices))){
-    data_list$srr_indices <- 1:(ncol(data_list$env_index)-1)
-  }
-  if(sum(sapply(data_list$srr_indices, function(x) x>ncol(data_list$env_index))) > 0){stop("'srr_indices' greater than the number of indices included")}
-  data_list$env_index_srr <-  data_list$env_index[, data_list$srr_indices] %>%
-    as.matrix()
-
-
-  # - Create matrix for M1
-  if(is.null(data_list$M1_indices)){
-    data_list$M1_indices <- 1:(ncol(data_list$env_index)-1)
-  }
-  if(any(is.na(data_list$M1_indices))){
-    data_list$M1_indices <- 1:(ncol(data_list$env_index)-1)
-  }
-  if(sum(sapply(data_list$M1_indices, function(x) x>ncol(data_list$env_index))) > 0){stop("'M1_indices' greater than the number of indices included")}
-  data_list$env_index_M1 <-  data_list$env_index[, data_list$M1_indices] %>%
     as.matrix()
 
 

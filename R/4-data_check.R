@@ -6,12 +6,6 @@
 #'
 clean_data <- function(data_list){
 
-  # Diet data weights
-  if(is.null(data_list$Diet_comp_weights)){
-    data_list$Diet_comp_weights <- rep(1, data_list$nspp)
-    print("'Diet_comp_weights' are not included in data, assuming 1")
-  }
-
   # Transpose fleet control
   data_list <- Rceattle::transpose_fleet_control(data_list)
 
@@ -107,14 +101,22 @@ data_check <- function(data_list) {
     data_list$fleet_control$Age_max_selected[flt] <- ifelse(data_list$fleet_control$Age_max_selected[flt] > data_list$nages[data_list$fleet_control$Species[flt]], data_list$nages[data_list$fleet_control$Species[flt]], data_list$fleet_control$Age_max_selected[flt])
   }
 
-
-  if(is.null(data_list$fleet_control$Age_max_selected)){
-    data_list$fleet_control$Age_max_selected <- NA
-    print("'Age_max_selected' not specified in 'fleet_control', assuming 'NA'")
+  # - Mirroring warnings
+  mirror_sel <- data_list$fleet_control %>%
+    dplyr::group_by(Selectivity_index) %>%
+    dplyr::filter(n() > 1 ) %>%
+    dplyr::ungroup()
+  if(nrow(mirror_sel) > 0){
+    print(paste0("Selectivity for ", paste(mirror_sel$Fleet_name, collapse = ", "), " is mirrored with another fleet"))
   }
-  if(is.null(data_list$fleet_control$Comp_loglike)){
-    data_list$fleet_control$Comp_loglike <- -1
-    print("'Comp_loglike' not specified in 'fleet_control', assuming multinomial")
+
+  mirror_q <- data_list$fleet_control %>%
+    dplyr::filter(!is.na(Estimate_q)) %>%
+    dplyr::group_by(Q_index) %>%
+    dplyr::filter(n() > 1 ) %>%
+    dplyr::ungroup()
+  if(nrow(mirror_q) > 0){
+    print(paste0("Catchability for ", paste(mirror_q$Fleet_name, collapse = ", "), " is mirrored with another fleet"))
   }
 
   # Weight-at-age ----
@@ -254,6 +256,7 @@ data_check <- function(data_list) {
 
 
   # Diet data ----
+  # - Pred age
   Max_age = data_list$diet_data %>%
     dplyr::group_by(Pred) %>%
     dplyr::summarise(Max_age = max(Pred_age)) %>%
@@ -263,7 +266,11 @@ data_check <- function(data_list) {
     stop("Pred ages in 'diet_data' > 'nages'")
   }
 
+  if(sum(duplicated(data_list$diet_data)) > 0){
+    stop("Diet data includes duplicated rows")
+  }
 
+  # - Prey age
   Max_age = data_list$diet_data %>%
     dplyr::group_by(Prey) %>%
     dplyr::summarise(Max_age = max(Prey_age)) %>%
@@ -271,6 +278,15 @@ data_check <- function(data_list) {
 
   if(any(Max_age$Max_age > data_list$nages)){
     stop("Prey ages in 'diet_data' > 'nages'")
+  }
+
+  # - Stomach proportion > 1
+  diet_sum = data_list$diet_data %>%
+    dplyr::group_by(Pred, Pred_age, Pred_sex, Year) %>%
+    dplyr::summarise(diet_sum = sum(Stomach_proportion_by_weight))
+
+  if(any(diet_sum$diet_sum > 1)){
+    stop("Stomach proportion in `diet_data` for some predators-at-age/sex/year is > 1")
   }
 
 
@@ -292,4 +308,80 @@ data_check <- function(data_list) {
   if(any(wt_sex$max_sex > data_list$nsex)){
     stop("'weight' has more sexes than specified in 'nsex'")
   }
+
+  # Environmental data----
+  if(any(data_list$srr_indices > ncol(data_list$env_index))){stop("'srr_indices' greater than the number of indices included")}
+  if(any(data_list$M1_indices > ncol(data_list$env_index))){stop("'M1_indices' greater than the number of indices included")}
+}
+
+
+#' Function to check for missing switches for map and parameter functions
+#'
+#' @param data_list Rceattle data list
+#'
+#' @export
+#'
+switch_check <- function(data_list){
+
+  # Estimation
+  if(is.null(data_list$estDynamics)){
+    data_list$estDynamics <- rep(0, data_list$nspp)
+    print("'estDynamics' are not included in data, assuming 0")
+  }
+
+  # Stock-recruitment
+  if(is.null(data_list$srr_fun)){
+    data_list$srr_fun <- 0
+    data_list$srr_pred_fun <- 0
+    data_list$srr_est_mode <- 0
+    print("'srr_fun' are not included in data, assuming 0")
+  }
+
+  # Diet data weights
+  if(is.null(data_list$Diet_comp_weights)){
+    data_list$Diet_comp_weights <- rep(1, data_list$nspp)
+    print("'Diet_comp_weights' are not included in data, assuming 1")
+  }
+
+  # Normalization age
+  if(is.null(data_list$fleet_control$Age_max_selected)){
+    data_list$fleet_control$Age_max_selected <- NA
+    print("'Age_max_selected' not specified in 'fleet_control', assuming 'NA'")
+  }
+
+
+  if(is.null(data_list$fleet_control$Age_max_selected_upper)){
+    data_list$fleet_control$Age_max_selected_upper <- NA
+    print("'Age_max_selected_upper' not specified in 'fleet_control', assuming 'NA'")
+  }
+
+  # Comp weights
+  if(is.null(data_list$fleet_control$Comp_loglike)){
+    data_list$fleet_control$Comp_loglike <- -1
+    print("'Comp_loglike' not specified in 'fleet_control', assuming multinomial")
+  }
+
+  # Mortality
+  if(is.null(data_list$M1_model)){
+    data_list$M1_model <- rep(0, data_list$nspp)
+    print("'M1_model' are not included in data, assuming 0")
+  }
+
+  if(is.null(data_list$msmMode)){
+    data_list$msmMode <- 0
+    print("'msmMode' are not included in data, assuming 0")
+  }
+
+  if(is.null(data_list$M1_re)){
+    data_list$M1_re <- rep(0, data_list$nspp)
+    print("'M1_re' is not in data, assuming 0 for all species")
+  }
+
+  # Init mode
+  if(is.null(data_list$initMode)){
+    data_list$initMode = 2
+    print("'initMode' not input, setting to 2 (default)")
+  }
+
+  return(data_list)
 }
