@@ -833,7 +833,7 @@ Type objective_function<Type>::operator() () {
           //Normalize by age rage
           if(flt_sel_maxage_upper(flt) >= 0){
             for(age = flt_sel_age(flt); age < flt_sel_maxage_upper(flt); age++) {
-              max_sel += sel(flt, sex, age, yr)/(flt_sel_maxage_upper(flt) - flt_sel_age(flt) + 1);
+              max_sel += sel(flt, sex, age, yr)/(flt_sel_maxage_upper(flt) - flt_sel_maxage(flt) + 1);
             }
           }
 
