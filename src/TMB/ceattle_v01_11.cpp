@@ -830,7 +830,7 @@ Type objective_function<Type>::operator() () {
             }
           }
 
-          //Normalize by age rage between max lower and max upper
+          // Normalize by age rage between max lower and max upper
           if((flt_sel_maxage(flt) >= 0) & (flt_sel_maxage_upper(flt) >= 0)){
             for(age = flt_sel_maxage(flt); age < flt_sel_maxage_upper(flt); age++) {
               max_sel += sel(flt, sex, age, yr)/(flt_sel_maxage_upper(flt) - flt_sel_maxage(flt) + 1);
@@ -880,10 +880,10 @@ Type objective_function<Type>::operator() () {
               Type max_sel = sel(flt, sex, flt_sel_maxage(flt), yr); // Get max sel by sex/year (split or otherwise, divides by 1 for ages > maxselage)
             }
 
-            // Normalize by age rage
-            if(flt_sel_maxage_upper(flt) >= 0){
-              for(age = flt_sel_age(flt); age < flt_sel_maxage_upper(flt); age++) {
-                max_sel += sel(flt, sex, age, yr)/(flt_sel_maxage_upper(flt) - flt_sel_age(flt) + 1);
+            //Normalize by age rage between max lower and max upper
+            if((flt_sel_maxage(flt) >= 0) & (flt_sel_maxage_upper(flt) >= 0)){
+              for(age = flt_sel_maxage(flt); age < flt_sel_maxage_upper(flt); age++) {
+                max_sel += sel(flt, sex, age, yr)/(flt_sel_maxage_upper(flt) - flt_sel_maxage(flt) + 1);
               }
             }
 
