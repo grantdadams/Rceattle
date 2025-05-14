@@ -8,9 +8,9 @@
 #' @param file (Optional) Filename where files will be saved. If NULL, no file is saved.
 #' @param estimateMode 0 = Fit the hindcast model and projection with HCR specified via \code{HCR}. 1 = Fit the hindcast model only (no projection). 2 = Run the projection only with HCR specified via \code{HCR} given the initial parameters in \code{inits}.  3 = debug mode 1: runs the model through MakeADFun, but not nlminb, 4 = runs the model through MakeADFun and nlminb (will all parameters mapped out).
 #' @param projection_uncertainty account for hindcast parameter uncertainty in projections when using an HCR? Default is FALSE for speed.
-#' @param random_rec logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE.
-#' @param random_q logical. If TRUE, treats annual catchability deviations as random effects.The default is FALSE.
-#' @param random_sel logical. If TRUE, treats annual selectivity deviations as random effects.The default is FALSE.
+#' @param random_rec logical. If TRUE, treats recruitment deviations as random effects using the laplace approximation.The default is FALSE.
+#' @param random_q logical. If TRUE, treats annual catchability deviations as random effects using the laplace approximation.The default is FALSE.
+#' @param random_sel logical. If TRUE, treats annual selectivity deviations as random effects using the laplace approximation.The default is FALSE.
 #' @param HCR HCR list object from \code{\link[build_hcr]}
 #' @param niter Number of iterations for multispecies model
 #' @param recFun The stock recruit-relationship parameterization from \code{\link{build_srr}}.
@@ -305,7 +305,7 @@ fit_mod <-
         dplyr::filter(Year <= data_list$endyr &
                         Catch == 0) %>%
         dplyr::mutate(Year = Year - data_list$styr + 1) %>%
-        select(Fleet_code, Year) %>%
+        dplyr::select(Fleet_code, Year) %>%
         as.matrix()
       start_par$ln_F[zero_catch] <- -999
       rm(zero_catch)
@@ -344,7 +344,8 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 5: Setup random effects ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    random_vars <- c("ln_M1_dev")
+    # Turns on laplace approximation
+    random_vars <- c()
     if (random_rec) {
       if(initMode > 0){
         random_vars <- c(random_vars , "rec_dev", "init_dev")
@@ -357,6 +358,9 @@ fit_mod <-
     }
     if(random_sel){
       random_vars <- c(random_vars , "ln_sel_slp_dev", "sel_inf_dev", "sel_coff_dev")
+    }
+    if(sum(data_list$M1_re) > 0){
+      random_vars <- c(random_vars, "ln_M1_dev")
     }
 
 
@@ -512,20 +516,23 @@ fit_mod <-
 
     # * Optimize hindcast ----
     if(estimateMode %in% c(0,1,2,4)){
-      opt <- Rceattle::fit_tmb(obj = obj,
-                               fn=obj$fn,
-                               gr=obj$gr,
-                               startpar=obj$par,
-                               lower = L,
-                               upper = U,
-                               loopnum = loopnum,
-                               getsd = getsd,
-                               control = control,
-                               bias.correct = bias.correct,
-                               bias.correct.control=list(sd=getsd),
-                               getJointPrecision = getJointPrecision,
-                               getReportCovariance = getReportCovariance,
-                               quiet = verbose < 2)
+      opt <- suppressMessages(
+        TMBhelper::fit_tmb(obj = obj,
+                           fn=obj$fn,
+                           gr=obj$gr,
+                           startpar=obj$par,
+                           lower = L,
+                           upper = U,
+                           loopnum = loopnum,
+                           newtonsteps = newtonsteps,
+                           getsd = getsd,
+                           control = control,
+                           bias.correct = bias.correct,
+                           bias.correct.control=list(sd=getsd),
+                           getJointPrecision = getJointPrecision,
+                           getReportCovariance = getReportCovariance,
+                           quiet = verbose < 2)
+      )
 
       if(verbose > 0 & estimateMode != 4) {
         message("Step ",step, ": Hindcast optimization complete.")
@@ -569,7 +576,7 @@ fit_mod <-
     if (estimateMode > 1) { # Debugging and projection only: use initial parameters
       last_par <- start_par
     } else{
-      if(!random_rec){
+      if(length(random_vars) > 1){ # M1_dev automattically included
         last_par = try(obj$env$parList(obj$env$last.par.best)) # FIXME: maybe add obj$env$last.par.best inside?
       } else {
         last_par = try(obj$env$parList())
@@ -607,17 +614,19 @@ fit_mod <-
           step = step + 1
 
           # -- Optimize
-          opt = Rceattle::fit_tmb(obj = obj,
-                                  fn=obj$fn,
-                                  gr=obj$gr,
-                                  startpar=obj$par,
-                                  loopnum = loopnum,
-                                  getsd = getsd,
-                                  control = control,
-                                  bias.correct = bias.correct,
-                                  bias.correct.control=list(sd=getsd),
-                                  getJointPrecision = FALSE,
-                                  quiet = verbose < 2,
+          opt = suppressMessages(
+            TMBhelper::fit_tmb(obj = obj,
+                               fn=obj$fn,
+                               gr=obj$gr,
+                               startpar=obj$par,
+                               loopnum = loopnum,
+                               getsd = getsd,
+                               control = control,
+                               bias.correct = bias.correct,
+                               bias.correct.control=list(sd=getsd),
+                               getJointPrecision = FALSE,
+                               quiet = verbose < 2,
+            )
           )
 
 
@@ -668,17 +677,19 @@ fit_mod <-
 
             # -- Optimize
             if(data_list$HCR != 2){ # Fixed F does not need estimation
-              opt = Rceattle::fit_tmb(obj = obj,
-                                      fn=obj$fn,
-                                      gr=obj$gr,
-                                      startpar=obj$par,
-                                      loopnum = loopnum,
-                                      getsd = getsd,
-                                      bias.correct = bias.correct,
-                                      bias.correct.control=list(sd=getsd),
-                                      control = control,
-                                      getJointPrecision = FALSE,
-                                      quiet = verbose < 2,
+              opt = suppressMessages(
+                TMBhelper::fit_tmb(obj = obj,
+                                   fn=obj$fn,
+                                   gr=obj$gr,
+                                   startpar=obj$par,
+                                   loopnum = loopnum,
+                                   getsd = getsd,
+                                   bias.correct = bias.correct,
+                                   bias.correct.control=list(sd=getsd),
+                                   control = control,
+                                   getJointPrecision = FALSE,
+                                   quiet = verbose < 2,
+                )
               )
 
               # --- Update F from opt

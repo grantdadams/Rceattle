@@ -153,7 +153,7 @@ build_params <- function(data_list) {
     dplyr::filter(Year <= data_list$endyr &
                     Catch == 0) %>%
     dplyr::mutate(Year = Year - data_list$styr + 1) %>%
-    select(Fleet_code, Year) %>%
+    dplyr::select(Fleet_code, Year) %>%
     as.matrix()
   param_list$ln_F[zero_catch] <- -999
 
