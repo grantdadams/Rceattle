@@ -8,6 +8,9 @@
 #' @export
 build_params <- function(data_list) {
 
+  # Fill out switches if missing
+  data_list <- Rceattle::switch_check(data_list)
+
   # - Dimensions
   param_list <- list()
 
@@ -54,28 +57,26 @@ build_params <- function(data_list) {
   names(param_list$R_ln_sd) <- data_list$spnames
 
   # - Env regression parameters for recruitment
-  if(is.null(data_list$srr_indices)){data_list$srr_indices <- 1:(ncol(data_list$env_data)-1)}
-  param_list$beta_rec_pars <- matrix(0, nrow = data_list$nspp, ncol = length(data_list$srr_indices))
-
+  param_list$beta_rec_pars <- array(0, dim = c(data_list$nspp, ncol(data_list$env_data) - 1),
+                                    dimnames = list(data_list$spnames, colnames(data_list$env_data)[-1]))
 
   # * 1.3. Initial age-structure parameters ----
   param_list$init_dev = matrix(0, nrow = data_list$nspp, ncol = max_age,
                                dimnames = list(data_list$spnames, paste0("Age", 1:max_age)))
 
-  if(!is.null(data_list$initMode)){
-    for(sp in 1:data_list$nspp){
+  for(sp in 1:data_list$nspp){
 
-      # Fill in ages above max age with -999
-      if(data_list$nages[sp] != max_age){
-        param_list$init_dev[sp,(data_list$nages[sp]+1):max_age] = -999
-      }
+    # Fill in ages above max age with -999
+    if(data_list$nages[sp] != max_age){
+      param_list$init_dev[sp,(data_list$nages[sp]+1):max_age] = -999
+    }
 
-      # Estimate as devs (fill in ages above max age w/ -999)
-      if(data_list$initMode > 0){
-        param_list$init_dev[sp,data_list$nages[sp]] = -999
-      }
+    # Estimate as devs (fill in ages above max age w/ -999)
+    if(data_list$initMode > 0){
+      param_list$init_dev[sp,data_list$nages[sp]] = -999
     }
   }
+
 
 
   # * 1.4. Residual natural mortality ----
@@ -238,12 +239,7 @@ build_params <- function(data_list) {
 
 
   # * 2.4. Comp weighting ----
-  if(!is.null(data_list$fleet_control$Comp_weights)){
-    param_list$comp_weights = data_list$fleet_control$Comp_weights
-  }
-  if(is.null(data_list$fleet_control$Comp_weights)){
-    param_list$comp_weights = rep(1, nrow(data_list$fleet_control))
-  }
+  param_list$comp_weights = data_list$fleet_control$Comp_weights
   names(param_list$comp_weights) <- data_list$fleet_control$Fleet_name
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#

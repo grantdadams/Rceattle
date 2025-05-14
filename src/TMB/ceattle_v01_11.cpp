@@ -302,8 +302,6 @@ Type objective_function<Type>::operator() () {
 
   // 2.3.7. Environmental data
   DATA_MATRIX( env_index );               // Matrix of environmental predictors such as bottom temperature
-  DATA_MATRIX( env_index_srr );           // Matrix of environmental predictors for recruitment
-  DATA_MATRIX( env_index_M1 );            // Matrix of environmental predictors for M1
 
   // 2.4. INPUT PARAMETERS
   // -- 2.4.1. Bioenergetics parameters (BP)
@@ -600,6 +598,7 @@ Type objective_function<Type>::operator() () {
   vector<int> flt_spp(n_flt); flt_spp.setZero();                                // Vector to save survey species
   vector<int> flt_sel_age(n_flt); flt_sel_age.setZero();                        // Vector to save age first selected (selectivity below this age = 0)
   vector<int> flt_sel_maxage(n_flt); flt_sel_maxage.setZero();                  // Vector to save age of max selectivity for normalization (if NA not used)
+  vector<int> flt_sel_maxage_upper(n_flt); flt_sel_maxage_upper.setZero();      // Vector to save upper age of max selectivity for normalization (if NA not used)
   vector<int> comp_ll_type(n_flt); comp_ll_type.setZero();                      // Vector to save composition type
   vector<int> flt_units(n_flt); flt_units.setZero();                            // Vector to save survey units (1 = weight, 2 = numbers)
   vector<int> flt_wt_index(n_flt); flt_wt_index.setZero();                      // Vector to save 1st dim of weight to use for weight-at-age
@@ -621,15 +620,16 @@ Type objective_function<Type>::operator() () {
     flt_varying_sel(flt) = fleet_control(flt_ind, 7);        // Time-varying selectivity type.
     flt_sel_age(flt) = fleet_control(flt_ind, 8) - minage(flt_spp(flt));                 // First age selected
     flt_sel_maxage(flt) = fleet_control(flt_ind, 9) - minage(flt_spp(flt));              // Age of max selectivity (used for normalization). If NA, does not normalize
-    comp_ll_type(flt) = fleet_control(flt_ind, 10);          // Index indicating wether to do dirichlet multinomial for a fleet's composition data (0 = multinomial; 1 = dirichlet-multinomial)
-    flt_units(flt) = fleet_control(flt_ind, 11);             // Survey units
-    flt_wt_index(flt) = fleet_control(flt_ind, 12) - 1;      // Dim1 of weight
-    flt_age_transition_index(flt) = fleet_control(flt_ind, 13) - 1;     // Dim3 of age transition matrix
-    flt_q_ind(flt) = fleet_control(flt_ind, 14) - 1;         // Index of survey q
-    est_index_q(flt) = fleet_control(flt_ind, 15);             // Estimate analytical q?
-    index_varying_q(flt) = fleet_control(flt_ind, 16);         // Time varying q type (or if AR1, what environmental index to fit to)
-    est_sigma_index(flt) = fleet_control(flt_ind, 17);         // Wether to estimate standard deviation of survey time series
-    est_sigma_fsh(flt) = fleet_control(flt_ind, 18);         // Wether to estimate standard deviation of fishery time series
+    flt_sel_maxage_upper(flt) = fleet_control(flt_ind, 10) - minage(flt_spp(flt));       // Upper age of max selectivity (used for normalization). If NA, does not normalize
+    comp_ll_type(flt) = fleet_control(flt_ind, 11);          // Index indicating wether to do dirichlet multinomial for a fleet's composition data (0 = multinomial; 1 = dirichlet-multinomial)
+    flt_units(flt) = fleet_control(flt_ind, 12);             // Survey units
+    flt_wt_index(flt) = fleet_control(flt_ind, 13) - 1;      // Dim1 of weight
+    flt_age_transition_index(flt) = fleet_control(flt_ind, 14) - 1;     // Dim3 of age transition matrix
+    flt_q_ind(flt) = fleet_control(flt_ind, 15) - 1;         // Index of survey q
+    est_index_q(flt) = fleet_control(flt_ind, 16);           // Estimate analytical q?
+    index_varying_q(flt) = fleet_control(flt_ind, 17);       // Time varying q type (or if AR1, what environmental index to fit to)
+    est_sigma_index(flt) = fleet_control(flt_ind, 18);       // Wether to estimate standard deviation of survey time series
+    est_sigma_fsh(flt) = fleet_control(flt_ind, 19);         // Wether to estimate standard deviation of fishery time series
   }
 
 
@@ -812,13 +812,31 @@ Type objective_function<Type>::operator() () {
       // -- For each sex & year, subtract max sel across ages from sel and take exp
       for(yr = 0; yr < nyrs_hind; yr++) {
         for(sex = 0; sex < nsex(sp); sex++){
+
           Type max_sel = 0;
-          for(age = flt_sel_age(flt); age < nselages; age++) {
-            // Max
-            if(sel(flt, sex, age, yr) > max_sel){
-              max_sel = sel(flt, sex, age, yr);
+
+          // Single-normalization age
+          if(flt_sel_maxage(flt) >= 0){
+            max_sel = sel(flt, sex, flt_sel_maxage(flt), yr);
+          }
+
+          // Normalize by max
+          //FIXME: non-differentiable
+          if(flt_sel_maxage(flt) < 0){
+            for(age = flt_sel_age(flt); age < nselages; age++) {
+              if(sel(flt, sex, age, yr) > max_sel){
+                max_sel = sel(flt, sex, age, yr);
+              }
             }
           }
+
+          //Normalize by age rage
+          if(flt_sel_maxage_upper(flt) >= 0){
+            for(age = flt_sel_age(flt); age < flt_sel_maxage_upper(flt); age++) {
+              max_sel += sel(flt, sex, age, yr)/(flt_sel_maxage_upper(flt) - flt_sel_age(flt) + 1);
+            }
+          }
+
 
           for(age = flt_sel_age(flt); age < nselages; age++) {
             sel(flt, sex, age, yr) = exp(sel(flt, sex, age, yr) - max_sel);
@@ -851,14 +869,26 @@ Type objective_function<Type>::operator() () {
 
 
       // Normalize by selectivity by specific age
-      if(flt_sel_maxage(flt) >= 0) {
+      if((flt_sel_maxage(flt) >= 0) & (sel_type < 5)) {
         for(yr = 0; yr < nyrs_hind; yr++) {
           for(sex = 0; sex < nsex(sp); sex++){
-            Type max_sel = sel(flt, sex, flt_sel_maxage(flt), yr); // Get max sel by sex/year (split or otherwise, divides by 1 for ages > maxselage)
 
+            Type max_sel = 0;
+
+            // Single-normalization age
+            if(flt_sel_maxage(flt) >= 0){
+              Type max_sel = sel(flt, sex, flt_sel_maxage(flt), yr); // Get max sel by sex/year (split or otherwise, divides by 1 for ages > maxselage)
+            }
+
+            // Normalize by age rage
+            if(flt_sel_maxage_upper(flt) >= 0){
+              for(age = flt_sel_age(flt); age < flt_sel_maxage_upper(flt); age++) {
+                max_sel += sel(flt, sex, age, yr)/(flt_sel_maxage_upper(flt) - flt_sel_age(flt) + 1);
+              }
+            }
+
+            // Normalize by max
             for(age = 0; age < nages(sp); age++){
-
-              // Normalize by max
               sel(flt, sex, age, yr) /= max_sel;
             }
           }
@@ -1012,7 +1042,7 @@ Type objective_function<Type>::operator() () {
         for(age = 0; age < nages(sp); age++) {
           for(yr = 0; yr < nyrs; yr++) {
             // Matrix multiplication from sliced arrays doesn't work
-            env_M1_tmp = env_index_M1.row(yr);
+            env_M1_tmp = env_index.row(yr);
             M1_mult = env_M1_tmp * beta_M1_tmp;
 
             M1_at_age(sp, sex, age, yr) = exp(ln_M1(sp, sex, age) + ln_M1_dev(sp, sex, age, yr) + M1_mult.sum());
@@ -1082,7 +1112,7 @@ Type objective_function<Type>::operator() () {
       case 1: // Random about mean with environmental linkage
         steepness(sp) = 0.99;
         beta_rec_tmp = beta_rec_pars.row(sp);
-        env_rec_tmp = env_index_srr.row(0);
+        env_rec_tmp = env_index.row(0);
         srr_mult = env_rec_tmp * beta_rec_tmp;
         R_init(sp) = R0(sp) = exp(rec_pars(sp, 0) + srr_mult.sum());
         break;
@@ -1096,7 +1126,7 @@ Type objective_function<Type>::operator() () {
       case 3: // Beverton-Holt with environmental impacts on alpha
         //FIXME make time-varying
         beta_rec_tmp = beta_rec_pars.row(sp);
-        env_rec_tmp = env_index_srr.row(0);
+        env_rec_tmp = env_index.row(0);
         srr_mult = env_rec_tmp * beta_rec_tmp;
         srr_alpha = exp(rec_pars(sp, 1) + srr_mult.sum());
         steepness(sp) = srr_alpha * SPR0(sp)/(4.0 + srr_alpha * SPR0(sp));
@@ -1124,7 +1154,7 @@ Type objective_function<Type>::operator() () {
 
       case 5: // Ricker with environmental impacts on alpha
         beta_rec_tmp = beta_rec_pars.row(sp);
-        env_rec_tmp = env_index_srr.row(0);
+        env_rec_tmp = env_index.row(0);
         srr_mult = env_rec_tmp * beta_rec_tmp;
         srr_alpha = exp(rec_pars(sp, 1) + srr_mult.sum());
         steepness(sp) = 0.2 * exp(0.8*log(srr_alpha * SPR0(sp))); //
@@ -1252,7 +1282,7 @@ Type objective_function<Type>::operator() () {
 
         case 1: // Random about mean with environmental effects
           beta_rec_tmp = beta_rec_pars.row(sp);
-          env_rec_tmp = env_index_srr.row(yr);
+          env_rec_tmp = env_index.row(yr);
           srr_mult = env_rec_tmp * beta_rec_tmp;
           R(sp, yr) = R0(sp) * exp(rec_dev(sp, yr) + srr_mult.sum());
           break;
@@ -1263,7 +1293,7 @@ Type objective_function<Type>::operator() () {
 
         case 3: // Beverton-Holt with environmental impacts on alpha
           beta_rec_tmp = beta_rec_pars.row(sp);
-          env_rec_tmp = env_index_srr.row(yr);
+          env_rec_tmp = env_index.row(yr);
           srr_mult = env_rec_tmp * beta_rec_tmp;
           srr_alpha = exp(rec_pars(sp, 1) + srr_mult.sum());
           R(sp, yr) = srr_alpha * ssb(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1.0+exp(rec_pars(sp, 2)) * ssb(sp, yr-minage(sp)));
@@ -1275,7 +1305,7 @@ Type objective_function<Type>::operator() () {
 
         case 5: // Ricker with environmental impacts on alpha
           beta_rec_tmp = beta_rec_pars.row(sp);
-          env_rec_tmp = env_index_srr.row(yr);
+          env_rec_tmp = env_index.row(yr);
           srr_mult = env_rec_tmp * beta_rec_tmp;
           srr_alpha = exp(rec_pars(sp, 1) + srr_mult.sum());
           R(sp, yr) = srr_alpha * ssb(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 2)) * ssb(sp, yr-minage(sp))/1000000.0) * exp(rec_dev(sp, yr));
@@ -1395,7 +1425,7 @@ Type objective_function<Type>::operator() () {
           // - Option 1b: Use mean rec and env
           if((proj_mean_rec == 1) & (srr_pred_fun > 1)){
             beta_rec_tmp = beta_rec_pars.row(sp);
-            env_rec_tmp = env_index_srr.row(yr);
+            env_rec_tmp = env_index.row(yr);
             srr_mult = env_rec_tmp * beta_rec_tmp;
             NByage0(sp, 0, 0, yr) = avg_R(sp) * exp(srr_mult.sum());
 
@@ -1427,7 +1457,7 @@ Type objective_function<Type>::operator() () {
               NByageF(sp, 0, 0, yr) = R0(sp);
 
               beta_rec_tmp = beta_rec_pars.row(sp);
-              env_rec_tmp = env_index_srr.row(yr);
+              env_rec_tmp = env_index.row(yr);
               srr_mult = env_rec_tmp * beta_rec_tmp;
 
               DynamicNByage0(sp, 0, 0, yr) = R0(sp) * exp(rec_dev(sp, yr) + srr_mult.sum());
@@ -1446,7 +1476,7 @@ Type objective_function<Type>::operator() () {
             case 3: // Beverton-Holt with environmental impacts on alpha
               // FIXME: error if minage > 1
               beta_rec_tmp = beta_rec_pars.row(sp);
-              env_rec_tmp = env_index_srr.row(yr);
+              env_rec_tmp = env_index.row(yr);
               srr_mult = env_rec_tmp * beta_rec_tmp;
               srr_alpha = exp(rec_pars(sp, 1) + srr_mult.sum());
               NByage0(sp, 0, 0, yr) = srr_alpha * SB0(sp, yr-minage(sp)) / (1+exp(rec_pars(sp, 2)) * SB0(sp, yr-minage(sp)));
@@ -1468,7 +1498,7 @@ Type objective_function<Type>::operator() () {
             case 5: // Ricker with environmental impacts on alpha
               // FIXME: error if minage > 1
               beta_rec_tmp = beta_rec_pars.row(sp);
-              env_rec_tmp = env_index_srr.row(yr);
+              env_rec_tmp = env_index.row(yr);
               srr_mult = env_rec_tmp * beta_rec_tmp;
               srr_alpha = exp(rec_pars(sp, 1) + srr_mult.sum());
               NByage0(sp, 0, 0, yr) = srr_alpha * SB0(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 2)) * SB0(sp, yr-minage(sp))/1000000.0);
@@ -1718,7 +1748,7 @@ Type objective_function<Type>::operator() () {
         // - Mean rec and environment
         if((proj_mean_rec == 1) & (srr_pred_fun < 2)){
           beta_rec_tmp = beta_rec_pars.row(sp);
-          env_rec_tmp = env_index_srr.row(yr);
+          env_rec_tmp = env_index.row(yr);
           srr_mult = env_rec_tmp * beta_rec_tmp;
           R(sp, yr) = exp(log(avg_R(sp)) + rec_dev(sp, yr)) * exp(srr_mult.sum());
         }
@@ -1732,7 +1762,7 @@ Type objective_function<Type>::operator() () {
 
           case 1: // Random about mean with environmental effects
             beta_rec_tmp = beta_rec_pars.row(sp);
-            env_rec_tmp = env_index_srr.row(yr);
+            env_rec_tmp = env_index.row(yr);
             srr_mult = env_rec_tmp * beta_rec_tmp;
             R(sp, yr) = R0(sp) * exp(rec_dev(sp, yr) + srr_mult.sum());
             break;
@@ -1743,7 +1773,7 @@ Type objective_function<Type>::operator() () {
 
           case 3: // Beverton-Holt with environmental impacts on alpha
             beta_rec_tmp = beta_rec_pars.row(sp);
-            env_rec_tmp = env_index_srr.row(yr);
+            env_rec_tmp = env_index.row(yr);
             srr_mult = env_rec_tmp * beta_rec_tmp;
             srr_alpha = exp(rec_pars(sp, 1) + srr_mult.sum());
             R(sp, yr) = srr_alpha * ssb(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1+exp(rec_pars(sp, 2)) * ssb(sp, yr-minage(sp)));
@@ -1755,7 +1785,7 @@ Type objective_function<Type>::operator() () {
 
           case 5: // Ricker with environmental impacts on alpha
             beta_rec_tmp = beta_rec_pars.row(sp);
-            env_rec_tmp = env_index_srr.row(yr);
+            env_rec_tmp = env_index.row(yr);
             srr_mult = env_rec_tmp * beta_rec_tmp;
             srr_alpha = exp(rec_pars(sp, 1) + srr_mult.sum());
             R(sp, yr) = srr_alpha * ssb(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 2)) * ssb(sp, yr-minage(sp))/1000000.0)* exp(rec_dev(sp, yr));
@@ -1834,7 +1864,7 @@ Type objective_function<Type>::operator() () {
 
       case 1: // Random about mean with environmental effects
         beta_rec_tmp = beta_rec_pars.row(sp);
-        env_rec_tmp = env_index_srr.row(0);
+        env_rec_tmp = env_index.row(0);
         srr_mult = env_rec_tmp * beta_rec_tmp;
         R_hat(sp, 0) = R0(sp) * exp(srr_mult.sum());
         break;
@@ -1845,7 +1875,7 @@ Type objective_function<Type>::operator() () {
 
       case 3: // Beverton-Holt with environmental impacts on alpha
         beta_rec_tmp = beta_rec_pars.row(sp);
-        env_rec_tmp = env_index_srr.row(0);
+        env_rec_tmp = env_index.row(0);
         srr_mult = env_rec_tmp * beta_rec_tmp;
         srr_alpha = exp(rec_pars(sp, 1) + srr_mult.sum());
         R_hat(sp, 0) = (srr_alpha-1/SPRFinit(sp)) / exp(rec_pars(sp, 2)); // (Alpha-1/SPR0)/beta
@@ -1857,7 +1887,7 @@ Type objective_function<Type>::operator() () {
 
       case 5: // Ricker with environmental impacts on alpha
         beta_rec_tmp = beta_rec_pars.row(sp);
-        env_rec_tmp = env_index_srr.row(0);
+        env_rec_tmp = env_index.row(0);
         srr_mult = env_rec_tmp * beta_rec_tmp;
         srr_alpha = exp(rec_pars(sp, 1) + srr_mult.sum());
         R_hat(sp, 0) = log(srr_alpha * SPRFinit(sp))/(exp(rec_pars(sp, 2)) * SPRFinit(sp)/1000000.0); // FIXME - make time-varying
@@ -1875,7 +1905,7 @@ Type objective_function<Type>::operator() () {
 
         case 1: // Random about mean with environmental effects
           beta_rec_tmp = beta_rec_pars.row(sp);
-          env_rec_tmp = env_index_srr.row(yr);
+          env_rec_tmp = env_index.row(yr);
           srr_mult = env_rec_tmp * beta_rec_tmp;
           R_hat(sp, 0) = R0(sp) * exp(srr_mult.sum());
           break;
@@ -1886,7 +1916,7 @@ Type objective_function<Type>::operator() () {
 
         case 3: // Beverton-Holt with environmental impacts on alpha
           beta_rec_tmp = beta_rec_pars.row(sp);
-          env_rec_tmp = env_index_srr.row(yr);
+          env_rec_tmp = env_index.row(yr);
           srr_mult = env_rec_tmp * beta_rec_tmp;
           srr_alpha = exp(rec_pars(sp, 1) + srr_mult.sum());
           R_hat(sp, yr) = srr_alpha * ssb(sp, yr-minage(sp)) / (1+exp(rec_pars(sp, 2)) * ssb(sp, yr-minage(sp)));
@@ -1898,7 +1928,7 @@ Type objective_function<Type>::operator() () {
 
         case 5: // Ricker with environmental impacts on alpha
           beta_rec_tmp = beta_rec_pars.row(sp);
-          env_rec_tmp = env_index_srr.row(yr);
+          env_rec_tmp = env_index.row(yr);
           srr_mult = env_rec_tmp * beta_rec_tmp;
           srr_alpha = exp(rec_pars(sp, 1) + srr_mult.sum());
           R_hat(sp, yr) = srr_alpha * ssb(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 2)) * ssb(sp, yr-minage(sp))/1000000.0);
@@ -2229,13 +2259,13 @@ Type objective_function<Type>::operator() () {
           // 1. predator-prey preference > 0 (hence logs)
           // 2. sum(predator-prey preference) + vuln_other = 1
           // 3. 0 <= sum(predator-prey preference) <= 1 (hence logit transformation)
-          for(ksp = 0; ksp < nspp; ksp++) {              // Prey loop
+          for(ksp = 0; ksp < nspp; ksp++) {                                   // Prey loop
             sum_phi(rsp) += exp(log_phi(rsp, ksp));
           }
-          for(ksp = 0; ksp < nspp; ksp++) {                            // Prey loop
-            vulnerability(rsp, ksp) = exp(log_phi(rsp, ksp))/(1+sum_phi(rsp)); // multinomial logistic transformation
+          for(ksp = 0; ksp < nspp; ksp++) {                                   // Prey loop
+            vulnerability(rsp, ksp) = exp(log_phi(rsp, ksp))/(1+sum_phi(rsp));// multinomial logistic transformation
           }
-          vulnerability_other(rsp) = 1 - vulnerability.row(rsp).sum(); // vulnerability-other=1-sum-vulnerability but transform so sum_vuln+vuln_other=1
+          vulnerability_other(rsp) = 1 - vulnerability.row(rsp).sum();        // vulnerability-other=1-sum-vulnerability but transform so sum_vuln+vuln_other=1
         }
 
 
@@ -3073,13 +3103,13 @@ Type objective_function<Type>::operator() () {
     // Predict stomach content
     // 12. Reorganize diet_hat content
     for(int stom_ind = 0; stom_ind < diet_obs.rows(); stom_ind++){
-      rsp = diet_ctl(stom_ind, 0) - 1; // Index of pred
-      ksp = diet_ctl(stom_ind, 1) - 1; // Index of prey
-      r_sex = diet_ctl(stom_ind, 2); // Index of pred sex
-      k_sex = diet_ctl(stom_ind, 3); // Index of prey sex
+      rsp = diet_ctl(stom_ind, 0) - 1;             // Index of pred
+      ksp = diet_ctl(stom_ind, 1) - 1;             // Index of prey
+      r_sex = diet_ctl(stom_ind, 2);               // Index of pred sex
+      k_sex = diet_ctl(stom_ind, 3);               // Index of prey sex
       r_age = diet_ctl(stom_ind, 4) - minage(rsp); // Index of pred age
       k_age = diet_ctl(stom_ind, 5) - minage(ksp); // Index of prey age
-      flt_yr = diet_ctl(stom_ind, 6); // Index of year
+      flt_yr = diet_ctl(stom_ind, 6);              // Index of year
 
       // 1 sex model
       r_sexes(stom_ind, 0) = 0; r_sexes(stom_ind, 1) = 0;

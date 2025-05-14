@@ -15,12 +15,12 @@
 #' @return a list of map arguments for each parameter
 #' @export
 build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, random_sel = FALSE) {
-  # functions
-  '%!in%' <- function(x,y)!('%in%'(x,y))
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Setup ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  data_list <- Rceattle::switch_check(data_list)
+
   # Get year objects
   nyrs_hind <- data_list$endyr - data_list$styr + 1
   nyrs_proj <- data_list$projyr - data_list$styr + 1
@@ -33,10 +33,6 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   # Convert parameters to map object and
   # - Set each item in map_list to seperate value
   map_list <- sapply(params, function(x) replace(x, values = c(1:length(x))))
-  if(is.null(data_list$initMode)){
-    data_list$initMode = 2
-    print("'initMode' not input, setting to 2 (default)")
-  }
 
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -97,14 +93,18 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
   # - Environmental linkages
   #FIXME: make it so the covariates can vary by species
-  if(!data_list$srr_pred_fun %in% c(1, 3, 5)){
-    map_list$beta_rec_pars[] <- NA
+  map_list$beta_rec_pars[] <- NA
+  if(data_list$srr_pred_fun %in% c(1, 3, 5)){
+    for(sp in 1:data_list$nspp){
+      map_list$beta_rec_pars[sp, data_list$srr_indices] <- data_list$srr_indices + (sp-1) * ncol(map_list$beta_rec_pars)
+    }
   }
 
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # 2. Natural mortality (M1) ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+
   M1_ind = 1 # Generic indices for looping
   M1_dev_ind = 0
   M1_beta_ind = 0
@@ -164,7 +164,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       M1_ind = M1_ind + 1
 
       # - Betas
-      map_list$M1_beta[sp,1,] <- M1_beta_ind + 1:dim(map_list$M1_beta[3])
+      map_list$M1_beta[sp,1,data_list$M1_indices] <- M1_beta_ind + data_list$M1_indices
       map_list$M1_beta[sp,2,] <- map_list$M1_beta[sp,1,]
       M1_beta_ind = M1_beta_ind + dim(map_list$M1_beta[3])
     }
@@ -177,7 +177,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
         M1_ind = M1_ind + 1
 
         # - Betas
-        map_list$M1_beta[sp,1,] <- M1_beta_ind + 1:dim(map_list$M1_beta[3])
+        map_list$M1_beta[sp,1,data_list$M1_indices] <- M1_beta_ind + data_list$M1_indices
         map_list$M1_beta[sp,2,] <- map_list$M1_beta[sp,1,]
         M1_beta_ind = M1_beta_ind + dim(map_list$M1_beta[3])
       }
@@ -189,11 +189,11 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
         # - Betas
         # -- Females
-        map_list$M1_beta[sp,1,] <- M1_beta_ind + 1:dim(map_list$M1_beta[3]); # FIXME
+        map_list$M1_beta[sp,1,data_list$M1_indices] <- M1_beta_ind + data_list$M1_indices;
         M1_beta_ind = M1_beta_ind + dim(map_list$M1_beta[3])
 
         # -- Males
-        map_list$M1_beta[sp,2,] <- M1_beta_ind + 1:dim(map_list$M1_beta[3]);
+        map_list$M1_beta[sp,2,data_list$M1_indices] <- M1_beta_ind + data_list$M1_indices;
         M1_beta_ind = M1_beta_ind + dim(map_list$M1_beta[3])
       }
     }
@@ -405,6 +405,11 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
         map_list$log_gam_a[sp] <- NA
         map_list$log_gam_b[sp] <- NA
         map_list$log_phi[sp,] <- NA
+      }
+
+      # Turn off predation for fixed-prey species
+      if(data_list$estDynamics[sp] > 0) {
+        map_list$log_phi[,sp] <- NA
       }
     }
   }
@@ -741,7 +746,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
             ind_dev_coff = ind_dev_coff + (length(ages_on) * length(yrs_hind))
           }
 
-          if(!data_list$fleet_control$Time_varying_sel[i] %in% c(NA, 0, 1)){
+          if(!(data_list$fleet_control$Time_varying_sel[i] %in% c(NA, 0, 1))){
             warning(paste("Time_varying_sel for fleet", i, "is not compatible (select NA, 0, or 1)"))
           }
         }
@@ -804,13 +809,13 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
       # -- Set up time varying catchability if used (account for missing years)
       if((data_list$fleet_control$Estimate_q[i] %in% c(1, 2) &
-          as.numeric(data_list$fleet_control$Time_varying_q[i]) %!in% c(1, 2, 3, 4)) |
+          !as.numeric(data_list$fleet_control$Time_varying_q[i]) %in% c(1, 2, 3, 4)) |
          data_list$fleet_control$Estimate_q[i] == 6){
 
         # Extract survey years where data is provided
         index_data <- data_list$index_data[which(data_list$index_data$Fleet_code == flt & data_list$index_data$Year > data_list$styr & data_list$index_data$Year <= data_list$endyr),]
         srv_biom_yrs <- index_data$Year - data_list$styr + 1
-        srv_biom_yrs_miss <- yrs_hind[which(yrs_hind %!in% srv_biom_yrs)]
+        srv_biom_yrs_miss <- yrs_hind[which(!yrs_hind %in% srv_biom_yrs)]
 
         # Penalized deviate or random walk
         if(data_list$fleet_control$Time_varying_q[i] %in% c(1,2,4)){
