@@ -509,16 +509,17 @@ Type objective_function<Type>::operator() () {
 
   // -- 4.9. Diet components
   array<Type>   diet_prop(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); diet_prop.setZero();             // Stomach proportion by weight U
+  array<Type>   diet_prop_sum(nspp, max_sex, max_age, nyrs); diet_prop_sum.setZero();                               // Sum of stomach proportion for a predator
   array<Type>   diet_prop_hat(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); diet_prop_hat.setZero();     // Predicted stomach proportion by weight U
-  array<Type>   other_food_diet_prop(nspp, max_sex, max_age, nyrs); other_food_diet_prop.setZero();           // Other food diet proportion by weight
-  matrix<Type>  diet_hat = diet_obs; diet_hat.setZero();                                                // Estimated stomach proportion by weight U (formated following data input)
+  array<Type>   other_food_diet_prop(nspp, max_sex, max_age, nyrs); other_food_diet_prop.setZero();                 // Other food diet proportion by weight
+  matrix<Type>  diet_hat = diet_obs; diet_hat.setZero();                                                            // Estimated stomach proportion by weight U (formated following data input)
 
   // -- 4.10. Suitability components
-  array<Type>   avail_food(nspp, max_sex, max_age, nyrs); avail_food.setZero();                                           // Available food to predator
-  array<Type>   stom_div_bio(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); stom_div_bio.setZero();                   // Stomach proportion over biomass; U/ (W * N)
-  array<Type>   suitability(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); suitability.setZero();                         // Suitability/gamma selectivity of predator age u on prey age a
-  array<Type>   suit_other(nspp, max_sex, max_age, nyrs); suit_other.setZero();                                           // Suitability not accounted for by the included prey
-  array<Type>   suma_suit(nspp, max_sex, max_age, nyrs); suma_suit.setZero();                                             // Sum of suitabilities
+  array<Type>   avail_food(nspp, max_sex, max_age, nyrs); avail_food.setZero();                               // Available food to predator
+  array<Type>   stom_div_bio(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); stom_div_bio.setZero(); // Stomach proportion over biomass; U/ (W * N)
+  array<Type>   suitability(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); suitability.setZero();   // Suitability/gamma selectivity of predator age u on prey age a
+  array<Type>   suit_other(nspp, max_sex, max_age, nyrs); suit_other.setZero();                               // Suitability not accounted for by the included prey
+  array<Type>   suma_suit(nspp, max_sex, max_age, nyrs); suma_suit.setZero();                                 // Sum of suitabilities
 
   // -- 4.11. Suitability parameters
   vector<Type> gam_a = exp(log_gam_a);                                    // Predator size-selectivity: shape parameter for gamma suitability, mean for normal of logs
@@ -2151,6 +2152,7 @@ Type objective_function<Type>::operator() () {
       suitability.setZero();
       suma_suit.setZero();
       sum_phi.setZero();
+      diet_prop_sum.setZero();
 
       for(rsp = 0; rsp < nspp; rsp++) {                  // Predator species loop
 
@@ -2174,28 +2176,21 @@ Type objective_function<Type>::operator() () {
                         yr_ind = nyrs_hind - 1;
                       }
 
+                      stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = diet_prop(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / (avgN_at_age(ksp, k_sex, k_age, yr));
 
-                      if(avgN_at_age(ksp, k_sex, k_age, yr) > 0){
-                        stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = diet_prop(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / (avgN_at_age(ksp, k_sex, k_age, yr));
-
-                        // Make into Type 3 MSVPA
-                        // U =
-                        if(msmMode == 2){
-                          stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) /= avgN_at_age(ksp, k_sex, k_age, yr);
-                        }
+                      // Make into Type 3 MSVPA
+                      if(msmMode == 2){
+                        stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) /= avgN_at_age(ksp, k_sex, k_age, yr);
                       }
-
 
                       // Make sure it is a real number, if not set to 0
-                      if(!isFinite(stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr))){
-                        stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = 0.0;
-                      }
-
+                      stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = 0.0;
 
 
                       if(weight(pop_wt_index(ksp), k_sex, k_age, yr_ind ) != 0) {
                         stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) /= weight( pop_wt_index(ksp), k_sex, k_age, yr_ind );
-                        suma_suit(rsp, r_sex, r_age, yr ) += stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr); // Calculate sum of stom_div_bio across prey and  prey age for each predator, predator age, and year
+                        suma_suit(rsp, r_sex, r_age, yr) += stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr); // Calculate sum of stom_div_bio across prey and  prey age for each predator, predator age, and year
+                        diet_prop_sum(rsp, r_sex, r_age, yr) += diet_prop(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr); // Sum diet proportion across predator
                       }
                     }
                   }
@@ -2218,7 +2213,9 @@ Type objective_function<Type>::operator() () {
                   for(yr = suit_styr; yr <= suit_endyr; yr++) {  // Suit year loop (over specific years)
 
                     // Average suitability across years
-                    suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) += stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / posfun((suma_suit(rsp, r_sex, r_age, yr ) + other_food_diet_prop(rsp, r_sex, r_age, yr)), Type(0.0001), penalty);
+                    if(diet_prop_sum(rsp, r_sex, r_age, yr) > 0){ // If the predator has diet data
+                      suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, 0) += stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / (suma_suit(rsp, r_sex, r_age, yr ) + other_food_diet_prop(rsp, r_sex, r_age, yr));
+                    }
                   }       // End year loop
 
                   // FIXME - Add in interannual variability here?
