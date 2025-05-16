@@ -117,47 +117,5 @@ set_phases <- function(){
     log_phi = 5 # Suitability parameter
   )
 
-
-  # debugphase = list(
-  #   dummy = 1,
-  #   ln_pop_scalar = 5, # Scalar for input numbers-at-age
-  #   rec_pars = 1, # Stock-recruit parameters or log(mean rec) if no stock-recruit relationship
-  #   R_ln_sd = 4, # Variance for annual recruitment deviats
-  #   rec_dev = 2, # Annual recruitment deviats
-  #   init_dev = 3, # Age specific initial age-structure deviates or parameters
-  #   sex_ratio_ln_sd = 3, # Variance of sex ratio (usually fixed)
-  #   ln_M1 = 4, #  Estimated natural or residual mortality
-  #   ln_mean_F = 6, # Mean fleet-specific fishing mortality
-  #   ln_Flimit = 15, # Estimated F limit
-  #   ln_Ftarget = 15, # Estimated F target
-  #   ln_Finit = 7, # Estimated fishing mortality for non-equilibrium initial age-structure
-  #   proj_F_prop = 14, # Fixed fleet-specific proportion of Flimit and Ftarget apportioned within each species
-  #   F_dev = 7, # Annual fleet specific fishing mortality deviates
-  #   index_ln_q = 10, # Survey catchability
-  #   index_q_dev = 11, # Annual survey catchability deviates (if time-varying)
-  #   index_q_ln_sd = 15, # Prior SD for survey catchability deviates
-  #   index_q_dev_ln_sd = 15, # SD for annual survey catchability deviates (if time-varying)
-  #   sel_coff = 8, # Non-parametric selectivity coefficients
-  #   sel_coff_dev = 11, # Annual deviates for non-parametric selectivity coefficients
-  #   ln_sel_slp = 9, # Slope parameters for logistic forms of selectivity
-  #   sel_inf = 9, # Asymptote parameters for logistic forms of selectivity
-  #   ln_sel_slp_dev = 11, # Annual deviates for slope parameters for logistic forms of selectivity (if time-varying)
-  #   sel_inf_dev = 11, # Annual deviates for asymptote parameters for logistic forms of selectivity (if time-varying)
-  #   sel_dev_ln_sd = 12, # SD for annual selectivity deviates (if time-varying)
-  #   sel_curve_pen = 13, # Penalty for non-parametric selectivity
-  #   index_ln_sd = 14, # Log SD for survey lognormal index likelihood (usually input)
-  #   catch_ln_sd = 14, # Log SD for lognormal catch likelihood (usually input)
-  #   comp_weights = 15, # Weights for multinomial comp likelihood
-  #   logH_1 = 15,  # Functional form parameter (not used in MSVPA functional form)
-  #   logH_1a = 15, # Functional form parameter (not used in MSVPA functional form)
-  #   logH_1b = 15, # Functional form parameter (not used in MSVPA functional form)
-  #   logH_2 = 15, # Functional form parameter (not used in MSVPA functional form)
-  #   logH_3 = 15, # Functional form parameter (not used in MSVPA functional form)
-  #   H_4 = 15, # Functional form parameter (not used in MSVPA functional form)
-  #   log_gam_a = 15, # Suitability parameter (not used in MSVPA style)
-  #   log_gam_b = 15, # Suitability parameter (not used in MSVPA style)
-  #   log_phi = 15 # Suitability parameter (not used in MSVPA style)
-  # )
-
   return(phaseList)
 }
