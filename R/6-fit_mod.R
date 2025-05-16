@@ -389,14 +389,21 @@ fit_mod <-
     data_list_reorganized$forecast <- rep(0, data_list_reorganized$nspp) # Hindcast switch
 
     # - Update comp weights, future F (if input) and F_prop from data
+    # - Age/length composition
     if(!is.null(data_list$fleet_control$Comp_weights)){
       start_par$comp_weights = data_list$fleet_control$Comp_weights
     }
+    # - Diet composition
+    if(!is.null(data_list$Diet_comp_weights)){
+      start_par$diet_comp_weights = data_list$Diet_comp_weights
+    }
+
+    # - Proportion of projected F to each fleet
     start_par$proj_F_prop = data_list$fleet_control$proj_F_prop
 
-    nyrs_proj <- data_list$projyr - data_list$styr + 1
+    # - Fixed fishing mortality for projections for each species
     if(!is.null(HCR$Ftarget) & HCR$HCR == 2){
-      start_par$ln_Ftarget = log(HCR$Ftarget) # Fixed fishing mortality for projections for each species
+      start_par$ln_Ftarget = log(HCR$Ftarget)
     }
 
     # - Update M1 parameter object from data if initial parameter values input
