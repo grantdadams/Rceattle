@@ -1067,7 +1067,7 @@ Type objective_function<Type>::operator() () {
     SPRtarget.setZero();
     for(sp = 0; sp < nspp; sp++) {
 
-      if(initMode != 3){
+      if(initMode < 3){
         Finit(sp) = 0; // If population starts out at equilibrium set Finit to 0 (R_init and R0 will be the same)
       }
 
@@ -1209,9 +1209,19 @@ Type objective_function<Type>::operator() () {
               }
 
               // Sum M1 until age - 1
-              mort_sum(sp, age) = 0;
-              for(int age_tmp = 0; age_tmp < age; age_tmp++){
-                mort_sum(sp, age) += M1_at_age(sp, sex, age_tmp, 0) + Finit(sp);
+              if(initMode == 3){
+                mort_sum(sp, age) = 0;
+                for(int age_tmp = 0; age_tmp < age; age_tmp++){
+                  mort_sum(sp, age) += M1_at_age(sp, sex, age_tmp, 0) + Finit(sp);
+                }
+              }
+
+              if(initMode == 4){
+                mort_sum(sp, age) = 0;
+                for(int age_tmp = 0; age_tmp < age; age_tmp++){
+                  mort_sum(sp, age) += M1_at_age(sp, sex, age_tmp, 0);
+                }
+                mort_sum(sp, age) += Finit(sp);
               }
 
               // -- 6.5.2. Age Amin+1:Amax-1 (initial abundance)
@@ -1837,10 +1847,6 @@ Type objective_function<Type>::operator() () {
               error("Invalid 'estDynamics'");
             }
 
-            //  Constraint to reduce population collapse
-            // N_at_age(sp, sex, age, yr) = posfun(N_at_age(sp, sex, age, yr), Type(0.001), penalty);
-            // zero_N_pen(sp) += penalty;
-
             // -- 6.9.4. FORECAST BIOMASS
             biomass_at_age(sp, sex, age, yr) = N_at_age(sp, sex, age, yr) * weight( pop_wt_index(sp), sex, age, nyrs_hind-1 ); // 6.5.
             biomass(sp, yr) += biomass_at_age(sp, sex, age, yr);
@@ -2182,10 +2188,6 @@ Type objective_function<Type>::operator() () {
                       if(msmMode == 2){
                         stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) /= avgN_at_age(ksp, k_sex, k_age, yr);
                       }
-
-                      // Make sure it is a real number, if not set to 0
-                      stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = 0.0;
-
 
                       if(weight(pop_wt_index(ksp), k_sex, k_age, yr_ind ) != 0) {
                         stom_div_bio(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) /= weight( pop_wt_index(ksp), k_sex, k_age, yr_ind );
@@ -3002,7 +3004,7 @@ Type objective_function<Type>::operator() () {
 
       // True age comp standardize to sum to 1
       for(age = 0; age < nages(sp) * joint_adjust(comp_ind); age++) {
-        true_age_comp_hat(comp_ind, age ) = age_hat(comp_ind, age ) / posfun(n_hat(comp_ind), Type(0.0001), penalty);
+        true_age_comp_hat(comp_ind, age ) = age_hat(comp_ind, age ) / posfun(n_hat(comp_ind), Type(0.00001), penalty);
       }
 
 
@@ -3031,7 +3033,8 @@ Type objective_function<Type>::operator() () {
       //  Observed age comp standardize to sum to 1
       if(comp_type == 0) {
         for(age = 0; age < nages(sp) * joint_adjust(comp_ind); age++) {
-          comp_hat(comp_ind, age) = age_obs_hat(comp_ind, age ) / posfun(n_hat(comp_ind), Type(0.0001), penalty);
+          comp_hat(comp_ind, age) = age_obs_hat(comp_ind, age ) / posfun(n_hat(comp_ind), Type(0.00001), penalty);
+
         }
       }
 
@@ -3074,7 +3077,7 @@ Type objective_function<Type>::operator() () {
 
         // Standardize to sum to 1
         for(ln = 0; ln < nlengths(sp) * joint_adjust(comp_ind); ln++) {
-          comp_hat(comp_ind, ln ) = comp_hat(comp_ind, ln) / posfun(n_hat(comp_ind), Type(0.0001), penalty);
+          comp_hat(comp_ind, ln ) = comp_hat(comp_ind, ln) / posfun(n_hat(comp_ind), Type(0.00001), penalty);
         }
       }
     }

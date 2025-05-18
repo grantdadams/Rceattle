@@ -219,7 +219,6 @@ test_that("Dynamics match multi-species CEATTLE classic", {
   plot_biomass(list(ms_run_new, ms_run_old_params, ms_run_old))
   plot_ssb(list(ms_run_new, ms_run_old_params, ms_run_old))
 
-
 })
 #> Test passed 😀
 #>
