@@ -970,7 +970,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   map_list$proj_F_prop <- map_list$proj_F_prop * NA
 
   # -- Map out initial F if starting at equilibrium
-  if(data_list$initMode != 3){
+  if(!(data_list$initMode %in% c(3,4))){
     map_list$ln_Finit <- rep(NA, data_list$nspp)
   }
 
