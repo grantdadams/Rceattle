@@ -72,7 +72,7 @@ test_that("Dynamics match multi-species CEATTLE classic", {
   data("BS2017MS")
 
   BS2017MS$srr_prior_mean <- 9
-  BS2017MS$initMode  <- 1
+  BS2017MS$initMode  <- 2
   # BS2017MS$M1_base[,-c(1:2)] <- CEATTLE_classic_MS$quantities$M1 # + 0.0001 is in the old one
 
   inits <- build_params(BS2017MS)
@@ -156,13 +156,14 @@ test_that("Dynamics match multi-species CEATTLE classic", {
 
   # Previous time series
   ms_run_old <- ms_run_new
+  ms_run_old$quantities$B_eaten_as_prey[,1,,1:39] <- CEATTLE_classic_MS$quantities$B_eaten
   ms_run_old$quantities$R[,1:39] <- CEATTLE_classic_MS$quantities$R[,1:39]
   ms_run_old$quantities$biomass[,1:39] <- CEATTLE_classic_MS$quantities$biomass
   ms_run_old$quantities$ssb[,1:39] <- CEATTLE_classic_MS$quantities$biomassSSB
   ms_run_old$quantities$index_hat <- c(CEATTLE_classic_MS$quantities$srv_bio_hat[1,1:36],
-                                         CEATTLE_classic_MS$quantities$srv_bio_hat[2,1:36],
-                                         CEATTLE_classic_MS$quantities$srv_bio_hat[3,1:36],
-                                         CEATTLE_classic_MS$quantities$eit_hat[1:20])
+                                       CEATTLE_classic_MS$quantities$srv_bio_hat[2,1:36],
+                                       CEATTLE_classic_MS$quantities$srv_bio_hat[3,1:36],
+                                       CEATTLE_classic_MS$quantities$eit_hat[1:20])
   fsh_bio <- ms_run_old$data_list$catch_data
   fsh_bio$Pred <- ms_run_old$quantities$catch_hat
   fsh_bio$CatchOld <- NA
@@ -215,9 +216,10 @@ test_that("Dynamics match multi-species CEATTLE classic", {
   #
   # CEATTLE_classic_MS$data_list$CB == ms_run_old_params$data_list$CB
 
-  plot_recruitment(list(ms_run_new, ms_run_old_params, ms_run_old))
-  plot_biomass(list(ms_run_new, ms_run_old_params, ms_run_old))
-  plot_ssb(list(ms_run_new, ms_run_old_params, ms_run_old))
+  plot_recruitment(list(ms_run_new, ms_run_old_params, ms_run_old), model_names = 1:3)
+  plot_biomass(list(ms_run_new, ms_run_old_params, ms_run_old), model_names = 1:3)
+  plot_ssb(list(ms_run_new, ms_run_old_params, ms_run_old), model_names = 1:3)
+  plot_b_eaten(list(ms_run_new, ms_run_old_params, ms_run_old), model_names = 1:3)
 
 })
 #> Test passed 😀
