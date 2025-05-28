@@ -2101,7 +2101,7 @@ Type objective_function<Type>::operator() () {
       // and are not used for MSVPA based suitability
       // if k_age < 0 & r_age < 0, data are diet proportion of prey-spp in predator-spp (summed across prey ages and averaged across predator ages)
       // and are not used for MSVPA based suitability
-      if(k_age >= 0 & r_age >= 0){
+      if((k_age >= 0) & (r_age >= 0)){
         for(int j = 0; j < 2; j ++){
           for(int k = 0; k < 2; k ++){
 
@@ -3132,8 +3132,14 @@ Type objective_function<Type>::operator() () {
       for(int j = 0; j < 2; j ++){
         for(int k = 0; k < 2; k ++){
 
-          if(flt_yr > 0){
-            yr = flt_yr - styr;
+          if((flt_yr > 0) | (flt_yr < 0)){
+
+            if(flt_yr > 0){ // Predict and include in likelihood
+              yr = flt_yr - styr;
+            }
+            if(flt_yr < 0){ // Predict but do not include in likelihood
+              yr = -flt_yr - styr;
+            }
 
             // Annual data
             if(yr < nyrs_hind){
@@ -3144,19 +3150,48 @@ Type objective_function<Type>::operator() () {
 
 
               // Diet proportion of prey-spp in predator-at-age (sum across prey ages)
-              if(k_age < 0 & r_age >= 0){
+              if((k_age < 0) & (r_age >= 0)){
                 for(k_age = 0; k_age < nages(ksp); k_age++){
                   diet_hat(stom_ind, 1) += diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr)/4; //FIXME: take weighted average for two-sex models?
                 }
               }
 
-              // Diet proportion of prey-spp in predator-spp (sum across prey ages and take mean across predator ages)
-              if(k_age < 0 & r_age < 0){
+              // Mean diet proportion of prey-spp in predator-spp (sum across prey ages and take mean across predator ages)
+              if((k_age < 0) & (r_age < 0) & (r_age > -500)){
                 for(r_age = 0; r_age < nages(rsp); r_age++){
                   for(k_age = 0; k_age < nages(ksp); k_age++){
                     diet_hat(stom_ind, 1) += diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr)/4/nages(rsp); //FIXME: take weighted average for two-sex models?
                   }
                 }
+              }
+
+              // Weighted mean diet proportion of prey-spp in predator-spp (sum across prey ages and take weighted mean across predator ages)
+              if((k_age < 0) & (r_age < -500)){
+
+                Type weighted_sum = 0;
+                Type total_numbers = 0;
+
+                // Take weighted mean diet proportion across predator-ages
+                for(int r_age_temp = 0; r_age_temp < nages(rsp); r_age_temp++){
+                  // Get predator numbers at this age, sex, and year for weighting
+                  Type pred_numbers = N_at_age(rsp, r_sexes(stom_ind, j), r_age_temp, yr);
+                  total_numbers += pred_numbers;
+
+                  // Sum diet-proportion across prey-ages
+                  for(int k_age_temp = 0; k_age_temp < nages(ksp); k_age_temp++){
+                    Type pred_age_diet = diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)),
+                                                       ksp + (nspp * k_sexes(stom_ind, k)),
+                                                       r_age_temp, k_age_temp, yr);
+
+
+
+                    // Add to weighted sum
+                    weighted_sum += pred_age_diet * pred_numbers;
+                  }
+                }
+
+                // Calculate weighted average if there are any predators
+                diet_hat(stom_ind, 1) += weighted_sum / (4.0 * total_numbers);
               }
             }
           }
@@ -3172,19 +3207,48 @@ Type objective_function<Type>::operator() () {
 
 
               // Diet proportion of prey-spp in predator-at-age (sum across prey ages)
-              if(k_age < 0 & r_age >= 0){
+              if((k_age < 0) & (r_age >= 0)){
                 for(k_age = 0; k_age < nages(ksp); k_age++){
                   diet_hat(stom_ind, 1) += diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr)/4/nyrs_suit; //FIXME: take weighted average for two-sex models?
                 }
               }
 
-              // Diet proportion of prey-spp in predator-spp (sum across prey ages and take mean across predator ages)
-              if(k_age < 0 & r_age < 0){
+              // Mean diet proportion of prey-spp in predator-spp (sum across prey ages and take mean across predator ages)
+              if((k_age < 0) & (r_age < 0) & (r_age > -500)){
                 for(r_age = 0; r_age < nages(rsp); r_age++){
                   for(k_age = 0; k_age < nages(ksp); k_age++){
                     diet_hat(stom_ind, 1) += diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr)/4/nages(rsp)/nyrs_suit; //FIXME: take weighted average for two-sex models?
                   }
                 }
+              }
+
+              // Weighted mean diet proportion of prey-spp in predator-spp (sum across prey ages and take weighted mean across predator ages)
+              if((k_age < 0) & (r_age < -500)){
+
+                Type weighted_sum = 0;
+                Type total_numbers = 0;
+
+                // Take weighted mean across predator-ages
+                for(int r_age_temp = 0; r_age_temp < nages(rsp); r_age_temp++){
+                  // Get predator numbers at this age, sex, and year for weighting
+                  Type pred_numbers = N_at_age(rsp, r_sexes(stom_ind, j), r_age_temp, yr);
+                  total_numbers += pred_numbers;
+
+                  // Sum diet-proportion across prey-ages
+                  for(int k_age_temp = 0; k_age_temp < nages(ksp); k_age_temp++){
+                    Type pred_age_diet = diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)),
+                                                       ksp + (nspp * k_sexes(stom_ind, k)),
+                                                       r_age_temp, k_age_temp, yr);
+
+
+
+                    // Add to weighted sum
+                    weighted_sum += pred_age_diet * pred_numbers;
+                  }
+                }
+
+                // Calculate weighted average if there are any predators
+                diet_hat(stom_ind, 1) += weighted_sum / (4.0 * total_numbers * nyrs_suit);
               }
             }
           }
@@ -3270,32 +3334,27 @@ Type objective_function<Type>::operator() () {
     sp = index_ctl(index_ind, 1) - 1;             // Species is the 2nd column
     flt_yr = index_ctl(index_ind, 2);             // Temporary index for years of data
 
-    if(flt_yr > 0){
-      // Set up variance
-      switch (est_sigma_index(index)) {
-      case 0:     // Provided standard deviation
-        index_std_dev = index_obs(index_ind, 1);
-        break;
-      case 1:     // Estimated standard deviation
-        index_std_dev = exp(index_ln_sd(index));
-        break;
-      case 2:     // Analytical
-        index_std_dev = ln_index_analytical_sd(index);
-        break;
-      default:
-        error("Invalid 'Estimate_sigma_index'");
-      }
+    // Set up variance
+    switch (est_sigma_index(index)) {
+    case 0:     // Provided standard deviation
+      index_std_dev = index_obs(index_ind, 1);
+      break;
+    case 1:     // Estimated standard deviation
+      index_std_dev = exp(index_ln_sd(index));
+      break;
+    case 2:     // Analytical
+      index_std_dev = ln_index_analytical_sd(index);
+      break;
+    default:
+      error("Invalid 'Estimate_sigma_index'");
+    }
 
-      ln_index_sd(index_ind) = index_std_dev;
+    ln_index_sd(index_ind) = index_std_dev;
 
-
-      // Only include years from hindcast
-      if(flt_type(index) > 0){
-        if(flt_yr <= endyr){
-          if(index_obs(index_ind) > 0){
-            jnll_comp(0, index) -= dnorm(log(index_obs(index_ind, 0)), log(index_hat(index_ind)) - square(index_std_dev)/2.0, index_std_dev, true);
-          }
-        }
+    // Only include years from hindcast
+    if((flt_yr > 0) & (flt_yr <= endyr) & (flt_type(index) > 0)){
+      if(index_obs(index_ind) > 0){
+        jnll_comp(0, index) -= dnorm(log(index_obs(index_ind, 0)), log(index_hat(index_ind)) - square(index_std_dev)/2.0, index_std_dev, true);
       }
     }
   }
@@ -3310,36 +3369,30 @@ Type objective_function<Type>::operator() () {
     flt_yr = catch_ctl(fsh_ind, 2);             // Temporary index for years of data
     yr = flt_yr - styr;                            // Temporary index of years. Start at 0.
 
-    if(flt_yr > 0){
+    // Set up variance
+    switch (est_sigma_fsh(flt)) {
+    case 0: // Provided standard deviation
+      fsh_std_dev = catch_obs(fsh_ind, 1);
+      break;
+    case 1:     // Estimated standard deviation
+      fsh_std_dev = exp(catch_ln_sd(flt));
+      break;
+    default:
+      error("Invalid 'Estimate_sigma_catch'");
+    }
 
-      // Set up variance
-      switch (est_sigma_fsh(flt)) {
-      case 0: // Provided standard deviation
-        fsh_std_dev = catch_obs(fsh_ind, 1);
-        break;
-      case 1:     // Estimated standard deviation
-        fsh_std_dev = exp(catch_ln_sd(flt));
-        break;
-      default:
-        error("Invalid 'Estimate_sigma_catch'");
-      }
+    ln_catch_sd(fsh_ind) = fsh_std_dev; // Save estimated log_sd
 
-      ln_catch_sd(fsh_ind) = fsh_std_dev; // Save estimated log_sd
+    // Add only years from hindcast
+    if((flt_yr > 0) & (flt_yr <= endyr) & (flt_type(flt) == 1)){
+      if(catch_obs(fsh_ind, 0) > 0){
+        jnll_comp(1, flt) -= dnorm(log(catch_obs(fsh_ind, 0)), log(catch_hat(fsh_ind)) - square(fsh_std_dev)/2.0, fsh_std_dev, true) ;
 
-      // Add only years from hindcast
-      if(flt_type(flt) == 1){
-        if(flt_yr <= endyr){
-          if(catch_obs(fsh_ind, 0) > 0){
-            jnll_comp(1, flt) -= dnorm(log(catch_obs(fsh_ind, 0)), log(catch_hat(fsh_ind)) - square(fsh_std_dev)/2.0, fsh_std_dev, true) ;
-
-            // Martin's
-            // jnll_comp(1, flt)+= 0.5*square((log(catch_obs(fsh_ind, 0))-log(catch_hat(fsh_ind)))/fsh_std_dev);
-          }
-        }
+        // Martin's
+        // jnll_comp(1, flt)+= 0.5*square((log(catch_obs(fsh_ind, 0))-log(catch_hat(fsh_ind)))/fsh_std_dev);
       }
     }
   }
-
 
 
   // Slot 2 -- Age/length composition
@@ -3567,7 +3620,7 @@ Type objective_function<Type>::operator() () {
     }
 
     // Slot 9 -- penalty for Bmsy > Bmsy_lim for Ricker
-    if(!isNA(Bmsy_lim(sp)) & ((srr_pred_fun == 4) | (srr_pred_fun == 5))){ // Using pred_fun in case ianelli method is used
+    if((!isNA(Bmsy_lim(sp))) & ((srr_pred_fun == 4) | (srr_pred_fun == 5))){ // Using pred_fun in case ianelli method is used
       Type bmsy = 1.0/exp(rec_pars(sp, 2));
       bmsy =  posfun(Bmsy_lim(sp)/Type(1000000.0) - bmsy, Type(0.001), penalty);
       jnll_comp(8, sp) += 100 * penalty;
@@ -3840,9 +3893,12 @@ Type objective_function<Type>::operator() () {
     for(int stom_ind = 0; stom_ind < diet_obs.rows(); stom_ind++){
 
       rsp = diet_ctl(stom_ind, 0) - 1; // Index of predator
+      flt_yr = diet_ctl(stom_ind, 6);  // Index of year (if >= 0, include in likelihood)
 
-      if((msmMode > 2) | (suitMode(rsp) > 0)) { // If estimating
-        jnll_comp(18, rsp) -= diet_comp_weights(rsp) * Type(diet_obs(stom_ind, 0)) * (diet_obs(stom_ind, 1) + 0.00001) * log((diet_hat(stom_ind, 1) + 0.00001)/(diet_obs(stom_ind, 1) + 0.00001));
+      if(flt_yr >= 0){
+        if((msmMode > 2) | (suitMode(rsp) > 0)) { // If estimating
+          jnll_comp(18, rsp) -= diet_comp_weights(rsp) * Type(diet_obs(stom_ind, 0)) * (diet_obs(stom_ind, 1) + 0.00001) * log((diet_hat(stom_ind, 1) + 0.00001)/(diet_obs(stom_ind, 1) + 0.00001));
+        }
       }
     }
   } // End diet proportion by weight component
