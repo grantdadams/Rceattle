@@ -816,12 +816,6 @@ Type objective_function<Type>::operator() () {
       for(yr = 0; yr < nyrs_hind; yr++) {
         for(sex = 0; sex < nsex(sp); sex++){
 
-          // Single-normalization age
-          if(flt_sel_maxage(flt) >= 0){
-            max_sel = 0.001;
-            max_sel = max2(max_sel, sel(flt, sex, flt_sel_maxage(flt), yr)); // Get max sel by sex/year (split or otherwise, divides by 1 for ages > maxselage)
-          }
-
           // Normalize by max
           //FIXME: non-differentiable
           if(flt_sel_maxage(flt) < 0){
@@ -833,6 +827,12 @@ Type objective_function<Type>::operator() () {
             }
           }
 
+          // Single-normalization age
+          if((flt_sel_maxage(flt) >= 0) & (flt_sel_maxage_upper(flt) < 0)){
+            max_sel = 0.001;
+            max_sel = max2(max_sel, sel(flt, sex, flt_sel_maxage(flt), yr)); // Get max sel by sex/year (split or otherwise, divides by 1 for ages > maxselage)
+          }
+
           // Normalize by age rage between max lower and max upper
           if((flt_sel_maxage(flt) >= 0) & (flt_sel_maxage_upper(flt) >= 0)){
             max_sel = 0;
@@ -841,7 +841,7 @@ Type objective_function<Type>::operator() () {
             }
           }
 
-
+          // Normalize
           for(age = flt_sel_age(flt); age < nselages; age++) {
             sel(flt, sex, age, yr) = exp(sel(flt, sex, age, yr) - max_sel);
           }
@@ -878,15 +878,15 @@ Type objective_function<Type>::operator() () {
           for(sex = 0; sex < nsex(sp); sex++){
 
             // Single-normalization age
-            if(flt_sel_maxage(flt) >= 0){
+            if((flt_sel_maxage(flt) >= 0) & (flt_sel_maxage_upper(flt) < 0)){
               max_sel = 0.001;
               max_sel = max2(max_sel, sel(flt, sex, flt_sel_maxage(flt), yr)); // Get max sel by sex/year (split or otherwise, divides by 1 for ages > maxselage)
             }
 
-            //Normalize by age rage between max lower and max upper
+            // Normalize by age rage between max lower and max upper
             if((flt_sel_maxage(flt) >= 0) & (flt_sel_maxage_upper(flt) >= 0)){
               max_sel = 0;
-              for(age = flt_sel_maxage(flt); age < flt_sel_maxage_upper(flt); age++) {
+              for(age = flt_sel_maxage(flt); age <= flt_sel_maxage_upper(flt); age++) {
                 max_sel += sel(flt, sex, age, yr)/(flt_sel_maxage_upper(flt) - flt_sel_maxage(flt) + 1);
               }
             }
