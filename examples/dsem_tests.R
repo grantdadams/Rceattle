@@ -116,7 +116,10 @@ new_pars$lnsigma_j <- rep(log(0.1), length=length(new_pars$lnsigma_j))
 library(TMB)
 detach("package:Rceattle", unload = TRUE)
 #devtools::build()
-TMB::compile('src/TMB/ceattle_v01_11_dsem.cpp')
+TMB::compile(file = 'src/TMB/ceattle_v01_11_dsem.cpp',
+             PKG_CXXFLAGS = commandArgs(trailingOnly = TRUE),
+             framework = "TMBad",
+             safebounds = FALSE, safeunload = FALSE)
 dyn.load(dynlib('src/TMB/ceattle_v01_11_dsem'))
 library(Rceattle)
 
