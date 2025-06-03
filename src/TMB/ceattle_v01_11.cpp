@@ -3984,7 +3984,7 @@ Type objective_function<Type>::operator() () {
   REPORT( biomass );
   REPORT( ssb );
   REPORT( exploitable_biomass );
-  //REPORT(R_sd);
+  REPORT(R_sd);
   REPORT( R0 );
   REPORT( R_init );
   REPORT( R );
@@ -4001,7 +4001,7 @@ Type objective_function<Type>::operator() () {
   matrix<Type>  log_ssb = ssb;  log_ssb = log(ssb.array());// Fixed n-at-age scaling coefficient
   REPORT( log_ssb );
   ADREPORT( log_ssb );
-  // ADREPORT( R_sd );
+  ADREPORT( R_sd );
   ADREPORT( R );
 
 
