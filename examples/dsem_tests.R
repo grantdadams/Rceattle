@@ -149,6 +149,8 @@ stopifnot(ncol(pars$rec_dev)==nrow(pars2$x_tj))
 obj_dsem <- TMB::MakeADFun(data=data2, parameters=pars2, map=map2,
                        random=random2, DLL='ceattle_v01_11_dsem',
                        silent=TRUE)
-opt2 <- TMBhelper::fit_tmb(obj2)
+opt_dsem <- TMBhelper::fit_tmb(obj_dsem)
+TMBhelper::check_estimability(obj_dsem)
+
 
 
