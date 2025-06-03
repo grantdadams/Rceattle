@@ -7,11 +7,13 @@ test_that("logistic selectivity divided by max sel", {
   inf = 10; alpha = 0.5
   ages <- 1:21
   sel <- 1/(1+exp(-alpha*(ages-inf)))
+  sel2 <- 1/(1+exp(-alpha*(ages-inf-1)))
   curve(1/(1+exp(-alpha*(x-inf))), from = 0, to = 21)
 
   # Set params to logistic
   inits$ln_sel_slp[1,,] <- log(alpha)
-  inits$sel_inf[1,,] <- inf
+  inits$sel_inf[1,,] <- inf     # Females
+  inits$sel_inf[1,9:11,2] <- inf + 1 # Males
   GOA2018SS$fleet_control$Selectivity <- 1
   GOA2018SS$fleet_control$Age_first_selected <- 1
   GOA2018SS$fleet_control$Age_max_selected <- NA
@@ -31,8 +33,8 @@ test_that("logistic selectivity divided by max sel", {
 
 
   # - ATF
-  apply(ss_run$quantities$sel[9,1,1:21,], 2, function(x) expect_equal(as.numeric(x), sel[1:21]/max(sel[1:21]), tolerance = 0.0001))
-  apply(ss_run$quantities$sel[9,2,1:21,], 2, function(x) expect_equal(as.numeric(x), sel[1:21]/max(sel[1:21]), tolerance = 0.0001))
+  apply(ss_run$quantities$sel[9,1,1:21,], 2, function(x) expect_equal(as.numeric(x), sel[1:21]/max(c(sel, sel2)), tolerance = 0.0001))
+  apply(ss_run$quantities$sel[9,2,1:21,], 2, function(x) expect_equal(as.numeric(x), sel2[1:21]/max(c(sel, sel2)), tolerance = 0.0001))
 })
 
 
