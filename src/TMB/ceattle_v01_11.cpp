@@ -563,25 +563,7 @@ Type objective_function<Type>::operator() () {
   // ------------------------------------------------------------------------- //
 
 
-  // 5.1. MATURITY AND SEX RATIO
-  matrix<Type> mature_females = maturity;
-  for( sp = 0; sp < nspp ; sp++) {
-
-    // Sex ratio for SSB derivation
-    for( age = 0 ; age < nages(sp); age++ ) {
-      if(nsex(sp) == 1){
-        mature_females( sp, age ) = maturity( sp, age ) * sex_ratio(sp, age); // Mulitply sex_ratio and maturity for 1 sex models
-      }
-    }
-
-    // Sex ratio at recruitment (1-sex model gets all R)
-    if(nsex(sp)  == 1){
-      sex_ratio(sp, 0) = 1.0;
-    }
-  }
-
-
-  // 5.4. DATA VARIANCE TERMS
+  // 5.1. DATA VARIANCE TERMS
   R_sd = exp(R_ln_sd); // Convert log sd to natural scale
   sel_dev_sd = exp(sel_dev_ln_sd) ;
   index_q_sd = exp(index_q_ln_sd) ;
@@ -589,7 +571,7 @@ Type objective_function<Type>::operator() () {
   Cindex -=1; // Subtract 1 from Cindex to deal with indexing start at 0
 
 
-  // 5.5. SURVEY CONTROL SWITCHES
+  // 5.2. SURVEY CONTROL SWITCHES
   matrix<Type> flt_q(n_flt, nyrs_hind); flt_q.setZero();                        // Vector to save q on natural scale
   vector<int> flt_sel_ind(n_flt); flt_sel_ind.setZero();                        // Vector to store survey index
   vector<int> flt_type(n_flt); flt_type.setZero();                              // Index wether the data are included in the likelihood or not (0 = no, 1 = yes)
@@ -634,7 +616,7 @@ Type objective_function<Type>::operator() () {
   }
 
 
-  // 5.6. CATCHABILITY
+  // 5.3. CATCHABILITY
   for(flt = 0; flt < n_flt; flt++){
     for(yr = 0; yr < nyrs_hind; yr++){
       index_q(flt, yr) = exp(index_ln_q(flt) + index_q_dev(flt, yr));                 // Exponentiate
@@ -659,8 +641,22 @@ Type objective_function<Type>::operator() () {
   matrix<int> k_sexes(diet_obs.rows(), 2); k_sexes.setZero();
 
 
-  // 5.7. SELECTIVITY
-  // -- 5.7.1 EMPIRICAL SELECTIVITY
+  // 5.4. MATURITY AND SEX RATIO
+  // -- for SSB derivation, not SPR
+  matrix<Type> mature_females = maturity;
+  for( sp = 0; sp < nspp ; sp++) {
+
+    // Sex ratio for SSB derivation
+    for( age = 0 ; age < nages(sp); age++ ) {
+      if(nsex(sp) == 1){
+        mature_females( sp, age ) = maturity( sp, age ) * sex_ratio(sp, age); // Multiply sex_ratio and maturity for 1 sex models
+      }
+    }
+  }
+
+
+  // 5.5. SELECTIVITY
+  // -- 5.5.1 EMPIRICAL SELECTIVITY
   sel.setZero();
   for(int sel_ind = 0; sel_ind < emp_sel_obs.rows(); sel_ind++){
 
@@ -698,7 +694,7 @@ Type objective_function<Type>::operator() () {
   }
 
 
-  // -- 5.7.2 ESTIMATED SELECTIVITY
+  // -- 5.5.2 ESTIMATED SELECTIVITY
   avg_sel.setZero();
   non_par_sel.setZero();
   Type max_sel = 0;
@@ -712,7 +708,7 @@ Type objective_function<Type>::operator() () {
 
     switch(sel_type){
 
-    case 1:  // 6.1.1. Logisitic selectivity
+    case 1:  // Logisitic selectivity
       for(age = 0; age < nages(sp); age++){
         for(yr = 0; yr < nyrs_hind; yr++) {
           for(sex = 0; sex < nsex(sp); sex++){
@@ -725,7 +721,7 @@ Type objective_function<Type>::operator() () {
       break;
 
 
-    case 2:  // 6.1.2. Non-parametric selectivity fit to age ranges (Ianelli 20??). NOTE: This can likely be improved
+    case 2:  //  Non-parametric selectivity fit to age ranges (Ianelli 20??). NOTE: This can likely be improved
       for(sex = 0; sex < nsex(sp); sex++){
         for(age = 0; age < nselages; age++) {
           non_par_sel(flt, sex, age) = sel_coff(flt, sex, age);
@@ -764,7 +760,7 @@ Type objective_function<Type>::operator() () {
       break;
 
 
-    case 3: // 6.1.3. Double logistic (Dorn and Methot 1990)
+    case 3: // Double logistic (Dorn and Methot 1990)
       for(age = 0; age < nages(sp); age++){
         for(yr = 0; yr < nyrs_hind; yr++) {
           for(sex = 0; sex < nsex(sp); sex++){
@@ -778,7 +774,7 @@ Type objective_function<Type>::operator() () {
       break;
 
 
-    case 4: // 6.1.4. Descending logistic (Dorn and Methot 1990)
+    case 4: // Descending logistic (Dorn and Methot 1990)
       for(age = 0; age < nages(sp); age++){
         for(yr = 0; yr < nyrs_hind; yr++) {
           for(sex = 0; sex < nsex(sp); sex++){
@@ -791,7 +787,7 @@ Type objective_function<Type>::operator() () {
       break;
 
 
-    case 5: // 6.1.5. Non-parametric selectivity fit to age ranges. Hake version (Taylor et al 2014)
+    case 5: // Non-parametric selectivity fit to age ranges. Hake version (Taylor et al 2014)
       // -- For each age, sum coefficients from first age selected to age
       // -- Setzero
       for(yr = 0; yr < nyrs_hind; yr++) {
@@ -856,7 +852,7 @@ Type objective_function<Type>::operator() () {
     } // End selectivity switch
 
 
-    // 6.1.6. Normalize and account for unselected ages
+    // Normalize and account for unselected ages
     if(sel_type > 0) {
 
 
@@ -1081,7 +1077,7 @@ Type objective_function<Type>::operator() () {
         NbyageSPR(0, sp, age) =  NbyageSPR(0, sp, age-1) * exp(-M_at_age(sp, 0, age-1, nyrs_hind - 1));
         NbyageSPR(1, sp, age) =  NbyageSPR(1, sp, age-1) * exp(-(M_at_age(sp, 0, age-1, nyrs_hind - 1) + Flimit_age_spp(sp, 0, age-1, nyrs_hind - 1))); //FIXME: time-vary sel in the forecast
         NbyageSPR(2, sp, age) =  NbyageSPR(2, sp, age-1) * exp(-(M_at_age(sp, 0, age-1, nyrs_hind - 1) + Ftarget_age_spp(sp, 0, age-1, nyrs_hind - 1)));
-        NbyageSPR(3, sp, age) =  NbyageSPR(3, sp, age-1) * exp(-(M1_at_age(sp, 0, age-1, nyrs_hind - 1) + Finit(sp)));
+        NbyageSPR(3, sp, age) =  NbyageSPR(3, sp, age-1) * exp(-(M_at_age(sp, 0, age-1, 0) + Finit(sp)));
 
       }
 
@@ -1089,14 +1085,15 @@ Type objective_function<Type>::operator() () {
       NbyageSPR(0, sp, nages(sp) - 1) = NbyageSPR(0, sp, nages(sp) - 2) * exp(-M_at_age(sp, 0, nages(sp) - 2, nyrs_hind - 1)) / (1 - exp(-M_at_age(sp, 0, nages(sp) - 1, nyrs_hind - 1)));
       NbyageSPR(1, sp, nages(sp) - 1) = NbyageSPR(1, sp, nages(sp) - 2) * exp(-(M_at_age(sp, 0,  nages(sp) - 2, nyrs_hind - 1) + Flimit_age_spp(sp, 0,  nages(sp) - 2, nyrs_hind - 1))) / (1 - exp(-(M_at_age(sp, 0,  nages(sp) - 1, nyrs_hind - 1) + Flimit_age_spp(sp, 0,  nages(sp) - 1, nyrs_hind - 1))));
       NbyageSPR(2, sp, nages(sp) - 1) = NbyageSPR(2, sp, nages(sp) - 2) * exp(-(M_at_age(sp, 0,  nages(sp) - 2, nyrs_hind - 1) + Ftarget_age_spp(sp, 0,  nages(sp) - 2, nyrs_hind - 1))) / (1 - exp(-(M_at_age(sp, 0,  nages(sp) - 1, nyrs_hind - 1) + Ftarget_age_spp(sp, 0,  nages(sp) - 1, nyrs_hind - 1))));
-      NbyageSPR(3, sp, nages(sp) - 1) = NbyageSPR(3, sp, nages(sp) - 2) * exp(-(M1_at_age(sp, 0,  nages(sp) - 2, nyrs_hind - 1) + Finit(sp))) / (1 - exp(-(M1_at_age(sp, 0,  nages(sp) - 1, nyrs_hind - 1) + Finit(sp))));
+      NbyageSPR(3, sp, nages(sp) - 1) = NbyageSPR(3, sp, nages(sp) - 2) * exp(-(M_at_age(sp, 0,  nages(sp) - 2, 0) + Finit(sp))) / (1 - exp(-(M_at_age(sp, 0,  nages(sp) - 1, 0) + Finit(sp))));
 
-      // Calulcate SPR
+      // Calculate SPR
+      //FIXME: use estimated sex_ratio for two-sex models?
       for(age = 0; age < nages(sp); age++) {
-        SPR0(sp) +=  NbyageSPR(0, sp, age) *  weight( ssb_wt_index(sp), 0, age, (nyrs_hind - 1) ) * mature_females(sp, age) * exp(-M_at_age(sp, 0,  age, nyrs_hind - 1) * spawn_month(sp)/12.0);
-        SPRlimit(sp) +=  NbyageSPR(1, sp, age) *  weight( ssb_wt_index(sp), 0, age, (nyrs_hind - 1) ) * mature_females(sp, age) * exp(-(M_at_age(sp, 0,  age, nyrs_hind - 1) + Flimit_age_spp(sp, 0,  age, nyrs_hind - 1)) * spawn_month(sp)/12.0);
-        SPRtarget(sp) +=  NbyageSPR(2, sp, age) *  weight( ssb_wt_index(sp), 0, age, (nyrs_hind - 1) ) * mature_females(sp, age) * exp(-(M_at_age(sp, 0,  age, nyrs_hind - 1) + Ftarget_age_spp(sp, 0,  age, nyrs_hind - 1)) * spawn_month(sp)/12.0);
-        SPRFinit(sp) +=  NbyageSPR(3, sp, age) *  weight( ssb_wt_index(sp), 0, age, 0) * mature_females(sp, age) * exp(-(M1_at_age(sp, 0,  age, nyrs_hind - 1) + Finit(sp)) * spawn_month(sp)/12.0);
+        SPR0(sp) +=  NbyageSPR(0, sp, age) *  weight( ssb_wt_index(sp), 0, age, (nyrs_hind - 1) ) * maturity( sp, age ) * sex_ratio(sp, age) * exp(-M_at_age(sp, 0,  age, nyrs_hind - 1) * spawn_month(sp)/12.0);
+        SPRlimit(sp) +=  NbyageSPR(1, sp, age) *  weight( ssb_wt_index(sp), 0, age, (nyrs_hind - 1) ) * maturity( sp, age ) * sex_ratio(sp, age) * exp(-(M_at_age(sp, 0,  age, nyrs_hind - 1) + Flimit_age_spp(sp, 0,  age, nyrs_hind - 1)) * spawn_month(sp)/12.0);
+        SPRtarget(sp) +=  NbyageSPR(2, sp, age) *  weight( ssb_wt_index(sp), 0, age, (nyrs_hind - 1) ) * maturity( sp, age ) * sex_ratio(sp, age) * exp(-(M_at_age(sp, 0,  age, nyrs_hind - 1) + Ftarget_age_spp(sp, 0,  age, nyrs_hind - 1)) * spawn_month(sp)/12.0);
+        SPRFinit(sp) +=  NbyageSPR(3, sp, age) *  weight( ssb_wt_index(sp), 0, age, 0) * maturity( sp, age ) * sex_ratio(sp, age) * exp(-(M_at_age(sp, 0,  age, 0) + Finit(sp)) * spawn_month(sp)/12.0);
       }
     }
 
@@ -1184,6 +1181,12 @@ Type objective_function<Type>::operator() () {
     ssb.setZero();
     // ssb_at_age.setZero();
     for(sp = 0; sp < nspp; sp++) {
+
+      // Sex ratio at recruitment (1-sex model gets all R)
+      if(nsex(sp)  == 1){
+        sex_ratio(sp, 0) = 1.0;
+      }
+
       for(age = 0; age < nages(sp); age++){
         for(sex = 0; sex < nsex(sp); sex ++){
 
@@ -3984,7 +3987,7 @@ Type objective_function<Type>::operator() () {
   REPORT( biomass );
   REPORT( ssb );
   REPORT( exploitable_biomass );
-  //REPORT(R_sd);
+  REPORT(R_sd);
   REPORT( R0 );
   REPORT( R_init );
   REPORT( R );
@@ -4001,7 +4004,7 @@ Type objective_function<Type>::operator() () {
   matrix<Type>  log_ssb = ssb;  log_ssb = log(ssb.array());// Fixed n-at-age scaling coefficient
   REPORT( log_ssb );
   ADREPORT( log_ssb );
-  // ADREPORT( R_sd );
+  ADREPORT( R_sd );
   ADREPORT( R );
 
 
@@ -4010,7 +4013,7 @@ Type objective_function<Type>::operator() () {
   REPORT( NByage0);
   //REPORT( DynamicNByage0);
   //REPORT( DynamicNByageF);
-  //REPORT( NbyageSPR);
+  REPORT( NbyageSPR);
   REPORT( B0 );
   REPORT( SB0 );
   REPORT( SBF );
