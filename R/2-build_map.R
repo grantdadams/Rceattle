@@ -160,13 +160,15 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
     # - M1_model = 4: environmentally driven sex- and age-invariant M1
     if(data_list$M1_model[sp] == 4){
       # Mean M
-      map_list$ln_M1[sp,,1:data_list$nages[sp]] <- M1_ind
+      map_list$ln_M1[sp,,1:data_list$nages[sp]] <- M1_ind # Females and Males
       M1_ind = M1_ind + 1
 
       # - Betas
       map_list$M1_beta[sp,1,data_list$M1_indices] <- M1_beta_ind + data_list$M1_indices
-      map_list$M1_beta[sp,2,] <- map_list$M1_beta[sp,1,]
-      M1_beta_ind = M1_beta_ind + dim(map_list$M1_beta[3])
+      if(data_list$nsex[sp] == 2){ # Males share M1 betas
+        map_list$M1_beta[sp,2,] <- map_list$M1_beta[sp,1,]
+      }
+      M1_beta_ind = M1_beta_ind + dim(map_list$M1_beta)[3]
     }
 
     # - M1_model = 5: environmentally driven sex-specific, but age-invariant M1
@@ -178,8 +180,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
         # - Betas
         map_list$M1_beta[sp,1,data_list$M1_indices] <- M1_beta_ind + data_list$M1_indices
-        map_list$M1_beta[sp,2,] <- map_list$M1_beta[sp,1,]
-        M1_beta_ind = M1_beta_ind + dim(map_list$M1_beta[3])
+        M1_beta_ind = M1_beta_ind + dim(map_list$M1_beta)[3]
       }
       if(data_list$nsex[sp] == 2){ # Two sex population
         # - Mean M
@@ -190,11 +191,11 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
         # - Betas
         # -- Females
         map_list$M1_beta[sp,1,data_list$M1_indices] <- M1_beta_ind + data_list$M1_indices;
-        M1_beta_ind = M1_beta_ind + dim(map_list$M1_beta[3])
+        M1_beta_ind = M1_beta_ind + dim(map_list$M1_beta)[3]
 
         # -- Males
         map_list$M1_beta[sp,2,data_list$M1_indices] <- M1_beta_ind + data_list$M1_indices;
-        M1_beta_ind = M1_beta_ind + dim(map_list$M1_beta[3])
+        M1_beta_ind = M1_beta_ind + dim(map_list$M1_beta)[3]
       }
     }
 
