@@ -77,17 +77,6 @@ plot_biomass(Rceattle = mod_list, model_names = mod_names)
 plot_depletionSSB(Rceattle = mod_list, model_names = mod_names)
 plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE)
 
-# Plot mortality and predation
-plot_b_eaten(Rceattle = mod_list, model_names = mod_names) # Biomass eaten as prey
-plot_b_eaten_prop(Rceattle = mod_list, model_names = mod_names) # Biomass eaten as prey by each predator
-plot_mortality(Rceattle = ms_run, type = 3) # Mortality-at-age time series
-
-# Run diagnostics
-plot_selectivity(Rceattle = ms_run)
-plot_comp(ms_run) # Fitted survey composition data
-plot_index(ms_run) # Fitted indices of abundance
-plot_catch(ms_run) # Fitted catch series
-
 #####################################################################
 # FIX SUITABILITY AND SUM across prey ages (NEW PART)
 # Create initial parameter list:
@@ -145,37 +134,6 @@ run_ms_LN <- Rceattle::fit_mod(data_list = test_data,
 run_ms_LN$quantities$jnll_comp
 run_ms_LN$data_list$Diet_weights_mcallister # Three values
 run_ms_LN$quantities$vulnerability #Now it is 0.31 for all spss
-
-
-################################################
-# Plotting
-################################################
-# We can plot all runs
-mod_list <- list(ss_run, ss_run_M, ms_run, run_ms_LN)
-mod_names <- c("Single-species", "Single-species estimate M", "Multi-species", "Multi-species_LN")
-
-# Plot biomass trajectory
-plot_biomass(Rceattle = mod_list, model_names = mod_names)
-plot_depletionSSB(Rceattle = mod_list, model_names = mod_names)
-plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE)
-
-# Plot mortality and predation
-plot_b_eaten(Rceattle = mod_list, model_names = mod_names) # Biomass eaten as prey
-plot_b_eaten_prop(Rceattle = mod_list, model_names = mod_names) # Biomass eaten as prey by each predator
-#plot_mortality(Rceattle = ms_run, type = 3) # Mortality-at-age time series
-#plot_mortality(Rceattle = run_ms_LN, type = 3) # Mortality-at-age time series
-
-# Run diagnostics
-plot_selectivity(Rceattle = ms_run)
-plot_comp(ms_run) # Fitted survey composition data
-plot_index(ms_run) # Fitted indices of abundance
-plot_catch(ms_run) # Fitted catch series
-
-#compared to New approach
-plot_selectivity(Rceattle = run_ms_LN)
-plot_comp(run_ms_LN) # Fitted survey composition data
-plot_index(run_ms_LN) # Fitted indices of abundance
-plot_catch(run_ms_LN) # Fitted catch series
 
 ## MODEL RE-Weigthing
 # Access the calculated weights
