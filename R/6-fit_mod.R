@@ -298,11 +298,6 @@ fit_mod <-
     } else{
       start_par <- inits
 
-      # - Adjust environmental index parameters
-      if(ncol(start_par$beta_rec_pars) != length(data_list$srr_indices)){
-        start_par$beta_rec_pars <- matrix(0, nrow = data_list$nspp, ncol = length(data_list$srr_indices))
-      }
-
       # - Set F for years with 0 catch to very low number
       zero_catch <- data_list$catch_data %>%
         dplyr::filter(Year <= data_list$endyr &
@@ -796,7 +791,9 @@ fit_mod <-
     }
 
     # Free up memory
-    TMB::FreeADFun(obj)
+    if(estimateMode %in% 0:1){
+      TMB::FreeADFun(obj) # Free memory if estimated
+    }
 
     return(mod_objects)
   }
