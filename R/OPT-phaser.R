@@ -70,12 +70,19 @@ TMBphase <- function(data, parameters, map, random, phases, model_name,
 #'
 set_phases <- function(){
   phaseList = list(
+
+    # DSEM
+    beta_z = 2,        # Variance for dsem
+    lnsigma_j = 2,     # dsem
+    mu_j = 2,          # dsem
+    delta0_j = 2,      # dsem
+    x_tj = 2,          # Annual dsem latent states
+
+    # CEATTLE
     dummy = 1,
     ln_pop_scalar = 4, # Scalar for input numbers-at-age
     rec_pars = 1,      # Stock-recruit parameters or log(mean rec) if no stock-recruit relationship
     beta_rec_pars = 3,
-    R_ln_sd = 2,       # Variance for annual recruitment deviats
-    rec_dev = 2,       # Annual recruitment deviats
     init_dev = 2,      # Age specific initial age-structure deviates or parameters
     # sex_ratio_ln_sd = 3, # Variance of sex ratio (usually fixed)
     ln_M1 = 4,         #  Estimated natural or residual mortality

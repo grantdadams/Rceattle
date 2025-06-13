@@ -49,13 +49,6 @@ build_params <- function(data_list) {
     print("Warnings: alpha was not initialized to `srr_prior` from `build_srr`")
   }
 
-  # - Rec devs
-  param_list$rec_dev = matrix(0, nrow = data_list$nspp, ncol = nyrs_proj,
-                              dimnames = list(data_list$spnames, yrs_proj))  # Annual recruitment deviation; n = [nspp, nyrs_hind]
-
-  param_list$R_ln_sd = log(as.numeric(data_list$sigma_rec_prior))  # Standard deviation of recruitment deviations; n = [1, nspp]
-  names(param_list$R_ln_sd) <- data_list$spnames
-
   # - Env regression parameters for recruitment
   param_list$beta_rec_pars <- array(0, dim = c(data_list$nspp, ncol(data_list$env_data) - 1),
                                     dimnames = list(data_list$spnames, colnames(data_list$env_data)[-1]))

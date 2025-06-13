@@ -1,4 +1,4 @@
-#' @rawNamespace useDynLib(Rceattle, .registration=TRUE); useDynLib(ceattle_v01_11)
+#' @rawNamespace useDynLib(Rceattle, .registration=TRUE); useDynLib(ceattle_v01_12)
 #' @keywords internal
 "_PACKAGE"
 
