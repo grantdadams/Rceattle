@@ -30,5 +30,5 @@ test_that("M1 input and output the same", {
                     suitMode = 0, # empirical suitability
                     verbose = 1)
 
-  testthat::expect_equal(as.numeric(ms_run$quantities$M1[1,1,1:12]), as.numeric(ms_run$data_list$M1_base[1, 3:(12+2)]))
+  testthat::expect_equal(as.numeric(ms_run$quantities$M1_at_age[1,1,1:12,1]), as.numeric(ms_run$data_list$M1_base[1, 3:(12+2)]))
 })
