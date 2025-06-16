@@ -318,18 +318,19 @@ fit_mod <-
     # 2: DSEM ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # - DSEM check
-    if(!is.null(data_list$sem) & !is.null(dsem$sem)){
-      if(data_list$sem != dsem$sem){
+    if(!is.null(data_list$dsem_settings$sem) & !is.null(dsem$sem)){
+      if(data_list$dsem_settings$sem != dsem$sem){
         warning("'sem' in data is different than in call `fit_mod`, using `sem` from 'fit_mod' if both `map` and `inits` not input")
       }
     }
 
     # If inits and map are provided, no need to run dsem
     if(is.null(inits) | is.null(map)){
+      data_list$dsem_settings <- dsem
       dsem_objects <- build_dsem_objects(dsem_settings = dsem,
                                          debug = estimateMode %in% c(2, 4), # Turn off dsem parameters if debugging or projection mode
                                          data_list = data_list)
-      data_list$sem <- dsem_objects$sem
+      data_list$dsem_settings$sem <- dsem_objects$sem # Will be rewritten if NULL
       #FIXME: add dsem_objects to mod_objects?
     }
 
@@ -504,7 +505,7 @@ fit_mod <-
         data = data_list_reorganized,
         parameters = start_par,
         map = map$mapFactor,
-        random = random_vars,
+        # random = random_vars, # No random vars if phasing
         phases = phaseList,
         model_name = TMBfilename,
         silent = verbose != 2,

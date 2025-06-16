@@ -167,6 +167,10 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
                            M_prior = em$data_list$M_prior,
                            M_prior_sd = em$data_list$M_prior_sd,
                            M1_indices = em$data_list$M1_indices),
+      dsem = build_DSEM(sem = em$data_list$dsem_settings$sem,
+                        family = em$data_list$dsem_settings$family,
+                        all_vars = em$data_list$dsem_settings$all_vars,
+                        estimate_projection = em$data_list$dsem_settings$estimate_projection),
       random_rec = em$data_list$random_rec,
       niter = em$data_list$niter,
       msmMode = em$data_list$msmMode,
@@ -220,6 +224,10 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
                                                    M_prior = em$data_list$M_prior,
                                                    M_prior_sd = em$data_list$M_prior_sd,
                                                    M1_indices = em$data_list$M1_indices),
+                              dsem = build_DSEM(sem = em$data_list$dsem_settings$sem,
+                                                family = em$data_list$dsem_settings$family,
+                                                all_vars = em$data_list$dsem_settings$all_vars,
+                                                estimate_projection = em$data_list$dsem_settings$estimate_projection),
                               random_rec = em$data_list$random_rec,
                               niter = em$data_list$niter,
                               msmMode = em$data_list$msmMode,
@@ -354,26 +362,26 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
       # -- OMs where SR curve is estimated directly
       if(om_use$data_list$srr_fun == om_use$data_list$srr_pred_fun){
         if(sample_rec){ # Sample devs from hindcast
-          rec_dev <- sample(x = om_use$estimated_params$rec_dev[sp, 1:hind_nyrs], size = om_proj_nyrs, replace = TRUE) + log((1+(rec_trend[sp]/om_proj_nyrs) * 1:om_proj_nyrs)) # - Scale mean rec for rec trend
+          x_tj <- sample(x = om_use$estimated_params$x_tj[sp, 1:hind_nyrs], size = om_proj_nyrs, replace = TRUE) + log((1+(rec_trend[sp]/om_proj_nyrs) * 1:om_proj_nyrs)) # - Scale mean rec for rec trend
         } else{ # Set to mean rec otherwise
-          rec_dev <- log(mean(om_use$quantities$R[sp,1:hind_nyrs]) * (1+(rec_trend[sp]/om_proj_nyrs) * 1:om_proj_nyrs))  - log(om_use$quantities$R0[sp]) # - Scale mean rec for rec trend
+          x_tj <- log(mean(om_use$quantities$R[sp,1:hind_nyrs]) * (1+(rec_trend[sp]/om_proj_nyrs) * 1:om_proj_nyrs))  - log(om_use$quantities$R0[sp]) # - Scale mean rec for rec trend
         }
       }
 
       # -- OMs where SR curve is estimated as penalty (sensu Ianelli)
       if(om_use$data_list$srr_fun != om_use$data_list$srr_pred_fun){
         if(sample_rec){ # Sample devs from hindcast
-          rec_dev <- sample(x = (log(om_use$quantities$R) - log(om_use$quantities$R_hat))[sp, 1:hind_nyrs],
+          x_tj <- sample(x = (log(om_use$quantities$R) - log(om_use$quantities$R_hat))[sp, 1:hind_nyrs],
                             size = om_proj_nyrs, replace = TRUE) + log((1+(rec_trend[sp]/om_proj_nyrs) * 1:om_proj_nyrs)) # - Scale mean rec for rec trend
         } else{ # Set to mean rec otherwise
-          rec_dev <- log(mean((log(om_use$quantities$R) - log(om_use$quantities$R_hat))[sp, 1:hind_nyrs]) * (1+(rec_trend[sp]/om_proj_nyrs) * 1:om_proj_nyrs)) # - Scale mean rec for rec trend
+          x_tj <- log(mean((log(om_use$quantities$R) - log(om_use$quantities$R_hat))[sp, 1:hind_nyrs]) * (1+(rec_trend[sp]/om_proj_nyrs) * 1:om_proj_nyrs)) # - Scale mean rec for rec trend
         }
       }
 
       # - Update OM with devs
-      om_use$estimated_params$rec_dev[sp,om_proj_yrs - om_use$data_list$styr + 1] <- replace(
-        om_use$estimated_params$rec_dev[sp,om_proj_yrs - om_use$data_list$styr + 1],
-        values =  rec_dev)
+      om_use$estimated_params$x_tj[sp,om_proj_yrs - om_use$data_list$styr + 1] <- replace(
+        om_use$estimated_params$x_tj[sp,om_proj_yrs - om_use$data_list$styr + 1],
+        values =  x_tj)
     }
 
 
@@ -549,6 +557,10 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
                              M_prior = om_use$data_list$M_prior,
                              M_prior_sd = om_use$data_list$M_prior_sd,
                              M1_indices = om_use$data_list$M1_indices),
+            dsem = build_DSEM(sem = om_use$data_list$dsem_settings$sem,
+                              family = om_use$data_list$dsem_settings$family,
+                              all_vars = om_use$data_list$dsem_settings$all_vars,
+                              estimate_projection = om_use$data_list$dsem_settings$estimate_projection),
             loopnum = loopnum,
             phase = FALSE,
             getsd = FALSE,
@@ -694,6 +706,10 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
                                  M_prior = em_use$data_list$M_prior,
                                  M_prior_sd = em_use$data_list$M_prior_sd,
                                  M1_indices = em_use$data_list$M1_indices),
+            dsem = build_DSEM(sem = em_use$data_list$dsem_settings$sem,
+                              family = em_use$data_list$dsem_settings$family,
+                              all_vars = em_use$data_list$dsem_settings$all_vars,
+                              estimate_projection = em_use$data_list$dsem_settings$estimate_projection),
             random_rec = em_use$data_list$random_rec,
             niter = em_use$data_list$niter,
             msmMode = em_use$data_list$msmMode,

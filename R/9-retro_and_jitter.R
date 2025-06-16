@@ -74,9 +74,6 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
 
     # * Adjust parameter size ----
     inits <- Rceattle$estimated_params
-
-    inits$rec_dev[, (nyrs + 1):nyrs_proj] <- 0
-
     inits$ln_F <- inits$ln_F[, 1:nyrs]
     inits$ln_M1_dev[,,,(nyrs+1):nyrs_proj] <- 0
     inits$index_q_dev <- inits$index_q_dev[,1:nyrs]
@@ -87,8 +84,11 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
     # * Adjust map size ----
     map <- Rceattle$map
 
-    map$mapList$rec_dev[, (nyrs + 1):nyrs_proj] <- NA
-    map$mapFactor$rec_dev <- factor(map$mapList$rec_dev)
+    if(data_list$dsem_settings$estimate_projection){
+      inits$x_tj[, (nyrs + 1):nyrs_proj] <- 0
+      map$mapList$x_tj[, (nyrs + 1):nyrs_proj] <- NA
+      map$mapFactor$x_tj <- factor(map$mapList$x_tj)
+    }
 
     map$mapList$ln_F <- map$mapList$ln_F[, 1:nyrs]
     map$mapFactor$ln_F <- factor(map$mapList$ln_F)
@@ -149,6 +149,10 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
                              M_prior = data_list$M_prior,
                              M_prior_sd = data_list$M_prior_sd,
                              M1_indices = data_list$M1_indices),
+        dsem = build_DSEM(sem = data_list$dsem_settings$sem,
+                          family = data_list$dsem_settings$family,
+                          all_vars = data_list$dsem_settings$all_vars,
+                          estimate_projection = data_list$dsem_settings$estimate_projection),
         random_rec = data_list$random_rec,
         niter = data_list$niter,
         msmMode = data_list$msmMode,
@@ -319,14 +323,18 @@ jitter <- function(Rceattle = NULL, njitter = 50, phase = FALSE, seed = 123) {
                                srr_prior_sd   = data_list$srr_prior_sd,
                                Bmsy_lim = data_list$Bmsy_lim,
                                srr_indices = data_list$srr_indices),
-            M1Fun =     build_M1(M1_model = data_list$M1_model,
-                                 M1_re = data_list$M1_re,
-                                 updateM1 = FALSE,  # Dont update M1 from data, fix at previous parameters
-                                 M1_use_prior = data_list$M1_use_prior,
-                                 M2_use_prior = data_list$M2_use_prior,
-                                 M_prior = data_list$M_prior,
-                                 M_prior_sd = data_list$M_prior_sd,
-                                 M1_indices = data_list$M1_indices),
+            M1Fun = build_M1(M1_model = data_list$M1_model,
+                             M1_re = data_list$M1_re,
+                             updateM1 = FALSE,  # Dont update M1 from data, fix at previous parameters
+                             M1_use_prior = data_list$M1_use_prior,
+                             M2_use_prior = data_list$M2_use_prior,
+                             M_prior = data_list$M_prior,
+                             M_prior_sd = data_list$M_prior_sd,
+                             M1_indices = data_list$M1_indices),
+            dsem = build_DSEM(sem = data_list$dsem_settings$sem,
+                              family = data_list$dsem_settings$family,
+                              all_vars = data_list$dsem_settings$all_vars,
+                              estimate_projection = data_list$dsem_settings$estimate_projection),
             random_rec = data_list$random_rec,
             niter = data_list$niter,
             msmMode = data_list$msmMode,

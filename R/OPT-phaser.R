@@ -20,6 +20,16 @@ TMBphase <- function(data, parameters, map, random, phases, model_name,
                      silent, use_gradient = TRUE,
                      control = list(eval.max = 1e+09, iter.max = 1e+09, trace = 0)) {
 
+# Turn off parameters of random effects distribution
+  map$beta_z <- factor(as.numeric(map$beta_z) * NA)
+  map$mu_j <- factor(as.numeric(map$mu_j) * NA)
+  map$lnsigma_j <- factor(as.numeric(map$lnsigma_j) * NA)
+  map$sel_dev_ln_sd <- factor(as.numeric(map$sel_dev_ln_sd) * NA)
+  map$index_q_dev_ln_sd <- factor(as.numeric(map$index_q_dev_ln_sd) * NA)
+  map$index_q_rho <- factor(as.numeric(map$index_q_rho) * NA)
+  map$M1_dev_ln_sd <- factor(as.numeric(map$M1_dev_ln_sd) * NA)
+  map$M1_rho <- factor(as.numeric(map$M1_rho) * NA)
+
   # function to fill list component with a factor
   fill_vals <- function(x,vals){rep(as.factor(vals), length(x))}
 
@@ -39,15 +49,12 @@ TMBphase <- function(data, parameters, map, random, phases, model_name,
       }
     }
 
-    # remove the random effects if they are not estimated
-    random_use <- random
-
     # initialize the parameters at values in previous phase
     params_use <- parameters
     if (phase_cur>1) params_use <- obj$env$parList(opt$par)
 
     # Fit the model
-    obj <- TMB::MakeADFun(data,parameters =  params_use,random=random_use,DLL=model_name,map=map_use, silent = silent)
+    obj <- TMB::MakeADFun(data,parameters =  params_use,DLL=model_name,map=map_use, silent = silent)
 
     if(use_gradient){
       opt <- nlminb(obj$par,obj$fn,obj$gr, control = control)
