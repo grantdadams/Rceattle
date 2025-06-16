@@ -171,7 +171,7 @@ test_that("test multiple M linkeages", {
 
 
 
-test_that("test single M, multiple M/sex linkeages, M linkage", {
+test_that("test single M, multiple M/sex linkeages, M both-sex linkage", {
   library(Rceattle)
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
 
