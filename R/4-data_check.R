@@ -197,6 +197,10 @@ data_check <- function(data_list) {
     stop("Pyrs data does not span range of ages")
   }
 
+  sex <- data_list$Pyrs %>%
+    dplyr::distinct(Species, Sex)
+
+
 
   # Age transition matrix ----
   if(any(data_list$age_trans_matrix %>%
@@ -257,38 +261,43 @@ data_check <- function(data_list) {
 
   # Diet data ----
   # - Pred age
-  Max_age = data_list$diet_data %>%
-    dplyr::group_by(Pred) %>%
-    dplyr::summarise(Max_age = max(Pred_age)) %>%
-    dplyr::arrange(Pred)
+  if(nrow(data_list$diet_data) > 0){
+    Max_age = data_list$diet_data %>%
+      dplyr::group_by(Pred) %>%
+      dplyr::summarise(Max_age = max(Pred_age)) %>%
+      dplyr::arrange(Pred)
 
-  if(any(Max_age$Max_age > data_list$nages)){
-    stop("Pred ages in 'diet_data' > 'nages'")
+    if(any(Max_age$Max_age > data_list$nages)){
+      stop("Pred ages in 'diet_data' > 'nages'")
+    }
+
+    if(sum(duplicated(data_list$diet_data)) > 0){
+      stop("Diet data includes duplicated rows")
+    }
+
+    # - Prey age
+    Max_age = data_list$diet_data %>%
+      dplyr::group_by(Prey) %>%
+      dplyr::summarise(Max_age = max(Prey_age)) %>%
+      dplyr::arrange(Prey)
+
+    if(any(Max_age$Max_age > data_list$nages)){
+      stop("Prey ages in 'diet_data' > 'nages'")
+    }
+
+    # - Stomach proportion > 1
+    diet_sum = data_list$diet_data %>%
+      dplyr::group_by(Pred, Pred_age, Pred_sex, Year) %>%
+      dplyr::summarise(diet_sum = sum(Stomach_proportion_by_weight))
+
+    if(any(diet_sum$diet_sum > 1)){
+      stop("Stomach proportion in `diet_data` for some predators-at-age/sex/year is > 1")
+    }
+  } else {
+    if(data_list$msmMode > 0){
+      stop("No diet data included")
+    }
   }
-
-  if(sum(duplicated(data_list$diet_data)) > 0){
-    stop("Diet data includes duplicated rows")
-  }
-
-  # - Prey age
-  Max_age = data_list$diet_data %>%
-    dplyr::group_by(Prey) %>%
-    dplyr::summarise(Max_age = max(Prey_age)) %>%
-    dplyr::arrange(Prey)
-
-  if(any(Max_age$Max_age > data_list$nages)){
-    stop("Prey ages in 'diet_data' > 'nages'")
-  }
-
-  # - Stomach proportion > 1
-  diet_sum = data_list$diet_data %>%
-    dplyr::group_by(Pred, Pred_age, Pred_sex, Year) %>%
-    dplyr::summarise(diet_sum = sum(Stomach_proportion_by_weight))
-
-  if(any(diet_sum$diet_sum > 1)){
-    stop("Stomach proportion in `diet_data` for some predators-at-age/sex/year is > 1")
-  }
-
 
   # Sexes ----
   m1_sex <- data_list$M1_base %>%
@@ -307,6 +316,16 @@ data_check <- function(data_list) {
 
   if(any(wt_sex$max_sex > data_list$nsex)){
     stop("'weight' has more sexes than specified in 'nsex'")
+  }
+
+
+  pyrs_sex <- data_list$Pyrs %>%
+    dplyr::group_by(Species) %>%
+    dplyr::summarise(max_sex = max(Sex)) %>%
+    dplyr::arrange(Species)
+
+  if(any(pyrs_sex$max_sex > data_list$nsex)){
+    stop("'Pyrs' has more sexes than specified in 'nsex'")
   }
 
   # Environmental data----
