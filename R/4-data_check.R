@@ -65,7 +65,7 @@ clean_data <- function(data_list){
 }
 
 
-#' Function to check data for errors
+#' Function to check data for errors and update formatting where necessary
 #'
 #' @param data_list Rceattle data list
 #'
@@ -383,6 +383,17 @@ switch_check <- function(data_list){
   if(is.null(data_list$fleet_control$Sel_curve_pen2)){
     data_list$fleet_control$Sel_curve_pen2 <- 0
     print("'Sel_curve_pen2' not specified in 'fleet_control', assuming '0'")
+  }
+
+  if(any(data_list$fleet_control$Selectivity == 2 & !is.na(data_list$fleet_control$Time_varying_sel) & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)))){
+    data_list$fleet_control <- data_list$fleet_control %>%
+      dplyr::mutate(Sel_curve_pen1 = ifelse(Selectivity == 2 & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)), Time_varying_sel, NA),
+                    Sel_curve_pen2 = ifelse(Selectivity == 2 & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)), Sel_sd_prior, NA),
+                    Time_varying_sel = ifelse(Selectivity == 2 & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)), 0, Time_varying_sel),
+                    Sel_sd_prior = ifelse(Selectivity == 2 & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)), 0, Sel_sd_prior)
+
+      )
+    print("Updating format where 'Selectivity == 2'. Moving non-parametric penalties to 'Sel_curve_pen1' and 'Sel_curve_pen2'.")
   }
 
   # Comp weights
