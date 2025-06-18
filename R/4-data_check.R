@@ -374,6 +374,17 @@ switch_check <- function(data_list){
     print("'Age_max_selected_upper' not specified in 'fleet_control', assuming 'NA'")
   }
 
+  # Sel curve penalties
+  if(is.null(data_list$fleet_control$Sel_curve_pen1)){
+    data_list$fleet_control$Sel_curve_pen1 <- 0
+    print("'Sel_curve_pen1' not specified in 'fleet_control', assuming '0'")
+  }
+
+  if(is.null(data_list$fleet_control$Sel_curve_pen2)){
+    data_list$fleet_control$Sel_curve_pen2 <- 0
+    print("'Sel_curve_pen2' not specified in 'fleet_control', assuming '0'")
+  }
+
   # Comp weights
   if(is.null(data_list$fleet_control$Comp_loglike)){
     data_list$fleet_control$Comp_loglike <- -1

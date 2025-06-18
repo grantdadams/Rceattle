@@ -475,7 +475,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
     for (i in 1:nrow(data_list$fleet_control)) {
       flt = data_list$fleet_control$Fleet_code[i]
       # - Logisitc, Double Logistic, Descending Logistic, and Hake Non-parametric
-      if (data_list$fleet_control$Selectivity[i] %in% c(1,3,4,5) & data_list$fleet_control$Time_varying_sel[i] %in% c(1,2,4,5)) {
+      if (data_list$fleet_control$Selectivity[i] %in% c(1,2,3,4,5) & data_list$fleet_control$Time_varying_sel[i] %in% c(1,2,4,5)) {
         map_list$sel_dev_ln_sd[flt] <- flt
       }
     }
@@ -573,10 +573,15 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
         for(sex in 1:nsex){
           map_list$sel_coff[flt, sex, ages_on] <- ind_coff + ages_on; ind_coff = ind_coff + max(ages_on)
 
-          # --time-varying deviates
+          # -- Time-varying deviates
           if(data_list$fleet_control$Time_varying_sel[i] == 1){
             map_list$sel_coff_dev[flt,sex, ages_on, yrs_hind] <- ind_dev_coff + 1:(length(ages_on) * length(yrs_hind))
             ind_dev_coff = ind_dev_coff + (length(ages_on) * length(yrs_hind))
+          }
+
+          # Switch check
+          if(!data_list$fleet_control$Time_varying_sel[i] %in% 0:1){
+            stop(paste0("'Time_varying_sel' for fleet ", i, "with non-parametric selectivity is not 0 or 1"))
           }
         }
       }
