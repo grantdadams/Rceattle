@@ -3472,7 +3472,7 @@ Type objective_function<Type>::operator() () {
       if(flt_sel_type(flt) == 2) {
 
         // If time-invariant selectivity
-        int nyrs_tmp = 0;
+        int nyrs_tmp = 1;
 
         // If time-varying selectivity
         if(flt_varying_sel(flt) == 1){

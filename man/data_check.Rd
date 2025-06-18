@@ -2,7 +2,7 @@
 % Please edit documentation in R/4-data_check.R
 \name{data_check}
 \alias{data_check}
-\title{Function to check data for errors}
+\title{Function to check data for errors and update formatting where necessary}
 \usage{
 data_check(data_list)
 }
@@ -10,5 +10,5 @@ data_check(data_list)
 \item{data_list}{Rceattle data list}
 }
 \description{
-Function to check data for errors
+Function to check data for errors and update formatting where necessary
 }
