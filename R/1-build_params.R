@@ -199,7 +199,7 @@ build_params <- function(data_list) {
                                dimnames = list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Age", 1:max_sel_ages)))
 
   # - Non-parametric selectivity penalties (sensu Ianelli)
-  param_list$sel_curve_pen = matrix( c(data_list$fleet_control$Time_varying_sel, data_list$fleet_control$Sel_sd_prior), nrow = n_selectivities, ncol = 2)
+  param_list$sel_curve_pen = matrix( c(data_list$fleet_control$Sel_curve_pen1, data_list$fleet_control$Sel_curve_pen2), nrow = n_selectivities, ncol = 2)
 
   # - Non-parametric selectivity coef annual deviates
   param_list$sel_coff_dev = array(0, dim = c(n_selectivities, max_sex, max(1, as.numeric(c(data_list$fleet_control$Nselages) ), na.rm = T), nyrs_hind),
