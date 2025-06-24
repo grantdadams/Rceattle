@@ -437,7 +437,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 4.3. Selectivity parameters
   array<Type>   sel(n_flt, max_sex, max_age, nyrs); sel.setZero();                  // Estimated selectivity at age
-  array<Type>   avg_sel(n_flt, max_sex, nyrs); avg_sel.setZero();                   // Average selectivity for non-parametric up to nselages
+  array<Type>   avg_sel(n_flt, max_sex, nyrs_hind); avg_sel.setZero();              // Average selectivity for non-parametric up to nselages
   array<Type>   non_par_sel(n_flt, max_sex, max_age, nyrs); non_par_sel.setZero();  // Estimated selectivity at age for AMAK non-parametric (pre-normalization)
   vector<Type>  sel_dev_sd(n_flt); sel_dev_sd.setZero();                            // Standard deviation of selectivity deviates
 
@@ -862,53 +862,56 @@ Type objective_function<Type>::operator() () {
         }
       }
 
+      // Normalize selectivity
+      if(!(flt_sel_maxage(flt) == -minage(flt_spp(flt)))){
 
-      // Normalize by selectivity by specific age
-      if((flt_sel_maxage(flt) >= 0) & (sel_type < 5)) {
-        for(yr = 0; yr < nyrs_hind; yr++) {
-          for(sex = 0; sex < nsex(sp); sex++){
+        // 1. Normalize by selectivity by specific age
+        if((flt_sel_maxage(flt) >= 0) & (sel_type < 5)) {
+          for(yr = 0; yr < nyrs_hind; yr++) {
+            for(sex = 0; sex < nsex(sp); sex++){
 
-            // Single-normalization age
-            if((flt_sel_maxage(flt) >= 0) & (flt_sel_maxage_upper(flt) < 0)){
-              max_sel = 0.001;
-              max_sel = max2(max_sel, sel(flt, sex, flt_sel_maxage(flt), yr)); // Get max sel by sex/year (split or otherwise, divides by 1 for ages > maxselage)
-            }
-
-            // Normalize by age rage between max lower and max upper
-            if((flt_sel_maxage(flt) >= 0) & (flt_sel_maxage_upper(flt) >= 0)){
-              max_sel = 0;
-              for(age = flt_sel_maxage(flt); age <= flt_sel_maxage_upper(flt); age++) {
-                max_sel += sel(flt, sex, age, yr)/(flt_sel_maxage_upper(flt) - flt_sel_maxage(flt) + 1);
+              // Single-normalization age
+              if((flt_sel_maxage(flt) >= 0) & (flt_sel_maxage_upper(flt) < 0)){
+                max_sel = 0.001;
+                max_sel = max2(max_sel, sel(flt, sex, flt_sel_maxage(flt), yr)); // Get max sel by sex/year (split or otherwise, divides by 1 for ages > maxselage)
               }
-            }
 
-            // Normalize by max
-            for(age = 0; age < nages(sp); age++){
-              sel(flt, sex, age, yr) /= max_sel;
+              // Normalize by age rage between max lower and max upper
+              if((flt_sel_maxage(flt) >= 0) & (flt_sel_maxage_upper(flt) >= 0)){
+                max_sel = 0;
+                for(age = flt_sel_maxage(flt); age <= flt_sel_maxage_upper(flt); age++) {
+                  max_sel += sel(flt, sex, age, yr)/(flt_sel_maxage_upper(flt) - flt_sel_maxage(flt) + 1);
+                }
+              }
+
+              // Normalize
+              for(age = 0; age < nages(sp); age++){
+                sel(flt, sex, age, yr) /= max_sel;
+              }
             }
           }
         }
-      }
 
-      // Find max for each fishery and year across ages, and sexes
-      if((sel_type < 5) & (flt_sel_maxage(flt) < 0)) {
-        for(yr = 0; yr < nyrs_hind; yr++) {
-          max_sel = 0;
-          for(age = 0; age < nages(sp); age++){
-            for(sex = 0; sex < nsex(sp); sex++){
+        // 2. Normalize by max for each fishery and year across ages, and sexes
+        if((sel_type < 5) & (flt_sel_maxage(flt) < 0)) {
+          for(yr = 0; yr < nyrs_hind; yr++) {
+            max_sel = 0;
+            for(age = 0; age < nages(sp); age++){
+              for(sex = 0; sex < nsex(sp); sex++){
 
 
-              // Normalize by max
-              if(sel(flt, sex, age, yr) > max_sel){
-                max_sel = sel(flt, sex, age, yr);
+                // Find max
+                if(sel(flt, sex, age, yr) > max_sel){
+                  max_sel = sel(flt, sex, age, yr);
+                }
               }
             }
-          }
 
-          // Normalize selectivity
-          for(age = 0; age < nages(sp); age++){
-            for(sex = 0; sex < nsex(sp); sex++){
-              sel(flt, sex, age, yr) /= max_sel;
+            // Normalize selectivity
+            for(age = 0; age < nages(sp); age++){
+              for(sex = 0; sex < nsex(sp); sex++){
+                sel(flt, sex, age, yr) /= max_sel;
+              }
             }
           }
         }
@@ -3482,9 +3485,10 @@ Type objective_function<Type>::operator() () {
         for(yr = 0; yr < nyrs_tmp; yr++){
 
           // 1. Decreasing selectivity penalty
+          // FIXME: AMAK starts at nages/2
           for(sex = 0; sex < nsex(sp); sex++){
             for(age = 0; age < (nages(sp) - 1); age++) {
-              Type sel_ratio_tmp = log(non_par_sel(flt, sex, age, yr) / non_par_sel(flt, sex, age + 1, yr) );
+              Type sel_ratio_tmp = log(non_par_sel(flt, sex, age, yr) / non_par_sel(flt, sex, age + 1, yr) ); // Positive if decreasing
               jnll_comp(3, flt) += sel_curve_pen(flt, 0) * square( (CppAD::abs(sel_ratio_tmp) + sel_ratio_tmp)/2.0);
             }
           }
@@ -3506,12 +3510,16 @@ Type objective_function<Type>::operator() () {
 
           // 3. Time-varying penalty
           if(yr > 0){
-            jnll_comp(3, flt) -= dnorm(log( non_par_sel(flt, sex, age, yr)), log( non_par_sel(flt, sex, age, yr - 1)), sel_dev_sd(flt), true);
+            for(sex = 0; sex < nsex(sp); sex++){
+              for(age = 0; age < (nages(sp) - 1); age++) {
+                jnll_comp(4, flt) -= dnorm(log( non_par_sel(flt, sex, age, yr)), log( non_par_sel(flt, sex, age, yr - 1)), sel_dev_sd(flt), true);
+              }
+            }
           }
 
           // 4. Survey selectivity normalization (non-parametric)
           for(sex = 0; sex < nsex(sp); sex++){
-            jnll_comp(3, flt) += 1.0 * square(avg_sel(flt, sex, yr));
+            jnll_comp(3, flt) += 2.0 * square(avg_sel(flt, sex, yr));
           }
         }
       }
@@ -4049,6 +4057,7 @@ Type objective_function<Type>::operator() () {
   REPORT( sel );
   /*
    REPORT( avg_sel );
+   REPORT( non_par_sel );
    REPORT( emp_sel_obs );
    REPORT( sel_tmp );
    REPORT( sel_dev_sd );
@@ -4148,6 +4157,7 @@ Type objective_function<Type>::operator() () {
    REPORT( ration_hat );
    REPORT( ration_hat_ave );
    */
+  REPORT(flt_sel_maxage)
 
 
   // ------------------------------------------------------------------------- //
