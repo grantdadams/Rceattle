@@ -396,6 +396,15 @@ switch_check <- function(data_list){
     print("Updating format where 'Selectivity == 2'. Moving non-parametric penalties to 'Sel_curve_pen1' and 'Sel_curve_pen2'.")
   }
 
+
+  if(any(data_list$fleet_control$Selectivity == 2 & is.na(data_list$fleet_control$Sel_curve_pen1))){
+    stop("'Sel_curve_pen1' is NA in 'fleet_control' for fleet with non-parametric selectivity ('Selectivity = 2')")
+  }
+
+  if(any(data_list$fleet_control$Selectivity == 2 & is.na(data_list$fleet_control$Sel_curve_pen2))){
+    stop("'Sel_curve_pen2' is NA in 'fleet_control' for fleet with non-parametric selectivity ('Selectivity = 2')")
+  }
+
   # Comp weights
   if(is.null(data_list$fleet_control$Comp_loglike)){
     data_list$fleet_control$Comp_loglike <- -1
