@@ -13,3 +13,5 @@ inst/doc
 *.so
 src/TMB/ceattle_v01_11.dll
 .Rhistory
+.Rhistory
+src/.DS_Store
