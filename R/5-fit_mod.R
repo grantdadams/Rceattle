@@ -14,7 +14,7 @@
 #' @param niter Number of iterations for multispecies model
 #' @param recFun The stock recruit-relationship parameterization from \code{\link{build_srr}}.
 #' @param M1Fun M1 parameterizations and priors. Use \code{build_M1}.
-#' @param dsem dsem model specifications for recruitment deviates. Use \code{build_DSEM}.
+#' @param dsem dsem model specifications for recruitment deviates. Use \code{build_DSEM}. Or can be previously built DSEM object from an Rceattle model \code{model$dsem}.
 #' @param msmMode The predation mortality functions to used. Defaults to no predation mortality used.
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.
 #' @param initMode how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0 + dev-yr1,  mortality (M1); 2 = equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 3 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates; 4 = non-equilibrium age-structure version 2 where initial fishing mortality (Finit) scales R0.
@@ -61,6 +61,7 @@
 #'  \item{sdrep: Object of class `sdreport` exported by TMB including the standard errors of estimated parameters}
 #'  \item{estimated_params: List of estimated parameters}
 #'  \item{quantities: Derived quantities from CEATTLE}
+#'  \item{dsem: dsem specifications}
 #'  \item{run_time: Model run time}
 #'  }
 #'
@@ -324,16 +325,18 @@ fit_mod <-
       }
     }
 
-    # If inits and map are provided, no need to run dsem
-    if(is.null(inits) | is.null(map)){
+    # If a previously built "dsem" object is provided, no need to run dsem
+    if(class(dsem) != "dsem"){
       data_list$dsem_settings <- dsem
-      dsem_objects <- build_dsem_objects(dsem_settings = dsem,
-                                         debug = estimateMode %in% c(2, 4), # Turn off dsem parameters if debugging or projection mode
-                                         data_list = data_list)
-      data_list$dsem_settings$sem <- dsem_objects$sem # Will be rewritten if NULL
-      #FIXME: add dsem_objects to mod_objects?
+      mod_objects$dsem <- build_dsem_objects(dsem_settings = dsem,
+                                             debug = estimateMode %in% c(2, 4), # Turn off dsem parameters if debugging or projection mode
+                                             data_list = data_list)
+      data_list$dsem_settings$sem <- mod_objects$dsem$sem # Will be rewritten if NULL
     }
-
+    if(class(dsem) == "dsem"){
+      mod_objects$dsem <- dsem
+      #FIXME: add check on setup
+    }
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -341,7 +344,7 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.character(inits) | is.null(inits)) {
       start_par <- suppressWarnings(Rceattle::build_params(data_list = data_list))
-      start_par <- c(start_par, dsem_objects$tmb_inputs$parameters) # Add DSEM parameters
+      start_par <- c(start_par, mod_objects$dsem$tmb_inputs$parameters) # Add DSEM parameters
     } else{
       start_par <- inits
 
@@ -368,12 +371,12 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.null(map)) {
       map <- suppressWarnings(build_map(data_list,
-                                        start_par[-which(names(start_par) %in% names(dsem_objects$tmb_inputs$parameters))],
+                                        start_par[-which(names(start_par) %in% names(mod_objects$dsem$tmb_inputs$parameters))],
                                         debug = estimateMode %in% c(2, 4), # Turn off hindcast parameters if debugging or projection mode
                                         random_sel = random_sel))
 
-      map$mapList <- c(map$mapList, dsem_objects$mapList) # Add DSEM map
-      map$mapFactor <- c(map$mapFactor, dsem_objects$tmb_inputs$map) # Add DSEM map
+      map$mapList <- c(map$mapList, mod_objects$dsem$mapList) # Add DSEM map
+      map$mapFactor <- c(map$mapFactor, mod_objects$dsem$tmb_inputs$map) # Add DSEM map
     } else{
       map <- map
     }
@@ -395,7 +398,7 @@ fit_mod <-
     # Turns on laplace approximation
     random_vars <- c()
     if (random_rec) {
-      random_vars <- c(dsem_objects$tmb_inputs$random) # x_tj matrix from dsem
+      random_vars <- c(mod_objects$dsem$tmb_inputs$random) # x_tj matrix from dsem
       if(initMode > 0){
         random_vars <- c(random_vars, "init_dev")
       }
@@ -433,7 +436,7 @@ fit_mod <-
     data_list_reorganized <- Rceattle::rearrange_dat(data_list)
     data_list_reorganized = c(list(model = TMBfilename), data_list_reorganized)
     data_list_reorganized$forecast <- rep(0, data_list_reorganized$nspp)            # Internal hindcast switch
-    data_list_reorganized <- c(data_list_reorganized, dsem_objects$tmb_inputs$data) # Add dsem data
+    data_list_reorganized <- c(data_list_reorganized, mod_objects$dsem$tmb_inputs$data) # Add dsem data
 
     # - Update comp weights, future F (if input) and F_prop from data
     # - Age/length composition
@@ -529,6 +532,8 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # * Build ----
     if(sum(as.numeric(unlist(map$mapFactor)), na.rm = TRUE) == 0){stop("Map of length 0: all NAs")}
+    # if(any(names(map$mapFactor) %in% names(start_par))){stop("Map of length 0: all NAs")}
+    # if(any(names(start_par) %in% names(map$mapFactor))){stop("Map of length 0: all NAs")}
     obj = TMB::MakeADFun(
       data_list_reorganized,
       parameters = start_par,
