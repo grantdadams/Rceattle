@@ -766,8 +766,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   # 5. Catchability ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # -- Catchability indices
-  ind_q_re <- 1
-  ind_q <- 1
+  ind_q_dev <- 1
   ind_beta_q <- 0
 
 
@@ -816,29 +815,28 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
       # -- Set up time varying catchability if used (account for missing years)
       if((data_list$fleet_control$Estimate_q[i] %in% c(1, 2) &
-          !as.numeric(data_list$fleet_control$Time_varying_q[i]) %in% c(1, 2, 3, 4)) |
+          as.numeric(data_list$fleet_control$Time_varying_q[i]) %in% c(1, 2, 3, 4)) |
          data_list$fleet_control$Estimate_q[i] == 6){
 
         # Extract survey years where data is provided
         index_data <- data_list$index_data[which(data_list$index_data$Fleet_code == flt & data_list$index_data$Year > data_list$styr & data_list$index_data$Year <= data_list$endyr),]
         srv_biom_yrs <- index_data$Year - data_list$styr + 1
-        srv_biom_yrs_miss <- yrs_hind[which(!yrs_hind %in% srv_biom_yrs)]
 
         # Penalized deviate or random walk
         if(data_list$fleet_control$Time_varying_q[i] %in% c(1,2,4)){
-          map_list$index_q_dev[flt, yrs_hind] <- ind_q + (1:nyrs_hind) - 1
-          ind_q <- ind_q + nyrs_hind
+          map_list$index_q_dev[flt, yrs_hind] <- ind_q_dev + (1:nyrs_hind) - 1
+          ind_q_dev <- ind_q_dev + nyrs_hind
         }
 
-        # Turn of first deviate for random walk
+        # Turn on first deviate for random walk
         if(data_list$fleet_control$Time_varying_q[i] == 4){
           map_list$index_q_dev[flt, 1] <- NA
         }
 
         # Time blocks
         if(data_list$fleet_control$Time_varying_q[i] == 3){
-          map_list$index_q_dev[flt, srv_biom_yrs] <- ind_q + index_data$Selectivity_block - 1
-          ind_q <- ind_q + max(index_data$Selectivity_block)
+          map_list$index_q_dev[flt, srv_biom_yrs] <- ind_q_dev + index_data$Selectivity_block - 1
+          ind_q_dev <- ind_q_dev + max(index_data$Selectivity_block)
         }
       }
 

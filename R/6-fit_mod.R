@@ -366,10 +366,12 @@ fit_mod <-
     # 6: Reorganize data ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if(!is.null(TMBfilename)){
-      TMB::compile(paste0(TMBfilename,".cpp"))
-      dyn.load(dynlib(TMBfilename))
+      TMB::compile(paste0(TMBfilename,".cpp"),
+                   PKG_CXXFLAGS = "",
+                   framework = "TMBad",
+                   safebounds = FALSE, safeunload = FALSE)
+      dyn.load(TMB::dynlib(TMBfilename))
       TMBfilename <- basename(TMBfilename)
-
     }
     if(is.null(TMBfilename)){
       TMBfilename <- "ceattle_v01_11"
