@@ -115,7 +115,6 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
         data_list = data_list,
         inits = inits,
         map =  NULL,
-        bounds = NULL,
         file = NULL,
         estimateMode = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode), # Run hindcast and projection, otherwise debug
         HCR = build_hcr(HCR = data_list$HCR,
@@ -297,7 +296,6 @@ jitter <- function(Rceattle = NULL, njitter = 50, phase = FALSE, seed = 123) {
             data_list = data_list,
             inits = inits,
             map =  NULL,
-            bounds = NULL,
             file = NULL,
             estimateMode = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode), # Run hindcast and projection, otherwise debug
             HCR = build_hcr(HCR = data_list$HCR,

@@ -133,7 +133,6 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
       data_list = em$data_list,
       inits = em$estimated_params,
       map =  NULL,
-      bounds = NULL,
       file = NULL,
       estimateMode = ifelse(em$data_list$estimateMode < 3, 0, em$data_list$estimateMode), # Run hindcast and projection, otherwise debug
       HCR = build_hcr(HCR = em$data_list$HCR, # Tier3 HCR
@@ -515,7 +514,6 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
             data_list = om_use$data_list,
             inits = om_use$estimated_params,
             map = om_use$map,
-            bounds = NULL,
             file = NULL,
             estimateMode = estimate_mode_use,
             random_rec = om_use$data_list$random_rec,
@@ -672,7 +670,6 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
             data_list = em_use$data_list,
             inits = em_use$estimated_params,
             map =  NULL,
-            bounds = NULL,
             file = NULL,
             estimateMode = ifelse(em_use$data_list$estimateMode < 3, 0, em_use$data_list$estimateMode), # Run hindcast and projection, otherwise debug
             HCR = build_hcr(HCR = em_use$data_list$HCR, # Tier3 HCR
@@ -742,7 +739,6 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
 
       # - Remove unneeded bits for memory
       em_use$initial_params <- NULL
-      em_use$bounds <- NULL
       em_use$map <- NULL
       em_use$phase_params <- NULL
       em_use$obj <- NULL
