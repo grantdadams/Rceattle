@@ -108,8 +108,8 @@ rename_output = function(data_list = NULL, quantities = NULL){
 
 
   # Rename jnll
-  quantities$jnll_comp[8,1:data_list$nspp] <- data_list$spnames
-  quantities$jnll_comp <- rbind(data_list$fleet_control$Fleet_name, quantities$jnll_comp)
+  quantities$jnll_comp[8,1:data_list$nspp] <- 1:data_list$nspp
+  quantities$jnll_comp <- rbind(1:nrow(data_list$fleet_control), quantities$jnll_comp)
   colnames(quantities$jnll_comp) <- 1:ncol(quantities$jnll_comp)
   rownames(quantities$jnll_comp) <- c(
     "1. Fleet components",
