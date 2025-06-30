@@ -542,11 +542,11 @@ fit_mod <-
       )
 
       if(verbose > 0 & estimateMode != 4) {
-        message("Step ",step, ": Hindcast optimization complete.")
+        message("Step ",step, ": Hindcast optimization complete")
         step = step + 1
       }
       if(verbose > 0 & estimateMode == 4) {
-        message("Step ",step, ": 'dummy' optimization complete.")
+        message("Step ",step, ": 'dummy' optimization complete")
         step = step + 1
       }
 
@@ -636,10 +636,6 @@ fit_mod <-
                                quiet = verbose < 2,
             )
           )
-
-
-          if(verbose > 0) {message(paste0("Step ",step, ": projection optimization complete"))}
-          step = step + 1
         }
 
 
@@ -707,7 +703,7 @@ fit_mod <-
         }
 
 
-        if(verbose > 0) {message(paste0("Step ",step, ": Projection optimization complete."))}
+        if(verbose > 0) {message(paste0("Step ",step, ": Projection optimization complete"))}
         step = step + 1
 
 
