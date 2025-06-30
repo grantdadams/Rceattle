@@ -73,8 +73,8 @@ test_that("logistic selectivity not normalized", {
 
 
   # - ATF
-  apply(ss_run$quantities$sel[9,1,1:21,], 2, function(x) expect_equal(as.numeric(x), sel[1:21]/max(c(sel, sel2)), tolerance = 0.0001))
-  apply(ss_run$quantities$sel[9,2,1:21,], 2, function(x) expect_equal(as.numeric(x), sel2[1:21]/max(c(sel, sel2)), tolerance = 0.0001))
+  apply(ss_run$quantities$sel[9,1,1:21,], 2, function(x) expect_equal(as.numeric(x), sel[1:21], tolerance = 0.0001))
+  apply(ss_run$quantities$sel[9,2,1:21,], 2, function(x) expect_equal(as.numeric(x), sel2[1:21], tolerance = 0.0001))
 })
 
 
