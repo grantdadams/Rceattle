@@ -56,8 +56,9 @@ rearrange_dat <- function(data_list){
   # - Input missing nselages and age first selected (use age range)
   data_list$fleet_control <- data_list$fleet_control %>%
     dplyr::mutate(Nselages = ifelse(is.na(Nselages), -999, Nselages),
-                  #Age_max_selected = ifelse(is.na(Age_max_selected), -999, Age_max_selected),
-                  #Age_max_selected_upper = ifelse(is.na(Age_max_selected_upper), -999, Age_max_selected_upper),
+                  Age_max_selected = ifelse(Age_max_selected < 0, -99, Age_max_selected),     # Less than zero, normalize by max
+                  Age_max_selected = ifelse(is.na(Age_max_selected), -999, Age_max_selected), # NA, do not normalize (unless type = 2)
+                  Age_max_selected_upper = ifelse(is.na(Age_max_selected_upper), -999, Age_max_selected_upper),
                   Age_first_selected = ifelse(is.na(Age_first_selected), data_list$minage[Species], Age_first_selected)
     )
 
