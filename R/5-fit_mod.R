@@ -326,16 +326,16 @@ fit_mod <-
     }
 
     # If a previously built "dsem" object is provided, no need to run dsem
+    if(class(dsem) == "dsem"){
+      mod_objects$dsem <- dsem
+      #FIXME: add check on setup
+    }
     if(class(dsem) != "dsem"){
       data_list$dsem_settings <- dsem
       mod_objects$dsem <- build_dsem_objects(dsem_settings = dsem,
                                              debug = estimateMode %in% c(2, 4), # Turn off dsem parameters if debugging or projection mode
                                              data_list = data_list)
       data_list$dsem_settings$sem <- mod_objects$dsem$sem # Will be rewritten if NULL
-    }
-    if(class(dsem) == "dsem"){
-      mod_objects$dsem <- dsem
-      #FIXME: add check on setup
     }
 
 
