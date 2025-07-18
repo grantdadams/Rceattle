@@ -107,7 +107,7 @@ data_check <- function(data_list) {
     dplyr::filter(n() > 1 ) %>%
     dplyr::ungroup()
   if(nrow(mirror_sel) > 0){
-    print(paste0("Selectivity for ", paste(mirror_sel$Fleet_name, collapse = ", "), " is mirrored with another fleet"))
+    warning(paste0("Selectivity for ", paste(mirror_sel$Fleet_name, collapse = ", "), " is mirrored with another fleet"))
   }
 
   mirror_q <- data_list$fleet_control %>%
@@ -116,7 +116,7 @@ data_check <- function(data_list) {
     dplyr::filter(n() > 1 ) %>%
     dplyr::ungroup()
   if(nrow(mirror_q) > 0){
-    print(paste0("Catchability for ", paste(mirror_q$Fleet_name, collapse = ", "), " is mirrored with another fleet"))
+    warning(paste0("Catchability for ", paste(mirror_q$Fleet_name, collapse = ", "), " is mirrored with another fleet"))
   }
 
   # Weight-at-age ----
@@ -318,14 +318,17 @@ data_check <- function(data_list) {
     stop("'weight' has more sexes than specified in 'nsex'")
   }
 
+  if(nrow(data_list$Pyrs) > 0){
+    pyrs_sex <- data_list$Pyrs %>%
+      dplyr::group_by(Species) %>%
+      dplyr::summarise(max_sex = max(Sex)) %>%
+      dplyr::arrange(Species)
 
-  pyrs_sex <- data_list$Pyrs %>%
-    dplyr::group_by(Species) %>%
-    dplyr::summarise(max_sex = max(Sex)) %>%
-    dplyr::arrange(Species)
-
-  if(any(pyrs_sex$max_sex > data_list$nsex)){
-    stop("'Pyrs' has more sexes than specified in 'nsex'")
+    if(any(pyrs_sex$max_sex > data_list$nsex)){
+      stop("'Pyrs' has more sexes than specified in 'nsex'")
+    }
+  } else{
+    warning("No Pyrs (ration) data")
   }
 
   # Environmental data----

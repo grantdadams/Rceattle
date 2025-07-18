@@ -65,11 +65,6 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
     stop("F prop per fllet 'proj_F_prop' is zero")
   }
 
-  # - Adjust rec trend
-  if(length(rec_trend)==1){
-    rec_trend = rep(rec_trend, om$data_list$nspp)
-  }
-
   # - Years for simulations
   hind_yrs <- (em$data_list$styr) : em$data_list$endyr
   hind_nyrs <- length(hind_yrs)
@@ -347,35 +342,8 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
     em_use <- em
     om_use <- om
 
-    # Replace future rec devs
-    #FIXME - update non-sample rec for stock recruit relationship
-    for(sp in 1:om_use$data_list$nspp){
-
-      # -- OMs where SR curve is estimated directly
-      if(om_use$data_list$srr_fun == om_use$data_list$srr_pred_fun){
-        if(sample_rec){ # Sample devs from hindcast
-          rec_dev <- sample(x = om_use$estimated_params$rec_dev[sp, 1:hind_nyrs], size = om_proj_nyrs, replace = TRUE) + log((1+(rec_trend[sp]/om_proj_nyrs) * 1:om_proj_nyrs)) # - Scale mean rec for rec trend
-        } else{ # Set to mean rec otherwise
-          rec_dev <- log(mean(om_use$quantities$R[sp,1:hind_nyrs]) * (1+(rec_trend[sp]/om_proj_nyrs) * 1:om_proj_nyrs))  - log(om_use$quantities$R0[sp]) # - Scale mean rec for rec trend
-        }
-      }
-
-      # -- OMs where SR curve is estimated as penalty (sensu Ianelli)
-      if(om_use$data_list$srr_fun != om_use$data_list$srr_pred_fun){
-        if(sample_rec){ # Sample devs from hindcast
-          rec_dev <- sample(x = (log(om_use$quantities$R) - log(om_use$quantities$R_hat))[sp, 1:hind_nyrs],
-                            size = om_proj_nyrs, replace = TRUE) + log((1+(rec_trend[sp]/om_proj_nyrs) * 1:om_proj_nyrs)) # - Scale mean rec for rec trend
-        } else{ # Set to mean rec otherwise
-          rec_dev <- log(mean((log(om_use$quantities$R) - log(om_use$quantities$R_hat))[sp, 1:hind_nyrs]) * (1+(rec_trend[sp]/om_proj_nyrs) * 1:om_proj_nyrs)) # - Scale mean rec for rec trend
-        }
-      }
-
-      # - Update OM with devs
-      om_use$estimated_params$rec_dev[sp,om_proj_yrs - om_use$data_list$styr + 1] <- replace(
-        om_use$estimated_params$rec_dev[sp,om_proj_yrs - om_use$data_list$styr + 1],
-        values =  rec_dev)
-    }
-
+    # Sample recruitment
+    om_use <- Rceattle::sample_rec(om_use, sample_rec = sample_rec, update_model = FALSE, rec_trend = rec_trend)
 
     # Run through assessment years
     for(k in 1:length(assess_yrs)){

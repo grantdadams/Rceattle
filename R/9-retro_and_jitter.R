@@ -182,7 +182,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
                            proj_mean_rec  = data_list$proj_mean_rec ,
                            srr_meanyr = min(data_list$srr_meanyr, endyr_peel), # Update end year if less than srr_meanyr
                            srr_hat_styr = data_list$srr_hat_styr,
-                           srr_hat_endyr = data_list$srr_hat_endyr,
+                           srr_hat_endyr = min(data_list$srr_hat_endyr, endyr_peel),
                            srr_est_mode  = data_list$srr_est_mode ,
                            srr_prior  = data_list$srr_prior,
                            srr_prior_sd   = data_list$srr_prior_sd,
