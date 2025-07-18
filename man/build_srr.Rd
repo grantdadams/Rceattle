@@ -37,7 +37,7 @@ build_srr(
 
 \item{srr_prior_sd}{Prior standard deviation for stock-recruit parameter}
 
-\item{srr_indices}{vector or single index indicating the columns of \code{env_data} to use in a environmentally driven stock recruit curve.}
+\item{srr_indices}{vector or single index indicating the columns (excluding "Year") of \code{env_data} to use in a environmentally driven stock recruit curve.}
 
 \item{Bmsy_lim}{Upper limit for Ricker based SSB-MSY (e.g 1/Beta). Will add a likelihood penalty if beta is estimated above this limit. Default \code{NA} is not used.}
 }

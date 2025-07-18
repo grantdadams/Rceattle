@@ -16,7 +16,7 @@ build_M1(
 )
 }
 \arguments{
-\item{M1_model}{Vector or scalar specifying M1 fixed effects model (see @description below). 0 = use fixed natural mortality from M1_base in data, 1 = estimate sex- and age-invariant M1, 2 = sex-specific (two-sex model), age-invariant M1, 3 = estimate sex- and age-specific M1, 4 = environmentally driven sex- and age-invariant M1, 5 = environmentally driven age-invariant M1.}
+\item{M1_model}{Vector or scalar specifying M1 fixed effects model (see @description below). 0 = use fixed natural mortality from M1_base in data, 1 = estimate sex- and age-invariant M1, 2 = sex-specific (two-sex model), age-invariant M1, 3 = estimate sex- and age-specific M1, 4 = environmentally driven sex- and age-invariant M1, 5 = environmentally driven age-invariant, but sex-specific M1.}
 
 \item{M1_re}{Vector or scalar specifying M1 random effects model. See description (default = 0).}
 
@@ -29,8 +29,6 @@ build_M1(
 \item{M_prior}{Vector or scalar for mean of M prior on natural scale}
 
 \item{M_prior_sd}{Vector or scalar of SD of lognormal M prior. Used as initial value for random effects variance as well.}
-
-\item{M1_indices}{vector or single index indicating the columns of \code{env_data} to use in a environmentally M1.}
 }
 \value{
 A list of switches for defining the M1 model
@@ -39,12 +37,12 @@ A list of switches for defining the M1 model
 \strong{M1 fixed effects currently implemented in CEATTLE}
 \itemize{
 \item \code{M1_model = 0} Fixed based on input \code{M1_base}
-\item \code{M1_model = 1} Estimated \deqn{M1_{spp}}
-\item \code{M1_model = 2} Estimated \deqn{M1_{spp, sex}}
-\item \code{M1_model = 3} Estimated \deqn{M1_{spp, sex, age}}
-\item \code{M1_model = 4} Estimated \deqn{M1_{spp, yr} = M1_{spp} * e^{X * \beta_{X, spp}}}. \code{M1_indices} specifies the environmental indices.
-\item \code{M1_model = 5} Estimated \deqn{M1_{spp, sex, yr} = M1_{spp, sex} * e^{X * \beta_{X, spp, sex}}}. \code{M1_indices} specifies the environmental indices.
-\item TODO fit to environemtnal index
+\item \code{M1_model = 1} Single species specific M. Estimates \deqn{M1_{spp}}
+\item \code{M1_model = 2} Sex-specific M. Estimates \deqn{M1_{spp, sex}}
+\item \code{M1_model = 3} Sex- and age-specific M. Estimates \deqn{M1_{spp, sex, age}}
+\item \code{M1_model = 4} Sex-invariant environmental effect. Estimates \deqn{M1_{spp, yr} = M1_{spp} * e^{X * \beta_{X, spp}}}. \code{M1_indices} specifies the environmental indices.
+\item \code{M1_model = 5} Sex- and species specific environmental effect. Estimates \deqn{M1_{spp, sex, yr} = M1_{spp, sex} * e^{X * \beta_{X, spp, sex}}}. \code{M1_indices} specifies the environmental indices.
+\item TODO fit to environmental index
 }
 
 \strong{M1 random effects currently implemented in CEATTLE}
