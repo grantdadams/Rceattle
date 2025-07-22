@@ -18,7 +18,7 @@ CEATTLE is short for Climate-Enhanced, Age-based model with Temperature-specific
 
 Code and function examples using data from the Bering Sea and Gulf of Alaska groundfish application can be found in the [examples](https://github.com/grantdadams/Rceattle/tree/master/examples) folder.
 
-The "dev-name-change" branch is the most up to date and stable and should be used for further development.
+**NOTE**: The "dev-name-change" branch is the most up to date and stable and should be used for further development.
 
 An [onboarding document](https://github.com/grantdadams/Rceattle/wiki/Onboarding) can be found on the Wiki and various implementations are on the [Rceattle-models repo](https://github.com/grantdadams/Rceattle-models).
 
