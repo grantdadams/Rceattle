@@ -1,0 +1,126 @@
+---
+title: "DSEM"
+format: pptx
+editor: visual
+---
+
+## DSEM usage
+
+`Rceattle` is integrated with DSEM via the `fit_mod` function argument `dsem = build_DSEM`.
+
+----
+
+# `build_DSEM` arguments
+
+-   `sem` Specification for time-series structural equation model structured
+
+    -   All variables must be included in `env_data`
+
+    -   The default is assumes IID recruitment deviates.
+
+    -   If no start value is provided, those model terms are not estimated. CHANGE???
+
+-   `family` distribution used for each variable (can be length 1)
+
+-   `all_vars` include all variables from env_data in DSEM model likelihood (estimate observation error)
+
+    -   Allow model comparison across different SEM when TRUE.
+
+    -   Simplifies estimation when FALSE
+
+-   `estimate_projection` latent variables for projection time period are turned off
+
+    -   Simplifies estimation when FALSE
+
+----
+
+## Default example: GOA pollock, IID recruitment
+
+```{r, echo=TRUE, message=FALSE}
+library(Rceattle)
+
+data("GOApollock") # Single-species data. ?BS2017SS for more information on the data
+GOApollock$projyr <- 2020  # Shorten proj year for quicker estimation
+GOApollock$env_data <- GOApollock$env_data %>%
+  dplyr::mutate(ScaledBT =scale(BTempC)) %>%
+  dplyr::select(-BTempC)
+
+model1 <- Rceattle::fit_mod(data_list = GOApollock,
+                            random_rec = TRUE, # Random recruitment
+                            verbose = 0)
+print(model1$data_list$dsem_settings$sem)
+```
+
+----
+
+## View SEM
+
+```{r, echo=TRUE, message=FALSE}
+print(model1$data_list$dsem_settings$sem)
+```
+
+----
+
+## View parameter estimates
+
+```{r, echo=TRUE, message=FALSE}
+# mu_j, lnsigma_j, delta0_j, x_tj
+print(model1$estimated_params$beta_z)
+```
+
+----
+
+## Query `dsem` object
+
+```{r, echo=TRUE, message=FALSE}
+class(model1$dsem)
+knitr::kable(summary(model1$dsem)) # need to figure out updating pars
+```
+
+----
+
+## SEM example
+
+```{r, echo=TRUE, message=FALSE}
+sem_iid = "
+  # link, lag, param_name, start_value
+
+  #internal data relation
+  ScaledBT -> ScaledBT, 1, AR_BT, 0
+  ScaledBT -> recdevs1, 1, BT_to_R, 0
+  recdevs1 <-> recdevs1, 0, sigmaR1, 1
+"
+model2 <- Rceattle::fit_mod(data_list = GOApollock,
+                            dsem = build_DSEM(
+                              sem = sem_iid,
+                              family = "normal"
+                            ),
+                            random_rec = TRUE, # Random recruitment
+                            verbose = 0)
+```
+
+----
+
+## Plot: looks same?
+
+```{r, echo=TRUE, message=FALSE}
+plot_recruitment(list(model1, model2), model_names = 1:2)
+```
+
+----
+
+## Query
+
+```{r, echo=TRUE, message=FALSE}
+summ <- summary(model1$dsem)
+summ$Estimate <- model1$estimated_params$beta_z
+knitr::kable(summ)
+```
+
+## 
+
+```{r, echo=TRUE, message=FALSE}
+summ <- summary(model2$dsem)
+summ$Estimate <- model2$estimated_params$beta_z
+knitr::kable(summ)
+```
