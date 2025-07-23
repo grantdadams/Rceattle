@@ -9,7 +9,7 @@
 #' @param srr_est_mode Switch to determine estimation mode. 0 = fix alpha to prior mean, 1 = freely estimate alpha and beta, 2 = use lognormally distributed prior for alpha (Ricker) or steepness (Beverton), 3 = use beta distributed prior for steepness (Beverton) given mean and sd.
 #' @param srr_prior mean for normally distributed prior for stock-recruit parameter
 #' @param srr_prior_sd Prior standard deviation for stock-recruit parameter
-#' @param srr_indices vector or single index indicating the columns of \code{env_data} to use in a environmentally driven stock recruit curve.
+#' @param srr_indices vector or single index indicating the columns (excluding "Year") of \code{env_data} to use in a environmentally driven stock recruit curve.
 #' @param Bmsy_lim Upper limit for Ricker based SSB-MSY (e.g 1/Beta). Will add a likelihood penalty if beta is estimated above this limit. Default `NA` is not used.
 #'
 #' @description
@@ -79,25 +79,25 @@ build_srr <- function(srr_fun = 0,
 
 #' Define M1 specifications
 #'
-#' @param M1_model Vector or scalar specifying M1 fixed effects model (see @description below). 0 = use fixed natural mortality from M1_base in data, 1 = estimate sex- and age-invariant M1, 2 = sex-specific (two-sex model), age-invariant M1, 3 = estimate sex- and age-specific M1, 4 = environmentally driven sex- and age-invariant M1, 5 = environmentally driven age-invariant M1.
+#' @param M1_model Vector or scalar specifying M1 fixed effects model (see @description below). 0 = use fixed natural mortality from M1_base in data, 1 = estimate sex- and age-invariant M1, 2 = sex-specific (two-sex model), age-invariant M1, 3 = estimate sex- and age-specific M1, 4 = environmentally driven sex- and age-invariant M1, 5 = environmentally driven age-invariant, but sex-specific M1.
 #' @param M1_re Vector or scalar specifying M1 random effects model. See description (default = 0).
 #' @param updateM1 If using initial parameters, use M1 fixed effects from data instead (default = FALSE).
 #' @param M1_use_prior Vector or scalar specifying to specify if M1 fixed effects come from a lognormal prior
 #' @param M2_use_prior Vector or scalar specifying to specify if M1 + M2 come from a lognormal prior in multi-species models (default = FALSE). Lognormal prior for M1 + M2 across species, sexes, ages, and years.
 #' @param M_prior Vector or scalar for mean of M prior on natural scale
 #' @param M_prior_sd Vector or scalar of SD of lognormal M prior. Used as initial value for random effects variance as well.
-#' @param M1_indices vector or single index indicating the columns of \code{env_data} to use in a environmentally M1.
+#' @param M1_indices vector or single index indicating the columns (excluding "Year" column) of \code{env_data} to use for environmentally linked M1 \code{M1_model %in% c(4,5)}.
 #'
 #' @description
 #'
 #' **M1 fixed effects currently implemented in CEATTLE**
 #' - \code{M1_model = 0} Fixed based on input \code{M1_base}
-#' - \code{M1_model = 1} Estimated \deqn{M1_{spp}}
-#' - \code{M1_model = 2} Estimated \deqn{M1_{spp, sex}}
-#' - \code{M1_model = 3} Estimated \deqn{M1_{spp, sex, age}}
-#' - \code{M1_model = 4} Estimated \deqn{M1_{spp, yr} = M1_{spp} * e^{X * \beta_{X, spp}}}. \code{M1_indices} specifies the environmental indices.
-#' - \code{M1_model = 5} Estimated \deqn{M1_{spp, sex, yr} = M1_{spp, sex} * e^{X * \beta_{X, spp, sex}}}. \code{M1_indices} specifies the environmental indices.
-#' - TODO fit to environemtnal index
+#' - \code{M1_model = 1} Single species specific M. Estimates \deqn{M1_{spp}}
+#' - \code{M1_model = 2} Sex-specific M. Estimates \deqn{M1_{spp, sex}}
+#' - \code{M1_model = 3} Sex- and age-specific M. Estimates \deqn{M1_{spp, sex, age}}
+#' - \code{M1_model = 4} Sex-invariant environmental effect. Estimates \deqn{M1_{spp, yr} = M1_{spp} * e^{X * \beta_{X, spp}}}. \code{M1_indices} specifies the environmental indices.
+#' - \code{M1_model = 5} Sex- and species specific environmental effect. Estimates \deqn{M1_{spp, sex, yr} = M1_{spp, sex} * e^{X * \beta_{X, spp, sex}}}. \code{M1_indices} specifies the environmental indices.
+#' - TODO fit to environmental index
 #'
 #' **M1 random effects currently implemented in CEATTLE**
 #'

@@ -16,7 +16,7 @@ retrospective(
 
 \item{peels}{the number of retrospective peels to use in the calculation of rho and for model estimation}
 
-\item{rescale}{rescale environmental predictors?}
+\item{rescale}{TRUE/FALSE wether to subset and rescale environmental predictors for the range of peel years.}
 
 \item{nyrs_forecast}{Number of forecast years to calculate Mohn's Rho in addition to terminal year}
 }

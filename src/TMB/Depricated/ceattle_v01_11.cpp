@@ -3577,7 +3577,7 @@ Type objective_function<Type>::operator() () {
   } // End selectivity loop
 
 
-  // Slot 5-6 -- Survey catchability deviates
+  // Slot 5-6 -- Catchability
   for(flt = 0; flt < n_flt; flt++){
 
     // Prior on catchability
@@ -3602,18 +3602,19 @@ Type objective_function<Type>::operator() () {
     }
 
     // Penalized/random deviate likelihood
-    // - Estimate_q = 1 or 2
-    // - Time_varying_q  = 1 or 2
-    if(((index_varying_q(flt) == 1) | (index_varying_q(flt) == 2)) & (flt_type(flt) == 2) & ((est_index_q(flt) == 1) | (est_index_q(flt) == 2))){
+    if(((index_varying_q(flt) == 1) | (index_varying_q(flt) == 2))  // - Estimate_q = 1 (free parameter) or 2 (free parameter w/ prior)
+         & (flt_type(flt) > 0) &                                    // - If survey or fishery CPUE
+       ((est_index_q(flt) == 1) | (est_index_q(flt) == 2))){        // - Time_varying_q  = 1 (penalized deviate) or 2 (random effect)
       for(yr = 0; yr < nyrs_hind; yr++){
         jnll_comp(6, flt) -= dnorm(index_q_dev(flt, yr), Type(0.0), index_q_dev_sd(flt), true );
       }
     }
 
     // Random walk
-    // - Estimate_q = 1 or 2
-    // - Time_varying_q  = 4
-    if((index_varying_q(flt) == 4) & (flt_type(flt) == 2) & ((est_index_q(flt) == 1) | (est_index_q(flt) == 2))){
+    if((index_varying_q(flt) == 4) &                          // - Estimate_q = 1 (free parameter) or 2 (free parameter w/ prior)
+       (flt_type(flt) > 0) &                                  // - If survey or fishery CPUE
+       ((est_index_q(flt) == 1) | (est_index_q(flt) == 2)))   // - Time_varying_q  = 4
+      {
       for(yr = 1; yr < nyrs_hind; yr++){
         jnll_comp(6, flt) -= dnorm(index_q_dev(flt, yr) - index_q_dev(flt, yr-1), Type(0.0), index_q_dev_sd(flt), true );
       }
@@ -3621,7 +3622,7 @@ Type objective_function<Type>::operator() () {
   } // End q loop
 
 
-  // Slots 8-11 -- RECRUITMENT PARAMETERS
+  // Slots 8-11 -- Recruitment
   for(sp = 0; sp < nspp; sp++) {
     penalty = 0.0;
     // Slot 9 -- stock-recruit prior for Beverton
@@ -3774,7 +3775,7 @@ Type objective_function<Type>::operator() () {
   }
 
 
-  // Slot 13 -- N-at-age < 0 penalty. See posfun
+  // Slot 13 -- N-at-age < 0 penalty. See "posfun"
   for(sp = 0; sp < nspp; sp++){
     if(estDynamics(sp) == 0){
       jnll_comp(13, sp) += zero_N_pen(sp);
@@ -3782,7 +3783,7 @@ Type objective_function<Type>::operator() () {
   }
 
 
-  // Slots 14-15 -- M_at_age prior
+  // Slots 14-15 -- M prior
   // M1_model 0 = use fixed natural mortality from M1_base, 1 = estimate sex- and age-invariant M1_at_age, 2 = sex-specific (two-sex model), age-invariant M1_at_age, 3 =   estimate sex- and age-specific M1_at_age.
   for(sp = 0; sp < nspp; sp++) {
     // PRIORS
