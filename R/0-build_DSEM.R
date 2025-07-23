@@ -93,7 +93,7 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
 
   # Debug mode
   if(debug){
-    mapList <- sapply(mapList, function(x) factor(rep(NA, length=length(x))))
+    mapList <- sapply(mapList, function(x) replace(x, values = rep(NA, length=length(x))))
   }
 
   # Recruitment variance (turn off variance estimation for recdevs)
