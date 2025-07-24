@@ -17,3 +17,6 @@ src/TMB/ceattle_v01_11_dsem.dll
 *.dll
 .Rhistory
 src/.DS_Store
+src/Rceattle.dll
+BS2017SS.xlsx
+.Rhistory

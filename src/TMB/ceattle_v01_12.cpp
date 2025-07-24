@@ -1168,9 +1168,9 @@ Type objective_function<Type>::operator() () {
       }
 
       // Normalize selectivity
-      if(!(flt_sel_maxage(flt) == -minage(flt_spp(flt)))){
+      if(flt_sel_maxage(flt) > -500){
 
-        // 1. Normalize by selectivity by specific age
+        // 1. Normalize by selectivity by specific age or age-range
         if((flt_sel_maxage(flt) >= 0) & (sel_type < 5)) {
           for(yr = 0; yr < nyrs_hind; yr++) {
             for(sex = 0; sex < nsex(sp); sex++){
@@ -1197,8 +1197,8 @@ Type objective_function<Type>::operator() () {
           }
         }
 
-        // 2. Normalize by max for each fishery and year across ages, and sexes
-        if((sel_type < 5) & (flt_sel_maxage(flt) < 0)) {
+        // 2. Normalize by max for each fishery and year across ages, and sexes (flt_sel_maxage = -99)
+        if((sel_type < 5) & (flt_sel_maxage(flt) < 0) & (flt_sel_maxage(flt) > -500)) {
           for(yr = 0; yr < nyrs_hind; yr++) {
             max_sel = 0;
             for(age = 0; age < nages(sp); age++){
@@ -4310,6 +4310,7 @@ Type objective_function<Type>::operator() () {
   REPORT( R_init );
   REPORT( R );
   REPORT( R_hat );
+  REPORT( rec_dev );
   REPORT( M_at_age );
 
   // ADREPORT( B_eaten_as_prey );
