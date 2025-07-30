@@ -56,15 +56,15 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
     # - Catch is retained to update model dynamics
     data_list$index_data <- data_list$index_data %>%
       dplyr::filter(Year <= endyr_peel)
-      #dplyr::mutate(Year = ifelse(Year > endyr_peel, -Year, Year))
+    #dplyr::mutate(Year = ifelse(Year > endyr_peel, -Year, Year))
 
     data_list$comp_data <- data_list$comp_data %>%
       dplyr::filter(Year <= endyr_peel)
-      #dplyr::mutate(Year = ifelse(Year > endyr_peel, - Year, Year))
+    #dplyr::mutate(Year = ifelse(Year > endyr_peel, - Year, Year))
 
     data_list$diet_data <- data_list$diet_data %>%
       dplyr::filter(Year <= endyr_peel)
-      #dplyr::mutate(Year = ifelse(Year > endyr_peel, - Year, Year))
+    #dplyr::mutate(Year = ifelse(Year > endyr_peel, - Year, Year))
 
 
     # * Assume weight/pyrs/emp_sel is same as last year of peel ----
@@ -96,12 +96,14 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
     data_list$Pyrs <- data_list$Pyrs %>%
       dplyr::filter(Year <= endyr_peel)
 
-    proj_Pyrs <- data_list$Pyrs %>%
-      group_by(Species, Sex) %>%
-      slice(rep(n(),  nyrs_proj_peel)) %>%
-      mutate(Year = peel_prj_yrs)
-    data_list$Pyrs  <- rbind(data_list$Pyrs, proj_Pyrs)
-    data_list$Pyrs <- dplyr::arrange(data_list$Pyrs, Species, Year)
+    if(nrow(data_list$Pyrs)){
+      proj_Pyrs <- data_list$Pyrs %>%
+        group_by(Species, Sex) %>%
+        slice(rep(n(),  nyrs_proj_peel)) %>%
+        mutate(Year = peel_prj_yrs)
+      data_list$Pyrs  <- rbind(data_list$Pyrs, proj_Pyrs)
+      data_list$Pyrs <- dplyr::arrange(data_list$Pyrs, Species, Year)
+    }
 
 
     # * Rescale environmental predictors ----
@@ -210,6 +212,81 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
         verbose = 0)
     )
 
+    # * Forecast ----
+    # Adjust forecased rec_dev in new mod for bias and refit
+    inits <- newmod$estimated_params
+    for(sp in 1:newmod$data_list$nspp){
+
+      # -- where SR curve is estimated directly
+      if(newmod$data_list$srr_fun == newmod$data_list$srr_pred_fun){
+        rec_dev <- log(mean(newmod$quantities$R[sp,1:nyrs_peel]))  - log(newmod$quantities$R0[sp])
+      }
+
+      # -- OMs where SR curve is estimated as penalty (sensu Ianelli)
+      if(newmod$data_list$srr_fun != newmod$data_list$srr_pred_fun){
+        rec_dev <- log(mean((log(newmod$quantities$R) - log(newmod$quantities$R_hat))[sp, 1:nyrs_peel])) # - Scale mean rec for rec trend
+
+      }
+
+      # - Update OM with devs
+      inits$rec_dev[sp, (peel_prj_yrs - styr + 1)] <- replace(
+        inits$rec_dev[sp, (peel_prj_yrs - styr + 1)],
+        values =  rec_dev)
+    }
+
+    newmod <- suppressWarnings(
+      Rceattle::fit_mod(
+        data_list = data_list,
+        inits = inits,
+        map =  map,
+        bounds = NULL,
+        file = NULL,
+        estimateMode = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode), # Run hindcast and projection, otherwise debug
+        HCR = build_hcr(HCR = data_list$HCR,
+                        DynamicHCR = data_list$DynamicHCR,
+                        Ftarget = data_list$Ftarget,
+                        Flimit = data_list$Flimit,
+                        Ptarget = data_list$Ptarget,
+                        Plimit = data_list$Plimit,
+                        Alpha = data_list$Alpha,
+                        Pstar = data_list$Pstar,
+                        Sigma = data_list$Sigma,
+                        Fmult = data_list$Fmult,
+                        HCRorder = data_list$HCRorder
+        ),
+        recFun = build_srr(srr_fun = data_list$srr_fun,
+                           srr_pred_fun  = data_list$srr_pred_fun ,
+                           proj_mean_rec  = data_list$proj_mean_rec ,
+                           srr_meanyr = min(data_list$srr_meanyr, endyr_peel), # Update end year if less than srr_meanyr
+                           srr_hat_styr = data_list$srr_hat_styr,
+                           srr_hat_endyr = min(data_list$srr_hat_endyr, endyr_peel),
+                           srr_est_mode  = data_list$srr_est_mode ,
+                           srr_prior  = data_list$srr_prior,
+                           srr_prior_sd   = data_list$srr_prior_sd,
+                           Bmsy_lim = data_list$Bmsy_lim,
+                           srr_indices = data_list$srr_indices),
+        M1Fun =     build_M1(M1_model = data_list$M1_model,
+                             M1_re = data_list$M1_re,
+                             updateM1 = FALSE,  # Dont update M1 from data, fix at previous parameters
+                             M1_use_prior = data_list$M1_use_prior,
+                             M2_use_prior = data_list$M2_use_prior,
+                             M_prior = data_list$M_prior,
+                             M_prior_sd = data_list$M_prior_sd,
+                             M1_indices = data_list$M1_indices),
+        random_rec = data_list$random_rec,
+        niter = data_list$niter,
+        msmMode = data_list$msmMode,
+        avgnMode = data_list$avgnMode,
+        suitMode = data_list$suitMode,
+        suit_styr = data_list$suit_styr,
+        suit_endyr = min(data_list$suit_endyr, endyr_peel),   # Update to end year if less than suit_endyr
+        initMode = data_list$initMode,
+        phase = TRUE, # Phasing or else the parameters dont wanna move
+        loopnum = data_list$loopnum,
+        getsd = TRUE,
+        verbose = 0)
+    )
+
     # gc()
     #
     # map$mapFactor <- map$mapFactor[names(newmod$map$mapFactor)]
@@ -237,7 +314,6 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
   objects <- c("biomass", "ssb", "R", "F_spp")
   mohns <- data.frame(matrix(0, nrow = length(objects) * (nyrs_forecast+1), ncol = 3 + data_list$nspp))
   colnames(mohns) <- c("Object", "Forecast year", "N", data_list$spnames)
-
 
   # * Loop through peels ----
   for (i in 1:(length(mod_list) - 1)) {
@@ -276,7 +352,38 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
   mohns[, 4:(data_list$nspp + 3) ] <- mohns[, 4:(data_list$nspp + 3)]/mohns[, 3]
 
 
-  return(list(Rceattle_list = rev(mod_list), mohns = mohns))
+
+  # * Beta coefficients ----
+  objects <- colnames(Rceattle$estimated_params$beta_rec_pars)
+  beta_mohns <- data.frame(matrix(0, nrow = length(objects), ncol = 3 + data_list$nspp))
+  colnames(beta_mohns) <- c("Object", "Forecast year", "N", data_list$spnames)
+
+
+  # * Loop through peels ----
+  for (i in 1:(length(mod_list) - 1)) {
+    endyr_peel <- mod_list[[i + 1]]$data_list$endyr_peel
+    nyrs_peel <- mod_list[[i + 1]]$data_list$endyr_peel - styr + 1
+    ind <- 1
+
+    # * Loop output ----
+    for (j in 1:length(objects)) {
+      base <- mod_list[[1]]$estimated_params$beta_rec_pars[,j]
+      peel <- mod_list[[i + 1]]$estimated_params$beta_rec_pars[,j]
+      rel_error <- ((peel - base)/base)
+
+      # * Save and sum relative error ----
+      beta_mohns[j, 1] <- objects[j]        # Object
+      beta_mohns[j, 2] <- 0                 # Year
+      beta_mohns[j, 3] <- beta_mohns[j, 3] + 1   # N
+      beta_mohns[j, 4:(data_list$nspp + 3) ] <- beta_mohns[j, 4:(data_list$nspp + 3)] + rel_error # Relative error
+    }
+  }
+
+  # * Divide N ----
+  beta_mohns[, 4:(data_list$nspp + 3) ] <- beta_mohns[, 4:(data_list$nspp + 3)]/beta_mohns[, 3]
+
+
+  return(list(Rceattle_list = rev(mod_list), mohns = rbind(mohns, beta_mohns)))
 }
 
 
