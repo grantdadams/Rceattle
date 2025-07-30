@@ -191,14 +191,13 @@ data_check <- function(data_list) {
 
 
   # Pyrs ----
-  if(any(data_list$Pyrs %>%
-         dplyr::select(-c(Species, Sex, Year)) %>%
-         ncol() < data_list$nages)){
-    stop("Pyrs data does not span range of ages")
+  if(nrow(data_list$Pyrs) > 0){
+    if(any(data_list$Pyrs %>%
+           dplyr::select(-c(Species, Sex, Year)) %>%
+           ncol() < data_list$nages)){
+      stop("Pyrs data does not span range of ages")
+    }
   }
-
-  sex <- data_list$Pyrs %>%
-    dplyr::distinct(Species, Sex)
 
 
 
