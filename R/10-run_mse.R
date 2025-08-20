@@ -28,7 +28,7 @@
 #'
 run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, regenerate_past = FALSE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, catch_mult = NULL, seed = 666, regenerate_seed = seed, loopnum = 1, file = NULL, dir = NULL, timeout = 999, endyr = NA){
 
-  # om = ss_run; em = ss_run_Tier3; nsim = 1; start_sim = 1; assessment_period = 1; sampling_period = 1; simulate_data = FALSE; regenerate_past = FALSE; sample_rec = FALSE; rec_trend = 0; fut_sample = 1; cap = NULL; catch_mult = NULL; seed = 666; regenerate_seed = seed; loopnum = 1; file = NULL; dir = NULL; endyr = NA; timeout = 999
+  # om = om; em = em; nsim = 1; start_sim = 1; assessment_period = 1; sampling_period = 1; simulate_data = FALSE; regenerate_past = FALSE; sample_rec = FALSE; rec_trend = 0; fut_sample = 1; cap = NULL; catch_mult = NULL; seed = 666; regenerate_seed = seed; loopnum = 1; file = NULL; dir = NULL; endyr = NA; timeout = 999
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # MSE SETUP ----
@@ -281,13 +281,14 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
   om$data_list$weight <- dplyr::arrange(om$data_list$weight, Wt_index, Year)
 
   # -- Pyrs
-  proj_Pyrs <- om$data_list$Pyrs %>%
-    group_by(Species, Sex) %>%
-    slice(rep(n(),  om_proj_nyrs)) %>%
-    mutate(Year = om_proj_yrs)
-  om$data_list$Pyrs  <- rbind(om$data_list$Pyrs, proj_Pyrs)
-  om$data_list$Pyrs <- dplyr::arrange(om$data_list$Pyrs, Species, Year)
-
+  if(nrow(om$data_list$Pyrs) > 0){
+    proj_Pyrs <- om$data_list$Pyrs %>%
+      group_by(Species, Sex) %>%
+      slice(rep(n(),  om_proj_nyrs)) %>%
+      mutate(Year = om_proj_yrs)
+    om$data_list$Pyrs  <- rbind(om$data_list$Pyrs, proj_Pyrs)
+    om$data_list$Pyrs <- dplyr::arrange(om$data_list$Pyrs, Species, Year)
+  }
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Expand EM data-dim ----
@@ -310,12 +311,14 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
   em$data_list$weight <- dplyr::arrange(em$data_list$weight, Wt_index, Year)
 
   # -- EM Pyrs
-  proj_Pyrs <- em$data_list$Pyrs %>%
-    group_by(Species, Sex) %>%
-    slice(rep(n(),  em_proj_nyrs)) %>%
-    mutate(Year = em_proj_yrs)
-  em$data_list$Pyrs  <- rbind(em$data_list$Pyrs, proj_Pyrs)
-  em$data_list$Pyrs <- dplyr::arrange(em$data_list$Pyrs, Species, Year)
+  if(nrow(em$data_list$Pyrs) > 0){
+    proj_Pyrs <- em$data_list$Pyrs %>%
+      group_by(Species, Sex) %>%
+      slice(rep(n(),  em_proj_nyrs)) %>%
+      mutate(Year = em_proj_yrs)
+    em$data_list$Pyrs  <- rbind(em$data_list$Pyrs, proj_Pyrs)
+    em$data_list$Pyrs <- dplyr::arrange(em$data_list$Pyrs, Species, Year)
+  }
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # DO THE MSE ----
