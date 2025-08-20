@@ -1,6 +1,7 @@
 ---
 title: "MSE testing"
-format: revealjs
+author: "Grant Adams"
+format: pptx
 editor: visual
 ---
 
@@ -190,6 +191,6 @@ mse_summ2 <- mse_summary(mse2); mse_summ2$MSE = 2
 mse_summ3 <- mse_summary(mse3); mse_summ3$MSE = 2
 mse_summ4 <- mse_summary(mse4); mse_summ4$MSE = 2
 
-kable(do.call("rbind", list(mse_summ, mse_summ2, mse_summ3, mse_summ4)), digits = 2)
+kable(do.call("rbind", list(mse_summ, mse_summ2, mse_summ3, mse_summ4)) %>%
+        dplyr::relocate(MSE), digits = 2)
 ```
-
