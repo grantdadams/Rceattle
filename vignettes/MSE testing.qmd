@@ -27,6 +27,8 @@ om <- Rceattle::fit_mod(
 )
 ```
 
+----
+
 ## Fitting EMs (Tier 3 HCR)
 
 ```{r, echo = TRUE, eval = TRUE}
@@ -50,6 +52,8 @@ em <- Rceattle::fit_mod(
 )
 ```
 
+----
+
 ## Running MSEs
 
 ```{r, echo = TRUE, eval = TRUE}
@@ -60,6 +64,8 @@ mse1 <- run_mse(
   sampling_period = c(1, 2) # Fishery = fleet 1, BTS = fleet 2
 )
 ```
+
+----
 
 ## Evaluating MSEs via plots
 
@@ -80,6 +86,8 @@ plot_depletionSSB(
 )
 ```
 
+----
+
 ## Summary statistics
 
 ```{r, echo = TRUE, eval = TRUE}
@@ -88,7 +96,11 @@ mse_summ <- mse_summary(mse1)
 kable(mse_summ, digits = 2)
 ```
 
+----
+
 # Alternative scenarios
+
+----
 
 ## Different BRPs
 
@@ -113,6 +125,8 @@ em2 <- Rceattle::fit_mod(
 )
 ```
 
+----
+
 ## MSE 2
 
 ```{r, echo = TRUE, eval = TRUE}
@@ -123,6 +137,8 @@ mse2 <- run_mse(
   sampling_period = c(1, 2) # Fishery = fleet 1, BTS = fleet 2
 )
 ```
+
+----
 
 ## Triannual BTS
 
@@ -135,6 +151,8 @@ mse3 <- run_mse(
 )
 ```
 
+----
+
 ## 4-year cycle and 50% sampling
 
 ```{r, echo = TRUE, eval = TRUE}
@@ -146,6 +164,8 @@ mse4 <- run_mse(
   sampling_period = c(1, 2) # Fishery = fleet 1, BTS = fleet 2
 )
 ```
+
+----
 
 ## Climate resilience
 
@@ -173,6 +193,8 @@ om2 <- Rceattle::fit_mod(
 plot_biomass(om2, incl_proj = TRUE)
 ```
 
+## MSE 5
+
 ```{r, echo = TRUE, eval = TRUE}
 mse5 <- run_mse(
   om = om2, em = em, 
@@ -182,6 +204,8 @@ mse5 <- run_mse(
   sampling_period = c(1, 2) # Fishery = fleet 1, BTS = fleet 2
 )
 ```
+
+----
 
 # Overall summary
 
