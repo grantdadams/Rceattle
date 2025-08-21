@@ -73,6 +73,11 @@ clean_data <- function(data_list){
 #'
 data_check <- function(data_list) {
 
+  # Species checks
+  if(data_list$nspp != max(data_list$weight$Species)){
+    stop("`nspp` does not match the number of species in the weight data. Check `nspp` or `weight`")
+  }
+
   if (length(data_list$M1_base) == 1) {
     stop("M1 is a single value, please make it age/species specific")
   }
