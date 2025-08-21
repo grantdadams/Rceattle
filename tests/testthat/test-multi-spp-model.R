@@ -5,7 +5,7 @@
 
 test_that("Simulated simple multi-species model the same" {
   # Simulate Data -----------------------------------------------------------
-  # From Matt Cheng
+  # Adapted from Matt Cheng
   sim_msm_model <- function(
 
     nspp = 2,
@@ -209,6 +209,7 @@ test_that("Simulated simple multi-species model the same" {
       FAA = FAA,
       SSB = SSB,
       Total_Biom = Total_Biom,
+      B_eaten_as_prey = B_eaten_as_prey,
       Catch = Catch,
       ObsCatch = ObsCatch,
       SrvIdx = SrvIdx,
@@ -222,38 +223,65 @@ test_that("Simulated simple multi-species model the same" {
       srv_q = srv_q,
       rec_devs = rec_devs,
       init_devs = init_devs,
-      ObsDiet = ObsDiet
+      ObsDiet = ObsDiet,
+      vulnerability = vulnerability,
+      suitability = suitability
     ))
   }
 
   # Set up simulation -------------------------------------------------------------
-  years <- 1:20
+  nspp = 2
+  nyrs = 20
+  years <- 1:nyrs
   ages <- 1:15
   WAA <- 2 / (1 + exp(-0.8 * (ages - 3)))
+  WAA2 <- 1.4 / (1 + exp(-1 * (ages - 3)))
   MatAA <- 1 / (1 + exp(-1 * (ages - 5)))
+  MatAA2 <- 1 / (1 + exp(-0.8 * (ages - 5)))
   sigma_R <- 0.3
   sigma_Catch <- 0.001
   sigma_SrvIdx <- 0.3
-  Fmort <- c(seq(0.02, 0.3, length.out = 10), seq(0.3, 0.05, length.out = 10))
+  Fmort <- c(seq(0.02, 0.3, length.out = nyrs/2), seq(0.3, 0.05, length.out = nyrs/2))
+  Fmort2 <- seq(0.02, 0.3, length.out = nyrs)
 
   # First, simulate some data for the model
   set.seed(123)
-  sim <- sim_pop_model(years = years,
-                       ages = ages,
-                       WAA = WAA,
-                       MatAA = MatAA,
-                       mean_Rec = 50,
-                       sigma_R = sigma_R,
-                       sigma_catch = sigma_Catch,
-                       sigma_srv = sigma_SrvIdx,
-                       fish_ISS = 1e5,
-                       srv_ISS = 1e5,
-                       M = 0.3,
-                       fish_sel = 1 / (1 + exp(-2.5 * (ages - 6))),
-                       srv_sel = 1 / (1 + exp(-2 * (ages - 3))),
-                       Fmort = Fmort,
-                       srv_q = 1)
+  sim <- sim_msm_model(
+    nspp = 2,
+    years = years,
+    ages = ages,
+    WAA = matrix(c(WAA, WAA2), nspp, length(ages), byrow = TRUE),
+    MatAA = matrix(c(MatAA, MatAA2), nspp, length(ages), byrow = TRUE),
+    mean_Rec = c(1e2, 1e3),
+    sigma_R = 1,
+    sigma_catch = sigma_Catch,
+    sigma_srv = sigma_SrvIdx,
+    diet_ISS = 1e5,
+    fish_ISS = 1e5,
+    srv_ISS = 1e5,
+    M = c(0.2, 0.3),
+    fish_sel = matrix(c(1 / (1 + exp(-2.5 * (ages - 6))),
+                        1 / (1 + exp(-1 * (ages - 3)))), nspp, length(ages), byrow = TRUE),
+    srv_sel = matrix(c(1 / (1 + exp(-2 * (ages - 3))),
+                       1 / (1 + exp(-2 * (ages - 2)))), nspp, length(ages), byrow = TRUE),
+    Fmort = matrix(c(Fmort, Fmort2), nspp, length(years), byrow = TRUE),
+    srv_q = rep(1, nspp),
 
+    # Multispecies bits
+    gam_a = c(1, 0.1),
+    gam_b = rep(0.3, nspp),
+    log_phi = matrix(c(-5,0.5,-10,-2), nspp, nspp, byrow = TRUE),
+    other_food = rep(1e5, nspp),
+    ration = matrix(c(WAA, WAA2), nspp, length(ages), byrow = TRUE) * 50,
+  )
+
+
+  # Plot ------------
+  par(mfrow = c(4,1), mar = c(4,4,0.1,0))
+  plot(y = sim$Total_Biom[1,], x = years, type = "l", ylab = "Species 1 B")
+  plot(y = sim$Total_Biom[2,], x = years, type = "l", ylab = "Species 2 B")
+  plot(y = colSums(sim$B_eaten_as_prey[1,,]), x = years, type = "l", ylab = "Species 1 B consumed")
+  plot(y = colSums(sim$B_eaten_as_prey[2,,]), x = years, type = "l", ylab = "Species 2 B consumed")
 
   # Set up Rceattle data -------------------------------------------------------------
   library(Rceattle)
@@ -261,51 +289,74 @@ test_that("Simulated simple multi-species model the same" {
   simData <- GOAcod
 
   # * Data controls ----
-  simData$nspp <- 1
+  simData$nspp <- nspp
   simData$styr <- 1
-  simData$endyr <- 20
-  simData$projyr <- 30
-  simData$nsex <- 1
-  simData$nages <- 15
-  simData$minage <- 1
-  simData$nlengths <- 15
-  simData$pop_wt_index <- 1
-  simData$ssb_wt_index <- 1
-  simData$pop_age_transition_index <- 1
+  simData$endyr <- nyrs
+  simData$projyr <- nyrs+10
+  simData$nsex <- rep(1, nspp)
+  simData$nages <- rep(15, nspp)
+  simData$minage <- rep(1, nspp)
+  simData$nlengths <- rep(15, nspp)
+  simData$pop_wt_index <- 1:nspp
+  simData$ssb_wt_index <- 1:nspp
+  simData$pop_age_transition_index <- rep(1, nspp)
 
   # * Fleet control ----
-  simData$fleet_control <- simData$fleet_control[c(1,3),] # BT and Trawl Fishery are both simple logistic
-  simData$fleet_control$Fleet_name <- c("Survey", "Fishery")
-  simData$fleet_control$Fleet_code <- 1:2
-  simData$fleet_control$Selectivity_index <- 1:2
-  simData$fleet_control$Weight_index <- 1
+  simData$fleet_control <- simData$fleet_control[c(1,3,1,3),] # BT and Trawl Fishery are both simple logistic
+  simData$fleet_control$Fleet_name <- c("Survey1", "Fishery1","Survey2", "Fishery2")
+  simData$fleet_control$Fleet_code <- 1:4
+  simData$fleet_control$Selectivity_index <- 1:4
+  simData$fleet_control$Weight_index <- c(1,1,2,2)
 
   # * Index data ----
-  simData$index_data <- data.frame(Fleet_name = "Survey",
-                                   Fleet_code = 1,
-                                   Species = 1,
-                                   Year = 1:20,
-                                   Month = 0,
-                                   Selectivity_block = 1,
-                                   Q_block = 1,
-                                   Observation = sim$SrvIdx,
-                                   Log_sd = sigma_SrvIdx)
+  simData$index_data <- rbind(
+    data.frame(Fleet_name = "Survey1",
+               Fleet_code = 1,
+               Species = 1,
+               Year = 1:20,
+               Month = 0,
+               Selectivity_block = 1,
+               Q_block = 1,
+               Observation = sim$SrvIdx[1,],
+               Log_sd = sigma_SrvIdx),
+
+    data.frame(Fleet_name = "Survey2",
+               Fleet_code = 3,
+               Species = 2,
+               Year = 1:20,
+               Month = 0,
+               Selectivity_block = 1,
+               Q_block = 1,
+               Observation = sim$SrvIdx[2,],
+               Log_sd = sigma_SrvIdx)
+  )
 
   # * Catch data ----
-  simData$catch_data <- data.frame(Fleet_name = "Fishery",
-                                   Fleet_code = 2,
-                                   Species = 1,
-                                   Year = 1:20,
-                                   Month = 0,
-                                   Selectivity_block = 1,
-                                   Catch = sim$ObsCatch,
-                                   Log_sd = sigma_Catch)
+  simData$catch_data <- rbind(
+    data.frame(Fleet_name = "Fishery1",
+               Fleet_code = 2,
+               Species = 1,
+               Year = 1:20,
+               Month = 0,
+               Selectivity_block = 1,
+               Catch = sim$ObsCatch[1,],
+               Log_sd = sigma_Catch),
+
+    data.frame(Fleet_name = "Fishery2",
+               Fleet_code = 4,
+               Species = 2,
+               Year = 1:20,
+               Month = 0,
+               Selectivity_block = 1,
+               Catch = sim$ObsCatch[2,],
+               Log_sd = sigma_Catch)
+  )
 
   # * Comp data ----
   # - Index
-  tmp <- sim$ObsSrvAges
-  colnames(tmp) <- paste0("Comp_",1:15)
-  index_comp <- cbind(data.frame(Fleet_name = "Survey",
+  tmp <- sim$ObsSrvAges[1,,]
+  colnames(tmp) <- paste0("Comp_",ages)
+  index_comp <- cbind(data.frame(Fleet_name = "Survey1",
                                  Fleet_code = 1,
                                  Species = 1,
                                  Sex = 0,
@@ -316,10 +367,23 @@ test_that("Simulated simple multi-species model the same" {
                       tmp
   )
 
+  tmp <- sim$ObsSrvAges[2,,]
+  colnames(tmp) <- paste0("Comp_",ages)
+  index_comp2 <- cbind(data.frame(Fleet_name = "Survey2",
+                                  Fleet_code = 3,
+                                  Species = 2,
+                                  Sex = 0,
+                                  Age0_Length1 = 0,
+                                  Year = 1:20,
+                                  Month = 0,
+                                  Sample_size = rowSums(tmp)),
+                       tmp
+  )
+
   # - Fishery
-  tmp <- sim$ObsFishAges
+  tmp <- sim$ObsFishAges[1,,]
   colnames(tmp) <- paste0("Comp_",1:15)
-  fishery_comp <- cbind(data.frame(Fleet_name = "Fishery",
+  fishery_comp <- cbind(data.frame(Fleet_name = "Fishery1",
                                    Fleet_code = 2,
                                    Species = 1,
                                    Sex = 0,
@@ -330,7 +394,20 @@ test_that("Simulated simple multi-species model the same" {
                         tmp
   )
 
-  simData$comp_data <- rbind(index_comp, fishery_comp)
+  tmp <- sim$ObsFishAges[2,,]
+  colnames(tmp) <- paste0("Comp_",1:15)
+  fishery_comp2 <- cbind(data.frame(Fleet_name = "Fishery2",
+                                    Fleet_code = 4,
+                                    Species = 2,
+                                    Sex = 0,
+                                    Age0_Length1 = 0,
+                                    Year = 1:20,
+                                    Month = 0,
+                                    Sample_size = rowSums(tmp)),
+                         tmp
+  )
+
+  simData$comp_data <- rbind(index_comp, index_comp2, fishery_comp, fishery_comp2)
 
   # * Empirical selectivity ----
   simData$emp_sel[] <- NA
@@ -342,40 +419,84 @@ test_that("Simulated simple multi-species model the same" {
   # * Age transition matrix ----
   tmp <- as.data.frame(diag(1,15))
   colnames(tmp) <- paste0("Length_",1:15)
-  simData$age_trans_matrix <- cbind(data.frame(Age_transition_name = "Base",
-                                               Age_transition_index = 1,
-                                               Species = 1,
-                                               Sex = 0,
-                                               Age = 1:15),
-                                    tmp
+  atf1 <- cbind(data.frame(Age_transition_name = "Base1",
+                           Age_transition_index = 1,
+                           Species = 1,
+                           Sex = 0,
+                           Age = 1:15),
+                tmp
   )
+
+  tmp <- as.data.frame(diag(1,15))
+  colnames(tmp) <- paste0("Length_",1:15)
+  atf2 <- cbind(data.frame(Age_transition_name = "Base2",
+                           Age_transition_index = 2,
+                           Species = 2,
+                           Sex = 0,
+                           Age = 1:15),
+                tmp
+  )
+
+  simData$age_trans_matrix <- cbind(atf1, atf2)
 
 
   # * Age error ----
   tmp <- as.data.frame(diag(1,15))
   colnames(tmp) <- paste0("Obs_age",1:15)
-  simData$age_error <- cbind(data.frame(Species = 1,
-                                        True_age = 1:15),
-                             tmp
+  age_error <- cbind(data.frame(Species = 1,
+                                True_age = 1:15),
+                     tmp
   )
+
+  tmp <- as.data.frame(diag(1,15))
+  colnames(tmp) <- paste0("Obs_age",1:15)
+  age_error2 <- cbind(data.frame(Species = 2,
+                                 True_age = 1:15),
+                      tmp
+  )
+
+  simData$age_error <- rbind(age_error, age_error2)
+
 
   # * Weight-at-age ----
   WAA <- as.data.frame(matrix(WAA, ncol = 15))
   colnames(WAA) <- paste0("Age",1:15)
-  simData$weight <- cbind(data.frame(Wt_name = "Base",
-                                     Wt_index = 1,
-                                     Species = 1,
-                                     Sex = 0,
-                                     Year = 0),
-                          WAA
+  weight1 <- cbind(data.frame(Wt_name = "Base1",
+                              Wt_index = 1,
+                              Species = 1,
+                              Sex = 0,
+                              Year = 0),
+                   WAA
   )
+
+  WAA2 <- as.data.frame(matrix(WAA2, ncol = 15))
+  colnames(WAA2) <- paste0("Age",1:15)
+  weight2 <- cbind(data.frame(Wt_name = "Base2",
+                              Wt_index = 2,
+                              Species = 2,
+                              Sex = 0,
+                              Year = 0),
+                   WAA2
+  )
+
+  simData$weight <- rbind(weight1, weight2)
+
 
   # * Maturity ----
   MatAA <- as.data.frame(matrix(MatAA, ncol = 15))
   colnames(MatAA) <- paste0("Age",1:15)
-  simData$maturity <- cbind(data.frame(Species = 1),
-                            MatAA
+  maturity1 <- cbind(data.frame(Species = 1),
+                     MatAA
   )
+
+  MatAA2 <- as.data.frame(matrix(MatAA2, ncol = 15))
+  colnames(MatAA2) <- paste0("Age",1:15)
+  maturity2 <- cbind(data.frame(Species = 1),
+                     MatAA2
+  )
+
+  simData$maturity <- rbind(maturity1, maturity2)
+
 
   # * Sex ratio ----
   sexratio <- as.data.frame(matrix(0.5, ncol = 15))
@@ -383,14 +504,27 @@ test_that("Simulated simple multi-species model the same" {
   simData$sex_ratio <- cbind(data.frame(Species = 1),
                              sexratio
   )
+  simData$sex_ratio <- rbind(simData$sex_ratio,
+                             cbind(data.frame(Species = 2),
+                                   sexratio
+                             )
+  )
 
   # * Mortality ----
+  mort <- as.data.frame(matrix(0.2, ncol = 15))
+  colnames(mort) <- paste0("Age",1:15)
+  M1_base <- cbind(data.frame(Species = 1,
+                              Sex = 0),
+                   mort
+  )
+
   mort <- as.data.frame(matrix(0.3, ncol = 15))
   colnames(mort) <- paste0("Age",1:15)
-  simData$M1_base <- cbind(data.frame(Species = 1,
-                                      Sex = 0),
-                           mort
+  M1_base2 <- cbind(data.frame(Species = 2,
+                               Sex = 0),
+                    mort
   )
+  simData$M1_base <- rbind(M1_base, M1_base2)
 
   # * Environmental data ----
   simData$env_data <- data.frame(Year = 1:20,
@@ -398,13 +532,58 @@ test_that("Simulated simple multi-species model the same" {
 
 
   # * Relative foraging rate (days) ----
-  pyrs <- as.data.frame(matrix(1, nrow = 20, ncol = 15))
-  colnames(pyrs) <- paste0("Age",1:15)
-  simData$Pyrs <- cbind(data.frame(Species = 1,
-                                   Sex = 0,
-                                   Year = 1:20),
-                        pyrs
+  WAA <- as.data.frame(matrix(WAA * 50, ncol = 15))
+  colnames(WAA) <- paste0("Age",1:15)
+  Pyrs1 <- cbind(data.frame(Species = 1,
+                            Sex = 0,
+                            Year = 0),
+                 WAA
   )
+
+  WAA2 <- as.data.frame(matrix(WAA2 * 50, ncol = 15))
+  colnames(WAA2) <- paste0("Age",1:15)
+  Pyrs2 <- cbind(data.frame(Species = 2,
+                            Sex = 0,
+                            Year = 0),
+                 WAA2
+  )
+
+  simData$Pyrs <- rbind(Pyrs1, Pyrs2)
+
+
+  # * Bioenergetics ----
+  simData$Ceq <- rep(4,nspp)
+  simData$Cindex <- rep(simData$Cindex,nspp)
+  simData$Pvalue <- rep(simData$Pvalue,nspp)
+  simData$fday <- rep(simData$fday,nspp)
+  simData$CA <- rep(simData$CA,nspp)
+  simData$CB <- rep(simData$CB,nspp)
+  simData$Qc <- rep(simData$Qc,nspp)
+  simData$Tco <- rep(simData$Tco,nspp)
+  simData$Tcm <- rep(simData$Tcm,nspp)
+  simData$Tcl <- rep(simData$Tcl,nspp)
+  simData$CK1 <- rep(simData$CK1,nspp)
+  simData$CK4 <- rep(simData$CK4,nspp)
+  simData$Diet_comp_weights <- rep(1,nspp)
+
+  # * Diet -----
+  ind = 1
+  for(i in 1:dim(sim$ObsDiet)[1]){
+    for(j in 1:dim(sim$ObsDiet)[2]){
+      for(k in 1:dim(sim$ObsDiet)[3]){
+        simData$diet_data[ind,] <- NA
+        simData$diet_data$Pred[ind] <- i
+        simData$diet_data$Prey[ind] <- i
+        simData$diet_data$Pred_sex[ind] <- 0
+        simData$diet_data$Prey_sex[ind] <- 0
+        simData$diet_data$Pred_age[ind] <- k
+        simData$diet_data$Prey_age[ind] <- -999
+        simData$diet_data$Sample_size[ind] <- 200
+        simData$diet_data$Stomach_proportion_by_weight[ind] <- mean(sim$ObsDiet[i,j,k,])
+        ind = ind+1
+      }
+    }
+  }
 
 
   # Fit Rceattle -------------------------------------------------------------
