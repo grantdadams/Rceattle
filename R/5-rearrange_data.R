@@ -332,7 +332,11 @@ rearrange_dat <- function(data_list){
 
         # Fill in years
         for(j in 1:length(sex_values)){
-          Pyrs[sp, sex_values[j], 1:data_list$nages[sp], yr] <- as.numeric(as.character(data_list$Pyrs[i, (1:data_list$nages[sp]) + 3]))
+          Pyrs[sp, sex_values[j], 1:data_list$nages[sp], yr] <- as.numeric(
+            as.character(
+              as.matrix(data_list$Pyrs[i, (1:data_list$nages[sp]) + 3])
+            )
+          )
         }
       }
     }

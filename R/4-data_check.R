@@ -78,6 +78,10 @@ data_check <- function(data_list) {
     stop("`nspp` does not match the number of species in the weight data. Check `nspp` or `weight`")
   }
 
+  if(length(data_list$spnames) != data_list$nspp){
+    stop("species names not included for all species")
+  }
+
   if (length(data_list$M1_base) == 1) {
     stop("M1 is a single value, please make it age/species specific")
   }

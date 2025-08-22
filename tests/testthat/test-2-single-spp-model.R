@@ -102,7 +102,7 @@ test_that("Simulated simple multi-species model the same" {
 
           # Calculate mortality
           FAA[sp, y,] <- Fmort[sp, y] * fish_sel[sp,]
-          ZAA[sp, y,] <- FAA[sp,y,] + M[sp] + M2_at_age[sp, , y]
+          ZAA[sp, y,] <- FAA[sp,y,] + M[sp] # + M2_at_age[sp, , y]
           MAA[sp, y,] <- M[sp] + M2_at_age[sp, , y]
 
           # Calculate catch
@@ -248,8 +248,6 @@ test_that("Simulated simple multi-species model the same" {
   sigma_SrvIdx <- 0.2
   Fmort <- c(seq(0.02, 0.3, length.out = nyrs/2), seq(0.3, 0.05, length.out = nyrs/2))
   Fmort2 <- seq(0.02, 0.3, length.out = nyrs)
-  gam_a = c(1, 0.1)
-  gam_b = rep(0.15, nspp)
 
   # First, simulate some data for the model
   set.seed(123)
@@ -275,14 +273,13 @@ test_that("Simulated simple multi-species model the same" {
     srv_q = rep(1, nspp),
 
     # Multispecies bits
-    gam_a = gam_a,
-    gam_b = gam_b,
+    gam_a = c(1, 0.1),
+    gam_b = rep(0.3, nspp),
     log_phi = matrix(c(-5,0.5,-10,-2), nspp, nspp, byrow = TRUE),
     other_food = rep(1e5, nspp),
     ration = matrix(c(WAA, WAA2), nspp, length(ages), byrow = TRUE) * 50,
   )
 
-  sim$M2_at_age[2,,]
 
   # Plot ------------
   par(mfrow = c(4,1), mar = c(4,4,0.1,0))
@@ -573,8 +570,8 @@ test_that("Simulated simple multi-species model the same" {
   simData$Cindex <- rep(simData$Cindex,nspp)
   simData$Pvalue <- rep(simData$Pvalue,nspp)
   simData$fday <- rep(simData$fday,nspp)
-  simData$CA <- rep(1,nspp)
-  simData$CB <- rep(0,nspp)
+  simData$CA <- rep(simData$CA,nspp)
+  simData$CB <- rep(simData$CB,nspp)
   simData$Qc <- rep(simData$Qc,nspp)
   simData$Tco <- rep(simData$Tco,nspp)
   simData$Tcm <- rep(simData$Tcm,nspp)
@@ -595,185 +592,7 @@ test_that("Simulated simple multi-species model the same" {
                               initMode = 2,
                               verbose = 1)
 
-  ss_run$quantities$ration[2,1,,]
   plot(x = sim$SSB[1,], y = ss_run$quantities$ssb[1,1:nyrs]); abline(1,1)
   plot(x = sim$SSB[2,], y = ss_run$quantities$ssb[2,1:nyrs]); abline(1,1)
-  plot(x = sim$Total_Biom[1,], y = ss_run$quantities$biomass[1,1:nyrs]); abline(1,1)
-  plot(x = sim$Total_Biom[2,], y = ss_run$quantities$biomass[2,1:nyrs]); abline(1,1)
-  plot(x = sim$NAA[1,1:nyrs,1], y = ss_run$quantities$R[1,1:nyrs]); abline(1,1)
-  plot(x = sim$NAA[2,1:nyrs,1], y = ss_run$quantities$R[2,1:nyrs]); abline(1,1)
-
-
-  # Fit multi-species -------------------------------------------------------------
-  # * Full  diet -----
-  ind = 1
-  for(i in 1:dim(sim$diet_prop)[1]){ # pred
-    for(j in 1:dim(sim$diet_prop)[2]){ # prey
-      for(k in 1:dim(sim$diet_prop)[3]){ # pred age
-        for(l in 1:dim(sim$diet_prop)[4]){ # prey-age
-          for(m in 1:dim(sim$diet_prop)[5]){ # year
-            simData$diet_data[ind,] <- NA
-            simData$diet_data$Year[ind] <- m
-            simData$diet_data$Pred[ind] <- i
-            simData$diet_data$Prey[ind] <- j
-            simData$diet_data$Pred_sex[ind] <- 0
-            simData$diet_data$Prey_sex[ind] <- 0
-            simData$diet_data$Pred_age[ind] <- k
-            simData$diet_data$Prey_age[ind] <- l
-            simData$diet_data$Stomach_proportion_by_weight[ind] <- sim$diet_prop[i,j,k,l,m]
-            ind = ind+1
-          }
-        }
-      }
-    }
-  }
-  simData$diet_data$Sample_size <- 1000
-  simData$diet_data <- simData$diet_data %>%
-    filter(!is.na(Pred))
-
-
-  ss_run$estimated_params$log_gam_a <- log(c(1, 0.1))
-  ss_run$estimated_params$log_gam_b <- log(c(0.15, 0.15))
-  ms_run1 <- Rceattle::fit_mod(data_list = simData,
-                               inits = ss_run$estimated_params, # Initial parameters = 0
-                               file = NULL, # Don't save
-                               estimateMode = 0, # Estimate
-                               random_rec = FALSE, # No random recruitment
-                               phase = FALSE,
-                               msmMode = 1,
-                               niter = 5,
-                               suitMode = 4,
-                               initMode = 2,
-                               verbose = 1)
-
-  plot(x = sim$Total_Biom[1,], y = ms_run1$quantities$biomass[1,1:nyrs]); abline(1,1)
-  plot(x = sim$Total_Biom[2,], y = ms_run1$quantities$biomass[2,1:nyrs]); abline(1,1)
-  exp(ms_run1$estimated_params$log_gam_a)
-  exp(ms_run1$estimated_params$log_gam_b)
-  ms_run1$quantities$M2_at_age[2,1,,]
-
-  ms_run1$quantities$vulnerability
-  sim$vulnerability
-
-  # * Average diet across years -----
-  simData$diet_data[] <- NA
-  ind = 1
-  for(i in 1:dim(sim$diet_prop)[1]){ # pred
-    for(j in 1:dim(sim$diet_prop)[2]){ # prey
-      for(k in 1:dim(sim$diet_prop)[3]){ # pred age
-        for(l in 1:dim(sim$diet_prop)[4]){ # prey-age
-          simData$diet_data[ind,] <- NA
-          simData$diet_data$Year[ind] <- 0 # average years
-          simData$diet_data$Pred[ind] <- i
-          simData$diet_data$Prey[ind] <- j
-          simData$diet_data$Pred_sex[ind] <- 0
-          simData$diet_data$Prey_sex[ind] <- 0
-          simData$diet_data$Pred_age[ind] <- k
-          simData$diet_data$Prey_age[ind] <- l
-          simData$diet_data$Sample_size[ind] <- 200
-          simData$diet_data$Stomach_proportion_by_weight[ind] <- mean(sim$diet_prop[i,j,k,l,])
-          ind = ind+1
-        }
-      }
-    }
-  }
-  simData$diet_data <- simData$diet_data %>%
-    filter(!is.na(Pred))
-
-
-  ms_run2 <- Rceattle::fit_mod(data_list = simData,
-                               inits = NULL, # Initial parameters = 0
-                               file = NULL, # Don't save
-                               estimateMode = 0, # Estimate
-                               random_rec = FALSE, # No random recruitment
-                               phase = TRUE,
-                               msmMode = 1,
-                               suitMode = 4,
-                               initMode = 2,
-                               verbose = 1)
-
-  plot(x = sim$Total_Biom[1,], y = ms_run2$quantities$biomass[1,1:nyrs]); abline(1,1)
-  plot(x = sim$Total_Biom[2,], y = ms_run2$quantities$biomass[2,1:nyrs]); abline(1,1)
-
-  # * Annual prey-spp diet -----
-  simData$diet_data[] <- NA
-  ind = 1
-  for(i in 1:dim(sim$diet_prop)[1]){ # pred
-    for(j in 1:dim(sim$diet_prop)[2]){ # prey
-      for(k in 1:dim(sim$diet_prop)[3]){ # pred age
-        for(m in 1:dim(sim$diet_prop)[5]){ # year
-          simData$diet_data[ind,] <- NA
-          simData$diet_data$Year[ind] <- m
-          simData$diet_data$Pred[ind] <- i
-          simData$diet_data$Prey[ind] <- j
-          simData$diet_data$Pred_sex[ind] <- 0
-          simData$diet_data$Prey_sex[ind] <- 0
-          simData$diet_data$Pred_age[ind] <- k
-          simData$diet_data$Prey_age[ind] <- -500  # sum of prey-ages
-          simData$diet_data$Sample_size[ind] <- 200
-          simData$diet_data$Stomach_proportion_by_weight[ind] <- sum(sim$diet_prop[i,j,k,,m])
-          ind = ind+1
-        }
-      }
-    }
-  }
-
-  simData$diet_data <- simData$diet_data %>%
-    filter(!is.na(Pred))
-
-
-  ms_run3 <- Rceattle::fit_mod(data_list = simData,
-                               inits = NULL, # Initial parameters = 0
-                               file = NULL, # Don't save
-                               estimateMode = 0, # Estimate
-                               random_rec = FALSE, # No random recruitment
-                               phase = TRUE,
-                               msmMode = 1,
-                               suitMode = 4,
-                               initMode = 2,
-                               verbose = 1)
-
-  plot(x = sim$Total_Biom[1,], y = ms_run3$quantities$biomass[1,1:nyrs]); abline(1,1)
-  plot(x = sim$Total_Biom[2,], y = ms_run3$quantities$biomass[2,1:nyrs]); abline(1,1)
-
-
-  # * Average prey-spp diet -----
-  simData$diet_data[] <- NA
-  ind = 1
-  for(i in 1:dim(sim$diet_prop)[1]){ # pred
-    for(j in 1:dim(sim$diet_prop)[2]){ # prey
-      for(k in 1:dim(sim$diet_prop)[3]){ # pred age
-        simData$diet_data[ind,] <- NA
-        simData$diet_data$Year[ind] <- 0 # average of years
-        simData$diet_data$Pred[ind] <- i
-        simData$diet_data$Prey[ind] <- j
-        simData$diet_data$Pred_sex[ind] <- 0
-        simData$diet_data$Prey_sex[ind] <- 0
-        simData$diet_data$Pred_age[ind] <- k
-        simData$diet_data$Prey_age[ind] <- -500 # sum of prey-ages
-        simData$diet_data$Sample_size[ind] <- 200
-        simData$diet_data$Stomach_proportion_by_weight[ind] <- mean(rowSums(sim$diet_prop[i,j,k,,]))
-        ind = ind+1
-      }
-    }
-  }
-
-  simData$diet_data <- simData$diet_data %>%
-    filter(!is.na(Pred))
-
-
-  ms_run4 <- Rceattle::fit_mod(data_list = simData,
-                               inits = NULL, # Initial parameters = 0
-                               file = NULL, # Don't save
-                               estimateMode = 0, # Estimate
-                               random_rec = FALSE, # No random recruitment
-                               phase = TRUE,
-                               msmMode = 1,
-                               suitMode = 4,
-                               initMode = 2,
-                               verbose = 1)
-
-  plot(x = sim$Total_Biom[1,], y = ms_run4$quantities$biomass[1,1:nyrs]); abline(1,1)
-  plot(x = sim$Total_Biom[2,], y = ms_run4$quantities$biomass[2,1:nyrs]); abline(1,1)
 
 })
