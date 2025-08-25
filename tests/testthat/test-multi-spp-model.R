@@ -677,17 +677,19 @@ test_that("Simulated simple multi-species model the same" {
       }
     }
   }
+  simData$diet_data$Sample_size <- 1000
   simData$diet_data <- simData$diet_data %>%
     filter(!is.na(Pred))
 
 
   ms_run2 <- Rceattle::fit_mod(data_list = simData,
-                               inits = NULL, # Initial parameters = 0
+                               inits = ss_run$estimated_params, # Initial parameters = 0
                                file = NULL, # Don't save
                                estimateMode = 0, # Estimate
                                random_rec = FALSE, # No random recruitment
-                               phase = TRUE,
+                               phase = FALSE,
                                msmMode = 1,
+                               niter = 5,
                                suitMode = 4,
                                initMode = 2,
                                verbose = 1)
@@ -718,21 +720,22 @@ test_that("Simulated simple multi-species model the same" {
     }
   }
 
+  simData$diet_data$Sample_size <- 1000
   simData$diet_data <- simData$diet_data %>%
     filter(!is.na(Pred))
 
 
   ms_run3 <- Rceattle::fit_mod(data_list = simData,
-                               inits = NULL, # Initial parameters = 0
+                               inits = ss_run$estimated_params, # Initial parameters = 0
                                file = NULL, # Don't save
                                estimateMode = 0, # Estimate
                                random_rec = FALSE, # No random recruitment
-                               phase = TRUE,
+                               phase = FALSE,
                                msmMode = 1,
+                               niter = 5,
                                suitMode = 4,
                                initMode = 2,
                                verbose = 1)
-
   plot(x = sim$Total_Biom[1,], y = ms_run3$quantities$biomass[1,1:nyrs]); abline(1,1)
   plot(x = sim$Total_Biom[2,], y = ms_run3$quantities$biomass[2,1:nyrs]); abline(1,1)
 
@@ -758,17 +761,19 @@ test_that("Simulated simple multi-species model the same" {
     }
   }
 
+  simData$diet_data$Sample_size <- 1000
   simData$diet_data <- simData$diet_data %>%
     filter(!is.na(Pred))
 
 
   ms_run4 <- Rceattle::fit_mod(data_list = simData,
-                               inits = NULL, # Initial parameters = 0
+                               inits = ss_run$estimated_params, # Initial parameters = 0
                                file = NULL, # Don't save
                                estimateMode = 0, # Estimate
                                random_rec = FALSE, # No random recruitment
-                               phase = TRUE,
+                               phase = FALSE,
                                msmMode = 1,
+                               niter = 5,
                                suitMode = 4,
                                initMode = 2,
                                verbose = 1)
