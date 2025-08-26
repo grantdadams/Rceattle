@@ -245,7 +245,7 @@ test_that("Simulated simple multi-species model the same" {
   MatAA2 <- 1 / (1 + exp(-0.8 * (ages - 5)))
   sigma_R <- 0.3
   sigma_Catch <- 0.001
-  sigma_SrvIdx <- 0.2
+  sigma_SrvIdx <- 0.05
   Fmort <- c(seq(0.02, 0.3, length.out = nyrs/2), seq(0.3, 0.05, length.out = nyrs/2))
   Fmort2 <- seq(0.02, 0.3, length.out = nyrs)
   gam_a = c(1, 0.1)
@@ -549,20 +549,20 @@ test_that("Simulated simple multi-species model the same" {
 
 
   # * Relative foraging rate (days) ----
-  WAA <- as.data.frame(matrix(WAA * 50, ncol = 15))
-  colnames(WAA) <- paste0("Age",1:15)
+  Pyrs1 <- WAA * 50
+  colnames(Pyrs1) <- paste0("Age",1:15)
   Pyrs1 <- cbind(data.frame(Species = 1,
                             Sex = 0,
                             Year = 0),
-                 WAA
+                 Pyrs1
   )
 
-  WAA2 <- as.data.frame(matrix(WAA2 * 50, ncol = 15))
-  colnames(WAA2) <- paste0("Age",1:15)
+  Pyrs2 <- WAA2 * 50
+  colnames(Pyrs2) <- paste0("Age",1:15)
   Pyrs2 <- cbind(data.frame(Species = 2,
                             Sex = 0,
                             Year = 0),
-                 WAA2
+                 Pyrs2
   )
 
   simData$Pyrs <- rbind(Pyrs1, Pyrs2)
@@ -606,28 +606,21 @@ test_that("Simulated simple multi-species model the same" {
 
   # Fit multi-species -------------------------------------------------------------
   # * Full  diet -----
-  ind = 1
-  for(i in 1:dim(sim$diet_prop)[1]){ # pred
-    for(j in 1:dim(sim$diet_prop)[2]){ # prey
-      for(k in 1:dim(sim$diet_prop)[3]){ # pred age
-        for(l in 1:dim(sim$diet_prop)[4]){ # prey-age
-          for(m in 1:dim(sim$diet_prop)[5]){ # year
-            simData$diet_data[ind,] <- NA
-            simData$diet_data$Year[ind] <- m
-            simData$diet_data$Pred[ind] <- i
-            simData$diet_data$Prey[ind] <- j
-            simData$diet_data$Pred_sex[ind] <- 0
-            simData$diet_data$Prey_sex[ind] <- 0
-            simData$diet_data$Pred_age[ind] <- k
-            simData$diet_data$Prey_age[ind] <- l
-            simData$diet_data$Stomach_proportion_by_weight[ind] <- sim$diet_prop[i,j,k,l,m]
-            ind = ind+1
-          }
-        }
-      }
-    }
-  }
-  simData$diet_data$Sample_size <- 1000
+  # Get all combinations of indices
+  idx <- which(!is.na(sim$diet_prop), arr.ind = TRUE)  # or sim$diet_prop != 0 for nonzero only
+
+  # Build the data frame directly
+  simData$diet_data <- data.frame(
+    Year = idx[, 5],
+    Pred = idx[, 1],
+    Prey = idx[, 2],
+    Pred_sex = 0,
+    Prey_sex = 0,
+    Pred_age = idx[, 3],
+    Prey_age = idx[, 4],
+    Sample_size = 1000,
+    Stomach_proportion_by_weight = sim$diet_prop[idx]
+  )
   simData$diet_data <- simData$diet_data %>%
     filter(!is.na(Pred))
 
@@ -641,8 +634,7 @@ test_that("Simulated simple multi-species model the same" {
                                random_rec = FALSE, # No random recruitment
                                phase = FALSE,
                                msmMode = 1,
-                               niter = 5,
-                               suitMode = 4,
+                               niter = 10,
                                initMode = 2,
                                verbose = 1)
 
