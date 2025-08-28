@@ -1,12 +1,100 @@
 #' Simulate Rceattle data
 #'
 #' @description  Simulates data used in Rceattle from the expected values etimated from Rceattle. The variances and uncertainty are the same as used in the operating model. The function currently simulates (assumed distribution) the following: survey biomass (log-normal), survey catch-at-length/age (multinomial), EIT biomass (log-normal), EIT catch-at-length/age (multinomial), total catch (kg) (log-normal), and catch-at-length/age.
+#'
+#' @param Rceattle CEATTLE model object exported from \code{\link{Rceattle}}
+#' @param simulate TRUE/FALSE, whether to simulate the data or export the expected value
+#'
+#' @export
+sim_mod <- function(Rceattle, simulate = FALSE) {
+  # TODO Options for simulation diet data: multinomial, sqrt-normal, dirichlet, multinomial
+  dat_sim <- Rceattle$data_list
 
 
+  # Slot 0 -- BT survey biomass -- NFMS annual BT survey
+  ln_index_sd = Rceattle$quantities$ln_index_sd
+
+  if (simulate) {
+    # Simulate
+    values <- exp(rnorm(length(dat_sim$index_data$Observation), mean = log(Rceattle$quantities$index_hat) - (ln_index_sd^2)/2, sd = ln_index_sd))
+  } else {
+    # Estimated value
+    values <- Rceattle$quantities$index_hat
+  }
+  dat_sim$index_data$Observation = values
+
+
+  # Slot 1 -- Age composition
+  for (obs in 1:nrow(dat_sim$comp_data)) {
+    if (simulate & (sum(Rceattle$quantities$comp_hat[obs,], na.rm = TRUE) > 0)) {
+      # Simulate
+      #FIXME add dirichlet multinomial
+      values <- rmultinom(n = 1, size = dat_sim$comp_data$Sample_size[obs], prob = Rceattle$quantities$comp_hat[obs,])
+    } else {
+      # Expected value
+      values <- Rceattle$quantities$comp_hat[obs, ]
+    }
+    dat_sim$comp_data[obs, 9:ncol(dat_sim$comp_data)] = values
+  }
+
+
+
+
+  # Slot 2 -- Total catch -- Fishery observer data
+  fsh_biom_lse = Rceattle$quantities$ln_catch_sd
+
+  if (simulate) {
+    # Simulate
+    values <- exp(rnorm(length(dat_sim$catch_data$Catch), mean = log(Rceattle$quantities$catch_hat) - (fsh_biom_lse^2)/2, sd = fsh_biom_lse))
+  } else {
+    # simulate value
+    values <- Rceattle$quantities$catch_hat
+  }
+
+  dat_sim$catch_data$Catch = values
+
+
+  #TODO
+  # # Slot 5 -- Diet composition from lognormal suitability 4D
+  # if (length(dim(dat_sim$diet_data)) == 4) {
+  #     for (sp in 1:dat_sim$nspp) {
+  #         for (r_age in 1:dat_sim$nages[sp]) {
+  #             if (Rceattle$data_list$suitMode > 0 & simulate & sum(Rceattle$quantities$mn_UobsWtAge_hat[sp, , r_age,
+  #                                                                                                       ] > 0) > 0) {
+  #                 values <- rmultinom(n = 1, size = dat_sim$stom_tau[sp], prob = Rceattle$quantities$mn_UobsWtAge_hat[sp,
+  #                                                                                                                     , r_age, ])  #FIXME change sample size
+  #             } else {
+  #                 values <- Rceattle$quantities$mn_UobsWtAge_hat[sp, , r_age, ]
+  #             }
+  #             dat_sim$diet_data[sp, , r_age, ] <- replace(dat_sim$diet_data[sp, , r_age, ], values = values)
+  #         }
+  #     }
+  # }
+  #
+  # # 5D
+  # if (length(dim(dat_sim$diet_data)) == 5) {
+  #     for (sp in 1:dat_sim$nspp) {
+  #         for (yr in 1:dat_sim$nyrs_fsh_comp[sp]) {
+  #             for (r_age in 1:dat_sim$nages[sp]) {
+  #                 if (Rceattle$data_list$suitMode > 0 & simulate & sum(Rceattle$quantities$UobsWtAge_hat[sp, , r_age,
+  #                                                                                                        , yr] > 0) > 0) {
+  #                     values <- rmultinom(n = 1, size = dat_sim$stom_tau[sp], prob = Rceattle$quantities$UobsWtAge_hat[sp,
+  #                                                                                                                      , r_age, , yr])  #FIXME change sample size
+  #                 } else {
+  #                     values <- Rceattle$quantities$UobsWtAge_hat[sp, , r_age, , yr]
+  #                 }
+  #                 dat_sim$diet_data[sp, , r_age, , yr] <- replace(dat_sim$diet_data[sp, , r_age, , yr], values = values)
+  #             }
+  #         }
+  #     }
+  # }
+
+  return(dat_sim)
+}
 
 #' Sample historical recruitment deviates and place in the projection
 #'
-#' @param Rceattle
+#' @param Rceattle CEATTLE model object exported from \code{\link{Rceattle}}
 #' @param sample_rec Include resampled recruitment deviates from the"hindcast" in the projection of the OM. Resampled deviates are used rather than sampling from N(0, sigmaR) because initial deviates bias R0 low. If false, uses mean of recruitment deviates.
 #' @param update_model Update model dynamics. Default = TRUE
 #' @param rec_trend Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier \code{mean rec * (1 + (rec_trend/projection years) * 1:projection years)}. Can be of length 1 or of length nspp. If length 1, all species get the same trend.
@@ -119,101 +207,6 @@ sample_rec <- function(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_tre
 
   return(Rceattle)
 }
-
-
-
-#'
-#' @param Rceattle CEATTLE model object exported from \code{\link{Rceattle}}
-#' @param simulate TRUE/FALSE, whether to simulate the data or export the expected value
-#'
-#' @export
-sim_mod <- function(Rceattle, simulate = FALSE) {
-  # TODO Options for simulation diet data: multinomial, sqrt-normal, dirichlet, multinomial
-  dat_sim <- Rceattle$data_list
-
-
-  # Slot 0 -- BT survey biomass -- NFMS annual BT survey
-  ln_index_sd = Rceattle$quantities$ln_index_sd
-
-  if (simulate) {
-    # Simulate
-    values <- exp(rnorm(length(dat_sim$index_data$Observation), mean = log(Rceattle$quantities$index_hat) - (ln_index_sd^2)/2, sd = ln_index_sd))
-  } else {
-    # Estimated value
-    values <- Rceattle$quantities$index_hat
-  }
-  dat_sim$index_data$Observation = values
-
-
-  # Slot 1 -- Age composition
-  for (obs in 1:nrow(dat_sim$comp_data)) {
-    if (simulate & (sum(Rceattle$quantities$comp_hat[obs,], na.rm = TRUE) > 0)) {
-      # Simulate
-      #FIXME add dirichlet multinomial
-      values <- rmultinom(n = 1, size = dat_sim$comp_data$Sample_size[obs], prob = Rceattle$quantities$comp_hat[obs,])
-    } else {
-      # Expected value
-      values <- Rceattle$quantities$comp_hat[obs, ]
-    }
-    dat_sim$comp_data[obs, 9:ncol(dat_sim$comp_data)] = values
-  }
-
-
-
-
-  # Slot 2 -- Total catch -- Fishery observer data
-  fsh_biom_lse = Rceattle$quantities$ln_catch_sd
-
-  if (simulate) {
-    # Simulate
-    values <- exp(rnorm(length(dat_sim$catch_data$Catch), mean = log(Rceattle$quantities$catch_hat) - (fsh_biom_lse^2)/2, sd = fsh_biom_lse))
-  } else {
-    # simulate value
-    values <- Rceattle$quantities$catch_hat
-  }
-
-  dat_sim$catch_data$Catch = values
-
-
-  #TODO
-  # # Slot 5 -- Diet composition from lognormal suitability 4D
-  # if (length(dim(dat_sim$diet_data)) == 4) {
-  #     for (sp in 1:dat_sim$nspp) {
-  #         for (r_age in 1:dat_sim$nages[sp]) {
-  #             if (Rceattle$data_list$suitMode > 0 & simulate & sum(Rceattle$quantities$mn_UobsWtAge_hat[sp, , r_age,
-  #                                                                                                       ] > 0) > 0) {
-  #                 values <- rmultinom(n = 1, size = dat_sim$stom_tau[sp], prob = Rceattle$quantities$mn_UobsWtAge_hat[sp,
-  #                                                                                                                     , r_age, ])  #FIXME change sample size
-  #             } else {
-  #                 values <- Rceattle$quantities$mn_UobsWtAge_hat[sp, , r_age, ]
-  #             }
-  #             dat_sim$diet_data[sp, , r_age, ] <- replace(dat_sim$diet_data[sp, , r_age, ], values = values)
-  #         }
-  #     }
-  # }
-  #
-  # # 5D
-  # if (length(dim(dat_sim$diet_data)) == 5) {
-  #     for (sp in 1:dat_sim$nspp) {
-  #         for (yr in 1:dat_sim$nyrs_fsh_comp[sp]) {
-  #             for (r_age in 1:dat_sim$nages[sp]) {
-  #                 if (Rceattle$data_list$suitMode > 0 & simulate & sum(Rceattle$quantities$UobsWtAge_hat[sp, , r_age,
-  #                                                                                                        , yr] > 0) > 0) {
-  #                     values <- rmultinom(n = 1, size = dat_sim$stom_tau[sp], prob = Rceattle$quantities$UobsWtAge_hat[sp,
-  #                                                                                                                      , r_age, , yr])  #FIXME change sample size
-  #                 } else {
-  #                     values <- Rceattle$quantities$UobsWtAge_hat[sp, , r_age, , yr]
-  #                 }
-  #                 dat_sim$diet_data[sp, , r_age, , yr] <- replace(dat_sim$diet_data[sp, , r_age, , yr], values = values)
-  #             }
-  #         }
-  #     }
-  # }
-
-  return(dat_sim)
-}
-
-
 
 #' Evaluate simulation performance
 #'

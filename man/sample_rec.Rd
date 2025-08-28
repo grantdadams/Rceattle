@@ -2,11 +2,13 @@
 % Please edit documentation in R/8-sim_mod.R
 \name{sample_rec}
 \alias{sample_rec}
-\title{Simulate Rceattle data}
+\title{Sample historical recruitment deviates and place in the projection}
 \usage{
 sample_rec(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_trend = 0)
 }
 \arguments{
+\item{Rceattle}{CEATTLE model object exported from \code{\link{Rceattle}}}
+
 \item{sample_rec}{Include resampled recruitment deviates from the"hindcast" in the projection of the OM. Resampled deviates are used rather than sampling from N(0, sigmaR) because initial deviates bias R0 low. If false, uses mean of recruitment deviates.}
 
 \item{update_model}{Update model dynamics. Default = TRUE}
@@ -17,6 +19,5 @@ sample_rec(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_trend = 0)
 Rceattle model
 }
 \description{
-Simulates data used in Rceattle from the expected values etimated from Rceattle. The variances and uncertainty are the same as used in the operating model. The function currently simulates (assumed distribution) the following: survey biomass (log-normal), survey catch-at-length/age (multinomial), EIT biomass (log-normal), EIT catch-at-length/age (multinomial), total catch (kg) (log-normal), and catch-at-length/age.
 Sample historical recruitment deviates and place in the projection
 }

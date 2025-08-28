@@ -155,16 +155,16 @@ plot_catch(Rceattle = mod_list, model_names = mod_names, incl_proj = TRUE)
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # we can also do retrospective peels and calculate Mohn's Rho on the CEATTLE
 # NOTE: this is using mean historical F for projections as we changed it above
-ms_run_proj_retro <- Rceattle::retrospective(Rceattle = ms_run_proj, peels = 5)
+ms_run_retro <- Rceattle::retrospective(Rceattle = ms_run, peels = 5)
 
 # Look at Mohns rho
-ms_run_proj_retro$mohns
+ms_run_retro$mohns
 
 # Plot retrospectives
-plot_biomass(ms_run_proj_retro$Rceattle_list)
+plot_biomass(ms_run_retro$Rceattle_list)
 
 # See how forecast changes
-plot_biomass(ms_run_proj_retro$Rceattle_list, incl_proj = TRUE)
+plot_biomass(ms_run_retro$Rceattle_list, incl_proj = TRUE)
 
 
 
@@ -230,7 +230,7 @@ ss_re <- Rceattle::fit_mod(
 mydata$diet_data$Sample_size <- 10
 ms_gamma <- Rceattle::fit_mod(
   data_list = mydata,
-  inits = ms_run$estimated_params, # Initial parameters from single species ests
+  inits = ss_run$estimated_params, # Initial parameters from single species ests
   file = NULL, # Don't save
   estimateMode = 0, # Estimate
   niter = 5, # 5 iterations around population and predation dynamics

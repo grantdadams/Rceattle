@@ -86,7 +86,7 @@ build_srr <- function(srr_fun = 0,
 #' @param M2_use_prior Vector or scalar specifying to specify if M1 + M2 come from a lognormal prior in multi-species models (default = FALSE). Lognormal prior for M1 + M2 across species, sexes, ages, and years.
 #' @param M_prior Vector or scalar for mean of M prior on natural scale
 #' @param M_prior_sd Vector or scalar of SD of lognormal M prior. Used as initial value for random effects variance as well.
-#' @param M1_indices vector or single index indicating the columns (excluding "Year" column) of \code{env_data} to use for environmentally linked M1 \code{M1_model %in% c(4,5)}.
+#' @param M1_indices vector or single index indicating the columns (excluding Year column) of \code{env_data} to use for environmentally linked M1 \code{M1_model %in% c(4,5)}.
 #'
 #' @description
 #'
