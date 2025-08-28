@@ -74,35 +74,47 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
       dplyr::filter(Year <= endyr_peel)
 
     proj_wt <- data_list$weight %>%
-      group_by(Wt_index , Sex) %>%
-      slice(rep(n(),  nyrs_proj_peel)) %>%
-      mutate(Year = peel_prj_yrs)
-    data_list$weight  <- rbind(data_list$weight, proj_wt)
-    data_list$weight <- dplyr::arrange(data_list$weight, Wt_index, Year)
+      dplyr::filter(Year != 0)
+
+    if(nrow(proj_wt) > 0){
+      proj_wt <- proj_wt %>%
+        dplyr::group_by(Wt_index , Sex) %>%
+        dplyr::slice(rep(n(),  nyrs_proj_peel)) %>%
+        dplyr::mutate(Year = peel_prj_yrs)
+    }
+    data_list$weight  <- rbind(data_list$weight, proj_wt) %>%
+      dplyr::arrange(Wt_index, Year)
 
     # -- emp_sel
     data_list$emp_sel <- data_list$emp_sel %>%
       dplyr::filter(Year <= endyr_peel)
-    if(nrow(data_list$emp_sel) > 0){
-      proj_emp_sel <- data_list$emp_sel %>%
-        group_by(Fleet_code, Sex) %>%
-        slice(rep(n(),  nyrs_proj_peel)) %>%
-        mutate(Year = peel_prj_yrs)
-      data_list$emp_sel  <- rbind(data_list$emp_sel, proj_emp_sel)
-      data_list$emp_sel <- dplyr::arrange(data_list$emp_sel, Fleet_code, Year)
+
+    proj_emp_sel <- data_list$emp_sel %>%
+      dplyr::filter(Year != 0)
+
+    if(nrow(proj_emp_sel) > 0){
+      proj_emp_sel <- proj_emp_sel %>%
+        dplyr::group_by(Fleet_code, Sex) %>%
+        dplyr::slice(rep(n(),  nyrs_proj_peel)) %>%
+        dplyr::mutate(Year = peel_prj_yrs)
+      data_list$emp_sel  <- rbind(data_list$emp_sel, proj_emp_sel) %>%
+        dplyr::arrange(Fleet_code, Year)
     }
 
     # -- Pyrs
     data_list$Pyrs <- data_list$Pyrs %>%
       dplyr::filter(Year <= endyr_peel)
 
-    if(nrow(data_list$Pyrs)){
-      proj_Pyrs <- data_list$Pyrs %>%
-        group_by(Species, Sex) %>%
-        slice(rep(n(),  nyrs_proj_peel)) %>%
-        mutate(Year = peel_prj_yrs)
-      data_list$Pyrs  <- rbind(data_list$Pyrs, proj_Pyrs)
-      data_list$Pyrs <- dplyr::arrange(data_list$Pyrs, Species, Year)
+    proj_Pyrs <- data_list$Pyrs %>%
+      dplyr::filter(Year != 0)
+
+    if(nrow(proj_Pyrs) > 0){
+      proj_Pyrs <- proj_Pyrs %>%
+        dplyr::group_by(Species, Sex) %>%
+        dplyr::slice(rep(n(),  nyrs_proj_peel)) %>%
+        dplyr::mutate(Year = peel_prj_yrs)
+      data_list$Pyrs  <- rbind(data_list$Pyrs, proj_Pyrs) %>%
+        dplyr::arrange(Species, Year)
     }
 
 

@@ -711,6 +711,7 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
                                                          "biomass_depletion",
                                                          "biomass",
                                                          "ssb",
+                                                         "ssb_depletion",
                                                          "BO",
                                                          "SB0",
                                                          "SBF",
@@ -726,6 +727,8 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
                                                          "SPRlimit",
                                                          "SPRtarget",
                                                          "Ftarget",
+                                                         "B_eaten",
+                                                         "B_eaten_as_prey",
                                                          "Flimit")] <- NULL
 
       sim_list$EM[[k+1]] <- em_use
