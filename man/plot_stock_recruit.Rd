@@ -14,6 +14,9 @@ plot_stock_recruit(
   species = NULL,
   spnames = NULL,
   lwd = 3,
+  lty = 1,
+  incl_proj = FALSE,
+  plot_env = FALSE,
   mod_cex = 1
 )
 }
@@ -32,6 +35,8 @@ function.}
 \item{spnames}{Species names for legend}
 
 \item{lwd}{Line width as specified by user}
+
+\item{incl_proj}{TRUE/FALSE, include projection years for environmental relationship}
 }
 \description{
 Function the plots the stock recruit function as estimated from Rceattle

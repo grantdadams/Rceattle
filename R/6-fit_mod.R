@@ -771,7 +771,7 @@ fit_mod <-
 
     # -- Save data w/ mcallister
     mod_objects$data_list <- Rceattle::calc_mcall_ianelli(data_list = data_list, data_list_reorganized = data_list_reorganized, quantities = quantities)
-    mod_objects$data_list <- Rceattle::calc_mcall_ianelli_diet(data_list = data_list, quantities = quantities)
+    mod_objects$data_list <- Rceattle::calc_mcall_ianelli_diet(data_list = mod_objects$data_list, quantities = quantities)
 
     # -- Run time
     mod_objects$run_time = ((Sys.time() - start_time))
