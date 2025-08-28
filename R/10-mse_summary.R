@@ -592,10 +592,11 @@ load_mse <- function(dir = NULL, file = NULL, exclude = NULL){
                                                                          "ln_catch_sd",
                                                                          "index_hat",
                                                                          "ln_index_sd",
-                                                                         "biomass_depletion",
                                                                          "ssb_depletion",
+                                                                         "biomass_depletion",
                                                                          "biomass",
                                                                          "ssb",
+                                                                         "ssb_depletion",
                                                                          "BO",
                                                                          "SB0",
                                                                          "SBF",
@@ -603,7 +604,7 @@ load_mse <- function(dir = NULL, file = NULL, exclude = NULL){
                                                                          "R",
                                                                          "M1_at_age",
                                                                          "M_at_age",
-                                                                         "avg_R",
+                                                                         "avg_rec",
                                                                          "DynamicB0",
                                                                          "DynamicSB0",
                                                                          "DynamicSBF",
@@ -611,6 +612,8 @@ load_mse <- function(dir = NULL, file = NULL, exclude = NULL){
                                                                          "SPRlimit",
                                                                          "SPRtarget",
                                                                          "Ftarget",
+                                                                         "B_eaten",
+                                                                         "B_eaten_as_prey",
                                                                          "Flimit")] <- NULL
 
 
@@ -625,10 +628,11 @@ load_mse <- function(dir = NULL, file = NULL, exclude = NULL){
                                                                                    "ln_catch_sd",
                                                                                    "index_hat",
                                                                                    "ln_index_sd",
-                                                                                   "biomass_depletion",
                                                                                    "ssb_depletion",
+                                                                                   "biomass_depletion",
                                                                                    "biomass",
                                                                                    "ssb",
+                                                                                   "ssb_depletion",
                                                                                    "BO",
                                                                                    "SB0",
                                                                                    "SBF",
@@ -636,7 +640,7 @@ load_mse <- function(dir = NULL, file = NULL, exclude = NULL){
                                                                                    "R",
                                                                                    "M1_at_age",
                                                                                    "M_at_age",
-                                                                                   "avg_R",
+                                                                                   "avg_rec",
                                                                                    "DynamicB0",
                                                                                    "DynamicSB0",
                                                                                    "DynamicSBF",
@@ -644,6 +648,8 @@ load_mse <- function(dir = NULL, file = NULL, exclude = NULL){
                                                                                    "SPRlimit",
                                                                                    "SPRtarget",
                                                                                    "Ftarget",
+                                                                                   "B_eaten",
+                                                                                   "B_eaten_as_prey",
                                                                                    "Flimit")] <- NULL
 
     # - Return
