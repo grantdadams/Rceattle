@@ -3653,7 +3653,7 @@ Type objective_function<Type>::operator() () {
 
 
     // Slot 9 -- init_dev -- Initial abundance-at-age
-    if(initMode > 1){
+    if(initMode > 0){
       for(age = 1; age < nages(sp); age++) {
         jnll_comp(9, sp) -= dnorm( init_dev(sp, age - 1), square(R_sd(sp))/2.0, R_sd(sp), true);
       }
