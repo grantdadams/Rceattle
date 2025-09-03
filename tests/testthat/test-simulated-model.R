@@ -307,5 +307,5 @@ test_that("Simulated simple model the same" {
   plot(x = sim$Total_Biom, y = ss_run$quantities$biomass[1,1:20], ylab = "Rceattle biomass", xlab = "True biomass"); abline(1,1)
   plot(x = sim$NAA[1:20,1], y = ss_run$quantities$R[1,1:20]); abline(1,1)
 
-  expect_equal(sim$SSB[1], 45.80138, tolerance = 0.0001)
+  testthat::expect_equal(sim$SSB[1], 45.80138, tolerance = 0.0001)
 })

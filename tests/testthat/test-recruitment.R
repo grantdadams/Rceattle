@@ -25,13 +25,13 @@ test_that("mean recruitment and devs", {
 
   # Check R
   for(sp in 1:3){
-    expect_equal(as.numeric(ss_run$quantities$R[sp,1:nyrs]), exp(R0[sp] + Rdev), tolerance = 0.0001)
+    testthat::expect_equal(as.numeric(ss_run$quantities$R[sp,1:nyrs]), exp(R0[sp] + Rdev), tolerance = 0.0001)
   }
 
   # JNLL
-  expect_equal(as.numeric(ss_run$quantities$jnll_comp[12,1:3]), rep(sum(-dnorm(Rdev,
-                                                                               mean = 1/2, # lognormal bias correction to center around 0
-                                                                               sd = 1, log = TRUE)), 3), tolerance = 0.0001)
+  testthat::expect_equal(as.numeric(ss_run$quantities$jnll_comp[12,1:3]), rep(sum(-dnorm(Rdev,
+                                                                                         mean = 1/2, # lognormal bias correction to center around 0
+                                                                                         sd = 1, log = TRUE)), 3), tolerance = 0.0001)
 })
 
 test_that("ssb under mean recruitment", {
@@ -67,7 +67,7 @@ test_that("ssb under mean recruitment", {
                               verbose = 1)
   # Check ssb
   for(yr in 1:nyrs){
-    expect_equal(as.numeric(ss_run$quantities$ssb[,yr]),  exp(R0)*1/(1-exp(-0.2))*0.5, tolerance = 0.0001)
+    testthat::expect_equal(as.numeric(ss_run$quantities$ssb[,yr]),  exp(R0)*1/(1-exp(-0.2))*0.5, tolerance = 0.0001)
   }
 })
 
@@ -129,7 +129,9 @@ test_that("ssb and beverton recruitment", {
 
   # Check ssb
   for(yr in 1:nyrs){
-    expect_equal(as.numeric(ss_run$quantities$ssb[,yr]),  R0/(1-exp(-0.2))*0.5, tolerance = 0.0001)
+    for(sp in 1:ss_run$data_list$nspp){
+      testthat::expect_equal(as.numeric(ss_run$quantities$ssb[sp,yr]),  R0/(1-exp(-0.2))*0.5, tolerance = 0.0001)
+    }
   }
 
 })
@@ -192,7 +194,9 @@ test_that("ssb and ricker recruitment", {
 
   # Check SSB
   for(yr in 1:nyrs){
-    expect_equal(as.numeric(ss_run$quantities$ssb[,yr]),  R0/(1-exp(-0.2))*0.5, tolerance = 0.0001)
+    for(sp in 1:ss_run$data_list$nspp){
+      testthat::expect_equal(as.numeric(ss_run$quantities$ssb[sp,yr]),  R0/(1-exp(-0.2))*0.5, tolerance = 0.0001)
+    }
   }
 
 })

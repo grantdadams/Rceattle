@@ -1016,7 +1016,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
     if(!data_list$fleet_control$Comp_loglike[i] %in% c(-1, 0, 1)){
       if(!is.na(data_list$fleet_control$Comp_loglike[i])){
-        stop(paste0("Comp_loglike for fleet", i, "is not 0 or 1"))
+        stop(paste0("Comp_loglike for fleet ", i, "is not 0 or 1"))
       }
     }
   }
