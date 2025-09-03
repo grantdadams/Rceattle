@@ -15,7 +15,7 @@ test_that("test SB40 under mean recruitment", {
                                     phase = TRUE,
                                     verbose = 1)
 
-  expect_equal(as.numeric((ss_run_Tier3$quantities$SBF/ss_run_Tier3$quantities$SB0)[,72]), rep(0.4, 3), tolerance = 0.0001)
+  testthat::expect_equal(as.numeric((ss_run_Tier3$quantities$SBF/ss_run_Tier3$quantities$SB0)[,72]), rep(0.4, 3), tolerance = 0.0001)
 })
 
 
@@ -66,5 +66,5 @@ test_that("test SPR0", {
   sum(ssb_at_age)
 
   # Check SPRO
-  expect_equal(as.numeric(ss_run$quantities$SPR0),  rep(sum(ssb_at_age), 3), tolerance = 0.0001)
+  testthat::expect_equal(as.numeric(ss_run$quantities$SPR0),  rep(sum(ssb_at_age), 3), tolerance = 0.0001)
 })

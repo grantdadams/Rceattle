@@ -67,14 +67,14 @@ test_that("non-parametric selectivity not normalized", {
 
   # Check selectivity
   # - Pollock
-  apply(ss_run$quantities$sel[1,1,1:10,], 2, function(x) expect_equal(as.numeric(x), exp(log_sel_fsh), tolerance = 0.0001))
+  apply(ss_run$quantities$sel[1,1,1:10,], 2, function(x) testthat::expect_equal(as.numeric(x), exp(log_sel_fsh), tolerance = 0.0001))
 
   # - ATF
-  apply(ss_run$quantities$sel[9,1,1:21,], 2, function(x) expect_equal(as.numeric(x), exp(log_sel_fsh2), tolerance = 0.0001))
-  apply(ss_run$quantities$sel[9,2,1:21,], 2, function(x) expect_equal(as.numeric(x), exp(log_sel_fsh2m), tolerance = 0.0001))
+  apply(ss_run$quantities$sel[9,1,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), exp(log_sel_fsh2), tolerance = 0.0001))
+  apply(ss_run$quantities$sel[9,2,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), exp(log_sel_fsh2m), tolerance = 0.0001))
 
   # - Cod
-  apply(ss_run$quantities$sel[12,1,1:12,], 2, function(x) expect_equal(as.numeric(x), exp(log_sel_fsh3), tolerance = 0.0001))
+  apply(ss_run$quantities$sel[12,1,1:12,], 2, function(x) testthat::expect_equal(as.numeric(x), exp(log_sel_fsh3), tolerance = 0.0001))
 
   # Check penalties
   # - Curvature penalty
@@ -88,5 +88,5 @@ test_that("non-parametric selectivity not normalized", {
   # - Avgsel
   pen3 <- 2 * log(mean(exp(log_selcoffs)))^2
 
-  expect_equal(pen1+pen2+pen3, as.numeric(ss_run$quantities$jnll_comp[5,8]), tolerance = 0.0001)
+  testthat::expect_equal(pen1+pen2+pen3, as.numeric(ss_run$quantities$jnll_comp[5,8]), tolerance = 0.0001)
 })

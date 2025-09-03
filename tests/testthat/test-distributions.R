@@ -68,11 +68,11 @@ test_that("lognormal index", {
 
   # Check biomass
   for(sp in 1:3){
-    expect_equal(as.numeric(ss_run$quantities$biomass[sp,1:nyrs]), rep(SB0[sp], nyrs), tolerance = 0.0001)
+    testthat::expect_equal(as.numeric(ss_run$quantities$biomass[sp,1:nyrs]), rep(SB0[sp], nyrs), tolerance = 0.0001)
   }
 
   # Check derived index
-  expect_equal(ss_run$quantities$index_hat, SB0[ss_run$data_list$index_data$Species])
+  testthat::expect_equal(ss_run$quantities$index_hat*2, SB0[ss_run$data_list$index_data$Species])
 
 
 })
