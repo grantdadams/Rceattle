@@ -250,6 +250,8 @@ test_that("Simulated simple multi-species model the same" {
   Fmort2 <- seq(0.02, 0.3, length.out = nyrs)
   gam_a = c(1, 0.1)
   gam_b = rep(0.15, nspp)
+  log_phi = matrix(c(-5,0.5,-10,-2), nspp, nspp, byrow = TRUE)
+  other_food <- rep(1e5, nspp)
 
   # First, simulate some data for the model
   set.seed(123)
@@ -277,8 +279,8 @@ test_that("Simulated simple multi-species model the same" {
     # Multispecies bits
     gam_a = gam_a,
     gam_b = gam_b,
-    log_phi = matrix(c(-5,0.5,-10,-2), nspp, nspp, byrow = TRUE),
-    other_food = rep(1e5, nspp),
+    log_phi = log_phi,
+    other_food = other_food,
     ration = matrix(c(WAA, WAA2), nspp, length(ages), byrow = TRUE) * 50,
   )
 
@@ -627,6 +629,7 @@ test_that("Simulated simple multi-species model the same" {
 
   ss_run$estimated_params$log_gam_a <- log(c(1, 0.1))
   ss_run$estimated_params$log_gam_b <- log(c(0.15, 0.15))
+  ss_run$estimated_params$log_phi <- log(c(0.15, 0.15))
   ms_run1 <- Rceattle::fit_mod(data_list = simData,
                                inits = ss_run$estimated_params, # Initial parameters = 0
                                file = NULL, # Don't save
