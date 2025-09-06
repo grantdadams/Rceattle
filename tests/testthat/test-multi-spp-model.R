@@ -27,7 +27,7 @@ test_that("Simulated simple multi-species model the same" {
     srv_q = rep(1, nspp),
 
     # Multispecies bits
-    iter = 10,
+    niter = 10,
     gam_a = rep(0.1, nspp),
     gam_b = rep(0.1, nspp),
     log_phi = matrix(0, nspp, nspp),
@@ -40,12 +40,13 @@ test_that("Simulated simple multi-species model the same" {
     n_ages <- length(ages)
 
     # Initialize arrays
-    NAA <- array(0, dim = c(nspp, n_yrs + 1, n_ages))  # Numbers at age
-    avgNAA <- array(0, dim = c(nspp, n_yrs + 1, n_ages))  # Numbers at age
-    ZAA <- array(0, dim = c(nspp, n_yrs, n_ages))      # Total mortality
-    MAA <- array(0, dim = c(nspp, n_yrs, n_ages))      # Total mortality
-    CAA <- array(0, dim = c(nspp, n_yrs, n_ages))      # Catch at age
-    FAA <- array(0, dim = c(nspp, n_yrs, n_ages))      # Fishing mortality at age
+    NAA <- array(0, dim = c(nspp, n_ages, n_yrs))  # Numbers at age
+    avgNAA <- array(0, dim = c(nspp, n_ages, n_yrs))  # Numbers at age
+    ZAA <- array(0, dim = c(nspp, n_ages, n_yrs))      # Total mortality
+    MAA <- array(0, dim = c(nspp, n_ages, n_yrs))      # Total mortality
+    M2_at_age <- array(0, dim = c(nspp, n_ages, n_yrs))
+    CAA <- array(0, dim = c(nspp, n_ages, n_yrs))      # Catch at age
+    FAA <- array(0, dim = c(nspp, n_ages, n_yrs))      # Fishing mortality at age
 
     # Population metrics
     SSB <- matrix(0, nspp, n_yrs)
@@ -86,42 +87,41 @@ test_that("Simulated simple multi-species model the same" {
     # Initialize population
     for(sp in 1:nspp){
       init_age_idx <- 1:(n_ages - 2)
-      NAA[sp, 1, init_age_idx + 1] <- mean_Rec[sp] * exp(- (init_age_idx * M[sp]))
-      NAA[sp, 1, n_ages] <- mean_Rec[sp] * exp(-(n_ages - 1) * M[sp]) / (1 - exp(-M[sp]))
-      NAA[sp,1,2:n_ages] <- NAA[sp,1,2:n_ages] * exp(init_devs[sp,])
+      NAA[sp, init_age_idx + 1, 1] <- mean_Rec[sp] * exp(- (init_age_idx * M[sp]))
+      NAA[sp, n_ages, 1] <- mean_Rec[sp] * exp(-(n_ages - 1) * M[sp]) / (1 - exp(-M[sp]))
+      NAA[sp,2:n_ages, 1] <- NAA[sp,2:n_ages, 1] * exp(init_devs[sp,])
     }
 
     # Project population forward
-    M2_at_age <- array(0, dim = c(nspp, n_ages, n_yrs))
-    for(iter in 1:10){
+    for(iter in 1:niter){
 
       for(y in 1:n_yrs) {
         for(sp in 1:nspp){
           # New recruits
-          NAA[sp, y, 1] <- mean_Rec[sp] * exp(rec_devs[sp,y])
+          NAA[sp, 1, y] <- mean_Rec[sp] * exp(rec_devs[sp,y])
 
           # Calculate mortality
-          FAA[sp, y,] <- Fmort[sp, y] * fish_sel[sp,]
-          ZAA[sp, y,] <- FAA[sp,y,] + M[sp] + M2_at_age[sp, , y]
-          MAA[sp, y,] <- M[sp] + M2_at_age[sp, , y]
+          FAA[sp, ,y] <- Fmort[sp, y] * fish_sel[sp,]
+          ZAA[sp, ,y] <- FAA[sp,,y] + M[sp] + M2_at_age[sp, , y]
+          MAA[sp, ,y] <- M[sp] + M2_at_age[sp, ,y]
 
           # Calculate catch
-          CAA[sp, y,] <- FAA[sp, y,] / ZAA[sp, y,] * NAA[sp, y,] * (1 - exp(-ZAA[sp, y,]))
+          CAA[sp, ,y] <- FAA[sp, ,y] / ZAA[sp, ,y] * NAA[sp, ,y] * (1 - exp(-ZAA[sp, ,y]))
 
           # Project survivors
           if(y < n_yrs) {
             for(a in 1:(n_ages-1)) {
-              NAA[sp, y+1, a+1] <- NAA[sp, y, a] * exp(-ZAA[sp, y, a])
+              NAA[sp, a+1, y+1] <- NAA[sp, a, y] * exp(-ZAA[sp, a, y])
             }
             # Plus group
-            NAA[sp, y+1, n_ages] <- NAA[sp, y+1, n_ages] + NAA[sp, y, n_ages] * exp(-ZAA[sp, y, n_ages])
+            NAA[sp, n_ages, y+1] <- NAA[sp, n_ages, y+1] + NAA[sp, n_ages, y] * exp(-ZAA[sp, n_ages, y])
           }
-          avgNAA[sp,y,] = NAA[sp, y, ] * (1-exp(-ZAA[sp, y, ]))/ZAA[sp,y,]
+          avgNAA[sp,,y] = NAA[sp, ,y] * (1-exp(-ZAA[sp, ,y]))/ZAA[sp,,y]
 
           # Calculate annual metrics
-          Total_Biom[sp, y] <- sum(NAA[sp, y,] * WAA[sp, ])
-          SSB[sp, y] <- sum(NAA[sp, y,] * WAA[sp, ] * MatAA[sp, ]) * 0.5
-          Catch[sp, y] <- sum(CAA[sp, y,] * WAA[sp, ])
+          Total_Biom[sp, y] <- sum(NAA[sp, ,y] * WAA[sp, ])
+          SSB[sp, y] <- sum(NAA[sp, ,y] * WAA[sp, ] * MatAA[sp, ]) * 0.5
+          Catch[sp, y] <- sum(CAA[sp, ,y] * WAA[sp, ])
         }
       }
 
@@ -132,11 +132,11 @@ test_that("Simulated simple multi-species model the same" {
           for(y in 1:n_yrs) {
             for(ksp in 1:nspp) {
               for(k_age in 1:n_ages) { # Prey age loop
-                avail_food[rsp, r_age, y] = avail_food[rsp, r_age, y] + suitability[rsp, ksp, r_age, k_age] * avgNAA[ksp, y, k_age] * WAA[ksp, k_age]
+                avail_food[rsp, r_age, y] = avail_food[rsp, r_age, y] + suitability[rsp, ksp, r_age, k_age] * avgNAA[ksp, k_age, y] * WAA[ksp, k_age]
               }
             }
             # Other food
-            avail_food[rsp, r_age, y] = avail_food[rsp, r_age, y] + other_food[rsp] * suit_other[sp]
+            avail_food[rsp, r_age, y] = avail_food[rsp, r_age, y] + other_food[rsp] * suit_other[rsp]
           }
         }
       }
@@ -155,13 +155,13 @@ test_that("Simulated simple multi-species model the same" {
 
                   # MSVPA
                   # - M2
-                  M2_at_age[ksp, k_age, y] = M2_at_age[ksp, k_age, y] + avgNAA[rsp, y, r_age] * ration[rsp, r_age] * suitability[rsp, ksp, r_age, k_age] / avail_food[rsp, r_age, y]
+                  M2_at_age[ksp, k_age, y] = M2_at_age[ksp, k_age, y] + avgNAA[rsp, r_age, y] * ration[rsp, r_age] * suitability[rsp, ksp, r_age, k_age] / avail_food[rsp, r_age, y]
 
                   # Biomass consumed as prey
-                  B_eaten_as_prey[ksp, k_age, y] = B_eaten_as_prey[ksp, k_age, y] + avgNAA[ksp, y, k_age] * WAA[ksp, k_age] * avgNAA[rsp, y, r_age] * ration[rsp, r_age] * suitability[rsp, ksp, r_age, k_age] / avail_food[rsp, r_age, y]
+                  B_eaten_as_prey[ksp, k_age, y] = B_eaten_as_prey[ksp, k_age, y] + avgNAA[ksp, k_age, y] * WAA[ksp, k_age] * avgNAA[rsp, r_age, y] * ration[rsp, r_age] * suitability[rsp, ksp, r_age, k_age] / avail_food[rsp, r_age, y]
 
                   # Diet
-                  diet_prop[rsp, ksp, r_age, k_age, y] = avgNAA[ksp, y, k_age] * WAA[ksp, k_age] * suitability[rsp, ksp, r_age, k_age] / avail_food[rsp, r_age, y]
+                  diet_prop[rsp, ksp, r_age, k_age, y] = avgNAA[ksp, k_age, y] * WAA[ksp, k_age] * suitability[rsp, ksp, r_age, k_age] / avail_food[rsp, r_age, y]
                 }
               }
             }
@@ -179,15 +179,15 @@ test_that("Simulated simple multi-species model the same" {
     SrvIdx <- srv_q * Total_Biom * rlnorm(n_yrs * nspp, 0, sigma_srv)
 
     # Age composition data (simplified multinomial)
-    ObsFishAges <- array(0, dim=c(nspp, n_yrs, n_ages))
-    ObsSrvAges <- array(0, dim=c(nspp, n_yrs, n_ages))
+    ObsFishAges <- array(0, dim=c(nspp, n_ages, n_yrs))
+    ObsSrvAges <- array(0, dim=c(nspp, n_ages, n_yrs))
 
     for(sp in 1:nspp){
       for(y in 1:n_yrs) {
         # Fishery ages
-        ObsFishAges[sp, y,] <- rmultinom(1, fish_ISS, CAA[sp, y,])
+        ObsFishAges[sp, ,y] <- rmultinom(1, fish_ISS, CAA[sp, ,y])
         # Survey ages
-        ObsSrvAges[sp, y,] <- rmultinom(1, srv_ISS, NAA[sp, y,] * srv_sel[sp,])
+        ObsSrvAges[sp, ,y] <- rmultinom(1, srv_ISS, NAA[sp, ,y] * srv_sel[sp,])
       }
     }
 
@@ -207,6 +207,7 @@ test_that("Simulated simple multi-species model the same" {
     # Return list of true and observed values ----
     return(list(
       NAA = NAA,
+      avgNAA = avgNAA,
       CAA = CAA,
       FAA = FAA,
       MAA = MAA,
@@ -230,11 +231,16 @@ test_that("Simulated simple multi-species model the same" {
       M2_at_age = M2_at_age,
       vulnerability = vulnerability,
       suitability = suitability,
-      diet_prop = diet_prop
+      suit_other = suit_other,
+      avail_food = avail_food,
+      diet_prop = diet_prop,
+      ration = ration
     ))
   }
 
-  # Set up simulation -------------------------------------------------------------
+
+
+  # 1) Set up simulation -------------------------------------------------------------
   nspp = 2
   nyrs = 30
   years <- 1:nyrs
@@ -270,30 +276,31 @@ test_that("Simulated simple multi-species model the same" {
     srv_ISS = 1e5,
     M = c(0.2, 0.3),
     fish_sel = matrix(c(1 / (1 + exp(-2.5 * (ages - 6))),
-                        1 / (1 + exp(-1 * (ages - 5)))), nspp, length(ages), byrow = TRUE),
+                        1 / (1 + exp(-2.5 * (ages - 4)))), nspp, length(ages), byrow = TRUE),
     srv_sel = matrix(c(1 / (1 + exp(-2 * (ages - 3))),
                        1 / (1 + exp(-2 * (ages - 2.5)))), nspp, length(ages), byrow = TRUE),
     Fmort = matrix(c(Fmort, Fmort2), nspp, length(years), byrow = TRUE),
     srv_q = rep(1, nspp),
 
     # Multispecies bits
+    niter = 5,
     gam_a = gam_a,
     gam_b = gam_b,
     log_phi = log_phi,
     other_food = other_food,
-    ration = matrix(c(WAA, WAA2), nspp, length(ages), byrow = TRUE) * 50,
+    ration = matrix(c(WAA, WAA2), nspp, length(ages), byrow = TRUE) * 50
   )
 
   sim$M2_at_age[2,,]
 
-  # Plot ------------
+  # * Plot ------------
   par(mfrow = c(4,1), mar = c(4,4,0.1,0))
   plot(y = sim$Total_Biom[1,], x = years, type = "l", ylab = "Species 1 B")
   plot(y = sim$Total_Biom[2,], x = years, type = "l", ylab = "Species 2 B")
   plot(y = colSums(sim$B_eaten_as_prey[1,,]), x = years, type = "l", ylab = "Species 1 B consumed")
   plot(y = colSums(sim$B_eaten_as_prey[2,,]), x = years, type = "l", ylab = "Species 2 B consumed")
 
-  # Set up Rceattle data -------------------------------------------------------------
+  # 2) Set up Rceattle data -------------------------------------------------------------
   library(Rceattle)
   data("GOAcod")
   simData <- GOAcod
@@ -373,7 +380,7 @@ test_that("Simulated simple multi-species model the same" {
 
   # * Comp data ----
   # - Index
-  tmp <- sim$ObsSrvAges[1,,]
+  tmp <- t(sim$ObsSrvAges[1,,])
   colnames(tmp) <- paste0("Comp_",ages)
   index_comp <- cbind(data.frame(Fleet_name = "Survey1",
                                  Fleet_code = 1,
@@ -386,7 +393,7 @@ test_that("Simulated simple multi-species model the same" {
                       tmp
   )
 
-  tmp <- sim$ObsSrvAges[2,,]
+  tmp <- t(sim$ObsSrvAges[2,,])
   colnames(tmp) <- paste0("Comp_",ages)
   index_comp2 <- cbind(data.frame(Fleet_name = "Survey2",
                                   Fleet_code = 3,
@@ -400,7 +407,7 @@ test_that("Simulated simple multi-species model the same" {
   )
 
   # - Fishery
-  tmp <- sim$ObsFishAges[1,,]
+  tmp <- t(sim$ObsFishAges[1,,])
   colnames(tmp) <- paste0("Comp_",1:15)
   fishery_comp <- cbind(data.frame(Fleet_name = "Fishery1",
                                    Fleet_code = 2,
@@ -413,7 +420,7 @@ test_that("Simulated simple multi-species model the same" {
                         tmp
   )
 
-  tmp <- sim$ObsFishAges[2,,]
+  tmp <- t(sim$ObsFishAges[2,,])
   colnames(tmp) <- paste0("Comp_",1:15)
   fishery_comp2 <- cbind(data.frame(Fleet_name = "Fishery2",
                                     Fleet_code = 4,
@@ -428,10 +435,8 @@ test_that("Simulated simple multi-species model the same" {
 
   simData$comp_data <- rbind(index_comp, index_comp2, fishery_comp, fishery_comp2)
 
-  # * Empirical selectivity ----
+  # * Emp sel and N ----
   simData$emp_sel[] <- NA
-
-  # * Fixed numbers ----
   simData$NByageFixed[] <- NA
 
 
@@ -550,7 +555,7 @@ test_that("Simulated simple multi-species model the same" {
                                  EnvData = 1)
 
 
-  # * Relative foraging rate (days) ----
+  # * Ration ----
   Pyrs1 <- WAA * 50
   colnames(Pyrs1) <- paste0("Age",1:15)
   Pyrs1 <- cbind(data.frame(Species = 1,
@@ -569,24 +574,22 @@ test_that("Simulated simple multi-species model the same" {
 
   simData$Pyrs <- rbind(Pyrs1, Pyrs2)
 
-
-  # * Bioenergetics ----
   simData$Ceq <- rep(4,nspp)
-  simData$Cindex <- rep(simData$Cindex,nspp)
-  simData$Pvalue <- rep(simData$Pvalue,nspp)
-  simData$fday <- rep(simData$fday,nspp)
-  simData$CA <- rep(1,nspp)
-  simData$CB <- rep(0,nspp)
-  simData$Qc <- rep(simData$Qc,nspp)
-  simData$Tco <- rep(simData$Tco,nspp)
-  simData$Tcm <- rep(simData$Tcm,nspp)
-  simData$Tcl <- rep(simData$Tcl,nspp)
-  simData$CK1 <- rep(simData$CK1,nspp)
-  simData$CK4 <- rep(simData$CK4,nspp)
+  simData$Cindex <- rep(1, nspp)
+  simData$Pvalue <- rep(1, nspp)
+  simData$fday <- rep(1, nspp)
+  simData$CA <- rep(1, nspp)
+  simData$CB <- rep(-1, nspp)
+  simData$Qc <- rep(1,nspp)
+  simData$Tco <- rep(1, nspp)
+  simData$Tcm <- rep(1, nspp)
+  simData$Tcl <- rep(1, nspp)
+  simData$CK1 <- rep(1, nspp)
+  simData$CK4 <- rep(1, nspp)
   simData$Diet_comp_weights <- rep(1,nspp)
 
 
-  # Fit single-species -------------------------------------------------------------
+  # 3) Fit single-species -------------------------------------------------------------
   ss_run <- Rceattle::fit_mod(data_list = simData,
                               inits = NULL, # Initial parameters = 0
                               file = NULL, # Don't save
@@ -602,12 +605,15 @@ test_that("Simulated simple multi-species model the same" {
   plot(x = sim$SSB[2,], y = ss_run$quantities$ssb[2,1:nyrs]); abline(1,1)
   plot(x = sim$Total_Biom[1,], y = ss_run$quantities$biomass[1,1:nyrs]); abline(1,1)
   plot(x = sim$Total_Biom[2,], y = ss_run$quantities$biomass[2,1:nyrs]); abline(1,1)
-  plot(x = sim$NAA[1,1:nyrs,1], y = ss_run$quantities$R[1,1:nyrs]); abline(1,1)
-  plot(x = sim$NAA[2,1:nyrs,1], y = ss_run$quantities$R[2,1:nyrs]); abline(1,1)
+  plot(x = sim$NAA[1,1,], y = ss_run$quantities$R[1,1:nyrs]); abline(1,1)
+  plot(x = sim$NAA[2,1,], y = ss_run$quantities$R[2,1:nyrs]); abline(1,1)
 
 
-  # Fit multi-species -------------------------------------------------------------
-  # * Full  diet -----
+
+
+
+  # 4)  Fit multi-species -------------------------------------------------------------
+  # * Fix suitability -----
   # Get all combinations of indices
   idx <- which(!is.na(sim$diet_prop), arr.ind = TRUE)  # or sim$diet_prop != 0 for nonzero only
 
@@ -626,29 +632,117 @@ test_that("Simulated simple multi-species model the same" {
   simData$diet_data <- simData$diet_data %>%
     filter(!is.na(Pred))
 
+  inits <- ss_run$estimated_params
+  inits$log_gam_a <- log(gam_a)
+  inits$log_gam_b <- log(gam_b)
+  inits$log_phi <- log_phi
+  inits$sel_inf[1,,1] <- c(3,6,2.5,4)
+  inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
+  inits$ln_F[2,] <- log(Fmort)
+  inits$ln_F[4,] <- log(Fmort2)
+  inits$rec_pars[,1] <- log(c(1e2, 1e3))
+  inits$index_ln_q[] <- log(1)
+  inits$R_ln_sd[] <- log(1)
+  inits$rec_dev[,1:30] <- sim$rec_devs
+  inits$init_dev[,1:14] <- sim$init_devs
 
-  ss_run$estimated_params$log_gam_a <- log(c(1, 0.1))
-  ss_run$estimated_params$log_gam_b <- log(c(0.15, 0.15))
-  ss_run$estimated_params$log_phi <- log(c(0.15, 0.15))
   ms_run1 <- Rceattle::fit_mod(data_list = simData,
-                               inits = ss_run$estimated_params, # Initial parameters = 0
+                               inits = inits, # Initial parameters = 0
+                               file = NULL, # Don't save
+                               estimateMode = 3, # Estimate
+                               random_rec = FALSE, # No random recruitment
+                               phase = FALSE,
+                               msmMode = 1,
+                               suitMode = 4,
+                               niter = 5,
+                               initMode = 2,
+                               verbose = 1)
+
+
+  plot(x = sim$NAA[1,1,], y = ms_run1$quantities$R[1,1:nyrs]); abline(1,1)
+  plot(x = sim$NAA[2,1,], y = ms_run1$quantities$R[2,1:nyrs]); abline(1,1)
+
+  plot(x = sim$Total_Biom[1,], y = ms_run1$quantities$biomass[1,1:nyrs]); abline(1,1)
+  plot(x = sim$Total_Biom[2,], y = ms_run1$quantities$biomass[2,1:nyrs]); abline(1,1)
+
+  # Suitability is OK
+  exp(ms_run1$estimated_params$log_gam_a)-gam_a
+  exp(ms_run1$estimated_params$log_gam_b)-gam_b
+
+  sum(ms_run1$quantities$suitability[,,,,1] - sim$suitability)
+  ms_run1$quantities$vulnerability-sim$vulnerability
+
+  sim$suit_other -  ms_run1$quantities$vulnerability_other
+
+  # M2
+  sum(sim$M2_at_age - ms_run1$quantities$M2_at_age[,1,,1:nyrs])
+
+  # Ration
+  ms_run1$quantities$ration[,1,,1] - sim$ration
+
+  # AvgN
+  sum(ms_run1$quantities$avgN_at_age[,1,,1:nyrs] -sim$avgNAA[,,])
+
+  # Avail food
+  ms_run1$quantities$avail_food[,1,,1]-sim$avail_food[,,1]
+
+  # Selectivity
+  ms_run1$quantities$sel[c(1,3),,,1]-sim$srv_sel
+  ms_run1$quantities$sel[c(2,4),,,1]-sim$fish_sel
+
+  # F
+  sum(ms_run1$quantities$F_flt_age[c(2,4),1,,1:nyrs] - sim$FAA)
+
+  # Q
+  ms_run1$quantities$index_q
+  sim$srv_q
+
+
+  # * Full  diet -----
+  # Get all combinations of indices
+  idx <- which(!is.na(sim$diet_prop), arr.ind = TRUE)  # or sim$diet_prop != 0 for nonzero only
+
+  # Build the data frame directly
+  simData$diet_data <- data.frame(
+    Year = idx[, 5],
+    Pred = idx[, 1],
+    Prey = idx[, 2],
+    Pred_sex = 0,
+    Prey_sex = 0,
+    Pred_age = idx[, 3],
+    Prey_age = idx[, 4],
+    Sample_size = 100,
+    Stomach_proportion_by_weight = sim$diet_prop[idx]
+  )
+  simData$diet_data <- simData$diet_data %>%
+    filter(!is.na(Pred))
+
+  ss_run$estimated_params$log_gam_a <- log(gam_a)
+  ss_run$estimated_params$log_gam_b <- log(gam_b)
+  ss_run$estimated_params$log_phi <- log_phi
+
+  ms_run1 <- Rceattle::fit_mod(data_list = simData,
+                               inits = inits, # Initial parameters = 0
                                file = NULL, # Don't save
                                estimateMode = 0, # Estimate
                                random_rec = FALSE, # No random recruitment
                                phase = FALSE,
                                msmMode = 1,
-                               niter = 10,
+                               suitMode = 4,
+                               niter = 5,
                                initMode = 2,
                                verbose = 1)
 
   plot(x = sim$Total_Biom[1,], y = ms_run1$quantities$biomass[1,1:nyrs]); abline(1,1)
   plot(x = sim$Total_Biom[2,], y = ms_run1$quantities$biomass[2,1:nyrs]); abline(1,1)
   exp(ms_run1$estimated_params$log_gam_a)
+  gam_a
   exp(ms_run1$estimated_params$log_gam_b)
-  ms_run1$quantities$M2_at_age[2,1,,]
+  gam_b
 
   ms_run1$quantities$vulnerability
   sim$vulnerability
+
 
   # * Average diet across years -----
   simData$diet_data[] <- NA
@@ -692,6 +786,7 @@ test_that("Simulated simple multi-species model the same" {
   plot(x = sim$Total_Biom[1,], y = ms_run2$quantities$biomass[1,1:nyrs]); abline(1,1)
   plot(x = sim$Total_Biom[2,], y = ms_run2$quantities$biomass[2,1:nyrs]); abline(1,1)
 
+
   # * Annual prey-spp diet -----
   simData$diet_data[] <- NA
   ind = 1
@@ -706,7 +801,7 @@ test_that("Simulated simple multi-species model the same" {
           simData$diet_data$Pred_sex[ind] <- 0
           simData$diet_data$Prey_sex[ind] <- 0
           simData$diet_data$Pred_age[ind] <- k
-          simData$diet_data$Prey_age[ind] <- -500  # sum of prey-ages
+          simData$diet_data$Prey_age[ind] <- -500  # sum across prey-ages
           simData$diet_data$Sample_size[ind] <- 200
           simData$diet_data$Stomach_proportion_by_weight[ind] <- sum(sim$diet_prop[i,j,k,,m])
           ind = ind+1
@@ -735,7 +830,7 @@ test_that("Simulated simple multi-species model the same" {
   plot(x = sim$Total_Biom[2,], y = ms_run3$quantities$biomass[2,1:nyrs]); abline(1,1)
 
 
-  # * Average prey-spp diet -----
+  # * Average prey-spp diet across years -----
   simData$diet_data[] <- NA
   ind = 1
   for(i in 1:dim(sim$diet_prop)[1]){ # pred
@@ -748,7 +843,7 @@ test_that("Simulated simple multi-species model the same" {
         simData$diet_data$Pred_sex[ind] <- 0
         simData$diet_data$Prey_sex[ind] <- 0
         simData$diet_data$Pred_age[ind] <- k
-        simData$diet_data$Prey_age[ind] <- -500 # sum of prey-ages
+        simData$diet_data$Prey_age[ind] <- -500 # sum across prey-ages
         simData$diet_data$Sample_size[ind] <- 200
         simData$diet_data$Stomach_proportion_by_weight[ind] <- mean(rowSums(sim$diet_prop[i,j,k,,]))
         ind = ind+1

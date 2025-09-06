@@ -2042,19 +2042,27 @@ Type objective_function<Type>::operator() () {
 
             // Hindcast
             if(yr < nyrs_hind){
-              consumption_at_age(sp, sex, age, yr) = CA(sp) * pow(weight( pop_wt_index(sp), sex, age, yr ) * Type(1000.0), 1 + CB( sp )) //  C_max = CA * W ^ 1+CB; where C_max is grams consumed per grams of predator per day
-              * fT(sp, yr) * fday( sp );                           //  C_max * f(T) * weight * fday g/pred.yr
-              consumption_at_age(sp, sex, age, yr) = consumption_at_age(sp, sex, age, yr) * Pvalue(sp) * Pyrs(sp, sex, age, yr); //
+              yr_ind = yr;
             }
 
-            // Projection (wt indexing)
+            // Projection (wt and pyrs indexing)
             if(yr >= nyrs_hind){
-              consumption_at_age(sp, sex, age, yr) = CA(sp) * pow(weight( pop_wt_index(sp), sex, age, (nyrs_hind - 1) ) * Type(1000.0), 1 + CB( sp ))  //  C_max = CA * W ^ 1+CB; where C_max is grams consumed per grams of predator per day
-              * fT(sp, yr) * fday( sp );                            //  C_max * f(T) * weight * fday g/pred.yr
-              consumption_at_age(sp, sex, age, yr) = consumption_at_age(sp, sex, age, yr) * Pvalue(sp) * Pyrs(sp, sex, age, (nyrs_hind-1)); //
+              yr_ind = nyrs_hind - 1;
             }
 
-            ration(sp, sex, age, yr) = consumption_at_age(sp, sex, age, yr) / 1000.0;      // Annual ration kg/yr
+            // Use bioenergetics equations
+            if(Ceq(sp) < 4){
+              consumption_at_age(sp, sex, age, yr) = CA(sp) * pow(weight( pop_wt_index(sp), sex, age, yr_ind ) * Type(1000.0), 1 + CB( sp ))  //  C_max = CA * W ^ 1+CB; where C_max is grams consumed per grams of predator per day
+              * fT(sp, yr) * fday( sp );                            //  C_max * f(T) * weight * fday g/pred.yr
+              consumption_at_age(sp, sex, age, yr) = consumption_at_age(sp, sex, age, yr) * Pvalue(sp) * Pyrs(sp, sex, age, yr_ind) / 1000.0;  // Annual ration kg/yr
+            }
+
+            // Input annual ration kg/yr
+            if(Ceq(sp) == 4){
+              consumption_at_age(sp, sex, age, yr) = Pvalue(sp) * Pyrs(sp, sex, age, yr_ind);
+            }
+
+            ration(sp, sex, age, yr) = consumption_at_age(sp, sex, age, yr);
           }
         }
       }
@@ -4131,12 +4139,10 @@ Type objective_function<Type>::operator() () {
 
   // -- 12.9. Predation components
   /*
-   REPORT( suma_suit );
-   REPORT( suitability );
    REPORT( suit_other );
    REPORT( stom_div_bio );
-   REPORT( diet_prop );
    REPORT( avail_food );
+   REPORT( diet_prop );
    REPORT( other_food_diet_prop );
    REPORT( M2_prop );
    REPORT( diet_prop_hat );
@@ -4149,11 +4155,14 @@ Type objective_function<Type>::operator() () {
   REPORT( M2_at_age );
   REPORT( B_eaten );
   REPORT( B_eaten_as_prey );
-  REPORT(vulnerability);
-  REPORT(vulnerability_other);
+  REPORT( vulnerability );
+  REPORT( vulnerability_other );
   REPORT( gam_a );
   REPORT( gam_b );
   REPORT( diet_hat );
+  REPORT( suit_other );
+  REPORT( stom_div_bio );
+  REPORT( avail_food );
 
 
   // -- 12.10. Kinzey predation functions
