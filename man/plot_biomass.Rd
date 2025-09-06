@@ -15,6 +15,7 @@ plot_biomass(
   lwd = 3,
   save = FALSE,
   right_adj = 0,
+  legend.pos = "topright",
   width = 7,
   height = 6.5,
   minyr = NULL,

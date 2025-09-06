@@ -16,6 +16,7 @@ plot_timeseries(
   add_ci = FALSE,
   lwd = 3,
   save = FALSE,
+  legend.pos = "topright",
   right_adj = 0,
   width = 7,
   height = 6.5,

@@ -1,6 +1,6 @@
-#' Plot time series of survey comp data
+#' Plot time series of comp data
 #'
-#' @description Function the plots the survey comp data as estimated from Rceattle
+#' @description Function the plots the comp data as estimated from Rceattle
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
@@ -9,10 +9,8 @@
 #' @param species Species names for legend
 #' @param cex Line width as specified by user
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
-#' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
-#' @param incl_proj TRUE/FALSE include projections years
 #'
-#' @return Returns and saves a figure with the catch trajectory.
+#' @return Returns and saves a figure
 #' @export
 plot_comp <-
   function(Rceattle,
@@ -21,9 +19,7 @@ plot_comp <-
            species = NULL,
            cex = 3,
            lwd = 3,
-           right_adj = 0,
-           mohns = NULL,
-           incl_proj = FALSE) {
+           right_adj = 0) {
 
     # Make sure we are using only one model
     if(class(Rceattle) != "Rceattle"){
@@ -53,9 +49,9 @@ plot_comp <-
     comp_hat[,grep("Comp_", colnames(comp_data))] = Rceattle$quantities$comp_hat
 
 
-    # #############################################
-    # # Plot comps Type 1
-    # #############################################
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # # Plot comps Type 1 ----
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # for(comp_type in c(0,1)){
     #
     # TMB:::install.contrib("https://github.com/vtrijoulet/OSA_multivariate_dists/archive/main.zip")
@@ -169,9 +165,9 @@ plot_comp <-
     #
     #
 
-    #############################################
-    # Plot comps Type 2 - Pearson residual
-    #############################################
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # Plot comps Type 2 - Pearson residual ----
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     for(comp_type in c(0,1)){ # Age0, Length 1
 
       srv <- unique(comp_data$Fleet_code[which(comp_data$Age0_Length1 == comp_type)])
@@ -248,9 +244,9 @@ plot_comp <-
 
 
 
-            ############################
-            # Legend
-            #############################
+            #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+            # Legend ----
+            #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
             round = 0
             if(sum(seq(from = 1, to = max_pearson, length.out = 3) < 3) == 3){
               round = 1
@@ -267,9 +263,9 @@ plot_comp <-
             text(x = x_loc, y = rep(nages[sp] * 1.23, 3), labels = round(seq(from = -1, to = -max_pearson, length.out = 3) , round) )
 
 
-            #############################
+            #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
             # Plot comp pearson residuals
-            #############################
+            #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
             if(nrow(comp_tmp) > 0){
 
               # Get colors
@@ -307,9 +303,9 @@ plot_comp <-
     }
 
 
-    #############################################
-    # Plot comps Type 3 - Histograms
-    #############################################
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # Plot comps Type 3 - Histograms ----
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     for(comp_type in c(0,1)){
 
       srv <- unique(comp_data$Fleet_code[which(comp_data$Age0_Length1 == comp_type)])
@@ -489,9 +485,9 @@ plot_comp <-
 
 
 
-    #############################################
-    # Plot comps Type 4 - Histograms of aggregated comps
-    #############################################
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # Plot comps Type 4 - Histograms of aggregated comps ----
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     for(comp_type in c(0,1)){
 
       srv <- unique(comp_data$Fleet_code[which(comp_data$Age0_Length1 == comp_type)])
@@ -655,3 +651,159 @@ plot_comp <-
       }
     }
   }
+
+
+
+
+
+
+
+#' Plot diet composition fits
+#'
+#' @description
+#' If year == 0, diet data are averaged from suit_styr to suit_endyr
+#' If prey_age >= 0 diet data are diet proportion of prey-at-age in predator-at-age
+#' If prey_age < 0 diet data are diet proportion of prey-spp in predator-at-age (sum across prey ages)
+#' If prey_age < 0 and pred_age < 0, diet data are mean diet proportion of prey-spp in predator-spp (sum across prey ages and take mean across predator ages)
+#' If prey_age < 0 and pred_age < -500, diet data are weighted mean diet proportion of prey-spp in predator-spp (sum across prey ages and take weighted mean across predator ages)
+#'
+#'
+#' @param file name of a file to identified the files exported by the
+#'   function.
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param species Species names for legend
+#'
+#' @return Returns and saves a figure
+#' @export
+plot_diet_comp <-
+  function(Rceattle,
+           file = NULL,
+           species = NULL) {
+
+    # Make sure we are using only one model
+    if(class(Rceattle) != "Rceattle"){
+      stop("Please only use one Rceattle model")
+    }
+    data_list <- Rceattle$data_list
+
+    # Species names
+    if(is.null(species)){
+      species =  Rceattle$data_list$spnames
+    }
+
+    # Get colors
+    colvec=c("red", "blue", "black")
+
+    # * Extract data objects ----
+    # - Get observed
+    comp_data <- Rceattle$data_list$diet_data
+    # - Get estimated
+    comp_data$Est = Rceattle$quantities$diet_hat[,2]
+
+    comp_data <- comp_data %>%
+      dplyr::mutate(pearson = (Stomach_proportion_by_weight - Est)/ sqrt( ( Est * (1 - Est)) / Sample_size))
+
+    # If year == 0, diet data are averaged from suit_styr to suit_endyr
+    # If prey_age >= 0 diet data are diet proportion of prey-at-age in predator-at-age
+    # If prey_age < 0 diet data are diet proportion of prey-spp in predator-at-age (sum across prey ages)
+    # If prey_age < 0 and pred_age < 0, diet data are mean diet proportion of prey-spp in predator-spp (sum across prey ages and take mean across predator ages)
+    # If prey_age < 0 and pred_age < -500, diet data are weighted mean diet proportion of prey-spp in predator-spp (sum across prey ages and take weighted mean across predator ages)
+
+
+    # Loop around predators ----
+    for(pred in 1:data_list$nspp) {
+      for(pred_sex in 1:data_list$nsex[pred]){
+        for(prey in 1:data_list$nspp) {
+
+          # * Get sex for legend ----
+          if(data_list$nsex[pred] > 1){
+            pred_legend <- paste("Pred-", species[pred], ifelse(sex == 1, "female", "male"))
+            pred_sex = pred_sex - 1
+          } else{
+            pred_legend <- paste("Pred-", species[pred])
+            pred_sex = 0
+          }
+
+          # * Extract comps ----
+          comp_tmp <- comp_data %>%
+            dplyr::filter(Pred == pred & Pred_sex == pred_sex & Prey == prey)
+
+          # - Years
+          yrs <- sort(unique(comp_tmp$Year))
+          nyrs <- length(yrs)
+
+          # - Min and max
+          range_comp <- range(c(comp_tmp$Stomach_proportion_by_weight, comp_tmp$Est))
+          range_pearson <- range(comp_tmp$pearson)
+
+          # * Plot annual comps ----
+          for(yr in 1:nyrs){
+
+            # Subset year for observed and predicted comp
+            comp_tmp_yr <- comp_tmp %>%
+              dplyr::filter(Year == yrs[yr] ) %>%
+              dplyr::mutate(Prey_age = ifelse(Prey_sex == 2, -Prey_age, Prey_age))
+
+
+            plot_obs <- comp_tmp_yr %>%
+              dplyr::filter(Stomach_proportion_by_weight > 0) %>%
+              ggplot2::ggplot(ggplot2::aes(x = Pred_age, y = Prey_age, size = Stomach_proportion_by_weight)) +
+              ggplot2::geom_point(alpha = 1) +
+              # scale_size(range = c(range_comp[1], range_comp[2]), name="Population (M)") +
+              ggplot2::theme_classic() +
+              ggplot2::ylim(range(comp_tmp_yr$Prey_age)) +
+              ggplot2::ylab(paste(species[prey], "age")) +
+              ggplot2::xlim(range(comp_tmp_yr$Pred_age)) +
+              ggplot2::xlab(paste(pred_legend, "age")) +
+              ggplot2::ggtitle(paste("Observed diet: year", yrs[yr])) +
+              theme(legend.position = c(0.25, 0.7),
+                    legend.title = element_blank())
+
+            plot_est <- comp_tmp_yr %>%
+              dplyr::filter(Stomach_proportion_by_weight > 0) %>%
+              ggplot2::ggplot(ggplot2::aes(x = Pred_age, y = Prey_age, size = Est)) +
+              ggplot2::geom_point(alpha = 1) +
+              # scale_size(range = c(range_comp[1], range_comp[2]), name="Population (M)") +
+              ggplot2::theme_classic() +
+              ggplot2::ylim(range(comp_tmp_yr$Prey_age)) +
+              ggplot2::ylab(paste(species[prey], "age")) +
+              ggplot2::xlim(range(comp_tmp_yr$Pred_age)) +
+              ggplot2::xlab(paste(pred_legend, "age")) +
+              ggplot2::ggtitle(paste("Estimated diet: year", yrs[yr])) +
+              theme(legend.position = "none")
+
+            plot_pear <- comp_tmp_yr %>%
+              dplyr::filter(Stomach_proportion_by_weight > 0) %>%
+              ggplot2::ggplot(ggplot2::aes(x = Pred_age, y = Prey_age, size = abs(pearson), color = pearson < 0)) +
+              ggplot2::geom_point(alpha = 1) +
+              # scale_size(range = c(range_comp[1], range_comp[2]), name="Population (M)") +
+              ggplot2::theme_classic() +
+              ggplot2::ylim(range(comp_tmp_yr$Prey_age)) +
+              ggplot2::ylab(paste(species[prey], "age")) +
+              ggplot2::xlim(range(comp_tmp_yr$Pred_age)) +
+              ggplot2::xlab(paste(pred_legend, "age")) +
+              ggplot2::ggtitle(paste("Pearson residual: year", yrs[yr])) +
+              theme(legend.position = c(0.25, 0.8))
+
+            p1 <- cowplot::plot_grid(plot_obs, plot_est, plot_pear, nrow = 1)
+            print(p1)
+
+            # Save ----
+            if (!is.null(file)) {
+              filename <- paste0(file, "_aggregated_diet_comps_histograms_year", yr,"_", pred_legend, "prey", species[prey],".png")
+              ggplot2::ggsave(filename = filename,
+                              plot = p1,
+                              width = 10,
+                              height = 6.5,
+                              units = "in",
+                              dpi = 300
+              )
+            }
+          }
+        }
+      }
+    }
+
+    # End
+  }
+
