@@ -954,7 +954,7 @@ plot_indexresidual <- function(Rceattle,
         maxyr <- max(sapply(Srv_hat_list, function(x) max(x[which(x$Fleet_code == srvs[srv]),]$Year)))
 
         par(Par)
-        plot(NA, NA, ylab="Index residual", xlab="Year", ylim = c((ymin[srv]), (ymax[srv])), xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj), type='n', xaxt="n", yaxt="n")
+        plot(NA, NA, ylab="Log index residual", xlab="Year", ylim = c((ymin[srv]), (ymax[srv])), xlim = c(minyr, maxyr + (maxyr - minyr) * right_adj), type='n', xaxt="n", yaxt="n")
         abline(h = 0, lty = 2)
 
         axis(1,labels=TRUE,cex=0.8)
@@ -1057,7 +1057,7 @@ plot_indexresidual <- function(Rceattle,
       }
     }
     mtext(paste("Year"), side=1, outer=TRUE, at=0.5,line=1,cex=1)
-    mtext(paste("Index residual"), side=2, outer=TRUE, at=0.5,line=1,cex=1)
+    mtext(paste("Log index residual"), side=2, outer=TRUE, at=0.5,line=1,cex=1)
     if(j == 2){dev.off()}
   }
 } # End of plot
