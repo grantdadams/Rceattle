@@ -713,7 +713,6 @@ test_that("Simulated simple multi-species model the same" {
 
 
   # ** Diet check ----
-  dev.off()
   plot(x = ms_run2$data_list$diet_data$Stomach_proportion_by_weight, y = ms_run2$quantities$diet_hat[,2], xlab = "True diet", ylab ="Est diet", main = "Average diet")
 
 
@@ -757,7 +756,6 @@ test_that("Simulated simple multi-species model the same" {
                                verbose = 1)
 
 
-  dev.off()
   plot(x = ms_run3$data_list$diet_data$Stomach_proportion_by_weight, y = ms_run3$quantities$diet_hat[,2], xlab = "True diet", ylab ="Est diet", main = "Annual sum diet")
 
 
@@ -797,7 +795,6 @@ test_that("Simulated simple multi-species model the same" {
                                initMode = 2,
                                verbose = 1)
 
-  dev.off()
   plot(x = ms_run4$data_list$diet_data$Stomach_proportion_by_weight, y = ms_run4$quantities$diet_hat[,2], xlab = "True diet", ylab ="Est diet", main = "Average sum diet")
 
 })
