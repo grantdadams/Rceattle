@@ -783,8 +783,12 @@ test_that("Simulated simple multi-species model the same" {
                                initMode = 2,
                                verbose = 1)
 
-  plot(x = sim$Total_Biom[1,], y = ms_run2$quantities$biomass[1,1:nyrs]); abline(1,1)
-  plot(x = sim$Total_Biom[2,], y = ms_run2$quantities$biomass[2,1:nyrs]); abline(1,1)
+  plot(x = sim$Total_Biom[1,], y = ms_run2$quantities$biomass[1,1:nyrs]); abline(0,1)
+  plot(x = sim$Total_Biom[2,], y = ms_run2$quantities$biomass[2,1:nyrs]); abline(0,1)
+
+  plot(x = ms_run2$data_list$diet_data$Stomach_proportion_by_weight, y = ms_run2$quantities$diet_hat[,2], xlab = "True diet", ylab ="Est diet", main = "Average sum diet")
+  abline(0,1)
+
 
 
   # * Annual prey-spp diet -----
@@ -809,8 +813,6 @@ test_that("Simulated simple multi-species model the same" {
       }
     }
   }
-
-  simData$diet_data$Sample_size <- 1000
   simData$diet_data <- simData$diet_data %>%
     filter(!is.na(Pred))
 
@@ -826,8 +828,12 @@ test_that("Simulated simple multi-species model the same" {
                                suitMode = 4,
                                initMode = 2,
                                verbose = 1)
-  plot(x = sim$Total_Biom[1,], y = ms_run3$quantities$biomass[1,1:nyrs]); abline(1,1)
-  plot(x = sim$Total_Biom[2,], y = ms_run3$quantities$biomass[2,1:nyrs]); abline(1,1)
+
+  plot(x = sim$Total_Biom[1,], y = ms_run3$quantities$biomass[1,1:nyrs]); abline(0,1)
+  plot(x = sim$Total_Biom[2,], y = ms_run3$quantities$biomass[2,1:nyrs]); abline(0,1)
+
+  plot(x = ms_run3$data_list$diet_data$Stomach_proportion_by_weight, y = ms_run3$quantities$diet_hat[,2], xlab = "True diet", ylab ="Est diet", main = "Average sum diet")
+  abline(0,1)
 
 
   # * Average prey-spp diet across years -----
@@ -850,8 +856,6 @@ test_that("Simulated simple multi-species model the same" {
       }
     }
   }
-
-  simData$diet_data$Sample_size <- 1000
   simData$diet_data <- simData$diet_data %>%
     filter(!is.na(Pred))
 
@@ -868,7 +872,10 @@ test_that("Simulated simple multi-species model the same" {
                                initMode = 2,
                                verbose = 1)
 
-  plot(x = sim$Total_Biom[1,], y = ms_run4$quantities$biomass[1,1:nyrs]); abline(1,1)
-  plot(x = sim$Total_Biom[2,], y = ms_run4$quantities$biomass[2,1:nyrs]); abline(1,1)
+  plot(x = sim$Total_Biom[1,], y = ms_run4$quantities$biomass[1,1:nyrs]); abline(0,1)
+  plot(x = sim$Total_Biom[2,], y = ms_run4$quantities$biomass[2,1:nyrs]); abline(0,1)
+
+  plot(x = ms_run4$data_list$diet_data$Stomach_proportion_by_weight, y = ms_run4$quantities$diet_hat[,2], xlab = "True diet", ylab ="Est diet", main = "Average sum diet")
+  abline(0,1)
 
 })
