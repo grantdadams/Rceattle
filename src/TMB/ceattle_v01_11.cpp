@@ -520,6 +520,7 @@ Type objective_function<Type>::operator() () {
   array<Type>   suitability(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); suitability.setZero();   // Suitability/gamma selectivity of predator age u on prey age a
   array<Type>   suit_other(nspp, max_sex, max_age, nyrs); suit_other.setZero();                               // Suitability not accounted for by the included prey
   array<Type>   suma_suit(nspp, max_sex, max_age, nyrs); suma_suit.setZero();                                 // Sum of suitabilities
+  array<Type>   other_diet_prop_hat(nspp, max_sex, max_age, nyrs); other_diet_prop_hat.setZero();             // Diet of prey not included in the model
 
   // -- 4.11. Suitability parameters
   vector<Type> gam_a = exp(log_gam_a);                                    // Predator size-selectivity: shape parameter for gamma suitability, mean for normal of logs
@@ -2426,6 +2427,7 @@ Type objective_function<Type>::operator() () {
                         B_eaten(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = avgN_at_age(ksp, k_sex, k_age, yr) * weight(pop_wt_index(ksp), k_sex, k_age, yr_ind) * avgN_at_age(rsp, r_sex, r_age, yr) * ration(rsp, r_sex, r_age, yr) * suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
                         B_eaten_as_prey(ksp, k_sex, k_age, yr) += B_eaten(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr);
                         diet_prop_hat(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = avgN_at_age(ksp, k_sex, k_age, yr) * weight(pop_wt_index(ksp), k_sex, k_age, yr_ind) * suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)/ avail_food(rsp, r_sex, r_age, yr);
+                        other_diet_prop_hat(rsp, r_sex, r_age, yr) = other_food(rsp) * suit_other(rsp, r_sex, r_age, yr) / avail_food(rsp, r_sex, r_age, yr);
                         //break;
 
                         /*
@@ -3938,6 +3940,7 @@ Type objective_function<Type>::operator() () {
       if(flt_yr >= 0){
         if((msmMode > 2) || (suitMode(rsp) > 0)) { // If estimating
           jnll_comp(18, rsp) -= diet_comp_weights(rsp) * Type(diet_obs(stom_ind, 0)) * (diet_obs(stom_ind, 1) + 0.00001) * log((diet_hat(stom_ind, 1) + 0.00001)/(diet_obs(stom_ind, 1) + 0.00001));
+
           unweighted_jnll_comp(18, rsp) -= Type(diet_obs(stom_ind, 0)) * (diet_obs(stom_ind, 1) + 0.00001) * log((diet_hat(stom_ind, 1) + 0.00001)/(diet_obs(stom_ind, 1) + 0.00001));
         }
       }
@@ -4151,7 +4154,7 @@ Type objective_function<Type>::operator() () {
    REPORT( B_eaten_as_pred );
    REPORT( N_eaten );
    */
-
+  REPORT( diet_obs );
   REPORT( suitability );
   REPORT( M1_at_age );
   REPORT( M2_at_age );
