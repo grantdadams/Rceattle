@@ -474,56 +474,58 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
       # * Fit OM with new catch data ----
       kill_sim <- tryCatch({
         R.utils::withTimeout({
-          om_use <- fit_mod(
-            data_list = om_use$data_list,
-            inits = om_use$estimated_params,
-            map = om_use$map,
-            bounds = NULL,
-            file = NULL,
-            estimateMode = estimate_mode_use,
-            random_rec = om_use$data_list$random_rec,
-            niter = om_use$data_list$niter,
-            msmMode = om_use$data_list$msmMode,
-            avgnMode = om_use$data_list$avgnMode,
-            suitMode = om_use$data_list$suitMode,
-            initMode = om_use$data_list$initMode,
-            suit_styr = om$data_list$suit_styr,     # This stays the same as original OM to maintain constant suitability
-            suit_endyr = om$data_list$suit_endyr,   # This stays the same as original OM to maintain constant suitability
-            HCR = build_hcr(HCR = om_use$data_list$HCR,
-                            DynamicHCR = om_use$data_list$DynamicHCR,
-                            Ftarget = om_use$data_list$Ftarget,
-                            Flimit = om_use$data_list$Flimit,
-                            Ptarget = om_use$data_list$Ptarget,
-                            Plimit = om_use$data_list$Plimit,
-                            Alpha = om_use$data_list$Alpha,
-                            Pstar = om_use$data_list$Pstar,
-                            Sigma = om_use$data_list$Sigma,
-                            Fmult = om_use$data_list$Fmult,
-                            HCRorder = om_use$data_list$HCRorder
-            ),
-            recFun = build_srr(srr_fun = om_use$data_list$srr_fun,
-                               srr_pred_fun = om_use$data_list$srr_pred_fun ,
-                               proj_mean_rec = TRUE, # Use mean R for RPs
-                               srr_meanyr = om$data_list$srr_meanyr, # This stays the same as original OM
-                               srr_hat_styr = om$data_list$srr_hat_styr,
-                               srr_hat_endyr = om$data_list$srr_hat_endyr,
-                               srr_est_mode  = om_use$data_list$srr_est_mode ,
-                               srr_prior = om_use$data_list$srr_prior,
-                               srr_prior_sd = om_use$data_list$srr_prior_sd,
-                               Bmsy_lim = om_use$data_list$Bmsy_lim,
-                               srr_indices = om_use$data_list$srr_indices),
-            M1Fun = build_M1(M1_model = om_use$data_list$M1_model,
-                             M1_re = om_use$data_list$M1_re,
-                             updateM1 = FALSE,  # Dont update M1 from data, fix at previous parameters
-                             M1_use_prior = om_use$data_list$M1_use_prior,
-                             M2_use_prior = om_use$data_list$M2_use_prior,
-                             M_prior = om_use$data_list$M_prior,
-                             M_prior_sd = om_use$data_list$M_prior_sd,
-                             M1_indices = om_use$data_list$M1_indices),
-            loopnum = loopnum,
-            phase = FALSE,
-            getsd = FALSE,
-            verbose = 0)
+          suppressWarnings(
+            om_use <- fit_mod(
+              data_list = om_use$data_list,
+              inits = om_use$estimated_params,
+              map = om_use$map,
+              bounds = NULL,
+              file = NULL,
+              estimateMode = estimate_mode_use,
+              random_rec = om_use$data_list$random_rec,
+              niter = om_use$data_list$niter,
+              msmMode = om_use$data_list$msmMode,
+              avgnMode = om_use$data_list$avgnMode,
+              suitMode = om_use$data_list$suitMode,
+              initMode = om_use$data_list$initMode,
+              suit_styr = om$data_list$suit_styr,     # This stays the same as original OM to maintain constant suitability
+              suit_endyr = om$data_list$suit_endyr,   # This stays the same as original OM to maintain constant suitability
+              HCR = build_hcr(HCR = om_use$data_list$HCR,
+                              DynamicHCR = om_use$data_list$DynamicHCR,
+                              Ftarget = om_use$data_list$Ftarget,
+                              Flimit = om_use$data_list$Flimit,
+                              Ptarget = om_use$data_list$Ptarget,
+                              Plimit = om_use$data_list$Plimit,
+                              Alpha = om_use$data_list$Alpha,
+                              Pstar = om_use$data_list$Pstar,
+                              Sigma = om_use$data_list$Sigma,
+                              Fmult = om_use$data_list$Fmult,
+                              HCRorder = om_use$data_list$HCRorder
+              ),
+              recFun = build_srr(srr_fun = om_use$data_list$srr_fun,
+                                 srr_pred_fun = om_use$data_list$srr_pred_fun ,
+                                 proj_mean_rec = TRUE, # Use mean R for RPs
+                                 srr_meanyr = om$data_list$srr_meanyr, # This stays the same as original OM
+                                 srr_hat_styr = om$data_list$srr_hat_styr,
+                                 srr_hat_endyr = om$data_list$srr_hat_endyr,
+                                 srr_est_mode  = om_use$data_list$srr_est_mode ,
+                                 srr_prior = om_use$data_list$srr_prior,
+                                 srr_prior_sd = om_use$data_list$srr_prior_sd,
+                                 Bmsy_lim = om_use$data_list$Bmsy_lim,
+                                 srr_indices = om_use$data_list$srr_indices),
+              M1Fun = build_M1(M1_model = om_use$data_list$M1_model,
+                               M1_re = om_use$data_list$M1_re,
+                               updateM1 = FALSE,  # Dont update M1 from data, fix at previous parameters
+                               M1_use_prior = om_use$data_list$M1_use_prior,
+                               M2_use_prior = om_use$data_list$M2_use_prior,
+                               M_prior = om_use$data_list$M_prior,
+                               M_prior_sd = om_use$data_list$M_prior_sd,
+                               M1_indices = om_use$data_list$M1_indices),
+              loopnum = loopnum,
+              phase = FALSE,
+              getsd = FALSE,
+              verbose = 0)
+          )
           return(list(kill_sim = FALSE, failure = NA))
         },
         timeout = 60*timeout)
@@ -627,56 +629,58 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
       # Restimate
       kill_sim <- tryCatch({
         R.utils::withTimeout({
-          em_use <- fit_mod(
-            data_list = em_use$data_list,
-            inits = em_use$estimated_params,
-            map =  NULL,
-            bounds = NULL,
-            file = NULL,
-            estimateMode = ifelse(em_use$data_list$estimateMode < 3, 0, em_use$data_list$estimateMode), # Run hindcast and projection, otherwise debug
-            HCR = build_hcr(HCR = em_use$data_list$HCR, # Tier3 HCR
-                            DynamicHCR = em_use$data_list$DynamicHCR,
-                            Ftarget = em_use$data_list$Ftarget,
-                            Flimit = em_use$data_list$Flimit,
-                            Ptarget = em_use$data_list$Ptarget,
-                            Plimit = em_use$data_list$Plimit,
-                            Alpha = em_use$data_list$Alpha,
-                            Pstar = em_use$data_list$Pstar,
-                            Sigma = em_use$data_list$Sigma,
-                            Fmult = em_use$data_list$Fmult,
-                            HCRorder = em$data_list$HCRorder
-            ),
-            recFun = build_srr(srr_fun = em_use$data_list$srr_fun,
-                               srr_pred_fun = em_use$data_list$srr_pred_fun,
-                               proj_mean_rec = em_use$data_list$proj_mean_rec,
-                               srr_meanyr = em_use$data_list$endyr, # Update end year
-                               srr_hat_styr = em_use$data_list$srr_hat_styr,
-                               srr_hat_endyr = em_use$data_list$srr_hat_endyr,
-                               srr_est_mode  = em_use$data_list$srr_est_mode ,
-                               srr_prior = em_use$data_list$srr_prior,
-                               srr_prior_sd = em_use$data_list$srr_prior_sd,
-                               Bmsy_lim = em_use$data_list$Bmsy_lim,
-                               srr_indices = em_use$data_list$srr_indices),
-            M1Fun =     build_M1(M1_model = em_use$data_list$M1_model,
-                                 M1_re = em_use$data_list$M1_re,
-                                 updateM1 = FALSE,
-                                 M1_use_prior = em_use$data_list$M1_use_prior,
-                                 M2_use_prior = em_use$data_list$M2_use_prior,
-                                 M_prior = em_use$data_list$M_prior,
-                                 M_prior_sd = em_use$data_list$M_prior_sd,
-                                 M1_indices = em_use$data_list$M1_indices),
-            random_rec = em_use$data_list$random_rec,
-            niter = em_use$data_list$niter,
-            msmMode = em_use$data_list$msmMode,
-            avgnMode = em_use$data_list$avgnMode,
-            suitMode = em_use$data_list$suitMode,
-            suit_styr = em_use$data_list$suit_styr,
-            suit_endyr = em_use$data_list$suit_endyr,
-            initMode = em_use$data_list$initMode,
-            phase = FALSE,
-            loopnum = loopnum,
-            getsd = FALSE,
-            verbose = 0)
+          suppressWarnings(
+            em_use <- fit_mod(
+              data_list = em_use$data_list,
+              inits = em_use$estimated_params,
+              map =  NULL,
+              bounds = NULL,
+              file = NULL,
+              estimateMode = ifelse(em_use$data_list$estimateMode < 3, 0, em_use$data_list$estimateMode), # Run hindcast and projection, otherwise debug
+              HCR = build_hcr(HCR = em_use$data_list$HCR, # Tier3 HCR
+                              DynamicHCR = em_use$data_list$DynamicHCR,
+                              Ftarget = em_use$data_list$Ftarget,
+                              Flimit = em_use$data_list$Flimit,
+                              Ptarget = em_use$data_list$Ptarget,
+                              Plimit = em_use$data_list$Plimit,
+                              Alpha = em_use$data_list$Alpha,
+                              Pstar = em_use$data_list$Pstar,
+                              Sigma = em_use$data_list$Sigma,
+                              Fmult = em_use$data_list$Fmult,
+                              HCRorder = em$data_list$HCRorder
+              ),
+              recFun = build_srr(srr_fun = em_use$data_list$srr_fun,
+                                 srr_pred_fun = em_use$data_list$srr_pred_fun,
+                                 proj_mean_rec = em_use$data_list$proj_mean_rec,
+                                 srr_meanyr = em_use$data_list$endyr, # Update end year
+                                 srr_hat_styr = em_use$data_list$srr_hat_styr,
+                                 srr_hat_endyr = em_use$data_list$srr_hat_endyr,
+                                 srr_est_mode  = em_use$data_list$srr_est_mode ,
+                                 srr_prior = em_use$data_list$srr_prior,
+                                 srr_prior_sd = em_use$data_list$srr_prior_sd,
+                                 Bmsy_lim = em_use$data_list$Bmsy_lim,
+                                 srr_indices = em_use$data_list$srr_indices),
+              M1Fun =     build_M1(M1_model = em_use$data_list$M1_model,
+                                   M1_re = em_use$data_list$M1_re,
+                                   updateM1 = FALSE,
+                                   M1_use_prior = em_use$data_list$M1_use_prior,
+                                   M2_use_prior = em_use$data_list$M2_use_prior,
+                                   M_prior = em_use$data_list$M_prior,
+                                   M_prior_sd = em_use$data_list$M_prior_sd,
+                                   M1_indices = em_use$data_list$M1_indices),
+              random_rec = em_use$data_list$random_rec,
+              niter = em_use$data_list$niter,
+              msmMode = em_use$data_list$msmMode,
+              avgnMode = em_use$data_list$avgnMode,
+              suitMode = em_use$data_list$suitMode,
+              suit_styr = em_use$data_list$suit_styr,
+              suit_endyr = em_use$data_list$suit_endyr,
+              initMode = em_use$data_list$initMode,
+              phase = FALSE,
+              loopnum = loopnum,
+              getsd = FALSE,
+              verbose = 0)
+          )
           return(list(kill_sim = FALSE, failure = NA))
         },
         timeout = 60*timeout)
