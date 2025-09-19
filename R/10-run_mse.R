@@ -451,7 +451,7 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
         dplyr::filter(Year <= om_use$data_list$endyr &
                         Catch == 0) %>%
         dplyr::mutate(Year = Year - om_use$data_list$styr + 1) %>%
-        select(Fleet_code, Year) %>%
+        dplyr::select(Fleet_code, Year) %>%
         as.matrix()
       om_use$estimated_params$ln_F[zero_catch] <- -999
       om_use$map$mapList$ln_F[zero_catch] <- NA
