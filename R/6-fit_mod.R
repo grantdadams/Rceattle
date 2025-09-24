@@ -4,7 +4,6 @@
 #' @param data_list a data_list read in using \code{\link{read_excel}}.
 #' @param inits (Optional) Character vector of named initial values from previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters. Can also construct using \code{\link{build_params}}
 #' @param map (Optional) A map object from \code{\link{build_map}}.
-#' @param bounds (Optional) A bounds object from \code{\link{build_bounds}}.
 #' @param file (Optional) Filename where files will be saved. If NULL, no file is saved.
 #' @param estimateMode 0 = Fit the hindcast model and projection with HCR specified via \code{HCR}. 1 = Fit the hindcast model only (no projection). 2 = Run the projection only with HCR specified via \code{HCR} given the initial parameters in \code{inits}.  3 = debug mode 1: runs the model through MakeADFun, but not nlminb, 4 = runs the model through MakeADFun and nlminb (will all parameters mapped out).
 #' @param projection_uncertainty account for hindcast parameter uncertainty in projections when using an HCR? Default is FALSE for speed.
@@ -14,6 +13,8 @@
 #' @param HCR HCR list object from \code{\link{build_hcr}}
 #' @param niter Number of iterations for multispecies model
 #' @param recFun The stock recruit-relationship parameterization from \code{\link{build_srr}}.
+#' @param M1Fun M1 parameterizations and priors. Use \code{build_M1}.
+#' @param dsem dsem model specifications for recruitment deviates. Use \code{build_DSEM}. Or can be previously built DSEM object from an Rceattle model \code{model$dsem}.
 #' @param msmMode The predation mortality functions to used. Defaults to no predation mortality used.
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.
 #' @param initMode how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0 + dev-yr1,  mortality (M1); 2 = equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 3 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates; 4 = non-equilibrium age-structure version 2 where initial fishing mortality (Finit) scales R0.
@@ -28,10 +29,10 @@
 #' @param loopnum number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})
 #' @param newtonsteps number of extra newton steps to take after optimization (alternative to \code{loopnum})
 #' @param verbose 0 = Silent, 1 = print updates of model fit, 2 = print updates of model fit and TMB estimation progress.
-#' @param M1Fun M1 parameterizations and priors. Use \code{build_M1}.
 #' @param getJointPrecision return full Hessian of fixed and random effects.
 #' @param getReportCovariance return variance covariance of ADREPORT variables
 #' @param TMBfilename if a seperate TMB file is to be used for development. Includes location and does not include ".cpp" at the end.
+#' @param bias.correct use epsilon bias correction during estimation.
 #'
 #' @details
 #' CEATTLE is an age-structured population dynamics model that can be fit with or without predation mortality. The default is to exclude predation mortality by setting \code{msmMode} to 0. Predation mortality can be included by setting \code{msmMode} with the following options:
@@ -54,13 +55,13 @@
 #' \itemize{
 #'  \item{data_list: List of data inputs}
 #'  \item{initial_params: List of starting parameters}
-#'  \item{bounds: Parameter bounds used for estimation}
 #'  \item{map: List of map used in TMB}
 #'  \item{obj: TMB model object}
 #'  \item{opt: Optimized model object from `nlimb`}
 #'  \item{sdrep: Object of class `sdreport` exported by TMB including the standard errors of estimated parameters}
 #'  \item{estimated_params: List of estimated parameters}
 #'  \item{quantities: Derived quantities from CEATTLE}
+#'  \item{dsem: dsem specifications}
 #'  \item{run_time: Model run time}
 #'  }
 #'
@@ -90,7 +91,6 @@ fit_mod <-
     data_list = NULL,
     inits = NULL,
     map = NULL,
-    bounds = NULL,
     file = NULL,
     estimateMode = 0,
     projection_uncertainty = FALSE,
@@ -101,6 +101,7 @@ fit_mod <-
     niter = 3,
     recFun = build_srr(),
     M1Fun = build_M1(),
+    dsem = build_DSEM(),
     msmMode = 0,
     avgnMode = 0,
     initMode = 2,
@@ -119,7 +120,6 @@ fit_mod <-
     loopnum = 5,
     verbose = 1,
     newtonsteps = 0,
-    catch_hcr = FALSE,
     TMBfilename = NULL){
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -128,13 +128,13 @@ fit_mod <-
     # data_list = BS2017SS;
     # inits = NULL;
     # map = NULL;
-    # bounds = NULL;
     # file = NULL;
     # estimateMode = 0;
     # random_rec = FALSE;
     # random_q = FALSE;
     # random_sel = FALSE;
     # HCR = build_hcr();
+    # dsem = build_DSEM()
     # niter = 3;
     # msmMode = 0;
     # avgnMode = 0;
@@ -156,7 +156,6 @@ fit_mod <-
     # recFun = build_srr()
     # M1Fun = build_M1()
     # projection_uncertainty = TRUE
-    # catch_hcr = FALSE
     # bias.correct = FALSE
     # newtonsteps = 0
     # getReportCovariance = FALSE
@@ -198,6 +197,11 @@ fit_mod <-
       data_list$suit_styr <- data_list$styr
     }
     if(!is.null(suit_styr)){ # If provided in function, override data
+      if(!is.null(data_list$suit_styr)){
+        if(data_list$suit_styr != suit_styr){
+          warning("'suit_styr' in data is different than in call `fit_mod`, using switch from 'fit_mod'")
+        }
+      }
       data_list$suit_styr <- suit_styr
     }
 
@@ -206,6 +210,11 @@ fit_mod <-
       data_list$suit_endyr <- data_list$endyr
     }
     if(!is.null(suit_endyr)){ # If provided in function, override data
+      if(!is.null(data_list$suit_endyr)){
+        if(data_list$suit_endyr != suit_endyr){
+          warning("'suit_endyr' in data is different than in call `fit_mod`, using switch from 'fit_mod'")
+        }
+      }
       data_list$suit_endyr <- suit_endyr
     }
 
@@ -218,6 +227,11 @@ fit_mod <-
       data_list$srr_meanyr <- data_list$endyr
     }
     if(!is.null(recFun$srr_meanyr)){ # If mean year is provided in function, override data
+      if(!is.null(data_list$srr_meanyr)){
+        if(data_list$srr_meanyr != recFun$srr_meanyr){
+          warning("'srr_meanyr' in data is different than in call `fit_mod`, using switch from 'fit_mod'")
+        }
+      }
       data_list$srr_meanyr <- recFun$srr_meanyr
     }
 
@@ -226,6 +240,11 @@ fit_mod <-
       data_list$srr_hat_styr <- data_list$styr + 1
     }
     if(!is.null(recFun$srr_hat_styr)){ # If provided in function, override data
+      if(!is.null(data_list$srr_hat_styr)){
+        if(data_list$srr_hat_styr != recFun$srr_hat_styr){
+          warning("'srr_hat_styr' in data is different than in call `fit_mod`, using switch from 'fit_mod'")
+        }
+      }
       data_list$srr_hat_styr <- recFun$srr_hat_styr
     }
 
@@ -234,8 +253,14 @@ fit_mod <-
       data_list$srr_hat_endyr <- data_list$endyr
     }
     if(!is.null(recFun$srr_hat_endyr)){ # If provided in function, override data
+      if(!is.null(data_list$srr_hat_endyr)){
+        if(data_list$srr_hat_endyr != recFun$srr_hat_endyr){
+          warning("'srr_hat_endyr' in data is different than in call `fit_mod`, using switch from 'fit_mod'")
+        }
+      }
       data_list$srr_hat_endyr <- recFun$srr_hat_endyr
     }
+
 
     data_list$srr_est_mode <- recFun$srr_est_mode
     data_list$srr_prior <- extend_length(recFun$srr_prior)
@@ -254,7 +279,6 @@ fit_mod <-
     data_list$M1_model= extend_length(M1Fun$M1_model)
     data_list$M1_model = ifelse(data_list$nsex == 1 & data_list$M1_model == 2, 1, data_list$M1_model) # Sex specific to sex-invariant if 1-sex model
     data_list$M1_re = extend_length(M1Fun$M1_re)
-    updateM1 = M1Fun$updateM1
     data_list$M1_use_prior = extend_length(M1Fun$M1_use_prior) * (data_list$M1_model > 0) # Sets to 0 if M1 is fixed
     data_list$M2_use_prior = extend_length(M1Fun$M2_use_prior) * (msmMode > 0) # Sets to 0 if single-species
     data_list$M_prior = extend_length(M1Fun$M_prior)
@@ -290,11 +314,37 @@ fit_mod <-
     # Fill out switches if missing
     data_list <- Rceattle::switch_check(data_list)
 
+
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # 2: Load/build parameters ----
+    # 2: DSEM ----
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # - DSEM check
+    if(!is.null(data_list$dsem_settings$sem) & !is.null(dsem$sem)){
+      if(data_list$dsem_settings$sem != dsem$sem){
+        warning("'sem' in data is different than in call `fit_mod`, using `sem` from 'fit_mod' if both `map` and `inits` not input")
+      }
+    }
+
+    # If a previously built "dsem" object is provided, no need to run dsem
+    if(class(dsem) == "dsem"){
+      mod_objects$dsem <- dsem
+      #FIXME: add check on setup
+    }
+    if(class(dsem) != "dsem"){
+      data_list$dsem_settings <- dsem
+      mod_objects$dsem <- build_dsem_objects(dsem_settings = dsem,
+                                             debug = estimateMode %in% c(2, 4), # Turn off dsem parameters if debugging or projection mode
+                                             data_list = data_list)
+      data_list$dsem_settings$sem <- mod_objects$dsem$sem # Will be rewritten if NULL
+    }
+
+
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # 3: Load/build parameters ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.character(inits) | is.null(inits)) {
       start_par <- suppressWarnings(Rceattle::build_params(data_list = data_list))
+      start_par <- c(start_par, mod_objects$dsem$tmb_inputs$parameters) # Add DSEM parameters
     } else{
       start_par <- inits
 
@@ -317,26 +367,29 @@ fit_mod <-
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # 3: Load/build map ----
+    # 4: Load/build map ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.null(map)) {
-      map <- suppressWarnings(build_map(data_list, start_par, debug = estimateMode %in% c(2, 4), # Turn off hindcast parameters if debugging or projection mode
-                                        random_rec = random_rec, random_sel = random_sel))
+      map <- suppressWarnings(build_map(data_list,
+                                        start_par[-which(names(start_par) %in% names(mod_objects$dsem$tmb_inputs$parameters))],
+                                        debug = estimateMode %in% c(2, 4), # Turn off hindcast parameters if debugging or projection mode
+                                        random_sel = random_sel))
+
+      map$mapList <- c(map$mapList, mod_objects$dsem$mapList) # Add DSEM map
+      map$mapFactor <- c(map$mapFactor, mod_objects$dsem$tmb_inputs$map) # Add DSEM map
     } else{
       map <- map
     }
     if(verbose > 0) {message("Step 2: Map build complete")}
 
 
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # 4: Get bounds ----
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    if (is.null(bounds)) {
-      bounds <- Rceattle::build_bounds(param_list = start_par, data_list)
-    } else {
-      bounds = bounds
+
+    # Parameter and map dimension check
+    start_par <- start_par[names(map$mapFactor), drop = F]
+    dim_check <- sapply(start_par, function(x) length(unlist(x))) == sapply(map$mapFactor, function(x) length(unlist(x)))
+    if(sum(dim_check) != length(dim_check)){
+      stop(paste0("Map and parameter objects are not the same size for: ", names(dim_check)[which(dim_check == FALSE)], collapse = ",  "))
     }
-    if(verbose > 0) {message("Step 3: Parameter bounds complete")}
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -345,10 +398,9 @@ fit_mod <-
     # Turns on laplace approximation
     random_vars <- c()
     if (random_rec) {
+      random_vars <- c(mod_objects$dsem$tmb_inputs$random) # x_tj matrix from dsem
       if(initMode > 0){
-        random_vars <- c(random_vars , "rec_dev", "init_dev")
-      } else{
-        random_vars <- c(random_vars , "rec_dev")
+        random_vars <- c(random_vars, "init_dev")
       }
     }
     if(random_q){
@@ -383,7 +435,8 @@ fit_mod <-
     # - Reorganize data for .cpp file
     data_list_reorganized <- Rceattle::rearrange_dat(data_list)
     data_list_reorganized = c(list(model = TMBfilename), data_list_reorganized)
-    data_list_reorganized$forecast <- rep(0, data_list_reorganized$nspp) # Hindcast switch
+    data_list_reorganized$forecast <- rep(0, data_list_reorganized$nspp)            # Internal hindcast switch
+    data_list_reorganized <- c(data_list_reorganized, mod_objects$dsem$tmb_inputs$data) # Add dsem data
 
     # - Update comp weights, future F (if input) and F_prop from data
     # - Age/length composition
@@ -404,7 +457,7 @@ fit_mod <-
     }
 
     # - Update M1 parameter object from data if initial parameter values input
-    if(updateM1){
+    if(M1Fun$updateM1){
       m1 <- array(0, dim = c(data_list$nspp,
                              max(data_list$nsex, na.rm = T),
                              max(data_list$nages, na.rm = T))) # Set up array
@@ -434,27 +487,7 @@ fit_mod <-
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # 7: Set up parameter bounds ----
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    L <- c()
-    U <- c()
-    for(i in 1:length(map$mapFactor)){
-      if(!names(map$mapFactor)[i] %in% random_vars){ # Dont have bounds for random effects
-        L = c(L, unlist(bounds$lower[[i]])[which(!is.na(unlist(map$mapFactor[[i]])) & !duplicated(unlist(map$mapFactor[[i]])))])
-        U = c(U, unlist(bounds$upper[[i]])[which(!is.na(unlist(map$mapFactor[[i]])) & !duplicated(unlist(map$mapFactor[[i]])))])
-      }
-    }
-
-    # Dimension check
-    start_par <- start_par[names(map$mapFactor), drop = F]
-    dim_check <- sapply(start_par, function(x) length(unlist(x))) == sapply(map$mapFactor, function(x) length(unlist(x)))
-    if(sum(dim_check) != length(dim_check)){
-      stop(print(paste0("Map and parameter objects are not the same size for: ", names(dim_check)[which(dim_check == FALSE)])))
-    }
-
-
-    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # 8: Phase hindcast ----
+    # 7: Phase hindcast ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # Set default phasing
     if(is.logical(phase)){
@@ -477,7 +510,7 @@ fit_mod <-
         data = data_list_reorganized,
         parameters = start_par,
         map = map$mapFactor,
-        random = random_vars,
+        # random = random_vars, # No random vars if phasing
         phases = phaseList,
         model_name = TMBfilename,
         silent = verbose != 2,
@@ -495,10 +528,12 @@ fit_mod <-
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # 9: Fit hindcast ----
+    # 8: Fit hindcast ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # * Build ----
     if(sum(as.numeric(unlist(map$mapFactor)), na.rm = TRUE) == 0){stop("Map of length 0: all NAs")}
+    # if(any(names(map$mapFactor) %in% names(start_par))){stop("Map of length 0: all NAs")}
+    # if(any(names(start_par) %in% names(map$mapFactor))){stop("Map of length 0: all NAs")}
     obj = TMB::MakeADFun(
       data_list_reorganized,
       parameters = start_par,
@@ -512,7 +547,6 @@ fit_mod <-
     mod_objects <- c(
       list(
         TMBfilename = TMBfilename,
-        bounds = bounds,
         map = map
       ),
       mod_objects)
@@ -528,8 +562,6 @@ fit_mod <-
                            fn=obj$fn,
                            gr=obj$gr,
                            startpar=obj$par,
-                           lower = L,
-                           upper = U,
                            loopnum = loopnum,
                            newtonsteps = newtonsteps,
                            getsd = getsd,
@@ -593,12 +625,12 @@ fit_mod <-
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # 10: Run projection ----
+    # 9: Run projection ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if(estimateMode %in% c(0,2,4)){
       if(!data_list$HCR %in% c(0)){ # - All HCRs except no F and fixed F
 
-        # * 10.1: Single species mode ----
+        # * 9.1: Single species mode ----
         if(msmMode == 0){
 
           # Turn BRP estimation on within likelihood
@@ -639,7 +671,7 @@ fit_mod <-
         }
 
 
-        # * 10.2: Multi-species mode ----
+        # * 9.2: Multi-species mode ----
         if(msmMode > 0){
 
           # Loop across species orders
@@ -711,7 +743,7 @@ fit_mod <-
         if (estimateMode > 2) { # Debugging, give initial parameters
           last_par <- start_par
         }else{
-          if(!random_rec){
+          if(length(random_vars) > 0){
             last_par = try(obj$env$parList(obj$env$last.par.best)) # FIXME: maybe add obj$env$last.par.best inside?
           } else {
             last_par = try(obj$env$parList())
@@ -746,7 +778,7 @@ fit_mod <-
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # 11: Save output ----
+    # 10: Save output ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # - Save estimated parameters
     mod_objects$estimated_params <- last_par
@@ -757,7 +789,7 @@ fit_mod <-
 
     # -- Warning for discontinuous likelihood
     if(estimateMode %in% c(0:2)){
-      if(!is.null(opt$SD) & random_rec == FALSE){
+      if(!is.null(opt$SD) & length(random_vars) == 0){
         if(abs(opt$objective - quantities$jnll) > rel_tol){
           message( "#################################################" )
           message( "Convergence warning (8): discontinuous likelihood" )

@@ -8,7 +8,6 @@ fit_mod(
   data_list = NULL,
   inits = NULL,
   map = NULL,
-  bounds = NULL,
   file = NULL,
   estimateMode = 0,
   projection_uncertainty = FALSE,
@@ -19,6 +18,7 @@ fit_mod(
   niter = 3,
   recFun = build_srr(),
   M1Fun = build_M1(),
+  dsem = build_DSEM(),
   msmMode = 0,
   avgnMode = 0,
   initMode = 2,
@@ -36,7 +36,6 @@ fit_mod(
   loopnum = 5,
   verbose = 1,
   newtonsteps = 0,
-  catch_hcr = FALSE,
   TMBfilename = NULL
 )
 }
@@ -46,8 +45,6 @@ fit_mod(
 \item{inits}{(Optional) Character vector of named initial values from previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters. Can also construct using \code{\link{build_params}}}
 
 \item{map}{(Optional) A map object from \code{\link{build_map}}.}
-
-\item{bounds}{(Optional) A bounds object from \code{\link{build_bounds}}.}
 
 \item{file}{(Optional) Filename where files will be saved. If NULL, no file is saved.}
 
@@ -69,6 +66,8 @@ fit_mod(
 
 \item{M1Fun}{M1 parameterizations and priors. Use \code{build_M1}.}
 
+\item{dsem}{dsem model specifications for recruitment deviates. Use \code{build_DSEM}. Or can be previously built DSEM object from an Rceattle model \code{model$dsem}.}
+
 \item{msmMode}{The predation mortality functions to used. Defaults to no predation mortality used.}
 
 \item{avgnMode}{The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.}
@@ -84,6 +83,8 @@ fit_mod(
 \item{phase}{TRUE/FALSE If FALSE, will not phase model. If set to \code{"TRUE"}, will use default phasing. Can also accept a list of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R.}
 
 \item{getsd}{TRUE/FALSE whether to run standard error calculation (default = TRUE).}
+
+\item{bias.correct}{use epsilon bias correction during estimation.}
 
 \item{use_gradient}{use the gradient to phase (default = TRUE).}
 
@@ -109,13 +110,13 @@ A list of class "Rceattle" including:
 \itemize{
 \item{data_list: List of data inputs}
 \item{initial_params: List of starting parameters}
-\item{bounds: Parameter bounds used for estimation}
 \item{map: List of map used in TMB}
 \item{obj: TMB model object}
 \item{opt: Optimized model object from \code{nlimb}}
 \item{sdrep: Object of class \code{sdreport} exported by TMB including the standard errors of estimated parameters}
 \item{estimated_params: List of estimated parameters}
 \item{quantities: Derived quantities from CEATTLE}
+\item{dsem: dsem specifications}
 \item{run_time: Model run time}
 }
 }

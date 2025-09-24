@@ -2,8 +2,10 @@
 
 export(TMBAIC)
 export(TMBphase)
+export(build_DSEM)
 export(build_M1)
 export(build_bounds)
+export(build_dsem_objects)
 export(build_hcr)
 export(build_hcr_map)
 export(build_map)

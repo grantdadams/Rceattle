@@ -5,7 +5,6 @@
 #' @param data_list a data_list created from \code{\link{build_dat}}.
 #' @param params a parameter list created from \code{\link{build_params}}.
 #' @param debug Runs the model without estimating parameters to get derived quantities given initial parameter values. If TRUE, sets all map values to NA except dummy
-#' @param random_rec logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE, which sets the map for R_ln_sd to NA
 #' @param random_sel logical. If TRUE, treats selectivity deviations as random effects.The default is FALSE, which sets the map for sel_dev_ln_sd to NA. Only viable for logisitc, Double Logistic, Descending Logistic, and Hake Non-parametric with Random walk or deviates.
 #'
 #' @description
@@ -14,7 +13,7 @@
 #'
 #' @return a list of map arguments for each parameter
 #' @export
-build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, random_sel = FALSE) {
+build_map <- function(data_list, params, debug = FALSE, random_sel = FALSE) {
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Setup ----
@@ -40,9 +39,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # * 1.1. Initial population deviates ----
 
-  # -- Map out first year rec devs if estimating initial abundance as free parameters
+  # -- Map out first year init devs if estimating initial abundance as free parameters
   if(data_list$initMode == 0){
-    map_list$rec_dev[, 1] <- NA
+    map_list$init_dev[, 1] <- NA
   }
 
   # -- Map out initial devs if starting at equilibrium with no devs
@@ -65,14 +64,6 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
 
   # * 1.2. Stock-recruitment parameters ----
-  # --  Map out future recruitment deviations
-  map_list$rec_dev[, yrs_proj] <- as.numeric(replace(map_list$rec_dev[, yrs_proj],
-                                                     values = rep(NA, length(map_list$rec_dev[, yrs_proj]))))
-
-  # -- Recruitment deviation sigmas - turn off if not estimating
-  if(random_rec == FALSE){
-    map_list$R_ln_sd <- map_list$R_ln_sd * NA
-  }
 
   # -- Stock recruit relationship (SRR) parameters:
   # col1 = mean rec, col2 = SRR alpha, col3 = SRR beta
@@ -1016,7 +1007,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
     if(!data_list$fleet_control$Comp_loglike[i] %in% c(-1, 0, 1)){
       if(!is.na(data_list$fleet_control$Comp_loglike[i])){
-        stop(paste0("Comp_loglike for fleet ", i, "is not 0 or 1"))
+        stop(paste0("Comp_loglike for fleet", i, "is not 0 or 1"))
       }
     }
   }
@@ -1045,10 +1036,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
       # Population parameters
       map_list$rec_pars[sp,] <- NA
-      map_list$R_ln_sd[sp] <- NA
+      #map_list$R_ln_sd[sp] <- NA
       map_list$ln_Finit[sp] <- NA
-      # map_list$sex_ratio_ln_sd[sp] <- NA
-      map_list$rec_dev[sp,] <- NA
       map_list$init_dev[sp,] <- NA
       map_list$ln_M1[sp,,] <- NA
       map_list$ln_M1_dev[sp,,,] <- NA
