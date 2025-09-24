@@ -4,13 +4,7 @@
 \alias{build_map}
 \title{Function to construct the TMB map argument for CEATTLE}
 \usage{
-build_map(
-  data_list,
-  params,
-  debug = FALSE,
-  random_rec = FALSE,
-  random_sel = FALSE
-)
+build_map(data_list, params, debug = FALSE, random_sel = FALSE)
 }
 \arguments{
 \item{data_list}{a data_list created from \code{\link{build_dat}}.}
@@ -18,8 +12,6 @@ build_map(
 \item{params}{a parameter list created from \code{\link{build_params}}.}
 
 \item{debug}{Runs the model without estimating parameters to get derived quantities given initial parameter values. If TRUE, sets all map values to NA except dummy}
-
-\item{random_rec}{logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE, which sets the map for R_ln_sd to NA}
 
 \item{random_sel}{logical. If TRUE, treats selectivity deviations as random effects.The default is FALSE, which sets the map for sel_dev_ln_sd to NA. Only viable for logisitc, Double Logistic, Descending Logistic, and Hake Non-parametric with Random walk or deviates.}
 }
