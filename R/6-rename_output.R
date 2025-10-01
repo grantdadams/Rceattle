@@ -168,43 +168,118 @@ calc_mcall_ianelli <- function(data_list = NULL, data_list_reorganized = NULL, q
   return(data_list)
 }
 
-
-
-
-
-#' Function to calculate McAllister-Ianelli weights for diet data
+#' Match predicted diet proportions to observed data (Final, Robust Version)
 #'
-#' @param data_list A data_list object created by \code{\link{build_dat}}
-#' @param quantities list of "report" objects from Rceattle, including diet_hat predictions
+#' @description A helper function that handles any mix of data aggregation
+#' within a single diet dataset by processing row by row.
 #'
+#' @param data_list The Rceattle data_list object.
+#' @param quantities The 'quantities' object from a model run.
+#'
+#' @return The input `diet_data` data frame with a new column, `Est_diet`.
 #' @export
+match_diet_preds <- function(data_list, quantities) {
+
+  obs_diet <- data_list$diet_data
+  pred_diet_array <- quantities$diet_prop_hat
+
+  if (is.null(obs_diet) || is.null(pred_diet_array) || nrow(obs_diet) == 0) {
+    return(NULL)
+  }
+
+  # Create an empty vector to store the results
+  est_diet_vec <- numeric(nrow(obs_diet))
+
+  # Loop through each row of the observed diet data
+  for (i in 1:nrow(obs_diet)) {
+    obs_row <- obs_diet[i, ]
+
+    # Extract indices for this specific observation
+    p <- obs_row$Pred
+    k <- obs_row$Prey
+    pa <- obs_row$Pred_age
+    ka <- obs_row$Prey_age
+    yr <- obs_row$Year
+
+    # --- Apply aggregation based on the values in THIS row ---
+
+    if (yr > 0 && pa > 0 && ka > 0) { # Fully disaggregated
+      estimated_value <- pred_diet_array[p, k, pa, ka, yr]
+
+    } else if (yr == 0 && pa > 0 && ka > 0) { # Year aggregated only
+      estimated_value <- mean(pred_diet_array[p, k, pa, ka, ])
+
+    } else if (yr > 0 && pa > 0 && ka < 0) { # Prey-age aggregated only
+      estimated_value <- sum(pred_diet_array[p, k, pa, , yr])
+
+    } else if (yr == 0 && pa > 0 && ka < 0) { # Year AND Prey-age aggregated
+      annual_sums <- apply(pred_diet_array[p, k, pa, , ], 2, sum) # Sum over prey_age for each year
+      estimated_value <- mean(annual_sums)
+
+    } else {
+      # This logic can be expanded to handle the other pred_age < 0 cases if needed
+      estimated_value <- NA
+    }
+
+    est_diet_vec[i] <- estimated_value
+  }
+
+  # Append the final vector of estimated values to the original data frame
+  obs_diet$Est_diet <- est_diet_vec
+
+  return(obs_diet)
+}
+
+
+#' Function to calculate McAllister-Ianelli weights for diet data (UPDATED)
 #'
+#' @description Calculates effective sample size data weights for diet composition
+#' data using the McAllister-Ianelli method. This version works with the new
+#' multinomial likelihood structure.
+#'
+#' @param data_list A data_list object created by \code{\link{build_dat}}.
+#' @param quantities The 'quantities' object from a model run.
+#'
+#' @return The original data_list with a new element,
+#'  `Diet_weights_mcallister`, containing the calculated weights for each
+#'   predator species.
+#' @export
 calc_mcall_ianelli_diet <- function(data_list = NULL, quantities = NULL){
 
-  # - Calculate Mcallister-Iannelli coefficients for diet data
-  diet_multiplier <- data_list$Diet_comp_weights
+  # 1. Get a clean data frame with both observed and matched estimated proportions
+  diet_comparison <- match_diet_preds(data_list, quantities)
+
+  # Return original list if there's nothing to process
+  if (is.null(diet_comparison)) {
+    return(data_list)
+  }
 
   # Small constant to avoid division by zero
   epsilon <- 1e-10
 
-
-  # Calculate effective sample size for diet data (predator specific)
-  # Using the same formula as for length: sum(p_hat * (1 - p_hat)) / sum((p - p_hat)^2)
-  eff_n_mcallister <- data_list$diet_data %>%
-    dplyr::mutate(Diet_hat = quantities$diet_hat) %>%
-    dplyr::group_by(Pred, Pred_age) %>%
+  # 2. Calculate effective sample size (eff_n) for each unique stomach sample
+  eff_n_per_stomach <- diet_comparison %>%
+    # A unique stomach sample is defined by these groups
+    dplyr::group_by(Pred, Pred_age, Pred_sex, Year) %>%
     dplyr::summarise(
-      Sample_size = dplyr::first(Sample_size), # Sample size should be the same across predators of the same age
-      eff_n_mcallister = sum(Diet_hat * (1 - Diet_hat), na.rm = TRUE) /
-        (sum((Stomach_proportion_by_weight - Diet_hat)^2, na.rm = TRUE) + epsilon)
+      Sample_size = dplyr::first(Sample_size),
+      # The M-I formula: sum(p_hat*(1-p_hat)) / sum((p_obs - p_hat)^2)
+      eff_n = sum(Est_diet * (1 - Est_diet), na.rm = TRUE) /
+        (sum((Stomach_proportion_by_weight - Est_diet)^2, na.rm = TRUE) + epsilon),
+      .groups = 'drop'
     )
 
-  # Take harmonic mean across predator ages
-  data_list$Diet_weights_mcallister <- eff_n_mcallister %>%
+  # 3. Calculate the final weight for each predator species using the harmonic mean
+  #    of the ratio of effective N to nominal sample size.
+  diet_weights <- eff_n_per_stomach %>%
     dplyr::group_by(Pred) %>%
-    filter(eff_n_mcallister != 0) %>%
-    dplyr::summarise(Diet_weights_mcallister = (1/n() * sum((eff_n_mcallister /Sample_size)^-1))^-1 ) %>%
-    dplyr::pull(Diet_weights_mcallister)
+    dplyr::summarise(
+      Est_weights_mcallister = (1/n() * sum((eff_n / Sample_size)^-1, na.rm = TRUE))^-1,
+      .groups = 'drop'
+    )
+
+  # 4. Add the result to the data_list
+  data_list$Diet_weights_mcallister <- diet_weights
 
   return(data_list)
 }

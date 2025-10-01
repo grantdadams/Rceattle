@@ -2,25 +2,21 @@
 % Please edit documentation in R/7-plot_comp.R
 \name{plot_diet_comp}
 \alias{plot_diet_comp}
-\title{Plot diet composition fits}
+\title{Plot diet composition fits (Final Version)}
 \usage{
 plot_diet_comp(Rceattle, file = NULL, species = NULL)
 }
 \arguments{
-\item{Rceattle}{Single or list of Rceattle model objects exported from \code{\link{Rceattle}}}
+\item{Rceattle}{A single Rceattle model object.}
 
-\item{file}{name of a file to identified the files exported by the
-function.}
+\item{file}{Optional file path prefix for saving plots.}
 
-\item{species}{Species names for legend}
+\item{species}{Optional character vector of species names.}
 }
 \value{
-Returns and saves a figure
+Prints plots and invisibly returns a list of plot objects.
 }
 \description{
-If year == 0, diet data are averaged from suit_styr to suit_endyr
-If prey_age >= 0 diet data are diet proportion of prey-at-age in predator-at-age
-If prey_age < 0 diet data are diet proportion of prey-spp in predator-at-age (sum across prey ages)
-If prey_age < 0 and pred_age < 0, diet data are mean diet proportion of prey-spp in predator-spp (sum across prey ages and take mean across predator ages)
-If prey_age < 0 and pred_age < -500, diet data are weighted mean diet proportion of prey-spp in predator-spp (sum across prey ages and take weighted mean across predator ages)
+Creates diagnostic plots for diet composition fits. It automatically
+detects the data aggregation level and generates the most appropriate plot type.
 }

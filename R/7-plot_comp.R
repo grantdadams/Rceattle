@@ -654,156 +654,136 @@ plot_comp <-
 
 
 
-
-
-
-
-#' Plot diet composition fits
+#' Plot diet composition fits (Final Version)
 #'
-#' @description
-#' If year == 0, diet data are averaged from suit_styr to suit_endyr
-#' If prey_age >= 0 diet data are diet proportion of prey-at-age in predator-at-age
-#' If prey_age < 0 diet data are diet proportion of prey-spp in predator-at-age (sum across prey ages)
-#' If prey_age < 0 and pred_age < 0, diet data are mean diet proportion of prey-spp in predator-spp (sum across prey ages and take mean across predator ages)
-#' If prey_age < 0 and pred_age < -500, diet data are weighted mean diet proportion of prey-spp in predator-spp (sum across prey ages and take weighted mean across predator ages)
+#' @description Creates diagnostic plots for diet composition fits. It automatically
+#' detects the data aggregation level for each predator-prey interaction and
+#' generates the most appropriate plot type.
 #'
+#' @param Rceattle A single Rceattle model object.
+#' @param file Optional file path prefix for saving plots.
+#' @param species Optional character vector of species names.
 #'
-#' @param file name of a file to identified the files exported by the
-#'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
-#' @param species Species names for legend
-#'
-#' @return Returns and saves a figure
+#' @return Prints plots and invisibly returns a list of plot objects.
 #' @export
-plot_diet_comp <-
-  function(Rceattle,
-           file = NULL,
-           species = NULL) {
+plot_diet_comp <- function(Rceattle, file = NULL, species = NULL) {
 
-    # Make sure we are using only one model
-    if(class(Rceattle) != "Rceattle"){
-      stop("Please only use one Rceattle model")
-    }
-    data_list <- Rceattle$data_list
+  # 1. SETUP & DATA PREPARATION ----
+  if(!requireNamespace("ggplot2", quietly = TRUE)) stop("ggplot2 is required for this function.")
+  if(!requireNamespace("tidyr", quietly = TRUE)) stop("tidyr is required for this function.")
+  if(!requireNamespace("dplyr", quietly = TRUE)) stop("dplyr is required for this function.")
+  if(!requireNamespace("cowplot", quietly = TRUE)) stop("cowplot is required for this function.")
+  if (!inherits(Rceattle, "Rceattle")) stop("Input 'Rceattle' must be a single object of class Rceattle.")
+  if (is.null(species)) species <- Rceattle$data_list$spnames
 
-    # Species names
-    if(is.null(species)){
-      species =  Rceattle$data_list$spnames
-    }
+  plot_data <- match_diet_preds(
+    data_list = Rceattle$data_list,
+    quantities = Rceattle$quantities
+  )
+  if (is.null(plot_data) || nrow(plot_data) == 0) { message("No diet data to plot."); return(invisible(NULL)) }
 
-    # Get colors
-    colvec=c("red", "blue", "black")
+  plot_data <- plot_data %>%
+    dplyr::rename(Observed = Stomach_proportion_by_weight, Est = Est_diet) %>%
+    dplyr::mutate(
+      Est_clipped = pmin(0.9999, pmax(0.0001, Est)),
+      Pearson = (Observed - Est) / sqrt((Est_clipped * (1 - Est_clipped)) / Sample_size),
+      AbsPearson = abs(Pearson)
+    )
 
-    # * Extract data objects ----
-    # - Get observed
-    comp_data <- Rceattle$data_list$diet_data
-    # - Get estimated
-    comp_data$Est = Rceattle$quantities$diet_hat[,2]
+  # 2. PLOTTING LOGIC ----
+  plot_list <- list()
 
-    comp_data <- comp_data %>%
-      dplyr::mutate(pearson = (Stomach_proportion_by_weight - Est)/ sqrt( ( Est * (1 - Est)) / Sample_size))
+  # Loop through each predator-prey interaction
+  for (pred_ind in 1:Rceattle$data_list$nspp) {
+    for (prey_ind in 1:Rceattle$data_list$nspp) {
 
-    # If year == 0, diet data are averaged from suit_styr to suit_endyr
-    # If prey_age >= 0 diet data are diet proportion of prey-at-age in predator-at-age
-    # If prey_age < 0 diet data are diet proportion of prey-spp in predator-at-age (sum across prey ages)
-    # If prey_age < 0 and pred_age < 0, diet data are mean diet proportion of prey-spp in predator-spp (sum across prey ages and take mean across predator ages)
-    # If prey_age < 0 and pred_age < -500, diet data are weighted mean diet proportion of prey-spp in predator-spp (sum across prey ages and take weighted mean across predator ages)
+      subset_data <- plot_data %>% dplyr::filter(Pred == pred_ind, Prey == prey_ind)
+      if(nrow(subset_data) == 0) next
 
+      is_prey_age_agg <- any(subset_data$Prey_age < 0)
+      is_pred_age_agg <- any(subset_data$Pred_age < 0)
 
-    # Loop around predators ----
-    for(pred in 1:data_list$nspp) {
-      for(pred_sex in 1:data_list$nsex[pred]){
-        for(prey in 1:data_list$nspp) {
+      pred_legend <- paste("Predator:", species[pred_ind])
 
-          # * Get sex for legend ----
-          if(data_list$nsex[pred] > 1){
-            pred_legend <- paste("Pred-", species[pred], ifelse(sex == 1, "female", "male"))
-            pred_sex = pred_sex - 1
-          } else{
-            pred_legend <- paste("Pred-", species[pred])
-            pred_sex = 0
-          }
+      # --- PATHWAY FOR PREY-AGE AGGREGATED (Line plot) ---
+      if(is_prey_age_agg && !is_pred_age_agg) {
 
-          # * Extract comps ----
-          comp_tmp <- comp_data %>%
-            dplyr::filter(Pred == pred & Pred_sex == pred_sex & Prey == prey)
+        message(paste("Generating line plot for Pred:", species[pred_ind], "- Prey:", species[prey_ind]))
+        long_data <- subset_data %>% tidyr::pivot_longer(cols = c(Observed, Est), names_to = "Source", values_to = "Proportion")
 
-          # - Years
-          yrs <- sort(unique(comp_tmp$Year))
-          nyrs <- length(yrs)
+        p <- ggplot2::ggplot(long_data, ggplot2::aes(x = Pred_age, y = Proportion, color = Source, linetype = Source, alpha = Source)) +
+          ggplot2::geom_line(linewidth = 1) + ggplot2::geom_point(size = 2.5) +
+          ggplot2::facet_wrap(~ Year, scales = "free_y", labeller = ggplot2::labeller(Year = ~paste("Year:", .))) +
+          ggplot2::scale_color_manual(name = "Source", values = c("Observed" = "black", "Est" = "darkred")) +
+          ggplot2::scale_linetype_manual(name = "Source", values = c("Observed" = "dashed", "Est" = "solid")) +
+          ggplot2::scale_alpha_manual(name = "Source", values = c("Observed" = 1.0, "Est" = 0.7), guide = "none") +
+          ggplot2::labs(x = "Predator Age", y = "Diet Proportion", title = paste("Diet of", species[pred_ind], "on", species[prey_ind])) +
+          ggplot2::theme_bw()
 
-          # - Min and max
-          range_comp <- range(c(comp_tmp$Stomach_proportion_by_weight, comp_tmp$Est))
-          range_pearson <- range(comp_tmp$pearson)
+        print(p)
+        plot_list[[length(plot_list) + 1]] <- p
 
-          # * Plot annual comps ----
-          for(yr in 1:nyrs){
+        # --- PATHWAY FOR PRED & PREY-AGE AGGREGATED (Bar plot) ---
+      } else if (is_prey_age_agg && is_pred_age_agg) {
 
-            # Subset year for observed and predicted comp
-            comp_tmp_yr <- comp_tmp %>%
-              dplyr::filter(Year == yrs[yr] ) %>%
-              dplyr::mutate(Prey_age = ifelse(Prey_sex == 2, -Prey_age, Prey_age))
+        message(paste("Generating bar plot for Pred:", species[pred_ind], "- Prey:", species[prey_ind]))
 
+        plot_data_long <- subset_data %>%
+          tidyr::pivot_longer(cols = c(Observed, Est), names_to = "Source", values_to = "Proportion") %>%
+          mutate(Prey_name = species[Prey])
 
-            plot_obs <- comp_tmp_yr %>%
-              dplyr::filter(Stomach_proportion_by_weight > 0) %>%
-              ggplot2::ggplot(ggplot2::aes(x = Pred_age, y = Prey_age, size = Stomach_proportion_by_weight)) +
-              ggplot2::geom_point(alpha = 1) +
-              # scale_size(range = c(range_comp[1], range_comp[2]), name="Population (M)") +
-              ggplot2::theme_classic() +
-              ggplot2::ylim(range(comp_tmp_yr$Prey_age)) +
-              ggplot2::ylab(paste(species[prey], "age")) +
-              ggplot2::xlim(range(comp_tmp_yr$Pred_age)) +
-              ggplot2::xlab(paste(pred_legend, "age")) +
-              ggplot2::ggtitle(paste("Observed diet: year", yrs[yr])) +
-              theme(legend.position = c(0.25, 0.7),
-                    legend.title = element_blank())
+        p_fit <- ggplot2::ggplot(plot_data_long, ggplot2::aes(x = factor(Year), y = Proportion, fill = Source)) +
+          ggplot2::geom_bar(stat = "identity", position = "dodge") +
+          ggplot2::scale_fill_manual(name = "Source", values = c("Observed" = "grey50", "Est" = "red")) +
+          ggplot2::labs(x = "Year", y = "Diet Proportion", title = paste("Fit to Aggregated Diet:", species[pred_ind], "on", species[prey_ind])) +
+          ggplot2::theme_bw()
 
-            plot_est <- comp_tmp_yr %>%
-              dplyr::filter(Stomach_proportion_by_weight > 0) %>%
-              ggplot2::ggplot(ggplot2::aes(x = Pred_age, y = Prey_age, size = Est)) +
-              ggplot2::geom_point(alpha = 1) +
-              # scale_size(range = c(range_comp[1], range_comp[2]), name="Population (M)") +
-              ggplot2::theme_classic() +
-              ggplot2::ylim(range(comp_tmp_yr$Prey_age)) +
-              ggplot2::ylab(paste(species[prey], "age")) +
-              ggplot2::xlim(range(comp_tmp_yr$Pred_age)) +
-              ggplot2::xlab(paste(pred_legend, "age")) +
-              ggplot2::ggtitle(paste("Estimated diet: year", yrs[yr])) +
-              theme(legend.position = "none")
+        print(p_fit)
+        plot_list[[length(plot_list) + 1]] <- p_fit
 
-            plot_pear <- comp_tmp_yr %>%
-              dplyr::filter(Stomach_proportion_by_weight > 0) %>%
-              ggplot2::ggplot(ggplot2::aes(x = Pred_age, y = Prey_age, size = abs(pearson), color = pearson < 0)) +
-              ggplot2::geom_point(alpha = 1) +
-              # scale_size(range = c(range_comp[1], range_comp[2]), name="Population (M)") +
-              ggplot2::theme_classic() +
-              ggplot2::ylim(range(comp_tmp_yr$Prey_age)) +
-              ggplot2::ylab(paste(species[prey], "age")) +
-              ggplot2::xlim(range(comp_tmp_yr$Pred_age)) +
-              ggplot2::xlab(paste(pred_legend, "age")) +
-              ggplot2::ggtitle(paste("Pearson residual: year", yrs[yr])) +
-              theme(legend.position = c(0.25, 0.8))
+        # --- PATHWAY FOR AGE-DISAGGREGATED (Bubble plot) ---
+      } else {
 
-            p1 <- cowplot::plot_grid(plot_obs, plot_est, plot_pear, nrow = 1)
-            print(p1)
+        message(paste("Generating bubble plots for Pred:", species[pred_ind], "- Prey:", species[prey_ind]))
+        yrs <- sort(unique(subset_data$Year))
 
-            # Save ----
-            if (!is.null(file)) {
-              filename <- paste0(file, "_aggregated_diet_comps_histograms_year", yr,"_", pred_legend, "prey", species[prey],".png")
-              ggplot2::ggsave(filename = filename,
-                              plot = p1,
-                              width = 10,
-                              height = 6.5,
-                              units = "in",
-                              dpi = 300
-              )
-            }
+        for(i in 1:length(yrs)) {
+          current_yr <- yrs[i]
+          comp_tmp_yr <- subset_data %>% dplyr::filter(Year == current_yr)
+          if(sum(comp_tmp_yr$Observed, na.rm = TRUE) == 0) next
+
+          # FIX: Use the correct loop variable `prey_ind` instead of `prey`
+          title <- paste(pred_legend, "- Prey:", species[prey_ind], "- Year:", current_yr)
+          if(current_yr == 0) title <- paste(pred_legend, "- Prey:", species[prey_ind], "(Avg over Years)")
+
+          # Bubble plot logic
+          p_obs <- ggplot2::ggplot(comp_tmp_yr, ggplot2::aes(x = Pred_age, y = Prey_age, size = Observed)) +
+            ggplot2::geom_point(alpha=0.7) + ggplot2::theme_classic() +
+            ggplot2::labs(x = "Predator Age", y = "Prey Age", title = "Observed", size = "Prop.")
+
+          p_est <- ggplot2::ggplot(comp_tmp_yr, ggplot2::aes(x = Pred_age, y = Prey_age, size = Est)) +
+            ggplot2::geom_point(alpha=0.7) + ggplot2::theme_classic() +
+            ggplot2::labs(x = "Predator Age", y = "Prey Age", title = "Estimated", size = "Prop.")
+
+          p_pear <- ggplot2::ggplot(comp_tmp_yr, ggplot2::aes(x = Pred_age, y = Prey_age, size = AbsPearson, color = Pearson < 0)) +
+            ggplot2::geom_point(alpha=0.7) + ggplot2::theme_classic() +
+            ggplot2::labs(x = "Predator Age", y = "Prey Age", title = "Pearson Residuals", size = "Abs(Resid)")
+
+          p1 <- cowplot::plot_grid(p_obs, p_est, p_pear, nrow = 1)
+          # FIX: Use the correct loop variable `prey_ind`
+          p1 <- cowplot::ggdraw(p1) + cowplot::draw_label(title, x = 0.5, y = 0.98)
+
+          print(p1)
+          plot_list[[length(plot_list) + 1]] <- p1
+
+          if (!is.null(file)) {
+            # FIX: Use the correct loop variables `pred_ind` and `prey_ind`
+            # Also removed pred_sex_ind as it is not defined in this loop
+            ggplot2::ggsave(paste0(file, "_diet_bubble_Pred", pred_ind, "_Prey", prey_ind, "_Yr", current_yr, ".png"), p1, width = 12, height = 4)
           }
         }
       }
     }
-
-    # End
   }
-
+  return(invisible(plot_list))
+}
