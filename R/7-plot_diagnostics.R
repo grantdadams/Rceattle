@@ -254,7 +254,14 @@ plot_index <- function(Rceattle,
 #' @param incl_proj TRUE/FALSE include projections years
 #' @param width plot width
 #' @param height plot hight
+#' @param alpha Transparency of lines for MSE plots
+#' @param lwd Line width
+#' @param ymax Fleet specific upper ylim
+#' @param maxyr Max year to plot
+#' @param error Include observed data with error bars?
+#' @param fleets Which fishing fleets to include (defaults to all = NULL)
 #' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}. Will plot data from OMs.
+#'
 #' @export
 
 plot_catch <- function(Rceattle,
@@ -273,6 +280,7 @@ plot_catch <- function(Rceattle,
                        ymax = NULL,
                        maxyr = NULL,
                        mse = FALSE,
+                       error = TRUE,
                        fleets = NULL){
 
   # Convert mse object to Rceattle list
@@ -439,7 +447,9 @@ plot_catch <- function(Rceattle,
           lines(x = fsh_hat_tmp$Year, y = fsh_hat_tmp$Catch, lwd=lwd, col=line_col[k])
 
           # - Plot observed CPUE
-          gplots::plotCI(fsh_tmp$Year, (fsh_tmp$Catch), ui=(fsh_tmp$Upper95), li=(fsh_tmp$Lower95),add=T,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
+          if(error){
+            gplots::plotCI(fsh_tmp$Year, (fsh_tmp$Catch), ui=(fsh_tmp$Upper95), li=(fsh_tmp$Lower95),add=T,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
+          }
 
           # - Plot MSE shading
           if(mse){
@@ -555,10 +565,12 @@ plot_catch <- function(Rceattle,
           lines(x = fsh_hat_tmp$Year, y = fsh_hat_tmp$Catch, lwd=lwd, col=line_col[k])
 
           # - Plot observed CPUE
-          gplots::plotCI(x = fsh_tmp$Year, y = fsh_tmp$Catch,
-                         ui = fsh_tmp$Upper95, li= fsh_tmp$Lower95,
-                         add=T, gap=0, pch=21,
-                         xaxt="n", yaxt="n", pt.bg = "white")
+          if(error){
+            gplots::plotCI(x = fsh_tmp$Year, y = fsh_tmp$Catch,
+                           ui = fsh_tmp$Upper95, li= fsh_tmp$Lower95,
+                           add=T, gap=0, pch=21,
+                           xaxt="n", yaxt="n", pt.bg = "white")
+          }
 
           # - Plot MSE shading
           if(mse){
