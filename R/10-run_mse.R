@@ -28,7 +28,7 @@
 #'
 run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, regenerate_past = FALSE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, catch_mult = NULL, seed = 666, regenerate_seed = seed, loopnum = 1, file = NULL, dir = NULL, timeout = 999, endyr = NA){
 
-  # om = om; em = em; nsim = 1; start_sim = 1; assessment_period = 1; sampling_period = 1; simulate_data = FALSE; regenerate_past = FALSE; sample_rec = FALSE; rec_trend = 0; fut_sample = 1; cap = NULL; catch_mult = NULL; seed = 666; regenerate_seed = seed; loopnum = 1; file = NULL; dir = NULL; endyr = NA; timeout = 999
+  # om = om; em = em; nsim = 1; start_sim = 1; assessment_period = 1; sampling_period = 1; simulate_data = TRUE; regenerate_past = FALSE; sample_rec = FALSE; rec_trend = 0; fut_sample = 1; cap = NULL; catch_mult = NULL; seed = 666; regenerate_seed = seed; loopnum = 1; file = NULL; dir = NULL; endyr = NA; timeout = 999
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # MSE SETUP ----
@@ -111,6 +111,20 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
     fleet_id[[i]] <- replace(fleet_id[[i]], values = i)
   }
   sample_yrs = data.frame(Fleet_code = unlist(fleet_id), Year = unlist(sample_yrs))
+
+
+  # * Filter arbitrary "future" data ----
+  # -- index_data
+  om$data_list$index_data <- om$data_list$index_data %>%
+    dplyr::filter(abs(Year) <= om$data_list$endyr)
+  em$data_list$index_data <- em$data_list$index_data %>%
+    dplyr::filter(abs(Year) <= em$data_list$endyr)
+
+  # -- comp_data
+  om$data_list$comp_data <- om$data_list$comp_data %>%
+    dplyr::filter(abs(Year) <= om$data_list$endyr)
+  em$data_list$comp_data <- em$data_list$comp_data %>%
+    dplyr::filter(abs(Year) <= em$data_list$endyr)
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Regenerate past data from OM and refit EM ----
@@ -234,19 +248,20 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # -- index_data
   proj_srv <- om$data_list$index_data %>%
-    group_by(Fleet_code) %>%
-    slice(rep(n(),  om_proj_nyrs)) %>%
-    mutate(Year = -om_proj_yrs)
+    dplyr::group_by(Fleet_code) %>%
+    dplyr::slice(rep(n(),  om_proj_nyrs)) %>%
+    dplyr::mutate(Year = -om_proj_yrs)
   proj_srv$Log_sd <- proj_srv$Log_sd * 1/fut_sample
+  proj_srv$Observation <- NA
   om$data_list$index_data  <- rbind(om$data_list$index_data, proj_srv)
   om$data_list$index_data <- dplyr::arrange(om$data_list$index_data, Fleet_code, abs(Year))
 
   # -- Nbyage
   if(nrow(om$data_list$NByageFixed) > 0){
     proj_nbyage <- om$data_list$NByageFixed %>%
-      group_by(Species, Sex) %>%
-      slice(rep(n(),  om_proj_nyrs)) %>%
-      mutate(Year = om_proj_yrs)
+      dplyr::group_by(Species, Sex) %>%
+      dplyr::slice(rep(n(),  om_proj_nyrs)) %>%
+      dplyr::mutate(Year = om_proj_yrs)
     proj_nbyage <- proj_nbyage[which(om_proj_yrs %!in% om$data_list$NByageFixed$Year),] # Subset rows already forcasted
     om$data_list$NByageFixed  <- rbind(om$data_list$NByageFixed, proj_nbyage)
     om$data_list$NByageFixed <- dplyr::arrange(om$data_list$NByageFixed, Species, Year)
@@ -254,19 +269,21 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
 
   # -- comp_data
   proj_comp <- om$data_list$comp_data %>%
-    group_by(Fleet_code, Sex) %>%
-    slice(rep(n(),  om_proj_nyrs)) %>%
-    mutate(Year = -om_proj_yrs)
+    dplyr::group_by(Fleet_code, Sex) %>%
+    dplyr::slice(rep(n(),  om_proj_nyrs)) %>%
+    dplyr::mutate(Year = -om_proj_yrs)
   proj_comp$Sample_size <- proj_comp$Sample_size * fut_sample # Adjust future sampling effort
+  proj_comp <- proj_comp %>%
+    dplyr::mutate_at(vars(matches("Comp_")), ~ 1)
   om$data_list$comp_data  <- rbind(om$data_list$comp_data, proj_comp)
   om$data_list$comp_data <- dplyr::arrange(om$data_list$comp_data, Fleet_code, abs(Year))
 
   # -- emp_sel - Use terminal year
   if(nrow(om$data_list$emp_sel) > 0){
     proj_emp_sel <- om$data_list$emp_sel %>%
-      group_by(Fleet_code, Sex) %>%
-      slice(rep(n(),  om_proj_nyrs)) %>%
-      mutate(Year = om_proj_yrs)
+      dplyr::group_by(Fleet_code, Sex) %>%
+      dplyr::slice(rep(n(),  om_proj_nyrs)) %>%
+      dplyr::mutate(Year = om_proj_yrs)
     om$data_list$emp_sel  <- rbind(om$data_list$emp_sel, proj_emp_sel)
     om$data_list$emp_sel <- dplyr::arrange(om$data_list$emp_sel, Fleet_code, Year)
   }
@@ -274,18 +291,18 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
   # -- weight
   #FIXME ignores forecasted growth
   proj_wt <- om$data_list$weight %>%
-    group_by(Wt_index , Sex) %>%
-    slice(rep(n(),  om_proj_nyrs)) %>%
-    mutate(Year = om_proj_yrs)
+    dplyr::group_by(Wt_index , Sex) %>%
+    dplyr::slice(rep(n(),  om_proj_nyrs)) %>%
+    dplyr::mutate(Year = om_proj_yrs)
   om$data_list$weight  <- rbind(om$data_list$weight, proj_wt)
   om$data_list$weight <- dplyr::arrange(om$data_list$weight, Wt_index, Year)
 
   # -- Pyrs
   if(nrow(om$data_list$Pyrs) > 0){
     proj_Pyrs <- om$data_list$Pyrs %>%
-      group_by(Species, Sex) %>%
-      slice(rep(n(),  om_proj_nyrs)) %>%
-      mutate(Year = om_proj_yrs)
+      dplyr::group_by(Species, Sex) %>%
+      dplyr::slice(rep(n(),  om_proj_nyrs)) %>%
+      dplyr::mutate(Year = om_proj_yrs)
     om$data_list$Pyrs  <- rbind(om$data_list$Pyrs, proj_Pyrs)
     om$data_list$Pyrs <- dplyr::arrange(om$data_list$Pyrs, Species, Year)
   }
@@ -293,29 +310,30 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Expand EM data-dim ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+
   #FIXME - assuming same as terminal year of hindcast
   # -- EM emp_sel - Use terminal year
   proj_emp_sel <- em$data_list$emp_sel %>%
-    group_by(Fleet_code, Sex) %>%
-    slice(rep(n(),  em_proj_nyrs)) %>%
-    mutate(Year = em_proj_yrs)
+    dplyr::group_by(Fleet_code, Sex) %>%
+    dplyr::slice(rep(n(),  em_proj_nyrs)) %>%
+    dplyr::mutate(Year = em_proj_yrs)
   em$data_list$emp_sel  <- rbind(em$data_list$emp_sel, proj_emp_sel)
   em$data_list$emp_sel <- dplyr::arrange(em$data_list$emp_sel, Fleet_code, Year)
 
   # -- EM weight
   proj_wt <- em$data_list$weight %>%
-    group_by(Wt_index , Sex) %>%
-    slice(rep(n(),  em_proj_nyrs)) %>%
-    mutate(Year = em_proj_yrs)
+    dplyr::group_by(Wt_index , Sex) %>%
+    dplyr::slice(rep(n(),  em_proj_nyrs)) %>%
+    dplyr::mutate(Year = em_proj_yrs)
   em$data_list$weight  <- rbind(em$data_list$weight, proj_wt)
   em$data_list$weight <- dplyr::arrange(em$data_list$weight, Wt_index, Year)
 
   # -- EM Pyrs
   if(nrow(em$data_list$Pyrs) > 0){
     proj_Pyrs <- em$data_list$Pyrs %>%
-      group_by(Species, Sex) %>%
-      slice(rep(n(),  em_proj_nyrs)) %>%
-      mutate(Year = em_proj_yrs)
+      dplyr::group_by(Species, Sex) %>%
+      dplyr::slice(rep(n(),  em_proj_nyrs)) %>%
+      dplyr::mutate(Year = em_proj_yrs)
     em$data_list$Pyrs  <- rbind(em$data_list$Pyrs, proj_Pyrs)
     em$data_list$Pyrs <- dplyr::arrange(em$data_list$Pyrs, Species, Year)
   }
@@ -570,25 +588,46 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
       years_include <- sample_yrs[which(sample_yrs$Year > em_use$data_list$endyr & sample_yrs$Year <= assess_yrs[k]),]
 
       # -- Add newly simulated survey data to EM and OM
+      # - Get simulated survey data
       new_index_data <- sim_dat$index_data %>%
         dplyr::filter(abs(Year) %in% years_include$Year &
                         Fleet_code %in% years_include$Fleet_code) %>%
         dplyr::mutate(Year = -Year)
 
-      em_use$data_list$index_data <- rbind(em_use$data_list$index_data, new_index_data)
-      em_use$data_list$index_data <- em_use$data_list$index_data %>%
+      # - Add to EM and OM
+      om_use$data_list$index_data <- om_use$data_list$index_data %>%
+        dplyr::filter(!(abs(Year) %in% years_include$Year &
+                          Fleet_code %in% years_include$Fleet_code)) %>%
+        rbind(new_index_data %>%
+                dplyr::mutate(Year = -abs(Year))) %>%
         dplyr::arrange(Fleet_code, abs(Year))
 
-      # -- Add newly simulated comp data to EM
+      em_use$data_list$index_data <- em_use$data_list$index_data %>%
+        rbind(new_index_data) %>%
+        dplyr::arrange(Fleet_code, abs(Year))
+
+
+      # -- Add newly simulated comp data to EM & OM
+      # - Simulated comp data
       new_comp_data <- sim_dat$comp_data %>%
         dplyr::filter(abs(Year) %in% years_include$Year &
                         Fleet_code %in% years_include$Fleet_code) %>%
         dplyr::mutate(Year = -Year)
 
-      new_comp_data$Sample_size <- new_comp_data$Sample_size * as.numeric(rowSums(new_comp_data[,9:ncol(new_comp_data)]) > 0) # Set sample size to 0 if catch is 0
-      new_comp_data[,9:ncol(new_comp_data)] <- new_comp_data[,9:ncol(new_comp_data)] + 1 * as.numeric(new_comp_data$Sample_size == 0) # Set all values to 1 if catch is 0
-      em_use$data_list$comp_data <- rbind(em_use$data_list$comp_data, new_comp_data)
+      new_comp_data$Sample_size <- new_comp_data$Sample_size * as.numeric(rowSums(dplyr::select(new_comp_data, dplyr::contains("Comp_"))) > 0) # Set sample size to 0 if catch is 0
+      new_comp_data <- new_comp_data %>%
+        dplyr::mutate_at(dplyr::vars(dplyr::contains("Comp_")), ~ .x + 1 * (Sample_size == 0)) # Set all values to 1 if catch is 0
+
+      # - Add to EM and OM
+      om_use$data_list$comp_data <- om_use$data_list$comp_data %>%
+        dplyr::filter(!(abs(Year) %in% years_include$Year &
+                          Fleet_code %in% years_include$Fleet_code)) %>%
+        rbind(new_comp_data %>%
+                dplyr::mutate(Year = -abs(Year))) %>%
+        dplyr::arrange(Fleet_code, abs(Year))
+
       em_use$data_list$comp_data <- em_use$data_list$comp_data %>%
+        rbind(new_comp_data) %>%
         dplyr::arrange(Fleet_code, abs(Year))
 
       #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
