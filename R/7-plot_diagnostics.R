@@ -14,6 +14,7 @@
 #' @param incl_proj TRUE/FALSE include projections years
 #' @param width plot width
 #' @param height plot hight
+#' @param error include observed data and error bars?
 #' @export
 
 plot_index <- function(Rceattle,
@@ -26,7 +27,8 @@ plot_index <- function(Rceattle,
                        incl_proj = FALSE,
                        single.plots=FALSE,
                        width=NULL,
-                       height=NULL){
+                       height=NULL,
+                       error = TRUE){
 
 
   # Convert single one into a list
@@ -143,7 +145,9 @@ plot_index <- function(Rceattle,
           lines(abs(srv_hat_tmp$Year), (srv_hat_tmp$Observation),lwd=2,col=line_col[k])
 
           # Plot observed CPUE
-          gplots::plotCI(srv_tmp$Year, (srv_tmp$Observation), ui=(srv_tmp$Upper95), li=(srv_tmp$Lower95),add=T,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
+          if(error){
+            gplots::plotCI(srv_tmp$Year, (srv_tmp$Observation), ui=(srv_tmp$Upper95), li=(srv_tmp$Lower95),add=T,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
+          }
         }
 
         # Index name
@@ -227,7 +231,9 @@ plot_index <- function(Rceattle,
           lines(abs(srv_hat_tmp$Year), (srv_hat_tmp$Observation),lwd=2,col=line_col[k])
 
           # Plot observed CPUE
-          gplots::plotCI(srv_tmp$Year, (srv_tmp$Observation), ui=(srv_tmp$Upper95), li=(srv_tmp$Lower95),add=T,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
+          if(error){
+            gplots::plotCI(srv_tmp$Year, (srv_tmp$Observation), ui=(srv_tmp$Upper95), li=(srv_tmp$Lower95),add=T,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
+          }
         }
       }
       mtext(paste("Year"), side=1, outer=TRUE, at=0.5,line=1,cex=1)
