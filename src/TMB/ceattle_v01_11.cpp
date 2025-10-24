@@ -297,8 +297,10 @@ Type objective_function<Type>::operator() () {
   // 2.3.6. Diet data
   DATA_VECTOR( fday );                    // number of foraging days for each predator
   DATA_ARRAY( Pyrs );                     // Relative-foraging rate
-  DATA_MATRIX( diet_obs );                // pred, prey, predA, preyA U observations (mean wt_hat of prey in each pred age)
-  DATA_IMATRIX( diet_ctl );               // Info on pred, prey, predA, preyA U matrix (mean wt_hat of prey in each pred age)
+  DATA_MATRIX( diet_obs );                // Pred, prey, pred-age, prey-age for diet matrix (weight of prey in pred stomach)
+  DATA_IMATRIX( diet_ctl );               // Info on pred, prey, pred-age, prey-age diet matrix (weight of prey in pred stomach)
+  DATA_INTEGER(n_stomach_obs);            // The total number of unique stomach samples (groups)
+  DATA_IVECTOR(stomach_id);               // A vector mapping each diet data row to a stomach ID
 
   // 2.3.7. Environmental data
   DATA_MATRIX( env_index );               // Matrix of environmental predictors such as bottom temperature
@@ -3929,23 +3931,74 @@ Type objective_function<Type>::operator() () {
 
 
   // 14.3. Diet likelihood components
-  // -- MSVPA-based predation with estimated suitability AND Kinzey and Punt
+  // --- Calculate diet likelihood ---
   if((msmMode > 2) | (imax(suitMode) > 0)) {
-    // Slot 15 -- Diet weight likelihood
-    for(int stom_ind = 0; stom_ind < diet_obs.rows(); stom_ind++){
 
-      rsp = diet_ctl(stom_ind, 0) - 1; // Index of predator
-      flt_yr = diet_ctl(stom_ind, 6);  // Index of year (if >= 0, include in likelihood)
+    // Start the main loop to process one stomach sample at a time
+    for (int i = 0; i < n_stomach_obs; ++i) {
 
-      if(flt_yr >= 0){
-        if((msmMode > 2) || (suitMode(rsp) > 0)) { // If estimating
-          jnll_comp(18, rsp) -= diet_comp_weights(rsp) * Type(diet_obs(stom_ind, 0)) * (diet_obs(stom_ind, 1) + 0.00001) * log((diet_hat(stom_ind, 1) + 0.00001)/(diet_obs(stom_ind, 1) + 0.00001));
+      std::vector<Type> obs_diet_prop_std;
+      std::vector<Type> pred_diet_prop_std;
 
-          unweighted_jnll_comp(18, rsp) -= Type(diet_obs(stom_ind, 0)) * (diet_obs(stom_ind, 1) + 0.00001) * log((diet_hat(stom_ind, 1) + 0.00001)/(diet_obs(stom_ind, 1) + 0.00001));
+      Type N_s = 0.0;
+      int rsp = -1;
+
+      // Loop through all diet data rows to find those belonging to the current predator `i`
+      for (int j = 0; j < diet_ctl.rows(); ++j) {
+        if (stomach_id(j) == i) {
+
+          if (rsp == -1) {
+            rsp = diet_ctl(j, 0) - 1; // Should be the same across unique "stomach_id"
+            N_s = diet_obs(j, 0);     // Should be the same across unique "stomach_id"
+          }
+
+          obs_diet_prop_std.push_back(diet_obs(j, 1));
+          pred_diet_prop_std.push_back(diet_hat(j, 1));
         }
       }
+
+      // --- Process the completed group ---
+      if (obs_diet_prop_std.size() > 0) {
+
+        // Manually convert std::vector to a TMB vector
+        int n_obs_prey = obs_diet_prop_std.size();
+        vector<Type> obs_diet_prop(n_obs_prey);
+        for(int k = 0; k < n_obs_prey; k++){
+          obs_diet_prop(k) = obs_diet_prop_std[k];
+        }
+
+        vector<Type> pred_diet_prop(n_obs_prey);
+        for(int k = 0; k < n_obs_prey; k++){
+          pred_diet_prop(k) = pred_diet_prop_std[k];
+        }
+
+        // Add in other prey
+        Type sum_obs_p = obs_diet_prop.sum();
+        if (sum_obs_p > 1.0) { sum_obs_p = 1.0; }
+        obs_diet_prop.conservativeResize(obs_diet_prop.size() + 1);
+        obs_diet_prop(obs_diet_prop.size() - 1) = 1.0 - sum_obs_p;
+
+        Type sum_est_p = pred_diet_prop.sum();
+        pred_diet_prop.conservativeResize(pred_diet_prop.size() + 1);
+        pred_diet_prop(pred_diet_prop.size() - 1) = posfun(1.0 - sum_est_p, Type(0.00001), penalty); // Making it differentiable
+
+        //FIXME Add offset?
+        obs_diet_prop += 0.00001;
+        pred_diet_prop += 0.00001;
+
+        // Normalize
+        obs_diet_prop /= obs_diet_prop.sum();
+        pred_diet_prop /= pred_diet_prop.sum();
+
+        // Calculate likelihood
+        vector<Type> obs_diet_content = obs_diet_prop * N_s;
+        Type stomach_log_likelihood = dmultinom(obs_diet_content, pred_diet_prop, true);
+
+        unweighted_jnll_comp(18, rsp) -= stomach_log_likelihood;
+        jnll_comp(18, rsp) -= diet_comp_weights(rsp) * stomach_log_likelihood;
+      }
     }
-  } // End diet proportion by weight component
+  }
 
 
   // 14.4. Diet likelihood components for Kinzey and Punt predation

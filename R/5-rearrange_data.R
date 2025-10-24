@@ -104,13 +104,29 @@ rearrange_dat <- function(data_list){
 
 
   # 5 -  Seperate diet info from observation ----
-  data_list$diet_ctl <- data_list$diet_data %>%
-    dplyr::select(Pred, Prey, Pred_sex, Prey_sex, Pred_age, Prey_age, Year) %>%
-    dplyr::mutate_all(as.integer)
+  if(!is.null(data_list$diet_data)){ # Add a check in case there's no diet data
 
-  data_list$diet_obs <- data_list$diet_data %>%
-    dplyr::select(Sample_size, Stomach_proportion_by_weight) %>%
-    dplyr::mutate_all(as.numeric)
+    # Create a temporary diet data frame to work with
+    diet_dat <- data_list$diet_data
+
+    # Create the unique stratum identifier and the zero-indexed stomach_id
+    diet_dat$stratum_id <- paste(diet_dat$Pred, diet_dat$Pred_age, diet_dat$Pred_sex, diet_dat$Year, sep = "_")
+    diet_dat$stomach_id <- as.numeric(as.factor(diet_dat$stratum_id)) - 1
+
+    # Add n_stomach_obs and the stomach_id vector to the main data_list
+    data_list$n_stomach_obs <- max(diet_dat$stomach_id) + 1
+    data_list$stomach_id <- diet_dat$stomach_id
+
+    # Create diet_ctl (without the stomach_id column)
+    data_list$diet_ctl <- diet_dat %>%
+      dplyr::select(Pred, Prey, Pred_sex, Prey_sex, Pred_age, Prey_age, Year) %>%
+      dplyr::mutate_all(as.integer)
+
+    # Create diet_obs as before
+    data_list$diet_obs <- diet_dat %>%
+      dplyr::select(Sample_size, Stomach_proportion_by_weight) %>%
+      dplyr::mutate_all(as.numeric)
+  }
 
 
   # 6 -  Seperate survey empirical selectivity info from observation ----
