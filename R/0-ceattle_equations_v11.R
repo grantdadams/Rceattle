@@ -11,8 +11,7 @@
 #' @param flt_spp Integer vector. A vector indicating the species associated with each fleet.
 #' @param flt_type Integer vector. A vector indicating the type of each fleet (1 for active fleets).
 #' @param sel Array. An array of selectivity values with dimensions (n_flt, max_nsex, max_nages, nyrs).
-#' @param ln_mean_F Numeric vector. The natural logarithm of mean fishing mortality for each fleet.
-#' @param F_dev Array. An array of fishing mortality deviations with dimensions (n_flt, nyrs).
+#' @param ln_F Numeric vector. The natural logarithm of fishing mortality for each fleet (n_flt, nyrs).
 #' @param Ftarget Numeric vector. The target fishing mortality for each species.
 #' @param Fmult Numeric vector. Multipliers for fishing mortality for each species.
 #' @param Flimit Numeric vector. Limit fishing mortality for each species.
@@ -37,8 +36,7 @@
 #'                                          nyrs_hind = 10, flt_spp = c(1, 2, 1, 3, 2),
 #'                                          flt_type = c(1, 1, 1, 1, 1),
 #'                                          sel = array(runif(5 * 2 * 5 * 10), dim = c(5, 2, 5, 10)),
-#'                                          ln_mean_F = runif(5),
-#'                                          F_dev = array(runif(5 * 10), dim = c(5, 10)),
+#'                                          ln_F = array(runif(5 * 10), dim = c(5, 10)),
 #'                                          Ftarget = runif(3),
 #'                                          Fmult = runif(3),
 #'                                          Flimit = runif(3),
@@ -47,7 +45,7 @@
 #'                                          proj_F_prop = runif(5))
 #'
 calculate_fishing_mortality <- function(n_flt, nspp, nages, max_nages, nsex, max_nsex, nyrs, nyrs_hind,
-                                        flt_spp, flt_type, sel, ln_mean_F, F_dev, Ftarget, Fmult,
+                                        flt_spp, flt_type, sel, ln_F, Ftarget, Fmult,
                                         Flimit, QnormHCR, forecast, proj_F_prop, HCR) {
 
   # Unsure what is tripping the function
@@ -72,7 +70,7 @@ calculate_fishing_mortality <- function(n_flt, nspp, nages, max_nages, nsex, max
 
             # Hindcast
             if (yr <= nyrs_hind) {
-              F_flt_age[flt, sex, age, yr] <- sel[flt, sex, age, yr] * exp(ln_mean_F[flt] + F_dev[flt, yr])
+              F_flt_age[flt, sex, age, yr] <- sel[flt, sex, age, yr] * exp(ln_F[flt, yr])
             }
 
             # Forecast
@@ -107,8 +105,8 @@ calculate_fishing_mortality <- function(n_flt, nspp, nages, max_nages, nsex, max
       for (yr in 1:nyrs) {
         # Hindcast
         if (yr <= nyrs_hind) {
-          F_flt[flt, yr] <- exp(ln_mean_F[flt] + F_dev[flt, yr])
-          F_spp[sp, yr] <- F_spp[sp, yr] + exp(ln_mean_F[flt] + F_dev[flt, yr])
+          F_flt[flt, yr] <- exp(ln_F[flt, yr])
+          F_spp[sp, yr] <- F_spp[sp, yr] + exp(ln_F[flt, yr])
         }
 
         # Forecast
@@ -152,14 +150,14 @@ calculate_fishing_mortality <- function(n_flt, nspp, nages, max_nages, nsex, max
 #' @param nyrs Number of years.
 #' @param nyrs_hind Number of years for hindcasting.
 #' @param initMode Initialization mode for the population.
-#' @param R_sexr A vector of recruitment values for each species.
+#' @param sex_ratio A vector of recruitment values for each species.
 #' @param M1_at_age A function that returns natural mortality at age.
 #' @param M2_at_age A function that returns additional mortality at age.
 #' @param Flimit_age_spp A matrix of limit fishing mortality at age for each species.
 #' @param Ftarget_age_spp A matrix of target fishing mortality at age for each species.
-#' @param wt A function that returns weight at age.
+#' @param weight A function that returns weight at age.
 #' @param ssb_wt_index An index for spawning stock biomass weight.
-#' @param pmature A function that returns the proportion mature at age.
+#' @param maturity A function that returns the proportion mature at age.
 #' @param spawn_month A vector of spawning months for each species.
 #' @param max_nages
 #' @param Finit
@@ -169,15 +167,15 @@ calculate_fishing_mortality <- function(n_flt, nspp, nages, max_nages, nsex, max
 #' @examples
 #' # Example usage
 #' result <- calculate_spr_reference_points(nspp, nages, nyrs, nyrs_hind,
-#'                                           initMode, R_sexr, M1_at_age, M2_at_age,
+#'                                           initMode, sex_ratio, M1_at_age, M2_at_age,
 #'                                           Flimit_age_spp, Ftarget_age_spp,
-#'                                           wt, ssb_wt_index, pmature, spawn_month,
+#'                                           weight, ssb_wt_index, maturity, spawn_month,
 #'                                           Finit)
 #'
 calculate_spr_reference_points <- function(nspp, nages, max_nages, nyrs, nyrs_hind,
-                                           initMode, R_sexr, M1_at_age, M2_at_age,
+                                           initMode, sex_ratio, M1_at_age, M2_at_age,
                                            Flimit_age_spp, Ftarget_age_spp,
-                                           wt, ssb_wt_index, pmature, spawn_month,
+                                           weight, ssb_wt_index, maturity, spawn_month,
                                            Finit) {
 
   # Unsure what is tripping the function
@@ -196,10 +194,10 @@ calculate_spr_reference_points <- function(nspp, nages, max_nages, nyrs, nyrs_hi
       Finit[sp] <- 0  # If population starts out at equilibrium set Finit to 0 (R_init and R0 will be the same)
     }
 
-    NbyageSPR[1, sp, 1] <- R_sexr[sp]  # F = 0
-    NbyageSPR[2, sp, 1] <- R_sexr[sp]  # F = Flimit
-    NbyageSPR[3, sp, 1] <- R_sexr[sp]  # F = Ftarget
-    NbyageSPR[4, sp, 1] <- R_sexr[sp]  # F = Finit
+    NbyageSPR[1, sp, 1] <- sex_ratio[sp, 1]  # F = 0
+    NbyageSPR[2, sp, 1] <- sex_ratio[sp, 1]  # F = Flimit
+    NbyageSPR[3, sp, 1] <- sex_ratio[sp, 1]  # F = Ftarget
+    NbyageSPR[4, sp, 1] <- sex_ratio[sp, 1]  # F = Finit
 
     for (age in 2:(nages[sp]-1)) {
       NbyageSPR[1, sp, age] <- NbyageSPR[1, sp, age-1] * exp(-M1_at_age[sp, 1, age-1] - M2_at_age[sp, 1, age-1, nyrs_hind])
@@ -226,17 +224,17 @@ calculate_spr_reference_points <- function(nspp, nages, max_nages, nyrs, nyrs_hi
 
     # Calculate SPR
     for (age in 1:nages[sp]) {
-      SPR0[sp] <- SPR0[sp] + NbyageSPR[1, sp, age] * wt[ssb_wt_index[sp], 1, age, nyrs_hind] *
-        pmature[sp, age] * exp(-M1_at_age[sp, 1, age] * spawn_month[sp]/12)
+      SPR0[sp] <- SPR0[sp] + NbyageSPR[1, sp, age] * weight[ssb_wt_index[sp], 1, age, nyrs_hind] *
+        maturity[sp, age] * exp(-M1_at_age[sp, 1, age] * spawn_month[sp]/12)
 
-      SPRlimit[sp] <- SPRlimit[sp] + NbyageSPR[2, sp, age] * wt[ssb_wt_index[sp], 1, age, nyrs_hind] *
-        pmature[sp, age] * exp(-(M1_at_age[sp, 1, age] + Flimit_age_spp[sp, 1, age, nyrs_hind]) * spawn_month[sp]/12)
+      SPRlimit[sp] <- SPRlimit[sp] + NbyageSPR[2, sp, age] * weight[ssb_wt_index[sp], 1, age, nyrs_hind] *
+        maturity[sp, age] * exp(-(M1_at_age[sp, 1, age] + Flimit_age_spp[sp, 1, age, nyrs_hind]) * spawn_month[sp]/12)
 
-      SPRtarget[sp] <- SPRtarget[sp] + NbyageSPR[3, sp, age] * wt[ssb_wt_index[sp], 1, age, nyrs_hind] *
-        pmature[sp, age] * exp(-(M1_at_age[sp, 1, age] + Ftarget_age_spp[sp, 1, age, nyrs_hind]) * spawn_month[sp]/12)
+      SPRtarget[sp] <- SPRtarget[sp] + NbyageSPR[3, sp, age] * weight[ssb_wt_index[sp], 1, age, nyrs_hind] *
+        maturity[sp, age] * exp(-(M1_at_age[sp, 1, age] + Ftarget_age_spp[sp, 1, age, nyrs_hind]) * spawn_month[sp]/12)
 
-      SPRFinit[sp] <- SPRFinit[sp] + NbyageSPR[4, sp, age] * wt[ssb_wt_index[sp], 1, age, 1] *
-        pmature[sp, age] * exp(-(M1_at_age[sp, 1, age] + Finit[sp]) * spawn_month[sp]/12)
+      SPRFinit[sp] <- SPRFinit[sp] + NbyageSPR[4, sp, age] * weight[ssb_wt_index[sp], 1, age, 1] *
+        maturity[sp, age] * exp(-(M1_at_age[sp, 1, age] + Finit[sp]) * spawn_month[sp]/12)
     }
   }
 
@@ -527,11 +525,11 @@ calculate_expected_recruitment <- function(nspp, nyrs, srr_pred_fun, R0, SPRFini
 #' @param env_index_srr A matrix of environmental indices.
 #' @param M_at_age A 4D array of natural mortality rates at age.
 #' @param Ftarget_age_spp A 4D array of fishing mortality rates at age.
-#' @param pmature A matrix of maturity values.
+#' @param maturity A matrix of maturity values.
 #' @param spawn_month A vector of spawning months.
-#' @param wt A 4D array of weights.
+#' @param weight A 4D array of weights.
 #' @param ssb_wt_index A vector of spawning biomass weight indices.
-#' @param R_sexr A vector of sex ratios.
+#' @param sex_ratio A vector of sex ratios.
 #' @param minage A vector of minimum ages.
 #' @param MSSB0 A vector of multi-species spawning biomass.
 #' @param MSB0 A vector of multi-species biomass.
@@ -555,8 +553,8 @@ calculate_expected_recruitment <- function(nspp, nyrs, srr_pred_fun, R0, SPRFini
 calculate_depletion_reference_points <- function(nspp, nyrs, nsex, nages, max_nsex, max_nages, nyrs_hind, proj_mean_rec,
                                                  srr_pred_fun, R, avg_R, R0, rec_dev,
                                                  beta_rec_pars, env_index_srr, N_at_age, M_at_age,
-                                                 Ftarget_age_spp, pmature, spawn_month,
-                                                 wt, ssb_wt_index, R_sexr, minage,
+                                                 Ftarget_age_spp, maturity, spawn_month,
+                                                 weight, ssb_wt_index, sex_ratio, minage,
                                                  MSSB0, MSB0, msmMode) {
 
   # Unsure what is tripping the function
@@ -651,22 +649,22 @@ calculate_depletion_reference_points <- function(nspp, nyrs, nsex, nages, max_ns
 
         # Account for sex ratio
         # - Females
-        NByage0[sp, 1, 1, yr] <- NByage0[sp, 1, 1, yr] * R_sexr[sp]
-        NByageF[sp, 1, 1, yr] <- NByageF[sp, 1, 1, yr] * R_sexr[sp]
+        NByage0[sp, 1, 1, yr] <- NByage0[sp, 1, 1, yr] * sex_ratio[sp, 1]
+        NByageF[sp, 1, 1, yr] <- NByageF[sp, 1, 1, yr] * sex_ratio[sp, 1]
 
-        DynamicNByage0[sp, 1, 1, yr] <- DynamicNByage0[sp, 1, 1, yr] * R_sexr[sp]
-        DynamicNByageF[sp, 1, 1, yr] <- DynamicNByageF[sp, 1, 1, yr] * R_sexr[sp]
+        DynamicNByage0[sp, 1, 1, yr] <- DynamicNByage0[sp, 1, 1, yr] * sex_ratio[sp, 1]
+        DynamicNByageF[sp, 1, 1, yr] <- DynamicNByageF[sp, 1, 1, yr] * sex_ratio[sp, 1]
 
         # N-at-age calculations for year > 1
         for(sex in 1:nsex[sp]) {
 
           # - Males
           if(sex == 2){
-            NByage0[sp, 2, 1, yr] <- NByage0[sp, 1, 1, yr] / R_sexr[sp] * (1 - R_sexr[sp])
-            NByageF[sp, 2, 1, yr] <- NByageF[sp, 1, 1, yr] / R_sexr[sp] * (1 - R_sexr[sp])
+            NByage0[sp, 2, 1, yr] <- NByage0[sp, 1, 1, yr] / sex_ratio[sp, 1] * (1 - sex_ratio[sp, 1])
+            NByageF[sp, 2, 1, yr] <- NByageF[sp, 1, 1, yr] / sex_ratio[sp, 1] * (1 - sex_ratio[sp, 1])
 
-            DynamicNByage0[sp, 2, 1, yr] <- DynamicNByage0[sp, 1, 1, yr] / R_sexr[sp] * (1 - R_sexr[sp])
-            DynamicNByageF[sp, 2, 1, yr] <- DynamicNByageF[sp, 1, 1, yr] / R_sexr[sp] * (1 - R_sexr[sp])
+            DynamicNByage0[sp, 2, 1, yr] <- DynamicNByage0[sp, 1, 1, yr] / sex_ratio[sp, 1] * (1 - sex_ratio[sp, 1])
+            DynamicNByageF[sp, 2, 1, yr] <- DynamicNByageF[sp, 1, 1, yr] / sex_ratio[sp, 1] * (1 - sex_ratio[sp, 1])
           }
 
           for(age in 2:(nages[sp]-1)) {
@@ -716,29 +714,29 @@ calculate_depletion_reference_points <- function(nspp, nyrs, nsex, nages, max_ns
 
       for(age in 1:nages[sp]) {
         SB0[sp, yr] <- SB0[sp, yr] +
-          NByage0[sp, 1, age, yr] * wt[ssb_wt_index[sp], 1, age, nyrs_hind] *
-          pmature[sp, age] * exp(-M_at_age[sp, 1, age, yr] * spawn_month[sp]/12)
+          NByage0[sp, 1, age, yr] * weight[ssb_wt_index[sp], 1, age, nyrs_hind] *
+          maturity[sp, age] * exp(-M_at_age[sp, 1, age, yr] * spawn_month[sp]/12)
 
         SBF[sp, yr] <- SBF[sp, yr] +
-          NByageF[sp, 1, age, yr] * wt[ssb_wt_index[sp], 1, age, nyrs_hind] *
-          pmature[sp, age] * exp(-(M_at_age[sp, 1, age, yr] +
+          NByageF[sp, 1, age, yr] * weight[ssb_wt_index[sp], 1, age, nyrs_hind] *
+          maturity[sp, age] * exp(-(M_at_age[sp, 1, age, yr] +
                                      Ftarget_age_spp[sp, 1, age, yr]) * spawn_month[sp]/12)
 
         DynamicSB0[sp, yr] <- DynamicSB0[sp, yr] +
-          DynamicNByage0[sp, 1, age, yr] * wt[ssb_wt_index[sp], 1, age, yr_ind] *
-          pmature[sp, age] * exp(-M_at_age[sp, 1, age, yr] * spawn_month[sp]/12)
+          DynamicNByage0[sp, 1, age, yr] * weight[ssb_wt_index[sp], 1, age, yr_ind] *
+          maturity[sp, age] * exp(-M_at_age[sp, 1, age, yr] * spawn_month[sp]/12)
 
         DynamicSBF[sp, yr] <- DynamicSBF[sp, yr] +
-          DynamicNByageF[sp, 1, age, yr] * wt[ssb_wt_index[sp], 1, age, yr_ind] *
-          pmature[sp, age] * exp(-(M_at_age[sp, 1, age, yr] +
+          DynamicNByageF[sp, 1, age, yr] * weight[ssb_wt_index[sp], 1, age, yr_ind] *
+          maturity[sp, age] * exp(-(M_at_age[sp, 1, age, yr] +
                                      Ftarget_age_spp[sp, 1, age, yr]) * spawn_month[sp]/12)
 
         for(sex in 1:nsex[sp]) {
           B0[sp, yr] <- B0[sp, yr] +
-            NByage0[sp, sex, age, yr] * wt[ssb_wt_index[sp], sex, age, nyrs_hind]
+            NByage0[sp, sex, age, yr] * weight[ssb_wt_index[sp], sex, age, nyrs_hind]
 
           DynamicB0[sp, yr] <- DynamicB0[sp, yr] +
-            DynamicNByage0[sp, sex, age, yr] * wt[ssb_wt_index[sp], sex, age, yr_ind]
+            DynamicNByage0[sp, sex, age, yr] * weight[ssb_wt_index[sp], sex, age, yr_ind]
         }
       }
 
@@ -779,7 +777,7 @@ calculate_depletion_reference_points <- function(nspp, nyrs, nsex, nages, max_ns
 #' @param fday Vector, number of foraging days per year
 #' @param env_index Matrix, environmental index by year and index type
 #' @param Cindex Vector, index for environmental variables
-#' @param wt Array, weight at age by population, sex, and year
+#' @param weight Array, weight at age by population, sex, and year
 #' @param pop_wt_index Vector, population weight indices
 #' @param Pvalue Vector, proportion of maximum consumption
 #' @param Pyrs Array, proportion of year specific values
@@ -804,7 +802,7 @@ calculate_depletion_reference_points <- function(nspp, nyrs, nsex, nages, max_ns
 #'
 calculate_ration <- function(nspp, nyrs, max_nsex, max_nages, nyrs_hind, Ceq, Qc, Tcm, Tco, Tcl,
                              CK1, CK4, CA, CB, fday, env_index, Cindex,
-                             wt, pop_wt_index, Pvalue, Pyrs, nsex, nages) {
+                             weight, pop_wt_index, Pvalue, Pyrs, nsex, nages) {
 
   # Unsure what is tripping the function
   "[<-" <- ADoverload("[<-") # https://groups.google.com/g/tmb-users/c/HlPqkfcCa1g
@@ -860,7 +858,7 @@ calculate_ration <- function(nspp, nyrs, max_nsex, max_nages, nyrs_hind, Ceq, Qc
           if(yr <= nyrs_hind) {
             # Hindcast calculation
             consumption_at_age[sp, sex, age, yr] <- CA[sp] *
-              (wt[pop_wt_index[sp], sex, age, yr] * 1000)^(1 + CB[sp]) *
+              (weight[pop_wt_index[sp], sex, age, yr] * 1000)^(1 + CB[sp]) *
               fT[sp, yr] * fday[sp]
 
             consumption_at_age[sp, sex, age, yr] <- consumption_at_age[sp, sex, age, yr] *
@@ -870,7 +868,7 @@ calculate_ration <- function(nspp, nyrs, max_nsex, max_nages, nyrs_hind, Ceq, Qc
           if(yr > nyrs_hind){
             # Projection calculation
             consumption_at_age[sp, sex, age, yr] <- CA[sp] *
-              (wt[pop_wt_index[sp], sex, age, nyrs_hind] * 1000)^(1 + CB[sp]) *
+              (weight[pop_wt_index[sp], sex, age, nyrs_hind] * 1000)^(1 + CB[sp]) *
               fT[sp, yr] * fday[sp]
 
             consumption_at_age[sp, sex, age, yr] <- consumption_at_age[sp, sex, age, yr] *
@@ -1048,7 +1046,7 @@ calculate_other_food_diet_prop <- function(nyrs, nspp, nsex, nages, max_nsex, ma
 #'
 #' @param diet_prop Array of diet proportions [pred_sp x prey_sp x pred_age x prey_age x year]
 #' @param avgN_at_age Array of average numbers at age [species x sex x age x year]
-#' @param wt Array of weights [index x sex x age x year]
+#' @param weight Array of weights [index x sex x age x year]
 #' @param pop_wt_index Vector of population weight indices
 #' @param other_food_diet_prop Array of other food proportions [pred_sp x pred_sex x pred_age x year]
 #' @param nspp Integer number of species
@@ -1067,7 +1065,7 @@ calculate_other_food_diet_prop <- function(nyrs, nspp, nsex, nages, max_nsex, ma
 #'   \item suit_other: Other food suitability coefficients
 #' }
 #'
-calculate_MSVPA_suitability <- function(diet_prop, avgN_at_age, wt, pop_wt_index,
+calculate_MSVPA_suitability <- function(diet_prop, avgN_at_age, weight, pop_wt_index,
                                         other_food_diet_prop, nspp, nsex, max_nsex, nages, max_nages, nyrs,
                                         nyrs_hind, suit_styr, suit_endyr, nyrs_suit,
                                         msmMode) {
@@ -1118,10 +1116,10 @@ calculate_MSVPA_suitability <- function(diet_prop, avgN_at_age, wt, pop_wt_index
                 #                r_age, k_age, yr] <- 0
                 # }
 
-                if(wt[pop_wt_index[ksp], k_sex, k_age, yr_ind] != 0) {
+                if(weight[pop_wt_index[ksp], k_sex, k_age, yr_ind] != 0) {
                   stom_div_bio[rsp, r_sex, r_age, ksp, k_sex, k_age, yr] <-
                     stom_div_bio[rsp, r_sex, r_age, ksp, k_sex, k_age, yr] /
-                    wt[pop_wt_index[ksp], k_sex, k_age, yr_ind]
+                    weight[pop_wt_index[ksp], k_sex, k_age, yr_ind]
 
                   suma_suit[rsp, r_sex, r_age, yr] <-
                     suma_suit[rsp, r_sex, r_age, yr] +
@@ -1204,7 +1202,7 @@ calculate_MSVPA_suitability <- function(diet_prop, avgN_at_age, wt, pop_wt_index
 #' @param nyrs Integer, number of years
 #' @param nyrs_hind Integer, number of hindcast years
 #' @param laa Array [species, sex, age, year] of length-at-age values
-#' @param wt Array [species, sex, age, year] of weight values
+#' @param weight Array [species, sex, age, year] of weight values
 #' @param pop_wt_index Vector of indices for population weights
 #' @param vulnerability Matrix [pred, prey] of vulnerability coefficients
 #' @param vulnerability_other Vector of other food vulnerability
@@ -1227,7 +1225,7 @@ calculate_MSVPA_suitability <- function(diet_prop, avgN_at_age, wt, pop_wt_index
 #'
 calculate_gamma_suitability <- function(nspp, nages, nsex, nyrs, nyrs_hind,
                                         max_nages, max_nsex,
-                                        laa, wt, pop_wt_index, vulnerability,
+                                        laa, weight, pop_wt_index, vulnerability,
                                         vulnerability_other, gam_a, gam_b, suitMode) {
 
   # Unsure what is tripping the function
@@ -1253,7 +1251,7 @@ calculate_gamma_suitability <- function(nspp, nages, nsex, nyrs, nyrs_hind,
                 log_size_ratio <- laa[rsp, r_sex, r_age, ] / laa[ksp, k_sex, k_age, ]
               }
               if(suitMode == 2) {
-                log_size_ratio <- wt[pop_wt_index[rsp], r_sex, r_age, ] / wt[pop_wt_index[ksp], k_sex, k_age, ]
+                log_size_ratio <- weight[pop_wt_index[rsp], r_sex, r_age, ] / weight[pop_wt_index[ksp], k_sex, k_age, ]
               }
 
               log_size_ratio <- log(log_size_ratio)
@@ -1301,7 +1299,7 @@ calculate_gamma_suitability <- function(nspp, nages, nsex, nyrs, nyrs_hind,
 #' @param nyrs Integer, number of years
 #' @param nyrs_hind Integer, number of hindcast years
 #' @param laa Array, length-at-age matrix [species, sex, age, year]
-#' @param wt Array, weight matrix [species, sex, age, year]
+#' @param weight Array, weight matrix [species, sex, age, year]
 #' @param vulnerability Matrix, predator-prey vulnerability matrix
 #' @param vulnerability_other Vector, vulnerability to other food
 #' @param gam_a Vector, first parameter of normal distribution for each predator
@@ -1323,7 +1321,7 @@ calculate_gamma_suitability <- function(nspp, nages, nsex, nyrs, nyrs_hind,
 #'
 calculate_lognormal_suitability <- function(nspp, nages, nsex, nyrs, nyrs_hind,
                                             max_nages, max_nsex,
-                                            laa, wt, pop_wt_index, vulnerability,
+                                            laa, weight, pop_wt_index, vulnerability,
                                             vulnerability_other, gam_a, gam_b, suitMode) {
 
   # Unsure what is tripping the function
@@ -1349,7 +1347,7 @@ calculate_lognormal_suitability <- function(nspp, nages, nsex, nyrs, nyrs_hind,
                 log_size_ratio <- laa[rsp, r_sex, r_age, ] / laa[ksp, k_sex, k_age, ]
               }
               if(suitMode == 4) {
-                log_size_ratio <- wt[pop_wt_index[rsp], r_sex, r_age, ] / wt[pop_wt_index[ksp], k_sex, k_age, ]
+                log_size_ratio <- weight[pop_wt_index[rsp], r_sex, r_age, ] / weight[pop_wt_index[ksp], k_sex, k_age, ]
               }
 
               log_size_ratio <- log(log_size_ratio)
@@ -1401,7 +1399,7 @@ calculate_lognormal_suitability <- function(nspp, nages, nsex, nyrs, nyrs_hind,
 #' @param suit_main Array, suitability matrix
 #' @param suit_other Array, other food suitability
 #' @param other_food Numeric vector, other food availability by species
-#' @param wt Array, weight at age matrix
+#' @param weight Array, weight at age matrix
 #' @param pop_wt_index Numeric vector, population weight indices
 #' @param ration Array, consumption ration
 #' @param msmMode Integer, MSVPA type (1=Type 2, 2=Type 3)
@@ -1421,7 +1419,7 @@ calculate_lognormal_suitability <- function(nspp, nages, nsex, nyrs, nyrs_hind,
 calculate_predation <- function(nspp, nsex, nages, nyrs, nyrs_hind,
                                 max_nages, max_nsex,
                                 avgN_at_age, suit_main, suit_other, other_food,
-                                wt, pop_wt_index, ration, msmMode) {
+                                weight, pop_wt_index, ration, msmMode) {
 
   # Unsure what is tripping the function
   "[<-" <- ADoverload("[<-") # https://groups.google.com/g/tmb-users/c/HlPqkfcCa1g
@@ -1447,7 +1445,7 @@ calculate_predation <- function(nspp, nsex, nages, nyrs, nyrs_hind,
           # Sum across prey species
           avail_food[rsp, r_sex, r_age, yr] <- sum(suit_main[rsp, r_sex, r_age, , , , yr] *
                                                      avgN_at_age[, , , yr]^msmMode *
-                                                     wt[pop_wt_index, , , yr_ind])
+                                                     weight[pop_wt_index, , , yr_ind])
 
           # Add other food
           avail_food[rsp, r_sex, r_age, yr] <- avail_food[rsp, r_sex, r_age, yr] +
@@ -1483,7 +1481,7 @@ calculate_predation <- function(nspp, nsex, nages, nyrs, nyrs_hind,
             # Calculate biomass eaten by predator-prey combination
             B_eaten[, , , ksp, k_sex, k_age, yr] <-
               avgN_at_age[ksp, k_sex, k_age, yr] *
-              wt[pop_wt_index[ksp], k_sex, k_age, yr_ind] *
+              weight[pop_wt_index[ksp], k_sex, k_age, yr_ind] *
               M2_prop[, , , ksp, k_sex, k_age, yr]
 
             # Calculate biomass eaten as prey
@@ -1494,7 +1492,7 @@ calculate_predation <- function(nspp, nsex, nages, nyrs, nyrs_hind,
             # Calculate diet proportion
             diet_prop_hat[, , , ksp, k_sex, k_age, yr] <-
               avgN_at_age[ksp, k_sex, k_age, yr] *
-              wt[pop_wt_index[ksp], k_sex, k_age, yr_ind] *
+              weight[pop_wt_index[ksp], k_sex, k_age, yr_ind] *
               suit_main[, , , ksp, k_sex, k_age, yr] /
               avail_food[, , , yr]
 
@@ -1541,7 +1539,7 @@ calculate_predation <- function(nspp, nsex, nages, nyrs, nyrs_hind,
 #' @param N_at_age Array of numbers at age [species, sex, age, year]
 #' @param Z_at_age Array of total mortality at age [species, sex, age, year]
 #' @param sel Array of selectivity [fleet, sex, age, year]
-#' @param wt Array of weights [fleet_wt_index, sex, age, year]
+#' @param weight Array of weights [fleet_wt_index, sex, age, year]
 #' @param flt_units Vector indicating units for each fleet (1=weight, 2=numbers)
 #' @param flt_wt_index Vector indicating which weight index to use for each fleet
 #' @param nages Vector of number of ages for each species
@@ -1558,7 +1556,7 @@ calculate_predation <- function(nspp, nsex, nages, nyrs, nyrs_hind,
 #' the year through the month parameter.
 #'
 calculate_abundance_index <- function(index_ctl, index_n, N_at_age, Z_at_age, sel,
-                                      wt, flt_units, flt_wt_index, nages, nsex,
+                                      weight, flt_units, flt_wt_index, nages, nsex,
                                       nyrs_hind, styr) {
 
   # Unsure what is tripping the function
@@ -1602,7 +1600,7 @@ calculate_abundance_index <- function(index_ctl, index_n, N_at_age, Z_at_age, se
         if(flt_units[index] == 1) {
           # Weight
           index_hat[index_ind] <- index_hat[index_ind] +
-            base_calc * wt[flt_wt_index[index], sex, age, yr_ind]
+            base_calc * weight[flt_wt_index[index], sex, age, yr_ind]
         }
 
         if(flt_units[index] == 2) {
@@ -1783,7 +1781,7 @@ calculate_analytical_sd <- function(index_ctl, index_obs, index_hat, n_flt, nyrs
 #' @param F_flt_age Array of fishing mortality at fleet/sex/age/year
 #' @param Z_at_age Array of total mortality at species/sex/age/year
 #' @param N_at_age Array of numbers at age
-#' @param wt Array of weights
+#' @param weight Array of weights
 #' @param sel Array of selectivity values
 #' @param flt_wt_index Vector of fleet weight indices
 #' @param proj_F_prop Vector of projected F proportions
@@ -1805,7 +1803,7 @@ calculate_analytical_sd <- function(index_ctl, index_obs, index_hat, n_flt, nyrs
 #' Separate calculations are made for hindcast and projection periods.
 #'
 estimate_catch <- function(catch_ctl, catch_n, F_flt_age, Z_at_age, N_at_age,
-                           wt, sel, flt_wt_index, proj_F_prop, flt_units,
+                           weight, sel, flt_wt_index, proj_F_prop, flt_units,
                            nsex, nages, styr, nyrs_hind) {
 
   # Unsure what is tripping the function
@@ -1847,11 +1845,11 @@ estimate_catch <- function(catch_ctl, catch_n, F_flt_age, Z_at_age, N_at_age,
             F_flt_age[flt, sex, age, flt_yr] / Z_at_age[sp, sex, age, flt_yr] *
             (1 - exp(-Z_at_age[sp, sex, age, flt_yr])) *
             N_at_age[sp, sex, age, flt_yr] *
-            wt[flt_wt_index[flt], sex, age, yr_ind]
+            weight[flt_wt_index[flt], sex, age, yr_ind]
 
           max_catch_hat[fsh_ind] <- max_catch_hat[fsh_ind] +
             N_at_age[sp, sex, age, flt_yr] *
-            wt[flt_wt_index[flt], sex, age, yr_ind] *
+            weight[flt_wt_index[flt], sex, age, yr_ind] *
             sel[flt, sex, age, yr_ind] *
             proj_F_prop[flt]
 
@@ -1891,7 +1889,7 @@ estimate_catch <- function(catch_ctl, catch_n, F_flt_age, Z_at_age, N_at_age,
 #' @param nages Vector. Number of ages for each species
 #' @param nsex Vector. Number of sexes for each species
 #' @param N_at_age Array. Numbers at age [species, sex, age, year]
-#' @param wt Array. Weight at age [fleet weight index, sex, age, year]
+#' @param weight Array. Weight at age [fleet weight index, sex, age, year]
 #' @param sel Array. Selectivity [fleet, sex, age, year]
 #' @param flt_wt_index Vector. Weight index for each fleet
 #' @param proj_F_prop Vector. Projection F proportions by fleet
@@ -1899,7 +1897,7 @@ estimate_catch <- function(catch_ctl, catch_n, F_flt_age, Z_at_age, N_at_age,
 #' @return Matrix of exploitable biomass [species, year]
 #'
 calculate_exploitable_biomass <- function(n_flt, flt_spp, flt_type, nyrs, nyrs_hind,
-                                          nages, nsex, N_at_age, wt, sel,
+                                          nages, nsex, N_at_age, weight, sel,
                                           flt_wt_index, proj_F_prop) {
 
   # Unsure what is tripping the function
@@ -1927,7 +1925,7 @@ calculate_exploitable_biomass <- function(n_flt, flt_spp, flt_type, nyrs, nyrs_h
           for(sex in 1:nsex[sp]) {
             exploitable_biomass[sp, yr] <- exploitable_biomass[sp, yr] +
               N_at_age[sp, sex, age, yr] *
-              wt[flt_wt_index[flt], sex, age, yr_ind] *
+              weight[flt_wt_index[flt], sex, age, yr_ind] *
               sel[flt, sex, age, yr_ind] *
               proj_F_prop[flt]
           }
@@ -2232,7 +2230,6 @@ calculate_index_nll <- function(index_obs, index_ctl, est_sigma_index, index_ln_
 #' @param catch_ln_sd A vector of log standard deviations for catches.
 #' @param est_sigma_fsh A vector indicating the estimation method for standard deviations.
 #' @param jnll_comp A matrix to accumulate negative log likelihood contributions.
-#' @param F_dev A matrix of fishing mortality deviations.
 #' @param flt_type A vector indicating the type of fishery.
 #' @param styr The starting year for the analysis.
 #' @param endyr The ending year for the analysis.
@@ -2240,8 +2237,7 @@ calculate_index_nll <- function(index_obs, index_ctl, est_sigma_index, index_ln_
 #' @return The updated jnll_comp matrix with contributions from the fishery observations.
 #'
 calculate_catch_nll <- function(catch_obs, catch_ctl, catch_hat, catch_ln_sd,
-                                est_sigma_fsh, jnll_comp,
-                                F_dev, flt_type, styr, endyr) {
+                                est_sigma_fsh, jnll_comp, flt_type, styr, endyr) {
 
   # Unsure what is tripping the function
   "[<-" <- ADoverload("[<-") # https://groups.google.com/g/tmb-users/c/HlPqkfcCa1g
@@ -2280,9 +2276,6 @@ calculate_catch_nll <- function(catch_obs, catch_ctl, catch_hat, catch_ln_sd,
             # Martin's version (commented out)
             # jnll_comp[2, flt] <- jnll_comp[2, flt] +
             #   0.5 * ((log(catch_obs[fsh_ind, 1]) - log(catch_hat[fsh_ind])) / fsh_std_dev)^2
-
-            # Slot 12 -- Epsilon -- Annual fishing mortality deviation
-            jnll_comp[13, flt] <- jnll_comp[13, flt] + F_dev[flt, yr]^2 # FIXME - move to single F per year
           }
         }
       }
@@ -3003,17 +2996,17 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
   # ------------------------------------------------------------------------- #
 
   # * 5.1. MATURITY AND SEX RATIO ----
-  pmature_sexr <- matrix(0, nspp, max_nages)
+  mature_females <- matrix(0, nspp, max_nages)
   for (sp in 1:nspp) {
 
     # Sex ratio at recruitment
     if(nsex[sp] == 1) {
-      R_sexr[sp] <- 1.0
+      sex_ratio[sp, 1] <- 1.0
     }
 
     if(nsex[sp] == 1) {
-      # Multiply sex_ratio and pmature for 1 sex models
-      pmature_sexr[sp, 1:nages[sp]] <- pmature[sp, 1:nages[sp]] * sex_ratio[sp, 1:nages[sp]]
+      # Multiply sex_ratio and maturity for 1 sex models
+      mature_females[sp, 1:nages[sp]] <- maturity[sp, 1:nages[sp]] * sex_ratio[sp, 1:nages[sp]]
     }
   }
 
@@ -3030,7 +3023,7 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
   flt_sel_maxage <- fleet_control[flt_ind, 10] - minage[flt_spp]  + 1# Age of max selectivity
   comp_ll_type <- fleet_control[flt_ind, 11]       # Index for dirichlet multinomial
   flt_units <- fleet_control[flt_ind, 12]          # Survey units
-  flt_wt_index <- fleet_control[flt_ind, 13]       # Dim1 of wt
+  flt_wt_index <- fleet_control[flt_ind, 13]       # Dim1 of weight
   flt_age_transition_index <- fleet_control[flt_ind, 14]  # Dim3 of age transition matrix
   flt_q_ind <- fleet_control[flt_ind, 15]          # Index of survey q
   est_index_q <- fleet_control[flt_ind, 16]        # Estimate analytical q?
@@ -3222,10 +3215,10 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
                  for(age in flt_sel_age[flt]:nselages) {
                    max_sel <- max2(max_sel, sel[flt, sex, age, yr])
                  }
-                 if (max_sel > 0) {
-                   sel[flt, sex, flt_sel_age[flt]:nselages, yr] <-
-                     exp(sel[flt, sex, flt_sel_age[flt]:nselages, yr] - max_sel)
-                 }
+                 # if (max_sel > 0) {
+                 #   sel[flt, sex, flt_sel_age[flt]:nselages, yr] <-
+                 #     exp(sel[flt, sex, flt_sel_age[flt]:nselages, yr] - max_sel)
+                 # }
 
                  # Fill in rest of ages
                  sel[flt, sex, (nselages + 1):nages[sp], yr] <- sel[flt, sex, nselages, yr]
@@ -3253,9 +3246,9 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
           for(yr in 1:nyrs_hind) {
             for(sex in 1:nsex[sp]) {
               max_sel <- sel[flt, sex, flt_sel_maxage[flt], yr]
-              if (max_sel > 0) {
-                sel[flt, sex, , yr] <- sel[flt, sex, , yr] / max_sel
-              }
+              # if (max_sel > 0) {
+              #   sel[flt, sex, , yr] <- sel[flt, sex, , yr] / max_sel
+              # }
             }
           }
         }
@@ -3320,7 +3313,7 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
 
     # * 6.1. FISHING MORTALITY ----
     F_results <- calculate_fishing_mortality(n_flt, nspp, nages, max_nages, nsex, max_nsex, nyrs, nyrs_hind,
-                                             flt_spp, flt_type, sel, ln_mean_F, F_dev, Ftarget, Fmult,
+                                             flt_spp, flt_type, sel, ln_F, Ftarget, Fmult,
                                              Flimit, QnormHCR, forecast, proj_F_prop, HCR)
 
     # * 6.2. TOTAL MORTALITY-AT-AGE ----
@@ -3343,9 +3336,9 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
 
     # * 6.3. SPR BASED REFERENCE POINTS -----
     spr_results <- calculate_spr_reference_points(nspp, nages, max_nages, nyrs, nyrs_hind,
-                                                  initMode, R_sexr, M1_at_age, M2_at_age,
+                                                  initMode, sex_ratio, M1_at_age, M2_at_age,
                                                   F_results$Flimit_age_spp, F_results$Ftarget_age_spp,
-                                                  wt, ssb_wt_index, pmature_sexr, spawn_month,
+                                                  weight, ssb_wt_index, mature_females, spawn_month,
                                                   Finit)
 
 
@@ -3376,9 +3369,9 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
           # Estimate as free parameters
           if (initMode == 0) {
             R[sp, 1] <- exp(init_dev[sp, 1])
-            N_at_age[sp, 1, age, 1] <- exp(init_dev[sp, age]) * R_sexr[sp]
+            N_at_age[sp, 1, age, 1] <- exp(init_dev[sp, age]) * sex_ratio[sp, 1]
             if(sex == 2){
-              N_at_age[sp, 2, age, 1] <- exp(init_dev[sp, age]) * (1 - R_sexr[sp])
+              N_at_age[sp, 2, age, 1] <- exp(init_dev[sp, age]) * (1 - sex_ratio[sp, 1])
             }
           }
 
@@ -3387,9 +3380,9 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
             # 6.5.1. Amin (recruitment)
             if (age == 1) {
               R[sp, 1] <- srr_results$R_init[sp] * exp(rec_dev[sp, 1])
-              N_at_age[sp, 1, 1, 1] <- R[sp, 1] * R_sexr[sp]
+              N_at_age[sp, 1, 1, 1] <- R[sp, 1] * sex_ratio[sp, 1]
               if(sex == 2){
-                N_at_age[sp, 2, 1, 1] <- R[sp, 1] * (1 - R_sexr[sp])
+                N_at_age[sp, 2, 1, 1] <- R[sp, 1] * (1 - sex_ratio[sp, 1])
               }
             }
 
@@ -3402,10 +3395,10 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
             # 6.5.2. Age Amin+1:Amax-1 (initial abundance)
             if (age > 1 && age < nages[sp]) {
               if (sex == 1) {
-                N_at_age[sp, 1, age, 1] <- srr_results$R_init[sp] * exp(-mort_sum + init_dev[sp, age - 1]) * R_sexr[sp]
+                N_at_age[sp, 1, age, 1] <- srr_results$R_init[sp] * exp(-mort_sum + init_dev[sp, age - 1]) * sex_ratio[sp, 1]
               }
               if (sex == 2) {
-                N_at_age[sp, 2, age, 1] <- srr_results$R_init[sp] * exp(-mort_sum + init_dev[sp, age - 1]) * (1 - R_sexr[sp])
+                N_at_age[sp, 2, age, 1] <- srr_results$R_init[sp] * exp(-mort_sum + init_dev[sp, age - 1]) * (1 - sex_ratio[sp, 1])
               }
             }
 
@@ -3413,11 +3406,11 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
             if (age == nages[sp]) {
               if (sex == 1) {
                 N_at_age[sp, 1, age, 1] <- srr_results$R_init[sp] * exp(-mort_sum + init_dev[sp, age - 1]) /
-                  (1 - exp(-M1_at_age[sp, sex, nages[sp]])) * R_sexr[sp]
+                  (1 - exp(-M1_at_age[sp, sex, nages[sp]])) * sex_ratio[sp, 1]
               }
               if (sex == 2) {
                 N_at_age[sp, 2, age, 1] <- srr_results$R_init[sp] * exp(-mort_sum + init_dev[sp, age - 1]) /
-                  (1 - exp(-M1_at_age[sp, sex, nages[sp]])) * (1 - R_sexr[sp])
+                  (1 - exp(-M1_at_age[sp, sex, nages[sp]])) * (1 - sex_ratio[sp, 1])
               }
             }
           }
@@ -3436,15 +3429,15 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
 
           # 6.5.3. Estimate total biomass in year 1
           biomass_at_age[sp, sex, age, 1] <- N_at_age[sp, sex, age, 1] *
-            wt[pop_wt_index[sp], sex, age, 1]  # Accessing wt as a data frame
+            weight[pop_wt_index[sp], sex, age, 1]  # Accessing weight as a data frame
           biomass[sp, 1] <- biomass[sp, 1] + biomass_at_age[sp, sex, age, 1]
         }
 
         # 6.5.4. Estimated initial female SSB
         ssb_at_age[sp, age, 1] <- N_at_age[sp, 1, age, 1] *
           exp(-Z_at_age[sp, 1, age, 1] * spawn_month[sp] / 12) *
-          wt[ssb_wt_index[sp], 1, age, 1] *
-          pmature_sexr[sp, age]
+          weight[ssb_wt_index[sp], 1, age, 1] *
+          mature_females[sp, age]
         ssb[sp, 1] <- ssb[sp, 1] + ssb_at_age[sp, age, 1]
       }
     }
@@ -3507,10 +3500,10 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
                             stop("Invalid 'srr_fun'")
         )
 
-        N_at_age[sp, 1, 1, yr] <- R[sp, yr] * R_sexr[sp]
+        N_at_age[sp, 1, 1, yr] <- R[sp, yr] * sex_ratio[sp, 1]
 
         if(nsex[sp] > 1){
-          N_at_age[sp, 2, 1, yr] <- R[sp, yr] * (1.0 - R_sexr[sp])
+          N_at_age[sp, 2, 1, yr] <- R[sp, yr] * (1.0 - sex_ratio[sp, 1])
         }
 
         # -- 6.6.2. Ages beyond recruitment
@@ -3547,13 +3540,13 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
 
             # -- 6.6.3. Estimate total biomass
             biomass[sp, yr] <- biomass[sp, yr] +
-              N_at_age[sp, sex, age, yr] * wt[pop_wt_index[sp], sex, age, yr]
+              N_at_age[sp, sex, age, yr] * weight[pop_wt_index[sp], sex, age, yr]
           }
 
           # -- 6.6.4. Estimated female ssb
           ssb[sp, yr] <- ssb[sp, yr] +
             N_at_age[sp, 1, age, yr] * exp(-Z_at_age[sp, 1, age, yr] * spawn_month[sp] / 12.0) *
-            wt[ssb_wt_index[sp], 1, age, yr] * pmature_sexr[sp, age]
+            weight[ssb_wt_index[sp], 1, age, yr] * mature_females[sp, age]
         }
       }
     }
@@ -3571,8 +3564,8 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
     rps_results <- calculate_depletion_reference_points(nspp, nyrs, nsex, nages, max_nsex, max_nages, nyrs_hind, proj_mean_rec,
                                                         srr_pred_fun, R, avg_R, R_results$R0, rec_dev,
                                                         beta_rec_pars, env_index_srr, N_at_age, M_at_age,
-                                                        F_results$Ftarget_age_spp, pmature, spawn_month,
-                                                        wt, ssb_wt_index, R_sexr, minage,
+                                                        F_results$Ftarget_age_spp, maturity, spawn_month,
+                                                        weight, ssb_wt_index, sex_ratio, minage,
                                                         MSSB0, MSB0, msmMode)
 
 
@@ -3764,9 +3757,9 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
           }
         }
 
-        N_at_age[sp, 1, 1, yr] <- R[sp, yr] * R_sexr[sp]
+        N_at_age[sp, 1, 1, yr] <- R[sp, yr] * sex_ratio[sp, 1]
         if(nsex[sp] > 1){
-          N_at_age[sp, 2, 1, yr] <- R[sp, yr] * (1 - R_sexr[sp])
+          N_at_age[sp, 2, 1, yr] <- R[sp, yr] * (1 - sex_ratio[sp, 1])
         }
 
         # -- Ages > recruitment
@@ -3798,14 +3791,14 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
             # zero_N_pen[sp] <- zero_N_pen[sp] + pos_tmp$penalty
 
             # -- 6.9.4. FORECAST ssb BY AGE
-            biomass_at_age[sp, sex, age, yr] <- N_at_age[sp, sex, age, yr] * wt[pop_wt_index[sp], sex, age, nyrs_hind] # 6.5.
+            biomass_at_age[sp, sex, age, yr] <- N_at_age[sp, sex, age, yr] * weight[pop_wt_index[sp], sex, age, nyrs_hind] # 6.5.
             biomass[sp, yr] <- biomass[sp, yr] + biomass_at_age[sp, sex, age, yr]
           } # End sex loop
 
           # -- 6.9.5. FORECAST ssb (SUM ACROSS AGES)
           ssb_at_age[sp, age, yr] <- N_at_age[sp, 1, age, yr] *
             exp(-Z_at_age[sp, 1, age, yr] * (spawn_month[sp]/12.0)) *
-            wt[ssb_wt_index[sp], 1, age, nyrs_hind] * pmature_sexr[sp, age] # 6.6.
+            weight[ssb_wt_index[sp], 1, age, nyrs_hind] * mature_females[sp, age] # 6.6.
           ssb[sp, yr] <- ssb[sp, yr] + ssb_at_age[sp, age, yr]
         }
       }
@@ -3848,7 +3841,7 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
     # * 7.1. Calculate ration ----
     ration <- calculate_ration(nspp, nyrs, max_nsex, max_nages, nyrs_hind, Ceq, Qc, Tcm, Tco, Tcl,
                                CK1, CK4, CA, CB, fday, env_index, Cindex,
-                               wt, pop_wt_index, Pvalue, Pyrs, nsex, nages)
+                               weight, pop_wt_index, Pvalue, Pyrs, nsex, nages)
     #TEST
     #sum(ration[1,1,,1:39] - mod_objects$quantities$ration[1,1,,1:39])
 
@@ -3875,7 +3868,7 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
       # ------------------------------------------------------------------------- #
       # 8.1.1. Holsman and MSVPA based suitability # FIXME - not flexible for interannual variation
       if (suitMode == 0) {
-        suit_list <- calculate_MSVPA_suitability(diet_prop, avgN_at_age, wt, pop_wt_index,
+        suit_list <- calculate_MSVPA_suitability(diet_prop, avgN_at_age, weight, pop_wt_index,
                                                  other_food_diet_prop, nspp, nsex, max_nsex, nages, max_nages, nyrs,
                                                  nyrs_hind, suit_styr, suit_endyr, nyrs_suit,
                                                  msmMode)
@@ -3890,7 +3883,7 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
       if(suitMode %in% c(1,2)){
         suit_list <- calculate_gamma_suitability(nspp, nages, nsex, nyrs, nyrs_hind,
                                                  max_nages, max_nsex,
-                                                 laa, wt, pop_wt_index, vulnerability,
+                                                 laa, weight, pop_wt_index, vulnerability,
                                                  vulnerability_other, gam_a, gam_b, suitMode)
       }
 
@@ -3898,7 +3891,7 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
       if(suitMode %in% c(3,4)){
         suit_list <- calculate_lognormal_suitability(nspp, nages, nsex, nyrs, nyrs_hind,
                                                      max_nages, max_nsex,
-                                                     laa, wt, pop_wt_index, vulnerability,
+                                                     laa, weight, pop_wt_index, vulnerability,
                                                      vulnerability_other, gam_a, gam_b, suitMode)
       }
 
@@ -3912,7 +3905,7 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
         predation_results <- calculate_predation(nspp, nsex, nages, nyrs, nyrs_hind,
                                                  max_nages, max_nsex,
                                                  avgN_at_age, suit_list$suit_main, suit_list$suit_other, other_food,
-                                                 wt, pop_wt_index, ration, msmMode)
+                                                 weight, pop_wt_index, ration, msmMode)
 
         # Update M2 array
         M2_at_age <- predation_results$M2_at_age
@@ -3933,7 +3926,7 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
   # ------------------------------------------------------------------------- #
   # * 9.1. Index of abundance/biomass ----
   index_hat <- calculate_abundance_index(index_ctl, index_n, N_at_age, Z_at_age, sel,
-                                         wt, flt_units, flt_wt_index, nages, nsex,
+                                         weight, flt_units, flt_wt_index, nages, nsex,
                                          nyrs_hind, styr)
 
   # * 9.2. Analytical survey q following Ludwig and Martell 1994 ----
@@ -3986,7 +3979,7 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
   # * 10.1. ESTIMATE CATCH ----
 
   catch_hat <- estimate_catch(catch_ctl, catch_n, F_results$F_flt_age, Z_at_age, N_at_age,
-                              wt, sel, flt_wt_index, proj_F_prop, flt_units,
+                              weight, sel, flt_wt_index, proj_F_prop, flt_units,
                               nsex, nages, styr, nyrs_hind)
 
   #TEST
@@ -3994,7 +3987,7 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
 
   # * 10.2 Exploitable biomass ----
   exploitable_biomass <- calculate_exploitable_biomass(n_flt, flt_spp, flt_type, nyrs, nyrs_hind,
-                                                       nages, nsex, N_at_age, wt, sel,
+                                                       nages, nsex, N_at_age, weight, sel,
                                                        flt_wt_index, proj_F_prop)
 
   # ------------------------------------------------------------------------- #
@@ -4084,7 +4077,7 @@ rtmb_ceattle <- function(start_par, data_list_reorganized){
   # * 14.2. CATCH DATA ----
   jnll_comp <- calculate_catch_nll(catch_obs, catch_ctl, catch_hat, catch_ln_sd,
                                    est_sigma_fsh, jnll_comp,
-                                   F_dev, flt_type, styr, endyr)
+                                   flt_type, styr, endyr)
 
   # * 14.3. COMPOSITION DATA ----
   jnll_comp <- calculate_comp_nll(comp_obs, comp_hat, comp_ctl, comp_n, nages, nlengths,
