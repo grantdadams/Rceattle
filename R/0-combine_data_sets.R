@@ -49,8 +49,8 @@ combine_data <- function(data_list1 = NULL, data_list2 = NULL){
   }
 
   # Update stomach pred sp and prey sp
-  data_list2$stom_prop_data$Pred <- data_list2$stom_prop_data$Pred + nspp1
-  data_list2$stom_prop_data$Prey <- data_list2$stom_prop_data$Prey + nspp1
+  data_list2$diet_data$Pred <- data_list2$diet_data$Pred + nspp1
+  data_list2$diet_data$Prey <- data_list2$diet_data$Prey + nspp1
 
   # Update weight and alk indices
   data_list2$weight$Wt_index <- data_list2$weight$Wt_index + weight_index1
