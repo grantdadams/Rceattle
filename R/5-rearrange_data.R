@@ -240,7 +240,7 @@ rearrange_dat <- function(data_list){
 
   # Pre-allocate the array
   unique_wt <- unique(as.numeric(data_list$weight$Wt_index))
-  weight <- array(0, dim = c(length(unique_wt), max_sex, max_age, nyrs_hind))
+  weight <- array(0, dim = c(max(unique_wt), max_sex, max_age, nyrs_hind))
 
   # Convert weight data to numeric once, outside the loop
   weight_matrix <- data_list$weight[, (1:max_age) + 5]
