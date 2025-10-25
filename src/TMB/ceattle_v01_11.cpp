@@ -2679,433 +2679,437 @@ Type objective_function<Type>::operator() () {
  */
     } // End 8. Predation mortality
     // - END LOOP - END LOOP - END LOOP - END LOOP - END LOOP - //
+    // - END LOOP - END LOOP - END LOOP - END LOOP - END LOOP - //
+  } // End population dynamics iterations
+  // - END LOOP - END LOOP - END LOOP - END LOOP - END LOOP - //
 
 
 
-    // ------------------------------------------------------------------------- //
-    // 9. INDEX COMPONENTS EQUATIONS                                             //
-    // ------------------------------------------------------------------------- //
+  // ------------------------------------------------------------------------- //
+  // 9. INDEX COMPONENTS EQUATIONS                                             //
+  // ------------------------------------------------------------------------- //
 
-    // -- 9.1. Index of abundance/biomass
-    for(index_ind = 0; index_ind < index_ctl.rows(); index_ind++){
+  // -- 9.1. Index of abundance/biomass
+  for(index_ind = 0; index_ind < index_ctl.rows(); index_ind++){
 
-      index = index_ctl(index_ind, 0) - 1;            // Temporary survey index
-      sp = index_ctl(index_ind, 1) - 1;             // Temporary index of species
-      flt_yr = index_ctl(index_ind, 2);             // Temporary index for years of data
+    index = index_ctl(index_ind, 0) - 1;            // Temporary survey index
+    sp = index_ctl(index_ind, 1) - 1;             // Temporary index of species
+    flt_yr = index_ctl(index_ind, 2);             // Temporary index for years of data
 
-      mo = index_n(index_ind, 0);                   // Temporary index for month
+    mo = index_n(index_ind, 0);                   // Temporary index for month
 
-      index_hat(index_ind) = 0.0;                    // Initialize
+    index_hat(index_ind) = 0.0;                    // Initialize
 
-      if(flt_yr > 0){
-        flt_yr = flt_yr - styr;
+    if(flt_yr > 0){
+      flt_yr = flt_yr - styr;
+    }
+    if(flt_yr < 0){
+      flt_yr = -flt_yr - styr;
+    }
+
+    // Hindcast
+    if(flt_yr < nyrs_hind){
+      yr_ind = flt_yr;
+    }
+
+    // Projection
+    if(flt_yr >= nyrs_hind){
+      yr_ind = nyrs_hind - 1;
+    }
+
+    for(age = 0; age < nages(sp); age++) {
+      for(sex = 0; sex < nsex(sp); sex++){
+        // Weight
+        if(flt_units(index) == 1){
+          index_hat(index_ind) += N_at_age(sp, sex, age, flt_yr) * exp( - (mo/12.0) * Z_at_age(sp, sex, age, flt_yr)) * sel(index, sex, age, yr_ind) * weight( flt_wt_index(index), sex, age, yr_ind );
+        }
+        // Numbers
+        if(flt_units(index) == 2){
+          index_hat(index_ind) += N_at_age(sp, sex, age, flt_yr) * exp( - (mo/12.0) * Z_at_age(sp, sex, age, flt_yr)) * sel(index, sex, age, yr_ind);
+        }
       }
-      if(flt_yr < 0){
-        flt_yr = -flt_yr - styr;
-      }
+    }
+  }
 
-      // Hindcast
+
+  // -- 9.2. Analytical survey q following Ludwig and Martell 1994
+  index_n_obs.setZero();
+  index_q_analytical.setZero();
+  for(index_ind = 0; index_ind < index_ctl.rows(); index_ind++){
+
+
+
+    index = index_ctl(index_ind, 0) - 1;            // Temporary survey index
+    sp = index_ctl(index_ind, 1) - 1;             // Temporary index of species
+    flt_yr = index_ctl(index_ind, 2);             // Temporary index for years of data
+
+    if(flt_yr > 0){
+      flt_yr = flt_yr - styr;
+
+
+      mo = index_n(index_ind, 0);                    // Temporary index for month
       if(flt_yr < nyrs_hind){
-        yr_ind = flt_yr;
-      }
 
-      // Projection
-      if(flt_yr >= nyrs_hind){
-        yr_ind = nyrs_hind - 1;
-      }
-
-      for(age = 0; age < nages(sp); age++) {
-        for(sex = 0; sex < nsex(sp); sex++){
-          // Weight
-          if(flt_units(index) == 1){
-            index_hat(index_ind) += N_at_age(sp, sex, age, flt_yr) * exp( - (mo/12.0) * Z_at_age(sp, sex, age, flt_yr)) * sel(index, sex, age, yr_ind) * weight( flt_wt_index(index), sex, age, yr_ind );
-          }
-          // Numbers
-          if(flt_units(index) == 2){
-            index_hat(index_ind) += N_at_age(sp, sex, age, flt_yr) * exp( - (mo/12.0) * Z_at_age(sp, sex, age, flt_yr)) * sel(index, sex, age, yr_ind);
-          }
-        }
-      }
-    }
-
-
-    // -- 9.2. Analytical survey q following Ludwig and Martell 1994
-    index_n_obs.setZero();
-    index_q_analytical.setZero();
-    for(index_ind = 0; index_ind < index_ctl.rows(); index_ind++){
-
-
-
-      index = index_ctl(index_ind, 0) - 1;            // Temporary survey index
-      sp = index_ctl(index_ind, 1) - 1;             // Temporary index of species
-      flt_yr = index_ctl(index_ind, 2);             // Temporary index for years of data
-
-      if(flt_yr > 0){
-        flt_yr = flt_yr - styr;
-
-
-        mo = index_n(index_ind, 0);                    // Temporary index for month
-        if(flt_yr < nyrs_hind){
-
-          // If etimated standard deviation or analytical sigma (non-time-varying)
-          if(est_sigma_index(index) > 0) {
-            index_n_obs(index) += 1; // Add one if survey is used
-            index_q_analytical(index) += log(index_obs(index_ind, 0) / index_hat(index_ind));
-          }
-
-          // If time-varying sigma
-          if(est_sigma_index(index) == 0 ) {
-            index_n_obs(index) += 1 / square(index_obs(index_ind, 1));
-            index_q_analytical(index) += log(index_obs(index_ind, 0) / index_hat(index_ind)) / square(index_obs(index_ind, 1));
-          }
-        }
-      }
-    }
-
-    // Take average
-    for(index = 0 ; index < n_flt; index ++){
-      index_q_analytical(index) = exp(index_q_analytical(index) / index_n_obs(index));
-
-      // Set index_q to analytical if used
-      if(est_index_q(index) == 3){
-        for(yr = 0; yr < nyrs_hind; yr++){
-          index_q(index, yr) = index_q_analytical(index);
-        }
-      }
-    }
-
-
-    // -- 9.3. Survey Biomass - multiply by q
-    for(index_ind = 0; index_ind < index_ctl.rows(); index_ind++){
-
-      index = index_ctl(index_ind, 0) - 1;            // Temporary survey index
-      flt_yr = index_ctl(index_ind, 2);      // Temporary index for years of data
-
-      if(flt_yr > 0){
-        flt_yr = flt_yr - styr;
-      }
-      if(flt_yr < 0){
-        flt_yr = -flt_yr - styr;
-      }
-
-      // Hindcast
-      if(flt_yr < nyrs_hind){
-        yr_ind = flt_yr;
-      }
-
-      // Projection
-      if(flt_yr >= nyrs_hind){
-        yr_ind = nyrs_hind - 1;
-      }
-
-      index_hat(index_ind) = index_q(index, yr_ind) * index_hat(index_ind); // pow(index_hat(index_ind), (1 + index_q_pow(index)));
-
-    }
-
-
-
-    // -- 9.4. Calculate analytical sigma following Ludwig and Walters 1994
-    index_n_obs.setZero();
-    ln_index_analytical_sd.setZero();
-    for(index_ind = 0; index_ind < index_ctl.rows(); index_ind++){
-
-      index = index_ctl(index_ind, 0) - 1;            // Temporary survey index
-      flt_yr = index_ctl(index_ind, 2);      // Temporary index for years of data
-
-      if(flt_yr > 0){
-        flt_yr = flt_yr - styr;
-
-        if(flt_yr < nyrs_hind){
+        // If etimated standard deviation or analytical sigma (non-time-varying)
+        if(est_sigma_index(index) > 0) {
           index_n_obs(index) += 1; // Add one if survey is used
-          ln_index_analytical_sd(index) += square( log(index_obs(index_ind, 0)) - log(index_hat(index_ind)));
+          index_q_analytical(index) += log(index_obs(index_ind, 0) / index_hat(index_ind));
+        }
+
+        // If time-varying sigma
+        if(est_sigma_index(index) == 0 ) {
+          index_n_obs(index) += 1 / square(index_obs(index_ind, 1));
+          index_q_analytical(index) += log(index_obs(index_ind, 0) / index_hat(index_ind)) / square(index_obs(index_ind, 1));
         }
       }
     }
+  }
 
-    for(index = 0 ; index < n_flt; index ++){
-      ln_index_analytical_sd(index) = sqrt(ln_index_analytical_sd(index) / index_n_obs(index));
+  // Take average
+  for(index = 0 ; index < n_flt; index ++){
+    index_q_analytical(index) = exp(index_q_analytical(index) / index_n_obs(index));
+
+    // Set index_q to analytical if used
+    if(est_index_q(index) == 3){
+      for(yr = 0; yr < nyrs_hind; yr++){
+        index_q(index, yr) = index_q_analytical(index);
+      }
+    }
+  }
+
+
+  // -- 9.3. Survey Biomass - multiply by q
+  for(index_ind = 0; index_ind < index_ctl.rows(); index_ind++){
+
+    index = index_ctl(index_ind, 0) - 1;            // Temporary survey index
+    flt_yr = index_ctl(index_ind, 2);      // Temporary index for years of data
+
+    if(flt_yr > 0){
+      flt_yr = flt_yr - styr;
+    }
+    if(flt_yr < 0){
+      flt_yr = -flt_yr - styr;
     }
 
+    // Hindcast
+    if(flt_yr < nyrs_hind){
+      yr_ind = flt_yr;
+    }
 
-    // ------------------------------------------------------------------------- //
-    // 10. FISHERY COMPONENTS EQUATIONS                                          //
-    // ------------------------------------------------------------------------- //
-    // 10.1. ESTIMATE CATCH-AT-AGE and TOTAL YIELD (kg)
-    for(fsh_ind = 0; fsh_ind < catch_ctl.rows(); fsh_ind++){
+    // Projection
+    if(flt_yr >= nyrs_hind){
+      yr_ind = nyrs_hind - 1;
+    }
 
-      flt = catch_ctl(fsh_ind, 0) - 1;     // Temporary fishery index
-      sp = catch_ctl(fsh_ind, 1) - 1;      // Temporary index of species
-      flt_yr = catch_ctl(fsh_ind, 2);      // Temporary index for years of data
-      mo = catch_n(fsh_ind, 0);            // Temporary index for month
+    index_hat(index_ind) = index_q(index, yr_ind) * index_hat(index_ind); // pow(index_hat(index_ind), (1 + index_q_pow(index)));
 
-      catch_hat(fsh_ind) = 0.0;  // Initialize
-      max_catch_hat(fsh_ind) = 0.0; // Initialize
+  }
 
-      if(flt_yr > 0){
-        flt_yr = flt_yr - styr;
-      }
-      if(flt_yr < 0){
-        flt_yr = -flt_yr - styr;
-      }
 
-      // Hindcast
+
+  // -- 9.4. Calculate analytical sigma following Ludwig and Walters 1994
+  index_n_obs.setZero();
+  ln_index_analytical_sd.setZero();
+  for(index_ind = 0; index_ind < index_ctl.rows(); index_ind++){
+
+    index = index_ctl(index_ind, 0) - 1;            // Temporary survey index
+    flt_yr = index_ctl(index_ind, 2);      // Temporary index for years of data
+
+    if(flt_yr > 0){
+      flt_yr = flt_yr - styr;
+
       if(flt_yr < nyrs_hind){
-        yr_ind = flt_yr;
-      }
-
-      // Projection
-      if(flt_yr >= nyrs_hind){
-        yr_ind = nyrs_hind - 1;
-      }
-
-      for(sex = 0; sex < nsex(sp); sex ++){
-        for(age = 0; age < nages(sp); age++) {
-          // FIXME: add wt_yr_ind for MSE
-
-          // By weight
-          if(flt_units(flt) == 1){
-            catch_hat(fsh_ind) += F_flt_age(flt, sex, age, flt_yr) / Z_at_age(sp, sex, age, flt_yr) * (1.0 - exp(-Z_at_age(sp, sex, age, flt_yr))) * N_at_age(sp, sex, age, flt_yr) * weight( flt_wt_index(flt), sex, age, yr_ind ); // 5.5.
-            max_catch_hat(fsh_ind) += N_at_age(sp, sex, age, flt_yr) * weight( flt_wt_index(flt), sex, age, yr_ind ) * sel(flt, sex, age, yr_ind) * proj_F_prop(flt); // FIXME using last year of selectivity;
-          }
-
-          // By numbers
-          if(flt_units(flt) == 2){
-            catch_hat(fsh_ind) += F_flt_age(flt, sex, age, flt_yr) / Z_at_age(sp, sex, age, flt_yr) * (1.0 - exp(-Z_at_age(sp, sex, age, flt_yr))) * N_at_age(sp, sex, age, flt_yr);
-            max_catch_hat(fsh_ind) += N_at_age(sp, sex, age, flt_yr) * sel(flt, sex, age, yr_ind) * proj_F_prop(flt); // FIXME using last year of selectivity;
-          }
-        }
+        index_n_obs(index) += 1; // Add one if survey is used
+        ln_index_analytical_sd(index) += square( log(index_obs(index_ind, 0)) - log(index_hat(index_ind)));
       }
     }
+  }
 
-    // 10.2 Exploitable biomass ----
-    exploitable_biomass.setZero();
+  for(index = 0 ; index < n_flt; index ++){
+    ln_index_analytical_sd(index) = sqrt(ln_index_analytical_sd(index) / index_n_obs(index));
+  }
 
-    for(flt = 0; flt < n_flt; flt++) {
 
-      sp = flt_spp(flt);
+  // ------------------------------------------------------------------------- //
+  // 10. FISHERY COMPONENTS EQUATIONS                                          //
+  // ------------------------------------------------------------------------- //
+  // 10.1. ESTIMATE CATCH-AT-AGE and TOTAL YIELD (kg)
+  for(fsh_ind = 0; fsh_ind < catch_ctl.rows(); fsh_ind++){
 
-      if(flt_type(flt) == 1){ //Fishery only
-        for(yr = 0; yr < nyrs; yr++) {
+    flt = catch_ctl(fsh_ind, 0) - 1;     // Temporary fishery index
+    sp = catch_ctl(fsh_ind, 1) - 1;      // Temporary index of species
+    flt_yr = catch_ctl(fsh_ind, 2);      // Temporary index for years of data
+    mo = catch_n(fsh_ind, 0);            // Temporary index for month
 
-          // Hindcast
-          if(yr < nyrs_hind){
-            yr_ind = yr;
-          }
+    catch_hat(fsh_ind) = 0.0;  // Initialize
+    max_catch_hat(fsh_ind) = 0.0; // Initialize
 
-          // Projection
-          if(yr >= nyrs_hind){
-            yr_ind = nyrs_hind - 1;
-          }
-
-          for(age = 0; age < nages(sp); age++) {
-            for(sex = 0; sex < nsex(sp); sex ++){
-              exploitable_biomass(sp, yr) += N_at_age(sp, sex, age, yr) * weight( flt_wt_index(flt), sex, age, yr_ind ) * sel(flt, sex, age, yr_ind) * proj_F_prop(flt); // FIXME using last year of selectivity;
-            }
-          }
-        }
-      }
+    if(flt_yr > 0){
+      flt_yr = flt_yr - styr;
+    }
+    if(flt_yr < 0){
+      flt_yr = -flt_yr - styr;
     }
 
+    // Hindcast
+    if(flt_yr < nyrs_hind){
+      yr_ind = flt_yr;
+    }
 
-    // ------------------------------------------------------------------------- //
-    // 11. COMPOSITION EQUATIONS                                                  //
-    // ------------------------------------------------------------------------- //
+    // Projection
+    if(flt_yr >= nyrs_hind){
+      yr_ind = nyrs_hind - 1;
+    }
 
-    // -- 11.1. Composition
-    age_obs_hat.setZero();
-    comp_hat.setZero();
-    age_hat.setZero();
-    for(comp_ind = 0; comp_ind < comp_hat.rows(); comp_ind++){
-
-      flt = comp_ctl(comp_ind, 0) - 1;            // Temporary fishery index
-      sp = comp_ctl(comp_ind, 1) - 1;             // Temporary index of species
-      flt_sex = comp_ctl(comp_ind, 2);            // Temporary index for comp sex (0 = combined, 1 = female, 2 = male)
-      comp_type = comp_ctl(comp_ind, 3);          // Temporary index for comp type (0 = age, 1 = length, 2 = CAAL)
-      yr = comp_ctl(comp_ind, 4);                 // Temporary index for years of data
-      mo = comp_n(comp_ind, 0);                   // Temporary index for month
-
-      n_hat(comp_ind) = 0.0;                          // Initialize
-
-      // Likelihood (yr > 0) vs prediction (yr < 0)
-      if(yr > 0){
-        yr = yr - styr;
-      }
-      if(yr < 0){
-        yr = -yr - styr;
-      }
-
-      // Hindcast
-      if(yr < nyrs_hind){
-        yr_ind = yr;
-      }
-
-      // Projection
-      if(yr >= nyrs_hind){
-        yr_ind = nyrs_hind - 1;
-      }
-
-      // Get catch-at-age
+    for(sex = 0; sex < nsex(sp); sex ++){
       for(age = 0; age < nages(sp); age++) {
+        // FIXME: add wt_yr_ind for MSE
+
+        // By weight
+        if(flt_units(flt) == 1){
+          catch_hat(fsh_ind) += F_flt_age(flt, sex, age, flt_yr) / Z_at_age(sp, sex, age, flt_yr) * (1.0 - exp(-Z_at_age(sp, sex, age, flt_yr))) * N_at_age(sp, sex, age, flt_yr) * weight( flt_wt_index(flt), sex, age, yr_ind ); // 5.5.
+          max_catch_hat(fsh_ind) += N_at_age(sp, sex, age, flt_yr) * weight( flt_wt_index(flt), sex, age, yr_ind ) * sel(flt, sex, age, yr_ind) * proj_F_prop(flt); // FIXME using last year of selectivity;
+        }
+
+        // By numbers
+        if(flt_units(flt) == 2){
+          catch_hat(fsh_ind) += F_flt_age(flt, sex, age, flt_yr) / Z_at_age(sp, sex, age, flt_yr) * (1.0 - exp(-Z_at_age(sp, sex, age, flt_yr))) * N_at_age(sp, sex, age, flt_yr);
+          max_catch_hat(fsh_ind) += N_at_age(sp, sex, age, flt_yr) * sel(flt, sex, age, yr_ind) * proj_F_prop(flt); // FIXME using last year of selectivity;
+        }
+      }
+    }
+  }
+
+  // 10.2 Exploitable biomass ----
+  exploitable_biomass.setZero();
+
+  for(flt = 0; flt < n_flt; flt++) {
+
+    sp = flt_spp(flt);
+
+    if(flt_type(flt) == 1){ //Fishery only
+      for(yr = 0; yr < nyrs; yr++) {
+
+        // Hindcast
+        if(yr < nyrs_hind){
+          yr_ind = yr;
+        }
+
+        // Projection
+        if(yr >= nyrs_hind){
+          yr_ind = nyrs_hind - 1;
+        }
+
+        for(age = 0; age < nages(sp); age++) {
+          for(sex = 0; sex < nsex(sp); sex ++){
+            exploitable_biomass(sp, yr) += N_at_age(sp, sex, age, yr) * weight( flt_wt_index(flt), sex, age, yr_ind ) * sel(flt, sex, age, yr_ind) * proj_F_prop(flt); // FIXME using last year of selectivity;
+          }
+        }
+      }
+    }
+  }
 
 
-        switch(flt_type(flt)){
-        case 1: // - Fishery
-          switch(flt_sex){
-          case 0: // Sexes combined or 1 sex assessment
-            for(sex = 0; sex < nsex(sp); sex ++){
-              // Catch-at-age
-              age_hat(comp_ind, age ) += F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr);
-              // Total numbers
-              n_hat( comp_ind ) += F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr);
-            }
-            break;
+  // ------------------------------------------------------------------------- //
+  // 11. COMPOSITION EQUATIONS                                                  //
+  // ------------------------------------------------------------------------- //
 
-          case 1: case 2: // Sex-specific composition data
-            sex = flt_sex - 1;
+  // -- 11.1. Composition
+  age_obs_hat.setZero();
+  comp_hat.setZero();
+  age_hat.setZero();
+  for(comp_ind = 0; comp_ind < comp_hat.rows(); comp_ind++){
+
+    flt = comp_ctl(comp_ind, 0) - 1;            // Temporary fishery index
+    sp = comp_ctl(comp_ind, 1) - 1;             // Temporary index of species
+    flt_sex = comp_ctl(comp_ind, 2);            // Temporary index for comp sex (0 = combined, 1 = female, 2 = male)
+    comp_type = comp_ctl(comp_ind, 3);          // Temporary index for comp type (0 = age, 1 = length, 2 = CAAL)
+    yr = comp_ctl(comp_ind, 4);                 // Temporary index for years of data
+    mo = comp_n(comp_ind, 0);                   // Temporary index for month
+
+    n_hat(comp_ind) = 0.0;                          // Initialize
+
+    // Likelihood (yr > 0) vs prediction (yr < 0)
+    if(yr > 0){
+      yr = yr - styr;
+    }
+    if(yr < 0){
+      yr = -yr - styr;
+    }
+
+    // Hindcast
+    if(yr < nyrs_hind){
+      yr_ind = yr;
+    }
+
+    // Projection
+    if(yr >= nyrs_hind){
+      yr_ind = nyrs_hind - 1;
+    }
+
+    // Get catch-at-age
+    for(age = 0; age < nages(sp); age++) {
+
+
+      switch(flt_type(flt)){
+      case 1: // - Fishery
+        switch(flt_sex){
+        case 0: // Sexes combined or 1 sex assessment
+          for(sex = 0; sex < nsex(sp); sex ++){
             // Catch-at-age
-            age_hat(comp_ind, age ) = F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr);
+            age_hat(comp_ind, age ) += F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr);
             // Total numbers
             n_hat( comp_ind ) += F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr);
-            break;
-
-          case 3: // Joint composition data
-            for(sex = 0; sex < nsex(sp); sex ++){
-              // Catch-at-age
-              age_hat(comp_ind, age + nages(sp) * sex ) = F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr);
-              // Total numbers
-              n_hat(comp_ind) += F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr);
-            }
-            break;
           }
           break;
 
+        case 1: case 2: // Sex-specific composition data
+          sex = flt_sex - 1;
+          // Catch-at-age
+          age_hat(comp_ind, age ) = F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr);
+          // Total numbers
+          n_hat( comp_ind ) += F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr);
+          break;
 
-        case 2: // - Survey
-          switch(flt_sex){
-          case 0: // Sexes combined or 1 sex assessment
-            for(sex = 0; sex < nsex(sp); sex ++){
-              // Survey catch-at-age
-              age_hat(comp_ind, age ) += N_at_age(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr));
-              // Total numbers
-              n_hat(comp_ind) += N_at_age(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr));  // FIXME - put power in for catchability
-            }
-            break;
+        case 3: // Joint composition data
+          for(sex = 0; sex < nsex(sp); sex ++){
+            // Catch-at-age
+            age_hat(comp_ind, age + nages(sp) * sex ) = F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr);
+            // Total numbers
+            n_hat(comp_ind) += F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr);
+          }
+          break;
+        }
+        break;
 
-          case 1: case 2: // Sex-specific composition data
-            sex = flt_sex - 1;
+
+      case 2: // - Survey
+        switch(flt_sex){
+        case 0: // Sexes combined or 1 sex assessment
+          for(sex = 0; sex < nsex(sp); sex ++){
             // Survey catch-at-age
-            age_hat(comp_ind, age ) = N_at_age(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr));
+            age_hat(comp_ind, age ) += N_at_age(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr));
+            // Total numbers
+            n_hat(comp_ind) += N_at_age(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr));  // FIXME - put power in for catchability
+          }
+          break;
+
+        case 1: case 2: // Sex-specific composition data
+          sex = flt_sex - 1;
+          // Survey catch-at-age
+          age_hat(comp_ind, age ) = N_at_age(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr));
+          // Total numbers
+          n_hat(comp_ind) += N_at_age(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr));
+          break;
+
+        case 3: // Joint composition data
+          for(sex = 0; sex < nsex(sp); sex ++){
+            // Survey catch-at-age
+            age_hat(comp_ind, age + nages(sp) * sex ) = N_at_age(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr));
             // Total numbers
             n_hat(comp_ind) += N_at_age(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr));
-            break;
-
-          case 3: // Joint composition data
-            for(sex = 0; sex < nsex(sp); sex ++){
-              // Survey catch-at-age
-              age_hat(comp_ind, age + nages(sp) * sex ) = N_at_age(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr));
-              // Total numbers
-              n_hat(comp_ind) += N_at_age(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr));
-            }
-            break;
           }
+          break;
         }
       }
+    }
 
-      // Adjustment for joint sex composition data
-      joint_adjust(comp_ind) = 1;
-      if(flt_sex == 3){
-        joint_adjust(comp_ind) = 2;
+    // Adjustment for joint sex composition data
+    joint_adjust(comp_ind) = 1;
+    if(flt_sex == 3){
+      joint_adjust(comp_ind) = 2;
+    }
+
+    // True age comp standardize to sum to 1
+    for(age = 0; age < nages(sp) * joint_adjust(comp_ind); age++) {
+      true_age_comp_hat(comp_ind, age ) = age_hat(comp_ind, age ) / posfun(n_hat(comp_ind), Type(0.00001), penalty);
+    }
+
+
+    // Adjust for aging error
+    for(int obs_age = 0; obs_age < nages(sp); obs_age++) {
+      for(int true_age = 0; true_age < nages(sp); true_age++) {
+        age_obs_hat(comp_ind, obs_age) += age_hat(comp_ind, true_age ) * age_error(sp, true_age, obs_age);
       }
+    }
 
-      // True age comp standardize to sum to 1
-      for(age = 0; age < nages(sp) * joint_adjust(comp_ind); age++) {
-        true_age_comp_hat(comp_ind, age ) = age_hat(comp_ind, age ) / posfun(n_hat(comp_ind), Type(0.00001), penalty);
-      }
+    // Adjust for aging error for joint data
+    if(flt_sex == 3){
+      for(int obs_age = nages(sp); obs_age < nages(sp) * 2; obs_age++) {
+        for(int true_age = nages(sp); true_age < nages(sp) * 2; true_age++) {
 
+          // Adjust indexing for joint age/length comp
+          int true_age_tmp = true_age - nages(sp);
+          int obs_age_tmp = obs_age - nages(sp);
 
-      // Adjust for aging error
-      for(int obs_age = 0; obs_age < nages(sp); obs_age++) {
-        for(int true_age = 0; true_age < nages(sp); true_age++) {
-          age_obs_hat(comp_ind, obs_age) += age_hat(comp_ind, true_age ) * age_error(sp, true_age, obs_age);
-        }
-      }
-
-      // Adjust for aging error for joint data
-      if(flt_sex == 3){
-        for(int obs_age = nages(sp); obs_age < nages(sp) * 2; obs_age++) {
-          for(int true_age = nages(sp); true_age < nages(sp) * 2; true_age++) {
-
-            // Adjust indexing for joint age/length comp
-            int true_age_tmp = true_age - nages(sp);
-            int obs_age_tmp = obs_age - nages(sp);
-
-            age_obs_hat(comp_ind, obs_age) += age_hat(comp_ind, true_age ) * age_error(sp, true_age_tmp, obs_age_tmp);
-          }
-        }
-      }
-
-
-      //  Observed age comp standardize to sum to 1
-      if(comp_type == 0) {
-        for(age = 0; age < nages(sp) * joint_adjust(comp_ind); age++) {
-          comp_hat(comp_ind, age) = age_obs_hat(comp_ind, age ) / posfun(n_hat(comp_ind), Type(0.00001), penalty);
-
-        }
-      }
-
-
-      // Convert from catch-at-age to catch-at-length
-      if( comp_type == 1) {
-        for(ln = 0; ln < nlengths(sp); ln++) {
-          for(age = 0; age < nages(sp); age++) {
-
-            sex = 0;
-
-            // Adjust sex for males/females
-            if((flt_sex > 0) & (flt_sex < 3)){
-              sex = flt_sex - 1;
-            }
-
-            comp_hat(comp_ind, ln ) += age_obs_hat(comp_ind, age) * age_trans_matrix(flt_age_transition_index(flt), sex, age, ln );
-          }
-        }
-
-
-        // Convert from catch-at-age to catch-at-length for joint comp data
-        if( flt_sex == 3) {
-          for(ln = nlengths(sp); ln < nlengths(sp) * 2; ln++) {
-            for(age = nages(sp); age < nages(sp) * 2; age++) {
-
-              // Adjust indexing for joint age/length comp
-              int obs_ln_tmp = ln;
-              int obs_age_tmp = age;
-
-              obs_age_tmp = age - nages(sp);
-              obs_ln_tmp = ln - nlengths(sp);
-              sex = 1;
-
-              comp_hat(comp_ind, ln ) += age_obs_hat(comp_ind, age) * age_trans_matrix(flt_age_transition_index(flt), sex, obs_age_tmp, obs_ln_tmp );
-            }
-          }
-        }
-
-
-        // Standardize to sum to 1
-        for(ln = 0; ln < nlengths(sp) * joint_adjust(comp_ind); ln++) {
-          comp_hat(comp_ind, ln ) = comp_hat(comp_ind, ln) / posfun(n_hat(comp_ind), Type(0.00001), penalty);
+          age_obs_hat(comp_ind, obs_age) += age_hat(comp_ind, true_age ) * age_error(sp, true_age_tmp, obs_age_tmp);
         }
       }
     }
 
 
+    //  Observed age comp standardize to sum to 1
+    if(comp_type == 0) {
+      for(age = 0; age < nages(sp) * joint_adjust(comp_ind); age++) {
+        comp_hat(comp_ind, age) = age_obs_hat(comp_ind, age ) / posfun(n_hat(comp_ind), Type(0.00001), penalty);
 
-    // ------------------------------------------------------------------------- //
-    // 12. PREDICTED STOMACH CONTENT                                             //
-    // ------------------------------------------------------------------------- //
+      }
+    }
 
-    // Predict stomach content
-    // 12. Reorganize diet_hat content
 
+    // Convert from catch-at-age to catch-at-length
+    if( comp_type == 1) {
+      for(ln = 0; ln < nlengths(sp); ln++) {
+        for(age = 0; age < nages(sp); age++) {
+
+          sex = 0;
+
+          // Adjust sex for males/females
+          if((flt_sex > 0) & (flt_sex < 3)){
+            sex = flt_sex - 1;
+          }
+
+          comp_hat(comp_ind, ln ) += age_obs_hat(comp_ind, age) * age_trans_matrix(flt_age_transition_index(flt), sex, age, ln );
+        }
+      }
+
+
+      // Convert from catch-at-age to catch-at-length for joint comp data
+      if( flt_sex == 3) {
+        for(ln = nlengths(sp); ln < nlengths(sp) * 2; ln++) {
+          for(age = nages(sp); age < nages(sp) * 2; age++) {
+
+            // Adjust indexing for joint age/length comp
+            int obs_ln_tmp = ln;
+            int obs_age_tmp = age;
+
+            obs_age_tmp = age - nages(sp);
+            obs_ln_tmp = ln - nlengths(sp);
+            sex = 1;
+
+            comp_hat(comp_ind, ln ) += age_obs_hat(comp_ind, age) * age_trans_matrix(flt_age_transition_index(flt), sex, obs_age_tmp, obs_ln_tmp );
+          }
+        }
+      }
+
+
+      // Standardize to sum to 1
+      for(ln = 0; ln < nlengths(sp) * joint_adjust(comp_ind); ln++) {
+        comp_hat(comp_ind, ln ) = comp_hat(comp_ind, ln) / posfun(n_hat(comp_ind), Type(0.00001), penalty);
+      }
+    }
+  }
+
+
+
+  // ------------------------------------------------------------------------- //
+  // 12. PREDICTED STOMACH CONTENT                                             //
+  // ------------------------------------------------------------------------- //
+
+  // Predict stomach content
+  // 12. Reorganize diet_hat content
+
+  if((msmMode > 2) | (imax(suitMode) > 0)) {
     for(int stom_ind = 0; stom_ind < diet_obs.rows(); stom_ind++){
       rsp = diet_ctl(stom_ind, 0) - 1;             // Index of pred
       ksp = diet_ctl(stom_ind, 1) - 1;             // Index of prey
@@ -3271,11 +3275,7 @@ Type objective_function<Type>::operator() () {
         }
       }
     }
-    // - END LOOP - END LOOP - END LOOP - END LOOP - END LOOP - //
-  } // End population dynamics iterations
-  // - END LOOP - END LOOP - END LOOP - END LOOP - END LOOP - //
-
-
+  }
 
 
   // ------------------------------------------------------------------------- //
