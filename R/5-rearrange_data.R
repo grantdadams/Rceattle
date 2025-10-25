@@ -6,6 +6,10 @@
 #' @export
 rearrange_dat <- function(data_list){
 
+  data_list$max_bin <- as.integer(max(data_list$nlengths)) # Integer of maximum number of length/age bins.
+  data_list$max_nsex <- as.integer(max(data_list$nsex))
+  data_list$max_nages <- as.integer(max(data_list$nages))
+
   # Data dimensions
   max_sex <- max(data_list$nsex, na.rm = T)
   max_age <- max(data_list$nages, na.rm = T)
