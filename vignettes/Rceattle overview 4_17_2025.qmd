@@ -1,0 +1,568 @@
+---
+title: "An overview of Rceattle"
+author: "Grant Adams"
+format: pptx
+editor: visual
+---
+
+## `Rceattle` overview
+
+Flexible code-base for single- and multi-species age structured modelling
+
+Empirical weight-at-age (internal growth estimation in dev)
+
+Species-, sex- and -age structured
+
+Flexible in the number of species and fleets
+
+Forecasting, simulation, and MSE capable
+
+## Background
+
+Developed from Kirstin's ADMB CEATTLE
+
+Ported to TMB during my PhD
+
+Code base and functionality developed to closely/exactly match CEATTLE (ADMB), GOA Pollock (ADMB/TMB), GOA ATF (ADMB), GOA Cod & Pacific Hake (Stock Synthesis)
+
+Designed to fit different model formulations, include environmental indices/predation, and run MSEs
+
+## Key links
+
+GitHub: <https://github.com/grantdadams/Rceattle>
+
+[On-boarding doc](https://docs.google.com/document/d/1JQiyiWdWmozMMWAuObB8Eo_u09peQBFUbJFBcwP51m8/edit?usp=sharing)
+
+## Existing `Rceattle` applications
+
+-   Pacific hake: 1 species (Sophia Wasserman)
+
+-   GOA ATF SAFE model: 1 species (Kalei Shotwell and Grant Adams)
+
+-   Hake + ATF: 2 species (Raquel Ruiz Diaz)
+
+-   EBS CEATTLE: 3 species (Kirstin Holsman)
+
+-   GOA CEATTLE: 4 species (Grant Adams)
+
+## Motivation and goals
+
+1.  Tool for "easily" fitting single- and multi-species model variants
+
+2.  Fit models with random effects
+
+3.  Easily assess model performance via diagnostics, fit metrics, simulation, and MSE
+
+4.  Help build environmentally-linked research models and MSE test SAFE models
+
+5.  Eye towards flexibility and documentation from PhD angst recreating custom/hard-coded models
+
+## Broad `Rceattle` workflow
+
+::: {.column width="50%"}
+Excel document to specify observation model:
+
+-   Data (age/length composition, indices, catch)
+
+-   Observation model specifications (q, selectivity, likelihood)
+
+-   "Fixed" inputs (weight-at-age, M, maturity, sex ratio, transition matrix, ageing error)
+:::
+
+::: {.column width="50%"}
+`R` wrapper function `fit_mod` to specify and fit
+
+-   Population dynamics specifications (M, initial conditions, recruitment, predation)
+
+-   Forecast (HCR form, BRPs, recruitment)
+
+-   Estimation controls
+:::
+
+------------------------------------------------------------------------
+
+## Broad `Rceattle` workflow
+
+```{r, eval = FALSE, echo = TRUE}
+library(Rceattle)
+
+mydata <- read_data( file = "mydata.xlsx") # Reads in as list of data.frames
+
+mymodel <- fit_mod(data_list = mydata,
+                   inits = NULL,       # Initial parameters at default
+                   estimateMode = 0,   # Estimate
+                   random_rec = FALSE, # No random recruitment
+                   msmMode = 0,        # Single species mode
+                   phase = TRUE,       # Phase model
+                   verbose = 1)        # Minimal messaging
+
+plot_biomass(mymodel)
+```
+
+## Outputs
+
+```{r, echo = TRUE, eval= TRUE}
+library(Rceattle)
+
+data("GOApollock")                              # 2018 Pollock model 
+
+mymodel <- Rceattle::fit_mod(data_list = GOApollock,
+                            inits = NULL,       # Initial parameters = 0
+                            file = NULL,        # Don't save
+                            estimateMode = 0,   # Estimate
+                            random_rec = FALSE, # No random recruitment
+                            msmMode = 0,        # Single species mode
+                            phase = TRUE,
+                            verbose = 1)
+```
+
+```{r, echo = TRUE, eval = TRUE}
+names(mymodel)
+```
+
+## Basic excel data
+
+-   meta_data: overview and description
+
+-   control: species, year, age, length
+
+-   fleet_control: observation model specification
+
+-   index_data: survey or fishery indices (biomass/numbers)
+
+-   catch_data: fishery catches
+
+-   comp_data: age/length comp
+
+-   weight: empirical weight-at-age (time-varying, fleet specific)
+
+-   maturity: maturity-at-age (time-invariant)
+
+-   sex_ratio: sex-ratio-at-age (time-invariant)
+
+## Selectivity specifications (`fleet_control`)
+
+::::: columns
+::: {.column width="50%"}
+`selectivity`
+
+-   0: empirical selectivity
+-   1: logistic selectivity
+-   2: non-parametric selecitivty (Ianelli)
+-   3: double logistic
+-   4: descending logistic
+-   5: non-parametric selectivity (Taylor/Hake)
+:::
+
+::: {.column width="50%"}
+`Time_varying_sel`
+
+-   0: no
+-   1: random deviates
+-   3: time blocks
+-   4: random walk
+-   5: random walk on ascending portion of double logistic only.
+:::
+:::::
+
+:::
+
+## Catchability specifications (`fleet_control`)
+
+::::: columns
+::: {.column width="50%"}
+-   0 = Fixed
+-   1 = Free parameter
+-   2 = Free w/ normal prior
+-   3 = Analytical
+-   4 = Power equation
+-   5 = $\mu_q + X * \beta$
+-   6 = sensu Rogers et al (2024)
+:::
+
+::: {.column width="50%"}
+`Time_varying_q`
+
+-   0: no
+-   1: random deviates
+-   3: time blocks
+-   4: random walk
+:::
+:::::
+
+------------------------------------------------------------------------
+
+## Recruitment specifications
+
+::::: columns
+::: {.column width="50%"}
+-   Mean recruitment, Beverton, Ricker
+-   Env linkages to $mu$ or $\alpha$
+-   Priors on alpha or steepness
+-   Ianelli penalty estimation
+:::
+
+::: {.column width="50%"}
+```{r, eval = FALSE, echo = TRUE}
+?build_srr # See options
+
+mymodel <- fit_mod(
+  recFun = build_srr(
+    srr_fun = 3,      # Beverton
+    proj_mean_rec = TRUE, 
+    srr_est_mode = 3, # Beta steepness prior
+    srr_prior = 0.8,
+    srr_prior_sd = 0.1,
+    srr_indices = NA, # No environmental indices
+    Bmsy_lim = NA),
+  ...
+)   
+```
+:::
+:::::
+
+------------------------------------------------------------------------
+
+## Mortality specifications
+
+::::: columns
+::: {.column width="50%"}
+-   Input M-at-age
+-   Fixed effects: species, sex, or age specific M
+-   Random effects: AR1 or IID on year and/or age
+-   Environmental linkages: $\mu_M + X * \beta$
+-   Lognormal prior
+:::
+
+::: {.column width="50%"}
+```{r, eval = FALSE, echo = TRUE}
+?build_M1 # See options  
+
+mymodel <- fit_mod(
+  M1Fun = build_M1(
+    M1_model = 2, # Sex-specific M
+    M1_re = 6,    # 2D-AR1 on age/year
+    M1_use_prior = FALSE,
+    M_prior = 0.30,
+    M_prior_sd = 0.05,
+    M1_indices = NA),
+  ...
+)   
+```
+:::
+:::::
+
+------------------------------------------------------------------------
+
+## Harvest control rules
+
+::::: columns
+::: {.column width="65%"}
+```{r, eval = FALSE, echo = TRUE}
+?build_hcr # See options
+
+mymodel <- fit_mod(
+  HCR = build_hcr(
+    HCR = 5,        # Tier 3 HCR
+    DynamicHCR = FALSE, # Equilibrium BRPs
+    Ftarget = 0.40, # Target F-spr
+    Flimit = 0.35,  # Limit F-spr
+    Ptarget = NA,     
+    Plimit = 0.2,   # No F < 20% SB0
+    Alpha = 0.05, 
+    Pstar = NA, 
+    Sigma = NA, 
+    Fmult = NA, 
+    HCRorder = NA),
+  ...
+)
+```
+:::
+
+::: {.column width="35%"}
+```{r, eval = TRUE, echo = FALSE}
+library(gmRi)
+
+spr_fun <- function(F){
+  ages = 1:10
+  wt = 1:10
+  sel = 1/(1+exp(-1*ages + 2))
+  mat = 1/(1+exp(-1*ages + 6))
+  M1 <- -0.2 * ages
+  spr0 = sum( exp(M1) * wt * mat * 0.5)
+  sprF = sum( exp(M1 - sel*F) * wt * mat * 0.5)
+  return(sprF/spr0)
+}
+F30 = uniroot(function(x) spr_fun(x) - 0.30, c(0,10))$root
+F35 = uniroot(function(x) spr_fun(x) - 0.35, c(0,10))$root
+F40 = uniroot(function(x) spr_fun(x) - 0.4, c(0,10))$root
+F48 = uniroot(function(x) spr_fun(x) - 0.48, c(0,10))$root
+F20 = uniroot(function(x) spr_fun(x) - 0.2, c(0,10))$root
+F45 = uniroot(function(x) spr_fun(x) - 0.45, c(0,10))$root
+
+tier3hcr_fun <- function(Pcur = 0.5, Ptarget = 0.4, Plimit = 0, Alpha = 0.05, Ftarget = F40, Flimit = F35){
+  if(Pcur > Ptarget){
+   Ftarget = Ftarget
+   Flimit = Flimit
+  } 
+  if(Alpha< Pcur/Ptarget & Pcur/Ptarget <= 1){
+    Flimit = Flimit * (Pcur/Ptarget - Alpha)/(1-Alpha)
+    Ftarget = Ftarget * (Pcur/Ptarget - Alpha)/(1-Alpha)
+  }
+  if(Alpha>=Pcur/Ptarget ){
+    Flimit = 0
+    Ftarget = 0
+  }
+  if(Pcur < Plimit ){
+    Flimit = 0
+    Ftarget = 0
+  }
+  return(list(Flimit = Flimit, Ftarget = Ftarget))
+}
+
+
+sessfcat1hcr_fun <- function(Pcur = 0.5, Ptarget = 0.35, Plimit = 0.2, Ftarget = F48, Flimit = F20){
+  if(Pcur > Ptarget){
+    Ftarget = Ftarget
+  } 
+  if(Pcur < Ptarget & Pcur> Plimit){
+    Ftarget = Ftarget * (Pcur/Plimit - 1)
+  }
+  if(Pcur < Plimit ){
+    Ftarget = 0
+  }
+  return(list(Flimit = Flimit, Ftarget = Ftarget))
+}
+
+pfmccat1hcr_fun <- function(Pcur = 0.5, Ptarget = 0.40, Plimit = 0.1, Flimit = F45, sigma = 0.5, Pstar = 0.45){
+  if(Pcur > Ptarget){
+    Ftarget = qnorm(Pstar, Flimit, sigma)
+  } 
+  if(Pcur < Ptarget & Pcur> Plimit){
+    Ftarget = qnorm(Pstar, Flimit, sigma) * Ptarget * (Pcur - Plimit)/((Ptarget - Plimit)*Pcur)
+  }
+  if(Pcur < Plimit ){
+    Ftarget = 0
+  }
+  return(list(Flimit = Flimit, Ftarget = Ftarget))
+}
+
+
+Pvals <- seq(0,1,length.out = 1000)
+Tier3Ftargets <- sapply(Pvals, function(x) tier3hcr_fun(Pcur = x, Plimit = 0.2, Alpha = 0.05)$Ftarget)
+Tier3Flimits <- sapply(Pvals, function(x) tier3hcr_fun(Pcur = x, Plimit = 0.2, Alpha = 0.05)$Flimit)
+
+Tier3FtargetsATF <- sapply(Pvals, function(x) tier3hcr_fun(Pcur = x, Plimit = 0, Alpha = 0.05)$Ftarget)
+Tier3FlimitsATF <- sapply(Pvals, function(x) tier3hcr_fun(Pcur = x, Plimit = 0, Alpha = 0.05)$Flimit)
+
+SESSFCat1Ftargets <- sapply(Pvals, function(x) sessfcat1hcr_fun(Pcur = x)$Ftarget)
+SESSFCat1Flimits <- sapply(Pvals, function(x) sessfcat1hcr_fun(Pcur = x)$Flimit)
+
+PFMCCat1Ftargets <- sapply(Pvals, function(x) pfmccat1hcr_fun(Pcur = x)$Ftarget)
+PFMCCat1Flimits <- sapply(Pvals, function(x) pfmccat1hcr_fun(Pcur = x)$Flimit)
+
+PFMCCat1FtargetsFlatfish <- sapply(Pvals, function(x) pfmccat1hcr_fun(Pcur = x, Ptarget = 0.25, Plimit = 0.05, Flimit = F30, sigma = 0.5, Pstar = 0.45)$Ftarget)
+
+
+#--------------------------
+# Plot it
+par(mar = c(3, 3, 0.5, 0.5))
+
+# Colors (by EM/HCR)
+MPcols <- gmri_pal("mixed")(10)[1:8]
+
+plot(NA,NA, ylim = c(0, 1.4), xlim = c(0,1), ylab = NA, yaxt = "na", xlab = "Depletion")
+mtext(side = 2, "Fishing mortality (F)", line = 1.5)
+mtext(side = 1, "Relative depletion", line = 2)
+
+# abline(h = Tier3Ftargets[length(Tier3Ftargets)], lwd = 3, col = SamplingCol[4])
+
+# - Tier 3
+lines(x = Pvals, y = Tier3Ftargets, col = MPcols[1], lwd = 3, lty = 2)
+lines(x = Pvals, y = Tier3FtargetsATF, col = MPcols[1], lwd = 3, lty = 1)
+text(x=Pvals[1000], y = Tier3Ftargets[1000]+0.07, expression('1) F'["40%"]), offset = -2,pos = 4, col = MPcols[1])
+#lines(x = Pvals, y = Tier3Flimits, col = MPcols[1], lwd = 3, lty = 2)
+
+
+# - Cat 1
+# -- 40-10
+lines(x = Pvals, y = PFMCCat1Ftargets, col = MPcols[3], lwd = 3, lty = 1)
+text(x=Pvals[900], y = PFMCCat1Ftargets[1000]+0.07, expression(paste("2a) ", Phi,'(0.45, F'["45%"],", 0.5)")), offset = -6,pos = 4, col = MPcols[3])
+#lines(x = Pvals, y = PFMCCat1Flimits, col = 1, lwd = 3, lty = 2)
+
+# -- 25-5
+lines(x = Pvals, y = PFMCCat1FtargetsFlatfish, col = MPcols[4], lwd = 3, lty = 1)
+text(x=Pvals[900], y = PFMCCat1FtargetsFlatfish[1000]+0.07, expression(paste("2b) ", Phi,'(0.45, F'["30%"],", 0.5)")), offset = -6,pos = 4, col = MPcols[4])
+#lines(x = Pvals, y = PFMCCat1Flimits, col = MPcols[3], lwd = 3, lty = 2)
+
+
+# - Tier 1
+lines(x = Pvals, y = SESSFCat1Ftargets, col = MPcols[5], lwd = 3, lty = 1)
+text(x=0.4, y = SESSFCat1Ftargets[1000]+0.07, expression('3) F'["48%"]), offset = 0,pos = 4, col = MPcols[5])
+
+
+# - F40
+abline(h = 0.75 * F40, col = MPcols[7], lwd = 3)
+text(x=Pvals[1000], y = 0.75 * F40-0.07, expression('4) 0.75 * F'["40%"]), offset = -6 ,pos = 4, col = MPcols[7])
+
+
+legend("bottomright", c("NPFMC", "PFMC 40-10", "PFMC 25-5", "SESSF", "NEFMC (Fspr)"), col = c(MPcols[1], MPcols[3], MPcols[4], MPcols[5], MPcols[7]), lty = 1, lwd = 4, bty = "n")
+```
+:::
+:::::
+
+------------------------------------------------------------------------
+
+## Time-series plotting
+
+::::: columns
+::: {.column width="50%"}
+```{r, eval = FALSE, echo = TRUE}
+plot_biomass(mymodel)
+plot_recruitment(list(mymodel1, mymodel2))
+plot_depletion()
+plot_depletionSSB()
+plot_mortality()
+```
+:::
+
+::: {.column width="50%"}
+```{r, eval = TRUE, echo = FALSE}
+data("BS2017SS")
+BS2017SS$fleet_control$proj_F_prop <- 1
+mymodel <- Rceattle::fit_mod(data_list = BS2017SS,
+                            inits = NULL,       # Initial parameters = 0
+                            file = NULL,        # Don't save
+                            estimateMode = 0,   # Estimate
+                            random_rec = FALSE, # No random recruitment
+                            msmMode = 0,        # Single species mode
+                            phase = TRUE,
+                            verbose = 1)
+
+mymodel_tier3 <- Rceattle::fit_mod(data_list = BS2017SS,
+                            inits = NULL, # Initial parameters = 0
+                            file = NULL, # Don't save
+                            estimateMode = 0, # Estimate
+                            random_rec = FALSE, # No random recruitment
+                                  HCR = build_hcr(HCR = 5, # Tier3 HCR
+                                                  Ftarget = 0.4, # F40%
+                                                  Flimit = 0.35, # F35%
+                                                  Plimit = 0.2, # No fishing when SB<SB20
+                                                  Alpha = 0.05),
+                            msmMode = 0, # Single species mode
+                            phase = TRUE,
+                            projection_uncertainty = TRUE,
+                            verbose = 1)
+
+
+# Single-species, but estimate M
+ss_run_M <- Rceattle::fit_mod(data_list = BS2017SS,
+                              inits = mymodel$estimated_params, # Initial parameters = 0
+                              file = NULL, # Don't save
+                              estimateMode = 0, # Estimate
+                              M1Fun = build_M1(M1_model = 1,
+                                               M1_use_prior = FALSE,
+                                               M2_use_prior = FALSE),
+                              random_rec = FALSE, # No random recruitment
+                              msmMode = 0, # Single species mode
+                              phase = TRUE,
+                              verbose = 1)
+
+ss_run_M_tier3 <- Rceattle::fit_mod(data_list = BS2017SS,
+                              inits = mymodel$estimated_params, # Initial parameters = 0
+                              file = NULL, # Don't save
+                              estimateMode = 0, # Estimate
+                              M1Fun = build_M1(M1_model = 1,
+                                               M1_use_prior = FALSE,
+                                               M2_use_prior = FALSE),
+                                  HCR = build_hcr(HCR = 5, # Tier3 HCR
+                                                  Ftarget = 0.4, # F40%
+                                                  Flimit = 0.35, # F35%
+                                                  Plimit = 0.2, # No fishing when SB<SB20
+                                                  Alpha = 0.05),
+                              random_rec = FALSE, # No random recruitment
+                              msmMode = 0, # Single species mode
+                              phase = TRUE,
+                              projection_uncertainty = TRUE,
+                              verbose = 1)
+
+plot_biomass(list(mymodel, mymodel_tier3, ss_run_M, ss_run_M_tier3), 
+             model_names = c("Fixed M", "- Tier 3", "Est M", "- Tier 3"), 
+             add_ci = TRUE, incl_proj = T, species = 1)
+```
+:::
+:::::
+
+## Diagnostics: `??Rceattle`
+
+```{r, echo = TRUE, eval = TRUE}
+plot_index(mymodel, species = 1)
+```
+
+------------------------------------------------------------------------
+
+```{r, echo = TRUE, eval = TRUE}
+plot_comp(mymodel)
+```
+
+## Retrospectives
+
+```{r, echo = TRUE, eval = TRUE}
+retro <- retrospective(mymodel, peels = 6)
+plot_biomass(retro$Rceattle_list, species = 1)
+```
+
+## MSE
+
+```{r, echo = TRUE, eval = TRUE}
+# ?run_mse for more options
+
+mse <- run_mse(
+  om = mymodel, 
+  em = mymodel_tier3, 
+  nsim = 1, 
+  simulate_data = TRUE, 
+  sample_rec = FALSE)
+```
+
+------------------------------------------------------------------------
+
+::::: columns
+::: {.column width="50%"}
+```{r, echo = TRUE, eval = TRUE}
+plot_depletionSSB(mse$Sim_1$OM, species = 1, model_names = "OM")
+```
+:::
+
+::: {.column width="50%"}
+```{r, echo = TRUE, eval = TRUE}
+plot_depletionSSB(mse$Sim_1$EM, species = 1, model_names = "EMs")
+```
+:::
+:::::
+
+## MCMC with `tmbstan`
+
+```{r, echo = TRUE, eval = FALSE}
+## Run in parallel
+library(tmbstan)
+
+warmup = 6000       
+thin = 1
+iter = 6000    
+
+cores <- 3
+options(mc.cores = cores)
+fit <- tmbstan(mymodel$obj, 
+               init = mymodel$opt$par, # Start from MLE
+               chains=cores, 
+               open_progress=FALSE,
+               warmup = warmup,      
+               thin = thin,
+               iter = iter * thin + warmup,     
+               control = list(max_treedepth = 14))
+
+## To explore the fit use shinystan
+library(shinystan)
+launch_shinystan(fit)
+```

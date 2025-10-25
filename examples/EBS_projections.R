@@ -1,14 +1,14 @@
-################################################
-# Setup
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Setup ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 library(Rceattle)
 library(dplyr)
 library(ggplot2)
 
 
-################################################
-# Data
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Data ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # Example
 # To run the 2017 single species assessment for the Bering Sea, a data file must first be loaded:
 data(BS2017SS) # ?BS2017SS for more information on the data
@@ -22,9 +22,9 @@ Rceattle::write_data(data_list = BS2017SS, file = "BS2017SS.xlsx")
 mydata <- Rceattle::read_data( file = "BS2017SS.xlsx")
 
 
-################################################
-# Estimation
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Estimation ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
 ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
                             file = NULL,
@@ -75,44 +75,39 @@ ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
 mod_list <- list(ss_run, ms_run)
 mod_names <- c("Single-species", "Multi-species")
 
-# Plot biomass trajectory
+# Plot trajectories
 plot_biomass(Rceattle = mod_list, model_names = mod_names)
 plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE)
-
-plot_selectivity(Rceattle = mod_list, model_names = mod_names)
-plot_mort(Rceattle = mod_list, model_names = mod_names, age = 2)
+plot_m_at_age(Rceattle = mod_list, model_names = mod_names, age = 2)
 
 # Run diagnostics
-plot_fsh_comp(ms_run) # Fitted fishery composition data
-plot_srv_comp(ms_run) # Fitted survey composition data
+# plot_comp(ms_run) # Fitted composition data
 plot_index(ms_run) # Fitted indices of abundance
 plot_catch(ms_run) # Fitted catch series
 
 
-# Save results
-write_results(Rceattle = ms_run, file = "yourresults.xlsx")
-
-
-################################################
-# Projection
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Projection ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
 # PROJECTION 1: CHANGING F
 # Rceattle automatically projects the population forward when estimating under no fishing
 BS2017MS$projyr # Year the population is projected forward
+BS2017MS$fleet_control$proj_F_prop <- 1 # 1 fishing fleet per species
 
 # Re-run, without estimating
-ms_run_proj <- Rceattle::fit_mod(data_list = BS2017MS,
+ms_run_proj <- fit_mod(data_list = BS2017MS,
                                  inits = ms_run$estimated_params, # Initial parameters from single species ests
                                  file = NULL, # Don't save
-                                 estimateMode = 0, # Run in projection mode
+                                 estimateMode = 2, # Run in projection mode
                                  HCR = build_hcr(HCR = 2,
-                                                 FsprTarget = c(0.2342936, 0.513, 0.0774777)), # Set projection F mean historical F
+                                                 Ftarget = c(0.2342936, 0.513, 0.0774777)), # Set projection F mean historical F
                                  niter = 5, # 5 iterations around population and predation dynamics
                                  random_rec = FALSE, # No random recruitment
                                  msmMode = 1, # MSVPA based
                                  suitMode = 0, # empirical suitability
                                  verbose = 1)
+plot_catch(ms_run_proj, incl_proj = T)
 
 
 
@@ -145,35 +140,43 @@ ms_run_proj2 <- Rceattle::fit_mod(data_list = BS2017MS,
 
 
 # plot
-mod_list <- list(ss_run, ms_run, ms_run_proj, ms_run_proj2)
-mod_names <- c("SS", "MS no F", "MS mean historical F", "MS mean historical F w random rec")
+mod_list <- list(ms_run, ms_run_proj, ms_run_proj2)
+mod_names <- c("MS no F", "MS mean historical F", "MS mean historical F w random rec")
 
 # Plot biomass trajectory
 plot_biomass(Rceattle = mod_list, model_names = mod_names, incl_proj = TRUE)
 plot_recruitment(Rceattle = mod_list, model_names = mod_names, incl_proj = TRUE)
+plot_catch(Rceattle = mod_list, model_names = mod_names, incl_proj = TRUE)
 
 
 
-################################################
-# Retrospective
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Retrospective ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # we can also do retrospective peels and calculate Mohn's Rho on the CEATTLE
 # NOTE: this is using mean historical F for projections as we changed it above
-ms_run_proj_retro <- retrospective(Rceattle = ms_run_proj, peels = 5)
+ms_run_retro <- Rceattle::retrospective(Rceattle = ms_run, peels = 5)
 
 # Look at Mohns rho
-ms_run_proj_retro$mohns
+ms_run_retro$mohns
 
 # Plot retrospectives
-plot_biomass(ms_run_proj_retro$Rceattle_list)
+plot_biomass(ms_run_retro$Rceattle_list)
 
 # See how forecast changes
-plot_biomass(ms_run_proj_retro$Rceattle_list, incl_proj = TRUE)
+plot_biomass(ms_run_retro$Rceattle_list, incl_proj = TRUE)
 
 
-################################################
-# Simulation
-################################################
+
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Jitter ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+jitters <- Rceattle::jitter(Rceattle = ss_run, njitter = 50, phase = TRUE)
+hist(log(jitters$nll - min(jitters$nll)))
+
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Simulation ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # Survey and composition data can be simulated from the estimated quantities using `sim_mod`:
 ss_sim <- sim_mod(ss_run, simulate = TRUE)
 
@@ -207,14 +210,14 @@ plot_biomass(Rceattle = mod_list, model_names = mod_names)
 plot_recruitment(Rceattle = mod_list, model_names = mod_names)
 
 
-################################################
-# Model variants
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Model variants ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
 # For recruitment, the model can estimate recruitment deviates as random effects
 ss_re <- Rceattle::fit_mod(
   data_list = mydata,
-  inits = ss_re$estimated_params, # Initial parameters = 0
+  inits = ss_run$estimated_params, # Initial parameters = 0
   file = NULL, # Don't save
   estimateMode = 0, # Estimate
   random_rec = TRUE, # Turn of recruitment deviations as random effects
@@ -223,15 +226,16 @@ ss_re <- Rceattle::fit_mod(
   phase = FALSE)
 
 # Diet estimation
+# - Set diet sample size arbitrarily to 10
+mydata$diet_data$Sample_size <- 10
 ms_gamma <- Rceattle::fit_mod(
   data_list = mydata,
   inits = ss_run$estimated_params, # Initial parameters from single species ests
   file = NULL, # Don't save
   estimateMode = 0, # Estimate
-  niter = 5, # 10 iterations around population and predation dynamics
+  niter = 5, # 5 iterations around population and predation dynamics
   random_rec = FALSE, # No random recruitment
   msmMode = 1, # MSVPA based
-  suitMode = 1, # Have a gamma function based on predator-prey length ratio for suitability. Includes diet proportion by weight in likelihood as multinomial
+  suitMode = 2, # Have a gamma function based on predator-prey weight ratio for suitability. Includes diet proportion by weight in likelihood as multinomial
   verbose = 1)
-# Can try different functions. Look at ?fit_mod suitmode
-
+# Can try different functions. Look at ?fit_mod suitMode

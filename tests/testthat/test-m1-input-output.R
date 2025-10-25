@@ -13,7 +13,7 @@ test_that("M1 input and output the same", {
                               estimateMode = 0, # Estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              phase = "default",
+                              phase = TRUE,
                               verbose = 1)
 
 
@@ -25,9 +25,10 @@ test_that("M1 input and output the same", {
                     estimateMode = 0, # Estimate
                     niter = 3, # 3 iterations around population and predation dynamics
                     random_rec = FALSE, # No random recruitment
+                    M1Fun = build_M1(updateM1 = TRUE),
                     msmMode = 1, # MSVPA based
                     suitMode = 0, # empirical suitability
                     verbose = 1)
 
-  expect_equal(ms_run$quantities$M1[1,1,1:12], as.numeric(ms_run$data_list$M1_base[1, 3:(12+2)]))
+  testthat::expect_equal(as.numeric(ms_run$quantities$M1_at_age[1,1,1:12,1]), as.numeric(ms_run$data_list$M1_base[1, 3:(12+2)]))
 })

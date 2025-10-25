@@ -7,7 +7,9 @@
 combine_data(data_list1 = NULL, data_list2 = NULL)
 }
 \arguments{
-\item{data_list2}{}
+\item{data_list1}{Rceattle data_list 1}
+
+\item{data_list2}{Rceattle data_list 2}
 }
 \description{
 Combine data sets. Will use the env_data data set from data_set1 and diet data will have to be updated.
