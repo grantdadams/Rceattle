@@ -32,6 +32,7 @@ fit_mod(
   rel_tol = 1,
   control = list(eval.max = 1e+09, iter.max = 1e+09, trace = 0),
   getJointPrecision = TRUE,
+  getReportCovariance = FALSE,
   loopnum = 5,
   verbose = 1,
   newtonsteps = 0,
@@ -54,13 +55,13 @@ fit_mod(
 
 \item{projection_uncertainty}{account for hindcast parameter uncertainty in projections when using an HCR? Default is FALSE for speed.}
 
-\item{random_rec}{logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE.}
+\item{random_rec}{logical. If TRUE, treats recruitment deviations as random effects using the laplace approximation.The default is FALSE.}
 
-\item{random_q}{logical. If TRUE, treats annual catchability deviations as random effects.The default is FALSE.}
+\item{random_q}{logical. If TRUE, treats annual catchability deviations as random effects using the laplace approximation.The default is FALSE.}
 
-\item{random_sel}{logical. If TRUE, treats annual selectivity deviations as random effects.The default is FALSE.}
+\item{random_sel}{logical. If TRUE, treats annual selectivity deviations as random effects using the laplace approximation.The default is FALSE.}
 
-\item{HCR}{HCR list object from \code{\link[build_hcr]}}
+\item{HCR}{HCR list object from \code{\link{build_hcr}}}
 
 \item{niter}{Number of iterations for multispecies model}
 
@@ -72,9 +73,9 @@ fit_mod(
 
 \item{avgnMode}{The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.}
 
-\item{initMode}{how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0 + dev-yr1,  mortality (M1); 2 = equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 3 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates.}
+\item{initMode}{how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0 + dev-yr1,  mortality (M1); 2 = equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 3 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates; 4 = non-equilibrium age-structure version 2 where initial fishing mortality (Finit) scales R0.}
 
-\item{suitMode}{Mode for suitability/functional calculation. 0 = empirical based on diet data (Holsman et al. 2015), 1 = length based gamma suitability, 2 = weight based gamma suitability, 3 = length based lognormal selectivity, 4 = time-varying length based lognormal selectivity.}
+\item{suitMode}{Switch for suitability derivation for each predator (single value or vector). 0 = empirical based on diet data (Holsman et al. 2015), 1 = length-based gamma suitability (NOT WORKING), 2 = weight-based gamma suitability, 3 = length-based lognormal suitability (NOT WORKING), 4 = weight-based lognormal suitability, 5 = length-based normal suitability (NOT WORKING), 6 = weight-based normal suitability.}
 
 \item{suit_styr}{Integer. The first year used to calculate mean suitability. Defaults to $styr$ in $data_list$. Used when diet data were sampled from a subset of years.}
 
@@ -91,6 +92,8 @@ fit_mod(
 \item{control}{A list of control parameters. For details see \code{?nlminb}}
 
 \item{getJointPrecision}{return full Hessian of fixed and random effects.}
+
+\item{getReportCovariance}{return variance covariance of ADREPORT variables}
 
 \item{loopnum}{number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})}
 

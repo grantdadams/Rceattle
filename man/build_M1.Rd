@@ -6,29 +6,55 @@
 \usage{
 build_M1(
   M1_model = 0,
+  M1_re = 0,
   updateM1 = FALSE,
   M1_use_prior = FALSE,
   M2_use_prior = FALSE,
   M_prior = 0.4,
-  M_prior_sd = 0.35
+  M_prior_sd = 0.35,
+  M1_indices = NA
 )
 }
 \arguments{
-\item{M1_model}{M1 set-up. 0 = use fixed natural mortality from M1_base in data, 1 = estimate sex- and age-invariant M1, 2 = sex-specific (two-sex model), age-invariant M1, 3 = estimate sex- and age-specific M1.}
+\item{M1_model}{Vector or scalar specifying M1 fixed effects model (see @description below). 0 = use fixed natural mortality from M1_base in data, 1 = estimate sex- and age-invariant M1, 2 = sex-specific (two-sex model), age-invariant M1, 3 = estimate sex- and age-specific M1, 4 = environmentally driven sex- and age-invariant M1, 5 = environmentally driven age-invariant, but sex-specific M1.}
 
-\item{updateM1}{If using initial parameters, use M1 from data instead.}
+\item{M1_re}{Vector or scalar specifying M1 random effects model. See description (default = 0).}
 
-\item{M1_use_prior}{Have M1 come from a lognormal prior}
+\item{updateM1}{If using initial parameters, use M1 fixed effects from data instead (default = FALSE).}
 
-\item{M2_use_prior}{Include M2 in prior for multi-species models}
+\item{M1_use_prior}{Vector or scalar specifying to specify if M1 fixed effects come from a lognormal prior}
 
-\item{M_prior}{Median of M prior on natural scale}
+\item{M2_use_prior}{Vector or scalar specifying to specify if M1 + M2 come from a lognormal prior in multi-species models (default = FALSE). Lognormal prior for M1 + M2 across species, sexes, ages, and years.}
 
-\item{M_prior_sd}{SD of lognormal M prior.}
+\item{M_prior}{Vector or scalar for mean of M prior on natural scale}
+
+\item{M_prior_sd}{Vector or scalar of SD of lognormal M prior. Used as initial value for random effects variance as well.}
 }
 \value{
 A list of switches for defining the M1 model
 }
 \description{
-Define M1 specifications
+\strong{M1 fixed effects currently implemented in CEATTLE}
+\itemize{
+\item \code{M1_model = 0} Fixed based on input \code{M1_base}
+\item \code{M1_model = 1} Single species specific M. Estimates \deqn{M1_{spp}}
+\item \code{M1_model = 2} Sex-specific M. Estimates \deqn{M1_{spp, sex}}
+\item \code{M1_model = 3} Sex- and age-specific M. Estimates \deqn{M1_{spp, sex, age}}
+\item \code{M1_model = 4} Sex-invariant environmental effect. Estimates \deqn{M1_{spp, yr} = M1_{spp} * e^{X * \beta_{X, spp}}}. \code{M1_indices} specifies the environmental indices.
+\item \code{M1_model = 5} Sex- and species specific environmental effect. Estimates \deqn{M1_{spp, sex, yr} = M1_{spp, sex} * e^{X * \beta_{X, spp, sex}}}. \code{M1_indices} specifies the environmental indices.
+\item TODO fit to environmental index
+}
+
+\strong{M1 random effects currently implemented in CEATTLE}
+
+M1 random effects are applied to each species if \code{M1_model = 1} or each species and sex if \code{M1_model = 2}. Variance and correlation coefficients are species-specific, but sex-invariant.
+\itemize{
+\item \code{M1_re = 0}: No random effects (default).
+\item \code{M1_re = 1}: Random effects varies by age, but uncorrelated (IID) and constant over years.
+\item \code{M1_re = 2}: Random effects varies by year, but uncorrelated (IID) and constant over ages.
+\item \code{M1_re = 3}: Random effects varies by year and age, but uncorrelated (IID).
+\item \code{M1_re = 4}: Correlated AR1 random effects varies by age, but constant over years.
+\item \code{M1_re = 5}: Correlated AR1 random effects varies by year, but constant over ages.
+\item \code{M1_re = 6}: Correlated 2D-AR1 random effects varies by year and age.
+}
 }

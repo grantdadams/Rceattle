@@ -46,7 +46,7 @@ plot(x = ages, y = srv_sel, type = "l")
 n_at_age <- matrix(0, nrow = nages, ncol = nyrs + 1)
 colnames(n_at_age) <- 0:nyrs; rownames(n_at_age) <- ages
 srv_comp <- fsh_comp <- matrix(0, nrow = nages, ncol = nyrs)
-biomass <- srv_biom <- ssb <- catch <- c()
+biomass <- index_data <- ssb <- catch <- c()
 
 # - Calculate initial abundance and recruitment
 n_at_age[1,2:(nyrs+1)] <- R # Age-1 is recruits
@@ -72,7 +72,7 @@ for(y in 2:nyrs){ # Year one starts at equilibrium
   # - The 1 - exp(-M+F) is calculating the number of fish lost due to F + M: (N-N*exp(-M+F))
 
   # - Calculate catch and survey biomass
-  srv_biom[y] <- sum(srv_comp[,y] * wt * srv_q)
+  index_data[y] <- sum(srv_comp[,y] * wt * srv_q)
   catch[y] <- sum(fsh_comp[,y] * wt)
 
   # - Normalize comp data
@@ -88,7 +88,7 @@ fsh_compn <- 1000
 srv_compn <- 1000
 
 # - Simulate observed catch and survey data from lognormal distribution
-srv_obs <- rlnorm(n = nyrs, meanlog = log(srv_biom), sd = srv_logsd)
+srv_obs <- rlnorm(n = nyrs, meanlog = log(index_data), sd = srv_logsd)
 catch_obs <- rlnorm(n = nyrs, meanlog = log(catch), sd = catch_logsd)
 catch_obs[is.na(catch_obs)] <- 0
 
@@ -105,7 +105,7 @@ plot(x = 1:nyrs, y = biomass, ylab = "Biomass", type = "l", col = 2)
 
 # - Survey
 plot(x = 1:nyrs, y = srv_obs, ylab = "Srv data", type = "l", col = 2)
-lines(x = 1:nyrs, y = srv_biom, lty = 2, col = 2)
+lines(x = 1:nyrs, y = index_data, lty = 2, col = 2)
 
 # - Catch
 plot(x = 1:nyrs, y = catch_obs, ylab = "Catch", type = "l", col = 1)
@@ -137,14 +137,39 @@ sim_dat$est_sex_ratio <- 0
 sim_dat$sex_ratio_sigma <- 1
 
 # * Fleet control ----
-sim_dat$fleet_control <- sim_dat$fleet_control[1:2,] # 2 fleets
-sim_dat$fleet_control[1,] <- c("Survey", 1, 2, 1, 1, 1, NA, 0, 0, 1, 1, nages, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, NA, NA, NA, 0, 1)
-sim_dat$fleet_control[2,] <- c("Fishery", 2, 1, 1, 2, 1, NA, 0, 0, 1, 1, nages, 1, 1, 1, NA, NA, 1, NA, NA, NA, NA, NA, 0, 1, 1, 1)
-sim_dat$fleet_control[,2:ncol(sim_dat$fleet_control)] <- apply(sim_dat$fleet_control[,2:ncol(sim_dat$fleet_control)], 2, as.numeric)
+sim_dat$fleet_control <-
+  data.frame(Fleet_name = c("Survey", "Fishery"),
+             Fleet_code = 1:2,           # 1) Temporary survey index
+             Fleet_type = 2:1,           # 2) Fleet type; 0 = don't fit, 1 = fishery, 2 = survey
+             Species = 1,              # 3) Species
+             Selectivity_index = 1:2,    # 4) Survey selectivity index
+             Selectivity = 1,          # 5) Selectivity type
+             Nselages = NA,             # 6) Non-parametric selectivity ages
+             Time_varying_sel = 0,     # 7) Time-varying selectivity type.
+             Sel_sd_prior = 0,
+             Age_first_selected = 1,   # 8) First age selected
+             Age_max_selected = NA,     # 9b) Age of max selectivity (used for normalization). If NA, does not normalize
+             Age_max_selected_upper = NA,# 9a) upper age of max selectivity (used for normalization). If NA, does not normalize
+             Comp_loglike = 0,         # 10) Index indicating wether to do dirichlet multinomial for a multinomial)
+             Weight1_Numbers2 = 1,     # 11) Survey units
+             Weight_index = 1,         # 12) Dim1 of weight (what weight-at-age data set)
+             Age_transition_index = 1, # 13) Dim3 of age transition matrix (what ALK to use)
+             Q_index = c(1, NA),              # 14) Index of survey q
+             Estimate_q = c(1,0),           # 15) Parametric form of q
+             Q_prior = 1,
+             Q_sd_prior = 0.1,
+             Time_varying_q = 0,       # 16) Time varying q type
+             Time_varying_q_sd_prior = 0,
+             Estimate_index_sd = 0,    # 17) Wether to estimate standard deviation of survey time series
+             Index_sd_prior = NA,
+             Estimate_catch_sd = 0,    # 18) Wether to estimate standard deviation of fishery time series)
+             Catch_sd_prior = NA,
+             proj_F_prop  = 0,
+             Comp_weights = 1)
 
 # * Survey data ----
 # - Starts at year-2
-sim_dat$srv_biom <- data.frame(
+sim_dat$index_data <- data.frame(
   Fleet_name = "Survey",
   Fleet_code = 1,
   Species = 1,
@@ -158,7 +183,7 @@ sim_dat$srv_biom <- data.frame(
 
 # * Fishery data ----
 # - Starts at year-2
-sim_datfsh_biom <- data.frame(
+sim_dat$catch_data <- data.frame(
   Fleet_name = "Fishery",
   Fleet_code = 2,
   Species = 1,
@@ -232,13 +257,13 @@ sim_dat$age_error  <- age_error
 
 
 # * Weight-at-age ----
-sim_dat$wt <- sim_dat$wt[0,1:(nages+5)]
-sim_dat$wt[1,] <-c("Species1", 1, 1, 0 ,0, wt)
+sim_dat$weight <- sim_dat$weight[0,1:(nages+5)]
+sim_dat$weight[1,] <-c("Species1", 1, 1, 0 ,0, wt)
 
 
 # * Maturity ----
-sim_dat$pmature <- sim_dat$pmature[0,1:(nages+1)]
-sim_dat$pmature[1,] <-c(1, mat)
+sim_dat$maturity <- sim_dat$maturity[0,1:(nages+1)]
+sim_dat$maturity[1,] <-c(1, mat)
 
 
 # * Sex-ratio ----
@@ -258,7 +283,7 @@ sim_dat$env_data <- data.frame(
 
 # * Pyrs and diet ----
 sim_dat$Pyrs <- sim_dat$Pyrs[0,]
-sim_dat$UobsWtAge <- sim_dat$UobsWtAge[0,]
+sim_dat$diet_data <- sim_dat$diet_data[0,]
 
 
 ## 3) Fit CEATTLE ----
@@ -270,7 +295,8 @@ sim_model <- Rceattle::fit_mod(
   random_rec = FALSE, # No random recruitment
   msmMode = 0, # 0 = Single species mode, 1 = MSVPA multi-species mode
   verbose = 1, # Silence optimization output
-  phase = "default") # Use default phasing
+  phase = TRUE) # Use default phasing
 
 plot(x = 1:nyrs, y = sim_model$quantities$biomass[1,1:nyrs], ylab = "Biomass", type = "l", col = 2)
 lines(x = 1:nyrs, y = biomass)
+

@@ -40,7 +40,7 @@ ss_run_M <- Rceattle::fit_mod(data_list = GOA2018SS,
                               phase = TRUE,
                               verbose = 1)
 
-plot_biomass(ss_run_M)
+plot_biomass(ss_run_M, add_ci = T)
 
 # - Multi-species
 # For the a multispecies model we from the single species parameters.
@@ -51,11 +51,12 @@ ms_run <- Rceattle::fit_mod(data_list = GOA2018SS,
                             M1Fun = build_M1(M1_model = c(1,2,1)),
                             niter = 3, # 3 iterations around population and predation dynamics
                             random_rec = FALSE, # No random recruitment
+                            phase = TRUE,
                             msmMode = 1, # MSVPA based
                             suitMode = 0, # empirical suitability
                             verbose = 1)
 
-plot_biomass(ms_run)
+plot_biomass(ms_run, add_ci = TRUE)
 
 
 ################################################
@@ -73,7 +74,7 @@ plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE)
 # Plot mortality and predation
 plot_b_eaten(Rceattle = mod_list, model_names = mod_names) # Biomass eaten as prey
 plot_b_eaten_prop(Rceattle = mod_list, model_names = mod_names) # Biomass eaten as prey by each predator
-plot_mort(Rceattle = ms_run, type = 3) # Mortality-at-age time series
+plot_mortality(Rceattle = ms_run, type = 3) # Mortality-at-age time series
 
 # Run diagnostics
 plot_selectivity(Rceattle = ms_run)

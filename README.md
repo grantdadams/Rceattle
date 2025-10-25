@@ -2,7 +2,7 @@
 
 Rceattle: an R package for estimation of CEATTLE using template model builder. 
 
-NOTE: this branch is the most up to date (including stock-recruit environmental linkages), but has many features commented out for quicker MSE runs.
+NOTE: this branch is the most up to date (including stock-recruit environmental linkages), but has some model outputs commented out for quicker MSE runs.
 
 
 CEATTLE is short for Climate-Enhanced, Age-based model with Temperature-specific Trophic Linkages and Energetics, which is a multi-species age-structured assessment model developed for groundfish in the Bering Sea, USA by Holsman et al. (2015) and Gulf of Alaska, USA (Adams et al, 2022). Essentially, it is a multispecies statistical catch-at-age model. To incorporate the impacts of climate, the model includes temperature-specific, bioenergetics-based predation interactions. Inputs of the model include survey/fishery index, catch, and length/age composition data in addition to empirical weight-at-age, diet proportion, and ration data. Outputs include historical estimates of predation mortality, fishing mortality, biomass, recruitment, etc.
@@ -13,8 +13,11 @@ CEATTLE is short for Climate-Enhanced, Age-based model with Temperature-specific
 
 Code and function examples using data from the Bering Sea and Gulf of Alaska groundfish application can be found in the [examples](https://github.com/grantdadams/Rceattle/tree/master/examples) folder.
 
+**Getting started**
 
-References
+See [onboarding document](https://github.com/grantdadams/Rceattle/wiki/Onboarding) and Wiki for getting started!
+
+**References**
 
 Holsman, K. K., Ianelli, J., Aydin, K., Punt, A. E., & Moffitt, E. A. (2016). A comparison of fisheries biological reference points estimated from temperature-specific multi-species and single-species climate-enhanced stock assessment models. Deep Sea Research Part II: Topical Studies in Oceanography, 134, 360-378.
 

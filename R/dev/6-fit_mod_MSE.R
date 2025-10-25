@@ -36,7 +36,6 @@
 #'  \item{quantities: Derived quantities from CEATTLE}
 #'  \item{run_time: Model run time}
 #'  }
-#' @export
 fit_mod_mse <-
   function(
     data_list = NULL,
