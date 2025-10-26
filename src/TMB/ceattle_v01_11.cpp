@@ -3315,8 +3315,9 @@ Type objective_function<Type>::operator() () {
   // ------------------------------------------------------------------------- //
 
   // 14.0. OBJECTIVE FUNCTION
-  matrix<Type> jnll_comp(19, n_flt); jnll_comp.setZero();  // matrix of negative log-likelihood components
-  matrix<Type> unweighted_jnll_comp(19, n_flt); unweighted_jnll_comp.setZero();  // matrix of negative log-likelihood components without likelihood weights
+  int n_col = std::max(n_flt, nspp);
+  matrix<Type> jnll_comp(19, n_col); jnll_comp.setZero();  // matrix of negative log-likelihood components
+  matrix<Type> unweighted_jnll_comp(19, n_col); unweighted_jnll_comp.setZero();  // matrix of negative log-likelihood components without likelihood weights
 
   // -- Data likelihood components (Fleet specific)
   // Slot 0 -- Survey biomass
@@ -4039,7 +4040,7 @@ Type objective_function<Type>::operator() () {
 
   // Paste unweighted likelihood parts over
   // - Only comp and diet comp use data weights!
-  for(flt = 0; flt < n_flt; flt++){
+  for(flt = 0; flt < n_col; flt++){
     for(int ind = 0; ind < 19; ind++){
       if((ind!= 2) & (ind != 18)){
         unweighted_jnll_comp(ind, flt) = jnll_comp(ind, flt);
