@@ -4,7 +4,7 @@
 \alias{plot_diet_comp}
 \title{Plot diet composition fits (Final Version)}
 \usage{
-plot_diet_comp(Rceattle, file = NULL, species = NULL)
+plot_diet_comp(Rceattle, file = NULL, species = NULL, add_ci = TRUE)
 }
 \arguments{
 \item{Rceattle}{A single Rceattle model object.}
@@ -18,5 +18,6 @@ Prints plots and invisibly returns a list of plot objects.
 }
 \description{
 Creates diagnostic plots for diet composition fits. It automatically
-detects the data aggregation level and generates the most appropriate plot type.
+detects the data aggregation level for each predator-prey interaction and
+generates the most appropriate plot type.
 }

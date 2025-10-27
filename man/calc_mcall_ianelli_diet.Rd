@@ -2,22 +2,15 @@
 % Please edit documentation in R/6-rename_output.R
 \name{calc_mcall_ianelli_diet}
 \alias{calc_mcall_ianelli_diet}
-\title{Function to calculate McAllister-Ianelli weights for diet data (UPDATED)}
+\title{Function to calculate McAllister-Ianelli weights for diet data}
 \usage{
 calc_mcall_ianelli_diet(data_list = NULL, quantities = NULL)
 }
 \arguments{
-\item{data_list}{A data_list object created by \code{\link{build_dat}}.}
+\item{data_list}{A data_list object created by \code{\link{build_dat}}}
 
-\item{quantities}{The 'quantities' object from a model run.}
-}
-\value{
-The original data_list with a new element,
-\code{Diet_weights_mcallister}, containing the calculated weights for each
-predator species.
+\item{quantities}{list of "report" objects from Rceattle, including diet_hat predictions}
 }
 \description{
-Calculates effective sample size data weights for diet composition
-data using the McAllister-Ianelli method. This version works with the new
-multinomial likelihood structure.
+Function to calculate McAllister-Ianelli weights for diet data
 }

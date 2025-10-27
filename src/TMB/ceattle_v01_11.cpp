@@ -534,7 +534,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 4.12. Predation components
   array<Type>   M2_at_age(nspp, max_sex, max_age, nyrs); M2_at_age.setZero();                        // Predation mortality at age
-  // array<Type>   M2_prop(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); M2_prop.setZero();     // Relative predation mortality at age from each species at age
+  array<Type>   M2_prop(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); M2_prop.setZero();     // Relative predation mortality at age from each species at age
   array<Type>   B_eaten(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); B_eaten.setZero();        // Biomass of prey eaten via predation by a predator at age
   array<Type>   B_eaten_as_prey(nspp, max_sex, max_age, nyrs); B_eaten_as_prey.setZero();            // Biomass eaten as prey via predation
   // array<Type>   B_eaten_as_pred(nspp, max_sex, max_age, nyrs); B_eaten_as_pred.setZero();         // Biomass eaten as predator via predation (used for Kinzey and Punt)
@@ -2425,7 +2425,7 @@ Type objective_function<Type>::operator() () {
                         //switch(msmMode){
                         //case 1: // Type 2 MSVPA
                         M2_at_age(ksp, k_sex, k_age, yr) += (avgN_at_age(rsp, r_sex, r_age, yr) * ration(rsp, r_sex, r_age, yr) * suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr); // #FIXME - include indices of overlap
-                        //M2_prop(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = (avgN_at_age(rsp, r_sex, r_age, yr) * ration(rsp, r_sex, r_age, yr) * suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr);
+                        M2_prop(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = (avgN_at_age(rsp, r_sex, r_age, yr) * ration(rsp, r_sex, r_age, yr) * suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr);
                         B_eaten(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = avgN_at_age(ksp, k_sex, k_age, yr) * weight(pop_wt_index(ksp), k_sex, k_age, yr_ind) * avgN_at_age(rsp, r_sex, r_age, yr) * ration(rsp, r_sex, r_age, yr) * suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
                         B_eaten_as_prey(ksp, k_sex, k_age, yr) += B_eaten(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr);
                         diet_prop_hat(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = avgN_at_age(ksp, k_sex, k_age, yr) * weight(pop_wt_index(ksp), k_sex, k_age, yr_ind) * suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)/ avail_food(rsp, r_sex, r_age, yr);
@@ -2679,428 +2679,597 @@ Type objective_function<Type>::operator() () {
  */
     } // End 8. Predation mortality
     // - END LOOP - END LOOP - END LOOP - END LOOP - END LOOP - //
-
-
-
-    // ------------------------------------------------------------------------- //
-    // 9. INDEX COMPONENTS EQUATIONS                                             //
-    // ------------------------------------------------------------------------- //
-
-    // -- 9.1. Index of abundance/biomass
-    for(index_ind = 0; index_ind < index_ctl.rows(); index_ind++){
-
-      index = index_ctl(index_ind, 0) - 1;            // Temporary survey index
-      sp = index_ctl(index_ind, 1) - 1;             // Temporary index of species
-      flt_yr = index_ctl(index_ind, 2);             // Temporary index for years of data
-
-      mo = index_n(index_ind, 0);                   // Temporary index for month
-
-      index_hat(index_ind) = 0.0;                    // Initialize
-
-      if(flt_yr > 0){
-        flt_yr = flt_yr - styr;
-      }
-      if(flt_yr < 0){
-        flt_yr = -flt_yr - styr;
-      }
-
-      // Hindcast
-      if(flt_yr < nyrs_hind){
-        yr_ind = flt_yr;
-      }
-
-      // Projection
-      if(flt_yr >= nyrs_hind){
-        yr_ind = nyrs_hind - 1;
-      }
-
-      for(age = 0; age < nages(sp); age++) {
-        for(sex = 0; sex < nsex(sp); sex++){
-          // Weight
-          if(flt_units(index) == 1){
-            index_hat(index_ind) += N_at_age(sp, sex, age, flt_yr) * exp( - (mo/12.0) * Z_at_age(sp, sex, age, flt_yr)) * sel(index, sex, age, yr_ind) * weight( flt_wt_index(index), sex, age, yr_ind );
-          }
-          // Numbers
-          if(flt_units(index) == 2){
-            index_hat(index_ind) += N_at_age(sp, sex, age, flt_yr) * exp( - (mo/12.0) * Z_at_age(sp, sex, age, flt_yr)) * sel(index, sex, age, yr_ind);
-          }
-        }
-      }
-    }
-
-
-    // -- 9.2. Analytical survey q following Ludwig and Martell 1994
-    index_n_obs.setZero();
-    index_q_analytical.setZero();
-    for(index_ind = 0; index_ind < index_ctl.rows(); index_ind++){
-
-
-
-      index = index_ctl(index_ind, 0) - 1;            // Temporary survey index
-      sp = index_ctl(index_ind, 1) - 1;             // Temporary index of species
-      flt_yr = index_ctl(index_ind, 2);             // Temporary index for years of data
-
-      if(flt_yr > 0){
-        flt_yr = flt_yr - styr;
-
-
-        mo = index_n(index_ind, 0);                    // Temporary index for month
-        if(flt_yr < nyrs_hind){
-
-          // If etimated standard deviation or analytical sigma (non-time-varying)
-          if(est_sigma_index(index) > 0) {
-            index_n_obs(index) += 1; // Add one if survey is used
-            index_q_analytical(index) += log(index_obs(index_ind, 0) / index_hat(index_ind));
-          }
-
-          // If time-varying sigma
-          if(est_sigma_index(index) == 0 ) {
-            index_n_obs(index) += 1 / square(index_obs(index_ind, 1));
-            index_q_analytical(index) += log(index_obs(index_ind, 0) / index_hat(index_ind)) / square(index_obs(index_ind, 1));
-          }
-        }
-      }
-    }
-
-    // Take average
-    for(index = 0 ; index < n_flt; index ++){
-      index_q_analytical(index) = exp(index_q_analytical(index) / index_n_obs(index));
-
-      // Set index_q to analytical if used
-      if(est_index_q(index) == 3){
-        for(yr = 0; yr < nyrs_hind; yr++){
-          index_q(index, yr) = index_q_analytical(index);
-        }
-      }
-    }
-
-
-    // -- 9.3. Survey Biomass - multiply by q
-    for(index_ind = 0; index_ind < index_ctl.rows(); index_ind++){
-
-      index = index_ctl(index_ind, 0) - 1;            // Temporary survey index
-      flt_yr = index_ctl(index_ind, 2);      // Temporary index for years of data
-
-      if(flt_yr > 0){
-        flt_yr = flt_yr - styr;
-      }
-      if(flt_yr < 0){
-        flt_yr = -flt_yr - styr;
-      }
-
-      // Hindcast
-      if(flt_yr < nyrs_hind){
-        yr_ind = flt_yr;
-      }
-
-      // Projection
-      if(flt_yr >= nyrs_hind){
-        yr_ind = nyrs_hind - 1;
-      }
-
-      index_hat(index_ind) = index_q(index, yr_ind) * index_hat(index_ind); // pow(index_hat(index_ind), (1 + index_q_pow(index)));
-
-    }
-
-
-
-    // -- 9.4. Calculate analytical sigma following Ludwig and Walters 1994
-    index_n_obs.setZero();
-    ln_index_analytical_sd.setZero();
-    for(index_ind = 0; index_ind < index_ctl.rows(); index_ind++){
-
-      index = index_ctl(index_ind, 0) - 1;            // Temporary survey index
-      flt_yr = index_ctl(index_ind, 2);      // Temporary index for years of data
-
-      if(flt_yr > 0){
-        flt_yr = flt_yr - styr;
-
-        if(flt_yr < nyrs_hind){
-          index_n_obs(index) += 1; // Add one if survey is used
-          ln_index_analytical_sd(index) += square( log(index_obs(index_ind, 0)) - log(index_hat(index_ind)));
-        }
-      }
-    }
-
-    for(index = 0 ; index < n_flt; index ++){
-      ln_index_analytical_sd(index) = sqrt(ln_index_analytical_sd(index) / index_n_obs(index));
-    }
-
-
-    // ------------------------------------------------------------------------- //
-    // 10. FISHERY COMPONENTS EQUATIONS                                          //
-    // ------------------------------------------------------------------------- //
-    // 10.1. ESTIMATE CATCH-AT-AGE and TOTAL YIELD (kg)
-    for(fsh_ind = 0; fsh_ind < catch_ctl.rows(); fsh_ind++){
-
-      flt = catch_ctl(fsh_ind, 0) - 1;     // Temporary fishery index
-      sp = catch_ctl(fsh_ind, 1) - 1;      // Temporary index of species
-      flt_yr = catch_ctl(fsh_ind, 2);      // Temporary index for years of data
-      mo = catch_n(fsh_ind, 0);            // Temporary index for month
-
-      catch_hat(fsh_ind) = 0.0;  // Initialize
-      max_catch_hat(fsh_ind) = 0.0; // Initialize
-
-      if(flt_yr > 0){
-        flt_yr = flt_yr - styr;
-      }
-      if(flt_yr < 0){
-        flt_yr = -flt_yr - styr;
-      }
-
-      // Hindcast
-      if(flt_yr < nyrs_hind){
-        yr_ind = flt_yr;
-      }
-
-      // Projection
-      if(flt_yr >= nyrs_hind){
-        yr_ind = nyrs_hind - 1;
-      }
-
-      for(sex = 0; sex < nsex(sp); sex ++){
-        for(age = 0; age < nages(sp); age++) {
-          // FIXME: add wt_yr_ind for MSE
-
-          // By weight
-          if(flt_units(flt) == 1){
-            catch_hat(fsh_ind) += F_flt_age(flt, sex, age, flt_yr) / Z_at_age(sp, sex, age, flt_yr) * (1.0 - exp(-Z_at_age(sp, sex, age, flt_yr))) * N_at_age(sp, sex, age, flt_yr) * weight( flt_wt_index(flt), sex, age, yr_ind ); // 5.5.
-            max_catch_hat(fsh_ind) += N_at_age(sp, sex, age, flt_yr) * weight( flt_wt_index(flt), sex, age, yr_ind ) * sel(flt, sex, age, yr_ind) * proj_F_prop(flt); // FIXME using last year of selectivity;
-          }
-
-          // By numbers
-          if(flt_units(flt) == 2){
-            catch_hat(fsh_ind) += F_flt_age(flt, sex, age, flt_yr) / Z_at_age(sp, sex, age, flt_yr) * (1.0 - exp(-Z_at_age(sp, sex, age, flt_yr))) * N_at_age(sp, sex, age, flt_yr);
-            max_catch_hat(fsh_ind) += N_at_age(sp, sex, age, flt_yr) * sel(flt, sex, age, yr_ind) * proj_F_prop(flt); // FIXME using last year of selectivity;
-          }
-        }
-      }
-    }
-
-    // 10.2 Exploitable biomass ----
-    exploitable_biomass.setZero();
-
-    for(flt = 0; flt < n_flt; flt++) {
-
-      sp = flt_spp(flt);
-
-      if(flt_type(flt) == 1){ //Fishery only
-        for(yr = 0; yr < nyrs; yr++) {
-
-          // Hindcast
-          if(yr < nyrs_hind){
-            yr_ind = yr;
-          }
-
-          // Projection
-          if(yr >= nyrs_hind){
-            yr_ind = nyrs_hind - 1;
-          }
-
-          for(age = 0; age < nages(sp); age++) {
-            for(sex = 0; sex < nsex(sp); sex ++){
-              exploitable_biomass(sp, yr) += N_at_age(sp, sex, age, yr) * weight( flt_wt_index(flt), sex, age, yr_ind ) * sel(flt, sex, age, yr_ind) * proj_F_prop(flt); // FIXME using last year of selectivity;
-            }
-          }
-        }
-      }
-    }
-
-
-    // ------------------------------------------------------------------------- //
-    // 11. COMPOSITION EQUATIONS                                                  //
-    // ------------------------------------------------------------------------- //
-
-    // -- 11.1. Composition
-    age_obs_hat.setZero();
-    comp_hat.setZero();
-    age_hat.setZero();
-    for(comp_ind = 0; comp_ind < comp_hat.rows(); comp_ind++){
-
-      flt = comp_ctl(comp_ind, 0) - 1;            // Temporary fishery index
-      sp = comp_ctl(comp_ind, 1) - 1;             // Temporary index of species
-      flt_sex = comp_ctl(comp_ind, 2);            // Temporary index for comp sex (0 = combined, 1 = female, 2 = male)
-      comp_type = comp_ctl(comp_ind, 3);          // Temporary index for comp type (0 = age, 1 = length, 2 = CAAL)
-      yr = comp_ctl(comp_ind, 4);                 // Temporary index for years of data
-      mo = comp_n(comp_ind, 0);                   // Temporary index for month
-
-      n_hat(comp_ind) = 0.0;                          // Initialize
-
-      // Likelihood (yr > 0) vs prediction (yr < 0)
-      if(yr > 0){
-        yr = yr - styr;
-      }
-      if(yr < 0){
-        yr = -yr - styr;
-      }
-
-      // Hindcast
-      if(yr < nyrs_hind){
-        yr_ind = yr;
-      }
-
-      // Projection
-      if(yr >= nyrs_hind){
-        yr_ind = nyrs_hind - 1;
-      }
-
-      // Get catch-at-age
-      for(age = 0; age < nages(sp); age++) {
-
-
-        switch(flt_type(flt)){
-        case 1: // - Fishery
-          switch(flt_sex){
-          case 0: // Sexes combined or 1 sex assessment
-            for(sex = 0; sex < nsex(sp); sex ++){
-              // Catch-at-age
-              age_hat(comp_ind, age ) += F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr);
-              // Total numbers
-              n_hat( comp_ind ) += F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr);
-            }
-            break;
-
-          case 1: case 2: // Sex-specific composition data
-            sex = flt_sex - 1;
-            // Catch-at-age
-            age_hat(comp_ind, age ) = F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr);
-            // Total numbers
-            n_hat( comp_ind ) += F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr);
-            break;
-
-          case 3: // Joint composition data
-            for(sex = 0; sex < nsex(sp); sex ++){
-              // Catch-at-age
-              age_hat(comp_ind, age + nages(sp) * sex ) = F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr);
-              // Total numbers
-              n_hat(comp_ind) += F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr);
-            }
-            break;
-          }
-          break;
-
-
-        case 2: // - Survey
-          switch(flt_sex){
-          case 0: // Sexes combined or 1 sex assessment
-            for(sex = 0; sex < nsex(sp); sex ++){
-              // Survey catch-at-age
-              age_hat(comp_ind, age ) += N_at_age(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr));
-              // Total numbers
-              n_hat(comp_ind) += N_at_age(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr));  // FIXME - put power in for catchability
-            }
-            break;
-
-          case 1: case 2: // Sex-specific composition data
-            sex = flt_sex - 1;
-            // Survey catch-at-age
-            age_hat(comp_ind, age ) = N_at_age(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr));
-            // Total numbers
-            n_hat(comp_ind) += N_at_age(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr));
-            break;
-
-          case 3: // Joint composition data
-            for(sex = 0; sex < nsex(sp); sex ++){
-              // Survey catch-at-age
-              age_hat(comp_ind, age + nages(sp) * sex ) = N_at_age(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr));
-              // Total numbers
-              n_hat(comp_ind) += N_at_age(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr));
-            }
-            break;
-          }
-        }
-      }
-
-      // Adjustment for joint sex composition data
-      joint_adjust(comp_ind) = 1;
-      if(flt_sex == 3){
-        joint_adjust(comp_ind) = 2;
-      }
-
-      // True age comp standardize to sum to 1
-      for(age = 0; age < nages(sp) * joint_adjust(comp_ind); age++) {
-        true_age_comp_hat(comp_ind, age ) = age_hat(comp_ind, age ) / posfun(n_hat(comp_ind), Type(0.00001), penalty);
-      }
-
-
-      // Adjust for aging error
-      for(int obs_age = 0; obs_age < nages(sp); obs_age++) {
-        for(int true_age = 0; true_age < nages(sp); true_age++) {
-          age_obs_hat(comp_ind, obs_age) += age_hat(comp_ind, true_age ) * age_error(sp, true_age, obs_age);
-        }
-      }
-
-      // Adjust for aging error for joint data
-      if(flt_sex == 3){
-        for(int obs_age = nages(sp); obs_age < nages(sp) * 2; obs_age++) {
-          for(int true_age = nages(sp); true_age < nages(sp) * 2; true_age++) {
-
-            // Adjust indexing for joint age/length comp
-            int true_age_tmp = true_age - nages(sp);
-            int obs_age_tmp = obs_age - nages(sp);
-
-            age_obs_hat(comp_ind, obs_age) += age_hat(comp_ind, true_age ) * age_error(sp, true_age_tmp, obs_age_tmp);
-          }
-        }
-      }
-
-
-      //  Observed age comp standardize to sum to 1
-      if(comp_type == 0) {
-        for(age = 0; age < nages(sp) * joint_adjust(comp_ind); age++) {
-          comp_hat(comp_ind, age) = age_obs_hat(comp_ind, age ) / posfun(n_hat(comp_ind), Type(0.00001), penalty);
-
-        }
-      }
-
-
-      // Convert from catch-at-age to catch-at-length
-      if( comp_type == 1) {
-        for(ln = 0; ln < nlengths(sp); ln++) {
-          for(age = 0; age < nages(sp); age++) {
-
-            sex = 0;
-
-            // Adjust sex for males/females
-            if((flt_sex > 0) & (flt_sex < 3)){
-              sex = flt_sex - 1;
-            }
-
-            comp_hat(comp_ind, ln ) += age_obs_hat(comp_ind, age) * age_trans_matrix(flt_age_transition_index(flt), sex, age, ln );
-          }
-        }
-
-
-        // Convert from catch-at-age to catch-at-length for joint comp data
-        if( flt_sex == 3) {
-          for(ln = nlengths(sp); ln < nlengths(sp) * 2; ln++) {
-            for(age = nages(sp); age < nages(sp) * 2; age++) {
-
-              // Adjust indexing for joint age/length comp
-              int obs_ln_tmp = ln;
-              int obs_age_tmp = age;
-
-              obs_age_tmp = age - nages(sp);
-              obs_ln_tmp = ln - nlengths(sp);
-              sex = 1;
-
-              comp_hat(comp_ind, ln ) += age_obs_hat(comp_ind, age) * age_trans_matrix(flt_age_transition_index(flt), sex, obs_age_tmp, obs_ln_tmp );
-            }
-          }
-        }
-
-
-        // Standardize to sum to 1
-        for(ln = 0; ln < nlengths(sp) * joint_adjust(comp_ind); ln++) {
-          comp_hat(comp_ind, ln ) = comp_hat(comp_ind, ln) / posfun(n_hat(comp_ind), Type(0.00001), penalty);
-        }
-      }
-    }
-
   } // End population dynamics iterations
   // - END LOOP - END LOOP - END LOOP - END LOOP - END LOOP - //
 
+  // ------------------------------------------------------------------------- //
+  // 9. INDEX COMPONENTS EQUATIONS                                             //
+  // ------------------------------------------------------------------------- //
 
+  // -- 9.1. Index of abundance/biomass
+  for(index_ind = 0; index_ind < index_ctl.rows(); index_ind++){
+
+    index = index_ctl(index_ind, 0) - 1;            // Temporary survey index
+    sp = index_ctl(index_ind, 1) - 1;             // Temporary index of species
+    flt_yr = index_ctl(index_ind, 2);             // Temporary index for years of data
+
+    mo = index_n(index_ind, 0);                   // Temporary index for month
+
+    index_hat(index_ind) = 0.0;                    // Initialize
+
+    if(flt_yr > 0){
+      flt_yr = flt_yr - styr;
+    }
+    if(flt_yr < 0){
+      flt_yr = -flt_yr - styr;
+    }
+
+    // Hindcast
+    if(flt_yr < nyrs_hind){
+      yr_ind = flt_yr;
+    }
+
+    // Projection
+    if(flt_yr >= nyrs_hind){
+      yr_ind = nyrs_hind - 1;
+    }
+
+    for(age = 0; age < nages(sp); age++) {
+      for(sex = 0; sex < nsex(sp); sex++){
+        // Weight
+        if(flt_units(index) == 1){
+          index_hat(index_ind) += N_at_age(sp, sex, age, flt_yr) * exp( - (mo/12.0) * Z_at_age(sp, sex, age, flt_yr)) * sel(index, sex, age, yr_ind) * weight( flt_wt_index(index), sex, age, yr_ind );
+        }
+        // Numbers
+        if(flt_units(index) == 2){
+          index_hat(index_ind) += N_at_age(sp, sex, age, flt_yr) * exp( - (mo/12.0) * Z_at_age(sp, sex, age, flt_yr)) * sel(index, sex, age, yr_ind);
+        }
+      }
+    }
+  }
+
+
+  // -- 9.2. Analytical survey q following Ludwig and Martell 1994
+  index_n_obs.setZero();
+  index_q_analytical.setZero();
+  for(index_ind = 0; index_ind < index_ctl.rows(); index_ind++){
+
+
+
+    index = index_ctl(index_ind, 0) - 1;            // Temporary survey index
+    sp = index_ctl(index_ind, 1) - 1;             // Temporary index of species
+    flt_yr = index_ctl(index_ind, 2);             // Temporary index for years of data
+
+    if(flt_yr > 0){
+      flt_yr = flt_yr - styr;
+
+
+      mo = index_n(index_ind, 0);                    // Temporary index for month
+      if(flt_yr < nyrs_hind){
+
+        // If etimated standard deviation or analytical sigma (non-time-varying)
+        if(est_sigma_index(index) > 0) {
+          index_n_obs(index) += 1; // Add one if survey is used
+          index_q_analytical(index) += log(index_obs(index_ind, 0) / index_hat(index_ind));
+        }
+
+        // If time-varying sigma
+        if(est_sigma_index(index) == 0 ) {
+          index_n_obs(index) += 1 / square(index_obs(index_ind, 1));
+          index_q_analytical(index) += log(index_obs(index_ind, 0) / index_hat(index_ind)) / square(index_obs(index_ind, 1));
+        }
+      }
+    }
+  }
+
+  // Take average
+  for(index = 0 ; index < n_flt; index ++){
+    index_q_analytical(index) = exp(index_q_analytical(index) / index_n_obs(index));
+
+    // Set index_q to analytical if used
+    if(est_index_q(index) == 3){
+      for(yr = 0; yr < nyrs_hind; yr++){
+        index_q(index, yr) = index_q_analytical(index);
+      }
+    }
+  }
+
+
+  // -- 9.3. Survey Biomass - multiply by q
+  for(index_ind = 0; index_ind < index_ctl.rows(); index_ind++){
+
+    index = index_ctl(index_ind, 0) - 1;            // Temporary survey index
+    flt_yr = index_ctl(index_ind, 2);      // Temporary index for years of data
+
+    if(flt_yr > 0){
+      flt_yr = flt_yr - styr;
+    }
+    if(flt_yr < 0){
+      flt_yr = -flt_yr - styr;
+    }
+
+    // Hindcast
+    if(flt_yr < nyrs_hind){
+      yr_ind = flt_yr;
+    }
+
+    // Projection
+    if(flt_yr >= nyrs_hind){
+      yr_ind = nyrs_hind - 1;
+    }
+
+    index_hat(index_ind) = index_q(index, yr_ind) * index_hat(index_ind); // pow(index_hat(index_ind), (1 + index_q_pow(index)));
+
+  }
+
+
+
+  // -- 9.4. Calculate analytical sigma following Ludwig and Walters 1994
+  index_n_obs.setZero();
+  ln_index_analytical_sd.setZero();
+  for(index_ind = 0; index_ind < index_ctl.rows(); index_ind++){
+
+    index = index_ctl(index_ind, 0) - 1;            // Temporary survey index
+    flt_yr = index_ctl(index_ind, 2);      // Temporary index for years of data
+
+    if(flt_yr > 0){
+      flt_yr = flt_yr - styr;
+
+      if(flt_yr < nyrs_hind){
+        index_n_obs(index) += 1; // Add one if survey is used
+        ln_index_analytical_sd(index) += square( log(index_obs(index_ind, 0)) - log(index_hat(index_ind)));
+      }
+    }
+  }
+
+  for(index = 0 ; index < n_flt; index ++){
+    ln_index_analytical_sd(index) = sqrt(ln_index_analytical_sd(index) / index_n_obs(index));
+  }
+
+
+  // ------------------------------------------------------------------------- //
+  // 10. FISHERY COMPONENTS EQUATIONS                                          //
+  // ------------------------------------------------------------------------- //
+  // 10.1. ESTIMATE CATCH-AT-AGE and TOTAL YIELD (kg)
+  for(fsh_ind = 0; fsh_ind < catch_ctl.rows(); fsh_ind++){
+
+    flt = catch_ctl(fsh_ind, 0) - 1;     // Temporary fishery index
+    sp = catch_ctl(fsh_ind, 1) - 1;      // Temporary index of species
+    flt_yr = catch_ctl(fsh_ind, 2);      // Temporary index for years of data
+    mo = catch_n(fsh_ind, 0);            // Temporary index for month
+
+    catch_hat(fsh_ind) = 0.0;  // Initialize
+    max_catch_hat(fsh_ind) = 0.0; // Initialize
+
+    if(flt_yr > 0){
+      flt_yr = flt_yr - styr;
+    }
+    if(flt_yr < 0){
+      flt_yr = -flt_yr - styr;
+    }
+
+    // Hindcast
+    if(flt_yr < nyrs_hind){
+      yr_ind = flt_yr;
+    }
+
+    // Projection
+    if(flt_yr >= nyrs_hind){
+      yr_ind = nyrs_hind - 1;
+    }
+
+    for(sex = 0; sex < nsex(sp); sex ++){
+      for(age = 0; age < nages(sp); age++) {
+        // FIXME: add wt_yr_ind for MSE
+
+        // By weight
+        if(flt_units(flt) == 1){
+          catch_hat(fsh_ind) += F_flt_age(flt, sex, age, flt_yr) / Z_at_age(sp, sex, age, flt_yr) * (1.0 - exp(-Z_at_age(sp, sex, age, flt_yr))) * N_at_age(sp, sex, age, flt_yr) * weight( flt_wt_index(flt), sex, age, yr_ind ); // 5.5.
+          max_catch_hat(fsh_ind) += N_at_age(sp, sex, age, flt_yr) * weight( flt_wt_index(flt), sex, age, yr_ind ) * sel(flt, sex, age, yr_ind) * proj_F_prop(flt); // FIXME using last year of selectivity;
+        }
+
+        // By numbers
+        if(flt_units(flt) == 2){
+          catch_hat(fsh_ind) += F_flt_age(flt, sex, age, flt_yr) / Z_at_age(sp, sex, age, flt_yr) * (1.0 - exp(-Z_at_age(sp, sex, age, flt_yr))) * N_at_age(sp, sex, age, flt_yr);
+          max_catch_hat(fsh_ind) += N_at_age(sp, sex, age, flt_yr) * sel(flt, sex, age, yr_ind) * proj_F_prop(flt); // FIXME using last year of selectivity;
+        }
+      }
+    }
+  }
+
+  // 10.2 Exploitable biomass ----
+  exploitable_biomass.setZero();
+
+  for(flt = 0; flt < n_flt; flt++) {
+
+    sp = flt_spp(flt);
+
+    if(flt_type(flt) == 1){ //Fishery only
+      for(yr = 0; yr < nyrs; yr++) {
+
+        // Hindcast
+        if(yr < nyrs_hind){
+          yr_ind = yr;
+        }
+
+        // Projection
+        if(yr >= nyrs_hind){
+          yr_ind = nyrs_hind - 1;
+        }
+
+        for(age = 0; age < nages(sp); age++) {
+          for(sex = 0; sex < nsex(sp); sex ++){
+            exploitable_biomass(sp, yr) += N_at_age(sp, sex, age, yr) * weight( flt_wt_index(flt), sex, age, yr_ind ) * sel(flt, sex, age, yr_ind) * proj_F_prop(flt); // FIXME using last year of selectivity;
+          }
+        }
+      }
+    }
+  }
+
+
+  // ------------------------------------------------------------------------- //
+  // 11. COMPOSITION EQUATIONS                                                  //
+  // ------------------------------------------------------------------------- //
+
+  // -- 11.1. Composition
+  age_obs_hat.setZero();
+  comp_hat.setZero();
+  age_hat.setZero();
+  for(comp_ind = 0; comp_ind < comp_hat.rows(); comp_ind++){
+
+    flt = comp_ctl(comp_ind, 0) - 1;            // Temporary fishery index
+    sp = comp_ctl(comp_ind, 1) - 1;             // Temporary index of species
+    flt_sex = comp_ctl(comp_ind, 2);            // Temporary index for comp sex (0 = combined, 1 = female, 2 = male)
+    comp_type = comp_ctl(comp_ind, 3);          // Temporary index for comp type (0 = age, 1 = length, 2 = CAAL)
+    yr = comp_ctl(comp_ind, 4);                 // Temporary index for years of data
+    mo = comp_n(comp_ind, 0);                   // Temporary index for month
+
+    n_hat(comp_ind) = 0.0;                          // Initialize
+
+    // Likelihood (yr > 0) vs prediction (yr < 0)
+    if(yr > 0){
+      yr = yr - styr;
+    }
+    if(yr < 0){
+      yr = -yr - styr;
+    }
+
+    // Hindcast
+    if(yr < nyrs_hind){
+      yr_ind = yr;
+    }
+
+    // Projection
+    if(yr >= nyrs_hind){
+      yr_ind = nyrs_hind - 1;
+    }
+
+    // Get catch-at-age
+    for(age = 0; age < nages(sp); age++) {
+
+
+      switch(flt_type(flt)){
+      case 1: // - Fishery
+        switch(flt_sex){
+        case 0: // Sexes combined or 1 sex assessment
+          for(sex = 0; sex < nsex(sp); sex ++){
+            // Catch-at-age
+            age_hat(comp_ind, age ) += F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr);
+            // Total numbers
+            n_hat( comp_ind ) += F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr);
+          }
+          break;
+
+        case 1: case 2: // Sex-specific composition data
+          sex = flt_sex - 1;
+          // Catch-at-age
+          age_hat(comp_ind, age ) = F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr);
+          // Total numbers
+          n_hat( comp_ind ) += F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr);
+          break;
+
+        case 3: // Joint composition data
+          for(sex = 0; sex < nsex(sp); sex ++){
+            // Catch-at-age
+            age_hat(comp_ind, age + nages(sp) * sex ) = F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr);
+            // Total numbers
+            n_hat(comp_ind) += F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr);
+          }
+          break;
+        }
+        break;
+
+
+      case 2: // - Survey
+        switch(flt_sex){
+        case 0: // Sexes combined or 1 sex assessment
+          for(sex = 0; sex < nsex(sp); sex ++){
+            // Survey catch-at-age
+            age_hat(comp_ind, age ) += N_at_age(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr));
+            // Total numbers
+            n_hat(comp_ind) += N_at_age(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr));  // FIXME - put power in for catchability
+          }
+          break;
+
+        case 1: case 2: // Sex-specific composition data
+          sex = flt_sex - 1;
+          // Survey catch-at-age
+          age_hat(comp_ind, age ) = N_at_age(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr));
+          // Total numbers
+          n_hat(comp_ind) += N_at_age(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr));
+          break;
+
+        case 3: // Joint composition data
+          for(sex = 0; sex < nsex(sp); sex ++){
+            // Survey catch-at-age
+            age_hat(comp_ind, age + nages(sp) * sex ) = N_at_age(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr));
+            // Total numbers
+            n_hat(comp_ind) += N_at_age(sp, sex, age, yr)  * sel(flt, sex, age, yr_ind) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr));
+          }
+          break;
+        }
+      }
+    }
+
+    // Adjustment for joint sex composition data
+    joint_adjust(comp_ind) = 1;
+    if(flt_sex == 3){
+      joint_adjust(comp_ind) = 2;
+    }
+
+    // True age comp standardize to sum to 1
+    for(age = 0; age < nages(sp) * joint_adjust(comp_ind); age++) {
+      true_age_comp_hat(comp_ind, age ) = age_hat(comp_ind, age ) / posfun(n_hat(comp_ind), Type(0.00001), penalty);
+    }
+
+
+    // Adjust for aging error
+    for(int obs_age = 0; obs_age < nages(sp); obs_age++) {
+      for(int true_age = 0; true_age < nages(sp); true_age++) {
+        age_obs_hat(comp_ind, obs_age) += age_hat(comp_ind, true_age ) * age_error(sp, true_age, obs_age);
+      }
+    }
+
+    // Adjust for aging error for joint data
+    if(flt_sex == 3){
+      for(int obs_age = nages(sp); obs_age < nages(sp) * 2; obs_age++) {
+        for(int true_age = nages(sp); true_age < nages(sp) * 2; true_age++) {
+
+          // Adjust indexing for joint age/length comp
+          int true_age_tmp = true_age - nages(sp);
+          int obs_age_tmp = obs_age - nages(sp);
+
+          age_obs_hat(comp_ind, obs_age) += age_hat(comp_ind, true_age ) * age_error(sp, true_age_tmp, obs_age_tmp);
+        }
+      }
+    }
+
+
+    //  Observed age comp standardize to sum to 1
+    if(comp_type == 0) {
+      for(age = 0; age < nages(sp) * joint_adjust(comp_ind); age++) {
+        comp_hat(comp_ind, age) = age_obs_hat(comp_ind, age ) / posfun(n_hat(comp_ind), Type(0.00001), penalty);
+
+      }
+    }
+
+
+    // Convert from catch-at-age to catch-at-length
+    if( comp_type == 1) {
+      for(ln = 0; ln < nlengths(sp); ln++) {
+        for(age = 0; age < nages(sp); age++) {
+
+          sex = 0;
+
+          // Adjust sex for males/females
+          if((flt_sex > 0) & (flt_sex < 3)){
+            sex = flt_sex - 1;
+          }
+
+          comp_hat(comp_ind, ln ) += age_obs_hat(comp_ind, age) * age_trans_matrix(flt_age_transition_index(flt), sex, age, ln );
+        }
+      }
+
+
+      // Convert from catch-at-age to catch-at-length for joint comp data
+      if( flt_sex == 3) {
+        for(ln = nlengths(sp); ln < nlengths(sp) * 2; ln++) {
+          for(age = nages(sp); age < nages(sp) * 2; age++) {
+
+            // Adjust indexing for joint age/length comp
+            int obs_ln_tmp = ln;
+            int obs_age_tmp = age;
+
+            obs_age_tmp = age - nages(sp);
+            obs_ln_tmp = ln - nlengths(sp);
+            sex = 1;
+
+            comp_hat(comp_ind, ln ) += age_obs_hat(comp_ind, age) * age_trans_matrix(flt_age_transition_index(flt), sex, obs_age_tmp, obs_ln_tmp );
+          }
+        }
+      }
+
+
+      // Standardize to sum to 1
+      for(ln = 0; ln < nlengths(sp) * joint_adjust(comp_ind); ln++) {
+        comp_hat(comp_ind, ln ) = comp_hat(comp_ind, ln) / posfun(n_hat(comp_ind), Type(0.00001), penalty);
+      }
+    }
+  }
+
+
+  // ------------------------------------------------------------------------- //
+  // 12. PREDICTED STOMACH CONTENT                                             //
+  // ------------------------------------------------------------------------- //
+
+  // Predict stomach content
+  // 12. Reorganize diet_hat content
+
+  for(int stom_ind = 0; stom_ind < diet_obs.rows(); stom_ind++){
+    rsp = diet_ctl(stom_ind, 0) - 1;             // Index of pred
+    ksp = diet_ctl(stom_ind, 1) - 1;             // Index of prey
+    r_sex = diet_ctl(stom_ind, 2);               // Index of pred sex
+    k_sex = diet_ctl(stom_ind, 3);               // Index of prey sex
+    r_age = diet_ctl(stom_ind, 4) - minage(rsp); // Index of pred age
+    k_age = diet_ctl(stom_ind, 5) - minage(ksp); // Index of prey age
+    flt_yr = diet_ctl(stom_ind, 6);              // Index of year
+
+    // 1 sex model
+    r_sexes(stom_ind, 0) = 0; r_sexes(stom_ind, 1) = 0;
+    k_sexes(stom_ind, 0) = 0; k_sexes(stom_ind, 1) = 0;
+
+    // 2 sex model
+    // This is to account for situations where nsex = 2, but r_sex or k_sex = 0
+    // FIXME: should use weighted average over divide by 4?
+    if(nsex(rsp) == 2){
+      // But k_sex = 0 (indicating diet data is for both sexes)
+      r_sexes(stom_ind, 0) = 0; r_sexes(stom_ind, 1) = 1;
+
+      if(r_sex > 0){
+        r_sexes(stom_ind, 0) = r_sex - 1;  r_sexes(stom_ind, 1) = r_sex - 1;
+      }
+    }
+
+    if(nsex(ksp) == 2){
+      // But k_sex = 0 (indicating diet data is for both sexes)
+      k_sexes(stom_ind, 0) = 0; k_sexes(stom_ind, 1) = 1;
+
+      // Sex-specific diet data
+      if(k_sex > 0){
+        k_sexes(stom_ind, 0) = k_sex - 1;  k_sexes(stom_ind, 1) = k_sex - 1;
+      }
+    }
+
+    // Initialize
+    diet_hat(stom_ind, 1) = 0;
+
+    for(int j = 0; j < 2; j ++){
+      for(int k = 0; k < 2; k ++){
+
+        if((flt_yr > 0) | (flt_yr < 0)){
+
+          if(flt_yr > 0){ // Predict and include in likelihood
+            yr = flt_yr - styr;
+          }
+          if(flt_yr < 0){ // Predict but do not include in likelihood
+            yr = -flt_yr - styr;
+          }
+
+          // Annual data
+          if(yr < nyrs_hind){
+
+            // Diet proportion of prey-at-age in predator-at-age
+            if((k_age >= 0) & (r_age >= 0)){
+              diet_hat(stom_ind, 1) += diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr)/4; //FIXME: take weighted average for two-sex models?
+            }
+
+
+            // Diet proportion of prey-spp in predator-at-age (sum across prey ages)
+            if((k_age < 0) & (r_age >= 0)){
+              for(int k_age_tmp = 0; k_age_tmp < nages(ksp); k_age_tmp++){
+                diet_hat(stom_ind, 1) += diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age_tmp, yr)/4; //FIXME: take weighted average for two-sex models?
+              }
+            }
+
+            // Mean diet proportion of prey-spp in predator-spp (sum across prey ages and take mean across predator ages)
+            if((k_age < 0) & (r_age < 0) & (r_age > -500)){
+              for(int r_age_tmp = 0; r_age_tmp < nages(rsp); r_age_tmp++){
+                for(int k_age_tmp = 0; k_age_tmp < nages(ksp); k_age_tmp++){
+                  diet_hat(stom_ind, 1) += diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age_tmp, k_age_tmp, yr)/4/nages(rsp); //FIXME: take weighted average for two-sex models?
+                }
+              }
+            }
+
+            // Weighted mean diet proportion of prey-spp in predator-spp (sum across prey ages and take weighted mean across predator ages)
+            if((k_age < 0) & (r_age < -500)){
+
+              Type weighted_sum = 0;
+              Type total_numbers = 0;
+
+              // Take weighted mean diet proportion across predator-ages
+              for(int r_age_temp = 0; r_age_temp < nages(rsp); r_age_temp++){
+                // Get predator numbers at this age, sex, and year for weighting
+                Type pred_numbers = N_at_age(rsp, r_sexes(stom_ind, j), r_age_temp, yr);
+                total_numbers += pred_numbers;
+
+                // Sum diet-proportion across prey-ages
+                for(int k_age_temp = 0; k_age_temp < nages(ksp); k_age_temp++){
+                  Type pred_age_diet = diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)),
+                                                     ksp + (nspp * k_sexes(stom_ind, k)),
+                                                     r_age_temp, k_age_temp, yr);
+
+
+
+                  // Add to weighted sum
+                  weighted_sum += pred_age_diet * pred_numbers;
+                }
+              }
+
+              // Calculate weighted average if there are any predators
+              diet_hat(stom_ind, 1) += weighted_sum / (4.0 * total_numbers);
+            }
+          }
+        }
+
+        // Average of years
+        if(flt_yr == 0){
+          for(yr = suit_styr; yr <= suit_endyr; yr++) {  // Suit year loop (over specific years)
+
+            // Diet proportion of prey-at-age in predator-at-age
+            if(k_age >= 0){
+              diet_hat(stom_ind, 1) += diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr)/4/nyrs_suit; //FIXME: take weighted average for two-sex models?
+            }
+
+
+            // Diet proportion of prey-spp in predator-at-age (sum across prey ages)
+            if((k_age < 0) & (r_age >= 0)){
+              for(int k_age_temp = 0; k_age_temp < nages(ksp); k_age_temp++){
+                diet_hat(stom_ind, 1) += diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age_temp, yr)/4/nyrs_suit; //FIXME: take weighted average for two-sex models?
+              }
+            }
+
+            // Mean diet proportion of prey-spp in predator-spp (sum across prey ages and take mean across predator ages)
+            if((k_age < 0) & (r_age < 0) & (r_age > -500)){
+              for(int r_age_temp = 0; r_age_temp < nages(rsp); r_age_temp++){
+                for(int k_age_temp = 0; k_age_temp < nages(ksp); k_age_temp++){
+                  diet_hat(stom_ind, 1) += diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age_temp, k_age_temp, yr)/4/nages(rsp)/nyrs_suit; //FIXME: take weighted average for two-sex models?
+                }
+              }
+            }
+
+            // Weighted mean diet proportion of prey-spp in predator-spp (sum across prey ages and take weighted mean across predator ages)
+            if((k_age < 0) & (r_age < -500)){
+
+              Type weighted_sum = 0;
+              Type total_numbers = 0;
+
+              // Take weighted mean across predator-ages
+              for(int r_age_temp = 0; r_age_temp < nages(rsp); r_age_temp++){
+                // Get predator numbers at this age, sex, and year for weighting
+                Type pred_numbers = N_at_age(rsp, r_sexes(stom_ind, j), r_age_temp, yr);
+                total_numbers += pred_numbers;
+
+                // Sum diet-proportion across prey-ages
+                for(int k_age_temp = 0; k_age_temp < nages(ksp); k_age_temp++){
+                  Type pred_age_diet = diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)),
+                                                     ksp + (nspp * k_sexes(stom_ind, k)),
+                                                     r_age_temp, k_age_temp, yr);
+
+
+
+                  // Add to weighted sum
+                  weighted_sum += pred_age_diet * pred_numbers;
+                }
+              }
+
+              // Calculate weighted average if there are any predators
+              diet_hat(stom_ind, 1) += weighted_sum / (4.0 * total_numbers * nyrs_suit);
+            }
+          }
+        }
+      }
+    }
+  }
 
 
   // ------------------------------------------------------------------------- //
@@ -3140,6 +3309,7 @@ Type objective_function<Type>::operator() () {
   // ------------------------------------------------------------------------- //
 
   // 14.0. OBJECTIVE FUNCTION
+  int n_col = std::max(n_flt, nspp);
   matrix<Type> jnll_comp(19, n_flt); jnll_comp.setZero();  // matrix of negative log-likelihood components
   matrix<Type> unweighted_jnll_comp(19, n_flt); unweighted_jnll_comp.setZero();  // matrix of negative log-likelihood components without likelihood weights
 
@@ -3272,7 +3442,7 @@ Type objective_function<Type>::operator() () {
     // Convert observed prop to observed numbers
     comp_obs_tmp *= comp_n(comp_ind, 1);
     vector<Type> alphas = sum(comp_obs_tmp) * comp_hat_tmp * DM_pars(flt); // DM alpha
-    vector<Type> unweighted_alphas = sum(comp_obs_tmp) * comp_hat_tmp;      // DM alpha
+    vector<Type> unweighted_alphas = sum(comp_obs_tmp) * comp_hat_tmp;     // DM alpha
 
     // Only use years wanted
     if((yr <= endyr) && (yr > 0) && (flt_type(flt) > 0)){
@@ -3768,123 +3938,23 @@ Type objective_function<Type>::operator() () {
       Type N_s = 0.0;
       int rsp = -1;
 
-      // Loop through all diet data rows to find those belonging to the current stomach `i`
+      // Loop through all diet data rows to find those belonging to the current predator `i`
       for (int j = 0; j < diet_ctl.rows(); ++j) {
         if (stomach_id(j) == i) {
 
           if (rsp == -1) {
-            rsp = diet_ctl(j, 0) - 1;
+            rsp = diet_ctl(j, 0) - 1; // Should be the same across unique "stomach_id"
+            N_s = diet_obs(j, 0);     // Should be the same across unique "stomach_id"
           }
 
           obs_diet_prop_std.push_back(diet_obs(j, 1));
-
-          int pred_index = diet_ctl(j, 0) - 1;
-          int prey_index = diet_ctl(j, 1) - 1;
-          int pred_sex_code = diet_ctl(j, 2);
-          int pred_age_index = diet_ctl(j, 4) - 1;
-          int prey_age_index = diet_ctl(j, 5) - 1;
-          int year_index = diet_ctl(j, 6) - 1;
-
-          Type estimated_prop_for_row = 0.0;
-
-          // --- AGGREGATION LOGIC ---
-          if (year_index >= 0) {
-            if (pred_age_index >= 0) {
-              if (prey_age_index >= 0) {
-                estimated_prop_for_row = diet_prop_hat(pred_index, prey_index, pred_age_index, prey_age_index, year_index);
-              } else {
-                for (int pa = 0; pa < nages(prey_index); ++pa) {
-                  estimated_prop_for_row += diet_prop_hat(pred_index, prey_index, pred_age_index, pa, year_index);
-                }
-              }
-            } else { // Predator age aggregated
-              Type weighted_sum_prop = 0.0;
-              Type total_pred_n = 0.0;
-              for (int pa = 0; pa < nages(pred_index); ++pa) {
-
-                // FINAL FIX: Logic for sex codes 0=Combined, 1=Female, 2=Male
-                Type n_at_age = 0.0;
-                if (pred_sex_code == 1) { // Female
-                  n_at_age = N_at_age(pred_index, 0, pa, year_index); // Female is sex index 0
-                } else if (pred_sex_code == 2) { // Male
-                  n_at_age = N_at_age(pred_index, 1, pa, year_index); // Male is sex index 1
-                } else { // Combined (code 0)
-                  for(int s = 0; s < max_sex; ++s){
-                    n_at_age += N_at_age(pred_index, s, pa, year_index);
-                  }
-                }
-
-                Type diet_prop_at_age = 0.0;
-                if (prey_age_index >= 0) {
-                  diet_prop_at_age = diet_prop_hat(pred_index, prey_index, pa, prey_age_index, year_index);
-                } else {
-                  for (int ppa = 0; ppa < nages(prey_index); ++ppa) {
-                    diet_prop_at_age += diet_prop_hat(pred_index, prey_index, pa, ppa, year_index);
-                  }
-                }
-                weighted_sum_prop += diet_prop_at_age * n_at_age;
-                total_pred_n += n_at_age;
-              }
-              if (total_pred_n > 0.0) {
-                estimated_prop_for_row = weighted_sum_prop / total_pred_n;
-              }
-            }
-          } else { // Year aggregated
-            Type year_summed_prop = 0.0;
-            for (int y = 0; y < nyrs; ++y) {
-              if (pred_age_index >= 0) {
-                if (prey_age_index >= 0) {
-                  year_summed_prop += diet_prop_hat(pred_index, prey_index, pred_age_index, prey_age_index, y);
-                } else {
-                  for (int pa = 0; pa < nages(prey_index); ++pa) {
-                    year_summed_prop += diet_prop_hat(pred_index, prey_index, pred_age_index, pa, y);
-                  }
-                }
-              } else { // Predator age aggregated
-                Type weighted_sum_prop_yr = 0.0;
-                Type total_pred_n_yr = 0.0;
-                for (int pa = 0; pa < nages(pred_index); ++pa) {
-
-                  // FINAL FIX: Logic for sex codes 0=Combined, 1=Female, 2=Male
-                  Type n_at_age = 0.0;
-                  if (pred_sex_code == 1) { // Female
-                    n_at_age = N_at_age(pred_index, 0, pa, y); // Female is sex index 0
-                  } else if (pred_sex_code == 2) { // Male
-                    n_at_age = N_at_age(pred_index, 1, pa, y); // Male is sex index 1
-                  } else { // Combined (code 0)
-                    for(int s = 0; s < max_sex; ++s){
-                      n_at_age += N_at_age(pred_index, s, pa, y);
-                    }
-                  }
-
-                  Type diet_prop_at_age = 0.0;
-                  if (prey_age_index >= 0) {
-                    diet_prop_at_age = diet_prop_hat(pred_index, prey_index, pa, prey_age_index, y);
-                  } else {
-                    for (int ppa = 0; ppa < nages(prey_index); ++ppa) {
-                      diet_prop_at_age += diet_prop_hat(pred_index, prey_index, pa, ppa, y);
-                    }
-                  }
-                  weighted_sum_prop_yr += diet_prop_at_age * n_at_age;
-                  total_pred_n_yr += n_at_age;
-                }
-                if (total_pred_n_yr > 0.0) {
-                  year_summed_prop += weighted_sum_prop_yr / total_pred_n_yr;
-                }
-              }
-            }
-            if (nyrs > 0) {
-              estimated_prop_for_row = year_summed_prop / nyrs;
-            }
-          }
-          pred_diet_prop_std.push_back(estimated_prop_for_row);
-
-          N_s = diet_obs(j, 0);
+          pred_diet_prop_std.push_back(diet_hat(j, 1));
         }
       }
 
       // --- Process the completed group ---
       if (obs_diet_prop_std.size() > 0) {
+
         // Manually convert std::vector to a TMB vector
         int n_obs_prey = obs_diet_prop_std.size();
         vector<Type> obs_diet_prop(n_obs_prey);
@@ -3897,26 +3967,38 @@ Type objective_function<Type>::operator() () {
           pred_diet_prop(k) = pred_diet_prop_std[k];
         }
 
+        // Add in other prey
         Type sum_obs_p = obs_diet_prop.sum();
         if (sum_obs_p > 1.0) { sum_obs_p = 1.0; }
         obs_diet_prop.conservativeResize(obs_diet_prop.size() + 1);
         obs_diet_prop(obs_diet_prop.size() - 1) = 1.0 - sum_obs_p;
 
         Type sum_est_p = pred_diet_prop.sum();
-        if (sum_est_p > 1.0) { sum_est_p = 1.0; }
         pred_diet_prop.conservativeResize(pred_diet_prop.size() + 1);
-        pred_diet_prop(pred_diet_prop.size() - 1) = 1.0 - sum_est_p;
+        pred_diet_prop(pred_diet_prop.size() - 1) = posfun(1.0 - sum_est_p, Type(0.00001), penalty); // Making it differentiable
 
-        Type pred_sum = pred_diet_prop.sum();
-        if (pred_sum > 1e-10) {
-          pred_diet_prop = pred_diet_prop / pred_sum;
-        }
+        // Normalize
+        obs_diet_prop /= obs_diet_prop.sum();
+        pred_diet_prop /= pred_diet_prop.sum();
 
-        vector<Type> obs_diet_content = round(obs_diet_prop * N_s);
-        Type stomach_log_likelihood = dmultinom(obs_diet_content, pred_diet_prop, true);
+        // Add offset for numerical stability
+        obs_diet_prop += 0.00001;
+        pred_diet_prop += 0.00001;
 
-        unweighted_jnll_comp(18, rsp) -= stomach_log_likelihood;
-        jnll_comp(18, rsp) -= diet_comp_weights(rsp) * stomach_log_likelihood;
+        // --- Calculate likelihood using Dirichlet-multinomial ---
+        vector<Type> obs_diet_content = obs_diet_prop * N_s;
+
+        // Calculate alpha parameters. The weight scales the effective sample size.
+        Type DM_diet_par = exp(diet_comp_weights(rsp));
+        vector<Type> alphas = pred_diet_prop * N_s * DM_diet_par;
+        vector<Type> unweighted_alphas = pred_diet_prop * N_s; // For unweighted likelihood
+
+        // Calculate the log-likelihood
+        Type stomach_log_likelihood = ddirmultinom(obs_diet_content, alphas, true);
+        Type unweighted_stomach_log_likelihood = ddirmultinom(obs_diet_content, unweighted_alphas, true);
+
+        unweighted_jnll_comp(18, rsp) -= unweighted_stomach_log_likelihood;
+        jnll_comp(18, rsp) -= stomach_log_likelihood;
       }
     }
   }
@@ -3959,7 +4041,7 @@ Type objective_function<Type>::operator() () {
 
   // Paste unweighted likelihood parts over
   // - Only comp and diet comp use data weights!
-  for(flt = 0; flt < n_flt; flt++){
+  for(flt = 0; flt < n_col; flt++){
     for(int ind = 0; ind < 19; ind++){
       if((ind!= 2) & (ind != 18)){
         unweighted_jnll_comp(ind, flt) = jnll_comp(ind, flt);
@@ -4142,6 +4224,8 @@ Type objective_function<Type>::operator() () {
   REPORT( suit_other );
   REPORT( stom_div_bio );
   REPORT( avail_food );
+  REPORT( M2_prop );
+  ADREPORT(diet_hat );
 
 
   // -- 12.10. Kinzey predation functions

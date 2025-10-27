@@ -2,10 +2,19 @@
 % Please edit documentation in R/6-rename_output.R
 \name{match_diet_preds}
 \alias{match_diet_preds}
-\title{Match predicted diet proportions to observed data (Definitive Version)}
+\title{Match predicted diet proportions to observed data (Final, Robust Version)}
 \usage{
 match_diet_preds(data_list, quantities)
 }
+\arguments{
+\item{data_list}{The Rceattle data_list object.}
+
+\item{quantities}{The 'quantities' object from a model run.}
+}
+\value{
+The input \code{diet_data} data frame with a new column, \code{Est_diet}.
+}
 \description{
-Match predicted diet proportions to observed data (Definitive Version)
+A helper function that handles any mix of data aggregation
+within a single diet dataset by processing row by row.
 }
