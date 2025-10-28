@@ -106,11 +106,15 @@ rename_output = function(data_list = NULL, quantities = NULL){
 
 
   # Rename likelihood components
-  quantities$jnll_comp[8,1:data_list$nspp] <- 1:data_list$nspp
-  quantities$unweighted_jnll_comp[8,1:data_list$nspp] <- 1:data_list$nspp
+  quantities$jnll_comp[8,1:data_list$nspp] <- data_list$spnames
+  quantities$unweighted_jnll_comp[8,1:data_list$nspp] <- data_list$spnames
 
-  quantities$jnll_comp <- rbind(1:nrow(data_list$fleet_control), quantities$jnll_comp)
-  quantities$unweighted_jnll_comp <- rbind(1:nrow(data_list$fleet_control), quantities$unweighted_jnll_comp)
+  fleet_names <- data_list$fleet_control$Fleet_name
+  jnll_fleet <- rep(NA, ncol(quantities$jnll_comp))
+  jnll_fleet[1:length(fleet_names)] <- fleet_names
+
+  quantities$jnll_comp <- rbind(jnll_fleet, quantities$jnll_comp)
+  quantities$unweighted_jnll_comp <- rbind(jnll_fleet, quantities$unweighted_jnll_comp)
 
   colnames(quantities$jnll_comp) <- 1:ncol(quantities$jnll_comp)
   colnames(quantities$unweighted_jnll_comp) <- 1:ncol(quantities$unweighted_jnll_comp)
