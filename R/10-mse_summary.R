@@ -536,11 +536,12 @@ check_mse <- function(dir = NULL, file = NULL){
 #' @param dir Directory used to save files from \code{\link{mse_run}}
 #' @param file file name used to save files from \code{\link{mse_run}}
 #' @param exclude index of MSE simulations not to load
+#' @param include_em wether the EMs should be loaded or not (default = TRUE)
 #'
 #' @return list of MSE simulations/run
 #' @export
 #'
-load_mse <- function(dir = NULL, file = NULL, exclude = NULL){
+load_mse <- function(dir = NULL, file = NULL, exclude = NULL, include_em = TRUE){
 
   # - Get file names
   mse_files <- list.files(path = dir, pattern = paste0(file, "EMs_from_OM_Sim_"))
@@ -565,15 +566,21 @@ load_mse <- function(dir = NULL, file = NULL, exclude = NULL){
     # mse_tmp <- list(readRDS(file = paste0(dir,"/", mse_files[i])))
     mse_tmp[[i]] <- (readRDS(file = paste0(dir,"/", mse_files[i])))
 
+    # - Remove EM
+    if(!include_em){
+      mse_tmp[[i]]$EM <- NULL
+    }
+
+    # - Clean EM data
     if(length(mse_tmp[[i]]$EM) > 1){
       for(em in 2:length(mse_tmp[[i]]$EM)){
-        mse_tmp[[i]]$EM[[em]]$data_list$wt <- NULL
+        mse_tmp[[i]]$EM[[em]]$data_list$weight <- NULL
         mse_tmp[[i]]$EM[[em]]$data_list$emp_sel <- NULL
         mse_tmp[[i]]$EM[[em]]$data_list$age_trans_matrix <- NULL
         mse_tmp[[i]]$EM[[em]]$data_list$age_error <- NULL
         mse_tmp[[i]]$EM[[em]]$data_list$NByageFixed <- NULL
         mse_tmp[[i]]$EM[[em]]$data_list$aLW <- NULL
-        mse_tmp[[i]]$EM[[em]]$data_list$UobsWtAge <- NULL
+        mse_tmp[[i]]$EM[[em]]$data_list$diet_data <- NULL
         mse_tmp[[i]]$EM[[em]]$data_list$Pyrs <- NULL
         mse_tmp[[i]]$EM[[em]]$data_list$aLW <- NULL
         mse_tmp[[i]]$EM[[em]]$estimated_params <- NULL
