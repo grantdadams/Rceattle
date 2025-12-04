@@ -40,6 +40,7 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
   Rceattle_OM_list <- list()
   Rceattle_EM_list <- list()
 
+  # * Input checks ----
   # - Set om to project from R0
   om$data_list$proj_mean_rec = 0 # - Sample rec devs assuming this down the line
   #FIXME: SB0 for equilibrium HCRs will have to be adjusted
@@ -63,6 +64,67 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
 
   if(sum(om$data_list$fleet_control$proj_F_prop) == 0){
     stop("F prop per fllet 'proj_F_prop' is zero")
+  }
+
+  # ** Refit OM if proj_F_prop was not activated ----
+  if(sum((om$data_list$catch_data$Catch > 0) - (om$quantities$max_catch_hat > 0), na.rm = TRUE) > 0){
+    # -- Set estimate mode back to original
+    estimate_mode_base <- om$data_list$estimateMode
+
+    # Rerun OM in debug mode to make sure F-prop is set correctly
+    om <- fit_mod(
+      data_list = om$data_list,
+      inits = om$estimated_params,
+      map = om$map,
+      bounds = NULL,
+      file = NULL,
+      estimateMode = 3, # Run in debug mode
+      random_rec = om$data_list$random_rec,
+      niter = om$data_list$niter,
+      msmMode = om$data_list$msmMode,
+      avgnMode = om$data_list$avgnMode,
+      suitMode = om$data_list$suitMode,
+      initMode = om$data_list$initMode,
+      suit_styr = om$data_list$suit_styr,
+      suit_endyr = om$data_list$suit_endyr,
+      HCR = build_hcr(HCR = om$data_list$HCR,
+                      DynamicHCR = om$data_list$DynamicHCR,
+                      Ftarget = om$data_list$Ftarget,
+                      Flimit = om$data_list$Flimit,
+                      Ptarget = om$data_list$Ptarget,
+                      Plimit = om$data_list$Plimit,
+                      Alpha = om$data_list$Alpha,
+                      Pstar = om$data_list$Pstar,
+                      Sigma = om$data_list$Sigma,
+                      Fmult = om$data_list$Fmult,
+                      HCRorder = om$data_list$HCRorder
+      ),
+      recFun = build_srr(srr_fun = om$data_list$srr_fun,
+                         srr_pred_fun = om$data_list$srr_pred_fun ,
+                         proj_mean_rec = om$data_list$proj_mean_rec,
+                         srr_meanyr = om$data_list$srr_meanyr,
+                         srr_hat_styr = om$data_list$srr_hat_styr,
+                         srr_hat_endyr = om$data_list$srr_hat_endyr,
+                         srr_est_mode  = om$data_list$srr_est_mode ,
+                         srr_prior = om$data_list$srr_prior,
+                         srr_prior_sd = om$data_list$srr_prior_sd,
+                         Bmsy_lim = om$data_list$Bmsy_lim,
+                         srr_indices = om$data_list$srr_indices),
+      M1Fun = build_M1(M1_model = om$data_list$M1_model,
+                       M1_re = om$data_list$M1_re,
+                       updateM1 = FALSE,  # Dont update M1 from data, fix at previous parameters
+                       M1_use_prior = om$data_list$M1_use_prior,
+                       M2_use_prior = om$data_list$M2_use_prior,
+                       M_prior = om$data_list$M_prior,
+                       M_prior_sd = om$data_list$M_prior_sd,
+                       M1_indices = om$data_list$M1_indices),
+      loopnum = om$data_list$loopnum,
+      phase = FALSE,
+      getsd = FALSE,
+      verbose = 0)
+
+    # Adjust back
+    om$data_list$estimateMode <- estimate_mode_base
   }
 
   # - Years for simulations
@@ -126,6 +188,7 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
   em$data_list$comp_data <- em$data_list$comp_data %>%
     dplyr::filter(abs(Year) <= em$data_list$endyr)
 
+
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Regenerate past data from OM and refit EM ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -184,7 +247,7 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
       suit_styr = em$data_list$suit_styr,
       suit_endyr = em$data_list$suit_endyr,
       initMode = em$data_list$initMode,
-      phase = NULL,
+      phase = FALSE,
       loopnum = loopnum,
       getsd = FALSE,
       verbose = 0)
