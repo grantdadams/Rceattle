@@ -2060,7 +2060,7 @@ Type objective_function<Type>::operator() () {
               consumption_at_age(sp, sex, age, yr) = consumption_at_age(sp, sex, age, yr) * Pvalue(sp) * Pyrs(sp, sex, age, yr_ind) / 1000.0;  // Annual ration kg/yr
             }
 
-            // Input annual ration in mass prey/mass pred/yr
+            // Input annual ration in mass prey/individual pred/yr
             if(Ceq(sp) == 4){
               consumption_at_age(sp, sex, age, yr) = Pvalue(sp) * Pyrs(sp, sex, age, yr_ind);
             }
