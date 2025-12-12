@@ -4,7 +4,11 @@ library(dplyr)
 library(tidyverse)
 set.seed(123)
 
-#access toke: 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
+#hake = 1
+#CSL = 2
+#SBF = 3
+#ATF= 4
+
 
 CSL_SBF_ATF_hakedata <- Rceattle::read_data(file = "241025_CSL_SBF_ATF_Hake.xlsx")
 CSL_SBF_ATF_hakedata$endyr
@@ -42,7 +46,7 @@ ms_run$quantities$jnll_comp
 
 plot_diet_comp2(ms_run) #diet estimate hake canni is good, in this model we do not have ATF predation, hence = 0
 
-ms_run3<- ms_run
+
 # Correct way to access the data sent to TMB
 ms_run$obj$env$data$n_stomach_obs
 head(ms_run$obj$env$data$stomach_id)
@@ -75,8 +79,8 @@ inits = ms_run$estimated_params
 map = ms_run$map # gam_a, gam_b, and log_phi are turned off here
 
 #ORIGINAL (TRUE) VALUES
-inits$log_gam_a = c(0, 3.7, 3.1, 0)  # Mean log weight ratio for ATF, 0 for other species (pred/prey)
-inits$log_gam_b = c(0, 1.8, 1.120, 0)
+inits$log_gam_a = c(0, 0, 3.1, 3.7)  # Mean log weight ratio for ATF, 0 for other species (pred/prey)
+inits$log_gam_b = c(0, 0, 1.120, 1.8)
 
 # Set vulnerability matrix
 inits$log_phi #Currently all set to 0.5 (keep it)
@@ -98,19 +102,22 @@ inits$log_phi[1,4] <- -999
 map$mapList$log_phi[] <- 1:length(map$mapList$log_phi) # Unique number for each parameter
 map$mapList$log_phi[1,1] <- NA #so we dont estimate on hake on hake
 map$mapList$log_phi[1,2] <- NA #so we dont estimate on hake on atf
-map$mapList$log_phi[2,2] <- NA #so we dont estimate atf on atf
 map$mapList$log_phi[1,3] <- NA #so we dont estimate on hake on SBF
-map$mapList$log_phi[3,3] <- NA #so we dont estimate on SBF on SBF
-map$mapList$log_phi[2,3] <- NA #so we dont estimate on atf on sbf
+map$mapList$log_phi[1,4] <- NA
+
+map$mapList$log_phi[2,1] <- NA #so we dont estimate atf on atf
+map$mapList$log_phi[2,2] <- NA #so we dont estimate atf on atf
+map$mapList$log_phi[2,3] <- NA #so we dont estimate on SBF on SBF
+map$mapList$log_phi[2,4] <- NA #so we dont estimate on atf on sbf
+
 map$mapList$log_phi[3,2] <- NA #so we dont estimate sbf on atf
-map$mapList$log_phi[2,4] <- NA
+map$mapList$log_phi[3,3] <- NA
 map$mapList$log_phi[3,4] <- NA
-map$mapList$log_phi[3,4] <- NA
+
 map$mapList$log_phi[4,2] <- NA
 map$mapList$log_phi[4,3] <- NA
 map$mapList$log_phi[4,4] <- NA
-map$mapList$log_phi[1,4] <- NA
-map$mapList$log_phi[4,1] <- NA
+
 
 map$mapFactor$log_phi <- factor(map$mapList$log_phi)
 
@@ -123,16 +130,18 @@ run_ms_CSL_debugg3 <- Rceattle::fit_mod(data_list = CSL_SBF_ATF_hakedata,
                                                         M2_use_prior = FALSE),
                                        file = NULL, # Don't save
                                        estimateMode = 3, # estimate
-                                       niter = 1, # 3 iterations around population and predation dynamics
+                                       niter = 3, # 3 iterations around population and predation dynamics
                                        random_rec = FALSE, # No random recruitment
                                        msmMode = 1, # MSVPA based
                                        loopnum = 5,
                                        phase = TRUE,
-                                       suitMode = c(0, 4, 4, 0), # empirical + LN suitability
+                                       suitMode = c(0, 0, 4, 4), # empirical + LN suitability
                                        initMode = 2,
                                        verbose = 1)
 
 run_ms_CSL_debugg3$quantities$jnll_comp #NA in CSL Stomach content data
+
+run_ms_CSL_debugg3$estimated_params$d
 
 # Check both sexes for suitability
 # 4. Check suitability

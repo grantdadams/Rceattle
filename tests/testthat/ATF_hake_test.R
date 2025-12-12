@@ -4,11 +4,11 @@ library(dplyr)
 library(tidyverse)
 set.seed(123)
 
-#access toke: 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
 
 ATF_hakedata <- Rceattle::read_data(file = "070725_ATF_Hake_model_Neff.xlsx")
+ATF_hakedata$endyr = 2014
 
-ss_run <- Rceattle::fit_mod(data_list = ATF_hakedata,
+ss_run <- Rceattle::fit_mod(data_list =ATF_hakedata,
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save
                             estimateMode = 0, # Estimate
@@ -36,7 +36,7 @@ ms_run <- Rceattle::fit_mod(data_list = ATF_hakedata,
                             verbose = 1)
 
 ms_run$quantities$jnll #2085.478
-save(ms_run, file = "results/models/ATF/ATF_ms_run.Rdata")
+#save(ms_run, file = "results/models/ATF/ATF_ms_run.Rdata")
 
 plot_diet_comp(ms_run) #diet estimate hake canni is good, in this model we do not have ATF predation, hence = 0
 
@@ -62,7 +62,10 @@ map = ms_run$map # gam_a, gam_b, and log_phi are turned off here
 #inits$log_gam_b = c(0, 1.887)
 
 #ORIGINAL (TRUE) VALUES
-inits$log_gam_a = c(0, 3.7)  # Mean log weight ratio for ATF, 0 for other species (pred/prey)
+#inits$log_gam_a = c(0, 3.7)  # Mean log weight ratio for ATF, 0 for other species (pred/prey)
+#inits$log_gam_b = c(0, 1.8)
+
+inits$log_gam_a = c(0, 3.6)  # Mean log weight ratio for ATF, 0 for other species (pred/prey)
 inits$log_gam_b = c(0, 1.8)
 
 #ORIGINAL (TRUE) VALUES
@@ -163,7 +166,7 @@ run_ms_LN_2 <- Rceattle::fit_mod(data_list = test_data,
                                  verbose = 1)
 
 #In this model we are estimating estimateMode = 0 and M1
-run_ms_LN_3 <- Rceattle::fit_mod(data_list = test_data,
+run_ms_LN_4 <- Rceattle::fit_mod(data_list = test_data,
                                  inits = inits, # Initial parameters from single species ests
                                  map = map,
                                  M1Fun = build_M1(M1_model = 1,
@@ -181,8 +184,8 @@ run_ms_LN_3 <- Rceattle::fit_mod(data_list = test_data,
                                  initMode = 2,
                                  verbose = 1)
 
-run_ms_LN_3$quantities$jnll #2370.025
-run_ms_LN_3$quantities$jnll_comp
+run_ms_LN_4$quantities$jnll #2370.025
+run_ms_LN_4$quantities$jnll_comp
 run_ms_LN_4$quantities$jnll_comp
 save(run_ms_LN_3, file = "results/models/ATF/ATF_run_ms_LN_estM.Rdata")
 
@@ -197,7 +200,7 @@ run_ms_LN_2$estimated_params$diet_comp_weights
 run_ms_LN_1$data_list$Diet_weights_mcallister
 
 plot_diet_comp(run_ms_LN_3)
-plot_diet_comp2(run_ms_LN_4)
+plot_diet_comp(run_ms_LN_4)
 plot_b_eaten_prop(run_ms_LN_3)
 
 
