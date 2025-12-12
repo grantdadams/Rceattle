@@ -4,8 +4,6 @@ library(dplyr)
 library(tidyverse)
 set.seed(123)
 
-#access toke: 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
-
 SBF_ATF_hakedata <- Rceattle::read_data(file = "241025_SBF_ATF_Hake.xlsx")
 
 ss_run <- Rceattle::fit_mod(data_list = SBF_ATF_hakedata,
