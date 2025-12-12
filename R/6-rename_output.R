@@ -169,75 +169,147 @@ calc_mcall_ianelli <- function(data_list = NULL, data_list_reorganized = NULL, q
 }
 
 #' Match predicted diet proportions to observed data (Final, Robust Version)
+
 #'
+
 #' @description A helper function that handles any mix of data aggregation
+
 #' within a single diet dataset by processing row by row.
+
 #'
+
 #' @param data_list The Rceattle data_list object.
+
 #' @param quantities The 'quantities' object from a model run.
+
 #'
+
 #' @return The input `diet_data` data frame with a new column, `Est_diet`.
+
 #' @export
+
 match_diet_preds <- function(data_list, quantities) {
 
+
+
   obs_diet <- data_list$diet_data
+
   pred_diet_array <- quantities$diet_prop_hat
+
   suit_yrs <- c(data_list$suit_styr:data_list$suit_endyr) - data_list$styr+1
 
+
+
   if (is.null(obs_diet) || is.null(pred_diet_array) || nrow(obs_diet) == 0) {
+
     return(NULL)
+
   }
 
+
+
   # Create an empty vector to store the results
+
   est_diet_vec <- numeric(nrow(obs_diet))
 
+
+
   # Loop through each row of the observed diet data
+
   for (i in 1:nrow(obs_diet)) {
+
     obs_row <- obs_diet[i, ]
 
+
+
     # Extract indices for this specific observation
+
     p <- obs_row$Pred
+
     k <- obs_row$Prey
+
     psex <- obs_row$Pred_sex
+
     ksex <- obs_row$Prey_sex
+
     pa <- obs_row$Pred_age
+
     ka <- obs_row$Prey_age
+
     yr <- obs_row$Year
 
+
+
     p = p + data_list$nspp * max(c(psex-1, 0))
+
     k = k + data_list$nspp * max(c(ksex-1, 0))
+
+
 
     # --- Apply aggregation based on the values in THIS row ---
 
+
+
     if (yr > 0 && pa > 0 && ka > 0) { # Fully disaggregated
+
       estimated_value <- pred_diet_array[p, k, pa, ka, yr]
 
+
+
     } else if (yr == 0 && pa > 0 && ka > 0) { # Year aggregated only
+
       estimated_value <- mean(pred_diet_array[p, k, pa, ka, suit_yrs])
 
+
+
     } else if (yr > 0 && pa > 0 && ka < 0) { # Prey-age aggregated only
+
       estimated_value <- sum(pred_diet_array[p, k, pa, , yr])
 
+
+
     } else if (yr == 0 && pa > 0 && ka < 0) { # Year AND Prey-age aggregated
+
       annual_sums <- apply(pred_diet_array[p, k, pa, , suit_yrs], 2, sum) # Sum over prey_age for each year
+
       estimated_value <- mean(annual_sums)
 
+
+
     } else {
+
       # This logic can be expanded to handle the other pred_age < 0 cases if needed
+
       estimated_value <- NA
+
     }
 
+
+
     est_diet_vec[i] <- estimated_value
+
   }
 
+
+
   # Append the final vector of estimated values to the original data frame
+
   obs_diet$Est_diet <- est_diet_vec
 
+
+
   # Same as:
+
   #obs_diet$Est_diet <- quantities$diet_hat[,2]
 
+
+
   return(obs_diet)
+
 }
+
+
+
 
 
 #' Function to calculate McAllister-Ianelli weights for diet data
