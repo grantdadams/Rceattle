@@ -534,7 +534,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 4.12. Predation components
   array<Type>   M2_at_age(nspp, max_sex, max_age, nyrs); M2_at_age.setZero();                        // Predation mortality at age
-  // array<Type>   M2_prop(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); M2_prop.setZero();     // Relative predation mortality at age from each species at age
+  array<Type>   M2_prop(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); M2_prop.setZero();     // Relative predation mortality at age from each species at age
   array<Type>   B_eaten(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); B_eaten.setZero();        // Biomass of prey eaten via predation by a predator at age
   array<Type>   B_eaten_as_prey(nspp, max_sex, max_age, nyrs); B_eaten_as_prey.setZero();            // Biomass eaten as prey via predation
   // array<Type>   B_eaten_as_pred(nspp, max_sex, max_age, nyrs); B_eaten_as_pred.setZero();         // Biomass eaten as predator via predation (used for Kinzey and Punt)
@@ -2425,7 +2425,7 @@ Type objective_function<Type>::operator() () {
                         //switch(msmMode){
                         //case 1: // Type 2 MSVPA
                         M2_at_age(ksp, k_sex, k_age, yr) += (avgN_at_age(rsp, r_sex, r_age, yr) * ration(rsp, r_sex, r_age, yr) * suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr); // #FIXME - include indices of overlap
-                        //M2_prop(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = (avgN_at_age(rsp, r_sex, r_age, yr) * ration(rsp, r_sex, r_age, yr) * suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr);
+                        M2_prop(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = (avgN_at_age(rsp, r_sex, r_age, yr) * ration(rsp, r_sex, r_age, yr) * suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr);
                         B_eaten(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = avgN_at_age(ksp, k_sex, k_age, yr) * weight(pop_wt_index(ksp), k_sex, k_age, yr_ind) * avgN_at_age(rsp, r_sex, r_age, yr) * ration(rsp, r_sex, r_age, yr) * suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
                         B_eaten_as_prey(ksp, k_sex, k_age, yr) += B_eaten(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr);
                         diet_prop_hat(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = avgN_at_age(ksp, k_sex, k_age, yr) * weight(pop_wt_index(ksp), k_sex, k_age, yr_ind) * suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)/ avail_food(rsp, r_sex, r_age, yr);
@@ -4203,11 +4203,11 @@ Type objective_function<Type>::operator() () {
    REPORT( avail_food );
    REPORT( diet_prop );
    REPORT( other_food_diet_prop );
-   REPORT( M2_prop );
    REPORT( diet_prop_hat );
    REPORT( B_eaten_as_pred );
    REPORT( N_eaten );
    */
+  REPORT( M2_prop );
   REPORT( diet_obs );
   REPORT( suitability );
   REPORT( M1_at_age );
