@@ -4,13 +4,15 @@ library(dplyr)
 library(tidyverse)
 set.seed(123)
 
+#CSL_SBF_ATF_hakedata <- Rceattle::read_data(file = "241025_CSL_SBF_ATF_Hake.xlsx") #original species order
+
+#NEW species order
 #hake = 1
 #CSL = 2
 #SBF = 3
 #ATF= 4
 
-
-CSL_SBF_ATF_hakedata <- Rceattle::read_data(file = "241025_CSL_SBF_ATF_Hake.xlsx")
+CSL_SBF_ATF_hakedata <- Rceattle::read_data(file = "241025_CSL_SBF_ATF_Hake_FINAL.xlsx")
 CSL_SBF_ATF_hakedata$endyr
 
 ss_run <- Rceattle::fit_mod(data_list = CSL_SBF_ATF_hakedata,
