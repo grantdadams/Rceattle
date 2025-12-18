@@ -360,14 +360,14 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
   om$data_list$weight  <- rbind(om$data_list$weight, proj_wt)
   om$data_list$weight <- dplyr::arrange(om$data_list$weight, Wt_index, Year)
 
-  # -- Pyrs
-  if(nrow(om$data_list$Pyrs) > 0){
-    proj_Pyrs <- om$data_list$Pyrs %>%
+  # -- ration_data
+  if(nrow(om$data_list$ration_data) > 0){
+    proj_ration_data <- om$data_list$ration_data %>%
       dplyr::group_by(Species, Sex) %>%
       dplyr::slice(rep(n(),  om_proj_nyrs)) %>%
       dplyr::mutate(Year = om_proj_yrs)
-    om$data_list$Pyrs  <- rbind(om$data_list$Pyrs, proj_Pyrs)
-    om$data_list$Pyrs <- dplyr::arrange(om$data_list$Pyrs, Species, Year)
+    om$data_list$ration_data  <- rbind(om$data_list$ration_data, proj_ration_data)
+    om$data_list$ration_data <- dplyr::arrange(om$data_list$ration_data, Species, Year)
   }
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -391,14 +391,14 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
   em$data_list$weight  <- rbind(em$data_list$weight, proj_wt)
   em$data_list$weight <- dplyr::arrange(em$data_list$weight, Wt_index, Year)
 
-  # -- EM Pyrs
-  if(nrow(em$data_list$Pyrs) > 0){
-    proj_Pyrs <- em$data_list$Pyrs %>%
+  # -- EM ration_data
+  if(nrow(em$data_list$ration_data) > 0){
+    proj_ration_data <- em$data_list$ration_data %>%
       dplyr::group_by(Species, Sex) %>%
       dplyr::slice(rep(n(),  em_proj_nyrs)) %>%
       dplyr::mutate(Year = em_proj_yrs)
-    em$data_list$Pyrs  <- rbind(em$data_list$Pyrs, proj_Pyrs)
-    em$data_list$Pyrs <- dplyr::arrange(em$data_list$Pyrs, Species, Year)
+    em$data_list$ration_data  <- rbind(em$data_list$ration_data, proj_ration_data)
+    em$data_list$ration_data <- dplyr::arrange(em$data_list$ration_data, Species, Year)
   }
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#

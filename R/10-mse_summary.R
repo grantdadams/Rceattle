@@ -581,7 +581,7 @@ load_mse <- function(dir = NULL, file = NULL, exclude = NULL, include_em = TRUE)
         mse_tmp[[i]]$EM[[em]]$data_list$NByageFixed <- NULL
         mse_tmp[[i]]$EM[[em]]$data_list$aLW <- NULL
         mse_tmp[[i]]$EM[[em]]$data_list$diet_data <- NULL
-        mse_tmp[[i]]$EM[[em]]$data_list$Pyrs <- NULL
+        mse_tmp[[i]]$EM[[em]]$data_list$ration_data <- NULL
         mse_tmp[[i]]$EM[[em]]$data_list$aLW <- NULL
         mse_tmp[[i]]$EM[[em]]$estimated_params <- NULL
       }

@@ -52,7 +52,7 @@ $$M2_{isa,y} = \sum_{pbj} \left( \frac{N_{pbj,y} \delta_{pbj,y} {S}_{pbjisa}} {\
 ## Consumption
 Multiple age-based consumption parameterizations are supported by Rceattle. They include a environmentally driven bioenergetics consumption and direction input of consumption-at-age. The consumption model is controlled by the following objects in the data (`bioenergetics_control` sheet of the excel data input):
 
-* `Ceq`	Integer: switch for which bioenergetics equation to use for each species for ft to scale max consumtion: 1 = Exponential (Stewart et al 1983), 2 = Temperature-dependendence for warm-water species (Kitchell et al 1977; sensu Holsman et al 2015), 3 = temperature dependence for cool and cold-water species (Thornton and Lessem 1979); 4 = 1 for direct input of consumption in Pyrs  where consumption at age = Wt * `Pyrs` (CA set to 1, fday set to 1, CB set to 0)
+* `Ceq`	Integer: switch for which bioenergetics equation to use for each species for ft to scale max consumtion: 1 = Exponential (Stewart et al 1983), 2 = Temperature-dependendence for warm-water species (Kitchell et al 1977; sensu Holsman et al 2015), 3 = temperature dependence for cool and cold-water species (Thornton and Lessem 1979); 4 = 1 for direct input of consumption in ration_data  where consumption at age = Wt * `ration_data` (CA set to 1, fday set to 1, CB set to 0)
 * `Cindex`	Integer: which environmental index in env_data to use to use for $T_y$ for bioenergetics based ration
 * `Pvalue`	Tuning parameter $\varphi_p$ that scales the maximum consumption used for ration for each species
 * `fday` Data $Fday_p$ number of foraging days per year for each species
@@ -65,7 +65,7 @@ Multiple age-based consumption parameterizations are supported by Rceattle. They
 * `CK1`	Parameter $CK1_p$ for temperature scaling function of maximum consumption specified by `Ceq`
 * `CK4`	Parameter $CK4_p$ for temperature scaling function of maximum consumption specified by `Ceq`
 
-`Pyrs` $RFR_{pbj,y}$ is the relative foraging rate data used to modify ration. Essentially relative foraging rate and, subsequently, ration can be tuned via `fday` and `pvalue`.
+`ration_data` $RFR_{pbj,y}$ is the relative foraging rate data used to modify ration. Essentially relative foraging rate and, subsequently, ration can be tuned via `fday` and `pvalue`.
 
 The weight-at-age used for the consumption equations is specified by `pop_wt_index`
 
@@ -98,7 +98,7 @@ $$L_2 = e^{G_2 (T^{cl}_p - T_y)}$$
 $$G_2 = \frac{1}{T^{cl}_p-T^{cm}_p}*\log\left( \frac{0.98*(1-CK4_p)}{CK4_p*0.02}\right)$$
 
 ### Input ration-at-age
-`Ceq = 4` and for directly input of consumption-at-sex/age in the `Pyrs` data sheet for $RFR_{pbj,y}$. Set `CA = 1`, `fday = 1`, and `CB = 0`.
+`Ceq = 4` and for directly input of consumption-at-sex/age in the `ration_data` data sheet for $RFR_{pbj,y}$. Set `CA = 1`, `fday = 1`, and `CB = 0`.
 $$\delta_{pbj,y} = RFR_{pbj,y}* W_{pbj,y} $$
 
 

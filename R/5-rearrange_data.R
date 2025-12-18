@@ -317,9 +317,9 @@ rearrange_dat <- function(data_list){
     as.matrix()
 
 
-  # 14 - Set up pyrs ----
+  # 14 - Set up ration_data ----
   # - Convert to array
-  data_list$Pyrs <- data_list$Pyrs %>%
+  data_list$ration_data <- data_list$ration_data %>%
     dplyr::mutate(Species = as.numeric(as.character(Species)),
                   Sex = as.numeric(as.character(Sex)),
                   Year = as.numeric(as.character(Year)),
@@ -328,13 +328,13 @@ rearrange_dat <- function(data_list){
                                 Year - data_list$styr + 1)
     )
 
-  Pyrs <- array(0, dim = c(data_list$nspp, max_sex, max_age, nyrs_hind)) # FIXME: Change for forecast
+  ration_data <- array(0, dim = c(data_list$nspp, max_sex, max_age, nyrs_hind)) # FIXME: Change for forecast
 
-  if( nrow(data_list$Pyrs) > 0){
-    for (i in 1:nrow(data_list$Pyrs)) {
-      sp <- data_list$Pyrs$Species[i]
-      sex <- data_list$Pyrs$Sex[i]
-      yr <- data_list$Pyrs$Year[i]
+  if( nrow(data_list$ration_data) > 0){
+    for (i in 1:nrow(data_list$ration_data)) {
+      sp <- data_list$ration_data$Species[i]
+      sex <- data_list$ration_data$Sex[i]
+      yr <- data_list$ration_data$Year[i]
 
       # Handle sex == 0 case for 2-sex species
       sex_values <- if(sex == 0) 1:data_list$nsex[sp] else sex
@@ -348,16 +348,16 @@ rearrange_dat <- function(data_list){
 
         # Fill in years
         for(j in 1:length(sex_values)){
-          Pyrs[sp, sex_values[j], 1:data_list$nages[sp], yr] <- as.numeric(
+          ration_data[sp, sex_values[j], 1:data_list$nages[sp], yr] <- as.numeric(
             as.character(
-              as.matrix(data_list$Pyrs[i, (1:data_list$nages[sp]) + 3])
+              as.matrix(data_list$ration_data[i, (1:data_list$nages[sp]) + 3])
             )
           )
         }
       }
     }
   }
-  data_list$Pyrs <- Pyrs
+  data_list$ration_data <- ration_data
 
 
   # 15 - Remove species column from alw, maturity, sex_ratio ----

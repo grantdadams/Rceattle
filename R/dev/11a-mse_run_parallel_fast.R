@@ -251,13 +251,13 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
   om$data_list$wt  <- rbind(om$data_list$wt, proj_wt)
   om$data_list$wt <- dplyr::arrange(om$data_list$wt, Wt_index, Year)
 
-  # * Pyrs ----
-  proj_Pyrs <- om$data_list$Pyrs %>%
+  # * ration_data ----
+  proj_ration_data <- om$data_list$ration_data %>%
     group_by(Species, Sex) %>%
     slice(rep(n(),  om_proj_nyrs)) %>%
     mutate(Year = om_proj_yrs)
-  om$data_list$Pyrs  <- rbind(om$data_list$Pyrs, proj_Pyrs)
-  om$data_list$Pyrs <- dplyr::arrange(om$data_list$Pyrs, Species, Year)
+  om$data_list$ration_data  <- rbind(om$data_list$ration_data, proj_ration_data)
+  om$data_list$ration_data <- dplyr::arrange(om$data_list$ration_data, Species, Year)
 
 
   #--------------------------------------------------
@@ -280,13 +280,13 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
   em$data_list$wt  <- rbind(em$data_list$wt, proj_wt)
   em$data_list$wt <- dplyr::arrange(em$data_list$wt, Wt_index, Year)
 
-  # -- EM Pyrs
-  proj_Pyrs <- em$data_list$Pyrs %>%
+  # -- EM ration_data
+  proj_ration_data <- em$data_list$ration_data %>%
     group_by(Species, Sex) %>%
     slice(rep(n(),  em_proj_nyrs)) %>%
     mutate(Year = em_proj_yrs)
-  em$data_list$Pyrs  <- rbind(em$data_list$Pyrs, proj_Pyrs)
-  em$data_list$Pyrs <- dplyr::arrange(em$data_list$Pyrs, Species, Year)
+  em$data_list$ration_data  <- rbind(em$data_list$ration_data, proj_ration_data)
+  em$data_list$ration_data <- dplyr::arrange(em$data_list$ration_data, Species, Year)
 
 
   # ------------------------------------------------------------

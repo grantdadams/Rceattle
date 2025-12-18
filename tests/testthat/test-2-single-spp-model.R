@@ -548,7 +548,7 @@ test_that("Simulated simple multi-species model the same" {
   # * Relative foraging rate (days) ----
   WAA <- as.data.frame(matrix(WAA * 50, ncol = 15))
   colnames(WAA) <- paste0("Age",1:15)
-  Pyrs1 <- cbind(data.frame(Species = 1,
+  ration_data1 <- cbind(data.frame(Species = 1,
                             Sex = 0,
                             Year = 0),
                  WAA
@@ -556,13 +556,13 @@ test_that("Simulated simple multi-species model the same" {
 
   WAA2 <- as.data.frame(matrix(WAA2 * 50, ncol = 15))
   colnames(WAA2) <- paste0("Age",1:15)
-  Pyrs2 <- cbind(data.frame(Species = 2,
+  ration_data2 <- cbind(data.frame(Species = 2,
                             Sex = 0,
                             Year = 0),
                  WAA2
   )
 
-  simData$Pyrs <- rbind(Pyrs1, Pyrs2)
+  simData$ration_data <- rbind(ration_data1, ration_data2)
 
 
   # * Bioenergetics ----

@@ -133,8 +133,8 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 
 
   # Diet information Pyrs (relative foraging rate) ----
-  xcel_list$Pyrs <- as.data.frame(data_list$Pyrs)
-  names_used <- c(names_used, "Pyrs")
+  xcel_list$ration_data <- as.data.frame(data_list$ration_data)
+  names_used <- c(names_used, "ration_data")
 
 
   # Diet proportion ----
@@ -312,9 +312,21 @@ read_data <- function(file = "Rceattle_data.xlsx") {
   data_list$env_data <- env_data
 
 
-  # Diet information Pyrs (relative foraging rate) ----
-  pyrs_matrix <- as.data.frame(readxl::read_xlsx(file, sheet = "Pyrs"))
-  data_list$Pyrs <- pyrs_matrix
+  # Consumption information  ----
+  # - Pyrs (relative foraging rate)
+  # - or input consumption-at-age (kg/individual)
+  if("ration_data" %in% sheetnames){
+    sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "ration_data"))
+    sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
+    data_list$ration_data <- sheet
+  }
+
+  if("Pyrs" %in% sheetnames){ # Old name
+    sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "Pyrs"))
+    sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ] # Keep rows with data
+    data_list$ration_data <- sheet
+    print("Renaming 'Pyrs' to 'ration_data'")
+  }
 
 
   # Diet proportion ----

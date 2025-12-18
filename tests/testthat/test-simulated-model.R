@@ -286,7 +286,7 @@ test_that("Simulated simple model the same" {
   # * Relative foraging rate (days) ----
   pyrs <- as.data.frame(matrix(1, nrow = 20, ncol = 15))
   colnames(pyrs) <- paste0("Age",1:15)
-  simData$Pyrs <- cbind(data.frame(Species = 1,
+  simData$ration_data <- cbind(data.frame(Species = 1,
                                    Sex = 0,
                                    Year = 1:20),
                         pyrs
