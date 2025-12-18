@@ -67,7 +67,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
     #dplyr::mutate(Year = ifelse(Year > endyr_peel, - Year, Year))
 
 
-    # * Assume weight/pyrs/emp_sel is same as last year of peel ----
+    # * Assume weight/ration_data/emp_sel is same as last year of peel ----
     # -- weight
     #FIXME ignores forecasted growth
     data_list$weight <- data_list$weight %>%
@@ -101,19 +101,19 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
         dplyr::arrange(Fleet_code, Year)
     }
 
-    # -- Pyrs
-    data_list$Pyrs <- data_list$Pyrs %>%
+    # -- ration_data
+    data_list$ration_data <- data_list$ration_data %>%
       dplyr::filter(Year <= endyr_peel)
 
-    proj_Pyrs <- data_list$Pyrs %>%
+    proj_ration_data <- data_list$ration_data %>%
       dplyr::filter(Year != 0)
 
-    if(nrow(proj_Pyrs) > 0){
-      proj_Pyrs <- proj_Pyrs %>%
+    if(nrow(proj_ration_data) > 0){
+      proj_ration_data <- proj_ration_data %>%
         dplyr::group_by(Species, Sex) %>%
         dplyr::slice(rep(n(),  nyrs_proj_peel)) %>%
         dplyr::mutate(Year = peel_prj_yrs)
-      data_list$Pyrs  <- rbind(data_list$Pyrs, proj_Pyrs) %>%
+      data_list$ration_data  <- rbind(data_list$ration_data, proj_ration_data) %>%
         dplyr::arrange(Species, Year)
     }
 

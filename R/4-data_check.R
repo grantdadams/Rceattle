@@ -27,7 +27,7 @@ clean_data <- function(data_list){
     dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
   data_list$NByageFixed <- data_list$NByageFixed %>%
     dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
-  data_list$Pyrs <- data_list$Pyrs %>%
+  data_list$ration_data <- data_list$ration_data %>%
     dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
 
 
@@ -199,12 +199,12 @@ data_check <- function(data_list) {
   }
 
 
-  # Pyrs ----
-  if(nrow(data_list$Pyrs) > 0){
-    if(any(data_list$Pyrs %>%
+  # ration_data ----
+  if(nrow(data_list$ration_data) > 0){
+    if(any(data_list$ration_data %>%
            dplyr::select(-c(Species, Sex, Year)) %>%
            ncol() < data_list$nages)){
-      stop("Pyrs data does not span range of ages")
+      stop("'ration_data' data does not span range of ages")
     }
   }
 
@@ -307,6 +307,11 @@ data_check <- function(data_list) {
     }
   }
 
+  # Diet composition weights
+  if(any(is.na(data_list$Diet_comp_weights) & data_list$suitMode > 0)){
+    stop("Diet composition likelihood weight for a species with estimated suitability is NA")
+  }
+
   # Sexes ----
   m1_sex <- data_list$M1_base %>%
     dplyr::group_by(Species) %>%
@@ -326,17 +331,17 @@ data_check <- function(data_list) {
     stop("'weight' has more sexes than specified in 'nsex'")
   }
 
-  if(nrow(data_list$Pyrs) > 0){
-    pyrs_sex <- data_list$Pyrs %>%
+  if(nrow(data_list$ration_data) > 0){
+    ration_data_sex <- data_list$ration_data %>%
       dplyr::group_by(Species) %>%
       dplyr::summarise(max_sex = max(Sex)) %>%
       dplyr::arrange(Species)
 
-    if(any(pyrs_sex$max_sex > data_list$nsex)){
-      stop("'Pyrs' has more sexes than specified in 'nsex'")
+    if(any(ration_data_sex$max_sex > data_list$nsex)){
+      stop("'ration_data' has more sexes than specified in 'nsex'")
     }
   } else{
-    warning("No Pyrs (ration) data")
+    warning("No ration_data (ration) data")
   }
 
   # Environmental data----

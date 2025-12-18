@@ -281,8 +281,8 @@ sim_dat$env_data <- data.frame(
   BTempC = 5
 )
 
-# * Pyrs and diet ----
-sim_dat$Pyrs <- sim_dat$Pyrs[0,]
+# * ration_data and diet ----
+sim_dat$ration_data <- sim_dat$ration_data[0,]
 sim_dat$diet_data <- sim_dat$diet_data[0,]
 
 

@@ -556,23 +556,23 @@ test_that("Simulated simple multi-species model the same" {
 
 
   # * Ration ----
-  Pyrs1 <- WAA * 50
-  colnames(Pyrs1) <- paste0("Age",1:15)
-  Pyrs1 <- cbind(data.frame(Species = 1,
+  ration_data1 <- WAA * 50
+  colnames(ration_data1) <- paste0("Age",1:15)
+  ration_data1 <- cbind(data.frame(Species = 1,
                             Sex = 0,
                             Year = 0),
-                 Pyrs1
+                 ration_data1
   )
 
-  Pyrs2 <- WAA2 * 50
-  colnames(Pyrs2) <- paste0("Age",1:15)
-  Pyrs2 <- cbind(data.frame(Species = 2,
+  ration_data2 <- WAA2 * 50
+  colnames(ration_data2) <- paste0("Age",1:15)
+  ration_data2 <- cbind(data.frame(Species = 2,
                             Sex = 0,
                             Year = 0),
-                 Pyrs2
+                 ration_data2
   )
 
-  simData$Pyrs <- rbind(Pyrs1, Pyrs2)
+  simData$ration_data <- rbind(ration_data1, ration_data2)
 
   simData$Ceq <- rep(4,nspp)
   simData$Cindex <- rep(1, nspp)

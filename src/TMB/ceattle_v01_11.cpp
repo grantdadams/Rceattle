@@ -296,7 +296,7 @@ Type objective_function<Type>::operator() () {
 
   // 2.3.6. Diet data
   DATA_VECTOR( fday );                    // number of foraging days for each predator
-  DATA_ARRAY( Pyrs );                     // Relative-foraging rate
+  DATA_ARRAY( ration_data );                     // Relative-foraging rate
   DATA_MATRIX( diet_obs );                // Pred, prey, pred-age, prey-age for diet matrix (weight of prey in pred stomach)
   DATA_IMATRIX( diet_ctl );               // Info on pred, prey, pred-age, prey-age diet matrix (weight of prey in pred stomach)
   DATA_INTEGER(n_stomach_obs);            // The total number of unique stomach samples (groups)
@@ -2048,7 +2048,7 @@ Type objective_function<Type>::operator() () {
               yr_ind = yr;
             }
 
-            // Projection (wt and pyrs indexing)
+            // Projection (wt and ration_data indexing)
             if(yr >= nyrs_hind){
               yr_ind = nyrs_hind - 1;
             }
@@ -2057,12 +2057,12 @@ Type objective_function<Type>::operator() () {
             if(Ceq(sp) < 4){
               consumption_at_age(sp, sex, age, yr) = CA(sp) * pow(weight( pop_wt_index(sp), sex, age, yr_ind ) * Type(1000.0), 1 + CB( sp ))  //  C_max = CA * W ^ 1+CB; where C_max is grams consumed per grams of predator per day
               * fT(sp, yr) * fday( sp );                            //  C_max * f(T) * weight * fday g/pred.yr
-              consumption_at_age(sp, sex, age, yr) = consumption_at_age(sp, sex, age, yr) * Pvalue(sp) * Pyrs(sp, sex, age, yr_ind) / 1000.0;  // Annual ration kg/yr
+              consumption_at_age(sp, sex, age, yr) = consumption_at_age(sp, sex, age, yr) * Pvalue(sp) * ration_data(sp, sex, age, yr_ind) / 1000.0;  // Annual ration kg/yr
             }
 
             // Input annual ration in mass prey/individual pred/yr
             if(Ceq(sp) == 4){
-              consumption_at_age(sp, sex, age, yr) = Pvalue(sp) * Pyrs(sp, sex, age, yr_ind);
+              consumption_at_age(sp, sex, age, yr) = Pvalue(sp) * ration_data(sp, sex, age, yr_ind);
             }
 
             ration(sp, sex, age, yr) = consumption_at_age(sp, sex, age, yr);
@@ -3936,6 +3936,7 @@ Type objective_function<Type>::operator() () {
   if((msmMode > 2) | (imax(suitMode) > 0)) {
 
     // Start the main loop to process one stomach sample at a time
+    // FIXME: possible to make it more efficient
     for (int i = 0; i < n_stomach_obs; ++i) {
 
       std::vector<Type> obs_diet_prop_std;
@@ -3958,8 +3959,8 @@ Type objective_function<Type>::operator() () {
         }
       }
 
-      // --- Process the completed group ---
-      if (obs_diet_prop_std.size() > 0) {
+      // --- Process the completed group if suitability is estimated
+      if ((obs_diet_prop_std.size() > 0) & (suitMode(rsp) > 0)) {
 
         // Manually convert std::vector to a TMB vector
         int n_obs_prey = obs_diet_prop_std.size();
