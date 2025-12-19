@@ -3932,73 +3932,56 @@ Type objective_function<Type>::operator() () {
 
 
   // 14.3. Diet likelihood components
-  // --- Calculate diet likelihood ---
-  if((msmMode > 2) | (imax(suitMode) > 0)) {
+  if((msmMode > 2) || (imax(suitMode) > 0)) {
 
-    // Start the main loop to process one stomach sample at a time
-    // FIXME: possible to make it more efficient
+    int current_j = 0; // Track position in diet_ctl
+
     for (int i = 0; i < n_stomach_obs; ++i) {
 
-      std::vector<Type> obs_diet_prop_std;
-      std::vector<Type> pred_diet_prop_std;
-
-      Type N_s = 0.0;
-      int rsp = -1;
-
-      // Loop through all diet data rows to find those belonging to the current predator `i`
-      for (int j = 0; j < diet_ctl.rows(); ++j) {
-        if (stomach_id(j) == i) {
-
-          if (rsp == -1) {
-            rsp = diet_ctl(j, 0) - 1; // Should be the same across unique "stomach_id"
-            N_s = diet_obs(j, 0);     // Should be the same across unique "stomach_id"
-          }
-
-          obs_diet_prop_std.push_back(diet_obs(j, 1));
-          pred_diet_prop_std.push_back(diet_hat(j, 1));
-        }
+      // Find how many prey items for this predator without a full scan
+      int start_j = current_j;
+      while((current_j < diet_ctl.rows()) && (stomach_id(current_j) == i)) {
+        current_j++;
       }
 
-      // --- Process the completed group if suitability is estimated
-      if ((obs_diet_prop_std.size() > 0) & (suitMode(rsp) > 0)) {
+      int n_prey = current_j - start_j;
+      int rsp = diet_ctl(start_j, 0) - 1;
+      Type N_s = diet_obs(start_j, 0);
 
-        // Manually convert std::vector to a TMB vector
-        int n_obs_prey = obs_diet_prop_std.size();
-        vector<Type> obs_diet_prop(n_obs_prey);
-        for(int k = 0; k < n_obs_prey; k++){
-          obs_diet_prop(k) = obs_diet_prop_std[k];
-        }
+      // --- Process the predator if suitability is estimated and data are available
+      if (n_prey == 0) continue;
+      if (suitMode(rsp) <= 0) continue;
 
-        vector<Type> pred_diet_prop(n_obs_prey);
-        for(int k = 0; k < n_obs_prey; k++){
-          pred_diet_prop(k) = pred_diet_prop_std[k];
-        }
+      // -- Pre-allocate TMB vectors with space for "Other prey" (+1)
+      vector<Type> obs_diet_prop(n_prey + 1); obs_diet_prop.setZero();
+      vector<Type> pred_diet_prop(n_prey + 1); pred_diet_prop.setZero();
 
-        // Add in other prey
-        Type sum_obs_p = obs_diet_prop.sum();
-        if (sum_obs_p > 1.0) { sum_obs_p = 1.0; }
-        obs_diet_prop.conservativeResize(obs_diet_prop.size() + 1);
-        obs_diet_prop(obs_diet_prop.size() - 1) = 1.0 - sum_obs_p;
-
-        Type sum_est_p = pred_diet_prop.sum();
-        pred_diet_prop.conservativeResize(pred_diet_prop.size() + 1);
-        pred_diet_prop(pred_diet_prop.size() - 1) = posfun(1.0 - sum_est_p, Type(0.00001), penalty); // Making it differentiable
-
-        //FIXME Add offset?
-        obs_diet_prop += 0.00001;
-        pred_diet_prop += 0.00001;
-
-        // Normalize
-        obs_diet_prop /= obs_diet_prop.sum();
-        pred_diet_prop /= pred_diet_prop.sum();
-
-        // Calculate likelihood
-        vector<Type> obs_diet_content = obs_diet_prop * N_s;
-        Type stomach_log_likelihood = dmultinom(obs_diet_content, pred_diet_prop, true);
-
-        unweighted_jnll_comp(18, rsp) -= stomach_log_likelihood;
-        jnll_comp(18, rsp) -= diet_comp_weights(rsp) * stomach_log_likelihood;
+      for (int k = 0; k < n_prey; ++k) {
+        obs_diet_prop(k) = diet_obs(start_j + k, 1);
+        pred_diet_prop(k) = diet_hat(start_j + k, 1);
       }
+
+      // --- Add in "Other prey" ---
+      Type sum_obs_p = obs_diet_prop.head(n_prey).sum();
+      if (sum_obs_p > 1.0) sum_obs_p = 1.0;
+      obs_diet_prop(n_prey) = 1.0 - sum_obs_p;
+
+      Type sum_est_p = pred_diet_prop.head(n_prey).sum();
+      pred_diet_prop(n_prey) = posfun(1.0 - sum_est_p, Type(0.00001), penalty); // Making it differentiable (cant do if statement)
+
+      // Vectorized Offset & Normalization
+      obs_diet_prop += 0.00001;
+      pred_diet_prop += 0.00001;
+
+      obs_diet_prop /= obs_diet_prop.sum();
+      pred_diet_prop /= pred_diet_prop.sum();
+
+      // Likelihood
+      vector<Type> obs_diet_content = obs_diet_prop * N_s;
+      Type stomach_log_likelihood = dmultinom(obs_diet_content, pred_diet_prop, true);
+
+      unweighted_jnll_comp(18, rsp) -= stomach_log_likelihood;
+      jnll_comp(18, rsp) -= diet_comp_weights(rsp) * stomach_log_likelihood;
     }
   }
 
