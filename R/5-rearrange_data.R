@@ -107,11 +107,12 @@ rearrange_dat <- function(data_list){
   if(!is.null(data_list$diet_data)){ # Add a check in case there's no diet data
 
     # Create a temporary diet data frame to work with
-    diet_dat <- data_list$diet_data
-
-    # Create the unique stratum identifier and the zero-indexed stomach_id
-    diet_dat$stratum_id <- paste(diet_dat$Pred, diet_dat$Pred_age, diet_dat$Pred_sex, diet_dat$Year, sep = "_")
-    diet_dat$stomach_id <- as.numeric(as.factor(diet_dat$stratum_id)) - 1
+    diet_dat <- data_list$diet_data %>%
+      # - Sort by stomach_id so that rows for the same predator are contiguous
+      dplyr::arrange(Pred, Pred_sex, Pred_age, Prey, Prey_sex, Prey_age, Year) %>%
+      # - Create the unique stratum identifier and the zero-indexed stomach_id
+      dplyr::mutate(stratum_id = paste(Pred, Pred_sex, Pred_age, Year, sep = "_"),
+                    stomach_id = as.numeric(as.factor(stratum_id)) - 1)
 
     # Add n_stomach_obs and the stomach_id vector to the main data_list
     data_list$n_stomach_obs <- max(diet_dat$stomach_id) + 1
