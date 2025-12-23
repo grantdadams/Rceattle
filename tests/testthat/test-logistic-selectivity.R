@@ -185,7 +185,7 @@ test_that("time-varying logistic selectivity divided by max sel", {
   GOA2018SS$fleet_control$Time_varying_sel <- 1
   GOA2018SS$fleet_control$Sel_sd_prior <- 1
   GOA2018SS$fleet_control$Age_first_selected <- 1
-  GOA2018SS$fleet_control$Age_max_selected <- NA
+  GOA2018SS$fleet_control$Age_max_selected <- -999
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
