@@ -1,5 +1,5 @@
-data("GOAatf")
-data_list <- GOAatf
+data("GOA2018SS")
+data_list <- GOA2018SS
 
 # if(any(data_list$fleet_control$Selectivity == 2 & data_list$fleet_control$Time_varying_sel > 1)){
 #   data_list$fleet_control <- data_list$fleet_control %>%
@@ -14,10 +14,10 @@ data_list <- GOAatf
 #   print("Updating format where 'Selectivity == 2'. Moving non-parametric penalties to 'Sel_curve_pen1' and 'Sel_curve_pen2'.")
 # }
 
-data_list$fleet_control <- data_list$fleet_control %>%
-dplyr::mutate(Time_varying_sel = 0, Sel_sd_prior = 0) %>%
-  dplyr::relocate(Sel_curve_pen1, .after = Nselages) %>%
-  dplyr::relocate(Sel_curve_pen2, .after = Sel_curve_pen1)
+# data_list$fleet_control <- data_list$fleet_control %>%
+# dplyr::mutate(Time_varying_sel = 0, Sel_sd_prior = 0) %>%
+#   dplyr::relocate(Sel_curve_pen1, .after = Nselages) %>%
+#   dplyr::relocate(Sel_curve_pen2, .after = Sel_curve_pen1)
 
 # data_list$R_sexr <- NULL
 # data_list$est_sex_ratio <- NULL
@@ -40,7 +40,8 @@ dplyr::mutate(Time_varying_sel = 0, Sel_sd_prior = 0) %>%
 #                             phase = TRUE,
 #                             verbose = 1)
 # plot_biomass(ss_run)
+data_list$ration_data <- data_list$Pyrs
+data_list$Pyrs <- NULL
+GOA2018SS <- data_list
 
-GOAatf <- data_list
-
-usethis::use_data(GOAatf, overwrite = TRUE)
+usethis::use_data(GOA2018SS, overwrite = TRUE)
