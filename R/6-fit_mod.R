@@ -125,7 +125,7 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # Debugging section ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # data_list = BS2017SS;
+    # data_list = GOA2018SS;
     # inits = NULL;
     # map = NULL;
     # bounds = NULL;
