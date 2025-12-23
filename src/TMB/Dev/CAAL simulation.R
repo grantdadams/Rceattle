@@ -143,105 +143,6 @@ get_growth_matrix_r <- function(fracyr, nsex_sp, nages_sp, nlengths_sp, max_nlen
 }
 
 
-get_growth_matrix_test <- function(fracyr, nsex_sp, nages_sp, nlengths_sp, max_nlengths, nyrs,
-                                   lengths_sp, minage_sp, maxage_sp,
-                                   growth_params_sp, growth_ln_sd_sp, growth_model_sp) {
-
-  # Define names for the dimensions
-  dim_names <- list(
-    sex    = paste0("Sex_", 1:nsex_sp),
-    age    = paste0("Age_", 1:nages_sp),
-    length = paste0("Len_", lengths_sp),
-    year   = paste0("Year_", 1:nyrs)
-  )
-
-  # Initialize Output: (sex, age, ln, yr)
-  growth_matrix <- array(0, dim = c(nsex_sp, nages_sp, nlengths_sp, nyrs),
-                         dimnames = dim_names)
-  length_at_age <- array(0, dim = c(nsex_sp, nages_sp, nyrs),
-                         dimnames =   list(
-                           sex    = paste0("Sex_", 1:nsex_sp),
-                           age    = paste0("Age_", 0:(nages_sp - 1)),
-                           year   = paste0("Year_", 1:nyrs)
-                         ))
-  length_sd     <- array(0, dim = c(nsex_sp, nages_sp, nyrs))
-
-  l_min <- lengths_sp[1]
-  l_max <- lengths_sp[nlengths_sp]
-
-  for(s in 1:nsex_sp) {
-    for(y in 1:nyrs) {
-      # --- 1. Calculate Mean Length at Age ---
-      # Params: 1:K, 2:L1, 3:Linf, 4:Richards_m
-      k    <- growth_params_sp[s, y, 1]
-      l1   <- growth_params_sp[s, y, 2]
-      linf <- growth_params_sp[s, y, 3]
-
-      b_len <- (l1 - l_min) / minage_sp
-
-      for(a in 1:nages_sp) {
-        current_age <- a + fracyr
-
-        if (growth_model_sp == 1) { # VB
-          if(current_age <= minage_sp) {
-            length_at_age[s, a, y] <- l_min + b_len * current_age
-          } else {
-            length_at_age[s, a, y] <- linf + (l1 - linf) * (exp(-k * (current_age - minage_sp)))
-          }
-        } else if (growth_model_sp == 2) { # Richards
-          m <- growth_params_sp[s, y, 4]
-          if(current_age <= minage_sp) {
-            length_at_age[s, a, y] <- l_min + b_len * current_age
-          } else {
-            length_at_age[s, a, y] <- (linf^m + (l1^m - linf^m) * (exp(-k * (current_age - minage_sp))))^(1/m)
-          }
-        }
-
-        # --- 2. Plus Group Correction (SS Style) ---
-        if(a == nages_sp) {
-          diff <- growth_params_sp[s, y, 3] - length_at_age[s, a, y]
-          ages <- 0:(nages_sp-1)
-          weight_a <- exp(-0.2 * ages)
-          vals <- length_at_age[s, a, y] + (ages / nages_sp) * diff
-          length_at_age[s, a, y] <- sum(vals * weight_a) / sum(weight_a)
-        }
-
-        # --- 3. SD Calculation ---
-        sd1 <- exp(growth_ln_sd_sp[s, 1])
-        sda <- exp(growth_ln_sd_sp[s, 2])
-
-        if(current_age < minage_sp) {
-          length_sd[s, a, y] <- sd1
-        } else if(a == nages_sp) {
-          length_sd[s, a, y] <- sda
-        } else {
-          slope <- (sda - sd1) / (linf - l1) # Match C++ interpolation
-          length_sd[s, a, y] <- sd1 + slope * (length_at_age[s, a, y] - l1)
-        }
-
-        # --- 4. Matrix Distribution ---
-        for(l in 1:nlengths_sp) {
-          if(l == 1) {
-            fac1 <- (lengths_sp[l] - length_at_age[s, a, y]) / length_sd[s, a, y]
-            growth_matrix[s, a, l, y] <- pnorm(fac1)
-          } else if(l == nlengths_sp) {
-            fac1 <- (lengths_sp[l] - length_at_age[s, a, y]) / length_sd[s, a, y]
-            growth_matrix[s, a, l, y] <- 1 - pnorm(fac1)
-          } else {
-            fac1 <- (lengths_sp[l+1] - length_at_age[s, a, y]) / length_sd[s, a, y]
-            fac2 <- (lengths_sp[l] - length_at_age[s, a, y]) / length_sd[s, a, y]
-            growth_matrix[s, a, l, y] <- pnorm(fac1) - pnorm(fac2)
-          }
-        }
-      }
-    }
-  }
-
-  return(list(length_at_age = length_at_age, growth_matrix = growth_matrix))
-}
-
-
-
 #' Calculate Predicted Weight-at-Age
 #'
 #' Converts a growth matrix (length-at-age probabilities) into mean weight-at-age
@@ -267,7 +168,7 @@ get_weight_at_age_r <- function(nsex_sp, nages_sp, nlengths_sp, nyrs,
   # Define names for the dimensions
   dim_names <- list(
     sex  = paste0("Sex_", 1:nsex_sp),
-    age  = paste0("Age_", 0:(nages_sp - 1)),
+    age  = paste0("Age_", 1:nages_sp),
     year = paste0("Year_", 1:nyrs)
   )
 
@@ -322,24 +223,9 @@ gm <- get_growth_matrix_r(fracyr=0,
                           growth_ln_sd_sp=gsd,
                           growth_model_sp=1)
 
-
-gmtest <- get_growth_matrix_test(fracyr=0,
-                          nsex_sp=1,
-                          nages_sp=nages,
-                          nlengths_sp=nlengths,
-                          max_nlengths=nlengths,
-                          nyrs=nyrs,
-                          lengths_sp=lengths,
-                          minage_sp=1,
-                          maxage_sp=10,
-                          growth_params_sp=gp,
-                          growth_ln_sd_sp=gsd,
-                          growth_model_sp=1)
-
 # 3. Visualize a specific age/year distribution
 par(mfrow = c(1,2))
 plot(lengths, gm$growth_matrix[1, 5, , 2], type="h", main="Length distribution for Age 5")
-plot(lengths, gmtest$growth_matrix[1, 5, , 2], type="h", main="Length distribution for Age 5")
 
 # 4. Calculate Weight-at-Age
 lw_p <- array(c(0.00001, 3.0), dim=c(1, nyrs, 2)) # a=0.00001, b=3.0

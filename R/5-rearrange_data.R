@@ -276,7 +276,7 @@ rearrange_dat <- function(data_list){
   }
 
   # Update the data_list with the new weight array
-  data_list$weight <- weight
+  data_list$weight_obs <- weight
 
 
   # 12 - Set up NByageFixed ----
@@ -373,7 +373,7 @@ rearrange_dat <- function(data_list){
 
   items_to_remove <- c("emp_sel",  "fsh_comp",    "srv_comp",    "catch_data",    "index_data", "comp_data", "env_data", "spnames",
                        "aLW", "diet_data", # "NByageFixed", "estDynamics", "Ceq",
-                       "avgnMode", "minNByage")
+                       "avgnMode", "minNByage", "weight")
   data_list[items_to_remove] <- NULL
 
   return(data_list)
