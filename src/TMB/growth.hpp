@@ -36,15 +36,24 @@
  * @param weight_hat [Output] 3D Array to be filled with integrated weight-at-age.
  */
 template<class Type>
-void calculate_growth(int sp, Type fracyr, int nspp, int nyrs,
-                       vector<int> nsex, vector<int> nages, matrix<int> lengths,
-                       vector<int> nlengths, vector<int> minage, vector<int> maxage,
-                       array<Type> growth_parameters, array<Type> growth_ln_sd,
-                       array<Type> weight_length_pars,
-                       vector<int> growth_model,
-                       array<Type> &length_hat,     // Pass by reference
-                       array<Type> &growth_matrix,  // Pass by reference
-                       array<Type> &weight_hat      // Pass by reference
+void estimate_growth(
+    int wtind,
+    int sp,
+    Type fracyr,
+    int nspp,
+    int nyrs,
+    const vector<int>&  nsex,
+    const vector<int>&  nages,
+    const vector<int>&  nlengths,
+    const vector<int>&  minage,
+    const vector<int>&  growth_model,
+    matrix<Type> lengths,
+    array<Type> growth_parameters,
+    array<Type> growth_ln_sd,
+    matrix<Type> weight_length_pars,
+    array<Type> &length_hat,     // Pass by reference
+    array<Type> &growth_matrix,  // Pass by reference
+    array<Type> &weight_hat      // Pass by reference
 ) {
 
   // Initialize output and temporary storage
@@ -58,7 +67,7 @@ void calculate_growth(int sp, Type fracyr, int nspp, int nyrs,
   Type Lmin_sp = lengths(sp, 0);
   Type Lmax_sp = lengths(sp, nlengths(sp) - 1);
   Type age_L1 = minage(sp);
-  Type age_L1_ceil = maxage(sp);
+  Type age_L1_ceil = nages(sp) + minage(sp) - 1;
 
   for(int sex = 0; sex < nsex(sp); sex++) {
     for(int yr = 0; yr < nyrs; yr++) {
@@ -166,23 +175,27 @@ void calculate_growth(int sp, Type fracyr, int nspp, int nyrs,
         Type expected_weight = 0.0;
 
         for(int ln = 0; ln < nlengths(sp); ln++) {
+          Type prob;
           if(ln == 0) {
             Fac1 = (Lmin_sp + lengths(sp, 1) - lengths(sp, 0) - length_hat(wtind,  sex, age, yr)) / length_sd(sex, age, yr);
-            growth_matrix(wtind,  sex, ln, age, yr) = pnorm(Fac1);
+            prob = pnorm(Fac1);
           } else if(ln == (nlengths(sp) - 1)) {
             Fac1 = (Lmax_sp - length_hat(wtind,  sex, age, yr)) / length_sd(sex, age, yr);
-            growth_matrix(wtind,  sex, ln, age, yr) = 1.0 - pnorm(Fac1);
+            prob = 1.0 - pnorm(Fac1);
           } else {
             Fac1 = (lengths(sp, ln + 1) - length_hat(wtind,  sex, age, yr)) / length_sd(sex, age, yr);
             Fac2 = (lengths(sp, ln) - length_hat(wtind,  sex, age, yr)) / length_sd(sex, age, yr);
-            growth_matrix(wtind,  sex, ln, age, yr) = pnorm(Fac1) - pnorm(Fac2);
+            prob = pnorm(Fac1) - pnorm(Fac2);
           }
+
+          // Explicit assignment to avoid the 5D operator warning
+          growth_matrix(wtind, sex, age, ln, yr) = prob;
 
           // Midpoint calculation for Weight-at-Length
           Type lenmid = (lengths(sp, 1) - lengths(sp, 0))/2;
 
           // Weighted sum for Weight-at-Age
-          expected_weight += growth_matrix(wtind, sex, age, ln, yr) * weight_length_pars(sp, 0) * pow(lengths(sp, ln) + lenmid, weight_length_pars(sp, 1));
+          expected_weight += prob * weight_length_pars(sp, 0) * pow(lengths(sp, ln) + lenmid, weight_length_pars(sp, 1));
         }
         weight_hat(wtind, sex, age, yr) = expected_weight;
       } // age
@@ -198,10 +211,10 @@ void calculate_growth(int sp, Type fracyr, int nspp, int nyrs,
 // ADD MONTH TO FLEET CONTROL
 // ADD WEIGHT LENGTH PARAMETERS TO DATA
 // add function for weight-at-age from frac-yr
-// update wtind across model
-// rename "nselages"
-// rename "flt_sel_maxage" and "flt_sel_maxage_upper"
-// add non_par_sel to selectivity functions
+// add growth parameters to build param and build map
+// add build_growth function
+// rename "nselages" to "N_sel_bins"
+// rename "flt_sel_maxage" and "flt_sel_maxage_upper" to "Sel_norm_bin1" and "Sel_norm_bin2"
 
 
 
@@ -228,35 +241,34 @@ void calculate_growth(int sp, Type fracyr, int nspp, int nyrs,
  * @param ssb_wt_index Index for spawning stock biomass weights
  * @param flt_wt_index Index for fleet-specific weights
  * @param spawn_month Vector of spawning months per species
- * [Other parameters for calculate_growth: lengths, nlengths, minage, maxage,
+ * [Other parameters for estimate_growth: lengths, nlengths, minage,
  * growth_parameters, growth_ln_sd, weight_length_pars]
  */
 template <class Type>
 void calculate_weight(
-    array<Type> &weight_hat,
+array<Type> &weight_hat,
     array<Type> &length_hat,
     array<Type> &growth_matrix,
-    const array<Type> &weight,
-    const ivector &growth_model,
+    array<Type> weight_obs,
+    const vector<int>&  growth_model,
     int nspp,
     int nyrs,
     int nyrs_hind,
     int n_flt,
-    const ivector &flt_spp,
-    const vector<Type> &flt_month,
-    const ivector &nsex,
-    const ivector &nages,
-    const ivector &pop_wt_index,
-    const ivector &ssb_wt_index,
-    const ivector &flt_wt_index,
-    const vector<Type> &spawn_month,
-    const vector<Type> &lengths,
-    const ivector &nlengths,
-    const ivector &minage,
-    const ivector &maxage,
-    const array<Type> &growth_parameters,
-    const array<Type> &growth_ln_sd,
-    const array<Type> &weight_length_pars
+    const vector<int>&  flt_spp,
+    vector<int> flt_month,
+    const vector<int>&  nsex,
+    const vector<int>&  minage,
+    const vector<int>&  nages,
+    const vector<int>&  nlengths,
+    const vector<int>&  pop_wt_index,
+    const vector<int>&  ssb_wt_index,
+    const vector<int>&  flt_wt_index,
+    vector<Type> spawn_month,
+    matrix<Type> lengths,
+    array<Type> growth_parameters,
+    array<Type> growth_ln_sd,
+    matrix<Type> weight_length_pars
 ) {
   int yr_ind;
   int wt_idx_pop;
@@ -279,10 +291,10 @@ void calculate_weight(
             yr_ind = (yr < nyrs_hind) ? yr : (nyrs_hind - 1);
 
             // Biomass weight
-            weight_hat(wt_idx_pop, sex, age, yr) = weight(pop_wt_index(sp), sex, age, yr_ind);
+            weight_hat(wt_idx_pop, sex, age, yr) = weight_obs(pop_wt_index(sp), sex, age, yr_ind);
 
             // SSB weight
-            weight_hat(wt_idx_ssb, sex, age, yr) = weight(ssb_wt_index(sp), sex, age, yr_ind);
+            weight_hat(wt_idx_ssb, sex, age, yr) = weight_obs(ssb_wt_index(sp), sex, age, yr_ind);
           }
         }
       }
@@ -291,16 +303,46 @@ void calculate_weight(
     // -- 1.2. Estimated growth
     if (growth_model(sp) > 0) {
       // Biomass weight (beginning of year / month 0)
-      calculate_growth(wt_idx_pop, sp, Type(0.0), nspp, nyrs,
-                       nsex, nages, lengths, nlengths, minage, maxage,
-                       growth_parameters, growth_ln_sd, weight_length_pars,
-                       growth_model, length_hat, growth_matrix, weight_hat);
+      estimate_growth(
+        wt_idx_pop,
+        sp,
+        Type(0.0),
+        nspp,
+        nyrs,
+        nsex,
+        nages,
+        nlengths,
+        minage,
+        growth_model,
+        lengths,
+        growth_parameters,
+        growth_ln_sd,
+        weight_length_pars,
+        length_hat,     // Pass by reference
+        growth_matrix,  // Pass by reference
+        weight_hat      // Pass by reference
+      );
 
       // SSB weight (at month of spawning)
-      calculate_growth(wt_idx_ssb, sp, spawn_month(sp) / Type(12.0), nspp, nyrs,
-                       nsex, nages, lengths, nlengths, minage, maxage,
-                       growth_parameters, growth_ln_sd, weight_length_pars,
-                       growth_model, length_hat, growth_matrix, weight_hat);
+      estimate_growth(
+        wt_idx_ssb,
+        sp,
+        spawn_month(sp) / Type(12.0),
+        nspp,
+        nyrs,
+        nsex,
+        nages,
+        nlengths,
+        minage,
+        growth_model,
+        lengths,
+        growth_parameters,
+        growth_ln_sd,
+        weight_length_pars,
+        length_hat,     // Pass by reference
+        growth_matrix,  // Pass by reference
+        weight_hat      // Pass by reference
+      );
     }
   }
 
@@ -317,7 +359,7 @@ void calculate_weight(
           for (int yr = 0; yr < nyrs; yr++) {
 
             yr_ind = (yr < nyrs_hind) ? yr : (nyrs_hind - 1);
-            weight_hat(wt_idx_flt, sex, age, yr) = weight(flt_wt_index(flt), sex, age, yr_ind);
+            weight_hat(wt_idx_flt, sex, age, yr) = weight_obs(flt_wt_index(flt), sex, age, yr_ind);
           }
         }
       }
@@ -325,10 +367,26 @@ void calculate_weight(
 
     // -- 2.2. Estimated growth
     if (growth_model(sp) > 0) {
-      calculate_growth(wt_idx_flt, sp, mo / Type(12.0), nspp, nyrs,
-                       nsex, nages, lengths, nlengths, minage, maxage,
-                       growth_parameters, growth_ln_sd, weight_length_pars,
-                       growth_model, length_hat, growth_matrix, weight_hat);
+
+      estimate_growth(
+        wt_idx_flt,
+        sp,
+        mo / Type(12.0),
+        nspp,
+        nyrs,
+        nsex,
+        nages,
+        nlengths,
+        minage,
+        growth_model,
+        lengths,
+        growth_parameters,
+        growth_ln_sd,
+        weight_length_pars,
+        length_hat,     // Pass by reference
+        growth_matrix,  // Pass by reference
+        weight_hat      // Pass by reference
+      );
     }
   }
 }
