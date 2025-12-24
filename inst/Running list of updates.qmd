@@ -36,3 +36,11 @@ Started this late, but this is in reference to the srr_dev branch
 -   catch_data \<- fsh_biom
 
 -   index_data \<- srv_biom
+
+12/14/2025
+
+Rename Pyrs to "ration_data", old name will still be read in, but name will be updated
+
+Added internal growth calculation, see \code{build_growth} within \code{fit_mod} wrapper
+
+Added month to "fleet_control"
