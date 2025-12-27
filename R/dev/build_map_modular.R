@@ -750,63 +750,117 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 #' @return Updated \code{map_list}.
 build_map_catchability <- function(map_list, data_list, nyrs_hind) {
 
-  catchability_params <- c("index_ln_q", "index_q_beta", "index_q_rho", "index_q_dev", "index_q_ln_sd", "index_q_dev_ln_sd", "index_ln_sd")
-  map_list[catchability_params] <- lapply(map_list[catchability_params], function(x) replace(x, values = NA))
-
+  # -- Catchability indices
   ind_q_dev <- 1
   ind_beta_q <- 0
-  yrs_hind <- 1:nyrs_hind
 
-  for (i in 1:nrow(data_list$fleet_control)) {
-    flt <- data_list$fleet_control$Fleet_code[i]
 
-    if (data_list$fleet_control$Fleet_type[flt] == 2) { # If survey
-      est_q <- data_list$fleet_control$Estimate_q[i]
-      tv_q <- data_list$fleet_control$Time_varying_q[i]
+  catchability_params <- c("index_ln_q", "index_q_beta", "index_q_rho", "index_q_dev", "index_q_ln_sd", "index_q_dev_ln_sd", "index_ln_sd") # "index_q_pow"
+  map_list[catchability_params] <- lapply(map_list[catchability_params], function(x) replace(x, values = rep(NA, length(x))))
 
-      # Turn on mean q
-      if (est_q %in% c(1, 2, 4, 5, 6)) {
+  # Loop through fleets
+  for( i in 1: nrow(data_list$fleet_control)){
+    flt = data_list$fleet_control$Fleet_code[i]
+
+    if(data_list$fleet_control$Fleet_type[flt] == 2){ # If survey
+      # Q
+      # - 0 = fixed at prior
+      # - 1 = Estimate single parameter
+      # - 2 = Estimate single parameter with prior
+      # - 3 = Estimate analytical q
+      # - 4 = Estimate power equation
+      # - 5 = Use env index ln(q_y) = q_mu + beta * index_y
+      # - 6 = Fit to env index dnorm(d_y, env_index, sigma) [Rogers et al 2024]
+
+
+      # - Turn on mean q for:
+      # - 1 = Estimate single parameter
+      # - 2 = Estimate single parameter with prior
+      # - 4 = Estimate power equation
+      # - 5 = Use env index ln(q_y) = q_mu + beta * index_y
+      # - 6 = Fit to env index
+      if(data_list$fleet_control$Estimate_q[i] %in% c(1, 2, 4, 5, 6)){
         map_list$index_ln_q[flt] <- flt
       }
 
-      # Time-varying q (if relevant)
-      is_tv_q_model <- (est_q %in% c(1, 2) & tv_q %in% c(1, 2, 3, 4)) | est_q == 6
+      # - Turn on power param for:
+      # - 4 = Estimate power equation
+      if (data_list$fleet_control$Estimate_q[i] %in% c(4)) {
+        # map_list$index_q_pow[flt] <- flt
+      }
 
-      if (is_tv_q_model) {
-        index_data <- data_list$index_data %>%
-          dplyr::filter(.data$Fleet_code == flt, .data$Year > data_list$styr, .data$Year <= data_list$endyr)
+      # Time- varying q parameters "Time_varying_q"
+      # - 0 = no,
+      # - 1 = penalized deviate
+      # - 2 = random effect
+      # - 3 = time blocks with no penalty
+      # - 4 = random walk from mean following Dorn 2018 (dnorm(q_y - q_y-1, 0, sigma)
+      # - If estimate_q == 5 or 6; "Time_varying_q" determines the environmental indices to be used in the equation log(q_y) = q_mu + beta * index_y or to fit to.
+      # - Estimate_q = 6 turns on time-varying deviates
+
+      # -- Set up time varying catchability if used (account for missing years)
+      if((data_list$fleet_control$Estimate_q[i] %in% c(1, 2) &
+          as.numeric(data_list$fleet_control$Time_varying_q[i]) %in% c(1, 2, 3, 4)) |
+         data_list$fleet_control$Estimate_q[i] == 6){
+
+        # Extract survey years where data is provided
+        index_data <- data_list$index_data[which(data_list$index_data$Fleet_code == flt & data_list$index_data$Year > data_list$styr & data_list$index_data$Year <= data_list$endyr),]
         srv_biom_yrs <- index_data$Year - data_list$styr + 1
 
-        if (tv_q %in% c(1, 2, 4) || est_q == 6) { # Penalized deviate or random walk
-          map_list$index_q_dev[flt, yrs_hind] <- ind_q_dev + 1:nyrs_hind - 1
+        # Penalized deviate or random walk
+        if(data_list$fleet_control$Time_varying_q[i] %in% c(1,2,4)){
+          map_list$index_q_dev[flt, yrs_hind] <- ind_q_dev + (1:nyrs_hind) - 1
           ind_q_dev <- ind_q_dev + nyrs_hind
         }
 
-        if (tv_q == 4) map_list$index_q_dev[flt, 1] <- NA
+        # Turn on first deviate for random walk
+        if(data_list$fleet_control$Time_varying_q[i] == 4){
+          map_list$index_q_dev[flt, 1] <- NA
+        }
 
-        if (tv_q == 3) { # Time blocks
+        # Time blocks
+        if(data_list$fleet_control$Time_varying_q[i] == 3){
           map_list$index_q_dev[flt, srv_biom_yrs] <- ind_q_dev + index_data$Selectivity_block - 1
-          ind_q_dev <- ind_q_dev + max(index_data$Selectivity_block, 0)
+          ind_q_dev <- ind_q_dev + max(index_data$Selectivity_block)
         }
       }
 
-      # Environmental linkage (Estimate_q = 5)
-      if (est_q == 5) {
-        # ... (logic for environmental linkage here)
+      # - Turn on regression coefficients for:
+      # - 5 = Estimate environmental linkage
+      if (data_list$fleet_control$Estimate_q[i] == 5) {
+        if(nchar(data_list$fleet_control$Time_varying_q[i]) == 1){
+          turn_on <- as.numeric(data_list$fleet_control$Time_varying_q[i])
+        }else{
+          turn_on <- as.numeric(unlist(strsplit(data_list$fleet_control$Time_varying_q[i],","))) # Parameters to turn on
+        }
+        map_list$index_q_beta[flt, turn_on] <- turn_on + ind_beta_q
+        ind_beta_q <- ind_beta_q + max(turn_on)
       }
 
-      # Fit to environmental index (Estimate_q = 6)
-      if (est_q == 6) {
-        # ... (logic for fitting to environmental index here)
+      # - 6 = Fit to environmental index
+      if (data_list$fleet_control$Estimate_q[i] == 6) {
+        if(!nchar(data_list$fleet_control$Time_varying_q[i]) == 1){
+          warning("Cant fit catchability deviates to multiple indices")
+        }
+        map_list$index_q_beta[flt, 1] <- 1 + ind_beta_q # The effect size
+        ind_beta_q <- ind_beta_q + 1
+
+        map_list$index_q_rho[flt] <- flt # Correlation coeff
+
+        # Turn on standard deviations
+        map_list$index_q_ln_sd[flt] <- flt # Obseration error
+        map_list$index_q_dev_ln_sd[flt] <- flt # AR1 process error
       }
 
-      # Standard deviation of survey index
+      # Standard deviation of surveys index
+      # - 0 = use CV from index_data
+      # - 1 = estimate a free parameter
+      # - 2 = analytically estimate following (Ludwig and Walters 1994)
       if (data_list$fleet_control$Estimate_index_sd[i] == 1) {
         map_list$index_ln_sd[flt] <- flt
       }
     }
   }
-
   return(map_list)
 }
 
@@ -823,27 +877,92 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
 #' @return Updated \code{map_list}.
 adjust_map_shared_params <- function(map_list, data_list) {
 
-  fleet_control <- data_list$fleet_control
-  sel_indices <- fleet_control$Selectivity_index
-  q_indices <- fleet_control$Q_index
+  # Based on `Selectivity_index` or `Q_index` in `fleet_control`
+  sel_index <- data_list$fleet_control$Selectivity_index
+  sel_index_tested <- c()
 
-  for (i in 1:nrow(fleet_control)) {
-    flt <- fleet_control$Fleet_code[i]
-    sel_idx <- sel_indices[flt]
-    q_idx <- q_indices[flt]
+  q_index <- data_list$fleet_control$Q_index
+  q_index_tested <- c()
+  rows_tests <- c()
 
-    # Shared Selectivity
-    if (!is.na(sel_idx) && sel_idx < flt) {
-      sel_duplicate <- sel_idx
-      # ... (logic for shared selectivity here)
+  for(i in 1: nrow(data_list$fleet_control)){
+    flt = data_list$fleet_control$Fleet_code[i]
+    sel_test <- sel_index[flt] %in% sel_index_tested
+    if(!is.na(q_index[flt])){ # Make sure not using fishery data
+      q_test <- q_index[flt] %in% q_index_tested
+    } else {
+      q_test <- FALSE
     }
 
-    # Shared Catchability
-    if (!is.na(q_idx) && q_idx < flt) {
-      q_duplicate <- q_idx
-      # ... (logic for shared catchability here)
+    # If selectivity is the same as a previous index
+    if(sel_test){
+      sel_duplicate <- which(sel_index_tested == sel_index[flt])[1]
+      sel_duplicate_vec <- c(which(sel_index_tested == sel_index[flt]), flt)
+
+      # Error check selectivity type
+      if(length(unique(data_list$fleet_control$Selectivity[sel_duplicate_vec])) > 1){
+        warning("Survey selectivity of surveys with same Selectivity_index is not the same")
+        warning(paste0("Double check Selectivity in fleet_control of surveys:", paste(data_list$fleet_control$Fleet_name[sel_duplicate_vec])))
+      }
+
+
+      # Error check time-varying selectivity type
+      if(length(unique(data_list$fleet_control$Time_varying_sel[sel_duplicate_vec])) > 1){
+        warning("Time varying survey selectivity of surveys with same Selectivity_index is not the same")
+        warning(paste0("Double check Time_varying_sel in fleet_control of surveys:", paste(data_list$fleet_control$Fleet_name[sel_duplicate_vec])))
+      }
+
+      # FIXME add checks for surveys sel sigma
+
+      # Make selectivity maps the same if selectivity is the same
+      map_list$ln_sel_slp[1:2, flt,] <- map_list$ln_sel_slp[1:2, sel_duplicate,]
+      map_list$sel_inf[1:2, flt,] <- map_list$sel_inf[1:2, sel_duplicate,]
+      map_list$sel_coff[flt,,] <- map_list$sel_coff[sel_duplicate,,]
+      map_list$sel_coff_dev[flt,,,] <- map_list$sel_coff_dev[sel_duplicate,,,]
+      map_list$ln_sel_slp_dev[1:2, flt,,] <- map_list$ln_sel_slp_dev[1:2, sel_duplicate,,]
+      map_list$sel_inf_dev[1:2, flt,,] <- map_list$sel_inf_dev[1:2, sel_duplicate,,]
+      map_list$sel_dev_ln_sd[flt] <- map_list$sel_dev_ln_sd[sel_duplicate]
+      map_list$sel_curve_pen[flt,] <- map_list$sel_curve_pen[sel_duplicate,]
     }
+
+
+    # If catchability is the same as a previous index
+    if(q_test){
+      q_duplicate <- which(q_index_tested == q_index[flt])[1]
+      q_duplicate_vec <- c(which(q_index_tested == q_index[flt]), flt)
+
+      # Error check selectivity type
+      if(length(unique(data_list$fleet_control$Estimate_q[q_duplicate_vec])) > 1){
+        warning("Survey catchability of surveys with same Q_index is not the same")
+        warning(paste0("Double check Estimate_q in fleet_control of surveys:", paste(data_list$fleet_control$Fleet_name[q_duplicate_vec])))
+      }
+
+
+      # Error check time-varying selectivity type
+      if(length(unique(data_list$fleet_control$Time_varying_q[q_duplicate_vec])) > 1){
+        warning("Time varying survey catchability of surveys with same Q_index is not the same")
+        warning(paste0("Double check Time_varying_q in fleet_control of surveys:", paste(data_list$fleet_control$Fleet_name[q_duplicate_vec])))
+      }
+
+      # FIXME add checks for surveys q sigma
+
+      # Make catchability maps the same
+      map_list$index_ln_q[flt] <- map_list$index_ln_q[q_duplicate]
+      map_list$index_ln_q[flt] <- map_list$index_ln_q[q_duplicate]
+      # map_list$index_q_pow[flt] <- map_list$index_q_pow[q_duplicate]
+      map_list$index_q_rho[flt] <- map_list$index_q_rho[q_duplicate]
+      map_list$index_q_beta[flt,] <- map_list$index_q_beta[q_duplicate,]
+      map_list$index_q_dev[flt,] <- map_list$index_q_dev[q_duplicate,]
+      map_list$index_q_ln_sd[flt] <- map_list$index_q_ln_sd[q_duplicate]
+      map_list$index_q_dev_ln_sd[flt] <- map_list$index_q_dev_ln_sd[q_duplicate]
+    }
+
+
+    # Add index
+    sel_index_tested <- c(sel_index_tested, sel_index[flt])
+    q_index_tested <- c(q_index_tested, q_index[flt])
   }
+
   return(map_list)
 }
 
@@ -859,51 +978,66 @@ adjust_map_shared_params <- function(map_list, data_list) {
 #' @return Updated \code{map_list}.
 build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
 
-  map_list$proj_F_prop[] <- NA
-  if (!(data_list$initMode %in% c(3, 4))) map_list$ln_Finit[] <- NA
-  map_list$ln_Flimit[] <- NA
-  map_list$ln_Ftarget[] <- NA
+  # -- Map out future fishing mortality
+  map_list$proj_F_prop <- map_list$proj_F_prop * NA
 
-  comp_count <- data_list$comp_data %>%
-    dplyr::filter(.data$Year > 0) %>%
-    dplyr::count(.data$Fleet_code)
+  # -- Map out initial F if starting at equilibrium
+  if(!(data_list$initMode %in% c(3,4))){
+    map_list$ln_Finit <- rep(NA, data_list$nspp)
+  }
+
+  # -- FSPR mapped out
+  map_list$ln_Flimit <- rep(NA, data_list$nspp)
+  map_list$ln_Ftarget <- rep(NA, data_list$nspp)
+
+
+  comp_count <- data_list$comp_data %>% # Count comp obs by fleet
+    dplyr::filter(Year > 0) %>%
+    dplyr::count(Fleet_code)
 
   for (i in 1:nrow(data_list$fleet_control)) {
-    flt <- data_list$fleet_control$Fleet_code[i]
-    fleet_type <- data_list$fleet_control$Fleet_type[i]
-
-    # Catch SD, F, and F dev
-    if (data_list$fleet_control$Estimate_catch_sd[i] %in% c(NA, 0, 2) || fleet_type %in% c(0, 2)) {
+    flt = data_list$fleet_control$Fleet_code[i]
+    # Standard deviation of fishery time series If not estimating turn of
+    if (data_list$fleet_control$Estimate_catch_sd[i] %in% c(NA, 0, 2)) {
       map_list$catch_ln_sd[flt] <- NA
     }
-    if (fleet_type %in% c(0, 2)) {
+
+    # Turn of F and F dev if not estimating of it is a Survey
+    if (data_list$fleet_control$Fleet_type[i] %in% c(0, 2)) {
+      map_list$catch_ln_sd[flt] <- NA
       map_list$ln_F[flt, ] <- NA
     }
 
-    # Comp weights
-    has_comp_data <- flt %in% comp_count$Fleet_code
-    if (data_list$fleet_control$Comp_loglike[i] != 1 || fleet_type == 0 || !has_comp_data) {
-      map_list$comp_weights[flt] <- NA
+    # Map out comp weights if using multinomial
+    if(data_list$fleet_control$Comp_loglike[i] != 1) {
+      map_list$comp_weights[i] <- NA
     }
 
-    comp_loglike <- data_list$fleet_control$Comp_loglike[i]
-    if (!is.na(comp_loglike) && !(comp_loglike %in% c(-1, 0, 1))) {
-      stop(paste0("Comp_loglike for fleet ", flt, "is not -1, 0 or 1. Current value: ", comp_loglike))
+    # Map out comp weights if fleet is turned off or there are no comp data
+    if(data_list$fleet_control$Fleet_type[i] == 0) {
+      map_list$comp_weights[i] <- NA
+    }
+    if(!data_list$fleet_control$Fleet_code[i] %in% comp_count$Fleet_code){
+      map_list$comp_weights[i] <- NA
+    }
+
+    if(!data_list$fleet_control$Comp_loglike[i] %in% c(-1, 0, 1)){
+      if(!is.na(data_list$fleet_control$Comp_loglike[i])){
+        stop(paste0("Comp_loglike for fleet ", i, "is not 0 or 1"))
+      }
     }
   }
 
-  # Map out Fdev and selectivity devs for years with 0 catch
-  catch_data_hind <- data_list$catch_data %>%
-    dplyr::filter(.data$Year <= data_list$endyr, .data$Catch == 0)
 
-  if (nrow(catch_data_hind) > 0) {
-    fsh_ind <- catch_data_hind$Fleet_code
-    yr_ind <- catch_data_hind$Year - data_list$styr + 1
-    for (i in seq_along(yr_ind)) {
-      map_list$ln_F[fsh_ind[i], yr_ind[i]] <- NA
-      map_list$ln_sel_slp_dev[, fsh_ind[i], , yr_ind[i]] <- NA
-      map_list$sel_inf_dev[, fsh_ind[i], , yr_ind[i]] <- NA
-    }
+  # - Map out Fdev for years with 0 catch to very low number
+  catch_data <- data_list$catch_data[which(data_list$catch_data$Year <= data_list$endyr),]
+  fsh_ind <- catch_data$Fleet_code[which(catch_data$Catch == 0)]
+  yr_ind <- catch_data$Year[which(catch_data$Catch == 0)] - data_list$styr + 1
+
+  for(i in 1:length(yr_ind)){
+    map_list$ln_F[fsh_ind[i], yr_ind[i]] <- NA
+    map_list$ln_sel_slp_dev[1:2, fsh_ind[i], , yr_ind[i]] <- NA
+    map_list$sel_inf_dev[1:2, fsh_ind[i], , yr_ind[i]] <- NA
   }
 
   return(map_list)
@@ -920,48 +1054,64 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
 #' @return Updated \code{map_list}.
 build_map_fixed_natage <- function(map_list, data_list) {
 
-  for (sp in 1:data_list$nspp) {
-    est_dyn <- data_list$estDynamics[sp]
+  # - I.E. turn off all parameters besides for species
+  for(sp in 1:data_list$nspp){
 
-    if (est_dyn > 0) {
-      pop_params_off <- c("rec_pars", "R_ln_sd", "ln_Finit", "rec_dev", "init_dev",
-                          "ln_M1", "ln_M1_dev", "M1_dev_ln_sd", "M1_rho")
-      for (p in pop_params_off) {
-        if (!is.null(map_list[[p]])) map_list[[p]][sp, ] <- NA
-      }
+    # Fixed n-at-age: Turn off most parameters
+    if(data_list$estDynamics[sp] > 0){
 
-      flts <- data_list$fleet_control$Fleet_code[data_list$fleet_control$Species == sp]
-      if (length(flts) > 0) {
-        fleet_params_off <- c("ln_F", "index_ln_q", "index_q_dev", "index_q_ln_sd",
-                              "index_q_dev_ln_sd", "sel_coff", "sel_coff_dev",
-                              "ln_sel_slp", "sel_inf", "ln_sel_slp_dev",
-                              "sel_inf_dev", "sel_dev_ln_sd", "index_ln_sd",
-                              "catch_ln_sd", "comp_weights")
-        for (p in fleet_params_off) {
-          if (!is.null(map_list[[p]])) {
-            if (length(dim(map_list[[p]])) == 1) {
-              map_list[[p]][flts] <- NA
-            } else {
-              map_list[[p]][, flts, ] <- NA
-            }
-          }
-        }
-      }
+      # Population parameters
+      map_list$rec_pars[sp,] <- NA
+      map_list$R_ln_sd[sp] <- NA
+      map_list$ln_Finit[sp] <- NA
+      # map_list$sex_ratio_ln_sd[sp] <- NA
+      map_list$rec_dev[sp,] <- NA
+      map_list$init_dev[sp,] <- NA
+      map_list$ln_M1[sp,,] <- NA
+      map_list$ln_M1_dev[sp,,,] <- NA
+      map_list$M1_dev_ln_sd[sp,] <- NA
+      map_list$M1_rho[sp,,] <- NA
+      map_list$ln_Finit[sp] <- NA
+
+      # Survey and fishery fleet parameters
+      flts <- data_list$fleet_control$Fleet_code[which(data_list$fleet_control$Species == sp)]
+
+
+      map_list$ln_F[flts,] <- NA
+      map_list$index_ln_q[flts] <- NA
+      # map_list$index_q_pow[flts] <- NA
+      map_list$index_q_dev[flts,] <- NA
+      map_list$index_q_ln_sd[flts] <- NA
+      map_list$index_q_dev_ln_sd[flts] <- NA
+      map_list$sel_coff[flts,,] <- NA
+      map_list$sel_coff_dev[flts,,,] <- NA
+      map_list$ln_sel_slp[, flts, ] <- NA
+      map_list$sel_inf[, flts, ] <- NA
+      map_list$ln_sel_slp_dev[, flts, ,] <- NA
+      map_list$sel_inf_dev[, flts, ,] <- NA
+      map_list$sel_dev_ln_sd[flts] <- NA
+      map_list$index_ln_sd[flts] <- NA
+      map_list$catch_ln_sd[flts] <- NA
+      map_list$comp_weights[flts] <- NA
     }
 
-    # Population scalar logic (est_dyn = 2 or 3)
-    nages_scalar <- ncol(map_list$ln_pop_scalar)
-    if (est_dyn < 2 || data_list$msmMode == 0) {
-      map_list$ln_pop_scalar[sp, ] <- NA
-    } else if (est_dyn == 2) {
-      map_list$ln_pop_scalar[sp, 2:nages_scalar] <- NA
-    } else if (est_dyn == 3) {
-      if (data_list$nages[sp] < nages_scalar) {
-        map_list$ln_pop_scalar[sp, (data_list$nages[sp] + 1):nages_scalar] <- NA
+    # Don't estimate the scalar
+    if(data_list$estDynamics[sp] < 2 | data_list$msmMode == 0){
+      map_list$ln_pop_scalar[sp,] <- NA
+    }
+
+    # Age-independent scalar
+    if(data_list$estDynamics[sp] == 2 | data_list$msmMode != 0){
+      map_list$ln_pop_scalar[sp,2:ncol(map_list$ln_pop_scalar)] <- NA # Only estimate first parameter
+    }
+
+    # Age-dependent scalar
+    if(data_list$estDynamics[sp] == 3 | data_list$msmMode != 0){
+      if(data_list$nages[sp] < ncol(map_list$ln_pop_scalar)){ # Map out ages beyond maxage of the species
+        map_list$ln_pop_scalar[sp,(data_list$nages[sp]+1):ncol(map_list$ln_pop_scalar)] <- NA # Only estimate parameters for each age of species
       }
     }
   }
-
   return(map_list)
 }
 
