@@ -144,12 +144,12 @@ sim_dat$fleet_control <-
              Species = 1,              # 3) Species
              Selectivity_index = 1:2,    # 4) Survey selectivity index
              Selectivity = 1,          # 5) Selectivity type
-             Nselages = NA,             # 6) Non-parametric selectivity ages
+             N_sel_bins = NA,             # 6) Non-parametric selectivity ages
              Time_varying_sel = 0,     # 7) Time-varying selectivity type.
              Sel_sd_prior = 0,
              Age_first_selected = 1,   # 8) First age selected
-             Age_max_selected = NA,     # 9b) Age of max selectivity (used for normalization). If NA, does not normalize
-             Age_max_selected_upper = NA,# 9a) upper age of max selectivity (used for normalization). If NA, does not normalize
+             Sel_norm_bin1 = NA,       # 9b) Age of max selectivity (used for normalization). If NA, does not normalize
+             Sel_norm_bin2 = NA,       # 9a) upper age of max selectivity (used for normalization). If NA, does not normalize
              Comp_loglike = 0,         # 10) Index indicating wether to do dirichlet multinomial for a multinomial)
              Weight1_Numbers2 = 1,     # 11) Survey units
              Weight_index = 1,         # 12) Dim1 of weight (what weight-at-age data set)

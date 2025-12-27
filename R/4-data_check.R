@@ -110,7 +110,7 @@ data_check <- function(data_list) {
     }
 
     # Max sel age > nages
-    data_list$fleet_control$Age_max_selected[flt] <- ifelse(data_list$fleet_control$Age_max_selected[flt] > data_list$nages[data_list$fleet_control$Species[flt]], data_list$nages[data_list$fleet_control$Species[flt]], data_list$fleet_control$Age_max_selected[flt])
+    data_list$fleet_control$Sel_norm_bin1[flt] <- ifelse(data_list$fleet_control$Sel_norm_bin1[flt] > data_list$nages[data_list$fleet_control$Species[flt]], data_list$nages[data_list$fleet_control$Species[flt]], data_list$fleet_control$Sel_norm_bin1[flt])
   }
 
   # - Mirroring warnings
@@ -382,15 +382,15 @@ switch_check <- function(data_list){
   }
 
   # Normalization age
-  if(is.null(data_list$fleet_control$Age_max_selected)){
-    data_list$fleet_control$Age_max_selected <- NA
-    print("'Age_max_selected' not specified in 'fleet_control', assuming 'NA'")
+  if(is.null(data_list$fleet_control$Sel_norm_bin1)){
+    data_list$fleet_control$Sel_norm_bin1 <- NA
+    print("'Sel_norm_bin1' not specified in 'fleet_control', assuming 'NA'")
   }
 
 
-  if(is.null(data_list$fleet_control$Age_max_selected_upper)){
-    data_list$fleet_control$Age_max_selected_upper <- NA
-    print("'Age_max_selected_upper' not specified in 'fleet_control', assuming 'NA'")
+  if(is.null(data_list$fleet_control$Sel_norm_bin2)){
+    data_list$fleet_control$Sel_norm_bin2 <- NA
+    print("'Sel_norm_bin2' not specified in 'fleet_control', assuming 'NA'")
   }
 
   # Sel curve penalties

@@ -498,7 +498,7 @@ build_map_predation <- function(map_list, data_list) {
 #' 4 = descending logistic
 #' 5 = non-parametric selectivity sensu Taylor et al 2014 (Hake)
 #'
-#' \code{Nselages}	Number of ages to estimate non-parametric selectivity when Selectivity = 2 & 5. Not used otherwise
+#' \code{N_sel_bins}	Number of age/length bins to estimate non-parametric selectivity when Selectivity = 2 & 5. Not used otherwise
 #'
 #' \code{Time_varying_sel}	determines if time-varying selectivity should be estimated for logistic, double logistic selectivity,  descending logistic , or non-parametric (\code{Selectivity = 1, 3, 4, or 5}).
 #' 0 = no
@@ -604,10 +604,10 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
         age_first_selected <- data_list$fleet_control$Age_first_selected[i]
         minage_spp <- data_list$minage[spp]
-        nselages <- data_list$fleet_control$Nselages[i]
+        N_sel_bins <- data_list$fleet_control$N_sel_bins[i]
 
         if (is.na(age_first_selected)) age_first_selected <- minage_spp
-        ages_on <- (age_first_selected - minage_spp + 1):nselages
+        ages_on <- (age_first_selected - minage_spp + 1):N_sel_bins
         max_age_on <- max(ages_on)
 
         for (sex in 1:nsex) {
@@ -714,11 +714,11 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
         age_first_selected <- data_list$fleet_control$Age_first_selected[i]
         minage_spp <- data_list$minage[spp]
-        nselages <- data_list$fleet_control$Nselages[i]
+        N_sel_bins <- data_list$fleet_control$N_sel_bins[i]
 
         if (is.na(age_first_selected)) age_first_selected <- minage_spp
         # +2 because first parameter is not-identifiable and is not estimated
-        ages_on <- (age_first_selected - minage_spp + 2):nselages
+        ages_on <- (age_first_selected - minage_spp + 2):N_sel_bins
         max_age_on <- max(ages_on, 0)
 
         for (sex in 1:nsex) {
