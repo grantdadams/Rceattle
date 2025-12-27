@@ -17,7 +17,7 @@ test_that("lognormal index", {
   # Set logistic sel
   GOA2018SS$fleet_control$Selectivity <- 1
   GOA2018SS$fleet_control$Age_first_selected <- 1
-  GOA2018SS$fleet_control$Age_max_selected <- NA
+  GOA2018SS$fleet_control$Sel_norm_bin1 <- NA
   GOA2018SS$index_data$Month <- 0
 
   # Set params

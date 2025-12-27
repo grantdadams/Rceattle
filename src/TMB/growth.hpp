@@ -204,20 +204,6 @@ void estimate_growth(
 }
 
 
-
-// ------------------------------------------------------------------------- //
-// TODO                                                           //
-// ------------------------------------------------------------------------- //
-// ADD MONTH TO FLEET CONTROL
-// ADD WEIGHT LENGTH PARAMETERS TO DATA
-// add function for weight-at-age from frac-yr
-// add growth parameters to build param and build map
-// add build_growth function
-// rename "nselages" to "N_sel_bins"
-// rename "flt_sel_maxage" and "flt_sel_maxage_upper" to "Sel_norm_bin1" and "Sel_norm_bin2"
-
-
-
 /**
  * @brief Calculates population and fleet-specific weight-at-age.
  * * This function populates the weight_hat array based on either empirical data
@@ -256,7 +242,7 @@ array<Type> &weight_hat,
     int nyrs_hind,
     int n_flt,
     const vector<int>&  flt_spp,
-    vector<int> flt_month,
+    vector<Type> flt_month,
     const vector<int>&  nsex,
     const vector<int>&  minage,
     const vector<int>&  nages,
@@ -391,5 +377,18 @@ array<Type> &weight_hat,
   }
 }
 
+
+
+
+
+
+// ------------------------------------------------------------------------- //
+// TODO                                                                      //
+// ------------------------------------------------------------------------- //
+// ADD MONTH TO FLEET CONTROL
+// ADD WEIGHT LENGTH PARAMETERS TO DATA
+// add function for weight-at-age from frac-yr
+// add growth parameters to build param and build map
+// add build_growth function
 
 

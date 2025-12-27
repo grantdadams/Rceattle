@@ -212,6 +212,21 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     print("Renaming 'Estimate_survey_sd' to 'Estimate_index_sd' and 'Survey_sd_prior' to 'Index_sd_prior'")
   }
 
+
+  if(length(data_list$fleet_control$Nselages) > 0){
+    data_list$fleet_control <- data_list$fleet_control %>%
+      dplyr::rename(N_sel_bins = Nselages,
+                    Sel_norm_bin1 = Age_max_selected,
+                    Sel_norm_bin2 = Age_max_selected_upper)
+    print("Renaming 'Nselages' to 'N_sel_bins', 'Age_max_selected' to 'Sel_norm_bin1', and 'Age_max_selected_upper' to 'Sel_norm_bin2'")
+  }
+
+  if(!exists(data_list$fleet_control$Month)){
+    data_list$fleet_control <- data_list$fleet_control %>%
+      dplyr::mutate(Month = 0)
+    print("Adding 'Month' column to 'fleet_control' with default value of 0")
+  }
+
   # Index and catch data ----
   sheetnames <- readxl::excel_sheets(file)
 

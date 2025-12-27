@@ -114,7 +114,10 @@ set_phases <- function(){
     # H_4 = 6,         # Functional form parameter (not used in MSVPA functional form)
     log_gam_a = 5,     # Suitability parameter (size-preference mean)
     log_gam_b = 5,     # Suitability parameter (size-preference sd)
-    log_phi = 5        # Suitability parameter (pred-prey vulnerability)
+    log_phi = 5,       # Suitability parameter (pred-prey vulnerability)
+    mu_growth_pars = 4,# Mean growth parameters
+    re_growth_pars = 5 # Random effects for growth parameters
+
   )
 
   return(phaseList)

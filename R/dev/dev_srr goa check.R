@@ -21,7 +21,7 @@ data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the d
 # GOA2018SS$fleet_control$proj_F_prop <- rep(1, nrow(GOA2018SS$fleet_control))
 #GOA2018SS$fleet_control$Time_varying_sel[8] <- 0
 
-GOA2018SS$fleet_control$Age_max_selected[2] <- 10
+GOA2018SS$fleet_control$Sel_norm_bin1[2] <- 10
 ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save

@@ -432,7 +432,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   # - 4 = descending logistic
   # - 5 = non-parametric selectivity sensu Taylor et al 2014 (Hake)
 
-  # "Nselages"	Number of ages to estimate non-parametric selectivity when Selectivity = 2 & 5. Not used otherwise
+  # "N_sel_bins"	Number of ages to estimate non-parametric selectivity when Selectivity = 2 & 5. Not used otherwise
 
   # "Time_varying_sel"	determines if time-varying selectivity should be estimated for logistic, double logistic selectivity,  descending logistic , or non-parametric (Selectivity = 1, 3, 4, or 5).
   # - 0 = no
@@ -565,9 +565,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       if(data_list$fleet_control$Selectivity[i] == 2){ # Non-parametric at age
 
         # Ages to turn on
-        # Age_first_selected until (age_first_selected + nselages)
+        # Age_first_selected until (age_first_selected + N_sel_bins)
         if(is.na(data_list$fleet_control$Age_first_selected[i])){data_list$fleet_control$Age_first_selected[i] = data_list$minage[spp]}
-        ages_on <- (data_list$fleet_control$Age_first_selected[i] - data_list$minage[spp] + 1):data_list$fleet_control$Nselages[i]
+        ages_on <- (data_list$fleet_control$Age_first_selected[i] - data_list$minage[spp] + 1):data_list$fleet_control$N_sel_bins[i]
 
         # Turn on parameters for each sex
         for(sex in 1:nsex){
@@ -739,9 +739,9 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
       # (Taylor et al 2014) - sel_type = 5
       if(data_list$fleet_control$Selectivity[i] == 5){ # Non-parametric at age
         # Ages to turn on
-        # Age_first_selected until (age_first_selected + nselages)
+        # Age_first_selected until (age_first_selected + N_sel_bins)
         if(is.na(data_list$fleet_control$Age_first_selected[i])){data_list$fleet_control$Age_first_selected[i] = data_list$minage[spp]}
-        ages_on <- (data_list$fleet_control$Age_first_selected[i] - data_list$minage[spp] + 2):data_list$fleet_control$Nselages[i] # + 2 because first parameter is not-identifiable and is not estimated
+        ages_on <- (data_list$fleet_control$Age_first_selected[i] - data_list$minage[spp] + 2):data_list$fleet_control$N_sel_bins[i] # + 2 because first parameter is not-identifiable and is not estimated
 
         # Turn on parameters for each sex
         for(sex in 1:nsex){

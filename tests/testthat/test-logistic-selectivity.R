@@ -16,7 +16,7 @@ test_that("logistic selectivity divided by max sel", {
   inits$sel_inf[1,9:11,2] <- inf + 1 # Males
   GOA2018SS$fleet_control$Selectivity <- 1
   GOA2018SS$fleet_control$Age_first_selected <- 1
-  GOA2018SS$fleet_control$Age_max_selected <- -999
+  GOA2018SS$fleet_control$Sel_norm_bin1 <- -999
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
@@ -56,7 +56,7 @@ test_that("logistic selectivity not normalized", {
   inits$sel_inf[1,9:11,2] <- inf + 1 # Males
   GOA2018SS$fleet_control$Selectivity <- 1
   GOA2018SS$fleet_control$Age_first_selected <- 1
-  GOA2018SS$fleet_control$Age_max_selected <- NA
+  GOA2018SS$fleet_control$Sel_norm_bin1 <- NA
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
@@ -94,7 +94,7 @@ test_that("logistic selectivity divided by sel-at-age", {
   inits$sel_inf[1,,] <- inf
   GOA2018SS$fleet_control$Selectivity <- 1
   GOA2018SS$fleet_control$Age_first_selected <- 1
-  GOA2018SS$fleet_control$Age_max_selected <- 7
+  GOA2018SS$fleet_control$Sel_norm_bin1 <- 7
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
@@ -133,8 +133,8 @@ test_that("logistic selectivity divided by sel-at-age-RANGE", {
   inits$sel_inf[1,,] <- inf
   GOA2018SS$fleet_control$Selectivity <- 1
   GOA2018SS$fleet_control$Age_first_selected <- 1
-  GOA2018SS$fleet_control$Age_max_selected <- 7
-  GOA2018SS$fleet_control$Age_max_selected_upper <- 9
+  GOA2018SS$fleet_control$Sel_norm_bin1 <- 7
+  GOA2018SS$fleet_control$Sel_norm_bin2 <- 9
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
@@ -185,7 +185,7 @@ test_that("time-varying logistic selectivity divided by max sel", {
   GOA2018SS$fleet_control$Time_varying_sel <- 1
   GOA2018SS$fleet_control$Sel_sd_prior <- 1
   GOA2018SS$fleet_control$Age_first_selected <- 1
-  GOA2018SS$fleet_control$Age_max_selected <- -999
+  GOA2018SS$fleet_control$Sel_norm_bin1 <- -999
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
