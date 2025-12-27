@@ -15,36 +15,44 @@ rearrange_dat <- function(data_list){
   nyrs_hind <- length(yrs_hind)
   nyrs_proj <- length(yrs_proj)
 
-  # 1 - remove non-integer objects from control ----
+  # 1 - Fleet control ----
+  data_list$flt_sel_ind <- data_list$fleet_control %>%
+    dplyr::pull(Fleet_code)              # 1) Fleet pointer
+  data_list$flt_type <- data_list$fleet_control %>%
+    dplyr::pull(Fleet_type)              # 2) Fleet type; 0 = don't fit, 1 = fishery, 2 = survey
+  data_list$flt_month <- data_list$fleet_control %>%
+    dplyr::pull(Month)                   # 3) Month of observation
+  data_list$flt_sel_type <- data_list$fleet_control %>%
+    dplyr::pull(Selectivity)             # 4) Selectivity type
+  data_list$flt_n_sel_bins <- data_list$fleet_control %>%
+    dplyr::pull(N_sel_bins)                # 5) Number of ages/lengths for non-parametric selectivity
+  data_list$flt_varying_sel <- data_list$fleet_control %>%
+    dplyr::pull(Time_varying_sel)        # 6) Time-varying selectivity type.
+  data_list$flt_spp <- data_list$fleet_control %>%
+    dplyr::pull(Species)                 # Vector to save survey species
+  data_list$flt_sel_age <- data_list$fleet_control %>%
+    dplyr::pull(Age_first_selected)      # 7) First age selected
+  data_list$flt_sel_maxage <- data_list$fleet_control %>%
+    dplyr::pull(Sel_norm_bin1)        # 8) Age of max selectivity (used for normalization). If NA, does not normalize
+  data_list$flt_sel_maxage_upper <- data_list$fleet_control %>%
+    dplyr::pull(Sel_norm_bin2)  # 9) upper age of max selectivity (used for normalization). If NA, does not normalize
+  data_list$comp_ll_type <- data_list$fleet_control %>%
+    dplyr::pull(Comp_loglike)            # 10) Index indicating wether to do dirichlet multinomial or a multinomial
+  data_list$flt_units <- data_list$fleet_control %>%
+    dplyr::pull(Weight1_Numbers2)        # 11) Index units (1 = weight, 2 = numbers)
+  data_list$flt_wt_index <- data_list$fleet_control %>%
+    dplyr::pull(Weight_index)            # 12) Dim1 of weight (what weight-at-age data set)
+  data_list$flt_age_transition_index <- data_list$fleet_control %>%
+    dplyr::pull(Age_transition_index)    # 13) Dim3 of age transition matrix (what ALK to use)
+  data_list$est_index_q <- data_list$fleet_control %>%
+    dplyr::pull(Estimate_q)              # 14) Parametric form of q
+  data_list$index_varying_q <- data_list$fleet_control %>%
+    dplyr::pull(Time_varying_q)          # 15) Time varying q type
+  data_list$est_sigma_index <- data_list$fleet_control %>%
+    dplyr::pull(Estimate_index_sd)       # 16) Wether to estimate standard deviation of index time series
+  data_list$est_sigma_fsh <- data_list$fleet_control %>%
+    dplyr::pull(Estimate_catch_sd)       # 17) Wether to estimate standard deviation of fishery time series
   data_list$index_ln_q_prior <- log(data_list$fleet_control$Q_prior)
-
-  data_list$fleet_control <- data_list$fleet_control %>%
-    dplyr::select(Fleet_name,
-                  Fleet_code,           # 1) Temporary survey index
-                  Fleet_type,           # 2) Fleet type; 0 = don't fit, 1 = fishery, 2 = survey
-                  Species,              # 3) Species
-                  Selectivity_index,    # 4) Survey selectivity index
-                  Selectivity,          # 5) Selectivity type
-                  Nselages,             # 6) Non-parametric selectivity ages
-                  Time_varying_sel,     # 7) Time-varying selectivity type.
-                  Age_first_selected,   # 8) First age selected
-                  Age_max_selected,     # 9b) Age of max selectivity (used for normalization). If NA, does not normalize
-                  Age_max_selected_upper,# 9a) upper age of max selectivity (used for normalization). If NA, does not normalize
-                  Comp_loglike,         # 10) Index indicating wether to do dirichlet multinomial for a multinomial)
-                  Weight1_Numbers2,     # 11) Survey units
-                  Weight_index,         # 12) Dim1 of weight (what weight-at-age data set)
-                  Age_transition_index, # 13) Dim3 of age transition matrix (what ALK to use)
-                  Q_index,              # 14) Index of survey q
-                  Estimate_q,           # 15) Parametric form of q
-                  Time_varying_q,       # 16) Time varying q type
-                  Estimate_index_sd,    # 17) Wether to estimate standard deviation of survey time series
-                  Estimate_catch_sd     # 18) Wether to estimate standard deviation of fishery time series
-    )
-  # Don't want: "Sel_sd_prior", "Q_prior", "Q_sd_prior", "Time_varying_q_sd_prior", "Survey_sd_prior", "proj_F", "Catch_sd_prior", "Comp_weights", "proj_F_prop"
-
-  data_list$fleet_control$Time_varying_sel <- round(data_list$fleet_control$Time_varying_sel)
-  data_list$fleet_control$Fleet_name <- suppressWarnings(as.numeric(as.character(data_list$fleet_control$Fleet_name)))
-  data_list$fleet_control$Time_varying_q <- suppressWarnings(as.numeric(as.character(data_list$fleet_control$Time_varying_q)))
 
   # Species names
   data_list$spnames <- NULL
@@ -53,12 +61,12 @@ rearrange_dat <- function(data_list){
   data_list$Ftarget_percent <- data_list$Ftarget
   data_list$Flimit_percent <- data_list$Flimit
 
-  # - Input missing nselages and age first selected (use age range)
+  # - Input missing N_sel_bins and age first selected (use age range)
   data_list$fleet_control <- data_list$fleet_control %>%
-    dplyr::mutate(Nselages = ifelse(is.na(Nselages), -999, Nselages),
-                  Age_max_selected = ifelse(Age_max_selected < 0, -99, Age_max_selected),     # Less than zero, normalize by max
-                  Age_max_selected = ifelse(is.na(Age_max_selected), -999, Age_max_selected), # NA, do not normalize (unless type = 2)
-                  Age_max_selected_upper = ifelse(is.na(Age_max_selected_upper), -999, Age_max_selected_upper),
+    dplyr::mutate(N_sel_bins = ifelse(is.na(N_sel_bins), -999, N_sel_bins),
+                  Sel_norm_bin1 = ifelse(Sel_norm_bin1 < 0, -99, Sel_norm_bin1),     # Less than zero, normalize by max
+                  Sel_norm_bin1 = ifelse(is.na(Sel_norm_bin1), -999, Sel_norm_bin1), # NA, do not normalize (unless type = 2)
+                  Sel_norm_bin2 = ifelse(is.na(Sel_norm_bin2), -999, Sel_norm_bin2),
                   Age_first_selected = ifelse(is.na(Age_first_selected), data_list$minage[Species], Age_first_selected)
     )
 
@@ -373,7 +381,7 @@ rearrange_dat <- function(data_list){
 
   items_to_remove <- c("emp_sel",  "fsh_comp",    "srv_comp",    "catch_data",    "index_data", "comp_data", "env_data", "spnames",
                        "aLW", "diet_data", # "NByageFixed", "estDynamics", "Ceq",
-                       "avgnMode", "minNByage", "weight")
+                       "avgnMode", "minNByage", "weight", "fleet_control")
   data_list[items_to_remove] <- NULL
 
   return(data_list)
