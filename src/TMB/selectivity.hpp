@@ -18,7 +18,7 @@
  * @param flt_spp Vector mapping fleet to species index.
  * @param flt_sel_type Functional form index per fleet.
  * @param flt_sel_age Minimum age selected.
- * @param nselages Maximum age with estimated coefficients.
+ * @param n_sel_bins Maximum age with estimated coefficients.
  * @param flt_sel_maxage Age used for normalization.
  * @param flt_sel_maxage_upper Upper age range for mean normalization.
  * @param emp_sel_obs Matrix of empirical selectivity values.
@@ -41,7 +41,7 @@ void calculate_age_selectivity(
     const vector<int>&  flt_spp,
     const vector<int>&  flt_sel_type,
     const vector<int>&  flt_sel_age,
-    const vector<int>&  flt_nselages,
+    const vector<int>&  flt_n_sel_bins,
     const vector<int>&  flt_sel_maxage,
     const vector<int>&  flt_sel_maxage_upper,
     matrix<Type> emp_sel_obs,
@@ -86,7 +86,7 @@ void calculate_age_selectivity(
   for (int flt = 0; flt < n_flt; flt++) {
     int sp = flt_spp(flt);
     int sel_type = flt_sel_type(flt);
-    int nselages = flt_nselages(flt);
+    int n_sel_bins = flt_n_sel_bins(flt);
     if (sel_type == 0) continue;
 
     for (int yr = 0; yr < nyrs_hind; yr++) {
@@ -105,7 +105,7 @@ void calculate_age_selectivity(
           // {
           //   Type avgsel_tmp = 0;
           //   for (int age = 0; age < nages(sp); age++) {
-          //     int a_idx = (age < nselages) ? age : nselages - 1;
+          //     int a_idx = (age < n_sel_bins) ? age : n_sel_bins - 1;
           //     Type val = exp(sel_coff(flt, sex, a_idx) + sel_coff_dev(flt, sex, a_idx, yr));
           //     sel(flt, sex, age, yr) = val;
           //     avgsel_tmp += val;
@@ -114,16 +114,16 @@ void calculate_age_selectivity(
           //   for (int age = 0; age < nages(sp); age++) sel(flt, sex, age, yr) /= avgsel_tmp;
           // }
 
-          for(int age = 0; age < nselages; age++) {
+          for(int age = 0; age < n_sel_bins; age++) {
             non_par_sel(flt, sex, age, yr) = sel_coff(flt, sex, age) + sel_coff_dev(flt, sex, age, yr);
             avg_sel(flt, sex, yr) +=  exp(sel_coff(flt, sex, age) + sel_coff_dev(flt, sex, age, yr));
           }
-          //  Average selectivity (up to nselages)
-          avg_sel(flt, sex, yr) = log(avg_sel(flt, sex, yr) / nselages);
+          //  Average selectivity (up to n_sel_bins)
+          avg_sel(flt, sex, yr) = log(avg_sel(flt, sex, yr) / n_sel_bins);
 
           // Fill in plus group
-          for(int age = nselages; age < nages(sp); age++) {
-            non_par_sel(flt, sex, age, yr) = non_par_sel(flt, sex, nselages - 1, yr);
+          for(int age = n_sel_bins; age < nages(sp); age++) {
+            non_par_sel(flt, sex, age, yr) = non_par_sel(flt, sex, n_sel_bins - 1, yr);
           }
 
           // Average selectivity (ALL ages)
@@ -164,7 +164,7 @@ void calculate_age_selectivity(
           {
             Type cum_sum = 0;
             for (int age = flt_sel_age(flt); age < nages(sp); age++) {
-              if (age < nselages) {
+              if (age < n_sel_bins) {
                 cum_sum += sel_coff(flt, sex, age) + sel_coff_dev(flt, sex, age, yr);
               }
               sel(flt, sex, age, yr) = cum_sum;
@@ -249,7 +249,7 @@ void convert_length_selectivity(
  * @param flt_spp Vector mapping fleet to species index.
  * @param flt_sel_type Functional form index per fleet.
  * @param flt_sel_age Minimum age selected.
- * @param nselages Maximum length with estimated coefficients. //FIXME
+ * @param n_sel_bins Maximum length with estimated coefficients. //FIXME
  * @param flt_sel_maxage Age used for normalization.
  * @param flt_sel_maxage_upper Upper age range for mean normalization.
  * @param emp_sel_obs Matrix of empirical selectivity values.
@@ -278,7 +278,7 @@ void calculate_length_selectivity(
     const vector<int>&  flt_spp,
     const vector<int>&  flt_sel_type,
     const vector<int>&  flt_sel_age,
-    const vector<int>&  flt_nselages,
+    const vector<int>&  flt_n_sel_bins,
     const vector<int>&  flt_sel_maxage,
     const vector<int>&  flt_sel_maxage_upper,
     array<Type>& ln_sel_slp,
@@ -304,7 +304,7 @@ void calculate_length_selectivity(
   for (int flt = 0; flt < n_flt; flt++) {
     int sp = flt_spp(flt);
     int sel_type = flt_sel_type(flt);
-    int nselages = flt_nselages(flt);
+    int n_sel_bins = flt_n_sel_bins(flt);
     if (sel_type == 0) continue;
 
     for (int yr = 0; yr < nyrs_hind; yr++) {
@@ -323,7 +323,7 @@ void calculate_length_selectivity(
           // {
           //   Type avgsel_tmp = 0;
           //   for (int ln = 0; ln < nlengths(sp); ln++) {
-          //     int a_idx = (ln < nselages) ? ln : nselages - 1;
+          //     int a_idx = (ln < n_sel_bins) ? ln : n_sel_bins - 1;
           //     Type val = exp(sel_coff(flt, sex, a_idx) + sel_coff_dev(flt, sex, a_idx, yr));
           //     length_sel(flt, sex, ln, yr) = val;
           //     avgsel_tmp += val;
@@ -331,16 +331,16 @@ void calculate_length_selectivity(
           //   avgsel_tmp /= Type(nlengths(sp));
           //   for (int ln = 0; ln < nlengths(sp); ln++) length_sel(flt, sex, ln, yr) /= avgsel_tmp;
           // }
-          for(int ln = 0; ln < nselages; ln++) {
+          for(int ln = 0; ln < n_sel_bins; ln++) {
             non_par_sel(flt, sex, ln, yr) = sel_coff(flt, sex, ln) + sel_coff_dev(flt, sex, ln, yr);
             avg_sel(flt, sex, yr) +=  exp(sel_coff(flt, sex, ln) + sel_coff_dev(flt, sex, ln, yr));
           }
-          //  Average selectivity (up to nselages)
-          avg_sel(flt, sex, yr) = log(avg_sel(flt, sex, yr) / nselages);
+          //  Average selectivity (up to n_sel_bins)
+          avg_sel(flt, sex, yr) = log(avg_sel(flt, sex, yr) / n_sel_bins);
 
           // Fill in plus group
-          for(int ln = nselages; ln < nlengths(sp); ln++) {
-            non_par_sel(flt, sex, ln, yr) = non_par_sel(flt, sex, nselages - 1, yr);
+          for(int ln = n_sel_bins; ln < nlengths(sp); ln++) {
+            non_par_sel(flt, sex, ln, yr) = non_par_sel(flt, sex, n_sel_bins - 1, yr);
           }
 
           // Average selectivity (ALL ages)
@@ -380,7 +380,7 @@ void calculate_length_selectivity(
           {
             Type cum_sum = 0;
             for (int ln = flt_sel_age(flt); ln < nlengths(sp); ln++) {
-              if (ln < nselages) {
+              if (ln < n_sel_bins) {
                 cum_sum += sel_coff(flt, sex, ln) + sel_coff_dev(flt, sex, ln, yr);
               }
               length_sel(flt, sex, ln, yr) = cum_sum;
@@ -460,7 +460,7 @@ void normalize_and_project_selectivity(
   for (int flt = 0; flt < n_flt; flt++) {
     int sp = flt_spp(flt);
     int sel_type = flt_sel_type(flt);
-    // int nselages = flt_nselages(flt); // Note: defined but currently unused in logic
+    // int n_sel_bins = flt_n_sel_bins(flt); // Note: defined but currently unused in logic
 
     if(sel_type > 0) {
       // Ages not selected

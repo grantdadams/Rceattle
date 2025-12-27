@@ -40,8 +40,11 @@ data_list <- GOA2018SS
 #                             phase = TRUE,
 #                             verbose = 1)
 # plot_biomass(ss_run)
-data_list$ration_data <- data_list$Pyrs
-data_list$Pyrs <- NULL
+data_list$fleet_control <- data_list$fleet_control %>%
+  dplyr::rename(N_sel_bins = Nselages,
+                Sel_norm_bin1 = Age_max_selected,
+                Sel_norm_bin2 = Age_max_selected_upper) %>%
+  mutate(Month = 0)
 GOA2018SS <- data_list
 
 usethis::use_data(GOA2018SS, overwrite = TRUE)

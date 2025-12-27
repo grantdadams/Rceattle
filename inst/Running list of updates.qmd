@@ -44,3 +44,5 @@ Rename Pyrs to "ration_data", old name will still be read in, but name will be u
 Added internal growth calculation, see \code{build_growth} within \code{fit_mod} wrapper
 
 Added month to "fleet_control"
+
+Change Nselages to N_sel_bins

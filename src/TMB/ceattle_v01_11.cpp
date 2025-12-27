@@ -134,9 +134,9 @@ Type objective_function<Type>::operator() () {
   int sp, sex, age, ln, ksp, k_sex, k_age, yr, rsp, r_sex, r_age; // k_ln, r_ln
   int index, flt;                                                         // Survey and fishery indices
   int flt_yr, flt_sex, comp_type;
-  int flt_ind, fsh_ind, index_ind, comp_ind, yr_ind;                      // Indices for survey sets
+  int fsh_ind, index_ind, comp_ind, yr_ind;                       // Indices for survey sets
   int wt_idx_pop, wt_idx_ssb, wt_idx_flt, wt_idx_ksp, wt_idx_rsp; // Indices for weight indices
-  Type mo = 0;                                                            // Month float
+  Type mo = 0;                                                           // Month float
   if(msmMode == 0) { niter = 1; }                                        // Number of iterations for SS mode
 
 
@@ -169,16 +169,32 @@ Type objective_function<Type>::operator() () {
   // -- 2.3. Growth model specifications
   DATA_IVECTOR(growth_model); // 0: "input", 1: "vB-classic", 2: "Richards", 3: "nonparametric LAA" [sp]
 
-  // -- 2.4. Data controls (i.e. how to assign data to objects)
-  DATA_IMATRIX( fleet_control );          // Fleet specifications
+  // -- 2.4. Fleet controls (i.e. how to assign data to objects)
+  DATA_IVECTOR(flt_type);                 // Index wether the data are included in the likelihood or not (0 = no, 1 = yes)
+  DATA_VECTOR(flt_month);
+  DATA_IVECTOR(flt_sel_type);             // Vector to save survey selectivity type
+  DATA_IVECTOR(flt_n_sel_bins);           // Vector to save number of age/length bins for non-parametric selectivity
+  DATA_IVECTOR(flt_varying_sel);          // Vector storing information on wether time-varying selectivity is estimated
+  DATA_IVECTOR(flt_spp);                  // Vector to save survey species
+  DATA_IVECTOR(flt_sel_age);              // Vector to save age first selected (selectivity below this age = 0)
+  DATA_IVECTOR(flt_sel_maxage);           // Vector to save age of max selectivity for normalization (if NA not used)
+  DATA_IVECTOR(flt_sel_maxage_upper);     // Vector to save upper age of max selectivity for normalization (if NA not used)
+  DATA_IVECTOR(comp_ll_type);             // Vector to save composition type
+  DATA_IVECTOR(flt_units);                // Vector to save survey units (1 = weight, 2 = numbers)
+  DATA_IVECTOR(flt_wt_index);             // Vector to save 1st dim of weight to use for weight-at-age
+  DATA_IVECTOR(flt_age_transition_index); // Vector to save 3rd dim of age_trans_matrix to use for ALK
+  DATA_IVECTOR(est_index_q);              // Vector to save wether or not analytical q is used
+  DATA_IVECTOR(index_varying_q);          // Vector storing information on wether time-varying q is estimated
+  DATA_IVECTOR(est_sigma_index);          // Vector to save wether sigma survey is estimated
+  DATA_IVECTOR(est_sigma_fsh);            // Vector to save wether sigma fishery is estimated
 
   // -- 2.4.1 Fishery Components
   DATA_IMATRIX( catch_ctl );              // Info for fishery biomass; columns = Fishery_name, Fishery_code, Species, Year
   DATA_IMATRIX( catch_n );                // Info for fishery biomass; columns = Month
-  DATA_MATRIX( catch_obs ); DATA_UPDATE( catch_obs ) // Observed fishery catch biomass (kg) and log_sd; n = [nobs_fish_biom, 2]; columns = Observation, Error
+  DATA_MATRIX( catch_obs );               // Observed fishery catch biomass (kg) and log_sd; n = [nobs_fish_biom, 2]; columns = Observation, Error
 
     // -- 2.4.2 Survey components
-    DATA_IMATRIX( index_ctl );            // Info for index; columns = Survey_name, Survey_code, Species, Year
+  DATA_IMATRIX( index_ctl );              // Info for index; columns = Survey_name, Survey_code, Species, Year
   DATA_MATRIX( index_n );                 // Info for index; columns = Month
   DATA_MATRIX( index_obs );               // Observed index and log_sd; columns = Observation, Error
   DATA_VECTOR( index_ln_q_prior );        // Prior mean for catchability
@@ -276,8 +292,8 @@ Type objective_function<Type>::operator() () {
   PARAMETER_VECTOR( index_q_dev_ln_sd );// Log standard deviation of time varying survey catchability; n = [1, n_index]
 
   // -- 3.5. Selectivity parameters
-  PARAMETER_ARRAY( sel_coff );                    // selectivity parameters for non-parametric; n = [n_selectivities, nsex, nselages]
-  PARAMETER_ARRAY( sel_coff_dev );                // Annual deviates for non-parametric selectivity parameters; n = [n_selectivities, nsex, nselages]
+  PARAMETER_ARRAY( sel_coff );                    // selectivity parameters for non-parametric; n = [n_selectivities, nsex, n_sel_bins]
+  PARAMETER_ARRAY( sel_coff_dev );                // Annual deviates for non-parametric selectivity parameters; n = [n_selectivities, nsex, n_sel_bins]
   PARAMETER_ARRAY( ln_sel_slp );                  // selectivity paramaters for logistic; n = [2, n_selectivities, nsex]
   PARAMETER_ARRAY( sel_inf );                     // selectivity paramaters for logistic; n = [2, n_selectivities, nsex]
   PARAMETER_ARRAY( ln_sel_slp_dev );              // selectivity parameter deviate for logistic; n = [2, n_selectivities, nsex, n_sel_blocks]
@@ -319,7 +335,7 @@ Type objective_function<Type>::operator() () {
 
   // 4.1. Derived indices
   // int max_bin = imax( nlengths );                                                   // Integer of maximum number of length/age bins.
-  int n_flt = fleet_control.rows();
+  int n_flt = flt_type.size();
   vector<int> joint_adjust(comp_obs.rows()); joint_adjust.setZero();
   Type penalty = 0.0;
   Type ricker_intercept = 0.0;
@@ -357,7 +373,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 4.4. Selectivity parameters
   array<Type>   sel(n_flt, max_sex, max_age, nyrs); sel.setZero();                  // Estimated selectivity at age
-  array<Type>   avg_sel(n_flt, max_sex, nyrs_hind); avg_sel.setZero();              // Average selectivity for non-parametric up to nselages
+  array<Type>   avg_sel(n_flt, max_sex, nyrs_hind); avg_sel.setZero();              // Average selectivity for non-parametric up to n_sel_bins
   array<Type>   non_par_sel(n_flt, max_sex, max_age, nyrs); non_par_sel.setZero();  // Estimated selectivity at age for AMAK non-parametric (pre-normalization)
   vector<Type>  sel_dev_sd(n_flt); sel_dev_sd.setZero();                            // Standard deviation of selectivity deviates
 
@@ -490,52 +506,6 @@ Type objective_function<Type>::operator() () {
   Cindex -=1; // Subtract 1 from Cindex to deal with indexing start at 0
 
 
-  // 5.2. SURVEY CONTROL SWITCHES
-  matrix<Type> flt_q(n_flt, nyrs_hind); flt_q.setZero();                        // Vector to save q on natural scale
-  vector<int> flt_sel_ind(n_flt); flt_sel_ind.setZero();                        // Vector to store survey index
-  vector<int> flt_type(n_flt); flt_type.setZero();                              // Index wether the data are included in the likelihood or not (0 = no, 1 = yes)
-  vector<int> flt_month(n_flt); flt_month.setZero();
-  vector<int> flt_sel_type(n_flt); flt_sel_type.setZero();                      // Vector to save survey selectivity type
-  vector<int> flt_nselages(n_flt); flt_nselages.setZero();                      // Vector to save number of ages to estimate non-parametric selectivity (1 = age, 2 = length)
-  vector<int> flt_varying_sel(n_flt); flt_varying_sel.setZero();                // Vector storing information on wether time-varying selectivity is estimated (0 = no, 1 = random walk with fixed variance, 2 = random effect)
-  vector<int> flt_spp(n_flt); flt_spp.setZero();                                // Vector to save survey species
-  vector<int> flt_sel_age(n_flt); flt_sel_age.setZero();                        // Vector to save age first selected (selectivity below this age = 0)
-  vector<int> flt_sel_maxage(n_flt); flt_sel_maxage.setZero();                  // Vector to save age of max selectivity for normalization (if NA not used)
-  vector<int> flt_sel_maxage_upper(n_flt); flt_sel_maxage_upper.setZero();      // Vector to save upper age of max selectivity for normalization (if NA not used)
-  vector<int> comp_ll_type(n_flt); comp_ll_type.setZero();                      // Vector to save composition type
-  vector<int> flt_units(n_flt); flt_units.setZero();                            // Vector to save survey units (1 = weight, 2 = numbers)
-  vector<int> flt_wt_index(n_flt); flt_wt_index.setZero();                      // Vector to save 1st dim of weight to use for weight-at-age
-  vector<int> flt_age_transition_index(n_flt); flt_age_transition_index.setZero(); // Vector to save 3rd dim of age_trans_matrix to use for ALK
-  vector<int> flt_q_ind(n_flt); flt_q_ind.setZero();                            // Vector storing index of survey q for mapping
-  vector<int> est_index_q(n_flt); est_index_q.setZero();                            // Vector to save wether or not analytical q is used
-  vector<int> index_varying_q(n_flt); index_varying_q.setZero();                    // Vector storing information on wether time-varying q is estimated (0 = no, 1 = random walk with fixed variance, 2 = random effect)
-  vector<int> est_sigma_index(n_flt); est_sigma_index.setZero();                    // Vector to save wether sigma survey is estimated
-  vector<int> est_sigma_fsh(n_flt); est_sigma_fsh.setZero();                    // Vector to save wether sigma fishery is estimated
-
-
-  for(flt_ind = 0; flt_ind < n_flt; flt_ind++){
-    flt = fleet_control(flt_ind, 1) - 1;                     // Temporary survey index
-    flt_type(flt) = fleet_control(flt_ind, 2);               // Fleet type; 0 = don't fit, 1 = fishery, 2 = survey
-    flt_spp(flt) = fleet_control(flt_ind, 3) - 1;            // Species
-    flt_sel_ind(flt) = fleet_control(flt_ind, 4);            // Survey selectivity index
-    flt_sel_type(flt) = fleet_control(flt_ind, 5);           // Selectivity type
-    flt_nselages(flt) = fleet_control(flt_ind, 6);           // Non-parametric selectivity ages
-    flt_varying_sel(flt) = fleet_control(flt_ind, 7);        // Time-varying selectivity type.
-    flt_sel_age(flt) = fleet_control(flt_ind, 8) - minage(flt_spp(flt));                 // First age selected
-    flt_sel_maxage(flt) = fleet_control(flt_ind, 9) - minage(flt_spp(flt));              // Age of max selectivity (used for normalization). If NA, does not normalize
-    flt_sel_maxage_upper(flt) = fleet_control(flt_ind, 10) - minage(flt_spp(flt));       // Upper age of max selectivity (used for normalization). If NA, does not normalize
-    comp_ll_type(flt) = fleet_control(flt_ind, 11);          // Index indicating wether to do dirichlet multinomial for a fleet's composition data (0 = multinomial; 1 = dirichlet-multinomial)
-    flt_units(flt) = fleet_control(flt_ind, 12);             // Survey units
-    flt_wt_index(flt) = fleet_control(flt_ind, 13) - 1;      // Dim1 of weight
-    flt_age_transition_index(flt) = fleet_control(flt_ind, 14) - 1;     // Dim3 of age transition matrix
-    flt_q_ind(flt) = fleet_control(flt_ind, 15) - 1;         // Index of survey q
-    est_index_q(flt) = fleet_control(flt_ind, 16);           // Estimate analytical q?
-    index_varying_q(flt) = fleet_control(flt_ind, 17);       // Time varying q type (or if AR1, what environmental index to fit to)
-    est_sigma_index(flt) = fleet_control(flt_ind, 18);       // Wether to estimate standard deviation of survey time series
-    est_sigma_fsh(flt) = fleet_control(flt_ind, 19);         // Wether to estimate standard deviation of fishery time series
-  }
-
-
   // 5.3. CATCHABILITY
   for(flt = 0; flt < n_flt; flt++){
     for(yr = 0; yr < nyrs_hind; yr++){
@@ -581,7 +551,7 @@ Type objective_function<Type>::operator() () {
   for(sp = 0; sp < nspp; sp++){
     for(sex = 0; sex < nsex(sp); sex ++){
       for(yr = 0; yr < nyrs; yr++){
-        for(int par = 0; par < 3; par++){
+        for(int par = 0; par < 4; par++){
           growth_parameters(sp, sex, yr, par) = exp(mu_growth_pars(sp, sex, par) + re_growth_pars(sp, sex, yr, par));
         }
       }
@@ -589,31 +559,31 @@ Type objective_function<Type>::operator() () {
   }
 
   // -- Calculate weight
-  // calculate_weight(
-  //   weight_hat,
-  //   length_hat,
-  //   growth_matrix,
-  //   weight_obs,
-  //   growth_model,
-  //   nspp,
-  //   nyrs,
-  //   nyrs_hind,
-  //   n_flt,
-  //   flt_spp,
-  //   flt_month,
-  //   nsex,
-  //   minage,
-  //   nages,
-  //   nlengths,
-  //   pop_wt_index,
-  //   ssb_wt_index,
-  //   flt_wt_index,
-  //   spawn_month,
-  //   lengths,
-  //   growth_parameters,
-  //   growth_ln_sd,
-  //   weight_length_pars
-  //   );
+  calculate_weight(
+    weight_hat,
+    length_hat,
+    growth_matrix,
+    weight_obs,
+    growth_model,
+    nspp,
+    nyrs,
+    nyrs_hind,
+    n_flt,
+    flt_spp,
+    flt_month,
+    nsex,
+    minage,
+    nages,
+    nlengths,
+    pop_wt_index,
+    ssb_wt_index,
+    flt_wt_index,
+    spawn_month,
+    lengths,
+    growth_parameters,
+    growth_ln_sd,
+    weight_length_pars
+    );
 
 
   // 5.6. SELECTIVITY
@@ -628,7 +598,7 @@ Type objective_function<Type>::operator() () {
     flt_spp,
     flt_sel_type,
     flt_sel_age,
-    flt_nselages,
+    flt_n_sel_bins,
     flt_sel_maxage,
     flt_sel_maxage_upper,
     emp_sel_obs,
@@ -658,7 +628,7 @@ Type objective_function<Type>::operator() () {
     flt_spp,
     flt_sel_type,
     flt_sel_age,
-    flt_nselages,
+    flt_n_sel_bins,
     flt_sel_maxage,
     flt_sel_maxage_upper,
     ln_sel_slp,
@@ -769,8 +739,8 @@ Type objective_function<Type>::operator() () {
               F_spp_at_age(sp, sex, age, yr) += F_flt_age(flt, sex, age, yr);
 
               // -- Calculate F target by age and sex for reference points
-              Flimit_age_spp(sp, sex, age, yr) += sel(flt, sex, age, yr) * proj_F_prop(flt) * Flimit(sp); // account for time-varying sel
-              Ftarget_age_spp(sp, sex, age, yr) += sel(flt, sex, age, yr) * proj_F_prop(flt) * Ftarget(sp); // account for time-varying sel
+              Flimit_age_spp(sp, sex, age, yr) += sel(flt, sex, age, yr) * proj_F_prop(flt) * Flimit(sp);
+              Ftarget_age_spp(sp, sex, age, yr) += sel(flt, sex, age, yr) * proj_F_prop(flt) * Ftarget(sp);
             }
           }
         }
@@ -3423,7 +3393,7 @@ Type objective_function<Type>::operator() () {
 
       // Penalized/random effect likelihood time-varying non-parametric (Taylor et al 2014) selectivity deviates
       if(((flt_varying_sel(flt) == 1) || (flt_varying_sel(flt) == 2)) && (flt_sel_type(flt) == 5)){
-        for(age = 0; age < flt_nselages(flt); age++){ //NOTE: extends beyond selectivity age range, but should be mapped to 0 in map function
+        for(age = 0; age < flt_n_sel_bins(flt); age++){ //NOTE: extends beyond selectivity age range, but should be mapped to 0 in map function
           for(sex = 0; sex < nsex(sp); sex++){
             for(yr = 0; yr < nyrs_hind; yr++){
               jnll_comp(4, flt) -= dnorm(sel_coff_dev(flt, sex, age, yr), Type(0.0), sel_dev_sd(flt), true);
@@ -3896,21 +3866,6 @@ Type objective_function<Type>::operator() () {
 
   // 12.0 Report indices
   /*
-   REPORT( flt_type );
-   REPORT( flt_spp );
-   REPORT( flt_sel_ind );
-   REPORT( flt_sel_type );
-   REPORT( flt_nselages );
-   REPORT( flt_varying_sel );
-   REPORT( flt_units );
-   REPORT( flt_wt_index );
-   REPORT( flt_age_transition_index );
-   REPORT( flt_q_ind );
-   REPORT( est_index_q );
-   REPORT( index_varying_q );
-   REPORT( est_sigma_index );
-   REPORT( est_sigma_fsh );
-   REPORT( diet_ctl );
    REPORT( r_sexes );
    REPORT( k_sexes );
    REPORT( joint_adjust );

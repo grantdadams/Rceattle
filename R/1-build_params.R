@@ -79,7 +79,8 @@ build_params <- function(data_list) {
 
 
 
-  # * 1.4. Residual natural mortality ----
+  # * 1.4. Natural mortality ----
+  # M1 = residual M, M2 = predation M
   # ** Fixed effects ----
   m1 <- array(1, dim = c(data_list$nspp, max_sex, max_age),
               dimnames = list(data_list$spnames, sex_labels, paste0("Age", 1:max_age))) # Set up array
@@ -119,7 +120,7 @@ build_params <- function(data_list) {
                                   dimnames = list(data_list$spnames, sex_labels))
 
 
-  # * 1.5. fishing mortality parameters ----
+  # * 1.5. fishing mortality ----
 
   # Future fishing mortality limit
   param_list$ln_Flimit = rep(0, data_list$nspp)
@@ -158,120 +159,126 @@ build_params <- function(data_list) {
   param_list$ln_F[zero_catch] <- -999
 
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-  # 2. Observation model parameters ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  # * 1.6. Growth ----
+  param_list$mu_growth_pars <- array(0, dim = c(data_list$nspp, max_sex, 4),
+                                     dimnames = list(data_list$spnames, sex_labels, c("Linf", "K", "t0", "m")))  # Mean growth parameters
+  param_list$re_growth_pars <- array(0, dim = c(data_list$nspp, max_sex, nyrs_hind, 4),
+                                     dimnames = list(data_list$spnames, sex_labels, yrs_hind, c("Linf", "K", "t0", "m")))  # RE growth parameters
 
-  # * 2.1. Catchability parameters ----
-  # - Catchability on log scale
-  param_list$index_ln_q = log(data_list$fleet_control$Q_prior)
-  names(param_list$index_ln_q) <- data_list$fleet_control$Fleet_name
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# 2. Observation model parameters ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
-  # - Regression coefficients for environment-q linkage
-  param_list$index_q_beta = matrix(0, nrow = nrow(data_list$fleet_control), ncol = ncol(data_list$env_data) - 1,
-                                   dimnames = list(data_list$fleet_control$Fleet_name, colnames(data_list$env_data)[-1]))
+# * 2.1. Catchability parameters ----
+# - Catchability on log scale
+param_list$index_ln_q = log(data_list$fleet_control$Q_prior)
+names(param_list$index_ln_q) <- data_list$fleet_control$Fleet_name
 
-  # - Rho for environment-q linkage (sensu GOA Pollock)
-  param_list$index_q_rho = rep(0, nrow(data_list$fleet_control))
-  names(param_list$index_q_rho) <- data_list$fleet_control$Fleet_name
+# - Regression coefficients for environment-q linkage
+param_list$index_q_beta = matrix(0, nrow = nrow(data_list$fleet_control), ncol = ncol(data_list$env_data) - 1,
+                                 dimnames = list(data_list$fleet_control$Fleet_name, colnames(data_list$env_data)[-1]))
 
-  # param_list$index_q_pow = rep(0, nrow(data_list$fleet_control))
+# - Rho for environment-q linkage (sensu GOA Pollock)
+param_list$index_q_rho = rep(0, nrow(data_list$fleet_control))
+names(param_list$index_q_rho) <- data_list$fleet_control$Fleet_name
 
-  # - Annual index catchability deviations
-  param_list$index_q_dev = matrix(0, nrow = nrow(data_list$fleet_control), ncol = nyrs_hind,
-                                  dimnames = list(data_list$fleet_control$Fleet_name, yrs_hind))
+# param_list$index_q_pow = rep(0, nrow(data_list$fleet_control))
 
-  # - Log standard deviation prior on Q (maybe should be data...)
-  param_list$index_q_ln_sd <- log(data_list$fleet_control$Q_sd_prior)
-  names(param_list$index_q_ln_sd) <- data_list$fleet_control$Fleet_name
+# - Annual index catchability deviations
+param_list$index_q_dev = matrix(0, nrow = nrow(data_list$fleet_control), ncol = nyrs_hind,
+                                dimnames = list(data_list$fleet_control$Fleet_name, yrs_hind))
 
-  # - Log standard deviation for survey selectivity random walk - used for logistic
-  param_list$index_q_dev_ln_sd <- log(data_list$fleet_control$Time_varying_q_sd_prior)
-  names(param_list$index_q_dev_ln_sd) <- data_list$fleet_control$Fleet_name
+# - Log standard deviation prior on Q (maybe should be data...)
+param_list$index_q_ln_sd <- log(data_list$fleet_control$Q_sd_prior)
+names(param_list$index_q_ln_sd) <- data_list$fleet_control$Fleet_name
 
-
-  # * 2.2. Selectivity parameters ----
-  n_selectivities <- nrow(data_list$fleet_control)
-  max_sel_ages <- suppressWarnings(max(1, as.numeric(c(data_list$fleet_control$Nselages)), na.rm = T))
-
-  # - Non-parametric selectivity coefficients
-  param_list$sel_coff =  array(0, dim = c(n_selectivities, max_sex, max_sel_ages),
-                               dimnames = list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Age", 1:max_sel_ages)))
-
-  # - Non-parametric selectivity penalties (sensu Ianelli)
-  param_list$sel_curve_pen = matrix( c(data_list$fleet_control$Sel_curve_pen1, data_list$fleet_control$Sel_curve_pen2), nrow = n_selectivities, ncol = 2)
-
-  # - Non-parametric selectivity coef annual deviates
-  param_list$sel_coff_dev = array(0, dim = c(n_selectivities, max_sex, max(1, as.numeric(c(data_list$fleet_control$Nselages) ), na.rm = T), nyrs_hind),
-                                  dimnames = list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Age", 1:max_sel_ages), yrs_hind))
-
-  # - Selectivity slope parameters for logistic
-  param_list$ln_sel_slp = array(0.5, dim = c(2, n_selectivities, max_sex),
-                                dimnames = list(c("Ascending" , "Descending"), data_list$fleet_control$Fleet_name, sex_labels))
-
-  # - Selectivity asymptotic parameters for logistic
-  param_list$sel_inf = array(0, dim = c(2, n_selectivities, max_sex),
-                             dimnames = list(c("Ascending" , "Descending"), data_list$fleet_control$Fleet_name, sex_labels))
-  param_list$sel_inf[1,,] <- 0
-  param_list$sel_inf[2,,] <- 10
-
-  # - Annual selectivity slope deviation for logistic
-  param_list$ln_sel_slp_dev = array(0, dim = c(2, n_selectivities, max_sex, nyrs_hind),
-                                    dimnames = list(c("Ascending" , "Descending"), data_list$fleet_control$Fleet_name, sex_labels, yrs_hind))
-
-  # - Annual selectivity asymptotic deviations for logistic
-  param_list$sel_inf_dev = array(0, dim = c(2, n_selectivities, max_sex, nyrs_hind),
-                                 dimnames = list(c("Ascending" , "Descending"), data_list$fleet_control$Fleet_name, sex_labels, yrs_hind))
-
-  # - Log standard deviation for selectivity random walk - used for logistic
-  param_list$sel_dev_ln_sd <- log(data_list$fleet_control$Sel_sd_prior)
-  names(param_list$sel_dev_ln_sd) <- data_list$fleet_control$Fleet_name
+# - Log standard deviation for survey selectivity random walk - used for logistic
+param_list$index_q_dev_ln_sd <- log(data_list$fleet_control$Time_varying_q_sd_prior)
+names(param_list$index_q_dev_ln_sd) <- data_list$fleet_control$Fleet_name
 
 
-  # * 2.3. Variance of survey and fishery time series ----
-  # - Log standard deviation of survey index time-series
-  param_list$index_ln_sd = log(data_list$fleet_control$Index_sd_prior)
-  names(param_list$index_ln_sd) <- data_list$fleet_control$Fleet_name
+# * 2.2. Selectivity parameters ----
+n_selectivities <- nrow(data_list$fleet_control)
+max_sel_ages <- suppressWarnings(max(1, as.numeric(c(data_list$fleet_control$Nselages)), na.rm = T))
 
-  # - Log standard deviation of fishery catch time-series
-  param_list$catch_ln_sd = log(data_list$fleet_control$Catch_sd_prior)
-  names(param_list$catch_ln_sd) <- data_list$fleet_control$Fleet_name
+# - Non-parametric selectivity coefficients
+param_list$sel_coff =  array(0, dim = c(n_selectivities, max_sex, max_sel_ages),
+                             dimnames = list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Age", 1:max_sel_ages)))
 
+# - Non-parametric selectivity penalties (sensu Ianelli)
+param_list$sel_curve_pen = matrix( c(data_list$fleet_control$Sel_curve_pen1, data_list$fleet_control$Sel_curve_pen2), nrow = n_selectivities, ncol = 2)
 
-  # * 2.4. Comp weighting ----
-  param_list$comp_weights = data_list$fleet_control$Comp_weights
-  names(param_list$comp_weights) <- data_list$fleet_control$Fleet_name
+# - Non-parametric selectivity coef annual deviates
+param_list$sel_coff_dev = array(0, dim = c(n_selectivities, max_sex, max(1, as.numeric(c(data_list$fleet_control$Nselages) ), na.rm = T), nyrs_hind),
+                                dimnames = list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Age", 1:max_sel_ages), yrs_hind))
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-  # 3. Predation model parameters ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# - Selectivity slope parameters for logistic
+param_list$ln_sel_slp = array(0.5, dim = c(2, n_selectivities, max_sex),
+                              dimnames = list(c("Ascending" , "Descending"), data_list$fleet_control$Fleet_name, sex_labels))
 
-  # # * 3.1. Kinzery predation function parameters ----
-  # param_list$logH_1 = matrix(-8.5, nrow = data_list$nspp, ncol = data_list$nspp + 1)  # Predation functional form
-  # param_list$logH_1a = rep(-3, data_list$nspp)  # Age adjustment to H_1; n = [1, nspp]; # FIXME: make matrix
-  # param_list$logH_1b = rep(0, data_list$nspp)  # Age adjustment to H_1; n = [1, nspp]; # FIXME: make matrix
-  #
-  # param_list$logH_2 = matrix(-9, nrow = data_list$nspp, ncol = data_list$nspp)  # Predation functional form; n = [nspp, nspp]
-  # param_list$logH_3 = matrix(-9, nrow = data_list$nspp, ncol = data_list$nspp)  # Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH3,UpperBoundH3;
-  # param_list$H_4 = matrix(1, nrow = data_list$nspp, ncol = data_list$nspp)  # Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH4,UpperBoundH4;
-  #
-  #
-  # * 3.2. Suitability parameters ----
-  param_list$log_gam_a = rep(0.5, data_list$nspp)  # Log predator selectivity;
-  names(param_list$log_gam_a) = paste0("Pred: ", data_list$spnames)
+# - Selectivity asymptotic parameters for logistic
+param_list$sel_inf = array(0, dim = c(2, n_selectivities, max_sex),
+                           dimnames = list(c("Ascending" , "Descending"), data_list$fleet_control$Fleet_name, sex_labels))
+param_list$sel_inf[1,,] <- 0
+param_list$sel_inf[2,,] <- 10
 
-  param_list$log_gam_b = rep(-.5, data_list$nspp)  # Log predator selectivity
-  names(param_list$log_gam_b) = paste0("Pred: ", data_list$spnames)
+# - Annual selectivity slope deviation for logistic
+param_list$ln_sel_slp_dev = array(0, dim = c(2, n_selectivities, max_sex, nyrs_hind),
+                                  dimnames = list(c("Ascending" , "Descending"), data_list$fleet_control$Fleet_name, sex_labels, yrs_hind))
 
+# - Annual selectivity asymptotic deviations for logistic
+param_list$sel_inf_dev = array(0, dim = c(2, n_selectivities, max_sex, nyrs_hind),
+                               dimnames = list(c("Ascending" , "Descending"), data_list$fleet_control$Fleet_name, sex_labels, yrs_hind))
 
-  # * 3.3. Preference parameters ----
-  param_list$log_phi = matrix(0.5, data_list$nspp, data_list$nspp,
-                              dimnames = list(paste0("Pred: ", data_list$spnames), paste0("Prey: ", data_list$spnames)))
+# - Log standard deviation for selectivity random walk - used for logistic
+param_list$sel_dev_ln_sd <- log(data_list$fleet_control$Sel_sd_prior)
+names(param_list$sel_dev_ln_sd) <- data_list$fleet_control$Fleet_name
 
 
-  # * 3.4. Diet composition weighting ----
-  param_list$diet_comp_weights = data_list$Diet_comp_weights
-  names(param_list$diet_comp_weights) <- paste0("Pred: ", data_list$spnames)
+# * 2.3. Variance of survey and fishery time series ----
+# - Log standard deviation of survey index time-series
+param_list$index_ln_sd = log(data_list$fleet_control$Index_sd_prior)
+names(param_list$index_ln_sd) <- data_list$fleet_control$Fleet_name
 
-  return(param_list)
+# - Log standard deviation of fishery catch time-series
+param_list$catch_ln_sd = log(data_list$fleet_control$Catch_sd_prior)
+names(param_list$catch_ln_sd) <- data_list$fleet_control$Fleet_name
+
+
+# * 2.4. Comp weighting ----
+param_list$comp_weights = data_list$fleet_control$Comp_weights
+names(param_list$comp_weights) <- data_list$fleet_control$Fleet_name
+
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# 3. Predation model parameters ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+
+# # * 3.1. Kinzery predation function parameters ----
+# param_list$logH_1 = matrix(-8.5, nrow = data_list$nspp, ncol = data_list$nspp + 1)  # Predation functional form
+# param_list$logH_1a = rep(-3, data_list$nspp)  # Age adjustment to H_1; n = [1, nspp]; # FIXME: make matrix
+# param_list$logH_1b = rep(0, data_list$nspp)  # Age adjustment to H_1; n = [1, nspp]; # FIXME: make matrix
+#
+# param_list$logH_2 = matrix(-9, nrow = data_list$nspp, ncol = data_list$nspp)  # Predation functional form; n = [nspp, nspp]
+# param_list$logH_3 = matrix(-9, nrow = data_list$nspp, ncol = data_list$nspp)  # Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH3,UpperBoundH3;
+# param_list$H_4 = matrix(1, nrow = data_list$nspp, ncol = data_list$nspp)  # Predation functional form; n = [nspp, nspp]; bounds = LowerBoundH4,UpperBoundH4;
+#
+#
+# * 3.2. Suitability parameters ----
+param_list$log_gam_a = rep(0.5, data_list$nspp)  # Log predator selectivity;
+names(param_list$log_gam_a) = paste0("Pred: ", data_list$spnames)
+
+param_list$log_gam_b = rep(-.5, data_list$nspp)  # Log predator selectivity
+names(param_list$log_gam_b) = paste0("Pred: ", data_list$spnames)
+
+
+# * 3.3. Preference parameters ----
+param_list$log_phi = matrix(0.5, data_list$nspp, data_list$nspp,
+                            dimnames = list(paste0("Pred: ", data_list$spnames), paste0("Prey: ", data_list$spnames)))
+
+
+# * 3.4. Diet composition weighting ----
+param_list$diet_comp_weights = data_list$Diet_comp_weights
+names(param_list$diet_comp_weights) <- paste0("Pred: ", data_list$spnames)
+
+return(param_list)
 }
