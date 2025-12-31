@@ -23,8 +23,8 @@ rename_output = function(data_list = NULL, quantities = NULL){
 
 
   # Rename ----
-  # Vectors
-  # - Biological
+  # * Vectors ----
+  #  Biological quantities
   names(quantities$avg_R) <- data_list$spnames
   names(quantities$Flimit) <- data_list$spnames
   names(quantities$Ftarget) <- data_list$spnames
@@ -38,12 +38,12 @@ rename_output = function(data_list = NULL, quantities = NULL){
   names(quantities$SPRtarget) <- data_list$spnames
   names(quantities$steepness) <- data_list$spnames
 
-  # - Fleets
+  # * Fleets ----
   names(quantities$ln_catch_sd) <- data_list$catch_data$Fleet_name
   names(quantities$ln_index_sd) <- data_list$index_data$Fleet_name
 
 
-  # 2D array
+  # * 2D array ----
   # - Population quantities
   dimnames(quantities$biomass) <- list(data_list$spnames, yrs_proj)
   dimnames(quantities$biomass_depletion) <- list(data_list$spnames, yrs_proj)
@@ -73,7 +73,7 @@ rename_output = function(data_list = NULL, quantities = NULL){
   dimnames(quantities$F_flt) <- list(data_list$fleet_control$Fleet_name, yrs_proj) # Sex specific?
   dimnames(quantities$index_q) <- list(data_list$fleet_control$Fleet_name, yrs_hind)
 
-  # 4D array
+  # * 4D array ----
   # - Biological
   dimnames(quantities$biomass_at_age) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
   dimnames(quantities$consumption_at_age) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
@@ -88,11 +88,15 @@ rename_output = function(data_list = NULL, quantities = NULL){
   dimnames(quantities$NByageF) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
   dimnames(quantities$ration) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
 
+  dimnames(quantities$weight_hat) <- list(
+    c(paste(rep(data_list$spnames, each = 2), rep(c("biomass_weight", "spawn_weight"), data_list$nspp)), data_list$fleet_control$Fleet_name),
+    sex_labels, paste0("Age", 1:max_age), yrs_proj)
+
   # - Fleet
   dimnames(quantities$F_flt_age) <- list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Age", 1:max_age), yrs_proj)
   dimnames(quantities$sel) <- list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Age", 1:max_age), yrs_proj)
 
-  # 5D arrays
+  # * 5D arrays ----
   dimnames(quantities$B_eaten) <- list(paste("Pred:", data_list$spnames, rep(sex_labels, each = data_list$nspp)),
                                        paste("Prey:", data_list$spnames, rep(sex_labels, each = data_list$nspp)),
                                        paste0("Pred age", 1:max_age),
@@ -105,30 +109,23 @@ rename_output = function(data_list = NULL, quantities = NULL){
                                            yrs_proj)
 
 
-  # Rename likelihood components
-  quantities$jnll_comp[8,1:data_list$nspp] <- data_list$spnames
-  quantities$unweighted_jnll_comp[8,1:data_list$nspp] <- data_list$spnames
+  # Likelihood components ----
+  S = paste0(ss_run$data_list$spnames, " or ")
+  X = ss_run$data_list$fleet_control$Fleet_name
+  llcolnames <- paste0(append(S, rep("", max(c(0, length(X)-length(S))))), append(X, rep(NA, max(c(0, length(S)-length(X))))))
 
-  fleet_names <- data_list$fleet_control$Fleet_name
-  jnll_fleet <- rep(NA, ncol(quantities$jnll_comp))
-  jnll_fleet[1:length(fleet_names)] <- fleet_names
-
-  quantities$jnll_comp <- rbind(jnll_fleet, quantities$jnll_comp)
-  quantities$unweighted_jnll_comp <- rbind(jnll_fleet, quantities$unweighted_jnll_comp)
-
-  colnames(quantities$jnll_comp) <- 1:ncol(quantities$jnll_comp)
-  colnames(quantities$unweighted_jnll_comp) <- 1:ncol(quantities$unweighted_jnll_comp)
+  colnames(quantities$jnll_comp) <- llcolnames
+  colnames(quantities$unweighted_jnll_comp) <- llcolnames
 
   rownames(quantities$jnll_comp) <- rownames(quantities$unweighted_jnll_comp) <- c(
-    "1. Fleet components",
     "Index data",
     "Catch data",
     "Composition data",
+    "CAAL data",
     "Non-parametric selectivity",
     "Selectivity deviates",
     "Catchability prior",
     "Catchability deviates",
-    "2. Species components", # Empty row
     "Stock-recruit prior",
     "Initial abundance deviates",
     "Recruitment deviates",

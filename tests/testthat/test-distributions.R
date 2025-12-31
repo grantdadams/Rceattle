@@ -72,7 +72,7 @@ test_that("lognormal index", {
   }
 
   # Check derived index
-  testthat::expect_equal(ss_run$quantities$index_hat*2, SB0[ss_run$data_list$index_data$Species])
+  testthat::expect_equal(ss_run$quantities$index_hat, 0.5 * SB0[ss_run$data_list$index_data$Species])
 
 
 })

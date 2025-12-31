@@ -88,5 +88,5 @@ test_that("non-parametric selectivity not normalized", {
   # - Avgsel
   pen3 <- 2 * log(mean(exp(log_selcoffs)))^2
 
-  testthat::expect_equal(pen1+pen2+pen3, as.numeric(ss_run$quantities$jnll_comp[5,8]), tolerance = 0.0001)
+  testthat::expect_equal(pen1+pen2+pen3, as.numeric(ss_run$quantities$jnll_comp[6,8]), tolerance = 0.0001)
 })

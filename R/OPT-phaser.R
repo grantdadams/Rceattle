@@ -105,7 +105,8 @@ set_phases <- function(){
     sel_curve_pen = 4, # Penalty for non-parametric selectivity
     index_ln_sd = 2,   # Log SD for survey lognormal index likelihood (usually input)
     catch_ln_sd = 2,   # Log SD for lognormal catch likelihood (usually input)
-    comp_weights = 5,  # Weights for multinomial comp likelihood
+    comp_weights = 5,  # Weights for comp likelihood
+    caal_weights = 5,  # Weights for CAAL likelihood
     # ,logH_1 = 6,     # Functional form parameter (not used in MSVPA functional form)
     # logH_1a = 6,     # Functional form parameter (not used in MSVPA functional form)
     # logH_1b = 6,     # Functional form parameter (not used in MSVPA functional form)
@@ -115,8 +116,10 @@ set_phases <- function(){
     log_gam_a = 5,     # Suitability parameter (size-preference mean)
     log_gam_b = 5,     # Suitability parameter (size-preference sd)
     log_phi = 5,       # Suitability parameter (pred-prey vulnerability)
-    mu_growth_pars = 4,# Mean growth parameters
-    re_growth_pars = 5 # Random effects for growth parameters
+    ln_growth_pars = 4,# Mean growth parameters
+    ln_growth_par_devs = 5, # Random effects for growth parameters
+    growth_ln_sd = 4,   # SD in weight-at-age at youngest and oldest ages
+    weight_length_pars = 5 # Weight-length parameters
 
   )
 

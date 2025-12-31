@@ -795,6 +795,6 @@ test_that("Simulated simple multi-species model the same" {
                                initMode = 2,
                                verbose = 1)
 
-  plot(x = ms_run4$data_list$diet_data$Stomach_proportion_by_weight, y = ms_run4$quantities$diet_hat[,2], xlab = "True diet", ylab ="Est diet", main = "Average sum diet")
+  plot(x = ms_run4$data_list$diet_data$Stomach_proportion_by_weight, y = ms_run4$quantities$diet_hat[,2], xlab = "True diet", ylab ="Est diet", main = "Average sum diet"); abline(0,1)
 
 })
