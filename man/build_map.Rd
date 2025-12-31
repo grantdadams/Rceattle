@@ -2,7 +2,7 @@
 % Please edit documentation in R/2-build_map.R
 \name{build_map}
 \alias{build_map}
-\title{Function to construct the TMB map argument for CEATTLE}
+\title{Main function to construct the TMB map argument for CEATTLE}
 \usage{
 build_map(
   data_list,
@@ -13,21 +13,25 @@ build_map(
 )
 }
 \arguments{
-\item{data_list}{a data_list created from \code{\link{build_dat}}.}
+\item{data_list}{A data_list created from \code{\link{build_dat}}.}
 
-\item{params}{a parameter list created from \code{\link{build_params}}.}
+\item{params}{A parameter list created from \code{\link{build_params}}.}
 
-\item{debug}{Runs the model without estimating parameters to get derived quantities given initial parameter values. If TRUE, sets all map values to NA except dummy}
+\item{debug}{Logical. If TRUE, sets all map values to NA except the dummy
+parameter, running the model without parameter estimation.}
 
-\item{random_rec}{logical. If TRUE, treats recruitment deviations as random effects.The default is FALSE, which sets the map for R_ln_sd to NA}
+\item{random_rec}{Logical. If TRUE, treats recruitment deviations as random effects,
+meaning the variance parameter (\code{R_ln_sd}) is estimated.}
 
-\item{random_sel}{logical. If TRUE, treats selectivity deviations as random effects.The default is FALSE, which sets the map for sel_dev_ln_sd to NA. Only viable for logisitc, Double Logistic, Descending Logistic, and Hake Non-parametric with Random walk or deviates.}
+\item{random_sel}{Logical. If TRUE, treats selectivity deviations as random effects,
+meaning the variance parameter (\code{sel_dev_ln_sd}) is estimated.}
 }
 \value{
-a list of map arguments for each parameter
+A list containing the factorized TMB map (\code{mapFactor}) and the
+original map matrix/array list (\code{mapList}).
 }
 \description{
-Reads a parameter list to construct map
-
-TODO: turn on selectivity and catchability deviance variance parameters
+Orchestrates the building of the TMB map object by calling
+specialized helper functions for each parameter block (Recruitment, M1,
+Predation, Selectivity, Catchability, etc.).
 }

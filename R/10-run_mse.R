@@ -118,6 +118,9 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
                        M_prior = om$data_list$M_prior,
                        M_prior_sd = om$data_list$M_prior_sd,
                        M1_indices = om$data_list$M1_indices),
+      growthFun = build_growth(growth_model = om$data_list$growth_model,
+                               growth_re = om$data_list$growth_re,
+                               growth_indices = om$data_list$growth_indices),
       loopnum = om$data_list$loopnum,
       phase = FALSE,
       getsd = FALSE,
@@ -138,16 +141,16 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
   nflts = nrow(om$data_list$fleet_control)
 
   # - N sel ages for sel coff dev
-  if(all(is.na(om$data_list$fleet_control$Nselages))){
-    nselages_om = dim(om$estimated_params$sel_coff_dev)[3]
+  if(all(is.na(om$data_list$fleet_control$N_sel_bins))){
+    n_sel_bins_om = dim(om$estimated_params$sel_coff_dev)[3]
   } else {
-    nselages_om <- max(om$data_list$fleet_control$Nselages, na.rm = TRUE)
+    n_sel_bins_om <- max(om$data_list$fleet_control$N_sel_bins, na.rm = TRUE)
   }
 
-  if(all(is.na(em$data_list$fleet_control$Nselages))){
-    nselages_em = dim(em$estimated_params$sel_coff_dev)[3]
+  if(all(is.na(em$data_list$fleet_control$N_sel_bins))){
+    n_sel_bins_em = dim(em$estimated_params$sel_coff_dev)[3]
   } else {
-    nselages_em <- max(em$data_list$fleet_control$Nselages, na.rm = TRUE)
+    n_sel_bins_em <- max(em$data_list$fleet_control$N_sel_bins, na.rm = TRUE)
   }
 
   # - Assessment period
@@ -239,6 +242,9 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
                            M_prior = em$data_list$M_prior,
                            M_prior_sd = em$data_list$M_prior_sd,
                            M1_indices = em$data_list$M1_indices),
+      growthFun = build_growth(growth_model = em$data_list$growth_model,
+                               growth_re = em$data_list$growth_re,
+                               growth_indices = em$data_list$growth_indices),
       random_rec = em$data_list$random_rec,
       niter = em$data_list$niter,
       msmMode = em$data_list$msmMode,
@@ -292,6 +298,9 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
                                                    M_prior = em$data_list$M_prior,
                                                    M_prior_sd = em$data_list$M_prior_sd,
                                                    M1_indices = em$data_list$M1_indices),
+                              growthFun = build_growth(growth_model = em$data_list$growth_model,
+                                                       growth_re = em$data_list$growth_re,
+                                                       growth_indices = em$data_list$growth_indices),
                               random_rec = em$data_list$random_rec,
                               niter = em$data_list$niter,
                               msmMode = em$data_list$msmMode,
@@ -497,7 +506,7 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
       # -- Time-varing selectivity - Assume last year - filled by columns
       ln_sel_slp_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
       sel_inf_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
-      sel_coff_dev = array(0, dim = c(nflts, 2, nselages_om, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for non-parameteric
+      sel_coff_dev = array(0, dim = c(nflts, 2, n_sel_bins_om, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for non-parameteric
 
       ln_sel_slp_dev[,,,1:nyrs_hind] <- om_use$estimated_params$ln_sel_slp_dev
       sel_inf_dev[,,,1:nyrs_hind] <- om_use$estimated_params$sel_inf_dev
@@ -602,6 +611,9 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
                                M_prior = om_use$data_list$M_prior,
                                M_prior_sd = om_use$data_list$M_prior_sd,
                                M1_indices = om_use$data_list$M1_indices),
+              growthFun = build_growth(growth_model = om_use$data_list$growth_model,
+                                       growth_re = om_use$data_list$growth_re,
+                                       growth_indices = om_use$data_list$growth_indices),
               loopnum = loopnum,
               phase = FALSE,
               getsd = FALSE,
@@ -712,7 +724,7 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
       # -- Time-varing selectivity - Assume last year - filled by columns
       ln_sel_slp_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
       sel_inf_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
-      sel_coff_dev = array(0, dim = c(nflts, 2, nselages_em, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for non-parameteric
+      sel_coff_dev = array(0, dim = c(nflts, 2, n_sel_bins_em, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for non-parameteric
 
       ln_sel_slp_dev[,,,1:nyrs_hind] <- em_use$estimated_params$ln_sel_slp_dev
       sel_inf_dev[,,,1:nyrs_hind] <- em_use$estimated_params$sel_inf_dev
@@ -770,6 +782,9 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
                                    M_prior = em_use$data_list$M_prior,
                                    M_prior_sd = em_use$data_list$M_prior_sd,
                                    M1_indices = em_use$data_list$M1_indices),
+              growthFun = build_growth(growth_model = em_use$data_list$growth_model,
+                                       growth_re = em_use$data_list$growth_re,
+                                       growth_indices = em_use$data_list$growth_indices),
               random_rec = em_use$data_list$random_rec,
               niter = em_use$data_list$niter,
               msmMode = em_use$data_list$msmMode,

@@ -14,6 +14,8 @@
 #' @param HCR HCR list object from \code{\link{build_hcr}}
 #' @param niter Number of iterations for multispecies model
 #' @param recFun The stock recruit-relationship parameterization from \code{\link{build_srr}}.
+#' @param M1Fun M1 parameterizations and priors. Use \code{build_M1}.
+#' @param growthFun The weight-at-age model from \code{\link{build_growth}}.
 #' @param msmMode The predation mortality functions to used. Defaults to no predation mortality used.
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.
 #' @param initMode how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0 + dev-yr1,  mortality (M1); 2 = equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 3 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates; 4 = non-equilibrium age-structure version 2 where initial fishing mortality (Finit) scales R0.
@@ -28,7 +30,6 @@
 #' @param loopnum number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})
 #' @param newtonsteps number of extra newton steps to take after optimization (alternative to \code{loopnum})
 #' @param verbose 0 = Silent, 1 = print updates of model fit, 2 = print updates of model fit and TMB estimation progress.
-#' @param M1Fun M1 parameterizations and priors. Use \code{build_M1}.
 #' @param getJointPrecision return full Hessian of fixed and random effects.
 #' @param getReportCovariance return variance covariance of ADREPORT variables
 #' @param TMBfilename if a seperate TMB file is to be used for development. Includes location and does not include ".cpp" at the end.
@@ -101,6 +102,7 @@ fit_mod <-
     niter = 3,
     recFun = build_srr(),
     M1Fun = build_M1(),
+    growthFun = build_growth(),
     msmMode = 0,
     avgnMode = 0,
     initMode = 2,
@@ -155,6 +157,7 @@ fit_mod <-
     # newtonsteps = 0
     # recFun = build_srr()
     # M1Fun = build_M1()
+    # growthFun = build_growth()
     # projection_uncertainty = TRUE
     # catch_hcr = FALSE
     # bias.correct = FALSE
@@ -260,6 +263,12 @@ fit_mod <-
     data_list$M_prior = extend_length(M1Fun$M_prior)
     data_list$M_prior_sd = extend_length(M1Fun$M_prior_sd)
     data_list$M1_indices <- M1Fun$M1_indices
+
+
+    # * Growth switches ----
+    data_list$growth_model= extend_length(growthFun$growth_model)
+    data_list$growth_re = extend_length(growthFun$growth_re)
+    data_list$growth_indices = growthFun$growth_indices
 
 
     # * HCR Switches ----
@@ -390,6 +399,11 @@ fit_mod <-
     if(!is.null(data_list$fleet_control$Comp_weights)){
       start_par$comp_weights = data_list$fleet_control$Comp_weights
     }
+    # - CAAL
+    if(!is.null(data_list$fleet_control$CAAL_weights)){
+      start_par$caal_weights = data_list$fleet_control$CAAL_weights
+    }
+
     # - Diet composition
     if(!is.null(data_list$Diet_comp_weights)){
       start_par$diet_comp_weights = data_list$Diet_comp_weights

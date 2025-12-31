@@ -37,6 +37,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
   map_list <- build_map_m1(map_list, data_list, nyrs_hind)
 
+  map_list <- build_map_growth(map_list, data_list, nyrs_hind)
+
   map_list <- build_map_predation(map_list, data_list)
 
   map_list <- build_map_selectivity(map_list, data_list, nyrs_hind, random_sel)
@@ -49,9 +51,10 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
   map_list <- build_map_fixed_natage(map_list, data_list)
 
-  # --- Final Steps ---
+  # --- Debug Mode ---
   map_list <- build_map_debug(map_list, debug)
 
+  # --- Final Steps ---
   map_list_grande <- list()
   map_list_grande$mapFactor <- lapply(map_list, factor)
   map_list_grande$mapList <- map_list
@@ -59,9 +62,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
   return(map_list_grande)
 }
 
-## ----------------------------------------------------------------------
 ## Helper Functions ----
-## ----------------------------------------------------------------------
 
 #' @title Helper to set map for Recruitment parameters
 #'
@@ -180,7 +181,7 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
   # Loop through species and turn on based on model
   for (sp in 1:data_list$nspp) {
 
-    # * Switches ----
+    # * Switches
     nages_sp <- data_list$nages[sp]
     nsex_sp <- data_list$nsex[sp]
     M1_model <- data_list$M1_model[sp] # Fixed effects model
@@ -372,6 +373,56 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
   return(map_list)
 }
 
+#' @title Helper to set map for growth parameters
+#'
+#' @description Maps the fixed parameters (\code{ln_growth_pars}) and the random effects
+#'   parameters (\code{ln_growth_par_devs}, \code{growth_dev_ln_sd}, \code{growth_rho}) based on
+#'   \code{growth_model} and \code{growth_re} settings.
+#'
+#' @param map_list The current TMB map list.
+#' @param data_list The data list containing model settings.
+#' @param nyrs_hind Number of historical years.
+#'
+#' @return Updated \code{map_list}.
+build_map_growth <- function(map_list, data_list, nyrs_hind) {
+
+  # Map out growth parameters
+  growth_params <- c("ln_growth_pars", "ln_growth_par_devs", "weight_length_pars", "growth_ln_sd")
+  map_list[growth_params] <- lapply(map_list[growth_params], function(x) replace(x, values = NA))
+
+  # Loop through species and turn on based on model
+  for (sp in 1:data_list$nspp) {
+
+    # * Switches ----
+    nages_sp <- data_list$nages[sp]
+    nsex_sp <- data_list$nsex[sp]
+    growth_model <- data_list$growth_model[sp] # Fixed effects model
+    growth_re_model <- data_list$growth_re[sp] # Random effects model
+
+    # * 1. Fixed effects ----
+    if(growth_model == 1){ # Von Bertalanffy
+      # k, l1, linf
+      map_list$growth_ln_sd[sp, 1, 1:2] <- map_list$growth_ln_sd[sp, 2, 1:2] <- (sp - 1) * 2 + 1:2 # Growth SD
+      map_list$growth_ln_sd[sp, 1, 1:2] <- (sp - 1) * 2 + 1:2 # Growth SD
+      if(nsex_sp == 2){
+        map_list$ln_growth_pars[sp, 2, 1:3] <- (sp - 1) * 4 + 5:7 # Males
+      }
+    }
+
+    if(growth_model == 2){ # Richards
+      # k, l1, linf, m
+      map_list$ln_growth_pars[sp, 1, 1:4] <- (sp - 1) * 4 + 1:4 # Females/sex combined
+      map_list$growth_ln_sd[sp, 1, 1:2] <- map_list$growth_ln_sd[sp, 2, 1:2] <- (sp - 1) * 2 + 1:2 # Growth SD
+      if(nsex_sp == 2){
+        map_list$ln_growth_pars[sp, 2, 1:4] <- (sp - 1) * 4 + 5:8 # Males
+      }
+    }
+  }
+
+  return(map_list)
+}
+
+
 #' @title Helper to set map for Predation Mortality (M2) parameters
 #'
 #' @description Maps predation suitability parameters (\code{log_gam_a}, \code{log_gam_b},
@@ -557,7 +608,8 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
         max_block <- max(Selectivity_block, 0)
       }
 
-      # * 1. Logitistic (sel_type = 1) ----
+      # * Logitistic ----
+      # - sel_type = 1
       if (sel_type == 1) {
 
         # Turn on slp and asymptote for each sex
@@ -596,7 +648,8 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       }
 
 
-      # * 2. Non-parametric (sel_type = 2) ----
+      # * Non-parametric ----
+      # ---- sel_type = 2
       if (sel_type == 2) {
         if (tv_sel %in% c(2, 4, 5)) { # Error check
           stop(paste0("'Time_varying_sel' for fleet ", flt, " with non-parametric selectivity is not 0 or 1. Current value: ", tv_sel))
@@ -624,7 +677,8 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       }
 
 
-      # * 5.3. Double logistic (sel_type = 3)
+      # * Double logistic ----
+      # - sel_type = 3
       if (sel_type == 3) {
 
         # Base parameters (j=1 ascending, j=2 descending)
@@ -671,7 +725,8 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       }
 
 
-      # * 5.4. Descending logitistic (sel_type = 4)
+      # * Descending logitistic ----
+      # - sel_type = 4 -
       if (sel_type == 4) { # Descending portion only (j=2)
 
         # Base parameters
@@ -706,7 +761,8 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       }
 
 
-      # * 5.5. Non-parametric Hake-like (sel_type = 5)
+      # * Non-parametric Hake-like ----
+      # - sel_type = 5
       if (sel_type == 5) {
         if (tv_sel > 1) {
           warning(paste("Time_varying_sel for fleet", flt, "is not compatible (select NA, 0, or 1). Current value:", tv_sel))
@@ -969,7 +1025,7 @@ adjust_map_shared_params <- function(map_list, data_list) {
 #' @title Helper to set map for Fishing Mortality and Data Weights
 #'
 #' @description Maps fishing mortality parameters (\code{ln_F}) and related targets.
-#'   Also maps data weighting parameters (\code{catch_ln_sd}, \code{comp_weights}).
+#'   Also maps data weighting parameters (\code{catch_ln_sd}, \code{comp_weights}, \code{caal_weights}).
 #'
 #' @param map_list The current TMB map list.
 #' @param data_list The data list containing model settings.
@@ -995,6 +1051,10 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
     dplyr::filter(Year > 0) %>%
     dplyr::count(Fleet_code)
 
+  caal_count <- data_list$caal_data %>% # Count CAAL obs by fleet
+    dplyr::filter(Year > 0) %>%
+    dplyr::count(Fleet_code)
+
   for (i in 1:nrow(data_list$fleet_control)) {
     flt = data_list$fleet_control$Fleet_code[i]
     # Standard deviation of fishery time series If not estimating turn of
@@ -1013,12 +1073,21 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
       map_list$comp_weights[i] <- NA
     }
 
+    # Map out CAAL weights if using multinomial
+    if(data_list$fleet_control$CAAL_loglike[i] != 1) {
+      map_list$caal_weights[i] <- NA
+    }
+
     # Map out comp weights if fleet is turned off or there are no comp data
     if(data_list$fleet_control$Fleet_type[i] == 0) {
       map_list$comp_weights[i] <- NA
+      map_list$caal_weights[i] <- NA
     }
     if(!data_list$fleet_control$Fleet_code[i] %in% comp_count$Fleet_code){
       map_list$comp_weights[i] <- NA
+    }
+    if(!data_list$fleet_control$Fleet_code[i] %in% caal_count$Fleet_code){
+      map_list$caal_weights[i] <- NA
     }
 
     if(!data_list$fleet_control$Comp_loglike[i] %in% c(-1, 0, 1)){
@@ -1093,6 +1162,7 @@ build_map_fixed_natage <- function(map_list, data_list) {
       map_list$index_ln_sd[flts] <- NA
       map_list$catch_ln_sd[flts] <- NA
       map_list$comp_weights[flts] <- NA
+      map_list$caal_weights[flts] <- NA
     }
 
     # Don't estimate the scalar
@@ -1129,6 +1199,8 @@ build_map_debug <- function(map_list, debug) {
   if (debug) {
     map_list <- lapply(map_list, function(x) replace(x, values = NA))
     map_list$dummy <- 1
+  } else{
+    map_list$dummy <- NA
   }
   return(map_list)
 }
