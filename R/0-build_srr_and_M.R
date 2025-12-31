@@ -133,3 +133,35 @@ build_M1 <- function(M1_model = 0,
     M1_indices = M1_indices
   )
 }
+
+
+
+#' Define growth specifications
+#'
+#' @param growth_model Vector or scalar specifying growth model (see @description below). 0 = use empirical weight-at-age in "weight" data, 1 = estimate sex-specific von Bertalanffy growth function, 2 = sex-specific Richards model.
+#' @param growth_re NOT yet implemented! Vector or scalar specifying M1 random effects model. See description (default = 0).
+#' @param growth_indices NOT yet implemented! vector or single index indicating the columns (excluding Year column) of \code{env_data} to use for environmentally linked growth.
+#'
+#' @description
+#'
+#' **Growth fixed effects currently implemented in CEATTLE**
+#' - \code{growth_model = 0} Empirical weight-at-age from data input \code{weight}. Forecasts use terminal year of weight-at-age.
+#' - \code{growth_model = 1} Sex-specific von Bertalanffy growth.
+#' - \code{growth_model = 2} Sex-specific Richard's growth.
+#'
+#' **Growth random effects currently implemented in CEATTLE**
+#'
+#' None are currently implemented
+#'
+#' @return A list of switches for defining the M1 model
+#' @export
+#'
+build_growth <- function(growth_model = 0,
+                     growth_re = 0,
+                     growth_indices = NA){
+  list(
+    growth_model= growth_model,
+    growth_re = growth_re,
+    growth_indices = growth_indices
+  )
+}

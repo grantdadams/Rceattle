@@ -15,7 +15,8 @@ plot_index(
   incl_proj = FALSE,
   single.plots = FALSE,
   width = NULL,
-  height = NULL
+  height = NULL,
+  error = TRUE
 )
 }
 \arguments{
@@ -41,6 +42,8 @@ function.}
 \item{width}{plot width}
 
 \item{height}{plot hight}
+
+\item{error}{include observed data and error bars?}
 }
 \description{
 Plot of fitted CPUE indices on natural-scale (r4ss-style)

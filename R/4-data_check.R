@@ -95,8 +95,8 @@ data_check <- function(data_list) {
 
   # Species checks ----
   for(sp in 1:data_list$nspp){
-    if(sum(data_list$nages[sp] < data_list$fleet_control$Nselages[which(data_list$fleet_control$Species == sp)], na.rm = TRUE) > 1){
-      stop(paste("Nselages is greater than nages for species", sp))
+    if(sum(data_list$nages[sp] < data_list$fleet_control$N_sel_bins[which(data_list$fleet_control$Species == sp)], na.rm = TRUE) > 1){
+      stop(paste("N_sel_bins is greater than nages for species", sp))
     }
   }
 
@@ -428,6 +428,22 @@ switch_check <- function(data_list){
   if(is.null(data_list$fleet_control$Comp_loglike)){
     data_list$fleet_control$Comp_loglike <- -1
     print("'Comp_loglike' not specified in 'fleet_control', assuming multinomial")
+  }
+
+  # CAAL weights
+  if(is.null(data_list$fleet_control$CAAL_loglike)){
+    data_list$fleet_control$CAAL_loglike <- 0
+    print("'CAAL_loglike' not specified in 'fleet_control', assuming multinomial")
+  }
+  if(is.null(data_list$fleet_control$CAAL_weights)){
+    data_list$fleet_control$CAAL_weights <- 1
+    print("'CAAL_weights' not specified in 'fleet_control', assuming 1")
+  }
+
+  # Month
+  if(is.null(data_list$fleet_control$Month)){
+    data_list$fleet_control$Month <- 0
+    print("'Month' not specified in 'fleet_control', assuming 0")
   }
 
   # Mortality
