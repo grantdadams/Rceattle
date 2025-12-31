@@ -1,5 +1,5 @@
 /**
- * @brief Integrated Predator Growth, Size-Transition, and Weight-at-Age Module.
+ * @brief Integrated Predator Growth, Size-Transition, and Weight-at-Age Module for Month = 0.
  * * This function handles the core biological calculations for a single species,
  * integrating growth dynamics with size-structured transitions and allometric
  * weight relationships.
@@ -13,15 +13,14 @@
  * Calculated via integration across the length distribution to account for Jensen's Inequality:
  * $W_a = \sum_{ln} P(ln | a) \times (\alpha \cdot L_{mid}^{ \beta })$
  * * @section logic Biological Logic:
- * - **Temporal Resolution**: Incorporates 'fracyr' to allow for within-year (seasonal)
- * growth and differentiability for time-varying parameters.
+ * - **Temporal Resolution**: This is only for month = 0.
  * - **Plus-Group (SS Style)**: Oldest age class is adjusted using a weighted mean
  * based on an assumed mortality decay ($\exp(-0.2)$).
  * - **Size Transition**: Converts mean length and SD into a probability density matrix
  * ($P(Length | Age)$) using a cumulative normal distribution (pnorm).
  *
+ * @param wtind Weight index for population.
  * @param sp Species index.
- * @param fracyr Fraction of the year (0.0 - 1.0) for within-year growth estimation.
  * @param max_sex/max_age/max_nlengths Global array dimensions for safe memory allocation.
  * @param nyrs Number of years in the simulation/model.
  * @param nsex/nages/nlengths Vectors containing species-specific counts for each dimension.
@@ -39,7 +38,6 @@ template<class Type>
 void estimate_growth(
     int wtind,
     int sp,
-    Type fracyr,
     int nspp,
     int nyrs,
     const vector<int>&  nsex,
@@ -78,7 +76,7 @@ void estimate_growth(
         Type l1 = growth_parameters(sp, sex, yr, 1);
         Type linf = growth_parameters(sp, sex, yr, 2);
         Type m = growth_parameters(sp, sex, yr, 3);
-        current_age = age + 1.0 + fracyr;
+        current_age = age + 1.0;
 
         // 1. Calculate Mean Length at Age ---
         switch(growth_model(sp)) {
@@ -94,7 +92,7 @@ void estimate_growth(
             if(yr == 0) {
               length_hat(wtind,  sex, age, yr) = linf + (l1 - linf) * exp(-kappa * (current_age - age_L1));
             } else { // Yr > 0
-              if((age + 1) == age_L1_ceil) {
+              if(current_age == age_L1_ceil) {
                 last_linear = Lmin_sp + b_len * age_L1;
                 length_hat(wtind,  sex, age, yr) = last_linear + (last_linear - linf) * (exp(-kappa * (current_age - age_L1)) - 1.0);
               } else {
@@ -118,7 +116,7 @@ void estimate_growth(
             if(yr == 0) {
               length_hat(wtind,  sex, age, yr) = pow(pow(l1, m) + (pow(linf, m) - pow(l1, m)) * exp(-kappa * (current_age - age_L1)), 1 / m);
             } else { // Yr > 0
-              if((age + 1) == age_L1_ceil) {
+              if(current_age == age_L1_ceil) {
                 last_linear = Lmin_sp + b_len * age_L1;
                 length_hat(wtind,  sex, age, yr) = pow(pow(last_linear, m) + (pow(last_linear, m) - pow(l1, m)) * (exp(-kappa * (current_age - age_L1)) - 1.0), 1 / m);
               } else {
@@ -204,6 +202,187 @@ void estimate_growth(
 }
 
 
+
+/**
+ * @brief Integrated Predator Growth, Size-Transition, and Weight-at-Age Module at Month X.
+ *
+ * @section math_models Mathematical Models:
+ * 1. Mean Length-at-Age ($L_a$):
+ * - Von Bertalanffy (Model 1): $L_a = L_{\infty} (1 - e^{-K(a + fracyr - a_0)})$
+ * - Richards (Model 2): $L_a = L_{\infty} [1 + e^{-K(a + fracyr - a_0)}]^{-1/m}$
+ * - Note: Linear growth is applied for ages < minage to ensure model stability.
+ * * 2. Weight-at-Age ($W_a$):
+ * Calculated via integration across the length distribution to account for Jensen's Inequality:
+ * $W_a = \sum_{ln} P(ln | a) \times (\alpha \cdot L_{mid}^{ \beta })$
+ * * @section logic Biological Logic:
+ * - **Temporal Resolution**: Incorporates 'fracyr' to allow for within-year (seasonal)
+ * growth and differentiability for time-varying parameters.
+ * - **Plus-Group (SS Style)**: Oldest age class is adjusted using a weighted mean
+ * based on an assumed mortality decay ($\exp(-0.2)$).
+ * - **Size Transition**: Converts mean length and SD into a probability density matrix
+ * ($P(Length | Age)$) using a cumulative normal distribution (pnorm).
+ *
+ * @param wtind Weight index for population/fleet.
+ * @param id_pop Index for population weight-at-age (for lagged growth reference).
+ * @param sp Species index.
+ * @param fracyr Fraction of the year (0.0 - 1.0) for within-year growth estimation.
+ * @param max_sex/max_age/max_nlengths Global array dimensions for safe memory allocation.
+ * @param nyrs Number of years in the simulation/model.
+ * @param nsex/nages/nlengths Vectors containing species-specific counts for each dimension.
+ * @param lengths Matrix of length bin boundaries (nspp x length_bins).
+ * @param growth_parameters 4D array of time-varying growth parameters (K, L1, Linf, m).
+ * @param growth_ln_sd 3D array of log-scale standard deviations for length (youngest and oldest ages).
+ * @param LW_par 4D array of length-weight relationship parameters ($\alpha$, $\beta$).
+ *
+ * *@note This version uses pass-by-reference for outputs to optimize memory.
+ * @param length_hat [Output] 3D Array to be filled with mean length-at-age.
+ * @param growth_matrix [Output] 4D Array to be filled with the growth transition matrix.
+ * @param weight_hat [Output] 3D Array to be filled with integrated weight-at-age.
+ */
+template<class Type>
+void estimate_growth_within_yr(
+    int wtind,
+    int id_pop,
+    int sp,
+    Type fracyr,
+    int nspp,
+    int nyrs,
+    const vector<int>&  nsex,
+    const vector<int>&  nages,
+    const vector<int>&  nlengths,
+    const vector<int>&  minage,
+    const vector<int>&  growth_model,
+    matrix<Type> lengths,
+    array<Type> growth_parameters,
+    array<Type> growth_ln_sd,
+    matrix<Type> weight_length_pars,
+    array<Type> &length_hat,     // Pass by reference
+    array<Type> &growth_matrix,  // Pass by reference
+    array<Type> &weight_hat      // Pass by reference
+) {
+
+  // Initialize output and temporary storage
+  array<Type> length_sd(nsex(sp), nages(sp), nyrs); length_sd.setZero();         // SD in length-at-age
+
+
+  // Calculate mean-length, SD, and growth matrix, for all years:
+  // lengths is vector with lengths mm (2, 4, 6, 8, etc)
+  Type Fac1, Fac2, Slope, b_len, last_linear, current_age;
+
+  Type Lmin_sp = lengths(sp, 0);
+  Type Lmax_sp = lengths(sp, nlengths(sp) - 1);
+  Type age_L1 = minage(sp);
+  Type age_L1_ceil = nages(sp) + minage(sp) - 1;
+
+  for(int sex = 0; sex < nsex(sp); sex++) {
+    for(int yr = 0; yr < nyrs; yr++) {
+      for(int age = 0; age < nages(sp); age++) {
+
+        // Parameters for parametric growth
+        Type kappa = growth_parameters(sp, sex, yr, 0);
+        Type l1 = growth_parameters(sp, sex, yr, 1);
+        Type linf = growth_parameters(sp, sex, yr, 2);
+        Type m = growth_parameters(sp, sex, yr, 3);
+        current_age = age + 1.0 + fracyr;
+
+        // 1. Calculate Mean Length at Age ---
+        switch(growth_model(sp)) {
+        case 1: // Von Bertalanffy
+
+          // Slope from Lmin to L1
+          b_len = (l1 - Lmin_sp) / age_L1;
+
+          // Age < minage
+          if((current_age) <= age_L1){
+            length_hat(wtind,  sex, age, yr) = Lmin_sp + b_len * (current_age);
+          }else if(age + 1 < age_L1){ // Linear + growth curve mixed
+            last_linear = Lmin_sp + b_len * age_L1;
+            length_hat(wtind,  sex, age, yr) = last_linear + (last_linear - linf) * (exp(-kappa * (current_age - age_L1)) - 1.0);
+          }else if(age == nages(sp)) { // Plus group
+            length_hat(wtind,  sex, age, yr) = length_hat(id_pop,  sex, age, yr);
+          }else { // Growth curve
+            length_hat(wtind,  sex, age, yr) = length_hat(id_pop,  sex, age, yr) + (length_hat(id_pop,  sex, age, yr) - linf) * (exp(-kappa * fracyr) - 1.0); // Add fracyr growth
+          }
+          break;
+
+        case 2: // Richards
+
+          // Slope from Lmin to L1
+          b_len = (l1 - Lmin_sp) / age_L1;
+
+          // Age < minage
+          if((current_age) <= age_L1){
+            length_hat(wtind,  sex, age, yr) = Lmin_sp + b_len * (current_age);
+          }else if(age + 1 < age_L1){ // Linear + growth curve mixed
+            last_linear = Lmin_sp + b_len * age_L1;
+            length_hat(wtind,  sex, age, yr) = pow(pow(last_linear, m) + (pow(last_linear, m) - pow(l1, m)) * (exp(-kappa * (current_age - age_L1)) - 1.0), 1 / m);
+          } else if(age == nages(sp)) { // Plus group
+            length_hat(wtind,  sex, age, yr) = length_hat(id_pop,  sex, age, yr);
+          } else {
+            length_hat(wtind,  sex, age, yr) = pow(pow(length_hat(id_pop,  sex, age, yr), m) + (pow(length_hat(id_pop,  sex, age, yr), m) - pow(linf, m)) * (exp(-kappa * fracyr) - 1.0), 1 / m); // Add fracyr growth
+          }
+          break;
+
+        case 3: // Non-parametric (Free parameters)
+          error("Non-parametric growth not yet implemented");
+          // length_hat(wtind,  sex, age, yr) = exp(length_par(sp, sex, age) + length_par_re(sp, sex, age, yr));
+          break;
+
+        default:
+          error("Invalid 'growth_model");
+        } // Growth_model switch
+
+        // 2. Calculate SD (Integrated) ---
+        if(growth_model(sp) < 3) {
+          if((current_age) < age_L1) {
+            length_sd(sex, age, yr) = exp(growth_ln_sd(sp, sex, 0));
+          } else if(age == (nages(sp) - 1)) {
+            length_sd(sex, age, yr) = exp(growth_ln_sd(sp, sex, 1));
+          } else {
+            Slope = (exp(growth_ln_sd(sp, sex, 1)) - exp(growth_ln_sd(sp, sex, 0))) / (linf - l1);
+            length_sd(sex, age, yr) = exp(growth_ln_sd(sp, sex, 0) + Slope * (length_hat(wtind,  sex, age, yr) - l1));
+          }
+
+          // Free parameters
+          if(growth_model(sp) == 3) {
+            // Slope = (exp(growth_ln_sd(sp, sex, 1)) - exp(growth_ln_sd(sp, sex, 0)))/(length_hat(wtind,  sex, nages(sp)-1, yr) - length_hat(wtind,  sex, 0, yr));
+            // length_sd(sex, age, yr) = exp(growth_ln_sd(sp, sex, 0) + Slope * (length_hat(wtind,  sex, age, yr) - length_hat(wtind,  sex, 0, yr));
+          }
+        }
+
+        // 4. Build Growth Matrix & Weight-at-Age simultaneously ---
+        Type expected_weight = 0.0;
+
+        for(int ln = 0; ln < nlengths(sp); ln++) {
+          Type prob;
+          if(ln == 0) {
+            Fac1 = (Lmin_sp + lengths(sp, 1) - lengths(sp, 0) - length_hat(wtind,  sex, age, yr)) / length_sd(sex, age, yr);
+            prob = pnorm(Fac1);
+          } else if(ln == (nlengths(sp) - 1)) {
+            Fac1 = (Lmax_sp - length_hat(wtind,  sex, age, yr)) / length_sd(sex, age, yr);
+            prob = 1.0 - pnorm(Fac1);
+          } else {
+            Fac1 = (lengths(sp, ln + 1) - length_hat(wtind,  sex, age, yr)) / length_sd(sex, age, yr);
+            Fac2 = (lengths(sp, ln) - length_hat(wtind,  sex, age, yr)) / length_sd(sex, age, yr);
+            prob = pnorm(Fac1) - pnorm(Fac2);
+          }
+
+          // Explicit assignment to avoid the 5D operator warning
+          growth_matrix(wtind, sex, age, ln, yr) = prob;
+
+          // Midpoint calculation for Weight-at-Length
+          Type lenmid = (lengths(sp, 1) - lengths(sp, 0))/2;
+
+          // Weighted sum for Weight-at-Age
+          expected_weight += prob * weight_length_pars(sp, 0) * pow(lengths(sp, ln) + lenmid, weight_length_pars(sp, 1));
+        }
+        weight_hat(wtind, sex, age, yr) = expected_weight;
+      } // age
+    } // yr
+  } // sex
+}
+
+
 /**
  * @brief Calculates population and fleet-specific weight-at-age.
  * * This function populates the weight_hat array based on either empirical data
@@ -232,7 +411,7 @@ void estimate_growth(
  */
 template <class Type>
 void calculate_weight(
-array<Type> &weight_hat,
+    array<Type> &weight_hat,
     array<Type> &length_hat,
     array<Type> &growth_matrix,
     array<Type> weight_obs,
@@ -292,7 +471,6 @@ array<Type> &weight_hat,
       estimate_growth(
         wt_idx_pop,
         sp,
-        Type(0.0),
         nspp,
         nyrs,
         nsex,
@@ -310,8 +488,9 @@ array<Type> &weight_hat,
       );
 
       // SSB weight (at month of spawning)
-      estimate_growth(
+      estimate_growth_within_yr(
         wt_idx_ssb,
+        wt_idx_pop,
         sp,
         spawn_month(sp) / Type(12.0),
         nspp,
@@ -336,6 +515,7 @@ array<Type> &weight_hat,
   for (int flt = 0; flt < n_flt; flt++) {
     int sp = flt_spp(flt);
     Type mo = flt_month(flt);
+    wt_idx_pop = (nspp - 1) * 2 * sp;
     wt_idx_flt = nspp * 2 + flt;
 
     // -- 2.1. Empirical weight-at-age
@@ -354,8 +534,9 @@ array<Type> &weight_hat,
     // -- 2.2. Estimated growth
     if (growth_model(sp) > 0) {
 
-      estimate_growth(
+      estimate_growth_within_yr(
         wt_idx_flt,
+        wt_idx_pop,
         sp,
         mo / Type(12.0),
         nspp,
@@ -379,16 +560,12 @@ array<Type> &weight_hat,
 
 
 
-
-
-
 // ------------------------------------------------------------------------- //
 // TODO                                                                      //
 // ------------------------------------------------------------------------- //
-// ADD MONTH TO FLEET CONTROL
-// ADD WEIGHT LENGTH PARAMETERS TO DATA
-// add function for weight-at-age from frac-yr
-// add growth parameters to build param and build map
-// add build_growth function
+// add growth parameters to build param and build map (AR1 and variance)
+// define age_L1 and age_L1 ceiling
+// update selectivity normalization for length-based
+// update age first selected to bin first selected
 
 

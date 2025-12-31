@@ -19,6 +19,7 @@ fit_mod(
   niter = 3,
   recFun = build_srr(),
   M1Fun = build_M1(),
+  growthFun = build_growth(),
   msmMode = 0,
   avgnMode = 0,
   initMode = 2,
@@ -68,6 +69,8 @@ fit_mod(
 \item{recFun}{The stock recruit-relationship parameterization from \code{\link{build_srr}}.}
 
 \item{M1Fun}{M1 parameterizations and priors. Use \code{build_M1}.}
+
+\item{growthFun}{The weight-at-age model from \code{\link{build_growth}}.}
 
 \item{msmMode}{The predation mortality functions to used. Defaults to no predation mortality used.}
 

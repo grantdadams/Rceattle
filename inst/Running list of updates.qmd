@@ -46,3 +46,11 @@ Added internal growth calculation, see \code{build_growth} within \code{fit_mod}
 Added month to "fleet_control"
 
 Change Nselages to N_sel_bins
+
+Added `build_growth` to \`fit_mod\`
+
+renamed N_sel_bins = Nselages, Sel_norm_bin1 = Age_max_selected, and Sel_norm_bin2 = Age_max_selected_upper
+
+Added `beta_wt_len` and `alpha_wt_len` to "control" sheet of data
+
+Added CAAL_loglike and CAAL_weights to fleet control.

@@ -1090,9 +1090,9 @@ mod_names <- c("ss_run", "ms_run1", "ms_run2", "ms_run3", "ms_run4", "ms_run5", 
 
 # Plot biomass trajectory
 plot_biomass(Rceattle = mod_list, model_names = mod_names) #Now biomass looks alike
-plot_biomass(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE)
+plot_biomass(Rceattle = mod_list, model_names = mod_names, add_ci = F)
 plot_depletionSSB(Rceattle = mod_list, model_names = mod_names) #this looks pretty different
-plot_ssb(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE)
+plot_ssb(Rceattle = mod_list, model_names = mod_names, add_ci = F)
 
 plot_b_eaten_prop(Rceattle = mod_list, model_names = mod_names)
 

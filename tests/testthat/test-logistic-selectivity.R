@@ -29,12 +29,12 @@ test_that("logistic selectivity divided by max sel", {
 
   # Check selectivity
   # - Pollock
-  apply(ss_run$quantities$sel[1,1,1:10,], 2, function(x) expect_equal(as.numeric(x), sel[1:10]/max(sel[1:10]), tolerance = 0.0001))
+  apply(ss_run$quantities$sel[1,1,1:10,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:10]/max(sel[1:10]), tolerance = 0.0001))
 
 
   # - ATF
-  apply(ss_run$quantities$sel[9,1,1:21,], 2, function(x) expect_equal(as.numeric(x), sel[1:21]/max(c(sel, sel2)), tolerance = 0.0001))
-  apply(ss_run$quantities$sel[9,2,1:21,], 2, function(x) expect_equal(as.numeric(x), sel2[1:21]/max(c(sel, sel2)), tolerance = 0.0001))
+  apply(ss_run$quantities$sel[9,1,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:21]/max(c(sel, sel2)), tolerance = 0.0001))
+  apply(ss_run$quantities$sel[9,2,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), sel2[1:21]/max(c(sel, sel2)), tolerance = 0.0001))
 })
 
 
@@ -69,12 +69,12 @@ test_that("logistic selectivity not normalized", {
 
   # Check selectivity
   # - Pollock
-  apply(ss_run$quantities$sel[1,1,1:10,], 2, function(x) expect_equal(as.numeric(x), sel[1:10], tolerance = 0.0001))
+  apply(ss_run$quantities$sel[1,1,1:10,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:10], tolerance = 0.0001))
 
 
   # - ATF
-  apply(ss_run$quantities$sel[9,1,1:21,], 2, function(x) expect_equal(as.numeric(x), sel[1:21], tolerance = 0.0001))
-  apply(ss_run$quantities$sel[9,2,1:21,], 2, function(x) expect_equal(as.numeric(x), sel2[1:21], tolerance = 0.0001))
+  apply(ss_run$quantities$sel[9,1,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:21], tolerance = 0.0001))
+  apply(ss_run$quantities$sel[9,2,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), sel2[1:21], tolerance = 0.0001))
 })
 
 
@@ -107,12 +107,12 @@ test_that("logistic selectivity divided by sel-at-age", {
 
   # Check selectivity
   # - Pollock
-  apply(ss_run$quantities$sel[1,1,1:10,], 2, function(x) expect_equal(as.numeric(x), sel[1:10]/sel[7], tolerance = 0.0001))
+  apply(ss_run$quantities$sel[1,1,1:10,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:10]/sel[7], tolerance = 0.0001))
 
 
   # - ATF
-  apply(ss_run$quantities$sel[9,1,1:21,], 2, function(x) expect_equal(as.numeric(x), sel[1:21]/sel[7], tolerance = 0.0001))
-  apply(ss_run$quantities$sel[9,2,1:21,], 2, function(x) expect_equal(as.numeric(x), sel[1:21]/sel[7], tolerance = 0.0001))
+  apply(ss_run$quantities$sel[9,1,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:21]/sel[7], tolerance = 0.0001))
+  apply(ss_run$quantities$sel[9,2,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:21]/sel[7], tolerance = 0.0001))
 })
 
 
@@ -147,12 +147,12 @@ test_that("logistic selectivity divided by sel-at-age-RANGE", {
 
   # Check selectivity
   # - Pollock
-  apply(ss_run$quantities$sel[1,1,1:10,], 2, function(x) expect_equal(as.numeric(x), sel[1:10]/mean(sel[7:9]), tolerance = 0.0001))
+  apply(ss_run$quantities$sel[1,1,1:10,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:10]/mean(sel[7:9]), tolerance = 0.0001))
 
 
   # - ATF
-  apply(ss_run$quantities$sel[9,1,1:21,], 2, function(x) expect_equal(as.numeric(x), sel[1:21]/mean(sel[7:9]), tolerance = 0.0001))
-  apply(ss_run$quantities$sel[9,2,1:21,], 2, function(x) expect_equal(as.numeric(x), sel[1:21]/mean(sel[7:9]), tolerance = 0.0001))
+  apply(ss_run$quantities$sel[9,1,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:21]/mean(sel[7:9]), tolerance = 0.0001))
+  apply(ss_run$quantities$sel[9,2,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:21]/mean(sel[7:9]), tolerance = 0.0001))
 })
 
 
@@ -198,11 +198,11 @@ test_that("time-varying logistic selectivity divided by max sel", {
 
   # Check selectivity
   # - Pollock
-  expect_equal(as.numeric(ss_run$quantities$sel[1,1,1:10,1:42]), as.numeric(apply(sel[1:10,], 2, function(x) x/max(x))), tolerance = 0.0001)
+  testthat::expect_equal(as.numeric(ss_run$quantities$sel[1,1,1:10,1:42]), as.numeric(apply(sel[1:10,], 2, function(x) x/max(x))), tolerance = 0.0001)
 
 
   # - ATF
-  expect_equal(as.numeric(ss_run$quantities$sel[9,1,1:21,1:42]), as.numeric(apply(sel[1:21,], 2, function(x) x/max(x))), tolerance = 0.0001)
-  expect_equal(as.numeric(ss_run$quantities$sel[9,2,1:21,1:42]), as.numeric(apply(sel[1:21,], 2, function(x) x/max(x))), tolerance = 0.0001)
+  testthat::expect_equal(as.numeric(ss_run$quantities$sel[9,1,1:21,1:42]), as.numeric(apply(sel[1:21,], 2, function(x) x/max(x))), tolerance = 0.0001)
+  testthat::expect_equal(as.numeric(ss_run$quantities$sel[9,2,1:21,1:42]), as.numeric(apply(sel[1:21,], 2, function(x) x/max(x))), tolerance = 0.0001)
 })
 
