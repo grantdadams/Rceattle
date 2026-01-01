@@ -225,13 +225,23 @@ read_data <- function(file = "Rceattle_data.xlsx") {
 
   if(length(data_list$fleet_control$Nselages) > 0){
     data_list$fleet_control <- data_list$fleet_control %>%
-      dplyr::rename(N_sel_bins = Nselages,
-                    Sel_norm_bin1 = Age_max_selected,
-                    Sel_norm_bin2 = Age_max_selected_upper)
-    print("Renaming 'Nselages' to 'N_sel_bins', 'Age_max_selected' to 'Sel_norm_bin1', and 'Age_max_selected_upper' to 'Sel_norm_bin2'")
+      dplyr::rename(N_sel_bins = Nselages)
+    print("Renaming 'Nselages' to 'N_sel_bins'")
   }
 
-  if(!exists(data_list$fleet_control$Month)){
+  if(length(data_list$fleet_control$Age_max_selected) > 0){
+    data_list$fleet_control <- data_list$fleet_control %>%
+      dplyr::rename(Sel_norm_bin1 = Age_max_selected)
+    print("Renaming 'Age_max_selected' to 'Sel_norm_bin1'")
+  }
+
+  if(length(data_list$fleet_control$Age_max_selected_upper) > 0){
+    data_list$fleet_control <- data_list$fleet_control %>%
+      dplyr::rename(Sel_norm_bin2 = Age_max_selected_upper)
+    print("Renaming 'Age_max_selected_upper' to 'Sel_norm_bin2'")
+  }
+
+  if(!is.null(data_list$fleet_control$Month)){
     data_list$fleet_control <- data_list$fleet_control %>%
       dplyr::mutate(Month = 0)
     print("Adding 'Month' column to 'fleet_control' with default value of 0")

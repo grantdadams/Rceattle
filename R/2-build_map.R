@@ -402,19 +402,21 @@ build_map_growth <- function(map_list, data_list, nyrs_hind) {
     # * 1. Fixed effects ----
     if(growth_model == 1){ # Von Bertalanffy
       # k, l1, linf
-      map_list$growth_ln_sd[sp, 1, 1:2] <- map_list$growth_ln_sd[sp, 2, 1:2] <- (sp - 1) * 2 + 1:2 # Growth SD
+      map_list$ln_growth_pars[sp, 1, 1:3] <- (sp - 1) * 4 + 1:3 # Females/sex combined
       map_list$growth_ln_sd[sp, 1, 1:2] <- (sp - 1) * 2 + 1:2 # Growth SD
       if(nsex_sp == 2){
         map_list$ln_growth_pars[sp, 2, 1:3] <- (sp - 1) * 4 + 5:7 # Males
+        map_list$growth_ln_sd[sp, 2, 1:2] <- (sp - 1) * 2 + 1:2 # Growth SD same as females
       }
     }
 
     if(growth_model == 2){ # Richards
       # k, l1, linf, m
       map_list$ln_growth_pars[sp, 1, 1:4] <- (sp - 1) * 4 + 1:4 # Females/sex combined
-      map_list$growth_ln_sd[sp, 1, 1:2] <- map_list$growth_ln_sd[sp, 2, 1:2] <- (sp - 1) * 2 + 1:2 # Growth SD
+      map_list$growth_ln_sd[sp, 1, 1:2] <- (sp - 1) * 2 + 1:2 # Growth SD
       if(nsex_sp == 2){
         map_list$ln_growth_pars[sp, 2, 1:4] <- (sp - 1) * 4 + 5:8 # Males
+        map_list$growth_ln_sd[sp, 2, 1:2] <- (sp - 1) * 2 + 1:2 # Growth SD same as females
       }
     }
   }
