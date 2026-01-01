@@ -155,7 +155,8 @@ rearrange_dat <- function(data_list){
 
   # 5 - CAAL data ----
   data_list$caal_ctl <- data_list$caal_data %>%
-    dplyr::select(Fleet_code, Species, Sex, Year, Length) %>%
+    dplyr::mutate(Length_bin = factor(Length)) %>%
+    dplyr::select(Fleet_code, Species, Sex, Year, Length_bin) %>%
     dplyr::mutate_all(as.integer)
 
   data_list$caal_n <- data_list$caal_data %>%
@@ -166,7 +167,7 @@ rearrange_dat <- function(data_list){
     dplyr::select(contains("CAAL_")) %>%
     dplyr::mutate_all(as.numeric) %>%
     as.matrix()
-  data_list$caal_obs <- (apply(data_list$caal_obs, 1, function(x) as.numeric(x) / sum(as.numeric(x), na.rm = TRUE))) # Normalize
+  data_list$caal_obs <- t(apply(data_list$caal_obs, 1, function(x) as.numeric(x) / sum(as.numeric(x), na.rm = TRUE))) # Normalize
 
   data_list <- check_caal_data(data_list)
 
@@ -180,7 +181,7 @@ rearrange_dat <- function(data_list){
       dplyr::group_by(Species) %>%
       dplyr::mutate(Bin = paste0("Bin", 1:n())) %>%
       tidyr::pivot_wider(names_from = Bin, values_from = Length)
-    data_list$lengths[caal_lengths$species, 1:ncol(caal_lengths[,-1])] <- as.matrix(caal_lengths[,-1])
+    data_list$lengths[caal_lengths$Species, 1:ncol(caal_lengths[,-1])] <- as.matrix(caal_lengths[,-1])
   }
 
 
@@ -197,7 +198,11 @@ rearrange_dat <- function(data_list){
                     stomach_id = as.numeric(as.factor(stratum_id)) - 1)
 
     # Add n_stomach_obs and the stomach_id vector to the main data_list
-    data_list$n_stomach_obs <- max(diet_dat$stomach_id) + 1
+    if(length(diet_dat$stomach_id) == 0){
+      data_list$n_stomach_obs = 0
+    } else{
+      data_list$n_stomach_obs <- max(diet_dat$stomach_id) + 1
+    }
     data_list$stomach_id <- diet_dat$stomach_id
 
     # Create diet_ctl (without the stomach_id column)
@@ -561,7 +566,7 @@ check_caal_data <- function(data_list) {
     joint_adjust <- ifelse(data_list$nsex[data_list$caal_data$Species] == 2 &
                              data_list$caal_data$Sex == 3, 2, 1)
 
-    col_adjust <- data_list$nages[data_list$comp_data$Species]
+    col_adjust <- data_list$nages[data_list$caal_data$Species]
     col_adjust <- col_adjust * joint_adjust
 
     # Check for NAs in composition data and convert them to 0

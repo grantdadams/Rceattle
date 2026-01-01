@@ -194,7 +194,7 @@ Type objective_function<Type>::operator() () {
   DATA_IMATRIX( catch_n );                // Info for fishery biomass; columns = Month
   DATA_MATRIX( catch_obs );               // Observed fishery catch biomass (kg) and log_sd; columns = Observation, Error
 
-    // -- 2.4.2 Survey components
+  // -- 2.4.2 Survey components
   DATA_IMATRIX( index_ctl );              // Info for index; columns = Survey_name, Survey_code, Species, Year
   DATA_MATRIX( index_n );                 // Info for index; columns = Month
   DATA_MATRIX( index_obs );               // Observed index and log_sd; columns = Observation, Error
@@ -586,7 +586,7 @@ Type objective_function<Type>::operator() () {
     growth_parameters,
     growth_ln_sd,
     weight_length_pars
-    );
+  );
 
 
   // 5.6. SELECTIVITY
@@ -2596,9 +2596,9 @@ Type objective_function<Type>::operator() () {
    * ------------------------------------------------------------------------- */
 
   // -- 11.1. Marginal age/length composition
-  age_obs_hat.setZero();
-  comp_hat.setZero();
-  age_hat.setZero();
+  age_hat.setZero();     // Age-composition
+  age_obs_hat.setZero(); // Age-composition with ageing error
+  comp_hat.setZero();    // Age- or length-comp following data
   for(comp_ind = 0; comp_ind < comp_hat.rows(); comp_ind++){
 
     flt = comp_ctl(comp_ind, 0) - 1;            // Temporary fishery index
@@ -2606,7 +2606,7 @@ Type objective_function<Type>::operator() () {
     flt_sex = comp_ctl(comp_ind, 2);            // Temporary index for comp sex (0 = combined, 1 = female, 2 = male)
     comp_type = comp_ctl(comp_ind, 3);          // Temporary index for comp type (0 = age, 1 = length, 2 = CAAL)
     yr = comp_ctl(comp_ind, 4);                 // Temporary index for years of data
-    mo = comp_n(comp_ind, 0);                   // Temporary index for month
+    mo = comp_n(comp_ind, 0);                   // Temporary index for month (FIXME change to Month from fleet_control)
     int wtind = nspp * 2 + flt;
     n_hat(comp_ind) = 0.0;                      // Initialize
 
@@ -2649,60 +2649,56 @@ Type objective_function<Type>::operator() () {
             }
           }
         }
+      }
 
-        // Assign CAAL to marginal age or length composition
-        for(age = 0; age < nages(sp); age++) {
-          for(ln = 0; ln < nlengths(sp); ln++) {
+      // Assign CAAL to marginal age or length composition
+      for(age = 0; age < nages(sp); age++) {
+        for(ln = 0; ln < nlengths(sp); ln++) {
 
-            // Age composition
-            // - Catch-at-age
-            if(comp_type == 1){
-              switch(flt_sex){
-              case 0: // Sexes combined or 1 sex assessment
-                for(sex = 0; sex < nsex(sp); sex ++){
-                  for(int obs_age = 0; obs_age < nages(sp); obs_age++) {
-                    age_hat(comp_ind, age ) += pred_CAAL(flt, sex, age, ln, yr);
-                  }
-                }
-                break;
-
-              case 1: case 2: // Sex-specific composition data
-                sex = flt_sex - 1;
-                for(int obs_age = 0; obs_age < nages(sp); obs_age++) {
-                  age_hat(comp_ind, age ) += pred_CAAL(flt, sex, age, ln, yr);
-                }
-                break;
-
-              case 3: // Joint composition data
-                for(sex = 0; sex < nsex(sp); sex ++){
-                  age_hat(comp_ind, age + nages(sp) * sex ) += pred_CAAL(flt, sex, age, ln, yr);
-                }
-                break;
+          // Age composition
+          // - Catch-at-age
+          if(comp_type == 0){
+            switch(flt_sex){
+            case 0: // Sexes combined or 1 sex assessment
+              for(sex = 0; sex < nsex(sp); sex ++){
+                age_hat(comp_ind, age ) += pred_CAAL(flt, sex, age, ln, yr);
               }
+              break;
+
+            case 1: case 2: // Sex-specific composition data
+              sex = flt_sex - 1;
+              age_hat(comp_ind, age ) += pred_CAAL(flt, sex, age, ln, yr);
+              break;
+
+            case 3: // Joint composition data
+              for(sex = 0; sex < nsex(sp); sex ++){
+                age_hat(comp_ind, age + nages(sp) * sex ) += pred_CAAL(flt, sex, age, ln, yr);
+              }
+              break;
             }
+          }
 
 
-            // Length composition
-            // - Catch-at-length
-            if(comp_type == 1){
-              switch(flt_sex){
-              case 0: // Sexes combined or 1 sex assessment
-                for(sex = 0; sex < nsex(sp); sex ++){
-                  comp_hat(comp_ind, ln ) += pred_CAAL(flt, sex, ln, age, yr);
-                }
-                break;
-
-              case 1: case 2: // Sex-specific composition data
-                sex = flt_sex - 1;
+          // Length composition
+          // - Catch-at-length
+          if(comp_type == 1){
+            switch(flt_sex){
+            case 0: // Sexes combined or 1 sex assessment
+              for(sex = 0; sex < nsex(sp); sex ++){
                 comp_hat(comp_ind, ln ) += pred_CAAL(flt, sex, ln, age, yr);
-                break;
-
-              case 3: // Joint composition data
-                for(sex = 0; sex < nsex(sp); sex ++){
-                  comp_hat(comp_ind, ln + nlengths(sp) * sex ) += pred_CAAL(flt, sex, age, ln, yr) ;
-                }
-                break;
               }
+              break;
+
+            case 1: case 2: // Sex-specific composition data
+              sex = flt_sex - 1;
+              comp_hat(comp_ind, ln ) += pred_CAAL(flt, sex, ln, age, yr);
+              break;
+
+            case 3: // Joint composition data
+              for(sex = 0; sex < nsex(sp); sex ++){
+                comp_hat(comp_ind, ln + nlengths(sp) * sex ) += pred_CAAL(flt, sex, age, ln, yr) ;
+              }
+              break;
             }
           }
         }
@@ -2729,20 +2725,17 @@ Type objective_function<Type>::operator() () {
         }
       }
 
-      // Adjustment for joint sex composition data
+      // Assign age-comp to estimated comp
       if( comp_type == 0) {
         joint_adjust(comp_ind) = 1;
         if(flt_sex == 3){
           joint_adjust(comp_ind) = 2;
         }
-
-        // True age comp standardize to sum to 1
         for(age = 0; age < nages(sp) * joint_adjust(comp_ind); age++) {
           comp_hat(comp_ind, age ) = age_obs_hat(comp_ind, age );
         }
       }
-
-    }
+    } // End estimated growth loop
 
 
     // 11.1.1. Empirical weight-at-age
@@ -2822,19 +2815,16 @@ Type objective_function<Type>::operator() () {
         }
       }
 
-      // Adjustment for joint sex composition data
+      // Assign age-comp to estimated comp
       if( comp_type == 0) {
         joint_adjust(comp_ind) = 1;
         if(flt_sex == 3){
           joint_adjust(comp_ind) = 2;
         }
-
-        // True age comp standardize to sum to 1
         for(age = 0; age < nages(sp) * joint_adjust(comp_ind); age++) {
           comp_hat(comp_ind, age ) = age_obs_hat(comp_ind, age );
         }
       }
-
 
       // Convert from catch-at-age to catch-at-length
       if( comp_type == 1) {
@@ -2870,7 +2860,7 @@ Type objective_function<Type>::operator() () {
           }
         }
       }
-    }
+    } // End empirical weight-at-age loop
 
     // Standardize to sum to 1
     comp_hat.row(comp_ind) /= comp_hat.row(comp_ind).sum();
@@ -2886,12 +2876,27 @@ Type objective_function<Type>::operator() () {
 
     flt = caal_ctl(caal_ind, 0) - 1;            // Temporary fishery index
     sp = caal_ctl(caal_ind, 1) - 1;             // Temporary index of species
-    sex = caal_ctl(caal_ind, 2);                // Temporary index for caal sex (0 = combined, 1 = female, 2 = male)
+    flt_sex = caal_ctl(caal_ind, 2);                // Temporary index for caal sex (0 = combined, 1 = female, 2 = male)
     yr = caal_ctl(caal_ind, 3);                 // Temporary index for years of data
-    ln = caal_ctl(caal_ind, 4);                 // Temporary index for length-bin
+    ln = caal_ctl(caal_ind, 4) - 1;             // Temporary index for length-bin
+
+    if(growth_model(sp) == 0) continue; // Skip empirical weight-at-age species
+
+    if(flt_sex > 0){
+      sex = flt_sex - 1;
+    } else {
+      sex = flt_sex;
+    }
 
     int wtind = nspp * 2 + flt;
 
+    // Likelihood (yr > 0) vs prediction (yr < 0)
+    if(yr > 0){
+      yr = yr - styr;
+    }
+    if(yr < 0){
+      yr = -yr - styr;
+    }
     // Hindcast
     if(yr < nyrs_hind){
       yr_ind = yr;
@@ -2919,13 +2924,12 @@ Type objective_function<Type>::operator() () {
     // Adjust for aging error
     for(int obs_age = 0; obs_age < nages(sp); obs_age++) {
       for(int true_age = 0; true_age < nages(sp); true_age++) {
-        caal_hat(comp_ind, obs_age) += pred_CAAL(flt, sex, true_age, ln, yr) * age_error(sp, true_age, obs_age);
+        caal_hat(caal_ind, obs_age) += pred_CAAL(flt, sex, true_age, ln, yr) * age_error(sp, true_age, obs_age);
       }
     }
 
-
     //  Observed CAAL standardize to sum to 1
-    caal_hat.row(comp_ind) /= caal_hat.row(comp_ind).sum();
+    caal_hat.row(caal_ind) /= caal_hat.row(caal_ind).sum();
   }
 
 
@@ -3316,20 +3320,20 @@ Type objective_function<Type>::operator() () {
     sp = caal_ctl(caal_ind, 1) - 1;             // Temporary index of species
     flt_sex = caal_ctl(caal_ind, 2);            // Temporary index for caal sex (0 = combined, 1 = female, 2 = male, 3 = joint)
     yr = caal_ctl(caal_ind, 3);                 // Temporary index for years of data
-    ln = caal_ctl(caal_ind, 4);                 // Temporary index for length-bin
+    ln = caal_ctl(caal_ind, 4) - 1;             // Temporary index for length-bin
 
-    // Adjustment for joint sex composition data
-    joint_adjust(comp_ind) = 1;
-    if(flt_sex == 3){
-      joint_adjust(comp_ind) = 2;
-    }
+    // // Adjustment for joint sex CAAL data
+    // joint_adjust(caal_ind) = 1;
+    // if(flt_sex == 3){
+    //   joint_adjust(caal_ind) = 2;
+    // }
 
     // Number of ages
-    int n_comp = nages(sp) * joint_adjust(comp_ind); // For sex = 3 (joint sex comp data)
+    int n_caal = nages(sp); // * joint_adjust(caal_ind); // For sex = 3 (joint sex caal data)
 
     // Select sections
-    vector<Type> caal_obs_tmp = caal_obs.row(comp_ind).segment(0, n_comp); // Observed proportion
-    vector<Type> caal_hat_tmp = caal_hat.row(comp_ind).segment(0, n_comp); // Expected proportion
+    vector<Type> caal_obs_tmp = caal_obs.row(caal_ind).segment(0, n_caal); // Observed proportion
+    vector<Type> caal_hat_tmp = caal_hat.row(caal_ind).segment(0, n_caal); // Expected proportion
 
     // Add offset (for some reason can't do above in single line....)
     caal_obs_tmp += 0.00001;
@@ -3346,12 +3350,12 @@ Type objective_function<Type>::operator() () {
       switch(caal_ll_type(flt)){
 
       case 0:  // Full multinomial
-        jnll_comp(2, flt) -= caal_weights(flt) * dmultinom(caal_obs_tmp, caal_hat_tmp, true);
+        jnll_comp(3, flt) -= caal_weights(flt) * dmultinom(caal_obs_tmp, caal_hat_tmp, true);
         unweighted_jnll_comp(2, flt) -= dmultinom(caal_obs_tmp, caal_hat_tmp, true);
         break;
 
       case 1:  // Dirichlet-multinomial
-        jnll_comp(2, flt) -= ddirmultinom(caal_obs_tmp, alphas,  true);
+        jnll_comp(3, flt) -= ddirmultinom(caal_obs_tmp, alphas,  true);
         unweighted_jnll_comp(2, flt) -= ddirmultinom(caal_obs_tmp, unweighted_alphas,  true);
         break;
 
@@ -3951,6 +3955,8 @@ Type objective_function<Type>::operator() () {
   REPORT( R_hat );
   REPORT( M_at_age );
   REPORT( weight_hat );
+  REPORT( growth_matrix );
+  REPORT( length_hat );
 
   // ADREPORT( B_eaten_as_prey );
   // ADREPORT( M_at_age );
@@ -4099,11 +4105,11 @@ Type objective_function<Type>::operator() () {
    */
 
 
-    /** ------------------------------------------------------------------------ //
-     // 13. END MODEL                                                             //
-     * ------------------------------------------------------------------------- */
+  /** ------------------------------------------------------------------------ //
+   // 13. END MODEL                                                             //
+   * ------------------------------------------------------------------------- */
 
-    Type jnll = 0;
+  Type jnll = 0;
 
   // Estimation mode
   if(estimateMode < 3) {
