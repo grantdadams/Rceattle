@@ -151,12 +151,14 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR( nages );                  // Number of species (prey) ages
   DATA_IVECTOR( minage );                 // Minimum age of each species
   DATA_IVECTOR( nlengths );               // Number of species (prey) lengths
-  int max_nlengths = imax(nlengths);      // Integer of maximum nlengths to make the arrays
   DATA_MATRIX(lengths);                   // Length bins for each species [sp, nlengths]
   DATA_ARRAY( NByageFixed );              // Provided estimates of numbers- or index-at-age to be multiplied (or not) by pop_scalar to get N_at_age
-  int max_age = imax(nages);              // Integer of maximum nages to make the arrays
   DATA_VECTOR( MSSB0 );                   // SB0 from projecting the model forward in multi-species mode under no fishing
   DATA_VECTOR( MSB0 );                    // B0 from projecting the model forward in multi-species mode under no fishing
+
+  int max_nlengths = imax(nlengths);      // Integer of maximum nlengths to make the arrays
+  int max_age = imax(nages);              // Integer of maximum nages to make the arrays
+  int max_bin = (max_age > max_nlengths) ? max_age : max_nlengths;
 
   // -- 2.2. M1_at_age specifications
   DATA_IVECTOR(M1_model);
@@ -176,7 +178,7 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR(flt_n_sel_bins);           // Vector to save number of age/length bins for non-parametric selectivity
   DATA_IVECTOR(flt_varying_sel);          // Vector storing information on wether time-varying selectivity is estimated
   DATA_IVECTOR(flt_spp);                  // Vector to save survey species
-  DATA_IVECTOR(age_first_selected);       // Vector to save age first selected (selectivity below this age = 0)
+  DATA_IVECTOR(bin_first_selected);       // Vector to save age first selected (selectivity below this age = 0)
   DATA_IVECTOR(sel_norm_bin1);            // Vector to save age of max selectivity for normalization (if NA not used)
   DATA_IVECTOR(sel_norm_bin2);            // Vector to save upper age of max selectivity for normalization (if NA not used)
   DATA_IVECTOR(comp_ll_type);             // Vector to save composition type
@@ -337,7 +339,6 @@ Type objective_function<Type>::operator() () {
    * ------------------------------------------------------------------------- */
 
   // 4.1. Derived indices
-  // int max_bin = imax( nlengths );                                                   // Integer of maximum number of length/age bins.
   int n_flt = flt_type.size();
   vector<int> joint_adjust(comp_obs.rows()); joint_adjust.setZero();
   Type penalty = 0.0;
@@ -375,9 +376,10 @@ Type objective_function<Type>::operator() () {
   vector<Type>  zero_N_pen(nspp); zero_N_pen.setZero();                             // Additional penalty to add to likelihood if n-at-age goes < 0
 
   // -- 4.4. Selectivity parameters
-  array<Type>   sel(n_flt, max_sex, max_age, nyrs); sel.setZero();                  // Estimated selectivity at age
+  array<Type>   sel_at_age(n_flt, max_sex, max_age, nyrs); sel_at_age.setZero();    // Estimated selectivity at age
+  array<Type>   sel_at_length(n_flt, max_sex, max_nlengths, nyrs); sel_at_length.setZero();// Estimated selectivity at length
   array<Type>   avg_sel(n_flt, max_sex, nyrs_hind); avg_sel.setZero();              // Average selectivity for non-parametric up to n_sel_bins
-  array<Type>   non_par_sel(n_flt, max_sex, max_age, nyrs); non_par_sel.setZero();  // Estimated selectivity at age for AMAK non-parametric (pre-normalization)
+  array<Type>   non_par_sel(n_flt, max_sex, max_bin, nyrs); non_par_sel.setZero();  // Estimated selectivity for AMAK non-parametric (pre-normalization)
   vector<Type>  sel_dev_sd(n_flt); sel_dev_sd.setZero();                            // Standard deviation of selectivity deviates
 
   // -- 4.5. Fishery components
@@ -590,7 +592,7 @@ Type objective_function<Type>::operator() () {
 
 
   // 5.6. SELECTIVITY
-  // "sel" modified via pass-by-reference
+  // "sel_at_age" modified via pass-by-reference
   // 1) Age based selectivity
   // - code in "selectivity.hpp"
   calculate_age_selectivity(
@@ -600,7 +602,7 @@ Type objective_function<Type>::operator() () {
     nages,
     flt_spp,
     flt_sel_type,
-    age_first_selected,
+    bin_first_selected,
     flt_n_sel_bins,
     sel_norm_bin1,
     sel_norm_bin2,
@@ -612,9 +614,9 @@ Type objective_function<Type>::operator() () {
     sel_inf_dev,
     sel_coff,
     sel_coff_dev,
-    avg_sel,     // Modified
-    non_par_sel, // Modified
-    sel          // Modified
+    avg_sel,            // Modified
+    non_par_sel,        // Modified
+    sel_at_age          // Modified
   );
 
   // 2) Length based selectivity (converted to age via growth matrix)
@@ -628,9 +630,10 @@ Type objective_function<Type>::operator() () {
     nsex,
     nages,
     nlengths,
+    lengths,
     flt_spp,
     flt_sel_type,
-    age_first_selected,
+    bin_first_selected,
     flt_n_sel_bins,
     sel_norm_bin1,
     sel_norm_bin2,
@@ -640,9 +643,10 @@ Type objective_function<Type>::operator() () {
     sel_inf_dev,
     sel_coff,
     sel_coff_dev,
-    avg_sel,     // Modified
-    non_par_sel, // Modified
-    sel,         // Modified
+    avg_sel,            // Modified
+    non_par_sel,        // Modified
+    sel_at_length,      // Modified
+    sel_at_age,         // Modified
     growth_matrix
   );
 
@@ -654,12 +658,12 @@ Type objective_function<Type>::operator() () {
     nyrs,
     flt_spp,
     flt_sel_type,
-    age_first_selected,
+    bin_first_selected,
     nages,
     nsex,
     sel_norm_bin1,
     sel_norm_bin2,
-    sel
+    sel_at_age
   );
 
 
@@ -688,7 +692,7 @@ Type objective_function<Type>::operator() () {
 
               // Hindcast
               if( yr < nyrs_hind){
-                F_flt_age(flt, sex, age, yr) = sel(flt, sex, age, yr) * exp(ln_F(flt, yr));
+                F_flt_age(flt, sex, age, yr) = sel_at_age(flt, sex, age, yr) * exp(ln_F(flt, yr));
               }
 
 
@@ -735,15 +739,15 @@ Type objective_function<Type>::operator() () {
                 }
 
 
-                F_flt_age(flt, sex, age, yr) = sel(flt, sex, age, yr) * proj_F_prop(flt) * proj_F(sp, yr);
+                F_flt_age(flt, sex, age, yr) = sel_at_age(flt, sex, age, yr) * proj_F_prop(flt) * proj_F(sp, yr);
               }
 
               // -- Sum F across fleets
               F_spp_at_age(sp, sex, age, yr) += F_flt_age(flt, sex, age, yr);
 
               // -- Calculate F target by age and sex for reference points
-              Flimit_age_spp(sp, sex, age, yr) += sel(flt, sex, age, yr) * proj_F_prop(flt) * Flimit(sp);
-              Ftarget_age_spp(sp, sex, age, yr) += sel(flt, sex, age, yr) * proj_F_prop(flt) * Ftarget(sp);
+              Flimit_age_spp(sp, sex, age, yr) += sel_at_age(flt, sex, age, yr) * proj_F_prop(flt) * Flimit(sp);
+              Ftarget_age_spp(sp, sex, age, yr) += sel_at_age(flt, sex, age, yr) * proj_F_prop(flt) * Ftarget(sp);
             }
           }
         }
@@ -808,7 +812,7 @@ Type objective_function<Type>::operator() () {
 
       for(age = 1; age < nages(sp)-1; age++) {
         NbyageSPR(0, sp, age) =  NbyageSPR(0, sp, age-1) * exp(-M_at_age(sp, 0, age-1, nyrs_hind - 1));
-        NbyageSPR(1, sp, age) =  NbyageSPR(1, sp, age-1) * exp(-(M_at_age(sp, 0, age-1, nyrs_hind - 1) + Flimit_age_spp(sp, 0, age-1, nyrs_hind - 1))); //FIXME: time-vary sel in the forecast
+        NbyageSPR(1, sp, age) =  NbyageSPR(1, sp, age-1) * exp(-(M_at_age(sp, 0, age-1, nyrs_hind - 1) + Flimit_age_spp(sp, 0, age-1, nyrs_hind - 1))); //FIXME: time-vary sel_at_age in the forecast
         NbyageSPR(2, sp, age) =  NbyageSPR(2, sp, age-1) * exp(-(M_at_age(sp, 0, age-1, nyrs_hind - 1) + Ftarget_age_spp(sp, 0, age-1, nyrs_hind - 1)));
         NbyageSPR(3, sp, age) =  NbyageSPR(3, sp, age-1) * exp(-(M_at_age(sp, 0, age-1, 0) + Finit(sp)));
 
@@ -1468,7 +1472,7 @@ Type objective_function<Type>::operator() () {
             F_flt(sp, yr) = proj_F_prop(flt) * proj_F(sp, yr);
             for(age = 0; age < nages(sp); age++) {
               for(sex = 0; sex < nsex(sp); sex ++){
-                F_flt_age(flt, sex, age, yr) = sel(flt, sex, age, nyrs_hind - 1) * proj_F_prop(flt) * proj_F(sp, yr); // FIXME using last year of selectivity
+                F_flt_age(flt, sex, age, yr) = sel_at_age(flt, sex, age, nyrs_hind - 1) * proj_F_prop(flt) * proj_F(sp, yr); // FIXME using last year of selectivity
                 if(flt_type(flt) == 1){
                   F_spp_at_age(sp, sex, age, yr) += F_flt_age(flt, sex, age, yr);
                 }
@@ -2412,11 +2416,11 @@ Type objective_function<Type>::operator() () {
       for(sex = 0; sex < nsex(sp); sex++){
         // Weight
         if(flt_units(index) == 1){
-          index_hat(index_ind) += N_at_age(sp, sex, age, flt_yr) * exp( - (mo/12.0) * Z_at_age(sp, sex, age, flt_yr)) * sel(index, sex, age, flt_yr) * weight_hat(wt_idx_flt, sex, age, flt_yr );
+          index_hat(index_ind) += N_at_age(sp, sex, age, flt_yr) * exp( - (mo/12.0) * Z_at_age(sp, sex, age, flt_yr)) * sel_at_age(index, sex, age, flt_yr) * weight_hat(wt_idx_flt, sex, age, flt_yr );
         }
         // Numbers
         if(flt_units(index) == 2){
-          index_hat(index_ind) += N_at_age(sp, sex, age, flt_yr) * exp( - (mo/12.0) * Z_at_age(sp, sex, age, flt_yr)) * sel(index, sex, age, flt_yr);
+          index_hat(index_ind) += N_at_age(sp, sex, age, flt_yr) * exp( - (mo/12.0) * Z_at_age(sp, sex, age, flt_yr)) * sel_at_age(index, sex, age, flt_yr);
         }
       }
     }
@@ -2559,13 +2563,13 @@ Type objective_function<Type>::operator() () {
         // By weight
         if(flt_units(flt) == 1){
           catch_hat(fsh_ind) += F_flt_age(flt, sex, age, flt_yr) / Z_at_age(sp, sex, age, flt_yr) * (1.0 - exp(-Z_at_age(sp, sex, age, flt_yr))) * N_at_age(sp, sex, age, flt_yr) * weight_hat( wt_idx_flt, sex, age, flt_yr ); // 5.5.
-          max_catch_hat(fsh_ind) += N_at_age(sp, sex, age, flt_yr) * weight_hat( wt_idx_flt, sex, age, flt_yr ) * sel(flt, sex, age, flt_yr) * proj_F_prop(flt); // FIXME using last year of selectivity;
+          max_catch_hat(fsh_ind) += N_at_age(sp, sex, age, flt_yr) * weight_hat( wt_idx_flt, sex, age, flt_yr ) * sel_at_age(flt, sex, age, flt_yr) * proj_F_prop(flt); // FIXME using last year of selectivity;
         }
 
         // By numbers
         if(flt_units(flt) == 2){
           catch_hat(fsh_ind) += F_flt_age(flt, sex, age, flt_yr) / Z_at_age(sp, sex, age, flt_yr) * (1.0 - exp(-Z_at_age(sp, sex, age, flt_yr))) * N_at_age(sp, sex, age, flt_yr);
-          max_catch_hat(fsh_ind) += N_at_age(sp, sex, age, flt_yr) * sel(flt, sex, age, flt_yr) * proj_F_prop(flt); // FIXME using last year of selectivity;
+          max_catch_hat(fsh_ind) += N_at_age(sp, sex, age, flt_yr) * sel_at_age(flt, sex, age, flt_yr) * proj_F_prop(flt); // FIXME using last year of selectivity;
         }
       }
     }
@@ -2583,7 +2587,7 @@ Type objective_function<Type>::operator() () {
       for(yr = 0; yr < nyrs; yr++) {
         for(age = 0; age < nages(sp); age++) {
           for(sex = 0; sex < nsex(sp); sex ++){
-            exploitable_biomass(sp, yr) += N_at_age(sp, sex, age, yr) * weight_hat( wt_idx_flt, sex, age, yr ) * sel(flt, sex, age, yr) * proj_F_prop(flt); // FIXME using last year of selectivity;
+            exploitable_biomass(sp, yr) += N_at_age(sp, sex, age, yr) * weight_hat( wt_idx_flt, sex, age, yr ) * sel_at_age(flt, sex, age, yr) * proj_F_prop(flt); // FIXME using last year of selectivity;
           }
         }
       }
@@ -2643,7 +2647,7 @@ Type objective_function<Type>::operator() () {
 
 
             case 2: // - Survey
-              pred_CAAL(flt, sex, age, ln, yr) = N_at_age(sp, sex, age, yr)  * sel(flt, sex, age, yr) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr)) * growth_matrix(wtind,  sex, age, ln, yr); //TODO length-based selectivity
+              pred_CAAL(flt, sex, age, ln, yr) = N_at_age(sp, sex, age, yr)  * sel_at_age(flt, sex, age, yr) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr)) * growth_matrix(wtind,  sex, age, ln, yr); //TODO length-based selectivity
               // * sel_ln(flt, sex, ln, yr)
               break;
             }
@@ -2773,20 +2777,20 @@ Type objective_function<Type>::operator() () {
           case 0: // Sexes combined or 1 sex assessment
             for(sex = 0; sex < nsex(sp); sex ++){
               // Survey catch-at-age
-              age_hat(comp_ind, age ) += N_at_age(sp, sex, age, yr)  * sel(flt, sex, age, yr) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr));
+              age_hat(comp_ind, age ) += N_at_age(sp, sex, age, yr)  * sel_at_age(flt, sex, age, yr) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr));
             }
             break;
 
           case 1: case 2: // Sex-specific composition data
             sex = flt_sex - 1;
             // Survey catch-at-age
-            age_hat(comp_ind, age ) = N_at_age(sp, sex, age, yr)  * sel(flt, sex, age, yr) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr));
+            age_hat(comp_ind, age ) = N_at_age(sp, sex, age, yr)  * sel_at_age(flt, sex, age, yr) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr));
             break;
 
           case 3: // Joint composition data
             for(sex = 0; sex < nsex(sp); sex ++){
               // Survey catch-at-age
-              age_hat(comp_ind, age + nages(sp) * sex ) = N_at_age(sp, sex, age, yr)  * sel(flt, sex, age, yr) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr));
+              age_hat(comp_ind, age + nages(sp) * sex ) = N_at_age(sp, sex, age, yr)  * sel_at_age(flt, sex, age, yr) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr));
             }
             break;
           }
@@ -2917,7 +2921,7 @@ Type objective_function<Type>::operator() () {
 
       // - Survey
       if(flt_type(flt) == 2){
-        pred_CAAL(flt, sex, age, ln, yr) = N_at_age(sp, sex, age, yr)  * sel(flt, sex, age, yr) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr)) * growth_matrix(wtind,  sex, age, ln, yr);
+        pred_CAAL(flt, sex, age, ln, yr) = N_at_age(sp, sex, age, yr)  * sel_at_age(flt, sex, age, yr) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr)) * growth_matrix(wtind,  sex, age, ln, yr);
       }
     }
 
@@ -3377,7 +3381,7 @@ Type objective_function<Type>::operator() () {
 
       // Ianelli/AMAK non-parametic selectivity penalties
       // - using non-normalized selectivities following the arrowtooth ADMB model
-      // - updated to make differentiable using abs to only penalize when sel_ratio_tmp > 0 (decreasing sel)
+      // - updated to make differentiable using abs to only penalize when sel_ratio_tmp > 0 (decreasing sel_at_age)
       if(flt_sel_type(flt) == 2) {
 
         // If time-invariant selectivity
@@ -3996,7 +4000,8 @@ Type objective_function<Type>::operator() () {
   //REPORT( Ftarget_age_spp );
 
   // -- 12.3. Selectivity
-  REPORT( sel );
+  REPORT( sel_at_age );
+  REPORT( sel_at_length );
   /*
    REPORT( avg_sel );
    REPORT( non_par_sel );

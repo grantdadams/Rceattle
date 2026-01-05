@@ -98,7 +98,8 @@ rename_output = function(data_list = NULL, quantities = NULL){
 
   # - Fleet
   dimnames(quantities$F_flt_age) <- list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Age", 1:max_age), yrs_proj)
-  dimnames(quantities$sel) <- list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Age", 1:max_age), yrs_proj)
+  dimnames(quantities$sel_at_age) <- list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Age", 1:max_age), yrs_proj)
+  dimnames(quantities$sel_at_length) <- list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Bin", 1:max_length), yrs_proj)
 
   # * 5D arrays ----
   dimnames(quantities$B_eaten) <- list(paste("Pred:", data_list$spnames, rep(sex_labels, each = data_list$nspp)),

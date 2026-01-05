@@ -1,7 +1,4 @@
 # TODO: fleet_code to fleet_index
-# Get rid of sex ratio in control
-# call "wt" "weight"
-# call "pmature" "maturity"
 
 test_that("Simulated simple model the same" {
   # Simulate Data -----------------------------------------------------------

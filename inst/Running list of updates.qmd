@@ -54,3 +54,7 @@ renamed N_sel_bins = Nselages, Sel_norm_bin1 = Age_max_selected, and Sel_norm_bi
 Added `beta_wt_len` and `alpha_wt_len` to "control" sheet of data
 
 Added CAAL_loglike and CAAL_weights to fleet control.
+
+Renamed Age_first_selected to Bin_first_selected
+
+`sel` to `sel_at_age`

@@ -46,10 +46,10 @@ rearrange_dat <- function(data_list){
     dplyr::pull(Time_varying_sel) %>% as.integer()
 
   # - 7) First age selected
-  data_list$age_first_selected <- data_list$fleet_control %>%
-    dplyr::mutate(Age_first_selected = Age_first_selected - data_list$minage[Species],
-                  Age_first_selected = ifelse(is.na(Age_first_selected), 0, Age_first_selected)) %>%
-    dplyr::pull(Age_first_selected) %>% as.integer()
+  data_list$bin_first_selected <- data_list$fleet_control %>%
+    dplyr::mutate(Bin_first_selected = Bin_first_selected - 1, # R to C++ indexing
+                  Bin_first_selected = ifelse(is.na(Bin_first_selected), 0, Bin_first_selected)) %>%
+    dplyr::pull(Bin_first_selected) %>% as.integer()
 
   # - 8) Age of max selectivity (used for normalization). If NA, does not normalize
   data_list$sel_norm_bin1 <- data_list$fleet_control %>%
@@ -182,6 +182,17 @@ rearrange_dat <- function(data_list){
       dplyr::mutate(Bin = paste0("Bin", 1:n())) %>%
       tidyr::pivot_wider(names_from = Bin, values_from = Length)
     data_list$lengths[caal_lengths$Species, 1:ncol(caal_lengths[,-1])] <- as.matrix(caal_lengths[,-1])
+
+    # - Check to make sure n-bins in data match nlengths
+    n_bins_data <- data_list$caal_data %>%
+      dplyr::distinct(Species, Length) %>%
+      dplyr::count(Species)
+
+    if(data_list$nlengths[n_bins_data$Species] != n_bins_data$n){
+      stop("Number of length bins in CAAL data does not match nlengths in control file.
+           If some lengths are missing from CAAL data, please add them to the data
+           as rows of all 1s with Sample_size = 0")
+    }
   }
 
 
@@ -454,7 +465,7 @@ rearrange_dat <- function(data_list){
   df_to_mat <- which(sapply(data_list, function(x) class(x)[1]) == "data.frame")
   data_list[df_to_mat] <- lapply(data_list[df_to_mat], as.matrix)
 
-  items_to_remove <- c("emp_sel",  "fsh_comp",    "srv_comp",    "catch_data",    "index_data", "comp_data", "env_data", "spnames",
+  items_to_remove <- c("emp_sel",  "fsh_comp",    "srv_comp",    "catch_data",    "index_data", "comp_data", "caal_data", "env_data", "spnames",
                        "aLW", "diet_data", # "NByageFixed", "estDynamics", "Ceq",
                        "avgnMode", "minNByage", "weight", "fleet_control")
   data_list[items_to_remove] <- NULL

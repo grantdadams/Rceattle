@@ -147,7 +147,7 @@ sim_dat$fleet_control <-
              N_sel_bins = NA,             # 6) Non-parametric selectivity ages
              Time_varying_sel = 0,     # 7) Time-varying selectivity type.
              Sel_sd_prior = 0,
-             Age_first_selected = 1,   # 8) First age selected
+             Bin_first_selected = 1,   # 8) First age selected
              Sel_norm_bin1 = NA,       # 9b) Age of max selectivity (used for normalization). If NA, does not normalize
              Sel_norm_bin2 = NA,       # 9a) upper age of max selectivity (used for normalization). If NA, does not normalize
              Comp_loglike = 0,         # 10) Index indicating wether to do dirichlet multinomial for a multinomial)
