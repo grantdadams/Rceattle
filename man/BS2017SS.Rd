@@ -65,7 +65,7 @@ fleet_control: controls for survey and fisheries data
 \item{Nselages}{Number of ages to estimate non-parametric selectivity for Selectivity = 2. Not used otherwise}
 \item{Time_varying_sel}{Wether a time-varying selectivity should be estimated for logistic, double logistic selectivity, or descending logistic. 0 = no, 1 = penalized deviates given sel_sd_prior, 2 = random effect, 3 = time blocks with no penality, 4 = random walk following Dorn, 5 = random walk on ascending portion of double logistic only. If selectivity is set to type = 2 (non-parametric) this value will be the 1st penalty on selectivity.}
 \item{Sel_sd_prior}{The sd to use for the random walk of time varying selectivity if set to 1. If selectivity is set to type = 2 (non-parametric) this value will be the 2nd penalty on selectivity.}
-\item{Age_first_selected}{Age at which selectivity is non-zero}
+\item{Bin_first_selected}{Age/length bin at which selectivity is non-zero}
 \item{Acuumulation_age_lower}{Ages below this will be grouped to this age for composition data. For example, if set to 2, comp data for age 2 will include 1 and 2 year olds.}
 \item{Acuumulation_age_upper}{Ages above this will be grouped to this age for composition data. For example, if set to 9 for a species with 10 ages, comp data for age 9 will include 9 and 10 year olds.}
 \item{weight1_Numbers2}{Is the observation in weight (kg) set as 1, if the observation is in numbers caught, set as 2}

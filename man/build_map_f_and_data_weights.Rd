@@ -18,5 +18,5 @@ Updated \code{map_list}.
 }
 \description{
 Maps fishing mortality parameters (\code{ln_F}) and related targets.
-Also maps data weighting parameters (\code{catch_ln_sd}, \code{comp_weights}).
+Also maps data weighting parameters (\code{catch_ln_sd}, \code{comp_weights}, \code{caal_weights}).
 }

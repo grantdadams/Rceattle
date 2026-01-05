@@ -46,12 +46,12 @@ void estimate_growth(
     const vector<int>&  minage,
     const vector<int>&  growth_model,
     matrix<Type> lengths,
-    array<Type> growth_parameters,
-    array<Type> growth_ln_sd,
+    array<Type>& growth_parameters,
+    array<Type>& growth_ln_sd,
     matrix<Type> weight_length_pars,
-    array<Type> &length_hat,     // Pass by reference
-    array<Type> &growth_matrix,  // Pass by reference
-    array<Type> &weight_hat      // Pass by reference
+    array<Type> &length_hat,     // Modified by reference
+    array<Type> &growth_matrix,  // Modified by reference
+    array<Type> &weight_hat      // Modified by reference
 ) {
 
   // Initialize output and temporary storage
@@ -256,9 +256,9 @@ void estimate_growth_within_yr(
     array<Type> growth_parameters,
     array<Type> growth_ln_sd,
     matrix<Type> weight_length_pars,
-    array<Type> &length_hat,     // Pass by reference
-    array<Type> &growth_matrix,  // Pass by reference
-    array<Type> &weight_hat      // Pass by reference
+    array<Type> &length_hat,     // Modified by reference
+    array<Type> &growth_matrix,  // Modified by reference
+    array<Type> &weight_hat      // Modified by reference
 ) {
 
   // Initialize output and temporary storage
@@ -411,15 +411,15 @@ void estimate_growth_within_yr(
  */
 template <class Type>
 void calculate_weight(
-    array<Type> &weight_hat,
-    array<Type> &length_hat,
-    array<Type> &growth_matrix,
+    array<Type> &weight_hat,   // Modified by reference
+    array<Type> &length_hat,   // Modified by reference
+    array<Type> &growth_matrix,// Modified by reference
     array<Type> weight_obs,
     const vector<int>&  growth_model,
-    int nspp,
-    int nyrs,
-    int nyrs_hind,
-    int n_flt,
+    const int& nspp,
+    const int& nyrs,
+    const int& nyrs_hind,
+    const int& n_flt,
     const vector<int>&  flt_spp,
     vector<Type> flt_month,
     const vector<int>&  nsex,
@@ -565,7 +565,6 @@ void calculate_weight(
 // ------------------------------------------------------------------------- //
 // add growth parameters to build param and build map (AR1 and variance)
 // define age_L1 and age_L1 ceiling
-// update selectivity normalization for length-based
-// update age first selected to bin first selected
+// CAAL simulate
 
 

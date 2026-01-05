@@ -15,7 +15,7 @@ test_that("logistic selectivity divided by max sel", {
   inits$sel_inf[1,,] <- inf     # Females
   inits$sel_inf[1,9:11,2] <- inf + 1 # Males
   GOA2018SS$fleet_control$Selectivity <- 1
-  GOA2018SS$fleet_control$Age_first_selected <- 1
+  GOA2018SS$fleet_control$Bin_first_selected <- 1
   GOA2018SS$fleet_control$Sel_norm_bin1 <- -999
 
   # Run
@@ -29,12 +29,12 @@ test_that("logistic selectivity divided by max sel", {
 
   # Check selectivity
   # - Pollock
-  apply(ss_run$quantities$sel[1,1,1:10,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:10]/max(sel[1:10]), tolerance = 0.0001))
+  apply(ss_run$quantities$sel_at_age[1,1,1:10,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:10]/max(sel[1:10]), tolerance = 0.0001))
 
 
   # - ATF
-  apply(ss_run$quantities$sel[9,1,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:21]/max(c(sel, sel2)), tolerance = 0.0001))
-  apply(ss_run$quantities$sel[9,2,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), sel2[1:21]/max(c(sel, sel2)), tolerance = 0.0001))
+  apply(ss_run$quantities$sel_at_age[9,1,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:21]/max(c(sel, sel2)), tolerance = 0.0001))
+  apply(ss_run$quantities$sel_at_age[9,2,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), sel2[1:21]/max(c(sel, sel2)), tolerance = 0.0001))
 })
 
 
@@ -55,7 +55,7 @@ test_that("logistic selectivity not normalized", {
   inits$sel_inf[1,,] <- inf     # Females
   inits$sel_inf[1,9:11,2] <- inf + 1 # Males
   GOA2018SS$fleet_control$Selectivity <- 1
-  GOA2018SS$fleet_control$Age_first_selected <- 1
+  GOA2018SS$fleet_control$Bin_first_selected <- 1
   GOA2018SS$fleet_control$Sel_norm_bin1 <- NA
 
   # Run
@@ -69,12 +69,12 @@ test_that("logistic selectivity not normalized", {
 
   # Check selectivity
   # - Pollock
-  apply(ss_run$quantities$sel[1,1,1:10,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:10], tolerance = 0.0001))
+  apply(ss_run$quantities$sel_at_age[1,1,1:10,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:10], tolerance = 0.0001))
 
 
   # - ATF
-  apply(ss_run$quantities$sel[9,1,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:21], tolerance = 0.0001))
-  apply(ss_run$quantities$sel[9,2,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), sel2[1:21], tolerance = 0.0001))
+  apply(ss_run$quantities$sel_at_age[9,1,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:21], tolerance = 0.0001))
+  apply(ss_run$quantities$sel_at_age[9,2,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), sel2[1:21], tolerance = 0.0001))
 })
 
 
@@ -93,7 +93,7 @@ test_that("logistic selectivity divided by sel-at-age", {
   inits$ln_sel_slp[1,,] <- log(alpha)
   inits$sel_inf[1,,] <- inf
   GOA2018SS$fleet_control$Selectivity <- 1
-  GOA2018SS$fleet_control$Age_first_selected <- 1
+  GOA2018SS$fleet_control$Bin_first_selected <- 1
   GOA2018SS$fleet_control$Sel_norm_bin1 <- 7
 
   # Run
@@ -107,12 +107,12 @@ test_that("logistic selectivity divided by sel-at-age", {
 
   # Check selectivity
   # - Pollock
-  apply(ss_run$quantities$sel[1,1,1:10,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:10]/sel[7], tolerance = 0.0001))
+  apply(ss_run$quantities$sel_at_age[1,1,1:10,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:10]/sel[7], tolerance = 0.0001))
 
 
   # - ATF
-  apply(ss_run$quantities$sel[9,1,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:21]/sel[7], tolerance = 0.0001))
-  apply(ss_run$quantities$sel[9,2,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:21]/sel[7], tolerance = 0.0001))
+  apply(ss_run$quantities$sel_at_age[9,1,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:21]/sel[7], tolerance = 0.0001))
+  apply(ss_run$quantities$sel_at_age[9,2,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:21]/sel[7], tolerance = 0.0001))
 })
 
 
@@ -132,7 +132,7 @@ test_that("logistic selectivity divided by sel-at-age-RANGE", {
   inits$ln_sel_slp[1,,] <- log(alpha)
   inits$sel_inf[1,,] <- inf
   GOA2018SS$fleet_control$Selectivity <- 1
-  GOA2018SS$fleet_control$Age_first_selected <- 1
+  GOA2018SS$fleet_control$Bin_first_selected <- 1
   GOA2018SS$fleet_control$Sel_norm_bin1 <- 7
   GOA2018SS$fleet_control$Sel_norm_bin2 <- 9
 
@@ -147,12 +147,12 @@ test_that("logistic selectivity divided by sel-at-age-RANGE", {
 
   # Check selectivity
   # - Pollock
-  apply(ss_run$quantities$sel[1,1,1:10,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:10]/mean(sel[7:9]), tolerance = 0.0001))
+  apply(ss_run$quantities$sel_at_age[1,1,1:10,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:10]/mean(sel[7:9]), tolerance = 0.0001))
 
 
   # - ATF
-  apply(ss_run$quantities$sel[9,1,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:21]/mean(sel[7:9]), tolerance = 0.0001))
-  apply(ss_run$quantities$sel[9,2,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:21]/mean(sel[7:9]), tolerance = 0.0001))
+  apply(ss_run$quantities$sel_at_age[9,1,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:21]/mean(sel[7:9]), tolerance = 0.0001))
+  apply(ss_run$quantities$sel_at_age[9,2,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), sel[1:21]/mean(sel[7:9]), tolerance = 0.0001))
 })
 
 
@@ -184,7 +184,7 @@ test_that("time-varying logistic selectivity divided by max sel", {
   GOA2018SS$fleet_control$Selectivity <- 1
   GOA2018SS$fleet_control$Time_varying_sel <- 1
   GOA2018SS$fleet_control$Sel_sd_prior <- 1
-  GOA2018SS$fleet_control$Age_first_selected <- 1
+  GOA2018SS$fleet_control$Bin_first_selected <- 1
   GOA2018SS$fleet_control$Sel_norm_bin1 <- -999
 
   # Run
@@ -198,11 +198,11 @@ test_that("time-varying logistic selectivity divided by max sel", {
 
   # Check selectivity
   # - Pollock
-  testthat::expect_equal(as.numeric(ss_run$quantities$sel[1,1,1:10,1:42]), as.numeric(apply(sel[1:10,], 2, function(x) x/max(x))), tolerance = 0.0001)
+  testthat::expect_equal(as.numeric(ss_run$quantities$sel_at_age[1,1,1:10,1:42]), as.numeric(apply(sel[1:10,], 2, function(x) x/max(x))), tolerance = 0.0001)
 
 
   # - ATF
-  testthat::expect_equal(as.numeric(ss_run$quantities$sel[9,1,1:21,1:42]), as.numeric(apply(sel[1:21,], 2, function(x) x/max(x))), tolerance = 0.0001)
-  testthat::expect_equal(as.numeric(ss_run$quantities$sel[9,2,1:21,1:42]), as.numeric(apply(sel[1:21,], 2, function(x) x/max(x))), tolerance = 0.0001)
+  testthat::expect_equal(as.numeric(ss_run$quantities$sel_at_age[9,1,1:21,1:42]), as.numeric(apply(sel[1:21,], 2, function(x) x/max(x))), tolerance = 0.0001)
+  testthat::expect_equal(as.numeric(ss_run$quantities$sel_at_age[9,2,1:21,1:42]), as.numeric(apply(sel[1:21,], 2, function(x) x/max(x))), tolerance = 0.0001)
 })
 

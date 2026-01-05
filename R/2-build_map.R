@@ -611,8 +611,8 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       }
 
       # * Logitistic ----
-      # - sel_type = 1
-      if (sel_type == 1) {
+      # - sel_type = 1 (age-based), 6 (length-based)
+      if (sel_type %in% c(1,6)) {
 
         # Turn on slp and asymptote for each sex
         for (sex in 1:nsex) {
@@ -651,28 +651,27 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
 
       # * Non-parametric ----
-      # ---- sel_type = 2
-      if (sel_type == 2) {
+      # ---- sel_type = 2 (age-based), 7 (length-based)
+      if (sel_type %in% c(2, 7)) {
         if (tv_sel %in% c(2, 4, 5)) { # Error check
           stop(paste0("'Time_varying_sel' for fleet ", flt, " with non-parametric selectivity is not 0 or 1. Current value: ", tv_sel))
         }
 
-        age_first_selected <- data_list$fleet_control$Age_first_selected[i]
-        minage_spp <- data_list$minage[spp]
+        bin_first_selected <- data_list$fleet_control$Bin_first_selected[i]
         N_sel_bins <- data_list$fleet_control$N_sel_bins[i]
 
-        if (is.na(age_first_selected)) age_first_selected <- minage_spp
-        ages_on <- (age_first_selected - minage_spp + 1):N_sel_bins
-        max_age_on <- max(ages_on)
+        if (is.na(bin_first_selected)) bin_first_selected <- 1
+        bins_on <- bin_first_selected:N_sel_bins
+        max_bin_on <- max(bins_on)
 
         for (sex in 1:nsex) {
-          map_list$sel_coff[flt, sex, ages_on] <- ind_coff + ages_on
-          ind_coff <- ind_coff + max_age_on
+          map_list$sel_coff[flt, sex, bins_on] <- ind_coff + bins_on
+          ind_coff <- ind_coff + max_bin_on
 
           if (tv_sel == 1) { # Time-varying deviates
             map_list$sel_coff[flt, , ] <- NA # Must turn off mean parameter
-            dev_indices <- ind_dev_coff + 1:(length(ages_on) * nyrs_hind)
-            map_list$sel_coff_dev[flt, sex, ages_on, yrs_hind] <- dev_indices
+            dev_indices <- ind_dev_coff + 1:(length(bins_on) * nyrs_hind)
+            map_list$sel_coff_dev[flt, sex, bins_on, yrs_hind] <- dev_indices
             ind_dev_coff <- ind_dev_coff + length(dev_indices)
           }
         }
@@ -770,22 +769,21 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
           warning(paste("Time_varying_sel for fleet", flt, "is not compatible (select NA, 0, or 1). Current value:", tv_sel))
         }
 
-        age_first_selected <- data_list$fleet_control$Age_first_selected[i]
-        minage_spp <- data_list$minage[spp]
+        bin_first_selected <- data_list$fleet_control$Bin_first_selected[i]
         N_sel_bins <- data_list$fleet_control$N_sel_bins[i]
 
-        if (is.na(age_first_selected)) age_first_selected <- minage_spp
-        # +2 because first parameter is not-identifiable and is not estimated
-        ages_on <- (age_first_selected - minage_spp + 2):N_sel_bins
-        max_age_on <- max(ages_on, 0)
+        if (is.na(bin_first_selected)) bin_first_selected <- 1
+        # +1 because first parameter is not-identifiable and is not estimated
+        bins_on <- (bin_first_selected + 1):N_sel_bins
+        max_bin_on <- max(bins_on, 0)
 
         for (sex in 1:nsex) {
-          map_list$sel_coff[flt, sex, ages_on] <- ind_coff + ages_on
-          ind_coff <- ind_coff + max_age_on
+          map_list$sel_coff[flt, sex, bins_on] <- ind_coff + bins_on
+          ind_coff <- ind_coff + max_bin_on
 
           if (tv_sel == 1) { # Time-varying deviates
-            dev_indices <- ind_dev_coff + 1:(length(ages_on) * nyrs_hind)
-            map_list$sel_coff_dev[flt, sex, ages_on, yrs_hind] <- dev_indices
+            dev_indices <- ind_dev_coff + 1:(length(bins_on) * nyrs_hind)
+            map_list$sel_coff_dev[flt, sex, bins_on, yrs_hind] <- dev_indices
             ind_dev_coff <- ind_dev_coff + length(dev_indices)
           }
         }
@@ -794,6 +792,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
   }
   return(map_list)
 }
+
 
 #' @title Helper to set map for Catchability parameters
 #'
