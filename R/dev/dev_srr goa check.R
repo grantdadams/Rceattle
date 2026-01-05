@@ -97,7 +97,7 @@ ss_init <- Rceattle::fit_mod(data_list = ss_run$data_list,
                             msmMode = 0, # Single species mode
                             phase = TRUE,
                             verbose = 1)
-sum(ss_init$quantities$sel-mod_objects$quantities$sel)
+sum(ss_init$quantities$sel_at_age-mod_objects$quantities$sel_at_age)
 sum(mod_objects$quantities$NByage-ss_init$quantities$N_at_age)
 sum(mod_objects$quantities$comp_hat-ss_init$quantities$comp_hat)
 sum(mod_objects$quantities$comp_n-ss_init$quantities$comp_n)
