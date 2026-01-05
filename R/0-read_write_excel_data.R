@@ -229,6 +229,13 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     print("Renaming 'Nselages' to 'N_sel_bins'")
   }
 
+
+  if(length(data_list$fleet_control$Age_first_selected) > 0){
+    data_list$fleet_control <- data_list$fleet_control %>%
+      dplyr::rename(Bin_first_selected = Age_first_selected)
+    print("Renaming 'Age_first_selected' to 'Bin_first_selected'")
+  }
+
   if(length(data_list$fleet_control$Age_max_selected) > 0){
     data_list$fleet_control <- data_list$fleet_control %>%
       dplyr::rename(Sel_norm_bin1 = Age_max_selected)
@@ -284,8 +291,8 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
     data_list$caal_data <- sheet
   } else{
-    data_list$caal_data <- data.frame(matrix(NA, nrow = 0, ncol = 10))
-    colnames(data_list$caal_data) <- c("Fleet_code", "Species", "Sex", "Year", "Length", "Sample_size", "CAAL_1", "CAAL_2", "CAAL_3", "CAAL_4")
+    data_list$caal_data <- data.frame(matrix(NA, nrow = 0, ncol = 11))
+    colnames(data_list$caal_data) <- c("Fleet_name", "Fleet_code", "Species", "Sex", "Year", "Length", "Sample_size", "CAAL_1", "CAAL_2", "CAAL_3", "CAAL_4")
   }
 
 

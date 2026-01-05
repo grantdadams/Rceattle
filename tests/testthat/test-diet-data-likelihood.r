@@ -686,8 +686,8 @@ sum(ms_run0$quantities$avgN_at_age[,1,,1:nyrs] -sim$avgNAA[,,])
 ms_run0$quantities$avail_food[,1,,1]-sim$avail_food[,,1]
 
 # Selectivity
-ms_run0$quantities$sel[c(1,3),,,1]-sim$srv_sel
-ms_run0$quantities$sel[c(2,4),,,1]-sim$fish_sel
+ms_run0$quantities$sel_at_age[c(1,3),,,1]-sim$srv_sel
+ms_run0$quantities$sel_at_age[c(2,4),,,1]-sim$fish_sel
 
 # F
 sum(ms_run0$quantities$F_flt_age[c(2,4),1,,1:nyrs] - sim$FAA)

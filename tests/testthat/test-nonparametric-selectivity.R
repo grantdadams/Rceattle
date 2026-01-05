@@ -6,7 +6,7 @@ test_that("non-parametric selectivity not normalized", {
   # Adjust data
   GOA2018SS$fleet_control$Selectivity <- 2
   GOA2018SS$fleet_control$N_sel_bins <- 8
-  GOA2018SS$fleet_control$Age_first_selected <- 1
+  GOA2018SS$fleet_control$Bin_first_selected <- 1
   GOA2018SS$fleet_control$Sel_curve_pen1 <- 5
   GOA2018SS$fleet_control$Sel_curve_pen2 <- 10
   GOA2018SS$fleet_control$Sel_norm_bin1 <- NA
@@ -67,14 +67,14 @@ test_that("non-parametric selectivity not normalized", {
 
   # Check selectivity
   # - Pollock
-  apply(ss_run$quantities$sel[1,1,1:10,], 2, function(x) testthat::expect_equal(as.numeric(x), exp(log_sel_fsh), tolerance = 0.0001))
+  apply(ss_run$quantities$sel_at_age[1,1,1:10,], 2, function(x) testthat::expect_equal(as.numeric(x), exp(log_sel_fsh), tolerance = 0.0001))
 
   # - ATF
-  apply(ss_run$quantities$sel[9,1,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), exp(log_sel_fsh2), tolerance = 0.0001))
-  apply(ss_run$quantities$sel[9,2,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), exp(log_sel_fsh2m), tolerance = 0.0001))
+  apply(ss_run$quantities$sel_at_age[9,1,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), exp(log_sel_fsh2), tolerance = 0.0001))
+  apply(ss_run$quantities$sel_at_age[9,2,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), exp(log_sel_fsh2m), tolerance = 0.0001))
 
   # - Cod
-  apply(ss_run$quantities$sel[12,1,1:12,], 2, function(x) testthat::expect_equal(as.numeric(x), exp(log_sel_fsh3), tolerance = 0.0001))
+  apply(ss_run$quantities$sel_at_age[12,1,1:12,], 2, function(x) testthat::expect_equal(as.numeric(x), exp(log_sel_fsh3), tolerance = 0.0001))
 
   # Check penalties
   # - Curvature penalty

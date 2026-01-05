@@ -226,18 +226,18 @@ build_params <- function(data_list) {
 
   # * 2.2. Selectivity parameters ----
   n_selectivities <- nrow(data_list$fleet_control)
-  max_sel_ages <- max(c(1, as.numeric(data_list$fleet_control$N_sel_bins)), na.rm = T)
+  max_sel_bins <- max(c(1, as.numeric(data_list$fleet_control$N_sel_bins)), na.rm = T)
 
   # - Non-parametric selectivity coefficients
-  param_list$sel_coff =  array(0, dim = c(n_selectivities, max_sex, max_sel_ages),
-                               dimnames = list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Age", 1:max_sel_ages)))
+  param_list$sel_coff =  array(0, dim = c(n_selectivities, max_sex, max_sel_bins),
+                               dimnames = list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Bin", 1:max_sel_bins)))
 
   # - Non-parametric selectivity penalties (sensu Ianelli)
   param_list$sel_curve_pen = matrix( c(data_list$fleet_control$Sel_curve_pen1, data_list$fleet_control$Sel_curve_pen2), nrow = n_selectivities, ncol = 2)
 
   # - Non-parametric selectivity coef annual deviates
-  param_list$sel_coff_dev = array(0, dim = c(n_selectivities, max_sex, max_sel_ages, nyrs_hind),
-                                  dimnames = list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Age", 1:max_sel_ages), yrs_hind))
+  param_list$sel_coff_dev = array(0, dim = c(n_selectivities, max_sex, max_sel_bins, nyrs_hind),
+                                  dimnames = list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Bin", 1:max_sel_bins), yrs_hind))
 
   # - Selectivity slope parameters for logistic
   param_list$ln_sel_slp = array(0.5, dim = c(2, n_selectivities, max_sex),
