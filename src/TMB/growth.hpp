@@ -65,7 +65,7 @@ void estimate_growth(
   Type Lmin_sp = lengths(sp, 0);
   Type Lmax_sp = lengths(sp, nlengths(sp) - 1);
   Type age_L1 = minage(sp);
-  Type age_L1_ceil = nages(sp) + minage(sp) - 1;
+  Type age_L1_ceil = minage(sp);
 
   for(int sex = 0; sex < nsex(sp); sex++) {
     for(int yr = 0; yr < nyrs; yr++) {
@@ -139,12 +139,14 @@ void estimate_growth(
           error("Invalid 'growth_model");
         } // Growth_model switch
 
+
         // 2. Plus-Group Correction (Oldest Age Only) ---
         if(growth_model(sp) < 3 && age == (nages(sp) - 1)) {
+          Type current_size = length_hat(wtind,  sex, age, yr);
           Type temp_n = 0, temp_sum = 0, weight_a = 1.0;
-          Type diff = linf - length_hat(wtind,  sex, age, yr);
-          for(int a = 0; a < nages(sp); a++) {
-            temp_sum += weight_a * (length_hat(wtind,  sex, nages(sp) - 1, yr) + (Type(a) / Type(nages(sp))) * diff);
+          Type diff = linf - current_size;
+          for(int a = 0; a <= nages(sp); a++) {
+            temp_sum += weight_a * (current_size + (Type(a) / Type(nages(sp))) * diff);
             temp_n += weight_a;
             weight_a *= exp(-0.2); //FIXME: update mortality?
           }
@@ -153,13 +155,13 @@ void estimate_growth(
 
         // 3. Calculate SD (Integrated) ---
         if(growth_model(sp) < 3) {
-          if((current_age) < age_L1) {
+          if((current_age) <= age_L1) {
             length_sd(sex, age, yr) = exp(growth_ln_sd(sp, sex, 0));
           } else if(age == (nages(sp) - 1)) {
             length_sd(sex, age, yr) = exp(growth_ln_sd(sp, sex, 1));
           } else {
             Slope = (exp(growth_ln_sd(sp, sex, 1)) - exp(growth_ln_sd(sp, sex, 0))) / (linf - l1);
-            length_sd(sex, age, yr) = exp(growth_ln_sd(sp, sex, 0) + Slope * (length_hat(wtind,  sex, age, yr) - l1));
+            length_sd(sex, age, yr) = exp(growth_ln_sd(sp, sex, 0)) + Slope * (length_hat(wtind,  sex, age, yr) - l1);
           }
 
           // Free parameters
@@ -272,7 +274,7 @@ void estimate_growth_within_yr(
   Type Lmin_sp = lengths(sp, 0);
   Type Lmax_sp = lengths(sp, nlengths(sp) - 1);
   Type age_L1 = minage(sp);
-  Type age_L1_ceil = nages(sp) + minage(sp) - 1;
+  Type age_L1_ceil = minage(sp); // FIXME: adjust?
 
   for(int sex = 0; sex < nsex(sp); sex++) {
     for(int yr = 0; yr < nyrs; yr++) {
@@ -295,10 +297,10 @@ void estimate_growth_within_yr(
           // Age < minage
           if((current_age) <= age_L1){
             length_hat(wtind,  sex, age, yr) = Lmin_sp + b_len * (current_age);
-          }else if(age + 1 < age_L1){ // Linear + growth curve mixed
+          }else if(age + 1.0 < age_L1){ // Linear + growth curve mixed
             last_linear = Lmin_sp + b_len * age_L1;
             length_hat(wtind,  sex, age, yr) = last_linear + (last_linear - linf) * (exp(-kappa * (current_age - age_L1)) - 1.0);
-          }else if(age == nages(sp)) { // Plus group
+          }else if(age + 1.0 == nages(sp)) { // Plus group
             length_hat(wtind,  sex, age, yr) = length_hat(id_pop,  sex, age, yr);
           }else { // Growth curve
             length_hat(wtind,  sex, age, yr) = length_hat(id_pop,  sex, age, yr) + (length_hat(id_pop,  sex, age, yr) - linf) * (exp(-kappa * fracyr) - 1.0); // Add fracyr growth
@@ -316,7 +318,7 @@ void estimate_growth_within_yr(
           }else if(age + 1 < age_L1){ // Linear + growth curve mixed
             last_linear = Lmin_sp + b_len * age_L1;
             length_hat(wtind,  sex, age, yr) = pow(pow(last_linear, m) + (pow(last_linear, m) - pow(l1, m)) * (exp(-kappa * (current_age - age_L1)) - 1.0), 1 / m);
-          } else if(age == nages(sp)) { // Plus group
+          } else if(age + 1 == nages(sp)) { // Plus group
             length_hat(wtind,  sex, age, yr) = length_hat(id_pop,  sex, age, yr);
           } else {
             length_hat(wtind,  sex, age, yr) = pow(pow(length_hat(id_pop,  sex, age, yr), m) + (pow(length_hat(id_pop,  sex, age, yr), m) - pow(linf, m)) * (exp(-kappa * fracyr) - 1.0), 1 / m); // Add fracyr growth
@@ -334,13 +336,13 @@ void estimate_growth_within_yr(
 
         // 2. Calculate SD (Integrated) ---
         if(growth_model(sp) < 3) {
-          if((current_age) < age_L1) {
+          if((current_age) <= age_L1) {
             length_sd(sex, age, yr) = exp(growth_ln_sd(sp, sex, 0));
           } else if(age == (nages(sp) - 1)) {
             length_sd(sex, age, yr) = exp(growth_ln_sd(sp, sex, 1));
           } else {
             Slope = (exp(growth_ln_sd(sp, sex, 1)) - exp(growth_ln_sd(sp, sex, 0))) / (linf - l1);
-            length_sd(sex, age, yr) = exp(growth_ln_sd(sp, sex, 0) + Slope * (length_hat(wtind,  sex, age, yr) - l1));
+            length_sd(sex, age, yr) = exp(growth_ln_sd(sp, sex, 0)) + Slope * (length_hat(wtind,  sex, age, yr) - l1);
           }
 
           // Free parameters

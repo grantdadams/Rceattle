@@ -205,8 +205,8 @@ test_that("Simulated simple model with growth curve and size-based logistic sele
   # * Data controls ----
   simData$nspp <- 1
   simData$styr <- 1
-  simData$endyr <- 20
-  simData$projyr <- 30
+  simData$endyr <- nyrs
+  simData$projyr <- nyrs + 10
   simData$nsex <- 1
   simData$nages <- nages
   simData$minage <- 1
@@ -256,7 +256,7 @@ test_that("Simulated simple model with growth curve and size-based logistic sele
                                  Species = 1,
                                  Sex = 0,
                                  Age0_Length1 = 0,
-                                 Year = -(years),
+                                 Year = -(years), # Negative turns data off
                                  Month = 0,
                                  Sample_size = rowSums(tmp)),
                       tmp
@@ -270,7 +270,7 @@ test_that("Simulated simple model with growth curve and size-based logistic sele
                                    Species = 1,
                                    Sex = 0,
                                    Age0_Length1 = 0,
-                                   Year = -(years),
+                                   Year = -(years), # Negative turns data off
                                    Month = 0,
                                    Sample_size = rowSums(tmp)),
                         tmp
