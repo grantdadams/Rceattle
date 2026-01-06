@@ -313,6 +313,7 @@ void calculate_length_selectivity(
     int sp = flt_spp(flt);
     int sel_type = flt_sel_type(flt);
     int n_sel_bins = flt_n_sel_bins(flt);
+    Type binwidth = lengths(sp, 1) - lengths(sp, 0);
     if (sel_type < 6) continue;
 
     for (int yr = 0; yr < nyrs_hind; yr++) {
@@ -323,7 +324,7 @@ void calculate_length_selectivity(
           for (int ln = 0; ln < nlengths(sp); ln++) {
             Type slope = exp(ln_sel_slp(0, flt, sex) + ln_sel_slp_dev(0, flt, sex, yr));
             Type inf   = sel_inf(0, flt, sex) + sel_inf_dev(0, flt, sex, yr);
-            sel_at_length(flt, sex, ln, yr) = 1.0 / (1.0 + exp(-slope * (lengths(sp, ln) - inf)));
+            sel_at_length(flt, sex, ln, yr) = 1.0 / (1.0 + exp(-slope * (lengths(sp, ln) + 0.5*binwidth - inf)));
           }
           break;
 
@@ -372,7 +373,7 @@ void calculate_length_selectivity(
             Type inf1 = sel_inf(0, flt, sex) + sel_inf_dev(0, flt, sex, yr);
             Type slp2 = exp(ln_sel_slp(1, flt, sex) + ln_sel_slp_dev(1, flt, sex, yr));
             Type inf2 = sel_inf(1, flt, sex) + sel_inf_dev(1, flt, sex, yr);
-            sel_at_length(flt, sex, ln, yr) = (1.0 / (1.0 + exp(-slp1 * (lengths(sp, ln) - inf1)))) * (1.0 - (1.0 / (1.0 + exp(-slp2 * (lengths(sp, ln) - inf2)))));
+            sel_at_length(flt, sex, ln, yr) = (1.0 / (1.0 + exp(-slp1 * (lengths(sp, ln) + 0.5*binwidth - inf1)))) * (1.0 - (1.0 / (1.0 + exp(-slp2 * (lengths(sp, ln) + 0.5*binwidth - inf2)))));
           }
           break;
 
@@ -380,7 +381,7 @@ void calculate_length_selectivity(
           for (int ln = 0; ln < nlengths(sp); ln++) {
             Type slp2 = exp(ln_sel_slp(1, flt, sex) + ln_sel_slp_dev(1, flt, sex, yr));
             Type inf2 = sel_inf(1, flt, sex) + sel_inf_dev(1, flt, sex, yr);
-            sel_at_length(flt, sex, ln, yr) = (1.0 - (1.0 / (1.0 + exp(-slp2 * (lengths(sp, ln) - inf2)))));
+            sel_at_length(flt, sex, ln, yr) = (1.0 - (1.0 / (1.0 + exp(-slp2 * (lengths(sp, ln) + 0.5*binwidth - inf2)))));
           }
           break;
 
