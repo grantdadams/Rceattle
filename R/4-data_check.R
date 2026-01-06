@@ -17,6 +17,8 @@ clean_data <- function(data_list){
     dplyr::filter(abs(Year) >= data_list$styr & abs(Year) <= data_list$projyr)
   data_list$comp_data <- data_list$comp_data %>%
     dplyr::filter(abs(Year) >= data_list$styr & abs(Year) <= data_list$projyr)
+  data_list$caal_data  <- data_list$caal_data %>%
+    dplyr::filter(abs(Year) >= data_list$styr & abs(Year) <= data_list$projyr)
   data_list$diet_data <- data_list$diet_data %>%
     dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0) %>%
     dplyr::arrange(Pred, Pred_sex, Pred_age, Prey, Prey_sex, Prey_age, Year)

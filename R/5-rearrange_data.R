@@ -150,7 +150,8 @@ rearrange_dat <- function(data_list){
     dplyr::mutate_all(as.numeric) %>%
     as.matrix()
   data_list$comp_obs <- t(apply(data_list$comp_obs, 1, function(x) as.numeric(x) / sum(as.numeric(x), na.rm = TRUE))) # Normalize
-
+  data_list$comp_obs[is.infinite(data_list$comp_obs)] <- 0
+  data_list$comp_obs[is.na(data_list$comp_obs)] <- 0
   data_list <- check_composition_data(data_list)
 
   # 5 - CAAL data ----
@@ -168,6 +169,8 @@ rearrange_dat <- function(data_list){
     dplyr::mutate_all(as.numeric) %>%
     as.matrix()
   data_list$caal_obs <- t(apply(data_list$caal_obs, 1, function(x) as.numeric(x) / sum(as.numeric(x), na.rm = TRUE))) # Normalize
+  data_list$caal_obs[is.infinite(data_list$caal_obs)] <- 0
+  data_list$caal_obs[is.na(data_list$caal_obs)] <- 0
 
   data_list <- check_caal_data(data_list)
 
@@ -456,9 +459,14 @@ rearrange_dat <- function(data_list){
 
 
   # 15 - Remove species column from alw, maturity, sex_ratio ----
-  data_list$sex_ratio <- data_list$sex_ratio[,-1]
-  data_list$maturity <- data_list$maturity[,-1]
-  # data_list$aLW <- data_list$aLW[,-1]
+  data_list$sex_ratio <- data_list$sex_ratio %>%
+    dplyr::select(contains("Age")) %>%
+    dplyr::mutate_all(as.numeric) %>%
+    as.matrix()
+  data_list$maturity <- data_list$maturity %>%
+    dplyr::select(contains("Age")) %>%
+    dplyr::mutate_all(as.numeric) %>%
+    as.matrix()
 
 
   # 16 - Make data.frames into matrices ----
@@ -509,10 +517,10 @@ check_composition_data <- function(data_list) {
   } else{
 
 
-    # Check for zero sum rows in composition data
-    if (any(rowSums(data_list$comp_obs, na.rm = TRUE) == 0)) {
-      stop("Some rows of composition data sum to 0: please remove or set all to 1 and sample size to 0")
-    }
+    # # Check for zero sum rows in composition data
+    # if (any(rowSums(data_list$comp_obs, na.rm = TRUE) == 0)) {
+    #   stop("Some rows of composition data sum to 0: please remove or set all to 1 and sample size to 0")
+    # }
 
     # Calculate adjustments for sex and age/length
     joint_adjust <- ifelse(data_list$nsex[data_list$comp_data$Species] == 2 &
@@ -568,10 +576,10 @@ check_caal_data <- function(data_list) {
     data_list$caal_obs <- matrix(NA, ncol = 10, nrow = 0)
   } else{
 
-    # Check for zero sum rows in composition data
-    if (any(rowSums(data_list$caal_obs, na.rm = TRUE) == 0)) {
-      stop("Some rows of composition data sum to 0: please remove or set all to 1 and sample size to 0")
-    }
+    # # Check for zero sum rows in composition data
+    # if (any(rowSums(data_list$caal_obs, na.rm = TRUE) == 0)) {
+    #   stop("Some rows of composition data sum to 0: please remove or set all to 1 and sample size to 0")
+    # }
 
     # Calculate adjustments for joint sex and CAAL data
     joint_adjust <- ifelse(data_list$nsex[data_list$caal_data$Species] == 2 &
