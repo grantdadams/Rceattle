@@ -315,7 +315,7 @@ simData$ration_data <- cbind(data.frame(Species = 1,
 # * Null Rceattle ----
 ss_fix <- Rceattle::fit_mod(data_list = simData,
                             inits = NULL, # Initial parameters = 0
-                            estimateMode = 3, # Estimate
+                            estimateMode = 3, # Don't estimate
                             growthFun = build_growth(growth_model = 1), # Von Bert
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
@@ -324,7 +324,7 @@ ss_fix <- Rceattle::fit_mod(data_list = simData,
 
 
 # * Fix-parameters and check derived quantities ----
-inits <- ss_fix$estimated_params
+inits <- ss_fix$estimated_params # get paramter object from NULL model
 names(wham_model)
 names(wham_model$parList)
 
@@ -332,17 +332,19 @@ names(wham_model$parList)
 inits$rec_pars[1,1] <- wham_model$parList$mean_rec_pars
 inits$rec_dev[1,1] <- wham_model$parList$log_N1_pars[1] -  wham_model$parList$mean_rec_pars
 inits$rec_dev[1,2:nyrs] <- wham_model$parList$log_NAA[,1] -  wham_model$parList$mean_rec_pars
+inits$init_dev[1,] <- wham_model$parList$log_N1_pars[1] -  wham_model$parList$mean_rec_pars # WHAM assumes rec-dev in year 1 is applied to year-1 to year - nages
 
 # - F (random walk in WHAM)
 inits$ln_F[2,1]  <- wham_model$parList$log_F1
 for(y in 2:nyrs){
   inits$ln_F[2,y] <- inits$ln_F[2,y-1] + wham_model$parList$F_devs[y-1,1]
 }
+inits$ln_Finit[1] <- -Inf
 
 # - Selectivity
 selpars <-  wham_model$env$data$selpars_lower + ( wham_model$env$data$selpars_upper -  wham_model$env$data$selpars_lower) / (1.0 + exp(-(wham_model$parList$logit_selpars)))
-inits$ln_sel_slp[1,,1] <- log(1/selpars[,24])
-inits$sel_inf[1,,1] <- selpars[,23]
+inits$ln_sel_slp[1,,1] <- rev(log(1/selpars[,24]))
+inits$sel_inf[1,,1] <- rev(selpars[,23])
 
 # - Q
 inits$index_ln_q[1] <- wham_model$env$data$q_lower + (wham_model$env$data$q_upper - wham_model$env$data$q_lower) / (1 + exp(-wham_model$parList$logit_q))
@@ -354,27 +356,37 @@ inits$growth_ln_sd[1,1,] <- wham_model$parList$SDgrowth_par
 
 ss_inits <- Rceattle::fit_mod(data_list = simData,
                               inits = inits, # Initial parameters = 0
-                              estimateMode = 3, # Estimate
+                              estimateMode = 3, # Do not estimate
                               growthFun = build_growth(growth_model = 1), # Von Bert
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
                               phase = FALSE,
+                              initMode = 2,
                               verbose = 1)
 
-ss_inits$quantities$biomass[,1:nyrs]
 
 # SSB does not
-plot(x = ss_inits$quantities$ssb[,1:nyrs], y = wham_model$rep$SSB); abline(0,1)
+plot(x = ss_inits$quantities$ssb[,1:nyrs] * 2, y = wham_model$rep$SSB); abline(0,1)
+ss_inits$quantities$ssb[,1:nyrs] * 2 - wham_model$rep$SSB # Plus group in WHAM has a bug
 
 # Rec
 plot(x = ss_inits$quantities$N_at_age[1,1,1,1:nyrs], y = wham_model$rep$NAA[,1]); abline(0,1)
+ss_inits$quantities$N_at_age[1,1,,1]
+t(wham_model$rep$NAA)[,1]
 
 # Selex matches
-plot(ss_inits$quantities$sel_at_length[1,1,,1], y = wham_model$rep$selLL[[1]][1,], xlab = "Rceattle survey sel"); abline(0,1)
-plot(ss_inits$quantities$sel_at_length[2,1,,1], y = wham_model$rep$selLL[[2]][1,], xlab = "Rceattle fishery sel"); abline(0,1)
+plot(ss_inits$quantities$sel_at_length[1,1,,1], y = wham_model$rep$selLL[[2]][1,], xlab = "Rceattle survey sel"); abline(0,1)
+plot(ss_inits$quantities$sel_at_length[2,1,,1], y = wham_model$rep$selLL[[1]][1,], xlab = "Rceattle fishery sel"); abline(0,1)
+plot(ss_inits$quantities$sel_at_length[2,1,,10], y = wham_model$rep$selLL[[1]][10,], xlab = "Rceattle fishery sel"); abline(0,1)
 
 # F
 plot(x = ss_inits$quantities$F_spp[1,1:nyrs], y = wham_model$rep$F[,1]); abline(0,1)
+ss_inits$quantities$F_spp[1,1:nyrs] - wham_model$rep$F[,1]
+
+# F-at-age (good enough)
+check <- outer(wham_model$rep$F[,1], t(wham_model$rep$catch_phi_mat[,,1]) %*% wham_model$rep$selLL[[1]][11,])
+wham_model$rep$FAA_tot - check[,,1]
+t(wham_model$rep$FAA_tot) - ss_inits$quantities$F_spp_at_age[1,1,,1:nyrs]
 
 # M
 plot(x = ss_inits$quantities$M1_at_age[1,1,1,1:nyrs], y = wham_model$rep$MAA[,1]); abline(0,1)
@@ -386,6 +398,21 @@ plot(y = wham_model$rep$LAA[1,], x = t(ss_inits$quantities$length_hat[1,1,,1]));
 sum(wham_model$rep$ssb_phi_mat - wham_model$rep$fix_phi_mat)
 dim(wham_model$rep$ssb_phi_mat)
 t(wham_model$rep$ssb_phi_mat[,,1]) - ss_inits$quantities$growth_matrix[1,1,,,1]
+sum(t(wham_model$rep$catch_phi_mat[,,5]) - ss_inits$quantities$growth_matrix[4,1,,,5])
 
 # Waa
 plot(y = wham_model$rep$pred_waa[1,1,], x = t(ss_inits$quantities$weight_hat[1,1,,1])); abline(0,1)
+plot(y = wham_model$rep$pred_waa[2,1,], x = t(ss_inits$quantities$weight_hat[4,1,,1])); abline(0,1) # Fishery weight
+
+
+# * Estimate Rceattle ----
+ss_est <- Rceattle::fit_mod(data_list = simData,
+                              inits = inits, # Initial parameters = 0
+                              estimateMode = 0, # estimate
+                              growthFun = build_growth(growth_model = 1), # Von Bert
+                              random_rec = FALSE, # No random recruitment
+                              msmMode = 0, # Single species mode
+                              phase = FALSE,
+                              initMode = 2,
+                              verbose = 1)
+
