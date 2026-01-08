@@ -349,7 +349,7 @@ inits$ln_sel_slp[1,,1] <- rev(log(1/selpars[,24]))
 inits$sel_inf[1,,1] <- rev(selpars[,23])
 
 # - Q
-inits$index_ln_q[1] <- wham_model$env$data$q_lower + (wham_model$env$data$q_upper - wham_model$env$data$q_lower) / (1 + exp(-wham_model$parList$logit_q))
+inits$index_ln_q[1] <- log(wham_model$env$data$q_lower + (wham_model$env$data$q_upper - wham_model$env$data$q_lower) / (1 + exp(-wham_model$parList$logit_q)))
 
 # - Growth
 inits$ln_growth_pars[1,1,1:3] <- wham_model$parList$growth_a[c(1,3,2),1]
@@ -426,17 +426,22 @@ pred_IAAL2 <- matrix(0, nlengths, nages)
 selLL <- wham_model$rep$selLL[[2]]
 out_phi_mat <- wham_model$rep$jan1_phi_mat
 NAA <- wham_model$rep$NAA
-sellAA <- t(out_phi_mat[,,yr])%*%selLL[yr,]
 yr = 10
+
+
+selLL2 <- ss_inits$quantities$sel_at_length[1,1,,yr]
+out_phi_mat2 <- ss_inits$quantities$growth_matrix[3,1,,,yr]
+NAA2 <- ss_inits$quantities$N_at_age[1,1,,yr]
+
 for(l in 1:nlengths) {
   for(a in 1:nages) {
     pred_IAAL[l,a] = selLL[yr,l]*out_phi_mat[l,a,yr]*NAA[yr,a];
-    pred_IAAL2[l,] = sellAA[a,1]*out_phi_mat[l,a,yr]*NAA[yr,a];
+    pred_IAAL2[l,a] = selLL2[l]*out_phi_mat2[a,l]*NAA2[a];
   }
 }
-pred_IAAL
-pred_IAAL2
-wham_model$rep$pred_IAAL[yr,1,,]
+t(pred_IAAL)
+t(pred_IAAL2)
+t(wham_model$rep$pred_IAAL[yr,1,,])
 ss_inits$quantities$pred_CAAL[1,1,,,yr]
 
 # - Catch
@@ -453,23 +458,11 @@ yr = 10
 for(l in 1:nlengths) {
   for(a in 1:nages) {
     pred_CAAL[l,a] = selAA[yr,a] * selLL[yr,l] * Frate[yr] * out_phi_mat[l,a,yr] * NAA[yr,a] / ZAA[yr,a] * (1-exp(-ZAA[yr,a]))
-    ztemp <- selAA[yr,a] * selLL[yr,l] * Frate[yr] + MAA[yr,a]
-    pred_CAAL2[l,a] = selAA[yr,a] * selLL[yr,l] * Frate[yr] * out_phi_mat[l,a,yr] * NAA[yr,a] / ztemp * (1-exp(-ztemp))
   }
 }
-pred_CAAL
-pred_CAAL2
-wham_model$rep$pred_IAAL[yr,1,,]
-ss_inits$quantities$pred_CAAL[1,1,,,yr]
-
-sum(wham_model$rep$nll_index_caal)
-dim(wham_model$rep$pred_CAAL)
-dim(wham_model$rep$pred_IAAL)
-dim(ss_inits$quantities$pred_CAAL)
-t(wham_model$rep$pred_IAAL[40,1,,])[1:10,1:5]
-ss_inits$quantities$pred_CAAL[1,1,,,40][1:10,1:5]
-t(wham_model$rep$pred_CAAL[40,1,,])[1:10,1:5]
-ss_inits$quantities$pred_CAAL[2,1,,,40][1:10,1:5]
+t(pred_CAAL)
+t(wham_model$rep$pred_CAAL[yr,1,,])
+ss_inits$quantities$pred_CAAL[2,1,,,yr]
 
 
 # * Estimate Rceattle ----

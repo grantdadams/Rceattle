@@ -596,30 +596,30 @@ Type objective_function<Type>::operator() () {
   // when "sel_at_length" is used, it is converted to "sel_at_age" using the growth matrix
   // 1) Age based selectivity
   // - code in "selectivity.hpp"
-  // calculate_age_selectivity(
-  //   nspp, n_flt,
-  //   nyrs, nyrs_hind, styr,
-  //   nsex,
-  //   nages,
-  //   nlengths,
-  //   flt_spp,
-  //   flt_sel_type,
-  //   bin_first_selected,
-  //   flt_n_sel_bins,
-  //   sel_norm_bin1,
-  //   sel_norm_bin2,
-  //   emp_sel_obs,
-  //   emp_sel_ctl,
-  //   ln_sel_slp,
-  //   ln_sel_slp_dev,
-  //   sel_inf,
-  //   sel_inf_dev,
-  //   sel_coff,
-  //   sel_coff_dev,
-  //   avg_sel,            // Modified
-  //   non_par_sel,        // Modified
-  //   sel_at_age          // Modified
-  // );
+  calculate_age_selectivity(
+    nspp, n_flt,
+    nyrs, nyrs_hind, styr,
+    nsex,
+    nages,
+    nlengths,
+    flt_spp,
+    flt_sel_type,
+    bin_first_selected,
+    flt_n_sel_bins,
+    sel_norm_bin1,
+    sel_norm_bin2,
+    emp_sel_obs,
+    emp_sel_ctl,
+    ln_sel_slp,
+    ln_sel_slp_dev,
+    sel_inf,
+    sel_inf_dev,
+    sel_coff,
+    sel_coff_dev,
+    avg_sel,            // Modified
+    non_par_sel,        // Modified
+    sel_at_age          // Modified
+  );
 
   // 2) Length based selectivity (converted to age via growth matrix)
   // - code in "selectivity.hpp"
@@ -2596,7 +2596,7 @@ Type objective_function<Type>::operator() () {
     flt_sex = comp_ctl(comp_ind, 2);            // Temporary index for comp sex (0 = combined, 1 = female, 2 = male)
     comp_type = comp_ctl(comp_ind, 3);          // Temporary index for comp type (0 = age, 1 = length, 2 = CAAL)
     yr = comp_ctl(comp_ind, 4);                 // Temporary index for years of data
-    mo = comp_n(comp_ind, 0);                   // Temporary index for month (FIXME change to Month from fleet_control)
+    mo = (growth_model(sp) > 0) ? flt_month(flt) : comp_n(comp_ind, 0); // Temporary index for month (use fleet month if estimating growth, otherwise use from data)
     int wtind = nspp * 2 + flt;
     n_hat(comp_ind) = 0.0;                      // Initialize
 
@@ -2629,14 +2629,14 @@ Type objective_function<Type>::operator() () {
 
             switch(flt_type(flt)){
             case 1: // - Fishery
-              if(flt_sel_type(flt) > 6){
+              if(flt_sel_type(flt) >= 6){
                 pred_CAAL(flt, sex, age, ln, yr) = sel_at_length(flt, sex, ln, yr) * Frate / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr) * growth_matrix(wtind,  sex, age, ln, yr);
               }
               break;
 
 
             case 2: // - Survey
-              if(flt_sel_type(flt) > 6){
+              if(flt_sel_type(flt) >= 6){
                 pred_CAAL(flt, sex, age, ln, yr) = N_at_age(sp, sex, age, yr) * sel_at_length(flt, sex, ln, yr) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr)) * growth_matrix(wtind,  sex, age, ln, yr);
               }
               break;
@@ -2872,9 +2872,10 @@ Type objective_function<Type>::operator() () {
 
     flt = caal_ctl(caal_ind, 0) - 1;            // Temporary fishery index
     sp = caal_ctl(caal_ind, 1) - 1;             // Temporary index of species
-    flt_sex = caal_ctl(caal_ind, 2);                // Temporary index for caal sex (0 = combined, 1 = female, 2 = male)
+    flt_sex = caal_ctl(caal_ind, 2);            // Temporary index for caal sex (0 = combined, 1 = female, 2 = male)
     yr = caal_ctl(caal_ind, 3);                 // Temporary index for years of data
     ln = caal_ctl(caal_ind, 4) - 1;             // Temporary index for length-bin
+    mo = flt_month(flt);                        // Temporary index for month (use fleet month b/c estimating growth)
 
     if(growth_model(sp) == 0) continue; // Skip empirical weight-at-age species
 
@@ -2906,20 +2907,20 @@ Type objective_function<Type>::operator() () {
       Frate = proj_F_prop(flt) * proj_F(sp, yr);
     }
 
-
+    // 12.2.1. Calculate CAAL
     for(age = 0; age < nages(sp); age++) {
 
       switch(flt_type(flt)){
       case 1: // - Fishery
-        if(flt_sel_type(flt) > 6){
+        if(flt_sel_type(flt) >= 6){
           pred_CAAL(flt, sex, age, ln, yr) = sel_at_length(flt, sex, ln, yr) * Frate / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr) * growth_matrix(wtind,  sex, age, ln, yr);
         }
         break;
 
 
       case 2: // - Survey
-        if(flt_sel_type(flt) > 6){
-          pred_CAAL(flt, sex, age, ln, yr) = N_at_age(sp, sex, age, yr) * sel_at_length(flt, sex, ln, yr) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr)) * growth_matrix(wtind,  sex, age, ln, yr);
+        if(flt_sel_type(flt) >= 6){
+          pred_CAAL(flt, sex, age, ln, yr) = N_at_age(sp, sex, age, yr) * sel_at_length(flt, sex, ln, yr) * growth_matrix(wtind,  sex, age, ln, yr) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr)) ;
         }
         break;
       }
@@ -4168,4 +4169,10 @@ Type objective_function<Type>::operator() () {
  // 27. Added stock-recruitment relationships
  // 28. Added dirichlet multinomial for age/length composition data
  // 29. Removed ln_mean_F + F_dev, converted to ln_F
+
+
+ // ------------------------------------------------------------------------ //
+ // 15. TODO                                                                 //
+ // ------------------------------------------------------------------------- //
+ // Remove month from comp_data & index_data now that month is in fleet_control
  */
