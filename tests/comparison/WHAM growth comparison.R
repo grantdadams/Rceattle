@@ -159,6 +159,8 @@ simData$spawn_month <- 0
 simData$alpha_wt_len <- 5.56e-06
 simData$beta_wt_len <- 3.2
 simData$pop_age_transition_index <- 1
+nages <- simData$nages
+nlengths <- simData$nlengths
 
 # * Fleet control
 simData$fleet_control <- simData$fleet_control[c(1,3),] # BT and Trawl Fishery are both simple logistic
@@ -365,7 +367,7 @@ ss_inits <- Rceattle::fit_mod(data_list = simData,
                               verbose = 1)
 
 
-# SSB does not
+# SSB
 plot(x = ss_inits$quantities$ssb[,1:nyrs] * 2, y = wham_model$rep$SSB); abline(0,1)
 ss_inits$quantities$ssb[,1:nyrs] * 2 - wham_model$rep$SSB # Plus group in WHAM has a bug
 
@@ -373,6 +375,9 @@ ss_inits$quantities$ssb[,1:nyrs] * 2 - wham_model$rep$SSB # Plus group in WHAM h
 plot(x = ss_inits$quantities$N_at_age[1,1,1,1:nyrs], y = wham_model$rep$NAA[,1]); abline(0,1)
 ss_inits$quantities$N_at_age[1,1,,1]
 t(wham_model$rep$NAA)[,1]
+
+# N-at-age
+round(ss_inits$quantities$N_at_age[1,1,,1:nyrs] - t(wham_model$rep$NAA), 6)
 
 # Selex matches
 plot(ss_inits$quantities$sel_at_length[1,1,,1], y = wham_model$rep$selLL[[2]][1,], xlab = "Rceattle survey sel"); abline(0,1)
@@ -388,6 +393,9 @@ check <- outer(wham_model$rep$F[,1], t(wham_model$rep$catch_phi_mat[,,1]) %*% wh
 wham_model$rep$FAA_tot - check[,,1]
 t(wham_model$rep$FAA_tot) - ss_inits$quantities$F_spp_at_age[1,1,,1:nyrs]
 
+# ZAA (good enough)
+t(wham_model$rep$ZAA) - ss_inits$quantities$Z_at_age[1,1,,1:nyrs]
+
 # M
 plot(x = ss_inits$quantities$M1_at_age[1,1,1,1:nyrs], y = wham_model$rep$MAA[,1]); abline(0,1)
 
@@ -395,24 +403,87 @@ plot(x = ss_inits$quantities$M1_at_age[1,1,1,1:nyrs], y = wham_model$rep$MAA[,1]
 plot(y = wham_model$rep$LAA[1,], x = t(ss_inits$quantities$length_hat[1,1,,1])); abline(0,1)
 
 # Phi matrix
-sum(wham_model$rep$ssb_phi_mat - wham_model$rep$fix_phi_mat)
-dim(wham_model$rep$ssb_phi_mat)
 t(wham_model$rep$ssb_phi_mat[,,1]) - ss_inits$quantities$growth_matrix[1,1,,,1]
 sum(t(wham_model$rep$catch_phi_mat[,,5]) - ss_inits$quantities$growth_matrix[4,1,,,5])
+sum(t(wham_model$rep$fix_phi_mat[,,5]) - ss_inits$quantities$growth_matrix[4,1,,,5])
 
 # Waa
 plot(y = wham_model$rep$pred_waa[1,1,], x = t(ss_inits$quantities$weight_hat[1,1,,1])); abline(0,1)
 plot(y = wham_model$rep$pred_waa[2,1,], x = t(ss_inits$quantities$weight_hat[4,1,,1])); abline(0,1) # Fishery weight
 
+# Catch
+plot(ss_inits$quantities$catch_hat[1:nyrs], wham_model$rep$pred_catch[,1]); abline(0,1)
+
+# Index
+plot(ss_inits$quantities$index_hat, wham_model$rep$pred_indices[,1]); abline(0,1)
+
+# - CAAL
+# selAA*selLL*catch_phi_mat(l,a,y)*NAA(y,a)*F(y,f)*(1-exp(-ZAA(y,a)))/ZAA(y,a); WHAM
+# F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr) * growth_matrix(wtind,  sex, age, ln, yr); Rceattle
+# - Index
+pred_IAAL <- matrix(0, nlengths, nages)
+pred_IAAL2 <- matrix(0, nlengths, nages)
+selLL <- wham_model$rep$selLL[[2]]
+out_phi_mat <- wham_model$rep$jan1_phi_mat
+NAA <- wham_model$rep$NAA
+sellAA <- t(out_phi_mat[,,yr])%*%selLL[yr,]
+yr = 10
+for(l in 1:nlengths) {
+  for(a in 1:nages) {
+    pred_IAAL[l,a] = selLL[yr,l]*out_phi_mat[l,a,yr]*NAA[yr,a];
+    pred_IAAL2[l,] = sellAA[a,1]*out_phi_mat[l,a,yr]*NAA[yr,a];
+  }
+}
+pred_IAAL
+pred_IAAL2
+wham_model$rep$pred_IAAL[yr,1,,]
+ss_inits$quantities$pred_CAAL[1,1,,,yr]
+
+# - Catch
+pred_CAAL <- matrix(0, nlengths, nages)
+pred_CAAL2 <- matrix(0, nlengths, nages)
+selLL <- wham_model$rep$selLL[[1]]
+selAA <- wham_model$rep$selAA[[1]]
+out_phi_mat <- wham_model$rep$catch_phi_mat
+NAA <- wham_model$rep$NAA
+ZAA <- wham_model$rep$ZAA
+MAA <- wham_model$rep$MAA
+Frate <- wham_model$rep$F[,1]
+yr = 10
+for(l in 1:nlengths) {
+  for(a in 1:nages) {
+    pred_CAAL[l,a] = selAA[yr,a] * selLL[yr,l] * Frate[yr] * out_phi_mat[l,a,yr] * NAA[yr,a] / ZAA[yr,a] * (1-exp(-ZAA[yr,a]))
+    ztemp <- selAA[yr,a] * selLL[yr,l] * Frate[yr] + MAA[yr,a]
+    pred_CAAL2[l,a] = selAA[yr,a] * selLL[yr,l] * Frate[yr] * out_phi_mat[l,a,yr] * NAA[yr,a] / ztemp * (1-exp(-ztemp))
+  }
+}
+pred_CAAL
+pred_CAAL2
+wham_model$rep$pred_IAAL[yr,1,,]
+ss_inits$quantities$pred_CAAL[1,1,,,yr]
+
+sum(wham_model$rep$nll_index_caal)
+dim(wham_model$rep$pred_CAAL)
+dim(wham_model$rep$pred_IAAL)
+dim(ss_inits$quantities$pred_CAAL)
+t(wham_model$rep$pred_IAAL[40,1,,])[1:10,1:5]
+ss_inits$quantities$pred_CAAL[1,1,,,40][1:10,1:5]
+t(wham_model$rep$pred_CAAL[40,1,,])[1:10,1:5]
+ss_inits$quantities$pred_CAAL[2,1,,,40][1:10,1:5]
+
 
 # * Estimate Rceattle ----
 ss_est <- Rceattle::fit_mod(data_list = simData,
-                              inits = inits, # Initial parameters = 0
-                              estimateMode = 0, # estimate
-                              growthFun = build_growth(growth_model = 1), # Von Bert
-                              random_rec = FALSE, # No random recruitment
-                              msmMode = 0, # Single species mode
-                              phase = FALSE,
-                              initMode = 2,
-                              verbose = 1)
+                            inits = NULL, # Initial parameters = 0
+                            estimateMode = 0, # estimate
+                            growthFun = build_growth(growth_model = 1), # Von Bert
+                            random_rec = FALSE, # No random recruitment
+                            msmMode = 0, # Single species mode
+                            phase = FALSE,
+                            initMode = 2,
+                            verbose = 1)
 
+wham_ests <- ss_est
+wham_ests$quantities$ssb[1,1:nyrs] <- wham_model$rep$SSB/2
+
+plot_ssb(list(ss_est, wham_ests), model_names = c("Rceattle", "WHAM"))
