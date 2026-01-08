@@ -596,30 +596,30 @@ Type objective_function<Type>::operator() () {
   // when "sel_at_length" is used, it is converted to "sel_at_age" using the growth matrix
   // 1) Age based selectivity
   // - code in "selectivity.hpp"
-  calculate_age_selectivity(
-    nspp, n_flt,
-    nyrs, nyrs_hind, styr,
-    nsex,
-    nages,
-    nlengths,
-    flt_spp,
-    flt_sel_type,
-    bin_first_selected,
-    flt_n_sel_bins,
-    sel_norm_bin1,
-    sel_norm_bin2,
-    emp_sel_obs,
-    emp_sel_ctl,
-    ln_sel_slp,
-    ln_sel_slp_dev,
-    sel_inf,
-    sel_inf_dev,
-    sel_coff,
-    sel_coff_dev,
-    avg_sel,            // Modified
-    non_par_sel,        // Modified
-    sel_at_age          // Modified
-  );
+  // calculate_age_selectivity(
+  //   nspp, n_flt,
+  //   nyrs, nyrs_hind, styr,
+  //   nsex,
+  //   nages,
+  //   nlengths,
+  //   flt_spp,
+  //   flt_sel_type,
+  //   bin_first_selected,
+  //   flt_n_sel_bins,
+  //   sel_norm_bin1,
+  //   sel_norm_bin2,
+  //   emp_sel_obs,
+  //   emp_sel_ctl,
+  //   ln_sel_slp,
+  //   ln_sel_slp_dev,
+  //   sel_inf,
+  //   sel_inf_dev,
+  //   sel_coff,
+  //   sel_coff_dev,
+  //   avg_sel,            // Modified
+  //   non_par_sel,        // Modified
+  //   sel_at_age          // Modified
+  // );
 
   // 2) Length based selectivity (converted to age via growth matrix)
   // - code in "selectivity.hpp"
@@ -2612,13 +2612,13 @@ Type objective_function<Type>::operator() () {
     Type Frate = 0.0;
     if(yr < nyrs_hind){
       yr_ind = yr;
-      Type Frate = exp(ln_F(flt, yr));
+      Frate = exp(ln_F(flt, yr));
     }
 
     // Projection
     if(yr >= nyrs_hind){
       yr_ind = nyrs_hind - 1;
-      Type Frate = proj_F_prop(flt) * proj_F(sp, yr);
+      Frate = proj_F_prop(flt) * proj_F(sp, yr);
     }
 
     // 11.1.1. Estimated growth
@@ -2897,13 +2897,13 @@ Type objective_function<Type>::operator() () {
     Type Frate = 0.0;
     if(yr < nyrs_hind){
       yr_ind = yr;
-      Type Frate = exp(ln_F(flt, yr));
+      Frate = exp(ln_F(flt, yr));
     }
 
     // Projection
     if(yr >= nyrs_hind){
       yr_ind = nyrs_hind - 1;
-      Type Frate = proj_F_prop(flt) * proj_F(sp, yr);
+      Frate = proj_F_prop(flt) * proj_F(sp, yr);
     }
 
 
