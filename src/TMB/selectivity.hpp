@@ -9,7 +9,7 @@
  * across all ages/sexes (sel_norm_bin1 between -1 and -499).
  * 3. Projecting the final year of hindcast selectivity into future projection years.
  *
- * @param n_flt Total number of fleets to iterate through.
+ * @param flt fleet to iterate through.
  * @param nyrs_hind Total number of years in the hindcast period.
  * @param nyrs Total number of years including projection.
  * @param flt_spp Function/Array mapping fleet index to species index.
@@ -24,7 +24,7 @@
  */
 template<class Type>
 void normalize_and_project_selectivity(
-    const int& n_flt,
+    const int& flt,
     const int& nyrs_hind,
     const int& nyrs,
     const vector<int>&  flt_spp,
@@ -39,83 +39,79 @@ void normalize_and_project_selectivity(
 ) {
   Type max_sel; // Local declaration for safety
 
-  for (int flt = 0; flt < n_flt; flt++) {
-    int sp = flt_spp(flt);
-    int sel_type = flt_sel_type(flt);
-    int nbins = (sel_type < 6) ? nages(sp) : nlengths(sp);
+  int sp = flt_spp(flt);
+  int sel_type = flt_sel_type(flt);
+  int nbins = (sel_type < 6) ? nages(sp) : nlengths(sp);
 
-    if (sel_type <= 0) continue;
+  // Ages not selected
+  for(int yr = 0; yr < nyrs_hind; yr++) {
+    for(int bin = 0; bin < nbins; bin++){
+      for(int sex = 0; sex < nsex(sp); sex++){
+        if(bin < bin_first_selected(flt)){
+          selectivity(flt, sex, bin, yr) = 0;
+        }
+      }
+    }
+  }
 
-    // Ages not selected
-    for(int yr = 0; yr < nyrs_hind; yr++) {
-      for(int bin = 0; bin < nbins; bin++){
+  // Normalize selectivity
+  if(sel_norm_bin1(flt) > -500){
+
+    // 1. Normalize by selectivity by specific bin or bin-range
+    if((sel_norm_bin1(flt) >= 0) && (sel_type < 5)) {
+      for(int yr = 0; yr < nyrs_hind; yr++) {
         for(int sex = 0; sex < nsex(sp); sex++){
-          if(bin < bin_first_selected(flt)){
-            selectivity(flt, sex, bin, yr) = 0;
+
+          // Single-normalization bin
+          if((sel_norm_bin1(flt) >= 0) && (sel_norm_bin2(flt) < 0)){
+            max_sel = 0.001;
+            max_sel = max2(max_sel, selectivity(flt, sex, sel_norm_bin1(flt), yr));
+          }
+
+          // Normalize by bin range between max lower and max upper
+          if((sel_norm_bin1(flt) >= 0) && (sel_norm_bin2(flt) >= 0)){
+            max_sel = 0;
+            for(int bin = sel_norm_bin1(flt); bin <= sel_norm_bin2(flt); bin++) {
+              max_sel += selectivity(flt, sex, bin, yr)/(sel_norm_bin2(flt) - sel_norm_bin1(flt) + 1);
+            }
+          }
+
+          // Normalize
+          for(int bin = 0; bin < nbins; bin++){
+            selectivity(flt, sex, bin, yr) /= max_sel;
           }
         }
       }
     }
 
-    // Normalize selectivity
-    if(sel_norm_bin1(flt) > -500){
-
-      // 1. Normalize by selectivity by specific bin or bin-range
-      if((sel_norm_bin1(flt) >= 0) && (sel_type < 5)) {
-        for(int yr = 0; yr < nyrs_hind; yr++) {
+    // 2. Normalize by max for each fishery and year across bins, and sexes
+    if((sel_type < 5) && (sel_norm_bin1(flt) < 0) && (sel_norm_bin1(flt) > -500)) {
+      for(int yr = 0; yr < nyrs_hind; yr++) {
+        max_sel = 0;
+        for(int bin = 0; bin < nbins; bin++){
           for(int sex = 0; sex < nsex(sp); sex++){
-
-            // Single-normalization bin
-            if((sel_norm_bin1(flt) >= 0) && (sel_norm_bin2(flt) < 0)){
-              max_sel = 0.001;
-              max_sel = max2(max_sel, selectivity(flt, sex, sel_norm_bin1(flt), yr));
-            }
-
-            // Normalize by bin range between max lower and max upper
-            if((sel_norm_bin1(flt) >= 0) && (sel_norm_bin2(flt) >= 0)){
-              max_sel = 0;
-              for(int bin = sel_norm_bin1(flt); bin <= sel_norm_bin2(flt); bin++) {
-                max_sel += selectivity(flt, sex, bin, yr)/(sel_norm_bin2(flt) - sel_norm_bin1(flt) + 1);
-              }
-            }
-
-            // Normalize
-            for(int bin = 0; bin < nbins; bin++){
-              selectivity(flt, sex, bin, yr) /= max_sel;
+            // Find max
+            if(selectivity(flt, sex, bin, yr) > max_sel){
+              max_sel = selectivity(flt, sex, bin, yr);
             }
           }
         }
-      }
 
-      // 2. Normalize by max for each fishery and year across bins, and sexes
-      if((sel_type < 5) && (sel_norm_bin1(flt) < 0) && (sel_norm_bin1(flt) > -500)) {
-        for(int yr = 0; yr < nyrs_hind; yr++) {
-          max_sel = 0;
-          for(int bin = 0; bin < nbins; bin++){
-            for(int sex = 0; sex < nsex(sp); sex++){
-              // Find max
-              if(selectivity(flt, sex, bin, yr) > max_sel){
-                max_sel = selectivity(flt, sex, bin, yr);
-              }
-            }
-          }
-
-          // Normalize selectivity
-          for(int bin = 0; bin < nbins; bin++){
-            for(int sex = 0; sex < nsex(sp); sex++){
-              selectivity(flt, sex, bin, yr) /= max_sel;
-            }
+        // Normalize selectivity
+        for(int bin = 0; bin < nbins; bin++){
+          for(int sex = 0; sex < nsex(sp); sex++){
+            selectivity(flt, sex, bin, yr) /= max_sel;
           }
         }
       }
     }
+  }
 
-    // Project outwards assuming final years selectivity
-    for(int yr = nyrs_hind; yr < nyrs; yr++) {
-      for(int bin = 0; bin < nbins; bin++){
-        for(int sex = 0; sex < nsex(sp); sex++){
-          selectivity(flt, sex, bin, yr) = selectivity(flt, sex, bin, nyrs_hind - 1);
-        }
+  // Project outwards assuming final years selectivity
+  for(int yr = nyrs_hind; yr < nyrs; yr++) {
+    for(int bin = 0; bin < nbins; bin++){
+      for(int sex = 0; sex < nsex(sp); sex++){
+        selectivity(flt, sex, bin, yr) = selectivity(flt, sex, bin, nyrs_hind - 1);
       }
     }
   }
@@ -218,6 +214,7 @@ void calculate_age_selectivity(
     int sel_type = flt_sel_type(flt);
     int n_sel_bins = flt_n_sel_bins(flt);
     if (sel_type == 0) continue;
+    if (sel_type > 5) continue; // Length-based
 
     for (int yr = 0; yr < nyrs_hind; yr++) {
       for (int sex = 0; sex < nsex(sp); sex++) {
@@ -310,27 +307,27 @@ void calculate_age_selectivity(
           }
           break;
         }
-      }
-    }
-  }
 
+      } // End sex
+    } // End year
 
-  // Normalize and project selectivity
-  // - code in "selectivity.hpp"
-  normalize_and_project_selectivity(
-    n_flt,
-    nyrs_hind,
-    nyrs,
-    flt_spp,
-    flt_sel_type,
-    bin_first_selected,
-    nages,
-    nlengths,
-    nsex,
-    sel_norm_bin1,
-    sel_norm_bin2,
-    sel_at_age
-  );
+    // Normalize and project selectivity
+    // - code in "selectivity.hpp"
+    normalize_and_project_selectivity(
+      flt,
+      nyrs_hind,
+      nyrs,
+      flt_spp,
+      flt_sel_type,
+      bin_first_selected,
+      nages,
+      nlengths,
+      nsex,
+      sel_norm_bin1,
+      sel_norm_bin2,
+      sel_at_age
+    );
+  } // End fleet
 }
 
 /**
@@ -547,25 +544,25 @@ void calculate_length_selectivity(
         }
       } // End sex
     } // End yr
+
+
+    // Normalize and project selectivity
+    // - code in "selectivity.hpp"
+    normalize_and_project_selectivity(
+      flt,
+      nyrs_hind,
+      nyrs,
+      flt_spp,
+      flt_sel_type,
+      bin_first_selected,
+      nages,
+      nlengths,
+      nsex,
+      sel_norm_bin1,
+      sel_norm_bin2,
+      sel_at_length // Modified by reference
+    );
   } // End flt
-
-
-  // Normalize and project selectivity
-  // - code in "selectivity.hpp"
-  normalize_and_project_selectivity(
-    n_flt,
-    nyrs_hind,
-    nyrs,
-    flt_spp,
-    flt_sel_type,
-    bin_first_selected,
-    nages,
-    nlengths,
-    nsex,
-    sel_norm_bin1,
-    sel_norm_bin2,
-    sel_at_length // Modified by reference
-  );
 
 
   // Convert length-based selectivity to age-based
