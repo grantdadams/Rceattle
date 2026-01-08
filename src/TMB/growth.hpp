@@ -274,7 +274,7 @@ void estimate_growth_within_yr(
   Type Lmin_sp = lengths(sp, 0);
   Type Lmax_sp = lengths(sp, nlengths(sp) - 1);
   Type age_L1 = minage(sp);
-  Type age_L1_ceil = minage(sp); // FIXME: adjust?
+  //Type age_L1_ceil = minage(sp); // FIXME: adjust?
 
   for(int sex = 0; sex < nsex(sp); sex++) {
     for(int yr = 0; yr < nyrs; yr++) {
