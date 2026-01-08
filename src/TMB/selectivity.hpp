@@ -1,7 +1,127 @@
 
-// update selectivity normalization for length-based
-// update age first selected to bin first selected
-// update map and parameter dimensions in main model
+/**
+ * @brief Performs final normalization and projection of fishery selectivity (age/length) across all fleets.
+ * * @details This function iterates through all fleets to process selectivity data.
+ * It handles:
+ * 1. Zeroing out selectivity for ages below bin_first_selected.
+ * 2. Normalizing selectivity values based on a single age (sel_norm_bin1 >= 0),
+ * an age range average (sel_norm_bin2 >= 0), or the maximum value
+ * across all ages/sexes (sel_norm_bin1 between -1 and -499).
+ * 3. Projecting the final year of hindcast selectivity into future projection years.
+ *
+ * @param n_flt Total number of fleets to iterate through.
+ * @param nyrs_hind Total number of years in the hindcast period.
+ * @param nyrs Total number of years including projection.
+ * @param flt_spp Function/Array mapping fleet index to species index.
+ * @param flt_sel_type Function/Array mapping fleet index to selectivity type.
+ * @param bin_first_selected Array/function returning the minimum age/length bin of selection for a fleet.
+ * @param nages Array/function returning the number of ages for a species.
+ * @param nlengths Array/function returning the number of length bins for a species.
+ * @param nsex Array/function returning the number of sexes for a species.
+ * @param sel_norm_bin1 Array/function returning the normalization age or control flag.
+ * @param sel_norm_bin2 Array/function returning the upper bound for age-range normalization.
+ * @param sel_at_age 4D container (fleet, sex, age, year) modified in-place.
+ */
+template<class Type>
+void normalize_and_project_selectivity(
+    const int& n_flt,
+    const int& nyrs_hind,
+    const int& nyrs,
+    const vector<int>&  flt_spp,
+    const vector<int>&  flt_sel_type,
+    const vector<int>&  bin_first_selected,
+    const vector<int>&  nages,
+    const vector<int>&  nlengths,
+    const vector<int>&  nsex,
+    const vector<int>&  sel_norm_bin1,
+    const vector<int>&  sel_norm_bin2,
+    array<Type> &selectivity // Modified by reference
+) {
+  Type max_sel; // Local declaration for safety
+
+  for (int flt = 0; flt < n_flt; flt++) {
+    int sp = flt_spp(flt);
+    int sel_type = flt_sel_type(flt);
+    int nbins = (sel_type < 6) ? nages(sp) : nlengths(sp);
+
+    if (sel_type <= 0) continue;
+
+    // Ages not selected
+    for(int yr = 0; yr < nyrs_hind; yr++) {
+      for(int bin = 0; bin < nbins; bin++){
+        for(int sex = 0; sex < nsex(sp); sex++){
+          if(bin < bin_first_selected(flt)){
+            selectivity(flt, sex, bin, yr) = 0;
+          }
+        }
+      }
+    }
+
+    // Normalize selectivity
+    if(sel_norm_bin1(flt) > -500){
+
+      // 1. Normalize by selectivity by specific bin or bin-range
+      if((sel_norm_bin1(flt) >= 0) && (sel_type < 5)) {
+        for(int yr = 0; yr < nyrs_hind; yr++) {
+          for(int sex = 0; sex < nsex(sp); sex++){
+
+            // Single-normalization bin
+            if((sel_norm_bin1(flt) >= 0) && (sel_norm_bin2(flt) < 0)){
+              max_sel = 0.001;
+              max_sel = max2(max_sel, selectivity(flt, sex, sel_norm_bin1(flt), yr));
+            }
+
+            // Normalize by bin range between max lower and max upper
+            if((sel_norm_bin1(flt) >= 0) && (sel_norm_bin2(flt) >= 0)){
+              max_sel = 0;
+              for(int bin = sel_norm_bin1(flt); bin <= sel_norm_bin2(flt); bin++) {
+                max_sel += selectivity(flt, sex, bin, yr)/(sel_norm_bin2(flt) - sel_norm_bin1(flt) + 1);
+              }
+            }
+
+            // Normalize
+            for(int bin = 0; bin < nbins; bin++){
+              selectivity(flt, sex, bin, yr) /= max_sel;
+            }
+          }
+        }
+      }
+
+      // 2. Normalize by max for each fishery and year across bins, and sexes
+      if((sel_type < 5) && (sel_norm_bin1(flt) < 0) && (sel_norm_bin1(flt) > -500)) {
+        for(int yr = 0; yr < nyrs_hind; yr++) {
+          max_sel = 0;
+          for(int bin = 0; bin < nbins; bin++){
+            for(int sex = 0; sex < nsex(sp); sex++){
+              // Find max
+              if(selectivity(flt, sex, bin, yr) > max_sel){
+                max_sel = selectivity(flt, sex, bin, yr);
+              }
+            }
+          }
+
+          // Normalize selectivity
+          for(int bin = 0; bin < nbins; bin++){
+            for(int sex = 0; sex < nsex(sp); sex++){
+              selectivity(flt, sex, bin, yr) /= max_sel;
+            }
+          }
+        }
+      }
+    }
+
+    // Project outwards assuming final years selectivity
+    for(int yr = nyrs_hind; yr < nyrs; yr++) {
+      for(int bin = 0; bin < nbins; bin++){
+        for(int sex = 0; sex < nsex(sp); sex++){
+          selectivity(flt, sex, bin, yr) = selectivity(flt, sex, bin, nyrs_hind - 1);
+        }
+      }
+    }
+  }
+}
+
+
 
 /**
  * @brief Calculates fishery and survey selectivity across fleets, sexes, ages, and years.
@@ -20,6 +140,7 @@
  * @param styr Start year (for indexing).
  * @param nsex Vector of number of sexes per species.
  * @param nages Vector of max age per species.
+ * @param nlengths Vector of max length bin per species.
  * @param flt_spp Vector mapping fleet to species index.
  * @param flt_sel_type Functional form index per fleet.
  * @param bin_first_selected Minimum age/length bin selected.
@@ -46,6 +167,7 @@ void calculate_age_selectivity(
     const int& styr,
     const vector<int>&  nsex,
     const vector<int>&  nages,
+    const vector<int>&  nlengths,
     const vector<int>&  flt_spp,
     const vector<int>&  flt_sel_type,
     const vector<int>&  bin_first_selected,
@@ -191,6 +313,24 @@ void calculate_age_selectivity(
       }
     }
   }
+
+
+  // Normalize and project selectivity
+  // - code in "selectivity.hpp"
+  normalize_and_project_selectivity(
+    n_flt,
+    nyrs_hind,
+    nyrs,
+    flt_spp,
+    flt_sel_type,
+    bin_first_selected,
+    nages,
+    nlengths,
+    nsex,
+    sel_norm_bin1,
+    sel_norm_bin2,
+    sel_at_age
+  );
 }
 
 /**
@@ -250,7 +390,7 @@ void convert_length_selectivity(
  * * @param nspp Number of species.
  * @param n_flt Number of fleets (fisheries and surveys).
  * @param nsex Vector of number of sexes per species.
- * @param nlengths Vector of max length per species.
+ * @param nlengths Vector of max length bin per species.
  * @param lengths Matrix of length bin boundaries (nspp x length_bins).
  * @param nyrs Total years (including hindcast and projection).
  * @param nyrs_hind Number of hindcast years.
@@ -405,9 +545,37 @@ void calculate_length_selectivity(
           }
           break;
         }
+      } // End sex
+    } // End yr
+  } // End flt
 
 
-        // Convert length-based selectivity to age-based
+  // Normalize and project selectivity
+  // - code in "selectivity.hpp"
+  normalize_and_project_selectivity(
+    n_flt,
+    nyrs_hind,
+    nyrs,
+    flt_spp,
+    flt_sel_type,
+    bin_first_selected,
+    nages,
+    nlengths,
+    nsex,
+    sel_norm_bin1,
+    sel_norm_bin2,
+    sel_at_length // Modified by reference
+  );
+
+
+  // Convert length-based selectivity to age-based
+  for (int flt = 0; flt < n_flt; flt++) {
+    int sp = flt_spp(flt);
+    int sel_type = flt_sel_type(flt);
+    if (sel_type < 6) continue;
+
+    for (int yr = 0; yr < nyrs; yr++) {
+      for (int sex = 0; sex < nsex(sp); sex++) {
         int wtind = nspp * 2 + flt;
         convert_length_selectivity(
           flt,
@@ -424,126 +592,4 @@ void calculate_length_selectivity(
       } // End sex
     } // End yr
   } // End flt
-}
-
-
-/**
- * @brief Performs final normalization and projection of fishery selectivity across all fleets.
- * * @details This function iterates through all fleets to process selectivity data.
- * It handles:
- * 1. Zeroing out selectivity for ages below bin_first_selected.
- * 2. Normalizing selectivity values based on a single age (sel_norm_bin1 >= 0),
- * an age range average (sel_norm_bin2 >= 0), or the maximum value
- * across all ages/sexes (sel_norm_bin1 between -1 and -499).
- * 3. Projecting the final year of hindcast selectivity into future projection years.
- *
- * @param n_flt Total number of fleets to iterate through.
- * @param nyrs_hind Total number of years in the hindcast period.
- * @param nyrs Total number of years including projection.
- * @param flt_spp Function/Array mapping fleet index to species index.
- * @param flt_sel_type Function/Array mapping fleet index to selectivity type.
- * @param bin_first_selected Array/function returning the minimum age/length bin of selection for a fleet.
- * @param nages Array/function returning the number of ages for a species.
- * @param nsex Array/function returning the number of sexes for a species.
- * @param sel_norm_bin1 Array/function returning the normalization age or control flag.
- * @param sel_norm_bin2 Array/function returning the upper bound for age-range normalization.
- * @param sel_at_age 4D container (fleet, sex, age, year) modified in-place.
- */
-
-template<class Type>
-void normalize_and_project_selectivity(
-    const int& n_flt,
-    const int& nyrs_hind,
-    const int& nyrs,
-    const vector<int>&  flt_spp,
-    const vector<int>&  flt_sel_type,
-    const vector<int>&  bin_first_selected,
-    const vector<int>&  nages,
-    const vector<int>&  nsex,
-    const vector<int>&  sel_norm_bin1,
-    const vector<int>&  sel_norm_bin2,
-    array<Type> &sel_at_age // Modified by reference
-) {
-  Type max_sel; // Local declaration for safety
-
-  for (int flt = 0; flt < n_flt; flt++) {
-    int sp = flt_spp(flt);
-    int sel_type = flt_sel_type(flt);
-    // int n_sel_bins = flt_n_sel_bins(flt); // Note: defined but currently unused in logic
-
-    if(sel_type > 0) {
-      // Ages not selected
-      for(int yr = 0; yr < nyrs_hind; yr++) {
-        for(int age = 0; age < nages(sp); age++){
-          for(int sex = 0; sex < nsex(sp); sex++){
-            if(age < bin_first_selected(flt)){
-              sel_at_age(flt, sex, age, yr) = 0;
-            }
-          }
-        }
-      }
-
-      // Normalize selectivity
-      if(sel_norm_bin1(flt) > -500){
-
-        // 1. Normalize by selectivity by specific age or age-range
-        if((sel_norm_bin1(flt) >= 0) && (sel_type < 5)) {
-          for(int yr = 0; yr < nyrs_hind; yr++) {
-            for(int sex = 0; sex < nsex(sp); sex++){
-
-              // Single-normalization age
-              if((sel_norm_bin1(flt) >= 0) && (sel_norm_bin2(flt) < 0)){
-                max_sel = 0.001;
-                max_sel = max2(max_sel, sel_at_age(flt, sex, sel_norm_bin1(flt), yr));
-              }
-
-              // Normalize by age range between max lower and max upper
-              if((sel_norm_bin1(flt) >= 0) && (sel_norm_bin2(flt) >= 0)){
-                max_sel = 0;
-                for(int age = sel_norm_bin1(flt); age <= sel_norm_bin2(flt); age++) {
-                  max_sel += sel_at_age(flt, sex, age, yr)/(sel_norm_bin2(flt) - sel_norm_bin1(flt) + 1);
-                }
-              }
-
-              // Normalize
-              for(int age = 0; age < nages(sp); age++){
-                sel_at_age(flt, sex, age, yr) /= max_sel;
-              }
-            }
-          }
-        }
-
-        // 2. Normalize by max for each fishery and year across ages, and sexes
-        if((sel_type < 5) && (sel_norm_bin1(flt) < 0) && (sel_norm_bin1(flt) > -500)) {
-          for(int yr = 0; yr < nyrs_hind; yr++) {
-            max_sel = 0;
-            for(int age = 0; age < nages(sp); age++){
-              for(int sex = 0; sex < nsex(sp); sex++){
-                // Find max
-                if(sel_at_age(flt, sex, age, yr) > max_sel){
-                  max_sel = sel_at_age(flt, sex, age, yr);
-                }
-              }
-            }
-
-            // Normalize selectivity
-            for(int age = 0; age < nages(sp); age++){
-              for(int sex = 0; sex < nsex(sp); sex++){
-                sel_at_age(flt, sex, age, yr) /= max_sel;
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // Project outwards assuming final years selectivity
-    for(int yr = nyrs_hind; yr < nyrs; yr++) {
-      for(int age = 0; age < nages(sp); age++){
-        for(int sex = 0; sex < nsex(sp); sex++){
-          sel_at_age(flt, sex, age, yr) = sel_at_age(flt, sex, age, nyrs_hind - 1);
-        }
-      }
-    }
-  }
 }

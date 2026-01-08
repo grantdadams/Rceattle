@@ -592,7 +592,8 @@ Type objective_function<Type>::operator() () {
 
 
   // 5.6. SELECTIVITY
-  // "sel_at_age" modified via pass-by-reference
+  // "sel_at_age" and "sel_at_length" modified via pass-by-reference
+  // when "sel_at_length" is used, it is converted to "sel_at_age" using the growth matrix
   // 1) Age based selectivity
   // - code in "selectivity.hpp"
   calculate_age_selectivity(
@@ -600,6 +601,7 @@ Type objective_function<Type>::operator() () {
     nyrs, nyrs_hind, styr,
     nsex,
     nages,
+    nlengths,
     flt_spp,
     flt_sel_type,
     bin_first_selected,
@@ -648,22 +650,6 @@ Type objective_function<Type>::operator() () {
     sel_at_length,      // Modified
     sel_at_age,         // Modified
     growth_matrix
-  );
-
-  // 3) Normalize and project selectivity
-  // - code in "selectivity.hpp"
-  normalize_and_project_selectivity(
-    n_flt,
-    nyrs_hind,
-    nyrs,
-    flt_spp,
-    flt_sel_type,
-    bin_first_selected,
-    nages,
-    nsex,
-    sel_norm_bin1,
-    sel_norm_bin2,
-    sel_at_age
   );
 
 
@@ -2623,13 +2609,16 @@ Type objective_function<Type>::operator() () {
     }
 
     // Hindcast
+    Type Frate = 0.0;
     if(yr < nyrs_hind){
       yr_ind = yr;
+      Type Frate = exp(ln_F(flt, yr));
     }
 
     // Projection
     if(yr >= nyrs_hind){
       yr_ind = nyrs_hind - 1;
+      Type Frate = proj_F_prop(flt) * proj_F(sp, yr);
     }
 
     // 11.1.1. Estimated growth
@@ -2640,15 +2629,16 @@ Type objective_function<Type>::operator() () {
 
             switch(flt_type(flt)){
             case 1: // - Fishery
-              // FIXME: we can use either age or length selectivity
-              pred_CAAL(flt, sex, age, ln, yr) = F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr) * growth_matrix(wtind,  sex, age, ln, yr); // * F_flt_ln(flt, sex, ln, yr)
-              //selAA*selLL * F
+              if(flt_sel_type(flt) > 6){
+                pred_CAAL(flt, sex, age, ln, yr) = sel_at_length(flt, sex, ln, yr) * Frate / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr) * growth_matrix(wtind,  sex, age, ln, yr);
+              }
               break;
 
 
             case 2: // - Survey
-              pred_CAAL(flt, sex, age, ln, yr) = N_at_age(sp, sex, age, yr)  * sel_at_age(flt, sex, age, yr) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr)) * growth_matrix(wtind,  sex, age, ln, yr); //TODO length-based selectivity
-              // * sel_ln(flt, sex, ln, yr)
+              if(flt_sel_type(flt) > 6){
+                pred_CAAL(flt, sex, age, ln, yr) = N_at_age(sp, sex, age, yr) * sel_at_length(flt, sex, ln, yr) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr)) * growth_matrix(wtind,  sex, age, ln, yr);
+              }
               break;
             }
           }
@@ -2867,7 +2857,9 @@ Type objective_function<Type>::operator() () {
     } // End empirical weight-at-age loop
 
     // Standardize to sum to 1
-    comp_hat.row(comp_ind) /= comp_hat.row(comp_ind).sum();
+    Type penalty = 0.0;
+    comp_hat.row(comp_ind) /= posfun(comp_hat.row(comp_ind).sum(), Type(0.001), penalty);
+    (void) penalty;
   }
 
 
@@ -2902,26 +2894,34 @@ Type objective_function<Type>::operator() () {
       yr = -yr - styr;
     }
     // Hindcast
+    Type Frate = 0.0;
     if(yr < nyrs_hind){
       yr_ind = yr;
+      Type Frate = exp(ln_F(flt, yr));
     }
 
     // Projection
     if(yr >= nyrs_hind){
       yr_ind = nyrs_hind - 1;
+      Type Frate = proj_F_prop(flt) * proj_F(sp, yr);
     }
 
 
     for(age = 0; age < nages(sp); age++) {
 
-      // - Fishery
-      if(flt_type(flt) == 1){
-        pred_CAAL(flt, sex, age, ln, yr) = F_flt_age(flt, sex, age, yr) / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr) * growth_matrix(wtind,  sex, age, ln, yr);
-      }
+      switch(flt_type(flt)){
+      case 1: // - Fishery
+        if(flt_sel_type(flt) > 6){
+          pred_CAAL(flt, sex, age, ln, yr) = sel_at_length(flt, sex, ln, yr) * Frate / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr) * growth_matrix(wtind,  sex, age, ln, yr);
+        }
+        break;
 
-      // - Survey
-      if(flt_type(flt) == 2){
-        pred_CAAL(flt, sex, age, ln, yr) = N_at_age(sp, sex, age, yr)  * sel_at_age(flt, sex, age, yr) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr)) * growth_matrix(wtind,  sex, age, ln, yr);
+
+      case 2: // - Survey
+        if(flt_sel_type(flt) > 6){
+          pred_CAAL(flt, sex, age, ln, yr) = N_at_age(sp, sex, age, yr) * sel_at_length(flt, sex, ln, yr) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr)) * growth_matrix(wtind,  sex, age, ln, yr);
+        }
+        break;
       }
     }
 
@@ -2933,7 +2933,9 @@ Type objective_function<Type>::operator() () {
     }
 
     //  Observed CAAL standardize to sum to 1
-    caal_hat.row(caal_ind) /= caal_hat.row(caal_ind).sum();
+    Type penalty = 0.0;
+    caal_hat.row(caal_ind) /= posfun(caal_hat.row(caal_ind).sum(), Type(0.0001), penalty);
+    (void) penalty;
   }
 
 
@@ -4108,7 +4110,7 @@ Type objective_function<Type>::operator() () {
    REPORT( ration_hat );
    REPORT( ration_hat_ave );
    */
-
+  REPORT(mort_sum);
 
   /** ------------------------------------------------------------------------ //
    // 13. END MODEL                                                             //
