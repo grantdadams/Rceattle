@@ -12,6 +12,7 @@ sel_at_length  <- 1/(1+exp(-0.3 * (lengths - 35)))
 # Growth matrix (length-to-age)
 growth_matrix <- matrix(rnorm(nlengths*nages), nlengths, nages)
 growth_matrix <- apply(growth_matrix, 2, function(x) x/sum(x))
+alk <- solve(t(growth_matrix) %*% growth_matrix) %*% t(growth_matrix)
 
 # Population characteristics
 NAA <- 10:1
@@ -19,7 +20,7 @@ MAA <- rep(0.2, nages)
 Frate <- 0.3
 
 # Calculate total mortality at age
-sel_at_age <- t(growth_matrix) %*% sel_at_length # Convert selectivity from length-based to age-based
+sel_at_age <- alk %*% sel_at_length # Convert selectivity from length-based to age-based
 FAA = sel_at_age * Frate
 ZAA = MAA + sel_at_age * Frate
 
