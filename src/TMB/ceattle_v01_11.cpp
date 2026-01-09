@@ -2679,13 +2679,13 @@ Type objective_function<Type>::operator() () {
             switch(flt_sex){
             case 0: // Sexes combined or 1 sex assessment
               for(sex = 0; sex < nsex(sp); sex ++){
-                comp_hat(comp_ind, ln ) += pred_CAAL(flt, sex, ln, age, yr);
+                comp_hat(comp_ind, ln ) += pred_CAAL(flt, sex, age, ln, yr);
               }
               break;
 
             case 1: case 2: // Sex-specific composition data
               sex = flt_sex - 1;
-              comp_hat(comp_ind, ln ) += pred_CAAL(flt, sex, ln, age, yr);
+              comp_hat(comp_ind, ln ) += pred_CAAL(flt, sex, age, ln, yr);
               break;
 
             case 3: // Joint composition data
