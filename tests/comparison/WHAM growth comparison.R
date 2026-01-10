@@ -159,6 +159,7 @@ simData$spawn_month <- 0
 simData$alpha_wt_len <- 5.56e-06
 simData$beta_wt_len <- 3.2
 simData$pop_age_transition_index <- 1
+simData$sigma_rec_prior <- 0.6
 nages <- simData$nages
 nlengths <- simData$nlengths
 
@@ -366,7 +367,7 @@ ss_inits <- Rceattle::fit_mod(data_list = simData,
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
                               phase = FALSE,
-                              initMode = 2,
+                              initMode = 1,
                               verbose = 1)
 
 
@@ -438,17 +439,26 @@ plot(x = wham_model$rep$pred_catch_pal[,1,], y = ss_inits$quantities$comp_hat[(n
 
 # - Likelihood
 ss_inits$quantities$jnll_comp
+sum(wham_model$rep$nll_agg_catch)
+sum(wham_model$rep$nll_catch_lcomp)
+
+sum(wham_model$rep$nll_agg_indices)
+sum(wham_model$rep$nll_index_lcomp) # Comps use LL model 1
+sum(wham_model$rep$nll_index_caal)
+
+wham_model$rep$nll_NAA # Uses lognormal bias correction
 
 
 # Estimate Rceattle ----
+#FIXME: Finit for initmode 3 and 4
 ss_est <- Rceattle::fit_mod(data_list = simData,
                             inits = NULL, # Initial parameters = 0
-                            estimateMode = 3, # estimate
+                            estimateMode = 0, # estimate
                             growthFun = build_growth(growth_model = 1), # Von Bert
-                            random_rec = TRUE, # No random recruitment
+                            random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
-                            phase = TRUE,
-                            initMode = 3,
+                            phase = FALSE,
+                            initMode = 2,
                             verbose = 1)
 
 wham_ests <- ss_est
