@@ -38,7 +38,7 @@ ebs_ricker_run <- Rceattle::fit_mod(
                      srr_pred_fun = 3,
                      proj_mean_rec = FALSE,
                      srr_est_mode = 1,
-                     srr_prior_mean = alpha,
+                     srr_prior = alpha,
                      srr_prior_sd = 0.2),
   random_rec = FALSE, # No random recruitment
   msmMode = 0, # Single species mode
@@ -59,7 +59,7 @@ ebs_ricker_run_re <- Rceattle::fit_mod(
                      srr_pred_fun = 3,
                      proj_mean_rec = FALSE,
                      srr_est_mode = 1,
-                     srr_prior_mean = alpha,
+                     srr_prior = alpha,
                      srr_prior_sd = 0.2),
   random_rec = TRUE, # Random recruitment
   msmMode = 0, # Single species mode
@@ -193,7 +193,7 @@ profile_rsigma <- function(model = NULL, rsigma_vec = NULL, species = NULL){
                          srr_meanyr = model$data_list$srr_meanyr,
                          R_hat_yr = model$data_list$R_hat_yr,
                          srr_est_mode  = model$data_list$srr_est_mode ,
-                         srr_prior_mean  = model$data_list$srr_prior_mean,
+                         srr_prior  = model$data_list$srr_prior,
                          srr_prior_sd   = model$data_list$srr_prior_sd,
                          Bmsy_lim = model$data_list$Bmsy_lim,
                          srr_env_indices = model$data_list$srr_env_indices),
@@ -364,7 +364,7 @@ fix_sigmaR <- function(model = NULL, fix_sigmaR = TRUE, bias.correct = FALSE){
                        srr_meanyr = model$data_list$srr_meanyr,
                        R_hat_yr = model$data_list$R_hat_yr,
                        srr_est_mode  = model$data_list$srr_est_mode ,
-                       srr_prior_mean  = model$data_list$srr_prior_mean,
+                       srr_prior  = model$data_list$srr_prior,
                        srr_prior_sd   = model$data_list$srr_prior_sd,
                        Bmsy_lim = model$data_list$Bmsy_lim,
                        srr_env_indices = model$data_list$srr_env_indices),

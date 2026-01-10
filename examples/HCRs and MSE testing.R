@@ -294,7 +294,7 @@ mse2 <- run_mse(om = ss_run_M, em = ss_run, nsim = 1, assessment_period = 1, sam
 
 # -- NPFMC Tier 3 HCRs
 # - MS-OM: SS-EM Tier 3 HCR
-mse3 <- run_mse(om = ss_mod_ricker, em = ss_mod, nsim = 1, assessment_period = 1, sampling_period = 1, simulate_data = FALSE, sample_rec = TRUE, cap = 10)
+mse3 <- run_mse(om = ss_run_ricker, em = ss_run, nsim = 1, assessment_period = 1, sampling_period = 1, simulate_data = FALSE, sample_rec = TRUE, cap = 10)
 
 # - SS-OM: SS-EM Tier 3 HCR
 mse4 <- run_mse(om = ss_run_M, em = ss_run_Tier3, nsim = 1, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
