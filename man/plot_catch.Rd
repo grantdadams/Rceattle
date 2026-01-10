@@ -21,6 +21,7 @@ plot_catch(
   ymax = NULL,
   maxyr = NULL,
   mse = FALSE,
+  error = TRUE,
   fleets = NULL
 )
 }
@@ -48,7 +49,19 @@ function.}
 
 \item{height}{plot hight}
 
+\item{alpha}{Transparency of lines for MSE plots}
+
+\item{lwd}{Line width}
+
+\item{ymax}{Fleet specific upper ylim}
+
+\item{maxyr}{Max year to plot}
+
 \item{mse}{Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}. Will plot data from OMs.}
+
+\item{error}{Include observed data with error bars?}
+
+\item{fleets}{Which fishing fleets to include (defaults to all = NULL)}
 }
 \description{
 Plot of fitted landings data on natural-scale (r4ss-style)
