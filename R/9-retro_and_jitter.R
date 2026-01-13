@@ -194,7 +194,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
         recFun = build_srr(srr_fun = data_list$srr_fun,
                            srr_pred_fun  = data_list$srr_pred_fun ,
                            proj_mean_rec  = data_list$proj_mean_rec ,
-                           srr_meanyr = min(data_list$srr_meanyr, endyr_peel), # Update end year if less than srr_meanyr
+                           srr_mse_switchyr = min(data_list$srr_mse_switchyr, endyr_peel), # Update end year if less than srr_mse_switchyr
                            srr_hat_styr = data_list$srr_hat_styr,
                            srr_hat_endyr = min(data_list$srr_hat_endyr, endyr_peel),
                            srr_est_mode  = data_list$srr_est_mode ,
@@ -272,7 +272,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
         recFun = build_srr(srr_fun = data_list$srr_fun,
                            srr_pred_fun  = data_list$srr_pred_fun ,
                            proj_mean_rec  = data_list$proj_mean_rec ,
-                           srr_meanyr = min(data_list$srr_meanyr, endyr_peel), # Update end year if less than srr_meanyr
+                           srr_mse_switchyr = min(data_list$srr_mse_switchyr, endyr_peel), # Update end year if less than srr_mse_switchyr
                            srr_hat_styr = data_list$srr_hat_styr,
                            srr_hat_endyr = min(data_list$srr_hat_endyr, endyr_peel),
                            srr_est_mode  = data_list$srr_est_mode ,
@@ -486,7 +486,7 @@ jitter <- function(Rceattle = NULL, njitter = 50, phase = FALSE, seed = 123) {
             recFun = build_srr(srr_fun = data_list$srr_fun,
                                srr_pred_fun  = data_list$srr_pred_fun ,
                                proj_mean_rec  = data_list$proj_mean_rec ,
-                               srr_meanyr = min(data_list$srr_meanyr, data_list$endyr), # Update end year if less than srr_meanyr
+                               srr_mse_switchyr = min(data_list$srr_mse_switchyr, data_list$endyr), # Update end year if less than srr_mse_switchyr
                                srr_hat_styr = data_list$srr_hat_styr,
                                srr_hat_endyr = data_list$srr_hat_endyr,
                                srr_est_mode  = data_list$srr_est_mode ,

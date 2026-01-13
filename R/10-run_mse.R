@@ -102,7 +102,7 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
       recFun = build_srr(srr_fun = om$data_list$srr_fun,
                          srr_pred_fun = om$data_list$srr_pred_fun ,
                          proj_mean_rec = om$data_list$proj_mean_rec,
-                         srr_meanyr = om$data_list$srr_meanyr,
+                         srr_mse_switchyr = om$data_list$srr_mse_switchyr,
                          srr_hat_styr = om$data_list$srr_hat_styr,
                          srr_hat_endyr = om$data_list$srr_hat_endyr,
                          srr_est_mode  = om$data_list$srr_est_mode ,
@@ -226,7 +226,7 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
       recFun = build_srr(srr_fun = em$data_list$srr_fun,
                          srr_pred_fun  = em$data_list$srr_pred_fun ,
                          proj_mean_rec  = em$data_list$proj_mean_rec ,
-                         srr_meanyr = em$data_list$srr_meanyr,
+                         srr_mse_switchyr = em$data_list$srr_mse_switchyr,
                          srr_hat_styr = em$data_list$srr_hat_styr,
                          srr_hat_endyr = em$data_list$srr_hat_endyr,
                          srr_est_mode  = em$data_list$srr_est_mode ,
@@ -282,7 +282,7 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
                               recFun = build_srr(srr_fun = em$data_list$srr_fun,
                                                  srr_pred_fun  = em$data_list$srr_pred_fun ,
                                                  proj_mean_rec  = em$data_list$proj_mean_rec ,
-                                                 srr_meanyr = em$data_list$srr_meanyr,
+                                                 srr_mse_switchyr = em$data_list$srr_mse_switchyr,
                                                  srr_hat_styr = em$data_list$srr_hat_styr,
                                                  srr_hat_endyr = em$data_list$srr_hat_endyr,
                                                  srr_est_mode  = em$data_list$srr_est_mode ,
@@ -595,7 +595,7 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
               recFun = build_srr(srr_fun = om_use$data_list$srr_fun,
                                  srr_pred_fun = om_use$data_list$srr_pred_fun ,
                                  proj_mean_rec = TRUE, # Use mean R for RPs
-                                 srr_meanyr = om$data_list$srr_meanyr, # This stays the same as original OM
+                                 srr_mse_switchyr = om$data_list$srr_mse_switchyr, # This stays the same as original OM
                                  srr_hat_styr = om$data_list$srr_hat_styr,
                                  srr_hat_endyr = om$data_list$srr_hat_endyr,
                                  srr_est_mode  = om_use$data_list$srr_est_mode ,
@@ -789,7 +789,7 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
               recFun = build_srr(srr_fun = em_use$data_list$srr_fun,
                                  srr_pred_fun = em_use$data_list$srr_pred_fun,
                                  proj_mean_rec = em_use$data_list$proj_mean_rec,
-                                 srr_meanyr = em_use$data_list$endyr, # Update end year
+                                 srr_mse_switchyr = em_use$data_list$endyr, # Update end year
                                  srr_hat_styr = em_use$data_list$srr_hat_styr,
                                  srr_hat_endyr = em_use$data_list$srr_hat_endyr,
                                  srr_est_mode  = em_use$data_list$srr_est_mode ,

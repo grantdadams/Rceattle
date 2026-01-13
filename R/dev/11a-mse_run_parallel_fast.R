@@ -126,7 +126,7 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
       recFun = build_srr(srr_fun = em$data_list$srr_fun,
                          srr_pred_fun  = em$data_list$srr_pred_fun ,
                          proj_mean_rec  = em$data_list$proj_mean_rec ,
-                         srr_meanyr = em$data_list$srr_meanyr,
+                         srr_mse_switchyr = em$data_list$srr_mse_switchyr,
                          srr_est_mode  = em$data_list$srr_est_mode ,
                          srr_prior_mean  = em$data_list$srr_prior_mean,
                          srr_prior_sd   = em$data_list$srr_prior_sd,
@@ -174,7 +174,7 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
                               recFun = build_srr(srr_fun = em$data_list$srr_fun,
                                                  srr_pred_fun  = em$data_list$srr_pred_fun ,
                                                  proj_mean_rec  = em$data_list$proj_mean_rec ,
-                                                 srr_meanyr = em$data_list$srr_meanyr,
+                                                 srr_mse_switchyr = em$data_list$srr_mse_switchyr,
                                                  srr_est_mode  = em$data_list$srr_est_mode ,
                                                  srr_prior_mean  = em$data_list$srr_prior_mean,
                                                  srr_prior_sd   = em$data_list$srr_prior_sd,
@@ -425,7 +425,7 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
       recFun = build_srr(srr_fun = om_use$data_list$srr_fun,
                          srr_pred_fun = om_use$data_list$srr_pred_fun ,
                          proj_mean_rec = om_use$data_list$proj_mean_rec, # This will update anyway to False as devs are added
-                         srr_meanyr = om_use$data_list$srr_meanyr,
+                         srr_mse_switchyr = om_use$data_list$srr_mse_switchyr,
                          srr_est_mode  = om_use$data_list$srr_est_mode ,
                          srr_prior_mean = om_use$data_list$srr_prior_mean,
                          srr_prior_sd = om_use$data_list$srr_prior_sd,
@@ -607,7 +607,7 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
         recFun = build_srr(srr_fun = em_use$data_list$srr_fun,
                            srr_pred_fun = em_use$data_list$srr_pred_fun,
                            proj_mean_rec = em_use$data_list$proj_mean_rec,
-                           srr_meanyr = em_use$data_list$endyr, # Update end year
+                           srr_mse_switchyr = em_use$data_list$endyr, # Update end year
                            srr_est_mode  = em_use$data_list$srr_est_mode ,
                            srr_prior_mean = em_use$data_list$srr_prior_mean,
                            srr_prior_sd = em_use$data_list$srr_prior_sd,
