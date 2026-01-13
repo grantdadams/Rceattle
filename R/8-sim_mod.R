@@ -253,7 +253,7 @@ sample_rec <- function(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_tre
             recFun = build_srr(srr_fun = Rceattle$data_list$srr_fun,
                                srr_pred_fun  = Rceattle$data_list$srr_pred_fun,
                                proj_mean_rec  = Rceattle$data_list$proj_mean_rec,
-                               srr_meanyr = Rceattle$data_list$srr_meanyr,
+                               srr_mse_switchyr = Rceattle$data_list$srr_mse_switchyr,
                                srr_hat_styr = Rceattle$data_list$srr_hat_styr,
                                srr_hat_endyr = Rceattle$data_list$srr_hat_endyr,
                                srr_est_mode  = Rceattle$data_list$srr_est_mode ,

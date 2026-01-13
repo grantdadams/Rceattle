@@ -73,7 +73,7 @@ Type objective_function<Type>::operator() () {
   DATA_INTEGER( endyr );                  // End of estimation years
   DATA_INTEGER( projyr );                 // End year of projection
 
-  DATA_INTEGER( srr_meanyr );             // The last year used to calculate average recruitment. Used for MSE runs.
+  DATA_INTEGER( srr_mse_switchyr );             // The last year used to calculate average recruitment. Used for MSE runs.
   DATA_INTEGER( suit_styr );              // The first year used to calculate suitability averages.
   DATA_INTEGER( suit_endyr );             // The last year used to calculate suitability averages.
   DATA_INTEGER( srr_hat_styr );           // The first year used to calculate stock-recuitment penalties or env-rec relationship.
@@ -85,7 +85,7 @@ Type objective_function<Type>::operator() () {
   suit_endyr = suit_endyr - styr;
   suit_styr = suit_styr - styr;
   int nyrs_suit = suit_endyr - suit_styr + 1;
-  int nyrs_srrmean = srr_meanyr - styr + 1;
+  int nyrs_srrmean = srr_mse_switchyr - styr + 1;
 
   srr_hat_styr = srr_hat_styr - styr;
   srr_hat_endyr = srr_hat_endyr - styr;
@@ -1031,6 +1031,7 @@ Type objective_function<Type>::operator() () {
           break;
 
         case 2: // Beverton-Holt
+          // FIXME: error when minage > 1
           R(sp, yr) = exp(rec_pars(sp, 1)) * ssb(sp, yr-minage(sp)) * exp(rec_dev(sp, yr)) / (1.0+exp(rec_pars(sp, 2)) * ssb(sp, yr-minage(sp)));
           break;
 
@@ -1120,9 +1121,12 @@ Type objective_function<Type>::operator() () {
     // -- calculate mean recruitment
     avg_R.setZero();
     for(sp = 0; sp < nspp; sp++) {
-      for(yr = 0; yr < nyrs_srrmean; yr++) {
-        avg_R(sp) += R(sp, yr)/Type(nyrs_srrmean); // Update mean rec
+      int counter = 0;
+      for(yr = srr_hat_styr; yr < srr_hat_endyr; yr++) {
+        avg_R(sp) += R(sp, yr); // Update mean rec
+        counter += 1;
       }
+      avg_R(sp) /= counter;
     }
 
     // -- Calc biomass_depletion based BRPs

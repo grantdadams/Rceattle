@@ -217,11 +217,11 @@ fit_mod <-
     data_list$srr_fun <- recFun$srr_fun
     data_list$srr_pred_fun <- recFun$srr_pred_fun
     data_list$proj_mean_rec <- recFun$proj_mean_rec
-    if(is.null(recFun$srr_meanyr) & is.null(data_list$srr_meanyr)){ # If no meanyear is provided in data or function, use end year
-      data_list$srr_meanyr <- data_list$endyr
+    if(is.null(recFun$srr_mse_switchyr) & is.null(data_list$srr_mse_switchyr)){ # If no meanyear is provided in data or function, use end year
+      data_list$srr_mse_switchyr <- data_list$endyr
     }
-    if(!is.null(recFun$srr_meanyr)){ # If mean year is provided in function, override data
-      data_list$srr_meanyr <- recFun$srr_meanyr
+    if(!is.null(recFun$srr_mse_switchyr)){ # If mean year is provided in function, override data
+      data_list$srr_mse_switchyr <- recFun$srr_mse_switchyr
     }
 
     # -- Start year

@@ -1,11 +1,10 @@
 #' Specify the stock-recruit relationship (SRR) for Rceattle
 #'
-#' @param srr_fun Stock recruit function to be used for hindcast estimation of Rceattle (see @description below). Default = 0
-#' @param srr_pred_fun stock recruit function for projection, reference points, and penalties to be used for Rceattle (see below). When \code{srr_fun == 0}, it treats treat the stock-recruit curve as an additional penalty onto the annualy estimated recruitment from the hindcast (sensu AMAK and Jim Ianelli's pollock model). If \code{srr_fun > 0} then \code{srr_pred_fun = srr_fun} and no additional penalty is included.
-#' @param proj_mean_rec Project the model using: 0 = mean recruitment (average R of hindcast) or 1 = SRR(omega, rec_devs)
-#' @param srr_meanyr Integer. The last year used to calculate mean recruitment, starting at \code{styr}. Defaults to $endyr$ in $data_list$. Used for MSE runs where mean recruitment is held at the value estimated from the years used to condition the OM, but F is estimated for years beyond those used to condition the OM to account for projected catch.
-#' @param srr_hat_styr Integer. The first year used for estimating recruitment functions as additional penalties sensu AMAK and Jim Ianelli's pollock model when \code{srr_pred_fun > 0} and \code{srr_fun = 0}, starting at \code{styr} + 1. Defaults to $styr + 1$ in $data_list$. Useful if environmental data used to condition stock-recruit relationships is not available until end-year, but projections are desired.
-#' @param srr_hat_endyr Integer. The last year used for estimating recruitment functions as additional penalties sensu AMAK and Jim Ianelli's pollock model when \code{srr_pred_fun > 0} and \code{srr_fun = 0}, starting at \code{styr}. Recruitmen Defaults to $endyr$ in $data_list$. Useful if environmental data used to condition stock-recruit relationships is not available until end-year, but projections are desired.
+#' @param srr_model Stock recruit function to be used for hindcast estimation of Rceattle (see @description below). Default = 0
+#' @param srr_forecast_model stock recruit function for projection, reference points, and penalties to be used for Rceattle (see below). When \code{srr_model == 0}, it treats treat the stock-recruit curve as an additional penalty onto the annualy estimated recruitment from the hindcast (sensu AMAK and Jim Ianelli's pollock model). If \code{srr_model > 0} then \code{srr_forecast_model = srr_model} and no additional penalty is included.
+#' @param proj_mean_rec Project the model using: 0 = mean recruitment (average R of hindcast) or 1 = SRR(omega, srr_devs)
+#' @param srr_hat_styr Integer. The first year used for deriving the forecast recruitment function (e.g. mean recruitment). It will add additional penalties sensu AMAK and Jim Ianelli's pollock model when \code{srr_forecast_model > 0} and \code{srr_model = 0}, starting at \code{styr} + 1. Defaults to $styr + 1$ in $data_list$. Useful if environmental data used to condition stock-recruit relationships is not available until end-year, but projections are desired.
+#' @param srr_hat_endyr Integer. The last year used f the forecast recruitment function (e.g. mean recruitment). It will add an additional penalties sensu AMAK and Jim Ianelli's pollock model when \code{srr_forecast_model > 0} and \code{srr_model = 0}. Recruitment Defaults to $endyr$ in $data_list$. Useful if environmental data used to condition stock-recruit relationships is not available until end-year, but projections are desired.
 #' @param srr_est_mode Switch to determine estimation mode. 0 = fix alpha to prior mean, 1 = freely estimate alpha and beta, 2 = use lognormally distributed prior for alpha (Ricker) or steepness (Beverton), 3 = use beta distributed prior for steepness (Beverton) given mean and sd.
 #' @param srr_prior mean for normally distributed prior for stock-recruit parameter
 #' @param srr_prior_sd Prior standard deviation for stock-recruit parameter
@@ -16,34 +15,34 @@
 #'
 #' **Stock recruitment relationships currently implemented in Rceattle:**
 #'
-#' - \code{srr_fun = 0} No stock recruit relationship. Recruitment is a function of R0 and annual deviates (i.e. steepness = 0.99).
+#' - \code{srr_model = 0} No stock recruit relationship. Recruitment is a function of R0 and annual deviates (i.e. steepness = 0.99).
 #'  \deqn{R_y = exp(R0 + R_{dev,y})}
 #'
-#' - \code{srr_fun = 1} Environmentally driven recruitment without stock recruit relationship
+#' - \code{srr_model = 1} Environmentally driven recruitment without stock recruit relationship
 #'  \deqn{R_y = exp(R0 + R_{dev,y} + X * \beta_X)}
 #'
-#' - \code{srr_fun = 2} Beverton-holt stock-recruitment relationship
+#' - \code{srr_model = 2} Beverton-holt stock-recruitment relationship
 #'   \deqn{R_y = \frac{\alpha_{srr} * SB_{y-minage}}{1+\beta_{srr} * SB_{y-minage}}}
 #'
-#' - \code{srr_fun = 3} Beverton-holt stock-recruitment relationship with environmental covariates impacting larval survival rate and prior is on alpha.
+#' - \code{srr_model = 3} Beverton-holt stock-recruitment relationship with environmental covariates impacting larval survival rate and prior is on alpha.
 #'   \deqn{R_y = \frac{\alpha_{srr} * e^{X * \beta_X} * SB_{y-minage}}{1+\beta_{srr} * SB_{y-minage}}}
 #'
-#' - \code{srr_fun = 4} Ricker stock-recruitment relationship
+#' - \code{srr_model = 4} Ricker stock-recruitment relationship
 #'   \deqn{R_y = \alpha_{srr} * SB_{y-minage} * exp(-\beta_{srr} * SB_{y-minage})}
 #'
-#' - \code{srr_fun = 5} Ricker stock-recruitment relationship with environmental covariates impacting larval survival rate and prior is on alpha.
+#' - \code{srr_model = 5} Ricker stock-recruitment relationship with environmental covariates impacting larval survival rate and prior is on alpha.
 #'   \deqn{R_y = \alpha_{srr} e^{X * \beta_X} * SB_{y-minage} * exp(-\beta_{srr} * SB_{y-minage})}
 #'
-#' When \code{srr_pred_fun > 0} and \code{srr_fun = 0} recruitment in the hindcast is estimated as in \code{srr_fun = 0} \deqn{R_y = exp(R0 + R_{dev,y})}, but an additional stock recruitment relationship defined by \code{srr_pred_fun} is estimated between \code{srr_hat_styr} and \code{srr_hat_styr} and treated as an additional penalty. The stock recruitment relationship defined by \code{srr_pred_fun} is then used in the projection.
+#' When \code{srr_forecast_model > 0} and \code{srr_model = 0} recruitment in the hindcast is estimated as in \code{srr_model = 0} \deqn{R_y = exp(R0 + R_{dev,y})}, but an additional stock recruitment relationship defined by \code{srr_forecast_model} is estimated between \code{srr_hat_styr} and \code{srr_hat_styr} and treated as an additional penalty. The stock recruitment relationship defined by \code{srr_forecast_model} is then used in the projection.
 #'
 #'
 #' @return A \code{list} containing the stock recruitment relationship settings
 #' @export
 #'
-build_srr <- function(srr_fun = 0,
-                      srr_pred_fun = srr_fun,
+build_srr <- function(srr_model = 0,
+                      srr_forecast_model = srr_model,
                       proj_mean_rec = TRUE,
-                      srr_meanyr = NULL,
+                      srr_mse_switchyr = NULL,
                       srr_hat_styr = NULL,
                       srr_hat_endyr = NULL,
                       srr_est_mode = 1,
@@ -52,19 +51,21 @@ build_srr <- function(srr_fun = 0,
                       srr_indices = NA,
                       Bmsy_lim = NA){
 
+  #' srr_mse_switchyr is used for MSEs to deal with AMAK and Jim Ianelli's estimation where a stock recruit function is estimated as an additional penalty whe srr_model = 0 and srr_forecast_model > 0. It tells the model in what year to switch to the stock recruit function.
+
   # Set pred/RP/penalty to same as SR curve if SR fun > 0
-  if(srr_fun > 0){
-    srr_pred_fun = srr_fun
+  if(srr_model > 0){
+    srr_forecast_model = srr_model
   }
 
-  if(!srr_pred_fun %in% c(3,4)){
+  if(!srr_forecast_model %in% c(3,4)){
     Bmsy_lim = -999
   }
 
-  list(srr_fun = srr_fun,
-       srr_pred_fun = srr_pred_fun,
+  list(srr_model = srr_model,
+       srr_forecast_model = srr_forecast_model,
        proj_mean_rec = proj_mean_rec,
-       srr_meanyr = srr_meanyr,
+       srr_mse_switchyr = srr_mse_switchyr,
        srr_hat_styr = srr_hat_styr,
        srr_hat_endyr = srr_hat_endyr,
        srr_est_mode = srr_est_mode,
