@@ -1,6 +1,6 @@
 #' Retrospective peels
 #'
-#' @description Calculate Mohn's rho and run retrospective peels for an Rceattle model
+#' @description Calculate Mohn's rho and run retrospective peels for an Rceattle model. Note, it does not do reweighting for multinomial distributions.
 #'
 #' @param Rceattle an Rceattle model fit using \code{\link{fit_mod}}
 #' @param peels the number of retrospective peels to use in the calculation of rho and for model estimation

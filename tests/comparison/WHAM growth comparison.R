@@ -173,7 +173,7 @@ simData$fleet_control$Weight_index <- 1
 simData$fleet_control$Weight1_Numbers2 <- 1
 simData$fleet_control$Month <- c(0, 6)
 simData$fleet_control$Bin_first_selected <- 1
-simData$fleet_control$Estimate_q <- c(0, NA)
+simData$fleet_control$Catchability <- c(0, NA)
 simData$fleet_control$Q_prior <- c(1, NA)
 
 # * Index data

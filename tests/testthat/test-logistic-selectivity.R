@@ -183,7 +183,7 @@ test_that("time-varying logistic selectivity divided by max sel", {
   }
   GOA2018SS$fleet_control$Selectivity <- 1
   GOA2018SS$fleet_control$Time_varying_sel <- 1
-  GOA2018SS$fleet_control$Sel_sd_prior <- 1
+  GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
   GOA2018SS$fleet_control$Bin_first_selected <- 1
   GOA2018SS$fleet_control$Sel_norm_bin1 <- -999
 

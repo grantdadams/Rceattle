@@ -36,10 +36,10 @@ get_growth_matrix_r(
 \item{maxage_sp}{Numeric. The age at which growth enters the asymptotic phase.}
 
 \item{growth_params_sp}{Array. Dimensions (sex, yr, 4).
-Params: \link{,,1}: K, \link{,,2}: L1, \link{,,3}: Linf, \link{,,4}: Richards m.}
+Params: K, L1, Linf, Richards m.}
 
 \item{growth_ln_sd_sp}{Array. Dimensions (sex, 2).
-Log-SD of length: \link{s, 1} is SD at minage, \link{s, 2} is SD at maxage.}
+Log-SD of length: 1st param is SD at minage, 2nd param is SD at maxage.}
 
 \item{growth_model_sp}{Integer. 1 = Von Bertalanffy, 2 = Richards.}
 }

@@ -85,7 +85,7 @@ rearrange_dat <- function(data_list){
 
   # - 14) Parametric form of q
   data_list$est_index_q <- data_list$fleet_control %>%
-    dplyr::pull(Estimate_q) %>% as.integer()
+    dplyr::pull(Catchability) %>% as.integer()
 
   # - 15) Time varying q type
   data_list$index_varying_q <- data_list$fleet_control %>%
@@ -149,9 +149,11 @@ rearrange_dat <- function(data_list){
     dplyr::select(contains("Comp_")) %>%
     dplyr::mutate_all(as.numeric) %>%
     as.matrix()
-  data_list$comp_obs <- t(apply(data_list$comp_obs, 1, function(x) as.numeric(x) / sum(as.numeric(x), na.rm = TRUE))) # Normalize
-  data_list$comp_obs[is.infinite(data_list$comp_obs)] <- 0
-  data_list$comp_obs[is.na(data_list$comp_obs)] <- 0
+  if(nrow(data_list$comp_obs) > 0){ #FIXME: probably cleaner way to deal with this
+    data_list$comp_obs <- t(apply(data_list$comp_obs, 1, function(x) as.numeric(x) / sum(as.numeric(x), na.rm = TRUE))) # Normalize
+    data_list$comp_obs[is.infinite(data_list$comp_obs)] <- 0
+    data_list$comp_obs[is.na(data_list$comp_obs)] <- 0
+  }
   data_list <- check_composition_data(data_list)
 
   # 5 - CAAL data ----
@@ -168,10 +170,11 @@ rearrange_dat <- function(data_list){
     dplyr::select(contains("CAAL_")) %>%
     dplyr::mutate_all(as.numeric) %>%
     as.matrix()
-  data_list$caal_obs <- t(apply(data_list$caal_obs, 1, function(x) as.numeric(x) / sum(as.numeric(x), na.rm = TRUE))) # Normalize
-  data_list$caal_obs[is.infinite(data_list$caal_obs)] <- 0
-  data_list$caal_obs[is.na(data_list$caal_obs)] <- 0
-
+  if(nrow(data_list$caal_obs) > 0){#FIXME: probably cleaner way to deal with this
+    data_list$caal_obs <- t(apply(data_list$caal_obs, 1, function(x) as.numeric(x) / sum(as.numeric(x), na.rm = TRUE))) # Normalize
+    data_list$caal_obs[is.infinite(data_list$caal_obs)] <- 0
+    data_list$caal_obs[is.na(data_list$caal_obs)] <- 0
+  }
   data_list <- check_caal_data(data_list)
 
   # * Get lengths from CAAL ----
@@ -458,11 +461,12 @@ rearrange_dat <- function(data_list){
   data_list$ration_data <- ration_data
 
 
-  # 15 - Remove species column from alw, maturity, sex_ratio ----
+  # 15 - Remove species column from maturity and sex_ratio ----
   data_list$sex_ratio <- data_list$sex_ratio %>%
     dplyr::select(contains("Age")) %>%
     dplyr::mutate_all(as.numeric) %>%
     as.matrix()
+
   data_list$maturity <- data_list$maturity %>%
     dplyr::select(contains("Age")) %>%
     dplyr::mutate_all(as.numeric) %>%
@@ -572,7 +576,7 @@ check_composition_data <- function(data_list) {
 check_caal_data <- function(data_list) {
 
   # If no data, convert to empty matrix
-  if(is.null(dim(data_list$caal_obs))){
+  if(is.null(dim(data_list$caal_obs)) | nrow(data_list$caal_obs) == 0){
     data_list$caal_obs <- matrix(NA, ncol = 10, nrow = 0)
   } else{
 

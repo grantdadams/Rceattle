@@ -9,7 +9,6 @@
 #' @param nsex_sp Integer. Number of sexes for the species.
 #' @param nages_sp Integer. Number of age classes.
 #' @param nlengths_sp Integer. Number of length bins.
-#' @param max_nlengths Integer. Global maximum for length bins (for array sizing).
 #' @param nyrs Integer. Number of years in the simulation.
 #' @param lengths_sp Vector. Boundaries of the length bins.
 #' @param minage_sp Numeric. The reference age (L1) for growth estimation.
@@ -21,8 +20,7 @@
 #' @param growth_model_sp Integer. 1 = Von Bertalanffy, 2 = Richards.
 #'
 #' @return A 4D array of probabilities with dimensions (sex, age, length, year).
-#' @export
-get_growth_matrix_r <- function(fracyr, nsex_sp, nages_sp, nlengths_sp, max_nlengths, nyrs,
+get_growth_matrix_r <- function(fracyr, nsex_sp, nages_sp, nlengths_sp, nyrs,
                                 lengths_sp, minage_sp, maxage_sp,
                                 growth_params_sp, growth_ln_sd_sp, growth_model_sp) {
 
@@ -162,7 +160,6 @@ get_growth_matrix_r <- function(fracyr, nsex_sp, nages_sp, nlengths_sp, max_nlen
 #' The final weight-at-age is the expected value across all length bins for that age.
 #'
 #' @return A 3D array of mean weights with dimensions (sex, age, year).
-#' @export
 get_weight_at_age_r <- function(nsex_sp, nages_sp, nlengths_sp, nyrs,
                                 lengths_sp, length_at_age, growth_matrix, lw_params) {
   # Define names for the dimensions
@@ -183,7 +180,7 @@ get_weight_at_age_r <- function(nsex_sp, nages_sp, nlengths_sp, nyrs,
       beta  <- lw_params[s, y, 2]
 
       # Weight at length for all bins
-      wal <- alpha * lengths_sp ^ beta
+      wal <- alpha * (lengths_sp + (lengths_sp[2] - lengths_sp[1])/2) ^ beta
 
       for(a in 1:nages_sp) {
         # Matrix multiply: Prob(length | age) * Weight(length)
@@ -201,20 +198,23 @@ get_weight_at_age_r <- function(nsex_sp, nages_sp, nlengths_sp, nyrs,
 nyrs <- 5
 nages <- 10
 nlengths <- 20
-lengths <- seq(10, 100, length.out = nlengths)
+lengths <- 5 * 1:nlengths
 
-# Growth params: (sex, yr, param) -> params: K, L1, Linf, m
-gp <- array(rep(c(0.2, 20, 90, 1.0), each = nyrs), dim=c(1, nyrs, 4))
-gp[,,3] <- runif(nyrs, 60, 100)
-gp[,,1] <- runif(nyrs, 0.1, 0.3)
-gsd <- array(log(c(2, 5)), dim=c(1, 2))
+# - Growth params: (sex, yr, param) -> params: K, L1, Linf, m
+gp <- array(rep(c(0.3, 4.5, 90, 1.0), each = nyrs), dim=c(1, nyrs, 4))
+gsd <- array(log(3), dim=c(1, 2))
+
+# # Growth params: (sex, yr, param) -> params: K, L1, Linf, m
+# gp <- array(rep(c(0.3, 4.5, 104.5, 1.0), each = nyrs), dim=c(1, nyrs, 4))
+# # gp[,,3] <- runif(nyrs, 60, 100)
+# # gp[,,1] <- runif(nyrs, 0.1, 0.3)
+# gsd <- array(0, dim=c(1, 2))
 
 # 2. Run Growth Matrix
 gm <- get_growth_matrix_r(fracyr=0,
                           nsex_sp=1,
                           nages_sp=nages,
                           nlengths_sp=nlengths,
-                          max_nlengths=nlengths,
                           nyrs=nyrs,
                           lengths_sp=lengths,
                           minage_sp=1,
@@ -233,3 +233,5 @@ waa <- get_weight_at_age_r(nsex_sp = 1, nages_sp = nages, nlengths_sp = nlengths
                            lengths_sp = lengths, growth_matrix = gm$growth_matrix, lw_params = lw_p)
 
 print(waa[1, , 1]) # Weights for all ages in year 1
+gm$length_at_age[1, , 1] # Lengths for all ages in year 1
+gm$growth_matrix[1, , , 1]

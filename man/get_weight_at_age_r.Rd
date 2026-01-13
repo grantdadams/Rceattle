@@ -29,7 +29,7 @@ get_weight_at_age_r(
 \item{growth_matrix}{Array. 4D array (sex, age, length, year) from get_growth_matrix_r.}
 
 \item{lw_params}{Array. Dimensions (sex, yr, 2).
-Params: \link{s, y, 1} is alpha (a), \link{s, y, 2} is beta (b).}
+Params: 1st is alpha (a), 2nd is beta (b).}
 }
 \value{
 A 3D array of mean weights with dimensions (sex, age, year).

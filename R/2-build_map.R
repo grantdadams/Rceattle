@@ -836,13 +836,13 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
       # - 4 = Estimate power equation
       # - 5 = Use env index ln(q_y) = q_mu + beta * index_y
       # - 6 = Fit to env index
-      if(data_list$fleet_control$Estimate_q[i] %in% c(1, 2, 4, 5, 6)){
+      if(data_list$fleet_control$Catchability[i] %in% c(1, 2, 4, 5, 6)){
         map_list$index_ln_q[flt] <- flt
       }
 
       # - Turn on power param for:
       # - 4 = Estimate power equation
-      if (data_list$fleet_control$Estimate_q[i] %in% c(4)) {
+      if (data_list$fleet_control$Catchability[i] %in% c(4)) {
         # map_list$index_q_pow[flt] <- flt
       }
 
@@ -853,12 +853,12 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
       # - 3 = time blocks with no penalty
       # - 4 = random walk from mean following Dorn 2018 (dnorm(q_y - q_y-1, 0, sigma)
       # - If estimate_q == 5 or 6; "Time_varying_q" determines the environmental indices to be used in the equation log(q_y) = q_mu + beta * index_y or to fit to.
-      # - Estimate_q = 6 turns on time-varying deviates
+      # - Catchability = 6 turns on time-varying deviates
 
       # -- Set up time varying catchability if used (account for missing years)
-      if((data_list$fleet_control$Estimate_q[i] %in% c(1, 2) &
+      if((data_list$fleet_control$Catchability[i] %in% c(1, 2) &
           as.numeric(data_list$fleet_control$Time_varying_q[i]) %in% c(1, 2, 3, 4)) |
-         data_list$fleet_control$Estimate_q[i] == 6){
+         data_list$fleet_control$Catchability[i] == 6){
 
         # Extract survey years where data is provided
         index_data <- data_list$index_data[which(data_list$index_data$Fleet_code == flt & data_list$index_data$Year > data_list$styr & data_list$index_data$Year <= data_list$endyr),]
@@ -884,7 +884,7 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
 
       # - Turn on regression coefficients for:
       # - 5 = Estimate environmental linkage
-      if (data_list$fleet_control$Estimate_q[i] == 5) {
+      if (data_list$fleet_control$Catchability[i] == 5) {
         if(nchar(data_list$fleet_control$Time_varying_q[i]) == 1){
           turn_on <- as.numeric(data_list$fleet_control$Time_varying_q[i])
         }else{
@@ -895,7 +895,7 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
       }
 
       # - 6 = Fit to environmental index
-      if (data_list$fleet_control$Estimate_q[i] == 6) {
+      if (data_list$fleet_control$Catchability[i] == 6) {
         if(!nchar(data_list$fleet_control$Time_varying_q[i]) == 1){
           warning("Cant fit catchability deviates to multiple indices")
         }
@@ -989,9 +989,9 @@ adjust_map_shared_params <- function(map_list, data_list) {
       q_duplicate_vec <- c(which(q_index_tested == q_index[flt]), flt)
 
       # Error check selectivity type
-      if(length(unique(data_list$fleet_control$Estimate_q[q_duplicate_vec])) > 1){
+      if(length(unique(data_list$fleet_control$Catchability[q_duplicate_vec])) > 1){
         warning("Survey catchability of surveys with same Q_index is not the same")
-        warning(paste0("Double check Estimate_q in fleet_control of surveys:", paste(data_list$fleet_control$Fleet_name[q_duplicate_vec])))
+        warning(paste0("Double check Catchability in fleet_control of surveys:", paste(data_list$fleet_control$Fleet_name[q_duplicate_vec])))
       }
 
 

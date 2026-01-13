@@ -12,7 +12,7 @@ set_osa_obs = function(data_list){
   # 5 components: ecov, fleet catch (log), index catch (log), paa catch, paa index
   # do all Ecov first
   # 1. Ecov
-  if(any(data_list$fleet_control$Estimate_q == 6, na.rm = TRUE)){
+  if(any(data_list$fleet_control$Catchability == 6, na.rm = TRUE)){
     #
     # x <- as.data_list.frame(data_list$Ecov_obs)
     # x[data_list$Ecov_use_obs==0] <- NA # only include index data_list to fit in obsvec

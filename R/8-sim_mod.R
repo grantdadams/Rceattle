@@ -1,57 +1,95 @@
 #' Simulate Rceattle data
 #'
-#' @description  Simulates data used in Rceattle from the expected values etimated from Rceattle. The variances and uncertainty are the same as used in the operating model. The function currently simulates (assumed distribution) the following: survey biomass (log-normal), survey catch-at-length/age (multinomial), EIT biomass (log-normal), EIT catch-at-length/age (multinomial), total catch (kg) (log-normal), and catch-at-length/age.
+#' @description Simulates data used in Rceattle from the expected values estimated
+#' from an existing Rceattle model. The variances and uncertainty are consistent
+#' with those used in the operating model. The function simulates: survey biomass
+#' (log-normal), catch-at-age/length composition (multinomial), conditional-age-at-length (CAAL; multinomial),
+#' and total catch (log-normal).
 #'
-#' @param Rceattle CEATTLE model object exported from \code{\link{Rceattle}}
-#' @param simulate TRUE/FALSE, whether to simulate the data or export the expected value
+#' @param Rceattle A CEATTLE model object exported from \code{\link{Rceattle}}.
+#' @param simulate Logical. If \code{TRUE}, simulates data from distributions.
+#'   If \code{FALSE}, returns the expected values (hats).
 #'
+#' @return A \code{data_list} object containing the simulated or expected data
+#'   values, formatted for use in \code{Rceattle}.
 #' @export
+#'
 sim_mod <- function(Rceattle, simulate = FALSE) {
   # TODO Options for simulation diet data: multinomial, sqrt-normal, dirichlet, multinomial
   dat_sim <- Rceattle$data_list
+  quantities <- Rceattle$quantities
 
 
-  # Slot 0 -- BT survey biomass -- NFMS annual BT survey
-  ln_index_sd = Rceattle$quantities$ln_index_sd
+  # Indices of abundance/biomass ----
+  ln_index_sd <- quantities$ln_index_sd
+  index_hat <- quantities$index_hat
 
   if (simulate) {
-    # Simulate
-    values <- exp(rnorm(length(dat_sim$index_data$Observation), mean = log(Rceattle$quantities$index_hat) - (ln_index_sd^2)/2, sd = ln_index_sd))
+    # Log-normal simulation with bias correction
+    dat_sim$index_data$Observation <- exp(rnorm(
+      n = length(index_hat),
+      mean = log(index_hat) - (ln_index_sd^2) / 2,
+      sd = ln_index_sd
+    ))
   } else {
-    # Estimated value
-    values <- Rceattle$quantities$index_hat
+    # Expected value
+    dat_sim$index_data$Observation <- index_hat
   }
-  dat_sim$index_data$Observation = values
 
 
-  # Slot 1 -- Age composition
-  for (obs in 1:nrow(dat_sim$comp_data)) {
-    if (simulate & (sum(Rceattle$quantities$comp_hat[obs,], na.rm = TRUE) > 0)) {
-      # Simulate
-      #FIXME add dirichlet multinomial
-      values <- rmultinom(n = 1, size = dat_sim$comp_data$Sample_size[obs], prob = Rceattle$quantities$comp_hat[obs,])
-    } else {
-      # Expected value
-      values <- Rceattle$quantities$comp_hat[obs, ]
+  # Age/Length composition ----
+  if(nrow(dat_sim$comp_data) > 0){
+    comp_hat <- quantities$comp_hat
+    for (obs in 1:nrow(dat_sim$comp_data)) {
+      prob_vec <- comp_hat[obs, ]
+      sum_prob <- sum(prob_vec, na.rm = TRUE)
+
+      if (simulate && sum_prob > 0) {
+        # --- Multinomial ---
+        # FIXME: add Dirichlet-multinomial option
+        sim_comp <- rmultinom(n = 1, size = dat_sim$comp_data$Sample_size[obs], prob = prob_vec)
+        dat_sim$comp_data[obs, 9:ncol(dat_sim$comp_data)] <- as.vector(sim_comp)
+      } else {
+        dat_sim$comp_data[obs, 9:ncol(dat_sim$comp_data)] <- prob_vec
+      }
     }
-    dat_sim$comp_data[obs, 9:ncol(dat_sim$comp_data)] = values
+  }
+
+
+  # CAAL ----
+  caal_hat <- quantities$caal_hat
+  if(nrow(dat_sim$caal_data) > 0){
+    for (obs in 1:nrow(dat_sim$caal_data)) {
+      prob_vec <- caal_hat[obs, ]
+      sum_prob <- sum(prob_vec, na.rm = TRUE)
+
+      if (simulate && sum_prob > 0) {
+        # FIXME: add Dirichlet-multinomial option
+        sim_comp <- rmultinom(n = 1, size = dat_sim$caal_data$Sample_size[obs], prob = prob_vec)
+        dat_sim$caal_data[obs, 7:ncol(dat_sim$caal_data)] <- as.vector(sim_comp)
+      } else {
+        dat_sim$caal_data[obs, 7:ncol(dat_sim$caal_data)] <- prob_vec
+      }
+    }
   }
 
 
 
-
-  # Slot 2 -- Total catch -- Fishery observer data
-  fsh_biom_lse = Rceattle$quantities$ln_catch_sd
+  # Catch ----
+  ln_catch_sd <- quantities$ln_catch_sd
+  catch_hat <- quantities$catch_hat
 
   if (simulate) {
-    # Simulate
-    values <- exp(rnorm(length(dat_sim$catch_data$Catch), mean = log(Rceattle$quantities$catch_hat) - (fsh_biom_lse^2)/2, sd = fsh_biom_lse))
+    # Log-normal simulation with bias correction
+    dat_sim$catch_data$Catch <- exp(rnorm(
+      n = length(dat_sim$catch_data$Catch),
+      mean = log(catch_hat) - (ln_catch_sd^2) / 2,
+      sd = ln_catch_sd
+    ))
   } else {
-    # simulate value
-    values <- Rceattle$quantities$catch_hat
+    # Expected values
+    dat_sim$catch_data$Catch <- catch_hat
   }
-
-  dat_sim$catch_data$Catch = values
 
 
   #TODO
@@ -297,9 +335,9 @@ compare_sim <- function(operating_mod, simulation_mods, object = "quantities") {
 #' @param minage_sp Numeric. The reference age (L1) for growth estimation.
 #' @param maxage_sp Numeric. The age at which growth enters the asymptotic phase.
 #' @param growth_params_sp Array. Dimensions (sex, yr, 4).
-#'   Params: [,,1]: K, [,,2]: L1, [,,3]: Linf, [,,4]: Richards m.
+#'   Params: K, L1, Linf, Richards m.
 #' @param growth_ln_sd_sp Array. Dimensions (sex, 2).
-#'   Log-SD of length: [s, 1] is SD at minage, [s, 2] is SD at maxage.
+#'   Log-SD of length: 1st param is SD at minage, 2nd param is SD at maxage.
 #' @param growth_model_sp Integer. 1 = Von Bertalanffy, 2 = Richards.
 #'
 #' @return A 4D array of probabilities with dimensions (sex, age, length, year).
@@ -436,7 +474,7 @@ get_growth_matrix_r <- function(fracyr, nsex_sp, nages_sp, nlengths_sp, nyrs,
 #' @param lengths_sp Vector. Boundaries of the length bins.
 #' @param growth_matrix Array. 4D array (sex, age, length, year) from get_growth_matrix_r.
 #' @param lw_params Array. Dimensions (sex, yr, 2).
-#'   Params: [s, y, 1] is alpha (a), [s, y, 2] is beta (b).
+#'   Params: 1st is alpha (a), 2nd is beta (b).
 #'
 #' @details The function calculates midpoints for length bins to avoid bias.
 #' For the first bin, it assumes the width is equal to the second bin's width.

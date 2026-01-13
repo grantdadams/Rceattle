@@ -124,10 +124,10 @@ plot_catch(Rceattle = mod_list, model_names = mod_names, incl_proj = TRUE)
 # For recruitment, the model can estimate recruitment deviates as random effects
 ss_re <- Rceattle::fit_mod(
   data_list = mydata,
-  inits = ss_run$estimated_params, # Initial parameters = 0
+  inits = NULL, # Initial parameters = 0
   file = NULL, # Don't save
   estimateMode = 0, # Estimate
-  random_rec = TRUE, # Turn of recruitment deviations as random effects
+  random_rec = TRUE, # Set recruitment deviations as random effects
   msmMode = 0, # Single species mode
   verbose = 1,
   phase = FALSE)
