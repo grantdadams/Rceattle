@@ -3287,8 +3287,8 @@ Type objective_function<Type>::operator() () {
 
     // Convert observed prop to observed numbers
     comp_obs_tmp *= comp_n(comp_ind, 1);
-    vector<Type> alphas = sum(comp_obs_tmp) * comp_hat_tmp * DM_pars_comp(flt); // DM alpha
-    vector<Type> unweighted_alphas = sum(comp_obs_tmp) * comp_hat_tmp;          // DM alpha
+    vector<Type> alphas = comp_n(comp_ind, 1) * comp_hat_tmp * DM_pars_comp(flt); // DM alpha
+    vector<Type> unweighted_alphas = comp_n(comp_ind, 1) * comp_hat_tmp;          // DM alpha
 
     // Only use years wanted
     if((yr <= endyr) && (yr > 0) && (flt_type(flt) > 0)){
