@@ -325,7 +325,7 @@ simData$fleet_control <- simData$fleet_control[c(1,3,1,3),] # BT and Trawl Fishe
 simData$fleet_control$Fleet_name <- c("Survey1", "Fishery1","Survey2", "Fishery2")
 simData$fleet_control$Fleet_code <- 1:4
 simData$fleet_control$Selectivity_index <- 1:4
-simData$fleet_control$Estimate_q
+simData$fleet_control$Catchability
 simData$fleet_control$Species <- c(1,1,2,2)
 simData$fleet_control$Q_index <- c(1,NA,2,NA)
 simData$fleet_control$Weight1_Numbers2 <- 1

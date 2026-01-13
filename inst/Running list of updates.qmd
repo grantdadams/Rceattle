@@ -21,7 +21,7 @@ Started this late, but this is in reference to the srr_dev branch
 
 11/04/2024 - If a NA is present in the composition data (within the range of ages/lengths for single or joint sex), those are converted to 0s and a warning is given.
 
-11/04/2024 - Added `Estimate_q = 6` where annual AR1 catchability deviates are fit to environmental index data sensu Rogers et al 2024 for the GOA pollock model.
+11/04/2024 - Added `Catchability = 6` where annual AR1 catchability deviates are fit to environmental index data sensu Rogers et al 2024 for the GOA pollock model.
 
 11/04/2024 – Added beta distibuted prior for steepness when using Beverton srr. Set `srr_est_mode = 3`.
 
@@ -58,3 +58,9 @@ Added CAAL_loglike and CAAL_weights to fleet control.
 Renamed Age_first_selected to Bin_first_selected
 
 `sel` to `sel_at_age`
+
+Rename "Catchability" to "Catchability"
+
+Rename "Time_varying_sel_sd_prior" to "Time_varying_sel_sd_prior"
+
+CAAL data to sim_mod

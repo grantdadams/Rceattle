@@ -294,7 +294,7 @@ mse2 <- run_mse(om = ss_run_M, em = ss_run, nsim = 1, assessment_period = 1, sam
 
 # -- NPFMC Tier 3 HCRs
 # - MS-OM: SS-EM Tier 3 HCR
-mse3 <- run_mse(om = ss_run_ricker, em = ss_run, nsim = 1, assessment_period = 1, sampling_period = 1, simulate_data = FALSE, sample_rec = TRUE, cap = 10)
+mse3 <- run_mse(om = ms_run, em = ss_run_Tier3, nsim = 1, assessment_period = 1, sampling_period = 1, simulate_data = FALSE, sample_rec = TRUE, cap = 10)
 
 # - SS-OM: SS-EM Tier 3 HCR
 mse4 <- run_mse(om = ss_run_M, em = ss_run_Tier3, nsim = 1, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
@@ -332,3 +332,9 @@ mse13 <- run_mse(om = ms_run, em = ss_run_dynamicTier1, nsim = 1, assessment_per
 
 # - SS-OM: SS-EM dynamic Tier 3 HCR
 mse14 <- run_mse(om = ss_run_M, em = ss_run_dynamicTier1, nsim = 1, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, sample_rec = TRUE, cap = c(1500000))
+
+
+# Summary ----
+mse_summary(mse = mse4)
+plot_biomass(list(mse4$Sim_1$OM, mse4$Sim_1$OM_no_F))
+

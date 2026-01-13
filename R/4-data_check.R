@@ -66,6 +66,17 @@ clean_data <- function(data_list){
   data_list$catch_data <- data_list$catch_data[
     with(data_list$catch_data, order(Fleet_code, Year)),]
 
+  # * Column names ----
+  if(any(!colnames(data_list$sex_ratio) %in% c("Species", paste0("Age", 1:max(data_list$nages))))){
+    colnames(data_list$sex_ratio) <- c("Species", paste0("Age", 1:max(data_list$nages)))
+    warning("Renaming column names in 'sex_ratio' data to 'Age1', 'Age2', ....")
+  }
+
+  if(any(!colnames(data_list$maturity) %in% c("Species", paste0("Age", 1:max(data_list$nages))))){
+    colnames(data_list$maturity) <- c("Species", paste0("Age", 1:max(data_list$nages)))
+    warning("Renaming column names in 'maturity' data to 'Age1', 'Age2', ....")
+  }
+
   return(data_list)
 }
 
@@ -104,9 +115,9 @@ data_check <- function(data_list) {
 
   # Fleet checks ----
   for(flt in 1:nrow(data_list$fleet_control)){
-    if(!is.na(data_list$fleet_control$Estimate_q[flt])){
-      if((data_list$fleet_control$Estimate_q[flt] == 6 & data_list$fleet_control$Time_varying_q[flt] > (ncol(data_list$env_data) - 1))|
-         (data_list$fleet_control$Estimate_q[flt] == 6 & data_list$fleet_control$Time_varying_q[flt] < 1)){
+    if(!is.na(data_list$fleet_control$Catchability[flt])){
+      if((data_list$fleet_control$Catchability[flt] == 6 & data_list$fleet_control$Time_varying_q[flt] > (ncol(data_list$env_data) - 1))|
+         (data_list$fleet_control$Catchability[flt] == 6 & data_list$fleet_control$Time_varying_q[flt] < 1)){
         stop("For catchability type 6 environmental index specified in 'Time_varying_q' is greater than number of indices in 'env_data'")
       }
     }
@@ -125,7 +136,7 @@ data_check <- function(data_list) {
   }
 
   mirror_q <- data_list$fleet_control %>%
-    dplyr::filter(!is.na(Estimate_q)) %>%
+    dplyr::filter(!is.na(Catchability)) %>%
     dplyr::group_by(Q_index) %>%
     dplyr::filter(n() > 1 ) %>%
     dplyr::ungroup()
@@ -409,9 +420,9 @@ switch_check <- function(data_list){
   if(any(data_list$fleet_control$Selectivity == 2 & !is.na(data_list$fleet_control$Time_varying_sel) & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)))){
     data_list$fleet_control <- data_list$fleet_control %>%
       dplyr::mutate(Sel_curve_pen1 = ifelse(Selectivity == 2 & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)), Time_varying_sel, NA),
-                    Sel_curve_pen2 = ifelse(Selectivity == 2 & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)), Sel_sd_prior, NA),
+                    Sel_curve_pen2 = ifelse(Selectivity == 2 & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)), Time_varying_sel_sd_prior, NA),
                     Time_varying_sel = ifelse(Selectivity == 2 & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)), 0, Time_varying_sel),
-                    Sel_sd_prior = ifelse(Selectivity == 2 & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)), 0, Sel_sd_prior)
+                    Time_varying_sel_sd_prior = ifelse(Selectivity == 2 & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)), 0, Time_varying_sel_sd_prior)
 
       )
     print("Updating format where 'Selectivity == 2'. Moving non-parametric penalties to 'Sel_curve_pen1' and 'Sel_curve_pen2'.")

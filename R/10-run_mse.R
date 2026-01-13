@@ -705,6 +705,29 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
         rbind(new_comp_data) %>%
         dplyr::arrange(Fleet_code, abs(Year))
 
+      # -- Add newly simulated CAAL to EM & OM
+      # - Simulated caal data
+      new_caal_data <- sim_dat$caal_data %>%
+        dplyr::filter(abs(Year) %in% years_include$Year &
+                        Fleet_code %in% years_include$Fleet_code) %>%
+        dplyr::mutate(Year = -Year)
+
+      new_caal_data$Sample_size <- new_caal_data$Sample_size * as.numeric(rowSums(dplyr::select(new_caal_data, dplyr::contains("CAAL_"))) > 0) # Set sample size to 0 if catch is 0
+      new_caal_data <- new_caal_data %>%
+        dplyr::mutate_at(dplyr::vars(dplyr::contains("CAAL_")), ~ .x + 1 * (Sample_size == 0)) # Set all values to 1 if catch is 0
+
+      # - Add to EM and OM
+      om_use$data_list$caal_data <- om_use$data_list$caal_data %>%
+        dplyr::filter(!(abs(Year) %in% years_include$Year &
+                          Fleet_code %in% years_include$Fleet_code)) %>%
+        rbind(new_caal_data %>%
+                dplyr::mutate(Year = -abs(Year))) %>%
+        dplyr::arrange(Fleet_code, abs(Year))
+
+      em_use$data_list$caal_data <- em_use$data_list$caal_data %>%
+        rbind(new_caal_data) %>%
+        dplyr::arrange(Fleet_code, abs(Year))
+
       #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # 5. Update EM and HCR ----
       #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#

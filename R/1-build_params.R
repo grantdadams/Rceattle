@@ -258,7 +258,7 @@ build_params <- function(data_list) {
                                  dimnames = list(c("Ascending" , "Descending"), data_list$fleet_control$Fleet_name, sex_labels, yrs_hind))
 
   # - Log standard deviation for selectivity random walk - used for logistic
-  param_list$sel_dev_ln_sd <- log(data_list$fleet_control$Sel_sd_prior)
+  param_list$sel_dev_ln_sd <- log(data_list$fleet_control$Time_varying_sel_sd_prior)
   names(param_list$sel_dev_ln_sd) <- data_list$fleet_control$Fleet_name
 
 

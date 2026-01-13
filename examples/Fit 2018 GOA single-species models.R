@@ -119,15 +119,3 @@ plot_biomass(list(pollock_model, pollock_model_safe), model_names = c("CEATTLE",
 plot_biomass(list(atf_model, atf_model_safe), model_names = c("CEATTLE", "SAFE"))
 plot_biomass(list(cod_model, cod_model_safe), model_names = c("CEATTLE", "SAFE"))
 
-
-################################################
-# Example diagnostics
-################################################
-plot_index(pollock_model)
-plot_catch(pollock_model)
-plot_selectivity(pollock_model)
-plot_indexresidual(pollock_model)
-plot_logindex(pollock_model)
-plot_recruitment(pollock_model, add_ci = TRUE)
-plot_comp(pollock_model)
-

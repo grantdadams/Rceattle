@@ -11,7 +11,7 @@ test_that("non-parametric selectivity not normalized", {
   GOA2018SS$fleet_control$Sel_curve_pen2 <- 10
   GOA2018SS$fleet_control$Sel_norm_bin1 <- NA
   GOA2018SS$fleet_control$Time_varying_sel <- 0
-  GOA2018SS$fleet_control$Sel_sd_prior <- 1
+  GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
 
   inits <- build_params(GOA2018SS)
 
@@ -88,5 +88,5 @@ test_that("non-parametric selectivity not normalized", {
   # - Avgsel
   pen3 <- 2 * log(mean(exp(log_selcoffs)))^2
 
-  testthat::expect_equal(pen1+pen2+pen3, as.numeric(ss_run$quantities$jnll_comp[6,8]), tolerance = 0.0001)
+  testthat::expect_equal(pen1+pen2+pen3, as.numeric(ss_run$quantities$jnll_comp[5,8]), tolerance = 0.0001)
 })
