@@ -3,7 +3,7 @@
 #' @description Simulates data used in Rceattle from the expected values estimated
 #' from an existing Rceattle model. The variances and uncertainty are consistent
 #' with those used in the operating model. The function simulates: survey biomass
-#' (log-normal), catch-at-age/length composition (multinomial), conditional-age-at-length (CAAL; multinomial),
+#' (log-normal), catch-at-age/length composition (multinomial or dirichlet-multinomial), conditional-age-at-length (CAAL; multinomial or dirichlet-multinomial),
 #' and total catch (log-normal).
 #'
 #' @param Rceattle A CEATTLE model object exported from \code{\link{Rceattle}}.
@@ -15,7 +15,6 @@
 #' @export
 #'
 sim_mod <- function(Rceattle, simulate = FALSE) {
-  # TODO Options for simulation diet data: multinomial, sqrt-normal, dirichlet, multinomial
   dat_sim <- Rceattle$data_list
   quantities <- Rceattle$quantities
 
@@ -43,11 +42,32 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
     for (obs in 1:nrow(dat_sim$comp_data)) {
       prob_vec <- comp_hat[obs, ]
       sum_prob <- sum(prob_vec, na.rm = TRUE)
+      n_eff = dat_sim$comp_data$Sample_size[obs]
+      flt <- dat_sim$comp_data$Fleet_code[obs]
 
       if (simulate && sum_prob > 0) {
         # --- Multinomial ---
-        # FIXME: add Dirichlet-multinomial option
+        if(dat_sim$fleet_control$Comp_loglike[flt] < 1){
         sim_comp <- rmultinom(n = 1, size = dat_sim$comp_data$Sample_size[obs], prob = prob_vec)
+        }
+
+        # --- Dirichlet-multinomial ---
+        if(dat_sim$fleet_control$Comp_loglike[flt] == 1){
+          # Theta is the overdispersion/precision parameter.
+          theta <- exp(Rceattle$estimated_params$comp_weights[flt])
+
+          # Dirichlet parameters alpha = theta * expected_proportions
+          alpha <- prob_vec * theta
+
+          # 1. Draw from Dirichlet
+          # Using a Gamma distribution trick to get Dirichlet draws
+          dir_draw <- rgamma(length(alpha), shape = alpha, rate = 1)
+          dir_draw <- dir_draw / sum(dir_draw)
+
+          # 2. Draw from Multinomial using the Dirichlet-adjusted probabilities
+          sim_comp <- rmultinom(n = 1, size = n_eff, prob = dir_draw)
+        }
+
         dat_sim$comp_data[obs, 9:ncol(dat_sim$comp_data)] <- as.vector(sim_comp)
       } else {
         dat_sim$comp_data[obs, 9:ncol(dat_sim$comp_data)] <- prob_vec
@@ -62,11 +82,34 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
     for (obs in 1:nrow(dat_sim$caal_data)) {
       prob_vec <- caal_hat[obs, ]
       sum_prob <- sum(prob_vec, na.rm = TRUE)
+      n_eff = dat_sim$caal_data$Sample_size[obs]
+      flt <- dat_sim$caal_data$Fleet_code[obs]
 
       if (simulate && sum_prob > 0) {
-        # FIXME: add Dirichlet-multinomial option
-        sim_comp <- rmultinom(n = 1, size = dat_sim$caal_data$Sample_size[obs], prob = prob_vec)
-        dat_sim$caal_data[obs, 7:ncol(dat_sim$caal_data)] <- as.vector(sim_comp)
+        # --- Multinomial ---
+        if(dat_sim$fleet_control$CAAL_loglike[flt] == 0){
+          sim_caal <- rmultinom(n = 1, size = dat_sim$caal_data$Sample_size[obs], prob = prob_vec)
+        }
+
+        # --- Dirichlet-multinomial ---
+        if(dat_sim$fleet_control$Comp_loglike[flt] == 1){
+          # Theta is the overdispersion/precision parameter.
+          theta <- exp(Rceattle$estimated_params$caal_weights[flt])
+
+          # Dirichlet parameters alpha = theta * expected_proportions
+          alpha <- prob_vec * theta
+
+          # 1. Draw from Dirichlet
+          # Using a Gamma distribution trick to get Dirichlet draws
+          dir_draw <- rgamma(length(alpha), shape = alpha, rate = 1)
+          dir_draw <- dir_draw / sum(dir_draw)
+
+          # 2. Draw from Multinomial using the Dirichlet-adjusted probabilities
+          sim_caal <- rmultinom(n = 1, size = n_eff, prob = dir_draw)
+        }
+
+        dat_sim$caal_data[obs, 7:ncol(dat_sim$caal_data)] <- as.vector(sim_caal)
+
       } else {
         dat_sim$caal_data[obs, 7:ncol(dat_sim$caal_data)] <- prob_vec
       }
