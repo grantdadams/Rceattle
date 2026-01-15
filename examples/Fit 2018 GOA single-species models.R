@@ -3,16 +3,16 @@
 # Citation:
 # Adams, G. D., Holsman, K. K., Barbeaux, S. J., Dorn, M. W., Ianelli, J. N., Spies, I., … Punt, A. E. (2022). An ensemble approach to understand predation mortality for groundfish in the Gulf of Alaska. Fisheries Research, 251(October 2021), 106303. https://doi.org/10.1016/j.fishres.2022.106303
 
-################################################
-# Load packages
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Load packages ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
 library(Rceattle)
 library(readxl)
 
-################################################
-# Load data
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Load data ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
 # Pollock
 data("GOApollock")
@@ -28,9 +28,9 @@ data("GOAatf")
 # Differences between CEATTLE and SAFE: ATF composition sample sizes and non-parametric selectivity penalties are the same for each sex while they are different in the SAFE model (differences between sexes for both bits are < 5 in the SAFE model. This was a convenience for coding
 
 
-################################################
-# Fit models
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Fit models ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
 # Pollock
 GOApollock$styr = 1977 # The SAFE model starts at 1970, so change styr to 1970 to run the full time series model (data is in there). I start them all at 1977 because thats the years with overlap.
@@ -85,9 +85,9 @@ cod_model <- Rceattle::fit_mod(
   phase = TRUE) # Phase
 
 
-################################################
-# Compare with SAFE Models
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Compare with SAFE Models ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # Columns = year, pollock, cod, atf - outputs here are 1977-2018
 data("GOAsafe2018")
 safe2018biomass <- GOAsafe2018$biomass

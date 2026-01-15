@@ -5,9 +5,9 @@
 
 library(Rceattle)
 
-################################################
-# Data
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Data ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # Example
 # To run the 2017 single species assessment for the Bering Sea, a data file must first be loaded:
 data("BS2017SS") # Single-species data. ?BS2017SS for more information on the data
@@ -21,9 +21,9 @@ Rceattle::write_data(data_list = BS2017SS, file = "BS2017SS.xlsx")
 mydata <- Rceattle::read_data( file = "BS2017SS.xlsx")
 
 
-################################################
-# Estimation
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Estimation ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # - Single-species
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
 ss_run <- Rceattle::fit_mod(data_list = mydata,
@@ -70,9 +70,9 @@ ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
 
 plot_biomass(ms_run, add_ci = TRUE)
 
-################################################
-# Plotting
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Plotting ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # We can plot all runs
 mod_list <- list(ss_run, ss_run_M, ms_run)
 mod_names <- c("Single-species", "Single-species estimate M", "Multi-species")

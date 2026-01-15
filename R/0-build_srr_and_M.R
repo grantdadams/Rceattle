@@ -10,6 +10,7 @@
 #' @param srr_prior_sd Prior standard deviation for stock-recruit parameter
 #' @param srr_indices vector or single index indicating the columns (excluding "Year") of \code{env_data} to use in a environmentally driven stock recruit curve.
 #' @param Bmsy_lim Upper limit for Ricker based SSB-MSY (e.g 1/Beta). Will add a likelihood penalty if beta is estimated above this limit. Default `NA` is not used.
+#' @param srr_mse_switchyr is used for MSEs to deal with AMAK and Jim Ianelli's estimation where a stock recruit function is estimated as an additional penalty whe srr_model = 0 and srr_forecast_model > 0. It tells the model in what year to switch to the stock recruit function.
 #'
 #' @description
 #'
@@ -50,8 +51,6 @@ build_srr <- function(srr_model = 0,
                       srr_prior_sd = 1,
                       srr_indices = NA,
                       Bmsy_lim = NA){
-
-  #' srr_mse_switchyr is used for MSEs to deal with AMAK and Jim Ianelli's estimation where a stock recruit function is estimated as an additional penalty whe srr_model = 0 and srr_forecast_model > 0. It tells the model in what year to switch to the stock recruit function.
 
   # Set pred/RP/penalty to same as SR curve if SR fun > 0
   if(srr_model > 0){
