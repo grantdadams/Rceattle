@@ -142,6 +142,7 @@ simData <- GOAcod
 
 # * Make input data ----
 # * Data controls
+simData$spnames <- "WHAM data"
 simData$nspp <- 1
 years = 1976:2020 # years
 nyrs <- length(years)
@@ -237,8 +238,8 @@ simData$caal_data <- index_caal %>%
   dplyr::mutate(Fleet_name = "Survey",
                 Fleet_code = 1,
                 Species = 1,
-                Sex = 0,
-                Species = 1) %>%
+                Sex = 0) %>%
+  select(Fleet_name, Fleet_code, Species, Sex, Year, Length, Sample_size, paste0("CAAL_",1:simData$nages)) %>%
   as.data.frame()
 # - No fishery CAAL
 

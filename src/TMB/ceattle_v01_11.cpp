@@ -218,7 +218,6 @@ Type objective_function<Type>::operator() () {
 
   // -- 2.3.5. Growth
   DATA_ARRAY( weight_obs );               // Weight-at-age by year; n = [nweight, sex, nages, nyrs]
-  // DATA_ARRAY( laa );                   // Length-at-age by year; n = [nspp, sex, nages, nyrs]
 
   // 2.3.6. Diet data
   DATA_VECTOR( fday );                    // number of foraging days for each predator
@@ -2015,7 +2014,7 @@ Type objective_function<Type>::operator() () {
 
                       switch(suitMode(rsp)){
                       case 1: // Length-based GAMMA suitability
-                        // log_size_ratio = log(laa( rsp, r_sex, r_age, yr) / laa( ksp, k_sex, k_age, yr) ); // Log ratio of lengths
+                        log_size_ratio = log(length_hat( rsp, r_sex, r_age, yr) / length_hat( ksp, k_sex, k_age, yr) ); // Log ratio of lengths
                         break;
                       case 2: // Weight-based GAMMA suitability
                         wt_idx_ksp = (nspp - 1) * 2 * ksp;
@@ -2053,14 +2052,14 @@ Type objective_function<Type>::operator() () {
 
                       switch(suitMode(rsp)){
                       case 3: // Length-based lognormal suitability
-                        // log_size_ratio = log(laa( rsp, r_sex, r_age, yr) / laa( ksp, k_sex, k_age, yr) ); // Log ratio of lengths
+                        log_size_ratio = log(length_hat( rsp, r_sex, r_age, yr) / length_hat( ksp, k_sex, k_age, yr) ); // Log ratio of lengths
                         break;
                       case 4: // Weight-based lognormal suitability
                         log_size_ratio = log(weight_hat(wt_idx_rsp, r_sex, r_age, yr) / weight_hat(wt_idx_ksp, k_sex, k_age, yr)); // Log ratio of weights
                         break;
 
                       case 5: // Length-based normal suitability
-                        // log_size_ratio = laa( rsp, r_sex, r_age, yr) / laa( ksp, k_sex, k_age, yr); // Log ratio of lengths
+                        log_size_ratio = length_hat( rsp, r_sex, r_age, yr) / length_hat( ksp, k_sex, k_age, yr); // Log ratio of lengths
                         break;
                       case 6: // Weight-based normal suitability
                         log_size_ratio = weight_hat(wt_idx_rsp, r_sex, r_age, yr) / weight_hat(wt_idx_ksp, k_sex, k_age, yr); // Log ratio of weights

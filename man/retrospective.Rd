@@ -24,7 +24,7 @@ retrospective(
 a list of 1. list of Rceattle models and 2. vector of Mohn's rho for each species
 }
 \description{
-Calculate Mohn's rho and run retrospective peels for an Rceattle model
+Calculate Mohn's rho and run retrospective peels for an Rceattle model. Note, it does not do reweighting for multinomial distributions.
 }
 \examples{
 data(BS2017SS) # ?BS2017SS for more information on the data

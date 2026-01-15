@@ -5,17 +5,17 @@
 library(Rceattle)
 library(dplyr)
 
-################################################
-# Data
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Data ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # Example
 # To run the 2018 single species assessment for the Gulf of Alaska, a data file must first be loaded:
 data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
 
 
-################################################
-# Estimation
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Estimation ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # - Single-species
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
 # GOA2018SS$fleet_control$proj_F_prop <- rep(1, nrow(GOA2018SS$fleet_control))
@@ -59,9 +59,9 @@ ms_run <- Rceattle::fit_mod(data_list = GOA2018SS,
 plot_biomass(ms_run, add_ci = TRUE)
 
 
-################################################
-# Plotting
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Plotting ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # We can plot all runs
 mod_list <- list(ss_run, ss_run_M, ms_run)
 mod_names <- c("Single-species", "Single-species estimate M", "Multi-species")
