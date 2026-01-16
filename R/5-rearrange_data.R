@@ -194,7 +194,7 @@ rearrange_dat <- function(data_list){
       dplyr::distinct(Species, Length) %>%
       dplyr::count(Species)
 
-    if(data_list$nlengths[n_bins_data$Species] != n_bins_data$n){
+    if(any(data_list$nlengths[n_bins_data$Species] != n_bins_data$n)){
       stop("Number of length bins in CAAL data does not match nlengths in control file.
            If some lengths are missing from CAAL data, please add them to the data
            as rows of all 1s with Sample_size = 0")
