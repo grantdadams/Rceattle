@@ -55,10 +55,25 @@ richards_model <- Rceattle::fit_mod(data_list = whamGrowthData,
                                 initMode = 2,       # Unfished disequilibrium
                                 verbose = 1)
 
+# Growth functions can be species specific
+# We can combine the dataset to demonstrate
+# FIXME: bug in combine data...
+double_data <- combine_data(whamGrowthData, whamGrowthData)
+double_data$spnames <- c(1,2)
+double_model <- Rceattle::fit_mod(data_list = double_data,
+                                    inits = NULL,       # Initial parameters at default
+                                    estimateMode = 0,   # Estimate
+                                    growthFun = build_growth(growth_model = c(1,1)), # Richards
+                                    random_rec = FALSE, # No random recruitment
+                                    msmMode = 0,        # Single species mode
+                                    phase = TRUE,
+                                    initMode = 2,       # Unfished disequilibrium
+                                    verbose = 1)
+
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # Plot and compare ----
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-plot_biomass(list(vbgf_model, richards_model), model_names = c("VBGF", "Richards"), incl_proj = TRUE)
+plot_biomass(list(double_model, vbgf_model, richards_model), species = 1, model_names = c("VBGF", "Richards"), incl_proj = TRUE)
 
 # - AIC
 vbgf_model$opt$AIC
