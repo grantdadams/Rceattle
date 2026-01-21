@@ -11,11 +11,47 @@ CEATTLE is short for Climate-Enhanced, Age-based model with Temperature-specific
 
 'Rceattle' is an 'R' package designed to implement the CEATTLE model using Template Model Builder ('TMB'; Kristensen et al. 2015), which can be installed using following https://github.com/kaskr/adcomp/wiki/Download. Rceattle is structured similar to Adams et al (2022). Data are read in via an excel document (see examples) for model fitting (see examples). Projections can be conducted under alternative harvest control rules, climate projections, and recruitment. Model diagnostic, validation, simulation, and closed loop simulation testing (management strategy evaluation) functions are included as well. The package supports one- or -two sex models with multiple fisheries and surveys with flexible catchability and selectivity parameterizations. See vignette (in progress) for model parameterizations. 
 
-Code and function examples using data from the Bering Sea and Gulf of Alaska groundfish application can be found in the [examples](https://github.com/grantdadams/Rceattle/tree/master/examples) folder.
-
 **Getting started**
 
 See [onboarding document](https://github.com/grantdadams/Rceattle/wiki/Onboarding) and Wiki for getting started!
+
+The model can be updated following instructions [here](https://github.com/grantdadams/Rceattle/wiki/Workflow-for-updating-the-Rceattle).
+
+**Installation**
+```
+# Dependencies
+install.packages("pacman")
+install.packages("TMB", type = "source")
+install.packages("Matrix", type = "source")
+pacman::p_load(dplyr,
+               ggplot2,
+               MASS,
+               oce,
+               readxl,
+               TMB,
+               devtools,
+               writexl,
+               reshape2,
+               gplots,
+               tidyr,
+               testthat,
+               foreach,
+               R.utils,
+               knitr,
+               doParallel)
+devtools::install_github("kaskr/TMB_contrib_R/TMBhelper")
+
+# Rceattle
+devtools::install_github("grantdadams/Rceattle")
+```
+
+**Examples**
+Code and function examples using data from the Bering Sea and Gulf of Alaska groundfish application can be found in the [examples](https://github.com/grantdadams/Rceattle/tree/master/examples) folder and include:
+* [Fitting multi-species models](https://github.com/grantdadams/Rceattle/blob/master/examples/Fit%202018%20GOA%20multi-species%20model.R)
+* [Fitting single-species models](https://github.com/grantdadams/Rceattle/blob/master/examples/Fit%202018%20GOA%20single-species%20models.R)
+* [Alternative HCRs and MSE testing](https://github.com/grantdadams/Rceattle/blob/master/examples/HCRs%20and%20MSE%20testing.R)
+* [Simulation](https://github.com/grantdadams/Rceattle/blob/master/examples/Simulation%20testing.R)
+* [Model diagnostics](https://github.com/grantdadams/Rceattle/blob/master/examples/Model%20diagnostics.R)
 
 **References**
 
