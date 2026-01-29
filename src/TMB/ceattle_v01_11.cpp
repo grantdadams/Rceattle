@@ -8,7 +8,7 @@
 // AUTHORS:   Grant Adams                                                    //
 // CITATIONS:                                                                //
 // 1. Holsman, K. K., Ianelli, J., Aydin, K., Punt, A. E., & Moffitt, E. A. (2015). A comparison of fisheries biological reference points estimated from temperature-specific multi-species and single-species climate-enhanced stock assessment models. Deep-Sea Research Part II: Topical Studies in Oceanography, 134, 360–378. https://doi.org/10.1016/j.dsr2.2015.08.001
-// 2. Adams, G. D., Holsman, K. K., Barbeaux, S_at_age. J., Dorn, M_at_age. W., Ianelli, J. N., Spies, I., ... & Punt, A. E. (2022). An ensemble approach to understand predation mortality for groundfish in the Gulf of Alaska. Fisheries Research, 251, 106303.
+// 2. Adams, G. D., Holsman, K. K., Barbeaux, M. J., Dorn, J. W., Ianelli, J. N., Spies, I., ... & Punt, A. E. (2022). An ensemble approach to understand predation mortality for groundfish in the Gulf of Alaska. Fisheries Research, 251, 106303.
 // ------------------------------------------------------------------------- //
 //
 // Best attempt to use google C++ style guide https://google.github.io/styleguide/cppguide.html#General_Naming_Rules
@@ -427,13 +427,15 @@ Type objective_function<Type>::operator() () {
   matrix<Type>  ssb(nspp, nyrs); ssb.setZero();                                     // Estimated spawning stock biomass (kg)
   matrix<Type>  biomass_depletion(nspp, nyrs); biomass_depletion.setZero();         // Estimated biomass biomass_depletion
   matrix<Type>  ssb_depletion(nspp, nyrs); ssb_depletion.setZero();                 // Estimated biomass_depletion of spawning stock biomass
-  // array<Type>   ssb_at_age(nspp, max_age, nyrs); ssb_at_age.setZero();           // Spawning biomass at age (kg)
-  array<Type>   M_at_age(nspp, max_sex, max_age, nyrs); M_at_age.setZero();               // Total natural mortality at age
-  array<Type>   M1_at_age(nspp, max_sex, max_age, nyrs); M1_at_age.setZero();             // Residual or total natural mortality at age
-  array<Type>   N_at_age(nspp, max_sex, max_age, nyrs); N_at_age.setZero();               // Numbers at age
-  array<Type>   avgN_at_age(nspp, max_sex, max_age, nyrs); avgN_at_age.setZero();         // Average numbers-at-age
-  // array<Type>   S_at_age(nspp, max_sex, max_age, nyrs); S_at_age.setZero();            // Survival at age
-  array<Type>   Z_at_age(nspp, max_sex, max_age, nyrs); Z_at_age.setZero();               // Total mortality at age
+  array<Type>   M_at_age(nspp, max_sex, max_age, nyrs); M_at_age.setZero();         // Total natural mortality at age
+  array<Type>   M_at_age_dB0(nspp, max_sex, max_age, nyrs); M_at_age_dB0.setZero(); // Total natural mortality at age (dynamic B0)
+  array<Type>   M_at_age_dBF(nspp, max_sex, max_age, nyrs); M_at_age_dBF.setZero(); // Total natural mortality at age (dynamic BF)
+  array<Type>   M1_at_age(nspp, max_sex, max_age, nyrs); M1_at_age.setZero();       // Residual or total natural mortality at age
+  array<Type>   N_at_age(nspp, max_sex, max_age, nyrs); N_at_age.setZero();         // Numbers at age
+  array<Type>   avgN_at_age(nspp, max_sex, max_age, nyrs); avgN_at_age.setZero();   // Average numbers-at-age
+  array<Type>   avgN_at_age_dB0(nspp, max_sex, max_age, nyrs); avgN_at_age_dB0.setZero();   // Average numbers-at-age (dynamic B0)
+  array<Type>   avgN_at_age_dBF(nspp, max_sex, max_age, nyrs); avgN_at_age_dBF.setZero();   // Average numbers-at-age (dynamic BF)
+  array<Type>   Z_at_age(nspp, max_sex, max_age, nyrs); Z_at_age.setZero();         // Total mortality at age
   vector<Type>  R_sd(nspp); R_sd.setZero();                                         // Standard deviation of recruitment variation
   vector<Type>  zero_N_pen(nspp); zero_N_pen.setZero();                             // Additional penalty to add to likelihood if n-at-age goes < 0
 
@@ -447,9 +449,9 @@ Type objective_function<Type>::operator() () {
   matrix<Type>  F_spp(nspp, nyrs); F_spp.setZero();                                 // Fully selected fishing mortality by species
   matrix<Type>  F_flt(n_flt, nyrs); F_flt.setZero();                                // Fully selected fishing mortality by fleet
   array<Type>   F_flt_age(n_flt, max_sex, max_age, nyrs); F_flt_age.setZero();            // Estimated fishing mortality-at-age/sex for each fishery
-  array<Type>   Flimit_age_spp(nspp, max_sex, max_age, nyrs); Flimit_age_spp.setZero();   // Estimated target fishing mortality-at-age/sex for each species
-  array<Type>   Ftarget_age_spp(nspp, max_sex, max_age, nyrs); Ftarget_age_spp.setZero(); // Estimated limit fishing mortality-at-age/sex for each species
-  array<Type>   F_spp_at_age(nspp, max_sex, max_age, nyrs); F_spp_at_age.setZero();       // Sum of annual estimated fishing mortalities for each species-at-age
+  array<Type>   Flimit_at_age(nspp, max_sex, max_age, nyrs); Flimit_at_age.setZero();   // Estimated target fishing mortality-at-age/sex for each species
+  array<Type>   Ftarget_at_age(nspp, max_sex, max_age, nyrs); Ftarget_at_age.setZero(); // Estimated limit fishing mortality-at-age/sex for each species
+  array<Type>   F_at_age(nspp, max_sex, max_age, nyrs); F_at_age.setZero();       // Sum of annual estimated fishing mortalities for each species-at-age
   vector<Type>  catch_hat(catch_obs.rows()); catch_hat.setZero();                   // Estimated fishery yield/numbers (kg)
   vector<Type>  max_catch_hat(catch_obs.rows()); max_catch_hat.setZero();           // Estimated exploitable biomass/numbers by fleet (kg)
   vector<Type>  ln_catch_sd(catch_obs.rows()); ln_catch_sd.setZero();               // Estimated/fixed fishery log_sd (kg)
@@ -457,8 +459,8 @@ Type objective_function<Type>::operator() () {
   // -- 4.5. Biological reference points
   array<Type>   NByage0(nspp, max_sex, max_age, nyrs); NByage0.setZero();                 // Numbers at age at mean recruitment and F = 0
   array<Type>   NByageF(nspp, max_sex, max_age, nyrs); NByageF.setZero();                 // Numbers at age at mean recruitment and F = Flimit
-  array<Type>   DynamicNByage0(nspp, max_sex, max_age, nyrs); DynamicNByage0.setZero();   // Numbers at age at F = 0 (accounts for annual recruitment)
-  array<Type>   DynamicNByageF(nspp, max_sex, max_age, nyrs); DynamicNByageF.setZero();   // Female numbers at age at F = Ftarget (accounts for annual recruitment)
+  array<Type>   N_at_age_dB0(nspp, max_sex, max_age, nyrs); N_at_age_dB0.setZero();   // Numbers at age at F = 0 (accounts for annual recruitment)
+  array<Type>   N_at_age_dBF(nspp, max_sex, max_age, nyrs); N_at_age_dBF.setZero();   // Female numbers at age at F = Ftarget (accounts for annual recruitment)
   matrix<Type>  DynamicSB0(nspp, nyrs); DynamicSB0.setZero();                       // Estimated dynamic spawning biomass at F = 0 (accounts for S_at_age-R curve)
   matrix<Type>  DynamicB0(nspp, nyrs); DynamicB0.setZero();                         // Estimated dynamic  biomass at F = 0 (accounts for S_at_age-R curve)
   matrix<Type>  DynamicSBF(nspp, nyrs); DynamicSBF.setZero();                       // Estimated dynamic spawning biomass at F = Ftarget (accounts for S_at_age-R curve)
@@ -518,6 +520,8 @@ Type objective_function<Type>::operator() () {
 
   // -- 4.10. Suitability components
   array<Type>   avail_food(nspp, max_sex, max_age, nyrs); avail_food.setZero();                               // Available food to predator
+  array<Type>   avail_food_dB0(nspp, max_sex, max_age, nyrs); avail_food_dB0.setZero();                       // Available food to predator (dynamic B0)
+  array<Type>   avail_food_dBF(nspp, max_sex, max_age, nyrs); avail_food_dBF.setZero();                       // Available food to predator (dynamic BF)
   array<Type>   stom_div_bio(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); stom_div_bio.setZero(); // Stomach proportion over biomass; U/ (W * N)
   array<Type>   suitability(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); suitability.setZero();   // Suitability/gamma selectivity of predator age u on prey age a
   array<Type>   suit_other(nspp, max_sex, max_age, nyrs); suit_other.setZero();                               // Suitability not accounted for by the included prey
@@ -534,8 +538,10 @@ Type objective_function<Type>::operator() () {
 
   // -- 4.12. Predation components
   array<Type>   M2_at_age(nspp, max_sex, max_age, nyrs); M2_at_age.setZero();                        // Predation mortality at age
-  array<Type>   M2_prop(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); M2_prop.setZero();     // Relative predation mortality at age from each species at age
-  array<Type>   B_eaten(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); B_eaten.setZero();        // Biomass of prey eaten via predation by a predator at age
+  array<Type>   M2_at_age_dB0(nspp, max_sex, max_age, nyrs); M2_at_age_dB0.setZero();                // Predation mortality at age (dynamic B0)
+  array<Type>   M2_at_age_dBF(nspp, max_sex, max_age, nyrs); M2_at_age_dBF.setZero();                // Predation mortality at age (dynamic BF)
+  array<Type>   M2_prop(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); M2_prop.setZero();  // Relative predation mortality at age from each species at age
+  array<Type>   B_eaten(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); B_eaten.setZero();  // Biomass of prey eaten via predation by a predator at age
   array<Type>   B_eaten_as_prey(nspp, max_sex, max_age, nyrs); B_eaten_as_prey.setZero();            // Biomass eaten as prey via predation
   // array<Type>   B_eaten_as_pred(nspp, max_sex, max_age, nyrs); B_eaten_as_pred.setZero();         // Biomass eaten as predator via predation (used for Kinzey and Punt)
   // array<Type>   N_eaten(nspp * max_sex, nspp * max_sex, max_age, max_age, nyrs); N_eaten.setZero();     // Number of prey of age a eaten by predator age u
@@ -942,9 +948,9 @@ Type objective_function<Type>::operator() () {
     // 6.1. FISHING MORTALITY and FSPRs
     F_spp.setZero();
     F_flt_age.setZero();
-    F_spp_at_age.setZero();
-    Ftarget_age_spp.setZero();
-    Flimit_age_spp.setZero();
+    F_at_age.setZero();
+    Ftarget_at_age.setZero();
+    Flimit_at_age.setZero();
     for(flt = 0; flt < n_flt; flt++) {
 
       sp = flt_spp(flt);  // Temporary index of fishery survey
@@ -1007,11 +1013,11 @@ Type objective_function<Type>::operator() () {
               }
 
               // -- Sum F across fleets
-              F_spp_at_age(sp, sex, age, yr) += F_flt_age(flt, sex, age, yr);
+              F_at_age(sp, sex, age, yr) += F_flt_age(flt, sex, age, yr);
 
               // -- Calculate F target by age and sex for reference points
-              Flimit_age_spp(sp, sex, age, yr) += sel(flt, sex, age, yr) * proj_F_prop(flt) * Flimit(sp); // account for time-varying sel
-              Ftarget_age_spp(sp, sex, age, yr) += sel(flt, sex, age, yr) * proj_F_prop(flt) * Ftarget(sp); // account for time-varying sel
+              Flimit_at_age(sp, sex, age, yr) += sel(flt, sex, age, yr) * proj_F_prop(flt) * Flimit(sp); // account for time-varying sel
+              Ftarget_at_age(sp, sex, age, yr) += sel(flt, sex, age, yr) * proj_F_prop(flt) * Ftarget(sp); // account for time-varying sel
             }
           }
         }
@@ -1048,7 +1054,9 @@ Type objective_function<Type>::operator() () {
 
             M1_at_age(sp, sex, age, yr) = exp(ln_M1(sp, sex, age) + ln_M1_dev(sp, sex, age, yr) + M1_mult.sum());
             M_at_age(sp, sex, age, yr) = M1_at_age(sp, sex, age, yr) + M2_at_age(sp, sex, age, yr);
-            Z_at_age(sp, sex, age, yr) = M1_at_age(sp, sex, age, yr) + F_spp_at_age(sp, sex, age, yr) + M2_at_age(sp, sex, age, yr);
+            M_at_age_dB0(sp, sex, age, yr) = M1_at_age(sp, sex, age, yr) + M2_at_age_dB0(sp, sex, age, yr);
+            M_at_age_dBF(sp, sex, age, yr) = M1_at_age(sp, sex, age, yr) + M2_at_age_dBF(sp, sex, age, yr);
+            Z_at_age(sp, sex, age, yr) = M1_at_age(sp, sex, age, yr) + F_at_age(sp, sex, age, yr) + M2_at_age(sp, sex, age, yr);
             // S_at_age(sp, sex, age, yr) = exp(-Z_at_age(sp, sex, age, yr));
           }
         }
@@ -1062,39 +1070,41 @@ Type objective_function<Type>::operator() () {
     SPRFinit.setZero();
     SPRlimit.setZero();
     SPRtarget.setZero();
-    for(sp = 0; sp < nspp; sp++) {
+    if(msmMode == 0){
+      for(sp = 0; sp < nspp; sp++) {
 
-      if(initMode < 3){
-        Finit(sp) = 0; // If population starts out at equilibrium set Finit to 0 (R_init and R0 will be the same)
-      }
+        if(initMode < 3){
+          Finit(sp) = 0; // If population starts out at equilibrium set Finit to 0 (R_init and R0 will be the same)
+        }
 
-      //FIXME: set to 1
-      NbyageSPR(0, sp, 0) = 1.0; // F = 0
-      NbyageSPR(1, sp, 0) = 1.0; // F = Flimit
-      NbyageSPR(2, sp, 0) = 1.0; // F = Ftarget
-      NbyageSPR(3, sp, 0) = 1.0; // F = Finit
+        //FIXME: set to 1
+        NbyageSPR(0, sp, 0) = 1.0; // F = 0
+        NbyageSPR(1, sp, 0) = 1.0; // F = Flimit
+        NbyageSPR(2, sp, 0) = 1.0; // F = Ftarget
+        NbyageSPR(3, sp, 0) = 1.0; // F = Finit
 
-      for(age = 1; age < nages(sp)-1; age++) {
-        NbyageSPR(0, sp, age) =  NbyageSPR(0, sp, age-1) * exp(-M_at_age(sp, 0, age-1, nyrs_hind - 1));
-        NbyageSPR(1, sp, age) =  NbyageSPR(1, sp, age-1) * exp(-(M_at_age(sp, 0, age-1, nyrs_hind - 1) + Flimit_age_spp(sp, 0, age-1, nyrs_hind - 1))); //FIXME: time-vary sel in the forecast
-        NbyageSPR(2, sp, age) =  NbyageSPR(2, sp, age-1) * exp(-(M_at_age(sp, 0, age-1, nyrs_hind - 1) + Ftarget_age_spp(sp, 0, age-1, nyrs_hind - 1)));
-        NbyageSPR(3, sp, age) =  NbyageSPR(3, sp, age-1) * exp(-(M_at_age(sp, 0, age-1, 0) + Finit(sp)));
+        for(age = 1; age < nages(sp)-1; age++) {
+          NbyageSPR(0, sp, age) =  NbyageSPR(0, sp, age-1) * exp(-M_at_age(sp, 0, age-1, nyrs_hind - 1));
+          NbyageSPR(1, sp, age) =  NbyageSPR(1, sp, age-1) * exp(-(M_at_age(sp, 0, age-1, nyrs_hind - 1) + Flimit_at_age(sp, 0, age-1, nyrs_hind - 1))); //FIXME: time-vary sel in the forecast
+          NbyageSPR(2, sp, age) =  NbyageSPR(2, sp, age-1) * exp(-(M_at_age(sp, 0, age-1, nyrs_hind - 1) + Ftarget_at_age(sp, 0, age-1, nyrs_hind - 1)));
+          NbyageSPR(3, sp, age) =  NbyageSPR(3, sp, age-1) * exp(-(M_at_age(sp, 0, age-1, 0) + Finit(sp)));
 
-      }
+        }
 
-      // Plus group
-      NbyageSPR(0, sp, nages(sp) - 1) = NbyageSPR(0, sp, nages(sp) - 2) * exp(-M_at_age(sp, 0, nages(sp) - 2, nyrs_hind - 1)) / (1 - exp(-M_at_age(sp, 0, nages(sp) - 1, nyrs_hind - 1)));
-      NbyageSPR(1, sp, nages(sp) - 1) = NbyageSPR(1, sp, nages(sp) - 2) * exp(-(M_at_age(sp, 0,  nages(sp) - 2, nyrs_hind - 1) + Flimit_age_spp(sp, 0,  nages(sp) - 2, nyrs_hind - 1))) / (1 - exp(-(M_at_age(sp, 0,  nages(sp) - 1, nyrs_hind - 1) + Flimit_age_spp(sp, 0,  nages(sp) - 1, nyrs_hind - 1))));
-      NbyageSPR(2, sp, nages(sp) - 1) = NbyageSPR(2, sp, nages(sp) - 2) * exp(-(M_at_age(sp, 0,  nages(sp) - 2, nyrs_hind - 1) + Ftarget_age_spp(sp, 0,  nages(sp) - 2, nyrs_hind - 1))) / (1 - exp(-(M_at_age(sp, 0,  nages(sp) - 1, nyrs_hind - 1) + Ftarget_age_spp(sp, 0,  nages(sp) - 1, nyrs_hind - 1))));
-      NbyageSPR(3, sp, nages(sp) - 1) = NbyageSPR(3, sp, nages(sp) - 2) * exp(-(M_at_age(sp, 0,  nages(sp) - 2, 0) + Finit(sp))) / (1 - exp(-(M_at_age(sp, 0,  nages(sp) - 1, 0) + Finit(sp))));
+        // Plus group
+        NbyageSPR(0, sp, nages(sp) - 1) = NbyageSPR(0, sp, nages(sp) - 2) * exp(-M_at_age(sp, 0, nages(sp) - 2, nyrs_hind - 1)) / (1 - exp(-M_at_age(sp, 0, nages(sp) - 1, nyrs_hind - 1)));
+        NbyageSPR(1, sp, nages(sp) - 1) = NbyageSPR(1, sp, nages(sp) - 2) * exp(-(M_at_age(sp, 0,  nages(sp) - 2, nyrs_hind - 1) + Flimit_at_age(sp, 0,  nages(sp) - 2, nyrs_hind - 1))) / (1 - exp(-(M_at_age(sp, 0,  nages(sp) - 1, nyrs_hind - 1) + Flimit_at_age(sp, 0,  nages(sp) - 1, nyrs_hind - 1))));
+        NbyageSPR(2, sp, nages(sp) - 1) = NbyageSPR(2, sp, nages(sp) - 2) * exp(-(M_at_age(sp, 0,  nages(sp) - 2, nyrs_hind - 1) + Ftarget_at_age(sp, 0,  nages(sp) - 2, nyrs_hind - 1))) / (1 - exp(-(M_at_age(sp, 0,  nages(sp) - 1, nyrs_hind - 1) + Ftarget_at_age(sp, 0,  nages(sp) - 1, nyrs_hind - 1))));
+        NbyageSPR(3, sp, nages(sp) - 1) = NbyageSPR(3, sp, nages(sp) - 2) * exp(-(M_at_age(sp, 0,  nages(sp) - 2, 0) + Finit(sp))) / (1 - exp(-(M_at_age(sp, 0,  nages(sp) - 1, 0) + Finit(sp))));
 
-      // Calculate SPR
-      //FIXME: use estimated sex_ratio for two-sex models?
-      for(age = 0; age < nages(sp); age++) {
-        SPR0(sp) +=  NbyageSPR(0, sp, age) *  weight( ssb_wt_index(sp), 0, age, (nyrs_hind - 1) ) * maturity( sp, age ) * sex_ratio(sp, age) * exp(-M_at_age(sp, 0,  age, nyrs_hind - 1) * spawn_month(sp)/12.0);
-        SPRlimit(sp) +=  NbyageSPR(1, sp, age) *  weight( ssb_wt_index(sp), 0, age, (nyrs_hind - 1) ) * maturity( sp, age ) * sex_ratio(sp, age) * exp(-(M_at_age(sp, 0,  age, nyrs_hind - 1) + Flimit_age_spp(sp, 0,  age, nyrs_hind - 1)) * spawn_month(sp)/12.0);
-        SPRtarget(sp) +=  NbyageSPR(2, sp, age) *  weight( ssb_wt_index(sp), 0, age, (nyrs_hind - 1) ) * maturity( sp, age ) * sex_ratio(sp, age) * exp(-(M_at_age(sp, 0,  age, nyrs_hind - 1) + Ftarget_age_spp(sp, 0,  age, nyrs_hind - 1)) * spawn_month(sp)/12.0);
-        SPRFinit(sp) +=  NbyageSPR(3, sp, age) *  weight( ssb_wt_index(sp), 0, age, 0) * maturity( sp, age ) * sex_ratio(sp, age) * exp(-(M_at_age(sp, 0,  age, 0) + Finit(sp)) * spawn_month(sp)/12.0);
+        // Calculate SPR
+        //FIXME: use estimated sex_ratio for two-sex models?
+        for(age = 0; age < nages(sp); age++) {
+          SPR0(sp) +=  NbyageSPR(0, sp, age) *  weight( ssb_wt_index(sp), 0, age, (nyrs_hind - 1) ) * maturity( sp, age ) * sex_ratio(sp, age) * exp(-M_at_age(sp, 0,  age, nyrs_hind - 1) * spawn_month(sp)/12.0);
+          SPRlimit(sp) +=  NbyageSPR(1, sp, age) *  weight( ssb_wt_index(sp), 0, age, (nyrs_hind - 1) ) * maturity( sp, age ) * sex_ratio(sp, age) * exp(-(M_at_age(sp, 0,  age, nyrs_hind - 1) + Flimit_at_age(sp, 0,  age, nyrs_hind - 1)) * spawn_month(sp)/12.0);
+          SPRtarget(sp) +=  NbyageSPR(2, sp, age) *  weight( ssb_wt_index(sp), 0, age, (nyrs_hind - 1) ) * maturity( sp, age ) * sex_ratio(sp, age) * exp(-(M_at_age(sp, 0,  age, nyrs_hind - 1) + Ftarget_at_age(sp, 0,  age, nyrs_hind - 1)) * spawn_month(sp)/12.0);
+          SPRFinit(sp) +=  NbyageSPR(3, sp, age) *  weight( ssb_wt_index(sp), 0, age, 0) * maturity( sp, age ) * sex_ratio(sp, age) * exp(-(M_at_age(sp, 0,  age, 0) + Finit(sp)) * spawn_month(sp)/12.0);
+        }
       }
     }
 
@@ -1180,7 +1190,6 @@ Type objective_function<Type>::operator() () {
     // 6.5. INITIAL ABUNDANCE AT AGE, BIOMASS, AND ssb (YEAR 1)
     biomass.setZero();
     ssb.setZero();
-    // ssb_at_age.setZero();
     for(sp = 0; sp < nspp; sp++) {
 
       // Sex ratio at recruitment (1-sex model gets all R)
@@ -1275,8 +1284,7 @@ Type objective_function<Type>::operator() () {
         }
 
         // -- 6.5.4. Estimated initial female SSB
-        // ssb_at_age(sp, age, 0) = N_at_age(sp, 0, age, 0) * pow(S(sp, 0, age, 0), spawn_month(sp)/12) * weight(ssb_wt_index(sp), 0, age, 0 ) * mature_females(sp, age); // 6.6.
-        ssb(sp, 0) += N_at_age(sp, 0, age, 0) * exp(-Z_at_age(sp, 0, age, 0) * spawn_month(sp)/12) * weight(ssb_wt_index(sp), 0, age, 0 ) * mature_females(sp, age); // 6.6. ssb_at_age(sp, age, 0);
+        ssb(sp, 0) += N_at_age(sp, 0, age, 0) * exp(-Z_at_age(sp, 0, age, 0) * spawn_month(sp)/12) * weight(ssb_wt_index(sp), 0, age, 0 ) * mature_females(sp, age);
       }
     }
 
@@ -1380,10 +1388,6 @@ Type objective_function<Type>::operator() () {
           }
 
           // -- 6.6.4. Estimated female ssb
-          /*
-           ssb_at_age(sp, age, yr) = N_at_age(sp, 0, age, yr) * pow(S_at_age(sp, 0, age, yr), spawn_month(sp)/12.0) * weight(ssb_wt_index(sp), 0, age, yr ) * mature_females(sp, age); // 6.6.
-           ssb(sp, yr) += ssb_at_age(sp, age, yr);
-           */
           ssb(sp, yr) += N_at_age(sp, 0, age, yr) * exp(-Z_at_age(sp, 0, age, yr) * spawn_month(sp)/12.0) * weight(ssb_wt_index(sp), 0, age, yr ) * mature_females(sp, age); // 6.6.
         }
       }
@@ -1402,8 +1406,8 @@ Type objective_function<Type>::operator() () {
     // -- Calc biomass_depletion based BRPs
     NByage0.setZero();
     NByageF.setZero();
-    DynamicNByageF.setZero();
-    DynamicNByage0.setZero();
+    N_at_age_dBF.setZero();
+    N_at_age_dB0.setZero();
     B0.setZero();
     SB0.setZero();
     SBF.setZero();
@@ -1418,7 +1422,7 @@ Type objective_function<Type>::operator() () {
         if(yr == 0){
           for(sex = 0; sex < nsex(sp); sex ++){
             for(age = 0; age < nages(sp); age++){
-              NByage0(sp, sex, age , 0) = NByageF(sp, sex, age , 0) = DynamicNByageF(sp, sex, age, 0) = DynamicNByage0(sp, sex, age, 0) = N_at_age(sp,sex,age,0);
+              NByage0(sp, sex, age , 0) = NByageF(sp, sex, age , 0) = N_at_age_dBF(sp, sex, age, 0) = N_at_age_dB0(sp, sex, age, 0) = N_at_age(sp,sex,age,0);
             }
           }
         }
@@ -1433,10 +1437,10 @@ Type objective_function<Type>::operator() () {
 
             // Dynamic RPs use mean rec for forecast and observed rec for hindcast
             if(yr < nyrs_hind){
-              DynamicNByageF(sp, 0, 0, yr) = DynamicNByage0(sp, 0, 0, yr) = R(sp, yr); // Hindcast use observed R
+              N_at_age_dBF(sp, 0, 0, yr) = N_at_age_dB0(sp, 0, 0, yr) = R(sp, yr); // Hindcast use observed R
             }
             if(yr >= nyrs_hind){
-              DynamicNByageF(sp, 0, 0, yr) = DynamicNByage0(sp, 0, 0, yr) = exp(log(avg_R(sp)) + rec_dev(sp, yr)); // Projections use mean R given bias in R0
+              N_at_age_dBF(sp, 0, 0, yr) = N_at_age_dB0(sp, 0, 0, yr) = exp(log(avg_R(sp)) + rec_dev(sp, yr)); // Projections use mean R given bias in R0
             }
           }
 
@@ -1449,10 +1453,10 @@ Type objective_function<Type>::operator() () {
 
             // Dynamic RPs use mean rec for forecast and observed rec for hindcast
             if(yr < nyrs_hind){
-              DynamicNByageF(sp, 0, 0, yr) = DynamicNByage0(sp, 0, 0, yr) = R(sp, yr); // Hindcast use observed R
+              N_at_age_dBF(sp, 0, 0, yr) = N_at_age_dB0(sp, 0, 0, yr) = R(sp, yr); // Hindcast use observed R
             }
             if(yr >= nyrs_hind){
-              DynamicNByageF(sp, 0, 0, yr) = DynamicNByage0(sp, 0, 0, yr) = exp(log(avg_R(sp)) + rec_dev(sp, yr) + srr_mult.sum()); // Projections use mean R given bias in R0
+              N_at_age_dBF(sp, 0, 0, yr) = N_at_age_dB0(sp, 0, 0, yr) = exp(log(avg_R(sp)) + rec_dev(sp, yr) + srr_mult.sum()); // Projections use mean R given bias in R0
             }
           }
 
@@ -1466,8 +1470,8 @@ Type objective_function<Type>::operator() () {
               NByage0(sp, 0, 0, yr) = R0(sp);
               NByageF(sp, 0, 0, yr) = R0(sp);
 
-              DynamicNByage0(sp, 0, 0, yr) = R0(sp) * exp(rec_dev(sp, yr));
-              DynamicNByageF(sp, 0, 0, yr) = R0(sp) * exp(rec_dev(sp, yr));
+              N_at_age_dB0(sp, 0, 0, yr) = R0(sp) * exp(rec_dev(sp, yr));
+              N_at_age_dBF(sp, 0, 0, yr) = R0(sp) * exp(rec_dev(sp, yr));
               break;
 
             case 1: // Random about mean with environmental covariates (e.g. Alaska)
@@ -1478,8 +1482,8 @@ Type objective_function<Type>::operator() () {
               env_rec_tmp = env_index.row(yr);
               srr_mult = env_rec_tmp * beta_rec_tmp;
 
-              DynamicNByage0(sp, 0, 0, yr) = R0(sp) * exp(rec_dev(sp, yr) + srr_mult.sum());
-              DynamicNByageF(sp, 0, 0, yr) = R0(sp) * exp(rec_dev(sp, yr) + srr_mult.sum());
+              N_at_age_dB0(sp, 0, 0, yr) = R0(sp) * exp(rec_dev(sp, yr) + srr_mult.sum());
+              N_at_age_dBF(sp, 0, 0, yr) = R0(sp) * exp(rec_dev(sp, yr) + srr_mult.sum());
               break;
 
             case 2: // Beverton-Holt
@@ -1487,8 +1491,8 @@ Type objective_function<Type>::operator() () {
               NByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 1)) * SB0(sp, yr-minage(sp)) / (1+exp(rec_pars(sp, 2)) * SB0(sp, yr-minage(sp)));
               NByageF(sp, 0, 0, yr) = exp(rec_pars(sp, 1)) * SBF(sp, yr-minage(sp)) / (1+exp(rec_pars(sp, 2)) * SBF(sp, yr-minage(sp)));
 
-              DynamicNByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 1)) * DynamicSB0(sp, yr-minage(sp)) / (1+exp(rec_pars(sp, 2)) * DynamicSB0(sp, yr-minage(sp))) * exp(rec_dev(sp, yr));
-              DynamicNByageF(sp, 0, 0, yr) = exp(rec_pars(sp, 1)) * DynamicSBF(sp, yr-minage(sp)) / (1+exp(rec_pars(sp, 2)) * DynamicSBF(sp, yr-minage(sp))) * exp(rec_dev(sp, yr));
+              N_at_age_dB0(sp, 0, 0, yr) = exp(rec_pars(sp, 1)) * DynamicSB0(sp, yr-minage(sp)) / (1+exp(rec_pars(sp, 2)) * DynamicSB0(sp, yr-minage(sp))) * exp(rec_dev(sp, yr));
+              N_at_age_dBF(sp, 0, 0, yr) = exp(rec_pars(sp, 1)) * DynamicSBF(sp, yr-minage(sp)) / (1+exp(rec_pars(sp, 2)) * DynamicSBF(sp, yr-minage(sp))) * exp(rec_dev(sp, yr));
               break;
 
             case 3: // Beverton-Holt with environmental impacts on alpha
@@ -1500,8 +1504,8 @@ Type objective_function<Type>::operator() () {
               NByage0(sp, 0, 0, yr) = srr_alpha * SB0(sp, yr-minage(sp)) / (1+exp(rec_pars(sp, 2)) * SB0(sp, yr-minage(sp)));
               NByageF(sp, 0, 0, yr) = srr_alpha * SBF(sp, yr-minage(sp)) / (1+exp(rec_pars(sp, 2)) * SBF(sp, yr-minage(sp)));
 
-              DynamicNByage0(sp, 0, 0, yr) = srr_alpha * DynamicSB0(sp, yr-minage(sp)) / (1+exp(rec_pars(sp, 2)) * DynamicSB0(sp, yr-minage(sp))) * exp(rec_dev(sp, yr));
-              DynamicNByageF(sp, 0, 0, yr) = srr_alpha * DynamicSBF(sp, yr-minage(sp)) / (1+exp(rec_pars(sp, 2)) * DynamicSBF(sp, yr-minage(sp))) * exp(rec_dev(sp, yr));
+              N_at_age_dB0(sp, 0, 0, yr) = srr_alpha * DynamicSB0(sp, yr-minage(sp)) / (1+exp(rec_pars(sp, 2)) * DynamicSB0(sp, yr-minage(sp))) * exp(rec_dev(sp, yr));
+              N_at_age_dBF(sp, 0, 0, yr) = srr_alpha * DynamicSBF(sp, yr-minage(sp)) / (1+exp(rec_pars(sp, 2)) * DynamicSBF(sp, yr-minage(sp))) * exp(rec_dev(sp, yr));
               break;
 
             case 4: // Ricker
@@ -1509,8 +1513,8 @@ Type objective_function<Type>::operator() () {
               NByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 1)) * SB0(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 2)) * SB0(sp, yr-minage(sp))/1000000.0);
               NByageF(sp, 0, 0, yr) = exp(rec_pars(sp, 1)) * SBF(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 2)) * SBF(sp, yr-minage(sp))/1000000.0);
 
-              DynamicNByage0(sp, 0, 0, yr) = exp(rec_pars(sp, 1)) * DynamicSB0(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 2)) * DynamicSB0(sp, yr-minage(sp))/1000000.0) * exp(rec_dev(sp, yr));
-              DynamicNByageF(sp, 0, 0, yr) = exp(rec_pars(sp, 1)) * DynamicSBF(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 2)) * DynamicSBF(sp, yr-minage(sp))/1000000.0) * exp(rec_dev(sp, yr));
+              N_at_age_dB0(sp, 0, 0, yr) = exp(rec_pars(sp, 1)) * DynamicSB0(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 2)) * DynamicSB0(sp, yr-minage(sp))/1000000.0) * exp(rec_dev(sp, yr));
+              N_at_age_dBF(sp, 0, 0, yr) = exp(rec_pars(sp, 1)) * DynamicSBF(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 2)) * DynamicSBF(sp, yr-minage(sp))/1000000.0) * exp(rec_dev(sp, yr));
               break;
 
             case 5: // Ricker with environmental impacts on alpha
@@ -1522,8 +1526,8 @@ Type objective_function<Type>::operator() () {
               NByage0(sp, 0, 0, yr) = srr_alpha * SB0(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 2)) * SB0(sp, yr-minage(sp))/1000000.0);
               NByageF(sp, 0, 0, yr) = srr_alpha * SBF(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 2)) * SBF(sp, yr-minage(sp))/1000000.0);
 
-              DynamicNByage0(sp, 0, 0, yr) = srr_alpha * DynamicSB0(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 2)) * DynamicSB0(sp, yr-minage(sp))/1000000.0) * exp(rec_dev(sp, yr));
-              DynamicNByageF(sp, 0, 0, yr) = srr_alpha * DynamicSBF(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 2)) * DynamicSBF(sp, yr-minage(sp))/1000000.0) * exp(rec_dev(sp, yr));
+              N_at_age_dB0(sp, 0, 0, yr) = srr_alpha * DynamicSB0(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 2)) * DynamicSB0(sp, yr-minage(sp))/1000000.0) * exp(rec_dev(sp, yr));
+              N_at_age_dBF(sp, 0, 0, yr) = srr_alpha * DynamicSBF(sp, yr-minage(sp)) * exp(-exp(rec_pars(sp, 2)) * DynamicSBF(sp, yr-minage(sp))/1000000.0) * exp(rec_dev(sp, yr));
               break;
 
             default:
@@ -1538,11 +1542,11 @@ Type objective_function<Type>::operator() () {
           NByageF(sp, 0, 0, yr) = NByageF(sp, 0, 0, yr) * sex_ratio(sp, 0); // Females
           NByageF(sp, 1, 0, yr) = NByageF(sp, 0, 0, yr) / sex_ratio(sp, 0) * (1.0-sex_ratio(sp, 0)); // Males (divide by sex_r because we multiplied in the line before)
 
-          DynamicNByage0(sp, 0, 0, yr) = DynamicNByage0(sp, 0, 0, yr) * sex_ratio(sp, 0); // Females
-          DynamicNByage0(sp, 1, 0, yr) = DynamicNByage0(sp, 0, 0, yr) / sex_ratio(sp, 0) * (1.0-sex_ratio(sp, 0)); // Males (divide by sex_r because we multiplied in the line before)
+          N_at_age_dB0(sp, 0, 0, yr) = N_at_age_dB0(sp, 0, 0, yr) * sex_ratio(sp, 0); // Females
+          N_at_age_dB0(sp, 1, 0, yr) = N_at_age_dB0(sp, 0, 0, yr) / sex_ratio(sp, 0) * (1.0-sex_ratio(sp, 0)); // Males (divide by sex_r because we multiplied in the line before)
 
-          DynamicNByageF(sp, 0, 0, yr) = DynamicNByageF(sp, 0, 0, yr) * sex_ratio(sp, 0); // Females
-          DynamicNByageF(sp, 1, 0, yr) = DynamicNByageF(sp, 0, 0, yr) / sex_ratio(sp, 0) * (1.0-sex_ratio(sp, 0)); // Males (divide by sex_r because we multiplied in the line before)
+          N_at_age_dBF(sp, 0, 0, yr) = N_at_age_dBF(sp, 0, 0, yr) * sex_ratio(sp, 0); // Females
+          N_at_age_dBF(sp, 1, 0, yr) = N_at_age_dBF(sp, 0, 0, yr) / sex_ratio(sp, 0) * (1.0-sex_ratio(sp, 0)); // Males (divide by sex_r because we multiplied in the line before)
 
 
           // N-at-age year > 1
@@ -1550,21 +1554,21 @@ Type objective_function<Type>::operator() () {
             for(age = 1; age < nages(sp)-1; age++) {
               NByage0(sp, sex, age, yr) =  NByage0(sp, sex, age-1, yr-1) * exp(-M_at_age(sp, sex, age-1, yr-1)); // F = 0
 
-              NByageF(sp, sex, age, yr) =  NByageF(sp, sex, age-1, yr-1) * exp(-M_at_age(sp, sex, age-1, yr-1) - Ftarget_age_spp(sp, sex, age-1, yr-1)); // F = target
+              NByageF(sp, sex, age, yr) =  NByageF(sp, sex, age-1, yr-1) * exp(-M_at_age(sp, sex, age-1, yr-1) - Ftarget_at_age(sp, sex, age-1, yr-1)); // F = target
 
-              DynamicNByage0(sp, sex, age, yr) =  DynamicNByage0(sp, sex, age-1, yr-1) * exp(-M_at_age(sp, sex, age-1, yr - 1)); // F = 0
+              N_at_age_dB0(sp, sex, age, yr) =  N_at_age_dB0(sp, sex, age-1, yr-1) * exp(-M_at_age_dB0(sp, sex, age-1, yr - 1)); // F = 0
 
-              DynamicNByageF(sp, sex, age, yr) =  DynamicNByageF(sp, sex, age-1, yr-1) * exp(-M_at_age(sp, sex, age-1, yr - 1) - Ftarget_age_spp(sp, sex, age-1, yr-1)); // F = Ftarget
+              N_at_age_dBF(sp, sex, age, yr) =  N_at_age_dBF(sp, sex, age-1, yr-1) * exp(-M_at_age_dBF(sp, sex, age-1, yr - 1) - Ftarget_at_age(sp, sex, age-1, yr-1)); // F = Ftarget
             }
 
             // Plus group  -- No fishing
             NByage0(sp, sex, nages(sp)-1, yr) = NByage0(sp, sex, nages(sp)-2, yr - 1) * exp(-M_at_age(sp, sex, nages(sp)-2, yr - 1))  + NByage0(sp, sex, nages(sp)-1, yr - 1) * exp(-M_at_age(sp, sex, nages(sp)-1, yr - 1));
 
-            NByageF(sp, sex, nages(sp)-1, yr) = NByageF(sp, sex, nages(sp)-2, yr - 1) * exp(-M_at_age(sp, sex, nages(sp)-2, yr - 1) - Ftarget_age_spp(sp, sex, nages(sp)-2, yr-1))  + NByageF(sp, sex, nages(sp)-1, yr - 1) * exp(-M_at_age(sp, sex, nages(sp)-1, yr - 1) - Ftarget_age_spp(sp, sex, nages(sp)-1, yr-1));
+            NByageF(sp, sex, nages(sp)-1, yr) = NByageF(sp, sex, nages(sp)-2, yr - 1) * exp(-M_at_age(sp, sex, nages(sp)-2, yr - 1) - Ftarget_at_age(sp, sex, nages(sp)-2, yr-1))  + NByageF(sp, sex, nages(sp)-1, yr - 1) * exp(-M_at_age(sp, sex, nages(sp)-1, yr - 1) - Ftarget_at_age(sp, sex, nages(sp)-1, yr-1));
 
-            DynamicNByage0(sp, sex, nages(sp)-1, yr) = DynamicNByage0(sp, sex, nages(sp)-2, yr - 1) * exp(-M_at_age(sp, sex, nages(sp)-2, yr - 1))  + DynamicNByage0(sp, sex, nages(sp)-1, yr - 1) * exp(-M_at_age(sp, sex, nages(sp)-1, yr - 1));
+            N_at_age_dB0(sp, sex, nages(sp)-1, yr) = N_at_age_dB0(sp, sex, nages(sp)-2, yr - 1) * exp(-M_at_age_dB0(sp, sex, nages(sp)-2, yr - 1))  + N_at_age_dB0(sp, sex, nages(sp)-1, yr - 1) * exp(-M_at_age_dB0(sp, sex, nages(sp)-1, yr - 1));
 
-            DynamicNByageF(sp, sex, nages(sp)-1, yr) = DynamicNByageF(sp, sex, nages(sp)-2, yr - 1) * exp(-M_at_age(sp, sex, nages(sp)-2, yr - 1) - Ftarget_age_spp(sp, sex, nages(sp)-2, yr-1))  + DynamicNByageF(sp, sex, nages(sp)-1, yr - 1) * exp(-M_at_age(sp, sex, nages(sp)-1, yr - 1) - Ftarget_age_spp(sp, sex, nages(sp)-1, yr-1));
+            N_at_age_dBF(sp, sex, nages(sp)-1, yr) = N_at_age_dBF(sp, sex, nages(sp)-2, yr - 1) * exp(-M_at_age_dBF(sp, sex, nages(sp)-2, yr - 1) - Ftarget_at_age(sp, sex, nages(sp)-2, yr-1))  + N_at_age_dBF(sp, sex, nages(sp)-1, yr - 1) * exp(-M_at_age_dBF(sp, sex, nages(sp)-1, yr - 1) - Ftarget_at_age(sp, sex, nages(sp)-1, yr-1));
 
           }
         }
@@ -1581,13 +1585,13 @@ Type objective_function<Type>::operator() () {
 
         for(age = 0; age < nages(sp); age++) {
           SB0(sp, yr) +=  NByage0(sp, 0, age, yr) *  weight( ssb_wt_index(sp), 0, age, nyrs_hind - 1 ) * mature_females(sp, age) * exp(-M_at_age(sp, 0, age, yr) * spawn_month(sp)/12.0);
-          SBF(sp, yr) +=  NByageF(sp, 0, age, yr) *  weight( ssb_wt_index(sp), 0, age, nyrs_hind - 1 ) * mature_females(sp, age) * exp(-(M_at_age(sp, 0, age, yr) + Ftarget_age_spp(sp, 0, age, yr)) * spawn_month(sp)/12.0);
-          DynamicSB0(sp, yr) +=  DynamicNByage0(sp, 0, age, yr) *  weight( ssb_wt_index(sp), 0, age, yr_ind ) * mature_females(sp, age) * exp(-M_at_age(sp, 0, age, yr) * spawn_month(sp)/12.0);
-          DynamicSBF(sp, yr) +=  DynamicNByageF(sp, 0, age, yr) *  weight( ssb_wt_index(sp), 0, age, yr_ind ) * mature_females(sp, age) * exp(-(M_at_age(sp, 0, age, yr) + Ftarget_age_spp(sp, 0, age, yr)) * spawn_month(sp)/12.0);
+          SBF(sp, yr) +=  NByageF(sp, 0, age, yr) *  weight( ssb_wt_index(sp), 0, age, nyrs_hind - 1 ) * mature_females(sp, age) * exp(-(M_at_age(sp, 0, age, yr) + Ftarget_at_age(sp, 0, age, yr)) * spawn_month(sp)/12.0);
+          DynamicSB0(sp, yr) +=  N_at_age_dB0(sp, 0, age, yr) *  weight( ssb_wt_index(sp), 0, age, yr_ind ) * mature_females(sp, age) * exp(-M_at_age_dB0(sp, 0, age, yr) * spawn_month(sp)/12.0);
+          DynamicSBF(sp, yr) +=  N_at_age_dBF(sp, 0, age, yr) *  weight( ssb_wt_index(sp), 0, age, yr_ind ) * mature_females(sp, age) * exp(-(M_at_age_dBF(sp, 0, age, yr) + Ftarget_at_age(sp, 0, age, yr)) * spawn_month(sp)/12.0);
 
           for(sex = 0; sex < nsex(sp); sex ++){
             B0(sp, yr) +=  NByage0(sp, sex, age, yr) *  weight( ssb_wt_index(sp), sex, age, nyrs_hind - 1 );
-            DynamicB0(sp, yr) +=  DynamicNByage0(sp, sex,age, yr) *  weight( ssb_wt_index(sp), sex, age, yr_ind );
+            DynamicB0(sp, yr) +=  N_at_age_dB0(sp, sex,age, yr) *  weight( ssb_wt_index(sp), sex, age, yr_ind );
           }
         }
 
@@ -1725,7 +1729,7 @@ Type objective_function<Type>::operator() () {
         // -- 6.8.3. Update F for the projection (account for selectivity and fleets)
         for(age = 0; age < nages(sp); age++) {
           for(sex = 0; sex < nsex(sp); sex ++){
-            F_spp_at_age(sp, sex, age, yr) = 0.0;
+            F_at_age(sp, sex, age, yr) = 0.0;
           }
         }
 
@@ -1738,7 +1742,7 @@ Type objective_function<Type>::operator() () {
               for(sex = 0; sex < nsex(sp); sex ++){
                 F_flt_age(flt, sex, age, yr) = sel(flt, sex, age, nyrs_hind - 1) * proj_F_prop(flt) * proj_F(sp, yr); // FIXME using last year of selectivity
                 if(flt_type(flt) == 1){
-                  F_spp_at_age(sp, sex, age, yr) += F_flt_age(flt, sex, age, yr);
+                  F_at_age(sp, sex, age, yr) += F_flt_age(flt, sex, age, yr);
                 }
               }
             }
@@ -1746,12 +1750,11 @@ Type objective_function<Type>::operator() () {
         }
 
 
-        // -- 6.8.4. Update mortality for forcast
+        // -- 6.8.4. Update mortality for forecast with new F
         for(age = 0; age < nages(sp); age++) {
           for(sex = 0; sex < nsex(sp); sex ++){
             M_at_age(sp, sex, age, yr) = M1_at_age(sp, sex, age, yr) + M2_at_age(sp, sex, age, yr);
-            Z_at_age(sp, sex, age, yr) = M1_at_age(sp, sex, age, yr) + F_spp_at_age(sp, sex, age, yr) + M2_at_age(sp, sex, age, yr);
-            //S_at_age(sp, sex, age, yr) = exp(-Z_at_age(sp, sex, age, yr));
+            Z_at_age(sp, sex, age, yr) = M1_at_age(sp, sex, age, yr) + F_at_age(sp, sex, age, yr) + M2_at_age(sp, sex, age, yr);
           }
         }
 
@@ -1826,12 +1829,12 @@ Type objective_function<Type>::operator() () {
 
               // -- 6.9.2.  Where minage + 1 <= age < Ai
               if(age < (nages(sp) - 1)) {
-                N_at_age(sp, sex, age + 1, yr) = N_at_age(sp, sex, age, yr - 1) * exp(-Z_at_age(sp, sex, age, yr-1));// S_at_age(sp, sex, age, yr - 1);
+                N_at_age(sp, sex, age + 1, yr) = N_at_age(sp, sex, age, yr - 1) * exp(-Z_at_age(sp, sex, age, yr-1));
               }
 
               // -- 6.9.3. Plus group where age > Ai.
               if(age == (nages(sp) - 1)) {
-                N_at_age(sp, sex, age, yr) = N_at_age(sp, sex, age - 1, yr - 1) * exp(-Z_at_age(sp, sex, age-1, yr-1)) + N_at_age(sp, sex, age, yr - 1) * exp(-Z_at_age(sp, sex, age, yr-1));// S_at_age(sp, sex, age, yr - 1);
+                N_at_age(sp, sex, age, yr) = N_at_age(sp, sex, age - 1, yr - 1) * exp(-Z_at_age(sp, sex, age-1, yr-1)) + N_at_age(sp, sex, age, yr - 1) * exp(-Z_at_age(sp, sex, age, yr-1));
               }
               break;
 
@@ -1857,10 +1860,6 @@ Type objective_function<Type>::operator() () {
           } // End sex loop
 
           // -- 6.9.5. FORECAST SSB (SUM ACROSS AGES)
-          /*
-           ssb_at_age(sp, age, yr) = N_at_age(sp, 0, age, yr) * pow(S_at_age(sp, 0, age, yr), spawn_month(sp)/12.0) * weight(ssb_wt_index(sp), 0, age, nyrs_hind-1 ) * mature_females(sp, age); // 6.6.
-           ssb(sp, yr) += ssb_at_age(sp, age, yr);
-           */
           ssb(sp, yr) += N_at_age(sp, 0, age, yr) * exp(-Z_at_age(sp, 0, age, yr) * spawn_month(sp)/12.0) * weight(ssb_wt_index(sp), 0, age, nyrs_hind-1 ) * mature_females(sp, age); // 6.6.
         }
       }
@@ -1964,6 +1963,8 @@ Type objective_function<Type>::operator() () {
             // switch(avgnMode){
             // case 0: // MSVPA approach
             avgN_at_age(sp, sex, age, yr) = N_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) / Z_at_age(sp, sex, age, yr);
+            avgN_at_age_dB0(sp, sex, age, yr) = N_at_age_dB0(sp, sex, age, yr) * (1 - exp(-M_at_age_dB0(sp, sex, age, yr))) / M_at_age_dB0(sp, sex, age, yr);
+            avgN_at_age_dBF(sp, sex, age, yr) = N_at_age_dBF(sp, sex, age, yr) * (1 - exp(-M_at_age_dBF(sp, sex, age, yr) - Ftarget_at_age(sp, sex, age, yr))) / (M_at_age_dBF(sp, sex, age, yr) + Ftarget_at_age(sp, sex, age, yr));
             /*
              break;
           case 1: // Kinzey and Punt (2009) approximation
@@ -2375,6 +2376,8 @@ Type objective_function<Type>::operator() () {
 
         // 8.1.3. Calculate available food
         avail_food.setZero();
+        avail_food_dB0.setZero();
+        avail_food_dBF.setZero();
         for(rsp = 0; rsp < nspp; rsp++) {                        // Predator species loop
           for(r_sex = 0; r_sex < nsex(rsp); r_sex++){             // Predator sex loop
             for(r_age = 0; r_age < nages(rsp); r_age++) {          // Predator age loop
@@ -2391,11 +2394,15 @@ Type objective_function<Type>::operator() () {
                   for(k_sex = 0; k_sex < nsex(ksp); k_sex++){
                     for(k_age = 0; k_age < nages(ksp); k_age++) {    // Prey age loop
                       avail_food(rsp, r_sex, r_age, yr) += suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) * pow(avgN_at_age(ksp, k_sex, k_age, yr), msmMode) * weight(pop_wt_index(ksp), k_sex, k_age, yr_ind) ; // FIXME - include overlap indices: FIXME - mn_wt_stom?
+                      avail_food_dB0(rsp, r_sex, r_age, yr) += suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) * pow(avgN_at_age_dB0(ksp, k_sex, k_age, yr), msmMode) * weight(pop_wt_index(ksp), k_sex, k_age, yr_ind) ; // FIXME - include overlap indices: FIXME - mn_wt_stom?
+                      avail_food_dBF(rsp, r_sex, r_age, yr) += suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) * pow(avgN_at_age_dBF(ksp, k_sex, k_age, yr), msmMode) * weight(pop_wt_index(ksp), k_sex, k_age, yr_ind) ; // FIXME - include overlap indices: FIXME - mn_wt_stom?
                     }
                   }
                 }
                 // Other food
                 avail_food(rsp, r_sex, r_age, yr) += other_food(rsp) * suit_other(rsp, r_sex, r_age, yr);
+                avail_food_dB0(rsp, r_sex, r_age, yr) += other_food(rsp) * suit_other(rsp, r_sex, r_age, yr);
+                avail_food_dBF(rsp, r_sex, r_age, yr) += other_food(rsp) * suit_other(rsp, r_sex, r_age, yr);
               }
             }
           }
@@ -2424,12 +2431,18 @@ Type objective_function<Type>::operator() () {
 
                         //switch(msmMode){
                         //case 1: // Type 2 MSVPA
-                        M2_at_age(ksp, k_sex, k_age, yr) += (avgN_at_age(rsp, r_sex, r_age, yr) * ration(rsp, r_sex, r_age, yr) * suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr); // #FIXME - include indices of overlap
+                        // Hindcast
+                        // #FIXME - include indices of overlap
+                        M2_at_age(ksp, k_sex, k_age, yr) += (avgN_at_age(rsp, r_sex, r_age, yr) * ration(rsp, r_sex, r_age, yr) * suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr);
                         M2_prop(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = (avgN_at_age(rsp, r_sex, r_age, yr) * ration(rsp, r_sex, r_age, yr) * suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food(rsp, r_sex, r_age, yr);
                         B_eaten(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = avgN_at_age(ksp, k_sex, k_age, yr) * weight(pop_wt_index(ksp), k_sex, k_age, yr_ind) * avgN_at_age(rsp, r_sex, r_age, yr) * ration(rsp, r_sex, r_age, yr) * suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) / avail_food(rsp, r_sex, r_age, yr);
                         B_eaten_as_prey(ksp, k_sex, k_age, yr) += B_eaten(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr);
                         diet_prop_hat(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) = avgN_at_age(ksp, k_sex, k_age, yr) * weight(pop_wt_index(ksp), k_sex, k_age, yr_ind) * suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)/ avail_food(rsp, r_sex, r_age, yr);
                         other_diet_prop_hat(rsp, r_sex, r_age, yr) = other_food(rsp) * suit_other(rsp, r_sex, r_age, yr) / avail_food(rsp, r_sex, r_age, yr);
+
+                        // Dynamic reference points
+                        M2_at_age_dB0(ksp, k_sex, k_age, yr) += (avgN_at_age_dB0(rsp, r_sex, r_age, yr) * ration(rsp, r_sex, r_age, yr) * suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food_dB0(rsp, r_sex, r_age, yr);
+                        M2_at_age_dBF(ksp, k_sex, k_age, yr) += (avgN_at_age_dBF(rsp, r_sex, r_age, yr) * ration(rsp, r_sex, r_age, yr) * suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr)) / avail_food_dBF(rsp, r_sex, r_age, yr);
                         //break;
 
                         /*
@@ -4070,9 +4083,7 @@ Type objective_function<Type>::operator() () {
   REPORT( avgN_at_age );
   //REPORT( sex_ratio_hat );
   //REPORT( avg_sex_ratio_hat );
-  //REPORT( S_at_age );
   REPORT( biomass_at_age );
-  //REPORT( ssb_at_age );
   REPORT( biomass_depletion );
   REPORT( ssb_depletion );
   REPORT( biomass );
@@ -4102,8 +4113,8 @@ Type objective_function<Type>::operator() () {
   // -- 12.2. Biological reference points
   REPORT( NByageF );
   REPORT( NByage0);
-  //REPORT( DynamicNByage0);
-  //REPORT( DynamicNByageF);
+  //REPORT( N_at_age_dB0);
+  //REPORT( N_at_age_dBF);
   REPORT( NbyageSPR);
   REPORT( B0 );
   REPORT( SB0 );
@@ -4119,8 +4130,8 @@ Type objective_function<Type>::operator() () {
   REPORT( proj_F );
   REPORT( Ftarget );
   REPORT( Flimit );
-  //REPORT( Flimit_age_spp );
-  //REPORT( Ftarget_age_spp );
+  //REPORT( Flimit_at_age );
+  //REPORT( Ftarget_at_age );
 
   // -- 12.3. Selectivity
   REPORT( sel );
@@ -4153,7 +4164,7 @@ Type objective_function<Type>::operator() () {
   REPORT( F_spp );
   REPORT( F_flt );
   REPORT( F_flt_age );
-  REPORT( F_spp_at_age );
+  REPORT( F_at_age );
   REPORT( catch_hat );
   REPORT( max_catch_hat );
   REPORT( ln_catch_sd );
