@@ -13,6 +13,7 @@ ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
                             phase = TRUE,
                             verbose = 1)
 
+
 # Update composition weights using McAllister-Ianelli method
 # - I estimate the weights after model optimization in the fit_mod function
 BS2017SS_weighted <- BS2017SS

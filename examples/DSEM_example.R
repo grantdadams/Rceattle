@@ -17,6 +17,7 @@ model1 <- Rceattle::fit_mod(data_list = GOApollock,
                             random_rec = TRUE, # Random recruitment
                             msmMode = 0, # Single species mode
                             phase = FALSE,
+                            initMode = 2,
                             verbose = 1)
 model1$data_list$dsem_settings$sem
 
@@ -41,8 +42,10 @@ model2 <- Rceattle::fit_mod(data_list = GOApollock,
                             ),
                             random_rec = TRUE, # Random recruitment
                             msmMode = 0, # Single species mode
-                            phase = FALSE,
+                            phase = TRUE,
+                            initMode = 2,
                             verbose = 1)
+model2$data_list$dsem_settings$sem
 
 
 # * Plot ----

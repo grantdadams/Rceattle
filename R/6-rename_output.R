@@ -12,6 +12,7 @@ rename_output = function(data_list = NULL, quantities = NULL){
   # Dimension attributed
   max_age <- max(data_list$nages, na.rm = T)
   max_sex <- max(data_list$nsex, na.rm = T)
+  max_length <- max(data_list$nlengths, na.rm = T)
   sex_labels <- c("Sex combined or females", "males")
   if(max_sex == 1){
     sex_labels <- "Sex combined"
@@ -23,8 +24,8 @@ rename_output = function(data_list = NULL, quantities = NULL){
 
 
   # Rename ----
-  # Vectors
-  # - Biological
+  # * Vectors ----
+  #  Biological quantities
   names(quantities$avg_R) <- data_list$spnames
   names(quantities$Flimit) <- data_list$spnames
   names(quantities$Ftarget) <- data_list$spnames
@@ -38,12 +39,12 @@ rename_output = function(data_list = NULL, quantities = NULL){
   names(quantities$SPRtarget) <- data_list$spnames
   names(quantities$steepness) <- data_list$spnames
 
-  # - Fleets
+  # * Fleets ----
   names(quantities$ln_catch_sd) <- data_list$catch_data$Fleet_name
   names(quantities$ln_index_sd) <- data_list$index_data$Fleet_name
 
 
-  # 2D array
+  # * 2D array ----
   # - Population quantities
   dimnames(quantities$biomass) <- list(data_list$spnames, yrs_proj)
   dimnames(quantities$biomass_depletion) <- list(data_list$spnames, yrs_proj)
@@ -73,12 +74,12 @@ rename_output = function(data_list = NULL, quantities = NULL){
   dimnames(quantities$F_flt) <- list(data_list$fleet_control$Fleet_name, yrs_proj) # Sex specific?
   dimnames(quantities$index_q) <- list(data_list$fleet_control$Fleet_name, yrs_hind)
 
-  # 4D array
+  # * 4D array ----
   # - Biological
   dimnames(quantities$biomass_at_age) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
   dimnames(quantities$consumption_at_age) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
   dimnames(quantities$B_eaten_as_prey) <-  list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
-  dimnames(quantities$F_spp_at_age) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
+  dimnames(quantities$F_at_age) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
   dimnames(quantities$M_at_age) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
   dimnames(quantities$M1_at_age) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
   dimnames(quantities$M2_at_age) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
@@ -88,11 +89,19 @@ rename_output = function(data_list = NULL, quantities = NULL){
   dimnames(quantities$NByageF) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
   dimnames(quantities$ration) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
 
+  dimnames(quantities$weight_hat) <- dimnames(quantities$length_hat) <- list(
+    c(paste(rep(data_list$spnames, each = 2), rep(c("biomass_weight", "spawn_weight"), data_list$nspp)), data_list$fleet_control$Fleet_name),
+    sex_labels, paste0("Age", 1:max_age), yrs_proj)
+  dimnames(quantities$growth_matrix) <- list(
+    c(paste(rep(data_list$spnames, each = 2), rep(c("biomass_weight", "spawn_weight"), data_list$nspp)), data_list$fleet_control$Fleet_name),
+    sex_labels, paste0("Age", 1:max_age), paste0("Bin", 1:max_length), yrs_proj)
+
   # - Fleet
   dimnames(quantities$F_flt_age) <- list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Age", 1:max_age), yrs_proj)
-  dimnames(quantities$sel) <- list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Age", 1:max_age), yrs_proj)
+  dimnames(quantities$sel_at_age) <- list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Age", 1:max_age), yrs_proj)
+  dimnames(quantities$sel_at_length) <- list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Bin", 1:max_length), yrs_proj)
 
-  # 5D arrays
+  # * 5D arrays ----
   dimnames(quantities$B_eaten) <- list(paste("Pred:", data_list$spnames, rep(sex_labels, each = data_list$nspp)),
                                        paste("Prey:", data_list$spnames, rep(sex_labels, each = data_list$nspp)),
                                        paste0("Pred age", 1:max_age),
@@ -105,26 +114,23 @@ rename_output = function(data_list = NULL, quantities = NULL){
                                            yrs_proj)
 
 
-  # Rename likelihood components
-  quantities$jnll_comp[8,1:data_list$nspp] <- 1:data_list$nspp
-  quantities$unweighted_jnll_comp[8,1:data_list$nspp] <- 1:data_list$nspp
+  # Likelihood components ----
+  S = paste0(data_list$spnames, " or ")
+  X = data_list$fleet_control$Fleet_name
+  llcolnames <- paste0(append(S, rep("", max(c(0, length(X)-length(S))))), append(X, rep(NA, max(c(0, length(S)-length(X))))))
 
-  quantities$jnll_comp <- rbind(1:nrow(data_list$fleet_control), quantities$jnll_comp)
-  quantities$unweighted_jnll_comp <- rbind(1:nrow(data_list$fleet_control), quantities$unweighted_jnll_comp)
-
-  colnames(quantities$jnll_comp) <- 1:ncol(quantities$jnll_comp)
-  colnames(quantities$unweighted_jnll_comp) <- 1:ncol(quantities$unweighted_jnll_comp)
+  colnames(quantities$jnll_comp) <- llcolnames
+  colnames(quantities$unweighted_jnll_comp) <- llcolnames
 
   rownames(quantities$jnll_comp) <- rownames(quantities$unweighted_jnll_comp) <- c(
-    "1. Fleet components",
     "Index data",
     "Catch data",
     "Composition data",
+    "CAAL data",
     "Non-parametric selectivity",
     "Selectivity deviates",
     "Catchability prior",
     "Catchability deviates",
-    "2. Species components", # Empty row
     "Stock-recruit prior",
     "Initial abundance deviates",
     "Recruitment deviates",

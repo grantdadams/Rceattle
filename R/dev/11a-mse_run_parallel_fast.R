@@ -126,7 +126,7 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
       recFun = build_srr(srr_fun = em$data_list$srr_fun,
                          srr_pred_fun  = em$data_list$srr_pred_fun ,
                          proj_mean_rec  = em$data_list$proj_mean_rec ,
-                         srr_meanyr = em$data_list$srr_meanyr,
+                         srr_mse_switchyr = em$data_list$srr_mse_switchyr,
                          srr_est_mode  = em$data_list$srr_est_mode ,
                          srr_prior_mean  = em$data_list$srr_prior_mean,
                          srr_prior_sd   = em$data_list$srr_prior_sd,
@@ -174,7 +174,7 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
                               recFun = build_srr(srr_fun = em$data_list$srr_fun,
                                                  srr_pred_fun  = em$data_list$srr_pred_fun ,
                                                  proj_mean_rec  = em$data_list$proj_mean_rec ,
-                                                 srr_meanyr = em$data_list$srr_meanyr,
+                                                 srr_mse_switchyr = em$data_list$srr_mse_switchyr,
                                                  srr_est_mode  = em$data_list$srr_est_mode ,
                                                  srr_prior_mean  = em$data_list$srr_prior_mean,
                                                  srr_prior_sd   = em$data_list$srr_prior_sd,
@@ -251,13 +251,13 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
   om$data_list$wt  <- rbind(om$data_list$wt, proj_wt)
   om$data_list$wt <- dplyr::arrange(om$data_list$wt, Wt_index, Year)
 
-  # * Pyrs ----
-  proj_Pyrs <- om$data_list$Pyrs %>%
+  # * ration_data ----
+  proj_ration_data <- om$data_list$ration_data %>%
     group_by(Species, Sex) %>%
     slice(rep(n(),  om_proj_nyrs)) %>%
     mutate(Year = om_proj_yrs)
-  om$data_list$Pyrs  <- rbind(om$data_list$Pyrs, proj_Pyrs)
-  om$data_list$Pyrs <- dplyr::arrange(om$data_list$Pyrs, Species, Year)
+  om$data_list$ration_data  <- rbind(om$data_list$ration_data, proj_ration_data)
+  om$data_list$ration_data <- dplyr::arrange(om$data_list$ration_data, Species, Year)
 
 
   #--------------------------------------------------
@@ -280,13 +280,13 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
   em$data_list$wt  <- rbind(em$data_list$wt, proj_wt)
   em$data_list$wt <- dplyr::arrange(em$data_list$wt, Wt_index, Year)
 
-  # -- EM Pyrs
-  proj_Pyrs <- em$data_list$Pyrs %>%
+  # -- EM ration_data
+  proj_ration_data <- em$data_list$ration_data %>%
     group_by(Species, Sex) %>%
     slice(rep(n(),  em_proj_nyrs)) %>%
     mutate(Year = em_proj_yrs)
-  em$data_list$Pyrs  <- rbind(em$data_list$Pyrs, proj_Pyrs)
-  em$data_list$Pyrs <- dplyr::arrange(em$data_list$Pyrs, Species, Year)
+  em$data_list$ration_data  <- rbind(em$data_list$ration_data, proj_ration_data)
+  em$data_list$ration_data <- dplyr::arrange(em$data_list$ration_data, Species, Year)
 
 
   # ------------------------------------------------------------
@@ -425,7 +425,7 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
       recFun = build_srr(srr_fun = om_use$data_list$srr_fun,
                          srr_pred_fun = om_use$data_list$srr_pred_fun ,
                          proj_mean_rec = om_use$data_list$proj_mean_rec, # This will update anyway to False as devs are added
-                         srr_meanyr = om_use$data_list$srr_meanyr,
+                         srr_mse_switchyr = om_use$data_list$srr_mse_switchyr,
                          srr_est_mode  = om_use$data_list$srr_est_mode ,
                          srr_prior_mean = om_use$data_list$srr_prior_mean,
                          srr_prior_sd = om_use$data_list$srr_prior_sd,
@@ -607,7 +607,7 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
         recFun = build_srr(srr_fun = em_use$data_list$srr_fun,
                            srr_pred_fun = em_use$data_list$srr_pred_fun,
                            proj_mean_rec = em_use$data_list$proj_mean_rec,
-                           srr_meanyr = em_use$data_list$endyr, # Update end year
+                           srr_mse_switchyr = em_use$data_list$endyr, # Update end year
                            srr_est_mode  = em_use$data_list$srr_est_mode ,
                            srr_prior_mean = em_use$data_list$srr_prior_mean,
                            srr_prior_sd = em_use$data_list$srr_prior_sd,

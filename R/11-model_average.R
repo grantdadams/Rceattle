@@ -66,7 +66,7 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
     mod_avg$quantities$biomass[, mod_avg_rel_proj_yrs] <- mod_avg$quantities$biomass[, mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$biomass[, sub_rel_proj_yrs] * weights[i]
     mod_avg$quantities$ssb[, mod_avg_rel_proj_yrs] <- mod_avg$quantities$ssb[, mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$ssb[, sub_rel_proj_yrs] * weights[i]
     mod_avg$quantities$B_eaten[,,,mod_avg_rel_proj_yrs] <- mod_avg$quantities$B_eaten[,,,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$B_eaten[,,,sub_rel_proj_yrs] * weights[i]
-    mod_avg$quantities$sel[,,,mod_avg_rel_hind_yrs] <- mod_avg$quantities$sel[,,,mod_avg_rel_hind_yrs] + Rceattle[[i]]$quantities$sel[,,,sub_rel_hind_yrs] * weights[i]
+    mod_avg$quantities$sel_at_age[,,,mod_avg_rel_hind_yrs] <- mod_avg$quantities$sel_at_age[,,,mod_avg_rel_hind_yrs] + Rceattle[[i]]$quantities$sel_at_age[,,,sub_rel_hind_yrs] * weights[i]
 
     # Reference points
     mod_avg$quantities$SB0 <- mod_avg$quantities$SB0 + Rceattle[[i]]$quantities$SB0 * weights[i]

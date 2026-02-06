@@ -2,15 +2,15 @@
 #'
 #' @param srr_fun Stock recruit function to be used for hindcast estimation of Rceattle (see @description below). Default = 0
 #' @param srr_pred_fun stock recruit function for projection, reference points, and penalties to be used for Rceattle (see below). When \code{srr_fun == 0}, it treats treat the stock-recruit curve as an additional penalty onto the annualy estimated recruitment from the hindcast (sensu AMAK and Jim Ianelli's pollock model). If \code{srr_fun > 0} then \code{srr_pred_fun = srr_fun} and no additional penalty is included.
-#' @param proj_mean_rec Project the model using: 0 = mean recruitment (average R of hindcast) or 1 = SRR(omega, rec_devs)
-#' @param srr_meanyr Integer. The last year used to calculate mean recruitment, starting at \code{styr}. Defaults to $endyr$ in $data_list$. Used for MSE runs where mean recruitment is held at the value estimated from the years used to condition the OM, but F is estimated for years beyond those used to condition the OM to account for projected catch.
-#' @param srr_hat_styr Integer. The first year used for estimating recruitment functions as additional penalties sensu AMAK and Jim Ianelli's pollock model when \code{srr_pred_fun > 0} and \code{srr_fun = 0}, starting at \code{styr} + 1. Defaults to $styr + 1$ in $data_list$. Useful if environmental data used to condition stock-recruit relationships is not available until end-year, but projections are desired.
-#' @param srr_hat_endyr Integer. The last year used for estimating recruitment functions as additional penalties sensu AMAK and Jim Ianelli's pollock model when \code{srr_pred_fun > 0} and \code{srr_fun = 0}, starting at \code{styr}. Recruitmen Defaults to $endyr$ in $data_list$. Useful if environmental data used to condition stock-recruit relationships is not available until end-year, but projections are desired.
+#' @param proj_mean_rec Project the model using: 0 = mean recruitment (average R of hindcast) or 1 = SRR(omega, srr_devs)
+#' @param srr_hat_styr Integer. The first year used for deriving the forecast recruitment function (e.g. mean recruitment). It will add additional penalties sensu AMAK and Jim Ianelli's pollock model when \code{srr_pred_fun > 0} and \code{srr_fun = 0}, starting at \code{styr} + 1. Defaults to $styr + 1$ in $data_list$. Useful if environmental data used to condition stock-recruit relationships is not available until end-year, but projections are desired.
+#' @param srr_hat_endyr Integer. The last year used f the forecast recruitment function (e.g. mean recruitment). It will add an additional penalties sensu AMAK and Jim Ianelli's pollock model when \code{srr_pred_fun > 0} and \code{srr_fun = 0}. Recruitment Defaults to $endyr$ in $data_list$. Useful if environmental data used to condition stock-recruit relationships is not available until end-year, but projections are desired.
 #' @param srr_est_mode Switch to determine estimation mode. 0 = fix alpha to prior mean, 1 = freely estimate alpha and beta, 2 = use lognormally distributed prior for alpha (Ricker) or steepness (Beverton), 3 = use beta distributed prior for steepness (Beverton) given mean and sd.
 #' @param srr_prior mean for normally distributed prior for stock-recruit parameter
 #' @param srr_prior_sd Prior standard deviation for stock-recruit parameter
 #' @param srr_indices vector or single index indicating the columns (excluding "Year") of \code{env_data} to use in a environmentally driven stock recruit curve.
 #' @param Bmsy_lim Upper limit for Ricker based SSB-MSY (e.g 1/Beta). Will add a likelihood penalty if beta is estimated above this limit. Default `NA` is not used.
+#' @param srr_mse_switchyr is used for MSEs to deal with AMAK and Jim Ianelli's estimation where a stock recruit function is estimated as an additional penalty whe srr_fun = 0 and srr_pred_fun > 0. It tells the model in what year to switch to the stock recruit function.
 #'
 #' @description
 #'
@@ -40,10 +40,10 @@
 #' @return A \code{list} containing the stock recruitment relationship settings
 #' @export
 #'
-build_srr <- function(srr_fun = 0,
-                      srr_pred_fun = srr_fun,
+build_srr <- function(srr_fun = 0,  #srr_model
+                      srr_pred_fun = srr_fun, #srr_forecast_model
                       proj_mean_rec = TRUE,
-                      srr_meanyr = NULL,
+                      srr_mse_switchyr = NULL,
                       srr_hat_styr = NULL,
                       srr_hat_endyr = NULL,
                       srr_est_mode = 1,
@@ -64,7 +64,7 @@ build_srr <- function(srr_fun = 0,
   list(srr_fun = srr_fun,
        srr_pred_fun = srr_pred_fun,
        proj_mean_rec = proj_mean_rec,
-       srr_meanyr = srr_meanyr,
+       srr_mse_switchyr = srr_mse_switchyr,
        srr_hat_styr = srr_hat_styr,
        srr_hat_endyr = srr_hat_endyr,
        srr_est_mode = srr_est_mode,
@@ -131,5 +131,37 @@ build_M1 <- function(M1_model = 0,
     M_prior = M_prior,
     M_prior_sd = M_prior_sd,
     M1_indices = M1_indices
+  )
+}
+
+
+
+#' Define growth specifications
+#'
+#' @param growth_model Vector or scalar specifying growth model (see @description below). 0 = use empirical weight-at-age in "weight" data, 1 = estimate sex-specific von Bertalanffy growth function, 2 = sex-specific Richards model.
+#' @param growth_re NOT yet implemented! Vector or scalar specifying M1 random effects model. See description (default = 0).
+#' @param growth_indices NOT yet implemented! vector or single index indicating the columns (excluding Year column) of \code{env_data} to use for environmentally linked growth.
+#'
+#' @description
+#'
+#' **Growth fixed effects currently implemented in CEATTLE**
+#' - \code{growth_model = 0} Empirical weight-at-age from data input \code{weight}. Forecasts use terminal year of weight-at-age.
+#' - \code{growth_model = 1} Sex-specific von Bertalanffy growth.
+#' - \code{growth_model = 2} Sex-specific Richard's growth.
+#'
+#' **Growth random effects currently implemented in CEATTLE**
+#'
+#' None are currently implemented
+#'
+#' @return A list of switches for defining the M1 model
+#' @export
+#'
+build_growth <- function(growth_model = 0,
+                     growth_re = 0,
+                     growth_indices = NA){
+  list(
+    growth_model= growth_model,
+    growth_re = growth_re,
+    growth_indices = growth_indices
   )
 }

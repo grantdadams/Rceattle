@@ -16,8 +16,8 @@ test_that("lognormal index", {
 
   # Set logistic sel
   GOA2018SS$fleet_control$Selectivity <- 1
-  GOA2018SS$fleet_control$Age_first_selected <- 1
-  GOA2018SS$fleet_control$Age_max_selected <- NA
+  GOA2018SS$fleet_control$Bin_first_selected <- 1
+  GOA2018SS$fleet_control$Sel_norm_bin1 <- NA
   GOA2018SS$index_data$Month <- 0
 
   # Set params
@@ -72,7 +72,7 @@ test_that("lognormal index", {
   }
 
   # Check derived index
-  testthat::expect_equal(ss_run$quantities$index_hat*2, SB0[ss_run$data_list$index_data$Species])
+  testthat::expect_equal(ss_run$quantities$index_hat, 0.5 * SB0[ss_run$data_list$index_data$Species])
 
 
 })

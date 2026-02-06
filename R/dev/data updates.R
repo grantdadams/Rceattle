@@ -1,46 +1,25 @@
-data("GOAatf")
-data_list <- GOAatf
+data("GOApollock")
+data_list <- GOApollock
+# if(is.null(data_list$fleet_control$Sel_curve_pen1)){ data_list$fleet_control$Sel_curve_pen1 = NA}
+# if(is.null(data_list$fleet_control$Comp_loglike)){ data_list$fleet_control$Comp_loglike = 0}
+# if(is.null(data_list$fleet_control$Sel_curve_pen2)){ data_list$fleet_control$Sel_curve_pen2 = NA}
+# data_list$fleet_control <- data_list$fleet_control %>%
+#   dplyr::mutate(CAAL_loglike = 0) %>%
+#   dplyr::mutate(CAAL_weights = 1) %>%
+#   dplyr::rename(Bin_first_selected = Age_first_selected,
+#                 Catchability = Estimate_q,
+#                 Time_varying_sel_sd_prior = Sel_sd_prior) %>%
+#   dplyr::select(Fleet_name, Fleet_code, Fleet_type, Species, Month, Selectivity_index, Selectivity, N_sel_bins, Sel_curve_pen1, Sel_curve_pen2, Time_varying_sel, Time_varying_sel_sd_prior, Bin_first_selected, Sel_norm_bin1, Sel_norm_bin2, Comp_loglike, Comp_weights, CAAL_loglike, Weight1_Numbers2, Weight_index, Age_transition_index, Q_index, Catchability, Q_prior, Q_sd_prior, Time_varying_q, Time_varying_q_sd_prior, Estimate_index_sd, Index_sd_prior, Estimate_catch_sd, Catch_sd_prior, proj_F_prop)
 
-# if(any(data_list$fleet_control$Selectivity == 2 & data_list$fleet_control$Time_varying_sel > 1)){
-#   data_list$fleet_control <- data_list$fleet_control %>%
-#       dplyr::mutate(Sel_curve_pen1 = ifelse(Selectivity == 2 & Time_varying_sel > 1, Time_varying_sel, NA),
-#                     Sel_curve_pen2 = ifelse(Selectivity == 2 & Time_varying_sel > 1, Sel_sd_prior, 0),
-#                     Time_varying_sel = ifelse(Selectivity == 2 & Time_varying_sel > 1, 0, Time_varying_sel),
-#                     Sel_sd_prior = ifelse(Selectivity == 2 & Time_varying_sel > 1, 0, Sel_sd_prior)
-#
-#       ) %>%
-#     dplyr::relocate(Sel_curve_pen1, .after = Nselages) %>%
-#     dplyr::relocate(Sel_curve_pen2, .after = Sel_curve_pen1)
-#   print("Updating format where 'Selectivity == 2'. Moving non-parametric penalties to 'Sel_curve_pen1' and 'Sel_curve_pen2'.")
-# }
+# Rename "Estimate_q" to "Catchability"
+# Rename "Sel_sd_prior" to "Time_varying_sel_sd_prior"
+# data_list$caal_data <- data.frame(matrix(NA, nrow = 0, ncol = 7))
+# colnames(data_list$caal_data) <- c("Fleet_code", "Species", "Sex", "Year", "Length", "Sample_size", "CAAL_1")
 
-data_list$fleet_control <- data_list$fleet_control %>%
-dplyr::mutate(Time_varying_sel = 0, Sel_sd_prior = 0) %>%
-  dplyr::relocate(Sel_curve_pen1, .after = Nselages) %>%
-  dplyr::relocate(Sel_curve_pen2, .after = Sel_curve_pen1)
 
-# data_list$R_sexr <- NULL
-# data_list$est_sex_ratio <- NULL
-# data_list$sex_ratio_sigma <- NULL
-# data_list$aLW <- NULL
-# data_list$maturity <- data_list$pmature
-# data_list$pmature <- NULL
-# data_list$weight <- data_list$wt
-# data_list$wt <- NULL
-#
-# data_list$diet_data <- data_list$stom_prop_data
-# data_list$stom_prop_data <- NULL
-#
-# ss_run <- Rceattle::fit_mod(data_list = data_list,
-#                             inits = NULL, # Initial parameters = 0
-#                             file = NULL, # Don't save
-#                             estimateMode = 0, # Estimate
-#                             random_rec = FALSE, # No random recruitment
-#                             msmMode = 0, # Single species mode
-#                             phase = TRUE,
-#                             verbose = 1)
-# plot_biomass(ss_run)
+colnames(data_list$maturity) <- c("Species", paste0("Age", 1:max(data_list$nages)))
+colnames(data_list$sex_ratio) <- c("Species", paste0("Age", 1:max(data_list$nages)))
 
-GOAatf <- data_list
+GOApollock <- data_list
 
-usethis::use_data(GOAatf, overwrite = TRUE)
+usethis::use_data(GOApollock, overwrite = TRUE)

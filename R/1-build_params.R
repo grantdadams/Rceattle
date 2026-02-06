@@ -72,7 +72,8 @@ build_params <- function(data_list) {
 
 
 
-  # * 1.4. Residual natural mortality ----
+  # * 1.4. Natural mortality ----
+  # M1 = residual M, M2 = predation M
   # ** Fixed effects ----
   m1 <- array(1, dim = c(data_list$nspp, max_sex, max_age),
               dimnames = list(data_list$spnames, sex_labels, paste0("Age", 1:max_age))) # Set up array
@@ -112,7 +113,7 @@ build_params <- function(data_list) {
                                   dimnames = list(data_list$spnames, sex_labels))
 
 
-  # * 1.5. fishing mortality parameters ----
+  # * 1.5. fishing mortality ----
 
   # Future fishing mortality limit
   param_list$ln_Flimit = rep(0, data_list$nspp)
@@ -151,6 +152,39 @@ build_params <- function(data_list) {
   param_list$ln_F[zero_catch] <- -999
 
 
+  # * 1.6. Growth ----
+  # - Mean growth parameters
+  param_list$ln_growth_pars <- array(0, dim = c(data_list$nspp, max_sex, 4),
+                                     dimnames = list(data_list$spnames, sex_labels, c("ln_K", "ln_L1", "ln_Linf", "ln_m")))
+  # - Initialize
+  param_list$ln_growth_pars[, , 1] <- log(0.3)
+
+  if(nrow(data_list$caal_data) > 0){
+    caal_lengths <- data_list$caal_data %>%
+      dplyr::distinct(Species, Length) %>%
+      dplyr::arrange(Species, Length) %>%
+      dplyr::group_by(Species) %>%
+      dplyr::mutate(Bin = paste0("Bin", 1:n())) %>%
+      dplyr::slice(c(1, n())) %>%
+      dplyr::ungroup() %>%
+      tidyr::pivot_wider(names_from = Bin, values_from = Length)
+    param_list$ln_growth_pars[caal_lengths$Species, 1, 2:3] <- as.matrix(log(caal_lengths[,-1]))
+    if(max_sex == 2){
+      param_list$ln_growth_pars[caal_lengths$Species, 2, 2:3] <- as.matrix(log(caal_lengths[,-1]))
+    }
+  }
+
+  param_list$ln_growth_par_devs <- array(0, dim = c(data_list$nspp, max_sex, nyrs_proj, 4),
+                                         dimnames = list(data_list$spnames, sex_labels, yrs_proj, c("ln_K", "ln_L1", "ln_Linf", "ln_m")))  # RE growth parameters
+  param_list$growth_ln_sd <- array(0, dim = c(data_list$nspp, max_sex, 2),
+                                   dimnames = list(data_list$spnames, sex_labels, c("ln_sd_minage", "ln_sd_maxage")))
+  param_list$weight_length_pars <- matrix(0, nrow = data_list$nspp, ncol = 2,
+                                          dimnames = list(data_list$spnames, c("a", "b")))  # Weight-length parameters
+  param_list$weight_length_pars[,1] <- data_list$alpha_wt_len
+  param_list$weight_length_pars[,2] <- data_list$beta_wt_len
+
+  #TODO variance and AR1 parameters
+
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # 2. Observation model parameters ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -185,18 +219,18 @@ build_params <- function(data_list) {
 
   # * 2.2. Selectivity parameters ----
   n_selectivities <- nrow(data_list$fleet_control)
-  max_sel_ages <- suppressWarnings(max(1, as.numeric(c(data_list$fleet_control$Nselages)), na.rm = T))
+  max_sel_bins <- max(c(1, as.numeric(data_list$fleet_control$N_sel_bins)), na.rm = T)
 
   # - Non-parametric selectivity coefficients
-  param_list$sel_coff =  array(0, dim = c(n_selectivities, max_sex, max_sel_ages),
-                               dimnames = list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Age", 1:max_sel_ages)))
+  param_list$sel_coff =  array(0, dim = c(n_selectivities, max_sex, max_sel_bins),
+                               dimnames = list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Bin", 1:max_sel_bins)))
 
   # - Non-parametric selectivity penalties (sensu Ianelli)
   param_list$sel_curve_pen = matrix( c(data_list$fleet_control$Sel_curve_pen1, data_list$fleet_control$Sel_curve_pen2), nrow = n_selectivities, ncol = 2)
 
   # - Non-parametric selectivity coef annual deviates
-  param_list$sel_coff_dev = array(0, dim = c(n_selectivities, max_sex, max(1, as.numeric(c(data_list$fleet_control$Nselages) ), na.rm = T), nyrs_hind),
-                                  dimnames = list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Age", 1:max_sel_ages), yrs_hind))
+  param_list$sel_coff_dev = array(0, dim = c(n_selectivities, max_sex, max_sel_bins, nyrs_hind),
+                                  dimnames = list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Bin", 1:max_sel_bins), yrs_hind))
 
   # - Selectivity slope parameters for logistic
   param_list$ln_sel_slp = array(0.5, dim = c(2, n_selectivities, max_sex),
@@ -217,7 +251,7 @@ build_params <- function(data_list) {
                                  dimnames = list(c("Ascending" , "Descending"), data_list$fleet_control$Fleet_name, sex_labels, yrs_hind))
 
   # - Log standard deviation for selectivity random walk - used for logistic
-  param_list$sel_dev_ln_sd <- log(data_list$fleet_control$Sel_sd_prior)
+  param_list$sel_dev_ln_sd <- log(data_list$fleet_control$Time_varying_sel_sd_prior)
   names(param_list$sel_dev_ln_sd) <- data_list$fleet_control$Fleet_name
 
 
@@ -230,10 +264,13 @@ build_params <- function(data_list) {
   param_list$catch_ln_sd = log(data_list$fleet_control$Catch_sd_prior)
   names(param_list$catch_ln_sd) <- data_list$fleet_control$Fleet_name
 
-
   # * 2.4. Comp weighting ----
   param_list$comp_weights = data_list$fleet_control$Comp_weights
   names(param_list$comp_weights) <- data_list$fleet_control$Fleet_name
+
+  # * 2.5. CAAL weighting ----
+  param_list$caal_weights = data_list$fleet_control$CAAL_weights
+  names(param_list$caal_weights) <- data_list$fleet_control$Fleet_name
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # 3. Predation model parameters ----

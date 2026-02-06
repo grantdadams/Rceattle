@@ -328,7 +328,7 @@ test_that("Simulated simple multi-species model the same" {
   simData$fleet_control$Fleet_name <- c("Survey1", "Fishery1","Survey2", "Fishery2")
   simData$fleet_control$Fleet_code <- 1:4
   simData$fleet_control$Selectivity_index <- 1:4
-  simData$fleet_control$Estimate_q
+  simData$fleet_control$Catchability
   simData$fleet_control$Species <- c(1,1,2,2)
   simData$fleet_control$Q_index <- c(1,NA,2,NA)
   simData$fleet_control$Weight1_Numbers2 <- 1
@@ -556,23 +556,23 @@ test_that("Simulated simple multi-species model the same" {
 
 
   # * Ration ----
-  Pyrs1 <- WAA * 50
-  colnames(Pyrs1) <- paste0("Age",1:15)
-  Pyrs1 <- cbind(data.frame(Species = 1,
+  ration_data1 <- WAA * 50
+  colnames(ration_data1) <- paste0("Age",1:15)
+  ration_data1 <- cbind(data.frame(Species = 1,
                             Sex = 0,
                             Year = 0),
-                 Pyrs1
+                 ration_data1
   )
 
-  Pyrs2 <- WAA2 * 50
-  colnames(Pyrs2) <- paste0("Age",1:15)
-  Pyrs2 <- cbind(data.frame(Species = 2,
+  ration_data2 <- WAA2 * 50
+  colnames(ration_data2) <- paste0("Age",1:15)
+  ration_data2 <- cbind(data.frame(Species = 2,
                             Sex = 0,
                             Year = 0),
-                 Pyrs2
+                 ration_data2
   )
 
-  simData$Pyrs <- rbind(Pyrs1, Pyrs2)
+  simData$ration_data <- rbind(ration_data1, ration_data2)
 
   simData$Ceq <- rep(4,nspp)
   simData$Cindex <- rep(1, nspp)
@@ -795,6 +795,6 @@ test_that("Simulated simple multi-species model the same" {
                                initMode = 2,
                                verbose = 1)
 
-  plot(x = ms_run4$data_list$diet_data$Stomach_proportion_by_weight, y = ms_run4$quantities$diet_hat[,2], xlab = "True diet", ylab ="Est diet", main = "Average sum diet")
+  plot(x = ms_run4$data_list$diet_data$Stomach_proportion_by_weight, y = ms_run4$quantities$diet_hat[,2], xlab = "True diet", ylab ="Est diet", main = "Average sum diet"); abline(0,1)
 
 })

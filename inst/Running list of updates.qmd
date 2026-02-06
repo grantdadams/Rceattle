@@ -21,7 +21,7 @@ Started this late, but this is in reference to the srr_dev branch
 
 11/04/2024 - If a NA is present in the composition data (within the range of ages/lengths for single or joint sex), those are converted to 0s and a warning is given.
 
-11/04/2024 - Added `Estimate_q = 6` where annual AR1 catchability deviates are fit to environmental index data sensu Rogers et al 2024 for the GOA pollock model.
+11/04/2024 - Added `Catchability = 6` where annual AR1 catchability deviates are fit to environmental index data sensu Rogers et al 2024 for the GOA pollock model.
 
 11/04/2024 – Added beta distibuted prior for steepness when using Beverton srr. Set `srr_est_mode = 3`.
 
@@ -36,3 +36,31 @@ Started this late, but this is in reference to the srr_dev branch
 -   catch_data \<- fsh_biom
 
 -   index_data \<- srv_biom
+
+12/14/2025
+
+Rename Pyrs to "ration_data", old name will still be read in, but name will be updated
+
+Added internal growth calculation, see \code{build_growth} within \code{fit_mod} wrapper
+
+Added month to "fleet_control"
+
+Change Nselages to N_sel_bins
+
+Added `build_growth` to \`fit_mod\`
+
+renamed N_sel_bins = Nselages, Sel_norm_bin1 = Age_max_selected, and Sel_norm_bin2 = Age_max_selected_upper
+
+Added `beta_wt_len` and `alpha_wt_len` to "control" sheet of data
+
+Added CAAL_loglike and CAAL_weights to fleet control.
+
+Renamed Age_first_selected to Bin_first_selected
+
+`sel` to `sel_at_age`
+
+Rename "Catchability" to "Catchability"
+
+Rename "Time_varying_sel_sd_prior" to "Time_varying_sel_sd_prior"
+
+CAAL data to sim_mod

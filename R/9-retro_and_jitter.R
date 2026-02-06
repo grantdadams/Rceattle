@@ -1,6 +1,6 @@
 #' Retrospective peels
 #'
-#' @description Calculate Mohn's rho and run retrospective peels for an Rceattle model
+#' @description Calculate Mohn's rho and run retrospective peels for an Rceattle model. Note, it does not do reweighting for multinomial distributions.
 #'
 #' @param Rceattle an Rceattle model fit using \code{\link{fit_mod}}
 #' @param peels the number of retrospective peels to use in the calculation of rho and for model estimation
@@ -67,7 +67,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
     #dplyr::mutate(Year = ifelse(Year > endyr_peel, - Year, Year))
 
 
-    # * Assume weight/pyrs/emp_sel is same as last year of peel ----
+    # * Assume weight/ration_data/emp_sel is same as last year of peel ----
     # -- weight
     #FIXME ignores forecasted growth
     data_list$weight <- data_list$weight %>%
@@ -101,19 +101,19 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
         dplyr::arrange(Fleet_code, Year)
     }
 
-    # -- Pyrs
-    data_list$Pyrs <- data_list$Pyrs %>%
+    # -- ration_data
+    data_list$ration_data <- data_list$ration_data %>%
       dplyr::filter(Year <= endyr_peel)
 
-    proj_Pyrs <- data_list$Pyrs %>%
+    proj_ration_data <- data_list$ration_data %>%
       dplyr::filter(Year != 0)
 
-    if(nrow(proj_Pyrs) > 0){
-      proj_Pyrs <- proj_Pyrs %>%
+    if(nrow(proj_ration_data) > 0){
+      proj_ration_data <- proj_ration_data %>%
         dplyr::group_by(Species, Sex) %>%
         dplyr::slice(rep(n(),  nyrs_proj_peel)) %>%
         dplyr::mutate(Year = peel_prj_yrs)
-      data_list$Pyrs  <- rbind(data_list$Pyrs, proj_Pyrs) %>%
+      data_list$ration_data  <- rbind(data_list$ration_data, proj_ration_data) %>%
         dplyr::arrange(Species, Year)
     }
 
@@ -196,7 +196,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
         recFun = build_srr(srr_fun = data_list$srr_fun,
                            srr_pred_fun  = data_list$srr_pred_fun ,
                            proj_mean_rec  = data_list$proj_mean_rec ,
-                           srr_meanyr = min(data_list$srr_meanyr, endyr_peel), # Update end year if less than srr_meanyr
+                           srr_mse_switchyr = min(data_list$srr_mse_switchyr, endyr_peel), # Update end year if less than srr_mse_switchyr
                            srr_hat_styr = data_list$srr_hat_styr,
                            srr_hat_endyr = min(data_list$srr_hat_endyr, endyr_peel),
                            srr_est_mode  = data_list$srr_est_mode ,
@@ -216,6 +216,9 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
                           family = data_list$dsem_settings$family,
                           all_vars = data_list$dsem_settings$all_vars,
                           estimate_projection = data_list$dsem_settings$estimate_projection),
+        growthFun = build_growth(growth_model = data_list$growth_model,
+                                 growth_re = data_list$growth_re,
+                                 growth_indices = data_list$growth_indices),
         random_rec = data_list$random_rec,
         niter = data_list$niter,
         msmMode = data_list$msmMode,
@@ -274,7 +277,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
         recFun = build_srr(srr_fun = data_list$srr_fun,
                            srr_pred_fun  = data_list$srr_pred_fun ,
                            proj_mean_rec  = data_list$proj_mean_rec ,
-                           srr_meanyr = min(data_list$srr_meanyr, endyr_peel), # Update end year if less than srr_meanyr
+                           srr_mse_switchyr = min(data_list$srr_mse_switchyr, endyr_peel), # Update end year if less than srr_mse_switchyr
                            srr_hat_styr = data_list$srr_hat_styr,
                            srr_hat_endyr = min(data_list$srr_hat_endyr, endyr_peel),
                            srr_est_mode  = data_list$srr_est_mode ,
@@ -290,6 +293,9 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
                              M_prior = data_list$M_prior,
                              M_prior_sd = data_list$M_prior_sd,
                              M1_indices = data_list$M1_indices),
+        growthFun = build_growth(growth_model = data_list$growth_model,
+                                 growth_re = data_list$growth_re,
+                                 growth_indices = data_list$growth_indices),
         random_rec = data_list$random_rec,
         niter = data_list$niter,
         msmMode = data_list$msmMode,
@@ -484,7 +490,7 @@ jitter <- function(Rceattle = NULL, njitter = 50, phase = FALSE, seed = 123) {
             recFun = build_srr(srr_fun = data_list$srr_fun,
                                srr_pred_fun  = data_list$srr_pred_fun ,
                                proj_mean_rec  = data_list$proj_mean_rec ,
-                               srr_meanyr = min(data_list$srr_meanyr, data_list$endyr), # Update end year if less than srr_meanyr
+                               srr_mse_switchyr = min(data_list$srr_mse_switchyr, data_list$endyr), # Update end year if less than srr_mse_switchyr
                                srr_hat_styr = data_list$srr_hat_styr,
                                srr_hat_endyr = data_list$srr_hat_endyr,
                                srr_est_mode  = data_list$srr_est_mode ,
@@ -504,6 +510,9 @@ jitter <- function(Rceattle = NULL, njitter = 50, phase = FALSE, seed = 123) {
                               family = data_list$dsem_settings$family,
                               all_vars = data_list$dsem_settings$all_vars,
                               estimate_projection = data_list$dsem_settings$estimate_projection),
+            growthFun = build_growth(growth_model = data_list$growth_model,
+                                     growth_re = data_list$growth_re,
+                                     growth_indices = data_list$growth_indices),
             random_rec = data_list$random_rec,
             niter = data_list$niter,
             msmMode = data_list$msmMode,

@@ -7,10 +7,19 @@
 sim_mod(Rceattle, simulate = FALSE)
 }
 \arguments{
-\item{Rceattle}{CEATTLE model object exported from \code{\link{Rceattle}}}
+\item{Rceattle}{A CEATTLE model object exported from \code{\link{Rceattle}}.}
 
-\item{simulate}{TRUE/FALSE, whether to simulate the data or export the expected value}
+\item{simulate}{Logical. If \code{TRUE}, simulates data from distributions.
+If \code{FALSE}, returns the expected values (hats).}
+}
+\value{
+A \code{data_list} object containing the simulated or expected data
+values, formatted for use in \code{Rceattle}.
 }
 \description{
-Simulates data used in Rceattle from the expected values etimated from Rceattle. The variances and uncertainty are the same as used in the operating model. The function currently simulates (assumed distribution) the following: survey biomass (log-normal), survey catch-at-length/age (multinomial), EIT biomass (log-normal), EIT catch-at-length/age (multinomial), total catch (kg) (log-normal), and catch-at-length/age.
+Simulates data used in Rceattle from the expected values estimated
+from an existing Rceattle model. The variances and uncertainty are consistent
+with those used in the operating model. The function simulates: survey biomass
+(log-normal), catch-at-age/length composition (multinomial or dirichlet-multinomial), conditional-age-at-length (CAAL; multinomial or dirichlet-multinomial),
+and total catch (log-normal).
 }

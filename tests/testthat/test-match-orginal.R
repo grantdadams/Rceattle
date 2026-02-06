@@ -101,8 +101,8 @@ test_that("Dynamics match multi-species CEATTLE classic", {
   }
 
   # - Update foraging data
-  BS2017MS_new$Pyrs <- as.data.frame(BS2017MS_new$Pyrs)
-  BS2017MS_new$Pyrs[,4:ncol(BS2017MS_new$Pyrs)] <- rbind(CEATTLE_classic_MS$data_list$Pyrs[-40,,1],
+  BS2017MS_new$ration_data <- as.data.frame(BS2017MS_new$ration_data)
+  BS2017MS_new$ration_data[,4:ncol(BS2017MS_new$ration_data)] <- rbind(CEATTLE_classic_MS$data_list$Pyrs[-40,,1],
                                                          CEATTLE_classic_MS$data_list$Pyrs[-40,,2],
                                                          CEATTLE_classic_MS$data_list$Pyrs[-40,,3])
 

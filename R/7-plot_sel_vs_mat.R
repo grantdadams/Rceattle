@@ -45,7 +45,7 @@ plot_selectivity_vs_maturity <-
     selectivity_array <-
       array(NA, dim = c(nflt, 2, max(nages), nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
-      selectivity_array[, , , ,i] <- Rceattle[[i]]$quantities$sel[,,,]
+      selectivity_array[, , , ,i] <- Rceattle[[i]]$quantities$sel_at_age[,,,]
     }
 
     # Extract data objects

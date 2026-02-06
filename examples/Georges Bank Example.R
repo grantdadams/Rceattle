@@ -1,4 +1,5 @@
 # This script fits CEATTLE to data from Cod, Hake, and Herring off Georges Bank
+# - may be old!
 
 # The model is a recreation of Curti et al 2013
 # - Curti, K. L., Collie, J. S., Legault, C. M., & Link, J. S. (2013). Evaluating the performance of a multispecies statistical catch-at-age model. Canadian Journal of …, 484(January), 470–484. https://doi.org/10.1139/cjfas-2012-0229
@@ -17,9 +18,9 @@ georges_bank <- read_data(file = "Georges_Bank_3spp.xlsx")
 georges_bank$est_M1 <- c(0,0,0) # Fix M1 to input value (M1_base)
 
 
-################################################
-# Estimation
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Estimation ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # - Single-species
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
 ss_run <- Rceattle::fit_mod(data_list = georges_bank,
@@ -79,9 +80,9 @@ ms_run <- Rceattle::fit_mod(data_list = georges_bank,
                             verbose = 1)
 
 
-################################################
-# Plotting
-################################################
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+# Plotting ----
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # We can plot all runs
 mod_list <- list(ss_run, ms_run)
 mod_names <- c("Single-species", "Multi-species")

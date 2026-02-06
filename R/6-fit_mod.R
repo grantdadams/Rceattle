@@ -15,11 +15,12 @@
 #' @param recFun The stock recruit-relationship parameterization from \code{\link{build_srr}}.
 #' @param M1Fun M1 parameterizations and priors. Use \code{build_M1}.
 #' @param dsem dsem model specifications for recruitment deviates. Use \code{build_DSEM}. Or can be previously built DSEM object from an Rceattle model \code{model$dsem}.
+#' @param growthFun The weight-at-age model from \code{\link{build_growth}}.
 #' @param msmMode The predation mortality functions to used. Defaults to no predation mortality used.
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.
 #' @param initMode how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0 + dev-yr1,  mortality (M1); 2 = equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 3 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates; 4 = non-equilibrium age-structure version 2 where initial fishing mortality (Finit) scales R0.
 #' @param phase TRUE/FALSE If FALSE, will not phase model. If set to \code{"TRUE"}, will use default phasing. Can also accept a list of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R.
-#' @param suitMode Switch for suitability derivation for each predator (single value or vector). 0 = empirical based on diet data (Holsman et al. 2015), 1 = length-based gamma suitability (NOT WORKING), 2 = weight-based gamma suitability, 3 = length-based lognormal suitability (NOT WORKING), 4 = weight-based lognormal suitability, 5 = length-based normal suitability (NOT WORKING), 6 = weight-based normal suitability.
+#' @param suitMode Switch for suitability derivation for each predator (single value or vector). 0 = empirical based on diet data (Holsman et al. 2015), 1 = length-based gamma suitability, 2 = weight-based gamma suitability, 3 = length-based lognormal suitability, 4 = weight-based lognormal suitability, 5 = length-based normal suitability, 6 = weight-based normal suitability.
 #' @param suit_styr Integer. The first year used to calculate mean suitability. Defaults to $styr$ in $data_list$. Used when diet data were sampled from a subset of years.
 #' @param suit_endyr Integer. The last year used to calculate mean suitability. Defaults to $endyr$ in $data_list$. Used when diet data were sampled from a subset of years.
 #' @param getsd	TRUE/FALSE whether to run standard error calculation (default = TRUE).
@@ -102,6 +103,7 @@ fit_mod <-
     recFun = build_srr(),
     M1Fun = build_M1(),
     dsem = build_DSEM(),
+    growthFun = build_growth(),
     msmMode = 0,
     avgnMode = 0,
     initMode = 2,
@@ -125,7 +127,7 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # Debugging section ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # data_list = BS2017SS;
+    # data_list = GOA2018SS;
     # inits = NULL;
     # map = NULL;
     # file = NULL;
@@ -155,6 +157,7 @@ fit_mod <-
     # newtonsteps = 0
     # recFun = build_srr()
     # M1Fun = build_M1()
+    # growthFun = build_growth()
     # projection_uncertainty = TRUE
     # bias.correct = FALSE
     # newtonsteps = 0
@@ -223,16 +226,11 @@ fit_mod <-
     data_list$srr_fun <- recFun$srr_fun
     data_list$srr_pred_fun <- recFun$srr_pred_fun
     data_list$proj_mean_rec <- recFun$proj_mean_rec
-    if(is.null(recFun$srr_meanyr) & is.null(data_list$srr_meanyr)){ # If no meanyear is provided in data or function, use end year
-      data_list$srr_meanyr <- data_list$endyr
+    if(is.null(recFun$srr_mse_switchyr) & is.null(data_list$srr_mse_switchyr)){ # If no meanyear is provided in data or function, use end year
+      data_list$srr_mse_switchyr <- data_list$endyr
     }
-    if(!is.null(recFun$srr_meanyr)){ # If mean year is provided in function, override data
-      if(!is.null(data_list$srr_meanyr)){
-        if(data_list$srr_meanyr != recFun$srr_meanyr){
-          warning("'srr_meanyr' in data is different than in call `fit_mod`, using switch from 'fit_mod'")
-        }
-      }
-      data_list$srr_meanyr <- recFun$srr_meanyr
+    if(!is.null(recFun$srr_mse_switchyr)){ # If mean year is provided in function, override data
+      data_list$srr_mse_switchyr <- recFun$srr_mse_switchyr
     }
 
     # -- Start year
@@ -284,6 +282,12 @@ fit_mod <-
     data_list$M_prior = extend_length(M1Fun$M_prior)
     data_list$M_prior_sd = extend_length(M1Fun$M_prior_sd)
     data_list$M1_indices <- M1Fun$M1_indices
+
+
+    # * Growth switches ----
+    data_list$growth_model= extend_length(growthFun$growth_model)
+    data_list$growth_re = extend_length(growthFun$growth_re)
+    data_list$growth_indices = growthFun$growth_indices
 
 
     # * HCR Switches ----
@@ -443,6 +447,11 @@ fit_mod <-
     if(!is.null(data_list$fleet_control$Comp_weights)){
       start_par$comp_weights = data_list$fleet_control$Comp_weights
     }
+    # - CAAL
+    if(!is.null(data_list$fleet_control$CAAL_weights)){
+      start_par$caal_weights = data_list$fleet_control$CAAL_weights
+    }
+
     # - Diet composition
     if(!is.null(data_list$Diet_comp_weights)){
       start_par$diet_comp_weights = data_list$Diet_comp_weights
