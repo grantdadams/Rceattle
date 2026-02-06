@@ -818,14 +818,15 @@ Type objective_function<Type>::operator() () {
         NbyageSPR(2, sp, nages(sp) - 1) = NbyageSPR(2, sp, nages(sp) - 2) * exp(-(M_at_age(sp, 0,  nages(sp) - 2, nyrs_hind - 1) + Ftarget_at_age(sp, 0,  nages(sp) - 2, nyrs_hind - 1))) / (1 - exp(-(M_at_age(sp, 0,  nages(sp) - 1, nyrs_hind - 1) + Ftarget_at_age(sp, 0,  nages(sp) - 1, nyrs_hind - 1))));
         NbyageSPR(3, sp, nages(sp) - 1) = NbyageSPR(3, sp, nages(sp) - 2) * exp(-(M_at_age(sp, 0,  nages(sp) - 2, 0) + Finit(sp))) / (1 - exp(-(M_at_age(sp, 0,  nages(sp) - 1, 0) + Finit(sp))));
 
-      // Calculate SPRss_
-      //FIXME: use estimated sex_ratio for two-sex models?
-      for(age = 0; age < nages(sp); age++) {
-        wt_idx_ssb = (nspp - 1) * 2 * sp + 1;
-        SPR0(sp) +=  NbyageSPR(0, sp, age) *  weight_hat( wt_idx_ssb, 0, age, (nyrs_hind - 1) ) * maturity( sp, age ) * sex_ratio(sp, age) * exp(-M_at_age(sp, 0,  age, nyrs_hind - 1) * spawn_month(sp)/12.0);
-        SPRlimit(sp) +=  NbyageSPR(1, sp, age) *  weight_hat( wt_idx_ssb, 0, age, (nyrs_hind - 1) ) * maturity( sp, age ) * sex_ratio(sp, age) * exp(-(M_at_age(sp, 0,  age, nyrs_hind - 1) + Flimit_at_age(sp, 0,  age, nyrs_hind - 1)) * spawn_month(sp)/12.0);
-        SPRtarget(sp) +=  NbyageSPR(2, sp, age) *  weight_hat( wt_idx_ssb, 0, age, (nyrs_hind - 1) ) * maturity( sp, age ) * sex_ratio(sp, age) * exp(-(M_at_age(sp, 0,  age, nyrs_hind - 1) + Ftarget_at_age(sp, 0,  age, nyrs_hind - 1)) * spawn_month(sp)/12.0);
-        SPRFinit(sp) +=  NbyageSPR(3, sp, age) *  weight_hat( wt_idx_ssb, 0, age, 0) * maturity( sp, age ) * sex_ratio(sp, age) * exp(-(M_at_age(sp, 0,  age, 0) + Finit(sp)) * spawn_month(sp)/12.0);
+        // Calculate SPRss_
+        //FIXME: use estimated sex_ratio for two-sex models?
+        for(age = 0; age < nages(sp); age++) {
+          wt_idx_ssb = (nspp - 1) * 2 * sp + 1;
+          SPR0(sp) +=  NbyageSPR(0, sp, age) *  weight_hat( wt_idx_ssb, 0, age, (nyrs_hind - 1) ) * maturity( sp, age ) * sex_ratio(sp, age) * exp(-M_at_age(sp, 0,  age, nyrs_hind - 1) * spawn_month(sp)/12.0);
+          SPRlimit(sp) +=  NbyageSPR(1, sp, age) *  weight_hat( wt_idx_ssb, 0, age, (nyrs_hind - 1) ) * maturity( sp, age ) * sex_ratio(sp, age) * exp(-(M_at_age(sp, 0,  age, nyrs_hind - 1) + Flimit_at_age(sp, 0,  age, nyrs_hind - 1)) * spawn_month(sp)/12.0);
+          SPRtarget(sp) +=  NbyageSPR(2, sp, age) *  weight_hat( wt_idx_ssb, 0, age, (nyrs_hind - 1) ) * maturity( sp, age ) * sex_ratio(sp, age) * exp(-(M_at_age(sp, 0,  age, nyrs_hind - 1) + Ftarget_at_age(sp, 0,  age, nyrs_hind - 1)) * spawn_month(sp)/12.0);
+          SPRFinit(sp) +=  NbyageSPR(3, sp, age) *  weight_hat( wt_idx_ssb, 0, age, 0) * maturity( sp, age ) * sex_ratio(sp, age) * exp(-(M_at_age(sp, 0,  age, 0) + Finit(sp)) * spawn_month(sp)/12.0);
+        }
       }
     }
 
@@ -1313,14 +1314,14 @@ Type objective_function<Type>::operator() () {
           wt_idx_ssb = (nspp - 1) * 2 * sp + 1;
           SB0(sp, yr) +=  NByage0(sp, 0, age, yr) *  weight_hat( wt_idx_ssb, 0, age, nyrs_hind - 1 ) * mature_females(sp, age) * exp(-M_at_age(sp, 0, age, yr) * spawn_month(sp)/12.0);
           SBF(sp, yr) +=  NByageF(sp, 0, age, yr) *  weight_hat( wt_idx_ssb, 0, age, nyrs_hind - 1 ) * mature_females(sp, age) * exp(-(M_at_age(sp, 0, age, yr) + Ftarget_at_age(sp, 0, age, yr)) * spawn_month(sp)/12.0);
-          DynamicSB0(sp, yr) +=  DynamicNByage0(sp, 0, age, yr) *  weight_hat( wt_idx_ssb, 0, age, yr ) * mature_females(sp, age) * exp(-M_at_age(sp, 0, age, yr) * spawn_month(sp)/12.0);
-          DynamicSBF(sp, yr) +=  DynamicNByageF(sp, 0, age, yr) *  weight_hat( wt_idx_ssb, 0, age, yr ) * mature_females(sp, age) * exp(-(M_at_age(sp, 0, age, yr) + Ftarget_at_age(sp, 0, age, yr)) * spawn_month(sp)/12.0);
+          DynamicSB0(sp, yr) +=  N_at_age_dB0(sp, 0, age, yr) *  weight_hat( wt_idx_ssb, 0, age, yr ) * mature_females(sp, age) * exp(-M_at_age(sp, 0, age, yr) * spawn_month(sp)/12.0);
+          DynamicSBF(sp, yr) +=  N_at_age_dBF(sp, 0, age, yr) *  weight_hat( wt_idx_ssb, 0, age, yr ) * mature_females(sp, age) * exp(-(M_at_age(sp, 0, age, yr) + Ftarget_at_age(sp, 0, age, yr)) * spawn_month(sp)/12.0);
 
           for(sex = 0; sex < nsex(sp); sex ++){
 
             wt_idx_pop = (nspp - 1) * 2 * sp;
             B0(sp, yr) +=  NByage0(sp, sex, age, yr) *  weight_hat( wt_idx_pop, sex, age, nyrs_hind - 1 );
-            DynamicB0(sp, yr) +=  DynamicNByage0(sp, sex,age, yr) *  weight_hat( wt_idx_pop, sex, age, yr );
+            DynamicB0(sp, yr) +=  N_at_age_dB0(sp, sex,age, yr) *  weight_hat( wt_idx_pop, sex, age, yr );
           }
         }
 
@@ -2103,7 +2104,7 @@ Type objective_function<Type>::operator() () {
                 for(ksp = 0; ksp < nspp; ksp++) {                  // Prey species loop
                   for(k_sex = 0; k_sex < nsex(ksp); k_sex++){
                     for(k_age = 0; k_age < nages(ksp); k_age++) {    // Prey age loop
-                      
+
                       wt_idx_ksp = (nspp - 1) * 2 * ksp;
                       avail_food(rsp, r_sex, r_age, yr) += suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) * pow(avgN_at_age(ksp, k_sex, k_age, yr), msmMode) * weight_hat(wt_idx_ksp, k_sex, k_age, yr) ; // FIXME - include overlap indices: FIXME - mn_wt_stom?
                       avail_food_dB0(rsp, r_sex, r_age, yr) += suitability(rsp + (nspp * r_sex), ksp + (nspp * k_sex), r_age, k_age, yr) * pow(avgN_at_age_dB0(ksp, k_sex, k_age, yr), msmMode) * weight_hat(wt_idx_ksp, k_sex, k_age, yr) ; // FIXME - include overlap indices: FIXME - mn_wt_stom?
