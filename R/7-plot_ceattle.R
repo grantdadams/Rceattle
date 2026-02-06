@@ -941,7 +941,7 @@ plot_selectivity <-
     selectivity_array <-
       array(NA, dim = c(nflt, max(nsex), max(nages), nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
-      selectivity_array[, , , years[[i]]-minyr+1,i] <- Rceattle[[i]]$quantities$sel[,,,]
+      selectivity_array[, , , years[[i]]-minyr+1,i] <- Rceattle[[i]]$quantities$sel_at_age[,,,]
     }
 
     # Plot limits

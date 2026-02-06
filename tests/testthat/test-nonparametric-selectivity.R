@@ -5,19 +5,19 @@ test_that("non-parametric selectivity not normalized", {
 
   # Adjust data
   GOA2018SS$fleet_control$Selectivity <- 2
-  GOA2018SS$fleet_control$Nselages <- 8
-  GOA2018SS$fleet_control$Age_first_selected <- 1
+  GOA2018SS$fleet_control$N_sel_bins <- 8
+  GOA2018SS$fleet_control$Bin_first_selected <- 1
   GOA2018SS$fleet_control$Sel_curve_pen1 <- 5
   GOA2018SS$fleet_control$Sel_curve_pen2 <- 10
-  GOA2018SS$fleet_control$Age_max_selected <- NA
+  GOA2018SS$fleet_control$Sel_norm_bin1 <- NA
   GOA2018SS$fleet_control$Time_varying_sel <- 0
-  GOA2018SS$fleet_control$Sel_sd_prior <- 1
+  GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
 
   inits <- build_params(GOA2018SS)
 
 
   # ADMB code
-  # dvar_vector sel_coffs_tmp(1,nselages_fsh(k));
+  # dvar_vector sel_coffs_tmp(1,n_sel_bins_fsh(k));
   # for (i=styr;i<=endyr;i++)
   # {
   #   if (i==yrs_sel_ch_fsh(k,isel_ch_tmp))
@@ -26,30 +26,30 @@ test_that("non-parametric selectivity not normalized", {
   #     sel_coffs_tmp = log_selcoffs_fsh(k,isel_ch_tmp);
   #     avgsel_fsh(k,isel_ch_tmp)              = log(mean(mfexp(sel_coffs_tmp)));
   #   }
-  #   log_sel_fsh(k,i)(1,nselages_fsh(k))        = sel_coffs_tmp;
-  #   log_sel_fsh(k,i)(nselages_fsh(k),nages)    = log_sel_fsh(k,i,nselages_fsh(k));
+  #   log_sel_fsh(k,i)(1,n_sel_bins_fsh(k))        = sel_coffs_tmp;
+  #   log_sel_fsh(k,i)(n_sel_bins_fsh(k),nages)    = log_sel_fsh(k,i,n_sel_bins_fsh(k));
   #   log_sel_fsh(k,i)                                  -= log(mean(mfexp(log_sel_fsh(k,i) )));
   # }
 
   # Specify selectivity
-  nselages <- 8
-  log_selcoffs <- rnorm(nselages)
-  log_selcoffs2 <- rnorm(nselages)
+  n_sel_bins <- 8
+  log_selcoffs <- rnorm(n_sel_bins)
+  log_selcoffs2 <- rnorm(n_sel_bins)
   avgsel_fsh <- log(mean(exp(log_selcoffs)))
 
   # - Pk
-  log_sel_fsh <- c(log_selcoffs, rep(log_selcoffs[nselages], GOA2018SS$nages[1]-nselages))
+  log_sel_fsh <- c(log_selcoffs, rep(log_selcoffs[n_sel_bins], GOA2018SS$nages[1]-n_sel_bins))
   log_sel_fsh <- log_sel_fsh - log(mean(exp(log_sel_fsh)))
 
   # - ATF
-  log_sel_fsh2 <- c(log_selcoffs, rep(log_selcoffs[nselages], GOA2018SS$nages[2]-nselages))
+  log_sel_fsh2 <- c(log_selcoffs, rep(log_selcoffs[n_sel_bins], GOA2018SS$nages[2]-n_sel_bins))
   log_sel_fsh2 <- log_sel_fsh2 - log(mean(exp(log_sel_fsh2)))
 
-  log_sel_fsh2m <- c(log_selcoffs2, rep(log_selcoffs2[nselages], GOA2018SS$nages[2]-nselages))
+  log_sel_fsh2m <- c(log_selcoffs2, rep(log_selcoffs2[n_sel_bins], GOA2018SS$nages[2]-n_sel_bins))
   log_sel_fsh2m <- log_sel_fsh2m - log(mean(exp(log_sel_fsh2m)))
 
   # - Cod
-  log_sel_fsh3 <- c(log_selcoffs, rep(log_selcoffs[nselages], GOA2018SS$nages[3]-nselages))
+  log_sel_fsh3 <- c(log_selcoffs, rep(log_selcoffs[n_sel_bins], GOA2018SS$nages[3]-n_sel_bins))
   log_sel_fsh3 <- log_sel_fsh3 - log(mean(exp(log_sel_fsh3)))
 
   # Set params
@@ -67,14 +67,14 @@ test_that("non-parametric selectivity not normalized", {
 
   # Check selectivity
   # - Pollock
-  apply(ss_run$quantities$sel[1,1,1:10,], 2, function(x) testthat::expect_equal(as.numeric(x), exp(log_sel_fsh), tolerance = 0.0001))
+  apply(ss_run$quantities$sel_at_age[1,1,1:10,], 2, function(x) testthat::expect_equal(as.numeric(x), exp(log_sel_fsh), tolerance = 0.0001))
 
   # - ATF
-  apply(ss_run$quantities$sel[9,1,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), exp(log_sel_fsh2), tolerance = 0.0001))
-  apply(ss_run$quantities$sel[9,2,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), exp(log_sel_fsh2m), tolerance = 0.0001))
+  apply(ss_run$quantities$sel_at_age[9,1,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), exp(log_sel_fsh2), tolerance = 0.0001))
+  apply(ss_run$quantities$sel_at_age[9,2,1:21,], 2, function(x) testthat::expect_equal(as.numeric(x), exp(log_sel_fsh2m), tolerance = 0.0001))
 
   # - Cod
-  apply(ss_run$quantities$sel[12,1,1:12,], 2, function(x) testthat::expect_equal(as.numeric(x), exp(log_sel_fsh3), tolerance = 0.0001))
+  apply(ss_run$quantities$sel_at_age[12,1,1:12,], 2, function(x) testthat::expect_equal(as.numeric(x), exp(log_sel_fsh3), tolerance = 0.0001))
 
   # Check penalties
   # - Curvature penalty

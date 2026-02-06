@@ -17,6 +17,11 @@ clean_data <- function(data_list){
     dplyr::filter(abs(Year) >= data_list$styr & abs(Year) <= data_list$projyr)
   data_list$comp_data <- data_list$comp_data %>%
     dplyr::filter(abs(Year) >= data_list$styr & abs(Year) <= data_list$projyr)
+  data_list$caal_data  <- data_list$caal_data %>%
+    dplyr::filter(abs(Year) >= data_list$styr & abs(Year) <= data_list$projyr)
+  data_list$diet_data <- data_list$diet_data %>%
+    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0) %>%
+    dplyr::arrange(Pred, Pred_sex, Pred_age, Prey, Prey_sex, Prey_age, Year)
 
   # - Fixed data
   data_list$weight <- data_list$weight %>%
@@ -27,7 +32,7 @@ clean_data <- function(data_list){
     dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
   data_list$NByageFixed <- data_list$NByageFixed %>%
     dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
-  data_list$Pyrs <- data_list$Pyrs %>%
+  data_list$ration_data <- data_list$ration_data %>%
     dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
 
 
@@ -61,6 +66,17 @@ clean_data <- function(data_list){
   data_list$catch_data <- data_list$catch_data[
     with(data_list$catch_data, order(Fleet_code, Year)),]
 
+  # * Column names ----
+  if(any(!colnames(data_list$sex_ratio) %in% c("Species", paste0("Age", 1:max(data_list$nages))))){
+    colnames(data_list$sex_ratio) <- c("Species", paste0("Age", 1:max(data_list$nages)))
+    warning("Renaming column names in 'sex_ratio' data to 'Age1', 'Age2', ....")
+  }
+
+  if(any(!colnames(data_list$maturity) %in% c("Species", paste0("Age", 1:max(data_list$nages))))){
+    colnames(data_list$maturity) <- c("Species", paste0("Age", 1:max(data_list$nages)))
+    warning("Renaming column names in 'maturity' data to 'Age1', 'Age2', ....")
+  }
+
   return(data_list)
 }
 
@@ -92,22 +108,22 @@ data_check <- function(data_list) {
 
   # Species checks ----
   for(sp in 1:data_list$nspp){
-    if(sum(data_list$nages[sp] < data_list$fleet_control$Nselages[which(data_list$fleet_control$Species == sp)], na.rm = TRUE) > 1){
-      stop(paste("Nselages is greater than nages for species", sp))
+    if(sum(data_list$nages[sp] < data_list$fleet_control$N_sel_bins[which(data_list$fleet_control$Species == sp)], na.rm = TRUE) > 1){
+      stop(paste("N_sel_bins is greater than nages for species", sp))
     }
   }
 
   # Fleet checks ----
   for(flt in 1:nrow(data_list$fleet_control)){
-    if(!is.na(data_list$fleet_control$Estimate_q[flt])){
-      if((data_list$fleet_control$Estimate_q[flt] == 6 & data_list$fleet_control$Time_varying_q[flt] > (ncol(data_list$env_data) - 1))|
-         (data_list$fleet_control$Estimate_q[flt] == 6 & data_list$fleet_control$Time_varying_q[flt] < 1)){
+    if(!is.na(data_list$fleet_control$Catchability[flt])){
+      if((data_list$fleet_control$Catchability[flt] == 6 & data_list$fleet_control$Time_varying_q[flt] > (ncol(data_list$env_data) - 1))|
+         (data_list$fleet_control$Catchability[flt] == 6 & data_list$fleet_control$Time_varying_q[flt] < 1)){
         stop("For catchability type 6 environmental index specified in 'Time_varying_q' is greater than number of indices in 'env_data'")
       }
     }
 
     # Max sel age > nages
-    data_list$fleet_control$Age_max_selected[flt] <- ifelse(data_list$fleet_control$Age_max_selected[flt] > data_list$nages[data_list$fleet_control$Species[flt]], data_list$nages[data_list$fleet_control$Species[flt]], data_list$fleet_control$Age_max_selected[flt])
+    data_list$fleet_control$Sel_norm_bin1[flt] <- ifelse(data_list$fleet_control$Sel_norm_bin1[flt] > data_list$nages[data_list$fleet_control$Species[flt]], data_list$nages[data_list$fleet_control$Species[flt]], data_list$fleet_control$Sel_norm_bin1[flt])
   }
 
   # - Mirroring warnings
@@ -120,7 +136,7 @@ data_check <- function(data_list) {
   }
 
   mirror_q <- data_list$fleet_control %>%
-    dplyr::filter(!is.na(Estimate_q)) %>%
+    dplyr::filter(!is.na(Catchability)) %>%
     dplyr::group_by(Q_index) %>%
     dplyr::filter(n() > 1 ) %>%
     dplyr::ungroup()
@@ -199,12 +215,12 @@ data_check <- function(data_list) {
   }
 
 
-  # Pyrs ----
-  if(nrow(data_list$Pyrs) > 0){
-    if(any(data_list$Pyrs %>%
+  # ration_data ----
+  if(nrow(data_list$ration_data) > 0){
+    if(any(data_list$ration_data %>%
            dplyr::select(-c(Species, Sex, Year)) %>%
            ncol() < data_list$nages)){
-      stop("Pyrs data does not span range of ages")
+      stop("'ration_data' data does not span range of ages")
     }
   }
 
@@ -307,6 +323,11 @@ data_check <- function(data_list) {
     }
   }
 
+  # Diet composition weights
+  if(any(is.na(data_list$Diet_comp_weights) & data_list$suitMode > 0)){
+    stop("Diet composition likelihood weight for a species with estimated suitability is NA")
+  }
+
   # Sexes ----
   m1_sex <- data_list$M1_base %>%
     dplyr::group_by(Species) %>%
@@ -326,17 +347,17 @@ data_check <- function(data_list) {
     stop("'weight' has more sexes than specified in 'nsex'")
   }
 
-  if(nrow(data_list$Pyrs) > 0){
-    pyrs_sex <- data_list$Pyrs %>%
+  if(nrow(data_list$ration_data) > 0){
+    ration_data_sex <- data_list$ration_data %>%
       dplyr::group_by(Species) %>%
       dplyr::summarise(max_sex = max(Sex)) %>%
       dplyr::arrange(Species)
 
-    if(any(pyrs_sex$max_sex > data_list$nsex)){
-      stop("'Pyrs' has more sexes than specified in 'nsex'")
+    if(any(ration_data_sex$max_sex > data_list$nsex)){
+      stop("'ration_data' has more sexes than specified in 'nsex'")
     }
   } else{
-    warning("No Pyrs (ration) data")
+    warning("No ration_data (ration) data")
   }
 
   # Environmental data----
@@ -374,15 +395,15 @@ switch_check <- function(data_list){
   }
 
   # Normalization age
-  if(is.null(data_list$fleet_control$Age_max_selected)){
-    data_list$fleet_control$Age_max_selected <- NA
-    print("'Age_max_selected' not specified in 'fleet_control', assuming 'NA'")
+  if(is.null(data_list$fleet_control$Sel_norm_bin1)){
+    data_list$fleet_control$Sel_norm_bin1 <- NA
+    print("'Sel_norm_bin1' not specified in 'fleet_control', assuming 'NA'")
   }
 
 
-  if(is.null(data_list$fleet_control$Age_max_selected_upper)){
-    data_list$fleet_control$Age_max_selected_upper <- NA
-    print("'Age_max_selected_upper' not specified in 'fleet_control', assuming 'NA'")
+  if(is.null(data_list$fleet_control$Sel_norm_bin2)){
+    data_list$fleet_control$Sel_norm_bin2 <- NA
+    print("'Sel_norm_bin2' not specified in 'fleet_control', assuming 'NA'")
   }
 
   # Sel curve penalties
@@ -399,9 +420,9 @@ switch_check <- function(data_list){
   if(any(data_list$fleet_control$Selectivity == 2 & !is.na(data_list$fleet_control$Time_varying_sel) & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)))){
     data_list$fleet_control <- data_list$fleet_control %>%
       dplyr::mutate(Sel_curve_pen1 = ifelse(Selectivity == 2 & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)), Time_varying_sel, NA),
-                    Sel_curve_pen2 = ifelse(Selectivity == 2 & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)), Sel_sd_prior, NA),
+                    Sel_curve_pen2 = ifelse(Selectivity == 2 & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)), Time_varying_sel_sd_prior, NA),
                     Time_varying_sel = ifelse(Selectivity == 2 & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)), 0, Time_varying_sel),
-                    Sel_sd_prior = ifelse(Selectivity == 2 & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)), 0, Sel_sd_prior)
+                    Time_varying_sel_sd_prior = ifelse(Selectivity == 2 & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)), 0, Time_varying_sel_sd_prior)
 
       )
     print("Updating format where 'Selectivity == 2'. Moving non-parametric penalties to 'Sel_curve_pen1' and 'Sel_curve_pen2'.")
@@ -420,6 +441,22 @@ switch_check <- function(data_list){
   if(is.null(data_list$fleet_control$Comp_loglike)){
     data_list$fleet_control$Comp_loglike <- -1
     print("'Comp_loglike' not specified in 'fleet_control', assuming multinomial")
+  }
+
+  # CAAL weights
+  if(is.null(data_list$fleet_control$CAAL_loglike)){
+    data_list$fleet_control$CAAL_loglike <- 0
+    print("'CAAL_loglike' not specified in 'fleet_control', assuming multinomial")
+  }
+  if(is.null(data_list$fleet_control$CAAL_weights)){
+    data_list$fleet_control$CAAL_weights <- 1
+    print("'CAAL_weights' not specified in 'fleet_control', assuming 1")
+  }
+
+  # Month
+  if(is.null(data_list$fleet_control$Month)){
+    data_list$fleet_control$Month <- 0
+    print("'Month' not specified in 'fleet_control', assuming 0")
   }
 
   # Mortality

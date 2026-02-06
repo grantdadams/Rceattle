@@ -181,7 +181,7 @@ catch_hcr <- function(model = ss_run, ptarget = 0.4, plimit = 0.1, assessment_pe
   proj_yrs <- (model$data_list$endyr + 1) : model$data_list$projyr
   proj_nyrs <- length(proj_yrs)
   nflts = nrow(model$data_list$fleet_control)
-  nselages <- max(model$data_list$fleet_control$Nselages, na.rm = TRUE)
+  N_sel_bins <- max(model$data_list$fleet_control$N_sel_bins, na.rm = TRUE)
 
   # - Assessment period
   assess_yrs <- seq(from = model$data_list$endyr + assessment_period, to = model$data_list$projyr,  by = assessment_period)
@@ -307,7 +307,7 @@ catch_hcr <- function(model = ss_run, ptarget = 0.4, plimit = 0.1, assessment_pe
     # -- Time-varing selectivity - Assume last year - filled by columns
     ln_sel_slp_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
     sel_inf_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
-    sel_coff_dev = array(0, dim = c(nflts, 2, nselages, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for non-parameteric
+    sel_coff_dev = array(0, dim = c(nflts, 2, N_sel_bins, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for non-parameteric
 
     ln_sel_slp_dev[,,,1:nyrs_hind] <- model$estimated_params$ln_sel_slp_dev
     sel_inf_dev[,,,1:nyrs_hind] <- model$estimated_params$sel_inf_dev

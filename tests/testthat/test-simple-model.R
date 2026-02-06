@@ -144,18 +144,18 @@ sim_dat$fleet_control <-
              Species = 1,              # 3) Species
              Selectivity_index = 1:2,    # 4) Survey selectivity index
              Selectivity = 1,          # 5) Selectivity type
-             Nselages = NA,             # 6) Non-parametric selectivity ages
+             N_sel_bins = NA,             # 6) Non-parametric selectivity ages
              Time_varying_sel = 0,     # 7) Time-varying selectivity type.
-             Sel_sd_prior = 0,
-             Age_first_selected = 1,   # 8) First age selected
-             Age_max_selected = NA,     # 9b) Age of max selectivity (used for normalization). If NA, does not normalize
-             Age_max_selected_upper = NA,# 9a) upper age of max selectivity (used for normalization). If NA, does not normalize
+             Time_varying_sel_sd_prior = 0,
+             Bin_first_selected = 1,   # 8) First age selected
+             Sel_norm_bin1 = NA,       # 9b) Age of max selectivity (used for normalization). If NA, does not normalize
+             Sel_norm_bin2 = NA,       # 9a) upper age of max selectivity (used for normalization). If NA, does not normalize
              Comp_loglike = 0,         # 10) Index indicating wether to do dirichlet multinomial for a multinomial)
              Weight1_Numbers2 = 1,     # 11) Survey units
              Weight_index = 1,         # 12) Dim1 of weight (what weight-at-age data set)
              Age_transition_index = 1, # 13) Dim3 of age transition matrix (what ALK to use)
              Q_index = c(1, NA),              # 14) Index of survey q
-             Estimate_q = c(1,0),           # 15) Parametric form of q
+             Catchability = c(1,0),           # 15) Parametric form of q
              Q_prior = 1,
              Q_sd_prior = 0.1,
              Time_varying_q = 0,       # 16) Time varying q type
@@ -281,8 +281,8 @@ sim_dat$env_data <- data.frame(
   BTempC = 5
 )
 
-# * Pyrs and diet ----
-sim_dat$Pyrs <- sim_dat$Pyrs[0,]
+# * ration_data and diet ----
+sim_dat$ration_data <- sim_dat$ration_data[0,]
 sim_dat$diet_data <- sim_dat$diet_data[0,]
 
 

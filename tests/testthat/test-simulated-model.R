@@ -1,7 +1,4 @@
 # TODO: fleet_code to fleet_index
-# Get rid of sex ratio in control
-# call "wt" "weight"
-# call "pmature" "maturity"
 
 test_that("Simulated simple model the same" {
   # Simulate Data -----------------------------------------------------------
@@ -286,7 +283,7 @@ test_that("Simulated simple model the same" {
   # * Relative foraging rate (days) ----
   pyrs <- as.data.frame(matrix(1, nrow = 20, ncol = 15))
   colnames(pyrs) <- paste0("Age",1:15)
-  simData$Pyrs <- cbind(data.frame(Species = 1,
+  simData$ration_data <- cbind(data.frame(Species = 1,
                                    Sex = 0,
                                    Year = 1:20),
                         pyrs
