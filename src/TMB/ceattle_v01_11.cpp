@@ -3277,6 +3277,23 @@ Type objective_function<Type>::operator() () {
     }
   }
 
+  // 12.11. Subset ADREPORT for Suitability
+  // Create a 4D slice for a single year (e.g., the last year of the hindcast)
+  // Dimensions: (nspp*max_sex, nspp*max_sex, max_age, max_age)
+  int report_yr = nyrs_hind - 1;
+  array<Type> suitability_final_yr(nspp * max_sex, nspp * max_sex, max_age, max_age);
+  suitability_final_yr.setZero();
+
+  for(int r_idx = 0; r_idx < (nspp * max_sex); r_idx++){
+    for(int k_idx = 0; k_idx < (nspp * max_sex); k_idx++){
+      for(int r_a = 0; r_a < max_age; r_a++){
+        for(int k_a = 0; k_a < max_age; k_a++){
+          suitability_final_yr(r_idx, k_idx, r_a, k_a) = suitability(r_idx, k_idx, r_a, k_a, report_yr);
+        }
+      }
+    }
+  }
+
 
   // ------------------------------------------------------------------------- //
   // 13. DERIVED QUANTITIES
@@ -3959,7 +3976,7 @@ Type objective_function<Type>::operator() () {
       }
 
       // --- Process the completed group ---
-      if (obs_diet_prop_std.size() > 0) {
+      if (obs_diet_prop_std.size() > 0 && suitMode(rsp) > 0) {
 
         // Manually convert std::vector to a TMB vector
         int n_obs_prey = obs_diet_prop_std.size();
@@ -4233,7 +4250,11 @@ Type objective_function<Type>::operator() () {
   REPORT( stom_div_bio );
   REPORT( avail_food );
   REPORT( M2_prop );
-  ADREPORT(diet_hat );
+  ADREPORT( M2_at_age );
+  /*ADREPORT( suitability );*/
+  ADREPORT( suitability_final_yr );
+  ADREPORT( diet_hat );
+
 
 
   // -- 12.10. Kinzey predation functions
