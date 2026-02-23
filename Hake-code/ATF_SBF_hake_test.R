@@ -62,17 +62,10 @@ inits = ms_run$estimated_params
 map = ms_run$map # gam_a, gam_b, and log_phi are turned off here
 
 # Create a list prey size preference
-# Set weight ratio parameters
-#inits$log_gam_a = c(0, 3.006)  # Mean log weight ratio for ATF, 0 for other species (pred/prey)
-#inits$log_gam_b = c(0, 1.887)
-
 #ORIGINAL (TRUE) VALUES
 inits$log_gam_a = c(0, 3.7, 3.1)  # Mean log weight ratio for ATF, 0 for other species (pred/prey)
 inits$log_gam_b = c(0, 1.8, 1.120)
 
-#ORIGINAL (TRUE) VALUES
-#inits$log_gam_a = c(0, 3.3)  # Median log weight ratio for ATF, 0 for other species (pred/prey)
-#inits$log_gam_b = c(0, 1.8)
 
 # Set vulnerability matrix
 inits$log_phi #Currently all set to 0.5 (keep it)
