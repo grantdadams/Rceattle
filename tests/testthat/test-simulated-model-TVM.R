@@ -3,7 +3,7 @@
 # call "wt" "weight"
 # call "pmature" "maturity"
 
-test_that("Simulated simple model the same" {
+test_that("Simulated simple model the same", {
   # Simulate Data -----------------------------------------------------------
   # Adapted from Matt Cheng
   sim_pop_model <- function(years,

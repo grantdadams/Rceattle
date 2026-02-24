@@ -3,7 +3,7 @@
 # call "wt" "weight"
 # call "pmature" "maturity"
 
-test_that("Simulated simple multi-species model the same" {
+test_that("Simulated simple multi-species model the same", {
   # Simulate Data -----------------------------------------------------------
   # Adapted from Matt Cheng
   sim_msm_model <- function(
