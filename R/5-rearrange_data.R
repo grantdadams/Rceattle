@@ -518,8 +518,7 @@ check_composition_data <- function(data_list) {
   # If no data, convert to empty matrix
   if(is.null(dim(data_list$comp_obs))){
     data_list$comp_obs <- matrix(NA, ncol = 10, nrow = 0)
-  } else{
-
+  } else if(nrow(data_list$comp_obs) > 0){
 
     # # Check for zero sum rows in composition data
     # if (any(rowSums(data_list$comp_obs, na.rm = TRUE) == 0)) {
