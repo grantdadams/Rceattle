@@ -1,6 +1,6 @@
 # TODO: fleet_code to fleet_index
 
-test_that("Simulated simple model the same" {
+test_that("Simulated simple model the same", {
   # Simulate Data -----------------------------------------------------------
   # From Matt Cheng
   sim_pop_model <- function(years,
