@@ -541,10 +541,14 @@ Type objective_function<Type>::operator() () {
   matrix<int> k_sexes(diet_obs.rows(), 2); k_sexes.setZero();
 
 
-  // 5.4. MATURITY AND SEX RATIO
+  // 5.4. MATURITY, Finit, AND SEX RATIO
   // -- for SSB derivation, not SPR
   matrix<Type> mature_females = maturity;
   for( sp = 0; sp < nspp ; sp++) {
+
+    if(initMode < 3){
+      Finit(sp) = 0; // If population starts out at equilibrium set Finit to 0 (R_init and R0 will be the same)
+    }
 
     // Sex ratio for SSB derivation
     for( age = 0 ; age < nages(sp); age++ ) {
@@ -794,10 +798,6 @@ Type objective_function<Type>::operator() () {
     SPRtarget.setZero();
     if(msmMode == 0){
       for(sp = 0; sp < nspp; sp++) {
-
-        if(initMode < 3){
-          Finit(sp) = 0; // If population starts out at equilibrium set Finit to 0 (R_init and R0 will be the same)
-        }
 
         //FIXME: set to 1
         NbyageSPR(0, sp, 0) = 1.0; // F = 0

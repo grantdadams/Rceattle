@@ -11,35 +11,35 @@ make_test_data <- function(nyrs = 8, nages = 5, seed = NULL) {
     stop("Rceattle package required for test helpers")
   }
 
-  dat <- list()
+  simData <- list()
 
   if (!is.null(seed)) set.seed(seed)
   nspp = 1
-  dat$nspp <- nspp
-  dat$styr <- 1
-  dat$endyr <- nyrs
-  dat$projyr <- nyrs + 2
-  dat$spnames <- "Sim"
-  dat$nsex = 1
-  dat$spawn_month = 0
-  dat$nages = nages
-  dat$minage = 1
-  dat$nlengths = nages
-  dat$pop_wt_index = 1
-  dat$ssb_wt_index = 1
-  dat$alpha_wt_len = 0.0001
-  dat$beta_wt_len = 3
-  dat$pop_age_transition_index = 1
-  dat$sigma_rec_prior = 1
-  dat$other_food = 1e6
-  dat$estDynamics = 0
+  simData$nspp <- nspp
+  simData$styr <- 1
+  simData$endyr <- nyrs
+  simData$projyr <- nyrs + 2
+  simData$spnames <- "Sim"
+  simData$nsex = 1
+  simData$spawn_month = 0
+  simData$nages = nages
+  simData$minage = 1
+  simData$nlengths = nages
+  simData$pop_wt_index = 1
+  simData$ssb_wt_index = 1
+  simData$alpha_wt_len = 0.0001
+  simData$beta_wt_len = 3
+  simData$pop_age_transition_index = 1
+  simData$sigma_rec_prior = 1
+  simData$other_food = 1e6
+  simData$estDynamics = 0
 
 
-  years <- seq(dat$styr, dat$endyr)
+  years <- seq(simData$styr, simData$endyr)
 
   # Fleet control
   # - Two simple fleets (survey + fishery)
-  dat$fleet_control <- data.frame(
+  simData$fleet_control <- data.frame(
     Fleet_name = c("Survey", "Fishery"),
     Fleet_code = 1:2,
     Fleet_type = 2:1,
@@ -78,7 +78,7 @@ make_test_data <- function(nyrs = 8, nages = 5, seed = NULL) {
 
   # Deterministic simple observations for fast tests
   total_biom <- rep(100.0, length(years))
-  dat$index_data <- data.frame(
+  simData$index_data <- data.frame(
     Fleet_name = "Survey",
     Fleet_code = 1,
     Species = 1,
@@ -90,7 +90,7 @@ make_test_data <- function(nyrs = 8, nages = 5, seed = NULL) {
     Log_sd = 0.1
   )
 
-  dat$catch_data <- data.frame(
+  simData$catch_data <- data.frame(
     Fleet_name = "Fishery",
     Fleet_code = 2,
     Species = 1,
@@ -102,35 +102,35 @@ make_test_data <- function(nyrs = 8, nages = 5, seed = NULL) {
   )
 
   # Minimal composition
-  dat$comp_data <- data.frame(matrix(NA, nrow = 0, ncol = 8 + nages))
-  colnames(dat$comp_data ) = c("Fleet_name", "Fleet_code", "Species", "Sex", "Age0_Length1", "Year", "Month", "Sample_size", paste("Comp_", 1:nages))
+  simData$comp_data <- data.frame(matrix(NA, nrow = 0, ncol = 8 + nages))
+  colnames(simData$comp_data ) = c("Fleet_name", "Fleet_code", "Species", "Sex", "Age0_Length1", "Year", "Month", "Sample_size", paste("Comp_", 1:nages))
 
   # Minimal CAAL
-  dat$caal_data <- data.frame(matrix(NA, nrow = 0, ncol = 7 + nages))
-  colnames(dat$caal_data ) = c("Fleet_name", "Fleet_code", "Species", "Sex", "Year", "Length", "Sample_size", paste("CAAL_", 1:nages))
+  simData$caal_data <- data.frame(matrix(NA, nrow = 0, ncol = 7 + nages))
+  colnames(simData$caal_data ) = c("Fleet_name", "Fleet_code", "Species", "Sex", "Year", "Length", "Sample_size", paste("CAAL_", 1:nages))
 
   #  Empirical selectivity
-  dat$emp_sel <- data.frame(matrix(NA, nrow = 0, ncol = 5 + nages))
-  colnames(dat$emp_sel ) = c("Fleet_name", "Fleet_code", "Species", "Sex", "Year", paste("Comp_", 1:nages))
+  simData$emp_sel <- data.frame(matrix(NA, nrow = 0, ncol = 5 + nages))
+  colnames(simData$emp_sel ) = c("Fleet_name", "Fleet_code", "Species", "Sex", "Year", paste("Comp_", 1:nages))
 
   # Input N-at-age
-  dat$NByageFixed <- data.frame(matrix(NA, nrow = 0, ncol = 4 + nages))
-  colnames(dat$NByageFixed ) = c("Species_name ", "Species", "Sex", "Year", paste("Age", 1:nages))
+  simData$NByageFixed <- data.frame(matrix(NA, nrow = 0, ncol = 4 + nages))
+  colnames(simData$NByageFixed ) = c("Species_name ", "Species", "Sex", "Year", paste("Age", 1:nages))
 
   # Age-transition
   age_transition <- as.data.frame(diag(nages))
   colnames(age_transition) <- paste0("Length_", seq_len(nages))
-  dat$age_trans_matrix <- cbind(data.frame(Age_transition_name = "Base",
-                                           Age_transition_index = 1,
-                                           Species = 1,
-                                           Sex = 0,
-                                           Age = 1:nages),
-                                age_transition)
+  simData$age_trans_matrix <- cbind(data.frame(Age_transition_name = "Base",
+                                               Age_transition_index = 1,
+                                               Species = 1,
+                                               Sex = 0,
+                                               Age = 1:nages),
+                                    age_transition)
 
   # Age-error
   age_error <- as.data.frame(diag(nages))
   colnames(age_error) <- paste0("Obs_age", seq_len(nages))
-  dat$age_error <- cbind(data.frame(
+  simData$age_error <- cbind(data.frame(
     Species = 1,
     True_age = 1:nages),
     age_error)
@@ -139,58 +139,58 @@ make_test_data <- function(nyrs = 8, nages = 5, seed = NULL) {
   WAA <- rep(1, nages)
   WAA_df <- as.data.frame(matrix(WAA, nrow = 1))
   colnames(WAA_df) <- paste0("Age", seq_len(nages))
-  dat$weight <- cbind(data.frame(Wt_name = "Base", Wt_index = 1, Species = 1, Sex = 0, Year = 0), WAA_df)
+  simData$weight <- cbind(data.frame(Wt_name = "Base", Wt_index = 1, Species = 1, Sex = 0, Year = 0), WAA_df)
 
   # Maturity
   MatAA_df <- as.data.frame(matrix(1, nrow = 1, ncol = nages))
   colnames(MatAA_df) <- paste0("Age", seq_len(nages))
-  dat$maturity <- cbind(data.frame(Species = 1), MatAA_df)
+  simData$maturity <- cbind(data.frame(Species = 1), MatAA_df)
 
   # Sex ratio
   sexratio <- as.data.frame(matrix(0.5, nrow = 1, ncol = nages))
   colnames(sexratio) <- paste0("Age", seq_len(nages))
-  dat$sex_ratio <- cbind(data.frame(Species = 1), sexratio)
+  simData$sex_ratio <- cbind(data.frame(Species = 1), sexratio)
 
   # Mortality
   mort <- as.data.frame(matrix(0.2, nrow = 1, ncol = nages))
   colnames(mort) <- paste0("Age", seq_len(nages))
-  dat$M1_base <- cbind(data.frame(Species = 1, Sex = 0), mort)
+  simData$M1_base <- cbind(data.frame(Species = 1, Sex = 0), mort)
 
   # Bioenergetics
-  dat$Ceq = 1
-  dat$Cindex = 1
-  dat$Pvalue = 1
-  dat$fday = 1
-  dat$CA = 1
-  dat$CB = 1
-  dat$Qc = 1
-  dat$Tco = 1
-  dat$Tcm = 1
-  dat$Tcl = 1
-  dat$CK1 = 1
-  dat$CK4 = 1
-  dat$Diet_comp_weights = 1
+  simData$Ceq = 1
+  simData$Cindex = 1
+  simData$Pvalue = 1
+  simData$fday = 1
+  simData$CA = 1
+  simData$CB = 1
+  simData$Qc = 1
+  simData$Tco = 1
+  simData$Tcm = 1
+  simData$Tcl = 1
+  simData$CK1 = 1
+  simData$CK4 = 1
+  simData$Diet_comp_weights = 1
 
   # Environmental data
-  dat$env_data <- data.frame(
+  simData$env_data <- data.frame(
     Year = years,
     Index1 = rnorm(nyrs)
   )
 
   # Diet information Pyrs (relative foraging rate) ----
-  dat$ration_data <- dat$weight %>%
-    select(Species, Sex, Year, contains("Age"))
+  simData$ration_data <- simData$weight |>
+    dplyr::select(Species, Sex, Year, contains("Age"))
 
 
   # Diet proportion ----
-  dat$diet_data <- as.data.frame(matrix(NA, nrow = 0, ncol = 9))
-  colnames(dat$diet_data) = c("Pred", "Prey", "Pred_sex", "Prey_sex", "Pred_age", "Prey_age",
-                              "Year", "Sample_size", "Stomach_proportion_by_weight")
+  simData$diet_data <- as.data.frame(matrix(NA, nrow = 0, ncol = 9))
+  colnames(simData$diet_data) = c("Pred", "Prey", "Pred_sex", "Prey_sex", "Pred_age", "Prey_age",
+                                  "Year", "Sample_size", "Stomach_proportion_by_weight")
 
 
   # Clean and return
-  dat <- Rceattle::clean_data(dat)
-  return(dat)
+  simData <- Rceattle::clean_data(simData)
+  return(simData)
 }
 
 compile_tmb_if_needed <- function() {
@@ -209,8 +209,7 @@ with_loaded_dll <- function(lib, code) {
 
 
 # Adapted from Matt Cheng
-sim_msm_model <- function(
-
+make_msm_test_data <- function(
   nspp = 2,
   years = 1:40,
   ages = 1:10,
@@ -230,7 +229,7 @@ sim_msm_model <- function(
   srv_q = rep(1, nspp),
 
   # Multispecies bits
-  iter = 10,
+  niter = 10,
   gam_a = rep(0.1, nspp),
   gam_b = rep(0.1, nspp),
   log_phi = matrix(0, nspp, nspp),
@@ -239,28 +238,29 @@ sim_msm_model <- function(
 
 ) {
 
-  n_yrs <- length(years)
-  n_ages <- length(ages)
+  nyrs <- length(years)
+  nages <- length(ages)
 
   # Initialize arrays
-  NAA <- array(0, dim = c(nspp, n_yrs + 1, n_ages))  # Numbers at age
-  avgNAA <- array(0, dim = c(nspp, n_yrs + 1, n_ages))  # Numbers at age
-  ZAA <- array(0, dim = c(nspp, n_yrs, n_ages))      # Total mortality
-  MAA <- array(0, dim = c(nspp, n_yrs, n_ages))      # Total mortality
-  CAA <- array(0, dim = c(nspp, n_yrs, n_ages))      # Catch at age
-  FAA <- array(0, dim = c(nspp, n_yrs, n_ages))      # Fishing mortality at age
+  NAA <- array(0, dim = c(nspp, nages, nyrs))  # Numbers at age
+  avgNAA <- array(0, dim = c(nspp, nages, nyrs))  # Numbers at age
+  ZAA <- array(0, dim = c(nspp, nages, nyrs))      # Total mortality
+  MAA <- array(0, dim = c(nspp, nages, nyrs))      # Total mortality
+  M2_at_age <- array(0, dim = c(nspp, nages, nyrs))
+  CAA <- array(0, dim = c(nspp, nages, nyrs))      # Catch at age
+  FAA <- array(0, dim = c(nspp, nages, nyrs))      # Fishing mortality at age
 
   # Population metrics
-  SSB <- matrix(0, nspp, n_yrs)
-  Total_Biom <- matrix(0, nspp, n_yrs)
-  Catch <- matrix(0, nspp, n_yrs)
+  SSB <- matrix(0, nspp, nyrs)
+  Total_Biom <- matrix(0, nspp, nyrs)
+  Catch <- matrix(0, nspp, nyrs)
 
   # Generate recruitment deviations
-  rec_devs <- matrix(rnorm(n_yrs * nspp, 0, sigma_R), nspp, n_yrs)
-  init_devs <- matrix(rnorm((n_ages-1) * nspp, 0, sigma_R), nspp, n_ages-1)
+  rec_devs <- matrix(rnorm(nyrs * nspp, 0, sigma_R), nspp, nyrs)
+  init_devs <- matrix(rnorm((nages-1) * nspp, 0, sigma_R), nspp, nages-1)
 
   # Vulnerability
-  suitability = array(0, dim = c(nspp, nspp, n_ages, n_ages))
+  suitability = array(0, dim = c(nspp, nspp, nages, nages))
   vulnerability <- matrix(0, nspp, nspp)
   suit_other <- c()
 
@@ -271,9 +271,9 @@ sim_msm_model <- function(
 
   # Calculate suitability ----
   for(sp in 1:nspp) { # Predator
-    for(r_age in 1:n_ages){  # Pred age
+    for(r_age in 1:nages){  # Pred age
       for(ksp in 1:nspp) {   # Prey loop
-        for(k_age in 1:n_ages){ # Prey age
+        for(k_age in 1:nages){ # Prey age
 
           # Weight-based lognormal suitability
           log_size_ratio = log(WAA[sp,r_age] / WAA[ksp,k_age]) # Log ratio of weights
@@ -288,83 +288,82 @@ sim_msm_model <- function(
 
   # Initialize population
   for(sp in 1:nspp){
-    init_age_idx <- 1:(n_ages - 2)
-    NAA[sp, 1, init_age_idx + 1] <- mean_Rec[sp] * exp(- (init_age_idx * M[sp]))
-    NAA[sp, 1, n_ages] <- mean_Rec[sp] * exp(-(n_ages - 1) * M[sp]) / (1 - exp(-M[sp]))
-    NAA[sp,1,2:n_ages] <- NAA[sp,1,2:n_ages] * exp(init_devs[sp,])
+    init_age_idx <- 1:(nages - 2)
+    NAA[sp, init_age_idx + 1, 1] <- mean_Rec[sp] * exp(- (init_age_idx * M[sp]))
+    NAA[sp, nages, 1] <- mean_Rec[sp] * exp(-(nages - 1) * M[sp]) / (1 - exp(-M[sp]))
+    NAA[sp,2:nages, 1] <- NAA[sp,2:nages, 1] * exp(init_devs[sp,])
   }
 
   # Project population forward
-  M2_at_age <- array(0, dim = c(nspp, n_ages, n_yrs))
-  for(iter in 1:10){
+  for(iter in 1:niter){
 
-    for(y in 1:n_yrs) {
+    for(y in 1:nyrs) {
       for(sp in 1:nspp){
         # New recruits
-        NAA[sp, y, 1] <- mean_Rec[sp] * exp(rec_devs[sp,y])
+        NAA[sp, 1, y] <- mean_Rec[sp] * exp(rec_devs[sp,y])
 
         # Calculate mortality
-        FAA[sp, y,] <- Fmort[sp, y] * fish_sel[sp,]
-        ZAA[sp, y,] <- FAA[sp,y,] + M[sp] # + M2_at_age[sp, , y]
-        MAA[sp, y,] <- M[sp] + M2_at_age[sp, , y]
+        FAA[sp, ,y] <- Fmort[sp, y] * fish_sel[sp,]
+        ZAA[sp, ,y] <- FAA[sp,,y] + M[sp] + M2_at_age[sp, , y]
+        MAA[sp, ,y] <- M[sp] + M2_at_age[sp, ,y]
 
         # Calculate catch
-        CAA[sp, y,] <- FAA[sp, y,] / ZAA[sp, y,] * NAA[sp, y,] * (1 - exp(-ZAA[sp, y,]))
+        CAA[sp, ,y] <- FAA[sp, ,y] / ZAA[sp, ,y] * NAA[sp, ,y] * (1 - exp(-ZAA[sp, ,y]))
 
         # Project survivors
-        if(y < n_yrs) {
-          for(a in 1:(n_ages-1)) {
-            NAA[sp, y+1, a+1] <- NAA[sp, y, a] * exp(-ZAA[sp, y, a])
+        if(y < nyrs) {
+          for(a in 1:(nages-1)) {
+            NAA[sp, a+1, y+1] <- NAA[sp, a, y] * exp(-ZAA[sp, a, y])
           }
           # Plus group
-          NAA[sp, y+1, n_ages] <- NAA[sp, y+1, n_ages] + NAA[sp, y, n_ages] * exp(-ZAA[sp, y, n_ages])
+          NAA[sp, nages, y+1] <- NAA[sp, nages, y+1] + NAA[sp, nages, y] * exp(-ZAA[sp, nages, y])
         }
-        avgNAA[sp,y,] = NAA[sp, y, ] * (1-exp(-ZAA[sp, y, ]))/ZAA[sp,y,]
+        avgNAA[sp,,y] = NAA[sp, ,y] * (1-exp(-ZAA[sp, ,y]))/ZAA[sp,,y]
 
         # Calculate annual metrics
-        Total_Biom[sp, y] <- sum(NAA[sp, y,] * WAA[sp, ])
-        SSB[sp, y] <- sum(NAA[sp, y,] * WAA[sp, ] * MatAA[sp, ]) * 0.5
-        Catch[sp, y] <- sum(CAA[sp, y,] * WAA[sp, ])
+        Total_Biom[sp, y] <- sum(NAA[sp, ,y] * WAA[sp, ])
+        SSB[sp, y] <- sum(NAA[sp, ,y] * WAA[sp, ] * MatAA[sp, ]) * 0.5
+        Catch[sp, y] <- sum(CAA[sp, ,y] * WAA[sp, ])
       }
     }
 
     # Available food ----
-    avail_food <- array(0, dim = c(nspp, n_ages, n_yrs))
+    avail_food <- array(0, dim = c(nspp, nages, nyrs))
     for(rsp in 1:nspp) {    # Predator species loop
-      for(r_age in 1:n_ages) { # Predator age loop
-        for(y in 1:n_yrs) {
+      for(r_age in 1:nages) { # Predator age loop
+        for(y in 1:nyrs) {
           for(ksp in 1:nspp) {
-            for(k_age in 1:n_ages) { # Prey age loop
-              avail_food[rsp, r_age, y] = avail_food[rsp, r_age, y] + suitability[rsp, ksp, r_age, k_age] * avgNAA[ksp, y, k_age] * WAA[ksp, k_age]
+            for(k_age in 1:nages) { # Prey age loop
+              avail_food[rsp, r_age, y] = avail_food[rsp, r_age, y] + suitability[rsp, ksp, r_age, k_age] * avgNAA[ksp, k_age, y] * WAA[ksp, k_age]
             }
           }
           # Other food
-          avail_food[rsp, r_age, y] = avail_food[rsp, r_age, y] + other_food[rsp] * suit_other[sp]
+          avail_food[rsp, r_age, y] = avail_food[rsp, r_age, y] + other_food[rsp] * suit_other[rsp]
         }
       }
     }
 
     # Predation mortality ----
     M2_at_age[] <- 0
-    B_eaten_as_prey <- array(0, dim = c(nspp, n_ages, n_yrs))
-    diet_prop <- array(0, dim = c(nspp, nspp, n_ages, n_ages, n_yrs))
+    B_eaten_as_prey <- array(0, dim = c(nspp, nages, nyrs))
+    diet_prop <- array(0, dim = c(nspp, nspp, nages, nages, nyrs))
     for(ksp in 1:nspp) {
-      for(k_age in 1:n_ages) { # Prey age loop
+      for(k_age in 1:nages) { # Prey age loop
         for(rsp in 1:nspp) {    # Predator species loop
-          for(r_age in 1:n_ages) { # Predator age loop
-            for(y in 1:n_yrs) {
+          for(r_age in 1:nages) { # Predator age loop
+            for(y in 1:nyrs) {
 
               if(avail_food[rsp, r_age, y] > 0){
 
                 # MSVPA
                 # - M2
-                M2_at_age[ksp, k_age, y] = M2_at_age[ksp, k_age, y] + avgNAA[rsp, y, r_age] * ration[rsp, r_age] * suitability[rsp, ksp, r_age, k_age] / avail_food[rsp, r_age, y]
+                M2_at_age[ksp, k_age, y] = M2_at_age[ksp, k_age, y] + avgNAA[rsp, r_age, y] * ration[rsp, r_age] * suitability[rsp, ksp, r_age, k_age] / avail_food[rsp, r_age, y]
 
                 # Biomass consumed as prey
-                B_eaten_as_prey[ksp, k_age, y] = B_eaten_as_prey[ksp, k_age, y] + avgNAA[ksp, y, k_age] * WAA[ksp, k_age] * avgNAA[rsp, y, r_age] * ration[rsp, r_age] * suitability[rsp, ksp, r_age, k_age] / avail_food[rsp, r_age, y]
+                B_eaten_as_prey[ksp, k_age, y] = B_eaten_as_prey[ksp, k_age, y] + avgNAA[ksp, k_age, y] * WAA[ksp, k_age] * avgNAA[rsp, r_age, y] * ration[rsp, r_age] * suitability[rsp, ksp, r_age, k_age] / avail_food[rsp, r_age, y]
 
                 # Diet
-                diet_prop[rsp, ksp, r_age, k_age, y] = avgNAA[ksp, y, k_age] * WAA[ksp, k_age] * suitability[rsp, ksp, r_age, k_age] / avail_food[rsp, r_age, y]
+                diet_prop[rsp, ksp, r_age, k_age, y] = avgNAA[ksp, k_age, y] * WAA[ksp, k_age] * suitability[rsp, ksp, r_age, k_age] / avail_food[rsp, r_age, y]
               }
             }
           }
@@ -376,64 +375,333 @@ sim_msm_model <- function(
   }
 
   # Observation model
-  ObsCatch <- Catch * rlnorm(n_yrs * nspp, 0, sigma_catch)
+  ObsCatch <- Catch * rlnorm(nyrs * nspp, 0, sigma_catch)
 
   # Survey observations
-  SrvIdx <- srv_q * Total_Biom * rlnorm(n_yrs * nspp, 0, sigma_srv)
+  SrvIdx <- srv_q * Total_Biom * rlnorm(nyrs * nspp, 0, sigma_srv)
 
   # Age composition data (simplified multinomial)
-  ObsFishAges <- array(0, dim=c(nspp, n_yrs, n_ages))
-  ObsSrvAges <- array(0, dim=c(nspp, n_yrs, n_ages))
+  ObsFishAges <- array(0, dim=c(nspp, nages, nyrs))
+  ObsSrvAges <- array(0, dim=c(nspp, nages, nyrs))
 
   for(sp in 1:nspp){
-    for(y in 1:n_yrs) {
+    for(y in 1:nyrs) {
       # Fishery ages
-      ObsFishAges[sp, y,] <- rmultinom(1, fish_ISS, CAA[sp, y,])
+      ObsFishAges[sp, ,y] <- rmultinom(1, fish_ISS, CAA[sp, ,y])
       # Survey ages
-      ObsSrvAges[sp, y,] <- rmultinom(1, srv_ISS, NAA[sp, y,] * srv_sel[sp,])
+      ObsSrvAges[sp, ,y] <- rmultinom(1, srv_ISS, NAA[sp, ,y] * srv_sel[sp,])
     }
   }
 
+  #
+  #   # Diet composition data
+  #   ObsDiet <- array(0, dim=c(nspp, nspp, nages, nyrs))
+  #   for(rsp in 1:nspp){
+  #     for(r_age in 1:nages){
+  #       for(y in 1:nyrs) {
+  #         if(sum(diet_prop[rsp, , r_age, , y]) > 0){
+  #           ObsDiet[rsp, , r_age, y] = rowSums(diet_prop[rsp, , r_age, , y]) # rmultinom(1, diet_ISS,  )[,1]
+  #         }
+  #       }
+  #     }
+  #   }
 
-  # Diet composition data
-  ObsDiet <- array(0, dim=c(nspp, nspp, n_ages, n_yrs))
-  for(rsp in 1:nspp){
-    for(r_age in 1:n_ages){
-      for(y in 1:n_yrs) {
-        if(sum(diet_prop[rsp, , r_age, , y]) > 0){
-          ObsDiet[rsp, , r_age, y] = rowSums(diet_prop[rsp, , r_age, , y])
-        }
-      }
-    }
-  }
+
+  # Set up Rceattle data -------------------------------------------------------------
+  simData <- list()
+
+  # * Data controls
+  simData$nspp <- nspp
+  simData$styr <- 1
+  simData$endyr <- nyrs
+  simData$projyr <- nyrs+10
+  simData$spnames <- paste0("Species",1:nspp)
+  simData$nsex <- rep(1, nspp)
+  simData$spawn_month <- rep(0, nspp)
+  simData$nages <- rep(nages, nspp)
+  simData$minage <- rep(1, nspp)
+  simData$nlengths <- rep(nages, nspp)
+  simData$estDynamics <- rep(0, nspp)
+  simData$pop_wt_index <- 1:nspp
+  simData$ssb_wt_index <- 1:nspp
+  simData$alpha_wt_len = rep(0.0001, nspp)
+  simData$beta_wt_len = rep(3, nspp)
+  simData$pop_age_transition_index <- rep(1, nspp)
+  simData$sigma_rec_prior = rep(1, nspp)
+  simData$other_food <- rep(1e5, nspp)
+  simData$estDynamics = rep(0, nspp)
+
+  # * Fleet control
+  # - Two simple fleets (survey + fishery) for each species
+  simData$fleet_control <- data.frame(
+    Fleet_name = paste0(c("Survey", "Fishery"), rep(paste(" Species", 1:nspp), each = 2)),
+    Fleet_code = rep(1:2, nspp),
+    Fleet_type = rep(2:1, nspp),
+    Species = rep(1:nspp, each = 2),
+    Month = 0,
+    Selectivity_index = 1:(nspp * 2),
+    Selectivity = 1,
+    N_sel_bins = NA,
+    Sel_curve_pen1 = NA,
+    Sel_curve_pen2 = NA,
+    Time_varying_sel = 0,
+    Time_varying_sel_sd_prior = 1,
+    Bin_first_selected = 1,
+    Sel_norm_bin1 = NA,
+    Sel_norm_bin2 = NA,
+    Comp_loglike = 0,
+    Comp_weights = 1,
+    CAAL_loglike = 0,
+    Weight1_Numbers2 = 1,
+    Weight_index = rep(1:nspp, each = 2),
+    Age_transition_index = 1,
+    Q_index = 1:(nspp * 2),
+    Catchability = rep(c(0, NA), nspp),
+    Q_prior = rep(c(1, NA), nspp),
+    Q_sd_prior = rep(c(0.2, NA), nspp),
+    Time_varying_q = rep(c(0, NA), nspp),
+    Time_varying_q_sd_prior = rep(c(1, NA), nspp),
+    Estimate_index_sd = rep(c(0, NA), nspp),
+    Index_sd_prior = rep(c(1, NA), nspp),
+    Estimate_catch_sd = rep(c(NA, 0), nspp),
+    Catch_sd_prior = rep(c(NA, 1), nspp),
+    proj_F_prop = rep(c(NA, 1), nspp),
+    CAAL_weights = 1,
+    Est_weights_mcallister = 1
+  )
+
+  # * Index data
+  simData$index_data <- data.frame(
+    Fleet_name = rep(paste("Survey Species", 1:nspp), each = nyrs),
+    Fleet_code = rep(seq(1, nspp * 2, by = 2), each = nyrs),
+    Species = rep(1:nspp, each = nyrs),
+    Year = rep(years, nspp),
+    Month = 0,
+    Selectivity_block = 1,
+    Q_block = 1,
+    Observation = as.numeric(t(SrvIdx)),
+    Log_sd = sigma_srv
+  )
+
+  # * Catch data
+  simData$catch_data <- data.frame(
+    Fleet_name = rep(paste("Fishery Species", 1:nspp), each = nyrs),
+    Fleet_code = rep(seq(2, nspp * 2, by = 2), each = nyrs),
+    Species = rep(1:nspp, each = nyrs),
+    Year = rep(years, nspp),
+    Month = 0,
+    Selectivity_block = 1,
+    Catch = as.numeric(t(ObsCatch)),
+    Log_sd = sigma_catch
+  )
+
+
+  # * Comp data
+  # - Index
+  tmp <- do.call(rbind, lapply(seq_len(dim(ObsSrvAges)[1]), function(i) t(ObsSrvAges[i, , ])))
+  colnames(tmp) <- paste0("Comp_",ages)
+  index_comp <- cbind(
+    data.frame(
+      Fleet_name = rep(paste("Survey Species", 1:nspp), each = nyrs),
+      Fleet_code = rep(seq(1, nspp * 2, by = 2), each = nyrs),
+      Species = rep(1:nspp, each = nyrs),
+      Sex = 0,
+      Age0_Length1 = 0,
+      Year = rep(years, nspp),
+      Month = 0,
+      Sample_size = rowSums(tmp)),
+    tmp
+  )
+
+  # - Fishery
+  tmp <- do.call(rbind, lapply(seq_len(dim(ObsSrvAges)[1]), function(i) t(ObsSrvAges[i, , ])))
+  colnames(tmp) <- paste0("Comp_",ages)
+  fishery_comp <- cbind(
+    data.frame(
+      Fleet_name = rep(paste("Fishery Species", 1:nspp), each = nyrs),
+      Fleet_code = rep(seq(2, nspp * 2, by = 2), each = nyrs),
+      Species = rep(1:nspp, each = nyrs),
+      Sex = 0,
+      Age0_Length1 = 0,
+      Year = rep(years, nspp),
+      Month = 0,
+      Sample_size = rowSums(tmp)),
+    tmp
+  )
+
+  simData$comp_data <- rbind(index_comp, fishery_comp)
+
+  # Minimal CAAL
+  simData$caal_data <- data.frame(matrix(NA, nrow = 0, ncol = 7 + nages))
+  colnames(simData$caal_data ) = c("Fleet_name", "Fleet_code", "Species", "Sex", "Year", "Length", "Sample_size", paste("CAAL_", 1:nages))
+
+  #  Empirical selectivity
+  simData$emp_sel <- data.frame(matrix(NA, nrow = 0, ncol = 5 + nages))
+  colnames(simData$emp_sel ) = c("Fleet_name", "Fleet_code", "Species", "Sex", "Year", paste("Comp_", 1:nages))
+
+  # Input N-at-age
+  simData$NByageFixed <- data.frame(matrix(NA, nrow = 0, ncol = 4 + nages))
+  colnames(simData$NByageFixed ) = c("Species_name ", "Species", "Sex", "Year", paste("Age", 1:nages))
+
+
+  # * Age transition matrix
+  age_trans_list <- lapply(1:nspp, function(sp) {
+    tmp <- as.data.frame(diag(nages))
+    colnames(tmp) <- paste0("Length_",1:nages)
+    cbind(
+      data.frame(Age_transition_name = paste("Species", sp),
+                 Age_transition_index = sp,
+                 Species = sp,
+                 Sex = 0,
+                 Age = 1:nages),
+      tmp
+    )
+  })
+  simData$age_trans_matrix <- do.call(rbind, age_trans_list)
+
+
+  # * Age error
+  age_error_list <- lapply(1:nspp, function(sp) {
+    tmp <- as.data.frame(diag(1,nages))
+    colnames(tmp) <- paste0("Obs_age",1:nages)
+    cbind(data.frame(Species = sp,
+                     True_age = 1:nages),
+          tmp
+    )
+  })
+  simData$age_error <- do.call(rbind, age_error_list)
+
+
+  # * Weight-at-age
+  weight_list <- lapply(1:nspp, function(sp) {
+    weight_tmp <- as.data.frame(matrix(WAA[sp,], ncol = nages))
+    colnames(weight_tmp) <- paste0("Age",1:nages)
+    cbind(data.frame(Wt_name = paste("Species", sp),
+                     Wt_index = sp,
+                     Species = sp,
+                     Sex = 0,
+                     Year = 0),
+          weight_tmp
+    )
+  })
+  simData$weight <- do.call(rbind, weight_list)
+
+
+  # * Maturity
+  maturity_list <- lapply(1:nspp, function(sp) {
+    mat_tmp <- as.data.frame(matrix(MatAA[sp,], ncol = nages))
+    colnames(mat_tmp) <- paste0("Age",1:nages)
+    cbind(data.frame(Species = sp),
+          mat_tmp
+    )
+  })
+  simData$maturity <- do.call(rbind, maturity_list)
+
+
+  # * Sex ratio
+  sexratio <- as.data.frame(matrix(0.5, nrow = nspp, ncol = nages))
+  colnames(sexratio) <- paste0("Age",1:nages)
+  simData$sex_ratio <- cbind(data.frame(Species = 1:nspp),
+                             sexratio
+  )
+
+  # * Mortality
+  mort_list <- lapply(1:nspp, function(sp) {
+    mort_tmp <- as.data.frame(matrix(M[sp], nrow = 1, ncol = nages))
+    colnames(mort_tmp) <- paste0("Age",1:nages)
+    cbind(data.frame(Species = sp,
+                     Sex = 0),
+          mort_tmp
+    )
+  })
+  simData$M1_base <- do.call(rbind, mort_list)
+
+
+  # * Environmental data ----
+  simData$env_data <- data.frame(Year = 1:nyrs,
+                                 EnvData = 1)
+
+
+  # * Ration ----
+  ration_list <- lapply(1:nspp, function(sp) {
+    ration_tmp <- as.data.frame(matrix(WAA[sp,] * 50, ncol = nages))
+    colnames(ration_tmp) <- paste0("Age",1:nages)
+    cbind(data.frame(
+      Species = sp,
+      Sex = 0,
+      Year = 0),
+      ration_tmp
+    )
+  })
+  simData$ration_data <- do.call(rbind, ration_list)
+
+  # * Bioenergetics
+  simData$Ceq <- rep(4,nspp)
+  simData$Cindex <- rep(1, nspp)
+  simData$Pvalue <- rep(1, nspp)
+  simData$fday <- rep(1, nspp)
+  simData$CA <- rep(1, nspp)
+  simData$CB <- rep(-1, nspp)
+  simData$Qc <- rep(1,nspp)
+  simData$Tco <- rep(1, nspp)
+  simData$Tcm <- rep(1, nspp)
+  simData$Tcl <- rep(1, nspp)
+  simData$CK1 <- rep(1, nspp)
+  simData$CK4 <- rep(1, nspp)
+  simData$Diet_comp_weights <- rep(1,nspp)
+
+  # * Diet proportion ----
+  # Get all combinations of indices
+  idx <- which(!is.na(diet_prop), arr.ind = TRUE)  # or diet_prop != 0 for nonzero only
+
+  # Build the data frame directly
+  simData$diet_data <- data.frame(
+    Year = idx[, 5],
+    Pred = idx[, 1],
+    Prey = idx[, 2],
+    Pred_sex = 0,
+    Prey_sex = 0,
+    Pred_age = idx[, 3],
+    Prey_age = idx[, 4],
+    Sample_size = 1000,
+    Stomach_proportion_by_weight = diet_prop[idx]
+  )
+  simData$diet_data <- simData$diet_data |>
+    dplyr::filter(!is.na(Pred))
 
   # Return list of true and observed values ----
   return(list(
-    NAA = NAA,
-    CAA = CAA,
-    FAA = FAA,
-    MAA = MAA,
-    SSB = SSB,
-    Total_Biom = Total_Biom,
-    B_eaten_as_prey = B_eaten_as_prey,
-    Catch = Catch,
-    ObsCatch = ObsCatch,
-    SrvIdx = SrvIdx,
-    ObsFishAges = ObsFishAges,
-    ObsSrvAges = ObsSrvAges,
-    fish_sel = fish_sel,
-    srv_sel = srv_sel,
-    WAA = WAA,
-    MatAA = MatAA,
-    M = M,
-    srv_q = srv_q,
-    rec_devs = rec_devs,
-    init_devs = init_devs,
-    ObsDiet = ObsDiet,
-    M2_at_age = M2_at_age,
-    vulnerability = vulnerability,
-    suitability = suitability,
-    diet_prop = diet_prop
+    model_quantities = list(
+      NAA = NAA,
+      avgNAA = avgNAA,
+      CAA = CAA,
+      FAA = FAA,
+      MAA = MAA,
+      SSB = SSB,
+      Total_Biom = Total_Biom,
+      B_eaten_as_prey = B_eaten_as_prey,
+      Catch = Catch,
+      ObsCatch = ObsCatch,
+      SrvIdx = SrvIdx,
+      ObsFishAges = ObsFishAges,
+      ObsSrvAges = ObsSrvAges,
+      fish_sel = fish_sel,
+      srv_sel = srv_sel,
+      WAA = WAA,
+      MatAA = MatAA,
+      M = M,
+      srv_q = srv_q,
+      rec_devs = rec_devs,
+      init_devs = init_devs,
+      M2_at_age = M2_at_age,
+      vulnerability = vulnerability,
+      suitability = suitability,
+      suit_other = suit_other,
+      avail_food = avail_food,
+      diet_prop = diet_prop,
+      ration = ration
+    ),
+    data_list = simData
   ))
 }
 
