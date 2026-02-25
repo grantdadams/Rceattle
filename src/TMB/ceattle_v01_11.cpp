@@ -2983,160 +2983,134 @@ Type objective_function<Type>::operator() () {
       k_age = diet_ctl(stom_ind, 5) - minage(ksp); // Index of prey age
       flt_yr = diet_ctl(stom_ind, 6);              // Index of year
 
-      // 1 sex model
-      r_sexes(stom_ind, 0) = 0; r_sexes(stom_ind, 1) = 0;
-      k_sexes(stom_ind, 0) = 0; k_sexes(stom_ind, 1) = 0;
+      // Determine the number of sexes to loop over based on model configuration
+      int n_r = 1; // Predator sex loop limit
+      int n_k = 1; // Prey sex loop limit
+      r_sexes(stom_ind, 0) = 0;
+      k_sexes(stom_ind, 0) = 0;
 
-      // 2 sex model
-      // This is to account for situations where nsex = 2, but r_sex or k_sex = 0
-      // FIXME: should use weighted average over divide by 4?
+      // 2 sex model - Predator
       if(nsex(rsp) == 2){
-        // But k_sex = 0 (indicating diet data is for both sexes)
-        r_sexes(stom_ind, 0) = 0; r_sexes(stom_ind, 1) = 1;
-
-        if(r_sex > 0){
-          r_sexes(stom_ind, 0) = r_sex - 1;  r_sexes(stom_ind, 1) = r_sex - 1;
+        if(r_sex == 0){ // Combined sexes
+          r_sexes(stom_ind, 0) = 0; r_sexes(stom_ind, 1) = 1;
+          n_r = 2;
+        } else { // Specific sex
+          r_sexes(stom_ind, 0) = r_sex - 1;
         }
       }
 
+      // 2 sex model - Prey
       if(nsex(ksp) == 2){
-        // But k_sex = 0 (indicating diet data is for both sexes)
-        k_sexes(stom_ind, 0) = 0; k_sexes(stom_ind, 1) = 1;
-
-        // Sex-specific diet data
-        if(k_sex > 0){
-          k_sexes(stom_ind, 0) = k_sex - 1;  k_sexes(stom_ind, 1) = k_sex - 1;
+        if(k_sex == 0){ // Combined sexes
+          k_sexes(stom_ind, 0) = 0; k_sexes(stom_ind, 1) = 1;
+          n_k = 2;
+        } else { // Specific sex
+          k_sexes(stom_ind, 0) = k_sex - 1;
         }
       }
 
-      // Initialize
-      diet_hat(stom_ind, 1) = 0;
+      // Determine year boundaries to avoid repeating the age loops
+      int yr_start = 0;
+      int yr_end = 0;
+      if(flt_yr > 0) { // Specific year
+        yr_start = flt_yr - styr;
+        yr_end = flt_yr - styr;
+      } else if (flt_yr == 0) { // Average across suitability years
+        yr_start = suit_styr;
+        yr_end = suit_endyr;
+      } else { // flt_yr < 0 (Predict but do not include in likelihood)
+        yr_start = -flt_yr - styr;
+        yr_end = -flt_yr - styr;
+      }
 
-      for(int j = 0; j < 2; j ++){
-        for(int k = 0; k < 2; k ++){
 
-          if((flt_yr > 0) | (flt_yr < 0)){
+      // Only evaluate if the years fall within the modeled hindcast
+      if(yr_start < nyrs_hind && yr_end < nyrs_hind){
 
-            if(flt_yr > 0){ // Predict and include in likelihood
-              yr = flt_yr - styr;
-            }
-            if(flt_yr < 0){ // Predict but do not include in likelihood
-              yr = -flt_yr - styr;
-            }
+        Type yr_accum = 0;
+        int n_yrs_evaluated = yr_end - yr_start + 1;
 
-            // Annual data
-            if(yr < nyrs_hind){
+        for(yr = yr_start; yr <= yr_end; yr++) {
+          Type type_accum = 0;
 
-              // Diet proportion of prey-at-age in predator-at-age
-              if((k_age >= 0) & (r_age >= 0)){
-                diet_hat(stom_ind, 1) += diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr)/4; //FIXME: take weighted average for two-sex models?
+          // TYPE 1: Specific pred age, specific prey age (Weight by predator sex abundance)
+          if((k_age >= 0) & (r_age >= 0)){
+            Type weighted_sum = 0;
+            Type total_numbers = 0;
+            for(int j = 0; j < n_r; j++){
+              Type pred_numbers = avgN_at_age(rsp, r_sexes(stom_ind, j), r_age, yr);
+              total_numbers += pred_numbers;
+              for(int k = 0; k < n_k; k++){
+                weighted_sum += diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)),
+                                              ksp + (nspp * k_sexes(stom_ind, k)),
+                                              r_age, k_age, yr) * pred_numbers;
               }
+            }
+            if(total_numbers > 0) type_accum += weighted_sum / total_numbers; // FIXME: divide by 0
+          }
 
-
-              // Diet proportion of prey-spp in predator-at-age (sum across prey ages)
-              if((k_age < 0) & (r_age >= 0)){
+          // TYPE 2: Specific pred age, sum across prey ages
+          if((k_age < 0) & (r_age >= 0)){
+            Type weighted_sum = 0;
+            Type total_numbers = 0;
+            for(int j = 0; j < n_r; j++){
+              Type pred_numbers = avgN_at_age(rsp, r_sexes(stom_ind, j), r_age, yr);
+              total_numbers += pred_numbers;
+              for(int k = 0; k < n_k; k++){
                 for(int k_age_tmp = 0; k_age_tmp < nages(ksp); k_age_tmp++){
-                  diet_hat(stom_ind, 1) += diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age_tmp, yr)/4; //FIXME: take weighted average for two-sex models?
+                  weighted_sum += diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)),
+                                                ksp + (nspp * k_sexes(stom_ind, k)),
+                                                r_age, k_age_tmp, yr) * pred_numbers;
                 }
               }
+            }
+            if(total_numbers > 0) type_accum += weighted_sum / total_numbers;
+          }
 
-              // Mean diet proportion of prey-spp in predator-spp (sum across prey ages and take mean across predator ages)
-              if((k_age < 0) & (r_age < 0) & (r_age > -500)){
-                for(int r_age_tmp = 0; r_age_tmp < nages(rsp); r_age_tmp++){
+          // TYPE 3: Mean across pred ages, sum across prey ages (Unweighted)
+          if((k_age < 0) & (r_age < 0) & (r_age > -500)){
+            Type unweighted_sum = 0;
+            for(int j = 0; j < n_r; j++){
+              for(int r_age_tmp = 0; r_age_tmp < nages(rsp); r_age_tmp++){
+                for(int k = 0; k < n_k; k++){
                   for(int k_age_tmp = 0; k_age_tmp < nages(ksp); k_age_tmp++){
-                    diet_hat(stom_ind, 1) += diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age_tmp, k_age_tmp, yr)/4/nages(rsp); //FIXME: take weighted average for two-sex models?
+                    unweighted_sum += diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)),
+                                                    ksp + (nspp * k_sexes(stom_ind, k)),
+                                                    r_age_tmp, k_age_tmp, yr);
                   }
                 }
-              }
-
-              // Weighted mean diet proportion of prey-spp in predator-spp (sum across prey ages and take weighted mean across predator ages)
-              if((k_age < 0) & (r_age < -500)){
-
-                Type weighted_sum = 0;
-                Type total_numbers = 0;
-
-                // Take weighted mean diet proportion across predator-ages
-                for(int r_age_temp = 0; r_age_temp < nages(rsp); r_age_temp++){
-                  // Get predator numbers at this age, sex, and year for weighting
-                  Type pred_numbers = N_at_age(rsp, r_sexes(stom_ind, j), r_age_temp, yr);
-                  total_numbers += pred_numbers;
-
-                  // Sum diet-proportion across prey-ages
-                  for(int k_age_temp = 0; k_age_temp < nages(ksp); k_age_temp++){
-                    Type pred_age_diet = diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)),
-                                                       ksp + (nspp * k_sexes(stom_ind, k)),
-                                                       r_age_temp, k_age_temp, yr);
-
-
-
-                    // Add to weighted sum
-                    weighted_sum += pred_age_diet * pred_numbers;
-                  }
-                }
-
-                // Calculate weighted average if there are any predators
-                diet_hat(stom_ind, 1) += weighted_sum / (4.0 * total_numbers);
               }
             }
+            // Divides by n_r (number of pred sexes) to get the arithmetic mean
+            type_accum += unweighted_sum / (n_r * nages(rsp));
           }
 
-          // Average of years
-          if(flt_yr == 0){
-            for(yr = suit_styr; yr <= suit_endyr; yr++) {  // Suit year loop (over specific years)
+          // TYPE 4: Weighted mean across pred ages, sum across prey ages
+          if((k_age < 0) & (r_age < -500)){
+            Type weighted_sum = 0;
+            Type total_numbers = 0;
 
-              // Diet proportion of prey-at-age in predator-at-age
-              if(k_age >= 0){
-                diet_hat(stom_ind, 1) += diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age, yr)/4/nyrs_suit; //FIXME: take weighted average for two-sex models?
-              }
+            for(int j = 0; j < n_r; j++){
+              for(int r_age_tmp = 0; r_age_tmp < nages(rsp); r_age_tmp++){
+                Type pred_numbers = avgN_at_age(rsp, r_sexes(stom_ind, j), r_age_tmp, yr);
+                total_numbers += pred_numbers; // total_numbers accumulates accurately across sexes and ages
 
-
-              // Diet proportion of prey-spp in predator-at-age (sum across prey ages)
-              if((k_age < 0) & (r_age >= 0)){
-                for(int k_age_temp = 0; k_age_temp < nages(ksp); k_age_temp++){
-                  diet_hat(stom_ind, 1) += diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age, k_age_temp, yr)/4/nyrs_suit; //FIXME: take weighted average for two-sex models?
-                }
-              }
-
-              // Mean diet proportion of prey-spp in predator-spp (sum across prey ages and take mean across predator ages)
-              if((k_age < 0) & (r_age < 0) & (r_age > -500)){
-                for(int r_age_temp = 0; r_age_temp < nages(rsp); r_age_temp++){
-                  for(int k_age_temp = 0; k_age_temp < nages(ksp); k_age_temp++){
-                    diet_hat(stom_ind, 1) += diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)), ksp + (nspp * k_sexes(stom_ind, k)), r_age_temp, k_age_temp, yr)/4/nages(rsp)/nyrs_suit; //FIXME: take weighted average for two-sex models?
+                for(int k = 0; k < n_k; k++){
+                  for(int k_age_tmp = 0; k_age_tmp < nages(ksp); k_age_tmp++){
+                    weighted_sum += diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)),
+                                                  ksp + (nspp * k_sexes(stom_ind, k)),
+                                                  r_age_tmp, k_age_tmp, yr) * pred_numbers;
                   }
                 }
-              }
-
-              // Weighted mean diet proportion of prey-spp in predator-spp (sum across prey ages and take weighted mean across predator ages)
-              if((k_age < 0) & (r_age < -500)){
-
-                Type weighted_sum = 0;
-                Type total_numbers = 0;
-
-                // Take weighted mean across predator-ages
-                for(int r_age_temp = 0; r_age_temp < nages(rsp); r_age_temp++){
-                  // Get predator numbers at this age, sex, and year for weighting
-                  Type pred_numbers = N_at_age(rsp, r_sexes(stom_ind, j), r_age_temp, yr);
-                  total_numbers += pred_numbers;
-
-                  // Sum diet-proportion across prey-ages
-                  for(int k_age_temp = 0; k_age_temp < nages(ksp); k_age_temp++){
-                    Type pred_age_diet = diet_prop_hat(rsp + (nspp * r_sexes(stom_ind, j)),
-                                                       ksp + (nspp * k_sexes(stom_ind, k)),
-                                                       r_age_temp, k_age_temp, yr);
-
-
-
-                    // Add to weighted sum
-                    weighted_sum += pred_age_diet * pred_numbers;
-                  }
-                }
-
-                // Calculate weighted average if there are any predators
-                diet_hat(stom_ind, 1) += weighted_sum / (4.0 * total_numbers * nyrs_suit);
               }
             }
+            if(total_numbers > 0) type_accum += weighted_sum / total_numbers;
           }
-        }
+
+          yr_accum += type_accum;
+        } // End year loop
+
+        diet_hat(stom_ind, 1) = yr_accum / n_yrs_evaluated;
       }
     }
   }
