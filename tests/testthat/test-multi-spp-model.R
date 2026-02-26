@@ -1,4 +1,4 @@
-test_that("Rceattle and multi-species model dynamics match", {
+testthat::test_that("Rceattle and multi-species model dynamics match", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -101,7 +101,7 @@ test_that("Rceattle and multi-species model dynamics match", {
 })
 
 
-test_that("Test proportion of prey-at-age in predator-at-age averaged across years", {
+testthat::test_that("Test proportion of prey-at-age in predator-at-age averaged across years", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -206,7 +206,7 @@ test_that("Test proportion of prey-at-age in predator-at-age averaged across yea
 )
 
 
-test_that("Test annual proportion of prey (all ages) in predator-at-age", {
+testthat::test_that("Test annual proportion of prey (all ages) in predator-at-age", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -311,7 +311,7 @@ test_that("Test annual proportion of prey (all ages) in predator-at-age", {
 )
 
 
-test_that("Test proportion of prey (all ages) in predator-at-age averaged across years", {
+testthat::test_that("Test proportion of prey (all ages) in predator-at-age averaged across years", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -416,7 +416,7 @@ test_that("Test proportion of prey (all ages) in predator-at-age averaged across
 }
 )
 
-test_that("Test annual proportion of prey (all ages) in predator (mean across all ages)", {
+testthat::test_that("Test annual proportion of prey (all ages) in predator (mean across all ages)", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -522,7 +522,7 @@ test_that("Test annual proportion of prey (all ages) in predator (mean across al
 )
 
 
-test_that("Test annual proportion of prey (all ages) in predator (weighted mean across all ages)", {
+testthat::test_that("Test annual proportion of prey (all ages) in predator (weighted mean across all ages)", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -643,7 +643,7 @@ test_that("Test annual proportion of prey (all ages) in predator (weighted mean 
 
 
 
-test_that("Test average (across years) proportion of prey (all ages) in predator (mean across all ages)", {
+testthat::test_that("Test average (across years) proportion of prey (all ages) in predator (mean across all ages)", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -750,7 +750,7 @@ test_that("Test average (across years) proportion of prey (all ages) in predator
 )
 
 
-test_that("Test average (across years) proportion of prey (all ages) in predator (weighted mean across all ages)", {
+testthat::test_that("Test average (across years) proportion of prey (all ages) in predator (weighted mean across all ages)", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -873,7 +873,7 @@ test_that("Test average (across years) proportion of prey (all ages) in predator
 )
 
 
-test_that("Test joint single-species models", {
+testthat::test_that("Test joint single-species models", {
 
 
 })
