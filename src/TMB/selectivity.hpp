@@ -1,3 +1,5 @@
+#ifndef SELECTIVITY_HPP
+#define SELECTIVITY_HPP
 
 /**
  * @brief Performs final normalization and projection of fishery selectivity (age/length) across all fleets.
@@ -590,3 +592,5 @@ void calculate_length_selectivity(
     } // End yr
   } // End flt
 }
+
+#endif

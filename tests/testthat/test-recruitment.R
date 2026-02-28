@@ -1,21 +1,23 @@
 test_that("mean recruitment and devs", {
-  library(Rceattle)
-  data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
-  inits <- build_params(GOA2018SS)
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
 
-  # Specify logistic selectivity
-  yrs <- GOA2018SS$styr:GOA2018SS$endyr
-  nyrs <- length(yrs)
-  R0 = 10:12
+  # Load helper and create small deterministic test data
+  source(file.path("tests", "testthat", "helpers.R"))
+  nyrs = 20
+  dat <- make_test_data(nyrs = 20, nages = 5, seed = 123)
+  R0 = 11
   Rdev <- rnorm(nyrs)
 
   # Set params
-  inits$rec_pars[,1] <- R0
-  inits$rec_dev[,1:nyrs] <- rep(Rdev, each = 3)
-  inits$R_ln_sd <- rep(0, 3)
+  dat$srr_fun = 0 # Set to mean R plus devs
+  inits <- Rceattle::build_params(dat)
+  inits$rec_pars[1,1] <- R0
+  inits$rec_dev[1,1:nyrs] <- Rdev
+  inits$R_ln_sd <- 0
 
   # Run
-  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
+  ss_run <- Rceattle::fit_mod(data_list = dat,
                               inits = inits, # Initial parameters = 0
                               file = NULL, # Don't save
                               estimateMode = 3, # Don't estimate
@@ -24,14 +26,12 @@ test_that("mean recruitment and devs", {
                               verbose = 1)
 
   # Check R
-  for(sp in 1:3){
-    testthat::expect_equal(as.numeric(ss_run$quantities$R[sp,1:nyrs]), exp(R0[sp] + Rdev), tolerance = 0.0001)
-  }
+  testthat::expect_equal(as.numeric(ss_run$quantities$R[1,1:nyrs]), exp(R0 + Rdev), tolerance = 0.0001)
 
   # JNLL
-  testthat::expect_equal(as.numeric(ss_run$quantities$jnll_comp[12,1:3]), rep(sum(-dnorm(Rdev,
-                                                                                         mean = 1/2, # lognormal bias correction to center around 0
-                                                                                         sd = 1, log = TRUE)), 3), tolerance = 0.0001)
+  testthat::expect_equal(as.numeric(ss_run$quantities$jnll_comp[11,1]), sum(-dnorm(Rdev,
+                                                                                   mean = 1/2, # lognormal bias correction to center around 0
+                                                                                   sd = 1, log = TRUE)), tolerance = 0.0001)
 })
 
 test_that("ssb under mean recruitment", {

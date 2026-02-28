@@ -75,7 +75,7 @@ testthat::test_that("Rceattle and multi-species model dynamics match", {
   testthat::expect_equal(as.numeric(sim$model_quantities$M2_at_age), as.numeric(ms_run1$quantities$M2_at_age[,1,,1:nyrs]), tolerance = 1e-6)
 
   # Ration
-  testthat::expect_equal(as.numeric(sim$model_quantities$ration), as.numeric(ms_run1$quantities$ration[,1,,1]))
+  testthat::expect_equal(as.numeric(sim$model_quantities$ration), as.numeric(ms_run1$quantities$consumption_at_age[,1,,1]))
 
   # N
   testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,,]), as.numeric(ms_run1$quantities$N_at_age[,1,,1:nyrs]))

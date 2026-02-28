@@ -1,3 +1,6 @@
+#ifndef GROWTH_HPP
+#define GROWTH_HPP
+
 /**
  * @brief Integrated Predator Growth, Size-Transition, and Weight-at-Age Module for Month = 0.
  * * This function handles the core biological calculations for a single species,
@@ -569,4 +572,5 @@ void calculate_weight(
 // define age_L1 and age_L1 ceiling
 // CAAL simulate
 
+#endif
 
