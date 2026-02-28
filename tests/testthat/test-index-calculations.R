@@ -1,4 +1,4 @@
-test_that("Basic index and index likelihood", {
+testthat::test_that("Basic index and index likelihood", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 

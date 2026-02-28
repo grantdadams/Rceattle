@@ -602,62 +602,35 @@ Type objective_function<Type>::operator() () {
   // 5.6. SELECTIVITY
   // "sel_at_age" and "sel_at_length" modified via pass-by-reference
   // when "sel_at_length" is used, it is converted to "sel_at_age" using the growth matrix
-  // 1) Age based selectivity
-  // - code in "selectivity.hpp"
-  calculate_age_selectivity(
-    nspp, n_flt,
-    nyrs, nyrs_hind, styr,
-    nsex,
-    nages,
-    nlengths,
-    flt_spp,
-    flt_sel_type,
-    bin_first_selected,
-    flt_n_sel_bins,
-    sel_norm_bin1,
-    sel_norm_bin2,
-    emp_sel_obs,
-    emp_sel_ctl,
-    ln_sel_slp,
-    ln_sel_slp_dev,
-    sel_inf,
-    sel_inf_dev,
-    sel_coff,
-    sel_coff_dev,
-    avg_sel,            // Modified
-    non_par_sel,        // Modified
-    sel_at_age          // Modified
-  );
-
-  // 2) Length based selectivity (converted to age via growth matrix)
-  // - code in "selectivity.hpp"
-  calculate_length_selectivity(
-    nspp,
-    n_flt,
-    nyrs,
-    nyrs_hind,
-    styr,
-    nsex,
-    nages,
-    nlengths,
-    lengths,
-    flt_spp,
-    flt_sel_type,
-    bin_first_selected,
-    flt_n_sel_bins,
-    sel_norm_bin1,
-    sel_norm_bin2,
-    ln_sel_slp,
-    ln_sel_slp_dev,
-    sel_inf,
-    sel_inf_dev,
-    sel_coff,
-    sel_coff_dev,
-    avg_sel,            // Modified
-    non_par_sel,        // Modified
-    sel_at_length,      // Modified
-    sel_at_age,         // Modified
-    growth_matrix
+  calculate_selectivity(
+    nspp,                 // Number of species
+    n_flt,                // Number of fleets
+    nyrs,                 // Total years
+    nyrs_hind,            // Hindcast years
+    styr,                 // Start year
+    nsex,                 // Vector of sexes per species
+    nages,                // Vector of max ages per species
+    nlengths,             // Vector of max lengths per species
+    lengths,              // Length bin boundaries matrix
+    flt_spp,              // Fleet to species mapping
+    flt_sel_type,         // Selectivity model type per fleet
+    bin_first_selected,   // Min bin selected per fleet
+    flt_n_sel_bins,       // Max estimated bins per fleet
+    sel_norm_bin1,        // Normalization control/bin 1
+    sel_norm_bin2,        // Normalization control/bin 2
+    emp_sel_obs,          // Empirical observations matrix
+    emp_sel_ctl,          // Empirical control matrix
+    ln_sel_slp,           // Logistic slope parameters
+    ln_sel_slp_dev,       // Slope deviations
+    sel_inf,              // Inflection parameters
+    sel_inf_dev,          // Inflection deviations
+    sel_coff,             // Non-parametric coefficients
+    sel_coff_dev,         // Coefficient deviations
+    avg_sel,              // [Modified] Average selectivity
+    non_par_sel,          // [Modified] Unnormalized non-parametric selectivity
+    sel_at_length,        // [Modified] Final length-based selectivity
+    sel_at_age,           // [Modified] Final age-based selectivity
+    growth_matrix         // Length to age transition matrix
   );
 
 
@@ -2969,13 +2942,13 @@ Type objective_function<Type>::operator() () {
     // PRIORS
     // Prior on M1_at_age only and using species specific M1_at_age
     if( (M1_model(sp) == 1) && (M1_use_prior(sp) == 1) && (M2_use_prior(sp) == 0)){
-      jnll_comp(15, sp) -= dnorm(ln_M1(sp, 0, 0), log(M_prior(sp)) + square(M_prior_sd(sp))/2, M_prior_sd(sp), true);
+      jnll_comp(14, sp) -= dnorm(ln_M1(sp, 0, 0), log(M_prior(sp)) + square(M_prior_sd(sp))/2, M_prior_sd(sp), true);
     }
 
     // Prior on M1_at_age only and using species and sex specific M1_at_age
     if( (M1_model(sp) == 2) && (M1_use_prior(sp) == 1) && (M2_use_prior(sp) == 0)){
       for(sex = 0; sex < nsex(sp); sex ++){
-        jnll_comp(15, sp) -= dnorm(ln_M1(sp, sex, 0), log(M_prior(sp)) + square(M_prior_sd(sp))/2, M_prior_sd(sp), true);
+        jnll_comp(14, sp) -= dnorm(ln_M1(sp, sex, 0), log(M_prior(sp)) + square(M_prior_sd(sp))/2, M_prior_sd(sp), true);
       }
     }
 
@@ -2983,7 +2956,7 @@ Type objective_function<Type>::operator() () {
     if( (M1_model(sp) == 3) && (M1_use_prior(sp) == 1) && (M2_use_prior(sp) == 0)){
       for(sex = 0; sex < nsex(sp); sex ++){
         for(age = 0; age < nages(sp); age++) {
-          jnll_comp(15, sp) -= dnorm(ln_M1(sp, sex, age), log(M_prior(sp)) + square(M_prior_sd(sp))/2, M_prior_sd(sp), true);
+          jnll_comp(14, sp) -= dnorm(ln_M1(sp, sex, age), log(M_prior(sp)) + square(M_prior_sd(sp))/2, M_prior_sd(sp), true);
         }
       }
     }
@@ -2993,7 +2966,7 @@ Type objective_function<Type>::operator() () {
       for(sex = 0; sex < nsex(sp); sex ++){
         for(age = 0; age < nages(sp); age++) {
           for(yr = 0; yr < nyrs_hind; yr++) {
-            jnll_comp(15, sp) -= dnorm(log(M_at_age(sp, sex, age, yr)), log(M_prior(sp)) + square(M_prior_sd(sp))/2, M_prior_sd(sp), true);
+            jnll_comp(14, sp) -= dnorm(log(M_at_age(sp, sex, age, yr)), log(M_prior(sp)) + square(M_prior_sd(sp))/2, M_prior_sd(sp), true);
           }
         }
       }
@@ -3023,14 +2996,14 @@ Type objective_function<Type>::operator() () {
       for(age = 0; age < nages(sp); age++) {
         M_re_age(age) = ln_M1_dev(sp, 0, age, 0);
       }
-      jnll_comp(16, sp) += SCALE(AR1(rho_M_a), Sigma_M)(M_re_age);
+      jnll_comp(15, sp) += SCALE(AR1(rho_M_a), Sigma_M)(M_re_age);
 
       // Add males for 2-sex M1
       if(M1_model(sp) == 2){
         for(age = 0; age < nages(sp); age++) {
           M_re_age(age) = ln_M1_dev(sp, 1, age, 0);
         }
-        jnll_comp(16, sp) += SCALE(AR1(rho_M_a), Sigma_M)(M_re_age);
+        jnll_comp(15, sp) += SCALE(AR1(rho_M_a), Sigma_M)(M_re_age);
       }
     }
 
@@ -3047,14 +3020,14 @@ Type objective_function<Type>::operator() () {
       for(yr = 0; yr < nyrs_hind; yr++) {
         M_re_yr(yr) = ln_M1_dev(sp, 0, 0, yr);
       }
-      jnll_comp(16, sp) += SCALE(AR1(rho_M_y), Sigma_M)(M_re_yr);
+      jnll_comp(15, sp) += SCALE(AR1(rho_M_y), Sigma_M)(M_re_yr);
 
       // Add males for 2-sex M1
       if(M1_model(sp) == 2){
         for(yr = 0; yr < nyrs_hind; yr++) {
           M_re_yr(yr) = ln_M1_dev(sp, 1, 0, yr);
         }
-        jnll_comp(16, sp) += SCALE(AR1(rho_M_y), Sigma_M)(M_re_yr);
+        jnll_comp(15, sp) += SCALE(AR1(rho_M_y), Sigma_M)(M_re_yr);
       }
     }
 
@@ -3075,7 +3048,7 @@ Type objective_function<Type>::operator() () {
         }
       }
 
-      jnll_comp(16, sp) += SCALE(SEPARABLE(AR1(rho_M_a),AR1(rho_M_y)), Sigma_M)(M_re_a_yr); // must be array, not matrix!
+      jnll_comp(15, sp) += SCALE(SEPARABLE(AR1(rho_M_a),AR1(rho_M_y)), Sigma_M)(M_re_a_yr); // must be array, not matrix!
 
       // Add males for 2-sex M1
       if(M1_model(sp) == 2){
@@ -3085,7 +3058,7 @@ Type objective_function<Type>::operator() () {
           }
         }
 
-        jnll_comp(16, sp) += SCALE(SEPARABLE(AR1(rho_M_a),AR1(rho_M_y)), Sigma_M)(M_re_a_yr); // must be array, not matrix!
+        jnll_comp(15, sp) += SCALE(SEPARABLE(AR1(rho_M_a),AR1(rho_M_y)), Sigma_M)(M_re_a_yr); // must be array, not matrix!
       }
     }
   }

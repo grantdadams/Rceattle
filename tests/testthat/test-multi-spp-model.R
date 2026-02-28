@@ -874,8 +874,91 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
 
 
 testthat::test_that("Test joint single-species models", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  # Prepare small deterministic dataset using helper
+  source(file.path("tests", "testthat", "helpers.R"))
+
+  # 1) Set up simulation
+  nyrs = 30
+  nspp = 2
+  Fmort <- c(seq(0.02, 0.3, length.out = nyrs/2), seq(0.3, 0.05, length.out = nyrs/2))
+  Fmort2 <- seq(0.02, 0.3, length.out = nyrs)
+  log_phi = matrix(-Inf, nspp, nspp, byrow = TRUE)
+
+  # First, simulate some data for the model
+  set.seed(123)
+  sim <- make_msm_test_data(
+    years = 1:nyrs,
+    Fmort = matrix(c(Fmort, Fmort2), nspp, nyrs, byrow = TRUE),
+
+    # Multispecies bits
+    log_phi = log_phi # set to -Inf so no predation
+  )
+
+  # sum(sim$model_quantities$B_eaten_as_prey)
+
+  # Set up Rceattle data
+  simData <- sim$data_list
 
 
+  # Fit multi-species
+  # * Fix parameters -----
+  inits <- build_params(simData)
+  inits$sel_inf[1,,1] <- c(3,6,2.5,4)
+  inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
+  inits$ln_F[2,] <- log(Fmort)
+  inits$ln_F[4,] <- log(Fmort2)
+  inits$rec_pars[,1] <- log(c(1e2, 1e3))
+  inits$index_ln_q[] <- log(1)
+  inits$R_ln_sd[] <- log(1)
+  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
+  inits$init_dev[,1:14] <- sim$model_quantities$init_devs
+
+  ss_run <- Rceattle::fit_mod(data_list = simData,
+                              inits = inits, # Initial parameters = 0
+                              file = NULL, # Don't save
+                              estimateMode = 3, # Estimate
+                              random_rec = FALSE, # No random recruitment
+                              phase = FALSE,
+                              msmMode = 0,
+                              suitMode = 0,
+                              niter = 5,
+                              initMode = 2,
+                              verbose = 1)
+
+  # Recruitment
+  testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,1,]), as.numeric(ss_run$quantities$R[,1:nyrs]))
+  testthat::expect_equal(as.numeric(sim$model_quantities$Total_Biom), as.numeric(ss_run$quantities$biomass[,1:nyrs]), tolerance = 1e-6)
+
+
+  # Suitability
+  testthat::expect_equal(as.numeric(ss_run$quantities$suitability[,,,,1]), as.numeric(sim$model_quantities$suitability))
+
+  # M2
+  testthat::expect_equal(as.numeric(sim$model_quantities$M2_at_age), as.numeric(ss_run$quantities$M2_at_age[,1,,1:nyrs]), tolerance = 1e-6)
+
+  # Ration
+  testthat::expect_equal(as.numeric(sim$model_quantities$ration), as.numeric(ss_run$quantities$consumption_at_age[,1,,1]))
+
+  # N
+  testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,,]), as.numeric(ss_run$quantities$N_at_age[,1,,1:nyrs]))
+
+  # AvgN
+  testthat::expect_equal(as.numeric(sim$model_quantities$avgNAA[,,]), as.numeric(ss_run$quantities$avgN_at_age[,1,,1:nyrs]))
+
+  # Selectivity
+  testthat::expect_equal(as.numeric(sim$model_quantities$srv_sel[,]), as.numeric(ss_run$quantities$sel_at_age[c(1,3),,,1]))
+  testthat::expect_equal(as.numeric(sim$model_quantities$fish_sel[,]), as.numeric(ss_run$quantities$sel_at_age[c(2,4),,,1]))
+
+  # F
+  testthat::expect_equal(as.numeric(sim$model_quantities$FAA), as.numeric(ss_run$quantities$F_flt_age[c(2,4),1,,1:nyrs]))
+
+  # Q
+  testthat::expect_equal(as.numeric(sim$model_quantities$srv_q), as.numeric(ss_run$quantities$index_q[c(1,3),1]))
+
+  # Expected and observed diet
+  testthat::expect_equal(as.numeric(ss_run$data_list$diet_data$Stomach_proportion_by_weight), as.numeric(ss_run$quantities$diet_hat[,2]))
 })
-
 

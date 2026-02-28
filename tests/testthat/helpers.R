@@ -227,6 +227,8 @@ make_msm_test_data <- function(
   fish_ISS = 1e5,
   srv_ISS = 1e5,
   M = c(0.2, 0.3),
+  rhoM = 0,
+  sigmaM = 0,
   fish_sel = matrix(c(1 / (1 + exp(-2.5 * (ages - 6))),
                       1 / (1 + exp(-2.5 * (ages - 4)))), nspp, length(ages), byrow = TRUE),
   srv_sel = matrix(c(1 / (1 + exp(-2 * (ages - 3))),
@@ -263,6 +265,11 @@ make_msm_test_data <- function(
   Total_Biom <- matrix(0, nspp, nyrs)
   Catch <- matrix(0, nspp, nyrs)
 
+  # Generate M deviations
+  M_vec <- matrix(arima.sim(n = nyrs * nspp, list(order=c(1,0,0), ar=rhoM)
+                            , sd = sigmaM), nspp, nyrs)
+  Mtv = M * exp(M_vec)
+
   # Generate recruitment deviations
   rec_devs <- matrix(rnorm(nyrs * nspp, 0, sigma_R), nspp, nyrs)
   init_devs <- matrix(rnorm((nages-1) * nspp, 0, sigma_R), nspp, nages-1)
@@ -297,8 +304,8 @@ make_msm_test_data <- function(
   # Initialize population
   for(sp in 1:nspp){
     init_age_idx <- 1:(nages - 2)
-    NAA[sp, init_age_idx + 1, 1] <- mean_Rec[sp] * exp(- (init_age_idx * M[sp]))
-    NAA[sp, nages, 1] <- mean_Rec[sp] * exp(-(nages - 1) * M[sp]) / (1 - exp(-M[sp]))
+    NAA[sp, init_age_idx + 1, 1] <- mean_Rec[sp] * exp(- (init_age_idx * Mtv[sp, 1]))
+    NAA[sp, nages, 1] <- mean_Rec[sp] * exp(-(nages - 1) * Mtv[sp, 1]) / (1 - exp(-Mtv[sp, 1]))
     NAA[sp,2:nages, 1] <- NAA[sp,2:nages, 1] * exp(init_devs[sp,])
   }
 
@@ -312,8 +319,8 @@ make_msm_test_data <- function(
 
         # Calculate mortality
         FAA[sp, ,y] <- Fmort[sp, y] * fish_sel[sp,]
-        ZAA[sp, ,y] <- FAA[sp,,y] + M[sp] + M2_at_age[sp, , y]
-        MAA[sp, ,y] <- M[sp] + M2_at_age[sp, ,y]
+        ZAA[sp, ,y] <- FAA[sp,,y] + Mtv[sp, y] + M2_at_age[sp, , y]
+        MAA[sp, ,y] <- Mtv[sp, y] + M2_at_age[sp, ,y]
 
         # Calculate catch
         CAA[sp, ,y] <- FAA[sp, ,y] / ZAA[sp, ,y] * NAA[sp, ,y] * (1 - exp(-ZAA[sp, ,y]))
@@ -698,6 +705,8 @@ make_msm_test_data <- function(
       WAA = WAA,
       MatAA = MatAA,
       M = M,
+      Mtv = Mtv,
+      M_vec = M_vec,
       srv_q = srv_q,
       rec_devs = rec_devs,
       init_devs = init_devs,
