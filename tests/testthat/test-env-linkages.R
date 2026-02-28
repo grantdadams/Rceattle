@@ -1,5 +1,5 @@
 
-test_that("test recruitment linkeage and mean rec", {
+test_that("Test environmental linkeage with mean rec", {
   library(Rceattle)
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
 
@@ -49,15 +49,13 @@ test_that("test recruitment linkeage and mean rec", {
 
   # Check ssb
   for(sp in 1:3){
-    expect_equal(as.numeric(ss_run$quantities$R[sp,1:nyrs]),  exp(R0[sp] + GOA2018SS$env_data$EnvIndex * sp), tolerance = 0.0001)
+    testthat::expect_equal(as.numeric(ss_run$quantities$R[sp,1:nyrs]),  exp(R0[sp] + GOA2018SS$env_data$EnvIndex * sp), tolerance = 0.0001)
   }
 
 })
 
 
-
-
-test_that("test multiple recruitment linkeages and mean rec", {
+testthat::test_that("Test multiple recruitment linkeages with mean rec", {
   library(Rceattle)
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
 
@@ -107,13 +105,13 @@ test_that("test multiple recruitment linkeages and mean rec", {
 
   # Check ssb
   for(sp in 1:3){
-    expect_equal(as.numeric(ss_run$quantities$R[sp,1:nyrs]),  as.numeric(exp(R0[sp] + as.matrix(GOA2018SS$env_data[,-1]) %*% inits$beta_rec_pars[sp,])), tolerance = 0.0001)
+    testthat::expect_equal(as.numeric(ss_run$quantities$R[sp,1:nyrs]),  as.numeric(exp(R0[sp] + as.matrix(GOA2018SS$env_data[,-1]) %*% inits$beta_rec_pars[sp,])), tolerance = 0.0001)
   }
 })
 
 
 
-test_that("test multiple M linkeages", {
+testthat::test_that("Test multiple M linkeages", {
   library(Rceattle)
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
 
@@ -160,18 +158,18 @@ test_that("test multiple M linkeages", {
 
 
 
-  expect_equal(as.numeric(ss_run$quantities$M_at_age),  as.numeric(ss_run$quantities$M1_at_age), tolerance = 0.0001)
+  testthat::expect_equal(as.numeric(ss_run$quantities$M_at_age),  as.numeric(ss_run$quantities$M1_at_age), tolerance = 0.0001)
 
   # Check M
   for(sp in 1:3){
-    expect_equal(as.numeric(ss_run$quantities$M_at_age[sp,1,1,1:nyrs]),  as.numeric(0.2*exp(as.matrix(GOA2018SS$env_data[,-1]) %*% inits$M1_beta[sp,1,])), tolerance = 0.0001)
-    expect_equal(as.numeric(ss_run$quantities$M_at_age[sp,1,5,1:nyrs]),  as.numeric(0.2*exp(as.matrix(GOA2018SS$env_data[,-1]) %*% inits$M1_beta[sp,1,])), tolerance = 0.0001)
+    testthat::expect_equal(as.numeric(ss_run$quantities$M_at_age[sp,1,1,1:nyrs]),  as.numeric(0.2*exp(as.matrix(GOA2018SS$env_data[,-1]) %*% inits$M1_beta[sp,1,])), tolerance = 0.0001)
+    testthat::expect_equal(as.numeric(ss_run$quantities$M_at_age[sp,1,5,1:nyrs]),  as.numeric(0.2*exp(as.matrix(GOA2018SS$env_data[,-1]) %*% inits$M1_beta[sp,1,])), tolerance = 0.0001)
   }
 })
 
 
 
-test_that("test single M, multiple M/sex linkeages, M both-sex linkage", {
+testthat::test_that("Test single M, multiple M/sex linkeages, M both-sex linkage", {
   library(Rceattle)
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
 
@@ -220,21 +218,19 @@ test_that("test single M, multiple M/sex linkeages, M both-sex linkage", {
 
 
 
-  expect_equal(as.numeric(ss_run$quantities$M_at_age),  as.numeric(ss_run$quantities$M1_at_age), tolerance = 0.0001)
+  testthat::expect_equal(as.numeric(ss_run$quantities$M_at_age),  as.numeric(ss_run$quantities$M1_at_age), tolerance = 0.0001)
 
   # Check M
   # - Pollock fixed M
-  expect_equal(as.numeric(ss_run$quantities$M_at_age[1,1,1:10,]),  rep(0.2, length(ss_run$quantities$M_at_age[1,1,1:10,])), tolerance = 0.0001)
+  testthat::expect_equal(as.numeric(ss_run$quantities$M_at_age[1,1,1:10,]),  rep(0.2, length(ss_run$quantities$M_at_age[1,1,1:10,])), tolerance = 0.0001)
 
   # - ATF sex-time env varying
-  expect_equal(as.numeric(ss_run$quantities$M_at_age[2,1,5,1:nyrs]),  as.numeric(0.2*exp(as.matrix(GOA2018SS$env_data[,-1]) %*% inits$M1_beta[2,1,])), tolerance = 0.0001)
-  expect_equal(as.numeric(ss_run$quantities$M_at_age[2,2,2,1:nyrs]),  as.numeric(0.2*exp(as.matrix(GOA2018SS$env_data[,-1]) %*% inits$M1_beta[2,2,])), tolerance = 0.0001)
-
-
+  testthat::expect_equal(as.numeric(ss_run$quantities$M_at_age[2,1,5,1:nyrs]),  as.numeric(0.2*exp(as.matrix(GOA2018SS$env_data[,-1]) %*% inits$M1_beta[2,1,])), tolerance = 0.0001)
+  testthat::expect_equal(as.numeric(ss_run$quantities$M_at_age[2,2,2,1:nyrs]),  as.numeric(0.2*exp(as.matrix(GOA2018SS$env_data[,-1]) %*% inits$M1_beta[2,2,])), tolerance = 0.0001)
 
   # - Cod env varying
-  expect_equal(as.numeric(ss_run$quantities$M_at_age[3,1,5,1:nyrs]),  as.numeric(0.2*exp(as.matrix(GOA2018SS$env_data[,-1]) %*% inits$M1_beta[3,1,])), tolerance = 0.0001)
-  expect_equal(as.numeric(ss_run$quantities$M_at_age[3,2,2,1:nyrs]),  rep(0, length(ss_run$quantities$M_at_age[3,2,2,1:nyrs])), tolerance = 0.0001)
+  testthat::expect_equal(as.numeric(ss_run$quantities$M_at_age[3,1,5,1:nyrs]),  as.numeric(0.2*exp(as.matrix(GOA2018SS$env_data[,-1]) %*% inits$M1_beta[3,1,])), tolerance = 0.0001)
+  testthat::expect_equal(as.numeric(ss_run$quantities$M_at_age[3,2,2,1:nyrs]),  rep(0, length(ss_run$quantities$M_at_age[3,2,2,1:nyrs])), tolerance = 0.0001)
 })
 
 

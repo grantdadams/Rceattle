@@ -1,4 +1,4 @@
-test_that("test SB40 under mean recruitment", {
+testthat::test_that("Test SB40 under mean recruitment", {
   data("BS2017SS") # ?BS2017SS for more information on the data
   BS2017SS$fleet_control$proj_F_prop <- rep(1, 7)
 
@@ -16,10 +16,11 @@ test_that("test SB40 under mean recruitment", {
                                     verbose = 1)
 
   testthat::expect_equal(as.numeric((ss_run_Tier3$quantities$SBF/ss_run_Tier3$quantities$SB0)[,72]), rep(0.4, 3), tolerance = 0.0001)
+  testthat::expect_equal(as.numeric((ss_run_Tier3$quantities$ssb/ss_run_Tier3$quantities$SB0)[,72]), rep(0.4, 3), tolerance = 0.0001) # Default to mean R
 })
 
 
-test_that("test SPR0", {
+testthat::test_that("Test SPR0 calculation", {
   library(Rceattle)
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
 

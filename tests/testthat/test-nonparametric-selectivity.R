@@ -1,5 +1,5 @@
 
-test_that("non-parametric selectivity not normalized", {
+testthat::test_that("Test non-parametric selectivity not normalized", {
   library(Rceattle)
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
 

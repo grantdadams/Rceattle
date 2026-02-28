@@ -1,4 +1,4 @@
-test_that("M1 input and output the same", {
+testthat::test_that("Test update M1 from data", {
   data("BS2017SS") # ?BS2017SS for more information on the data
   data("BS2017MS") # Note: the only difference is the residual mortality (M1_base) is lower
 
