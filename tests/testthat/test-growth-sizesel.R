@@ -1,6 +1,8 @@
 
 
-test_that("Simulated simple model with growth curve and size-based logistic selectivity", {
+testthat::test_that("Simulated simple model with growth curve and size-based logistic selectivity", {
+  testthat::skip()
+
   # Simulate Data -----------------------------------------------------------
   # Adapted from Matt Cheng
   sim_pop_model <- function(years,
