@@ -70,7 +70,15 @@ test_that("Index, biomass, and catch = 0 match expected", {
   dat <- make_test_data(nyrs = nyrs, nages = nages, seed = 42)
 
   # Set params
-  inits <- suppressMessages(build_params(dat))
+  # inits <- suppressMessages(build_params(dat))
+  ss_run <- Rceattle::fit_mod(data_list = dat,
+                              estimateMode = 3, # Don't estimate
+                              random_rec = FALSE, # No random recruitment
+                              msmMode = 0, # Single species mode
+                              verbose = 0)
+  inits <- ss_run$estimated_params
+  map <- ss_run$map
+
   inits$rec_pars[,1] <- R0
   inits$R_ln_sd <- 0
   inits$ln_F[] <- -999 # No fishing
@@ -93,6 +101,7 @@ test_that("Index, biomass, and catch = 0 match expected", {
   ss_run <- Rceattle::fit_mod(data_list = dat,
                               inits = inits, # Initial parameters = 0
                               file = NULL, # Don't save
+                              map = map,
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
@@ -134,11 +143,18 @@ testthat::test_that("Dynamics match CEATTLE single-species classic", {
   BS2017SS$srr_prior_mean <- 9
   BS2017SS$initMode  <- 1
   BS2017SS$fleet_control$Sel_norm_bin1 <- -999 # Normalize by max
-  inits <- suppressMessages(build_params(BS2017SS))
+  # inits <- suppressMessages(build_params(BS2017SS))
+  ss_run_old_params <- Rceattle::fit_mod(data_list = BS2017SS,
+                                         estimateMode = 3,   # Dont' estimate
+                                         random_rec = FALSE, # No random recruitment
+                                         msmMode = 0,        # Single species mode
+                                         verbose = 0)
+  inits <- ss_run_old_params$estimated_params
+  map <- ss_run_old_params$map
 
   # - Update population dynamics from previous parameters
-  inits$init_dev <- CEATTLE_classic_SS$estimated_params$init_dev
-  inits$rec_dev[,1:39] <- CEATTLE_classic_SS$estimated_params$rec_dev
+  inits$init_dev[,1:20] <- CEATTLE_classic_SS$estimated_params$init_dev
+  inits$x_tj[1:39, 1:3] <- t(CEATTLE_classic_SS$estimated_params$rec_dev)
   inits$rec_pars[,1] <- CEATTLE_classic_SS$estimated_params$ln_mn_rec
   inits$ln_F[1:3, 1:39] <- CEATTLE_classic_SS$estimated_params$F_dev[,1:39] + CEATTLE_classic_SS$estimated_params$ln_mean_F
   inits$sel_coff[1:3,1,] <- CEATTLE_classic_SS$estimated_params$fsh_sel_coff
@@ -148,6 +164,7 @@ testthat::test_that("Dynamics match CEATTLE single-species classic", {
   ss_run_old_params <- Rceattle::fit_mod(data_list = BS2017SS,
                                          inits = inits,      # Initial parameters
                                          estimateMode = 3,   # Dont' estimate
+                                         map = map,
                                          M1Fun = build_M1(updateM1 = TRUE), # Update M1 from data
                                          random_rec = FALSE, # No random recruitment
                                          msmMode = 0,        # Single species mode
@@ -194,21 +211,6 @@ test_that("Dynamics match multi-species CEATTLE classic", {
   BS2017MS$fleet_control$Sel_norm_bin1 <- -999 # Normalize by max
   # BS2017MS$M1_base[,-c(1:2)] <- CEATTLE_classic_MS$quantities$M1 # + 0.0001 is in the old one
 
-  inits <- suppressMessages(build_params(BS2017MS))
-
-  # - Update population dynamics from old parameters
-  inits$init_dev[,1:20] <- CEATTLE_classic_MS$estimated_params$init_dev
-  inits$rec_dev[,1:39] <- CEATTLE_classic_MS$estimated_params$rec_dev
-  inits$rec_pars[,1] <- CEATTLE_classic_MS$estimated_params$ln_mn_rec
-  inits$ln_F[1:3, 1:39] <- CEATTLE_classic_MS$estimated_params$F_dev[,1:39] + CEATTLE_classic_MS$estimated_params$ln_mean_F
-
-  # -- Sel
-  inits$sel_coff[1:3,1,] <- CEATTLE_classic_MS$estimated_params$fsh_sel_coff
-  inits$sel_inf[1,4:6,1] <- CEATTLE_classic_MS$estimated_params$srv_sel_inf[1,]
-  inits$ln_sel_slp[1,4:6,1] <- log(CEATTLE_classic_MS$estimated_params$srv_sel_slp[1,])
-  inits$index_ln_q[4:6] <- CEATTLE_classic_MS$estimated_params$log_srv_q
-  inits$index_ln_q[7] <- CEATTLE_classic_MS$estimated_params$log_eit_q # Need to scale by max sel because selectivity is rescaled to max = 1 in the CPP
-
   # - Update diet data
   BS2017MS_new <- BS2017MS
   BS2017MS_new$diet_data <- as.data.frame(BS2017MS_new$diet_data)
@@ -226,10 +228,41 @@ test_that("Dynamics match multi-species CEATTLE classic", {
     CEATTLE_classic_MS$data_list$Pyrs[-40,,2],
     CEATTLE_classic_MS$data_list$Pyrs[-40,,3]
   )
+  # inits <- suppressMessages(build_params(BS2017MS))
+
+  # - Inits
+  ms_run_old_params <- Rceattle::fit_mod(
+    data_list = BS2017MS_new,
+    M1Fun = build_M1(M1_model = 0,
+                     updateM1 = TRUE,
+                     M1_use_prior = FALSE,
+                     M2_use_prior = FALSE),
+    estimateMode = 3, # Fix at parameter values
+    niter = CEATTLE_classic_MS$data_list$niter, # iterations around population and predation dynamics
+    random_rec = FALSE, # No random recruitment
+    msmMode = 1,  # MSVPA based
+    suitMode = 0, # empirical suitability
+    verbose = 0)
+  inits <- ms_run_old_params$estimated_params
+  map <- ms_run_old_params$map
+
+  # - Update population dynamics from old parameters
+  inits$init_dev[,1:20] <- CEATTLE_classic_MS$estimated_params$init_dev
+  inits$x_tj[1:39, 1:3] <- t(CEATTLE_classic_MS$estimated_params$rec_dev)
+  inits$rec_pars[,1] <- CEATTLE_classic_MS$estimated_params$ln_mn_rec
+  inits$ln_F[1:3, 1:39] <- CEATTLE_classic_MS$estimated_params$F_dev[,1:39] + CEATTLE_classic_MS$estimated_params$ln_mean_F
+
+  # -- Sel
+  inits$sel_coff[1:3,1,] <- CEATTLE_classic_MS$estimated_params$fsh_sel_coff
+  inits$sel_inf[1,4:6,1] <- CEATTLE_classic_MS$estimated_params$srv_sel_inf[1,]
+  inits$ln_sel_slp[1,4:6,1] <- log(CEATTLE_classic_MS$estimated_params$srv_sel_slp[1,])
+  inits$index_ln_q[4:6] <- CEATTLE_classic_MS$estimated_params$log_srv_q
+  inits$index_ln_q[7] <- CEATTLE_classic_MS$estimated_params$log_eit_q # Need to scale by max sel because selectivity is rescaled to max = 1 in the CPP
 
   ms_run_old_params <- Rceattle::fit_mod(
     data_list = BS2017MS_new,
     inits = inits, # Initial parameters from old model
+    map = map,
     M1Fun = build_M1(M1_model = 0,
                      updateM1 = TRUE,
                      M1_use_prior = FALSE,

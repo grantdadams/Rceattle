@@ -15,7 +15,15 @@ testthat::test_that("Test non-parametric selectivity not normalized", {
   GOA2018SS$fleet_control$Time_varying_sel <- 0
   GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
 
-  inits <- suppressMessages(build_params(GOA2018SS))
+  # inits <- suppressMessages(build_params(GOA2018SS))
+
+  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
+                              estimateMode = 3, # Don't estimate
+                              random_rec = FALSE, # No random recruitment
+                              msmMode = 0, # Single species mode
+                              verbose = 0)
+  inits <- ss_run$estimated_params
+  map <- ss_run$map
 
 
   # ADMB code
@@ -62,6 +70,7 @@ testthat::test_that("Test non-parametric selectivity not normalized", {
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
                               inits = inits, # Initial parameters = 0
                               file = NULL, # Don't save
+                              map = map,
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode

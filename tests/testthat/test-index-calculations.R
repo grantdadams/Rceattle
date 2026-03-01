@@ -10,7 +10,15 @@ testthat::test_that("Basic index and index likelihood", {
   dat <- make_test_data(nyrs = nyrs, nages = nages, seed = 42)
 
   # Set params
-  inits <- suppressMessages(build_params(dat))
+  # inits <- suppressMessages(build_params(dat))
+  ss_run <- Rceattle::fit_mod(data_list = dat,
+                              estimateMode = 3, # Don't estimate
+                              random_rec = FALSE, # No random recruitment
+                              msmMode = 0, # Single species mode
+                              verbose = 0)
+  inits <- ss_run$estimated_params
+  map <- ss_run$map
+
   inits$rec_pars[,1] <- R0
   inits$R_ln_sd <- 0
   inits$ln_F[] <- -999 # No fishing
@@ -22,8 +30,9 @@ testthat::test_that("Basic index and index likelihood", {
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = dat,
-                              inits = inits, # Initial parameters = 0
+                              inits = inits, # Initial parameters at input
                               file = NULL, # Don't save
+                              map = map,
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode

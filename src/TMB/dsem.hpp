@@ -1,3 +1,6 @@
+#ifndef DSEM_HPP
+#define DSEM_HPP
+
 /** * @brief Dynamic Structural Equation Model (DSEM) Module
  * * This module assembles the precision matrix for a Gaussian Markov Random Field (GMRF)
  * using the Reticular Action Model (RAM) specification. It handles SEM path
@@ -191,3 +194,6 @@ void calculate_dsem(
   // REPORT( z_tj );
   // ADREPORT( z_tj );
 }
+
+
+#endif

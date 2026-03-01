@@ -24,6 +24,7 @@ testthat::test_that("Test update M1 from data", {
   # -- Intialized from single-species MLE parameter values
   ms_run <- fit_mod(data_list = BS2017MS,
                     inits = ss_run$estimated_params, # Initial parameters from single species ests
+                    map = ss_run$map,
                     file = NULL, # Don't save
                     estimateMode = 0, # Estimate
                     niter = 3, # 3 iterations around population and predation dynamics

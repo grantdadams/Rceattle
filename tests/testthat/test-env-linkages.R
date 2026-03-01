@@ -25,7 +25,22 @@ test_that("Test environmental linkeage with mean rec", {
   # Set params
   GOA2018SS$srr_fun <- 1
   GOA2018SS$initMode <- 1
-  inits <- build_params(GOA2018SS)
+
+
+  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
+                              estimateMode = 3, # Don't estimate
+                              random_rec = FALSE, # No random recruitment
+                              msmMode = 0, # Single species mode
+                              recFun = build_srr(srr_fun = 1,
+                                                 proj_mean_rec = FALSE,
+                                                 srr_est_mode = 1,
+                                                 srr_indices = 1
+                              ),
+                              initMode = 2,
+                              verbose = 0)
+  inits <- ss_run$estimated_params
+  map <- ss_run$map
+
   alpha = 0.4
   beta = 1e-6
   inits$rec_pars[,1] <- R0
@@ -34,8 +49,9 @@ test_that("Test environmental linkeage with mean rec", {
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              inits = inits, # Initial parameters = 0
+                              inits = inits, # Initial pars at input
                               file = NULL, # Don't save
+                              map = map,
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
@@ -83,7 +99,22 @@ testthat::test_that("Test multiple recruitment linkeages with mean rec", {
   # Set params
   GOA2018SS$srr_fun <- 1
   GOA2018SS$initMode <- 1
-  inits <- build_params(GOA2018SS)
+  # inits <- build_params(GOA2018SS)
+  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
+                              estimateMode = 3, # Don't estimate
+                              random_rec = FALSE, # No random recruitment
+                              msmMode = 0, # Single species mode
+
+                              recFun = build_srr(srr_fun = 1,
+                                                 proj_mean_rec = FALSE,
+                                                 srr_est_mode = 1,
+                                                 srr_indices = c(1,2,3)
+                              ),
+                              initMode = 1,
+                              verbose = 0)
+  inits <- ss_run$estimated_params
+  map = ss_run$map
+
   alpha = 0.4
   beta = 1e-6
   inits$rec_pars[,1] <- R0
@@ -92,8 +123,9 @@ testthat::test_that("Test multiple recruitment linkeages with mean rec", {
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              inits = inits, # Initial parameters = 0
+                              inits = inits, # Initial pars at input
                               file = NULL, # Don't save
+                              map = map,
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
@@ -142,7 +174,19 @@ testthat::test_that("Test multiple M linkeages", {
   GOA2018SS$srr_fun <- 0
   GOA2018SS$M1_model <- 4
   GOA2018SS$initMode <- 1
-  inits <- build_params(GOA2018SS)
+  # inits <- build_params(GOA2018SS)
+  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
+                              estimateMode = 3, # Don't estimate
+                              random_rec = FALSE, # No random recruitment
+                              msmMode = 0, # Single species mode
+                              M1Fun = build_M1(M1_model = 4,
+                                               M1_indices = c(1,2,3)
+                              ),
+                              initMode = 1,
+                              verbose = 0)
+  inits <- ss_run$estimated_params
+  map <- ss_run$map
+
   alpha = 0.4
   beta = 1e-6
   inits$ln_M1[] <- log(0.2)
@@ -151,8 +195,9 @@ testthat::test_that("Test multiple M linkeages", {
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              inits = inits, # Initial parameters = 0
+                              inits = inits, # Initial pars at input
                               file = NULL, # Don't save
+                              map = map,
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
@@ -202,7 +247,19 @@ testthat::test_that("Test single M, multiple M/sex linkeages, M both-sex linkage
   GOA2018SS$srr_fun <- 0
   GOA2018SS$M1_model <- c(1,5,4)
   GOA2018SS$initMode <- 1
-  inits <- build_params(GOA2018SS)
+  # inits <- build_params(GOA2018SS)
+  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
+                              estimateMode = 3, # Don't estimate
+                              random_rec = FALSE, # No random recruitment
+                              msmMode = 0, # Single species mode
+                              M1Fun = build_M1(M1_model = c(1,5,4),
+                                               M1_indices = c(1,2,3)
+                              ),
+                              initMode = 1,
+                              verbose = 0)
+  inits <- ss_run$estimated_params
+  map = ss_run$map
+
   alpha = 0.4
   beta = 1e-6
   inits$ln_M1[] <- log(0.2)
@@ -213,8 +270,9 @@ testthat::test_that("Test single M, multiple M/sex linkeages, M both-sex linkage
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              inits = inits, # Initial parameters = 0
+                              inits = inits, # Initial pars at input
                               file = NULL, # Don't save
+                              map = map,
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
