@@ -3,14 +3,14 @@ testthat::test_that("Basic index and index likelihood", {
   testthat::skip_if_not_installed("Rceattle")
 
   # Use helper factory for deterministic minimal test data
-  source(file.path("tests", "testthat", "helpers.R"))
+  # source(file.path("tests", "testthat", "helpers.R"))
   nages = 5
   R0 = 3.5
   nyrs = 8
   dat <- make_test_data(nyrs = nyrs, nages = nages, seed = 42)
 
   # Set params
-  inits <- build_params(dat)
+  inits <- suppressMessages(build_params(dat))
   inits$rec_pars[,1] <- R0
   inits$R_ln_sd <- 0
   inits$ln_F[] <- -999 # No fishing
@@ -27,7 +27,7 @@ testthat::test_that("Basic index and index likelihood", {
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              verbose = 1)
+                              verbose = 0)
 
   # Calculate SPR
   M <- dat$M1_base$Age1

@@ -540,7 +540,7 @@ check_composition_data <- function(data_list) {
 
     if (any(is.na(na_check))) {
       na_rows <- which(is.na(na_check))
-      warning(sprintf("Composition data have NAs in row(s): %s. Converting to 0s.",
+      message(sprintf("Composition data have NAs in row(s): %s. Converting to 0s.",
                       paste(na_rows, collapse = ", ")))
       data_list$comp_obs[is.na(data_list$comp_obs)] <- 0
     }
@@ -596,7 +596,7 @@ check_caal_data <- function(data_list) {
 
     if (any(is.na(na_check))) {
       na_rows <- which(is.na(na_check))
-      warning(sprintf("Composition data have NAs in row(s): %s. Converting to 0s.",
+      message(sprintf("Composition data have NAs in row(s): %s. Converting to 0s.",
                       paste(na_rows, collapse = ", ")))
       data_list$caal_obs[is.na(data_list$caal_obs)] <- 0
     }

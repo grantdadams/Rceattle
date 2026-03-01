@@ -4,7 +4,7 @@ testthat::test_that("Parameter recovery (small simulated example)", {
   testthat::skip_if_not_installed("Rceattle")
 
   # Use helper factory for deterministic minimal test data
-  source(file.path("tests", "testthat", "helpers.R"))
+  # source(file.path("tests", "testthat", "helpers.R"))
   dat <- make_test_data(nyrs = 8, nages = 5, seed = 42)
 
   # Ensure compiled TMB is available

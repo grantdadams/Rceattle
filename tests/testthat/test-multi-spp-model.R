@@ -3,7 +3,7 @@ testthat::test_that("Rceattle and multi-species model dynamics match", {
   testthat::skip_if_not_installed("Rceattle")
 
   # Prepare small deterministic dataset using helper
-  source(file.path("tests", "testthat", "helpers.R"))
+  #source(file.path("tests", "testthat", "helpers.R"))
 
   # 1) Set up simulation
   nyrs = 30
@@ -33,7 +33,7 @@ testthat::test_that("Rceattle and multi-species model dynamics match", {
 
   # Fit multi-species
   # * Fix parameters -----
-  inits <- build_params(simData)
+  inits <- suppressMessages( build_params(simData) )
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi
@@ -57,7 +57,7 @@ testthat::test_that("Rceattle and multi-species model dynamics match", {
                                suitMode = 4,
                                niter = 5,
                                initMode = 2,
-                               verbose = 1)
+                               verbose = 0)
 
   # Recruitment
   testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,1,]), as.numeric(ms_run1$quantities$R[,1:nyrs]))
@@ -107,7 +107,7 @@ testthat::test_that("Equilibrium MSVPA model dynamics match", {
   testthat::skip() # Haven't figured out quite why there is a minor difference, maybe bias? Old EBS CEATTLE still matches
 
   # Prepare small deterministic dataset using helper
-  source(file.path("tests", "testthat", "helpers.R"))
+  #source(file.path("tests", "testthat", "helpers.R"))
 
   # 1) Set up simulation
   nyrs = 30
@@ -160,7 +160,7 @@ testthat::test_that("Equilibrium MSVPA model dynamics match", {
 
   # Fit multi-species
   # * Fix parameters -----
-  inits <- build_params(simData)
+  inits <- suppressMessages( build_params(simData) )
   inits$sel_inf[1,,1] <- c(3,6,2.5,4)
   inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
   inits$ln_F[2,] <- log(0.2)
@@ -181,7 +181,7 @@ testthat::test_that("Equilibrium MSVPA model dynamics match", {
                                     niter = 20,
                                     suitMode = 0,
                                     initMode = 2,
-                                    verbose = 1)
+                                    verbose = 0)
 
   # Recruitment
   testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,1,]), as.numeric(ms_run_msvpa$quantities$R[,1:nyrs]), tolerance = 1e-5)
@@ -226,7 +226,7 @@ testthat::test_that("Test proportion of prey-at-age in predator-at-age averaged 
   testthat::skip_if_not_installed("Rceattle")
 
   # Prepare small deterministic dataset using helper
-  source(file.path("tests", "testthat", "helpers.R"))
+  #source(file.path("tests", "testthat", "helpers.R"))
 
   # 1) Set up simulation
   nyrs = 30
@@ -258,7 +258,7 @@ testthat::test_that("Test proportion of prey-at-age in predator-at-age averaged 
 
   # Fit multi-species
   # * Fix parameters -----
-  inits <- build_params(simData)
+  inits <- suppressMessages( build_params(simData) )
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi
@@ -307,7 +307,7 @@ testthat::test_that("Test proportion of prey-at-age in predator-at-age averaged 
                                suitMode = 4,
                                niter = 5,
                                initMode = 2,
-                               verbose = 1)
+                               verbose = 0)
 
   # AvgN
   testthat::expect_equal(as.numeric(sim$model_quantities$avgNAA[,,]), as.numeric(ms_run2$quantities$avgN_at_age[,1,,1:nyrs]))
@@ -331,7 +331,7 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator-at-ag
   testthat::skip_if_not_installed("Rceattle")
 
   # Prepare small deterministic dataset using helper
-  source(file.path("tests", "testthat", "helpers.R"))
+  #source(file.path("tests", "testthat", "helpers.R"))
 
   # 1) Set up simulation
   nyrs = 30
@@ -363,7 +363,7 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator-at-ag
 
   # Fit multi-species
   # * Fix parameters -----
-  inits <- build_params(simData)
+  inits <- suppressMessages( build_params(simData) )
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi
@@ -412,7 +412,7 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator-at-ag
                                suitMode = 4,
                                niter = 5,
                                initMode = 2,
-                               verbose = 1)
+                               verbose = 0)
 
   # AvgN
   testthat::expect_equal(as.numeric(sim$model_quantities$avgNAA[,,]), as.numeric(ms_run2$quantities$avgN_at_age[,1,,1:nyrs]))
@@ -436,7 +436,7 @@ testthat::test_that("Test proportion of prey (all ages) in predator-at-age avera
   testthat::skip_if_not_installed("Rceattle")
 
   # Prepare small deterministic dataset using helper
-  source(file.path("tests", "testthat", "helpers.R"))
+  #source(file.path("tests", "testthat", "helpers.R"))
 
   # 1) Set up simulation
   nyrs = 30
@@ -468,7 +468,7 @@ testthat::test_that("Test proportion of prey (all ages) in predator-at-age avera
 
   # Fit multi-species
   # * Fix parameters -----
-  inits <- build_params(simData)
+  inits <- suppressMessages( build_params(simData) )
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi
@@ -518,7 +518,7 @@ testthat::test_that("Test proportion of prey (all ages) in predator-at-age avera
                                suitMode = 4,
                                niter = 5,
                                initMode = 2,
-                               verbose = 1)
+                               verbose = 0)
 
   # AvgN
   testthat::expect_equal(as.numeric(sim$model_quantities$avgNAA[,,]), as.numeric(ms_run2$quantities$avgN_at_age[,1,,1:nyrs]))
@@ -541,7 +541,7 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (mean
   testthat::skip_if_not_installed("Rceattle")
 
   # Prepare small deterministic dataset using helper
-  source(file.path("tests", "testthat", "helpers.R"))
+  #source(file.path("tests", "testthat", "helpers.R"))
 
   # 1) Set up simulation
   nyrs = 30
@@ -573,7 +573,7 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (mean
 
   # Fit multi-species
   # * Fix parameters -----
-  inits <- build_params(simData)
+  inits <- suppressMessages( build_params(simData) )
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi
@@ -623,7 +623,7 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (mean
                                suitMode = 4,
                                niter = 5,
                                initMode = 2,
-                               verbose = 1)
+                               verbose = 0)
 
   # AvgN
   testthat::expect_equal(as.numeric(sim$model_quantities$avgNAA[,,]), as.numeric(ms_run2$quantities$avgN_at_age[,1,,1:nyrs]))
@@ -647,7 +647,7 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (weig
   testthat::skip_if_not_installed("Rceattle")
 
   # Prepare small deterministic dataset using helper
-  source(file.path("tests", "testthat", "helpers.R"))
+  #source(file.path("tests", "testthat", "helpers.R"))
 
   # 1) Set up simulation
   nyrs = 30
@@ -679,7 +679,7 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (weig
 
   # Fit multi-species
   # * Fix parameters -----
-  inits <- build_params(simData)
+  inits <- suppressMessages( build_params(simData) )
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi
@@ -743,7 +743,7 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (weig
                                suitMode = 4,
                                niter = 5,
                                initMode = 2,
-                               verbose = 1)
+                               verbose = 0)
 
   # AvgN
   testthat::expect_equal(as.numeric(sim$model_quantities$avgNAA[,,]), as.numeric(ms_run2$quantities$avgN_at_age[,1,,1:nyrs]))
@@ -768,7 +768,7 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
   testthat::skip_if_not_installed("Rceattle")
 
   # Prepare small deterministic dataset using helper
-  source(file.path("tests", "testthat", "helpers.R"))
+  #source(file.path("tests", "testthat", "helpers.R"))
 
   # 1) Set up simulation
   nyrs = 30
@@ -800,7 +800,7 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
 
   # Fit multi-species
   # * Fix parameters -----
-  inits <- build_params(simData)
+  inits <- suppressMessages( build_params(simData) )
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi
@@ -851,7 +851,7 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
                                suitMode = 4,
                                niter = 5,
                                initMode = 2,
-                               verbose = 1)
+                               verbose = 0)
 
   # AvgN
   testthat::expect_equal(as.numeric(sim$model_quantities$avgNAA[,,]), as.numeric(ms_run2$quantities$avgN_at_age[,1,,1:nyrs]))
@@ -875,7 +875,7 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
   testthat::skip_if_not_installed("Rceattle")
 
   # Prepare small deterministic dataset using helper
-  source(file.path("tests", "testthat", "helpers.R"))
+  #source(file.path("tests", "testthat", "helpers.R"))
 
   # 1) Set up simulation
   nyrs = 30
@@ -907,7 +907,7 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
 
   # Fit multi-species
   # * Fix parameters -----
-  inits <- build_params(simData)
+  inits <- suppressMessages( build_params(simData) )
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi
@@ -974,7 +974,7 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
                                suitMode = 4,
                                niter = 5,
                                initMode = 2,
-                               verbose = 1)
+                               verbose = 0)
 
   # AvgN
   testthat::expect_equal(as.numeric(sim$model_quantities$avgNAA[,,]), as.numeric(ms_run2$quantities$avgN_at_age[,1,,1:nyrs]))
@@ -998,7 +998,7 @@ testthat::test_that("Test joint single-species models", {
   testthat::skip_if_not_installed("Rceattle")
 
   # Prepare small deterministic dataset using helper
-  source(file.path("tests", "testthat", "helpers.R"))
+  #source(file.path("tests", "testthat", "helpers.R"))
 
   # 1) Set up simulation
   nyrs = 30
@@ -1025,7 +1025,7 @@ testthat::test_that("Test joint single-species models", {
 
   # Fit multi-species
   # * Fix parameters -----
-  inits <- build_params(simData)
+  inits <- suppressMessages( build_params(simData) )
   inits$sel_inf[1,,1] <- c(3,6,2.5,4)
   inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
   inits$ln_F[2,] <- log(Fmort)
@@ -1046,7 +1046,7 @@ testthat::test_that("Test joint single-species models", {
                               suitMode = 0,
                               niter = 5,
                               initMode = 2,
-                              verbose = 1)
+                              verbose = 0)
 
   # Recruitment
   testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,1,]), as.numeric(ss_run$quantities$R[,1:nyrs]))

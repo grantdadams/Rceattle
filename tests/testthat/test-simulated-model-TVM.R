@@ -3,7 +3,7 @@ testthat::test_that("Test IID year time-varying M", {
   testthat::skip_if_not_installed("Rceattle")
 
   # Prepare small deterministic dataset using helper
-  source(file.path("tests", "testthat", "helpers.R"))
+  #source(file.path("tests", "testthat", "helpers.R"))
 
   # 1) Set up simulation
   nyrs = 30
@@ -36,7 +36,7 @@ testthat::test_that("Test IID year time-varying M", {
 
   # Fit multi-species
   # * Fix parameters -----
-  inits <- build_params(simData)
+  inits <- suppressMessages(build_params(simData))
   inits$sel_inf[1,,1] <- c(3,6,2.5,4)
   inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
   inits$ln_F[2,] <- log(Fmort)
@@ -68,7 +68,7 @@ testthat::test_that("Test IID year time-varying M", {
                                phase = FALSE,
                                msmMode = 0,
                                initMode = 2,
-                               verbose = 2)
+                               verbose = 0)
 
   # Recruitment
   testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,1,]), as.numeric(ss_run1$quantities$R[,1:nyrs]))
@@ -108,7 +108,7 @@ testthat::test_that("Test AR1 year time-varying M", {
   testthat::skip_if_not_installed("Rceattle")
 
   # Prepare small deterministic dataset using helper
-  source(file.path("tests", "testthat", "helpers.R"))
+  #source(file.path("tests", "testthat", "helpers.R"))
 
   # 1) Set up simulation
   nyrs = 30
@@ -141,7 +141,7 @@ testthat::test_that("Test AR1 year time-varying M", {
 
   # Fit multi-species
   # * Fix parameters -----
-  inits <- build_params(simData)
+  inits <- suppressMessages(build_params(simData))
   inits$sel_inf[1,,1] <- c(3,6,2.5,4)
   inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
   inits$ln_F[2,] <- log(Fmort)
@@ -173,7 +173,7 @@ testthat::test_that("Test AR1 year time-varying M", {
                                phase = FALSE,
                                msmMode = 0,
                                initMode = 2,
-                               verbose = 2)
+                               verbose = 0)
 
   # Recruitment
   testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,1,]), as.numeric(ss_run1$quantities$R[,1:nyrs]))

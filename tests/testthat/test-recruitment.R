@@ -1,9 +1,9 @@
-test_that("mean recruitment and devs", {
+testthat::test_that("mean recruitment and devs", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
   # Load helper and create small deterministic test data
-  source(file.path("tests", "testthat", "helpers.R"))
+  #source(file.path("tests", "testthat", "helpers.R"))
   nyrs = 20
   dat <- make_test_data(nyrs = 20, nages = 5, seed = 123)
   R0 = 11
@@ -23,7 +23,7 @@ test_that("mean recruitment and devs", {
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              verbose = 1)
+                              verbose = 0)
 
   # Check R
   testthat::expect_equal(as.numeric(ss_run$quantities$R[1,1:nyrs]), exp(R0 + Rdev), tolerance = 0.0001)
@@ -34,8 +34,9 @@ test_that("mean recruitment and devs", {
                                                                                    sd = 1, log = TRUE)), tolerance = 0.0001)
 })
 
-test_that("ssb under mean recruitment", {
-  library(Rceattle)
+testthat::test_that("ssb under mean recruitment", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
 
   # Change WT and M for SSB
@@ -51,7 +52,7 @@ test_that("ssb under mean recruitment", {
   Rdev <- rnorm(nyrs)
 
   # Set params
-  inits <- build_params(GOA2018SS)
+  inits <- suppressMessages(build_params(GOA2018SS))
   inits$rec_pars[,1] <- R0
   inits$R_ln_sd <- rep(0, 3)
   inits$ln_F[] <- -999 # No fishing
@@ -64,7 +65,7 @@ test_that("ssb under mean recruitment", {
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
                               initMode = 2,
-                              verbose = 1)
+                              verbose = 0)
   # Check ssb
   for(yr in 1:nyrs){
     testthat::expect_equal(as.numeric(ss_run$quantities$ssb[,yr]),  exp(R0)*1/(1-exp(-0.2))*0.5, tolerance = 0.0001)
@@ -72,8 +73,9 @@ test_that("ssb under mean recruitment", {
 })
 
 
-test_that("ssb and beverton recruitment", {
-  library(Rceattle)
+testthat::test_that("ssb and beverton recruitment", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
 
   # Change WT and M for SSB
@@ -90,7 +92,7 @@ test_that("ssb and beverton recruitment", {
   # Set params
   GOA2018SS$srr_fun <- 4
   GOA2018SS$initMode <- 1
-  inits <- build_params(GOA2018SS)
+  inits <- suppressMessages(build_params(GOA2018SS))
   alpha = 0.4
   beta = 1e-6
   inits$rec_pars[,2] <- log(alpha)
@@ -110,7 +112,7 @@ test_that("ssb and beverton recruitment", {
                                                  srr_est_mode = 1
                               ),
                               initMode = 2,
-                              verbose = 1)
+                              verbose = 0)
   # Calculate SPR
   M <- 0.2
   wt <- 1
@@ -137,8 +139,9 @@ test_that("ssb and beverton recruitment", {
 })
 
 
-test_that("ssb and ricker recruitment", {
-  library(Rceattle)
+testthat::test_that("ssb and ricker recruitment", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
 
   # Change WT and M for SSB
@@ -155,7 +158,7 @@ test_that("ssb and ricker recruitment", {
   # Set params
   GOA2018SS$srr_fun <- 4
   GOA2018SS$initMode <- 1
-  inits <- build_params(GOA2018SS)
+  inits <- suppressMessages(build_params(GOA2018SS))
   alpha = 0.4
   beta = 1e-6
   inits$rec_pars[,2] <- log(alpha)
@@ -175,7 +178,7 @@ test_that("ssb and ricker recruitment", {
                                                  srr_est_mode = 1
                               ),
                               initMode = 2,
-                              verbose = 1)
+                              verbose = 0)
   # Calculate SPR
   M <- 0.2
   wt <- 1
