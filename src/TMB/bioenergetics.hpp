@@ -135,7 +135,7 @@ void calculate_ration(array<Type> &consumption_at_age,
           int yr_ind = (yr < nyrs_hind) ? yr : (nyrs_hind - 1);
 
           if(Ceq(sp) < 4){
-            int wt_idx_pop = (nspp - 1) * 2 * sp;
+            int wt_idx_pop = 2 * sp;
 
             // Step 1: Calculate max consumption (C_max * f(T) * weight * fday) in grams/predator/year
             consumption_at_age(sp, sex, age, yr) = CA(sp) * pow(weight_hat(wt_idx_pop, sex, age, yr) * Type(1000.0), 1.0 + CB(sp)) * fT(sp, yr) * fday(sp);

@@ -448,8 +448,8 @@ void calculate_weight(
   // 1. POPULATION WEIGHT-AT-AGE
   for (int sp = 0; sp < nspp; sp++) {
 
-    wt_idx_pop = (nspp - 1) * 2 * sp;
-    wt_idx_ssb = (nspp - 1) * 2 * sp + 1;
+    wt_idx_pop = 2 * sp;
+    wt_idx_ssb = 2 * sp + 1;
 
     // -- 1.1. Empirical weight-at-age
     if (growth_model(sp) == 0) {
@@ -520,7 +520,7 @@ void calculate_weight(
   for (int flt = 0; flt < n_flt; flt++) {
     int sp = flt_spp(flt);
     Type mo = flt_month(flt);
-    wt_idx_pop = (nspp - 1) * 2 * sp;
+    wt_idx_pop = 2 * sp;
     wt_idx_flt = nspp * 2 + flt;
 
     // -- 2.1. Empirical weight-at-age
