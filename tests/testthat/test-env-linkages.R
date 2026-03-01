@@ -1,6 +1,8 @@
 
 test_that("Test environmental linkeage with mean rec", {
-  library(Rceattle)
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
 
   # Change WT and M for SSB
@@ -44,7 +46,7 @@ test_that("Test environmental linkeage with mean rec", {
                                                  srr_indices = 1
                               ),
                               initMode = 2,
-                              verbose = 1)
+                              verbose = 0)
 
 
   # Check ssb
@@ -56,7 +58,9 @@ test_that("Test environmental linkeage with mean rec", {
 
 
 testthat::test_that("Test multiple recruitment linkeages with mean rec", {
-  library(Rceattle)
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
 
   # Change WT and M for SSB
@@ -100,7 +104,7 @@ testthat::test_that("Test multiple recruitment linkeages with mean rec", {
                                                  srr_indices = c(1,2,3)
                               ),
                               initMode = 1,
-                              verbose = 1)
+                              verbose = 0)
 
 
   # Check ssb
@@ -112,7 +116,9 @@ testthat::test_that("Test multiple recruitment linkeages with mean rec", {
 
 
 testthat::test_that("Test multiple M linkeages", {
-  library(Rceattle)
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
 
   # Change WT and M for SSB
@@ -154,7 +160,7 @@ testthat::test_that("Test multiple M linkeages", {
                                                M1_indices = c(1,2,3)
                               ),
                               initMode = 1,
-                              verbose = 1)
+                              verbose = 0)
 
 
 
@@ -170,7 +176,9 @@ testthat::test_that("Test multiple M linkeages", {
 
 
 testthat::test_that("Test single M, multiple M/sex linkeages, M both-sex linkage", {
-  library(Rceattle)
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
 
   # Change WT and M for SSB
@@ -214,7 +222,7 @@ testthat::test_that("Test single M, multiple M/sex linkeages, M both-sex linkage
                                                M1_indices = c(1,2,3)
                               ),
                               initMode = 1,
-                              verbose = 1)
+                              verbose = 0)
 
 
 

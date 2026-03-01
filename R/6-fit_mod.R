@@ -293,7 +293,7 @@ fit_mod <-
     # if(data_list$HCR == 2 & estimateMode == 2){estimateMode = 4} # If projecting under constant F, run parmeters through obj only
 
     if(data_list$msmMode > 0 & !data_list$HCR %in% c(0, 1, 2, 3, 6)){
-      warning("WARNING:: Only HCRs 1, 2, 3, and 6 work in multi-species mode currently")
+      stop("Only HCRs 1, 2, 3, and 6 work in multi-species mode currently")
     }
 
     # Fill out switches if missing
@@ -463,7 +463,7 @@ fit_mod <-
     start_par <- start_par[names(map$mapFactor), drop = F]
     dim_check <- sapply(start_par, function(x) length(unlist(x))) == sapply(map$mapFactor, function(x) length(unlist(x)))
     if(sum(dim_check) != length(dim_check)){
-      stop(print(paste0("Map and parameter objects are not the same size for: ", names(dim_check)[which(dim_check == FALSE)])))
+      stop(paste0("Map and parameter objects are not the same size for: ", names(dim_check)[which(dim_check == FALSE)]))
     }
 
 

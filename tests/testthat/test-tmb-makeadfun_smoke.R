@@ -4,7 +4,7 @@ testthat::test_that("MakeADFun smoke test: obj$fn and obj$gr are finite", {
   testthat::skip_if_not_installed("Rceattle")
 
   # Load helper and create small deterministic test data
-  source(file.path("tests", "testthat", "helpers.R"))
+  # source(file.path("tests", "testthat", "helpers.R"))
   dat <- make_test_data(nyrs = 8, nages = 5, seed = 123)
 
   # Ensure compiled TMB is available

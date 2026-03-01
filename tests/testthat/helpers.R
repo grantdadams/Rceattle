@@ -285,8 +285,9 @@ make_msm_test_data <- function(
   Catch <- matrix(0, nspp, nyrs)
 
   # Generate M deviations
-  M_vec <- matrix(arima.sim(n = nyrs * nspp, list(order=c(1,0,0), ar=rhoM)
-                            , sd = sigmaM), nspp, nyrs)
+  M_vec <- suppressWarnings(
+    matrix(arima.sim(n = nyrs * nspp, list(order=c(1,0,0), ar=rhoM)
+                     , sd = sigmaM), nspp, nyrs))
   Mtv = M * exp(M_vec)
 
   # Generate recruitment deviations

@@ -69,12 +69,12 @@ clean_data <- function(data_list){
   # * Column names ----
   if(any(!colnames(data_list$sex_ratio) %in% c("Species", paste0("Age", 1:max(data_list$nages))))){
     colnames(data_list$sex_ratio) <- c("Species", paste0("Age", 1:max(data_list$nages)))
-    warning("Renaming column names in 'sex_ratio' data to 'Age1', 'Age2', ....")
+    message("Renaming column names in 'sex_ratio' data to 'Age1', 'Age2', ....")
   }
 
   if(any(!colnames(data_list$maturity) %in% c("Species", paste0("Age", 1:max(data_list$nages))))){
     colnames(data_list$maturity) <- c("Species", paste0("Age", 1:max(data_list$nages)))
-    warning("Renaming column names in 'maturity' data to 'Age1', 'Age2', ....")
+    message("Renaming column names in 'maturity' data to 'Age1', 'Age2', ....")
   }
 
   return(data_list)
@@ -132,7 +132,7 @@ data_check <- function(data_list) {
     dplyr::filter(n() > 1 ) %>%
     dplyr::ungroup()
   if(nrow(mirror_sel) > 0){
-    warning(paste0("Selectivity for ", paste(mirror_sel$Fleet_name, collapse = ", "), " is mirrored with another fleet"))
+    message(paste0("Selectivity for ", paste(mirror_sel$Fleet_name, collapse = ", "), " is mirrored with another fleet"))
   }
 
   mirror_q <- data_list$fleet_control %>%
@@ -141,7 +141,7 @@ data_check <- function(data_list) {
     dplyr::filter(n() > 1 ) %>%
     dplyr::ungroup()
   if(nrow(mirror_q) > 0){
-    warning(paste0("Catchability for ", paste(mirror_q$Fleet_name, collapse = ", "), " is mirrored with another fleet"))
+    message(paste0("Catchability for ", paste(mirror_q$Fleet_name, collapse = ", "), " is mirrored with another fleet"))
   }
 
   # Weight-at-age ----
@@ -239,7 +239,7 @@ data_check <- function(data_list) {
       dplyr::filter(Species == sp) %>%
       dplyr::pull(Age)
     if(!all(data_list$minage[sp]:data_list$nages[sp] %in% ages_tmp)){
-      warning(paste("`age_trans_matrix` data does not span range of age for species", sp, "will fill with 0s"))
+      message(paste("`age_trans_matrix` data does not span range of age for species", sp, "will fill with 0s"))
     }
   }
 
@@ -259,14 +259,14 @@ data_check <- function(data_list) {
       dplyr::filter(Species == sp) %>%
       dplyr::pull(True_age)
     if(!all(data_list$minage[sp]:data_list$nages[sp] %in% ages_tmp)){
-      warning(paste("`age_error` data does not span range of true ages for species", sp, "will fill with 0s"))
+      message(paste("`age_error` data does not span range of true ages for species", sp, "will fill with 0s"))
     }
   }
 
   # # Age matrix
   #
   # if(ncol(data_list$NByageFixed) != max(data_list$nages, na.rm = T)+4){
-  #   print(paste0("NByageFixed does not include all ages"))
+  #   message(paste0("NByageFixed does not include all ages"))
   # }
   #
   # if(ncol(data_list$weight) != max(data_list$nages, na.rm = T)+4){
@@ -357,7 +357,7 @@ data_check <- function(data_list) {
       stop("'ration_data' has more sexes than specified in 'nsex'")
     }
   } else{
-    warning("No ration_data (ration) data")
+    message("No ration_data (ration) data")
   }
 
   # Environmental data----
@@ -377,7 +377,7 @@ switch_check <- function(data_list){
   # Estimation
   if(is.null(data_list$estDynamics)){
     data_list$estDynamics <- rep(0, data_list$nspp)
-    print("'estDynamics' are not included in data, assuming 0")
+    message("'estDynamics' are not included in data, assuming 0")
   }
 
   # Stock-recruitment
@@ -385,36 +385,36 @@ switch_check <- function(data_list){
     data_list$srr_fun <- 0
     data_list$srr_pred_fun <- 0
     data_list$srr_est_mode <- 0
-    print("'srr_fun' are not included in data, assuming 0")
+    message("'srr_fun' are not included in data, assuming 0")
   }
 
   # Diet data weights
   if(is.null(data_list$Diet_comp_weights)){
     data_list$Diet_comp_weights <- rep(1, data_list$nspp)
-    print("'Diet_comp_weights' are not included in data, assuming 1")
+    message("'Diet_comp_weights' are not included in data, assuming 1")
   }
 
   # Normalization age
   if(is.null(data_list$fleet_control$Sel_norm_bin1)){
     data_list$fleet_control$Sel_norm_bin1 <- NA
-    print("'Sel_norm_bin1' not specified in 'fleet_control', assuming 'NA'")
+    message("'Sel_norm_bin1' not specified in 'fleet_control', assuming 'NA'")
   }
 
 
   if(is.null(data_list$fleet_control$Sel_norm_bin2)){
     data_list$fleet_control$Sel_norm_bin2 <- NA
-    print("'Sel_norm_bin2' not specified in 'fleet_control', assuming 'NA'")
+    message("'Sel_norm_bin2' not specified in 'fleet_control', assuming 'NA'")
   }
 
   # Sel curve penalties
   if(is.null(data_list$fleet_control$Sel_curve_pen1)){
     data_list$fleet_control$Sel_curve_pen1 <- 0
-    print("'Sel_curve_pen1' not specified in 'fleet_control', assuming '0'")
+    message("'Sel_curve_pen1' not specified in 'fleet_control', assuming '0'")
   }
 
   if(is.null(data_list$fleet_control$Sel_curve_pen2)){
     data_list$fleet_control$Sel_curve_pen2 <- 0
-    print("'Sel_curve_pen2' not specified in 'fleet_control', assuming '0'")
+    message("'Sel_curve_pen2' not specified in 'fleet_control', assuming '0'")
   }
 
   if(any(data_list$fleet_control$Selectivity == 2 & !is.na(data_list$fleet_control$Time_varying_sel) & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)))){
@@ -425,7 +425,7 @@ switch_check <- function(data_list){
                     Time_varying_sel_sd_prior = ifelse(Selectivity == 2 & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)), 0, Time_varying_sel_sd_prior)
 
       )
-    print("Updating format where 'Selectivity == 2'. Moving non-parametric penalties to 'Sel_curve_pen1' and 'Sel_curve_pen2'.")
+    message("Updating format where 'Selectivity == 2'. Moving non-parametric penalties to 'Sel_curve_pen1' and 'Sel_curve_pen2'.")
   }
 
 
@@ -440,45 +440,45 @@ switch_check <- function(data_list){
   # Comp weights
   if(is.null(data_list$fleet_control$Comp_loglike)){
     data_list$fleet_control$Comp_loglike <- -1
-    print("'Comp_loglike' not specified in 'fleet_control', assuming multinomial")
+    message("'Comp_loglike' not specified in 'fleet_control', assuming multinomial")
   }
 
   # CAAL weights
   if(is.null(data_list$fleet_control$CAAL_loglike)){
     data_list$fleet_control$CAAL_loglike <- 0
-    print("'CAAL_loglike' not specified in 'fleet_control', assuming multinomial")
+    message("'CAAL_loglike' not specified in 'fleet_control', assuming multinomial")
   }
   if(is.null(data_list$fleet_control$CAAL_weights)){
     data_list$fleet_control$CAAL_weights <- 1
-    print("'CAAL_weights' not specified in 'fleet_control', assuming 1")
+    message("'CAAL_weights' not specified in 'fleet_control', assuming 1")
   }
 
   # Month
   if(is.null(data_list$fleet_control$Month)){
     data_list$fleet_control$Month <- 0
-    print("'Month' not specified in 'fleet_control', assuming 0")
+    message("'Month' not specified in 'fleet_control', assuming 0")
   }
 
   # Mortality
   if(is.null(data_list$M1_model)){
     data_list$M1_model <- rep(0, data_list$nspp)
-    print("'M1_model' are not included in data, assuming 0")
+    message("'M1_model' are not included in data, assuming 0")
   }
 
   if(is.null(data_list$msmMode)){
     data_list$msmMode <- 0
-    print("'msmMode' are not included in data, assuming 0")
+    message("'msmMode' are not included in data, assuming 0")
   }
 
   if(is.null(data_list$M1_re)){
     data_list$M1_re <- rep(0, data_list$nspp)
-    print("'M1_re' is not in data, assuming 0 for all species")
+    message("'M1_re' is not in data, assuming 0 for all species")
   }
 
   # Init mode
   if(is.null(data_list$initMode)){
     data_list$initMode = 2
-    print("'initMode' not input, setting to 2 (default)")
+    message("'initMode' not input, setting to 2 (default)")
   }
 
   return(data_list)
