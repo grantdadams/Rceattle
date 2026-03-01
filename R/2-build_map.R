@@ -95,6 +95,7 @@ build_map_recruitment <- function(map_list, data_list, nyrs_hind, nyrs_proj, ran
     if (data_list$initMode == 0) {
       # map_list$rec_dev[sp, 1] <- NA
 
+# FIXME: move init_dev to DSEM vector
       # - Map out ages above range
       if(nages_sp < ncol(map_list$init_dev)) {
         map_list$init_dev[sp, (nages_sp+1):ncol(map_list$init_dev)] <- NA

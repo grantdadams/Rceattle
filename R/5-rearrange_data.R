@@ -518,8 +518,7 @@ check_composition_data <- function(data_list) {
   # If no data, convert to empty matrix
   if(is.null(dim(data_list$comp_obs))){
     data_list$comp_obs <- matrix(NA, ncol = 10, nrow = 0)
-  } else{
-
+  } else if(nrow(data_list$comp_obs) > 0){
 
     # # Check for zero sum rows in composition data
     # if (any(rowSums(data_list$comp_obs, na.rm = TRUE) == 0)) {
@@ -541,7 +540,7 @@ check_composition_data <- function(data_list) {
 
     if (any(is.na(na_check))) {
       na_rows <- which(is.na(na_check))
-      warning(sprintf("Composition data have NAs in row(s): %s. Converting to 0s.",
+      message(sprintf("Composition data have NAs in row(s): %s. Converting to 0s.",
                       paste(na_rows, collapse = ", ")))
       data_list$comp_obs[is.na(data_list$comp_obs)] <- 0
     }
@@ -597,7 +596,7 @@ check_caal_data <- function(data_list) {
 
     if (any(is.na(na_check))) {
       na_rows <- which(is.na(na_check))
-      warning(sprintf("Composition data have NAs in row(s): %s. Converting to 0s.",
+      message(sprintf("Composition data have NAs in row(s): %s. Converting to 0s.",
                       paste(na_rows, collapse = ", ")))
       data_list$caal_obs[is.na(data_list$caal_obs)] <- 0
     }

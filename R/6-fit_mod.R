@@ -312,7 +312,7 @@ fit_mod <-
     # if(data_list$HCR == 2 & estimateMode == 2){estimateMode = 4} # If projecting under constant F, run parmeters through obj only
 
     if(data_list$msmMode > 0 & !data_list$HCR %in% c(0, 1, 2, 3, 6)){
-      warning("WARNING:: Only HCRs 1, 2, 3, and 6 work in multi-species mode currently")
+      stop("Only HCRs 1, 2, 3, and 6 work in multi-species mode currently")
     }
 
     # Fill out switches if missing
@@ -496,7 +496,27 @@ fit_mod <-
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # 7: Phase hindcast ----
+    # 7: Set up parameter bounds ----
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # L <- c()
+    # U <- c()
+    # for(i in 1:length(map$mapFactor)){
+    #   if(!names(map$mapFactor)[i] %in% random_vars){ # Dont have bounds for random effects
+    #     L = c(L, unlist(bounds$lower[[i]])[which(!is.na(unlist(map$mapFactor[[i]])) & !duplicated(unlist(map$mapFactor[[i]])))])
+    #     U = c(U, unlist(bounds$upper[[i]])[which(!is.na(unlist(map$mapFactor[[i]])) & !duplicated(unlist(map$mapFactor[[i]])))])
+    #   }
+    # }
+
+    # # Dimension check
+    # start_par <- start_par[names(map$mapFactor), drop = F]
+    # dim_check <- sapply(start_par, function(x) length(unlist(x))) == sapply(map$mapFactor, function(x) length(unlist(x)))
+    # if(sum(dim_check) != length(dim_check)){
+    #   stop(paste0("Map and parameter objects are not the same size for: ", names(dim_check)[which(dim_check == FALSE)]))
+    # }
+
+
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # 8: Phase hindcast ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # Set default phasing
     if(is.logical(phase)){
@@ -537,7 +557,7 @@ fit_mod <-
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # 8: Fit hindcast ----
+    # 9: Fit hindcast ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # * Build ----
     if(sum(as.numeric(unlist(map$mapFactor)), na.rm = TRUE) == 0){stop("Map of length 0: all NAs")}
@@ -634,7 +654,7 @@ fit_mod <-
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # 9: Run projection ----
+    # 10: Run projection ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if(estimateMode %in% c(0,2,4)){
       if(!data_list$HCR %in% c(0)){ # - All HCRs except no F and fixed F
@@ -787,7 +807,7 @@ fit_mod <-
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # 10: Save output ----
+    # 11: Save output ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # - Save estimated parameters
     mod_objects$estimated_params <- last_par

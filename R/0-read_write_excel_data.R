@@ -219,7 +219,39 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     data_list$fleet_control <- data_list$fleet_control %>%
       dplyr::rename(Estimate_index_sd = Estimate_survey_sd,
                     Index_sd_prior = Survey_sd_prior)
-    print("Renaming 'Estimate_survey_sd' to 'Estimate_index_sd' and 'Survey_sd_prior' to 'Index_sd_prior'")
+    message("Renaming 'Estimate_survey_sd' to 'Estimate_index_sd' and 'Survey_sd_prior' to 'Index_sd_prior'")
+  }
+
+
+  if(length(data_list$fleet_control$Nselages) > 0){
+    data_list$fleet_control <- data_list$fleet_control %>%
+      dplyr::rename(N_sel_bins = Nselages)
+    message("Renaming 'Nselages' to 'N_sel_bins'")
+  }
+
+
+  if(length(data_list$fleet_control$Age_first_selected) > 0){
+    data_list$fleet_control <- data_list$fleet_control %>%
+      dplyr::rename(Bin_first_selected = Age_first_selected)
+    message("Renaming 'Age_first_selected' to 'Bin_first_selected'")
+  }
+
+  if(length(data_list$fleet_control$Age_max_selected) > 0){
+    data_list$fleet_control <- data_list$fleet_control %>%
+      dplyr::rename(Sel_norm_bin1 = Age_max_selected)
+    message("Renaming 'Age_max_selected' to 'Sel_norm_bin1'")
+  }
+
+  if(length(data_list$fleet_control$Age_max_selected_upper) > 0){
+    data_list$fleet_control <- data_list$fleet_control %>%
+      dplyr::rename(Sel_norm_bin2 = Age_max_selected_upper)
+    message("Renaming 'Age_max_selected_upper' to 'Sel_norm_bin2'")
+  }
+
+  if(!is.null(data_list$fleet_control$Month)){
+    data_list$fleet_control <- data_list$fleet_control %>%
+      dplyr::mutate(Month = 0)
+    message("Adding 'Month' column to 'fleet_control' with default value of 0")
   }
 
 
@@ -268,7 +300,7 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "fsh_biom"))
     sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
     data_list$catch_data <- sheet
-    print("Renaming 'fsh_biom' to 'catch_data'")
+    message("Renaming 'fsh_biom' to 'catch_data'")
   }
 
   # -- Index
@@ -282,7 +314,17 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "srv_biom"))
     sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
     data_list$index_data <- sheet
-    print("Renaming 'srv_biom' to 'index_data'")
+    message("Renaming 'srv_biom' to 'index_data'")
+  }
+
+  # -- CAAL
+  if("caal_data" %in% sheetnames){
+    sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "caal_data"))
+    sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
+    data_list$caal_data <- sheet
+  } else{
+    data_list$caal_data <- data.frame(matrix(NA, nrow = 0, ncol = 11))
+    colnames(data_list$caal_data) <- c("Fleet_name", "Fleet_code", "Species", "Sex", "Year", "Length", "Sample_size", "CAAL_1", "CAAL_2", "CAAL_3", "CAAL_4")
   }
 
   # -- CAAL
@@ -318,7 +360,7 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "wt"))
     sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
     data_list$weight <- sheet
-    print("Renaming 'wt' to 'weight'")
+    message("Renaming 'wt' to 'weight'")
   }
 
 
@@ -327,7 +369,7 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "pmature"))
     sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
     data_list$maturity <- sheet
-    print("Renaming 'pmature' to 'maturity'")
+    message("Renaming 'pmature' to 'maturity'")
   }
 
   if("maturity" %in% sheetnames){
@@ -377,7 +419,7 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "Pyrs"))
     sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ] # Keep rows with data
     data_list$ration_data <- sheet
-    print("Renaming 'Pyrs' to 'ration_data'")
+    message("Renaming 'Pyrs' to 'ration_data'")
   }
 
 
@@ -391,13 +433,13 @@ read_data <- function(file = "Rceattle_data.xlsx") {
   if("UobsWtAge" %in% sheetnames){ # Old name
     sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "UobsWtAge"))
     data_list$diet_data <- sheet
-    print("Renaming 'UobsWtAge' to 'diet_data'")
+    message("Renaming 'UobsWtAge' to 'diet_data'")
   }
 
   if("stom_prop_data" %in% sheetnames){
     sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "stom_prop_data"))
     data_list$diet_data <- sheet
-    print("Renaming 'stom_prop_data' to 'diet_data'")
+    message("Renaming 'stom_prop_data' to 'diet_data'")
   }
 
 

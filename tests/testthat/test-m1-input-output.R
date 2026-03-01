@@ -1,4 +1,7 @@
-test_that("M1 input and output the same", {
+testthat::test_that("Test update M1 from data", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
   data("BS2017SS") # ?BS2017SS for more information on the data
   data("BS2017MS") # Note: the only difference is the residual mortality (M1_base) is lower
 
@@ -14,7 +17,7 @@ test_that("M1 input and output the same", {
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
                               phase = TRUE,
-                              verbose = 1)
+                              verbose = 0)
 
 
   # - Multi species
@@ -28,7 +31,7 @@ test_that("M1 input and output the same", {
                     M1Fun = build_M1(updateM1 = TRUE),
                     msmMode = 1, # MSVPA based
                     suitMode = 0, # empirical suitability
-                    verbose = 1)
+                    verbose = 0)
 
   testthat::expect_equal(as.numeric(ms_run$quantities$M1_at_age[1,1,1:12,1]), as.numeric(ms_run$data_list$M1_base[1, 3:(12+2)]))
 })

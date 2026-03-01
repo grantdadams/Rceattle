@@ -109,7 +109,7 @@ build_bounds <- function(param_list = NULL, data_list) {
       param_check$Upper[i] <- sum(upper_check[[i]], na.rm = TRUE)
     }
 
-    print("Non-zero value indicates error in initial value")
+    message("Non-zero value indicates error in initial value")
     print(param_check)
     stop("Initial parameter values are not within bounds")
   }
