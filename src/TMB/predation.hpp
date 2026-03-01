@@ -92,7 +92,7 @@ void calculate_parametric_suitability(array<Type> &suitability,
 
   for(int rsp = 0; rsp < nspp; rsp++) {
     int smode = suitMode(rsp);
-    int wt_idx_rsp = (nspp - 1) * 2 * rsp;
+    int wt_idx_rsp = 2 * rsp;
 
     // Parametric suitability modes (1 through 6)
     if(smode >= 1 && smode <= 6) {
@@ -101,7 +101,7 @@ void calculate_parametric_suitability(array<Type> &suitability,
 
         for(int r_age = 0; r_age < nages(rsp); r_age++) {
           for(int ksp = 0; ksp < nspp; ksp++) {
-            int wt_idx_ksp = (nspp - 1) * 2 * ksp;
+            int wt_idx_ksp = 2 * ksp;
 
             for(int k_sex = 0; k_sex < nsex(ksp); k_sex++) {
               int k_idx = ksp + (nspp * k_sex);
@@ -213,7 +213,7 @@ void calculate_msvpa_suitability(array<Type> &stom_div_bio,
       // ======================================================================
       for(int yr = 0; yr < nyrs; yr++) {
         for(int ksp = 0; ksp < nspp; ksp++) {
-          int wt_idx_ksp = (nspp - 1) * 2 * ksp;
+          int wt_idx_ksp = 2 * ksp;
           for(int k_sex = 0; k_sex < nsex(ksp); k_sex++) {
             int k_idx = ksp + (nspp * k_sex);
 
@@ -390,7 +390,7 @@ void calculate_msvpa_predation(array<Type> &avail_food,
   // ======================================================================
   for(int yr = 0; yr < nyrs; yr++) {
     for(int ksp = 0; ksp < nspp; ksp++) {
-      int wt_idx_ksp = (nspp - 1) * 2 * ksp;
+      int wt_idx_ksp = 2 * ksp;
       for(int k_sex = 0; k_sex < nsex(ksp); k_sex++) {
         int k_idx = ksp + (nspp * k_sex);
         for(int k_age = 0; k_age < nages(ksp); k_age++) {
@@ -474,7 +474,7 @@ void calculate_msvpa_predation(array<Type> &avail_food,
             other_diet_prop_hat(rsp, r_sex, r_age, yr) = other_food(rsp) * suit_other(rsp, r_sex, r_age, yr) * inv_avail;
 
             for(int ksp = 0; ksp < nspp; ksp++) {
-              int wt_idx_ksp = (nspp - 1) * 2 * ksp;
+              int wt_idx_ksp = 2 * ksp;
               for(int k_sex = 0; k_sex < nsex(ksp); k_sex++) {
                 int k_idx = ksp + (nspp * k_sex);
                 for(int k_age = 0; k_age < nages(ksp); k_age++) {
@@ -660,7 +660,7 @@ void calculate_msvpa_predation(array<Type> &avail_food,
  if(ksp < nspp) {
  for(k_sex = 0; k_sex < nsex(ksp); k_sex++){
  for(k_age = 0; k_age < nages(ksp); k_age++) {
- wt_idx_ksp = (nspp - 1) * 2 * ksp;
+ wt_idx_ksp = 2 * ksp;
  N_eaten(r_idx, k_idx, r_age, k_age, yr) = M2_prop(r_idx, k_idx, r_age, k_age, yr) * avgN_at_age(ksp, k_sex, k_age, yr); // Eq. 8 Kinzey and Punt (2009)
  B_eaten(r_idx, k_idx, r_age, k_age, yr) = M2_prop(r_idx, k_idx, r_age, k_age, yr) * avgN_at_age(ksp, k_sex, k_age, yr) * prey_wt;
  B_eaten_as_pred(rsp, r_sex, r_age, yr) += B_eaten(r_idx, k_idx, r_age, k_age, yr);

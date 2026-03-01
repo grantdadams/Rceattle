@@ -1,5 +1,23 @@
 # Helpers for tests
-# Minimal test data factory and small utilities used by testthat files
+# Minimal test data factory and small utilities used by
+calc_nll_ar1_1d <- function(x, sd, rho) {
+  n <- length(x)
+  Sigma_M <- sqrt(sd^2 / (1 - rho^2))
+
+  # 2. Build the Correlation Matrix for an AR1 process
+  times <- 1:n
+  distance_matrix <- abs(outer(times, times, "-"))
+  Correlation_Matrix <- rho^distance_matrix
+
+  # 3. Scale Correlation to Covariance using the Marginal Variance
+  Covariance_Matrix <- (Sigma_M^2) * Correlation_Matrix
+
+  # 4. Calculate Negative Log-Likelihood
+  # (mean is a vector of 0s because these are mean-zero deviations)
+  nll <- -mvtnorm::dmvnorm(x, mean = rep(0, n), sigma = Covariance_Matrix, log = TRUE)
+
+  return(nll)
+}
 
 #' Make single-species test data set
 #'
@@ -210,41 +228,42 @@ with_loaded_dll <- function(lib, code) {
 
 # Adapted from Matt Cheng
 make_msm_test_data <- function(
-  nspp = 2,
-  years = 1:30,
-  ages = 1:15,
-  WAA = matrix(c(2 / (1 + exp(-0.8 * (ages - 3))),
-                 1.4 / (1 + exp(-1 * (ages - 3)))),
-               nrow = nspp, ncol = length(ages), byrow = TRUE),
-  MatAA = matrix(c(1 / (1 + exp(-1 * (ages - 5))),
-                   1 / (1 + exp(-0.8 * (ages - 5)))),
-                 nspp, length(ages), byrow = TRUE),
-  mean_Rec = c(1e2, 1e3),
-  sigma_R = 1,
-  sigma_catch = 0.001,
-  sigma_srv = 0.05,
-  diet_ISS = 1e5,
-  fish_ISS = 1e5,
-  srv_ISS = 1e5,
-  M = c(0.2, 0.3),
-  rhoM = 0,
-  sigmaM = 0,
-  fish_sel = matrix(c(1 / (1 + exp(-2.5 * (ages - 6))),
-                      1 / (1 + exp(-2.5 * (ages - 4)))), nspp, length(ages), byrow = TRUE),
-  srv_sel = matrix(c(1 / (1 + exp(-2 * (ages - 3))),
-                     1 / (1 + exp(-2 * (ages - 2.5)))), nspp, length(ages), byrow = TRUE),
-  Fmort = matrix(c(seq(0.02, 0.3, length.out = nyrs/2), seq(0.3, 0.05, length.out = nyrs/2),
-                   seq(0.02, 0.3, length.out = nyrs)),
-                 nrow = nspp, ncol = length(years), byrow = TRUE),
-  srv_q = rep(1, nspp),
+    nspp = 2,
+    years = 1:30,
+    ages = 1:15,
+    WAA = matrix(c(2 / (1 + exp(-0.8 * (ages - 3))),
+                   1.4 / (1 + exp(-1 * (ages - 3)))),
+                 nrow = nspp, ncol = length(ages), byrow = TRUE),
+    MatAA = matrix(c(1 / (1 + exp(-1 * (ages - 5))),
+                     1 / (1 + exp(-0.8 * (ages - 5)))),
+                   nspp, length(ages), byrow = TRUE),
+    mean_Rec = c(1e2, 1e3),
+    sigma_R = 1,
+    sigma_catch = 0.001,
+    sigma_srv = 0.05,
+    diet_ISS = 1e5,
+    fish_ISS = 1e5,
+    srv_ISS = 1e5,
+    M = c(0.2, 0.3),
+    rhoM = 0,
+    sigmaM = 0,
+    fish_sel = matrix(c(1 / (1 + exp(-2.5 * (ages - 6))),
+                        1 / (1 + exp(-2.5 * (ages - 4)))), nspp, length(ages), byrow = TRUE),
+    srv_sel = matrix(c(1 / (1 + exp(-2 * (ages - 3))),
+                       1 / (1 + exp(-2 * (ages - 2.5)))), nspp, length(ages), byrow = TRUE),
+    Fmort = matrix(c(seq(0.02, 0.3, length.out = nyrs/2), seq(0.3, 0.05, length.out = nyrs/2),
+                     seq(0.02, 0.3, length.out = nyrs)),
+                   nrow = nspp, ncol = length(years), byrow = TRUE),
+    srv_q = rep(1, nspp),
 
-  # Multispecies bits
-  niter = 5,
-  gam_a = c(1, 0.1),
-  gam_b =  rep(0.15, nspp),
-  log_phi =  matrix(c(-5,0.5,-10,-2), nspp, nspp, byrow = TRUE),
-  other_food =  rep(1e5, nspp),
-  ration = WAA * 50
+    # Multispecies bits
+    niter = 5,
+    gam_a = c(1, 0.1),
+    gam_b =  rep(0.15, nspp),
+    log_phi =  matrix(c(-5,0.5,-10,-2), nspp, nspp, byrow = TRUE),
+    other_food =  rep(1e5, nspp),
+    ration = WAA * 50,
+    normalize_suitability = FALSE # NEW: Flag to force suitability to sum to 1.0
 
 ) {
 
@@ -301,6 +320,22 @@ make_msm_test_data <- function(
     }
   }
 
+  # NEW: Normalize suitability to sum to 1.0 across all prey for MSVPA testing
+  suit_other_mat <- matrix(0, nspp, nages)
+  for(sp in 1:nspp) suit_other_mat[sp, ] <- suit_other[sp]
+
+  if(normalize_suitability) {
+    for(sp in 1:nspp) {
+      for(r_age in 1:nages) {
+        S_tot = sum(suitability[sp, , r_age, ]) + suit_other_mat[sp, r_age]
+        if(S_tot > 0) {
+          suitability[sp, , r_age, ] = suitability[sp, , r_age, ] / S_tot
+          suit_other_mat[sp, r_age] = suit_other_mat[sp, r_age] / S_tot
+        }
+      }
+    }
+  }
+
   # Initialize population
   for(sp in 1:nspp){
     init_age_idx <- 1:(nages - 2)
@@ -352,8 +387,12 @@ make_msm_test_data <- function(
               avail_food[rsp, r_age, y] = avail_food[rsp, r_age, y] + suitability[rsp, ksp, r_age, k_age] * avgNAA[ksp, k_age, y] * WAA[ksp, k_age]
             }
           }
-          # Other food
-          avail_food[rsp, r_age, y] = avail_food[rsp, r_age, y] + other_food[rsp] * suit_other[rsp]
+          # Other food (NEW logic handling normalization switch)
+          if(normalize_suitability) {
+            avail_food[rsp, r_age, y] = avail_food[rsp, r_age, y] + other_food[rsp] * suit_other_mat[rsp, r_age]
+          } else {
+            avail_food[rsp, r_age, y] = avail_food[rsp, r_age, y] + other_food[rsp] * suit_other[rsp]
+          }
         }
       }
     }
@@ -369,7 +408,6 @@ make_msm_test_data <- function(
             for(y in 1:nyrs) {
 
               if(avail_food[rsp, r_age, y] > 0){
-
                 # MSVPA
                 # - M2
                 M2_at_age[ksp, k_age, y] = M2_at_age[ksp, k_age, y] + avgNAA[rsp, r_age, y] * ration[rsp, r_age] * suitability[rsp, ksp, r_age, k_age] / avail_food[rsp, r_age, y]
@@ -391,8 +429,6 @@ make_msm_test_data <- function(
 
   # Observation model
   ObsCatch <- Catch * rlnorm(nyrs * nspp, 0, sigma_catch)
-
-  # Survey observations
   SrvIdx <- srv_q * Total_Biom * rlnorm(nyrs * nspp, 0, sigma_srv)
 
   # Age composition data (simplified multinomial)
@@ -401,26 +437,15 @@ make_msm_test_data <- function(
 
   for(sp in 1:nspp){
     for(y in 1:nyrs) {
-      # Fishery ages
       ObsFishAges[sp, ,y] <- rmultinom(1, fish_ISS, CAA[sp, ,y])
-      # Survey ages
       ObsSrvAges[sp, ,y] <- rmultinom(1, srv_ISS, NAA[sp, ,y] * srv_sel[sp,])
     }
   }
 
-  #
-  #   # Diet composition data
-  #   ObsDiet <- array(0, dim=c(nspp, nspp, nages, nyrs))
-  #   for(rsp in 1:nspp){
-  #     for(r_age in 1:nages){
-  #       for(y in 1:nyrs) {
-  #         if(sum(diet_prop[rsp, , r_age, , y]) > 0){
-  #           ObsDiet[rsp, , r_age, y] = rowSums(diet_prop[rsp, , r_age, , y]) # rmultinom(1, diet_ISS,  )[,1]
-  #         }
-  #       }
-  #     }
-  #   }
-
+  # Export the array instead of the vector if normalized
+  if(normalize_suitability) {
+    suit_other <- suit_other_mat
+  }
 
   # Set up Rceattle data -------------------------------------------------------------
   simData <- list()
@@ -447,7 +472,6 @@ make_msm_test_data <- function(
   simData$estDynamics = rep(0, nspp)
 
   # * Fleet control
-  # - Two simple fleets (survey + fishery) for each species
   simData$fleet_control <- data.frame(
     Fleet_name = paste0(c("Survey", "Fishery"), rep(paste(" Species", 1:nspp), each = 2)),
     Fleet_code = rep(1:2, nspp),
@@ -510,7 +534,6 @@ make_msm_test_data <- function(
     Log_sd = sigma_catch
   )
 
-
   # * Comp data
   # - Index
   tmp <- do.call(rbind, lapply(seq_len(dim(ObsSrvAges)[1]), function(i) t(ObsSrvAges[i, , ])))
@@ -558,7 +581,6 @@ make_msm_test_data <- function(
   simData$NByageFixed <- data.frame(matrix(NA, nrow = 0, ncol = 4 + nages))
   colnames(simData$NByageFixed ) = c("Species_name ", "Species", "Sex", "Year", paste("Age", 1:nages))
 
-
   # * Age transition matrix
   age_trans_list <- lapply(1:nspp, function(sp) {
     tmp <- as.data.frame(diag(nages))
@@ -574,7 +596,6 @@ make_msm_test_data <- function(
   })
   simData$age_trans_matrix <- do.call(rbind, age_trans_list)
 
-
   # * Age error
   age_error_list <- lapply(1:nspp, function(sp) {
     tmp <- as.data.frame(diag(1,nages))
@@ -585,7 +606,6 @@ make_msm_test_data <- function(
     )
   })
   simData$age_error <- do.call(rbind, age_error_list)
-
 
   # * Weight-at-age
   weight_list <- lapply(1:nspp, function(sp) {
@@ -601,7 +621,6 @@ make_msm_test_data <- function(
   })
   simData$weight <- do.call(rbind, weight_list)
 
-
   # * Maturity
   maturity_list <- lapply(1:nspp, function(sp) {
     mat_tmp <- as.data.frame(matrix(MatAA[sp,], ncol = nages))
@@ -611,7 +630,6 @@ make_msm_test_data <- function(
     )
   })
   simData$maturity <- do.call(rbind, maturity_list)
-
 
   # * Sex ratio
   sexratio <- as.data.frame(matrix(0.5, nrow = nspp, ncol = nages))
@@ -631,11 +649,8 @@ make_msm_test_data <- function(
   })
   simData$M1_base <- do.call(rbind, mort_list)
 
-
   # * Environmental data ----
-  simData$env_data <- data.frame(Year = 1:nyrs,
-                                 EnvData = 1)
-
+  simData$env_data <- data.frame(Year = 1:nyrs, EnvData = 1)
 
   # * Ration ----
   ration_list <- lapply(1:nspp, function(sp) {
@@ -713,12 +728,44 @@ make_msm_test_data <- function(
       M2_at_age = M2_at_age,
       vulnerability = vulnerability,
       suitability = suitability,
-      suit_other = suit_other,
+      suit_other = suit_other, # Automatically outputs as matrix if normalized
       avail_food = avail_food,
       diet_prop = diet_prop,
       ration = ration
     ),
     data_list = simData
   ))
+}
+
+
+calc_nll_ar1_2d <- function(x_matrix, sigma_innov, rho_a, rho_y) {
+  n_age <- nrow(x_matrix)
+  n_yr  <- ncol(x_matrix)
+
+  # 1. Calculate the Marginal Standard Deviation
+  Sigma_M <- sqrt(sigma_innov^2 / ((1 - rho_a^2) * (1 - rho_y^2)))
+
+  # 2. Build the Age Correlation Matrix (Rows)
+  dist_age <- abs(outer(1:n_age, 1:n_age, "-"))
+  R_age <- rho_a^dist_age
+
+  # 3. Build the Year Correlation Matrix (Columns)
+  dist_yr <- abs(outer(1:n_yr, 1:n_yr, "-"))
+  R_yr <- rho_y^dist_yr
+
+  # 4. Combine them using the Kronecker Product
+  # TMB's SEPARABLE(AR1(age), AR1(yr)) assumes rows=age, cols=yr.
+  Correlation_2D <- kronecker(R_yr, R_age)
+
+  # 5. Scale to Covariance
+  Covariance_2D <- (Sigma_M^2) * Correlation_2D
+
+  # 6. Flatten the 2D matrix of deviations into a 1D vector
+  x_vec <- as.vector(x_matrix)
+
+  # 7. Calculate Negative Log-Likelihood
+  nll <- -mvtnorm::dmvnorm(x_vec, mean = rep(0, length(x_vec)), sigma = Covariance_2D, log = TRUE)
+
+  return(nll)
 }
 

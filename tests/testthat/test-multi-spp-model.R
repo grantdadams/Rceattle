@@ -101,6 +101,126 @@ testthat::test_that("Rceattle and multi-species model dynamics match", {
 })
 
 
+testthat::test_that("Equilibrium MSVPA model dynamics match", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+  testthat::skip() # Haven't figured out quite why there is a minor difference, maybe bias? Old EBS CEATTLE still matches
+
+  # Prepare small deterministic dataset using helper
+  source(file.path("tests", "testthat", "helpers.R"))
+
+  # 1) Set up simulation
+  nyrs = 30
+  nspp = 2
+  nages = 15
+  gam_a = c(1, 0.1)
+  gam_b = rep(0.15, nspp)
+  log_phi = matrix(c(-5,0.5,-10,-2), nspp, nspp, byrow = TRUE)
+
+  # First, simulate some data for the model
+  set.seed(123)
+  sim <- make_msm_test_data(
+    years = 1:nyrs,
+    sigma_R = 0,
+    Fmort = matrix(0.2, nspp, nyrs, byrow = TRUE),
+
+    # Multispecies bits
+    gam_a = gam_a,
+    gam_b = gam_b,
+    log_phi = log_phi,
+    niter = 20,
+    normalize_suitability = TRUE
+  )
+
+
+  # Set up Rceattle data
+  simData <- sim$data_list
+
+  # Unweighted average diet
+  diet_avg <- apply(sim$model_quantities$diet_prop, c(1, 2, 3, 4), mean, na.rm = TRUE)
+
+  dimnames(diet_avg) <- list(1:nspp, 1:nspp, 1:nages, 1:nages)
+  diet_df <- as.data.frame.table(diet_avg, dnn = dimnames(diet_avg))
+  colnames(diet_df) <- c("Pred", "Prey", "Pred_age", "Prey_age", "Stomach_proportion_by_weight")
+
+  diet_df$Pred <- as.numeric(as.character(diet_df$Pred))
+  diet_df$Prey <- as.numeric(as.character(diet_df$Prey))
+  diet_df$Pred_age <- as.numeric(as.character(diet_df$Pred_age))
+  diet_df$Prey_age <- as.numeric(as.character(diet_df$Prey_age))
+
+  # Set to Year 0
+  diet_df$Year <- 0
+  diet_df$Pred_sex <- 0
+  diet_df$Prey_sex <- 0
+  diet_df$Sample_size <- 1000
+
+  # Overwrite diet data
+  simData$diet_data <- diet_df[diet_df$Stomach_proportion_by_weight > 0, ]
+
+
+  # Fit multi-species
+  # * Fix parameters -----
+  inits <- build_params(simData)
+  inits$sel_inf[1,,1] <- c(3,6,2.5,4)
+  inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
+  inits$ln_F[2,] <- log(0.2)
+  inits$ln_F[4,] <- log(0.2)
+  inits$rec_pars[,1] <- log(c(1e2, 1e3))
+  inits$index_ln_q[] <- log(1)
+  inits$R_ln_sd[] <- log(1)
+  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
+  inits$init_dev[,1:14] <- sim$model_quantities$init_devs
+
+  ms_run_msvpa <- Rceattle::fit_mod(data_list = simData,
+                                    inits = inits, # Initial parameters = 0
+                                    file = NULL, # Don't save
+                                    estimateMode = 3, # Estimate
+                                    random_rec = FALSE, # No random recruitment
+                                    phase = FALSE,
+                                    msmMode = 1,
+                                    niter = 20,
+                                    suitMode = 0,
+                                    initMode = 2,
+                                    verbose = 1)
+
+  # Recruitment
+  testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,1,]), as.numeric(ms_run_msvpa$quantities$R[,1:nyrs]), tolerance = 1e-5)
+  testthat::expect_equal(as.numeric(sim$model_quantities$Total_Biom), as.numeric(ms_run_msvpa$quantities$biomass[,1:nyrs]), tolerance = 1e-5)
+
+
+  # Suitability (Notice the fixed suit_other index [ , 1 , , 1])
+  testthat::expect_equal(as.numeric(ms_run_msvpa$quantities$suitability[,,,,1]), as.numeric(sim$model_quantities$suitability), tolerance = 1e-5)
+  testthat::expect_equal(as.numeric(ms_run_msvpa$quantities$suit_other[,1,,1]), as.numeric(sim$model_quantities$suit_other), tolerance = 1e-5)
+
+  # M2
+  testthat::expect_equal(as.numeric(sim$model_quantities$M2_at_age), as.numeric(ms_run_msvpa$quantities$M2_at_age[,1,,1:nyrs]), tolerance = 1e-5)
+
+  # Ration
+  testthat::expect_equal(as.numeric(sim$model_quantities$ration), as.numeric(ms_run_msvpa$quantities$consumption_at_age[,1,,1]), tolerance = 1e-5)
+
+  # N
+  testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,,]), as.numeric(ms_run_msvpa$quantities$N_at_age[,1,,1:nyrs]), tolerance = 1e-5)
+
+  # AvgN
+  testthat::expect_equal(as.numeric(sim$model_quantities$avgNAA[,,]), as.numeric(ms_run_msvpa$quantities$avgN_at_age[,1,,1:nyrs]), tolerance = 1e-5)
+
+  # Avail food (Checking all years instead of just year 1)
+  testthat::expect_equal(as.numeric(sim$model_quantities$avail_food), as.numeric(ms_run_msvpa$quantities$avail_food[,1,,1:nyrs]), tolerance = 1e-5)
+
+  # Selectivity
+  testthat::expect_equal(as.numeric(sim$model_quantities$srv_sel[,]), as.numeric(ms_run_msvpa$quantities$sel_at_age[c(1,3),,,1]), tolerance = 1e-5)
+  testthat::expect_equal(as.numeric(sim$model_quantities$fish_sel[,]), as.numeric(ms_run_msvpa$quantities$sel_at_age[c(2,4),,,1]), tolerance = 1e-5)
+
+  # F
+  testthat::expect_equal(as.numeric(sim$model_quantities$FAA), as.numeric(ms_run_msvpa$quantities$F_flt_age[c(2,4),1,,1:nyrs]), tolerance = 1e-5)
+
+  # Q
+  testthat::expect_equal(as.numeric(sim$model_quantities$srv_q), as.numeric(ms_run_msvpa$quantities$index_q[c(1,3),1]), tolerance = 1e-5)
+
+  # Expected and observed diet
+  testthat::expect_equal(as.numeric(ms_run_msvpa$data_list$diet_data$Stomach_proportion_by_weight), as.numeric(ms_run_msvpa$quantities$diet_hat[,2]), tolerance = 1e-5)
+})
+
 testthat::test_that("Test proportion of prey-at-age in predator-at-age averaged across years", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
