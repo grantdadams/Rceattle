@@ -46,7 +46,7 @@ build_params <- function(data_list) {
   if(!is.null(data_list$srr_prior)){
     param_list$rec_pars[,2] <- log(data_list$srr_prior)
   } else{
-    print("Warnings: alpha was not initialized to `srr_prior` from `build_srr`")
+    message("Warning: alpha was not initialized to `srr_prior` from `build_srr`")
   }
 
   # - Env regression parameters for recruitment

@@ -1,6 +1,8 @@
 
-test_that("test recruitment linkeage and mean rec", {
-  library(Rceattle)
+test_that("Test environmental linkeage with mean rec", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
 
   # Change WT and M for SSB
@@ -44,21 +46,21 @@ test_that("test recruitment linkeage and mean rec", {
                                                  srr_indices = 1
                               ),
                               initMode = 2,
-                              verbose = 1)
+                              verbose = 0)
 
 
   # Check ssb
   for(sp in 1:3){
-    expect_equal(as.numeric(ss_run$quantities$R[sp,1:nyrs]),  exp(R0[sp] + GOA2018SS$env_data$EnvIndex * sp), tolerance = 0.0001)
+    testthat::expect_equal(as.numeric(ss_run$quantities$R[sp,1:nyrs]),  exp(R0[sp] + GOA2018SS$env_data$EnvIndex * sp), tolerance = 0.0001)
   }
 
 })
 
 
+testthat::test_that("Test multiple recruitment linkeages with mean rec", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
 
-
-test_that("test multiple recruitment linkeages and mean rec", {
-  library(Rceattle)
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
 
   # Change WT and M for SSB
@@ -102,19 +104,21 @@ test_that("test multiple recruitment linkeages and mean rec", {
                                                  srr_indices = c(1,2,3)
                               ),
                               initMode = 1,
-                              verbose = 1)
+                              verbose = 0)
 
 
   # Check ssb
   for(sp in 1:3){
-    expect_equal(as.numeric(ss_run$quantities$R[sp,1:nyrs]),  as.numeric(exp(R0[sp] + as.matrix(GOA2018SS$env_data[,-1]) %*% inits$beta_rec_pars[sp,])), tolerance = 0.0001)
+    testthat::expect_equal(as.numeric(ss_run$quantities$R[sp,1:nyrs]),  as.numeric(exp(R0[sp] + as.matrix(GOA2018SS$env_data[,-1]) %*% inits$beta_rec_pars[sp,])), tolerance = 0.0001)
   }
 })
 
 
 
-test_that("test multiple M linkeages", {
-  library(Rceattle)
+testthat::test_that("Test multiple M linkeages", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
 
   # Change WT and M for SSB
@@ -156,23 +160,25 @@ test_that("test multiple M linkeages", {
                                                M1_indices = c(1,2,3)
                               ),
                               initMode = 1,
-                              verbose = 1)
+                              verbose = 0)
 
 
 
-  expect_equal(as.numeric(ss_run$quantities$M_at_age),  as.numeric(ss_run$quantities$M1_at_age), tolerance = 0.0001)
+  testthat::expect_equal(as.numeric(ss_run$quantities$M_at_age),  as.numeric(ss_run$quantities$M1_at_age), tolerance = 0.0001)
 
   # Check M
   for(sp in 1:3){
-    expect_equal(as.numeric(ss_run$quantities$M_at_age[sp,1,1,1:nyrs]),  as.numeric(0.2*exp(as.matrix(GOA2018SS$env_data[,-1]) %*% inits$M1_beta[sp,1,])), tolerance = 0.0001)
-    expect_equal(as.numeric(ss_run$quantities$M_at_age[sp,1,5,1:nyrs]),  as.numeric(0.2*exp(as.matrix(GOA2018SS$env_data[,-1]) %*% inits$M1_beta[sp,1,])), tolerance = 0.0001)
+    testthat::expect_equal(as.numeric(ss_run$quantities$M_at_age[sp,1,1,1:nyrs]),  as.numeric(0.2*exp(as.matrix(GOA2018SS$env_data[,-1]) %*% inits$M1_beta[sp,1,])), tolerance = 0.0001)
+    testthat::expect_equal(as.numeric(ss_run$quantities$M_at_age[sp,1,5,1:nyrs]),  as.numeric(0.2*exp(as.matrix(GOA2018SS$env_data[,-1]) %*% inits$M1_beta[sp,1,])), tolerance = 0.0001)
   }
 })
 
 
 
-test_that("test single M, multiple M/sex linkeages, M both-sex linkage", {
-  library(Rceattle)
+testthat::test_that("Test single M, multiple M/sex linkeages, M both-sex linkage", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
 
   # Change WT and M for SSB
@@ -216,25 +222,23 @@ test_that("test single M, multiple M/sex linkeages, M both-sex linkage", {
                                                M1_indices = c(1,2,3)
                               ),
                               initMode = 1,
-                              verbose = 1)
+                              verbose = 0)
 
 
 
-  expect_equal(as.numeric(ss_run$quantities$M_at_age),  as.numeric(ss_run$quantities$M1_at_age), tolerance = 0.0001)
+  testthat::expect_equal(as.numeric(ss_run$quantities$M_at_age),  as.numeric(ss_run$quantities$M1_at_age), tolerance = 0.0001)
 
   # Check M
   # - Pollock fixed M
-  expect_equal(as.numeric(ss_run$quantities$M_at_age[1,1,1:10,]),  rep(0.2, length(ss_run$quantities$M_at_age[1,1,1:10,])), tolerance = 0.0001)
+  testthat::expect_equal(as.numeric(ss_run$quantities$M_at_age[1,1,1:10,]),  rep(0.2, length(ss_run$quantities$M_at_age[1,1,1:10,])), tolerance = 0.0001)
 
   # - ATF sex-time env varying
-  expect_equal(as.numeric(ss_run$quantities$M_at_age[2,1,5,1:nyrs]),  as.numeric(0.2*exp(as.matrix(GOA2018SS$env_data[,-1]) %*% inits$M1_beta[2,1,])), tolerance = 0.0001)
-  expect_equal(as.numeric(ss_run$quantities$M_at_age[2,2,2,1:nyrs]),  as.numeric(0.2*exp(as.matrix(GOA2018SS$env_data[,-1]) %*% inits$M1_beta[2,2,])), tolerance = 0.0001)
-
-
+  testthat::expect_equal(as.numeric(ss_run$quantities$M_at_age[2,1,5,1:nyrs]),  as.numeric(0.2*exp(as.matrix(GOA2018SS$env_data[,-1]) %*% inits$M1_beta[2,1,])), tolerance = 0.0001)
+  testthat::expect_equal(as.numeric(ss_run$quantities$M_at_age[2,2,2,1:nyrs]),  as.numeric(0.2*exp(as.matrix(GOA2018SS$env_data[,-1]) %*% inits$M1_beta[2,2,])), tolerance = 0.0001)
 
   # - Cod env varying
-  expect_equal(as.numeric(ss_run$quantities$M_at_age[3,1,5,1:nyrs]),  as.numeric(0.2*exp(as.matrix(GOA2018SS$env_data[,-1]) %*% inits$M1_beta[3,1,])), tolerance = 0.0001)
-  expect_equal(as.numeric(ss_run$quantities$M_at_age[3,2,2,1:nyrs]),  rep(0, length(ss_run$quantities$M_at_age[3,2,2,1:nyrs])), tolerance = 0.0001)
+  testthat::expect_equal(as.numeric(ss_run$quantities$M_at_age[3,1,5,1:nyrs]),  as.numeric(0.2*exp(as.matrix(GOA2018SS$env_data[,-1]) %*% inits$M1_beta[3,1,])), tolerance = 0.0001)
+  testthat::expect_equal(as.numeric(ss_run$quantities$M_at_age[3,2,2,1:nyrs]),  rep(0, length(ss_run$quantities$M_at_age[3,2,2,1:nyrs])), tolerance = 0.0001)
 })
 
 

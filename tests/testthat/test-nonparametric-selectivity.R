@@ -1,6 +1,8 @@
 
-test_that("non-parametric selectivity not normalized", {
-  library(Rceattle)
+testthat::test_that("Test non-parametric selectivity not normalized", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
 
   # Adjust data
@@ -13,7 +15,7 @@ test_that("non-parametric selectivity not normalized", {
   GOA2018SS$fleet_control$Time_varying_sel <- 0
   GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
 
-  inits <- build_params(GOA2018SS)
+  inits <- suppressMessages(build_params(GOA2018SS))
 
 
   # ADMB code
@@ -63,7 +65,7 @@ test_that("non-parametric selectivity not normalized", {
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              verbose = 1)
+                              verbose = 0)
 
   # Check selectivity
   # - Pollock

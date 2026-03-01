@@ -1,369 +1,203 @@
-# TODO: fleet_code to fleet_index
-# Get rid of sex ratio in control
-# call "wt" "weight"
-# call "pmature" "maturity"
+testthat::test_that("Test IID year time-varying M", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
 
-test_that("Simulated simple model the same" {
-  # Simulate Data -----------------------------------------------------------
-  # Adapted from Matt Cheng
-  sim_pop_model <- function(years,
-                            ages,
-                            WAA,
-                            MatAA,
-                            mean_Rec,
-                            sigma_R,
-                            sigma_catch,
-                            sigma_srv,
-                            fish_ISS,
-                            srv_ISS,
-                            M,
-                            sigmaM,
-                            rhoM,
-                            fish_sel,
-                            srv_sel,
-                            Fmort,
-                            srv_q) {
+  # Prepare small deterministic dataset using helper
+  #source(file.path("tests", "testthat", "helpers.R"))
 
-    n_yrs <- length(years)
-    n_ages <- length(ages)
-
-    # Initialize arrays
-    NAA <- array(0, dim = c(n_yrs + 1, n_ages))  # Numbers at age
-    ZAA <- array(0, dim = c(n_yrs, n_ages))      # Total mortality
-    CAA <- array(0, dim = c(n_yrs, n_ages))      # Catch at age
-    FAA <- array(0, dim = c(n_yrs, n_ages))      # Fishing mortality at age
-
-    # Population metrics
-    SSB <- numeric(n_yrs)
-    Total_Biom <- numeric(n_yrs)
-    Catch <- numeric(n_yrs)
-
-    # Generate recruitment deviations
-    rec_devs <- rnorm(n_yrs, 0, sigma_R)
-    init_devs <- rnorm(n_ages - 2, 0, sigma_R)
-
-    # Generate M deviations
-    M_vec <- arima.sim(n = n_yrs, list(order=c(1,0,0), ar=rhoM), sd = sigmaM)
-    M = M * exp(-M_vec)
-
-    # Initialize population
-    init_age_idx <- 1:(n_ages - 2)
-    NAA[1, init_age_idx + 1] <- mean_Rec * exp(init_devs - (init_age_idx * M[1]))
-    NAA[1, n_ages] <- mean_Rec * exp(-(n_ages - 1) * M[1]) / (1 - exp(-M[1]))
-
-    # Project population forward
-    for(y in 1:n_yrs) {
-      # New recruits
-      NAA[y, 1] <- mean_Rec * exp(rec_devs[y])
-
-      # Calculate mortality
-      FAA[y,] <- Fmort[y] * fish_sel
-      ZAA[y,] <- FAA[y,] + M[y]
-
-      # Calculate catch
-      CAA[y,] <- FAA[y,] / ZAA[y,] * NAA[y,] * (1 - exp(-ZAA[y,]))
-
-      # Project survivors
-      if(y < n_yrs) {
-        for(a in 1:(n_ages-1)) {
-          NAA[y+1, a+1] <- NAA[y, a] * exp(-ZAA[y, a])
-        }
-        # Plus group
-        NAA[y+1, n_ages] <- NAA[y+1, n_ages] + NAA[y, n_ages] * exp(-ZAA[y, n_ages])
-      }
-
-      # Calculate annual metrics
-      Total_Biom[y] <- sum(NAA[y,] * WAA)
-      SSB[y] <- sum(NAA[y,] * WAA * MatAA) * 0.5
-      Catch[y] <- sum(CAA[y,] * WAA)
-    }
-
-    # Observation model
-    ObsCatch <- Catch * rlnorm(n_yrs, 0, sigma_catch)
-
-    # Survey observations
-    SrvIdx <- srv_q * Total_Biom * rlnorm(n_yrs, 0, sigma_srv)
-
-    # Age composition data (simplified multinomial)
-    ObsFishAges <- array(0, dim=c(n_yrs, n_ages))
-    ObsSrvAges <- array(0, dim=c(n_yrs, n_ages))
-
-    for(y in 1:n_yrs) {
-      # Fishery ages
-      ObsFishAges[y,] <- rmultinom(1, fish_ISS, CAA[y,])
-      # Survey ages
-      ObsSrvAges[y,] <- rmultinom(1, srv_ISS, NAA[y,] * srv_sel)
-    }
-
-    # Return list of true and observed values
-    return(list(
-      NAA = NAA,
-      CAA = CAA,
-      FAA = FAA,
-      SSB = SSB,
-      Total_Biom = Total_Biom,
-      Catch = Catch,
-      ObsCatch = ObsCatch,
-      SrvIdx = SrvIdx,
-      ObsFishAges = ObsFishAges,
-      ObsSrvAges = ObsSrvAges,
-      fish_sel = fish_sel,
-      srv_sel = srv_sel,
-      WAA = WAA,
-      MatAA = MatAA,
-      M = M,
-      srv_q = srv_q,
-      rec_devs = rec_devs,
-      init_devs = init_devs
-    ))
-  }
-
-  # Set up simulation -------------------------------------------------------------
-  nyrs = 40
-  years <- 1:nyrs
-  ages <- 1:15
-  WAA <- 2 / (1 + exp(-0.8 * (ages - 3)))
-  MatAA <- 1 / (1 + exp(-1 * (ages - 5)))
-  sigma_R <- 0.3
-  sigma_Catch <- 0.001
-  sigma_SrvIdx <- 0.001
+  # 1) Set up simulation
+  nyrs = 30
+  nspp = 2
+  M1rho = 0
+  M1sd = 0.1
   Fmort <- c(seq(0.02, 0.3, length.out = nyrs/2), seq(0.3, 0.05, length.out = nyrs/2))
+  Fmort2 <- seq(0.02, 0.3, length.out = nyrs)
+  log_phi = matrix(-Inf, nspp, nspp, byrow = TRUE)
 
   # First, simulate some data for the model
   set.seed(123)
-  sim <- sim_pop_model(years = years,
-                       ages = ages,
-                       WAA = WAA,
-                       MatAA = MatAA,
-                       mean_Rec = 50,
-                       sigma_R = sigma_R,
-                       sigma_catch = sigma_Catch,
-                       sigma_srv = sigma_SrvIdx,
-                       fish_ISS = 1e7,
-                       srv_ISS = 1e7,
-                       M = 0.3,
-                       sigmaM = 0.05,
-                       rhoM = 0.9,
-                       fish_sel = 1 / (1 + exp(-2.5 * (ages - 6))),
-                       srv_sel = 1 / (1 + exp(-2 * (ages - 3))),
-                       Fmort = Fmort,
-                       srv_q = 1)
+  sim <- make_msm_test_data(
+    years = 1:nyrs,
+    Fmort = matrix(c(Fmort, Fmort2), nspp, nyrs, byrow = TRUE),
 
+    # Time-varying M
+    rhoM = M1rho,
+    sigmaM = M1sd,
 
-  # Plot ----
-  plot(y = sim$SSB, x = 1:nyrs, type = "l")
-  plot(y = sim$M, x = 1:nyrs, type = "l")
-
-
-  # Set up Rceattle data -------------------------------------------------------------
-  library(Rceattle)
-  data("GOAcod")
-  simData <- GOAcod
-
-  # * Data controls ----
-  simData$nspp <- 1
-  simData$styr <- 1
-  simData$endyr <- nyrs
-  simData$projyr <- nyrs+10
-  simData$nsex <- 1
-  simData$nages <- 15
-  simData$minage <- 1
-  simData$nlengths <- 15
-  simData$pop_wt_index <- 1
-  simData$ssb_wt_index <- 1
-  simData$pop_age_transition_index <- 1
-
-  # * Fleet control ----
-  simData$fleet_control <- GOAcod$fleet_control
-  simData$fleet_control <- simData$fleet_control[c(1,3),] # BT and Trawl Fishery are both simple logistic
-  simData$fleet_control$Fleet_name <- c("Survey", "Fishery")
-  simData$fleet_control$Fleet_code <- 1:2
-  simData$fleet_control$Selectivity_index <- 1:2
-  simData$fleet_control$Weight_index <- 1
-
-  # * Index data ----
-  simData$index_data <- data.frame(Fleet_name = "Survey",
-                                   Fleet_code = 1,
-                                   Species = 1,
-                                   Year = 1:nyrs,
-                                   Month = 0,
-                                   Selectivity_block = 1,
-                                   Q_block = 1,
-                                   Observation = sim$SrvIdx,
-                                   Log_sd = sigma_SrvIdx)
-
-  # * Catch data ----
-  simData$catch_data <- data.frame(Fleet_name = "Fishery",
-                                   Fleet_code = 2,
-                                   Species = 1,
-                                   Year = 1:nyrs,
-                                   Month = 0,
-                                   Selectivity_block = 1,
-                                   Catch = sim$ObsCatch,
-                                   Log_sd = sigma_Catch)
-
-  # * Comp data ----
-  # - Index
-  tmp <- sim$ObsSrvAges
-  colnames(tmp) <- paste0("Comp_",1:15)
-  index_comp <- cbind(data.frame(Fleet_name = "Survey",
-                                 Fleet_code = 1,
-                                 Species = 1,
-                                 Sex = 0,
-                                 Age0_Length1 = 0,
-                                 Year = 1:nyrs,
-                                 Month = 0,
-                                 Sample_size = rowSums(tmp)),
-                      tmp
+    # Multispecies bits
+    log_phi = log_phi # set to -Inf so no predation
   )
 
-  # - Fishery
-  tmp <- sim$ObsFishAges
-  colnames(tmp) <- paste0("Comp_",1:15)
-  fishery_comp <- cbind(data.frame(Fleet_name = "Fishery",
-                                   Fleet_code = 2,
-                                   Species = 1,
-                                   Sex = 0,
-                                   Age0_Length1 = 0,
-                                   Year = 1:nyrs,
-                                   Month = 0,
-                                   Sample_size = rowSums(tmp)),
-                        tmp
+  # sum(sim$model_quantities$B_eaten_as_prey)
+
+  # Set up Rceattle data
+  simData <- sim$data_list
+
+
+  # Fit multi-species
+  # * Fix parameters -----
+  inits <- suppressMessages(build_params(simData))
+  inits$sel_inf[1,,1] <- c(3,6,2.5,4)
+  inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
+  inits$ln_F[2,] <- log(Fmort)
+  inits$ln_F[4,] <- log(Fmort2)
+  inits$rec_pars[,1] <- log(c(1e2, 1e3))
+  inits$index_ln_q[] <- log(1)
+  inits$R_ln_sd[] <- log(1)
+  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
+  inits$init_dev[,1:14] <- sim$model_quantities$init_devs
+  inits$ln_M1[,1,] <- log(sim$model_quantities$M)
+  for(sp in 1:2){
+    for(age in 1:15){
+      inits$ln_M1_dev[sp,1,age,1:nyrs] <- sim$model_quantities$M_vec[sp,]
+    }
+  }
+
+  inits$M1_rho[] <- atanh(M1rho)
+  inits$M1_dev_ln_sd[] <- log(M1sd)
+  simData$M1_model = 1
+  simData$M1_re = 2
+
+  ss_run1 <- Rceattle::fit_mod(data_list = simData,
+                               inits = inits, # Initial parameters = 0
+                               file = NULL, # Don't save
+                               estimateMode = 3, # Estimate
+                               random_rec = FALSE, # No random recruitment
+                               M1Fun = build_M1(M1_model = 1, # Estimable M
+                                                M1_re = 2), # IID year
+                               phase = FALSE,
+                               msmMode = 0,
+                               initMode = 2,
+                               verbose = 0)
+
+  # Recruitment
+  testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,1,]), as.numeric(ss_run1$quantities$R[,1:nyrs]))
+  testthat::expect_equal(as.numeric(sim$model_quantities$Total_Biom), as.numeric(ss_run1$quantities$biomass[,1:nyrs]), tolerance = 1e-6)
+
+  # M
+  testthat::expect_equal(as.numeric(sim$model_quantities$MAA), as.numeric(ss_run1$quantities$M_at_age[,1,,1:nyrs]), tolerance = 1e-6)
+
+  # M map
+  # - Devs
+  testthat::expect_equal(matrix(ss_run1$map$mapList$ln_M1_dev[1,1,,], 15, 40), matrix(c(1:30, rep(NA, 10)), 15, 40, byrow = TRUE))
+  testthat::expect_equal(matrix(ss_run1$map$mapList$ln_M1_dev[2,1,,], 15, 40), matrix(c(31:60, rep(NA, 10)), 15, 40, byrow = TRUE))
+
+  # - SD and rho
+  testthat::expect_equal(as.numeric(ss_run1$map$mapList$M1_rho[,1,]), as.numeric(rep(NA, 4)))
+  testthat::expect_equal(matrix(ss_run1$map$mapList$M1_dev_ln_sd, 2, 1), matrix(1:2, 2, 1))
+
+  # SD and rho
+  ss_run1$quantities$rho_M_y
+  ss_run1$quantities$Sigma_M
+
+  # N
+  testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,,]), as.numeric(ss_run1$quantities$N_at_age[,1,,1:nyrs]))
+
+  # Likelihood
+  expected_nll <- calc_nll_ar1_1d(x = sim$model_quantities$M_vec[1,], sd = M1sd, rho = M1rho)
+  obs_nll <- ss_run1$quantities$jnll_comp[16,1]
+
+  testthat::expect_equal(expected_nll, obs_nll)
+
+})
+
+
+
+testthat::test_that("Test AR1 year time-varying M", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  # Prepare small deterministic dataset using helper
+  #source(file.path("tests", "testthat", "helpers.R"))
+
+  # 1) Set up simulation
+  nyrs = 30
+  nspp = 2
+  M1rho = 0.9
+  M1sd = 0.1
+  Fmort <- c(seq(0.02, 0.3, length.out = nyrs/2), seq(0.3, 0.05, length.out = nyrs/2))
+  Fmort2 <- seq(0.02, 0.3, length.out = nyrs)
+  log_phi = matrix(-Inf, nspp, nspp, byrow = TRUE)
+
+  # First, simulate some data for the model
+  set.seed(123)
+  sim <- make_msm_test_data(
+    years = 1:nyrs,
+    Fmort = matrix(c(Fmort, Fmort2), nspp, nyrs, byrow = TRUE),
+
+    # Time-varying M
+    rhoM = M1rho,
+    sigmaM = M1sd,
+
+    # Multispecies bits
+    log_phi = log_phi # set to -Inf so no predation
   )
 
-  simData$comp_data <- rbind(index_comp, fishery_comp)
+  # sum(sim$model_quantities$B_eaten_as_prey)
 
-  # * Empirical selectivity ----
-  simData$emp_sel[] <- NA
-
-  # * Fixed numbers ----
-  simData$NByageFixed[] <- NA
+  # Set up Rceattle data
+  simData <- sim$data_list
 
 
-  # * Age transition matrix ----
-  tmp <- as.data.frame(diag(1,15))
-  colnames(tmp) <- paste0("Length_",1:15)
-  simData$age_trans_matrix <- cbind(data.frame(Age_transition_name = "Base",
-                                               Age_transition_index = 1,
-                                               Species = 1,
-                                               Sex = 0,
-                                               Age = 1:15),
-                                    tmp
-  )
+  # Fit multi-species
+  # * Fix parameters -----
+  inits <- suppressMessages(build_params(simData))
+  inits$sel_inf[1,,1] <- c(3,6,2.5,4)
+  inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
+  inits$ln_F[2,] <- log(Fmort)
+  inits$ln_F[4,] <- log(Fmort2)
+  inits$rec_pars[,1] <- log(c(1e2, 1e3))
+  inits$index_ln_q[] <- log(1)
+  inits$R_ln_sd[] <- log(1)
+  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
+  inits$init_dev[,1:14] <- sim$model_quantities$init_devs
+  inits$ln_M1[,1,] <- log(sim$model_quantities$M)
+  for(sp in 1:2){
+    for(age in 1:15){
+      inits$ln_M1_dev[sp,1,age,1:nyrs] <- sim$model_quantities$M_vec[sp,]
+    }
+  }
+
+  inits$M1_rho[] <- atanh(M1rho)
+  inits$M1_dev_ln_sd[] <- log(M1sd)
+  simData$M1_model = 1
+  simData$M1_re = 5
+
+  ss_run1 <- Rceattle::fit_mod(data_list = simData,
+                               inits = inits, # Initial parameters = 0
+                               file = NULL, # Don't save
+                               estimateMode = 3, # Estimate
+                               random_rec = FALSE, # No random recruitment
+                               M1Fun = build_M1(M1_model = 1, # Estimable M
+                                                M1_re = 5), # AR1 year
+                               phase = FALSE,
+                               msmMode = 0,
+                               initMode = 2,
+                               verbose = 0)
+
+  # Recruitment
+  testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,1,]), as.numeric(ss_run1$quantities$R[,1:nyrs]))
+  testthat::expect_equal(as.numeric(sim$model_quantities$Total_Biom), as.numeric(ss_run1$quantities$biomass[,1:nyrs]), tolerance = 1e-6)
+
+  # M
+  testthat::expect_equal(as.numeric(sim$model_quantities$MAA), as.numeric(ss_run1$quantities$M_at_age[,1,,1:nyrs]), tolerance = 1e-6)
+
+  # M map
+  # - Devs
+  testthat::expect_equal(matrix(ss_run1$map$mapList$ln_M1_dev[1,1,,], 15, 40), matrix(c(1:30, rep(NA, 10)), 15, 40, byrow = TRUE))
+  testthat::expect_equal(matrix(ss_run1$map$mapList$ln_M1_dev[2,1,,], 15, 40), matrix(c(31:60, rep(NA, 10)), 15, 40, byrow = TRUE))
+
+  # - SD and rho
+  testthat::expect_equal(matrix(ss_run1$map$mapList$M1_rho, 2, 2), matrix(c(rep(NA, 2), 1:2), 2, 2))
+  testthat::expect_equal(matrix(ss_run1$map$mapList$M1_dev_ln_sd, 2, 1), matrix(1:2, 2, 1))
 
 
-  # * Age error ----
-  tmp <- as.data.frame(diag(1,15))
-  colnames(tmp) <- paste0("Obs_age",1:15)
-  simData$age_error <- cbind(data.frame(Species = 1,
-                                        True_age = 1:15),
-                             tmp
-  )
+  # N
+  testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,,]), as.numeric(ss_run1$quantities$N_at_age[,1,,1:nyrs]))
 
-  # * Weight-at-age ----
-  WAA <- as.data.frame(matrix(WAA, ncol = 15))
-  colnames(WAA) <- paste0("Age",1:15)
-  simData$weight <- cbind(data.frame(Wt_name = "Base",
-                                 Wt_index = 1,
-                                 Species = 1,
-                                 Sex = 0,
-                                 Year = 0),
-                      WAA
-  )
+  # Likelihood
+  expected_nll <- calc_nll_ar1_1d(x = sim$model_quantities$M_vec[1,], sd = M1sd, rho = M1rho)
+  obs_nll <- ss_run1$quantities$jnll_comp[16,1]
 
-  # * Maturity ----
-  MatAA <- as.data.frame(matrix(MatAA, ncol = 15))
-  colnames(MatAA) <- paste0("Age",1:15)
-  simData$maturity <- cbind(data.frame(Species = 1),
-                           MatAA
-  )
-
-  # * Sex ratio ----
-  sexratio <- as.data.frame(matrix(0.5, ncol = 15))
-  colnames(sexratio) <- paste0("Age",1:15)
-  simData$sex_ratio <- cbind(data.frame(Species = 1),
-                             sexratio
-  )
-
-  # * Mortality ----
-  mort <- as.data.frame(matrix(0.3, ncol = 15))
-  colnames(mort) <- paste0("Age",1:15)
-  simData$M1_base <- cbind(data.frame(Species = 1,
-                                      Sex = 0),
-                           mort
-  )
-
-  # * Environmental data ----
-  simData$env_data <- data.frame(Year = 1:nyrs,
-                                 EnvData = 1)
-
-
-  # * Relative foraging rate (days) ----
-  pyrs <- as.data.frame(matrix(1, nrow = nyrs, ncol = 15))
-  colnames(pyrs) <- paste0("Age",1:15)
-  simData$ration_data <- cbind(data.frame(Species = 1,
-                                   Sex = 0,
-                                   Year = 1:nyrs),
-                        pyrs
-  )
-
-  simData$diet_data <- GOAcod$b
-  simData$diet_data <- GOAcod$diet_data
-
-
-  # Fit Rceattle -------------------------------------------------------------
-  # - Fixed M
-  ss_run <- Rceattle::fit_mod(data_list = simData,
-                              inits = NULL, # Initial parameters = 0
-                              file = NULL, # Don't save
-                              estimateMode = 0, # Estimate
-                              random_rec = FALSE, # No random recruitment
-                              M1Fun = build_M1(M1_model = 1), # Estimate M
-                              msmMode = 0, # Single species mode
-                              phase = TRUE,
-                              verbose = 1)
-
-  plot(x = sim$SSB, y = ss_run$quantities$ssb[1,1:nyrs]); abline(1,1)
-  plot(x = sim$Total_Biom, y = ss_run$quantities$biomass[1,1:nyrs], ylab = "Rceattle biomass", xlab = "True biomass"); abline(1,1)
-  plot(x = sim$NAA[1:nyrs,1], y = ss_run$quantities$R[1,1:nyrs]); abline(1,1)
-
-  # - IID M
-  ss_run_re <- Rceattle::fit_mod(data_list = simData,
-                              inits = ss_run$estimated_params, # Initial parameters = 0
-                              file = NULL, # Don't save
-                              estimateMode = 0, # Estimate
-                              M1Fun = build_M1(M1_model = 1,
-                                               M1_re = 2), # Estimate M with IID year devs
-                              random_rec = FALSE, # No random recruitment
-                              msmMode = 0, # Single species mode
-                              phase = FALSE,
-                              verbose = 1)
-
-  plot(x = sim$SSB, y = ss_run_re$quantities$ssb[1,1:nyrs]); abline(1,1)
-  plot(x = sim$Total_Biom, y = ss_run_re$quantities$biomass[1,1:nyrs], ylab = "Rceattle biomass", xlab = "True biomass"); abline(1,1)
-  plot(x = sim$NAA[1:nyrs,1], y = ss_run_re$quantities$R[1,1:nyrs]); abline(1,1)
-  plot(x = sim$M[1:nyrs], y = ss_run_re$quantities$M1_at_age[1,1,1,1:nyrs], ylab = "Rceattle M", xlab = "True M");
-  lines(0:1, 0:1)
-
-  # - AR1 M
-  ss_run_AR1 <- Rceattle::fit_mod(data_list = simData,
-                                 inits = ss_run_re$estimated_params, # Initial parameters = 0
-                                 file = NULL, # Don't save
-                                 estimateMode = 0, # Estimate
-                                 M1Fun = build_M1(M1_model = 1,
-                                                  M1_re = 5), # Estimate M with AR1 year devs
-                                 random_rec = FALSE, # No random recruitment
-                                 msmMode = 0, # Single species mode
-                                 phase = FALSE,
-                                 verbose = 1)
-
-  plot(x = sim$SSB, y = ss_run_AR1$quantities$ssb[1,1:nyrs]); abline(1,1)
-  plot(x = sim$Total_Biom, y = ss_run_AR1$quantities$biomass[1,1:nyrs], ylab = "Rceattle biomass", xlab = "True biomass"); abline(1,1)
-  plot(x = sim$NAA[1:nyrs,1], y = ss_run_AR1$quantities$R[1,1:nyrs]); abline(1,1)
-  plot(x = sim$M[1:nyrs], y = ss_run_AR1$quantities$M1_at_age[1,1,1,1:nyrs], ylab = "Rceattle M", xlab = "True M"); abline(1,1)
-
-
-
-
-  expect_equal(sim$SSB[1], 45.80138, tolerance = 0.0001)
+  testthat::expect_equal(expected_nll, obs_nll)
 })

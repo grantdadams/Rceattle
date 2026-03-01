@@ -1,6 +1,9 @@
 #' Retrospective peels
 #'
-#' @description Calculate Mohn's rho and run retrospective peels for an Rceattle model. Note, it does not do reweighting for multinomial distributions.
+#' @description Calculate Mohn's rho and run retrospective peels for an Rceattle model. The function also evaluates retrospective forecast skill. To evaluate both retrospective bias and forecast skill, the function uses the map functionality of TMB to peel the model:
+#' 1. Filters data, filters fixed inputs, and maps out time-varying parameters for the peeled years. All time-varying parameters for the peeled years are set to the terminal year of the model for that peel.
+#' 2. Fits the peeled model.
+#' 3. Turns off all hindcast parameters, turns on F for the peeled years, and fits to the peeled catch series to update the "forecast" dynamics given projection assumptions and observed catch from the peeled years.
 #'
 #' @param Rceattle an Rceattle model fit using \code{\link{fit_mod}}
 #' @param peels the number of retrospective peels to use in the calculation of rho and for model estimation
@@ -53,26 +56,39 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
 
 
     # * Turn off data after endyr_peel ----
-    # - Catch is retained to update model dynamics
     data_list$index_data <- data_list$index_data %>%
       dplyr::filter(Year <= endyr_peel)
-    #dplyr::mutate(Year = ifelse(Year > endyr_peel, -Year, Year))
 
     data_list$comp_data <- data_list$comp_data %>%
       dplyr::filter(Year <= endyr_peel)
-    #dplyr::mutate(Year = ifelse(Year > endyr_peel, - Year, Year))
+	  
+    data_list$caal_data <- data_list$caal_data %>%
+      dplyr::filter(Year <= endyr_peel)
 
     data_list$diet_data <- data_list$diet_data %>%
       dplyr::filter(Year <= endyr_peel)
-    #dplyr::mutate(Year = ifelse(Year > endyr_peel, - Year, Year))
+
+    peeled_catch_data <- data_list$catch_data %>%
+      dplyr::filter(Year > endyr_peel)
+    data_list$catch_data$Catch[which(data_list$catch_data$Year > endyr_peel)] <- 0 # Set catch data in peeled years to 0 to avoid fitting
 
 
-    # * Assume weight/ration_data/emp_sel is same as last year of peel ----
-    # -- weight
+    # * Turn off fixed inputs after endyr_peel ----
     #FIXME ignores forecasted growth
     data_list$weight <- data_list$weight %>%
       dplyr::filter(Year <= endyr_peel)
 
+    data_list$emp_sel <- data_list$emp_sel %>%
+      dplyr::filter(Year <= endyr_peel)
+
+    data_list$ration_data <- data_list$ration_data %>%
+      dplyr::filter(Year <= endyr_peel)
+
+    # * Extend fixed inputs for "projection years"
+    # - Assume weight/ration/empirical sel is same as last year of peel
+
+    # - Weight
+    #FIXME ignores forecasted growth
     proj_wt <- data_list$weight %>%
       dplyr::filter(Year != 0)
 
@@ -85,10 +101,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
     data_list$weight  <- rbind(data_list$weight, proj_wt) %>%
       dplyr::arrange(Wt_index, Year)
 
-    # -- emp_sel
-    data_list$emp_sel <- data_list$emp_sel %>%
-      dplyr::filter(Year <= endyr_peel)
-
+    # - Empirical selectivity
     proj_emp_sel <- data_list$emp_sel %>%
       dplyr::filter(Year != 0)
 
@@ -101,10 +114,8 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
         dplyr::arrange(Fleet_code, Year)
     }
 
-    # -- ration_data
-    data_list$ration_data <- data_list$ration_data %>%
-      dplyr::filter(Year <= endyr_peel)
 
+    # - Ration data
     proj_ration_data <- data_list$ration_data %>%
       dplyr::filter(Year != 0)
 
@@ -117,7 +128,6 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
         dplyr::arrange(Species, Year)
     }
 
-
     # * Rescale environmental predictors ----
     if(rescale){
       data_list$env_data <- data_list$env_data %>%
@@ -125,10 +135,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
       data_list$env_data[,2:ncol(data_list$env_data)]<-scale(data_list$env_data[,2:ncol(data_list$env_data)])
     }
 
-
     # * Adjust parameters ----
-    # - Assume selectivity is same as last year of peel
-    # - F remains on to fit to catch
     inits <- Rceattle$estimated_params
     inits$ln_M1_dev[,,,(nyrs_peel+1):nyrs_proj] <- inits$ln_M1_dev[,,,nyrs_peel]
     inits$index_q_dev[,(nyrs_peel+1):nyrs] <- inits$index_q_dev[,nyrs_peel]
@@ -170,8 +177,6 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
     inits$ln_F[zero_catch] <- -999
     map$mapList$ln_F[zero_catch] <- NA
     map$mapFactor$ln_F <- factor(map$mapList$ln_F)
-    rm(zero_catch)
-
 
     # * Refit ----
     newmod <- suppressWarnings(
@@ -233,9 +238,30 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
         verbose = 0)
     )
 
-    # * Forecast ----
+    # Forecast ----
+    peeled_pars <- newmod$estimated_params
+
+    # - Add in peeled catch to fit to
+    data_list$catch_data <- data_list$catch_data %>%
+      dplyr::filter(Year <= endyr_peel) %>%
+      rbind(peeled_catch_data) %>%
+      dplyr::arrange(Fleet_code, Year)
+
+    # - Update map
+    # Only new parameter we are estimating in is the ln_F of the peeled years
+    map <- build_map(
+      data_list = data_list,
+      params = newmod$estimated_params,
+      debug = TRUE,
+      random_rec = newmod$data_list$random_rec)
+    map$mapFactor$dummy <- as.factor(NA); map$mapList$dummy <- NA
+
+    # - Turn on F for peeled years to fit to catch (matches full model)
+    peeled_pars$ln_F[,(nyrs_peel+1):nyrs] <- Rceattle$estimated_params$ln_F[,(nyrs_peel+1):nyrs]
+    map$mapList$ln_F[,(nyrs_peel+1):nyrs] <- Rceattle$map$mapList$ln_F[,(nyrs_peel+1):nyrs]
+    map$mapFactor$ln_F <-  factor(map$mapList$ln_F)
+
     # Adjust forecased rec_dev in new mod for bias and refit
-    inits <- newmod$estimated_params
     for(sp in 1:newmod$data_list$nspp){
 
       # -- where SR curve is estimated directly
@@ -250,15 +276,15 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
       }
 
       # - Update OM with devs
-      inits$rec_dev[sp, (peel_prj_yrs - styr + 1)] <- replace(
-        inits$rec_dev[sp, (peel_prj_yrs - styr + 1)],
+      peeled_pars$rec_dev[sp, (peel_prj_yrs - styr + 1)] <- replace(
+        peeled_pars$rec_dev[sp, (peel_prj_yrs - styr + 1)],
         values =  rec_dev)
     }
 
     newmod <- suppressWarnings(
       Rceattle::fit_mod(
         data_list = data_list,
-        inits = inits,
+        inits = peeled_pars,
         map =  map,
         file = NULL,
         estimateMode = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode), # Run hindcast and projection, otherwise debug
@@ -498,18 +524,18 @@ jitter <- function(Rceattle = NULL, njitter = 50, phase = FALSE, seed = 123) {
                                srr_prior_sd   = data_list$srr_prior_sd,
                                Bmsy_lim = data_list$Bmsy_lim,
                                srr_indices = data_list$srr_indices),
-            M1Fun = build_M1(M1_model = data_list$M1_model,
-                             M1_re = data_list$M1_re,
-                             updateM1 = FALSE,  # Dont update M1 from data, fix at previous parameters
-                             M1_use_prior = data_list$M1_use_prior,
-                             M2_use_prior = data_list$M2_use_prior,
-                             M_prior = data_list$M_prior,
-                             M_prior_sd = data_list$M_prior_sd,
-                             M1_indices = data_list$M1_indices),
             dsem = build_DSEM(sem = data_list$dsem_settings$sem,
                               family = data_list$dsem_settings$family,
                               all_vars = data_list$dsem_settings$all_vars,
                               estimate_projection = data_list$dsem_settings$estimate_projection),
+            M1Fun =     build_M1(M1_model = data_list$M1_model,
+                                 M1_re = data_list$M1_re,
+                                 updateM1 = FALSE,  # Dont update M1 from data, fix at previous parameters
+                                 M1_use_prior = data_list$M1_use_prior,
+                                 M2_use_prior = data_list$M2_use_prior,
+                                 M_prior = data_list$M_prior,
+                                 M_prior_sd = data_list$M_prior_sd,
+                                 M1_indices = data_list$M1_indices),
             growthFun = build_growth(growth_model = data_list$growth_model,
                                      growth_re = data_list$growth_re,
                                      growth_indices = data_list$growth_indices),

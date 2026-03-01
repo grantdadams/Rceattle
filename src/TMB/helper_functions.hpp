@@ -1,3 +1,4 @@
+
 // get sign of double, only for REPORT use
 template<class Type>
 Type sign(Type x){

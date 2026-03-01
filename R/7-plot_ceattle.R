@@ -2841,12 +2841,12 @@ plot_ration <-
     }
 
     # Get ration across ages
-    ration <-
+    consumption_at_age <-
       array(NA, dim = c(nspp, max(nsex), nyrs, length(Rceattle)))
     for (i in 1:length(Rceattle)) {
       for(sp in 1:nspp){
         for(yr in 1:nyrs_vec[i]){
-          ration[sp, , yr, i] <- rowSums(Rceattle[[i]]$quantities$ration[sp,,minage:nages[sp],yr] * Rceattle[[i]]$quantities$biomass_at_age[sp,,minage:nages[sp],yr])/1e6
+          consumption_at_age[sp, , yr, i] <- rowSums(Rceattle[[i]]$quantities$consumption_at_age[sp,,minage:nages[sp],yr] * Rceattle[[i]]$quantities$biomass_at_age[sp,,minage:nages[sp],yr])/1e6
         }
       }
     }
@@ -2856,8 +2856,8 @@ plot_ration <-
     ymin <- matrix(0, nrow = nspp, ncol = 2)
     for (i in 1:nspp) {
       for(sex in 1:nsex[i]){
-        ymax[i,sex] <- max(c(ration[i,sex,, ],0), na.rm = T)
-        ymin[i,sex] <- min(c(ration[i,sex,, ]), na.rm = T)
+        ymax[i,sex] <- max(c(consumption_at_age[i,sex,, ],0), na.rm = T)
+        ymin[i,sex] <- min(c(consumption_at_age[i,sex,, ]), na.rm = T)
       }
     }
     ymax <- ymax + 0.15 * ymax
@@ -2948,10 +2948,10 @@ plot_ration <-
           }
 
           # M-at-age
-          for (k in 1:dim(ration)[4]) {
+          for (k in 1:dim(consumption_at_age)[4]) {
             lines(
               x = years[[k]],
-              y = ration[spp, sex, 1:length(years[[k]]), k],
+              y = consumption_at_age[spp, sex, 1:length(years[[k]]), k],
               lty = lty[k],
               lwd = lwd,
               col = line_col[k]
@@ -2961,7 +2961,7 @@ plot_ration <-
 
           # Average across time
           if(incl_mean){
-            abline(h = mean(ration[spp, sex, 1:length(years[[1]]), ]), lwd  = lwd, col = "grey", lty = 1)
+            abline(h = mean(consumption_at_age[spp, sex, 1:length(years[[1]]), ]), lwd  = lwd, col = "grey", lty = 1)
           }
         }
       }
