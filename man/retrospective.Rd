@@ -24,7 +24,12 @@ retrospective(
 a list of 1. list of Rceattle models and 2. vector of Mohn's rho for each species
 }
 \description{
-Calculate Mohn's rho and run retrospective peels for an Rceattle model. Note, it does not do reweighting for multinomial distributions.
+Calculate Mohn's rho and run retrospective peels for an Rceattle model. The function also evaluates retrospective forecast skill. To evaluate both retrospective bias and forecast skill, the function uses the map functionality of TMB to peel the model:
+\enumerate{
+\item Filters data, filters fixed inputs, and maps out time-varying parameters for the peeled years. All time-varying parameters for the peeled years are set to the terminal year of the model for that peel.
+\item Fits the peeled model.
+\item Turns off all hindcast parameters, turns on F for the peeled years, and fits to the peeled catch series to update the "forecast" dynamics given projection assumptions and observed catch from the peeled years.
+}
 }
 \examples{
 data(BS2017SS) # ?BS2017SS for more information on the data

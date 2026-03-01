@@ -38,18 +38,28 @@ testthat::test_that("Test SPR0 calculation", {
   Rdev <- rnorm(nyrs)
 
   # Set params
-  inits <- build_params(GOA2018SS)
-  inits$rec_pars[,1] <- R0
-
-  # Run
+  # inits <- build_params(GOA2018SS)
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              inits = inits, # Initial parameters = 0
-                              file = NULL, # Don't save
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
                               initMode = 2,
-                              verbose = 1)
+                              verbose = 0)
+  inits <- ss_run$estimated_params
+  map <- ss_run$map
+
+  inits$rec_pars[,1] <- R0
+
+  # Run
+  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
+                              inits = inits, # Initial parameters at input
+                              file = NULL, # Don't save
+                              map = map,
+                              estimateMode = 3, # Don't estimate
+                              random_rec = FALSE, # No random recruitment
+                              msmMode = 0, # Single species mode
+                              initMode = 2,
+                              verbose = 0)
 
   # Calculate SPR
   M <- 0.2

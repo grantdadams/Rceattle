@@ -6,6 +6,7 @@
 #include "bioenergetics.hpp"
 #include "predation.hpp"
 #include "diet_data.hpp"
+#include "dsem.hpp"
 /** ------------------------------------------------------------------------ //
  *                 CEATTLE version 4.0.1 DSEM                                //
  *                  Template Model Builder                                   //
@@ -3068,6 +3069,7 @@ Type objective_function<Type>::operator() () {
   // -- 14.7. Likelihood components
   REPORT( jnll_comp );
   REPORT( unweighted_jnll_comp );
+  REPORT( jnll_dsem );
 
 
   // -- 14.8. Ration components

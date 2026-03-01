@@ -1,7 +1,20 @@
 test_that("logistic selectivity divided by max sel", {
   library(Rceattle)
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
-  inits <- suppressMessages( build_params(GOA2018SS) )
+  GOA2018SS$fleet_control$Selectivity <- 1
+  GOA2018SS$fleet_control$Bin_first_selected <- 1
+  GOA2018SS$fleet_control$Sel_norm_bin1 <- -999
+
+  # inits <- suppressMessages( build_params(GOA2018SS) )
+  ss_run <- suppressMessages(
+    Rceattle::fit_mod(data_list = GOA2018SS,
+                      estimateMode = 3, # Don't estimate
+                      random_rec = FALSE, # No random recruitment
+                      msmMode = 0, # Single species mode
+                      verbose = 1)
+  )
+  inits <- ss_run$estimated_params
+  map <- ss_run$map
 
   # Specify logistic selectivity
   inf = 10; alpha = 0.5
@@ -14,15 +27,13 @@ test_that("logistic selectivity divided by max sel", {
   inits$ln_sel_slp[1,,] <- log(alpha)
   inits$sel_inf[1,,] <- inf     # Females
   inits$sel_inf[1,9:11,2] <- inf + 1 # Males
-  GOA2018SS$fleet_control$Selectivity <- 1
-  GOA2018SS$fleet_control$Bin_first_selected <- 1
-  GOA2018SS$fleet_control$Sel_norm_bin1 <- -999
 
   # Run
   ss_run <- suppressMessages(
     Rceattle::fit_mod(data_list = GOA2018SS,
                       inits = inits, # Initial parameters = 0
                       file = NULL, # Don't save
+                      map = map,
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
@@ -43,7 +54,20 @@ test_that("logistic selectivity divided by max sel", {
 test_that("logistic selectivity not normalized", {
   library(Rceattle)
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
-  inits <- suppressMessages( build_params(GOA2018SS) )
+  GOA2018SS$fleet_control$Selectivity <- 1
+  GOA2018SS$fleet_control$Bin_first_selected <- 1
+  GOA2018SS$fleet_control$Sel_norm_bin1 <- NA
+
+  # inits <- suppressMessages( build_params(GOA2018SS) )
+  ss_run <- suppressMessages(
+    Rceattle::fit_mod(data_list = GOA2018SS,
+                      estimateMode = 3, # Don't estimate
+                      random_rec = FALSE, # No random recruitment
+                      msmMode = 0, # Single species mode
+                      verbose = 1)
+  )
+  inits <- ss_run$estimated_params
+  map <- ss_run$map
 
   # Specify logistic selectivity
   inf = 13; alpha = 0.2
@@ -56,19 +80,17 @@ test_that("logistic selectivity not normalized", {
   inits$ln_sel_slp[1,,] <- log(alpha)
   inits$sel_inf[1,,] <- inf     # Females
   inits$sel_inf[1,9:11,2] <- inf + 1 # Males
-  GOA2018SS$fleet_control$Selectivity <- 1
-  GOA2018SS$fleet_control$Bin_first_selected <- 1
-  GOA2018SS$fleet_control$Sel_norm_bin1 <- NA
 
   # Run
   ss_run <- suppressMessages(
     Rceattle::fit_mod(data_list = GOA2018SS,
-                              inits = inits, # Initial parameters = 0
-                              file = NULL, # Don't save
-                              estimateMode = 3, # Don't estimate
-                              random_rec = FALSE, # No random recruitment
-                              msmMode = 0, # Single species mode
-                              verbose = 1)
+                      inits = inits, # Initial parameters at input
+                      file = NULL, # Don't save
+                      map = map,
+                      estimateMode = 3, # Don't estimate
+                      random_rec = FALSE, # No random recruitment
+                      msmMode = 0, # Single species mode
+                      verbose = 1)
   )
 
   # Check selectivity
@@ -85,7 +107,21 @@ test_that("logistic selectivity not normalized", {
 test_that("logistic selectivity divided by sel-at-age", {
   library(Rceattle)
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
-  inits <- suppressMessages( build_params(GOA2018SS) )
+
+  GOA2018SS$fleet_control$Selectivity <- 1
+  GOA2018SS$fleet_control$Bin_first_selected <- 1
+  GOA2018SS$fleet_control$Sel_norm_bin1 <- 7
+
+  # inits <- suppressMessages( build_params(GOA2018SS) )
+  ss_run <- suppressMessages(
+    Rceattle::fit_mod(data_list = GOA2018SS,
+                      estimateMode = 3, # Don't estimate
+                      random_rec = FALSE, # No random recruitment
+                      msmMode = 0, # Single species mode
+                      verbose = 1)
+  )
+  inits <- ss_run$estimated_params
+  map <- ss_run$map
 
   # Specify logistic selectivity
   inf = 10; alpha = 0.5
@@ -96,19 +132,17 @@ test_that("logistic selectivity divided by sel-at-age", {
   # Set params to logistic
   inits$ln_sel_slp[1,,] <- log(alpha)
   inits$sel_inf[1,,] <- inf
-  GOA2018SS$fleet_control$Selectivity <- 1
-  GOA2018SS$fleet_control$Bin_first_selected <- 1
-  GOA2018SS$fleet_control$Sel_norm_bin1 <- 7
 
   # Run
   ss_run <- suppressMessages(
     Rceattle::fit_mod(data_list = GOA2018SS,
-                              inits = inits, # Initial parameters = 0
-                              file = NULL, # Don't save
-                              estimateMode = 3, # Don't estimate
-                              random_rec = FALSE, # No random recruitment
-                              msmMode = 0, # Single species mode
-                              verbose = 1)
+                      inits = inits, # Initial parameters at input
+                      file = NULL, # Don't save
+                      map = map,
+                      estimateMode = 3, # Don't estimate
+                      random_rec = FALSE, # No random recruitment
+                      msmMode = 0, # Single species mode
+                      verbose = 1)
   )
 
   # Check selectivity
@@ -126,7 +160,21 @@ test_that("logistic selectivity divided by sel-at-age", {
 test_that("logistic selectivity divided by sel-at-age-RANGE", {
   library(Rceattle)
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
-  inits <- suppressMessages( build_params(GOA2018SS) )
+  GOA2018SS$fleet_control$Selectivity <- 1
+  GOA2018SS$fleet_control$Bin_first_selected <- 1
+  GOA2018SS$fleet_control$Sel_norm_bin1 <- 7
+  GOA2018SS$fleet_control$Sel_norm_bin2 <- 9
+
+  # inits <- suppressMessages( build_params(GOA2018SS) )
+  ss_run <- suppressMessages(
+    Rceattle::fit_mod(data_list = GOA2018SS,
+                      estimateMode = 3, # Don't estimate
+                      random_rec = FALSE, # No random recruitment
+                      msmMode = 0, # Single species mode
+                      verbose = 1)
+  )
+  inits <- ss_run$estimated_params
+  map <- ss_run$map
 
   # Specify logistic selectivity
   inf = 10; alpha = 0.5
@@ -137,16 +185,13 @@ test_that("logistic selectivity divided by sel-at-age-RANGE", {
   # Set params to logistic
   inits$ln_sel_slp[1,,] <- log(alpha)
   inits$sel_inf[1,,] <- inf
-  GOA2018SS$fleet_control$Selectivity <- 1
-  GOA2018SS$fleet_control$Bin_first_selected <- 1
-  GOA2018SS$fleet_control$Sel_norm_bin1 <- 7
-  GOA2018SS$fleet_control$Sel_norm_bin2 <- 9
 
   # Run
   ss_run <- suppressMessages(
     Rceattle::fit_mod(data_list = GOA2018SS,
-                      inits = inits, # Initial parameters = 0
+                      inits = inits, # Initial parameters at input
                       file = NULL, # Don't save
+                      map = map,
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
@@ -168,7 +213,24 @@ test_that("logistic selectivity divided by sel-at-age-RANGE", {
 test_that("time-varying logistic selectivity divided by max sel", {
   library(Rceattle)
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
-  inits <- suppressMessages( build_params(GOA2018SS) )
+  GOA2018SS$fleet_control$Selectivity <- 1
+  GOA2018SS$fleet_control$Time_varying_sel <- 1
+  GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
+  GOA2018SS$fleet_control$Bin_first_selected <- 1
+  GOA2018SS$fleet_control$Sel_norm_bin1 <- -999
+
+  # inits <- suppressMessages( build_params(GOA2018SS) )
+  ss_run <- suppressMessages(
+    Rceattle::fit_mod(data_list = GOA2018SS,
+                      estimateMode = 3, # Don't estimate
+                      random_rec = FALSE, # No random recruitment
+                      msmMode = 0, # Single species mode
+                      verbose = 1)
+  )
+  inits <- ss_run$estimated_params
+  map <- ss_run$map
+
+
 
   # Specify logistic selectivity
   nyrs <- GOA2018SS$styr:GOA2018SS$endyr
@@ -189,22 +251,18 @@ test_that("time-varying logistic selectivity divided by max sel", {
       inits$sel_inf_dev[1,i,j,] <- inf_dev
     }
   }
-  GOA2018SS$fleet_control$Selectivity <- 1
-  GOA2018SS$fleet_control$Time_varying_sel <- 1
-  GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
-  GOA2018SS$fleet_control$Bin_first_selected <- 1
-  GOA2018SS$fleet_control$Sel_norm_bin1 <- -999
 
   # Run
   ss_run <- suppressMessages(
-      Rceattle::fit_mod(data_list = GOA2018SS,
-                        inits = inits, # Initial parameters = 0
-                        file = NULL, # Don't save
-                        estimateMode = 3, # Don't estimate
-                        random_rec = FALSE, # No random recruitment
-                        msmMode = 0, # Single species mode
-                        verbose = 0)
-    )
+    Rceattle::fit_mod(data_list = GOA2018SS,
+                      inits = inits, # Initial parameters at input
+                      file = NULL, # Don't save
+                      map = map,
+                      estimateMode = 3, # Don't estimate
+                      random_rec = FALSE, # No random recruitment
+                      msmMode = 0, # Single species mode
+                      verbose = 0)
+  )
 
   # Check selectivity
   # - Pollock
