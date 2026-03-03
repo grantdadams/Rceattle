@@ -770,3 +770,20 @@ calc_nll_ar1_2d <- function(x_matrix, sigma_innov, rho_a, rho_y) {
   return(nll)
 }
 
+
+calc_multinom_nll <- function(obs_num, hat_prop) {
+  p <- hat_prop / sum(hat_prop)
+  # TMB uses the continuous lgamma instead of factorial: x! = gamma(x+1)
+  ll <- lgamma(sum(obs_num) + 1) - sum(lgamma(obs_num + 1)) + sum(obs_num * log(p))
+  return(-ll)
+}
+
+calc_dirmultinom_nll <- function(obs_num, alpha) {
+  N <- sum(obs_num)
+  sum_alpha <- sum(alpha)
+  ll <- lgamma(N + 1) - sum(lgamma(obs_num + 1)) +
+    lgamma(sum_alpha) - lgamma(N + sum_alpha) +
+    sum(lgamma(obs_num + alpha) - lgamma(alpha))
+  return(-ll)
+}
+
