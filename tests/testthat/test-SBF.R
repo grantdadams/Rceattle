@@ -79,3 +79,153 @@ testthat::test_that("Test SPR0 calculation", {
   # Check SPRO
   testthat::expect_equal(as.numeric(ss_run$quantities$SPR0),  rep(sum(ssb_at_age), 3), tolerance = 0.0001)
 })
+
+
+testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
+  data("BS2017SS") # ?BS2017SS for more information on the data
+  BS2017SS$fleet_control$proj_F_prop <- rep(1, 7)
+
+  # -- NPFMC Tier 3
+  ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
+                                    estimateMode = 0,
+                                    msmMode = 0, # Single species mode
+                                    phase = TRUE,
+                                    verbose = 1)
+
+  # -- Constant F as a percentage of SB0
+  ss_run_fb0 <- Rceattle::fit_mod(data_list = BS2017SS,
+                                  inits = ss_run$estimated_params, # Initial parameters from ss_run
+                                  estimateMode = 2, # Run projection only
+                                  HCR = build_hcr(HCR = 3, # Constant F HCR
+                                                  DynamicHCR = FALSE, # Use dynamic reference points
+                                                  Ftarget = 0.4), # F that achieves 40% SB0
+                                  msmMode = 0, # Single species mode
+                                  verbose = 1)
+
+
+  ss_run_dynamicfb0 <- Rceattle::fit_mod(data_list = BS2017SS,
+                                         inits = ss_run$estimated_params, # Initial parameters from ss_run
+                                         estimateMode = 2, # Run projection only
+                                         HCR = build_hcr(HCR = 3, # Constant F HCR
+                                                         DynamicHCR = TRUE, # Use dynamic reference points
+                                                         Ftarget = 0.4), # F that achieves 40% SB0
+                                         msmMode = 0, # Single species mode
+                                         verbose = 1)
+
+
+  # -- Constant Fspr
+  ss_run_Fspr <- Rceattle::fit_mod(data_list = BS2017SS,
+                                   inits = ss_run$estimated_params, # Initial parameters from ss_run
+                                   estimateMode = 2, # Run projection only
+                                   HCR = build_hcr(HCR = 4, # Tier3 HCR
+                                                   Ftarget = 0.4 # F40%
+                                   ),
+                                   msmMode = 0, # Single species mode
+                                   verbose = 1)
+
+
+  ss_run_dynamicFspr <- Rceattle::fit_mod(data_list = BS2017SS,
+                                          inits = ss_run$estimated_params, # Initial parameters from ss_run
+                                          estimateMode = 2, # Run projection only
+                                          HCR = build_hcr(HCR = 4, # Tier3 HCR
+                                                          DynamicHCR = TRUE, # Use dynamic reference points
+                                                          Ftarget = 0.4 # F40%
+                                          ),
+                                          msmMode = 0, # Single species mode
+                                          verbose = 1)
+
+
+  # -- NPFMC Tier 3
+  ss_run_Tier3 <- Rceattle::fit_mod(data_list = BS2017SS,
+                                    inits = ss_run$estimated_params, # Initial parameters from ss_run
+                                    estimateMode = 2, # Run projection only
+                                    HCR = build_hcr(HCR = 5, # Tier3 HCR
+                                                    Ftarget = 0.4, # F40%
+                                                    Flimit = 0.35, # F35%
+                                                    Plimit = 0.2, # No fishing when SB<SB20
+                                                    Alpha = 0.05),
+                                    msmMode = 0, # Single species mode
+                                    verbose = 1)
+
+
+  ss_run_dynamicTier3 <- Rceattle::fit_mod(data_list = BS2017SS,
+                                           inits = ss_run$estimated_params, # Initial parameters from ss_run
+                                           estimateMode = 2, # Run projection only
+                                           HCR = build_hcr(HCR = 5, # Tier3 HCR
+                                                           DynamicHCR = TRUE, # Use dynamic reference points
+                                                           Ftarget = 0.4, # F40%
+                                                           Flimit = 0.35, # F35%
+                                                           Plimit = 0.2, # No fishing when SB<SB20
+                                                           Alpha = 0.05),
+                                           msmMode = 0, # Single species mode
+                                           verbose = 1)
+
+  # -- PFMC Category 1
+  ss_run_Cat1 <- Rceattle::fit_mod(data_list = BS2017SS,
+                                   inits = ss_run$estimated_params, # Initial parameters from ss_run
+                                   estimateMode = 2, # Run projection only
+                                   HCR = build_hcr(HCR = 6, # Cat 1 HCR
+                                                   Flimit = 0.45, # F45%
+                                                   Ptarget = 0.4, # Target is 40% B0
+                                                   Plimit = 0.1, # No fishing when SB<SB10
+                                                   Pstar = 0.45,
+                                                   Sigma = 0.5),
+                                   msmMode = 0, # Single species mode
+                                   verbose = 1)
+
+  ss_run_dynamicCat1 <- Rceattle::fit_mod(data_list = BS2017SS,
+                                          inits = ss_run$estimated_params, # Initial parameters from ss_run
+                                          estimateMode = 2, # Run projection only
+                                          HCR = build_hcr(HCR = 6, # Cat 1 HCR
+                                                          DynamicHCR = TRUE, # Use dynamic reference points
+                                                          Flimit = 0.45, # F45%
+                                                          Ptarget = 0.4, # Target is 40% SB0
+                                                          Plimit = 0.1, # No fishing when SB<SB10
+                                                          Pstar = 0.45,
+                                                          Sigma = 0.5),
+                                          msmMode = 0, # Single species mode
+                                          verbose = 1)
+
+  # -- SESSF Tier 1
+  ss_run_Tier1 <- Rceattle::fit_mod(data_list = BS2017SS,
+                                    inits = ss_run$estimated_params, # Initial parameters from ss_run
+                                    estimateMode = 2, # Run projection only
+                                    HCR = build_hcr(HCR = 7, # Tier 1 HCR
+                                                    Ftarget = 0.48, # F40%
+                                                    Flimit = 0.20, # F20%
+                                                    Ptarget = 0.35, # Target is 35% SSB0
+                                                    Plimit = 0.20, # No fishing when B<B20
+                                    ),
+                                    msmMode = 0, # Single species mode
+                                    verbose = 1)
+
+
+  ss_run_dynamicTier1 <- Rceattle::fit_mod(data_list = BS2017SS,
+                                           inits = ss_run$estimated_params, # Initial parameters from ss_run
+                                           estimateMode = 2, # Run projection only
+                                           HCR = build_hcr(HCR = 7, # Tier 1 HCR
+                                                           DynamicHCR = TRUE,
+                                                           Ftarget = 0.48, # F40%
+                                                           Flimit = 0.20, # F20%
+                                                           Ptarget = 0.35, # Target is 35% SSB0
+                                                           Plimit = 0.20, # No fishing when B<B20
+                                           ),
+                                           msmMode = 0, # Single species mode
+                                           verbose = 1)
+
+  # -- Plot
+  mod_list <- list(ss_run, ss_run_fb0, ss_run_Fspr, ss_run_Tier3, ss_run_Cat1, ss_run_Tier1, ss_run_dynamicfb0, ss_run_dynamicFspr, ss_run_dynamicTier3, ss_run_dynamicCat1, ss_run_dynamicTier1)
+  nyrs <- length(BS2017SS$styr:BS2017SS$endyr)
+  nyrs_proj <- length(BS2017SS$styr:BS2017SS$projyr)
+  proj_yrs <- (nyrs+2):nyrs_proj
+
+  # Test hindcast is the same
+  for(i in 2:length(mod_list)){
+    testthat::expect_equal(ss_run$quantities$ssb[,1:nyrs], mod_list[[i]]$quantities$ssb[,1:nyrs])
+  }
+
+  # Test forecast is different
+  for(i in 2:length(mod_list)){
+    testthat::expect_all_true(c(ss_run$quantities$ssb[,proj_yrs] != mod_list[[i]]$quantities$ssb[,proj_yrs]))
+  }
+})
