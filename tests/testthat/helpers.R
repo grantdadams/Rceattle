@@ -24,7 +24,7 @@ calc_nll_ar1_1d <- function(x, sd, rho) {
 #' @param nyrs
 #' @param nages
 #' @param seed
-make_test_data <- function(nyrs = 8, nages = 5, seed = NULL) {
+make_test_data <- function(nyrs = 8, nprojyrs = 10, nages = 5, seed = NULL) {
   if (!requireNamespace("Rceattle", quietly = TRUE)) {
     stop("Rceattle package required for test helpers")
   }
@@ -36,7 +36,7 @@ make_test_data <- function(nyrs = 8, nages = 5, seed = NULL) {
   simData$nspp <- nspp
   simData$styr <- 1
   simData$endyr <- nyrs
-  simData$projyr <- nyrs + 2
+  simData$projyr <- nyrs + nprojyrs
   simData$spnames <- "Sim"
   simData$nsex = 1
   simData$spawn_month = 0
