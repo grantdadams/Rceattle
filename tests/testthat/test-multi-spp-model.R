@@ -48,9 +48,9 @@ testthat::test_that("Rceattle and multi-species model dynamics match", {
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
   ms_run1 <- Rceattle::fit_mod(data_list = simData,
-                               inits = inits, # Initial parameters = 0
+                               inits = inits, # Initial parameters from inits
                                file = NULL, # Don't save
-                               estimateMode = 3, # Estimate
+                               estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
                                phase = FALSE,
                                msmMode = 1,
@@ -172,9 +172,9 @@ testthat::test_that("Equilibrium MSVPA model dynamics match", {
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
   ms_run_msvpa <- Rceattle::fit_mod(data_list = simData,
-                                    inits = inits, # Initial parameters = 0
+                                    inits = inits, # Initial parameters from inits
                                     file = NULL, # Don't save
-                                    estimateMode = 3, # Estimate
+                                    estimateMode = 3, # Don't estimate
                                     random_rec = FALSE, # No random recruitment
                                     phase = FALSE,
                                     msmMode = 1,
@@ -298,9 +298,9 @@ testthat::test_that("Test proportion of prey-at-age in predator-at-age averaged 
 
 
   ms_run2 <- Rceattle::fit_mod(data_list = simData,
-                               inits = inits, # Initial parameters = 0
+                               inits = inits, # Initial parameters from inits
                                file = NULL, # Don't save
-                               estimateMode = 3, # Estimate
+                               estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
                                phase = FALSE,
                                msmMode = 1,
@@ -403,9 +403,9 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator-at-ag
 
 
   ms_run2 <- Rceattle::fit_mod(data_list = simData,
-                               inits = inits, # Initial parameters = 0
+                               inits = inits, # Initial parameters from inits
                                file = NULL, # Don't save
-                               estimateMode = 3, # Estimate
+                               estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
                                phase = FALSE,
                                msmMode = 1,
@@ -509,9 +509,9 @@ testthat::test_that("Test proportion of prey (all ages) in predator-at-age avera
 
 
   ms_run2 <- Rceattle::fit_mod(data_list = simData,
-                               inits = inits, # Initial parameters = 0
+                               inits = inits, # Initial parameters from inits
                                file = NULL, # Don't save
-                               estimateMode = 3, # Estimate
+                               estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
                                phase = FALSE,
                                msmMode = 1,
@@ -614,9 +614,9 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (mean
   simData$diet_data <- diet_df[diet_df$Stomach_proportion_by_weight > 0, ]
 
   ms_run2 <- Rceattle::fit_mod(data_list = simData,
-                               inits = inits, # Initial parameters = 0
+                               inits = inits, # Initial parameters from inits
                                file = NULL, # Don't save
-                               estimateMode = 3, # Estimate
+                               estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
                                phase = FALSE,
                                msmMode = 1,
@@ -734,9 +734,9 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (weig
     dplyr::select(Pred, Prey, Pred_sex, Prey_sex, Pred_age, Prey_age, Year, Sample_size, Stomach_proportion_by_weight)
 
   ms_run2 <- Rceattle::fit_mod(data_list = simData,
-                               inits = inits, # Initial parameters = 0
+                               inits = inits, # Initial parameters from inits
                                file = NULL, # Don't save
-                               estimateMode = 3, # Estimate
+                               estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
                                phase = FALSE,
                                msmMode = 1,
@@ -842,9 +842,9 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
   simData$diet_data <- diet_df[diet_df$Stomach_proportion_by_weight > 0, ]
 
   ms_run2 <- Rceattle::fit_mod(data_list = simData,
-                               inits = inits, # Initial parameters = 0
+                               inits = inits, # Initial parameters from inits
                                file = NULL, # Don't save
-                               estimateMode = 3, # Estimate
+                               estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
                                phase = FALSE,
                                msmMode = 1,
@@ -965,9 +965,9 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
 
   # Fit
   ms_run2 <- Rceattle::fit_mod(data_list = simData,
-                               inits = inits, # Initial parameters = 0
+                               inits = inits, # Initial parameters from inits
                                file = NULL, # Don't save
-                               estimateMode = 3, # Estimate
+                               estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
                                phase = FALSE,
                                msmMode = 1,
@@ -1037,9 +1037,9 @@ testthat::test_that("Test joint single-species models", {
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
   ss_run <- Rceattle::fit_mod(data_list = simData,
-                              inits = inits, # Initial parameters = 0
+                              inits = inits, # Initial parameters from inits
                               file = NULL, # Don't save
-                              estimateMode = 3, # Estimate
+                              estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               phase = FALSE,
                               msmMode = 0,
@@ -1132,9 +1132,9 @@ testthat::test_that("Diet proportion likelihood (jnll_comp) matches R math", {
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
   mod <- Rceattle::fit_mod(data_list = simData,
-                               inits = inits, # Initial parameters = 0
+                               inits = inits, # Initial parameters from inits
                                file = NULL, # Don't save
-                               estimateMode = 3, # Estimate
+                               estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
                                phase = FALSE,
                                msmMode = 1,
