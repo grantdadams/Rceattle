@@ -24,7 +24,7 @@ Imports:
     reshape2,
     gplots,
     tidyr,
-    testthat,
+    testthat (>= 2.0.0),
     foreach,
     doParallel,
     R.utils
