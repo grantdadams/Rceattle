@@ -2377,6 +2377,11 @@ Type objective_function<Type>::operator() () {
 
 
   // Slot 4-5 -- Selectivity
+  // * - Case 1 / 6: Logistic (2-parameter: slope and inflection) [Age / Length]
+  // * - Case 2 / 7: Non-parametric (Bin-specific coefficients with smoothing, Ianelli style) [Age / Length]
+  // * - Case 3 / 8: Double Logistic (Dorn and Methot 1990) [Age / Length]
+  // * - Case 4 / 9: Descending Logistic [Age / Length]
+  // * - Case 5 / 10: Non-parametric (Cumulative coefficients, Hake/Taylor style) [Age / Length]
   for(flt = 0; flt < n_flt; flt++){ // Loop around surveys
     jnll_comp(4, flt) = 0;
     jnll_comp(5, flt) = 0;
@@ -2385,10 +2390,10 @@ Type objective_function<Type>::operator() () {
     // If estimating survey or fishery
     if(flt_type(flt) > 0){
 
-      // Ianelli/AMAK non-parametic selectivity penalties
+      // 1) Ianelli/AMAK non-parametic selectivity penalties
       // - using non-normalized selectivities following the arrowtooth ADMB model
       // - updated to make differentiable using abs to only penalize when sel_ratio_tmp > 0 (decreasing sel_at_age)
-      if(flt_sel_type(flt) == 2) {
+      if((flt_sel_type(flt) == 2) || (flt_sel_type(flt) == 7)) {
 
         // If time-invariant selectivity
         int nyrs_tmp = 1;
@@ -2441,17 +2446,20 @@ Type objective_function<Type>::operator() () {
       }
 
 
-
+      // 2) Logistic selectivity penalties
       // Penalized/random effect likelihood time-varying logistic/double-logistic selectivity deviates
       if(((flt_varying_sel(flt) == 1)||(flt_varying_sel(flt) == 2)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5)){
         for(sex = 0; sex < nsex(sp); sex ++){
           for(yr = 0; yr < nyrs_hind; yr++){
 
-            jnll_comp(5, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr), Type(0.0), sel_dev_sd(flt), true);
-            jnll_comp(5, flt) -= dnorm(ln_sel_slp_dev(0, flt, sex, yr), Type(0.0), 4 * sel_dev_sd(flt), true);
+            // Logistic deviates
+            if((flt_sel_type(flt) == 1) || (flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 6) || (flt_sel_type(flt) == 8)){
+              jnll_comp(5, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr), Type(0.0), sel_dev_sd(flt), true);
+              jnll_comp(5, flt) -= dnorm(ln_sel_slp_dev(0, flt, sex, yr), Type(0.0), 4 * sel_dev_sd(flt), true);
+            }
 
             // Double logistic deviates
-            if(flt_sel_type(flt) == 3){
+            if((flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 4) || (flt_sel_type(flt) == 8) || (flt_sel_type(flt) == 9)){
               jnll_comp(5, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr), Type(0.0), sel_dev_sd(flt), true);
               jnll_comp(5, flt) -= dnorm(ln_sel_slp_dev(1, flt, sex, yr), Type(0.0), 4 * sel_dev_sd(flt), true);
             }
@@ -2459,33 +2467,34 @@ Type objective_function<Type>::operator() () {
         }
       }
 
-      // Penalized/random effect likelihood time-varying non-parametric (Taylor et al 2014) selectivity deviates
-      if(((flt_varying_sel(flt) == 1) || (flt_varying_sel(flt) == 2)) && (flt_sel_type(flt) == 5)){
-        for(age = 0; age < flt_n_sel_bins(flt); age++){ //NOTE: extends beyond selectivity age range, but should be mapped to 0 in map function
-          for(sex = 0; sex < nsex(sp); sex++){
-            for(yr = 0; yr < nyrs_hind; yr++){
-              jnll_comp(5, flt) -= dnorm(sel_coff_dev(flt, sex, age, yr), Type(0.0), sel_dev_sd(flt), true);
-            }
-          }
-        }
-      }
-
-
       // Random walk: Type 4 = random walk on ascending and descending for double logistic; Type 5 = ascending only for double logistics
       if(((flt_varying_sel(flt) == 4)||(flt_varying_sel(flt) == 5)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5)){
         for(sex = 0; sex < nsex(sp); sex ++){
           for(yr = 1; yr < nyrs_hind; yr++){ // Start at second year
 
             // Logistic deviates
-            jnll_comp(5, flt) -= dnorm(ln_sel_slp_dev(0, flt, sex, yr) - ln_sel_slp_dev(0, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt), true);
-            jnll_comp(5, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr) - sel_inf_dev(0, flt, sex, yr-1), Type(0.0), 4 * sel_dev_sd(flt), true);
+            if((flt_sel_type(flt) == 1) || (flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 6) || (flt_sel_type(flt) == 8)){
+              jnll_comp(5, flt) -= dnorm(ln_sel_slp_dev(0, flt, sex, yr) - ln_sel_slp_dev(0, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt), true);
+              jnll_comp(5, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr) - sel_inf_dev(0, flt, sex, yr-1), Type(0.0), 4 * sel_dev_sd(flt), true);
+            }
 
             // Double logistic deviates
-            if((flt_sel_type(flt) == 3) && (flt_varying_sel(flt) == 4)){
+            if((flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 4) || (flt_sel_type(flt) == 8) || (flt_sel_type(flt) == 9)){
               jnll_comp(5, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr) - sel_inf_dev(1, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt), true);
               jnll_comp(5, flt) -= dnorm(ln_sel_slp_dev(1, flt, sex, yr) - ln_sel_slp_dev(1, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt) * 4, true);
             }
+          }
+        }
+      }
 
+      // 3) Hake style non-parametric
+      // Penalized/random effect likelihood time-varying non-parametric (Taylor et al 2014) selectivity deviates
+      if(((flt_varying_sel(flt) == 1) || (flt_varying_sel(flt) == 2)) && ((flt_sel_type(flt) == 5) || (flt_sel_type(flt) == 10))){
+        for(age = 0; age < flt_n_sel_bins(flt); age++){ //NOTE: extends beyond selectivity age range, but should be mapped to 0 in map function
+          for(sex = 0; sex < nsex(sp); sex++){
+            for(yr = 0; yr < nyrs_hind; yr++){
+              jnll_comp(5, flt) -= dnorm(sel_coff_dev(flt, sex, age, yr), Type(0.0), sel_dev_sd(flt), true);
+            }
           }
         }
       }

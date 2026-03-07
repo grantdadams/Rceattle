@@ -122,6 +122,11 @@ data_check <- function(data_list) {
       }
     }
 
+    # Time-varying sel not possible
+    if(data_list$fleet_control$Time_varying_sel[flt] == 2 & data_list$fleet_control$Selectivity[flt] %in% c(2,7,5,10)){
+      stop("For non-parametric selectivities, 'Time_varying_sel' cant not be a random walk")
+    }
+
     # Max sel age > nages
     data_list$fleet_control$Sel_norm_bin1[flt] <- ifelse(data_list$fleet_control$Sel_norm_bin1[flt] > data_list$nages[data_list$fleet_control$Species[flt]], data_list$nages[data_list$fleet_control$Species[flt]], data_list$fleet_control$Sel_norm_bin1[flt])
   }
