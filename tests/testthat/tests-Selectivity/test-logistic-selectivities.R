@@ -233,3 +233,56 @@ testthat::test_that("Sex-specific time-varying logistic selectivity not normaliz
 })
 
 
+testthat::test_that("Time-varying logistic selectivity likelihood", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
+  GOA2018SS$fleet_control$Selectivity <- 1
+  GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
+  GOA2018SS$fleet_control$Time_varying_sel <- 1
+  GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1 # Note that inf does 4*sd prior, should adapt to scale-invariant sd
+  #FIXME: move to scale invariant setup
+  GOA2018SS$fleet_control$Bin_first_selected <- 1
+  GOA2018SS$fleet_control$Sel_norm_bin1 <- NA # Do not normalize
+  GOA2018SS$catch_data$Catch <- 1e6 # If catch is zero, sel devs are turned off
+
+  # Specify logistic selectivity
+  nyrs <- length(GOA2018SS$styr:GOA2018SS$endyr)
+  inf = 10
+  inf_dev <- rnorm(nyrs)
+  ln_slp_dev <- rnorm(nyrs)
+
+  # Set params to logistic
+  inits <- suppressMessages( build_params(GOA2018SS) )
+  inits$ln_sel_slp[1,,1] <- log(alpha) # Females
+  inits$ln_sel_slp[1,,2] <- log(alpha+1) # Males
+  inits$sel_inf[1,,] <- inf
+  inits$sel_dev_ln_sd[1,,] <- inf
+  for(i in 1:dim(inits$ln_sel_slp_dev[1,,,])[1]){
+    for(j in 1:dim(inits$ln_sel_slp_dev[1,,,])[2]){
+      inits$ln_sel_slp_dev[1,i,j,] <- ln_slp_dev
+      inits$sel_inf_dev[1,i,j,] <- inf_dev
+    }
+  }
+
+  # Run
+  ss_run <- suppressMessages(
+    Rceattle::fit_mod(data_list = GOA2018SS,
+                      inits = inits, # Initial parameters = 0
+                      file = NULL, # Don't save
+                      estimateMode = 3, # Don't estimate
+                      random_rec = FALSE, # No random recruitment
+                      random_sel = TRUE, # Turn on laplace for sel devs
+                      msmMode = 0, # Single species mode
+                      verbose = 0)
+  )
+
+  # Nll
+  rcnll <- sum(ss_run$quantities$jnll_comp[6,])
+  single_dv_nll <- sum(-dnorm(inf_dev, 0, 1, log = TRUE) - dnorm(ln_slp_dev, 0, 4, log = TRUE))
+
+  testthat::expect_equal(rcnll, single_dv_nll)
+})
+
+
