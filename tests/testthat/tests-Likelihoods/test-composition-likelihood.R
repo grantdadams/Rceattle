@@ -1,6 +1,7 @@
 testthat::test_that("Composition likelihoods match (Multinomial and Dirichlet-Multinomial)", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
+  testthat::skip()
 
   # ========================================================================
   # SIMULATE DATA

@@ -1,5 +1,5 @@
 
-testthat::test_that("Test non-parametric selectivity not normalized", {
+testthat::test_that("Test age-based non-parametric selectivity not normalized", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
