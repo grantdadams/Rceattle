@@ -151,6 +151,7 @@ testthat::test_that("Sex-specific age-based time-varying descending logistic sel
 
   # Data
   data("GOA2018SS")
+  nyrs <- length(GOA2018SS$styr:GOA2018SS$endyr)
   GOA2018SS$fleet_control$Selectivity <- 4 # Age based descending
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Time_varying_sel <- 1
@@ -163,7 +164,7 @@ testthat::test_that("Sex-specific age-based time-varying descending logistic sel
   # Run
   ss_run <- suppressMessages(
     Rceattle::fit_mod(data_list = GOA2018SS,
-                      inits = inits, # Initial parameters = 0
+                      inits = NULL, # Initial parameters = 0
                       file = NULL, # Don't save
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment

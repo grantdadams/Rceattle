@@ -8,14 +8,12 @@ testthat::test_that("Test age-based non-parametric selectivity bin-first selecte
   n_sel_bins <- 8
   GOA2018SS$fleet_control$Selectivity <- 2
   GOA2018SS$fleet_control$N_sel_bins <- n_sel_bins
-  GOA2018SS$fleet_control$Bin_first_selected <- 1
   GOA2018SS$fleet_control$Sel_curve_pen1 <- 5
   GOA2018SS$fleet_control$Sel_curve_pen2 <- 10
   GOA2018SS$fleet_control$Sel_norm_bin1 <- NA
   GOA2018SS$fleet_control$Bin_first_selected <- 3
   GOA2018SS$fleet_control$Time_varying_sel <- 0
   GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
-  GOA2018SS$fleet_control$Bin_first_selected <- 3
 
 
   # Set params
@@ -39,8 +37,8 @@ testthat::test_that("Test age-based non-parametric selectivity bin-first selecte
   testthat::expect_equal(output, rep(0, length(output)))
 
   # Map for sel coff is NA?
-  output <- c(ss_run$map$mapList$sel_coff[,1:2,])
-  testthat::expect_equal(output, rep(NA, length(output)))
+  outputmap <- c(ss_run$map$mapList$sel_coff[,,1:2])
+  testthat::expect_equal(outputmap, as.numeric(rep(NA, length(outputmap))))
 })
 
 
