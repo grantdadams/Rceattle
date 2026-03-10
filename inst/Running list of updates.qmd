@@ -64,3 +64,7 @@ Rename "Catchability" to "Catchability"
 Rename "Time_varying_sel_sd_prior" to "Time_varying_sel_sd_prior"
 
 CAAL data to sim_mod
+
+3/10/2026
+
+added `Diet_loglike` to bioenergetics_control to specify wether to use a dirichlet multinomial (1) or multinomial (0)

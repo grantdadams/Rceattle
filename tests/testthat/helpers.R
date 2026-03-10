@@ -187,6 +187,7 @@ make_test_data <- function(nyrs = 8, nprojyrs = 10, nages = 5, seed = NULL) {
   simData$Tcl = 1
   simData$CK1 = 1
   simData$CK4 = 1
+  simData$Diet_loglike = 1
   simData$Diet_comp_weights = 1
 
   # Environmental data
