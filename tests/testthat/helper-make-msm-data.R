@@ -84,7 +84,7 @@ make_msm_test_data <- function(
     gsd <- array(log(3), dim=c(1, nspp))
 
     # - Run Growth Matrix
-    gm <- get_growth_matrix_r(fracyr=0,
+    gm <- Rceattle:::get_growth_matrix_r(fracyr=0,
                               nsex_sp=1,
                               nages_sp=nages,
                               nlengths_sp = nlengths,
@@ -99,7 +99,7 @@ make_msm_test_data <- function(
 
     # 4. Calculate Weight-at-Age
     lw_p <- array(c(0.00001, 3.0), dim=c(1, 1, 2)) # a=0.00001, b=3.0
-    WAA[sp,] <- get_weight_at_age_r(nsex_sp = 1, nages_sp = nages, nlengths_sp = nlengths, nyrs = 1,
+    WAA[sp,] <- Rceattle:::get_weight_at_age_r(nsex_sp = 1, nages_sp = nages, nlengths_sp = nlengths, nyrs = 1,
                                     lengths_sp = lengths, growth_matrix = gm$growth_matrix, lw_params = lw_p)
 
     # Do any growth transformations
@@ -566,6 +566,7 @@ make_msm_test_data <- function(
   simData$Tcl <- rep(1, nspp)
   simData$CK1 <- rep(1, nspp)
   simData$CK4 <- rep(1, nspp)
+  simData$Diet_loglike <- rep(0,nspp)
   simData$Diet_comp_weights <- rep(1,nspp)
 
   # * Diet proportion ----

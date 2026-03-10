@@ -511,6 +511,7 @@ build_map_predation <- function(map_list, data_list) {
   # }
 
   # * 4. Suitability (if Multi-Species) ----
+  map_list$diet_comp_weights[] <- NA
   if (data_list$msmMode > 0) {
     for (sp in 1:data_list$nspp) {
       if (data_list$suitMode[sp] == 0) {
@@ -522,11 +523,12 @@ build_map_predation <- function(map_list, data_list) {
       if (data_list$estDynamics[sp] > 0) {
         map_list$log_phi[, sp] <- NA
       }
+
+      if(data_list$Diet_loglike[sp] == 1){
+        map_list$diet_comp_weights[sp] <- sp # Turn on alpha for dirichlet multinomial
+      }
     }
   }
-
-  # * 5. Diet Multiplier ----
-  map_list$diet_comp_weights[] <- NA
 
   return(map_list)
 }

@@ -70,6 +70,8 @@ rearrange_dat <- function(data_list){
     dplyr::pull(Comp_loglike) %>% as.integer()
   data_list$caal_ll_type <- data_list$fleet_control %>%
     dplyr::pull(CAAL_loglike) %>% as.integer()
+  data_list$diet_ll_type <- data_list$Diet_loglike %>%
+    as.integer()
 
   # - 11) Index units (1 = weight, 2 = numbers)
   data_list$flt_units <- data_list$fleet_control %>%

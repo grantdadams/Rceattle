@@ -333,6 +333,10 @@ data_check <- function(data_list) {
     stop("Diet composition likelihood weight for a species with estimated suitability is NA")
   }
 
+  if(any(!(data_list$Diet_loglike %in% c(0, 1)) & data_list$suitMode > 0)){
+    stop("Diet composition likelihood for a species with estimated suitability is not 0 or 1")
+  }
+
   # Sexes ----
   m1_sex <- data_list$M1_base %>%
     dplyr::group_by(Species) %>%
@@ -397,6 +401,10 @@ switch_check <- function(data_list){
   if(is.null(data_list$Diet_comp_weights)){
     data_list$Diet_comp_weights <- rep(1, data_list$nspp)
     message("'Diet_comp_weights' are not included in data, assuming 1")
+  }
+  if(is.null(data_list$Diet_loglike)){
+    data_list$Diet_loglike <- rep(0, data_list$nspp)
+    message("'Diet_loglike' are not included in data, assuming multinomial")
   }
 
   # Normalization age
