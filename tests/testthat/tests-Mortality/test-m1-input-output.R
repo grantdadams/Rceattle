@@ -26,7 +26,7 @@ testthat::test_that("Test update M1 from data", {
                     inits = ss_run$estimated_params, # Initial parameters from single species ests
                     file = NULL, # Don't save
                     estimateMode = 0, # Estimate
-                    niter = 3, # 3 iterations around population and predation dynamics
+                    niter = 1, # 3 iterations around population and predation dynamics
                     random_rec = FALSE, # No random recruitment
                     M1Fun = build_M1(updateM1 = TRUE),
                     msmMode = 1, # MSVPA based

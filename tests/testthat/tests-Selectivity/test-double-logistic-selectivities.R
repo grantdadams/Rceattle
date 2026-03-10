@@ -154,6 +154,7 @@ testthat::test_that("Sex-specific age-based time-varying double logistic selecti
 
   # Data
   data("GOA2018SS")
+  nyrs <- length(GOA2018SS$styr:GOA2018SS$endyr)
   GOA2018SS$fleet_control$Selectivity <- 3 # Age based double
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Time_varying_sel <- 1
