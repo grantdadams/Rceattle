@@ -1097,14 +1097,12 @@ Type objective_function<Type>::operator() () {
 
     // 6.7. DEPLETION BASED BIOMASS REFERENCE POINTS (i.e. SB0 and dynamic SB0)
     // -- calculate mean recruitment
+    // FIXME: may want specified year ranges
     avg_R.setZero();
     for(sp = 0; sp < nspp; sp++) {
-      int counter = 0;
-      for(yr = srr_hat_styr; yr < srr_hat_endyr; yr++) {
-        avg_R(sp) += R(sp, yr); // Update mean rec
-        counter += 1;
+      for(yr = 0; yr < nyrs_srrmean; yr++) {
+        avg_R(sp) += R(sp, yr)/Type(nyrs_srrmean); // Update mean rec
       }
-      avg_R(sp) /= counter;
     }
 
     // -- Calc biomass_depletion based BRPs
