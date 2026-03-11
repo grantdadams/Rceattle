@@ -326,3 +326,69 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
     testthat::expect_all_true(c(ss_run$quantities$ssb[,proj_yrs] != mod_list[[i]]$quantities$ssb[,proj_yrs]))
   }
 })
+
+
+testthat::test_that("Test mean recruitment calculation", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  # Prepare small deterministic dataset using helper
+  #source(file.path("tests", "testthat", "helpers.R"))
+
+  # 1) Set up simulation
+  nyrs = 30
+  nspp = 2
+  Fmort <- c(seq(0.02, 0.3, length.out = nyrs/2), seq(0.3, 0.05, length.out = nyrs/2))
+  Fmort2 <- seq(0.02, 0.3, length.out = nyrs)
+  log_phi = matrix(-Inf, nspp, nspp, byrow = TRUE)
+
+  # First, simulate some data for the model
+  set.seed(123)
+  sim <- make_msm_test_data(
+    years = 1:nyrs,
+    Fmort = matrix(c(Fmort, Fmort2), nspp, nyrs, byrow = TRUE),
+
+    # Multispecies bits
+    log_phi = log_phi # set to -Inf so no predation
+  )
+
+  # sum(sim$model_quantities$B_eaten_as_prey)
+
+  # Set up Rceattle data
+  simData <- sim$data_list
+
+
+  # Fit multi-species
+  inits <- suppressMessages( build_params(simData) )
+  inits$sel_inf[1,,1] <- c(3,6,2.5,4)
+  inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
+  inits$ln_F[2,] <- log(Fmort)
+  inits$ln_F[4,] <- log(Fmort2)
+  inits$rec_pars[,1] <- log(c(1e2, 1e3))
+  inits$index_ln_q[] <- log(1)
+  inits$R_ln_sd[] <- log(1)
+  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
+  inits$init_dev[,1:14] <- sim$model_quantities$init_devs
+
+  ss_run <- Rceattle::fit_mod(data_list = simData,
+                              inits = inits, # Initial parameters from inits
+                              file = NULL, # Don't save
+                              estimateMode = 3, # Don't estimate
+                              recFun = build_srr(
+                                proj_mean_rec = TRUE, # Project using mean rec over hindcast
+                              ),
+                              random_rec = FALSE, # No random recruitment
+                              phase = FALSE,
+                              msmMode = 0,
+                              suitMode = 0,
+                              niter = 5,
+                              initMode = 2,
+                              verbose = 0)
+
+  # Recruitment
+  nyrs <- length(simData$styr:simData$endyr)
+  testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,1,]), as.numeric(ss_run$quantities$R[,1:nyrs]))
+
+  # Mean R
+  testthat::expect_equal(as.numeric(ss_run$quantities$avg_R), as.numeric(rowMeans(ss_run$quantities$R[,1:nyrs])), tolerance = 1e-6)
+ })
