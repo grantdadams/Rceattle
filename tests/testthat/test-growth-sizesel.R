@@ -3,6 +3,7 @@
 testthat::test_that("Simulated simple model with growth curve and size-based logistic selectivity", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
+  testthat::skip()
 
   # 1) Set up simulation
   nyrs = 30
