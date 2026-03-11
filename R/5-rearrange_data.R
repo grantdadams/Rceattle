@@ -214,7 +214,8 @@ rearrange_dat <- function(data_list){
       dplyr::arrange(Pred, Pred_sex, Pred_age, Prey, Prey_sex, Prey_age, Year) %>%
       # - Create the unique stratum identifier and the zero-indexed stomach_id
       dplyr::mutate(stratum_id = paste(Pred, Pred_sex, Pred_age, Year, sep = "_"),
-                    stomach_id = as.numeric(as.factor(stratum_id)) - 1)
+                    stomach_id = as.numeric(as.factor(stratum_id)) - 1) %>%
+      dplyr::arrange(stomach_id)
 
     # Add n_stomach_obs and the stomach_id vector to the main data_list
     if(length(diet_dat$stomach_id) == 0){

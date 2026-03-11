@@ -201,10 +201,14 @@ read_data <- function(file = "Rceattle_data.xlsx") {
   data_list$spnames <- rownames(control)[1:data_list$nspp]
 
   # 5. Extract Vectors
-  vec_vars <- c("nsex", "spawn_month", "nages", "minage", "nlengths",
-                "pop_wt_index", "ssb_wt_index", "alpha_wt_len", "beta_wt_len",
-                "pop_age_transition_index", "sigma_rec_prior", "other_food", "estDynamics")
-  data_list[vec_vars] <- lapply(control[1:data_list$nspp, vec_vars], as.numeric)
+  # vec_vars <- c("nsex", "spawn_month", "nages", "minage", "nlengths",
+  #               "pop_wt_index", "ssb_wt_index", "alpha_wt_len", "beta_wt_len",
+  #               "pop_age_transition_index", "sigma_rec_prior", "other_food", "estDynamics")
+  # data_list[vec_vars] <- lapply(control[1:data_list$nspp, vec_vars], as.numeric)
+
+  for (i in 5:nrow(sheet1)) {
+    data_list[[sheet1$Object[i]]] <- suppressWarnings(as.numeric(as.character(sheet1[i, ((1:data_list$nspp) + 1)])))
+  }
 
 
   # Composition, fleet control, fixed selectivity, n-at-age
@@ -233,6 +237,17 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     message("Renaming 'Nselages' to 'N_sel_bins'")
   }
 
+  if(length(data_list$fleet_control$Sel_sd_prior) > 0){
+    data_list$fleet_control <- data_list$fleet_control %>%
+      dplyr::rename(Time_varying_sel_sd_prior = Sel_sd_prior)
+    message("Renaming 'Sel_sd_prior' to 'Time_varying_sel_sd_prior'")
+  }
+
+  if(length(data_list$fleet_control$Estimate_q) > 0){
+    data_list$fleet_control <- data_list$fleet_control %>%
+      dplyr::rename(Catchability = Estimate_q)
+    message("Renaming 'Estimate_q' to 'Catchability'")
+  }
 
   if(length(data_list$fleet_control$Age_first_selected) > 0){
     data_list$fleet_control <- data_list$fleet_control %>%
