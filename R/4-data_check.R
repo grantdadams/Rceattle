@@ -77,6 +77,18 @@ clean_data <- function(data_list){
     message("Renaming column names in 'maturity' data to 'Age1', 'Age2', ....")
   }
 
+  # Arrange diet data
+  if(!is.null(data_list$diet_data)){ # Add a check in case there's no diet data
+    # Create a temporary diet data frame to work with
+    data_list$diet_data <- data_list$diet_data %>%
+      # - Sort by stomach_id so that rows for the same predator are contiguous
+      dplyr::arrange(Pred, Pred_sex, Pred_age, Prey, Prey_sex, Prey_age, Year) %>%
+      # - Create the unique stratum identifier and the zero-indexed stomach_id
+      dplyr::mutate(stratum_id = paste(Pred, Pred_sex, Pred_age, Year, sep = "_"),
+                    stomach_id = as.numeric(as.factor(stratum_id)) - 1) %>%
+      dplyr::arrange(stomach_id)
+  }
+
   return(data_list)
 }
 
