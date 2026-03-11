@@ -1,8 +1,51 @@
 
 
 testthat::test_that("Simulated simple model with growth curve and size-based logistic selectivity", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
 
-  testthat::skip()
+  # 1) Set up simulation
+  nyrs = 30
+  nspp = 2
+  Fmort <- c(seq(0.02, 0.3, length.out = nyrs/2), seq(0.3, 0.05, length.out = nyrs/2))
+  Fmort2 <- seq(0.02, 0.3, length.out = nyrs)
+  log_phi = matrix(-Inf, nspp, nspp, byrow = TRUE)
+
+  # First, simulate some data for the model
+  set.seed(123)
+  sim <- make_msm_test_data(
+    years = 1:nyrs,
+    Fmort = matrix(c(Fmort, Fmort2), nspp, nyrs, byrow = TRUE),
+
+    # Growth
+    use_size_sel = TRUE,
+    fish_CAAL_ISS = 1e6,
+    srv_CAAL_ISS = 1e6,
+
+    # Multispecies bits
+    log_phi = log_phi
+  )
+
+
+  # Set up Rceattle data
+  simData <- sim$data_list
+
+  # Fit multi-species
+  # * Fix parameters -----
+  inits <- suppressMessages( build_params(simData) )
+  inits$sel_inf[1,,1] <- c(20,35,15,30)
+  inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
+  inits$ln_F[2,] <- log(Fmort)
+  inits$ln_F[4,] <- log(Fmort2)
+  inits$rec_pars[,1] <- log(c(1e2, 1e3))
+  inits$index_ln_q[] <- log(1)
+  inits$R_ln_sd[] <- log(1)
+  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
+  inits$init_dev[,1:14] <- sim$model_quantities$init_devs
+  inits$growth_ln_sd[] <- log(3)
+  inits$ln_growth_pars[,1,] = matrix(c(0.3, 4.5, 90, 1.0,
+                                       0.35, 4.5, 50, 1.0), # K, L1, Linf, M
+                                     nrow = nspp, ncol = 4, byrow = TRUE)
 
   # Fit Rceattle -------------------------------------------------------------
   ss_run <- Rceattle::fit_mod(data_list = simData,

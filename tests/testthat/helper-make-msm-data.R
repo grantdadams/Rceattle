@@ -34,7 +34,7 @@ make_msm_test_data <- function(
     fish_CAAL_ISS = 0,
     srv_CAAL_ISS = 0,
     fish_size_sel = matrix(c(1 / (1 + exp(-2.5 * (lengths + 2.5 - 35))), # Sp 1
-                             1 / (1 + exp(-2.5 * (lengths + 30 - 4)))), # Sp 2
+                             1 / (1 + exp(-2.5 * (lengths + 2.5 - 30)))), # Sp 2
                            nrow = nspp, ncol = nlengths, byrow = TRUE),
     srv_size_sel = matrix(c(1 / (1 + exp(-2 * (lengths + 2.5 - 20))), # +2.5 for bin midpoint
                             1 / (1 + exp(-2 * (lengths + 2.5 - 15)))),
@@ -104,8 +104,8 @@ make_msm_test_data <- function(
 
     # Do any growth transformations
     if(use_size_sel){
-      fish_sel[sp,] <- growth_matrix[sp, ,] %*% fish_size_sel
-      srv_sel[sp,] <- growth_matrix[sp, ,] %*% srv_size_sel
+      fish_sel[sp,] <- growth_matrix[sp, ,] %*% fish_size_sel[sp,]
+      srv_sel[sp,] <- growth_matrix[sp, ,] %*% srv_size_sel[sp,]
     }
   }
 
@@ -607,6 +607,7 @@ make_msm_test_data <- function(
       fish_sel = fish_sel,
       srv_sel = srv_sel,
       WAA = WAA,
+      growth_matrix = growth_matrix,
       MatAA = MatAA,
       M = M,
       Mtv = Mtv,

@@ -2291,6 +2291,8 @@ Type objective_function<Type>::operator() () {
 
     // Convert observed prop to observed numbers
     comp_obs_tmp *= comp_n(comp_ind, 1);
+    vector<Type> alphas = comp_n(comp_ind, 1) * comp_hat_tmp * DM_pars_comp(flt); // DM alpha
+    vector<Type> unweighted_alphas = comp_n(comp_ind, 1) * comp_hat_tmp;          // DM alpha
 
     // Only use years wanted
     if((yr <= endyr) && (yr > 0) && (flt_type(flt) > 0)){
@@ -2311,14 +2313,9 @@ Type objective_function<Type>::operator() () {
         break;
 
       case 1:  // Dirichlet-multinomial
-        {
-          vector<Type> alphas = comp_n(comp_ind, 1) * comp_hat_tmp * DM_pars_comp(flt); // DM alpha
-          vector<Type> unweighted_alphas = comp_n(comp_ind, 1) * comp_hat_tmp;          // DM alpha
-
-          jnll_comp(2, flt) -= ddirmultinom(comp_obs_tmp, alphas,  true);
-          unweighted_jnll_comp(2, flt) -= ddirmultinom(comp_obs_tmp, unweighted_alphas,  true);
-          break;
-        }
+        jnll_comp(2, flt) -= ddirmultinom(comp_obs_tmp, alphas,  true);
+        unweighted_jnll_comp(2, flt) -= ddirmultinom(comp_obs_tmp, unweighted_alphas,  true);
+        break;
       default:
         error("Invalid 'comp_ll_type'");
       }
@@ -2354,6 +2351,8 @@ Type objective_function<Type>::operator() () {
 
     // Convert observed prop to observed numbers
     caal_obs_tmp *= caal_n(caal_ind, 0);
+    vector<Type> alphas = sum(caal_obs_tmp) * caal_hat_tmp * DM_pars_caal(flt); // DM alpha
+    vector<Type> unweighted_alphas = sum(caal_obs_tmp) * caal_hat_tmp;          // DM alpha
 
     // Only use years wanted
     if((yr <= endyr) && (yr > 0) && (flt_type(flt) > 0)){
@@ -2366,14 +2365,9 @@ Type objective_function<Type>::operator() () {
         break;
 
       case 1:  // Dirichlet-multinomial
-        {
-          vector<Type> alphas = sum(caal_obs_tmp) * caal_hat_tmp * DM_pars_caal(flt); // DM alpha
-          vector<Type> unweighted_alphas = sum(caal_obs_tmp) * caal_hat_tmp;          // DM alpha
-
-          jnll_comp(3, flt) -= ddirmultinom(caal_obs_tmp, alphas,  true);
-          unweighted_jnll_comp(2, flt) -= ddirmultinom(caal_obs_tmp, unweighted_alphas,  true);
-          break;
-        }
+        jnll_comp(3, flt) -= ddirmultinom(caal_obs_tmp, alphas,  true);
+        unweighted_jnll_comp(2, flt) -= ddirmultinom(caal_obs_tmp, unweighted_alphas,  true);
+        break;
       default:
         error("Invalid 'caal_ll_type'");
       }
@@ -2867,36 +2861,35 @@ Type objective_function<Type>::operator() () {
       // Convert observed prop to observed numbers
       vector<Type> obs_diet_content = obs_diet_prop * N_s;
 
+      Type stomach_log_likelihood = 0;
+      Type unweighted_stomach_log_likelihood = 0;
+      Type DM_diet_par = DM_diet_pars(rsp);
+
+      // Calculate alpha parameters.
+      vector<Type> diet_alphas = pred_diet_prop * N_s * DM_diet_par;
+      vector<Type> unweighted_diet_alphas = pred_diet_prop * N_s; // For "unweighted" likelihood (DM_diet_par = 1)
+
       // Likelihood
       switch(diet_ll_type(rsp)){
 
       case 0:  // Full multinomial
-      {
-        Type stomach_log_likelihood = dmultinom(obs_diet_content, pred_diet_prop, true);
+        stomach_log_likelihood = dmultinom(obs_diet_content, pred_diet_prop, true);
 
         unweighted_jnll_comp(18, rsp) -= stomach_log_likelihood;
         jnll_comp(18, rsp) -= diet_comp_weights(rsp) * stomach_log_likelihood;
         break;
-      }
       case 1:  // Dirichlet-multinomial
-      {
-        // Calculate alpha parameters.
-        Type DM_diet_par = DM_diet_pars(rsp);
-        vector<Type> diet_alphas = pred_diet_prop * N_s * DM_diet_par;
-        vector<Type> unweighted_diet_alphas = pred_diet_prop * N_s; // For "unweighted" likelihood (DM_diet_par = 1)
-
         // Calculate the log-likelihood
-        Type stomach_log_likelihood = ddirmultinom(obs_diet_content, diet_alphas, true);
-        Type unweighted_stomach_log_likelihood = ddirmultinom(obs_diet_content, unweighted_diet_alphas, true);
+        stomach_log_likelihood = ddirmultinom(obs_diet_content, diet_alphas, true);
+        unweighted_stomach_log_likelihood = ddirmultinom(obs_diet_content, unweighted_diet_alphas, true);
 
         unweighted_jnll_comp(18, rsp) -= unweighted_stomach_log_likelihood;
         jnll_comp(18, rsp) -= stomach_log_likelihood;
         break;
-      }
+
       default:
         error("Invalid 'diet_ll_type'");
       }
-
     }
   }
 

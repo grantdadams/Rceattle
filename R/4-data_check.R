@@ -472,6 +472,16 @@ switch_check <- function(data_list){
     message("'Month' not specified in 'fleet_control', assuming 0")
   }
 
+  if(is.null(data_list$alpha_wt_len)){
+    data_list$alpha_wt_len <- 1e-6
+    message("'alpha_wt_len' not specified in data, assuming 1e6")
+  }
+
+  if(is.null(data_list$beta_wt_len)){
+    data_list$beta_wt_len <- 0
+    message("'beta_wt_len' not specified in data, assuming 3")
+  }
+
   # Mortality
   if(is.null(data_list$M1_model)){
     data_list$M1_model <- rep(0, data_list$nspp)
