@@ -29,6 +29,7 @@ make_msm_test_data <- function(
     growth_params = matrix(c(0.3, 4.5, 90, 1.0,
                              0.35, 4.5, 50, 1.0), # K, L1, Linf, M
                            nrow = nspp, ncol = 4, byrow = TRUE),
+    growth_model = 1,
     nlengths = 20,
     lengths = 5 * 1:nlengths,
     fish_CAAL_ISS = 0,
@@ -79,12 +80,13 @@ make_msm_test_data <- function(
   # - Growth params: (sp, sex, yr, param) -> params: K, L1, Linf, m
   WAA <- matrix(NA, nrow = nspp, ncol = nages)
   growth_matrix <- array(0, dim = c(nspp, nages, nlengths))
+  length_at_age <- array(0, dim = c(nspp, nages))
   for(sp in 1:nspp){
     gp <- array(growth_params[sp,], dim=c(1, 1, 4))
     gsd <- array(log(3), dim=c(1, nspp))
 
     # - Run Growth Matrix
-    gm <- Rceattle:::get_growth_matrix_r(fracyr=0,
+    gm <-  Rceattle:::get_growth_matrix_r(fracyr=0,
                               nsex_sp=1,
                               nages_sp=nages,
                               nlengths_sp = nlengths,
@@ -94,8 +96,9 @@ make_msm_test_data <- function(
                               maxage_sp = nages,
                               growth_params_sp = gp,
                               growth_ln_sd_sp = gsd,
-                              growth_model_sp = 1)
+                              growth_model_sp = growth_model)
     growth_matrix[sp, ,] = gm$growth_matrix
+    length_at_age[sp, ] = gm$length_at_age
 
     # 4. Calculate Weight-at-Age
     lw_p <- array(c(0.00001, 3.0), dim=c(1, 1, 2)) # a=0.00001, b=3.0
@@ -320,7 +323,7 @@ make_msm_test_data <- function(
     Species = rep(1:nspp, each = 2),
     Month = 0,
     Selectivity_index = 1:(nspp * 2),
-    Selectivity = 1,
+    Selectivity = ifelse(use_size_sel, 6, 1), # age or length based logistic
     N_sel_bins = NA,
     Sel_curve_pen1 = NA,
     Sel_curve_pen2 = NA,
@@ -608,6 +611,10 @@ make_msm_test_data <- function(
       srv_sel = srv_sel,
       WAA = WAA,
       growth_matrix = growth_matrix,
+      lengths = lengths,
+      length_at_age = length_at_age,
+      fish_size_sel = fish_size_sel,
+      srv_size_sel = srv_size_sel,
       MatAA = MatAA,
       M = M,
       Mtv = Mtv,

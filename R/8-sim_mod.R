@@ -463,8 +463,8 @@ get_growth_matrix_r <- function(fracyr, nsex_sp, nages_sp, nlengths_sp, nyrs,
 
         # --- 2. Plus Group Correction (SS Style) ---
         if(a == nages_sp) {
-          diff <- growth_params_sp[s, y, 3] - length_at_age[s, a, y]
-          ages <- 0:(nages_sp-1)
+          diff <- growth_params_sp[s, y, 3] - length_at_age[s, a, y] # Linf - current size
+          ages <- 0:(nages_sp)
           weight_a <- exp(-0.2 * ages)
           vals <- length_at_age[s, a, y] + (ages / nages_sp) * diff
           length_at_age[s, a, y] <- sum(vals * weight_a) / sum(weight_a)
@@ -474,7 +474,7 @@ get_growth_matrix_r <- function(fracyr, nsex_sp, nages_sp, nlengths_sp, nyrs,
         sd1 <- exp(growth_ln_sd_sp[s, 1])
         sda <- exp(growth_ln_sd_sp[s, 2])
 
-        if(current_age < minage_sp) {
+        if(current_age <= minage_sp) {
           length_sd[s, a, y] <- sd1
         } else if(a == nages_sp) {
           length_sd[s, a, y] <- sda
@@ -486,10 +486,10 @@ get_growth_matrix_r <- function(fracyr, nsex_sp, nages_sp, nlengths_sp, nyrs,
         # --- 4. Matrix Distribution ---
         for(l in 1:nlengths_sp) {
           if(l == 1) {
-            fac1 <- (lengths_sp[l] - length_at_age[s, a, y]) / length_sd[s, a, y]
+            fac1 <- (lengths_sp[2] - length_at_age[s, a, y]) / length_sd[s, a, y]
             growth_matrix[s, a, l, y] <- pnorm(fac1)
           } else if(l == nlengths_sp) {
-            fac1 <- (lengths_sp[l] - length_at_age[s, a, y]) / length_sd[s, a, y]
+            fac1 <- (lengths_sp[nlengths_sp] - length_at_age[s, a, y]) / length_sd[s, a, y]
             growth_matrix[s, a, l, y] <- 1 - pnorm(fac1)
           } else {
             fac1 <- (lengths_sp[l+1] - length_at_age[s, a, y]) / length_sd[s, a, y]
