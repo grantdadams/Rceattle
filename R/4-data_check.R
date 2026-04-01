@@ -110,6 +110,18 @@ data_check <- function(data_list) {
     stop("species names not included for all species")
   }
 
+  if(length(data_list$spawn_month) != data_list$nspp){
+    stop("'spawn_month' not included for all species")
+  }
+
+  if(length(data_list$nages) != data_list$nspp){
+    stop("'nages' not included for all species")
+  }
+
+  if(length(data_list$nlengths) != data_list$nspp){
+    stop("'nlengths' not included for all species")
+  }
+
   if (length(data_list$M1_base) == 1) {
     stop("M1 is a single value, please make it age/species specific")
   }

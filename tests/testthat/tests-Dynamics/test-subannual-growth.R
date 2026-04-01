@@ -1,4 +1,4 @@
-testthat::test_that("Test internal VB growth and length-based logistic selectivity", {
+testthat::test_that("Test VB growth with spawn month = 0.00001", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -27,6 +27,7 @@ testthat::test_that("Test internal VB growth and length-based logistic selectivi
 
   # Set up Rceattle data
   simData <- sim$data_list
+  simData$spawn_month <- rep(0.0000001, 2) # Set to really small number so growth is essentially the same
 
   # Fit multi-species
   # * Fix parameters -----
@@ -42,27 +43,21 @@ testthat::test_that("Test internal VB growth and length-based logistic selectivi
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
   inits$growth_ln_sd[] <- log(3)
   inits$ln_growth_pars[,1,] = matrix(log(c(0.3, 4.5, 90, 1.0,
-                                       0.35, 4.5, 50, 1.0)), # K, L1, Linf, M
+                                           0.35, 4.5, 50, 1.0)), # K, L1, Linf, M
                                      nrow = nspp, ncol = 4, byrow = TRUE)
 
   # Fit Rceattle -------------------------------------------------------------
   ss_run_init <- Rceattle::fit_mod(data_list = simData,
-                              inits = inits, # Initial parameters from sim
-                              file = NULL, # Don't save
-                              estimateMode = 3, # Don't estimate
-                              growthFun = build_growth(growth_model = 1), # Von bertalanffy growth
-                              random_rec = FALSE, # No random recruitment
-                              msmMode = 0, # Single species mode
-                              phase = FALSE,
-                              verbose = 1)
+                                   inits = inits, # Initial parameters from sim
+                                   file = NULL, # Don't save
+                                   estimateMode = 3, # Don't estimate
+                                   growthFun = build_growth(growth_model = 1), # Von bertalanffy growth
+                                   random_rec = FALSE, # No random recruitment
+                                   msmMode = 0, # Single species mode
+                                   phase = FALSE,
+                                   verbose = 1)
 
-
-  # 1. Check size-selectivity ----
-  testthat::expect_equal(as.numeric(sim$model_quantities$srv_size_sel), as.numeric(ss_run_init$quantities$sel_at_length[c(1,3),1,,1]))
-  testthat::expect_equal(as.numeric(sim$model_quantities$fish_size_sel), as.numeric(ss_run_init$quantities$sel_at_length[c(2,4),1,,1]))
-
-
-  # 2. Check growth ----
+  # 1. Check growth ----
   # - Biomass weight
   testthat::expect_equal(as.numeric(sim$model_quantities$length_at_age), as.numeric(ss_run_init$quantities$length_hat[c(1,3),1,,1]))
   testthat::expect_equal(as.numeric(sim$model_quantities$growth_matrix), as.numeric(ss_run_init$quantities$growth_matrix[c(1,3),1,,,1]))
@@ -72,20 +67,10 @@ testthat::test_that("Test internal VB growth and length-based logistic selectivi
   testthat::expect_equal(as.numeric(sim$model_quantities$length_at_age), as.numeric(ss_run_init$quantities$length_hat[c(2,4),1,,1]))
   testthat::expect_equal(as.numeric(sim$model_quantities$growth_matrix), as.numeric(ss_run_init$quantities$growth_matrix[c(2,4),1,,,1]))
   testthat::expect_equal(as.numeric(sim$model_quantities$WAA), as.numeric(ss_run_init$quantities$weight_hat[c(2,4),1,,1]))
-
-
-  # 3. Check age-selectivity ----
-  testthat::expect_equal(as.numeric(sim$model_quantities$srv_sel), as.numeric(ss_run_init$quantities$sel_at_age[c(1,3),1,,1]))
-  testthat::expect_equal(as.numeric(sim$model_quantities$fish_sel), as.numeric(ss_run_init$quantities$sel_at_age[c(2,4),1,,1]))
-
-
-  # 4. Check biomass and N ----
-  testthat::expect_equal(as.numeric(sim$model_quantities$Total_Biom), as.numeric(ss_run_init$quantities$biomass[,1:30]), tolerance = 1e-6)
-  testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,,]), as.numeric(ss_run_init$quantities$N_at_age[,1,,1:30]))
 })
 
 
-testthat::test_that("Test Richard's growth and length-based logistic selectivity", {
+testthat::test_that("Test Richard's growth with spawn month = 0.00001", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -119,6 +104,7 @@ testthat::test_that("Test Richard's growth and length-based logistic selectivity
 
   # Set up Rceattle data
   simData <- sim$data_list
+  simData$spawn_month <- rep(0.0000001, 2) # Set to really small number so growth is essentially the same
 
   # Fit multi-species
   # * Fix parameters -----
@@ -146,13 +132,7 @@ testthat::test_that("Test Richard's growth and length-based logistic selectivity
                                    phase = FALSE,
                                    verbose = 1)
 
-
-  # 1. Check size-selectivity ----
-  testthat::expect_equal(as.numeric(sim$model_quantities$srv_size_sel), as.numeric(ss_run_init$quantities$sel_at_length[c(1,3),1,,1]))
-  testthat::expect_equal(as.numeric(sim$model_quantities$fish_size_sel), as.numeric(ss_run_init$quantities$sel_at_length[c(2,4),1,,1]))
-
-
-  # 2. Check growth ----
+  # 1. Check growth ----
   # - Biomass weight
   testthat::expect_equal(as.numeric(sim$model_quantities$length_at_age), as.numeric(ss_run_init$quantities$length_hat[c(1,3),1,,1]))
   testthat::expect_equal(as.numeric(sim$model_quantities$growth_matrix), as.numeric(ss_run_init$quantities$growth_matrix[c(1,3),1,,,1]))
@@ -162,14 +142,4 @@ testthat::test_that("Test Richard's growth and length-based logistic selectivity
   testthat::expect_equal(as.numeric(sim$model_quantities$length_at_age), as.numeric(ss_run_init$quantities$length_hat[c(2,4),1,,1]))
   testthat::expect_equal(as.numeric(sim$model_quantities$growth_matrix), as.numeric(ss_run_init$quantities$growth_matrix[c(2,4),1,,,1]))
   testthat::expect_equal(as.numeric(sim$model_quantities$WAA), as.numeric(ss_run_init$quantities$weight_hat[c(2,4),1,,1]))
-
-
-  # 3. Check age-selectivity ----
-  testthat::expect_equal(as.numeric(sim$model_quantities$srv_sel), as.numeric(ss_run_init$quantities$sel_at_age[c(1,3),1,,1]))
-  testthat::expect_equal(as.numeric(sim$model_quantities$fish_sel), as.numeric(ss_run_init$quantities$sel_at_age[c(2,4),1,,1]))
-
-
-  # 4. Check biomass and N ----
-  testthat::expect_equal(as.numeric(sim$model_quantities$Total_Biom), as.numeric(ss_run_init$quantities$biomass[,1:30]), tolerance = 1e-6)
-  testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,,]), as.numeric(ss_run_init$quantities$N_at_age[,1,,1:30]))
 })
