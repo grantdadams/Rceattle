@@ -70,6 +70,8 @@ rearrange_dat <- function(data_list){
     dplyr::pull(Comp_loglike) %>% as.integer()
   data_list$caal_ll_type <- data_list$fleet_control %>%
     dplyr::pull(CAAL_loglike) %>% as.integer()
+  data_list$diet_ll_type <- data_list$Diet_loglike %>%
+    as.integer()
 
   # - 11) Index units (1 = weight, 2 = numbers)
   data_list$flt_units <- data_list$fleet_control %>%
@@ -207,12 +209,7 @@ rearrange_dat <- function(data_list){
   if(!is.null(data_list$diet_data)){ # Add a check in case there's no diet data
 
     # Create a temporary diet data frame to work with
-    diet_dat <- data_list$diet_data %>%
-      # - Sort by stomach_id so that rows for the same predator are contiguous
-      dplyr::arrange(Pred, Pred_sex, Pred_age, Prey, Prey_sex, Prey_age, Year) %>%
-      # - Create the unique stratum identifier and the zero-indexed stomach_id
-      dplyr::mutate(stratum_id = paste(Pred, Pred_sex, Pred_age, Year, sep = "_"),
-                    stomach_id = as.numeric(as.factor(stratum_id)) - 1)
+    diet_dat <- data_list$diet_data
 
     # Add n_stomach_obs and the stomach_id vector to the main data_list
     if(length(diet_dat$stomach_id) == 0){

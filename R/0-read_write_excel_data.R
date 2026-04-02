@@ -110,7 +110,10 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
   if(is.null(data_list$Diet_comp_weights)){
     data_list$Diet_comp_weights <- rep(1, data_list$nspp)
   }
-  bioenergetics_control <- matrix(NA, ncol = data_list$nspp, nrow = 13)
+  if(is.null(data_list$Diet_loglike)){
+    data_list$Diet_loglike <- rep(0, data_list$nspp)
+  }
+  bioenergetics_control <- matrix(NA, ncol = data_list$nspp, nrow = 14)
   bioenergetics_control[1, ] <- data_list$Ceq
   bioenergetics_control[2, ] <- data_list$Cindex
   bioenergetics_control[3, ] <- data_list$Pvalue
@@ -123,11 +126,12 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
   bioenergetics_control[10, ] <- data_list$Tcl
   bioenergetics_control[11, ] <- data_list$CK1
   bioenergetics_control[12, ] <- data_list$CK4
-  bioenergetics_control[13, ] <- data_list$Diet_comp_weights
+  bioenergetics_control[13, ] <- data_list$Diet_loglike
+  bioenergetics_control[14, ] <- data_list$Diet_comp_weights
 
   bioenergetics_control <- as.data.frame(bioenergetics_control)
 
-  bioenergetics_control <- cbind(c("Ceq", "Cindex","Pvalue", "fday", "CA", "CB", "Qc", "Tco", "Tcm", "Tcl", "CK1", "CK4", "Diet_comp_weights"), bioenergetics_control)
+  bioenergetics_control <- cbind(c("Ceq", "Cindex","Pvalue", "fday", "CA", "CB", "Qc", "Tco", "Tcm", "Tcl", "CK1", "CK4", "Diet_loglike", "Diet_comp_weights"), bioenergetics_control)
   colnames(bioenergetics_control) <- c("Object", data_list$spnames)
 
 
@@ -197,10 +201,14 @@ read_data <- function(file = "Rceattle_data.xlsx") {
   data_list$spnames <- rownames(control)[1:data_list$nspp]
 
   # 5. Extract Vectors
-  vec_vars <- c("nsex", "spawn_month", "nages", "minage", "nlengths",
-                "pop_wt_index", "ssb_wt_index", "alpha_wt_len", "beta_wt_len",
-                "pop_age_transition_index", "sigma_rec_prior", "other_food", "estDynamics")
-  data_list[vec_vars] <- lapply(control[1:data_list$nspp, vec_vars], as.numeric)
+  # vec_vars <- c("nsex", "spawn_month", "nages", "minage", "nlengths",
+  #               "pop_wt_index", "ssb_wt_index", "alpha_wt_len", "beta_wt_len",
+  #               "pop_age_transition_index", "sigma_rec_prior", "other_food", "estDynamics")
+  # data_list[vec_vars] <- lapply(control[1:data_list$nspp, vec_vars], as.numeric)
+
+  for (i in 5:nrow(sheet1)) {
+    data_list[[sheet1$Object[i]]] <- suppressWarnings(as.numeric(as.character(sheet1[i, ((1:data_list$nspp) + 1)])))
+  }
 
 
   # Composition, fleet control, fixed selectivity, n-at-age
@@ -229,6 +237,17 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     message("Renaming 'Nselages' to 'N_sel_bins'")
   }
 
+  if(length(data_list$fleet_control$Sel_sd_prior) > 0){
+    data_list$fleet_control <- data_list$fleet_control %>%
+      dplyr::rename(Time_varying_sel_sd_prior = Sel_sd_prior)
+    message("Renaming 'Sel_sd_prior' to 'Time_varying_sel_sd_prior'")
+  }
+
+  if(length(data_list$fleet_control$Estimate_q) > 0){
+    data_list$fleet_control <- data_list$fleet_control %>%
+      dplyr::rename(Catchability = Estimate_q)
+    message("Renaming 'Estimate_q' to 'Catchability'")
+  }
 
   if(length(data_list$fleet_control$Age_first_selected) > 0){
     data_list$fleet_control <- data_list$fleet_control %>%

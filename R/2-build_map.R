@@ -512,6 +512,7 @@ build_map_predation <- function(map_list, data_list) {
   # }
 
   # * 4. Suitability (if Multi-Species) ----
+  map_list$diet_comp_weights[] <- NA
   if (data_list$msmMode > 0) {
     for (sp in 1:data_list$nspp) {
       if (data_list$suitMode[sp] == 0) {
@@ -523,11 +524,12 @@ build_map_predation <- function(map_list, data_list) {
       if (data_list$estDynamics[sp] > 0) {
         map_list$log_phi[, sp] <- NA
       }
+
+      if(data_list$Diet_loglike[sp] == 1){
+        map_list$diet_comp_weights[sp] <- sp # Turn on alpha for dirichlet multinomial
+      }
     }
   }
-
-  # * 5. Diet Multiplier ----
-  map_list$diet_comp_weights[] <- NA
 
   return(map_list)
 }
@@ -1080,10 +1082,11 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
       map_list$caal_weights[i] <- NA
     }
 
-    # Map out comp weights if fleet is turned off or there are no comp data
+    # Map out comp weights and sigma if fleet is turned off or there are no comp data
     if(data_list$fleet_control$Fleet_type[i] == 0) {
       map_list$comp_weights[i] <- NA
       map_list$caal_weights[i] <- NA
+      map_list$sel_dev_ln_sd[i] <- NA
     }
     if(!data_list$fleet_control$Fleet_code[i] %in% comp_count$Fleet_code){
       map_list$comp_weights[i] <- NA
@@ -1100,7 +1103,7 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
   }
 
 
-  # - Map out Fdev for years with 0 catch to very low number
+  # - Map out Fdev and sel-devs for years with 0 catch to very low number
   catch_data <- data_list$catch_data[which(data_list$catch_data$Year <= data_list$endyr),]
   fsh_ind <- catch_data$Fleet_code[which(catch_data$Catch == 0)]
   yr_ind <- catch_data$Year[which(catch_data$Catch == 0)] - data_list$styr + 1

@@ -77,6 +77,18 @@ clean_data <- function(data_list){
     message("Renaming column names in 'maturity' data to 'Age1', 'Age2', ....")
   }
 
+  # Arrange diet data
+  if(!is.null(data_list$diet_data)){ # Add a check in case there's no diet data
+    # Create a temporary diet data frame to work with
+    data_list$diet_data <- data_list$diet_data %>%
+      # - Sort by stomach_id so that rows for the same predator are contiguous
+      dplyr::arrange(Pred, Pred_sex, Pred_age, Prey, Prey_sex, Prey_age, Year) %>%
+      # - Create the unique stratum identifier and the zero-indexed stomach_id
+      dplyr::mutate(stratum_id = paste(Pred, Pred_sex, Pred_age, Year, sep = "_"),
+                    stomach_id = as.numeric(as.factor(stratum_id)) - 1) %>%
+      dplyr::arrange(stomach_id)
+  }
+
   return(data_list)
 }
 
@@ -96,6 +108,18 @@ data_check <- function(data_list) {
 
   if(length(data_list$spnames) != data_list$nspp){
     stop("species names not included for all species")
+  }
+
+  if(length(data_list$spawn_month) != data_list$nspp){
+    stop("'spawn_month' not included for all species")
+  }
+
+  if(length(data_list$nages) != data_list$nspp){
+    stop("'nages' not included for all species")
+  }
+
+  if(length(data_list$nlengths) != data_list$nspp){
+    stop("'nlengths' not included for all species")
   }
 
   if (length(data_list$M1_base) == 1) {
@@ -120,6 +144,11 @@ data_check <- function(data_list) {
          (data_list$fleet_control$Catchability[flt] == 6 & data_list$fleet_control$Time_varying_q[flt] < 1)){
         stop("For catchability type 6 environmental index specified in 'Time_varying_q' is greater than number of indices in 'env_data'")
       }
+    }
+
+    # Time-varying sel not possible
+    if(data_list$fleet_control$Time_varying_sel[flt] == 2 & data_list$fleet_control$Selectivity[flt] %in% c(2,7,5,10)){
+      stop("For non-parametric selectivities, 'Time_varying_sel' cant not be a random walk")
     }
 
     # Max sel age > nages
@@ -328,6 +357,10 @@ data_check <- function(data_list) {
     stop("Diet composition likelihood weight for a species with estimated suitability is NA")
   }
 
+  if(any(!(data_list$Diet_loglike %in% c(0, 1)) & data_list$suitMode > 0)){
+    stop("Diet composition likelihood for a species with estimated suitability is not 0 or 1")
+  }
+
   # Sexes ----
   m1_sex <- data_list$M1_base %>%
     dplyr::group_by(Species) %>%
@@ -392,6 +425,10 @@ switch_check <- function(data_list){
   if(is.null(data_list$Diet_comp_weights)){
     data_list$Diet_comp_weights <- rep(1, data_list$nspp)
     message("'Diet_comp_weights' are not included in data, assuming 1")
+  }
+  if(is.null(data_list$Diet_loglike)){
+    data_list$Diet_loglike <- rep(0, data_list$nspp)
+    message("'Diet_loglike' are not included in data, assuming multinomial")
   }
 
   # Normalization age
@@ -473,6 +510,16 @@ switch_check <- function(data_list){
   if(is.null(data_list$fleet_control$Month)){
     data_list$fleet_control$Month <- 0
     print("'Month' not specified in 'fleet_control', assuming 0")
+  }
+
+  if(is.null(data_list$alpha_wt_len)){
+    data_list$alpha_wt_len <- 1e-6
+    message("'alpha_wt_len' not specified in data, assuming 1e6")
+  }
+
+  if(is.null(data_list$beta_wt_len)){
+    data_list$beta_wt_len <- 0
+    message("'beta_wt_len' not specified in data, assuming 3")
   }
 
   # Mortality

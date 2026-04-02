@@ -1,0 +1,5 @@
+testthat::test_dir("tests-Dynamics/")
+testthat::test_dir("tests-Mortality/")
+testthat::test_dir("tests-Likelihoods/")
+testthat::test_dir("tests-Data processing/")
+testthat::test_dir("tests-Selectivity/")

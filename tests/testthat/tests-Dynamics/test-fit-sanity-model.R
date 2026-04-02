@@ -2,7 +2,7 @@ testthat::skip_on_cran()
 testthat::test_that("Fit sanity model: key quantities match baseline", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
-  skip()
+  testthat::skip()
 
   # Prepare small deterministic dataset using helper
   #source(file.path("tests", "testthat", "helpers.R"))
@@ -58,7 +58,7 @@ testthat::test_that("Fit sanity model: key quantities match baseline", {
 })
 
 
-test_that("Index, biomass, and catch = 0 match expected", {
+testthat::test_that("Index, biomass, and catch = 0 match expected", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -196,7 +196,7 @@ testthat::test_that("Dynamics match CEATTLE single-species classic", {
 )
 
 
-test_that("Dynamics match multi-species CEATTLE classic", {
+testthat::test_that("Dynamics match multi-species CEATTLE classic", {
 
   # Load old model
   library(Rceattle)

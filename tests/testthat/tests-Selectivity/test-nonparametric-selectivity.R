@@ -1,5 +1,5 @@
 
-testthat::test_that("Test non-parametric selectivity not normalized", {
+testthat::test_that("Test age-based non-parametric selectivity not normalized", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -14,8 +14,6 @@ testthat::test_that("Test non-parametric selectivity not normalized", {
   GOA2018SS$fleet_control$Sel_norm_bin1 <- NA
   GOA2018SS$fleet_control$Time_varying_sel <- 0
   GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
-
-  # inits <- suppressMessages(build_params(GOA2018SS))
 
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
                               estimateMode = 3, # Don't estimate
@@ -68,9 +66,9 @@ testthat::test_that("Test non-parametric selectivity not normalized", {
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              inits = inits, # Initial parameters = 0
-                              file = NULL, # Don't save
+                              inits = inits,
                               map = map,
+                              file = NULL, # Don't save
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode

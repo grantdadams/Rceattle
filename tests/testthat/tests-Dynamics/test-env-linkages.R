@@ -1,5 +1,5 @@
 
-test_that("Test environmental linkeage with mean rec", {
+testthat::test_that("Test environmental linkeage with mean rec", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
