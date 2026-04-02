@@ -117,11 +117,11 @@ void estimate_growth(
             length_hat(wtind,  sex, age, yr) = Lmin_sp + b_len * (current_age);
           } else {
             if(yr == 0) {
-              length_hat(wtind,  sex, age, yr) = pow(pow(l1, m) + (pow(linf, m) - pow(l1, m)) * exp(-kappa * (current_age - age_L1)), 1 / m);
+              length_hat(wtind,  sex, age, yr) = pow(pow(linf, m) + (pow(l1, m) - pow(linf, m)) * exp(-kappa * (current_age - age_L1)), 1 / m);
             } else { // Yr > 0
               if(current_age == age_L1_ceil) {
                 last_linear = Lmin_sp + b_len * age_L1;
-                length_hat(wtind,  sex, age, yr) = pow(pow(last_linear, m) + (pow(last_linear, m) - pow(l1, m)) * (exp(-kappa * (current_age - age_L1)) - 1.0), 1 / m);
+                length_hat(wtind,  sex, age, yr) = pow(pow(last_linear, m) + (pow(last_linear, m) - pow(linf, m)) * (exp(-kappa * (current_age - age_L1)) - 1.0), 1 / m);
               } else {
                 // Lag 1-year parameters
                 Type lagkappa = growth_parameters(sp, sex, yr - 1, 0);
@@ -320,7 +320,7 @@ void estimate_growth_within_yr(
             length_hat(wtind,  sex, age, yr) = Lmin_sp + b_len * (current_age);
           }else if(age + 1 < age_L1){ // Linear + growth curve mixed
             last_linear = Lmin_sp + b_len * age_L1;
-            length_hat(wtind,  sex, age, yr) = pow(pow(last_linear, m) + (pow(last_linear, m) - pow(l1, m)) * (exp(-kappa * (current_age - age_L1)) - 1.0), 1 / m);
+            length_hat(wtind,  sex, age, yr) = pow(pow(last_linear, m) + (pow(last_linear, m) - pow(linf, m)) * (exp(-kappa * (current_age - age_L1)) - 1.0), 1 / m);
           } else if(age + 1 == nages(sp)) { // Plus group
             length_hat(wtind,  sex, age, yr) = length_hat(id_pop,  sex, age, yr);
           } else {

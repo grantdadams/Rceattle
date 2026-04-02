@@ -307,7 +307,7 @@ fit_mod <-
     data_list$Sigma = extend_length(HCR$Sigma)
     data_list$Fmult = extend_length(HCR$Fmult)
     data_list$HCRorder = extend_length(HCR$HCRorder)
-    data_list$QnormHCR = qnorm(data_list$Pstar, 0, data_list$Sigma)
+    data_list$QnormHCR = stats::qnorm(data_list$Pstar, 0, data_list$Sigma)
 
     # if(data_list$HCR == 2 & estimateMode == 2){estimateMode = 4} # If projecting under constant F, run parmeters through obj only
 
@@ -354,10 +354,10 @@ fit_mod <-
 
       # - Set F for years with 0 catch to very low number
       zero_catch <- data_list$catch_data %>%
-        dplyr::filter(Year <= data_list$endyr &
-                        Catch == 0) %>%
+        dplyr::filter(.data$Year <= data_list$endyr &
+                        .data$Catch == 0) %>%
         dplyr::mutate(Year = Year - data_list$styr + 1) %>%
-        dplyr::select(Fleet_code, Year) %>%
+        dplyr::select("Fleet_code", "Year") %>%
         as.matrix()
       start_par$ln_F[zero_catch] <- -999
       rm(zero_catch)

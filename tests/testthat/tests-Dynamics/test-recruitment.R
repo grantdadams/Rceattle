@@ -27,7 +27,7 @@ testthat::test_that("mean recruitment and devs", {
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = dat,
-                              inits = inits, # Initial parameters at input
+                              inits = inits, # Initial parameters from input
                               file = NULL, # Don't save
                               map = map,
                               estimateMode = 3, # Don't estimate
@@ -79,7 +79,7 @@ testthat::test_that("ssb under mean recruitment", {
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              inits = inits, # Initial parameters at input
+                              inits = inits, # Initial parameters from input
                               file = NULL, # Don't save
                               map = map,
                               estimateMode = 3, # Don't estimate
@@ -135,7 +135,7 @@ testthat::test_that("ssb and beverton recruitment", {
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              inits = inits, # Initial parameters at input
+                              inits = inits, # Initial parameters from input
                               file = NULL, # Don't save
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
@@ -213,7 +213,7 @@ testthat::test_that("ssb and ricker recruitment", {
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              inits = inits, # Initial parameters at input
+                              inits = inits, # Initial parameters from input
                               file = NULL, # Don't save
                               map = map,
                               estimateMode = 3, # Don't estimate

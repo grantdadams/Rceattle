@@ -42,8 +42,7 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
 
   # * Input checks ----
   # - Set om to project from R0
-  om$data_list$proj_mean_rec = 0 # - Sample rec devs assuming this down the line
-  #FIXME: SB0 for equilibrium HCRs will have to be adjusted
+  om$data_list$proj_mean_rec = TRUE # - Sample rec devs assuming this down the line
 
   # - Adjust cap
   if(!is.null(cap)){
