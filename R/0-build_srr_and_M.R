@@ -1,16 +1,16 @@
 #' Specify the stock-recruit relationship (SRR) for Rceattle
 #'
 #' @param srr_fun Stock recruit function to be used for hindcast estimation of Rceattle (see @description below). Default = 0
-#' @param srr_pred_fun stock recruit function for projection, reference points, and penalties to be used for Rceattle (see below). When \code{srr_fun == 0}, it treats treat the stock-recruit curve as an additional penalty onto the annualy estimated recruitment from the hindcast (sensu AMAK and Jim Ianelli's pollock model). If \code{srr_fun > 0} then \code{srr_pred_fun = srr_fun} and no additional penalty is included.
+#' @param srr_pred_fun stock recruit function for projection, reference points, and penalties to be used for Rceattle (see below). When \code{srr_fun == 0}, it treats the stock-recruit curve as an additional penalty onto the annualy estimated recruitment from the hindcast (sensu AMAK and Jim Ianelli's pollock model). If \code{srr_fun > 0} then \code{srr_pred_fun = srr_fun} and no additional penalty is included.
 #' @param proj_mean_rec Project the model using: 0 = mean recruitment (average R of hindcast) or 1 = SRR(omega, srr_devs)
-#' @param srr_hat_styr Integer. The first year used for deriving the forecast recruitment function (e.g. mean recruitment). It will add additional penalties sensu AMAK and Jim Ianelli's pollock model when \code{srr_pred_fun > 0} and \code{srr_fun = 0}, starting at \code{styr} + 1. Defaults to $styr + 1$ in $data_list$. Useful if environmental data used to condition stock-recruit relationships is not available until end-year, but projections are desired.
-#' @param srr_hat_endyr Integer. The last year used f the forecast recruitment function (e.g. mean recruitment). It will add an additional penalties sensu AMAK and Jim Ianelli's pollock model when \code{srr_pred_fun > 0} and \code{srr_fun = 0}. Recruitment Defaults to $endyr$ in $data_list$. Useful if environmental data used to condition stock-recruit relationships is not available until end-year, but projections are desired.
+#' @param srr_hat_styr Integer. The first year used for estimating the recruitment function as an additional penalty. It will add additional penalties sensu AMAK and Jim Ianelli's pollock model when \code{srr_pred_fun > 0} and \code{srr_fun = 0}, starting at \code{styr} + 1. Defaults to $styr + 1$ in $data_list$. Useful if environmental data used to condition stock-recruit relationships is not available until end-year, but projections are desired.
+#' @param srr_hat_endyr Integer. The last year used for estimating the recruitment function as an additional penalty. It will add an additional penalties sensu AMAK and Jim Ianelli's pollock model when \code{srr_pred_fun > 0} and \code{srr_fun = 0}. Recruitment Defaults to $endyr$ in $data_list$. Useful if environmental data used to condition stock-recruit relationships is not available for the full time-series, but projections are desired.
 #' @param srr_est_mode Switch to determine estimation mode. 0 = fix alpha to prior mean, 1 = freely estimate alpha and beta, 2 = use lognormally distributed prior for alpha (Ricker) or steepness (Beverton), 3 = use beta distributed prior for steepness (Beverton) given mean and sd.
 #' @param srr_prior mean for normally distributed prior for stock-recruit parameter
 #' @param srr_prior_sd Prior standard deviation for stock-recruit parameter
 #' @param srr_indices vector or single index indicating the columns (excluding "Year") of \code{env_data} to use in a environmentally driven stock recruit curve.
 #' @param Bmsy_lim Upper limit for Ricker based SSB-MSY (e.g 1/Beta). Will add a likelihood penalty if beta is estimated above this limit. Default `NA` is not used.
-#' @param srr_mse_switchyr is used for MSEs to deal with AMAK and Jim Ianelli's estimation where a stock recruit function is estimated as an additional penalty whe srr_fun = 0 and srr_pred_fun > 0. It tells the model in what year to switch to the stock recruit function.
+#' @param srr_mse_switchyr is used for MSEs to deal with AMAK and Jim Ianelli's estimation where a stock recruit function is estimated as an additional penalty  (srr_fun = 0 and srr_pred_fun > 0). It tells the model in what year to switch to the stock recruit function.
 #'
 #' @description
 #'
@@ -34,7 +34,7 @@
 #' - \code{srr_fun = 5} Ricker stock-recruitment relationship with environmental covariates impacting larval survival rate and prior is on alpha.
 #'   \deqn{R_y = \alpha_{srr} e^{X * \beta_X} * SB_{y-minage} * exp(-\beta_{srr} * SB_{y-minage})}
 #'
-#' When \code{srr_pred_fun > 0} and \code{srr_fun = 0} recruitment in the hindcast is estimated as in \code{srr_fun = 0} \deqn{R_y = exp(R0 + R_{dev,y})}, but an additional stock recruitment relationship defined by \code{srr_pred_fun} is estimated between \code{srr_hat_styr} and \code{srr_hat_styr} and treated as an additional penalty. The stock recruitment relationship defined by \code{srr_pred_fun} is then used in the projection.
+#' When \code{srr_pred_fun > 0} and \code{srr_fun = 0} recruitment in the hindcast is estimated as in \code{srr_fun = 0} \deqn{R_y = exp(R0 + R_{dev,y})}, but an additional stock recruitment relationship defined by \code{srr_pred_fun} is estimated between \code{srr_hat_styr} and \code{srr_hat_endyr} and treated as an additional penalty. The stock recruitment relationship defined by \code{srr_pred_fun} is then used in the projection.
 #'
 #'
 #' @return A \code{list} containing the stock recruitment relationship settings
@@ -82,8 +82,8 @@ build_srr <- function(srr_fun = 0,  #srr_model
 #' @param M1_model Vector or scalar specifying M1 fixed effects model (see @description below). 0 = use fixed natural mortality from M1_base in data, 1 = estimate sex- and age-invariant M1, 2 = sex-specific (two-sex model), age-invariant M1, 3 = estimate sex- and age-specific M1, 4 = environmentally driven sex- and age-invariant M1, 5 = environmentally driven age-invariant, but sex-specific M1.
 #' @param M1_re Vector or scalar specifying M1 random effects model. See description (default = 0).
 #' @param updateM1 If using initial parameters, use M1 fixed effects from data instead (default = FALSE).
-#' @param M1_use_prior Vector or scalar specifying to specify if M1 fixed effects come from a lognormal prior
-#' @param M2_use_prior Vector or scalar specifying to specify if M1 + M2 come from a lognormal prior in multi-species models (default = FALSE). Lognormal prior for M1 + M2 across species, sexes, ages, and years.
+#' @param M1_use_prior Vector or scalar specifying if M1 fixed effects come from a lognormal prior
+#' @param M2_use_prior Vector or scalar specifying if M1 + M2 come from a lognormal prior in multi-species models (default = FALSE). Lognormal prior for M1 + M2 across species, sexes, ages, and years.
 #' @param M_prior Vector or scalar for mean of M prior on natural scale
 #' @param M_prior_sd Vector or scalar of SD of lognormal M prior. Used as initial value for random effects variance as well.
 #' @param M1_indices vector or single index indicating the columns (excluding Year column) of \code{env_data} to use for environmentally linked M1 \code{M1_model %in% c(4,5)}.
