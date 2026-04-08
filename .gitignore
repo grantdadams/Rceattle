@@ -12,9 +12,5 @@ inst/doc
 *.o
 *.so
 src/TMB/ceattle_v01_11.dll
-.Rhistory
-.Rhistory
 src/.DS_Store
-.Rhistory
-.Rhistory
 tests/comparison/WHAM_growth_comparison/wham_model.RDS
