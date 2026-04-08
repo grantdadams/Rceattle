@@ -28,16 +28,18 @@ testthat::test_that("Test MSE - Tier 3 w no uncertainty", {
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # NPFMC Tier 3 ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-  ss_run_Tier3 <- Rceattle::fit_mod(data_list = BS2017SS,
-                                    inits = ss_run$estimated_params, # Initial parameters from ss_run
-                                    estimateMode = 2, # Run projection only
-                                    HCR = build_hcr(HCR = 5, # Tier3 HCR
-                                                    Ftarget = 0.4, # F40%
-                                                    Flimit = 0.35, # F35%
-                                                    Plimit = 0.2, # No fishing when SB<SB20
-                                                    Alpha = 0.05),
-                                    msmMode = 0, # Single species mode
-                                    verbose = 1)
+  ss_run_Tier3 <- suppressWarnings(
+    Rceattle::fit_mod(data_list = BS2017SS,
+                      inits = ss_run$estimated_params, # Initial parameters from ss_run
+                      estimateMode = 2, # Run projection only
+                      HCR = build_hcr(HCR = 5, # Tier3 HCR
+                                      Ftarget = 0.4, # F40%
+                                      Flimit = 0.35, # F35%
+                                      Plimit = 0.2, # No fishing when SB<SB20
+                                      Alpha = 0.05),
+                      msmMode = 0, # Single species mode
+                      verbose = 1)
+  )
 
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#

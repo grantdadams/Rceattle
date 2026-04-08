@@ -536,7 +536,7 @@ fit_mod <-
 
 
     # * Optimize hindcast ----
-    if(estimateMode %in% c(0,1,2,4)){
+    if(estimateMode %in% c(0,1,4)){
       opt <- suppressMessages(
         TMBhelper::fit_tmb(obj = obj,
                            fn=obj$fn,
