@@ -43,7 +43,7 @@ void normalize_and_project_selectivity(
 
   int sp = flt_spp(flt);
   int sel_type = flt_sel_type(flt);
-  int nbins = (sel_type < 6) ? nages(sp) : nlengths(sp);
+  int nbins = (sel_type < 8) ? nages(sp) : nlengths(sp); // 7 selex
 
   // Ages not selected
   for(int yr = 0; yr < nyrs_hind; yr++) {
@@ -87,7 +87,8 @@ void normalize_and_project_selectivity(
     }
 
     // 2. Normalize by max for each fishery and year across bins, and sexes
-    if((sel_type < 5) && (sel_norm_bin1(flt) < 0) && (sel_norm_bin1(flt) > -500)) {
+    // - Don't for hake non-parametric
+    if((sel_type != 5) && (sel_type != 12) && (sel_norm_bin1(flt) < 0) && (sel_norm_bin1(flt) > -500)) {
       for(int yr = 0; yr < nyrs_hind; yr++) {
         max_sel = 0;
         for(int bin = 0; bin < nbins; bin++){
@@ -270,8 +271,8 @@ void calculate_selectivity(
     int sel_type = flt_sel_type(flt);
     if (sel_type == 0) continue;
 
-    bool is_length_based = (sel_type > 5);
-    int base_type = is_length_based ? (sel_type - 5) : sel_type;
+    bool is_length_based = (sel_type > 7); // 7 selex types
+    int base_type = is_length_based ? (sel_type - 7) : sel_type;
     int nbins = is_length_based ? nlengths(sp) : nages(sp);
     int n_sel_bins = flt_n_sel_bins(flt);
     Type binwidth = is_length_based ? (lengths(sp, 1) - lengths(sp, 0)) : Type(1.0);
@@ -369,6 +370,20 @@ void calculate_selectivity(
               if (is_length_based) sel_at_length(flt, sex, bin, yr) = exp(sel_at_length(flt, sex, bin, yr) - max_sel);
               else sel_at_age(flt, sex, bin, yr) = exp(sel_at_age(flt, sex, bin, yr) - max_sel);
             }
+          }
+          break;
+        case 6: // 2D AR1-age x year
+            for (int bin = 0; bin < nbins; bin++) {
+              if (is_length_based) sel_at_length(flt, sex, bin, yr) = 1 / (1 + exp(-(sel_coff(flt, sex, bin) + sel_coff_dev(flt, sex, bin, yr))));
+              else sel_at_age(flt, sex, bin, yr) = 1 / (1 + exp(-(sel_coff(flt, sex, bin) + sel_coff_dev(flt, sex, bin, yr))));
+            }
+          }
+          break;
+
+        case 7: // 3D AR1 conditional variance
+          for (int bin = 0; bin < nbins; bin++) {
+            if (is_length_based) sel_at_length(flt, sex, bin, yr) = 1 / (1 + exp(-(sel_coff(flt, sex, bin) + sel_coff_dev(flt, sex, bin, yr))));
+            else sel_at_age(flt, sex, bin, yr) = 1 / (1 + exp(-(sel_coff(flt, sex, bin) + sel_coff_dev(flt, sex, bin, yr))));
           }
           break;
         }

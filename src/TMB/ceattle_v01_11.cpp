@@ -2390,7 +2390,7 @@ Type objective_function<Type>::operator() () {
       // 1) Ianelli/AMAK non-parametic selectivity penalties
       // - using non-normalized selectivities following the arrowtooth ADMB model
       // - updated to make differentiable using abs to only penalize when sel_ratio_tmp > 0 (decreasing sel_at_age)
-      if((flt_sel_type(flt) == 2) || (flt_sel_type(flt) == 7)) {
+      if((flt_sel_type(flt) == 2) || (flt_sel_type(flt) == 11)) {
 
         // If time-invariant selectivity
         int nyrs_tmp = 1;
@@ -2445,18 +2445,18 @@ Type objective_function<Type>::operator() () {
 
       // 2) Logistic selectivity penalties
       // Penalized/random effect likelihood time-varying logistic/double-logistic selectivity deviates
-      if(((flt_varying_sel(flt) == 1)||(flt_varying_sel(flt) == 2)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5)){
+      if(((flt_varying_sel(flt) == 1)||(flt_varying_sel(flt) == 2)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5) && (flt_sel_type(flt) != 9) && (flt_sel_type(flt) != 12)){
         for(sex = 0; sex < nsex(sp); sex ++){
           for(yr = 0; yr < nyrs_hind; yr++){
 
             // Logistic deviates
-            if((flt_sel_type(flt) == 1) || (flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 6) || (flt_sel_type(flt) == 8)){
+            if((flt_sel_type(flt) == 1) || (flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 8) || (flt_sel_type(flt) == 12)){
               jnll_comp(5, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr), Type(0.0), sel_dev_sd(flt), true);
               jnll_comp(5, flt) -= dnorm(ln_sel_slp_dev(0, flt, sex, yr), Type(0.0), 4 * sel_dev_sd(flt), true);
             }
 
             // Double logistic deviates
-            if((flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 4) || (flt_sel_type(flt) == 8) || (flt_sel_type(flt) == 9)){
+            if((flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 4) || (flt_sel_type(flt) == 10) || (flt_sel_type(flt) == 13)){
               jnll_comp(5, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr), Type(0.0), sel_dev_sd(flt), true);
               jnll_comp(5, flt) -= dnorm(ln_sel_slp_dev(1, flt, sex, yr), Type(0.0), 4 * sel_dev_sd(flt), true);
             }
@@ -2465,18 +2465,18 @@ Type objective_function<Type>::operator() () {
       }
 
       // Random walk: Type 4 = random walk on ascending and descending for double logistic; Type 5 = ascending only for double logistics
-      if(((flt_varying_sel(flt) == 4)||(flt_varying_sel(flt) == 5)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5)){
+      if(((flt_varying_sel(flt) == 4)||(flt_varying_sel(flt) == 5)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5) && (flt_sel_type(flt) != 9) && (flt_sel_type(flt) != 12)){
         for(sex = 0; sex < nsex(sp); sex ++){
           for(yr = 1; yr < nyrs_hind; yr++){ // Start at second year
 
             // Logistic deviates
-            if((flt_sel_type(flt) == 1) || (flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 6) || (flt_sel_type(flt) == 8)){
+            if((flt_sel_type(flt) == 1) || (flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 8) || (flt_sel_type(flt) == 12)){
               jnll_comp(5, flt) -= dnorm(ln_sel_slp_dev(0, flt, sex, yr) - ln_sel_slp_dev(0, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt), true);
               jnll_comp(5, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr) - sel_inf_dev(0, flt, sex, yr-1), Type(0.0), 4 * sel_dev_sd(flt), true);
             }
 
             // Double logistic deviates
-            if((flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 4) || (flt_sel_type(flt) == 8) || (flt_sel_type(flt) == 9)){
+            if((flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 4) || (flt_sel_type(flt) == 10) || (flt_sel_type(flt) == 13)){
               jnll_comp(5, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr) - sel_inf_dev(1, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt), true);
               jnll_comp(5, flt) -= dnorm(ln_sel_slp_dev(1, flt, sex, yr) - ln_sel_slp_dev(1, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt) * 4, true);
             }
@@ -2486,13 +2486,74 @@ Type objective_function<Type>::operator() () {
 
       // 3) Hake style non-parametric
       // Penalized/random effect likelihood time-varying non-parametric (Taylor et al 2014) selectivity deviates
-      if(((flt_varying_sel(flt) == 1) || (flt_varying_sel(flt) == 2)) && ((flt_sel_type(flt) == 5) || (flt_sel_type(flt) == 10))){
+      if(((flt_varying_sel(flt) == 1) || (flt_varying_sel(flt) == 2)) && ((flt_sel_type(flt) == 5) || (flt_sel_type(flt) == 12))){
         for(age = 0; age < flt_n_sel_bins(flt); age++){ //NOTE: extends beyond selectivity age range, but should be mapped to 0 in map function
           for(sex = 0; sex < nsex(sp); sex++){
             for(yr = 0; yr < nyrs_hind; yr++){
               jnll_comp(5, flt) -= dnorm(sel_coff_dev(flt, sex, age, yr), Type(0.0), sel_dev_sd(flt), true);
             }
           }
+        }
+      }
+
+
+      // 4) 2D AR1
+      if(((flt_sel_type(flt) == 6) || (flt_sel_type(flt) == 13))){
+
+        int sel_type = flt_sel_type(flt);
+        int nbins = (sel_type < 8) ? nages(sp) : nlengths(sp);
+        array<Type> tmp_AR2(nbins, nyrs);
+
+
+        for(sex = 0; sex < nsex(sp); sex ++){
+          for (int bin = 0; bin < nbins; bin++) {
+            for (int yr = 0; yr < nyrs; yr++) {
+              tmp_AR2(bin, yr) =  sel_coff_dev(flt, sex, bin, yr);
+            }
+          }
+
+          Sigma_sig_sel = pow(pow(sel_dev_sd(flt),2) / ((1-pow(rho_y,2))*(1-pow(rho_a,2))),0.5);
+          jnll_comp(5, flt) -= SCALE(SEPARABLE(AR1(rho_a),AR1(rho_y)), Sigma_sig_sel)(tmp_AR2);
+        }
+      }
+
+      // 5) 3D AR1
+      if(((flt_sel_type(flt) == 7) || (flt_sel_type(flt) == 14))){
+        // Build bin-year index
+        int sel_type = flt_sel_type(flt);
+        int nbins = (sel_type < 8) ? nages(sp) : nlengths(sp);
+        int num_rows = nbins * nyrs;
+        matrix<int> ay_index(num_rows, 2);
+
+        for(sex = 0; sex < nsex(sp); sex ++){
+
+          int row = 0;
+          // Note: year is the outer loop, age is the inner loop so age varies fastest
+          for (int year = 1; year <= nyrs; ++year) {
+            for (int bin = 1; bin <= nbins; ++bin) {
+              ay_Index(row, 0) = bin;
+              ay_Index(row, 1) = year;
+              row++;
+            }
+          }
+
+          // -- Define precision matrix for GMRF
+          Eigen::SparseMatrix<Type> Q_sparse(nbins * nyrs, nbins * nyrs); // Precision matrix
+
+          // -- Construct precision matrix
+          Q_sparse = construct_Q(nyrs, nbins, ay_index,
+                                 sel_rho_y, sel_rho_a, sel_rho_c,
+                                 log(square(sel_dev_sd(flt))), 0); // Conditional variance
+
+
+          // --- Derive likelihood
+          array<Type> tmp_AR2(nbins, nyrs);
+          for (int bin = 0; bin < nbins; bin++) {
+            for (int yr = 0; yr < nyrs; yr++) {
+              tmp_AR2(bin, yr) =  sel_coff_dev(flt, sex, bin, yr);
+            }
+          }
+          jnll_comp(5, flt) -= GMRF(Q_sparse)(tmp_AR2);
         }
       }
     }
