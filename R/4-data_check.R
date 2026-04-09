@@ -147,7 +147,7 @@ data_check <- function(data_list) {
     }
 
     # Time-varying sel not possible
-    if(data_list$fleet_control$Time_varying_sel[flt] == 2 & data_list$fleet_control$Selectivity[flt] %in% c(2,7,5,10)){
+    if(data_list$fleet_control$Time_varying_sel[flt] == 2 & data_list$fleet_control$Selectivity[flt] %in% c(2,9,5,12)){
       stop("For non-parametric selectivities, 'Time_varying_sel' cant not be a random walk")
     }
 
@@ -454,24 +454,24 @@ switch_check <- function(data_list){
     message("'Sel_curve_pen2' not specified in 'fleet_control', assuming '0'")
   }
 
-  if(any(data_list$fleet_control$Selectivity == 2 & !is.na(data_list$fleet_control$Time_varying_sel) & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)))){
+  if(any(data_list$fleet_control$Selectivity == "NonParametric" & !is.na(data_list$fleet_control$Time_varying_sel) & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)))){
     data_list$fleet_control <- data_list$fleet_control %>%
-      dplyr::mutate(Sel_curve_pen1 = ifelse(Selectivity == 2 & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)), Time_varying_sel, NA),
-                    Sel_curve_pen2 = ifelse(Selectivity == 2 & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)), Time_varying_sel_sd_prior, NA),
-                    Time_varying_sel = ifelse(Selectivity == 2 & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)), 0, Time_varying_sel),
-                    Time_varying_sel_sd_prior = ifelse(Selectivity == 2 & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)), 0, Time_varying_sel_sd_prior)
+      dplyr::mutate(Sel_curve_pen1 = ifelse(Selectivity == "NonParametric" & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)), Time_varying_sel, NA),
+                    Sel_curve_pen2 = ifelse(Selectivity == "NonParametric" (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)), Time_varying_sel_sd_prior, NA),
+                    Time_varying_sel = ifelse(Selectivity == "NonParametric" & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)), 0, Time_varying_sel),
+                    Time_varying_sel_sd_prior = ifelse(Selectivity == "NonParametric" & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)), 0, Time_varying_sel_sd_prior)
 
       )
-    message("Updating format where 'Selectivity == 2'. Moving non-parametric penalties to 'Sel_curve_pen1' and 'Sel_curve_pen2'.")
+    message("Updating format where 'Selectivity == NonParametric/2'. Moving non-parametric penalties to 'Sel_curve_pen1' and 'Sel_curve_pen2'.")
   }
 
 
-  if(any(data_list$fleet_control$Selectivity == 2 & is.na(data_list$fleet_control$Sel_curve_pen1))){
-    stop("'Sel_curve_pen1' is NA in 'fleet_control' for fleet with non-parametric selectivity ('Selectivity = 2')")
+  if(any(data_list$fleet_control$Selectivity == "NonParametric" & is.na(data_list$fleet_control$Sel_curve_pen1))){
+    stop("'Sel_curve_pen1' is NA in 'fleet_control' for fleet with non-parametric selectivity ('Selectivity = NonParametric/2')")
   }
 
-  if(any(data_list$fleet_control$Selectivity == 2 & is.na(data_list$fleet_control$Sel_curve_pen2))){
-    stop("'Sel_curve_pen2' is NA in 'fleet_control' for fleet with non-parametric selectivity ('Selectivity = 2')")
+  if(any(data_list$fleet_control$Selectivity == "NonParametric" & is.na(data_list$fleet_control$Sel_curve_pen2))){
+    stop("'Sel_curve_pen2' is NA in 'fleet_control' for fleet with non-parametric selectivity ('Selectivity = NonParametric/2')")
   }
 
   # Comp weights
