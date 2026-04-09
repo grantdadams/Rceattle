@@ -117,7 +117,7 @@ testthat::test_that("2DAR1 selectivity map and likelihood", {
                       random_sel = TRUE, # Turn on laplace for sel devs
                       msmMode = 0, # Single species mode
                       phase = TRUE,
-                      verbose = 2)
+                      verbose = 0)
 
   # Hyper parameters (on except for not estimated fleet)
   testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_dev_ln_sd), c(1:6, NA, 8:16))
@@ -189,7 +189,7 @@ testthat::test_that("3DAR1 selectivity map and likelihood", {
                               random_sel = TRUE, # Turn on laplace for sel devs
                               msmMode = 0, # Single species mode
                               phase = TRUE,
-                              verbose = 2)
+                              verbose = 0)
 
   # Hyper parameters (on except for not estimated fleet)
   testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_dev_ln_sd), c(1:6, NA, 8:16))
