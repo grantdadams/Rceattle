@@ -6,6 +6,7 @@
 #include "bioenergetics.hpp"
 #include "predation.hpp"
 #include "diet_data.hpp"
+
 /** ------------------------------------------------------------------------ //
  *                 CEATTLE version 4.0.1                                     //
  *                  Template Model Builder                                   //
@@ -304,7 +305,7 @@ Type objective_function<Type>::operator() () {
   PARAMETER_ARRAY( sel_inf );                     // selectivity paramaters for logistic; n = [2, n_selectivities, nsex]
   PARAMETER_ARRAY( ln_sel_slp_dev );              // selectivity parameter deviate for logistic; n = [2, n_selectivities, nsex, n_sel_blocks]
   PARAMETER_ARRAY( sel_inf_dev );                 // selectivity parameter deviate for logistic; n = [2, n_selectivities, nsex, n_sel_blocks]
-  PARAMETER_VECTOR( sel_dev_ln_sd );               // Log standard deviation of selectivity; n = [1, n_selectivities]
+  PARAMETER_VECTOR( sel_dev_ln_sd );              // Log standard deviation of selectivity; n = [1, n_selectivities]
   PARAMETER_MATRIX( sel_curve_pen );              // Selectivity penalty for non-parametric selectivity, 2nd column is for monotonic bit
 
   // -- 3.6. Data variance
@@ -1797,14 +1798,14 @@ Type objective_function<Type>::operator() () {
 
             switch(flt_type(flt)){
             case 1: // - Fishery
-              if(flt_sel_type(flt) >= 6){
+              if(flt_sel_type(flt) >= 8){
                 pred_CAAL(flt, sex, age, ln, yr) = sel_at_length(flt, sex, ln, yr) * Frate / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr) * growth_matrix(wtind,  sex, age, ln, yr);
               }
               break;
 
 
             case 2: // - Survey
-              if(flt_sel_type(flt) >= 6){
+              if(flt_sel_type(flt) >= 8){
                 pred_CAAL(flt, sex, age, ln, yr) = N_at_age(sp, sex, age, yr) * sel_at_length(flt, sex, ln, yr) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr)) * growth_matrix(wtind,  sex, age, ln, yr);
               }
               break;
@@ -2078,14 +2079,14 @@ Type objective_function<Type>::operator() () {
 
       switch(flt_type(flt)){
       case 1: // - Fishery
-        if(flt_sel_type(flt) >= 6){
+        if(flt_sel_type(flt) >= 8){
           pred_CAAL(flt, sex, age, ln, yr) = sel_at_length(flt, sex, ln, yr) * Frate / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr) * growth_matrix(wtind,  sex, age, ln, yr);
         }
         break;
 
 
       case 2: // - Survey
-        if(flt_sel_type(flt) >= 6){
+        if(flt_sel_type(flt) >= 8){
           pred_CAAL(flt, sex, age, ln, yr) = N_at_age(sp, sex, age, yr) * sel_at_length(flt, sex, ln, yr) * growth_matrix(wtind,  sex, age, ln, yr) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr)) ;
         }
         break;
@@ -2487,7 +2488,7 @@ Type objective_function<Type>::operator() () {
       // 3) Hake style non-parametric
       // Penalized/random effect likelihood time-varying non-parametric (Taylor et al 2014) selectivity deviates
       if(((flt_varying_sel(flt) == 1) || (flt_varying_sel(flt) == 2)) && ((flt_sel_type(flt) == 5) || (flt_sel_type(flt) == 12))){
-        for(age = 0; age < flt_n_sel_bins(flt); age++){ //NOTE: extends beyond selectivity age range, but should be mapped to 0 in map function
+        for(int bin = 0; bin < flt_n_sel_bins(flt); bin++){ //NOTE: extends beyond selectivity age range, but should be mapped to 0 in map function
           for(sex = 0; sex < nsex(sp); sex++){
             for(yr = 0; yr < nyrs_hind; yr++){
               jnll_comp(5, flt) -= dnorm(sel_coff_dev(flt, sex, age, yr), Type(0.0), sel_dev_sd(flt), true);
@@ -2499,57 +2500,57 @@ Type objective_function<Type>::operator() () {
 
       // 4) 2D AR1
       if(((flt_sel_type(flt) == 6) || (flt_sel_type(flt) == 13))){
-
-        int sel_type = flt_sel_type(flt);
-        int nbins = (sel_type < 8) ? nages(sp) : nlengths(sp);
-        array<Type> tmp_AR2(nbins, nyrs);
+        int n_sel_bins = flt_n_sel_bins(flt);
+        array<Type> tmp_AR2(n_sel_bins, nyrs_hind);
 
 
         for(sex = 0; sex < nsex(sp); sex ++){
-          for (int bin = 0; bin < nbins; bin++) {
-            for (int yr = 0; yr < nyrs; yr++) {
+          for (int bin = 0; bin < n_sel_bins; bin++) {
+            for (int yr = 0; yr < nyrs_hind; yr++) {
               tmp_AR2(bin, yr) =  sel_coff_dev(flt, sex, bin, yr);
             }
           }
 
-          Sigma_sig_sel = pow(pow(sel_dev_sd(flt),2) / ((1-pow(rho_y,2))*(1-pow(rho_a,2))),0.5);
+          Type rho_a = rho_trans(sel_curve_pen(flt, 0)); // Scale from -1 to 1
+          Type rho_y = rho_trans(sel_curve_pen(flt, 1));
+
+          Type Sigma_sig_sel = pow(pow(sel_dev_sd(flt),2) / ((1-pow(rho_y,2))*(1-pow(rho_a,2))),0.5);
           jnll_comp(5, flt) -= SCALE(SEPARABLE(AR1(rho_a),AR1(rho_y)), Sigma_sig_sel)(tmp_AR2);
-        }
+        } // end sex loop
       }
 
       // 5) 3D AR1
       if(((flt_sel_type(flt) == 7) || (flt_sel_type(flt) == 14))){
         // Build bin-year index
-        int sel_type = flt_sel_type(flt);
-        int nbins = (sel_type < 8) ? nages(sp) : nlengths(sp);
-        int num_rows = nbins * nyrs;
-        matrix<int> ay_index(num_rows, 2);
+        int n_sel_bins = flt_n_sel_bins(flt);
+        int num_rows = n_sel_bins * nyrs_hind;
+        matrix<Type> ay_index(num_rows, 2);
 
         for(sex = 0; sex < nsex(sp); sex ++){
 
           int row = 0;
-          // Note: year is the outer loop, age is the inner loop so age varies fastest
-          for (int year = 1; year <= nyrs; ++year) {
-            for (int bin = 1; bin <= nbins; ++bin) {
-              ay_Index(row, 0) = bin;
-              ay_Index(row, 1) = year;
+          for (int year = 1; year <= nyrs_hind; ++year) {
+            for (int bin = 1; bin <= n_sel_bins; ++bin) {
+              ay_index(row, 0) = bin;
+              ay_index(row, 1) = year;
               row++;
             }
           }
 
           // -- Define precision matrix for GMRF
-          Eigen::SparseMatrix<Type> Q_sparse(nbins * nyrs, nbins * nyrs); // Precision matrix
+          Eigen::SparseMatrix<Type> Q_sparse(n_sel_bins * nyrs_hind, n_sel_bins * nyrs_hind); // Precision matrix
 
           // -- Construct precision matrix
-          Q_sparse = construct_Q(nyrs, nbins, ay_index,
-                                 sel_rho_y, sel_rho_a, sel_rho_c,
+          Q_sparse = construct_Q(nyrs_hind, n_sel_bins, ay_index,
+                                 // sel_rho_y(flt), sel_rho_a(flt), sel_rho_c(flt), // natural scale
+                                 sel_curve_pen(flt, 0), sel_curve_pen(flt, 1), sel_curve_pen(flt, 2), // natural scale
                                  log(square(sel_dev_sd(flt))), 0); // Conditional variance
 
 
           // --- Derive likelihood
-          array<Type> tmp_AR2(nbins, nyrs);
-          for (int bin = 0; bin < nbins; bin++) {
-            for (int yr = 0; yr < nyrs; yr++) {
+          array<Type> tmp_AR2(n_sel_bins, nyrs_hind);
+          for (int bin = 0; bin < n_sel_bins; bin++) {
+            for (int yr = 0; yr < nyrs_hind; yr++) {
               tmp_AR2(bin, yr) =  sel_coff_dev(flt, sex, bin, yr);
             }
           }

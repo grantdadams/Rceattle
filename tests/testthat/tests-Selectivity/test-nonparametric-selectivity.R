@@ -92,3 +92,36 @@ testthat::test_that("Test age-based non-parametric selectivity not normalized", 
 
   testthat::expect_equal(pen1+pen2+pen3, as.numeric(ss_run$quantities$jnll_comp[5,8]), tolerance = 0.0001)
 })
+
+testthat::test_that("2DAR1 selectivity map and likelihood", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  # Data
+  data("GOA2018SS")
+  nyrs <- length(GOA2018SS$styr:GOA2018SS$endyr)
+  GOA2018SS$fleet_control$Selectivity <- 6 # Age-based 2DAR1
+  GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
+  GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
+  GOA2018SS$fleet_control$Bin_first_selected <- 1
+  GOA2018SS$fleet_control$N_sel_bins <- 8
+  GOA2018SS$fleet_control$Sel_norm_bin1 <- NA # Do not normalize
+  GOA2018SS$catch_data$Catch <- 1e6 # If catch is zero, sel devs are turned off
+
+  # Run
+  ss_run <- suppressMessages(
+    Rceattle::fit_mod(data_list = GOA2018SS,
+                      inits = NULL, # Initial parameters = 0
+                      file = NULL, # Don't save
+                      estimateMode = 3, # Don't estimate
+                      random_rec = FALSE, # No random recruitment
+                      random_sel = TRUE, # Turn on laplace for sel devs
+                      msmMode = 0, # Single species mode
+                      verbose = 0)
+  )
+
+  testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_dev_ln_sd), c(1:6, NA, 8:16)) # Dev sigma turned on except for not estimated fleet
+
+  # TMB object
+  testthat::expect_equal(length(unique(ss_run$obj$env$random)),  2 * 18 * nyrs)
+})

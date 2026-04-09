@@ -578,21 +578,26 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
   ind_slp <- 1
   ind_inf <- 1
   yrs_hind <- 1:nyrs_hind
+  n_flt <- nrow(data_list$fleet_control)
 
   # Turn on variance of random effects for selectivity deviates (sigma)
   if (random_sel) {
-    for (i in 1:nrow(data_list$fleet_control)) {
+    for (i in 1:n_flt) {
       flt <- data_list$fleet_control$Fleet_code[i]
       sel_type <- data_list$fleet_control$Selectivity[i]
       tv_sel <- data_list$fleet_control$Time_varying_sel[i]
       if (sel_type > 0 && tv_sel %in% c(1, 2, 4, 5)) {
         map_list$sel_dev_ln_sd[flt] <- flt
       }
+
+      if (sel_type %in% c(6,7,13,14)) {
+        map_list$sel_dev_ln_sd[flt] <- flt
+      }
     }
   }
 
   # Loop through fleets to set up selectivity parameters
-  for (i in 1:nrow(data_list$fleet_control)) {
+  for (i in 1:n_flt) {
     flt <- data_list$fleet_control$Fleet_code[i]
     spp <- data_list$fleet_control$Species[i]
     nsex <- data_list$nsex[spp]
@@ -613,8 +618,8 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       }
 
       # * Logitistic ----
-      # - sel_type = 1 (age-based), 6 (length-based)
-      if (sel_type %in% c(1,6)) {
+      # - sel_type = 1 (age-based), 8 (length-based)
+      if (sel_type %in% c(1,8)) {
 
         # Turn on slp and asymptote for each sex
         for (sex in 1:nsex) {
@@ -653,8 +658,8 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
 
       # * Non-parametric ----
-      # ---- sel_type = 2 (age-based), 7 (length-based)
-      if (sel_type %in% c(2, 7)) {
+      # ---- sel_type = 2 (age-based), 9 (length-based)
+      if (sel_type %in% c(2, 9)) {
         if (tv_sel %in% c(2, 4, 5)) { # Error check
           stop(paste0("'Time_varying_sel' for fleet ", flt, " with non-parametric selectivity is not 0 or 1. Current value: ", tv_sel))
         }
@@ -681,8 +686,8 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
 
       # * Double logistic ----
-      # - sel_type = 3
-      if (sel_type == 3) {
+      # ---- sel_type = 3 (age-based), 10 (length-based)
+      if (sel_type %in% c(3, 10)) {
 
         # Base parameters (j=1 ascending, j=2 descending)
         for (j in 1:2) {
@@ -729,8 +734,8 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
 
       # * Descending logitistic ----
-      # - sel_type = 4 -
-      if (sel_type == 4) { # Descending portion only (j=2)
+      # ---- sel_type = 4 (age-based), 11 (length-based)
+      if (sel_type %in% c(4, 11)) {
 
         # Base parameters
         for (sex in 1:nsex) {
@@ -765,8 +770,8 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
 
       # * Non-parametric Hake-like ----
-      # - sel_type = 5
-      if (sel_type == 5) {
+      # ---- sel_type = 5 (age-based), 12 (length-based)
+      if (sel_type %in% c(5, 12)) {
         if (tv_sel > 1) {
           warning(paste("Time_varying_sel for fleet", flt, "is not compatible (select NA, 0, or 1). Current value:", tv_sel))
         }
@@ -789,6 +794,72 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
             ind_dev_coff <- ind_dev_coff + length(dev_indices)
           }
         }
+      }
+
+      # * 2DAR1 ----
+      # ---- sel_type = 6 (age-based), 13 (length-based)
+      if (sel_type %in% c(6, 13)) {
+        if (!is.na(tv_sel)) {
+          warning(paste("Time_varying_sel for fleet", flt, "is ignored for 2DAR1 selectivity."))
+        }
+        if(!random_sel){
+          warning("Laplace approximation for selectivity is turned off via `random_sel` in `fit_mod`.  Variance will not be estimated.")
+        }
+
+        bin_first_selected <- data_list$fleet_control$Bin_first_selected[i]
+        N_sel_bins <- data_list$fleet_control$N_sel_bins[i]
+
+        if (is.na(bin_first_selected)) bin_first_selected <- 1
+        bins_on <- (bin_first_selected):N_sel_bins
+        max_bin_on <- max(bins_on, 0)
+
+        for (sex in 1:nsex) {
+          map_list$sel_coff[flt, sex, bins_on] <- ind_coff + bins_on
+          ind_coff <- ind_coff + max_bin_on
+
+          # Time-varying deviates
+          dev_indices <- ind_dev_coff + 1:(length(bins_on) * nyrs_hind)
+          map_list$sel_coff_dev[flt, sex, bins_on, yrs_hind] <- dev_indices
+          ind_dev_coff <- ind_dev_coff + length(dev_indices)
+        }
+
+        # Rho
+        map_list$sel_curve_pen[flt,1] <- flt # year
+        map_list$sel_curve_pen[flt,2] <- flt + n_flt # age
+      }
+
+
+      # * 3DAR1 ----
+      # ---- sel_type = 7 (age-based), 14 (length-based)
+      if (sel_type %in% c(7, 14)) {
+        if (!is.na(tv_sel)) {
+          warning(paste("Time_varying_sel for fleet", flt, "is ignored for 3DAR1 selectivity."))
+        }
+        if(!random_sel){
+          warning("Laplace approximation for selectivity is turned off via `random_sel` in `fit_mod`. Variance will not be estimated.")
+        }
+
+        bin_first_selected <- data_list$fleet_control$Bin_first_selected[i]
+        N_sel_bins <- data_list$fleet_control$N_sel_bins[i]
+
+        if (is.na(bin_first_selected)) bin_first_selected <- 1
+        bins_on <- (bin_first_selected):N_sel_bins
+        max_bin_on <- max(bins_on, 0)
+
+        for (sex in 1:nsex) {
+          map_list$sel_coff[flt, sex, bins_on] <- ind_coff + bins_on
+          ind_coff <- ind_coff + max_bin_on
+
+          # Time-varying deviates
+          dev_indices <- ind_dev_coff + 1:(length(bins_on) * nyrs_hind)
+          map_list$sel_coff_dev[flt, sex, bins_on, yrs_hind] <- dev_indices
+          ind_dev_coff <- ind_dev_coff + length(dev_indices)
+        }
+
+        # Rho
+        map_list$sel_curve_pen[flt,1] <- flt # year
+        map_list$sel_curve_pen[flt,2] <- flt + n_flt # age
+        map_list$sel_curve_pen[flt,3] <- flt + n_flt * 2 # cohort
       }
     }
   }

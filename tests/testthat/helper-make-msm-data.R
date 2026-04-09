@@ -323,7 +323,7 @@ make_msm_test_data <- function(
     Species = rep(1:nspp, each = 2),
     Month = 0,
     Selectivity_index = 1:(nspp * 2),
-    Selectivity = ifelse(use_size_sel, 6, 1), # age or length based logistic
+    Selectivity = ifelse(use_size_sel, 8, 1), # age or length based logistic
     N_sel_bins = NA,
     Sel_curve_pen1 = NA,
     Sel_curve_pen2 = NA,

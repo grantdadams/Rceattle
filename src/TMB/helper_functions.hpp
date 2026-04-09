@@ -220,3 +220,4 @@ Eigen::SparseMatrix<Type> construct_Q(int n_years, // Integer of years
   return(Q_sparse);
 
 } // end construct_Q function
+
