@@ -2538,7 +2538,7 @@ Type objective_function<Type>::operator() () {
           }
 
           // -- Define precision matrix for GMRF
-          Eigen::SparseMatrix<Type> Q_sparse(n_sel_bins * nyrs_hind, n_sel_bins * nyrs_hind); // Precision matrix
+          Eigen::SparseMatrix<Type> Q_sparse(num_rows, num_rows); // Precision matrix
 
           // -- Construct precision matrix
           Q_sparse = construct_Q(nyrs_hind, n_sel_bins, ay_index,
