@@ -59,7 +59,7 @@
 #' \item{Fleet_type}{0 = Do not estimate; 1 = Fishery; 2 = Survey}
 #' \item{Species}{Species number}
 #' \item{Selectivity_index}{index to use if selectivities of different surveys are to be the same}
-#' \item{Selectivity}{Selectivity to use for the species: 0 = "Fixed"; 1 = "Logistic"; 2 = "NonParametric" sensu Ianelli et al 2018; 3 = "DoubleLogistic"; 4 = "DescendingLogistic", 5 = "Hake" non-parametric sense Taylor et al, 6 = "2DAR1", 7 = "3DAR1" sensu Cheng et al 2024}
+#' \item{Selectivity}{Selectivity to use for the species: 0 = "Fixed"; 1 = "Logistic"; 2 = "NonParametric" sensu Ianelli et al 2018; 3 = "DoubleLogistic"; 4 = "DescendingLogistic", 5 = "Hake" non-parametric sense Taylor et al, 6 = "2DAR1", 7 = "3DAR1" sensu Cheng et al 2024.}
 #' \item{Nselages}{Number of ages to estimate non-parametric selectivity for Selectivity = 2. Not used otherwise}
 #' \item{Time_varying_sel}{Wether a time-varying selectivity should be estimated for logistic, double logistic selectivity, or descending logistic. 0 = no, 1 = penalized deviates given sel_sd_prior, 2 = random effect, 3 = time blocks with no penality, 4 = random walk following Dorn, 5 = random walk on ascending portion of double logistic only. If selectivity is set to type = 2 (non-parametric) this value will be the 1st penalty on selectivity.}
 #' \item{Time_varying_sel_sd_prior}{The sd to use for the random walk of time varying selectivity if set to 1. If selectivity is set to type = 2 (non-parametric) this value will be the 2nd penalty on selectivity.}
