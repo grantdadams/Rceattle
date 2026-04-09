@@ -546,22 +546,24 @@ build_map_predation <- function(map_list, data_list) {
 #'
 #' @description
 #'   \code{Selectivity} in \code{fleet_control} of the data determines shape of selectivity curve:
-#' 0 = empirical selectivity provided in \code{emp_sel} in the data
-#' 1 = logistic selectivity
-#' 2 = non-parametric selecitivty sensu Ianelli et al 2018
-#' 3 = double logistic
-#' 4 = descending logistic
-#' 5 = non-parametric selectivity sensu Taylor et al 2014 (Hake)
+#' 0 = "Fixed" empirical selectivity provided in \code{emp_sel} in the data
+#' 1 = "Logistic"
+#' 2 = "NonParametric" selecitivty sensu Ianelli et al 2018
+#' 3 = "DoubleLogistic"
+#' 4 = "DescendingLogistic"
+#' 5 = "Hake" non-parametric selectivity sensu Taylor et al 2014 (Hake)
+#' 6 = "2DAR1" across age x year
+#' 7 = "3DAR1" across age x cohort x year (Cheng et al 2024)
 #'
-#' \code{N_sel_bins}	Number of age/length bins to estimate non-parametric selectivity when Selectivity = 2 & 5. Not used otherwise
+#' \code{N_sel_bins}	Number of age/length bins to estimate non-parametric selectivity when Selectivity = 2 or 5. Not used otherwise
 #'
-#' \code{Time_varying_sel}	determines if time-varying selectivity should be estimated for logistic, double logistic selectivity,  descending logistic , or non-parametric (\code{Selectivity = 1, 3, 4, or 5}).
+#' \code{Time_varying_sel}	determines if time-varying selectivity should be estimated for logistic, double logistic selectivity,  descending logistic , non-parametric, or hake (\code{Selectivity = 1, 2, 3, 4, or 5}).
 #' 0 = no
 #' 1 = penalized deviates given \code{sel_sd_prior}
 #' 3 = time blocks with no penality
 #' 4 = random walk following Dorn
 #' 5 = random walk on ascending portion of double logistic only.
-#' NOTE: If selectivity is set to type = 2 (non-parametric) \code{sel_sd_prior} will be the 1st penalty on selectivity. \code{random_sel} treats random deviates and random walk parameters as random effects, estimating the variance.
+#' \code{random_sel} in \code{fit_mod} treats random deviates and random walk parameters as random effects, estimating the variance.
 #'
 #'
 #' @return Updated \code{map_list}.
@@ -586,11 +588,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       flt <- data_list$fleet_control$Fleet_code[i]
       sel_type <- data_list$fleet_control$Selectivity[i]
       tv_sel <- data_list$fleet_control$Time_varying_sel[i]
-      if (sel_type > 0 && tv_sel %in% c(1, 2, 4, 5)) {
-        map_list$sel_dev_ln_sd[flt] <- flt
-      }
-
-      if (sel_type %in% c(6,7,13,14)) {
+      if (sel_type != "Fixed" && tv_sel %in% c(1, 2, 4, 5)) {
         map_list$sel_dev_ln_sd[flt] <- flt
       }
     }
@@ -619,7 +617,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
       # * Logitistic ----
       # - sel_type = 1 (age-based), 8 (length-based)
-      if (sel_type %in% c(1,8)) {
+      if (sel_type == "Logistic") {
 
         # Turn on slp and asymptote for each sex
         for (sex in 1:nsex) {
@@ -659,7 +657,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
       # * Non-parametric ----
       # ---- sel_type = 2 (age-based), 9 (length-based)
-      if (sel_type %in% c(2, 9)) {
+      if (sel_type == "NonParametric") {
         if (tv_sel %in% c(2, 4, 5)) { # Error check
           stop(paste0("'Time_varying_sel' for fleet ", flt, " with non-parametric selectivity is not 0 or 1. Current value: ", tv_sel))
         }
@@ -687,7 +685,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
       # * Double logistic ----
       # ---- sel_type = 3 (age-based), 10 (length-based)
-      if (sel_type %in% c(3, 10)) {
+      if (sel_type == "DoubleLogistic") {
 
         # Base parameters (j=1 ascending, j=2 descending)
         for (j in 1:2) {
@@ -735,7 +733,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
       # * Descending logitistic ----
       # ---- sel_type = 4 (age-based), 11 (length-based)
-      if (sel_type %in% c(4, 11)) {
+      if (sel_type == "DescendingLogistic") {
 
         # Base parameters
         for (sex in 1:nsex) {
@@ -771,7 +769,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
       # * Non-parametric Hake-like ----
       # ---- sel_type = 5 (age-based), 12 (length-based)
-      if (sel_type %in% c(5, 12)) {
+      if (sel_type == "Hake") {
         if (tv_sel > 1) {
           warning(paste("Time_varying_sel for fleet", flt, "is not compatible (select NA, 0, or 1). Current value:", tv_sel))
         }
@@ -798,7 +796,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
       # * 2DAR1 ----
       # ---- sel_type = 6 (age-based), 13 (length-based)
-      if (sel_type %in% c(6, 13)) {
+      if (sel_type == "2DAR1") {
         if (!is.na(tv_sel)) {
           warning(paste("Time_varying_sel for fleet", flt, "is ignored for 2DAR1 selectivity."))
         }
@@ -831,7 +829,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
       # * 3DAR1 ----
       # ---- sel_type = 7 (age-based), 14 (length-based)
-      if (sel_type %in% c(7, 14)) {
+      if (sel_type == "3DAR1") {
         if (!is.na(tv_sel)) {
           warning(paste("Time_varying_sel for fleet", flt, "is ignored for 3DAR1 selectivity."))
         }
