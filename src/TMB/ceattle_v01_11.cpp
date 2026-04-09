@@ -2515,7 +2515,7 @@ Type objective_function<Type>::operator() () {
           Type rho_y = rho_trans(sel_curve_pen(flt, 1));
 
           Type Sigma_sig_sel = pow(pow(sel_dev_sd(flt),2) / ((1-pow(rho_y,2))*(1-pow(rho_a,2))),0.5);
-          jnll_comp(5, flt) -= SCALE(SEPARABLE(AR1(rho_a),AR1(rho_y)), Sigma_sig_sel)(tmp_AR2);
+          jnll_comp(5, flt) += SCALE(SEPARABLE(AR1(rho_a),AR1(rho_y)), Sigma_sig_sel)(tmp_AR2);
         } // end sex loop
       }
 
@@ -2554,7 +2554,7 @@ Type objective_function<Type>::operator() () {
               tmp_AR2(bin, yr) =  sel_coff_dev(flt, sex, bin, yr);
             }
           }
-          jnll_comp(5, flt) -= GMRF(Q_sparse)(tmp_AR2);
+          jnll_comp(5, flt) += GMRF(Q_sparse)(tmp_AR2);
         }
       }
     }
