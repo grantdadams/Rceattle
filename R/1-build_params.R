@@ -234,6 +234,7 @@ build_params <- function(data_list) {
 
   # - Non-parametric selectivity penalties (sensu Ianelli)
   param_list$sel_curve_pen = matrix( c(data_list$fleet_control$Sel_curve_pen1, data_list$fleet_control$Sel_curve_pen2, rep(0, n_selectivities)), nrow = n_selectivities, ncol = 3)
+  param_list$sel_curve_pen[is.na(param_list$sel_curve_pen)] <- 0
 
   # - Non-parametric selectivity coef annual deviates
   param_list$sel_coff_dev = array(0, dim = c(n_selectivities, max_sex, max_sel_bins, nyrs_hind),
