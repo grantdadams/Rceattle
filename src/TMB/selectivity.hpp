@@ -60,7 +60,7 @@ void normalize_and_project_selectivity(
   if(sel_norm_bin1(flt) > -500){
 
     // 1. Normalize by selectivity by specific bin or bin-range
-    if((sel_norm_bin1(flt) >= 0) && (sel_type < 5)) {
+    if((sel_norm_bin1(flt) >= 0) && (sel_type != 5) && (sel_type != 12)) { // Dont normalize hake type selex
       for(int yr = 0; yr < nyrs_hind; yr++) {
         for(int sex = 0; sex < nsex(sp); sex++){
 
@@ -372,18 +372,17 @@ void calculate_selectivity(
             }
           }
           break;
-        case 6: // 2D AR1-age x year
-            for (int bin = 0; bin < nbins; bin++) {
-              if (is_length_based) sel_at_length(flt, sex, bin, yr) = 1 / (1 + exp(-(sel_coff(flt, sex, bin) + sel_coff_dev(flt, sex, bin, yr))));
-              else sel_at_age(flt, sex, bin, yr) = 1 / (1 + exp(-(sel_coff(flt, sex, bin) + sel_coff_dev(flt, sex, bin, yr))));
-            }
-          }
-          break;
 
+        case 6: // 2D AR1-age x year
         case 7: // 3D AR1 conditional variance
           for (int bin = 0; bin < nbins; bin++) {
-            if (is_length_based) sel_at_length(flt, sex, bin, yr) = 1 / (1 + exp(-(sel_coff(flt, sex, bin) + sel_coff_dev(flt, sex, bin, yr))));
-            else sel_at_age(flt, sex, bin, yr) = 1 / (1 + exp(-(sel_coff(flt, sex, bin) + sel_coff_dev(flt, sex, bin, yr))));
+
+            // Safely cap the bin index to prevent out-of-bounds access
+            int active_bin = (bin < n_sel_bins) ? bin : (n_sel_bins - 1);
+            Type val = 1.0 / (1.0 + exp(-(sel_coff(flt, sex, active_bin) + sel_coff_dev(flt, sex, active_bin, yr))));
+
+            if (is_length_based) sel_at_length(flt, sex, bin, yr) = val;
+            else sel_at_age(flt, sex, bin, yr) = val;
           }
           break;
         }
