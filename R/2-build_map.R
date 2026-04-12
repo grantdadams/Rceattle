@@ -591,6 +591,10 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       if (sel_type != "Fixed" && tv_sel %in% c(1, 2, 4, 5)) {
         map_list$sel_dev_ln_sd[flt] <- flt
       }
+
+      if (sel_type %in% c("2DAR1", "3DAR1")) {
+        map_list$sel_dev_ln_sd[flt] <- flt
+      }
     }
   }
 

@@ -386,8 +386,8 @@ fit_mod <-
       TMBfilename <- "ceattle_v01_11"
     }
 
-    # - Check for data errors
-    Rceattle:::data_check(data_list)
+    # - Check for data errors prior to running
+    data_check(data_list)
 
     # - Reorganize data for .cpp file
     data_list_reorganized <- Rceattle::rearrange_dat(data_list)

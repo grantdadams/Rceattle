@@ -6,7 +6,7 @@ testthat::test_that("Test age-based non-parametric selectivity not normalized", 
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
 
   # Adjust data
-  GOA2018SS$fleet_control$Selectivity <- 2
+  GOA2018SS$fleet_control$Selectivity <- "NonParametric"
   GOA2018SS$fleet_control$N_sel_bins <- 8
   GOA2018SS$fleet_control$Bin_first_selected <- 1
   GOA2018SS$fleet_control$Sel_curve_pen1 <- 5
@@ -100,7 +100,7 @@ testthat::test_that("2DAR1 selectivity map and likelihood", {
   # Data
   data("GOA2018SS")
   nyrs <- length(GOA2018SS$styr:GOA2018SS$endyr)
-  GOA2018SS$fleet_control$Selectivity <- 6 # Age-based 2DAR1
+  GOA2018SS$fleet_control$Selectivity <- "2DAR1" # Age-based 2DAR1
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
   GOA2018SS$fleet_control$Bin_first_selected <- 1
@@ -172,7 +172,7 @@ testthat::test_that("3DAR1 selectivity map and likelihood", {
   # Data
   data("GOA2018SS")
   nyrs <- length(GOA2018SS$styr:GOA2018SS$endyr)
-  GOA2018SS$fleet_control$Selectivity <- 7 # Age-based 3DAR1
+  GOA2018SS$fleet_control$Selectivity <- "3DAR1" # Age-based 3DAR1
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
   GOA2018SS$fleet_control$Bin_first_selected <- 1
