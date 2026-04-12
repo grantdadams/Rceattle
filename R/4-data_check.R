@@ -1,134 +1,18 @@
-#' Function to clean data for Rceattle runs
+#' Function to check data for errors. Does not update the data set!
 #'
 #' @param data_list Rceattle data list
-#'
-#' @export
-#'
-clean_data <- function(data_list){
-
-  # Transpose fleet control
-  data_list <- Rceattle::transpose_fleet_control(data_list)
-
-  # Remove years of data previous to start year and after end year
-  # - Data in likelihood
-  data_list$index_data <- data_list$index_data %>%
-    dplyr::filter(abs(Year) >= data_list$styr & abs(Year) <= data_list$projyr)
-  data_list$catch_data <- data_list$catch_data %>%
-    dplyr::filter(abs(Year) >= data_list$styr & abs(Year) <= data_list$projyr)
-  data_list$comp_data <- data_list$comp_data %>%
-    dplyr::filter(abs(Year) >= data_list$styr & abs(Year) <= data_list$projyr)
-  data_list$caal_data  <- data_list$caal_data %>%
-    dplyr::filter(abs(Year) >= data_list$styr & abs(Year) <= data_list$projyr)
-  data_list$diet_data <- data_list$diet_data %>%
-    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0) %>%
-    dplyr::arrange(Pred, Pred_sex, Pred_age, Prey, Prey_sex, Prey_age, Year)
-
-  # - Fixed data
-  data_list$weight <- data_list$weight %>%
-    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
-  data_list$diet_data <- as.data.frame(data_list$diet_data) %>%
-    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
-  data_list$emp_sel <- data_list$emp_sel %>%
-    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
-  data_list$NByageFixed <- data_list$NByageFixed %>%
-    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
-  data_list$ration_data <- data_list$ration_data %>%
-    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr | Year == 0)
-
-
-  # Add temp multi-species SB0
-  if(is.null(data_list$MSSB0)){
-    data_list$MSSB0 <- rep(999, data_list$nspp)
-    data_list$MSB0 <- rep(999, data_list$nspp)
-  }
-
-
-  # Extend catch data to proj year for projections (where data are missing)
-  if(data_list$projyr > data_list$endyr){
-    for(flt in (unique(data_list$catch_data$Fleet_code))){
-      catch_data_sub <- data_list$catch_data %>%
-        dplyr::filter(Fleet_code == flt)
-      yrs_proj <- (data_list$endyr + 1):data_list$projyr
-      yrs_proj <- yrs_proj[which(!yrs_proj %in% catch_data_sub$Year)]
-      nyrs_proj <- length(yrs_proj)
-      proj_catch_data <- data.frame(Fleet_name = rep(catch_data_sub$Fleet_name[1], nyrs_proj),
-                                    Fleet_code = rep(flt, nyrs_proj),
-                                    Species = rep(catch_data_sub$Species[1], nyrs_proj),
-                                    Year = yrs_proj,
-                                    Month = rep(catch_data_sub$Month[length(catch_data_sub$Month)], nyrs_proj),
-                                    Selectivity_block = rep(catch_data_sub$Selectivity_block[length(catch_data_sub$Selectivity_block)], nyrs_proj),
-                                    Catch = rep(NA, nyrs_proj),
-                                    Log_sd = rep(catch_data_sub$Log_sd[length(catch_data_sub$Log_sd)], nyrs_proj))
-      data_list$catch_data <- rbind(data_list$catch_data, proj_catch_data)
-    }
-  }
-
-  data_list$catch_data <- data_list$catch_data[
-    with(data_list$catch_data, order(Fleet_code, Year)),]
-
-  # * Column names ----
-  if(any(!colnames(data_list$sex_ratio) %in% c("Species", paste0("Age", 1:max(data_list$nages))))){
-    colnames(data_list$sex_ratio) <- c("Species", paste0("Age", 1:max(data_list$nages)))
-    message("Renaming column names in 'sex_ratio' data to 'Age1', 'Age2', ....")
-  }
-
-  if(any(!colnames(data_list$maturity) %in% c("Species", paste0("Age", 1:max(data_list$nages))))){
-    colnames(data_list$maturity) <- c("Species", paste0("Age", 1:max(data_list$nages)))
-    message("Renaming column names in 'maturity' data to 'Age1', 'Age2', ....")
-  }
-
-  # Arrange diet data
-  if(!is.null(data_list$diet_data)){ # Add a check in case there's no diet data
-    # Create a temporary diet data frame to work with
-    data_list$diet_data <- data_list$diet_data %>%
-      # - Sort by stomach_id so that rows for the same predator are contiguous
-      dplyr::arrange(Pred, Pred_sex, Pred_age, Prey, Prey_sex, Prey_age, Year) %>%
-      # - Create the unique stratum identifier and the zero-indexed stomach_id
-      dplyr::mutate(stratum_id = paste(Pred, Pred_sex, Pred_age, Year, sep = "_"),
-                    stomach_id = as.numeric(as.factor(stratum_id)) - 1) %>%
-      dplyr::arrange(stomach_id)
-  }
-
-  return(data_list)
-}
-
-
-#' Function to check data for errors and update formatting where necessary
-#'
-#' @param data_list Rceattle data list
-#'
-#' @export
 #'
 data_check <- function(data_list) {
 
-  # Species checks
-  if(data_list$nspp != max(data_list$weight$Species)){
-    stop("`nspp` does not match the number of species in the weight data. Check `nspp` or `weight`")
-  }
-
-  if(length(data_list$spnames) != data_list$nspp){
-    stop("species names not included for all species")
-  }
-
-  if(length(data_list$spawn_month) != data_list$nspp){
-    stop("'spawn_month' not included for all species")
-  }
-
-  if(length(data_list$nages) != data_list$nspp){
-    stop("'nages' not included for all species")
-  }
-
-  if(length(data_list$nlengths) != data_list$nspp){
-    stop("'nlengths' not included for all species")
-  }
-
-  if (length(data_list$M1_base) == 1) {
-    stop("M1 is a single value, please make it age/species specific")
-  }
-
-  if (sum(data_list$other_food < 0) > 0) {
-    stop("Other food for one species is negative")
-  }
+  # --- 1. Base Species checks ----
+  if(data_list$nspp != max(data_list$weight$Species)) stop("`nspp` does not match the number of species in the weight data. Check `nspp` or `weight`")
+  if(length(data_list$spnames) != data_list$nspp) stop("species names not included for all species")
+  if(length(data_list$spawn_month) != data_list$nspp) stop("'spawn_month' not included for all species")
+  if(length(data_list$nages) != data_list$nspp) stop("'nages' not included for all species")
+  if(length(data_list$nlengths) != data_list$nspp) stop("'nlengths' not included for all species")
+  if(length(data_list$M1_base) == 1) stop("M1 is a single value, please make it age/species specific")
+  if(length(data_list$other_food) != data_list$nspp) stop("'other_food' not included for all species")
+  if(sum(data_list$other_food < 0) > 0) stop("Other food for one species is negative")
 
   # Species checks ----
   for(sp in 1:data_list$nspp){
@@ -147,7 +31,7 @@ data_check <- function(data_list) {
     }
 
     # Time-varying sel not possible
-    if(data_list$fleet_control$Time_varying_sel[flt] == 2 & data_list$fleet_control$Selectivity[flt] %in% c(2,9,5,12)){
+    if(data_list$fleet_control$Time_varying_sel[flt] == 2 & data_list$fleet_control$Selectivity[flt] %in% c("NonParametric", "Hake")){
       stop("For non-parametric selectivities, 'Time_varying_sel' cant not be a random walk")
     }
 
@@ -172,6 +56,35 @@ data_check <- function(data_list) {
   if(nrow(mirror_q) > 0){
     message(paste0("Catchability for ", paste(mirror_q$Fleet_name, collapse = ", "), " is mirrored with another fleet"))
   }
+
+
+  # * Validate selectivity and catchability inputs ----
+  # Allowed inputs include both the old integer codes and the new string names
+  valid_sel <- c(0:7, "Fixed", "Logistic", "NonParametric", "DoubleLogistic", "DescendingLogistic", "Hake", "2DAR1", "3DAR1")
+  # valid_q <- c(0:6, "Fixed", "Estimated", "Estimated-with-prior", "Analytical", "Environmental", "AR1-Deviates")
+
+  invalid_sel <- data_list$fleet_control %>%
+    dplyr::filter(!Selectivity %in% valid_sel)
+
+  # invalid_q <- data_list$fleet_control %>%
+  # dplyr::filter(!Catchability %in% valid_q)
+
+  # Throw clear errors to guide the user
+  if(nrow(invalid_sel) > 0) {
+    stop(paste("Invalid Selectivity specified for fleets:",
+               paste(invalid_sel$Fleet_name, collapse = ", "),
+               ".\nPlease use an integer code or one of:",
+               paste(c("Empirical", "Logistic", "Non-parametric", "Double-Logistic", "Descending-Logistic", "Hake-Non-parametric"), collapse = ", ")))
+  }
+
+  # if(nrow(invalid_q) > 0) {
+  #   stop(paste("Invalid Catchability specified for fleets:",
+  #              paste(invalid_q$Fleet_name, collapse = ", "),
+  #              ".\nPlease use an integer code or one of:",
+  #              paste(c("Fixed", "Estimated", "Estimated-with-prior", "Analytical", "Environmental", "AR1-Deviates"), collapse = ", ")))
+  # }
+
+
 
   # Weight-at-age ----
   # * Year range ----
@@ -396,137 +309,4 @@ data_check <- function(data_list) {
   # Environmental data----
   if(any(data_list$srr_indices > ncol(data_list$env_index))){stop("'srr_indices' greater than the number of indices included")}
   if(any(data_list$M1_indices > ncol(data_list$env_index))){stop("'M1_indices' greater than the number of indices included")}
-}
-
-
-#' Function to check for missing switches for map and parameter functions
-#'
-#' @param data_list Rceattle data list
-#'
-#' @export
-#'
-switch_check <- function(data_list){
-
-  # Estimation
-  if(is.null(data_list$estDynamics)){
-    data_list$estDynamics <- rep(0, data_list$nspp)
-    message("'estDynamics' are not included in data, assuming 0")
-  }
-
-  # Stock-recruitment
-  if(is.null(data_list$srr_fun)){
-    data_list$srr_fun <- 0
-    data_list$srr_pred_fun <- 0
-    data_list$srr_est_mode <- 0
-    message("'srr_fun' are not included in data, assuming 0")
-  }
-
-  # Diet data weights
-  if(is.null(data_list$Diet_comp_weights)){
-    data_list$Diet_comp_weights <- rep(1, data_list$nspp)
-    message("'Diet_comp_weights' are not included in data, assuming 1")
-  }
-  if(is.null(data_list$Diet_loglike)){
-    data_list$Diet_loglike <- rep(0, data_list$nspp)
-    message("'Diet_loglike' are not included in data, assuming multinomial")
-  }
-
-  # Normalization age
-  if(is.null(data_list$fleet_control$Sel_norm_bin1)){
-    data_list$fleet_control$Sel_norm_bin1 <- NA
-    message("'Sel_norm_bin1' not specified in 'fleet_control', assuming 'NA'")
-  }
-
-
-  if(is.null(data_list$fleet_control$Sel_norm_bin2)){
-    data_list$fleet_control$Sel_norm_bin2 <- NA
-    message("'Sel_norm_bin2' not specified in 'fleet_control', assuming 'NA'")
-  }
-
-  # Sel curve penalties
-  if(is.null(data_list$fleet_control$Sel_curve_pen1)){
-    data_list$fleet_control$Sel_curve_pen1 <- 0
-    message("'Sel_curve_pen1' not specified in 'fleet_control', assuming '0'")
-  }
-
-  if(is.null(data_list$fleet_control$Sel_curve_pen2)){
-    data_list$fleet_control$Sel_curve_pen2 <- 0
-    message("'Sel_curve_pen2' not specified in 'fleet_control', assuming '0'")
-  }
-
-  if(any(data_list$fleet_control$Selectivity == "NonParametric" & !is.na(data_list$fleet_control$Time_varying_sel) & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)))){
-    data_list$fleet_control <- data_list$fleet_control %>%
-      dplyr::mutate(Sel_curve_pen1 = ifelse(Selectivity == "NonParametric" & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)), Time_varying_sel, NA),
-                    Sel_curve_pen2 = ifelse(Selectivity == "NonParametric" (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)), Time_varying_sel_sd_prior, NA),
-                    Time_varying_sel = ifelse(Selectivity == "NonParametric" & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)), 0, Time_varying_sel),
-                    Time_varying_sel_sd_prior = ifelse(Selectivity == "NonParametric" & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)), 0, Time_varying_sel_sd_prior)
-
-      )
-    message("Updating format where 'Selectivity == NonParametric/2'. Moving non-parametric penalties to 'Sel_curve_pen1' and 'Sel_curve_pen2'.")
-  }
-
-
-  if(any(data_list$fleet_control$Selectivity == "NonParametric" & is.na(data_list$fleet_control$Sel_curve_pen1))){
-    stop("'Sel_curve_pen1' is NA in 'fleet_control' for fleet with non-parametric selectivity ('Selectivity = NonParametric/2')")
-  }
-
-  if(any(data_list$fleet_control$Selectivity == "NonParametric" & is.na(data_list$fleet_control$Sel_curve_pen2))){
-    stop("'Sel_curve_pen2' is NA in 'fleet_control' for fleet with non-parametric selectivity ('Selectivity = NonParametric/2')")
-  }
-
-  # Comp weights
-  if(is.null(data_list$fleet_control$Comp_loglike)){
-    data_list$fleet_control$Comp_loglike <- -1
-    message("'Comp_loglike' not specified in 'fleet_control', assuming multinomial")
-  }
-
-  # CAAL weights
-  if(is.null(data_list$fleet_control$CAAL_loglike)){
-    data_list$fleet_control$CAAL_loglike <- 0
-    message("'CAAL_loglike' not specified in 'fleet_control', assuming multinomial")
-  }
-  if(is.null(data_list$fleet_control$CAAL_weights)){
-    data_list$fleet_control$CAAL_weights <- 1
-    message("'CAAL_weights' not specified in 'fleet_control', assuming 1")
-  }
-
-  # Month
-  if(is.null(data_list$fleet_control$Month)){
-    data_list$fleet_control$Month <- 0
-    message("'Month' not specified in 'fleet_control', assuming 0")
-  }
-
-  if(is.null(data_list$alpha_wt_len)){
-    data_list$alpha_wt_len <- 1e-6
-    message("'alpha_wt_len' not specified in data, assuming 1e6")
-  }
-
-  if(is.null(data_list$beta_wt_len)){
-    data_list$beta_wt_len <- 0
-    message("'beta_wt_len' not specified in data, assuming 3")
-  }
-
-  # Mortality
-  if(is.null(data_list$M1_model)){
-    data_list$M1_model <- rep(0, data_list$nspp)
-    message("'M1_model' are not included in data, assuming 0")
-  }
-
-  if(is.null(data_list$msmMode)){
-    data_list$msmMode <- 0
-    message("'msmMode' are not included in data, assuming 0")
-  }
-
-  if(is.null(data_list$M1_re)){
-    data_list$M1_re <- rep(0, data_list$nspp)
-    message("'M1_re' is not in data, assuming 0 for all species")
-  }
-
-  # Init mode
-  if(is.null(data_list$initMode)){
-    data_list$initMode = 2
-    message("'initMode' not input, setting to 2 (default)")
-  }
-
-  return(data_list)
 }

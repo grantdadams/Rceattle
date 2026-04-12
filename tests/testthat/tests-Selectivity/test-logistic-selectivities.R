@@ -8,7 +8,7 @@ testthat::test_that("Sex-specific age-based logistic selectivity not normalized"
 
   # Data
   data("GOA2018SS")
-  GOA2018SS$fleet_control$Selectivity <- 1 # Age-based logistic
+  GOA2018SS$fleet_control$Selectivity <- "Logistic" # Age-based logistic
   GOA2018SS$fleet_control$Time_varying_sel <- 0
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Bin_first_selected <- 1
@@ -71,7 +71,7 @@ testthat::test_that("Sex-specific age-based time-varying logistic selectivity no
 
   # Data
   data("GOA2018SS")
-  GOA2018SS$fleet_control$Selectivity <- 1 # Age-based logistic
+  GOA2018SS$fleet_control$Selectivity <- "Logistic" # Age-based logistic
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Time_varying_sel <- 1
   GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
@@ -156,7 +156,7 @@ testthat::test_that("Sex-specific age-based time-varying logistic selectivity no
   # Data
   data("GOA2018SS")
   nyrs <- length(GOA2018SS$styr:GOA2018SS$endyr)
-  GOA2018SS$fleet_control$Selectivity <- 1 # Age-based logistic
+  GOA2018SS$fleet_control$Selectivity <- "Logistic" # Age-based logistic
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Time_varying_sel <- 1
   GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
@@ -189,7 +189,7 @@ testthat::test_that("Time-varying logistic selectivity likelihood", {
 
   # Data
   data("GOA2018SS")
-  GOA2018SS$fleet_control$Selectivity <- 1 # Age-based logistic
+  GOA2018SS$fleet_control$Selectivity <- "Logistic" # Age-based logistic
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Time_varying_sel <- 1
   GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1 # Note that inf does 4*sd prior, should adapt to scale-invariant sd
