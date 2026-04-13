@@ -911,13 +911,13 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
       # - 4 = Estimate power equation
       # - 5 = Use env index ln(q_y) = q_mu + beta * index_y
       # - 6 = Fit to env index
-      if(data_list$fleet_control$Catchability[i] %in% c(1, 2, 4, 5, 6)){
+      if(!data_list$fleet_control$Catchability[i] %in% c("Fixed", "Analytical")){
         map_list$index_ln_q[flt] <- flt
       }
 
       # - Turn on power param for:
       # - 4 = Estimate power equation
-      if (data_list$fleet_control$Catchability[i] %in% c(4)) {
+      if (data_list$fleet_control$Catchability[i] == "PowerEquation") {
         # map_list$index_q_pow[flt] <- flt
       }
 
@@ -931,9 +931,9 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
       # - Catchability = 6 turns on time-varying deviates
 
       # -- Set up time varying catchability if used (account for missing years)
-      if((data_list$fleet_control$Catchability[i] %in% c(1, 2) &
+      if((data_list$fleet_control$Catchability[i] %in% c("Estimated", "Estimated-with-prior") &
           as.numeric(data_list$fleet_control$Time_varying_q[i]) %in% c(1, 2, 3, 4)) |
-         data_list$fleet_control$Catchability[i] == 6){
+         data_list$fleet_control$Catchability[i] == "AR1"){
 
         # Extract survey years where data is provided
         index_data <- data_list$index_data[which(data_list$index_data$Fleet_code == flt & data_list$index_data$Year > data_list$styr & data_list$index_data$Year <= data_list$endyr),]
@@ -959,7 +959,8 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
 
       # - Turn on regression coefficients for:
       # - 5 = Estimate environmental linkage
-      if (data_list$fleet_control$Catchability[i] == 5) {
+      # FIXME: use formula
+      if (data_list$fleet_control$Catchability[i] == "Environmental") {
         if(nchar(data_list$fleet_control$Time_varying_q[i]) == 1){
           turn_on <- as.numeric(data_list$fleet_control$Time_varying_q[i])
         }else{
@@ -970,7 +971,7 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
       }
 
       # - 6 = Fit to environmental index
-      if (data_list$fleet_control$Catchability[i] == 6) {
+      if (data_list$fleet_control$Catchability[i] == "AR1") {
         if(!nchar(data_list$fleet_control$Time_varying_q[i]) == 1){
           warning("Cant fit catchability deviates to multiple indices")
         }
