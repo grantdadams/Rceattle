@@ -16,8 +16,9 @@ q_map <- c(
   "Estimated" = 1,
   "Estimated-with-prior" = 2,
   "Analytical" = 3,
+  "PowerEquation" = 4,
   "Environmental" = 5,
-  "AR1-Deviates" = 6
+  "AR1" = 6
 )
 
 # --- Reverse Mappings (Integer -> String) ---
