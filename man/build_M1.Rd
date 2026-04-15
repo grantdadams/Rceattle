@@ -22,9 +22,9 @@ build_M1(
 
 \item{updateM1}{If using initial parameters, use M1 fixed effects from data instead (default = FALSE).}
 
-\item{M1_use_prior}{Vector or scalar specifying to specify if M1 fixed effects come from a lognormal prior}
+\item{M1_use_prior}{Vector or scalar specifying if M1 fixed effects come from a lognormal prior}
 
-\item{M2_use_prior}{Vector or scalar specifying to specify if M1 + M2 come from a lognormal prior in multi-species models (default = FALSE). Lognormal prior for M1 + M2 across species, sexes, ages, and years.}
+\item{M2_use_prior}{Vector or scalar specifying if M1 + M2 come from a lognormal prior in multi-species models (default = FALSE). Lognormal prior for M1 + M2 across species, sexes, ages, and years.}
 
 \item{M_prior}{Vector or scalar for mean of M prior on natural scale}
 

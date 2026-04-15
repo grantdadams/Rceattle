@@ -131,6 +131,7 @@ testthat::test_that("Test Richard's growth and length-based logistic selectivity
   # Set up Rceattle data
   simData <- sim$data_list
 
+
   # * Fit initial model for inits
   ss_run_init <- Rceattle::fit_mod(data_list = simData,
                                    file = NULL, # Don't save

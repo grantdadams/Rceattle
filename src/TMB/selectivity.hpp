@@ -16,6 +16,7 @@
  * @param nyrs Total number of years including projection.
  * @param flt_spp Function/Array mapping fleet index to species index.
  * @param flt_sel_type Function/Array mapping fleet index to selectivity type.
+ * @param flt_sel_dim Age or length based selectivity.
  * @param bin_first_selected Array/function returning the minimum age/length bin of selection for a fleet.
  * @param nages Array/function returning the number of ages for a species.
  * @param nlengths Array/function returning the number of length bins for a species.
@@ -31,6 +32,7 @@ void normalize_and_project_selectivity(
     const int& nyrs,
     const vector<int>&  flt_spp,
     const vector<int>&  flt_sel_type,
+    const vector<int>&  flt_sel_dim,
     const vector<int>&  bin_first_selected,
     const vector<int>&  nages,
     const vector<int>&  nlengths,
@@ -43,7 +45,7 @@ void normalize_and_project_selectivity(
 
   int sp = flt_spp(flt);
   int sel_type = flt_sel_type(flt);
-  int nbins = (sel_type < 6) ? nages(sp) : nlengths(sp);
+  int nbins = (flt_sel_dim(flt) == 0) ? nages(sp) : nlengths(sp);
 
   // Ages not selected
   for(int yr = 0; yr < nyrs_hind; yr++) {
@@ -60,7 +62,7 @@ void normalize_and_project_selectivity(
   if(sel_norm_bin1(flt) > -500){
 
     // 1. Normalize by selectivity by specific bin or bin-range
-    if((sel_norm_bin1(flt) >= 0) && (sel_type < 5)) {
+    if((sel_norm_bin1(flt) >= 0) && (sel_type != 5) && (sel_type != 12)) { // Dont normalize hake type selex
       for(int yr = 0; yr < nyrs_hind; yr++) {
         for(int sex = 0; sex < nsex(sp); sex++){
 
@@ -87,7 +89,8 @@ void normalize_and_project_selectivity(
     }
 
     // 2. Normalize by max for each fishery and year across bins, and sexes
-    if((sel_type < 5) && (sel_norm_bin1(flt) < 0) && (sel_norm_bin1(flt) > -500)) {
+    // - Don't for hake non-parametric
+    if((sel_type != 5) && (sel_type != 12) && (sel_norm_bin1(flt) < 0) && (sel_norm_bin1(flt) > -500)) {
       for(int yr = 0; yr < nyrs_hind; yr++) {
         max_sel = 0;
         for(int bin = 0; bin < nbins; bin++){
@@ -188,7 +191,8 @@ void convert_length_selectivity(
  * @param nlengths Vector of max length bins per species.
  * @param lengths Matrix of length bin boundaries (nspp x max_length_bins).
  * @param flt_spp Vector mapping fleet index to species index.
- * @param flt_sel_type Vector mapping fleet index to functional form index (0-10).
+ * @param flt_sel_type Vector of selectivity form.
+ * @param flt_sel_dim Age or length based selectivity
  * @param bin_first_selected Vector of minimum age/length bins selected per fleet.
  * @param flt_n_sel_bins Vector of maximum bins with estimated coefficients per fleet.
  * @param sel_norm_bin1 Vector of bins used for normalization (or control flags) per fleet.
@@ -220,6 +224,7 @@ void calculate_selectivity(
     matrix<Type> lengths,
     const vector<int>&  flt_spp,
     const vector<int>&  flt_sel_type,
+    const vector<int>&  flt_sel_dim,
     const vector<int>&  bin_first_selected,
     const vector<int>&  flt_n_sel_bins,
     const vector<int>&  sel_norm_bin1,
@@ -270,16 +275,15 @@ void calculate_selectivity(
     int sel_type = flt_sel_type(flt);
     if (sel_type == 0) continue;
 
-    bool is_length_based = (sel_type > 5);
-    int base_type = is_length_based ? (sel_type - 5) : sel_type;
-    int nbins = is_length_based ? nlengths(sp) : nages(sp);
+    bool is_length_based = flt_sel_dim(flt) == 1;
+    int nbins =  is_length_based? nlengths(sp) : nages(sp);
     int n_sel_bins = flt_n_sel_bins(flt);
     Type binwidth = is_length_based ? (lengths(sp, 1) - lengths(sp, 0)) : Type(1.0);
 
     for (int yr = 0; yr < nyrs_hind; yr++) {
       for (int sex = 0; sex < nsex(sp); sex++) {
 
-        switch (base_type) {
+        switch (sel_type) {
         case 1: // Logistic
           for (int bin = 0; bin < nbins; bin++) {
             Type x_val = is_length_based ? (lengths(sp, bin) + 0.5 * binwidth) : Type(bin + 1);
@@ -371,6 +375,19 @@ void calculate_selectivity(
             }
           }
           break;
+
+        case 6: // 2D AR1-age x year
+        case 7: // 3D AR1 conditional variance
+          for (int bin = 0; bin < nbins; bin++) {
+
+            // Safely cap the bin index to prevent out-of-bounds access
+            int active_bin = (bin < n_sel_bins) ? bin : (n_sel_bins - 1);
+            Type val = 1.0 / (1.0 + exp(-(sel_coff(flt, sex, active_bin) + sel_coff_dev(flt, sex, active_bin, yr))));
+
+            if (is_length_based) sel_at_length(flt, sex, bin, yr) = val;
+            else sel_at_age(flt, sex, bin, yr) = val;
+          }
+          break;
         }
 
       } // End sex
@@ -378,7 +395,7 @@ void calculate_selectivity(
 
     // --- 3. NORMALIZATION & PROJECTION ---
     normalize_and_project_selectivity(
-      flt, nyrs_hind, nyrs, flt_spp, flt_sel_type, bin_first_selected, nages, nlengths, nsex,
+      flt, nyrs_hind, nyrs, flt_spp, flt_sel_type, flt_sel_dim, bin_first_selected, nages, nlengths, nsex,
       sel_norm_bin1, sel_norm_bin2,
       is_length_based ? sel_at_length : sel_at_age
     );

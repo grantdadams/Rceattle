@@ -4,7 +4,7 @@ testthat::test_that("Sex-specific logistic selectivity divided by max sel (acros
 
 
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
-  GOA2018SS$fleet_control$Selectivity <- 1
+  GOA2018SS$fleet_control$Selectivity <- "Logistic"
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Bin_first_selected <- 1
   GOA2018SS$fleet_control$Sel_norm_bin1 <- -999
@@ -58,7 +58,7 @@ testthat::test_that("Sex-specific logistic selectivity not normalized", {
   testthat::skip_if_not_installed("Rceattle")
 
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
-  GOA2018SS$fleet_control$Selectivity <- 1
+  GOA2018SS$fleet_control$Selectivity <- "Logistic"
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Bin_first_selected <- 1
   GOA2018SS$fleet_control$Sel_norm_bin1 <- NA
@@ -128,7 +128,7 @@ testthat::test_that("Sex-invariant logistic selectivity divided by sel-at-age", 
   testthat::skip_if_not_installed("Rceattle")
 
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
-  GOA2018SS$fleet_control$Selectivity <- 1
+  GOA2018SS$fleet_control$Selectivity <- "Logistic"
   GOA2018SS$fleet_control$Bin_first_selected <- 1
   GOA2018SS$fleet_control$Sel_norm_bin1 <- 7
 
@@ -179,7 +179,7 @@ testthat::test_that("Sex-invariant logistic selectivity divided by sel-at-age-RA
   testthat::skip_if_not_installed("Rceattle")
 
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
-  GOA2018SS$fleet_control$Selectivity <- 1
+  GOA2018SS$fleet_control$Selectivity <- "Logistic"
   GOA2018SS$fleet_control$Bin_first_selected <- 1
   GOA2018SS$fleet_control$Sel_norm_bin1 <- 7
   GOA2018SS$fleet_control$Sel_norm_bin2 <- 9
@@ -230,7 +230,7 @@ testthat::test_that("Sex-specific logistic selectivity divided by sel-at-age-RAN
   testthat::skip_if_not_installed("Rceattle")
 
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
-  GOA2018SS$fleet_control$Selectivity <- 1
+  GOA2018SS$fleet_control$Selectivity <- "Logistic"
   GOA2018SS$fleet_control$Bin_first_selected <- 1
   GOA2018SS$fleet_control$Sel_norm_bin1 <- 7
   GOA2018SS$fleet_control$Sel_norm_bin2 <- 9
@@ -284,7 +284,7 @@ testthat::test_that("Sex-invariant time-varying logistic selectivity divided by 
   testthat::skip_if_not_installed("Rceattle")
 
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
-  GOA2018SS$fleet_control$Selectivity <- 1
+  GOA2018SS$fleet_control$Selectivity <- "Logistic"
   GOA2018SS$fleet_control$Time_varying_sel <- 1
   GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
   GOA2018SS$fleet_control$Bin_first_selected <- 1
@@ -346,7 +346,7 @@ testthat::test_that("Normalize by max for each fishery and year across bins, and
   testthat::skip_if_not_installed("Rceattle")
 
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
-  GOA2018SS$fleet_control$Selectivity <- 1
+  GOA2018SS$fleet_control$Selectivity <- "Logistic"
   GOA2018SS$fleet_control$Time_varying_sel <- 1
   GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
   GOA2018SS$fleet_control$Bin_first_selected <- 1

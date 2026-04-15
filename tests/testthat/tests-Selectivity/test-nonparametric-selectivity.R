@@ -6,7 +6,7 @@ testthat::test_that("Test age-based non-parametric selectivity not normalized", 
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
 
   # Adjust data
-  GOA2018SS$fleet_control$Selectivity <- 2
+  GOA2018SS$fleet_control$Selectivity <- "NonParametric"
   GOA2018SS$fleet_control$N_sel_bins <- 8
   GOA2018SS$fleet_control$Bin_first_selected <- 1
   GOA2018SS$fleet_control$Sel_curve_pen1 <- 5
@@ -14,6 +14,7 @@ testthat::test_that("Test age-based non-parametric selectivity not normalized", 
   GOA2018SS$fleet_control$Sel_norm_bin1 <- NA
   GOA2018SS$fleet_control$Time_varying_sel <- 0
   GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
+
 
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
                               estimateMode = 3, # Don't estimate
@@ -98,4 +99,148 @@ testthat::test_that("Test age-based non-parametric selectivity not normalized", 
   pen3 <- 2 * log(mean(exp(log_selcoffs)))^2
 
   testthat::expect_equal(pen1+pen2+pen3, as.numeric(ss_run$quantities$jnll_comp[5,8]), tolerance = 0.0001)
+})
+
+testthat::test_that("2DAR1 selectivity map and likelihood", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  # Data
+  data("GOA2018SS")
+  nyrs <- length(GOA2018SS$styr:GOA2018SS$endyr)
+  GOA2018SS$fleet_control$Selectivity <- "2DAR1" # Age-based 2DAR1
+  GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
+  GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
+  GOA2018SS$fleet_control$Bin_first_selected <- 1
+  GOA2018SS$fleet_control$N_sel_bins <- 8
+  GOA2018SS$fleet_control$Sel_norm_bin1 <- NA # Do not normalize
+  GOA2018SS$catch_data$Catch <- 1e6 # If catch is zero, sel devs are turned off
+
+  # Run
+  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
+                      inits = NULL, # Initial parameters = 0
+                      file = NULL, # Don't save
+                      estimateMode = 3, # Don't estimate
+                      random_rec = FALSE, # No random recruitment
+                      random_sel = TRUE, # Turn on laplace for sel devs
+                      msmMode = 0, # Single species mode
+                      phase = TRUE,
+                      verbose = 0)
+
+  # Hyper parameters (on except for not estimated fleet)
+  testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_dev_ln_sd), c(1:6, NA, 8:16))
+  testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_curve_pen[,1]), c(1:6, NA, 8:16))
+  testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_curve_pen[,2]), c(1:6, NA, 8:16) + 16)
+  testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_curve_pen[,3]), as.numeric(rep(NA, 16)))
+
+  testthat::expect_equal(as.numeric(ss_run$estimated_params$sel_dev_ln_sd), rep(0, 16))
+  testthat::expect_equal(as.numeric(ss_run$estimated_params$sel_curve_pen[,1]), rep(0, 16))
+  testthat::expect_equal(as.numeric(ss_run$estimated_params$sel_curve_pen[,2]), rep(0, 16))
+
+  # Fixed effects
+  testthat::expect_equal(as.numeric(ss_run$estimated_params$sel_coff[,,1:8]), rep(0, 2 * 8 * 16))
+  # - Females (sex combined)
+  testthat::expect_all_true(!is.na(as.numeric(ss_run$map$mapList$sel_coff[-7,1,1:8])))
+  testthat::expect_all_true(is.na(as.numeric(ss_run$map$mapList$sel_coff[7,1,1:8])))
+  testthat::expect_equal(length(unique(ss_run$map$mapList$sel_coff[-7,1,1:8])), 8 * 15)
+
+  # - Males
+  flt2sex <- GOA2018SS$nsex[GOA2018SS$fleet_control$Species] == 2
+  testthat::expect_all_true(!is.na(as.numeric(ss_run$map$mapList$sel_coff[flt2sex,2,1:8])))
+  testthat::expect_all_true(is.na(as.numeric(ss_run$map$mapList$sel_coff[!flt2sex,2,1:8])))
+  testthat::expect_equal(length(unique(ss_run$map$mapList$sel_coff[flt2sex,2,1:8])), 8 * sum(flt2sex))
+
+  # Random effects
+  testthat::expect_equal(as.numeric(ss_run$estimated_params$sel_coff[,1,1:8]), rep(0, 8 * 16))
+
+  # - Females (sex combined)
+  testthat::expect_all_true(!is.na(as.numeric(ss_run$map$mapList$sel_coff_dev[-7,1,1:8,])))
+  testthat::expect_all_true(is.na(as.numeric(ss_run$map$mapList$sel_coff_dev[7,1,1:8,])))
+  testthat::expect_equal(length(unique(ss_run$map$mapList$sel_coff_dev[-7,1,1:8,])), 8 * 15 * nyrs)
+
+
+  # - Males
+  testthat::expect_all_true(!is.na(as.numeric(ss_run$map$mapList$sel_coff_dev[flt2sex,2,1:8,])))
+  testthat::expect_all_true(is.na(as.numeric(ss_run$map$mapList$sel_coff_dev[!flt2sex,2,1:8,])))
+  testthat::expect_equal(length(unique(ss_run$map$mapList$sel_coff_dev[flt2sex,2,1:8,])), 8 * sum(flt2sex) * nyrs)
+
+  # TMB object
+  testthat::expect_equal(length(unique(ss_run$obj$env$random)),  8 * 18 * nyrs)
+
+  # JNLL
+  testthat::expect_all_true(ss_run$quantities$jnll_comp[6,-7] != 0)
+  testthat::expect_all_true(ss_run$quantities$jnll_comp[6,7] == 0)
+  testthat::expect_all_true(!is.na(ss_run$quantities$jnll_comp[6,]))
+})
+
+testthat::test_that("3DAR1 selectivity map and likelihood", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  # Data
+  data("GOA2018SS")
+  nyrs <- length(GOA2018SS$styr:GOA2018SS$endyr)
+  GOA2018SS$fleet_control$Selectivity <- "3DAR1" # Age-based 3DAR1
+  GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
+  GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
+  GOA2018SS$fleet_control$Bin_first_selected <- 1
+  GOA2018SS$fleet_control$N_sel_bins <- 8
+  GOA2018SS$fleet_control$Sel_norm_bin1 <- NA # Do not normalize
+  GOA2018SS$catch_data$Catch <- 1e6 # If catch is zero, sel devs are turned off
+
+  # Run
+  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
+                              inits = NULL, # Initial parameters = 0
+                              file = NULL, # Don't save
+                              estimateMode = 3, # Don't estimate
+                              random_rec = FALSE, # No random recruitment
+                              random_sel = TRUE, # Turn on laplace for sel devs
+                              msmMode = 0, # Single species mode
+                              phase = TRUE,
+                              verbose = 0)
+
+  # Hyper parameters (on except for not estimated fleet)
+  testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_dev_ln_sd), c(1:6, NA, 8:16))
+  testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_curve_pen[,1]), c(1:6, NA, 8:16))
+  testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_curve_pen[,2]), c(1:6, NA, 8:16) + 16)
+  testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_curve_pen[,3]), c(1:6, NA, 8:16) + 2*16)
+
+  testthat::expect_equal(as.numeric(ss_run$estimated_params$sel_dev_ln_sd), rep(0, 16))
+  testthat::expect_equal(as.numeric(ss_run$estimated_params$sel_curve_pen[,1]), rep(0, 16))
+  testthat::expect_equal(as.numeric(ss_run$estimated_params$sel_curve_pen[,2]), rep(0, 16))
+
+  # Fixed effects
+  testthat::expect_equal(as.numeric(ss_run$estimated_params$sel_coff[,,1:8]), rep(0, 2 * 8 * 16))
+  # - Females (sex combined)
+  testthat::expect_all_true(!is.na(as.numeric(ss_run$map$mapList$sel_coff[-7,1,1:8])))
+  testthat::expect_all_true(is.na(as.numeric(ss_run$map$mapList$sel_coff[7,1,1:8])))
+  testthat::expect_equal(length(unique(ss_run$map$mapList$sel_coff[-7,1,1:8])), 8 * 15)
+
+  # - Males
+  flt2sex <- GOA2018SS$nsex[GOA2018SS$fleet_control$Species] == 2
+  testthat::expect_all_true(!is.na(as.numeric(ss_run$map$mapList$sel_coff[flt2sex,2,1:8])))
+  testthat::expect_all_true(is.na(as.numeric(ss_run$map$mapList$sel_coff[!flt2sex,2,1:8])))
+  testthat::expect_equal(length(unique(ss_run$map$mapList$sel_coff[flt2sex,2,1:8])), 8 * sum(flt2sex))
+
+  # Random effects
+  testthat::expect_equal(as.numeric(ss_run$estimated_params$sel_coff[,1,1:8]), rep(0, 8 * 16))
+
+  # - Females (sex combined)
+  testthat::expect_all_true(!is.na(as.numeric(ss_run$map$mapList$sel_coff_dev[-7,1,1:8,])))
+  testthat::expect_all_true(is.na(as.numeric(ss_run$map$mapList$sel_coff_dev[7,1,1:8,])))
+  testthat::expect_equal(length(unique(ss_run$map$mapList$sel_coff_dev[-7,1,1:8,])), 8 * 15 * nyrs)
+
+
+  # - Males
+  testthat::expect_all_true(!is.na(as.numeric(ss_run$map$mapList$sel_coff_dev[flt2sex,2,1:8,])))
+  testthat::expect_all_true(is.na(as.numeric(ss_run$map$mapList$sel_coff_dev[!flt2sex,2,1:8,])))
+  testthat::expect_equal(length(unique(ss_run$map$mapList$sel_coff_dev[flt2sex,2,1:8,])), 8 * sum(flt2sex) * nyrs)
+
+  # TMB object
+  testthat::expect_equal(length(unique(ss_run$obj$env$random)),  8 * 18 * nyrs)
+
+  # JNLL
+  testthat::expect_all_true(ss_run$quantities$jnll_comp[6,-7] != 0)
+  testthat::expect_all_true(ss_run$quantities$jnll_comp[6,7] == 0)
+  testthat::expect_all_true(!is.na(ss_run$quantities$jnll_comp[6,]))
 })

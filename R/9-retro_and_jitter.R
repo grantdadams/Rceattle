@@ -33,6 +33,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
 
   library(dplyr)
   # Get objects
+  Rceattle$data_list$endyr_peel <- Rceattle$data_list$endyr
   mod_list <- list(Rceattle)
   endyr <- Rceattle$data_list$endyr
   styr <- Rceattle$data_list$styr
@@ -61,7 +62,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
 
     data_list$comp_data <- data_list$comp_data %>%
       dplyr::filter(Year <= endyr_peel)
-	  
+
     data_list$caal_data <- data_list$caal_data %>%
       dplyr::filter(Year <= endyr_peel)
 
