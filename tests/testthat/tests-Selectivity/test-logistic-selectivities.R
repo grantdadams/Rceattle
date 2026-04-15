@@ -237,3 +237,57 @@ testthat::test_that("Time-varying logistic selectivity likelihood", {
 })
 
 
+testthat::test_that("Invalid selectivity", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  # Data
+  data("GOA2018SS")
+  nflt <- nrow(GOA2018SS$fleet_control)
+  GOA2018SS$fleet_control$Selectivity <- 9 # Not in scope
+
+  # Set params
+  inits <- suppressMessages( build_params(GOA2018SS) )
+  inits$index_ln_q[] <- 0
+
+  # Run
+  testthat::expect_error(
+    Rceattle::fit_mod(data_list = GOA2018SS,
+                      inits = inits, # Initial parameters = 0
+                      file = NULL, # Don't save
+                      estimateMode = 3, # Don't estimate
+                      random_rec = FALSE, # No random recruitment
+                      msmMode = 0, # Single species mode
+                      verbose = 0)
+  )
+
+})
+
+testthat::test_that("Invalid selectivity", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  # Data
+  data("GOA2018SS")
+  nflt <- nrow(GOA2018SS$fleet_control)
+  GOA2018SS$fleet_control$Selectivity <- "logistic" # Not in scope
+
+  # Set params
+  inits <- suppressMessages( build_params(GOA2018SS) )
+  inits$index_ln_q[] <- 0
+
+  # Run
+  testthat::expect_error(
+    Rceattle::fit_mod(data_list = GOA2018SS,
+                      inits = inits, # Initial parameters = 0
+                      file = NULL, # Don't save
+                      estimateMode = 3, # Don't estimate
+                      random_rec = FALSE, # No random recruitment
+                      msmMode = 0, # Single species mode
+                      verbose = 0)
+  )
+
+})
+
+
+
