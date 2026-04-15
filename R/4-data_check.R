@@ -24,8 +24,8 @@ data_check <- function(data_list) {
   # Fleet checks ----
   for(flt in 1:nrow(data_list$fleet_control)){
     if(!is.na(data_list$fleet_control$Catchability[flt])){
-      if((data_list$fleet_control$Catchability[flt] == 6 & data_list$fleet_control$Time_varying_q[flt] > (ncol(data_list$env_data) - 1))|
-         (data_list$fleet_control$Catchability[flt] == 6 & data_list$fleet_control$Time_varying_q[flt] < 1)){
+      if((data_list$fleet_control$Catchability[flt] == "AR1" & data_list$fleet_control$Time_varying_q[flt] > (ncol(data_list$env_data) - 1))|
+         (data_list$fleet_control$Catchability[flt] == "AR1" & data_list$fleet_control$Time_varying_q[flt] < 1)){
         stop("For catchability type 6 environmental index specified in 'Time_varying_q' is greater than number of indices in 'env_data'")
       }
     }
@@ -61,28 +61,28 @@ data_check <- function(data_list) {
   # * Validate selectivity and catchability inputs ----
   # Allowed inputs include both the old integer codes and the new string names
   valid_sel <- c(0:7, "Fixed", "Logistic", "NonParametric", "DoubleLogistic", "DescendingLogistic", "Hake", "2DAR1", "3DAR1")
-  # valid_q <- c(0:6, "Fixed", "Estimated", "Estimated-with-prior", "Analytical", "Environmental", "AR1-Deviates")
+  valid_q <- c(0:6, "Fixed", "Estimated", "Estimated-with-prior", "Analytical", "Environmental", "AR1")
 
   invalid_sel <- data_list$fleet_control %>%
     dplyr::filter(!Selectivity %in% valid_sel)
 
-  # invalid_q <- data_list$fleet_control %>%
-  # dplyr::filter(!Catchability %in% valid_q)
+  invalid_q <- data_list$fleet_control %>%
+    dplyr::filter(!Catchability %in% valid_q)
 
   # Throw clear errors to guide the user
   if(nrow(invalid_sel) > 0) {
     stop(paste("Invalid Selectivity specified for fleets:",
                paste(invalid_sel$Fleet_name, collapse = ", "),
-               ".\nPlease use an integer code or one of:",
+               ".\nPlease use an integer code 0:7 or one of:",
                paste(c("Empirical", "Logistic", "Non-parametric", "Double-Logistic", "Descending-Logistic", "Hake-Non-parametric"), collapse = ", ")))
   }
 
-  # if(nrow(invalid_q) > 0) {
-  #   stop(paste("Invalid Catchability specified for fleets:",
-  #              paste(invalid_q$Fleet_name, collapse = ", "),
-  #              ".\nPlease use an integer code or one of:",
-  #              paste(c("Fixed", "Estimated", "Estimated-with-prior", "Analytical", "Environmental", "AR1-Deviates"), collapse = ", ")))
-  # }
+  if(nrow(invalid_q) > 0) {
+    stop(paste("Invalid Catchability specified for fleets:",
+               paste(invalid_q$Fleet_name, collapse = ", "),
+               ".\nPlease use an integer code 0:6 or one of:",
+               paste(c("Fixed", "Estimated", "Estimated-with-prior", "Analytical", "Environmental", "AR1-Deviates"), collapse = ", ")))
+  }
 
 
 

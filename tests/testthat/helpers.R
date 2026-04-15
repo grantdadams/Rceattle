@@ -81,7 +81,7 @@ make_test_data <- function(nyrs = 8, nprojyrs = 10, nages = 5, seed = NULL) {
     Weight_index = 1,
     Age_transition_index = 1,
     Q_index = c(1, NA),
-    Catchability = c(0, NA),
+    Catchability = c("Fixed", NA),
     Q_prior = c(1, NA),
     Q_sd_prior = c(0.2, NA),
     Time_varying_q = c(0, NA),

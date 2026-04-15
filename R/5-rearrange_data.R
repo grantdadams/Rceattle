@@ -632,9 +632,9 @@ convert_switches <- function(data_list) {
                            Selectivity),
 
       # Same for Catchability
-      # Catchability = ifelse(as.character(Catchability) %in% names(q_map),
-      #                       unname(q_map[as.character(Catchability)]),
-      #                       Catchability)
+      Catchability = ifelse(as.character(Catchability) %in% names(q_map),
+                            unname(q_map[as.character(Catchability)]),
+                            Catchability)
     ) %>%
     # CRITICAL: Force columns back to integers so TMB doesn't crash expecting ints but getting chars
     dplyr::mutate(

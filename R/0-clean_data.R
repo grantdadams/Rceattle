@@ -169,10 +169,10 @@ revert_switches <- function(data_list) {
     dplyr::mutate(
       Selectivity = ifelse(as.character(Selectivity) %in% names(sel_rev_map),
                            sel_rev_map[as.character(Selectivity)],
-                           Selectivity)
-      # ,Catchability = ifelse(as.character(Catchability) %in% names(q_rev_map),
-      #                       q_rev_map[as.character(Catchability)],
-      #                       Catchability)
+                           Selectivity),
+      Catchability = ifelse(as.character(Catchability) %in% names(q_rev_map),
+                            q_rev_map[as.character(Catchability)],
+                            Catchability)
     )
 
   return(data_list)
