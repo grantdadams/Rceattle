@@ -433,8 +433,8 @@ fit_mod <-
       TMBfilename <- "ceattle_v01_11"
     }
 
-    # - Check for data errors
-    Rceattle:::data_check(data_list)
+    # - Check for data errors prior to running
+    data_check(data_list)
 
     # - Reorganize data for .cpp file
     data_list_reorganized <- Rceattle::rearrange_dat(data_list)
@@ -585,7 +585,7 @@ fit_mod <-
 
 
     # * Optimize hindcast ----
-    if(estimateMode %in% c(0,1,2,4)){
+    if(estimateMode %in% c(0,1,4)){
       opt <- suppressMessages(
         TMBhelper::fit_tmb(obj = obj,
                            fn=obj$fn,

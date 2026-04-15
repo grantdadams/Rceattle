@@ -547,22 +547,24 @@ build_map_predation <- function(map_list, data_list) {
 #'
 #' @description
 #'   \code{Selectivity} in \code{fleet_control} of the data determines shape of selectivity curve:
-#' 0 = empirical selectivity provided in \code{emp_sel} in the data
-#' 1 = logistic selectivity
-#' 2 = non-parametric selecitivty sensu Ianelli et al 2018
-#' 3 = double logistic
-#' 4 = descending logistic
-#' 5 = non-parametric selectivity sensu Taylor et al 2014 (Hake)
+#' 0 = "Fixed" empirical selectivity provided in \code{emp_sel} in the data
+#' 1 = "Logistic"
+#' 2 = "NonParametric" selecitivty sensu Ianelli et al 2018
+#' 3 = "DoubleLogistic"
+#' 4 = "DescendingLogistic"
+#' 5 = "Hake" non-parametric selectivity sensu Taylor et al 2014 (Hake)
+#' 6 = "2DAR1" across age x year
+#' 7 = "3DAR1" across age x cohort x year (Cheng et al 2024)
 #'
-#' \code{N_sel_bins}	Number of age/length bins to estimate non-parametric selectivity when Selectivity = 2 & 5. Not used otherwise
+#' \code{N_sel_bins}	Number of age/length bins to estimate non-parametric selectivity when Selectivity = 2 or 5. Not used otherwise
 #'
-#' \code{Time_varying_sel}	determines if time-varying selectivity should be estimated for logistic, double logistic selectivity,  descending logistic , or non-parametric (\code{Selectivity = 1, 3, 4, or 5}).
+#' \code{Time_varying_sel}	determines if time-varying selectivity should be estimated for logistic, double logistic selectivity,  descending logistic , non-parametric, or hake (\code{Selectivity = 1, 2, 3, 4, or 5}).
 #' 0 = no
 #' 1 = penalized deviates given \code{sel_sd_prior}
 #' 3 = time blocks with no penality
 #' 4 = random walk following Dorn
 #' 5 = random walk on ascending portion of double logistic only.
-#' NOTE: If selectivity is set to type = 2 (non-parametric) \code{sel_sd_prior} will be the 1st penalty on selectivity. \code{random_sel} treats random deviates and random walk parameters as random effects, estimating the variance.
+#' \code{random_sel} in \code{fit_mod} treats random deviates and random walk parameters as random effects, estimating the variance.
 #'
 #'
 #' @return Updated \code{map_list}.
@@ -579,21 +581,26 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
   ind_slp <- 1
   ind_inf <- 1
   yrs_hind <- 1:nyrs_hind
+  n_flt <- nrow(data_list$fleet_control)
 
   # Turn on variance of random effects for selectivity deviates (sigma)
   if (random_sel) {
-    for (i in 1:nrow(data_list$fleet_control)) {
+    for (i in 1:n_flt) {
       flt <- data_list$fleet_control$Fleet_code[i]
       sel_type <- data_list$fleet_control$Selectivity[i]
       tv_sel <- data_list$fleet_control$Time_varying_sel[i]
-      if (sel_type > 0 && tv_sel %in% c(1, 2, 4, 5)) {
+      if (sel_type != "Fixed" && tv_sel %in% c(1, 2, 4, 5)) {
+        map_list$sel_dev_ln_sd[flt] <- flt
+      }
+
+      if (sel_type %in% c("2DAR1", "3DAR1")) {
         map_list$sel_dev_ln_sd[flt] <- flt
       }
     }
   }
 
   # Loop through fleets to set up selectivity parameters
-  for (i in 1:nrow(data_list$fleet_control)) {
+  for (i in 1:n_flt) {
     flt <- data_list$fleet_control$Fleet_code[i]
     spp <- data_list$fleet_control$Species[i]
     nsex <- data_list$nsex[spp]
@@ -614,8 +621,8 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       }
 
       # * Logitistic ----
-      # - sel_type = 1 (age-based), 6 (length-based)
-      if (sel_type %in% c(1,6)) {
+      # - sel_type = 1 (age-based), 8 (length-based)
+      if (sel_type == "Logistic") {
 
         # Turn on slp and asymptote for each sex
         for (sex in 1:nsex) {
@@ -654,8 +661,8 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
 
       # * Non-parametric ----
-      # ---- sel_type = 2 (age-based), 7 (length-based)
-      if (sel_type %in% c(2, 7)) {
+      # ---- sel_type = 2 (age-based), 9 (length-based)
+      if (sel_type == "NonParametric") {
         if (tv_sel %in% c(2, 4, 5)) { # Error check
           stop(paste0("'Time_varying_sel' for fleet ", flt, " with non-parametric selectivity is not 0 or 1. Current value: ", tv_sel))
         }
@@ -682,8 +689,8 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
 
       # * Double logistic ----
-      # - sel_type = 3
-      if (sel_type == 3) {
+      # ---- sel_type = 3 (age-based), 10 (length-based)
+      if (sel_type == "DoubleLogistic") {
 
         # Base parameters (j=1 ascending, j=2 descending)
         for (j in 1:2) {
@@ -730,8 +737,8 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
 
       # * Descending logitistic ----
-      # - sel_type = 4 -
-      if (sel_type == 4) { # Descending portion only (j=2)
+      # ---- sel_type = 4 (age-based), 11 (length-based)
+      if (sel_type == "DescendingLogistic") {
 
         # Base parameters
         for (sex in 1:nsex) {
@@ -766,8 +773,8 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
 
       # * Non-parametric Hake-like ----
-      # - sel_type = 5
-      if (sel_type == 5) {
+      # ---- sel_type = 5 (age-based), 12 (length-based)
+      if (sel_type == "Hake") {
         if (tv_sel > 1) {
           warning(paste("Time_varying_sel for fleet", flt, "is not compatible (select NA, 0, or 1). Current value:", tv_sel))
         }
@@ -790,6 +797,72 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
             ind_dev_coff <- ind_dev_coff + length(dev_indices)
           }
         }
+      }
+
+      # * 2DAR1 ----
+      # ---- sel_type = 6 (age-based), 13 (length-based)
+      if (sel_type == "2DAR1") {
+        if (!is.na(tv_sel)) {
+          warning(paste("Time_varying_sel for fleet", flt, "is ignored for 2DAR1 selectivity."))
+        }
+        if(!random_sel){
+          warning("Laplace approximation for selectivity is turned off via `random_sel` in `fit_mod`.  Variance will not be estimated.")
+        }
+
+        bin_first_selected <- data_list$fleet_control$Bin_first_selected[i]
+        N_sel_bins <- data_list$fleet_control$N_sel_bins[i]
+
+        if (is.na(bin_first_selected)) bin_first_selected <- 1
+        bins_on <- (bin_first_selected):N_sel_bins
+        max_bin_on <- max(bins_on, 0)
+
+        for (sex in 1:nsex) {
+          map_list$sel_coff[flt, sex, bins_on] <- ind_coff + bins_on
+          ind_coff <- ind_coff + max_bin_on
+
+          # Time-varying deviates
+          dev_indices <- ind_dev_coff + 1:(length(bins_on) * nyrs_hind)
+          map_list$sel_coff_dev[flt, sex, bins_on, yrs_hind] <- dev_indices
+          ind_dev_coff <- ind_dev_coff + length(dev_indices)
+        }
+
+        # Rho
+        map_list$sel_curve_pen[flt,1] <- flt # year
+        map_list$sel_curve_pen[flt,2] <- flt + n_flt # age
+      }
+
+
+      # * 3DAR1 ----
+      # ---- sel_type = 7 (age-based), 14 (length-based)
+      if (sel_type == "3DAR1") {
+        if (!is.na(tv_sel)) {
+          warning(paste("Time_varying_sel for fleet", flt, "is ignored for 3DAR1 selectivity."))
+        }
+        if(!random_sel){
+          warning("Laplace approximation for selectivity is turned off via `random_sel` in `fit_mod`. Variance will not be estimated.")
+        }
+
+        bin_first_selected <- data_list$fleet_control$Bin_first_selected[i]
+        N_sel_bins <- data_list$fleet_control$N_sel_bins[i]
+
+        if (is.na(bin_first_selected)) bin_first_selected <- 1
+        bins_on <- (bin_first_selected):N_sel_bins
+        max_bin_on <- max(bins_on, 0)
+
+        for (sex in 1:nsex) {
+          map_list$sel_coff[flt, sex, bins_on] <- ind_coff + bins_on
+          ind_coff <- ind_coff + max_bin_on
+
+          # Time-varying deviates
+          dev_indices <- ind_dev_coff + 1:(length(bins_on) * nyrs_hind)
+          map_list$sel_coff_dev[flt, sex, bins_on, yrs_hind] <- dev_indices
+          ind_dev_coff <- ind_dev_coff + length(dev_indices)
+        }
+
+        # Rho
+        map_list$sel_curve_pen[flt,1] <- flt # year
+        map_list$sel_curve_pen[flt,2] <- flt + n_flt # age
+        map_list$sel_curve_pen[flt,3] <- flt + n_flt * 2 # cohort
       }
     }
   }
@@ -839,13 +912,13 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
       # - 4 = Estimate power equation
       # - 5 = Use env index ln(q_y) = q_mu + beta * index_y
       # - 6 = Fit to env index
-      if(data_list$fleet_control$Catchability[i] %in% c(1, 2, 4, 5, 6)){
+      if(!data_list$fleet_control$Catchability[i] %in% c("Fixed", "Analytical")){
         map_list$index_ln_q[flt] <- flt
       }
 
       # - Turn on power param for:
       # - 4 = Estimate power equation
-      if (data_list$fleet_control$Catchability[i] %in% c(4)) {
+      if (data_list$fleet_control$Catchability[i] == "PowerEquation") {
         # map_list$index_q_pow[flt] <- flt
       }
 
@@ -859,9 +932,9 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
       # - Catchability = 6 turns on time-varying deviates
 
       # -- Set up time varying catchability if used (account for missing years)
-      if((data_list$fleet_control$Catchability[i] %in% c(1, 2) &
+      if((data_list$fleet_control$Catchability[i] %in% c("Estimated", "Estimated-with-prior") &
           as.numeric(data_list$fleet_control$Time_varying_q[i]) %in% c(1, 2, 3, 4)) |
-         data_list$fleet_control$Catchability[i] == 6){
+         data_list$fleet_control$Catchability[i] == "AR1"){
 
         # Extract survey years where data is provided
         index_data <- data_list$index_data[which(data_list$index_data$Fleet_code == flt & data_list$index_data$Year > data_list$styr & data_list$index_data$Year <= data_list$endyr),]
@@ -887,7 +960,8 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
 
       # - Turn on regression coefficients for:
       # - 5 = Estimate environmental linkage
-      if (data_list$fleet_control$Catchability[i] == 5) {
+      # FIXME: use formula
+      if (data_list$fleet_control$Catchability[i] == "Environmental") {
         if(nchar(data_list$fleet_control$Time_varying_q[i]) == 1){
           turn_on <- as.numeric(data_list$fleet_control$Time_varying_q[i])
         }else{
@@ -898,7 +972,7 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
       }
 
       # - 6 = Fit to environmental index
-      if (data_list$fleet_control$Catchability[i] == 6) {
+      if (data_list$fleet_control$Catchability[i] == "AR1") {
         if(!nchar(data_list$fleet_control$Time_varying_q[i]) == 1){
           warning("Cant fit catchability deviates to multiple indices")
         }

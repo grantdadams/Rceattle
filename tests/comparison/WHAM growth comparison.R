@@ -168,7 +168,8 @@ nlengths <- simData$nlengths
 simData$fleet_control <- simData$fleet_control[c(1,3),] # BT and Trawl Fishery are both simple logistic
 simData$fleet_control$Fleet_name <- c("Survey", "Fishery")
 simData$fleet_control$Fleet_code <- 1:2
-simData$fleet_control$Selectivity <- 6                  # Length-based logistic
+simData$fleet_control$Selectivity <- "Logistic"                  # Length-based logistic
+simData$fleet_control$Selectivity_dimension <- "Length"          # Length-based logistic
 simData$fleet_control$Selectivity_index <- 1:2
 simData$fleet_control$Weight_index <- 1
 simData$fleet_control$Weight1_Numbers2 <- 1

@@ -149,6 +149,28 @@ testthat::test_that("Test SB40 under mean recruitment", {
 })
 
 
+testthat::test_that("Test SB40 under R0", {
+  data("BS2017SS") # ?BS2017SS for more information on the data
+  BS2017SS$fleet_control$proj_F_prop <- rep(1, 7)
+
+  # -- NPFMC Tier 3
+  ss_run_Tier3 <- Rceattle::fit_mod(data_list = BS2017SS,
+                                    inits = NULL, # Initial parameters from ss_run
+                                    estimateMode = 0, # Run projection only
+                                    HCR = build_hcr(HCR = 5, # Tier3 HCR
+                                                    Ftarget = 0.4, # F40%
+                                                    Flimit = 0.35, # F35%
+                                                    Plimit = 0.2, # No fishing when SB<SB20
+                                                    Alpha = 0.05),
+                                    recFun = build_srr(proj_mean_rec = FALSE),
+                                    msmMode = 0, # Single species mode
+                                    phase = TRUE,
+                                    verbose = 1)
+
+  testthat::expect_equal(as.numeric((ss_run_Tier3$quantities$SBF/ss_run_Tier3$quantities$SB0)[,72]), rep(0.4, 3), tolerance = 0.0001)
+  testthat::expect_equal(as.numeric((ss_run_Tier3$quantities$ssb/ss_run_Tier3$quantities$SB0)[,72]), rep(0.4, 3), tolerance = 0.0001)
+})
+
 testthat::test_that("Test SPR0 calculation", {
   library(Rceattle)
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data

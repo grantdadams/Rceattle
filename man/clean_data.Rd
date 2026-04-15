@@ -2,7 +2,7 @@
 % Please edit documentation in R/4-data_check.R
 \name{clean_data}
 \alias{clean_data}
-\title{Function to clean data for Rceattle runs}
+\title{Function to clean data prior to Rceattle runs}
 \usage{
 clean_data(data_list)
 }
@@ -10,5 +10,5 @@ clean_data(data_list)
 \item{data_list}{Rceattle data list}
 }
 \description{
-Function to clean data for Rceattle runs
+Function to clean data prior to Rceattle runs
 }

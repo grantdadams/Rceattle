@@ -6,6 +6,9 @@
 #' @export
 rearrange_dat <- function(data_list){
 
+  # Convert text to integer for switches used in TMB
+  data_list <- convert_switches(data_list)
+
   # Data dimensions
   max_sex <- max(data_list$nsex, na.rm = T)
   max_age <- max(data_list$nages, na.rm = T)
@@ -35,6 +38,14 @@ rearrange_dat <- function(data_list){
   # - 4) Selectivity type
   data_list$flt_sel_type <- data_list$fleet_control %>%
     dplyr::pull(Selectivity) %>% as.integer()
+
+  data_list$flt_sel_dim <- data_list$fleet_control %>%
+    dplyr::mutate(Selectivity_dimension = dplyr::case_when(
+      Selectivity_dimension == "Age" ~ 0,
+      Selectivity_dimension == "Length" ~ 1,
+      .default = NA
+    )) %>%
+    dplyr::pull(Selectivity_dimension) %>% as.integer()
 
   # - 5) Number of ages/lengths for non-parametric selectivity
   data_list$flt_n_sel_bins <- data_list$fleet_control %>%
@@ -607,25 +618,29 @@ check_caal_data <- function(data_list) {
   return(data_list)
 }
 
-
-#' Function to transpose fleet_control if long format
+#' Convert intuitive text strings to integer switches for TMB
 #'
 #' @param data_list Rceattle data list
 #'
-#' @export
-transpose_fleet_control <- function(data_list){
+convert_switches <- function(data_list) {
 
-  if(sum(colnames(data_list$fleet_control)[1:2] == c("Fleet_name", "Fleet_code")) != 2){ #, "Fleet_type", "Species", "Selectivity_index", "Selectivity")) != 6){
-    data_list$fleet_control <- as.data.frame(t(data_list$fleet_control))
-    colnames(data_list$fleet_control) <- data_list$fleet_control[1,]
-    data_list$fleet_control <- data_list$fleet_control[-1,]
-    data_list$fleet_control <- cbind(data.frame(Fleet_name = rownames(data_list$fleet_control)),
-                                     data_list$fleet_control)
-    rownames(data_list$fleet_control) = NULL
+  data_list$fleet_control <- data_list$fleet_control %>%
+    dplyr::mutate(
+      # If Selectivity is a string that exists in our map, replace it with the integer.
+      Selectivity = ifelse(as.character(Selectivity) %in% names(sel_map),
+                           unname(sel_map[as.character(Selectivity)]),
+                           Selectivity),
 
-    data_list$fleet_control[,-which(colnames(data_list$fleet_control) %in% c("Fleet_name", "Time_varying_q"))] <- apply(
-      data_list$fleet_control[,-which(colnames(data_list$fleet_control) %in% c("Fleet_name", "Time_varying_q"))], 2, as.numeric)
-  }
+      # Same for Catchability
+      Catchability = ifelse(as.character(Catchability) %in% names(q_map),
+                            unname(q_map[as.character(Catchability)]),
+                            Catchability)
+    ) %>%
+    # CRITICAL: Force columns back to integers so TMB doesn't crash expecting ints but getting chars
+    dplyr::mutate(
+      Selectivity = as.integer(Selectivity),
+      Catchability = as.integer(Catchability)
+    )
+
   return(data_list)
 }
-

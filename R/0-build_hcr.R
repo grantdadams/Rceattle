@@ -1,7 +1,7 @@
 ##' Specify the harvest control rule (HCR) used for Rceattle
 ##'
 ##' @param HCR Function to be used for harvest control rule (see below). Default = 0
-##' @param DynamicHCR TRUE/FALSE. Wether to use static or dynamic reference points (default = FALSE)
+##' @param DynamicHCR TRUE/FALSE. Whether to use static or dynamic reference points (default = FALSE)
 ##' @param Ftarget Target fishing mortality rate (yr^-1) (SPR or depletion based) or input F for projections. For example, if Ftarget is spr F40%, enter 0.40.
 ##' @param Flimit Limit fishing mortality rate (yr^-1) (SPR or depletion based). For example, if Flimit is spr F35%, enter 0.35.
 ##' @param Ctarget Target catch (mt)
@@ -26,10 +26,10 @@
 ##' \code{hcr = 4} Constant Fspr set at \code{Ftarget} for each species. Can be multiplied by \code{Fmult} following NEFSC.
 ##'
 ##' \code{hcr = 5} The North Pacific Fishery Management Council (NPFMC) Tier 3 spawner-per-recruit-based harvest control rule:
-##' 	Stock status: \eqn{ SB > SB at Ftarget)}
+##' 	Stock status: \eqn{ SB > SB at Ftarget}
 ##' 	\deqn{Fofl = Flimit }
 ##' 	\deqn{Fuse = Ftarget}
-##' 	Stock status: \eqn{Alpha < SB / SB at Ftarget at  ≤1}
+##' 	Stock status: \eqn{Alpha < SB / SB at Ftarget  ≤1}
 ##' 	\deqn{Fofl = Flimit * (SB / Ptarget - Alpha)/(1-Alpha)}
 ##' 	\deqn{Fuse = Ftarget * (SB/ Ptarget - Alpha)/(1-Alpha)}
 ##' 	Stock status: \eqn{SB/SB at Ftarget ≤ Alpha} or \eqn{SB < Plimit*SB0}
@@ -42,7 +42,7 @@
 ##' 	\deqn{Fuse = Φ(Pstar, Flimit, Sigma)}
 ##' 	Stock status: \eqn{SB0*Plimit < SB ≤ SB0*Ptarget}
 ##' 	\deqn{Fofl = Flimit}
-##' 	\deqn{Fuse = Φ(Pstar, Flimit, Sigma)*{SB0*Ptarget(SB - SB0*Plimit)}{SB(SB0*Ptarget - SB0*Plimit)}}
+##' 	\deqn{Fuse = Φ(Pstar, Flimit, Sigma)*\frac{SB0 * Ptarget * (SB - SB0* Plimit)}{SB * SB0 * (Ptarget - Plimit)}}
 ##' 	Stock status: \eqn{SB < SB0*Plimit}
 ##' 	\deqn{Fofl=0}
 ##' 	\deqn{Fuse=0}
@@ -59,7 +59,7 @@
 ##' 	\deqn{Fuse=0}
 ##'
 ##'
-##'  NOTE: only HCRs 2, 3, and 6 will work in multi-species mode
+##'  NOTE: only HCRs 1, 2, 3, and 6 will work in multi-species mode
 ##'
 ##' @return A \code{list} containing the harvest control rule and associated biological reference points
 ##' @export

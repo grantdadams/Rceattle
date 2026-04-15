@@ -8,7 +8,7 @@ testthat::test_that("Sex-specific age-based logistic selectivity not normalized"
 
   # Data
   data("GOA2018SS")
-  GOA2018SS$fleet_control$Selectivity <- 1 # Age-based logistic
+  GOA2018SS$fleet_control$Selectivity <- "Logistic" # Age-based logistic
   GOA2018SS$fleet_control$Time_varying_sel <- 0
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Bin_first_selected <- 1
@@ -79,7 +79,7 @@ testthat::test_that("Sex-specific age-based time-varying logistic selectivity no
 
   # Data
   data("GOA2018SS")
-  GOA2018SS$fleet_control$Selectivity <- 1 # Age-based logistic
+  GOA2018SS$fleet_control$Selectivity <- "Logistic" # Age-based logistic
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Time_varying_sel <- 1
   GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
@@ -172,7 +172,7 @@ testthat::test_that("Sex-specific age-based time-varying logistic selectivity no
   # Data
   data("GOA2018SS")
   nyrs <- length(GOA2018SS$styr:GOA2018SS$endyr)
-  GOA2018SS$fleet_control$Selectivity <- 1 # Age-based logistic
+  GOA2018SS$fleet_control$Selectivity <- "Logistic" # Age-based logistic
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Time_varying_sel <- 1
   GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
@@ -205,7 +205,7 @@ testthat::test_that("Time-varying logistic selectivity likelihood", {
 
   # Data
   data("GOA2018SS")
-  GOA2018SS$fleet_control$Selectivity <- 1 # Age-based logistic
+  GOA2018SS$fleet_control$Selectivity <- "Logistic" # Age-based logistic
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Time_varying_sel <- 1
   GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1 # Note that inf does 4*sd prior, should adapt to scale-invariant sd
@@ -260,4 +260,56 @@ testthat::test_that("Time-varying logistic selectivity likelihood", {
   testthat::expect_equal(rcnll, single_dv_nll * 18) # 18 selectivities
 })
 
+
+testthat::test_that("Invalid selectivity", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  # Data
+  data("GOA2018SS")
+  nflt <- nrow(GOA2018SS$fleet_control)
+  GOA2018SS$fleet_control$Selectivity <- 9 # Not in scope
+
+  # Set params
+  inits <- suppressMessages( build_params(GOA2018SS) )
+  inits$index_ln_q[] <- 0
+
+  # Run
+  testthat::expect_error(
+    Rceattle::fit_mod(data_list = GOA2018SS,
+                      inits = inits, # Initial parameters = 0
+                      file = NULL, # Don't save
+                      estimateMode = 3, # Don't estimate
+                      random_rec = FALSE, # No random recruitment
+                      msmMode = 0, # Single species mode
+                      verbose = 0)
+  )
+
+})
+
+testthat::test_that("Invalid text selectivity", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  # Data
+  data("GOA2018SS")
+  nflt <- nrow(GOA2018SS$fleet_control)
+  GOA2018SS$fleet_control$Selectivity <- "logistic" # Not in scope
+
+  # Set params
+  inits <- suppressMessages( build_params(GOA2018SS) )
+  inits$index_ln_q[] <- 0
+
+  # Run
+  testthat::expect_error(
+    Rceattle::fit_mod(data_list = GOA2018SS,
+                      inits = inits, # Initial parameters = 0
+                      file = NULL, # Don't save
+                      estimateMode = 3, # Don't estimate
+                      random_rec = FALSE, # No random recruitment
+                      msmMode = 0, # Single species mode
+                      verbose = 0)
+  )
+
+})
 

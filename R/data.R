@@ -59,8 +59,9 @@
 #' \item{Fleet_type}{0 = Do not estimate; 1 = Fishery; 2 = Survey}
 #' \item{Species}{Species number}
 #' \item{Selectivity_index}{index to use if selectivities of different surveys are to be the same}
-#' \item{Selectivity}{Selectivity to use for the species: 0 = empirical selectivity provided in srv_emp_sel; 1 = logistic selectivity; 2 = non-parametric selecitivty sensu Ianelli et al 2018; 3 = double logistic; 4 = descending logistic}
-#' \item{Nselages}{Number of ages to estimate non-parametric selectivity for Selectivity = 2. Not used otherwise}
+#' \item{Selectivity}{Selectivity to use for the species: 0 = "Fixed"; 1 = "Logistic"; 2 = "NonParametric" sensu Ianelli et al 2018; 3 = "DoubleLogistic"; 4 = "DescendingLogistic", 5 = "Hake" non-parametric sense Taylor et al, 6 = "2DAR1", 7 = "3DAR1" sensu Cheng et al 2024.}
+#' \item{Selectivity_dimension}{"Age" or "Length".}
+#' \item{Nselages}{Number of ages to estimate non-parametric selectivity.}
 #' \item{Time_varying_sel}{Wether a time-varying selectivity should be estimated for logistic, double logistic selectivity, or descending logistic. 0 = no, 1 = penalized deviates given sel_sd_prior, 2 = random effect, 3 = time blocks with no penality, 4 = random walk following Dorn, 5 = random walk on ascending portion of double logistic only. If selectivity is set to type = 2 (non-parametric) this value will be the 1st penalty on selectivity.}
 #' \item{Time_varying_sel_sd_prior}{The sd to use for the random walk of time varying selectivity if set to 1. If selectivity is set to type = 2 (non-parametric) this value will be the 2nd penalty on selectivity.}
 #' \item{Bin_first_selected}{Age/length bin at which selectivity is non-zero}
@@ -70,7 +71,7 @@
 #' \item{Weight_index}{Weight-at-age (weight) index to use for calculation of derived quantities}
 #' \item{Age_transition_index}{Age transition matrix (e.g. growth trajectory) index to use for derived quantities to convert age to length}
 #' \item{Q_index}{index to use if catchability coefficients are to be set the same}
-#' \item{Catchability}{Estimate catchability? (0 = fixed at prior; - 1 = Estimate single parameter; - 2 = Estimate single parameter with prior; - 3 = Estimate analytical q  from Ludwig and Walters 1994;  - 4 = Estimate power equation; - 5 - Linear equation log(q_y) = q_mu + beta * index_y)}
+#' \item{Catchability}{Estimate catchability? (0 or "Fixed" = fixed at prior; 1 or "Estimated" = Estimate single parameter; 2 or "Estimated-with-prior" = Estimate single parameter with prior; 3 or "Analytical" = Estimate analytical q  from Ludwig and Walters 1994;  - 4 = Estimate power equation; - 5 or "Environmental" = Linear equation log(q_y) = q_mu + beta * index_y; 6 or "AR1" = annual AR1 catchability deviates are fit to environmental index sensu Rogers et al 2025)}
 #' \item{Q_prior}{Starting value or fixed value for catchability}
 #' \item{Q_sd_prior}{Variance of q prior: dnorm (log_q, log_q_prior, q_sd_prior)}
 #' \item{Time_varying_q}{Wether a time-varying q should be estimated. 0 = no, 1 = penalized deviate, 2 = random effect, 3 = time blocks with no penalty; 4 = random walk from mean following Dorn 2018 (dnorm(q_y - q_y-1, 0, sigma). If Catchability = 5, this determines the environmental index to be used in the equation log(q_y) = q_mu + beta * index_y}

@@ -24,20 +24,22 @@ Maps base selectivity parameters (\code{ln_sel_slp}, \code{sel_inf},
 and \code{Time_varying_sel} settings in \code{fleet_control}.
 
 \code{Selectivity} in \code{fleet_control} of the data determines shape of selectivity curve:
-0 = empirical selectivity provided in \code{emp_sel} in the data
-1 = logistic selectivity
-2 = non-parametric selecitivty sensu Ianelli et al 2018
-3 = double logistic
-4 = descending logistic
-5 = non-parametric selectivity sensu Taylor et al 2014 (Hake)
+0 = "Fixed" empirical selectivity provided in \code{emp_sel} in the data
+1 = "Logistic"
+2 = "NonParametric" selecitivty sensu Ianelli et al 2018
+3 = "DoubleLogistic"
+4 = "DescendingLogistic"
+5 = "Hake" non-parametric selectivity sensu Taylor et al 2014 (Hake)
+6 = "2DAR1" across age x year
+7 = "3DAR1" across age x cohort x year (Cheng et al 2024)
 
-\code{N_sel_bins}	Number of age/length bins to estimate non-parametric selectivity when Selectivity = 2 & 5. Not used otherwise
+\code{N_sel_bins}	Number of age/length bins to estimate non-parametric selectivity when Selectivity = 2 or 5. Not used otherwise
 
-\code{Time_varying_sel}	determines if time-varying selectivity should be estimated for logistic, double logistic selectivity,  descending logistic , or non-parametric (\code{Selectivity = 1, 3, 4, or 5}).
+\code{Time_varying_sel}	determines if time-varying selectivity should be estimated for logistic, double logistic selectivity,  descending logistic , non-parametric, or hake (\code{Selectivity = 1, 2, 3, 4, or 5}).
 0 = no
 1 = penalized deviates given \code{sel_sd_prior}
 3 = time blocks with no penality
 4 = random walk following Dorn
 5 = random walk on ascending portion of double logistic only.
-NOTE: If selectivity is set to type = 2 (non-parametric) \code{sel_sd_prior} will be the 1st penalty on selectivity. \code{random_sel} treats random deviates and random walk parameters as random effects, estimating the variance.
+\code{random_sel} in \code{fit_mod} treats random deviates and random walk parameters as random effects, estimating the variance.
 }
