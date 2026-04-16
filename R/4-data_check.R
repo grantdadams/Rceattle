@@ -67,7 +67,7 @@ data_check <- function(data_list) {
     dplyr::filter(!Selectivity %in% valid_sel)
 
   invalid_q <- data_list$fleet_control %>%
-    dplyr::filter(!Catchability %in% valid_q)
+    dplyr::filter(Fleet_type == 2 & !Catchability %in% valid_q)
 
   # Throw clear errors to guide the user
   if(nrow(invalid_sel) > 0) {
