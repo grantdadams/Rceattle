@@ -75,7 +75,6 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
       data_list = om$data_list,
       inits = om$estimated_params,
       map = om$map,
-      bounds = NULL,
       file = NULL,
       estimateMode = 3, # Run in debug mode
       random_rec = om$data_list$random_rec,
@@ -446,6 +445,7 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
 
     # Run through assessment years
     for(k in 1:length(assess_yrs)){
+      print(k)
 
       #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # 1. Get recommended catch from the EM-HCR ----
@@ -575,7 +575,6 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
               data_list = om_use$data_list,
               inits = om_use$estimated_params,
               map = om_use$map,
-              bounds = NULL,
               file = NULL,
               estimateMode = estimate_mode_use,
               random_rec = om_use$data_list$random_rec,
@@ -620,10 +619,10 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
               growthFun = build_growth(growth_model = om_use$data_list$growth_model,
                                        growth_re = om_use$data_list$growth_re,
                                        growth_indices = om_use$data_list$growth_indices),
-            dsem = build_DSEM(sem = om_use$data_list$dsem_settings$sem,
-                              family = om_use$data_list$dsem_settings$family,
-                              all_vars = om_use$data_list$dsem_settings$all_vars,
-                              estimate_projection = om_use$data_list$dsem_settings$estimate_projection),
+              dsem = build_DSEM(sem = om_use$data_list$dsem_settings$sem,
+                                family = om_use$data_list$dsem_settings$family,
+                                all_vars = om_use$data_list$dsem_settings$all_vars,
+                                estimate_projection = om_use$data_list$dsem_settings$estimate_projection),
               loopnum = loopnum,
               phase = FALSE,
               getsd = FALSE,
@@ -781,7 +780,6 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
               data_list = em_use$data_list,
               inits = em_use$estimated_params,
               map =  NULL,
-              bounds = NULL,
               file = NULL,
               estimateMode = ifelse(em_use$data_list$estimateMode < 3, 0, em_use$data_list$estimateMode), # Run hindcast and projection, otherwise debug
               HCR = build_hcr(HCR = em_use$data_list$HCR, # Tier3 HCR
@@ -815,10 +813,10 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
                                    M_prior = em_use$data_list$M_prior,
                                    M_prior_sd = em_use$data_list$M_prior_sd,
                                    M1_indices = em_use$data_list$M1_indices),
-            dsem = build_DSEM(sem = em_use$data_list$dsem_settings$sem,
-                              family = em_use$data_list$dsem_settings$family,
-                              all_vars = em_use$data_list$dsem_settings$all_vars,
-                              estimate_projection = em_use$data_list$dsem_settings$estimate_projection),
+              dsem = build_DSEM(sem = em_use$data_list$dsem_settings$sem,
+                                family = em_use$data_list$dsem_settings$family,
+                                all_vars = em_use$data_list$dsem_settings$all_vars,
+                                estimate_projection = em_use$data_list$dsem_settings$estimate_projection),
               growthFun = build_growth(growth_model = em_use$data_list$growth_model,
                                        growth_re = em_use$data_list$growth_re,
                                        growth_indices = em_use$data_list$growth_indices),
