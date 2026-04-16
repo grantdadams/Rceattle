@@ -7,13 +7,22 @@ testthat::test_that("Fixed catchability", {
   GOA2018SS$fleet_control$Catchability <- 0 # Fixed
 
   # Set params
-  inits <- suppressMessages( build_params(GOA2018SS) )
+  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
+                              inits = NULL,
+                              file = NULL, # Don't save
+                              estimateMode = 3, # Don't estimate
+                              random_rec = FALSE, # No random recruitment
+                              msmMode = 0, # Single species mode
+                              verbose = 1)
+
+  inits <- ss_run$estimated_params
   inits$index_ln_q[] <- 0
 
   # Run
   ss_run <- suppressMessages(
     Rceattle::fit_mod(data_list = GOA2018SS,
-                      inits = inits, # Initial parameters = 0
+                      inits = inits, # Input initial parameters
+                      map = ss_run$map,
                       file = NULL, # Don't save
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
@@ -47,7 +56,28 @@ testthat::test_that("Estimated catchability", {
   GOA2018SS$fleet_control$Q_index <- 1:nflt
 
   # Set params
-  inits <- suppressMessages( build_params(GOA2018SS) )
+  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
+                              inits = NULL,
+                              file = NULL, # Don't save
+                              estimateMode = 3, # Don't estimate
+                              random_rec = FALSE, # No random recruitment
+                              msmMode = 0, # Single species mode
+                              verbose = 1)
+
+  inits <- ss_run$estimated_params
+  inits$index_ln_q[] <- 0
+
+  # Run
+  ss_run <- suppressMessages(
+    Rceattle::fit_mod(data_list = GOA2018SS,
+                      inits = inits, # Input initial parameters
+                      map = ss_run$map,
+                      file = NULL, # Don't save
+                      estimateMode = 3, # Don't estimate
+                      random_rec = FALSE, # No random recruitment
+                      msmMode = 0, # Single species mode
+                      verbose = 1)
+  )
   inits$index_ln_q[] <- 0
 
   # Run
@@ -86,14 +116,9 @@ testthat::test_that("Invalid catchability", {
   GOA2018SS$fleet_control$Catchability <- 9 # Not in scope
   GOA2018SS$fleet_control$Q_index <- 1:nflt
 
-  # Set params
-  inits <- suppressMessages( build_params(GOA2018SS) )
-  inits$index_ln_q[] <- 0
-
   # Run
   testthat::expect_error(
     Rceattle::fit_mod(data_list = GOA2018SS,
-                      inits = inits, # Initial parameters = 0
                       file = NULL, # Don't save
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment

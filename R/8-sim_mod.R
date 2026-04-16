@@ -220,8 +220,8 @@ sample_rec <- function(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_tre
     }
 
     # - Update OM with devs
-    Rceattle$estimated_params$x_tj[sp,proj_yrs - Rceattle$data_list$styr + 1] <- replace(
-      Rceattle$estimated_params$x_tj[sp,proj_yrs - Rceattle$data_list$styr + 1],
+    Rceattle$estimated_params$x_tj[proj_yrs - Rceattle$data_list$styr + 1, sp] <- replace(
+      Rceattle$estimated_params$x_tj[proj_yrs - Rceattle$data_list$styr + 1, sp],
       values =  x_tj)
   }
 

@@ -21,7 +21,7 @@ remove_F <- function(Rceattle){
     data_list = Rceattle$data_list,
     inits = Rceattle$estimated_params,
     map =  NULL,
-    bounds = NULL,
+    # bounds = NULL,
     file = NULL,
     estimateMode = 3,
     HCR = build_hcr(HCR = Rceattle$data_list$HCR, # Tier3 HCR

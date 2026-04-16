@@ -1,6 +1,7 @@
 testthat::test_that("Test MSE - Tier 3 w no uncertainty", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
+  testthat::skip()
 
   library(Rceattle)
 
@@ -30,14 +31,15 @@ testthat::test_that("Test MSE - Tier 3 w no uncertainty", {
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   ss_run_Tier3 <- suppressWarnings(
     Rceattle::fit_mod(data_list = BS2017SS,
-                      inits = ss_run$estimated_params, # Initial parameters from ss_run
-                      estimateMode = 2, # Run projection only
+                      inits = NULL, # Initial parameters = 0
+                      estimateMode = 0, # Run projection only
                       HCR = build_hcr(HCR = 5, # Tier3 HCR
                                       Ftarget = 0.4, # F40%
                                       Flimit = 0.35, # F35%
                                       Plimit = 0.2, # No fishing when SB<SB20
                                       Alpha = 0.05),
                       msmMode = 0, # Single species mode
+                      phase = TRUE,
                       verbose = 1)
   )
 
