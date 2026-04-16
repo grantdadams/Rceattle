@@ -885,6 +885,7 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
   # -- Catchability indices
   ind_q_dev <- 1
   ind_beta_q <- 0
+  yrs_hind <- 1:nyrs_hind
 
 
   catchability_params <- c("index_ln_q", "index_q_beta", "index_q_rho", "index_q_dev", "index_q_ln_sd", "index_q_dev_ln_sd", "index_ln_sd") # "index_q_pow"
