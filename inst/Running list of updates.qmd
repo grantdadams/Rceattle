@@ -11,7 +11,7 @@ Started this late, but this is in reference to the srr_dev branch
 
 10/30/2024 - Removed accumulation age and associated switches in `fleet_control`
 
-10/30/2024 - Added dirichlet multinomial to composition likelihood. Specified using the `Comp_loglike = 1` column in the `fleet_control` sheet of the data.
+10/30/2024 - Added dirichlet multinomial to composition likelihood. Specified using the `Comp_loglike = 1 or "DirichletMultinomial"` column in the `fleet_control` sheet of the data.
 
 10/30/2024 - Removed normalize by max selectivity and allowed normalize by specified age using the `Age_max_selected` column in the `fleet_control` sheet of the data.
 

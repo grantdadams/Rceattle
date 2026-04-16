@@ -55,6 +55,9 @@ testthat::test_that("Composition likelihoods match (Multinomial and Dirichlet-Mu
     obs_prop_offset <- obs_prop + 0.00001
     hat_prop_offset <- hat_prop + 0.00001
 
+    obs_prop_offset <- obs_prop_offset/sum(obs_prop_offset)
+    hat_prop_offset <- hat_prop_offset/sum(hat_prop_offset)
+
     # Convert proportion to numbers
     obs_num <- obs_prop_offset * samp_size
 
@@ -100,6 +103,9 @@ testthat::test_that("Composition likelihoods match (Multinomial and Dirichlet-Mu
     # Apply C++ offsets
     obs_prop_offset <- obs_prop + 0.00001
     hat_prop_offset <- hat_prop + 0.00001
+
+    obs_prop_offset <- obs_prop_offset/sum(obs_prop_offset)
+    hat_prop_offset <- hat_prop_offset/sum(hat_prop_offset)
 
     # Calculate Dirichlet Alphas
     obs_num <- obs_prop_offset * samp_size

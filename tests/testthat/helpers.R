@@ -74,7 +74,7 @@ make_test_data <- function(nyrs = 8, nprojyrs = 10, nages = 5, seed = NULL) {
     Bin_first_selected = 1,
     Sel_norm_bin1 = NA,
     Sel_norm_bin2 = NA,
-    Comp_loglike = 0,
+    Comp_loglike = "Multinomial",
     Comp_weights = 1,
     CAAL_loglike = 0,
     Weight1_Numbers2 = 1,

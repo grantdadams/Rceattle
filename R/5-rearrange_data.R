@@ -630,16 +630,23 @@ convert_switches <- function(data_list) {
       Selectivity = ifelse(as.character(Selectivity) %in% names(sel_map),
                            unname(sel_map[as.character(Selectivity)]),
                            Selectivity),
-
-      # Same for Catchability
       Catchability = ifelse(as.character(Catchability) %in% names(q_map),
                             unname(q_map[as.character(Catchability)]),
-                            Catchability)
+                            Catchability),
+      Comp_loglike = ifelse(as.character(Comp_loglike) %in% names(comp_loglike_map),
+                            unname(comp_loglike_map[as.character(Comp_loglike)]),
+                            Comp_loglike),
+      CAAL_loglike = ifelse(as.character(CAAL_loglike) %in% names(comp_loglike_map),
+                            unname(comp_loglike_map[as.character(CAAL_loglike)]),
+                            CAAL_loglike)
+
     ) %>%
     # CRITICAL: Force columns back to integers so TMB doesn't crash expecting ints but getting chars
     dplyr::mutate(
       Selectivity = as.integer(Selectivity),
-      Catchability = as.integer(Catchability)
+      Catchability = as.integer(Catchability),
+      Comp_loglike = as.integer(Comp_loglike),
+      CAAL_loglike = as.integer(CAAL_loglike)
     )
 
   return(data_list)

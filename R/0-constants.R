@@ -21,8 +21,15 @@ q_map <- c(
   "AR1" = 6
 )
 
+comp_loglike_map <- c(
+  "MultinomialAFSC" = -1,
+  "Multinomial" = 0,
+  "DirichletMultinomial" = 1
+)
+
 # --- Reverse Mappings (Integer -> String) ---
 # Automatically invert the maps above.
 # E.g., c("1" = "Logistic", "2" = "Non-parametric", ...)
 sel_rev_map <- setNames(names(sel_map), as.character(sel_map))
 q_rev_map <- setNames(names(q_map), as.character(q_map))
+comp_loglike_map_rev_map <- setNames(names(comp_loglike_map), as.character(comp_loglike_map))
