@@ -19,7 +19,7 @@ model1 <- Rceattle::fit_mod(data_list = GOApollock,
                             phase = FALSE,
                             initMode = 2,
                             verbose = 1)
-model1$data_list$dsem_settings$sem
+summary(model1)
 
 
 # Model 2 ----
@@ -45,7 +45,7 @@ model2 <- Rceattle::fit_mod(data_list = GOApollock,
                             phase = TRUE,
                             initMode = 2,
                             verbose = 1)
-model2$data_list$dsem_settings$sem
+summary(model2)
 
 
 # * Plot ----
@@ -67,8 +67,7 @@ model3 <- Rceattle::fit_mod(data_list = BS2017SS,
                             msmMode = 0, # Single species mode
                             phase = TRUE,
                             verbose = 1)
-print(model3$data_list$dsem_settings$sem) # Default SEM
-model3$estimated_params$beta_z # sigmaR
+summary(model3)
 
 # Model 4 ----
 # Three species IID model (cod and ATF recruitment impact pollock recruitment)
@@ -93,6 +92,7 @@ model4 <- Rceattle::fit_mod(data_list = BS2017SS,
                             msmMode = 0, # Single species mode
                             phase = TRUE,
                             verbose = 1)
+summary(model4)
 
 # * Plot ----
 mod_list <- list(model3, model4)

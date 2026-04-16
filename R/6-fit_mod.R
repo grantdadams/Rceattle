@@ -127,12 +127,12 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # Debugging section ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # data_list = GOA2018SS;
+    # data_list = GOApollock;
     # inits = NULL;
     # map = NULL;
     # file = NULL;
     # estimateMode = 0;
-    # random_rec = FALSE;
+    # random_rec = TRUE;
     # random_q = FALSE;
     # random_sel = FALSE;
     # HCR = build_hcr();
@@ -145,7 +145,7 @@ fit_mod <-
     # suitMode = 0;
     # suit_styr = NULL;
     # suit_endyr = NULL;
-    # phase = FALSE;
+    # phase = TRUE;
     # getsd = TRUE;
     # use_gradient = TRUE;
     # rel_tol = 1;
@@ -834,6 +834,9 @@ fit_mod <-
     mod_objects$data_list <- Rceattle::calc_mcall_ianelli(data_list = data_list, data_list_reorganized = data_list_reorganized, quantities = quantities)
     mod_objects$data_list <- Rceattle::calc_mcall_ianelli_diet(data_list = mod_objects$data_list, quantities = quantities)
 
+    # -- Update dsem pars
+    mod_objects$dsem$obj$par
+
     # -- Run time
     mod_objects$run_time = ((Sys.time() - start_time))
 
@@ -856,3 +859,58 @@ fit_mod <-
 
     return(mod_objects)
   }
+
+
+
+#' @title Summarize Rceattle-dsem
+#'
+#' @description summarize parameters from a fitted dynamic structural equation model
+#'
+#' @details
+#' Modified from DSEM for Rceattle-DSEM. See \code{?summary.dsem} for full details.
+#'
+#' @param object Rceattle-DSEM model from \code{\link{fit_mod}}
+#' @param ... Not used
+#'
+#' @return
+#' Returns a data.frame summarizing estimated path coefficients, containing columns:
+#' \describe{
+#' \item{path}{The parsed path coefficient}
+#' \item{lag}{The lag, where e.g. 1 means the predictor in time t effects the response in time t+1}
+#' \item{name}{Parameter name}
+#' \item{start}{Start value if supplied, and NA otherwise}
+#' \item{parameter}{Parameter number}
+#' \item{first}{Variable in path treated as predictor}
+#' \item{second}{Variable in path treated as response}
+#' \item{direction}{Whether the path is one-headed or two-headed}
+#' \item{Estimate}{Maximum likelihood estimate}
+#' \item{Std_Error}{Estimated standard error from the Hessian matrix}
+#' \item{z_value}{Estimate divided by Std_Error}
+#' \item{p_value}{P-value associated with z_value using a two-sided Wald test}
+#' }
+#'
+#' @method summary Rceattle
+#' @export
+summary.Rceattle <- function(Rceattle = mod_objects){
+
+  if(class(Rceattle) != "Rceattle"){
+    stop("Input is not an Rceattle model.")
+  }
+
+  # Easy of use
+  model = Rceattle$dsem$sem_full
+  ParHat = Rceattle$obj$env$parList()
+  beta_z <- ParHat$beta_z
+
+  coefs = data.frame( model, "Estimate"=c(NA, beta_z)[ as.numeric(model[,'parameter'])+1 ] ) # parameter=0 outputs NA
+  coefs$Estimate = ifelse( is.na(coefs$Estimate), as.numeric(model[,4]), coefs$Estimate )
+  if( "sdrep" %in% names(Rceattle) ){
+    SE = as.list( Rceattle$sdrep, report=FALSE, what="Std. Error")
+    coefs = data.frame( coefs, "Std_Error"=c(NA,SE$beta_z)[ as.numeric(model[,'parameter'])+1 ] ) # parameter=0 outputs NA
+    coefs = data.frame( coefs, "z_value"=coefs[,'Estimate']/coefs[,'Std_Error'] )
+    coefs = data.frame( coefs, "p_value"=pnorm(-abs(coefs[,'z_value'])) * 2 )
+  }
+
+  return(coefs[!is.na(Rceattle$map$mapList$beta_z),])
+}
+
