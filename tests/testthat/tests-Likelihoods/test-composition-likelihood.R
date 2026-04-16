@@ -24,12 +24,19 @@ testthat::test_that("Composition likelihoods match (Multinomial and Dirichlet-Mu
   simData_mn$fleet_control$Comp_loglike <- 0 # 0 = Multinomial
   simData_mn$fleet_control$Comp_weights <- 0.75
 
-  inits_mn <- build_params(simData_mn)
+
+  mod_mn <- Rceattle::fit_mod(data_list = simData_mn,
+                              estimateMode = 3, # Just evaluate NLL, do not optimize
+                              phase = FALSE,
+                              verbose = 0)
+
   # Set a specific likelihood weight for testing (e.g., 0.75)
+  inits <- mod_mn$estimated_params
   inits_mn$comp_weights[flt_idx] <- 0.75
 
   mod_mn <- Rceattle::fit_mod(data_list = simData_mn,
                               inits = inits_mn,
+                              map = mod_mn$map,
                               estimateMode = 3, # Just evaluate NLL, do not optimize
                               phase = FALSE,
                               verbose = 0)
@@ -100,6 +107,8 @@ testthat::test_that("Composition likelihoods match (Multinomial and Dirichlet-Mu
     # Apply C++ offsets
     obs_prop_offset <- obs_prop + 0.00001
     hat_prop_offset <- hat_prop + 0.00001
+
+    #FIXME: normalize after adding offset!
 
     # Calculate Dirichlet Alphas
     obs_num <- obs_prop_offset * samp_size
