@@ -2533,7 +2533,7 @@ Type objective_function<Type>::operator() () {
         for(int bin = 0; bin < flt_n_sel_bins(flt); bin++){ //NOTE: extends beyond selectivity age range, but should be mapped to 0 in map function
           for(sex = 0; sex < nsex(sp); sex++){
             for(yr = 0; yr < nyrs_hind; yr++){
-              jnll_comp(5, flt) -= dnorm(sel_coff_dev(flt, sex, age, yr), Type(0.0), sel_dev_sd(flt), true);
+              jnll_comp(5, flt) -= dnorm(sel_coff_dev(flt, sex, bin, yr), Type(0.0), sel_dev_sd(flt), true);
             }
           }
         }
