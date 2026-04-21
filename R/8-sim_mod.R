@@ -47,12 +47,12 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
 
       if (simulate && sum_prob > 0) {
         # --- Multinomial ---
-        if(dat_sim$fleet_control$Comp_loglike[flt] < 1){
+        if(dat_sim$fleet_control$Comp_loglike[flt] == "Multinomial"){
         sim_comp <- rmultinom(n = 1, size = dat_sim$comp_data$Sample_size[obs], prob = prob_vec)
         }
 
         # --- Dirichlet-multinomial ---
-        if(dat_sim$fleet_control$Comp_loglike[flt] == 1){
+        if(dat_sim$fleet_control$Comp_loglike[flt] == "DirichletMultinomial"){
           # Theta is the overdispersion/precision parameter.
           theta <- exp(Rceattle$estimated_params$comp_weights[flt])
 
