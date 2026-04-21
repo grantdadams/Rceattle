@@ -93,7 +93,7 @@ build_map_recruitment <- function(map_list, data_list, nyrs_hind, nyrs_proj, ran
     # 0) Initial abundance as free parameters
     # -- Map out first year init devs if estimating initial abundance as free parameters
     if (data_list$initMode == 0) {
-      # map_list$rec_dev[sp, 1] <- NA
+      map_list$init_dev[sp, 1] <- NA # Rec dev is used for year 1
 
 # FIXME: move init_dev to DSEM vector
       # - Map out ages above range
@@ -886,6 +886,7 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
   # -- Catchability indices
   ind_q_dev <- 1
   ind_beta_q <- 0
+  yrs_hind <- 1:nyrs_hind
 
 
   catchability_params <- c("index_ln_q", "index_q_beta", "index_q_rho", "index_q_dev", "index_q_ln_sd", "index_q_dev_ln_sd", "index_ln_sd") # "index_q_pow"
@@ -1147,12 +1148,12 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
     }
 
     # Map out comp weights if using multinomial
-    if(data_list$fleet_control$Comp_loglike[i] != 1) {
+    if(data_list$fleet_control$Comp_loglike[i] !=  "DirichletMultinomial") {
       map_list$comp_weights[i] <- NA
     }
 
     # Map out CAAL weights if using multinomial
-    if(data_list$fleet_control$CAAL_loglike[i] != 1) {
+    if(data_list$fleet_control$CAAL_loglike[i] != "DirichletMultinomial") {
       map_list$caal_weights[i] <- NA
     }
 
@@ -1167,12 +1168,6 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
     }
     if(!data_list$fleet_control$Fleet_code[i] %in% caal_count$Fleet_code){
       map_list$caal_weights[i] <- NA
-    }
-
-    if(!data_list$fleet_control$Comp_loglike[i] %in% c(-1, 0, 1)){
-      if(!is.na(data_list$fleet_control$Comp_loglike[i])){
-        stop(paste0("Comp_loglike for fleet", i, "is not 0 or 1"))
-      }
     }
   }
 

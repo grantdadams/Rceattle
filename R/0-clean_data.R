@@ -9,9 +9,6 @@ clean_data <- function(data_list){
   # Transpose fleet control
   data_list <- transpose_fleet_control(data_list)
 
-  # Update switches if necessary for older files
-  data_list <- revert_switches(data_list)
-
   # --- 1. Filter Data by Year ----
   # Data in likelihood (use absolute Year)
   abs_year_data <- c("index_data", "catch_data", "comp_data", "caal_data")
@@ -134,10 +131,13 @@ switch_check <- function(data_list){
   data_list$fleet_control$Sel_curve_pen1 <- set_default(data_list$fleet_control$Sel_curve_pen1, 0, "'Sel_curve_pen1' not specified in 'fleet_control', assuming '0'")
   data_list$fleet_control$Sel_curve_pen2 <- set_default(data_list$fleet_control$Sel_curve_pen2, 0, "'Sel_curve_pen2' not specified in 'fleet_control', assuming '0'")
   data_list$fleet_control$Selectivity_dimension <- set_default(data_list$fleet_control$Selectivity_dimension, "Age", "'Selectivity_dimension' not specified in 'fleet_control', assuming 'Age'")
-  data_list$fleet_control$Comp_loglike <- set_default(data_list$fleet_control$Comp_loglike, -1, "'Comp_loglike' not specified in 'fleet_control', assuming multinomial")
-  data_list$fleet_control$CAAL_loglike <- set_default(data_list$fleet_control$CAAL_loglike, 0, "'CAAL_loglike' not specified in 'fleet_control', assuming multinomial")
+  data_list$fleet_control$Comp_loglike <- set_default(data_list$fleet_control$Comp_loglike, "MultinomialAFSC", "'Comp_loglike' not specified in 'fleet_control', assuming 'MultinomialAFSC'")
+  data_list$fleet_control$CAAL_loglike <- set_default(data_list$fleet_control$CAAL_loglike, "Multinomial", "'CAAL_loglike' not specified in 'fleet_control', assuming 'Multinomial'")
   data_list$fleet_control$CAAL_weights <- set_default(data_list$fleet_control$CAAL_weights, 1, "'CAAL_weights' not specified in 'fleet_control', assuming 1")
   data_list$fleet_control$Month <- set_default(data_list$fleet_control$Month, 0, "'Month' not specified in 'fleet_control', assuming 0")
+
+  # Update switches to text-based if necessary for older files
+  data_list <- revert_switches(data_list)
 
   # Format adjustment for NonParametric
   np_idx <- data_list$fleet_control$Selectivity %in% c(2, "NonParametric", "Non-parametric")
@@ -172,7 +172,13 @@ revert_switches <- function(data_list) {
                            Selectivity),
       Catchability = ifelse(as.character(Catchability) %in% names(q_rev_map),
                             q_rev_map[as.character(Catchability)],
-                            Catchability)
+                            Catchability),
+      Comp_loglike = ifelse(as.character(Comp_loglike) %in% names(comp_loglike_map),
+                            comp_loglike_map[as.character(Comp_loglike)],
+                            Comp_loglike),
+      CAAL_loglike = ifelse(as.character(CAAL_loglike) %in% names(comp_loglike_map),
+                            comp_loglike_map[as.character(CAAL_loglike)],
+                            CAAL_loglike)
     )
 
   return(data_list)

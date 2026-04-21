@@ -59,29 +59,46 @@ data_check <- function(data_list) {
 
 
   # * Validate selectivity and catchability inputs ----
-  # Allowed inputs include both the old integer codes and the new string names
-  valid_sel <- c(0:7, "Fixed", "Logistic", "NonParametric", "DoubleLogistic", "DescendingLogistic", "Hake", "2DAR1", "3DAR1")
-  valid_q <- c(0:6, "Fixed", "Estimated", "Estimated-with-prior", "Analytical", "Environmental", "AR1")
-
   invalid_sel <- data_list$fleet_control %>%
-    dplyr::filter(!Selectivity %in% valid_sel)
+    dplyr::filter(Fleet_type != 0 & !Selectivity %in% c(sel_map, names(sel_map)))
 
   invalid_q <- data_list$fleet_control %>%
-    dplyr::filter(Fleet_type == 2 & !Catchability %in% valid_q)
+    dplyr::filter(Fleet_type == 2 & !Catchability %in% c(q_map, names(q_map)))
+
+  invalid_comp_ll <- data_list$fleet_control %>%
+    dplyr::filter(Fleet_type != 0 & !Comp_loglike %in% c(comp_loglike_map, names(comp_loglike_map)))
+
+  invalid_caal_ll <- data_list$fleet_control %>%
+    dplyr::filter(Fleet_type != 0 & !CAAL_loglike %in% c(comp_loglike_map, names(comp_loglike_map)))
 
   # Throw clear errors to guide the user
   if(nrow(invalid_sel) > 0) {
     stop(paste("Invalid Selectivity specified for fleets:",
                paste(invalid_sel$Fleet_name, collapse = ", "),
-               ".\nPlease use an integer code 0:7 or one of:",
-               paste(c("Empirical", "Logistic", "Non-parametric", "Double-Logistic", "Descending-Logistic", "Hake-Non-parametric"), collapse = ", ")))
+               ".\nPlease use an integer code ",paste(range(sel_map), collapse = ":")," or one of:",
+               paste(names(sel_map), collapse = ", ")))
   }
 
   if(nrow(invalid_q) > 0) {
     stop(paste("Invalid Catchability specified for fleets:",
                paste(invalid_q$Fleet_name, collapse = ", "),
-               ".\nPlease use an integer code 0:6 or one of:",
-               paste(c("Fixed", "Estimated", "Estimated-with-prior", "Analytical", "Environmental", "AR1-Deviates"), collapse = ", ")))
+               ".\nPlease use an integer code ", paste(range(q_map), collapse = ":")," or one of:",
+               paste(names(q_map), collapse = ", ")))
+  }
+
+  if(nrow(invalid_comp_ll) > 0) {
+    stop(paste("Invalid Comp_loglike specified for fleets:",
+               paste(invalid_comp_ll$Fleet_name, collapse = ", "),
+               ".\nPlease use an integer code ", paste(range(comp_loglike_map), collapse = ":")," or one of:",
+               paste(names(comp_loglike_map), collapse = ", ")))
+  }
+
+
+  if(nrow(invalid_caal_ll) > 0) {
+    stop(paste("Invalid CAAL_loglike specified for fleets:",
+               paste(invalid_caal_ll$Fleet_name, collapse = ", "),
+               ".\nPlease use an integer code ", paste(range(comp_loglike_map), collapse = ":")," or one of:",
+               paste(names(comp_loglike_map), collapse = ", ")))
   }
 
 
@@ -310,4 +327,3 @@ data_check <- function(data_list) {
   if(any(data_list$srr_indices > ncol(data_list$env_index))){stop("'srr_indices' greater than the number of indices included")}
   if(any(data_list$M1_indices > ncol(data_list$env_index))){stop("'M1_indices' greater than the number of indices included")}
 }
-

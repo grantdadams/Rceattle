@@ -24,7 +24,6 @@ testthat::test_that("Composition likelihoods match (Multinomial and Dirichlet-Mu
   simData_mn$fleet_control$Comp_loglike <- 0 # 0 = Multinomial
   simData_mn$fleet_control$Comp_weights <- 0.75
 
-
   mod_mn <- Rceattle::fit_mod(data_list = simData_mn,
                               estimateMode = 3, # Just evaluate NLL, do not optimize
                               phase = FALSE,
@@ -61,6 +60,9 @@ testthat::test_that("Composition likelihoods match (Multinomial and Dirichlet-Mu
     # Apply C++ math offsets exactly as written in ceattle_v01_11.cpp
     obs_prop_offset <- obs_prop + 0.00001
     hat_prop_offset <- hat_prop + 0.00001
+
+    obs_prop_offset <- obs_prop_offset/sum(obs_prop_offset)
+    hat_prop_offset <- hat_prop_offset/sum(hat_prop_offset)
 
     # Convert proportion to numbers
     obs_num <- obs_prop_offset * samp_size
@@ -108,7 +110,8 @@ testthat::test_that("Composition likelihoods match (Multinomial and Dirichlet-Mu
     obs_prop_offset <- obs_prop + 0.00001
     hat_prop_offset <- hat_prop + 0.00001
 
-    #FIXME: normalize after adding offset!
+    obs_prop_offset <- obs_prop_offset/sum(obs_prop_offset)
+    hat_prop_offset <- hat_prop_offset/sum(hat_prop_offset)
 
     # Calculate Dirichlet Alphas
     obs_num <- obs_prop_offset * samp_size
