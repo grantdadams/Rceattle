@@ -94,13 +94,13 @@ show_selex <- function(model = c('double-normal', 'logistic', 'len-double-normal
 
   graphics.off()
   if(grepl('len', model)) {
-    data.frame(length = lenbins, selex = ltmp) %>%
+    data.frame(length = lenbins, selex = ltmp) |>
       ggplot(aes(x = length, y = selex)) +
       geom_point() +
       geom_line() +
       expand_limits(y = 0)
   } else {
-    data.frame(age = ages, selex = tmp) %>%
+    data.frame(age = ages, selex = tmp) |>
       ggplot(aes(x = age, y = selex)) +
       geom_point() +
       geom_line() +

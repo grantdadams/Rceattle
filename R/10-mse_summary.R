@@ -110,15 +110,15 @@ mse_summary <- function(mse, om_only = FALSE){
     # * Mean catch ----
     mse_summary$`Average Catch`[i+nspp] <- mean(
       sapply(mse, function(x)
-        x$OM$data_list$catch_data %>%
-          filter(Fleet_code == flt & Year %in% projyrs) %>%
+        x$OM$data_list$catch_data |>
+          filter(Fleet_code == flt & Year %in% projyrs) |>
           pull(Catch)
       ), na.rm = TRUE)
 
     # * Catch IAV ----
     catch_list_tmp <- lapply(mse, function(x)
-      x$OM$data_list$catch_data %>%
-        filter(Fleet_code == flt & Year %in% projyrs) %>%
+      x$OM$data_list$catch_data |>
+        dplyr::filter(Fleet_code == flt & Year %in% projyrs) |>
         pull(Catch)
     )
 
@@ -148,17 +148,17 @@ mse_summary <- function(mse, om_only = FALSE){
     # * Mean catch ----
     mse_summary$`Average Catch`[sp] <- mean(
       sapply(mse, function(x)
-        x$OM$data_list$catch_data %>%
-          filter(Species == sp & Year %in% projyrs) %>%
+        x$OM$data_list$catch_data |>
+          filter(Species == sp & Year %in% projyrs) |>
           pull(Catch)
       ), na.rm = TRUE)
 
     # - Catch IAV ----
     catch_list_tmp <- suppressMessages(lapply(mse, function(x)
-      x$OM$data_list$catch_data %>%
-        filter(Species == sp & Year %in% projyrs) %>%
-        group_by(Year) %>%
-        summarise(Catch = sum(Catch)) %>%
+      x$OM$data_list$catch_data |>
+        filter(Species == sp & Year %in% projyrs) |>
+        group_by(Year) |>
+        summarise(Catch = sum(Catch)) |>
         pull(Catch)
     )) # Sum catch across species
 
@@ -183,10 +183,10 @@ mse_summary <- function(mse, om_only = FALSE){
   # - Catch IAV
   # - P(Closed)
   catch_list_tmp <- suppressMessages(lapply(mse, function(x)
-    x$OM$data_list$catch_data %>%
-      filter(Year %in% projyrs) %>%
-      group_by(Year) %>%
-      summarise(Catch = sum(Catch)) %>%
+    x$OM$data_list$catch_data |>
+      filter(Year %in% projyrs) |>
+      group_by(Year) |>
+      summarise(Catch = sum(Catch)) |>
       pull(Catch)
   )
   ) # Sum catch across species

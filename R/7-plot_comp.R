@@ -673,7 +673,6 @@ plot_comp <-
 #' @param species Species names for legend
 #'
 #' @return Returns and saves a figure
-#' @importFrom magrittr %>%
 #' @importFrom rlang .data
 #' @importFrom ggplot2 theme element_blank aes ggplot geom_point theme_classic ylim ylab xlim xlab ggtitle ggsave
 #' @export
@@ -701,7 +700,7 @@ plot_diet_comp <-
     comp_data$Est = Rceattle$quantities$diet_hat[,2]
 
     # Use .data to avoid R CMD check notes
-    comp_data <- comp_data %>%
+    comp_data <- comp_data |>
       dplyr::mutate(pearson = (.data$Stomach_proportion_by_weight - .data$Est) /
                       sqrt((.data$Est * (1 - .data$Est)) / .data$Sample_size))
 
@@ -721,7 +720,7 @@ plot_diet_comp <-
           }
 
           # * Extract comps ----
-          comp_tmp <- comp_data %>%
+          comp_tmp <- comp_data |>
             dplyr::filter(.data$Pred == pred & .data$Pred_sex == current_pred_sex & .data$Prey == prey)
 
           yrs <- sort(unique(comp_tmp$Year))
@@ -729,12 +728,12 @@ plot_diet_comp <-
 
           # * Plot annual comps ----
           for(yr in 1:nyrs){
-            comp_tmp_yr <- comp_tmp %>%
-              dplyr::filter(.data$Year == yrs[yr] ) %>%
+            comp_tmp_yr <- comp_tmp |>
+              dplyr::filter(.data$Year == yrs[yr] ) |>
               dplyr::mutate(Prey_age = ifelse(.data$Prey_sex == 2, -.data$Prey_age, .data$Prey_age))
 
-            plot_obs <- comp_tmp_yr %>%
-              dplyr::filter(.data$Stomach_proportion_by_weight > 0) %>%
+            plot_obs <- comp_tmp_yr |>
+              dplyr::filter(.data$Stomach_proportion_by_weight > 0) |>
               ggplot2::ggplot(ggplot2::aes(x = .data$Pred_age, y = .data$Prey_age, size = .data$Stomach_proportion_by_weight)) +
               ggplot2::geom_point(alpha = 1) +
               ggplot2::theme_classic() +
@@ -746,8 +745,8 @@ plot_diet_comp <-
               ggplot2::theme(legend.position = c(0.25, 0.7),
                              legend.title = ggplot2::element_blank())
 
-            plot_est <- comp_tmp_yr %>%
-              dplyr::filter(.data$Stomach_proportion_by_weight > 0) %>%
+            plot_est <- comp_tmp_yr |>
+              dplyr::filter(.data$Stomach_proportion_by_weight > 0) |>
               ggplot2::ggplot(ggplot2::aes(x = .data$Pred_age, y = .data$Prey_age, size = .data$Est)) +
               ggplot2::geom_point(alpha = 1) +
               ggplot2::theme_classic() +
@@ -758,8 +757,8 @@ plot_diet_comp <-
               ggplot2::ggtitle(paste("Estimated diet: year", yrs[yr])) +
               ggplot2::theme(legend.position = "none")
 
-            plot_pear <- comp_tmp_yr %>%
-              dplyr::filter(.data$Stomach_proportion_by_weight > 0) %>%
+            plot_pear <- comp_tmp_yr |>
+              dplyr::filter(.data$Stomach_proportion_by_weight > 0) |>
               ggplot2::ggplot(ggplot2::aes(x = .data$Pred_age, y = .data$Prey_age,
                                            size = abs(.data$pearson),
                                            color = .data$pearson < 0)) +

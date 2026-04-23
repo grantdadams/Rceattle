@@ -218,10 +218,10 @@ profile_rsigma <- function(model = NULL, rsigma_vec = NULL, species = NULL){
     # Get JNLL by species
     # jnll_data <- data.frame(Species = mod_prof$data_list$fleet_control$Species, JNLL = colSums(mod_prof$quantities$jnll_comp[c(1:9, 13),]))
     # jnll_penalties <- data.frame(Species = 1:3,  JNLL = colSums(mod_prof$quantities$jnll_comp[10:12,1:3] ))
-    # mod_prof$jnll <- rbind(jnll_data, jnll_penalties) %>%
-    #   group_by(Species) %>%
-    #   summarise(jnll = sum(JNLL)) %>%
-    #   arrange(Species) %>%
+    # mod_prof$jnll <- rbind(jnll_data, jnll_penalties) |>
+    #   group_by(Species) |>
+    #   summarise(jnll = sum(JNLL)) |>
+    #   arrange(Species) |>
     #   mutate(Species_name = mod_prof$data_list$spnames,
     #          sigmaR = rsigma_vec[i])
     mod_prof
@@ -560,11 +560,11 @@ exp_results$System <- ifelse(grepl("ebs_", exp_results$Model), "EBS", "GOA")
 # Figures ----
 library(ggplot2)
 library(cowplot)
-species_df <- exp_results %>%
+species_df <- exp_results |>
   distinct(System, Ricker, Species)
 
 for(i in 1:nrow(species_df)){
-  exp_results_spp <- exp_results %>%
+  exp_results_spp <- exp_results |>
     filter(System == species_df$System[i] &
              Ricker == species_df$Ricker[i] &
              Species == species_df$Species[i])
@@ -573,7 +573,7 @@ for(i in 1:nrow(species_df)){
   p1 <- list()
   p2 <- list()
   for(k in 1:3){
-    exp_results_tmp <- exp_results_spp %>%
+    exp_results_tmp <- exp_results_spp |>
       filter(Quantity == quantities[k])
 
 
@@ -587,13 +587,13 @@ for(i in 1:nrow(species_df)){
     }
 
 
-    p1[[k]] <- exp_results_tmp %>%
+    p1[[k]] <- exp_results_tmp |>
       ggplot(aes(x = Year, y = Value, colour = Group)) +
       geom_line(linewidth = 1.1) +
       ylab(quantities[k]) +
       theme_classic()
 
-    p2[[k]] <- exp_results_tmp %>%
+    p2[[k]] <- exp_results_tmp |>
       ggplot(aes(x = Year, y = SE, colour = Group)) +
       geom_line(linewidth = 1.1) +
       ylab(paste(quantities[k], "SE")) +

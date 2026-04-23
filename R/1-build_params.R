@@ -2,7 +2,7 @@
 #'
 #' @description Function to read a TMB cpp file and construct parameter list object for Rceattle
 #'
-#' @param data_list A data_list object created by \code{\link{build_dat}}
+#' @param data_list an Rceattle data_list
 #'
 #' @return a list of map arguments for each parameter
 #' @export
@@ -150,11 +150,11 @@ build_params <- function(data_list) {
   }
 
   # -- Set Fdev for years with 0 catch to very low number
-  zero_catch <- data_list$catch_data %>%
+  zero_catch <- data_list$catch_data |>
     dplyr::filter(Year <= data_list$endyr &
-                    Catch == 0) %>%
-    dplyr::mutate(Year = Year - data_list$styr + 1) %>%
-    dplyr::select(Fleet_code, Year) %>%
+                    Catch == 0) |>
+    dplyr::mutate(Year = Year - data_list$styr + 1) |>
+    dplyr::select(Fleet_code, Year) |>
     as.matrix()
   param_list$ln_F[zero_catch] <- -999
 
@@ -167,13 +167,13 @@ build_params <- function(data_list) {
   param_list$ln_growth_pars[, , 1] <- log(0.3)
 
   if(nrow(data_list$caal_data) > 0){
-    caal_lengths <- data_list$caal_data %>%
-      dplyr::distinct(Species, Length) %>%
-      dplyr::arrange(Species, Length) %>%
-      dplyr::group_by(Species) %>%
-      dplyr::mutate(Bin = paste0("Bin", 1:n())) %>%
-      dplyr::slice(c(1, n())) %>%
-      dplyr::ungroup() %>%
+    caal_lengths <- data_list$caal_data |>
+      dplyr::distinct(Species, Length) |>
+      dplyr::arrange(Species, Length) |>
+      dplyr::group_by(Species) |>
+      dplyr::mutate(Bin = paste0("Bin", 1:n())) |>
+      dplyr::slice(c(1, n())) |>
+      dplyr::ungroup() |>
       tidyr::pivot_wider(names_from = Bin, values_from = Length)
     param_list$ln_growth_pars[caal_lengths$Species, 1, 2:3] <- as.matrix(log(caal_lengths[,-1]))
     if(max_sex == 2){

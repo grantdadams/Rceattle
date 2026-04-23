@@ -45,11 +45,11 @@ set_osa_obs = function(data_list){
 
   # 1) Index data ----
   index_fleets <- data_list$fleet_control$Fleet_code[data_list$fleet_control$Fleet_type == 2] # Index fleets
-  x <- data_list$index_data %>%
-    dplyr::filter(Year > 0 & Fleet_code %in% index_fleets) %>% # Data is used in likelihood
+  x <- data_list$index_data |>
+    dplyr::filter(Year > 0 & Fleet_code %in% index_fleets) |> # Data is used in likelihood
     mutate(Comp = NA,
            Type = "logindex",
-           Observation = log(Observation)) %>%
+           Observation = log(Observation)) |>
     select(Year, Fleet_code, Comp, Type, Observation)
   obs <- rbind(obs, x)
 
@@ -57,11 +57,11 @@ set_osa_obs = function(data_list){
 
   # 2) Catch data ----
   catch_fleets <- data_list$fleet_control$Fleet_code[data_list$fleet_control$Fleet_type == 1]
-  x <- data_list$catch_data %>%
-    dplyr::filter(Year > 0 & Fleet_code %in% catch_fleets) %>% # Data is used in likelihood
+  x <- data_list$catch_data |>
+    dplyr::filter(Year > 0 & Fleet_code %in% catch_fleets) |> # Data is used in likelihood
     mutate(Comp = NA,
            Type = "logcatch",
-           Observation = log(Catch)) %>%
+           Observation = log(Catch)) |>
     select(Year, Fleet_code, Comp, Type, Observation)
   obs <- rbind(obs, x)
 

@@ -316,10 +316,10 @@ testthat::test_that("Test proportion of prey-at-age in predator-at-age averaged 
   testthat::expect_equal(as.numeric(ms_run2$data_list$diet_data$Stomach_proportion_by_weight), as.numeric(ms_run2$quantities$diet_hat[,2]))
 
   # Diet data (no modifications when rearranged)
-  diet_data1 <- ms_run2$data_list$diet_data %>%
+  diet_data1 <- ms_run2$data_list$diet_data |>
     arrange(Pred, Prey, Pred_age, Prey_age, Year)
 
-  diet_data2 <- simData$diet_data %>%
+  diet_data2 <- simData$diet_data |>
     arrange(Pred, Prey, Pred_age, Prey_age, Year)
   testthat::expect_equal(as.numeric(diet_data1$Stomach_proportion_by_weight), as.numeric(diet_data2$Stomach_proportion_by_weight))
 }
@@ -422,10 +422,10 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator-at-ag
                          as.numeric(ms_run2$quantities$diet_hat[,2]))
 
   # Diet data (no modifications when rearranged)
-  diet_data1 <- ms_run2$data_list$diet_data %>%
+  diet_data1 <- ms_run2$data_list$diet_data |>
     arrange(Pred, Prey, Pred_age, Prey_age, Year)
 
-  diet_data2 <- simData$diet_data %>%
+  diet_data2 <- simData$diet_data |>
     arrange(Pred, Prey, Pred_age, Prey_age, Year)
   testthat::expect_equal(as.numeric(diet_data1$Stomach_proportion_by_weight), as.numeric(diet_data2$Stomach_proportion_by_weight))
 }
@@ -528,10 +528,10 @@ testthat::test_that("Test proportion of prey (all ages) in predator-at-age avera
   testthat::expect_equal(as.numeric(ms_run2$data_list$diet_data$Stomach_proportion_by_weight), as.numeric(ms_run2$quantities$diet_hat[,2]))
 
   # Diet data (no modifications when rearranged)
-  diet_data1 <- ms_run2$data_list$diet_data %>%
+  diet_data1 <- ms_run2$data_list$diet_data |>
     arrange(Pred, Prey, Pred_age, Prey_age, Year)
 
-  diet_data2 <- simData$diet_data %>%
+  diet_data2 <- simData$diet_data |>
     arrange(Pred, Prey, Pred_age, Prey_age, Year)
   testthat::expect_equal(as.numeric(diet_data1$Stomach_proportion_by_weight), as.numeric(diet_data2$Stomach_proportion_by_weight))
 }
@@ -633,10 +633,10 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (mean
   testthat::expect_equal(as.numeric(ms_run2$data_list$diet_data$Stomach_proportion_by_weight), as.numeric(ms_run2$quantities$diet_hat[,2]))
 
   # Diet data (no modifications when rearranged)
-  diet_data1 <- ms_run2$data_list$diet_data %>%
+  diet_data1 <- ms_run2$data_list$diet_data |>
     arrange(Pred, Prey, Pred_age, Prey_age, Year)
 
-  diet_data2 <- simData$diet_data %>%
+  diet_data2 <- simData$diet_data |>
     arrange(Pred, Prey, Pred_age, Prey_age, Year)
   testthat::expect_equal(as.numeric(diet_data1$Stomach_proportion_by_weight), as.numeric(diet_data2$Stomach_proportion_by_weight))
 }
@@ -718,20 +718,20 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (weig
   colnames(diet_summary) <- c("Pred", "Prey", "Year", "Stomach_proportion_by_weight")
 
   # 4. Format the data for Rceattle
-  simData$diet_data <- diet_summary %>%
+  simData$diet_data <- diet_summary |>
     dplyr::mutate(
       Pred = as.numeric(as.character(Pred)),
       Prey = as.numeric(as.character(Prey)),
       Year = as.numeric(as.character(Year))
-    ) %>%
-    dplyr::filter(Stomach_proportion_by_weight > 0) %>%
+    ) |>
+    dplyr::filter(Stomach_proportion_by_weight > 0) |>
     dplyr::mutate(
       Pred_age = -520, # Set Pred_age to negative flag < -500 or weighted average
       Prey_age = -1,   # Set Prey_age to negative flag
       Pred_sex = 0,
       Prey_sex = 0,
       Sample_size = 200
-    ) %>%
+    ) |>
     dplyr::select(Pred, Prey, Pred_sex, Prey_sex, Pred_age, Prey_age, Year, Sample_size, Stomach_proportion_by_weight)
 
   ms_run2 <- Rceattle::fit_mod(data_list = simData,
@@ -753,10 +753,10 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (weig
   testthat::expect_equal(as.numeric(ms_run2$data_list$diet_data$Stomach_proportion_by_weight), as.numeric(ms_run2$quantities$diet_hat[,2]))
 
   # Diet data (no modifications when rearranged)
-  diet_data1 <- ms_run2$data_list$diet_data %>%
+  diet_data1 <- ms_run2$data_list$diet_data |>
     arrange(Pred, Prey, Pred_age, Prey_age, Year)
 
-  diet_data2 <- simData$diet_data %>%
+  diet_data2 <- simData$diet_data |>
     arrange(Pred, Prey, Pred_age, Prey_age, Year)
   testthat::expect_equal(as.numeric(diet_data1$Stomach_proportion_by_weight), as.numeric(diet_data2$Stomach_proportion_by_weight))
 }
@@ -861,10 +861,10 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
   testthat::expect_equal(as.numeric(ms_run2$data_list$diet_data$Stomach_proportion_by_weight), as.numeric(ms_run2$quantities$diet_hat[,2]))
 
   # Diet data (no modifications when rearranged)
-  diet_data1 <- ms_run2$data_list$diet_data %>%
+  diet_data1 <- ms_run2$data_list$diet_data |>
     arrange(Pred, Prey, Pred_age, Prey_age, Year)
 
-  diet_data2 <- simData$diet_data %>%
+  diet_data2 <- simData$diet_data |>
     arrange(Pred, Prey, Pred_age, Prey_age, Year)
   testthat::expect_equal(as.numeric(diet_data1$Stomach_proportion_by_weight), as.numeric(diet_data2$Stomach_proportion_by_weight))
 }
@@ -984,10 +984,10 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
   testthat::expect_equal(as.numeric(ms_run2$data_list$diet_data$Stomach_proportion_by_weight), as.numeric(ms_run2$quantities$diet_hat[,2]))
 
   # Diet data (no modifications when rearranged)
-  diet_data1 <- ms_run2$data_list$diet_data %>%
+  diet_data1 <- ms_run2$data_list$diet_data |>
     arrange(Pred, Prey, Pred_age, Prey_age, Year)
 
-  diet_data2 <- simData$diet_data %>%
+  diet_data2 <- simData$diet_data |>
     arrange(Pred, Prey, Pred_age, Prey_age, Year)
   testthat::expect_equal(as.numeric(diet_data1$Stomach_proportion_by_weight), as.numeric(diet_data2$Stomach_proportion_by_weight))
 }

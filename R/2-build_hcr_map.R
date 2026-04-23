@@ -2,7 +2,7 @@
 #'
 #' @description Reads a data list and map to update the map argument based on the HCR specified in \code{\link{build_hcr}}
 #'
-#' @param data_list a data_list created from \code{\link{build_dat}}.
+#' @param data_list an Rceattle data_list
 #' @param map a map object created from \code{\link{build_map}}.
 #' @param TRUE/FALSE map out all parameters
 #' @param HCRiter for multi-species models, the order in which to project fishing (e.g. predators first, then prey)

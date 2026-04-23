@@ -11,7 +11,7 @@ calc_mcall_ianelli(
 )
 }
 \arguments{
-\item{data_list}{A data_list object created by \code{\link{build_dat}}}
+\item{data_list}{an Rceattle data_list}
 
 \item{data_list_reorganized}{reorganized data_list}
 

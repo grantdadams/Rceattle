@@ -1,3 +1,5 @@
+source("helpers-make-msm-data.R")
+
 # Helpers for tests
 # Minimal test data factory and small utilities used by
 calc_nll_ar1_1d <- function(x, sd, rho) {

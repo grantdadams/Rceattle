@@ -69,11 +69,11 @@ plot_index <- function(Rceattle,
     Srv_hat_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$ln_index_sd
 
     # Filter species
-    Srv_hat_list[[i]] <- Srv_hat_list[[i]] %>%
+    Srv_hat_list[[i]] <- Srv_hat_list[[i]] |>
       dplyr::filter(Species %in% species)
 
     # Filter species
-    Srv_list[[i]] <- Srv_list[[i]] %>%
+    Srv_list[[i]] <- Srv_list[[i]] |>
       dplyr::filter(Species %in% species)
   }
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
@@ -438,14 +438,14 @@ plot_catch <- function(Rceattle,
         for (k in 1:nmods) {
 
           # Subset data by fleet and model
-          fsh_tmp <- fsh_list[[k]] %>%
+          fsh_tmp <- fsh_list[[k]] |>
             filter(Fleet_code == flts[fsh])
 
           if(mse){
-            fsh_tmp <- fsh_tmp %>% filter(Year <= meanyrs[k]) # Only show historical catch if MSE models
+            fsh_tmp <- fsh_tmp |> filter(Year <= meanyrs[k]) # Only show historical catch if MSE models
           }
 
-          fsh_hat_tmp <- fsh_hat_list[[k]] %>%
+          fsh_hat_tmp <- fsh_hat_list[[k]] |>
             filter(Fleet_code == flts[fsh])
 
 
@@ -459,7 +459,7 @@ plot_catch <- function(Rceattle,
 
           # - Plot MSE shading
           if(mse){
-            fsh_hat_tmp <- fsh_hat_list[[k]] %>%
+            fsh_hat_tmp <- fsh_hat_list[[k]] |>
               filter(Year > meanyrs[k] & Fleet_code == flts[fsh])
 
             # 95% CI
@@ -556,14 +556,14 @@ plot_catch <- function(Rceattle,
         for (k in 1:nmods) {
 
           # Subset data by fleet and model
-          fsh_tmp <- fsh_list[[k]] %>%
+          fsh_tmp <- fsh_list[[k]] |>
             filter(Fleet_code == flts[fleets[fsh]])
 
           if(mse){
-            fsh_tmp <- fsh_tmp %>% filter(Year <= meanyrs[k]) # Only show historical catch if MSE models
+            fsh_tmp <- fsh_tmp |> filter(Year <= meanyrs[k]) # Only show historical catch if MSE models
           }
 
-          fsh_hat_tmp <- fsh_hat_list[[k]] %>%
+          fsh_hat_tmp <- fsh_hat_list[[k]] |>
             filter(Fleet_code == flts[fleets[fsh]])
 
 
@@ -580,7 +580,7 @@ plot_catch <- function(Rceattle,
 
           # - Plot MSE shading
           if(mse){
-            fsh_hat_tmp <- fsh_hat_list[[k]] %>%
+            fsh_hat_tmp <- fsh_hat_list[[k]] |>
               filter(Year > meanyrs[k] & Fleet_code == flts[fleets[fsh]])
 
             # 95% CI

@@ -4,7 +4,7 @@
 #'   specialized helper functions for each parameter block (Recruitment, M1,
 #'   Predation, Selectivity, Catchability, etc.).
 #'
-#' @param data_list A data_list created from \code{\link{build_dat}}.
+#' @param data_list an Rceattle data_list
 #' @param params A parameter list created from \code{\link{build_params}}.
 #' @param debug Logical. If TRUE, sets all map values to NA except the dummy
 #'   parameter, running the model without parameter estimation.
@@ -612,7 +612,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       max_block <- 0
       if (tv_sel == 3) {
         data_source <- if (data_list$fleet_control$Fleet_type[i] == "Fishery") data_list$catch_data else data_list$index_data
-        fleet_data <- data_source %>%
+        fleet_data <- data_source |>
           dplyr::filter(Fleet_code == flt, Year - data_list$styr + 1 <= nyrs_hind)
         Selectivity_block <- fleet_data$Selectivity_block
         biom_yrs <- fleet_data$Year - data_list$styr + 1
@@ -1124,12 +1124,12 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
   map_list$ln_Ftarget <- rep(NA, data_list$nspp)
 
 
-  comp_count <- data_list$comp_data %>% # Count comp obs by fleet
-    dplyr::filter(Year > 0) %>%
+  comp_count <- data_list$comp_data |> # Count comp obs by fleet
+    dplyr::filter(Year > 0) |>
     dplyr::count(Fleet_code)
 
-  caal_count <- data_list$caal_data %>% # Count CAAL obs by fleet
-    dplyr::filter(Year > 0) %>%
+  caal_count <- data_list$caal_data |> # Count CAAL obs by fleet
+    dplyr::filter(Year > 0) |>
     dplyr::count(Fleet_code)
 
   for (i in 1:nrow(data_list$fleet_control)) {

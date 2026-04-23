@@ -55,13 +55,13 @@ input_data$use_index_pal = matrix(1, nrow = n_years, ncol = input_data$n_indices
 # CAAL index:
 input_data$index_caal = array(0, dim = c(input_data$n_indices, n_years, n_lengths, n_ages))
 for(i in seq_along(input_data$years)){
-  tmp = caal_df %>% filter(year == input_data$years[i])
+  tmp = caal_df |> filter(year == input_data$years[i])
   input_data$index_caal[1,i,,] = as.matrix(tmp[,4:13])
 }
 # CAAL Neff index:
 input_data$index_caal_Neff = array(0, dim = c(n_years, input_data$n_indices, n_lengths))
 for(i in seq_along(input_data$years)){
-  tmp = caal_df %>% filter(year == input_data$years[i])
+  tmp = caal_df |> filter(year == input_data$years[i])
   input_data$index_caal_Neff[i,1,] = as.matrix(tmp[,3])
 }
 # CAAL index use/not use (use only when Nsamp > 0):
@@ -235,12 +235,12 @@ simData$comp_data <- rbind(index_comp, fishery_comp)
 # - Index
 index_caal <- caal_df
 colnames(index_caal) <- c("Year", "Length", "Sample_size", paste0("CAAL_",1:simData$nages))
-simData$caal_data <- index_caal %>%
+simData$caal_data <- index_caal |>
   dplyr::mutate(Fleet_name = "Survey",
                 Fleet_code = 1,
                 Species = 1,
-                Sex = 0) %>%
-  select(Fleet_name, Fleet_code, Species, Sex, Year, Length, Sample_size, paste0("CAAL_",1:simData$nages)) %>%
+                Sex = 0) |>
+  select(Fleet_name, Fleet_code, Species, Sex, Year, Length, Sample_size, paste0("CAAL_",1:simData$nages)) |>
   as.data.frame()
 # - No fishery CAAL
 
@@ -287,7 +287,7 @@ MatAA <- matrix(maturity_df[1,2:11], ncol = simData$nages)
 colnames(MatAA) <- paste0("Age",1:simData$nages)
 simData$maturity <- cbind(data.frame(Species = 1),
                           MatAA
-) %>%
+) |>
   as.data.frame()
 
 # * Sex ratio

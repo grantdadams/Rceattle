@@ -13,7 +13,7 @@ build_map(
 )
 }
 \arguments{
-\item{data_list}{A data_list created from \code{\link{build_dat}}.}
+\item{data_list}{an Rceattle data_list}
 
 \item{params}{A parameter list created from \code{\link{build_params}}.}
 

@@ -7,7 +7,7 @@
 build_params(data_list)
 }
 \arguments{
-\item{data_list}{A data_list object created by \code{\link{build_dat}}}
+\item{data_list}{an Rceattle data_list}
 }
 \value{
 a list of map arguments for each parameter
