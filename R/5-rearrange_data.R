@@ -624,9 +624,13 @@ check_caal_data <- function(data_list) {
 #'
 convert_switches <- function(data_list) {
 
+  # If vector is a string that exists in our map, replace it with the integer.
   data_list$fleet_control <- data_list$fleet_control %>%
     dplyr::mutate(
-      # If Selectivity is a string that exists in our map, replace it with the integer.
+
+      Fleet_type = ifelse(as.character(Fleet_type) %in% names(fleet_map),
+                           unname(fleet_map[as.character(Fleet_type)]),
+                          Fleet_type),
       Selectivity = ifelse(as.character(Selectivity) %in% names(sel_map),
                            unname(sel_map[as.character(Selectivity)]),
                            Selectivity),

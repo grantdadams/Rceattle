@@ -82,7 +82,7 @@ testthat::test_that("Index, biomass, and catch = 0 match expected", {
   ages <- 1:5
   sel <- 1/(1+exp(-alpha*(ages-inf)))
   sel2 <- 1/(1+exp(-alpha*(ages-inf-1)))
-  curve(1/(1+exp(-alpha*(x-inf))), from = 0, to = 21)
+  # curve(1/(1+exp(-alpha*(x-inf))), from = 0, to = 21)
 
 
   # Set logistic params

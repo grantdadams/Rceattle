@@ -63,7 +63,7 @@ testthat::test_that("Estimated catchability", {
 
   # Map
   fleets <- 1:nflt
-  fleets[GOA2018SS$fleet_control$Fleet_type != 2] <- NA
+  fleets[ss_run$data_list$fleet_control$Fleet_type != "Survey"] <- NA
   testthat::expect_equal(as.numeric(ss_run$map$mapList$index_ln_q), fleets)
   testthat::expect_equal(as.numeric(ss_run$map$mapList$index_q_beta), as.numeric(rep(NA, length(ss_run$map$mapList$index_q_beta))))
   testthat::expect_equal(as.numeric(ss_run$map$mapList$index_q_dev), as.numeric(rep(NA, length(ss_run$map$mapList$index_q_dev))))

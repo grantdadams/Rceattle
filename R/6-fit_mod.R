@@ -299,6 +299,9 @@ fit_mod <-
     # Fill out switches if missing
     data_list <- Rceattle::switch_check(data_list)
 
+    # Check for data error
+    data_check(data_list)
+
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 2: Load/build parameters ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -385,9 +388,6 @@ fit_mod <-
     if(is.null(TMBfilename)){
       TMBfilename <- "ceattle_v01_11"
     }
-
-    # - Check for data errors prior to running
-    data_check(data_list)
 
     # - Reorganize data for .cpp file
     data_list_reorganized <- Rceattle::rearrange_dat(data_list)

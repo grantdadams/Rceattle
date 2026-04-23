@@ -1,3 +1,5 @@
+
+testthat::test_path("test-multi-spp-model.R")
 testthat::test_dir("tests-Dynamics/")
 testthat::test_dir("tests-Mortality/")
 testthat::test_dir("tests-Likelihoods/")

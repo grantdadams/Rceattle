@@ -73,7 +73,7 @@ plot_selectivity_vs_maturity <-
     # Selectivity time series
     #################################
     for(j in 1:nflt){
-      if(fleet_control$Fleet_type[j] == 1){
+      if(fleet_control$Fleet_type[j] == "Fishery"){
         for (i in 1:loops) {
           # Species
           sp <- fleet_control$Species[which(fleet_control$Fleet_code == j)]
@@ -161,7 +161,7 @@ plot_selectivity_vs_maturity <-
               )
             }
 
-            fleets <- fleet_control$Fleet_code[which(fleet_control$Species == sp & fleet_control$Fleet_type == 1)]
+            fleets <- fleet_control$Fleet_code[which(fleet_control$Species == sp & fleet_control$Fleet_type == "Fishery")]
             flt_colors <- rich.colors.short(length(fleets))
 
             # Plot configuration

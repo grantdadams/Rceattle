@@ -144,7 +144,7 @@ build_params <- function(data_list) {
 
   # -- Make ln_F very low if the fleet is turned off or not a fishery
   for (i in 1:nrow(data_list$fleet_control)) {
-    if (data_list$fleet_control$Fleet_type[i] %in% c(0,2)) {
+    if (data_list$fleet_control$Fleet_type[i] != "Fishery") {
       param_list$ln_F[i,] <- -999
     }
   }
