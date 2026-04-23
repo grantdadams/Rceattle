@@ -224,7 +224,7 @@ read_data <- function(file = "Rceattle_data.xlsx") {
 
   # -- Update names if necessary
   if(length(data_list$fleet_control$Survey_sd_prior) > 0){
-    data_list$fleet_control <- data_list$fleet_control %>%
+    data_list$fleet_control <- data_list$fleet_control |>
       dplyr::rename(Estimate_index_sd = Estimate_survey_sd,
                     Index_sd_prior = Survey_sd_prior)
     message("Renaming 'Estimate_survey_sd' to 'Estimate_index_sd' and 'Survey_sd_prior' to 'Index_sd_prior'")
@@ -232,43 +232,43 @@ read_data <- function(file = "Rceattle_data.xlsx") {
 
 
   if(length(data_list$fleet_control$Nselages) > 0){
-    data_list$fleet_control <- data_list$fleet_control %>%
+    data_list$fleet_control <- data_list$fleet_control |>
       dplyr::rename(N_sel_bins = Nselages)
     message("Renaming 'Nselages' to 'N_sel_bins'")
   }
 
   if(length(data_list$fleet_control$Sel_sd_prior) > 0){
-    data_list$fleet_control <- data_list$fleet_control %>%
+    data_list$fleet_control <- data_list$fleet_control |>
       dplyr::rename(Time_varying_sel_sd_prior = Sel_sd_prior)
     message("Renaming 'Sel_sd_prior' to 'Time_varying_sel_sd_prior'")
   }
 
   if(length(data_list$fleet_control$Estimate_q) > 0){
-    data_list$fleet_control <- data_list$fleet_control %>%
+    data_list$fleet_control <- data_list$fleet_control |>
       dplyr::rename(Catchability = Estimate_q)
     message("Renaming 'Estimate_q' to 'Catchability'")
   }
 
   if(length(data_list$fleet_control$Age_first_selected) > 0){
-    data_list$fleet_control <- data_list$fleet_control %>%
+    data_list$fleet_control <- data_list$fleet_control |>
       dplyr::rename(Bin_first_selected = Age_first_selected)
     message("Renaming 'Age_first_selected' to 'Bin_first_selected'")
   }
 
   if(length(data_list$fleet_control$Age_max_selected) > 0){
-    data_list$fleet_control <- data_list$fleet_control %>%
+    data_list$fleet_control <- data_list$fleet_control |>
       dplyr::rename(Sel_norm_bin1 = Age_max_selected)
     message("Renaming 'Age_max_selected' to 'Sel_norm_bin1'")
   }
 
   if(length(data_list$fleet_control$Age_max_selected_upper) > 0){
-    data_list$fleet_control <- data_list$fleet_control %>%
+    data_list$fleet_control <- data_list$fleet_control |>
       dplyr::rename(Sel_norm_bin2 = Age_max_selected_upper)
     message("Renaming 'Age_max_selected_upper' to 'Sel_norm_bin2'")
   }
 
   if(!is.null(data_list$fleet_control$Month)){
-    data_list$fleet_control <- data_list$fleet_control %>%
+    data_list$fleet_control <- data_list$fleet_control |>
       dplyr::mutate(Month = 0)
     message("Adding 'Month' column to 'fleet_control' with default value of 0")
   }

@@ -44,7 +44,7 @@ plot_comp <-
     # Normalize
     comp_data[,grep("Comp_", colnames(comp_data))] = comp_data[,grep("Comp_", colnames(comp_data))]/rowSums(comp_data[,grep("Comp_", colnames(comp_data))], na.rm = TRUE)
 
-    comp_data <- comp_data %>%
+    comp_data <- comp_data |>
       tidyr::pivot_longer(cols = dplyr::starts_with("Comp_"),
                           names_to = "Comp",
                           names_prefix = "Comp_",
@@ -53,7 +53,7 @@ plot_comp <-
     # Get estimated
     comp_hat <- Rceattle$data_list$comp_data
     comp_hat[,grep("Comp_", colnames(comp_hat))] = Rceattle$quantities$comp_hat
-    comp_hat <- comp_hat %>%
+    comp_hat <- comp_hat |>
       tidyr::pivot_longer(cols = dplyr::starts_with("Comp_"),
                           names_to = "Comp",
                           names_prefix = "Comp_",
@@ -61,14 +61,14 @@ plot_comp <-
 
 
     # * Calculate pearson ----
-    comp_data <- comp_data %>%
-      dplyr::full_join(comp_hat) %>%
+    comp_data <- comp_data |>
+      dplyr::full_join(comp_hat) |>
       dplyr::mutate(Pearson = (Obs - Est)/ sqrt( ( Est * (1 - Est)) / Sample_size))
 
 
     # * Distinct data sets ----
     # - age/length and fleets
-    data_sets <- comp_data %>%
+    data_sets <- comp_data |>
       distinct(Fleet_name, Fleet_code, Species, Sex, Age0_Length1)
 
 
@@ -85,10 +85,10 @@ plot_comp <-
       nbin <- c(Rceattle$data_list$nages[sp], Rceattle$data_list$nlengths[sp])[comp_type]
 
       # Extract comps
-      comp_tmp <- comp_data %>%
-        dplyr::inner_join(data_sets[j,]) %>%
-        dplyr::filter(!is.na(Obs)) %>%
-        dplyr::mutate(Comp = as.numeric(Comp)) %>%
+      comp_tmp <- comp_data |>
+        dplyr::inner_join(data_sets[j,]) |>
+        dplyr::filter(!is.na(Obs)) |>
+        dplyr::mutate(Comp = as.numeric(Comp)) |>
         dplyr::mutate(
           Sex = dplyr::case_when(
             Sex == 0 ~ "Sex combined",
@@ -104,8 +104,8 @@ plot_comp <-
 
       #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # Plot type 1 - Pearson residual ----
-      plot_pear <- comp_tmp %>%
-        dplyr::filter(Obs > 0) %>%
+      plot_pear <- comp_tmp |>
+        dplyr::filter(Obs > 0) |>
         ggplot2::ggplot(ggplot2::aes(x = Year, y = Comp, size = abs(pearson), color = pearson < 0, group = Sex)) +
         ggplot2::facet_grid(~Sex) +
         ggplot2::geom_point(alpha = 0.8) +
@@ -133,7 +133,7 @@ plot_comp <-
 
 
       # Plot type 2 - Annual histograms ----
-      annual_comp <- comp_tmp %>%
+      annual_comp <- comp_tmp |>
         ggplot(aes(x = Comp, y = Obs, fill = Sex)) +
         facet_wrap(~Year+Sex, labeller =
                      labeller(
@@ -390,7 +390,7 @@ plot_diet_comp <-
     # - Get estimated
     comp_data$Est = Rceattle$quantities$diet_hat[,2]
 
-    comp_data <- comp_data %>%
+    comp_data <- comp_data |>
       dplyr::mutate(pearson = (Stomach_proportion_by_weight - Est)/ sqrt( ( Est * (1 - Est)) / Sample_size))
 
     # If year == 0, diet data are averaged from suit_styr to suit_endyr
@@ -415,7 +415,7 @@ plot_diet_comp <-
           }
 
           # * Extract comps ----
-          comp_tmp <- comp_data %>%
+          comp_tmp <- comp_data |>
             dplyr::filter(Pred == pred & Pred_sex == pred_sex & Prey == prey)
 
           # - Years
@@ -430,13 +430,13 @@ plot_diet_comp <-
           for(yr in 1:nyrs){
 
             # Subset year for observed and predicted comp
-            comp_tmp_yr <- comp_tmp %>%
-              dplyr::filter(Year == yrs[yr] ) %>%
+            comp_tmp_yr <- comp_tmp |>
+              dplyr::filter(Year == yrs[yr] ) |>
               dplyr::mutate(Prey_age = ifelse(Prey_sex == 2, -Prey_age, Prey_age))
 
 
-            plot_obs <- comp_tmp_yr %>%
-              dplyr::filter(Stomach_proportion_by_weight > 0) %>%
+            plot_obs <- comp_tmp_yr |>
+              dplyr::filter(Stomach_proportion_by_weight > 0) |>
               ggplot2::ggplot(ggplot2::aes(x = Pred_age, y = Prey_age, size = Stomach_proportion_by_weight)) +
               ggplot2::geom_point(alpha = 1) +
               # scale_size(range = c(range_comp[1], range_comp[2]), name="Population (M)") +
@@ -449,8 +449,8 @@ plot_diet_comp <-
               theme(legend.position = c(0.25, 0.7),
                     legend.title = element_blank())
 
-            plot_est <- comp_tmp_yr %>%
-              dplyr::filter(Stomach_proportion_by_weight > 0) %>%
+            plot_est <- comp_tmp_yr |>
+              dplyr::filter(Stomach_proportion_by_weight > 0) |>
               ggplot2::ggplot(ggplot2::aes(x = Pred_age, y = Prey_age, size = Est)) +
               ggplot2::geom_point(alpha = 1) +
               # scale_size(range = c(range_comp[1], range_comp[2]), name="Population (M)") +
@@ -462,8 +462,8 @@ plot_diet_comp <-
               ggplot2::ggtitle(paste("Estimated diet: year", yrs[yr])) +
               theme(legend.position = "none")
 
-            plot_pear <- comp_tmp_yr %>%
-              dplyr::filter(Stomach_proportion_by_weight > 0) %>%
+            plot_pear <- comp_tmp_yr |>
+              dplyr::filter(Stomach_proportion_by_weight > 0) |>
               ggplot2::ggplot(ggplot2::aes(x = Pred_age, y = Prey_age, size = abs(pearson), color = pearson < 0)) +
               ggplot2::geom_point(alpha = 1) +
               # scale_size(range = c(range_comp[1], range_comp[2]), name="Population (M)") +

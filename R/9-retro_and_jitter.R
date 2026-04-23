@@ -57,32 +57,32 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
 
 
     # * Turn off data after endyr_peel ----
-    data_list$index_data <- data_list$index_data %>%
+    data_list$index_data <- data_list$index_data |>
       dplyr::filter(Year <= endyr_peel)
 
-    data_list$comp_data <- data_list$comp_data %>%
+    data_list$comp_data <- data_list$comp_data |>
       dplyr::filter(Year <= endyr_peel)
 
-    data_list$caal_data <- data_list$caal_data %>%
+    data_list$caal_data <- data_list$caal_data |>
       dplyr::filter(Year <= endyr_peel)
 
-    data_list$diet_data <- data_list$diet_data %>%
+    data_list$diet_data <- data_list$diet_data |>
       dplyr::filter(Year <= endyr_peel)
 
-    peeled_catch_data <- data_list$catch_data %>%
+    peeled_catch_data <- data_list$catch_data |>
       dplyr::filter(Year > endyr_peel)
     data_list$catch_data$Catch[which(data_list$catch_data$Year > endyr_peel)] <- 0 # Set catch data in peeled years to 0 to avoid fitting
 
 
     # * Turn off fixed inputs after endyr_peel ----
     #FIXME ignores forecasted growth
-    data_list$weight <- data_list$weight %>%
+    data_list$weight <- data_list$weight |>
       dplyr::filter(Year <= endyr_peel)
 
-    data_list$emp_sel <- data_list$emp_sel %>%
+    data_list$emp_sel <- data_list$emp_sel |>
       dplyr::filter(Year <= endyr_peel)
 
-    data_list$ration_data <- data_list$ration_data %>%
+    data_list$ration_data <- data_list$ration_data |>
       dplyr::filter(Year <= endyr_peel)
 
     # * Extend fixed inputs for "projection years"
@@ -90,47 +90,47 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
 
     # - Weight
     #FIXME ignores forecasted growth
-    proj_wt <- data_list$weight %>%
+    proj_wt <- data_list$weight |>
       dplyr::filter(Year != 0)
 
     if(nrow(proj_wt) > 0){
-      proj_wt <- proj_wt %>%
-        dplyr::group_by(Wt_index , Sex) %>%
-        dplyr::slice(rep(n(),  nyrs_proj_peel)) %>%
+      proj_wt <- proj_wt |>
+        dplyr::group_by(Wt_index , Sex) |>
+        dplyr::slice(rep(n(),  nyrs_proj_peel)) |>
         dplyr::mutate(Year = peel_prj_yrs)
     }
-    data_list$weight  <- rbind(data_list$weight, proj_wt) %>%
+    data_list$weight  <- rbind(data_list$weight, proj_wt) |>
       dplyr::arrange(Wt_index, Year)
 
     # - Empirical selectivity
-    proj_emp_sel <- data_list$emp_sel %>%
+    proj_emp_sel <- data_list$emp_sel |>
       dplyr::filter(Year != 0)
 
     if(nrow(proj_emp_sel) > 0){
-      proj_emp_sel <- proj_emp_sel %>%
-        dplyr::group_by(Fleet_code, Sex) %>%
-        dplyr::slice(rep(n(),  nyrs_proj_peel)) %>%
+      proj_emp_sel <- proj_emp_sel |>
+        dplyr::group_by(Fleet_code, Sex) |>
+        dplyr::slice(rep(n(),  nyrs_proj_peel)) |>
         dplyr::mutate(Year = peel_prj_yrs)
-      data_list$emp_sel  <- rbind(data_list$emp_sel, proj_emp_sel) %>%
+      data_list$emp_sel  <- rbind(data_list$emp_sel, proj_emp_sel) |>
         dplyr::arrange(Fleet_code, Year)
     }
 
     # - Ration data
-    proj_ration_data <- data_list$ration_data %>%
+    proj_ration_data <- data_list$ration_data |>
       dplyr::filter(Year != 0)
 
     if(nrow(proj_ration_data) > 0){
-      proj_ration_data <- proj_ration_data %>%
-        dplyr::group_by(Species, Sex) %>%
-        dplyr::slice(rep(n(),  nyrs_proj_peel)) %>%
+      proj_ration_data <- proj_ration_data |>
+        dplyr::group_by(Species, Sex) |>
+        dplyr::slice(rep(n(),  nyrs_proj_peel)) |>
         dplyr::mutate(Year = peel_prj_yrs)
-      data_list$ration_data  <- rbind(data_list$ration_data, proj_ration_data) %>%
+      data_list$ration_data  <- rbind(data_list$ration_data, proj_ration_data) |>
         dplyr::arrange(Species, Year)
     }
 
     # * Rescale environmental predictors ----
     if(rescale){
-      data_list$env_data <- data_list$env_data %>%
+      data_list$env_data <- data_list$env_data |>
         dplyr::filter(Year <= endyr_peel)
       data_list$env_data[,2:ncol(data_list$env_data)]<-scale(data_list$env_data[,2:ncol(data_list$env_data)])
     }
@@ -165,11 +165,11 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
     map$mapFactor$sel_coff_dev <- factor(map$mapList$sel_coff_dev)
 
     # -- Map out Fdev for years with 0 catch to very low number
-    zero_catch <- data_list$catch_data %>%
+    zero_catch <- data_list$catch_data |>
       dplyr::filter(Year <= endyr &
-                      Catch == 0) %>%
-      dplyr::mutate(Year = Year - styr + 1) %>%
-      select(Fleet_code, Year) %>%
+                      Catch == 0) |>
+      dplyr::mutate(Year = Year - styr + 1) |>
+      select(Fleet_code, Year) |>
       as.matrix()
     inits$ln_F[zero_catch] <- -999
     map$mapList$ln_F[zero_catch] <- NA
@@ -236,9 +236,9 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
     peeled_pars <- newmod$estimated_params
 
     # - Add in peeled catch to fit to
-    data_list$catch_data <- data_list$catch_data %>%
-      dplyr::filter(Year <= endyr_peel) %>%
-      rbind(peeled_catch_data) %>%
+    data_list$catch_data <- data_list$catch_data |>
+      dplyr::filter(Year <= endyr_peel) |>
+      rbind(peeled_catch_data) |>
       dplyr::arrange(Fleet_code, Year)
 
     # - Update map

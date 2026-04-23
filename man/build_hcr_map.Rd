@@ -13,7 +13,7 @@ build_hcr_map(
 )
 }
 \arguments{
-\item{data_list}{a data_list created from \code{\link{build_dat}}.}
+\item{data_list}{an Rceattle data_list}
 
 \item{map}{a map object created from \code{\link{build_map}}.}
 

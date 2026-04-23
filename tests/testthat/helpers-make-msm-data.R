@@ -423,7 +423,7 @@ make_msm_test_data <- function(
     for(y in 1:nyrs) {
       tmp <- data.frame(t(ObsFishCAAL[sp,,, y]))
       colnames(tmp) <- paste("CAAL_", 1:nages)
-      tmp <- tmp %>%
+      tmp <- tmp |>
         dplyr::mutate(
           Fleet_name = paste("Fishery Species", sp),
           Fleet_code = 2*(sp-1)+2,
@@ -432,7 +432,7 @@ make_msm_test_data <- function(
           Year = y,
           Length = lengths,
           Sample_size = fish_CAAL_ISS
-        ) %>%
+        ) |>
         dplyr::select("Fleet_name", "Fleet_code", "Species", "Sex", "Year", "Length", "Sample_size", paste("CAAL_", 1:nages))
       fish_caal_list[[ind]] <- tmp
       ind = ind + 1
@@ -447,7 +447,7 @@ make_msm_test_data <- function(
     for(y in 1:nyrs) {
       tmp <- data.frame(t(ObsSrvCAAL[sp,,, y]))
       colnames(tmp) <- paste("CAAL_", 1:nages)
-      tmp <- tmp %>%
+      tmp <- tmp |>
         dplyr::mutate(
           Fleet_name = paste("Survey Species", sp),
           Fleet_code = 2*(sp-1)+1,
@@ -456,7 +456,7 @@ make_msm_test_data <- function(
           Year = y,
           Length = lengths,
           Sample_size = srv_CAAL_ISS
-        ) %>%
+        ) |>
         dplyr::select("Fleet_name", "Fleet_code", "Species", "Sex", "Year", "Length", "Sample_size", paste("CAAL_", 1:nages))
       srv_caal_list[[ind]] <- tmp
       ind = ind + 1

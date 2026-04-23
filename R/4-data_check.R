@@ -37,18 +37,18 @@ data_check <- function(data_list) {
   }
 
   # - Mirroring warnings
-  mirror_sel <- data_list$fleet_control %>%
-    dplyr::group_by(Selectivity_index) %>%
-    dplyr::filter(n() > 1 ) %>%
+  mirror_sel <- data_list$fleet_control |>
+    dplyr::group_by(Selectivity_index) |>
+    dplyr::filter(n() > 1 ) |>
     dplyr::ungroup()
   if(nrow(mirror_sel) > 0){
     message(paste0("Selectivity for ", paste(mirror_sel$Fleet_name, collapse = ", "), " is mirrored with another fleet"))
   }
 
-  mirror_q <- data_list$fleet_control %>%
-    dplyr::filter(!is.na(Catchability)) %>%
-    dplyr::group_by(Q_index) %>%
-    dplyr::filter(n() > 1 ) %>%
+  mirror_q <- data_list$fleet_control |>
+    dplyr::filter(!is.na(Catchability)) |>
+    dplyr::group_by(Q_index) |>
+    dplyr::filter(n() > 1 ) |>
     dplyr::ungroup()
   if(nrow(mirror_q) > 0){
     message(paste0("Catchability for ", paste(mirror_q$Fleet_name, collapse = ", "), " is mirrored with another fleet"))
@@ -56,19 +56,19 @@ data_check <- function(data_list) {
 
 
   # * Validate fleet_control inputs ----
-  invalid_flt_type <- data_list$fleet_control %>%
+  invalid_flt_type <- data_list$fleet_control |>
     dplyr::filter(!Fleet_type %in% c(fleet_map, names(fleet_map)))
 
-  invalid_sel <- data_list$fleet_control %>%
+  invalid_sel <- data_list$fleet_control |>
     dplyr::filter(Fleet_type != "Off" & !Selectivity %in% c(sel_map, names(sel_map)))
 
-  invalid_q <- data_list$fleet_control %>%
+  invalid_q <- data_list$fleet_control |>
     dplyr::filter(Fleet_type == "Survey" & !Catchability %in% c(q_map, names(q_map)))
 
-  invalid_comp_ll <- data_list$fleet_control %>%
+  invalid_comp_ll <- data_list$fleet_control |>
     dplyr::filter(Fleet_type != "Off" & !Comp_loglike %in% c(comp_loglike_map, names(comp_loglike_map)))
 
-  invalid_caal_ll <- data_list$fleet_control %>%
+  invalid_caal_ll <- data_list$fleet_control |>
     dplyr::filter(Fleet_type != "Off" & !CAAL_loglike %in% c(comp_loglike_map, names(comp_loglike_map)))
 
   # Throw clear errors to guide the user
@@ -112,16 +112,16 @@ data_check <- function(data_list) {
 
   # Weight-at-age ----
   # * Year range ----
-  wt_yr <- data_list$weight %>%
-    dplyr::group_by(Wt_index, Sex) %>%
-    dplyr::distinct(Year) %>%
+  wt_yr <- data_list$weight |>
+    dplyr::group_by(Wt_index, Sex) |>
+    dplyr::distinct(Year) |>
     dplyr::mutate(Tmp_ind = paste0("index = ", Wt_index," & sex = ", Sex))
 
   for(ind in unique(wt_yr$Tmp_ind)){
 
-    tmp_wt <- wt_yr %>%
-      dplyr::filter(Tmp_ind == ind) %>%
-      dplyr::distinct(Year) %>%
+    tmp_wt <- wt_yr |>
+      dplyr::filter(Tmp_ind == ind) |>
+      dplyr::distinct(Year) |>
       dplyr::pull(Year)
 
     # If not time-varying
@@ -136,7 +136,7 @@ data_check <- function(data_list) {
 
 
   # * Index checks ----
-  wt_index <- wt_index <- data_list$weight %>%
+  wt_index <- wt_index <- data_list$weight |>
     dplyr::distinct(Wt_index, Species, Sex)
 
   # - Data checks ----
@@ -149,14 +149,14 @@ data_check <- function(data_list) {
   }
 
   for(sp in 1:data_list$nspp){
-    wt_no <- data_list$weight %>%
-      dplyr::filter(Species != sp) %>% # Not species
-      dplyr::distinct(Wt_index) %>%
+    wt_no <- data_list$weight |>
+      dplyr::filter(Species != sp) |> # Not species
+      dplyr::distinct(Wt_index) |>
       pull(Wt_index)
 
-    wt_yes <- data_list$weight %>%
-      dplyr::filter(Species == sp) %>% # Is species
-      dplyr::distinct(Wt_index) %>%
+    wt_yes <- data_list$weight |>
+      dplyr::filter(Species == sp) |> # Is species
+      dplyr::distinct(Wt_index) |>
       pull(Wt_index)
 
     if(any( wt_no %in% wt_yes )){
@@ -164,8 +164,8 @@ data_check <- function(data_list) {
     }
   }
 
-  if(any(data_list$weight %>%
-         dplyr::select(-c(Wt_name, Wt_index, Species, Sex, Year)) %>%
+  if(any(data_list$weight |>
+         dplyr::select(-c(Wt_name, Wt_index, Species, Sex, Year)) |>
          ncol() < data_list$nages)){
     stop("Weight data does not span range of ages")
   }
@@ -183,8 +183,8 @@ data_check <- function(data_list) {
 
   # ration_data ----
   if(nrow(data_list$ration_data) > 0){
-    if(any(data_list$ration_data %>%
-           dplyr::select(-c(Species, Sex, Year)) %>%
+    if(any(data_list$ration_data |>
+           dplyr::select(-c(Species, Sex, Year)) |>
            ncol() < data_list$nages)){
       stop("'ration_data' data does not span range of ages")
     }
@@ -194,16 +194,16 @@ data_check <- function(data_list) {
 
   # Age transition matrix ----
   #FIXME: update now with growth estimation
-  if(any(data_list$growth_model > 0) & any(data_list$age_trans_matrix %>%
-                                           dplyr::select(-c(Age_transition_name, Age_transition_index, Species, Sex, Age)) %>%
+  if(any(data_list$growth_model > 0) & any(data_list$age_trans_matrix |>
+                                           dplyr::select(-c(Age_transition_name, Age_transition_index, Species, Sex, Age)) |>
                                            ncol() < data_list$nlengths)){
     stop("`age_trans_matrix` data does not span range of lengths")
   }
 
   for(sp in 1:data_list$nspp){
-    ages_tmp <- data_list$age_trans_matrix %>%
-      as.data.frame() %>%
-      dplyr::filter(Species == sp) %>%
+    ages_tmp <- data_list$age_trans_matrix |>
+      as.data.frame() |>
+      dplyr::filter(Species == sp) |>
       dplyr::pull(Age)
     if(!all(data_list$minage[sp]:data_list$nages[sp] %in% ages_tmp)){
       message(paste("`age_trans_matrix` data does not span range of age for species", sp, "will fill with 0s"))
@@ -212,18 +212,18 @@ data_check <- function(data_list) {
 
 
   # Age error matrix ----
-  if(any(data_list$age_error %>%
-         as.data.frame() %>%
-         dplyr::select(-c(Species, True_age)) %>%
+  if(any(data_list$age_error |>
+         as.data.frame() |>
+         dplyr::select(-c(Species, True_age)) |>
          ncol() < data_list$nages)){
     stop("`age_error` observed ages do not span range of ages")
   }
 
 
   for(sp in 1:data_list$nspp){
-    ages_tmp <- data_list$age_error %>%
-      as.data.frame() %>%
-      dplyr::filter(Species == sp) %>%
+    ages_tmp <- data_list$age_error |>
+      as.data.frame() |>
+      dplyr::filter(Species == sp) |>
       dplyr::pull(True_age)
     if(!all(data_list$minage[sp]:data_list$nages[sp] %in% ages_tmp)){
       message(paste("`age_error` data does not span range of true ages for species", sp, "will fill with 0s"))
@@ -253,9 +253,9 @@ data_check <- function(data_list) {
   # Diet data ----
   # - Pred age
   if(nrow(data_list$diet_data) > 0){
-    Max_age = data_list$diet_data %>%
-      dplyr::group_by(Pred) %>%
-      dplyr::summarise(Max_age = max(Pred_age)) %>%
+    Max_age = data_list$diet_data |>
+      dplyr::group_by(Pred) |>
+      dplyr::summarise(Max_age = max(Pred_age)) |>
       dplyr::arrange(Pred)
 
     if(any(Max_age$Max_age > data_list$nages)){
@@ -267,9 +267,9 @@ data_check <- function(data_list) {
     }
 
     # - Prey age
-    Max_age = data_list$diet_data %>%
-      dplyr::group_by(Prey) %>%
-      dplyr::summarise(Max_age = max(Prey_age)) %>%
+    Max_age = data_list$diet_data |>
+      dplyr::group_by(Prey) |>
+      dplyr::summarise(Max_age = max(Prey_age)) |>
       dplyr::arrange(Prey)
 
     if(any(Max_age$Max_age > data_list$nages)){
@@ -277,8 +277,8 @@ data_check <- function(data_list) {
     }
 
     # - Stomach proportion > 1
-    diet_sum = data_list$diet_data %>%
-      dplyr::group_by(Pred, Pred_age, Pred_sex, Year) %>%
+    diet_sum = data_list$diet_data |>
+      dplyr::group_by(Pred, Pred_age, Pred_sex, Year) |>
       dplyr::summarise(diet_sum = sum(Stomach_proportion_by_weight))
 
     if(any(diet_sum$diet_sum > 1)){
@@ -300,18 +300,18 @@ data_check <- function(data_list) {
   }
 
   # Sexes ----
-  m1_sex <- data_list$M1_base %>%
-    dplyr::group_by(Species) %>%
-    dplyr::summarise(max_sex = max(Sex)) %>%
+  m1_sex <- data_list$M1_base |>
+    dplyr::group_by(Species) |>
+    dplyr::summarise(max_sex = max(Sex)) |>
     dplyr::arrange(Species)
 
   if(any(m1_sex$max_sex > data_list$nsex)){
     stop("'M1_base' has more sexes than specified in 'nsex'")
   }
 
-  wt_sex <- data_list$weight %>%
-    dplyr::group_by(Species) %>%
-    dplyr::summarise(max_sex = max(Sex)) %>%
+  wt_sex <- data_list$weight |>
+    dplyr::group_by(Species) |>
+    dplyr::summarise(max_sex = max(Sex)) |>
     dplyr::arrange(Species)
 
   if(any(wt_sex$max_sex > data_list$nsex)){
@@ -319,9 +319,9 @@ data_check <- function(data_list) {
   }
 
   if(nrow(data_list$ration_data) > 0){
-    ration_data_sex <- data_list$ration_data %>%
-      dplyr::group_by(Species) %>%
-      dplyr::summarise(max_sex = max(Sex)) %>%
+    ration_data_sex <- data_list$ration_data |>
+      dplyr::group_by(Species) |>
+      dplyr::summarise(max_sex = max(Sex)) |>
       dplyr::arrange(Species)
 
     if(any(ration_data_sex$max_sex > data_list$nsex)){

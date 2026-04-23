@@ -196,9 +196,9 @@ catch_hcr <- function(model = ss_run, ptarget = 0.4, plimit = 0.1, assessment_pe
 
   # -- Nbyage
   if(nrow(model$data_list$NByageFixed) > 0){
-    proj_nbyage <- model$data_list$NByageFixed %>%
-      group_by(Species, Sex) %>%
-      slice(rep(n(),  proj_nyrs)) %>%
+    proj_nbyage <- model$data_list$NByageFixed |>
+      group_by(Species, Sex) |>
+      slice(rep(n(),  proj_nyrs)) |>
       mutate(Year = proj_yrs)
     proj_nbyage <- proj_nbyage[which(proj_yrs %!in% model$data_list$NByageFixed$Year),] # Subset rows already forcasted
     model$data_list$NByageFixed  <- rbind(model$data_list$NByageFixed, proj_nbyage)
@@ -207,9 +207,9 @@ catch_hcr <- function(model = ss_run, ptarget = 0.4, plimit = 0.1, assessment_pe
 
   # -- emp_sel - Use terminal year
   if(nrow(model$data_list$emp_sel) > 0){
-    proj_emp_sel <- model$data_list$emp_sel %>%
-      group_by(Fleet_code, Sex) %>%
-      slice(rep(n(),  proj_nyrs)) %>%
+    proj_emp_sel <- model$data_list$emp_sel |>
+      group_by(Fleet_code, Sex) |>
+      slice(rep(n(),  proj_nyrs)) |>
       mutate(Year = proj_yrs)
     model$data_list$emp_sel  <- rbind(model$data_list$emp_sel, proj_emp_sel)
     model$data_list$emp_sel <- dplyr::arrange(model$data_list$emp_sel, Fleet_code, Year)
@@ -217,17 +217,17 @@ catch_hcr <- function(model = ss_run, ptarget = 0.4, plimit = 0.1, assessment_pe
 
   # -- wt
   #FIXME ignrores forecasted growth
-  proj_wt <- model$data_list$wt %>%
-    group_by(Wt_index , Sex) %>%
-    slice(rep(n(),  proj_nyrs)) %>%
+  proj_wt <- model$data_list$wt |>
+    group_by(Wt_index , Sex) |>
+    slice(rep(n(),  proj_nyrs)) |>
     mutate(Year = proj_yrs)
   model$data_list$wt  <- rbind(model$data_list$wt, proj_wt)
   model$data_list$wt <- dplyr::arrange(model$data_list$wt, Wt_index, Year)
 
   # -- Pyrs
-  proj_Pyrs <- model$data_list$Pyrs %>%
-    group_by(Species, Sex) %>%
-    slice(rep(n(),  proj_nyrs)) %>%
+  proj_Pyrs <- model$data_list$Pyrs |>
+    group_by(Species, Sex) |>
+    slice(rep(n(),  proj_nyrs)) |>
     mutate(Year = proj_yrs)
   model$data_list$Pyrs  <- rbind(model$data_list$Pyrs, proj_Pyrs)
   model$data_list$Pyrs <- dplyr::arrange(model$data_list$Pyrs, Species, Year)

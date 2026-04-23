@@ -311,11 +311,11 @@ fit_mod <-
       start_par <- inits
 
       # - Set F for years with 0 catch to very low number
-      zero_catch <- data_list$catch_data %>%
+      zero_catch <- data_list$catch_data |>
         dplyr::filter(.data$Year <= data_list$endyr &
-                        .data$Catch == 0) %>%
-        dplyr::mutate(Year = Year - data_list$styr + 1) %>%
-        dplyr::select("Fleet_code", "Year") %>%
+                        .data$Catch == 0) |>
+        dplyr::mutate(Year = Year - data_list$styr + 1) |>
+        dplyr::select("Fleet_code", "Year") |>
         as.matrix()
       start_par$ln_F[zero_catch] <- -999
       rm(zero_catch)
