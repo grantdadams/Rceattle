@@ -19,7 +19,7 @@ The model can be updated following instructions [here](https://github.com/grantd
 
 There are multiple active branches. 
 
-* dev: introduces internal growth estimation and conditional-age-at-length data and is currently the most up to date. It also includes extensive testing. All development and new models should go from here!
+* dev: introduces internal growth estimation and conditional-age-at-length data and is currently the most up to date. It also includes extensive testing. **All development and new models should go from here!**
 * main: This is the las "stable" and documented branch that was used in a publication.
 * dev-DSEM is the "dev" branch with DSEM-linked recruitment.
 * dev-RTMB: branch is an RTMB implementation of the depricated-ICES2024-and-CJFAS2025 branch.
