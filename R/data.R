@@ -56,7 +56,7 @@
 #'\describe{
 #' \item{Fleet_name}{Name of survey or fishery}
 #' \item{Fleet_code}{Index of survey/fishery ACROSS species}
-#' \item{Fleet_type}{0 = Do not estimate; 1 = Fishery; 2 = Survey}
+#' \item{Fleet_type}{0 or 'Off' = Do not estimate; 1 = 'Fishery'; 2 = 'Survey'}
 #' \item{Species}{Species number}
 #' \item{Selectivity_index}{index to use if selectivities of different surveys are to be the same}
 #' \item{Selectivity}{Selectivity to use for the species: 0 = "Fixed"; 1 = "Logistic"; 2 = "NonParametric" sensu Ianelli et al 2018; 3 = "DoubleLogistic"; 4 = "DescendingLogistic", 5 = "Hake" non-parametric sense Taylor et al, 6 = "2DAR1", 7 = "3DAR1" sensu Cheng et al 2024.}

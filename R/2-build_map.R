@@ -606,12 +606,12 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
     sel_type <- data_list$fleet_control$Selectivity[i]
     tv_sel <- data_list$fleet_control$Time_varying_sel[i]
 
-    if (data_list$fleet_control$Fleet_type[i] > 0) {
+    if (data_list$fleet_control$Fleet_type[i] != "Off") {
 
       # Helper for selectivity blocks logic
       max_block <- 0
       if (tv_sel == 3) {
-        data_source <- if (data_list$fleet_control$Fleet_type[i] == 1) data_list$catch_data else data_list$index_data
+        data_source <- if (data_list$fleet_control$Fleet_type[i] == "Fishery") data_list$catch_data else data_list$index_data
         fleet_data <- data_source %>%
           dplyr::filter(Fleet_code == flt, Year - data_list$styr + 1 <= nyrs_hind)
         Selectivity_block <- fleet_data$Selectivity_block
@@ -894,8 +894,7 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
   # Loop through fleets
   for( i in 1: nrow(data_list$fleet_control)){
     flt = data_list$fleet_control$Fleet_code[i]
-
-    if(data_list$fleet_control$Fleet_type[flt] == 2){ # If survey
+    if(data_list$fleet_control$Fleet_type[flt] == "Survey"){
       # Q
       # - 0 = fixed at prior
       # - 1 = Estimate single parameter
@@ -1140,8 +1139,8 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
       map_list$catch_ln_sd[flt] <- NA
     }
 
-    # Turn of F and F dev if not estimating of it is a Survey
-    if (data_list$fleet_control$Fleet_type[i] %in% c(0, 2)) {
+    # Turn off F and F dev if not estimating or it is a Survey
+    if (data_list$fleet_control$Fleet_type[i] != "Fishery") {
       map_list$catch_ln_sd[flt] <- NA
       map_list$ln_F[flt, ] <- NA
     }
@@ -1157,7 +1156,7 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
     }
 
     # Map out comp weights and sigma if fleet is turned off or there are no comp data
-    if(data_list$fleet_control$Fleet_type[i] == 0) {
+    if(data_list$fleet_control$Fleet_type[i] == "Off") {
       map_list$comp_weights[i] <- NA
       map_list$caal_weights[i] <- NA
       map_list$sel_dev_ln_sd[i] <- NA

@@ -2493,7 +2493,9 @@ plot_m2_at_age_prop <-
 #' @param maxyr max year to plot
 #' @param alpha shadding for confidence intervals
 #' @param mod_avg is the list a model average? (DEPRECATED)
-#'
+#' @importFrom stats quantile
+#' @importFrom grDevices png dev.off adjustcolor
+#' @importFrom graphics layout par plot.new abline legend polygon lines plot
 #' @export
 #'
 #' @return Returns and saves a figure with the population trajectory.

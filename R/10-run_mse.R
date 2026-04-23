@@ -190,6 +190,12 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
   em$data_list$comp_data <- em$data_list$comp_data %>%
     dplyr::filter(abs(Year) <= em$data_list$endyr)
 
+  # -- caal_data
+  om$data_list$caal_data <- om$data_list$caal_data %>%
+    dplyr::filter(abs(Year) <= om$data_list$endyr)
+  em$data_list$caal_data <- em$data_list$caal_data %>%
+    dplyr::filter(abs(Year) <= em$data_list$endyr)
+
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Regenerate past data from OM and refit EM ----
@@ -201,6 +207,7 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
 
     em$data_list$index_data <- sim_dat$index_data
     em$data_list$comp_data <- sim_dat$comp_data
+    em$data_list$caal_data <- sim_dat$caal_data
 
     # Restimate
     em <- fit_mod(
@@ -339,15 +346,30 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
   }
 
   # -- comp_data
-  proj_comp <- om$data_list$comp_data %>%
-    dplyr::group_by(Fleet_code, Sex) %>%
-    dplyr::slice(rep(n(),  om_proj_nyrs)) %>%
-    dplyr::mutate(Year = -om_proj_yrs)
-  proj_comp$Sample_size <- proj_comp$Sample_size * fut_sample # Adjust future sampling effort
-  proj_comp <- proj_comp %>%
-    dplyr::mutate_at(vars(matches("Comp_")), ~ 1)
-  om$data_list$comp_data  <- rbind(om$data_list$comp_data, proj_comp)
-  om$data_list$comp_data <- dplyr::arrange(om$data_list$comp_data, Fleet_code, abs(Year))
+  if(nrow(om$data_list$comp_data) > 0){
+    proj_comp <- om$data_list$comp_data %>%
+      dplyr::group_by(Fleet_code, Sex) %>%
+      dplyr::slice(rep(n(),  om_proj_nyrs)) %>%
+      dplyr::mutate(Year = -om_proj_yrs)
+    proj_comp$Sample_size <- proj_comp$Sample_size * fut_sample # Adjust future sampling effort
+    proj_comp <- proj_comp %>%
+      dplyr::mutate_at(vars(matches("Comp_")), ~ 1)
+    om$data_list$comp_data  <- rbind(om$data_list$comp_data, proj_comp)
+    om$data_list$comp_data <- dplyr::arrange(om$data_list$comp_data, Fleet_code, abs(Year))
+  }
+
+  # -- caal_data
+  if(nrow(om$data_list$caal_data) > 0){
+    proj_caal <- om$data_list$caal_data %>%
+      dplyr::group_by(Fleet_code, Sex) %>%
+      dplyr::slice(rep(n(),  om_proj_nyrs)) %>%
+      dplyr::mutate(Year = -om_proj_yrs)
+    proj_caal$Sample_size <- proj_caal$Sample_size * fut_sample # Adjust future sampling effort
+    proj_caal <- proj_caal %>%
+      dplyr::mutate_at(vars(matches("CAAL_")), ~ 1)
+    om$data_list$proj_caal  <- rbind(om$data_list$proj_caal, proj_comp)
+    om$data_list$proj_caal <- dplyr::arrange(om$data_list$proj_caal, Fleet_code, abs(Year))
+  }
 
   # -- emp_sel - Use terminal year
   if(nrow(om$data_list$emp_sel) > 0){
@@ -361,12 +383,14 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
 
   # -- weight
   #FIXME ignores forecasted growth
-  proj_wt <- om$data_list$weight %>%
-    dplyr::group_by(Wt_index , Sex) %>%
-    dplyr::slice(rep(n(),  om_proj_nyrs)) %>%
-    dplyr::mutate(Year = om_proj_yrs)
-  om$data_list$weight  <- rbind(om$data_list$weight, proj_wt)
-  om$data_list$weight <- dplyr::arrange(om$data_list$weight, Wt_index, Year)
+  if(nrow(om$data_list$weight) > 0){
+    proj_wt <- om$data_list$weight %>%
+      dplyr::group_by(Wt_index , Sex) %>%
+      dplyr::slice(rep(n(),  om_proj_nyrs)) %>%
+      dplyr::mutate(Year = om_proj_yrs)
+    om$data_list$weight  <- rbind(om$data_list$weight, proj_wt)
+    om$data_list$weight <- dplyr::arrange(om$data_list$weight, Wt_index, Year)
+  }
 
   # -- ration_data
   if(nrow(om$data_list$ration_data) > 0){
@@ -384,20 +408,24 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
 
   #FIXME - assuming same as terminal year of hindcast
   # -- EM emp_sel - Use terminal year
-  proj_emp_sel <- em$data_list$emp_sel %>%
-    dplyr::group_by(Fleet_code, Sex) %>%
-    dplyr::slice(rep(n(),  em_proj_nyrs)) %>%
-    dplyr::mutate(Year = em_proj_yrs)
-  em$data_list$emp_sel  <- rbind(em$data_list$emp_sel, proj_emp_sel)
-  em$data_list$emp_sel <- dplyr::arrange(em$data_list$emp_sel, Fleet_code, Year)
+  if(nrow(em$data_list$emp_sel) > 0){
+    proj_emp_sel <- em$data_list$emp_sel %>%
+      dplyr::group_by(Fleet_code, Sex) %>%
+      dplyr::slice(rep(n(),  em_proj_nyrs)) %>%
+      dplyr::mutate(Year = em_proj_yrs)
+    em$data_list$emp_sel  <- rbind(em$data_list$emp_sel, proj_emp_sel)
+    em$data_list$emp_sel <- dplyr::arrange(em$data_list$emp_sel, Fleet_code, Year)
+  }
 
   # -- EM weight
-  proj_wt <- em$data_list$weight %>%
-    dplyr::group_by(Wt_index , Sex) %>%
-    dplyr::slice(rep(n(),  em_proj_nyrs)) %>%
-    dplyr::mutate(Year = em_proj_yrs)
-  em$data_list$weight  <- rbind(em$data_list$weight, proj_wt)
-  em$data_list$weight <- dplyr::arrange(em$data_list$weight, Wt_index, Year)
+  if(nrow(em$data_list$weight) > 0){
+    proj_wt <- em$data_list$weight %>%
+      dplyr::group_by(Wt_index , Sex) %>%
+      dplyr::slice(rep(n(),  em_proj_nyrs)) %>%
+      dplyr::mutate(Year = em_proj_yrs)
+    em$data_list$weight  <- rbind(em$data_list$weight, proj_wt)
+    em$data_list$weight <- dplyr::arrange(em$data_list$weight, Wt_index, Year)
+  }
 
   # -- EM ration_data
   if(nrow(em$data_list$ration_data) > 0){
@@ -532,7 +560,7 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
 
       # -- Estimate terminal F for catch
       new_f_yrs <- (ncol(om_use$map$mapList$ln_F) - length(new_years) + 1) : ncol(om_use$map$mapList$ln_F) # - Years of new F
-      f_fleets <- om_use$data_list$fleet_control$Fleet_code[which(om_use$data_list$fleet_control$Fleet_type == 1)] # Fleet rows for F
+      f_fleets <- om_use$data_list$fleet_control$Fleet_code[which(om_use$data_list$fleet_control$Fleet_type == "Fishery")] # Fleet rows for F
       om_use$map$mapList$ln_F[f_fleets,new_f_yrs] <- replace(om_use$map$mapList$ln_F[f_fleets,new_f_yrs], values = 1:length(om_use$map$mapList$ln_F[f_fleets,new_f_yrs]))
 
       # -- Map out Fdev for years with 0 catch to very low number
@@ -563,7 +591,7 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
       # * Fit OM with new catch data ----
       kill_sim <- tryCatch({
         R.utils::withTimeout({
-          suppressWarnings(
+          suppressMessages(
             om_use <- fit_mod(
               data_list = om_use$data_list,
               inits = om_use$estimated_params,
@@ -765,7 +793,7 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
       # Restimate
       kill_sim <- tryCatch({
         R.utils::withTimeout({
-          suppressWarnings(
+          suppressMessages(
             em_use <- fit_mod(
               data_list = em_use$data_list,
               inits = em_use$estimated_params,

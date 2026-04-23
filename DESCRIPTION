@@ -27,7 +27,13 @@ Imports:
     testthat (>= 2.0.0),
     foreach,
     doParallel,
-    R.utils
+    R.utils,
+    stats,
+    graphics,
+    grDevices,
+    cowplot,
+    magrittr,
+    rlang
 LinkingTo: 
     TMB
 Remotes: kaskr/TMB_contrib_R/TMBhelper

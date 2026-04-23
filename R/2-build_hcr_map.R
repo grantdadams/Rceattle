@@ -59,7 +59,7 @@ build_hcr_map <- function(data_list, map, debug = FALSE, all_params_on = FALSE, 
     for(sp in 1:data_list$nspp){
 
       # Check proj F if proj F prop is all 0
-      prop_check <- data_list$fleet_control$proj_F_prop[which(data_list$fleet_control$Species == sp & data_list$fleet_control$Fleet_type == 1)]
+      prop_check <- data_list$fleet_control$proj_F_prop[which(data_list$fleet_control$Species == sp & data_list$fleet_control$Fleet_type == "Fishery")]
       if(sum(as.numeric(prop_check == 0)) != 0){ # If all fisheries for a species have no F in F_prop, turn off future F
         message(paste("F_prop for species",sp,"sums to 0"))
         map$mapList$ln_Ftarget[sp] <- NA

@@ -1,4 +1,9 @@
-#' Function to update hindcast and set F to 0. Useful for determining dynamic reference points for multi-species models under climate-change
+#' Rerun with F = 0.
+#'
+#' @description
+#' Function to update hindcast and set F to 0.
+#' Useful for determining dynamic reference points for multi-species models under climate-change.
+#'
 #'
 #' @param Rceattle
 #'

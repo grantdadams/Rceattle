@@ -117,7 +117,7 @@ switch_check <- function(data_list){
   # Model and multi-species switches
   data_list$estDynamics <- set_default(data_list$estDynamics, rep(0, data_list$nspp), "'estDynamics' are not included in data, assuming 0")
   data_list$Diet_comp_weights <- set_default(data_list$Diet_comp_weights, rep(1, data_list$nspp), "'Diet_comp_weights' are not included in data, assuming 1")
-  data_list$Diet_loglike <- set_default(data_list$Diet_loglike, rep(0, data_list$nspp), "'Diet_loglike' are not included in data, assuming multinomial")
+  data_list$Diet_loglike <- set_default(data_list$Diet_loglike, rep(0, data_list$nspp), "'Diet_loglike' are not included in data, assuming 'Multinomial'")
   data_list$alpha_wt_len <- set_default(data_list$alpha_wt_len, 1e-6, "'alpha_wt_len' not specified in data, assuming 1e-6")
   data_list$beta_wt_len <- set_default(data_list$beta_wt_len, 3, "'beta_wt_len' not specified in data, assuming 3")
   data_list$M1_model <- set_default(data_list$M1_model, rep(0, data_list$nspp), "'M1_model' is not included in data, assuming 0")
@@ -125,7 +125,7 @@ switch_check <- function(data_list){
   data_list$M1_re <- set_default(data_list$M1_re, rep(0, data_list$nspp), "'M1_re' is not in data, assuming 0 for all species")
   data_list$initMode <- set_default(data_list$initMode, 2, "'initMode' is not in the data, setting to 2 (default)")
 
-  # Fleet Control defaults
+  # 1. Fleet Control defaults ----
   data_list$fleet_control$Sel_norm_bin1 <- set_default(data_list$fleet_control$Sel_norm_bin1, NA, "'Sel_norm_bin1' not specified in 'fleet_control', assuming 'NA'")
   data_list$fleet_control$Sel_norm_bin2 <- set_default(data_list$fleet_control$Sel_norm_bin2, NA, "'Sel_norm_bin2' not specified in 'fleet_control', assuming 'NA'")
   data_list$fleet_control$Sel_curve_pen1 <- set_default(data_list$fleet_control$Sel_curve_pen1, 0, "'Sel_curve_pen1' not specified in 'fleet_control', assuming '0'")
@@ -155,6 +155,36 @@ switch_check <- function(data_list){
   if(any(np_idx & is.na(data_list$fleet_control$Sel_curve_pen1))) stop("'Sel_curve_pen1' is NA in 'fleet_control' for fleet with non-parametric selectivity")
   if(any(np_idx & is.na(data_list$fleet_control$Sel_curve_pen2))) stop("'Sel_curve_pen2' is NA in 'fleet_control' for fleet with non-parametric selectivity")
 
+
+  # 2. Sel bins ----
+  for(flt in 1:nrow(data_list$fleet_control)){
+
+    sp_idx <- data_list$fleet_control$Species[flt]
+    age_selex = data_list$fleet_control$Selectivity_dimension[flt] == "Age"
+    selex_text <- ifelse(age_selex, "nages", "nlengths")
+    max_bin <- ifelse(age_selex,
+                      data_list$nages[sp_idx],
+                      data_list$nlengths[sp_idx])
+
+    # - Sel normalization bin
+    if(any(data_list$fleet_control$Sel_norm_bin1[flt] > max_bin, na.rm = TRUE)){
+      data_list$fleet_control$Sel_norm_bin1[flt] <- max_bin
+      message(paste0("'Sel_norm_bin1' for fleet ", flt, " is greater than ", selex_text,", setting to ", selex_text))
+    }
+
+    # - Upper sel normalization bin
+    if(any(data_list$fleet_control$Sel_norm_bin2[flt] > max_bin, na.rm = TRUE)){
+      data_list$fleet_control$Sel_norm_bin2[flt] <- max_bin
+      message(paste0("'Sel_norm_bin2' for fleet ", flt, " is greater than ", selex_text,", setting to ", selex_text))
+    }
+
+    # - N bins
+    if(any(data_list$fleet_control$N_sel_bins[flt] > max_bin, na.rm = TRUE)){
+      data_list$fleet_control$N_sel_bins[flt] <- max_bin
+      message(paste0("'N_sel_bins' for fleet ", flt, " is greater than ", selex_text,", setting to ", selex_text))
+    }
+  }
+
   return(data_list)
 }
 
@@ -167,6 +197,9 @@ revert_switches <- function(data_list) {
 
   data_list$fleet_control <- data_list$fleet_control %>%
     dplyr::mutate(
+      Fleet_type = ifelse(as.character(Fleet_type) %in% names(fleet_rev_map),
+                          fleet_rev_map[as.character(Fleet_type)],
+                          Fleet_type),
       Selectivity = ifelse(as.character(Selectivity) %in% names(sel_rev_map),
                            sel_rev_map[as.character(Selectivity)],
                            Selectivity),

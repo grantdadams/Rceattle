@@ -27,9 +27,15 @@ comp_loglike_map <- c(
   "DirichletMultinomial" = 1
 )
 
+fleet_map <- c(
+  "Fishery" = 1,
+  "Survey" = 2,
+  "Off" = 0
+)
+
 # --- Reverse Mappings (Integer -> String) ---
 # Automatically invert the maps above.
-# E.g., c("1" = "Logistic", "2" = "Non-parametric", ...)
 sel_rev_map <- setNames(names(sel_map), as.character(sel_map))
 q_rev_map <- setNames(names(q_map), as.character(q_map))
 comp_loglike_map_rev_map <- setNames(names(comp_loglike_map), as.character(comp_loglike_map))
+fleet_rev_map <- setNames(names(fleet_map), as.character(fleet_map))

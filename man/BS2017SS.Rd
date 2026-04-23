@@ -58,7 +58,7 @@ fleet_control: controls for survey and fisheries data
 \describe{
 \item{Fleet_name}{Name of survey or fishery}
 \item{Fleet_code}{Index of survey/fishery ACROSS species}
-\item{Fleet_type}{0 = Do not estimate; 1 = Fishery; 2 = Survey}
+\item{Fleet_type}{0 or 'Off' = Do not estimate; 1 = 'Fishery'; 2 = 'Survey'}
 \item{Species}{Species number}
 \item{Selectivity_index}{index to use if selectivities of different surveys are to be the same}
 \item{Selectivity}{Selectivity to use for the species: 0 = "Fixed"; 1 = "Logistic"; 2 = "NonParametric" sensu Ianelli et al 2018; 3 = "DoubleLogistic"; 4 = "DescendingLogistic", 5 = "Hake" non-parametric sense Taylor et al, 6 = "2DAR1", 7 = "3DAR1" sensu Cheng et al 2024.}
@@ -73,7 +73,7 @@ fleet_control: controls for survey and fisheries data
 \item{Weight_index}{Weight-at-age (weight) index to use for calculation of derived quantities}
 \item{Age_transition_index}{Age transition matrix (e.g. growth trajectory) index to use for derived quantities to convert age to length}
 \item{Q_index}{index to use if catchability coefficients are to be set the same}
-\item{Catchability}{Estimate catchability? (0 = fixed at prior; - 1 = Estimate single parameter; - 2 = Estimate single parameter with prior; - 3 = Estimate analytical q  from Ludwig and Walters 1994;  - 4 = Estimate power equation; - 5 - Linear equation log(q_y) = q_mu + beta * index_y)}
+\item{Catchability}{Estimate catchability? (0 or "Fixed" = fixed at prior; 1 or "Estimated" = Estimate single parameter; 2 or "Estimated-with-prior" = Estimate single parameter with prior; 3 or "Analytical" = Estimate analytical q  from Ludwig and Walters 1994;  - 4 = Estimate power equation; - 5 or "Environmental" = Linear equation log(q_y) = q_mu + beta * index_y; 6 or "AR1" = annual AR1 catchability deviates are fit to environmental index sensu Rogers et al 2025)}
 \item{Q_prior}{Starting value or fixed value for catchability}
 \item{Q_sd_prior}{Variance of q prior: dnorm (log_q, log_q_prior, q_sd_prior)}
 \item{Time_varying_q}{Wether a time-varying q should be estimated. 0 = no, 1 = penalized deviate, 2 = random effect, 3 = time blocks with no penalty; 4 = random walk from mean following Dorn 2018 (dnorm(q_y - q_y-1, 0, sigma). If Catchability = 5, this determines the environmental index to be used in the equation log(q_y) = q_mu + beta * index_y}

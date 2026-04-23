@@ -9,8 +9,7 @@ plot_diet_comp(Rceattle, file = NULL, species = NULL)
 \arguments{
 \item{Rceattle}{Single or list of Rceattle model objects exported from \code{\link{Rceattle}}}
 
-\item{file}{name of a file to identified the files exported by the
-function.}
+\item{file}{name of a file to identified the files exported by the function.}
 
 \item{species}{Species names for legend}
 }

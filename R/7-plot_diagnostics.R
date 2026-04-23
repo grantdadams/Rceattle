@@ -87,7 +87,7 @@ plot_index <- function(Rceattle,
   fleet_control <- (Rceattle[[1]]$data_list$fleet_control)
   index_data <- Srv_list[[1]]
   srvs <- sort(unique(index_data$Fleet_code))
-  srvs <- srvs[which(srvs %in% fleet_control$Fleet_code[which(fleet_control$Fleet_type == 2)])] # Only use surveys that are estimates
+  srvs <- srvs[which(srvs %in% fleet_control$Fleet_code[which(fleet_control$Fleet_type == "Survey")])] # Only use surveys that are estimates
   #FIXME assumes all surveys are the same across models
   nsrv <- length(srvs)
 
@@ -696,7 +696,7 @@ plot_logindex <- function(Rceattle,
   fleet_control <- (Rceattle[[1]]$data_list$fleet_control)
   index_data <- (Rceattle[[1]]$data_list$index_data)
   srvs <- sort(unique(index_data$Fleet_code))
-  srvs <- srvs[which(srvs %in% fleet_control$Fleet_code[which(fleet_control$Fleet_type == 2)])] # Only use surveys that are estimates
+  srvs <- srvs[which(srvs %in% fleet_control$Fleet_code[which(fleet_control$Fleet_type == "Survey")])] # Only use surveys that are estimates
   nsrv <- length(srvs)
 
   ymax <- c()

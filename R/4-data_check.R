@@ -26,17 +26,14 @@ data_check <- function(data_list) {
     if(!is.na(data_list$fleet_control$Catchability[flt])){
       if((data_list$fleet_control$Catchability[flt] == "AR1" & data_list$fleet_control$Time_varying_q[flt] > (ncol(data_list$env_data) - 1))|
          (data_list$fleet_control$Catchability[flt] == "AR1" & data_list$fleet_control$Time_varying_q[flt] < 1)){
-        stop("For catchability type 6 environmental index specified in 'Time_varying_q' is greater than number of indices in 'env_data'")
+        stop("For 'AR1' catchability, environmental index specified in 'Time_varying_q' is greater than number of indices in 'env_data'")
       }
     }
 
     # Time-varying sel not possible
     if(data_list$fleet_control$Time_varying_sel[flt] == 2 & data_list$fleet_control$Selectivity[flt] %in% c("NonParametric", "Hake")){
-      stop("For non-parametric selectivities, 'Time_varying_sel' cant not be a random walk")
+      stop("For non-parametric selectivities, 'Time_varying_sel' cannot be a random walk")
     }
-
-    # Max sel age > nages
-    data_list$fleet_control$Sel_norm_bin1[flt] <- ifelse(data_list$fleet_control$Sel_norm_bin1[flt] > data_list$nages[data_list$fleet_control$Species[flt]], data_list$nages[data_list$fleet_control$Species[flt]], data_list$fleet_control$Sel_norm_bin1[flt])
   }
 
   # - Mirroring warnings
@@ -58,36 +55,46 @@ data_check <- function(data_list) {
   }
 
 
-  # * Validate selectivity and catchability inputs ----
+  # * Validate fleet_control inputs ----
+  invalid_flt_type <- data_list$fleet_control %>%
+    dplyr::filter(!Fleet_type %in% c(fleet_map, names(fleet_map)))
+
   invalid_sel <- data_list$fleet_control %>%
-    dplyr::filter(Fleet_type != 0 & !Selectivity %in% c(sel_map, names(sel_map)))
+    dplyr::filter(Fleet_type != "Off" & !Selectivity %in% c(sel_map, names(sel_map)))
 
   invalid_q <- data_list$fleet_control %>%
-    dplyr::filter(Fleet_type == 2 & !Catchability %in% c(q_map, names(q_map)))
+    dplyr::filter(Fleet_type == "Survey" & !Catchability %in% c(q_map, names(q_map)))
 
   invalid_comp_ll <- data_list$fleet_control %>%
-    dplyr::filter(Fleet_type != 0 & !Comp_loglike %in% c(comp_loglike_map, names(comp_loglike_map)))
+    dplyr::filter(Fleet_type != "Off" & !Comp_loglike %in% c(comp_loglike_map, names(comp_loglike_map)))
 
   invalid_caal_ll <- data_list$fleet_control %>%
-    dplyr::filter(Fleet_type != 0 & !CAAL_loglike %in% c(comp_loglike_map, names(comp_loglike_map)))
+    dplyr::filter(Fleet_type != "Off" & !CAAL_loglike %in% c(comp_loglike_map, names(comp_loglike_map)))
 
   # Throw clear errors to guide the user
+  if(nrow(invalid_flt_type) > 0) {
+    stop(paste("Invalid 'Fleet_type' specified for fleets:",
+               paste(invalid_flt_type$Fleet_name, collapse = ", "),
+               ".\nPlease use an integer code ",paste(range(invalid_flt_type), collapse = ":")," or one of:",
+               paste(names(invalid_flt_type), collapse = ", ")))
+  }
+
   if(nrow(invalid_sel) > 0) {
-    stop(paste("Invalid Selectivity specified for fleets:",
+    stop(paste("Invalid 'Selectivity' specified for fleets:",
                paste(invalid_sel$Fleet_name, collapse = ", "),
                ".\nPlease use an integer code ",paste(range(sel_map), collapse = ":")," or one of:",
                paste(names(sel_map), collapse = ", ")))
   }
 
   if(nrow(invalid_q) > 0) {
-    stop(paste("Invalid Catchability specified for fleets:",
+    stop(paste("Invalid 'Catchability' specified for fleets:",
                paste(invalid_q$Fleet_name, collapse = ", "),
                ".\nPlease use an integer code ", paste(range(q_map), collapse = ":")," or one of:",
                paste(names(q_map), collapse = ", ")))
   }
 
   if(nrow(invalid_comp_ll) > 0) {
-    stop(paste("Invalid Comp_loglike specified for fleets:",
+    stop(paste("Invalid 'Comp_loglike' specified for fleets:",
                paste(invalid_comp_ll$Fleet_name, collapse = ", "),
                ".\nPlease use an integer code ", paste(range(comp_loglike_map), collapse = ":")," or one of:",
                paste(names(comp_loglike_map), collapse = ", ")))
@@ -95,7 +102,7 @@ data_check <- function(data_list) {
 
 
   if(nrow(invalid_caal_ll) > 0) {
-    stop(paste("Invalid CAAL_loglike specified for fleets:",
+    stop(paste("Invalid 'CAAL_loglike' specified for fleets:",
                paste(invalid_caal_ll$Fleet_name, collapse = ", "),
                ".\nPlease use an integer code ", paste(range(comp_loglike_map), collapse = ":")," or one of:",
                paste(names(comp_loglike_map), collapse = ", ")))
@@ -186,9 +193,10 @@ data_check <- function(data_list) {
 
 
   # Age transition matrix ----
-  if(any(data_list$age_trans_matrix %>%
-         dplyr::select(-c(Age_transition_name, Age_transition_index, Species, Sex, Age)) %>%
-         ncol() < data_list$nlengths)){
+  #FIXME: update now with growth estimation
+  if(any(data_list$growth_model > 0) & any(data_list$age_trans_matrix %>%
+                                           dplyr::select(-c(Age_transition_name, Age_transition_index, Species, Sex, Age)) %>%
+                                           ncol() < data_list$nlengths)){
     stop("`age_trans_matrix` data does not span range of lengths")
   }
 
