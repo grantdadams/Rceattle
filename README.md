@@ -15,6 +15,19 @@ See [onboarding document](https://github.com/grantdadams/Rceattle/wiki/Onboardin
 
 The model can be updated following instructions [here](https://github.com/grantdadams/Rceattle/wiki/Workflow-for-updating-the-Rceattle).
 
+**Development and branches**
+
+There are multiple active branches. 
+
+* dev: introduces internal growth estimation and conditional-age-at-length data and is currently the most up to date. It also includes extensive testing. All development and new models should go from here!
+* main: This is the las "stable" and documented branch that was used in a publication.
+* dev-DSEM is the "dev" branch with DSEM-linked recruitment.
+* dev-RTMB: branch is an RTMB implementation of the depricated-ICES2024-and-CJFAS2025 branch.
+
+Any new branches for development and new models should be from the “dev” branch and then merged back into dev. Then will be pushed to main for a release.
+
+Development is ongoing and any updates will be pushed to dev. If anything doesn’t work please do a pull request, post an issue, or just let Grant know!
+
 **Installation**
 ```
 # Dependencies
