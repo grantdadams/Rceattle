@@ -116,8 +116,8 @@ make_msm_test_data <- function(
   ration = ration_mult * WAA
 
   # Generate recruitment deviations
-  rec_devs <- matrix(rnorm(nyrs * nspp, 0, sigma_R), nspp, nyrs)
-  init_devs <- matrix(rnorm((nages-1) * nspp, 0, sigma_R), nspp, nages-1)
+  rec_devs <- matrix(stats::rnorm(nyrs * nspp, 0, sigma_R), nspp, nyrs)
+  init_devs <- matrix(stats::rnorm((nages-1) * nspp, 0, sigma_R), nspp, nages-1)
 
   # Vulnerability ----
   suitability = array(0, dim = c(nspp, nspp, nages, nages))

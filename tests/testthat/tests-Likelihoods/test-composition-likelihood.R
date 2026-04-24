@@ -116,3 +116,91 @@ testthat::test_that("Composition likelihoods match (Multinomial and Dirichlet-Mu
 
   testthat::expect_equal(tmb_nll_dm, r_nll_dm, tolerance = 1e-5)
 })
+
+
+testthat::test_that("Invalid comp_loglike", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  # Data
+  data("GOA2018SS")
+  GOA2018SS$fleet_control$Comp_loglike <- 9 # Not in scope
+
+  # Run
+  testthat::expect_error(
+    Rceattle::fit_mod(data_list = GOA2018SS,
+                      estimateMode = 3, # Don't estimate
+                      random_rec = FALSE, # No random recruitment
+                      msmMode = 0, # Single species mode
+                      verbose = 0)
+  )
+
+})
+
+testthat::test_that("Invalid caal_loglike", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  # Data
+  data("GOA2018SS")
+  GOA2018SS$fleet_control$CAAL_loglike <- 9 # Not in scope
+
+  # Run
+  testthat::expect_error(
+    Rceattle::fit_mod(data_list = GOA2018SS,
+                      estimateMode = 3, # Don't estimate
+                      random_rec = FALSE, # No random recruitment
+                      msmMode = 0, # Single species mode
+                      verbose = 0)
+  )
+
+})
+
+
+testthat::test_that("Integer to text multinomial comp_loglike", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  # Data
+  data("GOA2018SS")
+  GOA2018SS$fleet_control$Comp_loglike <- 0
+
+  # Run
+  mod <- Rceattle::fit_mod(data_list = GOA2018SS,
+                           estimateMode = 3, # Don't estimate
+                           verbose = 0)
+
+  testthat::expect_equal(mod$data_list$fleet_control$Comp_loglike,
+                         rep("Multinomial", nrow(mod$data_list$fleet_control))
+  )
+
+})
+
+testthat::test_that("Integer to text DM comp_loglike", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  # Data
+  data("GOA2018SS")
+  GOA2018SS$fleet_control$Comp_loglike <- 1
+
+  # Run
+  mod <- Rceattle::fit_mod(data_list = GOA2018SS,
+                           estimateMode = 3, # Don't estimate
+                           verbose = 0)
+
+  testthat::expect_equal(mod$data_list$fleet_control$Comp_loglike,
+                         rep("DirichletMultinomial", nrow(mod$data_list$fleet_control))
+  )
+
+  nflt <- nrow(GOA2018SS$fleet_control)
+  fleets <- 1:nflt
+  no_comp_data <- !(fleets %in% mod$data_list$comp_data$Fleet_code)
+  fleets[mod$data_list$fleet_control$Fleet_type == "Off"] <- NA
+  fleets[no_comp_data] <- NA
+
+  testthat::expect_equal(as.numeric(mod$map$mapList$comp_weights), fleets)
+})
+
+
+

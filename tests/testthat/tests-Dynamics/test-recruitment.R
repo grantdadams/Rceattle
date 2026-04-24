@@ -7,7 +7,7 @@ testthat::test_that("mean recruitment and devs", {
   nyrs = 20
   dat <- make_test_data(nyrs = 20, nages = 5, seed = 123)
   R0 = 11
-  Rdev <- rnorm(nyrs)
+  Rdev <- stats::rnorm(nyrs)
 
   # Set params
   dat$srr_fun = 0 # Set to mean R plus devs
@@ -49,7 +49,7 @@ testthat::test_that("ssb under mean recruitment", {
   yrs <- GOA2018SS$styr:GOA2018SS$endyr
   nyrs <- length(yrs)
   R0 = 10:12
-  Rdev <- rnorm(nyrs)
+  Rdev <- stats::rnorm(nyrs)
 
   # Set params
   inits <- suppressMessages(build_params(GOA2018SS))

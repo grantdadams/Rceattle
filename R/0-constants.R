@@ -37,5 +37,5 @@ fleet_map <- c(
 # Automatically invert the maps above.
 sel_rev_map <- setNames(names(sel_map), as.character(sel_map))
 q_rev_map <- setNames(names(q_map), as.character(q_map))
-comp_loglike_map_rev_map <- setNames(names(comp_loglike_map), as.character(comp_loglike_map))
+comp_loglike_rev_map <- setNames(names(comp_loglike_map), as.character(comp_loglike_map))
 fleet_rev_map <- setNames(names(fleet_map), as.character(fleet_map))

@@ -17,7 +17,7 @@ testthat::test_that("Test environmental linkeage with mean rec", {
   yrs <- GOA2018SS$styr:GOA2018SS$endyr
   nyrs <- length(yrs)
   R0 = 10:12
-  Rdev <- rnorm(nyrs)
+  Rdev <- stats::rnorm(nyrs)
 
   # Env data
   GOA2018SS$env_data <- data.frame(Year = yrs, EnvIndex = seq(0,1, length.out = nyrs))
@@ -75,7 +75,7 @@ testthat::test_that("Test multiple recruitment linkeages with mean rec", {
   yrs <- GOA2018SS$styr:GOA2018SS$endyr
   nyrs <- length(yrs)
   R0 = 10:12
-  Rdev <- rnorm(nyrs)
+  Rdev <- stats::rnorm(nyrs)
 
   # Env data
   GOA2018SS$env_data <- data.frame(Year = yrs, EnvIndex = seq(0,1, length.out = nyrs), EnvIndex2 = seq(0,1, length.out = nyrs), EnvIndex3 = seq(0,1, length.out = nyrs))
@@ -133,7 +133,7 @@ testthat::test_that("Test multiple M linkeages", {
   yrs <- GOA2018SS$styr:GOA2018SS$endyr
   nyrs <- length(yrs)
   R0 = 10:12
-  Rdev <- rnorm(nyrs)
+  Rdev <- stats::rnorm(nyrs)
 
   # Env data
   GOA2018SS$env_data <- data.frame(Year = yrs, EnvIndex = seq(0,1, length.out = nyrs), EnvIndex2 = seq(0,1, length.out = nyrs), EnvIndex3 = seq(0,1, length.out = nyrs))
@@ -193,7 +193,7 @@ testthat::test_that("Test single M, multiple M/sex linkeages, M both-sex linkage
   yrs <- GOA2018SS$styr:GOA2018SS$endyr
   nyrs <- length(yrs)
   R0 = 10:12
-  Rdev <- rnorm(nyrs)
+  Rdev <- stats::rnorm(nyrs)
 
   # Env data
   GOA2018SS$env_data <- data.frame(Year = yrs, EnvIndex = seq(0,1, length.out = nyrs), EnvIndex2 = seq(0,1, length.out = nyrs), EnvIndex3 = seq(0,1, length.out = nyrs))

@@ -118,7 +118,7 @@ $$\hat{CPUE:I}_{{f_i},y} = \sum_s\sum_a \left( N_{isa,y} e^{-Month_{f_i} Z_{isa,
 Multiple age-based selectivity functions are supported by Rceattle. They are controlled by `Selectivity_index`, `Selectivity`, `N_sel_bins`, `Time_varying_sel`, `Time_varying_sel_sd_prior`, and `Bin_first_selected` in fleet_control sheet of an Rceattle data file. They are defined as follows:
 
 * `Selectivity_index`:	index to use if selectivities of different surveys are to be the same
-* `Selectivity`:	Selectivity parameterization to use for the species: 0 = empirical selectivity provided in `srv_emp_sel`; 1 = logistic selectivity; 2 = non-parametric selecitivty sensu Ianelli et al 2018; 3 = double logistic; 4 = descending logistic; 5 = non-parametric selectivity sensu Taylor et al 2014 (Hake)
+* `Selectivity`:	Selectivity parameterization to use for the species: 0 = empirical selectivity provided in `srv_emp_sel`; 1 = logistic selectivity; 2 = non-parametric selecitivty sensu Ianelli et al 2018; 3 = double logistic; 4 = descending logistic; 5 = non-parametric selectivity sensu Taylor et al 2014 (Hake), 6 or "2DAR1" for age by year, 7 or "3DAR1" sensu Cheng et al (2025).
 * `N_sel_bins`:	Number of ages to estimate non-parametric selectivity. For example, if `minage = 1` and selectivity parameters are estimated up till age-6, `N_sel_bins = 6` and if `minage = 0` and selectivity parameters are estimated up till age-6, `N_sel_bins = 7`.  Not used otherwise
 * `Time_varying_sel`:	Whether a time-varying selectivity should be estimated for logistic, double logistic selectivity, descending logistic, or non-parametric selectivity (`Selectivity = 5 or "Hake"`). 0 = no, 1 = penalized deviates given sel_sd_prior, 2 = penalized deviates and estimate sel_sd_prior, 3 = time blocks with no penalty, 4 = random walk following Dorn, 5 = random walk on ascending portion of double logistic only. 
 * `Time_varying_sel_sd_prior`:	The sd to use for the random walk of time varying selectivity if set to 1. 
@@ -219,7 +219,7 @@ Selectivity is fixed at $sel_{f_i sa} = 0$ for $a < A_{min}$ and $p_{f_i sa} = 0
 Input:
 `Selectivity = 5 or "Hake"`, `N_sel_bins = 6`, `Time_varying_sel = NA`,  `Time_varying_sel_sd_prior = NA`, and `Bin_first_selected = `$A_{min}$
 
-### Time-varying non-parametric (Type 2)
+### Time-varying non-parametric (Type 2 for hake)
 As above, but a set of deviations on $p_a$ is used  to control annual changes in selectivity given a fixed or estimated standard deviation ($\sigma^{\phi}_{f_i}$):
 $$p_{f_i say}=p_{f_i sa}+\phi_{f_i say}$$
 
@@ -276,7 +276,7 @@ $\omega_{f_iy} \sim N(0,$`Time_varying_q_sd_prior`$)$ where `Time_varying_q_sd_p
 
 *Catchability time-blocks*
 
-`Catchability %in% c(1:2)`, `Time_varying_q = 3` where the blocks are based on the blocks in `srv_biom` data sheet.
+`Catchability %in% c(1:2)`, `Time_varying_q = 3` where the blocks are based on the blocks in `index_data` data sheet.
 $$\hat{q}_{f_iy} = e^{\omega_{f_i block_y}}$$
 
 *Annual catchability via random walk*

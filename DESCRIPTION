@@ -33,14 +33,18 @@ Imports:
     grDevices,
     cowplot,
     magrittr,
+    mvtnorm,
     rlang
 LinkingTo: 
     TMB
 Remotes: kaskr/TMB_contrib_R/TMBhelper
 Suggests: 
     rmarkdown,
-    knitr
-VignetteBuilder: knitr
+    knitr,
+    quarto
+VignetteBuilder: 
+    knitr, 
+    quarto
 Depends: 
     dplyr,
     R (>= 3.5)
