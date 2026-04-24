@@ -668,6 +668,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
         bin_first_selected <- data_list$fleet_control$Bin_first_selected[i]
         N_sel_bins <- data_list$fleet_control$N_sel_bins[i]
+        if (is.na(N_sel_bins)) stop(paste0("N_sel_bins is NA for fleet ", i))
 
         if (is.na(bin_first_selected)) bin_first_selected <- 1
         bins_on <- bin_first_selected:N_sel_bins
@@ -780,6 +781,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
         bin_first_selected <- data_list$fleet_control$Bin_first_selected[i]
         N_sel_bins <- data_list$fleet_control$N_sel_bins[i]
+        if (is.na(N_sel_bins)) stop(paste0("N_sel_bins is NA for fleet ", i))
 
         if (is.na(bin_first_selected)) bin_first_selected <- 1
         # +1 because first parameter is not-identifiable and is not estimated
@@ -810,6 +812,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
         bin_first_selected <- data_list$fleet_control$Bin_first_selected[i]
         N_sel_bins <- data_list$fleet_control$N_sel_bins[i]
+        if (is.na(N_sel_bins)) stop(paste0("N_sel_bins is NA for fleet ", i))
 
         if (is.na(bin_first_selected)) bin_first_selected <- 1
         bins_on <- (bin_first_selected):N_sel_bins
@@ -843,6 +846,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
         bin_first_selected <- data_list$fleet_control$Bin_first_selected[i]
         N_sel_bins <- data_list$fleet_control$N_sel_bins[i]
+        if (is.na(N_sel_bins)) stop(paste0("N_sel_bins is NA for fleet ", i))
 
         if (is.na(bin_first_selected)) bin_first_selected <- 1
         bins_on <- (bin_first_selected):N_sel_bins
