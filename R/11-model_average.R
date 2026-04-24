@@ -2,7 +2,7 @@
 #'
 #' @param Rceattle list of Rceattle model objects
 #' @param weights vector of weights to be used for weighting models
-#' @param Uncertainty TRUE/FALSE Sample uncertainty across derived quantities using weighted bootstrap from the asymptotic  distribution of MLEs
+#' @param uncertainty TRUE/FALSE Sample uncertainty across derived quantities using weighted bootstrap from the asymptotic  distribution of MLEs
 #' @param nboot Number of bootstraps taken from asymptotic distribution of MLEs. Default = 10000
 #'
 #' @return an Rceattle object with derived quantities weighted by the specified weights. The length of the derived quantities spans the years which overlap across all models.
@@ -13,7 +13,7 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
   # Average derived quantities of models
   # --------------------------------------------------------------------------------------------
   # Convert single one into a list
-  if(class(Rceattle) == "Rceattle"){
+  if(inherits(Rceattle, "Rceattle")){
     stop("Only one model provided")
   }
   if(is.null(weights)){
@@ -87,7 +87,7 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
 
   if(uncertainty){
 
-    # # Buckland, S_at_age.T., Burnham, K.P., Augustin, N.H., 1997. Model Selection : An Integral Part of Inference. Biometrics 53, 603–618.
+    # # Buckland, S_at_age.T., Burnham, K.P., Augustin, N.H., 1997. Model Selection : An Integral Part of Inference. Biometrics 53, 603-618.
     # # - Calculate SD
     # # -- R
     # rec_rows <- which(names(mod_avg$sdrep$value) == "R")

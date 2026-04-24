@@ -1,19 +1,28 @@
 Package: Rceattle
-Title: Fits the multispecies assessment model (CEATTLE) using TMB
-Version: 3.3.1.0000
-Authors@R: 
+Title: Fits the Multispecies Assessment Model (CEATTLE) Using TMB
+Version: 4.0.1
+Authors@R:
     person(given = "Grant",
            family = "Adams",
            role = c("aut", "cre"),
            email = "grant.adams@noaa.gov",
            comment = c(ORCID = "0000-0003-0297-8347"))
-Description: 'Rceattle' is an 'R' package designed to implement the CEATTLE model using Template Model Builder ('TMB'; Kristensen et al. 2015), which can be installed following https://github.com/kaskr/adcomp/wiki/Download. Rceattle is structured similar to the original manuscript in terms of modularization. Seperate functions estimate retrospective temperature- and size-specific predator rations, prey preference, and weight-at- age. These are then used as inputs to the CEATTLE model to evaluate how predation mortality, recruitment, and survival of three target species change under historical climate conditions and harvest rates.
+Description: Implements the CEATTLE model using Template Model Builder
+    ('TMB'; Kristensen et al. 2015), which can be installed following
+    <https://github.com/kaskr/adcomp/wiki/Download>. Structured similar
+    to the original manuscript in terms of modularization. Separate
+    functions estimate retrospective temperature- and size-specific
+    predator rations, prey preference, and weight-at-age. These are then
+    used as inputs to the CEATTLE model to evaluate how predation
+    mortality, recruitment, and survival of three target species change
+    under historical climate conditions and harvest rates.
 License: GPL (>= 2)
 Encoding: UTF-8
 LazyData: true
+LazyDataCompression: xz
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
-Imports: 
+Imports:
     ggplot2,
     MASS,
     oce,
@@ -23,28 +32,31 @@ Imports:
     writexl,
     reshape2,
     gplots,
-    tidyr,
-    testthat (>= 2.0.0),
     foreach,
     doParallel,
+    parallel,
+    tidyr,
     R.utils,
     stats,
     graphics,
     grDevices,
     cowplot,
-    magrittr,
-    mvtnorm,
-    rlang
-LinkingTo: 
+    rlang,
+    plyr,
+    tidyselect
+LinkingTo:
     TMB
-Remotes: kaskr/TMB_contrib_R/TMBhelper
-Suggests: 
+Suggests:
+    testthat (>= 2.0.0),
     rmarkdown,
     knitr,
+    kableExtra,
+    quarto,
+    mvtnorm,
+    magrittr
+VignetteBuilder:
+    knitr,
     quarto
-VignetteBuilder: 
-    knitr, 
-    quarto
-Depends: 
+Depends:
     dplyr,
-    R (>= 3.5)
+    R (>= 4.1.0)

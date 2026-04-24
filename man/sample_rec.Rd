@@ -7,7 +7,7 @@
 sample_rec(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_trend = 0)
 }
 \arguments{
-\item{Rceattle}{CEATTLE model object exported from \code{\link{Rceattle}}}
+\item{Rceattle}{CEATTLE model object exported from \code{Rceattle}}
 
 \item{sample_rec}{Include resampled recruitment deviates from the"hindcast" in the projection of the OM. Resampled deviates are used rather than sampling from N(0, sigmaR) because initial deviates bias R0 low. If false, uses mean of recruitment deviates.}
 

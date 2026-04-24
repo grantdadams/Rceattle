@@ -45,7 +45,7 @@ plot_biomass(ss_run_M, add_ci = T)
 # - Multi-species
 # For the a multispecies model we from the single species parameters.
 ms_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                            inits = ss_run_M$estimated_params, # Initial parameters from single species ests
+                            inits = ss_run$estimated_params, # Initial parameters from single species ests
                             file = NULL, # Don't save
                             estimateMode = 0, # Estimate
                             M1Fun = build_M1(M1_model = c(1,2,1)),

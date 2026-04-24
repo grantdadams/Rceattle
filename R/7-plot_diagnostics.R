@@ -4,7 +4,7 @@
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param single.plots if TRUE plot invidual fits else make multiplot
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
@@ -32,7 +32,7 @@ plot_index <- function(Rceattle,
 
 
   # Convert single one into a list
-  if(class(Rceattle) == "Rceattle"){
+  if(inherits(Rceattle, "Rceattle")){
     Rceattle <- list(Rceattle)
   }
 
@@ -122,7 +122,7 @@ plot_index <- function(Rceattle,
         # Save
         if(j == 2){
           filename <- paste0(file, "fleet",srvs[j]," ",as.character(fleet_control$Fleet_name[srvs[srv]]), "_survey_index", ".png")
-          png(file = filename, width = width, height = height, res = 200, units = "in")
+          png(filename = filename, width = width, height = height, res = 200, units = "in")
         }
 
 
@@ -182,7 +182,7 @@ plot_index <- function(Rceattle,
       # Save
       if(j == 2){
         filename <- paste0(file,"_survey_indices", ".png")
-        png(file = filename, width = width, height = height, res = 200, units = "in")
+        png(filename = filename, width = width, height = height, res = 200, units = "in")
       }
       par(Par)
 
@@ -250,7 +250,7 @@ plot_index <- function(Rceattle,
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param single.plots if TRUE plot invidual fits else make multiplot
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
@@ -266,7 +266,7 @@ plot_index <- function(Rceattle,
 #' @param maxyr Max year to plot
 #' @param error Include observed data with error bars?
 #' @param fleets Which fishing fleets to include (defaults to all = NULL)
-#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}. Will plot data from OMs.
+#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}. Will plot data from OMs.
 #'
 #' @export
 
@@ -296,7 +296,7 @@ plot_catch <- function(Rceattle,
   }
 
   # Convert single one into a list
-  if(class(Rceattle) == "Rceattle"){
+  if(inherits(Rceattle, "Rceattle")){
     Rceattle <- list(Rceattle)
   }
 
@@ -426,7 +426,7 @@ plot_catch <- function(Rceattle,
         # Save
         if(j == 2){
           filename <- paste0(file, "fleet",flts[j]," ",as.character(fleet_control$Fleet_name[flts[fsh]]), "_fishery_catch", ".png")
-          png(file = filename, width = width, height = height, res = 200, units = "in")
+          png(filename = filename, width = width, height = height, res = 200, units = "in")
         }
 
         par(Par)
@@ -515,7 +515,7 @@ plot_catch <- function(Rceattle,
       # Save
       if(j == 2){
         filename <- paste0(file,"_fishery_catch", ".png")
-        png(file = filename, width = width, height = height, res = 200, units = "in")
+        png(filename = filename, width = width, height = height, res = 200, units = "in")
       }
       par(Par)
 
@@ -622,7 +622,7 @@ plot_catch <- function(Rceattle,
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param single.plots if TRUE plot invidual fits else make multiplot
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
@@ -648,7 +648,7 @@ plot_logindex <- function(Rceattle,
 
 
   # Convert single one into a list
-  if(class(Rceattle) == "Rceattle"){
+  if(inherits(Rceattle, "Rceattle")){
     Rceattle <- list(Rceattle)
   }
 
@@ -730,7 +730,7 @@ plot_logindex <- function(Rceattle,
         # Save
         if(j == 2){
           filename <- paste0(file, "fleet",srvs[j]," ",as.character(fleet_control$Fleet_name[srvs[srv]]), "_log_survey_index", ".png")
-          png(file = filename, width = width, height = height, res = 200, units = "in")
+          png(filename = filename, width = width, height = height, res = 200, units = "in")
         }
 
 
@@ -788,7 +788,7 @@ plot_logindex <- function(Rceattle,
       # Save
       if(j == 2){
         filename <- paste0(file,"_log_survey_indices", ".png")
-        png(file = filename, width = width, height = height, res = 200, units = "in")
+        png(filename = filename, width = width, height = height, res = 200, units = "in")
       }
       par(Par)
 
@@ -865,7 +865,7 @@ plot_logindex <- function(Rceattle,
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param single.plots if TRUE plot invidual fits else make multiplot
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
@@ -891,7 +891,7 @@ plot_indexresidual <- function(Rceattle,
 
 
   # Convert single one into a list
-  if(class(Rceattle) == "Rceattle"){
+  if(inherits(Rceattle, "Rceattle")){
     Rceattle <- list(Rceattle)
   }
 
@@ -965,7 +965,7 @@ plot_indexresidual <- function(Rceattle,
         # Save
         if(j == 2){
           filename <- paste0(file, "fleet",srvs[j]," ",as.character(fleet_control$Fleet_name[srvs[srv]]), "_survey_index", ".png")
-          png(file = filename, width = width, height = height, res = 200, units = "in")
+          png(filename = filename, width = width, height = height, res = 200, units = "in")
         }
 
         minyr <- min(sapply(Srv_hat_list, function(x) min(x[which(x$Fleet_code == srvs[srv] & x$Year > 0),]$Year)))
@@ -1024,7 +1024,7 @@ plot_indexresidual <- function(Rceattle,
       # Save
       if(j == 2){
         filename <- paste0(file,"_survey_indices", ".png")
-        png(file = filename, width = width, height = height, res = 200, units = "in")
+        png(filename = filename, width = width, height = height, res = 200, units = "in")
       }
       par(Par)
 

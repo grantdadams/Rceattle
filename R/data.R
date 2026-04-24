@@ -88,4 +88,145 @@
 "BS2017SS"
 
 
+#' Data inputs for multispecies CEATTLE of the Bering Sea from 1979 to 2017
+#'
+#' A data list containing inputs for the three-species (walleye pollock,
+#' Pacific cod, arrowtooth flounder) multispecies CEATTLE model for the
+#' Eastern Bering Sea. See \code{\link{BS2017SS}} for format details.
+#'
+#' @format A list with the same structure as \code{\link{BS2017SS}}.
+"BS2017MS"
 
+
+#' Fitted single-species CEATTLE model for the Eastern Bering Sea
+#'
+#' A fitted \code{Rceattle} model object for the single-species run of CEATTLE
+#' for the Eastern Bering Sea (walleye pollock, Pacific cod, arrowtooth
+#' flounder) without estimating natural mortality.
+#'
+#' @format An object of class \code{Rceattle}.
+"EBS_ss_run"
+
+
+#' Fitted single-species CEATTLE model with estimated M for the Eastern Bering Sea
+#'
+#' A fitted \code{Rceattle} model object for the single-species run of CEATTLE
+#' for the Eastern Bering Sea with natural mortality estimated.
+#'
+#' @format An object of class \code{Rceattle}.
+"EBS_ss_M_run"
+
+
+#' Fitted multispecies CEATTLE model for the Eastern Bering Sea
+#'
+#' A fitted \code{Rceattle} model object for the multispecies run of CEATTLE
+#' for the Eastern Bering Sea (walleye pollock, Pacific cod, arrowtooth
+#' flounder).
+#'
+#' @format An object of class \code{Rceattle}.
+"EBS_ms_run"
+
+
+#' Data inputs for a single-species Gulf of Alaska CEATTLE model (2018)
+#'
+#' A data list containing inputs for a single-species CEATTLE model fit to
+#' Gulf of Alaska groundfish data through 2018. See \code{\link{BS2017SS}}
+#' for format details.
+#'
+#' @format A list with the same structure as \code{\link{BS2017SS}}.
+"GOA2018SS"
+
+
+#' Data inputs for Gulf of Alaska arrowtooth flounder CEATTLE model
+#'
+#' A data list containing inputs for a single-species CEATTLE model fit to
+#' Gulf of Alaska arrowtooth flounder data. See \code{\link{BS2017SS}}
+#' for format details.
+#'
+#' @format A list with the same structure as \code{\link{BS2017SS}}.
+"GOAatf"
+
+
+#' Data inputs for Gulf of Alaska arrowtooth flounder CEATTLE model (2023)
+#'
+#' A data list containing inputs for a single-species CEATTLE model fit to
+#' Gulf of Alaska arrowtooth flounder data through 2023. See
+#' \code{\link{BS2017SS}} for format details.
+#'
+#' @format A list with the same structure as \code{\link{BS2017SS}}.
+"GOAatf2023"
+
+
+#' Data inputs for Gulf of Alaska Pacific cod CEATTLE model
+#'
+#' A data list containing inputs for a single-species CEATTLE model fit to
+#' Gulf of Alaska Pacific cod data. See \code{\link{BS2017SS}} for format
+#' details.
+#'
+#' @format A list with the same structure as \code{\link{BS2017SS}}.
+"GOAcod"
+
+
+#' Data inputs for Gulf of Alaska walleye pollock CEATTLE model
+#'
+#' A data list containing inputs for a single-species CEATTLE model fit to
+#' Gulf of Alaska walleye pollock data. See \code{\link{BS2017SS}} for
+#' format details.
+#'
+#' @format A list with the same structure as \code{\link{BS2017SS}}.
+"GOApollock"
+
+
+#' Gulf of Alaska 2018 SAFE report reference values
+#'
+#' A list containing biomass, spawning stock biomass, and recruitment
+#' reference values from the 2018 Gulf of Alaska Stock Assessment and
+#' Fishery Evaluation (SAFE) report.
+#'
+#' @format A list with components:
+#' \describe{
+#'   \item{biomass}{Total biomass time series}
+#'   \item{ssb}{Spawning stock biomass time series}
+#'   \item{recruitment}{Recruitment time series}
+#' }
+"GOAsafe2018"
+
+
+#' Data inputs for a three-species Georges Bank CEATTLE model
+#'
+#' A data list containing inputs for a multispecies CEATTLE model fit to
+#' three groundfish species on Georges Bank. See \code{\link{BS2017SS}} for
+#' format details.
+#'
+#' @format A list with the same structure as \code{\link{BS2017SS}}.
+"GeorgesBank3spp"
+
+
+#' Data inputs for Northern Rockfish CEATTLE model (2022)
+#'
+#' A data list containing inputs for a single-species CEATTLE model fit to
+#' Gulf of Alaska northern rockfish data through 2022. See
+#' \code{\link{BS2017SS}} for format details.
+#'
+#' @format A list with the same structure as \code{\link{BS2017SS}}.
+"NorthernRockfish2022"
+
+
+#' Data inputs for Atka mackerel CEATTLE model (2022)
+#'
+#' A data list containing inputs for a single-species CEATTLE model fit to
+#' Aleutian Islands Atka mackerel data through 2022. See
+#' \code{\link{BS2017SS}} for format details.
+#'
+#' @format A list with the same structure as \code{\link{BS2017SS}}.
+"Atka2022"
+
+
+#' Data inputs for CEATTLE model with WHAM-estimated growth
+#'
+#' A data list containing inputs for a CEATTLE model that uses growth
+#' estimated from the Woods Hole Assessment Model (WHAM). See
+#' \code{\link{BS2017SS}} for format details.
+#'
+#' @format A list with the same structure as \code{\link{BS2017SS}}.
+"whamGrowthData"

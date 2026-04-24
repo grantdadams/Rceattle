@@ -37,12 +37,11 @@ fit_mod(
   loopnum = 5,
   verbose = 1,
   newtonsteps = 0,
-  catch_hcr = FALSE,
   TMBfilename = NULL
 )
 }
 \arguments{
-\item{data_list}{a data_list read in using \code{\link{read_excel}}.}
+\item{data_list}{a data_list read in using \code{\link[readxl]{read_excel}}.}
 
 \item{inits}{(Optional) Character vector of named initial values from previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters. Can also construct using \code{\link{build_params}}}
 
@@ -87,6 +86,8 @@ fit_mod(
 \item{phase}{TRUE/FALSE If FALSE, will not phase model. If set to \code{"TRUE"}, will use default phasing. Can also accept a list of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R.}
 
 \item{getsd}{TRUE/FALSE whether to run standard error calculation (default = TRUE).}
+
+\item{bias.correct}{logical. If TRUE, applies bias correction via \code{TMB::sdreport} (default = FALSE).}
 
 \item{use_gradient}{use the gradient to phase (default = TRUE).}
 
@@ -141,20 +142,17 @@ CEATTLE is an age-structured population dynamics model that can be fit with or w
 }
 }
 \examples{
-# Load package and data
-library(Rceattle)
-data(BS2017SS) # ?BS2017SS for more information on the data
-
-
-# Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
+\donttest{
+data(BS2017SS)
 ss_run <- fit_mod(data_list = BS2017SS,
-   inits = NULL, # Initial parameters = 0
-   file = NULL, # Don't save
-   estimateMode = 0, # Estimate
-   random_rec = FALSE, # No random recruitment
-   msmMode = 0, # Single species mode
-   avgnMode = 0,
-   phase = FALSE,
-   silent = TRUE)
+    inits = NULL,
+    file = NULL,
+    estimateMode = 0,
+    random_rec = FALSE,
+    msmMode = 0,
+    avgnMode = 0,
+    phase = FALSE,
+    verbose = 0)
+}
 
 }

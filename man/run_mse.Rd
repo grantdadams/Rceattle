@@ -28,9 +28,9 @@ run_mse(
 )
 }
 \arguments{
-\item{om}{CEATTLE model object exported from \code{\link{Rceattle}}}
+\item{om}{CEATTLE model object exported from \code{Rceattle}}
 
-\item{em}{CEATTLE model object exported from \code{\link{Rceattle}}}
+\item{em}{CEATTLE model object exported from \code{Rceattle}}
 
 \item{nsim}{Number of simulations to run (default 10)}
 
@@ -65,6 +65,8 @@ run_mse(
 \item{dir}{(Optional) Directory where each OM simulation is saved}
 
 \item{timeout}{length of time (minutes) estimation will run before stopping a sim (default 999 minutes)}
+
+\item{endyr}{Terminal year of the MSE projection. Default = NA uses \code{projyr} from the operating model.}
 }
 \value{
 A list of operating models (differ by simulated recruitment determined by \code{nsim}) and estimation models fit to each operating model (differ by terminal year).

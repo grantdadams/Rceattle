@@ -24,7 +24,7 @@ plot_m_at_age(
 )
 }
 \arguments{
-\item{Rceattle}{Single or list of Rceattle model objects exported from \code{\link{Rceattle}}}
+\item{Rceattle}{Single or list of Rceattle model objects exported from \code{Rceattle}}
 
 \item{file}{name of a file to identified the files exported by the
 function.}
@@ -41,17 +41,21 @@ function.}
 
 \item{lwd}{Line width as specified by user}
 
+\item{lty}{Line type}
+
 \item{right_adj}{Multiplier for to add to the right side of the figure for fitting the legend.}
 
 \item{minyr}{first year to plot}
+
+\item{width}{Figure width in inches}
+
+\item{height}{Figure height in inches}
 
 \item{incl_proj}{TRUE/FALSE include projections years}
 
 \item{incl_mean}{TRUE/FALSE include time series mean as horizontal line}
 
 \item{add_ci}{TRUE/FALSE, includes 95 percent confidence interval}
-
-\item{mohns}{data.frame of mohn's rows extracted from \code{\link{retrospective}}}
 }
 \description{
 Function the plots the natural mortality at age (M1 + M2) as estimated from Rceattle. Returns and saves a figure with the M-at-age trajectory.

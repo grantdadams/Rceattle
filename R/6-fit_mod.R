@@ -1,7 +1,7 @@
 #' This functions runs CEATTLE
 #' @description This function estimates population parameters of CEATTLE using maximum likelihood in TMB.
 #'
-#' @param data_list a data_list read in using \code{\link{read_excel}}.
+#' @param data_list a data_list read in using \code{\link[readxl]{read_excel}}.
 #' @param inits (Optional) Character vector of named initial values from previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters. Can also construct using \code{\link{build_params}}
 #' @param map (Optional) A map object from \code{\link{build_map}}.
 #' @param bounds (Optional) A bounds object from \code{\link{build_bounds}}.
@@ -24,6 +24,7 @@
 #' @param suit_styr Integer. The first year used to calculate mean suitability. Defaults to $styr$ in $data_list$. Used when diet data were sampled from a subset of years.
 #' @param suit_endyr Integer. The last year used to calculate mean suitability. Defaults to $endyr$ in $data_list$. Used when diet data were sampled from a subset of years.
 #' @param getsd	TRUE/FALSE whether to run standard error calculation (default = TRUE).
+#' @param bias.correct logical. If TRUE, applies bias correction via \code{TMB::sdreport} (default = FALSE).
 #' @param use_gradient use the gradient to phase (default = TRUE).
 #' @param rel_tol The relative tolerance for discontinuous likelihood warnings. Set to 1. This evaluates the difference between the TMB object likelihood and the nlminb likelihood.
 #' @param control A list of control parameters. For details see \code{?nlminb}
@@ -69,21 +70,18 @@
 #'
 #'
 #' @examples
-#'# Load package and data
-#'library(Rceattle)
-#'data(BS2017SS) # ?BS2017SS for more information on the data
-#'
-#'
-#'# Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
-#'ss_run <- fit_mod(data_list = BS2017SS,
-#'    inits = NULL, # Initial parameters = 0
-#'    file = NULL, # Don't save
-#'    estimateMode = 0, # Estimate
-#'    random_rec = FALSE, # No random recruitment
-#'    msmMode = 0, # Single species mode
-#'    avgnMode = 0,
-#'    phase = FALSE,
-#'    silent = TRUE)
+#' \donttest{
+#' data(BS2017SS)
+#' ss_run <- fit_mod(data_list = BS2017SS,
+#'     inits = NULL,
+#'     file = NULL,
+#'     estimateMode = 0,
+#'     random_rec = FALSE,
+#'     msmMode = 0,
+#'     avgnMode = 0,
+#'     phase = FALSE,
+#'     verbose = 0)
+#' }
 #'
 #' @export
 fit_mod <-
@@ -121,7 +119,6 @@ fit_mod <-
     loopnum = 5,
     verbose = 1,
     newtonsteps = 0,
-    catch_hcr = FALSE,
     TMBfilename = NULL){
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -580,7 +577,7 @@ fit_mod <-
           })
 
           # Make into list if gradients were low for diagnostics
-          if(class(identified) != "character"){
+          if(!is.character(identified)){
             identified_param_list <- obj$env$parList(identified$BadParams$Param_check)
             identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==0,"Not estimated",x), how = "replace")
             identified_param_list <- rapply(identified_param_list,function(x) ifelse(x==1,"OK",x), how = "replace")
@@ -636,20 +633,22 @@ fit_mod <-
           step = step + 1
 
           # -- Optimize
-          opt = suppressMessages(
-            TMBhelper::fit_tmb(obj = obj,
-                               fn=obj$fn,
-                               gr=obj$gr,
-                               startpar=obj$par,
-                               loopnum = loopnum,
-                               getsd = getsd,
-                               control = control,
-                               bias.correct = bias.correct,
-                               bias.correct.control=list(sd=getsd),
-                               getJointPrecision = FALSE,
-                               quiet = verbose < 2,
+          if(data_list$HCR != 2){ # Fixed F does not need estimation
+            opt = suppressMessages(
+              TMBhelper::fit_tmb(obj = obj,
+                                 fn=obj$fn,
+                                 gr=obj$gr,
+                                 startpar=obj$par,
+                                 loopnum = loopnum,
+                                 getsd = getsd,
+                                 control = control,
+                                 bias.correct = bias.correct,
+                                 bias.correct.control=list(sd=getsd),
+                                 getJointPrecision = FALSE,
+                                 quiet = verbose < 2,
+              )
             )
-          )
+          }
         }
 
 
@@ -771,11 +770,13 @@ fit_mod <-
 
     # -- Warning for discontinuous likelihood
     if(estimateMode %in% c(0:2)){
-      if(!is.null(opt$SD) & random_rec == FALSE){
-        if(abs(opt$objective - quantities$jnll) > rel_tol){
-          message( "#################################################" )
-          message( "Convergence warning (8): discontinuous likelihood" )
-          message( "#################################################" )
+      if(!(estimateMode == 2 & data_list$HCR == 2)){ # no optimization of projections with fixed F
+        if(!is.null(opt$SD) & random_rec == FALSE){
+          if(abs(opt$objective - quantities$jnll) > rel_tol){
+            message( "#################################################" )
+            message( "Convergence warning (8): discontinuous likelihood" )
+            message( "#################################################" )
+          }
         }
       }
     }
@@ -791,9 +792,10 @@ fit_mod <-
     mod_objects$run_time = ((Sys.time() - start_time))
 
     if(estimateMode < 3){
-      mod_objects$opt = opt
-      mod_objects$sdrep = opt$SD
-
+      if(!(estimateMode == 2 & data_list$HCR == 2)){ # no optimization of projections with fixed F
+        mod_objects$opt = opt
+        mod_objects$sdrep = opt$SD
+      }
     }
 
     class(mod_objects) <- "Rceattle"

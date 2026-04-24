@@ -5,7 +5,7 @@
 #' @param data_list an Rceattle data_list
 #'
 #' @export
-#' @importFrom rlang .data#'
+#' @importFrom rlang .data
 #' @importFrom dplyr n
 #' @importFrom tidyselect contains
 rearrange_dat <- function(data_list){
@@ -517,13 +517,12 @@ rearrange_dat <- function(data_list){
 #'
 #' @return The modified `data_list` with NA values in `comp_obs` converted to 0.
 #' @examples
-#' # Example usage:
 #' data_list <- list(
-#'   comp_obs = matrix(c(1, 2, 3, 0, 4, 5), nrow = 2),
-#'   comp_data = data.frame(Species = c(1, 2), Sex = c(1, 3), Age0_Length1 = c(0, 1)),
-#'   nsex = c(1, 2),
-#'   nages = c(5, 6),
-#'   nlengths = c(10, 12)
+#'   comp_obs = matrix(c(1, 2, 3, 4, 5, 6), nrow = 2),
+#'   comp_data = data.frame(Species = c(1, 2), Sex = c(1, 1), Age0_Length1 = c(0, 0)),
+#'   nsex = c(1, 1),
+#'   nages = c(3, 3),
+#'   nlengths = c(3, 3)
 #' )
 #' cleaned_data_list <- check_composition_data(data_list)
 #'

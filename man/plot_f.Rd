@@ -27,7 +27,7 @@ plot_f(
 )
 }
 \arguments{
-\item{Rceattle}{Single or list of Rceattle model objects exported from \code{\link{Rceattle}}}
+\item{Rceattle}{Single or list of Rceattle model objects exported from \code{Rceattle}}
 
 \item{file}{name of a file to identified the files exported by the
 function.}
@@ -62,7 +62,7 @@ function.}
 
 \item{mod_avg}{is the list a model average? (DEPRECATED)}
 
-\item{mse}{Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}}
+\item{mse}{Is if an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}}
 
 \item{OM}{if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?}
 }

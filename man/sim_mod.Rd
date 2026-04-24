@@ -7,7 +7,7 @@
 sim_mod(Rceattle, simulate = FALSE)
 }
 \arguments{
-\item{Rceattle}{A CEATTLE model object exported from \code{\link{Rceattle}}.}
+\item{Rceattle}{A CEATTLE model object exported from \code{Rceattle}.}
 
 \item{simulate}{Logical. If \code{TRUE}, simulates data from distributions.
 If \code{FALSE}, returns the expected values (hats).}

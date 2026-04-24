@@ -1,5 +1,7 @@
 
-testthat::test_path("test-multi-spp-model.R")
+testthat::skip_on_cran()
+source(testthat::test_path("helpers-make-msm-data.R")) # for cran checks
+source(testthat::test_path("helpers.R"))
 testthat::test_dir("tests-Dynamics/")
 testthat::test_dir("tests-Mortality/")
 testthat::test_dir("tests-Likelihoods/")

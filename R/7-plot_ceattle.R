@@ -24,7 +24,7 @@ rich.colors.short <- function(n,alpha=1){
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param output derived quantity of interest: recruitment, biomass, ssb, depletion, or ssb_depletion. Uses same name as ".cpp" file.
 #' @param ylab Y-axis label
 #' @param model_names Names of models to be used in legend
@@ -39,7 +39,7 @@ rich.colors.short <- function(n,alpha=1){
 #' @param save Save derived quantity?
 #' @param incl_proj TRUE/FALSE, include projection years
 #' @param mod_cex Cex of text for model name legend
-#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}
+#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}
 #' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
 #' @param species What species to include 1:nspp
 #' @param maxyr max year to plot
@@ -47,6 +47,7 @@ rich.colors.short <- function(n,alpha=1){
 #' @param alpha shadding for confidence intervals
 #' @param mod_avg TRUE/FALSE
 #' @param reference Reference model
+#' @param legend.pos Position of the legend as used by \code{\link[graphics]{legend}} (default = "topright").
 #'
 #' @export
 #'
@@ -93,7 +94,7 @@ plot_timeseries <- function(Rceattle,
 
 
   # Convert single one into a list
-  if(class(Rceattle) == "Rceattle"){
+  if(inherits(Rceattle, "Rceattle")){
     Rceattle <- list(Rceattle)
   }
 
@@ -285,7 +286,7 @@ plot_timeseries <- function(Rceattle,
     if (i == 2) {
       filename <- paste0(file, "_", output,"_trajectory", ".png")
       png(
-        file = filename ,
+        filename = filename ,
         width = width,# 169 / 25.4,
         height = height,# 150 / 25.4,
         units = "in",
@@ -403,7 +404,7 @@ plot_timeseries <- function(Rceattle,
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
 #' @param spnames Species names for legend
@@ -416,7 +417,7 @@ plot_timeseries <- function(Rceattle,
 #' @param save Save derived quantity?
 #' @param incl_proj TRUE/FALSE, include projection years
 #' @param mod_cex Cex of text for model name legend
-#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}
+#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}
 #' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
 #' @param species What species to include 1:nspp
 #' @param maxyr max year to plot
@@ -424,6 +425,7 @@ plot_timeseries <- function(Rceattle,
 #' @param alpha shadding for confidence intervals
 #' @param mod_avg TRUE/FALSE
 #' @param reference Reference model
+#' @param legend.pos Position of the legend as used by \code{\link[graphics]{legend}} (default = \"topright\").
 #'
 #' @export
 #'
@@ -486,7 +488,7 @@ plot_biomass <- function(Rceattle,
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
 #' @param spnames Species names for legend
@@ -499,7 +501,7 @@ plot_biomass <- function(Rceattle,
 #' @param save Save derived quantity?
 #' @param incl_proj TRUE/FALSE, include projection years
 #' @param mod_cex Cex of text for model name legend
-#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}
+#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}
 #' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
 #' @param species What species to include 1:nspp
 #' @param maxyr max year to plot
@@ -507,6 +509,7 @@ plot_biomass <- function(Rceattle,
 #' @param alpha shadding for confidence intervals
 #' @param mod_avg TRUE/FALSE
 #' @param reference Reference model
+#' @param legend.pos Position of the legend as used by \code{\link[graphics]{legend}} (default = \"topright\").
 #'
 #' @export
 #'
@@ -569,7 +572,7 @@ plot_recruitment <- function(Rceattle,
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
 #' @param spnames Species names for legend
@@ -582,7 +585,7 @@ plot_recruitment <- function(Rceattle,
 #' @param save Save derived quantity?
 #' @param incl_proj TRUE/FALSE, include projection years
 #' @param mod_cex Cex of text for model name legend
-#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}
+#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}
 #' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
 #' @param species What species to include 1:nspp
 #' @param maxyr max year to plot
@@ -590,6 +593,7 @@ plot_recruitment <- function(Rceattle,
 #' @param alpha shadding for confidence intervals
 #' @param mod_avg TRUE/FALSE
 #' @param reference Reference model
+#' @param legend.pos Position of the legend as used by \code{\link[graphics]{legend}} (default = \"topright\").
 #'
 #' @export
 #'
@@ -652,7 +656,7 @@ plot_ssb <- function(Rceattle,
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
 #' @param spnames Species names for legend
@@ -665,7 +669,7 @@ plot_ssb <- function(Rceattle,
 #' @param save Save derived quantity?
 #' @param incl_proj TRUE/FALSE, include projection years
 #' @param mod_cex Cex of text for model name legend
-#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}
+#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}
 #' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
 #' @param species What species to include 1:nspp
 #' @param maxyr max year to plot
@@ -673,6 +677,7 @@ plot_ssb <- function(Rceattle,
 #' @param alpha shadding for confidence intervals
 #' @param mod_avg TRUE/FALSE
 #' @param reference Reference model
+#' @param legend.pos Position of the legend as used by \code{\link[graphics]{legend}} (default = \"topright\").
 #'
 #' @export
 #'
@@ -734,7 +739,7 @@ plot_exploitable_biomass <- function(Rceattle,
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
 #' @param spnames Species names for legend
@@ -747,7 +752,7 @@ plot_exploitable_biomass <- function(Rceattle,
 #' @param save Save derived quantity?
 #' @param incl_proj TRUE/FALSE, include projection years
 #' @param mod_cex Cex of text for model name legend
-#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}
+#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}
 #' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
 #' @param species What species to include 1:nspp
 #' @param maxyr max year to plot
@@ -755,6 +760,7 @@ plot_exploitable_biomass <- function(Rceattle,
 #' @param alpha shadding for confidence intervals
 #' @param mod_avg TRUE/FALSE
 #' @param reference Reference model
+#' @param legend.pos Position of the legend as used by \code{\link[graphics]{legend}} (default = \"topright\").
 #'
 #' @export
 #'
@@ -816,7 +822,7 @@ plot_depletionSSB <- function(Rceattle,
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
 #' @param spnames Species names for legend
@@ -829,7 +835,7 @@ plot_depletionSSB <- function(Rceattle,
 #' @param save Save derived quantity?
 #' @param incl_proj TRUE/FALSE, include projection years
 #' @param mod_cex Cex of text for model name legend
-#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}
+#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}
 #' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
 #' @param species What species to include 1:nspp
 #' @param maxyr max year to plot
@@ -837,6 +843,7 @@ plot_depletionSSB <- function(Rceattle,
 #' @param alpha shadding for confidence intervals
 #' @param mod_avg TRUE/FALSE
 #' @param reference Reference model
+#' @param legend.pos Position of the legend as used by \code{\link[graphics]{legend}} (default = \"topright\").
 #'
 #' @export
 #'
@@ -899,11 +906,13 @@ plot_depletion <- function(Rceattle,
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
 #' @param species Species names for legend
 #' @param lwd Line width as specified by user
+#' @param width Figure width in inches
+#' @param height Figure height in inches
 #'
 #' @export
 plot_selectivity <-
@@ -917,7 +926,7 @@ plot_selectivity <-
            lwd = 3) {
 
     # Convert single one into a list
-    if(class(Rceattle) == "Rceattle"){
+    if(inherits(Rceattle, "Rceattle")){
       Rceattle <- list(Rceattle)
     }
 
@@ -983,7 +992,7 @@ plot_selectivity <-
           if (i == 2) {
             filename <- paste0(file, "time-varying_selectivity_fleet",j,"_sex",legend_sex, ".png")
             png(
-              file = filename ,
+              filename = filename ,
               width = width,
               height = height,
               units = "in",
@@ -1028,7 +1037,7 @@ plot_selectivity <-
 
               filename <- paste0(file, "_terminal_selectivity_species",sp,"_sex",legend_sex, ".png")
               png(
-                file = filename ,
+                filename = filename ,
                 width = width,
                 height = height,
                 units = "in",
@@ -1085,12 +1094,13 @@ plot_selectivity <-
 
 #' Plot functional form
 #'
-#' @description Function to plot the functional form estimated or specified by \code{\link{Rceattle}}
+#' @description Function to plot the functional form estimated or specified by \code{Rceattle}
 #'
-#' @param params Parameter list object from \code{\link{build_params}} or \code{\link{Rceattle}}
+#' @param params Parameter list object from \code{\link{build_params}} or \code{Rceattle}
 #' @param pred Predator index
 #' @param pred_age Predator age
 #' @param prey Prey index
+#' @param msmMode Multispecies mode integer specifying functional form
 #' @export
 plot_form <- function( params = NULL, pred = 1, pred_age = 1, prey = 1, msmMode = 3){
 
@@ -1173,7 +1183,7 @@ plot_form <- function( params = NULL, pred = 1, pred_age = 1, prey = 1, msmMode 
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param incl_proj Include the projection years (TRUE/FALSE)
 #' @param zlim zlim for M1 + M2 plots. Character - use max range across species in model. NULL - use species specific ranges. Vector of two.
 #' @param type 0 = Tiles, 1 = contour, 2 = facet lines, 3 = persp
@@ -1181,7 +1191,7 @@ plot_form <- function( params = NULL, pred = 1, pred_age = 1, prey = 1, msmMode 
 #' @param height Plot height when saved "inches"
 #' @param title Additional title to add. Will also add species names if not NULL
 #' @param title_cex Font size for title
-#' @param spp Species to plot. Plots all if null.
+#' @param species Species to plot. Plots all if null.
 #' @param log TRUE/FALSE use log M1 + M2
 #' @param minyr First year to plot
 #' @param theta theta for persp plot
@@ -1207,7 +1217,7 @@ plot_mortality <-
            M2 = TRUE) {
 
     # Convert single one into a list
-    if(class(Rceattle) == "Rceattle"){
+    if(inherits(Rceattle, "Rceattle")){
       Rceattle <- list(Rceattle)
     }
 
@@ -1302,7 +1312,7 @@ plot_mortality <-
             if (i == 2) {
               filename <- paste0(file, "predation_and_residual_mortality_spp_",sp,"_sex_",legend_sex2,".png")
               png(
-                file = filename ,
+                filename = filename ,
                 width = width,
                 height = height,
                 units = "in",
@@ -1393,11 +1403,13 @@ plot_mortality <-
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
 #' @param species Species names for legend
 #' @param lwd Line width as specified by user
+#' @param width Figure width in inches
+#' @param height Figure height in inches
 #'
 #' @export
 plot_maturity <-
@@ -1411,7 +1423,7 @@ plot_maturity <-
            lwd = 3) {
 
     # Convert single one into a list
-    if(class(Rceattle) == "Rceattle"){
+    if(inherits(Rceattle, "Rceattle")){
       Rceattle <- list(Rceattle)
     }
 
@@ -1442,7 +1454,7 @@ plot_maturity <-
       if (i == 2) {
         filename <- paste0(file, "_maturity", ".png")
         png(
-          file = filename ,
+          filename = filename ,
           width = width,
           height = height,
           units = "in",
@@ -1520,18 +1532,24 @@ plot_maturity <-
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
 #' @param spnames Species names for legend
 #' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
 #' @param lwd Line width as specified by user
 #' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
-#' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
+#' @param save Save figure to file?
+#' @param width Figure width in inches
+#' @param height Figure height in inches
 #' @param minyr first year to plot
 #' @param incl_proj TRUE/FALSE include projections years
-#' @param incl_mean TRUE/FALSE include time series mean as horizontal line
 #' @param add_ci TRUE/FALSE, includes 95 percent confidence interval
+#' @param mod_cex Cex of text for model name legend
+#' @param alpha Shading for confidence intervals
+#' @param mod_avg TRUE/FALSE
+#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}
+#' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
 #'
 #' @export
 #'
@@ -1568,7 +1586,7 @@ plot_b_eaten <-  function(Rceattle,
 
 
   # Convert single one into a list
-  if(class(Rceattle) == "Rceattle"){
+  if(inherits(Rceattle, "Rceattle")){
     Rceattle <- list(Rceattle)
   }
 
@@ -1736,7 +1754,7 @@ plot_b_eaten <-  function(Rceattle,
     if (i == 2) {
       filename <- paste0(file, "_b_eaten_as_prey_trajectory", ".png")
       png(
-        file = filename ,
+        filename = filename ,
         width = width,# 169 / 25.4,
         height = height,# 150 / 25.4,
         units = "in",
@@ -1843,18 +1861,22 @@ plot_b_eaten <-  function(Rceattle,
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
 #' @param spnames Species names for legend
 #' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
 #' @param lwd Line width as specified by user
 #' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
+#' @param top_adj Adjustment for top margin
+#' @param width Figure width in inches
+#' @param height Figure height in inches
 #' @param minyr first year to plot
 #' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
 #' @param incl_proj TRUE/FALSE include projections years
 #' @param incl_mean TRUE/FALSE include horizontal long term mean
 #' @param add_ci TRUE/FALSE, includes 95 percent confidence interval
+#' @param mod_cex Cex of text for model name legend
 #'
 #' @export
 #'
@@ -1878,7 +1900,7 @@ plot_b_eaten_prop <-
            mod_cex = 1) {
 
     # Convert single one into a list
-    if(class(Rceattle) == "Rceattle"){
+    if(inherits(Rceattle, "Rceattle")){
       Rceattle <- list(Rceattle)
     }
 
@@ -1946,7 +1968,7 @@ plot_b_eaten_prop <-
       if (i == 2) {
         filename <- paste0(file, "_B_eaten_trajectory", ".png")
         png(
-          file = filename ,
+          filename = filename ,
           width = width,
           height = height,
           units = "in",
@@ -2056,15 +2078,17 @@ plot_b_eaten_prop <-
 #' @param file name of a file to identified the files exported by the
 #'   function.
 #' @param age Age to plot M at age
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
 #' @param spnames Species names for legend
 #' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
 #' @param lwd Line width as specified by user
+#' @param lty Line type
 #' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
+#' @param width Figure width in inches
+#' @param height Figure height in inches
 #' @param minyr first year to plot
-#' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
 #' @param incl_proj TRUE/FALSE include projections years
 #' @param incl_mean TRUE/FALSE include time series mean as horizontal line
 #' @param add_ci TRUE/FALSE, includes 95 percent confidence interval
@@ -2090,7 +2114,7 @@ plot_m_at_age <-
            add_ci = FALSE) {
 
     # Convert single one into a list
-    if(class(Rceattle) == "Rceattle"){
+    if(inherits(Rceattle, "Rceattle")){
       Rceattle <- list(Rceattle)
     }
 
@@ -2158,7 +2182,7 @@ plot_m_at_age <-
       if (i == 2) {
         filename <- paste0(file, "_m_at_age",age,"_trajectory", ".png")
         png(
-          file = filename ,
+          filename = filename ,
           width = width,
           height = height,
           units = "in",
@@ -2260,15 +2284,17 @@ plot_m_at_age <-
 #' @param file name of a file to identified the files exported by the
 #'   function.
 #' @param age Age to plot M at age
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
 #' @param spnames Species names for legend
 #' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
 #' @param lwd Line width as specified by user
 #' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
+#' @param top_adj Adjustment for top margin
+#' @param width Figure width in inches
+#' @param height Figure height in inches
 #' @param minyr first year to plot
-#' @param mohns data.frame of mohn's rows extracted from \code{\link{retrospective}}
 #' @param incl_proj TRUE/FALSE include projections years
 #' @param incl_mean TRUE/FALSE include time series mean as horizontal line
 #' @param add_ci TRUE/FALSE, includes 95 percent confidence interval
@@ -2294,7 +2320,7 @@ plot_m2_at_age_prop <-
            add_ci = FALSE) {
 
     # Convert single one into a list
-    if(class(Rceattle) == "Rceattle"){
+    if(inherits(Rceattle, "Rceattle")){
       Rceattle <- list(Rceattle)
     }
 
@@ -2360,7 +2386,7 @@ plot_m2_at_age_prop <-
       if (i == 2) {
         filename <- paste0(file, "_m2_at_age_prop",age,"_trajectory", ".png")
         png(
-          file = filename ,
+          filename = filename ,
           width = width,
           height = height,
           units = "in",
@@ -2475,7 +2501,7 @@ plot_m2_at_age_prop <-
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
 #' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
@@ -2488,7 +2514,7 @@ plot_m2_at_age_prop <-
 #' @param width plot width
 #' @param incl_proj TRUE/FALSE, include projection years
 #' @param mod_cex Cex of text for model name legend
-#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}
+#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}
 #' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
 #' @param maxyr max year to plot
 #' @param alpha shadding for confidence intervals
@@ -2532,7 +2558,7 @@ plot_f <- function(Rceattle,
 
 
   # Convert single one into a list
-  if(class(Rceattle) == "Rceattle"){
+  if(inherits(Rceattle, "Rceattle")){
     Rceattle <- list(Rceattle)
   }
 
@@ -2654,7 +2680,7 @@ plot_f <- function(Rceattle,
     if (i == 2) {
       filename <- paste0(file, "_f_trajectory", ".png")
       png(
-        file = filename ,
+        filename = filename ,
         width = width,# 169 / 25.4,
         height = height,# 150 / 25.4,
         units = "in",
@@ -2779,13 +2805,16 @@ plot_f <- function(Rceattle,
 #' @param file name of a file to identified the files exported by the
 #'   function.
 #' @param minage minage to plot ration (i.e. age "minage"+)
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
 #' @param spnames Species names for legend
 #' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
 #' @param lwd Line width as specified by user
+#' @param lty Line type
 #' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
+#' @param width Figure width in inches
+#' @param height Figure height in inches
 #' @param minyr first year to plot
 #' @param incl_proj TRUE/FALSE include projections years
 #' @param incl_mean TRUE/FALSE include time series mean as horizontal line
@@ -2812,7 +2841,7 @@ plot_ration <-
            add_ci = FALSE) {
 
     # Convert single one into a list
-    if(class(Rceattle) == "Rceattle"){
+    if(inherits(Rceattle, "Rceattle")){
       Rceattle <- list(Rceattle)
     }
 
@@ -2881,7 +2910,7 @@ plot_ration <-
       if (i == 2) {
         filename <- paste0(file, "_ration",minage,"plus_trajectory", ".png")
         png(
-          file = filename ,
+          filename = filename ,
           width = width,
           height = height,
           units = "in",

@@ -26,6 +26,8 @@ get_weight_at_age_r(
 
 \item{lengths_sp}{Vector. Boundaries of the length bins.}
 
+\item{length_at_age}{Array. Mean length at age from get_growth_matrix_r.}
+
 \item{growth_matrix}{Array. 4D array (sex, age, length, year) from get_growth_matrix_r.}
 
 \item{lw_params}{Array. Dimensions (sex, yr, 2).

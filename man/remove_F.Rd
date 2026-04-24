@@ -7,7 +7,7 @@
 remove_F(Rceattle)
 }
 \arguments{
-\item{Rceattle}{}
+\item{Rceattle}{A fitted Rceattle model object}
 }
 \description{
 Function to update hindcast and set F to 0.

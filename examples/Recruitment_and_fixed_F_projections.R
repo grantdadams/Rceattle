@@ -57,16 +57,16 @@ BS2017MS$fleet_control$proj_F_prop <- 1 # 1 fishing fleet per species
 
 # Re-run, without estimating
 ms_run_proj <- fit_mod(data_list = BS2017MS,
-                                 inits = ms_run$estimated_params, # Initial parameters from single species ests
-                                 file = NULL, # Don't save
-                                 estimateMode = 2, # Run in projection mode
-                                 HCR = build_hcr(HCR = 2,
-                                                 Ftarget = c(0.2342936, 0.513, 0.0774777)), # Set projection F mean historical F
-                                 niter = 5, # 5 iterations around population and predation dynamics
-                                 random_rec = FALSE, # No random recruitment
-                                 msmMode = 1, # MSVPA based
-                                 suitMode = 0, # empirical suitability
-                                 verbose = 1)
+                       inits = ms_run$estimated_params, # Initial parameters from single species ests
+                       file = NULL, # Don't save
+                       estimateMode = 2, # Run in projection mode
+                       HCR = build_hcr(HCR = 2,
+                                       Ftarget = c(0.2342936, 0.513, 0.0774777)), # Set projection F mean historical F
+                       niter = 5, # 5 iterations around population and predation dynamics
+                       random_rec = FALSE, # No random recruitment
+                       msmMode = 1, # MSVPA based
+                       suitMode = 0, # empirical suitability
+                       verbose = 1)
 plot_catch(ms_run_proj, incl_proj = T)
 
 
@@ -84,8 +84,8 @@ yrs_proj <- (nyrs + 1):nyrs_proj
 ms_run$estimated_params$rec_dev[,yrs_proj] <- replace(
   ms_run$estimated_params$rec_dev[,yrs_proj],
   values = stats::rnorm( length(ms_run$estimated_params$rec_dev[,yrs_proj]),
-                  mean = 0,
-                  sd = 0.707) # Assumed value from penalized likelihood
+                         mean = 0,
+                         sd = 0.707) # Assumed value from penalized likelihood
 )
 
 ms_run_proj2 <- Rceattle::fit_mod(data_list = BS2017MS,
@@ -123,7 +123,7 @@ plot_catch(Rceattle = mod_list, model_names = mod_names, incl_proj = TRUE)
 
 # For recruitment, the model can estimate recruitment deviates as random effects
 ss_re <- Rceattle::fit_mod(
-  data_list = mydata,
+  data_list = BS2017SS,
   inits = NULL, # Initial parameters = 0
   file = NULL, # Don't save
   estimateMode = 0, # Estimate

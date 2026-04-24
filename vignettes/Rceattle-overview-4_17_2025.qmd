@@ -1,8 +1,12 @@
 ---
 title: "An overview of Rceattle"
 author: "Grant Adams"
-format: pptx
+format: html
 editor: visual
+vignette: >
+  %\VignetteEngine{quarto::html}
+  %\VignetteIndexEntry{0. Rceattle: Overview}
+  %\VignetteEncoding{UTF-8}
 ---
 
 ## `Rceattle` overview
@@ -281,8 +285,6 @@ mymodel <- fit_mod(
 
 ::: {.column width="35%"}
 ```{r, eval = TRUE, echo = FALSE}
-library(gmRi)
-
 spr_fun <- function(F){
   ages = 1:10
   wt = 1:10
@@ -369,7 +371,7 @@ PFMCCat1FtargetsFlatfish <- sapply(Pvals, function(x) pfmccat1hcr_fun(Pcur = x, 
 par(mar = c(3, 3, 0.5, 0.5))
 
 # Colors (by EM/HCR)
-MPcols <- gmri_pal("mixed")(10)[1:8]
+MPcols <- 1:8 # gmRi::gmri_pal("mixed")(10)[1:8]
 
 plot(NA,NA, ylim = c(0, 1.4), xlim = c(0,1), ylab = NA, yaxt = "na", xlab = "Depletion")
 mtext(side = 2, "Fishing mortality (F)", line = 1.5)
@@ -501,7 +503,7 @@ plot_index(mymodel, species = 1)
 
 ------------------------------------------------------------------------
 
-```{r, echo = TRUE, eval = TRUE}
+```{r, echo = TRUE, eval = FALSE}
 plot_comp(mymodel)
 ```
 

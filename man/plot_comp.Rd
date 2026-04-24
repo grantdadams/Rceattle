@@ -15,7 +15,7 @@ plot_comp(
 )
 }
 \arguments{
-\item{Rceattle}{Single or list of Rceattle model objects exported from \code{\link{Rceattle}}}
+\item{Rceattle}{Single or list of Rceattle model objects exported from \code{Rceattle}}
 
 \item{file}{name of a file to identified the files exported by the
 function.}
@@ -25,6 +25,8 @@ function.}
 \item{species}{Species names for legend}
 
 \item{cex}{Line width as specified by user}
+
+\item{lwd}{Line width for observed data lines}
 
 \item{right_adj}{How many units of the x-axis to add to the right side of the figure for fitting the legend.}
 }

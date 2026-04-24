@@ -27,7 +27,7 @@ plot_b_eaten(
 )
 }
 \arguments{
-\item{Rceattle}{Single or list of Rceattle model objects exported from \code{\link{Rceattle}}}
+\item{Rceattle}{Single or list of Rceattle model objects exported from \code{Rceattle}}
 
 \item{file}{name of a file to identified the files exported by the
 function.}
@@ -44,15 +44,27 @@ function.}
 
 \item{lwd}{Line width as specified by user}
 
+\item{save}{Save figure to file?}
+
 \item{right_adj}{Multiplier for to add to the right side of the figure for fitting the legend.}
+
+\item{width}{Figure width in inches}
+
+\item{height}{Figure height in inches}
 
 \item{minyr}{first year to plot}
 
 \item{incl_proj}{TRUE/FALSE include projections years}
 
-\item{mohns}{data.frame of mohn's rows extracted from \code{\link{retrospective}}}
+\item{mod_cex}{Cex of text for model name legend}
 
-\item{incl_mean}{TRUE/FALSE include time series mean as horizontal line}
+\item{alpha}{Shading for confidence intervals}
+
+\item{mod_avg}{TRUE/FALSE}
+
+\item{mse}{Is if an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}}
+
+\item{OM}{if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?}
 }
 \description{
 Function the plots the biomass consumed trends as estimated from Rceattle. Returns and saves a figure with the biomass eaten trajectory.
