@@ -10,7 +10,7 @@ pred_CAAL3 <- matrix(0, nlengths, nages)
 sel_at_length  <- 1/(1+exp(-0.3 * (lengths - 35)))
 
 # Growth matrix (length-to-age)
-growth_matrix <- matrix(rnorm(nlengths*nages), nlengths, nages)
+growth_matrix <- matrix(stats::rnorm(nlengths*nages), nlengths, nages)
 growth_matrix <- apply(growth_matrix, 2, function(x) x/sum(x))
 alk <- solve(t(growth_matrix) %*% growth_matrix) %*% t(growth_matrix)
 

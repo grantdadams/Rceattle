@@ -206,11 +206,11 @@ revert_switches <- function(data_list) {
       Catchability = ifelse(as.character(.data$Catchability) %in% names(q_rev_map),
                             q_rev_map[as.character(.data$Catchability)],
                             .data$Catchability),
-      Comp_loglike = ifelse(as.character(.data$Comp_loglike) %in% names(comp_loglike_map),
-                            comp_loglike_map[as.character(.data$Comp_loglike)],
+      Comp_loglike = ifelse(as.character(.data$Comp_loglike) %in% names(comp_loglike_rev_map),
+                            comp_loglike_rev_map[as.character(.data$Comp_loglike)],
                             .data$Comp_loglike),
-      CAAL_loglike = ifelse(as.character(.data$CAAL_loglike) %in% names(comp_loglike_map),
-                            comp_loglike_map[as.character(.data$CAAL_loglike)],
+      CAAL_loglike = ifelse(as.character(.data$CAAL_loglike) %in% names(comp_loglike_rev_map),
+                            comp_loglike_rev_map[as.character(.data$CAAL_loglike)],
                             .data$CAAL_loglike)
     )
 

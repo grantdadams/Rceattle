@@ -196,7 +196,7 @@ make_test_data <- function(nyrs = 8, nprojyrs = 10, nages = 5, seed = NULL) {
   # Environmental data
   simData$env_data <- data.frame(
     Year = years,
-    Index1 = rnorm(nyrs)
+    Index1 = stats::rnorm(nyrs)
   )
 
   # Diet information Pyrs (relative foraging rate) ----

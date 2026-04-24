@@ -2,11 +2,15 @@
 title: "Example 1 - basics"
 format: html
 editor: visual
+vignette: >
+  %\VignetteEngine{quarto::html}
+  %\VignetteIndexEntry{1. Rceattle: An Introduction}
+  %\VignetteEncoding{UTF-8}
 ---
 
 ## Overview
 
-In this vignette we walk through fitting three models using the `Rceattle` package to run single- and multi-species stock assessment models. Rceattle is based on Holsman et al. (2016) and Adams et al. (2022) to fit single- and multi-species age structured models in TMB. The code base has been inspired by VAST, WHAM, and other TMB based packages and generalized for flexiblly fitting models with a variable number of species, surveys, and fishing fleets. In this example we apply Rceattle to walleye pollock, arrowtooth flounder, and Pacific cod in the Gulf of Alaska and Eastern Bering Sea. All functions have associated helper text using the `?`. Here, we demonstrate the basic workflow:
+In this vignette we walk through fitting three models using the `Rceattle` package to run single- and multi-species stock assessment models. Rceattle is based on Holsman et al. (2016) and Adams et al. (2022) to fit single- and multi-species age structured models in TMB. The code base has been inspired by VAST, WHAM, and other TMB based packages and generalized for flexibly fitting models with a variable number of species, surveys, and fishing fleets. In this example we apply Rceattle to walleye pollock, arrowtooth flounder, and Pacific cod in the Gulf of Alaska and Eastern Bering Sea. All functions have associated helper text using the `?`. Here, we demonstrate the basic workflow:
 
 1.  Install `Rceattle`
 
@@ -16,7 +20,7 @@ In this vignette we walk through fitting three models using the `Rceattle` packa
 
 -   model 1: three single-species assessment models jointly estimated with recruitment estimated as penalized effects;
 
--   model 2: as model 1, but with natural morality estimated for each species;
+-   model 2: as model 1, but with natural mortality estimated for each species;
 
 -   model 3: as model 2, but with recruitment estimated as random effects;
 
@@ -30,7 +34,7 @@ In this vignette we walk through fitting three models using the `Rceattle` packa
 
 `Rceattle` and associated dependencies and can be installed as follows:
 
-```{r}
+```{r, eval=FALSE}
 install.packages("pacman")
 install.packages("TMB", type = "source")
 install.packages("Matrix", type = "source")
@@ -59,7 +63,7 @@ devtools::install_github("grantdadams/Rceattle")
 
 To run `Rceattle` a data file must first be loaded. The data files from the 2017 single- and multi-species assessments for the Bering Sea is already loaded within the `Rceattle` package:
 
-```{r}
+```{r, warning=FALSE, message=FALSE}
 library(Rceattle)
 data("BS2017SS") # Single-species data. ?BS2017SS for more information on the data 
 data("BS2017MS") # Multi-species data. Note: the only difference is the residual mortality (M1_base) is lower
@@ -67,7 +71,7 @@ data("BS2017MS") # Multi-species data. Note: the only difference is the residual
 
 The data files can be written to excel, modified within excel, and read back into `R` as follows:
 
-```{r}
+```{r, message = FALSE}
 Rceattle::write_data(data_list = BS2017SS, file = "BS2017SS.xlsx")
 mydata <- Rceattle::read_data( file = "BS2017SS.xlsx")
 ```
@@ -78,7 +82,7 @@ A description of the inputs and file structure can be found on the first sheet (
 
 Models can be fit using the `fit_mod` function. For the first model we use fit three single-species model jointly with no stock-recruit curve and natural mortality is fixed as the input values (`mydata$M1_base`). The model has 7 fleets: 3 fishing fleets that target each species individually and 4 surveys (see `mydata$fleet_control`). The single-species model can be fit by setting `msmMode = 0` using the `Rceattle` function:
 
-```{r}
+```{r, message = FALSE}
 model_1 <- Rceattle::fit_mod(data_list = mydata,
                             inits = NULL, # Initial parameters = 0
                             file = NULL, # Don't save
@@ -91,7 +95,7 @@ model_1 <- Rceattle::fit_mod(data_list = mydata,
 
 Alternatively, we can estimate natural mortality using the `build_M1` function, where setting `M1_model = 1` estimates a single M for each species. Here, we also begin estimation at the maximum likelihood estimates from `model_1` using the `inits` argument:
 
-```{r}
+```{r, message = FALSE}
 model_2 <- Rceattle::fit_mod(data_list = mydata,
                               inits = model_1$estimated_params, # Start estimation at model 1's MLEs
                               file = NULL, # Don't save
@@ -107,7 +111,7 @@ model_2 <- Rceattle::fit_mod(data_list = mydata,
 
 To estimate `model_2` where recruitment is treated as random effects we can use the `random_rec` argument. For this model we also don't phase estimation to decrease run-time:
 
-```{r}
+```{r, message = FALSE}
 model_3 <- Rceattle::fit_mod(data_list = mydata,
                               inits = model_2$estimated_params, # Start estimation at model 2's MLEs
                               file = NULL, # Don't save
@@ -123,7 +127,7 @@ model_3 <- Rceattle::fit_mod(data_list = mydata,
 
 To estimate time- and age-varying natural mortality due to predation we can estimate the model in multi-species mode by setting `msmMode = 1`. This follows the MSVPA parameterization described in [Magnusson (1995)](https://link.springer.com/article/10.1007/BF00179756).
 
-```{r}
+```{r, message = FALSE}
 model_4 <- Rceattle::fit_mod(data_list = BS2017MS,
                             inits = model_2$estimated_params, # Initial parameters from single species estimates
                             M1Fun = build_M1(M1_model = 1,
@@ -143,7 +147,7 @@ model_4 <- Rceattle::fit_mod(data_list = BS2017MS,
 
 We can compare models by evaluating the marginal or joint negative log-likelihood, AIC, and retrospective analysis. NOTE, we can not compare models estimated using penalized likelihood vs marginal likelihood using AIC. The likelihood based components all can be found in the model objects build above:
 
-```{r, echo = FALSE}
+```{r, eval = FALSE}
 # Evaluate 1 model
 model_1$opt$AIC # AIC
 model_1$opt$objective # Negative log-likelihood
@@ -156,11 +160,8 @@ sapply(list(model_1, model_2, model_4), function(x) x$opt$AIC)
 
 We can also look at retrospective bias in each assessment using the `retrospective` function, which creates a list of model objects and a data.frame with mohn's rho calculations.
 
-```{r}
-model_1_retro <- retrospective(model_1, peels = 10)
-model_2_retro <- retrospective(model_2, peels = 10)
-model_3_retro <- retrospective(model_3, peels = 10)
-model_4_retro <- retrospective(model_4, peels = 10)
+```{r, message = FALSE, warning = FALSE}
+model_1_retro <- retrospective(model_1, peels = 7)
 
 plot_biomass(model_1_retro$Rceattle_list, model_names = paste("Species ", 1:3, "; mohns =", round(model_1_retro$mohns[1,2:4], 3)))
 ```
@@ -176,6 +177,9 @@ model_names <- list("single-spp", "Single-spp M", "Single-spp M - RE", "Multi-sp
 # Biomass
 plot_biomass(model_list, model_names = model_names, incl_proj = TRUE, add_ci = TRUE)
 
+```
+
+```{r, eval = FALSE}
 # Recruitment
 plot_recruitment(model_list, model_names = model_names, incl_proj = TRUE, add_ci = TRUE)
 
@@ -192,7 +196,7 @@ plot_depletion(model_list, model_names = model_names, incl_proj = FALSE, add_ci 
 
 Diagnostics plots include plotting selectivity, fits to composition data, index fit, and catch fit. Selectivity and composition plot functions can only input one model. Index and catch fit plots can take multiple model inputs.
 
-```{r}
+```{r, eval = FALSE}
 # Selectivity
 plot_selectivity(model_2)
 

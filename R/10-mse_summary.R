@@ -40,7 +40,7 @@ mse_summary <- function(mse, om_only = FALSE){
   nspp <- mse[[1]]$OM$data_list$nspp
   nsex <- mse[[1]]$OM$data_list$nsex
   flt_type <- mse[[1]]$OM$data_list$fleet_control$Fleet_type
-  flts <- mse[[1]]$OM$data_list$fleet_control$Fleet_code[which(flt_type == 1)]
+  flts <- mse[[1]]$OM$data_list$fleet_control$Fleet_code[which(flt_type == "Fishery")]
   nflts = length(flts)
   flt_spp <- mse[[1]]$OM$data_list$fleet_control$Species
   styr <- mse[[1]]$OM$data_list$styr
@@ -95,9 +95,11 @@ mse_summary <- function(mse, om_only = FALSE){
                              "OM no F: SSB Collapse",
                              "OM: SSB Collapse",
                              "OM: SSB Collapse from F")
-  mse_summary$Fleet_name <- c(rep(NA, nspp), mse[[1]]$OM$data_list$fleet_control$Fleet_name[flts], "All")
+  mse_summary$Fleet_name <- c(rep("Conservation metric", nspp), mse[[1]]$OM$data_list$fleet_control$Fleet_name[flts], "All")
   mse_summary$Fleet_code <- c(rep(NA, nspp), mse[[1]]$OM$data_list$fleet_control$Fleet_code[flts], "All")
-  mse_summary$Species <- c(mse[[1]]$OM$data_list$spnames, mse[[1]]$OM$data_list$fleet_control$Species[flts], "All")
+  mse_summary$Species <- c(mse[[1]]$OM$data_list$spnames,
+                           mse[[1]]$OM$data_list$spnames[mse[[1]]$OM$data_list$fleet_control$Species[flts]],
+                           "All")
 
 
   ## Catch performance metrics by fleet ----

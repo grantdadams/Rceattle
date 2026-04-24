@@ -7,7 +7,7 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-This is a working document describing how to convert a stock synthesis (SS) model to Rceattle. I am using the 2019 Pacific hake assessment because I found the stock synthesis files online on Nis’s MSE github (https://github.com/nissandjac/PacifichakeMSE/tree/master/inst/extdata/SS32019). All the information needed (apart from consumption and diet) for Rceattle should be within the SS data, wattage, and control files. Information in each of those can then be copied over to an Rceattle excel file. I am formatting this as if you are reading the SS files from top to bottom and adding to Rceattle. Rceattle variable names will be in italics.
+This is a working document describing how to convert the Hake stock synthesis (SS) model to Rceattle. I am using the 2019 Pacific hake assessment because I found the stock synthesis files online on Nis’s MSE github (https://github.com/nissandjac/PacifichakeMSE/tree/master/inst/extdata/SS32019). All the information needed (apart from consumption and diet) for Rceattle should be within the SS data, wattage, and control files. Information in each of those can then be copied over to an Rceattle excel file. I am formatting this as if you are reading the SS files from top to bottom and adding to Rceattle. Rceattle variable names will be in italics.
 
 
 •	Look at “meta_data” in Rceattle excel file for more information.
@@ -39,7 +39,7 @@ o	Also add in Fleet_names on Rceattle
 •	Copy catch_se to Log_sd (NOTE: Rceattle assumes a lognormal distribution and estimates annual F_devs)
 
 Copy the CPUE_and_surveyabundance_observations data in SS to “fleet_control” Rceattle excel sheet
-•	For units in SS, Rceattle can only do numbers or biomass. On the “fleet_control” sheet in Rceattle set Weight1_Numbers2 to 1 if biomass or 2 if numbers
+•	For units in SS, Rceattle can do numbers or biomass. On the “fleet_control” sheet in Rceattle set Weight1_Numbers2 to 1 if biomass or 2 if numbers
 •	Rceattle currently only has lognormal distribution implemented
 •	But you can estimate the SD of the index by adjusting Estimate_survey_sd on the “fleet_control” sheet in Rceattle
 o	For hake, survey SDs are derived from the acoustic survey and do not need to be estimated (Estimate_survey_sd

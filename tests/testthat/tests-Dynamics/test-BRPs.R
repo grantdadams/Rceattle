@@ -164,7 +164,7 @@ testthat::test_that("Test SPR0 calculation", {
   yrs <- GOA2018SS$styr:GOA2018SS$endyr
   nyrs <- length(yrs)
   R0 = 10:12
-  Rdev <- rnorm(nyrs)
+  Rdev <- stats::rnorm(nyrs)
 
   # Set params
   inits <- build_params(GOA2018SS)

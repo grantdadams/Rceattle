@@ -83,7 +83,7 @@ yrs_proj <- (nyrs + 1):nyrs_proj
 # Replace future rec_devs with numbers
 ms_run$estimated_params$rec_dev[,yrs_proj] <- replace(
   ms_run$estimated_params$rec_dev[,yrs_proj],
-  values = rnorm( length(ms_run$estimated_params$rec_dev[,yrs_proj]),
+  values = stats::rnorm( length(ms_run$estimated_params$rec_dev[,yrs_proj]),
                   mean = 0,
                   sd = 0.707) # Assumed value from penalized likelihood
 )

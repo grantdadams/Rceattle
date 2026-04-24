@@ -1,13 +1,17 @@
 ---
 title: "MSE testing"
 author: "Grant Adams"
-format: pptx
+format: html
 editor: visual
+vignette: >
+  %\VignetteEngine{quarto::html}
+  %\VignetteIndexEntry{2. MSEs: An Introduction}
+  %\VignetteEncoding{UTF-8}
 ---
 
 ## Fitting OMs
 
-```{r, echo = TRUE, eval = TRUE}
+```{r, message = FALSE, warning = FALSE,echo = TRUE, eval = TRUE}
 library(Rceattle)
 data("NorthernRockfish2022")
 nrdata <- NorthernRockfish2022
@@ -31,7 +35,9 @@ om <- Rceattle::fit_mod(
 
 ## Fitting EMs (Tier 3 HCR)
 
-```{r, echo = TRUE, eval = TRUE}
+We can use the `HCR = build_hcr()` argument in `fit_mod` to specify the HCR and BRPs of our management strategy.
+
+```{r, message = FALSE, echo = TRUE, eval = TRUE}
 em <- Rceattle::fit_mod(
   data_list = nrdata,
   estimateMode = 0, # Estimate
@@ -56,12 +62,12 @@ em <- Rceattle::fit_mod(
 
 ## Running MSEs
 
-```{r, echo = TRUE, eval = TRUE}
+```{r, message = FALSE, echo = TRUE, eval = TRUE}
 mse1 <- run_mse(
   om = om, em = em, 
   nsim = 10, 
   assessment_period = 2,
-  sampling_period = c(1, 2) # Fishery = fleet 1, BTS = fleet 2
+  sampling_period = c(1, 2) # Fishery = fleet 1 (annual), BTS = fleet 2 (biannual)
 )
 ```
 
@@ -90,7 +96,7 @@ plot_depletionSSB(
 
 ## Summary statistics
 
-```{r, echo = TRUE, eval = TRUE}
+```{r, warning = FALSE, echo = TRUE, eval = TRUE}
 library(kableExtra)
 mse_summ <- mse_summary(mse1)
 kable(mse_summ, digits = 2)
@@ -104,7 +110,7 @@ kable(mse_summ, digits = 2)
 
 ## Different BRPs
 
-```{r, echo = TRUE, eval = TRUE}
+```{r, message = FALSE, echo = TRUE, eval = TRUE}
 em2 <- Rceattle::fit_mod(
   data_list = nrdata,
   estimateMode = 0, # Estimate
@@ -123,13 +129,7 @@ em2 <- Rceattle::fit_mod(
                   Plimit = 0,    # No limit
                   Alpha = 0.1)
 )
-```
 
-------------------------------------------------------------------------
-
-## MSE 2
-
-```{r, echo = TRUE, eval = TRUE}
 mse2 <- run_mse(
   om = om, em = em2, 
   nsim = 10, 
@@ -142,7 +142,7 @@ mse2 <- run_mse(
 
 ## Triannual BTS
 
-```{r, echo = TRUE, eval = TRUE}
+```{r, message = FALSE, echo = TRUE, eval = TRUE}
 mse3 <- run_mse(
   om = om, em = em, 
   nsim = 10, 
@@ -155,7 +155,7 @@ mse3 <- run_mse(
 
 ## 4-year cycle and 50% sampling
 
-```{r, echo = TRUE, eval = TRUE}
+```{r, message = FALSE, echo = TRUE, eval = TRUE}
 mse4 <- run_mse(
   om = om, em = em, 
   nsim = 10, 
@@ -167,13 +167,17 @@ mse4 <- run_mse(
 
 ------------------------------------------------------------------------
 
-## Climate resilience
+## Climate MSE
 
-```{r, echo = TRUE, eval = TRUE}
+### Climate linked OM
+
+```{r, message = FALSE, echo = TRUE, eval = TRUE}
+# Simulate random environmental series
 nrdata$env_data <- data.frame(
   Year = nrdata$styr:nrdata$projyr,
   Index = 1:90 * 0.5 + rnorm(90))
 
+# Fit OM
 om2 <- Rceattle::fit_mod(
   data_list = nrdata,
   estimateMode = 0,  # Estimate
@@ -193,9 +197,9 @@ om2 <- Rceattle::fit_mod(
 plot_biomass(om2, incl_proj = TRUE)
 ```
 
-## MSE 5
+### Run MSE
 
-```{r, echo = TRUE, eval = TRUE}
+```{r, message = FALSE, echo = TRUE, eval = TRUE}
 mse5 <- run_mse(
   om = om2, em = em, 
   nsim = 10, 
@@ -212,8 +216,8 @@ mse5 <- run_mse(
 ```{r, echo = TRUE, eval = TRUE}
 mse_summ$MSE = 1
 mse_summ2 <- mse_summary(mse2); mse_summ2$MSE = 2
-mse_summ3 <- mse_summary(mse3); mse_summ3$MSE = 2
-mse_summ4 <- mse_summary(mse4); mse_summ4$MSE = 2
+mse_summ3 <- mse_summary(mse3); mse_summ3$MSE = 3
+mse_summ4 <- mse_summary(mse4); mse_summ4$MSE = 4
 
 kable(do.call("rbind", list(mse_summ, mse_summ2, mse_summ3, mse_summ4)) |>
         dplyr::relocate(MSE), digits = 2)

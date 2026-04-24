@@ -481,7 +481,7 @@ jitter <- function(Rceattle = NULL, njitter = 50, phase = FALSE, seed = 123) {
       inits[[j]] <- replace(inits[[j]],
                             values = ifelse(is.na(as.numeric(mapList[[par]])),
                                             as.numeric(inits[[j]]),
-                                            as.numeric(inits[[j]]) + rnorm(length(as.numeric(inits[[j]])), 0, 1))
+                                            as.numeric(inits[[j]]) + stats::rnorm(length(as.numeric(inits[[j]])), 0, 1))
       )
     }
 
