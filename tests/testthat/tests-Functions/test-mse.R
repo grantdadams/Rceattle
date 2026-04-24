@@ -1,8 +1,7 @@
 testthat::test_that("Test MSE - Tier 3 w no uncertainty", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
-
-  library(Rceattle)
+  testthat::skip_on_cran()
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # Data ----
@@ -23,7 +22,7 @@ testthat::test_that("Test MSE - Tier 3 w no uncertainty", {
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
                               phase = TRUE,
-                              verbose = 1)
+                              verbose = 0)
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # NPFMC Tier 3 ----
@@ -38,7 +37,7 @@ testthat::test_that("Test MSE - Tier 3 w no uncertainty", {
                                       Plimit = 0.2, # No fishing when SB<SB20
                                       Alpha = 0.05),
                       msmMode = 0, # Single species mode
-                      verbose = 1)
+                      verbose = 0)
   )
 
 

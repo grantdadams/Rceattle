@@ -31,7 +31,7 @@ plot_depletionSSB(
 )
 }
 \arguments{
-\item{Rceattle}{Single or list of Rceattle model objects exported from \code{\link{Rceattle}}}
+\item{Rceattle}{Single or list of Rceattle model objects exported from \code{Rceattle}}
 
 \item{file}{name of a file to identified the files exported by the
 function.}
@@ -52,6 +52,8 @@ function.}
 
 \item{right_adj}{Multiplier for to add to the right side of the figure for fitting the legend.}
 
+\item{legend.pos}{Position of the legend as used by \code{\link[graphics]{legend}} (default = \"topright\").}
+
 \item{width}{Figure width in inches}
 
 \item{height}{Figure height in inches}
@@ -70,7 +72,7 @@ function.}
 
 \item{mod_avg}{TRUE/FALSE}
 
-\item{mse}{Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}}
+\item{mse}{Is if an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}}
 
 \item{OM}{if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?}
 

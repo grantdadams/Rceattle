@@ -11,9 +11,9 @@ model_average(Rceattle, weights = NULL, uncertainty = FALSE, nboot = 10000)
 
 \item{weights}{vector of weights to be used for weighting models}
 
-\item{nboot}{Number of bootstraps taken from asymptotic distribution of MLEs. Default = 10000}
+\item{uncertainty}{TRUE/FALSE Sample uncertainty across derived quantities using weighted bootstrap from the asymptotic  distribution of MLEs}
 
-\item{Uncertainty}{TRUE/FALSE Sample uncertainty across derived quantities using weighted bootstrap from the asymptotic  distribution of MLEs}
+\item{nboot}{Number of bootstraps taken from asymptotic distribution of MLEs. Default = 10000}
 }
 \value{
 an Rceattle object with derived quantities weighted by the specified weights. The length of the derived quantities spans the years which overlap across all models.

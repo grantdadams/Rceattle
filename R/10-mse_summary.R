@@ -2,7 +2,7 @@
 
 #' Management strategy evaluation performance metric summary
 #'
-#' @param mse MSE runs from \code{\link{mse_run}} or \code{\link{load_mse}}
+#' @param mse MSE runs from \code{\link{run_mse}} or \code{\link{load_mse}}
 #' @param om_only only include performance metrics from OMs
 #'
 #' @return Alist of two data.frames with MSE summary statistics of performance metrics including:
@@ -25,8 +25,6 @@ mse_summary <- function(mse, om_only = FALSE){
   ############################################
   ## Set up
   ############################################
-  library(dplyr)
-
   # HCR Switches (make length of nspp if not)
   extend_length <- function(x, nspp){
     if(length(x) == nspp){ return(x)}
@@ -489,8 +487,8 @@ mse_summary <- function(mse, om_only = FALSE){
 
 #' Function to load .RDs files from MSE runs
 #'
-#' @param dir Directory used to save files from \code{\link{mse_run}}
-#' @param file file name used to save files from \code{\link{mse_run}}
+#' @param dir Directory used to save files from \code{\link{run_mse}}
+#' @param file file name used to save files from \code{\link{run_mse}}
 #'
 #' @return list of MSE simulations/run
 #' @export
@@ -503,16 +501,13 @@ check_mse <- function(dir = NULL, file = NULL){
   mse_files <- mse_files[order(mse_order)]
 
   ### Set up parallel processing
-  library(foreach)
-  library(doParallel)
-
-  cores = detectCores()-6
-  registerDoParallel(cores)
+  cores <- parallel::detectCores() - 6
+  doParallel::registerDoParallel(cores)
 
   # check_df <- data.frame(Dir = dir, File = mse_files, Use = NA, Ind = NA)
 
   # for(i in 1:length(mse_files)){
-  check_df <- foreach(i = 1:length(mse_files),
+  check_df <- foreach::foreach(i = 1:length(mse_files),
                       .combine = "rbind") %dopar% {
                         mse_tmp <- readRDS(file = paste0(dir,"/", mse_files[i]))
 
@@ -535,8 +530,8 @@ check_mse <- function(dir = NULL, file = NULL){
 
 #' Function to load .RDs files from MSE runs
 #'
-#' @param dir Directory used to save files from \code{\link{mse_run}}
-#' @param file file name used to save files from \code{\link{mse_run}}
+#' @param dir Directory used to save files from \code{\link{run_mse}}
+#' @param file file name used to save files from \code{\link{run_mse}}
 #' @param exclude index of MSE simulations not to load
 #' @param include_em wether the EMs should be loaded or not (default = TRUE)
 #'
@@ -556,11 +551,8 @@ load_mse <- function(dir = NULL, file = NULL, exclude = NULL, include_em = TRUE)
   }
 
   ### Set up parallel processing
-  library(foreach)
-  library(doParallel)
-
   # cores = (detectCores()/2)-1
-  # registerDoParallel(cores)
+  # doParallel::registerDoParallel(cores)
   mse_tmp <- list()
   for(i in 1:length(mse_files)){
     # mse <- foreach(i = 1:length(mse_files),

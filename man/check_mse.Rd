@@ -7,9 +7,9 @@
 check_mse(dir = NULL, file = NULL)
 }
 \arguments{
-\item{dir}{Directory used to save files from \code{\link{mse_run}}}
+\item{dir}{Directory used to save files from \code{\link{run_mse}}}
 
-\item{file}{file name used to save files from \code{\link{mse_run}}}
+\item{file}{file name used to save files from \code{\link{run_mse}}}
 }
 \value{
 list of MSE simulations/run

@@ -4,11 +4,13 @@
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
 #' @param species Species names for legend
 #' @param lwd Line width as specified by user
+#' @param width Figure width in inches
+#' @param height Figure height in inches
 #'
 #' @export
 plot_selectivity_vs_maturity <-
@@ -22,7 +24,7 @@ plot_selectivity_vs_maturity <-
            lwd = 3) {
 
     # Convert single one into a list
-    if(class(Rceattle) == "Rceattle"){
+    if(inherits(Rceattle, "Rceattle")){
       Rceattle <- list(Rceattle)
     }
 
@@ -91,7 +93,7 @@ plot_selectivity_vs_maturity <-
             if (i == 2) {
               filename <- paste0(file, "time-varying_selectivity_fleet",j,"_sex",legend_sex, "_w_maturity.png")
               png(
-                file = filename ,
+                filename = filename ,
                 width = width,
                 height = height,
                 units = "in",
@@ -153,7 +155,7 @@ plot_selectivity_vs_maturity <-
 
               filename <- paste0(file, "_terminal_selectivity_w_maturity_species",sp,"_sex",legend_sex, ".png")
               png(
-                file = filename ,
+                filename = filename ,
                 width = width,
                 height = height,
                 units = "in",

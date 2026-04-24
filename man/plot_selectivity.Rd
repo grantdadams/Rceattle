@@ -16,7 +16,7 @@ plot_selectivity(
 )
 }
 \arguments{
-\item{Rceattle}{Single or list of Rceattle model objects exported from \code{\link{Rceattle}}}
+\item{Rceattle}{Single or list of Rceattle model objects exported from \code{Rceattle}}
 
 \item{file}{name of a file to identified the files exported by the
 function.}
@@ -24,6 +24,10 @@ function.}
 \item{model_names}{Names of models to be used in legend}
 
 \item{line_col}{Colors of models to be used for line color}
+
+\item{width}{Figure width in inches}
+
+\item{height}{Figure height in inches}
 
 \item{species}{Species names for legend}
 

@@ -7,14 +7,16 @@
 plot_form(params = NULL, pred = 1, pred_age = 1, prey = 1, msmMode = 3)
 }
 \arguments{
-\item{params}{Parameter list object from \code{\link{build_params}} or \code{\link{Rceattle}}}
+\item{params}{Parameter list object from \code{\link{build_params}} or \code{Rceattle}}
 
 \item{pred}{Predator index}
 
 \item{pred_age}{Predator age}
 
 \item{prey}{Prey index}
+
+\item{msmMode}{Multispecies mode integer specifying functional form}
 }
 \description{
-Function to plot the functional form estimated or specified by \code{\link{Rceattle}}
+Function to plot the functional form estimated or specified by \code{Rceattle}
 }

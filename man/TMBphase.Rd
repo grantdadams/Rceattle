@@ -29,6 +29,10 @@ TMBphase(
 
 \item{model_name}{A string describing the model name. Must be the name of your .cpp file}
 
+\item{silent}{logical. If TRUE, suppresses output from TMB (default = TRUE).}
+
+\item{use_gradient}{logical. If TRUE, uses gradient in optimization (default = TRUE).}
+
 \item{control}{A list of control parameters. For details see \code{?nlminb}}
 }
 \value{
@@ -36,7 +40,7 @@ A list of parameter estimates and their standard errors
 }
 \description{
 This function runs TMB with ADMB-like phasing of parameter estimation.
-Function with normal inputs, passed via “...”, plus two additional arguments, “phase”
+Function with normal inputs, passed via "...", plus two additional arguments, "phase"
 Optimizer by default is nlminb
 phase is a tagged list where missing elements are populated with a vector of 1s, and non-missing elements are integers, and where the optimizer loops through values of phase while progressively changing map to turn on parameters
 }

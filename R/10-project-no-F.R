@@ -5,7 +5,7 @@
 #' Useful for determining dynamic reference points for multi-species models under climate-change.
 #'
 #'
-#' @param Rceattle
+#' @param Rceattle A fitted Rceattle model object
 #'
 #' @export
 #'

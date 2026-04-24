@@ -6,7 +6,7 @@
 #' (log-normal), catch-at-age/length composition (multinomial or dirichlet-multinomial), conditional-age-at-length (CAAL; multinomial or dirichlet-multinomial),
 #' and total catch (log-normal).
 #'
-#' @param Rceattle A CEATTLE model object exported from \code{\link{Rceattle}}.
+#' @param Rceattle A CEATTLE model object exported from \code{Rceattle}.
 #' @param simulate Logical. If \code{TRUE}, simulates data from distributions.
 #'   If \code{FALSE}, returns the expected values (hats).
 #'
@@ -175,7 +175,7 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
 
 #' Sample historical recruitment deviates and place in the projection
 #'
-#' @param Rceattle CEATTLE model object exported from \code{\link{Rceattle}}
+#' @param Rceattle CEATTLE model object exported from \code{Rceattle}
 #' @param sample_rec Include resampled recruitment deviates from the"hindcast" in the projection of the OM. Resampled deviates are used rather than sampling from N(0, sigmaR) because initial deviates bias R0 low. If false, uses mean of recruitment deviates.
 #' @param update_model Update model dynamics. Default = TRUE
 #' @param rec_trend Linear increase or decrease in mean recruitment from \code{endyr} to \code{projyr}. This is the terminal multiplier \code{mean rec * (1 + (rec_trend/projection years) * 1:projection years)}. Can be of length 1 or of length nspp. If length 1, all species get the same trend.
@@ -296,8 +296,11 @@ sample_rec <- function(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_tre
 #'
 #' @description Function to evaluate the simulation performance with regard to bias using the median relative error (MRE) and precision using the coefficient of variation.
 #'
-#' @param operating_mod CEATTLE model object exported from \code{\link{Rceattle}} to be used as the operating model
-#' @param simulation_mods List of CEATTLE model objects exported from \code{\link{Rceattle}} fit to simulated data
+#' @param operating_mod CEATTLE model object exported from \code{Rceattle} to be used as the operating model
+#' @param simulation_mods List of CEATTLE model objects exported from \code{Rceattle} fit to simulated data
+#' @param object character string specifying which part of the model to compare (default = "quantities")
+#' @return A data frame summarising simulation performance metrics
+#' @export
 compare_sim <- function(operating_mod, simulation_mods, object = "quantities") {
   # TODO update
 
@@ -515,6 +518,7 @@ get_growth_matrix_r <- function(fracyr, nsex_sp, nages_sp, nlengths_sp, nyrs,
 #' @param nlengths_sp Integer. Number of length bins.
 #' @param nyrs Integer. Number of years.
 #' @param lengths_sp Vector. Boundaries of the length bins.
+#' @param length_at_age Array. Mean length at age from get_growth_matrix_r.
 #' @param growth_matrix Array. 4D array (sex, age, length, year) from get_growth_matrix_r.
 #' @param lw_params Array. Dimensions (sex, yr, 2).
 #'   Params: 1st is alpha (a), 2nd is beta (b).

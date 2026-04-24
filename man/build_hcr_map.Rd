@@ -17,9 +17,11 @@ build_hcr_map(
 
 \item{map}{a map object created from \code{\link{build_map}}.}
 
-\item{HCRiter}{for multi-species models, the order in which to project fishing (e.g. predators first, then prey)}
+\item{debug}{logical. If TRUE, turns off all parameters for debugging (default = FALSE).}
 
-\item{TRUE/FALSE}{map out all parameters}
+\item{all_params_on}{logical. If TRUE, leaves all hindcast parameters turned on (default = FALSE).}
+
+\item{HCRiter}{for multi-species models, the order in which to project fishing (e.g. predators first, then prey)}
 }
 \value{
 a list of map arguments for each parameter

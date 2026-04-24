@@ -1,7 +1,7 @@
 #' Run TMB using phases
 #'
 #' This function runs TMB with ADMB-like phasing of parameter estimation.
-#' Function with normal inputs, passed via “...”, plus two additional arguments, “phase”
+#' Function with normal inputs, passed via "...", plus two additional arguments, "phase"
 #' Optimizer by default is nlminb
 #' phase is a tagged list where missing elements are populated with a vector of 1s, and non-missing elements are integers, and where the optimizer loops through values of phase while progressively changing map to turn on parameters
 #'
@@ -10,6 +10,8 @@
 #' @param  map a list of map object from the model
 #' @param  random A character vector of names of parameters that are random effects
 #' @param  phases A list of the phases for the parameters of the model (same structure as your parameter list)
+#' @param silent logical. If TRUE, suppresses output from TMB (default = TRUE).
+#' @param use_gradient logical. If TRUE, uses gradient in optimization (default = TRUE).
 #' @param control A list of control parameters. For details see \code{?nlminb}
 #' @param  model_name A string describing the model name. Must be the name of your .cpp file
 #' @return A list of parameter estimates and their standard errors

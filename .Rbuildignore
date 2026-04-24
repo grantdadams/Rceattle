@@ -2,3 +2,5 @@
 ^\.Rproj\.user$
 ^doc$
 ^Meta$
+^BS2017SS\.xlsx$
+^Rceattle_.*\.tar\.gz$

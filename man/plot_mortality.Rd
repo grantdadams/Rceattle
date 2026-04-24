@@ -23,7 +23,7 @@ plot_mortality(
 )
 }
 \arguments{
-\item{Rceattle}{Single or list of Rceattle model objects exported from \code{\link{Rceattle}}}
+\item{Rceattle}{Single or list of Rceattle model objects exported from \code{Rceattle}}
 
 \item{file}{name of a file to identified the files exported by the
 function.}
@@ -46,13 +46,13 @@ function.}
 
 \item{theta}{theta for persp plot}
 
+\item{species}{Species to plot. Plots all if null.}
+
 \item{maxage}{Plot up to this age. Plots all ages if NULL}
 
 \item{title_cex}{Font size for title}
 
 \item{M2}{TRUE/FALSE Use M2 only (True) or total M (False)}
-
-\item{spp}{Species to plot. Plots all if null.}
 }
 \description{
 Function the plots the M1 and M2 as estimated from Rceattle

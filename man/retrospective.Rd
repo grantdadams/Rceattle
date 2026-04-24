@@ -32,16 +32,13 @@ Calculate Mohn's rho and run retrospective peels for an Rceattle model. The func
 }
 }
 \examples{
-data(BS2017SS) # ?BS2017SS for more information on the data
-data('BS2017MS') # Note: the only difference is the residual mortality is lower
-
-ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
-                            inits = NULL, # Initial parameters = 0
-                            file = NULL, # Don't save
-                            debug = 0, # Estimate
-                            random_rec = FALSE, # No random recruitment
-                            msmMode = 0, # Single species mode
-                            silent = TRUE)
-
+\donttest{
+data(BS2017SS)
+ss_run <- fit_mod(data_list = BS2017SS,
+    inits = NULL, file = NULL,
+    estimateMode = 0, random_rec = FALSE,
+    msmMode = 0, avgnMode = 0,
+    phase = FALSE, verbose = 0)
 retro <- retrospective(ss_run, peels = 10)
+}
 }

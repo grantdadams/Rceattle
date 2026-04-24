@@ -2,8 +2,8 @@
 #'
 #' @description Runs a forward projecting MSE. Main assumptions are the projected selectivity/catchability, foraging days, and weight-at-age are the same as the terminal year of the hindcast in the operating model. Assumes survey sd is same as average across historic time series, while comp data sample size is same as last year. No implementation error and no observation error for catch!
 #'
-#' @param om CEATTLE model object exported from \code{\link{Rceattle}}
-#' @param em CEATTLE model object exported from \code{\link{Rceattle}}
+#' @param om CEATTLE model object exported from \code{Rceattle}
+#' @param em CEATTLE model object exported from \code{Rceattle}
 #' @param nsim Number of simulations to run (default 10)
 #' @param start_sim First simulation number to start at. Useful if the code stops at specific seed/sim (default = 1).
 #' @param assessment_period Period of years that each assessment is taken
@@ -21,6 +21,7 @@
 #' @param seed seed for the simulation
 #' @param regenerate_seed seed for regenerating data
 #' @param timeout length of time (minutes) estimation will run before stopping a sim (default 999 minutes)
+#' @param endyr Terminal year of the MSE projection. Default = NA uses \code{projyr} from the operating model.
 #'
 #' @return A list of operating models (differ by simulated recruitment determined by \code{nsim}) and estimation models fit to each operating model (differ by terminal year).
 #' @export
@@ -34,7 +35,6 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
   # MSE SETUP ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   '%!in%' <- function(x,y)!('%in%'(x,y))
-  library(dplyr)
   set.seed(regenerate_seed)
 
   Rceattle_OM_list <- list()
@@ -441,15 +441,10 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
   # DO THE MSE ----
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   ### Set up parallel processing
-  library(foreach)
-  library(doParallel)
+  cores = parallel::detectCores() - 6
+  doParallel::registerDoParallel(cores)
 
-  cores = detectCores() - 6
-  registerDoParallel(cores)
-
-  sim_list <- foreach(sim = start_sim:nsim) %dopar% {
-    library(Rceattle)
-    library(dplyr)
+  sim_list <- foreach::foreach(sim = start_sim:nsim, .packages = c("Rceattle", "dplyr")) %dopar% {
 
     set.seed(seed = seed + sim) # setting unique seed for each simulation
     kill_sim <- list(kill_sim = FALSE, failure = NA)
@@ -931,7 +926,7 @@ run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessme
   } # End sim loop
 
   # When you're done, clean up the cluster
-  stopImplicitCluster()
+  doParallel::stopImplicitCluster()
   names(sim_list) <- paste0("Sim_", start_sim:nsim)
 
   if(is.null(dir)){

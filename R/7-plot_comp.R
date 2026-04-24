@@ -4,10 +4,11 @@
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param model_names Names of models to be used in legend
 #' @param species Species names for legend
 #' @param cex Line width as specified by user
+#' @param lwd Line width for observed data lines
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
 #'
 #' @return Returns and saves a figure
@@ -22,7 +23,7 @@ plot_comp <-
            right_adj = 0) {
 
     # Make sure we are using only one model
-    if(class(Rceattle) != "Rceattle"){
+    if(!inherits(Rceattle, "Rceattle")){
       stop("Please only use one Rceattle model")
     }
 
@@ -69,7 +70,7 @@ plot_comp <-
     #     if (i == 2) {
     #       filename <- paste0(file, c("_survey_age_comps_1", "_survey_length_comps_1")[comp_type + 1], ".png")
     #       png(
-    #         file = filename ,
+    #         filename = filename ,
     #         width = 7,# 169 / 25.4,
     #         height = 6.5,# 150 / 25.4,
     #
@@ -193,7 +194,7 @@ plot_comp <-
             if (i == 2) {
               filename <- paste0(file, paste0(c("_comps_pearson_residual_", "_comps_pearson_residual_"), "fleet_code_",srv[j] )[comp_type + 1], ".png")
               png(
-                file = filename ,
+                filename = filename ,
                 width = 7,# 169 / 25.4,
                 height = 6.5,# 150 / 25.4,
 
@@ -254,12 +255,12 @@ plot_comp <-
 
             # Positive
             x_loc <- c(max(abs(comp_tmp$Year), na.rm = T) - 6, max(abs(comp_tmp$Year), na.rm = T) - 3.5, max(abs(comp_tmp$Year), na.rm = T) - 1)
-            symbols( x = x_loc , y = rep(nages[sp] * 1.1, 3) , circle = round(seq(from = 1, to = max_pearson, length.out = 3) , round), inches=0.20,add=T, bg = colvec[3])
+            symbols( x = x_loc , y = rep(nages[sp] * 1.1, 3) , circles = round(seq(from = 1, to = max_pearson, length.out = 3) , round), inches=0.20,add=T, bg = colvec[3])
             text(x = x_loc, y = rep(nages[sp] * 1.23, 3), labels = round(seq(from = 1, to = max_pearson, length.out = 3) , round))
 
             # Negative
             x_loc <- c(max(abs(comp_tmp$Year), na.rm = T) - 8.5, max(abs(comp_tmp$Year), na.rm = T) - 11, max(abs(comp_tmp$Year), na.rm = T) - 13.5)
-            symbols( x = x_loc , y = rep(nages[sp] * 1.1, 3) , circle = -round(seq(from = -1, to = -max_pearson, length.out = 3) , round), inches=0.20,add=T, bg = NA)
+            symbols( x = x_loc , y = rep(nages[sp] * 1.1, 3) , circles = -round(seq(from = -1, to = -max_pearson, length.out = 3) , round), inches=0.20,add=T, bg = NA)
             text(x = x_loc, y = rep(nages[sp] * 1.23, 3), labels = round(seq(from = -1, to = -max_pearson, length.out = 3) , round) )
 
 
@@ -289,7 +290,7 @@ plot_comp <-
               comp_tmp$bg_colors <- ifelse(comp_tmp$pearson > 0, comp_tmp$colors, NA)
 
               # Plot
-              symbols( x = comp_tmp$Year , y = comp_tmp$age , circle = abs(comp_tmp$pearson), inches=0.2,add=T, bg = comp_tmp$bg_colors, fg = comp_tmp$colors)
+              symbols( x = comp_tmp$Year , y = comp_tmp$age , circles = abs(comp_tmp$pearson), inches=0.2,add=T, bg = comp_tmp$bg_colors, fg = comp_tmp$colors)
             }
 
 
@@ -322,7 +323,7 @@ plot_comp <-
             if (i == 2) {
               filename <- paste0(file, paste0(c("_age_comps_histograms_", "_length_comps_histograms_"), "fleet_code_",srv[j] )[comp_type + 1], ".png")
               png(
-                file = filename ,
+                filename = filename ,
                 width = 7,# 169 / 25.4,
                 height = 6.5,# 150 / 25.4,
 
@@ -504,7 +505,7 @@ plot_comp <-
             if (i == 2) {
               filename <- paste0(file, paste0(c("_aggregated_age_comps_histograms_", "_aggregated_length_comps_histograms_"), "fleet_code_",srv[j] )[comp_type + 1], ".png")
               png(
-                file = filename ,
+                filename = filename ,
                 width = 7,# 169 / 25.4,
                 height = 6.5,# 150 / 25.4,
 
@@ -668,7 +669,7 @@ plot_comp <-
 #' If prey_age < 0 and pred_age < -500, diet data are weighted mean diet proportion of prey-spp in predator-spp (sum across prey ages and take weighted mean across predator ages)
 #'
 #'
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param file name of a file to identified the files exported by the function.
 #' @param species Species names for legend
 #'

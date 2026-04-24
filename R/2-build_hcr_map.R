@@ -4,7 +4,8 @@
 #'
 #' @param data_list an Rceattle data_list
 #' @param map a map object created from \code{\link{build_map}}.
-#' @param TRUE/FALSE map out all parameters
+#' @param debug logical. If TRUE, turns off all parameters for debugging (default = FALSE).
+#' @param all_params_on logical. If TRUE, leaves all hindcast parameters turned on (default = FALSE).
 #' @param HCRiter for multi-species models, the order in which to project fishing (e.g. predators first, then prey)
 #'
 #' @return a list of map arguments for each parameter

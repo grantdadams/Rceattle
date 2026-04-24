@@ -25,13 +25,12 @@ This function checks the composition data for zero sum rows, handles NA values,
 and verifies that the composition data spans the required range of ages/lengths.
 }
 \examples{
-# Example usage:
 data_list <- list(
-  comp_obs = matrix(c(1, 2, 3, 0, 4, 5), nrow = 2),
-  comp_data = data.frame(Species = c(1, 2), Sex = c(1, 3), Age0_Length1 = c(0, 1)),
-  nsex = c(1, 2),
-  nages = c(5, 6),
-  nlengths = c(10, 12)
+  comp_obs = matrix(c(1, 2, 3, 4, 5, 6), nrow = 2),
+  comp_data = data.frame(Species = c(1, 2), Sex = c(1, 1), Age0_Length1 = c(0, 0)),
+  nsex = c(1, 1),
+  nages = c(3, 3),
+  nlengths = c(3, 3)
 )
 cleaned_data_list <- check_composition_data(data_list)
 

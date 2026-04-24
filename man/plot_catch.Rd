@@ -26,7 +26,7 @@ plot_catch(
 )
 }
 \arguments{
-\item{Rceattle}{Single or list of Rceattle model objects exported from \code{\link{Rceattle}}}
+\item{Rceattle}{Single or list of Rceattle model objects exported from \code{Rceattle}}
 
 \item{file}{name of a file to identified the files exported by the
 function.}
@@ -57,7 +57,7 @@ function.}
 
 \item{maxyr}{Max year to plot}
 
-\item{mse}{Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}. Will plot data from OMs.}
+\item{mse}{Is if an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}. Will plot data from OMs.}
 
 \item{error}{Include observed data with error bars?}
 

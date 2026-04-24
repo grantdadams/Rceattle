@@ -21,7 +21,7 @@ plot_stock_recruit(
 )
 }
 \arguments{
-\item{Rceattle}{Single or list of Rceattle model objects exported from \code{\link{Rceattle}}}
+\item{Rceattle}{Single or list of Rceattle model objects exported from \code{Rceattle}}
 
 \item{file}{name of a file to identified the files exported by the
 function.}
@@ -30,13 +30,23 @@ function.}
 
 \item{line_col}{Colors of models to be used for line color}
 
+\item{width}{Figure width in inches}
+
+\item{height}{Figure height in inches}
+
 \item{species}{Which species to plot e.g. c(1,4). Default = NULL plots them all}
 
 \item{spnames}{Species names for legend}
 
 \item{lwd}{Line width as specified by user}
 
+\item{lty}{Line type}
+
 \item{incl_proj}{TRUE/FALSE, include projection years for environmental relationship}
+
+\item{plot_env}{TRUE/FALSE, plot environmental covariate relationship}
+
+\item{mod_cex}{Cex of text for model name legend}
 }
 \description{
 Function the plots the stock recruit function as estimated from Rceattle
