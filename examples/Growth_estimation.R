@@ -18,6 +18,8 @@ data(whamGrowthData)
 # - The lengths from the caal data will be used for growth estimation
 # - if the number of lengths in the caal_data for each species does not match "data$nlengths" it will produce an error.
 head(whamGrowthData$caal_data)
+whamGrowthData$fleet_control$Selectivity <- "Logistic"
+whamGrowthData$fleet_control$Selectivity_dimension <- "Length"
 
 # - To convert length-at-age to weight-at-age Rceattle uses time- and sex-invariant power equation: W = a * L ^ b
 # - with parameters specified in the data for each species
