@@ -48,7 +48,7 @@ vbgf_model <- Rceattle::fit_mod(data_list = whamGrowthData,
                             verbose = 1)
 
 richards_model <- Rceattle::fit_mod(data_list = whamGrowthData,
-                                inits = NULL,       # Initial parameters at default
+                                inits = vbgf_model$estimated_params, # Initial parameters from above
                                 estimateMode = 0,   # Estimate
                                 growthFun = build_growth(growth_model = 2), # Richards
                                 random_rec = FALSE, # No random recruitment
@@ -65,7 +65,7 @@ double_data$spnames <- c(1,2)
 double_model <- Rceattle::fit_mod(data_list = double_data,
                                     inits = NULL,       # Initial parameters at default
                                     estimateMode = 0,   # Estimate
-                                    growthFun = build_growth(growth_model = c(1,1)), # Richards
+                                    growthFun = build_growth(growth_model = c(1,1)), # VBGF
                                     random_rec = FALSE, # No random recruitment
                                     msmMode = 0,        # Single species mode
                                     phase = TRUE,
@@ -75,7 +75,7 @@ double_model <- Rceattle::fit_mod(data_list = double_data,
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # Plot and compare ----
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-plot_biomass(list(double_model, vbgf_model, richards_model), species = 1, model_names = c("VBGF", "Richards"), incl_proj = TRUE)
+plot_biomass(list(vbgf_model, richards_model), species = 1, model_names = c("VBGF", "Richards"), incl_proj = TRUE)
 
 # - AIC
 vbgf_model$opt$AIC
