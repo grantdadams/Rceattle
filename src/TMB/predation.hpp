@@ -55,12 +55,14 @@ void calculate_vulnerability(matrix<Type> &vulnerability,
  * highly optimized pass. It calculates the relative size ratio of predators to prey and evaluates
  * that ratio against a specified probability distribution function to determine suitability.
  * The `suitMode` switch dictates both the distribution and the biological metric used:
- * - suitMode = 1: Gamma distribution (Length-based)
+ * - suitMode = 1: Gamma distribution (Length-based)       [NOT YET AVAILABLE -- blocked in data_check()]
  * - suitMode = 2: Gamma distribution (Weight-based)
- * - suitMode = 3: Lognormal distribution (Length-based)
+ * - suitMode = 3: Lognormal distribution (Length-based)   [NOT YET AVAILABLE -- blocked in data_check()]
  * - suitMode = 4: Lognormal distribution (Weight-based)
  * - suitMode = 5: Normal distribution (Length-based)
  * - suitMode = 6: Normal distribution (Weight-based)
+ * Note: length-based modes (1, 3) require a growth model to be active and are blocked
+ * at the R level until a growth-model validation pass is added to data_check().
  *
  * @param suitability         Array updated with size-based suitability [nspp*max_sex, nspp*max_sex, max_age, max_age, nyrs].
  * @param suit_other          Array updated with the baseline vulnerability to "other food" [nspp, max_sex, max_age, nyrs].
