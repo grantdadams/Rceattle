@@ -205,7 +205,7 @@ rearrange_dat <- function(data_list){
       dplyr::arrange(.data$Species, .data$Length) |>
       dplyr::group_by(.data$Species) |>
       dplyr::mutate(Bin = paste0("Bin", 1:dplyr::n())) |>
-      tidyr::pivot_wider(names_from = .data$Bin, values_from = .data$Length)
+      tidyr::pivot_wider(names_from = "Bin", values_from = "Length")
 
     data_list$lengths[caal_lengths$Species, 1:ncol(caal_lengths[,-1])] <- as.matrix(caal_lengths[,-1])
 
