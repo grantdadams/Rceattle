@@ -11,3 +11,9 @@
 ^\.\.Rcheck$
 ^\.DS_Store$
 ^.*/\.DS_Store$
+^R/dev$
+^src/TMB/Dev$
+^cran-comments\.md$
+^CRAN-SUBMISSION$
+^\.github$
+^\.lintr$
