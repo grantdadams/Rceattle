@@ -23,6 +23,7 @@ LazyDataCompression: xz
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Imports:
+    dplyr,
     ggplot2,
     MASS,
     oce,
@@ -51,12 +52,9 @@ Suggests:
     rmarkdown,
     knitr,
     kableExtra,
-    quarto,
     mvtnorm,
     magrittr
 VignetteBuilder:
-    knitr,
-    quarto
+    knitr
 Depends:
-    dplyr,
     R (>= 4.1.0)

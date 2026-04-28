@@ -29,6 +29,6 @@ pacman::p_load(dplyr,
                doParallel)
 
 # Install Rceattle
-devtools::install_github("grantdadams/Rceattle")
+devtools::install_github("grantdadams/Rceattle", ref = "dev", build_vignettes = TRUE)
 
 
