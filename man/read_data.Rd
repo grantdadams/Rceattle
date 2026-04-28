@@ -16,6 +16,8 @@ Read a CEATTLE excel data file
 
 library(Rceattle)
 data(BS2017SS)
-write_data(data_list = BS2017SS, file = 'BS2017SS.xlsx')
-data_list <- read_data(file = 'BS2017SS.xlsx')
+out_file <- file.path(tempdir(), "BS2017SS.xlsx")
+write_data(data_list = BS2017SS, file = out_file)
+data_list <- read_data(file = out_file)
+file.remove(out_file)
 }
