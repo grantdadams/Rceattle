@@ -272,11 +272,11 @@ plot_timeseries <- function(Rceattle,
   ymin <- c()
   for (sp in 1:nspp) {
     if (add_ci & (estDynamics[sp] == 0)) {
-      ymax[sp] <- max(c(quantity_upper95[sp, , ], 0), na.rm = T)
-      ymin[sp] <- min(c(quantity_upper95[sp, , ], 0), na.rm = T)
+      ymax[sp] <- max(c(quantity_upper95[sp, , ], 0), na.rm = TRUE)
+      ymin[sp] <- min(c(quantity_upper95[sp, , ], 0), na.rm = TRUE)
     } else{
-      ymax[sp] <- max(c(quantity[sp, , ], 0), na.rm = T)
-      ymin[sp] <- min(c(quantity[sp, , ], 0), na.rm = T)
+      ymax[sp] <- max(c(quantity[sp, , ], 0), na.rm = TRUE)
+      ymin[sp] <- min(c(quantity[sp, , ], 0), na.rm = TRUE)
     }
   }
   ymax <- ymax * 1.2
@@ -961,8 +961,8 @@ plot_selectivity <-
     ymax_sel <- c()
     ymin_sel <- c()
     for (i in 1:dim(selectivity_array)[1]) {
-      ymax_sel[i] <- max(c(selectivity_array[i,,,,], 0), na.rm = T)
-      ymin_sel[i] <- min(c(selectivity_array[i,,,,], 0), na.rm = T)
+      ymax_sel[i] <- max(c(selectivity_array[i,,,,], 0), na.rm = TRUE)
+      ymin_sel[i] <- min(c(selectivity_array[i,,,,], 0), na.rm = TRUE)
     }
 
     if (is.null(line_col)) {
@@ -1279,8 +1279,8 @@ plot_mortality <-
     zmax <- c()
     zmin <- c()
     for (i in 1:dim(M_array)[1]) {
-      zmax[i] <- max(c(M_array[i,,,,], 0), na.rm = T)
-      zmin[i] <- min(c(M_array[i,,,,], 0), na.rm = T)
+      zmax[i] <- max(c(M_array[i,,,,], 0), na.rm = TRUE)
+      zmin[i] <- min(c(M_array[i,,,,], 0), na.rm = TRUE)
     }
 
 
@@ -1645,7 +1645,7 @@ plot_b_eaten <-  function(Rceattle,
   for (i in 1:length(Rceattle)) {
 
     # - Get quantities
-    quantity[,1:nyrs_vec[i] , i] <- apply(Rceattle[[i]]$quantities$B_eaten_as_prey[,,,1:nyrs_vec[i], drop = F], c(1,4), sum)
+    quantity[,1:nyrs_vec[i] , i] <- apply(Rceattle[[i]]$quantities$B_eaten_as_prey[,,,1:nyrs_vec[i], drop = FALSE], c(1,4), sum)
 
     # # Get SD of quantity
     # # NOTE: No uncertainty estimates currently
@@ -1659,10 +1659,10 @@ plot_b_eaten <-  function(Rceattle,
     # - Model average
     if(mod_avg[i]){
       log_quantity_sd[,1:nyrs_vec[i], i] <- apply(
-        apply(Rceattle[[i]]$asymptotic_samples$B_eaten_as_prey[,,,1:nyrs_vec[i],, drop = F], c(1,4), function(x) sum), # Sum across age-sex
+        apply(Rceattle[[i]]$asymptotic_samples$B_eaten_as_prey[,,,1:nyrs_vec[i],, drop = FALSE], c(1,4), function(x) sum), # Sum across age-sex
         c(1,2), sd(as.vector(log(x)))) # SD across samples
       log_quantity_mu[,1:nyrs_vec[i], i] <- apply(
-        apply(Rceattle[[i]]$asymptotic_samples$B_eaten_as_prey[,,,1:nyrs_vec[i],, drop = F], c(1,4), function(x) sum), # Sum across age-sex
+        apply(Rceattle[[i]]$asymptotic_samples$B_eaten_as_prey[,,,1:nyrs_vec[i],, drop = FALSE], c(1,4), function(x) sum), # Sum across age-sex
         c(1,2), mean(as.vector(log(x)))) # Mean across samples
     }
   }
@@ -1739,11 +1739,11 @@ plot_b_eaten <-  function(Rceattle,
   ymin <- c()
   for (sp in 1:nspp) {
     if (add_ci & (estDynamics[sp] == 0)) {
-      ymax[sp] <- max(c(quantity_upper95[sp, , ], 0), na.rm = T)
-      ymin[sp] <- min(c(quantity_upper95[sp, , ], 0), na.rm = T)
+      ymax[sp] <- max(c(quantity_upper95[sp, , ], 0), na.rm = TRUE)
+      ymin[sp] <- min(c(quantity_upper95[sp, , ], 0), na.rm = TRUE)
     } else{
-      ymax[sp] <- max(c(quantity[sp, , ], 0), na.rm = T)
-      ymin[sp] <- min(c(quantity[sp, , ], 0), na.rm = T)
+      ymax[sp] <- max(c(quantity[sp, , ], 0), na.rm = TRUE)
+      ymin[sp] <- min(c(quantity[sp, , ], 0), na.rm = TRUE)
     }
   }
   ymax <- ymax * 1.2
@@ -1951,7 +1951,7 @@ plot_b_eaten_prop <-
       for(rsp in 1:(nspp)){
         for(ksp in 1:(nspp)){
           for(yr in 1:nyrs_vec[i]){
-            B_eaten[rsp, ksp,yr,i] <- sum(Rceattle[[i]]$quantities$B_eaten[c(rsp, (rsp + nspp) * (max_sex-1) ),c(ksp, (ksp + nspp) * (max_sex-1)),,,yr, drop = F])
+            B_eaten[rsp, ksp,yr,i] <- sum(Rceattle[[i]]$quantities$B_eaten[c(rsp, (rsp + nspp) * (max_sex-1) ),c(ksp, (ksp + nspp) * (max_sex-1)),,,yr, drop = FALSE])
           }
         }
       }
@@ -1964,8 +1964,8 @@ plot_b_eaten_prop <-
     ymax <- c()
     ymin <- c()
     for (ksp in 1:dim(B_eaten)[2]) { # Loop through prey
-      ymax[ksp] <- max(c(B_eaten[,ksp, , ], 0), na.rm = T)
-      ymin[ksp] <- min(c(B_eaten[,ksp, , ], 0), na.rm = T)
+      ymax[ksp] <- max(c(B_eaten[,ksp, , ], 0), na.rm = TRUE)
+      ymin[ksp] <- min(c(B_eaten[,ksp, , ], 0), na.rm = TRUE)
     }
     ymax <- ymax + top_adj * ymax
 
@@ -2173,8 +2173,8 @@ plot_m_at_age <-
     ymin <- matrix(0, nrow = nspp, ncol = 2)
     for (i in 1:nspp) {
       for(sex in 1:nsex[i]){
-        ymax[i,sex] <- max(c(m_at_age[i,sex,, ],0), na.rm = T)
-        ymin[i,sex] <- min(c(m_at_age[i,sex,, ]), na.rm = T)
+        ymax[i,sex] <- max(c(m_at_age[i,sex,, ],0), na.rm = TRUE)
+        ymin[i,sex] <- min(c(m_at_age[i,sex,, ]), na.rm = TRUE)
       }
     }
     ymax <- ymax + 0.15 * ymax
@@ -2385,8 +2385,8 @@ plot_m2_at_age_prop <-
     ymin <- matrix(0, nrow = nspp, ncol = 2)
     for (i in 1:nspp) {
       for(sex in 1:nsex[i]){
-        ymax[i,sex] <- max(c(m2_at_age_prop[,i,sex,, ], 0), na.rm = T)
-        ymin[i,sex] <- min(c(m2_at_age_prop[,i,sex,, ], 0), na.rm = T)
+        ymax[i,sex] <- max(c(m2_at_age_prop[,i,sex,, ], 0), na.rm = TRUE)
+        ymin[i,sex] <- min(c(m2_at_age_prop[,i,sex,, ], 0), na.rm = TRUE)
       }
     }
     ymax <- ymax + top_adj * ymax
@@ -2673,11 +2673,11 @@ plot_f <- function(Rceattle,
   ymin <- c()
   for (sp in 1:nspp) {
     if (add_ci & (estDynamics[sp] == 0)) {
-      ymax[sp] <- max(c(quantity_upper95[sp, , ], 0), na.rm = T)
-      ymin[sp] <- min(c(quantity_upper95[sp, , ], 0), na.rm = T)
+      ymax[sp] <- max(c(quantity_upper95[sp, , ], 0), na.rm = TRUE)
+      ymin[sp] <- min(c(quantity_upper95[sp, , ], 0), na.rm = TRUE)
     } else{
-      ymax[sp] <- max(c(quantity[sp, , ], 0), na.rm = T)
-      ymin[sp] <- min(c(quantity[sp, , ], 0), na.rm = T)
+      ymax[sp] <- max(c(quantity[sp, , ], 0), na.rm = TRUE)
+      ymin[sp] <- min(c(quantity[sp, , ], 0), na.rm = TRUE)
     }
   }
   ymax <- ymax * 1.2
@@ -2907,8 +2907,8 @@ plot_ration <-
     ymin <- matrix(0, nrow = nspp, ncol = 2)
     for (i in 1:nspp) {
       for(sex in 1:nsex[i]){
-        ymax[i,sex] <- max(c(consumption_at_age[i,sex,, ],0), na.rm = T)
-        ymin[i,sex] <- min(c(consumption_at_age[i,sex,, ]), na.rm = T)
+        ymax[i,sex] <- max(c(consumption_at_age[i,sex,, ],0), na.rm = TRUE)
+        ymin[i,sex] <- min(c(consumption_at_age[i,sex,, ]), na.rm = TRUE)
       }
     }
     ymax <- ymax + 0.15 * ymax

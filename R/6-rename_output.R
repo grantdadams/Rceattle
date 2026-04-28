@@ -10,9 +10,9 @@
 rename_output = function(data_list = NULL, quantities = NULL){
 
   # Dimension attributed
-  max_age <- max(data_list$nages, na.rm = T)
-  max_sex <- max(data_list$nsex, na.rm = T)
-  max_length <- max(data_list$nlengths, na.rm = T)
+  max_age <- max(data_list$nages, na.rm = TRUE)
+  max_sex <- max(data_list$nsex, na.rm = TRUE)
+  max_length <- max(data_list$nlengths, na.rm = TRUE)
   sex_labels <- c("Sex combined or females", "males")
   if(max_sex == 1){
     sex_labels <- "Sex combined"

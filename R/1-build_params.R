@@ -14,8 +14,8 @@ build_params <- function(data_list) {
   # - Dimensions
   param_list <- list()
 
-  max_age <- max(data_list$nages, na.rm = T)
-  max_sex <- max(data_list$nsex, na.rm = T)
+  max_age <- max(data_list$nages, na.rm = TRUE)
+  max_sex <- max(data_list$nsex, na.rm = TRUE)
   sex_labels <- c("Sex combined or females", "males")
   if(max_sex == 1){
     sex_labels <- "Sex combined"
@@ -96,7 +96,7 @@ build_params <- function(data_list) {
 
     # Fill in M1 array from fixed values for each sex
     for(j in 1:length(sex_values)){
-      m1[sp, sex_values[j], 1:max_age] <- as.numeric(data_list$M1_base[i,(1:max(data_list$nages, na.rm = T)) + 2])
+      m1[sp, sex_values[j], 1:max_age] <- as.numeric(data_list$M1_base[i,(1:max(data_list$nages, na.rm = TRUE)) + 2])
     }
   }
   param_list$ln_M1 <- log(m1)
@@ -226,7 +226,7 @@ build_params <- function(data_list) {
 
   # * 2.2. Selectivity parameters ----
   n_selectivities <- nrow(data_list$fleet_control)
-  max_sel_bins <- max(c(1, as.numeric(data_list$fleet_control$N_sel_bins)), na.rm = T)
+  max_sel_bins <- max(c(1, as.numeric(data_list$fleet_control$N_sel_bins)), na.rm = TRUE)
 
   # - Non-parametric selectivity coefficients
   param_list$sel_coff =  array(0, dim = c(n_selectivities, max_sex, max_sel_bins),

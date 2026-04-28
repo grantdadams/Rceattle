@@ -144,18 +144,18 @@ plot_comp <-
     #           bty = "n"
     #         )
     #
-    #         x_loc <- c(mean(comp_data$Year, na.rm = T) - 2, mean(comp_data$Year, na.rm = T), mean(comp_data$Year, na.rm = T) +2)
-    #         symbols( x = x_loc , y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.07, 3) , circle = c(0.1, 0.25, 0.5), inches=0.10,add=T, fg = line_col[2])
+    #         x_loc <- c(mean(comp_data$Year, na.rm = TRUE) - 2, mean(comp_data$Year, na.rm = TRUE), mean(comp_data$Year, na.rm = TRUE) +2)
+    #         symbols( x = x_loc , y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.07, 3) , circle = c(0.1, 0.25, 0.5), inches=0.10,add= TRUE, fg = line_col[2])
     #         text(x = x_loc, y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.16, 3), labels = c(0.1, 0.25, 0.5))
     #       }
     #
     #
     #       if(nrow(comp_tmp) > 0){
     #         # Observed
-    #         symbols( x = comp_tmp$Year , y = comp_tmp$age , circle = comp_tmp$comp, inches=0.10,add=T, fg = line_col[1])
+    #         symbols( x = comp_tmp$Year , y = comp_tmp$age , circle = comp_tmp$comp, inches=0.10,add= TRUE, fg = line_col[1])
     #
     #         # Estimated
-    #         symbols( x = comp_hat_tmp$Year , y = comp_hat_tmp$age , circle = comp_hat_tmp$comp, inches=0.10,add=T, fg = line_col[2])
+    #         symbols( x = comp_hat_tmp$Year , y = comp_hat_tmp$age , circle = comp_hat_tmp$comp, inches=0.10,add= TRUE, fg = line_col[2])
     #       }
     #     }
     #
@@ -256,13 +256,13 @@ plot_comp <-
             }
 
             # Positive
-            x_loc <- c(max(abs(comp_tmp$Year), na.rm = T) - 6, max(abs(comp_tmp$Year), na.rm = T) - 3.5, max(abs(comp_tmp$Year), na.rm = T) - 1)
-            symbols( x = x_loc , y = rep(nages[sp] * 1.1, 3) , circles = round(seq(from = 1, to = max_pearson, length.out = 3) , round), inches=0.20,add=T, bg = colvec[3])
+            x_loc <- c(max(abs(comp_tmp$Year), na.rm = TRUE) - 6, max(abs(comp_tmp$Year), na.rm = TRUE) - 3.5, max(abs(comp_tmp$Year), na.rm = TRUE) - 1)
+            symbols( x = x_loc , y = rep(nages[sp] * 1.1, 3) , circles = round(seq(from = 1, to = max_pearson, length.out = 3) , round), inches=0.20,add= TRUE, bg = colvec[3])
             text(x = x_loc, y = rep(nages[sp] * 1.23, 3), labels = round(seq(from = 1, to = max_pearson, length.out = 3) , round))
 
             # Negative
-            x_loc <- c(max(abs(comp_tmp$Year), na.rm = T) - 8.5, max(abs(comp_tmp$Year), na.rm = T) - 11, max(abs(comp_tmp$Year), na.rm = T) - 13.5)
-            symbols( x = x_loc , y = rep(nages[sp] * 1.1, 3) , circles = -round(seq(from = -1, to = -max_pearson, length.out = 3) , round), inches=0.20,add=T, bg = NA)
+            x_loc <- c(max(abs(comp_tmp$Year), na.rm = TRUE) - 8.5, max(abs(comp_tmp$Year), na.rm = TRUE) - 11, max(abs(comp_tmp$Year), na.rm = TRUE) - 13.5)
+            symbols( x = x_loc , y = rep(nages[sp] * 1.1, 3) , circles = -round(seq(from = -1, to = -max_pearson, length.out = 3) , round), inches=0.20,add= TRUE, bg = NA)
             text(x = x_loc, y = rep(nages[sp] * 1.23, 3), labels = round(seq(from = -1, to = -max_pearson, length.out = 3) , round) )
 
 
@@ -292,7 +292,7 @@ plot_comp <-
               comp_tmp$bg_colors <- ifelse(comp_tmp$pearson > 0, comp_tmp$colors, NA)
 
               # Plot
-              symbols( x = comp_tmp$Year , y = comp_tmp$age , circles = abs(comp_tmp$pearson), inches=0.2,add=T, bg = comp_tmp$bg_colors, fg = comp_tmp$colors)
+              symbols( x = comp_tmp$Year , y = comp_tmp$age , circles = abs(comp_tmp$pearson), inches=0.2,add= TRUE, bg = comp_tmp$bg_colors, fg = comp_tmp$colors)
             }
 
 

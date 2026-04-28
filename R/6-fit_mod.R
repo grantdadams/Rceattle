@@ -417,8 +417,8 @@ fit_mod <-
     # - Update M1 parameter object from data if initial parameter values input
     if(updateM1){
       m1 <- array(0, dim = c(data_list$nspp,
-                             max(data_list$nsex, na.rm = T),
-                             max(data_list$nages, na.rm = T))) # Set up array
+                             max(data_list$nsex, na.rm = TRUE),
+                             max(data_list$nages, na.rm = TRUE))) # Set up array
 
       # Initialize from inputs
       for (i in 1:nrow(data_list$M1_base)) {
@@ -430,7 +430,7 @@ fit_mod <-
 
         # Fill in M1 array from fixed values for each sex
         for(j in 1:length(sex_values)){
-          m1[sp, sex_values[j], 1:max(data_list$nages, na.rm = T)] <- as.numeric(data_list$M1_base[i,(1:max(data_list$nages, na.rm = T)) + 2])
+          m1[sp, sex_values[j], 1:max(data_list$nages, na.rm = TRUE)] <- as.numeric(data_list$M1_base[i,(1:max(data_list$nages, na.rm = TRUE)) + 2])
         }
       }
       start_par$ln_M1 <- log(m1)
@@ -457,7 +457,7 @@ fit_mod <-
     }
 
     # Dimension check
-    start_par <- start_par[names(map$mapFactor), drop = F]
+    start_par <- start_par[names(map$mapFactor), drop = FALSE]
     dim_check <- sapply(start_par, function(x) length(unlist(x))) == sapply(map$mapFactor, function(x) length(unlist(x)))
     if(sum(dim_check) != length(dim_check)){
       stop(paste0("Map and parameter objects are not the same size for: ", names(dim_check)[which(dim_check == FALSE)]))
