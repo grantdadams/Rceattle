@@ -34,8 +34,6 @@ utils::globalVariables(c(
   "Sel_curve_pen1", "Sel_curve_pen2",
   # Loop iterators and anonymous function variables
   "i", "x", "spp", "sim", "var",
-  # Default argument dataset references
-  "ms_run", "ss_run",
   # oce function used without explicit namespace
   "oce.colorsDensity"
 ))
