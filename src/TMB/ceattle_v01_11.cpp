@@ -1,4 +1,11 @@
+#if defined(__clang__)
+# pragma clang diagnostic push
+# pragma clang diagnostic ignored "-Wunknown-warning-option"
+#endif
 #include <TMB.hpp>
+#if defined(__clang__)
+# pragma clang diagnostic pop
+#endif
 #include "helper_functions.hpp"
 #include "growth.hpp"
 #include "selectivity.hpp"

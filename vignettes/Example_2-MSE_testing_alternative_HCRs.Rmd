@@ -18,7 +18,7 @@ knitr::opts_chunk$set(
 
 ## Fitting OMs
 
-```{r, message = FALSE, warning = FALSE,echo = TRUE, eval = TRUE}
+```{r, message = FALSE, warning = FALSE,echo = TRUE}
 library(Rceattle)
 data("NorthernRockfish2022")
 nrdata <- NorthernRockfish2022
@@ -44,7 +44,7 @@ om <- Rceattle::fit_mod(
 
 We can use the `HCR = build_hcr()` argument in `fit_mod` to specify the HCR and BRPs of our management strategy.
 
-```{r, message = FALSE, echo = TRUE, eval = TRUE}
+```{r, message = FALSE, echo = TRUE}
 em <- Rceattle::fit_mod(
   data_list = nrdata,
   estimateMode = 0, # Estimate
@@ -69,7 +69,7 @@ em <- Rceattle::fit_mod(
 
 ## Running MSEs
 
-```{r, message = FALSE, echo = TRUE, eval = TRUE}
+```{r, message = FALSE, echo = TRUE}
 mse1 <- run_mse(
   om = om, em = em, 
   nsim = 10, 
@@ -82,11 +82,11 @@ mse1 <- run_mse(
 
 ## Evaluating MSEs via plots
 
-```{r, echo = TRUE, eval = TRUE}
+```{r, echo = TRUE}
 plot_depletionSSB(lapply(mse1, function(x) x$OM))
 ```
 
-```{r, echo = TRUE, eval = TRUE}
+```{r, echo = TRUE}
 plot_depletionSSB(
   c(mse1$Sim_1$EM,           # EMs
     list(mse1$Sim_1$OM,      # OM
@@ -103,7 +103,7 @@ plot_depletionSSB(
 
 ## Summary statistics
 
-```{r, warning = FALSE, echo = TRUE, eval = TRUE}
+```{r, warning = FALSE, echo = TRUE}
 library(kableExtra)
 mse_summ <- mse_summary(mse1)
 kable(mse_summ, digits = 2)
@@ -117,7 +117,7 @@ kable(mse_summ, digits = 2)
 
 ## Different BRPs
 
-```{r, message = FALSE, echo = TRUE, eval = TRUE}
+```{r, message = FALSE, echo = TRUE}
 em2 <- Rceattle::fit_mod(
   data_list = nrdata,
   estimateMode = 0, # Estimate
@@ -178,7 +178,7 @@ mse4 <- run_mse(
 
 ### Climate linked OM
 
-```{r, message = FALSE, echo = TRUE, eval = TRUE}
+```{r, message = FALSE, echo = TRUE}
 # Simulate random environmental series
 nrdata$env_data <- data.frame(
   Year = nrdata$styr:nrdata$projyr,
@@ -220,7 +220,7 @@ mse5 <- run_mse(
 
 # Overall summary
 
-```{r, echo = TRUE, eval = TRUE}
+```{r, echo = TRUE}
 mse_summ$MSE = 1
 mse_summ2 <- mse_summary(mse2); mse_summ2$MSE = 2
 

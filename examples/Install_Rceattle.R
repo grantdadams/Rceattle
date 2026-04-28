@@ -1,34 +1,17 @@
 
 # Install from GitHub ----
 # - Recommended
-# Install devtools if you don't already have it
+
+# 1. Install devtools and TMB
 install.packages("devtools")
+install.packages("TMB", type = "source")
+# (See https://github.com/kaskr/adcomp/wiki/Download for TMB toolchain setup.)
+# Try "TMB::runExample(all = TRUE)" to confirm TMB compiles on your machine.
 
-# Install TMB (instructions: https://github.com/kaskr/adcomp/wiki/Download)
-install.packages('TMB', type = 'source')
-devtools::install_github("kaskr/TMB_contrib_R/TMBhelper") # install tmb helper functions
-# Try "TMB::runExample(all = TRUE)" to see if TMB works
-
-# Install dependencies
-install.packages("pacman")
-pacman::p_load(dplyr,
-               ggplot2,
-               MASS,
-               oce,
-               readxl,
-               TMB,
-               devtools,
-               writexl,
-               reshape2,
-               gplots,
-               tidyr,
-               testthat,
-               foreach,
-               R.utils,
-               knitr,
-               doParallel)
-
-# Install Rceattle
+# 2. Install Rceattle. CRAN dependencies are pulled automatically.
 devtools::install_github("grantdadams/Rceattle", ref = "dev", build_vignettes = TRUE)
 
-
+# 3. (Optional) TMBhelper provides richer optimization diagnostics.
+# Rceattle uses it transparently if present, otherwise falls back to plain
+# nlminb + sdreport.
+# devtools::install_github("kaskr/TMB_contrib_R/TMBhelper")

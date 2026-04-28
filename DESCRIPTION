@@ -29,7 +29,6 @@ Imports:
     oce,
     readxl,
     TMB (>= 1.7.16),
-    TMBhelper,
     writexl,
     reshape2,
     gplots,
@@ -53,7 +52,8 @@ Suggests:
     knitr,
     kableExtra,
     mvtnorm,
-    magrittr
+    magrittr,
+    TMBhelper
 VignetteBuilder:
     knitr
 Depends:

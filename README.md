@@ -18,31 +18,18 @@ See [onboarding document](https://github.com/grantdadams/Rceattle/wiki/Onboardin
 The model can be updated following instructions [here](https://github.com/grantdadams/Rceattle/wiki/Workflow-for-updating-the-Rceattle).
 
 **Installation**
-```
-# Dependencies
-install.packages("pacman")
+```r
+# Required dependencies (CRAN)
 install.packages("TMB", type = "source")
 install.packages("Matrix", type = "source")
-pacman::p_load(dplyr,
-               ggplot2,
-               MASS,
-               oce,
-               readxl,
-               TMB,
-               devtools,
-               writexl,
-               reshape2,
-               gplots,
-               tidyr,
-               testthat,
-               foreach,
-               R.utils,
-               knitr,
-               doParallel)
-devtools::install_github("kaskr/TMB_contrib_R/TMBhelper")
+install.packages("devtools")
 
-# Rceattle
+# Rceattle (pulls remaining CRAN dependencies automatically)
 devtools::install_github("grantdadams/Rceattle")
+
+# Optional: TMBhelper provides richer optimization diagnostics.
+# Rceattle falls back to plain nlminb + sdreport if it's not installed.
+# devtools::install_github("kaskr/TMB_contrib_R/TMBhelper")
 ```
 
 **Examples**
