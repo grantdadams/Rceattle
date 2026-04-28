@@ -27,9 +27,16 @@
 #' @export
 #'
 #'
-run_mse <- function(om = ms_run, em = ss_run, nsim = 10, start_sim = 1, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, regenerate_past = FALSE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, catch_mult = NULL, seed = 666, regenerate_seed = seed, loopnum = 1, file = NULL, dir = NULL, timeout = 999, endyr = NA){
+run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, regenerate_past = FALSE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, catch_mult = NULL, seed = 666, regenerate_seed = seed, loopnum = 1, file = NULL, dir = NULL, timeout = 999, endyr = NA){
 
   # om = om; em = em; nsim = 1; start_sim = 1; assessment_period = 1; sampling_period = 1; simulate_data = TRUE; regenerate_past = FALSE; sample_rec = FALSE; rec_trend = 0; fut_sample = 1; cap = NULL; catch_mult = NULL; seed = 666; regenerate_seed = seed; loopnum = 1; file = NULL; dir = NULL; endyr = NA; timeout = 999
+
+  if (missing(om) || is.null(om) || !inherits(om, "Rceattle")) {
+    stop("`om` must be an Rceattle model object (see ?fit_mod).")
+  }
+  if (missing(em) || is.null(em) || !inherits(em, "Rceattle")) {
+    stop("`em` must be an Rceattle model object (see ?fit_mod).")
+  }
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # MSE SETUP ----
