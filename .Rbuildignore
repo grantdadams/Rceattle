@@ -1,6 +1,13 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
+^\.Rhistory$
+^\.claude$
 ^doc$
 ^Meta$
+^examples$
 ^BS2017SS\.xlsx$
 ^Rceattle_.*\.tar\.gz$
+^.*\.Rcheck$
+^\.\.Rcheck$
+^\.DS_Store$
+^.*/\.DS_Store$

@@ -1,12 +1,19 @@
 ---
 title: "Example 1 - basics"
-format: html
-editor: visual
+output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteEngine{quarto::html}
+  %\VignetteEngine{knitr::rmarkdown}
   %\VignetteIndexEntry{1. Rceattle: An Introduction}
   %\VignetteEncoding{UTF-8}
 ---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
 
 ## Overview
 

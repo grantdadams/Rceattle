@@ -1,13 +1,20 @@
 ---
 title: "An overview of Rceattle"
 author: "Grant Adams"
-format: html
-editor: visual
+output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteEngine{quarto::html}
+  %\VignetteEngine{knitr::rmarkdown}
   %\VignetteIndexEntry{0. Rceattle: Overview}
   %\VignetteEncoding{UTF-8}
 ---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
 
 ## `Rceattle` overview
 

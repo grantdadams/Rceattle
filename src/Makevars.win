@@ -13,6 +13,11 @@
 #
 # --- TMB-specific compiling directives below ---
 
+# Suppress benign warning emitted by some toolchains for a clang-only
+# diagnostic pragma in R's R_ext/Boolean.h.
+PKG_CFLAGS   = -Wno-unknown-warning-option
+PKG_CXXFLAGS = -Wno-unknown-warning-option
+
 .PHONY: all tmblib
 
 all: $(SHLIB)
