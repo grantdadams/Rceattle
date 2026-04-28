@@ -4,6 +4,18 @@
 #'
 data_check <- function(data_list) {
 
+  # --- 0. msmMode (predation formulation) ---
+  if (!is.null(data_list$msmMode) && data_list$msmMode %in% 3:9) {
+    stop(
+      "msmMode = ", data_list$msmMode, " selects a Kinzey & Punt (2009) ",
+      "predation formulation (Holling I/II/III, predator interference, ",
+      "preemption, Hassell-Varley, or Ecosim). These are deprecated and ",
+      "have not been validated in the current code base. Use msmMode = 0 ",
+      "(single-species), 1 (Holsman et al. 2015 MSVPA), or 2 (Holling ",
+      "Type III MSVPA)."
+    )
+  }
+
   # --- 1. Base Species checks ----
   if(data_list$nspp != max(data_list$weight$Species)) stop("`nspp` does not match the number of species in the weight data. Check `nspp` or `weight`")
   if(length(data_list$spnames) != data_list$nspp) stop("species names not included for all species")
