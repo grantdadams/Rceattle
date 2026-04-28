@@ -23,6 +23,8 @@ plot_selectivity_vs_maturity <-
            species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"),
            lwd = 3) {
 
+    .save_par()  # snapshot graphics par() and restore on exit
+
     # Convert single one into a list
     if(inherits(Rceattle, "Rceattle")){
       Rceattle <- list(Rceattle)
