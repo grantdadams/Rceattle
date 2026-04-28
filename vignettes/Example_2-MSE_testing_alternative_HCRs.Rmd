@@ -104,9 +104,8 @@ plot_depletionSSB(
 ## Summary statistics
 
 ```{r, warning = FALSE, echo = TRUE}
-library(kableExtra)
 mse_summ <- mse_summary(mse1)
-kable(mse_summ, digits = 2)
+knitr::kable(mse_summ, digits = 2)
 ```
 
 ------------------------------------------------------------------------
@@ -224,6 +223,6 @@ mse5 <- run_mse(
 mse_summ$MSE = 1
 mse_summ2 <- mse_summary(mse2); mse_summ2$MSE = 2
 
-kable(do.call("rbind", list(mse_summ, mse_summ2)) |>
-        dplyr::relocate(MSE), digits = 2)
+knitr::kable(do.call("rbind", list(mse_summ, mse_summ2)) |>
+               dplyr::relocate(MSE), digits = 2)
 ```
