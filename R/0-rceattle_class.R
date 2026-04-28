@@ -38,7 +38,10 @@ print.Rceattle <- function(x, ...) {
 
 
 #' Compact summary method for Rceattle fits
-#' @inheritParams print.Rceattle
+#'
+#' @param object An object of class \code{"Rceattle"} returned by [fit_mod()].
+#' @param ... Currently unused.
+#'
 #' @export
 summary.Rceattle <- function(object, ...) {
   print(object, ...)
