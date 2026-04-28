@@ -535,21 +535,17 @@ fit_mod <-
     # * Optimize hindcast ----
     if(estimateMode %in% c(0,1,4)){
       opt <- suppressMessages(
-        TMBhelper::fit_tmb(obj = obj,
-                           fn=obj$fn,
-                           gr=obj$gr,
-                           startpar=obj$par,
-                           lower = L,
-                           upper = U,
-                           loopnum = loopnum,
-                           newtonsteps = newtonsteps,
-                           getsd = getsd,
-                           control = control,
-                           bias.correct = bias.correct,
-                           bias.correct.control=list(sd=getsd),
-                           getJointPrecision = getJointPrecision,
-                           getReportCovariance = getReportCovariance,
-                           quiet = verbose < 2)
+        .fit_tmb(obj = obj,
+                 lower = L,
+                 upper = U,
+                 loopnum = loopnum,
+                 newtonsteps = newtonsteps,
+                 getsd = getsd,
+                 control = control,
+                 bias.correct = bias.correct,
+                 getJointPrecision = getJointPrecision,
+                 getReportCovariance = getReportCovariance,
+                 quiet = verbose < 2)
       )
 
       if(verbose > 0 & estimateMode != 4) {
@@ -570,7 +566,7 @@ fit_mod <-
           message( "#################################################" )
 
           # Bad parameter identification
-          identified <- tryCatch({suppressMessages(TMBhelper::check_estimability(obj))
+          identified <- tryCatch({suppressMessages(.check_estimability(obj))
           },
           error = function(e){
             return("Some gradients are high, please improve optimization and only then use `Check_Identifiable`")
@@ -635,18 +631,13 @@ fit_mod <-
           # -- Optimize
           if(data_list$HCR != 2){ # Fixed F does not need estimation
             opt = suppressMessages(
-              TMBhelper::fit_tmb(obj = obj,
-                                 fn=obj$fn,
-                                 gr=obj$gr,
-                                 startpar=obj$par,
-                                 loopnum = loopnum,
-                                 getsd = getsd,
-                                 control = control,
-                                 bias.correct = bias.correct,
-                                 bias.correct.control=list(sd=getsd),
-                                 getJointPrecision = FALSE,
-                                 quiet = verbose < 2,
-              )
+              .fit_tmb(obj = obj,
+                       loopnum = loopnum,
+                       getsd = getsd,
+                       control = control,
+                       bias.correct = bias.correct,
+                       getJointPrecision = FALSE,
+                       quiet = verbose < 2)
             )
           }
         }
@@ -695,18 +686,13 @@ fit_mod <-
             # -- Optimize
             if(data_list$HCR != 2){ # Fixed F does not need estimation
               opt = suppressMessages(
-                TMBhelper::fit_tmb(obj = obj,
-                                   fn=obj$fn,
-                                   gr=obj$gr,
-                                   startpar=obj$par,
-                                   loopnum = loopnum,
-                                   getsd = getsd,
-                                   bias.correct = bias.correct,
-                                   bias.correct.control=list(sd=getsd),
-                                   control = control,
-                                   getJointPrecision = FALSE,
-                                   quiet = verbose < 2,
-                )
+                .fit_tmb(obj = obj,
+                         loopnum = loopnum,
+                         getsd = getsd,
+                         bias.correct = bias.correct,
+                         control = control,
+                         getJointPrecision = FALSE,
+                         quiet = verbose < 2)
               )
 
               # --- Update F from opt

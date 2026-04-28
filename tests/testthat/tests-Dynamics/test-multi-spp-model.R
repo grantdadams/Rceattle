@@ -317,10 +317,10 @@ testthat::test_that("Test proportion of prey-at-age in predator-at-age averaged 
 
   # Diet data (no modifications when rearranged)
   diet_data1 <- ms_run2$data_list$diet_data |>
-    arrange(Pred, Prey, Pred_age, Prey_age, Year)
+    dplyr::arrange(Pred, Prey, Pred_age, Prey_age, Year)
 
   diet_data2 <- simData$diet_data |>
-    arrange(Pred, Prey, Pred_age, Prey_age, Year)
+    dplyr::arrange(Pred, Prey, Pred_age, Prey_age, Year)
   testthat::expect_equal(as.numeric(diet_data1$Stomach_proportion_by_weight), as.numeric(diet_data2$Stomach_proportion_by_weight))
 }
 )
@@ -423,10 +423,10 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator-at-ag
 
   # Diet data (no modifications when rearranged)
   diet_data1 <- ms_run2$data_list$diet_data |>
-    arrange(Pred, Prey, Pred_age, Prey_age, Year)
+    dplyr::arrange(Pred, Prey, Pred_age, Prey_age, Year)
 
   diet_data2 <- simData$diet_data |>
-    arrange(Pred, Prey, Pred_age, Prey_age, Year)
+    dplyr::arrange(Pred, Prey, Pred_age, Prey_age, Year)
   testthat::expect_equal(as.numeric(diet_data1$Stomach_proportion_by_weight), as.numeric(diet_data2$Stomach_proportion_by_weight))
 }
 )
@@ -529,10 +529,10 @@ testthat::test_that("Test proportion of prey (all ages) in predator-at-age avera
 
   # Diet data (no modifications when rearranged)
   diet_data1 <- ms_run2$data_list$diet_data |>
-    arrange(Pred, Prey, Pred_age, Prey_age, Year)
+    dplyr::arrange(Pred, Prey, Pred_age, Prey_age, Year)
 
   diet_data2 <- simData$diet_data |>
-    arrange(Pred, Prey, Pred_age, Prey_age, Year)
+    dplyr::arrange(Pred, Prey, Pred_age, Prey_age, Year)
   testthat::expect_equal(as.numeric(diet_data1$Stomach_proportion_by_weight), as.numeric(diet_data2$Stomach_proportion_by_weight))
 }
 )
@@ -634,10 +634,10 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (mean
 
   # Diet data (no modifications when rearranged)
   diet_data1 <- ms_run2$data_list$diet_data |>
-    arrange(Pred, Prey, Pred_age, Prey_age, Year)
+    dplyr::arrange(Pred, Prey, Pred_age, Prey_age, Year)
 
   diet_data2 <- simData$diet_data |>
-    arrange(Pred, Prey, Pred_age, Prey_age, Year)
+    dplyr::arrange(Pred, Prey, Pred_age, Prey_age, Year)
   testthat::expect_equal(as.numeric(diet_data1$Stomach_proportion_by_weight), as.numeric(diet_data2$Stomach_proportion_by_weight))
 }
 )
@@ -754,10 +754,10 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (weig
 
   # Diet data (no modifications when rearranged)
   diet_data1 <- ms_run2$data_list$diet_data |>
-    arrange(Pred, Prey, Pred_age, Prey_age, Year)
+    dplyr::arrange(Pred, Prey, Pred_age, Prey_age, Year)
 
   diet_data2 <- simData$diet_data |>
-    arrange(Pred, Prey, Pred_age, Prey_age, Year)
+    dplyr::arrange(Pred, Prey, Pred_age, Prey_age, Year)
   testthat::expect_equal(as.numeric(diet_data1$Stomach_proportion_by_weight), as.numeric(diet_data2$Stomach_proportion_by_weight))
 }
 )
@@ -862,10 +862,10 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
 
   # Diet data (no modifications when rearranged)
   diet_data1 <- ms_run2$data_list$diet_data |>
-    arrange(Pred, Prey, Pred_age, Prey_age, Year)
+    dplyr::arrange(Pred, Prey, Pred_age, Prey_age, Year)
 
   diet_data2 <- simData$diet_data |>
-    arrange(Pred, Prey, Pred_age, Prey_age, Year)
+    dplyr::arrange(Pred, Prey, Pred_age, Prey_age, Year)
   testthat::expect_equal(as.numeric(diet_data1$Stomach_proportion_by_weight), as.numeric(diet_data2$Stomach_proportion_by_weight))
 }
 )
@@ -985,10 +985,10 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
 
   # Diet data (no modifications when rearranged)
   diet_data1 <- ms_run2$data_list$diet_data |>
-    arrange(Pred, Prey, Pred_age, Prey_age, Year)
+    dplyr::arrange(Pred, Prey, Pred_age, Prey_age, Year)
 
   diet_data2 <- simData$diet_data |>
-    arrange(Pred, Prey, Pred_age, Prey_age, Year)
+    dplyr::arrange(Pred, Prey, Pred_age, Prey_age, Year)
   testthat::expect_equal(as.numeric(diet_data1$Stomach_proportion_by_weight), as.numeric(diet_data2$Stomach_proportion_by_weight))
 }
 )

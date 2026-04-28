@@ -112,7 +112,7 @@ plot_biomass(mymodel)
 
 ## Outputs
 
-```{r, echo = TRUE, eval= TRUE}
+```{r, echo = TRUE}
 library(Rceattle)
 
 data("GOApollock")                              # 2018 Pollock model 
@@ -127,7 +127,7 @@ mymodel <- Rceattle::fit_mod(data_list = GOApollock,
                             verbose = 1)
 ```
 
-```{r, echo = TRUE, eval = TRUE}
+```{r, echo = TRUE}
 names(mymodel)
 ```
 
@@ -291,7 +291,7 @@ mymodel <- fit_mod(
 :::
 
 ::: {.column width="35%"}
-```{r, eval = TRUE, echo = FALSE}
+```{r, echo = FALSE}
 spr_fun <- function(F){
   ages = 1:10
   wt = 1:10
@@ -436,7 +436,7 @@ plot_mortality()
 :::
 
 ::: {.column width="50%"}
-```{r, eval = TRUE, echo = FALSE}
+```{r, echo = FALSE}
 data("BS2017SS")
 BS2017SS$fleet_control$proj_F_prop <- 1
 mymodel <- Rceattle::fit_mod(data_list = BS2017SS,
@@ -504,7 +504,7 @@ plot_biomass(list(mymodel, mymodel_tier3, ss_run_M, ss_run_M_tier3),
 
 ## Diagnostics: `??Rceattle`
 
-```{r, echo = TRUE, eval = TRUE}
+```{r, echo = TRUE}
 plot_index(mymodel, species = 1)
 ```
 
@@ -516,14 +516,14 @@ plot_comp(mymodel)
 
 ## Retrospectives
 
-```{r, echo = TRUE, eval = TRUE}
+```{r, echo = TRUE}
 retro <- retrospective(mymodel, peels = 6)
 plot_biomass(retro$Rceattle_list, species = 1)
 ```
 
 ## MSE
 
-```{r, echo = TRUE, eval = TRUE}
+```{r, echo = TRUE}
 # ?run_mse for more options
 
 mse <- run_mse(
@@ -538,13 +538,13 @@ mse <- run_mse(
 
 ::::: columns
 ::: {.column width="50%"}
-```{r, echo = TRUE, eval = TRUE}
+```{r, echo = TRUE}
 plot_depletionSSB(mse$Sim_1$OM, species = 1, model_names = "OM")
 ```
 :::
 
 ::: {.column width="50%"}
-```{r, echo = TRUE, eval = TRUE}
+```{r, echo = TRUE}
 plot_depletionSSB(mse$Sim_1$EM, species = 1, model_names = "EMs")
 ```
 :::
