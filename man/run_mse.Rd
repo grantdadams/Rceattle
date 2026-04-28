@@ -5,8 +5,8 @@
 \title{Run a management strategy evaluation}
 \usage{
 run_mse(
-  om = ms_run,
-  em = ss_run,
+  om,
+  em,
   nsim = 10,
   start_sim = 1,
   assessment_period = 1,

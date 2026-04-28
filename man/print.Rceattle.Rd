@@ -7,7 +7,7 @@
 \method{print}{Rceattle}(x, ...)
 }
 \arguments{
-\item{x}{An object of class \code{"Rceattle"} returned by \code{\link{fit_mod}}.}
+\item{x}{An object of class \code{"Rceattle"} returned by \code{\link[=fit_mod]{fit_mod()}}.}
 
 \item{...}{Currently unused.}
 }
