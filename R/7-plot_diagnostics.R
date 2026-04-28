@@ -30,6 +30,7 @@ plot_index <- function(Rceattle,
                        height=NULL,
                        error = TRUE){
 
+  .save_par()  # snapshot graphics par() and restore on exit
 
   # Convert single one into a list
   if(inherits(Rceattle, "Rceattle")){
@@ -288,6 +289,8 @@ plot_catch <- function(Rceattle,
                        mse = FALSE,
                        error = TRUE,
                        fleets = NULL){
+
+  .save_par()  # snapshot graphics par() and restore on exit
 
   # Convert mse object to Rceattle list
   if(mse){
@@ -646,6 +649,7 @@ plot_logindex <- function(Rceattle,
                           width=NULL,
                           height=NULL){
 
+  .save_par()  # snapshot graphics par() and restore on exit
 
   # Convert single one into a list
   if(inherits(Rceattle, "Rceattle")){
@@ -889,6 +893,7 @@ plot_indexresidual <- function(Rceattle,
                                width=NULL,
                                height=NULL){
 
+  .save_par()  # snapshot graphics par() and restore on exit
 
   # Convert single one into a list
   if(inherits(Rceattle, "Rceattle")){

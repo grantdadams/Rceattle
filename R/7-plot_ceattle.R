@@ -78,6 +78,8 @@ plot_timeseries <- function(Rceattle,
                             reference = NULL,
                             mod_avg = rep(FALSE, length(Rceattle))) {
 
+  .save_par()  # snapshot graphics par() and restore on exit
+
   ## Model object manipulation ----
   # Convert mse object to Rceattle list
   if(mse){
@@ -925,6 +927,8 @@ plot_selectivity <-
            species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"),
            lwd = 3) {
 
+    .save_par()  # snapshot graphics par() and restore on exit
+
     # Convert single one into a list
     if(inherits(Rceattle, "Rceattle")){
       Rceattle <- list(Rceattle)
@@ -1216,6 +1220,8 @@ plot_mortality <-
            title_cex = 10,
            M2 = TRUE) {
 
+    .save_par()  # snapshot graphics par() and restore on exit
+
     # Convert single one into a list
     if(inherits(Rceattle, "Rceattle")){
       Rceattle <- list(Rceattle)
@@ -1422,6 +1428,8 @@ plot_maturity <-
            height = 5.5,
            lwd = 3) {
 
+    .save_par()  # snapshot graphics par() and restore on exit
+
     # Convert single one into a list
     if(inherits(Rceattle, "Rceattle")){
       Rceattle <- list(Rceattle)
@@ -1572,6 +1580,8 @@ plot_b_eaten <-  function(Rceattle,
                           mod_avg = rep(FALSE, length(Rceattle)),
                           mse = FALSE,
                           OM = TRUE) {
+
+  .save_par()  # snapshot graphics par() and restore on exit
 
   # Convert mse object to Rceattle list
   if(mse){
@@ -1899,6 +1909,8 @@ plot_b_eaten_prop <-
            add_ci = FALSE,
            mod_cex = 1) {
 
+    .save_par()  # snapshot graphics par() and restore on exit
+
     # Convert single one into a list
     if(inherits(Rceattle, "Rceattle")){
       Rceattle <- list(Rceattle)
@@ -2113,6 +2125,8 @@ plot_m_at_age <-
            incl_mean = FALSE,
            add_ci = FALSE) {
 
+    .save_par()  # snapshot graphics par() and restore on exit
+
     # Convert single one into a list
     if(inherits(Rceattle, "Rceattle")){
       Rceattle <- list(Rceattle)
@@ -2318,6 +2332,8 @@ plot_m2_at_age_prop <-
            incl_proj = FALSE,
            incl_mean = FALSE,
            add_ci = FALSE) {
+
+    .save_par()  # snapshot graphics par() and restore on exit
 
     # Convert single one into a list
     if(inherits(Rceattle, "Rceattle")){
@@ -2544,6 +2560,8 @@ plot_f <- function(Rceattle,
                    mod_avg = rep(FALSE, length(Rceattle)),
                    mse = FALSE,
                    OM = TRUE) {
+
+  .save_par()  # snapshot graphics par() and restore on exit
 
   # Convert mse object to Rceattle list
   if(mse){
@@ -2839,6 +2857,8 @@ plot_ration <-
            incl_proj = FALSE,
            incl_mean = FALSE,
            add_ci = FALSE) {
+
+    .save_par()  # snapshot graphics par() and restore on exit
 
     # Convert single one into a list
     if(inherits(Rceattle, "Rceattle")){

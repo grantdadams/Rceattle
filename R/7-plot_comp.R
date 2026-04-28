@@ -22,6 +22,8 @@ plot_comp <-
            lwd = 3,
            right_adj = 0) {
 
+    .save_par()  # snapshot graphics par() and restore on exit
+
     # Make sure we are using only one model
     if(!inherits(Rceattle, "Rceattle")){
       stop("Please only use one Rceattle model")

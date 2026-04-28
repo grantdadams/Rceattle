@@ -33,6 +33,8 @@ plot_stock_recruit <-
            plot_env = FALSE,
            mod_cex = 1) {
 
+    .save_par()  # snapshot graphics par() and restore on exit
+
     # Convert single one into a list
     if(inherits(Rceattle, "Rceattle")){
       Rceattle <- list(Rceattle)
