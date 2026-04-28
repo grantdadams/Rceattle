@@ -14,9 +14,9 @@ rearrange_dat <- function(data_list){
   data_list <- convert_switches(data_list)
 
   # Data dimensions
-  max_sex <- max(data_list$nsex, na.rm = T)
-  max_age <- max(data_list$nages, na.rm = T)
-  max_length <- max(data_list$nlengths, na.rm = T)
+  max_sex <- max(data_list$nsex, na.rm = TRUE)
+  max_age <- max(data_list$nages, na.rm = TRUE)
+  max_length <- max(data_list$nlengths, na.rm = TRUE)
   yrs_hind <- data_list$styr:data_list$endyr
   yrs_proj <- data_list$styr:data_list$projyr
   nyrs_hind <- length(yrs_hind)

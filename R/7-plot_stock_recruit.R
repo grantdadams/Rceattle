@@ -93,12 +93,12 @@ plot_stock_recruit <-
     xmax <- c()
     xmin <- c()
     for (sp in 1:nspp) {
-      xmax[sp] <- max(c(ssb_array[sp,,], 0), na.rm = T)
-      xmin[sp] <- min(c(ssb_array[sp,,], 0), na.rm = T)
+      xmax[sp] <- max(c(ssb_array[sp,,], 0), na.rm = TRUE)
+      xmin[sp] <- min(c(ssb_array[sp,,], 0), na.rm = TRUE)
 
 
-      ymax[sp] <- max(c(rec_array[sp,,], 0), na.rm = T)
-      ymin[sp] <- min(c(rec_array[sp,,], 0), na.rm = T)
+      ymax[sp] <- max(c(rec_array[sp,,], 0), na.rm = TRUE)
+      ymin[sp] <- min(c(rec_array[sp,,], 0), na.rm = TRUE)
     }
 
     if (is.null(line_col)) {

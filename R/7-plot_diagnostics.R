@@ -98,8 +98,8 @@ plot_index <- function(Rceattle,
   for(srv in 1:nsrv){
     for(i in 1:length(Rceattle)){
       srv_ind <- which(Srv_list[[i]]$Fleet_code == srvs[srv])
-      ymax[srv] <- max(c(Srv_list[[i]]$Upper95[srv_ind], Srv_hat_list[[i]]$Observation[srv_ind], ymax[srv]), na.rm = T)
-      ymin[srv] <- min(c(Srv_list[[i]]$Lower95[srv_ind], Srv_hat_list[[i]]$Observation[srv_ind], ymin[srv]), na.rm = T)
+      ymax[srv] <- max(c(Srv_list[[i]]$Upper95[srv_ind], Srv_hat_list[[i]]$Observation[srv_ind], ymax[srv]), na.rm = TRUE)
+      ymin[srv] <- min(c(Srv_list[[i]]$Lower95[srv_ind], Srv_hat_list[[i]]$Observation[srv_ind], ymin[srv]), na.rm = TRUE)
     }
   }
   ymax <- ymax + top_adj * (ymax-ymin)
@@ -147,7 +147,7 @@ plot_index <- function(Rceattle,
 
           # Plot observed CPUE
           if(error){
-            gplots::plotCI(srv_tmp$Year, (srv_tmp$Observation), ui=(srv_tmp$Upper95), li=(srv_tmp$Lower95),add=T,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
+            gplots::plotCI(srv_tmp$Year, (srv_tmp$Observation), ui=(srv_tmp$Upper95), li=(srv_tmp$Lower95),add= TRUE,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
           }
         }
 
@@ -233,7 +233,7 @@ plot_index <- function(Rceattle,
 
           # Plot observed CPUE
           if(error){
-            gplots::plotCI(srv_tmp$Year, (srv_tmp$Observation), ui=(srv_tmp$Upper95), li=(srv_tmp$Lower95),add=T,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
+            gplots::plotCI(srv_tmp$Year, (srv_tmp$Observation), ui=(srv_tmp$Upper95), li=(srv_tmp$Lower95),add= TRUE,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
           }
         }
       }
@@ -400,10 +400,10 @@ plot_catch <- function(Rceattle,
     for(fsh in 1:nflts){
       for(i in 1:nmods){
         fsh_ind <- which(fsh_list[[i]]$Fleet_code == flts[fsh])
-        ymax[fsh] <- max(c(fsh_list[[i]]$Upper95[fsh_ind], fsh_hat_list[[i]]$Catch[fsh_ind], ymax[fsh]), na.rm = T)
+        ymax[fsh] <- max(c(fsh_list[[i]]$Upper95[fsh_ind], fsh_hat_list[[i]]$Catch[fsh_ind], ymax[fsh]), na.rm = TRUE)
 
         if(mse){
-          ymax[fsh] <- max(c(fsh_hat_list[[i]]$Upper95[fsh_ind], ymax[fsh]), na.rm = T)
+          ymax[fsh] <- max(c(fsh_hat_list[[i]]$Upper95[fsh_ind], ymax[fsh]), na.rm = TRUE)
         }
       }
     }
@@ -457,7 +457,7 @@ plot_catch <- function(Rceattle,
 
           # - Plot observed CPUE
           if(error){
-            gplots::plotCI(fsh_tmp$Year, (fsh_tmp$Catch), ui=(fsh_tmp$Upper95), li=(fsh_tmp$Lower95),add=T,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
+            gplots::plotCI(fsh_tmp$Year, (fsh_tmp$Catch), ui=(fsh_tmp$Upper95), li=(fsh_tmp$Lower95),add= TRUE,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
           }
 
           # - Plot MSE shading
@@ -577,7 +577,7 @@ plot_catch <- function(Rceattle,
           if(error){
             gplots::plotCI(x = fsh_tmp$Year, y = fsh_tmp$Catch,
                            ui = fsh_tmp$Upper95, li= fsh_tmp$Lower95,
-                           add=T, gap=0, pch=21,
+                           add= TRUE, gap=0, pch=21,
                            xaxt="n", yaxt="n", pt.bg = "white")
           }
 
@@ -709,8 +709,8 @@ plot_logindex <- function(Rceattle,
   for(srv in 1:nsrv){
     for(i in 1:length(Rceattle)){
       srv_ind <- which(Srv_list[[i]]$Fleet_code == srvs[srv])
-      ymax[srv] <- max(c(log(c(Srv_list[[i]]$Upper95[srv_ind], Srv_hat_list[[i]]$Observation[srv_ind])), ymax[srv]), na.rm = T)
-      ymin[srv] <- min(c(log(c(Srv_list[[i]]$Lower95[srv_ind], Srv_hat_list[[i]]$Observation[srv_ind])), ymin[srv]), na.rm = T)
+      ymax[srv] <- max(c(log(c(Srv_list[[i]]$Upper95[srv_ind], Srv_hat_list[[i]]$Observation[srv_ind])), ymax[srv]), na.rm = TRUE)
+      ymin[srv] <- min(c(log(c(Srv_list[[i]]$Lower95[srv_ind], Srv_hat_list[[i]]$Observation[srv_ind])), ymin[srv]), na.rm = TRUE)
     }
   }
   ymax <- ymax + top_adj * (ymax-ymin)
@@ -757,7 +757,7 @@ plot_logindex <- function(Rceattle,
           lines(srv_hat_tmp$Year, log(srv_hat_tmp$Observation),lwd=2,col=line_col[k])
 
           # Plot observed CPUE
-          gplots::plotCI(srv_tmp$Year, log(srv_tmp$Observation), ui=log(srv_tmp$Upper95), li=log(srv_tmp$Lower95),add=T,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
+          gplots::plotCI(srv_tmp$Year, log(srv_tmp$Observation), ui=log(srv_tmp$Upper95), li=log(srv_tmp$Lower95),add= TRUE,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
         }
 
         # Index name
@@ -825,7 +825,7 @@ plot_logindex <- function(Rceattle,
           lines(srv_hat_tmp$Year, log(srv_hat_tmp$Observation),lwd=2,col=line_col[k])
 
           # Plot observed CPUE
-          gplots::plotCI(srv_tmp$Year, log(srv_tmp$Observation), ui=log(srv_tmp$Upper95), li=log(srv_tmp$Lower95),add=T,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
+          gplots::plotCI(srv_tmp$Year, log(srv_tmp$Observation), ui=log(srv_tmp$Upper95), li=log(srv_tmp$Lower95),add= TRUE,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
         }
 
         # Model names
@@ -943,8 +943,8 @@ plot_indexresidual <- function(Rceattle,
   for(srv in 1:nsrv){
     for(i in 1:length(Rceattle)){
       srv_ind <- which(Srv_hat_list[[i]]$Fleet_code == srvs[srv])
-      ymax[srv] <- max((c(ymax[srv], Srv_hat_list[[i]]$Residual[srv_ind])), na.rm = T)
-      ymin[srv] <- min((c(ymin[srv], Srv_hat_list[[i]]$Residual[srv_ind])), na.rm = T)
+      ymax[srv] <- max((c(ymax[srv], Srv_hat_list[[i]]$Residual[srv_ind])), na.rm = TRUE)
+      ymin[srv] <- min((c(ymin[srv], Srv_hat_list[[i]]$Residual[srv_ind])), na.rm = TRUE)
     }
   }
   ymax <- ymax + top_adj * (ymax-ymin)

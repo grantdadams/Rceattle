@@ -62,8 +62,8 @@ plot_selectivity_vs_maturity <-
     ymax_sel <- c()
     ymin_sel <- c()
     for (i in 1:dim(selectivity_array)[1]) {
-      ymax_sel[i] <- max(c(selectivity_array[i,,,,], 0), na.rm = T)
-      ymin_sel[i] <- min(c(selectivity_array[i,,,,], 0), na.rm = T)
+      ymax_sel[i] <- max(c(selectivity_array[i,,,,], 0), na.rm = TRUE)
+      ymin_sel[i] <- min(c(selectivity_array[i,,,,], 0), na.rm = TRUE)
     }
 
     if (is.null(line_col)) {

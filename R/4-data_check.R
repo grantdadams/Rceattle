@@ -232,11 +232,11 @@ data_check <- function(data_list) {
 
   # # Age matrix
   #
-  # if(ncol(data_list$NByageFixed) != max(data_list$nages, na.rm = T)+4){
+  # if(ncol(data_list$NByageFixed) != max(data_list$nages, na.rm = TRUE)+4){
   #   message(paste0("NByageFixed does not include all ages"))
   # }
   #
-  # if(ncol(data_list$weight) != max(data_list$nages, na.rm = T)+4){
+  # if(ncol(data_list$weight) != max(data_list$nages, na.rm = TRUE)+4){
   #   stop(paste0("Weight-at-age (weight) does not include all ages"))
   # }
 
