@@ -92,8 +92,142 @@
 
 # Rceattle 4.0.1
 
-* See `inst/Running_list_of_updates.qmd` for the granular running log
-  of model and data-format changes since 4.0.0.
+The 4.0.1 development cycle reorganized several `data_list` columns
+and `fit_mod` / `build_*` arguments. Models or data files saved
+against earlier 4.x revisions may need updating; see the renames
+below. Compiled from
+`inst/Running_list_of_updates.qmd` plus the `dev` branch commit log.
+
+## Data renames
+
+* `Pyrs` -> `ration_data` (the old name is still accepted on read,
+  but is silently renamed).
+* `UobsWtAge` -> `stom_prop_data`.
+* `fsh_biom` -> `catch_data`.
+* `srv_biom` -> `index_data`.
+* `Nselages` -> `N_sel_bins` (in `fleet_control`).
+* `Sel_norm_bin1` / `Sel_norm_bin2` <- `Age_max_selected` /
+  `Age_max_selected_upper` (selectivity normalization bins).
+* `Age_first_selected` -> `Bin_first_selected` (in `fleet_control`).
+* `sel` -> `sel_at_age` (model report).
+* `fleet_control` now carries a `Month` column (month of observation
+  for indices / fisheries).
+
+## API renames
+
+* `build_M1`: `M1_prior_mean` -> `M_prior`,
+  `M1_prior_sd` -> `M_prior_sd`.
+* `build_srr`: `srr_prior_mean` -> `srr_prior`;
+  `R_hat_endyr` replaced by `srr_hat_styr` / `srr_hat_endyr`.
+* `fit_mod`: `suit_meanyr` replaced by `suit_styr` / `suit_endyr`.
+* `initMode` semantics revised: 0 = free-parameter N-at-age,
+  1 = unfished equilibrium with no devs, 2 (default) = unfished
+  equilibrium with initial devs, 3 = fished equilibrium with initial
+  devs. Type 4 ("non-equilibrium scaled") added later.
+
+## New features -- composition and diet likelihoods
+
+* Dirichlet-multinomial composition likelihood. Selected per fleet via
+  `fleet_control$Comp_loglike = 1` (or `"DirichletMultinomial"`).
+* Conditional age-at-length (CAAL) data path, with `CAAL_loglike` /
+  `CAAL_weights` controls in `fleet_control`. CAAL data also flow
+  through `sim_mod()` for simulation testing.
+* `Diet_loglike` switch on the bioenergetics control sheet selects
+  between multinomial (0) and Dirichlet-multinomial (1) for diet
+  composition.
+* Other-food diet proportion estimates added to the model report.
+* Weighted-mean diet data path (annual proportion of prey-at-age in
+  predator-at-age averaged across years).
+
+## New features -- selectivity, catchability, growth
+
+* Hake non-parametric selectivity (`Selectivity = "Hake"` or `5`),
+  after Taylor et al.
+* `2DAR1` (`= 6`) and `3DAR1` (`= 7`) selectivity
+  parameterizations, after Cheng et al. (2024).
+* `Catchability = 6` ("AR1"): annual AR1 catchability deviates fit
+  to an environmental index, after Rogers et al. (2024) for the GOA
+  pollock model. Environmental q-link (`Catchability = 5`) also
+  exposed.
+* Internal growth model. See `build_growth()` and the `growthFun`
+  argument to `fit_mod()`. `alpha_wt_len` / `beta_wt_len` added to
+  the data control sheet. Length-based suitability (`suitMode = 1` /
+  `2` / `3` / `4` / `5` / `6`) wired through to use the estimated
+  growth model. Comparison with WHAM growth implemented under
+  `tests/comparison/`.
+* Predator-specific suitability mode (different `suitMode` per
+  predator).
+* Suitability calculation now uses configurable year ranges
+  (`suit_styr` / `suit_endyr`) instead of "mean year".
+
+## New features -- recruitment and reference points
+
+* Beta-distributed prior on Beverton-Holt steepness, available via
+  `srr_est_mode = 3`.
+* M1 random effects with optional environmental linkage; `M_prior` /
+  `M_prior_sd` priors carried through `build_M1()`.
+* `remove_F()` function returns a fitted model with F set to 0 --
+  used internally for dynamic reference point calculation.
+* `DynamicHCR = TRUE` in `build_hcr()` to switch from static to
+  dynamic SB0 reference points.
+* CMSY harvest control rule (`HCR = 1`): maximize joint catch across
+  species, optionally constrained to keep depletion above `Plimit`.
+* PFMC Category 1 40-10 ABC HCR (`HCR = 6`) using `Pstar` /
+  `Sigma` uncertainty buffer.
+* SESSF Tier 1 HCR (`HCR = 7`).
+* Iterative multi-species HCRs: `HCRorder` controls the order in
+  which species F is solved (e.g. predators before prey) inside
+  `build_hcr()`.
+
+## New features -- MSE and projection
+
+* `run_mse()` now writes per-simulation `.rds` files when `dir` is
+  specified, for streaming-friendly long runs. `load_mse()` reads
+  those back.
+* `check_mse()` validates which OM/EM simulations converged.
+* `mse_summary()` produces a per-fleet performance-metric table
+  (mean catch, IAV, P(closed), MSE on SSB, P(F > Flimit),
+  P(SSB < SSBlimit), terminal depletion, ...).
+* MSE function now supports `cap` (catch cap), `catch_mult` (catch
+  multiplier), `rec_trend` (linear projected recruitment trend),
+  `fut_sample` (future sampling effort), per-fleet
+  `assessment_period` / `sampling_period`, `regenerate_past` (refit
+  EM to OM-simulated past data), and `timeout`/`try`-error handling
+  per simulation.
+* `Recruitment_and_fixed_F_projections.R` and `Simulation_testing.R`
+  examples added.
+
+## New features -- diagnostics and tooling
+
+* `jitter()` function to perturb starting values and re-fit, for
+  global-vs-local-minimum diagnostics.
+* `retrospective()` peels with optional `nyrs_forecast`.
+* `model_average()` for averaging derived quantities across multiple
+  fitted models, with optional bootstrap uncertainty.
+* `compare_sim()` and `sim_mod()` for parametric simulation testing.
+* `McAllister-Ianelli-reweighting.R` example for composition
+  reweighting.
+* TMB log-likelihood pieces (unweighted) added to the report for
+  composition diagnostics.
+* `Selectivity = "Fixed"` (`= 0`) for empirically supplied selectivity
+  blocks via the `emp_sel` data sheet.
+* `TMBfilename` argument to `fit_mod()` to point at an alternate
+  `.cpp` during development.
+
+## Behavior changes
+
+* Removed accumulation-age switches in `fleet_control`. Selectivity
+  normalization is now controlled via `Age_max_selected` (i.e.
+  `Sel_norm_bin1`) on a per-fleet basis instead of always
+  normalizing by the maximum-selectivity age.
+* `NA` values inside the valid age/length range of composition data
+  are now coerced to 0 with a warning (previously silently dropped
+  or errored).
+* Selectivity dimensioning switched from age- to bin-indexed for the
+  non-parametric and 2D/3D AR1 forms (driven by
+  `Selectivity_dimension` and `N_sel_bins`).
+* Age-error and age-transition matrices are now dimension-checked
+  against `nages` at `data_check()` time.
 
 # Rceattle 4.0.0
 
