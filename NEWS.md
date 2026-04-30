@@ -28,7 +28,27 @@
   any test failed, masking the real failure. Subdirectory test files
   are now discovered with `list.files()` and pulled in via
   `source()` so they register against the outer reporter directly.
-  All 2,300+ tests now pass cleanly.
+* `tests/testthat.R` now wraps `library()` calls in
+  `suppressPackageStartupMessages()` so transient build-version
+  notices (e.g. "package 'dplyr' was built under R version 4.5.2")
+  do not get captured as test warnings whose backtraces then crash
+  rlang's expr_deparse at end-of-run.
+
+## Parallelism
+
+* `run_mse()` and `check_mse()` now use `parallel::parLapply` on a
+  PSOCK cluster instead of `foreach::foreach(...) %dopar%`.
+  - The `%dopar%` path triggered `rlang::expr_deparse` infinite
+    recursion under nested `test_that` backtraces because each
+    `foreach` invocation captures call frames that recurse during
+    error formatting. PSOCK workers are clean R processes with no
+    captured promise chains, so the issue does not occur.
+  - PSOCK clusters work identically on Windows and macOS/Linux.
+  - `run_mse()` gains a `cores` argument (default `NULL` picks
+    `parallel::detectCores() - 6`); both functions cap at 2 cores
+    when `_R_CHECK_LIMIT_CORES_` is set so they comply with CRAN's
+    R CMD check limit.
+  - `foreach` and `doParallel` removed from `Imports:`.
 
 ## Installation / dependencies
 
