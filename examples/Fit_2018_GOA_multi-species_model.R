@@ -11,6 +11,7 @@ library(dplyr)
 # Example
 # To run the 2018 single species assessment for the Gulf of Alaska, a data file must first be loaded:
 data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
+plot_data(GOA2018SS)
 
 
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
