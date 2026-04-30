@@ -141,6 +141,7 @@ codebase
 deparses
 deparser
 deparsing
+expr
 dimnames
 dirichlet
 dnorm
@@ -152,6 +153,7 @@ ggplot
 groundfish
 hindcast
 hindcasts
+IAV
 indices
 ish
 init
@@ -162,6 +164,7 @@ knitr
 lhs
 ln
 lognormal
+Makevars
 matchable
 mcmc
 mfrow
@@ -188,6 +191,8 @@ ofl
 overfished
 overfishing
 pmature
+pollock
+pragma
 pre
 preempt
 preemption
@@ -200,9 +205,12 @@ randomized
 ration
 rceattle
 recdevs
+recurse
 reweighting
 rhs
 rlang
+rlang's
+RStudio
 sd
 selex
 seq
@@ -235,6 +243,7 @@ tidyselect
 tmb
 topright
 trawl
+unfished
 unvalidated
 varphi
 viridis
