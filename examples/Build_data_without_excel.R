@@ -117,10 +117,10 @@ simData$fleet_control <- data.frame(
   Fleet_type      = rep(c("Survey", "Fishery"), nspp),
   Species         = rep(1:nspp, each = 2), # Species this fleet targets
 
-  Month           = 0,                     # Month of sampling (0 = mid-year)
+  Month           = 0,                     # Month of sampling when using internal growth estimation (6 = mid-year)
 
   # Selectivity settings
-  Selectivity_index         = 1:(nspp * 2), # Links to selectivity across fleets
+  Selectivity_index         = 1:(nspp * 2), # Links to selectivity across fleets (mapped the same)
   Selectivity               = "Logistic",
   Selectivity_dimension     = "Age",
   N_sel_bins                = NA,           # Used for non-parametric only
@@ -138,13 +138,13 @@ simData$fleet_control <- data.frame(
   CAAL_loglike    = "Multinomial",
   CAAL_weights    = 1,          
 
-  # Data weighting / index units
+  # Index units
   Weight1_Numbers2 = 1,                    # 1 = weight (mt), 2 = numbers
   Weight_index     = rep(1:nspp, each = 2),# Index of weight for biomass calc
   Age_transition_index = 1,                # Index of age_trans_matrix
 
   # Catchability settings
-  Q_index              = 1:(nspp * 2),         # Links to q across fleets
+  Q_index              = 1:(nspp * 2),         # Links to q across fleets (mapped the same)
   Catchability         = rep(c("Estimated", NA), nspp), # NA = not applicable
   Q_prior              = rep(c(1,  NA), nspp),
   Q_sd_prior           = rep(c(0.2,NA), nspp),
