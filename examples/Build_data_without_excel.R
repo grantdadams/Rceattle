@@ -65,12 +65,16 @@ simData$minage  <- rep(1, nspp)
 # nlengths: number of length bins per species
 simData$nlengths <- rep(nlengths, nspp)
 
-# estDynamics: 0 = estimate population dynamics (standard),
-#              1 = fix numbers-at-age to input (NByageFixed)
+# estDynamics: 0 = estimate population dynamics (standard)
+#              1 = fix numbers-at-age exactly to NByageFixed
+#              2 = scale NByageFixed by a single (age-invariant) estimated scalar per species
+#              3 = scale NByageFixed by age-specific estimated scalars per species
 simData$estDynamics <- rep(0, nspp)
 
-# pop_wt_index / ssb_wt_index: row index into simData$weight used for
-#   total biomass (pop) and spawning biomass (ssb) calculations
+# pop_wt_index / ssb_wt_index: Wt_index value from simData$weight to use for
+#   total biomass (pop) and spawning biomass (ssb) calculations.
+#   Multiple weight datasets can exist (e.g. fleet-specific), each with a unique
+#   Wt_index; these vectors select which one to use per species.
 simData$pop_wt_index <- 1:nspp
 simData$ssb_wt_index <- 1:nspp
 
@@ -101,8 +105,10 @@ simData$other_food <- rep(1e5, nspp)
 # Selectivity_dimension: "Age" or "Length"
 # Catchability:  "Fixed" (0) = fixed at Q_prior,
 #                "Estimated" (1) = freely estimated,
-#                "Estimated-with-prior" (2),  "Analytical" (3),
-#                "Environmental" (5),  "AR1" (6),
+#                "Estimated-with-prior" (2) = free w/ normal prior (Q_prior, Q_sd_prior),
+#                "Analytical" (3) = Ludwig & Walters/Martell 1994,
+#                "Environmental" (5) = mu_q + X * beta,
+#                "AR1" (6) = sensu Rogers et al. (2024),
 #                NA = not applicable (fisheries)
 # proj_F_prop:   Proportion of projected F per fleet; must sum to 1 per
 #                species across fishery fleets; NA for surveys
@@ -117,47 +123,54 @@ simData$fleet_control <- data.frame(
   Fleet_type      = rep(c("Survey", "Fishery"), nspp),
   Species         = rep(1:nspp, each = 2), # Species this fleet targets
 
-  Month           = 0,                     # Month of sampling when using internal growth estimation (6 = mid-year)
+  Month           = 0,                     # Month of sampling (0 = mid-year)
 
   # Selectivity settings
-  Selectivity_index         = 1:(nspp * 2), # Links to selectivity across fleets (mapped the same)
+  Selectivity_index         = 1:(nspp * 2), # Links to selectivity across fleets
   Selectivity               = "Logistic",
   Selectivity_dimension     = "Age",
   N_sel_bins                = NA,           # Used for non-parametric only
-  Sel_curve_pen1            = NA,           # Smoothness penalty (optional)
+  Sel_curve_pen1            = NA,           # Smoothness penalty for Ianelli selectivity
   Sel_curve_pen2            = NA,
-  Time_varying_sel          = 0,            # 0 = time-invariant, 1 = random-walk, etc
+  Time_varying_sel          = 0,            # 0 = time-invariant
+  # 1 = penalized deviates (fixed at "Time_varying_sel_sd_prior" if random_sel = FALSE in fit_mod or estimated if TRUE)
+  # 3 = time blocks (R-side mapping only)
+  # 4 = random walk
+  # 5 = random walk on ascending limb of double logistic only
   Time_varying_sel_sd_prior = 1,
   Bin_first_selected        = 1,            # Youngest fully-selected age/length
-  Sel_norm_bin1             = NA,           # Bin to normalize from
-  Sel_norm_bin2             = NA,
+  Sel_norm_bin1             = NA,           # Bin to normalize from (optional)
+  Sel_norm_bin2             = NA,           # Upper bin to normalize from a range (can be NA)
 
   # Composition data settings
   Comp_loglike    = "Multinomial",
   Comp_weights    = 1,                      # Input effective sample size weight
   CAAL_loglike    = "Multinomial",
-  CAAL_weights    = 1,          
+  CAAL_weights    = 1,
 
-  # Index units
+  # Data weighting / index units
   Weight1_Numbers2 = 1,                    # 1 = weight (mt), 2 = numbers
   Weight_index     = rep(1:nspp, each = 2),# Index of weight for biomass calc
   Age_transition_index = 1,                # Index of age_trans_matrix
 
   # Catchability settings
-  Q_index              = 1:(nspp * 2),         # Links to q across fleets (mapped the same)
+  Q_index              = 1:(nspp * 2),         # Links to q across fleets
   Catchability         = rep(c("Estimated", NA), nspp), # NA = not applicable
   Q_prior              = rep(c(1,  NA), nspp),
   Q_sd_prior           = rep(c(0.2,NA), nspp),
-  Time_varying_q       = rep(c(0,  NA), nspp),
+  Time_varying_q       = rep(c(0,  NA), nspp), # 0 = none, 1 = penalized lognormal deviates with sd set at "Time_varying_q_sd_prior" if random_q = FALSE in fit_mod
+  # 3 = time blocks, 4 = random walk
   Time_varying_q_sd_prior = rep(c(1, NA), nspp),
 
   # Survey index uncertainty
-  Estimate_index_sd    = rep(c(0,  NA), nspp), # 0 = fix at Log_sd, 1 = estimate, etc
-  Index_sd_prior       = rep(c(1,  NA), nspp),
+  Estimate_index_sd    = rep(c(0,  NA), nspp), # 0 = fix at "Log_sd" from index_data,
+  # 1 = estimate sd,
+  # 2 = analytical sigma (Ludwig & Walters 1994)
+  Index_sd_prior       = rep(c(1,  NA), nspp), # Starting value if estimated
 
   # Catch uncertainty
-  Estimate_catch_sd    = rep(c(NA, 0), nspp),  # 0 = fix at Log_sd, 1 = estimate
-  Catch_sd_prior       = rep(c(NA, 1), nspp),
+  Estimate_catch_sd    = rep(c(NA, 0), nspp),  # 0 = fix at "Log_sd" in catch_data, 1 = estimate
+  Catch_sd_prior       = rep(c(NA, 1), nspp),  # Starting value if estimated
 
   # Projection fishing mortality
   proj_F_prop  = rep(c(NA, 1), nspp) # NA for surveys; must sum to 1 per species
@@ -177,8 +190,8 @@ simData$index_data <- data.frame(
   Species          = rep(1:nspp, each = nyrs),
   Year             = rep(years, nspp), # Negative year will predict but not include in likelihood
   Month            = 0,
-  Selectivity_block = 1,  # Selectivity/q parameter block for this year (used
-                           # when Time_varying_sel or Time_varying_q = 3)
+  Selectivity_block = 1,               # Selectivity/q parameter block for this year (used
+  # when Time_varying_sel or Time_varying_q = 3)
   Observation      = rnorm(nyrs * nspp),   # Replace with real log-index values
   Log_sd           = 0.1
 )
@@ -212,7 +225,7 @@ simData$catch_data <- data.frame(
 #
 # Age0_Length1: 0 = age composition,  1 = length composition
 # Sex:          0 = combined,  1 = females,  2 = males, 3 = joint
-# Sample_size:  input sample size 
+# Sample_size:  input sample size
 
 comp_matrix <- matrix(abs(rnorm(nyrs * nspp * nages * 2)),
                       nrow = nyrs * nspp * 2, ncol = nages)
@@ -276,19 +289,22 @@ simData$emp_sel <- data.frame(
   matrix(NA, nrow = 0, ncol = 5 + nages)
 )
 colnames(simData$emp_sel) <- c("Fleet_name", "Fleet_code", "Species",
-                                "Sex", "Year", paste0("Comp_", 1:nages))
+                               "Sex", "Year", paste0("Comp_", 1:nages))
 
 
 # =============================================================================
-# 10. Fixed numbers-at-age  [optional -- leave empty unless estDynamics = 1]
+# 10. Fixed numbers-at-age  [optional -- leave empty unless estDynamics = 1, 2, or 3]
 # =============================================================================
-# Used to fix numbers-at-age to external estimates for one or more species.
+# Used when estDynamics > 0:
+#   1 = numbers-at-age fixed exactly to these values
+#   2 = numbers-at-age scaled by a single estimated scalar per species
+#   3 = numbers-at-age scaled by age-specific estimated scalars per species
 
 simData$NByageFixed <- data.frame(
   matrix(NA, nrow = 0, ncol = 4 + nages)
 )
 colnames(simData$NByageFixed) <- c("Species_name", "Species", "Sex", "Year",
-                                    paste0("Age", 1:nages))
+                                   paste0("Age", 1:nages))
 
 
 # =============================================================================
@@ -427,14 +443,14 @@ simData$env_data <- data.frame(
 # =============================================================================
 # 18. Ration data  [optional -- leave empty if not used]
 # =============================================================================
-# Observed mean ration-at-age or relative foragine rate from bioenergetics studies. 
+# Observed mean ration-at-age or relative foragine rate from bioenergetics studies.
 # Used only in multi-species mode when ration is empirically constrained.
 
 simData$ration_data <- data.frame(
   matrix(NA, nrow = 0, ncol = 3 + nages)
 )
 colnames(simData$ration_data) <- c("Species", "Sex", "Year",
-                                    paste0("Age", 1:nages))
+                                   paste0("Age", 1:nages))
 
 
 # =============================================================================
@@ -459,7 +475,8 @@ simData$Tcl <- rep(1,  nspp)
 simData$CK1 <- rep(1,  nspp)
 simData$CK4 <- rep(1,  nspp)
 
-simData$Diet_loglike      <- rep(0, nspp)  # 0 = Multinomial, 1 = Dirichlet multinomial
+simData$Diet_loglike      <- rep(0, nspp)  # 0 = Multinomial, 1 = Dirichlet-multinomial
+# (only used when suitMode > 0)
 simData$Diet_comp_weights <- rep(1, nspp)
 
 
@@ -473,8 +490,8 @@ simData$diet_data <- data.frame(
   matrix(NA, nrow = 0, ncol = 9)
 )
 colnames(simData$diet_data) <- c("Pred", "Prey", "Pred_sex", "Prey_sex",
-                                  "Pred_age", "Prey_age", "Year",
-                                  "Sample_size", "Stomach_proportion_by_weight")
+                                 "Pred_age", "Prey_age", "Year",
+                                 "Sample_size", "Stomach_proportion_by_weight")
 
 
 # =============================================================================
@@ -489,16 +506,50 @@ colnames(simData$diet_data) <- c("Pred", "Prey", "Pred_sex", "Prey_sex",
 # =============================================================================
 # 22. Fit the model
 # =============================================================================
-# estimateMode = 3: "debug" mode -- runs MakeADFun but skips optimisation.
-#                   Use this to confirm the data list compiles without error.
-# estimateMode = 0: full fit (hindcast + projection)
-# estimateMode = 1: hindcast only
-# msmMode = 0: single-species (no predation mortality)
+# Key fit_mod() switches (all have defaults; shown here for documentation):
+#
+# estimateMode: 0 = full fit (hindcast + projection)
+#               1 = hindcast only
+#               2 = projection only
+#               3 = debug (MakeADFun only, skips optimisation)
+#               4 = debug + nlminb
+#
+# msmMode:      0 = single-species (no predation mortality)
+#               1 = Type II MSVPA (sensu Holsman et al. 2015)
+#               2 = Type III MSVPA
+#
+# suitMode:     Predator-prey suitability (one value per predator species):
+#               0 = empirical (MSVPA-style from diet data)
+#               2 = gamma selectivity on weight
+#               4 = lognormal on weight
+#               5 = normal on length
+#               6 = normal on weight
+#
+# initMode:     0 = free parameters for initial N-at-age
+#               1 = equilibrium, Finit = 0, no init devs (unfished)
+#               2 = equilibrium, Finit = 0, with init devs (default)
+#               3 = non-equilibrium: Finit estimated, init devs included
+#               4 = non-equilibrium: Finit scales R0
+#
+# avgnMode:     Abundance used in predation mortality calculations:
+#               0 = N/Z * (1 - exp(-Z))   (default)
+#               1 = N * exp(-Z/2)
+#               2 = N
+#
+# random_rec:   TRUE = treat log-recruitment deviations as random effects
+#               (marginalized via Laplace approximation); FALSE = penalized fixed effects
+# random_sel:   TRUE = treat selectivity deviations as random effects
+# random_q:     TRUE = treat catchability deviations as random effects
+#
+# phase:        TRUE = use parameter phasing to improve convergence (recommended)
 
 sim_run <- Rceattle::fit_mod(
   data_list    = simData,
-  estimateMode = 3,   # Change to 0 or 1 for a real fit
-  msmMode      = 0,
+  estimateMode = 3,       # Change to 0 for a real fit
+  msmMode      = 0,       # Single-species
+  initMode     = 2,       # Equilibrium with init devs (default)
+  random_rec   = FALSE,
+  phase        = TRUE,
   verbose      = 1
 )
 

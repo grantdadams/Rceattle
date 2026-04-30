@@ -155,23 +155,31 @@ names(mymodel)
 
 ::::: columns
 ::: {.column width="50%"}
-`selectivity`
+`Selectivity`
 
 -   0: empirical selectivity
--   1: logistic selectivity
--   2: non-parametric selecitivty (Ianelli)
--   3: double logistic
+-   1: logistic (2-parameter: slope and inflection)
+-   2: non-parametric (Ianelli/AMAK; `Sel_curve_pen1` = monotonicity penalty, `Sel_curve_pen2` = curvature penalty)
+-   3: double logistic (Dorn and Methot 1990)
 -   4: descending logistic
--   5: non-parametric selectivity (Taylor/Hake)
+-   5: non-parametric (Taylor/Hake cumulative coefficients)
+-   6: 2D AR1 (age × year random effects)
+-   7: 3D AR1 / GMRF (sparse precision matrix)
+
+`flt_sel_dim`
+
+-   0: age-based selectivity
+-   1: length-based (converted to age via growth transition matrix)
 :::
 
 ::: {.column width="50%"}
 `Time_varying_sel`
 
 -   0: no
--   1: random deviates
--   3: time blocks
--   4: random walk
+-   1: penalized deviates (fixed `Time_varying_sel_sd_prior` as sd; requires `random_sel = FALSE` in `fit_mod`)
+-   1: penalized deviates with estimated sd ($\hat{\sigma}$ estimated; requires `random_sel = TRUE` in `fit_mod` for Laplace)
+-   3: time blocks (R-side mapping; no likelihood term in TMB)
+-   4: random walk (penalizes year-to-year differences)
 -   5: random walk on ascending portion of double logistic only.
 :::
 :::::
@@ -182,22 +190,25 @@ names(mymodel)
 
 ::::: columns
 ::: {.column width="50%"}
--   0 = Fixed
+`Catchability`
+
+-   0 = Fixed at `Q_prior`
 -   1 = Free parameter
--   2 = Free w/ normal prior
--   3 = Analytical
--   4 = Power equation
--   5 = $\mu_q + X * \beta$
--   6 = sensu Rogers et al (2024)
+-   2 = Free w/ lognormal prior with median `Q_prior` and sd `Q_sd_prior`
+-   3 = Analytical (Ludwig and Walters/Martell 1994)
+-   4 = Power equation (declared but currently non-functional)
+-   5 = $\mu_q + X * \beta$ (environmental linkage)
+-   6 = sensu Rogers et al (2024; AR1 deviates fit to environmental index)
 :::
 
 ::: {.column width="50%"}
 `Time_varying_q`
 
 -   0: no
--   1: random deviates
--   3: time blocks
--   4: random walk
+-   1: penalized deviates (IID normal, fixed `Time_varying_q_sd_prior` as sd; requires `random_q = FALSE` in `fit_mod`)
+-   1: penalized deviates with estimated sd (IID normal, initialized at `Time_varying_q_sd_prior` as sd; requires `random_q = TRUE` in `fit_mod` for Laplace)
+-   3: time blocks (R-side mapping; no likelihood term in TMB)
+-   4: random walk (penalizes year-to-year differences)
 :::
 :::::
 
@@ -207,10 +218,23 @@ names(mymodel)
 
 ::::: columns
 ::: {.column width="50%"}
--   Mean recruitment, Beverton, Ricker
--   Env linkages to $mu$ or $\alpha$
--   Priors on alpha or steepness
--   Ianelli penalty estimation
+`srr_fun` (hindcast) / `srr_pred_fun` (projections/BRPs)
+
+-   0: mean recruitment ($R = R_0 \cdot e^{\epsilon}$)
+-   1: mean recruitment with environmental linkage
+-   2: Beverton-Holt ($R = \frac{\alpha \cdot SSB}{1 + \beta \cdot SSB} \cdot e^{\epsilon}$)
+-   3: Beverton-Holt with environmental effect on $\alpha$
+-   4: Ricker ($R = \alpha \cdot SSB \cdot e^{-\beta \cdot SSB} \cdot e^{\epsilon}$)
+-   5: Ricker with environmental effect on $\alpha$
+
+When `srr_fun = 0` and `srr_pred_fun > 0`, an Ianelli-style SRR penalty informs projections without fitting the SRR in the hindcast.
+
+`srr_est_mode`
+
+-   0: fix $\alpha$ to prior mean (not estimated)
+-   1: freely estimate $\alpha$ and $\beta$ (no prior)
+-   2: lognormal prior on steepness (B-H) or $\alpha$ (Ricker)
+-   3: beta-distributed prior on steepness (B-H only)
 :::
 
 ::: {.column width="50%"}
@@ -219,15 +243,16 @@ names(mymodel)
 
 mymodel <- fit_mod(
   recFun = build_srr(
-    srr_fun = 3,      # Beverton
-    proj_mean_rec = TRUE, 
+    srr_fun = 3,      # Beverton-Holt
+    srr_pred_fun = 3, # B-H for projections
+    proj_mean_rec = FALSE,
     srr_est_mode = 3, # Beta steepness prior
     srr_prior = 0.8,
     srr_prior_sd = 0.1,
     srr_indices = NA, # No environmental indices
     Bmsy_lim = NA),
   ...
-)   
+)
 ```
 :::
 :::::
@@ -238,16 +263,31 @@ mymodel <- fit_mod(
 
 ::::: columns
 ::: {.column width="50%"}
--   Input M-at-age
--   Fixed effects: species, sex, or age specific M
--   Random effects: AR1 or IID on year and/or age
--   Environmental linkages: $\mu_M + X * \beta$
--   Lognormal prior
+`M1_model`
+
+-   0: fixed input M-at-age (not estimated)
+-   1: estimate single species-specific, sex- and age-invariant M
+-   2: estimate sex-specific, age-invariant M
+-   3: estimate sex- and age-specific M
+-   4: environmentally driven, sex-invariant M ($M_{spp,yr} = M_{spp} \cdot e^{X \cdot \beta}$)
+-   5: environmentally driven, sex-specific M
+
+`M1_re` (random effects on M)
+
+-   0: no random effects
+-   1: IID by age, constant over years
+-   2: IID by year, constant over ages
+-   3: IID by age and year
+-   4: AR1 by age, constant over years
+-   5: AR1 by year, constant over ages
+-   6: 2D AR1 (separable AR1 × AR1 by age and year)
+
+Optional lognormal prior via `M1_use_prior`, `M_prior`, `M_prior_sd`.
 :::
 
 ::: {.column width="50%"}
 ```{r, eval = FALSE, echo = TRUE}
-?build_M1 # See options  
+?build_M1 # See options
 
 mymodel <- fit_mod(
   M1Fun = build_M1(
@@ -258,7 +298,7 @@ mymodel <- fit_mod(
     M_prior_sd = 0.05,
     M1_indices = NA),
   ...
-)   
+)
 ```
 :::
 :::::
@@ -266,6 +306,19 @@ mymodel <- fit_mod(
 ------------------------------------------------------------------------
 
 ## Harvest control rules
+
+`HCR`
+
+-   0: no fishing ($F = 0$)
+-   1: CMSY (maximize catch subject to depletion constraint)
+-   2: constant F (set to `Ftarget`)
+-   3: constant F to achieve X% of $SSB_0$ (set via `Ptarget`)
+-   4: constant $F_{SPR}$ with multiplier (`Ftarget * Fmult`)
+-   5: NPFMC Tier 3 (linear ramp with `Alpha` and `Plimit`)
+-   6: PFMC Category 1 (with `Ptarget`, `Plimit`, `Flimit`, and `Pstar`)
+-   7: SESSF Tier 1 (linear ramp toward `Ftarget`)
+
+`DynamicHCR`: FALSE = equilibrium BRPs; TRUE = dynamic BRPs
 
 ::::: columns
 ::: {.column width="65%"}
@@ -278,12 +331,12 @@ mymodel <- fit_mod(
     DynamicHCR = FALSE, # Equilibrium BRPs
     Ftarget = 0.40, # Target F-spr
     Flimit = 0.35,  # Limit F-spr
-    Ptarget = NA,     
+    Ptarget = NA,
     Plimit = 0.2,   # No F < 20% SB0
-    Alpha = 0.05, 
-    Pstar = NA, 
-    Sigma = NA, 
-    Fmult = NA, 
+    Alpha = 0.05,
+    Pstar = NA,
+    Sigma = NA,
+    Fmult = NA,
     HCRorder = NA),
   ...
 )
@@ -419,6 +472,48 @@ legend("bottomright", c("NPFMC", "PFMC 40-10", "PFMC 25-5", "SESSF", "NEFMC (Fsp
 ```
 :::
 :::::
+
+------------------------------------------------------------------------
+
+## Multi-species mode (`msmMode`)
+
+-   0: single species (no predation mortality)
+-   1: Type II MSVPA (sensu Holsman et al. 2015)
+-   2: Type III MSVPA
+
+`suitMode` (predator-prey suitability, per predator species)
+
+-   0: empirical (MSVPA-style from diet data)
+-   2: gamma selectivity on weight
+-   4: lognormal on weight
+-   5: normal on length
+-   6: normal on weight
+
+------------------------------------------------------------------------
+
+## Initial conditions (`initMode`)
+
+-   0: free parameters for initial N-at-age
+-   1: equilibrium, $F_{init} = 0$, no init devs (unfished)
+-   2: equilibrium, $F_{init} = 0$, with init devs (default)
+-   3: non-equilibrium: $F_{init}$ estimated, init devs included
+-   4: non-equilibrium: $F_{init}$ scales $R_0$ (alternative plus-group treatment)
+
+------------------------------------------------------------------------
+
+## Observation model specifications (`fleet_control`)
+
+`Comp_loglike` (composition data likelihood)
+
+-   -1: AFSC-style multinomial ($\sum n \cdot \hat{p} \cdot \log(\hat{p}/p)$)
+-   0: full multinomial
+-   1: Dirichlet-multinomial
+
+`Estimate_index_sd` (survey index variance)
+
+-   0: use provided standard deviation from data
+-   1: estimate standard deviation
+-   2: analytical sigma (Ludwig and Walters 1994)
 
 ------------------------------------------------------------------------
 
