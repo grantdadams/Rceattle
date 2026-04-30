@@ -5,6 +5,7 @@
 #' @param data_list an Rceattle data_list
 #'
 #' @export
+#' @importFrom magrittr %>%
 #' @importFrom rlang .data
 #' @importFrom dplyr n
 #' @importFrom tidyselect contains
@@ -24,97 +25,97 @@ rearrange_dat <- function(data_list){
 
   # 1 - Fleet control ----
   # - 0) Vector to save  species
-  data_list$flt_spp <- data_list$fleet_control |>
-    dplyr::pull(.data$Species) |> as.integer() - 1
+  data_list$flt_spp <- data_list$fleet_control %>%
+    dplyr::pull(.data$Species) %>% as.integer() - 1
 
   # - 1) Fleet pointer
-  data_list$flt_sel_ind <- data_list$fleet_control |>
-    dplyr::pull(.data$Fleet_code) |> as.integer() - 1
+  data_list$flt_sel_ind <- data_list$fleet_control %>%
+    dplyr::pull(.data$Fleet_code) %>% as.integer() - 1
 
   # - 2) Fleet type; 0 = don't fit, 1 = fishery, 2 = survey
-  data_list$flt_type <- data_list$fleet_control |>
-    dplyr::pull(.data$Fleet_type) |> as.integer()
+  data_list$flt_type <- data_list$fleet_control %>%
+    dplyr::pull(.data$Fleet_type) %>% as.integer()
 
   # - 3) Month of observation
-  data_list$flt_month <- data_list$fleet_control |>
+  data_list$flt_month <- data_list$fleet_control %>%
     dplyr::pull(.data$Month)
 
   # - 4) Selectivity type
-  data_list$flt_sel_type <- data_list$fleet_control |>
-    dplyr::pull(.data$Selectivity) |> as.integer()
+  data_list$flt_sel_type <- data_list$fleet_control %>%
+    dplyr::pull(.data$Selectivity) %>% as.integer()
 
-  data_list$flt_sel_dim <- data_list$fleet_control |>
+  data_list$flt_sel_dim <- data_list$fleet_control %>%
     dplyr::mutate(Selectivity_dimension = dplyr::case_when(
       .data$Selectivity_dimension == "Age" ~ 0,
       .data$Selectivity_dimension == "Length" ~ 1,
       .default = NA
-    )) |>
-    dplyr::pull(.data$Selectivity_dimension) |> as.integer()
+    )) %>%
+    dplyr::pull(.data$Selectivity_dimension) %>% as.integer()
 
   # - 5) Number of ages/lengths for non-parametric selectivity
-  data_list$flt_n_sel_bins <- data_list$fleet_control |>
-    dplyr::mutate(N_sel_bins = ifelse(is.na(.data$N_sel_bins), -999, .data$N_sel_bins)) |>
-    dplyr::pull(.data$N_sel_bins) |> as.integer()
+  data_list$flt_n_sel_bins <- data_list$fleet_control %>%
+    dplyr::mutate(N_sel_bins = ifelse(is.na(.data$N_sel_bins), -999, .data$N_sel_bins)) %>%
+    dplyr::pull(.data$N_sel_bins) %>% as.integer()
 
   # - 6) Time-varying selectivity type.
-  data_list$flt_varying_sel <- data_list$fleet_control |>
-    dplyr::pull(.data$Time_varying_sel) |> as.integer()
+  data_list$flt_varying_sel <- data_list$fleet_control %>%
+    dplyr::pull(.data$Time_varying_sel) %>% as.integer()
 
   # - 7) First age selected
-  data_list$bin_first_selected <- data_list$fleet_control |>
+  data_list$bin_first_selected <- data_list$fleet_control %>%
     dplyr::mutate(Bin_first_selected = .data$Bin_first_selected - 1, # R to C++ indexing
-                  Bin_first_selected = ifelse(is.na(.data$Bin_first_selected), 0, .data$Bin_first_selected)) |>
-    dplyr::pull(.data$Bin_first_selected) |> as.integer()
+                  Bin_first_selected = ifelse(is.na(.data$Bin_first_selected), 0, .data$Bin_first_selected)) %>%
+    dplyr::pull(.data$Bin_first_selected) %>% as.integer()
 
   # - 8) Age of max selectivity (used for normalization). If NA, does not normalize
-  data_list$sel_norm_bin1 <- data_list$fleet_control |>
+  data_list$sel_norm_bin1 <- data_list$fleet_control %>%
     dplyr::mutate(
       Sel_norm_bin1 = .data$Sel_norm_bin1 - data_list$minage[Species],
       Sel_norm_bin1 = ifelse(.data$Sel_norm_bin1 < 0, -99, .data$Sel_norm_bin1),         # Less than zero, normalize by max
-      Sel_norm_bin1 = ifelse(is.na(.data$Sel_norm_bin1), -999, .data$Sel_norm_bin1)) |> # NA, do not normalize (unless type = 2)
-    dplyr::pull(.data$Sel_norm_bin1) |> as.integer()
+      Sel_norm_bin1 = ifelse(is.na(.data$Sel_norm_bin1), -999, .data$Sel_norm_bin1)) %>% # NA, do not normalize (unless type = 2)
+    dplyr::pull(.data$Sel_norm_bin1) %>% as.integer()
 
   # - 9) upper age of max selectivity (used for normalization). If NA, does not normalize
-  data_list$sel_norm_bin2 <- data_list$fleet_control |>
+  data_list$sel_norm_bin2 <- data_list$fleet_control %>%
     dplyr::mutate(Sel_norm_bin2 = .data$Sel_norm_bin2 - data_list$minage[Species],
-                  Sel_norm_bin2 = ifelse(is.na(.data$Sel_norm_bin2), -999, .data$Sel_norm_bin2)) |>
-    dplyr::pull(.data$Sel_norm_bin2) |> as.integer()
+                  Sel_norm_bin2 = ifelse(is.na(.data$Sel_norm_bin2), -999, .data$Sel_norm_bin2)) %>%
+    dplyr::pull(.data$Sel_norm_bin2) %>% as.integer()
 
   # - 10) Index indicating wether to do dirichlet multinomial or a multinomial
-  data_list$comp_ll_type <- data_list$fleet_control |>
-    dplyr::pull(.data$Comp_loglike) |> as.integer()
-  data_list$caal_ll_type <- data_list$fleet_control |>
-    dplyr::pull(.data$CAAL_loglike) |> as.integer()
-  data_list$diet_ll_type <- data_list$Diet_loglike |>
+  data_list$comp_ll_type <- data_list$fleet_control %>%
+    dplyr::pull(.data$Comp_loglike) %>% as.integer()
+  data_list$caal_ll_type <- data_list$fleet_control %>%
+    dplyr::pull(.data$CAAL_loglike) %>% as.integer()
+  data_list$diet_ll_type <- data_list$Diet_loglike %>%
     as.integer()
 
   # - 11) Index units (1 = weight, 2 = numbers)
-  data_list$flt_units <- data_list$fleet_control |>
-    dplyr::pull(.data$Weight1_Numbers2) |> as.integer()
+  data_list$flt_units <- data_list$fleet_control %>%
+    dplyr::pull(.data$Weight1_Numbers2) %>% as.integer()
 
   # - 12) Dim1 of weight (what weight-at-age data set)
-  data_list$flt_wt_index <- data_list$fleet_control |>
-    dplyr::pull(.data$Weight_index) |> as.integer() - 1
+  data_list$flt_wt_index <- data_list$fleet_control %>%
+    dplyr::pull(.data$Weight_index) %>% as.integer() - 1
 
   # - 13) Dim3 of age transition matrix (what ALK to use)
-  data_list$flt_age_transition_index <- data_list$fleet_control |>
-    dplyr::pull(.data$Age_transition_index) |> as.integer() - 1
+  data_list$flt_age_transition_index <- data_list$fleet_control %>%
+    dplyr::pull(.data$Age_transition_index) %>% as.integer() - 1
 
   # - 14) Parametric form of q
-  data_list$est_index_q <- data_list$fleet_control |>
-    dplyr::pull(.data$Catchability) |> as.integer()
+  data_list$est_index_q <- data_list$fleet_control %>%
+    dplyr::pull(.data$Catchability) %>% as.integer()
 
   # - 15) Time varying q type
-  data_list$index_varying_q <- data_list$fleet_control |>
-    dplyr::pull(.data$Time_varying_q) |> as.integer()
+  data_list$index_varying_q <- data_list$fleet_control %>%
+    dplyr::pull(.data$Time_varying_q) %>% as.integer()
 
   # - 16) Wether to estimate standard deviation of index time series
-  data_list$est_sigma_index <- data_list$fleet_control |>
-    dplyr::pull(.data$Estimate_index_sd) |> as.integer()
+  data_list$est_sigma_index <- data_list$fleet_control %>%
+    dplyr::pull(.data$Estimate_index_sd) %>% as.integer()
 
   # - 17) Wether to estimate standard deviation of fishery time series
-  data_list$est_sigma_fsh <- data_list$fleet_control |>
-    dplyr::pull(.data$Estimate_catch_sd) |> as.integer()
+  data_list$est_sigma_fsh <- data_list$fleet_control %>%
+    dplyr::pull(.data$Estimate_catch_sd) %>% as.integer()
 
   data_list$index_ln_q_prior <- log(data_list$fleet_control$Q_prior)
 
@@ -128,43 +129,43 @@ rearrange_dat <- function(data_list){
 
   # 2 -  Index data ----
   # - Seperate index metadata from observation
-  data_list$index_ctl <- data_list$index_data |>
-    dplyr::select(Fleet_code, Species, Year) |>
+  data_list$index_ctl <- data_list$index_data %>%
+    dplyr::select(Fleet_code, Species, Year) %>%
     dplyr::mutate_all(as.integer)
 
   data_list$index_n <- as.matrix(data_list$index_data[,c("Month")])
 
-  data_list$index_obs <- data_list$index_data |>
-    dplyr::select(Observation, Log_sd) |>
+  data_list$index_obs <- data_list$index_data %>%
+    dplyr::select(Observation, Log_sd) %>%
     dplyr::mutate_all(as.numeric)
 
 
   # 3 -  Catch data ----
   # - Seperate catch metadata from observation
-  data_list$catch_ctl <- data_list$catch_data |>
-    dplyr::select(Fleet_code, Species, Year) |>
+  data_list$catch_ctl <- data_list$catch_data %>%
+    dplyr::select(Fleet_code, Species, Year) %>%
     dplyr::mutate_all(as.integer)
 
   data_list$catch_n <- as.matrix(data_list$catch_data[,c("Month")])
 
-  data_list$catch_obs <- data_list$catch_data |>
-    dplyr::select(Catch, Log_sd) |>
+  data_list$catch_obs <- data_list$catch_data %>%
+    dplyr::select(Catch, Log_sd) %>%
     dplyr::mutate_all(as.numeric)
 
 
   # 4 -  Comp data ----
   # - Seperate comp metadata from observation
-  data_list$comp_ctl <- data_list$comp_data |>
-    dplyr::select(Fleet_code, Species, Sex, Age0_Length1, Year) |>
+  data_list$comp_ctl <- data_list$comp_data %>%
+    dplyr::select(Fleet_code, Species, Sex, Age0_Length1, Year) %>%
     dplyr::mutate_all(as.integer)
 
-  data_list$comp_n <- data_list$comp_data |>
-    dplyr::select(Month, Sample_size) |>
+  data_list$comp_n <- data_list$comp_data %>%
+    dplyr::select(Month, Sample_size) %>%
     dplyr::mutate_all(as.numeric)
 
-  data_list$comp_obs <- data_list$comp_data |>
-    dplyr::select(contains("Comp_")) |>
-    dplyr::mutate_all(as.numeric) |>
+  data_list$comp_obs <- data_list$comp_data %>%
+    dplyr::select(contains("Comp_")) %>%
+    dplyr::mutate_all(as.numeric) %>%
     as.matrix()
 
   if(nrow(data_list$comp_obs) > 0){ #FIXME: probably cleaner way to deal with this
@@ -175,18 +176,18 @@ rearrange_dat <- function(data_list){
   data_list <- check_composition_data(data_list)
 
   # 5 - CAAL data ----
-  data_list$caal_ctl <- data_list$caal_data |>
-    dplyr::mutate(Length_bin = factor(.data$Length)) |>
-    dplyr::select(Fleet_code, Species, Sex, Year, Length_bin) |>
+  data_list$caal_ctl <- data_list$caal_data %>%
+    dplyr::mutate(Length_bin = factor(.data$Length)) %>%
+    dplyr::select(Fleet_code, Species, Sex, Year, Length_bin) %>%
     dplyr::mutate_all(as.integer)
 
-  data_list$caal_n <- data_list$caal_data |>
-    dplyr::select(Sample_size) |>
+  data_list$caal_n <- data_list$caal_data %>%
+    dplyr::select(Sample_size) %>%
     dplyr::mutate_all(as.numeric)
 
-  data_list$caal_obs <- data_list$caal_data |>
-    dplyr::select(contains("CAAL_")) |>
-    dplyr::mutate_all(as.numeric) |>
+  data_list$caal_obs <- data_list$caal_data %>%
+    dplyr::select(contains("CAAL_")) %>%
+    dplyr::mutate_all(as.numeric) %>%
     as.matrix()
 
   if(nrow(data_list$caal_obs) > 0){#FIXME: probably cleaner way to deal with this
@@ -200,18 +201,18 @@ rearrange_dat <- function(data_list){
   data_list$lengths <- matrix(rep(1:max(data_list$nlengths), data_list$nspp), nrow = data_list$nspp, byrow = TRUE)
 
   if(nrow(data_list$caal_data) > 0){
-    caal_lengths <- data_list$caal_data |>
-      dplyr::distinct(.data$Species, .data$Length) |>
-      dplyr::arrange(.data$Species, .data$Length) |>
-      dplyr::group_by(.data$Species) |>
-      dplyr::mutate(Bin = paste0("Bin", 1:dplyr::n())) |>
+    caal_lengths <- data_list$caal_data %>%
+      dplyr::distinct(.data$Species, .data$Length) %>%
+      dplyr::arrange(.data$Species, .data$Length) %>%
+      dplyr::group_by(.data$Species) %>%
+      dplyr::mutate(Bin = paste0("Bin", 1:dplyr::n())) %>%
       tidyr::pivot_wider(names_from = "Bin", values_from = "Length")
 
     data_list$lengths[caal_lengths$Species, 1:ncol(caal_lengths[,-1])] <- as.matrix(caal_lengths[,-1])
 
     # - Check to make sure n-bins in data match nlengths
-    n_bins_data <- data_list$caal_data |>
-      dplyr::distinct(.data$Species, .data$Length) |>
+    n_bins_data <- data_list$caal_data %>%
+      dplyr::distinct(.data$Species, .data$Length) %>%
       dplyr::count(.data$Species)
 
     if(any(data_list$nlengths[n_bins_data$Species] != n_bins_data$n)){
@@ -238,13 +239,13 @@ rearrange_dat <- function(data_list){
     data_list$stomach_id <- diet_dat$stomach_id
 
     # Create diet_ctl (without the stomach_id column)
-    data_list$diet_ctl <- diet_dat |>
-      dplyr::select(Pred, Prey, Pred_sex, Prey_sex, Pred_age, Prey_age, Year) |>
+    data_list$diet_ctl <- diet_dat %>%
+      dplyr::select(Pred, Prey, Pred_sex, Prey_sex, Pred_age, Prey_age, Year) %>%
       dplyr::mutate_all(as.integer)
 
     # Create diet_obs as before
-    data_list$diet_obs <- diet_dat |>
-      dplyr::select(Sample_size, Stomach_proportion_by_weight) |>
+    data_list$diet_obs <- diet_dat %>%
+      dplyr::select(Sample_size, Stomach_proportion_by_weight) %>%
       dplyr::mutate_all(as.numeric)
   }
 
@@ -274,12 +275,12 @@ rearrange_dat <- function(data_list){
     }
   }
 
-  data_list$emp_sel_ctl <- data_list$emp_sel |>
-    dplyr::select(Fleet_code, Species, Sex, Year) |>
+  data_list$emp_sel_ctl <- data_list$emp_sel %>%
+    dplyr::select(Fleet_code, Species, Sex, Year) %>%
     dplyr::mutate_all(as.integer)
 
-  data_list$emp_sel_obs <- data_list$emp_sel |>
-    dplyr::select(contains("Comp_")) |>
+  data_list$emp_sel_obs <- data_list$emp_sel %>%
+    dplyr::select(contains("Comp_")) %>%
     dplyr::mutate_all(as.numeric)
 
 
@@ -343,7 +344,7 @@ rearrange_dat <- function(data_list){
 
   # 11 - Set up weight-at-age ----
   # - Convert to array
-  data_list$weight <- data_list$weight |>
+  data_list$weight <- data_list$weight %>%
     dplyr::mutate(
       Wt_index = as.numeric(as.character(.data$Wt_index)),
       Species = as.numeric(as.character(.data$Species)),
@@ -396,7 +397,7 @@ rearrange_dat <- function(data_list){
 
   # 12 - Set up NByageFixed ----
   # - Convert to array
-  data_list$NByageFixed <- data_list$NByageFixed |>
+  data_list$NByageFixed <- data_list$NByageFixed %>%
     dplyr::mutate(Species = as.numeric(as.character(.data$Species)),
            Sex = as.numeric(as.character(.data$Sex)),
            Year = as.numeric(as.character(.data$Year)) - data_list$styr + 1)
@@ -427,15 +428,15 @@ rearrange_dat <- function(data_list){
   # 13 - Set up environmental indices ----
   # - Fill in missing years with column mean
   data_list$env_index <- merge(data_list$env_data, data.frame(Year = data_list$styr:data_list$projyr), all = TRUE)
-  data_list$env_index <-  data_list$env_index |>
-    dplyr::select(-Year) |>
-    dplyr::mutate_all(~ifelse(is.na(.x), mean(.x, na.rm = TRUE), .x)) |>
+  data_list$env_index <-  data_list$env_index %>%
+    dplyr::select(-Year) %>%
+    dplyr::mutate_all(~ifelse(is.na(.x), mean(.x, na.rm = TRUE), .x)) %>%
     as.matrix()
 
 
   # 14 - Set up ration_data ----
   # - Convert to array
-  data_list$ration_data <- data_list$ration_data |>
+  data_list$ration_data <- data_list$ration_data %>%
     dplyr::mutate(Species = as.numeric(as.character(.data$Species)),
                   Sex = as.numeric(as.character(.data$Sex)),
                   Year = as.numeric(as.character(.data$Year)),
@@ -477,14 +478,14 @@ rearrange_dat <- function(data_list){
 
 
   # 15 - Remove species column from maturity and sex_ratio ----
-  data_list$sex_ratio <- data_list$sex_ratio |>
-    dplyr::select(contains("Age")) |>
-    dplyr::mutate_all(as.numeric) |>
+  data_list$sex_ratio <- data_list$sex_ratio %>%
+    dplyr::select(contains("Age")) %>%
+    dplyr::mutate_all(as.numeric) %>%
     as.matrix()
 
-  data_list$maturity <- data_list$maturity |>
-    dplyr::select(contains("Age")) |>
-    dplyr::mutate_all(as.numeric) |>
+  data_list$maturity <- data_list$maturity %>%
+    dplyr::select(contains("Age")) %>%
+    dplyr::mutate_all(as.numeric) %>%
     as.matrix()
 
 
@@ -632,7 +633,7 @@ check_caal_data <- function(data_list) {
 convert_switches <- function(data_list) {
 
   # If vector is a string that exists in our map, replace it with the integer.
-  data_list$fleet_control <- data_list$fleet_control |>
+  data_list$fleet_control <- data_list$fleet_control %>%
     dplyr::mutate(
 
       Fleet_type = ifelse(as.character(.data$Fleet_type) %in% names(fleet_map),
@@ -651,7 +652,7 @@ convert_switches <- function(data_list) {
                             unname(comp_loglike_map[as.character(.data$CAAL_loglike)]),
                             .data$CAAL_loglike)
 
-    ) |>
+    ) %>%
     # CRITICAL: Force columns back to integers so TMB doesn't crash expecting ints but getting chars
     dplyr::mutate(
       Selectivity = as.integer(.data$Selectivity),

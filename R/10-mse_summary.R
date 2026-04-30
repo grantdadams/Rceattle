@@ -500,27 +500,31 @@ check_mse <- function(dir = NULL, file = NULL){
   mse_order <- as.numeric(gsub(".rds", "", sapply(strsplit(mse_files, "EMs_from_OM_Sim_"), "[[", 2)))
   mse_files <- mse_files[order(mse_order)]
 
-  ### Set up parallel processing
-  cores <- parallel::detectCores() - 6
-  doParallel::registerDoParallel(cores)
+  ### Set up parallel processing (PSOCK cluster -- cross-platform,
+  ### avoids the foreach::%dopar% rlang deparser interaction).
+  chk <- tolower(Sys.getenv("_R_CHECK_LIMIT_CORES_", ""))
+  cran_cap <- nzchar(chk) && !chk %in% c("false", "0", "no")
+  cores <- if (cran_cap) 2L else max(1L, parallel::detectCores() - 6L)
+  use_parallel <- length(mse_files) > 1L && cores > 1L
 
-  # check_df <- data.frame(Dir = dir, File = mse_files, Use = NA, Ind = NA)
+  read_one <- function(i) {
+    mse_tmp <- readRDS(file = paste0(dir, "/", mse_files[i]))
+    check_tmp <- data.frame(Dir = dir, File = mse_files[i], Use = NA, Ind = i)
+    if (!is.null(mse_tmp$use_sim)) {
+      check_tmp$Use <- mse_tmp$use_sim
+    }
+    check_tmp
+  }
 
-  # for(i in 1:length(mse_files)){
-  check_df <- foreach::foreach(i = 1:length(mse_files),
-                      .combine = "rbind") %dopar% {
-                        mse_tmp <- readRDS(file = paste0(dir,"/", mse_files[i]))
-
-                        check_tmp <- data.frame(Dir = dir, File = mse_files[i], Use = NA, Ind = NA)
-
-                        if(!is.null(mse_tmp$use_sim)){
-                          check_tmp$Use <- mse_tmp$use_sim
-                        }
-                        check_tmp$Ind = i
-
-                        check_tmp
-                      }
-  closeAllConnections()
+  if (use_parallel) {
+    cl <- parallel::makeCluster(min(cores, length(mse_files)))
+    on.exit(parallel::stopCluster(cl), add = TRUE)
+    parallel::clusterExport(cl, c("dir", "mse_files"), envir = environment())
+    rows <- parallel::parLapply(cl, seq_along(mse_files), read_one)
+  } else {
+    rows <- lapply(seq_along(mse_files), read_one)
+  }
+  check_df <- do.call(rbind, rows)
 
   return(check_df)
 }

@@ -32,8 +32,6 @@ Imports:
     writexl,
     reshape2,
     gplots,
-    foreach,
-    doParallel,
     parallel,
     tidyr,
     R.utils,
@@ -43,7 +41,8 @@ Imports:
     cowplot,
     rlang,
     plyr,
-    tidyselect
+    tidyselect,
+    magrittr
 LinkingTo:
     TMB
 Suggests:
@@ -51,7 +50,6 @@ Suggests:
     rmarkdown,
     knitr,
     mvtnorm,
-    magrittr,
     TMBhelper
 VignetteBuilder:
     knitr

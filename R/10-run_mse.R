@@ -22,12 +22,14 @@
 #' @param regenerate_seed seed for regenerating data
 #' @param timeout length of time (minutes) estimation will run before stopping a sim (default 999 minutes)
 #' @param endyr Terminal year of the MSE projection. Default = NA uses \code{projyr} from the operating model.
+#' @param cores Number of cores to use for parallel simulations. Default
+#'   \code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
+#'   running under \code{R CMD check} (which sets
+#'   \code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.
 #'
 #' @return A list of operating models (differ by simulated recruitment determined by \code{nsim}) and estimation models fit to each operating model (differ by terminal year).
 #' @export
-#'
-#'
-run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, regenerate_past = FALSE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, catch_mult = NULL, seed = 666, regenerate_seed = seed, loopnum = 1, file = NULL, dir = NULL, timeout = 999, endyr = NA){
+run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sampling_period = 1, simulate_data = TRUE, regenerate_past = FALSE, sample_rec = TRUE, rec_trend = 0, fut_sample = 1, cap = NULL, catch_mult = NULL, seed = 666, regenerate_seed = seed, loopnum = 1, file = NULL, dir = NULL, timeout = 999, endyr = NA, cores = NULL){
 
   # om = om; em = em; nsim = 1; start_sim = 1; assessment_period = 1; sampling_period = 1; simulate_data = TRUE; regenerate_past = FALSE; sample_rec = FALSE; rec_trend = 0; fut_sample = 1; cap = NULL; catch_mult = NULL; seed = 666; regenerate_seed = seed; loopnum = 1; file = NULL; dir = NULL; endyr = NA; timeout = 999
 
@@ -279,9 +281,9 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       avg_F <- rowMeans(avg_F[,(ncol(avg_F)-4) : ncol(avg_F)])
       avg_F <- data.frame(avg_F = avg_F, spp = em$data_list$fleet_control$Species)
       avg_F <- avg_F |>
-        group_by(spp) |>
-        summarise(avg_F = sum(avg_F)) |>
-        arrange(spp)
+        dplyr::group_by(spp) |>
+        dplyr::summarise(avg_F = sum(avg_F)) |>
+        dplyr::arrange(spp)
 
       # - Update model
       em <- Rceattle::fit_mod(data_list = em$data_list,
@@ -334,7 +336,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
   # -- index_data
   proj_srv <- om$data_list$index_data |>
     dplyr::group_by(Fleet_code) |>
-    dplyr::slice(rep(n(),  om_proj_nyrs)) |>
+    dplyr::slice(rep(dplyr::n(),  om_proj_nyrs)) |>
     dplyr::mutate(Year = -om_proj_yrs)
   proj_srv$Log_sd <- proj_srv$Log_sd * 1/fut_sample
   proj_srv$Observation <- NA
@@ -345,7 +347,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
   if(nrow(om$data_list$NByageFixed) > 0){
     proj_nbyage <- om$data_list$NByageFixed |>
       dplyr::group_by(Species, Sex) |>
-      dplyr::slice(rep(n(),  om_proj_nyrs)) |>
+      dplyr::slice(rep(dplyr::n(),  om_proj_nyrs)) |>
       dplyr::mutate(Year = om_proj_yrs)
     proj_nbyage <- proj_nbyage[which(om_proj_yrs %!in% om$data_list$NByageFixed$Year),] # Subset rows already forcasted
     om$data_list$NByageFixed  <- rbind(om$data_list$NByageFixed, proj_nbyage)
@@ -356,7 +358,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
   if(nrow(om$data_list$comp_data) > 0){
     proj_comp <- om$data_list$comp_data |>
       dplyr::group_by(Fleet_code, Sex) |>
-      dplyr::slice(rep(n(),  om_proj_nyrs)) |>
+      dplyr::slice(rep(dplyr::n(),  om_proj_nyrs)) |>
       dplyr::mutate(Year = -om_proj_yrs)
     proj_comp$Sample_size <- proj_comp$Sample_size * fut_sample # Adjust future sampling effort
     proj_comp <- proj_comp |>
@@ -369,7 +371,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
   if(nrow(om$data_list$caal_data) > 0){
     proj_caal <- om$data_list$caal_data |>
       dplyr::group_by(Fleet_code, Sex) |>
-      dplyr::slice(rep(n(),  om_proj_nyrs)) |>
+      dplyr::slice(rep(dplyr::n(),  om_proj_nyrs)) |>
       dplyr::mutate(Year = -om_proj_yrs)
     proj_caal$Sample_size <- proj_caal$Sample_size * fut_sample # Adjust future sampling effort
     proj_caal <- proj_caal |>
@@ -382,7 +384,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
   if(nrow(om$data_list$emp_sel) > 0){
     proj_emp_sel <- om$data_list$emp_sel |>
       dplyr::group_by(Fleet_code, Sex) |>
-      dplyr::slice(rep(n(),  om_proj_nyrs)) |>
+      dplyr::slice(rep(dplyr::n(),  om_proj_nyrs)) |>
       dplyr::mutate(Year = om_proj_yrs)
     om$data_list$emp_sel  <- rbind(om$data_list$emp_sel, proj_emp_sel)
     om$data_list$emp_sel <- dplyr::arrange(om$data_list$emp_sel, Fleet_code, Year)
@@ -393,7 +395,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
   if(nrow(om$data_list$weight) > 0){
     proj_wt <- om$data_list$weight |>
       dplyr::group_by(Wt_index , Sex) |>
-      dplyr::slice(rep(n(),  om_proj_nyrs)) |>
+      dplyr::slice(rep(dplyr::n(),  om_proj_nyrs)) |>
       dplyr::mutate(Year = om_proj_yrs)
     om$data_list$weight  <- rbind(om$data_list$weight, proj_wt)
     om$data_list$weight <- dplyr::arrange(om$data_list$weight, Wt_index, Year)
@@ -403,7 +405,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
   if(nrow(om$data_list$ration_data) > 0){
     proj_ration_data <- om$data_list$ration_data |>
       dplyr::group_by(Species, Sex) |>
-      dplyr::slice(rep(n(),  om_proj_nyrs)) |>
+      dplyr::slice(rep(dplyr::n(),  om_proj_nyrs)) |>
       dplyr::mutate(Year = om_proj_yrs)
     om$data_list$ration_data  <- rbind(om$data_list$ration_data, proj_ration_data)
     om$data_list$ration_data <- dplyr::arrange(om$data_list$ration_data, Species, Year)
@@ -418,7 +420,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
   if(nrow(em$data_list$emp_sel) > 0){
     proj_emp_sel <- em$data_list$emp_sel |>
       dplyr::group_by(Fleet_code, Sex) |>
-      dplyr::slice(rep(n(),  em_proj_nyrs)) |>
+      dplyr::slice(rep(dplyr::n(),  em_proj_nyrs)) |>
       dplyr::mutate(Year = em_proj_yrs)
     em$data_list$emp_sel  <- rbind(em$data_list$emp_sel, proj_emp_sel)
     em$data_list$emp_sel <- dplyr::arrange(em$data_list$emp_sel, Fleet_code, Year)
@@ -438,20 +440,38 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
   if(nrow(em$data_list$ration_data) > 0){
     proj_ration_data <- em$data_list$ration_data |>
       dplyr::group_by(Species, Sex) |>
-      dplyr::slice(rep(n(),  em_proj_nyrs)) |>
+      dplyr::slice(rep(dplyr::n(),  em_proj_nyrs)) |>
       dplyr::mutate(Year = em_proj_yrs)
     em$data_list$ration_data  <- rbind(em$data_list$ration_data, proj_ration_data)
     em$data_list$ration_data <- dplyr::arrange(em$data_list$ration_data, Species, Year)
   }
 
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-  # DO THE MSE ----
-  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-  ### Set up parallel processing
-  cores = parallel::detectCores() - 6
-  doParallel::registerDoParallel(cores)
 
-  sim_list <- foreach::foreach(sim = start_sim:nsim, .packages = c("Rceattle", "dplyr")) %dopar% {
+  # Cross-platform parallel via parallel::parLapply on a PSOCK cluster.
+  # We do *not* use foreach::%dopar% here: under nested test_that
+  # backtraces it triggered an 'evaluation nested too deeply: infinite
+  # recursion' abort inside rlang's expression deparser (foreach
+  # captures call frames that recurse during error formatting). PSOCK
+  # clusters work identically on Windows and Unix and avoid that.
+  # Respect the CRAN core limit ('_R_CHECK_LIMIT_CORES_' is set during
+  # R CMD check; parallel::makeCluster errors if we exceed 2 cores then).
+  chk <- tolower(Sys.getenv("_R_CHECK_LIMIT_CORES_", ""))
+  cran_cap <- nzchar(chk) && !chk %in% c("false", "0", "no")
+  if (is.null(cores)) {
+    cores <- if (cran_cap) 2L else max(1L, parallel::detectCores() - 6L)
+  } else {
+    cores <- max(1L, as.integer(cores))
+    if (cran_cap) cores <- min(cores, 2L)
+  }
+  use_parallel <- nsim > 1L && cores > 1L
+
+  # TODO: extract run_one_sim as a top-level internal helper with
+  # explicit args (om, em, seed, assess_yrs, ...) for testability.
+  # Inline closure for now to ship the foreach -> parLapply migration.
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  # Per-simulation closure (run_one_sim) ----
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  run_one_sim <- function(sim) {
 
     set.seed(seed = seed + sim) # setting unique seed for each simulation
     kill_sim <- list(kill_sim = FALSE, failure = NA)
@@ -929,11 +949,30 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
     } else{
       sim_list # Return simlist
     }
+  } # End run_one_sim closure
 
-  } # End sim loop
 
-  # When you're done, clean up the cluster
-  doParallel::stopImplicitCluster()
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  # Dispatch sims (parallel via PSOCK or sequential) ----
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  if (use_parallel) {
+    cl <- parallel::makeCluster(min(cores, nsim))
+    on.exit(parallel::stopCluster(cl), add = TRUE)
+    # Workers need the package; locals (om, em, seed, ...) are passed
+    # in clusterExport via the closure environment.
+    parallel::clusterEvalQ(cl, {
+      suppressPackageStartupMessages(library(Rceattle))
+    })
+    parallel::clusterExport(
+      cl,
+      varlist = ls(envir = environment()),
+      envir = environment()
+    )
+    sim_list <- parallel::parLapply(cl, start_sim:nsim, run_one_sim)
+  } else {
+    sim_list <- lapply(start_sim:nsim, run_one_sim)
+  }
+
   names(sim_list) <- paste0("Sim_", start_sim:nsim)
 
   if(is.null(dir)){

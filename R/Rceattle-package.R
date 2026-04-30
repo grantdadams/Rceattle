@@ -1,6 +1,5 @@
 #' @rawNamespace useDynLib(Rceattle, .registration=TRUE); useDynLib(ceattle_v01_11)
 #' @keywords internal
-#' @importFrom foreach %dopar%
 #' @importFrom dplyr filter mutate select arrange group_by summarise summarize rename left_join right_join full_join bind_rows bind_cols distinct pull n lag vars matches
 #' @importFrom plyr rbind.fill
 #' @importFrom stats sd median nlminb dnorm qlnorm aggregate rgamma rmultinom
