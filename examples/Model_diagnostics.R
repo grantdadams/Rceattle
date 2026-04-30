@@ -12,6 +12,7 @@ library(ggplot2)
 # Example
 # To run the 2017 single species assessment for the Bering Sea, a data file must first be loaded:
 data(BS2017SS) # ?BS2017SS for more information on the data
+plot_data(BS2017SS)
 BS2017SS$projyr <- 2060
 
 

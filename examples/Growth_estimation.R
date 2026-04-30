@@ -13,6 +13,7 @@ library(Rceattle)
 # To run model we use data from Giancarlo's class formatted for Rceattle:
 # - see line 134 of "tests/comparison/WHAM growth comparison.R" for modification
 data(whamGrowthData)
+plot_data(whamGrowthData)
 
 # The model includes conditional-age-at-length data for the survey
 # - The lengths from the caal data will be used for growth estimation

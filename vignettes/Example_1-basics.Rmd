@@ -74,6 +74,7 @@ To run `Rceattle` a data file must first be loaded. The data files from the 2017
 library(Rceattle)
 data("BS2017SS") # Single-species data. ?BS2017SS for more information on the data 
 data("BS2017MS") # Multi-species data. Note: the only difference is the residual mortality (M1_base) is lower
+plot_data(BS2017SS)
 ```
 
 The data files can be written to excel, modified within excel, and read back into `R` as follows:
