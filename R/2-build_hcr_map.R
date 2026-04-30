@@ -24,7 +24,7 @@ build_hcr_map <- function(data_list, map, debug = FALSE, all_params_on = FALSE, 
   # -- HCR = 0: No catch - Params off
   # -- HCR = 1: Constant catch - Params off
   # -- HCR = 2: Constant input F - Params off
-  # -- HCR = 3: F that acheives X% of SSB0 in the end of the projection - Ftarget on
+  # -- HCR = 3: F that achieves X% of SSB0 in the end of the projection - Ftarget on
   # -- HCR = 4: Constant target Fspr - Ftarget on
   # -- HCR = 5: NPFMC Tier 3 - Flimit and Ftarget on
   # -- HCR = 6: PFMC Cat 1 - Flimit on

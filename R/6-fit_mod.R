@@ -33,7 +33,7 @@
 #' @param verbose 0 = Silent, 1 = print updates of model fit, 2 = print updates of model fit and TMB estimation progress.
 #' @param getJointPrecision return full Hessian of fixed and random effects.
 #' @param getReportCovariance return variance covariance of ADREPORT variables
-#' @param TMBfilename if a seperate TMB file is to be used for development. Includes location and does not include ".cpp" at the end.
+#' @param TMBfilename if a separate TMB file is to be used for development. Includes location and does not include ".cpp" at the end.
 #'
 #' @details
 #' CEATTLE is an age-structured population dynamics model that can be fit with or without predation mortality. The default is to exclude predation mortality by setting \code{msmMode} to 0. Predation mortality can be included by setting \code{msmMode} with the following options:

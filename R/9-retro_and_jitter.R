@@ -7,7 +7,7 @@
 #'
 #' @param Rceattle an Rceattle model fit using \code{\link{fit_mod}}
 #' @param peels the number of retrospective peels to use in the calculation of rho and for model estimation
-#' @param rescale TRUE/FALSE wether to subset and rescale environmental predictors for the range of peel years.
+#' @param rescale TRUE/FALSE whether to subset and rescale environmental predictors for the range of peel years.
 #' @param nyrs_forecast Number of forecast years to calculate Mohn's Rho in addition to terminal year
 #'
 #' @return a list of 1. list of Rceattle models and 2. vector of Mohn's rho for each species

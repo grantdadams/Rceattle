@@ -1,4 +1,4 @@
-# Rceattle 4.0.1 (development)
+# Rceattle 4.0.2
 
 ## Bug fixes
 
