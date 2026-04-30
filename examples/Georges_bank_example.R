@@ -11,10 +11,14 @@
 # - Load the data and package
 library(Rceattle)
 data(GeorgesBank3spp)
-write_data(GeorgesBank3spp, file = "Georges_Bank_3spp.xlsx")
+
+# Demo: round-trip the data through Excel via a tempfile so we don't
+# leave artefacts in the user's working directory.
+xlsx_path <- tempfile(fileext = ".xlsx")
+write_data(GeorgesBank3spp, file = xlsx_path)
 
 # - Review excel data and load
-georges_bank <- read_data(file = "Georges_Bank_3spp.xlsx")
+georges_bank <- read_data(file = xlsx_path)
 georges_bank$est_M1 <- c(0,0,0) # Fix M1 to input value (M1_base)
 
 
