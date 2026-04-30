@@ -13,12 +13,15 @@ library(Rceattle)
 data("BS2017SS") # Single-species data. ?BS2017SS for more information on the data
 data("BS2017MS") # Multi-species data. Note: the only difference is the residual mortality (M1_base) is lower
 
-# Write data to excel
-Rceattle::write_data(data_list = BS2017SS, file = "BS2017SS.xlsx")
+# Write data to excel (demo: round-trip via a tempfile so we don't
+# leave artefacts in the user's working directory; in real use you
+# would point this at a path you control).
+xlsx_path <- tempfile(fileext = ".xlsx")
+Rceattle::write_data(data_list = BS2017SS, file = xlsx_path)
 
 # Change the data how you want in excel
 # Read the data back in
-mydata <- Rceattle::read_data( file = "BS2017SS.xlsx")
+mydata <- Rceattle::read_data(file = xlsx_path)
 
 
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
