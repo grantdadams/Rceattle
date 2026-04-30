@@ -1,0 +1,221 @@
+url: https://grantdadams.github.io/Rceattle/
+
+template:
+  bootstrap: 5
+  bslib:
+    primary: "#1a5276"
+    secondary: "#2e86c1"
+    link-color: "#1a5276"
+    navbar-bg: "#1a5276"
+    navbar-light-color: "#ffffff"
+    navbar-light-active-color: "#aed6f1"
+    navbar-light-hover-color: "#aed6f1"
+    base_font: {google: "Source Sans Pro"}
+    heading_font: {google: "Source Sans Pro"}
+    code_font: {google: "JetBrains Mono"}
+    font-size-base: "0.97rem"
+
+home:
+  title: "Rceattle — Multispecies Stock Assessment in R"
+  description: >
+    An R package implementing the CEATTLE multispecies age-structured assessment
+    model using TMB. Supports single- and multi-species models with climate
+    linkages, predation, management strategy evaluation (MSE), and diagnostics.
+  links:
+  - text: Browse source code
+    href: https://github.com/grantdadams/Rceattle
+  - text: Report a bug
+    href: https://github.com/grantdadams/Rceattle/issues
+
+navbar:
+  bg: primary
+  structure:
+    left: [intro, articles, reference, news]
+    right: [search, github]
+  components:
+    intro:
+      text: Get started
+      href: articles/Rceattle-overview-4_17_2025.html
+    articles:
+      text: Articles
+      menu:
+      - text: "--- Getting Started ---"
+      - text: "Overview of Rceattle"
+        href: articles/Rceattle-overview-4_17_2025.html
+      - text: "Example 1: Model basics"
+        href: articles/Example_1-basics.html
+      - text: "--- Operational Use ---"
+      - text: "Converting from Stock Synthesis"
+        href: articles/Stock_synthesis_to_Rceattle.html
+      - text: "--- Research & MSE ---"
+      - text: "Example 2: MSE and harvest control rules"
+        href: articles/Example_2-MSE_testing_alternative_HCRs.html
+      - text: "--- Full Documentation ---"
+      - text: "Rceattle model documentation"
+        href: articles/Rceattle_documentation.html
+    github:
+      icon: fab fa-github
+      href: https://github.com/grantdadams/Rceattle
+      aria-label: GitHub
+
+articles:
+- title: Getting Started
+  navbar: Getting started
+  contents:
+  - Rceattle-overview-4_17_2025
+  - Example_1-basics
+
+- title: Operational Stock Assessment
+  desc: >
+    Using Rceattle to fit and evaluate single- or multi-species models in
+    support of stock assessment (SAFE) reports.
+  contents:
+  - Stock_synthesis_to_Rceattle
+
+- title: Research and MSE
+  desc: >
+    Closed-loop simulation (MSE), alternative harvest control rules, and
+    research-oriented model configurations.
+  contents:
+  - Example_2-MSE_testing_alternative_HCRs
+
+- title: Reference documentation
+  desc: Full model documentation including equations and parameter descriptions.
+  contents:
+  - Rceattle_documentation
+
+reference:
+- title: "Data input / output"
+  desc: Read, write, and manipulate Rceattle data lists.
+  contents:
+  - read_data
+  - write_data
+  - clean_data
+  - combine_data
+  - rearrange_dat
+  - transpose_fleet_control
+
+- title: "Model setup"
+  desc: Build parameter lists, map objects, bounds, and biological inputs.
+  contents:
+  - build_params
+  - build_map
+  - build_bounds
+  - build_M1
+  - build_growth
+  - build_srr
+  - build_hcr
+  - build_hcr_map
+
+- title: "Model fitting"
+  desc: Fit single- or multi-species CEATTLE models and manage output.
+  contents:
+  - fit_mod
+  - set_phases
+  - TMBphase
+  - TMBAIC
+  - model_average
+  - rename_output
+
+- title: "Projections and MSE"
+  desc: >
+    Forward projections under alternative harvest strategies and closed-loop
+    management strategy evaluation.
+  contents:
+  - run_mse
+  - load_mse
+  - check_mse
+  - mse_summary
+  - remove_F
+  - sample_rec
+
+- title: "Diagnostics and simulation"
+  desc: Retrospective analysis, jitter testing, and simulation.
+  contents:
+  - retrospective
+  - jitter
+  - sim_mod
+  - compare_sim
+
+- title: "Data weighting"
+  desc: Composition data reweighting methods.
+  contents:
+  - calc_mcall_ianelli
+  - calc_mcall_ianelli_diet
+  - check_composition_data
+  - check_caal_data
+
+- title: "Plotting — population dynamics"
+  desc: Visualize biomass, recruitment, SSB, and depletion trajectories.
+  contents:
+  - plot_timeseries
+  - plot_biomass
+  - plot_ssb
+  - plot_recruitment
+  - plot_depletion
+  - plot_depletionSSB
+  - plot_exploitable_biomass
+
+- title: "Plotting — fishing and mortality"
+  desc: Visualize fishing mortality, catch, and total mortality.
+  contents:
+  - plot_catch
+  - plot_f
+  - plot_mortality
+  - plot_m_at_age
+  - plot_m2_at_age_prop
+
+- title: "Plotting — surveys and fit"
+  desc: Visualize survey indices, fits, and residuals.
+  contents:
+  - plot_index
+  - plot_logindex
+  - plot_indexresidual
+  - plot_comp
+  - plot_data
+  - plot_form
+
+- title: "Plotting — predation and diet"
+  desc: Visualize predation mortality, rations, and diet composition.
+  contents:
+  - plot_b_eaten
+  - plot_b_eaten_prop
+  - plot_diet_comp
+  - plot_ration
+
+- title: "Plotting — biology"
+  desc: Visualize selectivity, maturity, and stock-recruitment.
+  contents:
+  - plot_selectivity
+  - plot_selectivity_vs_maturity
+  - plot_maturity
+  - plot_stock_recruit
+
+- title: "Example datasets"
+  desc: >
+    Built-in data lists for the Bering Sea (BS), Gulf of Alaska (GOA),
+    Georges Bank, and other applications.
+  contents:
+  - BS2017SS
+  - BS2017MS
+  - EBS_ss_run
+  - EBS_ss_M_run
+  - EBS_ms_run
+  - GOApollock
+  - GOAsafe2018
+  - GOAatf
+  - GOAatf2023
+  - GOAcod
+  - GeorgesBank3spp
+  - NorthernRockfish2022
+  - Atka2022
+  - whamGrowthData
+
+- title: "Miscellaneous"
+  contents:
+  - switch_check
+
+news:
+  releases:
+  - text: "Version 4.0.2"
+    href: news/index.html
