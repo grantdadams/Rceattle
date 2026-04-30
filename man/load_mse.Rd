@@ -13,7 +13,7 @@ load_mse(dir = NULL, file = NULL, exclude = NULL, include_em = TRUE)
 
 \item{exclude}{index of MSE simulations not to load}
 
-\item{include_em}{wether the EMs should be loaded or not (default = TRUE)}
+\item{include_em}{whether the EMs should be loaded or not (default = TRUE)}
 }
 \value{
 list of MSE simulations/run

@@ -105,7 +105,7 @@ fit_mod(
 
 \item{newtonsteps}{number of extra newton steps to take after optimization (alternative to \code{loopnum})}
 
-\item{TMBfilename}{if a seperate TMB file is to be used for development. Includes location and does not include ".cpp" at the end.}
+\item{TMBfilename}{if a separate TMB file is to be used for development. Includes location and does not include ".cpp" at the end.}
 }
 \value{
 A list of class "Rceattle" including:

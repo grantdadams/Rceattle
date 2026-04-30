@@ -55,7 +55,7 @@ mse_summary <- function(mse, om_only = FALSE){
   # -- HCR = 0: No catch - Params off
   # -- HCR = 1: Constant catch - Params off
   # -- HCR = 2: Constant input F - Params off
-  # -- HCR = 3: F that acheives X% of SSB0 in the end of the projection - Ftarget on
+  # -- HCR = 3: F that achieves X% of SSB0 in the end of the projection - Ftarget on
   # -- HCR = 4: Constant target Fspr - Ftarget on
   # -- HCR = 5: NPFMC Tier 3 - Flimit and Ftarget on
   # -- HCR = 6: PFMC Cat 1 - Flimit on
@@ -537,7 +537,7 @@ check_mse <- function(dir = NULL, file = NULL){
 #' @param dir Directory used to save files from \code{\link{run_mse}}
 #' @param file file name used to save files from \code{\link{run_mse}}
 #' @param exclude index of MSE simulations not to load
-#' @param include_em wether the EMs should be loaded or not (default = TRUE)
+#' @param include_em whether the EMs should be loaded or not (default = TRUE)
 #'
 #' @return list of MSE simulations/run
 #' @export

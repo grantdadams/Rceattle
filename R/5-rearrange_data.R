@@ -81,7 +81,7 @@ rearrange_dat <- function(data_list){
                   Sel_norm_bin2 = ifelse(is.na(.data$Sel_norm_bin2), -999, .data$Sel_norm_bin2)) %>%
     dplyr::pull(.data$Sel_norm_bin2) %>% as.integer()
 
-  # - 10) Index indicating wether to do dirichlet multinomial or a multinomial
+  # - 10) Index indicating whether to do dirichlet multinomial or a multinomial
   data_list$comp_ll_type <- data_list$fleet_control %>%
     dplyr::pull(.data$Comp_loglike) %>% as.integer()
   data_list$caal_ll_type <- data_list$fleet_control %>%
@@ -109,11 +109,11 @@ rearrange_dat <- function(data_list){
   data_list$index_varying_q <- data_list$fleet_control %>%
     dplyr::pull(.data$Time_varying_q) %>% as.integer()
 
-  # - 16) Wether to estimate standard deviation of index time series
+  # - 16) Whether to estimate standard deviation of index time series
   data_list$est_sigma_index <- data_list$fleet_control %>%
     dplyr::pull(.data$Estimate_index_sd) %>% as.integer()
 
-  # - 17) Wether to estimate standard deviation of fishery time series
+  # - 17) Whether to estimate standard deviation of fishery time series
   data_list$est_sigma_fsh <- data_list$fleet_control %>%
     dplyr::pull(.data$Estimate_catch_sd) %>% as.integer()
 

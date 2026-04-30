@@ -39,7 +39,7 @@ $$\hat{S}_{pbjisa} = \frac{1}{n_y} \sum_y \left( \frac{ \frac{\bar{U}_{pbjisa}} 
 ## Predation mortality
 
 ### Single-species mode
-This is essentially multiple single-species age strcutured models where all mortality is due to input or estimated natural morality ($M = M1$) and fishing.
+This is essentially multiple single-species age structured models where all mortality is due to input or estimated natural mortality ($M = M1$) and fishing.
 `msmMode = 0`
 $$M2_{isa,y} = 0$$
 
@@ -244,7 +244,7 @@ Separate selectivity and catchability functions can be estimated for each survey
 * `Catchability`	Text or integer switch specifying catchability. 0 or "Fixed" = fixed at prior; 1 or "Estimated" = Estimate single parameter; 2 or "Estimated-with-prior" = Estimate single parameter with prior; 3 or "Analytical" = Estimate analytical q  from Ludwig and Walters 1994; 4 or "PowerEquation" = Estimate power equation; - 5 or "Environmental" = Linear equation log(q_y) = q_mu + beta * index_y); 6 or "AR1" = annual AR1 catchability deviates are fit to environmental index sensu Rogers et al 2025.
 * `Q_prior`	Starting value or fixed value for catchability
 * `Q_sd_prior`	Variance of q prior: dnorm (log_q, log_q_prior, q_sd_prior)
-* `Time_varying_q`	Wether a time-varying q should be estimated. 0 = no, 1 = penalized deviate, 2 = random effect, 3 = time blocks with no penalty; 4 = random walk from mean following Dorn 2018 (dnorm(q_y - q_y-1, 0, sigma). If Catchability = 5, this determines the environmental index to be used in the equation log(q_y) = q_mu + beta * index_y
+* `Time_varying_q`	Whether a time-varying q should be estimated. 0 = no, 1 = penalized deviate, 2 = random effect, 3 = time blocks with no penalty; 4 = random walk from mean following Dorn 2018 (dnorm(q_y - q_y-1, 0, sigma). If Catchability = 5, this determines the environmental index to be used in the equation log(q_y) = q_mu + beta * index_y
 * `Time_varying_q_sd_prior`	The sd to use for the random walk of time varying q if set to 1
 
 ### Linear time-invariant catchability formulations
