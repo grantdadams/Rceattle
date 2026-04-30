@@ -95,7 +95,7 @@ simData$other_food <- rep(1e5, nspp)
 # =============================================================================
 # One row per fleet. Columns control how each fleet is modelled.
 #
-# Fleet_type:    "Fishery" (= 1) or "Survey" (= 2)
+# Fleet_type:    "Off" (= 0), "Fishery" (= 1), or "Survey" (= 2)
 # Selectivity:   "Logistic", "NonParametric", "DoubleLogistic",
 #                "DescendingLogistic", "Hake", "2DAR1", "3DAR1", or int 0-7
 # Selectivity_dimension: "Age" or "Length"
