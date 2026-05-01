@@ -1,10 +1,10 @@
 ---
-title: "MSE testing"
+title: "2. HCRs and MSEs: an introduction"
 author: "Grant Adams"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteIndexEntry{2. MSEs: An Introduction}
+  %\VignetteIndexEntry{2. HCRs and MSEs: an introduction}
   %\VignetteEncoding{UTF-8}
 ---
 
@@ -71,12 +71,42 @@ em <- Rceattle::fit_mod(
 
 ```{r, message = FALSE, echo = TRUE}
 mse1 <- run_mse(
-  om = om, em = em, 
-  nsim = 10, 
+  om = om, em = em,
+  nsim = 10,
   assessment_period = 2,
-  sampling_period = c(1, 2) # Fishery = fleet 1 (annual), BTS = fleet 2 (biannual)
+  # Fishery = fleet 1 (annual), BTS = fleet 2 (biannual)
+  sampling_period = c(1, 2),
+  seed = 666 # default; per-sim seed = seed + sim
 )
 ```
+
+### Reproducibility
+
+`run_mse()` accepts two seed arguments, both with default `seed = 666`:
+
+* `seed` controls the random draws *inside* each simulated trajectory
+  (recruitment, observation error, composition resampling). Each
+  simulation worker calls `set.seed(seed + sim)`, so simulation `1`
+  uses seed `667`, simulation `2` uses `668`, and so on. Re-running
+  the same `run_mse()` call with the same `seed` reproduces the
+  trajectory bit-for-bit.
+* `regenerate_seed` (defaults to `seed`) controls the optional
+  `regenerate_past = TRUE` step that re-fits the EM to OM-simulated
+  historical data. Set this separately if you want to vary
+  past-data realisations while holding the projection draws fixed.
+
+The MSE uses a PSOCK cluster (`parallel::parLapply`) by default, so
+worker processes are clean and only see the explicit objects shipped
+by `clusterExport()` — there is no leakage from the parent's
+`.GlobalEnv` RNG state. As a result the seed plumbing above is the
+*only* thing that controls reproducibility: there is no need to call
+`set.seed()` before `run_mse()` for the simulation results to be
+deterministic. (You may still want `set.seed()` for any plotting code
+that draws random colours or jitter.)
+
+For management-facing runs, record `packageVersion("Rceattle")` and
+the `seed` alongside the saved `.rds` so a later reviewer can rerun
+the exact same trajectories from the same package tag.
 
 ------------------------------------------------------------------------
 

@@ -35,24 +35,33 @@ navbar:
   components:
     intro:
       text: Get started
-      href: articles/Rceattle-overview-4_17_2025.html
+      href: articles/introduction.html
     articles:
       text: Articles
       menu:
       - text: "--- Getting Started ---"
-      - text: "Overview of Rceattle"
-        href: articles/Rceattle-overview-4_17_2025.html
-      - text: "Example 1: Model basics"
-        href: articles/Example_1-basics.html
-      - text: "--- Operational Use ---"
+      - text: "Introduction"
+        href: articles/introduction.html
+      - text: "Building a data object without Excel"
+        href: articles/data-without-excel.html
+      - text: "Model options and functionality"
+        href: articles/model-options-and-functionality.html
+      - text: "--- Model Types ---"
+      - text: "Single- vs. multi-species models"
+        href: articles/single-vs-multispecies.html
       - text: "Converting from Stock Synthesis"
-        href: articles/Stock_synthesis_to_Rceattle.html
-      - text: "--- Research & MSE ---"
-      - text: "Example 2: MSE and harvest control rules"
-        href: articles/Example_2-MSE_testing_alternative_HCRs.html
-      - text: "--- Full Documentation ---"
-      - text: "Rceattle model documentation"
-        href: articles/Rceattle_documentation.html
+        href: articles/stock-synthesis-conversion.html
+      - text: "--- Diagnostics & Inference ---"
+      - text: "Model diagnostics"
+        href: articles/model-diagnostics.html
+      - text: "--- Projections & MSE ---"
+      - text: "Projections and reference points"
+        href: articles/projections-and-reference-points.html
+      - text: "HCRs and MSEs"
+        href: articles/hcrs-and-mses.html
+      - text: "--- Reference ---"
+      - text: "Model parameterizations"
+        href: articles/model-parameterizations.html
     github:
       icon: fab fa-github
       href: https://github.com/grantdadams/Rceattle
@@ -62,27 +71,36 @@ articles:
 - title: Getting Started
   navbar: Getting started
   contents:
-  - matches("Rceattle-overview")
-  - matches("Example_1-basics")
+  - introduction
+  - data-without-excel
+  - model-options-and-functionality
 
-- title: Operational Stock Assessment
+- title: Model Types
   desc: >
-    Using Rceattle to fit and evaluate single- or multi-species models in
-    support of stock assessment (SAFE) reports.
+    Choosing between single- and multi-species model configurations, and
+    migrating from other assessment platforms.
   contents:
-  - Stock_synthesis_to_Rceattle
+  - single-vs-multispecies
+  - stock-synthesis-conversion
 
-- title: Research and MSE
+- title: Diagnostics and Inference
   desc: >
-    Closed-loop simulation (MSE), alternative harvest control rules, and
-    research-oriented model configurations.
+    Checking model fit, retrospective patterns, and optimiser stability.
   contents:
-  - matches("Example_2")
+  - model-diagnostics
 
-- title: Reference documentation
-  desc: Full model documentation including equations and parameter descriptions.
+- title: Projections and MSE
+  desc: >
+    Forward projections under alternative harvest strategies and closed-loop
+    management strategy evaluation.
   contents:
-  - Rceattle_documentation
+  - projections-and-reference-points
+  - hcrs-and-mses
+
+- title: Reference
+  desc: Model parameterizations, equations, and switch settings.
+  contents:
+  - model-parameterizations
 
 reference:
 - title: "Data input / output"

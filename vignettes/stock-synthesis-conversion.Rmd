@@ -1,0 +1,216 @@
+---
+title: "7. Converting from Stock Synthesis"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{7. Converting from Stock Synthesis}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+This vignette is a working guide for converting a Stock Synthesis (SS3)
+model into the Rceattle data structure. It is written from the
+perspective of reading the SS files top-to-bottom and copying each block
+into the corresponding Rceattle data sheet. Rceattle column / sheet
+names are shown in `code` font.
+
+The example below references the 2019 Pacific hake assessment, which is
+publicly available on Nis Sand Jacobsen's
+[`PacifichakeMSE`](https://github.com/nissandjac/PacifichakeMSE/tree/master/inst/extdata/SS32019)
+GitHub repo. With the exception of consumption / diet (which SS does not
+estimate), every input Rceattle needs is somewhere in the SS data,
+weight-at-age, or control file.
+
+> **Updated for Rceattle 4.0+ data structure.** Several `data_list`
+> columns and sheet names changed in 4.0.1 (`Pyrs` → `ration_data`,
+> `UobsWtAge` → `stom_prop_data`, `fsh_biom` → `catch_data`,
+> `srv_biom` → `index_data`, `Nselages` → `N_sel_bins`,
+> `Age_first_selected` → `Bin_first_selected`,
+> `Age_max_selected` / `_upper` → `Sel_norm_bin1` / `Sel_norm_bin2`).
+> The instructions below use the current names. The sheet
+> `meta_data` inside the Rceattle Excel template is the authoritative
+> column reference.
+
+## Model controls
+
+From the SS data file (`hake_data.ss`) into the Rceattle Excel sheet
+`control`:
+
+| SS field | Rceattle (`control` sheet) | Notes |
+|---|---|---|
+| `styr` (1966) | `styr` | First year of hindcast |
+| `endyr` (2019) | `endyr` | Last year of hindcast |
+| `Nsexes` (1) | `nsex` | 1 = combined-sex; 2 = sex-structured |
+| `Nages` (20) | `nages` | Maximum age class |
+| `_spawn_month` | `spawn_month` | Calendar month of spawning |
+| — | `minage` | Set to 1; age 0 is currently first-age only |
+| — | `projyr` | Pick a projection terminal year |
+
+## Fleets
+
+From `#fleetinfo` in the SS data file into the Rceattle `fleet_control`
+sheet — one row per fleet:
+
+| SS field | Rceattle (`fleet_control`) | Notes |
+|---|---|---|
+| `fleetname` | `Fleet_name` | |
+| (assign) | `Fleet_code` | Unique integer; must be in order |
+| `fleet_type` | `Fleet_type` | `1` = fishery, `2` = survey, `0` = ignore |
+| (associate) | `Species` | Species the fleet observes |
+| (per-fleet) | `Month` | Month of observation (added in 4.0.1) |
+
+The `meta_data` sheet in the Rceattle Excel template documents every
+remaining column on `fleet_control` (selectivity, catchability,
+composition likelihood, etc.).
+
+## Catch data
+
+SS catch data → Rceattle `catch_data` sheet:
+
+| SS field | Rceattle (`catch_data`) | Notes |
+|---|---|---|
+| `year` | `Year` | |
+| `seas` | `Month` | Currently informational; Baranov is annual |
+| `fleet` | `Fleet_code` | Re-map if the codes differ from SS |
+| `catch` | `Catch` | Units flexible (typically 1000 mt) |
+| `catch_se` | `Log_sd` | Lognormal F-dev SD |
+
+## Survey indices
+
+The CPUE / survey configuration is split across two Rceattle sheets:
+
+* `fleet_control` for the *fleet-level* options (units, SD estimation,
+  catchability formulation):
+
+| SS / behaviour | Rceattle (`fleet_control`) | Notes |
+|---|---|---|
+| Units (numbers / biomass) | `Weight1_Numbers2` | `1` = biomass, `2` = numbers |
+| (estimate index SD?) | `Estimate_index_sd` | `0` = supplied, `1` = estimated |
+| Q estimation | `Catchability`, `Q_prior`, `Q_sd_prior` | See vignette 0 §4 for the option table |
+| Time-varying q | `Time_varying_q`, `Time_varying_q_sd_prior` | |
+
+* `index_data` for the year-level *observations*:
+
+| SS field | Rceattle (`index_data`) | Notes |
+|---|---|---|
+| `index` | `Fleet_code` | |
+| `year` | `Year` | Make `Year` negative to predict but exclude from likelihood (parallel to SS's negative `index` convention) |
+| `seas` | `Month` | Adjusts biomass / numbers by mortality up to that month |
+| `OBS` | `Observation` | |
+| `se_log` | `Log_sd` | Lognormal observation SD |
+
+Discards are not a first-class concept in Rceattle 4.x; treat them as a
+separate fishery fleet with its own selectivity if needed.
+
+## Composition data
+
+SS `_lencomp` and `_agecomp` blocks → Rceattle `comp_data` sheet (one
+table for both age and length comps; the `Age0_Length1` column
+distinguishes them).
+
+`fleet_control`:
+
+| SS field | Rceattle (`fleet_control`) | Notes |
+|---|---|---|
+| `_N_lbins` (26) | `nlengths` (on `control` sheet) | Number of length bins |
+| Sex aggregation | `Sex` column on `comp_data` | Hake is single-sex |
+| Comp likelihood | `Comp_loglike` | `0` = multinomial, `1` = Dirichlet-multinomial. (`-1` = legacy AFSC convention.) |
+| Selectivity bin range | `Sel_norm_bin1`, `Sel_norm_bin2`, `Bin_first_selected` | Replaces the old `Age_max_selected` / `Age_first_selected` columns |
+
+`comp_data`:
+
+| SS field | Rceattle (`comp_data`) | Notes |
+|---|---|---|
+| `FltSvy` | `Fleet_code` | |
+| `year` | `Year` | |
+| `seas` | `Month` | |
+| `gender` | `Sex` | See `meta_data` for sex codings |
+| `Nsamp` | `Sample_size` | |
+| `a1, a2, …` | `Comp_1, Comp_2, …` | One column per age (or length) bin |
+| — | `Age0_Length1` | `0` = age comp, `1` = length comp |
+
+If the SS comp data covers fewer ages than `nages` (e.g. comps to age 15
+in a 20-age model), set `Sel_norm_bin1` / `Sel_norm_bin2` and
+`N_sel_bins` to control how the missing ages are accumulated. Check the
+assessment document or contact the authors before deciding whether to
+zero-pad or accumulate at the upper age.
+
+`Part`, `Ageerr`, `Lbin_lo`, `Lbin_hi`, `CompressBins`, `CompError`,
+`ParmSelect`, and `minsamplesize` from SS do not have direct Rceattle
+equivalents.
+
+## Ageing error
+
+SS allows year- and sex-varying age-error matrices. Rceattle currently
+supports one species-specific, time- and sex-invariant matrix per
+species, on the `age_error` sheet. For hake the matrices are time-
+invariant, so no aggregation is needed; convert per the SS manual and
+copy the result into `age_error`.
+
+## Weight-at-age
+
+SS weight-at-age (`wtatage.ss`) → Rceattle `weight` sheet (note: the
+in-package list slot is `wt`).
+
+* For each weight-at-age matrix in SS, generate a `Wt_name` and
+  `Wt_index` for Rceattle.
+* `year` → `Year`; `gender` → `Sex` (see `meta_data`); SS columns
+  `a1, a2, …` → `Age1, Age2, …`.
+* On `fleet_control`, point `Weight_index` for each fleet at the
+  appropriate `Wt_index`.
+* On `control`, point `pop_wt_index` and `ssb_wt_index` for each species
+  at the appropriate `Wt_index`.
+
+> **SSB hack for SS weight-at-age:** SSB is computed as
+> Σ<sub>a</sub>(N · weight · maturity). If the SS `wtatage.ss` already
+> bakes maturity into a weight-at-age schedule, point `ssb_wt_index` at
+> that schedule and set every entry of the `maturity` sheet to `1`.
+
+If SS estimates weight-at-age (rather than reading it from data), copy
+from `wtatage_new.ss` instead — bearing in mind the estimates are
+conditional on the SS population dynamics and are therefore mildly
+circular when ported to Rceattle.
+
+## Other inputs
+
+* `sex_ratio` sheet — typically `0.5` for all ages. Hake assessments use
+  this convention.
+* `M1_base` sheet — values from the assessment document. To estimate M
+  rather than fix it, configure `M1Fun = build_M1(M1_model = …)` on
+  `fit_mod()`. See vignette 0 §7 for the option table.
+* `age_trans_matrix` sheet — converts age-at-length to length-at-age.
+  Set every entry to `0` if the assessment has no length data; for
+  models with length comps, fill from the SS age-length transition.
+* `ration_data` and `stom_prop_data` (multi-species only) — diet /
+  consumption inputs. SS does not provide these; derive externally if
+  fitting a multi-species CEATTLE.
+
+## Verifying the conversion against SS
+
+The most common check is to feed Rceattle the SS-estimated selectivity
+and numbers-at-age and confirm the resulting catches and indices match
+SS:
+
+1. Run the SS model (or use the SS report file).
+2. Copy SS selectivity per fleet to the `emp_sel` sheet.
+3. Copy SS numbers-at-age to the `NByageFixed` sheet.
+4. Set `Selectivity = 0` ("Fixed") for each fleet on `fleet_control` and
+   `estDynamics = 1` for each species on `control` (this fixes N-at-age
+   to `NByageFixed`).
+5. Run `fit_mod(estimateMode = 1, ...)` to evaluate without re-fitting.
+
+Differences between Rceattle and SS at this stage trace back to either
+(a) a coercion bug in the data port, (b) a different mortality
+convention (Rceattle's Baranov is annual, SS allows seasonal), or
+(c) a likelihood difference (Rceattle currently supports multinomial
+and Dirichlet-multinomial for comps; not the SS lognormal-on-comp
+forms).
+
+## See also
+
+* Vignette 6, [Building a data object without Excel](data-without-excel.html),
+  for the in-R structure of `data_list` (useful when scripting an
+  SS → Rceattle conversion).
+* Vignette 0, [Model options and functionality](model-options-and-functionality.html),
+  for the option tables referenced above.
+* Vignette 8, [Model parameterizations](model-parameterizations.html),
+  for equation-level detail on selectivity, catchability, and predation.

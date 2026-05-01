@@ -1,5 +1,5 @@
 ---
-title: "Example 1 - basics"
+title: "1. Rceattle: An Introduction"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteEngine{knitr::rmarkdown}

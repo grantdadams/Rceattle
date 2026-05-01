@@ -3,7 +3,14 @@
 #' Provides a compact summary so that auto-printing inside R Markdown /
 #' knitr / RStudio does not recurse into the (very deep) data and TMB
 #' objects stored on the fit. Only structural metadata, convergence
-#' status, and headline derived quantities are printed.
+#' status, headline derived quantities, and the package / TMB-DLL
+#' versions used to produce the fit are printed.
+#'
+#' For operational use, the package version line is meant to make it
+#' obvious which version of `Rceattle` produced an archived fit so that
+#' results can be reproduced even if `master` has moved on. Tag a
+#' release (`devtools::install_github("grantdadams/Rceattle@vX.Y.Z")`)
+#' and the same version string will reappear here on a fresh run.
 #'
 #' @param x An object of class \code{"Rceattle"} returned by [fit_mod()].
 #' @param ... Currently unused.
@@ -12,7 +19,14 @@
 #' @export
 print.Rceattle <- function(x, ...) {
   dat <- x$data_list
+  pkg_ver <- tryCatch(
+    as.character(utils::packageVersion("Rceattle")),
+    error = function(e) NA_character_
+  )
+  tmb_dll <- if (!is.null(x$TMBfilename)) x$TMBfilename else "ceattle_v01_11"
+
   cat("<Rceattle model>\n")
+  cat("  Rceattle  :", pkg_ver, "  TMB DLL:", tmb_dll, "\n")
   cat("  Species   :", paste(dat$spnames, collapse = ", "), "\n")
   cat("  Years     :", dat$styr, "-", dat$endyr,
       if (!is.null(dat$projyr)) paste0(" (projyr ", dat$projyr, ")") else "",

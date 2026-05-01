@@ -1,3 +1,23 @@
+# Rceattle 4.0.3 (in development)
+
+## Documentation
+
+* Vignette 8 ("Model parameterizations") is being expanded to fill in
+  coverage gaps surfaced during the 4.0.2 release audit:
+  * M1 random-effects modes (`M1_re = 0..6`).
+  * Full stock-recruit section (Mean / BevertonHolt / Ricker, env-linked
+    forms, Beta prior on steepness via `srr_est_mode = 3`).
+  * Composition likelihoods (Multinomial, Dirichlet-multinomial, CAAL).
+  * Catchability equations for `Catchability = 4` (Power),
+    `5` (Environmental), and `6` (AR1).
+  * Selectivity equations for `Selectivity = 6` (2DAR1) and
+    `7` (3DAR1).
+  * Internal growth model (`growth_model = 1` von Bertalanffy /
+    `2` Richards).
+  * Initial-age-structure modes (`initMode = 0..4`).
+  * Harvest control rules (HCR = 0..7) — possibly cross-linking
+    vignette 0 §9 rather than duplicating.
+
 # Rceattle 4.0.2
 
 ## Bug fixes
@@ -18,6 +38,25 @@
   package source (~60 occurrences).
 * Replaced `.data$Bin` / `.data$Length` inside `tidyr::pivot_wider`
   arguments with quoted strings (tidyselect 1.2.0 deprecation).
+* `examples/Georges_bank_example.R` now calls `plot_mortality()`
+  instead of the long-removed `plot_mort()`.
+* `_pkgdown.yml` "Get started" / overview navbar links now point at
+  the actual generated `articles/Rceattle-overview.html` (was
+  `Rceattle-overview-4_17_2025.html`, which 404'd).
+* `README.md` example links now reference the correct
+  underscore-separated filenames (`Fit_2018_GOA_multi-species_model.R`
+  etc.) -- the previous space-encoded URLs 404'd on GitHub.
+* Removed duplicate `\seealso{}` block in `?Rceattle-package` by
+  consolidating `R/Rceattle.R` into `R/Rceattle-package.R`. Both
+  files declared `_PACKAGE`, so roxygen2 emitted the auto-generated
+  links twice.
+* Added `graphics::box` to package imports (cleared the lone
+  `R CMD check` NOTE for `plot_data`).
+
+## Documentation
+
+* Added Wassermann et al. (2025) cannibalism / Pacific hake
+  reference to `inst/CITATION` and `?Rceattle-package`.
 
 ## Tests
 
