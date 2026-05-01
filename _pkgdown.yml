@@ -62,8 +62,8 @@ articles:
 - title: Getting Started
   navbar: Getting started
   contents:
-  - Rceattle-overview-4_17_2025
-  - Example_1-basics
+  - matches("Rceattle-overview")
+  - matches("Example_1-basics")
 
 - title: Operational Stock Assessment
   desc: >
@@ -77,7 +77,7 @@ articles:
     Closed-loop simulation (MSE), alternative harvest control rules, and
     research-oriented model configurations.
   contents:
-  - Example_2-MSE_testing_alternative_HCRs
+  - matches("Example_2")
 
 - title: Reference documentation
   desc: Full model documentation including equations and parameter descriptions.
@@ -94,6 +94,7 @@ reference:
   - combine_data
   - rearrange_dat
   - transpose_fleet_control
+  - data_check
 
 - title: "Model setup"
   desc: Build parameter lists, map objects, bounds, and biological inputs.
@@ -106,6 +107,20 @@ reference:
   - build_srr
   - build_hcr
   - build_hcr_map
+
+- title: "Map helpers"
+  desc: Low-level helpers called by `build_map()` to configure parameter estimation.
+  contents:
+  - adjust_map_shared_params
+  - build_map_catchability
+  - build_map_debug
+  - build_map_f_and_data_weights
+  - build_map_fixed_natage
+  - build_map_growth
+  - build_map_m1
+  - build_map_predation
+  - build_map_recruitment
+  - build_map_selectivity
 
 - title: "Model fitting"
   desc: Fit single- or multi-species CEATTLE models and manage output.
@@ -201,6 +216,7 @@ reference:
   - EBS_ss_run
   - EBS_ss_M_run
   - EBS_ms_run
+  - GOA2018SS
   - GOApollock
   - GOAsafe2018
   - GOAatf
@@ -212,8 +228,17 @@ reference:
   - whamGrowthData
 
 - title: "Miscellaneous"
+  desc: S3 methods, utility functions, and internal helpers.
   contents:
+  - print.Rceattle
+  - summary.Rceattle
   - switch_check
+  - convert_switches
+  - revert_switches
+  - get_growth_matrix_r
+  - get_weight_at_age_r
+  - rich.colors.short
+  - t_col
 
 news:
   releases:

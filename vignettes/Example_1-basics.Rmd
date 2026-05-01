@@ -42,28 +42,17 @@ In this vignette we walk through fitting three models using the `Rceattle` packa
 `Rceattle` and associated dependencies and can be installed as follows:
 
 ```{r, eval=FALSE}
-install.packages("pacman")
+# Required dependencies (CRAN)
 install.packages("TMB", type = "source")
 install.packages("Matrix", type = "source")
-pacman::p_load(dplyr,
-               ggplot2,
-               MASS,
-               oce,
-               readxl,
-               TMB,
-               devtools,
-               writexl,
-               reshape2,
-               gplots,
-               tidyr,
-               testthat,
-               foreach,
-               R.utils,
-               knitr,
-               doParallel)
-devtools::install_github("kaskr/TMB_contrib_R/TMBhelper")
+install.packages("devtools")
+
+# Rceattle (pulls remaining CRAN dependencies automatically)
 devtools::install_github("grantdadams/Rceattle")
 
+# Optional: TMBhelper provides richer optimization diagnostics.
+# Rceattle falls back to plain nlminb + sdreport if it's not installed.
+# devtools::install_github("kaskr/TMB_contrib_R/TMBhelper")
 ```
 
 ## 2. Data

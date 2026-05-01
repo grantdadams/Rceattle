@@ -1,3 +1,6 @@
+# pkgdown site (built by GitHub Actions, not committed)
+docs/
+
 .Rproj.user
 .Rhistory
 .RData
