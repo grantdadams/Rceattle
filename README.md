@@ -18,6 +18,7 @@ See [onboarding document](https://github.com/grantdadams/Rceattle/wiki/Onboardin
 The model can be updated following instructions [here](https://github.com/grantdadams/Rceattle/wiki/Workflow-for-updating-the-Rceattle).
 
 **Installation**
+
 ```r
 # Required dependencies (CRAN)
 install.packages("TMB", type = "source")
@@ -32,13 +33,25 @@ devtools::install_github("grantdadams/Rceattle")
 # devtools::install_github("kaskr/TMB_contrib_R/TMBhelper")
 ```
 
+For operational / management use, pin a specific tagged release rather than
+tracking `master`, e.g.:
+
+```r
+devtools::install_github("grantdadams/Rceattle@v4.0.2")
+```
+
+The maintainer email in `DESCRIPTION` (`grant.adams@noaa.gov`) is the
+preferred contact for questions about the package; please open an
+[issue](https://github.com/grantdadams/Rceattle/issues) for bug reports
+and feature requests so the discussion is publicly searchable.
+
 **Examples**
 Code and function examples using data from the Bering Sea and Gulf of Alaska groundfish application can be found in the [examples](https://github.com/grantdadams/Rceattle/tree/master/examples) folder and include:
-* [Fitting multi-species models](https://github.com/grantdadams/Rceattle/blob/master/examples/Fit%202018%20GOA%20multi-species%20model.R)
-* [Fitting single-species models](https://github.com/grantdadams/Rceattle/blob/master/examples/Fit%202018%20GOA%20single-species%20models.R)
-* [Alternative HCRs and MSE testing](https://github.com/grantdadams/Rceattle/blob/master/examples/HCRs%20and%20MSE%20testing.R)
-* [Simulation](https://github.com/grantdadams/Rceattle/blob/master/examples/Simulation%20testing.R)
-* [Model diagnostics](https://github.com/grantdadams/Rceattle/blob/master/examples/Model%20diagnostics.R)
+* [Fitting multi-species models](https://github.com/grantdadams/Rceattle/blob/master/examples/Fit_2018_GOA_multi-species_model.R)
+* [Fitting single-species models](https://github.com/grantdadams/Rceattle/blob/master/examples/Fit_2018_GOA_single-species_models.R)
+* [Alternative HCRs and MSE testing](https://github.com/grantdadams/Rceattle/blob/master/examples/HCRs_and_MSE_testing.R)
+* [Simulation](https://github.com/grantdadams/Rceattle/blob/master/examples/Simulation_testing.R)
+* [Model diagnostics](https://github.com/grantdadams/Rceattle/blob/master/examples/Model_diagnostics.R)
 
 **References**
 

@@ -1,8 +1,8 @@
 ---
-title: "Rceattle documentation"
+title: "8. Model parameterizations"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Rceattle documentation}
+  %\VignetteIndexEntry{8. Model parameterizations}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

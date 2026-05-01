@@ -51,3 +51,28 @@ bibentry(
     "stock assessment models. Deep Sea Research Part II, 134, 360-378."
   )
 )
+
+bibentry(
+  bibtype = "Article",
+  title = paste("Even low levels of cannibalism can bias population estimates",
+                "for Pacific hake"),
+  author = c(
+    person("Sophia N.",  "Wassermann"),
+    person("Grant D.",   "Adams"),
+    person("Melissa A.", "Haltuch"),
+    person("Isaac C.",   "Kaplan"),
+    person("Kristin N.", "Marshall"),
+    person("Andre E.",   "Punt")
+  ),
+  journal = "ICES Journal of Marine Science",
+  year    = "2025",
+  volume  = "82",
+  number  = "1",
+  pages   = "fsae064",
+  textVersion = paste(
+    "Wassermann, S.N., Adams, G.D., Haltuch, M.A., Kaplan, I.C., Marshall, K.N.,",
+    "Punt, A.E. (2025). Even low levels of cannibalism can bias population",
+    "estimates for Pacific hake.",
+    "ICES Journal of Marine Science, 82(1), fsae064."
+  )
+)
