@@ -67,7 +67,7 @@ testthat::test_that("Test IID year time-varying M", {
                                                 M1_re = 2), # IID year
                                phase = FALSE,
                                msmMode = 0,
-                               initMode = 2,
+                               initMode = "NonEquilibrium",
                                verbose = 0)
 
   # Recruitment
@@ -172,7 +172,7 @@ testthat::test_that("Test AR1 year time-varying M", {
                                                 M1_re = 5), # AR1 year
                                phase = FALSE,
                                msmMode = 0,
-                               initMode = 2,
+                               initMode = "NonEquilibrium",
                                verbose = 0)
 
   # Recruitment

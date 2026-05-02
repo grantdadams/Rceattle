@@ -632,6 +632,7 @@ check_caal_data <- function(data_list) {
 #' @importFrom rlang .data
 convert_switches <- function(data_list) {
 
+  # Fleet controls ----
   # If vector is a string that exists in our map, replace it with the integer.
   data_list$fleet_control <- data_list$fleet_control %>%
     dplyr::mutate(
@@ -660,6 +661,14 @@ convert_switches <- function(data_list) {
       Comp_loglike = as.integer(.data$Comp_loglike),
       CAAL_loglike = as.integer(.data$CAAL_loglike)
     )
+
+  # Pop dy controls ----
+  # Helper: convert a single string value using a map, pass integers through unchanged
+  .conv <- function(x, map) {
+    if (is.character(x) && x %in% names(map)) unname(map[[x]]) else x
+  }
+
+  data_list$initMode <- as.integer(.conv(data_list$initMode, initMode_map))
 
   return(data_list)
 }

@@ -195,6 +195,7 @@ switch_check <- function(data_list){
 #' @importFrom rlang .data
 revert_switches <- function(data_list) {
 
+  # - Fleet switches
   data_list$fleet_control <- data_list$fleet_control |>
     dplyr::mutate(
       Fleet_type = ifelse(as.character(.data$Fleet_type) %in% names(fleet_rev_map),
@@ -213,6 +214,15 @@ revert_switches <- function(data_list) {
                             comp_loglike_rev_map[as.character(.data$CAAL_loglike)],
                             .data$CAAL_loglike)
     )
+
+  # - Population dynamics switches
+  # Helper: convert a single integer value using a map, pass strings through unchanged
+  .conv <- function(x, revmap) {
+    if (is.numeric(x) && x %in% names(revmap)) revmap[[which(names(revmap) == x)]] else x
+  }
+  #
+  # initMode (scalar)
+  data_list$initMode <- .conv(data_list$initMode, initMode_rev_map)
 
   return(data_list)
 }

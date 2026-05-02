@@ -113,7 +113,7 @@ testthat::test_that("Test combine multi-species data", {
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,
-                               initMode = 2,
+                               initMode = "NonEquilibrium",
                                verbose = 0)
 
 

@@ -460,7 +460,7 @@ ss_est <- Rceattle::fit_mod(data_list = simData,
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
                             phase = FALSE,
-                            initMode = 2,
+                            initMode = "NonEquilibrium",
                             verbose = 1)
 
 wham_ests <- ss_est

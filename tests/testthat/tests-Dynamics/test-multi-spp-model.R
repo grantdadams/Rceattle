@@ -56,7 +56,7 @@ testthat::test_that("Rceattle and multi-species model dynamics match", {
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,
-                               initMode = 2,
+                               initMode = "NonEquilibrium",
                                verbose = 0)
 
   # Recruitment
@@ -180,7 +180,7 @@ testthat::test_that("Equilibrium MSVPA suitability dynamics match", {
                                     msmMode = 1,
                                     niter = 20,
                                     suitMode = 0,
-                                    initMode = 2,
+                                    initMode = "NonEquilibrium",
                                     verbose = 0)
 
   # Recruitment
@@ -306,7 +306,7 @@ testthat::test_that("Test proportion of prey-at-age in predator-at-age averaged 
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,
-                               initMode = 2,
+                               initMode = "NonEquilibrium",
                                verbose = 0)
 
   # AvgN
@@ -411,7 +411,7 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator-at-ag
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,
-                               initMode = 2,
+                               initMode = "NonEquilibrium",
                                verbose = 0)
 
   # AvgN
@@ -518,7 +518,7 @@ testthat::test_that("Test proportion of prey (all ages) in predator-at-age avera
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,
-                               initMode = 2,
+                               initMode = "NonEquilibrium",
                                verbose = 0)
 
   # AvgN
@@ -623,7 +623,7 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (mean
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,
-                               initMode = 2,
+                               initMode = "NonEquilibrium",
                                verbose = 0)
 
   # AvgN
@@ -743,7 +743,7 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (weig
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,
-                               initMode = 2,
+                               initMode = "NonEquilibrium",
                                verbose = 0)
 
   # AvgN
@@ -851,7 +851,7 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,
-                               initMode = 2,
+                               initMode = "NonEquilibrium",
                                verbose = 0)
 
   # AvgN
@@ -974,7 +974,7 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,
-                               initMode = 2,
+                               initMode = "NonEquilibrium",
                                verbose = 0)
 
   # AvgN
@@ -1046,7 +1046,7 @@ testthat::test_that("Test joint single-species models", {
                               msmMode = 0,
                               suitMode = 0,
                               niter = 5,
-                              initMode = 2,
+                              initMode = "NonEquilibrium",
                               verbose = 0)
 
   # Recruitment
@@ -1145,7 +1145,7 @@ testthat::test_that("Mixed suitabilities: MSVPA and lognormal", {
                                msmMode = 1,
                                suitMode = c(4, 0),
                                niter = 5,
-                               initMode = 2,
+                               initMode = "NonEquilibrium",
                                verbose = 0)
 
   # Recruitment
@@ -1262,7 +1262,7 @@ testthat::test_that("Mixed suitabilities2: MSVPA and lognormal", {
                                msmMode = 1,
                                suitMode = c(4, 0),
                                niter = 5,
-                               initMode = 2,
+                               initMode = "NonEquilibrium",
                                verbose = 0)
 
   # Suitability of predator (species 1)

@@ -45,7 +45,7 @@ vbgf_model <- Rceattle::fit_mod(data_list = whamGrowthData,
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0,        # Single species mode
                             phase = FALSE,
-                            initMode = 2,       # Unfished disequilibrium
+                            initMode = "NonEquilibrium",       # Unfished disequilibrium
                             verbose = 1)
 
 richards_model <- Rceattle::fit_mod(data_list = whamGrowthData,
@@ -55,7 +55,7 @@ richards_model <- Rceattle::fit_mod(data_list = whamGrowthData,
                                 random_rec = FALSE, # No random recruitment
                                 msmMode = 0,        # Single species mode
                                 phase = FALSE,
-                                initMode = 2,       # Unfished disequilibrium
+                                initMode = "NonEquilibrium",       # Unfished disequilibrium
                                 verbose = 1)
 
 # Growth functions can be species specific
@@ -70,7 +70,7 @@ double_model <- Rceattle::fit_mod(data_list = double_data,
                                     random_rec = FALSE, # No random recruitment
                                     msmMode = 0,        # Single species mode
                                     phase = TRUE,
-                                    initMode = 2,       # Unfished disequilibrium
+                                    initMode = "NonEquilibrium",       # Unfished disequilibrium
                                     verbose = 1)
 
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#

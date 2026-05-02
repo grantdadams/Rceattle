@@ -42,9 +42,9 @@ fleet_map <- c(
 initMode_map <- c(
   "FreeParams"           = 0,
   "Equilibrium"          = 1,
-  "EquilibriumDev"       = 2,
-  "NonEquilibrium"       = 3,
-  "NonEquilibriumScaled" = 4
+  "NonEquilibrium"       = 2,
+  "FishedNonEquilibrium"       = 3,
+  "FishedNonEquilibriumScaled" = 4
 )
 
 # Predator-prey suitability mode (per predator species)
@@ -92,11 +92,3 @@ suitMode_rev_map    <- setNames(names(suitMode_map),    as.character(suitMode_ma
 srr_rev_map         <- setNames(names(srr_map),         as.character(srr_map))
 hcr_rev_map         <- setNames(names(hcr_map),         as.character(hcr_map))
 
-
-# # Helper: convert a single string value using a map, pass integers through unchanged
-# .conv <- function(x, map) {
-#   if (is.character(x) && x %in% names(map)) unname(map[[x]]) else x
-# }
-#
-# # initMode (scalar)
-# data_list$initMode <- as.integer(.conv(data_list$initMode, initMode_map))

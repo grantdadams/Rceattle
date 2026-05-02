@@ -929,22 +929,24 @@ Type objective_function<Type>::operator() () {
           switch(estDynamics(sp)){
           case 0: // Estimated
 
-            // - Estimate as free parameters
+            // - Amin (i.e. recruitment)
+            if(age == 0){
+              R(sp, 0) = R_init(sp) * exp(rec_dev(sp, 0));
+              N_at_age(sp, 0, 0, 0) = R(sp, 0) * sex_ratio(sp, 0);
+              N_at_age(sp, 1, 0, 0) = R(sp, 0) * (1-sex_ratio(sp, 0));
+            }
+
+            // - Estimate  as free parameters
             if(initMode == 0){
-              R(sp, 0) = exp(init_dev(sp, 0));
-              N_at_age(sp, 0, age, 0) = exp(init_dev(sp, age)) * sex_ratio(sp, 0);
-              N_at_age(sp, 1, age, 0) = exp(init_dev(sp, age)) * (1-sex_ratio(sp, 0));
+              if(age > 0){
+                N_at_age(sp, 0, age, 0) = exp(init_dev(sp, age)) * sex_ratio(sp, 0);
+                N_at_age(sp, 1, age, 0) = exp(init_dev(sp, age)) * (1-sex_ratio(sp, 0));
+              }
             }
 
             // - Equilibrium or non-equilibrium estimated as function of R0, Finit, mortality, and init devs
             // Finit is set to 0 when initMode != 2
             if(initMode > 0){
-              // -- 6.5.1. Amin (i.e. recruitment)
-              if(age == 0){
-                R(sp, 0) = R_init(sp) * exp(rec_dev(sp, 0));
-                N_at_age(sp, 0, 0, 0) = R(sp, 0) * sex_ratio(sp, 0);
-                N_at_age(sp, 1, 0, 0) = R(sp, 0) * (1-sex_ratio(sp, 0));
-              }
 
               // Sum M1 until age - 1
               if((initMode == 1) | (initMode == 2) | (initMode == 3)){
@@ -977,18 +979,18 @@ Type objective_function<Type>::operator() () {
               if(age == (nages(sp) - 1)) {
 
                 if(sex == 0){// NOTE: This solves for the geometric series
-                  N_at_age(sp, 0, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) / (1 - exp(-M1_at_age(sp, sex, nages(sp) - 1, 0))) * sex_ratio(sp, 0);
+                  N_at_age(sp, 0, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) / (1 - exp(-M1_at_age(sp, sex, nages(sp) - 1, 0) - Finit(sp))) * sex_ratio(sp, 0);
                 }
 
                 if(sex == 1){
-                  N_at_age(sp, 1, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) / (1 - exp(-M1_at_age(sp, sex, nages(sp) - 1, 0))) * (1-sex_ratio(sp, 0));
+                  N_at_age(sp, 1, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) / (1 - exp(-M1_at_age(sp, sex, nages(sp) - 1, 0) - Finit(sp))) * (1-sex_ratio(sp, 0));
                 }
               }
             }
             break;
 
           case 1: // Numbers-at-age fixed exactly to NByageFixed (pop_scalar mapped to
-                  // NA in build_map so ln_pop_scalar = 0 -> pop_scalar = 1.0)
+            // NA in build_map so ln_pop_scalar = 0 -> pop_scalar = 1.0)
             N_at_age(sp, sex, age, 0) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, 0);
             break;
 

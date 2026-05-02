@@ -44,7 +44,7 @@ ebs_ricker_run <- Rceattle::fit_mod(
   msmMode = 0, # Single species mode
   phase = TRUE,
   verbose = 1,
-  initMode = 2) # Start at fished equilibrium (biases alpha and beta otherwise)
+  initMode = "NonEquilibrium") # Start at fished equilibrium (biases alpha and beta otherwise)
 
 # -- Treat recruitment as random effects
 ebs_ricker_run_re <- Rceattle::fit_mod(
@@ -65,7 +65,7 @@ ebs_ricker_run_re <- Rceattle::fit_mod(
   msmMode = 0, # Single species mode
   phase = FALSE,
   verbose = 1,
-  initMode = 2)
+  initMode = "NonEquilibrium")
 
 
 # * GOA Pollock ----
