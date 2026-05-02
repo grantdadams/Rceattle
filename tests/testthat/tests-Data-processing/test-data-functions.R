@@ -32,7 +32,8 @@ testthat::test_that("Test combine single-species data", {
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              verbose = 0)
+                              fit_control = fit_control(
+                                verbose = 0))
 
   # Calculate SPR
   M <- dat$M1_base$Age1[1]
@@ -109,12 +110,13 @@ testthat::test_that("Test combine multi-species data", {
                                inits = inits,
                                estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
-                               phase = FALSE,
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,
                                initMode = "NonEquilibrium",
-                               verbose = 0)
+                               fit_control = fit_control(
+                                 phase = FALSE,
+                                 verbose = 0))
 
 
   # Recruitment

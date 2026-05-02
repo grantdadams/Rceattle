@@ -9,15 +9,13 @@ testthat::test_that("Invalid initMode", {
   # Run
   testthat::expect_error( Rceattle::fit_mod(data_list = dat,
                                               initMode = 5,
-                                              estimateMode = 3,
-                                              verbose = 0)
+                                              estimateMode = 3)
   )
 
   # Run
   testthat::expect_error( Rceattle::fit_mod(data_list = dat,
                                             initMode = "wrong",
-                                            estimateMode = 3,
-                                            verbose = 0)
+                                            estimateMode = 3)
   )
 })
 
@@ -32,8 +30,7 @@ testthat::test_that("Equilibrium initMode", {
   # Run integer
   mod <- Rceattle::fit_mod(data_list = dat,
                            initMode = 1,
-                           estimateMode = 3,
-                           verbose = 0)
+                           estimateMode = 3)
 
   natage1 <- mod$quantities$N_at_age[1,1,,1]
   testthat::expect_equal(as.numeric(natage1), c(exp(9-0.2 * 0:3), exp(9)/(1-exp(-0.2)) * exp(-0.2*4)))
@@ -44,8 +41,7 @@ testthat::test_that("Equilibrium initMode", {
   # Run string
   mod <- Rceattle::fit_mod(data_list = dat,
                            initMode = "Equilibrium",
-                           estimateMode = 3,
-                           verbose = 0)
+                           estimateMode = 3)
 
   natage1 <- mod$quantities$N_at_age[1,1,,1]
   testthat::expect_equal(as.numeric(natage1), c(exp(9-0.2 * 0:3), exp(9)/(1-exp(-0.2)) * exp(-0.2*4)))
@@ -58,7 +54,6 @@ testthat::test_that("Equilibrium initMode", {
 testthat::test_that("Free parameter initMode", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
-  testthat::skip()
 
   # Load helper and create small deterministic test data
   #source(file.path("tests", "testthat", "helpers.R"))
@@ -68,8 +63,7 @@ testthat::test_that("Free parameter initMode", {
   # Run integer
   mod <- Rceattle::fit_mod(data_list = dat,
                            initMode = 0,
-                           estimateMode = 3,
-                           verbose = 0)
+                           estimateMode = 3)
 
   natage1 <- mod$quantities$N_at_age[1,1,,1]
   testthat::expect_equal(as.numeric(natage1), c(exp(9), rep(1, nages-1)))
@@ -80,8 +74,7 @@ testthat::test_that("Free parameter initMode", {
   # Run string
   mod <- Rceattle::fit_mod(data_list = dat,
                            initMode = "FreeParams",
-                           estimateMode = 3,
-                           verbose = 0)
+                           estimateMode = 3)
 
   natage1 <- mod$quantities$N_at_age[1,1,,1]
   testthat::expect_equal(as.numeric(natage1), c(exp(9), rep(1, nages-1)))
@@ -102,8 +95,7 @@ testthat::test_that("NonEquilibrium initMode", {
   # Run integer
   mod <- Rceattle::fit_mod(data_list = dat,
                            initMode = 2,
-                           estimateMode = 3,
-                           verbose = 0)
+                           estimateMode = 3)
 
   natage1 <- mod$quantities$N_at_age[1,1,,1]
   testthat::expect_equal(as.numeric(natage1), c(exp(9-0.2 * 0:3), exp(9)/(1-exp(-0.2)) * exp(-0.2*4)))
@@ -114,8 +106,7 @@ testthat::test_that("NonEquilibrium initMode", {
   # Run string
   mod <- Rceattle::fit_mod(data_list = dat,
                            initMode = "NonEquilibrium",
-                           estimateMode = 3,
-                           verbose = 0)
+                           estimateMode = 3)
 
   natage1 <- mod$quantities$N_at_age[1,1,,1]
   testthat::expect_equal(as.numeric(natage1), c(exp(9-0.2 * 0:3), exp(9)/(1-exp(-0.2)) * exp(-0.2*4)))
@@ -137,8 +128,7 @@ testthat::test_that("FishedNonEquilibrium initMode", {
   # Run integer
   mod <- Rceattle::fit_mod(data_list = dat,
                            initMode = 3,
-                           estimateMode = 3,
-                           verbose = 0)
+                           estimateMode = 3)
 
   natage1 <- mod$quantities$N_at_age[1,1,,1]
   Finit <- as.numeric(exp(mod$estimated_params$ln_Finit))
@@ -150,8 +140,7 @@ testthat::test_that("FishedNonEquilibrium initMode", {
   # Run string
   mod <- Rceattle::fit_mod(data_list = dat,
                            initMode = "FishedNonEquilibrium",
-                           estimateMode = 3,
-                           verbose = 0)
+                           estimateMode = 3)
 
   natage1 <- mod$quantities$N_at_age[1,1,,1]
   Finit <- as.numeric(exp(mod$estimated_params$ln_Finit))
@@ -174,8 +163,7 @@ testthat::test_that("FishedNonEquilibriumScaled initMode", {
   # Run integer
   mod <- Rceattle::fit_mod(data_list = dat,
                            initMode = 4,
-                           estimateMode = 3,
-                           verbose = 0)
+                           estimateMode = 3)
 
   natage1 <- mod$quantities$N_at_age[1,1,,1]
   Finit <- as.numeric(exp(mod$estimated_params$ln_Finit))
@@ -187,8 +175,7 @@ testthat::test_that("FishedNonEquilibriumScaled initMode", {
   # Run string
   mod <- Rceattle::fit_mod(data_list = dat,
                            initMode = "FishedNonEquilibriumScaled",
-                           estimateMode = 3,
-                           verbose = 0)
+                           estimateMode = 3)
 
   natage1 <- mod$quantities$N_at_age[1,1,,1]
   Finit <- as.numeric(exp(mod$estimated_params$ln_Finit))

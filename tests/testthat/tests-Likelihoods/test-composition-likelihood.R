@@ -31,8 +31,9 @@ testthat::test_that("Composition likelihoods match (Multinomial and Dirichlet-Mu
   mod_mn <- Rceattle::fit_mod(data_list = simData_mn,
                               inits = inits_mn,
                               estimateMode = 3, # Just evaluate NLL, do not optimize
-                              phase = FALSE,
-                              verbose = 0)
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
 
   # Extract the NLL calculated by C++ (Slot 2 in C++ is Row 3 in R)
   tmb_nll_mn <- mod_mn$quantities$jnll_comp[3, flt_idx]
@@ -81,8 +82,9 @@ testthat::test_that("Composition likelihoods match (Multinomial and Dirichlet-Mu
   mod_dm <- Rceattle::fit_mod(data_list = simData_dm,
                               inits = inits_dm,
                               estimateMode = 3,
-                              phase = FALSE,
-                              verbose = 0)
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
 
   # Extract NLL
   tmb_nll_dm <- mod_dm$quantities$jnll_comp[3, flt_idx]
@@ -132,7 +134,8 @@ testthat::test_that("Invalid comp_loglike", {
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
 })
@@ -151,7 +154,8 @@ testthat::test_that("Invalid caal_loglike", {
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
 })
@@ -168,7 +172,8 @@ testthat::test_that("Integer to text multinomial comp_loglike", {
   # Run
   mod <- Rceattle::fit_mod(data_list = GOA2018SS,
                            estimateMode = 3, # Don't estimate
-                           verbose = 0)
+                           fit_control = fit_control(
+                             verbose = 0))
 
   testthat::expect_equal(mod$data_list$fleet_control$Comp_loglike,
                          rep("Multinomial", nrow(mod$data_list$fleet_control))
@@ -187,7 +192,8 @@ testthat::test_that("Integer to text DM comp_loglike", {
   # Run
   mod <- Rceattle::fit_mod(data_list = GOA2018SS,
                            estimateMode = 3, # Don't estimate
-                           verbose = 0)
+                           fit_control = fit_control(
+                             verbose = 0))
 
   testthat::expect_equal(mod$data_list$fleet_control$Comp_loglike,
                          rep("DirichletMultinomial", nrow(mod$data_list$fleet_control))

@@ -35,7 +35,8 @@ testthat::test_that("Sex-specific age-based logistic selectivity not normalized"
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 1)
+                      fit_control = fit_control(
+                        verbose = 1))
   )
 
   # Map
@@ -111,7 +112,8 @@ testthat::test_that("Sex-specific age-based time-varying logistic selectivity no
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
   # Map
@@ -173,7 +175,8 @@ testthat::test_that("Sex-specific age-based time-varying logistic selectivity no
                       random_rec = FALSE, # No random recruitment
                       random_sel = TRUE, # Turn on laplace for sel devs
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
   testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_dev_ln_sd), c(1:6, NA, 8:16)) # Dev sigma turned on except for not estimated fleet
@@ -226,7 +229,8 @@ testthat::test_that("Time-varying logistic selectivity likelihood", {
                       random_rec = FALSE, # No random recruitment
                       random_sel = TRUE, # Turn on laplace for sel devs
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
   # Nll
@@ -258,7 +262,8 @@ testthat::test_that("Invalid selectivity", {
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
 })
@@ -284,7 +289,8 @@ testthat::test_that("Invalid selectivity", {
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
 })

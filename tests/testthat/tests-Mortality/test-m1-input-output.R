@@ -16,8 +16,9 @@ testthat::test_that("Test update M1 from data", {
                               estimateMode = 0, # Estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              phase = TRUE,
-                              verbose = 0)
+                              fit_control = fit_control(
+                                phase = TRUE,
+                                verbose = 0))
 
 
   # - Multi species
@@ -26,12 +27,13 @@ testthat::test_that("Test update M1 from data", {
                     inits = ss_run$estimated_params, # Initial parameters from single species ests
                     file = NULL, # Don't save
                     estimateMode = 0, # Estimate
-                    niter = 1, # 3 iterations around population and predation dynamics
+                    niter = 1, # 1 iterations around population and predation dynamics
                     random_rec = FALSE, # No random recruitment
                     M1Fun = build_M1(updateM1 = TRUE),
                     msmMode = 1, # MSVPA based
                     suitMode = 0, # empirical suitability
-                    verbose = 0)
+                    fit_control = fit_control(
+                      verbose = 0))
 
   testthat::expect_equal(as.numeric(ms_run$quantities$M1_at_age[1,1,1:12,1]), as.numeric(ms_run$data_list$M1_base[1, 3:(12+2)]))
 })

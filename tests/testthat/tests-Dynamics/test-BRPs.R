@@ -31,7 +31,8 @@ testthat::test_that("Test SB0 under mean recruitment", {
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              verbose = 0)
+                              fit_control = fit_control(
+                                verbose = 0))
 
   # Calculate SB0
   M <- dat$M1_base$Age1
@@ -84,7 +85,8 @@ testthat::test_that("Test SB0 under R0", {
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              verbose = 0)
+                              fit_control = fit_control(
+                                verbose = 0))
 
   # Calculate SB0
   M <- dat$M1_base$Age1
@@ -119,8 +121,9 @@ testthat::test_that("Test SB40 under mean recruitment", {
                                                     Plimit = 0.2, # No fishing when SB<SB20
                                                     Alpha = 0.05),
                                     msmMode = 0, # Single species mode
-                                    phase = TRUE,
-                                    verbose = 1)
+                                    fit_control = fit_control(
+                                      phase = TRUE,
+                                      verbose = 1))
 
   testthat::expect_equal(as.numeric((ss_run_Tier3$quantities$SBF/ss_run_Tier3$quantities$SB0)[,72]), rep(0.4, 3), tolerance = 0.0001)
   testthat::expect_equal(as.numeric((ss_run_Tier3$quantities$ssb/ss_run_Tier3$quantities$SB0)[,72]), rep(0.4, 3), tolerance = 0.0001) # Default to mean R
@@ -141,8 +144,9 @@ testthat::test_that("Test SB40 under R0", {
                                                     Alpha = 0.05),
                                     recFun = build_srr(proj_mean_rec = FALSE),
                                     msmMode = 0, # Single species mode
-                                    phase = TRUE,
-                                    verbose = 1)
+                                    fit_control = fit_control(
+                                      phase = TRUE,
+                                      verbose = 1))
 
   testthat::expect_equal(as.numeric((ss_run_Tier3$quantities$SBF/ss_run_Tier3$quantities$SB0)[,72]), rep(0.4, 3), tolerance = 0.0001)
   testthat::expect_equal(as.numeric((ss_run_Tier3$quantities$ssb/ss_run_Tier3$quantities$SB0)[,72]), rep(0.4, 3), tolerance = 0.0001)
@@ -178,7 +182,8 @@ testthat::test_that("Test SPR0 calculation", {
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
                               initMode = "NonEquilibrium",
-                              verbose = 1)
+                              fit_control = fit_control(
+                                verbose = 1))
 
   # Calculate SPR
   M <- 0.2
@@ -208,8 +213,9 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
   ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
                               estimateMode = 0,
                               msmMode = 0, # Single species mode
-                              phase = TRUE,
-                              verbose = 1)
+                              fit_control = fit_control(
+                                phase = TRUE,
+                                verbose = 0))
 
   # -- Constant F as a percentage of SB0
   ss_run_fb0 <- Rceattle::fit_mod(data_list = BS2017SS,
@@ -219,7 +225,8 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
                                                   DynamicHCR = FALSE, # Use dynamic reference points
                                                   Ftarget = 0.4), # F that achieves 40% SB0
                                   msmMode = 0, # Single species mode
-                                  verbose = 1)
+                                  fit_control = fit_control(
+                                    verbose = 0))
 
 
   ss_run_dynamicfb0 <- Rceattle::fit_mod(data_list = BS2017SS,
@@ -229,7 +236,8 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
                                                          DynamicHCR = TRUE, # Use dynamic reference points
                                                          Ftarget = 0.4), # F that achieves 40% SB0
                                          msmMode = 0, # Single species mode
-                                         verbose = 1)
+                                         fit_control = fit_control(
+                                           verbose = 0))
 
 
   # -- Constant Fspr
@@ -240,7 +248,8 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
                                                    Ftarget = 0.4 # F40%
                                    ),
                                    msmMode = 0, # Single species mode
-                                   verbose = 1)
+                                   fit_control = fit_control(
+                                     verbose = 0))
 
 
   ss_run_dynamicFspr <- Rceattle::fit_mod(data_list = BS2017SS,
@@ -251,7 +260,8 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
                                                           Ftarget = 0.4 # F40%
                                           ),
                                           msmMode = 0, # Single species mode
-                                          verbose = 1)
+                                          fit_control = fit_control(
+                                            verbose = 0))
 
 
   # -- NPFMC Tier 3
@@ -264,7 +274,8 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
                                                     Plimit = 0.2, # No fishing when SB<SB20
                                                     Alpha = 0.05),
                                     msmMode = 0, # Single species mode
-                                    verbose = 1)
+                                    fit_control = fit_control(
+                                      verbose = 0))
 
 
   ss_run_dynamicTier3 <- Rceattle::fit_mod(data_list = BS2017SS,
@@ -277,7 +288,8 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
                                                            Plimit = 0.2, # No fishing when SB<SB20
                                                            Alpha = 0.05),
                                            msmMode = 0, # Single species mode
-                                           verbose = 1)
+                                           fit_control = fit_control(
+                                             verbose = 0))
 
   # -- PFMC Category 1
   ss_run_Cat1 <- Rceattle::fit_mod(data_list = BS2017SS,
@@ -290,7 +302,8 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
                                                    Pstar = 0.45,
                                                    Sigma = 0.5),
                                    msmMode = 0, # Single species mode
-                                   verbose = 1)
+                                   fit_control = fit_control(
+                                     verbose = 0))
 
   ss_run_dynamicCat1 <- Rceattle::fit_mod(data_list = BS2017SS,
                                           inits = ss_run$estimated_params, # Initial parameters from ss_run
@@ -303,7 +316,8 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
                                                           Pstar = 0.45,
                                                           Sigma = 0.5),
                                           msmMode = 0, # Single species mode
-                                          verbose = 1)
+                                          fit_control = fit_control(
+                                            verbose = 0))
 
   # -- SESSF Tier 1
   ss_run_Tier1 <- Rceattle::fit_mod(data_list = BS2017SS,
@@ -316,7 +330,8 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
                                                     Plimit = 0.20, # No fishing when B<B20
                                     ),
                                     msmMode = 0, # Single species mode
-                                    verbose = 1)
+                                    fit_control = fit_control(
+                                      verbose = 0))
 
 
   ss_run_dynamicTier1 <- Rceattle::fit_mod(data_list = BS2017SS,
@@ -330,7 +345,8 @@ testthat::test_that("Test hindcast the same across different HCRs/BRPs", {
                                                            Plimit = 0.20, # No fishing when B<B20
                                            ),
                                            msmMode = 0, # Single species mode
-                                           verbose = 1)
+                                           fit_control = fit_control(
+                                             verbose = 0))
 
   # -- Plot
   mod_list <- list(ss_run, ss_run_fb0, ss_run_Fspr, ss_run_Tier3, ss_run_Cat1, ss_run_Tier1, ss_run_dynamicfb0, ss_run_dynamicFspr, ss_run_dynamicTier3, ss_run_dynamicCat1, ss_run_dynamicTier1)
@@ -400,12 +416,13 @@ testthat::test_that("Test mean recruitment calculation", {
                                 proj_mean_rec = TRUE, # Project using mean rec over hindcast
                               ),
                               random_rec = FALSE, # No random recruitment
-                              phase = FALSE,
                               msmMode = 0,
                               suitMode = 0,
                               niter = 5,
                               initMode = "NonEquilibrium",
-                              verbose = 0)
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
 
   # Recruitment
   nyrs <- length(simData$styr:simData$endyr)
@@ -413,4 +430,4 @@ testthat::test_that("Test mean recruitment calculation", {
 
   # Mean R
   testthat::expect_equal(as.numeric(ss_run$quantities$avg_R), as.numeric(rowMeans(ss_run$quantities$R[,1:nyrs])), tolerance = 1e-6)
- })
+})

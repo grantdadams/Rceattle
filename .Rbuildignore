@@ -17,3 +17,6 @@
 ^CRAN-SUBMISSION$
 ^\.github$
 ^\.lintr$
+^Rplots\.pdf$
+^_pkgdown\.yml$
+^docs$

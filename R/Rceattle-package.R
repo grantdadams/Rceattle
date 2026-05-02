@@ -21,7 +21,7 @@
 #' @keywords internal
 #' @importFrom dplyr filter mutate select arrange group_by summarise summarize rename left_join right_join full_join bind_rows bind_cols distinct pull n lag vars matches
 #' @importFrom plyr rbind.fill
-#' @importFrom stats sd median nlminb dnorm qlnorm aggregate rgamma rmultinom
+#' @importFrom stats sd median nlminb dnorm qlnorm aggregate rgamma rmultinom coef logLik residuals vcov
 #' @importFrom graphics mtext axis text symbols filled.contour persp curve points image box
 #' @importFrom grDevices col2rgb rgb
 #' @importFrom utils write.csv type.convert packageVersion

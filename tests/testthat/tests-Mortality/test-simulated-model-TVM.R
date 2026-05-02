@@ -65,10 +65,11 @@ testthat::test_that("Test IID year time-varying M", {
                                random_rec = FALSE, # No random recruitment
                                M1Fun = build_M1(M1_model = 1, # Estimable M
                                                 M1_re = 2), # IID year
-                               phase = FALSE,
                                msmMode = 0,
                                initMode = "NonEquilibrium",
-                               verbose = 0)
+                               fit_control = fit_control(
+                                 phase = FALSE,
+                                 verbose = 0))
 
   # Recruitment
   testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,1,]), as.numeric(ss_run1$quantities$R[,1:nyrs]))
@@ -170,10 +171,11 @@ testthat::test_that("Test AR1 year time-varying M", {
                                random_rec = FALSE, # No random recruitment
                                M1Fun = build_M1(M1_model = 1, # Estimable M
                                                 M1_re = 5), # AR1 year
-                               phase = FALSE,
                                msmMode = 0,
                                initMode = "NonEquilibrium",
-                               verbose = 0)
+                               fit_control = fit_control(
+                                 phase = FALSE,
+                                 verbose = 0))
 
   # Recruitment
   testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,1,]), as.numeric(ss_run1$quantities$R[,1:nyrs]))

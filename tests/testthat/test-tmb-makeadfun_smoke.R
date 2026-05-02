@@ -14,8 +14,9 @@ testthat::test_that("MakeADFun smoke test: obj$fn and obj$gr are finite", {
   res <- Rceattle::fit_mod(data_list = dat,
                            inits = NULL,
                            estimateMode = 3,
-                           phase = FALSE,
-                           verbose = 0)
+                           fit_control = fit_control(
+                             phase = FALSE,
+                             verbose = 0))
 
   testthat::expect_true(is.list(res))
   testthat::expect_true(!is.null(res$obj))

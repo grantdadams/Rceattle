@@ -48,9 +48,9 @@ ss_run <- fit_mod(
   estimateMode = 0,
   random_rec   = FALSE,
   msmMode      = 0,
-  phase        = TRUE,
-  verbose      = 1
-)
+  fit_control = fit_control(
+    phase        = TRUE,
+    verbose      = 1))
 
 ms_run <- fit_mod(
   data_list    = BS2017MS,
@@ -61,8 +61,8 @@ ms_run <- fit_mod(
   random_rec   = FALSE,
   msmMode      = 1,
   suitMode     = 0,
-  verbose      = 1
-)
+  fit_control = fit_control(
+    verbose      = 1))
 ```
 
 ## Fixed-F projections
@@ -85,8 +85,8 @@ ms_run_proj <- fit_mod(
   random_rec   = FALSE,
   msmMode      = 1,
   suitMode     = 0,
-  verbose      = 1
-)
+  fit_control = fit_control(
+    verbose      = 1))
 
 plot_catch(ms_run_proj, incl_proj = TRUE)
 ```
@@ -118,8 +118,8 @@ ms_run_proj2 <- fit_mod(
   random_rec   = FALSE,
   msmMode      = 1,
   suitMode     = 0,
-  verbose      = 1
-)
+  fit_control = fit_control(
+    verbose      = 1))
 ```
 
 ### Stochastic recruitment via `sample_rec()`
@@ -163,9 +163,9 @@ ss_re <- fit_mod(
   estimateMode = 0,
   random_rec   = TRUE,
   msmMode      = 0,
-  phase        = FALSE,
-  verbose      = 1
-)
+  fit_control = fit_control(
+    phase        = FALSE,
+    verbose      = 1))
 
 # Compare fixed vs. random effects recruitment uncertainty
 plot_recruitment(
@@ -205,8 +205,8 @@ ss_run_tier3 <- fit_mod(
                             Alpha   = 0.05),
   random_rec   = FALSE,
   msmMode      = 0,
-  verbose      = 1
-)
+  fit_control = fit_control(
+    verbose      = 1))
 ```
 
 For closed-loop testing of control rules across many simulated trajectories, see `vignette("hcrs-and-mses")`.

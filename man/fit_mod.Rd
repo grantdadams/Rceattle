@@ -26,18 +26,8 @@ fit_mod(
   suitMode = 0,
   suit_styr = NULL,
   suit_endyr = NULL,
-  phase = FALSE,
-  getsd = TRUE,
-  bias.correct = FALSE,
-  use_gradient = TRUE,
-  rel_tol = 1,
-  control = list(eval.max = 1e+09, iter.max = 1e+09, trace = 0),
-  getJointPrecision = TRUE,
-  getReportCovariance = FALSE,
-  loopnum = 5,
-  verbose = 1,
-  newtonsteps = 0,
-  TMBfilename = NULL
+  fit_control = NULL,
+  ...
 )
 }
 \arguments{
@@ -83,29 +73,19 @@ fit_mod(
 
 \item{suit_endyr}{Integer. The last year used to calculate mean suitability. Defaults to $endyr$ in $data_list$. Used when diet data were sampled from a subset of years.}
 
-\item{phase}{TRUE/FALSE If FALSE, will not phase model. If set to \code{"TRUE"}, will use default phasing. Can also accept a list of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R.}
+\item{fit_control}{A list returned by \code{\link[=fit_control]{fit_control()}} that bundles the
+optimizer / sdreport / phasing knobs (\code{phase}, \code{bias.correct}, \code{getsd},
+\code{getJointPrecision}, \code{getReportCovariance}, \code{use_gradient}, \code{rel_tol},
+\code{loopnum}, \code{newtonsteps}, \code{TMBfilename}, \code{verbose}, \code{nlminb_control}).
+Defaults to \code{fit_control()}. See \code{\link[=fit_control]{fit_control()}} for the meaning and
+defaults of each field.}
 
-\item{getsd}{TRUE/FALSE whether to run standard error calculation (default = TRUE).}
-
-\item{bias.correct}{logical. If TRUE, applies bias correction via \code{TMB::sdreport} (default = FALSE).}
-
-\item{use_gradient}{use the gradient to phase (default = TRUE).}
-
-\item{rel_tol}{The relative tolerance for discontinuous likelihood warnings. Set to 1. This evaluates the difference between the TMB object likelihood and the nlminb likelihood.}
-
-\item{control}{A list of control parameters. For details see \code{?nlminb}}
-
-\item{getJointPrecision}{return full Hessian of fixed and random effects.}
-
-\item{getReportCovariance}{return variance covariance of ADREPORT variables}
-
-\item{loopnum}{number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})}
-
-\item{verbose}{0 = Silent, 1 = print updates of model fit, 2 = print updates of model fit and TMB estimation progress.}
-
-\item{newtonsteps}{number of extra newton steps to take after optimization (alternative to \code{loopnum})}
-
-\item{TMBfilename}{if a separate TMB file is to be used for development. Includes location and does not include ".cpp" at the end.}
+\item{...}{Deprecated optimizer / sdreport / phasing arguments
+(e.g. \code{phase}, \code{getsd}, \code{bias.correct}, \code{use_gradient}, \code{rel_tol},
+\code{control}, \code{getJointPrecision}, \code{getReportCovariance}, \code{loopnum},
+\code{newtonsteps}, \code{verbose}, \code{TMBfilename}). These are forwarded into
+\code{fit_control} with a deprecation warning; pass them via
+\code{\link[=fit_control]{fit_control()}} instead.}
 }
 \value{
 A list of class "Rceattle" including:
@@ -143,15 +123,12 @@ current parameter set. See \code{src/TMB/predation.hpp}.
 \examples{
 \donttest{
 data(BS2017SS)
-ss_run <- fit_mod(data_list = BS2017SS,
-    inits = NULL,
-    file = NULL,
-    estimateMode = 0,
-    random_rec = FALSE,
-    msmMode = 0,
-    avgnMode = 0,
-    phase = FALSE,
-    verbose = 0)
+ss_run <- fit_mod(
+  data_list    = BS2017SS,
+  estimateMode = 0,
+  msmMode      = 0,
+  fit_control  = fit_control(phase = FALSE, verbose = 0)
+)
 }
 
 }

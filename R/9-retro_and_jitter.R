@@ -222,10 +222,11 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
         suit_styr = data_list$suit_styr,
         suit_endyr = min(data_list$suit_endyr, endyr_peel),   # Update to end year if less than suit_endyr
         initMode = data_list$initMode,
-        phase = TRUE, # Phasing or else the parameters dont wanna move
-        loopnum = data_list$loopnum,
-        getsd = TRUE,
-        verbose = 0)
+        fit_control = fit_control(
+          phase   = TRUE, # Phasing or else the parameters dont wanna move
+          loopnum = data_list$loopnum,
+          getsd   = TRUE,
+          verbose = 0))
     )
 
     # Forecast ----
@@ -321,10 +322,11 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
         suit_styr = data_list$suit_styr,
         suit_endyr = min(data_list$suit_endyr, endyr_peel),   # Update to end year if less than suit_endyr
         initMode = data_list$initMode,
-        phase = TRUE, # Phasing or else the parameters dont wanna move
-        loopnum = data_list$loopnum,
-        getsd = TRUE,
-        verbose = 0)
+        fit_control = fit_control(
+          phase   = TRUE, # Phasing or else the parameters dont wanna move
+          loopnum = data_list$loopnum,
+          getsd   = TRUE,
+          verbose = 0))
     )
 
     # gc()
@@ -532,10 +534,11 @@ jitter <- function(Rceattle = NULL, njitter = 50, phase = FALSE, seed = 123) {
             suit_styr = data_list$suit_styr,
             suit_endyr = min(data_list$suit_endyr, data_list$endyr),   # Update to end year if less than suit_endyr
             initMode = data_list$initMode,
-            phase = phase,
-            loopnum = data_list$loopnum,
-            getsd = TRUE,
-            verbose = 0)
+            fit_control = fit_control(
+              phase   = phase,
+              loopnum = data_list$loopnum,
+              getsd   = TRUE,
+              verbose = 0))
         )
       )
 

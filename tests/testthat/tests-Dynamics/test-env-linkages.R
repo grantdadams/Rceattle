@@ -39,14 +39,14 @@ testthat::test_that("Test environmental linkeage with mean rec", {
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-
                               recFun = build_srr(srr_fun = 1,
                                                  proj_mean_rec = FALSE,
                                                  srr_est_mode = 1,
                                                  srr_indices = 1
                               ),
                               initMode = "NonEquilibrium",
-                              verbose = 0)
+                              fit_control = fit_control(
+                              verbose = 0))
 
 
   # Check ssb
@@ -104,7 +104,8 @@ testthat::test_that("Test multiple recruitment linkeages with mean rec", {
                                                  srr_indices = c(1,2,3)
                               ),
                               initMode = 1,
-                              verbose = 0)
+                              fit_control = fit_control(
+                              verbose = 0))
 
 
   # Check ssb
@@ -160,7 +161,8 @@ testthat::test_that("Test multiple M linkeages", {
                                                M1_indices = c(1,2,3)
                               ),
                               initMode = 1,
-                              verbose = 0)
+                              fit_control = fit_control(
+                              verbose = 0))
 
 
 
@@ -222,7 +224,8 @@ testthat::test_that("Test single M, multiple M/sex linkeages, M both-sex linkage
                                                M1_indices = c(1,2,3)
                               ),
                               initMode = 1,
-                              verbose = 0)
+                              fit_control = fit_control(
+                              verbose = 0))
 
 
 

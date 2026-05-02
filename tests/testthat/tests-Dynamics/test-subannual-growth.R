@@ -54,8 +54,9 @@ testthat::test_that("Test VB growth with spawn month = 0.00001", {
                                    growthFun = build_growth(growth_model = 1), # Von bertalanffy growth
                                    random_rec = FALSE, # No random recruitment
                                    msmMode = 0, # Single species mode
-                                   phase = FALSE,
-                                   verbose = 1)
+                                   fit_control = fit_control(
+                                     phase = FALSE,
+                                     verbose = 1))
 
   # 1. Check growth ----
   # - Biomass weight
@@ -129,8 +130,9 @@ testthat::test_that("Test Richard's growth with spawn month = 0.00001", {
                                    growthFun = build_growth(growth_model = 2), # Richard's growth
                                    random_rec = FALSE, # No random recruitment
                                    msmMode = 0, # Single species mode
-                                   phase = FALSE,
-                                   verbose = 1)
+                                   fit_control = fit_control(
+                                     phase = FALSE,
+                                     verbose = 1))
 
   # 1. Check growth ----
   # - Biomass weight

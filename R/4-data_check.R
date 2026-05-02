@@ -302,10 +302,7 @@ data_check <- function(data_list) {
 #'
 #' @param data_list Rceattle data list
 #'
-#' @returns
-#' @export
 #'
-#' @examples
 validate_switches <- function(data_list = NULL){
   # Validate fleet_control inputs ----
   invalid_flt_type <- data_list$fleet_control |>

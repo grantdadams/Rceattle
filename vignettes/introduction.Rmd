@@ -86,8 +86,9 @@ model_1 <- Rceattle::fit_mod(data_list = mydata,
                             estimateMode = 0, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Penalized likelihood
-                            phase = TRUE,
-                            verbose = 1)
+                            fit_control = fit_control(
+                              phase = TRUE,
+                              verbose = 1))
 ```
 
 Alternatively, we can estimate natural mortality using the `build_M1` function, where setting `M1_model = 1` estimates a single M for each species. Here, we also begin estimation at the maximum likelihood estimates from `model_1` using the `inits` argument:
@@ -102,8 +103,9 @@ model_2 <- Rceattle::fit_mod(data_list = mydata,
                                                M2_use_prior = FALSE),
                               random_rec = FALSE, # Penalized likelihood
                               msmMode = 0, # Single species mode
-                              phase = TRUE,
-                              verbose = 1)
+                              fit_control = fit_control(
+                                phase = TRUE,
+                                verbose = 1))
 ```
 
 To estimate `model_2` where recruitment is treated as random effects we can use the `random_rec` argument. For this model we also don't phase estimation to decrease run-time:
@@ -118,8 +120,9 @@ model_3 <- Rceattle::fit_mod(data_list = mydata,
                                                M2_use_prior = FALSE),
                               random_rec = TRUE, # Random recruitment
                               msmMode = 0, # Single species mode
-                              phase = FALSE,
-                              verbose = 1)
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 1))
 ```
 
 To estimate time- and age-varying natural mortality due to predation we can estimate the model in multi-species mode by setting `msmMode = 1`. This follows the MSVPA parameterization described in [Magnusson (1995)](https://link.springer.com/article/10.1007/BF00179756).
@@ -137,7 +140,8 @@ model_4 <- Rceattle::fit_mod(data_list = BS2017MS,
                             random_rec = FALSE, # No random recruitment
                             msmMode = 1, # MSVPA based
                             suitMode = 0, # Empirical suitability
-                            verbose = 1)
+                            fit_control = fit_control(
+                              verbose = 1))
 ```
 
 ## 4. Compare models

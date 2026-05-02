@@ -129,10 +129,11 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       growthFun = build_growth(growth_model = om$data_list$growth_model,
                                growth_re = om$data_list$growth_re,
                                growth_indices = om$data_list$growth_indices),
-      loopnum = om$data_list$loopnum,
-      phase = FALSE,
-      getsd = FALSE,
-      verbose = 0)
+      fit_control = fit_control(
+        loopnum = om$data_list$loopnum,
+        phase   = FALSE,
+        getsd   = FALSE,
+        verbose = 0))
 
     # Adjust back
     om$data_list$estimateMode <- estimate_mode_base
@@ -268,10 +269,11 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       suit_styr = em$data_list$suit_styr,
       suit_endyr = em$data_list$suit_endyr,
       initMode = em$data_list$initMode,
-      phase = FALSE,
-      loopnum = loopnum,
-      getsd = FALSE,
-      verbose = 0)
+      fit_control = fit_control(
+        phase   = FALSE,
+        loopnum = loopnum,
+        getsd   = FALSE,
+        verbose = 0))
 
     # Update avg F given model fit to regenerated data
     if(em$data_list$HCR == 2){
@@ -324,9 +326,10 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
                               suit_styr = em$data_list$suit_styr,
                               suit_endyr = em$data_list$suit_endyr,
                               initMode = em$data_list$initMode,
-                              loopnum = loopnum,
-                              getsd = FALSE,
-                              verbose = 0)
+                              fit_control = fit_control(
+                                loopnum = loopnum,
+                                getsd   = FALSE,
+                                verbose = 0))
     }
   }
 
@@ -663,10 +666,11 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
               growthFun = build_growth(growth_model = om_use$data_list$growth_model,
                                        growth_re = om_use$data_list$growth_re,
                                        growth_indices = om_use$data_list$growth_indices),
-              loopnum = loopnum,
-              phase = FALSE,
-              getsd = FALSE,
-              verbose = 0)
+              fit_control = fit_control(
+                loopnum = loopnum,
+                phase   = FALSE,
+                getsd   = FALSE,
+                verbose = 0))
           )
           return(list(kill_sim = FALSE, failure = NA))
         },
@@ -865,10 +869,11 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
               suit_styr = em_use$data_list$suit_styr,
               suit_endyr = em_use$data_list$suit_endyr,
               initMode = em_use$data_list$initMode,
-              phase = FALSE,
-              loopnum = loopnum,
-              getsd = FALSE,
-              verbose = 0)
+              fit_control = fit_control(
+                phase   = FALSE,
+                loopnum = loopnum,
+                getsd   = FALSE,
+                verbose = 0))
           )
           return(list(kill_sim = FALSE, failure = NA))
         },
