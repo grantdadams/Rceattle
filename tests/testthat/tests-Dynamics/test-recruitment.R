@@ -64,7 +64,7 @@ testthat::test_that("ssb under mean recruitment", {
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              initMode = 2,
+                              initMode = "NonEquilibrium",
                               verbose = 0)
   # Check ssb
   for(yr in 1:nyrs){
@@ -111,7 +111,7 @@ testthat::test_that("ssb and beverton recruitment", {
                                                  proj_mean_rec = FALSE,
                                                  srr_est_mode = 1
                               ),
-                              initMode = 2,
+                              initMode = "NonEquilibrium",
                               verbose = 0)
   # Calculate SPR
   M <- 0.2
@@ -177,7 +177,7 @@ testthat::test_that("ssb and ricker recruitment", {
                                                  proj_mean_rec = FALSE,
                                                  srr_est_mode = 1
                               ),
-                              initMode = 2,
+                              initMode = "NonEquilibrium",
                               verbose = 0)
   # Calculate SPR
   M <- 0.2

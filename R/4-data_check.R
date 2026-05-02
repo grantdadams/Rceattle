@@ -66,62 +66,6 @@ data_check <- function(data_list) {
     message(paste0("Catchability for ", paste(mirror_q$Fleet_name, collapse = ", "), " is mirrored with another fleet"))
   }
 
-
-  # * Validate fleet_control inputs ----
-  invalid_flt_type <- data_list$fleet_control |>
-    dplyr::filter(!Fleet_type %in% c(fleet_map, names(fleet_map)))
-
-  invalid_sel <- data_list$fleet_control |>
-    dplyr::filter(Fleet_type != "Off" & !Selectivity %in% c(sel_map, names(sel_map)))
-
-  invalid_q <- data_list$fleet_control |>
-    dplyr::filter(Fleet_type == "Survey" & !Catchability %in% c(q_map, names(q_map)))
-
-  invalid_comp_ll <- data_list$fleet_control |>
-    dplyr::filter(Fleet_type != "Off" & !Comp_loglike %in% c(comp_loglike_map, names(comp_loglike_map)))
-
-  invalid_caal_ll <- data_list$fleet_control |>
-    dplyr::filter(Fleet_type != "Off" & !CAAL_loglike %in% c(comp_loglike_map, names(comp_loglike_map)))
-
-  # Throw clear errors to guide the user
-  if(nrow(invalid_flt_type) > 0) {
-    stop(paste("Invalid 'Fleet_type' specified for fleets:",
-               paste(invalid_flt_type$Fleet_name, collapse = ", "),
-               ".\nPlease use an integer code ",paste(range(invalid_flt_type), collapse = ":")," or one of:",
-               paste(names(invalid_flt_type), collapse = ", ")))
-  }
-
-  if(nrow(invalid_sel) > 0) {
-    stop(paste("Invalid 'Selectivity' specified for fleets:",
-               paste(invalid_sel$Fleet_name, collapse = ", "),
-               ".\nPlease use an integer code ",paste(range(sel_map), collapse = ":")," or one of:",
-               paste(names(sel_map), collapse = ", ")))
-  }
-
-  if(nrow(invalid_q) > 0) {
-    stop(paste("Invalid 'Catchability' specified for fleets:",
-               paste(invalid_q$Fleet_name, collapse = ", "),
-               ".\nPlease use an integer code ", paste(range(q_map), collapse = ":")," or one of:",
-               paste(names(q_map), collapse = ", ")))
-  }
-
-  if(nrow(invalid_comp_ll) > 0) {
-    stop(paste("Invalid 'Comp_loglike' specified for fleets:",
-               paste(invalid_comp_ll$Fleet_name, collapse = ", "),
-               ".\nPlease use an integer code ", paste(range(comp_loglike_map), collapse = ":")," or one of:",
-               paste(names(comp_loglike_map), collapse = ", ")))
-  }
-
-
-  if(nrow(invalid_caal_ll) > 0) {
-    stop(paste("Invalid 'CAAL_loglike' specified for fleets:",
-               paste(invalid_caal_ll$Fleet_name, collapse = ", "),
-               ".\nPlease use an integer code ", paste(range(comp_loglike_map), collapse = ":")," or one of:",
-               paste(names(comp_loglike_map), collapse = ", ")))
-  }
-
-
-
   # Weight-at-age ----
   # * Year range ----
   wt_yr <- data_list$weight |>
@@ -346,4 +290,82 @@ data_check <- function(data_list) {
   # Environmental data----
   if(any(data_list$srr_indices > ncol(data_list$env_index))){stop("'srr_indices' greater than the number of indices included")}
   if(any(data_list$M1_indices > ncol(data_list$env_index))){stop("'M1_indices' greater than the number of indices included")}
+
+
+  # Switches ----
+  validate_switches(data_list)
+}
+
+
+
+#' Validates switches are correct
+#'
+#' @param data_list Rceattle data list
+#'
+#' @returns
+#' @export
+#'
+#' @examples
+validate_switches <- function(data_list = NULL){
+  # Validate fleet_control inputs ----
+  invalid_flt_type <- data_list$fleet_control |>
+    dplyr::filter(!Fleet_type %in% c(fleet_map, names(fleet_map)))
+
+  invalid_sel <- data_list$fleet_control |>
+    dplyr::filter(Fleet_type != "Off" & !Selectivity %in% c(sel_map, names(sel_map)))
+
+  invalid_q <- data_list$fleet_control |>
+    dplyr::filter(Fleet_type == "Survey" & !Catchability %in% c(q_map, names(q_map)))
+
+  invalid_comp_ll <- data_list$fleet_control |>
+    dplyr::filter(Fleet_type != "Off" & !Comp_loglike %in% c(comp_loglike_map, names(comp_loglike_map)))
+
+  invalid_caal_ll <- data_list$fleet_control |>
+    dplyr::filter(Fleet_type != "Off" & !CAAL_loglike %in% c(comp_loglike_map, names(comp_loglike_map)))
+
+  # Throw clear errors to guide the user
+  if(nrow(invalid_flt_type) > 0) {
+    stop(paste("Invalid 'Fleet_type' specified for fleets:",
+               paste(invalid_flt_type$Fleet_name, collapse = ", "),
+               ".\nPlease use an integer code ",paste(range(invalid_flt_type), collapse = ":")," or one of:",
+               paste(names(invalid_flt_type), collapse = ", ")))
+  }
+
+  if(nrow(invalid_sel) > 0) {
+    stop(paste("Invalid 'Selectivity' specified for fleets:",
+               paste(invalid_sel$Fleet_name, collapse = ", "),
+               ".\nPlease use an integer code ",paste(range(sel_map), collapse = ":")," or one of:",
+               paste(names(sel_map), collapse = ", ")))
+  }
+
+  if(nrow(invalid_q) > 0) {
+    stop(paste("Invalid 'Catchability' specified for fleets:",
+               paste(invalid_q$Fleet_name, collapse = ", "),
+               ".\nPlease use an integer code ", paste(range(q_map), collapse = ":")," or one of:",
+               paste(names(q_map), collapse = ", ")))
+  }
+
+  if(nrow(invalid_comp_ll) > 0) {
+    stop(paste("Invalid 'Comp_loglike' specified for fleets:",
+               paste(invalid_comp_ll$Fleet_name, collapse = ", "),
+               ".\nPlease use an integer code ", paste(range(comp_loglike_map), collapse = ":")," or one of:",
+               paste(names(comp_loglike_map), collapse = ", ")))
+  }
+
+
+  if(nrow(invalid_caal_ll) > 0) {
+    stop(paste("Invalid 'CAAL_loglike' specified for fleets:",
+               paste(invalid_caal_ll$Fleet_name, collapse = ", "),
+               ".\nPlease use an integer code ", paste(range(comp_loglike_map), collapse = ":")," or one of:",
+               paste(names(comp_loglike_map), collapse = ", ")))
+  }
+
+  # Validate pop dy controls ----
+  invalid_initMode <- (!data_list$initMode %in% c(initMode_map, names(initMode_map)))
+
+  if(sum(invalid_initMode) > 0) {
+    stop(paste("Invalid 'initMode' specified:",
+               ".\nPlease use an integer code ", paste(range(initMode_map), collapse = ":")," or one of:",
+               paste(names(initMode_map), collapse = ", ")))
+  }
 }

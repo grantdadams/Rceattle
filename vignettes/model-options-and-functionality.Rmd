@@ -64,17 +64,17 @@ Codes (also accept the string aliases listed):
 |:---:|---|---|
 | `0` | `"FreeParams"` | Initial N-at-age estimated as free parameters |
 | `1` | `"Equilibrium"` | Unfished equilibrium, no init devs, F<sub>init</sub> = 0 |
-| `2` (default) | `"EquilibriumDev"` | Unfished equilibrium with initial deviations |
-| `3` | `"NonEquilibrium"` | Fished equilibrium with init devs; F<sub>init</sub> estimated |
-| `4` | `"NonEquilibriumScaled"` | Non-equilibrium with R<sub>0</sub>-scaled F<sub>init</sub> |
+| `2` (default) | `"NonEquilibrium"` | Unfished equilibrium with initial deviations |
+| `3` | `"FishedNonEquilibrium"` | Fished non-equilibrium with init devs; F<sub>init</sub> estimated inside geometric series |
+| `4` | `"FishedNonEquilibriumScaled"` | Fished non-equilibrium with R<sub>0</sub>-scaled F<sub>init</sub> after geometric series|
 
 ### `estimateMode` — what does `fit_mod()` actually do?
 
 | Value | Behavior |
 |:---:|---|
-| `0` | Estimate parameters via `nlminb` / `TMB::sdreport`. The default for assessment runs. |
-| `1` | Skip estimation; just compute the report at the supplied `inits`. |
-| `2` | Hold the historical period fixed and run only the projection under the supplied `HCR`. |
+| `0` | Estimate hindcast and projection parameters via `nlminb` / `TMB::sdreport` (default). |
+| `1` | Estimate only the hindcast parameters via `nlminb` / `TMB::sdreport`.. |
+| `2` | Hold the hindcast fixed and run only the projection under the supplied `HCR`. |
 | `3` | Evaluate the report once at `inits` (debug / mapping check). |
 
 ### Random-effects toggles

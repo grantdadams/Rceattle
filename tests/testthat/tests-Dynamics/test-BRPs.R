@@ -177,7 +177,7 @@ testthat::test_that("Test SPR0 calculation", {
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              initMode = 2,
+                              initMode = "NonEquilibrium",
                               verbose = 1)
 
   # Calculate SPR
@@ -404,7 +404,7 @@ testthat::test_that("Test mean recruitment calculation", {
                               msmMode = 0,
                               suitMode = 0,
                               niter = 5,
-                              initMode = 2,
+                              initMode = "NonEquilibrium",
                               verbose = 0)
 
   # Recruitment

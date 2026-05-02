@@ -45,7 +45,7 @@ testthat::test_that("Test environmental linkeage with mean rec", {
                                                  srr_est_mode = 1,
                                                  srr_indices = 1
                               ),
-                              initMode = 2,
+                              initMode = "NonEquilibrium",
                               verbose = 0)
 
 

@@ -91,7 +91,7 @@ build_map_recruitment <- function(map_list, data_list, nyrs_hind, nyrs_proj, ran
     nages_sp <- data_list$nages[sp]
 
     # 0) Initial abundance as free parameters
-    if (data_list$initMode == 0) {
+    if (data_list$initMode == "FreeParams") {
       map_list$init_dev[sp, 1] <- NA # Rec dev is used for year 1
 
       # - Map out ages above range
@@ -101,12 +101,12 @@ build_map_recruitment <- function(map_list, data_list, nyrs_hind, nyrs_proj, ran
     }
 
     # 1) Equilibrium with no devs
-    if (data_list$initMode == 1) {
+    if (data_list$initMode == "Equilibrium") {
       map_list$init_dev[sp, ] <- NA
     }
 
     # 2-3) Equilibrium or non-equilibrium with no devs
-    if (data_list$initMode > 1) {
+    if (!data_list$initMode %in% c("FreeParams", "Equilibrium")) {
       if ((nages_sp - 1) < ncol(map_list$init_dev)) {
         map_list$init_dev[sp, nages_sp:ncol(map_list$init_dev)] <- NA
       }
@@ -1119,7 +1119,7 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
   map_list$proj_F_prop <- map_list$proj_F_prop * NA
 
   # -- Map out initial F if starting at equilibrium
-  if(!(data_list$initMode %in% c(3,4))){
+  if(!(data_list$initMode %in% c("FishedNonEquilibrium", "FishedNonEquilibriumScaled"))){
     map_list$ln_Finit <- rep(NA, data_list$nspp)
   }
 

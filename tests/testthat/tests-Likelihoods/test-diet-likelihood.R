@@ -57,7 +57,7 @@ testthat::test_that("Diet proportion multinomial likelihood (jnll_comp) matches 
                            msmMode = 1,
                            suitMode = 4,
                            niter = 5,
-                           initMode = 2,
+                           initMode = "NonEquilibrium",
                            verbose = 0)
 
   # Extract the NLL calculated by C++

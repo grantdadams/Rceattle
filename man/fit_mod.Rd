@@ -22,7 +22,7 @@ fit_mod(
   growthFun = build_growth(),
   msmMode = 0,
   avgnMode = 0,
-  initMode = 2,
+  initMode = "NonEquilibrium",
   suitMode = 0,
   suit_styr = NULL,
   suit_endyr = NULL,
