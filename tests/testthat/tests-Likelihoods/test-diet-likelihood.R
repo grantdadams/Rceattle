@@ -53,12 +53,13 @@ testthat::test_that("Diet proportion multinomial likelihood (jnll_comp) matches 
                            file = NULL, # Don't save
                            estimateMode = 3, # Don't estimate
                            random_rec = FALSE, # No random recruitment
-                           phase = FALSE,
                            msmMode = 1,
                            suitMode = 4,
                            niter = 5,
                            initMode = "NonEquilibrium",
-                           verbose = 0)
+                           fit_control = fit_control(
+                             phase = FALSE,
+                             verbose = 0))
 
   # Extract the NLL calculated by C++
   tmb_diet_nll <- mod$quantities$jnll_comp[19, 1:nspp]

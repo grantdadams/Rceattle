@@ -43,9 +43,9 @@ ss_run <- fit_mod(
   estimateMode = 0,
   random_rec   = FALSE,
   msmMode      = 0,
-  phase        = TRUE,
-  verbose      = 1
-)
+  fit_control = fit_control(
+    phase        = TRUE,
+    verbose      = 1))
 
 ms_run <- fit_mod(
   data_list    = BS2017MS,
@@ -56,8 +56,8 @@ ms_run <- fit_mod(
   random_rec   = FALSE,
   msmMode      = 1,
   suitMode     = 0,
-  verbose      = 1
-)
+  fit_control = fit_control(
+    verbose      = 1))
 ```
 
 ## Fit plots

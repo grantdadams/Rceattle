@@ -1,6 +1,65 @@
 # Rceattle 4.0.3 (in development)
 
+## API
+
+* New `fit_control()` constructor bundles the optimizer / sdreport /
+  phasing knobs that previously cluttered `fit_mod()`'s signature
+  (`phase`, `getsd`, `bias.correct`, `use_gradient`, `rel_tol`,
+  `loopnum`, `newtonsteps`, `getJointPrecision`, `getReportCovariance`,
+  `verbose`, `TMBfilename`, `nlminb_control`). Pass the result via the
+  new `fit_control` argument:
+
+  ```r
+  fit <- fit_mod(
+    data_list   = BS2017SS,
+    msmMode     = 0,
+    fit_control = fit_control(phase = TRUE, getsd = FALSE, loopnum = 1)
+  )
+  ```
+
+  `fit_mod()`'s visible argument list shrinks from ~33 to ~22 args, so
+  calls now read as model spec rather than a pile of optimizer flags.
+
+* `fit_mod()` emits a deprecation warning if any of the legacy
+  control args are passed directly and forwards them into
+  `fit_control` for the duration of the deprecation window. Truly
+  unknown arguments still error with `Unused arguments to fit_mod():
+  ...` (no silent drops).
+
+* Internal callers (`run_mse()`, `retrospective()`, `jitter()`,
+  `sim_mod()`, `project_no_F()`) now wrap their control args in
+  `fit_control(...)` rather than passing them positionally.
+
+## New methods
+
+* S3 methods on the `"Rceattle"` class so a fit behaves like an R
+  model object: `plot()`, `coef()`, `vcov()`, `logLik()`,
+  `residuals()`. With `df` set on `logLik`, [stats::AIC()] also
+  works without a dedicated method. `nobs()` is intentionally
+  *not* defined: counting "observations" in a stock-assessment
+  likelihood (composition cells, indices, catches, priors) is not
+  well-defined, so [stats::BIC()] does not work — use AIC or
+  domain-specific information criteria.
+
+* `plot.Rceattle()` is a thin dispatcher: `plot(fit, what = "biomass")`
+  / `"ssb"` / `"recruitment"` / `"depletion"` / `"index"` / `"catch"` /
+  `"selectivity"` / `"mortality"` / `"data"`. `...` is forwarded to
+  the underlying `plot_*()` function.
+
+* `residuals.Rceattle(type = ...)` returns a long-format data frame
+  with rows from one or more of the four fitted data sources:
+  `"index"` and `"catch"` (log-scale by default; switch with
+  `scale = "natural"`), `"comp"` (Pearson on fitted proportions, with
+  the `Age0_Length1` flag preserved), and `"caal"` (Pearson on
+  fitted proportions, with both the conditioning `Length` and the
+  age `Bin`). `type = "all"` returns all four stacked.
+
 ## Documentation
+
+* README now has a self-contained *Getting started* block that fits a
+  bundled model and exercises every new S3 method, so first-time
+  users on the pkgdown site / CRAN no longer have to bounce to the
+  GitHub wiki to see a working example.
 
 * Vignette 8 ("Model parameterizations") is being expanded to fill in
   coverage gaps surfaced during the 4.0.2 release audit:

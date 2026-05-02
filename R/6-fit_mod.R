@@ -19,21 +19,21 @@
 #' @param msmMode The predation mortality functions to used. Defaults to no predation mortality used.
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.
 #' @param initMode how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0 + dev-yr1,  mortality (M1); 2 = equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 3 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates; 4 = non-equilibrium age-structure version 2 where initial fishing mortality (Finit) scales R0.
-#' @param phase TRUE/FALSE If FALSE, will not phase model. If set to \code{"TRUE"}, will use default phasing. Can also accept a list of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R.
 #' @param suitMode Switch for suitability derivation for each predator (single value or vector). 0 = empirical based on diet data (Holsman et al. 2015), 1 = length-based gamma suitability, 2 = weight-based gamma suitability, 3 = length-based lognormal suitability, 4 = weight-based lognormal suitability, 5 = length-based normal suitability, 6 = weight-based normal suitability.
 #' @param suit_styr Integer. The first year used to calculate mean suitability. Defaults to $styr$ in $data_list$. Used when diet data were sampled from a subset of years.
 #' @param suit_endyr Integer. The last year used to calculate mean suitability. Defaults to $endyr$ in $data_list$. Used when diet data were sampled from a subset of years.
-#' @param getsd	TRUE/FALSE whether to run standard error calculation (default = TRUE).
-#' @param bias.correct logical. If TRUE, applies bias correction via \code{TMB::sdreport} (default = FALSE).
-#' @param use_gradient use the gradient to phase (default = TRUE).
-#' @param rel_tol The relative tolerance for discontinuous likelihood warnings. Set to 1. This evaluates the difference between the TMB object likelihood and the nlminb likelihood.
-#' @param control A list of control parameters. For details see \code{?nlminb}
-#' @param loopnum number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})
-#' @param newtonsteps number of extra newton steps to take after optimization (alternative to \code{loopnum})
-#' @param verbose 0 = Silent, 1 = print updates of model fit, 2 = print updates of model fit and TMB estimation progress.
-#' @param getJointPrecision return full Hessian of fixed and random effects.
-#' @param getReportCovariance return variance covariance of ADREPORT variables
-#' @param TMBfilename if a separate TMB file is to be used for development. Includes location and does not include ".cpp" at the end.
+#' @param fit_control A list returned by [fit_control()] that bundles the
+#'   optimizer / sdreport / phasing knobs (`phase`, `bias.correct`, `getsd`,
+#'   `getJointPrecision`, `getReportCovariance`, `use_gradient`, `rel_tol`,
+#'   `loopnum`, `newtonsteps`, `TMBfilename`, `verbose`, `nlminb_control`).
+#'   Defaults to `fit_control()`. See [fit_control()] for the meaning and
+#'   defaults of each field.
+#' @param ... Deprecated optimizer / sdreport / phasing arguments
+#'   (e.g. `phase`, `getsd`, `bias.correct`, `use_gradient`, `rel_tol`,
+#'   `control`, `getJointPrecision`, `getReportCovariance`, `loopnum`,
+#'   `newtonsteps`, `verbose`, `TMBfilename`). These are forwarded into
+#'   `fit_control` with a deprecation warning; pass them via
+#'   [fit_control()] instead.
 #'
 #' @details
 #' CEATTLE is an age-structured population dynamics model that can be fit with or without predation mortality. The default is to exclude predation mortality by setting \code{msmMode} to 0. Predation mortality can be included by setting \code{msmMode} with the following options:
@@ -71,15 +71,12 @@
 #' @examples
 #' \donttest{
 #' data(BS2017SS)
-#' ss_run <- fit_mod(data_list = BS2017SS,
-#'     inits = NULL,
-#'     file = NULL,
-#'     estimateMode = 0,
-#'     random_rec = FALSE,
-#'     msmMode = 0,
-#'     avgnMode = 0,
-#'     phase = FALSE,
-#'     verbose = 0)
+#' ss_run <- fit_mod(
+#'   data_list    = BS2017SS,
+#'   estimateMode = 0,
+#'   msmMode      = 0,
+#'   fit_control  = fit_control(phase = FALSE, verbose = 0)
+#' )
 #' }
 #'
 #' @export
@@ -106,19 +103,77 @@ fit_mod <-
     suitMode = 0,
     suit_styr = NULL,
     suit_endyr = NULL,
-    phase = FALSE,
-    getsd = TRUE,
-    bias.correct = FALSE,
-    use_gradient = TRUE,
-    rel_tol = 1,
-    control = list(eval.max = 1e+09,
-                   iter.max = 1e+09, trace = 0),
-    getJointPrecision = TRUE,
-    getReportCovariance = FALSE,
-    loopnum = 5,
-    verbose = 1,
-    newtonsteps = 0,
-    TMBfilename = NULL){
+    fit_control = NULL,
+    ...){
+
+    # Default control bundle. Built inside the body to avoid the
+    # "recursive default argument reference" error that occurs when a
+    # parameter and the function used in its default share a name.
+    if (is.null(fit_control)) fit_control <- Rceattle::fit_control()
+
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # Deprecation catch ----
+    # Older versions of fit_mod() accepted the optimizer / sdreport /
+    # phasing knobs as individual arguments. They now live exclusively
+    # on `fit_control`. Catch the old names from `...`, warn, and
+    # forward into the supplied fit_control so existing scripts keep
+    # working.
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    .deprecated_ctl_args <- c(
+      "phase", "getsd", "bias.correct", "use_gradient", "rel_tol",
+      "control", "getJointPrecision", "getReportCovariance",
+      "loopnum", "newtonsteps", "verbose", "TMBfilename"
+    )
+    .extra <- list(...)
+    .legacy <- intersect(names(.extra), .deprecated_ctl_args)
+    if (length(.legacy)) {
+      warning(
+        sprintf(
+          paste0(
+            "Passing %s directly to fit_mod() is deprecated and will be ",
+            "removed in a future release. Bundle these into fit_control() ",
+            "instead, e.g. fit_control(%s). Forwarding for now."
+          ),
+          paste(sQuote(.legacy), collapse = ", "),
+          paste(.legacy, "= ...", collapse = ", ")
+        ),
+        call. = FALSE
+      )
+      for (.nm in .legacy) {
+        .field <- if (.nm == "control") "nlminb_control" else .nm
+        fit_control[[.field]] <- .extra[[.nm]]
+      }
+      .extra <- .extra[setdiff(names(.extra), .deprecated_ctl_args)]
+    }
+    if (length(.extra)) {
+      stop(
+        "Unused arguments to fit_mod(): ",
+        paste(sQuote(names(.extra)), collapse = ", "),
+        call. = FALSE
+      )
+    }
+
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    # Unpack fit_control ----
+    # The optimizer / sdreport / phasing knobs all live in fit_control;
+    # expand them to local variables so the rest of the function body
+    # can refer to them by name without rewriting every reference.
+    #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+    if (!inherits(fit_control, "Rceattle_fit_control")) {
+      stop("`fit_control` must be created with fit_control().")
+    }
+    bias.correct        <- fit_control$bias.correct
+    getsd               <- fit_control$getsd
+    getJointPrecision   <- fit_control$getJointPrecision
+    getReportCovariance <- fit_control$getReportCovariance
+    use_gradient        <- fit_control$use_gradient
+    rel_tol             <- fit_control$rel_tol
+    loopnum             <- fit_control$loopnum
+    newtonsteps         <- fit_control$newtonsteps
+    phase               <- fit_control$phase
+    TMBfilename         <- fit_control$TMBfilename
+    verbose             <- fit_control$verbose
+    control             <- fit_control$nlminb_control
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # Debugging section ----

@@ -21,12 +21,13 @@ BS2017SS$projyr <- 2060
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
 ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
                             file = NULL,
-                            phase = TRUE, # Phase the model
                             inits = NULL, # Initial parameters = 0
                             estimateMode = 0, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
-                            verbose = 1)
+                            fit_control = fit_control(
+                              phase   = TRUE, # Phase the model
+                              verbose = 1))
 # Type ?fit_mod for more details
 
 
@@ -43,7 +44,8 @@ ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
                             random_rec = FALSE, # No random recruitment
                             msmMode = 1, # MSVPA based
                             suitMode = 0, # empirical suitability
-                            verbose = 1)
+                            fit_control = fit_control(
+                              verbose = 1))
 
 
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -66,7 +68,8 @@ ms_run_proj <- fit_mod(data_list = BS2017MS,
                        random_rec = FALSE, # No random recruitment
                        msmMode = 1, # MSVPA based
                        suitMode = 0, # empirical suitability
-                       verbose = 1)
+                       fit_control = fit_control(
+                         verbose = 1))
 plot_catch(ms_run_proj, incl_proj = T)
 
 
@@ -96,7 +99,8 @@ ms_run_proj2 <- Rceattle::fit_mod(data_list = BS2017MS,
                                   random_rec = FALSE, # No random recruitment
                                   msmMode = 1, # MSVPA based
                                   suitMode = 0, # empirical suitability
-                                  verbose = 1)
+                                  fit_control = fit_control(
+                                    verbose = 1))
 
 
 
@@ -129,6 +133,7 @@ ss_re <- Rceattle::fit_mod(
   estimateMode = 0, # Estimate
   random_rec = TRUE, # Set recruitment deviations as random effects
   msmMode = 0, # Single species mode
-  verbose = 1,
-  phase = FALSE)
+  fit_control = fit_control(
+    verbose = 1,
+    phase = FALSE))
 

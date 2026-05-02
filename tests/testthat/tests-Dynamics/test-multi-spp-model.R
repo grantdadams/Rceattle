@@ -52,12 +52,13 @@ testthat::test_that("Rceattle and multi-species model dynamics match", {
                                file = NULL, # Don't save
                                estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
-                               phase = FALSE,
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,
                                initMode = "NonEquilibrium",
-                               verbose = 0)
+                               fit_control = fit_control(
+                                 phase = FALSE,
+                                 verbose = 0))
 
   # Recruitment
   testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,1,]), as.numeric(ms_run1$quantities$R[,1:nyrs]))
@@ -176,12 +177,13 @@ testthat::test_that("Equilibrium MSVPA suitability dynamics match", {
                                     file = NULL, # Don't save
                                     estimateMode = 3, # Don't estimate
                                     random_rec = FALSE, # No random recruitment
-                                    phase = FALSE,
                                     msmMode = 1,
                                     niter = 20,
                                     suitMode = 0,
                                     initMode = "NonEquilibrium",
-                                    verbose = 0)
+                                    fit_control = fit_control(
+                                      phase = FALSE,
+                                      verbose = 0))
 
   # Recruitment
   testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,1,]), as.numeric(ms_run_msvpa$quantities$R[,1:nyrs]), tolerance = 1e-5)
@@ -302,12 +304,13 @@ testthat::test_that("Test proportion of prey-at-age in predator-at-age averaged 
                                file = NULL, # Don't save
                                estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
-                               phase = FALSE,
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,
                                initMode = "NonEquilibrium",
-                               verbose = 0)
+                               fit_control = fit_control(
+                                 phase = FALSE,
+                                 verbose = 0))
 
   # AvgN
   testthat::expect_equal(as.numeric(sim$model_quantities$avgNAA[,,]), as.numeric(ms_run2$quantities$avgN_at_age[,1,,1:nyrs]))
@@ -407,12 +410,13 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator-at-ag
                                file = NULL, # Don't save
                                estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
-                               phase = FALSE,
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,
                                initMode = "NonEquilibrium",
-                               verbose = 0)
+                               fit_control = fit_control(
+                                 phase = FALSE,
+                                 verbose = 0))
 
   # AvgN
   testthat::expect_equal(as.numeric(sim$model_quantities$avgNAA[,,]), as.numeric(ms_run2$quantities$avgN_at_age[,1,,1:nyrs]))
@@ -514,12 +518,13 @@ testthat::test_that("Test proportion of prey (all ages) in predator-at-age avera
                                file = NULL, # Don't save
                                estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
-                               phase = FALSE,
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,
                                initMode = "NonEquilibrium",
-                               verbose = 0)
+                               fit_control = fit_control(
+                                 phase = FALSE,
+                                 verbose = 0))
 
   # AvgN
   testthat::expect_equal(as.numeric(sim$model_quantities$avgNAA[,,]), as.numeric(ms_run2$quantities$avgN_at_age[,1,,1:nyrs]))
@@ -619,12 +624,13 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (mean
                                file = NULL, # Don't save
                                estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
-                               phase = FALSE,
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,
                                initMode = "NonEquilibrium",
-                               verbose = 0)
+                               fit_control = fit_control(
+                                 phase = FALSE,
+                                 verbose = 0))
 
   # AvgN
   testthat::expect_equal(as.numeric(sim$model_quantities$avgNAA[,,]), as.numeric(ms_run2$quantities$avgN_at_age[,1,,1:nyrs]))
@@ -739,12 +745,13 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (weig
                                file = NULL, # Don't save
                                estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
-                               phase = FALSE,
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,
                                initMode = "NonEquilibrium",
-                               verbose = 0)
+                               fit_control = fit_control(
+                                 phase = FALSE,
+                                 verbose = 0))
 
   # AvgN
   testthat::expect_equal(as.numeric(sim$model_quantities$avgNAA[,,]), as.numeric(ms_run2$quantities$avgN_at_age[,1,,1:nyrs]))
@@ -847,12 +854,13 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
                                file = NULL, # Don't save
                                estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
-                               phase = FALSE,
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,
                                initMode = "NonEquilibrium",
-                               verbose = 0)
+                               fit_control = fit_control(
+                                 phase = FALSE,
+                                 verbose = 0))
 
   # AvgN
   testthat::expect_equal(as.numeric(sim$model_quantities$avgNAA[,,]), as.numeric(ms_run2$quantities$avgN_at_age[,1,,1:nyrs]))
@@ -970,12 +978,13 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
                                file = NULL, # Don't save
                                estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
-                               phase = FALSE,
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,
                                initMode = "NonEquilibrium",
-                               verbose = 0)
+                               fit_control = fit_control(
+                                 phase = FALSE,
+                                 verbose = 0))
 
   # AvgN
   testthat::expect_equal(as.numeric(sim$model_quantities$avgNAA[,,]), as.numeric(ms_run2$quantities$avgN_at_age[,1,,1:nyrs]))
@@ -1042,12 +1051,13 @@ testthat::test_that("Test joint single-species models", {
                               file = NULL, # Don't save
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
-                              phase = FALSE,
                               msmMode = 0,
                               suitMode = 0,
                               niter = 5,
                               initMode = "NonEquilibrium",
-                              verbose = 0)
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
 
   # Recruitment
   testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,1,]), as.numeric(ss_run$quantities$R[,1:nyrs]))
@@ -1141,12 +1151,13 @@ testthat::test_that("Mixed suitabilities: MSVPA and lognormal", {
                                file = NULL, # Don't save
                                estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
-                               phase = FALSE,
                                msmMode = 1,
                                suitMode = c(4, 0),
                                niter = 5,
                                initMode = "NonEquilibrium",
-                               verbose = 0)
+                               fit_control = fit_control(
+                                 phase = FALSE,
+                                 verbose = 0))
 
   # Recruitment
   testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,1,]), as.numeric(ms_run1$quantities$R[,1:nyrs]))
@@ -1258,12 +1269,13 @@ testthat::test_that("Mixed suitabilities2: MSVPA and lognormal", {
                                file = NULL, # Don't save
                                estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
-                               phase = FALSE,
                                msmMode = 1,
                                suitMode = c(4, 0),
                                niter = 5,
                                initMode = "NonEquilibrium",
-                               verbose = 0)
+                               fit_control = fit_control(
+                                 phase = FALSE,
+                                 verbose = 0))
 
   # Suitability of predator (species 1)
   testthat::expect_equal(as.numeric(ms_run1$quantities$suitability[1,,,,2]),
@@ -1273,5 +1285,5 @@ testthat::test_that("Mixed suitabilities2: MSVPA and lognormal", {
 
   # Suitability of prey (species 2) should be off
   testthat::expect_false(isTRUE(all.equal(as.numeric(ms_run1$quantities$suitability[2,,,,2]),
-                                as.numeric(sim$model_quantities$suitability[2,,,]))))
+                                          as.numeric(sim$model_quantities$suitability[2,,,]))))
 })

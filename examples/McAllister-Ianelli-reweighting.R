@@ -10,8 +10,9 @@ ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
                             estimateMode = 0, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
-                            phase = TRUE,
-                            verbose = 1)
+                            fit_control = fit_control(
+                              phase = TRUE,
+                              verbose = 1))
 
 
 # Update composition weights using McAllister-Ianelli method
@@ -25,5 +26,6 @@ ss_run_reweighted <- Rceattle::fit_mod(data_list = BS2017SS_weighted,
                             estimateMode = 0, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
-                            phase = TRUE,
-                            verbose = 1)
+                            fit_control = fit_control(
+                              phase = TRUE,
+                              verbose = 1))

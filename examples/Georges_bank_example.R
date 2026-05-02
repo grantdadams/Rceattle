@@ -33,8 +33,9 @@ ss_run <- Rceattle::fit_mod(data_list = georges_bank,
                             estimateMode = 1, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
-                            phase = TRUE,
-                            verbose = 1)
+                            fit_control = fit_control(
+                              phase = TRUE,
+                              verbose = 1))
 
 
 # - Multi-species
@@ -81,7 +82,8 @@ ms_run <- Rceattle::fit_mod(data_list = georges_bank,
                             random_rec = FALSE, # No random recruitment
                             msmMode = 1, # MSVPA based
                             suitMode = 4, # Time-varying weight lognormal
-                            verbose = 1)
+                            fit_control = fit_control(
+                              verbose = 1))
 
 
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#

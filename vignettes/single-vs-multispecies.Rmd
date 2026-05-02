@@ -68,10 +68,10 @@ ss_run <- fit_mod(
   file         = NULL,
   estimateMode = 0,
   random_rec   = FALSE,
-  msmMode      = 0,       # <-- single-species
-  phase        = TRUE,
-  verbose      = 1
-)
+  msmMode      = 0, # <-- single-species
+  fit_control = fit_control(
+    phase        = TRUE,
+    verbose      = 1))
 
 # Multi-species — start from single-species MLEs for stability
 ms_run <- fit_mod(
@@ -82,9 +82,9 @@ ms_run <- fit_mod(
   niter        = 5,        # iterations between population and predation dynamics
   random_rec   = FALSE,
   msmMode      = 1,        # <-- Type II MSVPA
-  suitMode     = 0,        # empirical suitability from diet data
-  verbose      = 1
-)
+  suitMode     = 0, # empirical suitability from diet data
+  fit_control = fit_control(
+    verbose      = 1))
 ```
 
 The `niter` argument controls how many times the population dynamics and predation mortality equations are iterated to convergence within each gradient step. Five iterations is typically sufficient.
@@ -105,9 +105,9 @@ goa_ss <- fit_mod(
   estimateMode = 0,
   random_rec   = FALSE,
   msmMode      = 0,
-  phase        = TRUE,
-  verbose      = 1
-)
+  fit_control = fit_control(
+    phase        = TRUE,
+    verbose      = 1))
 
 # Single-species with estimated M
 goa_ss_M <- fit_mod(
@@ -118,9 +118,9 @@ goa_ss_M <- fit_mod(
   M1Fun        = build_M1(M1_model = c(1, 2, 1)),  # Estimate M for spp 1 & 3
   random_rec   = FALSE,
   msmMode      = 0,
-  phase        = TRUE,
-  verbose      = 1
-)
+  fit_control = fit_control(
+    phase        = TRUE,
+    verbose      = 1))
 
 # Multi-species
 goa_ms <- fit_mod(
@@ -133,9 +133,9 @@ goa_ms <- fit_mod(
   random_rec   = FALSE,
   msmMode      = 1,
   suitMode     = 0,
-  phase        = TRUE,
-  verbose      = 1
-)
+  fit_control = fit_control(
+    phase        = TRUE,
+    verbose      = 1))
 ```
 
 ## Predator-prey suitability (`suitMode`)

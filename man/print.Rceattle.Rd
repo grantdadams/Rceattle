@@ -18,5 +18,13 @@ The input \code{x}, invisibly.
 Provides a compact summary so that auto-printing inside R Markdown /
 knitr / RStudio does not recurse into the (very deep) data and TMB
 objects stored on the fit. Only structural metadata, convergence
-status, and headline derived quantities are printed.
+status, headline derived quantities, and the package / TMB-DLL
+versions used to produce the fit are printed.
+}
+\details{
+For operational use, the package version line is meant to make it
+obvious which version of \code{Rceattle} produced an archived fit so that
+results can be reproduced even if \code{master} has moved on. Tag a
+release (\code{devtools::install_github("grantdadams/Rceattle@vX.Y.Z")})
+and the same version string will reappear here on a fresh run.
 }

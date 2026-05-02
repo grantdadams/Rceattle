@@ -939,8 +939,8 @@ Type objective_function<Type>::operator() () {
             // - Estimate  as free parameters
             if(initMode == 0){
               if(age > 0){
-                N_at_age(sp, 0, age, 0) = exp(init_dev(sp, age)) * sex_ratio(sp, 0);
-                N_at_age(sp, 1, age, 0) = exp(init_dev(sp, age)) * (1-sex_ratio(sp, 0));
+                N_at_age(sp, 0, age, 0) = exp(init_dev(sp, age-1)) * sex_ratio(sp, 0);
+                N_at_age(sp, 1, age, 0) = exp(init_dev(sp, age-1)) * (1-sex_ratio(sp, 0));
               }
             }
 

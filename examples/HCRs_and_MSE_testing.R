@@ -20,8 +20,9 @@ ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
                             estimateMode = 1, # Estimate hindcast only
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
-                            phase = TRUE,
-                            verbose = 1)
+                            fit_control = fit_control(
+                              phase = TRUE,
+                              verbose = 1))
 
 # Single-species with fixed M with Ricker curve
 ss_run_ricker <- Rceattle::fit_mod(data_list = BS2017SS,
@@ -30,13 +31,12 @@ ss_run_ricker <- Rceattle::fit_mod(data_list = BS2017SS,
                                    estimateMode = 1, # Estimate hindcast only
                                    random_rec = FALSE, # No random recruitment
                                    msmMode = 0, # Single species mode
-                                   phase = TRUE,
-                                   verbose = 1,
                                    recFun = build_srr(srr_fun = 0,
                                                       srr_pred_fun = 4, # Ricker (but fit sensu Ianelli)
                                                       proj_mean_rec = FALSE,
                                                       srr_est_mode = 1
-                                   )
+                                   ),
+                                   fit_control = fit_control(phase = TRUE, verbose = 1)
 )
 
 #  Single-species with estimated M
@@ -47,8 +47,9 @@ ss_run_M <- Rceattle::fit_mod(data_list = BS2017SS,
                               random_rec = FALSE, # No random recruitment
                               M1Fun = build_M1(M1_model = 1),
                               msmMode = 0, # Single species mode
-                              phase = TRUE,
-                              verbose = 1)
+                              fit_control = fit_control(
+                                phase = TRUE,
+                                verbose = 1))
 
 
 
@@ -65,7 +66,8 @@ ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
                             M1Fun = build_M1(updateM1 = TRUE), # Fix residual M to values in data
                             msmMode = 1, # MSVPA based
                             suitMode = 0, # empirical suitability
-                            verbose = 1)
+                            fit_control = fit_control(
+                              verbose = 1))
 
 # Plot OMs:
 mod_list <- list(ss_run, ss_run_M, ms_run)
@@ -89,7 +91,8 @@ ms_run_fb40 <- Rceattle::fit_mod(data_list = BS2017MS,
                                                  Ftarget = 0.4), # F that achieves 40% SB0
                                  msmMode = 1, # MSVPA based
                                  suitMode = 0, # empirical suitability
-                                 verbose = 1)
+                                 fit_control = fit_control(
+                                   verbose = 1))
 
 
 # -- F that acheives 40% of SB0, where SB0 is derived from first projecting arrowtooth and cod under no fishing, then projecting pollock under no fishing and cod/arrowtooth at SB40.
@@ -105,7 +108,8 @@ ms_run_fb40iter <- Rceattle::fit_mod(data_list = BS2017MS,
                                                      HCRorder = c(2,1,1)), # F that achieves 40% SB0
                                      msmMode = 1, # MSVPA based
                                      suitMode = 0, # empirical suitability
-                                     verbose = 1)
+                                     fit_control = fit_control(
+                                       verbose = 1))
 
 
 # -- Multi-species CMSY
@@ -118,7 +122,8 @@ ms_run_cmsy <- Rceattle::fit_mod(data_list = BS2017MS,
                                  HCR = build_hcr(HCR = 1),
                                  msmMode = 1, # MSVPA based
                                  suitMode = 0, # empirical suitability
-                                 verbose = 1)
+                                 fit_control = fit_control(
+                                   verbose = 1))
 
 # -- Multi-species CMSY, constrained so that species don't fall below 20% SB0
 # -- SB0 is derived from projecting all species simultaneously under no fishing
@@ -132,7 +137,8 @@ ms_run_concmsy <- Rceattle::fit_mod(data_list = BS2017MS,
                                                     Plimit = 0.35),
                                     msmMode = 1, # MSVPA based
                                     suitMode = 0, # empirical suitability
-                                    verbose = 1)
+                                    fit_control = fit_control(
+                                      verbose = 1))
 
 
 # -- Plot
@@ -155,7 +161,8 @@ ss_run_fb0 <- Rceattle::fit_mod(data_list = BS2017SS,
                                                 DynamicHCR = FALSE, # Use dynamic reference points
                                                 Ftarget = 0.4), # F that achieves 40% SB0
                                 msmMode = 0, # Single species mode
-                                verbose = 1)
+                                fit_control = fit_control(
+                                  verbose = 1))
 
 
 ss_run_dynamicfb0 <- Rceattle::fit_mod(data_list = BS2017SS,
@@ -165,7 +172,8 @@ ss_run_dynamicfb0 <- Rceattle::fit_mod(data_list = BS2017SS,
                                                        DynamicHCR = TRUE, # Use dynamic reference points
                                                        Ftarget = 0.4), # F that achieves 40% SB0
                                        msmMode = 0, # Single species mode
-                                       verbose = 1)
+                                       fit_control = fit_control(
+                                         verbose = 1))
 
 
 # -- Constant Fspr
@@ -176,7 +184,8 @@ ss_run_Fspr <- Rceattle::fit_mod(data_list = BS2017SS,
                                                  Ftarget = 0.4 # F40%
                                  ),
                                  msmMode = 0, # Single species mode
-                                 verbose = 1)
+                                 fit_control = fit_control(
+                                   verbose = 1))
 
 
 ss_run_dynamicFspr <- Rceattle::fit_mod(data_list = BS2017SS,
@@ -187,7 +196,8 @@ ss_run_dynamicFspr <- Rceattle::fit_mod(data_list = BS2017SS,
                                                         Ftarget = 0.4 # F40%
                                         ),
                                         msmMode = 0, # Single species mode
-                                        verbose = 1)
+                                        fit_control = fit_control(
+                                          verbose = 1))
 
 
 # -- NPFMC Tier 3
@@ -200,7 +210,8 @@ ss_run_Tier3 <- Rceattle::fit_mod(data_list = BS2017SS,
                                                   Plimit = 0.2, # No fishing when SB<SB20
                                                   Alpha = 0.05),
                                   msmMode = 0, # Single species mode
-                                  verbose = 1)
+                                  fit_control = fit_control(
+                                    verbose = 1))
 
 
 ss_run_dynamicTier3 <- Rceattle::fit_mod(data_list = BS2017SS,
@@ -213,7 +224,8 @@ ss_run_dynamicTier3 <- Rceattle::fit_mod(data_list = BS2017SS,
                                                          Plimit = 0.2, # No fishing when SB<SB20
                                                          Alpha = 0.05),
                                          msmMode = 0, # Single species mode
-                                         verbose = 1)
+                                         fit_control = fit_control(
+                                           verbose = 1))
 
 # -- PFMC Category 1
 ss_run_Cat1 <- Rceattle::fit_mod(data_list = BS2017SS,
@@ -226,7 +238,8 @@ ss_run_Cat1 <- Rceattle::fit_mod(data_list = BS2017SS,
                                                  Pstar = 0.45,
                                                  Sigma = 0.5),
                                  msmMode = 0, # Single species mode
-                                 verbose = 1)
+                                 fit_control = fit_control(
+                                   verbose = 1))
 
 ss_run_dynamicCat1 <- Rceattle::fit_mod(data_list = BS2017SS,
                                         inits = ss_run$estimated_params, # Initial parameters from ss_run
@@ -239,7 +252,8 @@ ss_run_dynamicCat1 <- Rceattle::fit_mod(data_list = BS2017SS,
                                                         Pstar = 0.45,
                                                         Sigma = 0.5),
                                         msmMode = 0, # Single species mode
-                                        verbose = 1)
+                                        fit_control = fit_control(
+                                          verbose = 1))
 
 # -- SESSF Tier 1
 ss_run_Tier1 <- Rceattle::fit_mod(data_list = BS2017SS,
@@ -252,7 +266,8 @@ ss_run_Tier1 <- Rceattle::fit_mod(data_list = BS2017SS,
                                                   Plimit = 0.20, # No fishing when B<B20
                                   ),
                                   msmMode = 0, # Single species mode
-                                  verbose = 1)
+                                  fit_control = fit_control(
+                                    verbose = 1))
 
 
 ss_run_dynamicTier1 <- Rceattle::fit_mod(data_list = BS2017SS,
@@ -266,7 +281,8 @@ ss_run_dynamicTier1 <- Rceattle::fit_mod(data_list = BS2017SS,
                                                          Plimit = 0.20, # No fishing when B<B20
                                          ),
                                          msmMode = 0, # Single species mode
-                                         verbose = 1)
+                                         fit_control = fit_control(
+                                           verbose = 1))
 
 # -- Plot
 mod_list <- list(ss_run, ss_run_fb0, ss_run_Fspr, ss_run_Tier3, ss_run_Cat1, ss_run_Tier1)

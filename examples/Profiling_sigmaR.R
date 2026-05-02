@@ -11,8 +11,9 @@ ebs_run <- Rceattle::fit_mod(data_list = BS2017SS,
                              estimateMode = 0, # Estimate
                              random_rec = FALSE, # No random recruitment
                              msmMode = 0, # Single species mode
-                             phase = TRUE,
-                             verbose = 1)
+                             fit_control = fit_control(
+                               phase = TRUE,
+                               verbose = 1))
 
 # -- Treat recruitment as random effects
 ebs_run_re <- Rceattle::fit_mod(data_list = BS2017SS,
@@ -21,8 +22,9 @@ ebs_run_re <- Rceattle::fit_mod(data_list = BS2017SS,
                                 estimateMode = 0, # Estimate
                                 random_rec = TRUE, # Random recruitment
                                 msmMode = 0, # Single species mode
-                                phase = FALSE,
-                                verbose = 1)
+                                fit_control = fit_control(
+                                  phase = FALSE,
+                                  verbose = 1))
 
 # * EBS with Ricker ----
 alpha = exp(c(4.121, 2.119, 1.553))
@@ -42,9 +44,8 @@ ebs_ricker_run <- Rceattle::fit_mod(
                      srr_prior_sd = 0.2),
   random_rec = FALSE, # No random recruitment
   msmMode = 0, # Single species mode
-  phase = TRUE,
-  verbose = 1,
-  initMode = "NonEquilibrium") # Start at fished equilibrium (biases alpha and beta otherwise)
+  initMode = "NonEquilibrium", # Start at fished equilibrium (biases alpha and beta otherwise)
+  fit_control = fit_control(phase = TRUE, verbose = 1))
 
 # -- Treat recruitment as random effects
 ebs_ricker_run_re <- Rceattle::fit_mod(
@@ -63,9 +64,8 @@ ebs_ricker_run_re <- Rceattle::fit_mod(
                      srr_prior_sd = 0.2),
   random_rec = TRUE, # Random recruitment
   msmMode = 0, # Single species mode
-  phase = FALSE,
-  verbose = 1,
-  initMode = "NonEquilibrium")
+  initMode = "NonEquilibrium",
+  fit_control = fit_control(phase = FALSE, verbose = 1))
 
 
 # * GOA Pollock ----
@@ -78,8 +78,9 @@ pollock_model <- Rceattle::fit_mod(
   estimateMode = 0,
   random_rec = FALSE, # No random recruitment
   msmMode = 0,
-  verbose = 1, # Silence optimization output
-  phase = TRUE) # Use default phasing
+  fit_control = fit_control(
+    verbose = 1, # Silence optimization output
+    phase = TRUE)) # Use default phasing
 
 pollock_model_re <- Rceattle::fit_mod(
   data_list = GOApollock,
@@ -88,8 +89,9 @@ pollock_model_re <- Rceattle::fit_mod(
   estimateMode = 0,
   random_rec = TRUE, # Random recruitment
   msmMode = 0,
-  verbose = 1, # Silence optimization output
-  phase = FALSE)
+  fit_control = fit_control(
+    verbose = 1, # Silence optimization output
+    phase = FALSE))
 
 
 # * GOA Arrowtooth flounder ----
@@ -102,8 +104,9 @@ atf_model <- Rceattle::fit_mod(
   estimateMode = 0,
   random_rec = FALSE, # No random recruitment
   msmMode = 0,
-  verbose = 1, # Silence optimization output
-  phase = TRUE) # Use default phasing
+  fit_control = fit_control(
+    verbose = 1, # Silence optimization output
+    phase = TRUE)) # Use default phasing
 
 atf_model_re <- Rceattle::fit_mod(
   data_list = GOAatf,
@@ -112,8 +115,9 @@ atf_model_re <- Rceattle::fit_mod(
   estimateMode = 0,
   random_rec = TRUE, # Random recruitment
   msmMode = 0,
-  verbose = 1, # Silence optimization output
-  phase = FALSE)
+  fit_control = fit_control(
+    verbose = 1, # Silence optimization output
+    phase = FALSE))
 
 
 # * GOA Cod ----
@@ -126,8 +130,9 @@ cod_model <- Rceattle::fit_mod(
   estimateMode = 0,
   random_rec = FALSE, # No random recruitment
   msmMode = 0,
-  verbose = 1, # Silence optimization output
-  phase = TRUE) # Use default phasing
+  fit_control = fit_control(
+    verbose = 1, # Silence optimization output
+    phase = TRUE)) # Use default phasing
 
 cod_model_re <- Rceattle::fit_mod(
   data_list = GOAcod,
@@ -136,8 +141,9 @@ cod_model_re <- Rceattle::fit_mod(
   estimateMode = 0,
   random_rec =TRUE, # Random recruitment
   msmMode = 0,
-  verbose = 1, # Silence optimization output
-  phase = FALSE)
+  fit_control = fit_control(
+    verbose = 1, # Silence optimization output
+    phase = FALSE))
 
 
 # PROFILE ----
@@ -217,10 +223,11 @@ profile_rsigma <- function(model = NULL, rsigma_vec = NULL, species = NULL){
       suit_styr = data_list$suit_styr,
       suit_endyr = min(data_list$suit_endyr, data_list$endyr),   # Update to end year if less than suit_endyr
       initMode = data_list$initMode,
-      phase = FALSE,
-      loopnum = data_list$loopnum,
-      getsd = TRUE,
-      verbose = 0)
+      fit_control = fit_control(
+        phase = FALSE,
+        loopnum = data_list$loopnum,
+        getsd = TRUE,
+        verbose = 0))
     mod_prof
   }
 

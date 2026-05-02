@@ -27,7 +27,8 @@ testthat::test_that("Basic index and index likelihood", {
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              verbose = 0)
+                              fit_control = fit_control(
+                                verbose = 0))
 
   # Calculate SPR
   M <- dat$M1_base$Age1

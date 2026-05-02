@@ -41,9 +41,10 @@ testthat::test_that("Estimated composition data matches expected", {
     Rceattle::fit_mod(data_list = simData,
                       inits = inits,
                       estimateMode = 3,
-                      phase = FALSE,
-                      loopnum = 1,
-                      verbose = 0)
+                      fit_control = fit_control(
+                        phase = FALSE,
+                        loopnum = 1,
+                        verbose = 0))
   )
 
   # Expected

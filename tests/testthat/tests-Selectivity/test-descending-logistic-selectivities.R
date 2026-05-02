@@ -30,7 +30,8 @@ testthat::test_that("Sex-specific age-based descending logistic selectivity not 
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 1)
+                      fit_control = fit_control(
+                        verbose = 1))
   )
 
   # Map
@@ -64,7 +65,7 @@ testthat::test_that("Sex-specific age-based time-varying descending logistic sel
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
-# Data
+  # Data
   data("GOA2018SS")
   GOA2018SS$fleet_control$Selectivity <- "DescendingLogistic" # age-based descending
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
@@ -106,7 +107,8 @@ testthat::test_that("Sex-specific age-based time-varying descending logistic sel
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
   # Map
@@ -170,7 +172,8 @@ testthat::test_that("Sex-specific age-based time-varying descending logistic sel
                       random_rec = FALSE, # No random recruitment
                       random_sel = TRUE, # Turn on laplace for sel devs
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
   # Map
@@ -224,7 +227,8 @@ testthat::test_that("Time-varying descending logistic selectivity likelihood", {
                       random_rec = FALSE, # No random recruitment
                       random_sel = TRUE, # Turn on laplace for sel devs
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
   # Nll

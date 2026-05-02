@@ -33,7 +33,8 @@ testthat::test_that("Sex-specific age-based double logistic selectivity not norm
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 1)
+                      fit_control = fit_control(
+                        verbose = 1))
   )
 
   # Map
@@ -115,7 +116,8 @@ testthat::test_that("Sex-specific age-based time-varying double logistic selecti
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
   # Map
@@ -171,7 +173,8 @@ testthat::test_that("Sex-specific age-based time-varying double logistic selecti
                       random_rec = FALSE, # No random recruitment
                       random_sel = TRUE, # Turn on laplace for sel devs
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
   # Sigmas
@@ -239,7 +242,8 @@ testthat::test_that("Time-varying double logistic selectivity likelihood", {
                       random_rec = FALSE, # No random recruitment
                       random_sel = TRUE, # Turn on laplace for sel devs
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
   # Nll

@@ -22,12 +22,13 @@ BS2017SS$projyr <- 2060
 # Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
 ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
                             file = NULL,
-                            phase = TRUE, # Phase the model
                             inits = NULL, # Initial parameters = 0
                             estimateMode = 0, # Estimate
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
-                            verbose = 1)
+                            fit_control = fit_control(
+                              phase   = TRUE, # Phase the model
+                              verbose = 1))
 
 
 # For the a multispecies model starting from the single species parameters, the following can be specified to load the data:
@@ -43,7 +44,8 @@ ms_run <- Rceattle::fit_mod(data_list = BS2017MS,
                             random_rec = FALSE, # No random recruitment
                             msmMode = 1, # MSVPA based
                             suitMode = 0, # empirical suitability
-                            verbose = 1)
+                            fit_control = fit_control(
+                              verbose = 1))
 
 
 

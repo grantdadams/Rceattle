@@ -30,7 +30,8 @@ testthat::test_that("Test age-based non-parametric selectivity bin-first selecte
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              verbose = 0)
+                              fit_control = fit_control(
+                                verbose = 0))
 
   # Check selectivity is 0 for bins 1-2
   output <- c(ss_run$quantities$sel_at_age[,1,1:2,])
@@ -98,7 +99,8 @@ testthat::test_that("Time-varying double logistic selectivity bin first selected
                       random_rec = FALSE, # No random recruitment
                       random_sel = TRUE, # Turn on laplace for sel devs
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
   # Check selectivity is 0 for bins 1-2

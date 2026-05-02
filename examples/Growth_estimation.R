@@ -44,9 +44,8 @@ vbgf_model <- Rceattle::fit_mod(data_list = whamGrowthData,
                             growthFun = build_growth(growth_model = 1), # Von Bert
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0,        # Single species mode
-                            phase = FALSE,
                             initMode = "NonEquilibrium",       # Unfished disequilibrium
-                            verbose = 1)
+                            fit_control = fit_control(phase = FALSE, verbose = 1))
 
 richards_model <- Rceattle::fit_mod(data_list = whamGrowthData,
                                 inits = vbgf_model$estimated_params, # Initial parameters from above
@@ -54,9 +53,8 @@ richards_model <- Rceattle::fit_mod(data_list = whamGrowthData,
                                 growthFun = build_growth(growth_model = 2), # Richards
                                 random_rec = FALSE, # No random recruitment
                                 msmMode = 0,        # Single species mode
-                                phase = FALSE,
                                 initMode = "NonEquilibrium",       # Unfished disequilibrium
-                                verbose = 1)
+                                fit_control = fit_control(phase = FALSE, verbose = 1))
 
 # Growth functions can be species specific
 # We can combine the dataset to demonstrate
@@ -69,9 +67,8 @@ double_model <- Rceattle::fit_mod(data_list = double_data,
                                     growthFun = build_growth(growth_model = c(1,1)), # VBGF
                                     random_rec = FALSE, # No random recruitment
                                     msmMode = 0,        # Single species mode
-                                    phase = TRUE,
                                     initMode = "NonEquilibrium",       # Unfished disequilibrium
-                                    verbose = 1)
+                                    fit_control = fit_control(phase = TRUE, verbose = 1))
 
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 # Plot and compare ----

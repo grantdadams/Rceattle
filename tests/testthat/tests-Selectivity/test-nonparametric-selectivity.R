@@ -65,7 +65,8 @@ testthat::test_that("Test age-based non-parametric selectivity not normalized", 
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              verbose = 0)
+                              fit_control = fit_control(
+                                verbose = 0))
 
   # Check selectivity
   # - Pollock
@@ -110,14 +111,15 @@ testthat::test_that("2DAR1 selectivity map and likelihood", {
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                      inits = NULL, # Initial parameters = 0
-                      file = NULL, # Don't save
-                      estimateMode = 3, # Don't estimate
-                      random_rec = FALSE, # No random recruitment
-                      random_sel = TRUE, # Turn on laplace for sel devs
-                      msmMode = 0, # Single species mode
-                      phase = TRUE,
-                      verbose = 0)
+                              inits = NULL, # Initial parameters = 0
+                              file = NULL, # Don't save
+                              estimateMode = 3, # Don't estimate
+                              random_rec = FALSE, # No random recruitment
+                              random_sel = TRUE, # Turn on laplace for sel devs
+                              msmMode = 0, # Single species mode
+                              fit_control = fit_control(
+                                phase = TRUE,
+                                verbose = 0))
 
   # Hyper parameters (on except for not estimated fleet)
   testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_dev_ln_sd), c(1:6, NA, 8:16))
@@ -188,8 +190,9 @@ testthat::test_that("3DAR1 selectivity map and likelihood", {
                               random_rec = FALSE, # No random recruitment
                               random_sel = TRUE, # Turn on laplace for sel devs
                               msmMode = 0, # Single species mode
-                              phase = TRUE,
-                              verbose = 0)
+                              fit_control = fit_control(
+                                phase = TRUE,
+                                verbose = 0))
 
   # Hyper parameters (on except for not estimated fleet)
   testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_dev_ln_sd), c(1:6, NA, 8:16))

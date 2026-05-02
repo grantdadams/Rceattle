@@ -22,8 +22,9 @@ testthat::test_that("Test MSE - Tier 3 w no uncertainty", {
                               estimateMode = 1, # Estimate hindcast only
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              phase = TRUE,
-                              verbose = 0)
+                              fit_control = fit_control(
+                                phase = TRUE,
+                                verbose = 0))
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # NPFMC Tier 3 ----
@@ -38,7 +39,8 @@ testthat::test_that("Test MSE - Tier 3 w no uncertainty", {
                                       Plimit = 0.2, # No fishing when SB<SB20
                                       Alpha = 0.05),
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
 
@@ -79,8 +81,9 @@ testthat::test_that("Test MSE - Tier 3 parallel", {
                               estimateMode = 1, # Estimate hindcast only
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              phase = TRUE,
-                              verbose = 0)
+                              fit_control = fit_control(
+                                phase = TRUE,
+                                verbose = 0))
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   # NPFMC Tier 3 ----
@@ -95,7 +98,8 @@ testthat::test_that("Test MSE - Tier 3 parallel", {
                                       Plimit = 0.2, # No fishing when SB<SB20
                                       Alpha = 0.05),
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
 

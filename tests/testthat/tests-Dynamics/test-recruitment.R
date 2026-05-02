@@ -23,7 +23,8 @@ testthat::test_that("mean recruitment and devs", {
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              verbose = 0)
+                              fit_control = fit_control(
+                                verbose = 0))
 
   # Check R
   testthat::expect_equal(as.numeric(ss_run$quantities$R[1,1:nyrs]), exp(R0 + Rdev), tolerance = 0.0001)
@@ -65,7 +66,8 @@ testthat::test_that("ssb under mean recruitment", {
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
                               initMode = "NonEquilibrium",
-                              verbose = 0)
+                              fit_control = fit_control(
+                                verbose = 0))
   # Check ssb
   for(yr in 1:nyrs){
     testthat::expect_equal(as.numeric(ss_run$quantities$ssb[,yr]),  exp(R0)*1/(1-exp(-0.2))*0.5, tolerance = 0.0001)
@@ -112,7 +114,8 @@ testthat::test_that("ssb and beverton recruitment", {
                                                  srr_est_mode = 1
                               ),
                               initMode = "NonEquilibrium",
-                              verbose = 0)
+                              fit_control = fit_control(
+                                verbose = 0))
   # Calculate SPR
   M <- 0.2
   wt <- 1
@@ -178,7 +181,8 @@ testthat::test_that("ssb and ricker recruitment", {
                                                  srr_est_mode = 1
                               ),
                               initMode = "NonEquilibrium",
-                              verbose = 0)
+                              fit_control = fit_control(
+                                verbose = 0))
   # Calculate SPR
   M <- 0.2
   wt <- 1

@@ -549,9 +549,9 @@ sim_run <- Rceattle::fit_mod(
   msmMode      = 0,       # Single-species
   initMode     = 2,       # Equilibrium with init devs (default)
   random_rec   = FALSE,
-  phase        = TRUE,
-  verbose      = 1
-)
+  fit_control = fit_control(
+    phase        = TRUE,
+    verbose      = 1))
 
 
 # =============================================================================

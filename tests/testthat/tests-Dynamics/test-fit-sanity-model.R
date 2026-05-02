@@ -16,12 +16,13 @@ testthat::test_that("Fit sanity model: key quantities match baseline", {
     Rceattle::fit_mod(data_list = dat,
                       inits = NULL,
                       estimateMode = 0,
-                      phase = FALSE,
-                      loopnum = 1,
-                      getsd = FALSE,
-                      use_gradient = FALSE,
-                      control = list(eval.max = 200, iter.max = 200),
-                      verbose = 0)
+                      fit_control = fit_control(
+                        phase = FALSE,
+                        loopnum = 1,
+                        getsd = FALSE,
+                        use_gradient = FALSE,
+                        nlminb_control = list(eval.max = 200, iter.max = 200),
+                        verbose = 0))
   )
 
   testthat::expect_s3_class(fit, "Rceattle")
@@ -96,7 +97,8 @@ testthat::test_that("Index, biomass, and catch = 0 match expected", {
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              verbose = 0)
+                              fit_control = fit_control(
+                                verbose = 0))
 
   # Calculate SPR
   M <- dat$M1_base$Age1
@@ -151,8 +153,9 @@ testthat::test_that("Dynamics match CEATTLE single-species classic", {
                                          M1Fun = build_M1(updateM1 = TRUE), # Update M1 from data
                                          random_rec = FALSE, # No random recruitment
                                          msmMode = 0,        # Single species mode
-                                         phase = TRUE,
-                                         verbose = 0)
+                                         fit_control = fit_control(
+                                           phase = TRUE,
+                                           verbose = 0))
 
   # R
   testthat::expect_equal(c(CEATTLE_classic_SS$quantities$R[,1:39]), c(ss_run_old_params$quantities$R[,1:39]))
@@ -240,7 +243,8 @@ testthat::test_that("Dynamics match multi-species CEATTLE classic", {
     random_rec = FALSE, # No random recruitment
     msmMode = 1,  # MSVPA based
     suitMode = 0, # empirical suitability
-    verbose = 0)
+    fit_control = fit_control(
+      verbose = 0))
 
 
   # R

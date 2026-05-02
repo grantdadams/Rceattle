@@ -465,9 +465,9 @@ sim_run <- fit_mod(
   msmMode      = 0,
   initMode     = 2,
   random_rec   = FALSE,
-  phase        = TRUE,
-  verbose      = 1
-)
+  fit_control = fit_control(
+    phase        = TRUE,
+    verbose      = 1))
 ```
 
 ## 10. Export back to Excel (optional)

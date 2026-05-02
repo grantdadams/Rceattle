@@ -31,7 +31,8 @@ testthat::test_that("Sex-specific logistic selectivity divided by max sel (acros
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 1)
+                      fit_control = fit_control(
+                        verbose = 1))
   )
 
   # Check selectivity
@@ -76,7 +77,8 @@ testthat::test_that("Sex-specific logistic selectivity not normalized", {
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 1)
+                      fit_control = fit_control(
+                        verbose = 1))
   )
 
   # Map
@@ -135,7 +137,8 @@ testthat::test_that("Sex-invariant logistic selectivity divided by sel-at-age", 
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 1)
+                      fit_control = fit_control(
+                        verbose = 1))
   )
 
   # Check selectivity
@@ -179,7 +182,8 @@ testthat::test_that("Sex-invariant logistic selectivity divided by sel-at-age-RA
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 1)
+                      fit_control = fit_control(
+                        verbose = 1))
   )
 
   # Check selectivity
@@ -224,7 +228,8 @@ testthat::test_that("Sex-specific logistic selectivity divided by sel-at-age-RAN
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 1)
+                      fit_control = fit_control(
+                        verbose = 1))
   )
 
   # Check selectivity
@@ -279,7 +284,8 @@ testthat::test_that("Sex-invariant time-varying logistic selectivity divided by 
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
   # Check selectivity
@@ -335,7 +341,8 @@ testthat::test_that("Normalize by max for each fishery and year across bins, and
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
 

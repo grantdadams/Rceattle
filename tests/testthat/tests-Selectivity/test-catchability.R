@@ -18,7 +18,8 @@ testthat::test_that("Fixed catchability", {
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 1)
+                      fit_control = fit_control(
+                        verbose = 1))
   )
 
   # Map
@@ -58,7 +59,8 @@ testthat::test_that("Estimated catchability", {
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 1)
+                      fit_control = fit_control(
+                        verbose = 1))
   )
 
   # Map
@@ -98,7 +100,8 @@ testthat::test_that("Invalid catchability", {
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
 })
