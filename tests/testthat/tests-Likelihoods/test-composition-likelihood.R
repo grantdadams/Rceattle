@@ -1,7 +1,7 @@
 testthat::test_that("Composition likelihoods match (Multinomial and Dirichlet-Multinomial)", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
-  testthat::skip()
+
 
   # ========================================================================
   # SIMULATE DATA
@@ -30,7 +30,7 @@ testthat::test_that("Composition likelihoods match (Multinomial and Dirichlet-Mu
                               fit_control = fit_control(
                                 phase = FALSE,
                                 verbose = 0))
-  inits <- ss_run$estimated_params
+  inits_mn <- ss_run$estimated_params
 
   # Set a specific likelihood weight for testing (e.g., 0.75)
   inits_mn$comp_weights[flt_idx] <- 0.75
@@ -59,17 +59,16 @@ testthat::test_that("Composition likelihoods match (Multinomial and Dirichlet-Mu
     # Expected proportions from TMB
     hat_prop <- mod_mn$quantities$comp_hat[i, 1:n_ages]
 
-    # Apply C++ math offsets exactly as written in ceattle_v01_11.cpp
+    # C++ adds the 0.00001 offset but does NOT renormalize, and TMB's dmultinom
+    # does not renormalize p — so reproduce that here with unnormalized vectors.
     obs_prop_offset <- obs_prop + 0.00001
     hat_prop_offset <- hat_prop + 0.00001
 
-    obs_prop_offset <- obs_prop_offset/sum(obs_prop_offset)
-    hat_prop_offset <- hat_prop_offset/sum(hat_prop_offset)
-
-    # Convert proportion to numbers
     obs_num <- obs_prop_offset * samp_size
 
-    r_nll_mn <- r_nll_mn + (inits_mn$comp_weights[flt_idx] * calc_multinom_nll(obs_num, hat_prop_offset))
+    ll <- lgamma(sum(obs_num) + 1) - sum(lgamma(obs_num + 1)) +
+      sum(obs_num * log(hat_prop_offset))
+    r_nll_mn <- r_nll_mn + (inits_mn$comp_weights[flt_idx] * (-ll))
   }
 
   testthat::expect_equal(tmb_nll_mn, as.numeric(r_nll_mn), tolerance = 1e-5)
@@ -80,6 +79,9 @@ testthat::test_that("Composition likelihoods match (Multinomial and Dirichlet-Mu
   # ========================================================================
   simData_dm <- simData
   simData_dm$fleet_control$Comp_loglike <- 1 # 1 = Dirichlet-Multinomial
+  # In Dirichlet-Multinomial, 'comp_weights' acts as log(theta). Set in
+  # fleet_control so the value survives the second fit_mod() call.
+  simData_dm$fleet_control$Comp_weights[flt_idx] <- log(5.0)
 
   # * Inits ----
   ss_run <- Rceattle::fit_mod(data_list = simData_dm,
@@ -87,9 +89,7 @@ testthat::test_that("Composition likelihoods match (Multinomial and Dirichlet-Mu
                               fit_control = fit_control(
                                 phase = FALSE,
                                 verbose = 0))
-  inits <- ss_run$estimated_params
-
-  # In Dirichlet-Multinomial, 'comp_weights' acts as log(theta).
+  inits_dm <- ss_run$estimated_params
   inits_dm$comp_weights[flt_idx] <- log(5.0)
 
   mod_dm <- Rceattle::fit_mod(data_list = simData_dm,
@@ -115,14 +115,10 @@ testthat::test_that("Composition likelihoods match (Multinomial and Dirichlet-Mu
     samp_size <- row_data$Sample_size
     hat_prop <- mod_dm$quantities$comp_hat[i, 1:n_ages]
 
-    # Apply C++ offsets
+    # C++ adds the 0.00001 offset but does NOT renormalize before alphas.
     obs_prop_offset <- obs_prop + 0.00001
     hat_prop_offset <- hat_prop + 0.00001
 
-    obs_prop_offset <- obs_prop_offset/sum(obs_prop_offset)
-    hat_prop_offset <- hat_prop_offset/sum(hat_prop_offset)
-
-    # Calculate Dirichlet Alphas
     obs_num <- obs_prop_offset * samp_size
     alpha <- samp_size * hat_prop_offset * theta
 
