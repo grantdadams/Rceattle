@@ -53,5 +53,26 @@ testthat::test_that("Test retrospective", {
   testthat::expect_equal(6, length(ret$Rceattle_list))
   testthat::expect_equal(2012:2017, sapply(ret$Rceattle_list, function(x) x$data_list$endyr_peel))
 
-  #testthat::expect_equal(lapply(retro_list, function(x) x$quantities$biomass[,1:nyrs]), lapply(ret$Rceattle_list[1:5], function(x) x$quantities$biomass[,1:nyrs]), tolerance = 0.01)
+  for(i in 1:5){
+    # Matches
+    yrs <- retro_list[[i]]$data_list$styr:retro_list[[i]]$data_list$endyr
+    nyrs <- length(yrs)
+    testthat::expect_equal(retro_list[[i]]$quantities$biomass[,1:nyrs], ret$Rceattle_list[[i]]$quantities$biomass[,1:nyrs], tolerance = 0.01)
+
+    # Endyr of peel
+    testthat::expect_equal(ret$Rceattle_list[[i]]$data_list$endyr_peel, 2017-rev(1:5)[i])
+
+    # Data removed
+    # * Index
+    index_tmp <- ret$Rceattle_list[[i]]$data_list$index_data %>% filter(Year > 2017-rev(1:5)[i])
+    testthat::expect_equal(nrow(index_tmp), 0)
+
+    # * Comp
+    comp_tmp <- ret$Rceattle_list[[i]]$data_list$comp_data %>% filter(Year > 2017-rev(1:5)[i])
+    testthat::expect_equal(nrow(comp_tmp), 0)
+
+    # * CAAL
+    caal_tmp <- ret$Rceattle_list[[i]]$data_list$caal_data %>% filter(Year > 2017-rev(1:5)[i])
+    testthat::expect_equal(nrow(caal_tmp), 0)
+  }
 })
