@@ -15,7 +15,8 @@ testthat::test_that("Test age-based non-parametric selectivity not normalized", 
   GOA2018SS$fleet_control$Time_varying_sel <- 0
   GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
 
-  inits <- suppressMessages(build_params(GOA2018SS))
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
 
 
   # ADMB code

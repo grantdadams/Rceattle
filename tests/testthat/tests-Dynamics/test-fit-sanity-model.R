@@ -71,7 +71,15 @@ testthat::test_that("Index, biomass, and catch = 0 match expected", {
   dat <- make_test_data(nyrs = nyrs, nages = nages, seed = 42)
 
   # Set params
-  inits <- suppressMessages(build_params(dat))
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = dat,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
+
+  # * Fix params ----
   inits$rec_pars[,1] <- R0
   inits$R_ln_sd <- 0
   inits$ln_F[] <- -999 # No fishing
@@ -136,7 +144,17 @@ testthat::test_that("Dynamics match CEATTLE single-species classic", {
   BS2017SS$srr_prior_mean <- 9
   BS2017SS$initMode  <- 1
   BS2017SS$fleet_control$Sel_norm_bin1 <- -999 # Normalize by max
-  inits <- suppressMessages(build_params(BS2017SS))
+
+  # inits
+  ss_run_old_params <- Rceattle::fit_mod(data_list = BS2017SS,
+                                         estimateMode = 3,   # Dont' estimate
+                                         M1Fun = build_M1(updateM1 = TRUE), # Update M1 from data
+                                         random_rec = FALSE, # No random recruitment
+                                         msmMode = 0,        # Single species mode
+                                         fit_control = fit_control(
+                                           phase = TRUE,
+                                           verbose = 0))
+  inits <- ss_run_old_params$estimated_params
 
   # - Update population dynamics from previous parameters
   inits$init_dev <- CEATTLE_classic_SS$estimated_params$init_dev
@@ -197,7 +215,13 @@ testthat::test_that("Dynamics match multi-species CEATTLE classic", {
   BS2017MS$fleet_control$Sel_norm_bin1 <- -999 # Normalize by max
   # BS2017MS$M1_base[,-c(1:2)] <- CEATTLE_classic_MS$quantities$M1 # + 0.0001 is in the old one
 
-  inits <- suppressMessages(build_params(BS2017MS))
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = BS2017MS,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
 
   # - Update population dynamics from old parameters
   inits$init_dev[,1:20] <- CEATTLE_classic_MS$estimated_params$init_dev

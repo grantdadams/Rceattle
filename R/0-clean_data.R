@@ -220,9 +220,9 @@ revert_switches <- function(data_list) {
   .conv <- function(x, revmap) {
     if (is.numeric(x) && x %in% names(revmap)) revmap[[which(names(revmap) == x)]] else x
   }
-  #
-  # initMode (scalar)
+
   data_list$initMode <- .conv(data_list$initMode, initMode_rev_map)
+  data_list$HCR <- .conv(data_list$HCR, hcr_rev_map)
 
   return(data_list)
 }

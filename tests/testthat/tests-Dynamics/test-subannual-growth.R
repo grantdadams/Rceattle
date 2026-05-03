@@ -31,7 +31,8 @@ testthat::test_that("Test VB growth with spawn month = 0.00001", {
 
   # Fit multi-species
   # * Fix parameters -----
-  inits <- suppressMessages( build_params(simData) )
+  mod0 <- suppressMessages( fit_mod(data_list = simData, inits = NULL, estimateMode = 3, growthFun = build_growth(growth_model = 1), random_rec = FALSE, msmMode = 0, fit_control = fit_control(phase = FALSE, verbose = 0)) )
+  inits <- mod0$estimated_params
   inits$sel_inf[1,,1] <- c(20,35,15,30)
   inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
   inits$ln_F[2,] <- log(Fmort)
@@ -109,7 +110,8 @@ testthat::test_that("Test Richard's growth with spawn month = 0.00001", {
 
   # Fit multi-species
   # * Fix parameters -----
-  inits <- suppressMessages( build_params(simData) )
+  mod0 <- suppressMessages( fit_mod(data_list = simData, inits = NULL, estimateMode = 3, growthFun = build_growth(growth_model = 2), random_rec = FALSE, msmMode = 0, fit_control = fit_control(phase = FALSE, verbose = 0)) )
+  inits <- mod0$estimated_params
   inits$sel_inf[1,,1] <- c(20,35,15,30)
   inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
   inits$ln_F[2,] <- log(Fmort)

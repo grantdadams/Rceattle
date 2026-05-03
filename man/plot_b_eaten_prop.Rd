@@ -2,7 +2,7 @@
 % Please edit documentation in R/7-plot_ceattle.R
 \name{plot_b_eaten_prop}
 \alias{plot_b_eaten_prop}
-\title{Plot biomass consumbed of each prey species by predator}
+\title{Plot biomass consumed of each prey species by predator}
 \usage{
 plot_b_eaten_prop(
   Rceattle,
@@ -61,5 +61,5 @@ function.}
 \item{mod_cex}{Cex of text for model name legend}
 }
 \description{
-Function the plots the biomass consumed trends as estimated from Rceattle. Returns and saves a figure with the biomass eaten trajectory.
+Function that plots the biomass consumed trends as estimated from Rceattle. Returns and saves a figure with the biomass eaten trajectory.
 }

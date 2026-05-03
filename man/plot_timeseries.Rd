@@ -74,9 +74,9 @@ function.}
 
 \item{lty}{line type}
 
-\item{alpha}{shadding for confidence intervals}
+\item{alpha}{shading for confidence intervals}
 
-\item{mse}{Is if an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}}
+\item{mse}{Is an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}}
 
 \item{OM}{if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?}
 
@@ -88,5 +88,5 @@ function.}
 Returns and saves a figure with the population trajectory.
 }
 \description{
-Function the plots the time-series (SSB/B/R/Depletion) 95\% CI trends as estimated from Rceattle
+Function that plots the time-series (SSB/B/R/Depletion) 95\% CI trends as estimated from Rceattle
 }

@@ -9,8 +9,16 @@ testthat::test_that("Basic index and index likelihood", {
   nyrs = 8
   dat <- make_test_data(nyrs = nyrs, nages = nages, seed = 42)
 
-  # Set params
-  inits <- suppressMessages(build_params(dat))
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = dat,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
+
+
+  # * Set params ----
   inits$rec_pars[,1] <- R0
   inits$R_ln_sd <- 0
   inits$ln_F[] <- -999 # No fishing

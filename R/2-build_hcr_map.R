@@ -31,25 +31,25 @@ build_hcr_map <- function(data_list, map, debug = FALSE, all_params_on = FALSE, 
   # -- HCR = 7: SESSF Tier 1 - Flimit and Ftarget on
   # --- Dynamic BRPS - 1 value per species and year
   if(!debug){
-    if(data_list$HCR %in% c(1)){ # CMSY
+    if(data_list$HCR == "CMSY"){ # CMSY
       map$mapList$ln_Ftarget[params_on] <- params_on
     }
 
-    if(data_list$HCR %in% c(2)){ # Fixed F - still have Flimit for single-species
+    if(data_list$HCR == "ConstantF"){ # Fixed F - still have Flimit for single-species
       map$mapList$ln_Flimit[params_on] <- params_on
     }
-    if(data_list$HCR %in% c(3)){
+    if(data_list$HCR == "ConstantFSSB"){
       map$mapList$ln_Ftarget[params_on] <- params_on
     }
-    if(data_list$HCR %in% c(4)){
-      map$mapList$ln_Ftarget[params_on] <- params_on
-      map$mapList$ln_Flimit[params_on] <- params_on
-    }
-    if(data_list$HCR %in% c(5,7)){
+    if(data_list$HCR == "ConstantFSPR"){
       map$mapList$ln_Ftarget[params_on] <- params_on
       map$mapList$ln_Flimit[params_on] <- params_on
     }
-    if(data_list$HCR == 6){
+    if(data_list$HCR %in% c("NPFMC", "SESSF")){
+      map$mapList$ln_Ftarget[params_on] <- params_on
+      map$mapList$ln_Flimit[params_on] <- params_on
+    }
+    if(data_list$HCR == "PFMC"){
       map$mapList$ln_Flimit[params_on] <- params_on
     }
 

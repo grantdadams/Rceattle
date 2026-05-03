@@ -58,5 +58,5 @@ function.}
 \item{add_ci}{TRUE/FALSE, includes 95 percent confidence interval}
 }
 \description{
-Function the plots the predation mortality at age (M2) by predator as estimated from Rceattle. Returns and saves a figure with the M-at-age trajectory.
+Function that plots the predation mortality at age (M2) by predator as estimated from Rceattle. Returns and saves a figure with the M-at-age trajectory.
 }

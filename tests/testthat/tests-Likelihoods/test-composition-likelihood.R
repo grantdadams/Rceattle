@@ -24,7 +24,14 @@ testthat::test_that("Composition likelihoods match (Multinomial and Dirichlet-Mu
   simData_mn$fleet_control$Comp_loglike <- 0 # 0 = Multinomial
   simData_mn$fleet_control$Comp_weights <- 0.75
 
-  inits_mn <- build_params(simData_mn)
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = simData_mn,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
+
   # Set a specific likelihood weight for testing (e.g., 0.75)
   inits_mn$comp_weights[flt_idx] <- 0.75
 
@@ -74,7 +81,13 @@ testthat::test_that("Composition likelihoods match (Multinomial and Dirichlet-Mu
   simData_dm <- simData
   simData_dm$fleet_control$Comp_loglike <- 1 # 1 = Dirichlet-Multinomial
 
-  inits_dm <- build_params(simData_dm)
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = simData_dm,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
 
   # In Dirichlet-Multinomial, 'comp_weights' acts as log(theta).
   inits_dm$comp_weights[flt_idx] <- log(5.0)

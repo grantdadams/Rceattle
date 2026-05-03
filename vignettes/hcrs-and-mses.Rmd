@@ -55,7 +55,7 @@ em <- Rceattle::fit_mod(
     M1_use_prior = TRUE,
     M_prior = 0.06,
     M_prior_sd = 0.05),
-  HCR = build_hcr(HCR = 5,       # Tier3 HCR
+  HCR = build_hcr(HCR = "NPFMC", # Tier3 HCR
                   Ftarget = 0.4, # F40%
                   Flimit = 0.35, # F35%
                   Plimit = 0.2,  # No fishing when SB<SB20
@@ -156,7 +156,7 @@ em2 <- Rceattle::fit_mod(
     M1_use_prior = TRUE,
     M_prior = 0.06,
     M_prior_sd = 0.05),
-  HCR = build_hcr(HCR = 5,       # Tier3 HCR
+  HCR = build_hcr(HCR = "NPFMC", # Tier3 HCR
                   Ftarget = 0.30,# F40%
                   Flimit = 0.10, # F35%
                   Plimit = 0,    # No limit

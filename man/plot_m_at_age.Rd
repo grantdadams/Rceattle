@@ -58,5 +58,5 @@ function.}
 \item{add_ci}{TRUE/FALSE, includes 95 percent confidence interval}
 }
 \description{
-Function the plots the natural mortality at age (M1 + M2) as estimated from Rceattle. Returns and saves a figure with the M-at-age trajectory.
+Function that plots the natural mortality at age (M1 + M2) as estimated from Rceattle. Returns and saves a figure with the M-at-age trajectory.
 }

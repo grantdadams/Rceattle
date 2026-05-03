@@ -15,12 +15,12 @@ rich.colors.short <- function(n,alpha=1){
   g <- pmin(pmax(0, -0.8 + 6 * x - 5 * x^2), 1)
   b <- dnorm(x, 0.25, 0.15)/max(dnorm(x, 0.25, 0.15))
   rgb.m <- matrix(c(r, g, b), ncol = 3)
-  rich.vector <- apply(rgb.m, 1, function(v) rgb(v[1], v[2], v[3], alpha=alpha))
+  apply(rgb.m, 1, function(v) rgb(v[1], v[2], v[3], alpha = alpha))
 }
 
 #' Plot time-series
 #'
-#' @description Function the plots the time-series (SSB/B/R/Depletion) 95% CI trends as estimated from Rceattle
+#' @description Function that plots the time-series (SSB/B/R/Depletion) 95% CI trends as estimated from Rceattle
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
@@ -39,12 +39,12 @@ rich.colors.short <- function(n,alpha=1){
 #' @param save Save derived quantity?
 #' @param incl_proj TRUE/FALSE, include projection years
 #' @param mod_cex Cex of text for model name legend
-#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}
+#' @param mse Is an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}
 #' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
 #' @param species What species to include 1:nspp
 #' @param maxyr max year to plot
 #' @param lty line type
-#' @param alpha shadding for confidence intervals
+#' @param alpha shading for confidence intervals
 #' @param mod_avg TRUE/FALSE
 #' @param reference Reference model
 #' @param legend.pos Position of the legend as used by \code{\link[graphics]{legend}} (default = "topright").
@@ -85,8 +85,7 @@ plot_timeseries <- function(Rceattle,
   if(mse){
     if(OM){
       Rceattle <- lapply(Rceattle, function(x) x$OM)
-    }
-    if(!OM){
+    } else {
       Rceattle <- lapply(Rceattle, function(x) x$EM[[length(x$EM)]])
     }
     nmse = length(Rceattle)
@@ -106,8 +105,7 @@ plot_timeseries <- function(Rceattle,
   if (is.null(line_col)) {
     if(!mse){
       line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
-    }
-    if(mse){
+    } else {
       line_col <- 1
     }
   }
@@ -190,17 +188,15 @@ plot_timeseries <- function(Rceattle,
   }
 
   ## Get confidence intervals ----
-  # - Single model
   if(!mse){
+    # - Single model
     quantity_upper95 <- quantity + quantity_sd * 1.92
     quantity_lower95 <- quantity - quantity_sd * 1.92
 
     quantity_upper50 <- quantity + quantity_sd * 0.674
     quantity_lower50 <- quantity - quantity_sd * 0.674
-  }
-
-  # - MSE objects
-  if(mse){
+  } else {
+    # - MSE objects
     ptarget <- ptarget[1,]
     plimit <- plimit[1,]
 
@@ -255,11 +251,12 @@ plot_timeseries <- function(Rceattle,
       dat_new <- cbind(dat[, 1], datlow[, 1], datup[, 1])
       colnames(dat_new) <- rep(model_names[1], 3)
 
-      for (j in 2:ncol(dat)) {
-        dat_new2 <- cbind(dat[, j], datlow[, j], datup[, j])
-        colnames(dat_new2) <- rep(model_names[j], 3)
-        dat_new <- cbind(dat_new, dat_new2)
-
+      if (ncol(dat) > 1) {
+        for (j in 2:ncol(dat)) {
+          dat_new2 <- cbind(dat[, j], datlow[, j], datup[, j])
+          colnames(dat_new2) <- rep(model_names[j], 3)
+          dat_new <- cbind(dat_new, dat_new2)
+        }
       }
 
       write.csv(dat_new, file = paste0(file, "_", output,"_species_", i, ".csv"))
@@ -402,36 +399,13 @@ plot_timeseries <- function(Rceattle,
 
 #' Plot biomass
 #'
-#' @description Function the plots the mean biomass and 95% CI trends as estimated from Rceattle
+#' @description Plots the mean minage+ biomass (million mt) and 95\% CI trends as estimated from Rceattle.
 #'
-#' @param file name of a file to identified the files exported by the
-#'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
-#' @param model_names Names of models to be used in legend
-#' @param line_col Colors of models to be used for line color
-#' @param spnames Species names for legend
-#' @param add_ci If the confidence interval is to be added
-#' @param lwd Line width as specified by user
-#' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
-#' @param minyr First year to plot
-#' @param height Figure height in inches
-#' @param width Figure width in inches
-#' @param save Save derived quantity?
-#' @param incl_proj TRUE/FALSE, include projection years
-#' @param mod_cex Cex of text for model name legend
-#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}
-#' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
-#' @param species What species to include 1:nspp
-#' @param maxyr max year to plot
-#' @param lty line type
-#' @param alpha shadding for confidence intervals
-#' @param mod_avg TRUE/FALSE
-#' @param reference Reference model
-#' @param legend.pos Position of the legend as used by \code{\link[graphics]{legend}} (default = \"topright\").
+#' @inheritParams plot_timeseries
 #'
 #' @export
 #'
-#' @return Returns and saves a figure with the population trajectory.
+#' @return Returns and saves a figure with the biomass trajectory.
 plot_biomass <- function(Rceattle,
                          file = NULL,
                          model_names = NULL,
@@ -484,38 +458,15 @@ plot_biomass <- function(Rceattle,
 }
 
 
-#' plot_recruitment
+#' Plot recruitment
 #'
-#' @description Function the plots the mean recruitment and 95% CI trends as estimated from Rceattle
+#' @description Plots the mean minage recruitment (millions) and 95\% CI trends as estimated from Rceattle.
 #'
-#' @param file name of a file to identified the files exported by the
-#'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
-#' @param model_names Names of models to be used in legend
-#' @param line_col Colors of models to be used for line color
-#' @param spnames Species names for legend
-#' @param add_ci If the confidence interval is to be added
-#' @param lwd Line width as specified by user
-#' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
-#' @param minyr First year to plot
-#' @param height Figure height in inches
-#' @param width Figure width in inches
-#' @param save Save derived quantity?
-#' @param incl_proj TRUE/FALSE, include projection years
-#' @param mod_cex Cex of text for model name legend
-#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}
-#' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
-#' @param species What species to include 1:nspp
-#' @param maxyr max year to plot
-#' @param lty line type
-#' @param alpha shadding for confidence intervals
-#' @param mod_avg TRUE/FALSE
-#' @param reference Reference model
-#' @param legend.pos Position of the legend as used by \code{\link[graphics]{legend}} (default = \"topright\").
+#' @inheritParams plot_timeseries
 #'
 #' @export
 #'
-#' @return Returns and saves a figure with the population trajectory.
+#' @return Returns and saves a figure with the recruitment trajectory.
 plot_recruitment <- function(Rceattle,
                              file = NULL,
                              model_names = NULL,
@@ -568,38 +519,15 @@ plot_recruitment <- function(Rceattle,
 }
 
 
-#' Plot ssb
+#' Plot spawning stock biomass (SSB)
 #'
-#' @description Function the plots the mean ssb and 95% CI trends as estimated from Rceattle
+#' @description Plots the mean SSB (million mt) and 95\% CI trends as estimated from Rceattle.
 #'
-#' @param file name of a file to identified the files exported by the
-#'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
-#' @param model_names Names of models to be used in legend
-#' @param line_col Colors of models to be used for line color
-#' @param spnames Species names for legend
-#' @param add_ci If the confidence interval is to be added
-#' @param lwd Line width as specified by user
-#' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
-#' @param minyr First year to plot
-#' @param height Figure height in inches
-#' @param width Figure width in inches
-#' @param save Save derived quantity?
-#' @param incl_proj TRUE/FALSE, include projection years
-#' @param mod_cex Cex of text for model name legend
-#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}
-#' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
-#' @param species What species to include 1:nspp
-#' @param maxyr max year to plot
-#' @param lty line type
-#' @param alpha shadding for confidence intervals
-#' @param mod_avg TRUE/FALSE
-#' @param reference Reference model
-#' @param legend.pos Position of the legend as used by \code{\link[graphics]{legend}} (default = \"topright\").
+#' @inheritParams plot_timeseries
 #'
 #' @export
 #'
-#' @return Returns and saves a figure with the population trajectory.
+#' @return Returns and saves a figure with the SSB trajectory.
 plot_ssb <- function(Rceattle,
                      file = NULL,
                      model_names = NULL,
@@ -654,36 +582,13 @@ plot_ssb <- function(Rceattle,
 
 #' Plot exploitable biomass
 #'
-#' @description Function the plots the mean exploitable biomass and 95% CI trends as estimated from Rceattle
+#' @description Plots the mean exploitable biomass (million mt) and 95\% CI trends as estimated from Rceattle.
 #'
-#' @param file name of a file to identified the files exported by the
-#'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
-#' @param model_names Names of models to be used in legend
-#' @param line_col Colors of models to be used for line color
-#' @param spnames Species names for legend
-#' @param add_ci If the confidence interval is to be added
-#' @param lwd Line width as specified by user
-#' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
-#' @param minyr First year to plot
-#' @param height Figure height in inches
-#' @param width Figure width in inches
-#' @param save Save derived quantity?
-#' @param incl_proj TRUE/FALSE, include projection years
-#' @param mod_cex Cex of text for model name legend
-#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}
-#' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
-#' @param species What species to include 1:nspp
-#' @param maxyr max year to plot
-#' @param lty line type
-#' @param alpha shadding for confidence intervals
-#' @param mod_avg TRUE/FALSE
-#' @param reference Reference model
-#' @param legend.pos Position of the legend as used by \code{\link[graphics]{legend}} (default = \"topright\").
+#' @inheritParams plot_timeseries
 #'
 #' @export
 #'
-#' @return Returns and saves a figure with the population trajectory.
+#' @return Returns and saves a figure with the exploitable biomass trajectory.
 plot_exploitable_biomass <- function(Rceattle,
                                      file = NULL,
                                      model_names = NULL,
@@ -735,38 +640,16 @@ plot_exploitable_biomass <- function(Rceattle,
                   reference = reference)
 }
 
-#' Plot ssb depletion
+#' Plot SSB depletion
 #'
-#' @description Function the plots the mean ssb depletion and 95% CI trends as estimated from Rceattle
+#' @description Plots the mean SSB depletion and 95\% CI trends as estimated from Rceattle.
+#'   Depletion reference lines for Ptarget and Plimit are drawn in blue and red respectively.
 #'
-#' @param file name of a file to identified the files exported by the
-#'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
-#' @param model_names Names of models to be used in legend
-#' @param line_col Colors of models to be used for line color
-#' @param spnames Species names for legend
-#' @param add_ci If the confidence interval is to be added
-#' @param lwd Line width as specified by user
-#' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
-#' @param minyr First year to plot
-#' @param height Figure height in inches
-#' @param width Figure width in inches
-#' @param save Save derived quantity?
-#' @param incl_proj TRUE/FALSE, include projection years
-#' @param mod_cex Cex of text for model name legend
-#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}
-#' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
-#' @param species What species to include 1:nspp
-#' @param maxyr max year to plot
-#' @param lty line type
-#' @param alpha shadding for confidence intervals
-#' @param mod_avg TRUE/FALSE
-#' @param reference Reference model
-#' @param legend.pos Position of the legend as used by \code{\link[graphics]{legend}} (default = \"topright\").
+#' @inheritParams plot_timeseries
 #'
 #' @export
 #'
-#' @return Returns and saves a figure with the population trajectory.
+#' @return Returns and saves a figure with the SSB depletion trajectory.
 plot_depletionSSB <- function(Rceattle,
                               file = NULL,
                               model_names = NULL,
@@ -818,38 +701,24 @@ plot_depletionSSB <- function(Rceattle,
                   reference = reference)
 }
 
+#' Plot SSB depletion (deprecated name)
+#'
+#' @description Deprecated alias for \code{\link{plot_ssb_depletion}}. Please use
+#'   \code{plot_ssb_depletion()} instead.
+#'
+#' @inheritParams plot_timeseries
+#' @export
+plot_ssb_depletion <- plot_depletionSSB
+
 #' Plot biomass depletion
 #'
-#' @description Function the plots the mean biomass depletion and 95% CI trends as estimated from Rceattle
+#' @description Plots the mean biomass depletion and 95\% CI trends as estimated from Rceattle.
 #'
-#' @param file name of a file to identified the files exported by the
-#'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
-#' @param model_names Names of models to be used in legend
-#' @param line_col Colors of models to be used for line color
-#' @param spnames Species names for legend
-#' @param add_ci If the confidence interval is to be added
-#' @param lwd Line width as specified by user
-#' @param right_adj Multiplier for to add to the right side of the figure for fitting the legend.
-#' @param minyr First year to plot
-#' @param height Figure height in inches
-#' @param width Figure width in inches
-#' @param save Save derived quantity?
-#' @param incl_proj TRUE/FALSE, include projection years
-#' @param mod_cex Cex of text for model name legend
-#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}
-#' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
-#' @param species What species to include 1:nspp
-#' @param maxyr max year to plot
-#' @param lty line type
-#' @param alpha shadding for confidence intervals
-#' @param mod_avg TRUE/FALSE
-#' @param reference Reference model
-#' @param legend.pos Position of the legend as used by \code{\link[graphics]{legend}} (default = \"topright\").
+#' @inheritParams plot_timeseries
 #'
 #' @export
 #'
-#' @return Returns and saves a figure with the population trajectory.
+#' @return Returns and saves a figure with the biomass depletion trajectory.
 plot_depletion <- function(Rceattle,
                            file = NULL,
                            model_names = NULL,
@@ -904,7 +773,7 @@ plot_depletion <- function(Rceattle,
 
 #' Plot selectivity
 #'
-#' @description Function the plots the fishery and survey selectivity as estimated from Rceattle
+#' @description Function that plots the fishery and survey selectivity as estimated from Rceattle
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
@@ -1155,7 +1024,7 @@ plot_form <- function( params = NULL, pred = 1, pred_age = 1, prey = 1, msmMode 
         "8" = { #  Ecosim
           Term / (1 + H_3[rsp, ksp] * (Pred_r[i] - 1 ))},
         {
-          print("msmMode not implemented")
+          stop("msmMode not implemented: ", msmMode)
         }
       )
     }
@@ -1183,7 +1052,7 @@ plot_form <- function( params = NULL, pred = 1, pred_age = 1, prey = 1, msmMode 
 
 #' Plot M1 + M2
 #'
-#' @description Function the plots the M1 and M2 as estimated from Rceattle
+#' @description Function that plots the M1 and M2 as estimated from Rceattle
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
@@ -1264,8 +1133,7 @@ plot_mortality <-
       M1_array[, , , ,i] <- Rceattle[[i]]$quantities$M1_at_age[,,1:max(nages),(1:nyrs)+(minyr - Rceattle[[1]]$data_list$styr)]
       if(!M2){
         M_array[, , , ,i] <- Rceattle[[i]]$quantities$M1_at_age[,,1:max(nages),(1:nyrs)+(minyr - Rceattle[[1]]$data_list$styr)]
-      }
-      if(M2){
+      } else {
         M_array[, , , ,i] <- Rceattle[[i]]$quantities$M2_at_age[,,1:max(nages),(1:nyrs)+(minyr - Rceattle[[1]]$data_list$styr)]
       }
     }
@@ -1335,25 +1203,25 @@ plot_mortality <-
             # Rearrange data
             data <- data.frame(Year = rep(years, each = length(ages)), Age = rep(ages, length(years)), M = c(m_subset))
 
-            # Plot limits
-            if(is.null(zlim)){
-              zlim <- c(zmin[sp], zmax[sp])
-            }
-
-            if(is.character(zlim)){
-              zlim <- c(min(zmin), max(zmax))
+            # Resolve per-species plot limits without mutating the zlim parameter
+            zlim_sp <- if (is.null(zlim)) {
+              c(zmin[sp], zmax[sp])
+            } else if (is.character(zlim)) {
+              c(min(zmin), max(zmax))
+            } else {
+              zlim
             }
 
             # Plot as tiles
             if(type == 0){
-              p = ggplot2::ggplot(data, aes(y = Age, x = Year, zmin = zlim[1], zmax = zlim[2])) + geom_tile(aes(fill = M))  + scale_y_continuous(expand = c(0, 0), breaks=seq(0,max(ages),round(nages[sp]/5))) + coord_equal() +  scale_x_continuous(expand = c(0, 0))+ theme( panel.border = element_rect(colour = "black", fill=NA, size=1))
+              p = ggplot2::ggplot(data, aes(y = Age, x = Year, zmin = zlim_sp[1], zmax = zlim_sp[2])) + geom_tile(aes(fill = M))  + scale_y_continuous(expand = c(0, 0), breaks=seq(0,max(ages),round(nages[sp]/5))) + coord_equal() +  scale_x_continuous(expand = c(0, 0))+ theme( panel.border = element_rect(colour = "black", fill=NA, size=1))
               if(!is.null(title)){
                 p = p + ggtitle(paste0(title,": ",spnames[j] )) + theme(plot.title = element_text(size = title_cex))
               }
               if(log){
-                p = p + scale_fill_viridis_c("log(M1 + M2)", limits = c(zlim[1], zlim[2]))
+                p = p + scale_fill_viridis_c("log(M1 + M2)", limits = c(zlim_sp[1], zlim_sp[2]))
               } else {
-                p = p + scale_fill_viridis_c("M1 + M2", limits = c(zlim[1], zlim[2]))
+                p = p + scale_fill_viridis_c("M1 + M2", limits = c(zlim_sp[1], zlim_sp[2]))
               }
               print(p)
             }
@@ -1361,7 +1229,7 @@ plot_mortality <-
 
             # Plot as contours
             if(type == 1){
-              print(ggplot2::ggplot(data, aes(y = Age, x = Year, z = M, zmin = zlim[1], zmax = zlim[2])) + geom_contour(colour = 1, size = 0.5) + geom_contour_filled()  + scale_y_continuous(expand = c(0, 0), breaks=seq(0,max(ages),round(nages[sp]/5))) +  scale_x_continuous(expand = c(0, 0)) + theme( panel.border = element_rect(colour = "black", fill=NA, size=1)) + scale_fill_viridis_d("M1 + M2"))
+              print(ggplot2::ggplot(data, aes(y = Age, x = Year, z = M, zmin = zlim_sp[1], zmax = zlim_sp[2])) + geom_contour(colour = 1, size = 0.5) + geom_contour_filled()  + scale_y_continuous(expand = c(0, 0), breaks=seq(0,max(ages),round(nages[sp]/5))) +  scale_x_continuous(expand = c(0, 0)) + theme( panel.border = element_rect(colour = "black", fill=NA, size=1)) + scale_fill_viridis_d("M1 + M2"))
             }
 
             # Plot as facets
@@ -1373,7 +1241,7 @@ plot_mortality <-
             # Plot as persp
             if(type == 3){
               par( mar=c(1 , 2 , 1 , 1) , tcl=-.25 , mgp=c(2 ,  1 ,  0) ,  oma=c(0 , 2 , 0 , 0))
-              pmat = persp(y = years, x = ages, z = m_subset, zlab = NA, zlim = zlim, xlab = "Age", ylab = "Year", theta = theta, ticktype = "detailed")
+              pmat = persp(y = years, x = ages, z = m_subset, zlab = NA, zlim = zlim_sp, xlab = "Age", ylab = "Year", theta = theta, ticktype = "detailed")
               mtext(ifelse(M2, "M2", "M"), side = 2, line = 0.5, at = 0)
               if(M2){
                 text(-0.25,.15, labels = paste0("M1 = ",round((M1_array[j, sex, 1, 1, 1]), 3)))
@@ -1405,7 +1273,7 @@ plot_mortality <-
 
 #' Plot maturity
 #'
-#' @description Function the plots the maturity of each species
+#' @description Function that plots the maturity of each species
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
@@ -1536,7 +1404,7 @@ plot_maturity <-
 
 #' Plot biomass eaten
 #'
-#' @description Function the plots the biomass consumed trends as estimated from Rceattle. Returns and saves a figure with the biomass eaten trajectory.
+#' @description Function that plots the biomass consumed trends as estimated from Rceattle. Returns and saves a figure with the biomass eaten trajectory.
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
@@ -1556,7 +1424,7 @@ plot_maturity <-
 #' @param mod_cex Cex of text for model name legend
 #' @param alpha Shading for confidence intervals
 #' @param mod_avg TRUE/FALSE
-#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}
+#' @param mse Is an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}
 #' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
 #'
 #' @export
@@ -1587,8 +1455,7 @@ plot_b_eaten <-  function(Rceattle,
   if(mse){
     if(OM){
       Rceattle <- lapply(Rceattle, function(x) x$OM)
-    }
-    if(!OM){
+    } else {
       Rceattle <- lapply(Rceattle, function(x) x$EM[[length(x$EM)]])
     }
     add_ci = TRUE
@@ -1675,24 +1542,20 @@ plot_b_eaten <-  function(Rceattle,
 
     quantity_upper50 <- quantity + quantity_sd * 0.674
     quantity_lower50 <- quantity - quantity_sd * 0.674
-  }
-
-  # - MSE objects
-  if(mse){
-
-    # -- Get quantiles and mean across simulations
+  } else {
+    # - MSE objects: get quantiles and mean across simulations
     quantity_upper95 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.975) )
     quantity_lower95 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.025) )
     quantity_upper50 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.75) )
     quantity_lower50 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.25) )
-    quantity <- apply( quantity, c(1,2), mean ) # Get mean quantity
+    quantity <- apply( quantity, c(1,2), mean )
 
-    # -- Put back in array for indexing below
+    # Put back in array for indexing below
     quantity <- array(quantity, dim = c(nspp, nyrs,  1))
     quantity_upper95 <- array(quantity_upper95, dim = c(nspp, nyrs,  1))
     quantity_lower95 <- array(quantity_lower95, dim = c(nspp, nyrs,  1))
     quantity_upper50 <- array(quantity_upper50, dim = c(nspp, nyrs,  1))
-    quantity_lower50<- array(quantity_lower50, dim = c(nspp, nyrs,  1))
+    quantity_lower50 <- array(quantity_lower50, dim = c(nspp, nyrs,  1))
   }
 
   # - Model Average
@@ -1722,11 +1585,12 @@ plot_b_eaten <-  function(Rceattle,
       dat_new <- cbind(dat[, 1], datlow[, 1], datup[, 1])
       colnames(dat_new) <- rep(model_names[1], 3)
 
-      for (j in 2:ncol(dat)) {
-        dat_new2 <- cbind(dat[, j], datlow[, j], datup[, j])
-        colnames(dat_new2) <- rep(model_names[j], 3)
-        dat_new <- cbind(dat_new, dat_new2)
-
+      if (ncol(dat) > 1) {
+        for (j in 2:ncol(dat)) {
+          dat_new2 <- cbind(dat[, j], datlow[, j], datup[, j])
+          colnames(dat_new2) <- rep(model_names[j], 3)
+          dat_new <- cbind(dat_new, dat_new2)
+        }
       }
 
       write.csv(dat_new, file = paste0(file, "_b_eaten_as_prey_trajectory", i, ".csv"))
@@ -1751,8 +1615,7 @@ plot_b_eaten <-  function(Rceattle,
   if (is.null(line_col)) {
     if(!mse){
       line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
-    }
-    if(mse){
+    } else {
       line_col <- 1
     }
   }
@@ -1865,9 +1728,9 @@ plot_b_eaten <-  function(Rceattle,
 
 
 
-#' Plot biomass consumbed of each prey species by predator
+#' Plot biomass consumed of each prey species by predator
 #'
-#' @description Function the plots the biomass consumed trends as estimated from Rceattle. Returns and saves a figure with the biomass eaten trajectory.
+#' @description Function that plots the biomass consumed trends as estimated from Rceattle. Returns and saves a figure with the biomass eaten trajectory.
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
@@ -2085,7 +1948,7 @@ plot_b_eaten_prop <-
 
 #' Plot natural mortality by age
 #'
-#' @description Function the plots the natural mortality at age (M1 + M2) as estimated from Rceattle. Returns and saves a figure with the M-at-age trajectory.
+#' @description Function that plots the natural mortality at age (M1 + M2) as estimated from Rceattle. Returns and saves a figure with the M-at-age trajectory.
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
@@ -2293,7 +2156,7 @@ plot_m_at_age <-
 
 #' Plot predation mortality by age and predator
 #'
-#' @description Function the plots the predation mortality at age (M2) by predator as estimated from Rceattle. Returns and saves a figure with the M-at-age trajectory.
+#' @description Function that plots the predation mortality at age (M2) by predator as estimated from Rceattle. Returns and saves a figure with the M-at-age trajectory.
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
@@ -2513,7 +2376,7 @@ plot_m2_at_age_prop <-
 
 #' plot F
 #'
-#' @description Function the plots the F time series per species from Rceattle
+#' @description Function that plots the F time series per species from Rceattle
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
@@ -2530,10 +2393,10 @@ plot_m2_at_age_prop <-
 #' @param width plot width
 #' @param incl_proj TRUE/FALSE, include projection years
 #' @param mod_cex Cex of text for model name legend
-#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}
+#' @param mse Is an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}
 #' @param OM if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?
 #' @param maxyr max year to plot
-#' @param alpha shadding for confidence intervals
+#' @param alpha shading for confidence intervals
 #' @param mod_avg is the list a model average? (DEPRECATED)
 #' @importFrom stats quantile
 #' @importFrom grDevices png dev.off adjustcolor
@@ -2567,8 +2430,7 @@ plot_f <- function(Rceattle,
   if(mse){
     if(OM){
       Rceattle <- lapply(Rceattle, function(x) x$OM)
-    }
-    if(!OM){
+    } else {
       Rceattle <- lapply(Rceattle, function(x) x$EM[[length(x$EM)]])
     }
     add_ci = TRUE
@@ -2638,24 +2500,20 @@ plot_f <- function(Rceattle,
 
     quantity_upper50 <- quantity + quantity_sd * 0.674
     quantity_lower50 <- quantity - quantity_sd * 0.674
-  }
-
-  # - MSE objects
-  if(mse){
-
-    # -- Get quantiles and mean across simulations
+  } else {
+    # - MSE objects: get quantiles and mean across simulations
     quantity_upper95 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.975) )
     quantity_lower95 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.025) )
     quantity_upper50 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.75) )
     quantity_lower50 <- apply( quantity, c(1,2), function(x) quantile(x, probs = 0.25) )
-    quantity <- apply( quantity, c(1,2), mean ) # Get mean quantity
+    quantity <- apply( quantity, c(1,2), mean )
 
-    # -- Put back in array for indexing below
+    # Put back in array for indexing below
     quantity <- array(quantity, dim = c(nspp, nyrs,  1))
     quantity_upper95 <- array(quantity_upper95, dim = c(nspp, nyrs,  1))
     quantity_lower95 <- array(quantity_lower95, dim = c(nspp, nyrs,  1))
     quantity_upper50 <- array(quantity_upper50, dim = c(nspp, nyrs,  1))
-    quantity_lower50<- array(quantity_lower50, dim = c(nspp, nyrs,  1))
+    quantity_lower50 <- array(quantity_lower50, dim = c(nspp, nyrs,  1))
   }
 
   # # - Model Average
@@ -2685,8 +2543,7 @@ plot_f <- function(Rceattle,
   if (is.null(line_col)) {
     if(!mse){
       line_col <- rev(oce::oce.colorsViridis(length(Rceattle)))
-    }
-    if(mse){
+    } else {
       line_col <- 1
     }
   }
@@ -2818,7 +2675,7 @@ plot_f <- function(Rceattle,
 
 #' Plot ration
 #'
-#' @description Function the plots the ration across ages (minage:nages) as estimated from Rceattle. Returns and saves a figure with the ration trajectory. Ration is multiplied by biomass-at-age/sex to get population level estimates
+#' @description Function that plots the ration across ages (minage:nages) as estimated from Rceattle. Returns and saves a figure with the ration trajectory. Ration is multiplied by biomass-at-age/sex to get population level estimates
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.

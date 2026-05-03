@@ -58,5 +58,5 @@ function.}
 \item{add_ci}{TRUE/FALSE, includes 95 percent confidence interval}
 }
 \description{
-Function the plots the ration across ages (minage:nages) as estimated from Rceattle. Returns and saves a figure with the ration trajectory. Ration is multiplied by biomass-at-age/sex to get population level estimates
+Function that plots the ration across ages (minage:nages) as estimated from Rceattle. Returns and saves a figure with the ration trajectory. Ration is multiplied by biomass-at-age/sex to get population level estimates
 }

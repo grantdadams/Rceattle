@@ -52,7 +52,7 @@ function.}
 
 \item{right_adj}{Multiplier for to add to the right side of the figure for fitting the legend.}
 
-\item{legend.pos}{Position of the legend as used by \code{\link[graphics]{legend}} (default = \"topright\").}
+\item{legend.pos}{Position of the legend as used by \code{\link[graphics]{legend}} (default = "topright").}
 
 \item{width}{Figure width in inches}
 
@@ -68,19 +68,19 @@ function.}
 
 \item{lty}{line type}
 
-\item{alpha}{shadding for confidence intervals}
+\item{alpha}{shading for confidence intervals}
 
 \item{mod_avg}{TRUE/FALSE}
 
-\item{mse}{Is if an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}}
+\item{mse}{Is an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}}
 
 \item{OM}{if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?}
 
 \item{reference}{Reference model}
 }
 \value{
-Returns and saves a figure with the population trajectory.
+Returns and saves a figure with the biomass depletion trajectory.
 }
 \description{
-Function the plots the mean biomass depletion and 95\% CI trends as estimated from Rceattle
+Plots the mean biomass depletion and 95\\% CI trends as estimated from Rceattle.
 }

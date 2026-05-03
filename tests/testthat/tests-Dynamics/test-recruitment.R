@@ -11,7 +11,8 @@ testthat::test_that("mean recruitment and devs", {
 
   # Set params
   dat$srr_fun = 0 # Set to mean R plus devs
-  inits <- Rceattle::build_params(dat)
+  mod0 <- suppressMessages( Rceattle::fit_mod(data_list = dat, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   inits$rec_pars[1,1] <- R0
   inits$rec_dev[1,1:nyrs] <- Rdev
   inits$R_ln_sd <- 0
@@ -53,7 +54,8 @@ testthat::test_that("ssb under mean recruitment", {
   Rdev <- stats::rnorm(nyrs)
 
   # Set params
-  inits <- suppressMessages(build_params(GOA2018SS))
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, initMode = "NonEquilibrium", fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   inits$rec_pars[,1] <- R0
   inits$R_ln_sd <- rep(0, 3)
   inits$ln_F[] <- -999 # No fishing
@@ -94,7 +96,8 @@ testthat::test_that("ssb and beverton recruitment", {
   # Set params
   GOA2018SS$srr_fun <- 4
   GOA2018SS$initMode <- 1
-  inits <- suppressMessages(build_params(GOA2018SS))
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, recFun = build_srr(srr_fun = 2, proj_mean_rec = FALSE, srr_est_mode = 1), initMode = "NonEquilibrium", fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   alpha = 0.4
   beta = 1e-6
   inits$rec_pars[,2] <- log(alpha)
@@ -161,7 +164,8 @@ testthat::test_that("ssb and ricker recruitment", {
   # Set params
   GOA2018SS$srr_fun <- 4
   GOA2018SS$initMode <- 1
-  inits <- suppressMessages(build_params(GOA2018SS))
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, recFun = build_srr(srr_fun = 4, proj_mean_rec = FALSE, srr_est_mode = 1), initMode = "NonEquilibrium", fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   alpha = 0.4
   beta = 1e-6
   inits$rec_pars[,2] <- log(alpha)

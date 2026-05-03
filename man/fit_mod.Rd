@@ -31,7 +31,8 @@ fit_mod(
 )
 }
 \arguments{
-\item{data_list}{a data_list read in using \code{\link[readxl]{read_excel}}.}
+\item{data_list}{A data list read in via \code{\link{read_data}} or built
+directly in R; see \code{vignette("data-without-excel", package = "Rceattle")}.}
 
 \item{inits}{(Optional) A named list of initial parameter values, as returned by
 \code{\link{build_params}} or extracted from a previous fit
@@ -46,7 +47,7 @@ from scratch via \code{\link{build_params}}.}
 
 \item{estimateMode}{0 = Fit the hindcast model and projection with HCR specified via \code{HCR}. 1 = Fit the hindcast model only (no projection). 2 = Run the projection only with HCR specified via \code{HCR} given the initial parameters in \code{inits}.  3 = debug mode 1: runs the model through MakeADFun, but not nlminb, 4 = runs the model through MakeADFun and nlminb (will all parameters mapped out).}
 
-\item{projection_uncertainty}{account for hindcast parameter uncertainty in projections when using an HCR? Default is FALSE for speed.}
+\item{projection_uncertainty}{logical. If TRUE, accounts for hindcast parameter uncertainty in projections when using an HCR. Default is FALSE for speed.}
 
 \item{random_rec}{logical. If TRUE, treats recruitment deviations as random effects using the laplace approximation.The default is FALSE.}
 
@@ -62,13 +63,13 @@ from scratch via \code{\link{build_params}}.}
 
 \item{M1Fun}{M1 parameterizations and priors. Use \code{build_M1}.}
 
-\item{growthFun}{The weight-at-age model from \code{\link{build_growth}}.}
+\item{growthFun}{The weight-at-age parameterization from \code{\link{build_growth}}.}
 
 \item{msmMode}{The predation mortality functions to used. Defaults to no predation mortality used.}
 
 \item{avgnMode}{The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.}
 
-\item{initMode}{how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0 + dev-yr1,  mortality (M1); 2 = equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 3 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates; 4 = non-equilibrium age-structure version 2 where initial fishing mortality (Finit) scales R0.}
+\item{initMode}{how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0 + mortality (M1); 2 = non-equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 3 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates; 4 = non-equilibrium age-structure version 2 where initial fishing mortality (Finit) scales R0.}
 
 \item{suitMode}{Switch for suitability derivation for each predator (single value or vector). 0 = empirical based on diet data (Holsman et al. 2015), 1 = length-based gamma suitability, 2 = weight-based gamma suitability, 3 = length-based lognormal suitability, 4 = weight-based lognormal suitability, 5 = length-based normal suitability, 6 = weight-based normal suitability.}
 
