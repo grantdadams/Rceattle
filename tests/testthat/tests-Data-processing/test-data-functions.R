@@ -14,7 +14,14 @@ testthat::test_that("Test combine single-species data", {
   dat <- Rceattle::combine_data(dat, dat)
 
   # Set params
-  inits <- suppressMessages(build_params(dat))
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = dat,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
+
   inits$rec_pars[,1] <- R0
   inits$R_ln_sd[] <- 0
   inits$ln_F[] <- -999 # No fishing
@@ -86,7 +93,15 @@ testthat::test_that("Test combine multi-species data", {
 
 
   # * Fix parameters -----
-  inits <- suppressMessages( build_params(simData) )
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
+
+  # * Fix params ----
   inits$log_gam_a <- rep(log(gam_a), 2)
   inits$log_gam_b <- rep(log(gam_b), 2)
   inits$log_phi <- diag(2) %x% log_phi

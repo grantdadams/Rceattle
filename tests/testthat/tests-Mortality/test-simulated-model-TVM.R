@@ -36,7 +36,10 @@ testthat::test_that("Test IID year time-varying M", {
 
   # Fit multi-species
   # * Fix parameters -----
-  inits <- suppressMessages(build_params(simData))
+  simData$M1_model = 1
+  simData$M1_re = 2
+  mod0 <- suppressMessages( fit_mod(data_list = simData, inits = NULL, estimateMode = 3, random_rec = FALSE, M1Fun = build_M1(M1_model = 1, M1_re = 2), msmMode = 0, initMode = "NonEquilibrium", fit_control = fit_control(phase = FALSE, verbose = 0)) )
+  inits <- mod0$estimated_params
   inits$sel_inf[1,,1] <- c(3,6,2.5,4)
   inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
   inits$ln_F[2,] <- log(Fmort)
@@ -55,8 +58,6 @@ testthat::test_that("Test IID year time-varying M", {
 
   inits$M1_rho[] <- atanh(M1rho)
   inits$M1_dev_ln_sd[] <- log(M1sd)
-  simData$M1_model = 1
-  simData$M1_re = 2
 
   ss_run1 <- Rceattle::fit_mod(data_list = simData,
                                inits = inits, # Initial parameters = 0
@@ -142,7 +143,10 @@ testthat::test_that("Test AR1 year time-varying M", {
 
   # Fit multi-species
   # * Fix parameters -----
-  inits <- suppressMessages(build_params(simData))
+  simData$M1_model = 1
+  simData$M1_re = 5
+  mod0 <- suppressMessages( fit_mod(data_list = simData, inits = NULL, estimateMode = 3, random_rec = FALSE, M1Fun = build_M1(M1_model = 1, M1_re = 5), msmMode = 0, initMode = "NonEquilibrium", fit_control = fit_control(phase = FALSE, verbose = 0)) )
+  inits <- mod0$estimated_params
   inits$sel_inf[1,,1] <- c(3,6,2.5,4)
   inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
   inits$ln_F[2,] <- log(Fmort)
@@ -161,8 +165,6 @@ testthat::test_that("Test AR1 year time-varying M", {
 
   inits$M1_rho[] <- atanh(M1rho)
   inits$M1_dev_ln_sd[] <- log(M1sd)
-  simData$M1_model = 1
-  simData$M1_re = 5
 
   ss_run1 <- Rceattle::fit_mod(data_list = simData,
                                inits = inits, # Initial parameters = 0

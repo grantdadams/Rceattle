@@ -55,5 +55,5 @@ function.}
 \item{M2}{TRUE/FALSE Use M2 only (True) or total M (False)}
 }
 \description{
-Function the plots the M1 and M2 as estimated from Rceattle
+Function that plots the M1 and M2 as estimated from Rceattle
 }

@@ -669,6 +669,7 @@ convert_switches <- function(data_list) {
   }
 
   data_list$initMode <- as.integer(.conv(data_list$initMode, initMode_map))
+  data_list$HCR <- as.integer(.conv(data_list$HCR, hcr_map))
 
   return(data_list)
 }

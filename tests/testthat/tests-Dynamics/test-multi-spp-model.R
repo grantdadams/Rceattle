@@ -32,8 +32,15 @@ testthat::test_that("Rceattle and multi-species model dynamics match", {
 
 
   # Fit multi-species
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
+
   # * Fix parameters -----
-  inits <- suppressMessages( build_params(simData) )
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi
@@ -161,7 +168,8 @@ testthat::test_that("Equilibrium MSVPA suitability dynamics match", {
 
   # Fit multi-species
   # * Fix parameters -----
-  inits <- suppressMessages( build_params(simData) )
+  mod0 <- suppressMessages( fit_mod(data_list = simData, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 1, suitMode = 0, initMode = "NonEquilibrium", fit_control = fit_control(phase = FALSE, verbose = 0)) )
+  inits <- mod0$estimated_params
   inits$sel_inf[1,,1] <- c(3,6,2.5,4)
   inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
   inits$ln_F[2,] <- log(0.2)
@@ -259,8 +267,15 @@ testthat::test_that("Test proportion of prey-at-age in predator-at-age averaged 
 
 
   # Fit multi-species
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
+
   # * Fix parameters -----
-  inits <- suppressMessages( build_params(simData) )
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi
@@ -365,8 +380,15 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator-at-ag
 
 
   # Fit multi-species
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
+
   # * Fix parameters -----
-  inits <- suppressMessages( build_params(simData) )
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi
@@ -472,8 +494,15 @@ testthat::test_that("Test proportion of prey (all ages) in predator-at-age avera
 
 
   # Fit multi-species
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
+
   # * Fix parameters -----
-  inits <- suppressMessages( build_params(simData) )
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi
@@ -578,8 +607,15 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (mean
 
 
   # Fit multi-species
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
+
   # * Fix parameters -----
-  inits <- suppressMessages( build_params(simData) )
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi
@@ -685,8 +721,15 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (weig
 
 
   # Fit multi-species
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
+
   # * Fix parameters -----
-  inits <- suppressMessages( build_params(simData) )
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi
@@ -807,8 +850,15 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
 
 
   # Fit multi-species
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
+
   # * Fix parameters -----
-  inits <- suppressMessages( build_params(simData) )
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi
@@ -915,8 +965,15 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
 
 
   # Fit multi-species
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
+
   # * Fix parameters -----
-  inits <- suppressMessages( build_params(simData) )
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi
@@ -1034,8 +1091,15 @@ testthat::test_that("Test joint single-species models", {
 
 
   # Fit multi-species
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
+
   # * Fix parameters -----
-  inits <- suppressMessages( build_params(simData) )
   inits$sel_inf[1,,1] <- c(3,6,2.5,4)
   inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
   inits$ln_F[2,] <- log(Fmort)
@@ -1131,8 +1195,15 @@ testthat::test_that("Mixed suitabilities: MSVPA and lognormal", {
 
 
   # Fit multi-species
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
+
   # * Fix parameters -----
-  inits <- suppressMessages( build_params(simData) )
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi
@@ -1249,8 +1320,15 @@ testthat::test_that("Mixed suitabilities2: MSVPA and lognormal", {
 
 
   # Fit multi-species
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
+
   # * Fix parameters -----
-  inits <- suppressMessages( build_params(simData) )
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi

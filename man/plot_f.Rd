@@ -58,11 +58,11 @@ function.}
 
 \item{mod_cex}{Cex of text for model name legend}
 
-\item{alpha}{shadding for confidence intervals}
+\item{alpha}{shading for confidence intervals}
 
 \item{mod_avg}{is the list a model average? (DEPRECATED)}
 
-\item{mse}{Is if an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}}
+\item{mse}{Is an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}}
 
 \item{OM}{if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?}
 }
@@ -70,5 +70,5 @@ function.}
 Returns and saves a figure with the population trajectory.
 }
 \description{
-Function the plots the F time series per species from Rceattle
+Function that plots the F time series per species from Rceattle
 }

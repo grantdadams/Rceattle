@@ -33,8 +33,15 @@ testthat::test_that("Diet proportion multinomial likelihood (jnll_comp) matches 
 
 
   # Fit multi-species
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
+
   # * Fix parameters -----
-  inits <- suppressMessages( build_params(simData) )
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi

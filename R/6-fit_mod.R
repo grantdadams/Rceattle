@@ -262,7 +262,7 @@ fit_mod <-
     # * HCR Switches ----
     data_list$HCR        <- HCR$HCR
     data_list$DynamicHCR <- HCR$DynamicHCR
-    if (HCR$HCR != 2) { # Ftarget is also used for fixed F (so may be of length nflts)
+    if (!HCR$HCR %in% c(2, "ConstantF")) { # Ftarget is also used for fixed F (so may be of length nflts)
       data_list$Ftarget <- extend_length(HCR$Ftarget)
     } else {
       data_list$Ftarget <- HCR$Ftarget
@@ -276,10 +276,6 @@ fit_mod <-
     data_list$Fmult    <- extend_length(HCR$Fmult)
     data_list$HCRorder <- extend_length(HCR$HCRorder)
     data_list$QnormHCR <- stats::qnorm(data_list$Pstar, 0, data_list$Sigma)
-
-    if (data_list$msmMode > 0 & !data_list$HCR %in% c(0, 1, 2, 3, 6)) {
-      stop("Only HCRs 1, 2, 3, and 6 work in multi-species mode currently")
-    }
 
     # Fill out switches if missing
     data_list <- Rceattle::switch_check(data_list)
@@ -392,7 +388,7 @@ fit_mod <-
     # Proportion of projected F to each fleet
     start_par$proj_F_prop <- data_list$fleet_control$proj_F_prop
     # Fixed fishing mortality for projections for each species
-    if (!is.null(HCR$Ftarget) & HCR$HCR == 2) {
+    if (!is.null(HCR$Ftarget) & HCR$HCR %in% c(2, "ConstantF")) {
       start_par$ln_Ftarget <- log(HCR$Ftarget)
     }
 
@@ -579,7 +575,7 @@ fit_mod <-
     # 10: Run projection ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (estimateMode %in% c(0, 2, 4)) {
-      if (!data_list$HCR %in% c(0)) { # all HCRs except no F and fixed F
+      if (data_list$HCR != "NoFishing") { # all HCRs except no F and fixed F
 
         # * 10.1: Single species mode ----
         if (msmMode == 0) {
@@ -602,7 +598,7 @@ fit_mod <-
           if (verbose > 0) { message(paste0("Step ", step, ": Projection build complete")) }
           step <- step + 1
 
-          if (data_list$HCR != 2) { # fixed F does not need estimation
+          if (data_list$HCR != "ConstantF") { # fixed F does not need estimation
             opt <- suppressMessages(
               .fit_tmb(obj               = obj,
                        loopnum           = loopnum,
@@ -653,7 +649,7 @@ fit_mod <-
             if (verbose > 0) { message(paste0("Step ", step, " - HCRiter ", HCRiter, ": Projection build complete. Optimizing.")) }
             step <- step + 1
 
-            if (data_list$HCR != 2) { # fixed F does not need estimation
+            if (data_list$HCR != "ConstantF") { # fixed F does not need estimation
               opt <- suppressMessages(
                 .fit_tmb(obj               = obj,
                          loopnum           = loopnum,
@@ -721,7 +717,7 @@ fit_mod <-
 
     # Warning for discontinuous likelihood
     if (estimateMode %in% c(0:2)) {
-      if (!(estimateMode == 2 & data_list$HCR == 2)) { # no optimization of projections with fixed F
+      if (!(estimateMode == 2 & data_list$HCR == "ConstantF")) { # no optimization of projections with fixed F
         if (!is.null(opt$SD) & random_rec == FALSE) {
           if (abs(opt$objective - quantities$jnll) > rel_tol) {
             message("#################################################")
@@ -740,7 +736,7 @@ fit_mod <-
     mod_objects$run_time <- (Sys.time() - start_time)
 
     if (estimateMode < 3) {
-      if (!(estimateMode == 2 & data_list$HCR == 2)) { # no optimization of projections with fixed F
+      if (!(estimateMode == 2 & data_list$HCR == "ConstantF")) { # no optimization of projections with fixed F
         mod_objects$opt   <- opt
         mod_objects$sdrep <- opt$SD
       }

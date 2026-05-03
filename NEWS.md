@@ -120,13 +120,8 @@
 
 * Added Wassermann et al. (2025) cannibalism / Pacific hake
   reference to `inst/CITATION` and `?Rceattle-package`.
-* `initMode` accepts integer codes or string aliases, and the
-  aliases have been renamed so they match the actual population
-  structure: `EquilibriumDev` → `NonEquilibrium` (initMode = 2),
-  `NonEquilibrium` → `FishedNonEquilibrium` (3),
-  `NonEquilibriumScaled` → `FishedNonEquilibriumScaled` (4).
-  Integer codes are unchanged. Code that passed the old strings
-  needs updating.
+* `initMode` accepts integer codes or string aliases.
+* `HCR` accepts integer codes or string aliases.
 
 ## Tests
 

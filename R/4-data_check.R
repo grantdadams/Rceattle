@@ -201,7 +201,7 @@ data_check <- function(data_list) {
     stop("Length based suitability not yet implemented")
   }
 
-  if(sum(data_list$fleet_control$proj_F_prop, na.rm = TRUE) == 0 & data_list$HCR > 0){
+  if(sum(data_list$fleet_control$proj_F_prop, na.rm = TRUE) == 0 & !data_list$HCR %in% c(0, "NoFishing")){
     stop("HCR is > 0 and 'proj_F_prop' is 0")
   }
 
@@ -358,11 +358,25 @@ validate_switches <- function(data_list = NULL){
   }
 
   # Validate pop dy controls ----
+  # * initMode ----
   invalid_initMode <- (!data_list$initMode %in% c(initMode_map, names(initMode_map)))
 
   if(sum(invalid_initMode) > 0) {
     stop(paste("Invalid 'initMode' specified:",
                ".\nPlease use an integer code ", paste(range(initMode_map), collapse = ":")," or one of:",
                paste(names(initMode_map), collapse = ", ")))
+  }
+
+  # * HCR ----
+  invalid_hcr <- (!data_list$HCR %in% c(hcr_map, names(hcr_map)))
+
+  if(sum(invalid_hcr) > 0) {
+    stop(paste("Invalid 'HCR' specified:",
+               ".\nPlease use an integer code ", paste(range(hcr_map), collapse = ":")," or one of:",
+               paste(names(hcr_map), collapse = ", ")))
+  }
+
+  if (data_list$msmMode > 0 & !data_list$HCR %in% c("NoFishing", "CMSY", "ConstantF", "ConstantFSSB", "PFMC")) {
+    stop('Only HCRs "NoFishing" (0), "CMSY" (1), "ConstantF" (2), "ConstantFSSB" (3), or "PFMC" (6) work in multi-species mode currently')
   }
 }

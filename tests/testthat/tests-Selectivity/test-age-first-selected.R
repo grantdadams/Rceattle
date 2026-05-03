@@ -17,7 +17,8 @@ testthat::test_that("Test age-based non-parametric selectivity bin-first selecte
 
 
   # Set params
-  inits <- suppressMessages(build_params(GOA2018SS))
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   log_selcoffs <- rnorm(n_sel_bins)
   log_selcoffs2 <- rnorm(n_sel_bins)
   inits$sel_coff[,1,1:8] <- rep(log_selcoffs, each = dim(inits$sel_coff)[1])
@@ -76,7 +77,8 @@ testthat::test_that("Time-varying double logistic selectivity bin first selected
 
 
   # Set params to double logistic
-  inits <- suppressMessages( build_params(GOA2018SS) )
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, random_sel = TRUE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   inits$ln_sel_slp[,,1] <- log(alpha) # Females
   inits$ln_sel_slp[,,2] <- log(alpha+1) # Males
   inits$sel_inf[1,,] <- inf

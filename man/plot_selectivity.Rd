@@ -34,5 +34,5 @@ function.}
 \item{lwd}{Line width as specified by user}
 }
 \description{
-Function the plots the fishery and survey selectivity as estimated from Rceattle
+Function that plots the fishery and survey selectivity as estimated from Rceattle
 }

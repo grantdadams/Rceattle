@@ -34,5 +34,5 @@ function.}
 \item{lwd}{Line width as specified by user}
 }
 \description{
-Function the plots the maturity of each species
+Function that plots the maturity of each species
 }

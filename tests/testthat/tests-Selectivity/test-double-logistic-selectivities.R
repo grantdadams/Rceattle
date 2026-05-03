@@ -18,7 +18,8 @@ testthat::test_that("Sex-specific age-based double logistic selectivity not norm
   sel2 <- 1/(1+exp(-alpha*(ages-inf1)))*(1-1/(1+exp(-alpha*(ages-16))))
 
   # Set params to double logistic
-  inits <- suppressMessages( build_params(GOA2018SS) )
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   inits$ln_sel_slp[,,] <- log(alpha)
   inits$sel_inf[1,,1] <- inf1     # Females
   inits$sel_inf[2,,1] <- inf2     # Females
@@ -94,7 +95,8 @@ testthat::test_that("Sex-specific age-based time-varying double logistic selecti
 
 
   # Set params to double logistic
-  inits <- suppressMessages( build_params(GOA2018SS) )
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   inits$ln_sel_slp[,,1] <- log(alpha) # Females
   inits$ln_sel_slp[,,2] <- log(alpha+1) # Males
   inits$sel_inf[1,,] <- inf
@@ -219,7 +221,8 @@ testthat::test_that("Time-varying double logistic selectivity likelihood", {
 
 
   # Set params to double logistic
-  inits <- suppressMessages( build_params(GOA2018SS) )
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, random_sel = TRUE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   inits$ln_sel_slp[,,1] <- log(alpha) # Females
   inits$ln_sel_slp[,,2] <- log(alpha+1) # Males
   inits$sel_inf[1,,] <- inf

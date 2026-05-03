@@ -62,10 +62,10 @@ function.}
 
 \item{mod_avg}{TRUE/FALSE}
 
-\item{mse}{Is if an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}}
+\item{mse}{Is an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}}
 
 \item{OM}{if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?}
 }
 \description{
-Function the plots the biomass consumed trends as estimated from Rceattle. Returns and saves a figure with the biomass eaten trajectory.
+Function that plots the biomass consumed trends as estimated from Rceattle. Returns and saves a figure with the biomass eaten trajectory.
 }

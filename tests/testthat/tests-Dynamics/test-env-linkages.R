@@ -25,7 +25,16 @@ testthat::test_that("Test environmental linkeage with mean rec", {
   # Set params
   GOA2018SS$srr_fun <- 1
   GOA2018SS$initMode <- 1
-  inits <- build_params(GOA2018SS)
+
+
+  ss_run <- suppressMessages(
+    Rceattle::fit_mod(data_list = GOA2018SS,
+                      estimateMode = 3, # Don't estimate
+                      msmMode = 0, # Single species mode
+                      fit_control = fit_control(
+                        verbose = 1))
+  )
+  inits <- ss_run$estimated_params
   alpha = 0.4
   beta = 1e-6
   inits$rec_pars[,1] <- R0
@@ -83,7 +92,8 @@ testthat::test_that("Test multiple recruitment linkeages with mean rec", {
   # Set params
   GOA2018SS$srr_fun <- 1
   GOA2018SS$initMode <- 1
-  inits <- build_params(GOA2018SS)
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, recFun = build_srr(srr_fun = 1, srr_indices = c(1,2,3)), initMode = 1, fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   alpha = 0.4
   beta = 1e-6
   inits$rec_pars[,1] <- R0
@@ -143,7 +153,8 @@ testthat::test_that("Test multiple M linkeages", {
   GOA2018SS$srr_fun <- 0
   GOA2018SS$M1_model <- 4
   GOA2018SS$initMode <- 1
-  inits <- build_params(GOA2018SS)
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, M1Fun = build_M1(M1_model = 4, M1_indices = c(1,2,3)), initMode = 1, fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   alpha = 0.4
   beta = 1e-6
   inits$ln_M1[] <- log(0.2)
@@ -204,7 +215,19 @@ testthat::test_that("Test single M, multiple M/sex linkeages, M both-sex linkage
   GOA2018SS$srr_fun <- 0
   GOA2018SS$M1_model <- c(1,5,4)
   GOA2018SS$initMode <- 1
-  inits <- build_params(GOA2018SS)
+
+  # Inits
+  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
+                              estimateMode = 3, # Don't estimate
+                              random_rec = FALSE, # No random recruitment
+                              msmMode = 0, # Single species mode
+                              M1Fun = build_M1(M1_model = c(1,5,4),
+                                               M1_indices = c(1,2,3)
+                              ),
+                              initMode = 1,
+                              fit_control = fit_control(
+                                verbose = 0))
+  inits <- ss_run$estimated_params
   alpha = 0.4
   beta = 1e-6
   inits$ln_M1[] <- log(0.2)
