@@ -23,7 +23,7 @@
 #' retro <- retrospective(ss_run, peels = 10)
 #' }
 #' @export
-retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_forecast = 3) {
+retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_forecast = 3) {
   if (!inherits(Rceattle, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
@@ -132,6 +132,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
     }
 
     # * Adjust parameters ----
+    #FIXME: adjust for forecasting via MVN
     inits <- Rceattle$estimated_params
     inits$rec_dev[, (nyrs_peel + 1):nyrs_proj] <- 0
     inits$ln_M1_dev[,,,(nyrs_peel+1):nyrs_proj] <- inits$ln_M1_dev[,,,nyrs_peel]
@@ -141,6 +142,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
     inits$sel_coff_dev[,,,(nyrs_peel+1):nyrs] <- inits$sel_coff_dev[,,,nyrs_peel]
 
     # * Adjust map size ----
+    # Turn off forecasted parameters
     map <- Rceattle$map
     map$mapList$rec_dev[, (nyrs_peel + 1):nyrs_proj] <- NA
     map$mapFactor$rec_dev <- factor(map$mapList$rec_dev)
