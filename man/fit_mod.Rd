@@ -2,7 +2,7 @@
 % Please edit documentation in R/6-fit_mod.R
 \name{fit_mod}
 \alias{fit_mod}
-\title{This functions runs CEATTLE}
+\title{This function runs CEATTLE}
 \usage{
 fit_mod(
   data_list = NULL,
@@ -33,7 +33,10 @@ fit_mod(
 \arguments{
 \item{data_list}{a data_list read in using \code{\link[readxl]{read_excel}}.}
 
-\item{inits}{(Optional) Character vector of named initial values from previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters. Can also construct using \code{\link{build_params}}}
+\item{inits}{(Optional) A named list of initial parameter values, as returned by
+\code{\link{build_params}} or extracted from a previous fit
+(\code{model$estimated_params}). If \code{NULL}, parameters are initialized
+from scratch via \code{\link{build_params}}.}
 
 \item{map}{(Optional) A map object from \code{\link{build_map}}.}
 
@@ -96,7 +99,7 @@ A list of class "Rceattle" including:
 \item{bounds: Parameter bounds used for estimation}
 \item{map: List of map used in TMB}
 \item{obj: TMB model object}
-\item{opt: Optimized model object from \code{nlimb}}
+\item{opt: Optimized model object from \code{nlminb}}
 \item{sdrep: Object of class \code{sdreport} exported by TMB including the standard errors of estimated parameters}
 \item{estimated_params: List of estimated parameters}
 \item{quantities: Derived quantities from CEATTLE}
