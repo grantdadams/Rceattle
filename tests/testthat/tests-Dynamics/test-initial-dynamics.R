@@ -19,38 +19,6 @@ testthat::test_that("Invalid initMode", {
   )
 })
 
-testthat::test_that("Equilibrium initMode", {
-  testthat::skip_if_not_installed("TMB")
-  testthat::skip_if_not_installed("Rceattle")
-
-  # Load helper and create small deterministic test data
-  #source(file.path("tests", "testthat", "helpers.R"))
-  dat <- make_test_data(nyrs = 20, nages = 5, seed = 123)
-
-  # Run integer
-  mod <- Rceattle::fit_mod(data_list = dat,
-                           initMode = 1,
-                           estimateMode = 3)
-
-  natage1 <- mod$quantities$N_at_age[1,1,,1]
-  testthat::expect_equal(as.numeric(natage1), c(exp(9-0.2 * 0:3), exp(9)/(1-exp(-0.2)) * exp(-0.2*4)))
-
-  testthat::expect_equal(c(mod$map$mapList$init_dev), as.numeric(rep(NA, length(mod$map$mapList$init_dev))))
-  testthat::expect_equal(as.numeric(mod$map$mapList$ln_Finit), as.numeric(rep(NA, length(mod$map$mapList$ln_Finit))))
-
-  # Run string
-  mod <- Rceattle::fit_mod(data_list = dat,
-                           initMode = "Equilibrium",
-                           estimateMode = 3)
-
-  natage1 <- mod$quantities$N_at_age[1,1,,1]
-  testthat::expect_equal(as.numeric(natage1), c(exp(9-0.2 * 0:3), exp(9)/(1-exp(-0.2)) * exp(-0.2*4)))
-
-  testthat::expect_equal(c(mod$map$mapList$init_dev), as.numeric(rep(NA, length(mod$map$mapList$init_dev))))
-  testthat::expect_equal(as.numeric(mod$map$mapList$ln_Finit), as.numeric(rep(NA, length(mod$map$mapList$ln_Finit))))
-})
-
-
 testthat::test_that("Free parameter initMode", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
@@ -83,6 +51,38 @@ testthat::test_that("Free parameter initMode", {
   testthat::expect_equal(as.numeric(mod$map$mapList$ln_Finit), as.numeric(rep(NA, length(mod$map$mapList$ln_Finit))))
 })
 
+testthat::test_that("Equilibrium initMode", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  # Load helper and create small deterministic test data
+  #source(file.path("tests", "testthat", "helpers.R"))
+  dat <- make_test_data(nyrs = 20, nages = 5, seed = 123)
+
+  # Run integer
+  mod <- Rceattle::fit_mod(data_list = dat,
+                           initMode = 1,
+                           estimateMode = 3)
+
+  natage1 <- mod$quantities$N_at_age[1,1,,1]
+  testthat::expect_equal(as.numeric(natage1), c(exp(9-0.2 * 0:3), exp(9)/(1-exp(-0.2)) * exp(-0.2*4)))
+
+  testthat::expect_equal(c(mod$map$mapList$init_dev), as.numeric(rep(NA, length(mod$map$mapList$init_dev))))
+  testthat::expect_equal(as.numeric(mod$map$mapList$ln_Finit), as.numeric(rep(NA, length(mod$map$mapList$ln_Finit))))
+
+  # Run string
+  mod <- Rceattle::fit_mod(data_list = dat,
+                           initMode = "Equilibrium",
+                           estimateMode = 3)
+
+  natage1 <- mod$quantities$N_at_age[1,1,,1]
+  testthat::expect_equal(as.numeric(natage1), c(exp(9-0.2 * 0:3), exp(9)/(1-exp(-0.2)) * exp(-0.2*4)))
+
+  testthat::expect_equal(c(mod$map$mapList$init_dev), as.numeric(rep(NA, length(mod$map$mapList$init_dev))))
+  testthat::expect_equal(as.numeric(mod$map$mapList$ln_Finit), as.numeric(rep(NA, length(mod$map$mapList$ln_Finit))))
+})
+
+
 testthat::test_that("NonEquilibrium initMode", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
@@ -113,6 +113,9 @@ testthat::test_that("NonEquilibrium initMode", {
 
   testthat::expect_equal(c(mod$map$mapList$init_dev), c(as.numeric(1:(nages-1)), NA))
   testthat::expect_equal(as.numeric(mod$map$mapList$ln_Finit), as.numeric(rep(NA, length(mod$map$mapList$ln_Finit))))
+
+  # - Likelihood
+  testthat::expect_equal(as.numeric(mod$quantities$jnll_comp[10,1]), -dnorm(0, 1/2, sd = 1, log = TRUE) * (nages - 1)) # Lognormal bias correction with sd = 1
 })
 
 
@@ -137,6 +140,9 @@ testthat::test_that("FishedNonEquilibrium initMode", {
   testthat::expect_equal(c(mod$map$mapList$init_dev), c(as.numeric(1:(nages-1)), NA))
   testthat::expect_equal(as.numeric(mod$map$mapList$ln_Finit), 1)
 
+  # - Likelihood
+  testthat::expect_equal(as.numeric(mod$quantities$jnll_comp[10,1]), -dnorm(0, 1/2, sd = 1, log = TRUE) * (nages - 1)) # Lognormal bias correction with sd = 1
+
   # Run string
   mod <- Rceattle::fit_mod(data_list = dat,
                            initMode = "FishedNonEquilibrium",
@@ -148,6 +154,9 @@ testthat::test_that("FishedNonEquilibrium initMode", {
 
   testthat::expect_equal(c(mod$map$mapList$init_dev), c(as.numeric(1:(nages-1)), NA))
   testthat::expect_equal(as.numeric(mod$map$mapList$ln_Finit), 1)
+
+  # - Likelihood
+  testthat::expect_equal(as.numeric(mod$quantities$jnll_comp[10,1]), -dnorm(0, 1/2, sd = 1, log = TRUE) * (nages - 1)) # Lognormal bias correction with sd = 1
 })
 
 
@@ -172,6 +181,10 @@ testthat::test_that("FishedNonEquilibriumScaled initMode", {
   testthat::expect_equal(c(mod$map$mapList$init_dev), c(as.numeric(1:(nages-1)), NA))
   testthat::expect_equal(as.numeric(mod$map$mapList$ln_Finit), 1)
 
+  # - Likelihood
+  testthat::expect_equal(as.numeric(mod$quantities$jnll_comp[10,1]), -dnorm(0, 1/2, sd = 1, log = TRUE) * (nages - 1)) # Lognormal bias correction with sd = 1
+
+
   # Run string
   mod <- Rceattle::fit_mod(data_list = dat,
                            initMode = "FishedNonEquilibriumScaled",
@@ -183,4 +196,7 @@ testthat::test_that("FishedNonEquilibriumScaled initMode", {
 
   testthat::expect_equal(c(mod$map$mapList$init_dev), c(as.numeric(1:(nages-1)), NA))
   testthat::expect_equal(as.numeric(mod$map$mapList$ln_Finit), 1)
+
+  # - Likelihood
+  testthat::expect_equal(as.numeric(mod$quantities$jnll_comp[10,1]), -dnorm(0, 1/2, sd = 1, log = TRUE) * (nages - 1)) # Lognormal bias correction with sd = 1
 })
