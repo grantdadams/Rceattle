@@ -7,42 +7,33 @@ testthat::test_that("mean recruitment and devs", {
   nyrs = 20
   dat <- make_test_data(nyrs = 20, nages = 5, seed = 123)
   R0 = 11
-  Rdev <- rnorm(nyrs)
+  Rdev <- stats::rnorm(nyrs)
 
   # Set params
   dat$srr_fun = 0 # Set to mean R plus devs
-
-  # inits <- Rceattle::build_params(dat)
-  ss_run <- Rceattle::fit_mod(data_list = dat,
-                              estimateMode = 3, # Don't estimate
-                              random_rec = FALSE, # No random recruitment
-                              msmMode = 0, # Single species mode
-                              verbose = 0)
-  inits <- ss_run$estimated_params
-  map <- ss_run$map
-
+  mod0 <- suppressMessages( Rceattle::fit_mod(data_list = dat, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   inits$rec_pars[1,1] <- R0
-  inits$x_tj[1:nyrs,1] <- Rdev
+  inits$rec_dev[1,1:nyrs] <- Rdev
   inits$R_ln_sd <- 0
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = dat,
                               inits = inits, # Initial parameters from input
                               file = NULL, # Don't save
-                              map = map,
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              verbose = 0)
+                              fit_control = fit_control(
+                                verbose = 0))
 
   # Check R
   testthat::expect_equal(as.numeric(ss_run$quantities$R[1,1:nyrs]), exp(R0 + Rdev), tolerance = 0.0001)
 
   # JNLL
-  # testthat::expect_equal(as.numeric(ss_run$quantities$jnll_dsem),
-  #                        sum(-dnorm(Rdev,
-  #                                   mean = 0, # FIXME: Doesn't match, and no lognormal bias correction to center around 0
-  #                                   sd = 1, log = TRUE)), tolerance = 0.0001)
+  testthat::expect_equal(as.numeric(ss_run$quantities$jnll_comp[11,1]), sum(-dnorm(Rdev,
+                                                                                   mean = 1/2, # lognormal bias correction to center around 0
+                                                                                   sd = 1, log = TRUE)), tolerance = 0.0001)
 })
 
 testthat::test_that("ssb under mean recruitment", {
@@ -60,19 +51,11 @@ testthat::test_that("ssb under mean recruitment", {
   yrs <- GOA2018SS$styr:GOA2018SS$endyr
   nyrs <- length(yrs)
   R0 = 10:12
-  Rdev <- rnorm(nyrs)
+  Rdev <- stats::rnorm(nyrs)
 
   # Set params
-  # inits <- suppressMessages(build_params(GOA2018SS))
-  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              estimateMode = 3, # Don't estimate
-                              random_rec = FALSE, # No random recruitment
-                              msmMode = 0, # Single species mode
-                              initMode = 2,
-                              verbose = 0)
-  inits <- ss_run$estimated_params
-  map <- ss_run$map
-
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, initMode = "NonEquilibrium", fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   inits$rec_pars[,1] <- R0
   inits$R_ln_sd <- rep(0, 3)
   inits$ln_F[] <- -999 # No fishing
@@ -81,12 +64,12 @@ testthat::test_that("ssb under mean recruitment", {
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
                               inits = inits, # Initial parameters from input
                               file = NULL, # Don't save
-                              map = map,
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              initMode = 2,
-                              verbose = 0)
+                              initMode = "NonEquilibrium",
+                              fit_control = fit_control(
+                                verbose = 0))
   # Check ssb
   for(yr in 1:nyrs){
     testthat::expect_equal(as.numeric(ss_run$quantities$ssb[,yr]),  exp(R0)*1/(1-exp(-0.2))*0.5, tolerance = 0.0001)
@@ -113,20 +96,8 @@ testthat::test_that("ssb and beverton recruitment", {
   # Set params
   GOA2018SS$srr_fun <- 4
   GOA2018SS$initMode <- 1
-  # inits <- suppressMessages(build_params(GOA2018SS))
-  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              estimateMode = 3, # Don't estimate
-                              random_rec = FALSE, # No random recruitment
-                              msmMode = 0, # Single species mode
-                              recFun = build_srr(srr_fun = 2,
-                                                 proj_mean_rec = FALSE,
-                                                 srr_est_mode = 1
-                              ),
-                              initMode = 2,
-                              verbose = 0)
-  inits <- ss_run$estimated_params
-  map <- ss_run$map
-
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, recFun = build_srr(srr_fun = 2, proj_mean_rec = FALSE, srr_est_mode = 1), initMode = "NonEquilibrium", fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   alpha = 0.4
   beta = 1e-6
   inits$rec_pars[,2] <- log(alpha)
@@ -145,8 +116,9 @@ testthat::test_that("ssb and beverton recruitment", {
                                                  proj_mean_rec = FALSE,
                                                  srr_est_mode = 1
                               ),
-                              initMode = 2,
-                              verbose = 0)
+                              initMode = "NonEquilibrium",
+                              fit_control = fit_control(
+                                verbose = 0))
   # Calculate SPR
   M <- 0.2
   wt <- 1
@@ -184,27 +156,16 @@ testthat::test_that("ssb and ricker recruitment", {
   GOA2018SS$maturity[,-1] <- 1
   GOA2018SS$sex_ratio[,-1] <- 0.5
   GOA2018SS$spawn_month <- rep(0,3)
-  GOA2018SS$srr_fun <- 4
-  GOA2018SS$initMode <- 1
 
   # Specify dims
   yrs <- GOA2018SS$styr:GOA2018SS$endyr
   nyrs <- length(yrs)
 
   # Set params
-  # inits <- suppressMessages(build_params(GOA2018SS))
-  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              estimateMode = 3, # Don't estimate
-                              msmMode = 0, # Single species mode
-                              recFun = build_srr(srr_fun = 4,
-                                                 proj_mean_rec = FALSE,
-                                                 srr_est_mode = 1
-                              ),
-                              initMode = 2,
-                              verbose = 0)
-  inits <- ss_run$estimated_params
-  map <- ss_run$map
-
+  GOA2018SS$srr_fun <- 4
+  GOA2018SS$initMode <- 1
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, recFun = build_srr(srr_fun = 4, proj_mean_rec = FALSE, srr_est_mode = 1), initMode = "NonEquilibrium", fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   alpha = 0.4
   beta = 1e-6
   inits$rec_pars[,2] <- log(alpha)
@@ -215,16 +176,17 @@ testthat::test_that("ssb and ricker recruitment", {
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
                               inits = inits, # Initial parameters from input
                               file = NULL, # Don't save
-                              map = map,
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
+
                               recFun = build_srr(srr_fun = 4,
                                                  proj_mean_rec = FALSE,
                                                  srr_est_mode = 1
                               ),
-                              initMode = 2,
-                              verbose = 0)
+                              initMode = "NonEquilibrium",
+                              fit_control = fit_control(
+                                verbose = 0))
   # Calculate SPR
   M <- 0.2
   wt <- 1

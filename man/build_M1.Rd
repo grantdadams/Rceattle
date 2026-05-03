@@ -29,6 +29,8 @@ build_M1(
 \item{M_prior}{Vector or scalar for mean of M prior on natural scale}
 
 \item{M_prior_sd}{Vector or scalar of SD of lognormal M prior. Used as initial value for random effects variance as well.}
+
+\item{M1_indices}{vector or single index indicating the columns (excluding Year column) of \code{env_data} to use for environmentally linked M1 when \code{M1_model} is 4 or 5.}
 }
 \value{
 A list of switches for defining the M1 model

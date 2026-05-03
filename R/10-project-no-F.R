@@ -1,6 +1,11 @@
-#' Function to update hindcast and set F to 0. Useful for determining dynamic reference points for multi-species models under climate-change
+#' Rerun with F = 0.
 #'
-#' @param Rceattle
+#' @description
+#' Function to update hindcast and set F to 0.
+#' Useful for determining dynamic reference points for multi-species models under climate-change.
+#'
+#'
+#' @param Rceattle A fitted Rceattle model object
 #'
 #' @export
 #'
@@ -66,10 +71,11 @@ remove_F <- function(Rceattle){
     suit_styr = Rceattle$data_list$suit_styr,
     suit_endyr = min(Rceattle$data_list$suit_endyr, Rceattle$data_list$endyr),   # Update to end year if less than suit_endyr
     initMode = Rceattle$data_list$initMode,
-    phase = FALSE,
-    loopnum = Rceattle$data_list$loopnum,
-    getsd = TRUE,
-    verbose = 0)
+    fit_control = fit_control(
+      phase   = FALSE,
+      loopnum = Rceattle$data_list$loopnum,
+      getsd   = TRUE,
+      verbose = 0))
 
   Rceattle$data_list$estimateMode <- estMode
   return(Rceattle)

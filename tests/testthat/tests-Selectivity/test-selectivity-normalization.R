@@ -18,14 +18,8 @@ testthat::test_that("Sex-specific logistic selectivity divided by max sel (acros
   # curve(1/(1+exp(-alpha*(x-inf))), from = 0, to = 21)
 
   # Set params to logistic
-  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              file = NULL, # Don't save
-                              estimateMode = 3, # Don't estimate
-                              random_rec = FALSE, # No random recruitment
-                              msmMode = 0, # Single species mode
-                              verbose = 1)
-
-  inits <- ss_run$estimated_params
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   inits$ln_sel_slp[1,,] <- log(alpha)
   inits$sel_inf[1,,] <- inf     # Females
   inits$sel_inf[1,9:11,2] <- inf + 1 # Males
@@ -33,13 +27,13 @@ testthat::test_that("Sex-specific logistic selectivity divided by max sel (acros
   # Run
   ss_run <- suppressMessages(
     Rceattle::fit_mod(data_list = GOA2018SS,
-                      inits = inits,
-                      map = ss_run$map,
+                      inits = inits, # Initial parameters = 0
                       file = NULL, # Don't save
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 1)
+                      fit_control = fit_control(
+                        verbose = 1))
   )
 
   # Check selectivity
@@ -64,14 +58,8 @@ testthat::test_that("Sex-specific logistic selectivity not normalized", {
   GOA2018SS$fleet_control$Sel_norm_bin1 <- NA
 
   # Specify logistic selectivity
-  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              file = NULL, # Don't save
-                              estimateMode = 3, # Don't estimate
-                              random_rec = FALSE, # No random recruitment
-                              msmMode = 0, # Single species mode
-                              verbose = 1)
-
-  inits <- ss_run$estimated_params
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   inf = 13; alpha = 0.2
   ages <- 1:21
   sel <- 1/(1+exp(-alpha*(ages-inf)))
@@ -86,13 +74,13 @@ testthat::test_that("Sex-specific logistic selectivity not normalized", {
   # Run
   ss_run <- suppressMessages(
     Rceattle::fit_mod(data_list = GOA2018SS,
-                      inits = inits,
-                      map = ss_run$map,
+                      inits = inits, # Initial parameters = 0
                       file = NULL, # Don't save
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 1)
+                      fit_control = fit_control(
+                        verbose = 1))
   )
 
   # Map
@@ -139,27 +127,21 @@ testthat::test_that("Sex-invariant logistic selectivity divided by sel-at-age", 
   # curve(1/(1+exp(-alpha*(x-inf))), from = 0, to = 21)
 
   # Set params to logistic
-  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              file = NULL, # Don't save
-                              estimateMode = 3, # Don't estimate
-                              random_rec = FALSE, # No random recruitment
-                              msmMode = 0, # Single species mode
-                              verbose = 1)
-
-  inits <- ss_run$estimated_params
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   inits$ln_sel_slp[1,,] <- log(alpha)
   inits$sel_inf[1,,] <- inf
 
   # Run
   ss_run <- suppressMessages(
     Rceattle::fit_mod(data_list = GOA2018SS,
-                      inits = inits,
-                      map = ss_run$map,
+                      inits = inits, # Initial parameters = 0
                       file = NULL, # Don't save
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 1)
+                      fit_control = fit_control(
+                        verbose = 1))
   )
 
   # Check selectivity
@@ -191,27 +173,21 @@ testthat::test_that("Sex-invariant logistic selectivity divided by sel-at-age-RA
   # curve(1/(1+exp(-alpha*(x-inf))), from = 0, to = 21)
 
   # Set params to logistic
-  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              file = NULL, # Don't save
-                              estimateMode = 3, # Don't estimate
-                              random_rec = FALSE, # No random recruitment
-                              msmMode = 0, # Single species mode
-                              verbose = 1)
-
-  inits <- ss_run$estimated_params
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   inits$ln_sel_slp[1,,] <- log(alpha)
   inits$sel_inf[1,,] <- inf
 
   # Run
   ss_run <- suppressMessages(
     Rceattle::fit_mod(data_list = GOA2018SS,
-                      inits = inits,
-                      map = ss_run$map,
+                      inits = inits, # Initial parameters = 0
                       file = NULL, # Don't save
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 1)
+                      fit_control = fit_control(
+                        verbose = 1))
   )
 
   # Check selectivity
@@ -243,14 +219,8 @@ testthat::test_that("Sex-specific logistic selectivity divided by sel-at-age-RAN
   # curve(1/(1+exp(-alpha*(x-inf))), from = 0, to = 21)
 
   # Set params to logistic
-  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              file = NULL, # Don't save
-                              estimateMode = 3, # Don't estimate
-                              random_rec = FALSE, # No random recruitment
-                              msmMode = 0, # Single species mode
-                              verbose = 1)
-
-  inits <- ss_run$estimated_params
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   inits$ln_sel_slp[1,,1] <- log(alpha)     # Females
   inits$ln_sel_slp[1,,2] <- log(alpha + 1) # Males
   inits$sel_inf[1,,] <- inf
@@ -258,13 +228,13 @@ testthat::test_that("Sex-specific logistic selectivity divided by sel-at-age-RAN
   # Run
   ss_run <- suppressMessages(
     Rceattle::fit_mod(data_list = GOA2018SS,
-                      inits = inits,
-                      map = ss_run$map,
+                      inits = inits, # Initial parameters = 0
                       file = NULL, # Don't save
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 1)
+                      fit_control = fit_control(
+                        verbose = 1))
   )
 
   # Check selectivity
@@ -301,14 +271,8 @@ testthat::test_that("Sex-invariant time-varying logistic selectivity divided by 
   sel <- apply(cbind(ln_slp_dev, inf_dev), 1, function(x) 1/(1+exp(-alpha*exp(x[1]) * (ages - inf - x[2]))))
 
   # Set params to logistic
-  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              file = NULL, # Don't save
-                              estimateMode = 3, # Don't estimate
-                              random_rec = FALSE, # No random recruitment
-                              msmMode = 0, # Single species mode
-                              verbose = 1)
-
-  inits <- ss_run$estimated_params
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   inits$ln_sel_slp[1,,] <- log(alpha)
   inits$sel_inf[1,,] <- inf
   for(i in 1:dim(inits$ln_sel_slp_dev[1,,,])[1]){
@@ -321,13 +285,13 @@ testthat::test_that("Sex-invariant time-varying logistic selectivity divided by 
   # Run
   ss_run <- suppressMessages(
     Rceattle::fit_mod(data_list = GOA2018SS,
-                      inits = inits,
-                      map = ss_run$map,
+                      inits = inits, # Initial parameters = 0
                       file = NULL, # Don't save
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
   # Check selectivity
@@ -364,14 +328,8 @@ testthat::test_that("Normalize by max for each fishery and year across bins, and
   sel2 <- apply(cbind(ln_slp_dev, inf_dev), 1, function(x) 1/(1+exp(-(alpha+1)*exp(x[1]) * (ages - inf - x[2])))) # Males
 
   # Set params to logistic
-  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              file = NULL, # Don't save
-                              estimateMode = 3, # Don't estimate
-                              random_rec = FALSE, # No random recruitment
-                              msmMode = 0, # Single species mode
-                              verbose = 1)
-
-  inits <- ss_run$estimated_params
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   inits$ln_sel_slp[1,,1] <- log(alpha) # Females
   inits$ln_sel_slp[1,,2] <- log(alpha+1) # Males
   inits$sel_inf[1,,] <- inf
@@ -385,13 +343,13 @@ testthat::test_that("Normalize by max for each fishery and year across bins, and
   # Run
   ss_run <- suppressMessages(
     Rceattle::fit_mod(data_list = GOA2018SS,
-                      inits = inits,
-                      map = ss_run$map,
+                      inits = inits, # Initial parameters = 0
                       file = NULL, # Don't save
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
 

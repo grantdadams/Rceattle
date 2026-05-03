@@ -22,13 +22,13 @@ testthat::test_that("Sex-specific age-based logistic selectivity not normalized"
   # curve(1/(1+exp(-alpha*(x-inf))), from = 0, to = 21)
 
   # Set params to logistic
-  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              file = NULL, # Don't save
-                              estimateMode = 3, # Don't estimate
-                              random_rec = FALSE, # No random recruitment
-                              msmMode = 0, # Single species mode
-                              verbose = 1)
-
+  ss_run <- suppressMessages(
+    Rceattle::fit_mod(data_list = GOA2018SS,
+                      estimateMode = 3, # Don't estimate
+                      msmMode = 0, # Single species mode
+                      fit_control = fit_control(
+                        verbose = 1))
+  )
   inits <- ss_run$estimated_params
   inits$ln_sel_slp[1,,] <- log(alpha)
   inits$sel_inf[1,,] <- inf     # Females
@@ -37,13 +37,11 @@ testthat::test_that("Sex-specific age-based logistic selectivity not normalized"
   # Run
   ss_run <- suppressMessages(
     Rceattle::fit_mod(data_list = GOA2018SS,
-                      inits = inits,
-                      map = ss_run$map,
-                      file = NULL, # Don't save
+                      inits = inits, # Initial parameters = 0
                       estimateMode = 3, # Don't estimate
-                      random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 1)
+                      fit_control = fit_control(
+                        verbose = 1))
   )
 
   # Map
@@ -100,13 +98,13 @@ testthat::test_that("Sex-specific age-based time-varying logistic selectivity no
 
 
   # Set params to logistic
-  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              file = NULL, # Don't save
-                              estimateMode = 3, # Don't estimate
-                              random_rec = FALSE, # No random recruitment
-                              msmMode = 0, # Single species mode
-                              verbose = 1)
-
+  ss_run <- suppressMessages(
+    Rceattle::fit_mod(data_list = GOA2018SS,
+                      estimateMode = 3, # Don't estimate
+                      msmMode = 0, # Single species mode
+                      fit_control = fit_control(
+                        verbose = 1))
+  )
   inits <- ss_run$estimated_params
   inits$ln_sel_slp[1,,1] <- log(alpha) # Females
   inits$ln_sel_slp[1,,2] <- log(alpha+1) # Males
@@ -121,13 +119,13 @@ testthat::test_that("Sex-specific age-based time-varying logistic selectivity no
   # Run
   ss_run <- suppressMessages(
     Rceattle::fit_mod(data_list = GOA2018SS,
-                      inits = inits,
-                      map = ss_run$map,
+                      inits = inits, # Initial parameters = 0
                       file = NULL, # Don't save
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
   # Map
@@ -183,13 +181,14 @@ testthat::test_that("Sex-specific age-based time-varying logistic selectivity no
   # Run
   ss_run <- suppressMessages(
     Rceattle::fit_mod(data_list = GOA2018SS,
-                      inits = NULL,
+                      inits = NULL, # Initial parameters = 0
                       file = NULL, # Don't save
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       random_sel = TRUE, # Turn on laplace for sel devs
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
   testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_dev_ln_sd), c(1:6, NA, 8:16)) # Dev sigma turned on except for not estimated fleet
@@ -222,13 +221,13 @@ testthat::test_that("Time-varying logistic selectivity likelihood", {
 
   # Set params to logistic
   alpha = 0.5
-  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              file = NULL, # Don't save
-                              estimateMode = 3, # Don't estimate
-                              random_rec = FALSE, # No random recruitment
-                              msmMode = 0, # Single species mode
-                              verbose = 1)
-
+  ss_run <- suppressMessages(
+    Rceattle::fit_mod(data_list = GOA2018SS,
+                      estimateMode = 3, # Don't estimate
+                      msmMode = 0, # Single species mode
+                      fit_control = fit_control(
+                        verbose = 1))
+  )
   inits <- ss_run$estimated_params
   inits$ln_sel_slp[1,,1] <- log(alpha) # Females
   inits$ln_sel_slp[1,,2] <- log(alpha+1) # Males
@@ -243,14 +242,14 @@ testthat::test_that("Time-varying logistic selectivity likelihood", {
   # Run
   ss_run <- suppressMessages(
     Rceattle::fit_mod(data_list = GOA2018SS,
-                      inits = inits,
-                      map = ss_run$map,
+                      inits = inits, # Initial parameters = 0
                       file = NULL, # Don't save
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       random_sel = TRUE, # Turn on laplace for sel devs
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
   # Nll
@@ -261,7 +260,7 @@ testthat::test_that("Time-varying logistic selectivity likelihood", {
 })
 
 
-testthat::test_that("Invalid selectivity", {
+testthat::test_that("Invalid selectivity integer", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -270,10 +269,6 @@ testthat::test_that("Invalid selectivity", {
   nflt <- nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Selectivity <- 9 # Not in scope
 
-  # Set params
-  inits <- suppressMessages( build_params(GOA2018SS) )
-  inits$index_ln_q[] <- 0
-
   # Run
   testthat::expect_error(
     Rceattle::fit_mod(data_list = GOA2018SS,
@@ -282,12 +277,13 @@ testthat::test_that("Invalid selectivity", {
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
 })
 
-testthat::test_that("Invalid text selectivity", {
+testthat::test_that("Invalid selectivity string", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -296,20 +292,18 @@ testthat::test_that("Invalid text selectivity", {
   nflt <- nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Selectivity <- "logistic" # Not in scope
 
-  # Set params
-  inits <- suppressMessages( build_params(GOA2018SS) )
-  inits$index_ln_q[] <- 0
-
   # Run
   testthat::expect_error(
     Rceattle::fit_mod(data_list = GOA2018SS,
-                      inits = inits, # Initial parameters = 0
                       file = NULL, # Don't save
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
 })
+
+
 

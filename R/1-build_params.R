@@ -2,7 +2,7 @@
 #'
 #' @description Function to read a TMB cpp file and construct parameter list object for Rceattle
 #'
-#' @param data_list A data_list object created by \code{\link{build_dat}}
+#' @param data_list an Rceattle data_list
 #'
 #' @return a list of map arguments for each parameter
 #' @export
@@ -14,8 +14,8 @@ build_params <- function(data_list) {
   # - Dimensions
   param_list <- list()
 
-  max_age <- max(data_list$nages, na.rm = T)
-  max_sex <- max(data_list$nsex, na.rm = T)
+  max_age <- max(data_list$nages, na.rm = TRUE)
+  max_sex <- max(data_list$nsex, na.rm = TRUE)
   sex_labels <- c("Sex combined or females", "males")
   if(max_sex == 1){
     sex_labels <- "Sex combined"
@@ -89,7 +89,7 @@ build_params <- function(data_list) {
 
     # Fill in M1 array from fixed values for each sex
     for(j in 1:length(sex_values)){
-      m1[sp, sex_values[j], 1:max_age] <- as.numeric(data_list$M1_base[i,(1:max(data_list$nages, na.rm = T)) + 2])
+      m1[sp, sex_values[j], 1:max_age] <- as.numeric(data_list$M1_base[i,(1:max(data_list$nages, na.rm = TRUE)) + 2])
     }
   }
   param_list$ln_M1 <- log(m1)
@@ -137,17 +137,17 @@ build_params <- function(data_list) {
 
   # -- Make ln_F very low if the fleet is turned off or not a fishery
   for (i in 1:nrow(data_list$fleet_control)) {
-    if (data_list$fleet_control$Fleet_type[i] %in% c(0,2)) {
+    if (data_list$fleet_control$Fleet_type[i] != "Fishery") {
       param_list$ln_F[i,] <- -999
     }
   }
 
   # -- Set Fdev for years with 0 catch to very low number
-  zero_catch <- data_list$catch_data %>%
+  zero_catch <- data_list$catch_data |>
     dplyr::filter(Year <= data_list$endyr &
-                    Catch == 0) %>%
-    dplyr::mutate(Year = Year - data_list$styr + 1) %>%
-    dplyr::select(Fleet_code, Year) %>%
+                    Catch == 0) |>
+    dplyr::mutate(Year = Year - data_list$styr + 1) |>
+    dplyr::select(Fleet_code, Year) |>
     as.matrix()
   param_list$ln_F[zero_catch] <- -999
 
@@ -160,13 +160,13 @@ build_params <- function(data_list) {
   param_list$ln_growth_pars[, , 1] <- log(0.3)
 
   if(nrow(data_list$caal_data) > 0){
-    caal_lengths <- data_list$caal_data %>%
-      dplyr::distinct(Species, Length) %>%
-      dplyr::arrange(Species, Length) %>%
-      dplyr::group_by(Species) %>%
-      dplyr::mutate(Bin = paste0("Bin", 1:n())) %>%
-      dplyr::slice(c(1, n())) %>%
-      dplyr::ungroup() %>%
+    caal_lengths <- data_list$caal_data |>
+      dplyr::distinct(Species, Length) |>
+      dplyr::arrange(Species, Length) |>
+      dplyr::group_by(Species) |>
+      dplyr::mutate(Bin = paste0("Bin", 1:n())) |>
+      dplyr::slice(c(1, n())) |>
+      dplyr::ungroup() |>
       tidyr::pivot_wider(names_from = Bin, values_from = Length)
     param_list$ln_growth_pars[caal_lengths$Species, 1, 2:3] <- as.matrix(log(caal_lengths[,-1]))
     if(max_sex == 2){
@@ -219,7 +219,7 @@ build_params <- function(data_list) {
 
   # * 2.2. Selectivity parameters ----
   n_selectivities <- nrow(data_list$fleet_control)
-  max_sel_bins <- max(c(1, as.numeric(data_list$fleet_control$N_sel_bins)), na.rm = T)
+  max_sel_bins <- max(c(1, as.numeric(data_list$fleet_control$N_sel_bins)), na.rm = TRUE)
 
   # - Non-parametric selectivity coefficients
   param_list$sel_coff =  array(0, dim = c(n_selectivities, max_sex, max_sel_bins),

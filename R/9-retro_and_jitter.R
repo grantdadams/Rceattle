@@ -7,31 +7,27 @@
 #'
 #' @param Rceattle an Rceattle model fit using \code{\link{fit_mod}}
 #' @param peels the number of retrospective peels to use in the calculation of rho and for model estimation
-#' @param rescale TRUE/FALSE wether to subset and rescale environmental predictors for the range of peel years.
+#' @param rescale TRUE/FALSE whether to subset and rescale environmental predictors for the range of peel years.
 #' @param nyrs_forecast Number of forecast years to calculate Mohn's Rho in addition to terminal year
 #'
 #' @return a list of 1. list of Rceattle models and 2. vector of Mohn's rho for each species
 #'
 #' @examples
-#' data(BS2017SS) # ?BS2017SS for more information on the data
-#' data('BS2017MS') # Note: the only difference is the residual mortality is lower
-#'
-#' ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
-#'                             inits = NULL, # Initial parameters = 0
-#'                             file = NULL, # Don't save
-#'                             debug = 0, # Estimate
-#'                             random_rec = FALSE, # No random recruitment
-#'                             msmMode = 0, # Single species mode
-#'                             silent = TRUE)
-#'
+#' \donttest{
+#' data(BS2017SS)
+#' ss_run <- fit_mod(data_list = BS2017SS,
+#'     inits = NULL, file = NULL,
+#'     estimateMode = 0, random_rec = FALSE,
+#'     msmMode = 0, avgnMode = 0,
+#'     phase = FALSE, verbose = 0)
 #' retro <- retrospective(ss_run, peels = 10)
+#' }
 #' @export
-retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_forecast = 3) {
-  if (class(Rceattle) != "Rceattle") {
+retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_forecast = 3) {
+  if (!inherits(Rceattle, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
 
-  library(dplyr)
   # Get objects
   Rceattle$data_list$endyr_peel <- Rceattle$data_list$endyr
   mod_list <- list(Rceattle)
@@ -57,32 +53,32 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
 
 
     # * Turn off data after endyr_peel ----
-    data_list$index_data <- data_list$index_data %>%
+    data_list$index_data <- data_list$index_data |>
       dplyr::filter(Year <= endyr_peel)
 
-    data_list$comp_data <- data_list$comp_data %>%
+    data_list$comp_data <- data_list$comp_data |>
       dplyr::filter(Year <= endyr_peel)
 
-    data_list$caal_data <- data_list$caal_data %>%
+    data_list$caal_data <- data_list$caal_data |>
       dplyr::filter(Year <= endyr_peel)
 
-    data_list$diet_data <- data_list$diet_data %>%
+    data_list$diet_data <- data_list$diet_data |>
       dplyr::filter(Year <= endyr_peel)
 
-    peeled_catch_data <- data_list$catch_data %>%
+    peeled_catch_data <- data_list$catch_data |>
       dplyr::filter(Year > endyr_peel)
     data_list$catch_data$Catch[which(data_list$catch_data$Year > endyr_peel)] <- 0 # Set catch data in peeled years to 0 to avoid fitting
 
 
     # * Turn off fixed inputs after endyr_peel ----
     #FIXME ignores forecasted growth
-    data_list$weight <- data_list$weight %>%
+    data_list$weight <- data_list$weight |>
       dplyr::filter(Year <= endyr_peel)
 
-    data_list$emp_sel <- data_list$emp_sel %>%
+    data_list$emp_sel <- data_list$emp_sel |>
       dplyr::filter(Year <= endyr_peel)
 
-    data_list$ration_data <- data_list$ration_data %>%
+    data_list$ration_data <- data_list$ration_data |>
       dplyr::filter(Year <= endyr_peel)
 
     # * Extend fixed inputs for "projection years"
@@ -90,53 +86,54 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
 
     # - Weight
     #FIXME ignores forecasted growth
-    proj_wt <- data_list$weight %>%
+    proj_wt <- data_list$weight |>
       dplyr::filter(Year != 0)
 
     if(nrow(proj_wt) > 0){
-      proj_wt <- proj_wt %>%
-        dplyr::group_by(Wt_index , Sex) %>%
-        dplyr::slice(rep(n(),  nyrs_proj_peel)) %>%
+      proj_wt <- proj_wt |>
+        dplyr::group_by(Wt_index , Sex) |>
+        dplyr::slice(rep(n(),  nyrs_proj_peel)) |>
         dplyr::mutate(Year = peel_prj_yrs)
     }
-    data_list$weight  <- rbind(data_list$weight, proj_wt) %>%
+    data_list$weight  <- rbind(data_list$weight, proj_wt) |>
       dplyr::arrange(Wt_index, Year)
 
     # - Empirical selectivity
-    proj_emp_sel <- data_list$emp_sel %>%
+    proj_emp_sel <- data_list$emp_sel |>
       dplyr::filter(Year != 0)
 
     if(nrow(proj_emp_sel) > 0){
-      proj_emp_sel <- proj_emp_sel %>%
-        dplyr::group_by(Fleet_code, Sex) %>%
-        dplyr::slice(rep(n(),  nyrs_proj_peel)) %>%
+      proj_emp_sel <- proj_emp_sel |>
+        dplyr::group_by(Fleet_code, Sex) |>
+        dplyr::slice(rep(n(),  nyrs_proj_peel)) |>
         dplyr::mutate(Year = peel_prj_yrs)
-      data_list$emp_sel  <- rbind(data_list$emp_sel, proj_emp_sel) %>%
+      data_list$emp_sel  <- rbind(data_list$emp_sel, proj_emp_sel) |>
         dplyr::arrange(Fleet_code, Year)
     }
 
 
     # - Ration data
-    proj_ration_data <- data_list$ration_data %>%
+    proj_ration_data <- data_list$ration_data |>
       dplyr::filter(Year != 0)
 
     if(nrow(proj_ration_data) > 0){
-      proj_ration_data <- proj_ration_data %>%
-        dplyr::group_by(Species, Sex) %>%
-        dplyr::slice(rep(n(),  nyrs_proj_peel)) %>%
+      proj_ration_data <- proj_ration_data |>
+        dplyr::group_by(Species, Sex) |>
+        dplyr::slice(rep(n(),  nyrs_proj_peel)) |>
         dplyr::mutate(Year = peel_prj_yrs)
-      data_list$ration_data  <- rbind(data_list$ration_data, proj_ration_data) %>%
+      data_list$ration_data  <- rbind(data_list$ration_data, proj_ration_data) |>
         dplyr::arrange(Species, Year)
     }
 
     # * Rescale environmental predictors ----
     if(rescale){
-      data_list$env_data <- data_list$env_data %>%
+      data_list$env_data <- data_list$env_data |>
         dplyr::filter(Year <= endyr_peel)
       data_list$env_data[,2:ncol(data_list$env_data)]<-scale(data_list$env_data[,2:ncol(data_list$env_data)])
     }
 
     # * Adjust parameters ----
+    #FIXME: adjust for forecasting via MVN
     inits <- Rceattle$estimated_params
     inits$ln_M1_dev[,,,(nyrs_peel+1):nyrs_proj] <- inits$ln_M1_dev[,,,nyrs_peel]
     inits$index_q_dev[,(nyrs_peel+1):nyrs] <- inits$index_q_dev[,nyrs_peel]
@@ -145,6 +142,7 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
     inits$sel_coff_dev[,,,(nyrs_peel+1):nyrs] <- inits$sel_coff_dev[,,,nyrs_peel]
 
     # * Adjust map size ----
+    # Turn off forecasted parameters
     map <- Rceattle$map
 
     if(data_list$dsem_settings$estimate_projection){
@@ -169,11 +167,11 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
     map$mapFactor$sel_coff_dev <- factor(map$mapList$sel_coff_dev)
 
     # -- Map out Fdev for years with 0 catch to very low number
-    zero_catch <- data_list$catch_data %>%
+    zero_catch <- data_list$catch_data |>
       dplyr::filter(Year <= endyr &
-                      Catch == 0) %>%
-      dplyr::mutate(Year = Year - styr + 1) %>%
-      select(Fleet_code, Year) %>%
+                      Catch == 0) |>
+      dplyr::mutate(Year = Year - styr + 1) |>
+      select(Fleet_code, Year) |>
       as.matrix()
     inits$ln_F[zero_catch] <- -999
     map$mapList$ln_F[zero_catch] <- NA
@@ -233,19 +231,20 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
         suit_styr = data_list$suit_styr,
         suit_endyr = min(data_list$suit_endyr, endyr_peel),   # Update to end year if less than suit_endyr
         initMode = data_list$initMode,
-        phase = TRUE, # Phasing or else the parameters dont wanna move
-        loopnum = data_list$loopnum,
-        getsd = TRUE,
-        verbose = 0)
+        fit_control = fit_control(
+          phase   = TRUE, # Phasing or else the parameters dont wanna move
+          loopnum = data_list$loopnum,
+          getsd   = TRUE,
+          verbose = 0))
     )
 
     # Forecast ----
     peeled_pars <- newmod$estimated_params
 
     # - Add in peeled catch to fit to
-    data_list$catch_data <- data_list$catch_data %>%
-      dplyr::filter(Year <= endyr_peel) %>%
-      rbind(peeled_catch_data) %>%
+    data_list$catch_data <- data_list$catch_data |>
+      dplyr::filter(Year <= endyr_peel) |>
+      rbind(peeled_catch_data) |>
       dplyr::arrange(Fleet_code, Year)
 
     # - Update map
@@ -331,10 +330,11 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
         suit_styr = data_list$suit_styr,
         suit_endyr = min(data_list$suit_endyr, endyr_peel),   # Update to end year if less than suit_endyr
         initMode = data_list$initMode,
-        phase = TRUE, # Phasing or else the parameters dont wanna move
-        loopnum = data_list$loopnum,
-        getsd = TRUE,
-        verbose = 0)
+        fit_control = fit_control(
+          phase   = TRUE, # Phasing or else the parameters dont wanna move
+          loopnum = data_list$loopnum,
+          getsd   = TRUE,
+          verbose = 0))
     )
 
     # gc()
@@ -451,21 +451,18 @@ retrospective <- function(Rceattle = NULL, peels = NULL, rescale = FALSE, nyrs_f
 #' @return a list of Rceattle models
 #'
 #' @examples
-#' data(BS2017SS) # ?BS2017SS for more information on the data
-#' data('BS2017MS') # Note: the only difference is the residual mortality is lower
-#'
-#' ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
-#'                             inits = NULL, # Initial parameters = 0
-#'                             file = NULL, # Don't save
-#'                             debug = 0, # Estimate
-#'                             random_rec = FALSE, # No random recruitment
-#'                             msmMode = 0, # Single species mode
-#'                             silent = TRUE)
-#'
+#' \donttest{
+#' data(BS2017SS)
+#' ss_run <- fit_mod(data_list = BS2017SS,
+#'     inits = NULL, file = NULL,
+#'     estimateMode = 0, random_rec = FALSE,
+#'     msmMode = 0, avgnMode = 0,
+#'     phase = FALSE, verbose = 0)
 #' jitters <- jitter(ss_run, njitter = 10)
+#' }
 #' @export
 jitter <- function(Rceattle = NULL, njitter = 50, phase = FALSE, seed = 123) {
-  if (class(Rceattle) != "Rceattle") {
+  if (!inherits(Rceattle, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
 
@@ -487,7 +484,7 @@ jitter <- function(Rceattle = NULL, njitter = 50, phase = FALSE, seed = 123) {
       inits[[j]] <- replace(inits[[j]],
                             values = ifelse(is.na(as.numeric(mapList[[par]])),
                                             as.numeric(inits[[j]]),
-                                            as.numeric(inits[[j]]) + rnorm(length(as.numeric(inits[[j]])), 0, 1))
+                                            as.numeric(inits[[j]]) + stats::rnorm(length(as.numeric(inits[[j]])), 0, 1))
       )
     }
 
@@ -548,10 +545,11 @@ jitter <- function(Rceattle = NULL, njitter = 50, phase = FALSE, seed = 123) {
             suit_styr = data_list$suit_styr,
             suit_endyr = min(data_list$suit_endyr, data_list$endyr),   # Update to end year if less than suit_endyr
             initMode = data_list$initMode,
-            phase = phase,
-            loopnum = data_list$loopnum,
-            getsd = TRUE,
-            verbose = 0)
+            fit_control = fit_control(
+              phase   = phase,
+              loopnum = data_list$loopnum,
+              getsd   = TRUE,
+              verbose = 0))
         )
       )
 

@@ -7,27 +7,20 @@ testthat::test_that("Fixed catchability", {
   GOA2018SS$fleet_control$Catchability <- 0 # Fixed
 
   # Set params
-  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              inits = NULL,
-                              file = NULL, # Don't save
-                              estimateMode = 3, # Don't estimate
-                              random_rec = FALSE, # No random recruitment
-                              msmMode = 0, # Single species mode
-                              verbose = 1)
-
-  inits <- ss_run$estimated_params
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   inits$index_ln_q[] <- 0
 
   # Run
   ss_run <- suppressMessages(
     Rceattle::fit_mod(data_list = GOA2018SS,
-                      inits = inits, # Input initial parameters
-                      map = ss_run$map,
+                      inits = inits, # Initial parameters = 0
                       file = NULL, # Don't save
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 1)
+                      fit_control = fit_control(
+                        verbose = 1))
   )
 
   # Map
@@ -56,28 +49,8 @@ testthat::test_that("Estimated catchability", {
   GOA2018SS$fleet_control$Q_index <- 1:nflt
 
   # Set params
-  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              inits = NULL,
-                              file = NULL, # Don't save
-                              estimateMode = 3, # Don't estimate
-                              random_rec = FALSE, # No random recruitment
-                              msmMode = 0, # Single species mode
-                              verbose = 1)
-
-  inits <- ss_run$estimated_params
-  inits$index_ln_q[] <- 0
-
-  # Run
-  ss_run <- suppressMessages(
-    Rceattle::fit_mod(data_list = GOA2018SS,
-                      inits = inits, # Input initial parameters
-                      map = ss_run$map,
-                      file = NULL, # Don't save
-                      estimateMode = 3, # Don't estimate
-                      random_rec = FALSE, # No random recruitment
-                      msmMode = 0, # Single species mode
-                      verbose = 1)
-  )
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   inits$index_ln_q[] <- 0
 
   # Run
@@ -88,12 +61,13 @@ testthat::test_that("Estimated catchability", {
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 1)
+                      fit_control = fit_control(
+                        verbose = 1))
   )
 
   # Map
   fleets <- 1:nflt
-  fleets[GOA2018SS$fleet_control$Fleet_type != 2] <- NA
+  fleets[ss_run$data_list$fleet_control$Fleet_type != "Survey"] <- NA
   testthat::expect_equal(as.numeric(ss_run$map$mapList$index_ln_q), fleets)
   testthat::expect_equal(as.numeric(ss_run$map$mapList$index_q_beta), as.numeric(rep(NA, length(ss_run$map$mapList$index_q_beta))))
   testthat::expect_equal(as.numeric(ss_run$map$mapList$index_q_dev), as.numeric(rep(NA, length(ss_run$map$mapList$index_q_dev))))
@@ -119,11 +93,13 @@ testthat::test_that("Invalid catchability", {
   # Run
   testthat::expect_error(
     Rceattle::fit_mod(data_list = GOA2018SS,
+                      inits = inits, # Initial parameters = 0
                       file = NULL, # Don't save
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
 })

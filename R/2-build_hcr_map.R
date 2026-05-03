@@ -2,9 +2,10 @@
 #'
 #' @description Reads a data list and map to update the map argument based on the HCR specified in \code{\link{build_hcr}}
 #'
-#' @param data_list a data_list created from \code{\link{build_dat}}.
+#' @param data_list an Rceattle data_list
 #' @param map a map object created from \code{\link{build_map}}.
-#' @param TRUE/FALSE map out all parameters
+#' @param debug logical. If TRUE, turns off all parameters for debugging (default = FALSE).
+#' @param all_params_on logical. If TRUE, leaves all hindcast parameters turned on (default = FALSE).
 #' @param HCRiter for multi-species models, the order in which to project fishing (e.g. predators first, then prey)
 #'
 #' @return a list of map arguments for each parameter
@@ -23,32 +24,32 @@ build_hcr_map <- function(data_list, map, debug = FALSE, all_params_on = FALSE, 
   # -- HCR = 0: No catch - Params off
   # -- HCR = 1: Constant catch - Params off
   # -- HCR = 2: Constant input F - Params off
-  # -- HCR = 3: F that acheives X% of SSB0 in the end of the projection - Ftarget on
+  # -- HCR = 3: F that achieves X% of SSB0 in the end of the projection - Ftarget on
   # -- HCR = 4: Constant target Fspr - Ftarget on
   # -- HCR = 5: NPFMC Tier 3 - Flimit and Ftarget on
   # -- HCR = 6: PFMC Cat 1 - Flimit on
   # -- HCR = 7: SESSF Tier 1 - Flimit and Ftarget on
   # --- Dynamic BRPS - 1 value per species and year
   if(!debug){
-    if(data_list$HCR %in% c(1)){ # CMSY
+    if(data_list$HCR == "CMSY"){ # CMSY
       map$mapList$ln_Ftarget[params_on] <- params_on
     }
 
-    if(data_list$HCR %in% c(2)){ # Fixed F - still have Flimit for single-species
+    if(data_list$HCR == "ConstantF"){ # Fixed F - still have Flimit for single-species
       map$mapList$ln_Flimit[params_on] <- params_on
     }
-    if(data_list$HCR %in% c(3)){
+    if(data_list$HCR == "ConstantFSSB"){
       map$mapList$ln_Ftarget[params_on] <- params_on
     }
-    if(data_list$HCR %in% c(4)){
-      map$mapList$ln_Ftarget[params_on] <- params_on
-      map$mapList$ln_Flimit[params_on] <- params_on
-    }
-    if(data_list$HCR %in% c(5,7)){
+    if(data_list$HCR == "ConstantFSPR"){
       map$mapList$ln_Ftarget[params_on] <- params_on
       map$mapList$ln_Flimit[params_on] <- params_on
     }
-    if(data_list$HCR == 6){
+    if(data_list$HCR %in% c("NPFMC", "SESSF")){
+      map$mapList$ln_Ftarget[params_on] <- params_on
+      map$mapList$ln_Flimit[params_on] <- params_on
+    }
+    if(data_list$HCR == "PFMC"){
       map$mapList$ln_Flimit[params_on] <- params_on
     }
 
@@ -59,7 +60,7 @@ build_hcr_map <- function(data_list, map, debug = FALSE, all_params_on = FALSE, 
     for(sp in 1:data_list$nspp){
 
       # Check proj F if proj F prop is all 0
-      prop_check <- data_list$fleet_control$proj_F_prop[which(data_list$fleet_control$Species == sp & data_list$fleet_control$Fleet_type == 1)]
+      prop_check <- data_list$fleet_control$proj_F_prop[which(data_list$fleet_control$Species == sp & data_list$fleet_control$Fleet_type == "Fishery")]
       if(sum(as.numeric(prop_check == 0)) != 0){ # If all fisheries for a species have no F in F_prop, turn off future F
         message(paste("F_prop for species",sp,"sums to 0"))
         map$mapList$ln_Ftarget[sp] <- NA

@@ -17,14 +17,8 @@ testthat::test_that("Test age-based non-parametric selectivity bin-first selecte
 
 
   # Set params
-  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              file = NULL, # Don't save
-                              estimateMode = 3, # Don't estimate
-                              random_rec = FALSE, # No random recruitment
-                              msmMode = 0, # Single species mode
-                              verbose = 0)
-
-  inits <- ss_run$estimated_params
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   log_selcoffs <- rnorm(n_sel_bins)
   log_selcoffs2 <- rnorm(n_sel_bins)
   inits$sel_coff[,1,1:8] <- rep(log_selcoffs, each = dim(inits$sel_coff)[1])
@@ -32,13 +26,13 @@ testthat::test_that("Test age-based non-parametric selectivity bin-first selecte
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              inits = inits,
-                              map = ss_run$map,
+                              inits = inits, # Initial parameters = 0
                               file = NULL, # Don't save
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              verbose = 0)
+                              fit_control = fit_control(
+                                verbose = 0))
 
   # Check selectivity is 0 for bins 1-2
   output <- c(ss_run$quantities$sel_at_age[,1,1:2,])
@@ -83,15 +77,8 @@ testthat::test_that("Time-varying double logistic selectivity bin first selected
 
 
   # Set params to double logistic
-  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              file = NULL, # Don't save
-                              estimateMode = 3, # Don't estimate
-                              random_rec = FALSE, # No random recruitment
-                              random_sel = TRUE, # Turn on laplace for sel devs
-                              msmMode = 0, # Single species mode
-                              verbose = 0)
-
-  inits <- ss_run$estimated_params
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, random_sel = TRUE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   inits$ln_sel_slp[,,1] <- log(alpha) # Females
   inits$ln_sel_slp[,,2] <- log(alpha+1) # Males
   inits$sel_inf[1,,] <- inf
@@ -108,14 +95,14 @@ testthat::test_that("Time-varying double logistic selectivity bin first selected
   # Run
   ss_run <- suppressMessages(
     Rceattle::fit_mod(data_list = GOA2018SS,
-                      inits = inits,
-                      map = ss_run$map,
+                      inits = inits, # Initial parameters = 0
                       file = NULL, # Don't save
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       random_sel = TRUE, # Turn on laplace for sel devs
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
   # Check selectivity is 0 for bins 1-2

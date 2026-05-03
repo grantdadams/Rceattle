@@ -4,7 +4,7 @@
 #'   specialized helper functions for each parameter block (Recruitment, M1,
 #'   Predation, Selectivity, Catchability, etc.).
 #'
-#' @param data_list A data_list created from \code{\link{build_dat}}.
+#' @param data_list an Rceattle data_list
 #' @param params A parameter list created from \code{\link{build_params}}.
 #' @param debug Logical. If TRUE, sets all map values to NA except the dummy
 #'   parameter, running the model without parameter estimation.
@@ -90,25 +90,13 @@ build_map_recruitment <- function(map_list, data_list, nyrs_hind, nyrs_proj, ran
   for (sp in 1:data_list$nspp) {
     nages_sp <- data_list$nages[sp]
 
-    # 0) Initial abundance as free parameters
-    # -- Map out first year init devs if estimating initial abundance as free parameters
-    if (data_list$initMode == 0) {
-      map_list$init_dev[sp, 1] <- NA # Rec dev is used for year 1
-
-# FIXME: move init_dev to DSEM vector
-      # - Map out ages above range
-      if(nages_sp < ncol(map_list$init_dev)) {
-        map_list$init_dev[sp, (nages_sp+1):ncol(map_list$init_dev)] <- NA
-      }
-    }
-
     # 1) Equilibrium with no devs
-    if (data_list$initMode == 1) {
+    if (data_list$initMode == "Equilibrium") {
       map_list$init_dev[sp, ] <- NA
     }
 
-    # 2-3) Equilibrium or non-equilibrium with no devs
-    if (data_list$initMode > 1) {
+    # 0, 2-3) Equilibrium or non-equilibrium with no devs
+    if (!data_list$initMode %in% c("Equilibrium")) {
       if ((nages_sp - 1) < ncol(map_list$init_dev)) {
         map_list$init_dev[sp, nages_sp:ncol(map_list$init_dev)] <- NA
       }
@@ -561,7 +549,7 @@ build_map_predation <- function(map_list, data_list) {
 #' \code{Time_varying_sel}	determines if time-varying selectivity should be estimated for logistic, double logistic selectivity,  descending logistic , non-parametric, or hake (\code{Selectivity = 1, 2, 3, 4, or 5}).
 #' 0 = no
 #' 1 = penalized deviates given \code{sel_sd_prior}
-#' 3 = time blocks with no penality
+#' 3 = time blocks with no penalty
 #' 4 = random walk following Dorn
 #' 5 = random walk on ascending portion of double logistic only.
 #' \code{random_sel} in \code{fit_mod} treats random deviates and random walk parameters as random effects, estimating the variance.
@@ -607,13 +595,13 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
     sel_type <- data_list$fleet_control$Selectivity[i]
     tv_sel <- data_list$fleet_control$Time_varying_sel[i]
 
-    if (data_list$fleet_control$Fleet_type[i] > 0) {
+    if (data_list$fleet_control$Fleet_type[i] != "Off") {
 
       # Helper for selectivity blocks logic
       max_block <- 0
       if (tv_sel == 3) {
-        data_source <- if (data_list$fleet_control$Fleet_type[i] == 1) data_list$catch_data else data_list$index_data
-        fleet_data <- data_source %>%
+        data_source <- if (data_list$fleet_control$Fleet_type[i] == "Fishery") data_list$catch_data else data_list$index_data
+        fleet_data <- data_source |>
           dplyr::filter(Fleet_code == flt, Year - data_list$styr + 1 <= nyrs_hind)
         Selectivity_block <- fleet_data$Selectivity_block
         biom_yrs <- fleet_data$Year - data_list$styr + 1
@@ -669,6 +657,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
         bin_first_selected <- data_list$fleet_control$Bin_first_selected[i]
         N_sel_bins <- data_list$fleet_control$N_sel_bins[i]
+        if (is.na(N_sel_bins)) stop(paste0("N_sel_bins is NA for fleet ", i))
 
         if (is.na(bin_first_selected)) bin_first_selected <- 1
         bins_on <- bin_first_selected:N_sel_bins
@@ -781,6 +770,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
         bin_first_selected <- data_list$fleet_control$Bin_first_selected[i]
         N_sel_bins <- data_list$fleet_control$N_sel_bins[i]
+        if (is.na(N_sel_bins)) stop(paste0("N_sel_bins is NA for fleet ", i))
 
         if (is.na(bin_first_selected)) bin_first_selected <- 1
         # +1 because first parameter is not-identifiable and is not estimated
@@ -811,6 +801,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
         bin_first_selected <- data_list$fleet_control$Bin_first_selected[i]
         N_sel_bins <- data_list$fleet_control$N_sel_bins[i]
+        if (is.na(N_sel_bins)) stop(paste0("N_sel_bins is NA for fleet ", i))
 
         if (is.na(bin_first_selected)) bin_first_selected <- 1
         bins_on <- (bin_first_selected):N_sel_bins
@@ -844,6 +835,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
         bin_first_selected <- data_list$fleet_control$Bin_first_selected[i]
         N_sel_bins <- data_list$fleet_control$N_sel_bins[i]
+        if (is.na(N_sel_bins)) stop(paste0("N_sel_bins is NA for fleet ", i))
 
         if (is.na(bin_first_selected)) bin_first_selected <- 1
         bins_on <- (bin_first_selected):N_sel_bins
@@ -895,8 +887,7 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
   # Loop through fleets
   for( i in 1: nrow(data_list$fleet_control)){
     flt = data_list$fleet_control$Fleet_code[i]
-
-    if(data_list$fleet_control$Fleet_type[flt] == 2){ # If survey
+    if(data_list$fleet_control$Fleet_type[flt] == "Survey"){
       # Q
       # - 0 = fixed at prior
       # - 1 = Estimate single parameter
@@ -1117,7 +1108,7 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
   map_list$proj_F_prop <- map_list$proj_F_prop * NA
 
   # -- Map out initial F if starting at equilibrium
-  if(!(data_list$initMode %in% c(3,4))){
+  if(!(data_list$initMode %in% c("FishedNonEquilibrium", "FishedNonEquilibriumScaled"))){
     map_list$ln_Finit <- rep(NA, data_list$nspp)
   }
 
@@ -1126,12 +1117,12 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
   map_list$ln_Ftarget <- rep(NA, data_list$nspp)
 
 
-  comp_count <- data_list$comp_data %>% # Count comp obs by fleet
-    dplyr::filter(Year > 0) %>%
+  comp_count <- data_list$comp_data |> # Count comp obs by fleet
+    dplyr::filter(Year > 0) |>
     dplyr::count(Fleet_code)
 
-  caal_count <- data_list$caal_data %>% # Count CAAL obs by fleet
-    dplyr::filter(Year > 0) %>%
+  caal_count <- data_list$caal_data |> # Count CAAL obs by fleet
+    dplyr::filter(Year > 0) |>
     dplyr::count(Fleet_code)
 
   for (i in 1:nrow(data_list$fleet_control)) {
@@ -1141,8 +1132,8 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
       map_list$catch_ln_sd[flt] <- NA
     }
 
-    # Turn of F and F dev if not estimating of it is a Survey
-    if (data_list$fleet_control$Fleet_type[i] %in% c(0, 2)) {
+    # Turn off F and F dev if not estimating or it is a Survey
+    if (data_list$fleet_control$Fleet_type[i] != "Fishery") {
       map_list$catch_ln_sd[flt] <- NA
       map_list$ln_F[flt, ] <- NA
     }
@@ -1158,7 +1149,7 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
     }
 
     # Map out comp weights and sigma if fleet is turned off or there are no comp data
-    if(data_list$fleet_control$Fleet_type[i] == 0) {
+    if(data_list$fleet_control$Fleet_type[i] == "Off") {
       map_list$comp_weights[i] <- NA
       map_list$caal_weights[i] <- NA
       map_list$sel_dev_ln_sd[i] <- NA

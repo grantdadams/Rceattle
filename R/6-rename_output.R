@@ -2,7 +2,7 @@
 
 #' Function to rename derived quantities from Rceattle
 #'
-#' @param data_list A data_list object created by \code{\link{build_dat}}
+#' @param data_list an Rceattle data_list
 #' @param quantities list of "report" objects from Rceattle.
 #'
 #' @export
@@ -10,9 +10,9 @@
 rename_output = function(data_list = NULL, quantities = NULL){
 
   # Dimension attributed
-  max_age <- max(data_list$nages, na.rm = T)
-  max_sex <- max(data_list$nsex, na.rm = T)
-  max_length <- max(data_list$nlengths, na.rm = T)
+  max_age <- max(data_list$nages, na.rm = TRUE)
+  max_sex <- max(data_list$nsex, na.rm = TRUE)
+  max_length <- max(data_list$nlengths, na.rm = TRUE)
   sex_labels <- c("Sex combined or females", "males")
   if(max_sex == 1){
     sex_labels <- "Sex combined"
@@ -149,7 +149,7 @@ rename_output = function(data_list = NULL, quantities = NULL){
 
 #' Function to calculate McAllister-Ianelli weights
 #'
-#' @param data_list A data_list object created by \code{\link{build_dat}}
+#' @param data_list an Rceattle data_list
 #' @param data_list_reorganized reorganized data_list
 #' @param quantities list of "report" objects from Rceattle.
 #'
@@ -179,7 +179,7 @@ calc_mcall_ianelli <- function(data_list = NULL, data_list_reorganized = NULL, q
 
 #' Function to calculate McAllister-Ianelli weights for diet data
 #'
-#' @param data_list A data_list object created by \code{\link{build_dat}}
+#' @param data_list an Rceattle data_list
 #' @param quantities list of "report" objects from Rceattle, including diet_hat predictions
 #'
 #' @export
@@ -195,9 +195,9 @@ calc_mcall_ianelli_diet <- function(data_list = NULL, quantities = NULL){
 
   # Calculate effective sample size for diet data (predator specific)
   # Using the same formula as for length: sum(p_hat * (1 - p_hat)) / sum((p - p_hat)^2)
-  eff_n_mcallister <- data_list$diet_data %>%
-    dplyr::mutate(Diet_hat = quantities$diet_hat) %>%
-    dplyr::group_by(Pred, Pred_age) %>%
+  eff_n_mcallister <- data_list$diet_data |>
+    dplyr::mutate(Diet_hat = quantities$diet_hat) |>
+    dplyr::group_by(Pred, Pred_age) |>
     dplyr::summarise(
       Sample_size = dplyr::first(Sample_size), # Sample size should be the same across predators of the same age
       eff_n_mcallister = sum(Diet_hat * (1 - Diet_hat), na.rm = TRUE) /
@@ -205,10 +205,10 @@ calc_mcall_ianelli_diet <- function(data_list = NULL, quantities = NULL){
     )
 
   # Take harmonic mean across predator ages
-  data_list$Diet_weights_mcallister <- eff_n_mcallister %>%
-    dplyr::group_by(Pred) %>%
-    filter(eff_n_mcallister != 0) %>%
-    dplyr::summarise(Diet_weights_mcallister = (1/n() * sum((eff_n_mcallister /Sample_size)^-1))^-1 ) %>%
+  data_list$Diet_weights_mcallister <- eff_n_mcallister |>
+    dplyr::group_by(Pred) |>
+    filter(eff_n_mcallister != 0) |>
+    dplyr::summarise(Diet_weights_mcallister = (1/n() * sum((eff_n_mcallister /Sample_size)^-1))^-1 ) |>
     dplyr::pull(Diet_weights_mcallister)
 
   return(data_list)

@@ -32,24 +32,14 @@ testthat::test_that("Test IID year time-varying M", {
 
   # Set up Rceattle data
   simData <- sim$data_list
-  simData$M1_model = 1
-  simData$M1_re = 2
 
 
   # Fit multi-species
   # * Fix parameters -----
-  # inits <- suppressMessages(build_params(simData))
-  ss_run1 <- Rceattle::fit_mod(data_list = simData,
-                               estimateMode = 3, # Estimate
-                               random_rec = FALSE, # No random recruitment
-                               M1Fun = build_M1(M1_model = 1, # Estimable M
-                                                M1_re = 2), # IID year
-                               msmMode = 0,
-                               initMode = 2,
-                               verbose = 0)
-  inits <- ss_run1$estimated_params
-  map <- ss_run1$map
-
+  simData$M1_model = 1
+  simData$M1_re = 2
+  mod0 <- suppressMessages( fit_mod(data_list = simData, inits = NULL, estimateMode = 3, random_rec = FALSE, M1Fun = build_M1(M1_model = 1, M1_re = 2), msmMode = 0, initMode = "NonEquilibrium", fit_control = fit_control(phase = FALSE, verbose = 0)) )
+  inits <- mod0$estimated_params
   inits$sel_inf[1,,1] <- c(3,6,2.5,4)
   inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
   inits$ln_F[2,] <- log(Fmort)
@@ -57,7 +47,7 @@ testthat::test_that("Test IID year time-varying M", {
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_ln_q[] <- log(1)
   inits$R_ln_sd[] <- log(1)
-  inits$x_tj[1:30, 1:2] <- t(sim$model_quantities$rec_devs)
+  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
   inits$ln_M1[,1,] <- log(sim$model_quantities$M)
   for(sp in 1:2){
@@ -70,17 +60,17 @@ testthat::test_that("Test IID year time-varying M", {
   inits$M1_dev_ln_sd[] <- log(M1sd)
 
   ss_run1 <- Rceattle::fit_mod(data_list = simData,
-                               inits = inits, # Initial parameters at input
+                               inits = inits, # Initial parameters = 0
                                file = NULL, # Don't save
-                               map = map,
                                estimateMode = 3, # Estimate
                                random_rec = FALSE, # No random recruitment
                                M1Fun = build_M1(M1_model = 1, # Estimable M
                                                 M1_re = 2), # IID year
-                               phase = FALSE,
                                msmMode = 0,
-                               initMode = 2,
-                               verbose = 0)
+                               initMode = "NonEquilibrium",
+                               fit_control = fit_control(
+                                 phase = FALSE,
+                                 verbose = 0))
 
   # Recruitment
   testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,1,]), as.numeric(ss_run1$quantities$R[,1:nyrs]))
@@ -149,24 +139,14 @@ testthat::test_that("Test AR1 year time-varying M", {
 
   # Set up Rceattle data
   simData <- sim$data_list
-  simData$M1_model = 1
-  simData$M1_re = 5
 
 
   # Fit multi-species
   # * Fix parameters -----
-  # inits <- suppressMessages(build_params(simData))
-  ss_run1 <- Rceattle::fit_mod(data_list = simData,
-                               estimateMode = 3, # Estimate
-                               random_rec = FALSE, # No random recruitment
-                               M1Fun = build_M1(M1_model = 1, # Estimable M
-                                                M1_re = 5), # IID year
-                               msmMode = 0,
-                               initMode = 2,
-                               verbose = 0)
-  inits <- ss_run1$estimated_params
-  map <- ss_run1$map
-
+  simData$M1_model = 1
+  simData$M1_re = 5
+  mod0 <- suppressMessages( fit_mod(data_list = simData, inits = NULL, estimateMode = 3, random_rec = FALSE, M1Fun = build_M1(M1_model = 1, M1_re = 5), msmMode = 0, initMode = "NonEquilibrium", fit_control = fit_control(phase = FALSE, verbose = 0)) )
+  inits <- mod0$estimated_params
   inits$sel_inf[1,,1] <- c(3,6,2.5,4)
   inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
   inits$ln_F[2,] <- log(Fmort)
@@ -174,7 +154,7 @@ testthat::test_that("Test AR1 year time-varying M", {
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_ln_q[] <- log(1)
   inits$R_ln_sd[] <- log(1)
-  inits$x_tj[1:30, 1:nspp] <- t(sim$model_quantities$rec_devs)
+  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
   inits$ln_M1[,1,] <- log(sim$model_quantities$M)
   for(sp in 1:2){
@@ -187,17 +167,17 @@ testthat::test_that("Test AR1 year time-varying M", {
   inits$M1_dev_ln_sd[] <- log(M1sd)
 
   ss_run1 <- Rceattle::fit_mod(data_list = simData,
-                               inits = inits, # Initial parameters at input
+                               inits = inits, # Initial parameters = 0
                                file = NULL, # Don't save
-                               map = map,
                                estimateMode = 3, # Estimate
                                random_rec = FALSE, # No random recruitment
                                M1Fun = build_M1(M1_model = 1, # Estimable M
                                                 M1_re = 5), # AR1 year
-                               phase = FALSE,
                                msmMode = 0,
-                               initMode = 2,
-                               verbose = 0)
+                               initMode = "NonEquilibrium",
+                               fit_control = fit_control(
+                                 phase = FALSE,
+                                 verbose = 0))
 
   # Recruitment
   testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,1,]), as.numeric(ss_run1$quantities$R[,1:nyrs]))

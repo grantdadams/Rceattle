@@ -17,14 +17,8 @@ testthat::test_that("Sex-specific age-based descending logistic selectivity not 
   sel2 <- 1-1/(1+exp(-alpha*(ages-inf-1)))
 
   # Set params to descending logistic
-  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                    file = NULL, # Don't save
-                    estimateMode = 3, # Don't estimate
-                    random_rec = FALSE, # No random recruitment
-                    msmMode = 0, # Single species mode
-                    verbose = 1)
-
-  inits <- ss_run$estimated_params
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   inits$ln_sel_slp[2,,] <- log(alpha)
   inits$sel_inf[2,,] <- inf     # Females
   inits$sel_inf[2,9:11,2] <- inf + 1 # Males
@@ -32,13 +26,13 @@ testthat::test_that("Sex-specific age-based descending logistic selectivity not 
   # Run
   ss_run <- suppressMessages(
     Rceattle::fit_mod(data_list = GOA2018SS,
-                      inits = inits, # Initial parameters
-                      map = ss_run$map,
+                      inits = inits, # Initial parameters = 0
                       file = NULL, # Don't save
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 1)
+                      fit_control = fit_control(
+                        verbose = 1))
   )
 
   # Map
@@ -72,7 +66,7 @@ testthat::test_that("Sex-specific age-based time-varying descending logistic sel
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
-# Data
+  # Data
   data("GOA2018SS")
   GOA2018SS$fleet_control$Selectivity <- "DescendingLogistic" # age-based descending
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
@@ -95,14 +89,8 @@ testthat::test_that("Sex-specific age-based time-varying descending logistic sel
 
 
   # Set params to descending logistic
-  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              file = NULL, # Don't save
-                              estimateMode = 3, # Don't estimate
-                              random_rec = FALSE, # No random recruitment
-                              msmMode = 0, # Single species mode
-                              verbose = 1)
-
-  inits <- ss_run$estimated_params
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   inits$ln_sel_slp[2,,1] <- log(alpha) # Females
   inits$ln_sel_slp[2,,2] <- log(alpha+1) # Males
   inits$sel_inf[2,,] <- inf
@@ -116,13 +104,13 @@ testthat::test_that("Sex-specific age-based time-varying descending logistic sel
   # Run
   ss_run <- suppressMessages(
     Rceattle::fit_mod(data_list = GOA2018SS,
-                      inits = inits,
-                      map = ss_run$map,
+                      inits = inits, # Initial parameters = 0
                       file = NULL, # Don't save
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
   # Map
@@ -180,13 +168,14 @@ testthat::test_that("Sex-specific age-based time-varying descending logistic sel
   # Run
   ss_run <- suppressMessages(
     Rceattle::fit_mod(data_list = GOA2018SS,
-                      inits = NULL,
+                      inits = NULL, # Initial parameters = 0
                       file = NULL, # Don't save
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       random_sel = TRUE, # Turn on laplace for sel devs
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
   # Map
@@ -220,14 +209,8 @@ testthat::test_that("Time-varying descending logistic selectivity likelihood", {
 
   # Set params to logistic
   alpha = 0.5
-  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              file = NULL, # Don't save
-                              estimateMode = 3, # Don't estimate
-                              random_rec = FALSE, # No random recruitment
-                              msmMode = 0, # Single species mode
-                              verbose = 1)
-
-  inits <- ss_run$estimated_params
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, random_sel = TRUE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   inits$ln_sel_slp[2,,1] <- log(alpha) # Females
   inits$ln_sel_slp[2,,2] <- log(alpha+1) # Males
   inits$sel_inf[2,,] <- inf
@@ -241,14 +224,14 @@ testthat::test_that("Time-varying descending logistic selectivity likelihood", {
   # Run
   ss_run <- suppressMessages(
     Rceattle::fit_mod(data_list = GOA2018SS,
-                      inits = inits,
-                      map = ss_run$map,
+                      inits = inits, # Initial parameters = 0
                       file = NULL, # Don't save
                       estimateMode = 3, # Don't estimate
                       random_rec = FALSE, # No random recruitment
                       random_sel = TRUE, # Turn on laplace for sel devs
                       msmMode = 0, # Single species mode
-                      verbose = 0)
+                      fit_control = fit_control(
+                        verbose = 0))
   )
 
   # Nll

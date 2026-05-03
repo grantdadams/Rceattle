@@ -12,14 +12,14 @@ testthat::test_that("Parameter recovery (small simulated example)", {
 
   # Run a quick fit (small iterations) to test parameter movement
   fit <- Rceattle::fit_mod(data_list = dat,
-                          inits = NULL,
-                          estimateMode = 0,
-                          phase = FALSE,
-                          loopnum = 1,
-                          getsd = FALSE,
-                          use_gradient = FALSE,
-                          control = list(eval.max = 100, iter.max = 100),
-                          verbose = 0)
+                           inits = NULL,
+                           estimateMode = 0,
+                           fit_control = fit_control(phase = FALSE,
+                                                     loopnum = 1,
+                                                     getsd = FALSE,
+                                                     use_gradient = FALSE,
+                                                     nlminb_control = list(eval.max = 100, iter.max = 100),
+                                                     verbose = 0))
 
   # Check returned structure and R0 quantity
   testthat::expect_true(is.list(fit))

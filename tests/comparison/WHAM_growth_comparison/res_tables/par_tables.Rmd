@@ -42,20 +42,20 @@ if(knitr::is_latex_output()) type = "latex"
 if(knitr::is_html_output()) type = "html"
 out = readRDS("parameter_estimates_table.RDS")
 out = round(out, 3)
-  out %>% kable(format = type, booktabs = T, escape=F, longtable = T, row.names = T,label = "par-table",
-    caption="Parameter estimates, standard errors, and confidence intervals. Rounded to 3 decimal places.") %>%
-    kable_styling(latex_options=c("basic", "repeat_header")) %>% landscape()
+  out |> kable(format = type, booktabs = T, escape=F, longtable = T, row.names = T,label = "par-table",
+    caption="Parameter estimates, standard errors, and confidence intervals. Rounded to 3 decimal places.") |>
+    kable_styling(latex_options=c("basic", "repeat_header")) |> landscape()
 
 out = readRDS("NAA_table.RDS")
 out = round(out, 0)
-  out %>% kable(format = type, booktabs = T, escape=F, longtable = T, row.names = T, label = "NAA-table", 
-    caption="Abundance at age (1000s).") %>%
-    kable_styling(latex_options=c("basic", "repeat_header")) #%>%
+  out |> kable(format = type, booktabs = T, escape=F, longtable = T, row.names = T, label = "NAA-table", 
+    caption="Abundance at age (1000s).") |>
+    kable_styling(latex_options=c("basic", "repeat_header")) #|>
 
 out = readRDS("FAA_tot_table.RDS")
 out = round(out, 3)
-  out %>% kable(format = type, booktabs = T, escape=F, longtable = T, row.names = T, label = "FAA-tot-table",
-    caption="Total fishing mortality at age.") %>%
-    kable_styling(latex_options=c("basic", "repeat_header")) #%>%
+  out |> kable(format = type, booktabs = T, escape=F, longtable = T, row.names = T, label = "FAA-tot-table",
+    caption="Total fishing mortality at age.") |>
+    kable_styling(latex_options=c("basic", "repeat_header")) #|>
 
 ```

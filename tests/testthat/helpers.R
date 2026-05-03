@@ -1,3 +1,4 @@
+
 # Helpers for tests
 # Minimal test data factory and small utilities used by
 calc_nll_ar1_1d <- function(x, sd, rho) {
@@ -60,7 +61,7 @@ make_test_data <- function(nyrs = 8, nprojyrs = 10, nages = 5, seed = NULL) {
   simData$fleet_control <- data.frame(
     Fleet_name = c("Survey", "Fishery"),
     Fleet_code = 1:2,
-    Fleet_type = 2:1,
+    Fleet_type = c("Survey", "Fishery"),
     Species = 1,
     Month = 0,
     Selectivity_index = 1:2,
@@ -194,7 +195,7 @@ make_test_data <- function(nyrs = 8, nprojyrs = 10, nages = 5, seed = NULL) {
   # Environmental data
   simData$env_data <- data.frame(
     Year = years,
-    Index1 = rnorm(nyrs)
+    Index1 = stats::rnorm(nyrs)
   )
 
   # Diet information Pyrs (relative foraging rate) ----

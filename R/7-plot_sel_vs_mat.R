@@ -4,11 +4,13 @@
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
 #' @param species Species names for legend
 #' @param lwd Line width as specified by user
+#' @param width Figure width in inches
+#' @param height Figure height in inches
 #'
 #' @export
 plot_selectivity_vs_maturity <-
@@ -21,8 +23,10 @@ plot_selectivity_vs_maturity <-
            species = c("Walleye pollock", "Pacific cod", "Arrowtooth flounder"),
            lwd = 3) {
 
+    .save_par()  # snapshot graphics par() and restore on exit
+
     # Convert single one into a list
-    if(class(Rceattle) == "Rceattle"){
+    if(inherits(Rceattle, "Rceattle")){
       Rceattle <- list(Rceattle)
     }
 
@@ -58,8 +62,8 @@ plot_selectivity_vs_maturity <-
     ymax_sel <- c()
     ymin_sel <- c()
     for (i in 1:dim(selectivity_array)[1]) {
-      ymax_sel[i] <- max(c(selectivity_array[i,,,,], 0), na.rm = T)
-      ymin_sel[i] <- min(c(selectivity_array[i,,,,], 0), na.rm = T)
+      ymax_sel[i] <- max(c(selectivity_array[i,,,,], 0), na.rm = TRUE)
+      ymin_sel[i] <- min(c(selectivity_array[i,,,,], 0), na.rm = TRUE)
     }
 
     if (is.null(line_col)) {
@@ -73,7 +77,7 @@ plot_selectivity_vs_maturity <-
     # Selectivity time series
     #################################
     for(j in 1:nflt){
-      if(fleet_control$Fleet_type[j] == 1){
+      if(fleet_control$Fleet_type[j] == "Fishery"){
         for (i in 1:loops) {
           # Species
           sp <- fleet_control$Species[which(fleet_control$Fleet_code == j)]
@@ -91,7 +95,7 @@ plot_selectivity_vs_maturity <-
             if (i == 2) {
               filename <- paste0(file, "time-varying_selectivity_fleet",j,"_sex",legend_sex, "_w_maturity.png")
               png(
-                file = filename ,
+                filename = filename ,
                 width = width,
                 height = height,
                 units = "in",
@@ -153,7 +157,7 @@ plot_selectivity_vs_maturity <-
 
               filename <- paste0(file, "_terminal_selectivity_w_maturity_species",sp,"_sex",legend_sex, ".png")
               png(
-                file = filename ,
+                filename = filename ,
                 width = width,
                 height = height,
                 units = "in",
@@ -161,7 +165,7 @@ plot_selectivity_vs_maturity <-
               )
             }
 
-            fleets <- fleet_control$Fleet_code[which(fleet_control$Species == sp & fleet_control$Fleet_type == 1)]
+            fleets <- fleet_control$Fleet_code[which(fleet_control$Species == sp & fleet_control$Fleet_type == "Fishery")]
             flt_colors <- rich.colors.short(length(fleets))
 
             # Plot configuration

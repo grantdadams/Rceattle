@@ -32,19 +32,15 @@ testthat::test_that("Rceattle and multi-species model dynamics match", {
 
 
   # Fit multi-species
-  # * Fix parameters -----
-  # inits <- suppressMessages( build_params(simData) )
-  ms_run1 <- Rceattle::fit_mod(data_list = simData,
-                               inits = NULL, # Initial parameters = 0
-                               estimateMode = 3, # Do not estimate
-                               msmMode = 1,
-                               suitMode = 4,
-                               niter = 5,
-                               initMode = 2,
-                               verbose = 0)
-  inits <- ms_run1$estimated_params
-  map <- ms_run1$map
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
 
+  # * Fix parameters -----
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi
@@ -55,61 +51,61 @@ testthat::test_that("Rceattle and multi-species model dynamics match", {
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_ln_q[] <- log(1)
   inits$R_ln_sd[] <- log(1)
-  inits$x_tj[1:30, 1:2] <- t(sim$model_quantities$rec_devs)
+  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
-  ms_run2 <- Rceattle::fit_mod(data_list = simData,
-                               inits = inits, # Initialize from sim pars
-                               map = map,
+  ms_run1 <- Rceattle::fit_mod(data_list = simData,
+                               inits = inits, # Initial parameters from inits
                                file = NULL, # Don't save
-                               estimateMode = 3, # Do not estimate
+                               estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
-                               phase = FALSE,
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,
-                               initMode = 2,
-                               verbose = 0)
+                               initMode = "NonEquilibrium",
+                               fit_control = fit_control(
+                                 phase = FALSE,
+                                 verbose = 0))
 
   # Recruitment
-  testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,1,]), as.numeric(ms_run2$quantities$R[,1:nyrs]))
-  testthat::expect_equal(as.numeric(sim$model_quantities$Total_Biom), as.numeric(ms_run2$quantities$biomass[,1:nyrs]), tolerance = 1e-6)
+  testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,1,]), as.numeric(ms_run1$quantities$R[,1:nyrs]))
+  testthat::expect_equal(as.numeric(sim$model_quantities$Total_Biom), as.numeric(ms_run1$quantities$biomass[,1:nyrs]), tolerance = 1e-6)
 
 
   # Suitability
-  testthat::expect_equal(exp(ms_run2$estimated_params$log_gam_a), gam_a)
-  testthat::expect_equal(exp(ms_run2$estimated_params$log_gam_b), gam_b)
-  testthat::expect_equal(as.numeric(ms_run2$quantities$vulnerability), as.numeric(sim$model_quantities$vulnerability))
-  testthat::expect_equal(as.numeric(ms_run2$quantities$suitability[,,,,1]), as.numeric(sim$model_quantities$suitability))
-  testthat::expect_equal(as.numeric(ms_run2$quantities$suit_other[,1,1,1]), as.numeric(sim$model_quantities$suit_other))
+  testthat::expect_equal(exp(ms_run1$estimated_params$log_gam_a), gam_a)
+  testthat::expect_equal(exp(ms_run1$estimated_params$log_gam_b), gam_b)
+  testthat::expect_equal(as.numeric(ms_run1$quantities$vulnerability), as.numeric(sim$model_quantities$vulnerability))
+  testthat::expect_equal(as.numeric(ms_run1$quantities$suitability[,,,,1]), as.numeric(sim$model_quantities$suitability))
+  testthat::expect_equal(as.numeric(ms_run1$quantities$suit_other[,1,1,1]), as.numeric(sim$model_quantities$suit_other))
 
   # M2
-  testthat::expect_equal(as.numeric(sim$model_quantities$M2_at_age), as.numeric(ms_run2$quantities$M2_at_age[,1,,1:nyrs]), tolerance = 1e-6)
+  testthat::expect_equal(as.numeric(sim$model_quantities$M2_at_age), as.numeric(ms_run1$quantities$M2_at_age[,1,,1:nyrs]), tolerance = 1e-6)
 
   # Ration
-  testthat::expect_equal(as.numeric(sim$model_quantities$ration), as.numeric(ms_run2$quantities$consumption_at_age[,1,,1]))
+  testthat::expect_equal(as.numeric(sim$model_quantities$ration), as.numeric(ms_run1$quantities$consumption_at_age[,1,,1]))
 
   # N
-  testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,,]), as.numeric(ms_run2$quantities$N_at_age[,1,,1:nyrs]))
+  testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,,]), as.numeric(ms_run1$quantities$N_at_age[,1,,1:nyrs]))
 
   # AvgN
-  testthat::expect_equal(as.numeric(sim$model_quantities$avgNAA[,,]), as.numeric(ms_run2$quantities$avgN_at_age[,1,,1:nyrs]))
+  testthat::expect_equal(as.numeric(sim$model_quantities$avgNAA[,,]), as.numeric(ms_run1$quantities$avgN_at_age[,1,,1:nyrs]))
 
   # Avail food
-  testthat::expect_equal(as.numeric(sim$model_quantities$avail_food[,,1]), as.numeric(ms_run2$quantities$avail_food[,1,,1]))
+  testthat::expect_equal(as.numeric(sim$model_quantities$avail_food[,,1]), as.numeric(ms_run1$quantities$avail_food[,1,,1]))
 
   # Selectivity
-  testthat::expect_equal(as.numeric(sim$model_quantities$srv_sel[,]), as.numeric(ms_run2$quantities$sel_at_age[c(1,3),,,1]))
-  testthat::expect_equal(as.numeric(sim$model_quantities$fish_sel[,]), as.numeric(ms_run2$quantities$sel_at_age[c(2,4),,,1]))
+  testthat::expect_equal(as.numeric(sim$model_quantities$srv_sel[,]), as.numeric(ms_run1$quantities$sel_at_age[c(1,3),,,1]))
+  testthat::expect_equal(as.numeric(sim$model_quantities$fish_sel[,]), as.numeric(ms_run1$quantities$sel_at_age[c(2,4),,,1]))
 
   # F
-  testthat::expect_equal(as.numeric(sim$model_quantities$FAA), as.numeric(ms_run2$quantities$F_flt_age[c(2,4),1,,1:nyrs]))
+  testthat::expect_equal(as.numeric(sim$model_quantities$FAA), as.numeric(ms_run1$quantities$F_flt_age[c(2,4),1,,1:nyrs]))
 
   # Q
-  testthat::expect_equal(as.numeric(sim$model_quantities$srv_q), as.numeric(ms_run2$quantities$index_q[c(1,3),1]))
+  testthat::expect_equal(as.numeric(sim$model_quantities$srv_q), as.numeric(ms_run1$quantities$index_q[c(1,3),1]))
 
   # Expected and observed diet
-  testthat::expect_equal(as.numeric(ms_run2$data_list$diet_data$Stomach_proportion_by_weight), as.numeric(ms_run2$quantities$diet_hat[,2]))
+  testthat::expect_equal(as.numeric(ms_run1$data_list$diet_data$Stomach_proportion_by_weight), as.numeric(ms_run1$quantities$diet_hat[,2]))
 })
 
 
@@ -172,7 +168,8 @@ testthat::test_that("Equilibrium MSVPA suitability dynamics match", {
 
   # Fit multi-species
   # * Fix parameters -----
-  inits <- suppressMessages( build_params(simData) )
+  mod0 <- suppressMessages( fit_mod(data_list = simData, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 1, suitMode = 0, initMode = "NonEquilibrium", fit_control = fit_control(phase = FALSE, verbose = 0)) )
+  inits <- mod0$estimated_params
   inits$sel_inf[1,,1] <- c(3,6,2.5,4)
   inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
   inits$ln_F[2,] <- log(0.2)
@@ -180,20 +177,21 @@ testthat::test_that("Equilibrium MSVPA suitability dynamics match", {
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_ln_q[] <- log(1)
   inits$R_ln_sd[] <- log(1)
-  inits$x_tj[1:30, 1:2] <- t(sim$model_quantities$rec_devs)
+  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
   ms_run_msvpa <- Rceattle::fit_mod(data_list = simData,
-                                    inits = inits, # Initialize from sim pars
+                                    inits = inits, # Initial parameters from inits
                                     file = NULL, # Don't save
-                                    estimateMode = 3, # Do not estimate
+                                    estimateMode = 3, # Don't estimate
                                     random_rec = FALSE, # No random recruitment
-                                    phase = FALSE,
                                     msmMode = 1,
                                     niter = 20,
                                     suitMode = 0,
-                                    initMode = 2,
-                                    verbose = 0)
+                                    initMode = "NonEquilibrium",
+                                    fit_control = fit_control(
+                                      phase = FALSE,
+                                      verbose = 0))
 
   # Recruitment
   testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,1,]), as.numeric(ms_run_msvpa$quantities$R[,1:nyrs]), tolerance = 1e-5)
@@ -269,19 +267,15 @@ testthat::test_that("Test proportion of prey-at-age in predator-at-age averaged 
 
 
   # Fit multi-species
-  # * Fix parameters -----
-  # inits <- suppressMessages( build_params(simData) )
-  ms_run1 <- Rceattle::fit_mod(data_list = simData,
-                               inits = NULL, # Initial parameters = 0
-                               estimateMode = 3, # Do not estimate
-                               msmMode = 1,
-                               suitMode = 4,
-                               niter = 5,
-                               initMode = 2,
-                               verbose = 0)
-  inits <- ms_run1$estimated_params
-  map <- ms_run1$map
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
 
+  # * Fix parameters -----
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi
@@ -292,7 +286,7 @@ testthat::test_that("Test proportion of prey-at-age in predator-at-age averaged 
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_ln_q[] <- log(1)
   inits$R_ln_sd[] <- log(1)
-  inits$x_tj[1:30, 1:2] <- t(sim$model_quantities$rec_devs)
+  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
 
@@ -321,17 +315,17 @@ testthat::test_that("Test proportion of prey-at-age in predator-at-age averaged 
 
 
   ms_run2 <- Rceattle::fit_mod(data_list = simData,
-                               inits = inits, # Initialize from sim pars
+                               inits = inits, # Initial parameters from inits
                                file = NULL, # Don't save
-                               map = map,
-                               estimateMode = 3, # Do not estimate
+                               estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
-                               phase = FALSE,
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,
-                               initMode = 2,
-                               verbose = 0)
+                               initMode = "NonEquilibrium",
+                               fit_control = fit_control(
+                                 phase = FALSE,
+                                 verbose = 0))
 
   # AvgN
   testthat::expect_equal(as.numeric(sim$model_quantities$avgNAA[,,]), as.numeric(ms_run2$quantities$avgN_at_age[,1,,1:nyrs]))
@@ -340,11 +334,11 @@ testthat::test_that("Test proportion of prey-at-age in predator-at-age averaged 
   testthat::expect_equal(as.numeric(ms_run2$data_list$diet_data$Stomach_proportion_by_weight), as.numeric(ms_run2$quantities$diet_hat[,2]))
 
   # Diet data (no modifications when rearranged)
-  diet_data1 <- ms_run2$data_list$diet_data %>%
-    arrange(Pred, Prey, Pred_age, Prey_age, Year)
+  diet_data1 <- ms_run2$data_list$diet_data |>
+    dplyr::arrange(Pred, Prey, Pred_age, Prey_age, Year)
 
-  diet_data2 <- simData$diet_data %>%
-    arrange(Pred, Prey, Pred_age, Prey_age, Year)
+  diet_data2 <- simData$diet_data |>
+    dplyr::arrange(Pred, Prey, Pred_age, Prey_age, Year)
   testthat::expect_equal(as.numeric(diet_data1$Stomach_proportion_by_weight), as.numeric(diet_data2$Stomach_proportion_by_weight))
 }
 )
@@ -386,19 +380,15 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator-at-ag
 
 
   # Fit multi-species
-  # * Fix parameters -----
-  # inits <- suppressMessages( build_params(simData) )
-  ms_run1 <- Rceattle::fit_mod(data_list = simData,
-                               inits = NULL, # Initial parameters = 0
-                               estimateMode = 3, # Do not estimate
-                               msmMode = 1,
-                               suitMode = 4,
-                               niter = 5,
-                               initMode = 2,
-                               verbose = 0)
-  inits <- ms_run1$estimated_params
-  map <- ms_run1$map
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
 
+  # * Fix parameters -----
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi
@@ -409,7 +399,7 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator-at-ag
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_ln_q[] <- log(1)
   inits$R_ln_sd[] <- log(1)
-  inits$x_tj[1:30, 1:2] <- t(sim$model_quantities$rec_devs)
+  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
 
@@ -438,17 +428,17 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator-at-ag
 
 
   ms_run2 <- Rceattle::fit_mod(data_list = simData,
-                               inits = inits, # Initialize from sim pars
+                               inits = inits, # Initial parameters from inits
                                file = NULL, # Don't save
-                               map = map,
-                               estimateMode = 3, # Do not estimate
+                               estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
-                               phase = FALSE,
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,
-                               initMode = 2,
-                               verbose = 0)
+                               initMode = "NonEquilibrium",
+                               fit_control = fit_control(
+                                 phase = FALSE,
+                                 verbose = 0))
 
   # AvgN
   testthat::expect_equal(as.numeric(sim$model_quantities$avgNAA[,,]), as.numeric(ms_run2$quantities$avgN_at_age[,1,,1:nyrs]))
@@ -458,11 +448,11 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator-at-ag
                          as.numeric(ms_run2$quantities$diet_hat[,2]))
 
   # Diet data (no modifications when rearranged)
-  diet_data1 <- ms_run2$data_list$diet_data %>%
-    arrange(Pred, Prey, Pred_age, Prey_age, Year)
+  diet_data1 <- ms_run2$data_list$diet_data |>
+    dplyr::arrange(Pred, Prey, Pred_age, Prey_age, Year)
 
-  diet_data2 <- simData$diet_data %>%
-    arrange(Pred, Prey, Pred_age, Prey_age, Year)
+  diet_data2 <- simData$diet_data |>
+    dplyr::arrange(Pred, Prey, Pred_age, Prey_age, Year)
   testthat::expect_equal(as.numeric(diet_data1$Stomach_proportion_by_weight), as.numeric(diet_data2$Stomach_proportion_by_weight))
 }
 )
@@ -504,19 +494,15 @@ testthat::test_that("Test proportion of prey (all ages) in predator-at-age avera
 
 
   # Fit multi-species
-  # * Fix parameters -----
-  # inits <- suppressMessages( build_params(simData) )
-  ms_run1 <- Rceattle::fit_mod(data_list = simData,
-                               inits = NULL, # Initial parameters = 0
-                               estimateMode = 3, # Do not estimate
-                               msmMode = 1,
-                               suitMode = 4,
-                               niter = 5,
-                               initMode = 2,
-                               verbose = 0)
-  inits <- ms_run1$estimated_params
-  map <- ms_run1$map
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
 
+  # * Fix parameters -----
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi
@@ -527,7 +513,7 @@ testthat::test_that("Test proportion of prey (all ages) in predator-at-age avera
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_ln_q[] <- log(1)
   inits$R_ln_sd[] <- log(1)
-  inits$x_tj[1:30, 1:2] <- t(sim$model_quantities$rec_devs)
+  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
 
@@ -557,17 +543,17 @@ testthat::test_that("Test proportion of prey (all ages) in predator-at-age avera
 
 
   ms_run2 <- Rceattle::fit_mod(data_list = simData,
-                               inits = inits, # Initialize from sim pars
+                               inits = inits, # Initial parameters from inits
                                file = NULL, # Don't save
-                               map = map,
-                               estimateMode = 3, # Do not estimate
+                               estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
-                               phase = FALSE,
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,
-                               initMode = 2,
-                               verbose = 0)
+                               initMode = "NonEquilibrium",
+                               fit_control = fit_control(
+                                 phase = FALSE,
+                                 verbose = 0))
 
   # AvgN
   testthat::expect_equal(as.numeric(sim$model_quantities$avgNAA[,,]), as.numeric(ms_run2$quantities$avgN_at_age[,1,,1:nyrs]))
@@ -576,11 +562,11 @@ testthat::test_that("Test proportion of prey (all ages) in predator-at-age avera
   testthat::expect_equal(as.numeric(ms_run2$data_list$diet_data$Stomach_proportion_by_weight), as.numeric(ms_run2$quantities$diet_hat[,2]))
 
   # Diet data (no modifications when rearranged)
-  diet_data1 <- ms_run2$data_list$diet_data %>%
-    arrange(Pred, Prey, Pred_age, Prey_age, Year)
+  diet_data1 <- ms_run2$data_list$diet_data |>
+    dplyr::arrange(Pred, Prey, Pred_age, Prey_age, Year)
 
-  diet_data2 <- simData$diet_data %>%
-    arrange(Pred, Prey, Pred_age, Prey_age, Year)
+  diet_data2 <- simData$diet_data |>
+    dplyr::arrange(Pred, Prey, Pred_age, Prey_age, Year)
   testthat::expect_equal(as.numeric(diet_data1$Stomach_proportion_by_weight), as.numeric(diet_data2$Stomach_proportion_by_weight))
 }
 )
@@ -621,19 +607,15 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (mean
 
 
   # Fit multi-species
-  # * Fix parameters -----
-  # inits <- suppressMessages( build_params(simData) )
-  ms_run1 <- Rceattle::fit_mod(data_list = simData,
-                               inits = NULL, # Initial parameters = 0
-                               estimateMode = 3, # Do not estimate
-                               msmMode = 1,
-                               suitMode = 4,
-                               niter = 5,
-                               initMode = 2,
-                               verbose = 0)
-  inits <- ms_run1$estimated_params
-  map <- ms_run1$map
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
 
+  # * Fix parameters -----
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi
@@ -644,7 +626,7 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (mean
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_ln_q[] <- log(1)
   inits$R_ln_sd[] <- log(1)
-  inits$x_tj[1:30, 1:2] <- t(sim$model_quantities$rec_devs)
+  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
 
@@ -674,17 +656,17 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (mean
   simData$diet_data <- diet_df[diet_df$Stomach_proportion_by_weight > 0, ]
 
   ms_run2 <- Rceattle::fit_mod(data_list = simData,
-                               inits = inits, # Initialize from sim pars
+                               inits = inits, # Initial parameters from inits
                                file = NULL, # Don't save
-                               map = map,
-                               estimateMode = 3, # Do not estimate
+                               estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
-                               phase = FALSE,
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,
-                               initMode = 2,
-                               verbose = 0)
+                               initMode = "NonEquilibrium",
+                               fit_control = fit_control(
+                                 phase = FALSE,
+                                 verbose = 0))
 
   # AvgN
   testthat::expect_equal(as.numeric(sim$model_quantities$avgNAA[,,]), as.numeric(ms_run2$quantities$avgN_at_age[,1,,1:nyrs]))
@@ -693,11 +675,11 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (mean
   testthat::expect_equal(as.numeric(ms_run2$data_list$diet_data$Stomach_proportion_by_weight), as.numeric(ms_run2$quantities$diet_hat[,2]))
 
   # Diet data (no modifications when rearranged)
-  diet_data1 <- ms_run2$data_list$diet_data %>%
-    arrange(Pred, Prey, Pred_age, Prey_age, Year)
+  diet_data1 <- ms_run2$data_list$diet_data |>
+    dplyr::arrange(Pred, Prey, Pred_age, Prey_age, Year)
 
-  diet_data2 <- simData$diet_data %>%
-    arrange(Pred, Prey, Pred_age, Prey_age, Year)
+  diet_data2 <- simData$diet_data |>
+    dplyr::arrange(Pred, Prey, Pred_age, Prey_age, Year)
   testthat::expect_equal(as.numeric(diet_data1$Stomach_proportion_by_weight), as.numeric(diet_data2$Stomach_proportion_by_weight))
 }
 )
@@ -739,19 +721,15 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (weig
 
 
   # Fit multi-species
-  # * Fix parameters -----
-  # inits <- suppressMessages( build_params(simData) )
-  ms_run1 <- Rceattle::fit_mod(data_list = simData,
-                               inits = NULL, # Initial parameters = 0
-                               estimateMode = 3, # Do not estimate
-                               msmMode = 1,
-                               suitMode = 4,
-                               niter = 5,
-                               initMode = 2,
-                               verbose = 0)
-  inits <- ms_run1$estimated_params
-  map <- ms_run1$map
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
 
+  # * Fix parameters -----
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi
@@ -762,7 +740,7 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (weig
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_ln_q[] <- log(1)
   inits$R_ln_sd[] <- log(1)
-  inits$x_tj[1:30, 1:2] <- t(sim$model_quantities$rec_devs)
+  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
 
@@ -789,34 +767,34 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (weig
   colnames(diet_summary) <- c("Pred", "Prey", "Year", "Stomach_proportion_by_weight")
 
   # 4. Format the data for Rceattle
-  simData$diet_data <- diet_summary %>%
+  simData$diet_data <- diet_summary |>
     dplyr::mutate(
       Pred = as.numeric(as.character(Pred)),
       Prey = as.numeric(as.character(Prey)),
       Year = as.numeric(as.character(Year))
-    ) %>%
-    dplyr::filter(Stomach_proportion_by_weight > 0) %>%
+    ) |>
+    dplyr::filter(Stomach_proportion_by_weight > 0) |>
     dplyr::mutate(
       Pred_age = -520, # Set Pred_age to negative flag < -500 or weighted average
       Prey_age = -1,   # Set Prey_age to negative flag
       Pred_sex = 0,
       Prey_sex = 0,
       Sample_size = 200
-    ) %>%
+    ) |>
     dplyr::select(Pred, Prey, Pred_sex, Prey_sex, Pred_age, Prey_age, Year, Sample_size, Stomach_proportion_by_weight)
 
   ms_run2 <- Rceattle::fit_mod(data_list = simData,
-                               inits = inits, # Initialize from sim pars
+                               inits = inits, # Initial parameters from inits
                                file = NULL, # Don't save
-                               map = map,
-                               estimateMode = 3, # Do not estimate
+                               estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
-                               phase = FALSE,
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,
-                               initMode = 2,
-                               verbose = 0)
+                               initMode = "NonEquilibrium",
+                               fit_control = fit_control(
+                                 phase = FALSE,
+                                 verbose = 0))
 
   # AvgN
   testthat::expect_equal(as.numeric(sim$model_quantities$avgNAA[,,]), as.numeric(ms_run2$quantities$avgN_at_age[,1,,1:nyrs]))
@@ -825,11 +803,11 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (weig
   testthat::expect_equal(as.numeric(ms_run2$data_list$diet_data$Stomach_proportion_by_weight), as.numeric(ms_run2$quantities$diet_hat[,2]))
 
   # Diet data (no modifications when rearranged)
-  diet_data1 <- ms_run2$data_list$diet_data %>%
-    arrange(Pred, Prey, Pred_age, Prey_age, Year)
+  diet_data1 <- ms_run2$data_list$diet_data |>
+    dplyr::arrange(Pred, Prey, Pred_age, Prey_age, Year)
 
-  diet_data2 <- simData$diet_data %>%
-    arrange(Pred, Prey, Pred_age, Prey_age, Year)
+  diet_data2 <- simData$diet_data |>
+    dplyr::arrange(Pred, Prey, Pred_age, Prey_age, Year)
   testthat::expect_equal(as.numeric(diet_data1$Stomach_proportion_by_weight), as.numeric(diet_data2$Stomach_proportion_by_weight))
 }
 )
@@ -872,19 +850,15 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
 
 
   # Fit multi-species
-  # * Fix parameters -----
-  # inits <- suppressMessages( build_params(simData) )
-  ms_run1 <- Rceattle::fit_mod(data_list = simData,
-                               inits = NULL, # Initial parameters = 0
-                               estimateMode = 3, # Do not estimate
-                               msmMode = 1,
-                               suitMode = 4,
-                               niter = 5,
-                               initMode = 2,
-                               verbose = 0)
-  inits <- ms_run1$estimated_params
-  map <- ms_run1$map
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
 
+  # * Fix parameters -----
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi
@@ -895,7 +869,7 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_ln_q[] <- log(1)
   inits$R_ln_sd[] <- log(1)
-  inits$x_tj[1:30, 1:2] <- t(sim$model_quantities$rec_devs)
+  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
 
@@ -926,17 +900,17 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
   simData$diet_data <- diet_df[diet_df$Stomach_proportion_by_weight > 0, ]
 
   ms_run2 <- Rceattle::fit_mod(data_list = simData,
-                               inits = inits, # Initialize from sim pars
+                               inits = inits, # Initial parameters from inits
                                file = NULL, # Don't save
-                               map = map,
-                               estimateMode = 3, # Do not estimate
+                               estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
-                               phase = FALSE,
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,
-                               initMode = 2,
-                               verbose = 0)
+                               initMode = "NonEquilibrium",
+                               fit_control = fit_control(
+                                 phase = FALSE,
+                                 verbose = 0))
 
   # AvgN
   testthat::expect_equal(as.numeric(sim$model_quantities$avgNAA[,,]), as.numeric(ms_run2$quantities$avgN_at_age[,1,,1:nyrs]))
@@ -945,11 +919,11 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
   testthat::expect_equal(as.numeric(ms_run2$data_list$diet_data$Stomach_proportion_by_weight), as.numeric(ms_run2$quantities$diet_hat[,2]))
 
   # Diet data (no modifications when rearranged)
-  diet_data1 <- ms_run2$data_list$diet_data %>%
-    arrange(Pred, Prey, Pred_age, Prey_age, Year)
+  diet_data1 <- ms_run2$data_list$diet_data |>
+    dplyr::arrange(Pred, Prey, Pred_age, Prey_age, Year)
 
-  diet_data2 <- simData$diet_data %>%
-    arrange(Pred, Prey, Pred_age, Prey_age, Year)
+  diet_data2 <- simData$diet_data |>
+    dplyr::arrange(Pred, Prey, Pred_age, Prey_age, Year)
   testthat::expect_equal(as.numeric(diet_data1$Stomach_proportion_by_weight), as.numeric(diet_data2$Stomach_proportion_by_weight))
 }
 )
@@ -991,19 +965,15 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
 
 
   # Fit multi-species
-  # * Fix parameters -----
-  # inits <- suppressMessages( build_params(simData) )
-  ms_run1 <- Rceattle::fit_mod(data_list = simData,
-                               inits = NULL, # Initial parameters = 0
-                               estimateMode = 3, # Do not estimate
-                               msmMode = 1,
-                               suitMode = 4,
-                               niter = 5,
-                               initMode = 2,
-                               verbose = 0)
-  inits <- ms_run1$estimated_params
-  map <- ms_run1$map
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
 
+  # * Fix parameters -----
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi
@@ -1014,7 +984,7 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_ln_q[] <- log(1)
   inits$R_ln_sd[] <- log(1)
-  inits$x_tj[1:30, 1:2] <- t(sim$model_quantities$rec_devs)
+  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
 
@@ -1061,17 +1031,17 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
 
   # Fit
   ms_run2 <- Rceattle::fit_mod(data_list = simData,
-                               inits = inits, # Initialize from sim pars
+                               inits = inits, # Initial parameters from inits
                                file = NULL, # Don't save
-                               map = map,
-                               estimateMode = 3, # Do not estimate
+                               estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
-                               phase = FALSE,
                                msmMode = 1,
                                suitMode = 4,
                                niter = 5,
-                               initMode = 2,
-                               verbose = 0)
+                               initMode = "NonEquilibrium",
+                               fit_control = fit_control(
+                                 phase = FALSE,
+                                 verbose = 0))
 
   # AvgN
   testthat::expect_equal(as.numeric(sim$model_quantities$avgNAA[,,]), as.numeric(ms_run2$quantities$avgN_at_age[,1,,1:nyrs]))
@@ -1080,11 +1050,11 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
   testthat::expect_equal(as.numeric(ms_run2$data_list$diet_data$Stomach_proportion_by_weight), as.numeric(ms_run2$quantities$diet_hat[,2]))
 
   # Diet data (no modifications when rearranged)
-  diet_data1 <- ms_run2$data_list$diet_data %>%
-    arrange(Pred, Prey, Pred_age, Prey_age, Year)
+  diet_data1 <- ms_run2$data_list$diet_data |>
+    dplyr::arrange(Pred, Prey, Pred_age, Prey_age, Year)
 
-  diet_data2 <- simData$diet_data %>%
-    arrange(Pred, Prey, Pred_age, Prey_age, Year)
+  diet_data2 <- simData$diet_data |>
+    dplyr::arrange(Pred, Prey, Pred_age, Prey_age, Year)
   testthat::expect_equal(as.numeric(diet_data1$Stomach_proportion_by_weight), as.numeric(diet_data2$Stomach_proportion_by_weight))
 }
 )
@@ -1121,20 +1091,15 @@ testthat::test_that("Test joint single-species models", {
 
 
   # Fit multi-species
-  # * Fix parameters -----
-  # inits <- suppressMessages( build_params(simData) )
+  # * Inits ----
   ss_run <- Rceattle::fit_mod(data_list = simData,
-                              inits = NULL, # Initialize from default
-                              estimateMode = 3, # Do not estimate
-                              random_rec = FALSE, # No random recruitment
-                              phase = FALSE,
-                              msmMode = 0,
-                              suitMode = 0,
-                              initMode = 2,
-                              verbose = 0)
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
   inits <- ss_run$estimated_params
-  map <- ss_run$map
 
+  # * Fix parameters -----
   inits$sel_inf[1,,1] <- c(3,6,2.5,4)
   inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
   inits$ln_F[2,] <- log(Fmort)
@@ -1142,19 +1107,21 @@ testthat::test_that("Test joint single-species models", {
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_ln_q[] <- log(1)
   inits$R_ln_sd[] <- log(1)
-  inits$x_tj[1:30, 1:2] <- t(sim$model_quantities$rec_devs)
+  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
   ss_run <- Rceattle::fit_mod(data_list = simData,
-                              inits = inits, # Initialize from sim pars
-                              map = map,
-                              estimateMode = 3, # Do not estimate
+                              inits = inits, # Initial parameters from inits
+                              file = NULL, # Don't save
+                              estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
-                              phase = FALSE,
                               msmMode = 0,
                               suitMode = 0,
-                              initMode = 2,
-                              verbose = 0)
+                              niter = 5,
+                              initMode = "NonEquilibrium",
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
 
   # Recruitment
   testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,1,]), as.numeric(ss_run$quantities$R[,1:nyrs]))
@@ -1227,20 +1194,16 @@ testthat::test_that("Mixed suitabilities: MSVPA and lognormal", {
   simData <- sim$data_list
 
 
-  # Fit initial multi-species to get paramter object
-  ms_run1 <- Rceattle::fit_mod(data_list = simData,
-                               file = NULL, # Don't save
-                               estimateMode = 3, # Don't estimate
-                               random_rec = FALSE, # No random recruitment
-                               phase = FALSE,
-                               msmMode = 1,
-                               suitMode = c(4, 0),
-                               niter = 5,
-                               initMode = 2,
-                               verbose = 0)
+  # Fit multi-species
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
 
   # * Fix parameters -----
-  inits <- ms_run1$estimated_params
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi
@@ -1251,75 +1214,75 @@ testthat::test_that("Mixed suitabilities: MSVPA and lognormal", {
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_ln_q[] <- log(1)
   inits$R_ln_sd[] <- log(1)
-  inits$x_tj[1:30, 1:2] <- t(sim$model_quantities$rec_devs)
+  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
-  ms_run2 <- Rceattle::fit_mod(data_list = simData,
+  ms_run1 <- Rceattle::fit_mod(data_list = simData,
                                inits = inits, # Initial parameters from inits
-                               map = ms_run1$map,
                                file = NULL, # Don't save
                                estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
-                               phase = FALSE,
                                msmMode = 1,
                                suitMode = c(4, 0),
                                niter = 5,
-                               initMode = 2,
-                               verbose = 0)
+                               initMode = "NonEquilibrium",
+                               fit_control = fit_control(
+                                 phase = FALSE,
+                                 verbose = 0))
 
   # Recruitment
-  testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,1,]), as.numeric(ms_run2$quantities$R[,1:nyrs]))
-  testthat::expect_equal(as.numeric(sim$model_quantities$Total_Biom), as.numeric(ms_run2$quantities$biomass[,1:nyrs]), tolerance = 1e-6)
+  testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,1,]), as.numeric(ms_run1$quantities$R[,1:nyrs]))
+  testthat::expect_equal(as.numeric(sim$model_quantities$Total_Biom), as.numeric(ms_run1$quantities$biomass[,1:nyrs]), tolerance = 1e-6)
 
 
   # Suitability
-  testthat::expect_equal(exp(ms_run2$estimated_params$log_gam_a), gam_a)
-  testthat::expect_equal(exp(ms_run2$estimated_params$log_gam_b), gam_b)
-  testthat::expect_equal(as.numeric(ms_run2$quantities$vulnerability),
+  testthat::expect_equal(exp(ms_run1$estimated_params$log_gam_a), gam_a)
+  testthat::expect_equal(exp(ms_run1$estimated_params$log_gam_b), gam_b)
+  testthat::expect_equal(as.numeric(ms_run1$quantities$vulnerability),
                          as.numeric(sim$model_quantities$vulnerability))
-  testthat::expect_equal(as.numeric(ms_run2$quantities$suitability[,,,,2]),
+  testthat::expect_equal(as.numeric(ms_run1$quantities$suitability[,,,,2]),
                          as.numeric(sim$model_quantities$suitability))
-  testthat::expect_equal(as.numeric(ms_run2$quantities$suit_other[,1,1,1]),
+  testthat::expect_equal(as.numeric(ms_run1$quantities$suit_other[,1,1,1]),
                          as.numeric(sim$model_quantities$suit_other))
 
   # M2
   testthat::expect_equal(as.numeric(sim$model_quantities$M2_at_age),
-                         as.numeric(ms_run2$quantities$M2_at_age[,1,,1:nyrs]), tolerance = 1e-6)
+                         as.numeric(ms_run1$quantities$M2_at_age[,1,,1:nyrs]), tolerance = 1e-6)
 
   # Ration
   testthat::expect_equal(as.numeric(sim$model_quantities$ration),
-                         as.numeric(ms_run2$quantities$consumption_at_age[,1,,1]))
+                         as.numeric(ms_run1$quantities$consumption_at_age[,1,,1]))
 
   # N
   testthat::expect_equal(as.numeric(sim$model_quantities$NAA[,,]),
-                         as.numeric(ms_run2$quantities$N_at_age[,1,,1:nyrs]))
+                         as.numeric(ms_run1$quantities$N_at_age[,1,,1:nyrs]))
 
   # AvgN
   testthat::expect_equal(as.numeric(sim$model_quantities$avgNAA[,,]),
-                         as.numeric(ms_run2$quantities$avgN_at_age[,1,,1:nyrs]))
+                         as.numeric(ms_run1$quantities$avgN_at_age[,1,,1:nyrs]))
 
   # Avail food
   testthat::expect_equal(as.numeric(sim$model_quantities$avail_food[,,1]),
-                         as.numeric(ms_run2$quantities$avail_food[,1,,1]))
+                         as.numeric(ms_run1$quantities$avail_food[,1,,1]))
 
   # Selectivity
   testthat::expect_equal(as.numeric(sim$model_quantities$srv_sel[,]),
-                         as.numeric(ms_run2$quantities$sel_at_age[c(1,3),,,1]))
+                         as.numeric(ms_run1$quantities$sel_at_age[c(1,3),,,1]))
   testthat::expect_equal(as.numeric(sim$model_quantities$fish_sel[,]),
-                         as.numeric(ms_run2$quantities$sel_at_age[c(2,4),,,1]))
+                         as.numeric(ms_run1$quantities$sel_at_age[c(2,4),,,1]))
 
   # F
   testthat::expect_equal(as.numeric(sim$model_quantities$FAA),
-                         as.numeric(ms_run2$quantities$F_flt_age[c(2,4),1,,1:nyrs]))
+                         as.numeric(ms_run1$quantities$F_flt_age[c(2,4),1,,1:nyrs]))
 
   # Q
   testthat::expect_equal(as.numeric(sim$model_quantities$srv_q),
-                         as.numeric(ms_run2$quantities$index_q[c(1,3),1]))
+                         as.numeric(ms_run1$quantities$index_q[c(1,3),1]))
 
   # Expected and observed diet
-  pred1_ind <- ms_run2$data_list$diet_data$Pred == 1 # Species 2 will be biased because MSVPA
-  testthat::expect_equal(as.numeric(ms_run2$data_list$diet_data$Stomach_proportion_by_weight[pred1_ind]),
-                         as.numeric(ms_run2$quantities$diet_hat[pred1_ind,2]))
+  pred1_ind <- ms_run1$data_list$diet_data$Pred == 1 # Species 2 will be biased because MSVPA
+  testthat::expect_equal(as.numeric(ms_run1$data_list$diet_data$Stomach_proportion_by_weight[pred1_ind]),
+                         as.numeric(ms_run1$quantities$diet_hat[pred1_ind,2]))
 })
 
 
@@ -1356,20 +1319,16 @@ testthat::test_that("Mixed suitabilities2: MSVPA and lognormal", {
   simData <- sim$data_list
 
 
-  # Fit initial multi-species to get parameter object
-  ms_run1 <- Rceattle::fit_mod(data_list = simData,
-                               file = NULL, # Don't save
-                               estimateMode = 3, # Don't estimate
-                               random_rec = FALSE, # No random recruitment
-                               phase = FALSE,
-                               msmMode = 1,
-                               suitMode = c(4, 0),
-                               niter = 5,
-                               initMode = 2,
-                               verbose = 0)
+  # Fit multi-species
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
 
   # * Fix parameters -----
-  inits <- ms_run1$estimated_params
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi
@@ -1380,29 +1339,29 @@ testthat::test_that("Mixed suitabilities2: MSVPA and lognormal", {
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_ln_q[] <- log(1)
   inits$R_ln_sd[] <- log(1)
-  inits$x_tj[1:30, 1:2] <- t(sim$model_quantities$rec_devs)
+  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
-  ms_run2 <- Rceattle::fit_mod(data_list = simData,
+  ms_run1 <- Rceattle::fit_mod(data_list = simData,
                                inits = inits, # Initial parameters from inits
-                               map = ms_run1$map,
                                file = NULL, # Don't save
                                estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
-                               phase = FALSE,
                                msmMode = 1,
                                suitMode = c(4, 0),
                                niter = 5,
-                               initMode = 2,
-                               verbose = 0)
+                               initMode = "NonEquilibrium",
+                               fit_control = fit_control(
+                                 phase = FALSE,
+                                 verbose = 0))
 
   # Suitability of predator (species 1)
-  testthat::expect_equal(as.numeric(ms_run2$quantities$suitability[1,,,,2]),
+  testthat::expect_equal(as.numeric(ms_run1$quantities$suitability[1,,,,2]),
                          as.numeric(sim$model_quantities$suitability[1,,,]))
-  testthat::expect_equal(as.numeric(ms_run2$quantities$suit_other[1,1,1,1]),
+  testthat::expect_equal(as.numeric(ms_run1$quantities$suit_other[1,1,1,1]),
                          as.numeric(sim$model_quantities$suit_other[1]))
 
   # Suitability of prey (species 2) should be off
-  testthat::expect_false(isTRUE(all.equal(as.numeric(ms_run2$quantities$suitability[2,,,,2]),
-                                as.numeric(sim$model_quantities$suitability[2,,,]))))
+  testthat::expect_false(isTRUE(all.equal(as.numeric(ms_run1$quantities$suitability[2,,,,2]),
+                                          as.numeric(sim$model_quantities$suitability[2,,,]))))
 })

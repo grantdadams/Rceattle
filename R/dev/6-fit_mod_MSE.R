@@ -1,7 +1,7 @@
 #' This functions runs CEATTLE for MSEs (estimation is trimmed down)
 #' @description This function estimates population parameters of CEATTLE using maximum likelihood in TMB.
 #'
-#' @param data_list a data_list created from BSAI CEATTLE dat files \code{\link{build_dat}}, prebuilt data_list \code{\link{BS2017SS}}, or read in using \code{\link{read_excel}}.
+#' @param data_list an Rceattle data_list
 #' @param inits (Optional) Character vector of named initial values from previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters. Can also construct using \code{\link{build_params}}
 #' @param map (Optional) A map object from \code{\link{build_map}}.
 #' @param estimateMode 0 = Fit the hindcast model and projection with HCR specified via \code{HCR}. 1 = Fit the hindcast model only (no projection). 2 = Run the projection only with HCR specified via \code{HCR} given the initial parameters in \code{inits}.  3 = debug mode 1: runs the model through MakeADFun, but not nlminb, 4 = runs the model through MakeADFun and nlminb (will all parameters mapped out).
@@ -104,7 +104,7 @@ fit_mod_mse <-
     start_par <- inits
 
     # Set Fdev for years with 0 catch to very low number
-    fsh_biom_sub <- data_list$fsh_biom %>%
+    fsh_biom_sub <- data_list$fsh_biom |>
       filter(Year <= data_list$endyr)
     fsh_ind <- fsh_biom_sub$Fleet_code[which(fsh_biom_sub$Catch == 0)]
     yr_ind <- fsh_biom_sub$Year[which(fsh_biom_sub$Catch == 0)] - data_list$styr + 1

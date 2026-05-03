@@ -1,16 +1,27 @@
+# pkgdown site (built by GitHub Actions, not committed)
+docs/
+
 .Rproj.user
 .Rhistory
 .RData
 .Ruserdata
-src/*.o
-src/*.so
-src/*.dll
+.DS_Store
+.claude
 inst/doc
 /doc/
 /Meta/
-.Rhistory
+Rplots.pdf
+
+# Compiled artifacts (anywhere in the tree)
 *.o
 *.so
-src/TMB/ceattle_v01_11.dll
-src/.DS_Store
+*.dll
+src/symbols.rds
+
+# R CMD check artifacts
+*.Rcheck/
+..Rcheck/
+Rceattle_*.tar.gz
+
+# Test artifacts
 tests/comparison/WHAM_growth_comparison/wham_model.RDS

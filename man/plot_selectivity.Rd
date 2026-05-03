@@ -16,7 +16,7 @@ plot_selectivity(
 )
 }
 \arguments{
-\item{Rceattle}{Single or list of Rceattle model objects exported from \code{\link{Rceattle}}}
+\item{Rceattle}{Single or list of Rceattle model objects exported from \code{Rceattle}}
 
 \item{file}{name of a file to identified the files exported by the
 function.}
@@ -25,10 +25,14 @@ function.}
 
 \item{line_col}{Colors of models to be used for line color}
 
+\item{width}{Figure width in inches}
+
+\item{height}{Figure height in inches}
+
 \item{species}{Species names for legend}
 
 \item{lwd}{Line width as specified by user}
 }
 \description{
-Function the plots the fishery and survey selectivity as estimated from Rceattle
+Function that plots the fishery and survey selectivity as estimated from Rceattle
 }

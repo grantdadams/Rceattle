@@ -33,8 +33,15 @@ testthat::test_that("Diet proportion multinomial likelihood (jnll_comp) matches 
 
 
   # Fit multi-species
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
+
   # * Fix parameters -----
-  inits <- suppressMessages( build_params(simData) )
   inits$log_gam_a <- log(gam_a)
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi
@@ -53,12 +60,13 @@ testthat::test_that("Diet proportion multinomial likelihood (jnll_comp) matches 
                            file = NULL, # Don't save
                            estimateMode = 3, # Don't estimate
                            random_rec = FALSE, # No random recruitment
-                           phase = FALSE,
                            msmMode = 1,
                            suitMode = 4,
                            niter = 5,
-                           initMode = 2,
-                           verbose = 0)
+                           initMode = "NonEquilibrium",
+                           fit_control = fit_control(
+                             phase = FALSE,
+                             verbose = 0))
 
   # Extract the NLL calculated by C++
   tmb_diet_nll <- mod$quantities$jnll_comp[19, 1:nspp]

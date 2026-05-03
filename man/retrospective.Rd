@@ -16,7 +16,7 @@ retrospective(
 
 \item{peels}{the number of retrospective peels to use in the calculation of rho and for model estimation}
 
-\item{rescale}{TRUE/FALSE wether to subset and rescale environmental predictors for the range of peel years.}
+\item{rescale}{TRUE/FALSE whether to subset and rescale environmental predictors for the range of peel years.}
 
 \item{nyrs_forecast}{Number of forecast years to calculate Mohn's Rho in addition to terminal year}
 }
@@ -32,16 +32,13 @@ Calculate Mohn's rho and run retrospective peels for an Rceattle model. The func
 }
 }
 \examples{
-data(BS2017SS) # ?BS2017SS for more information on the data
-data('BS2017MS') # Note: the only difference is the residual mortality is lower
-
-ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
-                            inits = NULL, # Initial parameters = 0
-                            file = NULL, # Don't save
-                            debug = 0, # Estimate
-                            random_rec = FALSE, # No random recruitment
-                            msmMode = 0, # Single species mode
-                            silent = TRUE)
-
+\donttest{
+data(BS2017SS)
+ss_run <- fit_mod(data_list = BS2017SS,
+    inits = NULL, file = NULL,
+    estimateMode = 0, random_rec = FALSE,
+    msmMode = 0, avgnMode = 0,
+    phase = FALSE, verbose = 0)
 retro <- retrospective(ss_run, peels = 10)
+}
 }

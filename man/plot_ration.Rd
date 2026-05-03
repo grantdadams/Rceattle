@@ -24,7 +24,7 @@ plot_ration(
 )
 }
 \arguments{
-\item{Rceattle}{Single or list of Rceattle model objects exported from \code{\link{Rceattle}}}
+\item{Rceattle}{Single or list of Rceattle model objects exported from \code{Rceattle}}
 
 \item{file}{name of a file to identified the files exported by the
 function.}
@@ -41,9 +41,15 @@ function.}
 
 \item{lwd}{Line width as specified by user}
 
+\item{lty}{Line type}
+
 \item{right_adj}{Multiplier for to add to the right side of the figure for fitting the legend.}
 
 \item{minyr}{first year to plot}
+
+\item{width}{Figure width in inches}
+
+\item{height}{Figure height in inches}
 
 \item{incl_proj}{TRUE/FALSE include projections years}
 
@@ -52,5 +58,5 @@ function.}
 \item{add_ci}{TRUE/FALSE, includes 95 percent confidence interval}
 }
 \description{
-Function the plots the ration across ages (minage:nages) as estimated from Rceattle. Returns and saves a figure with the ration trajectory. Ration is multiplied by biomass-at-age/sex to get population level estimates
+Function that plots the ration across ages (minage:nages) as estimated from Rceattle. Returns and saves a figure with the ration trajectory. Ration is multiplied by biomass-at-age/sex to get population level estimates
 }

@@ -11,47 +11,88 @@ CEATTLE is short for Climate-Enhanced, Age-based model with Temperature-specific
 
 'Rceattle' is an 'R' package designed to implement the CEATTLE model using Template Model Builder ('TMB'; Kristensen et al. 2015), which can be installed following https://github.com/kaskr/adcomp/wiki/Download. Rceattle is structured similar to Adams et al (2022). Data are read in via an excel document (see examples) for model fitting (see examples). Projections can be conducted under alternative harvest control rules, climate projections, and recruitment. Model diagnostic, validation, simulation, and closed loop simulation testing (management strategy evaluation) functions are included as well. The package supports one- or -two sex models with multiple fisheries and surveys with flexible catchability and selectivity parameterizations. See vignette (in progress) for model parameterizations. 
 
-**Getting started**
-
-See [onboarding document](https://github.com/grantdadams/Rceattle/wiki/Onboarding) and Wiki for getting started!
-
-The model can be updated following instructions [here](https://github.com/grantdadams/Rceattle/wiki/Workflow-for-updating-the-Rceattle).
-
 **Installation**
-```
-# Dependencies
-install.packages("pacman")
+
+```r
+# Required dependencies (CRAN)
 install.packages("TMB", type = "source")
 install.packages("Matrix", type = "source")
-pacman::p_load(dplyr,
-               ggplot2,
-               MASS,
-               oce,
-               readxl,
-               TMB,
-               devtools,
-               writexl,
-               reshape2,
-               gplots,
-               tidyr,
-               testthat,
-               foreach,
-               R.utils,
-               knitr,
-               doParallel)
-devtools::install_github("kaskr/TMB_contrib_R/TMBhelper")
+install.packages("devtools")
 
-# Rceattle
+# Rceattle (pulls remaining CRAN dependencies automatically)
 devtools::install_github("grantdadams/Rceattle")
+
+# Optional: TMBhelper provides richer optimization diagnostics.
+# Rceattle falls back to plain nlminb + sdreport if it's not installed.
+# devtools::install_github("kaskr/TMB_contrib_R/TMBhelper")
 ```
+
+For operational / management use, pin a specific tagged release rather than
+tracking `master`, e.g.:
+
+```r
+devtools::install_github("grantdadams/Rceattle@v4.0.2")
+```
+
+The maintainer email in `DESCRIPTION` (`grant.adams@noaa.gov`) is the
+preferred contact for questions about the package; please open an
+[issue](https://github.com/grantdadams/Rceattle/issues) for bug reports
+and feature requests so the discussion is publicly searchable.
+
+**Getting started**
+
+Fit a single-species model to the bundled Bering Sea data, inspect the
+fit, and plot it:
+
+```r
+library(Rceattle)
+
+# Bundled Eastern Bering Sea single-species data (1979-2017)
+data(BS2017SS)
+
+# Fit the hindcast (single-species mode)
+fit <- fit_mod(
+  data_list    = BS2017SS,
+  msmMode      = 0,                              # 0 = single-species
+  estimateMode = 0,                              # 0 = fit hindcast + projection
+  fit_control  = fit_control(phase = TRUE)       # optimizer / sdreport / phasing knobs
+)
+
+# S3 methods: the fit behaves like an R model object
+fit                       # compact print
+summary(fit)              # same compact summary
+coef(fit)                 # estimated fixed-effect parameters
+logLik(fit)               # logLik with df attribute (AIC works)
+AIC(fit)
+vcov(fit)                 # fixed-effect covariance from sdreport
+
+# Plot dispatcher: pick a panel with `what`
+plot(fit, what = "biomass")
+plot(fit, what = "ssb")
+plot(fit, what = "recruitment")
+plot(fit, what = "index")
+
+# Residuals across data sources (long-format data frame)
+ix_resid   <- residuals(fit, type = "index")    # log-scale by default
+comp_resid <- residuals(fit, type = "comp")     # Pearson, with Age0_Length1
+all_resid  <- residuals(fit, type = "all")
+```
+
+For a multispecies fit, swap in `BS2017MS` and set `msmMode = 1`. See the
+package vignettes (`browseVignettes("Rceattle")`) for projections,
+alternative harvest control rules, MSE testing, model diagnostics, and
+non-Excel data construction. For deeper context, see the
+[onboarding document](https://github.com/grantdadams/Rceattle/wiki/Onboarding)
+and Wiki. The model can be updated following instructions
+[here](https://github.com/grantdadams/Rceattle/wiki/Workflow-for-updating-the-Rceattle).
 
 **Examples**
 Code and function examples using data from the Bering Sea and Gulf of Alaska groundfish application can be found in the [examples](https://github.com/grantdadams/Rceattle/tree/master/examples) folder and include:
-* [Fitting multi-species models](https://github.com/grantdadams/Rceattle/blob/master/examples/Fit%202018%20GOA%20multi-species%20model.R)
-* [Fitting single-species models](https://github.com/grantdadams/Rceattle/blob/master/examples/Fit%202018%20GOA%20single-species%20models.R)
-* [Alternative HCRs and MSE testing](https://github.com/grantdadams/Rceattle/blob/master/examples/HCRs%20and%20MSE%20testing.R)
-* [Simulation](https://github.com/grantdadams/Rceattle/blob/master/examples/Simulation%20testing.R)
-* [Model diagnostics](https://github.com/grantdadams/Rceattle/blob/master/examples/Model%20diagnostics.R)
+* [Fitting multi-species models](https://github.com/grantdadams/Rceattle/blob/master/examples/Fit_2018_GOA_multi-species_model.R)
+* [Fitting single-species models](https://github.com/grantdadams/Rceattle/blob/master/examples/Fit_2018_GOA_single-species_models.R)
+* [Alternative HCRs and MSE testing](https://github.com/grantdadams/Rceattle/blob/master/examples/HCRs_and_MSE_testing.R)
+* [Simulation](https://github.com/grantdadams/Rceattle/blob/master/examples/Simulation_testing.R)
+* [Model diagnostics](https://github.com/grantdadams/Rceattle/blob/master/examples/Model_diagnostics.R)
 
 **References**
 

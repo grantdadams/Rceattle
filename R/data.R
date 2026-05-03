@@ -56,13 +56,13 @@
 #'\describe{
 #' \item{Fleet_name}{Name of survey or fishery}
 #' \item{Fleet_code}{Index of survey/fishery ACROSS species}
-#' \item{Fleet_type}{0 = Do not estimate; 1 = Fishery; 2 = Survey}
+#' \item{Fleet_type}{0 or 'Off' = Do not estimate; 1 = 'Fishery'; 2 = 'Survey'}
 #' \item{Species}{Species number}
 #' \item{Selectivity_index}{index to use if selectivities of different surveys are to be the same}
 #' \item{Selectivity}{Selectivity to use for the species: 0 = "Fixed"; 1 = "Logistic"; 2 = "NonParametric" sensu Ianelli et al 2018; 3 = "DoubleLogistic"; 4 = "DescendingLogistic", 5 = "Hake" non-parametric sense Taylor et al, 6 = "2DAR1", 7 = "3DAR1" sensu Cheng et al 2024.}
 #' \item{Selectivity_dimension}{"Age" or "Length".}
 #' \item{Nselages}{Number of ages to estimate non-parametric selectivity.}
-#' \item{Time_varying_sel}{Wether a time-varying selectivity should be estimated for logistic, double logistic selectivity, or descending logistic. 0 = no, 1 = penalized deviates given sel_sd_prior, 2 = random effect, 3 = time blocks with no penality, 4 = random walk following Dorn, 5 = random walk on ascending portion of double logistic only. If selectivity is set to type = 2 (non-parametric) this value will be the 1st penalty on selectivity.}
+#' \item{Time_varying_sel}{Whether a time-varying selectivity should be estimated for logistic, double logistic selectivity, or descending logistic. 0 = no, 1 = penalized deviates given sel_sd_prior, 2 = random effect, 3 = time blocks with no penalty, 4 = random walk following Dorn, 5 = random walk on ascending portion of double logistic only. If selectivity is set to type = 2 (non-parametric) this value will be the 1st penalty on selectivity.}
 #' \item{Time_varying_sel_sd_prior}{The sd to use for the random walk of time varying selectivity if set to 1. If selectivity is set to type = 2 (non-parametric) this value will be the 2nd penalty on selectivity.}
 #' \item{Bin_first_selected}{Age/length bin at which selectivity is non-zero}
 #' \item{Acuumulation_age_lower}{Ages below this will be grouped to this age for composition data. For example, if set to 2, comp data for age 2 will include 1 and 2 year olds.}
@@ -74,7 +74,7 @@
 #' \item{Catchability}{Estimate catchability? (0 or "Fixed" = fixed at prior; 1 or "Estimated" = Estimate single parameter; 2 or "Estimated-with-prior" = Estimate single parameter with prior; 3 or "Analytical" = Estimate analytical q  from Ludwig and Walters 1994;  - 4 = Estimate power equation; - 5 or "Environmental" = Linear equation log(q_y) = q_mu + beta * index_y; 6 or "AR1" = annual AR1 catchability deviates are fit to environmental index sensu Rogers et al 2025)}
 #' \item{Q_prior}{Starting value or fixed value for catchability}
 #' \item{Q_sd_prior}{Variance of q prior: dnorm (log_q, log_q_prior, q_sd_prior)}
-#' \item{Time_varying_q}{Wether a time-varying q should be estimated. 0 = no, 1 = penalized deviate, 2 = random effect, 3 = time blocks with no penalty; 4 = random walk from mean following Dorn 2018 (dnorm(q_y - q_y-1, 0, sigma). If Catchability = 5, this determines the environmental index to be used in the equation log(q_y) = q_mu + beta * index_y}
+#' \item{Time_varying_q}{Whether a time-varying q should be estimated. 0 = no, 1 = penalized deviate, 2 = random effect, 3 = time blocks with no penalty; 4 = random walk from mean following Dorn 2018 (dnorm(q_y - q_y-1, 0, sigma). If Catchability = 5, this determines the environmental index to be used in the equation log(q_y) = q_mu + beta * index_y}
 #' \item{Time_varying_q_sd_prior}{The sd to use for the random walk of time varying q if set to 1}
 #' \item{Estimate_survey_sd}{Estimate survey variance (0 = use CV from index_data, 1 = yes, 2 = analytically estimate following (Ludwig and Walters 1994)}
 #' \item{Survey_sd_prior}{Starting value to be used if Estimate_sigma_index = 1}
@@ -88,4 +88,145 @@
 "BS2017SS"
 
 
+#' Data inputs for multispecies CEATTLE of the Bering Sea from 1979 to 2017
+#'
+#' A data list containing inputs for the three-species (walleye pollock,
+#' Pacific cod, arrowtooth flounder) multispecies CEATTLE model for the
+#' Eastern Bering Sea. See \code{\link{BS2017SS}} for format details.
+#'
+#' @format A list with the same structure as \code{\link{BS2017SS}}.
+"BS2017MS"
 
+
+#' Fitted single-species CEATTLE model for the Eastern Bering Sea
+#'
+#' A fitted \code{Rceattle} model object for the single-species run of CEATTLE
+#' for the Eastern Bering Sea (walleye pollock, Pacific cod, arrowtooth
+#' flounder) without estimating natural mortality.
+#'
+#' @format An object of class \code{Rceattle}.
+"EBS_ss_run"
+
+
+#' Fitted single-species CEATTLE model with estimated M for the Eastern Bering Sea
+#'
+#' A fitted \code{Rceattle} model object for the single-species run of CEATTLE
+#' for the Eastern Bering Sea with natural mortality estimated.
+#'
+#' @format An object of class \code{Rceattle}.
+"EBS_ss_M_run"
+
+
+#' Fitted multispecies CEATTLE model for the Eastern Bering Sea
+#'
+#' A fitted \code{Rceattle} model object for the multispecies run of CEATTLE
+#' for the Eastern Bering Sea (walleye pollock, Pacific cod, arrowtooth
+#' flounder).
+#'
+#' @format An object of class \code{Rceattle}.
+"EBS_ms_run"
+
+
+#' Data inputs for a single-species Gulf of Alaska CEATTLE model (2018)
+#'
+#' A data list containing inputs for a single-species CEATTLE model fit to
+#' Gulf of Alaska groundfish data through 2018. See \code{\link{BS2017SS}}
+#' for format details.
+#'
+#' @format A list with the same structure as \code{\link{BS2017SS}}.
+"GOA2018SS"
+
+
+#' Data inputs for Gulf of Alaska arrowtooth flounder CEATTLE model
+#'
+#' A data list containing inputs for a single-species CEATTLE model fit to
+#' Gulf of Alaska arrowtooth flounder data. See \code{\link{BS2017SS}}
+#' for format details.
+#'
+#' @format A list with the same structure as \code{\link{BS2017SS}}.
+"GOAatf"
+
+
+#' Data inputs for Gulf of Alaska arrowtooth flounder CEATTLE model (2023)
+#'
+#' A data list containing inputs for a single-species CEATTLE model fit to
+#' Gulf of Alaska arrowtooth flounder data through 2023. See
+#' \code{\link{BS2017SS}} for format details.
+#'
+#' @format A list with the same structure as \code{\link{BS2017SS}}.
+"GOAatf2023"
+
+
+#' Data inputs for Gulf of Alaska Pacific cod CEATTLE model
+#'
+#' A data list containing inputs for a single-species CEATTLE model fit to
+#' Gulf of Alaska Pacific cod data. See \code{\link{BS2017SS}} for format
+#' details.
+#'
+#' @format A list with the same structure as \code{\link{BS2017SS}}.
+"GOAcod"
+
+
+#' Data inputs for Gulf of Alaska walleye pollock CEATTLE model
+#'
+#' A data list containing inputs for a single-species CEATTLE model fit to
+#' Gulf of Alaska walleye pollock data. See \code{\link{BS2017SS}} for
+#' format details.
+#'
+#' @format A list with the same structure as \code{\link{BS2017SS}}.
+"GOApollock"
+
+
+#' Gulf of Alaska 2018 SAFE report reference values
+#'
+#' A list containing biomass, spawning stock biomass, and recruitment
+#' reference values from the 2018 Gulf of Alaska Stock Assessment and
+#' Fishery Evaluation (SAFE) report.
+#'
+#' @format A list with components:
+#' \describe{
+#'   \item{biomass}{Total biomass time series}
+#'   \item{ssb}{Spawning stock biomass time series}
+#'   \item{recruitment}{Recruitment time series}
+#' }
+"GOAsafe2018"
+
+
+#' Data inputs for a three-species Georges Bank CEATTLE model
+#'
+#' A data list containing inputs for a multispecies CEATTLE model fit to
+#' three groundfish species on Georges Bank. See \code{\link{BS2017SS}} for
+#' format details.
+#'
+#' @format A list with the same structure as \code{\link{BS2017SS}}.
+"GeorgesBank3spp"
+
+
+#' Data inputs for Northern Rockfish CEATTLE model (2022)
+#'
+#' A data list containing inputs for a single-species CEATTLE model fit to
+#' Gulf of Alaska northern rockfish data through 2022. See
+#' \code{\link{BS2017SS}} for format details.
+#'
+#' @format A list with the same structure as \code{\link{BS2017SS}}.
+"NorthernRockfish2022"
+
+
+#' Data inputs for Atka mackerel CEATTLE model (2022)
+#'
+#' A data list containing inputs for a single-species CEATTLE model fit to
+#' Aleutian Islands Atka mackerel data through 2022. See
+#' \code{\link{BS2017SS}} for format details.
+#'
+#' @format A list with the same structure as \code{\link{BS2017SS}}.
+"Atka2022"
+
+
+#' Data inputs for CEATTLE model with WHAM-estimated growth
+#'
+#' A data list containing inputs for a CEATTLE model that uses growth
+#' estimated from the Woods Hole Assessment Model (WHAM). See
+#' \code{\link{BS2017SS}} for format details.
+#'
+#' @format A list with the same structure as \code{\link{BS2017SS}}.
+"whamGrowthData"

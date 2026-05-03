@@ -1,4 +1,11 @@
+#if defined(__clang__)
+# pragma clang diagnostic push
+# pragma clang diagnostic ignored "-Wunknown-warning-option"
+#endif
 #include <TMB.hpp>
+#if defined(__clang__)
+# pragma clang diagnostic pop
+#endif
 #include "helper_functions.hpp"
 #include "growth.hpp"
 #include "selectivity.hpp"
@@ -70,16 +77,11 @@ Type objective_function<Type>::operator() () {
   // 1.1. CONFIGURE MODEL (this section sets up the switches)
   DATA_INTEGER(estimateMode);             // Logical to debug or not
   DATA_INTEGER(msmMode);
-  //    0 = run in single species mode
-  //    1 = run in Type II MSVPA based (sensu Holsman et al (2015))
-  //    2 = run in Type III MSVPA based
-  //    3 = Holling Type I (linear)
-  //    4 = Holling Type II
-  //    5 = Holling Type III
-  //    6 = Predator interference
-  //    7 = Predator preemption
-  //    8 = Hassell-Varley
-  //    9 = Ecosim
+  //    0 = single species mode (no predation mortality)
+  //    1 = Type II MSVPA based (sensu Holsman et al 2015)
+  //    2 = Type III MSVPA based
+  //    3-9 = NOT YET IMPLEMENTED (Holling Type I/II/III, predator interference,
+  //          predator preemption, Hassell-Varley, Ecosim)
   // DATA_INTEGER(est_diet);              // Include diet data in the likelihood
   DATA_IVECTOR(suitMode);                 // Estimate suitability
   // DATA_INTEGER(avgnMode);              // N used for predation function
@@ -966,22 +968,24 @@ Type objective_function<Type>::operator() () {
           switch(estDynamics(sp)){
           case 0: // Estimated
 
-            // - Estimate as free parameters
+            // - Amin (i.e. recruitment)
+            if(age == 0){
+              R(sp, 0) = R_init(sp) * exp(rec_dev(sp, 0));
+              N_at_age(sp, 0, 0, 0) = R(sp, 0) * sex_ratio(sp, 0);
+              N_at_age(sp, 1, 0, 0) = R(sp, 0) * (1-sex_ratio(sp, 0));
+            }
+
+            // - Estimate  as free parameters
             if(initMode == 0){
-              R(sp, 0) = exp(init_dev(sp, 0));
-              N_at_age(sp, 0, age, 0) = exp(init_dev(sp, age)) * sex_ratio(sp, 0);
-              N_at_age(sp, 1, age, 0) = exp(init_dev(sp, age)) * (1-sex_ratio(sp, 0));
+              if(age > 0){
+                N_at_age(sp, 0, age, 0) = exp(init_dev(sp, age-1)) * sex_ratio(sp, 0);
+                N_at_age(sp, 1, age, 0) = exp(init_dev(sp, age-1)) * (1-sex_ratio(sp, 0));
+              }
             }
 
             // - Equilibrium or non-equilibrium estimated as function of R0, Finit, mortality, and init devs
             // Finit is set to 0 when initMode != 2
             if(initMode > 0){
-              // -- 6.5.1. Amin (i.e. recruitment)
-              if(age == 0){
-                R(sp, 0) = R_init(sp) * exp(rec_dev(sp, 0));
-                N_at_age(sp, 0, 0, 0) = R(sp, 0) * sex_ratio(sp, 0);
-                N_at_age(sp, 1, 0, 0) = R(sp, 0) * (1-sex_ratio(sp, 0));
-              }
 
               // Sum M1 until age - 1
               if((initMode == 1) | (initMode == 2) | (initMode == 3)){
@@ -1014,25 +1018,26 @@ Type objective_function<Type>::operator() () {
               if(age == (nages(sp) - 1)) {
 
                 if(sex == 0){// NOTE: This solves for the geometric series
-                  N_at_age(sp, 0, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) / (1 - exp(-M1_at_age(sp, sex, nages(sp) - 1, 0))) * sex_ratio(sp, 0);
+                  N_at_age(sp, 0, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) / (1 - exp(-M1_at_age(sp, sex, nages(sp) - 1, 0) - Finit(sp))) * sex_ratio(sp, 0);
                 }
 
                 if(sex == 1){
-                  N_at_age(sp, 1, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) / (1 - exp(-M1_at_age(sp, sex, nages(sp) - 1, 0))) * (1-sex_ratio(sp, 0));
+                  N_at_age(sp, 1, age, 0) = R_init(sp) * exp( - mort_sum(sp, age) + init_dev(sp, age - 1)) / (1 - exp(-M1_at_age(sp, sex, nages(sp) - 1, 0) - Finit(sp))) * (1-sex_ratio(sp, 0));
                 }
               }
             }
             break;
 
-          case 1: // Fixed numbers-at-age - fixed scalar
+          case 1: // Numbers-at-age fixed exactly to NByageFixed (pop_scalar mapped to
+            // NA in build_map so ln_pop_scalar = 0 -> pop_scalar = 1.0)
             N_at_age(sp, sex, age, 0) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, 0);
             break;
 
-          case 2: // Fixed numbers-at-age age-independent scalar
+          case 2: // Numbers-at-age scaled by a single estimated age-independent scalar
             N_at_age(sp, sex, age, 0) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, 0);
             break;
 
-          case 3: // Fixed numbers-at-age age-dependent scalar
+          case 3: // Numbers-at-age scaled by age-specific estimated scalars
             N_at_age(sp, sex, age, 0) = pop_scalar(sp, age) * NByageFixed(sp, sex, age, 0);
             break;
 
@@ -1101,14 +1106,15 @@ Type objective_function<Type>::operator() () {
               }
               break;
 
-            case 1: // Fixed numbers-at-age - fixed scalar
+            case 1: // Numbers-at-age fixed exactly to NByageFixed (pop_scalar = 1.0 via map)
               N_at_age(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
               break;
 
-            case 2: // Fixed numbers-at-age age-independent scalar
+            case 2: // Numbers-at-age scaled by a single estimated age-independent scalar
               N_at_age(sp, sex, age, yr) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, yr);
               break;
-            case 3: // Fixed numbers-at-age age-dependent scalar
+
+            case 3: // Numbers-at-age scaled by age-specific estimated scalars
               N_at_age(sp, sex, age, yr) = pop_scalar(sp, age) * NByageFixed(sp, sex, age, yr);
               break;
 
@@ -2270,7 +2276,7 @@ Type objective_function<Type>::operator() () {
     flt = catch_ctl(fsh_ind, 0) - 1;            // Temporary fishery index
     sp = catch_ctl(fsh_ind, 1) - 1;             // Species is the column 3
     flt_yr = catch_ctl(fsh_ind, 2);             // Temporary index for years of data
-    yr = flt_yr - styr;                            // Temporary index of years. Start at 0.
+    yr = flt_yr - styr;                         // Temporary index of years. Start at 0.
 
     // Set up variance
     switch (est_sigma_fsh(flt)) {

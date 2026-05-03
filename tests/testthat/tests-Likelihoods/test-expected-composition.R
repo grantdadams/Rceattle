@@ -25,17 +25,16 @@ testthat::test_that("Estimated composition data matches expected", {
   )
 
   simData <- sim$data_list
+  # * Inits ----
+  ss_run <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
+  inits <- ss_run$estimated_params
+
 
   # Build parameter object
-  fit <- suppressMessages(
-    Rceattle::fit_mod(data_list = simData,
-                      estimateMode = 3,
-                      phase = FALSE,
-                      loopnum = 1,
-                      verbose = 0)
-  )
-
-  inits <- fit$estimated_params
   inits$sel_inf[1,,1] <- c(3,6,2.5,4)
   inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
   inits$ln_F[2,] <- log(0.2)
@@ -48,11 +47,11 @@ testthat::test_that("Estimated composition data matches expected", {
   fit <- suppressMessages(
     Rceattle::fit_mod(data_list = simData,
                       inits = inits,
-                      map = fit$map,
                       estimateMode = 3,
-                      phase = FALSE,
-                      loopnum = 1,
-                      verbose = 0)
+                      fit_control = fit_control(
+                        phase = FALSE,
+                        loopnum = 1,
+                        verbose = 0))
   )
 
   # Expected

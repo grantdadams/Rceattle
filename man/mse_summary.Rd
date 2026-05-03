@@ -7,7 +7,7 @@
 mse_summary(mse, om_only = FALSE)
 }
 \arguments{
-\item{mse}{MSE runs from \code{\link{mse_run}} or \code{\link{load_mse}}}
+\item{mse}{MSE runs from \code{\link{run_mse}} or \code{\link{load_mse}}}
 
 \item{om_only}{only include performance metrics from OMs}
 }

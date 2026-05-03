@@ -2,7 +2,7 @@
 
 #' Management strategy evaluation performance metric summary
 #'
-#' @param mse MSE runs from \code{\link{mse_run}} or \code{\link{load_mse}}
+#' @param mse MSE runs from \code{\link{run_mse}} or \code{\link{load_mse}}
 #' @param om_only only include performance metrics from OMs
 #'
 #' @return Alist of two data.frames with MSE summary statistics of performance metrics including:
@@ -25,8 +25,6 @@ mse_summary <- function(mse, om_only = FALSE){
   ############################################
   ## Set up
   ############################################
-  library(dplyr)
-
   # HCR Switches (make length of nspp if not)
   extend_length <- function(x, nspp){
     if(length(x) == nspp){ return(x)}
@@ -40,7 +38,7 @@ mse_summary <- function(mse, om_only = FALSE){
   nspp <- mse[[1]]$OM$data_list$nspp
   nsex <- mse[[1]]$OM$data_list$nsex
   flt_type <- mse[[1]]$OM$data_list$fleet_control$Fleet_type
-  flts <- mse[[1]]$OM$data_list$fleet_control$Fleet_code[which(flt_type == 1)]
+  flts <- mse[[1]]$OM$data_list$fleet_control$Fleet_code[which(flt_type == "Fishery")]
   nflts = length(flts)
   flt_spp <- mse[[1]]$OM$data_list$fleet_control$Species
   styr <- mse[[1]]$OM$data_list$styr
@@ -57,7 +55,7 @@ mse_summary <- function(mse, om_only = FALSE){
   # -- HCR = 0: No catch - Params off
   # -- HCR = 1: Constant catch - Params off
   # -- HCR = 2: Constant input F - Params off
-  # -- HCR = 3: F that acheives X% of SSB0 in the end of the projection - Ftarget on
+  # -- HCR = 3: F that achieves X% of SSB0 in the end of the projection - Ftarget on
   # -- HCR = 4: Constant target Fspr - Ftarget on
   # -- HCR = 5: NPFMC Tier 3 - Flimit and Ftarget on
   # -- HCR = 6: PFMC Cat 1 - Flimit on
@@ -95,9 +93,11 @@ mse_summary <- function(mse, om_only = FALSE){
                              "OM no F: SSB Collapse",
                              "OM: SSB Collapse",
                              "OM: SSB Collapse from F")
-  mse_summary$Fleet_name <- c(rep(NA, nspp), mse[[1]]$OM$data_list$fleet_control$Fleet_name[flts], "All")
+  mse_summary$Fleet_name <- c(rep("Conservation metric", nspp), mse[[1]]$OM$data_list$fleet_control$Fleet_name[flts], "All")
   mse_summary$Fleet_code <- c(rep(NA, nspp), mse[[1]]$OM$data_list$fleet_control$Fleet_code[flts], "All")
-  mse_summary$Species <- c(mse[[1]]$OM$data_list$spnames, mse[[1]]$OM$data_list$fleet_control$Species[flts], "All")
+  mse_summary$Species <- c(mse[[1]]$OM$data_list$spnames,
+                           mse[[1]]$OM$data_list$spnames[mse[[1]]$OM$data_list$fleet_control$Species[flts]],
+                           "All")
 
 
   ## Catch performance metrics by fleet ----
@@ -110,15 +110,15 @@ mse_summary <- function(mse, om_only = FALSE){
     # * Mean catch ----
     mse_summary$`Average Catch`[i+nspp] <- mean(
       sapply(mse, function(x)
-        x$OM$data_list$catch_data %>%
-          filter(Fleet_code == flt & Year %in% projyrs) %>%
+        x$OM$data_list$catch_data |>
+          filter(Fleet_code == flt & Year %in% projyrs) |>
           pull(Catch)
       ), na.rm = TRUE)
 
     # * Catch IAV ----
     catch_list_tmp <- lapply(mse, function(x)
-      x$OM$data_list$catch_data %>%
-        filter(Fleet_code == flt & Year %in% projyrs) %>%
+      x$OM$data_list$catch_data |>
+        dplyr::filter(Fleet_code == flt & Year %in% projyrs) |>
         pull(Catch)
     )
 
@@ -148,17 +148,17 @@ mse_summary <- function(mse, om_only = FALSE){
     # * Mean catch ----
     mse_summary$`Average Catch`[sp] <- mean(
       sapply(mse, function(x)
-        x$OM$data_list$catch_data %>%
-          filter(Species == sp & Year %in% projyrs) %>%
+        x$OM$data_list$catch_data |>
+          filter(Species == sp & Year %in% projyrs) |>
           pull(Catch)
       ), na.rm = TRUE)
 
     # - Catch IAV ----
     catch_list_tmp <- suppressMessages(lapply(mse, function(x)
-      x$OM$data_list$catch_data %>%
-        filter(Species == sp & Year %in% projyrs) %>%
-        group_by(Year) %>%
-        summarise(Catch = sum(Catch)) %>%
+      x$OM$data_list$catch_data |>
+        filter(Species == sp & Year %in% projyrs) |>
+        group_by(Year) |>
+        summarise(Catch = sum(Catch)) |>
         pull(Catch)
     )) # Sum catch across species
 
@@ -183,10 +183,10 @@ mse_summary <- function(mse, om_only = FALSE){
   # - Catch IAV
   # - P(Closed)
   catch_list_tmp <- suppressMessages(lapply(mse, function(x)
-    x$OM$data_list$catch_data %>%
-      filter(Year %in% projyrs) %>%
-      group_by(Year) %>%
-      summarise(Catch = sum(Catch)) %>%
+    x$OM$data_list$catch_data |>
+      filter(Year %in% projyrs) |>
+      group_by(Year) |>
+      summarise(Catch = sum(Catch)) |>
       pull(Catch)
   )
   ) # Sum catch across species
@@ -487,8 +487,8 @@ mse_summary <- function(mse, om_only = FALSE){
 
 #' Function to load .RDs files from MSE runs
 #'
-#' @param dir Directory used to save files from \code{\link{mse_run}}
-#' @param file file name used to save files from \code{\link{mse_run}}
+#' @param dir Directory used to save files from \code{\link{run_mse}}
+#' @param file file name used to save files from \code{\link{run_mse}}
 #'
 #' @return list of MSE simulations/run
 #' @export
@@ -500,30 +500,31 @@ check_mse <- function(dir = NULL, file = NULL){
   mse_order <- as.numeric(gsub(".rds", "", sapply(strsplit(mse_files, "EMs_from_OM_Sim_"), "[[", 2)))
   mse_files <- mse_files[order(mse_order)]
 
-  ### Set up parallel processing
-  library(foreach)
-  library(doParallel)
+  ### Set up parallel processing (PSOCK cluster -- cross-platform,
+  ### avoids the foreach::%dopar% rlang deparser interaction).
+  chk <- tolower(Sys.getenv("_R_CHECK_LIMIT_CORES_", ""))
+  cran_cap <- nzchar(chk) && !chk %in% c("false", "0", "no")
+  cores <- if (cran_cap) 2L else max(1L, parallel::detectCores() - 6L)
+  use_parallel <- length(mse_files) > 1L && cores > 1L
 
-  cores = detectCores()-6
-  registerDoParallel(cores)
+  read_one <- function(i) {
+    mse_tmp <- readRDS(file = paste0(dir, "/", mse_files[i]))
+    check_tmp <- data.frame(Dir = dir, File = mse_files[i], Use = NA, Ind = i)
+    if (!is.null(mse_tmp$use_sim)) {
+      check_tmp$Use <- mse_tmp$use_sim
+    }
+    check_tmp
+  }
 
-  # check_df <- data.frame(Dir = dir, File = mse_files, Use = NA, Ind = NA)
-
-  # for(i in 1:length(mse_files)){
-  check_df <- foreach(i = 1:length(mse_files),
-                      .combine = "rbind") %dopar% {
-                        mse_tmp <- readRDS(file = paste0(dir,"/", mse_files[i]))
-
-                        check_tmp <- data.frame(Dir = dir, File = mse_files[i], Use = NA, Ind = NA)
-
-                        if(!is.null(mse_tmp$use_sim)){
-                          check_tmp$Use <- mse_tmp$use_sim
-                        }
-                        check_tmp$Ind = i
-
-                        check_tmp
-                      }
-  closeAllConnections()
+  if (use_parallel) {
+    cl <- parallel::makeCluster(min(cores, length(mse_files)))
+    on.exit(parallel::stopCluster(cl), add = TRUE)
+    parallel::clusterExport(cl, c("dir", "mse_files"), envir = environment())
+    rows <- parallel::parLapply(cl, seq_along(mse_files), read_one)
+  } else {
+    rows <- lapply(seq_along(mse_files), read_one)
+  }
+  check_df <- do.call(rbind, rows)
 
   return(check_df)
 }
@@ -533,10 +534,10 @@ check_mse <- function(dir = NULL, file = NULL){
 
 #' Function to load .RDs files from MSE runs
 #'
-#' @param dir Directory used to save files from \code{\link{mse_run}}
-#' @param file file name used to save files from \code{\link{mse_run}}
+#' @param dir Directory used to save files from \code{\link{run_mse}}
+#' @param file file name used to save files from \code{\link{run_mse}}
 #' @param exclude index of MSE simulations not to load
-#' @param include_em wether the EMs should be loaded or not (default = TRUE)
+#' @param include_em whether the EMs should be loaded or not (default = TRUE)
 #'
 #' @return list of MSE simulations/run
 #' @export
@@ -554,11 +555,8 @@ load_mse <- function(dir = NULL, file = NULL, exclude = NULL, include_em = TRUE)
   }
 
   ### Set up parallel processing
-  library(foreach)
-  library(doParallel)
-
   # cores = (detectCores()/2)-1
-  # registerDoParallel(cores)
+  # doParallel::registerDoParallel(cores)
   mse_tmp <- list()
   for(i in 1:length(mse_files)){
     # mse <- foreach(i = 1:length(mse_files),

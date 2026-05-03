@@ -33,7 +33,7 @@ plot_timeseries(
 )
 }
 \arguments{
-\item{Rceattle}{Single or list of Rceattle model objects exported from \code{\link{Rceattle}}}
+\item{Rceattle}{Single or list of Rceattle model objects exported from \code{Rceattle}}
 
 \item{output}{derived quantity of interest: recruitment, biomass, ssb, depletion, or ssb_depletion. Uses same name as ".cpp" file.}
 
@@ -56,6 +56,8 @@ function.}
 
 \item{save}{Save derived quantity?}
 
+\item{legend.pos}{Position of the legend as used by \code{\link[graphics]{legend}} (default = "topright").}
+
 \item{right_adj}{Multiplier for to add to the right side of the figure for fitting the legend.}
 
 \item{width}{Figure width in inches}
@@ -72,9 +74,9 @@ function.}
 
 \item{lty}{line type}
 
-\item{alpha}{shadding for confidence intervals}
+\item{alpha}{shading for confidence intervals}
 
-\item{mse}{Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}}
+\item{mse}{Is an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}}
 
 \item{OM}{if mse == TRUE, use the OM (TRUE) or EM (FALSE) for plotting?}
 
@@ -86,5 +88,5 @@ function.}
 Returns and saves a figure with the population trajectory.
 }
 \description{
-Function the plots the time-series (SSB/B/R/Depletion) 95\% CI trends as estimated from Rceattle
+Function that plots the time-series (SSB/B/R/Depletion) 95\% CI trends as estimated from Rceattle
 }

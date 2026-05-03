@@ -17,7 +17,7 @@ testthat::test_that("Test environmental linkeage with mean rec", {
   yrs <- GOA2018SS$styr:GOA2018SS$endyr
   nyrs <- length(yrs)
   R0 = 10:12
-  Rdev <- rnorm(nyrs)
+  Rdev <- stats::rnorm(nyrs)
 
   # Env data
   GOA2018SS$env_data <- data.frame(Year = yrs, EnvIndex = seq(0,1, length.out = nyrs))
@@ -27,20 +27,14 @@ testthat::test_that("Test environmental linkeage with mean rec", {
   GOA2018SS$initMode <- 1
 
 
-  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              estimateMode = 3, # Don't estimate
-                              random_rec = FALSE, # No random recruitment
-                              msmMode = 0, # Single species mode
-                              recFun = build_srr(srr_fun = 1,
-                                                 proj_mean_rec = FALSE,
-                                                 srr_est_mode = 1,
-                                                 srr_indices = 1
-                              ),
-                              initMode = 2,
-                              verbose = 0)
+  ss_run <- suppressMessages(
+    Rceattle::fit_mod(data_list = GOA2018SS,
+                      estimateMode = 3, # Don't estimate
+                      msmMode = 0, # Single species mode
+                      fit_control = fit_control(
+                        verbose = 1))
+  )
   inits <- ss_run$estimated_params
-  map <- ss_run$map
-
   alpha = 0.4
   beta = 1e-6
   inits$rec_pars[,1] <- R0
@@ -49,20 +43,19 @@ testthat::test_that("Test environmental linkeage with mean rec", {
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              inits = inits, # Initial pars at input
+                              inits = inits, # Initial parameters = 0
                               file = NULL, # Don't save
-                              map = map,
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-
                               recFun = build_srr(srr_fun = 1,
                                                  proj_mean_rec = FALSE,
                                                  srr_est_mode = 1,
                                                  srr_indices = 1
                               ),
-                              initMode = 2,
-                              verbose = 0)
+                              initMode = "NonEquilibrium",
+                              fit_control = fit_control(
+                              verbose = 0))
 
 
   # Check ssb
@@ -91,7 +84,7 @@ testthat::test_that("Test multiple recruitment linkeages with mean rec", {
   yrs <- GOA2018SS$styr:GOA2018SS$endyr
   nyrs <- length(yrs)
   R0 = 10:12
-  Rdev <- rnorm(nyrs)
+  Rdev <- stats::rnorm(nyrs)
 
   # Env data
   GOA2018SS$env_data <- data.frame(Year = yrs, EnvIndex = seq(0,1, length.out = nyrs), EnvIndex2 = seq(0,1, length.out = nyrs), EnvIndex3 = seq(0,1, length.out = nyrs))
@@ -99,22 +92,8 @@ testthat::test_that("Test multiple recruitment linkeages with mean rec", {
   # Set params
   GOA2018SS$srr_fun <- 1
   GOA2018SS$initMode <- 1
-  # inits <- build_params(GOA2018SS)
-  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              estimateMode = 3, # Don't estimate
-                              random_rec = FALSE, # No random recruitment
-                              msmMode = 0, # Single species mode
-
-                              recFun = build_srr(srr_fun = 1,
-                                                 proj_mean_rec = FALSE,
-                                                 srr_est_mode = 1,
-                                                 srr_indices = c(1,2,3)
-                              ),
-                              initMode = 1,
-                              verbose = 0)
-  inits <- ss_run$estimated_params
-  map = ss_run$map
-
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, recFun = build_srr(srr_fun = 1, srr_indices = c(1,2,3)), initMode = 1, fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   alpha = 0.4
   beta = 1e-6
   inits$rec_pars[,1] <- R0
@@ -123,9 +102,8 @@ testthat::test_that("Test multiple recruitment linkeages with mean rec", {
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              inits = inits, # Initial pars at input
+                              inits = inits, # Initial parameters = 0
                               file = NULL, # Don't save
-                              map = map,
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
@@ -136,7 +114,8 @@ testthat::test_that("Test multiple recruitment linkeages with mean rec", {
                                                  srr_indices = c(1,2,3)
                               ),
                               initMode = 1,
-                              verbose = 0)
+                              fit_control = fit_control(
+                              verbose = 0))
 
 
   # Check ssb
@@ -165,7 +144,7 @@ testthat::test_that("Test multiple M linkeages", {
   yrs <- GOA2018SS$styr:GOA2018SS$endyr
   nyrs <- length(yrs)
   R0 = 10:12
-  Rdev <- rnorm(nyrs)
+  Rdev <- stats::rnorm(nyrs)
 
   # Env data
   GOA2018SS$env_data <- data.frame(Year = yrs, EnvIndex = seq(0,1, length.out = nyrs), EnvIndex2 = seq(0,1, length.out = nyrs), EnvIndex3 = seq(0,1, length.out = nyrs))
@@ -174,19 +153,8 @@ testthat::test_that("Test multiple M linkeages", {
   GOA2018SS$srr_fun <- 0
   GOA2018SS$M1_model <- 4
   GOA2018SS$initMode <- 1
-  # inits <- build_params(GOA2018SS)
-  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              estimateMode = 3, # Don't estimate
-                              random_rec = FALSE, # No random recruitment
-                              msmMode = 0, # Single species mode
-                              M1Fun = build_M1(M1_model = 4,
-                                               M1_indices = c(1,2,3)
-                              ),
-                              initMode = 1,
-                              verbose = 0)
-  inits <- ss_run$estimated_params
-  map <- ss_run$map
-
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, M1Fun = build_M1(M1_model = 4, M1_indices = c(1,2,3)), initMode = 1, fit_control = fit_control(verbose = 0)) )
+  inits <- mod0$estimated_params
   alpha = 0.4
   beta = 1e-6
   inits$ln_M1[] <- log(0.2)
@@ -195,9 +163,8 @@ testthat::test_that("Test multiple M linkeages", {
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              inits = inits, # Initial pars at input
+                              inits = inits, # Initial parameters = 0
                               file = NULL, # Don't save
-                              map = map,
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
@@ -205,7 +172,8 @@ testthat::test_that("Test multiple M linkeages", {
                                                M1_indices = c(1,2,3)
                               ),
                               initMode = 1,
-                              verbose = 0)
+                              fit_control = fit_control(
+                              verbose = 0))
 
 
 
@@ -238,7 +206,7 @@ testthat::test_that("Test single M, multiple M/sex linkeages, M both-sex linkage
   yrs <- GOA2018SS$styr:GOA2018SS$endyr
   nyrs <- length(yrs)
   R0 = 10:12
-  Rdev <- rnorm(nyrs)
+  Rdev <- stats::rnorm(nyrs)
 
   # Env data
   GOA2018SS$env_data <- data.frame(Year = yrs, EnvIndex = seq(0,1, length.out = nyrs), EnvIndex2 = seq(0,1, length.out = nyrs), EnvIndex3 = seq(0,1, length.out = nyrs))
@@ -247,7 +215,8 @@ testthat::test_that("Test single M, multiple M/sex linkeages, M both-sex linkage
   GOA2018SS$srr_fun <- 0
   GOA2018SS$M1_model <- c(1,5,4)
   GOA2018SS$initMode <- 1
-  # inits <- build_params(GOA2018SS)
+
+  # Inits
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
@@ -256,10 +225,9 @@ testthat::test_that("Test single M, multiple M/sex linkeages, M both-sex linkage
                                                M1_indices = c(1,2,3)
                               ),
                               initMode = 1,
-                              verbose = 0)
+                              fit_control = fit_control(
+                                verbose = 0))
   inits <- ss_run$estimated_params
-  map = ss_run$map
-
   alpha = 0.4
   beta = 1e-6
   inits$ln_M1[] <- log(0.2)
@@ -270,9 +238,8 @@ testthat::test_that("Test single M, multiple M/sex linkeages, M both-sex linkage
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
-                              inits = inits, # Initial pars at input
+                              inits = inits, # Initial parameters = 0
                               file = NULL, # Don't save
-                              map = map,
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
@@ -280,7 +247,8 @@ testthat::test_that("Test single M, multiple M/sex linkeages, M both-sex linkage
                                                M1_indices = c(1,2,3)
                               ),
                               initMode = 1,
-                              verbose = 0)
+                              fit_control = fit_control(
+                              verbose = 0))
 
 
 

@@ -1,0 +1,312 @@
+---
+title: "0. Model options and functionality"
+author: "Grant Adams"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteIndexEntry{0. Model options and functionality}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+This vignette is a survey of the parameterization choices and capabilities
+available in `Rceattle`. It complements:
+
+- vignette 1, [Rceattle: An Introduction](introduction.html), which
+  walks through fitting a model end-to-end;
+- vignette 8, [Model parameterizations](model-parameterizations.html), which
+  is the equation-level reference; and
+- the per-topic vignettes 3 (diagnostics), 4 (projections / reference
+  points), 5 (single- vs. multi-species), 6 (data without Excel), and
+  7 (Stock Synthesis migration).
+
+If you're building a new application, this is the menu of options you
+choose between when configuring `data_list` and the arguments to
+`fit_mod()`.
+
+## 1. Model dimensions and operating mode
+
+> Equations: see vignette 8 [§Population dynamics](model-parameterizations.html#population-dynamics).
+
+The top-level switches that decide what kind of model is fitted live on
+the `data_list` and on the call to `fit_mod()`:
+
+| Switch | Where set | Role |
+|---|---|---|
+| `nspp`, `nages`, `nsex`, `nlengths` | `data_list` | Population structure |
+| `styr`, `endyr`, `projyr` | `data_list` | Time horizon (hindcast + projection) |
+| `msmMode` | `fit_mod()` | Single- vs. multi-species |
+| `initMode` | `fit_mod()` | Initial age structure |
+| `estimateMode` | `fit_mod()` | Estimate / project / debug |
+| `random_rec`, `random_q`, `random_sel` | `fit_mod()` | Random-effects toggles |
+
+### `msmMode` — single-species vs. multi-species
+
+| Value | Meaning | Status |
+|:---:|---|---|
+| `0` | Single-species (M = M1 only) | Validated |
+| `1` | Multi-species, MSVPA Type II predation | Validated |
+| `2` | Multi-species, MSVPA Type III predation | Validated |
+| `3:9` | Kinzey & Punt (2009) functional responses (Holling I/II/III, predator interference, predator preemption, Hassell-Varley, Ecosim) | **Blocked** — `data_check()` will refuse these until they are validated against the current parameter set |
+
+### `initMode` — initial age structure
+
+Codes (also accept the string aliases listed):
+
+| Value | Alias | Description |
+|:---:|---|---|
+| `0` | `"FreeParams"` | Initial N-at-age estimated as free parameters |
+| `1` | `"Equilibrium"` | Unfished equilibrium, no init devs, F<sub>init</sub> = 0 |
+| `2` (default) | `"NonEquilibrium"` | Unfished equilibrium with initial deviations |
+| `3` | `"FishedNonEquilibrium"` | Fished non-equilibrium with init devs; F<sub>init</sub> estimated inside geometric series |
+| `4` | `"FishedNonEquilibriumScaled"` | Fished non-equilibrium with R<sub>0</sub>-scaled F<sub>init</sub> after geometric series|
+
+### `estimateMode` — what does `fit_mod()` actually do?
+
+| Value | Behavior |
+|:---:|---|
+| `0` | Estimate hindcast and projection parameters via `nlminb` / `TMB::sdreport` (default). |
+| `1` | Estimate only the hindcast parameters via `nlminb` / `TMB::sdreport`.. |
+| `2` | Hold the hindcast fixed and run only the projection under the supplied `HCR`. |
+| `3` | Evaluate the report once at `inits` (debug / mapping check). |
+
+### Random-effects toggles
+
+`random_rec`, `random_q`, and `random_sel` move log-recruitment, the
+log-catchability AR(1) deviations, and the time-varying selectivity
+deviations (respectively) from penalised fixed effects to random
+effects marginalised via the Laplace approximation.
+
+## 2. Predation: `suitMode` (per predator)
+
+> Equations: see vignette 8 [§Predation sub-model](model-parameterizations.html#predation-sub-model) (suitability, predation mortality, consumption / bioenergetics).
+
+`suitMode` chooses how prey preference is modelled. Length 1 (same for
+all predators) or length `nspp`.
+
+| Value | String | Description | Available? |
+|:---:|---|---|:---:|
+| `0` | `"Empirical"` | Empirical proportions from observed stomach data (MSVPA-style; Holsman et al. 2015) | Yes |
+| `1` | `"GammaLength"` | Gamma suitability on prey length-at-age | **Not yet** |
+| `2` | `"GammaWeight"` | Gamma suitability on prey weight-at-age | Yes |
+| `3` | `"LognormalLength"` | Log-normal suitability on prey length-at-age | **Not yet** |
+| `4` | `"LognormalWeight"` | Log-normal suitability on prey weight-at-age | Yes |
+| `5` | `"NormalLength"` | Normal suitability on prey length-at-age | Yes |
+| `6` | `"NormalWeight"` | Normal suitability on prey weight-at-age | Yes |
+
+Suitability is averaged across years `suit_styr:suit_endyr` (defaults to
+the full hindcast). Per-predator `suitMode` allows mixing parametric and
+empirical suitability across species.
+
+## 3. Selectivity (per fleet)
+
+> Equations: see vignette 8 [§Selectivity parameterizations](model-parameterizations.html#selectivity-parameterizations).
+
+Set the `Selectivity` column of `fleet_control` to one of the values
+below (integers or strings both work):
+
+| Value | String | Notes |
+|:---:|---|---|
+| `0` | `"Fixed"` | Selectivity supplied via the `emp_sel` data sheet |
+| `1` | `"Logistic"` | Two-parameter ascending logistic |
+| `2` | `"NonParametric"` | Age- or length-bin-indexed; penalties via `Sel_curve_pen1` / `Sel_curve_pen2` |
+| `3` | `"DoubleLogistic"` | Dome-shaped (ascending + descending logistic) |
+| `4` | `"DescendingLogistic"` | Descending only |
+| `5` | `"Hake"` | Non-parametric à la Taylor et al. (Pacific hake) |
+| `6` | `"2DAR1"` | 2D AR(1) age × year (Cheng et al. 2024) |
+| `7` | `"3DAR1"` | 3D AR(1) age × year × cohort |
+
+Time-varying behavior is set by `Time_varying_sel` (per fleet):
+
+| Value | Behavior |
+|:---:|---|
+| `0` | Time-invariant |
+| `1` | Independent annual deviations |
+| `2` | Random walk (not allowed with `NonParametric` or `Hake`) |
+| `4`, `5` | AR(1) deviations |
+
+Bin indexing: with non-parametric and AR(1) forms, selectivity is
+indexed over `N_sel_bins` and normalised between
+`Sel_norm_bin1` / `Sel_norm_bin2` instead of always at the maximum age.
+
+## 4. Catchability (per fleet)
+
+> Equations: see vignette 8 [§Catchability parameterizations](model-parameterizations.html#catchability-parameterizations).
+
+Set the `Catchability` column of `fleet_control`:
+
+| Value | String | Description |
+|:---:|---|---|
+| `0` | `"Fixed"` | q supplied directly |
+| `1` | `"Estimated"` | q estimated as a free parameter |
+| `2` | `"Estimated-with-prior"` | Estimated with a Normal prior |
+| `3` | `"Analytical"` | Closed-form analytical q (concentrated likelihood) |
+| `4` | `"PowerEquation"` | Power-function catchability (q · B<sup>α</sup>) |
+| `5` | `"Environmental"` | q linked to an environmental index (`Q_index`) |
+| `6` | `"AR1"` | Annual AR(1) deviations on log-q (Rogers et al. 2024) |
+
+## 5. Composition likelihoods
+
+Set `Comp_loglike` (or `CAAL_loglike`) per fleet:
+
+| Value | String |
+|:---:|---|
+| `-1` | `"MultinomialAFSC"` (legacy AFSC convention) |
+| `0` | `"Multinomial"` |
+| `1` | `"DirichletMultinomial"` |
+
+Diet composition uses an analogous switch on the bioenergetics control
+sheet: `Diet_loglike = 0` (multinomial) or `1` (Dirichlet-multinomial).
+
+Conditional age-at-length (CAAL) data go through their own data path
+and are weighted via `CAAL_weights` per fleet.
+
+## 6. Recruitment / stock-recruit (`recFun = build_srr()`)
+
+| `srr_fun` | String | Description |
+|:---:|---|---|
+| `0` | `"Mean"` | Mean recruitment with deviations |
+| `1` | `"MeanEnv"` | Mean recruitment with environmental link |
+| `2` | `"BevertonHolt"` | Beverton-Holt |
+| `3` | `"BevertonHoltEnv"` | Beverton-Holt with environmental link |
+| `4` | `"Ricker"` | Ricker |
+| `5` | `"RickerEnv"` | Ricker with environmental link |
+
+`build_srr()` also exposes `srr_est_mode = 3` for a Beta prior on
+Beverton-Holt steepness, and `srr_hat_styr` / `srr_hat_endyr` to control
+which years are used in deriving R̂.
+
+## 7. Natural mortality (`M1Fun = build_M1()`)
+
+### `M1_model` — fixed-effects structure of M1
+
+| Value | Description |
+|:---:|---|
+| `0` (default) | Fixed; uses `M1_base` from the data sheet |
+| `1` | Species-specific M, sex- and age-invariant. Estimates M1<sub>spp</sub> |
+| `2` | Sex- and species-specific M (two-sex models), age-invariant. Estimates M1<sub>spp,sex</sub> |
+| `3` | Sex-, species-, and age-specific. Estimates M1<sub>spp,sex,age</sub> |
+| `4` | Environmentally driven, sex-invariant. M1<sub>spp,yr</sub> = M1<sub>spp</sub> · exp(X · β<sub>spp</sub>); use `M1_indices` to pick environmental columns |
+| `5` | Environmentally driven, sex- and species-specific. M1<sub>spp,sex,yr</sub> = M1<sub>spp,sex</sub> · exp(X · β<sub>spp,sex</sub>) |
+
+### `M1_re` — random-effects structure on M1
+
+| Value | Description |
+|:---:|---|
+| `0` (default) | No random effects |
+| `1` | IID by age, constant over years |
+| `2` | IID by year, constant over ages |
+| `3` | IID across both year and age |
+| `4` | AR(1) by age, constant over years |
+| `5` | AR(1) by year, constant over ages |
+| `6` | 2D AR(1) over both year and age |
+
+Variance and correlation parameters are species-specific but
+sex-invariant. `M1_use_prior = TRUE` adds a log-normal prior with mean
+`M_prior` and SD `M_prior_sd` on M1; `M2_use_prior = TRUE` extends the
+same prior to total M (M1 + M2) in multi-species mode.
+
+## 8. Growth and weight-at-age (`growthFun = build_growth()`)
+
+### `growth_model` — fixed-effects structure of growth
+
+| Value | Description |
+|:---:|---|
+| `0` (default) | Empirical weight-at-age supplied via the `weight` data sheet. Forecasts re-use the terminal-year weight schedule. |
+| `1` | Sex-specific von Bertalanffy length-at-age + length-weight allometry (`alpha_wt_len`, `beta_wt_len` on the data control sheet) |
+| `2` | Sex-specific Richards growth |
+
+### `growth_re` — random effects on growth
+
+| Value | Description |
+|:---:|---|
+| `0` (default) | No random effects |
+| `≥ 1` | **Not yet implemented** |
+
+Length-based suitability (`suitMode = 1/2/3/4/5/6`) is wired through to
+the estimated growth model when `growth_model > 0`.
+
+## 9. Harvest control rules (`HCR = build_hcr()`)
+
+| `HCR` | String | Description | Multi-species? |
+|:---:|---|---|:---:|
+| `0` | `"NoFishing"` | No fishing — estimate hindcast only | Yes |
+| `1` | `"CMSY"` | Maximise joint catch across species (option to keep depletion ≥ `Plimit`) | Yes |
+| `2` | `"ConstantF"` | Constant F set at `Ftarget` per species | Yes |
+| `3` | `"ConstantFSSB"` | F that achieves `Ftarget`% of SB<sub>0</sub> at the end of the projection | Yes |
+| `4` | `"ConstantFSPR"` | F<sub>SPR</sub> at `Ftarget` (NEFSC convention; scale via `Fmult`) | No |
+| `5` | `"NPFMC"` | NPFMC Tier 3 SPR-based HCR (`Ftarget`, `Flimit`, `Ptarget`, `Alpha`) | No |
+| `6` | `"PFMC"` | PFMC Category 1 40-10 ACL with uncertainty buffer (`Pstar`, `Sigma`) | Yes |
+| `7` | `"SESSF"` | SESSF Tier 1 SPR-based HCR | No |
+
+`DynamicHCR = TRUE` switches from static to dynamic SB<sub>0</sub>
+reference points. `HCRorder` controls the order in which species F is
+solved for iterative multi-species HCRs (e.g. predators before prey).
+
+## 10. Projection and MSE
+
+| Function | Purpose |
+|---|---|
+| `fit_mod(estimateMode = 2, HCR = build_hcr(...))` | Forward projection under a fixed HCR |
+| `sample_rec()` | Bootstrap historical recruitment deviations (with optional `rec_trend`) into the projection |
+| `remove_F()` | Refit a model with F = 0 (used internally for dynamic reference points) |
+| `run_mse()` | Closed-loop MSE: refit EM at intervals of `assessment_period`, sample new data at `sampling_period` |
+| `load_mse()` | Reload per-simulation `.rds` files written when `dir =` is supplied |
+| `check_mse()` | Validate which OM/EM simulations converged |
+| `mse_summary()` | Per-fleet performance metrics: mean catch, IAV, P(closed), P(F > Flimit), P(SSB < SSBlimit), terminal depletion |
+
+`run_mse()` parallelises over simulations on a PSOCK cluster. See the
+[MSE vignette](hcrs-and-mses.html) for the
+seed plumbing and reproducibility guarantees.
+
+## 11. Diagnostics and inference
+
+| Function | Purpose |
+|---|---|
+| `retrospective()` | Peel terminal years and refit; reports Mohn's ρ for each quantity / species, optionally with forecast-skill peels (`nyrs_forecast`) |
+| `jitter()` | Refit from random-perturbed starting values; check optimum stability |
+| `sim_mod()` | Parametric simulation from a fitted model |
+| `compare_sim()` | Estimation-vs-truth comparison across simulated replicates |
+| `model_average()` | Weighted average of derived quantities across multiple fits, with optional bootstrap uncertainty |
+| `calc_mcall_ianelli()` / `calc_mcall_ianelli_diet()` | McAllister-Ianelli composition-data reweighting |
+| `check_composition_data()` / `check_caal_data()` | Sanity-check composition and CAAL data dimensions |
+
+## 12. Plotting
+
+Pop / mortality / fit / predation / biology plots — all named after the
+quantity they show: `plot_biomass`, `plot_ssb`, `plot_recruitment`,
+`plot_depletion`, `plot_depletionSSB`, `plot_exploitable_biomass`,
+`plot_catch`, `plot_f`, `plot_mortality`, `plot_m_at_age`,
+`plot_m2_at_age_prop`, `plot_index`, `plot_logindex`,
+`plot_indexresidual`, `plot_comp`, `plot_data`, `plot_form`,
+`plot_b_eaten`, `plot_b_eaten_prop`, `plot_diet_comp`, `plot_ration`,
+`plot_selectivity`, `plot_selectivity_vs_maturity`, `plot_maturity`,
+`plot_stock_recruit`, `plot_timeseries`. Most accept a single fitted
+model or a list of models with `model_names`.
+
+## References
+
+- Adams, G.D., Holsman, K.K., Barbeaux, S.J., Dorn, M.W., Ianelli, J.N.,
+  Spies, I., Stewart, I.J., Punt, A.E. (2022). An ensemble approach
+  to understand predation mortality for groundfish in the Gulf of
+  Alaska. *Fisheries Research*, 251, 106303.
+- Holsman, K.K., Ianelli, J., Aydin, K., Punt, A.E., Moffitt, E.A.
+  (2016). A comparison of fisheries biological reference points
+  estimated from temperature-specific multi-species and single-species
+  climate-enhanced stock assessment models. *Deep Sea Research Part II*,
+  134, 360-378.
+- Wassermann, S.N., Adams, G.D., Haltuch, M.A., Kaplan, I.C., Marshall,
+  K.N., Punt, A.E. (2025). Even low levels of cannibalism can bias
+  population estimates for Pacific hake. *ICES Journal of Marine
+  Science*, 82(1), fsae064.
+- Cheng, M.L.H., et al. (2024). 2D / 3D AR(1) selectivity (citation in
+  vignette 8).
+- Rogers, L.A., et al. (2024). AR(1) catchability for GOA pollock
+  (citation in vignette 8).

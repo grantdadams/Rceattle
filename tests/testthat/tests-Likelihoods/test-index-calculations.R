@@ -9,16 +9,16 @@ testthat::test_that("Basic index and index likelihood", {
   nyrs = 8
   dat <- make_test_data(nyrs = nyrs, nages = nages, seed = 42)
 
-  # Set params
-  # inits <- suppressMessages(build_params(dat))
+  # * Inits ----
   ss_run <- Rceattle::fit_mod(data_list = dat,
-                              estimateMode = 3, # Don't estimate
-                              random_rec = FALSE, # No random recruitment
-                              msmMode = 0, # Single species mode
-                              verbose = 0)
+                              estimateMode = 3,
+                              fit_control = fit_control(
+                                phase = FALSE,
+                                verbose = 0))
   inits <- ss_run$estimated_params
-  map <- ss_run$map
 
+
+  # * Set params ----
   inits$rec_pars[,1] <- R0
   inits$R_ln_sd <- 0
   inits$ln_F[] <- -999 # No fishing
@@ -30,13 +30,13 @@ testthat::test_that("Basic index and index likelihood", {
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = dat,
-                              inits = inits, # Initial parameters at input
+                              inits = inits, # Initial parameters = 0
                               file = NULL, # Don't save
-                              map = map,
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              verbose = 0)
+                              fit_control = fit_control(
+                                verbose = 0))
 
   # Calculate SPR
   M <- dat$M1_base$Age1

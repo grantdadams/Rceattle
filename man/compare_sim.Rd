@@ -7,9 +7,14 @@
 compare_sim(operating_mod, simulation_mods, object = "quantities")
 }
 \arguments{
-\item{operating_mod}{CEATTLE model object exported from \code{\link{Rceattle}} to be used as the operating model}
+\item{operating_mod}{CEATTLE model object exported from \code{Rceattle} to be used as the operating model}
 
-\item{simulation_mods}{List of CEATTLE model objects exported from \code{\link{Rceattle}} fit to simulated data}
+\item{simulation_mods}{List of CEATTLE model objects exported from \code{Rceattle} fit to simulated data}
+
+\item{object}{character string specifying which part of the model to compare (default = "quantities")}
+}
+\value{
+A data frame summarising simulation performance metrics
 }
 \description{
 Function to evaluate the simulation performance with regard to bias using the median relative error (MRE) and precision using the coefficient of variation.
