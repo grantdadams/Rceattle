@@ -2236,7 +2236,7 @@ Type objective_function<Type>::operator() () {
     flt = catch_ctl(fsh_ind, 0) - 1;            // Temporary fishery index
     sp = catch_ctl(fsh_ind, 1) - 1;             // Species is the column 3
     flt_yr = catch_ctl(fsh_ind, 2);             // Temporary index for years of data
-    yr = flt_yr - styr;                            // Temporary index of years. Start at 0.
+    yr = flt_yr - styr;                         // Temporary index of years. Start at 0.
 
     // Set up variance
     switch (est_sigma_fsh(flt)) {
