@@ -11,6 +11,15 @@ sel_map <- c(
   "3DAR1" = 7
 )
 
+tv_sel_map <-c(
+  "Off" = 0,
+  "IID" = 1,
+  "AR1" = 2,
+  "Block" = 3,
+  "RandomWalk" = 4,
+  "RandomWalkAscending" = 5
+)
+
 q_map <- c(
   "Fixed" = 0,
   "Estimated" = 1,
@@ -19,6 +28,14 @@ q_map <- c(
   "PowerEquation" = 4,
   "Environmental" = 5,
   "AR1" = 6
+)
+
+tv_q_map <- c(
+  "Off" = 0,
+  "IID" = 1,
+  "AR1" = 2,
+  "Block" = 3,
+  "RandomWalk" = 4
 )
 
 comp_loglike_map <- c(
@@ -80,15 +97,3 @@ hcr_map <- c(
   "PFMC"         = 6,
   "SESSF"        = 7
 )
-
-# --- Reverse Mappings (Integer -> String) ---
-# Automatically invert the maps above.
-sel_rev_map         <- setNames(names(sel_map),         as.character(sel_map))
-q_rev_map           <- setNames(names(q_map),           as.character(q_map))
-comp_loglike_rev_map <- setNames(names(comp_loglike_map), as.character(comp_loglike_map))
-fleet_rev_map       <- setNames(names(fleet_map),       as.character(fleet_map))
-initMode_rev_map    <- setNames(names(initMode_map),    as.character(initMode_map))
-suitMode_rev_map    <- setNames(names(suitMode_map),    as.character(suitMode_map))
-srr_rev_map         <- setNames(names(srr_map),         as.character(srr_map))
-hcr_rev_map         <- setNames(names(hcr_map),         as.character(hcr_map))
-

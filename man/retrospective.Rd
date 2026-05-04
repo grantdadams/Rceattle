@@ -4,12 +4,7 @@
 \alias{retrospective}
 \title{Retrospective peels}
 \usage{
-retrospective(
-  Rceattle = NULL,
-  peels = NULL,
-  rescale = FALSE,
-  nyrs_forecast = 3
-)
+retrospective(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_forecast = 3)
 }
 \arguments{
 \item{Rceattle}{an Rceattle model fit using \code{\link{fit_mod}}}

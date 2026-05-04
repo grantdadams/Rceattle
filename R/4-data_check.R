@@ -43,15 +43,36 @@ data_check <- function(data_list) {
     }
 
     # Time-varying sel not possible
-    if(data_list$fleet_control$Time_varying_sel[flt] == 2 & data_list$fleet_control$Selectivity[flt] %in% c("NonParametric", "Hake")){
+    if(!data_list$fleet_control$Time_varying_sel[flt] %in% c("Off", "IID", "AR1") & data_list$fleet_control$Selectivity[flt] %in% c("NonParametric", "Hake")){
       stop("For non-parametric selectivities, 'Time_varying_sel' cannot be a random walk")
+    }
+
+    # For 2DAR1/3DAR1, 'Sel_curve_pen1' and 'Sel_curve_pen2' are reused as
+    # logit-scale AR1 correlation parameters via rho_trans(x) = 2/(1+exp(-2x))-1.
+    # |x| > ~10 saturates rho at +-1 and the AR1 log-density evaluates to NaN.
+    if(data_list$fleet_control$Selectivity[flt] %in% c("2DAR1", "3DAR1")){
+      for(col in c("Sel_curve_pen1", "Sel_curve_pen2")){
+        val <- suppressWarnings(as.numeric(data_list$fleet_control[[col]][flt]))
+        if(!is.na(val) && abs(val) > 10){
+          # Suggest a value: 0 (independent) for clear legacy-encoding mistakes,
+          # otherwise the logit-scale equivalent of sign(val) * 0.95.
+          suggested <- if(abs(val) > 10) 0 else round(0.5 * log((1 + sign(val) * 0.95) / (1 - sign(val) * 0.95)), 3)
+          stop(sprintf(
+            "Fleet '%s' has Selectivity = '%s'. For 2DAR1/3DAR1, '%s' is reused as a logit-scale AR1 correlation parameter (rho_trans maps to (-1, 1)); abs(value) > 10 saturates rho at +-1 and produces NaN likelihoods. Got %s = %s. Suggested replacement: %s = %s (rho = %s). Use a value in roughly [-5, 5] to set non-trivial correlation.",
+            data_list$fleet_control$Fleet_name[flt],
+            data_list$fleet_control$Selectivity[flt],
+            col, col, val, col, suggested,
+            round(2/(1 + exp(-2 * suggested)) - 1, 4)
+          ))
+        }
+      }
     }
   }
 
   # - Mirroring warnings
   mirror_sel <- data_list$fleet_control |>
     dplyr::group_by(Selectivity_index) |>
-    dplyr::filter(n() > 1 ) |>
+    dplyr::filter(dplyr::n() > 1 ) |>
     dplyr::ungroup()
   if(nrow(mirror_sel) > 0){
     message(paste0("Selectivity for ", paste(mirror_sel$Fleet_name, collapse = ", "), " is mirrored with another fleet"))
@@ -60,7 +81,7 @@ data_check <- function(data_list) {
   mirror_q <- data_list$fleet_control |>
     dplyr::filter(!is.na(Catchability)) |>
     dplyr::group_by(Q_index) |>
-    dplyr::filter(n() > 1 ) |>
+    dplyr::filter(dplyr::n() > 1 ) |>
     dplyr::ungroup()
   if(nrow(mirror_q) > 0){
     message(paste0("Catchability for ", paste(mirror_q$Fleet_name, collapse = ", "), " is mirrored with another fleet"))
@@ -108,12 +129,12 @@ data_check <- function(data_list) {
     wt_no <- data_list$weight |>
       dplyr::filter(Species != sp) |> # Not species
       dplyr::distinct(Wt_index) |>
-      pull(Wt_index)
+      dplyr::pull(Wt_index)
 
     wt_yes <- data_list$weight |>
       dplyr::filter(Species == sp) |> # Is species
       dplyr::distinct(Wt_index) |>
-      pull(Wt_index)
+      dplyr::pull(Wt_index)
 
     if(any( wt_no %in% wt_yes )){
       stop("Check weight indices (Wt_index), the same weight index was used for multiple species")
@@ -311,8 +332,14 @@ validate_switches <- function(data_list = NULL){
   invalid_sel <- data_list$fleet_control |>
     dplyr::filter(Fleet_type != "Off" & !Selectivity %in% c(sel_map, names(sel_map)))
 
+  invalid_tv_sel <- data_list$fleet_control |>
+    dplyr::filter(Fleet_type != "Off" & !Time_varying_sel %in% c(tv_sel_map, names(tv_sel_map)))
+
   invalid_q <- data_list$fleet_control |>
-    dplyr::filter(Fleet_type == "Survey" & !Catchability %in% c(q_map, names(q_map)))
+    dplyr::filter(!Catchability %in% c(NA, q_map, names(q_map)))
+
+  invalid_tv_q <- data_list$fleet_control |>
+    dplyr::filter(Fleet_type != "Off" & !Time_varying_q %in% c(NA, tv_q_map, names(tv_q_map)))
 
   invalid_comp_ll <- data_list$fleet_control |>
     dplyr::filter(Fleet_type != "Off" & !Comp_loglike %in% c(comp_loglike_map, names(comp_loglike_map)))
@@ -324,8 +351,8 @@ validate_switches <- function(data_list = NULL){
   if(nrow(invalid_flt_type) > 0) {
     stop(paste("Invalid 'Fleet_type' specified for fleets:",
                paste(invalid_flt_type$Fleet_name, collapse = ", "),
-               ".\nPlease use an integer code ",paste(range(invalid_flt_type), collapse = ":")," or one of:",
-               paste(names(invalid_flt_type), collapse = ", ")))
+               ".\nPlease use an integer code ",paste(range(fleet_map), collapse = ":")," or one of:",
+               paste(names(fleet_map), collapse = ", ")))
   }
 
   if(nrow(invalid_sel) > 0) {
@@ -335,11 +362,25 @@ validate_switches <- function(data_list = NULL){
                paste(names(sel_map), collapse = ", ")))
   }
 
+  if(nrow(invalid_tv_sel) > 0) {
+    stop(paste("Invalid 'Time_varying_sel' specified for fleets:",
+               paste(invalid_tv_sel$Fleet_name, collapse = ", "),
+               ".\nPlease use an integer code ",paste(range(tv_sel_map), collapse = ":")," or one of:",
+               paste(names(tv_sel_map), collapse = ", ")))
+  }
+
   if(nrow(invalid_q) > 0) {
     stop(paste("Invalid 'Catchability' specified for fleets:",
                paste(invalid_q$Fleet_name, collapse = ", "),
                ".\nPlease use an integer code ", paste(range(q_map), collapse = ":")," or one of:",
                paste(names(q_map), collapse = ", ")))
+  }
+
+  if(nrow(invalid_tv_q) > 0) {
+    stop(paste("Invalid 'Time_varying_q' specified for fleets:",
+               paste(invalid_tv_q$Fleet_name, collapse = ", "),
+               ".\nPlease use an integer code ", paste(range(tv_q_map), collapse = ":")," or one of:",
+               paste(names(tv_q_map), collapse = ", ")))
   }
 
   if(nrow(invalid_comp_ll) > 0) {
@@ -348,7 +389,6 @@ validate_switches <- function(data_list = NULL){
                ".\nPlease use an integer code ", paste(range(comp_loglike_map), collapse = ":")," or one of:",
                paste(names(comp_loglike_map), collapse = ", ")))
   }
-
 
   if(nrow(invalid_caal_ll) > 0) {
     stop(paste("Invalid 'CAAL_loglike' specified for fleets:",

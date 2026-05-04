@@ -548,11 +548,11 @@ build_map_predation <- function(map_list, data_list) {
 #' \code{N_sel_bins}	Number of age/length bins to estimate non-parametric selectivity when Selectivity = 2 or 5. Not used otherwise
 #'
 #' \code{Time_varying_sel}	determines if time-varying selectivity should be estimated for logistic, double logistic selectivity,  descending logistic , non-parametric, or hake (\code{Selectivity = 1, 2, 3, 4, or 5}).
-#' 0 = no
-#' 1 = penalized deviates given \code{sel_sd_prior}
-#' 3 = time blocks with no penalty
-#' 4 = random walk following Dorn
-#' 5 = random walk on ascending portion of double logistic only.
+#' 0 = 'None'
+#' 1 = 'IID' penalized deviates given \code{sel_sd_prior}
+#' 3 = 'Block' time blocks with no penalty
+#' 4 = 'RandomWalk' random walk following Dorn
+#' 5 = 'RandomWalkAscending' random walk on ascending portion of double logistic only.
 #' \code{random_sel} in \code{fit_mod} treats random deviates and random walk parameters as random effects, estimating the variance.
 #'
 #'
@@ -578,7 +578,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       flt <- data_list$fleet_control$Fleet_code[i]
       sel_type <- data_list$fleet_control$Selectivity[i]
       tv_sel <- data_list$fleet_control$Time_varying_sel[i]
-      if (sel_type != "Fixed" && tv_sel %in% c(1, 2, 4, 5)) {
+      if (sel_type != "Fixed" && tv_sel %in% c("IID", "AR1", "RandomWalk", "RandomWalkAscending")) {
         map_list$sel_dev_ln_sd[flt] <- flt
       }
 
@@ -587,6 +587,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       }
     }
   }
+
 
   # Loop through fleets to set up selectivity parameters
   for (i in 1:n_flt) {
@@ -600,7 +601,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
       # Helper for selectivity blocks logic
       max_block <- 0
-      if (tv_sel == 3) {
+      if (tv_sel == "Block") {
         data_source <- if (data_list$fleet_control$Fleet_type[i] == "Fishery") data_list$catch_data else data_list$index_data
         fleet_data <- data_source |>
           dplyr::filter(Fleet_code == flt, Year - data_list$styr + 1 <= nyrs_hind)
@@ -620,7 +621,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
         }
 
         # Time-varying parameters
-        if (tv_sel %in% c(1, 2, 4)) { # Random walk or deviate
+        if (tv_sel %in% c('IID', 'AR1', 'RandomWalk')) { # Random walk or deviate
           for (sex in 1:nsex) {
             map_list$ln_sel_slp_dev[1, flt, sex, yrs_hind] <- ind_slp + yrs_hind - 1
             map_list$sel_inf_dev[1, flt, sex, yrs_hind] <- ind_inf + yrs_hind - 1
@@ -628,11 +629,11 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
             ind_slp <- ind_slp + nyrs_hind
             ind_inf <- ind_inf + nyrs_hind
           }
-          if (tv_sel == 4) { # Random walk: fix first deviate (start at mean)
+          if (tv_sel == "RandomWalk") { # Random walk: fix first deviate (start at mean)
             map_list$ln_sel_slp_dev[1, flt, , 1] <- NA
             map_list$sel_inf_dev[1, flt, , 1] <- NA
           }
-        } else if (tv_sel == 3 && max_block > 0) { # Selectivity blocks
+        } else if (tv_sel == "Block" && max_block > 0) { # Selectivity blocks
           for (sex in 1:nsex) {
             map_list$ln_sel_slp_dev[1, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_slp
             map_list$sel_inf_dev[1, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_inf
@@ -652,8 +653,8 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       # * Non-parametric ----
       # ---- sel_type = 2 (age-based), 9 (length-based)
       if (sel_type == "NonParametric") {
-        if (tv_sel %in% c(2, 4, 5)) { # Error check
-          stop(paste0("'Time_varying_sel' for fleet ", flt, " with non-parametric selectivity is not 0 or 1. Current value: ", tv_sel))
+        if (tv_sel %in% c("AR1", "RandomWalk", "RandomWalkAscending")) { # Error check
+          stop(paste0("'Time_varying_sel' for fleet ", flt, " with non-parametric selectivity is not 'None'(0) or 'IID'(1). Current value: ", tv_sel))
         }
 
         bin_first_selected <- data_list$fleet_control$Bin_first_selected[i]
@@ -668,7 +669,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
           map_list$sel_coff[flt, sex, bins_on] <- ind_coff + bins_on
           ind_coff <- ind_coff + max_bin_on
 
-          if (tv_sel == 1) { # Time-varying deviates
+          if (tv_sel == "IID") { # Time-varying deviates
             map_list$sel_coff[flt, , ] <- NA # Must turn off mean parameter
             dev_indices <- ind_dev_coff + 1:(length(bins_on) * nyrs_hind)
             map_list$sel_coff_dev[flt, sex, bins_on, yrs_hind] <- dev_indices
@@ -691,9 +692,9 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
         }
 
         # Time varying parameters
-        if (tv_sel %in% c(1, 2, 4, 5)) { # Random walk or deviate
+        if (tv_sel %in% c("IID", "AR1", "RandomWalk", "RandomWalkAscending")) { # Random walk or deviate
 
-          j_range <- if (tv_sel == 5) 1 else 1:2 # 5 only does ascending portion (j=1)
+          j_range <- if (tv_sel == "RandomWalkAscending") 1 else 1:2 # RandomWalkAscending only does ascending portion (j=1)
 
           for (j in j_range) {
             for (sex in 1:nsex) {
@@ -706,13 +707,13 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
           }
 
           # Random walk: fix first deviate
-          if (tv_sel %in% c(4, 5)) {
+          if (tv_sel %in% c("RandomWalk", "RandomWalkAscending")) {
             for (j in j_range) {
               map_list$ln_sel_slp_dev[j, flt, , 1] <- NA
               map_list$sel_inf_dev[j, flt, , 1] <- NA
             }
           }
-        } else if (tv_sel == 3 && max_block > 0) { # Selectivity blocks
+        } else if (tv_sel == "Block" && max_block > 0) { # Selectivity blocks
           for (j in 1:2) {
             for (sex in 1:nsex) {
               map_list$ln_sel_slp_dev[j, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_slp
@@ -737,7 +738,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
         }
 
         # Time varying parameters
-        if (tv_sel %in% c(1, 2, 4)) { # Random walk or deviate
+        if (tv_sel %in% c("IID", "AR1", "RandomWalk")) { # Random walk or deviate
           for (sex in 1:nsex) {
             map_list$ln_sel_slp_dev[2, flt, sex, yrs_hind] <- ind_slp + yrs_hind - 1
             map_list$sel_inf_dev[2, flt, sex, yrs_hind] <- ind_inf + yrs_hind - 1
@@ -746,11 +747,11 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
             ind_inf <- ind_inf + nyrs_hind
           }
 
-          if (tv_sel == 4) { # Random walk: fix first deviate
+          if (tv_sel == "RandomWalk") { # Random walk: fix first deviate
             map_list$ln_sel_slp_dev[2, flt, , 1] <- NA
             map_list$sel_inf_dev[2, flt, , 1] <- NA
           }
-        } else if (tv_sel == 3 && max_block > 0) { # Selectivity blocks
+        } else if (tv_sel == "Block" && max_block > 0) { # Selectivity blocks
           for (sex in 1:nsex) {
             map_list$ln_sel_slp_dev[2, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_slp
             map_list$sel_inf_dev[2, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_inf
@@ -765,8 +766,8 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       # * Non-parametric Hake-like ----
       # ---- sel_type = 5 (age-based), 12 (length-based)
       if (sel_type == "Hake") {
-        if (tv_sel > 1) {
-          warning(paste("Time_varying_sel for fleet", flt, "is not compatible (select NA, 0, or 1). Current value:", tv_sel))
+        if (tv_sel != "IID") {
+          warning(paste("Time_varying_sel for fleet", flt, "is not compatible (select NA, 'None' (0), or 'IID' (1)). Current value:", tv_sel))
         }
 
         bin_first_selected <- data_list$fleet_control$Bin_first_selected[i]
@@ -782,7 +783,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
           map_list$sel_coff[flt, sex, bins_on] <- ind_coff + bins_on
           ind_coff <- ind_coff + max_bin_on
 
-          if (tv_sel == 1) { # Time-varying deviates
+          if (tv_sel == 'IID') { # Time-varying deviates
             dev_indices <- ind_dev_coff + 1:(length(bins_on) * nyrs_hind)
             map_list$sel_coff_dev[flt, sex, bins_on, yrs_hind] <- dev_indices
             ind_dev_coff <- ind_dev_coff + length(dev_indices)
@@ -916,17 +917,17 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
       }
 
       # Time- varying q parameters "Time_varying_q"
-      # - 0 = no,
-      # - 1 = penalized deviate
-      # - 2 = random effect
-      # - 3 = time blocks with no penalty
-      # - 4 = random walk from mean following Dorn 2018 (dnorm(q_y - q_y-1, 0, sigma)
+      # - 0 = "None",
+      # - 1 = "IID" penalized deviate or random effect
+      # - 2 = "AR1"
+      # - 3 = "Block" time blocks with no penalty
+      # - 4 = "RandomWalk" random walk from mean following Dorn 2018 (dnorm(q_y - q_y-1, 0, sigma)
       # - If estimate_q == 5 or 6; "Time_varying_q" determines the environmental indices to be used in the equation log(q_y) = q_mu + beta * index_y or to fit to.
       # - Catchability = 6 turns on time-varying deviates
 
       # -- Set up time varying catchability if used (account for missing years)
       if((data_list$fleet_control$Catchability[i] %in% c("Estimated", "Estimated-with-prior") &
-          as.numeric(data_list$fleet_control$Time_varying_q[i]) %in% c(1, 2, 3, 4)) |
+          as.numeric(data_list$fleet_control$Time_varying_q[i]) %in% c("IID", "Block", "AR1", "RandomWalk")) |
          data_list$fleet_control$Catchability[i] == "AR1"){
 
         # Extract survey years where data is provided
@@ -934,18 +935,18 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
         srv_biom_yrs <- index_data$Year - data_list$styr + 1
 
         # Penalized deviate or random walk
-        if(data_list$fleet_control$Time_varying_q[i] %in% c(1,2,4)){
+        if(data_list$fleet_control$Time_varying_q[i] %in% c("IID", "AR1", "RandomWalk")){
           map_list$index_q_dev[flt, yrs_hind] <- ind_q_dev + (1:nyrs_hind) - 1
           ind_q_dev <- ind_q_dev + nyrs_hind
         }
 
         # Turn on first deviate for random walk
-        if(data_list$fleet_control$Time_varying_q[i] == 4){
+        if(data_list$fleet_control$Time_varying_q[i] == "RandomWalk"){
           map_list$index_q_dev[flt, 1] <- NA
         }
 
         # Time blocks
-        if(data_list$fleet_control$Time_varying_q[i] == 3){
+        if(data_list$fleet_control$Time_varying_q[i] == "Block"){
           map_list$index_q_dev[flt, srv_biom_yrs] <- ind_q_dev + index_data$Selectivity_block - 1
           ind_q_dev <- ind_q_dev + max(index_data$Selectivity_block)
         }

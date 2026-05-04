@@ -632,42 +632,36 @@ check_caal_data <- function(data_list) {
 #' @importFrom rlang .data
 convert_switches <- function(data_list) {
 
+  # Helper: convert a single string value using a map, pass integers through unchanged
+  .conv_single <- function(x, map) {
+    if (is.character(x) && x %in% names(map)) unname(map[[x]]) else x
+  }
+  .conv <- Vectorize(.conv_single, vectorize.args = "x", USE.NAMES = FALSE)
+
   # Fleet controls ----
   # If vector is a string that exists in our map, replace it with the integer.
   data_list$fleet_control <- data_list$fleet_control %>%
     dplyr::mutate(
-
-      Fleet_type = ifelse(as.character(.data$Fleet_type) %in% names(fleet_map),
-                           unname(fleet_map[as.character(.data$Fleet_type)]),
-                          .data$Fleet_type),
-      Selectivity = ifelse(as.character(.data$Selectivity) %in% names(sel_map),
-                           unname(sel_map[as.character(.data$Selectivity)]),
-                           .data$Selectivity),
-      Catchability = ifelse(as.character(.data$Catchability) %in% names(q_map),
-                            unname(q_map[as.character(.data$Catchability)]),
-                            .data$Catchability),
-      Comp_loglike = ifelse(as.character(.data$Comp_loglike) %in% names(comp_loglike_map),
-                            unname(comp_loglike_map[as.character(.data$Comp_loglike)]),
-                            .data$Comp_loglike),
-      CAAL_loglike = ifelse(as.character(.data$CAAL_loglike) %in% names(comp_loglike_map),
-                            unname(comp_loglike_map[as.character(.data$CAAL_loglike)]),
-                            .data$CAAL_loglike)
-
+      Fleet_type = .conv(.data$Fleet_type, fleet_map),
+      Selectivity = .conv(.data$Selectivity, sel_map),
+      Time_varying_sel = .conv(.data$Time_varying_sel, tv_sel_map),
+      Catchability = .conv(.data$Catchability, q_map),
+      Time_varying_q = .conv(.data$Time_varying_q, tv_q_map),
+      Comp_loglike = .conv(.data$Comp_loglike, comp_loglike_map),
+      CAAL_loglike = .conv(.data$CAAL_loglike, comp_loglike_map)
     ) %>%
     # CRITICAL: Force columns back to integers so TMB doesn't crash expecting ints but getting chars
     dplyr::mutate(
+      Fleet_type = as.integer(.data$Fleet_type),
       Selectivity = as.integer(.data$Selectivity),
+      Time_varying_sel = as.integer(.data$Time_varying_sel),
       Catchability = as.integer(.data$Catchability),
+      Time_varying_q = as.integer(.data$Time_varying_q),
       Comp_loglike = as.integer(.data$Comp_loglike),
       CAAL_loglike = as.integer(.data$CAAL_loglike)
     )
 
   # Pop dy controls ----
-  # Helper: convert a single string value using a map, pass integers through unchanged
-  .conv <- function(x, map) {
-    if (is.character(x) && x %in% names(map)) unname(map[[x]]) else x
-  }
-
   data_list$initMode <- as.integer(.conv(data_list$initMode, initMode_map))
   data_list$HCR <- as.integer(.conv(data_list$HCR, hcr_map))
 
