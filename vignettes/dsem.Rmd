@@ -1,0 +1,203 @@
+---
+title: "9. Dynamic structural equation models"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteIndexEntry{9. Dynamic structural equation models}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE,
+  fig.width = 7,
+  fig.height = 5
+)
+```
+
+`Rceattle` is integrated with the [`dsem`](https://CRAN.R-project.org/package=dsem) package via the `dsem` argument to `fit_mod()`. A dynamic structural equation model (DSEM) lets you place explicit structural relationships on recruitment deviations — including links to environmental covariates and cross-species linkages — instead of treating them as independent random effects.
+
+This vignette covers:
+
+- Specifying a SEM with `build_DSEM()`
+- Linking environmental covariates to recruitment in a single-species model
+- Linking recruitment across species in a multi-species model
+- Inspecting the fitted DSEM object
+
+## `build_DSEM()` arguments
+
+`build_DSEM()` produces the list of DSEM settings consumed by `fit_mod()`. Its main arguments:
+
+- `sem` — text specification of the SEM. One row per link with the form `from -> to, lag, param_name, start_value` (or `<->` for a variance/covariance term). All variables must appear as columns in `data_list$env_data`, and recruitment deviations must be named `recdevs1`, `recdevs2`, … one per species. If no start value is given, that term is **not** estimated. The default (when `sem = NULL`) is IID recruitment deviates.
+- `family` — measurement-error family for each variable: `"fixed"`, `"normal"`, `"gamma"`, `"bernoulli"`, or `"poisson"`. A single string is recycled across all variables.
+- `all_vars` — if `TRUE`, all variables in `env_data` are included in the DSEM likelihood (with observation error). This enables model comparison across different SEM specifications. Default `FALSE`.
+- `estimate_projection` — if `FALSE` (default), latent states for the projection period are turned off, simplifying estimation.
+
+See `?build_DSEM` and `dsem::make_dsem_ram` for full details on the SEM grammar.
+
+## Setup
+
+```{r}
+library(Rceattle)
+library(dplyr)
+```
+
+## Single-species: GOA pollock
+
+We start with single-species GOA pollock and add a bottom-temperature covariate to `env_data`. Scaling the covariate makes the SEM coefficients comparable across links.
+
+```{r}
+data("GOApollock")
+GOApollock$projyr <- 2020   # Shorten projection horizon for quicker estimation
+GOApollock$env_data <- GOApollock$env_data %>%
+  dplyr::mutate(ScaledBT = scale(BTempC))
+```
+
+### Model 1: IID recruitment (no DSEM)
+
+With `dsem = NULL`, recruitment deviations are treated as IID random effects — the standard `Rceattle` behaviour.
+
+```{r}
+model1 <- Rceattle::fit_mod(
+  data_list    = GOApollock,
+  inits        = NULL,
+  file         = NULL,
+  estimateMode = 0,
+  random_rec   = TRUE,
+  msmMode      = 0,
+  phase        = FALSE,
+  initMode     = 2,
+  verbose      = 1)
+
+summary(model1)
+```
+
+### Model 2: bottom temperature → recruitment
+
+The SEM below specifies (i) a one-year AR(1) process for scaled bottom temperature, (ii) a one-year-lagged effect of temperature on recruitment, and (iii) the recruitment-deviation variance. Phasing (`phase = TRUE`) helps the model reach a sensible starting point before the SEM parameters are turned on.
+
+```{r}
+sem_iid <- "
+  # link, lag, param_name, start_value
+
+  # internal data relation
+  ScaledBT -> ScaledBT,  1, AR_BT,    0
+  ScaledBT -> recdevs1,  1, BT_to_R,  0
+  recdevs1 <-> recdevs1, 0, sigmaR1,  1
+"
+
+model2 <- Rceattle::fit_mod(
+  data_list    = GOApollock,
+  inits        = NULL,
+  file         = NULL,
+  estimateMode = 0,
+  dsem         = build_DSEM(sem    = sem_iid,
+                            family = "normal"),
+  random_rec   = TRUE,
+  msmMode      = 0,
+  phase        = TRUE,
+  initMode     = 2,
+  verbose      = 1)
+
+summary(model2)
+```
+
+### Compare the two fits
+
+```{r}
+mod_list  <- list(model1, model2)
+mod_names <- c("Single-species IID", "Single-species + BT")
+
+plot_biomass(Rceattle = mod_list, model_names = mod_names)
+plot_recruitment(Rceattle = mod_list, model_names = mod_names)
+```
+
+### Inspect the DSEM object
+
+The fitted model carries the underlying `dsem` object, which can be queried for SEM structure and parameter estimates.
+
+```{r}
+class(model2$dsem)
+
+# SEM specification stored on the model
+print(model2$data_list$dsem_settings$sem)
+
+# Parameter estimates aligned with the SEM rows
+summ <- summary(model2$dsem)
+summ$Estimate <- model2$estimated_params$beta_z
+knitr::kable(summ)
+```
+
+## Multi-species: EBS three-species model
+
+`recdevsN` indexes the recruitment deviations of species `N`. In a multi-species model, this lets you link recruitment processes across species — e.g. the recruitment of one species predicting the recruitment of another in the same year.
+
+```{r}
+data("BS2017SS")
+BS2017SS$projyr <- 2020
+```
+
+### Model 3: three-species IID recruitment
+
+```{r}
+model3 <- Rceattle::fit_mod(
+  data_list    = BS2017SS,
+  inits        = NULL,
+  file         = NULL,
+  estimateMode = 0,
+  random_rec   = TRUE,
+  msmMode      = 0,
+  phase        = TRUE,
+  verbose      = 1)
+
+summary(model3)
+```
+
+### Model 4: cod and ATF recruitment → pollock recruitment
+
+Species in `BS2017SS` are ordered pollock (1), Pacific cod (2), arrowtooth flounder (3). The SEM below keeps each species' own variance and adds two same-year cross-species links into pollock recruitment.
+
+```{r}
+sem_3spp <- "
+  # link, lag, param_name, start_value
+  recdevs1 <-> recdevs1, 0, sigmaR1,  1
+  recdevs2 <-> recdevs2, 0, sigmaR2,  1
+  recdevs3 <-> recdevs3, 0, sigmaR3,  1
+  recdevs2 -> recdevs1, 0, R2_to_R1, 0
+  recdevs3 -> recdevs1, 0, R3_to_R1, 0
+"
+
+model4 <- Rceattle::fit_mod(
+  data_list    = BS2017SS,
+  inits        = NULL,
+  file         = NULL,
+  estimateMode = 0,
+  random_rec   = TRUE,
+  dsem         = build_DSEM(sem    = sem_3spp,
+                            family = "normal"),
+  msmMode      = 0,
+  phase        = TRUE,
+  verbose      = 1)
+
+summary(model4)
+```
+
+### Compare the two fits
+
+```{r}
+mod_list  <- list(model3, model4)
+mod_names <- c("Three-species IID", "Three-species linked")
+
+plot_biomass(Rceattle = mod_list, model_names = mod_names)
+plot_recruitment(Rceattle = mod_list, model_names = mod_names)
+```
+
+## Tips
+
+- **Phasing.** DSEM-linked models can be sensitive to starting values. Setting `phase = TRUE` fits the assessment in stages and typically reaches a better starting point before the SEM parameters are turned on.
+- **Estimating vs. fixing parameters.** Any SEM term written *without* a `start_value` is treated as fixed and is not estimated. Provide a start value to estimate the term.
+- **Comparing SEM specifications.** To compare alternative SEMs by likelihood, set `all_vars = TRUE` so every variable in `env_data` contributes to the DSEM likelihood under each specification.
+- **Projections.** Latent DSEM states are not estimated for projection years by default. Set `estimate_projection = TRUE` if you need them — this adds parameters and can complicate estimation.
