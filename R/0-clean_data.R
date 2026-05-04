@@ -195,12 +195,17 @@ switch_check <- function(data_list){
 #' @importFrom rlang .data
 revert_switches <- function(data_list) {
 
-  # Helper: convert a single integer value using a map, pass strings through unchanged
+  # Helper: convert integer codes to map names. Numeric-looking strings ("0",
+  # " 0", "0.000000000") are canonicalized via as.numeric so they match the
+  # integer keys in `map`. Strings that are already a map name (or anything
+  # else) pass through unchanged.
   .conv <- function(x, map) {
-    x_char <- gsub( " ", "", as.character(x))
+    x_char <- gsub(" ", "", as.character(x))
+    x_num <- suppressWarnings(as.numeric(x_char))
+    is_num <- !is.na(x_num)
+    x_char[is_num] <- as.character(x_num[is_num])
     idx <- match(x_char, as.character(map))
     matched <- !is.na(idx)
-
     if (any(matched)) {
       x_char[matched] <- names(map)[idx[matched]]
     }
@@ -218,7 +223,13 @@ revert_switches <- function(data_list) {
       CAAL_loglike = .conv(.data$CAAL_loglike, comp_loglike_map)
     )
 
-  data_list$fleet_control$Time_varying_q[which(!data_list$fleet_control$Catchability %in% c("AR1", "Environmental"))] = .conv(data_list$fleet_control$Time_varying_q, tv_q_map)
+  # Time_varying_q doubles as an environmental-index column when Catchability
+  # is "AR1" or "Environmental", so only convert the rows that hold a switch.
+  non_env_idx <- !data_list$fleet_control$Catchability %in% c("AR1", "Environmental")
+  if (any(non_env_idx)) {
+    data_list$fleet_control$Time_varying_q[non_env_idx] <-
+      .conv(data_list$fleet_control$Time_varying_q[non_env_idx], tv_q_map)
+  }
 
   # - Population dynamics switches
   data_list$initMode <- .conv(data_list$initMode, initMode_map)

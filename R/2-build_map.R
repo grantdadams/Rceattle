@@ -927,7 +927,7 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
 
       # -- Set up time varying catchability if used (account for missing years)
       if((data_list$fleet_control$Catchability[i] %in% c("Estimated", "Estimated-with-prior") &
-          as.numeric(data_list$fleet_control$Time_varying_q[i]) %in% c("IID", "Block", "AR1", "RandomWalk")) |
+          data_list$fleet_control$Time_varying_q[i] %in% c("IID", "Block", "AR1", "RandomWalk")) |
          data_list$fleet_control$Catchability[i] == "AR1"){
 
         # Extract survey years where data is provided

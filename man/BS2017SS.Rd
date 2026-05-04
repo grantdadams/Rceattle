@@ -64,7 +64,7 @@ fleet_control: controls for survey and fisheries data
 \item{Selectivity}{Selectivity to use for the species: 0 = "Fixed"; 1 = "Logistic"; 2 = "NonParametric" sensu Ianelli et al 2018; 3 = "DoubleLogistic"; 4 = "DescendingLogistic", 5 = "Hake" non-parametric sense Taylor et al, 6 = "2DAR1", 7 = "3DAR1" sensu Cheng et al 2024.}
 \item{Selectivity_dimension}{"Age" or "Length".}
 \item{Nselages}{Number of ages to estimate non-parametric selectivity.}
-\item{Time_varying_sel}{Whether a time-varying selectivity should be estimated for logistic, double logistic selectivity, or descending logistic. 0 = "None", 1 = "IID" penalized deviates given sel_sd_prior or random effect, 2 = "AR1" (TODO), 3 = "Block" time blocks with no penalty, 4 = "RandomWalk" following Dorn, 5 = "RandomWalkAscending" on ascending portion of double logistic only.}
+\item{Time_varying_sel}{Whether a time-varying selectivity should be estimated for logistic, double logistic selectivity, or descending logistic. 0 = "Off", 1 = "IID" penalized deviates given sel_sd_prior or random effect, 2 = "AR1" (TODO), 3 = "Block" time blocks with no penalty, 4 = "RandomWalk" following Dorn, 5 = "RandomWalkAscending" on ascending portion of double logistic only.}
 \item{Time_varying_sel_sd_prior}{The fixed or initial sd to use for time varying selectivity.}
 \item{Bin_first_selected}{Age/length bin at which selectivity is non-zero}
 \item{Acuumulation_age_lower}{Ages below this will be grouped to this age for composition data. For example, if set to 2, comp data for age 2 will include 1 and 2 year olds.}
@@ -76,7 +76,7 @@ fleet_control: controls for survey and fisheries data
 \item{Catchability}{Estimate catchability? (0 or "Fixed" = fixed at prior; 1 or "Estimated" = Estimate single parameter; 2 or "Estimated-with-prior" = Estimate single parameter with prior; 3 or "Analytical" = Estimate analytical q  from Ludwig and Walters 1994;  - 4 = Estimate power equation; - 5 or "Environmental" = Linear equation log(q_y) = q_mu + beta * index_y; 6 or "AR1" = annual AR1 catchability deviates are fit to environmental index sensu Rogers et al 2025)}
 \item{Q_prior}{Starting value or fixed value for catchability}
 \item{Q_sd_prior}{Variance of q prior: dnorm (log_q, log_q_prior, q_sd_prior)}
-\item{Time_varying_q}{Whether a time-varying q should be estimated. 0 = "None", 1 = "IID" penalized deviate or random effect, 2 = "AR1" (TODO), 3 = "Block" time blocks with no penalty; 4 = "RandomWalk" random walk from mean following Dorn 2018 (dnorm(q_y - q_y-1, 0, sigma). If Catchability = 5 or 6, this determines the environmental index to be used in the equation log(q_y) = q_mu + beta * index_y}
+\item{Time_varying_q}{Whether a time-varying q should be estimated. 0 = "Off", 1 = "IID" penalized deviate or random effect, 2 = "AR1" (TODO), 3 = "Block" time blocks with no penalty; 4 = "RandomWalk" random walk from mean following Dorn 2018 (dnorm(q_y - q_y-1, 0, sigma). If Catchability = 5 or 6, this determines the environmental index to be used in the equation log(q_y) = q_mu + beta * index_y}
 \item{Time_varying_q_sd_prior}{The sd to use for the random walk of time varying q if set to 1}
 \item{Estimate_survey_sd}{Estimate survey variance (0 = use CV from index_data, 1 = yes, 2 = analytically estimate following (Ludwig and Walters 1994)}
 \item{Survey_sd_prior}{Starting value to be used if Estimate_sigma_index = 1}
