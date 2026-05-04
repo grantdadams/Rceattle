@@ -125,15 +125,17 @@ below (integers or strings both work):
 
 Time-varying behavior is set by `Time_varying_sel` (per fleet):
 
-| Value | Behavior |
-|:---:|---|
-| `0` | Time-invariant |
-| `1` | Independent annual deviations |
-| `2` | Random walk (not allowed with `NonParametric` or `Hake`) |
-| `4`, `5` | AR(1) deviations |
+| Value | String | Behavior |
+|:---:|---|---|
+| `0` | `"Off"` | Time-invariant |
+| `1` | `"IID"` | Independent annual deviations |
+| `2` | `"AR1"` | Not yet implemented |
+| `3` | `"Block"` | Time block |
+| `4` | `"RandomWalk"` | Random walk (not allowed with `NonParametric` or `Hake`) |
+| `5` | `"RandomWalkAscending"` | Random walk on ascending portion of double logistic (not allowed with `NonParametric` or `Hake`) |
 
 Bin indexing: with non-parametric and AR(1) forms, selectivity is
-indexed over `N_sel_bins` and normalised between
+indexed over `N_sel_bins` and can be normalised by `Sel_norm_bin1` or between
 `Sel_norm_bin1` / `Sel_norm_bin2` instead of always at the maximum age.
 
 ## 4. Catchability (per fleet)
@@ -151,6 +153,18 @@ Set the `Catchability` column of `fleet_control`:
 | `4` | `"PowerEquation"` | Power-function catchability (q · B<sup>α</sup>) |
 | `5` | `"Environmental"` | q linked to an environmental index (`Q_index`) |
 | `6` | `"AR1"` | Annual AR(1) deviations on log-q (Rogers et al. 2024) |
+
+Time-varying behavior is set by `Time_varying_q` (per fleet):
+
+| Value | String | Behavior |
+|:---:|---|---|
+| `0` | `"Off"` | Time-invariant |
+| `1` | `"IID"` | Independent annual deviations |
+| `2` | `"AR1"` | Not yet implemented |
+| `3` | `"Block"` | Time block |
+| `4` | `"RandomWalk"` | Random walk |
+
+If `Selectivity` is `AR1` or `Environmental`, `Time_varying_q` can be a integer or character of integers specifying the environmental series in `env_data` to use (e.g. `Time_varying_q = 1` or `Time_varying_q = "1,2,3"`).
 
 ## 5. Composition likelihoods
 

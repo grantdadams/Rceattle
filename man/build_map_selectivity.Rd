@@ -36,10 +36,10 @@ and \code{Time_varying_sel} settings in \code{fleet_control}.
 \code{N_sel_bins}	Number of age/length bins to estimate non-parametric selectivity when Selectivity = 2 or 5. Not used otherwise
 
 \code{Time_varying_sel}	determines if time-varying selectivity should be estimated for logistic, double logistic selectivity,  descending logistic , non-parametric, or hake (\code{Selectivity = 1, 2, 3, 4, or 5}).
-0 = no
-1 = penalized deviates given \code{sel_sd_prior}
-3 = time blocks with no penalty
-4 = random walk following Dorn
-5 = random walk on ascending portion of double logistic only.
+0 = 'None'
+1 = 'IID' penalized deviates given \code{sel_sd_prior}
+3 = 'Block' time blocks with no penalty
+4 = 'RandomWalk' random walk following Dorn
+5 = 'RandomWalkAscending' random walk on ascending portion of double logistic only.
 \code{random_sel} in \code{fit_mod} treats random deviates and random walk parameters as random effects, estimating the variance.
 }

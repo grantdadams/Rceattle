@@ -107,6 +107,8 @@ testthat::test_that("2DAR1 selectivity map and likelihood", {
   GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
   GOA2018SS$fleet_control$Bin_first_selected <- 1
   GOA2018SS$fleet_control$N_sel_bins <- 8
+  GOA2018SS$fleet_control$Sel_curve_pen1 <- 0
+  GOA2018SS$fleet_control$Sel_curve_pen2 <- 0
   GOA2018SS$fleet_control$Sel_norm_bin1 <- NA # Do not normalize
   GOA2018SS$catch_data$Catch <- 1e6 # If catch is zero, sel devs are turned off
 
@@ -180,6 +182,8 @@ testthat::test_that("3DAR1 selectivity map and likelihood", {
   GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
   GOA2018SS$fleet_control$Bin_first_selected <- 1
   GOA2018SS$fleet_control$N_sel_bins <- 8
+  GOA2018SS$fleet_control$Sel_curve_pen1 <- 0
+  GOA2018SS$fleet_control$Sel_curve_pen2 <- 0
   GOA2018SS$fleet_control$Sel_norm_bin1 <- NA # Do not normalize
   GOA2018SS$catch_data$Catch <- 1e6 # If catch is zero, sel devs are turned off
 
@@ -239,4 +243,50 @@ testthat::test_that("3DAR1 selectivity map and likelihood", {
   testthat::expect_all_true(ss_run$quantities$jnll_comp[6,-7] != 0)
   testthat::expect_all_true(ss_run$quantities$jnll_comp[6,7] == 0)
   testthat::expect_all_true(!is.na(ss_run$quantities$jnll_comp[6,]))
+})
+
+testthat::test_that("2DAR1/3DAR1 reject saturating Sel_curve_pen rho values", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  data("GOA2018SS")
+  GOA2018SS$fleet_control$Selectivity <- "2DAR1"
+  GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
+  GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
+  GOA2018SS$fleet_control$Bin_first_selected <- 1
+  GOA2018SS$fleet_control$N_sel_bins <- 8
+  GOA2018SS$fleet_control$Sel_curve_pen1 <- 0
+  GOA2018SS$fleet_control$Sel_curve_pen2 <- 0
+  GOA2018SS$fleet_control$Sel_norm_bin1 <- NA
+
+  # Sel_curve_pen1 above the saturation threshold should error for 2DAR1
+  bad_pen1 <- GOA2018SS
+  bad_pen1$fleet_control$Sel_curve_pen1[1] <- 20
+  testthat::expect_error(
+    suppressMessages(Rceattle::fit_mod(data_list = bad_pen1, inits = NULL, file = NULL,
+                                       estimateMode = 3, random_rec = FALSE, random_sel = TRUE,
+                                       msmMode = 0, fit_control = fit_control(phase = TRUE, verbose = 0))),
+    regexp = "Sel_curve_pen1"
+  )
+
+  # Sel_curve_pen2 below the negative saturation threshold should error for 3DAR1
+  bad_pen2 <- GOA2018SS
+  bad_pen2$fleet_control$Selectivity <- "3DAR1"
+  bad_pen2$fleet_control$Sel_curve_pen2[1] <- -12.5
+  testthat::expect_error(
+    suppressMessages(Rceattle::fit_mod(data_list = bad_pen2, inits = NULL, file = NULL,
+                                       estimateMode = 3, random_rec = FALSE, random_sel = TRUE,
+                                       msmMode = 0, fit_control = fit_control(phase = TRUE, verbose = 0))),
+    regexp = "Sel_curve_pen2"
+  )
+
+  # NonParametric selectivity uses Sel_curve_pen as a real penalty weight; large values are valid
+  ok_np <- GOA2018SS
+  ok_np$fleet_control$Selectivity <- "NonParametric"
+  ok_np$fleet_control$Sel_curve_pen1[1] <- 50
+  testthat::expect_no_error(
+    suppressMessages(Rceattle::fit_mod(data_list = ok_np, inits = NULL, file = NULL,
+                                       estimateMode = 3, random_rec = FALSE,
+                                       msmMode = 0, fit_control = fit_control(verbose = 0)))
+  )
 })

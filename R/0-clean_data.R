@@ -136,18 +136,15 @@ switch_check <- function(data_list){
   data_list$fleet_control$CAAL_weights <- set_default(data_list$fleet_control$CAAL_weights, 1, "'CAAL_weights' not specified in 'fleet_control', assuming 1")
   data_list$fleet_control$Month <- set_default(data_list$fleet_control$Month, 0, "'Month' not specified in 'fleet_control', assuming 0")
 
-  # Update switches to text-based if necessary for older files
-  data_list <- revert_switches(data_list)
-
   # Format adjustment for NonParametric
   np_idx <- data_list$fleet_control$Selectivity %in% c(2, "NonParametric", "Non-parametric")
-  if(any(np_idx & !is.na(data_list$fleet_control$Time_varying_sel) & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)))){
+  if(any(np_idx & !is.na(data_list$fleet_control$Time_varying_sel) & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1, "Off", "IID")))){
     data_list$fleet_control <- data_list$fleet_control |>
       dplyr::mutate(
-        Sel_curve_pen1 = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1)), Time_varying_sel, Sel_curve_pen1),
-        Sel_curve_pen2 = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1)), Time_varying_sel_sd_prior, Sel_curve_pen2),
-        Time_varying_sel = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1)), 0, Time_varying_sel),
-        Time_varying_sel_sd_prior = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1)), 0, Time_varying_sel_sd_prior)
+        Sel_curve_pen1 = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1, "Off", "IID")), Time_varying_sel, Sel_curve_pen1),
+        Sel_curve_pen2 = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1, "Off", "IID")), Time_varying_sel_sd_prior, Sel_curve_pen2),
+        Time_varying_sel = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1, "Off", "IID")), 0, Time_varying_sel),
+        Time_varying_sel_sd_prior = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1, "Off", "IID")), 0, Time_varying_sel_sd_prior)
       )
     message("Updating format where 'Selectivity == Non-parametric'. Moving non-parametric penalties to 'Sel_curve_pen1' and 'Sel_curve_pen2'.")
   }
@@ -185,6 +182,9 @@ switch_check <- function(data_list){
     }
   }
 
+  # Update switches to text-based if necessary for older files
+  data_list <- revert_switches(data_list)
+
   return(data_list)
 }
 
@@ -195,34 +195,34 @@ switch_check <- function(data_list){
 #' @importFrom rlang .data
 revert_switches <- function(data_list) {
 
+  # Helper: convert a single integer value using a map, pass strings through unchanged
+  .conv <- function(x, map) {
+    x_char <- gsub( " ", "", as.character(x))
+    idx <- match(x_char, as.character(map))
+    matched <- !is.na(idx)
+
+    if (any(matched)) {
+      x_char[matched] <- names(map)[idx[matched]]
+    }
+    return(x_char)
+  }
+
   # - Fleet switches
   data_list$fleet_control <- data_list$fleet_control |>
     dplyr::mutate(
-      Fleet_type = ifelse(as.character(.data$Fleet_type) %in% names(fleet_rev_map),
-                          fleet_rev_map[as.character(.data$Fleet_type)],
-                          .data$Fleet_type),
-      Selectivity = ifelse(as.character(.data$Selectivity) %in% names(sel_rev_map),
-                           sel_rev_map[as.character(.data$Selectivity)],
-                           .data$Selectivity),
-      Catchability = ifelse(as.character(.data$Catchability) %in% names(q_rev_map),
-                            q_rev_map[as.character(.data$Catchability)],
-                            .data$Catchability),
-      Comp_loglike = ifelse(as.character(.data$Comp_loglike) %in% names(comp_loglike_rev_map),
-                            comp_loglike_rev_map[as.character(.data$Comp_loglike)],
-                            .data$Comp_loglike),
-      CAAL_loglike = ifelse(as.character(.data$CAAL_loglike) %in% names(comp_loglike_rev_map),
-                            comp_loglike_rev_map[as.character(.data$CAAL_loglike)],
-                            .data$CAAL_loglike)
+      Fleet_type = .conv(.data$Fleet_type, fleet_map),
+      Selectivity = .conv(.data$Selectivity, sel_map),
+      Time_varying_sel = .conv(.data$Time_varying_sel, tv_sel_map),
+      Catchability = .conv(.data$Catchability, q_map),
+      Comp_loglike = .conv(.data$Comp_loglike, comp_loglike_map),
+      CAAL_loglike = .conv(.data$CAAL_loglike, comp_loglike_map)
     )
 
-  # - Population dynamics switches
-  # Helper: convert a single integer value using a map, pass strings through unchanged
-  .conv <- function(x, revmap) {
-    if (is.numeric(x) && x %in% names(revmap)) revmap[[which(names(revmap) == x)]] else x
-  }
+  data_list$fleet_control$Time_varying_q[which(!data_list$fleet_control$Catchability %in% c("AR1", "Environmental"))] = .conv(data_list$fleet_control$Time_varying_q, tv_q_map)
 
-  data_list$initMode <- .conv(data_list$initMode, initMode_rev_map)
-  data_list$HCR <- .conv(data_list$HCR, hcr_rev_map)
+  # - Population dynamics switches
+  data_list$initMode <- .conv(data_list$initMode, initMode_map)
+  data_list$HCR <- .conv(data_list$HCR, hcr_map)
 
   return(data_list)
 }
