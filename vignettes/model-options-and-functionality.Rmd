@@ -22,9 +22,9 @@ available in `Rceattle`. It complements:
 - vignette 1, [Rceattle: An Introduction](introduction.html), which
   walks through fitting a model end-to-end;
 - vignette 8, [Model parameterizations](model-parameterizations.html), which
-  is the equation-level reference; and
+  is the in progress equation-level reference; and
 - the per-topic vignettes 3 (diagnostics), 4 (projections / reference
-  points), 5 (single- vs. multi-species), 6 (data without Excel), and
+  points), 5 (single- vs. multi-species), 6 (building a data object in R), and
   7 (Stock Synthesis migration).
 
 If you're building a new application, this is the menu of options you
@@ -35,8 +35,8 @@ choose between when configuring `data_list` and the arguments to
 
 > Equations: see vignette 8 [§Population dynamics](model-parameterizations.html#population-dynamics).
 
-The top-level switches that decide what kind of model is fitted live on
-the `data_list` and on the call to `fit_mod()`:
+The top-level switches that decide the observation model live on
+the `data_list` and the population model and estimation switches live on the call to `fit_mod()`:
 
 | Switch | Where set | Role |
 |---|---|---|
@@ -65,8 +65,8 @@ Codes (also accept the string aliases listed):
 | `0` | `"FreeParams"` | Initial N-at-age estimated as free parameters |
 | `1` | `"Equilibrium"` | Unfished equilibrium, no init devs, F<sub>init</sub> = 0 |
 | `2` (default) | `"NonEquilibrium"` | Unfished equilibrium with initial deviations |
-| `3` | `"FishedNonEquilibrium"` | Fished non-equilibrium with init devs; F<sub>init</sub> estimated inside geometric series |
-| `4` | `"FishedNonEquilibriumScaled"` | Fished non-equilibrium with R<sub>0</sub>-scaled F<sub>init</sub> after geometric series|
+| `3` | `"FishedNonEquilibrium"` | Fished non-equilibrium with init devs; F<sub>init</sub> is added to M inside geometric series |
+| `4` | `"FishedNonEquilibriumScaled"` | Fished non-equilibrium with init devs and R<sub>0</sub>-scaled by F<sub>init</sub>|
 
 ### `estimateMode` — what does `fit_mod()` actually do?
 
@@ -76,13 +76,14 @@ Codes (also accept the string aliases listed):
 | `1` | Estimate only the hindcast parameters via `nlminb` / `TMB::sdreport`.. |
 | `2` | Hold the hindcast fixed and run only the projection under the supplied `HCR`. |
 | `3` | Evaluate the report once at `inits` (debug / mapping check). |
+| `4` | Run the TMB objects through MakeADFun with out estimation (debug / mapping check). |
 
 ### Random-effects toggles
 
 `random_rec`, `random_q`, and `random_sel` move log-recruitment, the
-log-catchability AR(1) deviations, and the time-varying selectivity
+log-catchability deviations, and the time-varying selectivity
 deviations (respectively) from penalised fixed effects to random
-effects marginalised via the Laplace approximation.
+effects marginalised via the Laplace approximation and estimate their associated distribution parameters.
 
 ## 2. Predation: `suitMode` (per predator)
 
@@ -98,12 +99,12 @@ all predators) or length `nspp`.
 | `2` | `"GammaWeight"` | Gamma suitability on prey weight-at-age | Yes |
 | `3` | `"LognormalLength"` | Log-normal suitability on prey length-at-age | **Not yet** |
 | `4` | `"LognormalWeight"` | Log-normal suitability on prey weight-at-age | Yes |
-| `5` | `"NormalLength"` | Normal suitability on prey length-at-age | Yes |
+| `5` | `"NormalLength"` | Normal suitability on prey length-at-age | **Not yet** |
 | `6` | `"NormalWeight"` | Normal suitability on prey weight-at-age | Yes |
 
 Suitability is averaged across years `suit_styr:suit_endyr` (defaults to
-the full hindcast). Per-predator `suitMode` allows mixing parametric and
-empirical suitability across species.
+the full hindcast) if year-specific diet data are not included (e.g. `Year = 0` in `diet_data`). 
+Per-predator `suitMode` allows mixing parametric and  empirical suitability across species.
 
 ## 3. Selectivity (per fleet)
 
@@ -135,8 +136,12 @@ Time-varying behavior is set by `Time_varying_sel` (per fleet):
 | `5` | `"RandomWalkAscending"` | Random walk on ascending portion of double logistic (not allowed with `NonParametric` or `Hake`) |
 
 Bin indexing: with non-parametric and AR(1) forms, selectivity is
-indexed over `N_sel_bins` and can be normalised by `Sel_norm_bin1` or between
-`Sel_norm_bin1` / `Sel_norm_bin2` instead of always at the maximum age.
+indexed over `N_sel_bins`.
+
+Selectivity can be normalized relative to a specific age by setting `Sel_norm_bin1 != NA` or 
+to the max (non-differentiable) by setting `Sel_norm_bin1 < 0`. Selectivity can also be normalized
+relative to the average across an age-range by specifying the lower
+(`Sel_norm_bin1`) and upper (`Sel_norm_bin2`) bound.
 
 ## 4. Catchability (per fleet)
 
@@ -152,7 +157,7 @@ Set the `Catchability` column of `fleet_control`:
 | `3` | `"Analytical"` | Closed-form analytical q (concentrated likelihood) |
 | `4` | `"PowerEquation"` | Power-function catchability (q · B<sup>α</sup>) |
 | `5` | `"Environmental"` | q linked to an environmental index (`Q_index`) |
-| `6` | `"AR1"` | Annual AR(1) deviations on log-q (Rogers et al. 2024) |
+| `6` | `"AR1"` | Annual AR(1) deviations on log-q fit to a single index (Rogers et al. 2024) |
 
 Time-varying behavior is set by `Time_varying_q` (per fleet):
 
@@ -164,7 +169,8 @@ Time-varying behavior is set by `Time_varying_q` (per fleet):
 | `3` | `"Block"` | Time block |
 | `4` | `"RandomWalk"` | Random walk |
 
-If `Selectivity` is `AR1` or `Environmental`, `Time_varying_q` can be a integer or character of integers specifying the environmental series in `env_data` to use (e.g. `Time_varying_q = 1` or `Time_varying_q = "1,2,3"`).
+If `Selectivity` is `AR1` or `Environmental`, `Time_varying_q` can be a integer or character of integers 
+specifying the environmental series in `env_data` to use (e.g. `Time_varying_q = 1` or `Time_varying_q = "1,2,3"`).
 
 ## 5. Composition likelihoods
 
@@ -193,9 +199,8 @@ and are weighted via `CAAL_weights` per fleet.
 | `4` | `"Ricker"` | Ricker |
 | `5` | `"RickerEnv"` | Ricker with environmental link |
 
-`build_srr()` also exposes `srr_est_mode = 3` for a Beta prior on
-Beverton-Holt steepness, and `srr_hat_styr` / `srr_hat_endyr` to control
-which years are used in deriving R̂.
+Priors can be added to stock-functions via `build_srr()`. See `srr_est_mode` in `?build_srr` for options. 
+Use `srr_indices` to pick columns in `env_data` (e.g. `srr_indices = c(2,3,4)`).
 
 ## 7. Natural mortality (`M1Fun = build_M1()`)
 
@@ -207,7 +212,7 @@ which years are used in deriving R̂.
 | `1` | Species-specific M, sex- and age-invariant. Estimates M1<sub>spp</sub> |
 | `2` | Sex- and species-specific M (two-sex models), age-invariant. Estimates M1<sub>spp,sex</sub> |
 | `3` | Sex-, species-, and age-specific. Estimates M1<sub>spp,sex,age</sub> |
-| `4` | Environmentally driven, sex-invariant. M1<sub>spp,yr</sub> = M1<sub>spp</sub> · exp(X · β<sub>spp</sub>); use `M1_indices` to pick environmental columns |
+| `4` | Environmentally driven, sex-invariant. M1<sub>spp,yr</sub> = M1<sub>spp</sub> · exp(X · β<sub>spp</sub>); use `M1_indices` to pick columns in `env_data` |
 | `5` | Environmentally driven, sex- and species-specific. M1<sub>spp,sex,yr</sub> = M1<sub>spp,sex</sub> · exp(X · β<sub>spp,sex</sub>) |
 
 ### `M1_re` — random-effects structure on M1
@@ -256,13 +261,14 @@ the estimated growth model when `growth_model > 0`.
 | `2` | `"ConstantF"` | Constant F set at `Ftarget` per species | Yes |
 | `3` | `"ConstantFSSB"` | F that achieves `Ftarget`% of SB<sub>0</sub> at the end of the projection | Yes |
 | `4` | `"ConstantFSPR"` | F<sub>SPR</sub> at `Ftarget` (NEFSC convention; scale via `Fmult`) | No |
-| `5` | `"NPFMC"` | NPFMC Tier 3 SPR-based HCR (`Ftarget`, `Flimit`, `Ptarget`, `Alpha`) | No |
-| `6` | `"PFMC"` | PFMC Category 1 40-10 ACL with uncertainty buffer (`Pstar`, `Sigma`) | Yes |
+| `5` | `"NPFMC"` | NPFMC Tier 3 SPR-based HCR (`Ftarget`, `Flimit`, `Ptarget`, `Plimit`, `Alpha`) | No |
+| `6` | `"PFMC"` | PFMC Category 1 `Ptarget`-`Plimit` ACL with uncertainty buffer around `Flimit` (`Pstar`, `Sigma`) | Yes |
 | `7` | `"SESSF"` | SESSF Tier 1 SPR-based HCR | No |
 
 `DynamicHCR = TRUE` switches from static to dynamic SB<sub>0</sub>
 reference points. `HCRorder` controls the order in which species F is
 solved for iterative multi-species HCRs (e.g. predators before prey).
+See `?build_hcr` for more details.
 
 ## 10. Projection and MSE
 
@@ -290,7 +296,6 @@ seed plumbing and reproducibility guarantees.
 | `compare_sim()` | Estimation-vs-truth comparison across simulated replicates |
 | `model_average()` | Weighted average of derived quantities across multiple fits, with optional bootstrap uncertainty |
 | `calc_mcall_ianelli()` / `calc_mcall_ianelli_diet()` | McAllister-Ianelli composition-data reweighting |
-| `check_composition_data()` / `check_caal_data()` | Sanity-check composition and CAAL data dimensions |
 
 ## 12. Plotting
 

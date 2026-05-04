@@ -1,10 +1,10 @@
 ---
-title: "6. Building a data object without Excel"
+title: "6. Building a data object in R"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteIndexEntry{6. Building a data object without Excel}
+  %\VignetteIndexEntry{6. Building a data object in R}
   %\VignetteEncoding{UTF-8}
 ---
 
@@ -63,14 +63,13 @@ simData$nsex    <- rep(1, nspp)
 simData$spawn_month <- rep(6, nspp)
 
 simData$nages   <- rep(nages, nspp)   # number of age classes per species
-simData$minage  <- rep(1, nspp)       # minimum age (usually 1 or 0)
+simData$minage  <- rep(1, nspp)       # minimum age (usually 1)
 simData$nlengths <- rep(nlengths, nspp)
 
 # estDynamics controls how population abundance is estimated:
 #   0 = estimate population dynamics (standard statistical catch-at-age)
 #   1 = fix N-at-age exactly to values in NByageFixed (e.g., external estimates)
 #   2 = scale NByageFixed by a single estimated scalar per species
-#   3 = scale NByageFixed by age-specific estimated scalars per species
 simData$estDynamics <- rep(0, nspp)
 
 # Indices linking each species to its weight and growth datasets.
@@ -80,12 +79,12 @@ simData$pop_wt_index <- 1:nspp
 simData$ssb_wt_index <- 1:nspp
 simData$pop_age_transition_index <- rep(1, nspp)
 
-# Length-weight relationship coefficients: W = alpha * L ^ beta (metric tonnes).
-# Used internally to convert length-based selectivity to weight.
+# Length-weight relationship coefficients: W = alpha * L ^ beta.
+# Used internally to convert length-based selectivity to weight when estimating growth.
 simData$alpha_wt_len <- rep(0.00001, nspp)
 simData$beta_wt_len  <- rep(3, nspp)
 
-# Prior standard deviation for log-recruitment deviations. Controls the
+# Prior or initial standard deviation for log-recruitment deviations. Controls the
 # strength of the recruitment penalty in penalized-likelihood mode.
 simData$sigma_rec_prior <- rep(1, nspp)
 
@@ -127,7 +126,7 @@ This is the most important configuration table. Each row defines one fleet (fish
 #   "PowerEquation"        (4) -- power-equation Q (habitat area scaling)
 #   "Environmental"        (5) -- mu_q + X * beta, where X is a covariate in env_data
 #   "AR1"                  (6) -- auto-regressive catchability (Rogers et al. 2024)
-#   NA                         -- not applicable (use for fishery fleets)
+#   NA                         -- not applicable (use for fisheries without CPUE)
 
 # Comp_loglike / CAAL_loglike options:
 #   "Multinomial"           -- standard multinomial
