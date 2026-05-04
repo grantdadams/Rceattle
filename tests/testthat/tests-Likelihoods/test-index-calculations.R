@@ -31,7 +31,7 @@ testthat::test_that("Basic index and index likelihood", {
   # Run
   ss_run <- Rceattle::fit_mod(data_list = dat,
                               inits = inits, # Initial parameters = 0
-                              file = NULL, # Don't save
+                              map = ss_run$map,
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode

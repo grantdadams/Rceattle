@@ -2,7 +2,7 @@
 % Please edit documentation in R/0-rceattle_class.R
 \name{summary.Rceattle}
 \alias{summary.Rceattle}
-\title{Compact summary method for Rceattle fits}
+\title{Summary method for Rceattle fits}
 \usage{
 \method{summary}{Rceattle}(object, ...)
 }
@@ -11,6 +11,22 @@
 
 \item{...}{Currently unused.}
 }
+\value{
+Invisibly returns either:
+\itemize{
+\item a data.frame of DSEM path coefficients (when the fit contains a
+DSEM), with columns: \code{path}, \code{lag}, \code{name},
+\code{start}, \code{parameter}, \code{first}, \code{second},
+\code{direction}, \code{Estimate}, and (when \code{sdrep} is
+available) \code{Std_Error}, \code{z_value}, \code{p_value}; or
+\item the input \code{object}, when no DSEM is attached.
+}
+}
 \description{
-Compact summary method for Rceattle fits
+Prints the compact model overview (via \code{\link[=print.Rceattle]{print.Rceattle()}}) and, if the
+fit includes a dynamic structural equation model (DSEM) for recruitment
+deviates, also returns a data.frame of estimated path coefficients with
+standard errors, z-values, and Wald p-values when an \code{sdreport} is
+available. Adapted from \code{summary.dsem} for Rceattle-DSEM; see
+\code{?dsem::summary.dsem} for the underlying parameterization.
 }

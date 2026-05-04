@@ -33,12 +33,17 @@ testthat::test_that("Rceattle and multi-species model dynamics match", {
 
   # Fit multi-species
   # * Inits ----
-  ss_run <- Rceattle::fit_mod(data_list = simData,
-                              estimateMode = 3,
+  mod0 <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3, # Don't estimate
+                              random_rec = FALSE, # No random recruitment
+                              msmMode = 1,
+                              suitMode = 4,
+                              niter = 5,
+                              initMode = "NonEquilibrium",
                               fit_control = fit_control(
                                 phase = FALSE,
                                 verbose = 0))
-  inits <- ss_run$estimated_params
+  inits <- mod0$estimated_params
 
   # * Fix parameters -----
   inits$log_gam_a <- log(gam_a)
@@ -51,12 +56,12 @@ testthat::test_that("Rceattle and multi-species model dynamics match", {
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_ln_q[] <- log(1)
   inits$R_ln_sd[] <- log(1)
-  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
+  inits$x_tj[1:30, 1:simData$nspp]  <- t(sim$model_quantities$rec_devs)
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
   ms_run1 <- Rceattle::fit_mod(data_list = simData,
                                inits = inits, # Initial parameters from inits
-                               file = NULL, # Don't save
+                               map = mod0$map,
                                estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
                                msmMode = 1,
@@ -177,7 +182,7 @@ testthat::test_that("Equilibrium MSVPA suitability dynamics match", {
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_ln_q[] <- log(1)
   inits$R_ln_sd[] <- log(1)
-  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
+  inits$x_tj[1:30, 1:simData$nspp]  <- t(sim$model_quantities$rec_devs)
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
   ms_run_msvpa <- Rceattle::fit_mod(data_list = simData,
@@ -268,12 +273,17 @@ testthat::test_that("Test proportion of prey-at-age in predator-at-age averaged 
 
   # Fit multi-species
   # * Inits ----
-  ss_run <- Rceattle::fit_mod(data_list = simData,
-                              estimateMode = 3,
+  mod0 <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3, # Don't estimate
+                              random_rec = FALSE, # No random recruitment
+                              msmMode = 1,
+                              suitMode = 4,
+                              niter = 5,
+                              initMode = "NonEquilibrium",
                               fit_control = fit_control(
                                 phase = FALSE,
                                 verbose = 0))
-  inits <- ss_run$estimated_params
+  inits <- mod0$estimated_params
 
   # * Fix parameters -----
   inits$log_gam_a <- log(gam_a)
@@ -286,7 +296,7 @@ testthat::test_that("Test proportion of prey-at-age in predator-at-age averaged 
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_ln_q[] <- log(1)
   inits$R_ln_sd[] <- log(1)
-  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
+  inits$x_tj[1:30, 1:simData$nspp]  <- t(sim$model_quantities$rec_devs)
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
 
@@ -316,7 +326,7 @@ testthat::test_that("Test proportion of prey-at-age in predator-at-age averaged 
 
   ms_run2 <- Rceattle::fit_mod(data_list = simData,
                                inits = inits, # Initial parameters from inits
-                               file = NULL, # Don't save
+                               map = mod0$map,
                                estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
                                msmMode = 1,
@@ -381,12 +391,17 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator-at-ag
 
   # Fit multi-species
   # * Inits ----
-  ss_run <- Rceattle::fit_mod(data_list = simData,
-                              estimateMode = 3,
+  mod0 <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3, # Don't estimate
+                              random_rec = FALSE, # No random recruitment
+                              msmMode = 1,
+                              suitMode = 4,
+                              niter = 5,
+                              initMode = "NonEquilibrium",
                               fit_control = fit_control(
                                 phase = FALSE,
                                 verbose = 0))
-  inits <- ss_run$estimated_params
+  inits <- mod0$estimated_params
 
   # * Fix parameters -----
   inits$log_gam_a <- log(gam_a)
@@ -399,7 +414,7 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator-at-ag
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_ln_q[] <- log(1)
   inits$R_ln_sd[] <- log(1)
-  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
+  inits$x_tj[1:30, 1:simData$nspp]  <- t(sim$model_quantities$rec_devs)
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
 
@@ -429,7 +444,7 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator-at-ag
 
   ms_run2 <- Rceattle::fit_mod(data_list = simData,
                                inits = inits, # Initial parameters from inits
-                               file = NULL, # Don't save
+                               map = mod0$map,
                                estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
                                msmMode = 1,
@@ -495,12 +510,17 @@ testthat::test_that("Test proportion of prey (all ages) in predator-at-age avera
 
   # Fit multi-species
   # * Inits ----
-  ss_run <- Rceattle::fit_mod(data_list = simData,
-                              estimateMode = 3,
+  mod0 <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3, # Don't estimate
+                              random_rec = FALSE, # No random recruitment
+                              msmMode = 1,
+                              suitMode = 4,
+                              niter = 5,
+                              initMode = "NonEquilibrium",
                               fit_control = fit_control(
                                 phase = FALSE,
                                 verbose = 0))
-  inits <- ss_run$estimated_params
+  inits <- mod0$estimated_params
 
   # * Fix parameters -----
   inits$log_gam_a <- log(gam_a)
@@ -513,7 +533,7 @@ testthat::test_that("Test proportion of prey (all ages) in predator-at-age avera
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_ln_q[] <- log(1)
   inits$R_ln_sd[] <- log(1)
-  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
+  inits$x_tj[1:30, 1:simData$nspp]  <- t(sim$model_quantities$rec_devs)
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
 
@@ -544,7 +564,7 @@ testthat::test_that("Test proportion of prey (all ages) in predator-at-age avera
 
   ms_run2 <- Rceattle::fit_mod(data_list = simData,
                                inits = inits, # Initial parameters from inits
-                               file = NULL, # Don't save
+                               map = mod0$map,
                                estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
                                msmMode = 1,
@@ -608,12 +628,17 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (mean
 
   # Fit multi-species
   # * Inits ----
-  ss_run <- Rceattle::fit_mod(data_list = simData,
-                              estimateMode = 3,
-                              fit_control = fit_control(
-                                phase = FALSE,
-                                verbose = 0))
-  inits <- ss_run$estimated_params
+  mod0 <- Rceattle::fit_mod(data_list = simData,
+                            estimateMode = 3, # Don't estimate
+                            random_rec = FALSE, # No random recruitment
+                            msmMode = 1,
+                            suitMode = 4,
+                            niter = 5,
+                            initMode = "NonEquilibrium",
+                            fit_control = fit_control(
+                              phase = FALSE,
+                              verbose = 0))
+  inits <- mod0$estimated_params
 
   # * Fix parameters -----
   inits$log_gam_a <- log(gam_a)
@@ -626,7 +651,7 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (mean
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_ln_q[] <- log(1)
   inits$R_ln_sd[] <- log(1)
-  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
+  inits$x_tj[1:30, 1:simData$nspp]  <- t(sim$model_quantities$rec_devs)
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
 
@@ -657,7 +682,7 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (mean
 
   ms_run2 <- Rceattle::fit_mod(data_list = simData,
                                inits = inits, # Initial parameters from inits
-                               file = NULL, # Don't save
+                               map = mod0$map,
                                estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
                                msmMode = 1,
@@ -722,12 +747,17 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (weig
 
   # Fit multi-species
   # * Inits ----
-  ss_run <- Rceattle::fit_mod(data_list = simData,
-                              estimateMode = 3,
-                              fit_control = fit_control(
-                                phase = FALSE,
-                                verbose = 0))
-  inits <- ss_run$estimated_params
+  mod0 <- Rceattle::fit_mod(data_list = simData,
+                            estimateMode = 3, # Don't estimate
+                            random_rec = FALSE, # No random recruitment
+                            msmMode = 1,
+                            suitMode = 4,
+                            niter = 5,
+                            initMode = "NonEquilibrium",
+                            fit_control = fit_control(
+                              phase = FALSE,
+                              verbose = 0))
+  inits <- mod0$estimated_params
 
   # * Fix parameters -----
   inits$log_gam_a <- log(gam_a)
@@ -740,7 +770,7 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (weig
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_ln_q[] <- log(1)
   inits$R_ln_sd[] <- log(1)
-  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
+  inits$x_tj[1:30, 1:simData$nspp]  <- t(sim$model_quantities$rec_devs)
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
 
@@ -785,7 +815,7 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (weig
 
   ms_run2 <- Rceattle::fit_mod(data_list = simData,
                                inits = inits, # Initial parameters from inits
-                               file = NULL, # Don't save
+                               map = mod0$map,
                                estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
                                msmMode = 1,
@@ -851,12 +881,17 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
 
   # Fit multi-species
   # * Inits ----
-  ss_run <- Rceattle::fit_mod(data_list = simData,
-                              estimateMode = 3,
-                              fit_control = fit_control(
-                                phase = FALSE,
-                                verbose = 0))
-  inits <- ss_run$estimated_params
+  mod0 <- Rceattle::fit_mod(data_list = simData,
+                            estimateMode = 3, # Don't estimate
+                            random_rec = FALSE, # No random recruitment
+                            msmMode = 1,
+                            suitMode = 4,
+                            niter = 5,
+                            initMode = "NonEquilibrium",
+                            fit_control = fit_control(
+                              phase = FALSE,
+                              verbose = 0))
+  inits <- mod0$estimated_params
 
   # * Fix parameters -----
   inits$log_gam_a <- log(gam_a)
@@ -869,7 +904,7 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_ln_q[] <- log(1)
   inits$R_ln_sd[] <- log(1)
-  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
+  inits$x_tj[1:30, 1:simData$nspp]  <- t(sim$model_quantities$rec_devs)
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
 
@@ -901,7 +936,7 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
 
   ms_run2 <- Rceattle::fit_mod(data_list = simData,
                                inits = inits, # Initial parameters from inits
-                               file = NULL, # Don't save
+                               map = mod0$map,
                                estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
                                msmMode = 1,
@@ -966,12 +1001,17 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
 
   # Fit multi-species
   # * Inits ----
-  ss_run <- Rceattle::fit_mod(data_list = simData,
-                              estimateMode = 3,
-                              fit_control = fit_control(
-                                phase = FALSE,
-                                verbose = 0))
-  inits <- ss_run$estimated_params
+  mod0 <- Rceattle::fit_mod(data_list = simData,
+                            estimateMode = 3, # Don't estimate
+                            random_rec = FALSE, # No random recruitment
+                            msmMode = 1,
+                            suitMode = 4,
+                            niter = 5,
+                            initMode = "NonEquilibrium",
+                            fit_control = fit_control(
+                              phase = FALSE,
+                              verbose = 0))
+  inits <- mod0$estimated_params
 
   # * Fix parameters -----
   inits$log_gam_a <- log(gam_a)
@@ -984,7 +1024,7 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_ln_q[] <- log(1)
   inits$R_ln_sd[] <- log(1)
-  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
+  inits$x_tj[1:30, 1:simData$nspp]  <- t(sim$model_quantities$rec_devs)
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
 
@@ -1032,7 +1072,7 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
   # Fit
   ms_run2 <- Rceattle::fit_mod(data_list = simData,
                                inits = inits, # Initial parameters from inits
-                               file = NULL, # Don't save
+                               map = mod0$map,
                                estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
                                msmMode = 1,
@@ -1092,12 +1132,17 @@ testthat::test_that("Test joint single-species models", {
 
   # Fit multi-species
   # * Inits ----
-  ss_run <- Rceattle::fit_mod(data_list = simData,
-                              estimateMode = 3,
-                              fit_control = fit_control(
-                                phase = FALSE,
-                                verbose = 0))
-  inits <- ss_run$estimated_params
+  mod0 <- Rceattle::fit_mod(data_list = simData,
+                            estimateMode = 3, # Don't estimate
+                            random_rec = FALSE, # No random recruitment
+                            msmMode = 0,
+                            suitMode = 0,
+                            niter = 5,
+                            initMode = "NonEquilibrium",
+                            fit_control = fit_control(
+                              phase = FALSE,
+                              verbose = 0))
+  inits <- mod0$estimated_params
 
   # * Fix parameters -----
   inits$sel_inf[1,,1] <- c(3,6,2.5,4)
@@ -1107,12 +1152,12 @@ testthat::test_that("Test joint single-species models", {
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_ln_q[] <- log(1)
   inits$R_ln_sd[] <- log(1)
-  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
+  inits$x_tj[1:30, 1:simData$nspp]  <- t(sim$model_quantities$rec_devs)
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
   ss_run <- Rceattle::fit_mod(data_list = simData,
                               inits = inits, # Initial parameters from inits
-                              file = NULL, # Don't save
+                              map = mod0$map,
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0,
@@ -1196,12 +1241,17 @@ testthat::test_that("Mixed suitabilities: MSVPA and lognormal", {
 
   # Fit multi-species
   # * Inits ----
-  ss_run <- Rceattle::fit_mod(data_list = simData,
-                              estimateMode = 3,
+  mod0 <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3, # Don't estimate
+                              random_rec = FALSE, # No random recruitment
+                              msmMode = 1,
+                              suitMode = c(4, 0),
+                              niter = 5,
+                              initMode = "NonEquilibrium",
                               fit_control = fit_control(
                                 phase = FALSE,
                                 verbose = 0))
-  inits <- ss_run$estimated_params
+  inits <- mod0$estimated_params
 
   # * Fix parameters -----
   inits$log_gam_a <- log(gam_a)
@@ -1214,12 +1264,12 @@ testthat::test_that("Mixed suitabilities: MSVPA and lognormal", {
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_ln_q[] <- log(1)
   inits$R_ln_sd[] <- log(1)
-  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
+  inits$x_tj[1:30, 1:simData$nspp]  <- t(sim$model_quantities$rec_devs)
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
   ms_run1 <- Rceattle::fit_mod(data_list = simData,
                                inits = inits, # Initial parameters from inits
-                               file = NULL, # Don't save
+                               map = mod0$map,
                                estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
                                msmMode = 1,
@@ -1321,12 +1371,17 @@ testthat::test_that("Mixed suitabilities2: MSVPA and lognormal", {
 
   # Fit multi-species
   # * Inits ----
-  ss_run <- Rceattle::fit_mod(data_list = simData,
-                              estimateMode = 3,
+  mod0 <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3, # Don't estimate
+                              random_rec = FALSE, # No random recruitment
+                              msmMode = 1,
+                              suitMode = c(4, 0),
+                              niter = 5,
+                              initMode = "NonEquilibrium",
                               fit_control = fit_control(
                                 phase = FALSE,
                                 verbose = 0))
-  inits <- ss_run$estimated_params
+  inits <- mod0$estimated_params
 
   # * Fix parameters -----
   inits$log_gam_a <- log(gam_a)
@@ -1339,12 +1394,12 @@ testthat::test_that("Mixed suitabilities2: MSVPA and lognormal", {
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_ln_q[] <- log(1)
   inits$R_ln_sd[] <- log(1)
-  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
+  inits$x_tj[1:30, 1:simData$nspp]  <- t(sim$model_quantities$rec_devs)
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
   ms_run1 <- Rceattle::fit_mod(data_list = simData,
                                inits = inits, # Initial parameters from inits
-                               file = NULL, # Don't save
+                               map = mod0$map,
                                estimateMode = 3, # Don't estimate
                                random_rec = FALSE, # No random recruitment
                                msmMode = 1,

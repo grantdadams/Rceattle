@@ -101,7 +101,7 @@ testthat::test_that("Index, biomass, and catch = 0 match expected", {
   # Run
   ss_run <- Rceattle::fit_mod(data_list = dat,
                               inits = inits, # Initial parameters = 0
-                              file = NULL, # Don't save
+                              map = ss_run$map,
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
@@ -157,8 +157,8 @@ testthat::test_that("Dynamics match CEATTLE single-species classic", {
   inits <- ss_run_old_params$estimated_params
 
   # - Update population dynamics from previous parameters
-  inits$init_dev <- CEATTLE_classic_SS$estimated_params$init_dev
-  inits$rec_dev[,1:39] <- CEATTLE_classic_SS$estimated_params$rec_dev
+  inits$init_dev[,1:20] <- CEATTLE_classic_SS$estimated_params$init_dev
+  inits$x_tj[1:39, 1:3] <- t(CEATTLE_classic_SS$estimated_params$rec_dev)
   inits$rec_pars[,1] <- CEATTLE_classic_SS$estimated_params$ln_mn_rec
   inits$ln_F[1:3, 1:39] <- CEATTLE_classic_SS$estimated_params$F_dev[,1:39] + CEATTLE_classic_SS$estimated_params$ln_mean_F
   inits$sel_coff[1:3,1,] <- CEATTLE_classic_SS$estimated_params$fsh_sel_coff
@@ -167,6 +167,7 @@ testthat::test_that("Dynamics match CEATTLE single-species classic", {
 
   ss_run_old_params <- Rceattle::fit_mod(data_list = BS2017SS,
                                          inits = inits,      # Initial parameters
+                                         map = ss_run_old_params$map,
                                          estimateMode = 3,   # Dont' estimate
                                          M1Fun = build_M1(updateM1 = TRUE), # Update M1 from data
                                          random_rec = FALSE, # No random recruitment
@@ -225,7 +226,7 @@ testthat::test_that("Dynamics match multi-species CEATTLE classic", {
 
   # - Update population dynamics from old parameters
   inits$init_dev[,1:20] <- CEATTLE_classic_MS$estimated_params$init_dev
-  inits$rec_dev[,1:39] <- CEATTLE_classic_MS$estimated_params$rec_dev
+  inits$x_tj[1:39, 1:3] <- t(CEATTLE_classic_MS$estimated_params$rec_dev)
   inits$rec_pars[,1] <- CEATTLE_classic_MS$estimated_params$ln_mn_rec
   inits$ln_F[1:3, 1:39] <- CEATTLE_classic_MS$estimated_params$F_dev[,1:39] + CEATTLE_classic_MS$estimated_params$ln_mean_F
 
@@ -257,6 +258,7 @@ testthat::test_that("Dynamics match multi-species CEATTLE classic", {
   ms_run_old_params <- Rceattle::fit_mod(
     data_list = BS2017MS_new,
     inits = inits, # Initial parameters from old model
+    map = ss_run$map,
     M1Fun = build_M1(M1_model = 0,
                      updateM1 = TRUE,
                      M1_use_prior = FALSE,

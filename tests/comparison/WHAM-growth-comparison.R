@@ -338,8 +338,8 @@ names(wham_model$parList)
 
 # - Rec
 inits$rec_pars[1,1] <- wham_model$parList$mean_rec_pars
-inits$rec_dev[1,1] <- wham_model$parList$log_N1_pars[1] -  wham_model$parList$mean_rec_pars
-inits$rec_dev[1,2:nyrs] <- wham_model$parList$log_NAA[,1] -  wham_model$parList$mean_rec_pars
+inits$x_tj[1,1] <- wham_model$parList$log_N1_pars[1] -  wham_model$parList$mean_rec_pars
+inits$x_tj[2:nyrs,1] <- wham_model$parList$log_NAA[,1] -  wham_model$parList$mean_rec_pars
 inits$init_dev[1,] <- wham_model$parList$log_N1_pars[1] -  wham_model$parList$mean_rec_pars # WHAM assumes rec-dev in year 1 is applied to year-1 to year - nages
 
 # - F (random walk in WHAM)

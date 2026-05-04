@@ -8,7 +8,6 @@ fit_mod(
   data_list = NULL,
   inits = NULL,
   map = NULL,
-  bounds = NULL,
   file = NULL,
   estimateMode = 0,
   projection_uncertainty = FALSE,
@@ -19,6 +18,7 @@ fit_mod(
   niter = 3,
   recFun = build_srr(),
   M1Fun = build_M1(),
+  dsem = build_DSEM(),
   growthFun = build_growth(),
   msmMode = 0,
   avgnMode = 0,
@@ -41,8 +41,6 @@ from scratch via \code{\link{build_params}}.}
 
 \item{map}{(Optional) A map object from \code{\link{build_map}}.}
 
-\item{bounds}{(Optional) A bounds object from \code{\link{build_bounds}}.}
-
 \item{file}{(Optional) Filename where files will be saved. If NULL, no file is saved.}
 
 \item{estimateMode}{0 = Fit the hindcast model and projection with HCR specified via \code{HCR}. 1 = Fit the hindcast model only (no projection). 2 = Run the projection only with HCR specified via \code{HCR} given the initial parameters in \code{inits}.  3 = debug mode 1: runs the model through MakeADFun, but not nlminb, 4 = runs the model through MakeADFun and nlminb (will all parameters mapped out).}
@@ -63,7 +61,9 @@ from scratch via \code{\link{build_params}}.}
 
 \item{M1Fun}{M1 parameterizations and priors. Use \code{build_M1}.}
 
-\item{growthFun}{The weight-at-age parameterization from \code{\link{build_growth}}.}
+\item{dsem}{dsem model specifications for recruitment deviates. Use \code{build_DSEM}. Or can be previously built DSEM object from an Rceattle model \code{model$dsem}.}
+
+\item{growthFun}{The weight-at-age model from \code{\link{build_growth}}.}
 
 \item{msmMode}{The predation mortality functions to used. Defaults to no predation mortality used.}
 
@@ -97,13 +97,13 @@ A list of class "Rceattle" including:
 \itemize{
 \item{data_list: List of data inputs}
 \item{initial_params: List of starting parameters}
-\item{bounds: Parameter bounds used for estimation}
 \item{map: List of map used in TMB}
 \item{obj: TMB model object}
 \item{opt: Optimized model object from \code{nlminb}}
 \item{sdrep: Object of class \code{sdreport} exported by TMB including the standard errors of estimated parameters}
 \item{estimated_params: List of estimated parameters}
 \item{quantities: Derived quantities from CEATTLE}
+\item{dsem: dsem specifications}
 \item{run_time: Model run time}
 }
 }

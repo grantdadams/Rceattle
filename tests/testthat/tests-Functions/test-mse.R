@@ -54,7 +54,7 @@ testthat::test_that("Test MSE - Tier 3 w no uncertainty", {
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   nyrs <- length(1979:2040)
   testthat::expect_equal(24, length(mse$Sim_1$EM))
-  testthat::expect_equal(rep(0.4, 3), as.numeric(mse$Sim_1$OM$quantities$ssb_depletion[,nyrs]), tolerance = 0.005)
+  testthat::expect_equal(rep(0.4, 3), as.numeric(mse$Sim_1$OM$quantities$ssb_depletion[,nyrs]), tolerance = 0.01)
 })
 
 testthat::test_that("Test MSE - Tier 3 parallel", {

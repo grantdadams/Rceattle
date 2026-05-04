@@ -293,11 +293,11 @@ fit_mod <-
     }
 
     # If a previously built "dsem" object is provided, no need to run dsem
-    if(class(dsem) == "dsem"){
+    if(inherits(dsem, "dsem")){
       mod_objects$dsem <- dsem
       #FIXME: add check on setup
     }
-    if(class(dsem) != "dsem"){
+    if(!inherits(dsem, "dsem")){
       data_list$dsem_settings <- dsem
       mod_objects$dsem <- build_dsem_objects(dsem_settings = dsem,
                                              debug = estimateMode %in% c(2, 4), # Turn off dsem parameters if debugging or projection mode
@@ -340,12 +340,12 @@ fit_mod <-
       map <- suppressWarnings(build_map(data_list,
                                         start_par[-which(names(start_par) %in% names(mod_objects$dsem$tmb_inputs$parameters))],
                                         debug = estimateMode %in% c(2, 4), # Turn off hindcast parameters if debugging or projection mode
-                                        random_sel = random_sel, random_sel = random_sel))
+                                        random_sel = random_sel))
 
       map$mapList <- c(map$mapList, mod_objects$dsem$mapList) # Add DSEM map
       map$mapFactor <- c(map$mapFactor, mod_objects$dsem$tmb_inputs$map) # Add DSEM map
     } else{
-      map <- map\
+      map <- map
     }
 
     # Parameter and map dimension check
@@ -788,55 +788,4 @@ fit_mod <-
 
 
 
-#' @title Summarize Rceattle-dsem
-#'
-#' @description summarize parameters from a fitted dynamic structural equation model
-#'
-#' @details
-#' Modified from DSEM for Rceattle-DSEM. See \code{?summary.dsem} for full details.
-#'
-#' @param object Rceattle-DSEM model from \code{\link{fit_mod}}
-#' @param ... Not used
-#'
-#' @return
-#' Returns a data.frame summarizing estimated path coefficients, containing columns:
-#' \describe{
-#' \item{path}{The parsed path coefficient}
-#' \item{lag}{The lag, where e.g. 1 means the predictor in time t effects the response in time t+1}
-#' \item{name}{Parameter name}
-#' \item{start}{Start value if supplied, and NA otherwise}
-#' \item{parameter}{Parameter number}
-#' \item{first}{Variable in path treated as predictor}
-#' \item{second}{Variable in path treated as response}
-#' \item{direction}{Whether the path is one-headed or two-headed}
-#' \item{Estimate}{Maximum likelihood estimate}
-#' \item{Std_Error}{Estimated standard error from the Hessian matrix}
-#' \item{z_value}{Estimate divided by Std_Error}
-#' \item{p_value}{P-value associated with z_value using a two-sided Wald test}
-#' }
-#'
-#' @method summary Rceattle
-#' @export
-summary.Rceattle <- function(Rceattle = mod_objects){
-
-  if(class(Rceattle) != "Rceattle"){
-    stop("Input is not an Rceattle model.")
-  }
-
-  # Easy of use
-  model = Rceattle$dsem$sem_full
-  ParHat = Rceattle$obj$env$parList()
-  beta_z <- ParHat$beta_z
-
-  coefs = data.frame( model, "Estimate"=c(NA, beta_z)[ as.numeric(model[,'parameter'])+1 ] ) # parameter=0 outputs NA
-  coefs$Estimate = ifelse( is.na(coefs$Estimate), as.numeric(model[,4]), coefs$Estimate )
-  if( "sdrep" %in% names(Rceattle) ){
-    SE = as.list( Rceattle$sdrep, report=FALSE, what="Std. Error")
-    coefs = data.frame( coefs, "Std_Error"=c(NA,SE$beta_z)[ as.numeric(model[,'parameter'])+1 ] ) # parameter=0 outputs NA
-    coefs = data.frame( coefs, "z_value"=coefs[,'Estimate']/coefs[,'Std_Error'] )
-    coefs = data.frame( coefs, "p_value"=pnorm(-abs(coefs[,'z_value'])) * 2 )
-  }
-
-  return(coefs[!is.na(Rceattle$map$mapList$beta_z),])
-}
 

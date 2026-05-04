@@ -498,7 +498,6 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
 
     # Run through assessment years
     for(k in 1:length(assess_yrs)){
-      print(k)
 
       #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
       # 1. Get recommended catch from the EM-HCR ----

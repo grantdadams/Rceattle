@@ -24,7 +24,7 @@ build_DSEM <- function(sem = NULL,
 #'
 #' @param dsem_settings dsem specifications from \code{\link{build_DSEM}}.
 #' @param debug Runs the model without estimating parameters to get derived quantities given initial parameter values. If TRUE, sets all map values to NA
-#' @param data_list a data_list created from \code{\link{build_dat}}.
+#' @param data_list a data_list read in via \code{\link{read_data}} or built directly in R.
 #'
 #' @export
 build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = NULL){
@@ -42,15 +42,15 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
   # DSEM data
   dsem_data <- data_list$env_data %>%
     # Adding NA in missing years (match assessment begining)
-    dplyr::full_join(data.frame(Year=c(data_list$styr:data_list$projyr)), by = join_by(Year)) %>%
+    dplyr::full_join(data.frame(Year=c(data_list$styr:data_list$projyr)), by = dplyr::join_by(Year)) %>%
     dplyr::arrange(Year) %>%
     dplyr::select(-Year)
 
   # - Add column for recdev of each species
   for(sp in data_list$nspp:1){
     dsem_data <- dsem_data %>%
-      dplyr::mutate(recdevs=NA) %>%
-      dplyr::relocate(recdevs)
+      dplyr::mutate(recdevs = NA_real_) %>%
+      dplyr::relocate("recdevs")
     colnames(dsem_data)[1] <- paste0("recdevs", sp)
   }
 
@@ -72,7 +72,7 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
 
   # Run "dsem" to output map and parameter object
   fit_dsem = dsem::dsem(sem = dsem_settings$sem,
-                        tsdata = ts(dsem_data),
+                        tsdata = stats::ts(dsem_data),
                         family = dsem_settings$family,
                         control = DSEMcontrol)
 
@@ -110,7 +110,7 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
 
     # - Latent states x_tj
     x_tj_off <- fit_dsem$sem_full %>%
-      dplyr::filter(is.na(start))
+      dplyr::filter(is.na(.data$start))
     x_tj_off <- unique(c(x_tj_off$first, x_tj_off$second))
     x_tj_off <- which(colnames(dsem_data) %in% x_tj_off)
     mapList$x_tj[,x_tj_off] <- NA

@@ -104,5 +104,4 @@ summ
 
 plot_ssb(list(ss_run, proj_model), model_names = c("Default", "DSEM"), incl_proj = TRUE)
 plot_recruitment(list(ss_run, proj_model), model_names = c("Default", "DSEM"), incl_proj = TRUE)
-proj_model$quantities$rec_dev
 

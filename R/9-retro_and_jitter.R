@@ -266,19 +266,19 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
 
       # -- where SR curve is estimated directly
       if(newmod$data_list$srr_fun == newmod$data_list$srr_pred_fun){
-        rec_dev <- log(mean(newmod$quantities$R[sp,1:nyrs_peel]))  - log(newmod$quantities$R0[sp])
+        x_tj <- log(mean(newmod$quantities$R[sp,1:nyrs_peel]))  - log(newmod$quantities$R0[sp])
       }
 
       # -- OMs where SR curve is estimated as penalty (sensu Ianelli)
       if(newmod$data_list$srr_fun != newmod$data_list$srr_pred_fun){
-        rec_dev <- log(mean((log(newmod$quantities$R) - log(newmod$quantities$R_hat))[sp, 1:nyrs_peel])) # - Scale mean rec for rec trend
+        x_tj <- log(mean((log(newmod$quantities$R) - log(newmod$quantities$R_hat))[sp, 1:nyrs_peel])) # - Scale mean rec for rec trend
 
       }
 
       # - Update OM with devs
-      peeled_pars$rec_dev[sp, (peel_prj_yrs - styr + 1)] <- replace(
-        peeled_pars$rec_dev[sp, (peel_prj_yrs - styr + 1)],
-        values =  rec_dev)
+      Rceattle$estimated_params$x_tj[(peel_prj_yrs - styr + 1), sp] <- replace(
+        Rceattle$estimated_params$x_tj[(peel_prj_yrs - styr + 1), sp],
+        values =  x_tj)
     }
 
     newmod <- suppressWarnings(

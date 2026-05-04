@@ -38,7 +38,16 @@ testthat::test_that("Test IID year time-varying M", {
   # * Fix parameters -----
   simData$M1_model = 1
   simData$M1_re = 2
-  mod0 <- suppressMessages( fit_mod(data_list = simData, inits = NULL, estimateMode = 3, random_rec = FALSE, M1Fun = build_M1(M1_model = 1, M1_re = 2), msmMode = 0, initMode = "NonEquilibrium", fit_control = fit_control(phase = FALSE, verbose = 0)) )
+  mod0 <- Rceattle::fit_mod(data_list = simData,
+                            estimateMode = 3, # Estimate
+                            random_rec = FALSE, # No random recruitment
+                            M1Fun = build_M1(M1_model = 1, # Estimable M
+                                             M1_re = 2), # IID year
+                            msmMode = 0,
+                            initMode = "NonEquilibrium",
+                            fit_control = fit_control(
+                              phase = FALSE,
+                              verbose = 0))
   inits <- mod0$estimated_params
   inits$sel_inf[1,,1] <- c(3,6,2.5,4)
   inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
@@ -47,7 +56,7 @@ testthat::test_that("Test IID year time-varying M", {
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_ln_q[] <- log(1)
   inits$R_ln_sd[] <- log(1)
-  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
+  inits$x_tj[1:30, 1:simData$nspp]  <- t(sim$model_quantities$rec_devs)
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
   inits$ln_M1[,1,] <- log(sim$model_quantities$M)
   for(sp in 1:2){
@@ -61,7 +70,7 @@ testthat::test_that("Test IID year time-varying M", {
 
   ss_run1 <- Rceattle::fit_mod(data_list = simData,
                                inits = inits, # Initial parameters = 0
-                               file = NULL, # Don't save
+                               map = mod0$map,
                                estimateMode = 3, # Estimate
                                random_rec = FALSE, # No random recruitment
                                M1Fun = build_M1(M1_model = 1, # Estimable M
@@ -145,7 +154,16 @@ testthat::test_that("Test AR1 year time-varying M", {
   # * Fix parameters -----
   simData$M1_model = 1
   simData$M1_re = 5
-  mod0 <- suppressMessages( fit_mod(data_list = simData, inits = NULL, estimateMode = 3, random_rec = FALSE, M1Fun = build_M1(M1_model = 1, M1_re = 5), msmMode = 0, initMode = "NonEquilibrium", fit_control = fit_control(phase = FALSE, verbose = 0)) )
+  mod0 <- Rceattle::fit_mod(data_list = simData,
+                            estimateMode = 3, # Estimate
+                            random_rec = FALSE, # No random recruitment
+                            M1Fun = build_M1(M1_model = 1, # Estimable M
+                                             M1_re = 5), # AR1 year
+                            msmMode = 0,
+                            initMode = "NonEquilibrium",
+                            fit_control = fit_control(
+                              phase = FALSE,
+                              verbose = 0))
   inits <- mod0$estimated_params
   inits$sel_inf[1,,1] <- c(3,6,2.5,4)
   inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
@@ -154,7 +172,7 @@ testthat::test_that("Test AR1 year time-varying M", {
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_ln_q[] <- log(1)
   inits$R_ln_sd[] <- log(1)
-  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
+  inits$x_tj[1:30, 1:simData$nspp]  <- t(sim$model_quantities$rec_devs)
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
   inits$ln_M1[,1,] <- log(sim$model_quantities$M)
   for(sp in 1:2){
@@ -168,7 +186,7 @@ testthat::test_that("Test AR1 year time-varying M", {
 
   ss_run1 <- Rceattle::fit_mod(data_list = simData,
                                inits = inits, # Initial parameters = 0
-                               file = NULL, # Don't save
+                               map = mod0$map,
                                estimateMode = 3, # Estimate
                                random_rec = FALSE, # No random recruitment
                                M1Fun = build_M1(M1_model = 1, # Estimable M

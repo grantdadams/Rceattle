@@ -15,7 +15,7 @@ inits <- build_params(BS2017SS)
 
 # - Update population dynamics from previous parameters
 inits$init_dev <- CEATTLE_classic_SS$estimated_params$init_dev
-inits$rec_dev[,1:39] <- CEATTLE_classic_SS$estimated_params$rec_dev
+inits$x_tj[1:39, 1:3] <- CEATTLE_classic_SS$estimated_params$rec_dev
 inits$rec_pars[,1] <- CEATTLE_classic_SS$estimated_params$ln_mn_rec
 inits$ln_F[1:3, 1:39] <- CEATTLE_classic_SS$estimated_params$F_dev[,1:39] + CEATTLE_classic_SS$estimated_params$ln_mean_F
 inits$sel_coff[1:3,1,] <- CEATTLE_classic_SS$estimated_params$fsh_sel_coff
@@ -78,7 +78,7 @@ inits <- build_params(BS2017MS)
 
 # - Update population dynamics from old parameters
 inits$init_dev[,1:20] <- CEATTLE_classic_MS$estimated_params$init_dev
-inits$rec_dev[,1:39] <- CEATTLE_classic_MS$estimated_params$rec_dev
+inits$x_tj[1:39, 1:3] <- CEATTLE_classic_MS$estimated_params$rec_dev
 inits$rec_pars[,1] <- CEATTLE_classic_MS$estimated_params$ln_mn_rec
 inits$ln_F[1:3, 1:39] <- CEATTLE_classic_MS$estimated_params$F_dev[,1:39] + CEATTLE_classic_MS$estimated_params$ln_mean_F
 

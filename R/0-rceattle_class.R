@@ -51,15 +51,66 @@ print.Rceattle <- function(x, ...) {
 }
 
 
-#' Compact summary method for Rceattle fits
+#' Summary method for Rceattle fits
+#'
+#' Prints the compact model overview (via [print.Rceattle()]) and, if the
+#' fit includes a dynamic structural equation model (DSEM) for recruitment
+#' deviates, also returns a data.frame of estimated path coefficients with
+#' standard errors, z-values, and Wald p-values when an `sdreport` is
+#' available. Adapted from `summary.dsem` for Rceattle-DSEM; see
+#' `?dsem::summary.dsem` for the underlying parameterization.
 #'
 #' @param object An object of class \code{"Rceattle"} returned by [fit_mod()].
 #' @param ... Currently unused.
 #'
+#' @return Invisibly returns either:
+#' \itemize{
+#'   \item a data.frame of DSEM path coefficients (when the fit contains a
+#'     DSEM), with columns: \code{path}, \code{lag}, \code{name},
+#'     \code{start}, \code{parameter}, \code{first}, \code{second},
+#'     \code{direction}, \code{Estimate}, and (when \code{sdrep} is
+#'     available) \code{Std_Error}, \code{z_value}, \code{p_value}; or
+#'   \item the input \code{object}, when no DSEM is attached.
+#' }
+#'
 #' @export
 summary.Rceattle <- function(object, ...) {
+  if (!inherits(object, "Rceattle")) {
+    stop("Input is not an Rceattle model.")
+  }
+
   print(object, ...)
-  invisible(object)
+
+  # DSEM coefficient table (if a DSEM is attached to the fit)
+  if (is.null(object$dsem) || is.null(object$dsem$sem_full)) {
+    return(invisible(object))
+  }
+
+  model  <- object$dsem$sem_full
+  beta_z <- object$obj$env$parList()$beta_z
+
+  coefs <- data.frame(
+    model,
+    Estimate = c(NA, beta_z)[as.numeric(model[, "parameter"]) + 1]
+  )
+  coefs$Estimate <- ifelse(is.na(coefs$Estimate),
+                           as.numeric(model[, 4]),
+                           coefs$Estimate)
+
+  if (!is.null(object$sdrep)) {
+    SE <- as.list(object$sdrep, report = FALSE, what = "Std. Error")
+    coefs$Std_Error <- c(NA, SE$beta_z)[as.numeric(model[, "parameter"]) + 1]
+    coefs$z_value   <- coefs$Estimate / coefs$Std_Error
+    coefs$p_value   <- stats::pnorm(-abs(coefs$z_value)) * 2
+  }
+
+  keep  <- !is.na(object$map$mapList$beta_z)
+  coefs <- coefs[keep, , drop = FALSE]
+
+  cat("\n<DSEM path coefficients>\n")
+  print(coefs, row.names = FALSE)
+
+  invisible(coefs)
 }
 
 

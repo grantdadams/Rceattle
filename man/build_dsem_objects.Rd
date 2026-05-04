@@ -11,7 +11,7 @@ build_dsem_objects(dsem_settings = NULL, debug = FALSE, data_list = NULL)
 
 \item{debug}{Runs the model without estimating parameters to get derived quantities given initial parameter values. If TRUE, sets all map values to NA}
 
-\item{data_list}{a data_list created from \code{\link{build_dat}}.}
+\item{data_list}{a data_list read in via \code{\link{read_data}} or built directly in R.}
 }
 \description{
 Function to build the map and parameter objects for DSEM recruitment linkages

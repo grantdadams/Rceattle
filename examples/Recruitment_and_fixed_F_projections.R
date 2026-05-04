@@ -82,11 +82,12 @@ plot_catch(ms_run_proj, incl_proj = T)
 nyrs <- BS2017MS$endyr - BS2017MS$styr + 1
 nyrs_proj <- BS2017MS$projyr - BS2017MS$styr + 1
 yrs_proj <- (nyrs + 1):nyrs_proj
+nspp <- BS2017MS$nspp
 
 # Replace future rec_devs with numbers
-ms_run$estimated_params$rec_dev[,yrs_proj] <- replace(
-  ms_run$estimated_params$rec_dev[,yrs_proj],
-  values = stats::rnorm( length(ms_run$estimated_params$rec_dev[,yrs_proj]),
+ms_run$estimated_params$x_tj[yrs_proj,1:nspp] <- replace(
+  ms_run$estimated_params$x_tj[yrs_proj,1:nspp],
+  values = stats::rnorm( length(ms_run$estimated_params$x_tj[yrs_proj,1:nspp]),
                          mean = 0,
                          sd = 0.707) # Assumed value from penalized likelihood
 )
