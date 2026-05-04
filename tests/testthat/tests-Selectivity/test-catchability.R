@@ -46,6 +46,7 @@ testthat::test_that("Estimated catchability", {
   data("GOA2018SS")
   nflt <- nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Catchability <- 1 # Estimated
+  GOA2018SS$fleet_control$Time_varying_q <- "Off" # Estimated
   GOA2018SS$fleet_control$Q_index <- 1:nflt
 
   # Set params
@@ -70,6 +71,7 @@ testthat::test_that("Estimated catchability", {
   fleets[ss_run$data_list$fleet_control$Fleet_type != "Survey"] <- NA
   testthat::expect_equal(as.numeric(ss_run$map$mapList$index_ln_q), fleets)
   testthat::expect_equal(as.numeric(ss_run$map$mapList$index_q_beta), as.numeric(rep(NA, length(ss_run$map$mapList$index_q_beta))))
+
   testthat::expect_equal(as.numeric(ss_run$map$mapList$index_q_dev), as.numeric(rep(NA, length(ss_run$map$mapList$index_q_dev))))
   testthat::expect_equal(as.numeric(ss_run$map$mapList$index_q_dev_ln_sd), as.numeric(rep(NA, length(ss_run$map$mapList$index_q_dev_ln_sd))))
   testthat::expect_equal(as.numeric(ss_run$map$mapList$index_q_ln_sd), as.numeric(rep(NA, length(ss_run$map$mapList$index_q_ln_sd))))
