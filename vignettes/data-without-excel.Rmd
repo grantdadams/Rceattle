@@ -150,11 +150,13 @@ simData$fleet_control <- data.frame(
   Sel_curve_pen1            = NA,    # smoothness penalty (NonParametric)
   Sel_curve_pen2            = NA,
   # Time_varying_sel:
-  #   0 = time-invariant (default)
-  #   1 = penalized log-normal deviates (SD fixed at Time_varying_sel_sd_prior
+  #   0 / "Off" = time-invariant (default)
+  #   1 / "IID" = penalized log-normal deviates (SD fixed at Time_varying_sel_sd_prior
   #       unless random_sel = TRUE in fit_mod)
-  #   3 = time blocks (specify via R-side mapping)
-  #   4 = random walk
+  #   2 / "AR1" = AR(1) (not yet implemented)
+  #   3 / "Block" = time blocks (specify via R-side mapping)
+  #   4 / "RandomWalk" = random walk
+  #   5 / "RandomWalkAscending" = random walk on ascending portion of double logistic
   Time_varying_sel          = 0,
   Time_varying_sel_sd_prior = 1,
   Bin_first_selected        = 1,     # youngest fully-selected age or length bin
@@ -178,10 +180,12 @@ simData$fleet_control <- data.frame(
   Q_prior              = rep(c(1,   NA), nspp),
   Q_sd_prior           = rep(c(0.2, NA), nspp),
   # Time_varying_q:
-  #   0 = time-invariant
-  #   1 = penalized log-normal deviates
-  #   3 = time blocks
-  #   4 = random walk
+  #   0 / "Off" = time-invariant
+  #   1 / "IID" = penalized log-normal deviates (SD fixed at Time_varying_q_sd_prior
+  #       unless random_q = TRUE in fit_mod)
+  #   2 / "AR1" = AR(1) (not yet implemented)
+  #   3 / "Block" = time blocks
+  #   4 / "RandomWalk" = random walk
   Time_varying_q          = rep(c(0, NA), nspp),
   Time_varying_q_sd_prior = rep(c(1, NA), nspp),
 
