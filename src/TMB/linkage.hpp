@@ -119,4 +119,84 @@ void rceattle_apply_linkages(
   }
 }
 
+
+// =====================================================================
+// M (natural mortality) accumulator.
+//
+// Builds the per-(species, sex, age, year) offset tensor that is
+// added (additively, on the log scale) to ln_M1 inside the M1_at_age
+// compute in ceattle_v01_11.cpp. Iterates the same encoded linkage
+// table but only consumes rows whose process == RCEATTLE_PROC_M.
+//
+// Stratum sentinels: a 0 in `linkage_species`, `linkage_sex`, or
+// `linkage_age_bin` expands to "every level of that stratum". A
+// linkage row with all three at 0 thus broadcasts a single beta
+// across the entire (species, sex, age) cube.
+// =====================================================================
+template<class Type>
+void rceattle_apply_M_linkages(
+    array<Type>&          M_offset,        // [nspp, max_sex, max_age, nyrs]
+    const vector<int>&    linkage_process,
+    const vector<int>&    linkage_param,
+    const vector<int>&    linkage_species,
+    const vector<int>&    linkage_sex,
+    const vector<int>&    linkage_age_bin,
+    const vector<int>&    linkage_X_col,
+    const vector<int>&    linkage_link,
+    const matrix<Type>&   linkage_X,
+    const vector<Type>&   beta,
+    int                   nspp,
+    const vector<int>&    nsex,
+    const vector<int>&    nages,
+    int                   nyrs)
+{
+  int n = beta.size();
+  if (n == 0) return;
+
+  for (int i = 0; i < n; ++i) {
+    int proc = linkage_process(i);
+    if (proc != RCEATTLE_PROC_M) continue;
+
+    // Currently only one M parameter is exposed (log_M).
+    // linkage_param is reserved for future M parameters but is
+    // accepted as-is here.
+    (void)linkage_param;
+
+    int sp_in  = linkage_species(i);
+    int sx_in  = linkage_sex(i);
+    int ab_in  = linkage_age_bin(i);
+    int xc     = linkage_X_col(i);
+    int linkfn = linkage_link(i);
+    Type b     = beta(i);
+    (void)linkfn;
+
+    int sp_lo = (sp_in == 0) ? 0 : (sp_in - 1);
+    int sp_hi = (sp_in == 0) ? nspp : sp_in;
+
+    for (int sp = sp_lo; sp < sp_hi; ++sp) {
+      int max_sx_for_sp = nsex(sp);
+      int max_age_for_sp = nages(sp);
+      int sx_lo = (sx_in == 0) ? 0 : (sx_in - 1);
+      int sx_hi = (sx_in == 0) ? max_sx_for_sp : sx_in;
+      if (sx_hi > max_sx_for_sp) sx_hi = max_sx_for_sp;
+      int ab_lo = (ab_in == 0) ? 0 : (ab_in - 1);
+      int ab_hi = (ab_in == 0) ? max_age_for_sp : ab_in;
+      if (ab_hi > max_age_for_sp) ab_hi = max_age_for_sp;
+
+      // Clamp years to the design matrix length: env_data may not
+      // span the full projection horizon. Years beyond linkage_X.rows()
+      // retain a zero offset.
+      int yr_hi = std::min(nyrs, (int)linkage_X.rows());
+
+      for (int sx = sx_lo; sx < sx_hi; ++sx) {
+        for (int ab = ab_lo; ab < ab_hi; ++ab) {
+          for (int yr = 0; yr < yr_hi; ++yr) {
+            M_offset(sp, sx, ab, yr) += b * linkage_X(yr, xc);
+          }
+        }
+      }
+    }
+  }
+}
+
 #endif  // RCEATTLE_LINKAGE_HPP
