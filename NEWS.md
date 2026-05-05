@@ -113,6 +113,42 @@ underlying parameter.
   emits actionable error messages keyed by
   `priors$<col>$<species>[$<sex>]` paths.
 
+* **Default `by = ~ species`.** `linkage_spec()` now defaults the
+  `by` argument to `~ species`, so each linkage produces one
+  coefficient per species without the user having to spell it out.
+  Pass `~ species + sex` for per-(species, sex) coefficients, or
+  `by = NULL` to share a single coefficient across every
+  species/sex (the prior default). This matches the typical
+  multispecies assessment use case where each stock has its own
+  environmental sensitivity.
+
+* **Recruitment** is the third process wired to the pipeline.
+  `build_srr()` gains a `linkages` argument keyed by `log_R0`,
+  `log_alpha`, or `log_beta`; the offset is added on the log scale
+  to the corresponding parameter at every recruitment compute
+  call site (hindcast, BRPs, projections, expected R). `log_R0`
+  is meaningful for any `srr_fun`; `log_alpha` and `log_beta`
+  only do work for SRRs that consume them
+  (`srr_fun in c(2, 3, 4, 5)` -- Beverton-Holt and Ricker).
+
+  ```r
+  build_srr(
+    srr_fun  = 2,
+    linkages = list(
+      log_alpha = linkage_spec(formula = ~ temp,
+                               priors  = list(temp = normal(0, 0.5)))
+    )
+  )
+  ```
+
+  Growth, M, and recruitment can be linked in the same fit; their
+  rows share the same global linkage table and the same
+  `ln_beta_linkage` parameter vector. End-to-end tests in
+  `tests/testthat/tests-Dynamics/test-recruitment-linkage.R`
+  cover the analytical relations
+  `R = R0 * exp(beta * temp[yr])` (mean R) and the
+  `growth + M + recruitment` composition.
+
 * **Soft deprecation in `build_M1()`.** The legacy column-index
   argument `M1_indices` and the env-driven structural integer
   codes `M1_model %in% c(4, 5)` are subsumed by the new

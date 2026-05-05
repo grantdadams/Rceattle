@@ -30,9 +30,12 @@ NULL
 #'   spec is built inside a `build_*()` call that infers the parameter
 #'   name from the enclosing list key (see [build_growth()]).
 #' @param by one-sided formula naming stratifying factors that should
-#'   each get their own coefficients (e.g. `~species`,
-#'   `~species + sex`). `NULL` means the same coefficients apply to
-#'   every species/sex.
+#'   each get their own coefficients. Allowed names are `species`,
+#'   `sex`, and `age_bin`. The default `~species` produces one
+#'   coefficient set per species (the typical multispecies
+#'   assessment use case); pass `~species + sex` for per-(species,
+#'   sex) coefficients, or `NULL` to share a single coefficient
+#'   set across every species/sex.
 #' @param species optional integer vector of 1-based species ids that
 #'   this spec applies to. `NULL` (default) means every species in
 #'   `strata$species` at materialization time. Use this to give
@@ -63,7 +66,7 @@ NULL
 #' @importFrom rlang enquo eval_tidy
 linkage_spec <- function(formula,
                          param     = NULL,
-                         by        = NULL,
+                         by        = ~ species,
                          species   = NULL,
                          link      = "identity",
                          init      = NULL,

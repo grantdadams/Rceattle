@@ -15,7 +15,8 @@ build_srr(
   srr_prior = 4,
   srr_prior_sd = 1,
   srr_indices = NA,
-  Bmsy_lim = NA
+  Bmsy_lim = NA,
+  linkages = NULL
 )
 }
 \arguments{
