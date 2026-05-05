@@ -39,6 +39,13 @@
 // (log_K, log_L1, log_Linf, log_m).
 #define RCEATTLE_N_GROWTH_PARAMS 4
 
+// Number of recruitment parameters tracked in the offset tensor
+// (log_R0, log_alpha, log_beta).
+#define RCEATTLE_N_REC_PARAMS 3
+#define RCEATTLE_REC_R0    0
+#define RCEATTLE_REC_ALPHA 1
+#define RCEATTLE_REC_BETA  2
+
 
 // Build the per-(species, sex, growth_param, year) offset tensor.
 //
@@ -194,6 +201,69 @@ void rceattle_apply_M_linkages(
             M_offset(sp, sx, ab, yr) += b * linkage_X(yr, xc);
           }
         }
+      }
+    }
+  }
+}
+
+// =====================================================================
+// Recruitment accumulator.
+//
+// Builds the per-(species, recruitment_param, year) offset tensor that
+// is added (additively, on the log scale) to log(R0), log(alpha), and
+// log(beta) at each recruitment compute call site in
+// ceattle_v01_11.cpp. Recruitment is at age 0 by definition, so there
+// is no sex or age dimension on this tensor; rows whose age_bin or sex
+// are non-NA are still expanded but the resulting offset is collapsed
+// across those dimensions (one offset per species per year per param).
+// In practice users should leave age_bin = NA and sex = NA on
+// recruitment specs.
+// =====================================================================
+template<class Type>
+void rceattle_apply_recruitment_linkages(
+    array<Type>&          rec_offset,      // [nspp, n_rec_params, nyrs]
+    const vector<int>&    linkage_process,
+    const vector<int>&    linkage_param,
+    const vector<int>&    linkage_species,
+    const vector<int>&    linkage_sex,
+    const vector<int>&    linkage_age_bin,
+    const vector<int>&    linkage_X_col,
+    const vector<int>&    linkage_link,
+    const matrix<Type>&   linkage_X,
+    const vector<Type>&   beta,
+    int                   nspp,
+    int                   nyrs)
+{
+  // sex / age_bin sentinels are accepted but ignored -- recruitment
+  // happens at age 0 with no sex stratification on the parameter
+  // itself (sex_ratio splits the recruits downstream).
+  (void)linkage_sex;
+  (void)linkage_age_bin;
+
+  int n = beta.size();
+  if (n == 0) return;
+
+  for (int i = 0; i < n; ++i) {
+    int proc = linkage_process(i);
+    if (proc != RCEATTLE_PROC_RECRUIT) continue;
+
+    int param = linkage_param(i);
+    if (param < 0 || param >= RCEATTLE_N_REC_PARAMS) continue;
+
+    int sp_in  = linkage_species(i);
+    int xc     = linkage_X_col(i);
+    int linkfn = linkage_link(i);
+    Type b     = beta(i);
+    (void)linkfn;
+
+    int sp_lo = (sp_in == 0) ? 0 : (sp_in - 1);
+    int sp_hi = (sp_in == 0) ? nspp : sp_in;
+
+    int yr_hi = std::min(nyrs, (int)linkage_X.rows());
+
+    for (int sp = sp_lo; sp < sp_hi; ++sp) {
+      for (int yr = 0; yr < yr_hi; ++yr) {
+        rec_offset(sp, param, yr) += b * linkage_X(yr, xc);
       }
     }
   }

@@ -918,6 +918,32 @@ Type objective_function<Type>::operator() () {
 
 
 
+    // -- Build the per-(species, recruitment_param, year) offset
+    //    tensor from the long-format linkage table. Added (additively,
+    //    on the log scale) to log(R0), log(alpha), and log(beta) at
+    //    each calculate_recruitment() call site below. Stays at zero
+    //    when no `linkages` were supplied to `build_srr()`.
+    array<Type> recruitment_linkage_offset(nspp,
+                                           int(RCEATTLE_N_REC_PARAMS),
+                                           nyrs);
+    recruitment_linkage_offset.setZero();
+    rceattle_apply_recruitment_linkages(
+      recruitment_linkage_offset,
+      linkage_process,
+      linkage_param,
+      linkage_species,
+      linkage_sex,
+      linkage_age_bin,
+      linkage_X_col,
+      linkage_link,
+      linkage_X,
+      ln_beta_linkage,
+      nspp,
+      nyrs
+    );
+    REPORT(recruitment_linkage_offset);
+
+
     // 6.4. STOCK-RECRUIT PARAMETERS
     // -- For beverton-holt, steepness and R0 are derived from SPR0
     penalty = 0.0;
@@ -1012,9 +1038,15 @@ Type objective_function<Type>::operator() () {
           switch(estDynamics(sp)){
           case 0: // Estimated
 
-            // - Amin (i.e. recruitment)
+            // - Amin (i.e. recruitment). Apply the year-0 linkage
+            //   offset on log_R0 so the first-year recruitment
+            //   reflects any contemporaneous environmental driver.
+            //   The equilibrium R_init / age-structure derivation
+            //   itself stays at the unperturbed mean.
             if(age == 0){
-              R(sp, 0) = R_init(sp) * exp(rec_dev(sp, 0));
+              R(sp, 0) = R_init(sp) *
+                exp(rec_dev(sp, 0) +
+                    recruitment_linkage_offset(sp, RCEATTLE_REC_R0, 0));
               N_at_age(sp, 0, 0, 0) = R(sp, 0) * sex_ratio(sp, 0);
               N_at_age(sp, 1, 0, 0) = R(sp, 0) * (1-sex_ratio(sp, 0));
             }
@@ -1124,9 +1156,15 @@ Type objective_function<Type>::operator() () {
           srr_env_mult = srr_mult.sum();
         }
 
-        // - Calculate recruitment
+        // - Calculate recruitment. Linkage offsets are added on the
+        //   log scale: log_R0 enters as R0 * exp(offset); log_alpha
+        //   and log_beta enter as additions to rec_pars(*, 1|2)
+        //   before the calculate_recruitment exp().
         Type ssb_tmp = ssb(sp, yr - minage(sp));
-        R(sp, yr) = calculate_recruitment(srr_switch, R0(sp), ssb_tmp, rec_pars(sp, 1), rec_pars(sp, 2), rec_dev(sp, yr), srr_env_mult);
+        Type r0_eff   = R0(sp) * exp(recruitment_linkage_offset(sp, RCEATTLE_REC_R0,    yr));
+        Type rp1_eff  = rec_pars(sp, 1) + recruitment_linkage_offset(sp, RCEATTLE_REC_ALPHA, yr);
+        Type rp2_eff  = rec_pars(sp, 2) + recruitment_linkage_offset(sp, RCEATTLE_REC_BETA,  yr);
+        R(sp, yr) = calculate_recruitment(srr_switch, r0_eff, ssb_tmp, rp1_eff, rp2_eff, rec_dev(sp, yr), srr_env_mult);
 
         N_at_age(sp, 0, 0, yr) = R(sp, yr) * sex_ratio(sp, 0);
         N_at_age(sp, 1, 0, yr) = R(sp, yr) * (1.0-sex_ratio(sp, 0));
@@ -1266,18 +1304,22 @@ Type objective_function<Type>::operator() () {
               srr_env_mult = (env_rec_tmp * beta_rec_tmp).sum();
             }
 
-            Type r1 = rec_pars(sp, 1);
-            Type r2 = rec_pars(sp, 2);
+            // Apply linkage offsets on the log scale (no-op when no
+            // linkages). log_R0 enters as R0 * exp(offset); log_alpha
+            // and log_beta enter as additions to rec_pars(*, 1|2).
+            Type r0_eff = R0(sp) * exp(recruitment_linkage_offset(sp, RCEATTLE_REC_R0,    yr));
+            Type r1     = rec_pars(sp, 1) + recruitment_linkage_offset(sp, RCEATTLE_REC_ALPHA, yr);
+            Type r2     = rec_pars(sp, 2) + recruitment_linkage_offset(sp, RCEATTLE_REC_BETA,  yr);
 
             // - Equilibrium reference points (No recruitment deviation: pass Type(0.0))
             // FIXME: will bomb if minage > 1
-            NByage0(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp), SB0(sp, yr-minage(sp)), r1, r2, Type(0.0), srr_env_mult);
-            NByageF(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp), SBF(sp, yr-minage(sp)), r1, r2, Type(0.0), srr_env_mult);
+            NByage0(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, r0_eff, SB0(sp, yr-minage(sp)), r1, r2, Type(0.0), srr_env_mult);
+            NByageF(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, r0_eff, SBF(sp, yr-minage(sp)), r1, r2, Type(0.0), srr_env_mult);
 
             // -  Dynamic reference points (Includes annual recruitment deviation: pass rdev)
             Type rdev = rec_dev(sp, yr);
-            N_at_age_dB0(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp), DynamicSB0(sp, yr-minage(sp)), r1, r2, rdev, srr_env_mult);
-            N_at_age_dBF(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, R0(sp), DynamicSBF(sp, yr-minage(sp)), r1, r2, rdev, srr_env_mult);
+            N_at_age_dB0(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, r0_eff, DynamicSB0(sp, yr-minage(sp)), r1, r2, rdev, srr_env_mult);
+            N_at_age_dBF(sp, 0, 0, yr) = calculate_recruitment(srr_pred_fun, r0_eff, DynamicSBF(sp, yr-minage(sp)), r1, r2, rdev, srr_env_mult);
 
           } // End recruitment switch
 
@@ -1474,9 +1516,12 @@ Type objective_function<Type>::operator() () {
             srr_env_mult = (env_rec_tmp * beta_rec_tmp).sum();
           }
 
-          // - Calculate recruitment
+          // - Calculate recruitment (with linkage offsets pre-added).
           Type ssb_tmp = ssb(sp, yr-minage(sp));
-          R(sp, yr) = calculate_recruitment(srr_pred_fun, R0(sp), ssb_tmp, rec_pars(sp, 1), rec_pars(sp, 2), rec_dev(sp, yr), srr_env_mult);
+          Type r0_eff_p = R0(sp) * exp(recruitment_linkage_offset(sp, RCEATTLE_REC_R0,    yr));
+          Type rp1_p    = rec_pars(sp, 1) + recruitment_linkage_offset(sp, RCEATTLE_REC_ALPHA, yr);
+          Type rp2_p    = rec_pars(sp, 2) + recruitment_linkage_offset(sp, RCEATTLE_REC_BETA,  yr);
+          R(sp, yr) = calculate_recruitment(srr_pred_fun, r0_eff_p, ssb_tmp, rp1_p, rp2_p, rec_dev(sp, yr), srr_env_mult);
         }
 
         N_at_age(sp, 0, 0 , yr) = R(sp, yr) * sex_ratio(sp, 0);
@@ -1587,10 +1632,13 @@ Type objective_function<Type>::operator() () {
           srr_env_mult = (env_rec_tmp * beta_rec_tmp).sum();
         }
 
-        // - Calculate recruitment
+        // - Calculate recruitment (with linkage offsets pre-added).
         Type ssb_tmp = ssb(sp, yr-minage(sp));
+        Type r0_eff_h  = R0(sp) * exp(recruitment_linkage_offset(sp, RCEATTLE_REC_R0,    yr));
+        Type rp1_h     = rec_pars(sp, 1) + recruitment_linkage_offset(sp, RCEATTLE_REC_ALPHA, yr);
+        Type rp2_h     = rec_pars(sp, 2) + recruitment_linkage_offset(sp, RCEATTLE_REC_BETA,  yr);
         // Note: Expected recruitment does not include deviations, so we pass Type(0.0)
-        R_hat(sp, yr) = calculate_recruitment(srr_pred_fun, R0(sp), ssb_tmp, rec_pars(sp, 1), rec_pars(sp, 2), Type(0.0), srr_env_mult);
+        R_hat(sp, yr) = calculate_recruitment(srr_pred_fun, r0_eff_h, ssb_tmp, rp1_h, rp2_h, Type(0.0), srr_env_mult);
       }
     }
 
