@@ -126,6 +126,83 @@ build_srr <- function(srr_fun = 0,  #srr_model
 M_LINKAGE_PARAMS <- c("log_M")
 
 
+#' String<->integer mapping for `M1_model` in [build_M1()]
+#'
+#' Either form is accepted by [build_M1()]; the canonical integer
+#' code is what the TMB template ultimately consumes.
+#'
+#' @keywords internal
+.M1_MODELS <- c(
+  fixed             = 0L,
+  sex_age_invariant = 1L,
+  sex_specific      = 2L,
+  sex_age_specific  = 3L,
+  env_sex_invariant = 4L,
+  env_sex_specific  = 5L
+)
+
+
+#' String<->integer mapping for `M1_re` in [build_M1()]
+#'
+#' Either form is accepted by [build_M1()]; the canonical integer
+#' code is what the TMB template ultimately consumes. The
+#' env-driven options (4, 5) on M1_model are now better expressed
+#' through the `linkages` argument to [build_M1()] but the integer
+#' codes continue to work for backwards compatibility.
+#'
+#' @keywords internal
+.M1_RES <- c(
+  none         = 0L,
+  iid_age      = 1L,
+  iid_year     = 2L,
+  iid_age_year = 3L,
+  ar1_age      = 4L,
+  ar1_year     = 5L,
+  ar1_age_year = 6L
+)
+
+
+#' Coerce an `M1_model` or `M1_re` value to canonical integer code(s).
+#'
+#' Accepts either a string from the corresponding map (length-1 or
+#' length-N for per-species values) or a length-1/length-N integer
+#' vector that is already in the allowed set. Errors loudly on
+#' anything else.
+#'
+#' @keywords internal
+#' @noRd
+.coerce_M1_arg <- function(x, map, what) {
+  if (length(x) == 0L) {
+    stop(sprintf("`%s` must have length >= 1", what), call. = FALSE)
+  }
+  if (is.numeric(x)) {
+    int <- as.integer(x)
+    if (anyNA(int) || any(!int %in% map)) {
+      stop(sprintf(
+        "integer `%s` must be one of: %s (= %s)",
+        what,
+        paste(map, collapse = ", "),
+        paste(names(map), collapse = "/")), call. = FALSE)
+    }
+    return(int)
+  }
+  if (is.character(x)) {
+    bad <- setdiff(x, names(map))
+    if (length(bad) > 0L) {
+      stop(sprintf(
+        "unknown `%s` value(s): %s; allowed: %s",
+        what,
+        paste(unique(bad), collapse = ", "),
+        paste(names(map), collapse = ", ")), call. = FALSE)
+    }
+    return(unname(map[x]))
+  }
+  stop(sprintf(
+    "`%s` must be a string or integer; got %s",
+    what, class(x)[1]), call. = FALSE)
+}
+
+
 build_M1 <- function(M1_model = 0,
                      M1_re = 0,
                      updateM1 = FALSE,
@@ -135,6 +212,8 @@ build_M1 <- function(M1_model = 0,
                      M_prior_sd = 0.35,
                      M1_indices = NA,
                      linkages = NULL){
+  M1_model <- .coerce_M1_arg(M1_model, .M1_MODELS, "M1_model")
+  M1_re    <- .coerce_M1_arg(M1_re,    .M1_RES,    "M1_re")
   linkages <- .validate_M_linkages(linkages)
   list(
     M1_model     = M1_model,
