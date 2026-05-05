@@ -824,6 +824,30 @@ Type objective_function<Type>::operator() () {
 
 
     // 6.2. TOTAL MORTALITY-AT-AGE
+    // Build the per-(sp, sex, age, yr) M-linkage offset tensor from
+    // the long-format linkage table. Added (additively, on the log
+    // scale) to ln_M1 below; stays at zero when no `linkages` were
+    // supplied to `build_M1()`.
+    array<Type> M_linkage_offset(nspp, max_sex, max_age, nyrs);
+    M_linkage_offset.setZero();
+    rceattle_apply_M_linkages(
+      M_linkage_offset,
+      linkage_process,
+      linkage_param,
+      linkage_species,
+      linkage_sex,
+      linkage_age_bin,
+      linkage_X_col,
+      linkage_link,
+      linkage_X,
+      ln_beta_linkage,
+      nspp,
+      nsex,
+      nages,
+      nyrs
+    );
+    REPORT(M_linkage_offset);
+
     for(sp = 0; sp < nspp; sp++) {
       for(sex = 0; sex < nsex(sp); sex ++){
         for(int i = 0; i < M1_beta.dim(2); i++){
@@ -835,7 +859,12 @@ Type objective_function<Type>::operator() () {
             env_M1_tmp = env_index.row(yr);
             M1_mult = env_M1_tmp * beta_M1_tmp;
 
-            M1_at_age(sp, sex, age, yr) = exp(ln_M1(sp, sex, age) + ln_M1_dev(sp, sex, age, yr) + M1_mult.sum());
+            M1_at_age(sp, sex, age, yr) = exp(
+              ln_M1(sp, sex, age)
+              + ln_M1_dev(sp, sex, age, yr)
+              + M1_mult.sum()
+              + M_linkage_offset(sp, sex, age, yr)
+            );
             M_at_age(sp, sex, age, yr) = M1_at_age(sp, sex, age, yr) + M2_at_age(sp, sex, age, yr);
             M_at_age_dB0(sp, sex, age, yr) = M1_at_age(sp, sex, age, yr) + M2_at_age_dB0(sp, sex, age, yr);
             M_at_age_dBF(sp, sex, age, yr) = M1_at_age(sp, sex, age, yr) + M2_at_age_dBF(sp, sex, age, yr);

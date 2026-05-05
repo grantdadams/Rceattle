@@ -114,6 +114,18 @@ build_srr <- function(srr_fun = 0,  #srr_model
 #' @return A list of switches for defining the M1 model
 #' @export
 #'
+#' Allowed M-parameter names for `linkages` in [build_M1()]
+#'
+#' Linear-predictor names of the underlying natural-mortality
+#' parameters that the linkage system can address. Currently just
+#' `log_M` -- the offset is added on the log scale to `ln_M1`
+#' (broadcast across age unless the linkage row pins a specific
+#' `age_bin`).
+#'
+#' @keywords internal
+M_LINKAGE_PARAMS <- c("log_M")
+
+
 build_M1 <- function(M1_model = 0,
                      M1_re = 0,
                      updateM1 = FALSE,
@@ -121,17 +133,59 @@ build_M1 <- function(M1_model = 0,
                      M2_use_prior = FALSE,
                      M_prior = 0.40,
                      M_prior_sd = 0.35,
-                     M1_indices = NA){
+                     M1_indices = NA,
+                     linkages = NULL){
+  linkages <- .validate_M_linkages(linkages)
   list(
-    M1_model= M1_model,
-    M1_re = M1_re,
-    updateM1 = updateM1,
+    M1_model     = M1_model,
+    M1_re        = M1_re,
+    updateM1     = updateM1,
     M1_use_prior = M1_use_prior,
     M2_use_prior = M2_use_prior,
-    M_prior = M_prior,
-    M_prior_sd = M_prior_sd,
-    M1_indices = M1_indices
+    M_prior      = M_prior,
+    M_prior_sd   = M_prior_sd,
+    M1_indices   = M1_indices,
+    linkages     = linkages
   )
+}
+
+
+#' Validate and canonicalize the `linkages` argument of [build_M1()]
+#'
+#' Returns either `NULL` (no linkages) or a named list of
+#' `Rceattle_linkage_spec` objects (or lists thereof) with `param`
+#' filled in from the list keys. Errors loudly on invalid param
+#' names so the user catches typos at build time.
+#'
+#' @keywords internal
+#' @noRd
+.validate_M_linkages <- function(linkages) {
+  if (is.null(linkages)) return(NULL)
+  if (!is.list(linkages) || length(linkages) == 0L ||
+      is.null(names(linkages)) || any(!nzchar(names(linkages)))) {
+    stop("`linkages` must be a named list keyed by M parameter ",
+         "(one of: ", paste(M_LINKAGE_PARAMS, collapse = ", "), ")",
+         call. = FALSE)
+  }
+  bad_names <- setdiff(names(linkages), M_LINKAGE_PARAMS)
+  if (length(bad_names) > 0) {
+    stop("unknown M linkage parameter(s): ",
+         paste(bad_names, collapse = ", "),
+         "; allowed: ", paste(M_LINKAGE_PARAMS, collapse = ", "),
+         call. = FALSE)
+  }
+  # Each linkages[[param]] may be a single linkage_spec() or a list
+  # of them (e.g. species-specific formulas registered together).
+  for (nm in names(linkages)) {
+    val <- linkages[[nm]]
+    if (inherits(val, "Rceattle_linkage_spec")) next
+    if (is.list(val) &&
+        all(vapply(val, inherits, logical(1),
+                   what = "Rceattle_linkage_spec"))) next
+    stop("linkages$", nm, " must be a linkage_spec() or a list of ",
+         "linkage_spec() objects.", call. = FALSE)
+  }
+  Map(.stamp_param, linkages, names(linkages))
 }
 
 

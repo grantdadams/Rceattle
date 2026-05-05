@@ -251,6 +251,7 @@ fit_mod <-
     data_list$M_prior      <- extend_length(M1Fun$M_prior)
     data_list$M_prior_sd   <- extend_length(M1Fun$M_prior_sd)
     data_list$M1_indices   <- M1Fun$M1_indices
+    data_list$M1_linkages  <- M1Fun$linkages
 
 
     # * Growth switches ----
@@ -293,7 +294,8 @@ fit_mod <-
     # once the TMB template knows how to consume them; for now they
     # are computed (and validated) but not yet plumbed into TMB.
     .linkage_pool <- pool_linkages(
-      spec_groups = list(growth = data_list$growth_linkages),
+      spec_groups = list(growth = data_list$growth_linkages,
+                         M      = data_list$M1_linkages),
       env_data    = data_list$env_data,
       strata      = list(
         species = seq_len(data_list$nspp),
@@ -400,6 +402,7 @@ fit_mod <-
     data_list_reorganized$linkage_table   <- NULL
     data_list_reorganized$growth_linkages <- NULL
     data_list_reorganized$growth_fun      <- NULL
+    data_list_reorganized$M1_linkages     <- NULL
 
     # * Inject linkage-table encoding into the TMB DATA ----
     # Empty when no build_*() supplied a `linkages` list. TMB's
