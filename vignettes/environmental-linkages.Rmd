@@ -299,6 +299,51 @@ A direct prior on `ln_growth_pars` (analogous to `M_prior` /
 `M_prior_sd` for natural mortality) is on the post-release roadmap;
 until that lands, Pattern A is the recommended workaround.
 
+The same Pattern A also works for **`log_M`** when you want a prior
+on natural mortality itself rather than on a covariate effect:
+
+```{r}
+# Three-species model, Lognormal(log(0.4), 0.35) prior on log_M
+# applied via the linkage intercept. The structural M1_model is
+# kept at "sex_age_invariant" (= 1).
+M1_spec <- build_M1(
+  M1_model = "sex_age_invariant",
+  linkages = list(
+    log_M = linkage_spec(
+      formula = ~ 1,
+      by      = ~ species,
+      init    = list(`(Intercept)` = log(0.4)),
+      priors  = list(`(Intercept)` = lognormal(log(0.4), 0.35))
+    )
+  )
+)
+
+# Fix ln_M1 at 0 so the linkage intercept owns log_M.
+inits <- build_params(data_list)
+inits$ln_M1[] <- 0
+mp <- build_map(data_list, inits)
+mp$mapList$ln_M1[] <- NA
+mp$mapFactor <- lapply(mp$mapList, factor)
+
+fit <- fit_mod(
+  data_list = data_list,
+  inits     = inits,
+  map       = mp,
+  M1Fun     = M1_spec,
+  estimateMode = 0
+)
+```
+
+Compared to the existing `build_M1(M_prior = ..., M_prior_sd = ...,
+M1_use_prior = TRUE)` mechanism, the linkage-intercept route gives
+you the same prior shape but composes naturally with the rest of
+the linkage table (you can keep your env-effect rows and the
+intercept rows together, with priors on each). For most operational
+work the existing `M_prior` mechanism is simpler and more direct;
+the linkage route is most useful when you already have a table of
+env-effect coefficients and want to extend the same per-row
+prior/bound machinery to the parameter intercept.
+
 ## Species- and (species, sex)-specific priors
 
 Each entry under `priors = list(...)` may be:

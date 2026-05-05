@@ -153,7 +153,7 @@ testthat::test_that("Test multiple M linkeages", {
   GOA2018SS$srr_fun <- 0
   GOA2018SS$M1_model <- 4
   GOA2018SS$initMode <- 1
-  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, M1Fun = build_M1(M1_model = 4, M1_indices = c(1,2,3)), initMode = 1, fit_control = fit_control(verbose = 0)) )
+  mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, M1Fun = suppressWarnings(build_M1(M1_model = 4, M1_indices = c(1,2,3))), initMode = 1, fit_control = fit_control(verbose = 0)) )
   inits <- mod0$estimated_params
   alpha = 0.4
   beta = 1e-6
@@ -168,9 +168,9 @@ testthat::test_that("Test multiple M linkeages", {
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              M1Fun = build_M1(M1_model = 4,
-                                               M1_indices = c(1,2,3)
-                              ),
+                              M1Fun = suppressWarnings(build_M1(
+                                M1_model = 4,
+                                M1_indices = c(1,2,3))),
                               initMode = 1,
                               fit_control = fit_control(
                               verbose = 0))
@@ -221,9 +221,9 @@ testthat::test_that("Test single M, multiple M/sex linkeages, M both-sex linkage
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              M1Fun = build_M1(M1_model = c(1,5,4),
-                                               M1_indices = c(1,2,3)
-                              ),
+                              M1Fun = suppressWarnings(build_M1(
+                                M1_model = c(1,5,4),
+                                M1_indices = c(1,2,3))),
                               initMode = 1,
                               fit_control = fit_control(
                                 verbose = 0))
@@ -243,9 +243,9 @@ testthat::test_that("Test single M, multiple M/sex linkeages, M both-sex linkage
                               estimateMode = 3, # Don't estimate
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
-                              M1Fun = build_M1(M1_model = c(1,5,4),
-                                               M1_indices = c(1,2,3)
-                              ),
+                              M1Fun = suppressWarnings(build_M1(
+                                M1_model = c(1,5,4),
+                                M1_indices = c(1,2,3))),
                               initMode = 1,
                               fit_control = fit_control(
                               verbose = 0))

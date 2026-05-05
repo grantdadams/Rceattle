@@ -261,15 +261,19 @@ sample_rec <- function(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_tre
                                srr_prior_sd   = Rceattle$data_list$srr_prior_sd,
                                Bmsy_lim = Rceattle$data_list$Bmsy_lim,
                                srr_indices = Rceattle$data_list$srr_indices),
-            M1Fun =     build_M1(M1_model = Rceattle$data_list$M1_model,
-                                 M1_re = Rceattle$data_list$M1_re,
-                                 updateM1 = FALSE,  # Dont update M1 from data, fix at previous parameters
-                                 M1_use_prior = Rceattle$data_list$M1_use_prior,
-                                 M2_use_prior = Rceattle$data_list$M2_use_prior,
-                                 M_prior = Rceattle$data_list$M_prior,
-                                 M_prior_sd = Rceattle$data_list$M_prior_sd,
-                                 M1_indices = Rceattle$data_list$M1_indices,
-                                 linkages = Rceattle$data_list$M1_linkages),
+            # suppressWarnings: re-call from a fitted model's data_list
+            # may carry legacy M1_indices; the deprecation warning was
+            # already surfaced on the user's first build_M1() call.
+            M1Fun = suppressWarnings(build_M1(
+              M1_model = Rceattle$data_list$M1_model,
+              M1_re = Rceattle$data_list$M1_re,
+              updateM1 = FALSE,
+              M1_use_prior = Rceattle$data_list$M1_use_prior,
+              M2_use_prior = Rceattle$data_list$M2_use_prior,
+              M_prior = Rceattle$data_list$M_prior,
+              M_prior_sd = Rceattle$data_list$M_prior_sd,
+              M1_indices = Rceattle$data_list$M1_indices,
+              linkages = Rceattle$data_list$M1_linkages)),
             growthFun = build_growth(fun = Rceattle$data_list$growth_fun,
                                      linkages = Rceattle$data_list$growth_linkages),
             random_rec = Rceattle$data_list$random_rec,

@@ -19,11 +19,52 @@ testthat::test_that("build_M1() accepts string M1_model (parity with int)", {
   testthat::expect_equal(
     Rceattle::build_M1(M1_model = "sex_age_specific")$M1_model, 3L
   )
-  testthat::expect_equal(
-    Rceattle::build_M1(M1_model = "env_sex_invariant")$M1_model, 4L
+  # No string alias for the soft-deprecated env-driven integer codes
+  # (4, 5); their use is discouraged in new code.
+  testthat::expect_error(
+    Rceattle::build_M1(M1_model = "env_sex_invariant"),
+    "unknown `M1_model`"
   )
-  testthat::expect_equal(
-    Rceattle::build_M1(M1_model = "env_sex_specific")$M1_model, 5L
+  testthat::expect_error(
+    Rceattle::build_M1(M1_model = "env_sex_specific"),
+    "unknown `M1_model`"
+  )
+})
+
+
+testthat::test_that("build_M1(M1_model = 4 or 5) still works but warns", {
+  testthat::expect_warning(
+    res4 <- Rceattle::build_M1(M1_model = 4),
+    "soft-deprecated"
+  )
+  testthat::expect_equal(res4$M1_model, 4L)
+  testthat::expect_warning(
+    res5 <- Rceattle::build_M1(M1_model = 5),
+    "soft-deprecated"
+  )
+  testthat::expect_equal(res5$M1_model, 5L)
+
+  # Mixed vector: only the deprecated entries trigger the warning.
+  testthat::expect_warning(
+    Rceattle::build_M1(M1_model = c(1, 2, 4)),
+    "soft-deprecated"
+  )
+})
+
+
+testthat::test_that("build_M1(M1_indices = ...) emits deprecation warning", {
+  # NA / NA_integer_ / NA_real_ are "not supplied" -> no warning.
+  testthat::expect_silent(Rceattle::build_M1(M1_indices = NA))
+  testthat::expect_silent(Rceattle::build_M1(M1_indices = NA_integer_))
+
+  # Any other value triggers the soft-deprecation warning.
+  testthat::expect_warning(
+    Rceattle::build_M1(M1_indices = 5),
+    "soft-deprecated"
+  )
+  testthat::expect_warning(
+    Rceattle::build_M1(M1_indices = c(2, 3)),
+    "soft-deprecated"
   )
 })
 

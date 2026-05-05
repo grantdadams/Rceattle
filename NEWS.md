@@ -113,9 +113,22 @@ underlying parameter.
   emits actionable error messages keyed by
   `priors$<col>$<species>[$<sex>]` paths.
 
+* **Soft deprecation in `build_M1()`.** The legacy column-index
+  argument `M1_indices` and the env-driven structural integer
+  codes `M1_model %in% c(4, 5)` are subsumed by the new
+  `linkages = list(log_M = ...)` argument. Both still work for one
+  release cycle, but emit a one-time warning that points users at
+  the equivalent linkage-table call. The string aliases
+  `"env_sex_invariant"` / `"env_sex_specific"` (added briefly on
+  the dev branch) are removed; they were never released. The cpp's
+  `M1_beta` / `M1_mult` code path stays in place for now -- both
+  paths add additively to `ln_M1` on the log scale -- but do not
+  use both for the same coefficient or you will double-count.
+
 * **Roadmap.** Recruitment is next on the same pipeline; then
   random-effects pooling on `re_group` for hierarchical
-  shrinkage.
+  shrinkage. The legacy `M1_indices` / `M1_model = 4|5` paths
+  retire when recruitment migrates.
 
 
 # Rceattle 4.0.3 (in development)
