@@ -34,7 +34,8 @@ them to the underlying linear predictors.
 This vignette covers the user-facing API, the formula syntax it
 supports, prior and bound options, and the per-species variations.
 The linkage path is wired for **growth** (von Bertalanffy and
-Richards) today.
+Richards) and **natural mortality** (`log_M`) today; recruitment is
+next on the same pipeline.
 
 ## A first example: temperature on `K`
 
@@ -298,13 +299,19 @@ A direct prior on `ln_growth_pars` (analogous to `M_prior` /
 `M_prior_sd` for natural mortality) is on the post-release roadmap;
 until that lands, Pattern A is the recommended workaround.
 
-## Species-specific priors
+## Species- and (species, sex)-specific priors
 
-Each entry under `priors = list(...)` may be either a single prior
-(applies to every species/sex row that uses that design column) or a
-**named list of priors keyed by species id**:
+Each entry under `priors = list(...)` may be:
+
+* a single prior -- applies to every species/sex row that uses
+  that design column,
+* a **named list of priors keyed by species id** -- one prior per
+  species, or
+* a **two-level nested list keyed first by species, then by sex
+  id** -- one prior per (species, sex).
 
 ```{r}
+# Species-only keying
 linkage_spec(
   formula = ~ temp,
   by      = ~ species,
@@ -319,10 +326,34 @@ linkage_spec(
 )
 ```
 
-The same syntax works for any prior family. This is the recommended
-pattern when a covariate has different prior strength across stocks
-(e.g. when one species has prior literature on its temp sensitivity
-but another doesn't). Built programmatically, it's just:
+For sexually dimorphic stocks, the same `temp` column can take
+different priors per (species, sex). At each level the value can be
+either an `Rceattle_prior` (applies to all sub-strata) or a list
+that drills down further:
+
+```{r}
+linkage_spec(
+  formula = ~ temp,
+  by      = ~ species + sex,
+  priors  = list(
+    temp = list(
+      # Species 1: different tightness per sex.
+      `1` = list(`1` = normal(0, 0.1),    # sp 1, sex 1 (e.g. females)
+                 `2` = normal(0, 0.2)),   # sp 1, sex 2 (e.g. males)
+      # Species 2: scalar applies to every sex.
+      `2` = normal(0, 0.5)
+      # Any (species, sex) combination not listed gets no prior.
+    )
+  )
+)
+```
+
+The same syntax works for any prior family. This is the
+recommended pattern when a covariate has different prior strength
+across stocks (e.g. when one species has prior literature on its
+temp sensitivity but another doesn't), or when within a species
+the sexes are expected to respond differently. Built
+programmatically, it's just:
 
 ```{r}
 sd_by_species <- c(`1` = 0.1, `2` = 0.5, `3` = 1.0)
@@ -335,10 +366,11 @@ linkage_spec(
 )
 ```
 
-Validation: each value must be either an `Rceattle_prior` *or* a
-named list of priors. Non-prior values (numeric vectors, mismatched
-classes) are caught at `linkage_spec()` time with a pointer to the
-offending column.
+Validation: at each level the value must be either an
+`Rceattle_prior` *or* a named list of priors keyed by the next
+stratum. Non-prior values (numeric vectors, mismatched classes)
+are caught at `linkage_spec()` time with a pointer to the offending
+(column, species[, sex]) path.
 
 ## Per-species formulas
 
@@ -513,8 +545,9 @@ When you call `fit_mod()` with linkages:
    `linkages` element is a named list of `Rceattle_linkage_spec`
    objects (or, for per-species formulas, lists of them).
 
-2. **`fit_mod()`** stashes `growth_fun` and `growth_linkages` on
-   `data_list`, runs `data_check()`, then calls `pool_linkages()`.
+2. **`fit_mod()`** stashes `growth_fun` / `growth_linkages` and
+   `M1_linkages` on `data_list`, runs `data_check()`, then calls
+   `pool_linkages(spec_groups = list(growth = ..., M = ...))`.
 
 3. **`pool_linkages()`** materialises every spec against
    `data_list$env_data` and the species/sex/age strata, unions the
@@ -530,11 +563,19 @@ When you call `fit_mod()` with linkages:
    `linkage_link`, `linkage_prior_family`, `linkage_prior_p1`,
    `linkage_prior_p2`).
 
-5. **The TMB template** iterates the linkage rows once, builds a
-   per-(species, sex, growth_param, year) offset tensor via
-   `rceattle_apply_linkages()` in `src/TMB/linkage.hpp`, and adds
-   each cell to the corresponding entry of `growth_parameters` on
-   the log scale. With no linkages the offset stays at zero so
+5. **The TMB template** iterates the linkage rows once and builds
+   per-process offset tensors:
+   - `growth_linkage_offset` of shape
+     `[nspp, max_sex, n_growth_params, nyrs]` via
+     `rceattle_apply_linkages()` in `src/TMB/linkage.hpp`, added
+     to `growth_parameters` on the log scale.
+   - `M_linkage_offset` of shape `[nspp, max_sex, max_age, nyrs]`
+     via `rceattle_apply_M_linkages()`, added to `ln_M1` inside
+     the `M1_at_age` compute.
+
+   Both accumulators read from the same encoded table and the same
+   `ln_beta_linkage` parameter vector; rows dispatch by their
+   `process` column. With no linkages the offsets stay at zero so
    existing fits are identical-by-construction.
 
 6. **Priors and bounds** flow through the same table:
@@ -543,6 +584,68 @@ When you call `fit_mod()` with linkages:
    and the cpp adds `-d<family>(beta, p1, p2, log = TRUE)` to slot
    19 of the joint NLL for every row whose `prior_family` is not
    `"none"`.
+
+## Natural mortality
+
+`build_M1()` supports the same `linkages` argument. The valid
+parameter key is `log_M`; the offset enters additively (on the log
+scale) inside the `M1_at_age` compute, so a coefficient of `0.3` on
+a normalised temperature index multiplies `M1` by `exp(0.3 *
+temp[yr])` each year:
+
+```{r}
+M1_spec <- build_M1(
+  M1_model = "sex_age_invariant",            # or M1_model = 1 (back-compat)
+  linkages = list(
+    log_M = linkage_spec(
+      formula = ~ temp,
+      by      = ~ species,
+      priors  = list(temp = normal(0, 0.5))
+    )
+  )
+)
+
+fit <- fit_mod(
+  data_list   = data_list,
+  M1Fun       = M1_spec,
+  estimateMode = 0,
+  msmMode     = 0
+)
+```
+
+The structural M choices (`M1_model`) and the random-effects
+choices (`M1_re`) accept either integer codes or readable strings
+interchangeably:
+
+```{r}
+build_M1(M1_model = "sex_age_specific", M1_re = "ar1_age")   # = 3, 4
+build_M1(M1_model = 3,                  M1_re = 4)            # equivalent
+```
+
+`linkages` on M is age-aware: by default a row's `age_bin` is `NA`
+and the offset broadcasts across every age. To pin an env effect to
+a specific age slice, set `by = ~ species + age_bin` and supply
+`strata$age_bin` when calling materialize directly (`fit_mod()`
+provides this automatically). For most operational uses the default
+broadcast is what you want.
+
+The new linkage path coexists with the legacy `M1_indices = c(...)`
+column-index argument for `M1_model = 4` / `5`: both add to
+`ln_M1` on the log scale and either may be used. New code should
+prefer `linkages` -- it composes naturally with priors, bounds, and
+per-species formulas.
+
+Inspecting the result:
+
+```{r}
+fit$data_list$linkage_table         # rows have process == "M"
+fit$quantities$M_linkage_offset     # [nspp, max_sex, max_age, nyrs]
+fit$quantities$jnll_comp["Linkage-table priors", ]
+```
+
+Growth and M linkages **share the same table** -- one fit can carry
+linkage rows for both processes, and the underlying coefficient
+vector `ln_beta_linkage` indexes both.
 
 ## A multi-process example
 
@@ -591,6 +694,35 @@ build_growth(
 #> Error: linkages$log_m is only valid with fun = 'Richards'; ...
 ```
 
+Growth and M can be linked in the same fit -- each `build_*()`
+output carries its own linkages list and `fit_mod()` pools them
+together against a single shared design matrix:
+
+```{r}
+fit <- fit_mod(
+  data_list   = data_list,
+  growthFun   = build_growth(
+    fun      = "vonBertalanffy",
+    linkages = list(
+      log_K = linkage_spec(formula = ~ temp, by = ~ species)
+    )
+  ),
+  M1Fun       = build_M1(
+    M1_model = "sex_age_invariant",
+    linkages = list(
+      log_M = linkage_spec(formula = ~ temp, by = ~ species)
+    )
+  ),
+  estimateMode = 0,
+  msmMode     = 0
+)
+
+# Linkage table contains rows for both processes:
+table(fit$data_list$linkage_table$process)
+#> growth      M
+#>      4      4
+```
+
 ## Inspecting and debugging
 
 A few diagnostics worth knowing:
@@ -616,20 +748,22 @@ fit$quantities$jnll_comp["Linkage-table priors", ]
 
 ## On the roadmap
 
-* **Mortality and recruitment** -- the same long-format pipeline is
-  being extended to natural mortality and recruitment, so a
-  `build_M1(linkages = list(log_M = linkage_spec(...)))` and
-  analogous recruitment surface will follow the growth API exactly.
+* **Recruitment** -- the same long-format pipeline will be extended
+  to recruitment, so `build_srr(linkages = list(log_alpha = ...,
+  log_R0 = ...))` will follow the same shape as the growth and M
+  surfaces.
 * **Random-effects grouping** -- the `re_group` column on the linkage
   table is stored end-to-end; the cpp will grow a hierarchical
   penalty so coefficients sharing a `re_group` value are partially
   pooled.
-* **Age-dependent linkages** -- the `age_bin` stratum is reserved in
-  the table schema for processes that vary by age (notably natural
-  mortality).
+* **Age-dependent linkages** -- the `age_bin` stratum is consumed
+  by the M accumulator (a row's `age_bin == NA` broadcasts across
+  ages; specific values pin the offset to that age slice). It is
+  reserved in the table schema for other processes that may
+  eventually vary by age.
 
 ## See also
 
-* `?linkage_spec`, `?build_growth`, `?prior_normal`
+* `?linkage_spec`, `?build_growth`, `?build_M1`, `?prior_normal`
 * `vignette("model-parameterizations", package = "Rceattle")` for the
   full set of process options.

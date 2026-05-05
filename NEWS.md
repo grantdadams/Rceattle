@@ -74,9 +74,48 @@ underlying parameter.
   per-species formulas, basis-expansion formulas, and the
   underlying pipeline.
 
-* **Roadmap.** Natural mortality and recruitment are next on the
-  same pipeline; random-effects pooling on `re_group` and
-  age-binned linkages will follow.
+* **Natural mortality** is the second process wired to the
+  pipeline. `build_M1()` gains a `linkages` argument keyed by
+  `log_M`; the offset is added on the log scale to `ln_M1` inside
+  the `M1_at_age` compute. A row's `age_bin == NA` broadcasts the
+  offset across ages; specific values pin it to that age slice.
+  `build_M1()` also gains string-form acceptance for `M1_model`
+  and `M1_re` (parity with `build_growth(fun)`):
+
+  ```r
+  build_M1(M1_model = "sex_age_invariant",   # or 1
+           M1_re    = "ar1_age",             # or 4
+           linkages = list(
+             log_M = linkage_spec(formula = ~ temp, by = ~ species)
+           ))
+  ```
+
+  Growth and M can be linked in the same fit; their rows share the
+  same global linkage table and the same `ln_beta_linkage`
+  parameter vector.
+
+* **Per-(species, sex) priors.** In addition to scalar and
+  species-keyed priors, each `priors[[col]]` value may be a
+  two-level nested list keyed first by species id then by sex id:
+
+  ```r
+  priors = list(
+    temp = list(
+      `1` = list(`1` = normal(0, 0.1),
+                 `2` = normal(0, 0.2)),    # sp 1 by sex
+      `2` = normal(0, 0.5)                  # sp 2, both sexes
+    )
+  )
+  ```
+
+  Missing keys at either level resolve to "no prior" for that
+  stratum. The validator checks the structure recursively and
+  emits actionable error messages keyed by
+  `priors$<col>$<species>[$<sex>]` paths.
+
+* **Roadmap.** Recruitment is next on the same pipeline; then
+  random-effects pooling on `re_group` for hierarchical
+  shrinkage.
 
 
 # Rceattle 4.0.3 (in development)
