@@ -8,31 +8,23 @@
 #' @param srr_est_mode Switch to determine estimation mode. 0 = fix alpha to prior mean, 1 = freely estimate R0, alpha, and/or beta (default), 2 = use lognormally distributed prior for alpha (Ricker) or steepness (Beverton), 3 = use beta distributed prior for steepness (Beverton) given mean and sd.
 #' @param srr_prior mean for normally distributed prior for stock-recruit parameter
 #' @param srr_prior_sd Prior standard deviation for stock-recruit parameter
-#' @param srr_indices vector or single index indicating the columns (excluding "Year") of \code{env_data} to use in a environmentally driven stock recruit curve.
+#' @param srr_indices Soft-deprecated. Use the `linkages` argument instead. See `vignette("environmental-linkages")`.
 #' @param Bmsy_lim Upper limit for Ricker based SSB-MSY (e.g 1/Beta). Will add a likelihood penalty if beta is estimated above this limit. Default `NA` is not used.
 #' @param srr_mse_switchyr is used for MSEs to deal with AMAK and Jim Ianelli's estimation where a stock recruit function is estimated as an additional penalty  (srr_fun = 0 and srr_pred_fun > 0). It tells the model in what year to switch to the stock recruit function.
+#' @param linkages Optional named list of [linkage_spec()] objects keyed by recruitment parameter name (must be one of `"log_R0"`, `"log_alpha"`, `"log_beta"`). Each spec describes how that parameter depends on environmental covariates and on stratifying factors (species, sex). The offset enters additively (on the log scale) inside the recruitment compute. See `vignette("environmental-linkages")` for details.
 #'
 #' @description
 #'
 #' **Stock recruitment relationships currently implemented in Rceattle:**
 #'
-#' - \code{srr_fun = 0} No stock recruit relationship. Recruitment is a function of R0 and annual deviates (i.e. steepness = 0.99).
+#' - \code{srr_fun = 0} or \code{"mean"}: No stock recruit relationship. Recruitment is a function of R0 and annual deviates (i.e. steepness = 0.99).
 #'  \deqn{R_y = exp(R0 + R_{dev,y})}
 #'
-#' - \code{srr_fun = 1} Environmentally driven recruitment without stock recruit relationship
-#'  \deqn{R_y = exp(R0 + R_{dev,y} + X * \beta_X)}
-#'
-#' - \code{srr_fun = 2} Beverton-holt stock-recruitment relationship
+#' - \code{srr_fun = 2} or \code{"BevertonHolt"}: Beverton-holt stock-recruitment relationship
 #'   \deqn{R_y = \frac{\alpha_{srr} * SB_{y-minage}}{1+\beta_{srr} * SB_{y-minage}}}
 #'
-#' - \code{srr_fun = 3} Beverton-holt stock-recruitment relationship with environmental covariates impacting larval survival rate and prior is on alpha.
-#'   \deqn{R_y = \frac{\alpha_{srr} * e^{X * \beta_X} * SB_{y-minage}}{1+\beta_{srr} * SB_{y-minage}}}
-#'
-#' - \code{srr_fun = 4} Ricker stock-recruitment relationship
+#' - \code{srr_fun = 4} or \code{"Ricker"}: Ricker stock-recruitment relationship
 #'   \deqn{R_y = \alpha_{srr} * SB_{y-minage} * exp(-\beta_{srr} * SB_{y-minage})}
-#'
-#' - \code{srr_fun = 5} Ricker stock-recruitment relationship with environmental covariates impacting larval survival rate and prior is on alpha.
-#'   \deqn{R_y = \alpha_{srr} e^{X * \beta_X} * SB_{y-minage} * exp(-\beta_{srr} * SB_{y-minage})}
 #'
 #' When \code{srr_pred_fun > 0} and \code{srr_fun = 0} recruitment in the hindcast is estimated as in \code{srr_fun = 0} \deqn{R_y = exp(R0 + R_{dev,y})}, but an additional stock recruitment relationship defined by \code{srr_pred_fun} is estimated between \code{srr_hat_styr} and \code{srr_hat_endyr} and treated as an additional penalty. The stock recruitment relationship defined by \code{srr_pred_fun} is then used in the projection.
 #'
@@ -257,25 +249,23 @@ RECRUITMENT_LINKAGE_PARAMS <- c("log_R0", "log_alpha", "log_beta")
 #' @description
 #'
 #' **M1 fixed effects currently implemented in CEATTLE**
-#' - \code{M1_model = 0} Fixed based on input \code{M1_base}
-#' - \code{M1_model = 1} Single species specific M. Estimates \deqn{M1_{spp}}
-#' - \code{M1_model = 2} Sex-specific M. Estimates \deqn{M1_{spp, sex}}
-#' - \code{M1_model = 3} Sex- and age-specific M. Estimates \deqn{M1_{spp, sex, age}}
-#' - \code{M1_model = 4} Sex-invariant environmental effect. Estimates \deqn{M1_{spp, yr} = M1_{spp} * e^{X * \beta_{X, spp}}}. \code{M1_indices} specifies the environmental indices.
-#' - \code{M1_model = 5} Sex- and species specific environmental effect. Estimates \deqn{M1_{spp, sex, yr} = M1_{spp, sex} * e^{X * \beta_{X, spp, sex}}}. \code{M1_indices} specifies the environmental indices.
-#' - TODO fit to environmental index
+#' - \code{M1_model = 0} or \code{"fixed"}: Fixed based on input \code{M1_base}
+#' - \code{M1_model = 1} or \code{"sex_age_invariant"}: Single species specific M. Estimates \deqn{M1_{spp}}
+#' - \code{M1_model = 2} or \code{"sex_specific"}: Sex-specific M. Estimates \deqn{M1_{spp, sex}}
+#' - \code{M1_model = 3} or \code{"sex_age_specific"}: Sex- and age-specific M. Estimates \deqn{M1_{spp, sex, age}}
+#' - \code{M1_model = 4}, \code{5}: Soft-deprecated env-driven codes; use the \code{linkages} argument instead. See \code{vignette("environmental-linkages")}.
 #'
 #' **M1 random effects currently implemented in CEATTLE**
 #'
 #' M1 random effects are applied to each species if \code{M1_model = 1} or each species and sex if \code{M1_model = 2}. Variance and correlation coefficients are species-specific, but sex-invariant.
 #'
-#' - \code{M1_re = 0}: No random effects (default).
-#' - \code{M1_re = 1}: Random effects varies by age, but uncorrelated (IID) and constant over years.
-#' - \code{M1_re = 2}: Random effects varies by year, but uncorrelated (IID) and constant over ages.
-#' - \code{M1_re = 3}: Random effects varies by year and age, but uncorrelated (IID).
-#' - \code{M1_re = 4}: Correlated AR1 random effects varies by age, but constant over years.
-#' - \code{M1_re = 5}: Correlated AR1 random effects varies by year, but constant over ages.
-#' - \code{M1_re = 6}: Correlated 2D-AR1 random effects varies by year and age.
+#' - \code{M1_re = 0} or \code{"none"}: No random effects (default).
+#' - \code{M1_re = 1} or \code{"iid_age"}: Random effects varies by age, but uncorrelated (IID) and constant over years.
+#' - \code{M1_re = 2} or \code{"iid_year"}: Random effects varies by year, but uncorrelated (IID) and constant over ages.
+#' - \code{M1_re = 3} or \code{"iid_age_year"}: Random effects varies by year and age, but uncorrelated (IID).
+#' - \code{M1_re = 4} or \code{"ar1_age"}: Correlated AR1 random effects varies by age, but constant over years.
+#' - \code{M1_re = 5} or \code{"ar1_year"}: Correlated AR1 random effects varies by year, but constant over ages.
+#' - \code{M1_re = 6} or \code{"ar1_age_year"}: Correlated 2D-AR1 random effects varies by year and age.
 #'
 #' @return A list of switches for defining the M1 model
 #' @export
@@ -444,7 +434,7 @@ M_LINKAGE_PARAMS <- c("log_M1")
 #'   * `2` / `"sex_specific"` -- estimate `M1_{spp, sex}`.
 #'   * `3` / `"sex_age_specific"` -- estimate `M1_{spp, sex, age}`.
 #'   * `4`, `5` -- soft-deprecated env-driven codes; use the
-#'     `linkages` argument instead.
+#'     `linkages` argument instead. See `vignette("environmental-linkages")`.
 #' @param M1_re Vector or scalar specifying the M1 random-effects
 #'   model. Either an integer code or the equivalent string alias:
 #'   `0` / `"none"`, `1` / `"iid_age"`, `2` / `"iid_year"`,

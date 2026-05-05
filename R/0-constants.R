@@ -76,16 +76,6 @@ suitMode_map <- c(
   "NormalWeight"    = 6
 )
 
-# Stock-recruit relationship
-srr_map <- c(
-  "Mean"            = 0,
-  "MeanEnv"         = 1,
-  "BevertonHolt"    = 2,
-  "BevertonHoltEnv" = 3,
-  "Ricker"          = 4,
-  "RickerEnv"       = 5
-)
-
 # Harvest control rule
 hcr_map <- c(
   "NoFishing"    = 0,
