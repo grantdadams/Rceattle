@@ -33,26 +33,24 @@ A list of switches for defining the M1 model
 \description{
 \strong{M1 fixed effects currently implemented in CEATTLE}
 \itemize{
-\item \code{M1_model = 0} Fixed based on input \code{M1_base}
-\item \code{M1_model = 1} Single species specific M. Estimates \deqn{M1_{spp}}
-\item \code{M1_model = 2} Sex-specific M. Estimates \deqn{M1_{spp, sex}}
-\item \code{M1_model = 3} Sex- and age-specific M. Estimates \deqn{M1_{spp, sex, age}}
-\item \code{M1_model = 4} Sex-invariant environmental effect. Estimates \deqn{M1_{spp, yr} = M1_{spp} * e^{X * \beta_{X, spp}}}. \code{M1_indices} specifies the environmental indices.
-\item \code{M1_model = 5} Sex- and species specific environmental effect. Estimates \deqn{M1_{spp, sex, yr} = M1_{spp, sex} * e^{X * \beta_{X, spp, sex}}}. \code{M1_indices} specifies the environmental indices.
-\item TODO fit to environmental index
+\item \code{M1_model = 0} or \code{"fixed"}: Fixed based on input \code{M1_base}
+\item \code{M1_model = 1} or \code{"sex_age_invariant"}: Single species specific M. Estimates \deqn{M1_{spp}}
+\item \code{M1_model = 2} or \code{"sex_specific"}: Sex-specific M. Estimates \deqn{M1_{spp, sex}}
+\item \code{M1_model = 3} or \code{"sex_age_specific"}: Sex- and age-specific M. Estimates \deqn{M1_{spp, sex, age}}
+\item \code{M1_model = 4}, \code{5}: Soft-deprecated env-driven codes; use the \code{linkages} argument instead. See \code{vignette("environmental-linkages")}.
 }
 
 \strong{M1 random effects currently implemented in CEATTLE}
 
 M1 random effects are applied to each species if \code{M1_model = 1} or each species and sex if \code{M1_model = 2}. Variance and correlation coefficients are species-specific, but sex-invariant.
 \itemize{
-\item \code{M1_re = 0}: No random effects (default).
-\item \code{M1_re = 1}: Random effects varies by age, but uncorrelated (IID) and constant over years.
-\item \code{M1_re = 2}: Random effects varies by year, but uncorrelated (IID) and constant over ages.
-\item \code{M1_re = 3}: Random effects varies by year and age, but uncorrelated (IID).
-\item \code{M1_re = 4}: Correlated AR1 random effects varies by age, but constant over years.
-\item \code{M1_re = 5}: Correlated AR1 random effects varies by year, but constant over ages.
-\item \code{M1_re = 6}: Correlated 2D-AR1 random effects varies by year and age.
+\item \code{M1_re = 0} or \code{"none"}: No random effects (default).
+\item \code{M1_re = 1} or \code{"iid_age"}: Random effects varies by age, but uncorrelated (IID) and constant over years.
+\item \code{M1_re = 2} or \code{"iid_year"}: Random effects varies by year, but uncorrelated (IID) and constant over ages.
+\item \code{M1_re = 3} or \code{"iid_age_year"}: Random effects varies by year and age, but uncorrelated (IID).
+\item \code{M1_re = 4} or \code{"ar1_age"}: Correlated AR1 random effects varies by age, but constant over years.
+\item \code{M1_re = 5} or \code{"ar1_year"}: Correlated AR1 random effects varies by year, but constant over ages.
+\item \code{M1_re = 6} or \code{"ar1_age_year"}: Correlated 2D-AR1 random effects varies by year and age.
 }
 }
 \keyword{internal}

@@ -37,6 +37,7 @@ LINKAGE_COLS <- c(
   sex          = "integer",    # 1 or 2; NA = shared
   age_bin      = "integer",    # 1-based age index; NA = shared
   X_col        = "integer",    # column of the global design matrix
+  design_col   = "character",  # name of the design matrix column
   link         = "character",  # "identity", "log", "logit"
   init         = "numeric",    # initial value on the linear predictor scale
   lower        = "numeric",    # lower bound (-Inf for unbounded)
@@ -165,6 +166,7 @@ validate_linkage_table <- function(x) {
 #'
 #' @param process,param,X_col required identifying fields.
 #' @param species,sex,age_bin stratum ids; `NA` = shared across the dimension.
+#' @param design_col name of the design matrix column.
 #' @param link link function; one of [LINKAGE_LINKS].
 #' @param init initial value (default `0`).
 #' @param lower,upper bounds (default `-Inf`, `Inf`).
@@ -179,6 +181,7 @@ linkage_row <- function(process, param, X_col,
                         species      = NA_integer_,
                         sex          = NA_integer_,
                         age_bin      = NA_integer_,
+                        design_col   = NA_character_,
                         link         = "identity",
                         init         = 0,
                         lower        = -Inf,
@@ -196,6 +199,7 @@ linkage_row <- function(process, param, X_col,
     sex          = as.integer(sex),
     age_bin      = as.integer(age_bin),
     X_col        = as.integer(X_col),
+    design_col   = as.character(design_col),
     link         = as.character(link),
     init         = as.numeric(init),
     lower        = as.numeric(lower),
@@ -240,7 +244,7 @@ print.Rceattle_linkage_table <- function(x, ...) {
   cat(sprintf("<Rceattle linkage table: %d coefficient(s)>\n", nrow(x)))
   if (nrow(x) == 0L) return(invisible(x))
   show <- c("process", "param", "species", "sex", "age_bin",
-            "X_col", "link", "init", "prior_family", "est_phase")
+            "design_col", "link", "init", "prior_family", "est_phase")
   print(format(x[, show, drop = FALSE]), row.names = FALSE)
   invisible(x)
 }
