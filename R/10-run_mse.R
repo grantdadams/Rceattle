@@ -107,18 +107,20 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
                       Fmult = om$data_list$Fmult,
                       HCRorder = om$data_list$HCRorder
       ),
-      recFun = build_srr(srr_fun = om$data_list$srr_fun,
-                         srr_pred_fun = om$data_list$srr_pred_fun ,
-                         proj_mean_rec = om$data_list$proj_mean_rec,
-                         srr_mse_switchyr = om$data_list$srr_mse_switchyr,
-                         srr_hat_styr = om$data_list$srr_hat_styr,
-                         srr_hat_endyr = om$data_list$srr_hat_endyr,
-                         srr_est_mode  = om$data_list$srr_est_mode ,
-                         srr_prior = om$data_list$srr_prior,
-                         srr_prior_sd = om$data_list$srr_prior_sd,
-                         Bmsy_lim = om$data_list$Bmsy_lim,
-                         srr_indices = om$data_list$srr_indices,
-                         linkages = om$data_list$srr_linkages),
+      # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
+      recFun = suppressWarnings(build_srr(
+        srr_fun = om$data_list$srr_fun,
+        srr_pred_fun = om$data_list$srr_pred_fun,
+        proj_mean_rec = om$data_list$proj_mean_rec,
+        srr_mse_switchyr = om$data_list$srr_mse_switchyr,
+        srr_hat_styr = om$data_list$srr_hat_styr,
+        srr_hat_endyr = om$data_list$srr_hat_endyr,
+        srr_est_mode  = om$data_list$srr_est_mode,
+        srr_prior = om$data_list$srr_prior,
+        srr_prior_sd = om$data_list$srr_prior_sd,
+        Bmsy_lim = om$data_list$Bmsy_lim,
+        srr_indices = om$data_list$srr_indices,
+        linkages = om$data_list$srr_linkages)),
       # suppressWarnings: legacy M1_indices may travel via om$data_list.
       M1Fun = suppressWarnings(build_M1(
         M1_model = om$data_list$M1_model,
@@ -242,18 +244,20 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
                       Fmult = em$data_list$Fmult,
                       HCRorder = em$data_list$HCRorder
       ),
-      recFun = build_srr(srr_fun = em$data_list$srr_fun,
-                         srr_pred_fun  = em$data_list$srr_pred_fun ,
-                         proj_mean_rec  = em$data_list$proj_mean_rec ,
-                         srr_mse_switchyr = em$data_list$srr_mse_switchyr,
-                         srr_hat_styr = em$data_list$srr_hat_styr,
-                         srr_hat_endyr = em$data_list$srr_hat_endyr,
-                         srr_est_mode  = em$data_list$srr_est_mode ,
-                         srr_prior  = em$data_list$srr_prior,
-                         srr_prior_sd   = em$data_list$srr_prior_sd,
-                         Bmsy_lim = em$data_list$Bmsy_lim,
-                         srr_indices = em$data_list$srr_indices,
-                         linkages = em$data_list$srr_linkages),
+      # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
+      recFun = suppressWarnings(build_srr(
+        srr_fun = em$data_list$srr_fun,
+        srr_pred_fun  = em$data_list$srr_pred_fun,
+        proj_mean_rec  = em$data_list$proj_mean_rec,
+        srr_mse_switchyr = em$data_list$srr_mse_switchyr,
+        srr_hat_styr = em$data_list$srr_hat_styr,
+        srr_hat_endyr = em$data_list$srr_hat_endyr,
+        srr_est_mode  = em$data_list$srr_est_mode,
+        srr_prior  = em$data_list$srr_prior,
+        srr_prior_sd   = em$data_list$srr_prior_sd,
+        Bmsy_lim = em$data_list$Bmsy_lim,
+        srr_indices = em$data_list$srr_indices,
+        linkages = em$data_list$srr_linkages)),
       # suppressWarnings: legacy M1_indices may travel via em$data_list.
       M1Fun = suppressWarnings(build_M1(
         M1_model = em$data_list$M1_model,
@@ -302,18 +306,20 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
                                               Ptarget = em$data_list$Ptarget,
                                               Plimit = em$data_list$Plimit
                               ),
-                              recFun = build_srr(srr_fun = em$data_list$srr_fun,
-                                                 srr_pred_fun  = em$data_list$srr_pred_fun ,
-                                                 proj_mean_rec  = em$data_list$proj_mean_rec ,
-                                                 srr_mse_switchyr = em$data_list$srr_mse_switchyr,
-                                                 srr_hat_styr = em$data_list$srr_hat_styr,
-                                                 srr_hat_endyr = em$data_list$srr_hat_endyr,
-                                                 srr_est_mode  = em$data_list$srr_est_mode ,
-                                                 srr_prior  = em$data_list$srr_prior,
-                                                 srr_prior_sd   = em$data_list$srr_prior_sd,
-                                                 Bmsy_lim = em$data_list$Bmsy_lim,
-                                                 srr_indices = em$data_list$srr_indices,
-                                                 linkages = em$data_list$srr_linkages),
+                              # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
+                              recFun = suppressWarnings(build_srr(
+                                srr_fun = em$data_list$srr_fun,
+                                srr_pred_fun  = em$data_list$srr_pred_fun,
+                                proj_mean_rec  = em$data_list$proj_mean_rec,
+                                srr_mse_switchyr = em$data_list$srr_mse_switchyr,
+                                srr_hat_styr = em$data_list$srr_hat_styr,
+                                srr_hat_endyr = em$data_list$srr_hat_endyr,
+                                srr_est_mode  = em$data_list$srr_est_mode,
+                                srr_prior  = em$data_list$srr_prior,
+                                srr_prior_sd   = em$data_list$srr_prior_sd,
+                                Bmsy_lim = em$data_list$Bmsy_lim,
+                                srr_indices = em$data_list$srr_indices,
+                                linkages = em$data_list$srr_linkages)),
                               # suppressWarnings: legacy M1_indices may travel via em$data_list.
                               M1Fun = suppressWarnings(build_M1(
                                 M1_model = em$data_list$M1_model,
@@ -653,18 +659,20 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
                               Fmult = om_use$data_list$Fmult,
                               HCRorder = om_use$data_list$HCRorder
               ),
-              recFun = build_srr(srr_fun = om_use$data_list$srr_fun,
-                                 srr_pred_fun = om_use$data_list$srr_pred_fun ,
-                                 proj_mean_rec = TRUE, # Use mean R for RPs
-                                 srr_mse_switchyr = om$data_list$srr_mse_switchyr, # This stays the same as original OM
-                                 srr_hat_styr = om$data_list$srr_hat_styr,
-                                 srr_hat_endyr = om$data_list$srr_hat_endyr,
-                                 srr_est_mode  = om_use$data_list$srr_est_mode ,
-                                 srr_prior = om_use$data_list$srr_prior,
-                                 srr_prior_sd = om_use$data_list$srr_prior_sd,
-                                 Bmsy_lim = om_use$data_list$Bmsy_lim,
-                                 srr_indices = om_use$data_list$srr_indices,
-                                 linkages = om_use$data_list$srr_linkages),
+              # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
+              recFun = suppressWarnings(build_srr(
+                srr_fun = om_use$data_list$srr_fun,
+                srr_pred_fun = om_use$data_list$srr_pred_fun,
+                proj_mean_rec = TRUE,
+                srr_mse_switchyr = om$data_list$srr_mse_switchyr,
+                srr_hat_styr = om$data_list$srr_hat_styr,
+                srr_hat_endyr = om$data_list$srr_hat_endyr,
+                srr_est_mode  = om_use$data_list$srr_est_mode,
+                srr_prior = om_use$data_list$srr_prior,
+                srr_prior_sd = om_use$data_list$srr_prior_sd,
+                Bmsy_lim = om_use$data_list$Bmsy_lim,
+                srr_indices = om_use$data_list$srr_indices,
+                linkages = om_use$data_list$srr_linkages)),
               # suppressWarnings: legacy M1_indices may travel via om_use$data_list.
               M1Fun = suppressWarnings(build_M1(
                 M1_model = om_use$data_list$M1_model,
@@ -851,18 +859,20 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
                               Fmult = em_use$data_list$Fmult,
                               HCRorder = em$data_list$HCRorder
               ),
-              recFun = build_srr(srr_fun = em_use$data_list$srr_fun,
-                                 srr_pred_fun = em_use$data_list$srr_pred_fun,
-                                 proj_mean_rec = em_use$data_list$proj_mean_rec,
-                                 srr_mse_switchyr = em_use$data_list$endyr, # Update end year
-                                 srr_hat_styr = em_use$data_list$srr_hat_styr,
-                                 srr_hat_endyr = em_use$data_list$srr_hat_endyr,
-                                 srr_est_mode  = em_use$data_list$srr_est_mode ,
-                                 srr_prior = em_use$data_list$srr_prior,
-                                 srr_prior_sd = em_use$data_list$srr_prior_sd,
-                                 Bmsy_lim = em_use$data_list$Bmsy_lim,
-                                 srr_indices = em_use$data_list$srr_indices,
-                                 linkages = em_use$data_list$srr_linkages),
+              # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
+              recFun = suppressWarnings(build_srr(
+                srr_fun = em_use$data_list$srr_fun,
+                srr_pred_fun = em_use$data_list$srr_pred_fun,
+                proj_mean_rec = em_use$data_list$proj_mean_rec,
+                srr_mse_switchyr = em_use$data_list$endyr,
+                srr_hat_styr = em_use$data_list$srr_hat_styr,
+                srr_hat_endyr = em_use$data_list$srr_hat_endyr,
+                srr_est_mode  = em_use$data_list$srr_est_mode,
+                srr_prior = em_use$data_list$srr_prior,
+                srr_prior_sd = em_use$data_list$srr_prior_sd,
+                Bmsy_lim = em_use$data_list$Bmsy_lim,
+                srr_indices = em_use$data_list$srr_indices,
+                linkages = em_use$data_list$srr_linkages)),
               # suppressWarnings: legacy M1_indices may travel via em_use$data_list.
               M1Fun = suppressWarnings(build_M1(
                 M1_model = em_use$data_list$M1_model,

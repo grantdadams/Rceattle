@@ -1,8 +1,55 @@
 testthat::test_that("build_srr() default returns no linkages", {
   s <- Rceattle::build_srr()
   testthat::expect_type(s, "list")
-  testthat::expect_equal(s$srr_fun, 0)
+  testthat::expect_equal(s$srr_fun, 0L)
   testthat::expect_null(s$linkages)
+})
+
+
+testthat::test_that("build_srr() accepts string srr_fun (parity with int)", {
+  testthat::expect_equal(Rceattle::build_srr(srr_fun = "mean")$srr_fun, 0L)
+  testthat::expect_equal(
+    Rceattle::build_srr(srr_fun = "BevertonHolt")$srr_fun, 2L
+  )
+  testthat::expect_equal(Rceattle::build_srr(srr_fun = "Ricker")$srr_fun, 4L)
+  # No string aliases for the soft-deprecated env-driven codes.
+  testthat::expect_error(
+    Rceattle::build_srr(srr_fun = "mean_env"),
+    "unknown `srr_fun`"
+  )
+})
+
+
+testthat::test_that("build_srr(srr_fun = 1|3|5) still works but warns", {
+  testthat::expect_warning(
+    res1 <- Rceattle::build_srr(srr_fun = 1),
+    "soft-deprecated"
+  )
+  testthat::expect_equal(res1$srr_fun, 1L)
+  testthat::expect_warning(
+    res3 <- Rceattle::build_srr(srr_fun = 3),
+    "soft-deprecated"
+  )
+  testthat::expect_warning(
+    res5 <- Rceattle::build_srr(srr_fun = 5),
+    "soft-deprecated"
+  )
+})
+
+
+testthat::test_that("build_srr(srr_indices = ...) emits deprecation warning", {
+  # NA / not supplied -> no warning.
+  testthat::expect_silent(Rceattle::build_srr(srr_indices = NA))
+
+  # Any other value triggers the soft-deprecation warning.
+  testthat::expect_warning(
+    Rceattle::build_srr(srr_indices = 1),
+    "soft-deprecated"
+  )
+  testthat::expect_warning(
+    Rceattle::build_srr(srr_indices = c(1, 2, 3)),
+    "soft-deprecated"
+  )
 })
 
 
@@ -18,7 +65,8 @@ testthat::test_that("build_srr(linkages = ...) attaches and infers param", {
     )
   )
   testthat::expect_equal(s$linkages$log_alpha$param, "log_alpha")
-  testthat::expect_equal(s$linkages$log_alpha$priors$temp$family, "normal")
+  fam <- s$linkages$log_alpha$priors$temp$family
+  testthat::expect_equal(fam, "normal")
 })
 
 

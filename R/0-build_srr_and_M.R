@@ -53,6 +53,9 @@ build_srr <- function(srr_fun = 0,  #srr_model
                       Bmsy_lim = NA,
                       linkages = NULL){
 
+  srr_fun      <- .coerce_srr_fun(srr_fun,      "srr_fun")
+  srr_pred_fun <- .coerce_srr_fun(srr_pred_fun, "srr_pred_fun")
+
   # Set pred/RP/penalty to same as SR curve if SR fun > 0
   if(srr_fun > 0){
     srr_pred_fun = srr_fun
@@ -63,6 +66,12 @@ build_srr <- function(srr_fun = 0,  #srr_model
   }
 
   linkages <- .validate_recruitment_linkages(linkages, srr_fun)
+
+  # `srr_indices` is soft-deprecated in favour of `linkages = list(log_R0
+  # = ..., log_alpha = ..., log_beta = ...)`. NA is "not supplied".
+  if (!(length(srr_indices) == 1L && is.na(srr_indices))) {
+    .warn_srr_indices_deprecation()
+  }
 
   list(srr_fun = srr_fun,
        srr_pred_fun = srr_pred_fun,
@@ -76,6 +85,111 @@ build_srr <- function(srr_fun = 0,  #srr_model
        srr_indices = srr_indices,
        Bmsy_lim = Bmsy_lim,
        linkages = linkages
+  )
+}
+
+
+#' String<->integer mapping for `srr_fun` / `srr_pred_fun` in
+#' [build_srr()]
+#'
+#' Either form is accepted; the canonical integer code is what the
+#' TMB template ultimately consumes. Only the structural codes (0,
+#' 2, 4) get string aliases. The historical env-driven codes (1, 3,
+#' 5) still work with a soft-deprecation warning -- their structural
+#' part is identical to 0 / 2 / 4 respectively, and the env effect
+#' is now expressed via the `linkages` argument to [build_srr()].
+#'
+#' @keywords internal
+.SRR_FUNS <- c(
+  mean         = 0L,
+  BevertonHolt = 2L,
+  Ricker       = 4L
+)
+
+
+#' Deprecated env-driven `srr_fun` / `srr_pred_fun` integer codes.
+#' @keywords internal
+#' @noRd
+.SRR_DEPRECATED_FUNS <- c(1L, 3L, 5L)
+
+
+#' Coerce an `srr_fun` / `srr_pred_fun` value to canonical integer.
+#'
+#' Accepts either a string from [.SRR_FUNS] (length-1) or a length-1
+#' integer in 0..5. Integer codes 1, 3, 5 emit a soft-deprecation
+#' warning pointing users at the linkage table.
+#'
+#' @keywords internal
+#' @noRd
+.coerce_srr_fun <- function(x, what) {
+  if (length(x) != 1L) {
+    stop(sprintf("`%s` must be length 1", what), call. = FALSE)
+  }
+  if (is.numeric(x)) {
+    int <- as.integer(x)
+    allowed <- c(unname(.SRR_FUNS), .SRR_DEPRECATED_FUNS)
+    if (is.na(int) || !int %in% allowed) {
+      stop(sprintf(
+        "integer `%s` must be one of: %s (= %s, plus 1/3/5 for legacy env modes)",
+        what,
+        paste(.SRR_FUNS, collapse = ", "),
+        paste(names(.SRR_FUNS), collapse = "/")), call. = FALSE)
+    }
+    if (int %in% .SRR_DEPRECATED_FUNS) {
+      .warn_srr_fun_deprecation(int, what)
+    }
+    return(int)
+  }
+  if (is.character(x)) {
+    bad <- setdiff(x, names(.SRR_FUNS))
+    if (length(bad) > 0L) {
+      stop(sprintf(
+        "unknown `%s` value(s): %s; allowed: %s",
+        what,
+        paste(unique(bad), collapse = ", "),
+        paste(names(.SRR_FUNS), collapse = ", ")), call. = FALSE)
+    }
+    return(unname(.SRR_FUNS[x]))
+  }
+  stop(sprintf("`%s` must be a string or integer; got %s",
+               what, class(x)[1]), call. = FALSE)
+}
+
+
+#' @keywords internal
+#' @noRd
+.warn_srr_fun_deprecation <- function(int, what) {
+  warning(
+    sprintf("%s = %d is soft-deprecated: the structural part of ", what, int),
+    "mode 1 / 3 / 5 is identical to mode 0 / 2 / 4 respectively, ",
+    "and the environmental effect formerly driven by ",
+    "`srr_indices` is now better expressed through the linkages ",
+    "argument to build_srr():\n\n",
+    "  build_srr(srr_fun = ", switch(as.character(int),
+                                     "1" = 0, "3" = 2, "5" = 4), ",\n",
+    "            linkages = list(",
+    switch(as.character(int), "1" = "log_R0", "log_alpha"),
+    " = linkage_spec(formula = ~ <env_col>)))\n\n",
+    "See vignette('environmental-linkages').",
+    call. = FALSE
+  )
+}
+
+
+#' @keywords internal
+#' @noRd
+.warn_srr_indices_deprecation <- function() {
+  warning(
+    "`srr_indices` is soft-deprecated. The same environmental ",
+    "effect is now better expressed through the linkages argument ",
+    "to build_srr():\n\n",
+    "  build_srr(srr_fun = ...,\n",
+    "            linkages = list(log_R0 = linkage_spec(\n",
+    "              formula = ~ <env_col>)))\n\n",
+    "Both paths add additively to log(R) on the log scale, so do ",
+    "NOT supply both for the same coefficient or you will ",
+    "double-count. See vignette('environmental-linkages').",
+    call. = FALSE
   )
 }
 

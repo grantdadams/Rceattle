@@ -250,18 +250,22 @@ sample_rec <- function(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_tre
                             Fmult = Rceattle$data_list$Fmult,
                             HCRorder = Rceattle$data_list$HCRorder
             ),
-            recFun = build_srr(srr_fun = Rceattle$data_list$srr_fun,
-                               srr_pred_fun  = Rceattle$data_list$srr_pred_fun,
-                               proj_mean_rec  = Rceattle$data_list$proj_mean_rec,
-                               srr_mse_switchyr = Rceattle$data_list$srr_mse_switchyr,
-                               srr_hat_styr = Rceattle$data_list$srr_hat_styr,
-                               srr_hat_endyr = Rceattle$data_list$srr_hat_endyr,
-                               srr_est_mode  = Rceattle$data_list$srr_est_mode ,
-                               srr_prior  = Rceattle$data_list$srr_prior,
-                               srr_prior_sd   = Rceattle$data_list$srr_prior_sd,
-                               Bmsy_lim = Rceattle$data_list$Bmsy_lim,
-                               srr_indices = Rceattle$data_list$srr_indices,
-                               linkages = Rceattle$data_list$srr_linkages),
+            # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices may
+            # travel via data_list; the deprecation warning was already
+            # surfaced on the user's first build_srr() call.
+            recFun = suppressWarnings(build_srr(
+              srr_fun = Rceattle$data_list$srr_fun,
+              srr_pred_fun  = Rceattle$data_list$srr_pred_fun,
+              proj_mean_rec  = Rceattle$data_list$proj_mean_rec,
+              srr_mse_switchyr = Rceattle$data_list$srr_mse_switchyr,
+              srr_hat_styr = Rceattle$data_list$srr_hat_styr,
+              srr_hat_endyr = Rceattle$data_list$srr_hat_endyr,
+              srr_est_mode  = Rceattle$data_list$srr_est_mode ,
+              srr_prior  = Rceattle$data_list$srr_prior,
+              srr_prior_sd   = Rceattle$data_list$srr_prior_sd,
+              Bmsy_lim = Rceattle$data_list$Bmsy_lim,
+              srr_indices = Rceattle$data_list$srr_indices,
+              linkages = Rceattle$data_list$srr_linkages)),
             # suppressWarnings: re-call from a fitted model's data_list
             # may carry legacy M1_indices; the deprecation warning was
             # already surfaced on the user's first build_M1() call.
