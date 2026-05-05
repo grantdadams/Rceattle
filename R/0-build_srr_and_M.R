@@ -129,17 +129,27 @@ M_LINKAGE_PARAMS <- c("log_M")
 #' String<->integer mapping for `M1_model` in [build_M1()]
 #'
 #' Either form is accepted by [build_M1()]; the canonical integer
-#' code is what the TMB template ultimately consumes.
+#' code is what the TMB template ultimately consumes. The legacy
+#' env-driven integer codes 4 and 5 still work with a deprecation
+#' warning -- their structural part is identical to 1 and 2
+#' respectively, and the env effect is now expressed via the
+#' [linkages] argument to [build_M1()] (see
+#' `vignette("environmental-linkages")`). No string alias is offered
+#' for 4 or 5 to discourage their use in new code.
 #'
 #' @keywords internal
 .M1_MODELS <- c(
   fixed             = 0L,
   sex_age_invariant = 1L,
   sex_specific      = 2L,
-  sex_age_specific  = 3L,
-  env_sex_invariant = 4L,
-  env_sex_specific  = 5L
+  sex_age_specific  = 3L
 )
+
+
+#' Deprecated env-driven `M1_model` integer codes.
+#' @keywords internal
+#' @noRd
+.M1_DEPRECATED_MODELS <- c(4L, 5L)
 
 
 #' String<->integer mapping for `M1_re` in [build_M1()]
@@ -169,6 +179,11 @@ M_LINKAGE_PARAMS <- c("log_M")
 #' vector that is already in the allowed set. Errors loudly on
 #' anything else.
 #'
+#' For `M1_model` only, the historical env-driven integer codes 4
+#' and 5 (controlled by `M1_indices`) are accepted for backwards
+#' compatibility but emit a soft-deprecation warning pointing users
+#' at the linkage table -- see [build_M1()].
+#'
 #' @keywords internal
 #' @noRd
 .coerce_M1_arg <- function(x, map, what) {
@@ -177,12 +192,17 @@ M_LINKAGE_PARAMS <- c("log_M")
   }
   if (is.numeric(x)) {
     int <- as.integer(x)
-    if (anyNA(int) || any(!int %in% map)) {
+    extra <- if (identical(what, "M1_model")) .M1_DEPRECATED_MODELS else integer(0)
+    allowed <- c(unname(map), extra)
+    if (anyNA(int) || any(!int %in% allowed)) {
       stop(sprintf(
         "integer `%s` must be one of: %s (= %s)",
         what,
         paste(map, collapse = ", "),
         paste(names(map), collapse = "/")), call. = FALSE)
+    }
+    if (length(extra) > 0L && any(int %in% extra)) {
+      .warn_M1_model_deprecation(int)
     }
     return(int)
   }
@@ -203,6 +223,45 @@ M_LINKAGE_PARAMS <- c("log_M")
 }
 
 
+#' @keywords internal
+#' @noRd
+.warn_M1_model_deprecation <- function(int) {
+  hits <- intersect(int, .M1_DEPRECATED_MODELS)
+  warning(
+    "M1_model %in% c(", paste(hits, collapse = ", "),
+    ") is soft-deprecated: the structural part of mode 4 is ",
+    "identical to mode 1, and mode 5 to mode 2 (or 1 in single-",
+    "sex models). The environmental effect formerly driven by ",
+    "`M1_indices` is now better expressed through the linkages ",
+    "argument to build_M1():\n\n",
+    "  build_M1(M1_model = c(1, 2, 1),\n",
+    "           linkages = list(log_M = linkage_spec(\n",
+    "             formula = ~ <env_col>, by = ~species,\n",
+    "             species = <which species had the env effect>)))\n\n",
+    "See vignette('environmental-linkages').",
+    call. = FALSE
+  )
+}
+
+
+#' @keywords internal
+#' @noRd
+.warn_M1_indices_deprecation <- function() {
+  warning(
+    "`M1_indices` is soft-deprecated. The same environmental ",
+    "effect is now better expressed through the linkages argument ",
+    "to build_M1():\n\n",
+    "  build_M1(M1_model = ...,\n",
+    "           linkages = list(log_M = linkage_spec(\n",
+    "             formula = ~ <env_col>, by = ~species)))\n\n",
+    "Both paths add additively to ln_M1 on the log scale, so do ",
+    "NOT supply both for the same coefficient or you will ",
+    "double-count. See vignette('environmental-linkages').",
+    call. = FALSE
+  )
+}
+
+
 build_M1 <- function(M1_model = 0,
                      M1_re = 0,
                      updateM1 = FALSE,
@@ -215,6 +274,12 @@ build_M1 <- function(M1_model = 0,
   M1_model <- .coerce_M1_arg(M1_model, .M1_MODELS, "M1_model")
   M1_re    <- .coerce_M1_arg(M1_re,    .M1_RES,    "M1_re")
   linkages <- .validate_M_linkages(linkages)
+  # `M1_indices` is soft-deprecated in favour of `linkages = list(log_M
+  # = ...)`. NA / NA_real_ / NA_integer_ are all "not supplied". Any
+  # other value triggers the deprecation note.
+  if (!(length(M1_indices) == 1L && is.na(M1_indices))) {
+    .warn_M1_indices_deprecation()
+  }
   list(
     M1_model     = M1_model,
     M1_re        = M1_re,
