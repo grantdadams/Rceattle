@@ -285,6 +285,25 @@ fit_mod <-
     # Check for data error
     data_check(data_list)
 
+    # * Pool process linkages into a global table + design matrix ----
+    # No-op when no build_*() supplied a `linkages` list. When
+    # linkages are present, this materializes each spec against
+    # data_list$env_data and unions design columns by name. The
+    # resulting `linkage_table` and `linkage_X` are used downstream
+    # once the TMB template knows how to consume them; for now they
+    # are computed (and validated) but not yet plumbed into TMB.
+    .linkage_pool <- pool_linkages(
+      spec_groups = list(growth = data_list$growth_linkages),
+      env_data    = data_list$env_data,
+      strata      = list(
+        species = seq_len(data_list$nspp),
+        sex     = seq_len(max(data_list$nsex)),
+        age_bin = seq_len(max(data_list$nages))
+      )
+    )
+    data_list$linkage_table <- .linkage_pool$table
+    data_list$linkage_X     <- .linkage_pool$X
+
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 2: Load/build parameters ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
