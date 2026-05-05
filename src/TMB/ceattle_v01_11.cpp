@@ -13,6 +13,7 @@
 #include "bioenergetics.hpp"
 #include "predation.hpp"
 #include "diet_data.hpp"
+#include "linkage.hpp"
 
 /** ------------------------------------------------------------------------ //
  *                 CEATTLE version 4.0.1                                     //
@@ -177,6 +178,23 @@ Type objective_function<Type>::operator() () {
   // -- 2.3. Growth model specifications
   DATA_IVECTOR(growth_model); // 0: "input", 1: "vB-classic", 2: "Richards", 3: "nonparametric LAA" [sp]
 
+  // -- 2.3b. Long-format linkage table (see R/0-linkage_encode.R).
+  //          Each row defines one estimated coefficient that connects a
+  //          process parameter (growth/M/recruit/...) to a column of the
+  //          shared design matrix `linkage_X`. Empty when no build_*()
+  //          supplied a `linkages` argument.
+  DATA_IVECTOR(linkage_process);       // process code (growth = 2)
+  DATA_IVECTOR(linkage_param);         // per-process parameter code
+  DATA_IVECTOR(linkage_species);       // 1-based sp id; 0 = all
+  DATA_IVECTOR(linkage_sex);           // 1-based sex id; 0 = all
+  DATA_IVECTOR(linkage_age_bin);       // 1-based age id; 0 = all
+  DATA_IVECTOR(linkage_X_col);         // 0-based column of linkage_X
+  DATA_IVECTOR(linkage_link);          // identity=0, log=1, logit=2
+  DATA_IVECTOR(linkage_prior_family);  // none=0, normal=1, lognormal=2, gamma=3, beta=4
+  DATA_VECTOR(linkage_prior_p1);       // family-specific prior param 1
+  DATA_VECTOR(linkage_prior_p2);       // family-specific prior param 2
+  DATA_MATRIX(linkage_X);              // dense design matrix [nyrs, n_design_cols]
+
   // -- 2.4. Fleet controls (i.e. how to assign data to objects)
   DATA_IVECTOR(flt_type);                 // Index wether the data are included in the likelihood or not (0 = no, 1 = yes)
   DATA_VECTOR(flt_month);
@@ -285,7 +303,12 @@ Type objective_function<Type>::operator() () {
   PARAMETER_ARRAY(growth_ln_sd);                  // Log standard deviation of length-at- min and max age [sp, sex, 2]
   PARAMETER_MATRIX(weight_length_pars);           // Length-weight parameters [sp, (alpha, beta)]
 
-  // -- 3.3. Fishing mortality parameters
+  // -- 3.3b. Linkage-table coefficients (see linkage.hpp). Aligned
+  //          row-for-row with the linkage_* DATA vectors above. May
+  //          be length 0 (no linkages supplied).
+  PARAMETER_VECTOR(ln_beta_linkage);
+
+  // -- 3.4. Fishing mortality parameters
   PARAMETER_VECTOR( ln_Flimit );                  // Target fishing mortality for projections on log scale; n = [nspp, nyrs]
   PARAMETER_VECTOR( ln_Ftarget );                 // Target fishing mortality for projections on log scale; n = [nspp, nyrs]
   PARAMETER_VECTOR( ln_Finit );                   // Fishing mortality for initial population to induce non-equilibrium; n = [nspp]
@@ -563,6 +586,31 @@ Type objective_function<Type>::operator() () {
 
 
   // 5.5. GROWTH
+  // -- Step 3B (linkage scaffold): build the per-(sp, sex, growth_param,
+  //    yr) offset tensor from the long-format linkage table. Computed and
+  //    REPORTed for downstream verification, but NOT yet added to
+  //    `growth_parameters` -- a follow-up commit will refactor growth.hpp
+  //    to consume it. With no linkages supplied the tensor stays at zero.
+  array<Type> growth_linkage_offset(nspp, max_sex, RCEATTLE_N_GROWTH_PARAMS, nyrs);
+  growth_linkage_offset.setZero();
+  rceattle_apply_linkages(
+    growth_linkage_offset,
+    linkage_process,
+    linkage_param,
+    linkage_species,
+    linkage_sex,
+    linkage_age_bin,
+    linkage_X_col,
+    linkage_link,
+    linkage_X,
+    ln_beta_linkage,
+    nspp,
+    nsex,
+    nyrs
+  );
+  REPORT(growth_linkage_offset);
+  REPORT(ln_beta_linkage);
+
   // -- Rearange growth parameters
   array<Type> growth_parameters(nspp, max_sex, nyrs, int(4)); growth_parameters.setZero(); // K, L1, Linf, m
   for(sp = 0; sp < nspp; sp++){
