@@ -11,6 +11,7 @@ linkage_row(
   species = NA_integer_,
   sex = NA_integer_,
   age_bin = NA_integer_,
+  design_col = NA_character_,
   link = "identity",
   init = 0,
   lower = -Inf,
@@ -26,6 +27,8 @@ linkage_row(
 \item{process, param, X_col}{required identifying fields.}
 
 \item{species, sex, age_bin}{stratum ids; \code{NA} = shared across the dimension.}
+
+\item{design_col}{name of the design matrix column.}
 
 \item{link}{link function; one of \link{LINKAGE_LINKS}.}
 

@@ -43,7 +43,7 @@ NULL
 #'   multiple specs against the same parameter -- see
 #'   [build_growth()] for the multi-spec syntax.
 #' @param link link function applied to the predictor when assembling
-#'   process values; one of [LINKAGE_LINKS].
+#'   process values; one of [LINKAGE_LINKS]. TODO
 #' @param init optional named numeric vector of initial values keyed by
 #'   the design-matrix column name (e.g.
 #'   `c(`(Intercept)` = -1, temp = 0)`). Missing entries default to `0`.
@@ -394,13 +394,75 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
                    v))
     }
   }
-  level_grid <- if (length(by_vars) == 0L) {
-    data.frame(.dummy = 1L)
-  } else {
-    do.call(expand.grid,
-            c(strata[by_vars], list(KEEP.OUT.ATTRS = FALSE,
-                                    stringsAsFactors = FALSE)))
+  if ("sex" %in% by_vars) {
+    sex_levels_one <- FALSE
+    if (is.list(strata$sex)) {
+      if (!"species" %in% by_vars) {
+        stop("species-specific `strata$sex` values are only supported when `by` includes species",
+             call. = FALSE)
+      }
+      sex_levels_one <- all(vapply(strata$sex, length, integer(1)) == 1L)
+    } else if (length(strata$sex) == 1L) {
+      sex_levels_one <- TRUE
+    }
+    if (sex_levels_one) {
+      warning("`by = ~ ... + sex` was requested but only one sex level is available in `strata$sex`; \
+              sex-specific coefficients will collapse to a single shared sex level.")
+    }
   }
+
+  expand_linkage_strata <- function(strata, by_vars) {
+    if (length(by_vars) == 0L) {
+      return(data.frame(.dummy = 1L))
+    }
+
+    if (!"species" %in% by_vars) {
+      if (any(vapply(strata[by_vars], is.list, logical(1)))) {
+        stop("species-specific strata values are only supported when `by` includes species",
+             call. = FALSE)
+      }
+      return(do.call(expand.grid,
+                     c(strata[by_vars], list(KEEP.OUT.ATTRS = FALSE,
+                                             stringsAsFactors = FALSE))))
+    }
+
+    species_vals <- as.integer(strata$species)
+    rows <- vector("list", length(species_vals))
+    for (i in seq_along(species_vals)) {
+      sp <- species_vals[i]
+      row_vars <- list(species = sp)
+      for (v in setdiff(by_vars, "species")) {
+        vals <- strata[[v]]
+        if (is.list(vals)) {
+          if (is.null(names(vals))) {
+            if (length(vals) != length(species_vals)) {
+              stop(sprintf(
+                "species-specific strata$%s must be a named list keyed by species id or a list of length %d",
+                v, length(species_vals)), call. = FALSE)
+            }
+            vals <- vals[[i]]
+          } else {
+            sp_key <- as.character(sp)
+            if (!sp_key %in% names(vals)) {
+              stop(sprintf(
+                "species-specific strata$%s must include an entry for species %s",
+                v, sp_key), call. = FALSE)
+            }
+            vals <- vals[[sp_key]]
+          }
+        }
+        row_vars[[v]] <- vals
+      }
+      rows[[i]] <- do.call(expand.grid,
+                            c(row_vars, list(KEEP.OUT.ATTRS = FALSE,
+                                            stringsAsFactors = FALSE)))
+    }
+    out <- do.call(rbind, rows)
+    row.names(out) <- NULL
+    out
+  }
+
+  level_grid <- expand_linkage_strata(strata, by_vars)
 
   # Honor an optional species filter set on the spec. When `species`
   # is supplied, only rows for those species ids are emitted; species
@@ -441,6 +503,7 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
         species      = sp_id,
         sex          = sx_id,
         age_bin      = ab_id,
+        design_col   = cn,
         link         = spec$link,
         init         = init_val,
         lower        = bounds_val[1],

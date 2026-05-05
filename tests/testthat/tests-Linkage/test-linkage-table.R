@@ -114,6 +114,7 @@ testthat::test_that("materialize_linkage row count = ncol(X) x by", {
   testthat::expect_equal(nrow(rows), 9L)
   testthat::expect_setequal(rows$species, 1:3)
   testthat::expect_setequal(rows$X_col, 1:3)
+  testthat::expect_equal(rows$design_col, rep(c("(Intercept)", "temp", "PDO"), times = 3))
   testthat::expect_true(all(is.na(rows$sex)))
   testthat::expect_true(all(rows$prior_family == "none"))
 
@@ -150,6 +151,48 @@ testthat::test_that("materialize_linkage() handles species + sex grouping", {
   testthat::expect_equal(nrow(rows), 8L)
   testthat::expect_setequal(rows$species, 1:2)
   testthat::expect_setequal(rows$sex, 1:2)
+  testthat::expect_equal(rows$design_col, rep(c("(Intercept)", "temp"), times = 4))
+})
+
+testthat::test_that("materialize_linkage() honors species-specific sex strata", {
+  env <- data.frame(Year = 2000:2002)
+  spec <- Rceattle:::linkage_spec(
+    formula = ~ 1,
+    param   = "log_M1",
+    by      = ~species + sex,
+    link    = "log"
+  )
+  rows <- Rceattle:::materialize_linkage(
+    spec, process = "M",
+    env_data = env,
+    strata   = list(
+      species = 1:2,
+      sex = list(`1` = 1L, `2` = 1:2)
+    )
+  )
+  # species 1 has one sex, species 2 has two sexes -> 3 rows total
+  testthat::expect_equal(nrow(rows), 3L)
+  testthat::expect_equal(rows$species, c(1L, 2L, 2L))
+  testthat::expect_equal(rows$sex, c(1L, 1L, 2L))
+  testthat::expect_equal(rows$design_col, rep("(Intercept)", 3))
+})
+
+testthat::test_that("materialize_linkage warns when sex grouping is requested with only one sex", {
+  env <- data.frame(Year = 2000:2004, temp = stats::rnorm(5))
+  spec <- Rceattle:::linkage_spec(
+    formula = ~ temp,
+    param   = "log_M1",
+    by      = ~species + sex,
+    link    = "log"
+  )
+  testthat::expect_warning(
+    Rceattle:::materialize_linkage(
+      spec, process = "M",
+      env_data = env,
+      strata   = list(species = 1:2, sex = 1L)
+    ),
+    "by = ~ ... \+ sex was requested but only one sex level"
+  )
 })
 
 

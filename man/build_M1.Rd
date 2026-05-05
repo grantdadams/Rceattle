@@ -26,7 +26,7 @@ alias (both forms are accepted; the integer code is canonical):
 \item \code{2} / \code{"sex_specific"} -- estimate \verb{M1_\{spp, sex\}}.
 \item \code{3} / \code{"sex_age_specific"} -- estimate \verb{M1_\{spp, sex, age\}}.
 \item \code{4}, \code{5} -- soft-deprecated env-driven codes; use the
-\code{linkages} argument instead.
+\code{linkages} argument instead. See \code{vignette("environmental-linkages")}.
 }}
 
 \item{M1_re}{Vector or scalar specifying the M1 random-effects

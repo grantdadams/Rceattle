@@ -1,9 +1,9 @@
 ---
-title: "Environmental linkages: a formula-driven, long-format API"
+title: "Environmental linkages and priors: a formula-driven API"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteIndexEntry{Environmental linkages: a formula-driven, long-format API}
+  %\VignetteIndexEntry{Environmental linkages and priors: a formula-driven API}
   %\VignetteEncoding{UTF-8}
 ---
 
@@ -76,7 +76,7 @@ growth_spec <- build_growth(
 fit <- fit_mod(
   data_list   = BS2017SS,
   growthFun   = growth_spec,
-  estimateMode = 0,
+  estimateMode = 3, # No optimization b/c no CAAL data
   msmMode     = 0,
   fit_control = fit_control(verbose = 0)
 )
@@ -88,13 +88,9 @@ The pooled linkage table is stored on the fitted model:
 fit$data_list$linkage_table
 #>      process    param species sex age_bin X_col link  init prior_family ...
 #> 1     growth    log_K       1   1      NA     1 log   0.0         none ...
-#> 2     growth    log_K       1   2      NA     1 log   0.0         none ...
-#> 3     growth    log_K       2   1      NA     1 log   0.0         none ...
-#> 4     growth    log_K       2   2      NA     1 log   0.0         none ...
-#> 5     growth    log_K       1   1      NA     2 log   0.0       normal ...
-#> 6     growth    log_K       1   2      NA     2 log   0.0       normal ...
-#> 7     growth    log_K       2   1      NA     2 log   0.0       normal ...
-#> 8     growth    log_K       2   2      NA     2 log   0.0       normal ...
+#> 2     growth    log_K       2   1      NA     1 log   0.0         none ...
+#> 3     growth    log_K       1   1      NA     2 log   0.0       normal ...
+#> 4     growth    log_K       2   1      NA     2 log   0.0       normal ...
 ```
 
 For three species × two sexes × `~ temp` (intercept + slope) you get
@@ -153,11 +149,7 @@ linkage_spec(
   model. Use this to register *different formulas for different
   species* under the same target parameter -- see *Per-species
   formulas* below.
-* **`link`** -- the link function applied to the predictor when the
-  offset is added back to the underlying parameter. `"identity"` and
-  `"log"` are equivalent for parameters already on a log scale (which
-  is currently true for all growth parameters). `"logit"` is reserved
-  for future use (e.g. priors on steepness in `(0, 1)`).
+* **`link`** -- the link function applied to the predictor (NOT YET IMPLEMENTED)
 * **`init`**, **`bounds`** -- optional named lists keyed by
   design-matrix column name. `init = list(temp = 0.05)` sets the temp
   slope's initial value to 0.05; `bounds = list(temp = c(-2, 2))`
