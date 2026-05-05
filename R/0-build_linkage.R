@@ -141,16 +141,20 @@ linkage_spec <- function(formula,
 #' Validate the `priors` argument once it has been NSE-evaluated.
 #'
 #' Accepts `NULL` or a named list keyed by design-matrix column name.
-#' Each entry may be either:
+#' Each entry may be:
 #'
 #'   * an `Rceattle_prior` object -- the prior applies to every
-#'     species/sex/age row that uses this column, or
-#'   * a named list of `Rceattle_prior` objects keyed by species id
-#'     (as a character or integer; e.g. `list(`1` = normal(0, 1),
-#'     `2` = normal(0, 0.5))`) -- each entry applies to the row(s)
-#'     for that species. Rows for species not in the keyset get no
-#'     prior. Per-species priors only meaningfully apply when the
-#'     spec's `by` includes `species`.
+#'     species / sex / age row that uses this column, or
+#'   * a named list keyed by species id (character or integer); each
+#'     value is itself either
+#'       - an `Rceattle_prior` (applies to every sex of that species),
+#'         or
+#'       - a named list keyed by sex id, mapping to `Rceattle_prior`
+#'         objects (per-(species, sex) priors).
+#'
+#' Rows for species/sex combinations not in the keyset get no prior.
+#' Per-species and per-sex keying only meaningfully apply when the
+#' spec's `by` includes the corresponding stratum.
 #'
 #' Returns the canonicalized list (always a named list, possibly
 #' empty).
@@ -175,12 +179,31 @@ linkage_spec <- function(formula,
                  "list(`1` = normal(0, 1), `2` = normal(0, 0.5)))."),
           nm), call. = FALSE)
       }
-      bad <- !vapply(val, is_rceattle_prior, logical(1))
-      if (any(bad)) {
+      for (sp_key in names(val)) {
+        sp_branch <- val[[sp_key]]
+        if (is_rceattle_prior(sp_branch)) next
+        if (is.list(sp_branch)) {
+          if (is.null(names(sp_branch)) ||
+              any(!nzchar(names(sp_branch)))) {
+            stop(sprintf(
+              paste0("priors$%s$`%s` must be a named list keyed by ",
+                     "sex id (e.g. list(`1` = normal(0, 0.1), ",
+                     "`2` = normal(0, 0.2)))."),
+              nm, sp_key), call. = FALSE)
+          }
+          bad_sex <- !vapply(sp_branch, is_rceattle_prior, logical(1))
+          if (any(bad_sex)) {
+            stop(sprintf(
+              "priors$%s$`%s`$`%s` is not an Rceattle_prior",
+              nm, sp_key, names(sp_branch)[bad_sex][1]
+            ), call. = FALSE)
+          }
+          next
+        }
         stop(sprintf(
-          "priors$%s$`%s` is not an Rceattle_prior",
-          nm, names(val)[bad][1]
-        ), call. = FALSE)
+          paste0("priors$%s$`%s` must be an Rceattle_prior or a ",
+                 "named list of priors keyed by sex id."),
+          nm, sp_key), call. = FALSE)
       }
       next
     }
@@ -196,20 +219,31 @@ linkage_spec <- function(formula,
 }
 
 
-#' Resolve the prior to apply on a specific (column, species) row.
+#' Resolve the prior to apply on a specific (column, species, sex) row.
 #'
-#' @param prior_spec value at `spec$priors[[colname]]`; either NULL,
-#'   an `Rceattle_prior`, or a named list keyed by species id.
+#' Walks the nested `priors` list: scalar -> applies to all,
+#' species-keyed -> applies to that species' rows, species-then-sex
+#' -> applies to that exact (species, sex) cell. A missing key at
+#' either level returns `NULL` (no prior).
+#'
+#' @param prior_spec value at `spec$priors[[colname]]`.
 #' @param sp_id 1-based species id, or `NA` for shared rows.
+#' @param sx_id 1-based sex id, or `NA` for sex-shared rows.
 #' @return an `Rceattle_prior` or `NULL`.
 #' @keywords internal
 #' @noRd
-.resolve_prior <- function(prior_spec, sp_id) {
+.resolve_prior <- function(prior_spec, sp_id, sx_id = NA_integer_) {
   if (is.null(prior_spec)) return(NULL)
   if (is_rceattle_prior(prior_spec)) return(prior_spec)
   if (is.list(prior_spec)) {
     if (is.na(sp_id)) return(NULL)
-    return(prior_spec[[as.character(sp_id)]])
+    sp_branch <- prior_spec[[as.character(sp_id)]]
+    if (is.null(sp_branch)) return(NULL)
+    if (is_rceattle_prior(sp_branch)) return(sp_branch)
+    if (is.list(sp_branch)) {
+      if (is.na(sx_id)) return(NULL)
+      return(sp_branch[[as.character(sx_id)]])
+    }
   }
   NULL
 }
@@ -330,7 +364,7 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
       sx_id <- if ("sex"     %in% by_vars) level_grid$sex[g]     else NA_integer_
       ab_id <- if ("age_bin" %in% by_vars) level_grid$age_bin[g] else NA_integer_
 
-      prior <- .resolve_prior(prior_spec, sp_id)
+      prior <- .resolve_prior(prior_spec, sp_id, sx_id)
       if (is.null(prior)) {
         pf <- "none"; pp1 <- NA_real_; pp2 <- NA_real_
       } else {
