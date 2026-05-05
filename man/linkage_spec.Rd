@@ -7,7 +7,7 @@
 linkage_spec(
   formula,
   param = NULL,
-  by = NULL,
+  by = ~species,
   species = NULL,
   link = "identity",
   init = NULL,
@@ -27,9 +27,12 @@ spec is built inside a \verb{build_*()} call that infers the parameter
 name from the enclosing list key (see \code{\link[=build_growth]{build_growth()}}).}
 
 \item{by}{one-sided formula naming stratifying factors that should
-each get their own coefficients (e.g. \code{~species},
-\code{~species + sex}). \code{NULL} means the same coefficients apply to
-every species/sex.}
+each get their own coefficients. Allowed names are \code{species},
+\code{sex}, and \code{age_bin}. The default \code{~species} produces one
+coefficient set per species (the typical multispecies
+assessment use case); pass \code{~species + sex} for per-(species,
+sex) coefficients, or \code{NULL} to share a single coefficient
+set across every species/sex.}
 
 \item{species}{optional integer vector of 1-based species ids that
 this spec applies to. \code{NULL} (default) means every species in

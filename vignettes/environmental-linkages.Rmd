@@ -121,7 +121,7 @@ head(fit$data_list$linkage_X)
 linkage_spec(
   formula,
   param     = NULL,
-  by        = NULL,
+  by        = ~ species,
   species   = NULL,
   link      = c("identity", "log", "logit"),
   init      = NULL,
@@ -142,10 +142,12 @@ linkage_spec(
   key.
 * **`by`** -- a one-sided formula naming the stratifying factors that
   should each get their own coefficients. Allowed names are
-  `species`, `sex`, and `age_bin`. `by = ~species` produces one
-  coefficient set per species; `by = ~species + sex` produces one
-  per (species, sex) cell. `NULL` means a single coefficient applies
-  to every species/sex.
+  `species`, `sex`, and `age_bin`. The default is `~species`
+  (one coefficient set per species, the typical multispecies
+  assessment use case). Pass `~species + sex` for per-(species, sex)
+  coefficients, `~species + age_bin` for an age-binned M response,
+  or `NULL` to share a single coefficient set across every
+  species/sex.
 * **`species`** -- optional integer vector of 1-based species ids
   this spec applies to. `NULL` (default) means every species in the
   model. Use this to register *different formulas for different
