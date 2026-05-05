@@ -91,6 +91,19 @@ build_bounds <- function(param_list = NULL, data_list) {
   upper_bnd$ln_M1 <- replace(upper_bnd$ln_M1, values = rep(log(2), length(upper_bnd$ln_M1)))
 
 
+  # Linkage-table coefficients ----
+  # Honor the per-row `lower`/`upper` from data_list$linkage_table.
+  # The default Inf/-Inf was set by the generic loop above; here we
+  # only override rows that supplied a finite bound. Length-0 vectors
+  # (no linkages) are a no-op.
+  if (!is.null(data_list$linkage_table) &&
+      nrow(data_list$linkage_table) > 0L) {
+    tbl <- data_list$linkage_table
+    lower_bnd$ln_beta_linkage <- as.numeric(tbl$lower)
+    upper_bnd$ln_beta_linkage <- as.numeric(tbl$upper)
+  }
+
+
   # Combine bounds in list ----
   bounds <- list(upper = upper_bnd, lower = lower_bnd)
 
