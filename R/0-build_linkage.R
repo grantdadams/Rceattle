@@ -26,7 +26,9 @@ NULL
 #' @param formula one-sided R formula whose RHS describes the linear
 #'   predictor for `param` (e.g. `~ 1`, `~ temp`, `~ temp + PDO`).
 #' @param param target parameter name on the linear predictor scale
-#'   (e.g. `"log_alpha"`, `"log_M"`, `"log_K"`).
+#'   (e.g. `"log_alpha"`, `"log_M"`, `"log_K"`). May be `NULL` when the
+#'   spec is built inside a `build_*()` call that infers the parameter
+#'   name from the enclosing list key (see [build_growth()]).
 #' @param by one-sided formula naming stratifying factors that should
 #'   each get their own coefficients (e.g. `~species`,
 #'   `~species + sex`). `NULL` means the same coefficients apply to
@@ -51,10 +53,10 @@ NULL
 #' @param est_phase optional integer estimation phase. Default `1L`.
 #'
 #' @return An `Rceattle_linkage_spec` object.
-#' @keywords internal
+#' @export
 #' @importFrom rlang enquo eval_tidy
 linkage_spec <- function(formula,
-                         param,
+                         param     = NULL,
                          by        = NULL,
                          link      = "identity",
                          init      = NULL,
@@ -77,11 +79,12 @@ linkage_spec <- function(formula,
     stop("`by` must be a one-sided formula (e.g. ~species + sex) or NULL")
   }
   link <- match.arg(link, LINKAGE_LINKS)
+  param_str <- if (is.null(param)) NA_character_ else as.character(param)
 
   structure(
     list(
       formula   = formula,
-      param     = as.character(param),
+      param     = param_str,
       by        = by,
       link      = link,
       init      = init   %||% list(),
@@ -92,6 +95,31 @@ linkage_spec <- function(formula,
     ),
     class = "Rceattle_linkage_spec"
   )
+}
+
+
+#' Set or override the target parameter name on a linkage spec
+#'
+#' Used by `build_*()` helpers that infer the parameter name from the
+#' list key under which a spec is registered (e.g.
+#' `linkages = list(log_K = linkage_spec(~temp))` -> set `param =
+#' "log_K"`). If the spec already names a different parameter the
+#' function errors to surface user mistakes.
+#'
+#' @param spec an `Rceattle_linkage_spec`.
+#' @param param target parameter name (character scalar).
+#' @return The spec, with `param` set.
+#' @keywords internal
+.set_linkage_param <- function(spec, param) {
+  param <- as.character(param)
+  cur <- spec$param
+  if (!is.na(cur) && nzchar(cur) && cur != param) {
+    stop(sprintf(
+      "linkage spec param '%s' conflicts with the list key '%s'",
+      cur, param), call. = FALSE)
+  }
+  spec$param <- param
+  spec
 }
 
 
@@ -176,6 +204,11 @@ print.Rceattle_linkage_spec <- function(x, ...) {
 materialize_linkage <- function(spec, process, env_data, strata = list()) {
   if (!inherits(spec, "Rceattle_linkage_spec")) {
     stop("`spec` must be an Rceattle_linkage_spec")
+  }
+  if (is.na(spec$param) || !nzchar(spec$param)) {
+    stop("linkage spec is missing a `param`; supply it via ",
+         "`linkage_spec(param = ...)` or via the list key in a ",
+         "build_*() linkages argument.", call. = FALSE)
   }
   process <- match.arg(process, LINKAGE_PROCESSES)
   if (!is.data.frame(env_data)) {

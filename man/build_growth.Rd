@@ -2,29 +2,42 @@
 % Please edit documentation in R/0-build_srr_and_M.R
 \name{build_growth}
 \alias{build_growth}
-\title{Define growth specifications}
+\title{Specify the growth model for Rceattle}
 \usage{
-build_growth(growth_model = 0, growth_re = 0, growth_indices = NA)
+build_growth(fun = "empirical", linkages = NULL)
 }
 \arguments{
-\item{growth_model}{Vector or scalar specifying growth model (see @description below). 0 = use empirical weight-at-age in "weight" data, 1 = estimate sex-specific von Bertalanffy growth function, 2 = sex-specific Richards model.}
+\item{fun}{Growth function. Either a string (\link{GROWTH_FUNS}:
+\code{"empirical"} (default), \code{"vonBertalanffy"}, \code{"Richards"}) or the
+equivalent integer code (\code{0}, \code{1}, \code{2}). The canonical string form
+is stored on the returned object.}
 
-\item{growth_re}{NOT yet implemented! Vector or scalar specifying M1 random effects model. See description (default = 0).}
-
-\item{growth_indices}{NOT yet implemented! vector or single index indicating the columns (excluding Year column) of \code{env_data} to use for environmentally linked growth.}
+\item{linkages}{Optional named list of \code{\link[=linkage_spec]{linkage_spec()}} objects
+keyed by parameter name (must be one of \link{GROWTH_LINKAGE_PARAMS}).
+Each spec describes how that growth parameter depends on
+environmental covariates and on stratifying factors (species,
+sex). The parameter name on each spec is filled in from the list
+key. Materialization into the global linkage table happens inside
+\code{fit_mod()} once \code{data_list$env_data} is in scope.}
 }
 \value{
-A list of switches for defining the M1 model
+A list of switches defining the growth model.
 }
 \description{
-\strong{Growth fixed effects currently implemented in CEATTLE}
-\itemize{
-\item \code{growth_model = 0} Empirical weight-at-age from data input \code{weight}. Forecasts use terminal year of weight-at-age.
-\item \code{growth_model = 1} Sex-specific von Bertalanffy growth.
-\item \code{growth_model = 2} Sex-specific Richard's growth.
+Specify the growth model for Rceattle
 }
-
-\strong{Growth random effects currently implemented in CEATTLE}
-
-None are currently implemented
+\examples{
+\dontrun{
+# Sex-specific von Bertalanffy with temperature on K, by species + sex
+build_growth(
+  fun = "vonBertalanffy",   # or fun = 1
+  linkages = list(
+    log_K = linkage_spec(
+      formula = ~ temp,
+      by      = ~ species + sex,
+      priors  = list(temp = normal(0, 1))
+    )
+  )
+)
+}
 }
