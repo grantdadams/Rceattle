@@ -15,34 +15,26 @@ knitr::opts_chunk$set(
 )
 ```
 
-## Why this exists
+## Overview
 
-Environmental drivers (temperature, prey density, climate indices) enter
-stock assessments through several distinct process modules: recruitment,
-natural mortality, growth, catchability, selectivity. Historically each
-of these modules wires its own column-index argument
-(`srr_indices`, `M1_indices`, `growth_indices`, ...) into a wide
-parameter array (`beta_rec_pars[nspp, n_env]`,
-`M1_beta[nspp, nsex, n_env]`, ...). That pattern doesn't scale: every
-new process invents its own dimensionality, the parameter arrays end up
-mostly empty when only a handful of links are estimated, and adding a
-new combination (e.g. *log_K varies by sex AND temperature*) requires
-new code in three or four places.
+Environmental drivers (temperature, prey density, climate indices)
+enter stock assessments through several distinct process modules:
+recruitment, natural mortality, growth, catchability, selectivity.
+Rceattle exposes a **long-format linkage table** where each row
+corresponds to exactly one estimated coefficient that ties an
+environmental term (or any user-specified design column) to a
+process parameter. Users describe the linkages they want with
+`linkage_spec()` -- a formula-driven helper -- and pass the result
+into the relevant `build_*()` function. Internally, `fit_mod()`
+pools every spec into a single `data.frame` with one row per
+`beta`, paired with a shared design matrix `X`. The TMB template
+iterates the table once, accumulates per-process offsets, and adds
+them to the underlying linear predictors.
 
-`Rceattle` ships an alternative: a **long-format linkage table** where
-each row of the table corresponds to exactly one estimated coefficient.
-Users describe the linkages they want with `linkage_spec()` (a
-formula-driven helper) and pass the result into the relevant
-`build_*()` function. Internally, `fit_mod()` pools every spec into a
-single `data.frame` with one row per `beta`, paired with a shared
-design matrix `X`. The TMB template iterates the table once,
-accumulates per-process offsets, and adds them to the underlying linear
-predictors.
-
-This vignette walks through the user-facing API, the underlying data
-structures, and the prior / bound options. Today the long-format path
-is fully wired for **growth** (von Bertalanffy and Richards). The same
-machinery is being prepared for natural mortality and recruitment.
+This vignette covers the user-facing API, the formula syntax it
+supports, prior and bound options, and the per-species variations.
+The linkage path is wired for **growth** (von Bertalanffy and
+Richards) today.
 
 ## A first example: temperature on `K`
 
@@ -129,6 +121,7 @@ linkage_spec(
   formula,
   param     = NULL,
   by        = NULL,
+  species   = NULL,
   link      = c("identity", "log", "logit"),
   init      = NULL,
   bounds    = NULL,
@@ -152,6 +145,11 @@ linkage_spec(
   coefficient set per species; `by = ~species + sex` produces one
   per (species, sex) cell. `NULL` means a single coefficient applies
   to every species/sex.
+* **`species`** -- optional integer vector of 1-based species ids
+  this spec applies to. `NULL` (default) means every species in the
+  model. Use this to register *different formulas for different
+  species* under the same target parameter -- see *Per-species
+  formulas* below.
 * **`link`** -- the link function applied to the predictor when the
   offset is added back to the underlying parameter. `"identity"` and
   `"log"` are equivalent for parameters already on a log scale (which
@@ -162,10 +160,13 @@ linkage_spec(
   slope's initial value to 0.05; `bounds = list(temp = c(-2, 2))`
   constrains it during optimisation.
 * **`priors`** -- a named list of prior objects keyed by design-matrix
-  column. Inside `linkage_spec()` (and only there) the unprefixed
-  short-names `normal()`, `lognormal()`, `gamma()`, and `beta()`
-  resolve to the corresponding `prior_*` constructors via a private
-  data mask -- see *Priors* below.
+  column. Each entry is either a single `Rceattle_prior` (applied to
+  every species/sex row that uses that column) or a named list of
+  priors keyed by species id (one prior per species). Inside
+  `linkage_spec()` (and only there) the unprefixed short-names
+  `normal()`, `lognormal()`, `gamma()`, and `beta()` resolve to the
+  corresponding `prior_*` constructors via a private data mask --
+  see *Priors* below.
 * **`re_group`** -- random-effects grouping label (currently a
   placeholder).
 * **`est_phase`** -- estimation phase ordinal. `0` fixes the
@@ -231,16 +232,286 @@ joint NLL (`fit$quantities$jnll_comp[20, ]` in R, since R is
 fit$quantities$jnll_comp["Linkage-table priors", ]
 ```
 
+## Putting a prior on the parameter itself
+
+Sometimes you don't want to estimate an environmental slope -- you
+just want a Bayesian-style informative prior on `log_K`, `log_L1`,
+`log_Linf`, or (Richards) `log_m`. Two patterns work:
+
+**Pattern A (recommended): intercept-only linkage with the underlying
+`ln_growth_pars` mapped out.** The cpp computes
+`growth_parameters = exp(ln_growth_pars + ln_growth_par_devs +
+linkage_offset)`. If you fix `ln_growth_pars` to `0`, the linkage
+intercept becomes the entire `log_K`, and a prior on the intercept is
+a prior on `log_K` itself.
+
+```{r}
+# Single species, von Bertalanffy, with N(log(0.3), 0.1) prior on log_K.
+growth_spec <- build_growth(
+  fun = "vonBertalanffy",
+  linkages = list(
+    log_K = linkage_spec(
+      formula = ~ 1,                                  # intercept only
+      by      = ~ species + sex,
+      init    = list(`(Intercept)` = log(0.3)),       # K starting at 0.3
+      priors  = list(`(Intercept)` = normal(log(0.3), 0.1))
+    )
+  )
+)
+
+# Build the parameter list, then fix ln_growth_pars[, , 1] (= log_K)
+# at zero so the linkage intercept owns the whole log_K. (Repeat for
+# log_L1 / log_Linf / log_m as needed.)
+inits <- build_params(BS2017SS)
+inits$ln_growth_pars[, , 1] <- 0       # K column
+
+# Build the map and NA-out the same slice.
+mp <- build_map(BS2017SS, inits)
+mp$mapList$ln_growth_pars[, , 1] <- NA
+mp$mapFactor <- lapply(mp$mapList, factor)
+
+fit <- fit_mod(
+  data_list = BS2017SS,
+  inits     = inits,
+  map       = mp,
+  growthFun = growth_spec,
+  estimateMode = 0,
+  msmMode   = 0
+)
+```
+
+**Pattern B (looser): leave `ln_growth_pars` free and put the prior
+on the linkage intercept.** This adds `-dnorm(beta_intercept,
+log(0.3), 0.1, log = TRUE)` to the NLL but the *underlying* `log_K`
+remains `ln_growth_pars + beta_intercept`, which is non-identifiable
+without further constraints. The two parameters can trade off in
+optimization. Pattern B is occasionally useful as a regularizer
+("the linkage intercept should be small") but it does **not** pin
+`log_K` itself.
+
+In both patterns the prior NLL contribution shows up in
+`fit$quantities$jnll_comp["Linkage-table priors", ]` and you can
+inspect the realised value via the row in `fit$data_list$linkage_table`
+whose `prior_family != "none"`.
+
+A direct prior on `ln_growth_pars` (analogous to `M_prior` /
+`M_prior_sd` for natural mortality) is on the post-release roadmap;
+until that lands, Pattern A is the recommended workaround.
+
+## Species-specific priors
+
+Each entry under `priors = list(...)` may be either a single prior
+(applies to every species/sex row that uses that design column) or a
+**named list of priors keyed by species id**:
+
+```{r}
+linkage_spec(
+  formula = ~ temp,
+  by      = ~ species,
+  priors  = list(
+    temp = list(
+      `1` = normal(0, 0.1),    # tight prior for species 1
+      `2` = normal(0, 0.5),    # looser for species 2
+      `3` = normal(0, 1.0)     # weakest for species 3
+      # any species not listed gets no prior
+    )
+  )
+)
+```
+
+The same syntax works for any prior family. This is the recommended
+pattern when a covariate has different prior strength across stocks
+(e.g. when one species has prior literature on its temp sensitivity
+but another doesn't). Built programmatically, it's just:
+
+```{r}
+sd_by_species <- c(`1` = 0.1, `2` = 0.5, `3` = 1.0)
+priors_per_sp <- lapply(sd_by_species, function(s) prior_normal(0, s))
+
+linkage_spec(
+  formula = ~ temp,
+  by      = ~ species,
+  priors  = list(temp = priors_per_sp)
+)
+```
+
+Validation: each value must be either an `Rceattle_prior` *or* a
+named list of priors. Non-prior values (numeric vectors, mismatched
+classes) are caught at `linkage_spec()` time with a pointer to the
+offending column.
+
+## Per-species formulas
+
+If species have qualitatively different env relationships -- e.g.
+species 1 responds only to temperature, species 2 also to PDO --
+register *multiple specs against the same parameter* and use the
+`species` argument on each to scope it to a subset of stocks:
+
+```{r}
+build_growth(
+  fun = "vonBertalanffy",
+  linkages = list(
+    log_K = list(
+      linkage_spec(
+        formula = ~ temp,
+        by      = ~ species,
+        species = 1L,                                    # only sp 1
+        priors  = list(temp = normal(0, 0.5))
+      ),
+      linkage_spec(
+        formula = ~ temp + PDO,
+        by      = ~ species,
+        species = 2L,                                    # only sp 2
+        priors  = list(temp = normal(0, 1),
+                       PDO  = normal(0, 1))
+      )
+    )
+  )
+)
+```
+
+Inside `pool_linkages()` each spec is materialized independently
+and the resulting rows are concatenated into a single linkage table.
+The shared design matrix unions all RHS terms across specs, so
+species 1's rows reference only `(Intercept)` and `temp`, while
+species 2's rows can additionally reference `PDO` -- there's no
+duplication of the temp column.
+
+`build_growth()` accepts both forms under each parameter key:
+
+```r
+linkages = list(log_K = single_spec)             # one formula for all sp
+linkages = list(log_K = list(spec_a, spec_b))    # different formulas per sp
+```
+
+Inspecting the result, `fit$linkages$log_K` is either an
+`Rceattle_linkage_spec` (single form) or a `list` of them
+(multi-spec form), and `fit$data_list$linkage_table` shows the
+materialized rows with `species` and `X_col` correctly scoped.
+
+This pattern composes with species-specific *priors* -- each spec
+carries its own priors, and within a spec the priors can themselves
+be species-keyed if you want even finer control:
+
+```{r}
+linkage_spec(
+  formula = ~ temp,
+  by      = ~ species + sex,
+  species = c(1L, 2L),
+  priors  = list(
+    temp = list(
+      `1` = normal(0, 0.3),
+      `2` = normal(0, 0.7)
+    )
+  )
+)
+```
+
+## Non-linear and basis-expansion formulas
+
+The formula passed to `linkage_spec()` is fed straight to
+[`stats::model.matrix()`](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/model.matrix.html),
+so any expression `model.matrix()` understands works -- polynomial
+bases, splines, interactions, and arithmetic transformations.
+
+**Polynomials.** Use `poly()` for orthogonal polynomial bases (the
+default; numerically well-conditioned), or `poly(..., raw = TRUE)`
+for raw monomials. Each basis order shows up as a separate design
+column with its own coefficient:
+
+```{r}
+# 4th-order orthogonal polynomial in temp, by species.
+linkage_spec(
+  formula = ~ poly(temp, 4),
+  by      = ~ species
+)
+# design columns produced:
+#   (Intercept), poly(temp, 4)1, poly(temp, 4)2,
+#   poly(temp, 4)3, poly(temp, 4)4
+```
+
+`poly()` orthogonalises the basis against the rows of `env_data`,
+so the columns are zero-mean over the model years and the linear
+slope, quadratic curvature, etc. are estimated independently --
+generally the right choice if you don't have a specific scientific
+reason to prefer raw monomials.
+
+**Arbitrary arithmetic.** Use `I()` to insert a literal expression
+(otherwise `temp^2` is interpreted as a formula crossing operator
+and reduces to `temp`):
+
+```{r}
+# Linear + raw quadratic in temp.
+linkage_spec(
+  formula = ~ temp + I(temp^2),
+  by      = ~ species,
+  priors  = list(`I(temp^2)` = normal(0, 0.1))   # tight prior on curvature
+)
+```
+
+The design column name is the deparsed call (`I(temp^2)`), so when
+you key `init`, `bounds`, or `priors` against it you have to use
+the same string -- backticks let you write it as a name.
+
+**Splines.** Natural cubic splines via `splines::ns()` work
+out-of-the-box and are often a better choice than high-order
+polynomials when you want flexibility without strong tail behaviour:
+
+```{r}
+linkage_spec(
+  formula = ~ splines::ns(temp, df = 4),
+  by      = ~ species
+)
+```
+
+**Interactions.** `temp:PDO` adds a single product column;
+`temp * PDO` is shorthand for `temp + PDO + temp:PDO`:
+
+```{r}
+linkage_spec(
+  formula = ~ temp * PDO,
+  by      = ~ species,
+  priors  = list(`temp:PDO` = normal(0, 0.5))
+)
+```
+
+**Mixing forms across species.** Combined with the per-species
+formula machinery, you can give one species a polynomial response
+and another a linear one without duplicating columns:
+
+```{r}
+build_growth(
+  fun = "vonBertalanffy",
+  linkages = list(
+    log_K = list(
+      linkage_spec(formula = ~ poly(temp, 3),
+                   by = ~ species, species = 1L),
+      linkage_spec(formula = ~ temp,
+                   by = ~ species, species = 2L)
+    )
+  )
+)
+```
+
+`pool_linkages()` unions the design columns by name so the global
+matrix `X` contains both `temp` and the three `poly(temp, 3)*`
+columns; species 1's rows reference the polynomial columns, species
+2's only the linear `temp`.
+
+A practical caution: same-named columns must be numerically
+identical across specs that use them (this is enforced --
+`pool_linkages()` errors loudly on mismatches). With deterministic
+formulas evaluated against the same `env_data` this is automatic;
+it can only fail if you've built specs against different
+`env_data` frames.
+
 ## What happens internally
 
 When you call `fit_mod()` with linkages:
 
-1. **`build_growth(linkages = ...)`** returns a list whose
+1. **`build_growth(fun, linkages)`** returns a list whose
    `linkages` element is a named list of `Rceattle_linkage_spec`
-   objects. Backwards-compat fields `growth_model`,
-   `growth_re`, `growth_indices` are still populated with sensible
-   defaults so the existing TMB dispatch (vB / Richards / empirical)
-   keeps working.
+   objects (or, for per-species formulas, lists of them).
 
 2. **`fit_mod()`** stashes `growth_fun` and `growth_linkages` on
    `data_list`, runs `data_check()`, then calls `pool_linkages()`.
@@ -343,50 +614,19 @@ fit$estimated_params$ln_beta_linkage
 fit$quantities$jnll_comp["Linkage-table priors", ]
 ```
 
-## What's not yet wired
+## On the roadmap
 
-* **Mortality and recruitment** -- the long-format pipeline is in
-  place but the existing `build_M1(M1_indices = ...)` and
-  `build_srr(srr_indices = ...)` paths are still the canonical way
-  to express environmental linkages on `M` and `R`. Migration to
-  `linkages = list(...)` is planned.
+* **Mortality and recruitment** -- the same long-format pipeline is
+  being extended to natural mortality and recruitment, so a
+  `build_M1(linkages = list(log_M = linkage_spec(...)))` and
+  analogous recruitment surface will follow the growth API exactly.
 * **Random-effects grouping** -- the `re_group` column on the linkage
-  table is stored end-to-end but the cpp does not yet introduce a
-  hierarchical penalty. For now every row is a fixed effect.
-* **Age-dependent linkages** -- the `age_bin` stratum is reserved
-  in the table schema but not yet consumed by any process.
-
-These are tracked alongside the rest of the post-release roadmap.
-
-## Migrating from `growth_indices`
-
-The legacy interface still works for environmental effects on
-recruitment and mortality:
-
-```{r}
-# Legacy (M1 only, still supported)
-build_M1(M1_model = 4, M1_indices = c(2, 3))
-```
-
-For growth, switch from `growth_indices` to `linkages`:
-
-```{r}
-# Old (no longer supported -- growth_indices was never plumbed to TMB):
-# build_growth(growth_model = 1, growth_indices = c(2, 3))
-
-# New
-build_growth(
-  fun = "vonBertalanffy",
-  linkages = list(
-    log_K = linkage_spec(formula = ~ env2 + env3, by = ~ species)
-  )
-)
-```
-
-The string and integer forms of `fun` are interchangeable
-(`fun = 1` is shorthand for `fun = "vonBertalanffy"`) so existing
-scripts using integer codes need no changes apart from substituting
-`fun =` for `growth_model =`.
+  table is stored end-to-end; the cpp will grow a hierarchical
+  penalty so coefficients sharing a `re_group` value are partially
+  pooled.
+* **Age-dependent linkages** -- the `age_bin` stratum is reserved in
+  the table schema for processes that vary by age (notably natural
+  mortality).
 
 ## See also
 
