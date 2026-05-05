@@ -81,16 +81,89 @@ testthat::test_that("linkage_spec rejects non-prior values in priors", {
       param   = "log_M",
       priors  = list(temp = c(0, 1))
     ),
-    "is not an Rceattle_prior"
+    "must be an Rceattle_prior"
   )
   testthat::expect_error(
     Rceattle:::linkage_spec(
       formula = ~ temp,
       param   = "log_M",
-      priors  = list(normal(0, 1))   # unnamed
+      priors  = list(normal(0, 1))   # unnamed at top level
     ),
     "named list"
   )
+})
+
+
+testthat::test_that("species-specific priors materialize per row", {
+  env <- data.frame(Year = 2000:2004, temp = stats::rnorm(5))
+  spec <- Rceattle:::linkage_spec(
+    formula = ~ temp,
+    param   = "log_alpha",
+    by      = ~ species,
+    priors  = list(
+      temp = list(
+        `1` = normal(0, 0.1),
+        `2` = normal(0, 0.5)
+        # species 3 deliberately absent -> no prior
+      )
+    )
+  )
+  rows <- Rceattle:::materialize_linkage(
+    spec, process = "recruitment",
+    env_data = env,
+    strata   = list(species = 1:3)
+  )
+  temp_rows <- rows[rows$X_col == 2L, ]
+  testthat::expect_equal(nrow(temp_rows), 3L)
+
+  sp1 <- temp_rows[temp_rows$species == 1L, ]
+  sp2 <- temp_rows[temp_rows$species == 2L, ]
+  sp3 <- temp_rows[temp_rows$species == 3L, ]
+  testthat::expect_equal(sp1$prior_family, "normal")
+  testthat::expect_equal(sp1$prior_p2, 0.1)
+  testthat::expect_equal(sp2$prior_family, "normal")
+  testthat::expect_equal(sp2$prior_p2, 0.5)
+  testthat::expect_equal(sp3$prior_family, "none")
+  testthat::expect_true(is.na(sp3$prior_p1))
+})
+
+
+testthat::test_that("species-specific priors validate input shape", {
+  testthat::expect_error(
+    Rceattle:::linkage_spec(
+      formula = ~ temp,
+      param   = "log_M",
+      priors  = list(temp = list(normal(0, 1), normal(0, 0.5)))   # unnamed
+    ),
+    "named list keyed by species id"
+  )
+  testthat::expect_error(
+    Rceattle:::linkage_spec(
+      formula = ~ temp,
+      param   = "log_M",
+      priors  = list(temp = list(`1` = c(0, 1)))   # not an Rceattle_prior
+    ),
+    "is not an Rceattle_prior"
+  )
+})
+
+
+testthat::test_that("scalar prior still applies across all species", {
+  env <- data.frame(Year = 2000:2004, temp = stats::rnorm(5))
+  spec <- Rceattle:::linkage_spec(
+    formula = ~ temp,
+    param   = "log_M",
+    by      = ~ species,
+    priors  = list(temp = normal(0, 0.3))
+  )
+  rows <- Rceattle:::materialize_linkage(
+    spec, process = "M",
+    env_data = env,
+    strata   = list(species = 1:3)
+  )
+  temp_rows <- rows[rows$X_col == 2L, ]
+  testthat::expect_true(all(temp_rows$prior_family == "normal"))
+  testthat::expect_true(all(temp_rows$prior_p2 == 0.3))
 })
 
 

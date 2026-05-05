@@ -278,12 +278,17 @@ build_growth <- function(fun = "empirical", linkages = NULL) {
          "; allowed: ", paste(GROWTH_LINKAGE_PARAMS, collapse = ", "),
          call. = FALSE)
   }
-  bad_class <- !vapply(linkages,
-                       inherits, logical(1), what = "Rceattle_linkage_spec")
-  if (any(bad_class)) {
-    stop("linkages$", names(linkages)[bad_class][1],
-         " is not a linkage_spec(). Use linkage_spec(formula, ...) ",
-         "to construct each entry.", call. = FALSE)
+  # Each linkages[[param]] may be either a single linkage_spec() or a
+  # list of them (e.g. species-specific formulas registered under the
+  # same parameter). Normalise both shapes; reject anything else.
+  for (nm in names(linkages)) {
+    val <- linkages[[nm]]
+    if (inherits(val, "Rceattle_linkage_spec")) next
+    if (is.list(val) &&
+        all(vapply(val, inherits, logical(1),
+                   what = "Rceattle_linkage_spec"))) next
+    stop("linkages$", nm, " must be a linkage_spec() or a list of ",
+         "linkage_spec() objects.", call. = FALSE)
   }
   if (any(fun == "empirical")) {
     warning("at least one species uses fun = 'empirical', which does ",
@@ -296,5 +301,17 @@ build_growth <- function(fun = "empirical", linkages = NULL) {
          "fun = 'Richards'; von Bertalanffy has no `m` parameter.",
          call. = FALSE)
   }
-  Map(.set_linkage_param, linkages, names(linkages))
+  # Stamp the parameter name onto each spec (single or list-of-specs)
+  # using the linkages-list key, so users don't have to repeat the name.
+  Map(.stamp_param, linkages, names(linkages))
+}
+
+
+#' @keywords internal
+#' @noRd
+.stamp_param <- function(val, param) {
+  if (inherits(val, "Rceattle_linkage_spec")) {
+    return(.set_linkage_param(val, param))
+  }
+  lapply(val, .set_linkage_param, param = param)
 }
