@@ -1,3 +1,84 @@
+# Rceattle 4.1.0 (in development)
+
+## Environmental linkages: a unified, formula-driven API
+
+A new long-format **linkage table** lets users express how process
+parameters depend on environmental covariates and on stratifying
+factors (species, sex, age) through a single formula-driven helper,
+`linkage_spec()`. Each row of the table corresponds to exactly one
+estimated coefficient. `fit_mod()` pools every spec into a shared
+design matrix `X` and a per-row parameter vector
+`ln_beta_linkage`; the TMB template iterates the table once and
+accumulates per-process offsets on the linear predictor of the
+underlying parameter.
+
+* **New constructor: `linkage_spec()`.** Captures
+  `(formula, by, species, link, init, bounds, priors, est_phase)`
+  for one process parameter. Anything `model.matrix()` understands
+  works: `~ 1`, `~ temp + PDO`, `~ poly(temp, 4)`, `~ I(temp^2)`,
+  `~ splines::ns(temp, df = 4)`, `~ temp * PDO`, etc.
+
+* **Per-species formulas.** Register multiple specs against the
+  same parameter via `linkages = list(log_K = list(spec_a, spec_b))`
+  with each spec's optional `species = ...` argument scoping it
+  to a subset of stocks. The pooler unions the design columns
+  across specs so there's no duplication when species share
+  covariates.
+
+* **Priors.** First-class via `prior_normal()`,
+  `prior_lognormal()`, `prior_gamma()`, `prior_beta()`. The same
+  constructors are available unprefixed (`normal()` /
+  `lognormal()` / ...) **only inside** the `priors = ...` argument
+  via a private NSE data mask, so user code stays close to
+  mathematical notation without masking
+  `base::gamma()` / `base::beta()` at the package level. Priors
+  can be a single value applied to every species, or a named list
+  keyed by species id (and shortly, by `(species, sex)`).
+
+* **Bounds.** Per-row `lower` / `upper` flow into
+  `build_bounds()$lower$ln_beta_linkage` /
+  `build_bounds()$upper$ln_beta_linkage`.
+
+* **Growth** (von Bertalanffy / Richards) is the first process
+  fully wired to the new pipeline. `build_growth()` gains a
+  `linkages` argument and a string-named `fun`
+  (`"empirical"` / `"vonBertalanffy"` / `"Richards"`); integer
+  codes still work (`fun = 1` is shorthand for
+  `fun = "vonBertalanffy"`) so existing scripts don't need to be
+  rewritten apart from substituting `fun =` for `growth_model =`.
+
+  ```r
+  build_growth(
+    fun = "vonBertalanffy",
+    linkages = list(
+      log_K = linkage_spec(
+        formula = ~ temp,
+        by      = ~ species + sex,
+        priors  = list(temp = normal(0, 1))
+      )
+    )
+  )
+  ```
+
+* **TMB plumbing.** New `src/TMB/linkage.hpp` accumulator;
+  `ceattle_v01_11.cpp` reads parallel `DATA_IVECTOR(linkage_*)`
+  inputs plus a `DATA_MATRIX(linkage_X)` and writes a
+  `growth_linkage_offset` tensor that is added (additively, on the
+  log scale) to `growth_parameters`. Per-row prior densities
+  contribute to slot 19 of the joint NLL ("Linkage-table priors"
+  in `fit$quantities$jnll_comp`).
+
+* **Documentation.** New vignette
+  `vignette("environmental-linkages", package = "Rceattle")` walks
+  through the API, prior families, species-keyed priors,
+  per-species formulas, basis-expansion formulas, and the
+  underlying pipeline.
+
+* **Roadmap.** Natural mortality and recruitment are next on the
+  same pipeline; random-effects pooling on `re_group` and
+  age-binned linkages will follow.
+
+
 # Rceattle 4.0.3 (in development)
 
 ## API
