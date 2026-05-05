@@ -106,7 +106,12 @@ void rceattle_apply_linkages(
         // predictor. The branch is a placeholder for future processes
         // (e.g. logit for steepness on a 0-1 scale).
         (void)linkfn;
-        for (int yr = 0; yr < nyrs; ++yr) {
+        // Clamp to the rows actually present in the design matrix:
+        // env_data may not span the full projection horizon. Years
+        // beyond linkage_X.rows() retain a zero offset, i.e. the
+        // unperturbed value of the underlying growth parameter.
+        int yr_hi = std::min(nyrs, (int)linkage_X.rows());
+        for (int yr = 0; yr < yr_hi; ++yr) {
           growth_offset(sp, sx, param, yr) += b * linkage_X(yr, xc);
         }
       }

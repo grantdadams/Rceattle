@@ -393,6 +393,14 @@ fit_mod <-
     data_list_reorganized <- c(list(model = TMBfilename), data_list_reorganized)
     data_list_reorganized$forecast <- rep(0, data_list_reorganized$nspp) # hindcast switch
 
+    # Scrub fields that TMB's dataSanitize cannot recurse into (data
+    # frames with character columns, list-of-spec objects, character
+    # vectors). They live on data_list for downstream R code; they
+    # are re-injected below in TMB-friendly form.
+    data_list_reorganized$linkage_table   <- NULL
+    data_list_reorganized$growth_linkages <- NULL
+    data_list_reorganized$growth_fun      <- NULL
+
     # * Inject linkage-table encoding into the TMB DATA ----
     # Empty when no build_*() supplied a `linkages` list. TMB's
     # DATA_MATRIX can be touchy about 0-dim shapes during ADFun
