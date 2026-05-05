@@ -166,6 +166,48 @@ underlying parameter.
   shrinkage. The legacy `M1_indices` / `M1_model = 4|5` paths
   retire when recruitment migrates.
 
+## Scheduled removal (v4.2.0)
+
+The soft-deprecated API surfaces below remain functional in 4.1.0
+and emit one-time warnings pointing users at the linkage table.
+They will be **removed entirely in 4.2.0**. To migrate, replace:
+
+| Legacy                                | New                                                      |
+|---------------------------------------|----------------------------------------------------------|
+| `build_srr(srr_indices = ...)`        | `build_srr(linkages = list(log_R0 = linkage_spec(...)))` |
+| `build_srr(srr_fun = 1)`              | `build_srr(srr_fun = 0)` + linkage on `log_R0`           |
+| `build_srr(srr_fun = 3)`              | `build_srr(srr_fun = 2)` + linkage on `log_alpha`        |
+| `build_srr(srr_fun = 5)`              | `build_srr(srr_fun = 4)` + linkage on `log_alpha`        |
+| `build_M1(M1_indices = ...)`          | `build_M1(linkages = list(log_M1 = linkage_spec(...)))`  |
+| `build_M1(M1_model = 4)`              | `build_M1(M1_model = 1)` + linkage on `log_M1`           |
+| `build_M1(M1_model = 5)`              | `build_M1(M1_model = 2)` + linkage on `log_M1`           |
+
+**Cpp cleanup checklist** (search for `LEGACY` in
+`src/TMB/ceattle_v01_11.cpp`):
+
+* Drop `PARAMETER_MATRIX(beta_rec_pars)`, `PARAMETER_ARRAY(M1_beta)`,
+  and the scratch vectors `srr_mult`, `beta_rec_tmp`, `env_rec_tmp`,
+  `M1_mult`, `beta_M1_tmp`, `env_M1_tmp`.
+* Delete the five `srr_env_mult` blocks (hindcast, BRPs, dynamic
+  BRPs, projection, R_hat) and the `M1_mult.sum()` term inside the
+  M1_at_age compute.
+* Pass `Type(0.0)` for `srr_env_mult` at each
+  `calculate_recruitment()` call site (or drop the parameter from
+  the function signature in `recruitment.hpp` if no caller still
+  needs it).
+
+**R-side cleanup**:
+
+* Remove `srr_indices` and `M1_indices` arguments from
+  `build_srr()` and `build_M1()`.
+* Reject `srr_fun %in% c(1, 3, 5)` and
+  `M1_model %in% c(4, 5)` as unknown integer values in
+  `.coerce_srr_fun()` and `.coerce_M1_arg()` (drop the
+  `.SRR_DEPRECATED_FUNS` / `.M1_DEPRECATED_MODELS` constants).
+* Remove the `suppressWarnings()` wrappers around internal
+  `build_srr()` / `build_M1()` re-callers in `sim_mod()`,
+  `retrospective()`, `jitter()`, `run_mse()`, `project_no_F()`.
+
 
 # Rceattle 4.0.3 (in development)
 
