@@ -62,6 +62,8 @@ navbar:
       - text: "--- Reference ---"
       - text: "Model parameterizations"
         href: articles/model-parameterizations.html
+      - text: "Environmental linkages"
+        href: articles/environmental-linkages.html
     github:
       icon: fab fa-github
       href: https://github.com/grantdadams/Rceattle
@@ -101,6 +103,7 @@ articles:
   desc: Model parameterizations, equations, and switch settings.
   contents:
   - model-parameterizations
+  - environmental-linkages
 
 reference:
 - title: "Data input / output"
