@@ -192,55 +192,59 @@ and are weighted via `CAAL_weights` per fleet.
 
 | `srr_fun` | String | Description |
 |:---:|---|---|
-| `0` | `"Mean"` | Mean recruitment with deviations |
-| `1` | `"MeanEnv"` | Mean recruitment with environmental link |
+| `0` | `"mean"` | Mean recruitment with deviations |
 | `2` | `"BevertonHolt"` | Beverton-Holt |
-| `3` | `"BevertonHoltEnv"` | Beverton-Holt with environmental link |
 | `4` | `"Ricker"` | Ricker |
-| `5` | `"RickerEnv"` | Ricker with environmental link |
 
-Priors can be added to stock-functions via `build_srr()`. See `srr_est_mode` in `?build_srr` for options. 
-Use `srr_indices` to pick columns in `env_data` (e.g. `srr_indices = c(2,3,4)`).
+Priors and environmental relationships can be added to stock-functions 
+via `build_srr()`. See `?build_srr` for options and 
+`vignette("environmental-linkages")` for details. 
 
 ## 7. Natural mortality (`M1Fun = build_M1()`)
 
 ### `M1_model` — fixed-effects structure of M1
 
-| Value | Description |
-|:---:|---|
-| `0` (default) | Fixed; uses `M1_base` from the data sheet |
-| `1` | Species-specific M, sex- and age-invariant. Estimates M1<sub>spp</sub> |
-| `2` | Sex- and species-specific M (two-sex models), age-invariant. Estimates M1<sub>spp,sex</sub> |
-| `3` | Sex-, species-, and age-specific. Estimates M1<sub>spp,sex,age</sub> |
-| `4` | Environmentally driven, sex-invariant. M1<sub>spp,yr</sub> = M1<sub>spp</sub> · exp(X · β<sub>spp</sub>); use `M1_indices` to pick columns in `env_data` |
-| `5` | Environmentally driven, sex- and species-specific. M1<sub>spp,sex,yr</sub> = M1<sub>spp,sex</sub> · exp(X · β<sub>spp,sex</sub>) |
+| Value | String | Description |
+|:---:|---|---|
+| `0` | `"fixed"` | use the input `M1_base` (no estimation).
+| `1` | `"sex_age_invariant"` | estimate one `M1_{spp}`.
+| `2` | `"sex_specific"` | estimate `M1_{spp, sex}`.
+| `3` | `"sex_age_specific"` | estimate `M1_{spp, sex, age}`.
+
+Priors and environmental relationships can be added to M1 
+via `build_M1()`. See `?build_M1` for options and 
+`vignette("environmental-linkages")` for details. 
 
 ### `M1_re` — random-effects structure on M1
 
-| Value | Description |
-|:---:|---|
-| `0` (default) | No random effects |
-| `1` | IID by age, constant over years |
-| `2` | IID by year, constant over ages |
-| `3` | IID across both year and age |
-| `4` | AR(1) by age, constant over years |
-| `5` | AR(1) by year, constant over ages |
-| `6` | 2D AR(1) over both year and age |
+| Value | String | Description |
+|:---:|---|---|
+| `0` (default) | `"none"`  | No random effects |
+| `1` | `"iid_age"` | IID by age, constant over years |
+| `2` | `"iid_year"` | IID by year, constant over ages |
+| `3` |  `"iid_age_year"` | IID across both year and age |
+| `4` | `"ar1_age"`  | AR(1) by age, constant over years |
+| `5` | `"ar1_year"`| AR(1) by year, constant over ages |
+| `6` | `"ar1_age_year"` | 2D AR(1) over both year and age |
 
 Variance and correlation parameters are species-specific but
-sex-invariant. `M1_use_prior = TRUE` adds a log-normal prior with mean
-`M_prior` and SD `M_prior_sd` on M1; `M2_use_prior = TRUE` extends the
-same prior to total M (M1 + M2) in multi-species mode.
+sex-invariant. `M2_use_prior = TRUE` extends adds a log-normal 
+prior with mean `M_prior` and SD `M_prior_sd`
+on total M (M1 + M2) in multi-species mode.
 
 ## 8. Growth and weight-at-age (`growthFun = build_growth()`)
 
 ### `growth_model` — fixed-effects structure of growth
 
-| Value | Description |
-|:---:|---|
-| `0` (default) | Empirical weight-at-age supplied via the `weight` data sheet. Forecasts re-use the terminal-year weight schedule. |
-| `1` | Sex-specific von Bertalanffy length-at-age + length-weight allometry (`alpha_wt_len`, `beta_wt_len` on the data control sheet) |
-| `2` | Sex-specific Richards growth |
+| Value | String | Description |
+|:---:|---|---|
+| `0` (default) | `"empirical"` |  Empirical weight-at-age supplied via the `weight` data sheet. Forecasts re-use the terminal-year weight schedule. |
+| `1` | `"vonBertalanffy"` | von Bertalanffy length-at-age + length-weight allometry (`alpha_wt_len`, `beta_wt_len` on the data control sheet) |
+| `2` | `"Richards"` |Sex-specific Richards growth |
+
+Priors and environmental relationships can be added to growth 
+via `build_growth()`. See `?build_growth` for options and 
+`vignette("environmental-linkages")` for details. 
 
 ### `growth_re` — random effects on growth
 
