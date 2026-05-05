@@ -40,6 +40,20 @@
 #' @return A \code{list} containing the stock recruitment relationship settings
 #' @export
 #'
+#' Allowed recruitment-parameter names for `linkages` in [build_srr()]
+#'
+#' Linear-predictor names of the underlying recruitment parameters
+#' that the linkage system can address. Linkages on `log_R0` are
+#' meaningful for any `srr_fun` (the offset is added to the log of
+#' equilibrium / mean recruitment); linkages on `log_alpha` and
+#' `log_beta` only do work when the chosen `srr_fun` actually uses
+#' alpha / beta (Beverton-Holt, Ricker), where they enter on the log
+#' scale before exponentiation.
+#'
+#' @keywords internal
+RECRUITMENT_LINKAGE_PARAMS <- c("log_R0", "log_alpha", "log_beta")
+
+
 build_srr <- function(srr_fun = 0,  #srr_model
                       srr_pred_fun = srr_fun, #srr_forecast_model
                       proj_mean_rec = TRUE,
@@ -50,7 +64,8 @@ build_srr <- function(srr_fun = 0,  #srr_model
                       srr_prior = 4,
                       srr_prior_sd = 1,
                       srr_indices = NA,
-                      Bmsy_lim = NA){
+                      Bmsy_lim = NA,
+                      linkages = NULL){
 
   # Set pred/RP/penalty to same as SR curve if SR fun > 0
   if(srr_fun > 0){
@@ -60,6 +75,8 @@ build_srr <- function(srr_fun = 0,  #srr_model
   if(!srr_pred_fun %in% c(3,4)){
     Bmsy_lim = -999
   }
+
+  linkages <- .validate_recruitment_linkages(linkages, srr_fun)
 
   list(srr_fun = srr_fun,
        srr_pred_fun = srr_pred_fun,
@@ -71,8 +88,64 @@ build_srr <- function(srr_fun = 0,  #srr_model
        srr_prior = srr_prior,
        srr_prior_sd = srr_prior_sd,
        srr_indices = srr_indices,
-       Bmsy_lim = Bmsy_lim
+       Bmsy_lim = Bmsy_lim,
+       linkages = linkages
   )
+}
+
+
+#' Validate and canonicalize the `linkages` argument of [build_srr()]
+#'
+#' Returns either `NULL` (no linkages) or a named list of
+#' `Rceattle_linkage_spec` objects (or lists thereof) with `param`
+#' filled in from the list keys. Errors loudly on invalid param
+#' names so the user catches typos at build time. Warns when a
+#' linkage references a parameter that the chosen `srr_fun` does
+#' not consume (e.g. `log_alpha` with the mean-only `srr_fun = 0`).
+#'
+#' @keywords internal
+#' @noRd
+.validate_recruitment_linkages <- function(linkages, srr_fun) {
+  if (is.null(linkages)) return(NULL)
+  if (!is.list(linkages) || length(linkages) == 0L ||
+      is.null(names(linkages)) || any(!nzchar(names(linkages)))) {
+    stop("`linkages` must be a named list keyed by recruitment ",
+         "parameter (one of: ",
+         paste(RECRUITMENT_LINKAGE_PARAMS, collapse = ", "), ")",
+         call. = FALSE)
+  }
+  bad_names <- setdiff(names(linkages), RECRUITMENT_LINKAGE_PARAMS)
+  if (length(bad_names) > 0) {
+    stop("unknown recruitment linkage parameter(s): ",
+         paste(bad_names, collapse = ", "),
+         "; allowed: ",
+         paste(RECRUITMENT_LINKAGE_PARAMS, collapse = ", "),
+         call. = FALSE)
+  }
+  for (nm in names(linkages)) {
+    val <- linkages[[nm]]
+    if (inherits(val, "Rceattle_linkage_spec")) next
+    if (is.list(val) &&
+        all(vapply(val, inherits, logical(1),
+                   what = "Rceattle_linkage_spec"))) next
+    stop("linkages$", nm, " must be a linkage_spec() or a list of ",
+         "linkage_spec() objects.", call. = FALSE)
+  }
+  # Soft consistency check: a BH/Ricker SRR uses log_alpha and
+  # log_beta; the mean-only srr_fun (0) uses neither.
+  uses_alpha_beta <- srr_fun %in% c(2L, 3L, 4L, 5L)
+  if (!uses_alpha_beta) {
+    flagged <- intersect(names(linkages), c("log_alpha", "log_beta"))
+    if (length(flagged) > 0) {
+      warning("linkages$", paste(flagged, collapse = " / "),
+              " is supplied but srr_fun = ", srr_fun, " does not ",
+              "use alpha / beta; the offset will be retained on the ",
+              "object but will not affect recruitment. Use srr_fun ",
+              "in c(2, 3, 4, 5) for an SRR that consumes these ",
+              "parameters.", call. = FALSE)
+    }
+  }
+  Map(.stamp_param, linkages, names(linkages))
 }
 
 

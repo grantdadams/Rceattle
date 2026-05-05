@@ -204,7 +204,8 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
                            srr_prior  = data_list$srr_prior,
                            srr_prior_sd   = data_list$srr_prior_sd,
                            Bmsy_lim = data_list$Bmsy_lim,
-                           srr_indices = data_list$srr_indices),
+                           srr_indices = data_list$srr_indices,
+                           linkages = data_list$srr_linkages),
         # suppressWarnings: legacy M1_indices may travel via data_list.
         M1Fun = suppressWarnings(build_M1(
           M1_model = data_list$M1_model,
@@ -306,7 +307,8 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
                            srr_prior  = data_list$srr_prior,
                            srr_prior_sd   = data_list$srr_prior_sd,
                            Bmsy_lim = data_list$Bmsy_lim,
-                           srr_indices = data_list$srr_indices),
+                           srr_indices = data_list$srr_indices,
+                           linkages = data_list$srr_linkages),
         # suppressWarnings: legacy M1_indices may travel via data_list.
         M1Fun = suppressWarnings(build_M1(
           M1_model = data_list$M1_model,
@@ -520,7 +522,8 @@ jitter <- function(Rceattle = NULL, njitter = 50, phase = FALSE, seed = 123) {
                                srr_prior  = data_list$srr_prior,
                                srr_prior_sd   = data_list$srr_prior_sd,
                                Bmsy_lim = data_list$Bmsy_lim,
-                               srr_indices = data_list$srr_indices),
+                               srr_indices = data_list$srr_indices,
+                               linkages = data_list$srr_linkages),
             # suppressWarnings: legacy M1_indices may travel via data_list.
             M1Fun = suppressWarnings(build_M1(
               M1_model = data_list$M1_model,

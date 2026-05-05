@@ -117,7 +117,8 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
                          srr_prior = om$data_list$srr_prior,
                          srr_prior_sd = om$data_list$srr_prior_sd,
                          Bmsy_lim = om$data_list$Bmsy_lim,
-                         srr_indices = om$data_list$srr_indices),
+                         srr_indices = om$data_list$srr_indices,
+                         linkages = om$data_list$srr_linkages),
       # suppressWarnings: legacy M1_indices may travel via om$data_list.
       M1Fun = suppressWarnings(build_M1(
         M1_model = om$data_list$M1_model,
@@ -251,7 +252,8 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
                          srr_prior  = em$data_list$srr_prior,
                          srr_prior_sd   = em$data_list$srr_prior_sd,
                          Bmsy_lim = em$data_list$Bmsy_lim,
-                         srr_indices = em$data_list$srr_indices),
+                         srr_indices = em$data_list$srr_indices,
+                         linkages = em$data_list$srr_linkages),
       # suppressWarnings: legacy M1_indices may travel via em$data_list.
       M1Fun = suppressWarnings(build_M1(
         M1_model = em$data_list$M1_model,
@@ -310,7 +312,8 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
                                                  srr_prior  = em$data_list$srr_prior,
                                                  srr_prior_sd   = em$data_list$srr_prior_sd,
                                                  Bmsy_lim = em$data_list$Bmsy_lim,
-                                                 srr_indices = em$data_list$srr_indices),
+                                                 srr_indices = em$data_list$srr_indices,
+                                                 linkages = em$data_list$srr_linkages),
                               # suppressWarnings: legacy M1_indices may travel via em$data_list.
                               M1Fun = suppressWarnings(build_M1(
                                 M1_model = em$data_list$M1_model,
@@ -660,7 +663,8 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
                                  srr_prior = om_use$data_list$srr_prior,
                                  srr_prior_sd = om_use$data_list$srr_prior_sd,
                                  Bmsy_lim = om_use$data_list$Bmsy_lim,
-                                 srr_indices = om_use$data_list$srr_indices),
+                                 srr_indices = om_use$data_list$srr_indices,
+                                 linkages = om_use$data_list$srr_linkages),
               # suppressWarnings: legacy M1_indices may travel via om_use$data_list.
               M1Fun = suppressWarnings(build_M1(
                 M1_model = om_use$data_list$M1_model,
@@ -857,7 +861,8 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
                                  srr_prior = em_use$data_list$srr_prior,
                                  srr_prior_sd = em_use$data_list$srr_prior_sd,
                                  Bmsy_lim = em_use$data_list$Bmsy_lim,
-                                 srr_indices = em_use$data_list$srr_indices),
+                                 srr_indices = em_use$data_list$srr_indices,
+                                 linkages = em_use$data_list$srr_linkages),
               # suppressWarnings: legacy M1_indices may travel via em_use$data_list.
               M1Fun = suppressWarnings(build_M1(
                 M1_model = em_use$data_list$M1_model,
