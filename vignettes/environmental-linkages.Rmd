@@ -34,8 +34,8 @@ them to the underlying linear predictors.
 This vignette covers the user-facing API, the formula syntax it
 supports, prior and bound options, and the per-species variations.
 The linkage path is wired for **growth** (von Bertalanffy and
-Richards) and **natural mortality** (`log_M1`) today; recruitment is
-next on the same pipeline.
+Richards), **natural mortality** (`log_M1`), and **recruitment**
+(`log_R0`, `log_alpha`, `log_beta`).
 
 ## A first example: temperature on `K`
 
@@ -619,9 +619,15 @@ When you call `fit_mod()` with linkages:
    - `M_linkage_offset` of shape `[nspp, max_sex, max_age, nyrs]`
      via `rceattle_apply_M_linkages()`, added to `ln_M1` inside
      the `M1_at_age` compute.
+   - `recruitment_linkage_offset` of shape
+     `[nspp, n_rec_params, nyrs]` via
+     `rceattle_apply_recruitment_linkages()`, pre-added to
+     `(R0, rec_pars(*, alpha), rec_pars(*, beta))` before each
+     `calculate_recruitment()` call site (hindcast, BRPs, dynamic
+     BRPs, projections, expected R).
 
-   Both accumulators read from the same encoded table and the same
-   `ln_beta_linkage` parameter vector; rows dispatch by their
+   All three accumulators read from the same encoded table and the
+   same `ln_beta_linkage` parameter vector; rows dispatch by their
    `process` column. With no linkages the offsets stay at zero so
    existing fits are identical-by-construction.
 
@@ -708,6 +714,79 @@ Growth and M linkages **share the same table** -- one fit can carry
 linkage rows for both processes, and the underlying coefficient
 vector `ln_beta_linkage` indexes both.
 
+## Recruitment
+
+`build_srr()` accepts the same `linkages` argument with three
+allowed parameter keys:
+
+* **`log_R0`** -- offset on `log(R0)`. Meaningful for *any*
+  `srr_fun`; the offset is added to the equilibrium / mean
+  recruitment on the log scale, including the first model year.
+  This is the right target if you want "recruitment responds to
+  temp" and aren't fitting an SRR.
+* **`log_alpha`** -- offset on the alpha parameter (productivity)
+  of a Beverton-Holt or Ricker SRR. Only does work when
+  `srr_fun %in% c(2, 3, 4, 5)` -- the SRRs that consume alpha.
+* **`log_beta`** -- offset on the beta parameter
+  (density-dependence) of BH or Ricker. Same applicability as
+  `log_alpha`.
+
+```{r}
+# Mean-recruitment with a temperature linkage on log_R0.
+rec_spec <- build_srr(
+  srr_fun  = "mean",                       # = 0
+  linkages = list(
+    log_R0 = linkage_spec(
+      formula = ~ temp,
+      priors  = list(temp = normal(0, 0.5))
+    )
+  )
+)
+
+# Beverton-Holt with env effects on alpha (and species-keyed
+# priors so each stock has its own sensitivity).
+rec_spec_bh <- build_srr(
+  srr_fun  = "BevertonHolt",               # = 2
+  linkages = list(
+    log_alpha = linkage_spec(
+      formula = ~ temp,
+      priors  = list(
+        temp = list(`1` = normal(0, 0.3),
+                    `2` = normal(0, 0.7))
+      )
+    )
+  )
+)
+
+fit <- fit_mod(
+  data_list   = data_list,
+  recFun      = rec_spec,
+  estimateMode = 0,
+  msmMode     = 0
+)
+```
+
+The structural choice (`srr_fun`) accepts either integer codes or
+readable strings interchangeably:
+
+```{r}
+build_srr(srr_fun = "mean")           # = 0
+build_srr(srr_fun = "BevertonHolt")   # = 2
+build_srr(srr_fun = "Ricker")         # = 4
+```
+
+Inspecting the result:
+
+```{r}
+fit$data_list$linkage_table             # rows have process == "recruitment"
+fit$quantities$recruitment_linkage_offset  # [nspp, n_rec_params, nyrs]
+                                           # n_rec_params = 3 (R0, alpha, beta)
+```
+
+Practical note: a linkage row's `age_bin` is ignored for
+recruitment (recruitment is at age 0 by definition). The
+`sex_ratio` data input partitions recruits across sexes downstream.
+
 ## A multi-process example
 
 The same pattern composes when more than one parameter is linked:
@@ -755,9 +834,9 @@ build_growth(
 #> Error: linkages$log_m is only valid with fun = 'Richards'; ...
 ```
 
-Growth and M can be linked in the same fit -- each `build_*()`
-output carries its own linkages list and `fit_mod()` pools them
-together against a single shared design matrix:
+Growth, M, and recruitment can all be linked in the same fit --
+each `build_*()` output carries its own linkages list and
+`fit_mod()` pools them against a single shared design matrix:
 
 ```{r}
 fit <- fit_mod(
@@ -765,23 +844,29 @@ fit <- fit_mod(
   growthFun   = build_growth(
     fun      = "vonBertalanffy",
     linkages = list(
-      log_K = linkage_spec(formula = ~ temp, by = ~ species)
+      log_K = linkage_spec(formula = ~ temp)
     )
   ),
   M1Fun       = build_M1(
     M1_model = "sex_age_invariant",
     linkages = list(
-      log_M1 = linkage_spec(formula = ~ temp, by = ~ species)
+      log_M1 = linkage_spec(formula = ~ temp)
+    )
+  ),
+  recFun      = build_srr(
+    srr_fun  = "mean",
+    linkages = list(
+      log_R0 = linkage_spec(formula = ~ temp)
     )
   ),
   estimateMode = 0,
   msmMode     = 0
 )
 
-# Linkage table contains rows for both processes:
+# Linkage table contains rows for all three processes:
 table(fit$data_list$linkage_table$process)
-#> growth      M
-#>      4      4
+#>      growth           M  recruitment
+#>           4           4            4
 ```
 
 ## Inspecting and debugging
@@ -799,6 +884,8 @@ fit$data_list$linkage_X
 # growth_parameters this iteration. Useful for verifying the linkage
 # fired as you intended.
 str(fit$quantities$growth_linkage_offset)
+str(fit$quantities$M_linkage_offset)
+str(fit$quantities$recruitment_linkage_offset)
 
 # Per-row coefficient values in the same order as `linkage_table`.
 fit$estimated_params$ln_beta_linkage
@@ -809,22 +896,25 @@ fit$quantities$jnll_comp["Linkage-table priors", ]
 
 ## On the roadmap
 
-* **Recruitment** -- the same long-format pipeline will be extended
-  to recruitment, so `build_srr(linkages = list(log_alpha = ...,
-  log_R0 = ...))` will follow the same shape as the growth and M
-  surfaces.
 * **Random-effects grouping** -- the `re_group` column on the linkage
   table is stored end-to-end; the cpp will grow a hierarchical
   penalty so coefficients sharing a `re_group` value are partially
   pooled.
-* **Age-dependent linkages** -- the `age_bin` stratum is consumed
-  by the M accumulator (a row's `age_bin == NA` broadcasts across
-  ages; specific values pin the offset to that age slice). It is
-  reserved in the table schema for other processes that may
-  eventually vary by age.
+* **Age-dependent linkages on processes other than M** -- the
+  `age_bin` stratum is consumed by the M accumulator today (a
+  row's `age_bin == NA` broadcasts across ages; specific values
+  pin the offset to that age slice). The schema is reserved for
+  other processes that may eventually vary by age.
+* **Selectivity / catchability linkages** -- the encoder already
+  reserves `process = "sel"` and `process = "q"` codes, but no
+  cpp accumulator consumes them yet.
+* **Legacy retirement (v4.2.0)** -- `srr_indices`, `M1_indices`,
+  `srr_fun in c(1, 3, 5)`, and `M1_model in c(4, 5)` retire in
+  the next minor release; see *Scheduled removal (v4.2.0)* in
+  `NEWS.md` for the migration table.
 
 ## See also
 
-* `?linkage_spec`, `?build_growth`, `?build_M1`, `?prior_normal`
+* `?linkage_spec`, `?build_growth`, `?build_M1`, `?build_srr`, `?prior_normal`
 * `vignette("model-parameterizations", package = "Rceattle")` for the
   full set of process options.
