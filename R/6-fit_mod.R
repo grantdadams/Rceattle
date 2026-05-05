@@ -254,9 +254,11 @@ fit_mod <-
 
 
     # * Growth switches ----
-    data_list$growth_model   <- extend_length(growthFun$growth_model)
-    data_list$growth_re      <- extend_length(growthFun$growth_re)
-    data_list$growth_indices <- growthFun$growth_indices
+    data_list$growth_fun      <- growthFun$fun
+    data_list$growth_linkages <- growthFun$linkages
+    data_list$growth_model    <- extend_length(growthFun$growth_model)
+    data_list$growth_re       <- extend_length(growthFun$growth_re)
+    data_list$growth_indices  <- growthFun$growth_indices
 
 
     # * HCR Switches ----

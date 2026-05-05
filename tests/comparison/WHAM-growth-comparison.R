@@ -324,7 +324,7 @@ simData$ration_data <- cbind(data.frame(Species = 1,
 ss_fix <- Rceattle::fit_mod(data_list = simData,
                             inits = NULL, # Initial parameters = 0
                             estimateMode = 3, # Don't estimate
-                            growthFun = build_growth(growth_model = 1), # Von Bert
+                            growthFun = build_growth(fun = "vonBertalanffy"), # Von Bert
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
                             phase = FALSE,
@@ -365,7 +365,7 @@ inits$growth_ln_sd[1,1,] <- wham_model$parList$SDgrowth_par
 ss_inits <- Rceattle::fit_mod(data_list = simData,
                               inits = inits, # Initial parameters = 0
                               estimateMode = 3, # Do not estimate
-                              growthFun = build_growth(growth_model = 1), # Von Bert
+                              growthFun = build_growth(fun = "vonBertalanffy"), # Von Bert
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
                               phase = FALSE,
@@ -456,7 +456,7 @@ wham_model$rep$nll_NAA # Uses lognormal bias correction
 ss_est <- Rceattle::fit_mod(data_list = simData,
                             inits = NULL, # Initial parameters = 0
                             estimateMode = 0, # estimate
-                            growthFun = build_growth(growth_model = 1), # Von Bert
+                            growthFun = build_growth(fun = "vonBertalanffy"), # Von Bert
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
                             phase = FALSE,

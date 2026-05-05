@@ -41,7 +41,7 @@ whamGrowthData$fleet_control$Month # Fleets
 vbgf_model <- Rceattle::fit_mod(data_list = whamGrowthData,
                             inits = NULL,       # Initial parameters at default
                             estimateMode = 0,   # Estimate
-                            growthFun = build_growth(growth_model = 1), # Von Bert
+                            growthFun = build_growth(fun = "vonBertalanffy"), # Von Bert
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0,        # Single species mode
                             initMode = "NonEquilibrium",       # Unfished disequilibrium
@@ -50,7 +50,7 @@ vbgf_model <- Rceattle::fit_mod(data_list = whamGrowthData,
 richards_model <- Rceattle::fit_mod(data_list = whamGrowthData,
                                 inits = vbgf_model$estimated_params, # Initial parameters from above
                                 estimateMode = 0,   # Estimate
-                                growthFun = build_growth(growth_model = 2), # Richards
+                                growthFun = build_growth(fun = "Richards"), # Richards
                                 random_rec = FALSE, # No random recruitment
                                 msmMode = 0,        # Single species mode
                                 initMode = "NonEquilibrium",       # Unfished disequilibrium
@@ -64,7 +64,7 @@ double_data$spnames <- c(1,2)
 double_model <- Rceattle::fit_mod(data_list = double_data,
                                     inits = NULL,       # Initial parameters at default
                                     estimateMode = 0,   # Estimate
-                                    growthFun = build_growth(growth_model = c(1,1)), # VBGF
+                                    growthFun = build_growth(fun = c("vonBertalanffy", "vonBertalanffy")), # VBGF
                                     random_rec = FALSE, # No random recruitment
                                     msmMode = 0,        # Single species mode
                                     initMode = "NonEquilibrium",       # Unfished disequilibrium

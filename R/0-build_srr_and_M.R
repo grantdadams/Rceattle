@@ -136,32 +136,165 @@ build_M1 <- function(M1_model = 0,
 
 
 
-#' Define growth specifications
+#' Allowed growth functions for `fun` in [build_growth()]
 #'
-#' @param growth_model Vector or scalar specifying growth model (see @description below). 0 = use empirical weight-at-age in "weight" data, 1 = estimate sex-specific von Bertalanffy growth function, 2 = sex-specific Richards model.
-#' @param growth_re NOT yet implemented! Vector or scalar specifying M1 random effects model. See description (default = 0).
-#' @param growth_indices NOT yet implemented! vector or single index indicating the columns (excluding Year column) of \code{env_data} to use for environmentally linked growth.
+#' Currently:
+#'   * `"empirical"`: use the empirical weight-at-age input directly,
+#'     no parameters estimated.
+#'   * `"vonBertalanffy"`: sex-specific von Bertalanffy (parameters
+#'     `K`, `L1`, `Linf`).
+#'   * `"Richards"`: sex-specific Richards (adds `m`).
 #'
-#' @description
+#' @keywords internal
+GROWTH_FUNS <- c("empirical", "vonBertalanffy", "Richards")
+
+
+#' Internal: integer codes consumed by the TMB template
+#' @keywords internal
+#' @noRd
+.GROWTH_FUN_TO_INT <- c(empirical = 0L, vonBertalanffy = 1L, Richards = 2L)
+
+
+#' Allowed growth-parameter names for `linkages` in [build_growth()]
 #'
-#' **Growth fixed effects currently implemented in CEATTLE**
-#' - \code{growth_model = 0} Empirical weight-at-age from data input \code{weight}. Forecasts use terminal year of weight-at-age.
-#' - \code{growth_model = 1} Sex-specific von Bertalanffy growth.
-#' - \code{growth_model = 2} Sex-specific Richard's growth.
+#' Linear-predictor names of the underlying growth-function parameters.
+#' Von Bertalanffy uses `log_K`, `log_L1`, `log_Linf`; Richards adds
+#' `log_m`. The empirical weight-at-age model admits no linkages.
 #'
-#' **Growth random effects currently implemented in CEATTLE**
+#' @keywords internal
+GROWTH_LINKAGE_PARAMS <- c("log_K", "log_L1", "log_Linf", "log_m")
+
+
+#' Specify the growth model for Rceattle
 #'
-#' None are currently implemented
+#' @param fun Growth function. Either a string ([GROWTH_FUNS]:
+#'   `"empirical"` (default), `"vonBertalanffy"`, `"Richards"`) or the
+#'   equivalent integer code (`0`, `1`, `2`). The canonical string form
+#'   is stored on the returned object.
+#' @param linkages Optional named list of [linkage_spec()] objects
+#'   keyed by parameter name (must be one of [GROWTH_LINKAGE_PARAMS]).
+#'   Each spec describes how that growth parameter depends on
+#'   environmental covariates and on stratifying factors (species,
+#'   sex). The parameter name on each spec is filled in from the list
+#'   key. Materialization into the global linkage table happens inside
+#'   `fit_mod()` once `data_list$env_data` is in scope.
 #'
-#' @return A list of switches for defining the M1 model
+#' @return A list of switches defining the growth model.
 #' @export
 #'
-build_growth <- function(growth_model = 0,
-                     growth_re = 0,
-                     growth_indices = NA){
+#' @examples
+#' \dontrun{
+#' # Sex-specific von Bertalanffy with temperature on K, by species + sex
+#' build_growth(
+#'   fun = "vonBertalanffy",   # or fun = 1
+#'   linkages = list(
+#'     log_K = linkage_spec(
+#'       formula = ~ temp,
+#'       by      = ~ species + sex,
+#'       priors  = list(temp = normal(0, 1))
+#'     )
+#'   )
+#' )
+#' }
+build_growth <- function(fun = "empirical", linkages = NULL) {
+  fun <- .coerce_growth_fun(fun)
+  linkages <- .validate_growth_linkages(linkages, fun)
   list(
-    growth_model= growth_model,
-    growth_re = growth_re,
-    growth_indices = growth_indices
+    fun            = fun,
+    linkages       = linkages,
+    # Internal integer code consumed by the TMB template until the
+    # linkage-driven path replaces it. Vectorized so per-species
+    # growth functions (e.g. fun = c("vonBertalanffy", "Richards"))
+    # propagate downstream as before.
+    growth_model   = unname(.GROWTH_FUN_TO_INT[fun]),
+    # Placeholders retained until the random-effects / legacy index
+    # paths in 2-build_map.R and src/TMB/growth.hpp are migrated.
+    growth_re      = 0L,
+    growth_indices = NA
   )
+}
+
+
+#' Coerce a `fun` argument (string or integer) to canonical strings
+#'
+#' Accepts either a [GROWTH_FUNS] string or its integer code from
+#' `.GROWTH_FUN_TO_INT`. Length-N vectors are allowed for per-species
+#' specifications. Returns a character vector of canonical names.
+#'
+#' @keywords internal
+#' @noRd
+.coerce_growth_fun <- function(fun) {
+  if (length(fun) == 0L) {
+    stop("`fun` must have length >= 1", call. = FALSE)
+  }
+  if (is.numeric(fun)) {
+    int <- as.integer(fun)
+    hit <- match(int, .GROWTH_FUN_TO_INT)
+    if (anyNA(hit)) {
+      stop("integer `fun` must be one of: ",
+           paste(.GROWTH_FUN_TO_INT, collapse = ", "),
+           " (= ",
+           paste(names(.GROWTH_FUN_TO_INT), collapse = "/"),
+           ")", call. = FALSE)
+    }
+    return(names(.GROWTH_FUN_TO_INT)[hit])
+  }
+  if (is.character(fun)) {
+    bad <- setdiff(fun, GROWTH_FUNS)
+    if (length(bad) > 0L) {
+      stop("unknown growth fun(s): ",
+           paste(unique(bad), collapse = ", "),
+           "; allowed: ", paste(GROWTH_FUNS, collapse = ", "),
+           call. = FALSE)
+    }
+    return(fun)
+  }
+  stop("`fun` must be a string or integer; got ", class(fun)[1],
+       call. = FALSE)
+}
+
+
+#' Validate and canonicalize the `linkages` argument of [build_growth()]
+#'
+#' Returns either `NULL` (no linkages) or a named list of fully-typed
+#' `Rceattle_linkage_spec` objects with `param` filled in from the list
+#' keys. Errors loudly on invalid param names so the user catches typos
+#' at build time rather than at materialization time.
+#'
+#' @keywords internal
+#' @noRd
+.validate_growth_linkages <- function(linkages, fun) {
+  if (is.null(linkages)) return(NULL)
+  if (!is.list(linkages) || length(linkages) == 0L ||
+      is.null(names(linkages)) || any(!nzchar(names(linkages)))) {
+    stop("`linkages` must be a named list keyed by growth parameter ",
+         "(one of: ", paste(GROWTH_LINKAGE_PARAMS, collapse = ", "), ")",
+         call. = FALSE)
+  }
+  bad_names <- setdiff(names(linkages), GROWTH_LINKAGE_PARAMS)
+  if (length(bad_names) > 0) {
+    stop("unknown growth linkage parameter(s): ",
+         paste(bad_names, collapse = ", "),
+         "; allowed: ", paste(GROWTH_LINKAGE_PARAMS, collapse = ", "),
+         call. = FALSE)
+  }
+  bad_class <- !vapply(linkages,
+                       inherits, logical(1), what = "Rceattle_linkage_spec")
+  if (any(bad_class)) {
+    stop("linkages$", names(linkages)[bad_class][1],
+         " is not a linkage_spec(). Use linkage_spec(formula, ...) ",
+         "to construct each entry.", call. = FALSE)
+  }
+  if (any(fun == "empirical")) {
+    warning("at least one species uses fun = 'empirical', which does ",
+            "not consume linkages; the supplied specs will be ",
+            "retained on the object but ignored at fit time for those ",
+            "species.", call. = FALSE)
+  }
+  if (!all(fun == "Richards") && "log_m" %in% names(linkages)) {
+    stop("linkages$log_m is only valid when every species uses ",
+         "fun = 'Richards'; von Bertalanffy has no `m` parameter.",
+         call. = FALSE)
+  }
+  Map(.set_linkage_param, linkages, names(linkages))
 }

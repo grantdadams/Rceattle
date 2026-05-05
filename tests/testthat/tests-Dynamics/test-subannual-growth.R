@@ -31,7 +31,7 @@ testthat::test_that("Test VB growth with spawn month = 0.00001", {
 
   # Fit multi-species
   # * Fix parameters -----
-  mod0 <- suppressMessages( fit_mod(data_list = simData, inits = NULL, estimateMode = 3, growthFun = build_growth(growth_model = 1), random_rec = FALSE, msmMode = 0, fit_control = fit_control(phase = FALSE, verbose = 0)) )
+  mod0 <- suppressMessages( fit_mod(data_list = simData, inits = NULL, estimateMode = 3, growthFun = build_growth(fun = "vonBertalanffy"), random_rec = FALSE, msmMode = 0, fit_control = fit_control(phase = FALSE, verbose = 0)) )
   inits <- mod0$estimated_params
   inits$sel_inf[1,,1] <- c(20,35,15,30)
   inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
@@ -52,7 +52,7 @@ testthat::test_that("Test VB growth with spawn month = 0.00001", {
                                    inits = inits, # Initial parameters from sim
                                    file = NULL, # Don't save
                                    estimateMode = 3, # Don't estimate
-                                   growthFun = build_growth(growth_model = 1), # Von bertalanffy growth
+                                   growthFun = build_growth(fun = "vonBertalanffy"), # Von bertalanffy growth
                                    random_rec = FALSE, # No random recruitment
                                    msmMode = 0, # Single species mode
                                    fit_control = fit_control(
@@ -110,7 +110,7 @@ testthat::test_that("Test Richard's growth with spawn month = 0.00001", {
 
   # Fit multi-species
   # * Fix parameters -----
-  mod0 <- suppressMessages( fit_mod(data_list = simData, inits = NULL, estimateMode = 3, growthFun = build_growth(growth_model = 2), random_rec = FALSE, msmMode = 0, fit_control = fit_control(phase = FALSE, verbose = 0)) )
+  mod0 <- suppressMessages( fit_mod(data_list = simData, inits = NULL, estimateMode = 3, growthFun = build_growth(fun = "Richards"), random_rec = FALSE, msmMode = 0, fit_control = fit_control(phase = FALSE, verbose = 0)) )
   inits <- mod0$estimated_params
   inits$sel_inf[1,,1] <- c(20,35,15,30)
   inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
@@ -129,7 +129,7 @@ testthat::test_that("Test Richard's growth with spawn month = 0.00001", {
                                    inits = inits, # Initial parameters from sim
                                    file = NULL, # Don't save
                                    estimateMode = 3, # Don't estimate
-                                   growthFun = build_growth(growth_model = 2), # Richard's growth
+                                   growthFun = build_growth(fun = "Richards"), # Richard's growth
                                    random_rec = FALSE, # No random recruitment
                                    msmMode = 0, # Single species mode
                                    fit_control = fit_control(
