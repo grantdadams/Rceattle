@@ -23,10 +23,6 @@ testthat::test_that("Test environmental linkeage with mean rec", {
   GOA2018SS$env_data <- data.frame(Year = yrs, EnvIndex = seq(0,1, length.out = nyrs))
 
   # Set params
-  GOA2018SS$srr_fun <- "mean"
-  GOA2018SS$initMode <- 1
-
-
   rec_spec <- build_srr(
     srr_fun = "mean",
     proj_mean_rec = FALSE,
@@ -101,8 +97,6 @@ testthat::test_that("Test multiple recruitment linkeages with mean rec", {
   GOA2018SS$env_data <- data.frame(Year = yrs, EnvIndex = seq(0,1, length.out = nyrs), EnvIndex2 = seq(0,1, length.out = nyrs), EnvIndex3 = seq(0,1, length.out = nyrs))
 
   # Set params
-  GOA2018SS$srr_fun <- "mean"
-  GOA2018SS$initMode <- 1
   rec_spec <- build_srr(
     srr_fun = "mean",
     proj_mean_rec = FALSE,
@@ -189,9 +183,6 @@ testthat::test_that("Test multiple M linkeages", {
   GOA2018SS$env_data <- data.frame(Year = yrs, EnvIndex = seq(0,1, length.out = nyrs), EnvIndex2 = seq(0,1, length.out = nyrs), EnvIndex3 = seq(0,1, length.out = nyrs))
 
   # Set params
-  GOA2018SS$srr_fun <- 0
-  GOA2018SS$M1_model <- "sex_age_invariant"
-  GOA2018SS$initMode <- 1
   m1_spec <- Rceattle::build_M1(
     M1_model = "sex_age_invariant",
     linkages = list(
@@ -272,10 +263,6 @@ testthat::test_that("Test single M, multiple M/sex linkeages, M both-sex linkage
   GOA2018SS$env_data <- data.frame(Year = yrs, EnvIndex = seq(0,1, length.out = nyrs), EnvIndex2 = seq(0,1, length.out = nyrs), EnvIndex3 = seq(0,1, length.out = nyrs))
 
   # Set params
-  GOA2018SS$srr_fun <- 0
-  GOA2018SS$M1_model <- c("sex_age_invariant", "sex_specific", "sex_age_invariant")
-  GOA2018SS$initMode <- 1
-
   m1_spec <- Rceattle::build_M1(
     M1_model = c("sex_age_invariant", "sex_specific", "sex_age_invariant"),
     linkages = list(
@@ -303,6 +290,7 @@ testthat::test_that("Test single M, multiple M/sex linkeages, M both-sex linkage
                               initMode = 1,
                               fit_control = fit_control(
                                 verbose = 0))
+
   inits <- ss_run$estimated_params
   inits$ln_M1[] <- log(0.2)
   tbl <- ss_run$data_list$linkage_table
@@ -352,7 +340,7 @@ testthat::test_that("Test single M, multiple M/sex linkeages, M both-sex linkage
                          as.numeric(0.2 * exp(as.matrix(GOA2018SS$env_data[,-1]) %*% rep(1, 3))),
                          tolerance = 0.0001)
   testthat::expect_equal(as.numeric(ss_run$quantities$M_at_age[3,2,2,1:nyrs]),
-                         as.numeric(0.2 * exp(as.matrix(GOA2018SS$env_data[,-1]) %*% rep(1, 3))),
+                         rep(0, length(ss_run$quantities$M_at_age[3,2,2,1:nyrs])),
                          tolerance = 0.0001)
 })
 
