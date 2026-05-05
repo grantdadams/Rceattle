@@ -586,11 +586,10 @@ Type objective_function<Type>::operator() () {
 
 
   // 5.5. GROWTH
-  // -- Step 3B (linkage scaffold): build the per-(sp, sex, growth_param,
-  //    yr) offset tensor from the long-format linkage table. Computed and
-  //    REPORTed for downstream verification, but NOT yet added to
-  //    `growth_parameters` -- a follow-up commit will refactor growth.hpp
-  //    to consume it. With no linkages supplied the tensor stays at zero.
+  // -- Build the per-(sp, sex, growth_param, yr) offset tensor from the
+  //    long-format linkage table. Added (additively, on the log scale)
+  //    to `growth_parameters` immediately below. Stays at zero when no
+  //    `linkages` were supplied to `build_growth()`.
   array<Type> growth_linkage_offset(nspp, max_sex, RCEATTLE_N_GROWTH_PARAMS, nyrs);
   growth_linkage_offset.setZero();
   rceattle_apply_linkages(
@@ -2221,8 +2220,9 @@ Type objective_function<Type>::operator() () {
 
   // 13.0. OBJECTIVE FUNCTION
   int n_col = std::max(n_flt, nspp);
-  matrix<Type> jnll_comp(19, n_col); jnll_comp.setZero();  // matrix of negative log-likelihood components
-  matrix<Type> unweighted_jnll_comp(19, n_col); unweighted_jnll_comp.setZero();  // matrix of negative log-likelihood components without likelihood weights
+  // Slot 19 reserved for linkage-table prior contributions (per-row).
+  matrix<Type> jnll_comp(20, n_col); jnll_comp.setZero();  // matrix of negative log-likelihood components
+  matrix<Type> unweighted_jnll_comp(20, n_col); unweighted_jnll_comp.setZero();  // matrix of negative log-likelihood components without likelihood weights
 
   // -- Data likelihood components (Fleet specific)
   // Slot 0 -- Survey biomass
@@ -2932,6 +2932,36 @@ Type objective_function<Type>::operator() () {
         }
         jnll_comp(15, sp) += SCALE(SEPARABLE(AR1(rho_M_a), AR1(rho_M_y)), Sigma_M)(M_re_a_yr);
       }
+    }
+  }
+
+
+  // Slot 19 -- Linkage-table priors (per-row, on the log scale).
+  // Families: 0 = none, 1 = normal, 2 = lognormal, 3 = gamma, 4 = beta.
+  // For 'lognormal'/'gamma'/'beta' the coefficient is treated on its
+  // own scale -- the user's prior parameters are passed through
+  // verbatim. Rows with prior_family = 0 contribute nothing.
+  for (int i = 0; i < ln_beta_linkage.size(); ++i) {
+    int fam = linkage_prior_family(i);
+    if (fam == 0) continue;
+    Type b   = ln_beta_linkage(i);
+    Type p1  = linkage_prior_p1(i);
+    Type p2  = linkage_prior_p2(i);
+    int slot_col = linkage_species(i) - 1;
+    if (slot_col < 0) slot_col = 0;        // shared/all => column 0
+    if (slot_col >= n_col) slot_col = 0;
+    if (fam == 1) {                         // normal(p1, p2)
+      jnll_comp(19, slot_col)            -= dnorm(b, p1, p2, true);
+      unweighted_jnll_comp(19, slot_col) -= dnorm(b, p1, p2, true);
+    } else if (fam == 2) {                  // lognormal(p1, p2) on b
+      jnll_comp(19, slot_col)            -= dnorm(b, p1, p2, true);
+      unweighted_jnll_comp(19, slot_col) -= dnorm(b, p1, p2, true);
+    } else if (fam == 3) {                  // gamma(p1=shape, p2=rate)
+      jnll_comp(19, slot_col)            -= dgamma(b, p1, Type(1.0)/p2, true);
+      unweighted_jnll_comp(19, slot_col) -= dgamma(b, p1, Type(1.0)/p2, true);
+    } else if (fam == 4) {                  // beta(p1=shape1, p2=shape2)
+      jnll_comp(19, slot_col)            -= dbeta(b, p1, p2, true);
+      unweighted_jnll_comp(19, slot_col) -= dbeta(b, p1, p2, true);
     }
   }
 

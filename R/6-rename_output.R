@@ -140,7 +140,8 @@ rename_output = function(data_list = NULL, quantities = NULL){
     "M random effects",
     "Ration",
     "Ration penalties",
-    "Stomach content data"
+    "Stomach content data",
+    "Linkage-table priors"
   )
 
   return(quantities)
