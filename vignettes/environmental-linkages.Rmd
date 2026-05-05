@@ -34,7 +34,7 @@ them to the underlying linear predictors.
 This vignette covers the user-facing API, the formula syntax it
 supports, prior and bound options, and the per-species variations.
 The linkage path is wired for **growth** (von Bertalanffy and
-Richards) and **natural mortality** (`log_M`) today; recruitment is
+Richards) and **natural mortality** (`log_M1`) today; recruitment is
 next on the same pipeline.
 
 ## A first example: temperature on `K`
@@ -299,17 +299,17 @@ A direct prior on `ln_growth_pars` (analogous to `M_prior` /
 `M_prior_sd` for natural mortality) is on the post-release roadmap;
 until that lands, Pattern A is the recommended workaround.
 
-The same Pattern A also works for **`log_M`** when you want a prior
+The same Pattern A also works for **`log_M1`** when you want a prior
 on natural mortality itself rather than on a covariate effect:
 
 ```{r}
-# Three-species model, Lognormal(log(0.4), 0.35) prior on log_M
+# Three-species model, Lognormal(log(0.4), 0.35) prior on log_M1
 # applied via the linkage intercept. The structural M1_model is
 # kept at "sex_age_invariant" (= 1).
 M1_spec <- build_M1(
   M1_model = "sex_age_invariant",
   linkages = list(
-    log_M = linkage_spec(
+    log_M1 = linkage_spec(
       formula = ~ 1,
       by      = ~ species,
       init    = list(`(Intercept)` = log(0.4)),
@@ -318,7 +318,7 @@ M1_spec <- build_M1(
   )
 )
 
-# Fix ln_M1 at 0 so the linkage intercept owns log_M.
+# Fix ln_M1 at 0 so the linkage intercept owns log_M1.
 inits <- build_params(data_list)
 inits$ln_M1[] <- 0
 mp <- build_map(data_list, inits)
@@ -633,16 +633,30 @@ When you call `fit_mod()` with linkages:
 ## Natural mortality
 
 `build_M1()` supports the same `linkages` argument. The valid
-parameter key is `log_M`; the offset enters additively (on the log
+parameter key is `log_M1`; the offset enters additively (on the log
 scale) inside the `M1_at_age` compute, so a coefficient of `0.3` on
 a normalised temperature index multiplies `M1` by `exp(0.3 *
-temp[yr])` each year:
+temp[yr])` each year.
+
+**Why `log_M1` and not `log_M`?** CEATTLE decomposes total natural
+mortality into `M = M1 + M2`. `M1` is residual / non-predation
+mortality and is a *parameter* (`ln_M1` in the cpp, with optional
+random-effect deviates and a direct prior via `M_prior` /
+`M_prior_sd`). `M2` is *predation mortality* and is a derived
+quantity each iteration -- a function of predator abundance,
+suitability, and predator ration. There is no scalar `ln_M2`
+parameter to attach a linkage coefficient to. Environmental effects
+on predation propagate naturally via upstream parameters: a temp
+effect on predator growth (`log_K`), a temp effect on recruitment
+(forthcoming), or env-driven inputs to the bioenergetics ration
+calculation. The linkage system therefore exposes `log_M1` as the
+single M-side target, with `M2` covered by upstream propagation.
 
 ```{r}
 M1_spec <- build_M1(
   M1_model = "sex_age_invariant",            # or M1_model = 1 (back-compat)
   linkages = list(
-    log_M = linkage_spec(
+    log_M1 = linkage_spec(
       formula = ~ temp,
       by      = ~ species,
       priors  = list(temp = normal(0, 0.5))
@@ -755,7 +769,7 @@ fit <- fit_mod(
   M1Fun       = build_M1(
     M1_model = "sex_age_invariant",
     linkages = list(
-      log_M = linkage_spec(formula = ~ temp, by = ~ species)
+      log_M1 = linkage_spec(formula = ~ temp, by = ~ species)
     )
   ),
   estimateMode = 0,

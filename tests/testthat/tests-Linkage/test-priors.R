@@ -55,7 +55,7 @@ testthat::test_that("NSE in priors does not mask base::gamma/base::beta", {
   # Inside priors, gamma() and beta() resolve to prior constructors.
   spec <- Rceattle:::linkage_spec(
     formula = ~ temp,
-    param   = "log_M",
+    param   = "log_M1",
     priors  = list(`(Intercept)` = gamma(2, 3), temp = beta(2, 5))
   )
   testthat::expect_equal(spec$priors$`(Intercept)`$family, "gamma")
@@ -67,7 +67,7 @@ testthat::test_that("linkage_spec accepts programmatic prior_* construction", {
   pl <- list(temp = Rceattle::prior_normal(0, 1))
   spec <- Rceattle:::linkage_spec(
     formula = ~ temp,
-    param   = "log_M",
+    param   = "log_M1",
     priors  = pl
   )
   testthat::expect_equal(spec$priors$temp$family, "normal")
@@ -78,7 +78,7 @@ testthat::test_that("linkage_spec rejects non-prior values in priors", {
   testthat::expect_error(
     Rceattle:::linkage_spec(
       formula = ~ temp,
-      param   = "log_M",
+      param   = "log_M1",
       priors  = list(temp = c(0, 1))
     ),
     "must be an Rceattle_prior"
@@ -86,7 +86,7 @@ testthat::test_that("linkage_spec rejects non-prior values in priors", {
   testthat::expect_error(
     Rceattle:::linkage_spec(
       formula = ~ temp,
-      param   = "log_M",
+      param   = "log_M1",
       priors  = list(normal(0, 1))   # unnamed at top level
     ),
     "named list"
@@ -132,7 +132,7 @@ testthat::test_that("species-specific priors validate input shape", {
   testthat::expect_error(
     Rceattle:::linkage_spec(
       formula = ~ temp,
-      param   = "log_M",
+      param   = "log_M1",
       priors  = list(temp = list(normal(0, 1), normal(0, 0.5)))   # unnamed
     ),
     "named list keyed by species id"
@@ -140,7 +140,7 @@ testthat::test_that("species-specific priors validate input shape", {
   testthat::expect_error(
     Rceattle:::linkage_spec(
       formula = ~ temp,
-      param   = "log_M",
+      param   = "log_M1",
       priors  = list(temp = list(`1` = c(0, 1)))   # not an Rceattle_prior
     ),
     "must be an Rceattle_prior or a named list of priors keyed by sex"
@@ -152,7 +152,7 @@ testthat::test_that("scalar prior still applies across all species", {
   env <- data.frame(Year = 2000:2004, temp = stats::rnorm(5))
   spec <- Rceattle:::linkage_spec(
     formula = ~ temp,
-    param   = "log_M",
+    param   = "log_M1",
     by      = ~ species,
     priors  = list(temp = normal(0, 0.3))
   )
@@ -171,7 +171,7 @@ testthat::test_that("species-then-sex priors materialize per (sp, sex) row", {
   env <- data.frame(Year = 2000:2004, temp = stats::rnorm(5))
   spec <- Rceattle:::linkage_spec(
     formula = ~ temp,
-    param   = "log_M",
+    param   = "log_M1",
     by      = ~ species + sex,
     priors  = list(
       temp = list(
@@ -214,7 +214,7 @@ testthat::test_that("nested priors validate input shape", {
   testthat::expect_error(
     Rceattle:::linkage_spec(
       formula = ~ temp,
-      param   = "log_M",
+      param   = "log_M1",
       priors  = list(
         temp = list(`1` = list(normal(0, 0.1)))     # inner unnamed
       )
@@ -224,7 +224,7 @@ testthat::test_that("nested priors validate input shape", {
   testthat::expect_error(
     Rceattle:::linkage_spec(
       formula = ~ temp,
-      param   = "log_M",
+      param   = "log_M1",
       priors  = list(
         temp = list(`1` = c(0, 1))                   # not a prior or list
       )
@@ -262,7 +262,7 @@ testthat::test_that("materialize_linkage propagates prior cols to rows", {
 
 testthat::test_that("validate_linkage_table catches inconsistent prior rows", {
   good <- Rceattle:::linkage_row(
-    process = "M", param = "log_M", X_col = 1L,
+    process = "M", param = "log_M1", X_col = 1L,
     prior_family = "normal", prior_p1 = 0, prior_p2 = 1
   )
   testthat::expect_silent(Rceattle:::validate_linkage_table(good))

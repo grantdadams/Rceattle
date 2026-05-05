@@ -26,7 +26,7 @@ NULL
 #' @param formula one-sided R formula whose RHS describes the linear
 #'   predictor for `param` (e.g. `~ 1`, `~ temp`, `~ temp + PDO`).
 #' @param param target parameter name on the linear predictor scale
-#'   (e.g. `"log_alpha"`, `"log_M"`, `"log_K"`). May be `NULL` when the
+#'   (e.g. `"log_alpha"`, `"log_M1"`, `"log_K"`). May be `NULL` when the
 #'   spec is built inside a `build_*()` call that infers the parameter
 #'   name from the enclosing list key (see [build_growth()]).
 #' @param by one-sided formula naming stratifying factors that should

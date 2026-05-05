@@ -118,12 +118,18 @@ build_srr <- function(srr_fun = 0,  #srr_model
 #'
 #' Linear-predictor names of the underlying natural-mortality
 #' parameters that the linkage system can address. Currently just
-#' `log_M` -- the offset is added on the log scale to `ln_M1`
+#' `log_M1` -- the offset is added on the log scale to `ln_M1`
 #' (broadcast across age unless the linkage row pins a specific
 #' `age_bin`).
 #'
+#' Note: predation mortality `M2` is a derived quantity in CEATTLE
+#' (a function of predator abundance, suitability, and ration), not
+#' a parameter. There is no `log_M2` linkage target; environmental
+#' effects on predation are mediated upstream via recruitment,
+#' growth, suitability, or ration inputs.
+#'
 #' @keywords internal
-M_LINKAGE_PARAMS <- c("log_M")
+M_LINKAGE_PARAMS <- c("log_M1")
 
 
 #' String<->integer mapping for `M1_model` in [build_M1()]
@@ -235,7 +241,7 @@ M_LINKAGE_PARAMS <- c("log_M")
     "`M1_indices` is now better expressed through the linkages ",
     "argument to build_M1():\n\n",
     "  build_M1(M1_model = c(1, 2, 1),\n",
-    "           linkages = list(log_M = linkage_spec(\n",
+    "           linkages = list(log_M1 = linkage_spec(\n",
     "             formula = ~ <env_col>, by = ~species,\n",
     "             species = <which species had the env effect>)))\n\n",
     "See vignette('environmental-linkages').",
@@ -252,7 +258,7 @@ M_LINKAGE_PARAMS <- c("log_M")
     "effect is now better expressed through the linkages argument ",
     "to build_M1():\n\n",
     "  build_M1(M1_model = ...,\n",
-    "           linkages = list(log_M = linkage_spec(\n",
+    "           linkages = list(log_M1 = linkage_spec(\n",
     "             formula = ~ <env_col>, by = ~species)))\n\n",
     "Both paths add additively to ln_M1 on the log scale, so do ",
     "NOT supply both for the same coefficient or you will ",
@@ -262,6 +268,60 @@ M_LINKAGE_PARAMS <- c("log_M")
 }
 
 
+#' Define M1 specifications
+#'
+#' @param M1_model Vector or scalar specifying the M1 structural fixed-
+#'   effects model. Either an integer code or the equivalent string
+#'   alias (both forms are accepted; the integer code is canonical):
+#'   * `0` / `"fixed"` -- use the input `M1_base` (no estimation).
+#'   * `1` / `"sex_age_invariant"` -- estimate one `M1_{spp}`.
+#'   * `2` / `"sex_specific"` -- estimate `M1_{spp, sex}`.
+#'   * `3` / `"sex_age_specific"` -- estimate `M1_{spp, sex, age}`.
+#'   * `4`, `5` -- soft-deprecated env-driven codes; use the
+#'     `linkages` argument instead.
+#' @param M1_re Vector or scalar specifying the M1 random-effects
+#'   model. Either an integer code or the equivalent string alias:
+#'   `0` / `"none"`, `1` / `"iid_age"`, `2` / `"iid_year"`,
+#'   `3` / `"iid_age_year"`, `4` / `"ar1_age"`, `5` / `"ar1_year"`,
+#'   `6` / `"ar1_age_year"`.
+#' @param updateM1 If using initial parameters, use M1 fixed effects
+#'   from data (`M1_base`) instead. Default `FALSE`.
+#' @param M1_use_prior Vector or scalar; if `TRUE`, apply the
+#'   lognormal `M_prior` / `M_prior_sd` to `ln_M1` directly.
+#' @param M2_use_prior Vector or scalar; if `TRUE`, apply the
+#'   lognormal prior to `M1 + M2` in multi-species models.
+#' @param M_prior Mean (natural-scale) of the lognormal prior on M.
+#' @param M_prior_sd SD (log-scale) of the lognormal prior on M.
+#' @param M1_indices Soft-deprecated. Vector of column indices into
+#'   `env_data` (excluding `Year`) for environmentally linked M1 when
+#'   `M1_model %in% c(4, 5)`. Use the `linkages` argument instead;
+#'   see `vignette("environmental-linkages")`.
+#' @param linkages Optional named list of [linkage_spec()] objects
+#'   keyed by M parameter name (currently the only valid key is
+#'   `"log_M1"`). Each spec describes how `log_M1` depends on
+#'   environmental covariates and on stratifying factors (species,
+#'   sex, age). The offset enters additively (on the log scale)
+#'   inside the `M1_at_age` compute. A row's `age_bin == NA`
+#'   broadcasts the offset across ages; specific values pin it to
+#'   that age slice.
+#'
+#' @return A list of switches for defining the M1 model.
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' # Sex/age-invariant M with a temperature linkage on log_M1
+#' build_M1(
+#'   M1_model = "sex_age_invariant",
+#'   linkages = list(
+#'     log_M1 = linkage_spec(
+#'       formula = ~ temp,
+#'       by      = ~ species,
+#'       priors  = list(temp = normal(0, 0.5))
+#'     )
+#'   )
+#' )
+#' }
 build_M1 <- function(M1_model = 0,
                      M1_re = 0,
                      updateM1 = FALSE,

@@ -76,7 +76,7 @@ underlying parameter.
 
 * **Natural mortality** is the second process wired to the
   pipeline. `build_M1()` gains a `linkages` argument keyed by
-  `log_M`; the offset is added on the log scale to `ln_M1` inside
+  `log_M1`; the offset is added on the log scale to `ln_M1` inside
   the `M1_at_age` compute. A row's `age_bin == NA` broadcasts the
   offset across ages; specific values pin it to that age slice.
   `build_M1()` also gains string-form acceptance for `M1_model`
@@ -86,7 +86,7 @@ underlying parameter.
   build_M1(M1_model = "sex_age_invariant",   # or 1
            M1_re    = "ar1_age",             # or 4
            linkages = list(
-             log_M = linkage_spec(formula = ~ temp, by = ~ species)
+             log_M1 = linkage_spec(formula = ~ temp, by = ~ species)
            ))
   ```
 
@@ -116,7 +116,7 @@ underlying parameter.
 * **Soft deprecation in `build_M1()`.** The legacy column-index
   argument `M1_indices` and the env-driven structural integer
   codes `M1_model %in% c(4, 5)` are subsumed by the new
-  `linkages = list(log_M = ...)` argument. Both still work for one
+  `linkages = list(log_M1 = ...)` argument. Both still work for one
   release cycle, but emit a one-time warning that points users at
   the equivalent linkage-table call. The string aliases
   `"env_sex_invariant"` / `"env_sex_specific"` (added briefly on

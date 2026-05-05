@@ -25,7 +25,7 @@ testthat::test_that("M_linkage_offset propagates into M1_at_age", {
   m1_spec <- Rceattle::build_M1(
     M1_model = 1,
     linkages = list(
-      log_M = Rceattle::linkage_spec(formula = ~ temp, by = ~ species)
+      log_M1 = Rceattle::linkage_spec(formula = ~ temp, by = ~ species)
     )
   )
 
@@ -42,7 +42,7 @@ testthat::test_that("M_linkage_offset propagates into M1_at_age", {
 
   tbl <- base_run$data_list$linkage_table
   testthat::expect_setequal(tbl$process, "M")
-  testthat::expect_setequal(tbl$param, "log_M")
+  testthat::expect_setequal(tbl$param, "log_M1")
   # 2 design cols (Intercept + temp) x 2 species = 4 rows; age_bin
   # stays NA so the offset broadcasts across ages.
   testthat::expect_equal(nrow(tbl), 4L)
@@ -125,7 +125,7 @@ testthat::test_that("M linkage with species-keyed priors fires per species", {
   m1_spec <- Rceattle::build_M1(
     M1_model = 1,
     linkages = list(
-      log_M = Rceattle::linkage_spec(
+      log_M1 = Rceattle::linkage_spec(
         formula = ~ temp,
         by      = ~ species,
         priors  = list(temp = list(`1` = normal(0, 0.1),
@@ -180,7 +180,7 @@ testthat::test_that("growth and M linkages compose in the same fit", {
   m1_spec <- Rceattle::build_M1(
     M1_model = 1,
     linkages = list(
-      log_M = Rceattle::linkage_spec(formula = ~ temp, by = ~ species)
+      log_M1 = Rceattle::linkage_spec(formula = ~ temp, by = ~ species)
     )
   )
 

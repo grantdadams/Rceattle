@@ -133,15 +133,15 @@ testthat::test_that("build_M1(linkages = ...) attaches and infers param", {
   m <- Rceattle::build_M1(
     M1_model = "sex_age_invariant",
     linkages = list(
-      log_M = Rceattle::linkage_spec(
+      log_M1 = Rceattle::linkage_spec(
         formula = ~ temp,
         by      = ~ species,
         priors  = list(temp = normal(0, 0.5))
       )
     )
   )
-  testthat::expect_equal(m$linkages$log_M$param, "log_M")
-  testthat::expect_equal(m$linkages$log_M$priors$temp$family, "normal")
+  testthat::expect_equal(m$linkages$log_M1$param, "log_M1")
+  testthat::expect_equal(m$linkages$log_M1$priors$temp$family, "normal")
 })
 
 
@@ -158,7 +158,7 @@ testthat::test_that("build_M1() rejects unknown linkage parameter names", {
 testthat::test_that("build_M1() accepts list of specs per param", {
   m <- Rceattle::build_M1(
     linkages = list(
-      log_M = list(
+      log_M1 = list(
         Rceattle::linkage_spec(formula = ~ temp,
                                by      = ~ species,
                                species = 1L),
@@ -168,9 +168,9 @@ testthat::test_that("build_M1() accepts list of specs per param", {
       )
     )
   )
-  testthat::expect_length(m$linkages$log_M, 2L)
-  testthat::expect_equal(m$linkages$log_M[[1]]$param, "log_M")
-  testthat::expect_equal(m$linkages$log_M[[2]]$param, "log_M")
-  testthat::expect_equal(m$linkages$log_M[[1]]$species, 1L)
-  testthat::expect_equal(m$linkages$log_M[[2]]$species, 2L)
+  testthat::expect_length(m$linkages$log_M1, 2L)
+  testthat::expect_equal(m$linkages$log_M1[[1]]$param, "log_M1")
+  testthat::expect_equal(m$linkages$log_M1[[2]]$param, "log_M1")
+  testthat::expect_equal(m$linkages$log_M1[[1]]$species, 1L)
+  testthat::expect_equal(m$linkages$log_M1[[2]]$species, 2L)
 })
