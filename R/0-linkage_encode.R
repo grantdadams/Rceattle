@@ -62,7 +62,7 @@ LINKAGE_PRIOR_CODES <- c(
 #' @keywords internal
 LINKAGE_PARAM_CODES <- list(
   growth      = c(log_K = 0L, log_L1 = 1L, log_Linf = 2L, log_m = 3L),
-  M           = c(log_M = 0L),
+  M           = c(log_M1 = 0L),
   recruitment = c(log_R0 = 0L, log_alpha = 1L, log_beta = 2L),
   q           = c(log_q = 0L),
   sel         = character(0)   # not yet wired

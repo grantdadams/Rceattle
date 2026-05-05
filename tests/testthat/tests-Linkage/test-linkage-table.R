@@ -7,7 +7,7 @@ testthat::test_that("new_linkage_table() yields an empty schema table", {
 
 
 testthat::test_that("validate_linkage_table catches bad cols/enums", {
-  good <- Rceattle:::linkage_row(process = "M", param = "log_M", X_col = 1L)
+  good <- Rceattle:::linkage_row(process = "M", param = "log_M1", X_col = 1L)
   testthat::expect_silent(Rceattle:::validate_linkage_table(good))
 
   bad1 <- good
@@ -54,8 +54,8 @@ testthat::test_that("linkage_row() builds a one-row table with defaults", {
 
 
 testthat::test_that("bind_linkage() preserves schema and class across rbind", {
-  a <- Rceattle:::linkage_row("M", "log_M", X_col = 1L, species = 1L)
-  b <- Rceattle:::linkage_row("M", "log_M", X_col = 1L, species = 2L)
+  a <- Rceattle:::linkage_row("M", "log_M1", X_col = 1L, species = 1L)
+  b <- Rceattle:::linkage_row("M", "log_M1", X_col = 1L, species = 2L)
   c <- Rceattle:::linkage_row("growth", "log_K", X_col = 1L, species = 1L)
   out <- Rceattle:::bind_linkage(a, b, c)
   testthat::expect_s3_class(out, "Rceattle_linkage_table")
@@ -75,11 +75,11 @@ testthat::test_that("bind_linkage() preserves schema and class across rbind", {
 
 testthat::test_that("linkage_spec() validates formula shape", {
   testthat::expect_error(
-    Rceattle:::linkage_spec(formula = "temp", param = "log_M"),
+    Rceattle:::linkage_spec(formula = "temp", param = "log_M1"),
     "must be an R formula"
   )
   testthat::expect_error(
-    Rceattle:::linkage_spec(formula = y ~ temp, param = "log_M"),
+    Rceattle:::linkage_spec(formula = y ~ temp, param = "log_M1"),
     "one-sided"
   )
   spec <- Rceattle:::linkage_spec(formula = ~ temp + PDO,
@@ -137,7 +137,7 @@ testthat::test_that("materialize_linkage() handles species + sex grouping", {
   env <- data.frame(Year = 2000:2004, temp = stats::rnorm(5))
   spec <- Rceattle:::linkage_spec(
     formula = ~ temp,        # intercept + temp = 2 cols
-    param   = "log_M",
+    param   = "log_M1",
     by      = ~species + sex,
     link    = "log"
   )
@@ -157,7 +157,7 @@ testthat::test_that("materialize_linkage rejects unknown grouping vars", {
   env <- data.frame(Year = 2000:2002, temp = 1:3)
   spec <- Rceattle:::linkage_spec(
     formula = ~ temp,
-    param   = "log_M",
+    param   = "log_M1",
     by      = ~stock           # not allowed
   )
   testthat::expect_error(

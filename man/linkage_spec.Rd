@@ -22,7 +22,7 @@ linkage_spec(
 predictor for \code{param} (e.g. \code{~ 1}, \code{~ temp}, \code{~ temp + PDO}).}
 
 \item{param}{target parameter name on the linear predictor scale
-(e.g. \code{"log_alpha"}, \code{"log_M"}, \code{"log_K"}). May be \code{NULL} when the
+(e.g. \code{"log_alpha"}, \code{"log_M1"}, \code{"log_K"}). May be \code{NULL} when the
 spec is built inside a \verb{build_*()} call that infers the parameter
 name from the enclosing list key (see \code{\link[=build_growth]{build_growth()}}).}
 
