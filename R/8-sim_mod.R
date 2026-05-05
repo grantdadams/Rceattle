@@ -260,7 +260,8 @@ sample_rec <- function(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_tre
                                srr_prior  = Rceattle$data_list$srr_prior,
                                srr_prior_sd   = Rceattle$data_list$srr_prior_sd,
                                Bmsy_lim = Rceattle$data_list$Bmsy_lim,
-                               srr_indices = Rceattle$data_list$srr_indices),
+                               srr_indices = Rceattle$data_list$srr_indices,
+                               linkages = Rceattle$data_list$srr_linkages),
             # suppressWarnings: re-call from a fitted model's data_list
             # may carry legacy M1_indices; the deprecation warning was
             # already surfaced on the user's first build_M1() call.
