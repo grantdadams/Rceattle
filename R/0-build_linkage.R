@@ -33,6 +33,12 @@ NULL
 #'   each get their own coefficients (e.g. `~species`,
 #'   `~species + sex`). `NULL` means the same coefficients apply to
 #'   every species/sex.
+#' @param species optional integer vector of 1-based species ids that
+#'   this spec applies to. `NULL` (default) means every species in
+#'   `strata$species` at materialization time. Use this to give
+#'   different species different formulas, e.g. by registering
+#'   multiple specs against the same parameter -- see
+#'   [build_growth()] for the multi-spec syntax.
 #' @param link link function applied to the predictor when assembling
 #'   process values; one of [LINKAGE_LINKS].
 #' @param init optional named numeric vector of initial values keyed by
@@ -58,6 +64,7 @@ NULL
 linkage_spec <- function(formula,
                          param     = NULL,
                          by        = NULL,
+                         species   = NULL,
                          link      = "identity",
                          init      = NULL,
                          bounds    = NULL,
@@ -78,6 +85,13 @@ linkage_spec <- function(formula,
   if (!is.null(by) && !inherits(by, "formula")) {
     stop("`by` must be a one-sided formula (e.g. ~species + sex) or NULL")
   }
+  if (!is.null(species)) {
+    species <- as.integer(species)
+    if (anyNA(species) || any(species < 1L)) {
+      stop("`species` must be a vector of positive 1-based species ids",
+           call. = FALSE)
+    }
+  }
   link <- match.arg(link, LINKAGE_LINKS)
   param_str <- if (is.null(param)) NA_character_ else as.character(param)
 
@@ -86,6 +100,7 @@ linkage_spec <- function(formula,
       formula   = formula,
       param     = param_str,
       by        = by,
+      species   = species,
       link      = link,
       init      = init   %||% list(),
       bounds    = bounds %||% list(),
@@ -125,8 +140,20 @@ linkage_spec <- function(formula,
 
 #' Validate the `priors` argument once it has been NSE-evaluated.
 #'
-#' Accepts `NULL` or a named list of `Rceattle_prior` objects. Returns
-#' the canonicalized list (always a named list, possibly empty).
+#' Accepts `NULL` or a named list keyed by design-matrix column name.
+#' Each entry may be either:
+#'
+#'   * an `Rceattle_prior` object -- the prior applies to every
+#'     species/sex/age row that uses this column, or
+#'   * a named list of `Rceattle_prior` objects keyed by species id
+#'     (as a character or integer; e.g. `list(`1` = normal(0, 1),
+#'     `2` = normal(0, 0.5))`) -- each entry applies to the row(s)
+#'     for that species. Rows for species not in the keyset get no
+#'     prior. Per-species priors only meaningfully apply when the
+#'     spec's `by` includes `species`.
+#'
+#' Returns the canonicalized list (always a named list, possibly
+#' empty).
 #'
 #' @keywords internal
 #' @noRd
@@ -137,17 +164,54 @@ linkage_spec <- function(formula,
          "column name (e.g. list(temp = normal(0, 1)))",
          call. = FALSE)
   }
-  bad <- !vapply(priors, is_rceattle_prior, logical(1))
-  if (any(bad)) {
-    nm <- names(priors)[bad][1]
+  for (nm in names(priors)) {
+    val <- priors[[nm]]
+    if (is_rceattle_prior(val)) next
+    if (is.list(val)) {
+      if (is.null(names(val)) || any(!nzchar(names(val)))) {
+        stop(sprintf(
+          paste0("priors$%s must be a named list keyed by species ",
+                 "id when supplying per-species priors (e.g. ",
+                 "list(`1` = normal(0, 1), `2` = normal(0, 0.5)))."),
+          nm), call. = FALSE)
+      }
+      bad <- !vapply(val, is_rceattle_prior, logical(1))
+      if (any(bad)) {
+        stop(sprintf(
+          "priors$%s$`%s` is not an Rceattle_prior",
+          nm, names(val)[bad][1]
+        ), call. = FALSE)
+      }
+      next
+    }
     stop(sprintf(
-      paste0("priors$%s is not an Rceattle_prior. Use ",
+      paste0("priors$%s must be an Rceattle_prior or a named list ",
+             "of priors keyed by species id. Use ",
              "normal()/lognormal()/gamma()/beta() inside ",
-             "`priors = list(...)`, or prior_normal() etc. ",
-             "when constructing programmatically."),
+             "`priors = list(...)`, or prior_normal() etc. when ",
+             "constructing programmatically."),
       nm), call. = FALSE)
   }
   priors
+}
+
+
+#' Resolve the prior to apply on a specific (column, species) row.
+#'
+#' @param prior_spec value at `spec$priors[[colname]]`; either NULL,
+#'   an `Rceattle_prior`, or a named list keyed by species id.
+#' @param sp_id 1-based species id, or `NA` for shared rows.
+#' @return an `Rceattle_prior` or `NULL`.
+#' @keywords internal
+#' @noRd
+.resolve_prior <- function(prior_spec, sp_id) {
+  if (is.null(prior_spec)) return(NULL)
+  if (is_rceattle_prior(prior_spec)) return(prior_spec)
+  if (is.list(prior_spec)) {
+    if (is.na(sp_id)) return(NULL)
+    return(prior_spec[[as.character(sp_id)]])
+  }
+  NULL
 }
 
 
@@ -165,6 +229,9 @@ print.Rceattle_linkage_spec <- function(x, ...) {
   cat("  by:      ",
       if (is.null(x$by)) "(shared)" else deparse(x$by),
       "\n", sep = "")
+  if (!is.null(x$species)) {
+    cat("  species: ", paste(x$species, collapse = ", "), "\n", sep = "")
+  }
   cat("  link:    ", x$link, "\n", sep = "")
   cat("  phase:   ", x$est_phase, "\n", sep = "")
   if (!is.na(x$re_group)) {
@@ -239,22 +306,37 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
                                     stringsAsFactors = FALSE)))
   }
 
+  # Honor an optional species filter set on the spec. When `species`
+  # is supplied, only rows for those species ids are emitted; species
+  # not represented in `by` are unaffected (the filter is a no-op
+  # against a spec that doesn't stratify by species).
+  if (!is.null(spec$species) && "species" %in% names(level_grid)) {
+    level_grid <- level_grid[level_grid$species %in% spec$species, ,
+                             drop = FALSE]
+  }
+  if (nrow(level_grid) == 0L) {
+    return(.empty_materialized(X, X_names))
+  }
+
   rows <- vector("list", n_cols * nrow(level_grid))
   k <- 0L
   for (col_idx in seq_len(n_cols)) {
     cn <- X_names[col_idx]
     init_val   <- spec$init[[cn]]   %||% 0
     bounds_val <- spec$bounds[[cn]] %||% c(-Inf, Inf)
-    prior <- spec$priors[[cn]]
-    if (is.null(prior)) {
-      pf <- "none"; pp1 <- NA_real_; pp2 <- NA_real_
-    } else {
-      pf <- prior$family; pp1 <- prior$p1; pp2 <- prior$p2
-    }
+    prior_spec <- spec$priors[[cn]]
     for (g in seq_len(nrow(level_grid))) {
       sp_id <- if ("species" %in% by_vars) level_grid$species[g] else NA_integer_
       sx_id <- if ("sex"     %in% by_vars) level_grid$sex[g]     else NA_integer_
       ab_id <- if ("age_bin" %in% by_vars) level_grid$age_bin[g] else NA_integer_
+
+      prior <- .resolve_prior(prior_spec, sp_id)
+      if (is.null(prior)) {
+        pf <- "none"; pp1 <- NA_real_; pp2 <- NA_real_
+      } else {
+        pf <- prior$family; pp1 <- prior$p1; pp2 <- prior$p2
+      }
+
       k <- k + 1L
       rows[[k]] <- linkage_row(
         process      = process,
@@ -276,6 +358,23 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
     }
   }
   out <- bind_linkage(rows)
+  attr(out, "design_colnames") <- X_names
+  attr(out, "design_matrix")   <- X
+  out
+}
+
+
+#' Empty materialized table that still carries design metadata.
+#'
+#' Used by `materialize_linkage()` when a `species` filter on the spec
+#' eliminates every row of the level grid. We still need to expose the
+#' design matrix in the attributes so the pooler can union columns
+#' across specs that did emit rows.
+#'
+#' @keywords internal
+#' @noRd
+.empty_materialized <- function(X, X_names) {
+  out <- new_linkage_table()
   attr(out, "design_colnames") <- X_names
   attr(out, "design_matrix")   <- X
   out
@@ -331,9 +430,31 @@ pool_linkages <- function(spec_groups, env_data, strata = list()) {
     specs <- spec_groups[[proc]]
     if (is.null(specs) || length(specs) == 0L) next
     for (param in names(specs)) {
-      tbl <- materialize_linkage(specs[[param]], process = proc,
-                                 env_data = env_data, strata = strata)
-      per_spec[[length(per_spec) + 1L]] <- tbl
+      # Each value may be a single spec, or a list of specs that all
+      # target the same parameter (e.g. species-specific formulas
+      # registered together).
+      this <- specs[[param]]
+      spec_list <- if (inherits(this, "Rceattle_linkage_spec")) {
+        list(this)
+      } else if (is.list(this)) {
+        this
+      } else {
+        stop(sprintf(
+          "spec_groups$%s$%s must be a linkage_spec() or a list of them",
+          proc, param), call. = FALSE)
+      }
+      for (one in spec_list) {
+        if (!inherits(one, "Rceattle_linkage_spec")) {
+          stop(sprintf(
+            "an entry under spec_groups$%s$%s is not a linkage_spec()",
+            proc, param), call. = FALSE)
+        }
+        tbl <- materialize_linkage(.set_linkage_param(one, param),
+                                   process = proc,
+                                   env_data = env_data,
+                                   strata   = strata)
+        per_spec[[length(per_spec) + 1L]] <- tbl
+      }
     }
   }
   if (length(per_spec) == 0L) return(.empty_pool(env_data))

@@ -8,6 +8,7 @@ linkage_spec(
   formula,
   param = NULL,
   by = NULL,
+  species = NULL,
   link = "identity",
   init = NULL,
   bounds = NULL,
@@ -29,6 +30,13 @@ name from the enclosing list key (see \code{\link[=build_growth]{build_growth()}
 each get their own coefficients (e.g. \code{~species},
 \code{~species + sex}). \code{NULL} means the same coefficients apply to
 every species/sex.}
+
+\item{species}{optional integer vector of 1-based species ids that
+this spec applies to. \code{NULL} (default) means every species in
+\code{strata$species} at materialization time. Use this to give
+different species different formulas, e.g. by registering
+multiple specs against the same parameter -- see
+\code{\link[=build_growth]{build_growth()}} for the multi-spec syntax.}
 
 \item{link}{link function applied to the predictor when assembling
 process values; one of \link{LINKAGE_LINKS}.}
