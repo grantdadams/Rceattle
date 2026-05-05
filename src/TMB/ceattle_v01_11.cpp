@@ -859,6 +859,10 @@ Type objective_function<Type>::operator() () {
             env_M1_tmp = env_index.row(yr);
             M1_mult = env_M1_tmp * beta_M1_tmp;
 
+            // M1_mult.sum() is LEGACY: it carries the env effect
+            // from the soft-deprecated M1_indices path. Drop along
+            // with M1_beta / beta_M1_tmp / env_M1_tmp when M1_indices
+            // and M1_model in c(4, 5) retire from build_M1().
             M1_at_age(sp, sex, age, yr) = exp(
               ln_M1(sp, sex, age)
               + ln_M1_dev(sp, sex, age, yr)
@@ -1147,7 +1151,12 @@ Type objective_function<Type>::operator() () {
         }
 
         // -- 6.6.1. Recruitment
-        // - Calculate environmental multiplier if needed
+        // - Calculate environmental multiplier if needed.
+        // LEGACY: this block fires only when the user supplied the
+        // soft-deprecated srr_fun in c(1, 3, 5). It is fully
+        // subsumed by recruitment_linkage_offset (added below). Drop
+        // this block when srr_indices / srr_fun = 1|3|5 are removed
+        // from build_srr().
         Type srr_env_mult = 0.0;
         if(srr_switch == 1 || srr_switch == 3 || srr_switch == 5) {
           beta_rec_tmp = beta_rec_pars.row(sp);
@@ -1296,7 +1305,8 @@ Type objective_function<Type>::operator() () {
           // - Option 2: Use SRR
           if(proj_mean_rec == 0){
 
-            // - Calculate environmental multiplier if needed
+            // LEGACY: srr_indices-driven env path (see comment at
+            // hindcast call site). Subsumed by recruitment_linkage_offset.
             Type srr_env_mult = 0.0;
             if(srr_pred_fun == 1 || srr_pred_fun == 3 || srr_pred_fun == 5) {
               beta_rec_tmp = beta_rec_pars.row(sp);
@@ -1624,7 +1634,8 @@ Type objective_function<Type>::operator() () {
 
       // Year 1+
       for(yr = 1; yr < nyrs; yr++){
-        // - Calculate environmental multiplier if needed
+        // LEGACY: srr_indices-driven env path. Subsumed by
+        // recruitment_linkage_offset.
         Type srr_env_mult = 0.0;
         if(srr_pred_fun == 1 || srr_pred_fun == 3 || srr_pred_fun == 5) {
           beta_rec_tmp = beta_rec_pars.row(sp);

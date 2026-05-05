@@ -116,6 +116,65 @@ linkage_spec <- function(formula,
 }
 
 
+#' Generic linkage-list validator used by `build_*()` helpers
+#'
+#' Each `build_*()` function has near-identical validation:
+#'
+#'   1. The argument must be either `NULL` or a non-empty named list.
+#'   2. Each list key must be one of the per-process allowed
+#'      parameter names (e.g. `c("log_K", "log_L1", ...)` for growth).
+#'   3. Each list value must be either an `Rceattle_linkage_spec` or
+#'      a list of them (the per-species-formula form).
+#'
+#' This helper centralizes those three checks; per-process wrappers
+#' (`.validate_growth_linkages`, `.validate_M_linkages`,
+#' `.validate_recruitment_linkages`) call this and add their own
+#' domain-specific warnings on top, then run [`.stamp_param`] to
+#' fill in `param` from the list keys.
+#'
+#' @param linkages the user-supplied `linkages` argument.
+#' @param allowed_params character vector of valid parameter names
+#'   for this process (e.g. [GROWTH_LINKAGE_PARAMS]).
+#' @param process_label one of `"growth"`, `"M"`, `"recruitment"`,
+#'   used only to make error messages actionable.
+#'
+#' @return `NULL` (when `linkages = NULL`) or the canonicalized list
+#'   with `param` filled in on every spec. Errors loudly on shape
+#'   problems.
+#' @keywords internal
+#' @noRd
+.validate_process_linkages <- function(linkages, allowed_params,
+                                       process_label) {
+  if (is.null(linkages)) return(NULL)
+  if (!is.list(linkages) || length(linkages) == 0L ||
+      is.null(names(linkages)) || any(!nzchar(names(linkages)))) {
+    stop(sprintf(
+      "`linkages` must be a named list keyed by %s parameter (one of: %s)",
+      process_label,
+      paste(allowed_params, collapse = ", ")), call. = FALSE)
+  }
+  bad_names <- setdiff(names(linkages), allowed_params)
+  if (length(bad_names) > 0) {
+    stop(sprintf(
+      "unknown %s linkage parameter(s): %s; allowed: %s",
+      process_label,
+      paste(bad_names, collapse = ", "),
+      paste(allowed_params, collapse = ", ")), call. = FALSE)
+  }
+  for (nm in names(linkages)) {
+    val <- linkages[[nm]]
+    if (inherits(val, "Rceattle_linkage_spec")) next
+    if (is.list(val) &&
+        all(vapply(val, inherits, logical(1),
+                   what = "Rceattle_linkage_spec"))) next
+    stop(sprintf(
+      "linkages$%s must be a linkage_spec() or a list of linkage_spec() objects.",
+      nm), call. = FALSE)
+  }
+  Map(.stamp_param, linkages, names(linkages))
+}
+
+
 #' Set or override the target parameter name on a linkage spec
 #'
 #' Used by `build_*()` helpers that infer the parameter name from the

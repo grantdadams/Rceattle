@@ -93,3 +93,24 @@ testthat::test_that("LINKAGE_PROCESS_CODES has stable assignments", {
     c(recruitment = 0L, M = 1L, growth = 2L, q = 3L, sel = 4L)
   )
 })
+
+
+testthat::test_that("*_LINKAGE_PARAMS stays in sync with LINKAGE_PARAM_CODES", {
+  # The user-facing per-process allowed-key vectors live in
+  # R/0-build_srr_and_M.R, while the cpp-side integer-code mapping
+  # lives in R/0-linkage_encode.R. They must agree on which params
+  # exist for each process or the encoder errors at fit time. This
+  # test catches drift in either direction.
+  testthat::expect_setequal(
+    Rceattle:::GROWTH_LINKAGE_PARAMS,
+    names(Rceattle:::LINKAGE_PARAM_CODES$growth)
+  )
+  testthat::expect_setequal(
+    Rceattle:::M_LINKAGE_PARAMS,
+    names(Rceattle:::LINKAGE_PARAM_CODES$M)
+  )
+  testthat::expect_setequal(
+    Rceattle:::RECRUITMENT_LINKAGE_PARAMS,
+    names(Rceattle:::LINKAGE_PARAM_CODES$recruitment)
+  )
+})
