@@ -611,17 +611,24 @@ Type objective_function<Type>::operator() () {
   REPORT(growth_linkage_offset);
   REPORT(ln_beta_linkage);
 
-  // -- Rearange growth parameters
+  // -- Rearange growth parameters. The linkage offset enters additively
+  //    on the log scale; with no linkages it stays at zero so the result
+  //    is identical to the previous formula.
   array<Type> growth_parameters(nspp, max_sex, nyrs, int(4)); growth_parameters.setZero(); // K, L1, Linf, m
   for(sp = 0; sp < nspp; sp++){
     for(sex = 0; sex < nsex(sp); sex ++){
       for(yr = 0; yr < nyrs; yr++){
         for(int par = 0; par < 4; par++){
-          growth_parameters(sp, sex, yr, par) = exp(ln_growth_pars(sp, sex, par) + ln_growth_par_devs(sp, sex, yr, par));
+          growth_parameters(sp, sex, yr, par) = exp(
+            ln_growth_pars(sp, sex, par)
+            + ln_growth_par_devs(sp, sex, yr, par)
+            + growth_linkage_offset(sp, sex, par, yr)
+          );
         }
       }
     }
   }
+  REPORT(growth_parameters);
 
   // -- Calculate weight
   calculate_weight(
