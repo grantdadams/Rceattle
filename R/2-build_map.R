@@ -39,6 +39,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
   map_list <- build_map_growth(map_list, data_list, nyrs_hind)
 
+  map_list <- build_map_linkages(map_list, data_list)
+
   map_list <- build_map_predation(map_list, data_list)
 
   map_list <- build_map_selectivity(map_list, data_list, nyrs_hind, random_sel)
@@ -1270,4 +1272,31 @@ build_map_debug <- function(map_list, debug) {
     map_list$dummy <- NA
   }
   return(map_list)
+}
+
+
+#' @title Helper to set map for linkage-table coefficients
+#'
+#' @description Maps `ln_beta_linkage` (one entry per row of
+#'   `data_list$linkage_table`). Rows whose `est_phase == 0` are fixed
+#'   at their initial values via `NA`; everything else is estimated.
+#'   Phased estimation honoring nonzero phase ordinals can layer on
+#'   later via the `phase` argument to [fit_control()].
+#'
+#' @param map_list The current TMB map list.
+#' @param data_list an Rceattle data_list (with the pooled
+#'   `linkage_table` from `pool_linkages()`).
+#'
+#' @return Updated \code{map_list}.
+#' @keywords internal
+build_map_linkages <- function(map_list, data_list) {
+  if (is.null(data_list$linkage_table) ||
+      nrow(data_list$linkage_table) == 0L) {
+    return(map_list)
+  }
+  est_phase <- as.integer(data_list$linkage_table$est_phase)
+  m <- map_list$ln_beta_linkage
+  m[est_phase == 0L] <- NA
+  map_list$ln_beta_linkage <- m
+  map_list
 }

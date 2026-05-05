@@ -190,6 +190,17 @@ build_params <- function(data_list) {
   param_list$weight_length_pars[,1] <- data_list$alpha_wt_len
   param_list$weight_length_pars[,2] <- data_list$beta_wt_len
 
+  # * 1.3b. Linkage-table coefficients ----
+  # Aligned row-for-row with the pooled `data_list$linkage_table` (set
+  # by `pool_linkages()` inside `fit_mod`). Initial values come from
+  # the `init` column of the table; absent table => length-0 vector.
+  if (!is.null(data_list$linkage_table) &&
+      nrow(data_list$linkage_table) > 0L) {
+    param_list$ln_beta_linkage <- as.numeric(data_list$linkage_table$init)
+  } else {
+    param_list$ln_beta_linkage <- numeric(0)
+  }
+
   #TODO variance and AR1 parameters
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#

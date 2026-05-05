@@ -393,6 +393,35 @@ fit_mod <-
     data_list_reorganized <- c(list(model = TMBfilename), data_list_reorganized)
     data_list_reorganized$forecast <- rep(0, data_list_reorganized$nspp) # hindcast switch
 
+    # * Inject linkage-table encoding into the TMB DATA ----
+    # Empty when no build_*() supplied a `linkages` list. TMB's
+    # DATA_MATRIX can be touchy about 0-dim shapes during ADFun
+    # construction, so we substitute a single-cell sentinel when
+    # there are no linkages -- the cpp loop short-circuits on
+    # n_linkage == 0 without ever indexing into `linkage_X`.
+    .linkage_table_now <- data_list$linkage_table %||% new_linkage_table()
+    .linkage_X_now     <- if (nrow(.linkage_table_now) > 0L) {
+      data_list$linkage_X
+    } else {
+      matrix(0, nrow = 1L, ncol = 1L)
+    }
+    .linkage_enc <- encode_linkage_for_tmb(
+      table = .linkage_table_now,
+      X     = .linkage_X_now
+    )
+    # The TMB cpp reads these by exact name; do not rename.
+    data_list_reorganized$linkage_process      <- .linkage_enc$linkage_process
+    data_list_reorganized$linkage_param        <- .linkage_enc$linkage_param
+    data_list_reorganized$linkage_species      <- .linkage_enc$linkage_species
+    data_list_reorganized$linkage_sex          <- .linkage_enc$linkage_sex
+    data_list_reorganized$linkage_age_bin      <- .linkage_enc$linkage_age_bin
+    data_list_reorganized$linkage_X_col        <- .linkage_enc$linkage_X_col
+    data_list_reorganized$linkage_link         <- .linkage_enc$linkage_link
+    data_list_reorganized$linkage_prior_family <- .linkage_enc$linkage_prior_family
+    data_list_reorganized$linkage_prior_p1     <- .linkage_enc$linkage_prior_p1
+    data_list_reorganized$linkage_prior_p2     <- .linkage_enc$linkage_prior_p2
+    data_list_reorganized$linkage_X            <- .linkage_enc$linkage_X
+
     # Update comp weights, future F (if input), and F_prop from data
     # Age/length composition
     if (!is.null(data_list$fleet_control$Comp_weights)) {
