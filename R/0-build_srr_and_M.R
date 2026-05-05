@@ -220,31 +220,10 @@ RECRUITMENT_LINKAGE_PARAMS <- c("log_R0", "log_alpha", "log_beta")
 #' @keywords internal
 #' @noRd
 .validate_recruitment_linkages <- function(linkages, srr_fun) {
+  linkages <- .validate_process_linkages(
+    linkages, RECRUITMENT_LINKAGE_PARAMS, "recruitment"
+  )
   if (is.null(linkages)) return(NULL)
-  if (!is.list(linkages) || length(linkages) == 0L ||
-      is.null(names(linkages)) || any(!nzchar(names(linkages)))) {
-    stop("`linkages` must be a named list keyed by recruitment ",
-         "parameter (one of: ",
-         paste(RECRUITMENT_LINKAGE_PARAMS, collapse = ", "), ")",
-         call. = FALSE)
-  }
-  bad_names <- setdiff(names(linkages), RECRUITMENT_LINKAGE_PARAMS)
-  if (length(bad_names) > 0) {
-    stop("unknown recruitment linkage parameter(s): ",
-         paste(bad_names, collapse = ", "),
-         "; allowed: ",
-         paste(RECRUITMENT_LINKAGE_PARAMS, collapse = ", "),
-         call. = FALSE)
-  }
-  for (nm in names(linkages)) {
-    val <- linkages[[nm]]
-    if (inherits(val, "Rceattle_linkage_spec")) next
-    if (is.list(val) &&
-        all(vapply(val, inherits, logical(1),
-                   what = "Rceattle_linkage_spec"))) next
-    stop("linkages$", nm, " must be a linkage_spec() or a list of ",
-         "linkage_spec() objects.", call. = FALSE)
-  }
   # Soft consistency check: a BH/Ricker SRR uses log_alpha and
   # log_beta; the mean-only srr_fun (0) uses neither.
   uses_alpha_beta <- srr_fun %in% c(2L, 3L, 4L, 5L)
@@ -259,7 +238,7 @@ RECRUITMENT_LINKAGE_PARAMS <- c("log_R0", "log_alpha", "log_beta")
               "parameters.", call. = FALSE)
     }
   }
-  Map(.stamp_param, linkages, names(linkages))
+  linkages
 }
 
 
@@ -551,32 +530,7 @@ build_M1 <- function(M1_model = 0,
 #' @keywords internal
 #' @noRd
 .validate_M_linkages <- function(linkages) {
-  if (is.null(linkages)) return(NULL)
-  if (!is.list(linkages) || length(linkages) == 0L ||
-      is.null(names(linkages)) || any(!nzchar(names(linkages)))) {
-    stop("`linkages` must be a named list keyed by M parameter ",
-         "(one of: ", paste(M_LINKAGE_PARAMS, collapse = ", "), ")",
-         call. = FALSE)
-  }
-  bad_names <- setdiff(names(linkages), M_LINKAGE_PARAMS)
-  if (length(bad_names) > 0) {
-    stop("unknown M linkage parameter(s): ",
-         paste(bad_names, collapse = ", "),
-         "; allowed: ", paste(M_LINKAGE_PARAMS, collapse = ", "),
-         call. = FALSE)
-  }
-  # Each linkages[[param]] may be a single linkage_spec() or a list
-  # of them (e.g. species-specific formulas registered together).
-  for (nm in names(linkages)) {
-    val <- linkages[[nm]]
-    if (inherits(val, "Rceattle_linkage_spec")) next
-    if (is.list(val) &&
-        all(vapply(val, inherits, logical(1),
-                   what = "Rceattle_linkage_spec"))) next
-    stop("linkages$", nm, " must be a linkage_spec() or a list of ",
-         "linkage_spec() objects.", call. = FALSE)
-  }
-  Map(.stamp_param, linkages, names(linkages))
+  .validate_process_linkages(linkages, M_LINKAGE_PARAMS, "M")
 }
 
 
@@ -709,32 +663,10 @@ build_growth <- function(fun = "empirical", linkages = NULL) {
 #' @keywords internal
 #' @noRd
 .validate_growth_linkages <- function(linkages, fun) {
+  linkages <- .validate_process_linkages(
+    linkages, GROWTH_LINKAGE_PARAMS, "growth"
+  )
   if (is.null(linkages)) return(NULL)
-  if (!is.list(linkages) || length(linkages) == 0L ||
-      is.null(names(linkages)) || any(!nzchar(names(linkages)))) {
-    stop("`linkages` must be a named list keyed by growth parameter ",
-         "(one of: ", paste(GROWTH_LINKAGE_PARAMS, collapse = ", "), ")",
-         call. = FALSE)
-  }
-  bad_names <- setdiff(names(linkages), GROWTH_LINKAGE_PARAMS)
-  if (length(bad_names) > 0) {
-    stop("unknown growth linkage parameter(s): ",
-         paste(bad_names, collapse = ", "),
-         "; allowed: ", paste(GROWTH_LINKAGE_PARAMS, collapse = ", "),
-         call. = FALSE)
-  }
-  # Each linkages[[param]] may be either a single linkage_spec() or a
-  # list of them (e.g. species-specific formulas registered under the
-  # same parameter). Normalise both shapes; reject anything else.
-  for (nm in names(linkages)) {
-    val <- linkages[[nm]]
-    if (inherits(val, "Rceattle_linkage_spec")) next
-    if (is.list(val) &&
-        all(vapply(val, inherits, logical(1),
-                   what = "Rceattle_linkage_spec"))) next
-    stop("linkages$", nm, " must be a linkage_spec() or a list of ",
-         "linkage_spec() objects.", call. = FALSE)
-  }
   if (any(fun == "empirical")) {
     warning("at least one species uses fun = 'empirical', which does ",
             "not consume linkages; the supplied specs will be ",
@@ -746,9 +678,7 @@ build_growth <- function(fun = "empirical", linkages = NULL) {
          "fun = 'Richards'; von Bertalanffy has no `m` parameter.",
          call. = FALSE)
   }
-  # Stamp the parameter name onto each spec (single or list-of-specs)
-  # using the linkages-list key, so users don't have to repeat the name.
-  Map(.stamp_param, linkages, names(linkages))
+  linkages
 }
 
 
