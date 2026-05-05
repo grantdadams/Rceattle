@@ -143,7 +143,7 @@ testthat::test_that("species-specific priors validate input shape", {
       param   = "log_M",
       priors  = list(temp = list(`1` = c(0, 1)))   # not an Rceattle_prior
     ),
-    "is not an Rceattle_prior"
+    "must be an Rceattle_prior or a named list of priors keyed by sex"
   )
 })
 
@@ -164,6 +164,73 @@ testthat::test_that("scalar prior still applies across all species", {
   temp_rows <- rows[rows$X_col == 2L, ]
   testthat::expect_true(all(temp_rows$prior_family == "normal"))
   testthat::expect_true(all(temp_rows$prior_p2 == 0.3))
+})
+
+
+testthat::test_that("species-then-sex priors materialize per (sp, sex) row", {
+  env <- data.frame(Year = 2000:2004, temp = stats::rnorm(5))
+  spec <- Rceattle:::linkage_spec(
+    formula = ~ temp,
+    param   = "log_M",
+    by      = ~ species + sex,
+    priors  = list(
+      temp = list(
+        `1` = list(`1` = normal(0, 0.1),
+                   `2` = normal(0, 0.2)),
+        `2` = normal(0, 0.5)
+        # species 3 deliberately omitted
+      )
+    )
+  )
+  rows <- Rceattle:::materialize_linkage(
+    spec, process = "M",
+    env_data = env,
+    strata   = list(species = 1:3, sex = 1:2)
+  )
+  temp_rows <- rows[rows$X_col == 2L, ]
+  testthat::expect_equal(nrow(temp_rows), 6L)   # 3 species x 2 sex
+
+  sp1_sex1 <- temp_rows[temp_rows$species == 1L & temp_rows$sex == 1L, ]
+  sp1_sex2 <- temp_rows[temp_rows$species == 1L & temp_rows$sex == 2L, ]
+  sp2_sex1 <- temp_rows[temp_rows$species == 2L & temp_rows$sex == 1L, ]
+  sp2_sex2 <- temp_rows[temp_rows$species == 2L & temp_rows$sex == 2L, ]
+  sp3_any  <- temp_rows[temp_rows$species == 3L, ]
+
+  testthat::expect_equal(sp1_sex1$prior_family, "normal")
+  testthat::expect_equal(sp1_sex1$prior_p2, 0.1)
+  testthat::expect_equal(sp1_sex2$prior_family, "normal")
+  testthat::expect_equal(sp1_sex2$prior_p2, 0.2)
+  # Species 2 has a scalar -> applies to both sexes.
+  testthat::expect_true(all(sp2_sex1$prior_family == "normal"))
+  testthat::expect_true(all(sp2_sex2$prior_family == "normal"))
+  testthat::expect_equal(sp2_sex1$prior_p2, 0.5)
+  testthat::expect_equal(sp2_sex2$prior_p2, 0.5)
+  # Species 3 has no entry -> no prior.
+  testthat::expect_true(all(sp3_any$prior_family == "none"))
+})
+
+
+testthat::test_that("nested priors validate input shape", {
+  testthat::expect_error(
+    Rceattle:::linkage_spec(
+      formula = ~ temp,
+      param   = "log_M",
+      priors  = list(
+        temp = list(`1` = list(normal(0, 0.1)))     # inner unnamed
+      )
+    ),
+    "named list keyed by sex id"
+  )
+  testthat::expect_error(
+    Rceattle:::linkage_spec(
+      formula = ~ temp,
+      param   = "log_M",
+      priors  = list(
+        temp = list(`1` = c(0, 1))                   # not a prior or list
+      )
+    ),
+    "must be an Rceattle_prior or a named list of priors keyed by sex"
+  )
 })
 
 
