@@ -43,6 +43,7 @@ om <- Rceattle::fit_mod(
 ## Fitting EMs (Tier 3 HCR)
 
 We can use the `HCR = build_hcr()` argument in `fit_mod` to specify the HCR and BRPs of our management strategy.
+A variety of HCRs and BRPs are included and can be found by `?build_hcr`.
 
 ```{r, message = FALSE, echo = TRUE}
 em <- Rceattle::fit_mod(
@@ -92,7 +93,7 @@ mse1 <- run_mse(
 * `regenerate_seed` (defaults to `seed`) controls the optional
   `regenerate_past = TRUE` step that re-fits the EM to OM-simulated
   historical data. Set this separately if you want to vary
-  past-data realisations while holding the projection draws fixed.
+  past-data realizations while holding the projection draws fixed.
 
 The MSE uses a PSOCK cluster (`parallel::parLapply`) by default, so
 worker processes are clean and only see the explicit objects shipped

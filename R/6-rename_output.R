@@ -88,6 +88,7 @@ rename_output = function(data_list = NULL, quantities = NULL){
   dimnames(quantities$NByage0) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
   dimnames(quantities$NByageF) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
   dimnames(quantities$growth_parameters) <- list(data_list$spnames, sex_labels, yrs_proj, GROWTH_LINKAGE_PARAMS)
+  dimnames(quantities$growth_linkage_offset) <- list(data_list$spnames, sex_labels, yrs_proj, GROWTH_LINKAGE_PARAMS)
 
   dimnames(quantities$weight_hat) <- dimnames(quantities$length_hat) <- list(
     c(paste(rep(data_list$spnames, each = 2), rep(c("biomass length", "spawn length"), data_list$nspp)), data_list$fleet_control$Fleet_name),

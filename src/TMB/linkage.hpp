@@ -50,7 +50,7 @@
 // Build the per-(species, sex, growth_param, year) offset tensor.
 //
 // @tparam Type TMB scalar type.
-// @param[out] growth_offset 4D array shaped [nspp, max_nsex, n_params, nyrs].
+// @param[out] growth_offset 4D array shaped [nspp, max_nsex, nyrs, n_params].
 //   Caller is expected to allocate and zero-initialize it.
 // @param[in] linkage_process,linkage_param,linkage_species,linkage_sex,
 //   linkage_age_bin,linkage_X_col,linkage_link the encoded table columns.
@@ -119,7 +119,7 @@ void rceattle_apply_growth_linkages(
         // unperturbed value of the underlying growth parameter.
         int yr_hi = std::min(nyrs, (int)linkage_X.rows());
         for (int yr = 0; yr < yr_hi; ++yr) {
-          growth_offset(sp, sx, param, yr) += b * linkage_X(yr, xc);
+          growth_offset(sp, sx, yr, param) += b * linkage_X(yr, xc);
         }
       }
     }

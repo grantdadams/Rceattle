@@ -169,8 +169,8 @@ testthat::test_that("per-species formulas fit through fit_mod end-to-end", {
   k_idx <- 1L
   sex   <- 1L
   off <- fit$quantities$growth_linkage_offset
-  obs_sp1 <- as.numeric(off[1, sex, k_idx, yr_idx])
-  obs_sp2 <- as.numeric(off[2, sex, k_idx, yr_idx])
+  obs_sp1 <- as.numeric(off[1, sex, yr_idx, k_idx])
+  obs_sp2 <- as.numeric(off[2, sex, yr_idx, k_idx])
   testthat::expect_equal(obs_sp1, 0.3 * sim_data$env_data$temp,
                          tolerance = 1e-10)
   testthat::expect_equal(
@@ -272,7 +272,7 @@ testthat::test_that("per-species formulas + species-specific priors compose", {
 
 
 
-testthat::test_that("Test internal VB growth and length-based logistic selectivity", {
+testthat::test_that("Test internal K-linked growth", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -349,7 +349,12 @@ testthat::test_that("Test internal VB growth and length-based logistic selectivi
                                     fit_control = fit_control(phase = FALSE, verbose = 0)) )
 
   # - Params
+  testthat::expect_equal(as.numeric(mod0$estimated_params$ln_growth_pars[,1,1]), c(0, 0))
   testthat::expect_equal(mod0$estimated_params$beta_linkage, c(log(0.3),1,log(0.35),2,3))
+
+  # - Map
+  testthat::expect_all_true(is.na(c(mod0$map$mapList$ln_growth_pars[,1,c(1,4)]))) # base k and m are off
+  testthat::expect_all_true(!is.na(c(mod0$map$mapList$ln_growth_pars[,1,-c(1,4)]))) # l1 and linf are on
 
   # - Set other inits
   inits <- mod0$estimated_params
@@ -363,8 +368,8 @@ testthat::test_that("Test internal VB growth and length-based logistic selectivi
   inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
   inits$growth_ln_sd[] <- log(3)
-  inits$ln_growth_pars[,1,] = matrix(log(c(0, 4.5, 90, 1.0,
-                                           0, 4.5, 50, 1.0)), # K set to 0 b/c linkage, L1, Linf, M
+  inits$ln_growth_pars[,1,] = matrix(log(c(1, 4.5, 90, 1.0,
+                                           1, 4.5, 50, 1.0)), # K set to 0 b/c linkage, L1, Linf, M
                                      nrow = nspp, ncol = 4, byrow = TRUE)
 
   # Fit Rceattle -------------------------------------------------------------
@@ -380,12 +385,7 @@ testthat::test_that("Test internal VB growth and length-based logistic selectivi
                                      verbose = 1))
 
 
-  # 1. Check size-selectivity ----
-  testthat::expect_equal(as.numeric(sim$model_quantities$srv_size_sel), as.numeric(ss_run_init$quantities$sel_at_length[c(1,3),1,,1]))
-  testthat::expect_equal(as.numeric(sim$model_quantities$fish_size_sel), as.numeric(ss_run_init$quantities$sel_at_length[c(2,4),1,,1]))
-
-
-  # 2. Check growth parameters ----
+  #  Check growth parameters ----
   # - L1
   testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_parameters[,,,2]), rep(4.5, length(as.numeric(ss_run_init$quantities$growth_parameters[,,,2]))))
 
@@ -396,7 +396,290 @@ testthat::test_that("Test internal VB growth and length-based logistic selectivi
   # - m
   testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_parameters[,,,4]), rep(1, length(as.numeric(ss_run_init$quantities$growth_parameters[,,,4]))))
 
+  # - K (has linkage)
+  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_linkage_offset[1,1,,1]), log(0.3) + (simData$env_data$temp)) # Species 1
+  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_parameters[1,1,,1]), (0.3) * exp(simData$env_data$temp))
+
+  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_linkage_offset[2,1,,1]), log(0.35) + (2 * simData$env_data$temp + 3 * simData$env_data$PDO)) # Species2
+  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_parameters[2,1,,1]), (0.35) * exp(2 * simData$env_data$temp + 3 * simData$env_data$PDO))
+
+
+  # - Prior
+  priornll <- dnorm(1, 0, 0.3, log = TRUE) +  dnorm(2, 0, 0.7, log = TRUE) + dnorm(3, 0, 1, log = TRUE)
+  testthat::expect_equal(sum(ss_run_init$quantities$jnll_comp[20,]), -priornll)
+})
+
+
+testthat::test_that("Test internal L1-linked growth", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  # 1) Set up simulation
+  nyrs = 30
+  nspp = 2
+  Fmort <- c(seq(0.02, 0.3, length.out = nyrs/2), seq(0.3, 0.05, length.out = nyrs/2))
+  Fmort2 <- seq(0.02, 0.3, length.out = nyrs)
+  log_phi = matrix(-Inf, nspp, nspp, byrow = TRUE)
+
+  # First, simulate some data for the model
+  set.seed(123)
+  sim <- make_msm_test_data(
+    years = 1:nyrs,
+    Fmort = matrix(c(Fmort, Fmort2), nspp, nyrs, byrow = TRUE),
+
+    # Growth
+    use_size_sel = TRUE,
+    fish_CAAL_ISS = 1e6,
+    srv_CAAL_ISS = 1e6,
+
+    # Multispecies bits
+    log_phi = log_phi
+  )
+
+
+  # Set up Rceattle data
+  simData <- sim$data_list
+  yrs <- simData$styr:simData$projyr
+  simData$env_data <- data.frame(
+    Year = yrs,
+    temp = seq(0, 1, length.out = length(yrs)),
+    PDO  = stats::rnorm(length(yrs))
+  )
+
+  growth_spec <- Rceattle::build_growth(
+    fun = "vonBertalanffy",
+    linkages = list(
+      log_L1 = list(
+        Rceattle::linkage_spec(
+          formula = ~ temp,
+          by      = ~ species,
+          species = 1L,
+          init  = list(
+            "(Intercept)" = log(4.5),
+            temp = 1),
+          priors  = list(temp = normal(0, 0.3))
+        ),
+        Rceattle::linkage_spec(
+          formula = ~ temp + PDO,
+          by      = ~ species,
+          species = 2L,
+          init  = list(
+            "(Intercept)" = log(5),
+            temp = 2,
+            PDO = 3),
+          priors  = list(
+            temp = normal(0, 0.7),
+            PDO  = normal(0, 1.0)
+          )
+        )
+      )
+    )
+  )
+
+  # Fit multi-species
+  # * Fix parameters -----
+  mod0 <- suppressMessages( fit_mod(data_list = simData,
+                                    inits = NULL,
+                                    estimateMode = 3,
+                                    growthFun = growth_spec,
+                                    random_rec = FALSE,
+                                    msmMode = 0,
+                                    fit_control = fit_control(phase = FALSE, verbose = 0)) )
+
+  # - Params
+  testthat::expect_equal(as.numeric(mod0$estimated_params$ln_growth_pars[,1,2]), c(0, 0))
+  testthat::expect_equal(mod0$estimated_params$beta_linkage, c(log(4.5),1,log(5),2,3))
+
+  # - Map
+  testthat::expect_all_true(is.na(c(mod0$map$mapList$ln_growth_pars[,1,c(2,4)]))) # base k and m are off
+  testthat::expect_all_true(!is.na(c(mod0$map$mapList$ln_growth_pars[,1,-c(2,4)]))) # l1 and linf are on
+
+  # - Set other inits
+  inits <- mod0$estimated_params
+  inits$sel_inf[1,,1] <- c(20,35,15,30)
+  inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
+  inits$ln_F[2,] <- log(Fmort)
+  inits$ln_F[4,] <- log(Fmort2)
+  inits$rec_pars[,1] <- log(c(1e2, 1e3))
+  inits$index_ln_q[] <- log(1)
+  inits$R_ln_sd[] <- log(1)
+  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
+  inits$init_dev[,1:14] <- sim$model_quantities$init_devs
+  inits$growth_ln_sd[] <- log(3)
+  inits$ln_growth_pars[,1,] = matrix(log(c(0.3, 1, 90, 1.0,
+                                           0.3, 1, 50, 1.0)), # K set to 0 b/c linkage, L1, Linf, M
+                                     nrow = nspp, ncol = 4, byrow = TRUE)
+
+  # Fit Rceattle -------------------------------------------------------------
+  ss_run_init <- Rceattle::fit_mod(data_list = simData,
+                                   inits = inits, # Initial parameters from sim
+                                   map = mod0$map,
+                                   estimateMode = 3, # Don't estimate
+                                   growthFun = growth_spec, # Von bertalanffy growth
+                                   random_rec = FALSE, # No random recruitment
+                                   msmMode = 0, # Single species mode
+                                   fit_control = fit_control(
+                                     phase = FALSE,
+                                     verbose = 1))
+
+
+
+  # Check growth parameters ----
+  # - L1
+  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_linkage_offset[1,1,,2]), log(4.5) + (simData$env_data$temp)) # Species1
+  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_parameters[1,1,,2]), (4.5) * exp(simData$env_data$temp))
+
+  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_linkage_offset[2,1,,2]), log(5) + (2 * simData$env_data$temp + 3 * simData$env_data$PDO)) # Species2
+  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_parameters[2,1,,2]), (5) * exp(2 * simData$env_data$temp + 3 * simData$env_data$PDO))
+
+  # - Linf
+  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_parameters[2,,,3]), rep(50, length(as.numeric(ss_run_init$quantities$growth_parameters[2,,,3]))))
+  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_parameters[1,,,3]), rep(90, length(as.numeric(ss_run_init$quantities$growth_parameters[1,,,3]))))
+
+  # - m
+  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_parameters[,,,4]), rep(1, length(as.numeric(ss_run_init$quantities$growth_parameters[,,,4]))))
+
   # - K
-  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_parameters[1,,1,1]), 0.3)
-  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_parameters[2,,1,1]), 0.35)
+  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_parameters[,,,1]), rep(0.3, length(as.numeric(ss_run_init$quantities$growth_parameters[,,,1]))))
+
+
+  # - Prior
+  priornll <- dnorm(1, 0, 0.3, log = TRUE) +  dnorm(2, 0, 0.7, log = TRUE) + dnorm(3, 0, 1, log = TRUE)
+  testthat::expect_equal(sum(ss_run_init$quantities$jnll_comp[20,]), -priornll)
+})
+
+
+testthat::test_that("Test internal Linf-linked growth", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  # 1) Set up simulation
+  nyrs = 30
+  nspp = 2
+  Fmort <- c(seq(0.02, 0.3, length.out = nyrs/2), seq(0.3, 0.05, length.out = nyrs/2))
+  Fmort2 <- seq(0.02, 0.3, length.out = nyrs)
+  log_phi = matrix(-Inf, nspp, nspp, byrow = TRUE)
+
+  # First, simulate some data for the model
+  set.seed(123)
+  sim <- make_msm_test_data(
+    years = 1:nyrs,
+    Fmort = matrix(c(Fmort, Fmort2), nspp, nyrs, byrow = TRUE),
+
+    # Growth
+    use_size_sel = TRUE,
+    fish_CAAL_ISS = 1e6,
+    srv_CAAL_ISS = 1e6,
+
+    # Multispecies bits
+    log_phi = log_phi
+  )
+
+
+  # Set up Rceattle data
+  simData <- sim$data_list
+  yrs <- simData$styr:simData$projyr
+  simData$env_data <- data.frame(
+    Year = yrs,
+    temp = seq(0, 1, length.out = length(yrs)),
+    PDO  = stats::rnorm(length(yrs))
+  )
+
+  growth_spec <- Rceattle::build_growth(
+    fun = "vonBertalanffy",
+    linkages = list(
+      log_Linf = list(
+        Rceattle::linkage_spec(
+          formula = ~ temp,
+          by      = ~ species,
+          species = 1L,
+          init  = list(
+            "(Intercept)" = log(90),
+            temp = 1),
+          priors  = list(temp = normal(0, 0.3))
+        ),
+        Rceattle::linkage_spec(
+          formula = ~ temp + PDO,
+          by      = ~ species,
+          species = 2L,
+          init  = list(
+            "(Intercept)" = log(50),
+            temp = 2,
+            PDO = 3),
+          priors  = list(
+            temp = normal(0, 0.7),
+            PDO  = normal(0, 1.0)
+          )
+        )
+      )
+    )
+  )
+
+  # Fit multi-species
+  # * Fix parameters -----
+  mod0 <- suppressMessages( fit_mod(data_list = simData,
+                                    inits = NULL,
+                                    estimateMode = 3,
+                                    growthFun = growth_spec,
+                                    random_rec = FALSE,
+                                    msmMode = 0,
+                                    fit_control = fit_control(phase = FALSE, verbose = 0)) )
+
+  # - Params
+  testthat::expect_equal(as.numeric(mod0$estimated_params$ln_growth_pars[,1,3]), c(0, 0))
+  testthat::expect_equal(mod0$estimated_params$beta_linkage, c(log(90),1,log(50),2,3))
+
+  # - Map
+  testthat::expect_all_true(is.na(c(mod0$map$mapList$ln_growth_pars[,1,c(3,4)]))) # base k and m are off
+  testthat::expect_all_true(!is.na(c(mod0$map$mapList$ln_growth_pars[,1,-c(3,4)]))) # l1 and linf are on
+
+  # - Set other inits
+  inits <- mod0$estimated_params
+  inits$sel_inf[1,,1] <- c(20,35,15,30)
+  inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
+  inits$ln_F[2,] <- log(Fmort)
+  inits$ln_F[4,] <- log(Fmort2)
+  inits$rec_pars[,1] <- log(c(1e2, 1e3))
+  inits$index_ln_q[] <- log(1)
+  inits$R_ln_sd[] <- log(1)
+  inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
+  inits$init_dev[,1:14] <- sim$model_quantities$init_devs
+  inits$growth_ln_sd[] <- log(3)
+  inits$ln_growth_pars[,1,] = matrix(log(c(0.3, 4.5, 1, 1.0,
+                                           0.3, 4.5, 1, 1.0)), # K set to 0 b/c linkage, L1, Linf, M
+                                     nrow = nspp, ncol = 4, byrow = TRUE)
+
+  # Fit Rceattle -------------------------------------------------------------
+  ss_run_init <- Rceattle::fit_mod(data_list = simData,
+                                   inits = inits, # Initial parameters from sim
+                                   map = mod0$map,
+                                   estimateMode = 3, # Don't estimate
+                                   growthFun = growth_spec, # Von bertalanffy growth
+                                   random_rec = FALSE, # No random recruitment
+                                   msmMode = 0, # Single species mode
+                                   fit_control = fit_control(
+                                     phase = FALSE,
+                                     verbose = 1))
+
+  # Check growth parameters ----
+  # - L1
+  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_parameters[,,,2]), rep(4.5, length(as.numeric(ss_run_init$quantities$growth_parameters[,,,2]))))
+
+  # - Linf
+  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_linkage_offset[1,1,,3]), log(90) + (simData$env_data$temp)) # Species1
+  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_parameters[1,1,,3]), (90) * exp(simData$env_data$temp))
+
+  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_linkage_offset[2,1,,3]), log(50) + (2 * simData$env_data$temp + 3 * simData$env_data$PDO)) # Species2
+  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_parameters[2,1,,3]), (50) * exp(2 * simData$env_data$temp + 3 * simData$env_data$PDO))
+
+  # - m
+  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_parameters[,,,4]), rep(1, length(as.numeric(ss_run_init$quantities$growth_parameters[,,,4]))))
+
+  # - K
+  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_parameters[,,,1]), rep(0.3, length(as.numeric(ss_run_init$quantities$growth_parameters[,,,1]))))
+
+
+  # - Prior
+  priornll <- dnorm(1, 0, 0.3, log = TRUE) +  dnorm(2, 0, 0.7, log = TRUE) + dnorm(3, 0, 1, log = TRUE)
+  testthat::expect_equal(sum(ss_run_init$quantities$jnll_comp[20,]), -priornll)
 })
