@@ -101,6 +101,9 @@ linkage_spec <- function(formula,
   link <- match.arg(link, LINKAGE_LINKS)
   param_str <- if (is.null(param)) NA_character_ else as.character(param)
 
+  init   <- .validate_linkage_init_arg(init)
+  bounds <- .validate_linkage_bounds_arg(bounds)
+
   structure(
     list(
       formula   = formula,
@@ -108,8 +111,8 @@ linkage_spec <- function(formula,
       by        = by,
       species   = species,
       link      = link,
-      init      = init   %||% list(),
-      bounds    = bounds %||% list(),
+      init      = init,
+      bounds    = bounds,
       priors    = priors_obj,
       re_group  = as.character(re_group),
       est_phase = as.integer(est_phase)
@@ -281,6 +284,46 @@ linkage_spec <- function(formula,
       nm), call. = FALSE)
   }
   priors
+}
+
+.validate_linkage_init_arg <- function(init) {
+  if (is.null(init)) return(list())
+  if (!is.list(init) || (length(init) > 0 && is.null(names(init)))) {
+    stop("`init` must be a named list keyed by design-matrix column name ",
+         "(e.g. list(temp = 0)).", call. = FALSE)
+  }
+  if (length(init) > 0 && any(!nzchar(names(init)))) {
+    stop("`init` must be a named list keyed by design-matrix column name.",
+         call. = FALSE)
+  }
+  for (nm in names(init)) {
+    val <- init[[nm]]
+    if (!is.numeric(val) || length(val) != 1L) {
+      stop(sprintf("init$%s must be a numeric scalar", nm),
+           call. = FALSE)
+    }
+  }
+  init
+}
+
+.validate_linkage_bounds_arg <- function(bounds) {
+  if (is.null(bounds)) return(list())
+  if (!is.list(bounds) || (length(bounds) > 0 && is.null(names(bounds)))) {
+    stop("`bounds` must be a named list keyed by design-matrix column name ",
+         "(e.g. list(temp = c(-Inf, Inf))).", call. = FALSE)
+  }
+  if (length(bounds) > 0 && any(!nzchar(names(bounds)))) {
+    stop("`bounds` must be a named list keyed by design-matrix column name.",
+         call. = FALSE)
+  }
+  for (nm in names(bounds)) {
+    val <- bounds[[nm]]
+    if (!is.numeric(val) || length(val) != 2L) {
+      stop(sprintf("bounds$%s must be a numeric vector of length 2", nm),
+           call. = FALSE)
+    }
+  }
+  bounds
 }
 
 
@@ -595,11 +638,12 @@ pool_linkages <- function(spec_groups, env_data, strata = list()) {
   for (proc in names(spec_groups)) {
     specs <- spec_groups[[proc]]
     if (is.null(specs) || length(specs) == 0L) next
-    for (param in names(specs)) {
+    for (i in seq_along(specs)) {
+      param <- names(specs)[i]
       # Each value may be a single spec, or a list of specs that all
       # target the same parameter (e.g. species-specific formulas
       # registered together).
-      this <- specs[[param]]
+      this <- specs[[i]]
       spec_list <- if (inherits(this, "Rceattle_linkage_spec")) {
         list(this)
       } else if (is.list(this)) {

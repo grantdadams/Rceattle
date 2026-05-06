@@ -122,7 +122,7 @@ set_phases <- function(){
     ln_growth_par_devs = 5, # Random effects for growth parameters
     growth_ln_sd = 4,   # SD in weight-at-age at youngest and oldest ages
     weight_length_pars = 5, # Weight-length parameters
-    ln_beta_linkage = 4 # Long-format linkage-table coefficients (env covariates on process params)
+    beta_linkage = 4 # Long-format linkage-table coefficients (env covariates on process params)
 
   )
 

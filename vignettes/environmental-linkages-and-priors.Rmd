@@ -86,11 +86,6 @@ The pooled linkage table is stored on the fitted model:
 
 ```{r}
 fit$data_list$linkage_table
-#>      process    param species sex age_bin X_col link  init prior_family ...
-#> 1     growth    log_K       1   1      NA     1 log   0.0         none ...
-#> 2     growth    log_K       2   1      NA     1 log   0.0         none ...
-#> 3     growth    log_K       1   1      NA     2 log   0.0       normal ...
-#> 4     growth    log_K       2   1      NA     2 log   0.0       normal ...
 ```
 
 For three species × two sexes × `~ temp` (intercept + slope) you get
@@ -104,11 +99,6 @@ The shared design matrix is stored alongside:
 
 ```{r}
 head(fit$data_list$linkage_X)
-#>    (Intercept)        temp
-#> 1            1  -1.5933919
-#> 2            1  -1.4658285
-#> 3            1  -1.3382651
-#> ...
 ```
 
 ## Automatic base-parameter handling
@@ -149,7 +139,7 @@ in the linkage table.
 A practical implication: combining `srr_fun > 0` (Beverton-Holt or
 Ricker) with `linkages = list(log_alpha = ...)` automatically removes
 the base `log_alpha` from estimation. Pair the linkage with priors,
-bounds, or `init` if you need to constrain the level.
+bounds, or `init` if you need to constrain the parameter.
 
 ### Single-sex models and `by = ~ ... + sex`
 
@@ -338,7 +328,7 @@ the estimated coefficient vector:
 
 ```{r}
 fit$data_list$linkage_table[fit$data_list$linkage_table$param == "log_R0", ]
-fit$estimated_params$ln_beta_linkage
+fit$estimated_params$beta_linkage
 ```
 
 The same approach works for **`log_M1`** when you want a prior on
@@ -659,13 +649,13 @@ When you call `fit_mod()` with linkages:
      BRPs, projections, expected R).
 
    All three accumulators read from the same encoded table and the
-   same `ln_beta_linkage` parameter vector; rows dispatch by their
+   same `beta_linkage` parameter vector; rows dispatch by their
    `process` column. With no linkages the offsets stay at zero so
    existing fits are identical-by-construction.
 
 6. **Priors and bounds** flow through the same table:
    `build_bounds()` reads each row's `lower` / `upper` into
-   `bounds$lower$ln_beta_linkage` / `bounds$upper$ln_beta_linkage`,
+   `bounds$lower$beta_linkage` / `bounds$upper$beta_linkage`,
    and the cpp adds `-d<family>(beta, p1, p2, log = TRUE)` to slot
    19 of the joint NLL for every row whose `prior_family` is not
    `"none"`.
@@ -744,7 +734,7 @@ fit$quantities$jnll_comp["Linkage-table priors", ]
 
 Growth and M linkages **share the same table** -- one fit can carry
 linkage rows for both processes, and the underlying coefficient
-vector `ln_beta_linkage` indexes both.
+vector `beta_linkage` indexes both.
 
 ## Recruitment
 
@@ -920,7 +910,7 @@ str(fit$quantities$M_linkage_offset)
 str(fit$quantities$recruitment_linkage_offset)
 
 # Per-row coefficient values in the same order as `linkage_table`.
-fit$estimated_params$ln_beta_linkage
+fit$estimated_params$beta_linkage
 
 # The prior NLL contribution from slot 19 of jnll_comp.
 fit$quantities$jnll_comp["Linkage-table priors", ]

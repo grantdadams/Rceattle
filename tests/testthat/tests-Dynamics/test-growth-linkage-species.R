@@ -61,9 +61,9 @@ testthat::test_that("species-specific priors fire only on the matching rows", {
   # Inject a beta of 0.4 on every temp row and verify the per-species
   # prior NLL contribution matches -dnorm(0.4, 0, sd_sp_x, log = TRUE).
   inits <- base_fit$estimated_params
-  inits$ln_beta_linkage <- as.numeric(inits$ln_beta_linkage)
+  inits$beta_linkage <- as.numeric(inits$beta_linkage)
   beta_temp <- 0.4
-  inits$ln_beta_linkage[is_temp] <- beta_temp
+  inits$beta_linkage[is_temp] <- beta_temp
 
   fit <- suppressMessages(Rceattle::fit_mod(
     data_list   = sim_data,
@@ -147,12 +147,12 @@ testthat::test_that("per-species formulas fit through fit_mod end-to-end", {
 
   # Inject coefficients: temp = 0.3 for both species; PDO = -0.2 for sp 2.
   inits <- base_fit$estimated_params
-  inits$ln_beta_linkage <- as.numeric(inits$ln_beta_linkage)
+  inits$beta_linkage <- as.numeric(inits$beta_linkage)
   temp_col_global <- match("temp", colnames(base_fit$data_list$linkage_X))
   is_temp <- tbl$X_col == temp_col_global
   is_pdo  <- tbl$X_col == pdo_col
-  inits$ln_beta_linkage[is_temp] <- 0.3
-  inits$ln_beta_linkage[is_pdo]  <- -0.2
+  inits$beta_linkage[is_temp] <- 0.3
+  inits$beta_linkage[is_pdo]  <- -0.2
 
   fit <- suppressMessages(Rceattle::fit_mod(
     data_list   = sim_data,

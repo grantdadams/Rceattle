@@ -41,19 +41,39 @@ testthat::test_that("build_bounds honors lower/upper from linkage_table", {
   temp_col <- match("temp", colnames(fit$data_list$linkage_X))
   is_temp <- tbl$X_col == temp_col
 
-  testthat::expect_equal(unique(fit$bounds$lower$ln_beta_linkage[is_temp]),
+  testthat::expect_equal(unique(fit$bounds$lower$beta_linkage[is_temp]),
                          -1.5)
-  testthat::expect_equal(unique(fit$bounds$upper$ln_beta_linkage[is_temp]),
+  testthat::expect_equal(unique(fit$bounds$upper$beta_linkage[is_temp]),
                          1.5)
   # Intercept rows have no user-supplied bound so they stay at the
   # finite values pulled from the linkage_table's own defaults.
-  intercept_lower <- fit$bounds$lower$ln_beta_linkage[!is_temp]
+  intercept_lower <- fit$bounds$lower$beta_linkage[!is_temp]
   testthat::expect_true(all(is.finite(intercept_lower) |
                             is.infinite(intercept_lower)))
 })
 
 
-testthat::test_that("normal prior on ln_beta_linkage adds expected NLL", {
+testthat::test_that("linkage_spec validates init and bounds as named lists", {
+  testthat::expect_error(
+    Rceattle::linkage_spec(formula = ~ temp, init = 10),
+    "`init` must be a named list keyed by design-matrix column name"
+  )
+  testthat::expect_error(
+    Rceattle::linkage_spec(formula = ~ temp, bounds = c(-1, 1)),
+    "`bounds` must be a named list keyed by design-matrix column name"
+  )
+  testthat::expect_error(
+    Rceattle::linkage_spec(formula = ~ temp, init = list(temp = c(1, 2))),
+    "init\\$temp must be a numeric scalar"
+  )
+  testthat::expect_error(
+    Rceattle::linkage_spec(formula = ~ temp, bounds = list(temp = 1)),
+    "bounds\\$temp must be a numeric vector of length 2"
+  )
+})
+
+
+testthat::test_that("normal prior on beta_linkage adds expected NLL", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -91,7 +111,7 @@ testthat::test_that("normal prior on ln_beta_linkage adds expected NLL", {
     )
   )
 
-  # Fit both with the same nonzero ln_beta_linkage so the prior fires.
+  # Fit both with the same nonzero beta_linkage so the prior fires.
   base <- suppressMessages(Rceattle::fit_mod(
     data_list = sim_data, growthFun = growth_no_prior,
     estimateMode = 3, msmMode = 0, random_rec = FALSE,
@@ -99,12 +119,12 @@ testthat::test_that("normal prior on ln_beta_linkage adds expected NLL", {
   ))
 
   inits <- base$estimated_params
-  inits$ln_beta_linkage <- as.numeric(inits$ln_beta_linkage)
+  inits$beta_linkage <- as.numeric(inits$beta_linkage)
   tbl <- base$data_list$linkage_table
   temp_col <- match("temp", colnames(base$data_list$linkage_X))
   is_temp <- tbl$X_col == temp_col
   beta_temp <- 0.4
-  inits$ln_beta_linkage[is_temp] <- beta_temp
+  inits$beta_linkage[is_temp] <- beta_temp
 
   no_prior <- suppressMessages(Rceattle::fit_mod(
     data_list = sim_data, growthFun = growth_no_prior,
