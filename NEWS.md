@@ -1,4 +1,4 @@
-# Rceattle 4.1.0 (in development)
+# Rceattle 4.1.0
 
 ## Environmental linkages: a unified, formula-driven API
 
@@ -214,7 +214,7 @@ They will be **removed entirely in 4.2.0**. To migrate, replace:
   `retrospective()`, `jitter()`, `run_mse()`, `project_no_F()`.
 
 
-# Rceattle 4.0.3 (in development)
+# Rceattle 4.0.3
 
 ## API
 

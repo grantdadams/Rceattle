@@ -279,5 +279,7 @@ reference:
 
 news:
   releases:
+  - text: "Version 4.1.0"
+    href: news/index.html
   - text: "Version 4.0.2"
     href: news/index.html
