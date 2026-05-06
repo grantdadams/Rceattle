@@ -378,7 +378,6 @@ testthat::test_that("Test species-specific recruitment linkeages with mean rec (
         formula = ~ EnvIndex + EnvIndex2 + EnvIndex3,
         init = list("(Intercept)" = 10,
                     "EnvIndex" =  1,
-                    "EnvIndex2" = 1,
                     "EnvIndex3" = 1),
         by = ~ species,
         species = 1
@@ -412,12 +411,12 @@ testthat::test_that("Test species-specific recruitment linkeages with mean rec (
   )
 
   # Check coefs
-  testthat::expect_equal(ss_run$estimated_params$beta_linkage, c(10, 1, 1, 1, 11, 1, 12))
+  testthat::expect_equal(ss_run$estimated_params$beta_linkage, c(10, 1, 0, 1, 11, 1, 12))
 
   # Check ssb
   # - Species 1 (multiple)
   testthat::expect_equal(as.numeric(ss_run$quantities$R[1,]),
-                         as.numeric(exp(R0[1] + as.matrix(GOA2018SS$env_data[,-1]) %*% rep(1, 3))),
+                         as.numeric(exp(R0[1] + as.matrix(GOA2018SS$env_data[,-1]) %*% c(1,0,1))),
                          tolerance = 0.0001)
 
   # - Species 2 (single)
