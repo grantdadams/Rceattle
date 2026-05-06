@@ -380,6 +380,7 @@ testthat::test_that("Test species-specific recruitment linkeages with mean rec (
                     "EnvIndex" =  1,
                     "EnvIndex3" = 1),
         by = ~ species,
+        priors = list("EnvIndex2" = normal(2, 0.5)),
         species = 1
       ),
       log_R0 = Rceattle::linkage_spec(
@@ -430,7 +431,7 @@ testthat::test_that("Test species-specific recruitment linkeages with mean rec (
                          tolerance = 0.0001)
 
   testthat::expect_equal(sum(ss_run$quantities$jnll_comp[20,]),
-                         -dnorm(12,12,0.5, log = TRUE),
+                         -dnorm(12,12,0.5, log = TRUE) - dnorm(0, 2, 0.5, log = TRUE),
                          tolerance = 0.0001)
 
 
