@@ -99,8 +99,8 @@ build_bounds <- function(param_list = NULL, data_list) {
   if (!is.null(data_list$linkage_table) &&
       nrow(data_list$linkage_table) > 0L) {
     tbl <- data_list$linkage_table
-    lower_bnd$ln_beta_linkage <- as.numeric(tbl$lower)
-    upper_bnd$ln_beta_linkage <- as.numeric(tbl$upper)
+    lower_bnd$beta_linkage <- as.numeric(tbl$lower)
+    upper_bnd$beta_linkage <- as.numeric(tbl$upper)
   }
 
 

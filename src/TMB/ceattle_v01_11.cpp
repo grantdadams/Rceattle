@@ -306,7 +306,7 @@ Type objective_function<Type>::operator() () {
   // -- 3.3b. Linkage-table coefficients (see linkage.hpp). Aligned
   //          row-for-row with the linkage_* DATA vectors above. May
   //          be length 0 (no linkages supplied).
-  PARAMETER_VECTOR(ln_beta_linkage);
+  PARAMETER_VECTOR(beta_linkage);
 
   // -- 3.4. Fishing mortality parameters
   PARAMETER_VECTOR( ln_Flimit );                  // Target fishing mortality for projections on log scale; n = [nspp, nyrs]
@@ -602,13 +602,13 @@ Type objective_function<Type>::operator() () {
     linkage_X_col,
     linkage_link,
     linkage_X,
-    ln_beta_linkage,
+    beta_linkage,
     nspp,
     nsex,
     nyrs
   );
   REPORT(growth_linkage_offset);
-  REPORT(ln_beta_linkage);
+  REPORT(beta_linkage);
 
   // -- Rearange growth parameters. The linkage offset enters additively
   //    on the log scale; with no linkages it stays at zero so the result
@@ -840,7 +840,7 @@ Type objective_function<Type>::operator() () {
       linkage_X_col,
       linkage_link,
       linkage_X,
-      ln_beta_linkage,
+      beta_linkage,
       nspp,
       nsex,
       nages,
@@ -941,7 +941,7 @@ Type objective_function<Type>::operator() () {
       linkage_X_col,
       linkage_link,
       linkage_X,
-      ln_beta_linkage,
+      beta_linkage,
       nspp,
       nyrs
     );
@@ -3042,10 +3042,10 @@ Type objective_function<Type>::operator() () {
   // For 'lognormal'/'gamma'/'beta' the coefficient is treated on its
   // own scale -- the user's prior parameters are passed through
   // verbatim. Rows with prior_family = 0 contribute nothing.
-  for (int i = 0; i < ln_beta_linkage.size(); ++i) {
+  for (int i = 0; i < beta_linkage.size(); ++i) {
     int fam = linkage_prior_family(i);
     if (fam == 0) continue;
-    Type b   = ln_beta_linkage(i);
+    Type b   = beta_linkage(i);
     Type p1  = linkage_prior_p1(i);
     Type p2  = linkage_prior_p2(i);
     int slot_col = linkage_species(i) - 1;

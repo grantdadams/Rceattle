@@ -48,7 +48,7 @@ testthat::test_that("linkage offset propagates to growth_parameters[K]", {
   testthat::expect_setequal(tbl$param,   "log_K")
   testthat::expect_setequal(tbl$species, 1:2)
 
-  # With ln_beta_linkage = 0 the offset tensor must be exactly zero.
+  # With beta_linkage = 0 the offset tensor must be exactly zero.
   off0 <- base_run$quantities$growth_linkage_offset
   testthat::expect_true(all(off0 == 0))
 
@@ -57,8 +57,8 @@ testthat::test_that("linkage offset propagates to growth_parameters[K]", {
   temp_col <- match("temp", colnames(base_run$data_list$linkage_X))
   is_temp  <- tbl$X_col == temp_col
   beta_temp <- 0.5
-  inits$ln_beta_linkage <- as.numeric(inits$ln_beta_linkage)
-  inits$ln_beta_linkage[is_temp] <- beta_temp
+  inits$beta_linkage <- as.numeric(inits$beta_linkage)
+  inits$beta_linkage[is_temp] <- beta_temp
 
   perturbed <- suppressMessages(Rceattle::fit_mod(
     data_list   = sim_data,

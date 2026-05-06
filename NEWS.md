@@ -8,7 +8,7 @@ factors (species, sex, age) through a single formula-driven helper,
 `linkage_spec()`. Each row of the table corresponds to exactly one
 estimated coefficient. `fit_mod()` pools every spec into a shared
 design matrix `X` and a per-row parameter vector
-`ln_beta_linkage`; the TMB template iterates the table once and
+`beta_linkage`; the TMB template iterates the table once and
 accumulates per-process offsets on the linear predictor of the
 underlying parameter.
 
@@ -36,8 +36,8 @@ underlying parameter.
   keyed by species id (and shortly, by `(species, sex)`).
 
 * **Bounds.** Per-row `lower` / `upper` flow into
-  `build_bounds()$lower$ln_beta_linkage` /
-  `build_bounds()$upper$ln_beta_linkage`.
+  `build_bounds()$lower$beta_linkage` /
+  `build_bounds()$upper$beta_linkage`.
 
 * **Growth** (von Bertalanffy / Richards) is the first process
   fully wired to the new pipeline. `build_growth()` gains a
@@ -91,7 +91,7 @@ underlying parameter.
   ```
 
   Growth and M can be linked in the same fit; their rows share the
-  same global linkage table and the same `ln_beta_linkage`
+  same global linkage table and the same `beta_linkage`
   parameter vector.
 
 * **Per-(species, sex) priors.** In addition to scalar and
@@ -143,7 +143,7 @@ underlying parameter.
 
   Growth, M, and recruitment can be linked in the same fit; their
   rows share the same global linkage table and the same
-  `ln_beta_linkage` parameter vector. End-to-end tests in
+  `beta_linkage` parameter vector. End-to-end tests in
   `tests/testthat/tests-Dynamics/test-linkage-auto-map.R` verify that
   the base parameter (e.g., `ln_growth_pars`, `ln_M1`, `rec_pars`)
   is automatically mapped out (set to `NA`) when a linkage is active

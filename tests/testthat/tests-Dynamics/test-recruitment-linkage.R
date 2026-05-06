@@ -36,7 +36,7 @@ testthat::test_that("recruitment_linkage_offset propagates into log_R0", {
   # 2 design cols (Intercept + temp) x 1 species = 2 rows.
   testthat::expect_equal(nrow(tbl), 2L)
 
-  # With ln_beta_linkage = 0, the offset must be exactly zero.
+  # With beta_linkage = 0, the offset must be exactly zero.
   off0 <- base_run$quantities$recruitment_linkage_offset
   testthat::expect_true(all(off0 == 0))
 
@@ -45,8 +45,8 @@ testthat::test_that("recruitment_linkage_offset propagates into log_R0", {
   temp_col <- match("temp", colnames(base_run$data_list$linkage_X))
   is_temp  <- tbl$X_col == temp_col
   beta_temp <- 0.3
-  inits$ln_beta_linkage <- as.numeric(inits$ln_beta_linkage)
-  inits$ln_beta_linkage[is_temp] <- beta_temp
+  inits$beta_linkage <- as.numeric(inits$beta_linkage)
+  inits$beta_linkage[is_temp] <- beta_temp
   # Set rec_devs to zero to isolate the linkage effect.
   inits$rec_dev[] <- 0
 
@@ -116,7 +116,7 @@ testthat::test_that("linked log_R0 intercept is reflected in R_init at year 0", 
 
   base_inits <- base_run$estimated_params
   base_inits$rec_dev[] <- 0
-  base_inits$ln_beta_linkage[] <- 0
+  base_inits$beta_linkage[] <- 0
   base_dev0 <- suppressMessages(Rceattle::fit_mod(
     data_list   = dat,
     inits       = base_inits,
@@ -130,7 +130,7 @@ testthat::test_that("linked log_R0 intercept is reflected in R_init at year 0", 
   pert_inits <- base_run$estimated_params
   pert_inits$rec_dev[] <- 0
   intercept_row <- which(base_run$data_list$linkage_table$design_col == "(Intercept)")
-  pert_inits$ln_beta_linkage[intercept_row] <- 0.75
+  pert_inits$beta_linkage[intercept_row] <- 0.75
   pert <- suppressMessages(Rceattle::fit_mod(
     data_list   = dat,
     inits       = pert_inits,
@@ -179,8 +179,8 @@ testthat::test_that("linked log_R0 offsets propagate into recruitment for later 
   temp_col <- match("temp", colnames(base_run$data_list$linkage_X))
   is_temp  <- base_run$data_list$linkage_table$X_col == temp_col
   beta_temp <- 0.3
-  inits$ln_beta_linkage <- as.numeric(inits$ln_beta_linkage)
-  inits$ln_beta_linkage[is_temp] <- beta_temp
+  inits$beta_linkage <- as.numeric(inits$beta_linkage)
+  inits$beta_linkage[is_temp] <- beta_temp
   inits$rec_dev[] <- 0
 
   pert <- suppressMessages(Rceattle::fit_mod(
@@ -248,8 +248,8 @@ testthat::test_that("recruitment linkage on log_alpha works for Beverton-Holt", 
   temp_col <- match("temp", colnames(base_run$data_list$linkage_X))
   is_temp  <- tbl$X_col == temp_col
   beta_temp <- 0.25
-  inits$ln_beta_linkage <- as.numeric(inits$ln_beta_linkage)
-  inits$ln_beta_linkage[is_temp] <- beta_temp
+  inits$beta_linkage <- as.numeric(inits$beta_linkage)
+  inits$beta_linkage[is_temp] <- beta_temp
 
   pert <- suppressMessages(Rceattle::fit_mod(
     data_list   = dat,

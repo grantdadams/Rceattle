@@ -1279,7 +1279,7 @@ build_map_debug <- function(map_list, debug) {
 
 #' @title Helper to set map for linkage-table parameters
 #'
-#' @description Maps `ln_beta_linkage` (one entry per row of
+#' @description Maps `beta_linkage` (one entry per row of
 #'   `data_list$linkage_table`). Rows whose `est_phase == 0` are fixed
 #'   at their initial values via `NA`; everything else is estimated.
 #'   Phased estimation honoring nonzero phase ordinals can layer on
@@ -1297,9 +1297,9 @@ build_map_linkages <- function(map_list, data_list) {
     return(map_list)
   }
   est_phase <- as.integer(data_list$linkage_table$est_phase)
-  m <- map_list$ln_beta_linkage
+  m <- map_list$beta_linkage
   m[est_phase == 0L] <- NA
-  map_list$ln_beta_linkage <- m
+  map_list$beta_linkage <- m
   map_list
 }
 

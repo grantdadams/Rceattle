@@ -16,7 +16,7 @@ build_map_linkages(map_list, data_list)
 Updated \code{map_list}.
 }
 \description{
-Maps \code{ln_beta_linkage} (one entry per row of
+Maps \code{beta_linkage} (one entry per row of
 \code{data_list$linkage_table}). Rows whose \code{est_phase == 0} are fixed
 at their initial values via \code{NA}; everything else is estimated.
 Phased estimation honoring nonzero phase ordinals can layer on

@@ -29,7 +29,7 @@ testthat::test_that("M_linkage_offset propagates into M1_at_age", {
     )
   )
 
-  # Baseline run with default ln_beta_linkage = 0.
+  # Baseline run with default beta_linkage = 0.
   base_run <- suppressMessages(Rceattle::fit_mod(
     data_list   = sim_data,
     M1Fun       = m1_spec,
@@ -57,8 +57,8 @@ testthat::test_that("M_linkage_offset propagates into M1_at_age", {
   temp_col <- match("temp", colnames(base_run$data_list$linkage_X))
   is_temp  <- tbl$X_col == temp_col
   beta_temp <- 0.3
-  inits$ln_beta_linkage <- as.numeric(inits$ln_beta_linkage)
-  inits$ln_beta_linkage[is_temp] <- beta_temp
+  inits$beta_linkage <- as.numeric(inits$beta_linkage)
+  inits$beta_linkage[is_temp] <- beta_temp
 
   pert <- suppressMessages(Rceattle::fit_mod(
     data_list   = sim_data,

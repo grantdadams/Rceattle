@@ -196,9 +196,9 @@ build_params <- function(data_list) {
   # the `init` column of the table; absent table => length-0 vector.
   if (!is.null(data_list$linkage_table) &&
       nrow(data_list$linkage_table) > 0L) {
-    param_list$ln_beta_linkage <- as.numeric(data_list$linkage_table$init)
+    param_list$beta_linkage <- as.numeric(data_list$linkage_table$init)
   } else {
-    param_list$ln_beta_linkage <- numeric(0)
+    param_list$beta_linkage <- numeric(0)
   }
 
   # * 1.3c. Zero base parameters whose linkage carries an intercept ----
