@@ -215,6 +215,33 @@ linkage_row <- function(process, param, X_col,
 }
 
 
+#' Resolve a linkage row's stratum ids against per-species dimensions.
+#'
+#' A row's `species`, `sex`, and `age_bin` are integer ids or `NA` (which
+#' means "shared / broadcast across this dimension"). Both
+#' `map_linkage_adjuster()` and the intercept-zeroing pass in
+#' `build_params()` need to translate that into concrete index vectors.
+#'
+#' @param row a one-row slice of an `Rceattle_linkage_table`.
+#' @param data_list the data list (used for `nspp`, `nsex`, `nages`).
+#' @return a list with components `species`, `sex`, `age` -- each a list
+#'   keyed by species id, giving the sex/age index vectors to apply for
+#'   that species.
+#' @keywords internal
+#' @noRd
+.linkage_row_indices <- function(row, data_list) {
+  spp <- if (is.na(row$species)) seq_len(data_list$nspp) else as.integer(row$species)
+  per_sp <- vector("list", length(spp))
+  names(per_sp) <- as.character(spp)
+  for (s in spp) {
+    sx <- if (is.na(row$sex))     seq_len(data_list$nsex[s])  else as.integer(row$sex)
+    ag <- if (is.na(row$age_bin)) seq_len(data_list$nages[s]) else as.integer(row$age_bin)
+    per_sp[[as.character(s)]] <- list(sex = sx, age = ag)
+  }
+  list(species = spp, per_sp = per_sp)
+}
+
+
 #' Row-bind one or more linkage tables, preserving the schema
 #'
 #' Wraps `rbind` and re-applies validation and class. Accepts either a

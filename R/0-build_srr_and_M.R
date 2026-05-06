@@ -200,6 +200,12 @@ build_srr <- function(srr_fun = 0,  #srr_model
 RECRUITMENT_LINKAGE_PARAMS <- c("log_R0", "log_alpha", "log_beta")
 
 
+#' Map recruitment linkage param names to columns of `rec_pars`.
+#' @keywords internal
+#' @noRd
+.REC_PARAM_TO_INDEX <- c(log_R0 = 1L, log_alpha = 2L, log_beta = 3L)
+
+
 #' Validate and canonicalize the `linkages` argument of [build_srr()]
 #'
 #' Returns either `NULL` (no linkages) or a named list of
@@ -267,11 +273,10 @@ RECRUITMENT_LINKAGE_PARAMS <- c("log_R0", "log_alpha", "log_beta")
 #' - \code{M1_re = 5} or \code{"ar1_year"}: Correlated AR1 random effects varies by year, but constant over ages.
 #' - \code{M1_re = 6} or \code{"ar1_age_year"}: Correlated 2D-AR1 random effects varies by year and age.
 #'
-#' @return A list of switches for defining the M1 model
-#' @export
+#' @name M_linkage_params
+#' @rdname M_LINKAGE_PARAMS
 #'
-#' Allowed M-parameter names for `linkages` in [build_M1()]
-#'
+#' @description Allowed M-parameter names for \code{linkages} in [build_M1()].
 #' Linear-predictor names of the underlying natural-mortality
 #' parameters that the linkage system can address. Currently just
 #' `log_M1` -- the offset is added on the log scale to `ln_M1`
@@ -295,7 +300,7 @@ M_LINKAGE_PARAMS <- c("log_M1")
 #' env-driven integer codes 4 and 5 still work with a deprecation
 #' warning -- their structural part is identical to 1 and 2
 #' respectively, and the env effect is now expressed via the
-#' [linkages] argument to [build_M1()] (see
+#' \code{linkages} argument to [build_M1()] (see
 #' `vignette("environmental-linkages")`). No string alias is offered
 #' for 4 or 5 to discourage their use in new code.
 #'
@@ -451,7 +456,7 @@ M_LINKAGE_PARAMS <- c("log_M1")
 #' @param M1_indices Soft-deprecated. Vector of column indices into
 #'   `env_data` (excluding `Year`) for environmentally linked M1 when
 #'   `M1_model %in% c(4, 5)`. Use the `linkages` argument instead;
-#'   see `vignette("environmental-linkages")`.
+#'   see \code{vignette("environmental-linkages")}.
 #' @param linkages Optional named list of [linkage_spec()] objects
 #'   keyed by M parameter name (currently the only valid key is
 #'   `"log_M1"`). Each spec describes how `log_M1` depends on
@@ -552,6 +557,13 @@ GROWTH_FUNS <- c("empirical", "vonBertalanffy", "Richards")
 #'
 #' @keywords internal
 GROWTH_LINKAGE_PARAMS <- c("log_K", "log_L1", "log_Linf", "log_m")
+
+
+#' Map growth linkage param names to slices along the third dim of
+#' `ln_growth_pars` (`[nspp, nsex, n_growth_pars]`).
+#' @keywords internal
+#' @noRd
+.GROWTH_PARAM_TO_INDEX <- c(log_K = 1L, log_L1 = 2L, log_Linf = 3L, log_m = 4L)
 
 
 #' Specify the growth model for Rceattle

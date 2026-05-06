@@ -201,6 +201,48 @@ build_params <- function(data_list) {
     param_list$ln_beta_linkage <- numeric(0)
   }
 
+  # * 1.3c. Zero base parameters whose linkage carries an intercept ----
+  # Any linkage formula that *includes* an intercept term -- whether
+  # intercept-only (`~ 1`) or intercept-plus-covariates (`~ temp`,
+  # `~ temp + PDO`, etc.) -- emits a row with `design_col ==
+  # "(Intercept)"`. That intercept coefficient *is* the parameter's
+  # level; `map_linkage_adjuster()` maps the base parameter out of
+  # estimation, and we initialise it to 0 here so the linkage value
+  # isn't silently offset by the build_params default. Linkages with
+  # no intercept (`~ 0 + temp`) leave the base at its default; the
+  # base is still mapped out, so the user must rely on that default
+  # as the implicit intercept.
+  if (!is.null(data_list$linkage_table) &&
+      nrow(data_list$linkage_table) > 0L) {
+    intercepts <- data_list$linkage_table[
+      data_list$linkage_table$design_col == "(Intercept)", , drop = FALSE]
+    for (i in seq_len(nrow(intercepts))) {
+      row <- intercepts[i, , drop = FALSE]
+      idx <- .linkage_row_indices(row, data_list)
+      switch(row$process,
+        growth = {
+          par_idx <- .GROWTH_PARAM_TO_INDEX[row$param]
+          if (is.na(par_idx)) next
+          for (s in idx$species) {
+            param_list$ln_growth_pars[s, idx$per_sp[[as.character(s)]]$sex, par_idx] <- 0
+          }
+        },
+        M = {
+          for (s in idx$species) {
+            sx <- idx$per_sp[[as.character(s)]]$sex
+            ag <- idx$per_sp[[as.character(s)]]$age
+            param_list$ln_M1[s, sx, ag] <- 0
+          }
+        },
+        recruitment = {
+          par_idx <- .REC_PARAM_TO_INDEX[row$param]
+          if (is.na(par_idx)) next
+          param_list$rec_pars[idx$species, par_idx] <- 0
+        }
+      )
+    }
+  }
+
   #TODO variance and AR1 parameters
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#

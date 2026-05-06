@@ -592,7 +592,7 @@ Type objective_function<Type>::operator() () {
   //    `linkages` were supplied to `build_growth()`.
   array<Type> growth_linkage_offset(nspp, max_sex, RCEATTLE_N_GROWTH_PARAMS, nyrs);
   growth_linkage_offset.setZero();
-  rceattle_apply_linkages(
+  rceattle_apply_growth_linkages(
     growth_linkage_offset,
     linkage_process,
     linkage_param,
@@ -618,8 +618,8 @@ Type objective_function<Type>::operator() () {
     for(sex = 0; sex < nsex(sp); sex ++){
       for(yr = 0; yr < nyrs; yr++){
         for(int par = 0; par < 4; par++){
-          growth_parameters(sp, sex, yr, par) = exp(
-            ln_growth_pars(sp, sex, par)
+            growth_parameters(sp, sex, yr, par) = exp(
+              ln_growth_pars(sp, sex, par)
             + ln_growth_par_devs(sp, sex, yr, par)
             + growth_linkage_offset(sp, sex, par, yr)
           );
@@ -956,7 +956,10 @@ Type objective_function<Type>::operator() () {
       switch(srr_fun){
       case 0: // Random about mean (e.g. Alaska)
         steepness(sp) = 0.99;
-        R_init(sp) = R0(sp) = exp(rec_pars(sp, 0));
+        {
+          Type log_R0_eff_0 = rec_pars(sp, 0) + recruitment_linkage_offset(sp, RCEATTLE_REC_R0, 0);
+          R_init(sp) = R0(sp) = exp(log_R0_eff_0);
+        }
         break;
 
       case 1: // Random about mean with environmental linkage
@@ -964,13 +967,20 @@ Type objective_function<Type>::operator() () {
         beta_rec_tmp = beta_rec_pars.row(sp);
         env_rec_tmp = env_index.row(0);
         srr_mult = env_rec_tmp * beta_rec_tmp;
-        R_init(sp) = R0(sp) = exp(rec_pars(sp, 0) + srr_mult.sum());
+        {
+          Type log_R0_eff_0 = rec_pars(sp, 0) + srr_mult.sum() + recruitment_linkage_offset(sp, RCEATTLE_REC_R0, 0);
+          R_init(sp) = R0(sp) = exp(log_R0_eff_0);
+        }
         break;
 
       case 2: // Beverton-Holt
-        steepness(sp) = exp(rec_pars(sp, 1)) * SPR0(sp)/(4.0 + exp(rec_pars(sp, 1)) * SPR0(sp));
-        R0(sp) = (exp(rec_pars(sp, 1))-1.0/SPR0(sp)) / exp(rec_pars(sp, 2)); // (Alpha-1/SPR0)/beta
-        R_init(sp) = (exp(rec_pars(sp, 1))-1/SPRFinit(sp)) / exp(rec_pars(sp, 2)); // (Alpha-1/SPR0)/beta
+        {
+          Type alpha_eff_0 = exp(rec_pars(sp, 1) + recruitment_linkage_offset(sp, RCEATTLE_REC_ALPHA, 0));
+          Type beta_eff_0  = exp(rec_pars(sp, 2) + recruitment_linkage_offset(sp, RCEATTLE_REC_BETA,  0));
+          steepness(sp) = alpha_eff_0 * SPR0(sp)/(4.0 + alpha_eff_0 * SPR0(sp));
+          R0(sp) = (alpha_eff_0 - 1.0/SPR0(sp)) / beta_eff_0; // (Alpha-1/SPR0)/beta
+          R_init(sp) = (alpha_eff_0 - 1.0/SPRFinit(sp)) / beta_eff_0; // (Alpha-1/SPR0)/beta
+        }
         break;
 
       case 3: // Beverton-Holt with environmental impacts on alpha
@@ -978,45 +988,52 @@ Type objective_function<Type>::operator() () {
         beta_rec_tmp = beta_rec_pars.row(sp);
         env_rec_tmp = env_index.row(0);
         srr_mult = env_rec_tmp * beta_rec_tmp;
-        srr_alpha = exp(rec_pars(sp, 1) + srr_mult.sum());
-        steepness(sp) = srr_alpha * SPR0(sp)/(4.0 + srr_alpha * SPR0(sp));
-        R0(sp) = (srr_alpha-1.0/SPR0(sp)) / exp(rec_pars(sp, 2)); // (Alpha-1/SPR0)/beta
-        R_init(sp) = (srr_alpha-1.0/SPRFinit(sp)) / exp(rec_pars(sp, 2)); // (Alpha-1/SPR0)/beta
+        {
+          Type alpha_eff_0 = exp(rec_pars(sp, 1) + srr_mult.sum() + recruitment_linkage_offset(sp, RCEATTLE_REC_ALPHA, 0));
+          Type beta_eff_0  = exp(rec_pars(sp, 2) + recruitment_linkage_offset(sp, RCEATTLE_REC_BETA,  0));
+          steepness(sp) = alpha_eff_0 * SPR0(sp)/(4.0 + alpha_eff_0 * SPR0(sp));
+          R0(sp) = (alpha_eff_0 - 1.0/SPR0(sp)) / beta_eff_0; // (Alpha-1/SPR0)/beta
+          R_init(sp) = (alpha_eff_0 - 1.0/SPRFinit(sp)) / beta_eff_0; // (Alpha-1/SPR0)/beta
+        }
         break;
 
       case 4: // Ricker
-        steepness(sp) = 0.2 * exp(0.8*log(exp(rec_pars(sp, 1)) * SPR0(sp))); //
+        {
+          Type alpha_eff_0 = exp(rec_pars(sp, 1) + recruitment_linkage_offset(sp, RCEATTLE_REC_ALPHA, 0));
+          Type beta_eff_0  = exp(rec_pars(sp, 2) + recruitment_linkage_offset(sp, RCEATTLE_REC_BETA,  0));
+          steepness(sp) = 0.2 * exp(0.8*log(alpha_eff_0 * SPR0(sp))); //
 
-        // - R at F0
-        ricker_intercept = exp(rec_pars(sp, 1)) * SPR0(sp) - 1.0;
-        ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + 1.0;
+          // - R at F0
+          ricker_intercept = alpha_eff_0 * SPR0(sp) - 1.0;
+          ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + 1.0;
+          R0(sp) = log(ricker_intercept)/(beta_eff_0 * SPR0(sp)/1000000.0); // FIXME - make time-varying
 
-        R0(sp) = log(ricker_intercept)/(exp(rec_pars(sp, 2)) * SPR0(sp)/1000000.0); // FIXME - make time-varying
-
-        // R at equilibrium F
-        ricker_intercept = exp(rec_pars(sp, 1)) * SPRFinit(sp) - 1.0;
-        ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + 1.0;
-
-        R_init(sp) = log(ricker_intercept)/(exp(rec_pars(sp, 2)) * SPRFinit(sp)/1000000.0); // FIXME - make time-varying
-
-        zero_N_pen(sp) += penalty;
+          // R at equilibrium F
+          ricker_intercept = alpha_eff_0 * SPRFinit(sp) - 1.0;
+          ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + 1.0;
+          R_init(sp) = log(ricker_intercept)/(beta_eff_0 * SPRFinit(sp)/1000000.0); // FIXME - make time-varying
+          zero_N_pen(sp) += penalty;
+        }
         break;
 
       case 5: // Ricker with environmental impacts on alpha
         beta_rec_tmp = beta_rec_pars.row(sp);
         env_rec_tmp = env_index.row(0);
         srr_mult = env_rec_tmp * beta_rec_tmp;
-        srr_alpha = exp(rec_pars(sp, 1) + srr_mult.sum());
-        steepness(sp) = 0.2 * exp(0.8*log(srr_alpha * SPR0(sp))); //
+        {
+          Type alpha_eff_0 = exp(rec_pars(sp, 1) + srr_mult.sum() + recruitment_linkage_offset(sp, RCEATTLE_REC_ALPHA, 0));
+          Type beta_eff_0  = exp(rec_pars(sp, 2) + recruitment_linkage_offset(sp, RCEATTLE_REC_BETA,  0));
+          steepness(sp) = 0.2 * exp(0.8*log(alpha_eff_0 * SPR0(sp))); //
 
-        ricker_intercept = srr_alpha * SPR0(sp) - 1.0;
-        ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + 1.0;
-        R0(sp) = log(ricker_intercept)/(exp(rec_pars(sp, 2)) * SPR0(sp)/1000000.0); // FIXME - make time-varying
+          ricker_intercept = alpha_eff_0 * SPR0(sp) - 1.0;
+          ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + 1.0;
+          R0(sp) = log(ricker_intercept)/(beta_eff_0 * SPR0(sp)/1000000.0); // FIXME - make time-varying
 
-        ricker_intercept = srr_alpha * SPRFinit(sp) - 1.0;
-        ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + 1.0;
-        R_init(sp) = log(ricker_intercept)/(exp(rec_pars(sp, 2)) * SPRFinit(sp)/1000000.0); // FIXME - make time-varying
-        zero_N_pen(sp) += penalty;
+          ricker_intercept = alpha_eff_0 * SPRFinit(sp) - 1.0;
+          ricker_intercept =  posfun(ricker_intercept, Type(0.001), penalty) + 1.0;
+          R_init(sp) = log(ricker_intercept)/(beta_eff_0 * SPRFinit(sp)/1000000.0); // FIXME - make time-varying
+          zero_N_pen(sp) += penalty;
+        }
         break;
 
       default:
@@ -1042,15 +1059,11 @@ Type objective_function<Type>::operator() () {
           switch(estDynamics(sp)){
           case 0: // Estimated
 
-            // - Amin (i.e. recruitment). Apply the year-0 linkage
-            //   offset on log_R0 so the first-year recruitment
-            //   reflects any contemporaneous environmental driver.
-            //   The equilibrium R_init / age-structure derivation
-            //   itself stays at the unperturbed mean.
+            // - Amin (i.e. recruitment). First-year recruitment uses the
+            //   equilibrium initial value derived from the base parameters
+            //   and any linked offsets at year 0.
             if(age == 0){
-              R(sp, 0) = R_init(sp) *
-                exp(rec_dev(sp, 0) +
-                    recruitment_linkage_offset(sp, RCEATTLE_REC_R0, 0));
+              R(sp, 0) = R_init(sp) * exp(rec_dev(sp, 0));
               N_at_age(sp, 0, 0, 0) = R(sp, 0) * sex_ratio(sp, 0);
               N_at_age(sp, 1, 0, 0) = R(sp, 0) * (1-sex_ratio(sp, 0));
             }
@@ -1165,11 +1178,12 @@ Type objective_function<Type>::operator() () {
         }
 
         // - Calculate recruitment. Linkage offsets are added on the
-        //   log scale: log_R0 enters as R0 * exp(offset); log_alpha
-        //   and log_beta enter as additions to rec_pars(*, 1|2)
+        //   log scale: log_R0 enters as R0 * exp(offset(yr) - offset(0));
+        //   log_alpha and log_beta enter as additions to rec_pars(*, 1|2)
         //   before the calculate_recruitment exp().
         Type ssb_tmp = ssb(sp, yr - minage(sp));
-        Type r0_eff   = R0(sp) * exp(recruitment_linkage_offset(sp, RCEATTLE_REC_R0,    yr));
+        Type r0_pert = recruitment_linkage_offset(sp, RCEATTLE_REC_R0, yr) - recruitment_linkage_offset(sp, RCEATTLE_REC_R0, 0);
+        Type r0_eff   = R0(sp) * exp(r0_pert);
         Type rp1_eff  = rec_pars(sp, 1) + recruitment_linkage_offset(sp, RCEATTLE_REC_ALPHA, yr);
         Type rp2_eff  = rec_pars(sp, 2) + recruitment_linkage_offset(sp, RCEATTLE_REC_BETA,  yr);
         R(sp, yr) = calculate_recruitment(srr_switch, r0_eff, ssb_tmp, rp1_eff, rp2_eff, rec_dev(sp, yr), srr_env_mult);
@@ -1314,9 +1328,9 @@ Type objective_function<Type>::operator() () {
             }
 
             // Apply linkage offsets on the log scale (no-op when no
-            // linkages). log_R0 enters as R0 * exp(offset); log_alpha
-            // and log_beta enter as additions to rec_pars(*, 1|2).
-            Type r0_eff = R0(sp) * exp(recruitment_linkage_offset(sp, RCEATTLE_REC_R0,    yr));
+            // linkages). log_R0 enters as R0 * exp(offset(yr) - offset(0));
+            // log_alpha and log_beta enter as additions to rec_pars(*, 1|2).
+            Type r0_eff = R0(sp) * exp(recruitment_linkage_offset(sp, RCEATTLE_REC_R0,    yr) - recruitment_linkage_offset(sp, RCEATTLE_REC_R0, 0));
             Type r1     = rec_pars(sp, 1) + recruitment_linkage_offset(sp, RCEATTLE_REC_ALPHA, yr);
             Type r2     = rec_pars(sp, 2) + recruitment_linkage_offset(sp, RCEATTLE_REC_BETA,  yr);
 
@@ -1527,7 +1541,7 @@ Type objective_function<Type>::operator() () {
 
           // - Calculate recruitment (with linkage offsets pre-added).
           Type ssb_tmp = ssb(sp, yr-minage(sp));
-          Type r0_eff_p = R0(sp) * exp(recruitment_linkage_offset(sp, RCEATTLE_REC_R0,    yr));
+          Type r0_eff_p = R0(sp) * exp(recruitment_linkage_offset(sp, RCEATTLE_REC_R0,    yr) - recruitment_linkage_offset(sp, RCEATTLE_REC_R0, 0));
           Type rp1_p    = rec_pars(sp, 1) + recruitment_linkage_offset(sp, RCEATTLE_REC_ALPHA, yr);
           Type rp2_p    = rec_pars(sp, 2) + recruitment_linkage_offset(sp, RCEATTLE_REC_BETA,  yr);
           R(sp, yr) = calculate_recruitment(srr_pred_fun, r0_eff_p, ssb_tmp, rp1_p, rp2_p, rec_dev(sp, yr), srr_env_mult);
@@ -1644,7 +1658,7 @@ Type objective_function<Type>::operator() () {
 
         // - Calculate recruitment (with linkage offsets pre-added).
         Type ssb_tmp = ssb(sp, yr-minage(sp));
-        Type r0_eff_h  = R0(sp) * exp(recruitment_linkage_offset(sp, RCEATTLE_REC_R0,    yr));
+        Type r0_eff_h  = R0(sp) * exp(recruitment_linkage_offset(sp, RCEATTLE_REC_R0,    yr) - recruitment_linkage_offset(sp, RCEATTLE_REC_R0, 0));
         Type rp1_h     = rec_pars(sp, 1) + recruitment_linkage_offset(sp, RCEATTLE_REC_ALPHA, yr);
         Type rp2_h     = rec_pars(sp, 2) + recruitment_linkage_offset(sp, RCEATTLE_REC_BETA,  yr);
         // Note: Expected recruitment does not include deviations, so we pass Type(0.0)

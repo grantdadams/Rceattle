@@ -41,6 +41,8 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 
   map_list <- build_map_linkages(map_list, data_list)
 
+  map_list <- map_linkage_adjuster(map_list, data_list)
+
   map_list <- build_map_predation(map_list, data_list)
 
   map_list <- build_map_selectivity(map_list, data_list, nyrs_hind, random_sel)
@@ -1275,7 +1277,7 @@ build_map_debug <- function(map_list, debug) {
 }
 
 
-#' @title Helper to set map for linkage-table coefficients
+#' @title Helper to set map for linkage-table parameters
 #'
 #' @description Maps `ln_beta_linkage` (one entry per row of
 #'   `data_list$linkage_table`). Rows whose `est_phase == 0` are fixed
@@ -1298,5 +1300,51 @@ build_map_linkages <- function(map_list, data_list) {
   m <- map_list$ln_beta_linkage
   m[est_phase == 0L] <- NA
   map_list$ln_beta_linkage <- m
+  map_list
+}
+
+
+#' @title Helper to turn off base linked parameters
+#'
+#' @description This function automatically sets parameters
+#' to NA (not estimated) if they include linkaged.
+#'
+#' @param map_list The current TMB map list.
+#' @param data_list an Rceattle data_list (with the pooled
+#'   `linkage_table` from `pool_linkages()`).
+#'
+#' @return Updated \code{map_list}.
+#' @keywords internal
+map_linkage_adjuster <- function(map_list, data_list) {
+
+  tbl <- data_list$linkage_table
+  if (is.null(tbl) || nrow(tbl) == 0L) return(map_list)
+
+  for (i in seq_len(nrow(tbl))) {
+    row <- tbl[i, , drop = FALSE]
+    idx <- .linkage_row_indices(row, data_list)
+    switch(row$process,
+      growth = {
+        par_idx <- .GROWTH_PARAM_TO_INDEX[row$param]
+        if (is.na(par_idx)) next
+        for (s in idx$species) {
+          map_list$ln_growth_pars[s, idx$per_sp[[as.character(s)]]$sex, par_idx] <- NA
+        }
+      },
+      M = {
+        for (s in idx$species) {
+          sx <- idx$per_sp[[as.character(s)]]$sex
+          ag <- idx$per_sp[[as.character(s)]]$age
+          map_list$ln_M1[s, sx, ag] <- NA
+        }
+      },
+      recruitment = {
+        par_idx <- .REC_PARAM_TO_INDEX[row$param]
+        if (is.na(par_idx)) next
+        map_list$rec_pars[idx$species, par_idx] <- NA
+      }
+    )
+  }
+
   map_list
 }
