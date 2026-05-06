@@ -59,7 +59,7 @@
 // @param[in] nspp,max_nsex,nyrs dimensions of the offset tensor.
 // @param[in] nsex per-species sex count for sentinel expansion.
 template<class Type>
-void rceattle_apply_linkages(
+void rceattle_apply_growth_linkages(
     array<Type>& growth_offset,
     const vector<int>&    linkage_process,
     const vector<int>&    linkage_param,

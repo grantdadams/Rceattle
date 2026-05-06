@@ -16,7 +16,7 @@ code is what the TMB template ultimately consumes. The legacy
 env-driven integer codes 4 and 5 still work with a deprecation
 warning -- their structural part is identical to 1 and 2
 respectively, and the env effect is now expressed via the
-\link{linkages} argument to \code{\link[=build_M1]{build_M1()}} (see
+\code{linkages} argument to \code{\link[=build_M1]{build_M1()}} (see
 \code{vignette("environmental-linkages")}). No string alias is offered
 for 4 or 5 to discourage their use in new code.
 }

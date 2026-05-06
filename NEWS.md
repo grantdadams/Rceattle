@@ -144,6 +144,11 @@ underlying parameter.
   Growth, M, and recruitment can be linked in the same fit; their
   rows share the same global linkage table and the same
   `ln_beta_linkage` parameter vector. End-to-end tests in
+  `tests/testthat/tests-Dynamics/test-linkage-auto-map.R` verify that
+  the base parameter (e.g., `ln_growth_pars`, `ln_M1`, `rec_pars`)
+  is automatically mapped out (set to `NA`) when a linkage is active
+  for that parameter, allowing the linkage intercept to define the base value.
+  
   `tests/testthat/tests-Dynamics/test-recruitment-linkage.R`
   cover the analytical relations
   `R = R0 * exp(beta * temp[yr])` (mean R) and the

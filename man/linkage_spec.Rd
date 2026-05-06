@@ -7,6 +7,7 @@
 linkage_spec(
   formula,
   param = NULL,
+  data = NULL,
   by = ~species,
   species = NULL,
   link = "identity",
@@ -26,6 +27,9 @@ predictor for \code{param} (e.g. \code{~ 1}, \code{~ temp}, \code{~ temp + PDO})
 spec is built inside a \verb{build_*()} call that infers the parameter
 name from the enclosing list key (see \code{\link[=build_growth]{build_growth()}}).}
 
+\item{data}{(Optional) data frame for formula validation. Currently
+validation happens at materialization time inside \code{\link[=fit_mod]{fit_mod()}}.}
+
 \item{by}{one-sided formula naming stratifying factors that should
 each get their own coefficients. Allowed names are \code{species},
 \code{sex}, and \code{age_bin}. The default \code{~species} produces one
@@ -42,7 +46,7 @@ multiple specs against the same parameter -- see
 \code{\link[=build_growth]{build_growth()}} for the multi-spec syntax.}
 
 \item{link}{link function applied to the predictor when assembling
-process values; one of \link{LINKAGE_LINKS}.}
+process values; one of \link{LINKAGE_LINKS}. TODO}
 
 \item{init}{optional named numeric vector of initial values keyed by
 the design-matrix column name (e.g.

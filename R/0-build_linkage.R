@@ -29,6 +29,8 @@ NULL
 #'   (e.g. `"log_alpha"`, `"log_M1"`, `"log_K"`). May be `NULL` when the
 #'   spec is built inside a `build_*()` call that infers the parameter
 #'   name from the enclosing list key (see [build_growth()]).
+#' @param data (Optional) data frame for formula validation. Currently
+#'   validation happens at materialization time inside [fit_mod()].
 #' @param by one-sided formula naming stratifying factors that should
 #'   each get their own coefficients. Allowed names are `species`,
 #'   `sex`, and `age_bin`. The default `~species` produces one
@@ -66,6 +68,7 @@ NULL
 #' @importFrom rlang enquo eval_tidy
 linkage_spec <- function(formula,
                          param     = NULL,
+                         data      = NULL,
                          by        = ~ species,
                          species   = NULL,
                          link      = "identity",
@@ -127,9 +130,9 @@ linkage_spec <- function(formula,
 #'      a list of them (the per-species-formula form).
 #'
 #' This helper centralizes those three checks; per-process wrappers
-#' (`.validate_growth_linkages`, `.validate_M_linkages`,
-#' `.validate_recruitment_linkages`) call this and add their own
-#' domain-specific warnings on top, then run [`.stamp_param`] to
+#' (\code{.validate_growth_linkages}, \code{.validate_M_linkages},
+#' \code{.validate_recruitment_linkages}) call this and add their own
+#' domain-specific warnings on top, then run \code{.stamp_param} to
 #' fill in `param` from the list keys.
 #'
 #' @param linkages the user-supplied `linkages` argument.
@@ -406,8 +409,12 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
       sex_levels_one <- TRUE
     }
     if (sex_levels_one) {
-      warning("`by = ~ ... + sex` was requested but only one sex level is available in `strata$sex`; \
-              sex-specific coefficients will collapse to a single shared sex level.")
+      warning(
+        "`by = ~ ... + sex` was requested but the model is single-sex ",
+        "(`nsex = 1` for every relevant species); sex-specific ",
+        "coefficients will collapse to a single shared sex level.",
+        call. = FALSE
+      )
     }
   }
 

@@ -91,6 +91,125 @@ testthat::test_that("recruitment_linkage_offset propagates into log_R0", {
   testthat::expect_equal(ratio, exp(beta_temp * temp_v), tolerance = 1e-8)
 })
 
+testthat::test_that("linked log_R0 intercept is reflected in R_init at year 0", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  dat <- make_test_data(nyrs = 20, nages = 5, seed = 7)
+
+  rec_spec <- Rceattle::build_srr(
+    srr_fun  = 0,
+    linkages = list(
+      log_R0 = Rceattle::linkage_spec(formula = ~ 1, by = ~ species)
+    )
+  )
+
+  base_run <- suppressMessages(Rceattle::fit_mod(
+    data_list   = dat,
+    recFun      = rec_spec,
+    estimateMode = 3,
+    msmMode     = 0,
+    random_rec  = FALSE,
+    fit_control = Rceattle::fit_control(phase = FALSE, verbose = 0)
+  ))
+  testthat::expect_s3_class(base_run, "Rceattle")
+
+  base_inits <- base_run$estimated_params
+  base_inits$rec_dev[] <- 0
+  base_inits$ln_beta_linkage[] <- 0
+  base_dev0 <- suppressMessages(Rceattle::fit_mod(
+    data_list   = dat,
+    inits       = base_inits,
+    recFun      = rec_spec,
+    estimateMode = 3,
+    msmMode     = 0,
+    random_rec  = FALSE,
+    fit_control = Rceattle::fit_control(phase = FALSE, verbose = 0)
+  ))
+
+  pert_inits <- base_run$estimated_params
+  pert_inits$rec_dev[] <- 0
+  intercept_row <- which(base_run$data_list$linkage_table$design_col == "(Intercept)")
+  pert_inits$ln_beta_linkage[intercept_row] <- 0.75
+  pert <- suppressMessages(Rceattle::fit_mod(
+    data_list   = dat,
+    inits       = pert_inits,
+    recFun      = rec_spec,
+    estimateMode = 3,
+    msmMode     = 0,
+    random_rec  = FALSE,
+    fit_control = Rceattle::fit_control(phase = FALSE, verbose = 0)
+  ))
+
+  base_R_init <- as.numeric(base_dev0$quantities$R_init[1])
+  pert_R_init <- as.numeric(pert$quantities$R_init[1])
+  testthat::expect_equal(pert_R_init / base_R_init, exp(0.75), tolerance = 1e-8)
+})
+
+testthat::test_that("linked log_R0 offsets propagate into recruitment for later years", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  set.seed(7)
+  nyrs <- 20
+  dat <- make_test_data(nyrs = nyrs, nages = 5, seed = 7)
+  yrs    <- dat$styr:dat$endyr
+  yr_idx <- seq_along(yrs)
+  temp_v <- seq(-1, 1, length.out = length(yrs))
+  dat$env_data <- data.frame(Year = yrs, temp = temp_v)
+
+  rec_spec <- Rceattle::build_srr(
+    srr_fun  = 0,
+    linkages = list(
+      log_R0 = Rceattle::linkage_spec(formula = ~ temp, by = ~ species)
+    )
+  )
+
+  base_run <- suppressMessages(Rceattle::fit_mod(
+    data_list   = dat,
+    recFun      = rec_spec,
+    estimateMode = 3,
+    msmMode     = 0,
+    random_rec  = FALSE,
+    fit_control = Rceattle::fit_control(phase = FALSE, verbose = 0)
+  ))
+  testthat::expect_s3_class(base_run, "Rceattle")
+
+  inits <- base_run$estimated_params
+  temp_col <- match("temp", colnames(base_run$data_list$linkage_X))
+  is_temp  <- base_run$data_list$linkage_table$X_col == temp_col
+  beta_temp <- 0.3
+  inits$ln_beta_linkage <- as.numeric(inits$ln_beta_linkage)
+  inits$ln_beta_linkage[is_temp] <- beta_temp
+  inits$rec_dev[] <- 0
+
+  pert <- suppressMessages(Rceattle::fit_mod(
+    data_list   = dat,
+    inits       = inits,
+    recFun      = rec_spec,
+    estimateMode = 3,
+    msmMode     = 0,
+    random_rec  = FALSE,
+    fit_control = Rceattle::fit_control(phase = FALSE, verbose = 0)
+  ))
+
+  inits_base <- base_run$estimated_params
+  inits_base$rec_dev[] <- 0
+  base_dev0 <- suppressMessages(Rceattle::fit_mod(
+    data_list   = dat,
+    inits       = inits_base,
+    recFun      = rec_spec,
+    estimateMode = 3,
+    msmMode     = 0,
+    random_rec  = FALSE,
+    fit_control = Rceattle::fit_control(phase = FALSE, verbose = 0)
+  ))
+
+  year_to_check <- 10L
+  base_R <- as.numeric(base_dev0$quantities$R[1, year_to_check])
+  pert_R <- as.numeric(pert$quantities$R[1, year_to_check])
+  testthat::expect_equal(pert_R / base_R, exp(beta_temp * temp_v[year_to_check]), tolerance = 1e-8)
+})
 
 testthat::test_that("recruitment linkage on log_alpha works for Beverton-Holt", {
   testthat::skip_if_not_installed("TMB")

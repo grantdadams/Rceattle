@@ -95,10 +95,10 @@ fit$data_list$linkage_table
 
 For three species × two sexes × `~ temp` (intercept + slope) you get
 12 rows: an intercept beta and a temp-slope beta per (species, sex)
-combination. The intercept rows aren't a duplicate of `ln_growth_pars`
--- they are just zero-valued columns of the global design matrix and
-typically stay at their initial value (you can use the linkage table
-solely for slopes if you prefer).
+combination. Whenever a base parameter (`log_K`, `log_M1`, `log_R0`,
+...) appears in any linkage row, that base parameter is automatically
+mapped out (held NA in the TMB map) so the linkage entirely replaces
+its role -- see *Automatic base-parameter handling* below.
 
 The shared design matrix is stored alongside:
 
@@ -110,6 +110,56 @@ head(fit$data_list$linkage_X)
 #> 3            1  -1.3382651
 #> ...
 ```
+
+## Automatic base-parameter handling
+
+Every base parameter that has at least one linkage row is **mapped out
+of estimation automatically**. The linkage replaces the base parameter
+rather than supplementing it.
+
+The exact behavior depends on whether the formula carries an intercept:
+
+| Formula                    | Base parameter value | Base parameter map |
+|----------------------------|----------------------|--------------------|
+| `~ 1` (intercept only)     | initialised to `0`   | NA (not estimated) |
+| `~ temp` (intercept + slope) | initialised to `0` | NA (not estimated) |
+| `~ 0 + temp` (slope only)  | left at `build_params()` default | NA (not estimated) |
+
+The intercept-bearing rows (`~ 1` and `~ temp`) carry the parameter's
+*level*: their estimated coefficient on the `(Intercept)` column is
+exactly what would otherwise be the base parameter (e.g. `log_R0` for
+species `s` lives on the `(Intercept)` row whose `species == s`). The
+base array slot is held at `0` so the model evaluates `(Intercept) +
+(slopes)` cleanly, with no hidden offset.
+
+Slope-only formulas (`~ 0 + temp`) do *not* identify the level. The
+base parameter is still mapped out (so it cannot drift), but it stays
+at the `build_params()` default (e.g. `log_R0 = 9`). If you need a
+non-default level, supply it via `inits`, or add an explicit intercept
+to the formula.
+
+This rule applies uniformly to every linkage target (`log_K`, `log_L1`,
+`log_Linf`, `log_m`, `log_M1`, `log_R0`, `log_alpha`, `log_beta`).
+Stratification (`by`) determines *which* base-parameter slots are
+affected: `by = ~ species` zeros only the species in the rows;
+`by = NULL` (a fully shared linkage) zeros every species; and
+`by = ~ species + sex` zeros each (species, sex) combination present
+in the linkage table.
+
+A practical implication: combining `srr_fun > 0` (Beverton-Holt or
+Ricker) with `linkages = list(log_alpha = ...)` automatically removes
+the base `log_alpha` from estimation. Pair the linkage with priors,
+bounds, or `init` if you need to constrain the level.
+
+### Single-sex models and `by = ~ ... + sex`
+
+If your model is single-sex (`nsex = 1` for every species in scope),
+asking for `by = ~ species + sex` produces a warning: there is only
+one sex level available, so the sex stratum collapses to a single
+shared level. The result is equivalent to `by = ~ species`. Models
+with mixed `nsex` (some single-sex, some two-sex species) emit one
+sex level per species automatically -- single-sex species get one row
+per parameter, two-sex species get two.
 
 ## The `linkage_spec()` API
 
@@ -229,72 +279,70 @@ fit$quantities$jnll_comp["Linkage-table priors", ]
 
 ## Putting a prior on the parameter itself
 
-Sometimes you don't want to estimate an environmental slope -- you
-just want a Bayesian-style informative prior on `log_K`, `log_L1`,
-`log_Linf`, or (Richards) `log_m`. Two patterns work:
+Sometimes, instead of estimating how a parameter changes with
+environmental covariates, you want to apply a Bayesian-style
+informative prior directly to the base value of a parameter like
+`log_K`, `log_R0`, or `log_M1`.
 
-**Pattern A (recommended): intercept-only linkage with the underlying
-`ln_growth_pars` mapped out.** The cpp computes
-`growth_parameters = exp(ln_growth_pars + ln_growth_par_devs +
-linkage_offset)`. If you fix `ln_growth_pars` to `0`, the linkage
-intercept becomes the entire `log_K`, and a prior on the intercept is
-a prior on `log_K` itself.
+Because any intercept-bearing linkage replaces the base parameter (see
+*Automatic base-parameter handling* above), an intercept-only linkage
+*is* the parameter, and a prior on its `(Intercept)` row is the prior
+on that parameter:
 
 ```{r}
-# Single species, von Bertalanffy, with N(log(0.3), 0.1) prior on log_K.
+# Example: prior on log_K for von Bertalanffy growth
 growth_spec <- build_growth(
   fun = "vonBertalanffy",
   linkages = list(
     log_K = linkage_spec(
-      formula = ~ 1,                                  # intercept only
+      formula = ~ 1,                              # intercept only -- no env effects
       by      = ~ species + sex,
-      init    = list(`(Intercept)` = log(0.3)),       # K starting at 0.3
+      init    = list(`(Intercept)` = log(0.3)),   # start at K = 0.3
       priors  = list(`(Intercept)` = normal(log(0.3), 0.1))
     )
   )
 )
+```
 
-# Build the parameter list, then fix ln_growth_pars[, , 1] (= log_K)
-# at zero so the linkage intercept owns the whole log_K. (Repeat for
-# log_L1 / log_Linf / log_m as needed.)
-inits <- build_params(BS2017SS)
-inits$ln_growth_pars[, , 1] <- 0       # K column
+The same pattern works for any linkage target -- `log_Linf`, `log_L1`,
+`log_m` (Richards), `log_M1`, `log_R0`, `log_alpha`, `log_beta`. With
+recruitment, you can also key the prior by species id for species-
+specific priors:
 
-# Build the map and NA-out the same slice.
-mp <- build_map(BS2017SS, inits)
-mp$mapList$ln_growth_pars[, , 1] <- NA
-mp$mapFactor <- lapply(mp$mapList, factor)
-
-fit <- fit_mod(
-  data_list = BS2017SS,
-  inits     = inits,
-  map       = mp,
-  growthFun = growth_spec,
-  estimateMode = 0,
-  msmMode   = 0
+```{r}
+rec_spec <- build_srr(
+  srr_fun = 0,
+  linkages = list(
+    log_R0 = linkage_spec(
+      formula = ~ 1,
+      by      = ~ species,
+      init    = list(`(Intercept)` = log(1000)),
+      priors  = list(`(Intercept)` = list(
+        `1` = normal(log(1000), 0.2),
+        `2` = normal(log(1500), 0.3),
+        `3` = normal(log(800),  0.25)
+      ))
+    )
+  )
 )
 ```
 
-**Pattern B (looser): leave `ln_growth_pars` free and put the prior
-on the linkage intercept.** This adds `-dnorm(beta_intercept,
-log(0.3), 0.1, log = TRUE)` to the NLL but the *underlying* `log_K`
-remains `ln_growth_pars + beta_intercept`, which is non-identifiable
-without further constraints. The two parameters can trade off in
-optimization. Pattern B is occasionally useful as a regularizer
-("the linkage intercept should be small") but it does **not** pin
-`log_K` itself.
+The prior contribution appears in slot 19 of the joint NLL:
 
-In both patterns the prior NLL contribution shows up in
-`fit$quantities$jnll_comp["Linkage-table priors", ]` and you can
-inspect the realised value via the row in `fit$data_list$linkage_table`
-whose `prior_family != "none"`.
+```{r}
+fit$quantities$jnll_comp["Linkage-table priors", ]
+```
 
-A direct prior on `ln_growth_pars` (analogous to `M_prior` /
-`M_prior_sd` for natural mortality) is on the post-release roadmap;
-until that lands, Pattern A is the recommended workaround.
+You can inspect the linked parameter values via the linkage table and
+the estimated coefficient vector:
 
-The same Pattern A also works for **`log_M1`** when you want a prior
-on natural mortality itself rather than on a covariate effect:
+```{r}
+fit$data_list$linkage_table[fit$data_list$linkage_table$param == "log_R0", ]
+fit$estimated_params$ln_beta_linkage
+```
+
+The same approach works for **`log_M1`** when you want a prior on
+natural mortality itself:
 
 ```{r}
 # Three-species model, Lognormal(log(0.4), 0.35) prior on log_M1
@@ -312,17 +360,9 @@ M1_spec <- build_M1(
   )
 )
 
-# Fix ln_M1 at 0 so the linkage intercept owns log_M1.
-inits <- build_params(data_list)
-inits$ln_M1[] <- 0
-mp <- build_map(data_list, inits)
-mp$mapList$ln_M1[] <- NA
-mp$mapFactor <- lapply(mp$mapList, factor)
-
+# Fit the model - no manual mapping needed
 fit <- fit_mod(
   data_list = data_list,
-  inits     = inits,
-  map       = mp,
   M1Fun     = M1_spec,
   estimateMode = 0
 )

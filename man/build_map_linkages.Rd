@@ -2,7 +2,7 @@
 % Please edit documentation in R/2-build_map.R
 \name{build_map_linkages}
 \alias{build_map_linkages}
-\title{Helper to set map for linkage-table coefficients}
+\title{Helper to set map for linkage-table parameters}
 \usage{
 build_map_linkages(map_list, data_list)
 }
