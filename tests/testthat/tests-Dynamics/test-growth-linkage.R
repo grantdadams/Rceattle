@@ -77,11 +77,11 @@ testthat::test_that("linkage offset propagates to growth_parameters[K]", {
   k_idx <- 1L
   for (sp in seq_len(nspp)) {
     sex <- 1L
-    obs <- as.numeric(off1[sp, sex, k_idx, yr_idx])
+    obs <- as.numeric(off1[sp, sex, yr_idx, k_idx])
     testthat::expect_equal(obs, beta_temp * temp_vec, tolerance = 1e-10)
   }
   for (par_idx in c(2L, 3L, 4L)) {
-    slice <- off1[, , par_idx, , drop = FALSE]
+    slice <- off1[, , , par_idx, drop = FALSE]
     testthat::expect_true(all(slice == 0))
   }
 
