@@ -19,7 +19,7 @@ build_map_selectivity(map_list, data_list, nyrs_hind, random_sel)
 Updated \code{map_list}.
 }
 \description{
-Maps base selectivity parameters (\code{ln_sel_slp}, \code{sel_inf},
+Maps base selectivity parameters (\code{log_sel_slp}, \code{sel_inf},
 \code{sel_coff}) and time-varying deviations, based on \code{Selectivity}
 and \code{Time_varying_sel} settings in \code{fleet_control}.
 

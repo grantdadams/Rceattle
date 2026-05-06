@@ -17,7 +17,7 @@ build_map_catchability(map_list, data_list, nyrs_hind)
 Updated \code{map_list}.
 }
 \description{
-Maps survey catchability base parameters (\code{index_ln_q}),
+Maps survey catchability base parameters (\code{index_log_q}),
 time-varying deviations (\code{index_q_dev}), and environmental linkages
 (\code{index_q_beta}, \code{index_q_rho}).
 }

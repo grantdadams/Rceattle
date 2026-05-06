@@ -37,7 +37,7 @@ testthat::test_that("Free parameter initMode", {
   testthat::expect_equal(as.numeric(natage1), c(exp(9), rep(1, nages-1)))
 
   testthat::expect_equal(c(mod$map$mapList$init_dev), c(as.numeric(1:(nages-1)), NA))
-  testthat::expect_equal(as.numeric(mod$map$mapList$ln_Finit), as.numeric(rep(NA, length(mod$map$mapList$ln_Finit))))
+  testthat::expect_equal(as.numeric(mod$map$mapList$log_Finit), as.numeric(rep(NA, length(mod$map$mapList$log_Finit))))
 
   # Run string
   mod <- Rceattle::fit_mod(data_list = dat,
@@ -48,7 +48,7 @@ testthat::test_that("Free parameter initMode", {
   testthat::expect_equal(as.numeric(natage1), c(exp(9), rep(1, nages-1)))
 
   testthat::expect_equal(c(mod$map$mapList$init_dev), c(as.numeric(1:(nages-1)), NA))
-  testthat::expect_equal(as.numeric(mod$map$mapList$ln_Finit), as.numeric(rep(NA, length(mod$map$mapList$ln_Finit))))
+  testthat::expect_equal(as.numeric(mod$map$mapList$log_Finit), as.numeric(rep(NA, length(mod$map$mapList$log_Finit))))
 })
 
 testthat::test_that("Equilibrium initMode", {
@@ -68,7 +68,7 @@ testthat::test_that("Equilibrium initMode", {
   testthat::expect_equal(as.numeric(natage1), c(exp(9-0.2 * 0:3), exp(9)/(1-exp(-0.2)) * exp(-0.2*4)))
 
   testthat::expect_equal(c(mod$map$mapList$init_dev), as.numeric(rep(NA, length(mod$map$mapList$init_dev))))
-  testthat::expect_equal(as.numeric(mod$map$mapList$ln_Finit), as.numeric(rep(NA, length(mod$map$mapList$ln_Finit))))
+  testthat::expect_equal(as.numeric(mod$map$mapList$log_Finit), as.numeric(rep(NA, length(mod$map$mapList$log_Finit))))
 
   # Run string
   mod <- Rceattle::fit_mod(data_list = dat,
@@ -79,7 +79,7 @@ testthat::test_that("Equilibrium initMode", {
   testthat::expect_equal(as.numeric(natage1), c(exp(9-0.2 * 0:3), exp(9)/(1-exp(-0.2)) * exp(-0.2*4)))
 
   testthat::expect_equal(c(mod$map$mapList$init_dev), as.numeric(rep(NA, length(mod$map$mapList$init_dev))))
-  testthat::expect_equal(as.numeric(mod$map$mapList$ln_Finit), as.numeric(rep(NA, length(mod$map$mapList$ln_Finit))))
+  testthat::expect_equal(as.numeric(mod$map$mapList$log_Finit), as.numeric(rep(NA, length(mod$map$mapList$log_Finit))))
 })
 
 
@@ -101,7 +101,7 @@ testthat::test_that("NonEquilibrium initMode", {
   testthat::expect_equal(as.numeric(natage1), c(exp(9-0.2 * 0:3), exp(9)/(1-exp(-0.2)) * exp(-0.2*4)))
 
   testthat::expect_equal(c(mod$map$mapList$init_dev), c(as.numeric(1:(nages-1)), NA))
-  testthat::expect_equal(as.numeric(mod$map$mapList$ln_Finit), as.numeric(rep(NA, length(mod$map$mapList$ln_Finit))))
+  testthat::expect_equal(as.numeric(mod$map$mapList$log_Finit), as.numeric(rep(NA, length(mod$map$mapList$log_Finit))))
 
   # Run string
   mod <- Rceattle::fit_mod(data_list = dat,
@@ -112,7 +112,7 @@ testthat::test_that("NonEquilibrium initMode", {
   testthat::expect_equal(as.numeric(natage1), c(exp(9-0.2 * 0:3), exp(9)/(1-exp(-0.2)) * exp(-0.2*4)))
 
   testthat::expect_equal(c(mod$map$mapList$init_dev), c(as.numeric(1:(nages-1)), NA))
-  testthat::expect_equal(as.numeric(mod$map$mapList$ln_Finit), as.numeric(rep(NA, length(mod$map$mapList$ln_Finit))))
+  testthat::expect_equal(as.numeric(mod$map$mapList$log_Finit), as.numeric(rep(NA, length(mod$map$mapList$log_Finit))))
 
   # - Likelihood
   testthat::expect_equal(as.numeric(mod$quantities$jnll_comp[10,1]), -dnorm(0, 1/2, sd = 1, log = TRUE) * (nages - 1)) # Lognormal bias correction with sd = 1
@@ -134,11 +134,11 @@ testthat::test_that("FishedNonEquilibrium initMode", {
                            estimateMode = 3)
 
   natage1 <- mod$quantities$N_at_age[1,1,,1]
-  Finit <- as.numeric(exp(mod$estimated_params$ln_Finit))
+  Finit <- as.numeric(exp(mod$estimated_params$log_Finit))
   testthat::expect_equal(as.numeric(natage1), c(exp(9-(0.2+Finit) * 0:3), exp(9) * exp(-(0.2+Finit)*4)/(1-exp(-0.2 - Finit))))
 
   testthat::expect_equal(c(mod$map$mapList$init_dev), c(as.numeric(1:(nages-1)), NA))
-  testthat::expect_equal(as.numeric(mod$map$mapList$ln_Finit), 1)
+  testthat::expect_equal(as.numeric(mod$map$mapList$log_Finit), 1)
 
   # - Likelihood
   testthat::expect_equal(as.numeric(mod$quantities$jnll_comp[10,1]), -dnorm(0, 1/2, sd = 1, log = TRUE) * (nages - 1)) # Lognormal bias correction with sd = 1
@@ -149,11 +149,11 @@ testthat::test_that("FishedNonEquilibrium initMode", {
                            estimateMode = 3)
 
   natage1 <- mod$quantities$N_at_age[1,1,,1]
-  Finit <- as.numeric(exp(mod$estimated_params$ln_Finit))
+  Finit <- as.numeric(exp(mod$estimated_params$log_Finit))
   testthat::expect_equal(as.numeric(natage1), c(exp(9-(0.2+Finit) * 0:3), exp(9) * exp(-(0.2+Finit)*4)/(1-exp(-0.2 - Finit))))
 
   testthat::expect_equal(c(mod$map$mapList$init_dev), c(as.numeric(1:(nages-1)), NA))
-  testthat::expect_equal(as.numeric(mod$map$mapList$ln_Finit), 1)
+  testthat::expect_equal(as.numeric(mod$map$mapList$log_Finit), 1)
 
   # - Likelihood
   testthat::expect_equal(as.numeric(mod$quantities$jnll_comp[10,1]), -dnorm(0, 1/2, sd = 1, log = TRUE) * (nages - 1)) # Lognormal bias correction with sd = 1
@@ -175,11 +175,11 @@ testthat::test_that("FishedNonEquilibriumScaled initMode", {
                            estimateMode = 3)
 
   natage1 <- mod$quantities$N_at_age[1,1,,1]
-  Finit <- as.numeric(exp(mod$estimated_params$ln_Finit))
+  Finit <- as.numeric(exp(mod$estimated_params$log_Finit))
   testthat::expect_equal(as.numeric(natage1), c(exp(9), exp(9-(0.2) * 1:3)* exp(-Finit), exp(9) * exp(-(0.2)*4)/(1-exp(-0.2 - Finit))* exp(-Finit)))
 
   testthat::expect_equal(c(mod$map$mapList$init_dev), c(as.numeric(1:(nages-1)), NA))
-  testthat::expect_equal(as.numeric(mod$map$mapList$ln_Finit), 1)
+  testthat::expect_equal(as.numeric(mod$map$mapList$log_Finit), 1)
 
   # - Likelihood
   testthat::expect_equal(as.numeric(mod$quantities$jnll_comp[10,1]), -dnorm(0, 1/2, sd = 1, log = TRUE) * (nages - 1)) # Lognormal bias correction with sd = 1
@@ -191,11 +191,11 @@ testthat::test_that("FishedNonEquilibriumScaled initMode", {
                            estimateMode = 3)
 
   natage1 <- mod$quantities$N_at_age[1,1,,1]
-  Finit <- as.numeric(exp(mod$estimated_params$ln_Finit))
+  Finit <- as.numeric(exp(mod$estimated_params$log_Finit))
   testthat::expect_equal(as.numeric(natage1), c(exp(9), exp(9-(0.2) * 1:3)* exp(-Finit), exp(9) * exp(-(0.2)*4)/(1-exp(-0.2 - Finit))* exp(-Finit)))
 
   testthat::expect_equal(c(mod$map$mapList$init_dev), c(as.numeric(1:(nages-1)), NA))
-  testthat::expect_equal(as.numeric(mod$map$mapList$ln_Finit), 1)
+  testthat::expect_equal(as.numeric(mod$map$mapList$log_Finit), 1)
 
   # - Likelihood
   testthat::expect_equal(as.numeric(mod$quantities$jnll_comp[10,1]), -dnorm(0, 1/2, sd = 1, log = TRUE) * (nages - 1)) # Lognormal bias correction with sd = 1

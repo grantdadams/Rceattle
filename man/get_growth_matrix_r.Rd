@@ -14,7 +14,7 @@ get_growth_matrix_r(
   minage_sp,
   maxage_sp,
   growth_params_sp,
-  growth_ln_sd_sp,
+  growth_log_sd_sp,
   growth_model_sp
 )
 }
@@ -38,7 +38,7 @@ get_growth_matrix_r(
 \item{growth_params_sp}{Array. Dimensions (sex, yr, 4).
 Params: K, L1, Linf, Richards m.}
 
-\item{growth_ln_sd_sp}{Array. Dimensions (sex, 2).
+\item{growth_log_sd_sp}{Array. Dimensions (sex, 2).
 Log-SD of length: 1st param is SD at minage, 2nd param is SD at maxage.}
 
 \item{growth_model_sp}{Integer. 1 = Von Bertalanffy, 2 = Richards.}

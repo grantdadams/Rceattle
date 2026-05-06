@@ -32,25 +32,25 @@ build_hcr_map <- function(data_list, map, debug = FALSE, all_params_on = FALSE, 
   # --- Dynamic BRPS - 1 value per species and year
   if(!debug){
     if(data_list$HCR == "CMSY"){ # CMSY
-      map$mapList$ln_Ftarget[params_on] <- params_on
+      map$mapList$log_Ftarget[params_on] <- params_on
     }
 
     if(data_list$HCR == "ConstantF"){ # Fixed F - still have Flimit for single-species
-      map$mapList$ln_Flimit[params_on] <- params_on
+      map$mapList$log_Flimit[params_on] <- params_on
     }
     if(data_list$HCR == "ConstantFSSB"){
-      map$mapList$ln_Ftarget[params_on] <- params_on
+      map$mapList$log_Ftarget[params_on] <- params_on
     }
     if(data_list$HCR == "ConstantFSPR"){
-      map$mapList$ln_Ftarget[params_on] <- params_on
-      map$mapList$ln_Flimit[params_on] <- params_on
+      map$mapList$log_Ftarget[params_on] <- params_on
+      map$mapList$log_Flimit[params_on] <- params_on
     }
     if(data_list$HCR %in% c("NPFMC", "SESSF")){
-      map$mapList$ln_Ftarget[params_on] <- params_on
-      map$mapList$ln_Flimit[params_on] <- params_on
+      map$mapList$log_Ftarget[params_on] <- params_on
+      map$mapList$log_Flimit[params_on] <- params_on
     }
     if(data_list$HCR == "PFMC"){
-      map$mapList$ln_Flimit[params_on] <- params_on
+      map$mapList$log_Flimit[params_on] <- params_on
     }
 
 
@@ -63,14 +63,14 @@ build_hcr_map <- function(data_list, map, debug = FALSE, all_params_on = FALSE, 
       prop_check <- data_list$fleet_control$proj_F_prop[which(data_list$fleet_control$Species == sp & data_list$fleet_control$Fleet_type == "Fishery")]
       if(sum(as.numeric(prop_check == 0)) != 0){ # If all fisheries for a species have no F in F_prop, turn off future F
         message(paste("F_prop for species",sp,"sums to 0"))
-        map$mapList$ln_Ftarget[sp] <- NA
-        map$mapList$ln_Flimit[sp] <- NA
+        map$mapList$log_Ftarget[sp] <- NA
+        map$mapList$log_Flimit[sp] <- NA
       }
 
       # Fixed n-at-age: Turn off parameters
       if(data_list$estDynamics[sp] > 0){
-        map$mapList$ln_Ftarget[sp] <- NA
-        map$mapList$ln_Flimit[sp] <- NA
+        map$mapList$log_Ftarget[sp] <- NA
+        map$mapList$log_Flimit[sp] <- NA
       }
     }
   }

@@ -279,7 +279,7 @@ RECRUITMENT_LINKAGE_PARAMS <- c("log_R0", "log_alpha", "log_beta")
 #' @description Allowed M-parameter names for \code{linkages} in [build_M1()].
 #' Linear-predictor names of the underlying natural-mortality
 #' parameters that the linkage system can address. Currently just
-#' `log_M1` -- the offset is added on the log scale to `ln_M1`
+#' `log_M1` -- the offset is added on the log scale to `log_M1`
 #' (broadcast across age unless the linkage row pins a specific
 #' `age_bin`).
 #'
@@ -421,7 +421,7 @@ M_LINKAGE_PARAMS <- c("log_M1")
     "  build_M1(M1_model = ...,\n",
     "           linkages = list(log_M1 = linkage_spec(\n",
     "             formula = ~ <env_col>, by = ~species)))\n\n",
-    "Both paths add additively to ln_M1 on the log scale, so do ",
+    "Both paths add additively to log_M1 on the log scale, so do ",
     "NOT supply both for the same coefficient or you will ",
     "double-count. See vignette('environmental-linkages').",
     call. = FALSE
@@ -448,7 +448,7 @@ M_LINKAGE_PARAMS <- c("log_M1")
 #' @param updateM1 If using initial parameters, use M1 fixed effects
 #'   from data (`M1_base`) instead. Default `FALSE`.
 #' @param M1_use_prior Vector or scalar; if `TRUE`, apply the
-#'   lognormal `M_prior` / `M_prior_sd` to `ln_M1` directly.
+#'   lognormal `M_prior` / `M_prior_sd` to `log_M1` directly.
 #' @param M2_use_prior Vector or scalar; if `TRUE`, apply the
 #'   lognormal prior to `M1 + M2` in multi-species models.
 #' @param M_prior Mean (natural-scale) of the lognormal prior on M.
@@ -560,7 +560,7 @@ GROWTH_LINKAGE_PARAMS <- c("log_K", "log_L1", "log_Linf", "log_m")
 
 
 #' Map growth linkage param names to slices along the third dim of
-#' `ln_growth_pars` (`[nspp, nsex, n_growth_pars]`).
+#' `log_growth_pars` (`[nspp, nsex, n_growth_pars]`).
 #' @keywords internal
 #' @noRd
 .GROWTH_PARAM_TO_INDEX <- c(log_K = 1L, log_L1 = 2L, log_Linf = 3L, log_m = 4L)

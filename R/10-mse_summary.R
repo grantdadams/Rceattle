@@ -594,9 +594,9 @@ load_mse <- function(dir = NULL, file = NULL, exclude = NULL, include_em = TRUE)
     mse_tmp[[i]]$OM$opt <- NULL
     mse_tmp[[i]]$OM$sdrep <- NULL
     mse_tmp[[i]]$OM$quantities[!names(mse_tmp[[i]]$OM$quantities) %in% c("catch_hat",
-                                                                         "ln_catch_sd",
+                                                                         "log_catch_sd",
                                                                          "index_hat",
-                                                                         "ln_index_sd",
+                                                                         "log_index_sd",
                                                                          "ssb_depletion",
                                                                          "biomass_depletion",
                                                                          "biomass",
@@ -630,9 +630,9 @@ load_mse <- function(dir = NULL, file = NULL, exclude = NULL, include_em = TRUE)
     mse_tmp[[i]]$OM_no_F$opt <- NULL
     mse_tmp[[i]]$OM_no_F$sdrep <- NULL
     mse_tmp[[i]]$OM_no_F$quantities[!names(mse_tmp[[i]]$OM_no_F$quantities) %in% c("catch_hat",
-                                                                                   "ln_catch_sd",
+                                                                                   "log_catch_sd",
                                                                                    "index_hat",
-                                                                                   "ln_index_sd",
+                                                                                   "log_index_sd",
                                                                                    "ssb_depletion",
                                                                                    "biomass_depletion",
                                                                                    "biomass",

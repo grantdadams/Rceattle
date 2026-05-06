@@ -41,23 +41,23 @@ testthat::test_that("Test IID year time-varying M", {
   mod0 <- suppressMessages( fit_mod(data_list = simData, inits = NULL, estimateMode = 3, random_rec = FALSE, M1Fun = build_M1(M1_model = 1, M1_re = 2), msmMode = 0, initMode = "NonEquilibrium", fit_control = fit_control(phase = FALSE, verbose = 0)) )
   inits <- mod0$estimated_params
   inits$sel_inf[1,,1] <- c(3,6,2.5,4)
-  inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
-  inits$ln_F[2,] <- log(Fmort)
-  inits$ln_F[4,] <- log(Fmort2)
+  inits$log_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
+  inits$log_F[2,] <- log(Fmort)
+  inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
-  inits$index_ln_q[] <- log(1)
-  inits$R_ln_sd[] <- log(1)
+  inits$index_log_q[] <- log(1)
+  inits$R_log_sd[] <- log(1)
   inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
-  inits$ln_M1[,1,] <- log(sim$model_quantities$M)
+  inits$log_M1[,1,] <- log(sim$model_quantities$M)
   for(sp in 1:2){
     for(age in 1:15){
-      inits$ln_M1_dev[sp,1,age,1:nyrs] <- sim$model_quantities$M_vec[sp,]
+      inits$log_M1_dev[sp,1,age,1:nyrs] <- sim$model_quantities$M_vec[sp,]
     }
   }
 
   inits$M1_rho[] <- atanh(M1rho)
-  inits$M1_dev_ln_sd[] <- log(M1sd)
+  inits$M1_dev_log_sd[] <- log(M1sd)
 
   ss_run1 <- Rceattle::fit_mod(data_list = simData,
                                inits = inits, # Initial parameters = 0
@@ -81,12 +81,12 @@ testthat::test_that("Test IID year time-varying M", {
 
   # M map
   # - Devs
-  testthat::expect_equal(matrix(ss_run1$map$mapList$ln_M1_dev[1,1,,], 15, 40), matrix(c(1:30, rep(NA, 10)), 15, 40, byrow = TRUE))
-  testthat::expect_equal(matrix(ss_run1$map$mapList$ln_M1_dev[2,1,,], 15, 40), matrix(c(31:60, rep(NA, 10)), 15, 40, byrow = TRUE))
+  testthat::expect_equal(matrix(ss_run1$map$mapList$log_M1_dev[1,1,,], 15, 40), matrix(c(1:30, rep(NA, 10)), 15, 40, byrow = TRUE))
+  testthat::expect_equal(matrix(ss_run1$map$mapList$log_M1_dev[2,1,,], 15, 40), matrix(c(31:60, rep(NA, 10)), 15, 40, byrow = TRUE))
 
   # - SD and rho
   testthat::expect_equal(as.numeric(ss_run1$map$mapList$M1_rho[,1,]), as.numeric(rep(NA, 4)))
-  testthat::expect_equal(matrix(ss_run1$map$mapList$M1_dev_ln_sd, 2, 1), matrix(1:2, 2, 1))
+  testthat::expect_equal(matrix(ss_run1$map$mapList$M1_dev_log_sd, 2, 1), matrix(1:2, 2, 1))
 
   # SD and rho
   ss_run1$quantities$rho_M_y
@@ -148,23 +148,23 @@ testthat::test_that("Test AR1 year time-varying M", {
   mod0 <- suppressMessages( fit_mod(data_list = simData, inits = NULL, estimateMode = 3, random_rec = FALSE, M1Fun = build_M1(M1_model = 1, M1_re = 5), msmMode = 0, initMode = "NonEquilibrium", fit_control = fit_control(phase = FALSE, verbose = 0)) )
   inits <- mod0$estimated_params
   inits$sel_inf[1,,1] <- c(3,6,2.5,4)
-  inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
-  inits$ln_F[2,] <- log(Fmort)
-  inits$ln_F[4,] <- log(Fmort2)
+  inits$log_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
+  inits$log_F[2,] <- log(Fmort)
+  inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
-  inits$index_ln_q[] <- log(1)
-  inits$R_ln_sd[] <- log(1)
+  inits$index_log_q[] <- log(1)
+  inits$R_log_sd[] <- log(1)
   inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
-  inits$ln_M1[,1,] <- log(sim$model_quantities$M)
+  inits$log_M1[,1,] <- log(sim$model_quantities$M)
   for(sp in 1:2){
     for(age in 1:15){
-      inits$ln_M1_dev[sp,1,age,1:nyrs] <- sim$model_quantities$M_vec[sp,]
+      inits$log_M1_dev[sp,1,age,1:nyrs] <- sim$model_quantities$M_vec[sp,]
     }
   }
 
   inits$M1_rho[] <- atanh(M1rho)
-  inits$M1_dev_ln_sd[] <- log(M1sd)
+  inits$M1_dev_log_sd[] <- log(M1sd)
 
   ss_run1 <- Rceattle::fit_mod(data_list = simData,
                                inits = inits, # Initial parameters = 0
@@ -188,12 +188,12 @@ testthat::test_that("Test AR1 year time-varying M", {
 
   # M map
   # - Devs
-  testthat::expect_equal(matrix(ss_run1$map$mapList$ln_M1_dev[1,1,,], 15, 40), matrix(c(1:30, rep(NA, 10)), 15, 40, byrow = TRUE))
-  testthat::expect_equal(matrix(ss_run1$map$mapList$ln_M1_dev[2,1,,], 15, 40), matrix(c(31:60, rep(NA, 10)), 15, 40, byrow = TRUE))
+  testthat::expect_equal(matrix(ss_run1$map$mapList$log_M1_dev[1,1,,], 15, 40), matrix(c(1:30, rep(NA, 10)), 15, 40, byrow = TRUE))
+  testthat::expect_equal(matrix(ss_run1$map$mapList$log_M1_dev[2,1,,], 15, 40), matrix(c(31:60, rep(NA, 10)), 15, 40, byrow = TRUE))
 
   # - SD and rho
   testthat::expect_equal(matrix(ss_run1$map$mapList$M1_rho, 2, 2), matrix(c(rep(NA, 2), 1:2), 2, 2))
-  testthat::expect_equal(matrix(ss_run1$map$mapList$M1_dev_ln_sd, 2, 1), matrix(1:2, 2, 1))
+  testthat::expect_equal(matrix(ss_run1$map$mapList$M1_dev_log_sd, 2, 1), matrix(1:2, 2, 1))
 
 
   # N

@@ -9,7 +9,7 @@ testthat::test_that("Fixed catchability", {
   # Set params
   mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
   inits <- mod0$estimated_params
-  inits$index_ln_q[] <- 0
+  inits$index_log_q[] <- 0
 
   # Run
   ss_run <- suppressMessages(
@@ -25,12 +25,12 @@ testthat::test_that("Fixed catchability", {
 
   # Map
   nflt <- nrow(GOA2018SS$fleet_control)
-  testthat::expect_equal(as.numeric(ss_run$map$mapList$index_ln_q), as.numeric(rep(NA, nflt)))
-  testthat::expect_equal(as.numeric(ss_run$map$mapList$index_ln_q), as.numeric(rep(NA, nflt)))
+  testthat::expect_equal(as.numeric(ss_run$map$mapList$index_log_q), as.numeric(rep(NA, nflt)))
+  testthat::expect_equal(as.numeric(ss_run$map$mapList$index_log_q), as.numeric(rep(NA, nflt)))
   testthat::expect_equal(as.numeric(ss_run$map$mapList$index_q_beta), as.numeric(rep(NA, length(ss_run$map$mapList$index_q_beta))))
   testthat::expect_equal(as.numeric(ss_run$map$mapList$index_q_dev), as.numeric(rep(NA, length(ss_run$map$mapList$index_q_dev))))
-  testthat::expect_equal(as.numeric(ss_run$map$mapList$index_q_dev_ln_sd), as.numeric(rep(NA, length(ss_run$map$mapList$index_q_dev_ln_sd))))
-  testthat::expect_equal(as.numeric(ss_run$map$mapList$index_q_ln_sd), as.numeric(rep(NA, length(ss_run$map$mapList$index_q_ln_sd))))
+  testthat::expect_equal(as.numeric(ss_run$map$mapList$index_q_dev_log_sd), as.numeric(rep(NA, length(ss_run$map$mapList$index_q_dev_log_sd))))
+  testthat::expect_equal(as.numeric(ss_run$map$mapList$index_q_log_sd), as.numeric(rep(NA, length(ss_run$map$mapList$index_q_log_sd))))
   testthat::expect_equal(as.numeric(ss_run$map$mapList$index_q_rho), as.numeric(rep(NA, length(ss_run$map$mapList$index_q_rho))))
 
   # Check q
@@ -52,7 +52,7 @@ testthat::test_that("Estimated catchability", {
   # Set params
   mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
   inits <- mod0$estimated_params
-  inits$index_ln_q[] <- 0
+  inits$index_log_q[] <- 0
 
   # Run
   ss_run <- suppressMessages(
@@ -69,12 +69,12 @@ testthat::test_that("Estimated catchability", {
   # Map
   fleets <- 1:nflt
   fleets[ss_run$data_list$fleet_control$Fleet_type != "Survey"] <- NA
-  testthat::expect_equal(as.numeric(ss_run$map$mapList$index_ln_q), fleets)
+  testthat::expect_equal(as.numeric(ss_run$map$mapList$index_log_q), fleets)
   testthat::expect_equal(as.numeric(ss_run$map$mapList$index_q_beta), as.numeric(rep(NA, length(ss_run$map$mapList$index_q_beta))))
 
   testthat::expect_equal(as.numeric(ss_run$map$mapList$index_q_dev), as.numeric(rep(NA, length(ss_run$map$mapList$index_q_dev))))
-  testthat::expect_equal(as.numeric(ss_run$map$mapList$index_q_dev_ln_sd), as.numeric(rep(NA, length(ss_run$map$mapList$index_q_dev_ln_sd))))
-  testthat::expect_equal(as.numeric(ss_run$map$mapList$index_q_ln_sd), as.numeric(rep(NA, length(ss_run$map$mapList$index_q_ln_sd))))
+  testthat::expect_equal(as.numeric(ss_run$map$mapList$index_q_dev_log_sd), as.numeric(rep(NA, length(ss_run$map$mapList$index_q_dev_log_sd))))
+  testthat::expect_equal(as.numeric(ss_run$map$mapList$index_q_log_sd), as.numeric(rep(NA, length(ss_run$map$mapList$index_q_log_sd))))
   testthat::expect_equal(as.numeric(ss_run$map$mapList$index_q_rho), as.numeric(rep(NA, length(ss_run$map$mapList$index_q_rho))))
 
   # Check q

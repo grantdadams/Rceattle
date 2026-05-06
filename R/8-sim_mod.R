@@ -20,15 +20,15 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
 
 
   # Indices of abundance/biomass ----
-  ln_index_sd <- quantities$ln_index_sd
+  log_index_sd <- quantities$log_index_sd
   index_hat <- quantities$index_hat
 
   if (simulate) {
     # Log-normal simulation with bias correction
     dat_sim$index_data$Observation <- exp(stats::rnorm(
       n = length(index_hat),
-      mean = log(index_hat) - (ln_index_sd^2) / 2,
-      sd = ln_index_sd
+      mean = log(index_hat) - (log_index_sd^2) / 2,
+      sd = log_index_sd
     ))
   } else {
     # Expected value
@@ -119,15 +119,15 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
 
 
   # Catch ----
-  ln_catch_sd <- quantities$ln_catch_sd
+  log_catch_sd <- quantities$log_catch_sd
   catch_hat <- quantities$catch_hat
 
   if (simulate) {
     # Log-normal simulation with bias correction
     dat_sim$catch_data$Catch <- exp(stats::rnorm(
       n = length(dat_sim$catch_data$Catch),
-      mean = log(catch_hat) - (ln_catch_sd^2) / 2,
-      sd = ln_catch_sd
+      mean = log(catch_hat) - (log_catch_sd^2) / 2,
+      sd = log_catch_sd
     ))
   } else {
     # Expected values
@@ -392,14 +392,14 @@ compare_sim <- function(operating_mod, simulation_mods, object = "quantities") {
 #' @param maxage_sp Numeric. The age at which growth enters the asymptotic phase.
 #' @param growth_params_sp Array. Dimensions (sex, yr, 4).
 #'   Params: K, L1, Linf, Richards m.
-#' @param growth_ln_sd_sp Array. Dimensions (sex, 2).
+#' @param growth_log_sd_sp Array. Dimensions (sex, 2).
 #'   Log-SD of length: 1st param is SD at minage, 2nd param is SD at maxage.
 #' @param growth_model_sp Integer. 1 = Von Bertalanffy, 2 = Richards.
 #'
 #' @return A 4D array of probabilities with dimensions (sex, age, length, year).
 get_growth_matrix_r <- function(fracyr, nsex_sp, nages_sp, nlengths_sp, nyrs,
                                 lengths_sp, minage_sp, maxage_sp,
-                                growth_params_sp, growth_ln_sd_sp, growth_model_sp) {
+                                growth_params_sp, growth_log_sd_sp, growth_model_sp) {
 
   # Define names for the dimensions
   dim_names <- list(
@@ -484,8 +484,8 @@ get_growth_matrix_r <- function(fracyr, nsex_sp, nages_sp, nlengths_sp, nyrs,
         }
 
         # --- 3. SD Calculation ---
-        sd1 <- exp(growth_ln_sd_sp[s, 1])
-        sda <- exp(growth_ln_sd_sp[s, 2])
+        sd1 <- exp(growth_log_sd_sp[s, 1])
+        sda <- exp(growth_log_sd_sp[s, 2])
 
         if(current_age <= minage_sp) {
           length_sd[s, a, y] <- sd1

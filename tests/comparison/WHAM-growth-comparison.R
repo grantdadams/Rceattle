@@ -343,23 +343,23 @@ inits$rec_dev[1,2:nyrs] <- wham_model$parList$log_NAA[,1] -  wham_model$parList$
 inits$init_dev[1,] <- wham_model$parList$log_N1_pars[1] -  wham_model$parList$mean_rec_pars # WHAM assumes rec-dev in year 1 is applied to year-1 to year - nages
 
 # - F (random walk in WHAM)
-inits$ln_F[2,1]  <- wham_model$parList$log_F1
+inits$log_F[2,1]  <- wham_model$parList$log_F1
 for(y in 2:nyrs){
-  inits$ln_F[2,y] <- inits$ln_F[2,y-1] + wham_model$parList$F_devs[y-1,1]
+  inits$log_F[2,y] <- inits$log_F[2,y-1] + wham_model$parList$F_devs[y-1,1]
 }
-inits$ln_Finit[1] <- -Inf
+inits$log_Finit[1] <- -Inf
 
 # - Selectivity
 selpars <-  wham_model$env$data$selpars_lower + ( wham_model$env$data$selpars_upper -  wham_model$env$data$selpars_lower) / (1.0 + exp(-(wham_model$parList$logit_selpars)))
-inits$ln_sel_slp[1,,1] <- rev(log(1/selpars[,24]))
+inits$log_sel_slp[1,,1] <- rev(log(1/selpars[,24]))
 inits$sel_inf[1,,1] <- rev(selpars[,23])
 
 # - Q
-inits$index_ln_q[1] <- log(wham_model$env$data$q_lower + (wham_model$env$data$q_upper - wham_model$env$data$q_lower) / (1 + exp(-wham_model$parList$logit_q)))
+inits$index_log_q[1] <- log(wham_model$env$data$q_lower + (wham_model$env$data$q_upper - wham_model$env$data$q_lower) / (1 + exp(-wham_model$parList$logit_q)))
 
 # - Growth
-inits$ln_growth_pars[1,1,1:3] <- wham_model$parList$growth_a[c(1,3,2),1]
-inits$growth_ln_sd[1,1,] <- wham_model$parList$SDgrowth_par
+inits$log_growth_pars[1,1,1:3] <- wham_model$parList$growth_a[c(1,3,2),1]
+inits$growth_log_sd[1,1,] <- wham_model$parList$SDgrowth_par
 
 
 ss_inits <- Rceattle::fit_mod(data_list = simData,

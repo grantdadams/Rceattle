@@ -199,8 +199,8 @@ void convert_length_selectivity(
  * @param sel_norm_bin2 Vector of upper bins for mean normalization per fleet.
  * @param emp_sel_obs Matrix of empirical selectivity observation values.
  * @param emp_sel_ctl Control matrix for empirical selectivity indexing.
- * @param ln_sel_slp Matrix of log-scale logistic slope parameters.
- * @param ln_sel_slp_dev 4D array of yearly slope deviations.
+ * @param log_sel_slp Matrix of log-scale logistic slope parameters.
+ * @param log_sel_slp_dev 4D array of yearly slope deviations.
  * @param sel_inf Matrix of bin-at-inflection parameters.
  * @param sel_inf_dev 4D array of yearly inflection deviations.
  * @param sel_coff 3D array of bin-specific coefficients for non-parametric models.
@@ -231,8 +231,8 @@ void calculate_selectivity(
     const vector<int>&  sel_norm_bin2,
     matrix<Type> emp_sel_obs,
     matrix<int>& emp_sel_ctl,
-    array<Type> ln_sel_slp,
-    array<Type> ln_sel_slp_dev,
+    array<Type> log_sel_slp,
+    array<Type> log_sel_slp_dev,
     array<Type> sel_inf,
     array<Type> sel_inf_dev,
     array<Type> sel_coff,
@@ -287,7 +287,7 @@ void calculate_selectivity(
         case 1: // Logistic
           for (int bin = 0; bin < nbins; bin++) {
             Type x_val = is_length_based ? (lengths(sp, bin) + 0.5 * binwidth) : Type(bin + 1);
-            Type slope = exp(ln_sel_slp(0, flt, sex) + ln_sel_slp_dev(0, flt, sex, yr));
+            Type slope = exp(log_sel_slp(0, flt, sex) + log_sel_slp_dev(0, flt, sex, yr));
             Type inf   = sel_inf(0, flt, sex) + sel_inf_dev(0, flt, sex, yr);
             Type val = 1.0 / (1.0 + exp(-slope * (x_val - inf)));
 
@@ -325,9 +325,9 @@ void calculate_selectivity(
         case 3: // Double Logistic
           for (int bin = 0; bin < nbins; bin++) {
             Type x_val = is_length_based ? (lengths(sp, bin) + 0.5 * binwidth) : Type(bin + 1);
-            Type slp1 = exp(ln_sel_slp(0, flt, sex) + ln_sel_slp_dev(0, flt, sex, yr));
+            Type slp1 = exp(log_sel_slp(0, flt, sex) + log_sel_slp_dev(0, flt, sex, yr));
             Type inf1 = sel_inf(0, flt, sex) + sel_inf_dev(0, flt, sex, yr);
-            Type slp2 = exp(ln_sel_slp(1, flt, sex) + ln_sel_slp_dev(1, flt, sex, yr));
+            Type slp2 = exp(log_sel_slp(1, flt, sex) + log_sel_slp_dev(1, flt, sex, yr));
             Type inf2 = sel_inf(1, flt, sex) + sel_inf_dev(1, flt, sex, yr);
             Type val = (1.0 / (1.0 + exp(-slp1 * (x_val - inf1)))) * (1.0 - (1.0 / (1.0 + exp(-slp2 * (x_val - inf2)))));
 
@@ -339,7 +339,7 @@ void calculate_selectivity(
         case 4: // Descending Logistic
           for (int bin = 0; bin < nbins; bin++) {
             Type x_val = is_length_based ? (lengths(sp, bin) + 0.5 * binwidth) : Type(bin + 1);
-            Type slp2 = exp(ln_sel_slp(1, flt, sex) + ln_sel_slp_dev(1, flt, sex, yr));
+            Type slp2 = exp(log_sel_slp(1, flt, sex) + log_sel_slp_dev(1, flt, sex, yr));
             Type inf2 = sel_inf(1, flt, sex) + sel_inf_dev(1, flt, sex, yr);
             Type val = (1.0 - (1.0 / (1.0 + exp(-slp2 * (x_val - inf2)))));
 

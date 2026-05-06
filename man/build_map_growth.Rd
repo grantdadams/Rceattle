@@ -17,7 +17,7 @@ build_map_growth(map_list, data_list, nyrs_hind)
 Updated \code{map_list}.
 }
 \description{
-Maps the fixed parameters (\code{ln_growth_pars}) and the random effects
-parameters (\code{ln_growth_par_devs}, \code{growth_dev_ln_sd}, \code{growth_rho}) based on
+Maps the fixed parameters (\code{log_growth_pars}) and the random effects
+parameters (\code{log_growth_par_devs}, \code{growth_dev_log_sd}, \code{growth_rho}) based on
 \code{growth_model} and \code{growth_re} settings.
 }

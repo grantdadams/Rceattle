@@ -30,7 +30,7 @@ testthat::test_that("Sex-specific age-based logistic selectivity not normalized"
                         verbose = 1))
   )
   inits <- ss_run$estimated_params
-  inits$ln_sel_slp[1,,] <- log(alpha)
+  inits$log_sel_slp[1,,] <- log(alpha)
   inits$sel_inf[1,,] <- inf     # Females
   inits$sel_inf[1,9:11,2] <- inf + 1 # Males
 
@@ -46,9 +46,9 @@ testthat::test_that("Sex-specific age-based logistic selectivity not normalized"
 
   # Map
   # - Slope
-  testthat::expect_equal(c(ss_run$map$mapList$ln_sel_slp[1,,]), c(1:6, NA, 7:8,10, 12, 14:18, rep(NA, 8), 9, 11, 13, rep(NA, 5)))
+  testthat::expect_equal(c(ss_run$map$mapList$log_sel_slp[1,,]), c(1:6, NA, 7:8,10, 12, 14:18, rep(NA, 8), 9, 11, 13, rep(NA, 5)))
   # - Desc slope
-  testthat::expect_equal(c(ss_run$map$mapList$ln_sel_slp[2,,]), as.numeric(rep(NA, 16*2)))
+  testthat::expect_equal(c(ss_run$map$mapList$log_sel_slp[2,,]), as.numeric(rep(NA, 16*2)))
 
   # - Asympt
   testthat::expect_equal(c(ss_run$map$mapList$sel_inf[1,,]), c(1:6, NA, 7:8,10, 12, 14:18, rep(NA, 8), 9, 11, 13, rep(NA, 5)))
@@ -56,9 +56,9 @@ testthat::test_that("Sex-specific age-based logistic selectivity not normalized"
   testthat::expect_equal(c(ss_run$map$mapList$sel_inf[2,,]), as.numeric(rep(NA, 16*2)))
 
   # - Devs
-  testthat::expect_equal(c(ss_run$map$mapList$ln_sel_slp_dev), as.numeric(rep(NA, 2688)))
+  testthat::expect_equal(c(ss_run$map$mapList$log_sel_slp_dev), as.numeric(rep(NA, 2688)))
   testthat::expect_equal(c(ss_run$map$mapList$sel_inf_dev), as.numeric(rep(NA, 2688)))
-  testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_dev_ln_sd), as.numeric(rep(NA, 16))) # Dev sigma
+  testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_dev_log_sd), as.numeric(rep(NA, 16))) # Dev sigma
 
 
   # Check selectivity
@@ -89,12 +89,12 @@ testthat::test_that("Sex-specific age-based time-varying logistic selectivity no
   nyrs <- length(GOA2018SS$styr:GOA2018SS$endyr)
   inf = 10
   inf_dev <- rnorm(nyrs)
-  ln_slp_dev <- rnorm(nyrs)
+  log_slp_dev <- rnorm(nyrs)
 
   alpha = 0.5
   ages <- 1:21
-  sel <- apply(cbind(ln_slp_dev, inf_dev), 1, function(x) 1/(1+exp(-alpha*exp(x[1]) * (ages - inf - x[2]))))
-  sel2 <- apply(cbind(ln_slp_dev, inf_dev), 1, function(x) 1/(1+exp(-(alpha+1)*exp(x[1]) * (ages - inf - x[2]))))
+  sel <- apply(cbind(log_slp_dev, inf_dev), 1, function(x) 1/(1+exp(-alpha*exp(x[1]) * (ages - inf - x[2]))))
+  sel2 <- apply(cbind(log_slp_dev, inf_dev), 1, function(x) 1/(1+exp(-(alpha+1)*exp(x[1]) * (ages - inf - x[2]))))
 
 
   # Set params to logistic
@@ -106,12 +106,12 @@ testthat::test_that("Sex-specific age-based time-varying logistic selectivity no
                         verbose = 1))
   )
   inits <- ss_run$estimated_params
-  inits$ln_sel_slp[1,,1] <- log(alpha) # Females
-  inits$ln_sel_slp[1,,2] <- log(alpha+1) # Males
+  inits$log_sel_slp[1,,1] <- log(alpha) # Females
+  inits$log_sel_slp[1,,2] <- log(alpha+1) # Males
   inits$sel_inf[1,,] <- inf
-  for(i in 1:dim(inits$ln_sel_slp_dev[1,,,])[1]){
-    for(j in 1:dim(inits$ln_sel_slp_dev[1,,,])[2]){
-      inits$ln_sel_slp_dev[1,i,j,] <- ln_slp_dev
+  for(i in 1:dim(inits$log_sel_slp_dev[1,,,])[1]){
+    for(j in 1:dim(inits$log_sel_slp_dev[1,,,])[2]){
+      inits$log_sel_slp_dev[1,i,j,] <- log_slp_dev
       inits$sel_inf_dev[1,i,j,] <- inf_dev
     }
   }
@@ -130,9 +130,9 @@ testthat::test_that("Sex-specific age-based time-varying logistic selectivity no
 
   # Map
   # - Slope
-  testthat::expect_equal(c(!is.na(ss_run$map$mapList$ln_sel_slp[1,,])), !is.na(c(1:6, NA, 7:8,10, 12, 14:18, rep(NA, 8), 9, 11, 13, rep(NA, 5))))
+  testthat::expect_equal(c(!is.na(ss_run$map$mapList$log_sel_slp[1,,])), !is.na(c(1:6, NA, 7:8,10, 12, 14:18, rep(NA, 8), 9, 11, 13, rep(NA, 5))))
   # - Desc slope
-  testthat::expect_equal(c(ss_run$map$mapList$ln_sel_slp[2,,]), as.numeric(rep(NA, 16*2)))
+  testthat::expect_equal(c(ss_run$map$mapList$log_sel_slp[2,,]), as.numeric(rep(NA, 16*2)))
 
   # - Asympt
   testthat::expect_equal(c(!is.na(ss_run$map$mapList$sel_inf[1,,])), !is.na(c(1:6, NA, 7:8,10, 12, 14:18, rep(NA, 8), 9, 11, 13, rep(NA, 5))))
@@ -141,16 +141,16 @@ testthat::test_that("Sex-specific age-based time-varying logistic selectivity no
 
   # - Devs
   # -- Ascending
-  testthat::expect_equal(sum(!is.na(c(ss_run$map$mapList$ln_sel_slp_dev[1,,,]))), 18 * nyrs) # slope
+  testthat::expect_equal(sum(!is.na(c(ss_run$map$mapList$log_sel_slp_dev[1,,,]))), 18 * nyrs) # slope
   testthat::expect_equal(sum(!is.na(c(ss_run$map$mapList$sel_inf_dev[1,,,]))), 18 * nyrs) # asymptote
 
-  testthat::expect_equal(length(unique(c(ss_run$map$mapList$ln_sel_slp_dev[1,,,]))), 18 * nyrs + 1) # slope
+  testthat::expect_equal(length(unique(c(ss_run$map$mapList$log_sel_slp_dev[1,,,]))), 18 * nyrs + 1) # slope
   testthat::expect_equal(length(unique(c(ss_run$map$mapList$sel_inf_dev[1,,,]))), 18 * nyrs + 1) # asymptote
 
-  testthat::expect_equal(c(ss_run$map$mapList$ln_sel_slp_dev[2,,,]), as.numeric(rep(NA, 2688/2))) # Descending slope
+  testthat::expect_equal(c(ss_run$map$mapList$log_sel_slp_dev[2,,,]), as.numeric(rep(NA, 2688/2))) # Descending slope
   testthat::expect_equal(c(ss_run$map$mapList$sel_inf_dev[2,,,]), as.numeric(rep(NA, 2688/2))) # Descending asymptote
 
-  testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_dev_ln_sd), as.numeric(rep(NA, 16))) # Dev sigma turned off
+  testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_dev_log_sd), as.numeric(rep(NA, 16))) # Dev sigma turned off
 
 
   # Check selectivity
@@ -191,7 +191,7 @@ testthat::test_that("Sex-specific age-based time-varying logistic selectivity no
                         verbose = 0))
   )
 
-  testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_dev_ln_sd), c(1:6, NA, 8:16)) # Dev sigma turned on except for not estimated fleet
+  testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_dev_log_sd), c(1:6, NA, 8:16)) # Dev sigma turned on except for not estimated fleet
 
   # TMB object
   testthat::expect_equal(length(unique(ss_run$obj$env$random)),  2 * 18 * nyrs)
@@ -217,7 +217,7 @@ testthat::test_that("Time-varying logistic selectivity likelihood", {
   nyrs <- length(GOA2018SS$styr:GOA2018SS$endyr)
   inf = 10
   inf_dev <- rnorm(nyrs)
-  ln_slp_dev <- rnorm(nyrs)
+  log_slp_dev <- rnorm(nyrs)
 
   # Set params to logistic
   alpha = 0.5
@@ -229,12 +229,12 @@ testthat::test_that("Time-varying logistic selectivity likelihood", {
                         verbose = 1))
   )
   inits <- ss_run$estimated_params
-  inits$ln_sel_slp[1,,1] <- log(alpha) # Females
-  inits$ln_sel_slp[1,,2] <- log(alpha+1) # Males
+  inits$log_sel_slp[1,,1] <- log(alpha) # Females
+  inits$log_sel_slp[1,,2] <- log(alpha+1) # Males
   inits$sel_inf[1,,] <- inf
-  for(i in 1:dim(inits$ln_sel_slp_dev[1,,,])[1]){
-    for(j in 1:dim(inits$ln_sel_slp_dev[1,,,])[2]){
-      inits$ln_sel_slp_dev[1,i,j,] <- ln_slp_dev
+  for(i in 1:dim(inits$log_sel_slp_dev[1,,,])[1]){
+    for(j in 1:dim(inits$log_sel_slp_dev[1,,,])[2]){
+      inits$log_sel_slp_dev[1,i,j,] <- log_slp_dev
       inits$sel_inf_dev[1,i,j,] <- inf_dev
     }
   }
@@ -254,7 +254,7 @@ testthat::test_that("Time-varying logistic selectivity likelihood", {
 
   # Nll
   rcnll <- sum(ss_run$quantities$jnll_comp[6,])
-  single_dv_nll <- sum(-dnorm(inf_dev, 0, 1, log = TRUE) - dnorm(ln_slp_dev, 0, 4, log = TRUE))
+  single_dv_nll <- sum(-dnorm(inf_dev, 0, 1, log = TRUE) - dnorm(log_slp_dev, 0, 4, log = TRUE))
 
   testthat::expect_equal(rcnll, single_dv_nll * 18) # 18 selectivities
 })

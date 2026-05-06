@@ -37,12 +37,12 @@ test_that("Growth parameter (log_K) is mapped to NA when linked", {
   map <- run$map$mapList
 
   # log_K is mapped to NA for every species/sex
-  expect_true(all(is.na(map$ln_growth_pars[, , 1])))
+  expect_true(all(is.na(map$log_growth_pars[, , 1])))
 
   # log_L1 / log_Linf remain estimable (log_m is NA via build_map_growth
   # for von Bertalanffy regardless of linkages, so we don't check it here)
-  expect_false(any(is.na(map$ln_growth_pars[, , 2]))) # log_L1
-  expect_false(any(is.na(map$ln_growth_pars[, , 3]))) # log_Linf
+  expect_false(any(is.na(map$log_growth_pars[, , 2]))) # log_L1
+  expect_false(any(is.na(map$log_growth_pars[, , 3]))) # log_Linf
 })
 
 # --- Test 2: M parameter (log_M1) linkage ---
@@ -57,7 +57,7 @@ test_that("M parameter (log_M1) is mapped to NA when linked", {
   )
   map <- run$map$mapList
 
-  expect_true(all(is.na(map$ln_M1)))
+  expect_true(all(is.na(map$log_M1)))
 })
 
 # --- Test 3: Recruitment parameter (log_R0) linkage ---

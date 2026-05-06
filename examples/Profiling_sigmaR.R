@@ -165,7 +165,7 @@ profile_rsigma <- function(model = NULL, rsigma_vec = NULL, species = NULL){
 
     # Update sigmaR
     inits <- model$estimated_params
-    inits$R_ln_sd[species] <- log(rsigma_vec[i])
+    inits$R_log_sd[species] <- log(rsigma_vec[i])
 
     # Build map
     data_list <- model$data_list
@@ -295,7 +295,7 @@ for(i in 1:3){
   lines(y = y, x = rsigma_vec, col = 1)
 
 
-  abline(v = exp(ebs_run_re$estimated_params$ln_rec_sigma[i]), lty = 2)
+  abline(v = exp(ebs_run_re$estimated_params$log_rec_sigma[i]), lty = 2)
 }
 
 legend("topright", c("Penalized likelihood", "Random effects", "Minima"), col = c(2,1,1), lty = c(1,1,2), bty = "n")
@@ -313,7 +313,7 @@ for(i in 1:3){
   y = y-min(y)
   lines(y = y, x = rsigma_vec, col = 1)
 
-  abline(v = exp(ebs_ricker_run_re$estimated_params$ln_rec_sigma[i]), lty = 2)
+  abline(v = exp(ebs_ricker_run_re$estimated_params$log_rec_sigma[i]), lty = 2)
 }
 
 
@@ -329,5 +329,5 @@ for(i in 1:3){
   y = y-min(y)
   lines(y = y, x = rsigma_vec, col = 1)
 
-  abline(v = exp(goa_list[[i]]$estimated_params$ln_rec_sigma[1]), lty = 2)
+  abline(v = exp(goa_list[[i]]$estimated_params$log_rec_sigma[1]), lty = 2)
 }

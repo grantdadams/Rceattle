@@ -9,9 +9,9 @@
 #' @param debug Logical. If TRUE, sets all map values to NA except the dummy
 #'   parameter, running the model without parameter estimation.
 #' @param random_rec Logical. If TRUE, treats recruitment deviations as random effects,
-#'   meaning the variance parameter (\code{R_ln_sd}) is estimated.
+#'   meaning the variance parameter (\code{R_log_sd}) is estimated.
 #' @param random_sel Logical. If TRUE, treats selectivity deviations as random effects,
-#'   meaning the variance parameter (\code{sel_dev_ln_sd}) is estimated.
+#'   meaning the variance parameter (\code{sel_dev_log_sd}) is estimated.
 #'
 #' @return A list containing the factorized TMB map (`mapFactor`) and the
 #'   original map matrix/array list (`mapList`).
@@ -71,7 +71,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 #' @title Helper to set map for Recruitment parameters
 #'
 #' @description Maps the recruitment deviations (\code{rec_dev}, \code{init_dev}),
-#'   stock-recruitment parameters (\code{rec_pars}), their variances (\code{R_ln_sd}),
+#'   stock-recruitment parameters (\code{rec_pars}), their variances (\code{R_log_sd}),
 #'   and environmental linkages (\code{beta_rec_pars}).
 #'
 #' @param map_list The current TMB map list.
@@ -115,7 +115,7 @@ build_map_recruitment <- function(map_list, data_list, nyrs_hind, nyrs_proj, ran
   }
 
   if (!random_rec) {
-    map_list$R_ln_sd[] <- NA
+    map_list$R_log_sd[] <- NA
   }
 
   # Null model (mean-R)
@@ -151,8 +151,8 @@ build_map_recruitment <- function(map_list, data_list, nyrs_hind, nyrs_proj, ran
 
 #' @title Helper to set map for Natural Mortality (M1) parameters
 #'
-#' @description Maps the fixed parameters (\code{ln_M1}) and the random effects
-#'   parameters (\code{ln_M1_dev}, \code{M1_dev_ln_sd}, \code{M1_rho}) based on
+#' @description Maps the fixed parameters (\code{log_M1}) and the random effects
+#'   parameters (\code{log_M1_dev}, \code{M1_dev_log_sd}, \code{M1_rho}) based on
 #'   \code{M1_model} and \code{M1_re} settings.
 #'
 #' @param map_list The current TMB map list.
@@ -163,7 +163,7 @@ build_map_recruitment <- function(map_list, data_list, nyrs_hind, nyrs_proj, ran
 build_map_m1 <- function(map_list, data_list, nyrs_hind) {
 
   # Map out natural mortality parameters
-  M1_params <- c("ln_M1", "M1_beta", "ln_M1_dev", "M1_dev_ln_sd", "M1_rho")
+  M1_params <- c("log_M1", "M1_beta", "log_M1_dev", "M1_dev_log_sd", "M1_rho")
   map_list[M1_params] <- lapply(map_list[M1_params], function(x) replace(x, values = NA))
 
   # Generic indices for looping
@@ -184,32 +184,32 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
     # * 1. Fixed effects ----
     # ** M1_model = 1: sex- and age-invariant M1
     if (M1_model == 1) {
-      map_list$ln_M1[sp, , 1:nages_sp] <- M1_ind
+      map_list$log_M1[sp, , 1:nages_sp] <- M1_ind
       M1_ind <- M1_ind + 1
     }
 
 
     # ** M1_model = 2: sex-specific, but age-invariant M1
     if (M1_model == 2) {
-      map_list$ln_M1[sp, 1, 1:nages_sp] <- M1_ind
-      map_list$ln_M1[sp, 2, 1:nages_sp] <- M1_ind + 1
+      map_list$log_M1[sp, 1, 1:nages_sp] <- M1_ind
+      map_list$log_M1[sp, 2, 1:nages_sp] <- M1_ind + 1
       M1_ind <- M1_ind + 2
       if (nsex_sp == 1) {
         warning(paste0("M1 model for species ", sp," is set to 2 (sex-specific), but species is single-sex."))
-        map_list$ln_M1[sp, 2, 1:nages_sp] <- M1_ind
+        map_list$log_M1[sp, 2, 1:nages_sp] <- M1_ind
       }
     }
 
     # ** M1_model = 3: sex-specific, age-specific M1
     if (M1_model == 3) {
-      map_list$ln_M1[sp, 1, 1:nages_sp] <- M1_ind:(M1_ind + nages_sp - 1)
+      map_list$log_M1[sp, 1, 1:nages_sp] <- M1_ind:(M1_ind + nages_sp - 1)
       M1_ind <- M1_ind + nages_sp
       if (nsex_sp == 2) {
-        map_list$ln_M1[sp, 2, 1:nages_sp] <- M1_ind:(M1_ind + nages_sp - 1)
+        map_list$log_M1[sp, 2, 1:nages_sp] <- M1_ind:(M1_ind + nages_sp - 1)
         M1_ind <- M1_ind + nages_sp
       } else {
         warning(paste0("M1 model for species ", sp," is set to 3 (sex-specific), but species is single-sex."))
-        map_list$ln_M1[sp, 2, ] <- map_list$ln_M1[sp, 1, ]
+        map_list$log_M1[sp, 2, ] <- map_list$log_M1[sp, 1, ]
       }
     }
 
@@ -217,7 +217,7 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
     if (M1_model == 4| (M1_model == 5 & nsex_sp == 1)) {
 
       # - Mean M
-      map_list$ln_M1[sp, , 1:nages_sp] <- M1_ind
+      map_list$log_M1[sp, , 1:nages_sp] <- M1_ind
       M1_ind <- M1_ind + 1
       map_list$M1_beta[sp, 1, data_list$M1_indices] <- M1_beta_ind + data_list$M1_indices
 
@@ -236,8 +236,8 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
     if (M1_model == 5 & nsex_sp == 2) {
 
       # - Mean M
-      map_list$ln_M1[sp, 1, 1:nages_sp] <- M1_ind # Females
-      map_list$ln_M1[sp, 2, 1:nages_sp] <- M1_ind + 1 # Males
+      map_list$log_M1[sp, 1, 1:nages_sp] <- M1_ind # Females
+      map_list$log_M1[sp, 2, 1:nages_sp] <- M1_ind + 1 # Males
       M1_ind = M1_ind + 2
 
       # - Betas
@@ -258,16 +258,16 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
     # - M1_re = 4: Correlated AR1 random effects varies by age, but constant over years.
     # - M1_re = 5: Correlated AR1 random effects varies by year, but constant over ages.
     # - M1_re = 6: Correlated 2D-AR1 random effects varies by year and age.
-    # "ln_M1_dev"
+    # "log_M1_dev"
     # - M1_re = 1/4: Random effects varies by age (IID or AR1) and constant over years.
     if(M1_re_model %in% c(1, 4)){
       if(M1_model == 1){ # Sex-invariant
         # - Random effects
-        map_list$ln_M1_dev[sp,1, 1:nages_sp,] <- M1_dev_ind + 1:nages_sp
+        map_list$log_M1_dev[sp,1, 1:nages_sp,] <- M1_dev_ind + 1:nages_sp
 
         # Males mapped the same, if present
         if(nsex_sp == 2){
-          map_list$ln_M1_dev[sp,2,,] <- map_list$ln_M1_dev[sp,1,,]
+          map_list$log_M1_dev[sp,2,,] <- map_list$log_M1_dev[sp,1,,]
         }
 
         M1_dev_ind = M1_dev_ind + nages_sp
@@ -276,17 +276,17 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
       if(M1_model == 2){ # Two sex population and sex-specific
         # - Random effects
         # -- Females
-        map_list$ln_M1_dev[sp, 1, 1:nages_sp,] <- M1_dev_ind + 1:nages_sp
+        map_list$log_M1_dev[sp, 1, 1:nages_sp,] <- M1_dev_ind + 1:nages_sp
         M1_dev_ind = M1_dev_ind + nages_sp
 
         # -- Males
-        map_list$ln_M1_dev[sp, 2, 1:nages_sp,] <- M1_dev_ind + 1:nages_sp
+        map_list$log_M1_dev[sp, 2, 1:nages_sp,] <- M1_dev_ind + 1:nages_sp
         M1_dev_ind = M1_dev_ind + nages_sp
       }
 
 
       # - Standard deviation (shared across sexes)
-      map_list$M1_dev_ln_sd[sp,] = sp
+      map_list$M1_dev_log_sd[sp,] = sp
 
       # AR1 correlation (shared across sexes)
       if(M1_re_model == 4){
@@ -298,11 +298,11 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
     if(M1_re_model %in% c(2, 5)){
       if(M1_model == 1){ # Sex-invariant
         # - Random effects
-        map_list$ln_M1_dev[sp,1,1:nages_sp, 1:nyrs_hind] <- rep(M1_dev_ind + 1:nyrs_hind, each = nages_sp)
+        map_list$log_M1_dev[sp,1,1:nages_sp, 1:nyrs_hind] <- rep(M1_dev_ind + 1:nyrs_hind, each = nages_sp)
 
         # Males mapped the same, if present
         if(nsex_sp == 2){
-          map_list$ln_M1_dev[sp,2,,] <- map_list$ln_M1_dev[sp,1,,]
+          map_list$log_M1_dev[sp,2,,] <- map_list$log_M1_dev[sp,1,,]
         }
 
         M1_dev_ind = M1_dev_ind + nyrs_hind
@@ -311,16 +311,16 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
       if(nsex_sp == 2 & M1_model == 2){ # Two sex population and sex-specific
         # - Random effects
         # -- Females
-        map_list$ln_M1_dev[sp,1, 1:nages_sp, 1:nyrs_hind] <- rep(M1_dev_ind + 1:nyrs_hind, each = nages_sp)
+        map_list$log_M1_dev[sp,1, 1:nages_sp, 1:nyrs_hind] <- rep(M1_dev_ind + 1:nyrs_hind, each = nages_sp)
         M1_dev_ind = M1_dev_ind + nyrs_hind
 
         # -- Males
-        map_list$ln_M1_dev[sp,2, 1:nages_sp, 1:nyrs_hind] <- rep(M1_dev_ind + 1:nyrs_hind, each = nages_sp)
+        map_list$log_M1_dev[sp,2, 1:nages_sp, 1:nyrs_hind] <- rep(M1_dev_ind + 1:nyrs_hind, each = nages_sp)
         M1_dev_ind = M1_dev_ind + nyrs_hind
       }
 
       # - Standard deviation (shared across sexes)
-      map_list$M1_dev_ln_sd[sp,] = sp
+      map_list$M1_dev_log_sd[sp,] = sp
 
       # AR1 correlation (shared across sexes)
       if(M1_re_model == 5){
@@ -332,11 +332,11 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
     if(M1_re_model %in% c(3, 6)){
       if(M1_model == 1){ # Sex-invariant
         # - Random effects
-        map_list$ln_M1_dev[sp,1,1:nages_sp, 1:nyrs_hind] <- M1_dev_ind + (1:nyrs_hind * nages_sp)
+        map_list$log_M1_dev[sp,1,1:nages_sp, 1:nyrs_hind] <- M1_dev_ind + (1:nyrs_hind * nages_sp)
 
         # Males mapped the same, if present
         if(nsex_sp == 2){
-          map_list$ln_M1_dev[sp,2,,] <- map_list$ln_M1_dev[sp,1,,]
+          map_list$log_M1_dev[sp,2,,] <- map_list$log_M1_dev[sp,1,,]
         }
 
         M1_dev_ind = M1_dev_ind + (nyrs_hind * nages_sp)
@@ -345,22 +345,22 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
       if(nsex_sp == 2 & M1_model == 2){ # Two sex population and sex-specific
         # - Random effects
         # -- Females
-        map_list$ln_M1_dev[sp,1, 1:nages_sp, 1:nyrs_hind] <- M1_dev_ind + (1:nyrs_hind * nages_sp)
+        map_list$log_M1_dev[sp,1, 1:nages_sp, 1:nyrs_hind] <- M1_dev_ind + (1:nyrs_hind * nages_sp)
         M1_dev_ind = M1_dev_ind + (nyrs_hind * nages_sp)
 
         # -- Males
-        map_list$ln_M1_dev[sp,2, 1:nages_sp, 1:nyrs_hind] <- M1_dev_ind + (1:nyrs_hind * nages_sp)
+        map_list$log_M1_dev[sp,2, 1:nages_sp, 1:nyrs_hind] <- M1_dev_ind + (1:nyrs_hind * nages_sp)
         M1_dev_ind = M1_dev_ind + (nyrs_hind * nages_sp)
       }
 
       # - Standard deviation (shared across sexes)
-      map_list$M1_dev_ln_sd[sp,] = sp
+      map_list$M1_dev_log_sd[sp,] = sp
 
       # AR1 correlation (shared across sexes)
       if(M1_re_model == 5){
-        map_list$M1_rho[sp,1,] = M1_dev_ln_sd_ind + 1:2
+        map_list$M1_rho[sp,1,] = M1_dev_log_sd_ind + 1:2
         map_list$M1_rho[sp,2,] = map_list$M1_rho[sp,1,]
-        M1_dev_ln_sd_ind = M1_dev_ln_sd_ind + 2  #FIXME: may want sex-varying?? Hard to estimate
+        M1_dev_log_sd_ind = M1_dev_log_sd_ind + 2  #FIXME: may want sex-varying?? Hard to estimate
       }
     }
   }
@@ -369,8 +369,8 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
 
 #' @title Helper to set map for growth parameters
 #'
-#' @description Maps the fixed parameters (\code{ln_growth_pars}) and the random effects
-#'   parameters (\code{ln_growth_par_devs}, \code{growth_dev_ln_sd}, \code{growth_rho}) based on
+#' @description Maps the fixed parameters (\code{log_growth_pars}) and the random effects
+#'   parameters (\code{log_growth_par_devs}, \code{growth_dev_log_sd}, \code{growth_rho}) based on
 #'   \code{growth_model} and \code{growth_re} settings.
 #'
 #' @param map_list The current TMB map list.
@@ -381,7 +381,7 @@ build_map_m1 <- function(map_list, data_list, nyrs_hind) {
 build_map_growth <- function(map_list, data_list, nyrs_hind) {
 
   # Map out growth parameters
-  growth_params <- c("ln_growth_pars", "ln_growth_par_devs", "weight_length_pars", "growth_ln_sd")
+  growth_params <- c("log_growth_pars", "log_growth_par_devs", "weight_length_pars", "growth_log_sd")
   map_list[growth_params] <- lapply(map_list[growth_params], function(x) replace(x, values = NA))
 
   # Loop through species and turn on based on model
@@ -396,21 +396,21 @@ build_map_growth <- function(map_list, data_list, nyrs_hind) {
     # * 1. Fixed effects ----
     if(growth_model == 1){ # Von Bertalanffy
       # k, l1, linf
-      map_list$ln_growth_pars[sp, 1, 1:3] <- (sp - 1) * 4 + 1:3 # Females/sex combined
-      map_list$growth_ln_sd[sp, 1, 1:2] <- (sp - 1) * 2 + 1:2 # Growth SD
+      map_list$log_growth_pars[sp, 1, 1:3] <- (sp - 1) * 4 + 1:3 # Females/sex combined
+      map_list$growth_log_sd[sp, 1, 1:2] <- (sp - 1) * 2 + 1:2 # Growth SD
       if(nsex_sp == 2){
-        map_list$ln_growth_pars[sp, 2, 1:3] <- (sp - 1) * 4 + 5:7 # Males
-        map_list$growth_ln_sd[sp, 2, 1:2] <- (sp - 1) * 2 + 1:2 # Growth SD same as females
+        map_list$log_growth_pars[sp, 2, 1:3] <- (sp - 1) * 4 + 5:7 # Males
+        map_list$growth_log_sd[sp, 2, 1:2] <- (sp - 1) * 2 + 1:2 # Growth SD same as females
       }
     }
 
     if(growth_model == 2){ # Richards
       # k, l1, linf, m
-      map_list$ln_growth_pars[sp, 1, 1:4] <- (sp - 1) * 4 + 1:4 # Females/sex combined
-      map_list$growth_ln_sd[sp, 1, 1:2] <- (sp - 1) * 2 + 1:2 # Growth SD
+      map_list$log_growth_pars[sp, 1, 1:4] <- (sp - 1) * 4 + 1:4 # Females/sex combined
+      map_list$growth_log_sd[sp, 1, 1:2] <- (sp - 1) * 2 + 1:2 # Growth SD
       if(nsex_sp == 2){
-        map_list$ln_growth_pars[sp, 2, 1:4] <- (sp - 1) * 4 + 5:8 # Males
-        map_list$growth_ln_sd[sp, 2, 1:2] <- (sp - 1) * 2 + 1:2 # Growth SD same as females
+        map_list$log_growth_pars[sp, 2, 1:4] <- (sp - 1) * 4 + 5:8 # Males
+        map_list$growth_log_sd[sp, 2, 1:2] <- (sp - 1) * 2 + 1:2 # Growth SD same as females
       }
     }
   }
@@ -529,7 +529,7 @@ build_map_predation <- function(map_list, data_list) {
 
 #' @title Helper to set map for Selectivity parameters
 #'
-#' @description Maps base selectivity parameters (\code{ln_sel_slp}, \code{sel_inf},
+#' @description Maps base selectivity parameters (\code{log_sel_slp}, \code{sel_inf},
 #'   \code{sel_coff}) and time-varying deviations, based on \code{Selectivity}
 #'   and \code{Time_varying_sel} settings in \code{fleet_control}.
 #'
@@ -564,8 +564,8 @@ build_map_predation <- function(map_list, data_list) {
 build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
   # -- Map out parameters (then turned on)
-  sel_params <- c("sel_coff", "sel_coff_dev", "ln_sel_slp", "sel_inf",
-                  "ln_sel_slp_dev", "sel_inf_dev", "sel_dev_ln_sd", "sel_curve_pen")
+  sel_params <- c("sel_coff", "sel_coff_dev", "log_sel_slp", "sel_inf",
+                  "log_sel_slp_dev", "sel_inf_dev", "sel_dev_log_sd", "sel_curve_pen")
   map_list[sel_params] <- lapply(map_list[sel_params], function(x) replace(x, values = NA))
 
   # -- Selectivity  indices
@@ -583,11 +583,11 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       sel_type <- data_list$fleet_control$Selectivity[i]
       tv_sel <- data_list$fleet_control$Time_varying_sel[i]
       if (sel_type != "Fixed" && tv_sel %in% c("IID", "AR1", "RandomWalk", "RandomWalkAscending")) {
-        map_list$sel_dev_ln_sd[flt] <- flt
+        map_list$sel_dev_log_sd[flt] <- flt
       }
 
       if (sel_type %in% c("2DAR1", "3DAR1")) {
-        map_list$sel_dev_ln_sd[flt] <- flt
+        map_list$sel_dev_log_sd[flt] <- flt
       }
     }
   }
@@ -620,26 +620,26 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
         # Turn on slp and asymptote for each sex
         for (sex in 1:nsex) {
-          map_list$ln_sel_slp[1, flt, sex] <- ind_slp; ind_slp <- ind_slp + 1
+          map_list$log_sel_slp[1, flt, sex] <- ind_slp; ind_slp <- ind_slp + 1
           map_list$sel_inf[1, flt, sex] <- ind_inf; ind_inf <- ind_inf + 1
         }
 
         # Time-varying parameters
         if (tv_sel %in% c('IID', 'AR1', 'RandomWalk')) { # Random walk or deviate
           for (sex in 1:nsex) {
-            map_list$ln_sel_slp_dev[1, flt, sex, yrs_hind] <- ind_slp + yrs_hind - 1
+            map_list$log_sel_slp_dev[1, flt, sex, yrs_hind] <- ind_slp + yrs_hind - 1
             map_list$sel_inf_dev[1, flt, sex, yrs_hind] <- ind_inf + yrs_hind - 1
 
             ind_slp <- ind_slp + nyrs_hind
             ind_inf <- ind_inf + nyrs_hind
           }
           if (tv_sel == "RandomWalk") { # Random walk: fix first deviate (start at mean)
-            map_list$ln_sel_slp_dev[1, flt, , 1] <- NA
+            map_list$log_sel_slp_dev[1, flt, , 1] <- NA
             map_list$sel_inf_dev[1, flt, , 1] <- NA
           }
         } else if (tv_sel == "Block" && max_block > 0) { # Selectivity blocks
           for (sex in 1:nsex) {
-            map_list$ln_sel_slp_dev[1, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_slp
+            map_list$log_sel_slp_dev[1, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_slp
             map_list$sel_inf_dev[1, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_inf
 
             ind_slp <- ind_slp + max_block
@@ -647,7 +647,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
             # Turn off main parameters
             #FIXME will fail if random_sel = TRUE?
-            map_list$ln_sel_slp[1, flt, sex] <- NA
+            map_list$log_sel_slp[1, flt, sex] <- NA
             map_list$sel_inf[1, flt, sex] <- NA
           }
         }
@@ -690,7 +690,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
         # Base parameters (j=1 ascending, j=2 descending)
         for (j in 1:2) {
           for (sex in 1:nsex) {
-            map_list$ln_sel_slp[j, flt, sex] <- ind_slp; ind_slp <- ind_slp + 1
+            map_list$log_sel_slp[j, flt, sex] <- ind_slp; ind_slp <- ind_slp + 1
             map_list$sel_inf[j, flt, sex] <- ind_inf; ind_inf <- ind_inf + 1
           }
         }
@@ -702,7 +702,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
           for (j in j_range) {
             for (sex in 1:nsex) {
-              map_list$ln_sel_slp_dev[j, flt, sex, yrs_hind] <- ind_slp + yrs_hind - 1
+              map_list$log_sel_slp_dev[j, flt, sex, yrs_hind] <- ind_slp + yrs_hind - 1
               map_list$sel_inf_dev[j, flt, sex, yrs_hind] <- ind_inf + yrs_hind - 1
 
               ind_slp <- ind_slp + nyrs_hind
@@ -713,14 +713,14 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
           # Random walk: fix first deviate
           if (tv_sel %in% c("RandomWalk", "RandomWalkAscending")) {
             for (j in j_range) {
-              map_list$ln_sel_slp_dev[j, flt, , 1] <- NA
+              map_list$log_sel_slp_dev[j, flt, , 1] <- NA
               map_list$sel_inf_dev[j, flt, , 1] <- NA
             }
           }
         } else if (tv_sel == "Block" && max_block > 0) { # Selectivity blocks
           for (j in 1:2) {
             for (sex in 1:nsex) {
-              map_list$ln_sel_slp_dev[j, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_slp
+              map_list$log_sel_slp_dev[j, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_slp
               map_list$sel_inf_dev[j, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_inf
 
               ind_slp <- ind_slp + max_block
@@ -737,14 +737,14 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
         # Base parameters
         for (sex in 1:nsex) {
-          map_list$ln_sel_slp[2, flt, sex] <- ind_slp; ind_slp <- ind_slp + 1
+          map_list$log_sel_slp[2, flt, sex] <- ind_slp; ind_slp <- ind_slp + 1
           map_list$sel_inf[2, flt, sex] <- ind_inf; ind_inf <- ind_inf + 1
         }
 
         # Time varying parameters
         if (tv_sel %in% c("IID", "AR1", "RandomWalk")) { # Random walk or deviate
           for (sex in 1:nsex) {
-            map_list$ln_sel_slp_dev[2, flt, sex, yrs_hind] <- ind_slp + yrs_hind - 1
+            map_list$log_sel_slp_dev[2, flt, sex, yrs_hind] <- ind_slp + yrs_hind - 1
             map_list$sel_inf_dev[2, flt, sex, yrs_hind] <- ind_inf + yrs_hind - 1
 
             ind_slp <- ind_slp + nyrs_hind
@@ -752,12 +752,12 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
           }
 
           if (tv_sel == "RandomWalk") { # Random walk: fix first deviate
-            map_list$ln_sel_slp_dev[2, flt, , 1] <- NA
+            map_list$log_sel_slp_dev[2, flt, , 1] <- NA
             map_list$sel_inf_dev[2, flt, , 1] <- NA
           }
         } else if (tv_sel == "Block" && max_block > 0) { # Selectivity blocks
           for (sex in 1:nsex) {
-            map_list$ln_sel_slp_dev[2, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_slp
+            map_list$log_sel_slp_dev[2, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_slp
             map_list$sel_inf_dev[2, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_inf
 
             ind_slp <- ind_slp + max_block
@@ -870,7 +870,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
 #' @title Helper to set map for Catchability parameters
 #'
-#' @description Maps survey catchability base parameters (\code{index_ln_q}),
+#' @description Maps survey catchability base parameters (\code{index_log_q}),
 #'   time-varying deviations (\code{index_q_dev}), and environmental linkages
 #'   (\code{index_q_beta}, \code{index_q_rho}).
 #'
@@ -887,7 +887,7 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
   yrs_hind <- 1:nyrs_hind
 
 
-  catchability_params <- c("index_ln_q", "index_q_beta", "index_q_rho", "index_q_dev", "index_q_ln_sd", "index_q_dev_ln_sd", "index_ln_sd") # "index_q_pow"
+  catchability_params <- c("index_log_q", "index_q_beta", "index_q_rho", "index_q_dev", "index_q_log_sd", "index_q_dev_log_sd", "index_log_sd") # "index_q_pow"
   map_list[catchability_params] <- lapply(map_list[catchability_params], function(x) replace(x, values = rep(NA, length(x))))
 
   # Loop through fleets
@@ -911,7 +911,7 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
       # - 5 = Use env index ln(q_y) = q_mu + beta * index_y
       # - 6 = Fit to env index
       if(!data_list$fleet_control$Catchability[i] %in% c("Fixed", "Analytical")){
-        map_list$index_ln_q[flt] <- flt
+        map_list$index_log_q[flt] <- flt
       }
 
       # - Turn on power param for:
@@ -980,8 +980,8 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
         map_list$index_q_rho[flt] <- flt # Correlation coeff
 
         # Turn on standard deviations
-        map_list$index_q_ln_sd[flt] <- flt # Obseration error
-        map_list$index_q_dev_ln_sd[flt] <- flt # AR1 process error
+        map_list$index_q_log_sd[flt] <- flt # Obseration error
+        map_list$index_q_dev_log_sd[flt] <- flt # AR1 process error
       }
 
       # Standard deviation of surveys index
@@ -989,7 +989,7 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
       # - 1 = estimate a free parameter
       # - 2 = analytically estimate following (Ludwig and Walters 1994)
       if (data_list$fleet_control$Estimate_index_sd[i] == 1) {
-        map_list$index_ln_sd[flt] <- flt
+        map_list$index_log_sd[flt] <- flt
       }
     }
   }
@@ -1047,13 +1047,13 @@ adjust_map_shared_params <- function(map_list, data_list) {
       # FIXME add checks for surveys sel sigma
 
       # Make selectivity maps the same if selectivity is the same
-      map_list$ln_sel_slp[1:2, flt,] <- map_list$ln_sel_slp[1:2, sel_duplicate,]
+      map_list$log_sel_slp[1:2, flt,] <- map_list$log_sel_slp[1:2, sel_duplicate,]
       map_list$sel_inf[1:2, flt,] <- map_list$sel_inf[1:2, sel_duplicate,]
       map_list$sel_coff[flt,,] <- map_list$sel_coff[sel_duplicate,,]
       map_list$sel_coff_dev[flt,,,] <- map_list$sel_coff_dev[sel_duplicate,,,]
-      map_list$ln_sel_slp_dev[1:2, flt,,] <- map_list$ln_sel_slp_dev[1:2, sel_duplicate,,]
+      map_list$log_sel_slp_dev[1:2, flt,,] <- map_list$log_sel_slp_dev[1:2, sel_duplicate,,]
       map_list$sel_inf_dev[1:2, flt,,] <- map_list$sel_inf_dev[1:2, sel_duplicate,,]
-      map_list$sel_dev_ln_sd[flt] <- map_list$sel_dev_ln_sd[sel_duplicate]
+      map_list$sel_dev_log_sd[flt] <- map_list$sel_dev_log_sd[sel_duplicate]
       map_list$sel_curve_pen[flt,] <- map_list$sel_curve_pen[sel_duplicate,]
     }
 
@@ -1079,14 +1079,14 @@ adjust_map_shared_params <- function(map_list, data_list) {
       # FIXME add checks for surveys q sigma
 
       # Make catchability maps the same
-      map_list$index_ln_q[flt] <- map_list$index_ln_q[q_duplicate]
-      map_list$index_ln_q[flt] <- map_list$index_ln_q[q_duplicate]
+      map_list$index_log_q[flt] <- map_list$index_log_q[q_duplicate]
+      map_list$index_log_q[flt] <- map_list$index_log_q[q_duplicate]
       # map_list$index_q_pow[flt] <- map_list$index_q_pow[q_duplicate]
       map_list$index_q_rho[flt] <- map_list$index_q_rho[q_duplicate]
       map_list$index_q_beta[flt,] <- map_list$index_q_beta[q_duplicate,]
       map_list$index_q_dev[flt,] <- map_list$index_q_dev[q_duplicate,]
-      map_list$index_q_ln_sd[flt] <- map_list$index_q_ln_sd[q_duplicate]
-      map_list$index_q_dev_ln_sd[flt] <- map_list$index_q_dev_ln_sd[q_duplicate]
+      map_list$index_q_log_sd[flt] <- map_list$index_q_log_sd[q_duplicate]
+      map_list$index_q_dev_log_sd[flt] <- map_list$index_q_dev_log_sd[q_duplicate]
     }
 
 
@@ -1100,8 +1100,8 @@ adjust_map_shared_params <- function(map_list, data_list) {
 
 #' @title Helper to set map for Fishing Mortality and Data Weights
 #'
-#' @description Maps fishing mortality parameters (\code{ln_F}) and related targets.
-#'   Also maps data weighting parameters (\code{catch_ln_sd}, \code{comp_weights}, \code{caal_weights}).
+#' @description Maps fishing mortality parameters (\code{log_F}) and related targets.
+#'   Also maps data weighting parameters (\code{catch_log_sd}, \code{comp_weights}, \code{caal_weights}).
 #'
 #' @param map_list The current TMB map list.
 #' @param data_list The data list containing model settings.
@@ -1115,12 +1115,12 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
 
   # -- Map out initial F if starting at equilibrium
   if(!(data_list$initMode %in% c("FishedNonEquilibrium", "FishedNonEquilibriumScaled"))){
-    map_list$ln_Finit <- rep(NA, data_list$nspp)
+    map_list$log_Finit <- rep(NA, data_list$nspp)
   }
 
   # -- FSPR mapped out
-  map_list$ln_Flimit <- rep(NA, data_list$nspp)
-  map_list$ln_Ftarget <- rep(NA, data_list$nspp)
+  map_list$log_Flimit <- rep(NA, data_list$nspp)
+  map_list$log_Ftarget <- rep(NA, data_list$nspp)
 
 
   comp_count <- data_list$comp_data |> # Count comp obs by fleet
@@ -1135,13 +1135,13 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
     flt = data_list$fleet_control$Fleet_code[i]
     # Standard deviation of fishery time series If not estimating turn of
     if (data_list$fleet_control$Estimate_catch_sd[i] %in% c(NA, 0, 2)) {
-      map_list$catch_ln_sd[flt] <- NA
+      map_list$catch_log_sd[flt] <- NA
     }
 
     # Turn off F and F dev if not estimating or it is a Survey
     if (data_list$fleet_control$Fleet_type[i] != "Fishery") {
-      map_list$catch_ln_sd[flt] <- NA
-      map_list$ln_F[flt, ] <- NA
+      map_list$catch_log_sd[flt] <- NA
+      map_list$log_F[flt, ] <- NA
     }
 
     # Map out comp weights if using multinomial
@@ -1158,7 +1158,7 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
     if(data_list$fleet_control$Fleet_type[i] == "Off") {
       map_list$comp_weights[i] <- NA
       map_list$caal_weights[i] <- NA
-      map_list$sel_dev_ln_sd[i] <- NA
+      map_list$sel_dev_log_sd[i] <- NA
     }
     if(!data_list$fleet_control$Fleet_code[i] %in% comp_count$Fleet_code){
       map_list$comp_weights[i] <- NA
@@ -1175,8 +1175,8 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
   yr_ind <- catch_data$Year[which(catch_data$Catch == 0)] - data_list$styr + 1
 
   for(i in 1:length(yr_ind)){
-    map_list$ln_F[fsh_ind[i], yr_ind[i]] <- NA
-    map_list$ln_sel_slp_dev[1:2, fsh_ind[i], , yr_ind[i]] <- NA
+    map_list$log_F[fsh_ind[i], yr_ind[i]] <- NA
+    map_list$log_sel_slp_dev[1:2, fsh_ind[i], , yr_ind[i]] <- NA
     map_list$sel_inf_dev[1:2, fsh_ind[i], , yr_ind[i]] <- NA
   }
 
@@ -1202,54 +1202,54 @@ build_map_fixed_natage <- function(map_list, data_list) {
 
       # Population parameters
       map_list$rec_pars[sp,] <- NA
-      map_list$R_ln_sd[sp] <- NA
-      map_list$ln_Finit[sp] <- NA
-      # map_list$sex_ratio_ln_sd[sp] <- NA
+      map_list$R_log_sd[sp] <- NA
+      map_list$log_Finit[sp] <- NA
+      # map_list$sex_ratio_log_sd[sp] <- NA
       map_list$rec_dev[sp,] <- NA
       map_list$init_dev[sp,] <- NA
-      map_list$ln_M1[sp,,] <- NA
-      map_list$ln_M1_dev[sp,,,] <- NA
-      map_list$M1_dev_ln_sd[sp,] <- NA
+      map_list$log_M1[sp,,] <- NA
+      map_list$log_M1_dev[sp,,,] <- NA
+      map_list$M1_dev_log_sd[sp,] <- NA
       map_list$M1_rho[sp,,] <- NA
-      map_list$ln_Finit[sp] <- NA
+      map_list$log_Finit[sp] <- NA
 
       # Survey and fishery fleet parameters
       flts <- data_list$fleet_control$Fleet_code[which(data_list$fleet_control$Species == sp)]
 
 
-      map_list$ln_F[flts,] <- NA
-      map_list$index_ln_q[flts] <- NA
+      map_list$log_F[flts,] <- NA
+      map_list$index_log_q[flts] <- NA
       # map_list$index_q_pow[flts] <- NA
       map_list$index_q_dev[flts,] <- NA
-      map_list$index_q_ln_sd[flts] <- NA
-      map_list$index_q_dev_ln_sd[flts] <- NA
+      map_list$index_q_log_sd[flts] <- NA
+      map_list$index_q_dev_log_sd[flts] <- NA
       map_list$sel_coff[flts,,] <- NA
       map_list$sel_coff_dev[flts,,,] <- NA
-      map_list$ln_sel_slp[, flts, ] <- NA
+      map_list$log_sel_slp[, flts, ] <- NA
       map_list$sel_inf[, flts, ] <- NA
-      map_list$ln_sel_slp_dev[, flts, ,] <- NA
+      map_list$log_sel_slp_dev[, flts, ,] <- NA
       map_list$sel_inf_dev[, flts, ,] <- NA
-      map_list$sel_dev_ln_sd[flts] <- NA
-      map_list$index_ln_sd[flts] <- NA
-      map_list$catch_ln_sd[flts] <- NA
+      map_list$sel_dev_log_sd[flts] <- NA
+      map_list$index_log_sd[flts] <- NA
+      map_list$catch_log_sd[flts] <- NA
       map_list$comp_weights[flts] <- NA
       map_list$caal_weights[flts] <- NA
     }
 
     # Don't estimate the scalar
     if(data_list$estDynamics[sp] < 2 | data_list$msmMode == 0){
-      map_list$ln_pop_scalar[sp,] <- NA
+      map_list$log_pop_scalar[sp,] <- NA
     }
 
     # Age-independent scalar
     if(data_list$estDynamics[sp] == 2 | data_list$msmMode != 0){
-      map_list$ln_pop_scalar[sp,2:ncol(map_list$ln_pop_scalar)] <- NA # Only estimate first parameter
+      map_list$log_pop_scalar[sp,2:ncol(map_list$log_pop_scalar)] <- NA # Only estimate first parameter
     }
 
     # Age-dependent scalar
     if(data_list$estDynamics[sp] == 3 | data_list$msmMode != 0){
-      if(data_list$nages[sp] < ncol(map_list$ln_pop_scalar)){ # Map out ages beyond maxage of the species
-        map_list$ln_pop_scalar[sp,(data_list$nages[sp]+1):ncol(map_list$ln_pop_scalar)] <- NA # Only estimate parameters for each age of species
+      if(data_list$nages[sp] < ncol(map_list$log_pop_scalar)){ # Map out ages beyond maxage of the species
+        map_list$log_pop_scalar[sp,(data_list$nages[sp]+1):ncol(map_list$log_pop_scalar)] <- NA # Only estimate parameters for each age of species
       }
     }
   }
@@ -1328,14 +1328,14 @@ map_linkage_adjuster <- function(map_list, data_list) {
         par_idx <- .GROWTH_PARAM_TO_INDEX[row$param]
         if (is.na(par_idx)) next
         for (s in idx$species) {
-          map_list$ln_growth_pars[s, idx$per_sp[[as.character(s)]]$sex, par_idx] <- NA
+          map_list$log_growth_pars[s, idx$per_sp[[as.character(s)]]$sex, par_idx] <- NA
         }
       },
       M = {
         for (s in idx$species) {
           sx <- idx$per_sp[[as.character(s)]]$sex
           ag <- idx$per_sp[[as.character(s)]]$age
-          map_list$ln_M1[s, sx, ag] <- NA
+          map_list$log_M1[s, sx, ag] <- NA
         }
       },
       recruitment = {

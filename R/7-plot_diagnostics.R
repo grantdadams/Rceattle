@@ -59,7 +59,7 @@ plot_index <- function(Rceattle,
 
     # Get observed
     Srv_list[[i]] <- Rceattle[[i]]$data_list$index_data
-    Srv_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$ln_index_sd
+    Srv_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$log_index_sd
     Srv_list[[i]]$Upper95 <- qlnorm(0.975, meanlog = log(Srv_list[[i]]$Observation), sdlog = Srv_list[[i]]$Log_sd)
     Srv_list[[i]]$Lower95 <- qlnorm(0.025, meanlog = log(Srv_list[[i]]$Observation), sdlog = Srv_list[[i]]$Log_sd)
 
@@ -67,7 +67,7 @@ plot_index <- function(Rceattle,
     # Get estimated
     Srv_hat_list[[i]] <- Rceattle[[i]]$data_list$index_data
     Srv_hat_list[[i]]$Observation <- Rceattle[[i]]$quantities$index_hat
-    Srv_hat_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$ln_index_sd
+    Srv_hat_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$log_index_sd
 
     # Filter species
     Srv_hat_list[[i]] <- Srv_hat_list[[i]] |>
@@ -330,7 +330,7 @@ plot_catch <- function(Rceattle,
   for(i in 1:length(Rceattle)){
     # Get observed
     fsh_list[[i]] <- Rceattle[[i]]$data_list$catch_data[which(Rceattle[[i]]$data_list$catch_data$Year %in% Years[[i]] ),]
-    fsh_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$ln_catch_sd[which(Rceattle[[i]]$data_list$catch_data$Year %in% Years[[i]] )]
+    fsh_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$log_catch_sd[which(Rceattle[[i]]$data_list$catch_data$Year %in% Years[[i]] )]
 
     no_zero <- which(fsh_list[[i]]$Catch > 0)
     fsh_list[[i]]$Lower95 <- 0
@@ -342,7 +342,7 @@ plot_catch <- function(Rceattle,
     # Get estimated
     fsh_hat_list[[i]] <- Rceattle[[i]]$data_list$catch_data[which(Rceattle[[i]]$data_list$catch_data$Year %in% Years[[i]] ),]
     fsh_hat_list[[i]]$Catch <- Rceattle[[i]]$quantities$catch_hat[which(Rceattle[[i]]$data_list$catch_data$Year %in% Years[[i]] )]
-    fsh_hat_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$ln_catch_sd[which(Rceattle[[i]]$data_list$catch_data$Year %in% Years[[i]] )]
+    fsh_hat_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$log_catch_sd[which(Rceattle[[i]]$data_list$catch_data$Year %in% Years[[i]] )]
 
     # Porjected
     proj_fsh_hat_list[[i]] <- Rceattle[[i]]$data_list$catch_data[which(Rceattle[[i]]$data_list$catch_data$Year %in% ProjYears[[i]] ),]
@@ -679,7 +679,7 @@ plot_logindex <- function(Rceattle,
     # Get observed
 
     Srv_list[[i]] <- Rceattle[[i]]$data_list$index_data[which(Rceattle[[i]]$data_list$index_data$Year > 0),]
-    Srv_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$ln_index_sd[which(Rceattle[[i]]$data_list$index_data$Year > 0)]
+    Srv_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$log_index_sd[which(Rceattle[[i]]$data_list$index_data$Year > 0)]
     Srv_list[[i]]$Upper95 <- qlnorm(0.975, meanlog = log(Srv_list[[i]]$Observation), sdlog = Srv_list[[i]]$Log_sd)
     Srv_list[[i]]$Lower95 <- qlnorm(0.025, meanlog = log(Srv_list[[i]]$Observation), sdlog = Srv_list[[i]]$Log_sd)
 
@@ -687,7 +687,7 @@ plot_logindex <- function(Rceattle,
     # Get estimated
     Srv_hat_list[[i]] <- Rceattle[[i]]$data_list$index_data[which(Rceattle[[i]]$data_list$index_data$Year > 0),]
     Srv_hat_list[[i]]$Observation <- Rceattle[[i]]$quantities$index_hat[which(Rceattle[[i]]$data_list$index_data$Year > 0)]
-    Srv_hat_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$ln_index_sd[which(Rceattle[[i]]$data_list$index_data$Year > 0)]
+    Srv_hat_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$log_index_sd[which(Rceattle[[i]]$data_list$index_data$Year > 0)]
   }
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
   nyrs_vec <- sapply(Years, length)

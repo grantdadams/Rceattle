@@ -16,8 +16,8 @@ inits <- build_params(BS2017SS)
 # - Update population dynamics from previous parameters
 inits$init_dev <- CEATTLE_classic_SS$estimated_params$init_dev
 inits$rec_dev[,1:39] <- CEATTLE_classic_SS$estimated_params$rec_dev
-inits$rec_pars[,1] <- CEATTLE_classic_SS$estimated_params$ln_mn_rec
-inits$ln_F[1:3, 1:39] <- CEATTLE_classic_SS$estimated_params$F_dev[,1:39] + CEATTLE_classic_SS$estimated_params$ln_mean_F
+inits$rec_pars[,1] <- CEATTLE_classic_SS$estimated_params$log_mn_rec
+inits$log_F[1:3, 1:39] <- CEATTLE_classic_SS$estimated_params$F_dev[,1:39] + CEATTLE_classic_SS$estimated_params$log_mean_F
 inits$sel_coff[1:3,1,] <- CEATTLE_classic_SS$estimated_params$fsh_sel_coff
 BS2017SS$M1_base[,3:23] <- (BS2017SS$M1_base[,3:23] + 1e-4)
 
@@ -79,15 +79,15 @@ inits <- build_params(BS2017MS)
 # - Update population dynamics from old parameters
 inits$init_dev[,1:20] <- CEATTLE_classic_MS$estimated_params$init_dev
 inits$rec_dev[,1:39] <- CEATTLE_classic_MS$estimated_params$rec_dev
-inits$rec_pars[,1] <- CEATTLE_classic_MS$estimated_params$ln_mn_rec
-inits$ln_F[1:3, 1:39] <- CEATTLE_classic_MS$estimated_params$F_dev[,1:39] + CEATTLE_classic_MS$estimated_params$ln_mean_F
+inits$rec_pars[,1] <- CEATTLE_classic_MS$estimated_params$log_mn_rec
+inits$log_F[1:3, 1:39] <- CEATTLE_classic_MS$estimated_params$F_dev[,1:39] + CEATTLE_classic_MS$estimated_params$log_mean_F
 
 # -- Sel
 inits$sel_coff[1:3,1,] <- CEATTLE_classic_MS$estimated_params$fsh_sel_coff
 inits$sel_inf[1,4:6,1] <- CEATTLE_classic_MS$estimated_params$srv_sel_inf[1,]
-inits$ln_sel_slp[1,4:6,1] <- log(CEATTLE_classic_MS$estimated_params$srv_sel_slp[1,])
-inits$index_ln_q[4:6] <- CEATTLE_classic_MS$estimated_params$log_srv_q
-inits$index_ln_q[7] <- CEATTLE_classic_MS$estimated_params$log_eit_q # Need to scale by max sel because selectivity is rescaled to max = 1 in the CPP
+inits$log_sel_slp[1,4:6,1] <- log(CEATTLE_classic_MS$estimated_params$srv_sel_slp[1,])
+inits$index_log_q[4:6] <- CEATTLE_classic_MS$estimated_params$log_srv_q
+inits$index_log_q[7] <- CEATTLE_classic_MS$estimated_params$log_eit_q # Need to scale by max sel because selectivity is rescaled to max = 1 in the CPP
 
 # - Update diet data
 BS2017MS_new <- BS2017MS

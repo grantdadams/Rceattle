@@ -135,9 +135,9 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
     #FIXME: adjust for forecasting via MVN
     inits <- Rceattle$estimated_params
     inits$rec_dev[, (nyrs_peel + 1):nyrs_proj] <- 0
-    inits$ln_M1_dev[,,,(nyrs_peel+1):nyrs_proj] <- inits$ln_M1_dev[,,,nyrs_peel]
+    inits$log_M1_dev[,,,(nyrs_peel+1):nyrs_proj] <- inits$log_M1_dev[,,,nyrs_peel]
     inits$index_q_dev[,(nyrs_peel+1):nyrs] <- inits$index_q_dev[,nyrs_peel]
-    inits$ln_sel_slp_dev[,,,(nyrs_peel+1):nyrs] <- inits$ln_sel_slp_dev[,,,nyrs_peel]
+    inits$log_sel_slp_dev[,,,(nyrs_peel+1):nyrs] <- inits$log_sel_slp_dev[,,,nyrs_peel]
     inits$sel_inf_dev[,,,(nyrs_peel+1):nyrs] <- inits$sel_inf_dev[,,,nyrs_peel]
     inits$sel_coff_dev[,,,(nyrs_peel+1):nyrs] <- inits$sel_coff_dev[,,,nyrs_peel]
 
@@ -147,14 +147,14 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
     map$mapList$rec_dev[, (nyrs_peel + 1):nyrs_proj] <- NA
     map$mapFactor$rec_dev <- factor(map$mapList$rec_dev)
 
-    map$mapList$ln_M1_dev[,,,(nyrs_peel+1):nyrs_proj] <- NA
-    map$mapFactor$ln_M1_dev <- factor(map$mapList$ln_M1_dev)
+    map$mapList$log_M1_dev[,,,(nyrs_peel+1):nyrs_proj] <- NA
+    map$mapFactor$log_M1_dev <- factor(map$mapList$log_M1_dev)
 
     map$mapList$index_q_dev[,(nyrs_peel+1):nyrs] <- NA
     map$mapFactor$index_q_dev <- factor(map$mapList$index_q_dev)
 
-    map$mapList$ln_sel_slp_dev[,,,(nyrs_peel+1):nyrs] <- NA
-    map$mapFactor$ln_sel_slp_dev <- factor(map$mapList$ln_sel_slp_dev)
+    map$mapList$log_sel_slp_dev[,,,(nyrs_peel+1):nyrs] <- NA
+    map$mapFactor$log_sel_slp_dev <- factor(map$mapList$log_sel_slp_dev)
 
     map$mapList$sel_inf_dev[,,,(nyrs_peel+1):nyrs] <- NA
     map$mapFactor$sel_inf_dev <- factor(map$mapList$sel_inf_dev)
@@ -169,9 +169,9 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
       dplyr::mutate(Year = Year - styr + 1) |>
       select(Fleet_code, Year) |>
       as.matrix()
-    inits$ln_F[zero_catch] <- -999
-    map$mapList$ln_F[zero_catch] <- NA
-    map$mapFactor$ln_F <- factor(map$mapList$ln_F)
+    inits$log_F[zero_catch] <- -999
+    map$mapList$log_F[zero_catch] <- NA
+    map$mapFactor$log_F <- factor(map$mapList$log_F)
 
     # * Refit ----
     newmod <- suppressWarnings(
@@ -246,7 +246,7 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
       dplyr::arrange(Fleet_code, Year)
 
     # - Update map
-    # Only new parameter we are estimating in is the ln_F of the peeled years
+    # Only new parameter we are estimating in is the log_F of the peeled years
     map <- build_map(
       data_list = data_list,
       params = newmod$estimated_params,
@@ -255,9 +255,9 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
     map$mapFactor$dummy <- as.factor(NA); map$mapList$dummy <- NA
 
     # - Turn on F for peeled years to fit to catch (matches full model)
-    peeled_pars$ln_F[,(nyrs_peel+1):nyrs] <- Rceattle$estimated_params$ln_F[,(nyrs_peel+1):nyrs]
-    map$mapList$ln_F[,(nyrs_peel+1):nyrs] <- Rceattle$map$mapList$ln_F[,(nyrs_peel+1):nyrs]
-    map$mapFactor$ln_F <-  factor(map$mapList$ln_F)
+    peeled_pars$log_F[,(nyrs_peel+1):nyrs] <- Rceattle$estimated_params$log_F[,(nyrs_peel+1):nyrs]
+    map$mapList$log_F[,(nyrs_peel+1):nyrs] <- Rceattle$map$mapList$log_F[,(nyrs_peel+1):nyrs]
+    map$mapFactor$log_F <-  factor(map$mapList$log_F)
 
     # Adjust forecased rec_dev in new mod for bias and refit
     for(sp in 1:newmod$data_list$nspp){

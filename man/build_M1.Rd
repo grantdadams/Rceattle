@@ -39,7 +39,7 @@ model. Either an integer code or the equivalent string alias:
 from data (\code{M1_base}) instead. Default \code{FALSE}.}
 
 \item{M1_use_prior}{Vector or scalar; if \code{TRUE}, apply the
-lognormal \code{M_prior} / \code{M_prior_sd} to \code{ln_M1} directly.}
+lognormal \code{M_prior} / \code{M_prior_sd} to \code{log_M1} directly.}
 
 \item{M2_use_prior}{Vector or scalar; if \code{TRUE}, apply the
 lognormal prior to \code{M1 + M2} in multi-species models.}

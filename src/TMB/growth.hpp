@@ -29,7 +29,7 @@
  * @param nsex/nages/nlengths Vectors containing species-specific counts for each dimension.
  * @param lengths Matrix of length bin boundaries (nspp x length_bins).
  * @param growth_parameters 4D array of time-varying growth parameters (K, L1, Linf, m).
- * @param growth_ln_sd 3D array of log-scale standard deviations for length (youngest and oldest ages).
+ * @param growth_log_sd 3D array of log-scale standard deviations for length (youngest and oldest ages).
  * @param LW_par 4D array of length-weight relationship parameters ($\alpha$, $\beta$).
  *
  * *@note This version uses pass-by-reference for outputs to optimize memory.
@@ -50,7 +50,7 @@ void estimate_growth(
     const vector<int>&  growth_model,
     matrix<Type> lengths,
     array<Type>& growth_parameters,
-    array<Type>& growth_ln_sd,
+    array<Type>& growth_log_sd,
     matrix<Type> weight_length_pars,
     array<Type> &length_hat,     // Modified by reference
     array<Type> &growth_matrix,  // Modified by reference
@@ -159,18 +159,18 @@ void estimate_growth(
         // 3. Calculate SD (Integrated) ---
         if(growth_model(sp) < 3) {
           if((current_age) <= age_L1) {
-            length_sd(sex, age, yr) = exp(growth_ln_sd(sp, sex, 0));
+            length_sd(sex, age, yr) = exp(growth_log_sd(sp, sex, 0));
           } else if(age == (nages(sp) - 1)) {
-            length_sd(sex, age, yr) = exp(growth_ln_sd(sp, sex, 1));
+            length_sd(sex, age, yr) = exp(growth_log_sd(sp, sex, 1));
           } else {
-            Slope = (exp(growth_ln_sd(sp, sex, 1)) - exp(growth_ln_sd(sp, sex, 0))) / (linf - l1);
-            length_sd(sex, age, yr) = exp(growth_ln_sd(sp, sex, 0)) + Slope * (length_hat(wtind,  sex, age, yr) - l1);
+            Slope = (exp(growth_log_sd(sp, sex, 1)) - exp(growth_log_sd(sp, sex, 0))) / (linf - l1);
+            length_sd(sex, age, yr) = exp(growth_log_sd(sp, sex, 0)) + Slope * (length_hat(wtind,  sex, age, yr) - l1);
           }
 
           // Free parameters
           if(growth_model(sp) == 3) {
-            // Slope = (exp(growth_ln_sd(sp, sex, 1)) - exp(growth_ln_sd(sp, sex, 0)))/(length_hat(wtind,  sex, nages(sp)-1, yr) - length_hat(wtind,  sex, 0, yr));
-            // length_sd(sex, age, yr) = exp(growth_ln_sd(sp, sex, 0) + Slope * (length_hat(wtind,  sex, age, yr) - length_hat(wtind,  sex, 0, yr));
+            // Slope = (exp(growth_log_sd(sp, sex, 1)) - exp(growth_log_sd(sp, sex, 0)))/(length_hat(wtind,  sex, nages(sp)-1, yr) - length_hat(wtind,  sex, 0, yr));
+            // length_sd(sex, age, yr) = exp(growth_log_sd(sp, sex, 0) + Slope * (length_hat(wtind,  sex, age, yr) - length_hat(wtind,  sex, 0, yr));
           }
         }
 
@@ -236,7 +236,7 @@ void estimate_growth(
  * @param nsex/nages/nlengths Vectors containing species-specific counts for each dimension.
  * @param lengths Matrix of length bin boundaries (nspp x length_bins).
  * @param growth_parameters 4D array of time-varying growth parameters (K, L1, Linf, m).
- * @param growth_ln_sd 3D array of log-scale standard deviations for length (youngest and oldest ages).
+ * @param growth_log_sd 3D array of log-scale standard deviations for length (youngest and oldest ages).
  * @param LW_par 4D array of length-weight relationship parameters ($\alpha$, $\beta$).
  *
  * *@note This version uses pass-by-reference for outputs to optimize memory.
@@ -259,7 +259,7 @@ void estimate_growth_within_yr(
     const vector<int>&  growth_model,
     matrix<Type> lengths,
     array<Type> growth_parameters,
-    array<Type> growth_ln_sd,
+    array<Type> growth_log_sd,
     matrix<Type> weight_length_pars,
     array<Type> &length_hat,     // Modified by reference
     array<Type> &growth_matrix,  // Modified by reference
@@ -340,18 +340,18 @@ void estimate_growth_within_yr(
         // 2. Calculate SD (Integrated) ---
         if(growth_model(sp) < 3) {
           if((current_age) <= age_L1) {
-            length_sd(sex, age, yr) = exp(growth_ln_sd(sp, sex, 0));
+            length_sd(sex, age, yr) = exp(growth_log_sd(sp, sex, 0));
           } else if(age == (nages(sp) - 1)) {
-            length_sd(sex, age, yr) = exp(growth_ln_sd(sp, sex, 1));
+            length_sd(sex, age, yr) = exp(growth_log_sd(sp, sex, 1));
           } else {
-            Slope = (exp(growth_ln_sd(sp, sex, 1)) - exp(growth_ln_sd(sp, sex, 0))) / (linf - l1);
-            length_sd(sex, age, yr) = exp(growth_ln_sd(sp, sex, 0)) + Slope * (length_hat(wtind,  sex, age, yr) - l1);
+            Slope = (exp(growth_log_sd(sp, sex, 1)) - exp(growth_log_sd(sp, sex, 0))) / (linf - l1);
+            length_sd(sex, age, yr) = exp(growth_log_sd(sp, sex, 0)) + Slope * (length_hat(wtind,  sex, age, yr) - l1);
           }
 
           // Free parameters
           if(growth_model(sp) == 3) {
-            // Slope = (exp(growth_ln_sd(sp, sex, 1)) - exp(growth_ln_sd(sp, sex, 0)))/(length_hat(wtind,  sex, nages(sp)-1, yr) - length_hat(wtind,  sex, 0, yr));
-            // length_sd(sex, age, yr) = exp(growth_ln_sd(sp, sex, 0) + Slope * (length_hat(wtind,  sex, age, yr) - length_hat(wtind,  sex, 0, yr));
+            // Slope = (exp(growth_log_sd(sp, sex, 1)) - exp(growth_log_sd(sp, sex, 0)))/(length_hat(wtind,  sex, nages(sp)-1, yr) - length_hat(wtind,  sex, 0, yr));
+            // length_sd(sex, age, yr) = exp(growth_log_sd(sp, sex, 0) + Slope * (length_hat(wtind,  sex, age, yr) - length_hat(wtind,  sex, 0, yr));
           }
         }
 
@@ -412,7 +412,7 @@ void estimate_growth_within_yr(
  * @param flt_wt_index Index for fleet-specific weights
  * @param spawn_month Vector of spawning months per species
  * [Other parameters for estimate_growth: lengths, nlengths, minage,
- * growth_parameters, growth_ln_sd, weight_length_pars]
+ * growth_parameters, growth_log_sd, weight_length_pars]
  */
 template <class Type>
 void calculate_weight(
@@ -437,7 +437,7 @@ void calculate_weight(
     vector<Type> spawn_month,
     matrix<Type> lengths,
     array<Type> growth_parameters,
-    array<Type> growth_ln_sd,
+    array<Type> growth_log_sd,
     matrix<Type> weight_length_pars
 ) {
   int yr_ind;
@@ -485,7 +485,7 @@ void calculate_weight(
         growth_model,
         lengths,
         growth_parameters,
-        growth_ln_sd,
+        growth_log_sd,
         weight_length_pars,
         length_hat,     // Pass by reference
         growth_matrix,  // Pass by reference
@@ -507,7 +507,7 @@ void calculate_weight(
         growth_model,
         lengths,
         growth_parameters,
-        growth_ln_sd,
+        growth_log_sd,
         weight_length_pars,
         length_hat,     // Pass by reference
         growth_matrix,  // Pass by reference
@@ -553,7 +553,7 @@ void calculate_weight(
         growth_model,
         lengths,
         growth_parameters,
-        growth_ln_sd,
+        growth_log_sd,
         weight_length_pars,
         length_hat,     // Pass by reference
         growth_matrix,  // Pass by reference

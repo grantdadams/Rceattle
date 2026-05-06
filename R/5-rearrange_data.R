@@ -117,7 +117,7 @@ rearrange_dat <- function(data_list){
   data_list$est_sigma_fsh <- data_list$fleet_control %>%
     dplyr::pull(.data$Estimate_catch_sd) %>% as.integer()
 
-  data_list$index_ln_q_prior <- log(data_list$fleet_control$Q_prior)
+  data_list$index_log_q_prior <- log(data_list$fleet_control$Q_prior)
 
   # Species names
   data_list$spnames <- NULL

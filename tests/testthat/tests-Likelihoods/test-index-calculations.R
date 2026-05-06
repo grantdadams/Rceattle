@@ -20,12 +20,12 @@ testthat::test_that("Basic index and index likelihood", {
 
   # * Set params ----
   inits$rec_pars[,1] <- R0
-  inits$R_ln_sd <- 0
-  inits$ln_F[] <- -999 # No fishing
-  inits$index_ln_q[] <- 0 # Set q to 1
+  inits$R_log_sd <- 0
+  inits$log_F[] <- -999 # No fishing
+  inits$index_log_q[] <- 0 # Set q to 1
 
   # Set logistic params
-  inits$ln_sel_slp[] <- -Inf
+  inits$log_sel_slp[] <- -Inf
   inits$sel_inf[] <- 0     # Females
 
   # Run
@@ -56,7 +56,7 @@ testthat::test_that("Basic index and index likelihood", {
   testthat::expect_equal(ss_run$quantities$index_hat, 0.5 * SB0[ss_run$data_list$index_data$Species])
 
   # Check index sd
-  testthat::expect_equal(as.numeric(ss_run$quantities$ln_index_sd), rep(0.1, nyrs))
+  testthat::expect_equal(as.numeric(ss_run$quantities$log_index_sd), rep(0.1, nyrs))
 
   # Check observed
   testthat::expect_equal(dat$index_data$Observation, rep(100, nyrs))
