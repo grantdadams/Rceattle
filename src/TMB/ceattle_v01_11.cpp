@@ -586,11 +586,11 @@ Type objective_function<Type>::operator() () {
 
 
   // 5.5. GROWTH
-  // -- Build the per-(sp, sex, growth_param, yr) offset tensor from the
+  // -- Build the per-(sp, sex, yr, growth_param) offset tensor from the
   //    long-format linkage table. Added (additively, on the log scale)
   //    to `growth_parameters` immediately below. Stays at zero when no
   //    `linkages` were supplied to `build_growth()`.
-  array<Type> growth_linkage_offset(nspp, max_sex, RCEATTLE_N_GROWTH_PARAMS, nyrs);
+  array<Type> growth_linkage_offset(nspp, max_sex, nyrs, RCEATTLE_N_GROWTH_PARAMS);
   growth_linkage_offset.setZero();
   rceattle_apply_growth_linkages(
     growth_linkage_offset,
@@ -607,13 +607,11 @@ Type objective_function<Type>::operator() () {
     nsex,
     nyrs
   );
-  REPORT(growth_linkage_offset);
-  REPORT(beta_linkage);
 
   // -- Rearange growth parameters. The linkage offset enters additively
   //    on the log scale; with no linkages it stays at zero so the result
   //    is identical to the previous formula.
-  array<Type> growth_parameters(nspp, max_sex, nyrs, int(4)); growth_parameters.setZero(); // K, L1, Linf, m
+  array<Type> growth_parameters(nspp, max_sex, nyrs, RCEATTLE_N_GROWTH_PARAMS); growth_parameters.setZero(); // K, L1, Linf, m
   for(sp = 0; sp < nspp; sp++){
     for(sex = 0; sex < nsex(sp); sex ++){
       for(yr = 0; yr < nyrs; yr++){
@@ -621,12 +619,13 @@ Type objective_function<Type>::operator() () {
             growth_parameters(sp, sex, yr, par) = exp(
               ln_growth_pars(sp, sex, par)
             + ln_growth_par_devs(sp, sex, yr, par)
-            + growth_linkage_offset(sp, sex, par, yr)
+            + growth_linkage_offset(sp, sex, yr, par)
           );
         }
       }
     }
   }
+  REPORT(growth_linkage_offset);
   REPORT(growth_parameters);
 
   // -- Calculate weight
