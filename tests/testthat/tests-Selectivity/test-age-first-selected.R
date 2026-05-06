@@ -65,29 +65,29 @@ testthat::test_that("Time-varying double logistic selectivity bin first selected
   inf2 = 15
   inf_dev <- rnorm(nyrs)
   inf_dev_desc <- rnorm(nyrs)
-  ln_slp_dev <- rnorm(nyrs)
-  ln_slp_dev_desc <- rnorm(nyrs)
+  log_slp_dev <- rnorm(nyrs)
+  log_slp_dev_desc <- rnorm(nyrs)
 
   alpha = 0.5
   ages <- 1:21
-  sel <- apply(cbind(ln_slp_dev, inf_dev, ln_slp_dev_desc, inf_dev_desc), 1,
+  sel <- apply(cbind(log_slp_dev, inf_dev, log_slp_dev_desc, inf_dev_desc), 1,
                function(x) 1/(1+exp(-(alpha)*exp(x[1]) * (ages - inf - x[2]))) * (1 - 1/(1+exp(-(alpha)*exp(x[3]) * (ages - inf2 - x[4])))))
-  sel2 <- apply(cbind(ln_slp_dev, inf_dev, ln_slp_dev_desc, inf_dev_desc), 1,
+  sel2 <- apply(cbind(log_slp_dev, inf_dev, log_slp_dev_desc, inf_dev_desc), 1,
                 function(x) 1/(1+exp(-(alpha+1)*exp(x[1]) * (ages - inf - x[2]))) * (1 - 1/(1+exp(-(alpha+1)*exp(x[3]) * (ages - inf2 - x[4])))))
 
 
   # Set params to double logistic
   mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, random_sel = TRUE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
   inits <- mod0$estimated_params
-  inits$ln_sel_slp[,,1] <- log(alpha) # Females
-  inits$ln_sel_slp[,,2] <- log(alpha+1) # Males
+  inits$log_sel_slp[,,1] <- log(alpha) # Females
+  inits$log_sel_slp[,,2] <- log(alpha+1) # Males
   inits$sel_inf[1,,] <- inf
   inits$sel_inf[2,,] <- inf2
-  for(i in 1:dim(inits$ln_sel_slp_dev[1,,,])[1]){
-    for(j in 1:dim(inits$ln_sel_slp_dev[1,,,])[2]){
-      inits$ln_sel_slp_dev[1,i,j,] <- ln_slp_dev
+  for(i in 1:dim(inits$log_sel_slp_dev[1,,,])[1]){
+    for(j in 1:dim(inits$log_sel_slp_dev[1,,,])[2]){
+      inits$log_sel_slp_dev[1,i,j,] <- log_slp_dev
       inits$sel_inf_dev[1,i,j,] <- inf_dev
-      inits$ln_sel_slp_dev[2,i,j,] <- ln_slp_dev_desc
+      inits$log_sel_slp_dev[2,i,j,] <- log_slp_dev_desc
       inits$sel_inf_dev[2,i,j,] <- inf_dev_desc
     }
   }

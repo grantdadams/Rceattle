@@ -17,7 +17,7 @@ build_map_m1(map_list, data_list, nyrs_hind)
 Updated \code{map_list}.
 }
 \description{
-Maps the fixed parameters (\code{ln_M1}) and the random effects
-parameters (\code{ln_M1_dev}, \code{M1_dev_ln_sd}, \code{M1_rho}) based on
+Maps the fixed parameters (\code{log_M1}) and the random effects
+parameters (\code{log_M1_dev}, \code{M1_dev_log_sd}, \code{M1_rho}) based on
 \code{M1_model} and \code{M1_re} settings.
 }

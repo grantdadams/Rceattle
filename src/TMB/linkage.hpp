@@ -131,7 +131,7 @@ void rceattle_apply_growth_linkages(
 // M (natural mortality) accumulator.
 //
 // Builds the per-(species, sex, age, year) offset tensor that is
-// added (additively, on the log scale) to ln_M1 inside the M1_at_age
+// added (additively, on the log scale) to log_M1 inside the M1_at_age
 // compute in ceattle_v01_11.cpp. Iterates the same encoded linkage
 // table but only consumes rows whose process == RCEATTLE_PROC_M.
 //

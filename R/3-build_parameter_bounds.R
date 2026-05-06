@@ -47,8 +47,8 @@ build_bounds <- function(param_list = NULL, data_list) {
 
 
   # # Selectivity ----
-  # lower_bnd$ln_sel_slp <- replace(lower_bnd$ln_sel_slp, values = rep(log(0.01), length(lower_bnd$ln_sel_slp)))
-  # upper_bnd$ln_sel_slp <- replace(upper_bnd$ln_sel_slp, values = rep(log(100), length(upper_bnd$ln_sel_slp)))
+  # lower_bnd$log_sel_slp <- replace(lower_bnd$log_sel_slp, values = rep(log(0.01), length(lower_bnd$log_sel_slp)))
+  # upper_bnd$log_sel_slp <- replace(upper_bnd$log_sel_slp, values = rep(log(100), length(upper_bnd$log_sel_slp)))
   #
   # lower_bnd$sel_inf <- replace(lower_bnd$sel_inf, values = rep(0, length(lower_bnd$sel_inf)))
   # for(flt in 1:nrow(data_list$fleet_control)){
@@ -61,8 +61,8 @@ build_bounds <- function(param_list = NULL, data_list) {
   # for(i in 1:nrow(data_list$fleet_control)){
   #   # If using blocks don't put bounds on deviates, as these are estimated
   #   if(data_list$fleet_control$Time_varying_sel[i] != 3){
-  #     lower_bnd$ln_sel_slp_dev[,i,,] <- replace(lower_bnd$ln_sel_slp_dev[,i,,], values = rep(-5, length(lower_bnd$ln_sel_slp_dev[,i,,])))
-  #     upper_bnd$ln_sel_slp_dev[,i,,] <- replace(upper_bnd$ln_sel_slp_dev[,i,,], values = rep(5, length(upper_bnd$ln_sel_slp_dev[,i,,])))
+  #     lower_bnd$log_sel_slp_dev[,i,,] <- replace(lower_bnd$log_sel_slp_dev[,i,,], values = rep(-5, length(lower_bnd$log_sel_slp_dev[,i,,])))
+  #     upper_bnd$log_sel_slp_dev[,i,,] <- replace(upper_bnd$log_sel_slp_dev[,i,,], values = rep(5, length(upper_bnd$log_sel_slp_dev[,i,,])))
   #   }
   # }
   #
@@ -76,19 +76,19 @@ build_bounds <- function(param_list = NULL, data_list) {
   # }
 
   # Survey variance ----
-  lower_bnd$index_ln_sd <- replace(lower_bnd$index_ln_sd, values = rep(-10, length(lower_bnd$index_ln_sd)))
-  upper_bnd$index_ln_sd <- replace(upper_bnd$index_ln_sd, values = rep(10, length(upper_bnd$index_ln_sd)))
+  lower_bnd$index_log_sd <- replace(lower_bnd$index_log_sd, values = rep(-10, length(lower_bnd$index_log_sd)))
+  upper_bnd$index_log_sd <- replace(upper_bnd$index_log_sd, values = rep(10, length(upper_bnd$index_log_sd)))
 
   # Fishery variance ----
-  lower_bnd$catch_ln_sd <- replace(lower_bnd$catch_ln_sd, values = rep(-10, length(lower_bnd$catch_ln_sd)))
-  upper_bnd$catch_ln_sd <- replace(upper_bnd$catch_ln_sd, values = rep(3, length(upper_bnd$catch_ln_sd)))
+  lower_bnd$catch_log_sd <- replace(lower_bnd$catch_log_sd, values = rep(-10, length(lower_bnd$catch_log_sd)))
+  upper_bnd$catch_log_sd <- replace(upper_bnd$catch_log_sd, values = rep(3, length(upper_bnd$catch_log_sd)))
 
   # F ----
-  lower_bnd$ln_F <- replace(lower_bnd$ln_F, values = rep(-1000, length(lower_bnd$ln_F)))
-  upper_bnd$ln_F <- replace(upper_bnd$ln_F, values = rep(10, length(upper_bnd$ln_F)))
+  lower_bnd$log_F <- replace(lower_bnd$log_F, values = rep(-1000, length(lower_bnd$log_F)))
+  upper_bnd$log_F <- replace(upper_bnd$log_F, values = rep(10, length(upper_bnd$log_F)))
 
-  lower_bnd$ln_M1 <- replace(lower_bnd$ln_M1, values = rep(log(0.001), length(lower_bnd$ln_M1)))
-  upper_bnd$ln_M1 <- replace(upper_bnd$ln_M1, values = rep(log(2), length(upper_bnd$ln_M1)))
+  lower_bnd$log_M1 <- replace(lower_bnd$log_M1, values = rep(log(0.001), length(lower_bnd$log_M1)))
+  upper_bnd$log_M1 <- replace(upper_bnd$log_M1, values = rep(log(2), length(upper_bnd$log_M1)))
 
 
   # Linkage-table coefficients ----

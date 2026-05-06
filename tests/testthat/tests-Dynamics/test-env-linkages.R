@@ -50,7 +50,7 @@ testthat::test_that("Test environmental linkeage with mean rec", {
   is_env <- tbl$param == "log_R0" & tbl$X_col == env_col
   inits$beta_linkage <- as.numeric(inits$beta_linkage)
   inits$beta_linkage[is_env] <- 1:3
-  inits$ln_F[] <- -999 # No fishing
+  inits$log_F[] <- -999 # No fishing
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
@@ -130,7 +130,7 @@ testthat::test_that("Test multiple recruitment linkeages with mean rec", {
       inits$beta_linkage[idx] <- (j - 1) * 3 + sp
     }
   }
-  inits$ln_F[] <- -999 # No fishing
+  inits$log_F[] <- -999 # No fishing
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
@@ -203,12 +203,12 @@ testthat::test_that("Test multiple M linkeages", {
             fit_control = fit_control(verbose = 0))
   )
   inits <- mod0$estimated_params
-  inits$ln_M1[] <- log(0.2)
+  inits$log_M1[] <- log(0.2)
   tbl <- mod0$data_list$linkage_table
   is_log_m1 <- tbl$param == "log_M1"
   inits$beta_linkage <- as.numeric(inits$beta_linkage)
   inits$beta_linkage[is_log_m1] <- 1
-  inits$ln_F[] <- -999 # No fishing
+  inits$log_F[] <- -999 # No fishing
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
@@ -296,7 +296,7 @@ testthat::test_that("Test single M, multiple M/sex linkeages, M both-sex linkage
                                 verbose = 0))
 
   inits <- ss_run$estimated_params
-  inits$ln_M1[] <- log(0.2)
+  inits$log_M1[] <- log(0.2)
   tbl <- ss_run$data_list$linkage_table
   env_cols <- c("EnvIndex", "EnvIndex2", "EnvIndex3")
   is_log_m1 <- tbl$param == "log_M1"
@@ -309,7 +309,7 @@ testthat::test_that("Test single M, multiple M/sex linkeages, M both-sex linkage
     idx <- which(is_log_m1 & tbl$species == 3 & is.na(tbl$sex) & tbl$design_col == env_cols[j])
     inits$beta_linkage[idx] <- 1
   }
-  inits$ln_F[] <- -999 # No fishing
+  inits$log_F[] <- -999 # No fishing
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,

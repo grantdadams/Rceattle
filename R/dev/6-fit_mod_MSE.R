@@ -143,7 +143,7 @@ fit_mod_mse <-
 
     nyrs_proj <- data_list$projyr - data_list$styr + 1
     if(!is.null(HCR$FsprTarget) & HCR$HCR == 2){
-      start_par$ln_Ftarget = log(HCR$FsprTarget) # Fixed fishing mortality for projections for each species
+      start_par$log_Ftarget = log(HCR$FsprTarget) # Fixed fishing mortality for projections for each species
     }
 
     # - Update alpha for stock-recruit if fixed/prior and initial parameter values input
@@ -154,8 +154,8 @@ fit_mod_mse <-
     # Include BRPs in likelihood of hindcast
     # -- but set Ftarget and Flimit to 0
     data_list_reorganized$forecast <- TRUE
-    start_par$ln_Flimit[] <- -10
-    start_par$ln_Ftarget[] <- -10
+    start_par$log_Flimit[] <- -10
+    start_par$log_Ftarget[] <- -10
 
     if(verbose > 0) {message("Step 3: Data rearranged complete")}
 
@@ -189,20 +189,20 @@ fit_mod_mse <-
     # -- Optimize hindcast
     fn1 <- function(Fparams){
       par <- obj$env$last.par.best
-      Find <- which(!names(par) %in% c("ln_Flimit", "ln_Ftarget"))
+      Find <- which(!names(par) %in% c("log_Flimit", "log_Ftarget"))
       par[Find] <- Fparams
       obj$fn(par)
     }
 
     gr1 <- function(Fparams){
       par <- obj$env$last.par.best
-      Find <- which(!names(par) %in% c("ln_Flimit", "ln_Ftarget"))
+      Find <- which(!names(par) %in% c("log_Flimit", "log_Ftarget"))
       par[Find] <- Fparams
       as.numeric(obj$gr(par)[Find])
     }
 
     par <- obj$env$last.par.best
-    notFind <- which(!names(par) %in% c("ln_Flimit", "ln_Ftarget"))
+    notFind <- which(!names(par) %in% c("log_Flimit", "log_Ftarget"))
 
 
     if(estimateMode %in% c(0,1,4)){
@@ -233,16 +233,16 @@ fit_mod_mse <-
 
     fn2 <- function(Fparams){
       par <- obj$env$last.par.best
-      Flimitind <- which(names(par) == "ln_Flimit")[params_on]
-      Ftargetind <- which(names(par) == "ln_Ftarget")[params_on]
+      Flimitind <- which(names(par) == "log_Flimit")[params_on]
+      Ftargetind <- which(names(par) == "log_Ftarget")[params_on]
       par[c(Flimitind, Ftargetind)] <- Fparams
       obj$fn(par)
     }
 
     gr2 <- function(Fparams){
       par <- obj$env$last.par.best
-      Flimitind <- which(names(par) == "ln_Flimit")[params_on]
-      Ftargetind <- which(names(par) == "ln_Ftarget")[params_on]
+      Flimitind <- which(names(par) == "log_Flimit")[params_on]
+      Ftargetind <- which(names(par) == "log_Ftarget")[params_on]
       par[c(Flimitind, Ftargetind)] <- Fparams
       as.numeric(obj$gr(par)[Find])
     }
@@ -256,8 +256,8 @@ fit_mod_mse <-
           # -- Parameters to optimize
           params_on <- rep(1, data_list$nspp)
           par <- obj$env$last.par.best
-          Flimitind <- which(names(par) == "ln_Flimit")[params_on]
-          Ftargetind <- which(names(par) == "ln_Ftarget")[params_on]
+          Flimitind <- which(names(par) == "log_Flimit")[params_on]
+          Ftargetind <- which(names(par) == "log_Ftarget")[params_on]
 
           # -- Optimize
           opt = Rceattle::fit_tmb_mse(
@@ -299,8 +299,8 @@ fit_mod_mse <-
 
             # -- Parameters to optimize
             par <- obj$env$last.par.best
-            Flimitind <- which(names(par) == "ln_Flimit")[params_on]
-            Ftargetind <- which(names(par) == "ln_Ftarget")[params_on]
+            Flimitind <- which(names(par) == "log_Flimit")[params_on]
+            Ftargetind <- which(names(par) == "log_Ftarget")[params_on]
 
             # -- Optimize
             opt = Rceattle::fit_tmb_mse(

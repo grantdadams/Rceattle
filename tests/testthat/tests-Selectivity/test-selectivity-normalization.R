@@ -20,7 +20,7 @@ testthat::test_that("Sex-specific logistic selectivity divided by max sel (acros
   # Set params to logistic
   mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
   inits <- mod0$estimated_params
-  inits$ln_sel_slp[1,,] <- log(alpha)
+  inits$log_sel_slp[1,,] <- log(alpha)
   inits$sel_inf[1,,] <- inf     # Females
   inits$sel_inf[1,9:11,2] <- inf + 1 # Males
 
@@ -67,7 +67,7 @@ testthat::test_that("Sex-specific logistic selectivity not normalized", {
   # curve(1/(1+exp(-alpha*(x-inf))), from = 0, to = 21)
 
   # Set params to logistic
-  inits$ln_sel_slp[1,,] <- log(alpha)
+  inits$log_sel_slp[1,,] <- log(alpha)
   inits$sel_inf[1,,] <- inf     # Females
   inits$sel_inf[1,9:11,2] <- inf + 1 # Males
 
@@ -85,9 +85,9 @@ testthat::test_that("Sex-specific logistic selectivity not normalized", {
 
   # Map
   # - Slope
-  testthat::expect_equal(c(ss_run$map$mapList$ln_sel_slp[1,,]), c(1:6, NA, 7:8,10, 12, 14:18, rep(NA, 8), 9, 11, 13, rep(NA, 5)))
+  testthat::expect_equal(c(ss_run$map$mapList$log_sel_slp[1,,]), c(1:6, NA, 7:8,10, 12, 14:18, rep(NA, 8), 9, 11, 13, rep(NA, 5)))
   # - Desc slope
-  testthat::expect_equal(c(ss_run$map$mapList$ln_sel_slp[2,,]), as.numeric(rep(NA, 16*2)))
+  testthat::expect_equal(c(ss_run$map$mapList$log_sel_slp[2,,]), as.numeric(rep(NA, 16*2)))
 
   # - Asympt
   testthat::expect_equal(c(ss_run$map$mapList$sel_inf[1,,]), c(1:6, NA, 7:8,10, 12, 14:18, rep(NA, 8), 9, 11, 13, rep(NA, 5)))
@@ -95,9 +95,9 @@ testthat::test_that("Sex-specific logistic selectivity not normalized", {
   testthat::expect_equal(c(ss_run$map$mapList$sel_inf[2,,]), as.numeric(rep(NA, 16*2)))
 
   # - Devs
-  testthat::expect_equal(c(ss_run$map$mapList$ln_sel_slp_dev), as.numeric(rep(NA, 2688)))
+  testthat::expect_equal(c(ss_run$map$mapList$log_sel_slp_dev), as.numeric(rep(NA, 2688)))
   testthat::expect_equal(c(ss_run$map$mapList$sel_inf_dev), as.numeric(rep(NA, 2688)))
-  testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_dev_ln_sd), as.numeric(rep(NA, 16))) # Dev sigma
+  testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_dev_log_sd), as.numeric(rep(NA, 16))) # Dev sigma
 
 
   # Check selectivity
@@ -129,7 +129,7 @@ testthat::test_that("Sex-invariant logistic selectivity divided by sel-at-age", 
   # Set params to logistic
   mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
   inits <- mod0$estimated_params
-  inits$ln_sel_slp[1,,] <- log(alpha)
+  inits$log_sel_slp[1,,] <- log(alpha)
   inits$sel_inf[1,,] <- inf
 
   # Run
@@ -175,7 +175,7 @@ testthat::test_that("Sex-invariant logistic selectivity divided by sel-at-age-RA
   # Set params to logistic
   mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
   inits <- mod0$estimated_params
-  inits$ln_sel_slp[1,,] <- log(alpha)
+  inits$log_sel_slp[1,,] <- log(alpha)
   inits$sel_inf[1,,] <- inf
 
   # Run
@@ -221,8 +221,8 @@ testthat::test_that("Sex-specific logistic selectivity divided by sel-at-age-RAN
   # Set params to logistic
   mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
   inits <- mod0$estimated_params
-  inits$ln_sel_slp[1,,1] <- log(alpha)     # Females
-  inits$ln_sel_slp[1,,2] <- log(alpha + 1) # Males
+  inits$log_sel_slp[1,,1] <- log(alpha)     # Females
+  inits$log_sel_slp[1,,2] <- log(alpha + 1) # Males
   inits$sel_inf[1,,] <- inf
 
   # Run
@@ -264,20 +264,20 @@ testthat::test_that("Sex-invariant time-varying logistic selectivity divided by 
   nyrs <- GOA2018SS$styr:GOA2018SS$endyr
   inf = 10
   inf_dev <- rnorm(nyrs)
-  ln_slp_dev <- rnorm(nyrs)
+  log_slp_dev <- rnorm(nyrs)
 
   alpha = 0.5
   ages <- 1:21
-  sel <- apply(cbind(ln_slp_dev, inf_dev), 1, function(x) 1/(1+exp(-alpha*exp(x[1]) * (ages - inf - x[2]))))
+  sel <- apply(cbind(log_slp_dev, inf_dev), 1, function(x) 1/(1+exp(-alpha*exp(x[1]) * (ages - inf - x[2]))))
 
   # Set params to logistic
   mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
   inits <- mod0$estimated_params
-  inits$ln_sel_slp[1,,] <- log(alpha)
+  inits$log_sel_slp[1,,] <- log(alpha)
   inits$sel_inf[1,,] <- inf
-  for(i in 1:dim(inits$ln_sel_slp_dev[1,,,])[1]){
-    for(j in 1:dim(inits$ln_sel_slp_dev[1,,,])[2]){
-      inits$ln_sel_slp_dev[1,i,j,] <- ln_slp_dev
+  for(i in 1:dim(inits$log_sel_slp_dev[1,,,])[1]){
+    for(j in 1:dim(inits$log_sel_slp_dev[1,,,])[2]){
+      inits$log_sel_slp_dev[1,i,j,] <- log_slp_dev
       inits$sel_inf_dev[1,i,j,] <- inf_dev
     }
   }
@@ -320,22 +320,22 @@ testthat::test_that("Normalize by max for each fishery and year across bins, and
   nyrs <- length(GOA2018SS$styr:GOA2018SS$endyr)
   inf = 10
   inf_dev <- rnorm(nyrs)
-  ln_slp_dev <- rnorm(nyrs)
+  log_slp_dev <- rnorm(nyrs)
 
   alpha = 0.5
   ages <- 1:21
-  sel <- apply(cbind(ln_slp_dev, inf_dev), 1, function(x) 1/(1+exp(-alpha*exp(x[1]) * (ages - inf - x[2])))) # Females
-  sel2 <- apply(cbind(ln_slp_dev, inf_dev), 1, function(x) 1/(1+exp(-(alpha+1)*exp(x[1]) * (ages - inf - x[2])))) # Males
+  sel <- apply(cbind(log_slp_dev, inf_dev), 1, function(x) 1/(1+exp(-alpha*exp(x[1]) * (ages - inf - x[2])))) # Females
+  sel2 <- apply(cbind(log_slp_dev, inf_dev), 1, function(x) 1/(1+exp(-(alpha+1)*exp(x[1]) * (ages - inf - x[2])))) # Males
 
   # Set params to logistic
   mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, fit_control = fit_control(verbose = 0)) )
   inits <- mod0$estimated_params
-  inits$ln_sel_slp[1,,1] <- log(alpha) # Females
-  inits$ln_sel_slp[1,,2] <- log(alpha+1) # Males
+  inits$log_sel_slp[1,,1] <- log(alpha) # Females
+  inits$log_sel_slp[1,,2] <- log(alpha+1) # Males
   inits$sel_inf[1,,] <- inf
-  for(i in 1:dim(inits$ln_sel_slp_dev[1,,,])[1]){
-    for(j in 1:dim(inits$ln_sel_slp_dev[1,,,])[2]){
-      inits$ln_sel_slp_dev[1,i,j,] <- ln_slp_dev
+  for(i in 1:dim(inits$log_sel_slp_dev[1,,,])[1]){
+    for(j in 1:dim(inits$log_sel_slp_dev[1,,,])[2]){
+      inits$log_sel_slp_dev[1,i,j,] <- log_slp_dev
       inits$sel_inf_dev[1,i,j,] <- inf_dev
     }
   }

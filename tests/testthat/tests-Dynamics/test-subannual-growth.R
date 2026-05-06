@@ -34,16 +34,16 @@ testthat::test_that("Test VB growth with spawn month = 0.00001", {
   mod0 <- suppressMessages( fit_mod(data_list = simData, inits = NULL, estimateMode = 3, growthFun = build_growth(fun = "vonBertalanffy"), random_rec = FALSE, msmMode = 0, fit_control = fit_control(phase = FALSE, verbose = 0)) )
   inits <- mod0$estimated_params
   inits$sel_inf[1,,1] <- c(20,35,15,30)
-  inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
-  inits$ln_F[2,] <- log(Fmort)
-  inits$ln_F[4,] <- log(Fmort2)
+  inits$log_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
+  inits$log_F[2,] <- log(Fmort)
+  inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
-  inits$index_ln_q[] <- log(1)
-  inits$R_ln_sd[] <- log(1)
+  inits$index_log_q[] <- log(1)
+  inits$R_log_sd[] <- log(1)
   inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
-  inits$growth_ln_sd[] <- log(3)
-  inits$ln_growth_pars[,1,] = matrix(log(c(0.3, 4.5, 90, 1.0,
+  inits$growth_log_sd[] <- log(3)
+  inits$log_growth_pars[,1,] = matrix(log(c(0.3, 4.5, 90, 1.0,
                                            0.35, 4.5, 50, 1.0)), # K, L1, Linf, M
                                      nrow = nspp, ncol = 4, byrow = TRUE)
 
@@ -113,16 +113,16 @@ testthat::test_that("Test Richard's growth with spawn month = 0.00001", {
   mod0 <- suppressMessages( fit_mod(data_list = simData, inits = NULL, estimateMode = 3, growthFun = build_growth(fun = "Richards"), random_rec = FALSE, msmMode = 0, fit_control = fit_control(phase = FALSE, verbose = 0)) )
   inits <- mod0$estimated_params
   inits$sel_inf[1,,1] <- c(20,35,15,30)
-  inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
-  inits$ln_F[2,] <- log(Fmort)
-  inits$ln_F[4,] <- log(Fmort2)
+  inits$log_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
+  inits$log_F[2,] <- log(Fmort)
+  inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
-  inits$index_ln_q[] <- log(1)
-  inits$R_ln_sd[] <- log(1)
+  inits$index_log_q[] <- log(1)
+  inits$R_log_sd[] <- log(1)
   inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
-  inits$growth_ln_sd[] <- log(3)
-  inits$ln_growth_pars[,1,] = log(growth_params)
+  inits$growth_log_sd[] <- log(3)
+  inits$log_growth_pars[,1,] = log(growth_params)
 
   # Fit Rceattle -------------------------------------------------------------
   ss_run_init <- Rceattle::fit_mod(data_list = simData,

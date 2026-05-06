@@ -125,12 +125,12 @@ testthat::test_that("2DAR1 selectivity map and likelihood", {
                                 verbose = 0))
 
   # Hyper parameters (on except for not estimated fleet)
-  testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_dev_ln_sd), c(1:6, NA, 8:16))
+  testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_dev_log_sd), c(1:6, NA, 8:16))
   testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_curve_pen[,1]), c(1:6, NA, 8:16))
   testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_curve_pen[,2]), c(1:6, NA, 8:16) + 16)
   testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_curve_pen[,3]), as.numeric(rep(NA, 16)))
 
-  testthat::expect_equal(as.numeric(ss_run$estimated_params$sel_dev_ln_sd), rep(0, 16))
+  testthat::expect_equal(as.numeric(ss_run$estimated_params$sel_dev_log_sd), rep(0, 16))
   testthat::expect_equal(as.numeric(ss_run$estimated_params$sel_curve_pen[,1]), rep(0, 16))
   testthat::expect_equal(as.numeric(ss_run$estimated_params$sel_curve_pen[,2]), rep(0, 16))
 
@@ -200,12 +200,12 @@ testthat::test_that("3DAR1 selectivity map and likelihood", {
                                 verbose = 0))
 
   # Hyper parameters (on except for not estimated fleet)
-  testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_dev_ln_sd), c(1:6, NA, 8:16))
+  testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_dev_log_sd), c(1:6, NA, 8:16))
   testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_curve_pen[,1]), c(1:6, NA, 8:16))
   testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_curve_pen[,2]), c(1:6, NA, 8:16) + 16)
   testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_curve_pen[,3]), c(1:6, NA, 8:16) + 2*16)
 
-  testthat::expect_equal(as.numeric(ss_run$estimated_params$sel_dev_ln_sd), rep(0, 16))
+  testthat::expect_equal(as.numeric(ss_run$estimated_params$sel_dev_log_sd), rep(0, 16))
   testthat::expect_equal(as.numeric(ss_run$estimated_params$sel_curve_pen[,1]), rep(0, 16))
   testthat::expect_equal(as.numeric(ss_run$estimated_params$sel_curve_pen[,2]), rep(0, 16))
 

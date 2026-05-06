@@ -21,10 +21,10 @@ build_map(
 parameter, running the model without parameter estimation.}
 
 \item{random_rec}{Logical. If TRUE, treats recruitment deviations as random effects,
-meaning the variance parameter (\code{R_ln_sd}) is estimated.}
+meaning the variance parameter (\code{R_log_sd}) is estimated.}
 
 \item{random_sel}{Logical. If TRUE, treats selectivity deviations as random effects,
-meaning the variance parameter (\code{sel_dev_ln_sd}) is estimated.}
+meaning the variance parameter (\code{sel_dev_log_sd}) is estimated.}
 }
 \value{
 A list containing the factorized TMB map (\code{mapFactor}) and the

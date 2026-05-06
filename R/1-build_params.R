@@ -33,7 +33,7 @@ build_params <- function(data_list) {
   param_list$dummy = 0  # Variable to test derived quantities given input parameters; n = [1]
 
   # * 1.0. Population scalar ----
-  param_list$ln_pop_scalar = matrix(0, nrow = data_list$nspp, ncol = max_age,
+  param_list$log_pop_scalar = matrix(0, nrow = data_list$nspp, ncol = max_age,
                                     dimnames = list(data_list$spnames, paste0("Age", 1:max_age)))
 
   # * 1.1. Recruitment parameters ----
@@ -53,8 +53,8 @@ build_params <- function(data_list) {
   param_list$rec_dev = matrix(0, nrow = data_list$nspp, ncol = nyrs_proj,
                               dimnames = list(data_list$spnames, yrs_proj))  # Annual recruitment deviation; n = [nspp, nyrs_hind]
 
-  param_list$R_ln_sd = log(as.numeric(data_list$sigma_rec_prior))  # Standard deviation of recruitment deviations; n = [1, nspp]
-  names(param_list$R_ln_sd) <- data_list$spnames
+  param_list$R_log_sd = log(as.numeric(data_list$sigma_rec_prior))  # Standard deviation of recruitment deviations; n = [1, nspp]
+  names(param_list$R_log_sd) <- data_list$spnames
 
   # - Env regression parameters for recruitment
   param_list$beta_rec_pars <- array(0, dim = c(data_list$nspp, ncol(data_list$env_data) - 1),
@@ -99,11 +99,11 @@ build_params <- function(data_list) {
       m1[sp, sex_values[j], 1:max_age] <- as.numeric(data_list$M1_base[i,(1:max(data_list$nages, na.rm = TRUE)) + 2])
     }
   }
-  param_list$ln_M1 <- log(m1)
+  param_list$log_M1 <- log(m1)
 
 
   # ** Age and annual random effects ----
-  param_list$ln_M1_dev <- array(0, dim = c(data_list$nspp, max_sex, max_age, nyrs_proj),
+  param_list$log_M1_dev <- array(0, dim = c(data_list$nspp, max_sex, max_age, nyrs_proj),
                                 dimnames = list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)) # Set up array
 
   # ** M1 fixed parameters ----
@@ -116,36 +116,36 @@ build_params <- function(data_list) {
                             dimnames = list(data_list$spnames, sex_labels, c("Age", "Year")))
 
   # - SD for random effects
-  param_list$M1_dev_ln_sd = array(0, dim = c(data_list$nspp, max_sex),
+  param_list$M1_dev_log_sd = array(0, dim = c(data_list$nspp, max_sex),
                                   dimnames = list(data_list$spnames, sex_labels))
 
 
   # * 1.5. fishing mortality ----
 
   # Future fishing mortality limit
-  param_list$ln_Flimit = rep(0, data_list$nspp)
-  names(param_list$ln_Flimit) <- data_list$spnames
+  param_list$log_Flimit = rep(0, data_list$nspp)
+  names(param_list$log_Flimit) <- data_list$spnames
 
   # - Future fishing mortality target
-  param_list$ln_Ftarget = rep(0, data_list$nspp)
-  names(param_list$ln_Ftarget) <- data_list$spnames
+  param_list$log_Ftarget = rep(0, data_list$nspp)
+  names(param_list$log_Ftarget) <- data_list$spnames
 
   # - Initial F when population is not at equilibrium
-  param_list$ln_Finit = rep(-10, data_list$nspp)
-  names(param_list$ln_Finit) <- data_list$spnames
+  param_list$log_Finit = rep(-10, data_list$nspp)
+  names(param_list$log_Finit) <- data_list$spnames
 
   # - Proportion of future fishing mortality for projections for each fleet
   param_list$proj_F_prop = data_list$fleet_control$proj_F_prop
   names(param_list$proj_F_prop) <- data_list$fleet_control$Fleet_name
 
   # - Annual fishing mortality deviations
-  param_list$ln_F = matrix(0, nrow = nrow(data_list$fleet_control), ncol = nyrs_hind,
+  param_list$log_F = matrix(0, nrow = nrow(data_list$fleet_control), ncol = nyrs_hind,
                            dimnames = list(data_list$fleet_control$Fleet_name, yrs_hind))
 
-  # -- Make ln_F very low if the fleet is turned off or not a fishery
+  # -- Make log_F very low if the fleet is turned off or not a fishery
   for (i in 1:nrow(data_list$fleet_control)) {
     if (data_list$fleet_control$Fleet_type[i] != "Fishery") {
-      param_list$ln_F[i,] <- -999
+      param_list$log_F[i,] <- -999
     }
   }
 
@@ -156,15 +156,15 @@ build_params <- function(data_list) {
     dplyr::mutate(Year = Year - data_list$styr + 1) |>
     dplyr::select(Fleet_code, Year) |>
     as.matrix()
-  param_list$ln_F[zero_catch] <- -999
+  param_list$log_F[zero_catch] <- -999
 
 
   # * 1.6. Growth ----
   # - Mean growth parameters
-  param_list$ln_growth_pars <- array(0, dim = c(data_list$nspp, max_sex, 4),
-                                     dimnames = list(data_list$spnames, sex_labels, c("ln_K", "ln_L1", "ln_Linf", "ln_m")))
+  param_list$log_growth_pars <- array(0, dim = c(data_list$nspp, max_sex, 4),
+                                     dimnames = list(data_list$spnames, sex_labels, c("log_K", "log_L1", "log_Linf", "log_m")))
   # - Initialize
-  param_list$ln_growth_pars[, , 1] <- log(0.3)
+  param_list$log_growth_pars[, , 1] <- log(0.3)
 
   if(nrow(data_list$caal_data) > 0){
     caal_lengths <- data_list$caal_data |>
@@ -175,16 +175,16 @@ build_params <- function(data_list) {
       dplyr::slice(c(1, n())) |>
       dplyr::ungroup() |>
       tidyr::pivot_wider(names_from = Bin, values_from = Length)
-    param_list$ln_growth_pars[caal_lengths$Species, 1, 2:3] <- as.matrix(log(caal_lengths[,-1]))
+    param_list$log_growth_pars[caal_lengths$Species, 1, 2:3] <- as.matrix(log(caal_lengths[,-1]))
     if(max_sex == 2){
-      param_list$ln_growth_pars[caal_lengths$Species, 2, 2:3] <- as.matrix(log(caal_lengths[,-1]))
+      param_list$log_growth_pars[caal_lengths$Species, 2, 2:3] <- as.matrix(log(caal_lengths[,-1]))
     }
   }
 
-  param_list$ln_growth_par_devs <- array(0, dim = c(data_list$nspp, max_sex, nyrs_proj, 4),
-                                         dimnames = list(data_list$spnames, sex_labels, yrs_proj, c("ln_K", "ln_L1", "ln_Linf", "ln_m")))  # RE growth parameters
-  param_list$growth_ln_sd <- array(0, dim = c(data_list$nspp, max_sex, 2),
-                                   dimnames = list(data_list$spnames, sex_labels, c("ln_sd_minage", "ln_sd_maxage")))
+  param_list$log_growth_par_devs <- array(0, dim = c(data_list$nspp, max_sex, nyrs_proj, 4),
+                                         dimnames = list(data_list$spnames, sex_labels, yrs_proj, c("log_K", "log_L1", "log_Linf", "log_m")))  # RE growth parameters
+  param_list$growth_log_sd <- array(0, dim = c(data_list$nspp, max_sex, 2),
+                                   dimnames = list(data_list$spnames, sex_labels, c("log_sd_minage", "log_sd_maxage")))
   param_list$weight_length_pars <- matrix(0, nrow = data_list$nspp, ncol = 2,
                                           dimnames = list(data_list$spnames, c("a", "b")))  # Weight-length parameters
   param_list$weight_length_pars[,1] <- data_list$alpha_wt_len
@@ -224,14 +224,14 @@ build_params <- function(data_list) {
           par_idx <- .GROWTH_PARAM_TO_INDEX[row$param]
           if (is.na(par_idx)) next
           for (s in idx$species) {
-            param_list$ln_growth_pars[s, idx$per_sp[[as.character(s)]]$sex, par_idx] <- 0
+            param_list$log_growth_pars[s, idx$per_sp[[as.character(s)]]$sex, par_idx] <- 0
           }
         },
         M = {
           for (s in idx$species) {
             sx <- idx$per_sp[[as.character(s)]]$sex
             ag <- idx$per_sp[[as.character(s)]]$age
-            param_list$ln_M1[s, sx, ag] <- 0
+            param_list$log_M1[s, sx, ag] <- 0
           }
         },
         recruitment = {
@@ -251,8 +251,8 @@ build_params <- function(data_list) {
 
   # * 2.1. Catchability parameters ----
   # - Catchability on log scale
-  param_list$index_ln_q = log(data_list$fleet_control$Q_prior)
-  names(param_list$index_ln_q) <- data_list$fleet_control$Fleet_name
+  param_list$index_log_q = log(data_list$fleet_control$Q_prior)
+  names(param_list$index_log_q) <- data_list$fleet_control$Fleet_name
 
   # - Regression coefficients for environment-q linkage
   param_list$index_q_beta = matrix(0, nrow = nrow(data_list$fleet_control), ncol = ncol(data_list$env_data) - 1,
@@ -269,12 +269,12 @@ build_params <- function(data_list) {
                                   dimnames = list(data_list$fleet_control$Fleet_name, yrs_hind))
 
   # - Log standard deviation prior on Q (maybe should be data...)
-  param_list$index_q_ln_sd <- log(data_list$fleet_control$Q_sd_prior)
-  names(param_list$index_q_ln_sd) <- data_list$fleet_control$Fleet_name
+  param_list$index_q_log_sd <- log(data_list$fleet_control$Q_sd_prior)
+  names(param_list$index_q_log_sd) <- data_list$fleet_control$Fleet_name
 
   # - Log standard deviation for survey selectivity random walk - used for logistic
-  param_list$index_q_dev_ln_sd <- log(data_list$fleet_control$Time_varying_q_sd_prior)
-  names(param_list$index_q_dev_ln_sd) <- data_list$fleet_control$Fleet_name
+  param_list$index_q_dev_log_sd <- log(data_list$fleet_control$Time_varying_q_sd_prior)
+  names(param_list$index_q_dev_log_sd) <- data_list$fleet_control$Fleet_name
 
 
   # * 2.2. Selectivity parameters ----
@@ -294,7 +294,7 @@ build_params <- function(data_list) {
                                   dimnames = list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Bin", 1:max_sel_bins), yrs_hind))
 
   # - Selectivity slope parameters for logistic
-  param_list$ln_sel_slp = array(0.5, dim = c(2, n_selectivities, max_sex),
+  param_list$log_sel_slp = array(0.5, dim = c(2, n_selectivities, max_sex),
                                 dimnames = list(c("Ascending" , "Descending"), data_list$fleet_control$Fleet_name, sex_labels))
 
   # - Selectivity asymptotic parameters for logistic
@@ -304,7 +304,7 @@ build_params <- function(data_list) {
   param_list$sel_inf[2,,] <- 10
 
   # - Annual selectivity slope deviation for logistic
-  param_list$ln_sel_slp_dev = array(0, dim = c(2, n_selectivities, max_sex, nyrs_hind),
+  param_list$log_sel_slp_dev = array(0, dim = c(2, n_selectivities, max_sex, nyrs_hind),
                                     dimnames = list(c("Ascending" , "Descending"), data_list$fleet_control$Fleet_name, sex_labels, yrs_hind))
 
   # - Annual selectivity asymptotic deviations for logistic
@@ -312,18 +312,18 @@ build_params <- function(data_list) {
                                  dimnames = list(c("Ascending" , "Descending"), data_list$fleet_control$Fleet_name, sex_labels, yrs_hind))
 
   # - Log standard deviation for selectivity random walk - used for logistic
-  param_list$sel_dev_ln_sd <- log(data_list$fleet_control$Time_varying_sel_sd_prior)
-  names(param_list$sel_dev_ln_sd) <- data_list$fleet_control$Fleet_name
+  param_list$sel_dev_log_sd <- log(data_list$fleet_control$Time_varying_sel_sd_prior)
+  names(param_list$sel_dev_log_sd) <- data_list$fleet_control$Fleet_name
 
 
   # * 2.3. Variance of survey and fishery time series ----
   # - Log standard deviation of survey index time-series
-  param_list$index_ln_sd = log(data_list$fleet_control$Index_sd_prior)
-  names(param_list$index_ln_sd) <- data_list$fleet_control$Fleet_name
+  param_list$index_log_sd = log(data_list$fleet_control$Index_sd_prior)
+  names(param_list$index_log_sd) <- data_list$fleet_control$Fleet_name
 
   # - Log standard deviation of fishery catch time-series
-  param_list$catch_ln_sd = log(data_list$fleet_control$Catch_sd_prior)
-  names(param_list$catch_ln_sd) <- data_list$fleet_control$Fleet_name
+  param_list$catch_log_sd = log(data_list$fleet_control$Catch_sd_prior)
+  names(param_list$catch_log_sd) <- data_list$fleet_control$Fleet_name
 
   # * 2.4. Comp weighting ----
   param_list$comp_weights = data_list$fleet_control$Comp_weights

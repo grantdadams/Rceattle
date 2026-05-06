@@ -19,12 +19,12 @@ testthat::test_that("Test SB0 under mean recruitment", {
   )
   inits <- ss_run$estimated_params
   inits$rec_pars[,1] <- R0
-  inits$R_ln_sd <- 0
-  inits$ln_F[] <- -999 # No fishing
-  inits$index_ln_q[] <- 0 # Set q to 1
+  inits$R_log_sd <- 0
+  inits$log_F[] <- -999 # No fishing
+  inits$index_log_q[] <- 0 # Set q to 1
 
   # Set logistic params
-  inits$ln_sel_slp[] <- -Inf
+  inits$log_sel_slp[] <- -Inf
   inits$sel_inf[] <- 0     # Females
   inits$rec_dev[] <- 0.02 # Adding .1 to R0
 
@@ -80,12 +80,12 @@ testthat::test_that("Test SB0 under R0", {
   )
   inits <- ss_run$estimated_params
   inits$rec_pars[,1] <- R0
-  inits$R_ln_sd <- 0
-  inits$ln_F[] <- -999 # No fishing
-  inits$index_ln_q[] <- 0 # Set q to 1
+  inits$R_log_sd <- 0
+  inits$log_F[] <- -999 # No fishing
+  inits$index_log_q[] <- 0 # Set q to 1
 
   # Set logistic params
-  inits$ln_sel_slp[] <- -Inf
+  inits$log_sel_slp[] <- -Inf
   inits$sel_inf[] <- 0     # Females
   inits$rec_dev[] <- 0.02 # Adding .1 to R0
 
@@ -427,12 +427,12 @@ testthat::test_that("Test mean recruitment calculation", {
   )
   inits <- ss_run$estimated_params
   inits$sel_inf[1,,1] <- c(3,6,2.5,4)
-  inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
-  inits$ln_F[2,] <- log(Fmort)
-  inits$ln_F[4,] <- log(Fmort2)
+  inits$log_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
+  inits$log_F[2,] <- log(Fmort)
+  inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
-  inits$index_ln_q[] <- log(1)
-  inits$R_ln_sd[] <- log(1)
+  inits$index_log_q[] <- log(1)
+  inits$R_log_sd[] <- log(1)
   inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 

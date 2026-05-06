@@ -23,13 +23,13 @@ testthat::test_that("Test combine single-species data", {
   inits <- ss_run$estimated_params
 
   inits$rec_pars[,1] <- R0
-  inits$R_ln_sd[] <- 0
-  inits$ln_F[] <- -999 # No fishing
-  inits$index_ln_q[] <- 0 # Set q to 1
+  inits$R_log_sd[] <- 0
+  inits$log_F[] <- -999 # No fishing
+  inits$index_log_q[] <- 0 # Set q to 1
 
 
   # Set logistic params
-  inits$ln_sel_slp[] <- -Inf
+  inits$log_sel_slp[] <- -Inf
   inits$sel_inf[] <- 0     # Females
 
   # Run
@@ -107,14 +107,14 @@ testthat::test_that("Test combine multi-species data", {
   inits$log_phi <- diag(2) %x% log_phi
   inits$log_phi[inits$log_phi == 0] <- -Inf
   inits$sel_inf[1,,1] <- rep(c(3,6,2.5,4), 2)
-  inits$ln_sel_slp[1,,1] <- rep(log(c(2,2.5,2,2.5)), 2)
-  inits$ln_F[2,] <- log(Fmort)
-  inits$ln_F[4,] <- log(Fmort2)
-  inits$ln_F[6,] <- log(Fmort)
-  inits$ln_F[8,] <- log(Fmort2)
+  inits$log_sel_slp[1,,1] <- rep(log(c(2,2.5,2,2.5)), 2)
+  inits$log_F[2,] <- log(Fmort)
+  inits$log_F[4,] <- log(Fmort2)
+  inits$log_F[6,] <- log(Fmort)
+  inits$log_F[8,] <- log(Fmort2)
   inits$rec_pars[,1] <- rep(log(c(1e2, 1e3)), 2)
-  inits$index_ln_q[] <- log(1)
-  inits$R_ln_sd[] <- log(1)
+  inits$index_log_q[] <- log(1)
+  inits$R_log_sd[] <- log(1)
   inits$rec_dev[1:2,1:30] <- sim$model_quantities$rec_devs
   inits$rec_dev[3:4,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[1:2,1:14] <- sim$model_quantities$init_devs

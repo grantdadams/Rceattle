@@ -349,26 +349,26 @@ testthat::test_that("Test internal K-linked growth", {
                                     fit_control = fit_control(phase = FALSE, verbose = 0)) )
 
   # - Params
-  testthat::expect_equal(as.numeric(mod0$estimated_params$ln_growth_pars[,1,1]), c(0, 0))
+  testthat::expect_equal(as.numeric(mod0$estimated_params$log_growth_pars[,1,1]), c(0, 0))
   testthat::expect_equal(mod0$estimated_params$beta_linkage, c(log(0.3),1,log(0.35),2,3))
 
   # - Map
-  testthat::expect_all_true(is.na(c(mod0$map$mapList$ln_growth_pars[,1,c(1,4)]))) # base k and m are off
-  testthat::expect_all_true(!is.na(c(mod0$map$mapList$ln_growth_pars[,1,-c(1,4)]))) # l1 and linf are on
+  testthat::expect_all_true(is.na(c(mod0$map$mapList$log_growth_pars[,1,c(1,4)]))) # base k and m are off
+  testthat::expect_all_true(!is.na(c(mod0$map$mapList$log_growth_pars[,1,-c(1,4)]))) # l1 and linf are on
 
   # - Set other inits
   inits <- mod0$estimated_params
   inits$sel_inf[1,,1] <- c(20,35,15,30)
-  inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
-  inits$ln_F[2,] <- log(Fmort)
-  inits$ln_F[4,] <- log(Fmort2)
+  inits$log_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
+  inits$log_F[2,] <- log(Fmort)
+  inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
-  inits$index_ln_q[] <- log(1)
-  inits$R_ln_sd[] <- log(1)
+  inits$index_log_q[] <- log(1)
+  inits$R_log_sd[] <- log(1)
   inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
-  inits$growth_ln_sd[] <- log(3)
-  inits$ln_growth_pars[,1,] = matrix(log(c(1, 4.5, 90, 1.0,
+  inits$growth_log_sd[] <- log(3)
+  inits$log_growth_pars[,1,] = matrix(log(c(1, 4.5, 90, 1.0,
                                            1, 4.5, 50, 1.0)), # K set to 0 b/c linkage, L1, Linf, M
                                      nrow = nspp, ncol = 4, byrow = TRUE)
 
@@ -487,26 +487,26 @@ testthat::test_that("Test internal L1-linked growth", {
                                     fit_control = fit_control(phase = FALSE, verbose = 0)) )
 
   # - Params
-  testthat::expect_equal(as.numeric(mod0$estimated_params$ln_growth_pars[,1,2]), c(0, 0))
+  testthat::expect_equal(as.numeric(mod0$estimated_params$log_growth_pars[,1,2]), c(0, 0))
   testthat::expect_equal(mod0$estimated_params$beta_linkage, c(log(4.5),1,log(5),2,3))
 
   # - Map
-  testthat::expect_all_true(is.na(c(mod0$map$mapList$ln_growth_pars[,1,c(2,4)]))) # base k and m are off
-  testthat::expect_all_true(!is.na(c(mod0$map$mapList$ln_growth_pars[,1,-c(2,4)]))) # l1 and linf are on
+  testthat::expect_all_true(is.na(c(mod0$map$mapList$log_growth_pars[,1,c(2,4)]))) # base k and m are off
+  testthat::expect_all_true(!is.na(c(mod0$map$mapList$log_growth_pars[,1,-c(2,4)]))) # l1 and linf are on
 
   # - Set other inits
   inits <- mod0$estimated_params
   inits$sel_inf[1,,1] <- c(20,35,15,30)
-  inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
-  inits$ln_F[2,] <- log(Fmort)
-  inits$ln_F[4,] <- log(Fmort2)
+  inits$log_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
+  inits$log_F[2,] <- log(Fmort)
+  inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
-  inits$index_ln_q[] <- log(1)
-  inits$R_ln_sd[] <- log(1)
+  inits$index_log_q[] <- log(1)
+  inits$R_log_sd[] <- log(1)
   inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
-  inits$growth_ln_sd[] <- log(3)
-  inits$ln_growth_pars[,1,] = matrix(log(c(0.3, 1, 90, 1.0,
+  inits$growth_log_sd[] <- log(3)
+  inits$log_growth_pars[,1,] = matrix(log(c(0.3, 1, 90, 1.0,
                                            0.3, 1, 50, 1.0)), # K set to 0 b/c linkage, L1, Linf, M
                                      nrow = nspp, ncol = 4, byrow = TRUE)
 
@@ -626,26 +626,26 @@ testthat::test_that("Test internal Linf-linked growth", {
                                     fit_control = fit_control(phase = FALSE, verbose = 0)) )
 
   # - Params
-  testthat::expect_equal(as.numeric(mod0$estimated_params$ln_growth_pars[,1,3]), c(0, 0))
+  testthat::expect_equal(as.numeric(mod0$estimated_params$log_growth_pars[,1,3]), c(0, 0))
   testthat::expect_equal(mod0$estimated_params$beta_linkage, c(log(90),1,log(50),2,3))
 
   # - Map
-  testthat::expect_all_true(is.na(c(mod0$map$mapList$ln_growth_pars[,1,c(3,4)]))) # base k and m are off
-  testthat::expect_all_true(!is.na(c(mod0$map$mapList$ln_growth_pars[,1,-c(3,4)]))) # l1 and linf are on
+  testthat::expect_all_true(is.na(c(mod0$map$mapList$log_growth_pars[,1,c(3,4)]))) # base k and m are off
+  testthat::expect_all_true(!is.na(c(mod0$map$mapList$log_growth_pars[,1,-c(3,4)]))) # l1 and linf are on
 
   # - Set other inits
   inits <- mod0$estimated_params
   inits$sel_inf[1,,1] <- c(20,35,15,30)
-  inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
-  inits$ln_F[2,] <- log(Fmort)
-  inits$ln_F[4,] <- log(Fmort2)
+  inits$log_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
+  inits$log_F[2,] <- log(Fmort)
+  inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
-  inits$index_ln_q[] <- log(1)
-  inits$R_ln_sd[] <- log(1)
+  inits$index_log_q[] <- log(1)
+  inits$R_log_sd[] <- log(1)
   inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
-  inits$growth_ln_sd[] <- log(3)
-  inits$ln_growth_pars[,1,] = matrix(log(c(0.3, 4.5, 1, 1.0,
+  inits$growth_log_sd[] <- log(3)
+  inits$log_growth_pars[,1,] = matrix(log(c(0.3, 4.5, 1, 1.0,
                                            0.3, 4.5, 1, 1.0)), # K set to 0 b/c linkage, L1, Linf, M
                                      nrow = nspp, ncol = 4, byrow = TRUE)
 

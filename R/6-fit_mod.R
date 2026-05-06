@@ -337,7 +337,7 @@ fit_mod <-
         dplyr::mutate(Year = Year - data_list$styr + 1) |>
         dplyr::select("Fleet_code", "Year") |>
         as.matrix()
-      start_par$ln_F[zero_catch] <- -999
+      start_par$log_F[zero_catch] <- -999
       rm(zero_catch)
 
       # Update proj F prop
@@ -384,10 +384,10 @@ fit_mod <-
       random_vars <- c(random_vars, "index_q_dev")
     }
     if (random_sel) {
-      random_vars <- c(random_vars, "ln_sel_slp_dev", "sel_inf_dev", "sel_coff_dev")
+      random_vars <- c(random_vars, "log_sel_slp_dev", "sel_inf_dev", "sel_coff_dev")
     }
     if (sum(data_list$M1_re) > 0) {
-      random_vars <- c(random_vars, "ln_M1_dev")
+      random_vars <- c(random_vars, "log_M1_dev")
     }
 
 
@@ -467,7 +467,7 @@ fit_mod <-
     start_par$proj_F_prop <- data_list$fleet_control$proj_F_prop
     # Fixed fishing mortality for projections for each species
     if (!is.null(HCR$Ftarget) & HCR$HCR %in% c(2, "ConstantF")) {
-      start_par$ln_Ftarget <- log(HCR$Ftarget)
+      start_par$log_Ftarget <- log(HCR$Ftarget)
     }
 
     # Update M1 parameter object from data if initial parameter values input
@@ -487,7 +487,7 @@ fit_mod <-
           m1[sp, sex_values[j], 1:max(data_list$nages, na.rm = TRUE)] <- as.numeric(data_list$M1_base[i, (1:max(data_list$nages, na.rm = TRUE)) + 2])
         }
       }
-      start_par$ln_M1 <- log(m1)
+      start_par$log_M1 <- log(m1)
     }
 
     # Update alpha for stock-recruit if fixed/prior and initial parameter values input
@@ -712,8 +712,8 @@ fit_mod <-
 
             # Adjust Ftarget inits
             params_off <- c(1:data_list$nspp)[which(data_list$HCRorder > HCRiter)]
-            last_par$ln_Ftarget[params_on]  <- 0
-            last_par$ln_Ftarget[params_off] <- -999
+            last_par$log_Ftarget[params_on]  <- 0
+            last_par$log_Ftarget[params_off] <- -999
 
             obj <- TMB::MakeADFun(
               data_list_reorganized,
@@ -739,7 +739,7 @@ fit_mod <-
               )
 
               # Update F from opt
-              last_par$ln_Ftarget[params_on] <- opt$par[1:length(params_on)]
+              last_par$log_Ftarget[params_on] <- opt$par[1:length(params_on)]
             }
           }
         }

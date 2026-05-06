@@ -114,7 +114,7 @@ Type objective_function<Type>::operator() () {
   DATA_INTEGER(srr_fun);                  // Stock recruit relationship for hindcast estimation
   DATA_INTEGER(srr_pred_fun);             // Stock recruit relationship for projection/brps/penalty
   DATA_INTEGER(proj_mean_rec);
-  //    0 = project recruitment using ln_R0 and rec devs
+  //    0 = project recruitment using log_R0 and rec devs
   //    1 = project recruitment using mean rec (can also have adjusted rec devs)
   DATA_INTEGER(srr_est_mode);             // Logical of wether to add normal prior to stock recruit-relationship
   DATA_VECTOR(srr_prior);                 // Prior mean for stock recruit relationship parameter
@@ -225,7 +225,7 @@ Type objective_function<Type>::operator() () {
   DATA_IMATRIX( index_ctl );              // Info for index; columns = Survey_name, Survey_code, Species, Year
   DATA_MATRIX( index_n );                 // Info for index; columns = Month
   DATA_MATRIX( index_obs );               // Observed index and log_sd; columns = Observation, Error
-  DATA_VECTOR( index_ln_q_prior );        // Prior mean for catchability
+  DATA_VECTOR( index_log_q_prior );        // Prior mean for catchability
 
   // -- 2.4.3. Composition data
   DATA_IMATRIX( comp_ctl );               // Info on observed age/length comp; columns = Survey_name, Survey_code, Species, Year
@@ -281,26 +281,26 @@ Type objective_function<Type>::operator() () {
    * ------------------------------------------------------------------------- */
 
   PARAMETER( dummy );                             // Variable to test derived quantities given input parameters; n = [1]
-  PARAMETER_MATRIX( ln_pop_scalar );              // Scalar to multiply supplied numbers at age by
+  PARAMETER_MATRIX( log_pop_scalar );              // Scalar to multiply supplied numbers at age by
 
   // -- 3.1. Recruitment parameters
   PARAMETER_MATRIX( rec_pars );                   // Stock-recruit parameters: col1 = mean rec, col2 = SRR alpha, col3 = SRR beta
   PARAMETER_MATRIX( beta_rec_pars );              // Regression parameters for environmental linkage to stock-recruit function row is spp
-  PARAMETER_VECTOR( R_ln_sd );                    // Standard deviation of recruitment deviations
+  PARAMETER_VECTOR( R_log_sd );                    // Standard deviation of recruitment deviations
   PARAMETER_MATRIX( rec_dev );                    // Annual recruitment deviation; n = [nspp, nyrs]
   PARAMETER_MATRIX( init_dev );                   // Initial abundance-at-age # NOTE: Need to figure out how to best vectorize this
 
   // -- 3.2. Natural mortality (M1)
-  PARAMETER_ARRAY( ln_M1 );                       // Natural mortality (residual if multispecies mode or total if single species mode); n = [nspp, nsex, nages]
-  PARAMETER_ARRAY( ln_M1_dev );                   // Natural mortality annual deviate; n = [nspp, nsex, nyrs]
+  PARAMETER_ARRAY( log_M1 );                       // Natural mortality (residual if multispecies mode or total if single species mode); n = [nspp, nsex, nages]
+  PARAMETER_ARRAY( log_M1_dev );                   // Natural mortality annual deviate; n = [nspp, nsex, nyrs]
   PARAMETER_ARRAY( M1_beta );                     // Regression coefficients for environmnetally linked M1; n = [nspp, nsex, n indices]
   PARAMETER_ARRAY( M1_rho );                      // Correlation for AR1 random effects on age and year; n = [nspp, nsex, 2]
-  PARAMETER_ARRAY( M1_dev_ln_sd );                // Standard deviation of random effects on age and year; n = [nspp, nsex, 2]
+  PARAMETER_ARRAY( M1_dev_log_sd );                // Standard deviation of random effects on age and year; n = [nspp, nsex, 2]
 
   // -- 3.3. Growth
-  PARAMETER_ARRAY(ln_growth_pars);                // Mean growth curve parameters [sp, sex, par]
-  PARAMETER_ARRAY(ln_growth_par_devs);            // Random effects for growth curve parameters [sp, sex, year, par]
-  PARAMETER_ARRAY(growth_ln_sd);                  // Log standard deviation of length-at- min and max age [sp, sex, 2]
+  PARAMETER_ARRAY(log_growth_pars);                // Mean growth curve parameters [sp, sex, par]
+  PARAMETER_ARRAY(log_growth_par_devs);            // Random effects for growth curve parameters [sp, sex, year, par]
+  PARAMETER_ARRAY(growth_log_sd);                  // Log standard deviation of length-at- min and max age [sp, sex, 2]
   PARAMETER_MATRIX(weight_length_pars);           // Length-weight parameters [sp, (alpha, beta)]
 
   // -- 3.3b. Linkage-table coefficients (see linkage.hpp). Aligned
@@ -309,35 +309,35 @@ Type objective_function<Type>::operator() () {
   PARAMETER_VECTOR(beta_linkage);
 
   // -- 3.4. Fishing mortality parameters
-  PARAMETER_VECTOR( ln_Flimit );                  // Target fishing mortality for projections on log scale; n = [nspp, nyrs]
-  PARAMETER_VECTOR( ln_Ftarget );                 // Target fishing mortality for projections on log scale; n = [nspp, nyrs]
-  PARAMETER_VECTOR( ln_Finit );                   // Fishing mortality for initial population to induce non-equilibrium; n = [nspp]
+  PARAMETER_VECTOR( log_Flimit );                  // Target fishing mortality for projections on log scale; n = [nspp, nyrs]
+  PARAMETER_VECTOR( log_Ftarget );                 // Target fishing mortality for projections on log scale; n = [nspp, nyrs]
+  PARAMETER_VECTOR( log_Finit );                   // Fishing mortality for initial population to induce non-equilibrium; n = [nspp]
   PARAMETER_VECTOR( proj_F_prop );                // Proportion of fishing mortality from each fleet for projections; n = [n_fsh]
-  PARAMETER_MATRIX( ln_F );                       // Annual fishing mortality; n = [n_fsh, nyrs] # NOTE: The size of this will likely change
+  PARAMETER_MATRIX( log_F );                       // Annual fishing mortality; n = [n_fsh, nyrs] # NOTE: The size of this will likely change
 
   // -- 3.4. Survey catchability parameters
-  PARAMETER_VECTOR( index_ln_q );                 // Survey catchability; n = [n_index]
+  PARAMETER_VECTOR( index_log_q );                 // Survey catchability; n = [n_index]
   PARAMETER_VECTOR( index_q_rho );                // Correlation parameter for AR1 on natural scale; n = [n_index]
   PARAMETER_MATRIX( index_q_beta );               // Survey catchability regression coefficient and rho parameters
   // PARAMETER_VECTOR( index_q_pow );             // Survey catchability power coefficient q * B ^ q_pow or beta ln(q_y) = q_mut + beta * index_y; n = [n_index]
   PARAMETER_MATRIX( index_q_dev );                // Annual survey catchability deviates; n = [n_index, nyrs_hind]
-  PARAMETER_VECTOR( index_q_ln_sd );              // Log standard deviation of prior on survey catchability; n = [1, n_index]
-  PARAMETER_VECTOR( index_q_dev_ln_sd );// Log standard deviation of time varying survey catchability; n = [1, n_index]
+  PARAMETER_VECTOR( index_q_log_sd );              // Log standard deviation of prior on survey catchability; n = [1, n_index]
+  PARAMETER_VECTOR( index_q_dev_log_sd );// Log standard deviation of time varying survey catchability; n = [1, n_index]
 
   // -- 3.5. Selectivity parameters
   PARAMETER_ARRAY( sel_coff );                    // selectivity parameters for non-parametric; n = [n_selectivities, nsex, n_sel_bins]
   PARAMETER_ARRAY( sel_coff_dev );                // Annual deviates for non-parametric selectivity parameters; n = [n_selectivities, nsex, n_sel_bins]
-  PARAMETER_ARRAY( ln_sel_slp );                  // selectivity paramaters for logistic; n = [2, n_selectivities, nsex]
+  PARAMETER_ARRAY( log_sel_slp );                  // selectivity paramaters for logistic; n = [2, n_selectivities, nsex]
   PARAMETER_ARRAY( sel_inf );                     // selectivity paramaters for logistic; n = [2, n_selectivities, nsex]
-  PARAMETER_ARRAY( ln_sel_slp_dev );              // selectivity parameter deviate for logistic; n = [2, n_selectivities, nsex, n_sel_blocks]
+  PARAMETER_ARRAY( log_sel_slp_dev );              // selectivity parameter deviate for logistic; n = [2, n_selectivities, nsex, n_sel_blocks]
   PARAMETER_ARRAY( sel_inf_dev );                 // selectivity parameter deviate for logistic; n = [2, n_selectivities, nsex, n_sel_blocks]
-  PARAMETER_VECTOR( sel_dev_ln_sd );              // Log standard deviation of selectivity; n = [1, n_selectivities]
+  PARAMETER_VECTOR( sel_dev_log_sd );              // Log standard deviation of selectivity; n = [1, n_selectivities]
   PARAMETER_MATRIX( sel_curve_pen );              // Selectivity penalty for non-parametric selectivity, 2nd column is for monotonic bit
 
   // -- 3.6. Data variance
-  //FIXME: remove ln_sd terms below
-  PARAMETER_VECTOR( index_ln_sd );                // Log standard deviation of survey index time-series; n = [1, n_index]
-  PARAMETER_VECTOR( catch_ln_sd );                // Log standard deviation of fishery catch time-series; n = [1, n_fsh]
+  //FIXME: remove log_sd terms below
+  PARAMETER_VECTOR( index_log_sd );                // Log standard deviation of survey index time-series; n = [1, n_index]
+  PARAMETER_VECTOR( catch_log_sd );                // Log standard deviation of fishery catch time-series; n = [1, n_fsh]
   PARAMETER_VECTOR( comp_weights );               // Weights for composition data
   PARAMETER_VECTOR( caal_weights );               // Weights for CAAL data
   vector<Type>  DM_pars_comp = exp(comp_weights); // Dirichlet-multinomial scalars
@@ -380,7 +380,7 @@ Type objective_function<Type>::operator() () {
   array<Type> length_hat(nspp * 2 + n_flt, max_sex, max_age, nyrs); length_hat.setZero(); // Estimated length-at-age for each fleet and each species derived quantity (biomass and ssb)
 
   // -- 4.3. Estimated population quantities
-  matrix<Type>  pop_scalar = ln_pop_scalar;  pop_scalar = exp(ln_pop_scalar.array());// Fixed n-at-age scaling coefficient
+  matrix<Type>  pop_scalar = log_pop_scalar;  pop_scalar = exp(log_pop_scalar.array());// Fixed n-at-age scaling coefficient
   vector<Type>  avg_R(nspp); avg_R.setZero();                                       // Mean recruitment of hindcast
   matrix<Type>  R_hat(nspp, nyrs); R_hat.setZero();                                 // Expected recruitment given SR curve
   matrix<Type>  mort_sum(nspp, max_age); mort_sum.setZero();
@@ -423,7 +423,7 @@ Type objective_function<Type>::operator() () {
   array<Type>   F_at_age(nspp, max_sex, max_age, nyrs); F_at_age.setZero();       // Sum of annual estimated fishing mortalities for each species-at-age
   vector<Type>  catch_hat(catch_obs.rows()); catch_hat.setZero();                   // Estimated fishery yield/numbers (kg)
   vector<Type>  max_catch_hat(catch_obs.rows()); max_catch_hat.setZero();           // Estimated exploitable biomass/numbers by fleet (kg)
-  vector<Type>  ln_catch_sd(catch_obs.rows()); ln_catch_sd.setZero();               // Estimated/fixed fishery log_sd (kg)
+  vector<Type>  log_catch_sd(catch_obs.rows()); log_catch_sd.setZero();               // Estimated/fixed fishery log_sd (kg)
 
   // -- 4.6. Biological reference points
   array<Type>   NByage0(nspp, max_sex, max_age, nyrs); NByage0.setZero();                 // Numbers at age at mean recruitment and F = 0
@@ -441,9 +441,9 @@ Type objective_function<Type>::operator() () {
   matrix<Type>  SB0(nspp, nyrs); SB0.setZero();                                     // Estimated spawning stock biomass at F = 0 (Accounts for S_at_age-R)
   matrix<Type>  SBF(nspp, nyrs); SBF.setZero();                                     // Estimated spawning stock biomass at F = target (Accounts for S_at_age-R)
   matrix<Type>  B0(nspp, nyrs); B0.setZero();                                       // Estimated biomass at F = 0 (Accounts for S_at_age-R)
-  vector<Type>  Flimit = exp(ln_Flimit);                                            // Target F parameter on natural scale
-  vector<Type>  Ftarget = exp(ln_Ftarget);                                          // Limit F parameter on natural scale
-  vector<Type>  Finit = exp(ln_Finit);                                              // Initial F for non-equilibrium age-structure
+  vector<Type>  Flimit = exp(log_Flimit);                                            // Target F parameter on natural scale
+  vector<Type>  Ftarget = exp(log_Ftarget);                                          // Limit F parameter on natural scale
+  vector<Type>  Finit = exp(log_Finit);                                              // Initial F for non-equilibrium age-structure
   vector<Type>  srr_mult(beta_rec_pars.cols()); srr_mult.setZero();                 // Environmental design matrix for rec
   vector<Type>  index_q_mult(index_q_beta.cols()); index_q_mult.setZero();          // Environmental design matrix for q
   vector<Type>  M1_mult(M1_beta.dim(2)); M1_mult.setZero();                         // Environmental design matrix for M1
@@ -459,8 +459,8 @@ Type objective_function<Type>::operator() () {
   vector<Type>  index_q_sd(n_flt); index_q_sd.setZero();                            // Vector of standard deviation of survey catchability prior
   vector<Type>  index_q_dev_sd(n_flt); index_q_dev_sd.setZero();                    // Vector of standard deviation of time-varying survey catchability deviation
   vector<Type>  index_hat(index_obs.rows()); index_hat.setZero();                   // Estimated survey biomass (kg)
-  vector<Type>  ln_index_sd(index_obs.rows()); ln_index_sd.setZero();               // Estimated/fixed log index sd (kg)
-  vector<Type>  ln_index_analytical_sd(n_flt); ln_index_analytical_sd.setZero();    // Temporary vector to save analytical sd follow Ludwig and Walters 1994
+  vector<Type>  log_index_sd(index_obs.rows()); log_index_sd.setZero();               // Estimated/fixed log index sd (kg)
+  vector<Type>  log_index_analytical_sd(n_flt); log_index_analytical_sd.setZero();    // Temporary vector to save analytical sd follow Ludwig and Walters 1994
   vector<Type>  index_q_analytical(n_flt); index_q_analytical.setZero();            // Temporary vector to save analytical sd follow Ludwig and Walters 1994
   matrix<Type>  index_q(n_flt, nyrs_hind); index_q.setZero();                       // Estimated survey catchability //FIXME: extend out to full time-series
   vector<Type>  index_n_obs(n_flt); index_n_obs.setZero();                          // Vector to save the number of observations for each survey time series
@@ -535,29 +535,29 @@ Type objective_function<Type>::operator() () {
    * ------------------------------------------------------------------------- */
 
   // 5.1. DATA VARIANCE TERMS
-  R_sd = exp(R_ln_sd); // Convert log sd to natural scale
-  sel_dev_sd = exp(sel_dev_ln_sd) ;
-  index_q_sd = exp(index_q_ln_sd) ;
-  index_q_dev_sd = exp(index_q_dev_ln_sd) ;
+  R_sd = exp(R_log_sd); // Convert log sd to natural scale
+  sel_dev_sd = exp(sel_dev_log_sd) ;
+  index_q_sd = exp(index_q_log_sd) ;
+  index_q_dev_sd = exp(index_q_dev_log_sd) ;
   Cindex -=1; // Subtract 1 from Cindex to deal with indexing start at 0
 
 
   // 5.3. CATCHABILITY
   for(flt = 0; flt < n_flt; flt++){
     for(yr = 0; yr < nyrs_hind; yr++){
-      index_q(flt, yr) = exp(index_ln_q(flt) + index_q_dev(flt, yr));                 // Exponentiate
+      index_q(flt, yr) = exp(index_log_q(flt) + index_q_dev(flt, yr));                 // Exponentiate
 
       // Q as a function of environmental index
       if(est_index_q(flt) == 5){
         beta_q_tmp = index_q_beta.row(flt);
         env_q_tmp = env_index.row(yr) ;
         index_q_mult =  env_q_tmp * beta_q_tmp;
-        index_q(flt, yr) = exp(index_ln_q(flt) + (index_q_mult).sum());
+        index_q(flt, yr) = exp(index_log_q(flt) + (index_q_mult).sum());
       }
 
       // QAR1 deviates fit to environmental index (sensu Rogers et al 2024; 10.1093/icesjms/fsae005)
       if(est_index_q(flt) == 6){
-        index_q(flt, yr) = exp(index_ln_q(flt) + index_q_beta(flt, 0) * index_q_dev(flt, yr));
+        index_q(flt, yr) = exp(index_log_q(flt) + index_q_beta(flt, 0) * index_q_dev(flt, yr));
       }
     }
   }
@@ -617,8 +617,8 @@ Type objective_function<Type>::operator() () {
       for(yr = 0; yr < nyrs; yr++){
         for(int par = 0; par < 4; par++){
             growth_parameters(sp, sex, yr, par) = exp(
-              ln_growth_pars(sp, sex, par)
-            + ln_growth_par_devs(sp, sex, yr, par)
+              log_growth_pars(sp, sex, par)
+            + log_growth_par_devs(sp, sex, yr, par)
             + growth_linkage_offset(sp, sex, yr, par)
           );
         }
@@ -651,7 +651,7 @@ Type objective_function<Type>::operator() () {
     spawn_month,
     lengths,
     growth_parameters,
-    growth_ln_sd,
+    growth_log_sd,
     weight_length_pars
   );
 
@@ -678,8 +678,8 @@ Type objective_function<Type>::operator() () {
     sel_norm_bin2,        // Normalization control/bin 2
     emp_sel_obs,          // Empirical observations matrix
     emp_sel_ctl,          // Empirical control matrix
-    ln_sel_slp,           // Logistic slope parameters
-    ln_sel_slp_dev,       // Slope deviations
+    log_sel_slp,           // Logistic slope parameters
+    log_sel_slp_dev,       // Slope deviations
     sel_inf,              // Inflection parameters
     sel_inf_dev,          // Inflection deviations
     sel_coff,             // Non-parametric coefficients
@@ -744,7 +744,7 @@ Type objective_function<Type>::operator() () {
 
               // Hindcast
               if( yr < nyrs_hind){
-                F_flt_age(flt, sex, age, yr) = sel_at_age(flt, sex, age, yr) * exp(ln_F(flt, yr));
+                F_flt_age(flt, sex, age, yr) = sel_at_age(flt, sex, age, yr) * exp(log_F(flt, yr));
               }
 
 
@@ -808,8 +808,8 @@ Type objective_function<Type>::operator() () {
         for(yr = 0; yr < nyrs; yr++) {
           // Hindcast
           if( yr < nyrs_hind){
-            F_flt(flt, yr) = exp(ln_F(flt, yr));
-            F_spp(sp, yr) += exp(ln_F(flt, yr)); // Fully selected fishing mortality
+            F_flt(flt, yr) = exp(log_F(flt, yr));
+            F_spp(sp, yr) += exp(log_F(flt, yr)); // Fully selected fishing mortality
           }
 
           // Forecast
@@ -825,7 +825,7 @@ Type objective_function<Type>::operator() () {
     // 6.2. TOTAL MORTALITY-AT-AGE
     // Build the per-(sp, sex, age, yr) M-linkage offset tensor from
     // the long-format linkage table. Added (additively, on the log
-    // scale) to ln_M1 below; stays at zero when no `linkages` were
+    // scale) to log_M1 below; stays at zero when no `linkages` were
     // supplied to `build_M1()`.
     array<Type> M_linkage_offset(nspp, max_sex, max_age, nyrs);
     M_linkage_offset.setZero();
@@ -863,8 +863,8 @@ Type objective_function<Type>::operator() () {
             // M1_indices path. See "Scheduled removal (v4.2.0)" in
             // NEWS.md for the full cleanup checklist.
             M1_at_age(sp, sex, age, yr) = exp(
-              ln_M1(sp, sex, age)
-              + ln_M1_dev(sp, sex, age, yr)
+              log_M1(sp, sex, age)
+              + log_M1_dev(sp, sex, age, yr)
               + M1_mult.sum()
               + M_linkage_offset(sp, sex, age, yr)
             );
@@ -1121,7 +1121,7 @@ Type objective_function<Type>::operator() () {
             break;
 
           case 1: // Numbers-at-age fixed exactly to NByageFixed (pop_scalar mapped to
-            // NA in build_map so ln_pop_scalar = 0 -> pop_scalar = 1.0)
+            // NA in build_map so log_pop_scalar = 0 -> pop_scalar = 1.0)
             N_at_age(sp, sex, age, 0) = pop_scalar(sp, 0) * NByageFixed(sp, sex, age, 0);
             break;
 
@@ -1831,7 +1831,7 @@ Type objective_function<Type>::operator() () {
 
   // --8.4. Calculate analytical sigma following Ludwig and Walters 1994
   index_n_obs.setZero();
-  ln_index_analytical_sd.setZero();
+  log_index_analytical_sd.setZero();
   for(index_ind = 0; index_ind < index_ctl.rows(); index_ind++){
 
     index = index_ctl(index_ind, 0) - 1;            // Temporary survey index
@@ -1842,13 +1842,13 @@ Type objective_function<Type>::operator() () {
 
       if(flt_yr < nyrs_hind){
         index_n_obs(index) += 1; // Add one if survey is used
-        ln_index_analytical_sd(index) += square( log(index_obs(index_ind, 0)) - log(index_hat(index_ind)));
+        log_index_analytical_sd(index) += square( log(index_obs(index_ind, 0)) - log(index_hat(index_ind)));
       }
     }
   }
 
   for(index = 0 ; index < n_flt; index ++){
-    ln_index_analytical_sd(index) = sqrt(ln_index_analytical_sd(index) / index_n_obs(index));
+    log_index_analytical_sd(index) = sqrt(log_index_analytical_sd(index) / index_n_obs(index));
   }
 
 
@@ -1943,7 +1943,7 @@ Type objective_function<Type>::operator() () {
     Type Frate = 0.0;
     if(yr < nyrs_hind){
       yr_ind = yr;
-      Frate = exp(ln_F(flt, yr));
+      Frate = exp(log_F(flt, yr));
     }
 
     // Projection
@@ -2173,14 +2173,14 @@ Type objective_function<Type>::operator() () {
             for(age = nages(sp); age < nages(sp) * 2; age++) {
 
               // Adjust indexing for joint age/length comp
-              int obs_ln_tmp = ln;
+              int obs_log_tmp = ln;
               int obs_age_tmp = age;
 
               obs_age_tmp = age - nages(sp);
-              obs_ln_tmp = ln - nlengths(sp);
+              obs_log_tmp = ln - nlengths(sp);
               sex = 1;
 
-              comp_hat(comp_ind, ln ) += age_obs_hat(comp_ind, age) * age_trans_matrix(flt_age_transition_index(flt), sex, obs_age_tmp, obs_ln_tmp );
+              comp_hat(comp_ind, ln ) += age_obs_hat(comp_ind, age) * age_trans_matrix(flt_age_transition_index(flt), sex, obs_age_tmp, obs_log_tmp );
             }
           }
         }
@@ -2227,7 +2227,7 @@ Type objective_function<Type>::operator() () {
     Type Frate = 0.0;
     if(yr < nyrs_hind){
       yr_ind = yr;
-      Frate = exp(ln_F(flt, yr));
+      Frate = exp(log_F(flt, yr));
     }
 
     // Projection
@@ -2364,16 +2364,16 @@ Type objective_function<Type>::operator() () {
       index_std_dev = index_obs(index_ind, 1);
       break;
     case 1:     // Estimated standard deviation
-      index_std_dev = exp(index_ln_sd(index));
+      index_std_dev = exp(index_log_sd(index));
       break;
     case 2:     // Analytical
-      index_std_dev = ln_index_analytical_sd(index);
+      index_std_dev = log_index_analytical_sd(index);
       break;
     default:
       error("Invalid 'Estimate_sigma_index'");
     }
 
-    ln_index_sd(index_ind) = index_std_dev;
+    log_index_sd(index_ind) = index_std_dev;
 
     // Only include years from hindcast
     if((flt_yr > 0) && (flt_yr <= endyr) && (flt_type(index) > 0)){
@@ -2399,13 +2399,13 @@ Type objective_function<Type>::operator() () {
       fsh_std_dev = catch_obs(fsh_ind, 1);
       break;
     case 1:     // Estimated standard deviation
-      fsh_std_dev = exp(catch_ln_sd(flt));
+      fsh_std_dev = exp(catch_log_sd(flt));
       break;
     default:
       error("Invalid 'Estimate_sigma_catch'");
     }
 
-    ln_catch_sd(fsh_ind) = fsh_std_dev; // Save estimated log_sd
+    log_catch_sd(fsh_ind) = fsh_std_dev; // Save estimated log_sd
 
     // Add only years from hindcast
     if((flt_yr > 0) && (flt_yr <= endyr) && (flt_type(flt) == 1)){
@@ -2616,13 +2616,13 @@ Type objective_function<Type>::operator() () {
             // Logistic deviates
             if((flt_sel_type(flt) == 1) || (flt_sel_type(flt) == 3)){
               jnll_comp(5, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr), Type(0.0), sel_dev_sd(flt), true);
-              jnll_comp(5, flt) -= dnorm(ln_sel_slp_dev(0, flt, sex, yr), Type(0.0), 4 * sel_dev_sd(flt), true);
+              jnll_comp(5, flt) -= dnorm(log_sel_slp_dev(0, flt, sex, yr), Type(0.0), 4 * sel_dev_sd(flt), true);
             }
 
             // Double logistic deviates
             if((flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 4)){
               jnll_comp(5, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr), Type(0.0), sel_dev_sd(flt), true);
-              jnll_comp(5, flt) -= dnorm(ln_sel_slp_dev(1, flt, sex, yr), Type(0.0), 4 * sel_dev_sd(flt), true);
+              jnll_comp(5, flt) -= dnorm(log_sel_slp_dev(1, flt, sex, yr), Type(0.0), 4 * sel_dev_sd(flt), true);
             }
           }
         }
@@ -2635,14 +2635,14 @@ Type objective_function<Type>::operator() () {
 
             // Logistic deviates
             if((flt_sel_type(flt) == 1) || (flt_sel_type(flt) == 3)){
-              jnll_comp(5, flt) -= dnorm(ln_sel_slp_dev(0, flt, sex, yr) - ln_sel_slp_dev(0, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt), true);
+              jnll_comp(5, flt) -= dnorm(log_sel_slp_dev(0, flt, sex, yr) - log_sel_slp_dev(0, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt), true);
               jnll_comp(5, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr) - sel_inf_dev(0, flt, sex, yr-1), Type(0.0), 4 * sel_dev_sd(flt), true);
             }
 
             // Double logistic deviates
             if((flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 4)){
               jnll_comp(5, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr) - sel_inf_dev(1, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt), true);
-              jnll_comp(5, flt) -= dnorm(ln_sel_slp_dev(1, flt, sex, yr) - ln_sel_slp_dev(1, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt) * 4, true);
+              jnll_comp(5, flt) -= dnorm(log_sel_slp_dev(1, flt, sex, yr) - log_sel_slp_dev(1, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt) * 4, true);
             }
           }
         }
@@ -2729,7 +2729,7 @@ Type objective_function<Type>::operator() () {
 
     // Prior on catchability
     if( est_index_q(flt) == 2){
-      jnll_comp(6, flt) -= dnorm(index_ln_q(flt), index_ln_q_prior(flt), index_q_sd(flt), true);
+      jnll_comp(6, flt) -= dnorm(index_log_q(flt), index_log_q_prior(flt), index_q_sd(flt), true);
     }
 
     // QAR1 deviates fit to environmental index (sensu Rogers et al 2024; 10.1093/icesjms/fsae005)
@@ -2952,7 +2952,7 @@ Type objective_function<Type>::operator() () {
 
       for(int sex = 0; sex < nsex_tmp; sex++) {
         for(int age = 0; age < nage_tmp; age++) {
-          jnll_comp(14, sp) -= dnorm(ln_M1(sp, sex, age), M_prior_mean, M_prior_sd(sp), true);
+          jnll_comp(14, sp) -= dnorm(log_M1(sp, sex, age), M_prior_mean, M_prior_sd(sp), true);
         }
       }
     }
@@ -2988,14 +2988,14 @@ Type objective_function<Type>::operator() () {
 
     // M1_re = 1/4: Random effects varies by age (IID or AR1) and constant over years.
     if( (M1_re(sp) == 1) || (M1_re(sp) == 4) ) {
-      Type sigma_M = exp(M1_dev_ln_sd(sp, 0));
+      Type sigma_M = exp(M1_dev_log_sd(sp, 0));
       Type rho_M_a = rho_trans(M1_rho(sp, 0, 0));
       Type Sigma_M = pow(pow(sigma_M, 2) / (1.0 - pow(rho_M_a, 2)), 0.5);
       vector<Type> M_re_age(nages(sp));
 
       for(int sex = 0; sex < num_re_sexes; sex++) {
         for(int age = 0; age < nages(sp); age++) {
-          M_re_age(age) = ln_M1_dev(sp, sex, age, 0);
+          M_re_age(age) = log_M1_dev(sp, sex, age, 0);
         }
         jnll_comp(15, sp) += SCALE(AR1(rho_M_a), Sigma_M)(M_re_age);
       }
@@ -3003,14 +3003,14 @@ Type objective_function<Type>::operator() () {
 
     // M1_re = 2/5: Random effects varies by year (IID or AR1) and constant over ages.
     if( (M1_re(sp) == 2) || (M1_re(sp) == 5) ) {
-      Type sigma_M = exp(M1_dev_ln_sd(sp, 0));
+      Type sigma_M = exp(M1_dev_log_sd(sp, 0));
       Type rho_M_y = rho_trans(M1_rho(sp, 0, 1));
       Type Sigma_M = pow(pow(sigma_M, 2) / (1.0 - pow(rho_M_y, 2)), 0.5);
       vector<Type> M_re_yr(nyrs_hind);
 
       for(int sex = 0; sex < num_re_sexes; sex++) {
         for(int yr = 0; yr < nyrs_hind; yr++) {
-          M_re_yr(yr) = ln_M1_dev(sp, sex, 0, yr);
+          M_re_yr(yr) = log_M1_dev(sp, sex, 0, yr);
         }
         jnll_comp(15, sp) += SCALE(AR1(rho_M_y), Sigma_M)(M_re_yr);
       }
@@ -3018,7 +3018,7 @@ Type objective_function<Type>::operator() () {
 
     // M1_re = 3/6: Random effects varies by age and year (IID or 2D-AR1)
     if( (M1_re(sp) == 3) || (M1_re(sp) == 6) ) {
-      Type sigma_M = exp(M1_dev_ln_sd(sp, 0));
+      Type sigma_M = exp(M1_dev_log_sd(sp, 0));
       Type rho_M_a = rho_trans(M1_rho(sp, 0, 0));
       Type rho_M_y = rho_trans(M1_rho(sp, 0, 1));
       Type Sigma_M = pow(pow(sigma_M, 2) / ((1.0 - pow(rho_M_y, 2)) * (1.0 - pow(rho_M_a, 2))), 0.5);
@@ -3027,7 +3027,7 @@ Type objective_function<Type>::operator() () {
       for(int sex = 0; sex < num_re_sexes; sex++) {
         for(int age = 0; age < nages(sp); age++) {
           for(int yr = 0; yr < nyrs_hind; yr++) {
-            M_re_a_yr(age, yr) = ln_M1_dev(sp, sex, age, yr);
+            M_re_a_yr(age, yr) = log_M1_dev(sp, sex, age, yr);
           }
         }
         jnll_comp(15, sp) += SCALE(SEPARABLE(AR1(rho_M_a), AR1(rho_M_y)), Sigma_M)(M_re_a_yr);
@@ -3275,7 +3275,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 14.4. Survey components
   REPORT( index_hat );
-  REPORT( ln_index_sd );
+  REPORT( log_index_sd );
   REPORT( index_q );
   vector<Type>  log_index_hat = index_hat;  log_index_hat = log(index_hat.array());// Fixed n-at-age scaling coefficient
   REPORT( log_index_hat );
@@ -3295,7 +3295,7 @@ Type objective_function<Type>::operator() () {
   REPORT( F_at_age );
   REPORT( catch_hat );
   REPORT( max_catch_hat );
-  REPORT( ln_catch_sd );
+  REPORT( log_catch_sd );
 
 
   // 14.6. Age/length composition
@@ -3424,7 +3424,7 @@ Type objective_function<Type>::operator() () {
  // 26. Added biomass_depletion and F
  // 27. Added stock-recruitment relationships
  // 28. Added dirichlet multinomial for age/length composition data
- // 29. Removed ln_mean_F + F_dev, converted to ln_F
+ // 29. Removed log_mean_F + F_dev, converted to log_F
 
 
  // ------------------------------------------------------------------------ //

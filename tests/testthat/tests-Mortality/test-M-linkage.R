@@ -18,9 +18,9 @@ testthat::test_that("M_linkage_offset propagates into M1_at_age", {
   temp_vec <- seq(-1, 1, length.out = length(yrs))
   sim_data$env_data <- data.frame(Year = yrs, temp = temp_vec)
 
-  # M1 spec: estimate sex/age-invariant ln_M1, plus a linkage on log_M
+  # M1 spec: estimate sex/age-invariant log_M1, plus a linkage on log_M
   # with `~ temp` by species. Use the legacy structural switch
-  # (M1_model = 1) so ln_M1 has degrees of freedom; the linkage adds
+  # (M1_model = 1) so log_M1 has degrees of freedom; the linkage adds
   # an environmental offset on top of that.
   m1_spec <- Rceattle::build_M1(
     M1_model = 1,

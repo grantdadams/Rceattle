@@ -54,7 +54,7 @@ M1 random effects are applied to each species if \code{M1_model = 1} or each spe
 Allowed M-parameter names for \code{linkages} in \code{\link[=build_M1]{build_M1()}}.
 Linear-predictor names of the underlying natural-mortality
 parameters that the linkage system can address. Currently just
-\code{log_M1} -- the offset is added on the log scale to \code{ln_M1}
+\code{log_M1} -- the offset is added on the log scale to \code{log_M1}
 (broadcast across age unless the linkage row pins a specific
 \code{age_bin}).
 

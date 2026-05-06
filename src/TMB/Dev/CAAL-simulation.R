@@ -15,14 +15,14 @@
 #' @param maxage_sp Numeric. The age at which growth enters the asymptotic phase.
 #' @param growth_params_sp Array. Dimensions (sex, yr, 4).
 #'   Params: [,,1]: K, [,,2]: L1, [,,3]: Linf, [,,4]: Richards m.
-#' @param growth_ln_sd_sp Array. Dimensions (sex, 2).
+#' @param growth_log_sd_sp Array. Dimensions (sex, 2).
 #'   Log-SD of length: [s, 1] is SD at minage, [s, 2] is SD at maxage.
 #' @param growth_model_sp Integer. 1 = Von Bertalanffy, 2 = Richards.
 #'
 #' @return A 4D array of probabilities with dimensions (sex, age, length, year).
 get_growth_matrix_r <- function(fracyr, nsex_sp, nages_sp, nlengths_sp, nyrs,
                                 lengths_sp, minage_sp, maxage_sp,
-                                growth_params_sp, growth_ln_sd_sp, growth_model_sp) {
+                                growth_params_sp, growth_log_sd_sp, growth_model_sp) {
 
   # Define names for the dimensions
   dim_names <- list(
@@ -107,8 +107,8 @@ get_growth_matrix_r <- function(fracyr, nsex_sp, nages_sp, nlengths_sp, nyrs,
         }
 
         # --- 3. SD Calculation ---
-        sd1 <- exp(growth_ln_sd_sp[s, 1])
-        sda <- exp(growth_ln_sd_sp[s, 2])
+        sd1 <- exp(growth_log_sd_sp[s, 1])
+        sda <- exp(growth_log_sd_sp[s, 2])
 
         if(current_age < minage_sp) {
           length_sd[s, a, y] <- sd1
@@ -220,7 +220,7 @@ gm <- get_growth_matrix_r(fracyr=0,
                           minage_sp=1,
                           maxage_sp=10,
                           growth_params_sp=gp,
-                          growth_ln_sd_sp=gsd,
+                          growth_log_sd_sp=gsd,
                           growth_model_sp=1)
 
 # 3. Visualize a specific age/year distribution

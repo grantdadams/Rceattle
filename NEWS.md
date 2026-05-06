@@ -76,7 +76,7 @@ underlying parameter.
 
 * **Natural mortality** is the second process wired to the
   pipeline. `build_M1()` gains a `linkages` argument keyed by
-  `log_M1`; the offset is added on the log scale to `ln_M1` inside
+  `log_M1`; the offset is added on the log scale to `log_M1` inside
   the `M1_at_age` compute. A row's `age_bin == NA` broadcasts the
   offset across ages; specific values pin it to that age slice.
   `build_M1()` also gains string-form acceptance for `M1_model`
@@ -145,7 +145,7 @@ underlying parameter.
   rows share the same global linkage table and the same
   `beta_linkage` parameter vector. End-to-end tests in
   `tests/testthat/tests-Dynamics/test-linkage-auto-map.R` verify that
-  the base parameter (e.g., `ln_growth_pars`, `ln_M1`, `rec_pars`)
+  the base parameter (e.g., `log_growth_pars`, `log_M1`, `rec_pars`)
   is automatically mapped out (set to `NA`) when a linkage is active
   for that parameter, allowing the linkage intercept to define the base value.
   
@@ -163,7 +163,7 @@ underlying parameter.
   `"env_sex_invariant"` / `"env_sex_specific"` (added briefly on
   the dev branch) are removed; they were never released. The cpp's
   `M1_beta` / `M1_mult` code path stays in place for now -- both
-  paths add additively to `ln_M1` on the log scale -- but do not
+  paths add additively to `log_M1` on the log scale -- but do not
   use both for the same coefficient or you will double-count.
 
 * **Roadmap.** Recruitment is next on the same pipeline; then
