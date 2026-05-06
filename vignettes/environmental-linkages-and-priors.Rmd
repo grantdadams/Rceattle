@@ -45,16 +45,20 @@ species:
 
 ```{r}
 library(Rceattle)
-data(BS2017SS)
+data(whamGrowthData)
+
+# Use logistic selectivity for all fleets in this example.
+whamGrowthData$fleet_control$Selectivity <- "Logistic"
+whamGrowthData$fleet_control$Selectivity_dimension <- "Length"
 
 # 1. Attach an env_data table to the data list. Must include `Year`
 #    plus whatever covariates show up in your formulas. Here `temp` is
 #    a placeholder; in real use it would be a standardised SST series,
 #    PDO index, etc.
-yrs <- BS2017SS$styr:BS2017SS$endyr
-BS2017SS$env_data <- data.frame(
+yrs <- whamGrowthData$styr:whamGrowthData$endyr
+whamGrowthData$env_data <- data.frame(
   Year = yrs,
-  temp = scale(seq_along(yrs))[, 1]
+  temp = rnorm(length(yrs), 0, 0.1)
 )
 
 # 2. Build a growth specification with one linkage per parameter that
@@ -67,19 +71,20 @@ growth_spec <- build_growth(
       formula = ~ temp,             # 2 columns: (Intercept) and `temp`
       by      = ~ species + sex,    # one beta per (species, sex, column)
       link    = "log",              # K lives on the log scale already
-      priors  = list(temp = normal(0, 1))
+      priors  = list(temp = normal(0, 0.1)) # Tight prior
     )
   )
 )
 
 # 3. Fit as usual.
 fit <- fit_mod(
-  data_list   = BS2017SS,
+  data_list   = whamGrowthData,
   growthFun   = growth_spec,
-  estimateMode = 3, # No optimization b/c no CAAL data
+  estimateMode = 0, 
   msmMode     = 0,
   fit_control = fit_control(verbose = 0)
 )
+summary(fit)
 ```
 
 The pooled linkage table is stored on the fitted model:
@@ -327,7 +332,7 @@ You can inspect the linked parameter values via the linkage table and
 the estimated coefficient vector:
 
 ```{r}
-fit$data_list$linkage_table[fit$data_list$linkage_table$param == "log_R0", ]
+fit$data_list$linkage_table[fit$data_list$linkage_table$param == "log_K", ]
 fit$estimated_params$beta_linkage
 ```
 
@@ -335,7 +340,9 @@ The same approach works for **`log_M1`** when you want a prior on
 natural mortality itself:
 
 ```{r}
-# Three-species model, Lognormal(log(0.4), 0.35) prior on log_M1
+data("GOApollock") # Using GOA pollock as an example
+
+# One-species model, normal(log(0.4), 0.1) prior on log_M1
 # applied via the linkage intercept. The structural M1_model is
 # kept at "sex_age_invariant" (= 1).
 M1_spec <- build_M1(
@@ -344,17 +351,18 @@ M1_spec <- build_M1(
     log_M1 = linkage_spec(
       formula = ~ 1,
       by      = ~ species,
-      init    = list(`(Intercept)` = log(0.4)),
-      priors  = list(`(Intercept)` = lognormal(log(0.4), 0.35))
+      init    = list(`(Intercept)` = log(0.34)),
+      priors  = list(`(Intercept)` = normal(log(0.34), 0.01))
     )
   )
 )
 
 # Fit the model - no manual mapping needed
 fit <- fit_mod(
-  data_list = data_list,
+  data_list = GOApollock,
   M1Fun     = M1_spec,
-  estimateMode = 0
+  estimateMode = 0,
+  fit_control = fit_control(phase = TRUE)
 )
 ```
 
@@ -683,19 +691,25 @@ calculation. The linkage system therefore exposes `log_M1` as the
 single M-side target, with `M2` covered by upstream propagation.
 
 ```{r}
+yrs <- GOApollock$styr:GOApollock$endyr
+GOApollock$env_data <- data.frame(
+  Year = yrs,
+  temp = rnorm(length(yrs), 0, 0.1)
+)
+
 M1_spec <- build_M1(
   M1_model = "sex_age_invariant",            # or M1_model = 1 (back-compat)
   linkages = list(
     log_M1 = linkage_spec(
       formula = ~ temp,
       by      = ~ species,
-      priors  = list(temp = normal(0, 0.5))
+      priors  = list(temp = normal(0, 0.1))
     )
   )
 )
 
 fit <- fit_mod(
-  data_list   = data_list,
+  data_list   = GOApollock,
   M1Fun       = M1_spec,
   estimateMode = 0,
   msmMode     = 0

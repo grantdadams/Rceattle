@@ -94,8 +94,6 @@ testthat::test_that("ssb and beverton recruitment", {
   nyrs <- length(yrs)
 
   # Set params
-  GOA2018SS$srr_fun <- 4
-  GOA2018SS$initMode <- 1
   mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, recFun = build_srr(srr_fun = 2, proj_mean_rec = FALSE, srr_est_mode = 1), initMode = "NonEquilibrium", fit_control = fit_control(verbose = 0)) )
   inits <- mod0$estimated_params
   alpha = 0.4
@@ -162,8 +160,6 @@ testthat::test_that("ssb and ricker recruitment", {
   nyrs <- length(yrs)
 
   # Set params
-  GOA2018SS$srr_fun <- 4
-  GOA2018SS$initMode <- 1
   mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, recFun = build_srr(srr_fun = 4, proj_mean_rec = FALSE, srr_est_mode = 1), initMode = "NonEquilibrium", fit_control = fit_control(verbose = 0)) )
   inits <- mod0$estimated_params
   alpha = 0.4

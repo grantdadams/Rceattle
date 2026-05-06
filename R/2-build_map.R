@@ -394,7 +394,7 @@ build_map_growth <- function(map_list, data_list, nyrs_hind) {
     growth_re_model <- data_list$growth_re[sp] # Random effects model
 
     # * 1. Fixed effects ----
-    if(growth_model == 1){ # Von Bertalanffy
+    if(growth_model %in% c(1, "vonBertalanffy")){ # Von Bertalanffy
       # k, l1, linf
       map_list$log_growth_pars[sp, 1, 1:3] <- (sp - 1) * 4 + 1:3 # Females/sex combined
       map_list$growth_log_sd[sp, 1, 1:2] <- (sp - 1) * 2 + 1:2 # Growth SD
@@ -404,7 +404,7 @@ build_map_growth <- function(map_list, data_list, nyrs_hind) {
       }
     }
 
-    if(growth_model == 2){ # Richards
+    if(growth_model %in% c(2, "Richards")){ # Richards
       # k, l1, linf, m
       map_list$log_growth_pars[sp, 1, 1:4] <- (sp - 1) * 4 + 1:4 # Females/sex combined
       map_list$growth_log_sd[sp, 1, 1:2] <- (sp - 1) * 2 + 1:2 # Growth SD

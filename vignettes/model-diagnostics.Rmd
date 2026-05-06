@@ -20,44 +20,33 @@ knitr::opts_chunk$set(
 
 Rceattle provides three layers of diagnostics: **fit plots** to visually inspect how well the model reproduces observed data, **retrospective analysis** (peels) to detect patterns of systematic over- or under-estimation, and **jitter testing** to check that the optimiser has found a global minimum.
 
-## Setup
+## Setup and plotting data
 
 ```{r}
 library(Rceattle)
 
-# Fit a single-species and multi-species model for the 2017 Bering Sea assessment.
-# The multi-species model is used for fit plots; the single-species model for
-# retrospective and jitter (faster).
-data(BS2017SS)
-data(BS2017MS)
-BS2017SS$projyr <- 2060
-BS2017MS$projyr <- 2060
+# Fit a single-species model for the 2022 Northern Rockfish assessment.
+data("NorthernRockfish2022")
+nrdata <- NorthernRockfish2022
+nrdata$fleet_control$proj_F_prop <- 1
+plot_data(nrdata)
+```
 
-# Visualise the input data before fitting
-plot_data(BS2017SS)
-
-ss_run <- fit_mod(
-  data_list    = BS2017SS,
-  inits        = NULL,
-  file         = NULL,
-  estimateMode = 0,
-  random_rec   = FALSE,
-  msmMode      = 0,
-  fit_control = fit_control(
-    phase        = TRUE,
-    verbose      = 1))
-
-ms_run <- fit_mod(
-  data_list    = BS2017MS,
-  inits        = ss_run$estimated_params,
-  file         = NULL,
-  estimateMode = 0,
-  niter        = 5,
-  random_rec   = FALSE,
-  msmMode      = 1,
-  suitMode     = 0,
-  fit_control = fit_control(
-    verbose      = 1))
+Fitting the model
+```{r}
+model_1 <- Rceattle::fit_mod(
+  data_list = nrdata,
+  estimateMode = 0,  # Estimate
+  initMode = 1,      # Assume unfished equilibrium
+  M1Fun = build_M1(
+    updateM1 = TRUE,
+    M1_model = 1,
+    M1_use_prior = TRUE,
+    M_prior = 0.06,
+    M_prior_sd = 0.05),
+  fit_control = fit_control(phase = TRUE, verbose = 0)
+)
+summary(model_1)
 ```
 
 ## Fit plots
@@ -67,7 +56,7 @@ ms_run <- fit_mod(
 `plot_comp()` overlays observed (bars) and predicted (line) age or length compositions for every fleet.
 
 ```{r}
-plot_comp(ms_run)
+plot_comp(model_1)
 ```
 
 ### Survey indices
@@ -75,15 +64,15 @@ plot_comp(ms_run)
 `plot_index()` and `plot_logindex()` show observed vs. predicted survey biomass on the natural and log scales, respectively. `plot_indexresidual()` plots the log-scale residuals — a useful first check for time trends or heteroscedasticity.
 
 ```{r}
-plot_index(ms_run)
-plot_logindex(ms_run)
-plot_indexresidual(ms_run)
+plot_index(model_1)
+plot_logindex(model_1)
+plot_indexresidual(model_1)
 ```
 
 ### Catch
 
 ```{r}
-plot_catch(ms_run)
+plot_catch(model_1)
 ```
 
 ## Retrospective analysis
@@ -91,16 +80,16 @@ plot_catch(ms_run)
 A retrospective analysis systematically removes the most recent years of data one peel at a time and re-fits the model. Bias in the final estimates relative to earlier peels is summarised by Mohn's rho: values outside ±0.2 (for SSB) generally indicate a problem worth investigating.
 
 ```{r}
-ss_run_retro <- retrospective(Rceattle = ss_run, peels = 5)
+model_1_retro <- retrospective(Rceattle = model_1, peels = 5)
 
 # Mohn's rho for each quantity
-ss_run_retro$mohns
+model_1_retro$mohns
 
 # Plot historical trajectories across peels
-plot_biomass(ss_run_retro$Rceattle_list)
+plot_biomass(model_1_retro$Rceattle_list)
 
 # Include the projection period to see how the forecast changes
-plot_biomass(ss_run_retro$Rceattle_list, incl_proj = TRUE)
+plot_biomass(model_1_retro$Rceattle_list, incl_proj = TRUE)
 ```
 
 The `retrospective()` function returns a list with two elements:
@@ -117,7 +106,7 @@ The `nyrs_forecast` argument (default 3) additionally evaluates rho for years pr
 Jitter testing re-fits the model from many randomly perturbed starting values to check whether the optimizer consistently returns the same minimum negative log-likelihood (NLL). A spread of NLL values across jitters suggests the likelihood surface has multiple local minima and results should be interpreted cautiously.
 
 ```{r}
-jitters <- jitter(Rceattle = ss_run, njitter = 10, phase = TRUE)  # default njitter = 50
+jitters <- jitter(Rceattle = model_1, njitter = 10, phase = TRUE)  # default njitter = 50
 
 # Histogram of NLL differences relative to the best run
 hist(log(jitters$nll - min(jitters$nll)),
@@ -135,17 +124,23 @@ Non-converging runs are silently dropped from `Rceattle_list`, so if `length(jit
 
 ## Comparing single- and multi-species trajectories
 
-Plotting both models together is itself a useful diagnostic — large divergences in biomass or mortality deserve scrutiny.
+Plotting sensitivity runs together is itself a useful diagnostic — large divergences in biomass or mortality deserve scrutiny.
 
 ```{r}
-mod_list  <- list(ss_run, ms_run)
-mod_names <- c("Single-species", "Multi-species")
+mod_list  <- list(model_1, model_1_retro$Rceattle_list$Year_2019)
+mod_names <- 1:length(mod_list)
 
 plot_biomass(Rceattle = mod_list, model_names = mod_names)
 plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE)
 plot_depletionSSB(Rceattle = mod_list, model_names = mod_names)
-plot_m_at_age(Rceattle = mod_list, model_names = mod_names, age = 2)
-plot_m2_at_age_prop(Rceattle = mod_list, model_names = mod_names)
-plot_b_eaten(Rceattle = mod_list, model_names = mod_names)
-plot_b_eaten_prop(Rceattle = mod_list, model_names = mod_names)
+```
+
+
+## Model average
+
+For model averaging across model variants, see `?model_average`.
+
+```{r}
+mod_avg <- model_average(Rceattle = list(model_1, model_1), weights = c(1,1))
+plot_biomass(mod_avg)
 ```

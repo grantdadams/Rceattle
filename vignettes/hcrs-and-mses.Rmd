@@ -18,6 +18,8 @@ knitr::opts_chunk$set(
 
 ## Fitting OMs
 
+An example MSE using the northern rockfish stock assessment.
+
 ```{r, message = FALSE, warning = FALSE,echo = TRUE}
 library(Rceattle)
 data("NorthernRockfish2022")
