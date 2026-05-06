@@ -400,16 +400,11 @@ testthat::test_that("Test species-specific recruitment linkeages with mean rec (
     )
   )
 
-  ss_run <- suppressMessages(
-    fit_mod(data_list = GOA2018SS,
-            inits = NULL,
+  ss_run <- fit_mod(data_list = GOA2018SS,
             estimateMode = 3,
-            random_rec = FALSE,
-            msmMode = 0,
             recFun = rec_spec,
-            initMode = 1,
+            initMode = "Equilibrium",
             fit_control = fit_control(verbose = 0))
-  )
 
   # Check coefs
   testthat::expect_equal(ss_run$estimated_params$beta_linkage, c(10, 1, 0, 1, 11, 1, 12))
