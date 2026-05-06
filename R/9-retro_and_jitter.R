@@ -92,7 +92,7 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
     if(nrow(proj_wt) > 0){
       proj_wt <- proj_wt |>
         dplyr::group_by(Wt_index , Sex) |>
-        dplyr::slice(rep(n(),  nyrs_proj_peel)) |>
+        dplyr::slice(rep(dplyr::n(),  nyrs_proj_peel)) |>
         dplyr::mutate(Year = peel_prj_yrs)
     }
     data_list$weight  <- rbind(data_list$weight, proj_wt) |>
@@ -167,7 +167,7 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
       dplyr::filter(Year <= endyr &
                       Catch == 0) |>
       dplyr::mutate(Year = Year - styr + 1) |>
-      select(Fleet_code, Year) |>
+      dplyr::select(Fleet_code, Year) |>
       as.matrix()
     inits$log_F[zero_catch] <- -999
     map$mapList$log_F[zero_catch] <- NA
@@ -435,9 +435,10 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
 
   # * Divide N ----
   beta_mohns[, 4:(data_list$nspp + 3) ] <- beta_mohns[, 4:(data_list$nspp + 3)]/beta_mohns[, 3]
+  mod_list <- rev(mod_list)
+  names(mod_list) <- paste0("Year_", (endyr - peels):endyr )
 
-
-  return(list(Rceattle_list = rev(mod_list), mohns = rbind(mohns, beta_mohns)))
+  return(list(Rceattle_list = mod_list, mohns = rbind(mohns, beta_mohns)))
 }
 
 
@@ -445,10 +446,11 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
 
 #' Jitter analysis
 #'
-#' @description Run's the Rceattle model at initial values that are +- N(0, 1) from the initial parameters.
+#' @description Run's the Rceattle model at initial values that are +- N(0, sd) from the initial parameters.
 #'
 #' @param Rceattle an Rceattle model fit using \code{\link{fit_mod}}
 #' @param njitter the number of jitters to run
+#' @param sd standard deviation for jitter (default = 0.2)
 #' @param phase as in \code{\link{fit_mod}} default = FALSE
 #' @param seed random number seed
 #'
@@ -465,7 +467,7 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
 #' jitters <- jitter(ss_run, njitter = 10)
 #' }
 #' @export
-jitter <- function(Rceattle = NULL, njitter = 50, phase = FALSE, seed = 123) {
+jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 123) {
   if (!inherits(Rceattle, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
@@ -488,7 +490,7 @@ jitter <- function(Rceattle = NULL, njitter = 50, phase = FALSE, seed = 123) {
       inits[[j]] <- replace(inits[[j]],
                             values = ifelse(is.na(as.numeric(mapList[[par]])),
                                             as.numeric(inits[[j]]),
-                                            as.numeric(inits[[j]]) + stats::rnorm(length(as.numeric(inits[[j]])), 0, 1))
+                                            as.numeric(inits[[j]]) + stats::rnorm(length(as.numeric(inits[[j]])), 0, sd))
       )
     }
 
@@ -572,6 +574,7 @@ jitter <- function(Rceattle = NULL, njitter = 50, phase = FALSE, seed = 123) {
   # Plot ----
   jnll <- sapply(mod_list, function(x) x$quantities$jnll)
   # plot(x = 1:length(jnll), y = jnll)
+  names(mod_list) <- paste0("Jitter_", 1:length(mod_list))
 
 
   # Return ----

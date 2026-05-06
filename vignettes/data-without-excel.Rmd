@@ -367,6 +367,33 @@ colnames(sex_matrix) <- paste0("Age", 1:nages)
 simData$sex_ratio <- cbind(data.frame(Species = 1:nspp), sex_matrix)
 ```
 
+### Fixed selectivity (optional)
+
+Pre-specified selectivity curves that are fixed (not estimated). If provided, fixed selectivity-at-age values.
+
+```{r}
+simData$emp_sel <- data.frame(
+  matrix(NA, nrow = 0, ncol = 5 + nages)
+)
+colnames(simData$emp_sel) <- c("Fleet_name", "Fleet_code", "Species",
+                               "Sex", "Year", paste0("Comp_", 1:nages))
+```
+
+### Fixed numbers-at-age (optional)
+
+Used when estDynamics > 0:
+ 1 = numbers-at-age fixed exactly to these values
+ 2 = numbers-at-age scaled by a single estimated scalar per species
+ 3 = numbers-at-age scaled by age-specific estimated scalars per species
+
+```{r}
+simData$NByageFixed <- data.frame(
+  matrix(NA, nrow = 0, ncol = 4 + nages)
+)
+colnames(simData$NByageFixed) <- c("Species_name", "Species", "Sex", "Year",
+                                   paste0("Age", 1:nages))
+```
+
 ### Natural mortality (M1 base)
 
 Residual natural mortality-at-age before any predation component. In single-species mode, total mortality M = M1. In multi-species mode, M = M1 + M2 where M2 is predation mortality estimated from the bioenergetics model. When switching to multi-species mode it is important to reduce M1 accordingly (see `vignette("single-vs-multispecies")`).
@@ -378,6 +405,30 @@ simData$M1_base <- cbind(data.frame(Species = 1:nspp, Sex = 0), m_matrix)
 ```
 
 M1 can also be estimated rather than fixed. See `?build_M1` for options including estimating a single scalar, an age-specific vector, or a temperature-dependent function.
+
+### Weight-at-age
+
+Used for biomass calculations. Linked to species or fleets. Set Year = 0 to apply the same weight-at-age to all years (time-invariant). Age_1 ... Age_nages columns hold mean weight (usually kg) at each age.
+
+```{r}
+weight_matrix <- matrix(
+  (1:nages / nages)^3 * 0.01,   # Simple power curve placeholder
+  nrow = nspp, ncol = nages, byrow = TRUE
+)
+colnames(weight_matrix) <- paste0("Age", 1:nages)
+
+simData$weight <- cbind(
+  data.frame(
+    Wt_name  = paste("Species", 1:nspp),
+    Wt_index = 1:nspp,
+    Species  = 1:nspp,
+    Sex      = 0,
+    Year     = 0    # Year = 0 applies to all years (time-invariant)
+  ),
+  weight_matrix
+)
+```
+
 
 ### Environmental covariate data
 
@@ -438,10 +489,10 @@ colnames(simData$diet_data) <- c("Pred", "Prey", "Pred_sex", "Prey_sex",
 
 ## 9. Validate and fit
 
-`data_check()` prints a summary of the data list and flags common issues (mismatched dimensions, missing columns, impossible values) before any model fitting is attempted.
+`plot_data()` prints a summary of the data list.
 
 ```{r}
-data_check(simData)
+plot_data(simData)
 ```
 
 ```{r}

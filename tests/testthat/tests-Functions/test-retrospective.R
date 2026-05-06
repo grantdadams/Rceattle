@@ -51,7 +51,7 @@ testthat::test_that("Test retrospective", {
   nyrs <- length(yrs)
 
   testthat::expect_equal(6, length(ret$Rceattle_list))
-  testthat::expect_equal(2012:2017, sapply(ret$Rceattle_list, function(x) x$data_list$endyr_peel))
+  testthat::expect_equal(2012:2017, as.numeric(sapply(ret$Rceattle_list, function(x) x$data_list$endyr_peel)))
 
   for(i in 1:5){
     # Matches

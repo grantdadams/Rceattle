@@ -304,8 +304,8 @@ data_check <- function(data_list) {
     if(any(ration_data_sex$max_sex > data_list$nsex)){
       stop("'ration_data' has more sexes than specified in 'nsex'")
     }
-  } else{
-    message("No ration_data (ration) data")
+  } else if(data_list$msmMode > 0){
+    message("No ration data")
   }
 
   # Environmental data----

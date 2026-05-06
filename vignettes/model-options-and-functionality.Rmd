@@ -16,7 +16,7 @@ knitr::opts_chunk$set(
 )
 ```
 
-This vignette is a survey of the parameterization choices and capabilities
+This vignette is an overview of the parameterization choices and capabilities
 available in `Rceattle`. It complements:
 
 - vignette 1, [Rceattle: An Introduction](introduction.html), which

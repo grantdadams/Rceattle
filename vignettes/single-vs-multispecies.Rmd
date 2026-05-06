@@ -154,16 +154,6 @@ goa_ms <- fit_mod(
 
 Values 1 and 3 are blocked at runtime pending validation of the growth-model integration. Use `suitMode = 0` (empirical) when diet composition data are available, or `suitMode = 2`/`4`/`5`/`6` (parametric) when they are not.
 
-## A note on M1 in the Bering Sea datasets
-
-A key data difference between `BS2017SS` and `BS2017MS` is `M1_base` — the residual natural mortality before predation. In the multi-species dataset, M1 is lower because predation (M2) accounts for a portion of total mortality. Applying `msmMode = 1` to the single-species dataset without adjusting M1 will inflate total mortality.
-
-```{r}
-# Check M1 values
-BS2017SS$M1_base
-BS2017MS$M1_base
-```
-
 ## Comparing outputs
 
 ```{r}
@@ -188,8 +178,6 @@ plot_mortality(ms_run, M2 = FALSE) # total M (M1 + M2); M2 = TRUE plots M2 only
 # Predation (multi-species only) — these also accept single models only
 plot_b_eaten(Rceattle = mod_list, model_names = mod_names)
 plot_b_eaten_prop(Rceattle = mod_list, model_names = mod_names)
-plot_ration(ms_run)
-plot_diet_comp(ms_run)
 ```
 
 For model averaging across single- and multi-species variants, see `?model_average`.

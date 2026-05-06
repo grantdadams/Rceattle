@@ -45,7 +45,7 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
   if(!uncertainty){mod_avg$sdrep <- NULL}
 
   # -- Set all quantities to zero
-    mod_avg$quantities <- sapply(mod_avg$quantities, function(x) replace(x, values = rep(0, length(x))))
+  mod_avg$quantities <- sapply(mod_avg$quantities, function(x) replace(x, values = rep(0, length(x))))
 
 
 
@@ -61,11 +61,11 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
 
     mod_avg$quantities$N_at_age[,,,mod_avg_rel_proj_yrs] <- mod_avg$quantities$N_at_age[,,,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$N_at_age[,,,sub_rel_proj_yrs] * weights[i]
     mod_avg$quantities$avgN_at_age[,,,mod_avg_rel_proj_yrs] <- mod_avg$quantities$avgN_at_age[,,,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$avgN_at_age[,,,sub_rel_proj_yrs] * weights[i]
-    mod_avg$quantities$biomass_at_age[,,mod_avg_rel_proj_yrs] <- mod_avg$quantities$biomass_at_age[,,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$biomass_at_age[,,sub_rel_proj_yrs] * weights[i]
+    #mod_avg$quantities$biomass_at_age[,,mod_avg_rel_proj_yrs] <- mod_avg$quantities$biomass_at_age[,,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$biomass_at_age[,,sub_rel_proj_yrs] * weights[i]
     mod_avg$quantities$ssb_at_age[,,mod_avg_rel_proj_yrs] <- mod_avg$quantities$ssb_at_age[,,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$ssb_at_age[,,sub_rel_proj_yrs] * weights[i]
     mod_avg$quantities$biomass[, mod_avg_rel_proj_yrs] <- mod_avg$quantities$biomass[, mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$biomass[, sub_rel_proj_yrs] * weights[i]
     mod_avg$quantities$ssb[, mod_avg_rel_proj_yrs] <- mod_avg$quantities$ssb[, mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$ssb[, sub_rel_proj_yrs] * weights[i]
-    mod_avg$quantities$B_eaten[,,,mod_avg_rel_proj_yrs] <- mod_avg$quantities$B_eaten[,,,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$B_eaten[,,,sub_rel_proj_yrs] * weights[i]
+    mod_avg$quantities$B_eaten_as_prey[,,,mod_avg_rel_proj_yrs] <- mod_avg$quantities$B_eaten_as_prey[,,,mod_avg_rel_proj_yrs] + Rceattle[[i]]$quantities$B_eaten_as_prey[,,,sub_rel_proj_yrs] * weights[i]
     mod_avg$quantities$sel_at_age[,,,mod_avg_rel_hind_yrs] <- mod_avg$quantities$sel_at_age[,,,mod_avg_rel_hind_yrs] + Rceattle[[i]]$quantities$sel_at_age[,,,sub_rel_hind_yrs] * weights[i]
 
     # Reference points
@@ -307,9 +307,9 @@ model_average <- function(Rceattle, weights = NULL, uncertainty = FALSE, nboot =
       # - Sample parameters from asymptotic normal distribution
       # - Models with random effects
       if(sum(length_ran) > 0){
-      mle <- Rceattle[[i]]$obj$env$last.par.best # Includes fixed and random
-      vcov <- solve(Rceattle[[i]]$sdrep$jointPrecision) # names(mle) == rownames(vcov)
-      vcov[1,1] <- 100
+        mle <- Rceattle[[i]]$obj$env$last.par.best # Includes fixed and random
+        vcov <- solve(Rceattle[[i]]$sdrep$jointPrecision) # names(mle) == rownames(vcov)
+        vcov[1,1] <- 100
       }
 
 

@@ -57,7 +57,7 @@ build_srr <- function(srr_fun = 0,  #srr_model
     Bmsy_lim = -999
   }
 
-  linkages <- .validate_recruitment_linkages(linkages, srr_fun)
+  linkages <- .validate_recruitment_linkages(linkages, srr_pred_fun)
 
   # `srr_indices` is soft-deprecated in favour of `linkages = list(log_R0
   # = ..., log_alpha = ..., log_beta = ...)`. NA is "not supplied".
@@ -229,11 +229,11 @@ RECRUITMENT_LINKAGE_PARAMS <- c("log_R0", "log_alpha", "log_beta")
     flagged <- intersect(names(linkages), c("log_alpha", "log_beta"))
     if (length(flagged) > 0) {
       warning("linkages$", paste(flagged, collapse = " / "),
-              " is supplied but srr_fun = ", srr_fun, " does not ",
+              " is supplied but srr_pred_fun = ", srr_fun, " does not ",
               "use alpha / beta; the offset will be retained on the ",
-              "object but will not affect recruitment. Use srr_fun ",
-              "in c(2, 3, 4, 5) for an SRR that consumes these ",
-              "parameters.", call. = FALSE)
+              "object but will not affect recruitment. Use `srr_pred_fun` ",
+              "in 'Ricker' or 'BevertonHolt' for an SRR that consumes these ",
+              "parameters. Note that `srr_pred_fun = srr_fun`, if not supplied", call. = FALSE)
     }
   }
   linkages
@@ -241,42 +241,8 @@ RECRUITMENT_LINKAGE_PARAMS <- c("log_R0", "log_alpha", "log_beta")
 
 
 
-#' Define M1 specifications
+#' Allowed M-parameter names for `linkages` in [build_M1()]
 #'
-#' @param M1_model Vector or scalar specifying M1 fixed effects model (see @description below). 0 = use fixed natural mortality from M1_base in data, 1 = estimate sex- and age-invariant M1, 2 = sex-specific (two-sex model), age-invariant M1, 3 = estimate sex- and age-specific M1, 4 = environmentally driven sex- and age-invariant M1, 5 = environmentally driven age-invariant, but sex-specific M1.
-#' @param M1_re Vector or scalar specifying M1 random effects model. See description (default = 0).
-#' @param updateM1 If using initial parameters, use M1 fixed effects from data instead (default = FALSE).
-#' @param M1_use_prior Vector or scalar specifying if M1 fixed effects come from a lognormal prior
-#' @param M2_use_prior Vector or scalar specifying if M1 + M2 come from a lognormal prior in multi-species models (default = FALSE). Lognormal prior for M1 + M2 across species, sexes, ages, and years.
-#' @param M_prior Vector or scalar for mean of M prior on natural scale
-#' @param M_prior_sd Vector or scalar of SD of lognormal M prior. Used as initial value for random effects variance as well.
-#' @param M1_indices vector or single index indicating the columns (excluding Year column) of \code{env_data} to use for environmentally linked M1 when \code{M1_model} is 4 or 5.
-#'
-#' @description
-#'
-#' **M1 fixed effects currently implemented in CEATTLE**
-#' - \code{M1_model = 0} or \code{"fixed"}: Fixed based on input \code{M1_base}
-#' - \code{M1_model = 1} or \code{"sex_age_invariant"}: Single species specific M. Estimates \deqn{M1_{spp}}
-#' - \code{M1_model = 2} or \code{"sex_specific"}: Sex-specific M. Estimates \deqn{M1_{spp, sex}}
-#' - \code{M1_model = 3} or \code{"sex_age_specific"}: Sex- and age-specific M. Estimates \deqn{M1_{spp, sex, age}}
-#' - \code{M1_model = 4}, \code{5}: Soft-deprecated env-driven codes; use the \code{linkages} argument instead. See \code{vignette("environmental-linkages")}.
-#'
-#' **M1 random effects currently implemented in CEATTLE**
-#'
-#' M1 random effects are applied to each species if \code{M1_model = 1} or each species and sex if \code{M1_model = 2}. Variance and correlation coefficients are species-specific, but sex-invariant.
-#'
-#' - \code{M1_re = 0} or \code{"none"}: No random effects (default).
-#' - \code{M1_re = 1} or \code{"iid_age"}: Random effects varies by age, but uncorrelated (IID) and constant over years.
-#' - \code{M1_re = 2} or \code{"iid_year"}: Random effects varies by year, but uncorrelated (IID) and constant over ages.
-#' - \code{M1_re = 3} or \code{"iid_age_year"}: Random effects varies by year and age, but uncorrelated (IID).
-#' - \code{M1_re = 4} or \code{"ar1_age"}: Correlated AR1 random effects varies by age, but constant over years.
-#' - \code{M1_re = 5} or \code{"ar1_year"}: Correlated AR1 random effects varies by year, but constant over ages.
-#' - \code{M1_re = 6} or \code{"ar1_age_year"}: Correlated 2D-AR1 random effects varies by year and age.
-#'
-#' @name M_linkage_params
-#' @rdname M_LINKAGE_PARAMS
-#'
-#' @description Allowed M-parameter names for \code{linkages} in [build_M1()].
 #' Linear-predictor names of the underlying natural-mortality
 #' parameters that the linkage system can address. Currently just
 #' `log_M1` -- the offset is added on the log scale to `log_M1`
