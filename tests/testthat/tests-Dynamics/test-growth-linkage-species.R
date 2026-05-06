@@ -678,7 +678,6 @@ testthat::test_that("Test internal Linf-linked growth", {
   # - K
   testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_parameters[,,,1]), rep(0.3, length(as.numeric(ss_run_init$quantities$growth_parameters[,,,1]))))
 
-
   # - Prior
   priornll <- dnorm(1, 0, 0.3, log = TRUE) +  dnorm(2, 0, 0.7, log = TRUE) + dnorm(3, 0, 1, log = TRUE)
   testthat::expect_equal(sum(ss_run_init$quantities$jnll_comp[20,]), -priornll)
