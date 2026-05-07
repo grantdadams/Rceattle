@@ -44,6 +44,15 @@ NULL
 #'   different species different formulas, e.g. by registering
 #'   multiple specs against the same parameter -- see
 #'   [build_growth()] for the multi-spec syntax.
+#' @param sex optional vector of sex ids that this spec applies to.
+#'   May be supplied as integers (`1L` = female, `2L` = male) or as
+#'   character strings (`"Females"`/`"Males"`, case-insensitive;
+#'   `"female"`, `"male"`, `"f"`, `"m"` are also accepted). `NULL`
+#'   (default) means every sex in `strata$sex` at materialization
+#'   time. Only meaningful when `by` includes `sex`; otherwise the
+#'   filter is a no-op. Use this to register separate specs per sex
+#'   (e.g. one prior on females, another on males) against the same
+#'   parameter.
 #' @param link link function applied to the predictor when assembling
 #'   process values; one of [LINKAGE_LINKS]. TODO
 #' @param init optional named numeric vector of initial values keyed by
@@ -71,6 +80,7 @@ linkage_spec <- function(formula,
                          data      = NULL,
                          by        = ~ species,
                          species   = NULL,
+                         sex       = NULL,
                          link      = "identity",
                          init      = NULL,
                          bounds    = NULL,
@@ -98,6 +108,9 @@ linkage_spec <- function(formula,
            call. = FALSE)
     }
   }
+  if (!is.null(sex)) {
+    sex <- .coerce_sex_arg(sex)
+  }
   link <- match.arg(link, LINKAGE_LINKS)
   param_str <- if (is.null(param)) NA_character_ else as.character(param)
 
@@ -110,6 +123,7 @@ linkage_spec <- function(formula,
       param     = param_str,
       by        = by,
       species   = species,
+      sex       = sex,
       link      = link,
       init      = init,
       bounds    = bounds,
@@ -286,6 +300,40 @@ linkage_spec <- function(formula,
   priors
 }
 
+#' Coerce a `sex` argument to 1-based integer ids.
+#'
+#' Accepts numeric (1, 2) or character ("female"/"females",
+#' "male"/"males"; case-insensitive) input and returns a positive
+#' integer vector. Errors with a pointed message on unrecognized
+#' values.
+#'
+#' @keywords internal
+#' @noRd
+.coerce_sex_arg <- function(sex) {
+  if (is.character(sex)) {
+    key <- tolower(trimws(sex))
+    out <- integer(length(key))
+    out[] <- NA_integer_
+    out[key %in% c("female", "females", "f")] <- 1L
+    out[key %in% c("male", "males", "m")]     <- 2L
+    if (anyNA(out)) {
+      bad <- unique(sex[is.na(out)])
+      stop(sprintf(
+        "`sex` must be 1/2 or \"Females\"/\"Males\"; got: %s",
+        paste(shQuote(bad), collapse = ", ")), call. = FALSE)
+    }
+    return(out)
+  }
+  sex <- as.integer(sex)
+  if (anyNA(sex) || any(sex < 1L)) {
+    stop("`sex` must be a vector of positive 1-based sex ids ",
+         "(1 = female, 2 = male) or the strings \"Females\"/\"Males\"",
+         call. = FALSE)
+  }
+  sex
+}
+
+
 .validate_linkage_init_arg <- function(init) {
   if (is.null(init)) return(list())
   if (!is.list(init) || (length(init) > 0 && is.null(names(init)))) {
@@ -373,6 +421,9 @@ print.Rceattle_linkage_spec <- function(x, ...) {
       "\n", sep = "")
   if (!is.null(x$species)) {
     cat("  species: ", paste(x$species, collapse = ", "), "\n", sep = "")
+  }
+  if (!is.null(x$sex)) {
+    cat("  sex:     ", paste(x$sex, collapse = ", "), "\n", sep = "")
   }
   cat("  link:    ", x$link, "\n", sep = "")
   cat("  phase:   ", x$est_phase, "\n", sep = "")
@@ -520,6 +571,10 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
   # against a spec that doesn't stratify by species).
   if (!is.null(spec$species) && "species" %in% names(level_grid)) {
     level_grid <- level_grid[level_grid$species %in% spec$species, ,
+                             drop = FALSE]
+  }
+  if (!is.null(spec$sex) && "sex" %in% names(level_grid)) {
+    level_grid <- level_grid[level_grid$sex %in% spec$sex, ,
                              drop = FALSE]
   }
   if (nrow(level_grid) == 0L) {

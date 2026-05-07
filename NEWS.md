@@ -1,3 +1,95 @@
+# Rceattle 4.3.0
+
+## Tidy long-format extraction: `as.data.frame.Rceattle()`
+
+A new S3 method on `as.data.frame()` flattens derived population
+quantities into a long data.frame with columns
+`year, species, sex, age, quantity, value, lwr, upr` so that custom
+plotting and post-processing don't have to walk the nested
+`quantities` list or rely on the dimnames decisions in
+`rename_output()`. Two shapes are supported and combined into one
+frame:
+
+* **Species-by-year** (default `which`): `biomass`, `ssb`, `R`,
+  `biomass_depletion`, `ssb_depletion`, `F_spp`. Other species/year
+  series (`B0`, `SB0`, `DynamicB0`, `DynamicSB0`, `DynamicSBF`,
+  `exploitable_biomass`, `proj_F`, `fT`) are available by name; pass
+  `which = "all"` to get every known quantity present on the fit.
+
+* **Species-by-sex-by-age-by-year**: `N_at_age`, `biomass_at_age`,
+  `Z_at_age`, `M_at_age`, `M1_at_age`, `M2_at_age`, `F_at_age`,
+  `consumption_at_age`, `B_eaten_as_prey`, `NByage0`, `NByageF`. The
+  `age` column is biological age (offset by `data_list$minage`), and
+  cells padded out to `max(nsex)` / `max(nages)` for species with
+  fewer sexes or ages are dropped rather than returned as `NA`.
+
+`lwr` / `upr` are populated from the TMB `sdreport` for any quantity
+that was `ADREPORT`'d (currently `biomass`, `ssb`, `R`); other
+quantities and fits produced with `getsd = FALSE` get `NA` for the
+band. The `ci_level` argument (default `0.95`) controls width.
+
+## Optional data fields, continued (Phases B, C, D)
+
+Continuing the Phase A work from 4.2.0, three more classes of inputs
+that were previously required as non-NULL can now be omitted, with
+`data_check()` enforcing them only when the model actually needs them:
+
+* **Phase B: bioenergetics scalars.** `Ceq`, `Cindex`, `Pvalue`,
+  `fday`, `CA`, `CB`, `Qc`, `Tco`, `Tcm`, `Tcl`, `CK1`, `CK4` may be
+  `NULL` in single-species mode. `switch_check()` fills them with
+  safe sentinels so TMB's length-`nspp` `DATA_VECTOR` requirements
+  are satisfied. When `msmMode > 0` the scalars are required;
+  `data_check()` reports which ones are missing or wrong-length in
+  a single grouped error.
+
+* **Phase C: `env_data`.** May be `NULL`. `clean_data()` defaults it
+  to a Year-only `data.frame(Year = styr:projyr)` with zero indices.
+  Existing checks still error when a feature actually needs an
+  index (env-dependent catchability, temperature-dependent
+  consumption, env linkages, `srr_indices`, `M1_indices`).
+
+* **Phase D: `emp_sel`.** New requirement check: when any fleet has
+  `Selectivity = "Fixed"`, `emp_sel` must be supplied. Other fleets
+  do not need it.
+
+* **Tests.** A new `tests-Data-processing/test-optional-fields.R`
+  file exercises 25 NULL / requirement scenarios across the four
+  phases.
+
+# Rceattle 4.2.0
+
+## Optional data fields & data_check cleanup
+
+Several fields in `data_list` that were previously required as non-NULL
+data.frames are now truly optional. Users who do not need composition
+data, conditional age-at-length, empirical selectivity, fixed
+numbers-at-age, ration data, or diet data can omit them entirely;
+`clean_data()` default-fills the missing fields with empty data.frames
+that carry the metadata columns the downstream code expects, and
+`data_check()` enforces the field only under the conditions where the
+model actually needs it.
+
+* **Phase A (this release): `comp_data`, `caal_data`, `emp_sel`,
+  `NByageFixed`, `ration_data`, `diet_data` may be `NULL`.** Conditional
+  requirements are still enforced (`caal_data` when
+  `any(growth_model > 0)`; `NByageFixed` when `any(estDynamics > 0)`;
+  `diet_data` when `msmMode > 0`).
+
+* **`data_check()` reorganisation.** The validation function has been
+  reorganised into eight topical sections (top-level scalars; per-species
+  dimensions; biology; fleet control; observation tables; diet &
+  predation; environmental data; switches), with shared `has_data()` /
+  `fc_num()` helpers and consolidated duplicate guards. New checks were
+  added for year-scalar ordering, lognormal SDs, sample sizes,
+  probability ranges, observation values, fleet referential integrity,
+  selectivity bin bounds, predation cross-checks, duplicate observations,
+  and probability-matrix row sums. Several pre-existing dead branches and
+  matrix-`$` access bugs were fixed at the same time.
+
+* **`transpose_fleet_control()` removed.** The deprecated long-format
+  fleet_control transposer has been removed from `clean_data()`,
+  `read_data()`, and the package namespace.
+
 # Rceattle 4.1.0
 
 ## Environmental linkages: a unified, formula-driven API

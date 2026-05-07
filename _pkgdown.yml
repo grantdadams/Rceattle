@@ -266,6 +266,7 @@ reference:
   - get_weight_at_age_r
   - rich.colors.short
   - t_col
+  - as.data.frame.Rceattle
   - coef.Rceattle
   - logLik.Rceattle
   - plot.Rceattle
@@ -276,10 +277,3 @@ reference:
   - prior_lognormal
   - prior_normal
   - validate_switches
-
-news:
-  releases:
-  - text: "Version 4.1.0"
-    href: news/index.html
-  - text: "Version 4.0.2"
-    href: news/index.html

@@ -18,7 +18,7 @@ knitr::opts_chunk$set(
 )
 ```
 
-Rceattle provides three layers of diagnostics: **fit plots** to visually inspect how well the model reproduces observed data, **retrospective analysis** (peels) to detect patterns of systematic over- or under-estimation, and **jitter testing** to check that the optimiser has found a global minimum.
+Rceattle provides four layers of diagnostics: **S3 methods** (`residual`, `logLik`, etc), **fit plots** to visually inspect how well the model reproduces observed data, **retrospective analysis** (peels) to detect patterns of systematic over- or under-estimation, and **jitter testing** to check that the optimiser has found a global minimum.
 
 ## Setup and plotting data
 
@@ -48,6 +48,18 @@ model_1 <- Rceattle::fit_mod(
 )
 summary(model_1)
 ```
+
+## S3 Methods
+
+```{r}
+summary(model_1)              # same compact summary
+coef(model_1)                 # estimated fixed-effect parameters
+logLik(model_1)               # logLik with df attribute (AIC works)
+AIC(model_1)
+vcov(model_1)                 # fixed-effect covariance fro
+residuals(model_1)            # data.frame of residuals
+```
+
 
 ## Fit plots
 

@@ -965,6 +965,11 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
         }else{
           turn_on <- as.numeric(unlist(strsplit(data_list$fleet_control$Time_varying_q[i],","))) # Parameters to turn on
         }
+
+        if(any(turn_on > ncol(data_list$env_data))){
+          stop("For 'Environmental' catchability, index specified in 'Time_varying_q' is greater than number of indices in 'env_data'")
+        }
+
         map_list$index_q_beta[flt, turn_on] <- turn_on + ind_beta_q
         ind_beta_q <- ind_beta_q + max(turn_on)
       }

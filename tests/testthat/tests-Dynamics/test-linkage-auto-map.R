@@ -1,22 +1,47 @@
-context("Test automatic mapping of base parameters with linkages")
+testthat::context("Test automatic mapping of base parameters with linkages")
 
 library(Rceattle)
 
 # Load data and inject a `temp` covariate into env_data so linkages on
 # `~ 0 + temp` can be materialized against data_list$env_data.
-data(BS2017SS)
-yrs <- BS2017SS$styr:BS2017SS$endyr
+# 1) Set up simulation
 set.seed(7)
-BS2017SS$env_data <- data.frame(
+nyrs = 30
+nspp = 2
+Fmort <- c(seq(0.02, 0.3, length.out = nyrs/2), seq(0.3, 0.05, length.out = nyrs/2))
+Fmort2 <- seq(0.02, 0.3, length.out = nyrs)
+log_phi = matrix(-Inf, nspp, nspp, byrow = TRUE)
+
+# First, simulate some data for the model
+set.seed(123)
+sim <- make_msm_test_data(
+  years = 1:nyrs,
+  Fmort = matrix(c(Fmort, Fmort2), nspp, nyrs, byrow = TRUE),
+
+  # Growth
+  use_size_sel = TRUE,
+  fish_CAAL_ISS = 1e6,
+  srv_CAAL_ISS = 1e6,
+
+  # Multispecies bits
+  log_phi = log_phi
+)
+
+
+# Set up Rceattle data
+simData <- sim$data_list
+yrs <- simData$styr:simData$projyr
+
+simData$env_data <- data.frame(
   Year   = yrs,
-  BTempC = BS2017SS$env_data$BTempC,
+  BTempC = rnorm(length(yrs)),
   temp   = rnorm(length(yrs), mean = 5, sd = 1)
 )
 
 fit_debug <- function(...) {
   suppressMessages(
     Rceattle::fit_mod(
-      data_list   = BS2017SS,
+      data_list   = simData,
       estimateMode = 3,
       msmMode     = 0,
       ...
@@ -25,7 +50,7 @@ fit_debug <- function(...) {
 }
 
 # --- Test 1: Growth parameter (log_K) linkage ---
-test_that("Growth parameter (log_K) is mapped to NA when linked", {
+testthat::test_that("Growth parameter (log_K) is mapped to NA when linked", {
   link_log_K <- linkage_spec(formula = ~ 1, by = ~ species, param = "log_K")
 
   run <- fit_debug(
@@ -46,7 +71,7 @@ test_that("Growth parameter (log_K) is mapped to NA when linked", {
 })
 
 # --- Test 2: M parameter (log_M1) linkage ---
-test_that("M parameter (log_M1) is mapped to NA when linked", {
+testthat::test_that("M parameter (log_M1) is mapped to NA when linked", {
   link_log_M1 <- linkage_spec(formula = ~ 1, by = ~ species, param = "log_M1")
 
   run <- fit_debug(
@@ -61,7 +86,7 @@ test_that("M parameter (log_M1) is mapped to NA when linked", {
 })
 
 # --- Test 3: Recruitment parameter (log_R0) linkage ---
-test_that("Recruitment parameter (log_R0) is mapped to NA when linked", {
+testthat::test_that("Recruitment parameter (log_R0) is mapped to NA when linked", {
   link_log_R0 <- linkage_spec(formula = ~ 1, by = ~ species, param = "log_R0")
 
   run <- fit_debug(
@@ -73,7 +98,7 @@ test_that("Recruitment parameter (log_R0) is mapped to NA when linked", {
 })
 
 # --- Test 4: Shared linkage (by = NULL) zeros and maps every species ---
-test_that("Shared (by = NULL) intercept linkage zeros and maps all species", {
+testthat::test_that("Shared (by = NULL) intercept linkage zeros and maps all species", {
   link_shared <- linkage_spec(formula = ~ 1, by = NULL, param = "log_R0")
 
   run <- fit_debug(
@@ -91,7 +116,7 @@ test_that("Shared (by = NULL) intercept linkage zeros and maps all species", {
 })
 
 # --- Test 5: Intercept vs No-Intercept logic ---
-test_that("Base parameter value is 0 and map is NA ONLY when intercept is present", {
+testthat::test_that("Base parameter value is 0 and map is NA ONLY when intercept is present", {
   # 1. With Intercept
   link_intercept <- linkage_spec(formula = ~ 1, by = ~ species, param = "log_R0")
 

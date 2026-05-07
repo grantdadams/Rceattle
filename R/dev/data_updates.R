@@ -22,4 +22,4 @@ colnames(data_list$sex_ratio) <- c("Species", paste0("Age", 1:max(data_list$nage
 
 GOApollock <- data_list
 
-usethis::use_data(GOApollock, overwrite = TRUE)
+usethis::use_data(BS2017MS, overwrite = TRUE)

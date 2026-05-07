@@ -26,6 +26,23 @@ Rceattle normally reads input data from an Excel workbook via `read_data()`. The
 
 Everything passed to `fit_mod()` lives in this list, so understanding its structure also helps you modify existing data objects read from Excel. This vignette walks through each component. The result can be validated with `data_check()` and fitted with `fit_mod()`, or exported back to Excel with `write_data()`.
 
+### Required vs. optional fields
+
+The list below uses every field the model knows about, but most of them are optional and only needed when a particular feature is turned on. `clean_data()` fills missing optional fields with safe defaults, and `data_check()` enforces them only under the conditions that actually require them:
+
+| Field                                    | Required when                                  |
+|------------------------------------------|------------------------------------------------|
+| `comp_data`                              | (always optional)                              |
+| `caal_data`                              | `any(growth_model > 0)` (estimating growth)    |
+| `emp_sel`                                | any fleet has `Selectivity = "Fixed"`          |
+| `NByageFixed`                            | `any(estDynamics > 0)`                         |
+| `env_data`                               | env-q catchability, `Ceq[sp] > 1`, env linkages, `srr_indices` / `M1_indices` non-empty |
+| `diet_data`                              | `msmMode > 0`                                  |
+| `ration_data`                            | `msmMode > 0`                                  |
+| Bioenergetics scalars (`Ceq`, `CA`, `CB`, `Tco`, ...) | `msmMode > 0`                                  |
+
+In single-species mode (`msmMode = 0`) you can omit any of these by simply not setting the field on the list. The single-species example below shows the full machinery, but feel free to skip sections you don't need.
+
 ## Setup
 
 ```{r}
@@ -248,6 +265,8 @@ simData$catch_data <- data.frame(
 
 Age or length composition data. `Age0_Length1 = 0` for age compositions, `1` for length compositions. `Sex = 0` for combined sex, `1` for females, `2` for males, `3` for joint female+male. Composition columns (`Comp_1`, `Comp_2`, ...) can be raw counts or proportions — Rceattle normalises internally.
 
+Skip this section entirely (don't set `simData$comp_data`) if no composition data are available — `clean_data()` will fill it with an empty data.frame.
+
 ```{r}
 comp_matrix <- matrix(abs(rnorm(nyrs * nspp * nages * 2)),
                       nrow = nyrs * nspp * 2, ncol = nages)
@@ -272,6 +291,8 @@ simData$comp_data <- cbind(
 ## 6. Conditional age-at-length (CAAL) data (optional)
 
 CAAL data provide observed age frequencies within each length bin and allow the model to jointly fit length and age compositions, and optionally estimate the growth curve internally (see `vignette("model-parameterizations")` and `?build_growth`). One row per fleet-sex-year-length-bin combination.
+
+`caal_data` becomes **required** when growth is being estimated internally (`any(growth_model > 0)`); otherwise it can be omitted.
 
 ```{r}
 caal_matrix <- matrix(abs(rnorm(nyrs * nspp * nages * 2 * nlengths)),
@@ -369,30 +390,34 @@ simData$sex_ratio <- cbind(data.frame(Species = 1:nspp), sex_matrix)
 
 ### Fixed selectivity (optional)
 
-Pre-specified selectivity curves that are fixed (not estimated). If provided, fixed selectivity-at-age values.
+Pre-specified selectivity-at-age values for fleets whose selectivity is fixed (not estimated). **Required** when any fleet has `Selectivity = "Fixed"`. Skip if all fleets estimate their own selectivity (as in this example).
+
+When you do need it, the table looks like:
 
 ```{r}
+# Example for one fleet whose selectivity is fixed at the supplied row of values
 simData$emp_sel <- data.frame(
-  matrix(NA, nrow = 0, ncol = 5 + nages)
+  Fleet_name = "Survey Species 1",
+  Fleet_code = 1,
+  Species    = 1,
+  Sex        = 0,
+  Year       = 0,                       # 0 = applied to every year
+  t(matrix(c(0.1, 0.5, 1, rep(1, nages - 3)), ncol = 1,
+           dimnames = list(paste0("Comp_", 1:nages), NULL)))
 )
-colnames(simData$emp_sel) <- c("Fleet_name", "Fleet_code", "Species",
-                               "Sex", "Year", paste0("Comp_", 1:nages))
 ```
 
 ### Fixed numbers-at-age (optional)
 
-Used when estDynamics > 0:
- 1 = numbers-at-age fixed exactly to these values
- 2 = numbers-at-age scaled by a single estimated scalar per species
- 3 = numbers-at-age scaled by age-specific estimated scalars per species
+Used when `estDynamics > 0`:
 
-```{r}
-simData$NByageFixed <- data.frame(
-  matrix(NA, nrow = 0, ncol = 4 + nages)
-)
-colnames(simData$NByageFixed) <- c("Species_name", "Species", "Sex", "Year",
-                                   paste0("Age", 1:nages))
-```
+- `1` = numbers-at-age fixed exactly to these values
+- `2` = numbers-at-age scaled by a single estimated scalar per species
+- `3` = numbers-at-age scaled by age-specific estimated scalars per species
+
+**Required** when `any(estDynamics > 0)`. Skip if you're estimating population dynamics from scratch (the default `estDynamics = 0`).
+
+When you do need it, the table has columns `Species_name`, `Species`, `Sex`, `Year`, then `Age1 ... Age<nages>` for the fixed numbers-at-age.
 
 ### Natural mortality (M1 base)
 
@@ -430,9 +455,11 @@ simData$weight <- cbind(
 ```
 
 
-### Environmental covariate data
+### Environmental covariate data (optional)
 
-An optional time series used in environment-recruitment, -M1, or -catchability relationships. Missing years are filled with the column mean. Column names after `Year` can be anything and are referenced by column order.
+An optional time series used in environment-recruitment, -M1, -catchability, or -growth relationships. Missing years are filled with the column mean. Column names after `Year` can be anything and are referenced by column order.
+
+Skip this if no environmental covariates are used. `clean_data()` will fall back to a Year-only data.frame with no indices, and `data_check()` will only complain when a feature actually needs an index (env-q catchability, `Ceq[sp] > 1`, or any env linkage).
 
 ```{r}
 simData$env_data <- data.frame(
@@ -441,9 +468,13 @@ simData$env_data <- data.frame(
 )
 ```
 
-## 8. Multi-species bioenergetics parameters (optional)
+## 8. Multi-species bioenergetics parameters (optional in single-species mode)
 
-These parameters govern the Wisconsin bioenergetics model used to compute predation mortality (M2) in multi-species mode. They are unused in single-species mode. See `?build_M1` and the CEATTLE technical documentation for full details on each parameter.
+These parameters govern the Wisconsin bioenergetics model used to compute predation mortality (M2) in multi-species mode. They are unused in single-species mode and can be omitted entirely — `switch_check()` fills any missing scalars with safe sentinels (`Ceq = 1`, `Pvalue = 1`, `fday = 365`, others `0`) so TMB's length-`nspp` `DATA_VECTOR` requirements are satisfied.
+
+In multi-species mode (`msmMode > 0`) **all** of `Ceq`, `Cindex`, `Pvalue`, `fday`, `CA`, `CB`, `Qc`, `Tco`, `Tcm`, `Tcl`, `CK1`, `CK4` must be supplied as length-`nspp` vectors; `data_check()` will list any that are missing or wrong-length. Likewise `diet_data` and `ration_data` are required.
+
+See `?build_M1` and the CEATTLE technical documentation for full details on each parameter.
 
 ```{r}
 # Ceq: consumption equation form following Hanson et al. (1997)
@@ -472,19 +503,16 @@ simData$CK4 <- rep(1,  nspp)
 simData$Diet_loglike      <- rep(0, nspp)
 simData$Diet_comp_weights <- rep(1, nspp)
 
-# Ration data (optional): observed mean ration-at-age from bioenergetics studies.
-# Leave empty if not available.
-simData$ration_data <- data.frame(matrix(NA, nrow = 0, ncol = 3 + nages))
-colnames(simData$ration_data) <- c("Species", "Sex", "Year",
-                                   paste0("Age", 1:nages))
+# Ration data (optional in single-species mode): observed mean ration-at-age from
+# bioenergetics studies. Required when msmMode > 0. Skip in single-species mode.
+#
+# When provided, columns are: Species, Sex, Year, Age1, ..., Age<nages>.
 
 # Diet composition data: observed stomach content proportions (predator-prey pairs).
-# Leave empty if not available — the model will use the empirical suitability
-# approach (suitMode = 0) derived from whatever diet data are provided.
-simData$diet_data <- data.frame(matrix(NA, nrow = 0, ncol = 9))
-colnames(simData$diet_data) <- c("Pred", "Prey", "Pred_sex", "Prey_sex",
-                                 "Pred_age", "Prey_age", "Year",
-                                 "Sample_size", "Stomach_proportion_by_weight")
+# Required when msmMode > 0; skip in single-species mode.
+#
+# When provided, columns are: Pred, Prey, Pred_sex, Prey_sex, Pred_age,
+# Prey_age, Year, Sample_size, Stomach_proportion_by_weight.
 ```
 
 ## 9. Validate and fit

@@ -10,6 +10,7 @@ linkage_spec(
   data = NULL,
   by = ~species,
   species = NULL,
+  sex = NULL,
   link = "identity",
   init = NULL,
   bounds = NULL,
@@ -44,6 +45,16 @@ this spec applies to. \code{NULL} (default) means every species in
 different species different formulas, e.g. by registering
 multiple specs against the same parameter -- see
 \code{\link[=build_growth]{build_growth()}} for the multi-spec syntax.}
+
+\item{sex}{optional vector of sex ids that this spec applies to.
+May be supplied as integers (\code{1L} = female, \code{2L} = male) or as
+character strings (\code{"Females"}/\code{"Males"}, case-insensitive;
+\code{"female"}, \code{"male"}, \code{"f"}, \code{"m"} are also accepted). \code{NULL}
+(default) means every sex in \code{strata$sex} at materialization
+time. Only meaningful when \code{by} includes \code{sex}; otherwise the
+filter is a no-op. Use this to register separate specs per sex
+(e.g. one prior on females, another on males) against the same
+parameter.}
 
 \item{link}{link function applied to the predictor when assembling
 process values; one of \link{LINKAGE_LINKS}. TODO}

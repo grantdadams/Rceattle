@@ -303,7 +303,7 @@ fit_mod <-
         species = seq_len(data_list$nspp),
         sex     = if (length(data_list$nsex) > 1L &&
                          length(unique(data_list$nsex)) > 1L) {
-                    setNames(lapply(seq_len(data_list$nspp),
+                    base::setNames(lapply(seq_len(data_list$nspp),
                                     function(sp) seq_len(data_list$nsex[sp])),
                              as.character(seq_len(data_list$nspp)))
                   } else {
@@ -311,7 +311,7 @@ fit_mod <-
                   },
         age_bin = if (length(data_list$nages) > 1L &&
                          length(unique(data_list$nages)) > 1L) {
-                    setNames(lapply(seq_len(data_list$nspp),
+                    base::setNames(lapply(seq_len(data_list$nspp),
                                     function(sp) seq_len(data_list$nages[sp])),
                              as.character(seq_len(data_list$nspp)))
                   } else {

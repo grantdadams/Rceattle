@@ -164,6 +164,7 @@ linkage_spec(
   param     = NULL,
   by        = ~ species,
   species   = NULL,
+  sex       = NULL,
   link      = c("identity", "log", "logit"),
   init      = NULL,
   bounds    = NULL,
@@ -194,6 +195,14 @@ linkage_spec(
   model. Use this to register *different formulas for different
   species* under the same target parameter -- see *Per-species
   formulas* below.
+* **`sex`** -- optional vector of sex ids this spec applies to.
+  May be supplied as integers (`1L` = female, `2L` = male) or as the
+  strings `"Females"`/`"Males"` (case-insensitive; `"female"`,
+  `"male"`, `"f"`, `"m"` also accepted). `NULL` (default) means every
+  sex in the model. Only meaningful when `by` includes `sex`;
+  otherwise the filter is a no-op. Use this to register *different
+  formulas or priors per sex* under the same target parameter --
+  see *Per-sex formulas* below.
 * **`link`** -- the link function applied to the predictor (NOT YET IMPLEMENTED)
 * **`init`**, **`bounds`** -- optional named lists keyed by
   design-matrix column name. `init = list(temp = 0.05)` sets the temp
@@ -516,7 +525,54 @@ linkage_spec(
 )
 ```
 
-## Non-linear and basis-expansion formulas
+## Per-sex formulas
+
+The `sex` argument on `linkage_spec()` mirrors `species`: it scopes a
+spec to a subset of sex ids. Combined with the multi-spec list form,
+this lets you register *separate specs per sex* against the same
+parameter -- typical use cases are sex-dimorphic M priors or distinct
+env responses for females vs. males:
+
+```{r}
+# Female and male M1 each get their own intercept-only prior.
+M1_spec <- build_M1(
+  M1_model = "sex_specific",
+  linkages = list(
+    log_M1 = list(
+      linkage_spec(
+        formula = ~ 1,
+        by      = ~ species + sex,
+        sex     = "Females",                              # or sex = 1L
+        init    = list(`(Intercept)` = log(0.12)),
+        priors  = list(`(Intercept)` = normal(log(0.12), 0.0001))
+      ),
+      linkage_spec(
+        formula = ~ 1,
+        by      = ~ species + sex,
+        sex     = "Males",                                # or sex = 2L
+        init    = list(`(Intercept)` = log(0.20)),
+        priors  = list(`(Intercept)` = normal(log(0.20), 0.0001))
+      )
+    )
+  )
+)
+```
+
+The `sex` filter is a no-op when `by` does not include `sex`. If you
+want different *formulas* per sex (rather than just different priors
+or inits), use the multi-spec form -- one spec with `sex = 1L` and
+its own RHS, another with `sex = 2L` and a different RHS. The pooler
+unions the design columns by name in the same way it does for
+per-species formulas.
+
+If you only need different priors per (species, sex) for a single
+shared formula, the nested-priors form (see *Species- and (species,
+sex)-specific priors* above) is simpler -- one spec, one set of
+design columns, prior values keyed by `species` then `sex`. Reach for
+the per-sex multi-spec form when you need different RHS terms,
+different `init`/`bounds`, or different `est_phase` between sexes.
+
+## Polynomial and basis-expansion formulas
 
 The formula passed to `linkage_spec()` is fed straight to
 [`stats::model.matrix()`](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/model.matrix.html),
