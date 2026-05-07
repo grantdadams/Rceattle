@@ -31,7 +31,6 @@ Imports:
     oce,
     readxl,
     TMB (>= 1.7.16),
-    Matrix,
     writexl,
     reshape2,
     gplots,

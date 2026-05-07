@@ -34,9 +34,14 @@ jobs:
             libgsl-dev \
             libblas-dev \
             liblapack-dev \
-            gfortran
+            gfortran \
+            libssl-dev \
+            libcurl4-openssl-dev \
+            libxml2-dev
 
       - uses: r-lib/actions/setup-r-dependencies@v2
+        env:
+          PAK_VERBOSE: true
         with:
           extra-packages: any::pkgdown, local::.
           needs: website
