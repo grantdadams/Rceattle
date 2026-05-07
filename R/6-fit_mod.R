@@ -302,21 +302,21 @@ fit_mod <-
       strata      = list(
         species = seq_len(data_list$nspp),
         sex     = if (length(data_list$nsex) > 1L &&
-                         length(unique(data_list$nsex)) > 1L) {
-                    base::setNames(lapply(seq_len(data_list$nspp),
-                                    function(sp) seq_len(data_list$nsex[sp])),
-                             as.character(seq_len(data_list$nspp)))
-                  } else {
-                    seq_len(max(data_list$nsex))
-                  },
+                      length(unique(data_list$nsex)) > 1L) {
+          stats::setNames(lapply(seq_len(data_list$nspp),
+                                 function(sp) seq_len(data_list$nsex[sp])),
+                          as.character(seq_len(data_list$nspp)))
+        } else {
+          seq_len(max(data_list$nsex))
+        },
         age_bin = if (length(data_list$nages) > 1L &&
-                         length(unique(data_list$nages)) > 1L) {
-                    base::setNames(lapply(seq_len(data_list$nspp),
-                                    function(sp) seq_len(data_list$nages[sp])),
-                             as.character(seq_len(data_list$nspp)))
-                  } else {
-                    seq_len(max(data_list$nages))
-                  }
+                      length(unique(data_list$nages)) > 1L) {
+          base::setNames(lapply(seq_len(data_list$nspp),
+                                function(sp) seq_len(data_list$nages[sp])),
+                         as.character(seq_len(data_list$nspp)))
+        } else {
+          seq_len(max(data_list$nages))
+        }
       )
     )
     data_list$linkage_table <- .linkage_pool$table
