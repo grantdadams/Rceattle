@@ -14,13 +14,9 @@ CEATTLE is short for Climate-Enhanced, Age-based model with Temperature-specific
 **Installation**
 
 ```r
-# Required dependencies (CRAN)
-install.packages("TMB", type = "source")
-install.packages("Matrix", type = "source")
-install.packages("devtools")
-
-# Rceattle (pulls remaining CRAN dependencies automatically)
-devtools::install_github("grantdadams/Rceattle")
+# Rceattle (pulls CRAN dependencies automatically)
+install.packages("remotes")
+remotes::install_github("grantdadams/Rceattle")
 
 # Optional: TMBhelper provides richer optimization diagnostics.
 # Rceattle falls back to plain nlminb + sdreport if it's not installed.
@@ -65,6 +61,7 @@ coef(fit)                 # estimated fixed-effect parameters
 logLik(fit)               # logLik with df attribute (AIC works)
 AIC(fit)
 vcov(fit)                 # fixed-effect covariance from sdreport
+as.data.frame(fit)        # return data.frame of derived quantities
 
 # Plot dispatcher: pick a panel with `what`
 plot(fit, what = "biomass")

@@ -36,7 +36,7 @@ NULL
 
 utils::globalVariables(c(
   # Data column names used in dplyr/ggplot2 non-standard evaluation
-  "Year", "Fleet_code", "Catch", "Species", "Length", "Bin", "Sex",
+  "Year", "Fleet_code", "Time_varying_q", "Catch", "Species", "Length", "Bin", "Sex",
   "Pred", "Pred_age", "Pred_sex", "Sample_size", "Diet_hat",
   "Stomach_proportion_by_weight", "Diet_weights_mcallister",
   "Prey", "Prey_sex", "Prey_age", "stratum_id", "stomach_id",

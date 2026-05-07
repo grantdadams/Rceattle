@@ -127,7 +127,7 @@ make_test_data <- function(nyrs = 8, nprojyrs = 10, nages = 5, seed = NULL) {
 
   # Minimal CAAL
   simData$caal_data <- data.frame(matrix(NA, nrow = 0, ncol = 7 + nages))
-  colnames(simData$caal_data ) = c("Fleet_name", "Fleet_code", "Species", "Sex", "Year", "Length", "Sample_size", paste("CAAL_", 1:nages))
+  colnames(simData$caal_data ) = c("Fleet_name", "Fleet_code", "Species", "Sex", "Year", "Length", "Sample_size", paste0("CAAL_", 1:nages))
 
   #  Empirical selectivity
   simData$emp_sel <- data.frame(matrix(NA, nrow = 0, ncol = 5 + nages))

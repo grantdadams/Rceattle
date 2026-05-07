@@ -6,8 +6,53 @@
 #'
 clean_data <- function(data_list){
 
-  # Transpose fleet control
-  data_list <- transpose_fleet_control(data_list)
+  # --- 0. Default-fill optional data.frame fields ----
+  # These fields can be NULL when the user is not using the corresponding feature
+  # (e.g., comp_data in a model without composition likelihoods, ration_data /
+  # diet_data in single-species mode, NByageFixed when estDynamics == 0).
+  # Filling with empty data.frames that carry the metadata columns the
+  # downstream code expects lets rearrange_data / build_params use uniform
+  # `nrow > 0` checks without separate NULL guards. Whether the missing data is
+  # actually a problem is enforced by data_check() based on the model
+  # configuration (msmMode, growth_model, estDynamics, Selectivity, etc.).
+  default_dfs <- list(
+    comp_data   = data.frame(Fleet_code = integer(), Species = integer(),
+                             Sex = integer(), Age0_Length1 = integer(),
+                             Year = integer(), Month = integer(),
+                             Sample_size = numeric()),
+    caal_data   = data.frame(Fleet_code = integer(), Species = integer(),
+                             Sex = integer(), Year = integer(),
+                             Length = numeric(), Sample_size = numeric()),
+    emp_sel     = data.frame(Fleet_code = integer(), Species = integer(),
+                             Sex = integer(), Year = integer()),
+    NByageFixed = data.frame(Species = integer(), Sex = integer(),
+                             Year = integer()),
+    ration_data = data.frame(Species = integer(), Sex = integer(),
+                             Year = integer()),
+    diet_data   = data.frame(Pred = integer(), Prey = integer(),
+                             Pred_sex = integer(), Prey_sex = integer(),
+                             Pred_age = integer(), Prey_age = integer(),
+                             Year = integer(),
+                             Sample_size = numeric(),
+                             Stomach_proportion_by_weight = numeric())
+  )
+  for(df_name in names(default_dfs)){
+    if(is.null(data_list[[df_name]])){
+      data_list[[df_name]] <- default_dfs[[df_name]]
+    }
+  }
+
+  # env_data: default to a Year-only data.frame so downstream code that does
+  # `ncol(env_data) - 1` (number of indices) gets 0 when no environmental data
+  # are supplied, and `merge(env_data, ...)` in rearrange_dat() works.
+  # data_check() still errors when a model feature (env-q catchability,
+  # temperature-dependent consumption, env linkages, srr/M1 indices) needs
+  # actual indices.
+  if(is.null(data_list$env_data)){
+    yrs <- if(!is.null(data_list$styr) && !is.null(data_list$projyr))
+             data_list$styr:data_list$projyr else integer(0)
+    data_list$env_data <- data.frame(Year = yrs)
+  }
 
   # --- 1. Filter Data by Year ----
   # Data in likelihood (use absolute Year)
@@ -125,6 +170,33 @@ switch_check <- function(data_list){
   data_list$M1_re <- set_default(data_list$M1_re, rep(0, data_list$nspp), "'M1_re' is not in data, assuming 0 for all species")
   data_list$initMode <- set_default(data_list$initMode, 2, "'initMode' is not in the data, setting to 2 (default)")
 
+  # Bioenergetics scalars: TMB declares them as DATA_VECTOR length-nspp, so
+  # they must exist even when not used. In single-species mode (msmMode == 0)
+  # they are never read by the consumption code, so silently fill any missing
+  # entries with safe sentinels. When msmMode > 0 we leave them untouched and
+  # let data_check() report which ones are missing or wrong-length.
+  if(data_list$msmMode == 0){
+    bioenergetics_defaults <- list(
+      Ceq    = rep(1L,  data_list$nspp),
+      Cindex = rep(0L,  data_list$nspp),
+      Pvalue = rep(1,   data_list$nspp),
+      fday   = rep(365, data_list$nspp),
+      CA     = rep(0,   data_list$nspp),
+      CB     = rep(0,   data_list$nspp),
+      Qc     = rep(0,   data_list$nspp),
+      Tco    = rep(0,   data_list$nspp),
+      Tcm    = rep(0,   data_list$nspp),
+      Tcl    = rep(0,   data_list$nspp),
+      CK1    = rep(0,   data_list$nspp),
+      CK4    = rep(0,   data_list$nspp)
+    )
+    for(nm in names(bioenergetics_defaults)){
+      if(is.null(data_list[[nm]])){
+        data_list[[nm]] <- bioenergetics_defaults[[nm]]
+      }
+    }
+  }
+
   # 1. Fleet Control defaults ----
   data_list$fleet_control$Sel_norm_bin1 <- set_default(data_list$fleet_control$Sel_norm_bin1, NA, "'Sel_norm_bin1' not specified in 'fleet_control', assuming 'NA'")
   data_list$fleet_control$Sel_norm_bin2 <- set_default(data_list$fleet_control$Sel_norm_bin2, NA, "'Sel_norm_bin2' not specified in 'fleet_control', assuming 'NA'")
@@ -235,27 +307,6 @@ revert_switches <- function(data_list) {
   data_list$initMode <- .conv(data_list$initMode, initMode_map)
   data_list$HCR <- .conv(data_list$HCR, hcr_map)
 
-  return(data_list)
-}
-
-#' Function to transpose fleet_control if long format
-#'
-#' @param data_list Rceattle data list
-#'
-#' @export
-transpose_fleet_control <- function(data_list){
-
-  if(sum(colnames(data_list$fleet_control)[1:2] == c("Fleet_name", "Fleet_code")) != 2){ #, "Fleet_type", "Species", "Selectivity_index", "Selectivity")) != 6){
-    data_list$fleet_control <- as.data.frame(t(data_list$fleet_control))
-    colnames(data_list$fleet_control) <- data_list$fleet_control[1,]
-    data_list$fleet_control <- data_list$fleet_control[-1,]
-    data_list$fleet_control <- cbind(data.frame(Fleet_name = rownames(data_list$fleet_control)),
-                                     data_list$fleet_control)
-    rownames(data_list$fleet_control) = NULL
-
-    data_list$fleet_control[,-which(colnames(data_list$fleet_control) %in% c("Fleet_name", "Time_varying_q"))] <- apply(
-      data_list$fleet_control[,-which(colnames(data_list$fleet_control) %in% c("Fleet_name", "Time_varying_q"))], 2, as.numeric)
-  }
   return(data_list)
 }
 

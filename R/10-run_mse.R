@@ -71,7 +71,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
   }
 
   if(sum(om$data_list$fleet_control$proj_F_prop) == 0){
-    stop("F prop per fllet 'proj_F_prop' is zero")
+    stop("F prop per fleet 'proj_F_prop' is zero")
   }
 
   # ** Refit OM if proj_F_prop was not activated ----

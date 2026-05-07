@@ -16,7 +16,7 @@
 #include "linkage.hpp"
 
 /** ------------------------------------------------------------------------ //
- *                 CEATTLE version 4.0.1                                     //
+ *                 CEATTLE version 4.3.0                                     //
  *                  Template Model Builder                                   //
  *               Multispecies Statistical Model                              //
  *          Bioenergetic-based Assessment for Understanding                  //
@@ -2457,7 +2457,7 @@ Type objective_function<Type>::operator() () {
     vector<Type> unweighted_alphas = comp_n(comp_ind, 1) * comp_hat_tmp;          // DM alpha
 
     // Only use years wanted
-    if((yr <= endyr) && (yr > 0) && (flt_type(flt) > 0)){
+    if((yr <= endyr) && (yr > 0) && (flt_type(flt) > 0) && (comp_n(comp_ind, 1) > 0)){
 
       switch(comp_ll_type(flt)){
 
@@ -2517,7 +2517,7 @@ Type objective_function<Type>::operator() () {
     vector<Type> unweighted_alphas = sum(caal_obs_tmp) * caal_hat_tmp;          // DM alpha
 
     // Only use years wanted
-    if((yr <= endyr) && (yr > 0) && (flt_type(flt) > 0)){
+    if((yr <= endyr) && (yr > 0) && (flt_type(flt) > 0) && (caal_n(caal_ind, 0) > 0)){
 
       switch(caal_ll_type(flt)){
 
