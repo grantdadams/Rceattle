@@ -52,7 +52,6 @@ Suggests:
     rmarkdown,
     knitr,
     mvtnorm,
-    TMBhelper,
     pkgdown
 VignetteBuilder:
     knitr
