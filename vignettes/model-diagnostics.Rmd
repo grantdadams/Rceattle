@@ -58,6 +58,7 @@ logLik(model_1)               # logLik with df attribute (AIC works)
 AIC(model_1)
 vcov(model_1)                 # fixed-effect covariance fro
 residuals(model_1)            # data.frame of residuals
+as.data.frame(model_1)
 ```
 
 
