@@ -30,6 +30,7 @@ Imports:
     MASS,
     oce,
     readxl,
+    RcppEigen,
     TMB (>= 1.7.16),
     writexl,
     reshape2,
@@ -46,7 +47,8 @@ Imports:
     tidyselect,
     magrittr
 LinkingTo:
-    TMB
+    TMB,
+    RcppEigen
 Suggests:
     testthat (>= 2.0.0),
     rmarkdown,
