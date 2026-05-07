@@ -311,7 +311,7 @@ fit_mod <-
         },
         age_bin = if (length(data_list$nages) > 1L &&
                       length(unique(data_list$nages)) > 1L) {
-          base::setNames(lapply(seq_len(data_list$nspp),
+          stats::setNames(lapply(seq_len(data_list$nspp),
                                 function(sp) seq_len(data_list$nages[sp])),
                          as.character(seq_len(data_list$nspp)))
         } else {
