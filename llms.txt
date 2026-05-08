@@ -1,7 +1,7 @@
 # Rceattle
 
-Rceattle: an R package for fitting and testing climate-linked, single-
-and multi-species age-structured stock assessment models via
+Rceattle: an R package for fitting climate-linked, single- and
+multi-species age-structured stock assessment models and testing via
 diagnostics, simulation, and management strategy evaluation.
 
 `Rceattle` implements models in R using Template Model Builder (`TMB`;

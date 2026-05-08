@@ -58,7 +58,6 @@ growth_spec <- build_growth(
     log_K = linkage_spec(
       formula = ~ temp,             # 2 columns: (Intercept) and `temp`
       by      = ~ species + sex,    # one beta per (species, sex, column)
-      link    = "log",              # K lives on the log scale already
       priors  = list(temp = normal(0, 0.1)) # Tight prior
     )
   )

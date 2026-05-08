@@ -23,12 +23,9 @@ or exported back to Excel with
 
 ### Required vs. optional fields
 
-The list below uses every field the model knows about, but most of them
-are optional and only needed when a particular feature is turned on.
-[`clean_data()`](https://grantdadams.github.io/Rceattle/reference/clean_data.md)
-fills missing optional fields with safe defaults, and
-[`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md)
-enforces them only under the conditions that actually require them:
+The list are optional and only needed when a particular feature is
+turned on. `Rceattle` fills missing optional fields with safe defaults
+and stops model runs under the conditions that actually require them:
 
 | Field | Required when |
 |----|----|
