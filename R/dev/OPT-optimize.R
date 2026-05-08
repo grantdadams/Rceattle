@@ -152,7 +152,7 @@ fit_tmb = function( obj, fn=obj$fn, gr=obj$gr, startpar=obj$par, lower=rep(-Inf,
 
   # Save results
   if( !is.null(savedir) ){
-    save( parameter_estimates, file=file.path(savedir,"parameter_estimates.RData"))
+    save( parameter_estimates, file=file.path(savedir,"parameter_estimates.Rdata"))
     capture.output( parameter_estimates, file=file.path(savedir,"parameter_estimates.txt"))
   }
 
@@ -275,7 +275,7 @@ fit_tmb_mse = function( fn=obj$fn, gr=obj$gr, startpar=obj$par, lower=rep(-Inf,l
 
   # Save results
   if( !is.null(savedir) ){
-    save( parameter_estimates, file=file.path(savedir,"parameter_estimates.RData"))
+    save( parameter_estimates, file=file.path(savedir,"parameter_estimates.Rdata"))
     capture.output( parameter_estimates, file=file.path(savedir,"parameter_estimates.txt"))
   }
 

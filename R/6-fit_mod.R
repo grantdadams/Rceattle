@@ -823,7 +823,7 @@ fit_mod <-
     class(mod_objects) <- "Rceattle"
 
     if (!is.null(file)) {
-      save(mod_objects, file = paste0(file, ".RData"))
+      save(mod_objects, file = paste0(file, ".Rdata"))
     }
 
     # Free up memory

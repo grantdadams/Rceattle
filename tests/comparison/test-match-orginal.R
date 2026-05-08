@@ -2,7 +2,7 @@
 
 # Single-species ----
 # Load old model
-load("inst/extdata/CEATTLE_classic_ss.Rdata")
+load("inst/extdata/CEATTLE_classic_SS.Rdata")
 
 # Load data and set up inits
 library(Rceattle)
