@@ -1,13 +1,22 @@
 # Rceattle
 
-Rceattle: an R package for estimation of CEATTLE using template model builder. 
+Rceattle: an R package for fitting and testing climate-linked, single- and multi-species age-structured stock assessment models via diagnostics, simulation, and management strategy evaluation.
 
+`Rceattle` implements models in R using Template Model Builder (`TMB`; Kristensen et al., 2015). Data can be supplied via the bundled Excel template or constructed programmatically as an R list (see *Building a data object without Excel* vignette). Capabilities include:
 
-CEATTLE is short for Climate-Enhanced, Age-based model with Temperature-specific Trophic Linkages and Energetics, which is a multi-species age-structured assessment model developed for groundfish in the Bering Sea, USA by Holsman et al. (2015) and Gulf of Alaska, USA (Adams et al, 2022). Essentially, it is a multispecies statistical catch-at-age model. To incorporate the impacts of climate, the model includes temperature-specific, bioenergetics-based predation interactions. Inputs of the model include survey/fishery index, catch, and length/age composition data in addition to empirical weight-at-age, diet proportion, and ration data. Outputs include historical estimates of predation mortality, fishing mortality, biomass, recruitment, etc.
+- **Single-species** (`msmMode = 0`) and **multispecies** (`msmMode > 0`) configurations, with one- or two-sex population dynamics
+- **One or multiple stocks** can be fit jointly.
+- **Multiple fisheries and surveys** with flexible **catchability** and **selectivity** parameterizations (logistic, double-logistic, non-parametric, time-varying)
+- **Stock–recruitment** options (Beverton–Holt, Ricker, mean-recruitment, environmentally-driven)
+- **Estimable growth** (von Bertalanffy / empirical weight-at-age)
+- **Environmental linkages and priors** on recruitment, natural mortality, and growth
+- **Bioenergetics-based predation** with temperature-specific consumption (multispecies mode)
+- **Forward projections** under alternative **harvest control rules** and climate scenarios
+- **Closed-loop MSE**, **retrospective**, **jitter**, and **simulation testing**
+- **Tidy outputs** via S3 methods (`as.data.frame`, `coef`, `logLik`, `vcov`, `residuals`, `plot`)
 
+See `browseVignettes("Rceattle")` or the [package website](https://grantdadams.github.io/Rceattle/) for full documentation.
 
-
-'Rceattle' is an 'R' package designed to implement the CEATTLE model using Template Model Builder ('TMB'; Kristensen et al. 2015), which can be installed following https://github.com/kaskr/adcomp/wiki/Download. Rceattle is structured similar to Adams et al (2022). Data are read in via an excel document (see examples) for model fitting (see examples). Projections can be conducted under alternative harvest control rules, climate projections, and recruitment. Model diagnostic, validation, simulation, and closed loop simulation testing (management strategy evaluation) functions are included as well. The package supports one- or -two sex models with multiple fisheries and surveys with flexible catchability and selectivity parameterizations. See vignette (in progress) for model parameterizations. 
 
 **Installation**
 
@@ -22,10 +31,10 @@ remotes::install_github("grantdadams/Rceattle")
 ```
 
 For operational / management use, pin a specific tagged release rather than
-tracking `master`, e.g.:
+tracking `main`, e.g.:
 
 ```r
-devtools::install_github("grantdadams/Rceattle@v4.0.2")
+devtools::install_github("grantdadams/Rceattle@v4.3.0")
 ```
 
 The maintainer email in `DESCRIPTION` (`grant.adams@noaa.gov`) is the
@@ -82,9 +91,9 @@ and Wiki. The model can be updated following instructions
 [here](https://github.com/grantdadams/Rceattle/wiki/Workflow-for-updating-the-Rceattle).
 
 **Examples**
-Code and function examples using data from the Bering Sea and Gulf of Alaska groundfish application can be found in the [examples](https://github.com/grantdadams/Rceattle/tree/master/examples) folder and include:
-* [Fitting multi-species models](https://github.com/grantdadams/Rceattle/blob/master/examples/Fit_2018_GOA_multi-species_model.R)
+Additional code and function examples using data from the Bering Sea and Gulf of Alaska groundfish application can be found in the [examples](https://github.com/grantdadams/Rceattle/tree/master/examples) folder and include:
 * [Fitting single-species models](https://github.com/grantdadams/Rceattle/blob/master/examples/Fit_2018_GOA_single-species_models.R)
+* [Fitting multi-species models](https://github.com/grantdadams/Rceattle/blob/master/examples/Fit_2018_GOA_multi-species_model.R)
 * [Alternative HCRs and MSE testing](https://github.com/grantdadams/Rceattle/blob/master/examples/HCRs_and_MSE_testing.R)
 * [Simulation](https://github.com/grantdadams/Rceattle/blob/master/examples/Simulation_testing.R)
 * [Model diagnostics](https://github.com/grantdadams/Rceattle/blob/master/examples/Model_diagnostics.R)
