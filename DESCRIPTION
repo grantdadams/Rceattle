@@ -30,7 +30,6 @@ Imports:
     MASS,
     oce,
     readxl,
-    RcppEigen,
     TMB (>= 1.7.16),
     writexl,
     reshape2,
@@ -54,7 +53,9 @@ Suggests:
     rmarkdown,
     knitr,
     mvtnorm,
-    pkgdown
+    pkgdown,
+    TMBhelper,
+    RcppEigen
 VignetteBuilder:
     knitr
 Depends:
