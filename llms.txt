@@ -3,9 +3,6 @@
 Rceattle: an R package for estimation of CEATTLE using template model
 builder.
 
-NOTE: this branch is the most up to date and will sync with the DSEM
-branch long term.
-
 CEATTLE is short for Climate-Enhanced, Age-based model with
 Temperature-specific Trophic Linkages and Energetics, which is a
 multi-species age-structured assessment model developed for groundfish

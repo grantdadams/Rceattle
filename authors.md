@@ -8,7 +8,7 @@
 ## Citation
 
 Source:
-[`inst/CITATION`](https://github.com/grantdadams/Rceattle/blob/4.3.0/inst/CITATION)
+[`inst/CITATION`](https://github.com/grantdadams/Rceattle/blob/main/inst/CITATION)
 
 Adams, G.D., Holsman, K.K., Barbeaux, S.J., Dorn, M.W., Ianelli, J.N.,
 Spies, I., Stewart, I.J., Punt, A.E. (2022). An ensemble approach to
