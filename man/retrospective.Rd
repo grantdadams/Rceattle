@@ -4,19 +4,14 @@
 \alias{retrospective}
 \title{Retrospective peels}
 \usage{
-retrospective(
-  Rceattle = NULL,
-  peels = NULL,
-  rescale = FALSE,
-  nyrs_forecast = 3
-)
+retrospective(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_forecast = 3)
 }
 \arguments{
 \item{Rceattle}{an Rceattle model fit using \code{\link{fit_mod}}}
 
 \item{peels}{the number of retrospective peels to use in the calculation of rho and for model estimation}
 
-\item{rescale}{TRUE/FALSE wether to subset and rescale environmental predictors for the range of peel years.}
+\item{rescale}{TRUE/FALSE whether to subset and rescale environmental predictors for the range of peel years.}
 
 \item{nyrs_forecast}{Number of forecast years to calculate Mohn's Rho in addition to terminal year}
 }
@@ -24,19 +19,21 @@ retrospective(
 a list of 1. list of Rceattle models and 2. vector of Mohn's rho for each species
 }
 \description{
-Calculate Mohn's rho and run retrospective peels for an Rceattle model
+Calculate Mohn's rho and run retrospective peels for an Rceattle model. The function also evaluates retrospective forecast skill. To evaluate both retrospective bias and forecast skill, the function uses the map functionality of TMB to peel the model:
+\enumerate{
+\item Filters data, filters fixed inputs, and maps out time-varying parameters for the peeled years. All time-varying parameters for the peeled years are set to the terminal year of the model for that peel.
+\item Fits the peeled model.
+\item Turns off all hindcast parameters, turns on F for the peeled years, and fits to the peeled catch series to update the "forecast" dynamics given projection assumptions and observed catch from the peeled years.
+}
 }
 \examples{
-data(BS2017SS) # ?BS2017SS for more information on the data
-data('BS2017MS') # Note: the only difference is the residual mortality is lower
-
-ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
-                            inits = NULL, # Initial parameters = 0
-                            file = NULL, # Don't save
-                            debug = 0, # Estimate
-                            random_rec = FALSE, # No random recruitment
-                            msmMode = 0, # Single species mode
-                            silent = TRUE)
-
+\donttest{
+data(BS2017SS)
+ss_run <- fit_mod(data_list = BS2017SS,
+    inits = NULL, file = NULL,
+    estimateMode = 0, random_rec = FALSE,
+    msmMode = 0, avgnMode = 0,
+    phase = FALSE, verbose = 0)
 retro <- retrospective(ss_run, peels = 10)
+}
 }

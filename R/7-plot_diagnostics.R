@@ -4,7 +4,7 @@
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param single.plots if TRUE plot invidual fits else make multiplot
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
@@ -30,9 +30,10 @@ plot_index <- function(Rceattle,
                        height=NULL,
                        error = TRUE){
 
+  .save_par()  # snapshot graphics par() and restore on exit
 
   # Convert single one into a list
-  if(class(Rceattle) == "Rceattle"){
+  if(inherits(Rceattle, "Rceattle")){
     Rceattle <- list(Rceattle)
   }
 
@@ -58,7 +59,7 @@ plot_index <- function(Rceattle,
 
     # Get observed
     Srv_list[[i]] <- Rceattle[[i]]$data_list$index_data
-    Srv_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$ln_index_sd
+    Srv_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$log_index_sd
     Srv_list[[i]]$Upper95 <- qlnorm(0.975, meanlog = log(Srv_list[[i]]$Observation), sdlog = Srv_list[[i]]$Log_sd)
     Srv_list[[i]]$Lower95 <- qlnorm(0.025, meanlog = log(Srv_list[[i]]$Observation), sdlog = Srv_list[[i]]$Log_sd)
 
@@ -66,14 +67,14 @@ plot_index <- function(Rceattle,
     # Get estimated
     Srv_hat_list[[i]] <- Rceattle[[i]]$data_list$index_data
     Srv_hat_list[[i]]$Observation <- Rceattle[[i]]$quantities$index_hat
-    Srv_hat_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$ln_index_sd
+    Srv_hat_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$log_index_sd
 
     # Filter species
-    Srv_hat_list[[i]] <- Srv_hat_list[[i]] %>%
+    Srv_hat_list[[i]] <- Srv_hat_list[[i]] |>
       dplyr::filter(Species %in% species)
 
     # Filter species
-    Srv_list[[i]] <- Srv_list[[i]] %>%
+    Srv_list[[i]] <- Srv_list[[i]] |>
       dplyr::filter(Species %in% species)
   }
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
@@ -87,7 +88,7 @@ plot_index <- function(Rceattle,
   fleet_control <- (Rceattle[[1]]$data_list$fleet_control)
   index_data <- Srv_list[[1]]
   srvs <- sort(unique(index_data$Fleet_code))
-  srvs <- srvs[which(srvs %in% fleet_control$Fleet_code[which(fleet_control$Fleet_type == 2)])] # Only use surveys that are estimates
+  srvs <- srvs[which(srvs %in% fleet_control$Fleet_code[which(fleet_control$Fleet_type == "Survey")])] # Only use surveys that are estimates
   #FIXME assumes all surveys are the same across models
   nsrv <- length(srvs)
 
@@ -97,8 +98,8 @@ plot_index <- function(Rceattle,
   for(srv in 1:nsrv){
     for(i in 1:length(Rceattle)){
       srv_ind <- which(Srv_list[[i]]$Fleet_code == srvs[srv])
-      ymax[srv] <- max(c(Srv_list[[i]]$Upper95[srv_ind], Srv_hat_list[[i]]$Observation[srv_ind], ymax[srv]), na.rm = T)
-      ymin[srv] <- min(c(Srv_list[[i]]$Lower95[srv_ind], Srv_hat_list[[i]]$Observation[srv_ind], ymin[srv]), na.rm = T)
+      ymax[srv] <- max(c(Srv_list[[i]]$Upper95[srv_ind], Srv_hat_list[[i]]$Observation[srv_ind], ymax[srv]), na.rm = TRUE)
+      ymin[srv] <- min(c(Srv_list[[i]]$Lower95[srv_ind], Srv_hat_list[[i]]$Observation[srv_ind], ymin[srv]), na.rm = TRUE)
     }
   }
   ymax <- ymax + top_adj * (ymax-ymin)
@@ -122,7 +123,7 @@ plot_index <- function(Rceattle,
         # Save
         if(j == 2){
           filename <- paste0(file, "fleet",srvs[j]," ",as.character(fleet_control$Fleet_name[srvs[srv]]), "_survey_index", ".png")
-          png(file = filename, width = width, height = height, res = 200, units = "in")
+          png(filename = filename, width = width, height = height, res = 200, units = "in")
         }
 
 
@@ -146,7 +147,7 @@ plot_index <- function(Rceattle,
 
           # Plot observed CPUE
           if(error){
-            gplots::plotCI(srv_tmp$Year, (srv_tmp$Observation), ui=(srv_tmp$Upper95), li=(srv_tmp$Lower95),add=T,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
+            gplots::plotCI(srv_tmp$Year, (srv_tmp$Observation), ui=(srv_tmp$Upper95), li=(srv_tmp$Lower95),add= TRUE,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
           }
         }
 
@@ -182,7 +183,7 @@ plot_index <- function(Rceattle,
       # Save
       if(j == 2){
         filename <- paste0(file,"_survey_indices", ".png")
-        png(file = filename, width = width, height = height, res = 200, units = "in")
+        png(filename = filename, width = width, height = height, res = 200, units = "in")
       }
       par(Par)
 
@@ -232,7 +233,7 @@ plot_index <- function(Rceattle,
 
           # Plot observed CPUE
           if(error){
-            gplots::plotCI(srv_tmp$Year, (srv_tmp$Observation), ui=(srv_tmp$Upper95), li=(srv_tmp$Lower95),add=T,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
+            gplots::plotCI(srv_tmp$Year, (srv_tmp$Observation), ui=(srv_tmp$Upper95), li=(srv_tmp$Lower95),add= TRUE,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
           }
         }
       }
@@ -250,7 +251,7 @@ plot_index <- function(Rceattle,
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param single.plots if TRUE plot invidual fits else make multiplot
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
@@ -266,7 +267,7 @@ plot_index <- function(Rceattle,
 #' @param maxyr Max year to plot
 #' @param error Include observed data with error bars?
 #' @param fleets Which fishing fleets to include (defaults to all = NULL)
-#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{mse_run}}. Will plot data from OMs.
+#' @param mse Is if an MSE object from \code{\link{load_mse}} or \code{\link{run_mse}}. Will plot data from OMs.
 #'
 #' @export
 
@@ -289,6 +290,8 @@ plot_catch <- function(Rceattle,
                        error = TRUE,
                        fleets = NULL){
 
+  .save_par()  # snapshot graphics par() and restore on exit
+
   # Convert mse object to Rceattle list
   if(mse){
     Rceattle <- lapply(Rceattle, function(x) x$OM)
@@ -296,7 +299,7 @@ plot_catch <- function(Rceattle,
   }
 
   # Convert single one into a list
-  if(class(Rceattle) == "Rceattle"){
+  if(inherits(Rceattle, "Rceattle")){
     Rceattle <- list(Rceattle)
   }
 
@@ -327,7 +330,7 @@ plot_catch <- function(Rceattle,
   for(i in 1:length(Rceattle)){
     # Get observed
     fsh_list[[i]] <- Rceattle[[i]]$data_list$catch_data[which(Rceattle[[i]]$data_list$catch_data$Year %in% Years[[i]] ),]
-    fsh_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$ln_catch_sd[which(Rceattle[[i]]$data_list$catch_data$Year %in% Years[[i]] )]
+    fsh_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$log_catch_sd[which(Rceattle[[i]]$data_list$catch_data$Year %in% Years[[i]] )]
 
     no_zero <- which(fsh_list[[i]]$Catch > 0)
     fsh_list[[i]]$Lower95 <- 0
@@ -339,7 +342,7 @@ plot_catch <- function(Rceattle,
     # Get estimated
     fsh_hat_list[[i]] <- Rceattle[[i]]$data_list$catch_data[which(Rceattle[[i]]$data_list$catch_data$Year %in% Years[[i]] ),]
     fsh_hat_list[[i]]$Catch <- Rceattle[[i]]$quantities$catch_hat[which(Rceattle[[i]]$data_list$catch_data$Year %in% Years[[i]] )]
-    fsh_hat_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$ln_catch_sd[which(Rceattle[[i]]$data_list$catch_data$Year %in% Years[[i]] )]
+    fsh_hat_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$log_catch_sd[which(Rceattle[[i]]$data_list$catch_data$Year %in% Years[[i]] )]
 
     # Porjected
     proj_fsh_hat_list[[i]] <- Rceattle[[i]]$data_list$catch_data[which(Rceattle[[i]]$data_list$catch_data$Year %in% ProjYears[[i]] ),]
@@ -397,10 +400,10 @@ plot_catch <- function(Rceattle,
     for(fsh in 1:nflts){
       for(i in 1:nmods){
         fsh_ind <- which(fsh_list[[i]]$Fleet_code == flts[fsh])
-        ymax[fsh] <- max(c(fsh_list[[i]]$Upper95[fsh_ind], fsh_hat_list[[i]]$Catch[fsh_ind], ymax[fsh]), na.rm = T)
+        ymax[fsh] <- max(c(fsh_list[[i]]$Upper95[fsh_ind], fsh_hat_list[[i]]$Catch[fsh_ind], ymax[fsh]), na.rm = TRUE)
 
         if(mse){
-          ymax[fsh] <- max(c(fsh_hat_list[[i]]$Upper95[fsh_ind], ymax[fsh]), na.rm = T)
+          ymax[fsh] <- max(c(fsh_hat_list[[i]]$Upper95[fsh_ind], ymax[fsh]), na.rm = TRUE)
         }
       }
     }
@@ -426,7 +429,7 @@ plot_catch <- function(Rceattle,
         # Save
         if(j == 2){
           filename <- paste0(file, "fleet",flts[j]," ",as.character(fleet_control$Fleet_name[flts[fsh]]), "_fishery_catch", ".png")
-          png(file = filename, width = width, height = height, res = 200, units = "in")
+          png(filename = filename, width = width, height = height, res = 200, units = "in")
         }
 
         par(Par)
@@ -438,14 +441,14 @@ plot_catch <- function(Rceattle,
         for (k in 1:nmods) {
 
           # Subset data by fleet and model
-          fsh_tmp <- fsh_list[[k]] %>%
+          fsh_tmp <- fsh_list[[k]] |>
             filter(Fleet_code == flts[fsh])
 
           if(mse){
-            fsh_tmp <- fsh_tmp %>% filter(Year <= meanyrs[k]) # Only show historical catch if MSE models
+            fsh_tmp <- fsh_tmp |> filter(Year <= meanyrs[k]) # Only show historical catch if MSE models
           }
 
-          fsh_hat_tmp <- fsh_hat_list[[k]] %>%
+          fsh_hat_tmp <- fsh_hat_list[[k]] |>
             filter(Fleet_code == flts[fsh])
 
 
@@ -454,12 +457,12 @@ plot_catch <- function(Rceattle,
 
           # - Plot observed CPUE
           if(error){
-            gplots::plotCI(fsh_tmp$Year, (fsh_tmp$Catch), ui=(fsh_tmp$Upper95), li=(fsh_tmp$Lower95),add=T,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
+            gplots::plotCI(fsh_tmp$Year, (fsh_tmp$Catch), ui=(fsh_tmp$Upper95), li=(fsh_tmp$Lower95),add= TRUE,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
           }
 
           # - Plot MSE shading
           if(mse){
-            fsh_hat_tmp <- fsh_hat_list[[k]] %>%
+            fsh_hat_tmp <- fsh_hat_list[[k]] |>
               filter(Year > meanyrs[k] & Fleet_code == flts[fsh])
 
             # 95% CI
@@ -515,7 +518,7 @@ plot_catch <- function(Rceattle,
       # Save
       if(j == 2){
         filename <- paste0(file,"_fishery_catch", ".png")
-        png(file = filename, width = width, height = height, res = 200, units = "in")
+        png(filename = filename, width = width, height = height, res = 200, units = "in")
       }
       par(Par)
 
@@ -556,14 +559,14 @@ plot_catch <- function(Rceattle,
         for (k in 1:nmods) {
 
           # Subset data by fleet and model
-          fsh_tmp <- fsh_list[[k]] %>%
+          fsh_tmp <- fsh_list[[k]] |>
             filter(Fleet_code == flts[fleets[fsh]])
 
           if(mse){
-            fsh_tmp <- fsh_tmp %>% filter(Year <= meanyrs[k]) # Only show historical catch if MSE models
+            fsh_tmp <- fsh_tmp |> filter(Year <= meanyrs[k]) # Only show historical catch if MSE models
           }
 
-          fsh_hat_tmp <- fsh_hat_list[[k]] %>%
+          fsh_hat_tmp <- fsh_hat_list[[k]] |>
             filter(Fleet_code == flts[fleets[fsh]])
 
 
@@ -574,13 +577,13 @@ plot_catch <- function(Rceattle,
           if(error){
             gplots::plotCI(x = fsh_tmp$Year, y = fsh_tmp$Catch,
                            ui = fsh_tmp$Upper95, li= fsh_tmp$Lower95,
-                           add=T, gap=0, pch=21,
+                           add= TRUE, gap=0, pch=21,
                            xaxt="n", yaxt="n", pt.bg = "white")
           }
 
           # - Plot MSE shading
           if(mse){
-            fsh_hat_tmp <- fsh_hat_list[[k]] %>%
+            fsh_hat_tmp <- fsh_hat_list[[k]] |>
               filter(Year > meanyrs[k] & Fleet_code == flts[fleets[fsh]])
 
             # 95% CI
@@ -622,7 +625,7 @@ plot_catch <- function(Rceattle,
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param single.plots if TRUE plot invidual fits else make multiplot
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
@@ -646,9 +649,10 @@ plot_logindex <- function(Rceattle,
                           width=NULL,
                           height=NULL){
 
+  .save_par()  # snapshot graphics par() and restore on exit
 
   # Convert single one into a list
-  if(class(Rceattle) == "Rceattle"){
+  if(inherits(Rceattle, "Rceattle")){
     Rceattle <- list(Rceattle)
   }
 
@@ -675,7 +679,7 @@ plot_logindex <- function(Rceattle,
     # Get observed
 
     Srv_list[[i]] <- Rceattle[[i]]$data_list$index_data[which(Rceattle[[i]]$data_list$index_data$Year > 0),]
-    Srv_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$ln_index_sd[which(Rceattle[[i]]$data_list$index_data$Year > 0)]
+    Srv_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$log_index_sd[which(Rceattle[[i]]$data_list$index_data$Year > 0)]
     Srv_list[[i]]$Upper95 <- qlnorm(0.975, meanlog = log(Srv_list[[i]]$Observation), sdlog = Srv_list[[i]]$Log_sd)
     Srv_list[[i]]$Lower95 <- qlnorm(0.025, meanlog = log(Srv_list[[i]]$Observation), sdlog = Srv_list[[i]]$Log_sd)
 
@@ -683,7 +687,7 @@ plot_logindex <- function(Rceattle,
     # Get estimated
     Srv_hat_list[[i]] <- Rceattle[[i]]$data_list$index_data[which(Rceattle[[i]]$data_list$index_data$Year > 0),]
     Srv_hat_list[[i]]$Observation <- Rceattle[[i]]$quantities$index_hat[which(Rceattle[[i]]$data_list$index_data$Year > 0)]
-    Srv_hat_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$ln_index_sd[which(Rceattle[[i]]$data_list$index_data$Year > 0)]
+    Srv_hat_list[[i]]$Log_sd <- Rceattle[[i]]$quantities$log_index_sd[which(Rceattle[[i]]$data_list$index_data$Year > 0)]
   }
   max_endyr <- max(unlist(Endyrs), na.rm = TRUE)
   nyrs_vec <- sapply(Years, length)
@@ -696,7 +700,7 @@ plot_logindex <- function(Rceattle,
   fleet_control <- (Rceattle[[1]]$data_list$fleet_control)
   index_data <- (Rceattle[[1]]$data_list$index_data)
   srvs <- sort(unique(index_data$Fleet_code))
-  srvs <- srvs[which(srvs %in% fleet_control$Fleet_code[which(fleet_control$Fleet_type == 2)])] # Only use surveys that are estimates
+  srvs <- srvs[which(srvs %in% fleet_control$Fleet_code[which(fleet_control$Fleet_type == "Survey")])] # Only use surveys that are estimates
   nsrv <- length(srvs)
 
   ymax <- c()
@@ -705,8 +709,8 @@ plot_logindex <- function(Rceattle,
   for(srv in 1:nsrv){
     for(i in 1:length(Rceattle)){
       srv_ind <- which(Srv_list[[i]]$Fleet_code == srvs[srv])
-      ymax[srv] <- max(c(log(c(Srv_list[[i]]$Upper95[srv_ind], Srv_hat_list[[i]]$Observation[srv_ind])), ymax[srv]), na.rm = T)
-      ymin[srv] <- min(c(log(c(Srv_list[[i]]$Lower95[srv_ind], Srv_hat_list[[i]]$Observation[srv_ind])), ymin[srv]), na.rm = T)
+      ymax[srv] <- max(c(log(c(Srv_list[[i]]$Upper95[srv_ind], Srv_hat_list[[i]]$Observation[srv_ind])), ymax[srv]), na.rm = TRUE)
+      ymin[srv] <- min(c(log(c(Srv_list[[i]]$Lower95[srv_ind], Srv_hat_list[[i]]$Observation[srv_ind])), ymin[srv]), na.rm = TRUE)
     }
   }
   ymax <- ymax + top_adj * (ymax-ymin)
@@ -730,7 +734,7 @@ plot_logindex <- function(Rceattle,
         # Save
         if(j == 2){
           filename <- paste0(file, "fleet",srvs[j]," ",as.character(fleet_control$Fleet_name[srvs[srv]]), "_log_survey_index", ".png")
-          png(file = filename, width = width, height = height, res = 200, units = "in")
+          png(filename = filename, width = width, height = height, res = 200, units = "in")
         }
 
 
@@ -753,7 +757,7 @@ plot_logindex <- function(Rceattle,
           lines(srv_hat_tmp$Year, log(srv_hat_tmp$Observation),lwd=2,col=line_col[k])
 
           # Plot observed CPUE
-          gplots::plotCI(srv_tmp$Year, log(srv_tmp$Observation), ui=log(srv_tmp$Upper95), li=log(srv_tmp$Lower95),add=T,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
+          gplots::plotCI(srv_tmp$Year, log(srv_tmp$Observation), ui=log(srv_tmp$Upper95), li=log(srv_tmp$Lower95),add= TRUE,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
         }
 
         # Index name
@@ -788,7 +792,7 @@ plot_logindex <- function(Rceattle,
       # Save
       if(j == 2){
         filename <- paste0(file,"_log_survey_indices", ".png")
-        png(file = filename, width = width, height = height, res = 200, units = "in")
+        png(filename = filename, width = width, height = height, res = 200, units = "in")
       }
       par(Par)
 
@@ -821,7 +825,7 @@ plot_logindex <- function(Rceattle,
           lines(srv_hat_tmp$Year, log(srv_hat_tmp$Observation),lwd=2,col=line_col[k])
 
           # Plot observed CPUE
-          gplots::plotCI(srv_tmp$Year, log(srv_tmp$Observation), ui=log(srv_tmp$Upper95), li=log(srv_tmp$Lower95),add=T,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
+          gplots::plotCI(srv_tmp$Year, log(srv_tmp$Observation), ui=log(srv_tmp$Upper95), li=log(srv_tmp$Lower95),add= TRUE,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
         }
 
         # Model names
@@ -865,7 +869,7 @@ plot_logindex <- function(Rceattle,
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param single.plots if TRUE plot invidual fits else make multiplot
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
@@ -889,9 +893,10 @@ plot_indexresidual <- function(Rceattle,
                                width=NULL,
                                height=NULL){
 
+  .save_par()  # snapshot graphics par() and restore on exit
 
   # Convert single one into a list
-  if(class(Rceattle) == "Rceattle"){
+  if(inherits(Rceattle, "Rceattle")){
     Rceattle <- list(Rceattle)
   }
 
@@ -938,8 +943,8 @@ plot_indexresidual <- function(Rceattle,
   for(srv in 1:nsrv){
     for(i in 1:length(Rceattle)){
       srv_ind <- which(Srv_hat_list[[i]]$Fleet_code == srvs[srv])
-      ymax[srv] <- max((c(ymax[srv], Srv_hat_list[[i]]$Residual[srv_ind])), na.rm = T)
-      ymin[srv] <- min((c(ymin[srv], Srv_hat_list[[i]]$Residual[srv_ind])), na.rm = T)
+      ymax[srv] <- max((c(ymax[srv], Srv_hat_list[[i]]$Residual[srv_ind])), na.rm = TRUE)
+      ymin[srv] <- min((c(ymin[srv], Srv_hat_list[[i]]$Residual[srv_ind])), na.rm = TRUE)
     }
   }
   ymax <- ymax + top_adj * (ymax-ymin)
@@ -965,7 +970,7 @@ plot_indexresidual <- function(Rceattle,
         # Save
         if(j == 2){
           filename <- paste0(file, "fleet",srvs[j]," ",as.character(fleet_control$Fleet_name[srvs[srv]]), "_survey_index", ".png")
-          png(file = filename, width = width, height = height, res = 200, units = "in")
+          png(filename = filename, width = width, height = height, res = 200, units = "in")
         }
 
         minyr <- min(sapply(Srv_hat_list, function(x) min(x[which(x$Fleet_code == srvs[srv] & x$Year > 0),]$Year)))
@@ -1024,7 +1029,7 @@ plot_indexresidual <- function(Rceattle,
       # Save
       if(j == 2){
         filename <- paste0(file,"_survey_indices", ".png")
-        png(file = filename, width = width, height = height, res = 200, units = "in")
+        png(filename = filename, width = width, height = height, res = 200, units = "in")
       }
       par(Par)
 

@@ -4,12 +4,14 @@
 \alias{jitter}
 \title{Jitter analysis}
 \usage{
-jitter(Rceattle = NULL, njitter = 50, phase = FALSE, seed = 123)
+jitter(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 123)
 }
 \arguments{
 \item{Rceattle}{an Rceattle model fit using \code{\link{fit_mod}}}
 
 \item{njitter}{the number of jitters to run}
+
+\item{sd}{standard deviation for jitter (default = 0.2)}
 
 \item{phase}{as in \code{\link{fit_mod}} default = FALSE}
 
@@ -19,19 +21,16 @@ jitter(Rceattle = NULL, njitter = 50, phase = FALSE, seed = 123)
 a list of Rceattle models
 }
 \description{
-Run's the Rceattle model at initial values that are +- N(0, 1) from the initial parameters.
+Run's the Rceattle model at initial values that are +- N(0, sd) from the initial parameters.
 }
 \examples{
-data(BS2017SS) # ?BS2017SS for more information on the data
-data('BS2017MS') # Note: the only difference is the residual mortality is lower
-
-ss_run <- Rceattle::fit_mod(data_list = BS2017SS,
-                            inits = NULL, # Initial parameters = 0
-                            file = NULL, # Don't save
-                            debug = 0, # Estimate
-                            random_rec = FALSE, # No random recruitment
-                            msmMode = 0, # Single species mode
-                            silent = TRUE)
-
+\donttest{
+data(BS2017SS)
+ss_run <- fit_mod(data_list = BS2017SS,
+    inits = NULL, file = NULL,
+    estimateMode = 0, random_rec = FALSE,
+    msmMode = 0, avgnMode = 0,
+    phase = FALSE, verbose = 0)
 jitters <- jitter(ss_run, njitter = 10)
+}
 }

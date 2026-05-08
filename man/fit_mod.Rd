@@ -2,7 +2,7 @@
 % Please edit documentation in R/6-fit_mod.R
 \name{fit_mod}
 \alias{fit_mod}
-\title{This functions runs CEATTLE}
+\title{This function runs CEATTLE}
 \usage{
 fit_mod(
   data_list = NULL,
@@ -19,31 +19,25 @@ fit_mod(
   niter = 3,
   recFun = build_srr(),
   M1Fun = build_M1(),
+  growthFun = build_growth(),
   msmMode = 0,
   avgnMode = 0,
-  initMode = 2,
+  initMode = "NonEquilibrium",
   suitMode = 0,
   suit_styr = NULL,
   suit_endyr = NULL,
-  phase = FALSE,
-  getsd = TRUE,
-  bias.correct = FALSE,
-  use_gradient = TRUE,
-  rel_tol = 1,
-  control = list(eval.max = 1e+09, iter.max = 1e+09, trace = 0),
-  getJointPrecision = TRUE,
-  getReportCovariance = FALSE,
-  loopnum = 5,
-  verbose = 1,
-  newtonsteps = 0,
-  catch_hcr = FALSE,
-  TMBfilename = NULL
+  fit_control = NULL,
+  ...
 )
 }
 \arguments{
-\item{data_list}{a data_list read in using \code{\link{read_excel}}.}
+\item{data_list}{A data list read in via \code{\link{read_data}} or built
+directly in R; see \code{vignette("data-without-excel", package = "Rceattle")}.}
 
-\item{inits}{(Optional) Character vector of named initial values from previous parameter estimates from Rceattle model. If NULL, will use 0 for starting parameters. Can also construct using \code{\link{build_params}}}
+\item{inits}{(Optional) A named list of initial parameter values, as returned by
+\code{\link{build_params}} or extracted from a previous fit
+(\code{model$estimated_params}). If \code{NULL}, parameters are initialized
+from scratch via \code{\link{build_params}}.}
 
 \item{map}{(Optional) A map object from \code{\link{build_map}}.}
 
@@ -53,7 +47,7 @@ fit_mod(
 
 \item{estimateMode}{0 = Fit the hindcast model and projection with HCR specified via \code{HCR}. 1 = Fit the hindcast model only (no projection). 2 = Run the projection only with HCR specified via \code{HCR} given the initial parameters in \code{inits}.  3 = debug mode 1: runs the model through MakeADFun, but not nlminb, 4 = runs the model through MakeADFun and nlminb (will all parameters mapped out).}
 
-\item{projection_uncertainty}{account for hindcast parameter uncertainty in projections when using an HCR? Default is FALSE for speed.}
+\item{projection_uncertainty}{logical. If TRUE, accounts for hindcast parameter uncertainty in projections when using an HCR. Default is FALSE for speed.}
 
 \item{random_rec}{logical. If TRUE, treats recruitment deviations as random effects using the laplace approximation.The default is FALSE.}
 
@@ -69,39 +63,33 @@ fit_mod(
 
 \item{M1Fun}{M1 parameterizations and priors. Use \code{build_M1}.}
 
+\item{growthFun}{The weight-at-age parameterization from \code{\link{build_growth}}.}
+
 \item{msmMode}{The predation mortality functions to used. Defaults to no predation mortality used.}
 
 \item{avgnMode}{The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.}
 
-\item{initMode}{how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0 + dev-yr1,  mortality (M1); 2 = equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 3 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates; 4 = non-equilibrium age-structure version 2 where initial fishing mortality (Finit) scales R0.}
+\item{initMode}{how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0 + mortality (M1); 2 = non-equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 3 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates; 4 = non-equilibrium age-structure version 2 where initial fishing mortality (Finit) scales R0.}
 
-\item{suitMode}{Switch for suitability derivation for each predator (single value or vector). 0 = empirical based on diet data (Holsman et al. 2015), 1 = length-based gamma suitability (NOT WORKING), 2 = weight-based gamma suitability, 3 = length-based lognormal suitability (NOT WORKING), 4 = weight-based lognormal suitability, 5 = length-based normal suitability (NOT WORKING), 6 = weight-based normal suitability.}
+\item{suitMode}{Switch for suitability derivation for each predator (single value or vector). 0 = empirical based on diet data (Holsman et al. 2015), 1 = length-based gamma suitability, 2 = weight-based gamma suitability, 3 = length-based lognormal suitability, 4 = weight-based lognormal suitability, 5 = length-based normal suitability, 6 = weight-based normal suitability.}
 
 \item{suit_styr}{Integer. The first year used to calculate mean suitability. Defaults to $styr$ in $data_list$. Used when diet data were sampled from a subset of years.}
 
 \item{suit_endyr}{Integer. The last year used to calculate mean suitability. Defaults to $endyr$ in $data_list$. Used when diet data were sampled from a subset of years.}
 
-\item{phase}{TRUE/FALSE If FALSE, will not phase model. If set to \code{"TRUE"}, will use default phasing. Can also accept a list of parameter object names with corresponding phase. See https://github.com/kaskr/TMB_contrib_R/blob/master/TMBphase/R/TMBphase.R.}
+\item{fit_control}{A list returned by \code{\link[=fit_control]{fit_control()}} that bundles the
+optimizer / sdreport / phasing knobs (\code{phase}, \code{bias.correct}, \code{getsd},
+\code{getJointPrecision}, \code{getReportCovariance}, \code{use_gradient}, \code{rel_tol},
+\code{loopnum}, \code{newtonsteps}, \code{TMBfilename}, \code{verbose}, \code{nlminb_control}).
+Defaults to \code{fit_control()}. See \code{\link[=fit_control]{fit_control()}} for the meaning and
+defaults of each field.}
 
-\item{getsd}{TRUE/FALSE whether to run standard error calculation (default = TRUE).}
-
-\item{use_gradient}{use the gradient to phase (default = TRUE).}
-
-\item{rel_tol}{The relative tolerance for discontinuous likelihood warnings. Set to 1. This evaluates the difference between the TMB object likelihood and the nlminb likelihood.}
-
-\item{control}{A list of control parameters. For details see \code{?nlminb}}
-
-\item{getJointPrecision}{return full Hessian of fixed and random effects.}
-
-\item{getReportCovariance}{return variance covariance of ADREPORT variables}
-
-\item{loopnum}{number of times to re-start optimization (where \code{loopnum=3} sometimes achieves a lower final gradient than \code{loopnum=1})}
-
-\item{verbose}{0 = Silent, 1 = print updates of model fit, 2 = print updates of model fit and TMB estimation progress.}
-
-\item{newtonsteps}{number of extra newton steps to take after optimization (alternative to \code{loopnum})}
-
-\item{TMBfilename}{if a seperate TMB file is to be used for development. Includes location and does not include ".cpp" at the end.}
+\item{...}{Deprecated optimizer / sdreport / phasing arguments
+(e.g. \code{phase}, \code{getsd}, \code{bias.correct}, \code{use_gradient}, \code{rel_tol},
+\code{control}, \code{getJointPrecision}, \code{getReportCovariance}, \code{loopnum},
+\code{newtonsteps}, \code{verbose}, \code{TMBfilename}). These are forwarded into
+\code{fit_control} with a deprecation warning; pass them via
+\code{\link[=fit_control]{fit_control()}} instead.}
 }
 \value{
 A list of class "Rceattle" including:
@@ -112,7 +100,7 @@ A list of class "Rceattle" including:
 \item{bounds: Parameter bounds used for estimation}
 \item{map: List of map used in TMB}
 \item{obj: TMB model object}
-\item{opt: Optimized model object from \code{nlimb}}
+\item{opt: Optimized model object from \code{nlminb}}
 \item{sdrep: Object of class \code{sdreport} exported by TMB including the standard errors of estimated parameters}
 \item{estimated_params: List of estimated parameters}
 \item{quantities: Derived quantities from CEATTLE}
@@ -128,30 +116,23 @@ CEATTLE is an age-structured population dynamics model that can be fit with or w
 \item{0. Single species mode}
 \item{1. Holsman et al. 2015 predation based on multi-species virtual population analysis (MSVPA) based predation formation.}
 \item{2. MSVPA Holling Type III}
-\item{3. Kinzey & Punt 2010 Holling Type I (linear) - Deprecated}
-\item{4. Kinzey & Punt 2010 Holling Type II - Deprecated}
-\item{5. Kinzey & Punt 2010 Holling Type III - Deprecated}
-\item{6. Kinzey & Punt 2010 Predator interference - Deprecated}
-\item{7. Kinzey & Punt 2010 Predator preemption - Deprecated}
-\item{8. Kinzey & Punt 2010 Hassell-Varley - Deprecated}
-\item{9. Kinzey & Punt 2010 Ecosim - Deprecated}
 }
+
+Values 3 through 9 (Kinzey & Punt 2009 functional responses --
+Holling Type I/II/III, predator interference, predator preemption,
+Hassell-Varley, Ecosim) are blocked at runtime by \code{data_check()}
+because the implementations have not been validated against the
+current parameter set. See \code{src/TMB/predation.hpp}.
 }
 \examples{
-# Load package and data
-library(Rceattle)
-data(BS2017SS) # ?BS2017SS for more information on the data
-
-
-# Then the model can be fit by setting `msmMode = 0` using the `Rceattle` function:
-ss_run <- fit_mod(data_list = BS2017SS,
-   inits = NULL, # Initial parameters = 0
-   file = NULL, # Don't save
-   estimateMode = 0, # Estimate
-   random_rec = FALSE, # No random recruitment
-   msmMode = 0, # Single species mode
-   avgnMode = 0,
-   phase = FALSE,
-   silent = TRUE)
+\donttest{
+data(BS2017SS)
+ss_run <- fit_mod(
+  data_list    = BS2017SS,
+  estimateMode = 0,
+  msmMode      = 0,
+  fit_control  = fit_control(phase = FALSE, verbose = 0)
+)
+}
 
 }

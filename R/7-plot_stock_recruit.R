@@ -4,14 +4,18 @@
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param model_names Names of models to be used in legend
 #' @param line_col Colors of models to be used for line color
 #' @param species Which species to plot e.g. c(1,4). Default = NULL plots them all
 #' @param spnames Species names for legend
 #' @param incl_proj TRUE/FALSE, include projection years for environmental relationship
-#'
 #' @param lwd Line width as specified by user
+#' @param lty Line type
+#' @param width Figure width in inches
+#' @param height Figure height in inches
+#' @param plot_env TRUE/FALSE, plot environmental covariate relationship
+#' @param mod_cex Cex of text for model name legend
 #'
 #' @export
 plot_stock_recruit <-
@@ -29,8 +33,10 @@ plot_stock_recruit <-
            plot_env = FALSE,
            mod_cex = 1) {
 
+    .save_par()  # snapshot graphics par() and restore on exit
+
     # Convert single one into a list
-    if(class(Rceattle) == "Rceattle"){
+    if(inherits(Rceattle, "Rceattle")){
       Rceattle <- list(Rceattle)
     }
 
@@ -87,12 +93,12 @@ plot_stock_recruit <-
     xmax <- c()
     xmin <- c()
     for (sp in 1:nspp) {
-      xmax[sp] <- max(c(ssb_array[sp,,], 0), na.rm = T)
-      xmin[sp] <- min(c(ssb_array[sp,,], 0), na.rm = T)
+      xmax[sp] <- max(c(ssb_array[sp,,], 0), na.rm = TRUE)
+      xmin[sp] <- min(c(ssb_array[sp,,], 0), na.rm = TRUE)
 
 
-      ymax[sp] <- max(c(rec_array[sp,,], 0), na.rm = T)
-      ymin[sp] <- min(c(rec_array[sp,,], 0), na.rm = T)
+      ymax[sp] <- max(c(rec_array[sp,,], 0), na.rm = TRUE)
+      ymin[sp] <- min(c(rec_array[sp,,], 0), na.rm = TRUE)
     }
 
     if (is.null(line_col)) {
@@ -109,7 +115,7 @@ plot_stock_recruit <-
       if (i == 2) {
         filename <- paste0(file, "stock_recruit_function", ".png")
         png(
-          file = filename ,
+          filename = filename ,
           width = width,# 169 / 25.4,
           height = height,# 150 / 25.4,
           units = "in",
@@ -243,13 +249,13 @@ plot_stock_recruit <-
 t_col <- function(color, percent = 50, name = NULL) {
 
   ## Get RGB values for named color
-  rgb.val <- col2rgb(color)
+  rgb.val <- grDevices::col2rgb(color)
 
   ## Make new color using input color as base and alpha set by transparency
-  t.col <- rgb(rgb.val[1], rgb.val[2], rgb.val[3],
-               max = 255,
-               alpha = (100 - percent) * 255 / 100,
-               names = name)
+  t.col <- grDevices::rgb(rgb.val[1], rgb.val[2], rgb.val[3],
+                          maxColorValue = 255,
+                          alpha = (100 - percent) * 255 / 100,
+                          names = name)
 
   ## Save the color
   invisible(t.col)

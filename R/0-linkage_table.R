@@ -1,0 +1,277 @@
+#' Linkage table: long-format coefficient registry for Rceattle processes
+#'
+#' A *linkage table* is the unified data structure used to describe every
+#' estimated coefficient that connects a process (recruitment, natural
+#' mortality, growth, ...) to a covariate or stratum. Each row of the
+#' table corresponds to exactly one scalar coefficient (a `beta`) and
+#' identifies (a) which process and parameter it modifies, (b) which
+#' species/sex/age subset it applies to, (c) which column of the shared
+#' design matrix `X` it multiplies, and (d) its prior, bounds, link, and
+#' estimation phase.
+#'
+#' The motivation is that the historical Rceattle pattern of one wide
+#' parameter array per process (e.g. `beta_rec_pars[nspp, n_env]`,
+#' `M1_beta[nspp, nsex, n_env]`) does not generalize cleanly across
+#' processes that need different stratifications. A long-format table
+#' grows only with the linkages the user actually requests, regardless
+#' of the underlying species/sex/age dimensionality.
+#'
+#' This file defines the schema and basic helpers; user-facing
+#' formula-driven constructors live in `R/0-build_linkage.R`.
+#'
+#' @keywords internal
+#' @name linkage_table
+NULL
+
+
+#' Column schema for a linkage table
+#'
+#' Named character vector mapping column name -> R type. Used by
+#' [new_linkage_table()] and [validate_linkage_table()].
+#'
+#' @keywords internal
+LINKAGE_COLS <- c(
+  process      = "character",  # "recruitment", "M", "growth", "q", "sel"
+  param        = "character",  # e.g. "log_R0", "log_alpha", "log_K"
+  species      = "integer",    # 1-based species id; NA = shared
+  sex          = "integer",    # 1 or 2; NA = shared
+  age_bin      = "integer",    # 1-based age index; NA = shared
+  X_col        = "integer",    # column of the global design matrix
+  design_col   = "character",  # name of the design matrix column
+  link         = "character",  # "identity", "log", "logit"
+  init         = "numeric",    # initial value on the linear predictor scale
+  lower        = "numeric",    # lower bound (-Inf for unbounded)
+  upper        = "numeric",    # upper bound ( Inf for unbounded)
+  prior_family = "character",  # "none" or one of PRIOR_FAMILIES
+  prior_p1     = "numeric",    # family param 1 (mean/meanlog/shape/shape1)
+  prior_p2     = "numeric",    # family param 2 (sd/sdlog/rate/shape2)
+  re_group     = "character",  # random-effect group name (NA = fixed)
+  est_phase    = "integer"     # phase ordinal; 0 = fixed
+)
+
+
+#' Allowed values for fixed enum-like columns
+#' @keywords internal
+LINKAGE_PROCESSES <- c("recruitment", "M", "growth", "q", "sel")
+
+#' @rdname LINKAGE_PROCESSES
+#' @keywords internal
+LINKAGE_LINKS <- c("identity", "log", "logit")
+
+
+#' Construct an empty linkage table with the canonical schema
+#'
+#' @return An empty `data.frame` with the columns and types defined in
+#'   [LINKAGE_COLS], carrying class `c("Rceattle_linkage_table", "data.frame")`.
+#' @keywords internal
+new_linkage_table <- function() {
+  cols <- lapply(LINKAGE_COLS, function(type) {
+    switch(type,
+      character = character(0),
+      integer   = integer(0),
+      numeric   = numeric(0),
+      stop("Unknown column type: ", type)
+    )
+  })
+  df <- as.data.frame(cols, stringsAsFactors = FALSE)
+  class(df) <- c("Rceattle_linkage_table", "data.frame")
+  df
+}
+
+
+#' Test whether an object is a linkage table
+#'
+#' @param x object to test.
+#' @return logical scalar.
+#' @keywords internal
+is_linkage_table <- function(x) {
+  inherits(x, "Rceattle_linkage_table")
+}
+
+
+#' Validate a linkage table against the schema
+#'
+#' Checks that all required columns are present with the correct R type,
+#' that no required values are `NA`, and that enum-like columns
+#' (`process`, `link`) only contain allowed values.
+#'
+#' @param x object to validate.
+#' @return `x` invisibly, on success. Throws an error otherwise.
+#' @keywords internal
+validate_linkage_table <- function(x) {
+  if (!is.data.frame(x)) {
+    stop("linkage table must be a data.frame; got ", class(x)[1])
+  }
+  missing_cols <- setdiff(names(LINKAGE_COLS), names(x))
+  if (length(missing_cols) > 0) {
+    stop("linkage table missing columns: ",
+         paste(missing_cols, collapse = ", "))
+  }
+  for (col in names(LINKAGE_COLS)) {
+    expected <- LINKAGE_COLS[[col]]
+    actual <- typeof(x[[col]])
+    ok <- switch(expected,
+      character = is.character(x[[col]]),
+      integer   = is.integer(x[[col]]),
+      numeric   = is.numeric(x[[col]])
+    )
+    if (!ok) {
+      stop(sprintf("linkage column '%s' must be %s; got %s",
+                   col, expected, actual))
+    }
+  }
+  if (nrow(x) == 0) return(invisible(x))
+
+  required_non_na <- c("process", "param", "X_col", "link", "init", "est_phase")
+  for (col in required_non_na) {
+    if (anyNA(x[[col]])) {
+      stop(sprintf("linkage column '%s' contains NA", col))
+    }
+  }
+  bad_proc <- setdiff(unique(x$process), LINKAGE_PROCESSES)
+  if (length(bad_proc) > 0) {
+    stop("unknown process(es) in linkage table: ",
+         paste(bad_proc, collapse = ", "),
+         "; allowed: ", paste(LINKAGE_PROCESSES, collapse = ", "))
+  }
+  bad_link <- setdiff(unique(x$link), LINKAGE_LINKS)
+  if (length(bad_link) > 0) {
+    stop("unknown link(s) in linkage table: ",
+         paste(bad_link, collapse = ", "),
+         "; allowed: ", paste(LINKAGE_LINKS, collapse = ", "))
+  }
+  bad_fam <- setdiff(unique(x$prior_family), PRIOR_FAMILIES)
+  if (length(bad_fam) > 0) {
+    stop("unknown prior family in linkage table: ",
+         paste(bad_fam, collapse = ", "),
+         "; allowed: ", paste(PRIOR_FAMILIES, collapse = ", "))
+  }
+  has_prior <- x$prior_family != "none"
+  if (any(has_prior & (is.na(x$prior_p1) | is.na(x$prior_p2)))) {
+    stop("rows with prior_family != 'none' must have non-NA ",
+         "prior_p1 and prior_p2")
+  }
+  if (any(x$lower > x$upper)) {
+    stop("linkage table has rows where lower > upper")
+  }
+  invisible(x)
+}
+
+
+#' Build a single linkage row
+#'
+#' Convenience constructor that returns a one-row linkage table with
+#' default values for optional columns. Useful in tests and for
+#' incremental table assembly.
+#'
+#' @param process,param,X_col required identifying fields.
+#' @param species,sex,age_bin stratum ids; `NA` = shared across the dimension.
+#' @param design_col name of the design matrix column.
+#' @param link link function; one of [LINKAGE_LINKS].
+#' @param init initial value (default `0`).
+#' @param lower,upper bounds (default `-Inf`, `Inf`).
+#' @param prior_family one of [PRIOR_FAMILIES]. `"none"` = no prior.
+#' @param prior_p1,prior_p2 family-specific prior parameters; ignored when
+#'   `prior_family == "none"`.
+#' @param re_group random-effect grouping label; `NA` = fixed.
+#' @param est_phase estimation phase ordinal; `0` = fix at `init`.
+#' @return A one-row `Rceattle_linkage_table`.
+#' @keywords internal
+linkage_row <- function(process, param, X_col,
+                        species      = NA_integer_,
+                        sex          = NA_integer_,
+                        age_bin      = NA_integer_,
+                        design_col   = NA_character_,
+                        link         = "identity",
+                        init         = 0,
+                        lower        = -Inf,
+                        upper        =  Inf,
+                        prior_family = "none",
+                        prior_p1     = NA_real_,
+                        prior_p2     = NA_real_,
+                        re_group     = NA_character_,
+                        est_phase    = 1L) {
+  out <- new_linkage_table()
+  out[1L, ] <- list(
+    process      = as.character(process),
+    param        = as.character(param),
+    species      = as.integer(species),
+    sex          = as.integer(sex),
+    age_bin      = as.integer(age_bin),
+    X_col        = as.integer(X_col),
+    design_col   = as.character(design_col),
+    link         = as.character(link),
+    init         = as.numeric(init),
+    lower        = as.numeric(lower),
+    upper        = as.numeric(upper),
+    prior_family = as.character(prior_family),
+    prior_p1     = as.numeric(prior_p1),
+    prior_p2     = as.numeric(prior_p2),
+    re_group     = as.character(re_group),
+    est_phase    = as.integer(est_phase)
+  )
+  validate_linkage_table(out)
+  out
+}
+
+
+#' Resolve a linkage row's stratum ids against per-species dimensions.
+#'
+#' A row's `species`, `sex`, and `age_bin` are integer ids or `NA` (which
+#' means "shared / broadcast across this dimension"). Both
+#' `map_linkage_adjuster()` and the intercept-zeroing pass in
+#' `build_params()` need to translate that into concrete index vectors.
+#'
+#' @param row a one-row slice of an `Rceattle_linkage_table`.
+#' @param data_list the data list (used for `nspp`, `nsex`, `nages`).
+#' @return a list with components `species`, `sex`, `age` -- each a list
+#'   keyed by species id, giving the sex/age index vectors to apply for
+#'   that species.
+#' @keywords internal
+#' @noRd
+.linkage_row_indices <- function(row, data_list) {
+  spp <- if (is.na(row$species)) seq_len(data_list$nspp) else as.integer(row$species)
+  per_sp <- vector("list", length(spp))
+  names(per_sp) <- as.character(spp)
+  for (s in spp) {
+    sx <- if (is.na(row$sex))     seq_len(data_list$nsex[s])  else as.integer(row$sex)
+    ag <- if (is.na(row$age_bin)) seq_len(data_list$nages[s]) else as.integer(row$age_bin)
+    per_sp[[as.character(s)]] <- list(sex = sx, age = ag)
+  }
+  list(species = spp, per_sp = per_sp)
+}
+
+
+#' Row-bind one or more linkage tables, preserving the schema
+#'
+#' Wraps `rbind` and re-applies validation and class. Accepts either a
+#' list of tables or several tables passed as separate arguments. Empty
+#' inputs are skipped.
+#'
+#' @param ... linkage tables, or a single list of them.
+#' @return An `Rceattle_linkage_table`.
+#' @keywords internal
+bind_linkage <- function(...) {
+  args <- list(...)
+  if (length(args) == 1L && is.list(args[[1L]]) && !is.data.frame(args[[1L]])) {
+    args <- args[[1L]]
+  }
+  args <- args[vapply(args, NROW, integer(1)) > 0]
+  if (length(args) == 0L) return(new_linkage_table())
+  for (i in seq_along(args)) validate_linkage_table(args[[i]])
+  out <- do.call(rbind, c(args, list(make.row.names = FALSE)))
+  class(out) <- c("Rceattle_linkage_table", "data.frame")
+  validate_linkage_table(out)
+  out
+}
+
+
+#' @export
+print.Rceattle_linkage_table <- function(x, ...) {
+  cat(sprintf("<Rceattle linkage table: %d coefficient(s)>\n", nrow(x)))
+  if (nrow(x) == 0L) return(invisible(x))
+  show <- c("process", "param", "species", "sex", "age_bin",
+            "design_col", "link", "init", "prior_family", "est_phase")
+  print(format(x[, show, drop = FALSE]), row.names = FALSE)
+  invisible(x)
+}

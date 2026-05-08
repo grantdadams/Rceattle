@@ -2,7 +2,7 @@
 % Please edit documentation in R/7-plot_ceattle.R
 \name{plot_b_eaten_prop}
 \alias{plot_b_eaten_prop}
-\title{Plot biomass consumbed of each prey species by predator}
+\title{Plot biomass consumed of each prey species by predator}
 \usage{
 plot_b_eaten_prop(
   Rceattle,
@@ -25,7 +25,7 @@ plot_b_eaten_prop(
 )
 }
 \arguments{
-\item{Rceattle}{Single or list of Rceattle model objects exported from \code{\link{Rceattle}}}
+\item{Rceattle}{Single or list of Rceattle model objects exported from \code{Rceattle}}
 
 \item{file}{name of a file to identified the files exported by the
 function.}
@@ -42,16 +42,24 @@ function.}
 
 \item{right_adj}{Multiplier for to add to the right side of the figure for fitting the legend.}
 
+\item{top_adj}{Adjustment for top margin}
+
 \item{minyr}{first year to plot}
 
 \item{mohns}{data.frame of mohn's rows extracted from \code{\link{retrospective}}}
+
+\item{width}{Figure width in inches}
+
+\item{height}{Figure height in inches}
 
 \item{incl_proj}{TRUE/FALSE include projections years}
 
 \item{incl_mean}{TRUE/FALSE include horizontal long term mean}
 
 \item{add_ci}{TRUE/FALSE, includes 95 percent confidence interval}
+
+\item{mod_cex}{Cex of text for model name legend}
 }
 \description{
-Function the plots the biomass consumed trends as estimated from Rceattle. Returns and saves a figure with the biomass eaten trajectory.
+Function that plots the biomass consumed trends as estimated from Rceattle. Returns and saves a figure with the biomass eaten trajectory.
 }
