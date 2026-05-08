@@ -1,50 +1,123 @@
 #' Rearrange
 #'
-#' @description Function to rearrange a \code{data_list} object to be read into TMB CEATTLE
+#' @description Function to rearrange a \code{data_list} object to be read into TMB
 #'
-#' @param data_list a data_list created from \code{\link{build_dat}}.
+#' @param data_list an Rceattle data_list
+#'
 #' @export
+#' @importFrom magrittr %>%
+#' @importFrom rlang .data
+#' @importFrom dplyr n
+#' @importFrom tidyselect contains
 rearrange_dat <- function(data_list){
 
+  # Convert text to integer for switches used in TMB
+  data_list <- convert_switches(data_list)
+
   # Data dimensions
-  max_sex <- max(data_list$nsex, na.rm = T)
-  max_age <- max(data_list$nages, na.rm = T)
-  max_length <- max(data_list$nlengths, na.rm = T)
+  max_sex <- max(data_list$nsex, na.rm = TRUE)
+  max_age <- max(data_list$nages, na.rm = TRUE)
+  max_length <- max(data_list$nlengths, na.rm = TRUE)
   yrs_hind <- data_list$styr:data_list$endyr
   yrs_proj <- data_list$styr:data_list$projyr
   nyrs_hind <- length(yrs_hind)
   nyrs_proj <- length(yrs_proj)
 
-  # 1 - remove non-integer objects from control ----
-  data_list$index_ln_q_prior <- log(data_list$fleet_control$Q_prior)
+  # 1 - Fleet control ----
+  # - 0) Vector to save  species
+  data_list$flt_spp <- data_list$fleet_control %>%
+    dplyr::pull(.data$Species) %>% as.integer() - 1
 
-  data_list$fleet_control <- data_list$fleet_control %>%
-    dplyr::select(Fleet_name,
-                  Fleet_code,           # 1) Temporary survey index
-                  Fleet_type,           # 2) Fleet type; 0 = don't fit, 1 = fishery, 2 = survey
-                  Species,              # 3) Species
-                  Selectivity_index,    # 4) Survey selectivity index
-                  Selectivity,          # 5) Selectivity type
-                  Nselages,             # 6) Non-parametric selectivity ages
-                  Time_varying_sel,     # 7) Time-varying selectivity type.
-                  Age_first_selected,   # 8) First age selected
-                  Age_max_selected,     # 9b) Age of max selectivity (used for normalization). If NA, does not normalize
-                  Age_max_selected_upper,# 9a) upper age of max selectivity (used for normalization). If NA, does not normalize
-                  Comp_loglike,         # 10) Index indicating wether to do dirichlet multinomial for a multinomial)
-                  Weight1_Numbers2,     # 11) Survey units
-                  Weight_index,         # 12) Dim1 of weight (what weight-at-age data set)
-                  Age_transition_index, # 13) Dim3 of age transition matrix (what ALK to use)
-                  Q_index,              # 14) Index of survey q
-                  Estimate_q,           # 15) Parametric form of q
-                  Time_varying_q,       # 16) Time varying q type
-                  Estimate_index_sd,    # 17) Wether to estimate standard deviation of survey time series
-                  Estimate_catch_sd     # 18) Wether to estimate standard deviation of fishery time series
-    )
-  # Don't want: "Sel_sd_prior", "Q_prior", "Q_sd_prior", "Time_varying_q_sd_prior", "Survey_sd_prior", "proj_F", "Catch_sd_prior", "Comp_weights", "proj_F_prop"
+  # - 1) Fleet pointer
+  data_list$flt_sel_ind <- data_list$fleet_control %>%
+    dplyr::pull(.data$Fleet_code) %>% as.integer() - 1
 
-  data_list$fleet_control$Time_varying_sel <- round(data_list$fleet_control$Time_varying_sel)
-  data_list$fleet_control$Fleet_name <- suppressWarnings(as.numeric(as.character(data_list$fleet_control$Fleet_name)))
-  data_list$fleet_control$Time_varying_q <- suppressWarnings(as.numeric(as.character(data_list$fleet_control$Time_varying_q)))
+  # - 2) Fleet type; 0 = don't fit, 1 = fishery, 2 = survey
+  data_list$flt_type <- data_list$fleet_control %>%
+    dplyr::pull(.data$Fleet_type) %>% as.integer()
+
+  # - 3) Month of observation
+  data_list$flt_month <- data_list$fleet_control %>%
+    dplyr::pull(.data$Month)
+
+  # - 4) Selectivity type
+  data_list$flt_sel_type <- data_list$fleet_control %>%
+    dplyr::pull(.data$Selectivity) %>% as.integer()
+
+  data_list$flt_sel_dim <- data_list$fleet_control %>%
+    dplyr::mutate(Selectivity_dimension = dplyr::case_when(
+      .data$Selectivity_dimension == "Age" ~ 0,
+      .data$Selectivity_dimension == "Length" ~ 1,
+      .default = NA
+    )) %>%
+    dplyr::pull(.data$Selectivity_dimension) %>% as.integer()
+
+  # - 5) Number of ages/lengths for non-parametric selectivity
+  data_list$flt_n_sel_bins <- data_list$fleet_control %>%
+    dplyr::mutate(N_sel_bins = ifelse(is.na(.data$N_sel_bins), -999, .data$N_sel_bins)) %>%
+    dplyr::pull(.data$N_sel_bins) %>% as.integer()
+
+  # - 6) Time-varying selectivity type.
+  data_list$flt_varying_sel <- data_list$fleet_control %>%
+    dplyr::pull(.data$Time_varying_sel) %>% as.integer()
+
+  # - 7) First age selected
+  data_list$bin_first_selected <- data_list$fleet_control %>%
+    dplyr::mutate(Bin_first_selected = .data$Bin_first_selected - 1, # R to C++ indexing
+                  Bin_first_selected = ifelse(is.na(.data$Bin_first_selected), 0, .data$Bin_first_selected)) %>%
+    dplyr::pull(.data$Bin_first_selected) %>% as.integer()
+
+  # - 8) Age of max selectivity (used for normalization). If NA, does not normalize
+  data_list$sel_norm_bin1 <- data_list$fleet_control %>%
+    dplyr::mutate(
+      Sel_norm_bin1 = .data$Sel_norm_bin1 - data_list$minage[Species],
+      Sel_norm_bin1 = ifelse(.data$Sel_norm_bin1 < 0, -99, .data$Sel_norm_bin1),         # Less than zero, normalize by max
+      Sel_norm_bin1 = ifelse(is.na(.data$Sel_norm_bin1), -999, .data$Sel_norm_bin1)) %>% # NA, do not normalize (unless type = 2)
+    dplyr::pull(.data$Sel_norm_bin1) %>% as.integer()
+
+  # - 9) upper age of max selectivity (used for normalization). If NA, does not normalize
+  data_list$sel_norm_bin2 <- data_list$fleet_control %>%
+    dplyr::mutate(Sel_norm_bin2 = .data$Sel_norm_bin2 - data_list$minage[Species],
+                  Sel_norm_bin2 = ifelse(is.na(.data$Sel_norm_bin2), -999, .data$Sel_norm_bin2)) %>%
+    dplyr::pull(.data$Sel_norm_bin2) %>% as.integer()
+
+  # - 10) Index indicating whether to do dirichlet multinomial or a multinomial
+  data_list$comp_ll_type <- data_list$fleet_control %>%
+    dplyr::pull(.data$Comp_loglike) %>% as.integer()
+  data_list$caal_ll_type <- data_list$fleet_control %>%
+    dplyr::pull(.data$CAAL_loglike) %>% as.integer()
+  data_list$diet_ll_type <- data_list$Diet_loglike %>%
+    as.integer()
+
+  # - 11) Index units (1 = weight, 2 = numbers)
+  data_list$flt_units <- data_list$fleet_control %>%
+    dplyr::pull(.data$Weight1_Numbers2) %>% as.integer()
+
+  # - 12) Dim1 of weight (what weight-at-age data set)
+  data_list$flt_wt_index <- data_list$fleet_control %>%
+    dplyr::pull(.data$Weight_index) %>% as.integer() - 1
+
+  # - 13) Dim3 of age transition matrix (what ALK to use)
+  data_list$flt_age_transition_index <- data_list$fleet_control %>%
+    dplyr::pull(.data$Age_transition_index) %>% as.integer() - 1
+
+  # - 14) Parametric form of q
+  data_list$est_index_q <- data_list$fleet_control %>%
+    dplyr::pull(.data$Catchability) %>% as.integer()
+
+  # - 15) Time varying q type
+  data_list$index_varying_q <- data_list$fleet_control %>%
+    dplyr::pull(.data$Time_varying_q) %>% as.integer()
+
+  # - 16) Whether to estimate standard deviation of index time series
+  data_list$est_sigma_index <- data_list$fleet_control %>%
+    dplyr::pull(.data$Estimate_index_sd) %>% as.integer()
+
+  # - 17) Whether to estimate standard deviation of fishery time series
+  data_list$est_sigma_fsh <- data_list$fleet_control %>%
+    dplyr::pull(.data$Estimate_catch_sd) %>% as.integer()
+
+  data_list$index_log_q_prior <- log(data_list$fleet_control$Q_prior)
 
   # Species names
   data_list$spnames <- NULL
@@ -53,17 +126,9 @@ rearrange_dat <- function(data_list){
   data_list$Ftarget_percent <- data_list$Ftarget
   data_list$Flimit_percent <- data_list$Flimit
 
-  # - Input missing nselages and age first selected (use age range)
-  data_list$fleet_control <- data_list$fleet_control %>%
-    dplyr::mutate(Nselages = ifelse(is.na(Nselages), -999, Nselages),
-                  Age_max_selected = ifelse(Age_max_selected < 0, -99, Age_max_selected),     # Less than zero, normalize by max
-                  Age_max_selected = ifelse(is.na(Age_max_selected), -999, Age_max_selected), # NA, do not normalize (unless type = 2)
-                  Age_max_selected_upper = ifelse(is.na(Age_max_selected_upper), -999, Age_max_selected_upper),
-                  Age_first_selected = ifelse(is.na(Age_first_selected), data_list$minage[Species], Age_first_selected)
-    )
 
-
-  # 2 -  Seperate survey biomass info from observation ----
+  # 2 -  Index data ----
+  # - Seperate index metadata from observation
   data_list$index_ctl <- data_list$index_data %>%
     dplyr::select(Fleet_code, Species, Year) %>%
     dplyr::mutate_all(as.integer)
@@ -75,7 +140,8 @@ rearrange_dat <- function(data_list){
     dplyr::mutate_all(as.numeric)
 
 
-  # 3 -  Seperate catch biomass info from observation ----
+  # 3 -  Catch data ----
+  # - Seperate catch metadata from observation
   data_list$catch_ctl <- data_list$catch_data %>%
     dplyr::select(Fleet_code, Species, Year) %>%
     dplyr::mutate_all(as.integer)
@@ -87,7 +153,8 @@ rearrange_dat <- function(data_list){
     dplyr::mutate_all(as.numeric)
 
 
-  # 4 -  Seperate comp data from observation ----
+  # 4 -  Comp data ----
+  # - Seperate comp metadata from observation
   data_list$comp_ctl <- data_list$comp_data %>%
     dplyr::select(Fleet_code, Species, Sex, Age0_Length1, Year) %>%
     dplyr::mutate_all(as.integer)
@@ -98,24 +165,77 @@ rearrange_dat <- function(data_list){
 
   data_list$comp_obs <- data_list$comp_data %>%
     dplyr::select(contains("Comp_")) %>%
-    dplyr::mutate_all(as.numeric)
+    dplyr::mutate_all(as.numeric) %>%
+    as.matrix()
 
+  if(nrow(data_list$comp_obs) > 0){ #FIXME: probably cleaner way to deal with this
+    data_list$comp_obs <- t(apply(data_list$comp_obs, 1, function(x) as.numeric(x) / sum(as.numeric(x), na.rm = TRUE))) # Normalize
+    data_list$comp_obs[is.infinite(data_list$comp_obs)] <- 0
+    data_list$comp_obs[is.na(data_list$comp_obs)] <- 0
+  }
   data_list <- check_composition_data(data_list)
 
+  # 5 - CAAL data ----
+  data_list$caal_ctl <- data_list$caal_data %>%
+    dplyr::mutate(Length_bin = factor(.data$Length)) %>%
+    dplyr::select(Fleet_code, Species, Sex, Year, Length_bin) %>%
+    dplyr::mutate_all(as.integer)
 
-  # 5 -  Seperate diet info from observation ----
+  data_list$caal_n <- data_list$caal_data %>%
+    dplyr::select(Sample_size) %>%
+    dplyr::mutate_all(as.numeric)
+
+  data_list$caal_obs <- data_list$caal_data %>%
+    dplyr::select(contains("CAAL_")) %>%
+    dplyr::mutate_all(as.numeric) %>%
+    as.matrix()
+
+  if(nrow(data_list$caal_obs) > 0){#FIXME: probably cleaner way to deal with this
+    data_list$caal_obs <- t(apply(data_list$caal_obs, 1, function(x) as.numeric(x) / sum(as.numeric(x), na.rm = TRUE))) # Normalize
+    data_list$caal_obs[is.infinite(data_list$caal_obs)] <- 0
+    data_list$caal_obs[is.na(data_list$caal_obs)] <- 0
+  }
+  data_list <- check_caal_data(data_list)
+
+  # * Get lengths from CAAL ----
+  data_list$lengths <- matrix(rep(1:max(data_list$nlengths), data_list$nspp), nrow = data_list$nspp, byrow = TRUE)
+
+  if(nrow(data_list$caal_data) > 0){
+    caal_lengths <- data_list$caal_data %>%
+      dplyr::distinct(.data$Species, .data$Length) %>%
+      dplyr::arrange(.data$Species, .data$Length) %>%
+      dplyr::group_by(.data$Species) %>%
+      dplyr::mutate(Bin = paste0("Bin", 1:dplyr::n())) %>%
+      tidyr::pivot_wider(names_from = "Bin", values_from = "Length")
+
+    data_list$lengths[caal_lengths$Species, 1:ncol(caal_lengths[,-1])] <- as.matrix(caal_lengths[,-1])
+
+    # - Check to make sure n-bins in data match nlengths
+    n_bins_data <- data_list$caal_data %>%
+      dplyr::distinct(.data$Species, .data$Length) %>%
+      dplyr::count(.data$Species)
+
+    if(any(data_list$nlengths[n_bins_data$Species] != n_bins_data$n)){
+      stop("Number of length bins in CAAL data does not match nlengths in control file.
+           If some lengths are missing from CAAL data, please add them to the data
+           as rows of all 1s with Sample_size = 0")
+    }
+  }
+
+
+  # 6 -  Diet data ----
+  # - Seperate diet metadata from observation
   if(!is.null(data_list$diet_data)){ # Add a check in case there's no diet data
 
     # Create a temporary diet data frame to work with
-    diet_dat <- data_list$diet_data %>%
-      # - Sort by stomach_id so that rows for the same predator are contiguous
-      dplyr::arrange(Pred, Pred_sex, Pred_age, Prey, Prey_sex, Prey_age, Year) %>%
-      # - Create the unique stratum identifier and the zero-indexed stomach_id
-      dplyr::mutate(stratum_id = paste(Pred, Pred_sex, Pred_age, Year, sep = "_"),
-                    stomach_id = as.numeric(as.factor(stratum_id)) - 1)
+    diet_dat <- data_list$diet_data
 
     # Add n_stomach_obs and the stomach_id vector to the main data_list
-    data_list$n_stomach_obs <- max(diet_dat$stomach_id) + 1
+    if(length(diet_dat$stomach_id) == 0){
+      data_list$n_stomach_obs = 0
+    } else{
+      data_list$n_stomach_obs <- max(diet_dat$stomach_id) + 1
+    }
     data_list$stomach_id <- diet_dat$stomach_id
 
     # Create diet_ctl (without the stomach_id column)
@@ -130,7 +250,7 @@ rearrange_dat <- function(data_list){
   }
 
 
-  # 6 -  Seperate survey empirical selectivity info from observation ----
+  # 7 -  Seperate empirical selectivity info from observation ----
   yrs <- data_list$styr:data_list$endyr
   if(nrow(data_list$emp_sel) > 0 ){
     for(i in 1:nrow(data_list$emp_sel)){
@@ -164,7 +284,7 @@ rearrange_dat <- function(data_list){
     dplyr::mutate_all(as.numeric)
 
 
-  # 7 - Rearrange age-transition matrix ----
+  # 8 - Rearrange age-transition matrix ----
   age_trans_matrix <- data_list$age_trans_matrix
   unique_age_transition <- unique(as.character(age_trans_matrix$Age_transition_index))
   if(sum(!data_list$pop_age_transition_index %in% unique_age_transition) > 0){
@@ -199,7 +319,7 @@ rearrange_dat <- function(data_list){
   data_list$age_trans_matrix <- age_transition
 
 
-  # 8 - Rearrange age_error matrices ----
+  # 9 - Rearrange age_error matrices ----
   arm <- array(0, dim = c(data_list$nspp, max_age, max_age))
 
   data_list$age_error <- as.data.frame(data_list$age_error) # FIXME: somethin is up with data.frames
@@ -222,19 +342,15 @@ rearrange_dat <- function(data_list){
   data_list$age_error <- arm
 
 
-  # 10 - Normalize comp data ----
-  data_list$comp_obs <- t(apply(data_list$comp_obs, 1, function(x) as.numeric(x) / sum(as.numeric(x), na.rm = TRUE)))
-
-
   # 11 - Set up weight-at-age ----
   # - Convert to array
   data_list$weight <- data_list$weight %>%
     dplyr::mutate(
-      Wt_index = as.numeric(as.character(Wt_index)),
-      Species = as.numeric(as.character(Species)),
-      Sex = as.numeric(as.character(Sex)),
-      Year = as.numeric(as.character(Year)),
-      Year = ifelse(Year == 0,
+      Wt_index = as.numeric(as.character(.data$Wt_index)),
+      Species = as.numeric(as.character(.data$Species)),
+      Sex = as.numeric(as.character(.data$Sex)),
+      Year = as.numeric(as.character(.data$Year)),
+      Year = ifelse(.data$Year == 0,
                     0,
                     Year - data_list$styr + 1)
     )
@@ -276,15 +392,15 @@ rearrange_dat <- function(data_list){
   }
 
   # Update the data_list with the new weight array
-  data_list$weight <- weight
+  data_list$weight_obs <- weight
 
 
   # 12 - Set up NByageFixed ----
   # - Convert to array
   data_list$NByageFixed <- data_list$NByageFixed %>%
-    mutate(Species = as.numeric(as.character(Species)),
-           Sex = as.numeric(as.character(Sex)),
-           Year = as.numeric(as.character(Year)) - data_list$styr + 1)
+    dplyr::mutate(Species = as.numeric(as.character(.data$Species)),
+           Sex = as.numeric(as.character(.data$Sex)),
+           Year = as.numeric(as.character(.data$Year)) - data_list$styr + 1)
 
   NByageFixed <- array(0, dim = c(data_list$nspp, max_sex, max_age, nyrs_proj))
 
@@ -321,9 +437,9 @@ rearrange_dat <- function(data_list){
   # 14 - Set up ration_data ----
   # - Convert to array
   data_list$ration_data <- data_list$ration_data %>%
-    dplyr::mutate(Species = as.numeric(as.character(Species)),
-                  Sex = as.numeric(as.character(Sex)),
-                  Year = as.numeric(as.character(Year)),
+    dplyr::mutate(Species = as.numeric(as.character(.data$Species)),
+                  Sex = as.numeric(as.character(.data$Sex)),
+                  Year = as.numeric(as.character(.data$Year)),
                   Year = ifelse(Year == 0,
                                 0,
                                 Year - data_list$styr + 1)
@@ -361,19 +477,25 @@ rearrange_dat <- function(data_list){
   data_list$ration_data <- ration_data
 
 
-  # 15 - Remove species column from alw, maturity, sex_ratio ----
-  data_list$sex_ratio <- data_list$sex_ratio[,-1]
-  data_list$maturity <- data_list$maturity[,-1]
-  # data_list$aLW <- data_list$aLW[,-1]
+  # 15 - Remove species column from maturity and sex_ratio ----
+  data_list$sex_ratio <- data_list$sex_ratio %>%
+    dplyr::select(contains("Age")) %>%
+    dplyr::mutate_all(as.numeric) %>%
+    as.matrix()
+
+  data_list$maturity <- data_list$maturity %>%
+    dplyr::select(contains("Age")) %>%
+    dplyr::mutate_all(as.numeric) %>%
+    as.matrix()
 
 
   # 16 - Make data.frames into matrices ----
   df_to_mat <- which(sapply(data_list, function(x) class(x)[1]) == "data.frame")
   data_list[df_to_mat] <- lapply(data_list[df_to_mat], as.matrix)
 
-  items_to_remove <- c("emp_sel",  "fsh_comp",    "srv_comp",    "catch_data",    "index_data", "comp_data", "env_data", "spnames",
+  items_to_remove <- c("emp_sel",  "fsh_comp",    "srv_comp",    "catch_data",    "index_data", "comp_data", "caal_data", "env_data", "spnames",
                        "aLW", "diet_data", # "NByageFixed", "estDynamics", "Ceq",
-                       "avgnMode", "minNByage")
+                       "avgnMode", "minNByage", "weight", "fleet_control")
   data_list[items_to_remove] <- NULL
 
   return(data_list)
@@ -396,70 +518,152 @@ rearrange_dat <- function(data_list){
 #'
 #' @return The modified `data_list` with NA values in `comp_obs` converted to 0.
 #' @examples
-#' # Example usage:
 #' data_list <- list(
-#'   comp_obs = matrix(c(1, 2, 3, 0, 4, 5), nrow = 2),
-#'   comp_data = data.frame(Species = c(1, 2), Sex = c(1, 3), Age0_Length1 = c(0, 1)),
-#'   nsex = c(1, 2),
-#'   nages = c(5, 6),
-#'   nlengths = c(10, 12)
+#'   comp_obs = matrix(c(1, 2, 3, 4, 5, 6), nrow = 2),
+#'   comp_data = data.frame(Species = c(1, 2), Sex = c(1, 1), Age0_Length1 = c(0, 0)),
+#'   nsex = c(1, 1),
+#'   nages = c(3, 3),
+#'   nlengths = c(3, 3)
 #' )
 #' cleaned_data_list <- check_composition_data(data_list)
 #'
 #' @export
 check_composition_data <- function(data_list) {
-  # Check for zero sum rows in composition data
-  if (any(rowSums(data_list$comp_obs, na.rm = TRUE) == 0)) {
-    stop("Some rows of composition data sum to 0: please remove or set all to 1 and sample size to 0")
-  }
 
-  # Calculate adjustments for sex and age/length
-  joint_adjust <- ifelse(data_list$nsex[data_list$comp_data$Species] == 2 &
-                           data_list$comp_data$Sex == 3, 2, 1)
+  # If no data, convert to empty matrix
+  if(is.null(dim(data_list$comp_obs))){
+    data_list$comp_obs <- matrix(NA, ncol = 10, nrow = 0)
+  } else if(nrow(data_list$comp_obs) > 0){
 
-  col_adjust <- ifelse(data_list$comp_data$Age0_Length1 == 0,
-                       data_list$nages[data_list$comp_data$Species],
-                       data_list$nlengths[data_list$comp_data$Species])
+    # # Check for zero sum rows in composition data
+    # if (any(rowSums(data_list$comp_obs, na.rm = TRUE) == 0)) {
+    #   stop("Some rows of composition data sum to 0: please remove or set all to 1 and sample size to 0")
+    # }
 
-  col_adjust <- col_adjust * joint_adjust
+    # Calculate adjustments for sex and age/length
+    joint_adjust <- ifelse(data_list$nsex[data_list$comp_data$Species] == 2 &
+                             data_list$comp_data$Sex == 3, 2, 1)
 
-  # Check for NAs in composition data and convert them to 0
-  na_check <- apply(cbind(col_adjust, data_list$comp_obs), 1, function(x) sum(x[2:(x[1] + 1)]))
+    col_adjust <- ifelse(data_list$comp_data$Age0_Length1 == 0,
+                         data_list$nages[data_list$comp_data$Species],
+                         data_list$nlengths[data_list$comp_data$Species])
 
-  if (any(is.na(na_check))) {
-    na_rows <- which(is.na(na_check))
-    warning(sprintf("Composition data have NAs in row(s): %s. Converting to 0s.",
-                    paste(na_rows, collapse = ", ")))
-    data_list$comp_obs[is.na(data_list$comp_obs)] <- 0
-  }
+    col_adjust <- col_adjust * joint_adjust
 
-  # Verify composition data size
-  if (ncol(data_list$comp_obs) < max(col_adjust)) {
-    stop("Comp data does not span range of ages/lengths")
+    # Check for NAs in composition data and convert them to 0
+    na_check <- apply(cbind(col_adjust, data_list$comp_obs), 1, function(x) sum(x[2:(x[1] + 1)]))
+
+    if (any(is.na(na_check))) {
+      na_rows <- which(is.na(na_check))
+      message(sprintf("Composition data have NAs in row(s): %s. Converting to 0s.",
+                      paste(na_rows, collapse = ", ")))
+      data_list$comp_obs[is.na(data_list$comp_obs)] <- 0
+    }
+
+    # Verify composition data size
+    if (ncol(data_list$comp_obs) < max(col_adjust)) {
+      stop("Comp data does not span range of ages/lengths")
+    }
   }
 
   return(data_list)
 }
 
 
-#' Function to transpose fleet_control if long format
+#' Check and Clean CAAL Data
+#'
+#' This function checks the CAAL data for zero sum rows, handles NA values,
+#' and verifies that the CAAL data spans the required range of ages
+#'
+#' @param data_list A list containing the following components:
+#'   - caal_obs: A matrix or data frame of composition observations.
+#'   - caal_data: A data frame with metadata including species, sex, and age/length information.
+#'   - nsex: A vector of sex counts by species.
+#'   - nages: A vector of age counts by species.
+#'   - nlengths: A vector of length counts by species.
+#' throws An error if any rows of `caal_obs` sum to 0 or if the composition data does not span the range of ages
+#'
+#' @return The modified `data_list` with NA values in `caal_obs` converted to 0.
+#' cleaned_data_list <- check_caal_data(data_list)
+#'
+#' @export
+check_caal_data <- function(data_list) {
+
+  # If no data, convert to empty matrix
+  if(is.null(dim(data_list$caal_obs)) | nrow(data_list$caal_obs) == 0){
+    data_list$caal_obs <- matrix(NA, ncol = 10, nrow = 0)
+  } else{
+
+    # # Check for zero sum rows in composition data
+    # if (any(rowSums(data_list$caal_obs, na.rm = TRUE) == 0)) {
+    #   stop("Some rows of composition data sum to 0: please remove or set all to 1 and sample size to 0")
+    # }
+
+    # Calculate adjustments for joint sex and CAAL data
+    joint_adjust <- ifelse(data_list$nsex[data_list$caal_data$Species] == 2 &
+                             data_list$caal_data$Sex == 3, 2, 1)
+
+    col_adjust <- data_list$nages[data_list$caal_data$Species]
+    col_adjust <- col_adjust * joint_adjust
+
+    # Check for NAs in composition data and convert them to 0
+    na_check <- apply(cbind(col_adjust, data_list$caal_obs), 1, function(x) sum(x[2:(x[1] + 1)]))
+
+    if (any(is.na(na_check))) {
+      na_rows <- which(is.na(na_check))
+      message(sprintf("Composition data have NAs in row(s): %s. Converting to 0s.",
+                      paste(na_rows, collapse = ", ")))
+      data_list$caal_obs[is.na(data_list$caal_obs)] <- 0
+    }
+
+    # Verify CAAL data size
+    if (ncol(data_list$caal_obs) < max(col_adjust)) {
+      stop("CAAL data does not span range of ages")
+    }
+  }
+
+  return(data_list)
+}
+
+#' Convert intuitive text strings to integer switches for TMB
 #'
 #' @param data_list Rceattle data list
 #'
-#' @export
-transpose_fleet_control <- function(data_list){
+#' @importFrom rlang .data
+convert_switches <- function(data_list) {
 
-  if(sum(colnames(data_list$fleet_control)[1:2] == c("Fleet_name", "Fleet_code")) != 2){ #, "Fleet_type", "Species", "Selectivity_index", "Selectivity")) != 6){
-    data_list$fleet_control <- as.data.frame(t(data_list$fleet_control))
-    colnames(data_list$fleet_control) <- data_list$fleet_control[1,]
-    data_list$fleet_control <- data_list$fleet_control[-1,]
-    data_list$fleet_control <- cbind(data.frame(Fleet_name = rownames(data_list$fleet_control)),
-                                     data_list$fleet_control)
-    rownames(data_list$fleet_control) = NULL
-
-    data_list$fleet_control[,-which(colnames(data_list$fleet_control) %in% c("Fleet_name", "Time_varying_q"))] <- apply(
-      data_list$fleet_control[,-which(colnames(data_list$fleet_control) %in% c("Fleet_name", "Time_varying_q"))], 2, as.numeric)
+  # Helper: convert a single string value using a map, pass integers through unchanged
+  .conv_single <- function(x, map) {
+    if (is.character(x) && x %in% names(map)) unname(map[[x]]) else x
   }
+  .conv <- Vectorize(.conv_single, vectorize.args = "x", USE.NAMES = FALSE)
+
+  # Fleet controls ----
+  # If vector is a string that exists in our map, replace it with the integer.
+  data_list$fleet_control <- data_list$fleet_control %>%
+    dplyr::mutate(
+      Fleet_type = .conv(.data$Fleet_type, fleet_map),
+      Selectivity = .conv(.data$Selectivity, sel_map),
+      Time_varying_sel = .conv(.data$Time_varying_sel, tv_sel_map),
+      Catchability = .conv(.data$Catchability, q_map),
+      Time_varying_q = .conv(.data$Time_varying_q, tv_q_map),
+      Comp_loglike = .conv(.data$Comp_loglike, comp_loglike_map),
+      CAAL_loglike = .conv(.data$CAAL_loglike, comp_loglike_map)
+    ) %>%
+    # CRITICAL: Force columns back to integers so TMB doesn't crash expecting ints but getting chars
+    dplyr::mutate(
+      Fleet_type = as.integer(.data$Fleet_type),
+      Selectivity = as.integer(.data$Selectivity),
+      Time_varying_sel = as.integer(.data$Time_varying_sel),
+      Catchability = as.integer(.data$Catchability),
+      Time_varying_q = as.integer(.data$Time_varying_q),
+      Comp_loglike = as.integer(.data$Comp_loglike),
+      CAAL_loglike = as.integer(.data$CAAL_loglike)
+    )
+
+  # Pop dy controls ----
+  data_list$initMode <- as.integer(.conv(data_list$initMode, initMode_map))
+  data_list$HCR <- as.integer(.conv(data_list$HCR, hcr_map))
+
   return(data_list)
 }
-

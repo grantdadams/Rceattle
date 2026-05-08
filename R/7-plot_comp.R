@@ -4,10 +4,11 @@
 #'
 #' @param file name of a file to identified the files exported by the
 #'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
 #' @param model_names Names of models to be used in legend
 #' @param species Species names for legend
 #' @param cex Line width as specified by user
+#' @param lwd Line width for observed data lines
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
 #'
 #' @return Returns and saves a figure
@@ -21,8 +22,10 @@ plot_comp <-
            lwd = 3,
            right_adj = 0) {
 
+    .save_par()  # snapshot graphics par() and restore on exit
+
     # Make sure we are using only one model
-    if(class(Rceattle) != "Rceattle"){
+    if(!inherits(Rceattle, "Rceattle")){
       stop("Please only use one Rceattle model")
     }
 
@@ -69,7 +72,7 @@ plot_comp <-
     #     if (i == 2) {
     #       filename <- paste0(file, c("_survey_age_comps_1", "_survey_length_comps_1")[comp_type + 1], ".png")
     #       png(
-    #         file = filename ,
+    #         filename = filename ,
     #         width = 7,# 169 / 25.4,
     #         height = 6.5,# 150 / 25.4,
     #
@@ -141,18 +144,18 @@ plot_comp <-
     #           bty = "n"
     #         )
     #
-    #         x_loc <- c(mean(comp_data$Year, na.rm = T) - 2, mean(comp_data$Year, na.rm = T), mean(comp_data$Year, na.rm = T) +2)
-    #         symbols( x = x_loc , y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.07, 3) , circle = c(0.1, 0.25, 0.5), inches=0.10,add=T, fg = line_col[2])
+    #         x_loc <- c(mean(comp_data$Year, na.rm = TRUE) - 2, mean(comp_data$Year, na.rm = TRUE), mean(comp_data$Year, na.rm = TRUE) +2)
+    #         symbols( x = x_loc , y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.07, 3) , circle = c(0.1, 0.25, 0.5), inches=0.10,add= TRUE, fg = line_col[2])
     #         text(x = x_loc, y = rep(max(comp_hat_tmp$age, na.rm = TRUE) * 1.16, 3), labels = c(0.1, 0.25, 0.5))
     #       }
     #
     #
     #       if(nrow(comp_tmp) > 0){
     #         # Observed
-    #         symbols( x = comp_tmp$Year , y = comp_tmp$age , circle = comp_tmp$comp, inches=0.10,add=T, fg = line_col[1])
+    #         symbols( x = comp_tmp$Year , y = comp_tmp$age , circle = comp_tmp$comp, inches=0.10,add= TRUE, fg = line_col[1])
     #
     #         # Estimated
-    #         symbols( x = comp_hat_tmp$Year , y = comp_hat_tmp$age , circle = comp_hat_tmp$comp, inches=0.10,add=T, fg = line_col[2])
+    #         symbols( x = comp_hat_tmp$Year , y = comp_hat_tmp$age , circle = comp_hat_tmp$comp, inches=0.10,add= TRUE, fg = line_col[2])
     #       }
     #     }
     #
@@ -193,7 +196,7 @@ plot_comp <-
             if (i == 2) {
               filename <- paste0(file, paste0(c("_comps_pearson_residual_", "_comps_pearson_residual_"), "fleet_code_",srv[j] )[comp_type + 1], ".png")
               png(
-                file = filename ,
+                filename = filename ,
                 width = 7,# 169 / 25.4,
                 height = 6.5,# 150 / 25.4,
 
@@ -253,13 +256,13 @@ plot_comp <-
             }
 
             # Positive
-            x_loc <- c(max(abs(comp_tmp$Year), na.rm = T) - 6, max(abs(comp_tmp$Year), na.rm = T) - 3.5, max(abs(comp_tmp$Year), na.rm = T) - 1)
-            symbols( x = x_loc , y = rep(nages[sp] * 1.1, 3) , circle = round(seq(from = 1, to = max_pearson, length.out = 3) , round), inches=0.20,add=T, bg = colvec[3])
+            x_loc <- c(max(abs(comp_tmp$Year), na.rm = TRUE) - 6, max(abs(comp_tmp$Year), na.rm = TRUE) - 3.5, max(abs(comp_tmp$Year), na.rm = TRUE) - 1)
+            symbols( x = x_loc , y = rep(nages[sp] * 1.1, 3) , circles = round(seq(from = 1, to = max_pearson, length.out = 3) , round), inches=0.20,add= TRUE, bg = colvec[3])
             text(x = x_loc, y = rep(nages[sp] * 1.23, 3), labels = round(seq(from = 1, to = max_pearson, length.out = 3) , round))
 
             # Negative
-            x_loc <- c(max(abs(comp_tmp$Year), na.rm = T) - 8.5, max(abs(comp_tmp$Year), na.rm = T) - 11, max(abs(comp_tmp$Year), na.rm = T) - 13.5)
-            symbols( x = x_loc , y = rep(nages[sp] * 1.1, 3) , circle = -round(seq(from = -1, to = -max_pearson, length.out = 3) , round), inches=0.20,add=T, bg = NA)
+            x_loc <- c(max(abs(comp_tmp$Year), na.rm = TRUE) - 8.5, max(abs(comp_tmp$Year), na.rm = TRUE) - 11, max(abs(comp_tmp$Year), na.rm = TRUE) - 13.5)
+            symbols( x = x_loc , y = rep(nages[sp] * 1.1, 3) , circles = -round(seq(from = -1, to = -max_pearson, length.out = 3) , round), inches=0.20,add= TRUE, bg = NA)
             text(x = x_loc, y = rep(nages[sp] * 1.23, 3), labels = round(seq(from = -1, to = -max_pearson, length.out = 3) , round) )
 
 
@@ -289,7 +292,7 @@ plot_comp <-
               comp_tmp$bg_colors <- ifelse(comp_tmp$pearson > 0, comp_tmp$colors, NA)
 
               # Plot
-              symbols( x = comp_tmp$Year , y = comp_tmp$age , circle = abs(comp_tmp$pearson), inches=0.2,add=T, bg = comp_tmp$bg_colors, fg = comp_tmp$colors)
+              symbols( x = comp_tmp$Year , y = comp_tmp$age , circles = abs(comp_tmp$pearson), inches=0.2,add= TRUE, bg = comp_tmp$bg_colors, fg = comp_tmp$colors)
             }
 
 
@@ -322,7 +325,7 @@ plot_comp <-
             if (i == 2) {
               filename <- paste0(file, paste0(c("_age_comps_histograms_", "_length_comps_histograms_"), "fleet_code_",srv[j] )[comp_type + 1], ".png")
               png(
-                file = filename ,
+                filename = filename ,
                 width = 7,# 169 / 25.4,
                 height = 6.5,# 150 / 25.4,
 
@@ -504,7 +507,7 @@ plot_comp <-
             if (i == 2) {
               filename <- paste0(file, paste0(c("_aggregated_age_comps_histograms_", "_aggregated_length_comps_histograms_"), "fleet_code_",srv[j] )[comp_type + 1], ".png")
               png(
-                file = filename ,
+                filename = filename ,
                 width = 7,# 169 / 25.4,
                 height = 6.5,# 150 / 25.4,
 
@@ -668,12 +671,13 @@ plot_comp <-
 #' If prey_age < 0 and pred_age < -500, diet data are weighted mean diet proportion of prey-spp in predator-spp (sum across prey ages and take weighted mean across predator ages)
 #'
 #'
-#' @param file name of a file to identified the files exported by the
-#'   function.
-#' @param Rceattle Single or list of Rceattle model objects exported from \code{\link{Rceattle}}
+#' @param Rceattle Single or list of Rceattle model objects exported from \code{Rceattle}
+#' @param file name of a file to identified the files exported by the function.
 #' @param species Species names for legend
 #'
 #' @return Returns and saves a figure
+#' @importFrom rlang .data
+#' @importFrom ggplot2 theme element_blank aes ggplot geom_point theme_classic ylim ylab xlim xlab ggtitle ggsave
 #' @export
 plot_diet_comp <-
   function(Rceattle,
@@ -681,7 +685,7 @@ plot_diet_comp <-
            species = NULL) {
 
     # Make sure we are using only one model
-    if(class(Rceattle) != "Rceattle"){
+    if(!inherits(Rceattle, "Rceattle")){
       stop("Please only use one Rceattle model")
     }
     data_list <- Rceattle$data_list
@@ -695,115 +699,90 @@ plot_diet_comp <-
     colvec=c("red", "blue", "black")
 
     # * Extract data objects ----
-    # - Get observed
     comp_data <- Rceattle$data_list$diet_data
-    # - Get estimated
     comp_data$Est = Rceattle$quantities$diet_hat[,2]
 
-    comp_data <- comp_data %>%
-      dplyr::mutate(pearson = (Stomach_proportion_by_weight - Est)/ sqrt( ( Est * (1 - Est)) / Sample_size))
-
-    # If year == 0, diet data are averaged from suit_styr to suit_endyr
-    # If prey_age >= 0 diet data are diet proportion of prey-at-age in predator-at-age
-    # If prey_age < 0 diet data are diet proportion of prey-spp in predator-at-age (sum across prey ages)
-    # If prey_age < 0 and pred_age < 0, diet data are mean diet proportion of prey-spp in predator-spp (sum across prey ages and take mean across predator ages)
-    # If prey_age < 0 and pred_age < -500, diet data are weighted mean diet proportion of prey-spp in predator-spp (sum across prey ages and take weighted mean across predator ages)
-
+    # Use .data to avoid R CMD check notes
+    comp_data <- comp_data |>
+      dplyr::mutate(pearson = (.data$Stomach_proportion_by_weight - .data$Est) /
+                      sqrt((.data$Est * (1 - .data$Est)) / .data$Sample_size))
 
     # Loop around predators ----
     for(pred in 1:data_list$nspp) {
-      for(pred_sex in 1:data_list$nsex[pred]){
+      for(pred_sex_idx in 1:data_list$nsex[pred]){
         for(prey in 1:data_list$nspp) {
 
           # * Get sex for legend ----
           if(data_list$nsex[pred] > 1){
-            pred_legend <- paste("Pred-", species[pred], ifelse(sex == 1, "female", "male"))
-            pred_sex = pred_sex - 1
+            # Fixed: sex variable was undefined in your original snippet
+            pred_legend <- paste("Pred-", species[pred], ifelse(pred_sex_idx == 1, "female", "male"))
+            current_pred_sex = pred_sex_idx - 1
           } else{
             pred_legend <- paste("Pred-", species[pred])
-            pred_sex = 0
+            current_pred_sex = 0
           }
 
           # * Extract comps ----
-          comp_tmp <- comp_data %>%
-            dplyr::filter(Pred == pred & Pred_sex == pred_sex & Prey == prey)
+          comp_tmp <- comp_data |>
+            dplyr::filter(.data$Pred == pred & .data$Pred_sex == current_pred_sex & .data$Prey == prey)
 
-          # - Years
           yrs <- sort(unique(comp_tmp$Year))
           nyrs <- length(yrs)
 
-          # - Min and max
-          range_comp <- range(c(comp_tmp$Stomach_proportion_by_weight, comp_tmp$Est))
-          range_pearson <- range(comp_tmp$pearson)
-
           # * Plot annual comps ----
           for(yr in 1:nyrs){
+            comp_tmp_yr <- comp_tmp |>
+              dplyr::filter(.data$Year == yrs[yr] ) |>
+              dplyr::mutate(Prey_age = ifelse(.data$Prey_sex == 2, -.data$Prey_age, .data$Prey_age))
 
-            # Subset year for observed and predicted comp
-            comp_tmp_yr <- comp_tmp %>%
-              dplyr::filter(Year == yrs[yr] ) %>%
-              dplyr::mutate(Prey_age = ifelse(Prey_sex == 2, -Prey_age, Prey_age))
-
-
-            plot_obs <- comp_tmp_yr %>%
-              dplyr::filter(Stomach_proportion_by_weight > 0) %>%
-              ggplot2::ggplot(ggplot2::aes(x = Pred_age, y = Prey_age, size = Stomach_proportion_by_weight)) +
+            plot_obs <- comp_tmp_yr |>
+              dplyr::filter(.data$Stomach_proportion_by_weight > 0) |>
+              ggplot2::ggplot(ggplot2::aes(x = .data$Pred_age, y = .data$Prey_age, size = .data$Stomach_proportion_by_weight)) +
               ggplot2::geom_point(alpha = 1) +
-              # scale_size(range = c(range_comp[1], range_comp[2]), name="Population (M)") +
               ggplot2::theme_classic() +
               ggplot2::ylim(range(comp_tmp_yr$Prey_age)) +
               ggplot2::ylab(paste(species[prey], "age")) +
               ggplot2::xlim(range(comp_tmp_yr$Pred_age)) +
               ggplot2::xlab(paste(pred_legend, "age")) +
               ggplot2::ggtitle(paste("Observed diet: year", yrs[yr])) +
-              theme(legend.position = c(0.25, 0.7),
-                    legend.title = element_blank())
+              ggplot2::theme(legend.position = c(0.25, 0.7),
+                             legend.title = ggplot2::element_blank())
 
-            plot_est <- comp_tmp_yr %>%
-              dplyr::filter(Stomach_proportion_by_weight > 0) %>%
-              ggplot2::ggplot(ggplot2::aes(x = Pred_age, y = Prey_age, size = Est)) +
+            plot_est <- comp_tmp_yr |>
+              dplyr::filter(.data$Stomach_proportion_by_weight > 0) |>
+              ggplot2::ggplot(ggplot2::aes(x = .data$Pred_age, y = .data$Prey_age, size = .data$Est)) +
               ggplot2::geom_point(alpha = 1) +
-              # scale_size(range = c(range_comp[1], range_comp[2]), name="Population (M)") +
               ggplot2::theme_classic() +
               ggplot2::ylim(range(comp_tmp_yr$Prey_age)) +
               ggplot2::ylab(paste(species[prey], "age")) +
               ggplot2::xlim(range(comp_tmp_yr$Pred_age)) +
               ggplot2::xlab(paste(pred_legend, "age")) +
               ggplot2::ggtitle(paste("Estimated diet: year", yrs[yr])) +
-              theme(legend.position = "none")
+              ggplot2::theme(legend.position = "none")
 
-            plot_pear <- comp_tmp_yr %>%
-              dplyr::filter(Stomach_proportion_by_weight > 0) %>%
-              ggplot2::ggplot(ggplot2::aes(x = Pred_age, y = Prey_age, size = abs(pearson), color = pearson < 0)) +
+            plot_pear <- comp_tmp_yr |>
+              dplyr::filter(.data$Stomach_proportion_by_weight > 0) |>
+              ggplot2::ggplot(ggplot2::aes(x = .data$Pred_age, y = .data$Prey_age,
+                                           size = abs(.data$pearson),
+                                           color = .data$pearson < 0)) +
               ggplot2::geom_point(alpha = 1) +
-              # scale_size(range = c(range_comp[1], range_comp[2]), name="Population (M)") +
               ggplot2::theme_classic() +
               ggplot2::ylim(range(comp_tmp_yr$Prey_age)) +
               ggplot2::ylab(paste(species[prey], "age")) +
               ggplot2::xlim(range(comp_tmp_yr$Pred_age)) +
               ggplot2::xlab(paste(pred_legend, "age")) +
               ggplot2::ggtitle(paste("Pearson residual: year", yrs[yr])) +
-              theme(legend.position = c(0.25, 0.8))
+              ggplot2::theme(legend.position = c(0.25, 0.8))
 
             p1 <- cowplot::plot_grid(plot_obs, plot_est, plot_pear, nrow = 1)
             print(p1)
 
-            # Save ----
             if (!is.null(file)) {
-              filename <- paste0(file, "_aggregated_diet_comps_histograms_year", yr,"_", pred_legend, "prey", species[prey],".png")
-              ggplot2::ggsave(filename = filename,
-                              plot = p1,
-                              width = 10,
-                              height = 6.5,
-                              units = "in",
-                              dpi = 300
-              )
+              filename <- paste0(file, "_aggregated_diet_comps_year", yr,"_", pred_legend, "_prey_", species[prey],".png")
+              ggplot2::ggsave(filename = filename, plot = p1, width = 10, height = 6.5, units = "in", dpi = 300)
             }
           }
         }
       }
     }
-
-    # End
   }
-

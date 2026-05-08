@@ -5,8 +5,8 @@
 \title{Run a management strategy evaluation}
 \usage{
 run_mse(
-  om = ms_run,
-  em = ss_run,
+  om,
+  em,
   nsim = 10,
   start_sim = 1,
   assessment_period = 1,
@@ -24,13 +24,14 @@ run_mse(
   file = NULL,
   dir = NULL,
   timeout = 999,
-  endyr = NA
+  endyr = NA,
+  cores = NULL
 )
 }
 \arguments{
-\item{om}{CEATTLE model object exported from \code{\link{Rceattle}}}
+\item{om}{CEATTLE model object exported from \code{Rceattle}}
 
-\item{em}{CEATTLE model object exported from \code{\link{Rceattle}}}
+\item{em}{CEATTLE model object exported from \code{Rceattle}}
 
 \item{nsim}{Number of simulations to run (default 10)}
 
@@ -65,6 +66,13 @@ run_mse(
 \item{dir}{(Optional) Directory where each OM simulation is saved}
 
 \item{timeout}{length of time (minutes) estimation will run before stopping a sim (default 999 minutes)}
+
+\item{endyr}{Terminal year of the MSE projection. Default = NA uses \code{projyr} from the operating model.}
+
+\item{cores}{Number of cores to use for parallel simulations. Default
+\code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
+running under \code{R CMD check} (which sets
+\code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.}
 }
 \value{
 A list of operating models (differ by simulated recruitment determined by \code{nsim}) and estimation models fit to each operating model (differ by terminal year).

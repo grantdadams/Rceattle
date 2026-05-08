@@ -7,7 +7,7 @@
 rename_output(data_list = NULL, quantities = NULL)
 }
 \arguments{
-\item{data_list}{A data_list object created by \code{\link{build_dat}}}
+\item{data_list}{an Rceattle data_list}
 
 \item{quantities}{list of "report" objects from Rceattle.}
 }

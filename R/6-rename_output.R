@@ -2,7 +2,7 @@
 
 #' Function to rename derived quantities from Rceattle
 #'
-#' @param data_list A data_list object created by \code{\link{build_dat}}
+#' @param data_list an Rceattle data_list
 #' @param quantities list of "report" objects from Rceattle.
 #'
 #' @export
@@ -10,8 +10,9 @@
 rename_output = function(data_list = NULL, quantities = NULL){
 
   # Dimension attributed
-  max_age <- max(data_list$nages, na.rm = T)
-  max_sex <- max(data_list$nsex, na.rm = T)
+  max_age <- max(data_list$nages, na.rm = TRUE)
+  max_sex <- max(data_list$nsex, na.rm = TRUE)
+  max_length <- max(data_list$nlengths, na.rm = TRUE)
   sex_labels <- c("Sex combined or females", "males")
   if(max_sex == 1){
     sex_labels <- "Sex combined"
@@ -23,8 +24,8 @@ rename_output = function(data_list = NULL, quantities = NULL){
 
 
   # Rename ----
-  # Vectors
-  # - Biological
+  # * Vectors ----
+  #  Biological quantities
   names(quantities$avg_R) <- data_list$spnames
   names(quantities$Flimit) <- data_list$spnames
   names(quantities$Ftarget) <- data_list$spnames
@@ -38,12 +39,12 @@ rename_output = function(data_list = NULL, quantities = NULL){
   names(quantities$SPRtarget) <- data_list$spnames
   names(quantities$steepness) <- data_list$spnames
 
-  # - Fleets
-  names(quantities$ln_catch_sd) <- data_list$catch_data$Fleet_name
-  names(quantities$ln_index_sd) <- data_list$index_data$Fleet_name
+  # * Fleets ----
+  names(quantities$log_catch_sd) <- data_list$catch_data$Fleet_name
+  names(quantities$log_index_sd) <- data_list$index_data$Fleet_name
 
 
-  # 2D array
+  # * 2D array ----
   # - Population quantities
   dimnames(quantities$biomass) <- list(data_list$spnames, yrs_proj)
   dimnames(quantities$biomass_depletion) <- list(data_list$spnames, yrs_proj)
@@ -73,7 +74,7 @@ rename_output = function(data_list = NULL, quantities = NULL){
   dimnames(quantities$F_flt) <- list(data_list$fleet_control$Fleet_name, yrs_proj) # Sex specific?
   dimnames(quantities$index_q) <- list(data_list$fleet_control$Fleet_name, yrs_hind)
 
-  # 4D array
+  # * 4D array ----
   # - Biological
   dimnames(quantities$biomass_at_age) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
   dimnames(quantities$consumption_at_age) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
@@ -86,13 +87,22 @@ rename_output = function(data_list = NULL, quantities = NULL){
   dimnames(quantities$N_at_age) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
   dimnames(quantities$NByage0) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
   dimnames(quantities$NByageF) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
-  dimnames(quantities$ration) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
+  dimnames(quantities$growth_parameters) <- list(data_list$spnames, sex_labels, yrs_proj, GROWTH_LINKAGE_PARAMS)
+  dimnames(quantities$growth_linkage_offset) <- list(data_list$spnames, sex_labels, yrs_proj, GROWTH_LINKAGE_PARAMS)
+
+  dimnames(quantities$weight_hat) <- dimnames(quantities$length_hat) <- list(
+    c(paste(rep(data_list$spnames, each = 2), rep(c("biomass length", "spawn length"), data_list$nspp)), data_list$fleet_control$Fleet_name),
+    sex_labels, paste0("Age", 1:max_age), yrs_proj)
+  dimnames(quantities$growth_matrix) <- list(
+    c(paste(rep(data_list$spnames, each = 2), rep(c("biomass weight", "spawn weight"), data_list$nspp)), data_list$fleet_control$Fleet_name),
+    sex_labels, paste0("Age", 1:max_age), paste0("Bin", 1:max_length), yrs_proj)
 
   # - Fleet
   dimnames(quantities$F_flt_age) <- list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Age", 1:max_age), yrs_proj)
-  dimnames(quantities$sel) <- list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Age", 1:max_age), yrs_proj)
+  dimnames(quantities$sel_at_age) <- list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Age", 1:max_age), yrs_proj)
+  dimnames(quantities$sel_at_length) <- list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Bin", 1:max_length), yrs_proj)
 
-  # 5D arrays
+  # * 5D arrays ----
   dimnames(quantities$B_eaten) <- list(paste("Pred:", data_list$spnames, rep(sex_labels, each = data_list$nspp)),
                                        paste("Prey:", data_list$spnames, rep(sex_labels, each = data_list$nspp)),
                                        paste0("Pred age", 1:max_age),
@@ -105,30 +115,23 @@ rename_output = function(data_list = NULL, quantities = NULL){
                                            yrs_proj)
 
 
-  # Rename likelihood components
-  quantities$jnll_comp[8,1:data_list$nspp] <- data_list$spnames
-  quantities$unweighted_jnll_comp[8,1:data_list$nspp] <- data_list$spnames
+  # Likelihood components ----
+  S = paste0(data_list$spnames, " or ")
+  X = data_list$fleet_control$Fleet_name
+  llcolnames <- paste0(append(S, rep("", max(c(0, length(X)-length(S))))), append(X, rep(NA, max(c(0, length(S)-length(X))))))
 
-  fleet_names <- data_list$fleet_control$Fleet_name
-  jnll_fleet <- rep(NA, ncol(quantities$jnll_comp))
-  jnll_fleet[1:length(fleet_names)] <- fleet_names
-
-  quantities$jnll_comp <- rbind(jnll_fleet, quantities$jnll_comp)
-  quantities$unweighted_jnll_comp <- rbind(jnll_fleet, quantities$unweighted_jnll_comp)
-
-  colnames(quantities$jnll_comp) <- 1:ncol(quantities$jnll_comp)
-  colnames(quantities$unweighted_jnll_comp) <- 1:ncol(quantities$unweighted_jnll_comp)
+  colnames(quantities$jnll_comp) <- llcolnames
+  colnames(quantities$unweighted_jnll_comp) <- llcolnames
 
   rownames(quantities$jnll_comp) <- rownames(quantities$unweighted_jnll_comp) <- c(
-    "1. Fleet components",
     "Index data",
     "Catch data",
     "Composition data",
+    "CAAL data",
     "Non-parametric selectivity",
     "Selectivity deviates",
     "Catchability prior",
     "Catchability deviates",
-    "2. Species components", # Empty row
     "Stock-recruit prior",
     "Initial abundance deviates",
     "Recruitment deviates",
@@ -139,7 +142,8 @@ rename_output = function(data_list = NULL, quantities = NULL){
     "M random effects",
     "Ration",
     "Ration penalties",
-    "Stomach content data"
+    "Stomach content data",
+    "Linkage-table priors"
   )
 
   return(quantities)
@@ -148,7 +152,7 @@ rename_output = function(data_list = NULL, quantities = NULL){
 
 #' Function to calculate McAllister-Ianelli weights
 #'
-#' @param data_list A data_list object created by \code{\link{build_dat}}
+#' @param data_list an Rceattle data_list
 #' @param data_list_reorganized reorganized data_list
 #' @param quantities list of "report" objects from Rceattle.
 #'
@@ -178,7 +182,7 @@ calc_mcall_ianelli <- function(data_list = NULL, data_list_reorganized = NULL, q
 
 #' Function to calculate McAllister-Ianelli weights for diet data
 #'
-#' @param data_list A data_list object created by \code{\link{build_dat}}
+#' @param data_list an Rceattle data_list
 #' @param quantities list of "report" objects from Rceattle, including diet_hat predictions
 #'
 #' @export
@@ -194,9 +198,9 @@ calc_mcall_ianelli_diet <- function(data_list = NULL, quantities = NULL){
 
   # Calculate effective sample size for diet data (predator specific)
   # Using the same formula as for length: sum(p_hat * (1 - p_hat)) / sum((p - p_hat)^2)
-  eff_n_mcallister <- data_list$diet_data %>%
-    dplyr::mutate(Diet_hat = quantities$diet_hat) %>%
-    dplyr::group_by(Pred, Pred_age) %>%
+  eff_n_mcallister <- data_list$diet_data |>
+    dplyr::mutate(Diet_hat = quantities$diet_hat) |>
+    dplyr::group_by(Pred, Pred_age) |>
     dplyr::summarise(
       Sample_size = dplyr::first(Sample_size), # Sample size should be the same across predators of the same age
       eff_n_mcallister = sum(Diet_hat * (1 - Diet_hat), na.rm = TRUE) /
@@ -204,10 +208,10 @@ calc_mcall_ianelli_diet <- function(data_list = NULL, quantities = NULL){
     )
 
   # Take harmonic mean across predator ages
-  data_list$Diet_weights_mcallister <- eff_n_mcallister %>%
-    dplyr::group_by(Pred) %>%
-    filter(eff_n_mcallister != 0) %>%
-    dplyr::summarise(Diet_weights_mcallister = (1/n() * sum((eff_n_mcallister /Sample_size)^-1))^-1 ) %>%
+  data_list$Diet_weights_mcallister <- eff_n_mcallister |>
+    dplyr::group_by(Pred) |>
+    filter(eff_n_mcallister != 0) |>
+    dplyr::summarise(Diet_weights_mcallister = (1/n() * sum((eff_n_mcallister /Sample_size)^-1))^-1 ) |>
     dplyr::pull(Diet_weights_mcallister)
 
   return(data_list)

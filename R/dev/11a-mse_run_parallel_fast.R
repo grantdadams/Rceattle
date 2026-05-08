@@ -126,7 +126,7 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
       recFun = build_srr(srr_fun = em$data_list$srr_fun,
                          srr_pred_fun  = em$data_list$srr_pred_fun ,
                          proj_mean_rec  = em$data_list$proj_mean_rec ,
-                         srr_meanyr = em$data_list$srr_meanyr,
+                         srr_mse_switchyr = em$data_list$srr_mse_switchyr,
                          srr_est_mode  = em$data_list$srr_est_mode ,
                          srr_prior_mean  = em$data_list$srr_prior_mean,
                          srr_prior_sd   = em$data_list$srr_prior_sd,
@@ -154,12 +154,12 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
     if(em$data_list$HCR == 2){
 
       # - Get avg F
-      avg_F <- (exp(em$estimated_params$ln_mean_F+em$estimated_params$F_dev)) # Average F from last 5 years
+      avg_F <- (exp(em$estimated_params$log_mean_F+em$estimated_params$F_dev)) # Average F from last 5 years
       avg_F <- rowMeans(avg_F[,(ncol(avg_F)-4) : ncol(avg_F)])
       avg_F <- data.frame(avg_F = avg_F, spp = em$data_list$fleet_control$Species)
-      avg_F <- avg_F %>%
-        group_by(spp) %>%
-        summarise(avg_F = sum(avg_F)) %>%
+      avg_F <- avg_F |>
+        group_by(spp) |>
+        summarise(avg_F = sum(avg_F)) |>
         arrange(spp)
 
       # - Update model
@@ -174,7 +174,7 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
                               recFun = build_srr(srr_fun = em$data_list$srr_fun,
                                                  srr_pred_fun  = em$data_list$srr_pred_fun ,
                                                  proj_mean_rec  = em$data_list$proj_mean_rec ,
-                                                 srr_meanyr = em$data_list$srr_meanyr,
+                                                 srr_mse_switchyr = em$data_list$srr_mse_switchyr,
                                                  srr_est_mode  = em$data_list$srr_est_mode ,
                                                  srr_prior_mean  = em$data_list$srr_prior_mean,
                                                  srr_prior_sd   = em$data_list$srr_prior_sd,
@@ -203,9 +203,9 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
   # 3) Update data-files in OM so we can fill in updated years ----
   #--------------------------------------------------
   # * srv_biom ----
-  proj_srv <- om$data_list$srv_biom %>%
-    group_by(Fleet_code) %>%
-    slice(rep(n(),  om_proj_nyrs)) %>%
+  proj_srv <- om$data_list$srv_biom |>
+    group_by(Fleet_code) |>
+    slice(rep(n(),  om_proj_nyrs)) |>
     mutate(Year = -om_proj_yrs)
   proj_srv$Log_sd <- proj_srv$Log_sd * 1/fut_sample
   om$data_list$srv_biom  <- rbind(om$data_list$srv_biom, proj_srv)
@@ -213,9 +213,9 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
 
   # * Nbyage ----
   if(nrow(om$data_list$NByageFixed) > 0){
-    proj_nbyage <- om$data_list$NByageFixed %>%
-      group_by(Species, Sex) %>%
-      slice(rep(n(),  om_proj_nyrs)) %>%
+    proj_nbyage <- om$data_list$NByageFixed |>
+      group_by(Species, Sex) |>
+      slice(rep(n(),  om_proj_nyrs)) |>
       mutate(Year = om_proj_yrs)
     proj_nbyage <- proj_nbyage[which(om_proj_yrs %!in% om$data_list$NByageFixed$Year),] # Subset rows already forcasted
     om$data_list$NByageFixed  <- rbind(om$data_list$NByageFixed, proj_nbyage)
@@ -223,9 +223,9 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
   }
 
   # * comp_data  ----
-  proj_comp <- om$data_list$comp_data %>%
-    group_by(Fleet_code, Sex) %>%
-    slice(rep(n(),  om_proj_nyrs)) %>%
+  proj_comp <- om$data_list$comp_data |>
+    group_by(Fleet_code, Sex) |>
+    slice(rep(n(),  om_proj_nyrs)) |>
     mutate(Year = -om_proj_yrs)
   proj_comp$Sample_size <- proj_comp$Sample_size * fut_sample # Adjust future sampling effort
   om$data_list$comp_data  <- rbind(om$data_list$comp_data, proj_comp)
@@ -234,9 +234,9 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
   # * emp_sel  ----
   # - Use terminal year
   if(nrow(om$data_list$emp_sel) > 0){
-    proj_emp_sel <- om$data_list$emp_sel %>%
-      group_by(Fleet_code, Sex) %>%
-      slice(rep(n(),  om_proj_nyrs)) %>%
+    proj_emp_sel <- om$data_list$emp_sel |>
+      group_by(Fleet_code, Sex) |>
+      slice(rep(n(),  om_proj_nyrs)) |>
       mutate(Year = om_proj_yrs)
     om$data_list$emp_sel  <- rbind(om$data_list$emp_sel, proj_emp_sel)
     om$data_list$emp_sel <- dplyr::arrange(om$data_list$emp_sel, Fleet_code, Year)
@@ -244,17 +244,17 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
 
   # * wt  ----
   #FIXME ignrores forecasted growth
-  proj_wt <- om$data_list$wt %>%
-    group_by(Wt_index , Sex) %>%
-    slice(rep(n(),  om_proj_nyrs)) %>%
+  proj_wt <- om$data_list$wt |>
+    group_by(Wt_index , Sex) |>
+    slice(rep(n(),  om_proj_nyrs)) |>
     mutate(Year = om_proj_yrs)
   om$data_list$wt  <- rbind(om$data_list$wt, proj_wt)
   om$data_list$wt <- dplyr::arrange(om$data_list$wt, Wt_index, Year)
 
   # * ration_data ----
-  proj_ration_data <- om$data_list$ration_data %>%
-    group_by(Species, Sex) %>%
-    slice(rep(n(),  om_proj_nyrs)) %>%
+  proj_ration_data <- om$data_list$ration_data |>
+    group_by(Species, Sex) |>
+    slice(rep(n(),  om_proj_nyrs)) |>
     mutate(Year = om_proj_yrs)
   om$data_list$ration_data  <- rbind(om$data_list$ration_data, proj_ration_data)
   om$data_list$ration_data <- dplyr::arrange(om$data_list$ration_data, Species, Year)
@@ -265,25 +265,25 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
   #--------------------------------------------------
   #FIXME - assuming same as terminal year of hindcast
   # -- EM emp_sel - Use terminal year
-  proj_emp_sel <- em$data_list$emp_sel %>%
-    group_by(Fleet_code, Sex) %>%
-    slice(rep(n(),  em_proj_nyrs)) %>%
+  proj_emp_sel <- em$data_list$emp_sel |>
+    group_by(Fleet_code, Sex) |>
+    slice(rep(n(),  em_proj_nyrs)) |>
     mutate(Year = em_proj_yrs)
   em$data_list$emp_sel  <- rbind(em$data_list$emp_sel, proj_emp_sel)
   em$data_list$emp_sel <- dplyr::arrange(em$data_list$emp_sel, Fleet_code, Year)
 
   # -- EM wt
-  proj_wt <- em$data_list$wt %>%
-    group_by(Wt_index , Sex) %>%
-    slice(rep(n(),  em_proj_nyrs)) %>%
+  proj_wt <- em$data_list$wt |>
+    group_by(Wt_index , Sex) |>
+    slice(rep(n(),  em_proj_nyrs)) |>
     mutate(Year = em_proj_yrs)
   em$data_list$wt  <- rbind(em$data_list$wt, proj_wt)
   em$data_list$wt <- dplyr::arrange(em$data_list$wt, Wt_index, Year)
 
   # -- EM ration_data
-  proj_ration_data <- em$data_list$ration_data %>%
-    group_by(Species, Sex) %>%
-    slice(rep(n(),  em_proj_nyrs)) %>%
+  proj_ration_data <- em$data_list$ration_data |>
+    group_by(Species, Sex) |>
+    slice(rep(n(),  em_proj_nyrs)) |>
     mutate(Year = em_proj_yrs)
   em$data_list$ration_data  <- rbind(em$data_list$ration_data, proj_ration_data)
   em$data_list$ration_data <- dplyr::arrange(em$data_list$ration_data, Species, Year)
@@ -313,22 +313,22 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
   om$estimated_params$F_dev <- cbind(om$estimated_params$F_dev, matrix(0, nrow= nrow(om$estimated_params$F_dev), ncol = length(new_years)))
 
   # -- Time-varing survey catachbilitiy - Assume last year - filled by columns
-  om$estimated_params$ln_srv_q_dev <- cbind(om$estimated_params$ln_srv_q_dev, matrix(om$estimated_params$ln_srv_q_dev[,ncol(om$estimated_params$ln_srv_q_dev)], nrow= nrow(om$estimated_params$ln_srv_q_dev), ncol = length(new_years)))
+  om$estimated_params$log_srv_q_dev <- cbind(om$estimated_params$log_srv_q_dev, matrix(om$estimated_params$log_srv_q_dev[,ncol(om$estimated_params$log_srv_q_dev)], nrow= nrow(om$estimated_params$log_srv_q_dev), ncol = length(new_years)))
 
   # -- Time-varing selectivity - Assume last year - filled by columns
-  ln_sel_slp_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
+  log_sel_slp_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
   sel_inf_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
   # sel_coff_dev = array(0, dim = c(nflts, 2, nselages_om, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for non-parameteric
 
-  ln_sel_slp_dev[,,,1:nyrs_hind] <- om$estimated_params$ln_sel_slp_dev
+  log_sel_slp_dev[,,,1:nyrs_hind] <- om$estimated_params$log_sel_slp_dev
   sel_inf_dev[,,,1:nyrs_hind] <- om$estimated_params$sel_inf_dev
   # sel_coff_dev[,,,1:nyrs_hind] <- om$estimated_params$# sel_coff_dev
 
-  ln_sel_slp_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- ln_sel_slp_dev[,,,nyrs_hind]
+  log_sel_slp_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- log_sel_slp_dev[,,,nyrs_hind]
   sel_inf_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_inf_dev[,,,nyrs_hind]
   # sel_coff_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- # sel_coff_dev[,,,nyrs_hind]
 
-  om$estimated_params$ln_sel_slp_dev <- ln_sel_slp_dev
+  om$estimated_params$log_sel_slp_dev <- log_sel_slp_dev
   om$estimated_params$sel_inf_dev <- sel_inf_dev
   # om$estimated_params$# sel_coff_dev <- # sel_coff_dev
 
@@ -425,7 +425,7 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
       recFun = build_srr(srr_fun = om_use$data_list$srr_fun,
                          srr_pred_fun = om_use$data_list$srr_pred_fun ,
                          proj_mean_rec = om_use$data_list$proj_mean_rec, # This will update anyway to False as devs are added
-                         srr_meanyr = om_use$data_list$srr_meanyr,
+                         srr_mse_switchyr = om_use$data_list$srr_mse_switchyr,
                          srr_est_mode  = om_use$data_list$srr_est_mode ,
                          srr_prior_mean = om_use$data_list$srr_prior_mean,
                          srr_prior_sd = om_use$data_list$srr_prior_sd,
@@ -564,23 +564,23 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
       em_use$estimated_params$F_dev <- cbind(em_use$estimated_params$F_dev, matrix(0, nrow= nrow(em_use$estimated_params$F_dev), ncol = length(new_years)))
 
       # -- Time-varying survey catachbilitiy - Assume last year - filled by columns
-      em_use$estimated_params$ln_srv_q_dev <- cbind(em_use$estimated_params$ln_srv_q_dev, matrix(em_use$estimated_params$ln_srv_q_dev[,ncol(em_use$estimated_params$ln_srv_q_dev)], nrow= nrow(em_use$estimated_params$ln_srv_q_dev), ncol = length(new_years)))
+      em_use$estimated_params$log_srv_q_dev <- cbind(em_use$estimated_params$log_srv_q_dev, matrix(em_use$estimated_params$log_srv_q_dev[,ncol(em_use$estimated_params$log_srv_q_dev)], nrow= nrow(em_use$estimated_params$log_srv_q_dev), ncol = length(new_years)))
 
       # -- Time-varing selectivity - Assume last year - filled by columns
-      ln_sel_slp_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
+      log_sel_slp_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
       sel_inf_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
       # sel_coff_dev = array(0, dim = c(nflts, 2, nselages_om, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for non-parameteric
 
-      ln_sel_slp_dev[,,,1:nyrs_hind] <- em_use$estimated_params$ln_sel_slp_dev
+      log_sel_slp_dev[,,,1:nyrs_hind] <- em_use$estimated_params$log_sel_slp_dev
       sel_inf_dev[,,,1:nyrs_hind] <- em_use$estimated_params$sel_inf_dev
       # sel_coff_dev[,,,1:nyrs_hind] <- em_use$estimated_params$# sel_coff_dev
 
       # - Initialize new years with last year
-      ln_sel_slp_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- ln_sel_slp_dev[,,,nyrs_hind]
+      log_sel_slp_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- log_sel_slp_dev[,,,nyrs_hind]
       sel_inf_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_inf_dev[,,,nyrs_hind]
       # sel_coff_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- # sel_coff_dev[,,,nyrs_hind]
 
-      em_use$estimated_params$ln_sel_slp_dev <- ln_sel_slp_dev
+      em_use$estimated_params$log_sel_slp_dev <- log_sel_slp_dev
       em_use$estimated_params$sel_inf_dev <- sel_inf_dev
       # em_use$estimated_params$# sel_coff_dev <- # sel_coff_dev
 
@@ -607,7 +607,7 @@ mse_run_parallel_fast <- function(om = ms_run, em = ss_run, nsim = 10, start_sim
         recFun = build_srr(srr_fun = em_use$data_list$srr_fun,
                            srr_pred_fun = em_use$data_list$srr_pred_fun,
                            proj_mean_rec = em_use$data_list$proj_mean_rec,
-                           srr_meanyr = em_use$data_list$endyr, # Update end year
+                           srr_mse_switchyr = em_use$data_list$endyr, # Update end year
                            srr_est_mode  = em_use$data_list$srr_est_mode ,
                            srr_prior_mean = em_use$data_list$srr_prior_mean,
                            srr_prior_sd = em_use$data_list$srr_prior_sd,

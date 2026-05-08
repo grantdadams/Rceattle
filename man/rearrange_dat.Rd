@@ -7,8 +7,8 @@
 rearrange_dat(data_list)
 }
 \arguments{
-\item{data_list}{a data_list created from \code{\link{build_dat}}.}
+\item{data_list}{an Rceattle data_list}
 }
 \description{
-Function to rearrange a \code{data_list} object to be read into TMB CEATTLE
+Function to rearrange a \code{data_list} object to be read into TMB
 }

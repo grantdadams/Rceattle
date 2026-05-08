@@ -8,6 +8,8 @@ build_bounds(param_list = NULL, data_list)
 }
 \arguments{
 \item{param_list}{Parameter list object built from \code{\link{build_params}}}
+
+\item{data_list}{a Rceattle data object}
 }
 \value{
 List of upper and lower bounds

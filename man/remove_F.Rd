@@ -2,13 +2,14 @@
 % Please edit documentation in R/10-project-no-F.R
 \name{remove_F}
 \alias{remove_F}
-\title{Function to update hindcast and set F to 0. Useful for determining dynamic reference points for multi-species models under climate-change}
+\title{Rerun with F = 0.}
 \usage{
 remove_F(Rceattle)
 }
 \arguments{
-\item{Rceattle}{}
+\item{Rceattle}{A fitted Rceattle model object}
 }
 \description{
-Function to update hindcast and set F to 0. Useful for determining dynamic reference points for multi-species models under climate-change
+Function to update hindcast and set F to 0.
+Useful for determining dynamic reference points for multi-species models under climate-change.
 }

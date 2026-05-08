@@ -7,13 +7,13 @@
 load_mse(dir = NULL, file = NULL, exclude = NULL, include_em = TRUE)
 }
 \arguments{
-\item{dir}{Directory used to save files from \code{\link{mse_run}}}
+\item{dir}{Directory used to save files from \code{\link{run_mse}}}
 
-\item{file}{file name used to save files from \code{\link{mse_run}}}
+\item{file}{file name used to save files from \code{\link{run_mse}}}
 
 \item{exclude}{index of MSE simulations not to load}
 
-\item{include_em}{wether the EMs should be loaded or not (default = TRUE)}
+\item{include_em}{whether the EMs should be loaded or not (default = TRUE)}
 }
 \value{
 list of MSE simulations/run

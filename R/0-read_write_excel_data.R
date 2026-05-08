@@ -11,7 +11,9 @@
 #'
 #' library(Rceattle)
 #' data(BS2017SS)
-#' write_data(data_list = BS2017SS, file = 'BS2017SS.xlsx')
+#' out_file <- file.path(tempdir(), "BS2017SS.xlsx")
+#' write_data(data_list = BS2017SS, file = out_file)
+#' file.remove(out_file)
 write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 
   # Setup a workbook
@@ -25,31 +27,39 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
   xcel_list$meta_data <- meta_data
 
 
-  # Control (model dimensions) ----
-  control <- matrix(NA, ncol = data_list$nspp, nrow = 15)
-  control[1, 1] <- data_list$nspp
-  control[2, 1] <- data_list$styr
-  control[3, 1] <- data_list$endyr
-  control[4, 1] <- data_list$projyr
-  control[5, ] <- data_list$nsex
-  control[6, ] <- data_list$spawn_month
-  control[7, ] <- data_list$nages
-  control[8, ] <- data_list$minage
-  control[9, ] <- data_list$nlengths
-  control[10, ] <- data_list$pop_wt_index
-  control[11, ] <- data_list$ssb_wt_index
-  control[12, ] <- data_list$pop_age_transition_index
-  control[13, ] <- data_list$sigma_rec_prior
-  control[14, ] <- data_list$other_food
-  control[15, ] <- data_list$estDynamics
-  control <- as.data.frame(control)
-  control <- cbind(c("nspp", "styr", "endyr", "projyr", "nsex", "spawn_month", "nages", "minage",
-                     "nlengths", "pop_wt_index", "ssb_wt_index","pop_age_transition_index", "sigma_rec_prior",
-                     "other_food", "estDynamics"),
-                   control)
-  colnames(control) <- c("Object", data_list$spnames)
-  names_used <- c(names_used, as.character(control$Object))
+  # Define the row names in order
+  row_labels <- c(
+    "nspp", "styr", "endyr", "projyr", "nsex", "spawn_month", "nages", "minage",
+    "nlengths", "pop_wt_index", "ssb_wt_index", "alpha_wt_len", "beta_wt_len",
+    "pop_age_transition_index", "sigma_rec_prior", "other_food", "estDynamics"
+  )
 
+  # Combine the data elements into a matrix
+  control <- rbind(
+    nspp                     = c(data_list$nspp, rep(NA, data_list$nspp - 1)),
+    styr                     = c(data_list$styr, rep(NA, data_list$nspp - 1)),
+    endyr                    = c(data_list$endyr, rep(NA, data_list$nspp - 1)),
+    projyr                   = c(data_list$projyr, rep(NA, data_list$nspp - 1)),
+    nsex                     = data_list$nsex,
+    spawn_month              = data_list$spawn_month,
+    nages                    = data_list$nages,
+    minage                   = data_list$minage,
+    nlengths                 = data_list$nlengths,
+    pop_wt_index             = data_list$pop_wt_index,
+    ssb_wt_index             = data_list$ssb_wt_index,
+    alpha_wt_len             = data_list$alpha_wt_len,
+    beta_wt_len              = data_list$beta_wt_len,
+    pop_age_transition_index = data_list$pop_age_transition_index,
+    sigma_rec_prior          = data_list$sigma_rec_prior,
+    other_food               = data_list$other_food,
+    estDynamics              = data_list$estDynamics
+  )
+
+  # Convert to data frame and move row names to a column
+  control <- data.frame(Object = row_labels, control, row.names = NULL)
+  colnames(control) <- c("Object", data_list$spnames)
+
+  names_used <- c(names_used, as.character(control$Object))
   xcel_list$control <- control
 
 
@@ -59,7 +69,7 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 
 
   # Composition, fleet control, fixed selectivity, n-at-age ---
-  matrix_data <- c("index_data", "catch_data", "comp_data",  "emp_sel", "NByageFixed", "age_trans_matrix")
+  matrix_data <- c("index_data", "catch_data", "comp_data",  "caal_data", "emp_sel", "NByageFixed", "age_trans_matrix")
   for (i in 1:length(matrix_data)) {
     xcel_list[[matrix_data[i]]] <- data_list[[matrix_data[i]]]
   }
@@ -102,7 +112,10 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
   if(is.null(data_list$Diet_comp_weights)){
     data_list$Diet_comp_weights <- rep(1, data_list$nspp)
   }
-  bioenergetics_control <- matrix(NA, ncol = data_list$nspp, nrow = 13)
+  if(is.null(data_list$Diet_loglike)){
+    data_list$Diet_loglike <- rep(0, data_list$nspp)
+  }
+  bioenergetics_control <- matrix(NA, ncol = data_list$nspp, nrow = 14)
   bioenergetics_control[1, ] <- data_list$Ceq
   bioenergetics_control[2, ] <- data_list$Cindex
   bioenergetics_control[3, ] <- data_list$Pvalue
@@ -115,11 +128,12 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
   bioenergetics_control[10, ] <- data_list$Tcl
   bioenergetics_control[11, ] <- data_list$CK1
   bioenergetics_control[12, ] <- data_list$CK4
-  bioenergetics_control[13, ] <- data_list$Diet_comp_weights
+  bioenergetics_control[13, ] <- data_list$Diet_loglike
+  bioenergetics_control[14, ] <- data_list$Diet_comp_weights
 
   bioenergetics_control <- as.data.frame(bioenergetics_control)
 
-  bioenergetics_control <- cbind(c("Ceq", "Cindex","Pvalue", "fday", "CA", "CB", "Qc", "Tco", "Tcm", "Tcl", "CK1", "CK4", "Diet_comp_weights"), bioenergetics_control)
+  bioenergetics_control <- cbind(c("Ceq", "Cindex","Pvalue", "fday", "CA", "CB", "Qc", "Tco", "Tcm", "Tcl", "CK1", "CK4", "Diet_loglike", "Diet_comp_weights"), bioenergetics_control)
   colnames(bioenergetics_control) <- c("Object", data_list$spnames)
 
 
@@ -165,31 +179,39 @@ write_data <- function(data_list, file = "Rceattle_data.xlsx") {
 #'
 #' library(Rceattle)
 #' data(BS2017SS)
-#' write_data(data_list = BS2017SS, file = 'BS2017SS.xlsx')
-#' data_list <- read_data(file = 'BS2017SS.xlsx')
+#' out_file <- file.path(tempdir(), "BS2017SS.xlsx")
+#' write_data(data_list = BS2017SS, file = out_file)
+#' data_list <- read_data(file = out_file)
+#' file.remove(out_file)
 read_data <- function(file = "Rceattle_data.xlsx") {
 
   # Setup a list object
   data_list <- list()
 
   # Control (model dimensions) ----
+  # 1. Read and Transpose
   sheet1 <- readxl::read_xlsx(file, sheet = "control")
-  control <- as.data.frame(t(sheet1[,-1]))
-  control <- cbind(rownames(control), control)
-  colnames(control) <- c("spnames", sheet1$Object)
+  control <- as.data.frame(t(sheet1[, -1]))
+  colnames(control) <- sheet1$Object
 
-  control_objects <- c("nspp", "styr", "endyr", "projyr")
-  for (i in 1:length(control_objects)) {
-    data_list[[control_objects[i]]] <- as.numeric(control[[control_objects[i]]][1])
-  }
+  # 2. Automatically convert numeric columns (cleans up as.numeric calls)
+  control[] <- lapply(control, function(x) type.convert(as.character(x), as.is = TRUE))
 
-  data_list[["spnames"]] <- control[["spnames"]][1:data_list$nspp]
+  # 3. Extract Scalars (just take the first value)
+  scalar_vars <- c("nspp", "styr", "endyr", "projyr")
+  data_list[scalar_vars] <- lapply(control[1, scalar_vars], as.numeric)
 
-  vec_control_objects <- c("nsex", "spawn_month", "nages", "minage", "nlengths",
-                           "pop_wt_index", "ssb_wt_index", "pop_age_transition_index", "sigma_rec_prior",
-                           "other_food", "estDynamics")
-  for (i in 1:length(vec_control_objects)) {
-    data_list[[vec_control_objects[i]]] <- as.numeric(control[[vec_control_objects[i]]][1:data_list$nspp])
+  # 4. Extract Species Names
+  data_list$spnames <- rownames(control)[1:data_list$nspp]
+
+  # 5. Extract Vectors
+  # vec_vars <- c("nsex", "spawn_month", "nages", "minage", "nlengths",
+  #               "pop_wt_index", "ssb_wt_index", "alpha_wt_len", "beta_wt_len",
+  #               "pop_age_transition_index", "sigma_rec_prior", "other_food", "estDynamics")
+  # data_list[vec_vars] <- lapply(control[1:data_list$nspp, vec_vars], as.numeric)
+
+  for (i in 5:nrow(sheet1)) {
+    data_list[[sheet1$Object[i]]] <- suppressWarnings(as.numeric(as.character(sheet1[i, ((1:data_list$nspp) + 1)])))
   }
 
 
@@ -201,15 +223,55 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     data_list[[matrix_data[i]]] <- sheet
   }
 
-  # Transpose data list if necessary
-  data_list <- Rceattle::transpose_fleet_control(data_list)
-
   # -- Update names if necessary
   if(length(data_list$fleet_control$Survey_sd_prior) > 0){
-    data_list$fleet_control <- data_list$fleet_control %>%
+    data_list$fleet_control <- data_list$fleet_control |>
       dplyr::rename(Estimate_index_sd = Estimate_survey_sd,
                     Index_sd_prior = Survey_sd_prior)
-    print("Renaming 'Estimate_survey_sd' to 'Estimate_index_sd' and 'Survey_sd_prior' to 'Index_sd_prior'")
+    message("Renaming 'Estimate_survey_sd' to 'Estimate_index_sd' and 'Survey_sd_prior' to 'Index_sd_prior'")
+  }
+
+
+  if(length(data_list$fleet_control$Nselages) > 0){
+    data_list$fleet_control <- data_list$fleet_control |>
+      dplyr::rename(N_sel_bins = Nselages)
+    message("Renaming 'Nselages' to 'N_sel_bins'")
+  }
+
+  if(length(data_list$fleet_control$Sel_sd_prior) > 0){
+    data_list$fleet_control <- data_list$fleet_control |>
+      dplyr::rename(Time_varying_sel_sd_prior = Sel_sd_prior)
+    message("Renaming 'Sel_sd_prior' to 'Time_varying_sel_sd_prior'")
+  }
+
+  if(length(data_list$fleet_control$Estimate_q) > 0){
+    data_list$fleet_control <- data_list$fleet_control |>
+      dplyr::rename(Catchability = Estimate_q)
+    message("Renaming 'Estimate_q' to 'Catchability'")
+  }
+
+  if(length(data_list$fleet_control$Age_first_selected) > 0){
+    data_list$fleet_control <- data_list$fleet_control |>
+      dplyr::rename(Bin_first_selected = Age_first_selected)
+    message("Renaming 'Age_first_selected' to 'Bin_first_selected'")
+  }
+
+  if(length(data_list$fleet_control$Age_max_selected) > 0){
+    data_list$fleet_control <- data_list$fleet_control |>
+      dplyr::rename(Sel_norm_bin1 = Age_max_selected)
+    message("Renaming 'Age_max_selected' to 'Sel_norm_bin1'")
+  }
+
+  if(length(data_list$fleet_control$Age_max_selected_upper) > 0){
+    data_list$fleet_control <- data_list$fleet_control |>
+      dplyr::rename(Sel_norm_bin2 = Age_max_selected_upper)
+    message("Renaming 'Age_max_selected_upper' to 'Sel_norm_bin2'")
+  }
+
+  if(!is.null(data_list$fleet_control$Month)){
+    data_list$fleet_control <- data_list$fleet_control |>
+      dplyr::mutate(Month = 0)
+    message("Adding 'Month' column to 'fleet_control' with default value of 0")
   }
 
   # Index and catch data ----
@@ -226,7 +288,7 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "fsh_biom"))
     sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
     data_list$catch_data <- sheet
-    print("Renaming 'fsh_biom' to 'catch_data'")
+    message("Renaming 'fsh_biom' to 'catch_data'")
   }
 
   # -- Index
@@ -240,7 +302,17 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "srv_biom"))
     sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
     data_list$index_data <- sheet
-    print("Renaming 'srv_biom' to 'index_data'")
+    message("Renaming 'srv_biom' to 'index_data'")
+  }
+
+  # -- CAAL
+  if("caal_data" %in% sheetnames){
+    sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "caal_data"))
+    sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
+    data_list$caal_data <- sheet
+  } else{
+    data_list$caal_data <- data.frame(matrix(NA, nrow = 0, ncol = 11))
+    colnames(data_list$caal_data) <- c("Fleet_name", "Fleet_code", "Species", "Sex", "Year", "Length", "Sample_size", "CAAL_1", "CAAL_2", "CAAL_3", "CAAL_4")
   }
 
 
@@ -266,7 +338,7 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "wt"))
     sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
     data_list$weight <- sheet
-    print("Renaming 'wt' to 'weight'")
+    message("Renaming 'wt' to 'weight'")
   }
 
 
@@ -275,7 +347,7 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "pmature"))
     sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ]
     data_list$maturity <- sheet
-    print("Renaming 'pmature' to 'maturity'")
+    message("Renaming 'pmature' to 'maturity'")
   }
 
   if("maturity" %in% sheetnames){
@@ -325,7 +397,7 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "Pyrs"))
     sheet <- sheet[rowSums(is.na(sheet)) != ncol(sheet), ] # Keep rows with data
     data_list$ration_data <- sheet
-    print("Renaming 'Pyrs' to 'ration_data'")
+    message("Renaming 'Pyrs' to 'ration_data'")
   }
 
 
@@ -339,13 +411,13 @@ read_data <- function(file = "Rceattle_data.xlsx") {
   if("UobsWtAge" %in% sheetnames){ # Old name
     sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "UobsWtAge"))
     data_list$diet_data <- sheet
-    print("Renaming 'UobsWtAge' to 'diet_data'")
+    message("Renaming 'UobsWtAge' to 'diet_data'")
   }
 
   if("stom_prop_data" %in% sheetnames){
     sheet <- as.data.frame(readxl::read_xlsx(file, sheet = "stom_prop_data"))
     data_list$diet_data <- sheet
-    print("Renaming 'stom_prop_data' to 'diet_data'")
+    message("Renaming 'stom_prop_data' to 'diet_data'")
   }
 
 
