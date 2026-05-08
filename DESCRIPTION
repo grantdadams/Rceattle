@@ -57,7 +57,7 @@ Suggests:
     TMBhelper,
     RcppEigen
 Remotes: 
-    kaskr/TMB_contrib_R/TMBhelper
+    TMBhelper=github::kaskr/TMB_contrib_R/TMBhelper
 VignetteBuilder:
     knitr
 Depends:
