@@ -136,7 +136,7 @@ testthat::test_that("Index, biomass, and catch = 0 match expected", {
 testthat::test_that("Dynamics match CEATTLE single-species classic", {
 
   # Load old model
-  load(system.file("extdata/CEATTLE_classic_ss.Rdata",package="Rceattle"))
+  load(system.file("extdata/CEATTLE_classic_SS.Rdata",package="Rceattle"))
 
   # Load data and set up inits
   data(BS2017SS) # ?BS2017SS for more information on the data
