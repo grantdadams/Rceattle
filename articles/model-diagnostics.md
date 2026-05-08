@@ -1,0 +1,178 @@
+# 3. Model diagnostics
+
+Rceattle provides four layers of diagnostics: **S3 methods**
+(`residual`, `logLik`, etc), **fit plots** to visually inspect how well
+the model reproduces observed data, **retrospective analysis** (peels)
+to detect patterns of systematic over- or under-estimation, and **jitter
+testing** to check that the optimiser has found a global minimum.
+
+## Setup and plotting data
+
+``` r
+
+library(Rceattle)
+
+# Fit a single-species model for the 2022 Northern Rockfish assessment.
+data("NorthernRockfish2022")
+nrdata <- NorthernRockfish2022
+nrdata$fleet_control$proj_F_prop <- 1
+plot_data(nrdata)
+```
+
+Fitting the model
+
+``` r
+
+model_1 <- Rceattle::fit_mod(
+  data_list = nrdata,
+  estimateMode = 0,  # Estimate
+  initMode = 1,      # Assume unfished equilibrium
+  M1Fun = build_M1(
+    updateM1 = TRUE,
+    M1_model = 1,
+    M1_use_prior = TRUE,
+    M_prior = 0.06,
+    M_prior_sd = 0.05),
+  fit_control = fit_control(phase = TRUE, verbose = 0)
+)
+summary(model_1)
+```
+
+## S3 Methods
+
+``` r
+
+summary(model_1)              # same compact summary
+coef(model_1)                 # estimated fixed-effect parameters
+logLik(model_1)               # logLik with df attribute (AIC works)
+AIC(model_1)
+vcov(model_1)                 # fixed-effect covariance fro
+residuals(model_1)            # data.frame of residuals
+as.data.frame(model_1)
+```
+
+## Fit plots
+
+### Composition data
+
+[`plot_comp()`](https://grantdadams.github.io/Rceattle/reference/plot_comp.md)
+overlays observed (bars) and predicted (line) age or length compositions
+for every fleet.
+
+``` r
+
+plot_comp(model_1)
+```
+
+### Survey indices
+
+[`plot_index()`](https://grantdadams.github.io/Rceattle/reference/plot_index.md)
+and
+[`plot_logindex()`](https://grantdadams.github.io/Rceattle/reference/plot_logindex.md)
+show observed vs. predicted survey biomass on the natural and log
+scales, respectively.
+[`plot_indexresidual()`](https://grantdadams.github.io/Rceattle/reference/plot_indexresidual.md)
+plots the log-scale residuals — a useful first check for time trends or
+heteroscedasticity.
+
+``` r
+
+plot_index(model_1)
+plot_logindex(model_1)
+plot_indexresidual(model_1)
+```
+
+### Catch
+
+``` r
+
+plot_catch(model_1)
+```
+
+## Retrospective analysis
+
+A retrospective analysis systematically removes the most recent years of
+data one peel at a time and re-fits the model. Bias in the final
+estimates relative to earlier peels is summarised by Mohn’s rho: values
+outside ±0.2 (for SSB) generally indicate a problem worth investigating.
+
+``` r
+
+model_1_retro <- retrospective(Rceattle = model_1, peels = 5)
+
+# Mohn's rho for each quantity
+model_1_retro$mohns
+
+# Plot historical trajectories across peels
+plot_biomass(model_1_retro$Rceattle_list)
+
+# Include the projection period to see how the forecast changes
+plot_biomass(model_1_retro$Rceattle_list, incl_proj = TRUE)
+```
+
+The
+[`retrospective()`](https://grantdadams.github.io/Rceattle/reference/retrospective.md)
+function returns a list with two elements:
+
+| Element | Description |
+|----|----|
+| `Rceattle_list` | List of fitted models, ordered from full run to most-peeled |
+| `mohns` | Data frame with columns `Object` (quantity, e.g. `"Biomass"`, `"SSB"`), `Forecast year` (0 = terminal year bias; 1+ = forecast skill), `N` (number of peels), and one column per species with mean relative error (Mohn’s rho) |
+
+The `nyrs_forecast` argument (default 3) additionally evaluates rho for
+years projected beyond the terminal peel, making it possible to quantify
+forecast skill alongside retrospective bias in a single call.
+
+## Jitter testing
+
+Jitter testing re-fits the model from many randomly perturbed starting
+values to check whether the optimizer consistently returns the same
+minimum negative log-likelihood (NLL). A spread of NLL values across
+jitters suggests the likelihood surface has multiple local minima and
+results should be interpreted cautiously.
+
+``` r
+
+jitters <- jitter(Rceattle = model_1, njitter = 10, phase = TRUE)  # default njitter = 50
+
+# Histogram of NLL differences relative to the best run
+hist(log(jitters$nll - min(jitters$nll)),
+     main = "Jitter NLL spread (log scale)",
+     xlab = "log(NLL - min NLL)")
+
+# Overlay biomass trajectories — tight overlap indicates a stable optimum
+plot_biomass(jitters$Rceattle_list)
+
+# Number of runs that converged
+length(jitters$Rceattle_list)
+```
+
+Non-converging runs are silently dropped from `Rceattle_list`, so if
+`length(jitters$Rceattle_list)` is much less than `njitter`, convergence
+may be fragile.
+
+## Comparing single- and multi-species trajectories
+
+Plotting sensitivity runs together is itself a useful diagnostic — large
+divergences in biomass or mortality deserve scrutiny.
+
+``` r
+
+mod_list  <- list(model_1, model_1_retro$Rceattle_list$Year_2019)
+mod_names <- 1:length(mod_list)
+
+plot_biomass(Rceattle = mod_list, model_names = mod_names)
+plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE)
+plot_depletionSSB(Rceattle = mod_list, model_names = mod_names)
+```
+
+## Model average
+
+For model averaging across model variants, see
+[`?model_average`](https://grantdadams.github.io/Rceattle/reference/model_average.md).
+
+``` r
+
+mod_avg <- model_average(Rceattle = list(model_1, model_1), weights = c(1,1))
+plot_biomass(mod_avg)
+```

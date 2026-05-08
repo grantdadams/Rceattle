@@ -1,0 +1,28 @@
+# Helper to set map for linkage-table parameters
+
+Maps `beta_linkage` (one entry per row of `data_list$linkage_table`).
+Rows whose `est_phase == 0` are fixed at their initial values via `NA`;
+everything else is estimated. Phased estimation honoring nonzero phase
+ordinals can layer on later via the `phase` argument to
+[`fit_control()`](https://grantdadams.github.io/Rceattle/reference/fit_control.md).
+
+## Usage
+
+``` r
+build_map_linkages(map_list, data_list)
+```
+
+## Arguments
+
+- map_list:
+
+  The current TMB map list.
+
+- data_list:
+
+  an Rceattle data_list (with the pooled `linkage_table` from
+  [`pool_linkages()`](https://grantdadams.github.io/Rceattle/reference/pool_linkages.md)).
+
+## Value
+
+Updated `map_list`.

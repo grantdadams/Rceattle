@@ -1,0 +1,154 @@
+# Growth estimation with linkages and priors
+
+## Overview
+
+This vignette demonstrates how to fit growth using Rceattle’s built-in
+von Bertalanffy and Richards growth functions, and how to use the
+formula-driven
+[`linkage_spec()`](https://grantdadams.github.io/Rceattle/reference/linkage_spec.md)
+API to attach priors to growth linkages.
+
+We use the internal `whamGrowthData` dataset, which includes conditional
+age-at-length data (`caal_data`) and the stock assessment data needed to
+estimate growth parameters.
+
+## Load data and inspect the growth dataset
+
+``` r
+
+library(Rceattle)
+
+data(whamGrowthData)
+plot_data(whamGrowthData)
+
+# The dataset includes CAAL data for the survey.
+head(whamGrowthData$caal_data)
+
+# Use logistic selectivity for all fleets in this example.
+whamGrowthData$fleet_control$Selectivity <- "Logistic"
+whamGrowthData$fleet_control$Selectivity_dimension <- "Length"
+```
+
+## Build a growth model with linkages
+
+Rceattle supports growth linkages through
+[`build_growth()`](https://grantdadams.github.io/Rceattle/reference/build_growth.md)
+and
+[`linkage_spec()`](https://grantdadams.github.io/Rceattle/reference/linkage_spec.md).
+The linkage table can alter any von Bertalanffy growth parameter such as
+`log_K`, `log_Linf`, or `log_L1`, and it can also carry priors on the
+linked coefficients.
+
+``` r
+
+# Create a simple environmental covariate for the example data.
+set.seed(123)
+yrs <- whamGrowthData$styr:whamGrowthData$endyr
+whamGrowthData$env_data <- data.frame(
+  Year = yrs,
+  temp = rnorm(length(yrs), 0, 0.5)
+)
+
+
+growth_spec <- build_growth(
+  fun = "vonBertalanffy",
+  linkages = list(
+    log_Linf = linkage_spec(
+      formula = ~ temp,             # 2 columns: (Intercept) and `temp`
+      by      = ~ species,          # one beta per (species, column)
+      priors  = list(
+        "(Intercept)" = normal(log(85), 1),
+        temp = normal(0, 0.1)) # Tight prior
+    )
+  )
+)
+```
+
+### What this linkage does
+
+- `formula = ~ temp` fits an intercept and a temperature slope.
+- `by = ~ species + sex` gives each species/sex combination its own
+  intercept and slope.
+- `link = "log"` keeps the von Bertalanffy `K` parameter on the log
+  scale.
+- `priors` attaches a Normal prior to both the intercept and the
+  temperature slope.
+
+The prior on `(Intercept)` is effectively a prior on the base `log_K`
+value, because intercept-bearing linkages replace the base parameter and
+carry its level.
+
+## Fit the model
+
+``` r
+
+vbgf_prior_fit <- fit_mod(
+  data_list   = whamGrowthData,
+  growthFun   = growth_spec,
+  estimateMode = 0,
+  msmMode     = 0,
+  fit_control = fit_control(verbose = 0, phase = FALSE)
+)
+summary(vbgf_prior_fit)
+```
+
+## Inspect the linkage table and prior contributions
+
+``` r
+
+# The linkage table is stored on the fitted model.
+vbgf_prior_fit$data_list$linkage_table
+
+# The design matrix used by the linkages.
+head(vbgf_prior_fit$data_list$linkage_X)
+
+# Prior contribution appears in the joint NLL components.
+vbgf_prior_fit$quantities$jnll_comp["Linkage-table priors", ]
+```
+
+## Compare with an unlinked baseline model and Richards model
+
+``` r
+
+baseline_fit <- Rceattle::fit_mod(
+  data_list = whamGrowthData,
+  inits = NULL,       # Initial parameters at default
+  estimateMode = 0,   # Estimate
+  growthFun = build_growth(fun = "vonBertalanffy"), # Von Bert
+  random_rec = FALSE, # No random recruitment
+  msmMode = 0,        # Single species mode
+  initMode = "NonEquilibrium",       # Unfished disequilibrium
+  fit_control = fit_control(phase = FALSE, verbose = 1))
+
+
+richards_model <- Rceattle::fit_mod(
+  data_list = whamGrowthData,
+  inits = NULL, # Initial parameters from above
+  estimateMode = 0,   # Estimate
+  growthFun = build_growth(fun = "Richards"), # Richards
+  random_rec = FALSE, # No random recruitment
+  msmMode = 0,        # Single species mode
+  initMode = "NonEquilibrium",       # Unfished disequilibrium
+  fit_control = fit_control(phase = FALSE, verbose = 1))
+
+
+
+plot_biomass(
+  list(baseline_fit, richards_model, vbgf_prior_fit),
+  species = 1,
+  model_names = c("Baseline VBGF", "Richards", "VBGF with K linkage and priors"),
+  incl_proj = TRUE
+)
+
+baseline_fit$opt$AIC
+vbgf_prior_fit$opt$AIC
+```
+
+## Notes on priors through linkages
+
+- A prior on `"(Intercept)"` in a growth linkage is a prior on the base
+  growth parameter value itself.
+- A prior on a covariate column such as `temp` constrains the effect of
+  that driver on the parameter.
+- The linkage table API supports all R-style formulas and per-species or
+  per-sex stratification.
