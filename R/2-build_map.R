@@ -71,8 +71,7 @@ build_map <- function(data_list, params, debug = FALSE, random_rec = FALSE, rand
 #' @title Helper to set map for Recruitment parameters
 #'
 #' @description Maps the recruitment deviations (\code{rec_dev}, \code{init_dev}),
-#'   stock-recruitment parameters (\code{rec_pars}), their variances (\code{R_log_sd}),
-#'   and environmental linkages (\code{beta_rec_pars}).
+#'   stock-recruitment parameters (\code{rec_pars}) and Rec dev variances (\code{R_log_sd})
 #'
 #' @param map_list The current TMB map list.
 #' @param data_list The data list containing model settings.
@@ -132,16 +131,6 @@ build_map_recruitment <- function(map_list, data_list, nyrs_hind, nyrs_proj, ran
     # - Fix first parameter of SRR if fixed (if SRR not used, will be NA anyway)
     if (data_list$srr_est_mode == 0) {
       map_list$rec_pars[, 2] <- NA
-    }
-  }
-
-  # * 3. Environmental linkages ----
-  #FIXME: make it so the covariates can vary by species
-  map_list$beta_rec_pars[] <- NA
-  if (data_list$srr_pred_fun %in% c(1, 3, 5)) {
-    for (sp in 1:data_list$nspp) {
-      indices <- data_list$srr_indices
-      map_list$beta_rec_pars[sp, indices] <- indices + (sp - 1) * ncol(map_list$beta_rec_pars)
     }
   }
 
@@ -1286,9 +1275,11 @@ build_map_debug <- function(map_list, debug) {
 #'
 #' @description Maps `beta_linkage` (one entry per row of
 #'   `data_list$linkage_table`). Rows whose `est_phase == 0` are fixed
-#'   at their initial values via `NA`; everything else is estimated.
-#'   Phased estimation honoring nonzero phase ordinals can layer on
-#'   later via the `phase` argument to [fit_control()].
+#'   at their initial values via `NA`; `(Intercept)` rows are also
+#'   fixed (their value stays at 0 -- the base parameter carries the
+#'   level). Everything else is estimated.  Phased estimation honoring
+#'   nonzero phase ordinals can layer on later via the `phase` argument
+#'   to [fit_control()].
 #'
 #' @param map_list The current TMB map list.
 #' @param data_list an Rceattle data_list (with the pooled
@@ -1301,9 +1292,11 @@ build_map_linkages <- function(map_list, data_list) {
       nrow(data_list$linkage_table) == 0L) {
     return(map_list)
   }
-  est_phase <- as.integer(data_list$linkage_table$est_phase)
+  tbl <- data_list$linkage_table
+  est_phase   <- as.integer(tbl$est_phase)
+  is_intercept <- tbl$design_col == "(Intercept)"
   m <- map_list$beta_linkage
-  m[est_phase == 0L] <- NA
+  m[est_phase == 0L | is_intercept] <- NA
   map_list$beta_linkage <- m
   map_list
 }
@@ -1311,8 +1304,15 @@ build_map_linkages <- function(map_list, data_list) {
 
 #' @title Helper to turn off base linked parameters
 #'
-#' @description This function automatically sets parameters
-#' to NA (not estimated) if they include linkaged.
+#' @description Maps the base parameter (`rec_pars`, `log_M1`,
+#'   `log_growth_pars`) out of estimation only for stratum groups
+#'   whose linkage formula carries *no* intercept. With an intercept
+#'   in the formula (`~ 1`, `~ temp`, ...) the base parameter holds
+#'   the level and stays estimable; the linkage `(Intercept)` row is
+#'   fixed at 0 instead. Slope-only formulas (`~ 0 + temp`) emit no
+#'   intercept row, so we mask the base parameter to keep it at its
+#'   `build_params()` default and let the slope rows define the
+#'   year-by-year offset.
 #'
 #' @param map_list The current TMB map list.
 #' @param data_list an Rceattle data_list (with the pooled
@@ -1325,7 +1325,22 @@ map_linkage_adjuster <- function(map_list, data_list) {
   tbl <- data_list$linkage_table
   if (is.null(tbl) || nrow(tbl) == 0L) return(map_list)
 
+  group_key <- function(row) {
+    paste(row$process, row$param,
+          ifelse(is.na(row$species), "*", row$species),
+          ifelse(is.na(row$sex),     "*", row$sex),
+          ifelse(is.na(row$age_bin), "*", row$age_bin),
+          sep = "|")
+  }
+  keys <- vapply(seq_len(nrow(tbl)),
+                 function(i) group_key(tbl[i, , drop = FALSE]),
+                 character(1))
+  is_intercept <- tbl$design_col == "(Intercept)"
+  groups_with_intercept <- unique(keys[is_intercept])
+
   for (i in seq_len(nrow(tbl))) {
+    if (keys[i] %in% groups_with_intercept) next      # base stays estimable
+    if (is_intercept[i]) next                          # paranoia; covered above
     row <- tbl[i, , drop = FALSE]
     idx <- .linkage_row_indices(row, data_list)
     switch(row$process,

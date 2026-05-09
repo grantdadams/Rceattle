@@ -16,23 +16,22 @@
  * 5 = Ricker with environmental impacts on alpha
  * @param R0           Equilibrium recruitment (e.g., unfished or initial recruitment).
  * @param ssb          Spawning stock biomass (must be pre-lagged by minage before passing).
- * @param rec_par_1    First SRR parameter (e.g., alpha/productivity parameter).
- * @param rec_par_2    Second SRR parameter (e.g., beta/density-dependence parameter).
+ * @param srr_alpha    First SRR parameter (e.g., alpha/productivity parameter).
+ * @param srr_beta     Second SRR parameter (e.g., beta/density-dependence parameter).
  * @param rec_dev      Annual log recruitment deviation.
- * @param srr_env_mult Pre-calculated environmental multiplier (dot product of env_index and betas).
- * Pass 0.0 if not using an environmentally linked SRR.
+ * @param spr0         Equilibrium SPR at F = 0 (assume M in yr 1)
  * * @return             Calculated expected recruitment (Type).
  */
 template <class Type>
 Type calculate_recruitment(int srr_fun,
                            Type R0,
                            Type ssb,
-                           Type rec_par_1,
-                           Type rec_par_2,
+                           Type srr_alpha,
+                           Type srr_beta,
                            Type rec_dev,
-                           Type srr_env_mult) {
+                           Type spr0) {
   Type R = 0;
-  Type srr_alpha = 0;
+  Type ricker_intercept;
 
   switch(srr_fun) {
   case 0: // Random about mean
@@ -40,26 +39,32 @@ Type calculate_recruitment(int srr_fun,
     break;
 
   case 1: // Random about mean with environmental effects
-    R = R0 * exp(rec_dev + srr_env_mult);
+    R = R0 * exp(rec_dev);
     break;
 
   case 2: // Beverton-Holt
-    R = exp(rec_par_1) * ssb * exp(rec_dev) / (Type(1.0) + exp(rec_par_2) * ssb);
+    R = srr_alpha * ssb * exp(rec_dev) / (Type(1.0) + srr_beta * ssb);
+    R0 = (srr_alpha - 1.0/spr0) / srr_beta; // (Alpha-1/SPR0)/beta
     break;
 
   case 3: // Beverton-Holt with environmental impacts on alpha
-    srr_alpha = exp(rec_par_1 + srr_env_mult);
-    R = srr_alpha * ssb * exp(rec_dev) / (Type(1.0) + exp(rec_par_2) * ssb);
+    R = srr_alpha * ssb * exp(rec_dev) / (Type(1.0) + srr_beta * ssb);
+    R0 = (srr_alpha - 1.0/spr0) / srr_beta; // (Alpha-1/SPR0)/beta
     break;
 
   case 4: // Ricker
     // Beta is divided by 1,000,000 for estimation stability
-    R = exp(rec_par_1) * ssb * exp(-exp(rec_par_2) * ssb / Type(1000000.0)) * exp(rec_dev);
+    R = srr_alpha * ssb * exp(-srr_beta * ssb / Type(1000000.0)) * exp(rec_dev);
+
+    ricker_intercept = srr_alpha * spr0 - 1.0;
+    R0 = log(ricker_intercept)/(srr_beta * spr0/1000000.0);
     break;
 
   case 5: // Ricker with environmental impacts on alpha
-    srr_alpha = exp(rec_par_1 + srr_env_mult);
-    R = srr_alpha * ssb * exp(-exp(rec_par_2) * ssb / Type(1000000.0)) * exp(rec_dev);
+    R = srr_alpha * ssb * exp(-srr_beta * ssb / Type(1000000.0)) * exp(rec_dev);
+
+    ricker_intercept = srr_alpha * spr0 - 1.0;
+    R0 = log(ricker_intercept)/(srr_beta * spr0/1000000.0);
     break;
 
   default:

@@ -93,11 +93,11 @@ fit$data_list$linkage_table
 ```
 
 For three species × two sexes × `~ temp` (intercept + slope) you get
-12 rows: an intercept beta and a temp-slope beta per (species, sex)
-combination. Whenever a base parameter (`log_K`, `log_M1`, `log_R0`,
-...) appears in any linkage row, that base parameter is automatically
-mapped out (held NA in the TMB map) so the linkage entirely replaces
-its role -- see *Automatic base-parameter handling* below.
+12 rows: an `(Intercept)` beta and a `temp`-slope beta per (species,
+sex) combination. The `(Intercept)` beta is fixed at 0 (mapped out)
+and the *base parameter* (`log_K`, `log_M1`, `log_R0`, ...) carries
+the level. The slope rows give the year-by-year offset that
+multiplies the base. See *Automatic base-parameter handling* below.
 
 The shared design matrix is stored alongside:
 
@@ -107,43 +107,68 @@ head(fit$data_list$linkage_X)
 
 ## Automatic base-parameter handling
 
-Every base parameter that has at least one linkage row is **mapped out
-of estimation automatically**. The linkage replaces the base parameter
-rather than supplementing it.
+The base parameter (`log_R0`, `log_M1`, `log_K`, ...) and the linkage
+table cooperate cleanly: the **base parameter holds the level**, and
+the **linkage rows hold year-by-year offsets** that multiply the base
+on the log scale. The exact behaviour depends on whether the
+formula carries an intercept:
 
-The exact behavior depends on whether the formula carries an intercept:
+| Formula                      | Base parameter                            | `(Intercept)` row              | Slope rows |
+|------------------------------|-------------------------------------------|--------------------------------|------------|
+| `~ 1` (intercept only)       | estimable; init from spec or default      | fixed at `0` (NA in TMB map)   | n/a |
+| `~ temp` (intercept + slope) | estimable; init from spec or default      | fixed at `0` (NA in TMB map)   | estimated |
+| `~ 0 + temp` (slope only)    | mapped NA, fixed at `build_params()` default | n/a (no intercept row produced) | estimated |
 
-| Formula                    | Base parameter value | Base parameter map |
-|----------------------------|----------------------|--------------------|
-| `~ 1` (intercept only)     | initialised to `0`   | NA (not estimated) |
-| `~ temp` (intercept + slope) | initialised to `0` | NA (not estimated) |
-| `~ 0 + temp` (slope only)  | left at `build_params()` default | NA (not estimated) |
+**Intercept-bearing formulas (`~ 1`, `~ temp`)** -- the base parameter
+remains estimable and carries the level; for example `log_R0` for
+species `s` lives on `rec_pars[s, 1]` exactly as it does without any
+linkages. The `(Intercept)` row of the table exists for bookkeeping
+and as a hook for `init`/`prior` (see below) but its `beta_linkage`
+slot is held at `0` and not estimated. The recruitment / mortality /
+growth modules read `base + offset(yr)` each year -- with the
+intercept fixed at zero, the offset is exactly the slope contribution.
 
-The intercept-bearing rows (`~ 1` and `~ temp`) carry the parameter's
-*level*: their estimated coefficient on the `(Intercept)` column is
-exactly what would otherwise be the base parameter (e.g. `log_R0` for
-species `s` lives on the `(Intercept)` row whose `species == s`). The
-base array slot is held at `0` so the model evaluates `(Intercept) +
-(slopes)` cleanly, with no hidden offset.
+**Slope-only formulas (`~ 0 + temp`)** -- there is no `(Intercept)`
+row, so the base parameter is masked out (NA) and stays at the
+`build_params()` default (e.g. `log_R0 = 9`). If you need a different
+level, either supply it via the model's `inits` argument or add an
+explicit intercept to the formula and set `init = list(`(Intercept)`
+= ...)` on the spec.
 
-Slope-only formulas (`~ 0 + temp`) do *not* identify the level. The
-base parameter is still mapped out (so it cannot drift), but it stays
-at the `build_params()` default (e.g. `log_R0 = 9`). If you need a
-non-default level, supply it via `inits`, or add an explicit intercept
-to the formula.
+### `init` and the base parameter
+
+`init = list(`(Intercept)` = X)` on the linkage spec **flows to the
+base parameter** rather than to the linkage row. The linkage row's
+`beta_linkage` slot stays at `0`; the base parameter starts at `X`.
+This is the recommended way to set a sensible starting value for
+intercept-bearing linkages -- it composes naturally with phasing
+(the base parameter goes through the existing per-process phase
+logic) and keeps the optimiser grounded.
+
+```{r}
+# Start log_M1 at log(0.06) without estimating an extra intercept beta.
+build_M1(
+  M1_model = "sex_age_invariant",
+  linkages = list(
+    log_M1 = linkage_spec(
+      formula = ~ 1,
+      init    = list(`(Intercept)` = log(0.06))
+    )
+  )
+)
+```
+
+### Stratification
+
+Stratification (`by`) determines *which* base-parameter slots are
+affected: `by = ~ species` produces one `(Intercept)` row per species;
+`by = NULL` (a fully shared linkage) produces a single shared row;
+and `by = ~ species + sex` produces one per (species, sex). Each
+`(Intercept)` row that the user supplies an `init` for pushes that
+init into the matching base-parameter slot.
 
 This rule applies uniformly to every linkage target (`log_K`, `log_L1`,
 `log_Linf`, `log_m`, `log_M1`, `log_R0`, `log_alpha`, `log_beta`).
-Stratification (`by`) determines *which* base-parameter slots are
-affected: `by = ~ species` zeros only the species in the rows;
-`by = NULL` (a fully shared linkage) zeros every species; and
-`by = ~ species + sex` zeros each (species, sex) combination present
-in the linkage table.
-
-A practical implication: combining `srr_fun > 0` (Beverton-Holt or
-Ricker) with `linkages = list(log_alpha = ...)` automatically removes
-the base `log_alpha` from estimation. Pair the linkage with priors,
-bounds, or `init` if you need to constrain the parameter.
 
 ### Single-sex models and `by = ~ ... + sex`
 
@@ -287,10 +312,12 @@ environmental covariates, you want to apply a Bayesian-style
 informative prior directly to the base value of a parameter like
 `log_K`, `log_R0`, or `log_M1`.
 
-Because any intercept-bearing linkage replaces the base parameter (see
-*Automatic base-parameter handling* above), an intercept-only linkage
-*is* the parameter, and a prior on its `(Intercept)` row is the prior
-on that parameter:
+A prior attached to an `(Intercept)` row is **re-targeted to the base
+parameter**: the slot 19 contribution evaluates the prior density
+against `rec_pars`, `log_M1`, or `log_growth_pars` (whichever the row
+points at), not against the (zeroed) `beta_linkage` value. The user
+sees the same syntax they would use for any other column, and the
+prior actually constrains the parameter that carries the level.
 
 ```{r}
 # Example: prior on log_K for von Bertalanffy growth
@@ -336,12 +363,13 @@ The prior contribution appears in slot 19 of the joint NLL:
 fit$quantities$jnll_comp["Linkage-table priors", ]
 ```
 
-You can inspect the linked parameter values via the linkage table and
-the estimated coefficient vector:
+You can inspect the linked parameter values via the linkage table,
+the estimated slope coefficients, and the base-parameter array:
 
 ```{r}
 fit$data_list$linkage_table[fit$data_list$linkage_table$param == "log_K", ]
-fit$estimated_params$beta_linkage
+fit$estimated_params$beta_linkage          # (Intercept) rows are 0; slopes are estimated
+fit$estimated_params$log_growth_pars       # base log_K / log_L1 / log_Linf / log_m
 ```
 
 The same approach works for **`log_M1`** when you want a prior on
@@ -378,11 +406,12 @@ Compared to the existing `build_M1(M_prior = ..., M_prior_sd = ...,
 M1_use_prior = TRUE)` mechanism, the linkage-intercept route gives
 you the same prior shape but composes naturally with the rest of
 the linkage table (you can keep your env-effect rows and the
-intercept rows together, with priors on each). For most operational
-work the existing `M_prior` mechanism is simpler and more direct;
-the linkage route is most useful when you already have a table of
-env-effect coefficients and want to extend the same per-row
-prior/bound machinery to the parameter intercept.
+intercept rows together, with priors on each). One small difference
+from the legacy `M_prior` path: the linkage prior is applied
+verbatim, with no lognormal bias-correction term added internally.
+If you want a literal port of the old `M_prior` behaviour, use
+`normal(log(M_mean) + sd^2 / 2, sd)` so the mean of the natural-scale
+M matches `M_mean`.
 
 ## Species- and (species, sex)-specific priors
 
@@ -706,10 +735,12 @@ When you call `fit_mod()` with linkages:
      the `M1_at_age` compute.
    - `recruitment_linkage_offset` of shape
      `[nspp, n_rec_params, nyrs]` via
-     `rceattle_apply_recruitment_linkages()`, pre-added to
-     `(R0, rec_pars(*, alpha), rec_pars(*, beta))` before each
-     `calculate_recruitment()` call site (hindcast, BRPs, dynamic
-     BRPs, projections, expected R).
+     `rceattle_apply_recruitment_linkages()`, multiplied against
+     `(R0, exp(rec_pars(*, alpha)), exp(rec_pars(*, beta)))` each
+     year at every `calculate_recruitment()` call site (hindcast,
+     BRPs, dynamic BRPs, projections, expected R). Year 0 is
+     treated like any other year -- the `(Intercept)` row is held
+     at zero, so the offset is purely the slope contribution.
 
    All three accumulators read from the same encoded table and the
    same `beta_linkage` parameter vector; rows dispatch by their
@@ -999,9 +1030,9 @@ fit$quantities$jnll_comp["Linkage-table priors", ]
 * **Selectivity / catchability linkages** -- the encoder already
   reserves `process = "sel"` and `process = "q"` codes, but no
   cpp accumulator consumes them yet.
-* **Legacy retirement (v4.2.0)** -- `srr_indices`, `M1_indices`,
+* **Legacy retirement (v4.4.0)** -- `srr_indices`, `M1_indices`,
   `srr_fun in c(1, 3, 5)`, and `M1_model in c(4, 5)` retire in
-  the next minor release; see *Scheduled removal (v4.2.0)* in
+  the next minor release; see *Scheduled removal (v4.4.0)* in
   `NEWS.md` for the migration table.
 
 ## See also

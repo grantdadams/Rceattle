@@ -56,10 +56,6 @@ build_params <- function(data_list) {
   param_list$R_log_sd = log(as.numeric(data_list$sigma_rec_prior))  # Standard deviation of recruitment deviations; n = [1, nspp]
   names(param_list$R_log_sd) <- data_list$spnames
 
-  # - Env regression parameters for recruitment
-  param_list$beta_rec_pars <- array(0, dim = c(data_list$nspp, ncol(data_list$env_data) - 1),
-                                    dimnames = list(data_list$spnames, colnames(data_list$env_data)[-1]))
-
   # * 1.3. Initial age-structure parameters ----
   param_list$init_dev = matrix(0, nrow = data_list$nspp, ncol = max_age,
                                dimnames = list(data_list$spnames, paste0("Age", 1:max_age)))
@@ -193,51 +189,60 @@ build_params <- function(data_list) {
   # * 1.3b. Linkage-table coefficients ----
   # Aligned row-for-row with the pooled `data_list$linkage_table` (set
   # by `pool_linkages()` inside `fit_mod`). Initial values come from
-  # the `init` column of the table; absent table => length-0 vector.
+  # the `init` column of the table; (Intercept) rows are forced to 0
+  # because they're mapped out of estimation -- the base parameter
+  # carries the level instead (see 1.3c below). Absent table =>
+  # length-0 vector.
   if (!is.null(data_list$linkage_table) &&
       nrow(data_list$linkage_table) > 0L) {
-    param_list$beta_linkage <- as.numeric(data_list$linkage_table$init)
+    init_vals <- as.numeric(data_list$linkage_table$init)
+    init_vals[data_list$linkage_table$design_col == "(Intercept)"] <- 0
+    param_list$beta_linkage <- init_vals
   } else {
     param_list$beta_linkage <- numeric(0)
   }
 
-  # * 1.3c. Zero base parameters whose linkage carries an intercept ----
-  # Any linkage formula that *includes* an intercept term -- whether
-  # intercept-only (`~ 1`) or intercept-plus-covariates (`~ temp`,
-  # `~ temp + PDO`, etc.) -- emits a row with `design_col ==
-  # "(Intercept)"`. That intercept coefficient *is* the parameter's
-  # level; `map_linkage_adjuster()` maps the base parameter out of
-  # estimation, and we initialise it to 0 here so the linkage value
-  # isn't silently offset by the build_params default. Linkages with
-  # no intercept (`~ 0 + temp`) leave the base at its default; the
-  # base is still mapped out, so the user must rely on that default
-  # as the implicit intercept.
+  # * 1.3c. Push (Intercept) inits to the base parameter ----
+  # An intercept-bearing linkage formula (`~ 1`, `~ temp`, ...) emits
+  # an "(Intercept)" row whose coefficient stays fixed at 0 (mapped
+  # out by `build_map_linkages()`); the base parameter -- `log_M1`,
+  # `rec_pars[, 1]`, `log_growth_pars[, , k]` -- carries the level and
+  # remains estimable. If the user supplied an `init` value for the
+  # intercept column on the spec, push it to the base parameter here
+  # so phasing and priors operate from a sensible starting point.
+  # Without `init`, the base keeps its `build_params()` default.
+  #
+  # Slope-only formulas (`~ 0 + temp`) emit no (Intercept) row and
+  # are handled entirely by `map_linkage_adjuster()`, which maps the
+  # base parameter out so it stays at its default.
   if (!is.null(data_list$linkage_table) &&
       nrow(data_list$linkage_table) > 0L) {
     intercepts <- data_list$linkage_table[
-      data_list$linkage_table$design_col == "(Intercept)", , drop = FALSE]
+      data_list$linkage_table$design_col == "(Intercept)" &
+        data_list$linkage_table$init_supplied, , drop = FALSE]
     for (i in seq_len(nrow(intercepts))) {
       row <- intercepts[i, , drop = FALSE]
       idx <- .linkage_row_indices(row, data_list)
+      init_val <- as.numeric(row$init)
       switch(row$process,
         growth = {
           par_idx <- .GROWTH_PARAM_TO_INDEX[row$param]
           if (is.na(par_idx)) next
           for (s in idx$species) {
-            param_list$log_growth_pars[s, idx$per_sp[[as.character(s)]]$sex, par_idx] <- 0
+            param_list$log_growth_pars[s, idx$per_sp[[as.character(s)]]$sex, par_idx] <- init_val
           }
         },
         M = {
           for (s in idx$species) {
             sx <- idx$per_sp[[as.character(s)]]$sex
             ag <- idx$per_sp[[as.character(s)]]$age
-            param_list$log_M1[s, sx, ag] <- 0
+            param_list$log_M1[s, sx, ag] <- init_val
           }
         },
         recruitment = {
           par_idx <- .REC_PARAM_TO_INDEX[row$param]
           if (is.na(par_idx)) next
-          param_list$rec_pars[idx$species, par_idx] <- 0
+          param_list$rec_pars[idx$species, par_idx] <- init_val
         }
       )
     }

@@ -44,11 +44,11 @@ testthat::test_that("build_srr(srr_indices = ...) emits deprecation warning", {
   # Any other value triggers the soft-deprecation warning.
   testthat::expect_warning(
     Rceattle::build_srr(srr_indices = 1),
-    "soft-deprecated"
+    "deprecated"
   )
   testthat::expect_warning(
     Rceattle::build_srr(srr_indices = c(1, 2, 3)),
-    "soft-deprecated"
+    "deprecated"
   )
 })
 

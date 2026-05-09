@@ -49,8 +49,15 @@ fit_debug <- function(...) {
   )
 }
 
-# --- Test 1: Growth parameter (log_K) linkage ---
-testthat::test_that("Growth parameter (log_K) is mapped to NA when linked", {
+# Intercept-bearing linkages (~ 1, ~ temp): the base parameter stays
+# estimable and carries the level. The linkage's (Intercept) row is
+# fixed at 0 (mapped NA) so the linkage column is purely an offset.
+# Slope-only linkages (~ 0 + temp): no (Intercept) row, so the base
+# parameter is masked out and stays at its build_params() default;
+# the slope row carries the year-by-year offset on top.
+
+# --- Test 1: Growth parameter (log_K), intercept-only linkage ---
+testthat::test_that("Growth log_K base stays estimable when linkage carries an intercept", {
   link_log_K <- linkage_spec(formula = ~ 1, by = ~ species, param = "log_K")
 
   run <- fit_debug(
@@ -61,17 +68,21 @@ testthat::test_that("Growth parameter (log_K) is mapped to NA when linked", {
   )
   map <- run$map$mapList
 
-  # log_K is mapped to NA for every species/sex
-  expect_true(all(is.na(map$log_growth_pars[, , 1])))
+  # log_K stays estimable (the base carries the level).
+  testthat::expect_false(any(is.na(map$log_growth_pars[, , 1])))
+  # log_L1 / log_Linf are unaffected.
+  testthat::expect_false(any(is.na(map$log_growth_pars[, , 2])))
+  testthat::expect_false(any(is.na(map$log_growth_pars[, , 3])))
 
-  # log_L1 / log_Linf remain estimable (log_m is NA via build_map_growth
-  # for von Bertalanffy regardless of linkages, so we don't check it here)
-  expect_false(any(is.na(map$log_growth_pars[, , 2]))) # log_L1
-  expect_false(any(is.na(map$log_growth_pars[, , 3]))) # log_Linf
+  # The (Intercept) row of beta_linkage is mapped out (fixed at 0).
+  tbl <- run$data_list$linkage_table
+  testthat::expect_true(all(tbl$design_col == "(Intercept)"))
+  testthat::expect_true(all(is.na(run$map$mapList$beta_linkage)))
+  testthat::expect_true(all(run$estimated_params$beta_linkage == 0))
 })
 
-# --- Test 2: M parameter (log_M1) linkage ---
-testthat::test_that("M parameter (log_M1) is mapped to NA when linked", {
+# --- Test 2: M parameter (log_M1), intercept-only linkage ---
+testthat::test_that("M log_M1 base stays estimable when linkage carries an intercept", {
   link_log_M1 <- linkage_spec(formula = ~ 1, by = ~ species, param = "log_M1")
 
   run <- fit_debug(
@@ -82,11 +93,13 @@ testthat::test_that("M parameter (log_M1) is mapped to NA when linked", {
   )
   map <- run$map$mapList
 
-  expect_true(all(is.na(map$log_M1)))
+  testthat::expect_false(any(is.na(map$log_M1)))
+  testthat::expect_true(all(is.na(run$map$mapList$beta_linkage)))
+  testthat::expect_true(all(run$estimated_params$beta_linkage == 0))
 })
 
-# --- Test 3: Recruitment parameter (log_R0) linkage ---
-testthat::test_that("Recruitment parameter (log_R0) is mapped to NA when linked", {
+# --- Test 3: Recruitment parameter (log_R0), intercept-only linkage ---
+testthat::test_that("Recruitment log_R0 base stays estimable when linkage carries an intercept", {
   link_log_R0 <- linkage_spec(formula = ~ 1, by = ~ species, param = "log_R0")
 
   run <- fit_debug(
@@ -94,48 +107,65 @@ testthat::test_that("Recruitment parameter (log_R0) is mapped to NA when linked"
   )
   map <- run$map$mapList
 
-  expect_true(all(is.na(map$rec_pars[, 1])))
+  testthat::expect_false(any(is.na(map$rec_pars[, 1])))
+  testthat::expect_true(all(is.na(run$map$mapList$beta_linkage)))
 })
 
-# --- Test 4: Shared linkage (by = NULL) zeros and maps every species ---
-testthat::test_that("Shared (by = NULL) intercept linkage zeros and maps all species", {
+# --- Test 4: Shared linkage (by = NULL): one row, base stays estimable ---
+testthat::test_that("Shared (by = NULL) intercept linkage keeps base estimable", {
   link_shared <- linkage_spec(formula = ~ 1, by = NULL, param = "log_R0")
 
   run <- fit_debug(
     recFun = build_srr(srr_fun = 0, linkages = list(log_R0 = link_shared))
   )
 
-  # One linkage row, species = NA (shared across the model)
   tbl <- run$data_list$linkage_table
-  expect_equal(nrow(tbl), 1L)
-  expect_true(is.na(tbl$species[1]))
+  testthat::expect_equal(nrow(tbl), 1L)
+  testthat::expect_true(is.na(tbl$species[1]))
 
-  # Every species' base log_R0 is zeroed and mapped out
-  expect_true(all(run$estimated_params$rec_pars[, 1] == 0))
-  expect_true(all(is.na(run$map$mapList$rec_pars[, 1])))
+  # Base log_R0 keeps its build_params() default (9) -- no init was supplied.
+  testthat::expect_true(all(run$estimated_params$rec_pars[, 1] == 9))
+  # Base log_R0 is estimable for every species.
+  testthat::expect_false(any(is.na(run$map$mapList$rec_pars[, 1])))
 })
 
-# --- Test 5: Intercept vs No-Intercept logic ---
-testthat::test_that("Base parameter value is 0 and map is NA ONLY when intercept is present", {
-  # 1. With Intercept
+# --- Test 5: Intercept vs No-Intercept divergence ---
+testthat::test_that("Intercept-bearing keeps base estimable; no-intercept masks it", {
+  # 1. With Intercept: base stays estimable, defaults to 9.
   link_intercept <- linkage_spec(formula = ~ 1, by = ~ species, param = "log_R0")
 
   run_intercept <- fit_debug(
     recFun = build_srr(srr_fun = 0, linkages = list(log_R0 = link_intercept))
   )
 
-  expect_equal(as.numeric(run_intercept$estimated_params$rec_pars[1, 1]), 0)
-  expect_true(is.na(run_intercept$map$mapList$rec_pars[1, 1]))
+  testthat::expect_equal(as.numeric(run_intercept$estimated_params$rec_pars[1, 1]), 9)
+  testthat::expect_false(is.na(run_intercept$map$mapList$rec_pars[1, 1]))
 
-  # 2. Without Intercept (relative offset only)
+  # 2. Without Intercept (slope only): base is masked at default (9).
   link_no_intercept <- linkage_spec(formula = ~ 0 + temp, by = ~ species, param = "log_R0")
 
   run_no_intercept <- fit_debug(
     recFun = build_srr(srr_fun = 0, linkages = list(log_R0 = link_no_intercept))
   )
 
-  # Base parameter keeps its initialized default (9) because there is no intercept
-  expect_equal(as.numeric(run_no_intercept$estimated_params$rec_pars[1, 1]), 9)
-  # Map is still NA because the parameter is linked
-  expect_true(is.na(run_no_intercept$map$mapList$rec_pars[1, 1]))
+  testthat::expect_equal(as.numeric(run_no_intercept$estimated_params$rec_pars[1, 1]), 9)
+  testthat::expect_true(is.na(run_no_intercept$map$mapList$rec_pars[1, 1]))
+})
+
+# --- Test 6: User-supplied (Intercept) init flows to the base parameter ---
+testthat::test_that("(Intercept) init overrides the base parameter's default", {
+  link_with_init <- linkage_spec(
+    formula = ~ 1,
+    by      = ~ species,
+    param   = "log_R0",
+    init    = list(`(Intercept)` = 7.5)
+  )
+
+  run <- fit_debug(
+    recFun = build_srr(srr_fun = 0, linkages = list(log_R0 = link_with_init))
+  )
+
+  testthat::expect_true(all(run$estimated_params$rec_pars[, 1] == 7.5))
+  testthat::expect_true(all(run$estimated_params$beta_linkage == 0))
+  testthat::expect_false(any(is.na(run$map$mapList$rec_pars[, 1])))
 })
