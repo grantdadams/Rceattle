@@ -149,6 +149,7 @@ encode_linkage_for_tmb <- function(table, X) {
     linkage_age_bin       = to_stratum(table$age_bin),
     linkage_X_col         = as.integer(table$X_col) - 1L,   # 0-based for TMB
     linkage_link          = link_int,
+    linkage_is_intercept  = as.integer(table$design_col == "(Intercept)"),
     linkage_prior_family  = prior_int,
     linkage_prior_p1      = as.numeric(table$prior_p1),
     linkage_prior_p2      = as.numeric(table$prior_p2),
@@ -170,6 +171,7 @@ encode_linkage_for_tmb <- function(table, X) {
     linkage_age_bin       = integer(0),
     linkage_X_col         = integer(0),
     linkage_link          = integer(0),
+    linkage_is_intercept  = integer(0),
     linkage_prior_family  = integer(0),
     linkage_prior_p1      = numeric(0),
     linkage_prior_p2      = numeric(0),

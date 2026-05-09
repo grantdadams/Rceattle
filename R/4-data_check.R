@@ -568,9 +568,6 @@ data_check <- function(data_list) {
       errors <- c(errors, "env_data is missing required 'Year' column")
     }
   }
-  if(any(data_list$srr_indices > ncol(data_list$env_index))){
-    errors <- c(errors, "'srr_indices' greater than the number of indices included")
-  }
   if(any(data_list$M1_indices > ncol(data_list$env_index))){
     errors <- c(errors, "'M1_indices' greater than the number of indices included")
   }

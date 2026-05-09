@@ -231,7 +231,6 @@ fit_mod <-
     data_list$srr_est_mode <- recFun$srr_est_mode
     data_list$srr_prior    <- extend_length(recFun$srr_prior)
     data_list$srr_prior_sd <- extend_length(recFun$srr_prior_sd)
-    data_list$srr_indices  <- recFun$srr_indices
     data_list$srr_linkages <- recFun$linkages
     data_list$Bmsy_lim     <- extend_length(recFun$Bmsy_lim)
 
@@ -445,6 +444,7 @@ fit_mod <-
     data_list_reorganized$linkage_age_bin      <- .linkage_enc$linkage_age_bin
     data_list_reorganized$linkage_X_col        <- .linkage_enc$linkage_X_col
     data_list_reorganized$linkage_link         <- .linkage_enc$linkage_link
+    data_list_reorganized$linkage_is_intercept <- .linkage_enc$linkage_is_intercept
     data_list_reorganized$linkage_prior_family <- .linkage_enc$linkage_prior_family
     data_list_reorganized$linkage_prior_p1     <- .linkage_enc$linkage_prior_p1
     data_list_reorganized$linkage_prior_p2     <- .linkage_enc$linkage_prior_p2

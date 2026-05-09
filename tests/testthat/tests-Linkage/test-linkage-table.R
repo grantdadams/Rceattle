@@ -114,7 +114,7 @@ testthat::test_that("materialize_linkage row count = ncol(X) x by", {
   testthat::expect_equal(nrow(rows), 9L)
   testthat::expect_setequal(rows$species, 1:3)
   testthat::expect_setequal(rows$X_col, 1:3)
-  testthat::expect_equal(rows$design_col, rep(c("(Intercept)", "temp", "PDO"), times = 3))
+  testthat::expect_equal(rows$design_col, rep(c("(Intercept)", "temp", "PDO"), each = 3))
   testthat::expect_true(all(is.na(rows$sex)))
   testthat::expect_true(all(rows$prior_family == "none"))
 
@@ -151,7 +151,7 @@ testthat::test_that("materialize_linkage() handles species + sex grouping", {
   testthat::expect_equal(nrow(rows), 8L)
   testthat::expect_setequal(rows$species, 1:2)
   testthat::expect_setequal(rows$sex, 1:2)
-  testthat::expect_equal(rows$design_col, rep(c("(Intercept)", "temp"), times = 4))
+  testthat::expect_equal(rows$design_col, rep(c("(Intercept)", "temp"), each = 4))
 })
 
 testthat::test_that("materialize_linkage() honors species-specific sex strata", {
@@ -212,3 +212,4 @@ testthat::test_that("materialize_linkage rejects unknown grouping vars", {
     "unknown grouping variable"
   )
 })
+

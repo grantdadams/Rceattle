@@ -31,22 +31,23 @@ NULL
 #'
 #' @keywords internal
 LINKAGE_COLS <- c(
-  process      = "character",  # "recruitment", "M", "growth", "q", "sel"
-  param        = "character",  # e.g. "log_R0", "log_alpha", "log_K"
-  species      = "integer",    # 1-based species id; NA = shared
-  sex          = "integer",    # 1 or 2; NA = shared
-  age_bin      = "integer",    # 1-based age index; NA = shared
-  X_col        = "integer",    # column of the global design matrix
-  design_col   = "character",  # name of the design matrix column
-  link         = "character",  # "identity", "log", "logit"
-  init         = "numeric",    # initial value on the linear predictor scale
-  lower        = "numeric",    # lower bound (-Inf for unbounded)
-  upper        = "numeric",    # upper bound ( Inf for unbounded)
-  prior_family = "character",  # "none" or one of PRIOR_FAMILIES
-  prior_p1     = "numeric",    # family param 1 (mean/meanlog/shape/shape1)
-  prior_p2     = "numeric",    # family param 2 (sd/sdlog/rate/shape2)
-  re_group     = "character",  # random-effect group name (NA = fixed)
-  est_phase    = "integer"     # phase ordinal; 0 = fixed
+  process       = "character",  # "recruitment", "M", "growth", "q", "sel"
+  param         = "character",  # e.g. "log_R0", "log_alpha", "log_K"
+  species       = "integer",    # 1-based species id; NA = shared
+  sex           = "integer",    # 1 or 2; NA = shared
+  age_bin       = "integer",    # 1-based age index; NA = shared
+  X_col         = "integer",    # column of the global design matrix
+  design_col    = "character",  # name of the design matrix column
+  link          = "character",  # "identity", "log", "logit"
+  init          = "numeric",    # initial value on the linear predictor scale
+  init_supplied = "logical",    # TRUE iff user explicitly supplied init
+  lower         = "numeric",    # lower bound (-Inf for unbounded)
+  upper         = "numeric",    # upper bound ( Inf for unbounded)
+  prior_family  = "character",  # "none" or one of PRIOR_FAMILIES
+  prior_p1      = "numeric",    # family param 1 (mean/meanlog/shape/shape1)
+  prior_p2      = "numeric",    # family param 2 (sd/sdlog/rate/shape2)
+  re_group      = "character",  # random-effect group name (NA = fixed)
+  est_phase     = "integer"     # phase ordinal; 0 = fixed
 )
 
 
@@ -70,6 +71,7 @@ new_linkage_table <- function() {
       character = character(0),
       integer   = integer(0),
       numeric   = numeric(0),
+      logical   = logical(0),
       stop("Unknown column type: ", type)
     )
   })
@@ -113,7 +115,8 @@ validate_linkage_table <- function(x) {
     ok <- switch(expected,
       character = is.character(x[[col]]),
       integer   = is.integer(x[[col]]),
-      numeric   = is.numeric(x[[col]])
+      numeric   = is.numeric(x[[col]]),
+      logical   = is.logical(x[[col]])
     )
     if (!ok) {
       stop(sprintf("linkage column '%s' must be %s; got %s",
@@ -178,37 +181,39 @@ validate_linkage_table <- function(x) {
 #' @return A one-row `Rceattle_linkage_table`.
 #' @keywords internal
 linkage_row <- function(process, param, X_col,
-                        species      = NA_integer_,
-                        sex          = NA_integer_,
-                        age_bin      = NA_integer_,
-                        design_col   = NA_character_,
-                        link         = "identity",
-                        init         = 0,
-                        lower        = -Inf,
-                        upper        =  Inf,
-                        prior_family = "none",
-                        prior_p1     = NA_real_,
-                        prior_p2     = NA_real_,
-                        re_group     = NA_character_,
-                        est_phase    = 1L) {
+                        species       = NA_integer_,
+                        sex           = NA_integer_,
+                        age_bin       = NA_integer_,
+                        design_col    = NA_character_,
+                        link          = "identity",
+                        init          = 0,
+                        init_supplied = FALSE,
+                        lower         = -Inf,
+                        upper         =  Inf,
+                        prior_family  = "none",
+                        prior_p1      = NA_real_,
+                        prior_p2      = NA_real_,
+                        re_group      = NA_character_,
+                        est_phase     = 1L) {
   out <- new_linkage_table()
   out[1L, ] <- list(
-    process      = as.character(process),
-    param        = as.character(param),
-    species      = as.integer(species),
-    sex          = as.integer(sex),
-    age_bin      = as.integer(age_bin),
-    X_col        = as.integer(X_col),
-    design_col   = as.character(design_col),
-    link         = as.character(link),
-    init         = as.numeric(init),
-    lower        = as.numeric(lower),
-    upper        = as.numeric(upper),
-    prior_family = as.character(prior_family),
-    prior_p1     = as.numeric(prior_p1),
-    prior_p2     = as.numeric(prior_p2),
-    re_group     = as.character(re_group),
-    est_phase    = as.integer(est_phase)
+    process       = as.character(process),
+    param         = as.character(param),
+    species       = as.integer(species),
+    sex           = as.integer(sex),
+    age_bin       = as.integer(age_bin),
+    X_col         = as.integer(X_col),
+    design_col    = as.character(design_col),
+    link          = as.character(link),
+    init          = as.numeric(init),
+    init_supplied = as.logical(init_supplied),
+    lower         = as.numeric(lower),
+    upper         = as.numeric(upper),
+    prior_family  = as.character(prior_family),
+    prior_p1      = as.numeric(prior_p1),
+    prior_p2      = as.numeric(prior_p2),
+    re_group      = as.character(re_group),
+    est_phase     = as.integer(est_phase)
   )
   validate_linkage_table(out)
   out

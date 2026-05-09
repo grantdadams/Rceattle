@@ -75,7 +75,6 @@ set_phases <- function(){
     dummy = 1,
     log_pop_scalar = 4, # Scalar for input numbers-at-age
     rec_pars = 1,      # Stock-recruit parameters or log(mean rec) if no stock-recruit relationship
-    beta_rec_pars = 3,
     R_log_sd = 2,       # Variance for annual recruitment deviats
     rec_dev = 2,       # Annual recruitment deviats
     init_dev = 2,      # Age specific initial age-structure deviates or parameters

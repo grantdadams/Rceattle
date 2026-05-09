@@ -585,6 +585,7 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
   k <- 0L
   for (col_idx in seq_len(n_cols)) {
     cn <- X_names[col_idx]
+    init_user_supplied <- cn %in% names(spec$init)
     init_val   <- spec$init[[cn]]   %||% 0
     bounds_val <- spec$bounds[[cn]] %||% c(-Inf, Inf)
     prior_spec <- spec$priors[[cn]]
@@ -602,22 +603,23 @@ materialize_linkage <- function(spec, process, env_data, strata = list()) {
 
       k <- k + 1L
       rows[[k]] <- linkage_row(
-        process      = process,
-        param        = spec$param,
-        X_col        = col_idx,
-        species      = sp_id,
-        sex          = sx_id,
-        age_bin      = ab_id,
-        design_col   = cn,
-        link         = spec$link,
-        init         = init_val,
-        lower        = bounds_val[1],
-        upper        = bounds_val[2],
-        prior_family = pf,
-        prior_p1     = pp1,
-        prior_p2     = pp2,
-        re_group     = spec$re_group,
-        est_phase    = spec$est_phase
+        process       = process,
+        param         = spec$param,
+        X_col         = col_idx,
+        species       = sp_id,
+        sex           = sx_id,
+        age_bin       = ab_id,
+        design_col    = cn,
+        link          = spec$link,
+        init          = init_val,
+        init_supplied = init_user_supplied,
+        lower         = bounds_val[1],
+        upper         = bounds_val[2],
+        prior_family  = pf,
+        prior_p1      = pp1,
+        prior_p2      = pp2,
+        re_group      = spec$re_group,
+        est_phase     = spec$est_phase
       )
     }
   }

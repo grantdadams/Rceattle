@@ -172,15 +172,13 @@ build_srr <- function(srr_fun = 0,  #srr_model
 #' @noRd
 .warn_srr_indices_deprecation <- function() {
   warning(
-    "`srr_indices` is soft-deprecated. The same environmental ",
-    "effect is now better expressed through the linkages argument ",
+    "`srr_indices` is deprecated. Environmental ",
+    "effects are now expressed through the linkages argument ",
     "to build_srr():\n\n",
     "  build_srr(srr_fun = ...,\n",
     "            linkages = list(log_R0 = linkage_spec(\n",
     "              formula = ~ <env_col>)))\n\n",
-    "Both paths add additively to log(R) on the log scale, so do ",
-    "NOT supply both for the same coefficient or you will ",
-    "double-count. See vignette('environmental-linkages').",
+    " See vignette('environmental-linkages').",
     call. = FALSE
   )
 }

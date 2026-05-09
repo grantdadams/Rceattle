@@ -91,7 +91,7 @@ testthat::test_that("recruitment_linkage_offset propagates into log_R0", {
   testthat::expect_equal(ratio, exp(beta_temp * temp_v), tolerance = 1e-8)
 })
 
-testthat::test_that("linked log_R0 intercept is reflected in R_init at year 0", {
+testthat::test_that("intercept-bearing log_R0 linkage: base rec_pars carries the level", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -116,7 +116,6 @@ testthat::test_that("linked log_R0 intercept is reflected in R_init at year 0", 
 
   base_inits <- base_run$estimated_params
   base_inits$rec_dev[] <- 0
-  base_inits$beta_linkage[] <- 0
   base_dev0 <- suppressMessages(Rceattle::fit_mod(
     data_list   = dat,
     inits       = base_inits,
@@ -127,10 +126,12 @@ testthat::test_that("linked log_R0 intercept is reflected in R_init at year 0", 
     fit_control = Rceattle::fit_control(phase = FALSE, verbose = 0)
   ))
 
+  # The (Intercept) row is mapped out at 0; perturb rec_pars[, 1]
+  # (the base log_R0) instead. Year-0 R uses R0 directly when the
+  # linkage's only term is the intercept.
   pert_inits <- base_run$estimated_params
   pert_inits$rec_dev[] <- 0
-  intercept_row <- which(base_run$data_list$linkage_table$design_col == "(Intercept)")
-  pert_inits$beta_linkage[intercept_row] <- 0.75
+  pert_inits$rec_pars[, 1] <- pert_inits$rec_pars[, 1] + 0.75
   pert <- suppressMessages(Rceattle::fit_mod(
     data_list   = dat,
     inits       = pert_inits,
@@ -385,10 +386,17 @@ testthat::test_that("Test species-specific recruitment linkeages with mean rec (
                     initMode = "Equilibrium",
                     fit_control = fit_control(verbose = 0))
 
-  # Check coefs
-  testthat::expect_equal(ss_run$estimated_params$beta_linkage, c(10, 1, 0, 1, 11, 1, 12))
+  # Check coefs: (Intercept) rows are mapped out at 0; slope rows
+  # carry their initialised values. Order in the table is sp1
+  # ((Intercept), EnvIndex, EnvIndex2, EnvIndex3), sp2 ((Intercept),
+  # EnvIndex), sp3 ((Intercept)).
+  testthat::expect_equal(ss_run$estimated_params$beta_linkage,
+                         c(0, 1, 0, 1, 0, 1, 0))
+  # The base log_R0 carries each species' (Intercept) init.
+  testthat::expect_equal(as.numeric(ss_run$estimated_params$rec_pars[, 1]),
+                         c(10, 11, 12))
 
-  # Check ssb
+  # Check ssb -- numerically identical to the old parameterisation.
   # - Species 1 (multiple)
   testthat::expect_equal(as.numeric(ss_run$quantities$R[1,]),
                          as.numeric(exp(R0[1] + as.matrix(GOA2018SS$env_data[,-1]) %*% c(1,0,1))),
@@ -404,6 +412,9 @@ testthat::test_that("Test species-specific recruitment linkeages with mean rec (
                          as.numeric(rep(exp(R0[3]), nyrsproj)),
                          tolerance = 0.0001)
 
+  # Slot 19 priors: (Intercept) prior on species 3 is now evaluated
+  # against rec_pars[3, 1] = 12, not against the (zero) linkage row.
+  # The slope prior on EnvIndex2 still evaluates against beta_linkage.
   testthat::expect_equal(sum(ss_run$quantities$jnll_comp[20,]),
                          -dnorm(12,12,0.5, log = TRUE) - dnorm(0, 2, 0.5, log = TRUE),
                          tolerance = 0.0001)
@@ -644,25 +655,35 @@ testthat::test_that("Beverton alpha-linked recruitment", {
                     initMode = "Equilibrium",
                     fit_control = fit_control(verbose = 0))
 
-  # Check linkage coefs
-  testthat::expect_equal(ss_run$estimated_params$beta_linkage, c(log(beta), log(beta), log(beta), log(0.3), 1, 0, 1, log(0.35), 2, log(0.4)))
+  # (Intercept) rows are mapped out at 0; slope rows keep their inits.
+  # Order: sp1/sp2/sp3 log_beta (Intercept), sp1 log_alpha (Intercept,
+  # EnvIndex, EnvIndex2, EnvIndex3), sp2 log_alpha (Intercept, EnvIndex),
+  # sp3 log_alpha (Intercept).
+  testthat::expect_equal(ss_run$estimated_params$beta_linkage,
+                         c(0, 0, 0, 0, 1, 0, 1, 0, 2, 0))
+  # The base rec_pars carry the (Intercept) inits.
+  testthat::expect_equal(as.numeric(ss_run$estimated_params$rec_pars[, 2]),
+                         c(log(0.3), log(0.35), log(0.4)))
+  testthat::expect_equal(as.numeric(ss_run$estimated_params$rec_pars[, 3]),
+                         rep(log(beta), 3))
 
-  # - Base params
-  testthat::expect_equal(as.numeric(ss_run$estimated_params$rec_pars[,2:3]), rep(0, 6))
+  # - Map: base rec_pars[, 2] and [, 3] are estimable now; linkages on.
+  testthat::expect_all_true(!is.na(c(ss_run$map$mapList$rec_pars[, 2:3])))
+  testthat::expect_all_true(!is.na(c(ss_run$map$mapList$beta_linkage[
+    ss_run$data_list$linkage_table$design_col != "(Intercept)"])))
+  # (Intercept) rows of beta_linkage are mapped out (NA) and held at 0.
+  testthat::expect_all_true(is.na(c(ss_run$map$mapList$beta_linkage[
+    ss_run$data_list$linkage_table$design_col == "(Intercept)"])))
 
-  # - Map
-  testthat::expect_all_true(is.na(c(ss_run$map$mapList$rec_pars))) # all base pars are off
-  testthat::expect_all_true(!is.na(c(ss_run$map$mapList$beta_linkage))) # linkages are on
 
-
-  # Check offsets
+  # Check offsets: only slope columns contribute now (intercept is 0).
   sp1_offset <-as.numeric(ss_run$quantities$recruitment_linkage_offset[1,2,])
   sp2_offset <-as.numeric(ss_run$quantities$recruitment_linkage_offset[2,2,])
   sp3_offset <-as.numeric(ss_run$quantities$recruitment_linkage_offset[3,2,])
 
-  testthat::expect_equal(sp1_offset, log(0.3) + (GOA2018SS$env_data$EnvIndex) + GOA2018SS$env_data$EnvIndex3) # Species1
-  testthat::expect_equal(sp2_offset, log(0.35) + (2 * GOA2018SS$env_data$EnvIndex)) # Species2
-  testthat::expect_all_true(sp3_offset == log(0.4)) # Species3
+  testthat::expect_equal(sp1_offset, GOA2018SS$env_data$EnvIndex + GOA2018SS$env_data$EnvIndex3) # Species1
+  testthat::expect_equal(sp2_offset, 2 * GOA2018SS$env_data$EnvIndex) # Species2
+  testthat::expect_all_true(sp3_offset == 0) # Species3
 })
 
 
@@ -738,25 +759,31 @@ testthat::test_that("Ricker alpha-linked recruitment", {
                     initMode = "Equilibrium",
                     fit_control = fit_control(verbose = 0))
 
-  # Check linkage coefs
-  testthat::expect_equal(ss_run$estimated_params$beta_linkage, c(log(beta), log(beta), log(beta), log(0.3), 1, 0, 1, log(0.35), 2, log(0.4)))
+  # (Intercept) rows are mapped out at 0; slope rows keep their inits.
+  testthat::expect_equal(ss_run$estimated_params$beta_linkage,
+                         c(0, 0, 0, 0, 1, 0, 1, 0, 2, 0))
+  testthat::expect_equal(as.numeric(ss_run$estimated_params$rec_pars[, 2]),
+                         c(log(0.3), log(0.35), log(0.4)))
+  testthat::expect_equal(as.numeric(ss_run$estimated_params$rec_pars[, 3]),
+                         rep(log(beta), 3))
 
-  # - Base params
-  testthat::expect_equal(as.numeric(ss_run$estimated_params$rec_pars[,2:3]), rep(0, 6))
+  # - Map: base rec_pars[, 2:3] are estimable; linkages on for slopes,
+  #   off (NA) for (Intercept) rows.
+  testthat::expect_all_true(!is.na(c(ss_run$map$mapList$rec_pars[, 2:3])))
+  testthat::expect_all_true(!is.na(c(ss_run$map$mapList$beta_linkage[
+    ss_run$data_list$linkage_table$design_col != "(Intercept)"])))
+  testthat::expect_all_true(is.na(c(ss_run$map$mapList$beta_linkage[
+    ss_run$data_list$linkage_table$design_col == "(Intercept)"])))
 
-  # - Map
-  testthat::expect_all_true(is.na(c(ss_run$map$mapList$rec_pars))) # all base pars on off
-  testthat::expect_all_true(!is.na(c(ss_run$map$mapList$beta_linkage))) # linkages are on
 
-
-  # Check offsets
+  # Check offsets: only slope columns contribute (intercept is 0).
   sp1_offset <-as.numeric(ss_run$quantities$recruitment_linkage_offset[1,2,])
   sp2_offset <-as.numeric(ss_run$quantities$recruitment_linkage_offset[2,2,])
   sp3_offset <-as.numeric(ss_run$quantities$recruitment_linkage_offset[3,2,])
 
-  testthat::expect_equal(sp1_offset, log(0.3) + (GOA2018SS$env_data$EnvIndex) + GOA2018SS$env_data$EnvIndex3) # Species1
-  testthat::expect_equal(sp2_offset, log(0.35) + (2 * GOA2018SS$env_data$EnvIndex)) # Species2
-  testthat::expect_all_true(sp3_offset == log(0.4)) # Species3
+  testthat::expect_equal(sp1_offset, GOA2018SS$env_data$EnvIndex + GOA2018SS$env_data$EnvIndex3) # Species1
+  testthat::expect_equal(sp2_offset, 2 * GOA2018SS$env_data$EnvIndex) # Species2
+  testthat::expect_all_true(sp3_offset == 0) # Species3
 })
 
 
@@ -833,26 +860,31 @@ testthat::test_that("Beverton alpha-linked recruitment (penalty approach)", {
                     initMode = "Equilibrium",
                     fit_control = fit_control(verbose = 0))
 
-  # Check linkage coefs
-  testthat::expect_equal(ss_run$estimated_params$beta_linkage, c(log(beta), log(beta), log(beta), log(0.3), 1, 0, 1, log(0.35), 2, log(0.4)))
+  # (Intercept) rows mapped out at 0; slope rows keep their inits.
+  testthat::expect_equal(ss_run$estimated_params$beta_linkage,
+                         c(0, 0, 0, 0, 1, 0, 1, 0, 2, 0))
+  testthat::expect_equal(as.numeric(ss_run$estimated_params$rec_pars[, 2]),
+                         c(log(0.3), log(0.35), log(0.4)))
+  testthat::expect_equal(as.numeric(ss_run$estimated_params$rec_pars[, 3]),
+                         rep(log(beta), 3))
 
-  # - Base params
-  testthat::expect_equal(as.numeric(ss_run$estimated_params$rec_pars[,2:3]), rep(0, 6))
+  # - Map: base rec_pars all estimable; (Intercept) linkages off.
+  testthat::expect_all_true(!is.na(c(ss_run$map$mapList$rec_pars[, 1])))
+  testthat::expect_all_true(!is.na(c(ss_run$map$mapList$rec_pars[, 2:3])))
+  testthat::expect_all_true(!is.na(c(ss_run$map$mapList$beta_linkage[
+    ss_run$data_list$linkage_table$design_col != "(Intercept)"])))
+  testthat::expect_all_true(is.na(c(ss_run$map$mapList$beta_linkage[
+    ss_run$data_list$linkage_table$design_col == "(Intercept)"])))
 
-  # - Map
-  testthat::expect_all_true(is.na(c(ss_run$map$mapList$rec_pars[,2:3]))) # base alpha and beta are off
-  testthat::expect_all_true(!is.na(c(ss_run$map$mapList$rec_pars[,1]))) # base R0 is on
-  testthat::expect_all_true(!is.na(c(ss_run$map$mapList$beta_linkage))) # linkages are on
 
-
-  # Check offsets
+  # Check offsets: slope-only contributions.
   sp1_offset <-as.numeric(ss_run$quantities$recruitment_linkage_offset[1,2,])
   sp2_offset <-as.numeric(ss_run$quantities$recruitment_linkage_offset[2,2,])
   sp3_offset <-as.numeric(ss_run$quantities$recruitment_linkage_offset[3,2,])
 
-  testthat::expect_equal(sp1_offset, log(0.3) + (GOA2018SS$env_data$EnvIndex) + GOA2018SS$env_data$EnvIndex3) # Species1
-  testthat::expect_equal(sp2_offset, log(0.35) + (2 * GOA2018SS$env_data$EnvIndex)) # Species2
-  testthat::expect_all_true(sp3_offset == log(0.4)) # Species3
+  testthat::expect_equal(sp1_offset, GOA2018SS$env_data$EnvIndex + GOA2018SS$env_data$EnvIndex3) # Species1
+  testthat::expect_equal(sp2_offset, 2 * GOA2018SS$env_data$EnvIndex) # Species2
+  testthat::expect_all_true(sp3_offset == 0) # Species3
 
   # Check there is a likelihood penalty
   testthat::expect_true(sum(ss_run$quantities$jnll_comp[12,]) != 0)

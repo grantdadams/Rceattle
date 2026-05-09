@@ -407,38 +407,39 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
 
 
 
-  # * Beta coefficients ----
-  objects <- colnames(Rceattle$estimated_params$beta_rec_pars)
-  beta_mohns <- data.frame(matrix(0, nrow = length(objects), ncol = 3 + data_list$nspp))
-  colnames(beta_mohns) <- c("Object", "Forecast year", "N", data_list$spnames)
+  # # * Beta coefficients ----
+  # objects <- colnames(Rceattle$estimated_params$beta_rec_pars)
+  # beta_mohns <- data.frame(matrix(0, nrow = length(objects), ncol = 3 + data_list$nspp))
+  # colnames(beta_mohns) <- c("Object", "Forecast year", "N", data_list$spnames)
 
-
-  # * Loop through peels ----
-  for (i in 1:(length(mod_list) - 1)) {
-    endyr_peel <- mod_list[[i + 1]]$data_list$endyr_peel
-    nyrs_peel <- mod_list[[i + 1]]$data_list$endyr_peel - styr + 1
-    ind <- 1
-
-    # * Loop output ----
-    for (j in 1:length(objects)) {
-      base <- mod_list[[1]]$estimated_params$beta_rec_pars[,j]
-      peel <- mod_list[[i + 1]]$estimated_params$beta_rec_pars[,j]
-      rel_error <- ((peel - base)/base)
-
-      # * Save and sum relative error ----
-      beta_mohns[j, 1] <- objects[j]        # Object
-      beta_mohns[j, 2] <- 0                 # Year
-      beta_mohns[j, 3] <- beta_mohns[j, 3] + 1   # N
-      beta_mohns[j, 4:(data_list$nspp + 3) ] <- beta_mohns[j, 4:(data_list$nspp + 3)] + rel_error # Relative error
-    }
-  }
+#
+#   # * Loop through peels ----
+#   for (i in 1:(length(mod_list) - 1)) {
+#     endyr_peel <- mod_list[[i + 1]]$data_list$endyr_peel
+#     nyrs_peel <- mod_list[[i + 1]]$data_list$endyr_peel - styr + 1
+#     ind <- 1
+#
+#     # * Loop output ----
+#     for (j in 1:length(objects)) {
+#       base <- mod_list[[1]]$estimated_params$beta_rec_pars[,j]
+#       peel <- mod_list[[i + 1]]$estimated_params$beta_rec_pars[,j]
+#       rel_error <- ((peel - base)/base)
+#
+#       # * Save and sum relative error ----
+#       beta_mohns[j, 1] <- objects[j]        # Object
+#       beta_mohns[j, 2] <- 0                 # Year
+#       beta_mohns[j, 3] <- beta_mohns[j, 3] + 1   # N
+#       beta_mohns[j, 4:(data_list$nspp + 3) ] <- beta_mohns[j, 4:(data_list$nspp + 3)] + rel_error # Relative error
+#     }
+#   }
 
   # * Divide N ----
-  beta_mohns[, 4:(data_list$nspp + 3) ] <- beta_mohns[, 4:(data_list$nspp + 3)]/beta_mohns[, 3]
+  # beta_mohns[, 4:(data_list$nspp + 3) ] <- beta_mohns[, 4:(data_list$nspp + 3)]/beta_mohns[, 3]
+
   mod_list <- rev(mod_list)
   names(mod_list) <- paste0("Year_", (endyr - peels):endyr )
 
-  return(list(Rceattle_list = mod_list, mohns = rbind(mohns, beta_mohns)))
+  return(list(Rceattle_list = mod_list, mohns = rbind(mohns))) #, beta_mohns)))
 }
 
 

@@ -371,8 +371,11 @@ testthat::test_that("per-species formulas + species-specific priors compose", {
 
 
   # Model
-  # - Params
-  testthat::expect_equal(fit$estimated_params$beta_linkage, c(log(0.3),1,log(0.3),2,3))
+  # - Params: (Intercept) rows are mapped out at 0; slope rows keep
+  #   their inits; the base log_K carries the (Intercept) inits.
+  testthat::expect_equal(fit$estimated_params$beta_linkage, c(0, 1, 0, 2, 3))
+  testthat::expect_equal(as.numeric(fit$estimated_params$log_growth_pars[,1,1]),
+                         c(log(0.3), log(0.3)))
 
   # - Prior
   priornll <- dnorm(1, 0, 0.3, log = TRUE) +  dnorm(2, 0, 0.7, log = TRUE) + dnorm(3, 0, 1, log = TRUE)
@@ -457,13 +460,17 @@ testthat::test_that("Test internal K-linked growth", {
                                     msmMode = 0,
                                     fit_control = fit_control(phase = FALSE, verbose = 0)) )
 
-  # - Params
-  testthat::expect_equal(as.numeric(mod0$estimated_params$log_growth_pars[,1,1]), c(0, 0))
-  testthat::expect_equal(mod0$estimated_params$beta_linkage, c(log(0.3),1,log(0.35),2,3))
+  # - Params: base log_K carries the (Intercept) inits; (Intercept)
+  #   rows of beta_linkage are mapped out at 0; slopes keep their inits.
+  testthat::expect_equal(as.numeric(mod0$estimated_params$log_growth_pars[,1,1]),
+                         c(log(0.3), log(0.35)))
+  testthat::expect_equal(mod0$estimated_params$beta_linkage, c(0, 1, 0, 2, 3))
 
-  # - Map
-  testthat::expect_all_true(is.na(c(mod0$map$mapList$log_growth_pars[,1,c(1,4)]))) # base k and m are off
-  testthat::expect_all_true(!is.na(c(mod0$map$mapList$log_growth_pars[,1,-c(1,4)]))) # l1 and linf are on
+  # - Map: base log_K is estimable now (intercepts are estimable);
+  #   log_m stays NA via build_map_growth for vB regardless of linkages.
+  testthat::expect_all_true(!is.na(c(mod0$map$mapList$log_growth_pars[,1,1])))
+  testthat::expect_all_true(is.na(c(mod0$map$mapList$log_growth_pars[,1,4])))
+  testthat::expect_all_true(!is.na(c(mod0$map$mapList$log_growth_pars[,1,2:3]))) # l1 and linf are on
 
   # - Set other inits
   inits <- mod0$estimated_params
@@ -477,8 +484,8 @@ testthat::test_that("Test internal K-linked growth", {
   inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
   inits$growth_log_sd[] <- log(3)
-  inits$log_growth_pars[,1,] = matrix(log(c(1, 4.5, 90, 1.0,
-                                           1, 4.5, 50, 1.0)), # K set to 0 b/c linkage, L1, Linf, M
+  inits$log_growth_pars[,1,] = matrix(log(c(0.3, 4.5, 90, 1.0,
+                                           0.35, 4.5, 50, 1.0)), # base log_K carries level; L1, Linf, M
                                      nrow = nspp, ncol = 4, byrow = TRUE)
 
   # Fit Rceattle -------------------------------------------------------------
@@ -505,11 +512,11 @@ testthat::test_that("Test internal K-linked growth", {
   # - m
   testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_parameters[,,,4]), rep(1, length(as.numeric(ss_run_init$quantities$growth_parameters[,,,4]))))
 
-  # - K (has linkage)
-  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_linkage_offset[1,1,,1]), log(0.3) + (simData$env_data$temp)) # Species 1
+  # - K (has linkage): offset is slope-only; base log_K carries the level.
+  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_linkage_offset[1,1,,1]), simData$env_data$temp) # Species 1
   testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_parameters[1,1,,1]), (0.3) * exp(simData$env_data$temp))
 
-  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_linkage_offset[2,1,,1]), log(0.35) + (2 * simData$env_data$temp + 3 * simData$env_data$PDO)) # Species2
+  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_linkage_offset[2,1,,1]), 2 * simData$env_data$temp + 3 * simData$env_data$PDO) # Species2
   testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_parameters[2,1,,1]), (0.35) * exp(2 * simData$env_data$temp + 3 * simData$env_data$PDO))
 
 
@@ -595,13 +602,16 @@ testthat::test_that("Test internal L1-linked growth", {
                                     msmMode = 0,
                                     fit_control = fit_control(phase = FALSE, verbose = 0)) )
 
-  # - Params
-  testthat::expect_equal(as.numeric(mod0$estimated_params$log_growth_pars[,1,2]), c(0, 0))
-  testthat::expect_equal(mod0$estimated_params$beta_linkage, c(log(4.5),1,log(5),2,3))
+  # - Params: base log_L1 carries the (Intercept) inits; (Intercept)
+  #   rows of beta_linkage are mapped out at 0; slopes keep their inits.
+  testthat::expect_equal(as.numeric(mod0$estimated_params$log_growth_pars[,1,2]),
+                         c(log(4.5), log(5)))
+  testthat::expect_equal(mod0$estimated_params$beta_linkage, c(0, 1, 0, 2, 3))
 
-  # - Map
-  testthat::expect_all_true(is.na(c(mod0$map$mapList$log_growth_pars[,1,c(2,4)]))) # base k and m are off
-  testthat::expect_all_true(!is.na(c(mod0$map$mapList$log_growth_pars[,1,-c(2,4)]))) # l1 and linf are on
+  # - Map: base log_L1 is estimable; log_m stays NA via build_map_growth.
+  testthat::expect_all_true(!is.na(c(mod0$map$mapList$log_growth_pars[,1,2])))
+  testthat::expect_all_true(is.na(c(mod0$map$mapList$log_growth_pars[,1,4])))
+  testthat::expect_all_true(!is.na(c(mod0$map$mapList$log_growth_pars[,1,c(1,3)]))) # k and linf are on
 
   # - Set other inits
   inits <- mod0$estimated_params
@@ -615,8 +625,8 @@ testthat::test_that("Test internal L1-linked growth", {
   inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
   inits$growth_log_sd[] <- log(3)
-  inits$log_growth_pars[,1,] = matrix(log(c(0.3, 1, 90, 1.0,
-                                           0.3, 1, 50, 1.0)), # K set to 0 b/c linkage, L1, Linf, M
+  inits$log_growth_pars[,1,] = matrix(log(c(0.3, 4.5, 90, 1.0,
+                                           0.3, 5,   50, 1.0)), # K, base log_L1 carries level, Linf, M
                                      nrow = nspp, ncol = 4, byrow = TRUE)
 
   # Fit Rceattle -------------------------------------------------------------
@@ -634,11 +644,11 @@ testthat::test_that("Test internal L1-linked growth", {
 
 
   # Check growth parameters ----
-  # - L1
-  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_linkage_offset[1,1,,2]), log(4.5) + (simData$env_data$temp)) # Species1
+  # - L1 (has linkage): offset is slope-only; base log_L1 carries the level.
+  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_linkage_offset[1,1,,2]), simData$env_data$temp) # Species1
   testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_parameters[1,1,,2]), (4.5) * exp(simData$env_data$temp))
 
-  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_linkage_offset[2,1,,2]), log(5) + (2 * simData$env_data$temp + 3 * simData$env_data$PDO)) # Species2
+  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_linkage_offset[2,1,,2]), 2 * simData$env_data$temp + 3 * simData$env_data$PDO) # Species2
   testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_parameters[2,1,,2]), (5) * exp(2 * simData$env_data$temp + 3 * simData$env_data$PDO))
 
   # - Linf
@@ -734,13 +744,15 @@ testthat::test_that("Test internal Linf-linked growth", {
                                     msmMode = 0,
                                     fit_control = fit_control(phase = FALSE, verbose = 0)) )
 
-  # - Params
-  testthat::expect_equal(as.numeric(mod0$estimated_params$log_growth_pars[,1,3]), c(0, 0))
-  testthat::expect_equal(mod0$estimated_params$beta_linkage, c(log(90),1,log(50),2,3))
+  # - Params: base log_Linf carries the (Intercept) inits.
+  testthat::expect_equal(as.numeric(mod0$estimated_params$log_growth_pars[,1,3]),
+                         c(log(90), log(50)))
+  testthat::expect_equal(mod0$estimated_params$beta_linkage, c(0, 1, 0, 2, 3))
 
-  # - Map
-  testthat::expect_all_true(is.na(c(mod0$map$mapList$log_growth_pars[,1,c(3,4)]))) # base k and m are off
-  testthat::expect_all_true(!is.na(c(mod0$map$mapList$log_growth_pars[,1,-c(3,4)]))) # l1 and linf are on
+  # - Map: base log_Linf is estimable; log_m stays NA via build_map_growth.
+  testthat::expect_all_true(!is.na(c(mod0$map$mapList$log_growth_pars[,1,3])))
+  testthat::expect_all_true(is.na(c(mod0$map$mapList$log_growth_pars[,1,4])))
+  testthat::expect_all_true(!is.na(c(mod0$map$mapList$log_growth_pars[,1,1:2]))) # k and l1 are on
 
   # - Set other inits
   inits <- mod0$estimated_params
@@ -754,8 +766,8 @@ testthat::test_that("Test internal Linf-linked growth", {
   inits$rec_dev[,1:30] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
   inits$growth_log_sd[] <- log(3)
-  inits$log_growth_pars[,1,] = matrix(log(c(0.3, 4.5, 1, 1.0,
-                                           0.3, 4.5, 1, 1.0)), # K set to 0 b/c linkage, L1, Linf, M
+  inits$log_growth_pars[,1,] = matrix(log(c(0.3, 4.5, 90, 1.0,
+                                           0.3, 4.5, 50, 1.0)), # K, L1, base log_Linf carries level, M
                                      nrow = nspp, ncol = 4, byrow = TRUE)
 
   # Fit Rceattle -------------------------------------------------------------
@@ -774,11 +786,11 @@ testthat::test_that("Test internal Linf-linked growth", {
   # - L1
   testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_parameters[,,,2]), rep(4.5, length(as.numeric(ss_run_init$quantities$growth_parameters[,,,2]))))
 
-  # - Linf
-  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_linkage_offset[1,1,,3]), log(90) + (simData$env_data$temp)) # Species1
+  # - Linf (has linkage): offset is slope-only; base log_Linf carries the level.
+  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_linkage_offset[1,1,,3]), simData$env_data$temp) # Species1
   testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_parameters[1,1,,3]), (90) * exp(simData$env_data$temp))
 
-  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_linkage_offset[2,1,,3]), log(50) + (2 * simData$env_data$temp + 3 * simData$env_data$PDO)) # Species2
+  testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_linkage_offset[2,1,,3]), 2 * simData$env_data$temp + 3 * simData$env_data$PDO) # Species2
   testthat::expect_equal(as.numeric(ss_run_init$quantities$growth_parameters[2,1,,3]), (50) * exp(2 * simData$env_data$temp + 3 * simData$env_data$PDO))
 
   # - m
