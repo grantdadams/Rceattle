@@ -6,11 +6,11 @@ Rceattle: an R package for fitting climate-linked, single- and multi-species age
 
 - **Single-species** (`msmMode = 0`) and **multispecies** (`msmMode > 0`) configurations, with one- or two-sex population dynamics
 - **One or multiple stocks** can be fit jointly.
-- **Multiple fisheries and surveys** with flexible **catchability** and **selectivity** parameterizations (logistic, double-logistic, non-parametric, time-varying)
+- **Multiple fisheries and surveys** with flexible **catchability** and **selectivity** parameterizations (logistic, double-logistic, non-parametric, time-varying, etc)
 - **Stock–recruitment** options (Beverton–Holt, Ricker, mean-recruitment, environmentally-driven)
-- **Estimable growth** (von Bertalanffy / empirical weight-at-age)
-- **Environmental linkages and priors** on recruitment, natural mortality, and growth
-- **Bioenergetics-based predation** with temperature-specific consumption (multispecies mode)
+- **Estimable growth** (von Bertalanffy / Richards/ empirical weight-at-age)
+- **Environmental linkages and priors** on recruitment, natural mortality, and growth parameters
+- **Bioenergetics-based predation** with input or temperature-specific consumption (multispecies mode)
 - **Forward projections** under alternative **harvest control rules** and climate scenarios
 - **Closed-loop MSE**, **retrospective**, **jitter**, and **simulation testing**
 - **Tidy outputs** via S3 methods (`as.data.frame`, `coef`, `logLik`, `vcov`, `residuals`, `plot`)
@@ -44,14 +44,55 @@ and feature requests so the discussion is publicly searchable.
 
 **Getting started**
 
-Fit a single-species model to the bundled Bering Sea data, inspect the
-fit, and plot it:
+*1-species model*
+
+Fit the 2018 Gulf of Alaska pollock model, inspect the fit, and plot it:
+
+```r
+library(Rceattle)
+
+# Gulf of Alaska pollock data (1977-2018)
+data(GOApollock)
+plot_data(GOApollock)
+
+# Fit the hindcast
+fit <- fit_mod(
+  data_list    = GOApollock,
+  estimateMode = 0,                              # 0 = fit hindcast + projection
+  fit_control  = fit_control(phase = TRUE)       # optimizer / sdreport / phasing knobs
+)
+
+# S3 methods: the fit behaves like an R model object
+fit                       # compact print
+summary(fit)              # same compact summary
+coef(fit)                 # estimated fixed-effect parameters
+logLik(fit)               # logLik with df attribute (AIC works)
+AIC(fit)
+vcov(fit)                 # fixed-effect covariance from sdreport
+as.data.frame(fit)        # return data.frame of derived quantities
+
+# Plot dispatcher: pick a panel with `what`
+plot(fit, what = "biomass")
+plot(fit, what = "ssb")
+plot(fit, what = "recruitment")
+plot(fit, what = "index")
+
+# Residuals across data sources (long-format data frame)
+ix_resid   <- residuals(fit, type = "index")    # log-scale by default
+comp_resid <- residuals(fit, type = "comp")     # Pearson, with Age0_Length1
+all_resid  <- residuals(fit, type = "all")
+```
+
+*3-species model*
+
+Fit a three single-species model jointly to the Bering Sea data:
 
 ```r
 library(Rceattle)
 
 # Bundled Eastern Bering Sea single-species data (1979-2017)
 data(BS2017SS)
+plot_data(BS2017SS)
 
 # Fit the hindcast (single-species mode)
 fit <- fit_mod(
@@ -82,7 +123,7 @@ comp_resid <- residuals(fit, type = "comp")     # Pearson, with Age0_Length1
 all_resid  <- residuals(fit, type = "all")
 ```
 
-For a multispecies fit, swap in `BS2017MS` and set `msmMode = 1`. See the
+For a multispecies model, set `msmMode = 1`. See the
 package vignettes (`browseVignettes("Rceattle")`) for projections,
 alternative harvest control rules, MSE testing, model diagnostics, and
 non-Excel data construction. For deeper context, see the
@@ -91,9 +132,10 @@ and Wiki. The model can be updated following instructions
 [here](https://github.com/grantdadams/Rceattle/wiki/Workflow-for-updating-the-Rceattle).
 
 **Examples**
-Additional code and function examples using data from the Bering Sea and Gulf of Alaska groundfish application can be found in the [examples](https://github.com/grantdadams/Rceattle/tree/master/examples) folder and include:
+Additional code and function examples using data from the Bering Sea and Gulf of Alaska groundfish applications can be found in the [examples](https://github.com/grantdadams/Rceattle/tree/master/examples) folder and include:
 * [Fitting single-species models](https://github.com/grantdadams/Rceattle/blob/master/examples/Fit_2018_GOA_single-species_models.R)
 * [Fitting multi-species models](https://github.com/grantdadams/Rceattle/blob/master/examples/Fit_2018_GOA_multi-species_model.R)
+* [Estimating growth](https://github.com/grantdadams/Rceattle/blob/master/examples/Growth_estimation.R)
 * [Alternative HCRs and MSE testing](https://github.com/grantdadams/Rceattle/blob/master/examples/HCRs_and_MSE_testing.R)
 * [Simulation](https://github.com/grantdadams/Rceattle/blob/master/examples/Simulation_testing.R)
 * [Model diagnostics](https://github.com/grantdadams/Rceattle/blob/master/examples/Model_diagnostics.R)
