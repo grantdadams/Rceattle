@@ -1,5 +1,86 @@
 # Changelog
 
+## Rceattle 4.3.1
+
+### Bug fixes
+
+- Fixed a segfault in `MakeADFun` triggered by Beverton-Holt / Ricker
+  fits with a recruitment linkage. Section 6.9 (expected recruitment)
+  was indexing `R0`, `alpha`, and `Beta` with the function-scope `yr`
+  variable, which the preceding forecast loop left equal to `nyrs` – one
+  column past the end of the `(nspp, nyrs)` matrices. The year-0 block
+  now uses an explicit `first_yr = 0` constant. Mean-recruitment fits
+  (`srr_fun = 0`) happened to dodge the segfault because
+  `calculate_recruitment()` doesn’t dereference `alpha`/`Beta` for that
+  case.
+- Fixed the recruitment-parameter offset formula at the top of section
+  5.6: `alpha` and `Beta` now apply the linkage offset on the log scale
+  (`exp(rec_pars + offset)`) to match the documented contract and the
+  `log_R0` formula on the same line. Previously the offset was added on
+  the linear scale, which silently corrupted BH/Ricker recruitment
+  whenever a non-zero `log_alpha` or `log_beta` linkage offset was
+  active.
+- Added a `R0/alpha/Beta` column-count assertion at the entry of section
+  6.9 so future stale-loop / sizing regressions surface as a clean
+  R-level error from TMB rather than an opaque segfault.
+
+### Reparameterised intercept handling for the linkage system
+
+Linkage rows whose `design_col == "(Intercept)"` no longer carry the
+parameter level themselves. Instead:
+
+- The base parameter (`rec_pars`, `log_M1`, `log_growth_pars`) remains
+  estimable and holds the level. Phasing and the per-process map
+  machinery operate on the base parameter as they would without any
+  linkages.
+- The `(Intercept)` row’s `beta_linkage` slot is fixed at `0` and mapped
+  NA. It exists in the table for bookkeeping plus as a hook for `init`
+  and `priors`.
+- `init = list(`(Intercept)`= X)` on the spec **flows to the base
+  parameter** – it sets the base parameter’s starting value rather than
+  the linkage row.
+- Priors attached to an `(Intercept)` row are **re-targeted to the base
+  parameter** in the slot 19 contribution; the prior density evaluates
+  against `rec_pars(sp, 0)` / `log_M1(sp, sx, ag)` /
+  `log_growth_pars(sp, sx, par)` rather than the (zero) linkage value.
+
+For slope-only formulas (`~ 0 + temp`) the behaviour is unchanged: the
+base parameter is still mapped NA at its
+[`build_params()`](https://grantdadams.github.io/Rceattle/reference/build_params.md)
+default, and the linkage row carries the year-by-year offset.
+
+#### Recruitment offset semantics
+
+Year 0 of the recruitment block no longer bakes the year-0 covariate
+contribution into `R0`. `R0` is computed from `rec_pars(sp, 0)` alone,
+and the linkage offset multiplies against `R0` each year (including year
+0):
+
+    R(yr) = R0 * exp(rec_dev(yr) + linkage_offset(yr))
+
+This makes the legacy `srr_fun = 1 / 3 / 5` quirk (which double-counted
+`Temp[0]`) obsolete. Users migrating from the legacy paths should now
+get clean log-linear behaviour without surprise offsets.
+
+#### Schema additions
+
+- New `init_supplied` (logical) column on `Rceattle_linkage_table`
+  tracks whether the user explicitly supplied an `init` for that row.
+  Used by
+  [`build_params()`](https://grantdadams.github.io/Rceattle/reference/build_params.md)
+  to decide whether to push a base-parameter init.
+- New `linkage_is_intercept` IVECTOR in the TMB encoding (set from
+  `design_col == "(Intercept)"`) used by the slot-19 prior dispatch to
+  evaluate intercept priors against the base parameter.
+
+#### Tests
+
+`tests-Dynamics/test-linkage-auto-map.R`,
+`tests-Dynamics/test-recruitment-linkage.R`, and
+`tests-Dynamics/test-growth-linkage-species.R` were updated to assert
+the new contract (base parameters estimable, intercept rows fixed at 0,
+slope-only offsets in the year-by-year tensor).
+
 ## Rceattle 4.3.0
 
 ### Tidy long-format extraction: `as.data.frame.Rceattle()`

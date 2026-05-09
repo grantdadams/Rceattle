@@ -16,11 +16,16 @@ om <- Rceattle::fit_mod(
   estimateMode = 0,  # Estimate
   initMode = 1,      # Assume unfished equilibrium
   M1Fun = build_M1(
-    updateM1 = TRUE,
-    M1_model = 1,
-    M1_use_prior = TRUE,
-    M_prior = 0.06,
-    M_prior_sd = 0.05),
+    M1_model = "sex_age_invariant",
+    linkages = list(
+      log_M1 = linkage_spec(
+        formula = ~ 1,
+        priors = list(
+          "(Intercept)" = normal(log(0.06), 0.05)
+        )
+      )
+    )
+  ),
   fit_control = fit_control(phase = TRUE)
 )
 ```
@@ -41,11 +46,16 @@ em <- Rceattle::fit_mod(
   estimateMode = 0, # Estimate
   initMode = 1,      # Assume unfished equilibrium
   M1Fun = build_M1(
-    updateM1 = TRUE,
-    M1_model = 1,
-    M1_use_prior = TRUE,
-    M_prior = 0.06,
-    M_prior_sd = 0.05),
+    M1_model = "sex_age_invariant",
+    linkages = list(
+      log_M1 = linkage_spec(
+        formula = ~ 1,
+        priors = list(
+          "(Intercept)" = normal(log(0.06), 0.05)
+        )
+      )
+    )
+  ),
   HCR = build_hcr(HCR = "NPFMC", # Tier3 HCR
                   Ftarget = 0.4, # F40%
                   Flimit = 0.35, # F35%
@@ -151,11 +161,16 @@ em2 <- Rceattle::fit_mod(
   estimateMode = 0, # Estimate
   initMode = 1,      # Assume unfished equilibrium
   M1Fun = build_M1(
-    updateM1 = TRUE,
-    M1_model = 1,
-    M1_use_prior = TRUE,
-    M_prior = 0.06,
-    M_prior_sd = 0.05),
+    M1_model = "sex_age_invariant",
+    linkages = list(
+      log_M1 = linkage_spec(
+        formula = ~ 1,
+        priors = list(
+          "(Intercept)" = normal(log(0.06), 0.05)
+        )
+      )
+    )
+  ),
   HCR = build_hcr(HCR = "NPFMC", # Tier3 HCR
                   Ftarget = 0.30,# F40%
                   Flimit = 0.10, # F35%
@@ -209,10 +224,6 @@ mse4 <- run_mse(
 
 ``` r
 
-# Simulate random environmental series
-nrdata$env_data <- data.frame(
-  Year = nrdata$styr:nrdata$projyr,
-  Index = 1:90 * 0.5 + rnorm(90))
 
 # Fit OM
 om2 <- Rceattle::fit_mod(
@@ -220,14 +231,21 @@ om2 <- Rceattle::fit_mod(
   estimateMode = 0,  # Estimate
   initMode = 1,      # Assume unfished equilibrium
   M1Fun = build_M1(
-    updateM1 = TRUE,
-    M1_model = 1,
-    M1_use_prior = TRUE,
-    M_prior = 0.06,
-    M_prior_sd = 0.05),
+    M1_model = "sex_age_invariant",
+    linkages = list(
+      log_M1 = linkage_spec(
+        formula = ~ 1,
+        priors = list(
+          "(Intercept)" = normal(log(0.06), 0.05)
+        )
+      )
+    )
+  ),
   recFun = build_srr(
-    srr_fun = 1,    # Mean R with covariates
-    srr_indices = 1),
+    srr_fun = "mean",    # Mean R with covariates
+    linkages = list(
+      log_R0 = linkage_spec(formula = ~ Temp)
+    )),
   fit_control = fit_control(phase = TRUE)
 )
 
