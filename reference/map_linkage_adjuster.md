@@ -1,7 +1,14 @@
 # Helper to turn off base linked parameters
 
-This function automatically sets parameters to NA (not estimated) if
-they include linkaged.
+Maps the base parameter (`rec_pars`, `log_M1`, `log_growth_pars`) out of
+estimation only for stratum groups whose linkage formula carries *no*
+intercept. With an intercept in the formula (`~ 1`, `~ temp`, ...) the
+base parameter holds the level and stays estimable; the linkage
+`(Intercept)` row is fixed at 0 instead. Slope-only formulas
+(`~ 0 + temp`) emit no intercept row, so we mask the base parameter to
+keep it at its
+[`build_params()`](https://grantdadams.github.io/Rceattle/reference/build_params.md)
+default and let the slope rows define the year-by-year offset.
 
 ## Usage
 

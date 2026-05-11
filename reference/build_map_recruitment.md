@@ -1,8 +1,8 @@
 # Helper to set map for Recruitment parameters
 
 Maps the recruitment deviations (`rec_dev`, `init_dev`),
-stock-recruitment parameters (`rec_pars`), their variances (`R_log_sd`),
-and environmental linkages (`beta_rec_pars`).
+stock-recruitment parameters (`rec_pars`) and Rec dev variances
+(`R_log_sd`)
 
 see
 [`build_srr()`](https://grantdadams.github.io/Rceattle/reference/build_srr.md)

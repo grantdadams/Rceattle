@@ -2,8 +2,10 @@
 
 Maps `beta_linkage` (one entry per row of `data_list$linkage_table`).
 Rows whose `est_phase == 0` are fixed at their initial values via `NA`;
-everything else is estimated. Phased estimation honoring nonzero phase
-ordinals can layer on later via the `phase` argument to
+`(Intercept)` rows are also fixed (their value stays at 0 – the base
+parameter carries the level). Everything else is estimated. Phased
+estimation honoring nonzero phase ordinals can layer on later via the
+`phase` argument to
 [`fit_control()`](https://grantdadams.github.io/Rceattle/reference/fit_control.md).
 
 ## Usage

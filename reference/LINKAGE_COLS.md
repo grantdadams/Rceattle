@@ -13,4 +13,4 @@ LINKAGE_COLS
 
 ## Format
 
-An object of class `character` of length 16.
+An object of class `character` of length 17.
