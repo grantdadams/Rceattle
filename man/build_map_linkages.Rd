@@ -18,8 +18,10 @@ Updated \code{map_list}.
 \description{
 Maps \code{beta_linkage} (one entry per row of
 \code{data_list$linkage_table}). Rows whose \code{est_phase == 0} are fixed
-at their initial values via \code{NA}; everything else is estimated.
-Phased estimation honoring nonzero phase ordinals can layer on
-later via the \code{phase} argument to \code{\link[=fit_control]{fit_control()}}.
+at their initial values via \code{NA}; \code{(Intercept)} rows are also
+fixed (their value stays at 0 -- the base parameter carries the
+level). Everything else is estimated.  Phased estimation honoring
+nonzero phase ordinals can layer on later via the \code{phase} argument
+to \code{\link[=fit_control]{fit_control()}}.
 }
 \keyword{internal}

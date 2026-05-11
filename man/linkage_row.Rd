@@ -14,6 +14,7 @@ linkage_row(
   design_col = NA_character_,
   link = "identity",
   init = 0,
+  init_supplied = FALSE,
   lower = -Inf,
   upper = Inf,
   prior_family = "none",

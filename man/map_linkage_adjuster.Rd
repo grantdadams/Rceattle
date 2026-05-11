@@ -16,7 +16,14 @@ map_linkage_adjuster(map_list, data_list)
 Updated \code{map_list}.
 }
 \description{
-This function automatically sets parameters
-to NA (not estimated) if they include linkaged.
+Maps the base parameter (\code{rec_pars}, \code{log_M1},
+\code{log_growth_pars}) out of estimation only for stratum groups
+whose linkage formula carries \emph{no} intercept. With an intercept
+in the formula (\code{~ 1}, \code{~ temp}, ...) the base parameter holds
+the level and stays estimable; the linkage \code{(Intercept)} row is
+fixed at 0 instead. Slope-only formulas (\code{~ 0 + temp}) emit no
+intercept row, so we mask the base parameter to keep it at its
+\code{build_params()} default and let the slope rows define the
+year-by-year offset.
 }
 \keyword{internal}

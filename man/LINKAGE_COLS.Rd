@@ -5,7 +5,7 @@
 \alias{LINKAGE_COLS}
 \title{Column schema for a linkage table}
 \format{
-An object of class \code{character} of length 16.
+An object of class \code{character} of length 17.
 }
 \usage{
 LINKAGE_COLS

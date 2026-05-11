@@ -22,8 +22,7 @@ Updated \code{map_list}.
 }
 \description{
 Maps the recruitment deviations (\code{rec_dev}, \code{init_dev}),
-stock-recruitment parameters (\code{rec_pars}), their variances (\code{R_log_sd}),
-and environmental linkages (\code{beta_rec_pars}).
+stock-recruitment parameters (\code{rec_pars}) and Rec dev variances (\code{R_log_sd})
 
 see \code{build_srr()} for options,
 }
