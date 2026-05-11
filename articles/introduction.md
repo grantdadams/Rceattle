@@ -43,13 +43,9 @@ helper text using the `?`. Here, we demonstrate the basic workflow:
 
 ``` r
 
-# Required dependencies (CRAN)
-install.packages("TMB", type = "source")
-install.packages("Matrix", type = "source")
-install.packages("devtools")
-
-# Rceattle (pulls remaining CRAN dependencies automatically)
-devtools::install_github("grantdadams/Rceattle")
+# Rceattle (pulls CRAN dependencies automatically; e.g. TMB, Matrix, dplyr)
+install.packages("remotes")
+remotes::install_github("grantdadams/Rceattle")
 
 # Optional: TMBhelper provides richer optimization diagnostics.
 # Rceattle falls back to plain nlminb + sdreport if it's not installed.
