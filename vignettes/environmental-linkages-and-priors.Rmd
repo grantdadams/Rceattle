@@ -46,6 +46,7 @@ species:
 ```{r}
 library(Rceattle)
 data(whamGrowthData)
+plot_data(whamGrowthData)
 
 # Use logistic selectivity for all fleets in this example.
 whamGrowthData$fleet_control$Selectivity <- "Logistic"
@@ -86,99 +87,6 @@ fit <- fit_mod(
 summary(fit)
 ```
 
-The pooled linkage table is stored on the fitted model:
-
-```{r}
-fit$data_list$linkage_table
-```
-
-For three species × two sexes × `~ temp` (intercept + slope) you get
-12 rows: an `(Intercept)` beta and a `temp`-slope beta per (species,
-sex) combination. The `(Intercept)` beta is fixed at 0 (mapped out)
-and the *base parameter* (`log_K`, `log_M1`, `log_R0`, ...) carries
-the level. The slope rows give the year-by-year offset that
-multiplies the base. See *Automatic base-parameter handling* below.
-
-The shared design matrix is stored alongside:
-
-```{r}
-head(fit$data_list$linkage_X)
-```
-
-## Automatic base-parameter handling
-
-The base parameter (`log_R0`, `log_M1`, `log_K`, ...) and the linkage
-table cooperate cleanly: the **base parameter holds the level**, and
-the **linkage rows hold year-by-year offsets** that multiply the base
-on the log scale. The exact behaviour depends on whether the
-formula carries an intercept:
-
-| Formula                      | Base parameter                            | `(Intercept)` row              | Slope rows |
-|------------------------------|-------------------------------------------|--------------------------------|------------|
-| `~ 1` (intercept only)       | estimable; init from spec or default      | fixed at `0` (NA in TMB map)   | n/a |
-| `~ temp` (intercept + slope) | estimable; init from spec or default      | fixed at `0` (NA in TMB map)   | estimated |
-| `~ 0 + temp` (slope only)    | mapped NA, fixed at `build_params()` default | n/a (no intercept row produced) | estimated |
-
-**Intercept-bearing formulas (`~ 1`, `~ temp`)** -- the base parameter
-remains estimable and carries the level; for example `log_R0` for
-species `s` lives on `rec_pars[s, 1]` exactly as it does without any
-linkages. The `(Intercept)` row of the table exists for bookkeeping
-and as a hook for `init`/`prior` (see below) but its `beta_linkage`
-slot is held at `0` and not estimated. The recruitment / mortality /
-growth modules read `base + offset(yr)` each year -- with the
-intercept fixed at zero, the offset is exactly the slope contribution.
-
-**Slope-only formulas (`~ 0 + temp`)** -- there is no `(Intercept)`
-row, so the base parameter is masked out (NA) and stays at the
-`build_params()` default (e.g. `log_R0 = 9`). If you need a different
-level, either supply it via the model's `inits` argument or add an
-explicit intercept to the formula and set `init = list(`(Intercept)`
-= ...)` on the spec.
-
-### `init` and the base parameter
-
-`init = list(`(Intercept)` = X)` on the linkage spec **flows to the
-base parameter** rather than to the linkage row. The linkage row's
-`beta_linkage` slot stays at `0`; the base parameter starts at `X`.
-This is the recommended way to set a sensible starting value for
-intercept-bearing linkages -- it composes naturally with phasing
-(the base parameter goes through the existing per-process phase
-logic) and keeps the optimiser grounded.
-
-```{r}
-# Start log_M1 at log(0.06) without estimating an extra intercept beta.
-build_M1(
-  M1_model = "sex_age_invariant",
-  linkages = list(
-    log_M1 = linkage_spec(
-      formula = ~ 1,
-      init    = list(`(Intercept)` = log(0.06))
-    )
-  )
-)
-```
-
-### Stratification
-
-Stratification (`by`) determines *which* base-parameter slots are
-affected: `by = ~ species` produces one `(Intercept)` row per species;
-`by = NULL` (a fully shared linkage) produces a single shared row;
-and `by = ~ species + sex` produces one per (species, sex). Each
-`(Intercept)` row that the user supplies an `init` for pushes that
-init into the matching base-parameter slot.
-
-This rule applies uniformly to every linkage target (`log_K`, `log_L1`,
-`log_Linf`, `log_m`, `log_M1`, `log_R0`, `log_alpha`, `log_beta`).
-
-### Single-sex models and `by = ~ ... + sex`
-
-If your model is single-sex (`nsex = 1` for every species in scope),
-asking for `by = ~ species + sex` produces a warning: there is only
-one sex level available, so the sex stratum collapses to a single
-shared level. The result is equivalent to `by = ~ species`. Models
-with mixed `nsex` (some single-sex, some two-sex species) emit one
-sex level per species automatically -- single-sex species get one row
-per parameter, two-sex species get two.
 
 ## The `linkage_spec()` API
 
@@ -198,7 +106,7 @@ linkage_spec(
 )
 ```
 
-* **`formula`** -- a one-sided R formula whose RHS describes the
+* **`formula`** -- a one-sided R formula that describes the
   linear predictor for the target parameter. Anything `model.matrix()`
   understands works: `~ 1`, `~ temp`, `~ temp + PDO`, `~ temp:PDO`,
   `~ poly(temp, 2)`, factor predictors, etc.
@@ -209,8 +117,7 @@ linkage_spec(
 * **`by`** -- a one-sided formula naming the stratifying factors that
   should each get their own coefficients. Allowed names are
   `species`, `sex`, and `age_bin`. The default is `~species`
-  (one coefficient set per species, the typical multispecies
-  assessment use case). Pass `~species + sex` for per-(species, sex)
+  (one coefficient set per species). Pass `~species + sex` for per-(species, sex)
   coefficients, `~species + age_bin` for an age-binned M response,
   or `NULL` to share a single coefficient set across every
   species/sex.
@@ -249,7 +156,7 @@ linkage_spec(
 
 ## Priors
 
-Priors are first-class. Five families are available out of the box:
+Five families are available:
 
 ```r
 prior_normal(mean, sd)
@@ -259,7 +166,7 @@ prior_beta(shape1, shape2)
 # Family "none" is implicit -- no prior contribution.
 ```
 
-Inside `linkage_spec(priors = ...)` the same constructors are
+Inside `linkage_spec(priors = ...)` the constructors are
 available **without the `prior_` prefix** so user code stays close to
 mathematical notation:
 
@@ -297,9 +204,8 @@ names(priors) <- c("temp", "PDO", "salinity")
 linkage_spec(formula = ~ temp + PDO + salinity, priors = priors)
 ```
 
-Each prior's negative log-density contributes to slot 19 of the
-joint NLL (`fit$quantities$jnll_comp[20, ]` in R, since R is
-1-indexed):
+Each prior's negative log-density contributes to slot 20 of the
+joint NLL (`fit$quantities$jnll_comp[20, ]` in R):
 
 ```{r}
 fit$quantities$jnll_comp["Linkage-table priors", ]
@@ -307,17 +213,11 @@ fit$quantities$jnll_comp["Linkage-table priors", ]
 
 ## Putting a prior on the parameter itself
 
-Sometimes, instead of estimating how a parameter changes with
-environmental covariates, you want to apply a Bayesian-style
-informative prior directly to the base value of a parameter like
-`log_K`, `log_R0`, or `log_M1`.
+Bayesian-style informative priors can be applied directly to the base growth
+parameters (`log_k`, `log_L1`, `log_Linf`, `log_m`), natural mortality (`log_M1`), or recruitment parameters (`log_R0`, `log_alpha`, `log_beta`).
 
 A prior attached to an `(Intercept)` row is **re-targeted to the base
-parameter**: the slot 19 contribution evaluates the prior density
-against `rec_pars`, `log_M1`, or `log_growth_pars` (whichever the row
-points at), not against the (zeroed) `beta_linkage` value. The user
-sees the same syntax they would use for any other column, and the
-prior actually constrains the parameter that carries the level.
+parameter**. The same syntax is used for any other column.
 
 ```{r}
 # Example: prior on log_K for von Bertalanffy growth
@@ -335,8 +235,8 @@ growth_spec <- build_growth(
 ```
 
 The same pattern works for any linkage target -- `log_Linf`, `log_L1`,
-`log_m` (Richards), `log_M1`, `log_R0`, `log_alpha`, `log_beta`. With
-recruitment, you can also key the prior by species id for species-
+`log_m` (Richards), `log_M1`, `log_R0`, `log_alpha`, `log_beta`. 
+You can also key the prior by species id for species-
 specific priors:
 
 ```{r}
@@ -357,7 +257,7 @@ rec_spec <- build_srr(
 )
 ```
 
-The prior contribution appears in slot 19 of the joint NLL:
+The prior contribution appears in slot 20 of the joint NLL:
 
 ```{r}
 fit$quantities$jnll_comp["Linkage-table priors", ]
@@ -402,16 +302,7 @@ fit <- fit_mod(
 )
 ```
 
-Compared to the existing `build_M1(M_prior = ..., M_prior_sd = ...,
-M1_use_prior = TRUE)` mechanism, the linkage-intercept route gives
-you the same prior shape but composes naturally with the rest of
-the linkage table (you can keep your env-effect rows and the
-intercept rows together, with priors on each). One small difference
-from the legacy `M_prior` path: the linkage prior is applied
-verbatim, with no lognormal bias-correction term added internally.
-If you want a literal port of the old `M_prior` behaviour, use
-`normal(log(M_mean) + sd^2 / 2, sd)` so the mean of the natural-scale
-M matches `M_mean`.
+The linkage prior is applied verbatim, with no lognormal bias-correction term.
 
 ## Species- and (species, sex)-specific priors
 
@@ -420,9 +311,11 @@ Each entry under `priors = list(...)` may be:
 * a single prior -- applies to every species/sex row that uses
   that design column,
 * a **named list of priors keyed by species id** -- one prior per
-  species, or
-* a **two-level nested list keyed first by species, then by sex
-  id** -- one prior per (species, sex).
+  specified species, or
+* a **named list of priors keyed by species id and sex** -- one prior per
+ specified species and sex, or
+* a **two-level nested list keyed first by specified species, then by specified sex
+  id**.
 
 ```{r}
 # Species-only keying
@@ -432,7 +325,7 @@ linkage_spec(
   priors  = list(
     temp = list(
       `1` = normal(0, 0.1),    # tight prior for species 1
-      `2` = normal(0, 0.5),    # looser for species 2
+      #`2` = normal(0, 0.5),   # No prior species 2
       `3` = normal(0, 1.0)     # weakest for species 3
       # any species not listed gets no prior
     )
@@ -480,11 +373,6 @@ linkage_spec(
 )
 ```
 
-Validation: at each level the value must be either an
-`Rceattle_prior` *or* a named list of priors keyed by the next
-stratum. Non-prior values (numeric vectors, mismatched classes)
-are caught at `linkage_spec()` time with a pointer to the offending
-(column, species[, sex]) path.
 
 ## Per-species formulas
 
@@ -516,14 +404,8 @@ build_growth(
 )
 ```
 
-Inside `pool_linkages()` each spec is materialized independently
-and the resulting rows are concatenated into a single linkage table.
-The shared design matrix unions all RHS terms across specs, so
-species 1's rows reference only `(Intercept)` and `temp`, while
-species 2's rows can additionally reference `PDO` -- there's no
-duplication of the temp column.
 
-`build_growth()` accepts both forms under each parameter key:
+Linkages can accepts both forms under each parameter key:
 
 ```r
 linkages = list(log_K = single_spec)             # one formula for all sp
@@ -531,9 +413,9 @@ linkages = list(log_K = list(spec_a, spec_b))    # different formulas per sp
 ```
 
 Inspecting the result, `fit$linkages$log_K` is either an
-`Rceattle_linkage_spec` (single form) or a `list` of them
-(multi-spec form), and `fit$data_list$linkage_table` shows the
-materialized rows with `species` and `X_col` correctly scoped.
+`Rceattle_linkage_spec` or a `list` of them, 
+and `fit$data_list$linkage_table` shows the
+materialized rows with `species` and `X_col`.
 
 This pattern composes with species-specific *priors* -- each spec
 carries its own priors, and within a spec the priors can themselves
@@ -589,9 +471,7 @@ M1_spec <- build_M1(
 The `sex` filter is a no-op when `by` does not include `sex`. If you
 want different *formulas* per sex (rather than just different priors
 or inits), use the multi-spec form -- one spec with `sex = 1L` and
-its own RHS, another with `sex = 2L` and a different RHS. The pooler
-unions the design columns by name in the same way it does for
-per-species formulas.
+its own RHS, another with `sex = 2L` and a different RHS. 
 
 If you only need different priors per (species, sex) for a single
 shared formula, the nested-priors form (see *Species- and (species,
@@ -686,14 +566,9 @@ build_growth(
 )
 ```
 
-`pool_linkages()` unions the design columns by name so the global
-matrix `X` contains both `temp` and the three `poly(temp, 3)*`
-columns; species 1's rows reference the polynomial columns, species
-2's only the linear `temp`.
 
 A practical caution: same-named columns must be numerically
-identical across specs that use them (this is enforced --
-`pool_linkages()` errors loudly on mismatches). With deterministic
+identical across specs that use them. With deterministic
 formulas evaluated against the same `env_data` this is automatic;
 it can only fail if you've built specs against different
 `env_data` frames.
@@ -1015,6 +890,111 @@ fit$estimated_params$beta_linkage
 # The prior NLL contribution from slot 19 of jnll_comp.
 fit$quantities$jnll_comp["Linkage-table priors", ]
 ```
+
+## Behind the scens: Automatic base-parameter handling
+Any pooled linkage table is stored on the fitted model:
+
+```{r}
+fit$data_list$linkage_table
+```
+
+For three species × two sexes × `~ temp` (intercept + slope) you get
+12 rows: an `(Intercept)` beta and a `temp`-slope beta per (species,
+sex) combination. The `(Intercept)` beta is fixed at 0 (mapped out)
+and the *base parameter* (`log_K`, `log_M1`, `log_R0`, ...) carries
+the level. The slope rows give the year-by-year offset that
+multiplies the base. See *Automatic base-parameter handling* below.
+
+The shared design matrix is stored alongside:
+
+```{r}
+head(fit$data_list$linkage_X)
+```
+
+The base parameter (`log_R0`, `log_M1`, `log_K`, ...) and the linkage
+table cooperate cleanly: **any priors or initial values are applied to the base parameter**, and
+the **linkage rows hold year-by-year offsets** that is added to the base parameter
+on the log scale. The exact behavior depends on whether the
+formula carries an intercept:
+
+| Formula                      | Base parameter                            | Slope rows |
+|------------------------------|-------------------------------------------|------------|
+| `~ 1` (intercept only)       | estimable; init from spec or default      |n/a |
+| `~ temp` (intercept + slope) | estimable; init from spec or default      | estimated |
+| `~ 0 + temp` (slope only)    | mapped NA, value from spec or default | estimated |
+
+**Intercept-bearing formulas (`~ 1`, `~ temp`)** -- the base parameter
+remains estimable; for example `log_R0` for
+species `s` lives on `rec_pars[s, 1]` exactly as it does without any
+linkages. The `(Intercept)` row of the table exists for bookkeeping
+and as a hook for `init`/`prior` (see below) but its `beta_linkage`
+slot is held at `0` and not estimated. The recruitment / mortality /
+growth modules read `base + offset(yr)` each year -- with the
+intercept fixed at zero, the offset is exactly the slope contribution.
+
+**Slope-only formulas (`~ 0 + temp`)** -- there is no `(Intercept)`
+row, so the base parameter is mapped out (NA) and stays at the
+default initial value, or the value supplied by the `inits` argument in `fit_mod`, or 
+the value supplied by `init = list("(Intercept)"= ...)` on the spec.
+
+### `init` and the base parameter
+
+`init = list(`(Intercept)` = X)` on the linkage spec **flows to the
+base parameter** rather than to the linkage row. The linkage row's
+`beta_linkage` slot stays at `0`; the base parameter starts at `X`.
+This is the recommended way to set a sensible starting value for
+intercept-bearing linkages -- it composes naturally with phasing
+(the base parameter goes through the existing per-process phase
+logic) and keeps the optimiser grounded.
+
+```{r}
+# Start log_M1 at log(0.06) without estimating an extra intercept beta.
+build_M1(
+  M1_model = "sex_age_invariant",
+  linkages = list(
+    log_M1 = linkage_spec(
+      formula = ~ 1,
+      init    = list(`(Intercept)` = log(0.06))
+    )
+  )
+)
+```
+
+### Stratification
+
+Stratification (`by`) determines *which* base-parameter slots are
+affected: `by = ~ species` produces one `(Intercept)` row per species;
+`by = NULL` (a fully shared linkage) produces a single shared row;
+and `by = ~ species + sex` produces one per (species, sex). Each
+`(Intercept)` row that the user supplies an `init` for pushes that
+init into the matching base-parameter slot.
+
+This rule applies uniformly to every linkage target (`log_K`, `log_L1`,
+`log_Linf`, `log_m`, `log_M1`, `log_R0`, `log_alpha`, `log_beta`).
+
+### Single-sex models and `by = ~ ... + sex`
+
+If your model is single-sex (`nsex = 1` for every species in scope),
+asking for `by = ~ species + sex` produces a warning: there is only
+one sex level available, so the sex stratum collapses to a single
+shared level. The result is equivalent to `by = ~ species`. Models
+with mixed `nsex` (some single-sex, some two-sex species) emit one
+sex level per species automatically -- single-sex species get one row
+per parameter, two-sex species get two.
+
+### Pooling 
+Inside `pool_linkages()` each spec is materialized independently
+and the resulting rows are concatenated into a single linkage table.
+The shared design matrix unions all RHS terms across specs, so
+species 1's rows reference only `(Intercept)` and `temp`, while
+species 2's rows can additionally reference `PDO` -- there's no
+duplication of the temp column.
+
+`pool_linkages()` unions the design columns by name so the global
+matrix `X` contains both `temp` and the three `poly(temp, 3)*`
+columns; species 1's rows reference the polynomial columns, species
+2's only the linear `temp`.
+
 
 ## On the roadmap
 
