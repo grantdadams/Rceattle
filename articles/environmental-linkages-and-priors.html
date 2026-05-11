@@ -116,6 +116,7 @@ temperature index by species:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://grantdadams.github.io/Rceattle/">Rceattle</a></span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="va">whamGrowthData</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/plot_data.html">plot_data</a></span><span class="op">(</span><span class="va">whamGrowthData</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Use logistic selectivity for all fleets in this example.</span></span>
 <span><span class="va">whamGrowthData</span><span class="op">$</span><span class="va">fleet_control</span><span class="op">$</span><span class="va">Selectivity</span> <span class="op">&lt;-</span> <span class="st">"Logistic"</span></span>
@@ -154,142 +155,11 @@ temperature index by species:</p>
 <span>  fit_control <span class="op">=</span> <span class="fu"><a href="../reference/fit_control.html">fit_control</a></span><span class="op">(</span>verbose <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></code></pre></div>
-<p>The pooled linkage table is stored on the fitted model:</p>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">fit</span><span class="op">$</span><span class="va">data_list</span><span class="op">$</span><span class="va">linkage_table</span></span></code></pre></div>
-<p>For three species × two sexes × <code>~ temp</code> (intercept +
-slope) you get 12 rows: an <code>(Intercept)</code> beta and a
-<code>temp</code>-slope beta per (species, sex) combination. The
-<code>(Intercept)</code> beta is fixed at 0 (mapped out) and the
-<em>base parameter</em> (<code>log_K</code>, <code>log_M1</code>,
-<code>log_R0</code>, …) carries the level. The slope rows give the
-year-by-year offset that multiplies the base. See <em>Automatic
-base-parameter handling</em> below.</p>
-<p>The shared design matrix is stored alongside:</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">data_list</span><span class="op">$</span><span class="va">linkage_X</span><span class="op">)</span></span></code></pre></div>
-</div>
-<div class="section level2">
-<h2 id="automatic-base-parameter-handling">Automatic base-parameter handling<a class="anchor" aria-label="anchor" href="#automatic-base-parameter-handling"></a>
-</h2>
-<p>The base parameter (<code>log_R0</code>, <code>log_M1</code>,
-<code>log_K</code>, …) and the linkage table cooperate cleanly: the
-<strong>base parameter holds the level</strong>, and the <strong>linkage
-rows hold year-by-year offsets</strong> that multiply the base on the
-log scale. The exact behaviour depends on whether the formula carries an
-intercept:</p>
-<table class="table">
-<colgroup>
-<col width="25%">
-<col width="36%">
-<col width="27%">
-<col width="10%">
-</colgroup>
-<thead><tr class="header">
-<th>Formula</th>
-<th>Base parameter</th>
-<th>
-<code>(Intercept)</code> row</th>
-<th>Slope rows</th>
-</tr></thead>
-<tbody>
-<tr class="odd">
-<td>
-<code>~ 1</code> (intercept only)</td>
-<td>estimable; init from spec or default</td>
-<td>fixed at <code>0</code> (NA in TMB map)</td>
-<td>n/a</td>
-</tr>
-<tr class="even">
-<td>
-<code>~ temp</code> (intercept + slope)</td>
-<td>estimable; init from spec or default</td>
-<td>fixed at <code>0</code> (NA in TMB map)</td>
-<td>estimated</td>
-</tr>
-<tr class="odd">
-<td>
-<code>~ 0 + temp</code> (slope only)</td>
-<td>mapped NA, fixed at <code><a href="../reference/build_params.html">build_params()</a></code> default</td>
-<td>n/a (no intercept row produced)</td>
-<td>estimated</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Intercept-bearing formulas (<code>~ 1</code>,
-<code>~ temp</code>)</strong> – the base parameter remains estimable and
-carries the level; for example <code>log_R0</code> for species
-<code>s</code> lives on <code>rec_pars[s, 1]</code> exactly as it does
-without any linkages. The <code>(Intercept)</code> row of the table
-exists for bookkeeping and as a hook for
-<code>init</code>/<code>prior</code> (see below) but its
-<code>beta_linkage</code> slot is held at <code>0</code> and not
-estimated. The recruitment / mortality / growth modules read
-<code>base + offset(yr)</code> each year – with the intercept fixed at
-zero, the offset is exactly the slope contribution.</p>
-<p><strong>Slope-only formulas (<code>~ 0 + temp</code>)</strong> –
-there is no <code>(Intercept)</code> row, so the base parameter is
-masked out (NA) and stays at the <code><a href="../reference/build_params.html">build_params()</a></code> default
-(e.g. <code>log_R0 = 9</code>). If you need a different level, either
-supply it via the model’s <code>inits</code> argument or add an explicit
-intercept to the formula and set
-<code>init = list(</code>(Intercept)<code>= ...)</code> on the spec.</p>
-<div class="section level3">
-<h3 id="init-and-the-base-parameter">
-<code>init</code> and the base parameter<a class="anchor" aria-label="anchor" href="#init-and-the-base-parameter"></a>
-</h3>
-<p><code>init = list(</code>(Intercept)<code>= X)</code> on the linkage
-spec <strong>flows to the base parameter</strong> rather than to the
-linkage row. The linkage row’s <code>beta_linkage</code> slot stays at
-<code>0</code>; the base parameter starts at <code>X</code>. This is the
-recommended way to set a sensible starting value for intercept-bearing
-linkages – it composes naturally with phasing (the base parameter goes
-through the existing per-process phase logic) and keeps the optimiser
-grounded.</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Start log_M1 at log(0.06) without estimating an extra intercept beta.</span></span>
-<span><span class="fu"><a href="../reference/build_M1.html">build_M1</a></span><span class="op">(</span></span>
-<span>  M1_model <span class="op">=</span> <span class="st">"sex_age_invariant"</span>,</span>
-<span>  linkages <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
-<span>    log_M1 <span class="op">=</span> <span class="fu"><a href="../reference/linkage_spec.html">linkage_spec</a></span><span class="op">(</span></span>
-<span>      formula <span class="op">=</span> <span class="op">~</span> <span class="fl">1</span>,</span>
-<span>      init    <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>`(Intercept)` <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">log</a></span><span class="op">(</span><span class="fl">0.06</span><span class="op">)</span><span class="op">)</span></span>
-<span>    <span class="op">)</span></span>
-<span>  <span class="op">)</span></span>
-<span><span class="op">)</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="stratification">Stratification<a class="anchor" aria-label="anchor" href="#stratification"></a>
-</h3>
-<p>Stratification (<code>by</code>) determines <em>which</em>
-base-parameter slots are affected: <code>by = ~ species</code> produces
-one <code>(Intercept)</code> row per species; <code>by = NULL</code> (a
-fully shared linkage) produces a single shared row; and
-<code>by = ~ species + sex</code> produces one per (species, sex). Each
-<code>(Intercept)</code> row that the user supplies an <code>init</code>
-for pushes that init into the matching base-parameter slot.</p>
-<p>This rule applies uniformly to every linkage target
-(<code>log_K</code>, <code>log_L1</code>, <code>log_Linf</code>,
-<code>log_m</code>, <code>log_M1</code>, <code>log_R0</code>,
-<code>log_alpha</code>, <code>log_beta</code>).</p>
-</div>
-<div class="section level3">
-<h3 id="single-sex-models-and-by-----sex">Single-sex models and <code>by = ~ ... + sex</code><a class="anchor" aria-label="anchor" href="#single-sex-models-and-by-----sex"></a>
-</h3>
-<p>If your model is single-sex (<code>nsex = 1</code> for every species
-in scope), asking for <code>by = ~ species + sex</code> produces a
-warning: there is only one sex level available, so the sex stratum
-collapses to a single shared level. The result is equivalent to
-<code>by = ~ species</code>. Models with mixed <code>nsex</code> (some
-single-sex, some two-sex species) emit one sex level per species
-automatically – single-sex species get one row per parameter, two-sex
-species get two.</p>
-</div>
 </div>
 <div class="section level2">
 <h2 id="the-linkage_spec-api">The <code>linkage_spec()</code> API<a class="anchor" aria-label="anchor" href="#the-linkage_spec-api"></a>
 </h2>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/linkage_spec.html">linkage_spec</a></span><span class="op">(</span></span>
 <span>  <span class="va">formula</span>,</span>
 <span>  param     <span class="op">=</span> <span class="cn">NULL</span>,</span>
@@ -305,8 +175,8 @@ species get two.</p>
 <span><span class="op">)</span></span></code></pre></div>
 <ul>
 <li>
-<strong><code>formula</code></strong> – a one-sided R formula whose
-RHS describes the linear predictor for the target parameter. Anything
+<strong><code>formula</code></strong> – a one-sided R formula that
+describes the linear predictor for the target parameter. Anything
 <code><a href="https://rdrr.io/r/stats/model.matrix.html" class="external-link">model.matrix()</a></code> understands works: <code>~ 1</code>,
 <code>~ temp</code>, <code>~ temp + PDO</code>, <code>~ temp:PDO</code>,
 <code>~ poly(temp, 2)</code>, factor predictors, etc.</li>
@@ -320,11 +190,10 @@ RHS describes the linear predictor for the target parameter. Anything
 stratifying factors that should each get their own coefficients. Allowed
 names are <code>species</code>, <code>sex</code>, and
 <code>age_bin</code>. The default is <code>~species</code> (one
-coefficient set per species, the typical multispecies assessment use
-case). Pass <code>~species + sex</code> for per-(species, sex)
-coefficients, <code>~species + age_bin</code> for an age-binned M
-response, or <code>NULL</code> to share a single coefficient set across
-every species/sex.</li>
+coefficient set per species). Pass <code>~species + sex</code> for
+per-(species, sex) coefficients, <code>~species + age_bin</code> for an
+age-binned M response, or <code>NULL</code> to share a single
+coefficient set across every species/sex.</li>
 <li>
 <strong><code>species</code></strong> – optional integer vector of
 1-based species ids this spec applies to. <code>NULL</code> (default)
@@ -375,18 +244,17 @@ label (currently a placeholder).</li>
 <div class="section level2">
 <h2 id="priors">Priors<a class="anchor" aria-label="anchor" href="#priors"></a>
 </h2>
-<p>Priors are first-class. Five families are available out of the
-box:</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<p>Five families are available:</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/prior_normal.html">prior_normal</a></span><span class="op">(</span><span class="va">mean</span>, <span class="va">sd</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/prior_lognormal.html">prior_lognormal</a></span><span class="op">(</span><span class="va">meanlog</span>, <span class="va">sdlog</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/prior_gamma.html">prior_gamma</a></span><span class="op">(</span><span class="va">shape</span>, <span class="va">rate</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/prior_beta.html">prior_beta</a></span><span class="op">(</span><span class="va">shape1</span>, <span class="va">shape2</span><span class="op">)</span></span>
 <span><span class="co"># Family "none" is implicit -- no prior contribution.</span></span></code></pre></div>
-<p>Inside <code>linkage_spec(priors = ...)</code> the same constructors
-are available <strong>without the <code>prior_</code> prefix</strong> so
+<p>Inside <code>linkage_spec(priors = ...)</code> the constructors are
+available <strong>without the <code>prior_</code> prefix</strong> so
 user code stays close to mathematical notation:</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/linkage_spec.html">linkage_spec</a></span><span class="op">(</span></span>
 <span>  formula <span class="op">=</span> <span class="op">~</span> <span class="va">temp</span> <span class="op">+</span> <span class="va">PDO</span>,</span>
 <span>  by      <span class="op">=</span> <span class="op">~</span> <span class="va">species</span>,</span>
@@ -400,7 +268,7 @@ user code stays close to mathematical notation:</p>
 <code><a href="https://rdrr.io/r/base/Special.html" class="external-link">base::gamma()</a></code> or <code><a href="https://rdrr.io/r/base/Special.html" class="external-link">base::beta()</a></code> at the package
 level. Outside that argument you can still call the math functions
 directly:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Special.html" class="external-link">gamma</a></span><span class="op">(</span><span class="fl">5</span><span class="op">)</span>       <span class="co"># 24, the math gamma function</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Special.html" class="external-link">beta</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">3</span><span class="op">)</span>     <span class="co"># 1/12, the math beta function</span></span>
 <span></span>
@@ -410,31 +278,27 @@ directly:</p>
 <span><span class="op">)</span></span></code></pre></div>
 <p>For programmatic prior assembly (e.g. species-specific priors built
 in a loop) call the <code>prior_*</code> constructors directly:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">priors</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">species_specific_sds</span>, <span class="kw">function</span><span class="op">(</span><span class="va">s</span><span class="op">)</span> <span class="fu"><a href="../reference/prior_normal.html">prior_normal</a></span><span class="op">(</span><span class="fl">0</span>, <span class="va">s</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">priors</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"temp"</span>, <span class="st">"PDO"</span>, <span class="st">"salinity"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/linkage_spec.html">linkage_spec</a></span><span class="op">(</span>formula <span class="op">=</span> <span class="op">~</span> <span class="va">temp</span> <span class="op">+</span> <span class="va">PDO</span> <span class="op">+</span> <span class="va">salinity</span>, priors <span class="op">=</span> <span class="va">priors</span><span class="op">)</span></span></code></pre></div>
-<p>Each prior’s negative log-density contributes to slot 19 of the joint
-NLL (<code>fit$quantities$jnll_comp[20, ]</code> in R, since R is
-1-indexed):</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<p>Each prior’s negative log-density contributes to slot 20 of the joint
+NLL (<code>fit$quantities$jnll_comp[20, ]</code> in R):</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit</span><span class="op">$</span><span class="va">quantities</span><span class="op">$</span><span class="va">jnll_comp</span><span class="op">[</span><span class="st">"Linkage-table priors"</span>, <span class="op">]</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="putting-a-prior-on-the-parameter-itself">Putting a prior on the parameter itself<a class="anchor" aria-label="anchor" href="#putting-a-prior-on-the-parameter-itself"></a>
 </h2>
-<p>Sometimes, instead of estimating how a parameter changes with
-environmental covariates, you want to apply a Bayesian-style informative
-prior directly to the base value of a parameter like <code>log_K</code>,
-<code>log_R0</code>, or <code>log_M1</code>.</p>
+<p>Bayesian-style informative priors can be applied directly to the base
+growth parameters (<code>log_k</code>, <code>log_L1</code>,
+<code>log_Linf</code>, <code>log_m</code>), natural mortality
+(<code>log_M1</code>), or recruitment parameters (<code>log_R0</code>,
+<code>log_alpha</code>, <code>log_beta</code>).</p>
 <p>A prior attached to an <code>(Intercept)</code> row is
-<strong>re-targeted to the base parameter</strong>: the slot 19
-contribution evaluates the prior density against <code>rec_pars</code>,
-<code>log_M1</code>, or <code>log_growth_pars</code> (whichever the row
-points at), not against the (zeroed) <code>beta_linkage</code> value.
-The user sees the same syntax they would use for any other column, and
-the prior actually constrains the parameter that carries the level.</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<strong>re-targeted to the base parameter</strong>. The same syntax is
+used for any other column.</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Example: prior on log_K for von Bertalanffy growth</span></span>
 <span><span class="va">growth_spec</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/build_growth.html">build_growth</a></span><span class="op">(</span></span>
 <span>  fun <span class="op">=</span> <span class="st">"vonBertalanffy"</span>,</span>
@@ -450,9 +314,9 @@ the prior actually constrains the parameter that carries the level.</p>
 <p>The same pattern works for any linkage target –
 <code>log_Linf</code>, <code>log_L1</code>, <code>log_m</code>
 (Richards), <code>log_M1</code>, <code>log_R0</code>,
-<code>log_alpha</code>, <code>log_beta</code>. With recruitment, you can
-also key the prior by species id for species- specific priors:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code>log_alpha</code>, <code>log_beta</code>. You can also key the
+prior by species id for species- specific priors:</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">rec_spec</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/build_srr.html">build_srr</a></span><span class="op">(</span></span>
 <span>  srr_fun <span class="op">=</span> <span class="fl">0</span>,</span>
 <span>  linkages <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
@@ -468,18 +332,18 @@ also key the prior by species id for species- specific priors:</p>
 <span>    <span class="op">)</span></span>
 <span>  <span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<p>The prior contribution appears in slot 19 of the joint NLL:</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<p>The prior contribution appears in slot 20 of the joint NLL:</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit</span><span class="op">$</span><span class="va">quantities</span><span class="op">$</span><span class="va">jnll_comp</span><span class="op">[</span><span class="st">"Linkage-table priors"</span>, <span class="op">]</span></span></code></pre></div>
 <p>You can inspect the linked parameter values via the linkage table,
 the estimated slope coefficients, and the base-parameter array:</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit</span><span class="op">$</span><span class="va">data_list</span><span class="op">$</span><span class="va">linkage_table</span><span class="op">[</span><span class="va">fit</span><span class="op">$</span><span class="va">data_list</span><span class="op">$</span><span class="va">linkage_table</span><span class="op">$</span><span class="va">param</span> <span class="op">==</span> <span class="st">"log_K"</span>, <span class="op">]</span></span>
 <span><span class="va">fit</span><span class="op">$</span><span class="va">estimated_params</span><span class="op">$</span><span class="va">beta_linkage</span>          <span class="co"># (Intercept) rows are 0; slopes are estimated</span></span>
 <span><span class="va">fit</span><span class="op">$</span><span class="va">estimated_params</span><span class="op">$</span><span class="va">log_growth_pars</span>       <span class="co"># base log_K / log_L1 / log_Linf / log_m</span></span></code></pre></div>
 <p>The same approach works for <strong><code>log_M1</code></strong> when
 you want a prior on natural mortality itself:</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"GOApollock"</span><span class="op">)</span> <span class="co"># Using GOA pollock as an example</span></span>
 <span></span>
 <span><span class="co"># One-species model, normal(log(0.4), 0.1) prior on log_M1</span></span>
@@ -504,17 +368,8 @@ you want a prior on natural mortality itself:</p>
 <span>  estimateMode <span class="op">=</span> <span class="fl">0</span>,</span>
 <span>  fit_control <span class="op">=</span> <span class="fu"><a href="../reference/fit_control.html">fit_control</a></span><span class="op">(</span>phase <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<p>Compared to the existing
-<code>build_M1(M_prior = ..., M_prior_sd = ..., M1_use_prior = TRUE)</code>
-mechanism, the linkage-intercept route gives you the same prior shape
-but composes naturally with the rest of the linkage table (you can keep
-your env-effect rows and the intercept rows together, with priors on
-each). One small difference from the legacy <code>M_prior</code> path:
-the linkage prior is applied verbatim, with no lognormal bias-correction
-term added internally. If you want a literal port of the old
-<code>M_prior</code> behaviour, use
-<code>normal(log(M_mean) + sd^2 / 2, sd)</code> so the mean of the
-natural-scale M matches <code>M_mean</code>.</p>
+<p>The linkage prior is applied verbatim, with no lognormal
+bias-correction term.</p>
 </div>
 <div class="section level2">
 <h2 id="species--and-species-sex-specific-priors">Species- and (species, sex)-specific priors<a class="anchor" aria-label="anchor" href="#species--and-species-sex-specific-priors"></a>
@@ -524,11 +379,13 @@ natural-scale M matches <code>M_mean</code>.</p>
 <li>a single prior – applies to every species/sex row that uses that
 design column,</li>
 <li>a <strong>named list of priors keyed by species id</strong> – one
-prior per species, or</li>
-<li>a <strong>two-level nested list keyed first by species, then by sex
-id</strong> – one prior per (species, sex).</li>
+prior per specified species, or</li>
+<li>a <strong>named list of priors keyed by species id and sex</strong>
+– one prior per specified species and sex, or</li>
+<li>a <strong>two-level nested list keyed first by specified species,
+then by specified sex id</strong>.</li>
 </ul>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Species-only keying</span></span>
 <span><span class="fu"><a href="../reference/linkage_spec.html">linkage_spec</a></span><span class="op">(</span></span>
 <span>  formula <span class="op">=</span> <span class="op">~</span> <span class="va">temp</span>,</span>
@@ -536,7 +393,7 @@ id</strong> – one prior per (species, sex).</li>
 <span>  priors  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>    temp <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>      `1` <span class="op">=</span> <span class="fu">normal</span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0.1</span><span class="op">)</span>,    <span class="co"># tight prior for species 1</span></span>
-<span>      `2` <span class="op">=</span> <span class="fu">normal</span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0.5</span><span class="op">)</span>,    <span class="co"># looser for species 2</span></span>
+<span>      <span class="co">#`2` = normal(0, 0.5),   # No prior species 2</span></span>
 <span>      `3` <span class="op">=</span> <span class="fu">normal</span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1.0</span><span class="op">)</span>     <span class="co"># weakest for species 3</span></span>
 <span>      <span class="co"># any species not listed gets no prior</span></span>
 <span>    <span class="op">)</span></span>
@@ -546,7 +403,7 @@ id</strong> – one prior per (species, sex).</li>
 take different priors per (species, sex). At each level the value can be
 either an <code>Rceattle_prior</code> (applies to all sub-strata) or a
 list that drills down further:</p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/linkage_spec.html">linkage_spec</a></span><span class="op">(</span></span>
 <span>  formula <span class="op">=</span> <span class="op">~</span> <span class="va">temp</span>,</span>
 <span>  by      <span class="op">=</span> <span class="op">~</span> <span class="va">species</span> <span class="op">+</span> <span class="va">sex</span>,</span>
@@ -566,7 +423,7 @@ pattern when a covariate has different prior strength across stocks
 (e.g. when one species has prior literature on its temp sensitivity but
 another doesn’t), or when within a species the sexes are expected to
 respond differently. Built programmatically, it’s just:</p>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">sd_by_species</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>`1` <span class="op">=</span> <span class="fl">0.1</span>, `2` <span class="op">=</span> <span class="fl">0.5</span>, `3` <span class="op">=</span> <span class="fl">1.0</span><span class="op">)</span></span>
 <span><span class="va">priors_per_sp</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">sd_by_species</span>, <span class="kw">function</span><span class="op">(</span><span class="va">s</span><span class="op">)</span> <span class="fu"><a href="../reference/prior_normal.html">prior_normal</a></span><span class="op">(</span><span class="fl">0</span>, <span class="va">s</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
@@ -575,11 +432,6 @@ respond differently. Built programmatically, it’s just:</p>
 <span>  by      <span class="op">=</span> <span class="op">~</span> <span class="va">species</span>,</span>
 <span>  priors  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>temp <span class="op">=</span> <span class="va">priors_per_sp</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<p>Validation: at each level the value must be either an
-<code>Rceattle_prior</code> <em>or</em> a named list of priors keyed by
-the next stratum. Non-prior values (numeric vectors, mismatched classes)
-are caught at <code><a href="../reference/linkage_spec.html">linkage_spec()</a></code> time with a pointer to the
-offending (column, species[, sex]) path.</p>
 </div>
 <div class="section level2">
 <h2 id="per-species-formulas">Per-species formulas<a class="anchor" aria-label="anchor" href="#per-species-formulas"></a>
@@ -589,7 +441,7 @@ species 1 responds only to temperature, species 2 also to PDO – register
 <em>multiple specs against the same parameter</em> and use the
 <code>species</code> argument on each to scope it to a subset of
 stocks:</p>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/build_growth.html">build_growth</a></span><span class="op">(</span></span>
 <span>  fun <span class="op">=</span> <span class="st">"vonBertalanffy"</span>,</span>
 <span>  linkages <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
@@ -610,26 +462,18 @@ stocks:</p>
 <span>    <span class="op">)</span></span>
 <span>  <span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<p>Inside <code><a href="../reference/pool_linkages.html">pool_linkages()</a></code> each spec is materialized
-independently and the resulting rows are concatenated into a single
-linkage table. The shared design matrix unions all RHS terms across
-specs, so species 1’s rows reference only <code>(Intercept)</code> and
-<code>temp</code>, while species 2’s rows can additionally reference
-<code>PDO</code> – there’s no duplication of the temp column.</p>
-<p><code><a href="../reference/build_growth.html">build_growth()</a></code> accepts both forms under each parameter
-key:</p>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<p>Linkages can accepts both forms under each parameter key:</p>
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">linkages</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>log_K <span class="op">=</span> <span class="va">single_spec</span><span class="op">)</span>             <span class="co"># one formula for all sp</span></span>
 <span><span class="va">linkages</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>log_K <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">spec_a</span>, <span class="va">spec_b</span><span class="op">)</span><span class="op">)</span>    <span class="co"># different formulas per sp</span></span></code></pre></div>
 <p>Inspecting the result, <code>fit$linkages$log_K</code> is either an
-<code>Rceattle_linkage_spec</code> (single form) or a <code>list</code>
-of them (multi-spec form), and <code>fit$data_list$linkage_table</code>
-shows the materialized rows with <code>species</code> and
-<code>X_col</code> correctly scoped.</p>
+<code>Rceattle_linkage_spec</code> or a <code>list</code> of them, and
+<code>fit$data_list$linkage_table</code> shows the materialized rows
+with <code>species</code> and <code>X_col</code>.</p>
 <p>This pattern composes with species-specific <em>priors</em> – each
 spec carries its own priors, and within a spec the priors can themselves
 be species-keyed if you want even finer control:</p>
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/linkage_spec.html">linkage_spec</a></span><span class="op">(</span></span>
 <span>  formula <span class="op">=</span> <span class="op">~</span> <span class="va">temp</span>,</span>
 <span>  by      <span class="op">=</span> <span class="op">~</span> <span class="va">species</span> <span class="op">+</span> <span class="va">sex</span>,</span>
@@ -651,7 +495,7 @@ with the multi-spec list form, this lets you register <em>separate specs
 per sex</em> against the same parameter – typical use cases are
 sex-dimorphic M priors or distinct env responses for females
 vs. males:</p>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Female and male M1 each get their own intercept-only prior.</span></span>
 <span><span class="va">M1_spec</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/build_M1.html">build_M1</a></span><span class="op">(</span></span>
 <span>  M1_model <span class="op">=</span> <span class="st">"sex_specific"</span>,</span>
@@ -678,8 +522,7 @@ vs. males:</p>
 include <code>sex</code>. If you want different <em>formulas</em> per
 sex (rather than just different priors or inits), use the multi-spec
 form – one spec with <code>sex = 1L</code> and its own RHS, another with
-<code>sex = 2L</code> and a different RHS. The pooler unions the design
-columns by name in the same way it does for per-species formulas.</p>
+<code>sex = 2L</code> and a different RHS.</p>
 <p>If you only need different priors per (species, sex) for a single
 shared formula, the nested-priors form (see <em>Species- and (species,
 sex)-specific priors</em> above) is simpler – one spec, one set of
@@ -700,7 +543,7 @@ transformations.</p>
 polynomial bases (the default; numerically well-conditioned), or
 <code>poly(..., raw = TRUE)</code> for raw monomials. Each basis order
 shows up as a separate design column with its own coefficient:</p>
-<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># 4th-order orthogonal polynomial in temp, by species.</span></span>
 <span><span class="fu"><a href="../reference/linkage_spec.html">linkage_spec</a></span><span class="op">(</span></span>
 <span>  formula <span class="op">=</span> <span class="op">~</span> <span class="fu"><a href="https://rdrr.io/r/stats/poly.html" class="external-link">poly</a></span><span class="op">(</span><span class="va">temp</span>, <span class="fl">4</span><span class="op">)</span>,</span>
@@ -717,7 +560,7 @@ scientific reason to prefer raw monomials.</p>
 <p><strong>Arbitrary arithmetic.</strong> Use <code><a href="https://rdrr.io/r/base/AsIs.html" class="external-link">I()</a></code> to insert
 a literal expression (otherwise <code>temp^2</code> is interpreted as a
 formula crossing operator and reduces to <code>temp</code>):</p>
-<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Linear + raw quadratic in temp.</span></span>
 <span><span class="fu"><a href="../reference/linkage_spec.html">linkage_spec</a></span><span class="op">(</span></span>
 <span>  formula <span class="op">=</span> <span class="op">~</span> <span class="va">temp</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/base/AsIs.html" class="external-link">I</a></span><span class="op">(</span><span class="va">temp</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span>,</span>
@@ -732,7 +575,7 @@ backticks let you write it as a name.</p>
 <code><a href="https://rdrr.io/r/splines/ns.html" class="external-link">splines::ns()</a></code> work out-of-the-box and are often a better
 choice than high-order polynomials when you want flexibility without
 strong tail behaviour:</p>
-<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/linkage_spec.html">linkage_spec</a></span><span class="op">(</span></span>
 <span>  formula <span class="op">=</span> <span class="op">~</span> <span class="fu">splines</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/splines/ns.html" class="external-link">ns</a></span><span class="op">(</span><span class="va">temp</span>, df <span class="op">=</span> <span class="fl">4</span><span class="op">)</span>,</span>
 <span>  by      <span class="op">=</span> <span class="op">~</span> <span class="va">species</span></span>
@@ -740,7 +583,7 @@ strong tail behaviour:</p>
 <p><strong>Interactions.</strong> <code>temp:PDO</code> adds a single
 product column; <code>temp * PDO</code> is shorthand for
 <code>temp + PDO + temp:PDO</code>:</p>
-<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/linkage_spec.html">linkage_spec</a></span><span class="op">(</span></span>
 <span>  formula <span class="op">=</span> <span class="op">~</span> <span class="va">temp</span> <span class="op">*</span> <span class="va">PDO</span>,</span>
 <span>  by      <span class="op">=</span> <span class="op">~</span> <span class="va">species</span>,</span>
@@ -749,7 +592,7 @@ product column; <code>temp * PDO</code> is shorthand for
 <p><strong>Mixing forms across species.</strong> Combined with the
 per-species formula machinery, you can give one species a polynomial
 response and another a linear one without duplicating columns:</p>
-<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/build_growth.html">build_growth</a></span><span class="op">(</span></span>
 <span>  fun <span class="op">=</span> <span class="st">"vonBertalanffy"</span>,</span>
 <span>  linkages <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
@@ -761,17 +604,11 @@ response and another a linear one without duplicating columns:</p>
 <span>    <span class="op">)</span></span>
 <span>  <span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<p><code><a href="../reference/pool_linkages.html">pool_linkages()</a></code> unions the design columns by name so the
-global matrix <code>X</code> contains both <code>temp</code> and the
-three <code>poly(temp, 3)*</code> columns; species 1’s rows reference
-the polynomial columns, species 2’s only the linear
-<code>temp</code>.</p>
 <p>A practical caution: same-named columns must be numerically identical
-across specs that use them (this is enforced –
-<code><a href="../reference/pool_linkages.html">pool_linkages()</a></code> errors loudly on mismatches). With
-deterministic formulas evaluated against the same <code>env_data</code>
-this is automatic; it can only fail if you’ve built specs against
-different <code>env_data</code> frames.</p>
+across specs that use them. With deterministic formulas evaluated
+against the same <code>env_data</code> this is automatic; it can only
+fail if you’ve built specs against different <code>env_data</code>
+frames.</p>
 </div>
 <div class="section level2">
 <h2 id="what-happens-internally">What happens internally<a class="anchor" aria-label="anchor" href="#what-happens-internally"></a>
@@ -864,7 +701,7 @@ via upstream parameters: a temp effect on predator growth
 env-driven inputs to the bioenergetics ration calculation. The linkage
 system therefore exposes <code>log_M1</code> as the single M-side
 target, with <code>M2</code> covered by upstream propagation.</p>
-<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">yrs</span> <span class="op">&lt;-</span> <span class="va">GOApollock</span><span class="op">$</span><span class="va">styr</span><span class="op">:</span><span class="va">GOApollock</span><span class="op">$</span><span class="va">endyr</span></span>
 <span><span class="va">GOApollock</span><span class="op">$</span><span class="va">env_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  Year <span class="op">=</span> <span class="va">yrs</span>,</span>
@@ -891,7 +728,7 @@ target, with <code>M2</code> covered by upstream propagation.</p>
 <p>The structural M choices (<code>M1_model</code>) and the
 random-effects choices (<code>M1_re</code>) accept either integer codes
 or readable strings interchangeably:</p>
-<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/build_M1.html">build_M1</a></span><span class="op">(</span>M1_model <span class="op">=</span> <span class="st">"sex_age_specific"</span>, M1_re <span class="op">=</span> <span class="st">"ar1_age"</span><span class="op">)</span>   <span class="co"># = 3, 4</span></span>
 <span><span class="fu"><a href="../reference/build_M1.html">build_M1</a></span><span class="op">(</span>M1_model <span class="op">=</span> <span class="fl">3</span>,                  M1_re <span class="op">=</span> <span class="fl">4</span><span class="op">)</span>            <span class="co"># equivalent</span></span></code></pre></div>
 <p><code>linkages</code> on M is age-aware: by default a row’s
@@ -908,7 +745,7 @@ operational uses the default broadcast is what you want.</p>
 should prefer <code>linkages</code> – it composes naturally with priors,
 bounds, and per-species formulas.</p>
 <p>Inspecting the result:</p>
-<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit</span><span class="op">$</span><span class="va">data_list</span><span class="op">$</span><span class="va">linkage_table</span>         <span class="co"># rows have process == "M"</span></span>
 <span><span class="va">fit</span><span class="op">$</span><span class="va">quantities</span><span class="op">$</span><span class="va">M_linkage_offset</span>     <span class="co"># [nspp, max_sex, max_age, nyrs]</span></span>
 <span><span class="va">fit</span><span class="op">$</span><span class="va">quantities</span><span class="op">$</span><span class="va">jnll_comp</span><span class="op">[</span><span class="st">"Linkage-table priors"</span>, <span class="op">]</span></span></code></pre></div>
@@ -938,7 +775,7 @@ consume alpha.</li>
 parameter (density-dependence) of BH or Ricker. Same applicability as
 <code>log_alpha</code>.</li>
 </ul>
-<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Mean-recruitment with a temperature linkage on log_R0.</span></span>
 <span><span class="va">rec_spec</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/build_srr.html">build_srr</a></span><span class="op">(</span></span>
 <span>  srr_fun  <span class="op">=</span> <span class="st">"mean"</span>,                       <span class="co"># = 0</span></span>
@@ -973,12 +810,12 @@ parameter (density-dependence) of BH or Ricker. Same applicability as
 <span><span class="op">)</span></span></code></pre></div>
 <p>The structural choice (<code>srr_fun</code>) accepts either integer
 codes or readable strings interchangeably:</p>
-<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/build_srr.html">build_srr</a></span><span class="op">(</span>srr_fun <span class="op">=</span> <span class="st">"mean"</span><span class="op">)</span>           <span class="co"># = 0</span></span>
 <span><span class="fu"><a href="../reference/build_srr.html">build_srr</a></span><span class="op">(</span>srr_fun <span class="op">=</span> <span class="st">"BevertonHolt"</span><span class="op">)</span>   <span class="co"># = 2</span></span>
 <span><span class="fu"><a href="../reference/build_srr.html">build_srr</a></span><span class="op">(</span>srr_fun <span class="op">=</span> <span class="st">"Ricker"</span><span class="op">)</span>         <span class="co"># = 4</span></span></code></pre></div>
 <p>Inspecting the result:</p>
-<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit</span><span class="op">$</span><span class="va">data_list</span><span class="op">$</span><span class="va">linkage_table</span>             <span class="co"># rows have process == "recruitment"</span></span>
 <span><span class="va">fit</span><span class="op">$</span><span class="va">quantities</span><span class="op">$</span><span class="va">recruitment_linkage_offset</span>  <span class="co"># [nspp, n_rec_params, nyrs]</span></span>
 <span>                                           <span class="co"># n_rec_params = 3 (R0, alpha, beta)</span></span></code></pre></div>
@@ -991,7 +828,7 @@ downstream.</p>
 <h2 id="a-multi-process-example">A multi-process example<a class="anchor" aria-label="anchor" href="#a-multi-process-example"></a>
 </h2>
 <p>The same pattern composes when more than one parameter is linked:</p>
-<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">growth_spec</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/build_growth.html">build_growth</a></span><span class="op">(</span></span>
 <span>  fun <span class="op">=</span> <span class="st">"Richards"</span>,</span>
 <span>  linkages <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
@@ -1025,7 +862,7 @@ rows in the linkage table,</li>
 </ul>
 <p>Per-process logic (vB has no <code>m</code>; only Richards does) is
 enforced at build time:</p>
-<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/build_growth.html">build_growth</a></span><span class="op">(</span></span>
 <span>  fun <span class="op">=</span> <span class="st">"vonBertalanffy"</span>,</span>
 <span>  linkages <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>log_m <span class="op">=</span> <span class="fu"><a href="../reference/linkage_spec.html">linkage_spec</a></span><span class="op">(</span><span class="op">~</span> <span class="va">temp</span><span class="op">)</span><span class="op">)</span></span>
@@ -1035,7 +872,7 @@ enforced at build time:</p>
 <code>build_*()</code> output carries its own linkages list and
 <code><a href="../reference/fit_mod.html">fit_mod()</a></code> pools them against a single shared design
 matrix:</p>
-<div class="sourceCode" id="cb36"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_mod.html">fit_mod</a></span><span class="op">(</span></span>
 <span>  data_list   <span class="op">=</span> <span class="va">data_list</span>,</span>
 <span>  growthFun   <span class="op">=</span> <span class="fu"><a href="../reference/build_growth.html">build_growth</a></span><span class="op">(</span></span>
@@ -1069,7 +906,7 @@ matrix:</p>
 <h2 id="inspecting-and-debugging">Inspecting and debugging<a class="anchor" aria-label="anchor" href="#inspecting-and-debugging"></a>
 </h2>
 <p>A few diagnostics worth knowing:</p>
-<div class="sourceCode" id="cb37"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># The materialised table -- one row per estimated coefficient.</span></span>
 <span><span class="va">fit</span><span class="op">$</span><span class="va">data_list</span><span class="op">$</span><span class="va">linkage_table</span></span>
 <span></span>
@@ -1088,6 +925,145 @@ matrix:</p>
 <span></span>
 <span><span class="co"># The prior NLL contribution from slot 19 of jnll_comp.</span></span>
 <span><span class="va">fit</span><span class="op">$</span><span class="va">quantities</span><span class="op">$</span><span class="va">jnll_comp</span><span class="op">[</span><span class="st">"Linkage-table priors"</span>, <span class="op">]</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="behind-the-scens-automatic-base-parameter-handling">Behind the scens: Automatic base-parameter handling<a class="anchor" aria-label="anchor" href="#behind-the-scens-automatic-base-parameter-handling"></a>
+</h2>
+<p>Any pooled linkage table is stored on the fitted model:</p>
+<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">fit</span><span class="op">$</span><span class="va">data_list</span><span class="op">$</span><span class="va">linkage_table</span></span></code></pre></div>
+<p>For three species × two sexes × <code>~ temp</code> (intercept +
+slope) you get 12 rows: an <code>(Intercept)</code> beta and a
+<code>temp</code>-slope beta per (species, sex) combination. The
+<code>(Intercept)</code> beta is fixed at 0 (mapped out) and the
+<em>base parameter</em> (<code>log_K</code>, <code>log_M1</code>,
+<code>log_R0</code>, …) carries the level. The slope rows give the
+year-by-year offset that multiplies the base. See <em>Automatic
+base-parameter handling</em> below.</p>
+<p>The shared design matrix is stored alongside:</p>
+<div class="sourceCode" id="cb36"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">data_list</span><span class="op">$</span><span class="va">linkage_X</span><span class="op">)</span></span></code></pre></div>
+<p>The base parameter (<code>log_R0</code>, <code>log_M1</code>,
+<code>log_K</code>, …) and the linkage table cooperate cleanly:
+<strong>any priors or initial values are applied to the base
+parameter</strong>, and the <strong>linkage rows hold year-by-year
+offsets</strong> that is added to the base parameter on the log scale.
+The exact behavior depends on whether the formula carries an
+intercept:</p>
+<table class="table">
+<colgroup>
+<col width="35%">
+<col width="50%">
+<col width="14%">
+</colgroup>
+<thead><tr class="header">
+<th>Formula</th>
+<th>Base parameter</th>
+<th>Slope rows</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td>
+<code>~ 1</code> (intercept only)</td>
+<td>estimable; init from spec or default</td>
+<td>n/a</td>
+</tr>
+<tr class="even">
+<td>
+<code>~ temp</code> (intercept + slope)</td>
+<td>estimable; init from spec or default</td>
+<td>estimated</td>
+</tr>
+<tr class="odd">
+<td>
+<code>~ 0 + temp</code> (slope only)</td>
+<td>mapped NA, value from spec or default</td>
+<td>estimated</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Intercept-bearing formulas (<code>~ 1</code>,
+<code>~ temp</code>)</strong> – the base parameter remains estimable;
+for example <code>log_R0</code> for species <code>s</code> lives on
+<code>rec_pars[s, 1]</code> exactly as it does without any linkages. The
+<code>(Intercept)</code> row of the table exists for bookkeeping and as
+a hook for <code>init</code>/<code>prior</code> (see below) but its
+<code>beta_linkage</code> slot is held at <code>0</code> and not
+estimated. The recruitment / mortality / growth modules read
+<code>base + offset(yr)</code> each year – with the intercept fixed at
+zero, the offset is exactly the slope contribution.</p>
+<p><strong>Slope-only formulas (<code>~ 0 + temp</code>)</strong> –
+there is no <code>(Intercept)</code> row, so the base parameter is
+mapped out (NA) and stays at the default initial value, or the value
+supplied by the <code>inits</code> argument in <code>fit_mod</code>, or
+the value supplied by <code>init = list("(Intercept)"= ...)</code> on
+the spec.</p>
+<div class="section level3">
+<h3 id="init-and-the-base-parameter">
+<code>init</code> and the base parameter<a class="anchor" aria-label="anchor" href="#init-and-the-base-parameter"></a>
+</h3>
+<p><code>init = list(</code>(Intercept)<code>= X)</code> on the linkage
+spec <strong>flows to the base parameter</strong> rather than to the
+linkage row. The linkage row’s <code>beta_linkage</code> slot stays at
+<code>0</code>; the base parameter starts at <code>X</code>. This is the
+recommended way to set a sensible starting value for intercept-bearing
+linkages – it composes naturally with phasing (the base parameter goes
+through the existing per-process phase logic) and keeps the optimiser
+grounded.</p>
+<div class="sourceCode" id="cb37"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Start log_M1 at log(0.06) without estimating an extra intercept beta.</span></span>
+<span><span class="fu"><a href="../reference/build_M1.html">build_M1</a></span><span class="op">(</span></span>
+<span>  M1_model <span class="op">=</span> <span class="st">"sex_age_invariant"</span>,</span>
+<span>  linkages <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>    log_M1 <span class="op">=</span> <span class="fu"><a href="../reference/linkage_spec.html">linkage_spec</a></span><span class="op">(</span></span>
+<span>      formula <span class="op">=</span> <span class="op">~</span> <span class="fl">1</span>,</span>
+<span>      init    <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>`(Intercept)` <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">log</a></span><span class="op">(</span><span class="fl">0.06</span><span class="op">)</span><span class="op">)</span></span>
+<span>    <span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="stratification">Stratification<a class="anchor" aria-label="anchor" href="#stratification"></a>
+</h3>
+<p>Stratification (<code>by</code>) determines <em>which</em>
+base-parameter slots are affected: <code>by = ~ species</code> produces
+one <code>(Intercept)</code> row per species; <code>by = NULL</code> (a
+fully shared linkage) produces a single shared row; and
+<code>by = ~ species + sex</code> produces one per (species, sex). Each
+<code>(Intercept)</code> row that the user supplies an <code>init</code>
+for pushes that init into the matching base-parameter slot.</p>
+<p>This rule applies uniformly to every linkage target
+(<code>log_K</code>, <code>log_L1</code>, <code>log_Linf</code>,
+<code>log_m</code>, <code>log_M1</code>, <code>log_R0</code>,
+<code>log_alpha</code>, <code>log_beta</code>).</p>
+</div>
+<div class="section level3">
+<h3 id="single-sex-models-and-by-----sex">Single-sex models and <code>by = ~ ... + sex</code><a class="anchor" aria-label="anchor" href="#single-sex-models-and-by-----sex"></a>
+</h3>
+<p>If your model is single-sex (<code>nsex = 1</code> for every species
+in scope), asking for <code>by = ~ species + sex</code> produces a
+warning: there is only one sex level available, so the sex stratum
+collapses to a single shared level. The result is equivalent to
+<code>by = ~ species</code>. Models with mixed <code>nsex</code> (some
+single-sex, some two-sex species) emit one sex level per species
+automatically – single-sex species get one row per parameter, two-sex
+species get two.</p>
+</div>
+<div class="section level3">
+<h3 id="pooling">Pooling<a class="anchor" aria-label="anchor" href="#pooling"></a>
+</h3>
+<p>Inside <code><a href="../reference/pool_linkages.html">pool_linkages()</a></code> each spec is materialized
+independently and the resulting rows are concatenated into a single
+linkage table. The shared design matrix unions all RHS terms across
+specs, so species 1’s rows reference only <code>(Intercept)</code> and
+<code>temp</code>, while species 2’s rows can additionally reference
+<code>PDO</code> – there’s no duplication of the temp column.</p>
+<p><code><a href="../reference/pool_linkages.html">pool_linkages()</a></code> unions the design columns by name so the
+global matrix <code>X</code> contains both <code>temp</code> and the
+three <code>poly(temp, 3)*</code> columns; species 1’s rows reference
+the polynomial columns, species 2’s only the linear
+<code>temp</code>.</p>
+</div>
 </div>
 <div class="section level2">
 <h2 id="on-the-roadmap">On the roadmap<a class="anchor" aria-label="anchor" href="#on-the-roadmap"></a>
