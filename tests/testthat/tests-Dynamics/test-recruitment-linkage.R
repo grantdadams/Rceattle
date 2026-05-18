@@ -329,16 +329,14 @@ testthat::test_that("growth + M + recruitment linkages compose in one fit", {
 
 
 
-testthat::test_that("Test species-specific recruitment linkeages with mean rec (hindcast and projection)", {
+testthat::test_that("Test species-specific recruitment linkeages with R0 (proj_mean_rec = FALSE)", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
 
   # Specify R0
-  yrs <- GOA2018SS$styr:GOA2018SS$endyr
   projyrs <- GOA2018SS$styr:GOA2018SS$projyr
-  nyrs <- length(yrs)
   nyrsproj <- length(projyrs)
   R0 = 10:12
 
@@ -424,25 +422,16 @@ testthat::test_that("Test species-specific recruitment linkeages with mean rec (
 
 
 
-testthat::test_that("Test environmental linkeage with mean rec", {
+testthat::test_that("Test environmental linkeage with R0 (proj_mean_rec = FALSE)", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
 
-  # Change WT and M for SSB
-  GOA2018SS$weight[,6:35] <- 1
-  GOA2018SS$M1_base[,3:32] <- 0.2
-  GOA2018SS$maturity[,-1] <- 1
-  GOA2018SS$sex_ratio[,-1] <- 0.5
-  GOA2018SS$spawn_month <- rep(0,3)
-
-
   # Specify R0
-  yrs <- GOA2018SS$styr:GOA2018SS$endyr
+  yrs <- GOA2018SS$styr:GOA2018SS$projyr
   nyrs <- length(yrs)
   R0 = 10:12
-  Rdev <- stats::rnorm(nyrs)
 
   # Env data
   GOA2018SS$env_data <- data.frame(Year = yrs, EnvIndex = seq(0,1, length.out = nyrs))
@@ -490,33 +479,24 @@ testthat::test_that("Test environmental linkeage with mean rec", {
                                 verbose = 0))
 
 
-  # Check ssb
+  # Check R
   for(sp in 1:3){
-    testthat::expect_equal(as.numeric(ss_run$quantities$R[sp,1:nyrs]),  exp(R0[sp] + GOA2018SS$env_data$EnvIndex * sp), tolerance = 0.0001)
+    testthat::expect_equal(as.numeric(ss_run$quantities$R[sp,]),  exp(R0[sp] + GOA2018SS$env_data$EnvIndex * sp), tolerance = 0.0001)
   }
 
 })
 
 
-testthat::test_that("Test multiple recruitment linkeages with mean rec", {
+testthat::test_that("Test multiple recruitment linkeages with R0 (proj_mean_rec = FALSE)", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
   data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
 
-  # Change WT and M for SSB
-  GOA2018SS$weight[,6:35] <- 1
-  GOA2018SS$M1_base[,3:32] <- 0.2
-  GOA2018SS$maturity[,-1] <- 1
-  GOA2018SS$sex_ratio[,-1] <- 0.5
-  GOA2018SS$spawn_month <- rep(0,3)
-
-
   # Specify R0
-  yrs <- GOA2018SS$styr:GOA2018SS$endyr
+  yrs <- GOA2018SS$styr:GOA2018SS$projyr
   nyrs <- length(yrs)
   R0 = 10:12
-  Rdev <- stats::rnorm(nyrs)
 
   # Env data
   GOA2018SS$env_data <- data.frame(Year = yrs, EnvIndex = seq(0,1, length.out = nyrs), EnvIndex2 = seq(0,1, length.out = nyrs), EnvIndex3 = seq(0,1, length.out = nyrs))
@@ -569,17 +549,243 @@ testthat::test_that("Test multiple recruitment linkeages with mean rec", {
                               fit_control = fit_control(
                                 verbose = 0))
 
-
-  expected_beta <- matrix(c(1,4,7,
-                            2,5,8,
-                            3,6,9), nrow = 3, byrow = TRUE)
-
-  # Check ssb
+  # Check R
   for(sp in 1:3){
-    testthat::expect_equal(as.numeric(ss_run$quantities$R[sp,1:nyrs]),
+    testthat::expect_equal(as.numeric(ss_run$quantities$R[sp,]),
                            as.numeric(exp(R0[sp] + as.matrix(GOA2018SS$env_data[,-1]) %*% expected_beta[sp,])),
                            tolerance = 0.0001)
   }
+})
+
+
+testthat::test_that("Test multiple recruitment linkeages with R0 (proj_mean_rec = TRUE)", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  data("GOA2018SS") # Single-species data. ?BS2017SS for more information on the data
+
+  # Specify R0
+  yrs <- GOA2018SS$styr:GOA2018SS$endyr
+  projyrs <- GOA2018SS$styr:GOA2018SS$projyr
+  nyrs <- length(yrs)
+  projnyrs <- length(projyrs)
+  R0 = 10:12
+
+  # Env data
+  GOA2018SS$env_data <- data.frame(Year = projyrs, EnvIndex = seq(0,1, length.out = projnyrs), EnvIndex2 = seq(0,1, length.out = projnyrs), EnvIndex3 = seq(0,1, length.out = projnyrs))
+
+  # Set params
+  rec_spec <- build_srr(
+    srr_fun = "mean",
+    proj_mean_rec = TRUE, # TRUE!!!!!!
+    srr_est_mode = 1,
+    linkages = list(
+      log_R0 = Rceattle::linkage_spec(
+        formula = ~ 0 + EnvIndex + EnvIndex2 + EnvIndex3,
+        by = ~ species
+      )
+    )
+  )
+  mod0 <- suppressMessages(
+    fit_mod(data_list = GOA2018SS,
+            inits = NULL,
+            estimateMode = 3,
+            random_rec = FALSE,
+            msmMode = 0,
+            recFun = rec_spec,
+            initMode = 1,
+            fit_control = fit_control(verbose = 0))
+  )
+  inits <- mod0$estimated_params
+  inits$rec_pars[,1] <- R0
+  tbl <- mod0$data_list$linkage_table
+  env_cols <- c("EnvIndex", "EnvIndex2", "EnvIndex3")
+  is_log_r0 <- tbl$param == "log_R0"
+  inits$beta_linkage <- as.numeric(inits$beta_linkage)
+  for (sp in 1:3) {
+    for (j in seq_along(env_cols)) {
+      idx <- which(is_log_r0 & tbl$species == sp & tbl$design_col == env_cols[j])
+      inits$beta_linkage[idx] <- (j - 1) * 3 + sp
+    }
+  }
+  inits$log_F[] <- -999 # No fishing
+
+  # Run
+  ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
+                              inits = inits, # Initial parameters = 0
+                              file = NULL, # Don't save
+                              estimateMode = 3, # Don't estimate
+                              random_rec = FALSE, # No random recruitment
+                              msmMode = 0, # Single species mode
+                              recFun = rec_spec,
+                              initMode = 1,
+                              fit_control = fit_control(
+                                verbose = 0))
+
+  # Check R in hindcast
+  for(sp in 1:3){
+    testthat::expect_equal(as.numeric(ss_run$quantities$R[sp,1:nyrs]),
+                           as.numeric(exp(R0[sp] + as.matrix(GOA2018SS$env_data[1:nyrs,-1]) %*% expected_beta[sp,])),
+                           tolerance = 0.0001)
+  }
+
+  # Check R in forecast = mean historical
+  for(sp in 1:3){
+    testthat::expect_equal(as.numeric(ss_run$quantities$R[sp,(nyrs+1):projnyrs]),
+                           rep(mean(ss_run$quantities$R[sp,1:nyrs]), projnyrs - nyrs),
+                           tolerance = 0.0001)
+  }
+})
+
+
+testthat::test_that("Test single-spp recruitment linkeages with R0 (proj_mean_rec = TRUE)", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  data("NorthernRockfish2022") # Single-species data. ?BS2017SS for more information on the data
+
+  # Specify R0
+  yrs <- NorthernRockfish2022$styr:NorthernRockfish2022$endyr
+  projyrs <- NorthernRockfish2022$styr:NorthernRockfish2022$projyr
+  nyrs <- length(yrs)
+  projnyrs <- length(projyrs)
+  R0 = 10
+
+  # Env data
+  NorthernRockfish2022$env_data <- data.frame(Year = projyrs, EnvIndex = seq(0,1, length.out = projnyrs), EnvIndex2 = seq(0,1, length.out = projnyrs), EnvIndex3 = seq(0,1, length.out = projnyrs))
+
+  # Set params
+  rec_spec <- build_srr(
+    srr_fun = "mean",
+    proj_mean_rec = TRUE, # TRUE!!!!!!
+    srr_est_mode = 1,
+    linkages = list(
+      log_R0 = Rceattle::linkage_spec(
+        formula = ~ 0 + EnvIndex + EnvIndex2 + EnvIndex3,
+        by = ~ species
+      )
+    )
+  )
+
+  mod0 <- suppressMessages(
+    fit_mod(data_list = NorthernRockfish2022,
+            inits = NULL,
+            estimateMode = 3,
+            random_rec = FALSE,
+            msmMode = 0,
+            recFun = rec_spec,
+            initMode = 1,
+            fit_control = fit_control(verbose = 0))
+  )
+
+  # Set inits
+  inits <- mod0$estimated_params
+  inits$rec_pars[,1] <- R0
+  tbl <- mod0$data_list$linkage_table
+  env_cols <- c("EnvIndex", "EnvIndex2", "EnvIndex3")
+  is_log_r0 <- tbl$param == "log_R0"
+  inits$beta_linkage <- as.numeric(inits$beta_linkage)
+  sp = 1
+  for (j in seq_along(env_cols)) {
+    idx <- which(is_log_r0 & tbl$species == sp & tbl$design_col == env_cols[j])
+    inits$beta_linkage[idx] <- (j - 1) * 3 + sp
+  }
+  inits$log_F[] <- -999 # No fishing
+
+  # Run
+  ss_run <- Rceattle::fit_mod(data_list = NorthernRockfish2022,
+                              inits = inits, # Initial parameters = 0
+                              file = NULL, # Don't save
+                              estimateMode = 3, # Don't estimate
+                              random_rec = FALSE, # No random recruitment
+                              msmMode = 0, # Single species mode
+                              recFun = rec_spec,
+                              initMode = 1,
+                              fit_control = fit_control(
+                                verbose = 0))
+
+  # Check R in hindcast
+  testthat::expect_equal(as.numeric(ss_run$quantities$R[sp,1:nyrs]),
+                         as.numeric(exp(R0[sp] + as.matrix(NorthernRockfish2022$env_data[1:nyrs,-1]) %*% expected_beta[sp,])),
+                         tolerance = 0.0001)
+
+
+  # Check R in forecast = mean historical
+  testthat::expect_equal(as.numeric(ss_run$quantities$R[sp,(nyrs+1):projnyrs]),
+                         rep(mean(ss_run$quantities$R[sp,1:nyrs]), projnyrs - nyrs),
+                         tolerance = 0.0001)
+})
+
+testthat::test_that("Test single-spp recruitment linkeages with R0 (proj_mean_rec = FALSE)", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  data("NorthernRockfish2022")
+
+  # Specify R0
+  yrs <- NorthernRockfish2022$styr:NorthernRockfish2022$endyr
+  projyrs <- NorthernRockfish2022$styr:NorthernRockfish2022$projyr
+  nyrs <- length(yrs)
+  projnyrs <- length(projyrs)
+  R0 = 10
+
+  # Env data
+  NorthernRockfish2022$env_data <- data.frame(Year = projyrs, EnvIndex = seq(0,1, length.out = projnyrs), EnvIndex2 = seq(0,1, length.out = projnyrs), EnvIndex3 = seq(0,1, length.out = projnyrs))
+
+  # Set params
+  rec_spec <- build_srr(
+    srr_fun = "mean",
+    proj_mean_rec = FALSE, # FALSE!!!!!!
+    srr_est_mode = 1,
+    linkages = list(
+      log_R0 = Rceattle::linkage_spec(
+        formula = ~ 0 + EnvIndex + EnvIndex2 + EnvIndex3,
+        by = ~ species
+      )
+    )
+  )
+
+  mod0 <- suppressMessages(
+    fit_mod(data_list = NorthernRockfish2022,
+            inits = NULL,
+            estimateMode = 3,
+            random_rec = FALSE,
+            msmMode = 0,
+            recFun = rec_spec,
+            initMode = 1,
+            fit_control = fit_control(verbose = 0))
+  )
+
+  # Set inits
+  inits <- mod0$estimated_params
+  inits$rec_pars[,1] <- R0
+  tbl <- mod0$data_list$linkage_table
+  env_cols <- c("EnvIndex", "EnvIndex2", "EnvIndex3")
+  is_log_r0 <- tbl$param == "log_R0"
+  inits$beta_linkage <- as.numeric(inits$beta_linkage)
+  sp = 1
+  for (j in seq_along(env_cols)) {
+    idx <- which(is_log_r0 & tbl$species == sp & tbl$design_col == env_cols[j])
+    inits$beta_linkage[idx] <- (j - 1) * 3 + sp
+  }
+  inits$log_F[] <- -999 # No fishing
+
+  # Run
+  ss_run <- Rceattle::fit_mod(data_list = NorthernRockfish2022,
+                              inits = inits, # Initial parameters = 0
+                              file = NULL, # Don't save
+                              estimateMode = 3, # Don't estimate
+                              random_rec = FALSE, # No random recruitment
+                              msmMode = 0, # Single species mode
+                              recFun = rec_spec,
+                              initMode = 1,
+                              fit_control = fit_control(
+                                verbose = 0))
+
+  # Check R in hindcast and projection
+  testthat::expect_equal(as.numeric(ss_run$quantities$R[sp,1:projnyrs]),
+                         as.numeric(exp(R0[sp] + as.matrix(NorthernRockfish2022$env_data[1:projnyrs,-1]) %*% expected_beta[sp,])),
+                         tolerance = 0.0001)
 })
 
 

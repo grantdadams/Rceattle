@@ -31,7 +31,6 @@ rename_output = function(data_list = NULL, quantities = NULL){
   names(quantities$Ftarget) <- data_list$spnames
   names(quantities$gam_a) <- data_list$spnames
   names(quantities$gam_b) <- data_list$spnames
-  names(quantities$R0) <- data_list$spnames
   names(quantities$R_init) <- data_list$spnames
   names(quantities$SPR0) <- data_list$spnames
   names(quantities$SPRFinit) <- data_list$spnames
@@ -51,6 +50,7 @@ rename_output = function(data_list = NULL, quantities = NULL){
   dimnames(quantities$B0) <- list(data_list$spnames, yrs_proj)
   dimnames(quantities$DynamicB0) <- list(data_list$spnames, yrs_proj)
   dimnames(quantities$exploitable_biomass) <- list(data_list$spnames, yrs_proj)
+  dimnames(quantities$R0) <- list(data_list$spnames, yrs_proj)
 
   dimnames(quantities$ssb_depletion) <- list(data_list$spnames, yrs_proj)
   dimnames(quantities$ssb) <- list(data_list$spnames, yrs_proj)
