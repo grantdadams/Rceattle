@@ -641,7 +641,7 @@ fit_mod <-
     if (estimateMode > 1) { # debugging / projection-only: use initial parameters
       last_par <- start_par
     } else {
-      last_par <- try(obj$env$parList(par=obj$env$last.par.best))
+      last_par <- obj$env$parList(par=obj$env$last.par.best)
     }
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -748,7 +748,7 @@ fit_mod <-
         if (estimateMode > 2) { # debugging: use initial parameters
           last_par <- start_par
         } else {
-            last_par <- try(obj$env$parList(par=obj$env$last.par.best))
+          last_par <- obj$env$parList(par=obj$env$last.par.best)
         }
 
 
