@@ -175,12 +175,51 @@ void convert_length_selectivity(
  * normalizes it, projects it into the future, and—if the base calculation was length-based—uses a
  * growth transition matrix to output the equivalent age-based selectivity.
  * * @section functional_forms Selectivity Models:
- * - Case 0: Empirical (Input data, assumed age-based)
- * - Case 1 / 6: Logistic (2-parameter: slope and inflection) [Age / Length]
- * - Case 2 / 7: Non-parametric (Bin-specific coefficients with smoothing, Ianelli style) [Age / Length]
- * - Case 3 / 8: Double Logistic (Dorn and Methot 1990) [Age / Length]
- * - Case 4 / 9: Descending Logistic [Age / Length]
- * - Case 5 / 10: Non-parametric (Cumulative coefficients, Hake/Taylor style) [Age / Length]
+ * The dimension (age vs length) is determined by `flt_sel_dim` (0 = age, 1 = length) and is shared
+ * across all parametric cases; the age/length distinction is handled inside each case, not by a
+ * separate case number. After calculation, length-based selectivity is converted to age-based via
+ * `convert_length_selectivity()`, and all selectivities are normalized/projected via
+ * `normalize_and_project_selectivity()`.
+ *
+ * - Case 0: Empirical — fixed selectivity read from `emp_sel` input; assumed age-based.
+ *
+ * - Case 1: Logistic — 2-parameter ascending logistic [Age or Length]
+ *     sel(x) = 1 / (1 + exp(-slope * (x - inflection)))
+ *     Parameters: log_sel_slp(0) = log(slope); sel_inf(0) = inflection point
+ *
+ * - Case 2: Non-parametric (Ianelli/AMAK style) [Age or Length]
+ *     Bin-specific log-scale coefficients, normalized by mean; penalized for monotonicity and curvature.
+ *     Parameters: sel_coff[flt, sex, bin] for bins 0..N_sel_bins-1
+ *
+ * - Case 3: Double Logistic (Dorn and Methot 1990) [Age or Length]
+ *     sel(x) = asc(x) * (1 - desc(x)), where each limb is a 2-parameter logistic.
+ *     Parameters: log_sel_slp(0/1) = log(ascending/descending slope); sel_inf(0/1) = ascending/descending inflection
+ *
+ * - Case 4: Descending Logistic [Age or Length]
+ *     sel(x) = 1 - 1/(1 + exp(-slope * (x - inflection)))
+ *     Parameters: log_sel_slp(1) = log(slope); sel_inf(1) = inflection point
+ *
+ * - Case 5: Non-parametric (Hake/Taylor style) [Age or Length]
+ *     Cumulative sum of bin coefficients, exponentiated and normalized to max = 1.
+ *     Parameters: sel_coff[flt, sex, bin] for bins bin_first_selected..N_sel_bins-1
+ *
+ * - Case 6: 2D AR1 (age x year) [Age or Length]
+ *     Logistic-transformed bin-year deviates with AR1 correlation across age and year.
+ *
+ * - Case 7: 3D AR1 (age x cohort x year, Cheng et al 2024) [Age or Length]
+ *     Conditional-variance parameterisation of a 3D random field across age, cohort and year.
+ *
+ * - Case 8: Double Normal [Age or Length]
+ *     Gaussian ascending limb left of peak, Gaussian descending limb right of peak, blended
+ *     smoothly via a steep logistic weight so the function is twice differentiable everywhere.
+ *       sel(x) = (1-w(x)) * exp(-0.5*((x-peak)/sigma_asc)^2)
+ *              +    w(x)  * exp(-0.5*((x-peak)/sigma_desc)^2)
+ *       w(x)  = 1 / (1 + exp(-20*(x - peak)))   [~0 left of peak, ~1 right]
+ *     Parameters (reuses existing arrays):
+ *       sel_inf(0)     = peak bin (mode); TV deviate: sel_inf_dev(0)
+ *       log_sel_slp(0) = log(sigma_ascending);  TV deviate: log_sel_slp_dev(0)
+ *       log_sel_slp(1) = log(sigma_descending); TV deviate: log_sel_slp_dev(1)
+ *       sel_inf(1) is intentionally unused (fixed at initial value via map).
  * * @param nspp Number of species.
  * @param n_flt Number of fleets (fisheries and surveys).
  * @param nyrs Total years (including hindcast and projection).
@@ -375,6 +414,32 @@ void calculate_selectivity(
             }
           }
           break;
+
+        case 8: { // Double Normal
+          // Parameters:
+          //   sel_inf(0)     = peak bin (mode of selectivity)
+          //   log_sel_slp(0) = log(sigma_ascending)   - ascending limb SD
+          //   log_sel_slp(1) = log(sigma_descending)  - descending limb SD
+          //   sel_inf(1)     = logit(right_floor) — right-tail floor, analogous to SS3 P6 (end_logit)
+          //                    right_floor→0: fully dome-shaped; right_floor→1: logistic (ascending only)
+          Type peak        = sel_inf(0, flt, sex) + sel_inf_dev(0, flt, sex, yr);
+          Type sigma_asc   = exp(log_sel_slp(0, flt, sex) + log_sel_slp_dev(0, flt, sex, yr));
+          Type sigma_desc  = exp(log_sel_slp(1, flt, sex) + log_sel_slp_dev(1, flt, sex, yr));
+          Type right_floor = 1.0 / (1.0 + exp(-(sel_inf(1, flt, sex) + sel_inf_dev(1, flt, sex, yr))));
+          for (int bin = 0; bin < nbins; bin++) {
+            Type x_val      = is_length_based ? (lengths(sp, bin) + 0.5 * binwidth) : Type(bin + 1);
+            // Smooth logistic blend: ~0 left of peak, ~1 right of peak.
+            Type w          = 1.0 / (1.0 + exp(-20.0 * (x_val - peak)));
+            Type asc_gauss  = exp(-0.5 * pow((x_val - peak) / sigma_asc,  2.0));
+            Type desc_gauss = exp(-0.5 * pow((x_val - peak) / sigma_desc, 2.0));
+            // Right tail approaches right_floor (mirrors SS3 P6 / end_logit behaviour)
+            Type val_desc   = right_floor + (1.0 - right_floor) * desc_gauss;
+            Type val        = (1.0 - w) * asc_gauss + w * val_desc;
+            if (is_length_based) sel_at_length(flt, sex, bin, yr) = val;
+            else                 sel_at_age(flt, sex, bin, yr) = val;
+          }
+          break;
+        }
 
         case 6: // 2D AR1-age x year
         case 7: // 3D AR1 conditional variance

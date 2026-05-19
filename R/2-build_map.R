@@ -537,6 +537,10 @@ build_map_predation <- function(map_list, data_list) {
 #' 5 = "Hake" non-parametric selectivity sensu Taylor et al 2014 (Hake)
 #' 6 = "2DAR1" across age x year
 #' 7 = "3DAR1" across age x cohort x year (Cheng et al 2024)
+#' 8 = "DoubleNormal" Gaussian ascending/descending limbs blended at peak (analogous to SS3 pattern 24).
+#'     Parameters: sel_inf[1] = peak; sel_inf[2] = logit(right_floor) (right-tail floor, SS3 P6/end_logit);
+#'     log_sel_slp[1] = log(sigma_asc); log_sel_slp[2] = log(sigma_desc).
+#'     right_floor→0: dome-shaped; right_floor→1: logistic ascending only.
 #'
 #' \code{N_sel_bins}	Number of age/length bins to estimate non-parametric selectivity when Selectivity = 2 or 5. Not used otherwise
 #'
@@ -715,6 +719,70 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
               ind_slp <- ind_slp + max_block
               ind_inf <- ind_inf + max_block
             }
+          }
+        }
+      }
+
+
+      # * Double Normal ----
+      # Parameters reuse existing arrays (same dimensions as DoubleLogistic):
+      #   sel_inf[1]     = peak bin/length (mode)
+      #   sel_inf[2]     = logit(right_floor) — right-tail floor (analogous to SS3 P6 / end_logit)
+      #   log_sel_slp[1] = log(sigma_ascending)
+      #   log_sel_slp[2] = log(sigma_descending)
+      if (sel_type == "DoubleNormal") {
+
+        # Base parameters
+        for (sex in 1:nsex) {
+          map_list$sel_inf[1, flt, sex]     <- ind_inf; ind_inf <- ind_inf + 1
+          map_list$sel_inf[2, flt, sex]     <- ind_inf; ind_inf <- ind_inf + 1
+          map_list$log_sel_slp[1, flt, sex] <- ind_slp; ind_slp <- ind_slp + 1
+          map_list$log_sel_slp[2, flt, sex] <- ind_slp; ind_slp <- ind_slp + 1
+        }
+
+        # Time-varying parameters
+        if (tv_sel %in% c("IID", "AR1", "RandomWalk")) {
+          for (sex in 1:nsex) {
+            # Peak (sel_inf[1]) and right-floor (sel_inf[2]) deviates
+            map_list$sel_inf_dev[1, flt, sex, yrs_hind] <- ind_inf + yrs_hind - 1
+            ind_inf <- ind_inf + nyrs_hind
+            map_list$sel_inf_dev[2, flt, sex, yrs_hind] <- ind_inf + yrs_hind - 1
+            ind_inf <- ind_inf + nyrs_hind
+
+            # Ascending-SD (log_sel_slp[1]) and descending-SD (log_sel_slp[2]) deviates
+            map_list$log_sel_slp_dev[1, flt, sex, yrs_hind] <- ind_slp + yrs_hind - 1
+            ind_slp <- ind_slp + nyrs_hind
+            map_list$log_sel_slp_dev[2, flt, sex, yrs_hind] <- ind_slp + yrs_hind - 1
+            ind_slp <- ind_slp + nyrs_hind
+          }
+
+          # Random walk: fix first deviate
+          if (tv_sel == "RandomWalk") {
+            map_list$sel_inf_dev[1, flt, , 1]     <- NA
+            map_list$sel_inf_dev[2, flt, , 1]     <- NA
+            map_list$log_sel_slp_dev[1, flt, , 1] <- NA
+            map_list$log_sel_slp_dev[2, flt, , 1] <- NA
+          }
+
+        } else if (tv_sel == "Block" && max_block > 0) {
+          for (sex in 1:nsex) {
+            # Peak and right-floor block deviates
+            map_list$sel_inf_dev[1, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_inf
+            ind_inf <- ind_inf + max_block
+            map_list$sel_inf_dev[2, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_inf
+            ind_inf <- ind_inf + max_block
+
+            # Ascending-SD and descending-SD block deviates
+            map_list$log_sel_slp_dev[1, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_slp
+            ind_slp <- ind_slp + max_block
+            map_list$log_sel_slp_dev[2, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_slp
+            ind_slp <- ind_slp + max_block
+
+            # Fix base parameters — blocks fully replace them (deviates are absolute values)
+            map_list$sel_inf[1, flt, sex]     <- NA
+            map_list$sel_inf[2, flt, sex]     <- NA
+            map_list$log_sel_slp[1, flt, sex] <- NA
+            map_list$log_sel_slp[2, flt, sex] <- NA
           }
         }
       }
