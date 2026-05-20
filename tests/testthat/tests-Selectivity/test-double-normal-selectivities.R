@@ -49,7 +49,7 @@ testthat::test_that("Age-based double-normal: static dome shape recovers correct
   expected    <- double_normal_sel(ages, peak, sigma_asc, sigma_desc, logit_floor)
 
   mod0 <- suppressMessages(
-    fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3,
+    Rceattle::fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3,
             random_rec = FALSE, msmMode = 0,
             fit_control = fit_control(verbose = 0))
   )
@@ -60,16 +60,24 @@ testthat::test_that("Age-based double-normal: static dome shape recovers correct
   inits$log_sel_slp[2, , ] <- log(sigma_desc)
 
   ss_run <- suppressMessages(
-    fit_mod(data_list = GOA2018SS, inits = inits, estimateMode = 3,
+    Rceattle::fit_mod(data_list = GOA2018SS, inits = inits, estimateMode = 3,
             random_rec = FALSE, msmMode = 0,
             fit_control = fit_control(verbose = 0))
   )
 
   # --- Map checks: all four base params estimated, no time-varying deviates ---
-  testthat::expect_true(all(!is.na(ss_run$map$mapList$sel_inf[1, , ])))
-  testthat::expect_true(all(!is.na(ss_run$map$mapList$sel_inf[2, , ])))
-  testthat::expect_true(all(!is.na(ss_run$map$mapList$log_sel_slp[1, , ])))
-  testthat::expect_true(all(!is.na(ss_run$map$mapList$log_sel_slp[2, , ])))
+  # - Females/sex combined
+  testthat::expect_true(all(!is.na(ss_run$map$mapList$sel_inf[1, -7, 1])))
+  testthat::expect_true(all(!is.na(ss_run$map$mapList$sel_inf[2, -7, 1])))
+  testthat::expect_true(all(!is.na(ss_run$map$mapList$log_sel_slp[1, -7, 1])))
+  testthat::expect_true(all(!is.na(ss_run$map$mapList$log_sel_slp[2, -7, 1])))
+
+  # - Males
+  testthat::expect_true(all(!is.na(ss_run$map$mapList$sel_inf[1, 9:11, 2])))
+  testthat::expect_true(all(!is.na(ss_run$map$mapList$sel_inf[2, 9:11, 2])))
+  testthat::expect_true(all(!is.na(ss_run$map$mapList$log_sel_slp[1, 9:11, 2])))
+  testthat::expect_true(all(!is.na(ss_run$map$mapList$log_sel_slp[2, 9:11, 2])))
+
   testthat::expect_true(all(is.na(c(ss_run$map$mapList$log_sel_slp_dev))))
   testthat::expect_true(all(is.na(c(ss_run$map$mapList$sel_inf_dev))))
 
@@ -117,7 +125,8 @@ testthat::test_that("Age-based double-normal: logit_floor=+10 produces near-logi
             fit_control = fit_control(verbose = 0))
   )
 
-  sel_out <- as.numeric(ss_run$quantities$sel_at_age[1, 1, 1:21, 1])
+  # Use fleet 9 (ATF, species 2) which has 21 ages; fleet 1 (Pollock) only has 10.
+  sel_out <- as.numeric(ss_run$quantities$sel_at_age[9, 1, 1:21, 1])
   testthat::expect_equal(sel_out, expected[1:21], tolerance = 1e-4)
 
   # With logit_floor=10 the selectivity should plateau near 1 at large ages
@@ -129,21 +138,38 @@ testthat::test_that("Length-based double-normal: static shape non-trivial", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
-  data("GOA2018SS")
-  GOA2018SS$fleet_control$Selectivity           <- "DoubleNormal"
-  GOA2018SS$fleet_control$Selectivity_dimension <- "Length"
-  GOA2018SS$fleet_control$Time_varying_sel      <- 0
-  GOA2018SS$fleet_control$Selectivity_index     <- seq_len(nrow(GOA2018SS$fleet_control))
-  GOA2018SS$fleet_control$Bin_first_selected    <- 1
-  GOA2018SS$fleet_control$Sel_norm_bin1         <- NA
+  # Data
+  # 1) Set up simulation
+  nyrs = 30
+  nspp = 2
+  Fmort <- c(seq(0.02, 0.3, length.out = nyrs/2), seq(0.3, 0.05, length.out = nyrs/2))
+  Fmort2 <- seq(0.02, 0.3, length.out = nyrs)
+
+  # First, simulate some data for the model
+  set.seed(123)
+  sim <- make_msm_test_data(
+    years = 1:nyrs,
+    Fmort = matrix(c(Fmort, Fmort2), nspp, nyrs, byrow = TRUE)
+  )
+
+  # Set up Rceattle data
+  simData <- sim$data_list
+  simData$fleet_control$Selectivity           <- "DoubleNormal"
+  simData$fleet_control$Selectivity_dimension <- "Length"
+  simData$fleet_control$Time_varying_sel      <- 0
+  simData$fleet_control$Selectivity_index     <- seq_len(nrow(simData$fleet_control))
+  simData$fleet_control$Bin_first_selected    <- 1
+  simData$fleet_control$Sel_norm_bin1         <- NA
 
   peak        <- 60   # cm
   sigma_asc   <- 10
   sigma_desc  <- 20
   logit_floor <- -10  # dome-shaped
+  true_sel <- sapply(1:10, function(x) double_normal_sel(x, peak, sigma_asc, sigma_desc, logit_floor))
+
 
   mod0 <- suppressMessages(
-    fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3,
+    fit_mod(data_list = simData, inits = NULL, estimateMode = 3,
             random_rec = FALSE, msmMode = 0,
             fit_control = fit_control(verbose = 0))
   )
@@ -154,17 +180,18 @@ testthat::test_that("Length-based double-normal: static shape non-trivial", {
   inits$log_sel_slp[2, , ] <- log(sigma_desc)
 
   ss_run <- suppressMessages(
-    fit_mod(data_list = GOA2018SS, inits = inits, estimateMode = 3,
+    fit_mod(data_list = simData, inits = inits, estimateMode = 3,
             random_rec = FALSE, msmMode = 0,
             fit_control = fit_control(verbose = 0))
   )
 
   # Both sel_inf[1] and sel_inf[2] estimated
-  testthat::expect_true(all(!is.na(ss_run$map$mapList$sel_inf[1, , ])))
-  testthat::expect_true(all(!is.na(ss_run$map$mapList$sel_inf[2, , ])))
+  # - Females/sex combined
+  testthat::expect_true(all(!is.na(ss_run$map$mapList$sel_inf[, , 1])))
+  testthat::expect_true(all(!is.na(ss_run$map$mapList$log_sel_slp[, , 1])))
 
   # sel_at_age should be non-trivial and dome-shaped
-  sel_out <- as.numeric(ss_run$quantities$sel_at_age[1, 1, , 1])
+  sel_out <- as.numeric(ss_run$quantities$sel_at_length[1, 1, , 1])
   testthat::expect_true(max(sel_out) > 0.9)   # max near 1 after normalisation
   testthat::expect_true(min(sel_out) < 0.5)   # dome-shaped: tails are low
 })
@@ -174,21 +201,35 @@ testthat::test_that("IID time-varying double-normal: map has correct number of d
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
-  data("GOA2018SS")
-  nyrs <- length(GOA2018SS$styr:GOA2018SS$endyr)
-  GOA2018SS$fleet_control$Selectivity              <- "DoubleNormal"
-  GOA2018SS$fleet_control$Time_varying_sel         <- "IID"
-  GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
-  GOA2018SS$fleet_control$Selectivity_index        <- seq_len(nrow(GOA2018SS$fleet_control))
-  GOA2018SS$fleet_control$Bin_first_selected       <- 1
-  GOA2018SS$fleet_control$Sel_norm_bin1            <- NA
-  GOA2018SS$catch_data$Catch <- 1e6  # non-zero catch keeps sel devs on
+  # Data
+  # 1) Set up simulation
+  nyrs = 30
+  nspp = 2
+  Fmort <- c(seq(0.02, 0.3, length.out = nyrs/2), seq(0.3, 0.05, length.out = nyrs/2))
+  Fmort2 <- seq(0.02, 0.3, length.out = nyrs)
 
-  n_active <- sum(GOA2018SS$fleet_control$Fleet_type != "Off")
-  nsex     <- 1  # GOA2018SS is single-sex
+  # First, simulate some data for the model
+  set.seed(123)
+  sim <- make_msm_test_data(
+    years = 1:nyrs,
+    Fmort = matrix(c(Fmort, Fmort2), nspp, nyrs, byrow = TRUE)
+  )
+
+  # Set up Rceattle data
+  simData <- sim$data_list
+  simData$fleet_control$Selectivity              <- "DoubleNormal"
+  simData$fleet_control$Time_varying_sel         <- "IID"
+  simData$fleet_control$Time_varying_sel_sd_prior <- 1
+  simData$fleet_control$Selectivity_index        <- seq_len(nrow(simData$fleet_control))
+  simData$fleet_control$Bin_first_selected       <- 1
+  simData$fleet_control$Sel_norm_bin1            <- NA
+  simData$catch_data$Catch <- 1e6  # non-zero catch keeps sel devs on
+
+  n_active <- sum(simData$fleet_control$Fleet_type != "Off")
+  nsex     <- 1  # simData is single-sex
 
   ss_run <- suppressMessages(
-    fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3,
+    fit_mod(data_list = simData, inits = NULL, estimateMode = 3,
             random_rec = FALSE, msmMode = 0,
             fit_control = fit_control(verbose = 0))
   )
@@ -214,15 +255,29 @@ testthat::test_that("IID time-varying double-normal: penalty likelihood matches 
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
-  data("GOA2018SS")
-  nyrs <- length(GOA2018SS$styr:GOA2018SS$endyr)
-  GOA2018SS$fleet_control$Selectivity              <- "DoubleNormal"
-  GOA2018SS$fleet_control$Time_varying_sel         <- "IID"
-  GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
-  GOA2018SS$fleet_control$Selectivity_index        <- seq_len(nrow(GOA2018SS$fleet_control))
-  GOA2018SS$fleet_control$Bin_first_selected       <- 1
-  GOA2018SS$fleet_control$Sel_norm_bin1            <- NA
-  GOA2018SS$catch_data$Catch <- 1e6
+  # Data
+  # 1) Set up simulation
+  nyrs = 30
+  nspp = 2
+  Fmort <- c(seq(0.02, 0.3, length.out = nyrs/2), seq(0.3, 0.05, length.out = nyrs/2))
+  Fmort2 <- seq(0.02, 0.3, length.out = nyrs)
+
+  # First, simulate some data for the model
+  set.seed(123)
+  sim <- make_msm_test_data(
+    years = 1:nyrs,
+    Fmort = matrix(c(Fmort, Fmort2), nspp, nyrs, byrow = TRUE)
+  )
+
+  # Set up Rceattle data
+  simData <- sim$data_list
+  simData$fleet_control$Selectivity              <- "DoubleNormal"
+  simData$fleet_control$Time_varying_sel         <- "IID"
+  simData$fleet_control$Time_varying_sel_sd_prior <- 1
+  simData$fleet_control$Selectivity_index        <- seq_len(nrow(simData$fleet_control))
+  simData$fleet_control$Bin_first_selected       <- 1
+  simData$fleet_control$Sel_norm_bin1            <- NA
+  simData$catch_data$Catch <- 1e6
 
   peak      <- 8; sigma_asc <- 3; sigma_desc <- 6; logit_floor <- 0
   peak_devs        <- rnorm(nyrs)
@@ -233,7 +288,7 @@ testthat::test_that("IID time-varying double-normal: penalty likelihood matches 
   sd_prior <- 1  # Time_varying_sel_sd_prior
 
   mod0 <- suppressMessages(
-    fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3,
+    fit_mod(data_list = simData, inits = NULL, estimateMode = 3,
             random_rec = FALSE, msmMode = 0,
             fit_control = fit_control(verbose = 0))
   )
@@ -243,7 +298,7 @@ testthat::test_that("IID time-varying double-normal: penalty likelihood matches 
   inits$log_sel_slp[1, , ] <- log(sigma_asc)
   inits$log_sel_slp[2, , ] <- log(sigma_desc)
 
-  n_flt <- nrow(GOA2018SS$fleet_control)
+  n_flt <- nrow(simData$fleet_control)
   for (i in seq_len(n_flt)) {
     inits$sel_inf_dev[1, i, 1, ]     <- peak_devs
     inits$sel_inf_dev[2, i, 1, ]     <- floor_devs
@@ -252,12 +307,12 @@ testthat::test_that("IID time-varying double-normal: penalty likelihood matches 
   }
 
   ss_run <- suppressMessages(
-    fit_mod(data_list = GOA2018SS, inits = inits, estimateMode = 3,
+    fit_mod(data_list = simData, inits = inits, estimateMode = 3,
             random_rec = FALSE, msmMode = 0,
             fit_control = fit_control(verbose = 0))
   )
 
-  n_active <- sum(GOA2018SS$fleet_control$Fleet_type != "Off")
+  n_active <- sum(simData$fleet_control$Fleet_type != "Off")
 
   # NLL from TMB (jnll_comp row 6 = penalty for sel deviates, 1-indexed from R)
   rcnll <- sum(ss_run$quantities$jnll_comp[6, ])
@@ -279,31 +334,45 @@ testthat::test_that("Block time-varying double-normal: map assigns correct block
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
-  data("GOA2018SS")
-  nyrs <- length(GOA2018SS$styr:GOA2018SS$endyr)
+  # Data
+  # 1) Set up simulation
+  nyrs = 30
+  nspp = 2
+  Fmort <- c(seq(0.02, 0.3, length.out = nyrs/2), seq(0.3, 0.05, length.out = nyrs/2))
+  Fmort2 <- seq(0.02, 0.3, length.out = nyrs)
 
-  GOA2018SS$fleet_control$Selectivity              <- "DoubleNormal"
-  GOA2018SS$fleet_control$Time_varying_sel         <- "Block"
-  GOA2018SS$fleet_control$Selectivity_index        <- seq_len(nrow(GOA2018SS$fleet_control))
-  GOA2018SS$fleet_control$Bin_first_selected       <- 1
-  GOA2018SS$fleet_control$Sel_norm_bin1            <- NA
+  # First, simulate some data for the model
+  set.seed(123)
+  sim <- make_msm_test_data(
+    years = 1:nyrs,
+    Fmort = matrix(c(Fmort, Fmort2), nspp, nyrs, byrow = TRUE)
+  )
+
+  # Set up Rceattle data
+  simData <- sim$data_list
+
+  simData$fleet_control$Selectivity              <- "DoubleNormal"
+  simData$fleet_control$Time_varying_sel         <- "Block"
+  simData$fleet_control$Selectivity_index        <- seq_len(nrow(simData$fleet_control))
+  simData$fleet_control$Bin_first_selected       <- 1
+  simData$fleet_control$Sel_norm_bin1            <- NA
 
   # Assign 2 blocks: years 1..half in block 1, rest in block 2
   half <- floor(nyrs / 2)
-  GOA2018SS$catch_data <- GOA2018SS$catch_data |>
+  simData$catch_data <- simData$catch_data |>
     dplyr::mutate(Selectivity_block = dplyr::if_else(
-      Year - GOA2018SS$styr + 1 <= half, 1L, 2L))
-  GOA2018SS$index_data <- GOA2018SS$index_data |>
+      Year - simData$styr + 1 <= half, 1L, 2L))
+  simData$index_data <- simData$index_data |>
     dplyr::mutate(Selectivity_block = dplyr::if_else(
-      Year - GOA2018SS$styr + 1 <= half, 1L, 2L))
+      Year - simData$styr + 1 <= half, 1L, 2L))
 
   ss_run <- suppressMessages(
-    fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3,
+    fit_mod(data_list = simData, inits = NULL, estimateMode = 3,
             random_rec = FALSE, msmMode = 0,
             fit_control = fit_control(verbose = 0))
   )
 
-  n_active <- sum(GOA2018SS$fleet_control$Fleet_type != "Off")
+  n_active <- sum(simData$fleet_control$Fleet_type != "Off")
   n_blocks <- 2
 
   # Base params (sel_inf[1,2], log_sel_slp[1,2]) must be fixed (NA) when blocks are active
