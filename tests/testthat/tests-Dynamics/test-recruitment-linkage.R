@@ -529,10 +529,12 @@ testthat::test_that("Test multiple recruitment linkeages with R0 (proj_mean_rec 
   env_cols <- c("EnvIndex", "EnvIndex2", "EnvIndex3")
   is_log_r0 <- tbl$param == "log_R0"
   inits$beta_linkage <- as.numeric(inits$beta_linkage)
+  expected_beta <- matrix(0, nrow = 3, ncol = length(env_cols))
   for (sp in 1:3) {
     for (j in seq_along(env_cols)) {
       idx <- which(is_log_r0 & tbl$species == sp & tbl$design_col == env_cols[j])
       inits$beta_linkage[idx] <- (j - 1) * 3 + sp
+      expected_beta[sp, j] <- (j - 1) * 3 + sp
     }
   }
   inits$log_F[] <- -999 # No fishing
@@ -602,10 +604,12 @@ testthat::test_that("Test multiple recruitment linkeages with R0 (proj_mean_rec 
   env_cols <- c("EnvIndex", "EnvIndex2", "EnvIndex3")
   is_log_r0 <- tbl$param == "log_R0"
   inits$beta_linkage <- as.numeric(inits$beta_linkage)
+  expected_beta <- matrix(0, nrow = 3, ncol = length(env_cols))
   for (sp in 1:3) {
     for (j in seq_along(env_cols)) {
       idx <- which(is_log_r0 & tbl$species == sp & tbl$design_col == env_cols[j])
       inits$beta_linkage[idx] <- (j - 1) * 3 + sp
+      expected_beta[sp, j] <- (j - 1) * 3 + sp
     }
   }
   inits$log_F[] <- -999 # No fishing
@@ -686,9 +690,11 @@ testthat::test_that("Test single-spp recruitment linkeages with R0 (proj_mean_re
   is_log_r0 <- tbl$param == "log_R0"
   inits$beta_linkage <- as.numeric(inits$beta_linkage)
   sp = 1
+  expected_beta <- matrix(0, nrow = 1, ncol = length(env_cols))
   for (j in seq_along(env_cols)) {
     idx <- which(is_log_r0 & tbl$species == sp & tbl$design_col == env_cols[j])
     inits$beta_linkage[idx] <- (j - 1) * 3 + sp
+    expected_beta[sp, j] <- (j - 1) * 3 + sp
   }
   inits$log_F[] <- -999 # No fishing
 
@@ -764,9 +770,11 @@ testthat::test_that("Test single-spp recruitment linkeages with R0 (proj_mean_re
   is_log_r0 <- tbl$param == "log_R0"
   inits$beta_linkage <- as.numeric(inits$beta_linkage)
   sp = 1
+  expected_beta <- matrix(0, nrow = 1, ncol = length(env_cols))
   for (j in seq_along(env_cols)) {
     idx <- which(is_log_r0 & tbl$species == sp & tbl$design_col == env_cols[j])
     inits$beta_linkage[idx] <- (j - 1) * 3 + sp
+    expected_beta[sp, j] <- (j - 1) * 3 + sp
   }
   inits$log_F[] <- -999 # No fishing
 
