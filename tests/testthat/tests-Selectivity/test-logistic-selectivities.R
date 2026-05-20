@@ -260,6 +260,100 @@ testthat::test_that("Time-varying logistic selectivity likelihood", {
 })
 
 
+testthat::test_that("Logistic selectivity blocks", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  # Data
+  # 1) Set up simulation
+  nyrs = 30
+  nspp = 2
+  Fmort <- c(seq(0.02, 0.3, length.out = nyrs/2), seq(0.3, 0.05, length.out = nyrs/2))
+  Fmort2 <- seq(0.02, 0.3, length.out = nyrs)
+
+  # First, simulate some data for the model
+  set.seed(123)
+  sim <- make_msm_test_data(
+    years = 1:nyrs,
+    Fmort = matrix(c(Fmort, Fmort2), nspp, nyrs, byrow = TRUE)
+  )
+
+  # Set up Rceattle data
+  simData <- sim$data_list
+  simData$fleet_control$Selectivity <- "Logistic" # Age-based logistic
+  simData$fleet_control$Time_varying_sel <- 3 # Blocks
+  simData$fleet_control$Bin_first_selected <- 1
+  simData$fleet_control$Sel_norm_bin1 <- NA
+
+  # Specify blocks
+  # - Define a function to generate 3 sequential random blocks
+  assign_random_blocks <- function(years) {
+    unique_years <- sort(unique(years))
+    n_years <- length(unique_years)
+
+    # Safety check: if a fleet has fewer than 3 years, assign everything to block 1
+    if(n_years < 3) {
+      return(rep(1, length(years)))
+    }
+
+    # Pick 2 random breakpoints from the 2nd year up to the last year.
+    # These represent the starting years of Block 2 and Block 3.
+    breakpoints <- sort(sample(unique_years[2:n_years], 2))
+
+    # Assign the blocks based on where the year falls relative to the breakpoints
+    blocks <- integer(length(years))
+    blocks[years < breakpoints[1]] <- 1
+    blocks[years >= breakpoints[1] & years < breakpoints[2]] <- 2
+    blocks[years >= breakpoints[2]] <- 3
+
+    return(blocks)
+  }
+
+  # - Apply the function by fleet
+  simData$index_data <- simData$index_data |>
+    dplyr::group_by(Fleet_code) |>
+    dplyr::mutate(Selectivity_block = assign_random_blocks(Year),
+                  Selectivity_block = as.integer(Selectivity_block)) |>
+    dplyr::ungroup()
+
+  simData$catch_data <- simData$catch_data |>
+    dplyr::group_by(Fleet_code) |>
+    dplyr::mutate(Selectivity_block = assign_random_blocks(Year),
+                  Selectivity_block = as.integer(Selectivity_block)) |>
+    dplyr::ungroup()
+
+
+  # Run
+  ss_run <- suppressMessages(
+    Rceattle::fit_mod(data_list = simData,
+                      estimateMode = 3, # Don't estimate
+                      random_rec = FALSE, # No random recruitment
+                      random_sel = FALSE, # Turn on laplace for sel devs
+                      msmMode = 0, # Single species mode
+                      fit_control = fit_control(
+                        verbose = 0))
+  )
+
+  # Map
+  # - Slope
+  testthat::expect_all_true(is.na(as.numeric(ss_run$map$mapList$log_sel_slp)))
+  # - Asympt
+  testthat::expect_all_true(is.na(as.numeric(ss_run$map$mapList$sel_inf)))
+
+  # - Devs
+  # -- Ascending
+  testthat::expect_equal(sum(!is.na(ss_run$map$mapList$log_sel_slp_dev[1,,,])), 4*nyrs) # slope
+  testthat::expect_equal(sum(!is.na(c(ss_run$map$mapList$sel_inf_dev[1,,,]))), 4*nyrs) # asymptote
+
+  testthat::expect_equal(length(unique(c(ss_run$map$mapList$log_sel_slp_dev[1,,,]))), 4 * 3) # slope
+  testthat::expect_equal(length(unique(c(ss_run$map$mapList$sel_inf_dev[1,,,]))), 4 * 3) # asymptote
+
+  testthat::expect_all_true(is.na(as.numeric(ss_run$map$mapList$log_sel_slp_dev[2,,,]))) # Descending slope
+  testthat::expect_all_true(is.na(as.numeric(ss_run$map$mapList$sel_inf_dev[2,,,]))) # Descending asymptote
+
+  testthat::expect_all_true(is.na(ss_run$map$mapList$sel_dev_log_sd)) # Dev sigma turned off
+})
+
 testthat::test_that("Invalid selectivity integer", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
