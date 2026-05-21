@@ -70,6 +70,14 @@ void estimate_growth(
   Type age_L1 = minage(sp);
   Type age_L1_ceil = minage(sp);
 
+  // When minage = 0, the linear ramp from Lmin_sp at age 0 to l1 at age_L1
+  // becomes degenerate (divide by zero in b_len) AND the ramp branch should
+  // never execute (current_age >= 1 always > age_L1 = 0). Replace the ramp
+  // anchor with a small positive sentinel so b_len is finite; the value is
+  // unused because the if(current_age <= age_L1) branch is unreachable.
+  Type age_L1_safe = age_L1;
+  if (age_L1 <= Type(0)) age_L1_safe = Type(1);  // safe denominator only
+
   for(int sex = 0; sex < nsex(sp); sex++) {
     for(int yr = 0; yr < nyrs; yr++) {
       for(int age = 0; age < nages(sp); age++) {
@@ -86,7 +94,7 @@ void estimate_growth(
         case 1: // Von Bertalanffy
 
           // Slope from Lmin to L1
-          b_len = (l1 - Lmin_sp) / age_L1;
+          b_len = (l1 - Lmin_sp) / age_L1_safe;  // age_L1_safe == age_L1 when minage > 0; == 1 when minage = 0 (ramp branch unreachable)
 
           // Age < minage
           if((current_age) <= age_L1){
@@ -111,7 +119,7 @@ void estimate_growth(
         case 2: // Richards
 
           // Slope from Lmin to L1
-          b_len = (l1 - Lmin_sp) / age_L1;
+          b_len = (l1 - Lmin_sp) / age_L1_safe;  // age_L1_safe == age_L1 when minage > 0; == 1 when minage = 0 (ramp branch unreachable)
 
           if((current_age) <= age_L1) {
             length_hat(wtind,  sex, age, yr) = Lmin_sp + b_len * (current_age);
@@ -279,6 +287,11 @@ void estimate_growth_within_yr(
   Type age_L1 = minage(sp);
   //Type age_L1_ceil = minage(sp); // FIXME: adjust?
 
+  // Safe denominator for the linear ramp slope when minage = 0. See month=0
+  // estimate_growth() for full context.
+  Type age_L1_safe = age_L1;
+  if (age_L1 <= Type(0)) age_L1_safe = Type(1);
+
   for(int sex = 0; sex < nsex(sp); sex++) {
     for(int yr = 0; yr < nyrs; yr++) {
       for(int age = 0; age < nages(sp); age++) {
@@ -295,7 +308,7 @@ void estimate_growth_within_yr(
         case 1: // Von Bertalanffy
 
           // Slope from Lmin to L1
-          b_len = (l1 - Lmin_sp) / age_L1;
+          b_len = (l1 - Lmin_sp) / age_L1_safe;  // age_L1_safe == age_L1 when minage > 0; == 1 when minage = 0 (ramp branch unreachable)
 
           // Age < minage
           if((current_age) <= age_L1){
@@ -313,7 +326,7 @@ void estimate_growth_within_yr(
         case 2: // Richards
 
           // Slope from Lmin to L1
-          b_len = (l1 - Lmin_sp) / age_L1;
+          b_len = (l1 - Lmin_sp) / age_L1_safe;  // age_L1_safe == age_L1 when minage > 0; == 1 when minage = 0 (ramp branch unreachable)
 
           // Age < minage
           if((current_age) <= age_L1){
