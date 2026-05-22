@@ -35,6 +35,11 @@ data_check <- function(data_list) {
     errors <- c(errors, "Length based suitability not yet implemented")
   }
 
+  # minage: < 0 error
+  if(any(data_list$minage < 0)){
+    errors <- c(errors, "Minimum age is < 0. Check 'minage'.")
+  }
+
   # Year ordering
   if(!is.null(data_list$styr) && !is.null(data_list$endyr) && data_list$styr > data_list$endyr){
     errors <- c(errors, paste0("styr (", data_list$styr, ") must be <= endyr (", data_list$endyr, ")"))
