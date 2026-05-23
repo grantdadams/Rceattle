@@ -22,7 +22,8 @@ testthat::test_that("plus-group SD is continuous with the prior age (no exp(sd1)
   testthat::skip_if_not_installed("Rceattle")
 
   nages <- 6  # need enough ages that the plus group is well above age_L1
-  dat <- make_test_data(nyrs = 4, nages = nages, minage = 1, seed = 42)
+  dat <- make_test_data(nyrs = 4, nages = nages, minage = 1, seed = 42,
+                        growth = "vonBertalanffy")
   compile_tmb_if_needed()
 
   res <- Rceattle::fit_mod(

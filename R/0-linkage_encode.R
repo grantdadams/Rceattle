@@ -61,7 +61,13 @@ LINKAGE_PRIOR_CODES <- c(
 #'
 #' @keywords internal
 LINKAGE_PARAM_CODES <- list(
-  growth      = c(log_K = 0L, log_L1 = 1L, log_Linf = 2L, log_m = 3L),
+  # Codes 0..3 index `growth_linkage_offset` (year-varying mean-growth
+  # offsets); codes 4..5 are the SD endpoints which live on
+  # `growth_log_sd` and only consume intercept rows. Keep the SD codes
+  # >= RCEATTLE_N_GROWTH_PARAMS so the env-offset loop in linkage.hpp
+  # short-circuits on them (see the param-range guard there).
+  growth      = c(log_K = 0L, log_L1 = 1L, log_Linf = 2L, log_m = 3L,
+                  log_sd_L1 = 4L, log_sd_Linf = 5L),
   M           = c(log_M1 = 0L),
   recruitment = c(log_R0 = 0L, log_alpha = 1L, log_beta = 2L),
   q           = c(log_q = 0L),

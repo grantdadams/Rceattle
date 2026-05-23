@@ -2999,7 +2999,13 @@ Type objective_function<Type>::operator() () {
       } else if (proc == RCEATTLE_PROC_GROWTH) {
         // growth params: log_K=0, log_L1=1, log_Linf=2, log_m=3
         // -> log_growth_pars(sp, sx, param)
-        b = log_growth_pars(sp_idx, sx_idx, param);
+        // SD endpoints: log_sd_L1=4, log_sd_Linf=5
+        // -> growth_log_sd(sp, sx, param - RCEATTLE_N_GROWTH_PARAMS)
+        if (param < RCEATTLE_N_GROWTH_PARAMS) {
+          b = log_growth_pars(sp_idx, sx_idx, param);
+        } else {
+          b = growth_log_sd(sp_idx, sx_idx, param - RCEATTLE_N_GROWTH_PARAMS);
+        }
       }
     }
 

@@ -1413,10 +1413,23 @@ map_linkage_adjuster <- function(map_list, data_list) {
     idx <- .linkage_row_indices(row, data_list)
     switch(row$process,
       growth = {
-        par_idx <- .GROWTH_PARAM_TO_INDEX[row$param]
-        if (is.na(par_idx)) next
-        for (s in idx$species) {
-          map_list$log_growth_pars[s, idx$per_sp[[as.character(s)]]$sex, par_idx] <- NA
+        # Mean-growth params live on log_growth_pars[sp, sex, k];
+        # SD endpoints live on growth_log_sd[sp, sex, k']. Same
+        # slope-only-mask logic applies to both: mask the base so the
+        # slope rows in beta_linkage define the offset alone.
+        # (SD specs are pre-validated to be intercept-bearing, so this
+        # SD branch is only reachable if a future caller bypasses
+        # `.validate_growth_linkages`.)
+        mean_idx <- .GROWTH_PARAM_TO_INDEX[row$param]
+        sd_idx   <- .GROWTH_SD_PARAM_TO_INDEX[row$param]
+        if (!is.na(mean_idx)) {
+          for (s in idx$species) {
+            map_list$log_growth_pars[s, idx$per_sp[[as.character(s)]]$sex, mean_idx] <- NA
+          }
+        } else if (!is.na(sd_idx)) {
+          for (s in idx$species) {
+            map_list$growth_log_sd[s, idx$per_sp[[as.character(s)]]$sex, sd_idx] <- NA
+          }
         }
       },
       M = {

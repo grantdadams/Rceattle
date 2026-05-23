@@ -17,7 +17,8 @@ testthat::test_that("plus group advances under within-year growth (SSB > pop at 
   testthat::skip_if_not_installed("Rceattle")
 
   nages <- 5
-  dat <- make_test_data(nyrs = 4, nages = nages, minage = 1, seed = 42)
+  dat <- make_test_data(nyrs = 4, nages = nages, minage = 1, seed = 42,
+                        growth = "vonBertalanffy")
   dat$spawn_month <- 6  # mid-year SSB -> fracyr = 0.5
   compile_tmb_if_needed()
 

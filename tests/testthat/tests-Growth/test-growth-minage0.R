@@ -20,7 +20,8 @@ testthat::test_that("minage = 0 + vonBertalanffy growth builds without segfault"
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
-  dat <- make_test_data(nyrs = 6, nages = 5, minage = 0, seed = 42)
+  dat <- make_test_data(nyrs = 6, nages = 5, minage = 0, seed = 42,
+                        growth = "vonBertalanffy")
   testthat::expect_equal(dat$minage, 0)
 
   compile_tmb_if_needed()
@@ -66,7 +67,8 @@ testthat::test_that("minage = 0 + Richards growth builds without segfault", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
-  dat <- make_test_data(nyrs = 6, nages = 5, minage = 0, seed = 42)
+  dat <- make_test_data(nyrs = 6, nages = 5, minage = 0, seed = 42,
+                        growth = "Richards")
   compile_tmb_if_needed()
 
   res <- Rceattle::fit_mod(

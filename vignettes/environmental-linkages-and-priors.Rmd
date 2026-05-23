@@ -235,7 +235,45 @@ growth_spec <- build_growth(
 ```
 
 The same pattern works for any linkage target -- `log_Linf`, `log_L1`,
-`log_m` (Richards), `log_M1`, `log_R0`, `log_alpha`, `log_beta`. 
+`log_m` (Richards), `log_M1`, `log_R0`, `log_alpha`, `log_beta`.
+
+### Growth SD endpoints
+
+The standard deviations of length-at-age at the `L1` and `Linf` anchors
+(`log_sd_L1`, `log_sd_Linf`) are exposed as linkage targets too, so the
+same `init` / `bounds` / `priors` contract applies. They route onto the
+`growth_log_sd` parameter rather than `log_growth_pars`, and -- because
+`growth_log_sd` has no year dimension in `growth.hpp` -- only
+intercept-bearing formulas are honored. Slope rows on these targets
+raise a warning and have no effect; slope-only formulas (`~ 0 + temp`)
+error.
+
+```{r}
+# Prior on the SD at L1 anchored at exp(log(5)) = 5 length units,
+# with a tight normal prior on the log scale.
+growth_spec_sd <- build_growth(
+  fun = "vonBertalanffy",
+  linkages = list(
+    log_sd_L1   = linkage_spec(
+      formula = ~ 1,
+      by      = ~ species + sex,
+      init    = list(`(Intercept)` = log(5)),
+      priors  = list(`(Intercept)` = normal(log(5), 0.3))
+    ),
+    log_sd_Linf = linkage_spec(
+      formula = ~ 1,
+      by      = ~ species + sex,
+      init    = list(`(Intercept)` = log(15))
+    )
+  )
+)
+
+# After fit_mod(), the init values land on growth_log_sd[, , 1:2]
+# (SD at L1 and SD at Linf, log-scale), and the priors evaluate
+# against those base-parameter cells via the intercept re-targeting
+# path described above.
+```
+
 You can also key the prior by species id for species-
 specific priors:
 

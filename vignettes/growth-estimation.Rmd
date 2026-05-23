@@ -161,3 +161,10 @@ base growth parameter value itself.
 that driver on the parameter.
 - The linkage table API supports all R-style formulas and per-species
 or per-sex stratification.
+- The SD endpoints `log_sd_L1` and `log_sd_Linf` (the log-scale length-
+at-age SDs anchored at `l1` and `Linf`) are linkage targets too --
+they thread `init` / `bounds` / `priors` onto `growth_log_sd`. Only
+intercept-bearing formulas (typically `~ 1`) are honored; the SDs do
+not vary by year in `growth.hpp`, so slope rows have no effect and
+slope-only formulas error. See the "Growth SD endpoints" section of
+`vignette("environmental-linkages-and-priors")` for an example.

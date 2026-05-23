@@ -517,17 +517,41 @@ GROWTH_FUNS <- c("empirical", "vonBertalanffy", "Richards")
 #'
 #' Linear-predictor names of the underlying growth-function parameters.
 #' Von Bertalanffy uses `log_K`, `log_L1`, `log_Linf`; Richards adds
-#' `log_m`. The empirical weight-at-age model admits no linkages.
+#' `log_m`. `log_sd_L1` / `log_sd_Linf` are the log-scale standard
+#' deviations of length-at-age anchored at `l1` and `Linf` (the SD-at-age
+#' interpolation endpoints from `growth.hpp`). Only intercept-only specs
+#' (`~ 1`) are honored on the SD endpoints -- they thread through `init`
+#' / `bounds` / `priors` onto `growth_log_sd` but do not vary by year.
+#' The empirical weight-at-age model admits no linkages.
 #'
 #' @keywords internal
-GROWTH_LINKAGE_PARAMS <- c("log_K", "log_L1", "log_Linf", "log_m")
+GROWTH_LINKAGE_PARAMS <- c("log_K", "log_L1", "log_Linf", "log_m",
+                           "log_sd_L1", "log_sd_Linf")
 
 
-#' Map growth linkage param names to slices along the third dim of
+#' Mean-growth subset of [GROWTH_LINKAGE_PARAMS]
+#'
+#' Names that index into `log_growth_pars` / `growth_parameters` /
+#' `growth_linkage_offset` along their last dim. The SD endpoints live
+#' on a separate parameter (`growth_log_sd`) and are intentionally
+#' excluded here.
+#'
+#' @keywords internal
+.GROWTH_MEAN_PARAMS <- c("log_K", "log_L1", "log_Linf", "log_m")
+
+
+#' Map mean-growth linkage param names to slices along the third dim of
 #' `log_growth_pars` (`[nspp, nsex, n_growth_pars]`).
 #' @keywords internal
 #' @noRd
 .GROWTH_PARAM_TO_INDEX <- c(log_K = 1L, log_L1 = 2L, log_Linf = 3L, log_m = 4L)
+
+
+#' Map growth SD linkage param names to slices along the third dim of
+#' `growth_log_sd` (`[nspp, nsex, 2]`).
+#' @keywords internal
+#' @noRd
+.GROWTH_SD_PARAM_TO_INDEX <- c(log_sd_L1 = 1L, log_sd_Linf = 2L)
 
 
 #' Specify the growth model for Rceattle
@@ -538,10 +562,16 @@ GROWTH_LINKAGE_PARAMS <- c("log_K", "log_L1", "log_Linf", "log_m")
 #'   is stored on the returned object.
 #' @param linkages Optional named list of [linkage_spec()] objects
 #'   keyed by parameter name (must be one of [GROWTH_LINKAGE_PARAMS]).
-#'   Each spec describes how that growth parameter depends on
-#'   environmental covariates and on stratifying factors (species,
-#'   sex). The parameter name on each spec is filled in from the list
-#'   key. Materialization into the global linkage table happens inside
+#'   The mean-growth keys (`log_K`, `log_L1`, `log_Linf`, `log_m`)
+#'   accept arbitrary one-sided formulas and produce year-varying
+#'   offsets applied inside `growth.hpp`. The SD-endpoint keys
+#'   (`log_sd_L1`, `log_sd_Linf`) only honor intercept-bearing
+#'   formulas (typically `~ 1`) -- they thread `init`, `bounds`, and
+#'   `priors` onto the underlying `growth_log_sd` parameter, giving
+#'   the SDs the same prior/fix/initial-value contract as the mean
+#'   parameters. Slope rows on SD specs raise a warning and have no
+#'   effect; slope-only formulas (`~ 0 + temp`) error.
+#'   Materialization into the global linkage table happens inside
 #'   `fit_mod()` once `data_list$env_data` is in scope.
 #'
 #' @return A list of switches defining the growth model.
@@ -643,6 +673,40 @@ build_growth <- function(fun = "empirical", linkages = NULL) {
     stop("linkages$log_m is only valid when every species uses ",
          "fun = 'Richards'; von Bertalanffy has no `m` parameter.",
          call. = FALSE)
+  }
+  # SD endpoints (log_sd_L1, log_sd_Linf) plug into `growth_log_sd`,
+  # which has no year dim. Only intercept-bearing formulas (~ 1 plus
+  # any covariates that the user wants to anchor on the intercept) are
+  # honored: the intercept init/prior/bounds threads onto
+  # `growth_log_sd`, and slope rows are silently dropped at the TMB
+  # encoder (no offset path exists for SD). Block slope-only formulas
+  # (`~ 0 + temp`) outright -- they'd leave the SD pinned at its
+  # `build_params()` default with no escape.
+  sd_keys <- intersect(names(linkages), names(.GROWTH_SD_PARAM_TO_INDEX))
+  for (nm in sd_keys) {
+    specs <- linkages[[nm]]
+    if (inherits(specs, "Rceattle_linkage_spec")) specs <- list(specs)
+    for (sp_i in specs) {
+      f <- sp_i$formula
+      rhs <- attr(stats::terms(f), "intercept")
+      has_slope <- length(attr(stats::terms(f), "term.labels")) > 0L
+      if (!isTRUE(rhs == 1L)) {
+        stop(sprintf(
+          "linkages$%s must use an intercept-bearing formula (e.g. ~ 1); ",
+          nm),
+          "year-varying offsets on growth SD are not wired through ",
+          "growth.hpp. Drop the `0 +` from the formula, or move the ",
+          "env effect onto log_K / log_L1 / log_Linf / log_m.",
+          call. = FALSE)
+      }
+      if (has_slope) {
+        warning(sprintf(
+          "linkages$%s carries slope terms but growth SD has no year ",
+          "dim in growth.hpp; the intercept init/prior/bounds will be ",
+          "honored on `growth_log_sd`, but slope coefficients have no ",
+          "effect on the SD.", nm), call. = FALSE)
+      }
+    }
   }
   linkages
 }
