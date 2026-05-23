@@ -85,15 +85,23 @@ void estimate_growth(
 
   Type Lmin_sp = lengths(sp, 0);
   Type Lmax_sp = lengths(sp, nlengths(sp) - 1);
-  Type age_L1 = minage(sp);
-  // age_L1_ceil is compared to current_age (= age + 1.0) to detect the
-  // boundary case where the cohort recursion `length_hat(..., age - 1, yr - 1)`
-  // would index a non-existent age (-1). At minage >= 1 the youngest age has
-  // current_age = minage = age_L1_ceil, so the boundary branch fires
-  // naturally. At minage = 0 we must force age_L1_ceil = 1 so the youngest
-  // age (current_age = 1) still hits the boundary branch — otherwise the
-  // recursion accesses age-1 = -1 and breaks  TMB::MakeADFun.
-  Type age_L1_ceil = (age_L1 > Type(0)) ? age_L1 : Type(1);
+  // age_L1 is the VB anchor age (= age at which `l1` is the length). The
+  // historical convention tied this to minage(sp), which breaks at minage = 0:
+  // VB extrapolated to age 0 typically gives negative length (so
+  // log_growth_pars[2] = log(l1) is undefined). SS3's convention is to anchor
+  // at Growth_Age_for_L1 (default 0.5) regardless of the model's minimum age.
+  // Honor that here: at minage = 0 default the anchor to 0.5, otherwise use
+  // minage. TODO: expose anchor age as a per-species data input
+  // (growth_age_L1) so models with non-default anchors can configure it.
+  Type age_L1 = (minage(sp) > 0) ? Type(minage(sp)) : Type(0.5);
+  // age_L1_ceil is compared to current_age (the slot age in years) to detect
+  // the youngest VB-relevant slot. That slot needs the closed-form boundary
+  // formula (not the cohort recursion which would index age-1 = -1 at slot 0
+  // when minage = 0, or use a stale value at slot 1 when the anchor is at
+  // age 0.5). For minage = 0, the youngest VB slot is C++ age = 1
+  // (current_age = 1, anchor at 0.5). For minage >= 1, slot 0 itself
+  // (current_age = minage). Either way: age_L1_ceil = max(1, minage).
+  Type age_L1_ceil = (Type(minage(sp)) >= Type(1)) ? Type(minage(sp)) : Type(1);
 
   // When minage = 0, the linear ramp from Lmin_sp at age 0 to l1 at age_L1
   // becomes degenerate (divide by zero in b_len) AND the ramp branch should
@@ -112,7 +120,12 @@ void estimate_growth(
         Type l1 = growth_parameters(sp, sex, yr, 1);
         Type linf = growth_parameters(sp, sex, yr, 2);
         Type m = growth_parameters(sp, sex, yr, 3);
-        current_age = age + 1.0;
+        // current_age is the slot's actual age (start of year). Slot index
+        // age (0-based) holds the (age + minage) cohort. The historical
+        // `age + 1.0` shifted everything by one year at any minage != 1
+        // (gave end-of-year length instead of start). Note this is the SLOT
+        // age, NOT the VB anchor (which is age_L1, defined above).
+        current_age = Type(age) + Type(minage(sp));
 
         // 1. Calculate Mean Length at Age ---
         switch(growth_model(sp)) {
@@ -332,7 +345,15 @@ void estimate_growth_within_yr(
 
   Type Lmin_sp = lengths(sp, 0);
   Type Lmax_sp = lengths(sp, nlengths(sp) - 1);
-  Type age_L1 = minage(sp);
+  // age_L1 is the VB anchor age (= age at which `l1` is the length). The
+  // historical convention tied this to minage(sp), which breaks at minage = 0:
+  // VB extrapolated to age 0 typically gives negative length (so
+  // log_growth_pars[2] = log(l1) is undefined). SS3's convention is to anchor
+  // at Growth_Age_for_L1 (default 0.5) regardless of the model's minimum age.
+  // Honor that here: at minage = 0 default the anchor to 0.5, otherwise use
+  // minage. TODO: expose anchor age as a per-species data input
+  // (growth_age_L1) so models with non-default anchors can configure it.
+  Type age_L1 = (minage(sp) > 0) ? Type(minage(sp)) : Type(0.5);
 
   // Safe denominator for the linear ramp slope when minage = 0. See month=0
   // estimate_growth() for full context.
@@ -348,7 +369,10 @@ void estimate_growth_within_yr(
         Type l1 = growth_parameters(sp, sex, yr, 1);
         Type linf = growth_parameters(sp, sex, yr, 2);
         Type m = growth_parameters(sp, sex, yr, 3);
-        current_age = age + 1.0 + fracyr;
+        // See month=0 overload: slot k = age (k - 1 + minage); current_age is
+        // slot age (NOT the VB anchor) offset by fracyr. Was
+        // `age + 1.0 + fracyr`, which is off by one when minage != 1.
+        current_age = Type(age) + Type(minage(sp)) + fracyr;
 
         // 1. Calculate Mean Length at Age ---
         switch(growth_model(sp)) {
