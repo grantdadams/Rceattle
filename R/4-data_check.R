@@ -486,6 +486,33 @@ data_check <- function(data_list) {
     }
   }
 
+  # Empirical growth (growth_model == 0) does NOT populate growth_matrix from
+  # age_trans_matrix; the C++ pred_CAAL = N * sel * growth_matrix then sees
+  # growth_matrix = 0 and pred_CAAL collapses to ~0. The multinomial NLL
+  # evaluates to a constant offset with no useful gradient, and the optimizer
+  # finds spurious minima. Check per-species since growth_model is per-species.
+  if(has_data(data_list$caal_data) && "Species" %in% colnames(data_list$caal_data)){
+    bad_sp <- integer(0)
+    for(sp in seq_along(data_list$growth_model)){
+      if(data_list$growth_model[sp] == 0 &&
+         any(data_list$caal_data$Species == sp & data_list$caal_data$Year > 0)){
+        bad_sp <- c(bad_sp, sp)
+      }
+    }
+    if(length(bad_sp) > 0){
+      sp_names <- if(!is.null(data_list$spnames)) data_list$spnames[bad_sp] else as.character(bad_sp)
+      errors <- c(errors, paste0(
+        "Empirical growth (growth_model == 0) is incompatible with CAAL data ",
+        "for species: ", paste(sp_names, collapse = ", "), ". The C++ ",
+        "growth_matrix is not populated from age_trans_matrix in the empirical ",
+        "branch, so pred_CAAL = 0 and the CAAL likelihood gradient is ",
+        "uninformative. Either (a) switch to parametric growth for these ",
+        "species via build_growth(fun = 'vonBertalanffy'), or (b) drop ",
+        "caal_data rows for these species (set to empty or Year < 0)."
+      ))
+    }
+  }
+
   # CAAL: required when growth is being estimated
   if(any(data_list$growth_model > 0)){
     if(!has_data(data_list$caal_data)){
