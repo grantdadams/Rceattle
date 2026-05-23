@@ -355,6 +355,34 @@ data_check <- function(data_list) {
       ))
     }
 
+    # Estimated selectivity (Selectivity != "Fixed" and Fleet_type != "Off")
+    # requires comp or CAAL data with Year > 0 to be identifiable. Otherwise
+    # the selectivity parameters are unconstrained and the optimizer wanders.
+    has_active_age_data <- function(flt_code, df) {
+      if (!has_data(df) || !all(c("Fleet_code", "Year") %in% colnames(df))) return(FALSE)
+      any(df$Fleet_code == flt_code & !is.na(df$Year) & df$Year > 0)
+    }
+    est_sel_flts <- fc[!is.na(fc$Selectivity) &
+                         fc$Selectivity != "Fixed" &
+                         (!"Fleet_type" %in% colnames(fc) | fc$Fleet_type != "Off"),
+                       , drop = FALSE]
+    if (nrow(est_sel_flts) > 0) {
+      missing_age_data <- vapply(seq_len(nrow(est_sel_flts)), function(i) {
+        fc_code <- est_sel_flts$Fleet_code[i]
+        !has_active_age_data(fc_code, data_list$comp_data) &&
+          !has_active_age_data(fc_code, data_list$caal_data)
+      }, logical(1))
+      if (any(missing_age_data)) {
+        errors <- c(errors, paste0(
+          "Fleet(s) with estimated Selectivity but no comp_data or caal_data ",
+          "rows in the likelihood (all Year < 0 or missing): ",
+          paste(est_sel_flts$Fleet_name[missing_age_data], collapse = ", "),
+          ". Either provide composition / CAAL data, mark Selectivity = 'Fixed' ",
+          "with emp_sel, or set Fleet_type = 'Off'."
+        ))
+      }
+    }
+
     # Mirroring (informational)
     mirror_sel <- fc |> dplyr::group_by(Selectivity_index) |>
       dplyr::filter(dplyr::n() > 1) |> dplyr::ungroup()

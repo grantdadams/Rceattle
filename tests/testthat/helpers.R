@@ -22,10 +22,15 @@ calc_nll_ar1_1d <- function(x, sd, rho) {
 
 #' Make single-species test data set
 #'
-#' @param nyrs
-#' @param nages
-#' @param seed
-make_test_data <- function(nyrs = 8, nprojyrs = 10, nages = 5, seed = NULL) {
+#' @param nyrs Number of hindcast years
+#' @param nprojyrs Number of projection years
+#' @param nages Number of age bins
+#' @param seed Optional RNG seed
+#' @param minage Minimum age of the population. Default 1 to match the
+#'   historical convention; pass 0 to exercise the age = 0 code paths in
+#'   the C++ growth and recruitment routines.
+make_test_data <- function(nyrs = 8, nprojyrs = 10, nages = 5, seed = NULL,
+                           minage = 1) {
   if (!requireNamespace("Rceattle", quietly = TRUE)) {
     stop("Rceattle package required for test helpers")
   }
@@ -42,7 +47,7 @@ make_test_data <- function(nyrs = 8, nprojyrs = 10, nages = 5, seed = NULL) {
   simData$nsex = 1
   simData$spawn_month = 0
   simData$nages = nages
-  simData$minage = 1
+  simData$minage = minage
   simData$nlengths = nages
   simData$pop_wt_index = 1
   simData$ssb_wt_index = 1
@@ -125,9 +130,21 @@ make_test_data <- function(nyrs = 8, nprojyrs = 10, nages = 5, seed = NULL) {
   simData$comp_data <- data.frame(matrix(NA, nrow = 0, ncol = 8 + nages))
   colnames(simData$comp_data ) = c("Fleet_name", "Fleet_code", "Species", "Sex", "Age0_Length1", "Year", "Month", "Sample_size", paste("Comp_", 1:nages))
 
-  # Minimal CAAL
-  simData$caal_data <- data.frame(matrix(NA, nrow = 0, ncol = 7 + nages))
-  colnames(simData$caal_data ) = c("Fleet_name", "Fleet_code", "Species", "Sex", "Year", "Length", "Sample_size", paste0("CAAL_", 1:nages))
+  # Minimal CAAL: one row per length bin so data_check passes whenever
+  # parametric growth is enabled (which requires non-empty caal_data and
+  # exactly nlengths unique Length values).
+  caal_obs_init <- matrix(1 / nages, nrow = nages, ncol = nages)
+  colnames(caal_obs_init) <- paste0("CAAL_", 1:nages)
+  simData$caal_data <- cbind(
+    data.frame(Fleet_name  = "Survey",
+               Fleet_code  = 1,
+               Species     = 1,
+               Sex         = 0,
+               Year        = years[1],
+               Length      = seq_len(nages),
+               Sample_size = 1),
+    caal_obs_init
+  )
 
   #  Empirical selectivity
   simData$emp_sel <- data.frame(matrix(NA, nrow = 0, ncol = 5 + nages))
@@ -137,22 +154,22 @@ make_test_data <- function(nyrs = 8, nprojyrs = 10, nages = 5, seed = NULL) {
   simData$NByageFixed <- data.frame(matrix(NA, nrow = 0, ncol = 4 + nages))
   colnames(simData$NByageFixed ) = c("Species_name ", "Species", "Sex", "Year", paste("Age", 1:nages))
 
-  # Age-transition
+  # Age-transition (Age column spans minage..minage+nages-1)
   age_transition <- as.data.frame(diag(nages))
   colnames(age_transition) <- paste0("Length_", seq_len(nages))
   simData$age_trans_matrix <- cbind(data.frame(Age_transition_name = "Base",
                                                Age_transition_index = 1,
                                                Species = 1,
                                                Sex = 0,
-                                               Age = 1:nages),
+                                               Age = minage:(minage + nages - 1L)),
                                     age_transition)
 
-  # Age-error
+  # Age-error (True_age spans minage..minage+nages-1)
   age_error <- as.data.frame(diag(nages))
   colnames(age_error) <- paste0("Obs_age", seq_len(nages))
   simData$age_error <- cbind(data.frame(
     Species = 1,
-    True_age = 1:nages),
+    True_age = minage:(minage + nages - 1L)),
     age_error)
 
   # Weight-at-age
