@@ -226,10 +226,20 @@ build_params <- function(data_list) {
       init_val <- as.numeric(row$init)
       switch(row$process,
         growth = {
-          par_idx <- .GROWTH_PARAM_TO_INDEX[row$param]
-          if (is.na(par_idx)) next
-          for (s in idx$species) {
-            param_list$log_growth_pars[s, idx$per_sp[[as.character(s)]]$sex, par_idx] <- init_val
+          # Mean-growth params live on log_growth_pars[sp, sex, k];
+          # SD endpoints live on growth_log_sd[sp, sex, k']. Both expose
+          # the same intercept-init contract -- dispatch on the param
+          # name once and write into the right tensor.
+          mean_idx <- .GROWTH_PARAM_TO_INDEX[row$param]
+          sd_idx   <- .GROWTH_SD_PARAM_TO_INDEX[row$param]
+          if (!is.na(mean_idx)) {
+            for (s in idx$species) {
+              param_list$log_growth_pars[s, idx$per_sp[[as.character(s)]]$sex, mean_idx] <- init_val
+            }
+          } else if (!is.na(sd_idx)) {
+            for (s in idx$species) {
+              param_list$growth_log_sd[s, idx$per_sp[[as.character(s)]]$sex, sd_idx] <- init_val
+            }
           }
         },
         M = {

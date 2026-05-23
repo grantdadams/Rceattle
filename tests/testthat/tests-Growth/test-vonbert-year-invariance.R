@@ -12,7 +12,8 @@ testthat::test_that("vonBertalanffy + minage = 1: length-at-age is year-invarian
   testthat::skip_if_not_installed("Rceattle")
 
   nages <- 5
-  dat <- make_test_data(nyrs = 6, nages = nages, minage = 1, seed = 42)
+  dat <- make_test_data(nyrs = 6, nages = nages, minage = 1, seed = 42,
+                        growth = "vonBertalanffy")
   testthat::expect_equal(dat$minage, 1)
   compile_tmb_if_needed()
 

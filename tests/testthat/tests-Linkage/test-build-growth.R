@@ -183,3 +183,68 @@ testthat::test_that("materialize_linkage requires param to be set", {
     "missing a `param`"
   )
 })
+
+
+# --- SD endpoint linkages (log_sd_L1, log_sd_Linf) -------------------------
+# These plug into `growth_log_sd[sp, sex, k]` rather than `log_growth_pars`
+# and only honor intercept-bearing formulas (no year-dim offset path).
+
+testthat::test_that("build_growth() accepts log_sd_L1 / log_sd_Linf as intercept-only", {
+  g <- Rceattle::build_growth(
+    fun = "vonBertalanffy",
+    linkages = list(
+      log_sd_L1   = Rceattle::linkage_spec(
+        formula = ~ 1,
+        init    = list(`(Intercept)` = log(5)),
+        priors  = list(`(Intercept)` = normal(log(5), 0.3))
+      ),
+      log_sd_Linf = Rceattle::linkage_spec(formula = ~ 1)
+    )
+  )
+  testthat::expect_named(g$linkages, c("log_sd_L1", "log_sd_Linf"))
+  testthat::expect_equal(g$linkages$log_sd_L1$param,   "log_sd_L1")
+  testthat::expect_equal(g$linkages$log_sd_Linf$param, "log_sd_Linf")
+  testthat::expect_equal(g$linkages$log_sd_L1$priors$`(Intercept)`$family,
+                         "normal")
+})
+
+
+testthat::test_that("build_growth() errors on slope-only formulas for SD endpoints", {
+  testthat::expect_error(
+    Rceattle::build_growth(
+      fun = "vonBertalanffy",
+      linkages = list(
+        log_sd_L1 = Rceattle::linkage_spec(formula = ~ 0 + temp)
+      )
+    ),
+    "intercept-bearing"
+  )
+})
+
+
+testthat::test_that("build_growth() warns on intercept + slope formulas for SD endpoints", {
+  testthat::expect_warning(
+    Rceattle::build_growth(
+      fun = "vonBertalanffy",
+      linkages = list(
+        log_sd_Linf = Rceattle::linkage_spec(formula = ~ 1 + temp)
+      )
+    ),
+    "slope terms"
+  )
+})
+
+
+testthat::test_that("LINKAGE_PARAM_CODES$growth pins SD endpoints to 4 / 5", {
+  # These codes are consumed by linkage.hpp; the env-offset loop guards
+  # `param >= RCEATTLE_N_GROWTH_PARAMS (=4)` to drop SD rows, and the
+  # prior loop re-targets >=4 to `growth_log_sd(sp, sex, param - 4)`.
+  testthat::expect_equal(Rceattle:::LINKAGE_PARAM_CODES$growth[["log_sd_L1"]],   4L)
+  testthat::expect_equal(Rceattle:::LINKAGE_PARAM_CODES$growth[["log_sd_Linf"]], 5L)
+})
+
+
+testthat::test_that(".GROWTH_SD_PARAM_TO_INDEX maps names to growth_log_sd slices", {
+  testthat::expect_equal(Rceattle:::.GROWTH_SD_PARAM_TO_INDEX,
+                         c(log_sd_L1 = 1L, log_sd_Linf = 2L))
+})

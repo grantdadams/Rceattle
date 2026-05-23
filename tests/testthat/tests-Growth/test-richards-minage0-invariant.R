@@ -12,7 +12,8 @@ testthat::test_that("Richards + minage = 0: length at age 0 is year-invariant", 
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
-  dat <- make_test_data(nyrs = 6, nages = 5, minage = 0, seed = 42)
+  dat <- make_test_data(nyrs = 6, nages = 5, minage = 0, seed = 42,
+                        growth = "Richards")
   compile_tmb_if_needed()
 
   res <- Rceattle::fit_mod(

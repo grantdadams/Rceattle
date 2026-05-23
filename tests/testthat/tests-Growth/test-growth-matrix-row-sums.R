@@ -13,7 +13,8 @@ testthat::test_that("growth_matrix rows sum to 1 for every age and year (vonBert
   testthat::skip_if_not_installed("Rceattle")
 
   nages <- 5
-  dat <- make_test_data(nyrs = 4, nages = nages, minage = 1, seed = 42)
+  dat <- make_test_data(nyrs = 4, nages = nages, minage = 1, seed = 42,
+                        growth = "vonBertalanffy")
   compile_tmb_if_needed()
 
   res <- Rceattle::fit_mod(
@@ -45,7 +46,8 @@ testthat::test_that("growth_matrix rows sum to 1 with minage = 0 (vonBertalanffy
   testthat::skip_if_not_installed("Rceattle")
 
   nages <- 5
-  dat <- make_test_data(nyrs = 4, nages = nages, minage = 0, seed = 42)
+  dat <- make_test_data(nyrs = 4, nages = nages, minage = 0, seed = 42,
+                        growth = "vonBertalanffy")
   compile_tmb_if_needed()
 
   res <- Rceattle::fit_mod(
