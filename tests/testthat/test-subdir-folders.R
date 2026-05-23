@@ -23,7 +23,8 @@ subdirs <- c(
   "tests-Likelihoods",
   "tests-Data-processing",
   "tests-Selectivity",
-  "tests-Functions"
+  "tests-Functions",
+  "tests-Growth"
 )
 
 for (subdir in subdirs) {
