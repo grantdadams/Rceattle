@@ -591,7 +591,9 @@ GROWTH_LINKAGE_PARAMS <- c("log_K", "log_L1", "log_Linf", "log_m",
 #'   )
 #' )
 #' }
-build_growth <- function(fun = "empirical", linkages = NULL) {
+build_growth <- function(fun = "empirical",
+                         growth_age_L1 = NA,
+                         linkages = NULL) {
   fun <- .coerce_growth_fun(fun)
   linkages <- .validate_growth_linkages(linkages, fun)
   list(
@@ -602,6 +604,12 @@ build_growth <- function(fun = "empirical", linkages = NULL) {
     # growth functions (e.g. fun = c("vonBertalanffy", "Richards"))
     # propagate downstream as before.
     growth_model   = unname(.GROWTH_FUN_TO_INT[fun]),
+    # VB anchor age (= age at which `l1` is the length). Matches SS3's
+    # `Growth_Age_for_L1` ctl input. Scalar or length-nspp; pass NA
+    # (default) to inherit max(0.5, minage[sp]) downstream so old
+    # configurations stay unchanged at minage >= 1 and minage = 0
+    # models pick up an SS3-consistent half-year anchor.
+    growth_age_L1  = growth_age_L1,
     # Placeholders retained until the random-effects / legacy index
     # paths in 2-build_map.R and src/TMB/growth.hpp are migrated.
     growth_re      = 0L,
