@@ -177,6 +177,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 2.3. Growth model specifications
   DATA_IVECTOR(growth_model); // 0: "input", 1: "vB-classic", 2: "Richards", 3: "nonparametric LAA" [sp]
+  DATA_VECTOR(growth_age_L1); // VB anchor age (= SS3 Growth_Age_for_L1) per sp; defaults to max(0.5, minage[sp]) in R-side fit_mod()
 
   // -- 2.3b. Long-format linkage table (see R/0-linkage_encode.R).
   //          Each row defines one estimated coefficient that connects a
@@ -709,6 +710,7 @@ Type objective_function<Type>::operator() () {
     flt_month,
     nsex,
     minage,
+    growth_age_L1,
     nages,
     nlengths,
     pop_wt_index,

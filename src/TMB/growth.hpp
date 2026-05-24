@@ -65,6 +65,7 @@ void estimate_growth(
     const vector<int>&  nages,
     const vector<int>&  nlengths,
     const vector<int>&  minage,
+    const vector<Type>& growth_age_L1,
     const vector<int>&  growth_model,
     matrix<Type> lengths,
     array<Type>& growth_parameters,
@@ -85,15 +86,12 @@ void estimate_growth(
 
   Type Lmin_sp = lengths(sp, 0);
   Type Lmax_sp = lengths(sp, nlengths(sp) - 1);
-  // age_L1 is the VB anchor age (= age at which `l1` is the length). The
-  // historical convention tied this to minage(sp), which breaks at minage = 0:
-  // VB extrapolated to age 0 typically gives negative length (so
-  // log_growth_pars[2] = log(l1) is undefined). SS3's convention is to anchor
-  // at Growth_Age_for_L1 (default 0.5) regardless of the model's minimum age.
-  // Honor that here: at minage = 0 default the anchor to 0.5, otherwise use
-  // minage. TODO: expose anchor age as a per-species data input
-  // (growth_age_L1) so models with non-default anchors can configure it.
-  Type age_L1 = (minage(sp) > 0) ? Type(minage(sp)) : Type(0.5);
+  // age_L1 is the VB anchor age (= age at which `l1` is the length). Read
+  // from data_list$growth_age_L1[sp] (= SS3's Growth_Age_for_L1 ctl input).
+  // R-side fit_mod() resolves the default to max(0.5, minage[sp]) so models
+  // with minage = 0 get an SS3-style half-year anchor and minage >= 1 stays
+  // backwards-compatible.
+  Type age_L1 = growth_age_L1(sp);
   // age_L1_ceil is compared to current_age (the slot age in years) to detect
   // the youngest VB-relevant slot. That slot needs the closed-form boundary
   // formula (not the cohort recursion which would index age-1 = -1 at slot 0
@@ -325,6 +323,7 @@ void estimate_growth_within_yr(
     const vector<int>&  nages,
     const vector<int>&  nlengths,
     const vector<int>&  minage,
+    const vector<Type>& growth_age_L1,
     const vector<int>&  growth_model,
     matrix<Type> lengths,
     array<Type> growth_parameters,
@@ -345,15 +344,12 @@ void estimate_growth_within_yr(
 
   Type Lmin_sp = lengths(sp, 0);
   Type Lmax_sp = lengths(sp, nlengths(sp) - 1);
-  // age_L1 is the VB anchor age (= age at which `l1` is the length). The
-  // historical convention tied this to minage(sp), which breaks at minage = 0:
-  // VB extrapolated to age 0 typically gives negative length (so
-  // log_growth_pars[2] = log(l1) is undefined). SS3's convention is to anchor
-  // at Growth_Age_for_L1 (default 0.5) regardless of the model's minimum age.
-  // Honor that here: at minage = 0 default the anchor to 0.5, otherwise use
-  // minage. TODO: expose anchor age as a per-species data input
-  // (growth_age_L1) so models with non-default anchors can configure it.
-  Type age_L1 = (minage(sp) > 0) ? Type(minage(sp)) : Type(0.5);
+  // age_L1 is the VB anchor age (= age at which `l1` is the length). Read
+  // from data_list$growth_age_L1[sp] (= SS3's Growth_Age_for_L1 ctl input).
+  // R-side fit_mod() resolves the default to max(0.5, minage[sp]) so models
+  // with minage = 0 get an SS3-style half-year anchor and minage >= 1 stays
+  // backwards-compatible.
+  Type age_L1 = growth_age_L1(sp);
 
   // Safe denominator for the linear ramp slope when minage = 0. See month=0
   // estimate_growth() for full context.
@@ -517,6 +513,7 @@ void calculate_weight(
     vector<Type> flt_month,
     const vector<int>&  nsex,
     const vector<int>&  minage,
+    const vector<Type>& growth_age_L1,
     const vector<int>&  nages,
     const vector<int>&  nlengths,
     const vector<int>&  pop_wt_index,
@@ -570,6 +567,7 @@ void calculate_weight(
         nages,
         nlengths,
         minage,
+        growth_age_L1,
         growth_model,
         lengths,
         growth_parameters,
@@ -592,6 +590,7 @@ void calculate_weight(
         nages,
         nlengths,
         minage,
+        growth_age_L1,
         growth_model,
         lengths,
         growth_parameters,
@@ -638,6 +637,7 @@ void calculate_weight(
         nages,
         nlengths,
         minage,
+        growth_age_L1,
         growth_model,
         lengths,
         growth_parameters,
