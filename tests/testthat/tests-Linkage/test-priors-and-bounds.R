@@ -25,7 +25,7 @@ testthat::test_that("build_bounds honors lower/upper from linkage_table", {
   )
   growth_spec <- Rceattle::build_growth(
     fun      = "vonBertalanffy",
-    linkages = list(log_K = spec)
+    linkages = list(K = spec)
   )
 
   fit <- suppressMessages(Rceattle::fit_mod(
@@ -97,13 +97,13 @@ testthat::test_that("normal prior on beta_linkage adds expected NLL", {
   growth_no_prior <- Rceattle::build_growth(
     fun = "vonBertalanffy",
     linkages = list(
-      log_K = Rceattle::linkage_spec(formula = ~ temp, by = ~ species)
+      K = Rceattle::linkage_spec(formula = ~ temp, by = ~ species)
     )
   )
   growth_with_prior <- Rceattle::build_growth(
     fun = "vonBertalanffy",
     linkages = list(
-      log_K = Rceattle::linkage_spec(
+      K = Rceattle::linkage_spec(
         formula = ~ temp,
         by      = ~ species,
         priors  = list(temp = normal(0, 0.5))
@@ -160,7 +160,7 @@ testthat::test_that("normal prior on beta_linkage adds expected NLL", {
 })
 
 
-testthat::test_that("log_sd_L1 intercept init lands on growth_log_sd, not log_growth_pars", {
+testthat::test_that("sd_L1 intercept init lands on growth_log_sd, not log_growth_pars", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -184,7 +184,7 @@ testthat::test_that("log_sd_L1 intercept init lands on growth_log_sd, not log_gr
   growth_spec <- Rceattle::build_growth(
     fun      = "vonBertalanffy",
     linkages = list(
-      log_sd_L1 = Rceattle::linkage_spec(
+      sd_L1 = Rceattle::linkage_spec(
         formula = ~ 1,
         init    = list(`(Intercept)` = init_sd)
       )
@@ -199,12 +199,12 @@ testthat::test_that("log_sd_L1 intercept init lands on growth_log_sd, not log_gr
   ))
 
   # Init must have landed in growth_log_sd[, , 1] (SD at L1), NOT in
-  # log_growth_pars (which would corrupt log_K).
+  # log_growth_pars (which would corrupt K).
   testthat::expect_equal(
     as.numeric(fit$estimated_params$growth_log_sd[, , 1]),
     rep(init_sd, nspp * dim(fit$estimated_params$growth_log_sd)[2])
   )
-  # log_K (first slot of log_growth_pars) keeps its build_params default
+  # K (first slot of log_growth_pars) keeps its build_params default
   # (log(0.3)), unaffected by the SD init.
   testthat::expect_equal(
     as.numeric(fit$estimated_params$log_growth_pars[, , 1]),
@@ -214,7 +214,7 @@ testthat::test_that("log_sd_L1 intercept init lands on growth_log_sd, not log_gr
   # And the intercept row in the linkage table is still mapped out at 0
   # (the level is carried by the base parameter, not by beta_linkage).
   tbl <- fit$data_list$linkage_table
-  sd_rows <- tbl$param == "log_sd_L1"
+  sd_rows <- tbl$param == "sd_L1"
   testthat::expect_true(all(tbl$design_col[sd_rows] == "(Intercept)"))
   testthat::expect_true(all(is.na(fit$map$beta_linkage[sd_rows])))
 })

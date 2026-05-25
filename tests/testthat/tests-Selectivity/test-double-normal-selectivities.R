@@ -35,7 +35,9 @@ testthat::test_that("Age-based double-normal: static dome shape recovers correct
   testthat::skip_if_not_installed("Rceattle")
 
   data("GOA2018SS")
-  GOA2018SS$fleet_control$Selectivity        <- "DoubleNormal"
+  rows_use <- which(GOA2018SS$fleet_control$Selectivity != 0 & GOA2018SS$fleet_control$Fleet_type != 0)
+  GOA2018SS$fleet_control$Fleet_type[-rows_use] <-0
+  GOA2018SS$fleet_control$Selectivity <- "DoubleNormal"
   GOA2018SS$fleet_control$Time_varying_sel   <- 0
   GOA2018SS$fleet_control$Selectivity_index  <- seq_len(nrow(GOA2018SS$fleet_control))
   GOA2018SS$fleet_control$Bin_first_selected <- 1
@@ -67,10 +69,10 @@ testthat::test_that("Age-based double-normal: static dome shape recovers correct
 
   # --- Map checks: all four base params estimated, no time-varying deviates ---
   # - Females/sex combined
-  testthat::expect_true(all(!is.na(ss_run$map$mapList$sel_inf[1, -7, 1])))
-  testthat::expect_true(all(!is.na(ss_run$map$mapList$sel_inf[2, -7, 1])))
-  testthat::expect_true(all(!is.na(ss_run$map$mapList$log_sel_slp[1, -7, 1])))
-  testthat::expect_true(all(!is.na(ss_run$map$mapList$log_sel_slp[2, -7, 1])))
+  testthat::expect_true(all(!is.na(ss_run$map$mapList$sel_inf[1, rows_use, 1])))
+  testthat::expect_true(all(!is.na(ss_run$map$mapList$sel_inf[2, rows_use, 1])))
+  testthat::expect_true(all(!is.na(ss_run$map$mapList$log_sel_slp[1, rows_use, 1])))
+  testthat::expect_true(all(!is.na(ss_run$map$mapList$log_sel_slp[2, rows_use, 1])))
 
   # - Males
   testthat::expect_true(all(!is.na(ss_run$map$mapList$sel_inf[1, 9:11, 2])))
@@ -95,7 +97,9 @@ testthat::test_that("Age-based double-normal: logit_floor=+10 produces near-logi
   testthat::skip_if_not_installed("Rceattle")
 
   data("GOA2018SS")
-  GOA2018SS$fleet_control$Selectivity        <- "DoubleNormal"
+  rows_use <- which(GOA2018SS$fleet_control$Selectivity != 0 & GOA2018SS$fleet_control$Fleet_type != 0)
+  GOA2018SS$fleet_control$Fleet_type[-rows_use] <-0
+  GOA2018SS$fleet_control$Selectivity <- "DoubleNormal"
   GOA2018SS$fleet_control$Time_varying_sel   <- 0
   GOA2018SS$fleet_control$Selectivity_index  <- seq_len(nrow(GOA2018SS$fleet_control))
   GOA2018SS$fleet_control$Bin_first_selected <- 1

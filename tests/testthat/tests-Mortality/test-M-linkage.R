@@ -18,14 +18,14 @@ testthat::test_that("M_linkage_offset propagates into M1_at_age", {
   temp_vec <- seq(-1, 1, length.out = length(yrs))
   sim_data$env_data <- data.frame(Year = yrs, temp = temp_vec)
 
-  # M1 spec: estimate sex/age-invariant log_M1, plus a linkage on log_M
+  # M1 spec: estimate sex/age-invariant M1, plus a linkage on M
   # with `~ temp` by species. Use the legacy structural switch
-  # (M1_model = 1) so log_M1 has degrees of freedom; the linkage adds
+  # (M1_model = 1) so M1 has degrees of freedom; the linkage adds
   # an environmental offset on top of that.
   m1_spec <- Rceattle::build_M1(
     M1_model = 1,
     linkages = list(
-      log_M1 = Rceattle::linkage_spec(formula = ~ temp, by = ~ species)
+      M1 = Rceattle::linkage_spec(formula = ~ temp, by = ~ species)
     )
   )
 
@@ -42,7 +42,7 @@ testthat::test_that("M_linkage_offset propagates into M1_at_age", {
 
   tbl <- base_run$data_list$linkage_table
   testthat::expect_setequal(tbl$process, "M")
-  testthat::expect_setequal(tbl$param, "log_M1")
+  testthat::expect_setequal(tbl$param, "M1")
   # 2 design cols (Intercept + temp) x 2 species = 4 rows; age_bin
   # stays NA so the offset broadcasts across ages.
   testthat::expect_equal(nrow(tbl), 4L)
@@ -125,7 +125,7 @@ testthat::test_that("M linkage with species-keyed priors fires per species", {
   m1_spec <- Rceattle::build_M1(
     M1_model = 1,
     linkages = list(
-      log_M1 = Rceattle::linkage_spec(
+      M1 = Rceattle::linkage_spec(
         formula = ~ temp,
         by      = ~ species,
         priors  = list(temp = list(`1` = normal(0, 0.1),
@@ -174,13 +174,13 @@ testthat::test_that("growth and M linkages compose in the same fit", {
   growth_spec <- Rceattle::build_growth(
     fun = "vonBertalanffy",
     linkages = list(
-      log_K = Rceattle::linkage_spec(formula = ~ temp, by = ~ species)
+      K = Rceattle::linkage_spec(formula = ~ temp, by = ~ species)
     )
   )
   m1_spec <- Rceattle::build_M1(
     M1_model = 1,
     linkages = list(
-      log_M1 = Rceattle::linkage_spec(formula = ~ temp, by = ~ species)
+      M1 = Rceattle::linkage_spec(formula = ~ temp, by = ~ species)
     )
   )
 

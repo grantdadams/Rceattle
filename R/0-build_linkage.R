@@ -1,8 +1,8 @@
 #' Formula-driven linkage specifications for Rceattle processes
 #'
 #' These helpers let users describe how a process parameter (e.g.
-#' `log_alpha` for the Beverton-Holt SRR, `log_M` for natural mortality,
-#' `log_K` for von Bertalanffy growth) depends on environmental
+#' `alpha` for the Beverton-Holt SRR, `M1` for natural mortality,
+#' `K` for von Bertalanffy growth) depends on environmental
 #' covariates and on stratifying factors (species, sex). They produce:
 #'
 #'   1. an `Rceattle_linkage_spec` object that captures the user's
@@ -25,8 +25,8 @@ NULL
 #'
 #' @param formula one-sided R formula whose RHS describes the linear
 #'   predictor for `param` (e.g. `~ 1`, `~ temp`, `~ temp + PDO`).
-#' @param param target parameter name on the linear predictor scale
-#'   (e.g. `"log_alpha"`, `"log_M1"`, `"log_K"`). May be `NULL` when the
+#' @param param target parameter name on the natural scale
+#'   (e.g. `"alpha"`, `"M1"`, `"K"`). May be `NULL` when the
 #'   spec is built inside a `build_*()` call that infers the parameter
 #'   name from the enclosing list key (see [build_growth()]).
 #' @param data (Optional) data frame for formula validation. Currently
@@ -53,8 +53,17 @@ NULL
 #'   filter is a no-op. Use this to register separate specs per sex
 #'   (e.g. one prior on females, another on males) against the same
 #'   parameter.
-#' @param link link function applied to the predictor when assembling
-#'   process values; one of [LINKAGE_LINKS]. TODO
+#' @param link link function relating the linear predictor to the
+#'   natural-scale target parameter. One of `"log"` (default) or
+#'   `"identity"`. With `link = "log"`, `log(param) = X * beta` -- slope
+#'   contributions are multiplicative on the natural-scale parameter,
+#'   and a `normal(mean, sd)` prior on an `(Intercept)` row is back-
+#'   transformed to evaluate against the natural-scale value
+#'   (`dnorm(exp(b), mean, sd)`). With `link = "identity"`,
+#'   `param = X * beta` -- slope contributions are additive on the
+#'   natural scale. All linkage targets currently expose log-scale TMB
+#'   parameters, so `"log"` is the natural default; `"identity"` is
+#'   reserved for future processes (e.g. logit for steepness).
 #' @param init optional named numeric vector of initial values keyed by
 #'   the design-matrix column name (e.g.
 #'   `c(`(Intercept)` = -1, temp = 0)`). Missing entries default to `0`.
@@ -81,7 +90,7 @@ linkage_spec <- function(formula,
                          by        = ~ species,
                          species   = NULL,
                          sex       = NULL,
-                         link      = "identity",
+                         link      = "log",
                          init      = NULL,
                          bounds    = NULL,
                          priors    = NULL,
@@ -142,7 +151,7 @@ linkage_spec <- function(formula,
 #'
 #'   1. The argument must be either `NULL` or a non-empty named list.
 #'   2. Each list key must be one of the per-process allowed
-#'      parameter names (e.g. `c("log_K", "log_L1", ...)` for growth).
+#'      parameter names (e.g. `c("K", "L1", ...)` for growth).
 #'   3. Each list value must be either an `Rceattle_linkage_spec` or
 #'      a list of them (the per-species-formula form).
 #'
@@ -199,8 +208,8 @@ linkage_spec <- function(formula,
 #'
 #' Used by `build_*()` helpers that infer the parameter name from the
 #' list key under which a spec is registered (e.g.
-#' `linkages = list(log_K = linkage_spec(~temp))` -> set `param =
-#' "log_K"`). If the spec already names a different parameter the
+#' `linkages = list(K = linkage_spec(~temp))` -> set `param =
+#' "K"`). If the spec already names a different parameter the
 #' function errors to surface user mistakes.
 #'
 #' @param spec an `Rceattle_linkage_spec`.
