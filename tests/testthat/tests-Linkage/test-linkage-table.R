@@ -7,7 +7,7 @@ testthat::test_that("new_linkage_table() yields an empty schema table", {
 
 
 testthat::test_that("validate_linkage_table catches bad cols/enums", {
-  good <- Rceattle:::linkage_row(process = "M", param = "log_M1", X_col = 1L)
+  good <- Rceattle:::linkage_row(process = "M", param = "M1", X_col = 1L)
   testthat::expect_silent(Rceattle:::validate_linkage_table(good))
 
   bad1 <- good
@@ -36,14 +36,14 @@ testthat::test_that("validate_linkage_table catches bad cols/enums", {
 
 testthat::test_that("linkage_row() builds a one-row table with defaults", {
   r <- Rceattle:::linkage_row(process = "recruitment",
-                              param = "log_alpha",
+                              param = "alpha",
                               X_col = 2L,
                               species = 1L,
                               link = "log",
                               init = -1)
   testthat::expect_equal(nrow(r), 1L)
   testthat::expect_equal(r$process, "recruitment")
-  testthat::expect_equal(r$param, "log_alpha")
+  testthat::expect_equal(r$param, "alpha")
   testthat::expect_equal(r$X_col, 2L)
   testthat::expect_true(is.na(r$sex))
   testthat::expect_true(is.na(r$age_bin))
@@ -54,9 +54,9 @@ testthat::test_that("linkage_row() builds a one-row table with defaults", {
 
 
 testthat::test_that("bind_linkage() preserves schema and class across rbind", {
-  a <- Rceattle:::linkage_row("M", "log_M1", X_col = 1L, species = 1L)
-  b <- Rceattle:::linkage_row("M", "log_M1", X_col = 1L, species = 2L)
-  c <- Rceattle:::linkage_row("growth", "log_K", X_col = 1L, species = 1L)
+  a <- Rceattle:::linkage_row("M", "M1", X_col = 1L, species = 1L)
+  b <- Rceattle:::linkage_row("M", "M1", X_col = 1L, species = 2L)
+  c <- Rceattle:::linkage_row("growth", "K", X_col = 1L, species = 1L)
   out <- Rceattle:::bind_linkage(a, b, c)
   testthat::expect_s3_class(out, "Rceattle_linkage_table")
   testthat::expect_equal(nrow(out), 3L)
@@ -75,19 +75,19 @@ testthat::test_that("bind_linkage() preserves schema and class across rbind", {
 
 testthat::test_that("linkage_spec() validates formula shape", {
   testthat::expect_error(
-    Rceattle:::linkage_spec(formula = "temp", param = "log_M1"),
+    Rceattle:::linkage_spec(formula = "temp", param = "M1"),
     "must be an R formula"
   )
   testthat::expect_error(
-    Rceattle:::linkage_spec(formula = y ~ temp, param = "log_M1"),
+    Rceattle:::linkage_spec(formula = y ~ temp, param = "M1"),
     "one-sided"
   )
   spec <- Rceattle:::linkage_spec(formula = ~ temp + PDO,
-                                  param = "log_alpha",
+                                  param = "alpha",
                                   by = ~species,
                                   link = "log")
   testthat::expect_s3_class(spec, "Rceattle_linkage_spec")
-  testthat::expect_equal(spec$param, "log_alpha")
+  testthat::expect_equal(spec$param, "alpha")
 })
 
 
@@ -99,7 +99,7 @@ testthat::test_that("materialize_linkage row count = ncol(X) x by", {
   )
   spec <- Rceattle:::linkage_spec(
     formula = ~ temp + PDO,
-    param   = "log_alpha",
+    param   = "alpha",
     by      = ~species,
     link    = "log",
     init    = list(`(Intercept)` = -1, temp = 0.1)
@@ -138,7 +138,7 @@ testthat::test_that("materialize_linkage() handles species + sex grouping", {
   env <- data.frame(Year = 2000:2004, temp = stats::rnorm(5))
   spec <- Rceattle:::linkage_spec(
     formula = ~ temp,        # intercept + temp = 2 cols
-    param   = "log_M1",
+    param   = "M1",
     by      = ~species + sex,
     link    = "log"
   )
@@ -158,7 +158,7 @@ testthat::test_that("materialize_linkage() honors species-specific sex strata", 
   env <- data.frame(Year = 2000:2002)
   spec <- Rceattle:::linkage_spec(
     formula = ~ 1,
-    param   = "log_M1",
+    param   = "M1",
     by      = ~species + sex,
     link    = "log"
   )
@@ -181,7 +181,7 @@ testthat::test_that("materialize_linkage warns when sex grouping is requested wi
   env <- data.frame(Year = 2000:2004, temp = stats::rnorm(5))
   spec <- Rceattle:::linkage_spec(
     formula = ~ temp,
-    param   = "log_M1",
+    param   = "M1",
     by      = ~species + sex,
     link    = "log"
   )
@@ -191,7 +191,7 @@ testthat::test_that("materialize_linkage warns when sex grouping is requested wi
       env_data = env,
       strata   = list(species = 1:2, sex = 1L)
     ),
-    "by = ~ ... \+ sex was requested but only one sex level"
+    "by = ~ \\.\\.\\. \\+ sex.*single-sex"
   )
 })
 
@@ -200,7 +200,7 @@ testthat::test_that("materialize_linkage rejects unknown grouping vars", {
   env <- data.frame(Year = 2000:2002, temp = 1:3)
   spec <- Rceattle:::linkage_spec(
     formula = ~ temp,
-    param   = "log_M1",
+    param   = "M1",
     by      = ~stock           # not allowed
   )
   testthat::expect_error(

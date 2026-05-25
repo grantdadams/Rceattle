@@ -70,22 +70,22 @@ testthat::test_that("build_growth(linkages = ...) attaches and infers param", {
   g <- Rceattle::build_growth(
     fun = "vonBertalanffy",
     linkages = list(
-      log_K    = Rceattle::linkage_spec(
+      K    = Rceattle::linkage_spec(
         formula = ~ temp,
         by      = ~ species + sex,
         link    = "identity",
         priors  = list(temp = normal(0, 1))
       ),
-      log_Linf = Rceattle::linkage_spec(
+      Linf = Rceattle::linkage_spec(
         formula = ~ 1,
         by      = ~ species + sex
       )
     )
   )
-  testthat::expect_named(g$linkages, c("log_K", "log_Linf"))
-  testthat::expect_equal(g$linkages$log_K$param, "log_K")
-  testthat::expect_equal(g$linkages$log_Linf$param, "log_Linf")
-  testthat::expect_equal(g$linkages$log_K$priors$temp$family, "normal")
+  testthat::expect_named(g$linkages, c("K", "Linf"))
+  testthat::expect_equal(g$linkages$K$param, "K")
+  testthat::expect_equal(g$linkages$Linf$param, "Linf")
+  testthat::expect_equal(g$linkages$K$priors$temp$family, "normal")
 })
 
 
@@ -94,8 +94,8 @@ testthat::test_that("build_growth() rejects unknown parameter names", {
     Rceattle::build_growth(
       fun = "vonBertalanffy",
       linkages = list(
-        log_K    = Rceattle::linkage_spec(formula = ~ 1),
-        log_BOGUS = Rceattle::linkage_spec(formula = ~ 1)
+        K    = Rceattle::linkage_spec(formula = ~ 1),
+        BOGUS = Rceattle::linkage_spec(formula = ~ 1)
       )
     ),
     "unknown growth linkage parameter"
@@ -114,7 +114,7 @@ testthat::test_that("build_growth() requires a named list", {
   testthat::expect_error(
     Rceattle::build_growth(
       fun = "vonBertalanffy",
-      linkages = "log_K"
+      linkages = "K"
     ),
     "named list"
   )
@@ -125,19 +125,19 @@ testthat::test_that("build_growth() rejects non-spec list entries", {
   testthat::expect_error(
     Rceattle::build_growth(
       fun = "vonBertalanffy",
-      linkages = list(log_K = list(formula = ~ temp))
+      linkages = list(K = list(formula = ~ temp))
     ),
     "linkage_spec"
   )
 })
 
 
-testthat::test_that("build_growth() rejects log_m under von Bertalanffy", {
+testthat::test_that("build_growth() rejects m under von Bertalanffy", {
   testthat::expect_error(
     Rceattle::build_growth(
       fun = "vonBertalanffy",
       linkages = list(
-        log_m = Rceattle::linkage_spec(formula = ~ temp)
+        m = Rceattle::linkage_spec(formula = ~ temp)
       )
     ),
     "Richards"
@@ -149,7 +149,7 @@ testthat::test_that("build_growth() warns when linkages used with empirical", {
   testthat::expect_warning(
     Rceattle::build_growth(
       fun = "empirical",
-      linkages = list(log_K = Rceattle::linkage_spec(formula = ~ 1))
+      linkages = list(K = Rceattle::linkage_spec(formula = ~ 1))
     ),
     "empirical"
   )
@@ -160,13 +160,13 @@ testthat::test_that("linkage_spec(param=NULL) routes through param setter", {
   s <- Rceattle::linkage_spec(formula = ~ temp)
   testthat::expect_true(is.na(s$param))
 
-  s2 <- Rceattle:::.set_linkage_param(s, "log_K")
-  testthat::expect_equal(s2$param, "log_K")
+  s2 <- Rceattle:::.set_linkage_param(s, "K")
+  testthat::expect_equal(s2$param, "K")
 
   # Re-setting to a conflicting param errors
-  s3 <- Rceattle::linkage_spec(formula = ~ temp, param = "log_K")
+  s3 <- Rceattle::linkage_spec(formula = ~ temp, param = "K")
   testthat::expect_error(
-    Rceattle:::.set_linkage_param(s3, "log_Linf"),
+    Rceattle:::.set_linkage_param(s3, "Linf"),
     "conflicts"
   )
 })
@@ -185,26 +185,26 @@ testthat::test_that("materialize_linkage requires param to be set", {
 })
 
 
-# --- SD endpoint linkages (log_sd_L1, log_sd_Linf) -------------------------
+# --- SD endpoint linkages (sd_L1, sd_Linf) -------------------------
 # These plug into `growth_log_sd[sp, sex, k]` rather than `log_growth_pars`
 # and only honor intercept-bearing formulas (no year-dim offset path).
 
-testthat::test_that("build_growth() accepts log_sd_L1 / log_sd_Linf as intercept-only", {
+testthat::test_that("build_growth() accepts sd_L1 / sd_Linf as intercept-only", {
   g <- Rceattle::build_growth(
     fun = "vonBertalanffy",
     linkages = list(
-      log_sd_L1   = Rceattle::linkage_spec(
+      sd_L1   = Rceattle::linkage_spec(
         formula = ~ 1,
         init    = list(`(Intercept)` = log(5)),
         priors  = list(`(Intercept)` = normal(log(5), 0.3))
       ),
-      log_sd_Linf = Rceattle::linkage_spec(formula = ~ 1)
+      sd_Linf = Rceattle::linkage_spec(formula = ~ 1)
     )
   )
-  testthat::expect_named(g$linkages, c("log_sd_L1", "log_sd_Linf"))
-  testthat::expect_equal(g$linkages$log_sd_L1$param,   "log_sd_L1")
-  testthat::expect_equal(g$linkages$log_sd_Linf$param, "log_sd_Linf")
-  testthat::expect_equal(g$linkages$log_sd_L1$priors$`(Intercept)`$family,
+  testthat::expect_named(g$linkages, c("sd_L1", "sd_Linf"))
+  testthat::expect_equal(g$linkages$sd_L1$param,   "sd_L1")
+  testthat::expect_equal(g$linkages$sd_Linf$param, "sd_Linf")
+  testthat::expect_equal(g$linkages$sd_L1$priors$`(Intercept)`$family,
                          "normal")
 })
 
@@ -214,7 +214,7 @@ testthat::test_that("build_growth() errors on slope-only formulas for SD endpoin
     Rceattle::build_growth(
       fun = "vonBertalanffy",
       linkages = list(
-        log_sd_L1 = Rceattle::linkage_spec(formula = ~ 0 + temp)
+        sd_L1 = Rceattle::linkage_spec(formula = ~ 0 + temp)
       )
     ),
     "intercept-bearing"
@@ -227,7 +227,7 @@ testthat::test_that("build_growth() warns on intercept + slope formulas for SD e
     Rceattle::build_growth(
       fun = "vonBertalanffy",
       linkages = list(
-        log_sd_Linf = Rceattle::linkage_spec(formula = ~ 1 + temp)
+        sd_Linf = Rceattle::linkage_spec(formula = ~ 1 + temp)
       )
     ),
     "slope terms"
@@ -239,12 +239,12 @@ testthat::test_that("LINKAGE_PARAM_CODES$growth pins SD endpoints to 4 / 5", {
   # These codes are consumed by linkage.hpp; the env-offset loop guards
   # `param >= RCEATTLE_N_GROWTH_PARAMS (=4)` to drop SD rows, and the
   # prior loop re-targets >=4 to `growth_log_sd(sp, sex, param - 4)`.
-  testthat::expect_equal(Rceattle:::LINKAGE_PARAM_CODES$growth[["log_sd_L1"]],   4L)
-  testthat::expect_equal(Rceattle:::LINKAGE_PARAM_CODES$growth[["log_sd_Linf"]], 5L)
+  testthat::expect_equal(Rceattle:::LINKAGE_PARAM_CODES$growth[["sd_L1"]],   4L)
+  testthat::expect_equal(Rceattle:::LINKAGE_PARAM_CODES$growth[["sd_Linf"]], 5L)
 })
 
 
 testthat::test_that(".GROWTH_SD_PARAM_TO_INDEX maps names to growth_log_sd slices", {
   testthat::expect_equal(Rceattle:::.GROWTH_SD_PARAM_TO_INDEX,
-                         c(log_sd_L1 = 1L, log_sd_Linf = 2L))
+                         c(sd_L1 = 1L, sd_Linf = 2L))
 })

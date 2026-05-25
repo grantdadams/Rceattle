@@ -11,8 +11,8 @@ An object of class \code{list} of length 5.
 LINKAGE_PARAM_CODES
 }
 \description{
-Each process has its own independent parameter namespace (\code{log_K}
-means something different to growth than \code{log_alpha} does to
+Each process has its own independent parameter namespace (\code{K}
+means something different to growth than \code{alpha} does to
 recruitment), so the param column is encoded against a per-process
 table. Unknown parameter names error.
 }

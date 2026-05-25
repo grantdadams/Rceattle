@@ -4,7 +4,7 @@
 \alias{build_growth}
 \title{Specify the growth model for Rceattle}
 \usage{
-build_growth(fun = "empirical", linkages = NULL)
+build_growth(fun = "empirical", growth_age_L1 = NA, linkages = NULL)
 }
 \arguments{
 \item{fun}{Growth function. Either a string (\link{GROWTH_FUNS}:
@@ -14,10 +14,16 @@ is stored on the returned object.}
 
 \item{linkages}{Optional named list of \code{\link[=linkage_spec]{linkage_spec()}} objects
 keyed by parameter name (must be one of \link{GROWTH_LINKAGE_PARAMS}).
-Each spec describes how that growth parameter depends on
-environmental covariates and on stratifying factors (species,
-sex). The parameter name on each spec is filled in from the list
-key. Materialization into the global linkage table happens inside
+The mean-growth keys (\code{K}, \code{L1}, \code{Linf}, \code{m})
+accept arbitrary one-sided formulas and produce year-varying
+offsets applied inside \code{growth.hpp}. The SD-endpoint keys
+(\code{sd_L1}, \code{sd_Linf}) only honor intercept-bearing
+formulas (typically \code{~ 1}) -- they thread \code{init}, \code{bounds}, and
+\code{priors} onto the underlying \code{growth_log_sd} parameter, giving
+the SDs the same prior/fix/initial-value contract as the mean
+parameters. Slope rows on SD specs raise a warning and have no
+effect; slope-only formulas (\code{~ 0 + temp}) error.
+Materialization into the global linkage table happens inside
 \code{fit_mod()} once \code{data_list$env_data} is in scope.}
 }
 \value{
@@ -32,7 +38,7 @@ Specify the growth model for Rceattle
 build_growth(
   fun = "vonBertalanffy",   # or fun = 1
   linkages = list(
-    log_K = linkage_spec(
+    K = linkage_spec(
       formula = ~ temp,
       by      = ~ species + sex,
       priors  = list(temp = normal(0, 1))

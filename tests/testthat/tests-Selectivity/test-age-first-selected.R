@@ -6,7 +6,9 @@ testthat::test_that("Test age-based non-parametric selectivity bin-first selecte
 
   # Adjust data
   n_sel_bins <- 8
-  GOA2018SS$fleet_control$Selectivity <- "Logistic"
+  rows_use <- which(GOA2018SS$fleet_control$Selectivity != 0 & GOA2018SS$fleet_control$Fleet_type != 0)
+  GOA2018SS$fleet_control$Fleet_type[-rows_use] <- 0
+  GOA2018SS$fleet_control$Selectivity <- "Logistic" # Age-based logistic
   GOA2018SS$fleet_control$N_sel_bins <- n_sel_bins
   GOA2018SS$fleet_control$Sel_curve_pen1 <- 5
   GOA2018SS$fleet_control$Sel_curve_pen2 <- 10
@@ -50,6 +52,8 @@ testthat::test_that("Time-varying double logistic selectivity bin first selected
 
   # Data
   data("GOA2018SS")
+  rows_use <- which(GOA2018SS$fleet_control$Selectivity != 0 & GOA2018SS$fleet_control$Fleet_type != 0)
+  GOA2018SS$fleet_control$Fleet_type[-rows_use] <-0
   GOA2018SS$fleet_control$Selectivity <- "DoubleLogistic" # Age-based double logistic
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Time_varying_sel <- 1

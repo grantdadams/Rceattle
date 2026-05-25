@@ -360,7 +360,7 @@ data_check <- function(data_list) {
     # the selectivity parameters are unconstrained and the optimizer wanders.
     has_active_age_data <- function(flt_code, df) {
       if (!has_data(df) || !all(c("Fleet_code", "Year") %in% colnames(df))) return(FALSE)
-      any(df$Fleet_code == flt_code & !is.na(df$Year) & df$Year > 0)
+      any(df$Fleet_code == flt_code & !is.na(df$Year) & df$Year > 0 & df$Sample_size > 0)
     }
     est_sel_flts <- fc[!is.na(fc$Selectivity) &
                          fc$Selectivity != "Fixed" &
@@ -375,7 +375,7 @@ data_check <- function(data_list) {
       if (any(missing_age_data)) {
         errors <- c(errors, paste0(
           "Fleet(s) with estimated Selectivity but no comp_data or caal_data ",
-          "rows in the likelihood (all Year < 0 or missing): ",
+          "rows in the likelihood (all Year/Sample_size == 0 or missing): ",
           paste(est_sel_flts$Fleet_name[missing_age_data], collapse = ", "),
           ". Either provide composition / CAAL data, mark Selectivity = 'Fixed' ",
           "with emp_sel, or set Fleet_type = 'Off'."
@@ -443,7 +443,7 @@ data_check <- function(data_list) {
     }
   }
 
-  # Sample_size > 0
+  # Sample_size >= 0
   for(df_name in c("comp_data", "caal_data", "diet_data")){
     df <- data_list[[df_name]]
     if(has_data(df) && "Sample_size" %in% colnames(df) && any(df$Sample_size < 0 & df$Year > 0, na.rm = TRUE)){
@@ -495,7 +495,7 @@ data_check <- function(data_list) {
     bad_sp <- integer(0)
     for(sp in seq_along(data_list$growth_model)){
       if(data_list$growth_model[sp] == 0 &&
-         any(data_list$caal_data$Species == sp & data_list$caal_data$Year > 0)){
+         any(data_list$caal_data$Species == sp & data_list$caal_data$Year > 0  & data_list$caal_data$Sample_size > 0)){
         bad_sp <- c(bad_sp, sp)
       }
     }
@@ -508,7 +508,7 @@ data_check <- function(data_list) {
         "branch, so pred_CAAL = 0 and the CAAL likelihood gradient is ",
         "uninformative. Either (a) switch to parametric growth for these ",
         "species via build_growth(fun = 'vonBertalanffy'), or (b) drop ",
-        "caal_data rows for these species (set to empty or Year < 0)."
+        "caal_data rows for these species (set to empty, Sample_size = 0, or Year < 0)."
       ))
     }
   }

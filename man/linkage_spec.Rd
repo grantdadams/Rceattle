@@ -11,7 +11,7 @@ linkage_spec(
   by = ~species,
   species = NULL,
   sex = NULL,
-  link = "identity",
+  link = "log",
   init = NULL,
   bounds = NULL,
   priors = NULL,
@@ -23,8 +23,8 @@ linkage_spec(
 \item{formula}{one-sided R formula whose RHS describes the linear
 predictor for \code{param} (e.g. \code{~ 1}, \code{~ temp}, \code{~ temp + PDO}).}
 
-\item{param}{target parameter name on the linear predictor scale
-(e.g. \code{"log_alpha"}, \code{"log_M1"}, \code{"log_K"}). May be \code{NULL} when the
+\item{param}{target parameter name on the natural scale
+(e.g. \code{"alpha"}, \code{"M1"}, \code{"K"}). May be \code{NULL} when the
 spec is built inside a \verb{build_*()} call that infers the parameter
 name from the enclosing list key (see \code{\link[=build_growth]{build_growth()}}).}
 
@@ -56,8 +56,17 @@ filter is a no-op. Use this to register separate specs per sex
 (e.g. one prior on females, another on males) against the same
 parameter.}
 
-\item{link}{link function applied to the predictor when assembling
-process values; one of \link{LINKAGE_LINKS}. TODO}
+\item{link}{link function relating the linear predictor to the
+natural-scale target parameter. One of \code{"log"} (default) or
+\code{"identity"}. With \code{link = "log"}, \code{log(param) = X * beta} -- slope
+contributions are multiplicative on the natural-scale parameter,
+and a \code{normal(mean, sd)} prior on an \code{(Intercept)} row is back-
+transformed to evaluate against the natural-scale value
+(\code{dnorm(exp(b), mean, sd)}). With \code{link = "identity"},
+\code{param = X * beta} -- slope contributions are additive on the
+natural scale. All linkage targets currently expose log-scale TMB
+parameters, so \code{"log"} is the natural default; \code{"identity"} is
+reserved for future processes (e.g. logit for steepness).}
 
 \item{init}{optional named numeric vector of initial values keyed by
 the design-matrix column name (e.g.
