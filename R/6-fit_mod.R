@@ -272,6 +272,47 @@ fit_mod <-
     gal1[is.na(gal1)] <- pmax(0.5, as.numeric(extend_length(data_list$minage)))[is.na(gal1)]
     data_list$growth_age_L1 <- gal1
 
+    # * Population length grid (parametric growth only) ----
+    # Resolution order: build_growth() scalars > data_list$lengths_pop /
+    # nlengths_pop (e.g. from ss3_to_rceattle converter) > fall back to the
+    # data-bin grid (data_list$lengths). The fallback keeps empirical models
+    # and pre-existing parametric models untouched (lengths_pop == lengths).
+    #
+    # When build_growth(minlength, lengthbin, maxlength) are supplied, they
+    # are scalar bin spec extended per-species: pop_edges = seq(min, max, by
+    # = bin). For VB / Richards growth, integrating the WAA Jensen's gap on
+    # this grid is what makes Rceattle reproduce SS3-style WAA -- the
+    # data-bin grid is typically too coarse (5-cm+) for the alpha*L^beta
+    # integral to converge.
+    nspp_sp <- as.integer(data_list$nspp %||% 1L)
+    minlen_sp <- extend_length(growthFun$minlength)
+    binlen_sp <- extend_length(growthFun$lengthbin)
+    maxlen_sp <- extend_length(growthFun$maxlength)
+
+    # If user supplied scalars in build_growth(), build per-species pop grids.
+    have_scalars <- !any(is.na(minlen_sp)) && !any(is.na(binlen_sp)) &&
+                    !any(is.na(maxlen_sp))
+    if (have_scalars) {
+      pop_grids <- lapply(seq_len(nspp_sp), function(sp) {
+        seq(as.numeric(minlen_sp[sp]),
+            as.numeric(maxlen_sp[sp]),
+            by = as.numeric(binlen_sp[sp]))
+      })
+      data_list$nlengths_pop <- vapply(pop_grids, length, integer(1))
+      max_npop               <- max(data_list$nlengths_pop)
+      lp_mat                 <- matrix(0, nrow = nspp_sp, ncol = max_npop)
+      for (sp in seq_len(nspp_sp))
+        lp_mat[sp, seq_along(pop_grids[[sp]])] <- pop_grids[[sp]]
+      data_list$lengths_pop <- lp_mat
+    } else if (is.null(data_list$lengths_pop) || is.null(data_list$nlengths_pop)) {
+      # No scalars and no converter-supplied grid -- fall back to data bins so
+      # the TMB DATA_MATRIX has a valid shape. WAA / ALK then match the
+      # legacy (data-bin) integration; user opts in to fine-grid integration
+      # by supplying minlength/lengthbin/maxlength.
+      data_list$lengths_pop  <- data_list$lengths
+      data_list$nlengths_pop <- data_list$nlengths
+    }
+
 
     # * HCR Switches ----
     data_list$HCR        <- HCR$HCR

@@ -150,20 +150,19 @@ void convert_length_selectivity(
     const int& yr,
     const int& wtind,
     const vector<int>& nages,
-    const vector<int>& nlengths,
-    array<Type> sel_length,
-    array<Type> growth_matrix,
+    const vector<int>& nlengths_pop,
+    array<Type> sel_length_pop,
+    array<Type> growth_matrix_pop,
     array<Type>& sel_at_age // Modified by reference
 ) {
-  // Iterate through ages for the specific species
+  // SS3-parity convolution: integrate sel(L) over P(L|age) on the FINE
+  // pop grid. Evaluating on data bins under-resolves the sel curve where
+  // it changes rapidly (peak / asc limb) and biases sel-at-age.
   for(int age = 0; age < nages(sp); age++) {
-
-    // Initialize the specific cell in the 4D array to zero before accumulating
     sel_at_age(flt, sex, age, yr) = 0.0;
-
-    for(int ln = 0; ln < nlengths(sp); ln++) {
-      // sel_at_age = sum over lengths of (Prob(Length|Age) * sel_at_length)
-      sel_at_age(flt, sex, age, yr) += growth_matrix(wtind, sex, age, ln, yr) * sel_length(flt, sex, ln, yr);
+    for(int ln = 0; ln < nlengths_pop(sp); ln++) {
+      sel_at_age(flt, sex, age, yr) +=
+        growth_matrix_pop(wtind, sex, age, ln, yr) * sel_length_pop(flt, sex, ln, yr);
     }
   }
 }
@@ -260,7 +259,9 @@ void calculate_selectivity(
     const vector<int>&  nsex,
     const vector<int>&  nages,
     const vector<int>&  nlengths,
+    const vector<int>&  nlengths_pop,
     matrix<Type> lengths,
+    matrix<Type> lengths_pop,
     const vector<int>&  flt_spp,
     const vector<int>&  flt_sel_type,
     const vector<int>&  flt_sel_dim,
@@ -279,11 +280,14 @@ void calculate_selectivity(
     array<Type> &avg_sel,
     array<Type> &non_par_sel,
     array<Type> &sel_at_length,
+    array<Type> &sel_at_length_pop,
     array<Type> &sel_at_age,
-    array<Type> growth_matrix
+    array<Type> growth_matrix,
+    array<Type> growth_matrix_pop
 ) {
   sel_at_age.setZero();
   sel_at_length.setZero();
+  sel_at_length_pop.setZero();
   Type max_sel = 0;
   Type avgsel_tmp = 0;
 
@@ -415,28 +419,82 @@ void calculate_selectivity(
           }
           break;
 
-        case 8: { // Double Normal
-          // Parameters:
-          //   sel_inf(0)     = peak bin (mode of selectivity)
-          //   log_sel_slp(0) = log(sigma_ascending)   - ascending limb SD
-          //   log_sel_slp(1) = log(sigma_descending)  - descending limb SD
-          //   sel_inf(1)     = logit(right_floor) — right-tail floor, analogous to SS3 P6 (end_logit)
-          //                    right_floor→0: fully dome-shaped; right_floor→1: logistic (ascending only)
-          Type peak        = sel_inf(0, flt, sex) + sel_inf_dev(0, flt, sex, yr);
-          Type sigma_asc   = exp(log_sel_slp(0, flt, sex) + log_sel_slp_dev(0, flt, sex, yr));
-          Type sigma_desc  = exp(log_sel_slp(1, flt, sex) + log_sel_slp_dev(1, flt, sex, yr));
-          Type right_floor = 1.0 / (1.0 + exp(-(sel_inf(1, flt, sex) + sel_inf_dev(1, flt, sex, yr))));
+        case 8: { // SS3 pattern 24 -- length-based Double Normal with plateau
+          // 6 parameters per fleet/sex (SS3 Pn ↔ Rceattle slot):
+          //   sel_inf(0)     = P1 peak (mode start of plateau)
+          //   sel_inf(1)     = P6 final/right-tail floor (on logit scale)
+          //   sel_inf(2)     = P5 init/left-tail floor   (on logit scale;
+          //                     -inf -> 0 = full Gaussian ascending limb)
+          //   log_sel_slp(0) = P3 log(sigma_asc)
+          //   log_sel_slp(1) = P4 log(sigma_desc)
+          //   log_sel_slp(2) = P2 top-width logit, controls plateau width:
+          //                     peak2 = peak + binwidth + (xmax - peak - binwidth)
+          //                             / (1 + exp(-P2))
+          // SS3 formula (selectivity.tpl pattern 24):
+          //   asc(L) = exp(-(L-peak)^2 / exp(P3))
+          //   asc_scaled(L) = init + (1 - init) * (asc(L) - asc(xmin))/(1 - asc(xmin))
+          //   dsc(L) = exp(-(L-peak2)^2 / exp(P4))
+          //   dsc_scaled(L) = 1 + (final - 1) * (dsc(L) - 1)/(dsc(xmax) - 1)
+          //   join1(L) = 1 / (1 + exp(-20/(1+|L-peak|)  * (peak - L)))
+          //   join2(L) = 1 / (1 + exp(-20/(1+|L-peak2|) * (peak2 - L)))
+          //   sel(L) = asc_scaled*(1-join1) + join1*((1-join2) + dsc_scaled*join2)
+          // Note the SS3 Gaussian denom is exp(P3) NOT exp(2*P3): SS3 uses
+          // (L-peak)^2 / exp(P3) where exp(P3) plays the role of 2*sigma^2.
+          Type peak     = sel_inf(0, flt, sex) + sel_inf_dev(0, flt, sex, yr);
+          Type final_lt = sel_inf(1, flt, sex) + sel_inf_dev(1, flt, sex, yr);
+          Type init_lt  = sel_inf(2, flt, sex) + sel_inf_dev(2, flt, sex, yr);
+          Type upselex   = exp(log_sel_slp(0, flt, sex) + log_sel_slp_dev(0, flt, sex, yr));
+          Type downselex = exp(log_sel_slp(1, flt, sex) + log_sel_slp_dev(1, flt, sex, yr));
+          Type top_lt    = log_sel_slp(2, flt, sex) + log_sel_slp_dev(2, flt, sex, yr);
+          Type init      = Type(1.0) / (Type(1.0) + exp(-init_lt));
+          Type finalv    = Type(1.0) / (Type(1.0) + exp(-final_lt));
+
+          // xmin / xmax = first / last bin midpoint on the integration grid
+          // (length midpoints when length-based; age 1..nages when age-based).
+          Type xmin = is_length_based ? (lengths(sp, 0)         + Type(0.5) * binwidth) : Type(1);
+          Type xmax = is_length_based ? (lengths(sp, nbins - 1) + Type(0.5) * binwidth) : Type(nbins);
+          Type peak2 = peak + binwidth + (xmax - peak - binwidth) / (Type(1.0) + exp(-top_lt));
+
+          // Normalization anchors so asc -> init at xmin, dsc -> final at xmax
+          Type t1min = exp(-(xmin - peak)  * (xmin - peak)  / upselex);
+          Type t2min = exp(-(xmax - peak2) * (xmax - peak2) / downselex);
+
+          // Helper lambda to evaluate the curve at a length L. Pulls in
+          // peak, peak2, init, finalv, upselex, downselex, t1min, t2min
+          // by capture. Used for both the DATA-bin and POP-bin loops below.
+          auto eval_p24 = [&](Type L) {
+            Type asc  = exp(-(L - peak)  * (L - peak)  / upselex);
+            Type dsc  = exp(-(L - peak2) * (L - peak2) / downselex);
+            Type asc_scaled = init + (Type(1.0) - init) * (asc - t1min) / (Type(1.0) - t1min);
+            Type dsc_scaled = Type(1.0) + (finalv - Type(1.0)) * (dsc - Type(1.0)) / (t2min - Type(1.0));
+            // SS3 location-dependent join sigmoids. Sign convention from
+            // SS3 selectivity.tpl: join1=0 LEFT of peak, =1 RIGHT;
+            // join2=0 LEFT of peak2, =1 RIGHT.
+            Type denom1 = Type(1.0) + ((L - peak)  >= Type(0) ? (L - peak)  : (peak  - L));
+            Type denom2 = Type(1.0) + ((L - peak2) >= Type(0) ? (L - peak2) : (peak2 - L));
+            Type join1  = Type(1.0) / (Type(1.0) + exp(-(Type(20.0) / denom1) * (L - peak )));
+            Type join2  = Type(1.0) / (Type(1.0) + exp(-(Type(20.0) / denom2) * (L - peak2)));
+            return asc_scaled * (Type(1.0) - join1)
+                   + join1 * ((Type(1.0) - join2) + dsc_scaled * join2);
+          };
+
           for (int bin = 0; bin < nbins; bin++) {
-            Type x_val      = is_length_based ? (lengths(sp, bin) + 0.5 * binwidth) : Type(bin + 1);
-            // Smooth logistic blend: ~0 left of peak, ~1 right of peak.
-            Type w          = 1.0 / (1.0 + exp(-20.0 * (x_val - peak)));
-            Type asc_gauss  = exp(-0.5 * pow((x_val - peak) / sigma_asc,  2.0));
-            Type desc_gauss = exp(-0.5 * pow((x_val - peak) / sigma_desc, 2.0));
-            // Right tail approaches right_floor (mirrors SS3 P6 / end_logit behaviour)
-            Type val_desc   = right_floor + (1.0 - right_floor) * desc_gauss;
-            Type val        = (1.0 - w) * asc_gauss + w * val_desc;
+            Type L = is_length_based ? (lengths(sp, bin) + Type(0.5) * binwidth) : Type(bin + 1);
+            Type val = eval_p24(L);
             if (is_length_based) sel_at_length(flt, sex, bin, yr) = val;
             else                 sel_at_age(flt, sex, bin, yr) = val;
+          }
+
+          // For length-based pattern 24, also evaluate at the FINE POP-grid
+          // midpoints and store in sel_at_length_pop. The sel-to-age
+          // convolution then happens on the pop grid (SS3 parity), which is
+          // critical when data bins are coarser than pop bins.
+          if (is_length_based) {
+            Type pop_bw = lengths_pop(sp, 1) - lengths_pop(sp, 0);
+            for (int lp = 0; lp < nlengths_pop(sp); lp++) {
+              Type Lp = lengths_pop(sp, lp) + Type(0.5) * pop_bw;
+              sel_at_length_pop(flt, sex, lp, yr) = eval_p24(Lp);
+            }
           }
           break;
         }

@@ -159,11 +159,14 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR( minage );                 // Minimum age of each species
   DATA_IVECTOR( nlengths );               // Number of species (prey) lengths
   DATA_MATRIX(lengths);                   // Length bins for each species [sp, nlengths]
+  DATA_IVECTOR( nlengths_pop );           // Number of population (fine) length bins per species
+  DATA_MATRIX( lengths_pop );             // Population length bins per species [sp, nlengths_pop]
   DATA_ARRAY( NByageFixed );              // Provided estimates of numbers- or index-at-age to be multiplied (or not) by pop_scalar to get N_at_age
   DATA_VECTOR( MSSB0 );                   // SB0 from projecting the model forward in multi-species mode under no fishing
   DATA_VECTOR( MSB0 );                    // B0 from projecting the model forward in multi-species mode under no fishing
 
   int max_nlengths = imax(nlengths);      // Integer of maximum nlengths to make the arrays
+  int max_nlengths_pop = imax(nlengths_pop); // Max population-grid length bins
   int max_age = imax(nages);              // Integer of maximum nages to make the arrays
   int max_bin = (max_age > max_nlengths) ? max_age : max_nlengths;
 
@@ -376,7 +379,13 @@ Type objective_function<Type>::operator() () {
   Type ricker_intercept = 0.0;
 
   // -- 4.2. Growth
-  array<Type> growth_matrix(nspp * 2 + n_flt, max_sex, max_age, max_nlengths, nyrs); growth_matrix.setZero(); // growth transition matrix for each fleet and each species derived quantity (biomass and ssb)
+  // growth_matrix stays on the DATA length grid for length-comp / CAAL
+  // likelihood compatibility (downstream code reads it on data bins).
+  // growth_matrix_pop carries the FINE pop-grid ALK so the sel-to-age
+  // convolution can be done at SS3 resolution (matters when the data bins
+  // are coarser than the pop bins; e.g. 5cm data, 1cm pop).
+  array<Type> growth_matrix(nspp * 2 + n_flt, max_sex, max_age, max_nlengths, nyrs); growth_matrix.setZero();
+  array<Type> growth_matrix_pop(nspp * 2 + n_flt, max_sex, max_age, max_nlengths_pop, nyrs); growth_matrix_pop.setZero();
   array<Type> weight_hat(nspp * 2 + n_flt, max_sex, max_age, nyrs); weight_hat.setZero(); // Estimated weight-at-age for each fleet and each species derived quantity (biomass and ssb)
   array<Type> length_hat(nspp * 2 + n_flt, max_sex, max_age, nyrs); length_hat.setZero(); // Estimated length-at-age for each fleet and each species derived quantity (biomass and ssb)
 
@@ -412,7 +421,8 @@ Type objective_function<Type>::operator() () {
 
   // -- 4.4. Selectivity parameters
   array<Type>   sel_at_age(n_flt, max_sex, max_age, nyrs); sel_at_age.setZero();    // Estimated selectivity at age
-  array<Type>   sel_at_length(n_flt, max_sex, max_nlengths, nyrs); sel_at_length.setZero();// Estimated selectivity at length
+  array<Type>   sel_at_length(n_flt, max_sex, max_nlengths, nyrs); sel_at_length.setZero();// Estimated selectivity at length (DATA bins; for length-comp / CAAL likelihood)
+  array<Type>   sel_at_length_pop(n_flt, max_sex, max_nlengths_pop, nyrs); sel_at_length_pop.setZero(); // Sel on POP bins (for SS3-parity sel-to-age convolution)
   array<Type>   avg_sel(n_flt, max_sex, nyrs_hind); avg_sel.setZero();              // Average selectivity for non-parametric up to n_sel_bins
   array<Type>   non_par_sel(n_flt, max_sex, max_bin, nyrs); non_par_sel.setZero();  // Estimated selectivity for AMAK non-parametric (pre-normalization)
   vector<Type>  sel_dev_sd(n_flt); sel_dev_sd.setZero();                            // Standard deviation of selectivity deviates
@@ -757,6 +767,7 @@ Type objective_function<Type>::operator() () {
     weight_hat,
     length_hat,
     growth_matrix,
+    growth_matrix_pop,
     weight_obs,
     growth_model,
     nspp,
@@ -770,11 +781,13 @@ Type objective_function<Type>::operator() () {
     growth_age_L1,
     nages,
     nlengths,
+    nlengths_pop,
     pop_wt_index,
     ssb_wt_index,
     flt_wt_index,
     spawn_month,
     lengths,
+    lengths_pop,
     growth_parameters,
     growth_log_sd,
     weight_length_pars
@@ -793,7 +806,9 @@ Type objective_function<Type>::operator() () {
     nsex,                 // Vector of sexes per species
     nages,                // Vector of max ages per species
     nlengths,             // Vector of max lengths per species
+    nlengths_pop,         // POP-grid length-bin counts (SS3 parity)
     lengths,              // Length bin boundaries matrix
+    lengths_pop,          // POP-grid length bin boundaries
     flt_spp,              // Fleet to species mapping
     flt_sel_type,         // Selectivity model type per fleet
     flt_sel_dim,          // Age or length based
@@ -811,9 +826,11 @@ Type objective_function<Type>::operator() () {
     sel_coff_dev,         // Coefficient deviations
     avg_sel,              // [Modified] Average selectivity
     non_par_sel,          // [Modified] Unnormalized non-parametric selectivity
-    sel_at_length,        // [Modified] Final length-based selectivity
+    sel_at_length,        // [Modified] Final length-based selectivity (DATA bins)
+    sel_at_length_pop,    // [Modified] Sel on POP bins (SS3-parity convolution)
     sel_at_age,           // [Modified] Final age-based selectivity
-    growth_matrix         // Length to age transition matrix
+    growth_matrix,        // DATA-bin ALK (legacy convolution path)
+    growth_matrix_pop     // POP-bin ALK (SS3-parity convolution)
   );
 
 

@@ -591,6 +591,9 @@ GROWTH_LINKAGE_PARAMS <- c("K", "L1", "Linf", "m", "sd_L1", "sd_Linf")
 #' }
 build_growth <- function(fun = "empirical",
                          growth_age_L1 = NA,
+                         minlength = NA,
+                         lengthbin = NA,
+                         maxlength = NA,
                          linkages = NULL) {
   fun <- .coerce_growth_fun(fun)
   linkages <- .validate_growth_linkages(linkages, fun)
@@ -608,6 +611,15 @@ build_growth <- function(fun = "empirical",
     # configurations stay unchanged at minage >= 1 and minage = 0
     # models pick up an SS3-consistent half-year anchor.
     growth_age_L1  = growth_age_L1,
+    # Population length grid (for parametric growth only) -- the ALK and
+    # WAA integration happen on this grid. SS3 parity requires a fine
+    # grid (~1cm) since the Jensen's-inequality integral over
+    # alpha * L^beta converges slowly. Scalars are extended per-species
+    # downstream; NA falls back to the data-bin grid (i.e. `lengths` from
+    # caal_data), preserving prior behavior for empirical-growth models.
+    minlength      = minlength,
+    lengthbin      = lengthbin,
+    maxlength      = maxlength,
     # Placeholders retained until the random-effects / legacy index
     # paths in 2-build_map.R and src/TMB/growth.hpp are migrated.
     growth_re      = 0L,

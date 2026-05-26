@@ -308,23 +308,31 @@ build_params <- function(data_list) {
   param_list$sel_coff_dev = array(0, dim = c(n_selectivities, max_sex, max_sel_bins, nyrs_hind),
                                   dimnames = list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Bin", 1:max_sel_bins), yrs_hind))
 
-  # - Selectivity slope parameters for logistic
-  param_list$log_sel_slp = array(0.5, dim = c(2, n_selectivities, max_sex),
-                                dimnames = list(c("Ascending" , "Descending"), data_list$fleet_control$Fleet_name, sex_labels))
+  # - Selectivity slope parameters
+  # Slot 1 = ascending limb (logistic) / log(sigma_asc) (DoubleNormal SS3 P3)
+  # Slot 2 = descending limb (DoubleLogistic) / log(sigma_desc) (SS3 P4)
+  # Slot 3 = top-width parameter for SS3 pattern-24 DoubleNormal (logit;
+  #          peak2 = peak + binwidth + (xmax - peak - binwidth) / (1 + exp(-this)))
+  param_list$log_sel_slp = array(0.5, dim = c(3, n_selectivities, max_sex),
+                                dimnames = list(c("Ascending" , "Descending", "TopWidth"), data_list$fleet_control$Fleet_name, sex_labels))
 
-  # - Selectivity asymptotic parameters for logistic
-  param_list$sel_inf = array(0, dim = c(2, n_selectivities, max_sex),
-                             dimnames = list(c("Ascending" , "Descending"), data_list$fleet_control$Fleet_name, sex_labels))
+  # - Selectivity asymptotic parameters
+  # Slot 1 = peak / asc-inflection (SS3 P1)
+  # Slot 2 = desc-inflection / right-floor logit (SS3 P6)
+  # Slot 3 = init / left-floor logit for SS3 pattern-24 DoubleNormal (SS3 P5)
+  param_list$sel_inf = array(0, dim = c(3, n_selectivities, max_sex),
+                             dimnames = list(c("Ascending" , "Descending", "Init"), data_list$fleet_control$Fleet_name, sex_labels))
   param_list$sel_inf[1,,] <- 0
   param_list$sel_inf[2,,] <- 10
+  param_list$sel_inf[3,,] <- -10   # large negative logit -> init ~ 0 (matches SS3 "P5 = -999" sentinel meaning "no left floor")
 
-  # - Annual selectivity slope deviation for logistic
-  param_list$log_sel_slp_dev = array(0, dim = c(2, n_selectivities, max_sex, nyrs_hind),
-                                    dimnames = list(c("Ascending" , "Descending"), data_list$fleet_control$Fleet_name, sex_labels, yrs_hind))
+  # - Annual selectivity slope deviation
+  param_list$log_sel_slp_dev = array(0, dim = c(3, n_selectivities, max_sex, nyrs_hind),
+                                    dimnames = list(c("Ascending" , "Descending", "TopWidth"), data_list$fleet_control$Fleet_name, sex_labels, yrs_hind))
 
-  # - Annual selectivity asymptotic deviations for logistic
-  param_list$sel_inf_dev = array(0, dim = c(2, n_selectivities, max_sex, nyrs_hind),
-                                 dimnames = list(c("Ascending" , "Descending"), data_list$fleet_control$Fleet_name, sex_labels, yrs_hind))
+  # - Annual selectivity asymptotic deviations
+  param_list$sel_inf_dev = array(0, dim = c(3, n_selectivities, max_sex, nyrs_hind),
+                                 dimnames = list(c("Ascending" , "Descending", "Init"), data_list$fleet_control$Fleet_name, sex_labels, yrs_hind))
 
   # - Log standard deviation for selectivity random walk - used for logistic
   param_list$sel_dev_log_sd <- log(data_list$fleet_control$Time_varying_sel_sd_prior)

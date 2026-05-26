@@ -731,58 +731,60 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       #   log_sel_slp[1] = log(sigma_ascending)
       #   log_sel_slp[2] = log(sigma_descending)
       if (sel_type == "DoubleNormal") {
+        # SS3 pattern 24 (length-based DoubleNormal). 6 params per fleet/sex:
+        #   sel_inf[1]     = peak  (SS3 P1)
+        #   sel_inf[2]     = logit(final) right-tail floor (SS3 P6)
+        #   sel_inf[3]     = logit(init)  left-tail floor  (SS3 P5)
+        #   log_sel_slp[1] = log(sigma_asc)   (SS3 P3)
+        #   log_sel_slp[2] = log(sigma_desc)  (SS3 P4)
+        #   log_sel_slp[3] = top-width logit  (SS3 P2): peak2 = peak + binwidth
+        #                    + (xmax - peak - binwidth) / (1 + exp(-this))
 
         # Base parameters
         for (sex in 1:nsex) {
           map_list$sel_inf[1, flt, sex]     <- ind_inf; ind_inf <- ind_inf + 1
           map_list$sel_inf[2, flt, sex]     <- ind_inf; ind_inf <- ind_inf + 1
+          map_list$sel_inf[3, flt, sex]     <- ind_inf; ind_inf <- ind_inf + 1
           map_list$log_sel_slp[1, flt, sex] <- ind_slp; ind_slp <- ind_slp + 1
           map_list$log_sel_slp[2, flt, sex] <- ind_slp; ind_slp <- ind_slp + 1
+          map_list$log_sel_slp[3, flt, sex] <- ind_slp; ind_slp <- ind_slp + 1
         }
 
-        # Time-varying parameters
+        # Time-varying parameters: per SS3, blocks can hit any of the 6 base
+        # params. We mirror that by giving each of the 3 sel_inf slots and 3
+        # log_sel_slp slots its own dev row.
         if (tv_sel %in% c("IID", "AR1", "RandomWalk")) {
           for (sex in 1:nsex) {
-            # Peak (sel_inf[1]) and right-floor (sel_inf[2]) deviates
-            map_list$sel_inf_dev[1, flt, sex, yrs_hind] <- ind_inf + yrs_hind - 1
-            ind_inf <- ind_inf + nyrs_hind
-            map_list$sel_inf_dev[2, flt, sex, yrs_hind] <- ind_inf + yrs_hind - 1
-            ind_inf <- ind_inf + nyrs_hind
-
-            # Ascending-SD (log_sel_slp[1]) and descending-SD (log_sel_slp[2]) deviates
-            map_list$log_sel_slp_dev[1, flt, sex, yrs_hind] <- ind_slp + yrs_hind - 1
-            ind_slp <- ind_slp + nyrs_hind
-            map_list$log_sel_slp_dev[2, flt, sex, yrs_hind] <- ind_slp + yrs_hind - 1
-            ind_slp <- ind_slp + nyrs_hind
+            for (j in 1:3) {
+              map_list$sel_inf_dev[j, flt, sex, yrs_hind] <- ind_inf + yrs_hind - 1
+              ind_inf <- ind_inf + nyrs_hind
+              map_list$log_sel_slp_dev[j, flt, sex, yrs_hind] <- ind_slp + yrs_hind - 1
+              ind_slp <- ind_slp + nyrs_hind
+            }
           }
 
           # Random walk: fix first deviate
           if (tv_sel == "RandomWalk") {
-            map_list$sel_inf_dev[1, flt, , 1]     <- NA
-            map_list$sel_inf_dev[2, flt, , 1]     <- NA
-            map_list$log_sel_slp_dev[1, flt, , 1] <- NA
-            map_list$log_sel_slp_dev[2, flt, , 1] <- NA
+            for (j in 1:3) {
+              map_list$sel_inf_dev[j, flt, , 1]     <- NA
+              map_list$log_sel_slp_dev[j, flt, , 1] <- NA
+            }
           }
 
         } else if (tv_sel == "Block" && max_block > 0) {
           for (sex in 1:nsex) {
-            # Peak and right-floor block deviates
-            map_list$sel_inf_dev[1, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_inf
-            ind_inf <- ind_inf + max_block
-            map_list$sel_inf_dev[2, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_inf
-            ind_inf <- ind_inf + max_block
-
-            # Ascending-SD and descending-SD block deviates
-            map_list$log_sel_slp_dev[1, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_slp
-            ind_slp <- ind_slp + max_block
-            map_list$log_sel_slp_dev[2, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_slp
-            ind_slp <- ind_slp + max_block
+            for (j in 1:3) {
+              map_list$sel_inf_dev[j, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_inf
+              ind_inf <- ind_inf + max_block
+              map_list$log_sel_slp_dev[j, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_slp
+              ind_slp <- ind_slp + max_block
+            }
 
             # Fix base parameters — blocks fully replace them (deviates are absolute values)
-            map_list$sel_inf[1, flt, sex]     <- NA
-            map_list$sel_inf[2, flt, sex]     <- NA
-            map_list$log_sel_slp[1, flt, sex] <- NA
-            map_list$log_sel_slp[2, flt, sex] <- NA
+            for (j in 1:3) {
+              map_list$sel_inf[j, flt, sex]     <- NA
+              map_list$log_sel_slp[j, flt, sex] <- NA
+            }
           }
         }
       }
