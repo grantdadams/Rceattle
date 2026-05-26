@@ -17,7 +17,7 @@ The spec, with \code{param} set.
 \description{
 Used by \verb{build_*()} helpers that infer the parameter name from the
 list key under which a spec is registered (e.g.
-\code{linkages = list(log_K = linkage_spec(~temp))} -> set \code{param = "log_K"}). If the spec already names a different parameter the
+\code{linkages = list(K = linkage_spec(~temp))} -> set \code{param = "K"}). If the spec already names a different parameter the
 function errors to surface user mistakes.
 }
 \keyword{internal}

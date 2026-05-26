@@ -5,8 +5,8 @@
 \title{Formula-driven linkage specifications for Rceattle processes}
 \description{
 These helpers let users describe how a process parameter (e.g.
-\code{log_alpha} for the Beverton-Holt SRR, \code{log_M} for natural mortality,
-\code{log_K} for von Bertalanffy growth) depends on environmental
+\code{alpha} for the Beverton-Holt SRR, \code{M1} for natural mortality,
+\code{K} for von Bertalanffy growth) depends on environmental
 covariates and on stratifying factors (species, sex). They produce:
 }
 \details{

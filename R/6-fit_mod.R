@@ -260,6 +260,17 @@ fit_mod <-
     data_list$growth_model    <- extend_length(growthFun$growth_model)
     data_list$growth_re       <- extend_length(growthFun$growth_re)
     data_list$growth_indices  <- growthFun$growth_indices
+    # VB anchor age per species (= SS3 Growth_Age_for_L1). Resolution
+    # order: build_growth() user arg > data_list$growth_age_L1 (e.g. from
+    # ss3_to_rceattle converter) > max(0.5, minage[sp]) fallback. The
+    # fallback keeps minage >= 1 models backwards-compatible and gives
+    # minage = 0 models an SS3-style half-year anchor.
+    gal1 <- extend_length(growthFun$growth_age_L1)
+    if (!is.null(data_list$growth_age_L1)) {
+      gal1[is.na(gal1)] <- extend_length(data_list$growth_age_L1)[is.na(gal1)]
+    }
+    gal1[is.na(gal1)] <- pmax(0.5, as.numeric(extend_length(data_list$minage)))[is.na(gal1)]
+    data_list$growth_age_L1 <- gal1
 
 
     # * HCR Switches ----

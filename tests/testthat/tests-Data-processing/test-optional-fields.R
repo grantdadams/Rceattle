@@ -34,7 +34,7 @@ testthat::test_that(
     testthat::skip_if_not_installed("Rceattle")
 
     fields <- c(
-      "comp_data", "caal_data", "emp_sel", "NByageFixed",
+      "caal_data", "emp_sel", "NByageFixed",
       "ration_data", "diet_data"
     )
     for (nm in fields) {

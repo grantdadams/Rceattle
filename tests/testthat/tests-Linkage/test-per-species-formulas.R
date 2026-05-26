@@ -6,7 +6,7 @@ testthat::test_that("linkage_spec(species = ...) filters the level grid", {
   )
   spec <- Rceattle::linkage_spec(
     formula = ~ temp,
-    param   = "log_K",
+    param   = "K",
     by      = ~ species,
     species = c(1L, 3L)
   )
@@ -26,7 +26,7 @@ testthat::test_that("species filter that excludes everything yields zero rows", 
   env <- data.frame(Year = 2000:2002, temp = 1:3)
   spec <- Rceattle::linkage_spec(
     formula = ~ temp,
-    param   = "log_K",
+    param   = "K",
     by      = ~ species,
     species = 99L
   )
@@ -57,7 +57,7 @@ testthat::test_that("build_growth accepts list of specs for per-species formulas
   g <- Rceattle::build_growth(
     fun = "vonBertalanffy",
     linkages = list(
-      log_K = list(
+      K = list(
         Rceattle::linkage_spec(formula = ~ temp,
                                by      = ~ species,
                                species = 1L),
@@ -67,11 +67,11 @@ testthat::test_that("build_growth accepts list of specs for per-species formulas
       )
     )
   )
-  testthat::expect_length(g$linkages$log_K, 2L)
-  testthat::expect_equal(g$linkages$log_K[[1]]$param, "log_K")
-  testthat::expect_equal(g$linkages$log_K[[2]]$param, "log_K")
-  testthat::expect_equal(g$linkages$log_K[[1]]$species, 1L)
-  testthat::expect_equal(g$linkages$log_K[[2]]$species, 2L)
+  testthat::expect_length(g$linkages$K, 2L)
+  testthat::expect_equal(g$linkages$K[[1]]$param, "K")
+  testthat::expect_equal(g$linkages$K[[2]]$param, "K")
+  testthat::expect_equal(g$linkages$K[[1]]$species, 1L)
+  testthat::expect_equal(g$linkages$K[[2]]$species, 2L)
 })
 
 
@@ -82,7 +82,7 @@ testthat::test_that("pool_linkages stitches per-species formulas into one table"
     PDO  = stats::rnorm(5)
   )
   specs <- list(
-    log_K = list(
+    K = list(
       Rceattle::linkage_spec(formula = ~ temp,
                              by      = ~ species,
                              species = 1L),
@@ -116,7 +116,7 @@ testthat::test_that("validate_growth_linkages rejects malformed list entries", {
   testthat::expect_error(
     Rceattle::build_growth(
       fun = "vonBertalanffy",
-      linkages = list(log_K = list(Rceattle::linkage_spec(formula = ~ 1),
+      linkages = list(K = list(Rceattle::linkage_spec(formula = ~ 1),
                                    "not a spec"))
     ),
     "must be a linkage_spec"

@@ -2,7 +2,7 @@ testthat::test_that("I() squared term materializes a separate design col", {
   env <- data.frame(Year = 2000:2009, temp = stats::rnorm(10))
   spec <- Rceattle::linkage_spec(
     formula = ~ temp + I(temp^2),
-    param   = "log_K",
+    param   = "K",
     by      = ~ species
   )
   rows <- Rceattle:::materialize_linkage(
@@ -20,7 +20,7 @@ testthat::test_that("poly(temp, 4) materializes the 4 orthogonal columns", {
   env <- data.frame(Year = 2000:2019, temp = stats::rnorm(20))
   spec <- Rceattle::linkage_spec(
     formula = ~ poly(temp, 4),
-    param   = "log_K",
+    param   = "K",
     by      = ~ species
   )
   rows <- Rceattle:::materialize_linkage(
@@ -56,7 +56,7 @@ testthat::test_that("formula functions feed cleanly through pool_linkages", {
     species = 2L
   )
   out <- Rceattle:::pool_linkages(
-    spec_groups = list(growth = list(log_K = list(s1, s2))),
+    spec_groups = list(growth = list(K = list(s1, s2))),
     env_data    = env,
     strata      = list(species = 1:2)
   )
@@ -74,7 +74,7 @@ testthat::test_that("priors and inits key off formula-function colnames", {
   env <- data.frame(Year = 2000:2019, temp = stats::rnorm(20))
   spec <- Rceattle::linkage_spec(
     formula = ~ temp + I(temp^2),
-    param   = "log_K",
+    param   = "K",
     by      = ~ species,
     init    = list(`I(temp^2)` = -0.05),
     priors  = list(`I(temp^2)` = normal(0, 0.1))

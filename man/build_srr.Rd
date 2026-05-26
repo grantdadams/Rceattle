@@ -42,7 +42,7 @@ build_srr(
 
 \item{Bmsy_lim}{Upper limit for Ricker based SSB-MSY (e.g 1/Beta). Will add a likelihood penalty if beta is estimated above this limit. Default \code{NA} is not used.}
 
-\item{linkages}{Optional named list of \code{\link[=linkage_spec]{linkage_spec()}} objects keyed by recruitment parameter name (must be one of \code{"log_R0"}, \code{"log_alpha"}, \code{"log_beta"}). Each spec describes how that parameter depends on environmental covariates and on stratifying factors (species, sex). The offset enters additively (on the log scale) inside the recruitment compute. See \code{vignette("environmental-linkages")} for details.}
+\item{linkages}{Optional named list of \code{\link[=linkage_spec]{linkage_spec()}} objects keyed by recruitment parameter name (must be one of \code{"R0"}, \code{"alpha"}, \code{"beta"}). Each spec describes how that parameter depends on environmental covariates and on stratifying factors (species, sex). The offset enters additively (on the log scale) inside the recruitment compute. See \code{vignette("environmental-linkages")} for details.}
 }
 \value{
 A \code{list} containing the stock recruitment relationship settings

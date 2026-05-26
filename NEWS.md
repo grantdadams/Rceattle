@@ -1,3 +1,22 @@
+# Rceattle 4.4.0
+
+## New features
+
+* **Double Normal Selectivity (Type 8)**: Added support for the four-parameter Double Normal selectivity curve (Peak, Ascending SD, Descending SD, and Floor). This includes full support for annual deviates on all four parameters and is compatible with the age- and length-based selectivity engines.
+* **Growth SD Control**: The linkage system now supports `sd_L1` and `sd_Linf` parameters. This allows users to specify priors, initial values, and bounds for growth SD endpoints using the same formula-driven interface used for mean growth parameters.
+* **Natural Scale Priors**: Standardized prior evaluation so that probability densities are applied to parameters on their natural scale by default, unless a lognormal family is explicitly requested.
+* **Natural Scale Inits**: Standardized init evaluation so initial values for `"(Intercept)"` parameters are applied on their natural scale.
+* **Linkage Link Functions**: Fully implemented dual-path linkage offsets. Log-linkage offsets are applied multiplicatively (additive on the log scale), while identity-linkage offsets are applied additively on the natural scale.
+
+
+## Bug fixes
+
+* **SRR Logic**: Fixed a bug in `build_srr()` where the `Bmsy_lim` penalty was incorrectly disabled for current Ricker implementations due to an index mismatch.
+* **Selectivity RW Prior Scaling**: Corrected the random walk prior scaling in the TMB template to ensure consistent $4 \times$ SD multipliers for both ascending and descending limb slope/SD parameters.
+
+## Documentation
+* Added `vignette("environmental-linkages-and-priors")` (and updated `_pkgdown.yml`) to cover the new linkage intercept behavior and Double Normal selectivity.
+
 # Rceattle 4.3.1
 
 ## Bug fixes

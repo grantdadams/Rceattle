@@ -257,6 +257,34 @@ switch_check <- function(data_list){
   # Update switches to text-based if necessary for older files
   data_list <- revert_switches(data_list)
 
+  # Auto-Off fleets with no observations contributing to the likelihood.
+  # catch_data, index_data, comp_data,or caal_data should have
+  # at least one row with Year > 0 referencing its
+  # Fleet_code.
+  active_codes <- function(df) {
+    if (is.null(df) || nrow(df) == 0) return(integer(0))
+    if (!all(c("Fleet_code", "Year") %in% colnames(df))) return(integer(0))
+    df <- df[!is.na(df$Year) & df$Year > 0 & !is.na(df$Fleet_code), , drop = FALSE]
+    if (nrow(df) == 0) return(integer(0))
+    unique(as.integer(df$Fleet_code))
+  }
+  active <- unique(c(
+    active_codes(data_list$catch_data),
+    active_codes(data_list$index_data),
+    active_codes(data_list$comp_data),
+    active_codes(data_list$caal_data)
+  ))
+  fc <- data_list$fleet_control
+  inactive_idx <- which(!fc$Fleet_code %in% active & fc$Fleet_type != "Off")
+  if (length(inactive_idx) > 0) {
+    message(paste0(
+      "Auto-Off fleet(s) with no observations in the likelihood (all Year < 0 or missing): ",
+      paste(fc$Fleet_name[inactive_idx], collapse = ", "),
+      ". Setting Fleet_type = 'Off'."
+    ))
+    data_list$fleet_control$Fleet_type[inactive_idx]   <- "Off"
+  }
+
   return(data_list)
 }
 
