@@ -515,14 +515,17 @@ fit_mod <-
     L <- c()
     U <- c()
     for (i in 1:length(map$mapFactor)) {
-      if (!names(map$mapFactor)[i] %in% random_vars) { # no bounds for random effects
-        L <- c(L, unlist(bounds$lower[[i]])[which(!is.na(unlist(map$mapFactor[[i]])) & !duplicated(unlist(map$mapFactor[[i]])))])
-        U <- c(U, unlist(bounds$upper[[i]])[which(!is.na(unlist(map$mapFactor[[i]])) & !duplicated(unlist(map$mapFactor[[i]])))])
+      nm <- names(map$mapFactor)[i]
+      if (!nm %in% random_vars) { # no bounds for random effects
+        mf   <- unlist(map$mapFactor[[i]])
+        keep <- which(!is.na(mf) & !duplicated(mf))
+        L <- c(L, unlist(bounds$lower[[nm]])[keep])
+        U <- c(U, unlist(bounds$upper[[nm]])[keep])
       }
     }
 
     # Dimension check
-    start_par <- start_par[names(map$mapFactor)]
+    start_par <- start_par[names(map$mapFactor), drop = FALSE]
     dim_check <- sapply(start_par, function(x) length(unlist(x))) == sapply(map$mapFactor, function(x) length(unlist(x)))
     if (sum(dim_check) != length(dim_check)) {
       stop(paste0("Map and parameter objects are not the same size for: ", names(dim_check)[which(dim_check == FALSE)]))

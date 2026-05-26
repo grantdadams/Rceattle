@@ -118,7 +118,7 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
     if(nrow(proj_ration_data) > 0){
       proj_ration_data <- proj_ration_data |>
         dplyr::group_by(Species, Sex) |>
-        dplyr::slice(rep(n(),  nyrs_proj_peel)) |>
+        dplyr::slice(rep(dplyr::n(),  nyrs_proj_peel)) |>
         dplyr::mutate(Year = peel_prj_yrs)
       data_list$ration_data  <- rbind(data_list$ration_data, proj_ration_data) |>
         dplyr::arrange(Species, Year)
@@ -175,65 +175,67 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
 
     # * Refit ----
     newmod <- suppressWarnings(
-      Rceattle::fit_mod(
-        data_list = data_list,
-        inits = inits,
-        map =  map,
-        bounds = NULL,
-        file = NULL,
-        estimateMode = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode), # Run hindcast and projection, otherwise debug
-        HCR = build_hcr(HCR = data_list$HCR,
-                        DynamicHCR = data_list$DynamicHCR,
-                        Ftarget = data_list$Ftarget,
-                        Flimit = data_list$Flimit,
-                        Ptarget = data_list$Ptarget,
-                        Plimit = data_list$Plimit,
-                        Alpha = data_list$Alpha,
-                        Pstar = data_list$Pstar,
-                        Sigma = data_list$Sigma,
-                        Fmult = data_list$Fmult,
-                        HCRorder = data_list$HCRorder
-        ),
-        # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
-        recFun = suppressWarnings(build_srr(
-          srr_fun = data_list$srr_fun,
-          srr_pred_fun  = data_list$srr_pred_fun,
-          proj_mean_rec  = data_list$proj_mean_rec,
-          srr_mse_switchyr = min(data_list$srr_mse_switchyr, endyr_peel),
-          srr_hat_styr = data_list$srr_hat_styr,
-          srr_hat_endyr = min(data_list$srr_hat_endyr, endyr_peel),
-          srr_est_mode  = data_list$srr_est_mode,
-          srr_prior  = data_list$srr_prior,
-          srr_prior_sd   = data_list$srr_prior_sd,
-          Bmsy_lim = data_list$Bmsy_lim,
-          srr_indices = data_list$srr_indices,
-          linkages = data_list$srr_linkages)),
-        # suppressWarnings: legacy M1_indices may travel via data_list.
-        M1Fun = suppressWarnings(build_M1(
-          M1_model = data_list$M1_model,
-          M1_re = data_list$M1_re,
-          updateM1 = FALSE,
-          M1_use_prior = data_list$M1_use_prior,
-          M2_use_prior = data_list$M2_use_prior,
-          M_prior = data_list$M_prior,
-          M_prior_sd = data_list$M_prior_sd,
-          M1_indices = data_list$M1_indices,
-          linkages = data_list$M1_linkages)),
-        growthFun = build_growth(fun = data_list$growth_fun,
-                                 linkages = data_list$growth_linkages),
-        random_rec = data_list$random_rec,
-        niter = data_list$niter,
-        msmMode = data_list$msmMode,
-        avgnMode = data_list$avgnMode,
-        suitMode = data_list$suitMode,
-        suit_styr = data_list$suit_styr,
-        suit_endyr = min(data_list$suit_endyr, endyr_peel),   # Update to end year if less than suit_endyr
-        initMode = data_list$initMode,
-        fit_control = fit_control(
-          phase   = TRUE, # Phasing or else the parameters dont wanna move
-          loopnum = data_list$loopnum,
-          getsd   = TRUE,
-          verbose = 0))
+      suppressMessages(
+        Rceattle::fit_mod(
+          data_list = data_list,
+          inits = inits,
+          map =  map,
+          bounds = NULL,
+          file = NULL,
+          estimateMode = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode), # Run hindcast and projection, otherwise debug
+          HCR = build_hcr(HCR = data_list$HCR,
+                          DynamicHCR = data_list$DynamicHCR,
+                          Ftarget = data_list$Ftarget,
+                          Flimit = data_list$Flimit,
+                          Ptarget = data_list$Ptarget,
+                          Plimit = data_list$Plimit,
+                          Alpha = data_list$Alpha,
+                          Pstar = data_list$Pstar,
+                          Sigma = data_list$Sigma,
+                          Fmult = data_list$Fmult,
+                          HCRorder = data_list$HCRorder
+          ),
+          # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
+          recFun = suppressWarnings(build_srr(
+            srr_fun = data_list$srr_fun,
+            srr_pred_fun  = data_list$srr_pred_fun,
+            proj_mean_rec  = data_list$proj_mean_rec,
+            srr_mse_switchyr = min(data_list$srr_mse_switchyr, endyr_peel),
+            srr_hat_styr = data_list$srr_hat_styr,
+            srr_hat_endyr = min(data_list$srr_hat_endyr, endyr_peel),
+            srr_est_mode  = data_list$srr_est_mode,
+            srr_prior  = data_list$srr_prior,
+            srr_prior_sd   = data_list$srr_prior_sd,
+            Bmsy_lim = data_list$Bmsy_lim,
+            srr_indices = data_list$srr_indices,
+            linkages = data_list$srr_linkages)),
+          # suppressWarnings: legacy M1_indices may travel via data_list.
+          M1Fun = suppressWarnings(build_M1(
+            M1_model = data_list$M1_model,
+            M1_re = data_list$M1_re,
+            updateM1 = FALSE,
+            M1_use_prior = data_list$M1_use_prior,
+            M2_use_prior = data_list$M2_use_prior,
+            M_prior = data_list$M_prior,
+            M_prior_sd = data_list$M_prior_sd,
+            M1_indices = data_list$M1_indices,
+            linkages = data_list$M1_linkages)),
+          growthFun = build_growth(fun = data_list$growth_fun,
+                                   linkages = data_list$growth_linkages),
+          random_rec = data_list$random_rec,
+          niter = data_list$niter,
+          msmMode = data_list$msmMode,
+          avgnMode = data_list$avgnMode,
+          suitMode = data_list$suitMode,
+          suit_styr = data_list$suit_styr,
+          suit_endyr = min(data_list$suit_endyr, endyr_peel),   # Update to end year if less than suit_endyr
+          initMode = data_list$initMode,
+          fit_control = fit_control(
+            phase   = TRUE, # Phasing or else the parameters dont wanna move
+            loopnum = data_list$loopnum,
+            getsd   = TRUE,
+            verbose = 0))
+      )
     )
 
     # Forecast ----
@@ -279,66 +281,68 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
         values =  rec_dev)
     }
 
-    newmod <- suppressWarnings(
-      Rceattle::fit_mod(
-        data_list = data_list,
-        inits = peeled_pars,
-        map =  map,
-        bounds = NULL,
-        file = NULL,
-        estimateMode = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode), # Run hindcast and projection, otherwise debug
-        HCR = build_hcr(HCR = data_list$HCR,
-                        DynamicHCR = data_list$DynamicHCR,
-                        Ftarget = data_list$Ftarget,
-                        Flimit = data_list$Flimit,
-                        Ptarget = data_list$Ptarget,
-                        Plimit = data_list$Plimit,
-                        Alpha = data_list$Alpha,
-                        Pstar = data_list$Pstar,
-                        Sigma = data_list$Sigma,
-                        Fmult = data_list$Fmult,
-                        HCRorder = data_list$HCRorder
-        ),
-        # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
-        recFun = suppressWarnings(build_srr(
-          srr_fun = data_list$srr_fun,
-          srr_pred_fun  = data_list$srr_pred_fun,
-          proj_mean_rec  = data_list$proj_mean_rec,
-          srr_mse_switchyr = min(data_list$srr_mse_switchyr, endyr_peel),
-          srr_hat_styr = data_list$srr_hat_styr,
-          srr_hat_endyr = min(data_list$srr_hat_endyr, endyr_peel),
-          srr_est_mode  = data_list$srr_est_mode,
-          srr_prior  = data_list$srr_prior,
-          srr_prior_sd   = data_list$srr_prior_sd,
-          Bmsy_lim = data_list$Bmsy_lim,
-          srr_indices = data_list$srr_indices,
-          linkages = data_list$srr_linkages)),
-        # suppressWarnings: legacy M1_indices may travel via data_list.
-        M1Fun = suppressWarnings(build_M1(
-          M1_model = data_list$M1_model,
-          M1_re = data_list$M1_re,
-          updateM1 = FALSE,
-          M1_use_prior = data_list$M1_use_prior,
-          M2_use_prior = data_list$M2_use_prior,
-          M_prior = data_list$M_prior,
-          M_prior_sd = data_list$M_prior_sd,
-          M1_indices = data_list$M1_indices,
-          linkages = data_list$M1_linkages)),
-        growthFun = build_growth(fun = data_list$growth_fun,
-                                 linkages = data_list$growth_linkages),
-        random_rec = data_list$random_rec,
-        niter = data_list$niter,
-        msmMode = data_list$msmMode,
-        avgnMode = data_list$avgnMode,
-        suitMode = data_list$suitMode,
-        suit_styr = data_list$suit_styr,
-        suit_endyr = min(data_list$suit_endyr, endyr_peel),   # Update to end year if less than suit_endyr
-        initMode = data_list$initMode,
-        fit_control = fit_control(
-          phase   = TRUE, # Phasing or else the parameters dont wanna move
-          loopnum = data_list$loopnum,
-          getsd   = TRUE,
-          verbose = 0))
+    newmod <- suppressMessages(
+      suppressWarnings(
+        Rceattle::fit_mod(
+          data_list = data_list,
+          inits = peeled_pars,
+          map =  map,
+          bounds = NULL,
+          file = NULL,
+          estimateMode = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode), # Run hindcast and projection, otherwise debug
+          HCR = build_hcr(HCR = data_list$HCR,
+                          DynamicHCR = data_list$DynamicHCR,
+                          Ftarget = data_list$Ftarget,
+                          Flimit = data_list$Flimit,
+                          Ptarget = data_list$Ptarget,
+                          Plimit = data_list$Plimit,
+                          Alpha = data_list$Alpha,
+                          Pstar = data_list$Pstar,
+                          Sigma = data_list$Sigma,
+                          Fmult = data_list$Fmult,
+                          HCRorder = data_list$HCRorder
+          ),
+          # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
+          recFun = suppressWarnings(build_srr(
+            srr_fun = data_list$srr_fun,
+            srr_pred_fun  = data_list$srr_pred_fun,
+            proj_mean_rec  = data_list$proj_mean_rec,
+            srr_mse_switchyr = min(data_list$srr_mse_switchyr, endyr_peel),
+            srr_hat_styr = data_list$srr_hat_styr,
+            srr_hat_endyr = min(data_list$srr_hat_endyr, endyr_peel),
+            srr_est_mode  = data_list$srr_est_mode,
+            srr_prior  = data_list$srr_prior,
+            srr_prior_sd   = data_list$srr_prior_sd,
+            Bmsy_lim = data_list$Bmsy_lim,
+            srr_indices = data_list$srr_indices,
+            linkages = data_list$srr_linkages)),
+          # suppressWarnings: legacy M1_indices may travel via data_list.
+          M1Fun = suppressWarnings(build_M1(
+            M1_model = data_list$M1_model,
+            M1_re = data_list$M1_re,
+            updateM1 = FALSE,
+            M1_use_prior = data_list$M1_use_prior,
+            M2_use_prior = data_list$M2_use_prior,
+            M_prior = data_list$M_prior,
+            M_prior_sd = data_list$M_prior_sd,
+            M1_indices = data_list$M1_indices,
+            linkages = data_list$M1_linkages)),
+          growthFun = build_growth(fun = data_list$growth_fun,
+                                   linkages = data_list$growth_linkages),
+          random_rec = data_list$random_rec,
+          niter = data_list$niter,
+          msmMode = data_list$msmMode,
+          avgnMode = data_list$avgnMode,
+          suitMode = data_list$suitMode,
+          suit_styr = data_list$suit_styr,
+          suit_endyr = min(data_list$suit_endyr, endyr_peel),   # Update to end year if less than suit_endyr
+          initMode = data_list$initMode,
+          fit_control = fit_control(
+            phase   = TRUE, # Phasing or else the parameters dont wanna move
+            loopnum = data_list$loopnum,
+            getsd   = TRUE,
+            verbose = 0))
+      )
     )
 
     # gc()
@@ -412,26 +416,26 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
   # beta_mohns <- data.frame(matrix(0, nrow = length(objects), ncol = 3 + data_list$nspp))
   # colnames(beta_mohns) <- c("Object", "Forecast year", "N", data_list$spnames)
 
-#
-#   # * Loop through peels ----
-#   for (i in 1:(length(mod_list) - 1)) {
-#     endyr_peel <- mod_list[[i + 1]]$data_list$endyr_peel
-#     nyrs_peel <- mod_list[[i + 1]]$data_list$endyr_peel - styr + 1
-#     ind <- 1
-#
-#     # * Loop output ----
-#     for (j in 1:length(objects)) {
-#       base <- mod_list[[1]]$estimated_params$beta_rec_pars[,j]
-#       peel <- mod_list[[i + 1]]$estimated_params$beta_rec_pars[,j]
-#       rel_error <- ((peel - base)/base)
-#
-#       # * Save and sum relative error ----
-#       beta_mohns[j, 1] <- objects[j]        # Object
-#       beta_mohns[j, 2] <- 0                 # Year
-#       beta_mohns[j, 3] <- beta_mohns[j, 3] + 1   # N
-#       beta_mohns[j, 4:(data_list$nspp + 3) ] <- beta_mohns[j, 4:(data_list$nspp + 3)] + rel_error # Relative error
-#     }
-#   }
+  #
+  #   # * Loop through peels ----
+  #   for (i in 1:(length(mod_list) - 1)) {
+  #     endyr_peel <- mod_list[[i + 1]]$data_list$endyr_peel
+  #     nyrs_peel <- mod_list[[i + 1]]$data_list$endyr_peel - styr + 1
+  #     ind <- 1
+  #
+  #     # * Loop output ----
+  #     for (j in 1:length(objects)) {
+  #       base <- mod_list[[1]]$estimated_params$beta_rec_pars[,j]
+  #       peel <- mod_list[[i + 1]]$estimated_params$beta_rec_pars[,j]
+  #       rel_error <- ((peel - base)/base)
+  #
+  #       # * Save and sum relative error ----
+  #       beta_mohns[j, 1] <- objects[j]        # Object
+  #       beta_mohns[j, 2] <- 0                 # Year
+  #       beta_mohns[j, 3] <- beta_mohns[j, 3] + 1   # N
+  #       beta_mohns[j, 4:(data_list$nspp + 3) ] <- beta_mohns[j, 4:(data_list$nspp + 3)] + rel_error # Relative error
+  #     }
+  #   }
 
   # * Divide N ----
   # beta_mohns[, 4:(data_list$nspp + 3) ] <- beta_mohns[, 4:(data_list$nspp + 3)]/beta_mohns[, 3]
