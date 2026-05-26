@@ -35,6 +35,11 @@ data_check <- function(data_list) {
     errors <- c(errors, "Length based suitability not yet implemented")
   }
 
+  # minage: < 0 error
+  if(any(data_list$minage < 0)){
+    errors <- c(errors, "Minimum age is < 0. Check 'minage'.")
+  }
+
   # Year ordering
   if(!is.null(data_list$styr) && !is.null(data_list$endyr) && data_list$styr > data_list$endyr){
     errors <- c(errors, paste0("styr (", data_list$styr, ") must be <= endyr (", data_list$endyr, ")"))
@@ -350,6 +355,34 @@ data_check <- function(data_list) {
       ))
     }
 
+    # Estimated selectivity (Selectivity != "Fixed" and Fleet_type != "Off")
+    # requires comp or CAAL data with Year > 0 to be identifiable. Otherwise
+    # the selectivity parameters are unconstrained and the optimizer wanders.
+    has_active_age_data <- function(flt_code, df) {
+      if (!has_data(df) || !all(c("Fleet_code", "Year") %in% colnames(df))) return(FALSE)
+      any(df$Fleet_code == flt_code & !is.na(df$Year) & df$Year > 0 & df$Sample_size > 0)
+    }
+    est_sel_flts <- fc[!is.na(fc$Selectivity) &
+                         fc$Selectivity != "Fixed" &
+                         (!"Fleet_type" %in% colnames(fc) | fc$Fleet_type != "Off"),
+                       , drop = FALSE]
+    if (nrow(est_sel_flts) > 0) {
+      missing_age_data <- vapply(seq_len(nrow(est_sel_flts)), function(i) {
+        fc_code <- est_sel_flts$Fleet_code[i]
+        !has_active_age_data(fc_code, data_list$comp_data) &&
+          !has_active_age_data(fc_code, data_list$caal_data)
+      }, logical(1))
+      if (any(missing_age_data)) {
+        errors <- c(errors, paste0(
+          "Fleet(s) with estimated Selectivity but no comp_data or caal_data ",
+          "rows in the likelihood (all Year/Sample_size == 0 or missing): ",
+          paste(est_sel_flts$Fleet_name[missing_age_data], collapse = ", "),
+          ". Either provide composition / CAAL data, mark Selectivity = 'Fixed' ",
+          "with emp_sel, or set Fleet_type = 'Off'."
+        ))
+      }
+    }
+
     # Mirroring (informational)
     mirror_sel <- fc |> dplyr::group_by(Selectivity_index) |>
       dplyr::filter(dplyr::n() > 1) |> dplyr::ungroup()
@@ -410,7 +443,7 @@ data_check <- function(data_list) {
     }
   }
 
-  # Sample_size > 0
+  # Sample_size >= 0
   for(df_name in c("comp_data", "caal_data", "diet_data")){
     df <- data_list[[df_name]]
     if(has_data(df) && "Sample_size" %in% colnames(df) && any(df$Sample_size < 0 & df$Year > 0, na.rm = TRUE)){
@@ -450,6 +483,33 @@ data_check <- function(data_list) {
     if(length(missing_years) > 0){
       errors <- c(errors, paste0("catch_data is missing data for years: ",
                                  paste(missing_years, collapse = ", ")))
+    }
+  }
+
+  # Empirical growth (growth_model == 0) does NOT populate growth_matrix from
+  # age_trans_matrix; the C++ pred_CAAL = N * sel * growth_matrix then sees
+  # growth_matrix = 0 and pred_CAAL collapses to ~0. The multinomial NLL
+  # evaluates to a constant offset with no useful gradient, and the optimizer
+  # finds spurious minima. Check per-species since growth_model is per-species.
+  if(has_data(data_list$caal_data) && "Species" %in% colnames(data_list$caal_data)){
+    bad_sp <- integer(0)
+    for(sp in seq_along(data_list$growth_model)){
+      if(data_list$growth_model[sp] == 0 &&
+         any(data_list$caal_data$Species == sp & data_list$caal_data$Year > 0  & data_list$caal_data$Sample_size > 0)){
+        bad_sp <- c(bad_sp, sp)
+      }
+    }
+    if(length(bad_sp) > 0){
+      sp_names <- if(!is.null(data_list$spnames)) data_list$spnames[bad_sp] else as.character(bad_sp)
+      errors <- c(errors, paste0(
+        "Empirical growth (growth_model == 0) is incompatible with CAAL data ",
+        "for species: ", paste(sp_names, collapse = ", "), ". The C++ ",
+        "growth_matrix is not populated from age_trans_matrix in the empirical ",
+        "branch, so pred_CAAL = 0 and the CAAL likelihood gradient is ",
+        "uninformative. Either (a) switch to parametric growth for these ",
+        "species via build_growth(fun = 'vonBertalanffy'), or (b) drop ",
+        "caal_data rows for these species (set to empty, Sample_size = 0, or Year < 0)."
+      ))
     }
   }
 

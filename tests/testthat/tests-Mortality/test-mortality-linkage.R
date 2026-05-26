@@ -25,7 +25,7 @@ testthat::test_that("Test multiple M linkeages", {
   m1_spec <- Rceattle::build_M1(
     M1_model = "sex_age_invariant",
     linkages = list(
-      log_M1 = Rceattle::linkage_spec(
+      M1 = Rceattle::linkage_spec(
         formula = ~ 0 + EnvIndex + EnvIndex2 + EnvIndex3,
         by = ~ species
       )
@@ -44,9 +44,9 @@ testthat::test_that("Test multiple M linkeages", {
   inits <- mod0$estimated_params
   inits$log_M1[] <- log(0.2)
   tbl <- mod0$data_list$linkage_table
-  is_log_m1 <- tbl$param == "log_M1"
+  is_M1 <- tbl$param == "M1"
   inits$beta_linkage <- as.numeric(inits$beta_linkage)
-  inits$beta_linkage[is_log_m1] <- 1
+  inits$beta_linkage[is_M1] <- 1
   inits$log_F[] <- -999 # No fishing
 
   # Run
@@ -109,7 +109,7 @@ testthat::test_that("Test single M, multiple M/sex linkeages, M both-sex linkage
   m1_spec <- Rceattle::build_M1(
     M1_model = c("sex_age_invariant", "sex_specific", "sex_age_invariant"),
     linkages = list(
-      log_M1 = list(
+      M1 = list(
         Rceattle::linkage_spec(
           formula = ~ 0 + EnvIndex + EnvIndex2 + EnvIndex3,
           by = ~ species + sex,
@@ -138,14 +138,14 @@ testthat::test_that("Test single M, multiple M/sex linkeages, M both-sex linkage
   inits$log_M1[] <- log(0.2)
   tbl <- ss_run$data_list$linkage_table
   env_cols <- c("EnvIndex", "EnvIndex2", "EnvIndex3")
-  is_log_m1 <- tbl$param == "log_M1"
+  is_M1 <- tbl$param == "M1"
   inits$beta_linkage <- as.numeric(inits$beta_linkage)
   for (j in seq_along(env_cols)) {
-    idx <- which(is_log_m1 & tbl$species == 2 & tbl$sex == 1 & tbl$design_col == env_cols[j])
+    idx <- which(is_M1 & tbl$species == 2 & tbl$sex == 1 & tbl$design_col == env_cols[j])
     inits$beta_linkage[idx] <- 1
-    idx <- which(is_log_m1 & tbl$species == 2 & tbl$sex == 2 & tbl$design_col == env_cols[j])
+    idx <- which(is_M1 & tbl$species == 2 & tbl$sex == 2 & tbl$design_col == env_cols[j])
     inits$beta_linkage[idx] <- 0.5
-    idx <- which(is_log_m1 & tbl$species == 3 & is.na(tbl$sex) & tbl$design_col == env_cols[j])
+    idx <- which(is_M1 & tbl$species == 3 & is.na(tbl$sex) & tbl$design_col == env_cols[j])
     inits$beta_linkage[idx] <- 1
   }
   inits$log_F[] <- -999 # No fishing

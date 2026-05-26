@@ -4,7 +4,8 @@ testthat::test_that("Sex-specific age-based descending logistic selectivity not 
 
   # Data
   data("GOA2018SS")
-  GOA2018SS$fleet_control$Selectivity <- "DescendingLogistic"
+  rows_use <- which(GOA2018SS$fleet_control$Selectivity != 0 & GOA2018SS$fleet_control$Fleet_type != 0)
+  GOA2018SS$fleet_control$Selectivity[rows_use] <- "DescendingLogistic"
   GOA2018SS$fleet_control$Time_varying_sel <- 0
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Bin_first_selected <- 1
@@ -36,14 +37,16 @@ testthat::test_that("Sex-specific age-based descending logistic selectivity not 
   )
 
   # Map
-  # - Slope
-  testthat::expect_equal(c(ss_run$map$mapList$log_sel_slp[2,,]), c(1:6, NA, 7:8,10, 12, 14:18, rep(NA, 8), 9, 11, 13, rep(NA, 5)))
-  # - Desc slope
+  # - Desc Slope
+  testthat::expect_equal(sum(!is.na(ss_run$map$mapList$log_sel_slp[2,,])), 15)
+  testthat::expect_equal(length(unique(as.numeric(ss_run$map$mapList$log_sel_slp[2,,]))), 16)
+  # - slope
   testthat::expect_equal(c(ss_run$map$mapList$log_sel_slp[1,,]), as.numeric(rep(NA, 16*2)))
 
-  # - Asympt
-  testthat::expect_equal(c(ss_run$map$mapList$sel_inf[2,,]), c(1:6, NA, 7:8,10, 12, 14:18, rep(NA, 8), 9, 11, 13, rep(NA, 5)))
   # - Desc Asympt
+  testthat::expect_equal(sum(!is.na(ss_run$map$mapList$sel_inf[2,,])), 15)
+  testthat::expect_equal(length(unique(as.numeric(ss_run$map$mapList$sel_inf[2,,]))), 16)
+  # -  Asympt
   testthat::expect_equal(c(ss_run$map$mapList$sel_inf[1,,]), as.numeric(rep(NA, 16*2)))
 
   # - Devs
@@ -68,7 +71,8 @@ testthat::test_that("Sex-specific age-based time-varying descending logistic sel
 
   # Data
   data("GOA2018SS")
-  GOA2018SS$fleet_control$Selectivity <- "DescendingLogistic" # age-based descending
+  rows_use <- which(GOA2018SS$fleet_control$Selectivity != 0 & GOA2018SS$fleet_control$Fleet_type != 0)
+  GOA2018SS$fleet_control$Selectivity[rows_use] <- "DescendingLogistic"
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Time_varying_sel <- 1
   GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
@@ -114,23 +118,25 @@ testthat::test_that("Sex-specific age-based time-varying descending logistic sel
   )
 
   # Map
-  # - Slope
-  testthat::expect_equal(c(!is.na(ss_run$map$mapList$log_sel_slp[2,,])), !is.na(c(1:6, NA, 7:8,10, 12, 14:18, rep(NA, 8), 9, 11, 13, rep(NA, 5))))
-  # - Desc slope
+  # - Desc Slope
+  testthat::expect_equal(sum(!is.na(ss_run$map$mapList$log_sel_slp[2,,])), 15)
+  testthat::expect_equal(length(unique(as.numeric(ss_run$map$mapList$log_sel_slp[2,,]))), 16)
+  # - slope
   testthat::expect_equal(c(ss_run$map$mapList$log_sel_slp[1,,]), as.numeric(rep(NA, 16*2)))
 
-  # - Asympt
-  testthat::expect_equal(c(!is.na(ss_run$map$mapList$sel_inf[2,,])), !is.na(c(1:6, NA, 7:8,10, 12, 14:18, rep(NA, 8), 9, 11, 13, rep(NA, 5))))
   # - Desc Asympt
+  testthat::expect_equal(sum(!is.na(ss_run$map$mapList$sel_inf[2,,])), 15)
+  testthat::expect_equal(length(unique(as.numeric(ss_run$map$mapList$sel_inf[2,,]))), 16)
+  # -  Asympt
   testthat::expect_equal(c(ss_run$map$mapList$sel_inf[1,,]), as.numeric(rep(NA, 16*2)))
 
   # - Devs
   # -- Descending
-  testthat::expect_equal(sum(!is.na(c(ss_run$map$mapList$log_sel_slp_dev[2,,,]))), 18 * nyrs) # slope
-  testthat::expect_equal(sum(!is.na(c(ss_run$map$mapList$sel_inf_dev[2,,,]))), 18 * nyrs) # asymptote
+  testthat::expect_equal(sum(!is.na(c(ss_run$map$mapList$log_sel_slp_dev[2,,,]))), 15 * nyrs) # slope
+  testthat::expect_equal(sum(!is.na(c(ss_run$map$mapList$sel_inf_dev[2,,,]))), 15 * nyrs) # asymptote
 
-  testthat::expect_equal(length(unique(c(ss_run$map$mapList$log_sel_slp_dev[2,,,]))), 18 * nyrs + 1) # slope
-  testthat::expect_equal(length(unique(c(ss_run$map$mapList$sel_inf_dev[2,,,]))), 18 * nyrs + 1) # asymptote
+  testthat::expect_equal(length(unique(c(ss_run$map$mapList$log_sel_slp_dev[2,,,]))), 15 * nyrs + 1) # slope
+  testthat::expect_equal(length(unique(c(ss_run$map$mapList$sel_inf_dev[2,,,]))), 15 * nyrs + 1) # asymptote
 
   # -- Ascending
   testthat::expect_equal(c(ss_run$map$mapList$log_sel_slp_dev[1,,,]), as.numeric(rep(NA, 2688/2))) #  slope
@@ -156,7 +162,8 @@ testthat::test_that("Sex-specific age-based time-varying descending logistic sel
   # Data
   data("GOA2018SS")
   nyrs <- length(GOA2018SS$styr:GOA2018SS$endyr)
-  GOA2018SS$fleet_control$Selectivity <- "DescendingLogistic" # Age based descending
+  rows_use <- which(GOA2018SS$fleet_control$Selectivity != 0 & GOA2018SS$fleet_control$Fleet_type != 0)
+  GOA2018SS$fleet_control$Selectivity[rows_use] <- "DescendingLogistic"
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Time_varying_sel <- 1
   GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
@@ -179,10 +186,10 @@ testthat::test_that("Sex-specific age-based time-varying descending logistic sel
   )
 
   # Map
-  testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_dev_log_sd), c(1:6, NA, 8:16)) # Dev sigma turned on except for not estimated fleet
+  testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_dev_log_sd), c(1:3, rep(NA, 4), 8:16)) # Dev sigma turned on except for not estimated fleet
 
   # TMB object
-  testthat::expect_equal(length(unique(ss_run$obj$env$random)),  2 * 18 * nyrs)
+  testthat::expect_equal(length(unique(ss_run$obj$env$random)),  2 * 15 * nyrs)
 })
 
 
@@ -192,7 +199,8 @@ testthat::test_that("Time-varying descending logistic selectivity likelihood", {
 
   # Data
   data("GOA2018SS")
-  GOA2018SS$fleet_control$Selectivity <- "DescendingLogistic" # Age-based descending logistic
+  rows_use <- which(GOA2018SS$fleet_control$Selectivity != 0 & GOA2018SS$fleet_control$Fleet_type != 0)
+  GOA2018SS$fleet_control$Selectivity[rows_use] <- "DescendingLogistic"
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Time_varying_sel <- 1
   GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1 # Note that inf does 4*sd prior, should adapt to scale-invariant sd
@@ -236,7 +244,7 @@ testthat::test_that("Time-varying descending logistic selectivity likelihood", {
 
   # Nll
   rcnll <- sum(ss_run$quantities$jnll_comp[6,])
-  single_dv_nll <- sum(-dnorm(inf_dev, 0, 1, log = TRUE) - dnorm(log_slp_dev, 0, 4, log = TRUE)) * 18
+  single_dv_nll <- sum(-dnorm(inf_dev, 0, 1, log = TRUE) - dnorm(log_slp_dev, 0, 4, log = TRUE)) * 15
 
   testthat::expect_equal(rcnll, single_dv_nll)
 })

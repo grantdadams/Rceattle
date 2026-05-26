@@ -11,8 +11,8 @@
 //
 // Process and parameter codes are kept in lockstep with R/0-linkage_encode.R:
 //   PROC: recruitment=0, M=1, growth=2, q=3, sel=4
-//   PARAM (growth): log_K=0, log_L1=1, log_Linf=2, log_m=3
-//   PARAM (M): log_M=0
+//   PARAM (growth): K=0, L1=1, Linf=2, m=3 (natural-scale names)
+//   PARAM (M): M1=0
 //   ...
 //
 // Stratum sentinels: a 0 in `linkage_species`, `linkage_sex`, or
@@ -40,7 +40,7 @@
 #define RCEATTLE_N_GROWTH_PARAMS 4
 
 // Number of recruitment parameters tracked in the offset tensor
-// (log_R0, log_alpha, log_beta).
+// (R0, alpha, beta -- natural-scale names; stored as log_R0 etc. in TMB).
 #define RCEATTLE_N_REC_PARAMS 3
 #define RCEATTLE_REC_R0    0
 #define RCEATTLE_REC_ALPHA 1
@@ -106,13 +106,13 @@ void rceattle_apply_growth_linkages(
       // this species (e.g. a sex-2 row applied to a single-sex stock).
       if (sx_hi > max_sx_for_sp) sx_hi = max_sx_for_sp;
 
+      // Log-link rows accumulate on the log scale (this tensor is
+      // added to log_growth_pars before exp at the consume site).
+      // Identity-link rows are handled by
+      // rceattle_apply_growth_linkages_natural() into a separate
+      // natural-scale tensor.
+      if (linkfn != 1) continue;  // 1 = log
       for (int sx = sx_lo; sx < sx_hi; ++sx) {
-        // The growth params we accumulate for (log_K, log_L1, log_Linf,
-        // log_m) all live on a log scale already, so an "identity" link
-        // and a "log" link both contribute additively to the linear
-        // predictor. The branch is a placeholder for future processes
-        // (e.g. logit for steepness on a 0-1 scale).
-        (void)linkfn;
         // Clamp to the rows actually present in the design matrix:
         // env_data may not span the full projection horizon. Years
         // beyond linkage_X.rows() retain a zero offset, i.e. the
@@ -120,6 +120,60 @@ void rceattle_apply_growth_linkages(
         int yr_hi = std::min(nyrs, (int)linkage_X.rows());
         for (int yr = 0; yr < yr_hi; ++yr) {
           growth_offset(sp, sx, yr, param) += b * linkage_X(yr, xc);
+        }
+      }
+    }
+  }
+}
+
+
+// Natural-scale companion to rceattle_apply_growth_linkages(): consumes
+// identity-link rows (linkfn == 0) and accumulates b * X(yr) into a
+// natural-scale offset tensor. The consumer combines the two tensors as
+//   K_yr = exp(log_K_base + log_offset(yr)) + nat_offset(yr)
+// so identity-link slopes add directly to natural-scale K (or M1, etc.).
+template<class Type>
+void rceattle_apply_growth_linkages_natural(
+    array<Type>& growth_offset_nat,
+    const vector<int>&    linkage_process,
+    const vector<int>&    linkage_param,
+    const vector<int>&    linkage_species,
+    const vector<int>&    linkage_sex,
+    const vector<int>&    linkage_age_bin,
+    const vector<int>&    linkage_X_col,
+    const vector<int>&    linkage_link,
+    const matrix<Type>&   linkage_X,
+    const vector<Type>&   beta,
+    int                   nspp,
+    const vector<int>&    nsex,
+    int                   nyrs)
+{
+  (void)linkage_age_bin;
+  int n = beta.size();
+  if (n == 0) return;
+  for (int i = 0; i < n; ++i) {
+    int proc = linkage_process(i);
+    if (proc != RCEATTLE_PROC_GROWTH) continue;
+    int param = linkage_param(i);
+    if (param < 0 || param >= RCEATTLE_N_GROWTH_PARAMS) continue;
+    if (linkage_link(i) != 0) continue;  // 0 = identity
+
+    int sp_in  = linkage_species(i);
+    int sx_in  = linkage_sex(i);
+    int xc     = linkage_X_col(i);
+    Type b     = beta(i);
+
+    int sp_lo = (sp_in == 0) ? 0 : (sp_in - 1);
+    int sp_hi = (sp_in == 0) ? nspp : sp_in;
+    for (int sp = sp_lo; sp < sp_hi; ++sp) {
+      int max_sx_for_sp = nsex(sp);
+      int sx_lo = (sx_in == 0) ? 0 : (sx_in - 1);
+      int sx_hi = (sx_in == 0) ? max_sx_for_sp : sx_in;
+      if (sx_hi > max_sx_for_sp) sx_hi = max_sx_for_sp;
+      int yr_hi = std::min(nyrs, (int)linkage_X.rows());
+      for (int sx = sx_lo; sx < sx_hi; ++sx) {
+        for (int yr = 0; yr < yr_hi; ++yr) {
+          growth_offset_nat(sp, sx, yr, param) += b * linkage_X(yr, xc);
         }
       }
     }
@@ -169,13 +223,15 @@ void rceattle_apply_M_linkages(
     // accepted as-is here.
     (void)linkage_param;
 
+    // Log-link rows only; identity-link rows are accumulated by
+    // rceattle_apply_M_linkages_natural() into a separate tensor.
+    if (linkage_link(i) != 1) continue;
+
     int sp_in  = linkage_species(i);
     int sx_in  = linkage_sex(i);
     int ab_in  = linkage_age_bin(i);
     int xc     = linkage_X_col(i);
-    int linkfn = linkage_link(i);
     Type b     = beta(i);
-    (void)linkfn;
 
     int sp_lo = (sp_in == 0) ? 0 : (sp_in - 1);
     int sp_hi = (sp_in == 0) ? nspp : sp_in;
@@ -199,6 +255,64 @@ void rceattle_apply_M_linkages(
         for (int ab = ab_lo; ab < ab_hi; ++ab) {
           for (int yr = 0; yr < yr_hi; ++yr) {
             M_offset(sp, sx, ab, yr) += b * linkage_X(yr, xc);
+          }
+        }
+      }
+    }
+  }
+}
+
+
+// Natural-scale companion to rceattle_apply_M_linkages(). Consumes
+// identity-link rows; the consumer combines as
+//   M1_at_age = exp(log_M1 + log_offset) + nat_offset.
+template<class Type>
+void rceattle_apply_M_linkages_natural(
+    array<Type>&          M_offset_nat,
+    const vector<int>&    linkage_process,
+    const vector<int>&    linkage_param,
+    const vector<int>&    linkage_species,
+    const vector<int>&    linkage_sex,
+    const vector<int>&    linkage_age_bin,
+    const vector<int>&    linkage_X_col,
+    const vector<int>&    linkage_link,
+    const matrix<Type>&   linkage_X,
+    const vector<Type>&   beta,
+    int                   nspp,
+    const vector<int>&    nsex,
+    const vector<int>&    nages,
+    int                   nyrs)
+{
+  (void)linkage_param;
+  int n = beta.size();
+  if (n == 0) return;
+  for (int i = 0; i < n; ++i) {
+    int proc = linkage_process(i);
+    if (proc != RCEATTLE_PROC_M) continue;
+    if (linkage_link(i) != 0) continue;  // identity only
+
+    int sp_in  = linkage_species(i);
+    int sx_in  = linkage_sex(i);
+    int ab_in  = linkage_age_bin(i);
+    int xc     = linkage_X_col(i);
+    Type b     = beta(i);
+
+    int sp_lo = (sp_in == 0) ? 0 : (sp_in - 1);
+    int sp_hi = (sp_in == 0) ? nspp : sp_in;
+    for (int sp = sp_lo; sp < sp_hi; ++sp) {
+      int max_sx_for_sp = nsex(sp);
+      int max_age_for_sp = nages(sp);
+      int sx_lo = (sx_in == 0) ? 0 : (sx_in - 1);
+      int sx_hi = (sx_in == 0) ? max_sx_for_sp : sx_in;
+      if (sx_hi > max_sx_for_sp) sx_hi = max_sx_for_sp;
+      int ab_lo = (ab_in == 0) ? 0 : (ab_in - 1);
+      int ab_hi = (ab_in == 0) ? max_age_for_sp : ab_in;
+      if (ab_hi > max_age_for_sp) ab_hi = max_age_for_sp;
+      int yr_hi = std::min(nyrs, (int)linkage_X.rows());
+      for (int sx = sx_lo; sx < sx_hi; ++sx) {
+        for (int ab = ab_lo; ab < ab_hi; ++ab) {
+          for (int yr = 0; yr < yr_hi; ++yr) {
+            M_offset_nat(sp, sx, ab, yr) += b * linkage_X(yr, xc);
           }
         }
       }
@@ -250,11 +364,13 @@ void rceattle_apply_recruitment_linkages(
     int param = linkage_param(i);
     if (param < 0 || param >= RCEATTLE_N_REC_PARAMS) continue;
 
+    // Log-link rows only; identity-link rows are accumulated by
+    // rceattle_apply_recruitment_linkages_natural() into a separate tensor.
+    if (linkage_link(i) != 1) continue;
+
     int sp_in  = linkage_species(i);
     int xc     = linkage_X_col(i);
-    int linkfn = linkage_link(i);
     Type b     = beta(i);
-    (void)linkfn;
 
     int sp_lo = (sp_in == 0) ? 0 : (sp_in - 1);
     int sp_hi = (sp_in == 0) ? nspp : sp_in;
@@ -264,6 +380,52 @@ void rceattle_apply_recruitment_linkages(
     for (int sp = sp_lo; sp < sp_hi; ++sp) {
       for (int yr = 0; yr < yr_hi; ++yr) {
         rec_offset(sp, param, yr) += b * linkage_X(yr, xc);
+      }
+    }
+  }
+}
+
+
+// Natural-scale companion to rceattle_apply_recruitment_linkages().
+// Consumes identity-link rows; the consumer combines as
+//   R0(sp, yr) = exp(rec_pars(sp, 0) + log_offset) + nat_offset.
+template<class Type>
+void rceattle_apply_recruitment_linkages_natural(
+    array<Type>&          rec_offset_nat,
+    const vector<int>&    linkage_process,
+    const vector<int>&    linkage_param,
+    const vector<int>&    linkage_species,
+    const vector<int>&    linkage_sex,
+    const vector<int>&    linkage_age_bin,
+    const vector<int>&    linkage_X_col,
+    const vector<int>&    linkage_link,
+    const matrix<Type>&   linkage_X,
+    const vector<Type>&   beta,
+    int                   nspp,
+    int                   nyrs)
+{
+  (void)linkage_sex;
+  (void)linkage_age_bin;
+  int n = beta.size();
+  if (n == 0) return;
+  for (int i = 0; i < n; ++i) {
+    int proc = linkage_process(i);
+    if (proc != RCEATTLE_PROC_RECRUIT) continue;
+    int param = linkage_param(i);
+    if (param < 0 || param >= RCEATTLE_N_REC_PARAMS) continue;
+    if (linkage_link(i) != 0) continue;  // identity only
+
+    int sp_in  = linkage_species(i);
+    int xc     = linkage_X_col(i);
+    Type b     = beta(i);
+
+    int sp_lo = (sp_in == 0) ? 0 : (sp_in - 1);
+    int sp_hi = (sp_in == 0) ? nspp : sp_in;
+    int yr_hi = std::min(nyrs, (int)linkage_X.rows());
+
+    for (int sp = sp_lo; sp < sp_hi; ++sp) {
+      for (int yr = 0; yr < yr_hi; ++yr) {
+        rec_offset_nat(sp, param, yr) += b * linkage_X(yr, xc);
       }
     }
   }

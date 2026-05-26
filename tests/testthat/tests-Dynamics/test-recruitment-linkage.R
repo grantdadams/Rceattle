@@ -1,9 +1,9 @@
-testthat::test_that("recruitment_linkage_offset propagates into log_R0", {
+testthat::test_that("recruitment_linkage_offset propagates into R0", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
   # Single-species fixture; mean-recruitment srr_fun = 0 lets us
-  # verify R = R0 * exp(rec_dev + log_R0_offset) cleanly.
+  # verify R = R0 * exp(rec_dev + R0_offset) cleanly.
   set.seed(7)
   nyrs <- 20
   dat <- make_test_data(nyrs = nyrs, nages = 5, seed = 7)
@@ -12,11 +12,11 @@ testthat::test_that("recruitment_linkage_offset propagates into log_R0", {
   temp_v <- seq(-1, 1, length.out = length(yrs))
   dat$env_data <- data.frame(Year = yrs, temp = temp_v)
 
-  # Linkage on log_R0 with srr_fun = 0 (mean only).
+  # Linkage on R0 with srr_fun = 0 (mean only).
   rec_spec <- Rceattle::build_srr(
     srr_fun  = 0,
     linkages = list(
-      log_R0 = Rceattle::linkage_spec(formula = ~ temp, by = ~ species)
+      R0 = Rceattle::linkage_spec(formula = ~ temp, by = ~ species)
     )
   )
 
@@ -32,7 +32,7 @@ testthat::test_that("recruitment_linkage_offset propagates into log_R0", {
 
   tbl <- base_run$data_list$linkage_table
   testthat::expect_setequal(tbl$process, "recruitment")
-  testthat::expect_setequal(tbl$param,   "log_R0")
+  testthat::expect_setequal(tbl$param,   "R0")
   # 2 design cols (Intercept + temp) x 1 species = 2 rows.
   testthat::expect_equal(nrow(tbl), 2L)
 
@@ -60,13 +60,13 @@ testthat::test_that("recruitment_linkage_offset propagates into log_R0", {
     fit_control = Rceattle::fit_control(phase = FALSE, verbose = 0)
   ))
 
-  # The offset tensor for log_R0 must equal beta * temp[yr] for the
-  # only species; entries for log_alpha and log_beta remain zero.
+  # The offset tensor for R0 must equal beta * temp[yr] for the
+  # only species; entries for alpha and beta remain zero.
   off1 <- pert$quantities$recruitment_linkage_offset
-  obs_R0 <- as.numeric(off1[1, 1, yr_idx])  # 1 = log_R0 (cpp index 0 -> R 1)
+  obs_R0 <- as.numeric(off1[1, 1, yr_idx])  # 1 = R0 (cpp index 0 -> R 1)
   testthat::expect_equal(obs_R0, beta_temp * temp_v, tolerance = 1e-10)
-  testthat::expect_true(all(off1[, 2, ] == 0))   # log_alpha
-  testthat::expect_true(all(off1[, 3, ] == 0))   # log_beta
+  testthat::expect_true(all(off1[, 2, ] == 0))   # alpha
+  testthat::expect_true(all(off1[, 3, ] == 0))   # beta
 
   # And recruitment R(sp, yr) = R0 * exp(beta * temp[yr]) for the
   # hindcast years (with rec_dev set to 0).
@@ -91,7 +91,7 @@ testthat::test_that("recruitment_linkage_offset propagates into log_R0", {
   testthat::expect_equal(ratio, exp(beta_temp * temp_v), tolerance = 1e-8)
 })
 
-testthat::test_that("intercept-bearing log_R0 linkage: base rec_pars carries the level", {
+testthat::test_that("intercept-bearing R0 linkage: base rec_pars carries the level", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -100,7 +100,7 @@ testthat::test_that("intercept-bearing log_R0 linkage: base rec_pars carries the
   rec_spec <- Rceattle::build_srr(
     srr_fun  = 0,
     linkages = list(
-      log_R0 = Rceattle::linkage_spec(formula = ~ 1, by = ~ species)
+      R0 = Rceattle::linkage_spec(formula = ~ 1, by = ~ species)
     )
   )
 
@@ -127,7 +127,7 @@ testthat::test_that("intercept-bearing log_R0 linkage: base rec_pars carries the
   ))
 
   # The (Intercept) row is mapped out at 0; perturb rec_pars[, 1]
-  # (the base log_R0) instead. Year-0 R uses R0 directly when the
+  # (the base R0 parameter) instead. Year-0 R uses R0 directly when the
   # linkage's only term is the intercept.
   pert_inits <- base_run$estimated_params
   pert_inits$rec_dev[] <- 0
@@ -147,7 +147,7 @@ testthat::test_that("intercept-bearing log_R0 linkage: base rec_pars carries the
   testthat::expect_equal(pert_R_init / base_R_init, exp(0.75), tolerance = 1e-8)
 })
 
-testthat::test_that("linked log_R0 offsets propagate into recruitment for later years", {
+testthat::test_that("linked R0 offsets propagate into recruitment for later years", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -162,7 +162,7 @@ testthat::test_that("linked log_R0 offsets propagate into recruitment for later 
   rec_spec <- Rceattle::build_srr(
     srr_fun  = 0,
     linkages = list(
-      log_R0 = Rceattle::linkage_spec(formula = ~ temp, by = ~ species)
+      R0 = Rceattle::linkage_spec(formula = ~ temp, by = ~ species)
     )
   )
 
@@ -212,7 +212,7 @@ testthat::test_that("linked log_R0 offsets propagate into recruitment for later 
   testthat::expect_equal(pert_R / base_R, exp(beta_temp * temp_v[year_to_check]), tolerance = 1e-8)
 })
 
-testthat::test_that("recruitment linkage on log_alpha works for Beverton-Holt", {
+testthat::test_that("recruitment linkage on alpha works for Beverton-Holt", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -223,11 +223,11 @@ testthat::test_that("recruitment linkage on log_alpha works for Beverton-Holt", 
   temp_v <- seq(-1, 1, length.out = length(yrs))
   dat$env_data <- data.frame(Year = yrs, temp = temp_v)
 
-  # BH SRR with linkage on log_alpha.
+  # BH SRR with linkage on alpha.
   rec_spec <- Rceattle::build_srr(
     srr_fun  = 2,
     linkages = list(
-      log_alpha = Rceattle::linkage_spec(formula = ~ temp, by = ~ species)
+      alpha = Rceattle::linkage_spec(formula = ~ temp, by = ~ species)
     )
   )
 
@@ -242,7 +242,7 @@ testthat::test_that("recruitment linkage on log_alpha works for Beverton-Holt", 
   testthat::expect_s3_class(base_run, "Rceattle")
 
   tbl <- base_run$data_list$linkage_table
-  testthat::expect_setequal(tbl$param, "log_alpha")
+  testthat::expect_setequal(tbl$param, "alpha")
 
   # Perturb the temp coefficient and verify the offset tensor.
   inits <- base_run$estimated_params
@@ -262,12 +262,12 @@ testthat::test_that("recruitment linkage on log_alpha works for Beverton-Holt", 
     fit_control = Rceattle::fit_control(phase = FALSE, verbose = 0)
   ))
 
-  # Offset on log_alpha matches beta * temp; log_R0 / log_beta zero.
+  # Offset on alpha matches beta * temp; R0 / beta offset zero.
   off <- pert$quantities$recruitment_linkage_offset
-  obs_alpha <- as.numeric(off[1, 2, yr_idx])  # log_alpha is cpp index 1
+  obs_alpha <- as.numeric(off[1, 2, yr_idx])  # alpha is cpp index 1
   testthat::expect_equal(obs_alpha, beta_temp * temp_v, tolerance = 1e-10)
-  testthat::expect_true(all(off[, 1, ] == 0))   # log_R0
-  testthat::expect_true(all(off[, 3, ] == 0))   # log_beta
+  testthat::expect_true(all(off[, 1, ] == 0))   # R0
+  testthat::expect_true(all(off[, 3, ] == 0))   # beta
 })
 
 
@@ -295,19 +295,19 @@ testthat::test_that("growth + M + recruitment linkages compose in one fit", {
     growthFun   = Rceattle::build_growth(
       fun      = "vonBertalanffy",
       linkages = list(
-        log_K = Rceattle::linkage_spec(formula = ~ temp, by = ~ species)
+        K = Rceattle::linkage_spec(formula = ~ temp, by = ~ species)
       )
     ),
     M1Fun       = Rceattle::build_M1(
       M1_model = 1,
       linkages = list(
-        log_M1 = Rceattle::linkage_spec(formula = ~ temp, by = ~ species)
+        M1 = Rceattle::linkage_spec(formula = ~ temp, by = ~ species)
       )
     ),
     recFun      = Rceattle::build_srr(
       srr_fun  = 0,
       linkages = list(
-        log_R0 = Rceattle::linkage_spec(formula = ~ temp, by = ~ species)
+        R0 = Rceattle::linkage_spec(formula = ~ temp, by = ~ species)
       )
     ),
     estimateMode = 3,
@@ -352,26 +352,26 @@ testthat::test_that("Test species-specific recruitment linkeages with R0 (proj_m
     proj_mean_rec = FALSE,
     srr_est_mode = 1,
     linkages = list(
-      log_R0 = Rceattle::linkage_spec(
+      R0 = Rceattle::linkage_spec(
         formula = ~ EnvIndex + EnvIndex2 + EnvIndex3,
-        init = list("(Intercept)" = 10,
+        init = list("(Intercept)" = exp(10),
                     "EnvIndex" =  1,
                     "EnvIndex3" = 1),
         by = ~ species,
         priors = list("EnvIndex2" = normal(2, 0.5)),
         species = 1
       ),
-      log_R0 = Rceattle::linkage_spec(
+      R0 = Rceattle::linkage_spec(
         formula = ~ EnvIndex,
-        init = list("(Intercept)" = 11,
+        init = list("(Intercept)" = exp(11),
                     "EnvIndex" = 1),
         by = ~ species,
         species = 2
       ),
-      log_R0 = Rceattle::linkage_spec(
+      R0 = Rceattle::linkage_spec(
         formula = ~ 1,
-        init = list("(Intercept)" = 12),
-        priors = list("(Intercept)" = normal(12, 0.5)),
+        init = list("(Intercept)" = exp(12)),
+        priors = list("(Intercept)" = lognormal(12, 0.5)),
         by = ~ species,
         species = 3
       )
@@ -390,7 +390,7 @@ testthat::test_that("Test species-specific recruitment linkeages with R0 (proj_m
   # EnvIndex), sp3 ((Intercept)).
   testthat::expect_equal(ss_run$estimated_params$beta_linkage,
                          c(0, 1, 0, 1, 0, 1, 0))
-  # The base log_R0 carries each species' (Intercept) init.
+  # The base R0 carries each species' (Intercept) init.
   testthat::expect_equal(as.numeric(ss_run$estimated_params$rec_pars[, 1]),
                          c(10, 11, 12))
 
@@ -442,7 +442,7 @@ testthat::test_that("Test environmental linkeage with R0 (proj_mean_rec = FALSE)
     proj_mean_rec = FALSE,
     srr_est_mode = 1,
     linkages = list(
-      log_R0 = Rceattle::linkage_spec(
+      R0 = Rceattle::linkage_spec(
         formula = ~ 0 + EnvIndex,
         by = ~ species
       )
@@ -461,7 +461,7 @@ testthat::test_that("Test environmental linkeage with R0 (proj_mean_rec = FALSE)
   inits$rec_pars[,1] <- R0
   tbl <- ss_run$data_list$linkage_table
   env_col <- match("EnvIndex", colnames(ss_run$data_list$linkage_X))
-  is_env <- tbl$param == "log_R0" & tbl$X_col == env_col
+  is_env <- tbl$param == "R0" & tbl$X_col == env_col
   inits$beta_linkage <- as.numeric(inits$beta_linkage)
   inits$beta_linkage[is_env] <- 1:3
   inits$log_F[] <- -999 # No fishing
@@ -507,7 +507,7 @@ testthat::test_that("Test multiple recruitment linkeages with R0 (proj_mean_rec 
     proj_mean_rec = FALSE,
     srr_est_mode = 1,
     linkages = list(
-      log_R0 = Rceattle::linkage_spec(
+      R0 = Rceattle::linkage_spec(
         formula = ~ 0 + EnvIndex + EnvIndex2 + EnvIndex3,
         by = ~ species
       )
@@ -527,12 +527,14 @@ testthat::test_that("Test multiple recruitment linkeages with R0 (proj_mean_rec 
   inits$rec_pars[,1] <- R0
   tbl <- mod0$data_list$linkage_table
   env_cols <- c("EnvIndex", "EnvIndex2", "EnvIndex3")
-  is_log_r0 <- tbl$param == "log_R0"
+  is_R0 <- tbl$param == "R0"
   inits$beta_linkage <- as.numeric(inits$beta_linkage)
+  expected_beta <- matrix(0, nrow = 3, ncol = length(env_cols))
   for (sp in 1:3) {
     for (j in seq_along(env_cols)) {
-      idx <- which(is_log_r0 & tbl$species == sp & tbl$design_col == env_cols[j])
+      idx <- which(is_R0 & tbl$species == sp & tbl$design_col == env_cols[j])
       inits$beta_linkage[idx] <- (j - 1) * 3 + sp
+      expected_beta[sp, j] <- (j - 1) * 3 + sp
     }
   }
   inits$log_F[] <- -999 # No fishing
@@ -580,7 +582,7 @@ testthat::test_that("Test multiple recruitment linkeages with R0 (proj_mean_rec 
     proj_mean_rec = TRUE, # TRUE!!!!!!
     srr_est_mode = 1,
     linkages = list(
-      log_R0 = Rceattle::linkage_spec(
+      R0 = Rceattle::linkage_spec(
         formula = ~ 0 + EnvIndex + EnvIndex2 + EnvIndex3,
         by = ~ species
       )
@@ -600,12 +602,14 @@ testthat::test_that("Test multiple recruitment linkeages with R0 (proj_mean_rec 
   inits$rec_pars[,1] <- R0
   tbl <- mod0$data_list$linkage_table
   env_cols <- c("EnvIndex", "EnvIndex2", "EnvIndex3")
-  is_log_r0 <- tbl$param == "log_R0"
+  is_R0 <- tbl$param == "R0"
   inits$beta_linkage <- as.numeric(inits$beta_linkage)
+  expected_beta <- matrix(0, nrow = 3, ncol = length(env_cols))
   for (sp in 1:3) {
     for (j in seq_along(env_cols)) {
-      idx <- which(is_log_r0 & tbl$species == sp & tbl$design_col == env_cols[j])
+      idx <- which(is_R0 & tbl$species == sp & tbl$design_col == env_cols[j])
       inits$beta_linkage[idx] <- (j - 1) * 3 + sp
+      expected_beta[sp, j] <- (j - 1) * 3 + sp
     }
   }
   inits$log_F[] <- -999 # No fishing
@@ -660,7 +664,7 @@ testthat::test_that("Test single-spp recruitment linkeages with R0 (proj_mean_re
     proj_mean_rec = TRUE, # TRUE!!!!!!
     srr_est_mode = 1,
     linkages = list(
-      log_R0 = Rceattle::linkage_spec(
+      R0 = Rceattle::linkage_spec(
         formula = ~ 0 + EnvIndex + EnvIndex2 + EnvIndex3,
         by = ~ species
       )
@@ -683,12 +687,14 @@ testthat::test_that("Test single-spp recruitment linkeages with R0 (proj_mean_re
   inits$rec_pars[,1] <- R0
   tbl <- mod0$data_list$linkage_table
   env_cols <- c("EnvIndex", "EnvIndex2", "EnvIndex3")
-  is_log_r0 <- tbl$param == "log_R0"
+  is_R0 <- tbl$param == "R0"
   inits$beta_linkage <- as.numeric(inits$beta_linkage)
   sp = 1
+  expected_beta <- matrix(0, nrow = 1, ncol = length(env_cols))
   for (j in seq_along(env_cols)) {
-    idx <- which(is_log_r0 & tbl$species == sp & tbl$design_col == env_cols[j])
+    idx <- which(is_R0 & tbl$species == sp & tbl$design_col == env_cols[j])
     inits$beta_linkage[idx] <- (j - 1) * 3 + sp
+    expected_beta[sp, j] <- (j - 1) * 3 + sp
   }
   inits$log_F[] <- -999 # No fishing
 
@@ -738,7 +744,7 @@ testthat::test_that("Test single-spp recruitment linkeages with R0 (proj_mean_re
     proj_mean_rec = FALSE, # FALSE!!!!!!
     srr_est_mode = 1,
     linkages = list(
-      log_R0 = Rceattle::linkage_spec(
+      R0 = Rceattle::linkage_spec(
         formula = ~ 0 + EnvIndex + EnvIndex2 + EnvIndex3,
         by = ~ species
       )
@@ -761,12 +767,14 @@ testthat::test_that("Test single-spp recruitment linkeages with R0 (proj_mean_re
   inits$rec_pars[,1] <- R0
   tbl <- mod0$data_list$linkage_table
   env_cols <- c("EnvIndex", "EnvIndex2", "EnvIndex3")
-  is_log_r0 <- tbl$param == "log_R0"
+  is_R0 <- tbl$param == "R0"
   inits$beta_linkage <- as.numeric(inits$beta_linkage)
   sp = 1
+  expected_beta <- matrix(0, nrow = 1, ncol = length(env_cols))
   for (j in seq_along(env_cols)) {
-    idx <- which(is_log_r0 & tbl$species == sp & tbl$design_col == env_cols[j])
+    idx <- which(is_R0 & tbl$species == sp & tbl$design_col == env_cols[j])
     inits$beta_linkage[idx] <- (j - 1) * 3 + sp
+    expected_beta[sp, j] <- (j - 1) * 3 + sp
   }
   inits$log_F[] <- -999 # No fishing
 
@@ -824,31 +832,31 @@ testthat::test_that("Beverton alpha-linked recruitment", {
     proj_mean_rec = FALSE,
     srr_est_mode = 1,
     linkages = list(
-      log_beta = Rceattle::linkage_spec(
+      beta = Rceattle::linkage_spec(
         formula = ~ 1,
-        init = list("(Intercept)" = log(beta)),
+        init = list("(Intercept)" = (beta)),
         by = ~ species
       ),
-      log_alpha = Rceattle::linkage_spec(
+      alpha = Rceattle::linkage_spec(
         formula = ~ EnvIndex + EnvIndex2 + EnvIndex3,
-        init = list("(Intercept)" = log(0.3),
+        init = list("(Intercept)" = (0.3),
                     "EnvIndex" =  1,
                     "EnvIndex3" = 1),
         by = ~ species,
         priors = list("EnvIndex2" = normal(2, 0.5)),
         species = 1
       ),
-      log_alpha = Rceattle::linkage_spec(
+      alpha = Rceattle::linkage_spec(
         formula = ~ EnvIndex,
-        init = list("(Intercept)" = log(0.35),
+        init = list("(Intercept)" = (0.35),
                     "EnvIndex" = 2),
         by = ~ species,
         species = 2
       ),
-      log_alpha = Rceattle::linkage_spec(
+      alpha = Rceattle::linkage_spec(
         formula = ~ 1,
-        init = list("(Intercept)" = log(0.4)),
-        priors = list("(Intercept)" = normal(12, 0.5)),
+        init = list("(Intercept)" = (0.4)),
+        priors = list("(Intercept)" = lognormal(12, 0.5)),
         by = ~ species,
         species = 3
       )
@@ -862,9 +870,9 @@ testthat::test_that("Beverton alpha-linked recruitment", {
                     fit_control = fit_control(verbose = 0))
 
   # (Intercept) rows are mapped out at 0; slope rows keep their inits.
-  # Order: sp1/sp2/sp3 log_beta (Intercept), sp1 log_alpha (Intercept,
-  # EnvIndex, EnvIndex2, EnvIndex3), sp2 log_alpha (Intercept, EnvIndex),
-  # sp3 log_alpha (Intercept).
+  # Order: sp1/sp2/sp3 beta (Intercept), sp1 alpha (Intercept,
+  # EnvIndex, EnvIndex2, EnvIndex3), sp2 alpha (Intercept, EnvIndex),
+  # sp3 alpha (Intercept).
   testthat::expect_equal(ss_run$estimated_params$beta_linkage,
                          c(0, 0, 0, 0, 1, 0, 1, 0, 2, 0))
   # The base rec_pars carry the (Intercept) inits.
@@ -928,31 +936,31 @@ testthat::test_that("Ricker alpha-linked recruitment", {
     proj_mean_rec = FALSE,
     srr_est_mode = 1,
     linkages = list(
-      log_beta = Rceattle::linkage_spec(
+      beta = Rceattle::linkage_spec(
         formula = ~ 1,
-        init = list("(Intercept)" = log(beta)),
+        init = list("(Intercept)" = (beta)),
         by = ~ species
       ),
-      log_alpha = Rceattle::linkage_spec(
+      alpha = Rceattle::linkage_spec(
         formula = ~ EnvIndex + EnvIndex2 + EnvIndex3,
-        init = list("(Intercept)" = log(0.3),
+        init = list("(Intercept)" = (0.3),
                     "EnvIndex" =  1,
                     "EnvIndex3" = 1),
         by = ~ species,
         priors = list("EnvIndex2" = normal(2, 0.5)),
         species = 1
       ),
-      log_alpha = Rceattle::linkage_spec(
+      alpha = Rceattle::linkage_spec(
         formula = ~ EnvIndex,
-        init = list("(Intercept)" = log(0.35),
+        init = list("(Intercept)" = (0.35),
                     "EnvIndex" = 2),
         by = ~ species,
         species = 2
       ),
-      log_alpha = Rceattle::linkage_spec(
+      alpha = Rceattle::linkage_spec(
         formula = ~ 1,
-        init = list("(Intercept)" = log(0.4)),
-        priors = list("(Intercept)" = normal(12, 0.5)),
+        init = list("(Intercept)" = (0.4)),
+        priors = list("(Intercept)" = lognormal(12, 0.5)),
         by = ~ species,
         species = 3
       )
@@ -1029,31 +1037,31 @@ testthat::test_that("Beverton alpha-linked recruitment (penalty approach)", {
     proj_mean_rec = FALSE,
     srr_est_mode = 1,
     linkages = list(
-      log_beta = Rceattle::linkage_spec(
+      beta = Rceattle::linkage_spec(
         formula = ~ 1,
-        init = list("(Intercept)" = log(beta)),
+        init = list("(Intercept)" = (beta)),
         by = ~ species
       ),
-      log_alpha = Rceattle::linkage_spec(
+      alpha = Rceattle::linkage_spec(
         formula = ~ EnvIndex + EnvIndex2 + EnvIndex3,
-        init = list("(Intercept)" = log(0.3),
+        init = list("(Intercept)" = (0.3),
                     "EnvIndex" =  1,
                     "EnvIndex3" = 1),
         by = ~ species,
         priors = list("EnvIndex2" = normal(2, 0.5)),
         species = 1
       ),
-      log_alpha = Rceattle::linkage_spec(
+      alpha = Rceattle::linkage_spec(
         formula = ~ EnvIndex,
-        init = list("(Intercept)" = log(0.35),
+        init = list("(Intercept)" = (0.35),
                     "EnvIndex" = 2),
         by = ~ species,
         species = 2
       ),
-      log_alpha = Rceattle::linkage_spec(
+      alpha = Rceattle::linkage_spec(
         formula = ~ 1,
-        init = list("(Intercept)" = log(0.4)),
-        priors = list("(Intercept)" = normal(12, 0.5)),
+        init = list("(Intercept)" = (0.4)),
+        priors = list("(Intercept)" = lognormal(12, 0.5)),
         by = ~ species,
         species = 3
       )
