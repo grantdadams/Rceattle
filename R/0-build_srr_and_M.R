@@ -8,10 +8,10 @@
 #' @param srr_est_mode Switch to determine estimation mode. 0 = fix alpha to prior mean, 1 = freely estimate R0, alpha, and/or beta (default), 2 = use lognormally distributed prior for alpha (Ricker) or steepness (Beverton), 3 = use beta distributed prior for steepness (Beverton) given mean and sd.
 #' @param srr_prior mean for normally distributed prior for stock-recruit parameter
 #' @param srr_prior_sd Prior standard deviation for stock-recruit parameter
-#' @param srr_indices Soft-deprecated. Use the `linkages` argument instead. See `vignette("environmental-linkages")`.
+#' @param srr_indices Soft-deprecated. Use the `linkages` argument instead. See `vignette("environmental-linkages-and-priors")`.
 #' @param Bmsy_lim Upper limit for Ricker based SSB-MSY (e.g 1/Beta). Will add a likelihood penalty if beta is estimated above this limit. Default `NA` is not used.
 #' @param srr_mse_switchyr is used for MSEs to deal with AMAK and Jim Ianelli's estimation where a stock recruit function is estimated as an additional penalty  (srr_fun = 0 and srr_pred_fun > 0). It tells the model in what year to switch to the stock recruit function.
-#' @param linkages Optional named list of [linkage_spec()] objects keyed by recruitment parameter name (must be one of `"R0"`, `"alpha"`, `"beta"`). Each spec describes how that parameter depends on environmental covariates and on stratifying factors (species, sex). The offset enters additively (on the log scale) inside the recruitment compute. See `vignette("environmental-linkages")` for details.
+#' @param linkages Optional named list of [linkage_spec()] objects keyed by recruitment parameter name (must be one of `"R0"`, `"alpha"`, `"beta"`). Each spec describes how that parameter depends on environmental covariates and on stratifying factors (species, sex). The offset enters additively (on the log scale) inside the recruitment compute. See `vignette("environmental-linkages-and-priors")` for details.
 #'
 #' @description
 #'
@@ -162,7 +162,7 @@ build_srr <- function(srr_fun = 0,  #srr_model
     "            linkages = list(",
     switch(as.character(int), "1" = "R0", "alpha"),
     " = linkage_spec(formula = ~ <env_col>)))\n\n",
-    "See vignette('environmental-linkages').",
+    "See vignette('environmental-linkages-and-priors').",
     call. = FALSE
   )
 }
@@ -178,7 +178,7 @@ build_srr <- function(srr_fun = 0,  #srr_model
     "  build_srr(srr_fun = ...,\n",
     "            linkages = list(R0 = linkage_spec(\n",
     "              formula = ~ <env_col>)))\n\n",
-    " See vignette('environmental-linkages').",
+    " See vignette('environmental-linkages-and-priors').",
     call. = FALSE
   )
 }
@@ -264,7 +264,7 @@ M_LINKAGE_PARAMS <- c("M1")
 #' warning -- their structural part is identical to 1 and 2
 #' respectively, and the env effect is now expressed via the
 #' \code{linkages} argument to [build_M1()] (see
-#' `vignette("environmental-linkages")`). No string alias is offered
+#' `vignette("environmental-linkages-and-priors")`). No string alias is offered
 #' for 4 or 5 to discourage their use in new code.
 #'
 #' @keywords internal
@@ -368,7 +368,7 @@ M_LINKAGE_PARAMS <- c("M1")
     "           linkages = list(M1 = linkage_spec(\n",
     "             formula = ~ <env_col>, by = ~species,\n",
     "             species = <which species had the env effect>)))\n\n",
-    "See vignette('environmental-linkages').",
+    "See vignette('environmental-linkages-and-priors').",
     call. = FALSE
   )
 }
@@ -386,7 +386,7 @@ M_LINKAGE_PARAMS <- c("M1")
     "             formula = ~ <env_col>, by = ~species)))\n\n",
     "Both paths add additively to log_M1 on the log scale, so do ",
     "NOT supply both for the same coefficient or you will ",
-    "double-count. See vignette('environmental-linkages').",
+    "double-count. See vignette('environmental-linkages-and-priors').",
     call. = FALSE
   )
 }
@@ -402,7 +402,7 @@ M_LINKAGE_PARAMS <- c("M1")
 #'   * `2` / `"sex_specific"` -- estimate `M1_{spp, sex}`.
 #'   * `3` / `"sex_age_specific"` -- estimate `M1_{spp, sex, age}`.
 #'   * `4`, `5` -- soft-deprecated env-driven codes; use the
-#'     `linkages` argument instead. See `vignette("environmental-linkages")`.
+#'     `linkages` argument instead. See `vignette("environmental-linkages-and-priors")`.
 #' @param M1_re Vector or scalar specifying the M1 random-effects
 #'   model. Either an integer code or the equivalent string alias:
 #'   `0` / `"none"`, `1` / `"iid_age"`, `2` / `"iid_year"`,
@@ -419,7 +419,7 @@ M_LINKAGE_PARAMS <- c("M1")
 #' @param M1_indices Soft-deprecated. Vector of column indices into
 #'   `env_data` (excluding `Year`) for environmentally linked M1 when
 #'   `M1_model %in% c(4, 5)`. Use the `linkages` argument instead;
-#'   see \code{vignette("environmental-linkages")}.
+#'   see \code{vignette("environmental-linkages-and-priors")}.
 #' @param linkages Optional named list of [linkage_spec()] objects
 #'   keyed by M parameter name (currently the only valid key is
 #'   `"M1"`). Each spec describes how `M1` depends on
@@ -558,6 +558,14 @@ GROWTH_LINKAGE_PARAMS <- c("K", "L1", "Linf", "m", "sd_L1", "sd_Linf")
 #'   `"empirical"` (default), `"vonBertalanffy"`, `"Richards"`) or the
 #'   equivalent integer code (`0`, `1`, `2`). The canonical string form
 #'   is stored on the returned object.
+#' @param growth_age_L1 Von Bertalanffy / Richards anchor age (the age at
+#'   which mean length equals `L1`). Matches SS3's `Growth_Age_for_L1`
+#'   control input. Scalar (recycled across species) or a length-`nspp`
+#'   vector for per-species values. Default `NA` inherits
+#'   `data_list$growth_age_L1` if supplied (e.g. from the SS3 converter),
+#'   otherwise falls back to `max(0.5, minage[sp])` so `minage >= 1`
+#'   models stay backwards-compatible and `minage = 0` models pick up an
+#'   SS3-consistent half-year anchor.
 #' @param linkages Optional named list of [linkage_spec()] objects
 #'   keyed by parameter name (must be one of [GROWTH_LINKAGE_PARAMS]).
 #'   The mean-growth keys (`K`, `L1`, `Linf`, `m`)

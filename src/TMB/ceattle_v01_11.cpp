@@ -955,10 +955,10 @@ Type objective_function<Type>::operator() () {
             env_M1_tmp = env_index.row(yr);
             M1_mult = env_M1_tmp * beta_M1_tmp;
 
-            // M1_mult.sum() is LEGACY (scheduled removal: v4.2.0).
+            // M1_mult.sum() is LEGACY (scheduled removal: v4.5.0).
             // Carries the env effect from the soft-deprecated
-            // M1_indices path. See "Scheduled removal (v4.2.0)" in
-            // NEWS.md for the full cleanup checklist.
+            // M1_indices path. See "Scheduled removal" in NEWS.md
+            // (4.1.0 section) for the full cleanup checklist.
             M1_at_age(sp, sex, age, yr) = exp(
               log_M1(sp, sex, age)
               + log_M1_dev(sp, sex, age, yr)
@@ -1329,7 +1329,7 @@ Type objective_function<Type>::operator() () {
             NByageF(sp, 0, 0, yr) = avg_R(sp);
 
             // Dynamic RPs use mean rec for forecast and observed rec for hindcast
-            // LEGACY (scheduled removal: v4.4.0). Use relationship below
+            // LEGACY (scheduled removal: v4.5.0). Use relationship below
             if(yr < nyrs_hind){
               N_at_age_dBF(sp, 0, 0, yr) = N_at_age_dB0(sp, 0, 0, yr) = R(sp, yr); // Hindcast use observed R
             }

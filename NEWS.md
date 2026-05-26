@@ -4,18 +4,39 @@
 
 * **Double Normal Selectivity (Type 8)**: Added support for the four-parameter Double Normal selectivity curve (Peak, Ascending SD, Descending SD, and Floor). This includes full support for annual deviates on all four parameters and is compatible with the age- and length-based selectivity engines.
 * **Growth SD Control**: The linkage system now supports `sd_L1` and `sd_Linf` parameters. This allows users to specify priors, initial values, and bounds for growth SD endpoints using the same formula-driven interface used for mean growth parameters.
-* **Natural Scale Priors**: Standardized prior evaluation so that probability densities are applied to parameters on their natural scale by default, unless a lognormal family is explicitly requested.
-* **Natural Scale Inits**: Standardized init evaluation so initial values for `"(Intercept)"` parameters are applied on their natural scale.
-* **Linkage Link Functions**: Fully implemented dual-path linkage offsets. Log-linkage offsets are applied multiplicatively (additive on the log scale), while identity-linkage offsets are applied additively on the natural scale.
+* **Natural-scale linkage API**: Renamed the linkage parameter keys from `log_*` to their natural-scale counterparts (`K` / `L1` / `Linf` / `m`; `M1`; `R0` / `alpha` / `beta`). Internal parameters remain on the log scale.
+* **Natural-scale priors**: Standardized prior evaluation so that probability densities are applied to parameters on their natural scale by default, unless a lognormal family is explicitly requested.
+* **Natural-scale inits**: Standardized init evaluation so initial values for `"(Intercept)"` parameters are applied on their natural scale.
+* **Linkage link functions**: Fully implemented dual-path linkage offsets. `link = "log"` (the new default) applies the offset multiplicatively on the natural scale (additive on the log scale); `link = "identity"` applies it additively on the natural scale.
+* **Per-species VB anchor age**: `build_growth()` gains a `growth_age_L1` argument (scalar or length-`nspp` vector) for the age at which mean length equals `L1`. Matches SS3's `Growth_Age_for_L1`. Default `NA` inherits `data_list$growth_age_L1` if set, else falls back to `max(0.5, minage[sp])` so `minage = 0` models pick up an SS3-consistent half-year anchor while `minage >= 1` models stay backwards-compatible.
 
 
 ## Bug fixes
 
-* **SRR Logic**: Fixed a bug in `build_srr()` where the `Bmsy_lim` penalty was incorrectly disabled for current Ricker implementations due to an index mismatch.
-* **Selectivity RW Prior Scaling**: Corrected the random walk prior scaling in the TMB template to ensure consistent $4 \times$ SD multipliers for both ascending and descending limb slope/SD parameters.
+* **SRR logic**: Fixed a bug in `build_srr()` where the `Bmsy_lim` penalty was incorrectly disabled for current Ricker implementations due to an index mismatch.
+* **Selectivity RW prior scaling**: Corrected the random walk prior scaling in the TMB template to ensure consistent $4 \times$ SD multipliers for both ascending and descending limb slope/SD parameters.
+* **`last_par` returned wrong vector**: Fixed `fit_mod()` so the value stored on the returned fit is the optimizer's last parameter vector rather than a stale prior reference, removing the need for the surrounding `try()` guards in downstream callers.
+* **Growth at `minage = 0`**: Fixed a segfault in `growth.hpp` when `minage = 0` by guarding `current_age`, `age_L1`, and the cohort-boundary `age_L1_ceil` against the zero-age anchor. Also corrected length-at-age at `minage = 0` so the closed-form anchor at `L1` is honored on both the within-year and cohort recursion paths.
+
+## Data checks
+
+* **Empirical growth + CAAL**: `data_check()` now errors when `growth_model == 0` (empirical weight-at-age) is combined with non-empty `caal_data` for a given species. The C++ growth matrix is not populated from the age-transition matrix in the empirical branch, so `pred_CAAL` collapses to ~0 and the multinomial NLL becomes uninformative.
+* **Selectivity identifiability**: Fleets with estimated `Selectivity` and `Fleet_type != "Off"` now require at least one positive-sample `comp_data` or `caal_data` row. Either provide composition / CAAL data, mark the fleet as `Selectivity = "Fixed"` with `emp_sel`, or set `Fleet_type = "Off"`.
+* **Auto-Off inactive fleets**: `clean_data()` automatically flips `Fleet_type` to `"Off"` for fleets that carry no catch or index observations, preventing the optimizer from drifting on unconstrained selectivity / catchability blocks.
+* **`minage` guard**: `data_check()` errors when any species has `minage < 0`.
 
 ## Documentation
-* Added `vignette("environmental-linkages-and-priors")` (and updated `_pkgdown.yml`) to cover the new linkage intercept behavior and Double Normal selectivity.
+* Added `vignette("environmental-linkages-and-priors")` (and updated `_pkgdown.yml`) to cover the new linkage intercept behavior, link-function semantics, growth SD endpoints, and Double Normal selectivity.
+
+## Deprecations
+
+* The soft-deprecated `srr_indices` / `M1_indices` arguments and the
+  legacy env-driven integer codes (`srr_fun %in% c(1, 3, 5)`,
+  `M1_model %in% c(4, 5)`) continue to work in 4.4.0 with a one-time
+  warning that points users at the linkage table. **Removal has been
+  rescheduled from v4.2.0 to v4.5.0** to extend the migration window;
+  see the "Scheduled removal" section under 4.1.0 below for the
+  unchanged cleanup checklist.
 
 # Rceattle 4.3.1
 
@@ -364,11 +385,18 @@ underlying parameter.
   shrinkage. The legacy `M1_indices` / `M1_model = 4|5` paths
   retire when recruitment migrates.
 
-## Scheduled removal (v4.2.0)
+## Scheduled removal (v4.5.0)
 
-The soft-deprecated API surfaces below remain functional in 4.1.0
-and emit one-time warnings pointing users at the linkage table.
-They will be **removed entirely in 4.2.0**. To migrate, replace:
+> **Schedule update (v4.4.0):** The removal originally targeted for
+> v4.2.0 has been pushed to **v4.5.0** to give downstream users a
+> longer migration window for the natural-scale linkage API rolled
+> out in v4.4.0. The soft-deprecation warnings continue to point
+> users at the equivalent linkage-table call. The cleanup checklist
+> below is unchanged.
+
+The soft-deprecated API surfaces below remain functional and emit
+one-time warnings pointing users at the linkage table. They will be
+**removed entirely in 4.5.0**. To migrate, replace:
 
 | Legacy                                | New                                                      |
 |---------------------------------------|----------------------------------------------------------|
