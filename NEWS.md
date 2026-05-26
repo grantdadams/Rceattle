@@ -5,6 +5,7 @@
 * **Double Normal Selectivity (Type 8)**: Added support for the four-parameter Double Normal selectivity curve (Peak, Ascending SD, Descending SD, and Floor). This includes full support for annual deviates on all four parameters and is compatible with the age- and length-based selectivity engines.
 * **Growth SD Control**: The linkage system now supports `sd_L1` and `sd_Linf` parameters. This allows users to specify priors, initial values, and bounds for growth SD endpoints using the same formula-driven interface used for mean growth parameters.
 * **Natural Scale Priors**: Standardized prior evaluation so that probability densities are applied to parameters on their natural scale by default, unless a lognormal family is explicitly requested.
+* **Natural Scale Inits**: Standardized init evaluation so initial values for `"(Intercept)"` parameters are applied on their natural scale.
 * **Linkage Link Functions**: Fully implemented dual-path linkage offsets. Log-linkage offsets are applied multiplicatively (additive on the log scale), while identity-linkage offsets are applied additively on the natural scale.
 
 
