@@ -283,8 +283,6 @@ switch_check <- function(data_list){
       ". Setting Fleet_type = 'Off'."
     ))
     data_list$fleet_control$Fleet_type[inactive_idx]   <- "Off"
-    data_list$fleet_control$proj_F_prop[inactive_idx]  <- NA_real_
-    data_list$fleet_control$Catchability[inactive_idx] <- NA
   }
 
   return(data_list)

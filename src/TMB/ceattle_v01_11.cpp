@@ -3018,9 +3018,8 @@ Type objective_function<Type>::operator() () {
 
   // Slot 19 -- Linkage-table priors on the natural scale.
   // Priors are specified using natural-scale parameter names (R0,
-  // alpha, M1, K, ...). For (Intercept) rows with a log link, `b`
-  // holds the log-scale base parameter, so we back-transform before
-  // evaluating the prior. For identity-link intercepts and all slope
+  // alpha, M1, K, ...). For (Intercept) rows, so transform before
+  // evaluating the prior. For all slope
   // rows, b_nat == b (the coefficient IS on the natural / linear scale).
   //
   // Families:
