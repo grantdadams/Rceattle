@@ -88,7 +88,7 @@ testthat::test_that("as.data.frame.Rceattle returns expected columns and shape",
 
   testthat::expect_named(
     df,
-    c("year", "species", "sex", "age", "quantity", "value", "lwr", "upr")
+    c("year", "species", "sex", "age", "quantity", "value", "se", "lwr", "upr")
   )
 
   # default `which` = 6 species-by-year quantities, two species, four years

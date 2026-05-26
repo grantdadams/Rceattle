@@ -198,7 +198,7 @@ and are weighted via `CAAL_weights` per fleet.
 
 Priors and environmental relationships can be added to stock-functions 
 via `build_srr()`. See `?build_srr` for options and 
-`vignette("environmental-linkages")` for details. 
+`vignette("environmental-linkages-and-priors")` for details. 
 
 ## 7. Natural mortality (`M1Fun = build_M1()`)
 
@@ -213,7 +213,7 @@ via `build_srr()`. See `?build_srr` for options and
 
 Priors and environmental relationships can be added to M1 
 via `build_M1()`. See `?build_M1` for options and 
-`vignette("environmental-linkages")` for details. 
+`vignette("environmental-linkages-and-priors")` for details. 
 
 ### `M1_re` — random-effects structure on M1
 
@@ -244,7 +244,7 @@ on total M (M1 + M2) in multi-species mode.
 
 Priors and environmental relationships can be added to growth 
 via `build_growth()`. See `?build_growth` for options and 
-`vignette("environmental-linkages")` for details. 
+`vignette("environmental-linkages-and-priors")` for details. 
 
 ### `growth_re` — random effects on growth
 

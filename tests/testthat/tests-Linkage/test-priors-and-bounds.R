@@ -180,7 +180,9 @@ testthat::test_that("sd_L1 intercept init lands on growth_log_sd, not log_growth
   # env_data$temp downstream of the linkage system.
   sim_data$env_data <- data.frame(Year = yrs, temp = 0)
 
-  init_sd <- log(5)
+  # init is supplied on the natural scale of the SD (4.4.0 contract);
+  # build_params() applies log() before writing into growth_log_sd.
+  init_sd <- 5
   growth_spec <- Rceattle::build_growth(
     fun      = "vonBertalanffy",
     linkages = list(
@@ -198,11 +200,11 @@ testthat::test_that("sd_L1 intercept init lands on growth_log_sd, not log_growth
     fit_control  = Rceattle::fit_control(phase = FALSE, verbose = 0)
   ))
 
-  # Init must have landed in growth_log_sd[, , 1] (SD at L1), NOT in
-  # log_growth_pars (which would corrupt K).
+  # Init must have landed in growth_log_sd[, , 1] (SD at L1) on the log
+  # scale, NOT in log_growth_pars (which would corrupt K).
   testthat::expect_equal(
     as.numeric(fit$estimated_params$growth_log_sd[, , 1]),
-    rep(init_sd, nspp * dim(fit$estimated_params$growth_log_sd)[2])
+    rep(log(init_sd), nspp * dim(fit$estimated_params$growth_log_sd)[2])
   )
   # K (first slot of log_growth_pars) keeps its build_params default
   # (log(0.3)), unaffected by the SD init.
