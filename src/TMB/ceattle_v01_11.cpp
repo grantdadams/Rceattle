@@ -16,7 +16,7 @@
 #include "linkage.hpp"
 
 /** ------------------------------------------------------------------------ //
- *                 CEATTLE version 4.3.0                                     //
+ *                 CEATTLE version 4.4.0                                     //
  *                  Template Model Builder                                   //
  *               Multispecies Statistical Model                              //
  *          Bioenergetic-based Assessment for Understanding                  //
