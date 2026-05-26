@@ -23,10 +23,9 @@ print.Rceattle <- function(x, ...) {
     as.character(utils::packageVersion("Rceattle")),
     error = function(e) NA_character_
   )
-  tmb_dll <- if (!is.null(x$TMBfilename)) x$TMBfilename else "ceattle_v01_11"
 
   cat("<Rceattle model>\n")
-  cat("  Rceattle  :", pkg_ver, "  TMB DLL:", tmb_dll, "\n")
+  cat("  Rceattle  :", pkg_ver, "\n")
   cat("  Species   :", paste(dat$spnames, collapse = ", "), "\n")
   cat("  Years     :", dat$styr, "-", dat$endyr,
       if (!is.null(dat$projyr)) paste0(" (projyr ", dat$projyr, ")") else "",

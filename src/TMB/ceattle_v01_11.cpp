@@ -16,7 +16,7 @@
 #include "linkage.hpp"
 
 /** ------------------------------------------------------------------------ //
- *                 CEATTLE version 4.3.0                                     //
+ *                 CEATTLE version 4.4.0                                     //
  *                  Template Model Builder                                   //
  *               Multispecies Statistical Model                              //
  *          Bioenergetic-based Assessment for Understanding                  //
@@ -3035,9 +3035,8 @@ Type objective_function<Type>::operator() () {
 
   // Slot 19 -- Linkage-table priors on the natural scale.
   // Priors are specified using natural-scale parameter names (R0,
-  // alpha, M1, K, ...). For (Intercept) rows with a log link, `b`
-  // holds the log-scale base parameter, so we back-transform before
-  // evaluating the prior. For identity-link intercepts and all slope
+  // alpha, M1, K, ...). For (Intercept) rows, so transform before
+  // evaluating the prior. For all slope
   // rows, b_nat == b (the coefficient IS on the natural / linear scale).
   //
   // Families:
@@ -3092,19 +3091,17 @@ Type objective_function<Type>::operator() () {
       }
     }
 
-    // Back-transform to natural scale when the link is log and this is
-    // an intercept row (b holds the log-scale parameter). For identity-
-    // link intercepts and all slope rows, b_nat == b already.
-    int linkfn = linkage_link(i);
-    bool is_log_int = (linkage_is_intercept(i) == 1) && (linkfn == 1);
-    Type b_nat = is_log_int ? exp(b) : b;
+    // Back-transform to natural scale when this is
+    // an intercept row (b holds the log-scale parameter).
+    // For all slope rows, b_nat == b already.
+    Type b_nat = (linkage_is_intercept(i) == 1) ? exp(b) : b;
 
     if (fam == 1) {                         // normal(p1, p2) on natural scale
       jnll_comp(19, slot_col)            -= dnorm(b_nat, p1, p2, true);
       unweighted_jnll_comp(19, slot_col) -= dnorm(b_nat, p1, p2, true);
     } else if (fam == 2) {                  // lognormal: normal on log of natural scale
       // For log-link intercept: log(b_nat) = b (efficient form avoids log(exp(b)))
-      Type log_b_nat = is_log_int ? b : log(b_nat);
+      Type log_b_nat = (linkage_is_intercept(i) == 1) ? b : log(b_nat);
       jnll_comp(19, slot_col)            -= dnorm(log_b_nat, p1, p2, true);
       unweighted_jnll_comp(19, slot_col) -= dnorm(log_b_nat, p1, p2, true);
     } else if (fam == 3) {                  // gamma(p1=shape, p2=rate) on natural scale

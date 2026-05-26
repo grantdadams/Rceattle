@@ -157,13 +157,12 @@ linkage_spec(
 )
 ```
 
-**Prior semantics.** For `(Intercept)` rows with the default `link = "log"`,
-the prior is evaluated against the *natural-scale* base parameter
+**Prior semantics.** For `(Intercept)` rows,
+Priors are evaluated on the *natural-scale* 
 (e.g. `normal(0.3, 0.1)` on `K` means `dnorm(K_natural, 0.3, 0.1)`).
-Use `lognormal(meanlog, sdlog)` to put a Normal directly on the log
-scale, matching the pre-4.3 behavior. For slope rows and for any row
-with `link = "identity"`, the prior applies to the coefficient as-is
-(no back-transform).
+Use `lognormal(meanlog, sdlog)` to put a normal directly on the log
+scale. For covariate rows, the prior applies
+to the coefficient as-is regardless of link function.
 
 For programmatic prior assembly (e.g. species-specific priors built in
 a loop) call the `prior_*` constructors directly:
@@ -197,9 +196,8 @@ growth_spec <- build_growth(
     K = linkage_spec(
       formula = ~ 1,                              # intercept only -- no env effects
       by      = ~ species + sex,
-      init    = list(`(Intercept)` = log(0.3)),   # start at K = 0.3 (init is on the LP scale)
-      # Prior is on natural-scale K (default log link back-transforms before
-      # evaluation). Use `lognormal(log(0.3), 0.1)` to get a Normal on log(K).
+      init    = list(`(Intercept)` = 0.3),   # start at K = 0.3
+      # Use `lognormal(log(0.3), 0.1)` to get a normal prior on log(K).
       priors  = list(`(Intercept)` = lognormal(log(0.3), 0.1))
     )
   )
@@ -229,15 +227,15 @@ growth_spec_sd <- build_growth(
     sd_L1   = linkage_spec(
       formula = ~ 1,
       by      = ~ species + sex,
-      init    = list(`(Intercept)` = log(5)),
-      # Prior on natural-scale SD; switch to `lognormal(log(5), 0.3)`
-      # for a Normal on log(sd_L1).
+      init    = list(`(Intercept)` = 5),
+      # Prior on log-scale SD; switch to `normal(5, 0.3)`
+      # for a Normal on sd_L1.
       priors  = list(`(Intercept)` = lognormal(log(5), 0.3))
     ),
     sd_Linf = linkage_spec(
       formula = ~ 1,
       by      = ~ species + sex,
-      init    = list(`(Intercept)` = log(15))
+      init    = list(`(Intercept)` = 15)
     )
   )
 )
@@ -258,9 +256,8 @@ rec_spec <- build_srr(
     R0 = linkage_spec(
       formula = ~ 1,
       by      = ~ species,
-      init    = list(`(Intercept)` = log(1000)),
-      # Species-keyed priors on natural-scale R0 (log link back-transforms).
-      # Switch to `lognormal()` for a Normal on log(R0).
+      init    = list(`(Intercept)` = 1000),
+      # Species-keyed priors on log-scale R0.
       priors  = list(`(Intercept)` = list(
         `1` = lognormal(log(1000), 0.2),
         `2` = lognormal(log(1500), 0.3),
@@ -301,8 +298,8 @@ M1_spec <- build_M1(
     M1 = linkage_spec(
       formula = ~ 1,
       by      = ~ species,
-      init    = list(`(Intercept)` = log(0.34)),
-      # Prior is on the natural-scale M1 with the default log link.
+      init    = list(`(Intercept)` = 0.34),
+      # Prior is on the natural-scale for M1.
       # `lognormal(log(0.34), 0.01)` evaluates Normal on log(M1).
       # Use `normal(0.34, 0.01)` for a Normal directly on natural M1.
       priors  = list(`(Intercept)` = lognormal(log(0.34), 0.01))
@@ -470,16 +467,14 @@ M1_spec <- build_M1(
         formula = ~ 1,
         by      = ~ species + sex,
         sex     = "Females",                              # or sex = 1L
-        init    = list(`(Intercept)` = log(0.12)),
-        # lognormal => Normal on log(M1); matches a Normal(log(0.12), 0.0001)
-        # under the prior semantics. Use `normal(0.12, ...)` for natural scale.
+        init    = list(`(Intercept)` = 0.12),
         priors  = list(`(Intercept)` = lognormal(log(0.12), 0.0001))
       ),
       linkage_spec(
         formula = ~ 1,
         by      = ~ species + sex,
         sex     = "Males",                                # or sex = 2L
-        init    = list(`(Intercept)` = log(0.20)),
+        init    = list(`(Intercept)` = 0.20),
         priors  = list(`(Intercept)` = lognormal(log(0.20), 0.0001))
       )
     )
@@ -610,8 +605,7 @@ Priors and bounds flow through the same table: `build_bounds()` reads
 each row's `lower`/`upper` into `bounds$lower$beta_linkage` /
 `bounds$upper$beta_linkage`, and the cpp adds
 `-d<family>(b_nat, p1, p2, log = TRUE)` to slot 19 of the joint NLL for
-every row whose `prior_family` is not `"none"` (where `b_nat` is the
-back-transformed natural-scale value for log-link intercept rows).
+every row whose `prior_family` is not `"none"`.
 
 ## Natural mortality
 
@@ -903,13 +897,13 @@ intercept-bearing linkages -- it composes naturally with phasing
 logic) and keeps the optimiser grounded.
 
 ```{r}
-# Start M1 at log(0.06) without estimating an extra intercept beta.
+# Start M1 at 0.06 without estimating an extra intercept beta.
 build_M1(
   M1_model = "sex_age_invariant",
   linkages = list(
     M1 = linkage_spec(
       formula = ~ 1,
-      init    = list(`(Intercept)` = log(0.06))
+      init    = list(`(Intercept)` = 0.06)
     )
   )
 )
