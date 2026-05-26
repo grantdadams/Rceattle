@@ -33,8 +33,8 @@ and \code{Time_varying_sel} settings in \code{fleet_control}.
 \code{6} = "2DAR1" across age x year
 \code{7} = "3DAR1" across age x cohort x year (Cheng et al 2024)
 \code{8} = "DoubleNormal" Gaussian ascending/descending limbs blended at peak (analogous to SS3 pattern 24).
-Parameters: sel_inf\link{1} = peak; sel_inf\link{2} = logit(right_floor) (right-tail floor, SS3 P6/end_logit);
-log_sel_slp\link{1} = log(sigma_asc); log_sel_slp\link{2} = log(sigma_desc).
+Parameters: \code{sel_inf[1]} = peak; \code{sel_inf[2]} = logit(right_floor) (right-tail floor, SS3 P6/end_logit);
+\code{log_sel_slp[1]} = log(sigma_asc); \code{log_sel_slp[2]} = log(sigma_desc).
 right_floor→0: dome-shaped; right_floor→1: logistic ascending only.
 
 \code{N_sel_bins}	Number of age/length bins to estimate non-parametric selectivity when Selectivity = 2 or 5. Not used otherwise
