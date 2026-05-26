@@ -354,7 +354,7 @@ testthat::test_that("Test species-specific recruitment linkeages with R0 (proj_m
     linkages = list(
       R0 = Rceattle::linkage_spec(
         formula = ~ EnvIndex + EnvIndex2 + EnvIndex3,
-        init = list("(Intercept)" = 10,
+        init = list("(Intercept)" = exp(10),
                     "EnvIndex" =  1,
                     "EnvIndex3" = 1),
         by = ~ species,
@@ -363,14 +363,14 @@ testthat::test_that("Test species-specific recruitment linkeages with R0 (proj_m
       ),
       R0 = Rceattle::linkage_spec(
         formula = ~ EnvIndex,
-        init = list("(Intercept)" = 11,
+        init = list("(Intercept)" = exp(11),
                     "EnvIndex" = 1),
         by = ~ species,
         species = 2
       ),
       R0 = Rceattle::linkage_spec(
         formula = ~ 1,
-        init = list("(Intercept)" = 12),
+        init = list("(Intercept)" = exp(12)),
         priors = list("(Intercept)" = lognormal(12, 0.5)),
         by = ~ species,
         species = 3
@@ -834,12 +834,12 @@ testthat::test_that("Beverton alpha-linked recruitment", {
     linkages = list(
       beta = Rceattle::linkage_spec(
         formula = ~ 1,
-        init = list("(Intercept)" = log(beta)),
+        init = list("(Intercept)" = (beta)),
         by = ~ species
       ),
       alpha = Rceattle::linkage_spec(
         formula = ~ EnvIndex + EnvIndex2 + EnvIndex3,
-        init = list("(Intercept)" = log(0.3),
+        init = list("(Intercept)" = (0.3),
                     "EnvIndex" =  1,
                     "EnvIndex3" = 1),
         by = ~ species,
@@ -848,14 +848,14 @@ testthat::test_that("Beverton alpha-linked recruitment", {
       ),
       alpha = Rceattle::linkage_spec(
         formula = ~ EnvIndex,
-        init = list("(Intercept)" = log(0.35),
+        init = list("(Intercept)" = (0.35),
                     "EnvIndex" = 2),
         by = ~ species,
         species = 2
       ),
       alpha = Rceattle::linkage_spec(
         formula = ~ 1,
-        init = list("(Intercept)" = log(0.4)),
+        init = list("(Intercept)" = (0.4)),
         priors = list("(Intercept)" = lognormal(12, 0.5)),
         by = ~ species,
         species = 3
@@ -938,12 +938,12 @@ testthat::test_that("Ricker alpha-linked recruitment", {
     linkages = list(
       beta = Rceattle::linkage_spec(
         formula = ~ 1,
-        init = list("(Intercept)" = log(beta)),
+        init = list("(Intercept)" = (beta)),
         by = ~ species
       ),
       alpha = Rceattle::linkage_spec(
         formula = ~ EnvIndex + EnvIndex2 + EnvIndex3,
-        init = list("(Intercept)" = log(0.3),
+        init = list("(Intercept)" = (0.3),
                     "EnvIndex" =  1,
                     "EnvIndex3" = 1),
         by = ~ species,
@@ -952,14 +952,14 @@ testthat::test_that("Ricker alpha-linked recruitment", {
       ),
       alpha = Rceattle::linkage_spec(
         formula = ~ EnvIndex,
-        init = list("(Intercept)" = log(0.35),
+        init = list("(Intercept)" = (0.35),
                     "EnvIndex" = 2),
         by = ~ species,
         species = 2
       ),
       alpha = Rceattle::linkage_spec(
         formula = ~ 1,
-        init = list("(Intercept)" = log(0.4)),
+        init = list("(Intercept)" = (0.4)),
         priors = list("(Intercept)" = lognormal(12, 0.5)),
         by = ~ species,
         species = 3
@@ -1039,12 +1039,12 @@ testthat::test_that("Beverton alpha-linked recruitment (penalty approach)", {
     linkages = list(
       beta = Rceattle::linkage_spec(
         formula = ~ 1,
-        init = list("(Intercept)" = log(beta)),
+        init = list("(Intercept)" = (beta)),
         by = ~ species
       ),
       alpha = Rceattle::linkage_spec(
         formula = ~ EnvIndex + EnvIndex2 + EnvIndex3,
-        init = list("(Intercept)" = log(0.3),
+        init = list("(Intercept)" = (0.3),
                     "EnvIndex" =  1,
                     "EnvIndex3" = 1),
         by = ~ species,
@@ -1053,14 +1053,14 @@ testthat::test_that("Beverton alpha-linked recruitment (penalty approach)", {
       ),
       alpha = Rceattle::linkage_spec(
         formula = ~ EnvIndex,
-        init = list("(Intercept)" = log(0.35),
+        init = list("(Intercept)" = (0.35),
                     "EnvIndex" = 2),
         by = ~ species,
         species = 2
       ),
       alpha = Rceattle::linkage_spec(
         formula = ~ 1,
-        init = list("(Intercept)" = log(0.4)),
+        init = list("(Intercept)" = (0.4)),
         priors = list("(Intercept)" = lognormal(12, 0.5)),
         by = ~ species,
         species = 3

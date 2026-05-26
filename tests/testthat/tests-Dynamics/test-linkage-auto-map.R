@@ -151,7 +151,7 @@ testthat::test_that("(Intercept) init overrides the base parameter's default", {
     formula = ~ 1,
     by      = ~ species,
     param   = "R0",
-    init    = list(`(Intercept)` = 7.5)
+    init    = list(`(Intercept)` = exp(7.5))
   )
 
   run <- fit_debug(

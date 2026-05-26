@@ -56,17 +56,14 @@ NULL
 #' @param link link function relating the linear predictor to the
 #'   natural-scale target parameter. One of `"log"` (default) or
 #'   `"identity"`. With `link = "log"`, `log(param) = X * beta` -- slope
-#'   contributions are multiplicative on the natural-scale parameter,
-#'   and a `normal(mean, sd)` prior on an `(Intercept)` row is back-
-#'   transformed to evaluate against the natural-scale value
-#'   (`dnorm(exp(b), mean, sd)`). With `link = "identity"`,
+#'   contributions are multiplicative on the natural-scale parameter. With `link = "identity"`,
 #'   `param = X * beta` -- slope contributions are additive on the
 #'   natural scale. All linkage targets currently expose log-scale TMB
 #'   parameters, so `"log"` is the natural default; `"identity"` is
 #'   reserved for future processes (e.g. logit for steepness).
 #' @param init optional named numeric vector of initial values keyed by
 #'   the design-matrix column name (e.g.
-#'   `c(`(Intercept)` = -1, temp = 0)`). Missing entries default to `0`.
+#'   `c(`(Intercept)` = 4, temp = 0)`). Missing entries default to `0`.
 #' @param bounds optional named list of `c(lower, upper)` keyed the same
 #'   way as `init`.
 #' @param priors optional named list whose entries are
