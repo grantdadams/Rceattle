@@ -603,7 +603,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
         fleet_data <- data_source |>
           dplyr::filter(Fleet_code == flt, Year - data_list$styr + 1 <= nyrs_hind)
         Selectivity_block <- fleet_data$Selectivity_block
-        biom_yrs <- fleet_data$Year - data_list$styr + 1
+        block_yrs <- fleet_data$Year - data_list$styr + 1
         max_block <- max(Selectivity_block, 0)
       }
 
@@ -632,8 +632,8 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
           }
         } else if (tv_sel == "Block" && max_block > 0) { # Selectivity blocks
           for (sex in 1:nsex) {
-            map_list$log_sel_slp_dev[1, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_slp
-            map_list$sel_inf_dev[1, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_inf
+            map_list$log_sel_slp_dev[1, flt, sex, block_yrs] <- Selectivity_block - 1 + ind_slp
+            map_list$sel_inf_dev[1, flt, sex, block_yrs] <- Selectivity_block - 1 + ind_inf
 
             ind_slp <- ind_slp + max_block
             ind_inf <- ind_inf + max_block
@@ -713,8 +713,8 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
         } else if (tv_sel == "Block" && max_block > 0) { # Selectivity blocks
           for (j in 1:2) {
             for (sex in 1:nsex) {
-              map_list$log_sel_slp_dev[j, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_slp
-              map_list$sel_inf_dev[j, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_inf
+              map_list$log_sel_slp_dev[j, flt, sex, block_yrs] <- Selectivity_block - 1 + ind_slp
+              map_list$sel_inf_dev[j, flt, sex, block_yrs] <- Selectivity_block - 1 + ind_inf
 
               ind_slp <- ind_slp + max_block
               ind_inf <- ind_inf + max_block
@@ -767,15 +767,15 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
         } else if (tv_sel == "Block" && max_block > 0) {
           for (sex in 1:nsex) {
             # Peak and right-floor block deviates
-            map_list$sel_inf_dev[1, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_inf
+            map_list$sel_inf_dev[1, flt, sex, block_yrs] <- Selectivity_block - 1 + ind_inf
             ind_inf <- ind_inf + max_block
-            map_list$sel_inf_dev[2, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_inf
+            map_list$sel_inf_dev[2, flt, sex, block_yrs] <- Selectivity_block - 1 + ind_inf
             ind_inf <- ind_inf + max_block
 
             # Ascending-SD and descending-SD block deviates
-            map_list$log_sel_slp_dev[1, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_slp
+            map_list$log_sel_slp_dev[1, flt, sex, block_yrs] <- Selectivity_block - 1 + ind_slp
             ind_slp <- ind_slp + max_block
-            map_list$log_sel_slp_dev[2, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_slp
+            map_list$log_sel_slp_dev[2, flt, sex, block_yrs] <- Selectivity_block - 1 + ind_slp
             ind_slp <- ind_slp + max_block
 
             # Fix base parameters — blocks fully replace them (deviates are absolute values)
@@ -814,8 +814,8 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
           }
         } else if (tv_sel == "Block" && max_block > 0) { # Selectivity blocks
           for (sex in 1:nsex) {
-            map_list$log_sel_slp_dev[2, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_slp
-            map_list$sel_inf_dev[2, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_inf
+            map_list$log_sel_slp_dev[2, flt, sex, block_yrs] <- Selectivity_block - 1 + ind_slp
+            map_list$sel_inf_dev[2, flt, sex, block_yrs] <- Selectivity_block - 1 + ind_inf
 
             ind_slp <- ind_slp + max_block
             ind_inf <- ind_inf + max_block
@@ -993,7 +993,7 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
 
         # Extract survey years where data is provided
         index_data <- data_list$index_data[which(data_list$index_data$Fleet_code == flt & data_list$index_data$Year > data_list$styr & data_list$index_data$Year <= data_list$endyr),]
-        srv_biom_yrs <- index_data$Year - data_list$styr + 1
+        block_yrs <- index_data$Year - data_list$styr + 1
 
         # Penalized deviate or random walk
         if(data_list$fleet_control$Time_varying_q[i] %in% c("IID", "AR1", "RandomWalk")){
@@ -1008,7 +1008,7 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
 
         # Time blocks
         if(data_list$fleet_control$Time_varying_q[i] == "Block"){
-          map_list$index_q_dev[flt, srv_biom_yrs] <- ind_q_dev + index_data$Selectivity_block - 1
+          map_list$index_q_dev[flt, block_yrs] <- ind_q_dev + index_data$Selectivity_block - 1
           ind_q_dev <- ind_q_dev + max(index_data$Selectivity_block)
         }
       }
