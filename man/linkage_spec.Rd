@@ -59,10 +59,7 @@ parameter.}
 \item{link}{link function relating the linear predictor to the
 natural-scale target parameter. One of \code{"log"} (default) or
 \code{"identity"}. With \code{link = "log"}, \code{log(param) = X * beta} -- slope
-contributions are multiplicative on the natural-scale parameter,
-and a \code{normal(mean, sd)} prior on an \code{(Intercept)} row is back-
-transformed to evaluate against the natural-scale value
-(\code{dnorm(exp(b), mean, sd)}). With \code{link = "identity"},
+contributions are multiplicative on the natural-scale parameter. With \code{link = "identity"},
 \code{param = X * beta} -- slope contributions are additive on the
 natural scale. All linkage targets currently expose log-scale TMB
 parameters, so \code{"log"} is the natural default; \code{"identity"} is
@@ -70,7 +67,7 @@ reserved for future processes (e.g. logit for steepness).}
 
 \item{init}{optional named numeric vector of initial values keyed by
 the design-matrix column name (e.g.
-\verb{c(}(Intercept)\verb{ = -1, temp = 0)}). Missing entries default to \code{0}.}
+\verb{c(}(Intercept)\verb{ = 4, temp = 0)}). Missing entries default to \code{0}.}
 
 \item{bounds}{optional named list of \code{c(lower, upper)} keyed the same
 way as \code{init}.}

@@ -324,7 +324,7 @@ testthat::test_that("per-species formulas + species-specific priors compose", {
           by      = ~ species,
           species = 1L,
           init  = list(
-            "(Intercept)" = log(0.3),
+            "(Intercept)" = (0.3),
             temp = 1),
           priors  = list(temp = normal(0, 0.3))
         ),
@@ -333,7 +333,7 @@ testthat::test_that("per-species formulas + species-specific priors compose", {
           by      = ~ species,
           species = 2L,
           init  = list(
-            "(Intercept)" = log(0.3),
+            "(Intercept)" = (0.3),
             temp = 2,
             PDO = 3),
           priors  = list(
@@ -429,7 +429,7 @@ testthat::test_that("Test internal K-linked growth", {
           by      = ~ species,
           species = 1L,
           init  = list(
-            "(Intercept)" = log(0.3),
+            "(Intercept)" = (0.3),
             temp = 1),
           priors  = list(temp = normal(0, 0.3))
         ),
@@ -438,7 +438,7 @@ testthat::test_that("Test internal K-linked growth", {
           by      = ~ species,
           species = 2L,
           init  = list(
-            "(Intercept)" = log(0.35),
+            "(Intercept)" = (0.35),
             temp = 2,
             PDO = 3),
           priors  = list(
@@ -571,7 +571,7 @@ testthat::test_that("Test internal L1-linked growth", {
           by      = ~ species,
           species = 1L,
           init  = list(
-            "(Intercept)" = log(4.5),
+            "(Intercept)" = (4.5),
             temp = 1),
           priors  = list(temp = normal(0, 0.3))
         ),
@@ -580,7 +580,7 @@ testthat::test_that("Test internal L1-linked growth", {
           by      = ~ species,
           species = 2L,
           init  = list(
-            "(Intercept)" = log(5),
+            "(Intercept)" = (5),
             temp = 2,
             PDO = 3),
           priors  = list(
@@ -713,7 +713,7 @@ testthat::test_that("Test internal Linf-linked growth", {
           by      = ~ species,
           species = 1L,
           init  = list(
-            "(Intercept)" = log(90),
+            "(Intercept)" = (90),
             temp = 1),
           priors  = list(temp = normal(0, 0.3))
         ),
@@ -722,7 +722,7 @@ testthat::test_that("Test internal Linf-linked growth", {
           by      = ~ species,
           species = 2L,
           init  = list(
-            "(Intercept)" = log(50),
+            "(Intercept)" = (50),
             temp = 2,
             PDO = 3),
           priors  = list(
