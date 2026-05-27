@@ -157,7 +157,7 @@ Each simulation uses `seed + i` as its RNG seed, so results are reproducible whe
 
 ## Likelihood profile
 
-`profile_param()` re-fits the model across a grid of fixed values for one or more cells of a chosen parameter and returns the resulting NLL surface. A flat profile means the data carry little information about the parameter; a sharp minimum away from the MLE means the fit has not actually settled there. The function generalises the legacy `profile_rsigma()` helper from `examples/Profiling_sigmaR.R` and works for any parameter slot in `Rceattle$estimated_params`; it is tested for `R_log_sd` (recruitment sigma), `rec_pars` (stock-recruit parameters), and `log_M1` (residual natural mortality).
+`profile()` re-fits the model across a grid of fixed values for one or more cells of a chosen parameter and returns the resulting NLL surface. A flat profile means the data carry little information about the parameter; a sharp minimum away from the MLE means the fit has not actually settled there. The function generalises the legacy `profile_rsigma()` helper from `examples/Profiling_sigmaR.R` and works for any parameter slot in `Rceattle$estimated_params`; it is tested for `R_log_sd` (recruitment sigma), `rec_pars` (stock-recruit parameters), and `log_M1` (residual natural mortality).
 
 Two ways to specify `param`:
 
@@ -173,8 +173,8 @@ Two ways to specify `param`:
 
 ```{r}
 # 1-D profile: sigmaR for species 1 (natural-scale alias)
-prof_sigmaR <- profile_param(
-  Rceattle = model_1,
+prof_sigmaR <- profile(
+  fitted = model_1,
   param    = "sigmaR",
   slots    = list(1),
   values   = list(seq(0.1, 1.5, by = 0.1))
@@ -186,16 +186,16 @@ plot(prof_sigmaR$grid$slot_1,
 
 # 1-D profile: SRR alpha for species 1
 # (alias fills in the rec_pars column; slot is just the species index)
-prof_alpha <- profile_param(
-  Rceattle = model_1,
+prof_alpha <- profile(
+  fitted = model_1,
   param    = "alpha",
   slots    = list(1),
   values   = list(seq(2, 80, length.out = 20))
 )
 
 # 2-D cross-profile: M1 across sex for species 1, age 1
-prof_M_sex <- profile_param(
-  Rceattle = model_1,
+prof_M_sex <- profile(
+  fitted = model_1,
   param    = "M1",
   slots    = list(c(1, 1, 1), c(1, 2, 1)),  # males and females
   values   = list(seq(0.10, 0.40, by = 0.05),
@@ -203,7 +203,7 @@ prof_M_sex <- profile_param(
 )
 ```
 
-`profile_param()` returns `Rceattle_list` (one fit per grid row, `NULL` where the fit failed), `grid` (the user-scale value grid), `nll` (joint NLL aligned with `grid`, `NA` for non-converged fits), and echoes of `param` and `slots`. To cross-profile across multiple species, supply one slot per species (e.g. `slots = list(1, 2, 3)` with `param = "sigmaR"`); to cross-profile M1 across sex, supply one slot per sex as in the third example above. `cores` behaves the same way as in the other diagnostic functions.
+`profile()` returns `Rceattle_list` (one fit per grid row, `NULL` where the fit failed), `grid` (the user-scale value grid), `nll` (joint NLL aligned with `grid`, `NA` for non-converged fits), and echoes of `param` and `slots`. To cross-profile across multiple species, supply one slot per species (e.g. `slots = list(1, 2, 3)` with `param = "sigmaR"`); to cross-profile M1 across sex, supply one slot per sex as in the third example above. `cores` behaves the same way as in the other diagnostic functions.
 
 ## Comparing single- and multi-species trajectories
 

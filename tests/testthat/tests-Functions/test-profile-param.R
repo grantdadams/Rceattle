@@ -1,4 +1,4 @@
-testthat::test_that("profile_param: 1-D sigmaR profile fixes R_log_sd at the grid value", {
+testthat::test_that("profile: 1-D sigmaR profile fixes R_log_sd at the grid value", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -17,8 +17,8 @@ testthat::test_that("profile_param: 1-D sigmaR profile fixes R_log_sd at the gri
   )
 
   grid_vals <- c(0.2, 0.6, 1.2)
-  prof <- profile_param(
-    Rceattle = ss_run,
+  prof <- profile(
+    fitted   = ss_run,
     param    = "R_log_sd",
     slots    = list(1),
     values   = list(grid_vals),
@@ -46,7 +46,7 @@ testthat::test_that("profile_param: 1-D sigmaR profile fixes R_log_sd at the gri
 })
 
 
-testthat::test_that("profile_param: sigmaR alias matches raw R_log_sd call", {
+testthat::test_that("profile: sigmaR alias matches raw R_log_sd call", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -66,12 +66,12 @@ testthat::test_that("profile_param: sigmaR alias matches raw R_log_sd call", {
   grid_vals <- c(0.3, 0.9)
 
   # Natural-scale alias
-  p_alias <- profile_param(ss_run, param = "sigmaR",
+  p_alias <- profile(ss_run, param = "sigmaR",
                            slots = list(1), values = list(grid_vals),
                            cores = 1)
 
   # Equivalent raw form: pass log-scale values with identity transform
-  p_raw <- profile_param(ss_run, param = "R_log_sd",
+  p_raw <- profile(ss_run, param = "R_log_sd",
                          slots = list(1), values = list(log(grid_vals)),
                          transform = "identity", cores = 1)
 
@@ -96,7 +96,7 @@ testthat::test_that("profile_param: sigmaR alias matches raw R_log_sd call", {
 })
 
 
-testthat::test_that("profile_param: alpha alias fills in rec_pars column", {
+testthat::test_that("profile: alpha alias fills in rec_pars column", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -115,7 +115,7 @@ testthat::test_that("profile_param: alpha alias fills in rec_pars column", {
 
   alpha_vals <- c(5, 15)
 
-  prof <- profile_param(ss_run, param = "alpha",
+  prof <- profile(ss_run, param = "alpha",
                         slots = list(1), values = list(alpha_vals),
                         cores = 1)
 
@@ -131,7 +131,7 @@ testthat::test_that("profile_param: alpha alias fills in rec_pars column", {
 })
 
 
-testthat::test_that("profile_param: alias warns when transform is overridden", {
+testthat::test_that("profile: alias warns when transform is overridden", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -149,7 +149,7 @@ testthat::test_that("profile_param: alias warns when transform is overridden", {
   )
 
   testthat::expect_warning(
-    profile_param(ss_run, param = "sigmaR",
+    profile(ss_run, param = "sigmaR",
                   slots = list(1), values = list(0.5),
                   transform = "identity", cores = 1),
     "ignoring the supplied `transform`"
@@ -157,7 +157,7 @@ testthat::test_that("profile_param: alias warns when transform is overridden", {
 })
 
 
-testthat::test_that("profile_param: defaults slots to species 1 with a warning", {
+testthat::test_that("profile: defaults slots to species 1 with a warning", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -176,7 +176,7 @@ testthat::test_that("profile_param: defaults slots to species 1 with a warning",
 
   # sigmaR alias: default slot should be list(1) (species 1)
   prof <- testthat::expect_warning(
-    profile_param(ss_run, param = "sigmaR",
+    profile(ss_run, param = "sigmaR",
                   values = list(c(0.4, 0.8)), cores = 1),
     "defaulting to species 1"
   )
@@ -184,7 +184,7 @@ testthat::test_that("profile_param: defaults slots to species 1 with a warning",
 
   # alpha alias: user slot dim is 1 (column appended); default still list(1)
   prof_a <- testthat::expect_warning(
-    profile_param(ss_run, param = "alpha",
+    profile(ss_run, param = "alpha",
                   values = list(c(5, 10)), cores = 1),
     "defaulting to species 1"
   )
@@ -192,14 +192,14 @@ testthat::test_that("profile_param: defaults slots to species 1 with a warning",
 
   # Default requires a single grid; reject if values has length > 1
   testthat::expect_error(
-    profile_param(ss_run, param = "sigmaR",
+    profile(ss_run, param = "sigmaR",
                   values = list(c(0.4, 0.8), c(0.4, 0.8))),
     "species-1 default"
   )
 })
 
 
-testthat::test_that("profile_param: rec_pars alias rejects multi-element slots", {
+testthat::test_that("profile: rec_pars alias rejects multi-element slots", {
   testthat::skip_if_not_installed("Rceattle")
   library(Rceattle)
   data(BS2017SS)
@@ -215,7 +215,7 @@ testthat::test_that("profile_param: rec_pars alias rejects multi-element slots",
   )
 
   testthat::expect_error(
-    profile_param(ss_run, param = "alpha",
+    profile(ss_run, param = "alpha",
                   slots = list(c(1, 2)), values = list(0.5),
                   cores = 1),
     "single species index"
@@ -223,7 +223,7 @@ testthat::test_that("profile_param: rec_pars alias rejects multi-element slots",
 })
 
 
-testthat::test_that("profile_param: input validation", {
+testthat::test_that("profile: input validation", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 
@@ -231,9 +231,9 @@ testthat::test_that("profile_param: input validation", {
 
   # Not an Rceattle object
   testthat::expect_error(
-    profile_param(Rceattle = list(), param = "R_log_sd",
-                  slots = list(1), values = list(1)),
-    "class 'Rceattle'"
+    profile(fitted = list(), param = "R_log_sd",
+            slots = list(1), values = list(1)),
+    "no applicable method"
   )
 
   data(BS2017SS)
@@ -249,28 +249,28 @@ testthat::test_that("profile_param: input validation", {
 
   # Unknown parameter
   testthat::expect_error(
-    profile_param(ss_run, param = "no_such_param",
+    profile(ss_run, param = "no_such_param",
                   slots = list(1), values = list(0.5)),
     "not found"
   )
 
   # Slot length mismatch: R_log_sd is 1-D, c(1, 2) is 2-D
   testthat::expect_error(
-    profile_param(ss_run, param = "R_log_sd",
+    profile(ss_run, param = "R_log_sd",
                   slots = list(c(1, 2)), values = list(0.5)),
     "dimension"
   )
 
   # values length must match slots length
   testthat::expect_error(
-    profile_param(ss_run, param = "R_log_sd",
+    profile(ss_run, param = "R_log_sd",
                   slots = list(1), values = list(0.5, 0.6)),
     "same length"
   )
 
   # Bad transform
   testthat::expect_error(
-    profile_param(ss_run, param = "R_log_sd",
+    profile(ss_run, param = "R_log_sd",
                   slots = list(1), values = list(0.5),
                   transform = "exp"),
     "transform"
