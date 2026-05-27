@@ -11,12 +11,11 @@ An object of class \code{character} of length 3.
 RECRUITMENT_LINKAGE_PARAMS
 }
 \description{
-Linear-predictor names of the underlying recruitment parameters
-that the linkage system can address. Linkages on \code{log_R0} are
+Natural-scale names of the underlying recruitment parameters
+that the linkage system can address. Linkages on \code{R0} are
 meaningful for any \code{srr_fun} (the offset is added to the log of
-equilibrium / mean recruitment); linkages on \code{log_alpha} and
-\code{log_beta} only do work when the chosen \code{srr_fun} actually uses
-alpha / beta (Beverton-Holt, Ricker), where they enter on the log
-scale before exponentiation.
+equilibrium / mean recruitment when the default log link is used);
+linkages on \code{alpha} and \code{beta} only do work when the chosen
+\code{srr_fun} actually uses alpha / beta (Beverton-Holt, Ricker).
 }
 \keyword{internal}

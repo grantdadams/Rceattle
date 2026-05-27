@@ -5,7 +5,7 @@ testthat::test_that("linkage_spec(sex = ...) filters the level grid", {
   )
   spec <- Rceattle::linkage_spec(
     formula = ~ temp,
-    param   = "log_M1",
+    param   = "M1",
     by      = ~ species + sex,
     sex     = 1L
   )
@@ -26,7 +26,7 @@ testthat::test_that("sex filter that excludes everything yields zero rows", {
   env <- data.frame(Year = 2000:2002, temp = 1:3)
   spec <- Rceattle::linkage_spec(
     formula = ~ temp,
-    param   = "log_M1",
+    param   = "M1",
     by      = ~ species + sex,
     sex     = 99L
   )
@@ -45,7 +45,7 @@ testthat::test_that("sex filter is a no-op when `by` does not include sex", {
   env <- data.frame(Year = 2000:2002, temp = 1:3)
   spec <- Rceattle::linkage_spec(
     formula = ~ temp,
-    param   = "log_K",
+    param   = "K",
     by      = ~ species,
     sex     = 1L
   )
@@ -79,11 +79,11 @@ testthat::test_that("sex accepts integer and character forms equivalently", {
 testthat::test_that("character sex form filters the level grid like the integer form", {
   env <- data.frame(Year = 2000:2002, temp = 1:3)
   spec_int <- Rceattle::linkage_spec(
-    formula = ~ temp, param = "log_M1",
+    formula = ~ temp, param = "M1",
     by = ~ species + sex, sex = 2L
   )
   spec_chr <- Rceattle::linkage_spec(
-    formula = ~ temp, param = "log_M1",
+    formula = ~ temp, param = "M1",
     by = ~ species + sex, sex = "Males"
   )
   rows_int <- Rceattle:::materialize_linkage(
@@ -135,7 +135,7 @@ testthat::test_that("per-sex multi-spec form pools into one table", {
     )
   )
   pooled <- Rceattle:::pool_linkages(
-    spec_groups = list(M = list(log_M1 = specs)),
+    spec_groups = list(M = list(M1 = specs)),
     env_data    = env,
     strata      = list(species = 1L, sex = 1:2)
   )

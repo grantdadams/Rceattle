@@ -26,7 +26,7 @@ alias (both forms are accepted; the integer code is canonical):
 \item \code{2} / \code{"sex_specific"} -- estimate \verb{M1_\{spp, sex\}}.
 \item \code{3} / \code{"sex_age_specific"} -- estimate \verb{M1_\{spp, sex, age\}}.
 \item \code{4}, \code{5} -- soft-deprecated env-driven codes; use the
-\code{linkages} argument instead. See \code{vignette("environmental-linkages")}.
+\code{linkages} argument instead. See \code{vignette("environmental-linkages-and-priors")}.
 }}
 
 \item{M1_re}{Vector or scalar specifying the M1 random-effects
@@ -39,7 +39,7 @@ model. Either an integer code or the equivalent string alias:
 from data (\code{M1_base}) instead. Default \code{FALSE}.}
 
 \item{M1_use_prior}{Vector or scalar; if \code{TRUE}, apply the
-lognormal \code{M_prior} / \code{M_prior_sd} to \code{log_M1} directly.}
+lognormal \code{M_prior} / \code{M_prior_sd} to \code{M1} directly.}
 
 \item{M2_use_prior}{Vector or scalar; if \code{TRUE}, apply the
 lognormal prior to \code{M1 + M2} in multi-species models.}
@@ -51,11 +51,11 @@ lognormal prior to \code{M1 + M2} in multi-species models.}
 \item{M1_indices}{Soft-deprecated. Vector of column indices into
 \code{env_data} (excluding \code{Year}) for environmentally linked M1 when
 \code{M1_model \%in\% c(4, 5)}. Use the \code{linkages} argument instead;
-see \code{vignette("environmental-linkages")}.}
+see \code{vignette("environmental-linkages-and-priors")}.}
 
 \item{linkages}{Optional named list of \code{\link[=linkage_spec]{linkage_spec()}} objects
 keyed by M parameter name (currently the only valid key is
-\code{"log_M1"}). Each spec describes how \code{log_M1} depends on
+\code{"M1"}). Each spec describes how \code{M1} depends on
 environmental covariates and on stratifying factors (species,
 sex, age). The offset enters additively (on the log scale)
 inside the \code{M1_at_age} compute. A row's \code{age_bin == NA}
@@ -70,11 +70,11 @@ Define M1 specifications
 }
 \examples{
 \dontrun{
-# Sex/age-invariant M with a temperature linkage on log_M1
+# Sex/age-invariant M with a temperature linkage on M1
 build_M1(
   M1_model = "sex_age_invariant",
   linkages = list(
-    log_M1 = linkage_spec(
+    M1 = linkage_spec(
       formula = ~ temp,
       by      = ~ species,
       priors  = list(temp = normal(0, 0.5))

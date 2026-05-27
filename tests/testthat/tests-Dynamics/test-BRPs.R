@@ -418,9 +418,14 @@ testthat::test_that("Test mean recruitment calculation", {
 
 
   # Fit multi-species
+  # make_msm_test_data() produces a parametric-growth fixture (CAAL
+  # populated, growth_model = 1), so fit_mod() must be told to use
+  # vonBertalanffy growth -- otherwise it defaults to empirical and
+  # data_check rejects the empirical-growth + CAAL combination.
   ss_run <- suppressMessages(
     Rceattle::fit_mod(data_list = simData,
                       estimateMode = 3, # Don't estimate
+                      growthFun = build_growth(fun = "vonBertalanffy"),
                       msmMode = 0, # Single species mode
                       fit_control = fit_control(
                         verbose = 1))
@@ -440,6 +445,7 @@ testthat::test_that("Test mean recruitment calculation", {
                               inits = inits, # Initial parameters from inits
                               file = NULL, # Don't save
                               estimateMode = 3, # Don't estimate
+                              growthFun = build_growth(fun = "vonBertalanffy"),
                               recFun = build_srr(
                                 proj_mean_rec = TRUE, # Project using mean rec over hindcast
                               ),

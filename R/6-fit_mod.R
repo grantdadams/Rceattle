@@ -260,6 +260,17 @@ fit_mod <-
     data_list$growth_model    <- extend_length(growthFun$growth_model)
     data_list$growth_re       <- extend_length(growthFun$growth_re)
     data_list$growth_indices  <- growthFun$growth_indices
+    # VB anchor age per species (= SS3 Growth_Age_for_L1). Resolution
+    # order: build_growth() user arg > data_list$growth_age_L1 (e.g. from
+    # ss3_to_rceattle converter) > max(0.5, minage[sp]) fallback. The
+    # fallback keeps minage >= 1 models backwards-compatible and gives
+    # minage = 0 models an SS3-style half-year anchor.
+    gal1 <- extend_length(growthFun$growth_age_L1)
+    if (!is.null(data_list$growth_age_L1)) {
+      gal1[is.na(gal1)] <- extend_length(data_list$growth_age_L1)[is.na(gal1)]
+    }
+    gal1[is.na(gal1)] <- pmax(0.5, as.numeric(extend_length(data_list$minage)))[is.na(gal1)]
+    data_list$growth_age_L1 <- gal1
 
 
     # * HCR Switches ----
@@ -504,14 +515,17 @@ fit_mod <-
     L <- c()
     U <- c()
     for (i in 1:length(map$mapFactor)) {
-      if (!names(map$mapFactor)[i] %in% random_vars) { # no bounds for random effects
-        L <- c(L, unlist(bounds$lower[[i]])[which(!is.na(unlist(map$mapFactor[[i]])) & !duplicated(unlist(map$mapFactor[[i]])))])
-        U <- c(U, unlist(bounds$upper[[i]])[which(!is.na(unlist(map$mapFactor[[i]])) & !duplicated(unlist(map$mapFactor[[i]])))])
+      nm <- names(map$mapFactor)[i]
+      if (!nm %in% random_vars) { # no bounds for random effects
+        mf   <- unlist(map$mapFactor[[i]])
+        keep <- which(!is.na(mf) & !duplicated(mf))
+        L <- c(L, unlist(bounds$lower[[nm]])[keep])
+        U <- c(U, unlist(bounds$upper[[nm]])[keep])
       }
     }
 
     # Dimension check
-    start_par <- start_par[names(map$mapFactor)]
+    start_par <- start_par[names(map$mapFactor), drop = FALSE]
     dim_check <- sapply(start_par, function(x) length(unlist(x))) == sapply(map$mapFactor, function(x) length(unlist(x)))
     if (sum(dim_check) != length(dim_check)) {
       stop(paste0("Map and parameter objects are not the same size for: ", names(dim_check)[which(dim_check == FALSE)]))
@@ -641,13 +655,8 @@ fit_mod <-
     if (estimateMode > 1) { # debugging / projection-only: use initial parameters
       last_par <- start_par
     } else {
-      if (length(random_vars) == 0) {
-        last_par <- try(obj$env$parList(obj$env$last.par.best))
-      } else {
-        last_par <- try(obj$env$parList())
-      }
+      last_par <- obj$env$parList(par=obj$env$last.par.best)
     }
-
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 10: Run projection ----
@@ -753,11 +762,7 @@ fit_mod <-
         if (estimateMode > 2) { # debugging: use initial parameters
           last_par <- start_par
         } else {
-          if (length(random_vars) == 0) {
-            last_par <- try(obj$env$parList(obj$env$last.par.best))
-          } else {
-            last_par <- try(obj$env$parList())
-          }
+          last_par <- obj$env$parList(par=obj$env$last.par.best)
         }
 
 

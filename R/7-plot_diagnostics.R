@@ -147,7 +147,7 @@ plot_index <- function(Rceattle,
 
           # Plot observed CPUE
           if(error){
-            gplots::plotCI(srv_tmp$Year, (srv_tmp$Observation), ui=(srv_tmp$Upper95), li=(srv_tmp$Lower95),add= TRUE,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
+            suppressWarnings(gplots::plotCI(srv_tmp$Year, (srv_tmp$Observation), ui=(srv_tmp$Upper95), li=(srv_tmp$Lower95),add= TRUE,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white"))
           }
         }
 
@@ -233,7 +233,7 @@ plot_index <- function(Rceattle,
 
           # Plot observed CPUE
           if(error){
-            gplots::plotCI(srv_tmp$Year, (srv_tmp$Observation), ui=(srv_tmp$Upper95), li=(srv_tmp$Lower95),add= TRUE,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
+            suppressWarnings(gplots::plotCI(srv_tmp$Year, (srv_tmp$Observation), ui=(srv_tmp$Upper95), li=(srv_tmp$Lower95),add= TRUE,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white"))
           }
         }
       }
@@ -457,7 +457,7 @@ plot_catch <- function(Rceattle,
 
           # - Plot observed CPUE
           if(error){
-            gplots::plotCI(fsh_tmp$Year, (fsh_tmp$Catch), ui=(fsh_tmp$Upper95), li=(fsh_tmp$Lower95),add= TRUE,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
+            suppressWarnings(gplots::plotCI(fsh_tmp$Year, (fsh_tmp$Catch), ui=(fsh_tmp$Upper95), li=(fsh_tmp$Lower95),add= TRUE,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white"))
           }
 
           # - Plot MSE shading
@@ -575,10 +575,10 @@ plot_catch <- function(Rceattle,
 
           # - Plot observed CPUE
           if(error){
-            gplots::plotCI(x = fsh_tmp$Year, y = fsh_tmp$Catch,
+            suppressWarnings(gplots::plotCI(x = fsh_tmp$Year, y = fsh_tmp$Catch,
                            ui = fsh_tmp$Upper95, li= fsh_tmp$Lower95,
                            add= TRUE, gap=0, pch=21,
-                           xaxt="n", yaxt="n", pt.bg = "white")
+                           xaxt="n", yaxt="n", pt.bg = "white"))
           }
 
           # - Plot MSE shading
@@ -757,7 +757,7 @@ plot_logindex <- function(Rceattle,
           lines(srv_hat_tmp$Year, log(srv_hat_tmp$Observation),lwd=2,col=line_col[k])
 
           # Plot observed CPUE
-          gplots::plotCI(srv_tmp$Year, log(srv_tmp$Observation), ui=log(srv_tmp$Upper95), li=log(srv_tmp$Lower95),add= TRUE,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
+          suppressWarnings(gplots::plotCI(srv_tmp$Year, log(srv_tmp$Observation), ui=log(srv_tmp$Upper95), li=log(srv_tmp$Lower95),add= TRUE,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white"))
         }
 
         # Index name
@@ -825,7 +825,7 @@ plot_logindex <- function(Rceattle,
           lines(srv_hat_tmp$Year, log(srv_hat_tmp$Observation),lwd=2,col=line_col[k])
 
           # Plot observed CPUE
-          gplots::plotCI(srv_tmp$Year, log(srv_tmp$Observation), ui=log(srv_tmp$Upper95), li=log(srv_tmp$Lower95),add= TRUE,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white")
+          suppressWarnings(gplots::plotCI(srv_tmp$Year, log(srv_tmp$Observation), ui=log(srv_tmp$Upper95), li=log(srv_tmp$Lower95),add= TRUE,gap=0,pch=21,xaxt="n",yaxt="n",pt.bg = "white"))
         }
 
         # Model names

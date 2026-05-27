@@ -17,7 +17,7 @@ env-driven integer codes 4 and 5 still work with a deprecation
 warning -- their structural part is identical to 1 and 2
 respectively, and the env effect is now expressed via the
 \code{linkages} argument to \code{\link[=build_M1]{build_M1()}} (see
-\code{vignette("environmental-linkages")}). No string alias is offered
+\code{vignette("environmental-linkages-and-priors")}). No string alias is offered
 for 4 or 5 to discourage their use in new code.
 }
 \keyword{internal}

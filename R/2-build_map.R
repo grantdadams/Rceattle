@@ -529,23 +529,27 @@ build_map_predation <- function(map_list, data_list) {
 #'
 #' @description
 #'   \code{Selectivity} in \code{fleet_control} of the data determines shape of selectivity curve:
-#' 0 = "Fixed" empirical selectivity provided in \code{emp_sel} in the data
-#' 1 = "Logistic"
-#' 2 = "NonParametric" selecitivty sensu Ianelli et al 2018
-#' 3 = "DoubleLogistic"
-#' 4 = "DescendingLogistic"
-#' 5 = "Hake" non-parametric selectivity sensu Taylor et al 2014 (Hake)
-#' 6 = "2DAR1" across age x year
-#' 7 = "3DAR1" across age x cohort x year (Cheng et al 2024)
+#' `0` = "Fixed" empirical selectivity provided in \code{emp_sel} in the data
+#' `1` = "Logistic"
+#' `2` = "NonParametric" selecitivty sensu Ianelli et al 2018
+#' `3` = "DoubleLogistic"
+#' `4` = "DescendingLogistic"
+#' `5` = "Hake" non-parametric selectivity sensu Taylor et al 2014 (Hake)
+#' `6` = "2DAR1" across age x year
+#' `7` = "3DAR1" across age x cohort x year (Cheng et al 2024)
+#' `8` = "DoubleNormal" Gaussian ascending/descending limbs blended at peak (analogous to SS3 pattern 24).
+#'     Parameters: `sel_inf[1]` = peak; `sel_inf[2]` = logit(right_floor) (right-tail floor, SS3 P6/end_logit);
+#'     `log_sel_slp[1]` = log(sigma_asc); `log_sel_slp[2]` = log(sigma_desc).
+#'     right_floor→0: dome-shaped; right_floor→1: logistic ascending only.
 #'
 #' \code{N_sel_bins}	Number of age/length bins to estimate non-parametric selectivity when Selectivity = 2 or 5. Not used otherwise
 #'
 #' \code{Time_varying_sel}	determines if time-varying selectivity should be estimated for logistic, double logistic selectivity,  descending logistic , non-parametric, or hake (\code{Selectivity = 1, 2, 3, 4, or 5}).
-#' 0 = 'None'
-#' 1 = 'IID' penalized deviates given \code{sel_sd_prior}
-#' 3 = 'Block' time blocks with no penalty
-#' 4 = 'RandomWalk' random walk following Dorn
-#' 5 = 'RandomWalkAscending' random walk on ascending portion of double logistic only.
+#' `0` = 'None'
+#' `1` = 'IID' penalized deviates given \code{sel_sd_prior}
+#' `3` = 'Block' time blocks with no penalty
+#' `4` = 'RandomWalk' random walk following Dorn
+#' `5` = 'RandomWalkAscending' random walk on ascending portion of double logistic only.
 #' \code{random_sel} in \code{fit_mod} treats random deviates and random walk parameters as random effects, estimating the variance.
 #'
 #'
@@ -599,7 +603,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
         fleet_data <- data_source |>
           dplyr::filter(Fleet_code == flt, Year - data_list$styr + 1 <= nyrs_hind)
         Selectivity_block <- fleet_data$Selectivity_block
-        biom_yrs <- fleet_data$Year - data_list$styr + 1
+        block_yrs <- fleet_data$Year - data_list$styr + 1
         max_block <- max(Selectivity_block, 0)
       }
 
@@ -628,8 +632,8 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
           }
         } else if (tv_sel == "Block" && max_block > 0) { # Selectivity blocks
           for (sex in 1:nsex) {
-            map_list$log_sel_slp_dev[1, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_slp
-            map_list$sel_inf_dev[1, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_inf
+            map_list$log_sel_slp_dev[1, flt, sex, block_yrs] <- Selectivity_block - 1 + ind_slp
+            map_list$sel_inf_dev[1, flt, sex, block_yrs] <- Selectivity_block - 1 + ind_inf
 
             ind_slp <- ind_slp + max_block
             ind_inf <- ind_inf + max_block
@@ -709,12 +713,76 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
         } else if (tv_sel == "Block" && max_block > 0) { # Selectivity blocks
           for (j in 1:2) {
             for (sex in 1:nsex) {
-              map_list$log_sel_slp_dev[j, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_slp
-              map_list$sel_inf_dev[j, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_inf
+              map_list$log_sel_slp_dev[j, flt, sex, block_yrs] <- Selectivity_block - 1 + ind_slp
+              map_list$sel_inf_dev[j, flt, sex, block_yrs] <- Selectivity_block - 1 + ind_inf
 
               ind_slp <- ind_slp + max_block
               ind_inf <- ind_inf + max_block
             }
+          }
+        }
+      }
+
+
+      # * Double Normal ----
+      # Parameters reuse existing arrays (same dimensions as DoubleLogistic):
+      #   sel_inf[1]     = peak bin/length (mode)
+      #   sel_inf[2]     = logit(right_floor) — right-tail floor (analogous to SS3 P6 / end_logit)
+      #   log_sel_slp[1] = log(sigma_ascending)
+      #   log_sel_slp[2] = log(sigma_descending)
+      if (sel_type == "DoubleNormal") {
+
+        # Base parameters
+        for (sex in 1:nsex) {
+          map_list$sel_inf[1, flt, sex]     <- ind_inf; ind_inf <- ind_inf + 1
+          map_list$sel_inf[2, flt, sex]     <- ind_inf; ind_inf <- ind_inf + 1
+          map_list$log_sel_slp[1, flt, sex] <- ind_slp; ind_slp <- ind_slp + 1
+          map_list$log_sel_slp[2, flt, sex] <- ind_slp; ind_slp <- ind_slp + 1
+        }
+
+        # Time-varying parameters
+        if (tv_sel %in% c("IID", "AR1", "RandomWalk")) {
+          for (sex in 1:nsex) {
+            # Peak (sel_inf[1]) and right-floor (sel_inf[2]) deviates
+            map_list$sel_inf_dev[1, flt, sex, yrs_hind] <- ind_inf + yrs_hind - 1
+            ind_inf <- ind_inf + nyrs_hind
+            map_list$sel_inf_dev[2, flt, sex, yrs_hind] <- ind_inf + yrs_hind - 1
+            ind_inf <- ind_inf + nyrs_hind
+
+            # Ascending-SD (log_sel_slp[1]) and descending-SD (log_sel_slp[2]) deviates
+            map_list$log_sel_slp_dev[1, flt, sex, yrs_hind] <- ind_slp + yrs_hind - 1
+            ind_slp <- ind_slp + nyrs_hind
+            map_list$log_sel_slp_dev[2, flt, sex, yrs_hind] <- ind_slp + yrs_hind - 1
+            ind_slp <- ind_slp + nyrs_hind
+          }
+
+          # Random walk: fix first deviate
+          if (tv_sel == "RandomWalk") {
+            map_list$sel_inf_dev[1, flt, , 1]     <- NA
+            map_list$sel_inf_dev[2, flt, , 1]     <- NA
+            map_list$log_sel_slp_dev[1, flt, , 1] <- NA
+            map_list$log_sel_slp_dev[2, flt, , 1] <- NA
+          }
+
+        } else if (tv_sel == "Block" && max_block > 0) {
+          for (sex in 1:nsex) {
+            # Peak and right-floor block deviates
+            map_list$sel_inf_dev[1, flt, sex, block_yrs] <- Selectivity_block - 1 + ind_inf
+            ind_inf <- ind_inf + max_block
+            map_list$sel_inf_dev[2, flt, sex, block_yrs] <- Selectivity_block - 1 + ind_inf
+            ind_inf <- ind_inf + max_block
+
+            # Ascending-SD and descending-SD block deviates
+            map_list$log_sel_slp_dev[1, flt, sex, block_yrs] <- Selectivity_block - 1 + ind_slp
+            ind_slp <- ind_slp + max_block
+            map_list$log_sel_slp_dev[2, flt, sex, block_yrs] <- Selectivity_block - 1 + ind_slp
+            ind_slp <- ind_slp + max_block
+
+            # Fix base parameters — blocks fully replace them (deviates are absolute values)
+            map_list$sel_inf[1, flt, sex]     <- NA
+            map_list$sel_inf[2, flt, sex]     <- NA
+            map_list$log_sel_slp[1, flt, sex] <- NA
+            map_list$log_sel_slp[2, flt, sex] <- NA
           }
         }
       }
@@ -746,8 +814,8 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
           }
         } else if (tv_sel == "Block" && max_block > 0) { # Selectivity blocks
           for (sex in 1:nsex) {
-            map_list$log_sel_slp_dev[2, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_slp
-            map_list$sel_inf_dev[2, flt, sex, biom_yrs] <- Selectivity_block - 1 + ind_inf
+            map_list$log_sel_slp_dev[2, flt, sex, block_yrs] <- Selectivity_block - 1 + ind_slp
+            map_list$sel_inf_dev[2, flt, sex, block_yrs] <- Selectivity_block - 1 + ind_inf
 
             ind_slp <- ind_slp + max_block
             ind_inf <- ind_inf + max_block
@@ -925,7 +993,7 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
 
         # Extract survey years where data is provided
         index_data <- data_list$index_data[which(data_list$index_data$Fleet_code == flt & data_list$index_data$Year > data_list$styr & data_list$index_data$Year <= data_list$endyr),]
-        srv_biom_yrs <- index_data$Year - data_list$styr + 1
+        block_yrs <- index_data$Year - data_list$styr + 1
 
         # Penalized deviate or random walk
         if(data_list$fleet_control$Time_varying_q[i] %in% c("IID", "AR1", "RandomWalk")){
@@ -940,7 +1008,7 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
 
         # Time blocks
         if(data_list$fleet_control$Time_varying_q[i] == "Block"){
-          map_list$index_q_dev[flt, srv_biom_yrs] <- ind_q_dev + index_data$Selectivity_block - 1
+          map_list$index_q_dev[flt, block_yrs] <- ind_q_dev + index_data$Selectivity_block - 1
           ind_q_dev <- ind_q_dev + max(index_data$Selectivity_block)
         }
       }
@@ -1345,10 +1413,23 @@ map_linkage_adjuster <- function(map_list, data_list) {
     idx <- .linkage_row_indices(row, data_list)
     switch(row$process,
       growth = {
-        par_idx <- .GROWTH_PARAM_TO_INDEX[row$param]
-        if (is.na(par_idx)) next
-        for (s in idx$species) {
-          map_list$log_growth_pars[s, idx$per_sp[[as.character(s)]]$sex, par_idx] <- NA
+        # Mean-growth params live on log_growth_pars[sp, sex, k];
+        # SD endpoints live on growth_log_sd[sp, sex, k']. Same
+        # slope-only-mask logic applies to both: mask the base so the
+        # slope rows in beta_linkage define the offset alone.
+        # (SD specs are pre-validated to be intercept-bearing, so this
+        # SD branch is only reachable if a future caller bypasses
+        # `.validate_growth_linkages`.)
+        mean_idx <- .GROWTH_PARAM_TO_INDEX[row$param]
+        sd_idx   <- .GROWTH_SD_PARAM_TO_INDEX[row$param]
+        if (!is.na(mean_idx)) {
+          for (s in idx$species) {
+            map_list$log_growth_pars[s, idx$per_sp[[as.character(s)]]$sex, mean_idx] <- NA
+          }
+        } else if (!is.na(sd_idx)) {
+          for (s in idx$species) {
+            map_list$growth_log_sd[s, idx$per_sp[[as.character(s)]]$sex, sd_idx] <- NA
+          }
         }
       },
       M = {

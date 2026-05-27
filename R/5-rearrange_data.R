@@ -131,37 +131,43 @@ rearrange_dat <- function(data_list){
   # - Seperate index metadata from observation
   data_list$index_ctl <- data_list$index_data %>%
     dplyr::select(Fleet_code, Species, Year) %>%
-    dplyr::mutate_all(as.integer)
+    dplyr::mutate_all(as.integer) %>%
+    as.matrix()
 
   data_list$index_n <- as.matrix(data_list$index_data[,c("Month")])
 
   data_list$index_obs <- data_list$index_data %>%
     dplyr::select(Observation, Log_sd) %>%
-    dplyr::mutate_all(as.numeric)
+    dplyr::mutate_all(as.numeric) %>%
+    as.matrix()
 
 
   # 3 -  Catch data ----
   # - Seperate catch metadata from observation
   data_list$catch_ctl <- data_list$catch_data %>%
     dplyr::select(Fleet_code, Species, Year) %>%
-    dplyr::mutate_all(as.integer)
+    dplyr::mutate_all(as.integer) %>%
+    as.matrix()
 
   data_list$catch_n <- as.matrix(data_list$catch_data[,c("Month")])
 
   data_list$catch_obs <- data_list$catch_data %>%
     dplyr::select(Catch, Log_sd) %>%
-    dplyr::mutate_all(as.numeric)
+    dplyr::mutate_all(as.numeric) %>%
+    as.matrix()
 
 
   # 4 -  Comp data ----
   # - Seperate comp metadata from observation
   data_list$comp_ctl <- data_list$comp_data %>%
     dplyr::select(Fleet_code, Species, Sex, Age0_Length1, Year) %>%
-    dplyr::mutate_all(as.integer)
+    dplyr::mutate_all(as.integer) %>%
+    as.matrix()
 
   data_list$comp_n <- data_list$comp_data %>%
     dplyr::select(Month, Sample_size) %>%
-    dplyr::mutate_all(as.numeric)
+    dplyr::mutate_all(as.numeric) %>%
+    as.matrix()
 
   data_list$comp_obs <- data_list$comp_data %>%
     dplyr::select(contains("Comp_")) %>%
@@ -179,11 +185,13 @@ rearrange_dat <- function(data_list){
   data_list$caal_ctl <- data_list$caal_data %>%
     dplyr::mutate(Length_bin = factor(.data$Length)) %>%
     dplyr::select(Fleet_code, Species, Sex, Year, Length_bin) %>%
-    dplyr::mutate_all(as.integer)
+    dplyr::mutate_all(as.integer) %>%
+    as.matrix()
 
   data_list$caal_n <- data_list$caal_data %>%
     dplyr::select(Sample_size) %>%
-    dplyr::mutate_all(as.numeric)
+    dplyr::mutate_all(as.numeric) %>%
+    as.matrix()
 
   data_list$caal_obs <- data_list$caal_data %>%
     dplyr::select(contains("CAAL_")) %>%

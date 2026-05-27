@@ -32,7 +32,7 @@ NULL
 #' @keywords internal
 LINKAGE_COLS <- c(
   process       = "character",  # "recruitment", "M", "growth", "q", "sel"
-  param         = "character",  # e.g. "log_R0", "log_alpha", "log_K"
+  param         = "character",  # e.g. "R0", "alpha", "K"
   species       = "integer",    # 1-based species id; NA = shared
   sex           = "integer",    # 1 or 2; NA = shared
   age_bin       = "integer",    # 1-based age index; NA = shared

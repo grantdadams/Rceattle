@@ -14,13 +14,13 @@ testthat::test_that("encode_linkage_for_tmb maps strings to expected codes", {
   env <- data.frame(Year = 2000:2004, temp = stats::rnorm(5))
   s_K <- Rceattle::linkage_spec(
     formula = ~ temp,
-    param   = "log_K",
+    param   = "K",
     by      = ~ species,
     link    = "log",
     priors  = list(temp = normal(0, 0.5))
   )
   pool <- Rceattle:::pool_linkages(
-    spec_groups = list(growth = list(log_K = s_K)),
+    spec_groups = list(growth = list(K = s_K)),
     env_data    = env,
     strata      = list(species = 1:2)
   )
@@ -32,7 +32,7 @@ testthat::test_that("encode_linkage_for_tmb maps strings to expected codes", {
                             Rceattle:::LINKAGE_PROCESS_CODES[["growth"]]))
   # All rows are log_K -> code 0 (per growth namespace)
   testthat::expect_true(all(out$linkage_param ==
-                            Rceattle:::LINKAGE_PARAM_CODES$growth[["log_K"]]))
+                            Rceattle:::LINKAGE_PARAM_CODES$growth[["K"]]))
   # link = "log" -> code 1
   testthat::expect_true(all(out$linkage_link ==
                             Rceattle:::LINKAGE_LINK_CODES[["log"]]))
@@ -60,11 +60,11 @@ testthat::test_that("encode_linkage_for_tmb is deterministic on row order", {
   env <- data.frame(Year = 2000:2004, temp = 1:5)
   s_K <- Rceattle::linkage_spec(
     formula = ~ temp,
-    param   = "log_K",
+    param   = "K",
     by      = ~ species
   )
   pool <- Rceattle:::pool_linkages(
-    spec_groups = list(growth = list(log_K = s_K)),
+    spec_groups = list(growth = list(K = s_K)),
     env_data    = env,
     strata      = list(species = 1:3)
   )
