@@ -147,124 +147,51 @@ cod_model_re <- Rceattle::fit_mod(
 
 
 # PROFILE ----
+# All profiles below use Rceattle::profile(), which generalises the
+# original profile_rsigma() helper to any parameter slot and supports
+# arbitrary N-D cross-profiles. The legacy helper is kept below the new
+# calls for reference / reproducibility of older runs.
 rsigma_vec <- seq(from = 0.05, to = 2, by = 0.05)
 
-
-profile_rsigma <- function(model = NULL, rsigma_vec = NULL, species = NULL){
-  ### Set up parallel processing
-  library(foreach)
-  library(doParallel)
-
-  cores = detectCores() - 6
-  registerDoParallel(cores)
-
-  # Loop through Rsigma
-  profile_list <- foreach(i = 1:length(rsigma_vec)) %dopar% {
-    library(Rceattle)
-    library(dplyr)
-
-    # Update sigmaR
-    inits <- model$estimated_params
-    inits$R_log_sd[species] <- log(rsigma_vec[i])
-
-    # Build map
-    data_list <- model$data_list
-    # data_list$estDynamics <- rep(1, data_list$nspp)
-    # data_list$estDynamics[species] <- 0
-    map <- Rceattle::build_map(data_list, params = inits, debug = FALSE, random_rec = FALSE)
-
-    # Estimate
-    mod_prof <- fit_mod(
-      data_list = data_list,
-      inits = inits,
-      map =  map,
-      bounds = NULL,
-      file = NULL,
-      estimateMode = 1,
-      HCR = build_hcr(HCR = data_list$HCR,
-                      DynamicHCR = data_list$DynamicHCR,
-                      Ftarget = data_list$Ftarget,
-                      Flimit = data_list$Flimit,
-                      Ptarget = data_list$Ptarget,
-                      Plimit = data_list$Plimit,
-                      Alpha = data_list$Alpha,
-                      Pstar = data_list$Pstar,
-                      Sigma = data_list$Sigma,
-                      Fmult = data_list$Fmult,
-                      HCRorder = data_list$HCRorder
-      ),
-      recFun = build_srr(srr_fun = data_list$srr_fun,
-                         srr_pred_fun  = data_list$srr_pred_fun ,
-                         proj_mean_rec  = data_list$proj_mean_rec ,
-                         srr_mse_switchyr = min(data_list$srr_mse_switchyr, data_list$endyr), # Update end year if less than srr_mse_switchyr
-                         srr_hat_styr = data_list$srr_hat_styr,
-                         srr_hat_endyr = data_list$srr_hat_endyr,
-                         srr_est_mode  = data_list$srr_est_mode ,
-                         srr_prior  = data_list$srr_prior,
-                         srr_prior_sd   = data_list$srr_prior_sd,
-                         Bmsy_lim = data_list$Bmsy_lim,
-                         srr_indices = data_list$srr_indices),
-      M1Fun =     build_M1(M1_model = data_list$M1_model,
-                           M1_re = data_list$M1_re,
-                           updateM1 = FALSE,  # Dont update M1 from data
-                           M1_use_prior = data_list$M1_use_prior,
-                           M2_use_prior = data_list$M2_use_prior,
-                           M_prior = data_list$M_prior,
-                           M_prior_sd = data_list$M_prior_sd,
-                           M1_indices = data_list$M1_indices),
-      growthFun = build_growth(fun = data_list$growth_fun,
-                               linkages = data_list$growth_linkages),
-      random_rec = data_list$random_rec,
-      niter = data_list$niter,
-      msmMode = data_list$msmMode,
-      avgnMode = data_list$avgnMode,
-      suitMode = data_list$suitMode,
-      suit_styr = data_list$suit_styr,
-      suit_endyr = min(data_list$suit_endyr, data_list$endyr),   # Update to end year if less than suit_endyr
-      initMode = data_list$initMode,
-      fit_control = fit_control(
-        phase = FALSE,
-        loopnum = data_list$loopnum,
-        getsd = TRUE,
-        verbose = 0))
-    mod_prof
-  }
-
-  closeAllConnections()
-  gc()
-
-  return(profile_list)
+prof_sigmaR <- function(model, species){
+  # Natural-scale alias: pass sigmaR values directly (no manual log()).
+  profile(
+    fitted = model,
+    param    = "sigmaR",
+    slots    = list(species),
+    values   = list(rsigma_vec)
+  )
 }
 
 
 # * Run profile ----
 # - EBS
-ebs_list1 <- profile_rsigma(model = ebs_run, rsigma_vec, species = 1)
-ebs_list2 <- profile_rsigma(model = ebs_run, rsigma_vec, species = 2)
-ebs_list3 <- profile_rsigma(model = ebs_run, rsigma_vec, species = 3)
+ebs_list1 <- prof_sigmaR(ebs_run, species = 1)
+ebs_list2 <- prof_sigmaR(ebs_run, species = 2)
+ebs_list3 <- prof_sigmaR(ebs_run, species = 3)
 
-ebs_re_list1 <- profile_rsigma(model = ebs_run_re, rsigma_vec, species = 1)
-ebs_re_list2 <- profile_rsigma(model = ebs_run_re, rsigma_vec, species = 2)
-ebs_re_list3 <- profile_rsigma(model = ebs_run_re, rsigma_vec, species = 3)
+ebs_re_list1 <- prof_sigmaR(ebs_run_re, species = 1)
+ebs_re_list2 <- prof_sigmaR(ebs_run_re, species = 2)
+ebs_re_list3 <- prof_sigmaR(ebs_run_re, species = 3)
 
 # - EBS w/ Ricker
-ebsr_list1 <- profile_rsigma(model = ebs_ricker_run, rsigma_vec, species = 1)
-ebsr_list2 <- profile_rsigma(model = ebs_ricker_run, rsigma_vec, species = 2)
-ebsr_list3 <- profile_rsigma(model = ebs_ricker_run, rsigma_vec, species = 3)
+ebsr_list1 <- prof_sigmaR(ebs_ricker_run, species = 1)
+ebsr_list2 <- prof_sigmaR(ebs_ricker_run, species = 2)
+ebsr_list3 <- prof_sigmaR(ebs_ricker_run, species = 3)
 
-ebsr_re_list1 <- profile_rsigma(model = ebs_ricker_run_re, rsigma_vec, species = 1)
-ebsr_re_list2 <- profile_rsigma(model = ebs_ricker_run_re, rsigma_vec, species = 2)
-ebsr_re_list3 <- profile_rsigma(model = ebs_ricker_run_re, rsigma_vec, species = 3)
+ebsr_re_list1 <- prof_sigmaR(ebs_ricker_run_re, species = 1)
+ebsr_re_list2 <- prof_sigmaR(ebs_ricker_run_re, species = 2)
+ebsr_re_list3 <- prof_sigmaR(ebs_ricker_run_re, species = 3)
 
 
 # - GOA
-goa_list1 <- profile_rsigma(model = pollock_model, rsigma_vec, species = 1)
-goa_list2 <- profile_rsigma(model = atf_model, rsigma_vec, species = 1)
-goa_list3 <- profile_rsigma(model = cod_model, rsigma_vec, species = 1)
+goa_list1 <- prof_sigmaR(pollock_model, species = 1)
+goa_list2 <- prof_sigmaR(atf_model,     species = 1)
+goa_list3 <- prof_sigmaR(cod_model,     species = 1)
 
-goa_re_list1 <- profile_rsigma(model = pollock_model_re, rsigma_vec, species = 1)
-goa_re_list2 <- profile_rsigma(model = atf_model_re, rsigma_vec, species = 1)
-goa_re_list3 <- profile_rsigma(model = cod_model_re, rsigma_vec, species = 1)
+goa_re_list1 <- prof_sigmaR(pollock_model_re, species = 1)
+goa_re_list2 <- prof_sigmaR(atf_model_re,     species = 1)
+goa_re_list3 <- prof_sigmaR(cod_model_re,     species = 1)
 
 goa_list <- list(pollock_model_re, cod_model_re, atf_model_re)
 
@@ -284,18 +211,18 @@ par(mfrow = c(3,3))
 
 # -- EBS
 for(i in 1:3){
-  y = sapply(ebs_jnll[[i]], function(x) x$opt$objective)
-  y = y-min(y)
+  y = ebs_jnll[[i]]$nll
+  y = y - min(y, na.rm = TRUE)
 
   plot(y = y, x = rsigma_vec, ylab = "dNLL", xlab = "sigmaR", type = "l", main = paste("EBS", ebs_run$data_list$spnames[i]), col = "red", ylim = c(0,10))
 
 
-  y = sapply(ebs_re_jnll[[i]], function(x) x$opt$objective)
-  y = y-min(y)
+  y = ebs_re_jnll[[i]]$nll
+  y = y - min(y, na.rm = TRUE)
   lines(y = y, x = rsigma_vec, col = 1)
 
 
-  abline(v = exp(ebs_run_re$estimated_params$log_rec_sigma[i]), lty = 2)
+  abline(v = exp(ebs_run_re$estimated_params$R_log_sd[i]), lty = 2)
 }
 
 legend("topright", c("Penalized likelihood", "Random effects", "Minima"), col = c(2,1,1), lty = c(1,1,2), bty = "n")
@@ -303,31 +230,75 @@ legend("topright", c("Penalized likelihood", "Random effects", "Minima"), col = 
 
 # w/ Ricker
 for(i in 1:3){
-  y = sapply(ebsr_jnll[[i]], function(x) x$opt$objective)
-  y = y-min(y)
+  y = ebsr_jnll[[i]]$nll
+  y = y - min(y, na.rm = TRUE)
 
   plot(y = y, x = rsigma_vec, ylab = "dNLL", xlab = "sigmaR", type = "l", main = paste("EBS-Ricker", ebs_ricker_run$data_list$spnames[i]), col = "red", ylim = c(0,10))
 
 
-  y = sapply(ebsr_re_jnll[[i]], function(x) x$opt$objective)
-  y = y-min(y)
+  y = ebsr_re_jnll[[i]]$nll
+  y = y - min(y, na.rm = TRUE)
   lines(y = y, x = rsigma_vec, col = 1)
 
-  abline(v = exp(ebs_ricker_run_re$estimated_params$log_rec_sigma[i]), lty = 2)
+  abline(v = exp(ebs_ricker_run_re$estimated_params$R_log_sd[i]), lty = 2)
 }
 
 
 # -- GOA
 for(i in 1:3){
-  y = sapply(goa_jnll[[i]], function(x) x$opt$objective)
-  y = y-min(y)
+  y = goa_jnll[[i]]$nll
+  y = y - min(y, na.rm = TRUE)
 
   plot(y = y, x = rsigma_vec, ylab = "dNLL", xlab = "sigmaR", type = "l", main = paste("GOA", goa_list[[i]]$data_list$spnames[1]), col = "red", ylim = c(0,10))
 
 
-  y = sapply(goa_re_jnll[[i]], function(x) x$opt$objective)
-  y = y-min(y)
+  y = goa_re_jnll[[i]]$nll
+  y = y - min(y, na.rm = TRUE)
   lines(y = y, x = rsigma_vec, col = 1)
 
-  abline(v = exp(goa_list[[i]]$estimated_params$log_rec_sigma[1]), lty = 2)
+  abline(v = exp(goa_list[[i]]$estimated_params$R_log_sd[1]), lty = 2)
 }
+
+
+# PROFILE OTHER PARAMETERS ----
+# profile() generalises to any parameter slot. The "natural-scale"
+# aliases (sigmaR, M1, R0, alpha, beta) take values in natural units and
+# log() them internally. For rec_pars aliases the column is inferred from
+# the alias name, so `slots` only needs the species index.
+
+# 1-D profile of SRR alpha for species 1 of the EBS-Ricker run
+alpha_prof <- profile(
+  Rceattle = ebs_ricker_run,
+  param    = "alpha",
+  slots    = list(1),
+  values   = list(seq(20, 100, length.out = 20))
+)
+
+# 2-D cross-profile: M1 across sex for species 1 of the GOA cod run
+# (males = sex 1, females = sex 2; profiled at age 1)
+M_sex_prof <- profile(
+  Rceattle = cod_model,
+  param    = "M1",
+  slots    = list(c(1, 1, 1), c(1, 2, 1)),
+  values   = list(seq(0.20, 0.60, by = 0.05),
+                  seq(0.20, 0.60, by = 0.05))
+)
+
+# 2-D cross-profile of sigmaR across species 1 and 2 in the EBS run
+sigmaR_cross <- profile(
+  Rceattle = ebs_run,
+  param    = "sigmaR",
+  slots    = list(1, 2),
+  values   = list(seq(0.2, 1.5, by = 0.1),
+                  seq(0.2, 1.5, by = 0.1))
+)
+
+# Equivalent raw-form call (operates directly on log-scale R_log_sd)
+sigmaR_cross_raw <- profile(
+  Rceattle  = ebs_run,
+  param     = "R_log_sd",
+  slots     = list(1, 2),
+  values    = list(log(seq(0.2, 1.5, by = 0.1)),
+                   log(seq(0.2, 1.5, by = 0.1))),
+  transform = "identity"
+)

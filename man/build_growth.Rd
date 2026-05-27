@@ -12,6 +12,15 @@ build_growth(fun = "empirical", growth_age_L1 = NA, linkages = NULL)
 equivalent integer code (\code{0}, \code{1}, \code{2}). The canonical string form
 is stored on the returned object.}
 
+\item{growth_age_L1}{Von Bertalanffy / Richards anchor age (the age at
+which mean length equals \code{L1}). Matches SS3's \code{Growth_Age_for_L1}
+control input. Scalar (recycled across species) or a length-\code{nspp}
+vector for per-species values. Default \code{NA} inherits
+\code{data_list$growth_age_L1} if supplied (e.g. from the SS3 converter),
+otherwise falls back to \code{max(0.5, minage[sp])} so \code{minage >= 1}
+models stay backwards-compatible and \code{minage = 0} models pick up an
+SS3-consistent half-year anchor.}
+
 \item{linkages}{Optional named list of \code{\link[=linkage_spec]{linkage_spec()}} objects
 keyed by parameter name (must be one of \link{GROWTH_LINKAGE_PARAMS}).
 The mean-growth keys (\code{K}, \code{L1}, \code{Linf}, \code{m})

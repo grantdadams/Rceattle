@@ -26,7 +26,7 @@ alias (both forms are accepted; the integer code is canonical):
 \item \code{2} / \code{"sex_specific"} -- estimate \verb{M1_\{spp, sex\}}.
 \item \code{3} / \code{"sex_age_specific"} -- estimate \verb{M1_\{spp, sex, age\}}.
 \item \code{4}, \code{5} -- soft-deprecated env-driven codes; use the
-\code{linkages} argument instead. See \code{vignette("environmental-linkages")}.
+\code{linkages} argument instead. See \code{vignette("environmental-linkages-and-priors")}.
 }}
 
 \item{M1_re}{Vector or scalar specifying the M1 random-effects
@@ -51,7 +51,7 @@ lognormal prior to \code{M1 + M2} in multi-species models.}
 \item{M1_indices}{Soft-deprecated. Vector of column indices into
 \code{env_data} (excluding \code{Year}) for environmentally linked M1 when
 \code{M1_model \%in\% c(4, 5)}. Use the \code{linkages} argument instead;
-see \code{vignette("environmental-linkages")}.}
+see \code{vignette("environmental-linkages-and-priors")}.}
 
 \item{linkages}{Optional named list of \code{\link[=linkage_spec]{linkage_spec()}} objects
 keyed by M parameter name (currently the only valid key is

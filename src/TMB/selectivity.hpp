@@ -209,16 +209,22 @@ void convert_length_selectivity(
  *     Conditional-variance parameterisation of a 3D random field across age, cohort and year.
  *
  * - Case 8: Double Normal [Age or Length]
- *     Gaussian ascending limb left of peak, Gaussian descending limb right of peak, blended
- *     smoothly via a steep logistic weight so the function is twice differentiable everywhere.
- *       sel(x) = (1-w(x)) * exp(-0.5*((x-peak)/sigma_asc)^2)
- *              +    w(x)  * exp(-0.5*((x-peak)/sigma_desc)^2)
- *       w(x)  = 1 / (1 + exp(-20*(x - peak)))   [~0 left of peak, ~1 right]
- *     Parameters (reuses existing arrays):
- *       sel_inf(0)     = peak bin (mode); TV deviate: sel_inf_dev(0)
- *       log_sel_slp(0) = log(sigma_ascending);  TV deviate: log_sel_slp_dev(0)
- *       log_sel_slp(1) = log(sigma_descending); TV deviate: log_sel_slp_dev(1)
- *       sel_inf(1) is intentionally unused (fixed at initial value via map).
+ *     Four-parameter dome with a configurable right-tail floor (analogous to SS3 pattern
+ *     24 / P6). Gaussian ascending limb left of peak; Gaussian descending limb right of
+ *     peak that approaches `right_floor` instead of 0; blended smoothly via a steep
+ *     logistic weight so the function is twice differentiable everywhere.
+ *       w(x)         = 1 / (1 + exp(-20*(x - peak)))     [~0 left of peak, ~1 right]
+ *       asc(x)       = exp(-0.5*((x-peak)/sigma_asc)^2)
+ *       desc(x)      = right_floor + (1 - right_floor) * exp(-0.5*((x-peak)/sigma_desc)^2)
+ *       sel(x)       = (1 - w(x)) * asc(x) + w(x) * desc(x)
+ *       right_floor  = 1 / (1 + exp(-(sel_inf(1) + sel_inf_dev(1))))   [logit]
+ *     Parameters (reuses existing arrays; all four support annual deviates):
+ *       sel_inf(0)     = peak bin (mode);            TV deviate: sel_inf_dev(0)
+ *       log_sel_slp(0) = log(sigma_ascending);       TV deviate: log_sel_slp_dev(0)
+ *       log_sel_slp(1) = log(sigma_descending);      TV deviate: log_sel_slp_dev(1)
+ *       sel_inf(1)     = logit(right_floor) (~SS3 P6/end_logit). logit -> -Inf gives a
+ *                        fully dome-shaped curve; logit -> +Inf collapses to logistic
+ *                        (ascending only). TV deviate: sel_inf_dev(1)
  * * @param nspp Number of species.
  * @param n_flt Number of fleets (fisheries and surveys).
  * @param nyrs Total years (including hindcast and projection).
@@ -419,6 +425,19 @@ void calculate_selectivity(
           }
           break;
 
+        case 6: // 2D AR1-age x year
+        case 7: // 3D AR1 conditional variance
+          for (int bin = 0; bin < nbins; bin++) {
+
+            // Safely cap the bin index to prevent out-of-bounds access
+            int active_bin = (bin < n_sel_bins) ? bin : (n_sel_bins - 1);
+            Type val = 1.0 / (1.0 + exp(-(sel_coff(flt, sex, active_bin) + sel_coff_dev(flt, sex, active_bin, yr))));
+
+            if (is_length_based) sel_at_length(flt, sex, bin, yr) = val;
+            else sel_at_age(flt, sex, bin, yr) = val;
+          }
+          break;
+
         case 8: { // SS3 pattern 24 -- length-based Double Normal with plateau
           // 6 parameters per fleet/sex (SS3 Pn ↔ Rceattle slot):
           //   sel_inf(0)     = P1 peak (mode start of plateau)
@@ -498,21 +517,7 @@ void calculate_selectivity(
           }
           break;
         }
-
-        case 6: // 2D AR1-age x year
-        case 7: // 3D AR1 conditional variance
-          for (int bin = 0; bin < nbins; bin++) {
-
-            // Safely cap the bin index to prevent out-of-bounds access
-            int active_bin = (bin < n_sel_bins) ? bin : (n_sel_bins - 1);
-            Type val = 1.0 / (1.0 + exp(-(sel_coff(flt, sex, active_bin) + sel_coff_dev(flt, sex, active_bin, yr))));
-
-            if (is_length_based) sel_at_length(flt, sex, bin, yr) = val;
-            else sel_at_age(flt, sex, bin, yr) = val;
-          }
-          break;
         }
-
       } // End sex
     } // End year
 

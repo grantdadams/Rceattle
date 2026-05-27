@@ -394,11 +394,11 @@ residuals.Rceattle <- function(object, type = "index", scale = "log", ...) {
 #' padded out to `max(nsex)` / `max(nages)` for species with fewer
 #' sexes or ages are dropped.
 #'
-#' Confidence intervals (`lwr`, `upr`) are populated from the TMB
-#' `sdreport` for any quantity that was `ADREPORT`'d
-#' (currently `biomass`, `ssb`, `R`); other quantities and fits
-#' produced with `getsd = FALSE` get `NA` for `lwr` / `upr`. Set
-#' `ci_level` to widen or narrow the band.
+#' Standard errors (`se`) and confidence intervals (`lwr`, `upr`) are
+#' populated from the TMB `sdreport` for any quantity that was
+#' `ADREPORT`'d (currently `biomass`, `ssb`, `R`); other quantities and
+#' fits produced with `getsd = FALSE` get `NA` for `se` / `lwr` / `upr`.
+#' Set `ci_level` to widen or narrow the band.
 #'
 #' @param x An object of class \code{"Rceattle"} returned by [fit_mod()].
 #' @param row.names,optional Ignored; present for the [as.data.frame()] generic.
@@ -410,7 +410,7 @@ residuals.Rceattle <- function(object, type = "index", scale = "log", ...) {
 #' @param ... Currently unused.
 #'
 #' @return A `data.frame` with columns `year`, `species`, `sex`, `age`,
-#'   `quantity`, `value`, `lwr`, `upr`. `species` is the character
+#'   `quantity`, `value`, `se`, `lwr`, `upr`. `species` is the character
 #'   species name from `data_list$spnames`. Rows are sorted in the order
 #'   `which` was given.
 #' @export
@@ -464,6 +464,7 @@ as.data.frame.Rceattle <- function(x,
     age      = integer(),
     quantity = character(),
     value    = numeric(),
+    se       = numeric(),
     lwr      = numeric(),
     upr      = numeric(),
     stringsAsFactors = FALSE
@@ -496,6 +497,7 @@ as.data.frame.Rceattle <- function(x,
         age      = NA_integer_,
         quantity = qn,
         value    = as.numeric(val),
+        se       = as.numeric(sdv),
         lwr      = as.numeric(val - z * sdv),
         upr      = as.numeric(val + z * sdv),
         stringsAsFactors = FALSE
@@ -526,6 +528,7 @@ as.data.frame.Rceattle <- function(x,
         age      = as.integer(grid$age_idx + minage[grid$species_idx] - 1L),
         quantity = qn,
         value    = as.numeric(val),
+        se       = as.numeric(sdv),
         lwr      = as.numeric(val - z * sdv),
         upr      = as.numeric(val + z * sdv),
         stringsAsFactors = FALSE
