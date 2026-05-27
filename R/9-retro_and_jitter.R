@@ -9,6 +9,10 @@
 #' @param peels the number of retrospective peels to use in the calculation of rho and for model estimation
 #' @param rescale TRUE/FALSE whether to subset and rescale environmental predictors for the range of peel years.
 #' @param nyrs_forecast Number of forecast years to calculate Mohn's Rho in addition to terminal year
+#' @param cores Number of cores to use for parallel peels. Default
+#'   \code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
+#'   running under \code{R CMD check} (which sets
+#'   \code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.
 #'
 #' @return a list of 1. list of Rceattle models and 2. vector of Mohn's rho for each species
 #'
@@ -23,25 +27,39 @@
 #' retro <- retrospective(ss_run, peels = 10)
 #' }
 #' @export
-retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_forecast = 3) {
+retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_forecast = 3, cores = NULL) {
   if (!inherits(Rceattle, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
 
   # Get objects
   Rceattle$data_list$endyr_peel <- Rceattle$data_list$endyr
-  mod_list <- list(Rceattle)
+  data_list <- Rceattle$data_list # used by Mohn's rho block below
   endyr <- Rceattle$data_list$endyr
   styr <- Rceattle$data_list$styr
   nyrs <- length(styr:endyr)
   projyr <- Rceattle$data_list$projyr
   nyrs_proj <- projyr - styr + 1
 
+  # Cross-platform parallel via parallel::parLapply on a PSOCK cluster
+  # (same approach as run_mse). Respect the CRAN core limit
+  # ('_R_CHECK_LIMIT_CORES_' is set during R CMD check;
+  # parallel::makeCluster errors if we exceed 2 cores then).
+  chk <- tolower(Sys.getenv("_R_CHECK_LIMIT_CORES_", ""))
+  cran_cap <- nzchar(chk) && !chk %in% c("false", "0", "no")
+  if (is.null(cores)) {
+    cores <- if (cran_cap) 2L else max(1L, parallel::detectCores() - 6L)
+  } else {
+    cores <- max(1L, as.integer(cores))
+    if (cran_cap) cores <- min(cores, 2L)
+  }
+  use_parallel <- peels > 1L && cores > 1L
+
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-  # Run retrospective peels ----
+  # Per-peel closure ----
+  # Each peel only reads the original Rceattle, so peels are independent.
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-  ind <- 2
-  for (i in 1:peels) {
+  run_one_peel <- function(i) {
 
     # * Get end year of peel ----
     data_list <- Rceattle$data_list
@@ -355,14 +373,38 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
     #   check_na[j] <- sum(is.na(map$mapFactor[[j]]) != is.na(newmod$map$mapFactor[[j]]), na.rm = TRUE)
     # }
 
-    # Refit model If converged
+    # Return model only if converged, else NULL (dropped post-dispatch)
     if (!is.null(newmod$opt$Convergence_check)) {
       if (newmod$opt$Convergence_check != "The model is definitely not converged") {
-        mod_list[[ind]] <- newmod
-        ind <- ind + 1
+        return(newmod)
       }
     }
+    return(NULL)
+  } # End run_one_peel closure
+
+
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  # Dispatch peels (parallel via PSOCK or sequential) ----
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  if (use_parallel) {
+    cl <- parallel::makeCluster(min(cores, peels))
+    on.exit(parallel::stopCluster(cl), add = TRUE)
+    parallel::clusterEvalQ(cl, {
+      suppressPackageStartupMessages(library(Rceattle))
+    })
+    parallel::clusterExport(
+      cl,
+      varlist = ls(envir = environment()),
+      envir = environment()
+    )
+    peel_results <- parallel::parLapply(cl, 1:peels, run_one_peel)
+  } else {
+    peel_results <- lapply(1:peels, run_one_peel)
   }
+
+  # Drop non-converged peels and prepend the original model
+  peel_results <- peel_results[!sapply(peel_results, is.null)]
+  mod_list <- c(list(Rceattle), peel_results)
 
 
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -457,7 +499,12 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
 #' @param njitter the number of jitters to run
 #' @param sd standard deviation for jitter (default = 0.2)
 #' @param phase as in \code{\link{fit_mod}} default = FALSE
-#' @param seed random number seed
+#' @param seed random number seed. Each jitter \code{i} uses \code{seed + i}
+#'   so results are reproducible under both sequential and parallel execution.
+#' @param cores Number of cores to use for parallel jitters. Default
+#'   \code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
+#'   running under \code{R CMD check} (which sets
+#'   \code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.
 #'
 #' @return a list of Rceattle models
 #'
@@ -472,18 +519,31 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
 #' jitters <- jitter(ss_run, njitter = 10)
 #' }
 #' @export
-jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 123) {
+jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 123, cores = NULL) {
   if (!inherits(Rceattle, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
 
-  set.seed(seed)
+  # Cross-platform parallel via parallel::parLapply on a PSOCK cluster
+  # (same approach as run_mse). Respect the CRAN core limit
+  # ('_R_CHECK_LIMIT_CORES_' is set during R CMD check;
+  # parallel::makeCluster errors if we exceed 2 cores then).
+  chk <- tolower(Sys.getenv("_R_CHECK_LIMIT_CORES_", ""))
+  cran_cap <- nzchar(chk) && !chk %in% c("false", "0", "no")
+  if (is.null(cores)) {
+    cores <- if (cran_cap) 2L else max(1L, parallel::detectCores() - 6L)
+  } else {
+    cores <- max(1L, as.integer(cores))
+    if (cran_cap) cores <- min(cores, 2L)
+  }
+  use_parallel <- njitter > 1L && cores > 1L
 
-  # Run jitters ----
-  mod_list <- list()
-  ind = 1
-  for (i in 1:njitter) {
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  # Per-jitter closure ----
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  run_one_jitter <- function(i) {
 
+    set.seed(seed + i) # unique seed per jitter for reproducibility under parallel
 
     # * Adjust initial values ----
     inits <- Rceattle$initial_params
@@ -566,23 +626,223 @@ jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed 
         )
       )
 
-    # Refit model If converged
+    # Return model only if converged, else NULL (dropped post-dispatch)
     if (!is.null(newmod$opt$Convergence_check)) {
       if (newmod$opt$Convergence_check != "The model is definitely not converged") {
-        mod_list[[ind]] <- newmod
-        ind <- ind + 1
+        return(newmod)
       }
     }
+    return(NULL)
+  } # End run_one_jitter closure
+
+
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  # Dispatch jitters (parallel via PSOCK or sequential) ----
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  if (use_parallel) {
+    cl <- parallel::makeCluster(min(cores, njitter))
+    on.exit(parallel::stopCluster(cl), add = TRUE)
+    parallel::clusterEvalQ(cl, {
+      suppressPackageStartupMessages(library(Rceattle))
+    })
+    parallel::clusterExport(
+      cl,
+      varlist = ls(envir = environment()),
+      envir = environment()
+    )
+    mod_list <- parallel::parLapply(cl, 1:njitter, run_one_jitter)
+  } else {
+    mod_list <- lapply(1:njitter, run_one_jitter)
   }
 
+  # Drop non-converged
+  mod_list <- mod_list[!sapply(mod_list, is.null)]
 
   # Plot ----
   jnll <- sapply(mod_list, function(x) x$quantities$jnll)
   # plot(x = 1:length(jnll), y = jnll)
-  names(mod_list) <- paste0("Jitter_", 1:length(mod_list))
+  if (length(mod_list) > 0) {
+    names(mod_list) <- paste0("Jitter_", seq_along(mod_list))
+  }
 
 
   # Return ----
   return(list(Rceattle_list = mod_list, nll = jnll))
+}
+
+
+
+#' Self test simulation analysis analysis
+#'
+#' @description Simulates data from an Rceattle model and refits the model to the simulated data. TODO add process variation (i.e. random devs) to simulation.
+#'
+#' @param Rceattle an Rceattle model fit using \code{\link{fit_mod}}
+#' @param seed random number seed. Each simulation \code{i} uses \code{seed + i}
+#'   so results are reproducible under both sequential and parallel execution.
+#' @param nsim number of simulations
+#' @param simulate passed to \code{\link{sim_mod}}. If \code{TRUE} (default),
+#'   data are simulated with observation error; if \code{FALSE}, expected
+#'   values from the model are used.
+#' @param cores Number of cores to use for parallel simulations. Default
+#'   \code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
+#'   running under \code{R CMD check} (which sets
+#'   \code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.
+#'
+#' @return a list of Rceattle models
+#'
+#' @examples
+#' \donttest{
+#' data(BS2017SS)
+#' ss_run <- fit_mod(data_list = BS2017SS,
+#'     inits = NULL, file = NULL,
+#'     estimateMode = 0, random_rec = FALSE,
+#'     msmMode = 0, avgnMode = 0,
+#'     phase = FALSE, verbose = 0)
+#' sims <- self_test(ss_run, nsim = 10)
+#' }
+#' @export
+self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, cores = NULL) {
+  if (!inherits(Rceattle, "Rceattle")) {
+    stop("Object is not of class 'Rceattle'")
+  }
+
+  # Cross-platform parallel via parallel::parLapply on a PSOCK cluster
+  # (same approach as run_mse). Respect the CRAN core limit
+  # ('_R_CHECK_LIMIT_CORES_' is set during R CMD check;
+  # parallel::makeCluster errors if we exceed 2 cores then).
+  chk <- tolower(Sys.getenv("_R_CHECK_LIMIT_CORES_", ""))
+  cran_cap <- nzchar(chk) && !chk %in% c("false", "0", "no")
+  if (is.null(cores)) {
+    cores <- if (cran_cap) 2L else max(1L, parallel::detectCores() - 6L)
+  } else {
+    cores <- max(1L, as.integer(cores))
+    if (cran_cap) cores <- min(cores, 2L)
+  }
+  use_parallel <- nsim > 1L && cores > 1L
+
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  # Per-simulation closure ----
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  run_one_sim <- function(i) {
+
+    set.seed(seed + i) # unique seed per sim for reproducibility under parallel
+
+    # * Simulate new data
+    sim_data <- Rceattle::sim_mod(Rceattle, simulate = simulate)
+    data_list <- sim_data
+
+    # * Adjust initial values ----
+    inits <- Rceattle$initial_params
+    mapList <- Rceattle$map$mapList
+
+
+    # * Refit ----
+    newmod <-
+      suppressMessages(
+        suppressWarnings(
+          Rceattle::fit_mod(
+            data_list = data_list,
+            inits = inits,
+            map =  NULL,
+            bounds = NULL,
+            file = NULL,
+            estimateMode = ifelse(data_list$estimateMode < 3, 0, data_list$estimateMode), # Run hindcast and projection, otherwise debug
+            HCR = build_hcr(HCR = data_list$HCR,
+                            DynamicHCR = data_list$DynamicHCR,
+                            Ftarget = data_list$Ftarget,
+                            Flimit = data_list$Flimit,
+                            Ptarget = data_list$Ptarget,
+                            Plimit = data_list$Plimit,
+                            Alpha = data_list$Alpha,
+                            Pstar = data_list$Pstar,
+                            Sigma = data_list$Sigma,
+                            Fmult = data_list$Fmult,
+                            HCRorder = data_list$HCRorder
+            ),
+            # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
+            recFun = suppressWarnings(build_srr(
+              srr_fun = data_list$srr_fun,
+              srr_pred_fun  = data_list$srr_pred_fun,
+              proj_mean_rec  = data_list$proj_mean_rec,
+              srr_mse_switchyr = min(data_list$srr_mse_switchyr, data_list$endyr),
+              srr_hat_styr = data_list$srr_hat_styr,
+              srr_hat_endyr = data_list$srr_hat_endyr,
+              srr_est_mode  = data_list$srr_est_mode,
+              srr_prior  = data_list$srr_prior,
+              srr_prior_sd   = data_list$srr_prior_sd,
+              Bmsy_lim = data_list$Bmsy_lim,
+              srr_indices = data_list$srr_indices,
+              linkages = data_list$srr_linkages)),
+            # suppressWarnings: legacy M1_indices may travel via data_list.
+            M1Fun = suppressWarnings(build_M1(
+              M1_model = data_list$M1_model,
+              M1_re = data_list$M1_re,
+              updateM1 = FALSE,
+              M1_use_prior = data_list$M1_use_prior,
+              M2_use_prior = data_list$M2_use_prior,
+              M_prior = data_list$M_prior,
+              M_prior_sd = data_list$M_prior_sd,
+              M1_indices = data_list$M1_indices,
+              linkages = data_list$M1_linkages)),
+            growthFun = build_growth(fun = data_list$growth_fun,
+                                     linkages = data_list$growth_linkages),
+            random_rec = data_list$random_rec,
+            niter = data_list$niter,
+            msmMode = data_list$msmMode,
+            avgnMode = data_list$avgnMode,
+            suitMode = data_list$suitMode,
+            suit_styr = data_list$suit_styr,
+            suit_endyr = min(data_list$suit_endyr, data_list$endyr),   # Update to end year if less than suit_endyr
+            initMode = data_list$initMode,
+            fit_control = fit_control(
+              phase   = FALSE,
+              loopnum = data_list$loopnum,
+              getsd   = TRUE,
+              verbose = 0))
+        )
+      )
+
+    # Return model only if converged, else NULL (dropped post-dispatch)
+    if (!is.null(newmod$opt$Convergence_check)) {
+      if (newmod$opt$Convergence_check != "The model is definitely not converged") {
+        return(newmod)
+      }
+    }
+    return(NULL)
+  } # End run_one_sim closure
+
+
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  # Dispatch sims (parallel via PSOCK or sequential) ----
+  #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+  if (use_parallel) {
+    cl <- parallel::makeCluster(min(cores, nsim))
+    on.exit(parallel::stopCluster(cl), add = TRUE)
+    parallel::clusterEvalQ(cl, {
+      suppressPackageStartupMessages(library(Rceattle))
+    })
+    parallel::clusterExport(
+      cl,
+      varlist = ls(envir = environment()),
+      envir = environment()
+    )
+    mod_list <- parallel::parLapply(cl, 1:nsim, run_one_sim)
+  } else {
+    mod_list <- lapply(1:nsim, run_one_sim)
+  }
+
+  # Drop non-converged
+  mod_list <- mod_list[!sapply(mod_list, is.null)]
+
+  # Plot ----
+  jnll <- sapply(mod_list, function(x) x$quantities$jnll)
+  # plot(x = 1:length(jnll), y = jnll)
+  if (length(mod_list) > 0) {
+    names(mod_list) <- paste0("Sim_", seq_along(mod_list))
+  }
+
+
+  # Return ----
+  return(mod_list)
 }
 

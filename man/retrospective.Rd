@@ -4,7 +4,13 @@
 \alias{retrospective}
 \title{Retrospective peels}
 \usage{
-retrospective(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_forecast = 3)
+retrospective(
+  Rceattle = NULL,
+  peels = 5,
+  rescale = FALSE,
+  nyrs_forecast = 3,
+  cores = NULL
+)
 }
 \arguments{
 \item{Rceattle}{an Rceattle model fit using \code{\link{fit_mod}}}
@@ -14,6 +20,11 @@ retrospective(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_forecast = 3)
 \item{rescale}{TRUE/FALSE whether to subset and rescale environmental predictors for the range of peel years.}
 
 \item{nyrs_forecast}{Number of forecast years to calculate Mohn's Rho in addition to terminal year}
+
+\item{cores}{Number of cores to use for parallel peels. Default
+\code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
+running under \code{R CMD check} (which sets
+\code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.}
 }
 \value{
 a list of 1. list of Rceattle models and 2. vector of Mohn's rho for each species
