@@ -147,7 +147,7 @@ cod_model_re <- Rceattle::fit_mod(
 
 
 # PROFILE ----
-# All profiles below use Rceattle::profile_param(), which generalises the
+# All profiles below use Rceattle::profile(), which generalises the
 # original profile_rsigma() helper to any parameter slot and supports
 # arbitrary N-D cross-profiles. The legacy helper is kept below the new
 # calls for reference / reproducibility of older runs.
@@ -155,8 +155,8 @@ rsigma_vec <- seq(from = 0.05, to = 2, by = 0.05)
 
 prof_sigmaR <- function(model, species){
   # Natural-scale alias: pass sigmaR values directly (no manual log()).
-  profile_param(
-    Rceattle = model,
+  profile(
+    fitted = model,
     param    = "sigmaR",
     slots    = list(species),
     values   = list(rsigma_vec)
@@ -261,13 +261,13 @@ for(i in 1:3){
 
 
 # PROFILE OTHER PARAMETERS ----
-# profile_param() generalises to any parameter slot. The "natural-scale"
+# profile() generalises to any parameter slot. The "natural-scale"
 # aliases (sigmaR, M1, R0, alpha, beta) take values in natural units and
 # log() them internally. For rec_pars aliases the column is inferred from
 # the alias name, so `slots` only needs the species index.
 
 # 1-D profile of SRR alpha for species 1 of the EBS-Ricker run
-alpha_prof <- profile_param(
+alpha_prof <- profile(
   Rceattle = ebs_ricker_run,
   param    = "alpha",
   slots    = list(1),
@@ -276,7 +276,7 @@ alpha_prof <- profile_param(
 
 # 2-D cross-profile: M1 across sex for species 1 of the GOA cod run
 # (males = sex 1, females = sex 2; profiled at age 1)
-M_sex_prof <- profile_param(
+M_sex_prof <- profile(
   Rceattle = cod_model,
   param    = "M1",
   slots    = list(c(1, 1, 1), c(1, 2, 1)),
@@ -285,7 +285,7 @@ M_sex_prof <- profile_param(
 )
 
 # 2-D cross-profile of sigmaR across species 1 and 2 in the EBS run
-sigmaR_cross <- profile_param(
+sigmaR_cross <- profile(
   Rceattle = ebs_run,
   param    = "sigmaR",
   slots    = list(1, 2),
@@ -294,7 +294,7 @@ sigmaR_cross <- profile_param(
 )
 
 # Equivalent raw-form call (operates directly on log-scale R_log_sd)
-sigmaR_cross_raw <- profile_param(
+sigmaR_cross_raw <- profile(
   Rceattle  = ebs_run,
   param     = "R_log_sd",
   slots     = list(1, 2),

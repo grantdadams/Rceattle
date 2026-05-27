@@ -1,3 +1,9 @@
+# Rceattle 4.4.1
+
+## Rename
+
+`profile_param()` was renamed `profile()` and turned into an S3 class.
+
 # Rceattle 4.4.0
 
 ## New features

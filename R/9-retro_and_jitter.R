@@ -859,7 +859,7 @@ self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, c
 #'   map and the remaining parameters are re-estimated; the result is a
 #'   grid of Rceattle models for downstream NLL surfaces.
 #'
-#' @param Rceattle an Rceattle model fit using \code{\link{fit_mod}}
+#' @param fitted an Rceattle model fit using \code{\link{fit_mod}}
 #' @param param Name of the parameter to profile. Two ways to specify it:
 #'   \describe{
 #'     \item{Raw parameter slot}{any name in
@@ -936,13 +936,13 @@ self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, c
 #'     phase = FALSE, verbose = 0)
 #'
 #' # 1-D profile of sigmaR for species 1 (alias form -- natural scale)
-#' p1 <- profile_param(ss_run,
+#' p1 <- profile(ss_run,
 #'     param  = "sigmaR",
 #'     slots  = list(1),
 #'     values = list(seq(0.1, 1.5, by = 0.1)))
 #'
 #' # Equivalent raw form (log scale -- user does the transform)
-#' p1_raw <- profile_param(ss_run,
+#' p1_raw <- profile(ss_run,
 #'     param     = "R_log_sd",
 #'     slots     = list(1),
 #'     values    = list(log(seq(0.1, 1.5, by = 0.1))),
@@ -951,20 +951,22 @@ self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, c
 #' # 2-D cross-profile of M1 across species 1 and 2 (sex 1, age 1).
 #' # BS2017SS is single-sex; with a multi-sex model the same form
 #' # (e.g. c(1, 1, 1), c(1, 2, 1)) would cross-profile males vs females.
-#' p2 <- profile_param(ss_run,
+#' p2 <- profile(ss_run,
 #'     param  = "M1",
 #'     slots  = list(c(1, 1, 1), c(2, 1, 1)),
 #'     values = list(seq(0.1, 0.4, length.out = 3),
 #'                   seq(0.1, 0.4, length.out = 3)))
 #'
 #' # 1-D profile of SRR alpha for species 1 (alias drops the rec_pars column)
-#' p3 <- profile_param(ss_run,
+#' p3 <- profile(ss_run,
 #'     param  = "alpha",
 #'     slots  = list(1),
 #'     values = list(seq(2, 80, length.out = 20)))
 #' }
+#' @importFrom stats profile
+#' @method profile Rceattle
 #' @export
-profile_param <- function(Rceattle = NULL,
+profile.Rceattle <- function(fitted = NULL,
                           param = NULL,
                           slots = NULL,
                           values = NULL,
@@ -972,7 +974,7 @@ profile_param <- function(Rceattle = NULL,
                           cores = NULL) {
 
   # -- Input validation ----
-  if (!inherits(Rceattle, "Rceattle")) {
+  if (!inherits(fitted, "Rceattle")) {
     stop("Object is not of class 'Rceattle'")
   }
   if (is.null(param) || !is.character(param) || length(param) != 1L) {
@@ -1012,11 +1014,11 @@ profile_param <- function(Rceattle = NULL,
     param        <- a$param   # resolve to real parameter slot
   }
 
-  if (!param %in% names(Rceattle$estimated_params)) {
+  if (!param %in% names(fitted$estimated_params)) {
     stop("`param` '", param, "' not found in Rceattle$estimated_params.")
   }
 
-  par_array <- Rceattle$estimated_params[[param]]
+  par_array <- fitted$estimated_params[[param]]
   par_ndim  <- if (is.null(dim(par_array))) 1L else length(dim(par_array))
 
   # Default `slots` to species 1 (a single profile point shaped to match
@@ -1128,8 +1130,8 @@ profile_param <- function(Rceattle = NULL,
   #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
   run_one_point <- function(i) {
 
-    inits     <- Rceattle$estimated_params
-    data_list <- Rceattle$data_list
+    inits     <- fitted$estimated_params
+    data_list <- fitted$data_list
 
     # Substitute fixed values at each profiled cell
     for (k in seq_along(slots)) {
