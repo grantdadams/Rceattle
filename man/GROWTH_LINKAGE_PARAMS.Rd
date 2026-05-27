@@ -5,14 +5,19 @@
 \alias{GROWTH_LINKAGE_PARAMS}
 \title{Allowed growth-parameter names for \code{linkages} in \code{\link[=build_growth]{build_growth()}}}
 \format{
-An object of class \code{character} of length 4.
+An object of class \code{character} of length 6.
 }
 \usage{
 GROWTH_LINKAGE_PARAMS
 }
 \description{
-Linear-predictor names of the underlying growth-function parameters.
-Von Bertalanffy uses \code{log_K}, \code{log_L1}, \code{log_Linf}; Richards adds
-\code{log_m}. The empirical weight-at-age model admits no linkages.
+Natural-scale names of the underlying growth-function parameters.
+Von Bertalanffy uses \code{K}, \code{L1}, \code{Linf}; Richards adds \code{m}.
+\code{sd_L1} / \code{sd_Linf} are the standard deviations of length-at-age
+anchored at \code{L1} and \code{Linf} (the SD-at-age interpolation endpoints
+from \code{growth.hpp}). Only intercept-only specs (\code{~ 1}) are honored
+on the SD endpoints -- they thread through \code{init} / \code{bounds} /
+\code{priors} onto \code{growth_log_sd} but do not vary by year.
+The empirical weight-at-age model admits no linkages.
 }
 \keyword{internal}

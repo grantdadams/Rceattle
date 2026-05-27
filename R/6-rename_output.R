@@ -31,7 +31,6 @@ rename_output = function(data_list = NULL, quantities = NULL){
   names(quantities$Ftarget) <- data_list$spnames
   names(quantities$gam_a) <- data_list$spnames
   names(quantities$gam_b) <- data_list$spnames
-  names(quantities$R0) <- data_list$spnames
   names(quantities$R_init) <- data_list$spnames
   names(quantities$SPR0) <- data_list$spnames
   names(quantities$SPRFinit) <- data_list$spnames
@@ -51,6 +50,7 @@ rename_output = function(data_list = NULL, quantities = NULL){
   dimnames(quantities$B0) <- list(data_list$spnames, yrs_proj)
   dimnames(quantities$DynamicB0) <- list(data_list$spnames, yrs_proj)
   dimnames(quantities$exploitable_biomass) <- list(data_list$spnames, yrs_proj)
+  dimnames(quantities$R0) <- list(data_list$spnames, yrs_proj)
 
   dimnames(quantities$ssb_depletion) <- list(data_list$spnames, yrs_proj)
   dimnames(quantities$ssb) <- list(data_list$spnames, yrs_proj)
@@ -87,8 +87,12 @@ rename_output = function(data_list = NULL, quantities = NULL){
   dimnames(quantities$N_at_age) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
   dimnames(quantities$NByage0) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
   dimnames(quantities$NByageF) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
-  dimnames(quantities$growth_parameters) <- list(data_list$spnames, sex_labels, yrs_proj, GROWTH_LINKAGE_PARAMS)
-  dimnames(quantities$growth_linkage_offset) <- list(data_list$spnames, sex_labels, yrs_proj, GROWTH_LINKAGE_PARAMS)
+  # `growth_parameters` and `growth_linkage_offset` carry only the
+  # mean-growth params (log_K, log_L1, log_Linf, log_m); the SD
+  # endpoints in `GROWTH_LINKAGE_PARAMS` live on `growth_log_sd` and
+  # have no year dim, so they are not part of this last dimension.
+  dimnames(quantities$growth_parameters) <- list(data_list$spnames, sex_labels, yrs_proj, .GROWTH_MEAN_PARAMS)
+  dimnames(quantities$growth_linkage_offset) <- list(data_list$spnames, sex_labels, yrs_proj, .GROWTH_MEAN_PARAMS)
 
   dimnames(quantities$weight_hat) <- dimnames(quantities$length_hat) <- list(
     c(paste(rep(data_list$spnames, each = 2), rep(c("biomass length", "spawn length"), data_list$nspp)), data_list$fleet_control$Fleet_name),

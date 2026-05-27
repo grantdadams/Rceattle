@@ -4,7 +4,9 @@ testthat::test_that("Sex-specific age-based double logistic selectivity not norm
 
   # Data
   data("GOA2018SS")
-  GOA2018SS$fleet_control$Selectivity <- "DoubleLogistic"
+  rows_use <- which(GOA2018SS$fleet_control$Selectivity != 0 & GOA2018SS$fleet_control$Fleet_type != 0)
+  GOA2018SS$fleet_control$Selectivity <-0
+  GOA2018SS$fleet_control$Selectivity[rows_use] <- "DoubleLogistic"
   GOA2018SS$fleet_control$Time_varying_sel <- 0
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Bin_first_selected <- 1
@@ -40,12 +42,12 @@ testthat::test_that("Sex-specific age-based double logistic selectivity not norm
 
   # Map
   # - Slopes
-  testthat::expect_equal(sum(!is.na(c(ss_run$map$mapList$log_sel_slp[,,]))), 18 * 2)
-  testthat::expect_equal(length(unique(c(ss_run$map$mapList$log_sel_slp[,,]))), 18 * 2 + 1) # +1 for NAs
+  testthat::expect_equal(sum(!is.na(c(ss_run$map$mapList$log_sel_slp[,,]))), 15 * 2)
+  testthat::expect_equal(length(unique(c(ss_run$map$mapList$log_sel_slp[,,]))), 15 * 2 + 1) # +1 for NAs
 
   # - Asympts
-  testthat::expect_equal(sum(!is.na(c(ss_run$map$mapList$sel_inf[,,]))), 18 * 2)
-  testthat::expect_equal(length(unique(c(ss_run$map$mapList$sel_inf[,,]))), 18 * 2 + 1) # +1 for NAs
+  testthat::expect_equal(sum(!is.na(c(ss_run$map$mapList$sel_inf[,,]))), 15 * 2)
+  testthat::expect_equal(length(unique(c(ss_run$map$mapList$sel_inf[,,]))), 15 * 2 + 1) # +1 for NAs
 
   # - Devs
   testthat::expect_equal(c(ss_run$map$mapList$log_sel_slp_dev), as.numeric(rep(NA, 2688)))
@@ -69,7 +71,9 @@ testthat::test_that("Sex-specific age-based time-varying double logistic selecti
 
   # Data
   data("GOA2018SS")
-  GOA2018SS$fleet_control$Selectivity <- "DoubleLogistic" # age-based double
+  rows_use <- which(GOA2018SS$fleet_control$Selectivity != 0 & GOA2018SS$fleet_control$Fleet_type != 0)
+  GOA2018SS$fleet_control$Selectivity <-0
+  GOA2018SS$fleet_control$Selectivity[rows_use] <- "DoubleLogistic"
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Time_varying_sel <- 1
   GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
@@ -124,20 +128,20 @@ testthat::test_that("Sex-specific age-based time-varying double logistic selecti
 
   # Map
   # - Slopes
-  testthat::expect_equal(sum(!is.na(c(ss_run$map$mapList$log_sel_slp[,,]))), 18 * 2)
-  testthat::expect_equal(length(unique(c(ss_run$map$mapList$log_sel_slp[,,]))), 18 * 2 + 1) # +1 for NAs
+  testthat::expect_equal(sum(!is.na(c(ss_run$map$mapList$log_sel_slp[,,]))), 15 * 2)
+  testthat::expect_equal(length(unique(c(ss_run$map$mapList$log_sel_slp[,,]))), 15 * 2 + 1) # +1 for NAs
 
   # - Asympts
-  testthat::expect_equal(sum(!is.na(c(ss_run$map$mapList$sel_inf[,,]))), 18 * 2)
-  testthat::expect_equal(length(unique(c(ss_run$map$mapList$sel_inf[,,]))), 18 * 2 + 1) # +1 for NAs
+  testthat::expect_equal(sum(!is.na(c(ss_run$map$mapList$sel_inf[,,]))), 15 * 2)
+  testthat::expect_equal(length(unique(c(ss_run$map$mapList$sel_inf[,,]))), 15 * 2 + 1) # +1 for NAs
 
   # - Devs
   # -- double
-  testthat::expect_equal(sum(!is.na(c(ss_run$map$mapList$log_sel_slp_dev[,,,]))), 18 * 2 * nyrs) # slope
-  testthat::expect_equal(sum(!is.na(c(ss_run$map$mapList$sel_inf_dev[,,,]))), 18 * 2 * nyrs) # asymptote
+  testthat::expect_equal(sum(!is.na(c(ss_run$map$mapList$log_sel_slp_dev[,,,]))), 15 * 2 * nyrs) # slope
+  testthat::expect_equal(sum(!is.na(c(ss_run$map$mapList$sel_inf_dev[,,,]))), 15 * 2 * nyrs) # asymptote
 
-  testthat::expect_equal(length(unique(c(ss_run$map$mapList$log_sel_slp_dev[,,,]))), 18 * 2 * nyrs + 1) # slope
-  testthat::expect_equal(length(unique(c(ss_run$map$mapList$sel_inf_dev[,,,]))), 18 * 2 * nyrs + 1) # asymptote
+  testthat::expect_equal(length(unique(c(ss_run$map$mapList$log_sel_slp_dev[,,,]))), 15 * 2 * nyrs + 1) # slope
+  testthat::expect_equal(length(unique(c(ss_run$map$mapList$sel_inf_dev[,,,]))), 15 * 2 * nyrs + 1) # asymptote
 
   testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_dev_log_sd), as.numeric(rep(NA, 16))) # Dev sigma turned off
 
@@ -159,7 +163,9 @@ testthat::test_that("Sex-specific age-based time-varying double logistic selecti
   # Data
   data("GOA2018SS")
   nyrs <- length(GOA2018SS$styr:GOA2018SS$endyr)
-  GOA2018SS$fleet_control$Selectivity <- "DoubleLogistic" # Age based double
+  rows_use <- which(GOA2018SS$fleet_control$Selectivity != 0 & GOA2018SS$fleet_control$Fleet_type != 0)
+  GOA2018SS$fleet_control$Selectivity <-0
+  GOA2018SS$fleet_control$Selectivity[rows_use] <- "DoubleLogistic"
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Time_varying_sel <- 1
   GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1
@@ -180,10 +186,10 @@ testthat::test_that("Sex-specific age-based time-varying double logistic selecti
   )
 
   # Sigmas
-  testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_dev_log_sd), c(1:6, NA, 8:16)) # Dev sigma turned on except for not estimated fleet
+  testthat::expect_equal(as.numeric(ss_run$map$mapList$sel_dev_log_sd), c(1:3, rep(NA,4), 8:16)) # Dev sigma turned on except for not estimated fleet
 
   # TMB object
-  testthat::expect_equal(length(unique(ss_run$obj$env$random)),  2 * 18 * nyrs * 2)
+  testthat::expect_equal(length(unique(ss_run$obj$env$random)),  2 * 15 * nyrs * 2)
 
 })
 
@@ -194,7 +200,9 @@ testthat::test_that("Time-varying double logistic selectivity likelihood", {
 
   # Data
   data("GOA2018SS")
-  GOA2018SS$fleet_control$Selectivity <- "DoubleLogistic" # Age-based double logistic
+  rows_use <- which(GOA2018SS$fleet_control$Selectivity != 0 & GOA2018SS$fleet_control$Fleet_type != 0)
+  GOA2018SS$fleet_control$Selectivity <-0
+  GOA2018SS$fleet_control$Selectivity[rows_use] <- "DoubleLogistic"
   GOA2018SS$fleet_control$Selectivity_index <- 1:nrow(GOA2018SS$fleet_control)
   GOA2018SS$fleet_control$Time_varying_sel <- 1
   GOA2018SS$fleet_control$Time_varying_sel_sd_prior <- 1 # Note that inf does 4*sd prior, should adapt to scale-invariant sd
@@ -251,7 +259,7 @@ testthat::test_that("Time-varying double logistic selectivity likelihood", {
 
   # Nll
   rcnll <- sum(ss_run$quantities$jnll_comp[6,])
-  single_dv_nll <- sum(-dnorm(inf_dev, 0, 1, log = TRUE) - dnorm(inf_dev_desc, 0, 1, log = TRUE) - dnorm(log_slp_dev, 0, 4, log = TRUE) - dnorm(log_slp_dev_desc, 0, 4, log = TRUE)) * 18
+  single_dv_nll <- sum(-dnorm(inf_dev, 0, 1, log = TRUE) - dnorm(inf_dev_desc, 0, 1, log = TRUE) - dnorm(log_slp_dev, 0, 4, log = TRUE) - dnorm(log_slp_dev_desc, 0, 4, log = TRUE)) * 15
 
   testthat::expect_equal(rcnll, single_dv_nll)
 })

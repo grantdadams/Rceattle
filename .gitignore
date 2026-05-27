@@ -18,6 +18,9 @@ Rplots.pdf
 *.dll
 src/symbols.rds
 
+# MS Office lock / temp files
+~$*
+
 # R CMD check artifacts
 *.Rcheck/
 ..Rcheck/

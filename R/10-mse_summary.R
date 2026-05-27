@@ -47,8 +47,24 @@ mse_summary <- function(mse, om_only = FALSE){
   projyrs <- (endyr+1):projyr
 
   ## HCR ----
-  HCR <- mse[[1]]$EM[[1]]$data_list$HCR
-  DynamicHCR <- mse[[1]]$EM[[1]]$data_list$DynamicHCR
+  # - Normalize HCR to integer code. build_hcr() accepts either integer or
+  #   string alias (e.g. "NPFMC"), and fit_mod()/run_mse() may store either
+  #   form depending on processing path. All downstream comparisons in this
+  #   function use integer codes (HCR == 5, etc.), so coerce once here.
+  .normalize_hcr <- function(x) {
+    if (is.numeric(x) || (is.character(x) && !is.na(suppressWarnings(as.integer(x))))) {
+      return(as.integer(x))
+    }
+    idx <- match(as.character(x), names(hcr_map))
+    if (is.na(idx)) {
+      stop("Unrecognized HCR value: '", x, "'. Expected one of ",
+           paste(names(hcr_map), collapse = ", "),
+           " or integer code 0:", max(hcr_map), ".")
+    }
+    as.integer(unname(hcr_map[idx]))
+  }
+  HCR <- .normalize_hcr(mse[[1]]$EM[[1]]$data_list$HCR)
+  DynamicHCR <- as.logical(mse[[1]]$EM[[1]]$data_list$DynamicHCR)
   Ptarget <- extend_length(mse[[1]]$EM[[1]]$data_list$Ptarget, nspp)
   Plimit <- extend_length(mse[[1]]$EM[[1]]$data_list$Plimit, nspp)
   Alpha <- extend_length(mse[[1]]$EM[[1]]$data_list$Alpha, nspp)
@@ -240,106 +256,119 @@ mse_summary <- function(mse, om_only = FALSE){
         tier3_flimit[i] = 0
       }
     }
-    return(Flimit)
+    return(tier3_flimit)
   }
 
 
+  # Helper: SSB-limit threshold (depletion or absolute) given HCR
+  # - returns list(value, is_depletion) so callers can compare against
+  #   either ssb_depletion or absolute ssb depending on HCR
+  ssb_limit_thresh <- function(HCR, DynamicHCR, Ptarget_sp, Plimit_sp, SBF_val, DynamicSBF_val){
+    if(HCR == 2)                                  list(val = 0.5 * SBF_val,        is_dep = FALSE)
+    else if(HCR == 4 & !DynamicHCR)               list(val = 0.5 * SBF_val,        is_dep = FALSE)
+    else if(HCR == 4 &  DynamicHCR)               list(val = 0.5 * DynamicSBF_val, is_dep = FALSE)
+    else if(HCR == 5 & !DynamicHCR)               list(val = 0.5 * SBF_val,        is_dep = FALSE)
+    else if(HCR == 5 &  DynamicHCR)               list(val = 0.5 * DynamicSBF_val, is_dep = FALSE)
+    else if(HCR == 6 & Ptarget_sp == 0.4)         list(val = 0.25,                 is_dep = TRUE)
+    else if(HCR == 6)                             list(val = 0.5 * Plimit_sp,      is_dep = TRUE)
+    else                                          list(val = Plimit_sp,            is_dep = TRUE)
+  }
+
   for(sp in 1:nspp){
 
-    ## Perceived status
+    ## Perceived status (EM) and OM at matching assess years ----
     if(!om_only){
       spp_rows <- which(flt_spp == sp) # FIXME: May want to select only fisheries (will bug if not survey)
 
-      em_f_flimit <- c()
-      em_sb_sblimit <- c()
+      em_f_flimit          <- c()
+      em_sb_sblimit        <- c()
+      om_f_flimit_assess   <- c()
+      om_sb_sblimit_assess <- c()
+      em_ssb_assess        <- c()
+      om_ssb_assess        <- c()
 
       for(sim in 1:length(mse)){
-        for(em in 2:length(mse[[sim]]$EM)){ # First EM is "conditioned" model
+        em_list <- mse[[sim]]$EM
+        om_q    <- mse[[sim]]$OM$quantities
+
+        for(em in 2:length(em_list)){ # First EM is "conditioned" model
 
           # Terminal year of intermediate assessment
-          end_yr_col <- mse[[sim]]$EM[[em]]$data_list$endyr - styr+1
+          em_endyr_sim <- em_list[[em]]$data_list$endyr
+          end_yr_col   <- em_endyr_sim - styr + 1
+          em_q         <- em_list[[em]]$quantities
 
           # * EM: P(F > Flimit) ----
-          em_f_flimit <- c(em_f_flimit,
-                           mse[[sim]]$EM[[em]]$quantities$F_spp[sp,end_yr_col]
-                           > mse[[sim]]$EM[[em]]$quantities$Flimit[sp]
-          )
-
-          # - Tier 3
-          if(HCR == 5 & DynamicHCR == FALSE){ # Adjust Tier 3
-            em_f_flimit <- c(em_f_flimit,
-                             mse[[sim]]$EM[[em]]$quantities$F_spp[sp,end_yr_col] >
-                               flimit_tier3_fun(
-                                 ssb_depletion = mse[[sim]]$EM[[em]]$quantities$ssb_depletion[sp,end_yr_col],
-                                 ssb = mse[[sim]]$EM[[em]]$quantities$ssb[sp,end_yr_col],
-                                 SBF = mse[[sim]]$EM[[em]]$quantities$SBF[sp,length(projyrs)],
-                                 Plimit[sp], Alpha[sp], mse[[sim]]$EM[[em]]$quantities$Flimit[sp]
-                               )
+          # - Tier-3 aware: replace base Flimit with depletion-adjusted Flimit when HCR == 5
+          em_Flimit <- em_q$Flimit[sp]
+          if(HCR == 5){
+            em_SBF_yr <- if(DynamicHCR) em_q$DynamicSBF[sp, end_yr_col] else em_q$SBF[sp, end_yr_col]
+            em_Flimit <- flimit_tier3_fun(
+              ssb_depletion = em_q$ssb_depletion[sp, end_yr_col],
+              ssb           = em_q$ssb[sp, end_yr_col],
+              SBF           = em_SBF_yr,
+              plimit = Plimit[sp], alpha = Alpha[sp],
+              Flimit = em_q$Flimit[sp]
             )
           }
-
-          # Dynamic Tier 3
-          if(HCR == 5 & DynamicHCR == TRUE){ # Adjust Tier 3
-            em_f_flimit <- c(em_f_flimit,
-                             mse[[sim]]$EM[[em]]$quantities$F_spp[sp,end_yr_col] >
-                               flimit_tier3_fun(
-                                 ssb_depletion = mse[[sim]]$EM[[em]]$quantities$ssb_depletion[sp,end_yr_col],
-                                 ssb = mse[[sim]]$EM[[em]]$quantities$ssb[sp,end_yr_col],
-                                 SBF = mse[[sim]]$EM[[em]]$quantities$DynamicSBF[sp,length(projyrs)],
-                                 Plimit[sp], Alpha[sp], mse[[sim]]$EM[[em]]$quantities$Flimit[sp]
-                               )
-            )
-          }
-
+          em_f_flimit <- c(em_f_flimit, em_q$F_spp[sp, end_yr_col] > em_Flimit)
 
           # * EM: P(SSB < SSBlimit) ----
-          # Update over fished definition for the following because Plimit is used for something else
-          # -- HCR = 5: NPFMC Tier 3 - Flimit and Ftarget on
-          # -- HCR = 6: PFMC Cat 1 - Flimit on
-          #FIXME: convert to SBF when using ricker in EM
-          if(HCR == 2){ # Avg F SPR based
-            em_sb_sblimit <- c(em_sb_sblimit,
-                               mse[[sim]]$EM[[em]]$quantities$ssb_depletion[sp, end_yr_col] < 0.5 * 0.35) # 0.5 * SB35%
-          }else if(HCR == 4){ # New England SPR based
-            em_sb_sblimit <- c(em_sb_sblimit,
-                               mse[[sim]]$EM[[em]]$quantities$ssb_depletion[sp, end_yr_col] < 0.5 * 0.4) # 0.5 * SB40%
-          }else if(HCR == 5){ # Tier 3 SPR Based
-            em_sb_sblimit <- c(em_sb_sblimit,
-                               mse[[sim]]$EM[[em]]$quantities$ssb_depletion[sp, end_yr_col] < 0.5 * 0.35) # 0.5 * SB35%
-          }else if(HCR == 6){ # Cat 1 Depletion based
-            if(Ptarget[sp] == 0.25){
-              em_sb_sblimit <- c(em_sb_sblimit,
-                                 mse[[sim]]$EM[[em]]$quantities$ssb_depletion[sp, end_yr_col] < 0.125) # 0.125 * SB0
-            }
-            if(Ptarget[sp] == 0.4){
-              em_sb_sblimit <- c(em_sb_sblimit,
-                                 mse[[sim]]$EM[[em]]$quantities$ssb_depletion[sp, end_yr_col] < 0.25) # 0.25 * SB0
-            }
-          }else if(HCR == 7){ # Tier 1 Depletion based
-            em_sb_sblimit <- c(em_sb_sblimit,
-                               mse[[sim]]$EM[[em]]$quantities$ssb_depletion[sp, end_yr_col] < Plimit[sp])
-          } else { # Otherwise depletion based
-            em_sb_sblimit <- c(em_sb_sblimit,
-                               mse[[sim]]$EM[[em]]$quantities$ssb_depletion[sp, end_yr_col] < Plimit[sp])
+          # FIXME: EM uses fixed-depletion proxy for HCR 2 (0.5*0.35);
+          #        OM uses 0.5*SBF. Acceptable when EM is mean-recruit, inconsistent under Ricker EM.
+          em_thresh <- if(HCR == 2)                              0.5 * 0.35
+                       else if(HCR == 4)                         0.5 * Ptarget[sp]
+                       else if(HCR == 5)                         0.5 * Plimit[sp]
+                       else if(HCR == 6 & Ptarget[sp] == 0.40)   0.25
+                       else if(HCR == 6)                         0.5 * Ptarget[sp]
+                       else                                      Plimit[sp]
+          em_sb_sblimit <- c(em_sb_sblimit, em_q$ssb_depletion[sp, end_yr_col] < em_thresh)
+
+          # * OM at the SAME assess year (for cross-tab and SSB MSE) ----
+          # - OM F > Flimit (Tier-3 aware for single-species mode)
+          om_Flimit <- om_q$Flimit[sp]
+          if(msmMode == 0 & HCR == 5){
+            om_SBF_yr <- if(DynamicHCR) om_q$DynamicSBF[sp, end_yr_col] else om_q$SBF[sp, end_yr_col]
+            om_Flimit <- flimit_tier3_fun(
+              ssb_depletion = om_q$ssb_depletion[sp, end_yr_col],
+              ssb           = om_q$ssb[sp, end_yr_col],
+              SBF           = om_SBF_yr,
+              plimit = Plimit[sp], alpha = Alpha[sp],
+              Flimit = om_q$Flimit[sp]
+            )
           }
+          om_f_flimit_assess <- c(om_f_flimit_assess, om_q$F_spp[sp, end_yr_col] > om_Flimit)
+
+          # - OM SSB < SSBlimit (uses absolute SBF for SPR-based HCRs, depletion otherwise)
+          if(msmMode == 0){
+            om_thr <- ssb_limit_thresh(HCR, DynamicHCR, Ptarget[sp], mse[[sim]]$OM$data_list$Plimit[sp],
+                                       SBF_val        = om_q$SBF[sp, end_yr_col],
+                                       DynamicSBF_val = om_q$DynamicSBF[sp, end_yr_col])
+            om_below <- if(om_thr$is_dep) om_q$ssb_depletion[sp, end_yr_col] < om_thr$val
+                        else              om_q$ssb[sp,            end_yr_col] < om_thr$val
+          } else {
+            om_below <- om_q$ssb_depletion[sp, end_yr_col] < mse[[sim]]$OM$data_list$Plimit[sp]
+          }
+          om_sb_sblimit_assess <- c(om_sb_sblimit_assess, om_below)
+
+          # - Paired SSB values for relative MSE across assessments
+          em_ssb_assess <- c(em_ssb_assess, em_q$ssb[sp, end_yr_col])
+          om_ssb_assess <- c(om_ssb_assess, om_q$ssb[sp, end_yr_col])
         }
       }
 
-      ## Perceived status
-      # - EM: P(F > Flimit)
-      mse_summary$`EM: P(Fy > Flimit)`[sp] <- sum(em_f_flimit)/length(em_f_flimit)
-
-      # - EM: P(SSB < SSBlimit)
-      mse_summary$`EM: P(SSB < SSBlimit)`[sp] <- sum(em_sb_sblimit)/length(em_sb_sblimit)
+      ## Perceived status (averages over all assess-year observations)
+      mse_summary$`EM: P(Fy > Flimit)`[sp]    <- mean(em_f_flimit,   na.rm = TRUE)
+      mse_summary$`EM: P(SSB < SSBlimit)`[sp] <- mean(em_sb_sblimit, na.rm = TRUE)
     }
 
 
-    ## Actual status
+    ## Actual status across all projection years ----
     # * OM: P(F > Flimit) ----
     om_f_flimit <- lapply(mse, function(x) x$OM$quantities$F_spp[sp, (projyrs - styr + 1)] > (x$OM$quantities$Flimit[sp]))
 
     # - Tier 3
-    if(mse[[1]]$OM$data_list$msmMode == 0 & HCR == 5 & DynamicHCR == FALSE){
+    if(msmMode == 0 & HCR == 5 & DynamicHCR == FALSE){
       om_f_flimit <- lapply(mse, function(x) x$OM$quantities$F_spp[sp, (projyrs - styr + 1)] >
                               flimit_tier3_fun(
                                 ssb_depletion = x$OM$quantities$ssb_depletion[sp,(projyrs - styr + 1)],
@@ -351,7 +380,7 @@ mse_summary <- function(mse, om_only = FALSE){
     }
 
     # - Dynamic Tier 3
-    if(mse[[1]]$OM$data_list$msmMode == 0 & HCR == 5 & DynamicHCR == TRUE){
+    if(msmMode == 0 & HCR == 5 & DynamicHCR == TRUE){
       om_f_flimit <- lapply(mse, function(x) x$OM$quantities$F_spp[sp, (projyrs - styr + 1)] >
                               flimit_tier3_fun(
                                 ssb_depletion = x$OM$quantities$ssb_depletion[sp,(projyrs - styr + 1)],
@@ -363,86 +392,66 @@ mse_summary <- function(mse, om_only = FALSE){
     }
 
     om_f_flimit <- unlist(om_f_flimit)
-    mse_summary$`OM: P(Fy > Flimit)`[sp] <- sum(om_f_flimit)/length(om_f_flimit)
+    mse_summary$`OM: P(Fy > Flimit)`[sp] <- mean(om_f_flimit, na.rm = TRUE)
 
 
     # * OM: P(SSB < SSBlimit) ----
-    # - Multi-species
+    # - default (multi-species or HCR with no SPR ref): depletion-based
     om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$ssb_depletion[sp, (projyrs - styr + 1)] < x$OM$data_list$Plimit[sp])
 
-    # Update over fished definition for the following because Plimit is used for something else
-    # -- HCR = 5: NPFMC Tier 3 - Flimit and Ftarget on
-    # -- HCR = 6: PFMC Cat 1 - Flimit on
-    if(mse[[1]]$OM$data_list$msmMode == 0){
+    if(msmMode == 0){
+      proj_idx <- projyrs - styr + 1
 
-      # Default is depletion based
-      om_sb_sblimit <-lapply(mse, function(x) x$OM$quantities$ssb_depletion[sp, (projyrs - styr + 1)] < x$OM$data_list$Plimit[sp])
-
-      # - Avg F SPR based
+      # - Avg F SPR based (HCR 2)
       if(HCR == 2){
-        om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$ssb[sp, (projyrs - styr + 1)] < 0.5 * x$OM$quantities$SBF[sp, length(projyrs)]) # 0.5 * SB35%
+        om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$ssb[sp, proj_idx] < 0.5 * x$OM$quantities$SBF[sp, proj_idx])
       }
 
-      # - New England SPR based
+      # - New England SPR based (HCR 4)
       if(HCR == 4 & !DynamicHCR){
-        om_sb_sblimit <-lapply(mse, function(x) x$OM$quantities$ssb[sp, (projyrs - styr + 1)] < 0.5 * x$OM$quantities$SBF[sp, length(projyrs)]) # 0.5 * SB40%
-      }else if(HCR == 4 & DynamicHCR){ # Dynamic New England SPR based
-        om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$ssb[sp, (projyrs - styr + 1)] < 0.5 * x$OM$quantities$DynamicSBF[sp, length(projyrs)]) # 0.5 * SB40%
+        om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$ssb[sp, proj_idx] < 0.5 * x$OM$quantities$SBF[sp, proj_idx])
+      } else if(HCR == 4 & DynamicHCR){
+        om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$ssb[sp, proj_idx] < 0.5 * x$OM$quantities$DynamicSBF[sp, proj_idx])
       }
 
-      # - Tier 3 SPR Based
+      # - Tier 3 SPR based (HCR 5)
       if(HCR == 5 & !DynamicHCR){
-        om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$ssb[sp, (projyrs - styr + 1)] < 0.5 * x$OM$quantities$SBF[sp, length(projyrs)]) # 0.5 * SB35%
-      }else if(HCR == 5 & DynamicHCR){ # Dynamic Tier 3 SPR Based
-        om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$ssb[sp, (projyrs - styr + 1)] < 0.5 * x$OM$quantities$DynamicSBF[sp, length(projyrs)]) # 0.5 * SB35%
+        om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$ssb[sp, proj_idx] < 0.5 * x$OM$quantities$SBF[sp, proj_idx])
+      } else if(HCR == 5 & DynamicHCR){
+        om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$ssb[sp, proj_idx] < 0.5 * x$OM$quantities$DynamicSBF[sp, proj_idx])
       }
 
-      # - Cat 1 Depletion based
+      # - Cat 1 depletion based (HCR 6)
       if(HCR == 6){
-        if(Ptarget[sp] == 0.25){
-          om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$ssb_depletion[sp, (projyrs - styr + 1)] < 0.125) # 0.125 * SB0
-        }
+          om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$ssb_depletion[sp, proj_idx] < Ptarget[sp] * 0.5)
         if(Ptarget[sp] == 0.4){
-          om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$ssb_depletion[sp, (projyrs - styr + 1)] < 0.25) # 0.25 * SB0
+          om_sb_sblimit <- lapply(mse, function(x) x$OM$quantities$ssb_depletion[sp, proj_idx] < 0.25)
         }
       }
     }
 
     om_sb_sblimit <- unlist(om_sb_sblimit)
-    mse_summary$`OM: P(SSB < SSBlimit)`[sp] <- sum(om_sb_sblimit)/length(om_sb_sblimit)
+    mse_summary$`OM: P(SSB < SSBlimit)`[sp] <- mean(om_sb_sblimit, na.rm = TRUE)
 
 
-    ## * Perceived status relative to actual status ----
+    ## * Perceived status relative to actual status (paired at assess years) ----
     if(!om_only){
-      # - EM: P(Fy > Flimit) but OM: P(Fy < Flimit)
-      mse_summary$`EM: P(Fy > Flimit) but OM: P(Fy < Flimit)`[sp] <- sum(em_f_flimit == 1 & om_f_flimit == 0)/length(om_f_flimit)
-
-      # - EM: P(Fy < Flimit) but OM: P(Fy > Flimit)
-      mse_summary$`EM: P(Fy < Flimit) but OM: P(Fy > Flimit)`[sp] <- sum(em_f_flimit == 0 & om_f_flimit == 1)/length(om_f_flimit)
-
-      # - EM: P(SSB < SSBlimit) but OM: P(SSB > SSBlimit)
-      mse_summary$`EM: P(SSB < SSBlimit) but OM: P(SSB > SSBlimit)`[sp] <- sum(em_sb_sblimit == 1 & om_sb_sblimit == 0)/length(om_sb_sblimit)
-
-      # - EM: P(SSB > SSBlimit) but OM: P(SSB < SSBlimit)
-      mse_summary$`EM: P(SSB > SSBlimit) but OM: P(SSB < SSBlimit)`[sp] <- sum(em_sb_sblimit == 0 & om_sb_sblimit == 1)/length(om_sb_sblimit)
+      mse_summary$`EM: P(Fy > Flimit) but OM: P(Fy < Flimit)`[sp]      <- mean(em_f_flimit   == 1 & om_f_flimit_assess   == 0, na.rm = TRUE)
+      mse_summary$`EM: P(Fy < Flimit) but OM: P(Fy > Flimit)`[sp]      <- mean(em_f_flimit   == 0 & om_f_flimit_assess   == 1, na.rm = TRUE)
+      mse_summary$`EM: P(SSB < SSBlimit) but OM: P(SSB > SSBlimit)`[sp] <- mean(em_sb_sblimit == 1 & om_sb_sblimit_assess == 0, na.rm = TRUE)
+      mse_summary$`EM: P(SSB > SSBlimit) but OM: P(SSB < SSBlimit)`[sp] <- mean(em_sb_sblimit == 0 & om_sb_sblimit_assess == 1, na.rm = TRUE)
     }
 
 
-    # * Bias in terminal SSB ----
+    # * Bias in SSB ----
     if(!om_only){
-      # - last projection year
+      # - terminal projection year (last EM vs OM)
       terminal_ssb_om <- sapply(mse, function(x) x$OM$quantities$ssb[sp, (projyr - styr + 1)])
-      terminal_ssb_em <- lapply(mse, function(x) x$EM[[length(x$EM)]]$quantities$ssb[sp, (projyr - styr + 1)])
-      mse_summary$`Avg terminal SSB Relative MSE`[sp] = mean((unlist(terminal_ssb_em) -  unlist(terminal_ssb_om))^2 / unlist(terminal_ssb_om)^2, na.rm = TRUE)
+      terminal_ssb_em <- sapply(mse, function(x) x$EM[[length(x$EM)]]$quantities$ssb[sp, (projyr - styr + 1)])
+      mse_summary$`Avg terminal SSB Relative MSE`[sp] <- mean((terminal_ssb_em - terminal_ssb_om)^2 / terminal_ssb_om^2, na.rm = TRUE)
 
-      # * Bias in terminal SSB ----
-      # - across all projection years
-      ssb_om <- lapply(mse, function(x) x$OM$quantities$biomass[sp, (projyrs - styr + 1)])
-      terminal_ssb_em_all <- list()
-      for(i in 1:length(mse)){
-        terminal_ssb_em_all[[i]] <- sapply(mse[[i]]$EM[-1], function(x) x$quantities$ssb[sp, (x$data_list$endyr - styr + 1)])
-      }
-      mse_summary$`Avg SSB Relative MSE`[sp] = mean((unlist(terminal_ssb_em_all) -  unlist(ssb_om))^2 / unlist(ssb_om)^2, na.rm = TRUE)
+      # - across all intermediate assessments (EM terminal SSB vs OM SSB at the same year)
+      mse_summary$`Avg SSB Relative MSE`[sp] <- mean((em_ssb_assess - om_ssb_assess)^2 / om_ssb_assess^2, na.rm = TRUE)
     }
 
     # * OM: Terminal B, SSB, depletion ----

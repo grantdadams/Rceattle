@@ -220,29 +220,40 @@ build_params <- function(data_list) {
     intercepts <- data_list$linkage_table[
       data_list$linkage_table$design_col == "(Intercept)" &
         data_list$linkage_table$init_supplied, , drop = FALSE]
+    if(any(intercepts$init < 0)){stop("Initial value provided for '(Intercept)' is < 0")}
     for (i in seq_len(nrow(intercepts))) {
       row <- intercepts[i, , drop = FALSE]
       idx <- .linkage_row_indices(row, data_list)
       init_val <- as.numeric(row$init)
       switch(row$process,
         growth = {
-          par_idx <- .GROWTH_PARAM_TO_INDEX[row$param]
-          if (is.na(par_idx)) next
-          for (s in idx$species) {
-            param_list$log_growth_pars[s, idx$per_sp[[as.character(s)]]$sex, par_idx] <- init_val
+          # Mean-growth params live on log_growth_pars[sp, sex, k];
+          # SD endpoints live on growth_log_sd[sp, sex, k']. Both expose
+          # the same intercept-init contract -- dispatch on the param
+          # name once and write into the right tensor.
+          mean_idx <- .GROWTH_PARAM_TO_INDEX[row$param]
+          sd_idx   <- .GROWTH_SD_PARAM_TO_INDEX[row$param]
+          if (!is.na(mean_idx)) {
+            for (s in idx$species) {
+              param_list$log_growth_pars[s, idx$per_sp[[as.character(s)]]$sex, mean_idx] <- log(init_val)
+            }
+          } else if (!is.na(sd_idx)) {
+            for (s in idx$species) {
+              param_list$growth_log_sd[s, idx$per_sp[[as.character(s)]]$sex, sd_idx] <- log(init_val)
+            }
           }
         },
         M = {
           for (s in idx$species) {
             sx <- idx$per_sp[[as.character(s)]]$sex
             ag <- idx$per_sp[[as.character(s)]]$age
-            param_list$log_M1[s, sx, ag] <- init_val
+            param_list$log_M1[s, sx, ag] <- log(init_val)
           }
         },
         recruitment = {
           par_idx <- .REC_PARAM_TO_INDEX[row$param]
           if (is.na(par_idx)) next
-          param_list$rec_pars[idx$species, par_idx] <- init_val
+          param_list$rec_pars[idx$species, par_idx] <- log(init_val)
         }
       )
     }

@@ -8,7 +8,8 @@ sel_map <- c(
   "DescendingLogistic" = 4,
   "Hake" = 5,
   "2DAR1" = 6,
-  "3DAR1" = 7
+  "3DAR1" = 7,
+  "DoubleNormal" = 8
 )
 
 tv_sel_map <-c(

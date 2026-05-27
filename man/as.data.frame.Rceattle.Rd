@@ -29,7 +29,7 @@ for the full list.}
 }
 \value{
 A \code{data.frame} with columns \code{year}, \code{species}, \code{sex}, \code{age},
-\code{quantity}, \code{value}, \code{lwr}, \code{upr}. \code{species} is the character
+\code{quantity}, \code{value}, \code{se}, \code{lwr}, \code{upr}. \code{species} is the character
 species name from \code{data_list$spnames}. Rows are sorted in the order
 \code{which} was given.
 }
@@ -46,9 +46,9 @@ padded out to \code{max(nsex)} / \code{max(nages)} for species with fewer
 sexes or ages are dropped.
 }
 \details{
-Confidence intervals (\code{lwr}, \code{upr}) are populated from the TMB
-\code{sdreport} for any quantity that was \code{ADREPORT}'d
-(currently \code{biomass}, \code{ssb}, \code{R}); other quantities and fits
-produced with \code{getsd = FALSE} get \code{NA} for \code{lwr} / \code{upr}. Set
-\code{ci_level} to widen or narrow the band.
+Standard errors (\code{se}) and confidence intervals (\code{lwr}, \code{upr}) are
+populated from the TMB \code{sdreport} for any quantity that was
+\code{ADREPORT}'d (currently \code{biomass}, \code{ssb}, \code{R}); other quantities and
+fits produced with \code{getsd = FALSE} get \code{NA} for \code{se} / \code{lwr} / \code{upr}.
+Set \code{ci_level} to widen or narrow the band.
 }

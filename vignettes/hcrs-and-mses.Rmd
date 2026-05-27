@@ -33,10 +33,10 @@ om <- Rceattle::fit_mod(
   M1Fun = build_M1(
     M1_model = "sex_age_invariant",
     linkages = list(
-      log_M1 = linkage_spec(
+      M1 = linkage_spec(
         formula = ~ 1,
         priors = list(
-          "(Intercept)" = normal(log(0.06), 0.05)
+          "(Intercept)" = lognormal(log(0.06), 0.05)
         )
       )
     )
@@ -60,10 +60,10 @@ em <- Rceattle::fit_mod(
   M1Fun = build_M1(
     M1_model = "sex_age_invariant",
     linkages = list(
-      log_M1 = linkage_spec(
+      M1 = linkage_spec(
         formula = ~ 1,
         priors = list(
-          "(Intercept)" = normal(log(0.06), 0.05)
+          "(Intercept)" = lognormal(log(0.06), 0.05)
         )
       )
     )
@@ -166,10 +166,10 @@ em2 <- Rceattle::fit_mod(
   M1Fun = build_M1(
     M1_model = "sex_age_invariant",
     linkages = list(
-      log_M1 = linkage_spec(
+      M1 = linkage_spec(
         formula = ~ 1,
         priors = list(
-          "(Intercept)" = normal(log(0.06), 0.05)
+          "(Intercept)" = lognormal(log(0.06), 0.05)
         )
       )
     )
@@ -225,6 +225,13 @@ mse4 <- run_mse(
 
 ```{r, message = FALSE, echo = TRUE}
 
+# Generate random env data
+projyrs <- nrdata$styr:nrdata$projyr
+projnyrs <- length(projyrs)
+
+# Env data
+nrdata$env_data <- merge(nrdata$env_data, data.frame(Year = projyrs, EnvIndex = seq(0,1, length.out = projnyrs)))
+
 # Fit OM
 om2 <- Rceattle::fit_mod(
   data_list = nrdata,
@@ -233,18 +240,19 @@ om2 <- Rceattle::fit_mod(
   M1Fun = build_M1(
     M1_model = "sex_age_invariant",
     linkages = list(
-      log_M1 = linkage_spec(
+      M1 = linkage_spec(
         formula = ~ 1,
         priors = list(
-          "(Intercept)" = normal(log(0.06), 0.05)
+          "(Intercept)" = lognormal(log(0.06), 0.05)
         )
       )
     )
   ),
   recFun = build_srr(
     srr_fun = "mean",    # Mean R with covariates
+    proj_mean_rec = FALSE,
     linkages = list(
-      log_R0 = linkage_spec(formula = ~ Temp)
+      R0 = linkage_spec(formula = ~ EnvIndex)
     )),
   fit_control = fit_control(phase = TRUE)
 )

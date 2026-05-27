@@ -54,17 +54,23 @@ LINKAGE_PRIOR_CODES <- c(
 
 #' Integer codes for the `param` column, per process
 #'
-#' Each process has its own independent parameter namespace (`log_K`
-#' means something different to growth than `log_alpha` does to
+#' Each process has its own independent parameter namespace (`K`
+#' means something different to growth than `alpha` does to
 #' recruitment), so the param column is encoded against a per-process
 #' table. Unknown parameter names error.
 #'
 #' @keywords internal
 LINKAGE_PARAM_CODES <- list(
-  growth      = c(log_K = 0L, log_L1 = 1L, log_Linf = 2L, log_m = 3L),
-  M           = c(log_M1 = 0L),
-  recruitment = c(log_R0 = 0L, log_alpha = 1L, log_beta = 2L),
-  q           = c(log_q = 0L),
+  # Codes 0..3 index `growth_linkage_offset` (year-varying mean-growth
+  # offsets); codes 4..5 are the SD endpoints which live on
+  # `growth_log_sd` and only consume intercept rows. Keep the SD codes
+  # >= RCEATTLE_N_GROWTH_PARAMS so the env-offset loop in linkage.hpp
+  # short-circuits on them (see the param-range guard there).
+  growth      = c(K = 0L, L1 = 1L, Linf = 2L, m = 3L,
+                  sd_L1 = 4L, sd_Linf = 5L),
+  M           = c(M1 = 0L),
+  recruitment = c(R0 = 0L, alpha = 1L, beta = 2L),
+  q           = c(q = 0L),
   sel         = character(0)   # not yet wired
 )
 

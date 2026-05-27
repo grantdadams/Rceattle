@@ -16,7 +16,7 @@
 #include "linkage.hpp"
 
 /** ------------------------------------------------------------------------ //
- *                 CEATTLE version 4.3.0                                     //
+ *                 CEATTLE version 4.4.0                                     //
  *                  Template Model Builder                                   //
  *               Multispecies Statistical Model                              //
  *          Bioenergetic-based Assessment for Understanding                  //
@@ -177,6 +177,7 @@ Type objective_function<Type>::operator() () {
 
   // -- 2.3. Growth model specifications
   DATA_IVECTOR(growth_model); // 0: "input", 1: "vB-classic", 2: "Richards", 3: "nonparametric LAA" [sp]
+  DATA_VECTOR(growth_age_L1); // VB anchor age (= SS3 Growth_Age_for_L1) per sp; defaults to max(0.5, minage[sp]) in R-side fit_mod()
 
   // -- 2.3b. Long-format linkage table (see R/0-linkage_encode.R).
   //          Each row defines one estimated coefficient that connects a
@@ -582,16 +583,27 @@ Type objective_function<Type>::operator() () {
   }
 
   // 5.5. OFFSETS
+  // Each process gets two parallel offset tensors:
+  //   - `*_linkage_offset`     log-scale additive contribution from
+  //                            log-link rows (linkfn == 1, default).
+  //                            Added to log_<param> before exp.
+  //   - `*_linkage_offset_nat` natural-scale additive contribution from
+  //                            identity-link rows (linkfn == 0). Added
+  //                            to the natural-scale parameter after exp.
+  // Combine at the consume site as:
+  //   param_nat_yr = exp(log_base + log_offset) + nat_offset.
+  // With no linkages, both tensors stay at zero so the result is
+  // identical to the pre-linkage formula.
+  //
   // - RECRUITMENT OFFSETS
-  // -- Build the per-(species, recruitment_param, year) offset
-  //    tensor from the long-format linkage table. Added (additively,
-  //    on the log scale) to log(R0), log(alpha), and log(beta) at
-  //    each calculate_recruitment() call site below. Stays at zero
-  //    when no `linkages` were supplied to `build_srr()`.
   array<Type> recruitment_linkage_offset(nspp,
                                          int(RCEATTLE_N_REC_PARAMS),
                                          nyrs);
+  array<Type> recruitment_linkage_offset_nat(nspp,
+                                             int(RCEATTLE_N_REC_PARAMS),
+                                             nyrs);
   recruitment_linkage_offset.setZero();
+  recruitment_linkage_offset_nat.setZero();
   rceattle_apply_recruitment_linkages(
     recruitment_linkage_offset,
     linkage_process,
@@ -606,15 +618,28 @@ Type objective_function<Type>::operator() () {
     nspp,
     nyrs
   );
+  rceattle_apply_recruitment_linkages_natural(
+    recruitment_linkage_offset_nat,
+    linkage_process,
+    linkage_param,
+    linkage_species,
+    linkage_sex,
+    linkage_age_bin,
+    linkage_X_col,
+    linkage_link,
+    linkage_X,
+    beta_linkage,
+    nspp,
+    nyrs
+  );
   REPORT(recruitment_linkage_offset);
+  REPORT(recruitment_linkage_offset_nat);
 
   // - M OFFSETS
-  // Build the per-(sp, sex, age, yr) M-linkage offset tensor from
-  // the long-format linkage table. Added (additively, on the log
-  // scale) to log_M1 below; stays at zero when no `linkages` were
-  // supplied to `build_M1()`.
   array<Type> M_linkage_offset(nspp, max_sex, max_age, nyrs);
+  array<Type> M_linkage_offset_nat(nspp, max_sex, max_age, nyrs);
   M_linkage_offset.setZero();
+  M_linkage_offset_nat.setZero();
   rceattle_apply_M_linkages(
     M_linkage_offset,
     linkage_process,
@@ -631,16 +656,31 @@ Type objective_function<Type>::operator() () {
     nages,
     nyrs
   );
+  rceattle_apply_M_linkages_natural(
+    M_linkage_offset_nat,
+    linkage_process,
+    linkage_param,
+    linkage_species,
+    linkage_sex,
+    linkage_age_bin,
+    linkage_X_col,
+    linkage_link,
+    linkage_X,
+    beta_linkage,
+    nspp,
+    nsex,
+    nages,
+    nyrs
+  );
   REPORT(M_linkage_offset);
+  REPORT(M_linkage_offset_nat);
 
 
   // - GROWTH OFFSETS
-  // -- Build the per-(sp, sex, yr, growth_param) offset tensor from the
-  //    long-format linkage table. Added (additively, on the log scale)
-  //    to `growth_parameters` immediately below. Stays at zero when no
-  //    `linkages` were supplied to `build_growth()`.
   array<Type> growth_linkage_offset(nspp, max_sex, nyrs, RCEATTLE_N_GROWTH_PARAMS);
+  array<Type> growth_linkage_offset_nat(nspp, max_sex, nyrs, RCEATTLE_N_GROWTH_PARAMS);
   growth_linkage_offset.setZero();
+  growth_linkage_offset_nat.setZero();
   rceattle_apply_growth_linkages(
     growth_linkage_offset,
     linkage_process,
@@ -656,27 +696,45 @@ Type objective_function<Type>::operator() () {
     nsex,
     nyrs
   );
+  rceattle_apply_growth_linkages_natural(
+    growth_linkage_offset_nat,
+    linkage_process,
+    linkage_param,
+    linkage_species,
+    linkage_sex,
+    linkage_age_bin,
+    linkage_X_col,
+    linkage_link,
+    linkage_X,
+    beta_linkage,
+    nspp,
+    nsex,
+    nyrs
+  );
   REPORT(growth_linkage_offset);
+  REPORT(growth_linkage_offset_nat);
 
 
   // 5.6. RECRUITMENT PARAMETERS
-  // - Calculate recruitment. Linkage offsets are added on the
-  //   log scale: log_R0 enters as R0 * exp(offset(yr));
-  //   log_alpha and log_beta enter as additions to rec_pars(*, 1|2)
-  //   before the calculate_recruitment exp().
+  // Linkage offsets combine log-link (multiplicative) and identity-link
+  // (natural-scale additive) contributions:
+  //   R0(yr) = exp(rec_pars(sp,0) + log_offset) + nat_offset.
   for(sp = 0; sp < nspp; sp++){
     for(yr = 0; yr < nyrs; yr++){
-      R0(sp, yr)    = exp(rec_pars(sp, 0) + recruitment_linkage_offset(sp, RCEATTLE_REC_R0,    yr));
-      alpha(sp, yr) = exp(rec_pars(sp, 1) + recruitment_linkage_offset(sp, RCEATTLE_REC_ALPHA, yr));
-      Beta(sp, yr)  = exp(rec_pars(sp, 2) + recruitment_linkage_offset(sp, RCEATTLE_REC_BETA,  yr));
+      R0(sp, yr)    = exp(rec_pars(sp, 0) + recruitment_linkage_offset(sp, RCEATTLE_REC_R0,    yr))
+                    + recruitment_linkage_offset_nat(sp, RCEATTLE_REC_R0,    yr);
+      alpha(sp, yr) = exp(rec_pars(sp, 1) + recruitment_linkage_offset(sp, RCEATTLE_REC_ALPHA, yr))
+                    + recruitment_linkage_offset_nat(sp, RCEATTLE_REC_ALPHA, yr);
+      Beta(sp, yr)  = exp(rec_pars(sp, 2) + recruitment_linkage_offset(sp, RCEATTLE_REC_BETA,  yr))
+                    + recruitment_linkage_offset_nat(sp, RCEATTLE_REC_BETA,  yr);
     }
   }
 
 
   // 5.7. GROWTH
-  // -- Rearange growth parameters. The linkage offset enters additively
-  //    on the log scale; with no linkages it stays at zero so the result
-  //    is identical to the previous formula.
+  // -- Rearange growth parameters. Log-link offset enters additively
+  //    on the log scale (multiplicative on natural K/L1/Linf/m);
+  //    identity-link offset enters additively on the natural scale.
   array<Type> growth_parameters(nspp, max_sex, nyrs, RCEATTLE_N_GROWTH_PARAMS); growth_parameters.setZero(); // K, L1, Linf, m
   for(sp = 0; sp < nspp; sp++){
     for(sex = 0; sex < nsex(sp); sex ++){
@@ -686,7 +744,7 @@ Type objective_function<Type>::operator() () {
             log_growth_pars(sp, sex, par)
           + log_growth_par_devs(sp, sex, yr, par)
           + growth_linkage_offset(sp, sex, yr, par)
-          );
+          ) + growth_linkage_offset_nat(sp, sex, yr, par);
         }
       }
     }
@@ -708,6 +766,7 @@ Type objective_function<Type>::operator() () {
     flt_month,
     nsex,
     minage,
+    growth_age_L1,
     nages,
     nlengths,
     pop_wt_index,
@@ -895,16 +954,16 @@ Type objective_function<Type>::operator() () {
             env_M1_tmp = env_index.row(yr);
             M1_mult = env_M1_tmp * beta_M1_tmp;
 
-            // M1_mult.sum() is LEGACY (scheduled removal: v4.2.0).
+            // M1_mult.sum() is LEGACY (scheduled removal: v4.5.0).
             // Carries the env effect from the soft-deprecated
-            // M1_indices path. See "Scheduled removal (v4.2.0)" in
-            // NEWS.md for the full cleanup checklist.
+            // M1_indices path. See "Scheduled removal" in NEWS.md
+            // (4.1.0 section) for the full cleanup checklist.
             M1_at_age(sp, sex, age, yr) = exp(
               log_M1(sp, sex, age)
               + log_M1_dev(sp, sex, age, yr)
               + M1_mult.sum()
               + M_linkage_offset(sp, sex, age, yr)
-            );
+            ) + M_linkage_offset_nat(sp, sex, age, yr);
             M_at_age(sp, sex, age, yr) = M1_at_age(sp, sex, age, yr) + M2_at_age(sp, sex, age, yr);
             M_at_age_dB0(sp, sex, age, yr) = M1_at_age(sp, sex, age, yr) + M2_at_age_dB0(sp, sex, age, yr);
             M_at_age_dBF(sp, sex, age, yr) = M1_at_age(sp, sex, age, yr) + M2_at_age_dBF(sp, sex, age, yr);
@@ -1269,7 +1328,7 @@ Type objective_function<Type>::operator() () {
             NByageF(sp, 0, 0, yr) = avg_R(sp);
 
             // Dynamic RPs use mean rec for forecast and observed rec for hindcast
-            // LEGACY (scheduled removal: v4.4.0). Use relationship below
+            // LEGACY (scheduled removal: v4.5.0). Use relationship below
             if(yr < nyrs_hind){
               N_at_age_dBF(sp, 0, 0, yr) = N_at_age_dB0(sp, 0, 0, yr) = R(sp, yr); // Hindcast use observed R
             }
@@ -2531,14 +2590,16 @@ Type objective_function<Type>::operator() () {
         for(sex = 0; sex < nsex(sp); sex ++){
           for(yr = 0; yr < nyrs_hind; yr++){
 
-            // Logistic deviates
-            if((flt_sel_type(flt) == 1) || (flt_sel_type(flt) == 3)){
+            // Logistic / ascending-limb deviates (types 1, 3, 8)
+            // For DoubleNormal (8): sel_inf_dev(0) = peak deviate, log_sel_slp_dev(0) = ascending-SD deviate
+            if((flt_sel_type(flt) == 1) || (flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 8)){
               jnll_comp(5, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr), Type(0.0), sel_dev_sd(flt), true);
               jnll_comp(5, flt) -= dnorm(log_sel_slp_dev(0, flt, sex, yr), Type(0.0), 4 * sel_dev_sd(flt), true);
             }
 
-            // Double logistic deviates
-            if((flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 4)){
+            // Double logistic / descending-limb deviates (types 3, 4, 8)
+            // For DoubleNormal (8): sel_inf_dev(1) = right-floor logit deviate; log_sel_slp_dev(1) = descending-SD deviate
+            if((flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 4) || (flt_sel_type(flt) == 8)){
               jnll_comp(5, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr), Type(0.0), sel_dev_sd(flt), true);
               jnll_comp(5, flt) -= dnorm(log_sel_slp_dev(1, flt, sex, yr), Type(0.0), 4 * sel_dev_sd(flt), true);
             }
@@ -2551,14 +2612,14 @@ Type objective_function<Type>::operator() () {
         for(sex = 0; sex < nsex(sp); sex ++){
           for(yr = 1; yr < nyrs_hind; yr++){ // Start at second year
 
-            // Logistic deviates
-            if((flt_sel_type(flt) == 1) || (flt_sel_type(flt) == 3)){
+            // Logistic / ascending-limb random walk (types 1, 3, 8)
+            if((flt_sel_type(flt) == 1) || (flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 8)){
               jnll_comp(5, flt) -= dnorm(log_sel_slp_dev(0, flt, sex, yr) - log_sel_slp_dev(0, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt), true);
               jnll_comp(5, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr) - sel_inf_dev(0, flt, sex, yr-1), Type(0.0), 4 * sel_dev_sd(flt), true);
             }
 
-            // Double logistic deviates
-            if((flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 4)){
+            // Double logistic / descending-limb random walk (types 3, 4, 8)
+            if((flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 4) || (flt_sel_type(flt) == 8)){
               jnll_comp(5, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr) - sel_inf_dev(1, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt), true);
               jnll_comp(5, flt) -= dnorm(log_sel_slp_dev(1, flt, sex, yr) - log_sel_slp_dev(1, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt) * 4, true);
             }
@@ -2954,11 +3015,18 @@ Type objective_function<Type>::operator() () {
   }
 
 
-  // Slot 19 -- Linkage-table priors (per-row, on the log scale).
-  // Families: 0 = none, 1 = normal, 2 = lognormal, 3 = gamma, 4 = beta.
-  // For 'lognormal'/'gamma'/'beta' the coefficient is treated on its
-  // own scale -- the user's prior parameters are passed through
-  // verbatim. Rows with prior_family = 0 contribute nothing.
+  // Slot 19 -- Linkage-table priors on the natural scale.
+  // Priors are specified using natural-scale parameter names (R0,
+  // alpha, M1, K, ...). For (Intercept) rows, so transform before
+  // evaluating the prior. For all slope
+  // rows, b_nat == b (the coefficient IS on the natural / linear scale).
+  //
+  // Families:
+  //   0 = none    -- no contribution
+  //   1 = normal  -- dnorm(b_nat, p1, p2)    prior on natural-scale value
+  //   2 = lognormal -- dnorm(log(b_nat), p1, p2)  prior on log of natural scale
+  //   3 = gamma   -- dgamma(b_nat, p1, 1/p2)  prior on natural-scale value
+  //   4 = beta    -- dbeta(b_nat, p1, p2)     prior on natural-scale value
   //
   // (Intercept) rows are mapped out (beta_linkage(i) stays at 0); for
   // those rows the prior is evaluated against the *base parameter*
@@ -2989,29 +3057,41 @@ Type objective_function<Type>::operator() () {
       int proc  = linkage_process(i);
       int param = linkage_param(i);
       if (proc == RCEATTLE_PROC_RECRUIT) {
-        // recruitment params: log_R0=0, log_alpha=1, log_beta=2 -> rec_pars cols 0..2
+        // recruitment params: R0=0, alpha=1, beta=2 -> rec_pars cols 0..2
+        // (stored as log_R0, log_alpha, log_beta on the log scale)
         b = rec_pars(sp_idx, param);
       } else if (proc == RCEATTLE_PROC_M) {
         b = log_M1(sp_idx, sx_idx, ab_idx);
       } else if (proc == RCEATTLE_PROC_GROWTH) {
-        // growth params: log_K=0, log_L1=1, log_Linf=2, log_m=3
-        // -> log_growth_pars(sp, sx, param)
-        b = log_growth_pars(sp_idx, sx_idx, param);
+        // growth params: K=0, L1=1, Linf=2, m=3 -> log_growth_pars(sp, sx, param)
+        // SD endpoints: sd_L1=4, sd_Linf=5 -> growth_log_sd(sp, sx, param - N_GROWTH)
+        if (param < RCEATTLE_N_GROWTH_PARAMS) {
+          b = log_growth_pars(sp_idx, sx_idx, param);
+        } else {
+          b = growth_log_sd(sp_idx, sx_idx, param - RCEATTLE_N_GROWTH_PARAMS);
+        }
       }
     }
 
-    if (fam == 1) {                         // normal(p1, p2)
-      jnll_comp(19, slot_col)            -= dnorm(b, p1, p2, true);
-      unweighted_jnll_comp(19, slot_col) -= dnorm(b, p1, p2, true);
-    } else if (fam == 2) {                  // lognormal(p1, p2) on b
-      jnll_comp(19, slot_col)            -= dnorm(b, p1, p2, true);
-      unweighted_jnll_comp(19, slot_col) -= dnorm(b, p1, p2, true);
-    } else if (fam == 3) {                  // gamma(p1=shape, p2=rate)
-      jnll_comp(19, slot_col)            -= dgamma(b, p1, Type(1.0)/p2, true);
-      unweighted_jnll_comp(19, slot_col) -= dgamma(b, p1, Type(1.0)/p2, true);
-    } else if (fam == 4) {                  // beta(p1=shape1, p2=shape2)
-      jnll_comp(19, slot_col)            -= dbeta(b, p1, p2, true);
-      unweighted_jnll_comp(19, slot_col) -= dbeta(b, p1, p2, true);
+    // Back-transform to natural scale when this is
+    // an intercept row (b holds the log-scale parameter).
+    // For all slope rows, b_nat == b already.
+    Type b_nat = (linkage_is_intercept(i) == 1) ? exp(b) : b;
+
+    if (fam == 1) {                         // normal(p1, p2) on natural scale
+      jnll_comp(19, slot_col)            -= dnorm(b_nat, p1, p2, true);
+      unweighted_jnll_comp(19, slot_col) -= dnorm(b_nat, p1, p2, true);
+    } else if (fam == 2) {                  // lognormal: normal on log of natural scale
+      // For log-link intercept: log(b_nat) = b (efficient form avoids log(exp(b)))
+      Type log_b_nat = (linkage_is_intercept(i) == 1) ? b : log(b_nat);
+      jnll_comp(19, slot_col)            -= dnorm(log_b_nat, p1, p2, true);
+      unweighted_jnll_comp(19, slot_col) -= dnorm(log_b_nat, p1, p2, true);
+    } else if (fam == 3) {                  // gamma(p1=shape, p2=rate) on natural scale
+      jnll_comp(19, slot_col)            -= dgamma(b_nat, p1, Type(1.0)/p2, true);
+      unweighted_jnll_comp(19, slot_col) -= dgamma(b_nat, p1, Type(1.0)/p2, true);
+    } else if (fam == 4) {                  // beta(p1=shape1, p2=shape2) on natural scale
+      jnll_comp(19, slot_col)            -= dbeta(b_nat, p1, p2, true);
+      unweighted_jnll_comp(19, slot_col) -= dbeta(b_nat, p1, p2, true);
     }
   }
 

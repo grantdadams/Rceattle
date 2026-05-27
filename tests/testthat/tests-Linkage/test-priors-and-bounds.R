@@ -25,7 +25,7 @@ testthat::test_that("build_bounds honors lower/upper from linkage_table", {
   )
   growth_spec <- Rceattle::build_growth(
     fun      = "vonBertalanffy",
-    linkages = list(log_K = spec)
+    linkages = list(K = spec)
   )
 
   fit <- suppressMessages(Rceattle::fit_mod(
@@ -97,13 +97,13 @@ testthat::test_that("normal prior on beta_linkage adds expected NLL", {
   growth_no_prior <- Rceattle::build_growth(
     fun = "vonBertalanffy",
     linkages = list(
-      log_K = Rceattle::linkage_spec(formula = ~ temp, by = ~ species)
+      K = Rceattle::linkage_spec(formula = ~ temp, by = ~ species)
     )
   )
   growth_with_prior <- Rceattle::build_growth(
     fun = "vonBertalanffy",
     linkages = list(
-      log_K = Rceattle::linkage_spec(
+      K = Rceattle::linkage_spec(
         formula = ~ temp,
         by      = ~ species,
         priors  = list(temp = normal(0, 0.5))
@@ -157,4 +157,66 @@ testthat::test_that("normal prior on beta_linkage adds expected NLL", {
   expected_total   <- sum(is_temp) * expected_per_row
   testthat::expect_equal(sum(jnll_with_prior[20, ]), expected_total,
                          tolerance = 1e-8)
+})
+
+
+testthat::test_that("sd_L1 intercept init lands on growth_log_sd, not log_growth_pars", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  set.seed(11)
+  nyrs <- 15
+  nspp <- 2
+  sim <- make_msm_test_data(
+    years   = 1:nyrs,
+    Fmort   = matrix(seq(0.05, 0.25, length.out = nyrs * nspp),
+                     nspp, nyrs, byrow = TRUE),
+    log_phi = matrix(-Inf, nspp, nspp, byrow = TRUE)
+  )
+  sim_data <- sim$data_list
+  yrs <- sim_data$styr:sim_data$endyr
+  # Need a `temp` column even though the SD spec uses ~ 1 -- the test
+  # data uses Ceq = 4 (temperature-dependent consumption) which reads
+  # env_data$temp downstream of the linkage system.
+  sim_data$env_data <- data.frame(Year = yrs, temp = 0)
+
+  # init is supplied on the natural scale of the SD (4.4.0 contract);
+  # build_params() applies log() before writing into growth_log_sd.
+  init_sd <- 5
+  growth_spec <- Rceattle::build_growth(
+    fun      = "vonBertalanffy",
+    linkages = list(
+      sd_L1 = Rceattle::linkage_spec(
+        formula = ~ 1,
+        init    = list(`(Intercept)` = init_sd)
+      )
+    )
+  )
+
+  fit <- suppressMessages(Rceattle::fit_mod(
+    data_list    = sim_data,
+    growthFun    = growth_spec,
+    estimateMode = 3, msmMode = 0, random_rec = FALSE,
+    fit_control  = Rceattle::fit_control(phase = FALSE, verbose = 0)
+  ))
+
+  # Init must have landed in growth_log_sd[, , 1] (SD at L1) on the log
+  # scale, NOT in log_growth_pars (which would corrupt K).
+  testthat::expect_equal(
+    as.numeric(fit$estimated_params$growth_log_sd[, , 1]),
+    rep(log(init_sd), nspp * dim(fit$estimated_params$growth_log_sd)[2])
+  )
+  # K (first slot of log_growth_pars) keeps its build_params default
+  # (log(0.3)), unaffected by the SD init.
+  testthat::expect_equal(
+    as.numeric(fit$estimated_params$log_growth_pars[, , 1]),
+    rep(log(0.3), nspp * dim(fit$estimated_params$log_growth_pars)[2])
+  )
+
+  # And the intercept row in the linkage table is still mapped out at 0
+  # (the level is carried by the base parameter, not by beta_linkage).
+  tbl <- fit$data_list$linkage_table
+  sd_rows <- tbl$param == "sd_L1"
+  testthat::expect_true(all(tbl$design_col[sd_rows] == "(Intercept)"))
+  testthat::expect_true(all(is.na(fit$map$beta_linkage[sd_rows])))
 })

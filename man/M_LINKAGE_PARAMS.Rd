@@ -11,16 +11,16 @@ An object of class \code{character} of length 1.
 M_LINKAGE_PARAMS
 }
 \description{
-Linear-predictor names of the underlying natural-mortality
+Natural-scale names of the underlying natural-mortality
 parameters that the linkage system can address. Currently just
-\code{log_M1} -- the offset is added on the log scale to \code{log_M1}
-(broadcast across age unless the linkage row pins a specific
-\code{age_bin}).
+\code{M1} -- with the default log link the offset is added on the log
+scale to \code{log_M1} (broadcast across age unless the linkage row
+pins a specific \code{age_bin}).
 }
 \details{
 Note: predation mortality \code{M2} is a derived quantity in CEATTLE
 (a function of predator abundance, suitability, and ration), not
-a parameter. There is no \code{log_M2} linkage target; environmental
+a parameter. There is no \code{M2} linkage target; environmental
 effects on predation are mediated upstream via recruitment,
 growth, suitability, or ration inputs.
 }
