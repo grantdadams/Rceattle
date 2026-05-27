@@ -18,7 +18,7 @@ knitr::opts_chunk$set(
 )
 ```
 
-Rceattle provides four layers of diagnostics: **S3 methods** (`residual`, `logLik`, etc), **fit plots** to visually inspect how well the model reproduces observed data, **retrospective analysis** (peels) to detect patterns of systematic over- or under-estimation, and **jitter testing** to check that the optimiser has found a global minimum.
+Rceattle provides five layers of diagnostics: **S3 methods** (`residual`, `logLik`, etc), **fit plots** to visually inspect how well the model reproduces observed data, **retrospective analysis** (peels) to detect patterns of systematic over- or under-estimation, **jitter testing** to check that the optimiser has found a global minimum, and **self-testing** (simulation–estimation) to check that the model can recover its own estimates from simulated data.
 
 ## Setup and plotting data
 
@@ -134,6 +134,26 @@ length(jitters$Rceattle_list)
 ```
 
 Non-converging runs are silently dropped from `Rceattle_list`, so if `length(jitters$Rceattle_list)` is much less than `njitter`, convergence may be fragile.
+
+`retrospective()` and `jitter()` both fit peels / starts in parallel by default. Pass `cores = 1` to force sequential execution; otherwise the call uses a PSOCK cluster sized at `parallel::detectCores() - 6` (capped at 2 under `R CMD check`).
+
+## Self-test (simulation–estimation)
+
+`self_test()` simulates `nsim` datasets from a fitted model — keeping its estimated parameters fixed — and re-fits the model to each simulated dataset. If estimates from the refits cluster around the parameter values of the fit they were simulated from, the model is at least self-consistent (it can recover its own estimates from data it generated). Persistent bias or wide spread in a quantity is a sign that the data are not informative about it.
+
+```{r}
+sims <- self_test(model_1, nsim = 10)            # default nsim = 50
+
+# Number of simulations that converged (non-converged runs are dropped)
+length(sims)
+
+# Overlay biomass / SSB trajectories across simulations — the original fit's
+# trajectory should sit inside the spread of the refits.
+plot_biomass(c(list(model_1), sims), model_names = c("fit", names(sims)))
+plot_ssb(c(list(model_1), sims),     model_names = c("fit", names(sims)))
+```
+
+Each simulation uses `seed + i` as its RNG seed, so results are reproducible whether or not `cores > 1`. Set `simulate = FALSE` to refit against the model's *expected* values (no observation error) rather than draws from the observation likelihood — useful for confirming that the estimator returns the generating parameters in the noise-free limit. `cores` behaves the same way as in `retrospective()` and `jitter()`.
 
 ## Comparing single- and multi-species trajectories
 
