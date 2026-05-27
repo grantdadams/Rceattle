@@ -119,12 +119,14 @@ p1_raw <- profile_param(ss_run,
     values    = list(log(seq(0.1, 1.5, by = 0.1))),
     transform = "identity")
 
-# 2-D cross-profile of M1 across sex (species 1, age 1)
+# 2-D cross-profile of M1 across species 1 and 2 (sex 1, age 1).
+# BS2017SS is single-sex; with a multi-sex model the same form
+# (e.g. c(1, 1, 1), c(1, 2, 1)) would cross-profile males vs females.
 p2 <- profile_param(ss_run,
     param  = "M1",
-    slots  = list(c(1, 1, 1), c(1, 2, 1)),
-    values = list(seq(0.1, 0.4, by = 0.05),
-                  seq(0.1, 0.4, by = 0.05)))
+    slots  = list(c(1, 1, 1), c(2, 1, 1)),
+    values = list(seq(0.1, 0.4, length.out = 3),
+                  seq(0.1, 0.4, length.out = 3)))
 
 # 1-D profile of SRR alpha for species 1 (alias drops the rec_pars column)
 p3 <- profile_param(ss_run,
