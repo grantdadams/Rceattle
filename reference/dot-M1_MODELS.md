@@ -8,8 +8,10 @@ deprecation warning – their structural part is identical to 1 and 2
 respectively, and the env effect is now expressed via the `linkages`
 argument to
 [`build_M1()`](https://grantdadams.github.io/Rceattle/reference/build_M1.md)
-(see `vignette("environmental-linkages")`). No string alias is offered
-for 4 or 5 to discourage their use in new code.
+(see
+[`vignette("environmental-linkages-and-priors")`](https://grantdadams.github.io/Rceattle/articles/environmental-linkages-and-priors.md)).
+No string alias is offered for 4 or 5 to discourage their use in new
+code.
 
 ## Usage
 

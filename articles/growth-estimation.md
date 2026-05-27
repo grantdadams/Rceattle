@@ -36,8 +36,9 @@ Rceattle supports growth linkages through
 and
 [`linkage_spec()`](https://grantdadams.github.io/Rceattle/reference/linkage_spec.md).
 The linkage table can alter any von Bertalanffy growth parameter such as
-`log_K`, `log_Linf`, or `log_L1`, and it can also carry priors on the
-linked coefficients.
+`K`, `Linf`, or `L1` (natural-scale names; the default `link = "log"`
+keeps the underlying TMB parameter on the log scale), and it can also
+carry priors on the linked coefficients.
 
 ``` r
 
@@ -53,12 +54,14 @@ whamGrowthData$env_data <- data.frame(
 growth_spec <- build_growth(
   fun = "vonBertalanffy",
   linkages = list(
-    log_Linf = linkage_spec(
+    Linf = linkage_spec(
       formula = ~ temp,             # 2 columns: (Intercept) and `temp`
       by      = ~ species,          # one beta per (species, column)
       priors  = list(
-        "(Intercept)" = normal(log(85), 1),
-        temp = normal(0, 0.1)) # Tight prior
+        # Intercept prior is on natural-scale Linf (log link back-transforms).
+        # Use lognormal() if you want a Normal on log(Linf) instead.
+        "(Intercept)" = normal(85, 5),
+        temp = normal(0, 0.1)) # Tight prior on the slope
     )
   )
 )
@@ -69,14 +72,15 @@ growth_spec <- build_growth(
 - `formula = ~ temp` fits an intercept and a temperature slope.
 - `by = ~ species + sex` gives each species/sex combination its own
   intercept and slope.
-- `link = "log"` keeps the von Bertalanffy `K` parameter on the log
-  scale.
+- `link = "log"` (the default) keeps the underlying TMB parameter on the
+  log scale, so the slope rows act multiplicatively on natural `Linf`.
 - `priors` attaches a Normal prior to both the intercept and the
   temperature slope.
 
-The prior on `(Intercept)` is effectively a prior on the base `log_K`
-value, because intercept-bearing linkages replace the base parameter and
-carry its level.
+The prior on `(Intercept)` is effectively a prior on the base `Linf`
+value (natural scale, because the default log link is back-transformed
+inside the prior block), and intercept-bearing linkages replace the base
+parameter and carry its level.
 
 ## Fit the model
 
@@ -152,3 +156,12 @@ vbgf_prior_fit$opt$AIC
   that driver on the parameter.
 - The linkage table API supports all R-style formulas and per-species or
   per-sex stratification.
+- The SD endpoints `sd_L1` and `sd_Linf` (the length-at-age SDs anchored
+  at `L1` and `Linf`, stored internally on the log scale via
+  `growth_log_sd`) are linkage targets too – they thread `init` /
+  `bounds` / `priors` onto `growth_log_sd`. Only intercept-bearing
+  formulas (typically `~ 1`) are honored; the SDs do not vary by year in
+  `growth.hpp`, so slope rows have no effect and slope-only formulas
+  error. See the “Growth SD endpoints” section of
+  [`vignette("environmental-linkages-and-priors")`](https://grantdadams.github.io/Rceattle/articles/environmental-linkages-and-priors.md)
+  for an example.

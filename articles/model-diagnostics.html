@@ -7,8 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>3. Model diagnostics • Rceattle</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/Source_Sans_Pro-0.4.10/font.css" rel="stylesheet">
+<link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/Source_Sans_Pro-0.4.10/font.css" rel="stylesheet">
 <link href="../deps/JetBrains_Mono-0.4.10/font.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.3.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -76,7 +76,7 @@
 
       <h1>3. Model diagnostics</h1>
             
-            <h4 data-toc-skip class="date">2026-05-11</h4>
+            <h4 data-toc-skip class="date">2026-05-27</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/vignettes/model-diagnostics.Rmd" class="external-link"><code>vignettes/model-diagnostics.Rmd</code></a></small>
       <div class="d-none name"><code>model-diagnostics.Rmd</code></div>
@@ -84,13 +84,16 @@
 
     
     
-<p>Rceattle provides four layers of diagnostics: <strong>S3
+<p>Rceattle provides six layers of diagnostics: <strong>S3
 methods</strong> (<code>residual</code>, <code>logLik</code>, etc),
 <strong>fit plots</strong> to visually inspect how well the model
 reproduces observed data, <strong>retrospective analysis</strong>
-(peels) to detect patterns of systematic over- or under-estimation, and
+(peels) to detect patterns of systematic over- or under-estimation,
 <strong>jitter testing</strong> to check that the optimiser has found a
-global minimum.</p>
+global minimum, <strong>self-testing</strong> (simulation–estimation) to
+check that the model can recover its own estimates from simulated data,
+and <strong>likelihood profiling</strong> to check how informative the
+data are about a particular parameter.</p>
 <div class="section level2">
 <h2 id="setup-and-plotting-data">Setup and plotting data<a class="anchor" aria-label="anchor" href="#setup-and-plotting-data"></a>
 </h2>
@@ -236,13 +239,143 @@ and results should be interpreted cautiously.</p>
 <code>Rceattle_list</code>, so if
 <code>length(jitters$Rceattle_list)</code> is much less than
 <code>njitter</code>, convergence may be fragile.</p>
+<p><code><a href="../reference/retrospective.html">retrospective()</a></code> and <code><a href="../reference/jitter.html">jitter()</a></code> both fit peels
+/ starts in parallel by default. Pass <code>cores = 1</code> to force
+sequential execution; otherwise the call uses a PSOCK cluster sized at
+<code>parallel::detectCores() - 6</code> (capped at 2 under
+<code>R CMD check</code>).</p>
+</div>
+<div class="section level2">
+<h2 id="self-test-simulationestimation">Self-test (simulation–estimation)<a class="anchor" aria-label="anchor" href="#self-test-simulationestimation"></a>
+</h2>
+<p><code><a href="../reference/self_test.html">self_test()</a></code> simulates <code>nsim</code> datasets from a
+fitted model — keeping its estimated parameters fixed — and re-fits the
+model to each simulated dataset. If estimates from the refits cluster
+around the parameter values of the fit they were simulated from, the
+model is at least self-consistent (it can recover its own estimates from
+data it generated). Persistent bias or wide spread in a quantity is a
+sign that the data are not informative about it.</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">sims</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/self_test.html">self_test</a></span><span class="op">(</span><span class="va">model_1</span>, nsim <span class="op">=</span> <span class="fl">10</span><span class="op">)</span>            <span class="co"># default nsim = 50</span></span>
+<span></span>
+<span><span class="co"># Number of simulations that converged (non-converged runs are dropped)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">sims</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Overlay biomass / SSB trajectories across simulations — the original fit's</span></span>
+<span><span class="co"># trajectory should sit inside the spread of the refits.</span></span>
+<span><span class="fu"><a href="../reference/plot_biomass.html">plot_biomass</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">model_1</span><span class="op">)</span>, <span class="va">sims</span><span class="op">)</span>, model_names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"fit"</span>, <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">sims</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/plot_ssb.html">plot_ssb</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">model_1</span><span class="op">)</span>, <span class="va">sims</span><span class="op">)</span>,     model_names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"fit"</span>, <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">sims</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p>Each simulation uses <code>seed + i</code> as its RNG seed, so
+results are reproducible whether or not <code>cores &gt; 1</code>. Set
+<code>simulate = FALSE</code> to refit against the model’s
+<em>expected</em> values (no observation error) rather than draws from
+the observation likelihood — useful for confirming that the estimator
+returns the generating parameters in the noise-free limit.
+<code>cores</code> behaves the same way as in
+<code><a href="../reference/retrospective.html">retrospective()</a></code> and <code><a href="../reference/jitter.html">jitter()</a></code>.</p>
+</div>
+<div class="section level2">
+<h2 id="likelihood-profile">Likelihood profile<a class="anchor" aria-label="anchor" href="#likelihood-profile"></a>
+</h2>
+<p><code><a href="../reference/profile_param.html">profile_param()</a></code> re-fits the model across a grid of fixed
+values for one or more cells of a chosen parameter and returns the
+resulting NLL surface. A flat profile means the data carry little
+information about the parameter; a sharp minimum away from the MLE means
+the fit has not actually settled there. The function generalises the
+legacy <code>profile_rsigma()</code> helper from
+<code>examples/Profiling_sigmaR.R</code> and works for any parameter
+slot in <code>Rceattle$estimated_params</code>; it is tested for
+<code>R_log_sd</code> (recruitment sigma), <code>rec_pars</code>
+(stock-recruit parameters), and <code>log_M1</code> (residual natural
+mortality).</p>
+<p>Two ways to specify <code>param</code>:</p>
+<ul>
+<li>
+<strong>Natural-scale alias</strong> (recommended for the three
+documented parameters). The alias implies <code>transform = "log"</code>
+so you pass natural-scale values like sigmaR or M directly. For the
+<code>rec_pars</code> aliases (<code>"R0"</code>, <code>"alpha"</code>,
+<code>"beta"</code>) the column is filled in from the alias name, so
+<code>slots</code> only needs the species index.
+<ul>
+<li>
+<code>"sigmaR"</code> / <code>"R_sd"</code> →
+<code>R_log_sd</code>
+</li>
+<li>
+<code>"M1"</code> → <code>log_M1</code>
+</li>
+<li>
+<code>"R0"</code> → <code>rec_pars[, 1]</code>
+</li>
+<li>
+<code>"alpha"</code> → <code>rec_pars[, 2]</code>
+</li>
+<li>
+<code>"beta"</code> → <code>rec_pars[, 3]</code>
+</li>
+</ul>
+</li>
+<li>
+<strong>Raw parameter slot</strong>. Pass the storage name
+(<code>"R_log_sd"</code>, <code>"rec_pars"</code>,
+<code>"log_M1"</code>, etc.); <code>slots</code> must index the full
+array and <code>transform</code> controls the scale.</li>
+</ul>
+<p><code>slots</code> is a list of integer index vectors — one entry per
+cell to hold fixed — and (under raw names) its entries must match the
+dimensionality of the parameter array (length 1 for vectors, length 2
+for matrices, length 3 for 3-D arrays). <code>values</code> is a list of
+value grids parallel to <code>slots</code>; the full grid of fits is
+<code>expand.grid(values)</code>, so multiple slots produce an N-D
+cross-profile.</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># 1-D profile: sigmaR for species 1 (natural-scale alias)</span></span>
+<span><span class="va">prof_sigmaR</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/profile_param.html">profile_param</a></span><span class="op">(</span></span>
+<span>  Rceattle <span class="op">=</span> <span class="va">model_1</span>,</span>
+<span>  param    <span class="op">=</span> <span class="st">"sigmaR"</span>,</span>
+<span>  slots    <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>,</span>
+<span>  values   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0.1</span>, <span class="fl">1.5</span>, by <span class="op">=</span> <span class="fl">0.1</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">prof_sigmaR</span><span class="op">$</span><span class="va">grid</span><span class="op">$</span><span class="va">slot_1</span>,</span>
+<span>     <span class="va">prof_sigmaR</span><span class="op">$</span><span class="va">nll</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="va">prof_sigmaR</span><span class="op">$</span><span class="va">nll</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
+<span>     type <span class="op">=</span> <span class="st">"l"</span>, xlab <span class="op">=</span> <span class="st">"sigmaR"</span>, ylab <span class="op">=</span> <span class="st">"dNLL"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># 1-D profile: SRR alpha for species 1</span></span>
+<span><span class="co"># (alias fills in the rec_pars column; slot is just the species index)</span></span>
+<span><span class="va">prof_alpha</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/profile_param.html">profile_param</a></span><span class="op">(</span></span>
+<span>  Rceattle <span class="op">=</span> <span class="va">model_1</span>,</span>
+<span>  param    <span class="op">=</span> <span class="st">"alpha"</span>,</span>
+<span>  slots    <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>,</span>
+<span>  values   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">80</span>, length.out <span class="op">=</span> <span class="fl">20</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># 2-D cross-profile: M1 across sex for species 1, age 1</span></span>
+<span><span class="va">prof_M_sex</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/profile_param.html">profile_param</a></span><span class="op">(</span></span>
+<span>  Rceattle <span class="op">=</span> <span class="va">model_1</span>,</span>
+<span>  param    <span class="op">=</span> <span class="st">"M1"</span>,</span>
+<span>  slots    <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span>,  <span class="co"># males and females</span></span>
+<span>  values   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0.10</span>, <span class="fl">0.40</span>, by <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span>,</span>
+<span>                  <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0.10</span>, <span class="fl">0.40</span>, by <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<p><code><a href="../reference/profile_param.html">profile_param()</a></code> returns <code>Rceattle_list</code> (one
+fit per grid row, <code>NULL</code> where the fit failed),
+<code>grid</code> (the user-scale value grid), <code>nll</code> (joint
+NLL aligned with <code>grid</code>, <code>NA</code> for non-converged
+fits), and echoes of <code>param</code> and <code>slots</code>. To
+cross-profile across multiple species, supply one slot per species
+(e.g. <code>slots = list(1, 2, 3)</code> with
+<code>param = "sigmaR"</code>); to cross-profile M1 across sex, supply
+one slot per sex as in the third example above. <code>cores</code>
+behaves the same way as in the other diagnostic functions.</p>
 </div>
 <div class="section level2">
 <h2 id="comparing-single--and-multi-species-trajectories">Comparing single- and multi-species trajectories<a class="anchor" aria-label="anchor" href="#comparing-single--and-multi-species-trajectories"></a>
 </h2>
 <p>Plotting sensitivity runs together is itself a useful diagnostic —
 large divergences in biomass or mortality deserve scrutiny.</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mod_list</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">model_1</span>, <span class="va">model_1_retro</span><span class="op">$</span><span class="va">Rceattle_list</span><span class="op">$</span><span class="va">Year_2019</span><span class="op">)</span></span>
 <span><span class="va">mod_names</span> <span class="op">&lt;-</span> <span class="fl">1</span><span class="op">:</span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">mod_list</span><span class="op">)</span></span>
 <span></span>
@@ -255,7 +388,7 @@ large divergences in biomass or mortality deserve scrutiny.</p>
 </h2>
 <p>For model averaging across model variants, see
 <code><a href="../reference/model_average.html">?model_average</a></code>.</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mod_avg</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/model_average.html">model_average</a></span><span class="op">(</span>Rceattle <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">model_1</span>, <span class="va">model_1</span><span class="op">)</span>, weights <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>,<span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/plot_biomass.html">plot_biomass</a></span><span class="op">(</span><span class="va">mod_avg</span><span class="op">)</span></span></code></pre></div>
 </div>

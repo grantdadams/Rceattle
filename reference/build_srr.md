@@ -106,7 +106,7 @@ build_srr(
 - srr_indices:
 
   Soft-deprecated. Use the `linkages` argument instead. See
-  `vignette("environmental-linkages")`.
+  [`vignette("environmental-linkages-and-priors")`](https://grantdadams.github.io/Rceattle/articles/environmental-linkages-and-priors.md).
 
 - Bmsy_lim:
 
@@ -118,12 +118,13 @@ build_srr(
 
   Optional named list of
   [`linkage_spec()`](https://grantdadams.github.io/Rceattle/reference/linkage_spec.md)
-  objects keyed by recruitment parameter name (must be one of
-  `"log_R0"`, `"log_alpha"`, `"log_beta"`). Each spec describes how that
-  parameter depends on environmental covariates and on stratifying
-  factors (species, sex). The offset enters additively (on the log
-  scale) inside the recruitment compute. See
-  `vignette("environmental-linkages")` for details.
+  objects keyed by recruitment parameter name (must be one of `"R0"`,
+  `"alpha"`, `"beta"`). Each spec describes how that parameter depends
+  on environmental covariates and on stratifying factors (species, sex).
+  The offset enters additively (on the log scale) inside the recruitment
+  compute. See
+  [`vignette("environmental-linkages-and-priors")`](https://grantdadams.github.io/Rceattle/articles/environmental-linkages-and-priors.md)
+  for details.
 
 ## Value
 

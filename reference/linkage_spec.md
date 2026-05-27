@@ -12,7 +12,7 @@ linkage_spec(
   by = ~species,
   species = NULL,
   sex = NULL,
-  link = "identity",
+  link = "log",
   init = NULL,
   bounds = NULL,
   priors = NULL,
@@ -30,10 +30,9 @@ linkage_spec(
 
 - param:
 
-  target parameter name on the linear predictor scale (e.g.
-  `"log_alpha"`, `"log_M1"`, `"log_K"`). May be `NULL` when the spec is
-  built inside a `build_*()` call that infers the parameter name from
-  the enclosing list key (see
+  target parameter name on the natural scale (e.g. `"alpha"`, `"M1"`,
+  `"K"`). May be `NULL` when the spec is built inside a `build_*()` call
+  that infers the parameter name from the enclosing list key (see
   [`build_growth()`](https://grantdadams.github.io/Rceattle/reference/build_growth.md)).
 
 - data:
@@ -74,15 +73,20 @@ linkage_spec(
 
 - link:
 
-  link function applied to the predictor when assembling process values;
-  one of
-  [LINKAGE_LINKS](https://grantdadams.github.io/Rceattle/reference/LINKAGE_PROCESSES.md).
-  TODO
+  link function relating the linear predictor to the natural-scale
+  target parameter. One of `"log"` (default) or `"identity"`. With
+  `link = "log"`, `log(param) = X * beta` – slope contributions are
+  multiplicative on the natural-scale parameter. With
+  `link = "identity"`, `param = X * beta` – slope contributions are
+  additive on the natural scale. All linkage targets currently expose
+  log-scale TMB parameters, so `"log"` is the natural default;
+  `"identity"` is reserved for future processes (e.g. logit for
+  steepness).
 
 - init:
 
   optional named numeric vector of initial values keyed by the
-  design-matrix column name (e.g. `c(`(Intercept)` = -1, temp = 0)`).
+  design-matrix column name (e.g. `c(`(Intercept)` = 4, temp = 0)`).
   Missing entries default to `0`.
 
 - bounds:

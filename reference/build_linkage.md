@@ -1,9 +1,9 @@
 # Formula-driven linkage specifications for Rceattle processes
 
-These helpers let users describe how a process parameter (e.g.
-`log_alpha` for the Beverton-Holt SRR, `log_M` for natural mortality,
-`log_K` for von Bertalanffy growth) depends on environmental covariates
-and on stratifying factors (species, sex). They produce:
+These helpers let users describe how a process parameter (e.g. `alpha`
+for the Beverton-Holt SRR, `M1` for natural mortality, `K` for von
+Bertalanffy growth) depends on environmental covariates and on
+stratifying factors (species, sex). They produce:
 
 ## Details
 

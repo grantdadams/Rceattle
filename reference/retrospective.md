@@ -20,7 +20,13 @@ functionality of TMB to peel the model:
 ## Usage
 
 ``` r
-retrospective(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_forecast = 3)
+retrospective(
+  Rceattle = NULL,
+  peels = 5,
+  rescale = FALSE,
+  nyrs_forecast = 3,
+  cores = NULL
+)
 ```
 
 ## Arguments
@@ -45,6 +51,13 @@ retrospective(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_forecast = 3)
   Number of forecast years to calculate Mohn's Rho in addition to
   terminal year
 
+- cores:
+
+  Number of cores to use for parallel peels. Default `NULL` picks
+  `parallel::detectCores() - 6`, capped at 2 when running under
+  `R CMD check` (which sets `_R_CHECK_LIMIT_CORES_`). Set to 1 to force
+  sequential execution.
+
 ## Value
 
 a list of 1. list of Rceattle models and 2. vector of Mohn's rho for
@@ -66,25 +79,5 @@ ss_run <- fit_mod(data_list = BS2017SS,
 #> 'CAAL_weights' not specified in 'fleet_control', assuming 1
 #> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s
 retro <- retrospective(ss_run, peels = 10)
-#> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s
-#> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s
-#> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s
-#> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s
-#> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s
-#> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s
-#> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s
-#> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s
-#> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s
-#> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s
-#> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s
-#> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s
-#> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s
-#> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s
-#> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s
-#> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s
-#> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s
-#> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s
-#> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s
-#> `age_trans_matrix` data does not span range of age for species 1 will fill with 0s
 # }
 ```

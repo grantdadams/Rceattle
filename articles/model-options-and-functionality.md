@@ -199,7 +199,9 @@ via
 [`build_srr()`](https://grantdadams.github.io/Rceattle/reference/build_srr.md).
 See
 [`?build_srr`](https://grantdadams.github.io/Rceattle/reference/build_srr.md)
-for options and `vignette("environmental-linkages")` for details.
+for options and
+[`vignette("environmental-linkages-and-priors")`](https://grantdadams.github.io/Rceattle/articles/environmental-linkages-and-priors.md)
+for details.
 
 ## 7. Natural mortality (`M1Fun = build_M1()`)
 
@@ -216,7 +218,9 @@ Priors and environmental relationships can be added to M1 via
 [`build_M1()`](https://grantdadams.github.io/Rceattle/reference/build_M1.md).
 See
 [`?build_M1`](https://grantdadams.github.io/Rceattle/reference/build_M1.md)
-for options and `vignette("environmental-linkages")` for details.
+for options and
+[`vignette("environmental-linkages-and-priors")`](https://grantdadams.github.io/Rceattle/articles/environmental-linkages-and-priors.md)
+for details.
 
 ### `M1_re` — random-effects structure on M1
 
@@ -249,7 +253,9 @@ Priors and environmental relationships can be added to growth via
 [`build_growth()`](https://grantdadams.github.io/Rceattle/reference/build_growth.md).
 See
 [`?build_growth`](https://grantdadams.github.io/Rceattle/reference/build_growth.md)
-for options and `vignette("environmental-linkages")` for details.
+for options and
+[`vignette("environmental-linkages-and-priors")`](https://grantdadams.github.io/Rceattle/articles/environmental-linkages-and-priors.md)
+for details.
 
 ### `growth_re` — random effects on growth
 

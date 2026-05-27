@@ -35,7 +35,8 @@ build_M1(
   - `3` / `"sex_age_specific"` – estimate `M1_{spp, sex, age}`.
 
   - `4`, `5` – soft-deprecated env-driven codes; use the `linkages`
-    argument instead. See `vignette("environmental-linkages")`.
+    argument instead. See
+    [`vignette("environmental-linkages-and-priors")`](https://grantdadams.github.io/Rceattle/articles/environmental-linkages-and-priors.md).
 
 - M1_re:
 
@@ -52,7 +53,7 @@ build_M1(
 - M1_use_prior:
 
   Vector or scalar; if `TRUE`, apply the lognormal `M_prior` /
-  `M_prior_sd` to `log_M1` directly.
+  `M_prior_sd` to `M1` directly.
 
 - M2_use_prior:
 
@@ -72,14 +73,14 @@ build_M1(
   Soft-deprecated. Vector of column indices into `env_data` (excluding
   `Year`) for environmentally linked M1 when `M1_model %in% c(4, 5)`.
   Use the `linkages` argument instead; see
-  `vignette("environmental-linkages")`.
+  [`vignette("environmental-linkages-and-priors")`](https://grantdadams.github.io/Rceattle/articles/environmental-linkages-and-priors.md).
 
 - linkages:
 
   Optional named list of
   [`linkage_spec()`](https://grantdadams.github.io/Rceattle/reference/linkage_spec.md)
   objects keyed by M parameter name (currently the only valid key is
-  `"log_M1"`). Each spec describes how `log_M1` depends on environmental
+  `"M1"`). Each spec describes how `M1` depends on environmental
   covariates and on stratifying factors (species, sex, age). The offset
   enters additively (on the log scale) inside the `M1_at_age` compute. A
   row's `age_bin == NA` broadcasts the offset across ages; specific
@@ -93,11 +94,11 @@ A list of switches for defining the M1 model.
 
 ``` r
 if (FALSE) { # \dontrun{
-# Sex/age-invariant M with a temperature linkage on log_M1
+# Sex/age-invariant M with a temperature linkage on M1
 build_M1(
   M1_model = "sex_age_invariant",
   linkages = list(
-    log_M1 = linkage_spec(
+    M1 = linkage_spec(
       formula = ~ temp,
       by      = ~ species,
       priors  = list(temp = normal(0, 0.5))

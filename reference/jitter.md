@@ -6,7 +6,14 @@ initial parameters.
 ## Usage
 
 ``` r
-jitter(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 123)
+jitter(
+  Rceattle = NULL,
+  njitter = 50,
+  sd = 0.2,
+  phase = FALSE,
+  seed = 123,
+  cores = NULL
+)
 ```
 
 ## Arguments
@@ -32,7 +39,15 @@ jitter(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed = 123)
 
 - seed:
 
-  random number seed
+  random number seed. Each jitter `i` uses `seed + i` so results are
+  reproducible under both sequential and parallel execution.
+
+- cores:
+
+  Number of cores to use for parallel jitters. Default `NULL` picks
+  `parallel::detectCores() - 6`, capped at 2 when running under
+  `R CMD check` (which sets `_R_CHECK_LIMIT_CORES_`). Set to 1 to force
+  sequential execution.
 
 ## Value
 
