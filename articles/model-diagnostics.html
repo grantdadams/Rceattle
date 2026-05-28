@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.4.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.4.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -76,9 +76,9 @@
 
       <h1>3. Model diagnostics</h1>
             
-            <h4 data-toc-skip class="date">2026-05-27</h4>
+            <h4 data-toc-skip class="date">2026-05-28</h4>
       
-      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/4.4.0/vignettes/model-diagnostics.Rmd" class="external-link"><code>vignettes/model-diagnostics.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/vignettes/model-diagnostics.Rmd" class="external-link"><code>vignettes/model-diagnostics.Rmd</code></a></small>
       <div class="d-none name"><code>model-diagnostics.Rmd</code></div>
     </div>
 
@@ -277,7 +277,7 @@ returns the generating parameters in the noise-free limit.
 <div class="section level2">
 <h2 id="likelihood-profile">Likelihood profile<a class="anchor" aria-label="anchor" href="#likelihood-profile"></a>
 </h2>
-<p><code><a href="../reference/profile_param.html">profile_param()</a></code> re-fits the model across a grid of fixed
+<p><code><a href="https://rdrr.io/r/stats/profile.html" class="external-link">profile()</a></code> re-fits the model across a grid of fixed
 values for one or more cells of a chosen parameter and returns the
 resulting NLL surface. A flat profile means the data carry little
 information about the parameter; a sharp minimum away from the MLE means
@@ -331,8 +331,8 @@ value grids parallel to <code>slots</code>; the full grid of fits is
 cross-profile.</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># 1-D profile: sigmaR for species 1 (natural-scale alias)</span></span>
-<span><span class="va">prof_sigmaR</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/profile_param.html">profile_param</a></span><span class="op">(</span></span>
-<span>  Rceattle <span class="op">=</span> <span class="va">model_1</span>,</span>
+<span><span class="va">prof_sigmaR</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/profile.html" class="external-link">profile</a></span><span class="op">(</span></span>
+<span>  fitted <span class="op">=</span> <span class="va">model_1</span>,</span>
 <span>  param    <span class="op">=</span> <span class="st">"sigmaR"</span>,</span>
 <span>  slots    <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>,</span>
 <span>  values   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0.1</span>, <span class="fl">1.5</span>, by <span class="op">=</span> <span class="fl">0.1</span><span class="op">)</span><span class="op">)</span></span>
@@ -344,27 +344,27 @@ cross-profile.</p>
 <span></span>
 <span><span class="co"># 1-D profile: SRR alpha for species 1</span></span>
 <span><span class="co"># (alias fills in the rec_pars column; slot is just the species index)</span></span>
-<span><span class="va">prof_alpha</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/profile_param.html">profile_param</a></span><span class="op">(</span></span>
-<span>  Rceattle <span class="op">=</span> <span class="va">model_1</span>,</span>
+<span><span class="va">prof_alpha</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/profile.html" class="external-link">profile</a></span><span class="op">(</span></span>
+<span>  fitted <span class="op">=</span> <span class="va">model_1</span>,</span>
 <span>  param    <span class="op">=</span> <span class="st">"alpha"</span>,</span>
 <span>  slots    <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>,</span>
 <span>  values   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">80</span>, length.out <span class="op">=</span> <span class="fl">20</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># 2-D cross-profile: M1 across sex for species 1, age 1</span></span>
-<span><span class="va">prof_M_sex</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/profile_param.html">profile_param</a></span><span class="op">(</span></span>
-<span>  Rceattle <span class="op">=</span> <span class="va">model_1</span>,</span>
+<span><span class="va">prof_M_sex</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/profile.html" class="external-link">profile</a></span><span class="op">(</span></span>
+<span>  fitted <span class="op">=</span> <span class="va">model_1</span>,</span>
 <span>  param    <span class="op">=</span> <span class="st">"M1"</span>,</span>
 <span>  slots    <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span>,  <span class="co"># males and females</span></span>
 <span>  values   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0.10</span>, <span class="fl">0.40</span>, by <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span>,</span>
 <span>                  <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0.10</span>, <span class="fl">0.40</span>, by <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<p><code><a href="../reference/profile_param.html">profile_param()</a></code> returns <code>Rceattle_list</code> (one
-fit per grid row, <code>NULL</code> where the fit failed),
-<code>grid</code> (the user-scale value grid), <code>nll</code> (joint
-NLL aligned with <code>grid</code>, <code>NA</code> for non-converged
-fits), and echoes of <code>param</code> and <code>slots</code>. To
-cross-profile across multiple species, supply one slot per species
+<p><code><a href="https://rdrr.io/r/stats/profile.html" class="external-link">profile()</a></code> returns <code>Rceattle_list</code> (one fit
+per grid row, <code>NULL</code> where the fit failed), <code>grid</code>
+(the user-scale value grid), <code>nll</code> (joint NLL aligned with
+<code>grid</code>, <code>NA</code> for non-converged fits), and echoes
+of <code>param</code> and <code>slots</code>. To cross-profile across
+multiple species, supply one slot per species
 (e.g. <code>slots = list(1, 2, 3)</code> with
 <code>param = "sigmaR"</code>); to cross-profile M1 across sex, supply
 one slot per sex as in the third example above. <code>cores</code>

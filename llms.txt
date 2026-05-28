@@ -319,7 +319,7 @@ Retrospective analysis, jitter testing, and simulation.
   : Retrospective peels
 - [`jitter()`](https://grantdadams.github.io/Rceattle/reference/jitter.md)
   : Jitter analysis
-- [`profile_param()`](https://grantdadams.github.io/Rceattle/reference/profile_param.md)
+- [`profile(`*`<Rceattle>`*`)`](https://grantdadams.github.io/Rceattle/reference/profile.Rceattle.md)
   : Likelihood profile across one or more parameter cells
 - [`self_test()`](https://grantdadams.github.io/Rceattle/reference/self_test.md)
   : Self test simulation analysis analysis

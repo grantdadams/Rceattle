@@ -1,5 +1,13 @@
 # Changelog
 
+## Rceattle 4.4.1
+
+### Rename
+
+`profile_param()` was renamed
+[`profile()`](https://rdrr.io/r/stats/profile.html) and turned into an
+S3 class.
+
 ## Rceattle 4.4.0
 
 ### New features
@@ -42,11 +50,9 @@
   by default (PSOCK cluster, capped at 2 cores under `R CMD check`) with
   a per-simulation `seed + i` so results are reproducible under both
   sequential and parallel execution.
-- **Likelihood profile**: New
-  [`profile_param()`](https://grantdadams.github.io/Rceattle/reference/profile_param.md)
-  generalises the legacy `profile_rsigma()` example helper to any
-  parameter slot in `Rceattle$estimated_params`. Supports arbitrary N-D
-  cross-profiles via
+- **Likelihood profile**: New `profile_param()` generalises the legacy
+  `profile_rsigma()` example helper to any parameter slot in
+  `Rceattle$estimated_params`. Supports arbitrary N-D cross-profiles via
   [`expand.grid()`](https://rdrr.io/r/base/expand.grid.html) over a list
   of per-cell value grids (e.g. cross-profiling `log_M1` across sex, or
   `R_log_sd` across multiple species). Natural-scale aliases `"sigmaR"`
