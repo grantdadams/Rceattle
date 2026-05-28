@@ -13,8 +13,12 @@
 ^.*/\.DS_Store$
 ^~\$.*$
 ^.*/~\$.*$
+^\.vscode$
 ^R/dev$
 ^src/TMB/Dev$
+^src/TMB/Depricated$
+^vignettes/.*[.]pptx$
+^HCR[.]qmd$
 ^cran-comments\.md$
 ^CRAN-SUBMISSION$
 ^\.github$
