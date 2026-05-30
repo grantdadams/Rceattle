@@ -1937,14 +1937,14 @@ Type objective_function<Type>::operator() () {
 
             switch(flt_type(flt)){
             case 1: // - Fishery
-              if(flt_sel_type(flt) == 1){ // Length based
+              if(flt_sel_dim(flt) == 1){ // Length based
                 pred_CAAL(flt, sex, age, ln, yr) = sel_at_length(flt, sex, ln, yr) * Frate / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr) * growth_matrix(wtind,  sex, age, ln, yr);
               }
               break;
 
 
             case 2: // - Survey
-              if(flt_sel_type(flt) == 1){ // Length based
+              if(flt_sel_dim(flt) == 1){ // Length based
                 pred_CAAL(flt, sex, age, ln, yr) = N_at_age(sp, sex, age, yr) * sel_at_length(flt, sex, ln, yr) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr)) * growth_matrix(wtind,  sex, age, ln, yr);
               }
               break;
@@ -2218,14 +2218,14 @@ Type objective_function<Type>::operator() () {
 
       switch(flt_type(flt)){
       case 1: // - Fishery
-        if(flt_sel_type(flt) == 1){
+        if(flt_sel_dim(flt) == 1){
           pred_CAAL(flt, sex, age, ln, yr) = sel_at_length(flt, sex, ln, yr) * Frate / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr) * growth_matrix(wtind,  sex, age, ln, yr);
         }
         break;
 
 
       case 2: // - Survey
-        if(flt_sel_type(flt) == 1){
+        if(flt_sel_dim(flt) == 1){
           pred_CAAL(flt, sex, age, ln, yr) = N_at_age(sp, sex, age, yr) * sel_at_length(flt, sex, ln, yr) * growth_matrix(wtind,  sex, age, ln, yr) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr)) ;
         }
         break;
