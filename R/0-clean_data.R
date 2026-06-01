@@ -324,8 +324,9 @@ revert_switches <- function(data_list) {
     )
 
   # Time_varying_q doubles as an environmental-index column when Catchability
-  # is "AR1" or "Environmental", so only convert the rows that hold a switch.
-  non_env_idx <- !data_list$fleet_control$Catchability %in% c("AR1", "Environmental")
+  # is "AR1", "Environmental", or "EnvExp", so only convert the rows that
+  # hold a tv-q switch.
+  non_env_idx <- !data_list$fleet_control$Catchability %in% c("AR1", "Environmental", "EnvExp")
   if (any(non_env_idx)) {
     data_list$fleet_control$Time_varying_q[non_env_idx] <-
       .conv(data_list$fleet_control$Time_varying_q[non_env_idx], tv_q_map)

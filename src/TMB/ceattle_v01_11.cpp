@@ -584,6 +584,20 @@ Type objective_function<Type>::operator() () {
       if(est_index_q(flt) == 6){
         index_q(flt, yr) = exp(index_log_q(flt) + index_q_beta(flt, 0) * index_q_dev(flt, yr));
       }
+
+      // SS3 case-1 exponential env link: parm_timevary *= exp(beta * env)
+      // applied to LnQ_base. q[y] = exp( LnQ_base * exp( sum_k beta_k * env_k[y] ) ).
+      // Distinguished from mode 5 (additive on log-q) by the NESTED exp:
+      //   mode 5:   log(q) = LnQ + beta . env       (log-linear in env)
+      //   mode 7:   log(q) = LnQ * exp(beta . env)  (nested-exponential in env)
+      // Use this when bridging SS3 fleets with env_var&link of the form 10*var + 1
+      // (e.g. GOA Pcod LLSrv has env_var&link = 101 = link 1, env_var 1).
+      if(est_index_q(flt) == 7){
+        beta_q_tmp = index_q_beta.row(flt);
+        env_q_tmp  = env_index.row(yr);
+        index_q_mult = env_q_tmp * beta_q_tmp;
+        index_q(flt, yr) = exp(index_log_q(flt) * exp((index_q_mult).sum()));
+      }
     }
   }
 

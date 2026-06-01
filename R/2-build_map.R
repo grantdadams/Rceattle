@@ -598,9 +598,12 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
 
     if (data_list$fleet_control$Fleet_type[i] != "Off") {
 
-      # Helper for selectivity blocks logic
+      # Helper for selectivity blocks logic. Both "Block" (fully-replace)
+      # and "BlockDev" (base + block-replacement) read Selectivity_block.
       max_block <- 0
-      if (tv_sel == "Block") {
+      Selectivity_block <- integer(0)
+      block_yrs <- integer(0)
+      if (tv_sel %in% c("Block", "BlockDev")) {
         data_source <- if (data_list$fleet_control$Fleet_type[i] == "Fishery") data_list$catch_data else data_list$index_data
         fleet_data <- data_source |>
           dplyr::filter(Fleet_code == flt, Year - data_list$styr + 1 <= nyrs_hind)
@@ -786,6 +789,37 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
             for (j in 1:3) {
               map_list$sel_inf[j, flt, sex]     <- NA
               map_list$log_sel_slp[j, flt, sex] <- NA
+            }
+          }
+        } else if (tv_sel == "BlockDev") {
+          # SS3 "base + block-replacement" semantics: base stays estimable
+          # (already turned on by the base-parameter loop above) and the
+          # sub-block dev ADDS to it for years inside that sub-block.
+          # First NA-out every dev cell for this fleet/sex so non-sub-block
+          # years stay locked at 0 (= base value applies). Then factor-share
+          # one estimable label per sub-block across its years. Combined
+          # with sel_inf_dev_prior_weight = 1/N populated by rearrange_data,
+          # the per-year cpp prior loop collapses to exactly one N(0, sigma)
+          # contribution per sub-block, matching SS3 BlockDev priors count.
+          for (sex in 1:nsex) {
+            for (j in 1:3) {
+              map_list$sel_inf_dev[j, flt, sex, ]     <- NA
+              map_list$log_sel_slp_dev[j, flt, sex, ] <- NA
+            }
+          }
+          if (max_block > 0) {
+            in_block <- Selectivity_block > 0
+            if (any(in_block)) {
+              blk_yrs <- block_yrs[in_block]
+              blk_ids <- Selectivity_block[in_block]
+              for (sex in 1:nsex) {
+                for (j in 1:3) {
+                  map_list$sel_inf_dev[j, flt, sex, blk_yrs] <- blk_ids - 1 + ind_inf
+                  ind_inf <- ind_inf + max_block
+                  map_list$log_sel_slp_dev[j, flt, sex, blk_yrs] <- blk_ids - 1 + ind_slp
+                  ind_slp <- ind_slp + max_block
+                }
+              }
             }
           }
         }
@@ -992,7 +1026,7 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
 
       # -- Set up time varying catchability if used (account for missing years)
       if((data_list$fleet_control$Catchability[i] %in% c("Estimated", "Estimated-with-prior") &
-          data_list$fleet_control$Time_varying_q[i] %in% c("IID", "Block", "AR1", "RandomWalk")) |
+          data_list$fleet_control$Time_varying_q[i] %in% c("IID", "Block", "BlockDev", "AR1", "RandomWalk")) |
          data_list$fleet_control$Catchability[i] == "AR1"){
 
         # Extract survey years where data is provided
@@ -1010,17 +1044,37 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
           map_list$index_q_dev[flt, 1] <- NA
         }
 
-        # Time blocks
+        # Time blocks (fully-replace semantics — sub-block dev IS the per-year q dev,
+        # base index_log_q is unchanged but each block-year carries its own dev value)
         if(data_list$fleet_control$Time_varying_q[i] == "Block"){
           map_list$index_q_dev[flt, block_yrs] <- ind_q_dev + index_data$Selectivity_block - 1
           ind_q_dev <- ind_q_dev + max(index_data$Selectivity_block)
         }
+
+        # BlockDev (base + block-replacement, SS3 case-2 semantics): factor-share the
+        # dev across sub-block years (one estimable per sub-block), NA-out dev cells
+        # in non-block years so they stay at 0 (= base value applies). Combined with
+        # index_q_dev_prior_weight = 1/N (populated in rearrange_data), the per-year
+        # prior loop collapses to exactly one N(0, sigma) contribution per sub-block.
+        if(data_list$fleet_control$Time_varying_q[i] == "BlockDev"){
+          # NA-out every q-dev cell for this fleet first (so non-block years
+          # stay locked at 0 = base value applies).
+          map_list$index_q_dev[flt, ] <- NA
+          in_block <- index_data$Selectivity_block > 0
+          if (any(in_block)) {
+            blk_yrs <- block_yrs[in_block]
+            blk_ids <- index_data$Selectivity_block[in_block]
+            map_list$index_q_dev[flt, blk_yrs] <- ind_q_dev + blk_ids - 1
+            ind_q_dev <- ind_q_dev + max(blk_ids)
+          }
+        }
       }
 
       # - Turn on regression coefficients for:
-      # - 5 = Estimate environmental linkage
+      # - 5 = Estimate environmental linkage (additive on log-q)
+      # - 7 = EnvExp (SS3 case-1 multiplicative on LnQ; same column-on map logic)
       # FIXME: use formula
-      if (data_list$fleet_control$Catchability[i] == "Environmental") {
+      if (data_list$fleet_control$Catchability[i] %in% c("Environmental", "EnvExp")) {
         if(nchar(data_list$fleet_control$Time_varying_q[i]) == 1){
           turn_on <- as.numeric(data_list$fleet_control$Time_varying_q[i])
         }else{
@@ -1028,7 +1082,7 @@ build_map_catchability <- function(map_list, data_list, nyrs_hind) {
         }
 
         if(any(turn_on > ncol(data_list$env_data))){
-          stop("For 'Environmental' catchability, index specified in 'Time_varying_q' is greater than number of indices in 'env_data'")
+          stop("For 'Environmental' or 'EnvExp' catchability, index specified in 'Time_varying_q' is greater than number of indices in 'env_data'")
         }
 
         map_list$index_q_beta[flt, turn_on] <- turn_on + ind_beta_q
@@ -1229,6 +1283,21 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
       map_list$comp_weights[i] <- NA
       map_list$caal_weights[i] <- NA
       map_list$sel_dev_log_sd[i] <- NA
+      # Off fleets bypass build_map_selectivity, leaving their sel-dev cells
+      # at the default sequential map (= all estimable). Lock them at 0.
+      map_list$sel_inf_dev[, i, , ]     <- NA
+      map_list$log_sel_slp_dev[, i, , ] <- NA
+      map_list$sel_coff_dev[i, , , ]    <- NA
+      map_list$sel_inf[, i, ]           <- NA
+      map_list$log_sel_slp[, i, ]       <- NA
+      map_list$sel_coff[i, , ]          <- NA
+      # Off fleets also have no q estimation
+      map_list$index_log_q[i]        <- NA
+      map_list$index_q_beta[i, ]     <- NA
+      map_list$index_q_dev[i, ]      <- NA
+      map_list$index_q_log_sd[i]     <- NA
+      map_list$index_q_dev_log_sd[i] <- NA
+      map_list$index_log_sd[i]       <- NA
     }
     if(!data_list$fleet_control$Fleet_code[i] %in% comp_count$Fleet_code){
       map_list$comp_weights[i] <- NA

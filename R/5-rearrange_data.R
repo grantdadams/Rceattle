@@ -175,6 +175,68 @@ rearrange_dat <- function(data_list){
       1, nrow = n_flt_init, ncol = nyrs_hind_init)
   }
 
+  # - 17b) BlockDev: populate prior_weight from Selectivity_block for fleets
+  #   with Time_varying_sel == "BlockDev" or Time_varying_q == "BlockDev".
+  #   For each (fleet, year) where Selectivity_block > 0, weight = 1/N
+  #   (N = number of years sharing that sub-block ID for that fleet);
+  #   for years where Selectivity_block == 0, weight = 0 (no prior fires).
+  #   Combined with the factor-shared map (build_map handles the IDs),
+  #   the per-year cpp prior loop sums to exactly one N(0, sigma)
+  #   contribution per sub-block, matching SS3 BlockDev semantics.
+  .populate_blockdev_weights <- function(weight_obj, fleet_idx,
+                                         block_yrs, block_ids) {
+    if (length(block_ids) == 0L) return(weight_obj)
+    # Zero out the whole fleet first so any prior_weight=1 default is wiped.
+    if (length(dim(weight_obj)) == 4L) {
+      weight_obj[, fleet_idx, , ] <- 0
+    } else {
+      weight_obj[fleet_idx, ] <- 0
+    }
+    # 1/N per sub-block
+    for (b in unique(block_ids)) {
+      yrs_b <- block_yrs[block_ids == b]
+      N <- length(yrs_b)
+      if (N > 0L) {
+        if (length(dim(weight_obj)) == 4L) {
+          weight_obj[, fleet_idx, , yrs_b] <- 1 / N
+        } else {
+          weight_obj[fleet_idx, yrs_b] <- 1 / N
+        }
+      }
+    }
+    weight_obj
+  }
+  for (i in seq_len(n_flt_init)) {
+    fname <- data_list$fleet_control$Fleet_name[i]
+    if (isTRUE(data_list$fleet_control$Time_varying_sel[i] == "BlockDev")) {
+      data_source <- if (isTRUE(data_list$fleet_control$Fleet_type[i] == "Fishery")) data_list$catch_data else data_list$index_data
+      flt_data <- data_source[data_source$Fleet_code == data_list$fleet_control$Fleet_code[i] &
+                              data_source$Year >= data_list$styr &
+                              data_source$Year <= data_list$endyr, , drop = FALSE]
+      if (nrow(flt_data) > 0L && "Selectivity_block" %in% colnames(flt_data)) {
+        block_yrs <- flt_data$Year - data_list$styr + 1L
+        block_ids <- as.integer(flt_data$Selectivity_block)
+        in_blk <- block_ids > 0L
+        data_list$sel_inf_dev_prior_weight <- .populate_blockdev_weights(
+          data_list$sel_inf_dev_prior_weight, i, block_yrs[in_blk], block_ids[in_blk])
+        data_list$log_sel_slp_dev_prior_weight <- .populate_blockdev_weights(
+          data_list$log_sel_slp_dev_prior_weight, i, block_yrs[in_blk], block_ids[in_blk])
+      }
+    }
+    if (isTRUE(data_list$fleet_control$Time_varying_q[i] == "BlockDev")) {
+      idx_data <- data_list$index_data[data_list$index_data$Fleet_code == data_list$fleet_control$Fleet_code[i] &
+                                       data_list$index_data$Year >= data_list$styr &
+                                       data_list$index_data$Year <= data_list$endyr, , drop = FALSE]
+      if (nrow(idx_data) > 0L && "Selectivity_block" %in% colnames(idx_data)) {
+        block_yrs <- idx_data$Year - data_list$styr + 1L
+        block_ids <- as.integer(idx_data$Selectivity_block)
+        in_blk <- block_ids > 0L
+        data_list$index_q_dev_prior_weight <- .populate_blockdev_weights(
+          data_list$index_q_dev_prior_weight, i, block_yrs[in_blk], block_ids[in_blk])
+      }
+    }
+  }
+
   data_list$index_log_q_prior <- log(data_list$fleet_control$Q_prior)
 
   # Species names
