@@ -66,7 +66,8 @@ Codes (also accept the string aliases listed):
 | `1` | `"Equilibrium"` | Unfished equilibrium, no init devs, F<sub>init</sub> = 0 |
 | `2` (default) | `"NonEquilibrium"` | Unfished equilibrium with initial deviations |
 | `3` | `"FishedNonEquilibrium"` | Fished non-equilibrium with init devs; F<sub>init</sub> is added to M inside geometric series |
-| `4` | `"FishedNonEquilibriumScaled"` | Fished non-equilibrium with init devs and R<sub>0</sub>-scaled by F<sub>init</sub>|
+| `4` | `"NonEquilibriumScaled"` | Non-equilibrium with init devs and R<sub>0</sub>-scaled by F<sub>init</sub> (single multiplicative offset on R<sub>init</sub>) |
+| `5` | `"EquilibriumScaled"` | Regime equilibrium: R<sub>0</sub>-scaled by F<sub>init</sub>, init devs mapped OFF. Mirrors SS3's `SR_regime` mechanism. |
 
 ### `estimateMode` — what does `fit_mod()` actually do?
 

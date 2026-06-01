@@ -42,7 +42,8 @@ tv_q_map <- c(
 comp_loglike_map <- c(
   "MultinomialAFSC" = -1,
   "Multinomial" = 0,
-  "DirichletMultinomial" = 1
+  "DirichletMultinomial" = 1,
+  "SS3Robust" = 2
 )
 
 fleet_map <- c(
@@ -56,13 +57,17 @@ fleet_map <- c(
 # 1 = Equilibrium, no init devs, Finit = 0 (unfished)
 # 2 = Equilibrium + init devs, Finit = 0  [default]
 # 3 = Non-equilibrium: Finit estimated, init devs included
-# 4 = Non-equilibrium: Finit scales R0
+# 4 = Non-equilibrium: Finit scales R0 (init_dev ON)
+# 5 = Equilibrium: Finit scales R0 (init_dev OFF / mapped out). Mirrors
+#     SS3's SR_regime mechanism cleanly: N_init[a] = R_init * exp(-Finit)
+#     * exp(-sum(M1[0..a-1])) with no per-age deviation.
 initMode_map <- c(
   "FreeParams"           = 0,
   "Equilibrium"          = 1,
   "NonEquilibrium"       = 2,
   "FishedNonEquilibrium"       = 3,
-  "FishedNonEquilibriumScaled" = 4
+  "NonEquilibriumScaled"       = 4,
+  "EquilibriumScaled"          = 5
 )
 
 # Predator-prey suitability mode (per predator species)

@@ -93,13 +93,15 @@ build_map_recruitment <- function(map_list, data_list, nyrs_hind, nyrs_proj, ran
   for (sp in 1:data_list$nspp) {
     nages_sp <- data_list$nages[sp]
 
-    # 1) Equilibrium with no devs
-    if (data_list$initMode == "Equilibrium") {
+    # 1, 5) Equilibrium with no devs (Equilibrium == 1: Finit=0;
+    #                                  EquilibriumScaled == 5: Finit on, devs off)
+    if (data_list$initMode %in% c("Equilibrium", "EquilibriumScaled")) {
       map_list$init_dev[sp, ] <- NA
     }
 
-    # 0, 2-3) Equilibrium or non-equilibrium with no devs
-    if (!data_list$initMode %in% c("Equilibrium")) {
+    # 0, 2-4) Non-equilibrium (or estimated): init_dev free for ages
+    # 1..(nages_sp-1); slots beyond nages_sp are not applicable and get NA.
+    if (!data_list$initMode %in% c("Equilibrium", "EquilibriumScaled")) {
       if ((nages_sp - 1) < ncol(map_list$init_dev)) {
         map_list$init_dev[sp, nages_sp:ncol(map_list$init_dev)] <- NA
       }
@@ -1177,8 +1179,12 @@ build_map_f_and_data_weights <- function(map_list, data_list, nyrs_hind) {
   # -- Map out future fishing mortality
   map_list$proj_F_prop <- map_list$proj_F_prop * NA
 
-  # -- Map out initial F if starting at equilibrium
-  if(!(data_list$initMode %in% c("FishedNonEquilibrium", "FishedNonEquilibriumScaled"))){
+  # -- Map out initial F if starting at unfished equilibrium. log_Finit is
+  # estimated in modes 3 (FishedNonEquilibrium), 4 (NonEquilibriumScaled),
+  # and 5 (EquilibriumScaled). Modes 0-2 force Finit = 0.
+  if(!(data_list$initMode %in% c("FishedNonEquilibrium",
+                                  "NonEquilibriumScaled",
+                                  "EquilibriumScaled"))){
     map_list$log_Finit <- rep(NA, data_list$nspp)
   }
 
