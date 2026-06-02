@@ -24,6 +24,10 @@ internals).
   may differ slightly. Non-DSEM fits are unaffected.
 * Fixed a phasing map bug (`sel_dev_ln_sd`/`index_q_dev_ln_sd`/`M1_dev_ln_sd` ->
   `_log_sd`) that broke `phase = TRUE` DSEM fits after the `ln -> log` rename.
+* `fit_mod()` now accepts an `inits` object that lacks DSEM parameters (e.g. one
+  built with `build_params()`): any missing DSEM parameters (`beta_z`,
+  `lnsigma_j`, `mu_j`, `delta0_j`, `x_tj`) are filled from the built DSEM
+  objects. Supplying a prior fit's `estimated_params` is unaffected.
 
 # Rceattle 4.4.2
 

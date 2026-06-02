@@ -379,6 +379,19 @@ fit_mod <-
     } else{
       start_par <- inits
 
+      # Fill in any DSEM parameters missing from a user-supplied `inits`.
+      # build_params() only builds CEATTLE parameters, so an `inits` object
+      # created from it (or any non-DSEM source) lacks beta_z / lnsigma_j /
+      # mu_j / delta0_j / x_tj. Pull defaults from the freshly built DSEM
+      # objects for any that are absent. This is a no-op when `inits` came
+      # from a prior fit's `estimated_params` (which already has them), so no
+      # parameters are duplicated or overwritten.
+      dsem_par <- mod_objects$dsem$tmb_inputs$parameters
+      missing_dsem <- setdiff(names(dsem_par), names(start_par))
+      if (length(missing_dsem) > 0) {
+        start_par <- c(start_par, dsem_par[missing_dsem])
+      }
+
       # Set F for years with 0 catch to very low number
       zero_catch <- data_list$catch_data |>
         dplyr::filter(.data$Year <= data_list$endyr &
