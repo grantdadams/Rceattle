@@ -95,7 +95,7 @@ make_msm_test_data <- function(
                               minage_sp= 1,
                               maxage_sp = nages,
                               growth_params_sp = gp,
-                              growth_ln_sd_sp = gsd,
+                              growth_log_sd_sp = gsd,
                               growth_model_sp = growth_model)
     growth_matrix[sp, ,] = gm$growth_matrix
     length_at_age[sp, ] = gm$length_at_age
@@ -318,7 +318,7 @@ make_msm_test_data <- function(
   # * Fleet control
   simData$fleet_control <- data.frame(
     Fleet_name = paste0(c("Survey", "Fishery"), rep(paste(" Species", 1:nspp), each = 2)),
-    Fleet_code = rep(1:2, nspp),
+    Fleet_code = 1:4,
     Fleet_type = rep(2:1, nspp),
     Species = rep(1:nspp, each = 2),
     Month = 0,
@@ -422,7 +422,7 @@ make_msm_test_data <- function(
   for(sp in 1:nspp){
     for(y in 1:nyrs) {
       tmp <- data.frame(t(ObsFishCAAL[sp,,, y]))
-      colnames(tmp) <- paste("CAAL_", 1:nages)
+      colnames(tmp) <- paste0("CAAL_", 1:nages)
       tmp <- tmp |>
         dplyr::mutate(
           Fleet_name = paste("Fishery Species", sp),
@@ -433,7 +433,7 @@ make_msm_test_data <- function(
           Length = lengths,
           Sample_size = fish_CAAL_ISS
         ) |>
-        dplyr::select("Fleet_name", "Fleet_code", "Species", "Sex", "Year", "Length", "Sample_size", paste("CAAL_", 1:nages))
+        dplyr::select("Fleet_name", "Fleet_code", "Species", "Sex", "Year", "Length", "Sample_size", paste0("CAAL_", 1:nages))
       fish_caal_list[[ind]] <- tmp
       ind = ind + 1
     }
@@ -446,7 +446,7 @@ make_msm_test_data <- function(
   for(sp in 1:nspp){
     for(y in 1:nyrs) {
       tmp <- data.frame(t(ObsSrvCAAL[sp,,, y]))
-      colnames(tmp) <- paste("CAAL_", 1:nages)
+      colnames(tmp) <- paste0("CAAL_", 1:nages)
       tmp <- tmp |>
         dplyr::mutate(
           Fleet_name = paste("Survey Species", sp),
@@ -457,7 +457,7 @@ make_msm_test_data <- function(
           Length = lengths,
           Sample_size = srv_CAAL_ISS
         ) |>
-        dplyr::select("Fleet_name", "Fleet_code", "Species", "Sex", "Year", "Length", "Sample_size", paste("CAAL_", 1:nages))
+        dplyr::select("Fleet_name", "Fleet_code", "Species", "Sex", "Year", "Length", "Sample_size", paste0("CAAL_", 1:nages))
       srv_caal_list[[ind]] <- tmp
       ind = ind + 1
     }
@@ -543,6 +543,9 @@ make_msm_test_data <- function(
 
   # * Environmental data ----
   simData$env_data <- data.frame(Year = 1:nyrs, EnvData = 1)
+
+  # * Base data ----
+  simDataBase <- simData
 
   # * Ration ----
   ration_list <- lapply(1:nspp, function(sp) {
@@ -631,6 +634,7 @@ make_msm_test_data <- function(
       diet_prop = diet_prop,
       ration = ration
     ),
-    data_list = simData
+    data_list = simData,
+    base_data = simDataBase
   ))
 }

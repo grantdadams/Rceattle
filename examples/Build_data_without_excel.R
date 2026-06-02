@@ -158,8 +158,8 @@ simData$fleet_control <- data.frame(
   Catchability         = rep(c("Estimated", NA), nspp), # NA = not applicable
   Q_prior              = rep(c(1,  NA), nspp),
   Q_sd_prior           = rep(c(0.2,NA), nspp),
-  Time_varying_q       = rep(c(0,  NA), nspp), # 0 = none, 1 = penalized lognormal deviates with sd set at "Time_varying_q_sd_prior" if random_q = FALSE in fit_mod
-  # 3 = time blocks, 4 = random walk
+  Time_varying_q       = rep(c(0,  NA), nspp), # 0/"None" = none, 1/"IID" = penalized lognormal deviates with sd set at "Time_varying_q_sd_prior" if random_q = FALSE in fit_mod
+  # 3 /"Block" = time blocks, 4/ "RandomWalk"
   Time_varying_q_sd_prior = rep(c(1, NA), nspp),
 
   # Survey index uncertainty

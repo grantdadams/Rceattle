@@ -2,29 +2,57 @@
 % Please edit documentation in R/0-build_srr_and_M.R
 \name{build_growth}
 \alias{build_growth}
-\title{Define growth specifications}
+\title{Specify the growth model for Rceattle}
 \usage{
-build_growth(growth_model = 0, growth_re = 0, growth_indices = NA)
+build_growth(fun = "empirical", growth_age_L1 = NA, linkages = NULL)
 }
 \arguments{
-\item{growth_model}{Vector or scalar specifying growth model (see @description below). 0 = use empirical weight-at-age in "weight" data, 1 = estimate sex-specific von Bertalanffy growth function, 2 = sex-specific Richards model.}
+\item{fun}{Growth function. Either a string (\link{GROWTH_FUNS}:
+\code{"empirical"} (default), \code{"vonBertalanffy"}, \code{"Richards"}) or the
+equivalent integer code (\code{0}, \code{1}, \code{2}). The canonical string form
+is stored on the returned object.}
 
-\item{growth_re}{NOT yet implemented! Vector or scalar specifying M1 random effects model. See description (default = 0).}
+\item{growth_age_L1}{Von Bertalanffy / Richards anchor age (the age at
+which mean length equals \code{L1}). Matches SS3's \code{Growth_Age_for_L1}
+control input. Scalar (recycled across species) or a length-\code{nspp}
+vector for per-species values. Default \code{NA} inherits
+\code{data_list$growth_age_L1} if supplied (e.g. from the SS3 converter),
+otherwise falls back to \code{max(0.5, minage[sp])} so \code{minage >= 1}
+models stay backwards-compatible and \code{minage = 0} models pick up an
+SS3-consistent half-year anchor.}
 
-\item{growth_indices}{NOT yet implemented! vector or single index indicating the columns (excluding Year column) of \code{env_data} to use for environmentally linked growth.}
+\item{linkages}{Optional named list of \code{\link[=linkage_spec]{linkage_spec()}} objects
+keyed by parameter name (must be one of \link{GROWTH_LINKAGE_PARAMS}).
+The mean-growth keys (\code{K}, \code{L1}, \code{Linf}, \code{m})
+accept arbitrary one-sided formulas and produce year-varying
+offsets applied inside \code{growth.hpp}. The SD-endpoint keys
+(\code{sd_L1}, \code{sd_Linf}) only honor intercept-bearing
+formulas (typically \code{~ 1}) -- they thread \code{init}, \code{bounds}, and
+\code{priors} onto the underlying \code{growth_log_sd} parameter, giving
+the SDs the same prior/fix/initial-value contract as the mean
+parameters. Slope rows on SD specs raise a warning and have no
+effect; slope-only formulas (\code{~ 0 + temp}) error.
+Materialization into the global linkage table happens inside
+\code{fit_mod()} once \code{data_list$env_data} is in scope.}
 }
 \value{
-A list of switches for defining the M1 model
+A list of switches defining the growth model.
 }
 \description{
-\strong{Growth fixed effects currently implemented in CEATTLE}
-\itemize{
-\item \code{growth_model = 0} Empirical weight-at-age from data input \code{weight}. Forecasts use terminal year of weight-at-age.
-\item \code{growth_model = 1} Sex-specific von Bertalanffy growth.
-\item \code{growth_model = 2} Sex-specific Richard's growth.
+Specify the growth model for Rceattle
 }
-
-\strong{Growth random effects currently implemented in CEATTLE}
-
-None are currently implemented
+\examples{
+\dontrun{
+# Sex-specific von Bertalanffy with temperature on K, by species + sex
+build_growth(
+  fun = "vonBertalanffy",   # or fun = 1
+  linkages = list(
+    K = linkage_spec(
+      formula = ~ temp,
+      by      = ~ species + sex,
+      priors  = list(temp = normal(0, 1))
+    )
+  )
+)
+}
 }

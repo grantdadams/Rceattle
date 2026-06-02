@@ -1,4 +1,4 @@
-#' Rearrange
+#' Rearrange a data_list for TMB
 #'
 #' @description Function to rearrange a \code{data_list} object to be read into TMB
 #'
@@ -9,7 +9,7 @@
 #' @importFrom rlang .data
 #' @importFrom dplyr n
 #' @importFrom tidyselect contains
-rearrange_dat <- function(data_list){
+rearrange_data <- function(data_list){
 
   # Convert text to integer for switches used in TMB
   data_list <- convert_switches(data_list)
@@ -117,7 +117,7 @@ rearrange_dat <- function(data_list){
   data_list$est_sigma_fsh <- data_list$fleet_control %>%
     dplyr::pull(.data$Estimate_catch_sd) %>% as.integer()
 
-  data_list$index_ln_q_prior <- log(data_list$fleet_control$Q_prior)
+  data_list$index_log_q_prior <- log(data_list$fleet_control$Q_prior)
 
   # Species names
   data_list$spnames <- NULL
@@ -131,37 +131,43 @@ rearrange_dat <- function(data_list){
   # - Seperate index metadata from observation
   data_list$index_ctl <- data_list$index_data %>%
     dplyr::select(Fleet_code, Species, Year) %>%
-    dplyr::mutate_all(as.integer)
+    dplyr::mutate_all(as.integer) %>%
+    as.matrix()
 
   data_list$index_n <- as.matrix(data_list$index_data[,c("Month")])
 
   data_list$index_obs <- data_list$index_data %>%
     dplyr::select(Observation, Log_sd) %>%
-    dplyr::mutate_all(as.numeric)
+    dplyr::mutate_all(as.numeric) %>%
+    as.matrix()
 
 
   # 3 -  Catch data ----
   # - Seperate catch metadata from observation
   data_list$catch_ctl <- data_list$catch_data %>%
     dplyr::select(Fleet_code, Species, Year) %>%
-    dplyr::mutate_all(as.integer)
+    dplyr::mutate_all(as.integer) %>%
+    as.matrix()
 
   data_list$catch_n <- as.matrix(data_list$catch_data[,c("Month")])
 
   data_list$catch_obs <- data_list$catch_data %>%
     dplyr::select(Catch, Log_sd) %>%
-    dplyr::mutate_all(as.numeric)
+    dplyr::mutate_all(as.numeric) %>%
+    as.matrix()
 
 
   # 4 -  Comp data ----
   # - Seperate comp metadata from observation
   data_list$comp_ctl <- data_list$comp_data %>%
     dplyr::select(Fleet_code, Species, Sex, Age0_Length1, Year) %>%
-    dplyr::mutate_all(as.integer)
+    dplyr::mutate_all(as.integer) %>%
+    as.matrix()
 
   data_list$comp_n <- data_list$comp_data %>%
     dplyr::select(Month, Sample_size) %>%
-    dplyr::mutate_all(as.numeric)
+    dplyr::mutate_all(as.numeric) %>%
+    as.matrix()
 
   data_list$comp_obs <- data_list$comp_data %>%
     dplyr::select(contains("Comp_")) %>%
@@ -179,11 +185,13 @@ rearrange_dat <- function(data_list){
   data_list$caal_ctl <- data_list$caal_data %>%
     dplyr::mutate(Length_bin = factor(.data$Length)) %>%
     dplyr::select(Fleet_code, Species, Sex, Year, Length_bin) %>%
-    dplyr::mutate_all(as.integer)
+    dplyr::mutate_all(as.integer) %>%
+    as.matrix()
 
   data_list$caal_n <- data_list$caal_data %>%
     dplyr::select(Sample_size) %>%
-    dplyr::mutate_all(as.numeric)
+    dplyr::mutate_all(as.numeric) %>%
+    as.matrix()
 
   data_list$caal_obs <- data_list$caal_data %>%
     dplyr::select(contains("CAAL_")) %>%
@@ -527,7 +535,8 @@ rearrange_dat <- function(data_list){
 #' )
 #' cleaned_data_list <- check_composition_data(data_list)
 #'
-#' @export
+#' @keywords internal
+#' @noRd
 check_composition_data <- function(data_list) {
 
   # If no data, convert to empty matrix
@@ -586,7 +595,8 @@ check_composition_data <- function(data_list) {
 #' @return The modified `data_list` with NA values in `caal_obs` converted to 0.
 #' cleaned_data_list <- check_caal_data(data_list)
 #'
-#' @export
+#' @keywords internal
+#' @noRd
 check_caal_data <- function(data_list) {
 
   # If no data, convert to empty matrix
@@ -625,49 +635,12 @@ check_caal_data <- function(data_list) {
   return(data_list)
 }
 
-#' Convert intuitive text strings to integer switches for TMB
-#'
-#' @param data_list Rceattle data list
-#'
-#' @importFrom rlang .data
-convert_switches <- function(data_list) {
 
-  # Fleet controls ----
-  # If vector is a string that exists in our map, replace it with the integer.
-  data_list$fleet_control <- data_list$fleet_control %>%
-    dplyr::mutate(
-      Fleet_type = ifelse(as.character(.data$Fleet_type) %in% names(fleet_map),
-                           unname(fleet_map[as.character(.data$Fleet_type)]),
-                          .data$Fleet_type),
-      Selectivity = ifelse(as.character(.data$Selectivity) %in% names(sel_map),
-                           unname(sel_map[as.character(.data$Selectivity)]),
-                           .data$Selectivity),
-      Catchability = ifelse(as.character(.data$Catchability) %in% names(q_map),
-                            unname(q_map[as.character(.data$Catchability)]),
-                            .data$Catchability),
-      Comp_loglike = ifelse(as.character(.data$Comp_loglike) %in% names(comp_loglike_map),
-                            unname(comp_loglike_map[as.character(.data$Comp_loglike)]),
-                            .data$Comp_loglike),
-      CAAL_loglike = ifelse(as.character(.data$CAAL_loglike) %in% names(comp_loglike_map),
-                            unname(comp_loglike_map[as.character(.data$CAAL_loglike)]),
-                            .data$CAAL_loglike)
-    ) %>%
-    # CRITICAL: Force columns back to integers so TMB doesn't crash expecting ints but getting chars
-    dplyr::mutate(
-      Selectivity = as.integer(.data$Selectivity),
-      Catchability = as.integer(.data$Catchability),
-      Comp_loglike = as.integer(.data$Comp_loglike),
-      CAAL_loglike = as.integer(.data$CAAL_loglike)
-    )
-
-  # Pop dy controls ----
-  # Helper: convert a single string value using a map, pass integers through unchanged
-  .conv <- function(x, map) {
-    if (is.character(x) && x %in% names(map)) unname(map[[x]]) else x
-  }
-
-  data_list$initMode <- as.integer(.conv(data_list$initMode, initMode_map))
-  data_list$HCR <- as.integer(.conv(data_list$HCR, hcr_map))
-
-  return(data_list)
+#' @rdname rearrange_data
+#' @description `rearrange_dat()` is a deprecated alias for `rearrange_data()`
+#'   kept for backwards compatibility; please use `rearrange_data()`.
+#' @export
+rearrange_dat <- function(data_list){
+  .Deprecated("rearrange_data")
+  rearrange_data(data_list)
 }

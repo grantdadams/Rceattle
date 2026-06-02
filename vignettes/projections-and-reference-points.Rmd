@@ -79,7 +79,7 @@ ms_run_proj <- fit_mod(
   inits        = ms_run$estimated_params,
   file         = NULL,
   estimateMode = 2,
-  HCR          = build_hcr(HCR = 2,
+  HCR          = build_hcr(HCR = "ConstantF",
                             Ftarget = c(0.2342936, 0.513, 0.0774777)),
   niter        = 5,
   random_rec   = FALSE,
@@ -180,16 +180,16 @@ plot_recruitment(
 
 The `HCR` argument to `fit_mod()` accepts the output of `build_hcr()`. See `?build_hcr` for full parameter details.
 
-| `HCR` | Description | Multi-species? |
-|---|---|:---:|
-| 0 | No fishing — estimate hindcast only | Yes |
-| 1 | CMSY: maximise catch across all species (can constrain depletion ≥ `Plimit`) | Yes |
-| 2 | Constant F set at `Ftarget` for each species | Yes |
-| 3 | F that achieves `Ftarget`% of SSB₀ at the end of the projection | Yes |
-| 4 | Constant F_SPR set at `Ftarget`; can be scaled by `Fmult` (NEFSC convention) | No |
-| 5 | NPFMC Tier 3 SPR-based HCR (`Ftarget`, `Flimit`, `Ptarget`, `Alpha`) | No |
-| 6 | PFMC Category 1 40-10 ACL rule with uncertainty buffer (`Pstar`, `Sigma`) | Yes |
-| 7 | SESSF Tier 1 SPR-based HCR | No |
+| Value | String | Description | Multi-species? |
+|---|---|---|---|
+| 0 | `"NoFishing"` | No fishing — estimate hindcast only | Yes |
+| 1 | `"CMSY"` | CMSY: maximise catch across all species (can constrain depletion ≥ `Plimit`) | Yes |
+| 2 | `"ConstantF"` | Constant F set at `Ftarget` for each species | Yes |
+| 3 | `"ConstantFSSB"` | F that achieves `Ftarget`% of SSB₀ at the end of the projection | Yes |
+| 4 | `"ConstantFSPR"` | Constant F_SPR set at `Ftarget`; can be scaled by `Fmult` (NEFSC convention) | No |
+| 5 | `"NPFMC"` | NPFMC Tier 3 SPR-based HCR (`Ftarget`, `Flimit`, `Ptarget`, `Alpha`) | No |
+| 6 | `"PFMC"` | PFMC Category 1 40-10 ACL rule with uncertainty buffer (`Pstar`, `Sigma`) | Yes |
+| 7 | `"SESSF"` | SESSF Tier 1 SPR-based HCR | No |
 
 ```{r}
 # Example: NPFMC Tier 3 control rule (single-species only)
@@ -198,7 +198,7 @@ ss_run_tier3 <- fit_mod(
   inits        = ss_run$estimated_params,
   file         = NULL,
   estimateMode = 2,
-  HCR          = build_hcr(HCR = 5,
+  HCR          = build_hcr(HCR = "NPFMC",
                             Ftarget = 0.40,   # F40%
                             Flimit  = 0.35,   # F35%
                             Ptarget = 0.40,

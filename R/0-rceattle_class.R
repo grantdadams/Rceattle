@@ -23,10 +23,9 @@ print.Rceattle <- function(x, ...) {
     as.character(utils::packageVersion("Rceattle")),
     error = function(e) NA_character_
   )
-  tmb_dll <- if (!is.null(x$TMBfilename)) x$TMBfilename else "ceattle_v01_11"
 
   cat("<Rceattle model>\n")
-  cat("  Rceattle  :", pkg_ver, "  TMB DLL:", tmb_dll, "\n")
+  cat("  Rceattle  :", pkg_ver, "\n")
   cat("  Species   :", paste(dat$spnames, collapse = ", "), "\n")
   cat("  Years     :", dat$styr, "-", dat$endyr,
       if (!is.null(dat$projyr)) paste0(" (projyr ", dat$projyr, ")") else "",
@@ -398,4 +397,197 @@ residuals.Rceattle <- function(object, type = "index", scale = "log", ...) {
 
   if (length(out) == 0) return(empty_row(0))
   do.call(rbind, out)
+}
+
+
+# Catalogue of derived quantities that as.data.frame.Rceattle() can extract,
+# keyed by REPORT name, with their shape: "sy" = matrix(nspp, nyrs);
+# "ssay" = array(nspp, max_sex, max_age, nyrs). Quantities that are also
+# ADREPORT'd in the TMB template are flagged so we can pull standard errors
+# out of sdrep$value / sdrep$sd by name.
+.RCEATTLE_QUANTITIES <- list(
+  biomass             = list(shape = "sy",   adreport = TRUE),
+  ssb                 = list(shape = "sy",   adreport = TRUE),
+  R                   = list(shape = "sy",   adreport = TRUE),
+  biomass_depletion   = list(shape = "sy",   adreport = FALSE),
+  ssb_depletion       = list(shape = "sy",   adreport = FALSE),
+  B0                  = list(shape = "sy",   adreport = FALSE),
+  SB0                 = list(shape = "sy",   adreport = FALSE),
+  DynamicB0           = list(shape = "sy",   adreport = FALSE),
+  DynamicSB0          = list(shape = "sy",   adreport = FALSE),
+  DynamicSBF          = list(shape = "sy",   adreport = FALSE),
+  exploitable_biomass = list(shape = "sy",   adreport = FALSE),
+  F_spp               = list(shape = "sy",   adreport = FALSE),
+  N_at_age            = list(shape = "ssay", adreport = FALSE),
+  biomass_at_age      = list(shape = "ssay", adreport = FALSE),
+  Z_at_age            = list(shape = "ssay", adreport = FALSE),
+  M_at_age            = list(shape = "ssay", adreport = FALSE),
+  M1_at_age           = list(shape = "ssay", adreport = FALSE),
+  M2_at_age           = list(shape = "ssay", adreport = FALSE),
+  F_at_age            = list(shape = "ssay", adreport = FALSE),
+  consumption_at_age  = list(shape = "ssay", adreport = FALSE),
+  B_eaten_as_prey     = list(shape = "ssay", adreport = FALSE),
+  NByage0             = list(shape = "ssay", adreport = FALSE),
+  NByageF             = list(shape = "ssay", adreport = FALSE)
+)
+
+
+#' Tidy long-format derived quantities from an Rceattle fit
+#'
+#' Returns the model's derived population quantities in long form so that
+#' custom plots and post-processing don't have to walk the deeply nested
+#' `quantities` list or inherit the dimnames decisions in
+#' [rename_output()]. Two shapes are flattened into one tidy frame:
+#' species-by-year quantities (e.g. `biomass`, `ssb`, `R`, `F_spp`) and
+#' species-by-sex-by-age-by-year quantities (e.g. `N_at_age`,
+#' `biomass_at_age`, `M_at_age`). For the species-level shapes, `sex`
+#' and `age` are returned as `NA`. Cells of the 4D arrays that are
+#' padded out to `max(nsex)` / `max(nages)` for species with fewer
+#' sexes or ages are dropped.
+#'
+#' Standard errors (`se`) and confidence intervals (`lwr`, `upr`) are
+#' populated from the TMB `sdreport` for any quantity that was
+#' `ADREPORT`'d (currently `biomass`, `ssb`, `R`); other quantities and
+#' fits produced with `getsd = FALSE` get `NA` for `se` / `lwr` / `upr`.
+#' Set `ci_level` to widen or narrow the band.
+#'
+#' @param x An object of class \code{"Rceattle"} returned by [fit_mod()].
+#' @param row.names,optional Ignored; present for the [as.data.frame()] generic.
+#' @param which Character vector of quantity names to extract, or
+#'   `"all"` for every quantity with a known shape. Defaults to a common
+#'   population-level summary. See `names(Rceattle:::.RCEATTLE_QUANTITIES)`
+#'   for the full list.
+#' @param ci_level Confidence level for `lwr` and `upr`. Default `0.95`.
+#' @param ... Currently unused.
+#'
+#' @return A `data.frame` with columns `year`, `species`, `sex`, `age`,
+#'   `quantity`, `value`, `se`, `lwr`, `upr`. `species` is the character
+#'   species name from `data_list$spnames`. Rows are sorted in the order
+#'   `which` was given.
+#' @export
+as.data.frame.Rceattle <- function(x,
+                                   row.names = NULL,
+                                   optional = FALSE,
+                                   which = c("biomass", "ssb", "R",
+                                             "biomass_depletion",
+                                             "ssb_depletion", "F_spp"),
+                                   ci_level = 0.95,
+                                   ...) {
+  known <- names(.RCEATTLE_QUANTITIES)
+  if (length(which) == 1 && identical(which, "all")) which <- known
+  bad <- setdiff(which, known)
+  if (length(bad)) {
+    stop("Unknown quantity name(s): ", paste(bad, collapse = ", "),
+         ".\nKnown: ", paste(known, collapse = ", "))
+  }
+  if (!is.numeric(ci_level) || length(ci_level) != 1 ||
+      ci_level <= 0 || ci_level >= 1) {
+    stop("`ci_level` must be a single number in (0, 1).")
+  }
+
+  d <- x$data_list
+  q <- x$quantities
+  yrs   <- d$styr:d$projyr
+  nyrs  <- length(yrs)
+  nspp  <- d$nspp
+  nages <- d$nages
+  nsex  <- d$nsex
+  minage  <- if (!is.null(d$minage)) d$minage else rep(1L, nspp)
+  spnames <- if (!is.null(d$spnames)) d$spnames else as.character(seq_len(nspp))
+
+  z <- stats::qnorm(0.5 + ci_level / 2)
+
+  # sdreport vectors are stored in the same column-major order TMB used to
+  # stamp the matrix/array, so reshaping `sd` against the report's dim
+  # lines up cell-for-cell. A fit run with getsd=FALSE has no $sdrep.
+  sdrep <- x$sdrep
+  sd_lookup <- function(name, dims) {
+    if (is.null(sdrep) || is.null(sdrep$value)) return(NULL)
+    idx <- which(names(sdrep$value) == name)
+    if (!length(idx) || length(idx) != prod(dims)) return(NULL)
+    array(sdrep$sd[idx], dim = dims)
+  }
+
+  empty <- data.frame(
+    year     = integer(),
+    species  = character(),
+    sex      = integer(),
+    age      = integer(),
+    quantity = character(),
+    value    = numeric(),
+    se       = numeric(),
+    lwr      = numeric(),
+    upr      = numeric(),
+    stringsAsFactors = FALSE
+  )
+
+  out <- vector("list", length(which))
+  names(out) <- which
+
+  for (qn in which) {
+    spec <- .RCEATTLE_QUANTITIES[[qn]]
+    arr  <- q[[qn]]
+    if (is.null(arr)) next
+
+    if (spec$shape == "sy") {
+      mat <- as.matrix(arr)
+      if (length(dim(mat)) != 2 ||
+          dim(mat)[1] != nspp || dim(mat)[2] != nyrs) next
+      sd_mat <- if (spec$adreport) sd_lookup(qn, dim(mat)) else NULL
+      grid <- expand.grid(species_idx = seq_len(nspp),
+                          year_idx    = seq_len(nyrs),
+                          KEEP.OUT.ATTRS = FALSE,
+                          stringsAsFactors = FALSE)
+      cell <- cbind(grid$species_idx, grid$year_idx)
+      val  <- mat[cell]
+      sdv  <- if (!is.null(sd_mat)) sd_mat[cell] else NA_real_
+      out[[qn]] <- data.frame(
+        year     = yrs[grid$year_idx],
+        species  = spnames[grid$species_idx],
+        sex      = NA_integer_,
+        age      = NA_integer_,
+        quantity = qn,
+        value    = as.numeric(val),
+        se       = as.numeric(sdv),
+        lwr      = as.numeric(val - z * sdv),
+        upr      = as.numeric(val + z * sdv),
+        stringsAsFactors = FALSE
+      )
+    } else if (spec$shape == "ssay") {
+      a4 <- arr
+      if (length(dim(a4)) != 4 || dim(a4)[1] != nspp || dim(a4)[4] != nyrs) next
+      max_sex <- dim(a4)[2]
+      max_age <- dim(a4)[3]
+      sd4 <- if (spec$adreport) sd_lookup(qn, dim(a4)) else NULL
+      grid <- expand.grid(species_idx = seq_len(nspp),
+                          sex_idx     = seq_len(max_sex),
+                          age_idx     = seq_len(max_age),
+                          year_idx    = seq_len(nyrs),
+                          KEEP.OUT.ATTRS = FALSE,
+                          stringsAsFactors = FALSE)
+      keep <- grid$sex_idx <= nsex[grid$species_idx] &
+              grid$age_idx <= nages[grid$species_idx]
+      grid <- grid[keep, , drop = FALSE]
+      cell <- cbind(grid$species_idx, grid$sex_idx,
+                    grid$age_idx, grid$year_idx)
+      val  <- a4[cell]
+      sdv  <- if (!is.null(sd4)) sd4[cell] else NA_real_
+      out[[qn]] <- data.frame(
+        year     = yrs[grid$year_idx],
+        species  = spnames[grid$species_idx],
+        sex      = as.integer(grid$sex_idx),
+        age      = as.integer(grid$age_idx + minage[grid$species_idx] - 1L),
+        quantity = qn,
+        value    = as.numeric(val),
+        se       = as.numeric(sdv),
+        lwr      = as.numeric(val - z * sdv),
+        upr      = as.numeric(val + z * sdv),
+        stringsAsFactors = FALSE
+      )
+    }
+  }
+
+  out <- out[!vapply(out, is.null, logical(1))]
+  if (!length(out)) return(empty)
+  do.call(rbind, c(unname(out), list(make.row.names = FALSE)))
 }

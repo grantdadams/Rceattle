@@ -4,22 +4,37 @@
 \alias{jitter}
 \title{Jitter analysis}
 \usage{
-jitter(Rceattle = NULL, njitter = 50, phase = FALSE, seed = 123)
+jitter(
+  Rceattle = NULL,
+  njitter = 50,
+  sd = 0.2,
+  phase = FALSE,
+  seed = 123,
+  cores = NULL
+)
 }
 \arguments{
 \item{Rceattle}{an Rceattle model fit using \code{\link{fit_mod}}}
 
 \item{njitter}{the number of jitters to run}
 
+\item{sd}{standard deviation for jitter (default = 0.2)}
+
 \item{phase}{as in \code{\link{fit_mod}} default = FALSE}
 
-\item{seed}{random number seed}
+\item{seed}{random number seed. Each jitter \code{i} uses \code{seed + i}
+so results are reproducible under both sequential and parallel execution.}
+
+\item{cores}{Number of cores to use for parallel jitters. Default
+\code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
+running under \code{R CMD check} (which sets
+\code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.}
 }
 \value{
 a list of Rceattle models
 }
 \description{
-Run's the Rceattle model at initial values that are +- N(0, 1) from the initial parameters.
+Run's the Rceattle model at initial values that are +- N(0, sd) from the initial parameters.
 }
 \examples{
 \donttest{

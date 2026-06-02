@@ -18,47 +18,49 @@ knitr::opts_chunk$set(
 )
 ```
 
-Rceattle provides three layers of diagnostics: **fit plots** to visually inspect how well the model reproduces observed data, **retrospective analysis** (peels) to detect patterns of systematic over- or under-estimation, and **jitter testing** to check that the optimiser has found a global minimum.
+Rceattle provides six layers of diagnostics: **S3 methods** (`residual`, `logLik`, etc), **fit plots** to visually inspect how well the model reproduces observed data, **retrospective analysis** (peels) to detect patterns of systematic over- or under-estimation, **jitter testing** to check that the optimiser has found a global minimum, **self-testing** (simulation–estimation) to check that the model can recover its own estimates from simulated data, and **likelihood profiling** to check how informative the data are about a particular parameter.
 
-## Setup
+## Setup and plotting data
 
 ```{r}
 library(Rceattle)
 
-# Fit a single-species and multi-species model for the 2017 Bering Sea assessment.
-# The multi-species model is used for fit plots; the single-species model for
-# retrospective and jitter (faster).
-data(BS2017SS)
-data(BS2017MS)
-BS2017SS$projyr <- 2060
-BS2017MS$projyr <- 2060
-
-# Visualise the input data before fitting
-plot_data(BS2017SS)
-
-ss_run <- fit_mod(
-  data_list    = BS2017SS,
-  inits        = NULL,
-  file         = NULL,
-  estimateMode = 0,
-  random_rec   = FALSE,
-  msmMode      = 0,
-  fit_control = fit_control(
-    phase        = TRUE,
-    verbose      = 1))
-
-ms_run <- fit_mod(
-  data_list    = BS2017MS,
-  inits        = ss_run$estimated_params,
-  file         = NULL,
-  estimateMode = 0,
-  niter        = 5,
-  random_rec   = FALSE,
-  msmMode      = 1,
-  suitMode     = 0,
-  fit_control = fit_control(
-    verbose      = 1))
+# Fit a single-species model for the 2022 Northern Rockfish assessment.
+data("NorthernRockfish2022")
+nrdata <- NorthernRockfish2022
+nrdata$fleet_control$proj_F_prop <- 1
+plot_data(nrdata)
 ```
+
+Fitting the model
+```{r}
+model_1 <- Rceattle::fit_mod(
+  data_list = nrdata,
+  estimateMode = 0,  # Estimate
+  initMode = 1,      # Assume unfished equilibrium
+  M1Fun = build_M1(
+    updateM1 = TRUE,
+    M1_model = 1,
+    M1_use_prior = TRUE,
+    M_prior = 0.06,
+    M_prior_sd = 0.05),
+  fit_control = fit_control(phase = TRUE, verbose = 0)
+)
+summary(model_1)
+```
+
+## S3 Methods
+
+```{r}
+summary(model_1)              # same compact summary
+coef(model_1)                 # estimated fixed-effect parameters
+logLik(model_1)               # logLik with df attribute (AIC works)
+AIC(model_1)
+vcov(model_1)                 # fixed-effect covariance fro
+residuals(model_1)            # data.frame of residuals
+as.data.frame(model_1)
+```
+
 
 ## Fit plots
 
@@ -67,7 +69,7 @@ ms_run <- fit_mod(
 `plot_comp()` overlays observed (bars) and predicted (line) age or length compositions for every fleet.
 
 ```{r}
-plot_comp(ms_run)
+plot_comp(model_1)
 ```
 
 ### Survey indices
@@ -75,15 +77,15 @@ plot_comp(ms_run)
 `plot_index()` and `plot_logindex()` show observed vs. predicted survey biomass on the natural and log scales, respectively. `plot_indexresidual()` plots the log-scale residuals — a useful first check for time trends or heteroscedasticity.
 
 ```{r}
-plot_index(ms_run)
-plot_logindex(ms_run)
-plot_indexresidual(ms_run)
+plot_index(model_1)
+plot_logindex(model_1)
+plot_indexresidual(model_1)
 ```
 
 ### Catch
 
 ```{r}
-plot_catch(ms_run)
+plot_catch(model_1)
 ```
 
 ## Retrospective analysis
@@ -91,16 +93,16 @@ plot_catch(ms_run)
 A retrospective analysis systematically removes the most recent years of data one peel at a time and re-fits the model. Bias in the final estimates relative to earlier peels is summarised by Mohn's rho: values outside ±0.2 (for SSB) generally indicate a problem worth investigating.
 
 ```{r}
-ss_run_retro <- retrospective(Rceattle = ss_run, peels = 5)
+model_1_retro <- retrospective(Rceattle = model_1, peels = 5)
 
 # Mohn's rho for each quantity
-ss_run_retro$mohns
+model_1_retro$mohns
 
 # Plot historical trajectories across peels
-plot_biomass(ss_run_retro$Rceattle_list)
+plot_biomass(model_1_retro$Rceattle_list)
 
 # Include the projection period to see how the forecast changes
-plot_biomass(ss_run_retro$Rceattle_list, incl_proj = TRUE)
+plot_biomass(model_1_retro$Rceattle_list, incl_proj = TRUE)
 ```
 
 The `retrospective()` function returns a list with two elements:
@@ -117,7 +119,7 @@ The `nyrs_forecast` argument (default 3) additionally evaluates rho for years pr
 Jitter testing re-fits the model from many randomly perturbed starting values to check whether the optimizer consistently returns the same minimum negative log-likelihood (NLL). A spread of NLL values across jitters suggests the likelihood surface has multiple local minima and results should be interpreted cautiously.
 
 ```{r}
-jitters <- jitter(Rceattle = ss_run, njitter = 10, phase = TRUE)  # default njitter = 50
+jitters <- jitter(Rceattle = model_1, njitter = 10, phase = TRUE)  # default njitter = 50
 
 # Histogram of NLL differences relative to the best run
 hist(log(jitters$nll - min(jitters$nll)),
@@ -133,19 +135,95 @@ length(jitters$Rceattle_list)
 
 Non-converging runs are silently dropped from `Rceattle_list`, so if `length(jitters$Rceattle_list)` is much less than `njitter`, convergence may be fragile.
 
-## Comparing single- and multi-species trajectories
+`retrospective()` and `jitter()` both fit peels / starts in parallel by default. Pass `cores = 1` to force sequential execution; otherwise the call uses a PSOCK cluster sized at `parallel::detectCores() - 6` (capped at 2 under `R CMD check`).
 
-Plotting both models together is itself a useful diagnostic — large divergences in biomass or mortality deserve scrutiny.
+## Self-test (simulation–estimation)
+
+`self_test()` simulates `nsim` datasets from a fitted model — keeping its estimated parameters fixed — and re-fits the model to each simulated dataset. If estimates from the refits cluster around the parameter values of the fit they were simulated from, the model is at least self-consistent (it can recover its own estimates from data it generated). Persistent bias or wide spread in a quantity is a sign that the data are not informative about it.
 
 ```{r}
-mod_list  <- list(ss_run, ms_run)
-mod_names <- c("Single-species", "Multi-species")
+sims <- self_test(model_1, nsim = 10)            # default nsim = 50
+
+# Number of simulations that converged (non-converged runs are dropped)
+length(sims)
+
+# Overlay biomass / SSB trajectories across simulations — the original fit's
+# trajectory should sit inside the spread of the refits.
+plot_biomass(c(list(model_1), sims), model_names = c("fit", names(sims)))
+plot_ssb(c(list(model_1), sims),     model_names = c("fit", names(sims)))
+```
+
+Each simulation uses `seed + i` as its RNG seed, so results are reproducible whether or not `cores > 1`. Set `simulate = FALSE` to refit against the model's *expected* values (no observation error) rather than draws from the observation likelihood — useful for confirming that the estimator returns the generating parameters in the noise-free limit. `cores` behaves the same way as in `retrospective()` and `jitter()`.
+
+## Likelihood profile
+
+`profile()` re-fits the model across a grid of fixed values for one or more cells of a chosen parameter and returns the resulting NLL surface. A flat profile means the data carry little information about the parameter; a sharp minimum away from the MLE means the fit has not actually settled there. The function generalises the legacy `profile_rsigma()` helper from `examples/Profiling_sigmaR.R` and works for any parameter slot in `Rceattle$estimated_params`; it is tested for `R_log_sd` (recruitment sigma), `rec_pars` (stock-recruit parameters), and `log_M1` (residual natural mortality).
+
+Two ways to specify `param`:
+
+- **Natural-scale alias** (recommended for the three documented parameters). The alias implies `transform = "log"` so you pass natural-scale values like sigmaR or M directly. For the `rec_pars` aliases (`"R0"`, `"alpha"`, `"beta"`) the column is filled in from the alias name, so `slots` only needs the species index.
+  - `"sigmaR"` / `"R_sd"` &rarr; `R_log_sd`
+  - `"M1"` &rarr; `log_M1`
+  - `"R0"` &rarr; `rec_pars[, 1]`
+  - `"alpha"` &rarr; `rec_pars[, 2]`
+  - `"beta"` &rarr; `rec_pars[, 3]`
+- **Raw parameter slot**. Pass the storage name (`"R_log_sd"`, `"rec_pars"`, `"log_M1"`, etc.); `slots` must index the full array and `transform` controls the scale.
+
+`slots` is a list of integer index vectors — one entry per cell to hold fixed — and (under raw names) its entries must match the dimensionality of the parameter array (length 1 for vectors, length 2 for matrices, length 3 for 3-D arrays). `values` is a list of value grids parallel to `slots`; the full grid of fits is `expand.grid(values)`, so multiple slots produce an N-D cross-profile.
+
+```{r}
+# 1-D profile: sigmaR for species 1 (natural-scale alias)
+prof_sigmaR <- profile(
+  fitted = model_1,
+  param    = "sigmaR",
+  slots    = list(1),
+  values   = list(seq(0.1, 1.5, by = 0.1))
+)
+
+plot(prof_sigmaR$grid$slot_1,
+     prof_sigmaR$nll - min(prof_sigmaR$nll, na.rm = TRUE),
+     type = "l", xlab = "sigmaR", ylab = "dNLL")
+
+# 1-D profile: SRR alpha for species 1
+# (alias fills in the rec_pars column; slot is just the species index)
+prof_alpha <- profile(
+  fitted = model_1,
+  param    = "alpha",
+  slots    = list(1),
+  values   = list(seq(2, 80, length.out = 20))
+)
+
+# 2-D cross-profile: M1 across sex for species 1, age 1
+prof_M_sex <- profile(
+  fitted = model_1,
+  param    = "M1",
+  slots    = list(c(1, 1, 1), c(1, 2, 1)),  # males and females
+  values   = list(seq(0.10, 0.40, by = 0.05),
+                  seq(0.10, 0.40, by = 0.05))
+)
+```
+
+`profile()` returns `Rceattle_list` (one fit per grid row, `NULL` where the fit failed), `grid` (the user-scale value grid), `nll` (joint NLL aligned with `grid`, `NA` for non-converged fits), and echoes of `param` and `slots`. To cross-profile across multiple species, supply one slot per species (e.g. `slots = list(1, 2, 3)` with `param = "sigmaR"`); to cross-profile M1 across sex, supply one slot per sex as in the third example above. `cores` behaves the same way as in the other diagnostic functions.
+
+## Comparing single- and multi-species trajectories
+
+Plotting sensitivity runs together is itself a useful diagnostic — large divergences in biomass or mortality deserve scrutiny.
+
+```{r}
+mod_list  <- list(model_1, model_1_retro$Rceattle_list$Year_2019)
+mod_names <- 1:length(mod_list)
 
 plot_biomass(Rceattle = mod_list, model_names = mod_names)
 plot_recruitment(Rceattle = mod_list, model_names = mod_names, add_ci = TRUE)
 plot_depletionSSB(Rceattle = mod_list, model_names = mod_names)
-plot_m_at_age(Rceattle = mod_list, model_names = mod_names, age = 2)
-plot_m2_at_age_prop(Rceattle = mod_list, model_names = mod_names)
-plot_b_eaten(Rceattle = mod_list, model_names = mod_names)
-plot_b_eaten_prop(Rceattle = mod_list, model_names = mod_names)
+```
+
+
+## Model average
+
+For model averaging across model variants, see `?model_average`.
+
+```{r}
+mod_avg <- model_average(Rceattle = list(model_1, model_1), weights = c(1,1))
+plot_biomass(mod_avg)
 ```

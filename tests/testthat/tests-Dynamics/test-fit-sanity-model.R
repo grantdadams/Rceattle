@@ -81,9 +81,9 @@ testthat::test_that("Index, biomass, and catch = 0 match expected", {
 
   # * Fix params ----
   inits$rec_pars[,1] <- R0
-  inits$R_ln_sd <- 0
-  inits$ln_F[] <- -999 # No fishing
-  inits$index_ln_q[] <- 0 # Set q to 1
+  inits$R_log_sd <- 0
+  inits$log_F[] <- -999 # No fishing
+  inits$index_log_q[] <- 0 # Set q to 1
 
 
   # Specify logistic selectivity
@@ -95,7 +95,7 @@ testthat::test_that("Index, biomass, and catch = 0 match expected", {
 
 
   # Set logistic params
-  inits$ln_sel_slp[] <- -Inf
+  inits$log_sel_slp[] <- -Inf
   inits$sel_inf[] <- 0     # Females
 
   # Run
@@ -136,7 +136,7 @@ testthat::test_that("Index, biomass, and catch = 0 match expected", {
 testthat::test_that("Dynamics match CEATTLE single-species classic", {
 
   # Load old model
-  load(system.file("extdata/CEATTLE_classic_ss.Rdata",package="Rceattle"))
+  load(system.file("extdata/CEATTLE_classic_SS.Rdata",package="Rceattle"))
 
   # Load data and set up inits
   data(BS2017SS) # ?BS2017SS for more information on the data
@@ -160,7 +160,7 @@ testthat::test_that("Dynamics match CEATTLE single-species classic", {
   inits$init_dev[,1:20] <- CEATTLE_classic_SS$estimated_params$init_dev
   inits$x_tj[1:39, 1:3] <- t(CEATTLE_classic_SS$estimated_params$rec_dev)
   inits$rec_pars[,1] <- CEATTLE_classic_SS$estimated_params$ln_mn_rec
-  inits$ln_F[1:3, 1:39] <- CEATTLE_classic_SS$estimated_params$F_dev[,1:39] + CEATTLE_classic_SS$estimated_params$ln_mean_F
+  inits$log_F[1:3, 1:39] <- CEATTLE_classic_SS$estimated_params$F_dev[,1:39] + CEATTLE_classic_SS$estimated_params$ln_mean_F
   inits$sel_coff[1:3,1,] <- CEATTLE_classic_SS$estimated_params$fsh_sel_coff
   BS2017SS$M1_base[,3:23] <- (BS2017SS$M1_base[,3:23] + 1e-4)
 
@@ -228,14 +228,14 @@ testthat::test_that("Dynamics match multi-species CEATTLE classic", {
   inits$init_dev[,1:20] <- CEATTLE_classic_MS$estimated_params$init_dev
   inits$x_tj[1:39, 1:3] <- t(CEATTLE_classic_MS$estimated_params$rec_dev)
   inits$rec_pars[,1] <- CEATTLE_classic_MS$estimated_params$ln_mn_rec
-  inits$ln_F[1:3, 1:39] <- CEATTLE_classic_MS$estimated_params$F_dev[,1:39] + CEATTLE_classic_MS$estimated_params$ln_mean_F
+  inits$log_F[1:3, 1:39] <- CEATTLE_classic_MS$estimated_params$F_dev[,1:39] + CEATTLE_classic_MS$estimated_params$ln_mean_F
 
   # -- Sel
   inits$sel_coff[1:3,1,] <- CEATTLE_classic_MS$estimated_params$fsh_sel_coff
   inits$sel_inf[1,4:6,1] <- CEATTLE_classic_MS$estimated_params$srv_sel_inf[1,]
-  inits$ln_sel_slp[1,4:6,1] <- log(CEATTLE_classic_MS$estimated_params$srv_sel_slp[1,])
-  inits$index_ln_q[4:6] <- CEATTLE_classic_MS$estimated_params$log_srv_q
-  inits$index_ln_q[7] <- CEATTLE_classic_MS$estimated_params$log_eit_q # Need to scale by max sel because selectivity is rescaled to max = 1 in the CPP
+  inits$log_sel_slp[1,4:6,1] <- log(CEATTLE_classic_MS$estimated_params$srv_sel_slp[1,])
+  inits$index_log_q[4:6] <- CEATTLE_classic_MS$estimated_params$log_srv_q
+  inits$index_log_q[7] <- CEATTLE_classic_MS$estimated_params$log_eit_q # Need to scale by max sel because selectivity is rescaled to max = 1 in the CPP
 
   # - Update diet data
   BS2017MS_new <- BS2017MS

@@ -36,12 +36,12 @@ testthat::test_that("Estimated composition data matches expected", {
 
   # Build parameter object
   inits$sel_inf[1,,1] <- c(3,6,2.5,4)
-  inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
-  inits$ln_F[2,] <- log(0.2)
-  inits$ln_F[4,] <- log(0.2)
+  inits$log_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
+  inits$log_F[2,] <- log(0.2)
+  inits$log_F[4,] <- log(0.2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
-  inits$index_ln_q[] <- log(1)
-  inits$ln_M1[,1,] <- log(sim$model_quantities$M)
+  inits$index_log_q[] <- log(1)
+  inits$log_M1[,1,] <- log(sim$model_quantities$M)
 
   # Run
   fit <- suppressMessages(

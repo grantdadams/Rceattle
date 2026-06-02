@@ -71,7 +71,6 @@ plot_stock_recruit <-
       array(NA, dim = c(nspp, max(nyrshind), length(Rceattle)))
     rec_pars <-
       array(NA, dim = c(nspp, 3, length(Rceattle)))
-    beta_rec_pars <- list()
     env_data <- list()
 
 
@@ -79,8 +78,7 @@ plot_stock_recruit <-
       ssb_array[,1:nyrshind[mod],mod] <- Rceattle[[mod]]$quantities$ssb[,1:nyrshind[mod]]/1000000
       rec_array[,1:nyrshind[mod],mod] <- Rceattle[[mod]]$quantities$R[,1:nyrshind[mod]]/1000000
       rec_pars[,,mod] <- Rceattle[[mod]]$estimated_params$rec_pars
-      beta_rec_pars[[mod]] <- Rceattle[[mod]]$estimated_params$beta_rec_pars
-      env_data[[mod]] <-  Rceattle::rearrange_dat(Rceattle[[mod]]$data_list)$env_index
+      env_data[[mod]] <-  Rceattle::rearrange_data(Rceattle[[mod]]$data_list)$env_index
       if(!incl_proj){
         env_data[[mod]] <- env_data[[mod]][1:nyrshind[mod],]
       }
@@ -176,7 +174,7 @@ plot_stock_recruit <-
 
             # - Env curves
             for(env in 1:nrow(env_data[[mod]])){
-              curve(exp(rec_pars[species[sp], 2, mod]) * exp(env_data[[mod]][env,] %*% beta_rec_pars[[mod]][species[sp],]) * x * exp(-exp(rec_pars[species[sp], 3, mod]) * x),
+              curve(exp(rec_pars[species[sp], 2, mod]) * x * exp(-exp(rec_pars[species[sp], 3, mod]) * x),
                     from = 0, to = xmax[species[sp]],
                     lty = lty[mod], lwd = lwd/2, col = t_col(line_col[mod], percent = 85),
                     add = TRUE)

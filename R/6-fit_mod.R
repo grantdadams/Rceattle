@@ -8,6 +8,7 @@
 #'   (\code{model$estimated_params}). If \code{NULL}, parameters are initialized
 #'   from scratch via \code{\link{build_params}}.
 #' @param map (Optional) A map object from \code{\link{build_map}}.
+#' @param bounds (Optional) A bounds object from \code{\link{build_bounds}}. If NULL, bounds are built from the parameter list.
 #' @param file (Optional) Filename where files will be saved. If NULL, no file is saved.
 #' @param estimateMode 0 = Fit the hindcast model and projection with HCR specified via \code{HCR}. 1 = Fit the hindcast model only (no projection). 2 = Run the projection only with HCR specified via \code{HCR} given the initial parameters in \code{inits}.  3 = debug mode 1: runs the model through MakeADFun, but not nlminb, 4 = runs the model through MakeADFun and nlminb (will all parameters mapped out).
 #' @param projection_uncertainty logical. If TRUE, accounts for hindcast parameter uncertainty in projections when using an HCR. Default is FALSE for speed.
@@ -89,6 +90,7 @@ fit_mod <-
     data_list = NULL,
     inits = NULL,
     map = NULL,
+    bounds = NULL,
     file = NULL,
     estimateMode = 0,
     projection_uncertainty = FALSE,
@@ -179,6 +181,19 @@ fit_mod <-
     verbose             <- fit_control$verbose
     control             <- fit_control$nlminb_control
 
+    # ---------------------------------------------------------------------
+    # Pipeline overview (file prefixes match this execution order):
+    #   0-clean_data.R            clean_data() / 0-switches.R switch_check()
+    #   1-data_check.R            data_check()      validate inputs
+    #   2-build_params.R          build_params()    starting parameter list
+    #   3-build_map.R             build_map()       TMB map (fixed vs estimated)
+    #   4-build_parameter_bounds.R build_bounds()   lower/upper bounds
+    #   5-rearrange_data.R        rearrange_data()  reshape data for TMB
+    #   6-fit_mod.R               (this file)       MakeADFun + nlminb + sdreport
+    #   6-rename_output.R         rename_output()   label derived quantities
+    # HCR map (0-build_hcr.R build_hcr_map()) is applied during projection below.
+    # ---------------------------------------------------------------------
+
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 0 - Start ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -230,7 +245,7 @@ fit_mod <-
     data_list$srr_est_mode <- recFun$srr_est_mode
     data_list$srr_prior    <- extend_length(recFun$srr_prior)
     data_list$srr_prior_sd <- extend_length(recFun$srr_prior_sd)
-    data_list$srr_indices  <- recFun$srr_indices
+    data_list$srr_linkages <- recFun$linkages
     data_list$Bmsy_lim     <- extend_length(recFun$Bmsy_lim)
 
     # * M switches ----
@@ -250,12 +265,26 @@ fit_mod <-
     data_list$M_prior      <- extend_length(M1Fun$M_prior)
     data_list$M_prior_sd   <- extend_length(M1Fun$M_prior_sd)
     data_list$M1_indices   <- M1Fun$M1_indices
+    data_list$M1_linkages  <- M1Fun$linkages
 
 
     # * Growth switches ----
-    data_list$growth_model   <- extend_length(growthFun$growth_model)
-    data_list$growth_re      <- extend_length(growthFun$growth_re)
-    data_list$growth_indices <- growthFun$growth_indices
+    data_list$growth_fun      <- growthFun$fun
+    data_list$growth_linkages <- growthFun$linkages
+    data_list$growth_model    <- extend_length(growthFun$growth_model)
+    data_list$growth_re       <- extend_length(growthFun$growth_re)
+    data_list$growth_indices  <- growthFun$growth_indices
+    # VB anchor age per species (= SS3 Growth_Age_for_L1). Resolution
+    # order: build_growth() user arg > data_list$growth_age_L1 (e.g. from
+    # ss3_to_rceattle converter) > max(0.5, minage[sp]) fallback. The
+    # fallback keeps minage >= 1 models backwards-compatible and gives
+    # minage = 0 models an SS3-style half-year anchor.
+    gal1 <- extend_length(growthFun$growth_age_L1)
+    if (!is.null(data_list$growth_age_L1)) {
+      gal1[is.na(gal1)] <- extend_length(data_list$growth_age_L1)[is.na(gal1)]
+    }
+    gal1[is.na(gal1)] <- pmax(0.5, as.numeric(extend_length(data_list$minage)))[is.na(gal1)]
+    data_list$growth_age_L1 <- gal1
 
 
     # * HCR Switches ----
@@ -281,6 +310,41 @@ fit_mod <-
 
     # Check for data error
     data_check(data_list)
+
+    # * Pool process linkages into a global table + design matrix ----
+    # No-op when no build_*() supplied a `linkages` list. When
+    # linkages are present, this materializes each spec against
+    # data_list$env_data and unions design columns by name. The
+    # resulting `linkage_table` and `linkage_X` are used downstream
+    # once the TMB template knows how to consume them; for now they
+    # are computed (and validated) but not yet plumbed into TMB.
+    .linkage_pool <- pool_linkages(
+      spec_groups = list(growth      = data_list$growth_linkages,
+                         M           = data_list$M1_linkages,
+                         recruitment = data_list$srr_linkages),
+      env_data    = data_list$env_data,
+      strata      = list(
+        species = seq_len(data_list$nspp),
+        sex     = if (length(data_list$nsex) > 1L &&
+                      length(unique(data_list$nsex)) > 1L) {
+          stats::setNames(lapply(seq_len(data_list$nspp),
+                                 function(sp) seq_len(data_list$nsex[sp])),
+                          as.character(seq_len(data_list$nspp)))
+        } else {
+          seq_len(max(data_list$nsex))
+        },
+        age_bin = if (length(data_list$nages) > 1L &&
+                      length(unique(data_list$nages)) > 1L) {
+          stats::setNames(lapply(seq_len(data_list$nspp),
+                                function(sp) seq_len(data_list$nages[sp])),
+                         as.character(seq_len(data_list$nspp)))
+        } else {
+          seq_len(max(data_list$nages))
+        }
+      )
+    )
+    data_list$linkage_table <- .linkage_pool$table
+    data_list$linkage_X     <- .linkage_pool$X
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 2: DSEM ----
@@ -322,7 +386,7 @@ fit_mod <-
         dplyr::mutate(Year = Year - data_list$styr + 1) |>
         dplyr::select("Fleet_code", "Year") |>
         as.matrix()
-      start_par$ln_F[zero_catch] <- -999
+      start_par$log_F[zero_catch] <- -999
       rm(zero_catch)
 
       # Update proj F prop
@@ -330,6 +394,12 @@ fit_mod <-
     }
 
     mod_objects$initial_params <- start_par
+
+    # Build parameter bounds (mirrors start_par incl. DSEM params) unless supplied
+    if (is.null(bounds)) {
+      bounds <- Rceattle::build_bounds(param_list = start_par, data_list)
+    }
+
     if (verbose > 0) { message("Step 1: Parameter build complete") }
 
 
@@ -372,10 +442,10 @@ fit_mod <-
       random_vars <- c(random_vars, "index_q_dev")
     }
     if (random_sel) {
-      random_vars <- c(random_vars, "ln_sel_slp_dev", "sel_inf_dev", "sel_coff_dev")
+      random_vars <- c(random_vars, "log_sel_slp_dev", "sel_inf_dev", "sel_coff_dev")
     }
     if (sum(data_list$M1_re) > 0) {
-      random_vars <- c(random_vars, "ln_M1_dev")
+      random_vars <- c(random_vars, "log_M1_dev")
     }
 
 
@@ -395,10 +465,50 @@ fit_mod <-
     }
 
     # Reorganize data for .cpp file
-    data_list_reorganized <- Rceattle::rearrange_dat(data_list)
-    data_list_reorganized = c(list(model = TMBfilename), data_list_reorganized)
-    data_list_reorganized$forecast <- rep(0, data_list_reorganized$nspp)            # Internal hindcast switch
+    data_list_reorganized <- Rceattle::rearrange_data(data_list)
+    data_list_reorganized <- c(list(model = TMBfilename), data_list_reorganized)
+    data_list_reorganized$forecast <- rep(0, data_list_reorganized$nspp) # hindcast switch
     data_list_reorganized <- c(data_list_reorganized, mod_objects$dsem$tmb_inputs$data) # Add dsem data
+
+    # Scrub fields that TMB's dataSanitize cannot recurse into (data
+    # frames with character columns, list-of-spec objects, character
+    # vectors). They live on data_list for downstream R code; they
+    # are re-injected below in TMB-friendly form.
+    data_list_reorganized$linkage_table   <- NULL
+    data_list_reorganized$growth_linkages <- NULL
+    data_list_reorganized$growth_fun      <- NULL
+    data_list_reorganized$M1_linkages     <- NULL
+    data_list_reorganized$srr_linkages    <- NULL
+
+    # * Inject linkage-table encoding into the TMB DATA ----
+    # Empty when no build_*() supplied a `linkages` list. TMB's
+    # DATA_MATRIX can be touchy about 0-dim shapes during ADFun
+    # construction, so we substitute a single-cell sentinel when
+    # there are no linkages -- the cpp loop short-circuits on
+    # n_linkage == 0 without ever indexing into `linkage_X`.
+    .linkage_table_now <- data_list$linkage_table %||% new_linkage_table()
+    .linkage_X_now     <- if (nrow(.linkage_table_now) > 0L) {
+      data_list$linkage_X
+    } else {
+      matrix(0, nrow = 1L, ncol = 1L)
+    }
+    .linkage_enc <- encode_linkage_for_tmb(
+      table = .linkage_table_now,
+      X     = .linkage_X_now
+    )
+    # The TMB cpp reads these by exact name; do not rename.
+    data_list_reorganized$linkage_process      <- .linkage_enc$linkage_process
+    data_list_reorganized$linkage_param        <- .linkage_enc$linkage_param
+    data_list_reorganized$linkage_species      <- .linkage_enc$linkage_species
+    data_list_reorganized$linkage_sex          <- .linkage_enc$linkage_sex
+    data_list_reorganized$linkage_age_bin      <- .linkage_enc$linkage_age_bin
+    data_list_reorganized$linkage_X_col        <- .linkage_enc$linkage_X_col
+    data_list_reorganized$linkage_link         <- .linkage_enc$linkage_link
+    data_list_reorganized$linkage_is_intercept <- .linkage_enc$linkage_is_intercept
+    data_list_reorganized$linkage_prior_family <- .linkage_enc$linkage_prior_family
+    data_list_reorganized$linkage_prior_p1     <- .linkage_enc$linkage_prior_p1
+    data_list_reorganized$linkage_prior_p2     <- .linkage_enc$linkage_prior_p2
+    data_list_reorganized$linkage_X            <- .linkage_enc$linkage_X
 
     # Update comp weights, future F (if input), and F_prop from data
     # Age/length composition
@@ -417,7 +527,7 @@ fit_mod <-
     start_par$proj_F_prop <- data_list$fleet_control$proj_F_prop
     # Fixed fishing mortality for projections for each species
     if (!is.null(HCR$Ftarget) & HCR$HCR %in% c(2, "ConstantF")) {
-      start_par$ln_Ftarget <- log(HCR$Ftarget)
+      start_par$log_Ftarget <- log(HCR$Ftarget)
     }
 
 
@@ -438,7 +548,7 @@ fit_mod <-
           m1[sp, sex_values[j], 1:max(data_list$nages, na.rm = TRUE)] <- as.numeric(data_list$M1_base[i, (1:max(data_list$nages, na.rm = TRUE)) + 2])
         }
       }
-      start_par$ln_M1 <- log(m1)
+      start_par$log_M1 <- log(m1)
     }
 
     # Update alpha for stock-recruit if fixed/prior and initial parameter values input
@@ -452,21 +562,24 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 7: Set up parameter bounds ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    # L <- c()
-    # U <- c()
-    # for(i in 1:length(map$mapFactor)){
-    #   if(!names(map$mapFactor)[i] %in% random_vars){ # Dont have bounds for random effects
-    #     L = c(L, unlist(bounds$lower[[i]])[which(!is.na(unlist(map$mapFactor[[i]])) & !duplicated(unlist(map$mapFactor[[i]])))])
-    #     U = c(U, unlist(bounds$upper[[i]])[which(!is.na(unlist(map$mapFactor[[i]])) & !duplicated(unlist(map$mapFactor[[i]])))])
-    #   }
-    # }
+    L <- c()
+    U <- c()
+    for (i in 1:length(map$mapFactor)) {
+      nm <- names(map$mapFactor)[i]
+      if (!nm %in% random_vars) { # no bounds for random effects
+        mf   <- unlist(map$mapFactor[[i]])
+        keep <- which(!is.na(mf) & !duplicated(mf))
+        L <- c(L, unlist(bounds$lower[[nm]])[keep])
+        U <- c(U, unlist(bounds$upper[[nm]])[keep])
+      }
+    }
 
-    # # Dimension check
-    # start_par <- start_par[names(map$mapFactor), drop = F]
-    # dim_check <- sapply(start_par, function(x) length(unlist(x))) == sapply(map$mapFactor, function(x) length(unlist(x)))
-    # if(sum(dim_check) != length(dim_check)){
-    #   stop(paste0("Map and parameter objects are not the same size for: ", names(dim_check)[which(dim_check == FALSE)]))
-    # }
+    # Dimension check
+    start_par <- start_par[names(map$mapFactor), drop = FALSE]
+    dim_check <- sapply(start_par, function(x) length(unlist(x))) == sapply(map$mapFactor, function(x) length(unlist(x)))
+    if (sum(dim_check) != length(dim_check)) {
+      stop(paste0("Map and parameter objects are not the same size for: ", names(dim_check)[which(dim_check == FALSE)]))
+    }
 
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -589,13 +702,8 @@ fit_mod <-
     if (estimateMode > 1) { # debugging / projection-only: use initial parameters
       last_par <- start_par
     } else {
-      if (length(random_vars) == 0) {
-        last_par <- try(obj$env$parList(obj$env$last.par.best))
-      } else {
-        last_par <- try(obj$env$parList())
-      }
+      last_par <- obj$env$parList(par=obj$env$last.par.best)
     }
-
 
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 10: Run projection ----
@@ -660,8 +768,8 @@ fit_mod <-
 
             # Adjust Ftarget inits
             params_off <- c(1:data_list$nspp)[which(data_list$HCRorder > HCRiter)]
-            last_par$ln_Ftarget[params_on]  <- 0
-            last_par$ln_Ftarget[params_off] <- -999
+            last_par$log_Ftarget[params_on]  <- 0
+            last_par$log_Ftarget[params_off] <- -999
 
             obj <- TMB::MakeADFun(
               data_list_reorganized,
@@ -687,7 +795,7 @@ fit_mod <-
               )
 
               # Update F from opt
-              last_par$ln_Ftarget[params_on] <- opt$par[1:length(params_on)]
+              last_par$log_Ftarget[params_on] <- opt$par[1:length(params_on)]
             }
           }
         }
@@ -701,11 +809,7 @@ fit_mod <-
         if (estimateMode > 2) { # debugging: use initial parameters
           last_par <- start_par
         } else {
-          if (length(random_vars) == 0) {
-            last_par <- try(obj$env$parList(obj$env$last.par.best))
-          } else {
-            last_par <- try(obj$env$parList())
-          }
+          last_par <- obj$env$parList(par=obj$env$last.par.best)
         }
 
 
@@ -756,8 +860,8 @@ fit_mod <-
 
     mod_objects$quantities <- Rceattle::rename_output(data_list = data_list, quantities = quantities)
 
-    mod_objects$data_list <- Rceattle::calc_mcall_ianelli(data_list = data_list, data_list_reorganized = data_list_reorganized, quantities = quantities)
-    mod_objects$data_list <- Rceattle::calc_mcall_ianelli_diet(data_list = mod_objects$data_list, quantities = quantities)
+    mod_objects$data_list <- calc_mcall_ianelli(data_list = data_list, data_list_reorganized = data_list_reorganized, quantities = quantities)
+    mod_objects$data_list <- calc_mcall_ianelli_diet(data_list = mod_objects$data_list, quantities = quantities)
 
     # -- Update dsem pars
     mod_objects$dsem$obj$par
@@ -775,7 +879,7 @@ fit_mod <-
     class(mod_objects) <- "Rceattle"
 
     if (!is.null(file)) {
-      save(mod_objects, file = paste0(file, ".RData"))
+      save(mod_objects, file = paste0(file, ".Rdata"))
     }
 
     # Free up memory

@@ -324,7 +324,7 @@ simData$ration_data <- cbind(data.frame(Species = 1,
 ss_fix <- Rceattle::fit_mod(data_list = simData,
                             inits = NULL, # Initial parameters = 0
                             estimateMode = 3, # Don't estimate
-                            growthFun = build_growth(growth_model = 1), # Von Bert
+                            growthFun = build_growth(fun = "vonBertalanffy"), # Von Bert
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
                             phase = FALSE,
@@ -343,29 +343,29 @@ inits$x_tj[2:nyrs,1] <- wham_model$parList$log_NAA[,1] -  wham_model$parList$mea
 inits$init_dev[1,] <- wham_model$parList$log_N1_pars[1] -  wham_model$parList$mean_rec_pars # WHAM assumes rec-dev in year 1 is applied to year-1 to year - nages
 
 # - F (random walk in WHAM)
-inits$ln_F[2,1]  <- wham_model$parList$log_F1
+inits$log_F[2,1]  <- wham_model$parList$log_F1
 for(y in 2:nyrs){
-  inits$ln_F[2,y] <- inits$ln_F[2,y-1] + wham_model$parList$F_devs[y-1,1]
+  inits$log_F[2,y] <- inits$log_F[2,y-1] + wham_model$parList$F_devs[y-1,1]
 }
-inits$ln_Finit[1] <- -Inf
+inits$log_Finit[1] <- -Inf
 
 # - Selectivity
 selpars <-  wham_model$env$data$selpars_lower + ( wham_model$env$data$selpars_upper -  wham_model$env$data$selpars_lower) / (1.0 + exp(-(wham_model$parList$logit_selpars)))
-inits$ln_sel_slp[1,,1] <- rev(log(1/selpars[,24]))
+inits$log_sel_slp[1,,1] <- rev(log(1/selpars[,24]))
 inits$sel_inf[1,,1] <- rev(selpars[,23])
 
 # - Q
-inits$index_ln_q[1] <- log(wham_model$env$data$q_lower + (wham_model$env$data$q_upper - wham_model$env$data$q_lower) / (1 + exp(-wham_model$parList$logit_q)))
+inits$index_log_q[1] <- log(wham_model$env$data$q_lower + (wham_model$env$data$q_upper - wham_model$env$data$q_lower) / (1 + exp(-wham_model$parList$logit_q)))
 
 # - Growth
-inits$ln_growth_pars[1,1,1:3] <- wham_model$parList$growth_a[c(1,3,2),1]
-inits$growth_ln_sd[1,1,] <- wham_model$parList$SDgrowth_par
+inits$log_growth_pars[1,1,1:3] <- wham_model$parList$growth_a[c(1,3,2),1]
+inits$growth_log_sd[1,1,] <- wham_model$parList$SDgrowth_par
 
 
 ss_inits <- Rceattle::fit_mod(data_list = simData,
                               inits = inits, # Initial parameters = 0
                               estimateMode = 3, # Do not estimate
-                              growthFun = build_growth(growth_model = 1), # Von Bert
+                              growthFun = build_growth(fun = "vonBertalanffy"), # Von Bert
                               random_rec = FALSE, # No random recruitment
                               msmMode = 0, # Single species mode
                               phase = FALSE,
@@ -456,7 +456,7 @@ wham_model$rep$nll_NAA # Uses lognormal bias correction
 ss_est <- Rceattle::fit_mod(data_list = simData,
                             inits = NULL, # Initial parameters = 0
                             estimateMode = 0, # estimate
-                            growthFun = build_growth(growth_model = 1), # Von Bert
+                            growthFun = build_growth(fun = "vonBertalanffy"), # Von Bert
                             random_rec = FALSE, # No random recruitment
                             msmMode = 0, # Single species mode
                             phase = FALSE,

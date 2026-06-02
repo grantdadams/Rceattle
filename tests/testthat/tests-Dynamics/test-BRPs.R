@@ -19,12 +19,12 @@ testthat::test_that("Test SB0 under mean recruitment", {
   )
   inits <- ss_run$estimated_params
   inits$rec_pars[,1] <- R0
-  inits$R_ln_sd <- 0
-  inits$ln_F[] <- -999 # No fishing
-  inits$index_ln_q[] <- 0 # Set q to 1
+  inits$R_log_sd <- 0
+  inits$log_F[] <- -999 # No fishing
+  inits$index_log_q[] <- 0 # Set q to 1
 
   # Set logistic params
-  inits$ln_sel_slp[] <- -Inf
+  inits$log_sel_slp[] <- -Inf
   inits$sel_inf[] <- 0     # Females
   inits$x_tj[] <- 0.02 # Adding .1 to R0
 
@@ -80,12 +80,12 @@ testthat::test_that("Test SB0 under R0", {
   )
   inits <- ss_run$estimated_params
   inits$rec_pars[,1] <- R0
-  inits$R_ln_sd <- 0
-  inits$ln_F[] <- -999 # No fishing
-  inits$index_ln_q[] <- 0 # Set q to 1
+  inits$R_log_sd <- 0
+  inits$log_F[] <- -999 # No fishing
+  inits$index_log_q[] <- 0 # Set q to 1
 
   # Set logistic params
-  inits$ln_sel_slp[] <- -Inf
+  inits$log_sel_slp[] <- -Inf
   inits$sel_inf[] <- 0     # Females
   inits$x_tj[] <- 0.02 # Adding .1 to R0
 
@@ -418,21 +418,26 @@ testthat::test_that("Test mean recruitment calculation", {
 
 
   # Fit multi-species
+  # make_msm_test_data() produces a parametric-growth fixture (CAAL
+  # populated, growth_model = 1), so fit_mod() must be told to use
+  # vonBertalanffy growth -- otherwise it defaults to empirical and
+  # data_check rejects the empirical-growth + CAAL combination.
   ss_run <- suppressMessages(
     Rceattle::fit_mod(data_list = simData,
                       estimateMode = 3, # Don't estimate
+                      growthFun = build_growth(fun = "vonBertalanffy"),
                       msmMode = 0, # Single species mode
                       fit_control = fit_control(
                         verbose = 1))
   )
   inits <- ss_run$estimated_params
   inits$sel_inf[1,,1] <- c(3,6,2.5,4)
-  inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
-  inits$ln_F[2,] <- log(Fmort)
-  inits$ln_F[4,] <- log(Fmort2)
+  inits$log_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
+  inits$log_F[2,] <- log(Fmort)
+  inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
-  inits$index_ln_q[] <- log(1)
-  inits$R_ln_sd[] <- log(1)
+  inits$index_log_q[] <- log(1)
+  inits$R_log_sd[] <- log(1)
   inits$x_tj[1:30, 1:simData$nspp] <- t(sim$model_quantities$rec_devs)
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
@@ -440,6 +445,7 @@ testthat::test_that("Test mean recruitment calculation", {
                               inits = inits, # Initial parameters from inits
                               map = ss_run$map,
                               estimateMode = 3, # Don't estimate
+                              growthFun = build_growth(fun = "vonBertalanffy"),
                               recFun = build_srr(
                                 proj_mean_rec = TRUE, # Project using mean rec over hindcast
                               ),

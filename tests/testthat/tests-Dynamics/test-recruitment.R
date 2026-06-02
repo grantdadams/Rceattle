@@ -20,7 +20,7 @@ testthat::test_that("mean recruitment and devs", {
   inits <- mod0$estimated_params
   inits$rec_pars[1,1] <- R0
   inits$x_tj[1:nyrs,1] <- Rdev
-  inits$R_ln_sd <- 0
+  inits$R_log_sd <- 0
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = dat,
@@ -68,8 +68,8 @@ testthat::test_that("ssb under mean recruitment", {
                               verbose = 0))
   inits <- mod0$estimated_params
   inits$rec_pars[,1] <- R0
-  inits$R_ln_sd <- rep(0, 3)
-  inits$ln_F[] <- -999 # No fishing
+  inits$R_log_sd <- rep(0, 3)
+  inits$log_F[] <- -999 # No fishing
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
@@ -105,15 +105,13 @@ testthat::test_that("ssb and beverton recruitment", {
   nyrs <- length(yrs)
 
   # Set params
-  GOA2018SS$srr_fun <- 4
-  GOA2018SS$initMode <- 1
   mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, recFun = build_srr(srr_fun = 2, proj_mean_rec = FALSE, srr_est_mode = 1), initMode = "NonEquilibrium", fit_control = fit_control(verbose = 0)) )
   inits <- mod0$estimated_params
   alpha = 0.4
   beta = 1e-6
   inits$rec_pars[,2] <- log(alpha)
   inits$rec_pars[,3] <- log(beta)
-  inits$ln_F[] <- -999 # No fishing
+  inits$log_F[] <- -999 # No fishing
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,
@@ -173,15 +171,13 @@ testthat::test_that("ssb and ricker recruitment", {
   nyrs <- length(yrs)
 
   # Set params
-  GOA2018SS$srr_fun <- 4
-  GOA2018SS$initMode <- 1
   mod0 <- suppressMessages( fit_mod(data_list = GOA2018SS, inits = NULL, estimateMode = 3, random_rec = FALSE, msmMode = 0, recFun = build_srr(srr_fun = 4, proj_mean_rec = FALSE, srr_est_mode = 1), initMode = "NonEquilibrium", fit_control = fit_control(verbose = 0)) )
   inits <- mod0$estimated_params
   alpha = 0.4
   beta = 1e-6
   inits$rec_pars[,2] <- log(alpha)
   inits$rec_pars[,3] <- log(beta)
-  inits$ln_F[] <- -999 # No fishing
+  inits$log_F[] <- -999 # No fishing
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = GOA2018SS,

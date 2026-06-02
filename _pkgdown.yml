@@ -44,13 +44,15 @@ navbar:
         href: articles/introduction.html
       - text: "Building a data object without Excel"
         href: articles/data-without-excel.html
-      - text: "Model options and functionality"
+      - text: "--- Model options ---"
+      - text: "Overview of model options and functionality"
         href: articles/model-options-and-functionality.html
-      - text: "--- Model Types ---"
       - text: "Single- vs. multi-species models"
         href: articles/single-vs-multispecies.html
-      - text: "Converting from Stock Synthesis"
-        href: articles/stock-synthesis-conversion.html
+      - text: "Growth estimation"
+        href: articles/growth-estimation.html
+      - text: "Environmental linkages and priors"
+        href: articles/environmental-linkages-and-priors.html
       - text: "--- Diagnostics & Inference ---"
       - text: "Model diagnostics"
         href: articles/model-diagnostics.html
@@ -62,6 +64,8 @@ navbar:
       - text: "--- Reference ---"
       - text: "Model parameterizations"
         href: articles/model-parameterizations.html
+      - text: "Converting from Stock Synthesis"
+        href: articles/stock-synthesis-conversion.html
     github:
       icon: fab fa-github
       href: https://github.com/grantdadams/Rceattle
@@ -88,6 +92,7 @@ articles:
     Checking model fit, retrospective patterns, and optimiser stability.
   contents:
   - model-diagnostics
+  - growth-estimation
 
 - title: Projections and MSE
   desc: >
@@ -101,6 +106,7 @@ articles:
   desc: Model parameterizations, equations, and switch settings.
   contents:
   - model-parameterizations
+  - environmental-linkages-and-priors
 
 reference:
 - title: "Data input / output"
@@ -111,7 +117,6 @@ reference:
   - clean_data
   - combine_data
   - rearrange_dat
-  - transpose_fleet_control
   - data_check
 
 - title: "Model setup"
@@ -125,6 +130,8 @@ reference:
   - build_srr
   - build_hcr
   - build_hcr_map
+  - fit_control
+  - linkage_spec
 
 - title: "Map helpers"
   desc: Low-level helpers called by `build_map()` to configure parameter estimation.
@@ -167,6 +174,8 @@ reference:
   contents:
   - retrospective
   - jitter
+  - profile.Rceattle
+  - self_test
   - sim_mod
   - compare_sim
 
@@ -188,8 +197,9 @@ reference:
   - plot_depletion
   - plot_depletionSSB
   - plot_exploitable_biomass
+  - plot_ssb_depletion
 
-- title: "Plotting — fishing and mortality"
+- title: "Plotting — fishing and natural mortality"
   desc: Visualize fishing mortality, catch, and total mortality.
   contents:
   - plot_catch
@@ -257,8 +267,14 @@ reference:
   - get_weight_at_age_r
   - rich.colors.short
   - t_col
-
-news:
-  releases:
-  - text: "Version 4.0.2"
-    href: news/index.html
+  - as.data.frame.Rceattle
+  - coef.Rceattle
+  - logLik.Rceattle
+  - plot.Rceattle
+  - residuals.Rceattle
+  - vcov.Rceattle
+  - prior_beta
+  - prior_gamma
+  - prior_lognormal
+  - prior_normal
+  - validate_switches

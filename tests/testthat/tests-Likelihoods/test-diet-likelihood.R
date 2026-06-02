@@ -46,12 +46,12 @@ testthat::test_that("Diet proportion multinomial likelihood (jnll_comp) matches 
   inits$log_gam_b <- log(gam_b)
   inits$log_phi <- log_phi
   inits$sel_inf[1,,1] <- c(3,6,2.5,4)
-  inits$ln_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
-  inits$ln_F[2,] <- log(Fmort)
-  inits$ln_F[4,] <- log(Fmort2)
+  inits$log_sel_slp[1,,1] <- log(c(2,2.5,2,2.5))
+  inits$log_F[2,] <- log(Fmort)
+  inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
-  inits$index_ln_q[] <- log(1)
-  inits$R_ln_sd[] <- log(1)
+  inits$index_log_q[] <- log(1)
+  inits$R_log_sd[] <- log(1)
   inits$x_tj[1:30, 1:simData$nspp] <- sim$model_quantities$rec_devs
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
@@ -76,7 +76,7 @@ testthat::test_that("Diet proportion multinomial likelihood (jnll_comp) matches 
   r_diet_nll <- rep(0, nspp)
 
   # Rceattle stores stomach_id in 0-indexed format for TMB, adjust to 1-indexed for R
-  re_data <-Rceattle::rearrange_dat(mod$data_list)
+  re_data <-Rceattle::rearrange_data(mod$data_list)
   stomach_ids <-re_data$stomach_id + 1
   unique_stomachs <- unique(stomach_ids)
 

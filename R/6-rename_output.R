@@ -7,7 +7,7 @@
 #'
 #' @export
 #'
-rename_output = function(data_list = NULL, quantities = NULL){
+rename_output <- function(data_list = NULL, quantities = NULL){
 
   # Dimension attributed
   max_age <- max(data_list$nages, na.rm = TRUE)
@@ -31,7 +31,6 @@ rename_output = function(data_list = NULL, quantities = NULL){
   names(quantities$Ftarget) <- data_list$spnames
   names(quantities$gam_a) <- data_list$spnames
   names(quantities$gam_b) <- data_list$spnames
-  names(quantities$R0) <- data_list$spnames
   names(quantities$R_init) <- data_list$spnames
   names(quantities$SPR0) <- data_list$spnames
   names(quantities$SPRFinit) <- data_list$spnames
@@ -40,8 +39,8 @@ rename_output = function(data_list = NULL, quantities = NULL){
   names(quantities$steepness) <- data_list$spnames
 
   # * Fleets ----
-  names(quantities$ln_catch_sd) <- data_list$catch_data$Fleet_name
-  names(quantities$ln_index_sd) <- data_list$index_data$Fleet_name
+  names(quantities$log_catch_sd) <- data_list$catch_data$Fleet_name
+  names(quantities$log_index_sd) <- data_list$index_data$Fleet_name
 
 
   # * 2D array ----
@@ -51,6 +50,7 @@ rename_output = function(data_list = NULL, quantities = NULL){
   dimnames(quantities$B0) <- list(data_list$spnames, yrs_proj)
   dimnames(quantities$DynamicB0) <- list(data_list$spnames, yrs_proj)
   dimnames(quantities$exploitable_biomass) <- list(data_list$spnames, yrs_proj)
+  dimnames(quantities$R0) <- list(data_list$spnames, yrs_proj)
 
   dimnames(quantities$ssb_depletion) <- list(data_list$spnames, yrs_proj)
   dimnames(quantities$ssb) <- list(data_list$spnames, yrs_proj)
@@ -87,6 +87,12 @@ rename_output = function(data_list = NULL, quantities = NULL){
   dimnames(quantities$N_at_age) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
   dimnames(quantities$NByage0) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
   dimnames(quantities$NByageF) <- list(data_list$spnames, sex_labels, paste0("Age", 1:max_age), yrs_proj)
+  # `growth_parameters` and `growth_linkage_offset` carry only the
+  # mean-growth params (log_K, log_L1, log_Linf, log_m); the SD
+  # endpoints in `GROWTH_LINKAGE_PARAMS` live on `growth_log_sd` and
+  # have no year dim, so they are not part of this last dimension.
+  dimnames(quantities$growth_parameters) <- list(data_list$spnames, sex_labels, yrs_proj, .GROWTH_MEAN_PARAMS)
+  dimnames(quantities$growth_linkage_offset) <- list(data_list$spnames, sex_labels, yrs_proj, .GROWTH_MEAN_PARAMS)
 
   dimnames(quantities$weight_hat) <- dimnames(quantities$length_hat) <- list(
     c(paste(rep(data_list$spnames, each = 2), rep(c("biomass length", "spawn length"), data_list$nspp)), data_list$fleet_control$Fleet_name),
@@ -140,7 +146,8 @@ rename_output = function(data_list = NULL, quantities = NULL){
     "M random effects",
     "Ration",
     "Ration penalties",
-    "Stomach content data"
+    "Stomach content data",
+    "Linkage-table priors"
   )
 
   return(quantities)
@@ -153,8 +160,8 @@ rename_output = function(data_list = NULL, quantities = NULL){
 #' @param data_list_reorganized reorganized data_list
 #' @param quantities list of "report" objects from Rceattle.
 #'
-#' @export
-#'
+#' @keywords internal
+#' @noRd
 calc_mcall_ianelli <- function(data_list = NULL, data_list_reorganized = NULL, quantities = NULL){
 
 
@@ -182,8 +189,8 @@ calc_mcall_ianelli <- function(data_list = NULL, data_list_reorganized = NULL, q
 #' @param data_list an Rceattle data_list
 #' @param quantities list of "report" objects from Rceattle, including diet_hat predictions
 #'
-#' @export
-#'
+#' @keywords internal
+#' @noRd
 calc_mcall_ianelli_diet <- function(data_list = NULL, quantities = NULL){
 
   # - Calculate Mcallister-Iannelli coefficients for diet data

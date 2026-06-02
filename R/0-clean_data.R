@@ -6,8 +6,53 @@
 #'
 clean_data <- function(data_list){
 
-  # Transpose fleet control
-  data_list <- transpose_fleet_control(data_list)
+  # --- 0. Default-fill optional data.frame fields ----
+  # These fields can be NULL when the user is not using the corresponding feature
+  # (e.g., comp_data in a model without composition likelihoods, ration_data /
+  # diet_data in single-species mode, NByageFixed when estDynamics == 0).
+  # Filling with empty data.frames that carry the metadata columns the
+  # downstream code expects lets rearrange_data / build_params use uniform
+  # `nrow > 0` checks without separate NULL guards. Whether the missing data is
+  # actually a problem is enforced by data_check() based on the model
+  # configuration (msmMode, growth_model, estDynamics, Selectivity, etc.).
+  default_dfs <- list(
+    comp_data   = data.frame(Fleet_code = integer(), Species = integer(),
+                             Sex = integer(), Age0_Length1 = integer(),
+                             Year = integer(), Month = integer(),
+                             Sample_size = numeric()),
+    caal_data   = data.frame(Fleet_code = integer(), Species = integer(),
+                             Sex = integer(), Year = integer(),
+                             Length = numeric(), Sample_size = numeric()),
+    emp_sel     = data.frame(Fleet_code = integer(), Species = integer(),
+                             Sex = integer(), Year = integer()),
+    NByageFixed = data.frame(Species = integer(), Sex = integer(),
+                             Year = integer()),
+    ration_data = data.frame(Species = integer(), Sex = integer(),
+                             Year = integer()),
+    diet_data   = data.frame(Pred = integer(), Prey = integer(),
+                             Pred_sex = integer(), Prey_sex = integer(),
+                             Pred_age = integer(), Prey_age = integer(),
+                             Year = integer(),
+                             Sample_size = numeric(),
+                             Stomach_proportion_by_weight = numeric())
+  )
+  for(df_name in names(default_dfs)){
+    if(is.null(data_list[[df_name]])){
+      data_list[[df_name]] <- default_dfs[[df_name]]
+    }
+  }
+
+  # env_data: default to a Year-only data.frame so downstream code that does
+  # `ncol(env_data) - 1` (number of indices) gets 0 when no environmental data
+  # are supplied, and `merge(env_data, ...)` in rearrange_data() works.
+  # data_check() still errors when a model feature (env-q catchability,
+  # temperature-dependent consumption, env linkages, srr/M1 indices) needs
+  # actual indices.
+  if(is.null(data_list$env_data)){
+    yrs <- if(!is.null(data_list$styr) && !is.null(data_list$projyr))
+             data_list$styr:data_list$projyr else integer(0)
+    data_list$env_data <- data.frame(Year = yrs)
+  }
 
   # --- 1. Filter Data by Year ----
   # Data in likelihood (use absolute Year)
@@ -87,164 +132,3 @@ clean_data <- function(data_list){
 
   return(data_list)
 }
-
-
-
-#' Function to check for missing switches for map and parameter functions
-#'
-#' @param data_list Rceattle data list
-#'
-#' @export
-#'
-switch_check <- function(data_list){
-
-  # Helper to set defaults and notify
-  set_default <- function(val, default, msg) {
-    if(is.null(val)) {
-      message(msg)
-      return(default)
-    }
-    return(val)
-  }
-
-  if(is.null(data_list$srr_fun)){
-    data_list$srr_fun <- 0
-    data_list$srr_pred_fun <- 0
-    data_list$srr_est_mode <- 0
-    message("'srr_fun' are not included in data, assuming 0")
-  }
-
-  # Model and multi-species switches
-  data_list$estDynamics <- set_default(data_list$estDynamics, rep(0, data_list$nspp), "'estDynamics' are not included in data, assuming 0")
-  data_list$Diet_comp_weights <- set_default(data_list$Diet_comp_weights, rep(1, data_list$nspp), "'Diet_comp_weights' are not included in data, assuming 1")
-  data_list$Diet_loglike <- set_default(data_list$Diet_loglike, rep(0, data_list$nspp), "'Diet_loglike' are not included in data, assuming 'Multinomial'")
-  data_list$alpha_wt_len <- set_default(data_list$alpha_wt_len, 1e-6, "'alpha_wt_len' not specified in data, assuming 1e-6")
-  data_list$beta_wt_len <- set_default(data_list$beta_wt_len, 3, "'beta_wt_len' not specified in data, assuming 3")
-  data_list$M1_model <- set_default(data_list$M1_model, rep(0, data_list$nspp), "'M1_model' is not included in data, assuming 0")
-  data_list$msmMode <- set_default(data_list$msmMode, 0, "'msmMode' is not included in data, assuming single-species (0)")
-  data_list$M1_re <- set_default(data_list$M1_re, rep(0, data_list$nspp), "'M1_re' is not in data, assuming 0 for all species")
-  data_list$initMode <- set_default(data_list$initMode, 2, "'initMode' is not in the data, setting to 2 (default)")
-
-  # 1. Fleet Control defaults ----
-  data_list$fleet_control$Sel_norm_bin1 <- set_default(data_list$fleet_control$Sel_norm_bin1, NA, "'Sel_norm_bin1' not specified in 'fleet_control', assuming 'NA'")
-  data_list$fleet_control$Sel_norm_bin2 <- set_default(data_list$fleet_control$Sel_norm_bin2, NA, "'Sel_norm_bin2' not specified in 'fleet_control', assuming 'NA'")
-  data_list$fleet_control$Sel_curve_pen1 <- set_default(data_list$fleet_control$Sel_curve_pen1, 0, "'Sel_curve_pen1' not specified in 'fleet_control', assuming '0'")
-  data_list$fleet_control$Sel_curve_pen2 <- set_default(data_list$fleet_control$Sel_curve_pen2, 0, "'Sel_curve_pen2' not specified in 'fleet_control', assuming '0'")
-  data_list$fleet_control$Selectivity_dimension <- set_default(data_list$fleet_control$Selectivity_dimension, "Age", "'Selectivity_dimension' not specified in 'fleet_control', assuming 'Age'")
-  data_list$fleet_control$Comp_loglike <- set_default(data_list$fleet_control$Comp_loglike, "MultinomialAFSC", "'Comp_loglike' not specified in 'fleet_control', assuming 'MultinomialAFSC'")
-  data_list$fleet_control$CAAL_loglike <- set_default(data_list$fleet_control$CAAL_loglike, "Multinomial", "'CAAL_loglike' not specified in 'fleet_control', assuming 'Multinomial'")
-  data_list$fleet_control$CAAL_weights <- set_default(data_list$fleet_control$CAAL_weights, 1, "'CAAL_weights' not specified in 'fleet_control', assuming 1")
-  data_list$fleet_control$Month <- set_default(data_list$fleet_control$Month, 0, "'Month' not specified in 'fleet_control', assuming 0")
-
-  # Update switches to text-based if necessary for older files
-  data_list <- revert_switches(data_list)
-
-  # Format adjustment for NonParametric
-  np_idx <- data_list$fleet_control$Selectivity %in% c(2, "NonParametric", "Non-parametric")
-  if(any(np_idx & !is.na(data_list$fleet_control$Time_varying_sel) & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1)))){
-    data_list$fleet_control <- data_list$fleet_control |>
-      dplyr::mutate(
-        Sel_curve_pen1 = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1)), Time_varying_sel, Sel_curve_pen1),
-        Sel_curve_pen2 = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1)), Time_varying_sel_sd_prior, Sel_curve_pen2),
-        Time_varying_sel = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1)), 0, Time_varying_sel),
-        Time_varying_sel_sd_prior = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1)), 0, Time_varying_sel_sd_prior)
-      )
-    message("Updating format where 'Selectivity == Non-parametric'. Moving non-parametric penalties to 'Sel_curve_pen1' and 'Sel_curve_pen2'.")
-  }
-
-  if(any(np_idx & is.na(data_list$fleet_control$Sel_curve_pen1))) stop("'Sel_curve_pen1' is NA in 'fleet_control' for fleet with non-parametric selectivity")
-  if(any(np_idx & is.na(data_list$fleet_control$Sel_curve_pen2))) stop("'Sel_curve_pen2' is NA in 'fleet_control' for fleet with non-parametric selectivity")
-
-
-  # 2. Sel bins ----
-  for(flt in 1:nrow(data_list$fleet_control)){
-
-    sp_idx <- data_list$fleet_control$Species[flt]
-    age_selex = data_list$fleet_control$Selectivity_dimension[flt] == "Age"
-    selex_text <- ifelse(age_selex, "nages", "nlengths")
-    max_bin <- ifelse(age_selex,
-                      data_list$nages[sp_idx],
-                      data_list$nlengths[sp_idx])
-
-    # - Sel normalization bin
-    if(any(data_list$fleet_control$Sel_norm_bin1[flt] > max_bin, na.rm = TRUE)){
-      data_list$fleet_control$Sel_norm_bin1[flt] <- max_bin
-      message(paste0("'Sel_norm_bin1' for fleet ", flt, " is greater than ", selex_text,", setting to ", selex_text))
-    }
-
-    # - Upper sel normalization bin
-    if(any(data_list$fleet_control$Sel_norm_bin2[flt] > max_bin, na.rm = TRUE)){
-      data_list$fleet_control$Sel_norm_bin2[flt] <- max_bin
-      message(paste0("'Sel_norm_bin2' for fleet ", flt, " is greater than ", selex_text,", setting to ", selex_text))
-    }
-
-    # - N bins
-    if(any(data_list$fleet_control$N_sel_bins[flt] > max_bin, na.rm = TRUE)){
-      data_list$fleet_control$N_sel_bins[flt] <- max_bin
-      message(paste0("'N_sel_bins' for fleet ", flt, " is greater than ", selex_text,", setting to ", selex_text))
-    }
-  }
-
-  return(data_list)
-}
-
-
-#' Convert integer switches to intuitive text strings. Maintains backwards compatability.
-#'
-#' @param data_list Rceattle data list
-#' @importFrom rlang .data
-revert_switches <- function(data_list) {
-
-  # - Fleet switches
-  data_list$fleet_control <- data_list$fleet_control |>
-    dplyr::mutate(
-      Fleet_type = ifelse(as.character(.data$Fleet_type) %in% names(fleet_rev_map),
-                          fleet_rev_map[as.character(.data$Fleet_type)],
-                          .data$Fleet_type),
-      Selectivity = ifelse(as.character(.data$Selectivity) %in% names(sel_rev_map),
-                           sel_rev_map[as.character(.data$Selectivity)],
-                           .data$Selectivity),
-      Catchability = ifelse(as.character(.data$Catchability) %in% names(q_rev_map),
-                            q_rev_map[as.character(.data$Catchability)],
-                            .data$Catchability),
-      Comp_loglike = ifelse(as.character(.data$Comp_loglike) %in% names(comp_loglike_rev_map),
-                            comp_loglike_rev_map[as.character(.data$Comp_loglike)],
-                            .data$Comp_loglike),
-      CAAL_loglike = ifelse(as.character(.data$CAAL_loglike) %in% names(comp_loglike_rev_map),
-                            comp_loglike_rev_map[as.character(.data$CAAL_loglike)],
-                            .data$CAAL_loglike)
-    )
-
-  # - Population dynamics switches
-  # Helper: convert a single integer value using a map, pass strings through unchanged
-  .conv <- function(x, revmap) {
-    if (is.numeric(x) && x %in% names(revmap)) revmap[[which(names(revmap) == x)]] else x
-  }
-
-  data_list$initMode <- .conv(data_list$initMode, initMode_rev_map)
-  data_list$HCR <- .conv(data_list$HCR, hcr_rev_map)
-
-  return(data_list)
-}
-
-#' Function to transpose fleet_control if long format
-#'
-#' @param data_list Rceattle data list
-#'
-#' @export
-transpose_fleet_control <- function(data_list){
-
-  if(sum(colnames(data_list$fleet_control)[1:2] == c("Fleet_name", "Fleet_code")) != 2){ #, "Fleet_type", "Species", "Selectivity_index", "Selectivity")) != 6){
-    data_list$fleet_control <- as.data.frame(t(data_list$fleet_control))
-    colnames(data_list$fleet_control) <- data_list$fleet_control[1,]
-    data_list$fleet_control <- data_list$fleet_control[-1,]
-    data_list$fleet_control <- cbind(data.frame(Fleet_name = rownames(data_list$fleet_control)),
-                                     data_list$fleet_control)
-    rownames(data_list$fleet_control) = NULL
-
-    data_list$fleet_control[,-which(colnames(data_list$fleet_control) %in% c("Fleet_name", "Time_varying_q"))] <- apply(
-      data_list$fleet_control[,-which(colnames(data_list$fleet_control) %in% c("Fleet_name", "Time_varying_q"))], 2, as.numeric)
-  }
-  return(data_list)
-}
-

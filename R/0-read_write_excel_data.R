@@ -223,9 +223,6 @@ read_data <- function(file = "Rceattle_data.xlsx") {
     data_list[[matrix_data[i]]] <- sheet
   }
 
-  # Transpose data list if necessary
-  data_list <- Rceattle::transpose_fleet_control(data_list)
-
   # -- Update names if necessary
   if(length(data_list$fleet_control$Survey_sd_prior) > 0){
     data_list$fleet_control <- data_list$fleet_control |>

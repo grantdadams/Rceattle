@@ -302,22 +302,22 @@ catch_hcr <- function(model = ss_run, ptarget = 0.4, plimit = 0.1, assessment_pe
     model$estimated_params$F_dev <- cbind(model$estimated_params$F_dev, matrix(0, nrow= nrow(model$estimated_params$F_dev), ncol = length(new_years)))
 
     # -- Time-varing survey catachbilitiy - Assume last year - filled by columns
-    model$estimated_params$ln_srv_q_dev <- cbind(model$estimated_params$ln_srv_q_dev, matrix(model$estimated_params$ln_srv_q_dev[,ncol(model$estimated_params$ln_srv_q_dev)], nrow= nrow(model$estimated_params$ln_srv_q_dev), ncol = length(new_years)))
+    model$estimated_params$log_srv_q_dev <- cbind(model$estimated_params$log_srv_q_dev, matrix(model$estimated_params$log_srv_q_dev[,ncol(model$estimated_params$log_srv_q_dev)], nrow= nrow(model$estimated_params$log_srv_q_dev), ncol = length(new_years)))
 
     # -- Time-varing selectivity - Assume last year - filled by columns
-    ln_sel_slp_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
+    log_sel_slp_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
     sel_inf_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
     sel_coff_dev = array(0, dim = c(nflts, 2, N_sel_bins, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for non-parameteric
 
-    ln_sel_slp_dev[,,,1:nyrs_hind] <- model$estimated_params$ln_sel_slp_dev
+    log_sel_slp_dev[,,,1:nyrs_hind] <- model$estimated_params$log_sel_slp_dev
     sel_inf_dev[,,,1:nyrs_hind] <- model$estimated_params$sel_inf_dev
     sel_coff_dev[,,,1:nyrs_hind] <- model$estimated_params$sel_coff_dev
 
-    ln_sel_slp_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- ln_sel_slp_dev[,,,nyrs_hind]
+    log_sel_slp_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- log_sel_slp_dev[,,,nyrs_hind]
     sel_inf_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_inf_dev[,,,nyrs_hind]
     sel_coff_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_coff_dev[,,,nyrs_hind]
 
-    model$estimated_params$ln_sel_slp_dev <- ln_sel_slp_dev
+    model$estimated_params$log_sel_slp_dev <- log_sel_slp_dev
     model$estimated_params$sel_inf_dev <- sel_inf_dev
     model$estimated_params$sel_coff_dev <- sel_coff_dev
 

@@ -71,7 +71,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
   }
 
   if(sum(om$data_list$fleet_control$proj_F_prop) == 0){
-    stop("F prop per fllet 'proj_F_prop' is zero")
+    stop("F prop per fleet 'proj_F_prop' is zero")
   }
 
   # ** Refit OM if proj_F_prop was not activated ----
@@ -106,28 +106,33 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
                       Fmult = om$data_list$Fmult,
                       HCRorder = om$data_list$HCRorder
       ),
-      recFun = build_srr(srr_fun = om$data_list$srr_fun,
-                         srr_pred_fun = om$data_list$srr_pred_fun ,
-                         proj_mean_rec = om$data_list$proj_mean_rec,
-                         srr_mse_switchyr = om$data_list$srr_mse_switchyr,
-                         srr_hat_styr = om$data_list$srr_hat_styr,
-                         srr_hat_endyr = om$data_list$srr_hat_endyr,
-                         srr_est_mode  = om$data_list$srr_est_mode ,
-                         srr_prior = om$data_list$srr_prior,
-                         srr_prior_sd = om$data_list$srr_prior_sd,
-                         Bmsy_lim = om$data_list$Bmsy_lim,
-                         srr_indices = om$data_list$srr_indices),
-      M1Fun = build_M1(M1_model = om$data_list$M1_model,
-                       M1_re = om$data_list$M1_re,
-                       updateM1 = FALSE,  # Dont update M1 from data, fix at previous parameters
-                       M1_use_prior = om$data_list$M1_use_prior,
-                       M2_use_prior = om$data_list$M2_use_prior,
-                       M_prior = om$data_list$M_prior,
-                       M_prior_sd = om$data_list$M_prior_sd,
-                       M1_indices = om$data_list$M1_indices),
-      growthFun = build_growth(growth_model = om$data_list$growth_model,
-                               growth_re = om$data_list$growth_re,
-                               growth_indices = om$data_list$growth_indices),
+      # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
+      recFun = suppressWarnings(build_srr(
+        srr_fun = om$data_list$srr_fun,
+        srr_pred_fun = om$data_list$srr_pred_fun,
+        proj_mean_rec = om$data_list$proj_mean_rec,
+        srr_mse_switchyr = om$data_list$srr_mse_switchyr,
+        srr_hat_styr = om$data_list$srr_hat_styr,
+        srr_hat_endyr = om$data_list$srr_hat_endyr,
+        srr_est_mode  = om$data_list$srr_est_mode,
+        srr_prior = om$data_list$srr_prior,
+        srr_prior_sd = om$data_list$srr_prior_sd,
+        Bmsy_lim = om$data_list$Bmsy_lim,
+        srr_indices = om$data_list$srr_indices,
+        linkages = om$data_list$srr_linkages)),
+      # suppressWarnings: legacy M1_indices may travel via om$data_list.
+      M1Fun = suppressWarnings(build_M1(
+        M1_model = om$data_list$M1_model,
+        M1_re = om$data_list$M1_re,
+        updateM1 = FALSE,
+        M1_use_prior = om$data_list$M1_use_prior,
+        M2_use_prior = om$data_list$M2_use_prior,
+        M_prior = om$data_list$M_prior,
+        M_prior_sd = om$data_list$M_prior_sd,
+        M1_indices = om$data_list$M1_indices,
+        linkages = om$data_list$M1_linkages)),
+      growthFun = build_growth(fun = om$data_list$growth_fun,
+                               linkages = om$data_list$growth_linkages),
       fit_control = fit_control(
         loopnum = om$data_list$loopnum,
         phase   = FALSE,
@@ -237,32 +242,37 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
                       Fmult = em$data_list$Fmult,
                       HCRorder = em$data_list$HCRorder
       ),
-      recFun = build_srr(srr_fun = em$data_list$srr_fun,
-                         srr_pred_fun  = em$data_list$srr_pred_fun ,
-                         proj_mean_rec  = em$data_list$proj_mean_rec ,
-                         srr_mse_switchyr = em$data_list$srr_mse_switchyr,
-                         srr_hat_styr = em$data_list$srr_hat_styr,
-                         srr_hat_endyr = em$data_list$srr_hat_endyr,
-                         srr_est_mode  = em$data_list$srr_est_mode ,
-                         srr_prior  = em$data_list$srr_prior,
-                         srr_prior_sd   = em$data_list$srr_prior_sd,
-                         Bmsy_lim = em$data_list$Bmsy_lim,
-                         srr_indices = em$data_list$srr_indices),
-      M1Fun =     build_M1(M1_model = em$data_list$M1_model,
-                           M1_re = em$data_list$M1_re,
-                           updateM1 = FALSE,
-                           M1_use_prior = em$data_list$M1_use_prior,
-                           M2_use_prior = em$data_list$M2_use_prior,
-                           M_prior = em$data_list$M_prior,
-                           M_prior_sd = em$data_list$M_prior_sd,
-                           M1_indices = em$data_list$M1_indices),
+      # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
+      recFun = suppressWarnings(build_srr(
+        srr_fun = em$data_list$srr_fun,
+        srr_pred_fun  = em$data_list$srr_pred_fun,
+        proj_mean_rec  = em$data_list$proj_mean_rec,
+        srr_mse_switchyr = em$data_list$srr_mse_switchyr,
+        srr_hat_styr = em$data_list$srr_hat_styr,
+        srr_hat_endyr = em$data_list$srr_hat_endyr,
+        srr_est_mode  = em$data_list$srr_est_mode,
+        srr_prior  = em$data_list$srr_prior,
+        srr_prior_sd   = em$data_list$srr_prior_sd,
+        Bmsy_lim = em$data_list$Bmsy_lim,
+        srr_indices = em$data_list$srr_indices,
+        linkages = em$data_list$srr_linkages)),
+      # suppressWarnings: legacy M1_indices may travel via em$data_list.
+      M1Fun = suppressWarnings(build_M1(
+        M1_model = em$data_list$M1_model,
+        M1_re = em$data_list$M1_re,
+        updateM1 = FALSE,
+        M1_use_prior = em$data_list$M1_use_prior,
+        M2_use_prior = em$data_list$M2_use_prior,
+        M_prior = em$data_list$M_prior,
+        M_prior_sd = em$data_list$M_prior_sd,
+        M1_indices = em$data_list$M1_indices,
+        linkages = em$data_list$M1_linkages)),
+      growthFun = build_growth(fun = em$data_list$growth_fun,
+                               linkages = em$data_list$growth_linkages),
       dsem = build_DSEM(sem = em$data_list$dsem_settings$sem,
                         family = em$data_list$dsem_settings$family,
                         all_vars = em$data_list$dsem_settings$all_vars,
                         estimate_projection = em$data_list$dsem_settings$estimate_projection),
-      growthFun = build_growth(growth_model = em$data_list$growth_model,
-                               growth_re = em$data_list$growth_re,
-                               growth_indices = em$data_list$growth_indices),
       random_rec = em$data_list$random_rec,
       niter = em$data_list$niter,
       msmMode = em$data_list$msmMode,
@@ -281,7 +291,7 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
     if(em$data_list$HCR == 2){
 
       # - Get avg F
-      avg_F <- exp(em$estimated_params$ln_F) # Average F from last 5 years
+      avg_F <- exp(em$estimated_params$log_F) # Average F from last 5 years
       avg_F <- rowMeans(avg_F[,(ncol(avg_F)-4) : ncol(avg_F)])
       avg_F <- data.frame(avg_F = avg_F, spp = em$data_list$fleet_control$Species)
       avg_F <- avg_F |>
@@ -298,32 +308,37 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
                                               Ptarget = em$data_list$Ptarget,
                                               Plimit = em$data_list$Plimit
                               ),
-                              recFun = build_srr(srr_fun = em$data_list$srr_fun,
-                                                 srr_pred_fun  = em$data_list$srr_pred_fun ,
-                                                 proj_mean_rec  = em$data_list$proj_mean_rec ,
-                                                 srr_mse_switchyr = em$data_list$srr_mse_switchyr,
-                                                 srr_hat_styr = em$data_list$srr_hat_styr,
-                                                 srr_hat_endyr = em$data_list$srr_hat_endyr,
-                                                 srr_est_mode  = em$data_list$srr_est_mode ,
-                                                 srr_prior  = em$data_list$srr_prior,
-                                                 srr_prior_sd   = em$data_list$srr_prior_sd,
-                                                 Bmsy_lim = em$data_list$Bmsy_lim,
-                                                 srr_indices = em$data_list$srr_indices),
-                              M1Fun =     build_M1(M1_model = em$data_list$M1_model,
-                                                   M1_re = em$data_list$M1_re,
-                                                   updateM1 = FALSE,
-                                                   M1_use_prior = em$data_list$M1_use_prior,
-                                                   M2_use_prior = em$data_list$M2_use_prior,
-                                                   M_prior = em$data_list$M_prior,
-                                                   M_prior_sd = em$data_list$M_prior_sd,
-                                                   M1_indices = em$data_list$M1_indices),
+                              # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
+                              recFun = suppressWarnings(build_srr(
+                                srr_fun = em$data_list$srr_fun,
+                                srr_pred_fun  = em$data_list$srr_pred_fun,
+                                proj_mean_rec  = em$data_list$proj_mean_rec,
+                                srr_mse_switchyr = em$data_list$srr_mse_switchyr,
+                                srr_hat_styr = em$data_list$srr_hat_styr,
+                                srr_hat_endyr = em$data_list$srr_hat_endyr,
+                                srr_est_mode  = em$data_list$srr_est_mode,
+                                srr_prior  = em$data_list$srr_prior,
+                                srr_prior_sd   = em$data_list$srr_prior_sd,
+                                Bmsy_lim = em$data_list$Bmsy_lim,
+                                srr_indices = em$data_list$srr_indices,
+                                linkages = em$data_list$srr_linkages)),
+                              # suppressWarnings: legacy M1_indices may travel via em$data_list.
+                              M1Fun = suppressWarnings(build_M1(
+                                M1_model = em$data_list$M1_model,
+                                M1_re = em$data_list$M1_re,
+                                updateM1 = FALSE,
+                                M1_use_prior = em$data_list$M1_use_prior,
+                                M2_use_prior = em$data_list$M2_use_prior,
+                                M_prior = em$data_list$M_prior,
+                                M_prior_sd = em$data_list$M_prior_sd,
+                                M1_indices = em$data_list$M1_indices,
+                                linkages = em$data_list$M1_linkages)),
+                              growthFun = build_growth(fun = em$data_list$growth_fun,
+                                                       linkages = em$data_list$growth_linkages),
                               dsem = build_DSEM(sem = em$data_list$dsem_settings$sem,
                                                 family = em$data_list$dsem_settings$family,
                                                 all_vars = em$data_list$dsem_settings$all_vars,
                                                 estimate_projection = em$data_list$dsem_settings$estimate_projection),
-                              growthFun = build_growth(growth_model = em$data_list$growth_model,
-                                                       growth_re = em$data_list$growth_re,
-                                                       growth_indices = em$data_list$growth_indices),
                               random_rec = em$data_list$random_rec,
                               niter = em$data_list$niter,
                               msmMode = em$data_list$msmMode,
@@ -551,36 +566,36 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       om_use$data_list$endyr <- assess_yrs[k]
 
       # * Update parameters ----
-      # -- ln_F
-      om_use$estimated_params$ln_F <- cbind(om_use$estimated_params$ln_F, matrix(0, nrow= nrow(om_use$estimated_params$ln_F), ncol = length(new_years)))
+      # -- log_F
+      om_use$estimated_params$log_F <- cbind(om_use$estimated_params$log_F, matrix(0, nrow= nrow(om_use$estimated_params$log_F), ncol = length(new_years)))
 
       # -- M1_dev
       #FIXME - simulate
-      # om_use$estimated_params$ln_M1_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- om_use$estimated_params$ln_M1_dev[,,,nyrs_hind]
+      # om_use$estimated_params$log_M1_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- om_use$estimated_params$log_M1_dev[,,,nyrs_hind]
 
       # -- Time-varing survey catachbilitiy - Assume last year - filled by columns
       om_use$estimated_params$index_q_dev <- cbind(om_use$estimated_params$index_q_dev, matrix(om_use$estimated_params$index_q_dev[,ncol(om_use$estimated_params$index_q_dev)], nrow= nrow(om_use$estimated_params$index_q_dev), ncol = length(new_years)))
 
       # -- Time-varing selectivity - Assume last year - filled by columns
-      ln_sel_slp_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
+      log_sel_slp_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
       sel_inf_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
       sel_coff_dev = array(0, dim = c(nflts, 2, n_sel_bins_om, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for non-parameteric
 
-      ln_sel_slp_dev[,,,1:nyrs_hind] <- om_use$estimated_params$ln_sel_slp_dev
+      log_sel_slp_dev[,,,1:nyrs_hind] <- om_use$estimated_params$log_sel_slp_dev
       sel_inf_dev[,,,1:nyrs_hind] <- om_use$estimated_params$sel_inf_dev
       sel_coff_dev[,,,1:nyrs_hind] <- om_use$estimated_params$sel_coff_dev
 
-      ln_sel_slp_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- ln_sel_slp_dev[,,,nyrs_hind]
+      log_sel_slp_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- log_sel_slp_dev[,,,nyrs_hind]
       sel_inf_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_inf_dev[,,,nyrs_hind]
       sel_coff_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_coff_dev[,,,nyrs_hind]
 
-      om_use$estimated_params$ln_sel_slp_dev <- ln_sel_slp_dev
+      om_use$estimated_params$log_sel_slp_dev <- log_sel_slp_dev
       om_use$estimated_params$sel_inf_dev <- sel_inf_dev
       om_use$estimated_params$sel_coff_dev <- sel_coff_dev
 
 
       # * Update map ----
-      # -(Only new parameter we are estimating in OM is the ln_F of the new years)
+      # -(Only new parameter we are estimating in OM is the log_F of the new years)
       om_use$map <- build_map(
         data_list = om_use$data_list,
         params = om_use$estimated_params,
@@ -590,9 +605,9 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
 
 
       # -- Estimate terminal F for catch
-      new_f_yrs <- (ncol(om_use$map$mapList$ln_F) - length(new_years) + 1) : ncol(om_use$map$mapList$ln_F) # - Years of new F
+      new_f_yrs <- (ncol(om_use$map$mapList$log_F) - length(new_years) + 1) : ncol(om_use$map$mapList$log_F) # - Years of new F
       f_fleets <- om_use$data_list$fleet_control$Fleet_code[which(om_use$data_list$fleet_control$Fleet_type == "Fishery")] # Fleet rows for F
-      om_use$map$mapList$ln_F[f_fleets,new_f_yrs] <- replace(om_use$map$mapList$ln_F[f_fleets,new_f_yrs], values = 1:length(om_use$map$mapList$ln_F[f_fleets,new_f_yrs]))
+      om_use$map$mapList$log_F[f_fleets,new_f_yrs] <- replace(om_use$map$mapList$log_F[f_fleets,new_f_yrs], values = 1:length(om_use$map$mapList$log_F[f_fleets,new_f_yrs]))
 
       # -- Map out Fdev for years with 0 catch to very low number
       zero_catch <- om_use$data_list$catch_data |>
@@ -601,9 +616,9 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
         dplyr::mutate(Year = Year - om_use$data_list$styr + 1) |>
         dplyr::select(Fleet_code, Year) |>
         as.matrix()
-      om_use$estimated_params$ln_F[zero_catch] <- -999
-      om_use$map$mapList$ln_F[zero_catch] <- NA
-      om_use$map$mapFactor$ln_F <- factor(om_use$map$mapList$ln_F)
+      om_use$estimated_params$log_F[zero_catch] <- -999
+      om_use$map$mapList$log_F[zero_catch] <- NA
+      om_use$map$mapFactor$log_F <- factor(om_use$map$mapList$log_F)
       rm(zero_catch)
 
       # -- Set estimate mode
@@ -649,28 +664,33 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
                               Fmult = om_use$data_list$Fmult,
                               HCRorder = om_use$data_list$HCRorder
               ),
-              recFun = build_srr(srr_fun = om_use$data_list$srr_fun,
-                                 srr_pred_fun = om_use$data_list$srr_pred_fun ,
-                                 proj_mean_rec = TRUE, # Use mean R for RPs
-                                 srr_mse_switchyr = om$data_list$srr_mse_switchyr, # This stays the same as original OM
-                                 srr_hat_styr = om$data_list$srr_hat_styr,
-                                 srr_hat_endyr = om$data_list$srr_hat_endyr,
-                                 srr_est_mode  = om_use$data_list$srr_est_mode ,
-                                 srr_prior = om_use$data_list$srr_prior,
-                                 srr_prior_sd = om_use$data_list$srr_prior_sd,
-                                 Bmsy_lim = om_use$data_list$Bmsy_lim,
-                                 srr_indices = om_use$data_list$srr_indices),
-              M1Fun = build_M1(M1_model = om_use$data_list$M1_model,
-                               M1_re = om_use$data_list$M1_re,
-                               updateM1 = FALSE,  # Dont update M1 from data, fix at previous parameters
-                               M1_use_prior = om_use$data_list$M1_use_prior,
-                               M2_use_prior = om_use$data_list$M2_use_prior,
-                               M_prior = om_use$data_list$M_prior,
-                               M_prior_sd = om_use$data_list$M_prior_sd,
-                               M1_indices = om_use$data_list$M1_indices),
-              growthFun = build_growth(growth_model = om_use$data_list$growth_model,
-                                       growth_re = om_use$data_list$growth_re,
-                                       growth_indices = om_use$data_list$growth_indices),
+              # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
+              recFun = suppressWarnings(build_srr(
+                srr_fun = om_use$data_list$srr_fun,
+                srr_pred_fun = om_use$data_list$srr_pred_fun,
+                proj_mean_rec = TRUE,
+                srr_mse_switchyr = om$data_list$srr_mse_switchyr,
+                srr_hat_styr = om$data_list$srr_hat_styr,
+                srr_hat_endyr = om$data_list$srr_hat_endyr,
+                srr_est_mode  = om_use$data_list$srr_est_mode,
+                srr_prior = om_use$data_list$srr_prior,
+                srr_prior_sd = om_use$data_list$srr_prior_sd,
+                Bmsy_lim = om_use$data_list$Bmsy_lim,
+                srr_indices = om_use$data_list$srr_indices,
+                linkages = om_use$data_list$srr_linkages)),
+              # suppressWarnings: legacy M1_indices may travel via om_use$data_list.
+              M1Fun = suppressWarnings(build_M1(
+                M1_model = om_use$data_list$M1_model,
+                M1_re = om_use$data_list$M1_re,
+                updateM1 = FALSE,
+                M1_use_prior = om_use$data_list$M1_use_prior,
+                M2_use_prior = om_use$data_list$M2_use_prior,
+                M_prior = om_use$data_list$M_prior,
+                M_prior_sd = om_use$data_list$M_prior_sd,
+                M1_indices = om_use$data_list$M1_indices,
+                linkages = om_use$data_list$M1_linkages)),
+              growthFun = build_growth(fun = om_use$data_list$growth_fun,
+                                       linkages = om_use$data_list$growth_linkages),
               dsem = build_DSEM(sem = om_use$data_list$dsem_settings$sem,
                                 family = om_use$data_list$dsem_settings$family,
                                 all_vars = om_use$data_list$dsem_settings$all_vars,
@@ -797,30 +817,30 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       em_use$data_list$endyr <- assess_yrs[k]
 
       # Update parameter size and use previous estimates
-      # -- ln_F
-      em_use$estimated_params$ln_F <- cbind(em_use$estimated_params$ln_F, matrix(0, nrow= nrow(em_use$estimated_params$ln_F), ncol = length(new_years)))
+      # -- log_F
+      em_use$estimated_params$log_F <- cbind(em_use$estimated_params$log_F, matrix(0, nrow= nrow(em_use$estimated_params$log_F), ncol = length(new_years)))
 
-      # # -- ln_M1_dev
-      # em_use$estimated_params$ln_M1_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- em_use$estimated_params$ln_M1_dev[,,,nyrs_hind]
+      # # -- log_M1_dev
+      # em_use$estimated_params$log_M1_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- em_use$estimated_params$log_M1_dev[,,,nyrs_hind]
 
       # -- Time-varying survey catachbilitiy - Assume last year - filled by columns
       em_use$estimated_params$index_q_dev <- cbind(em_use$estimated_params$index_q_dev, matrix(em_use$estimated_params$index_q_dev[,ncol(em_use$estimated_params$index_q_dev)], nrow= nrow(em_use$estimated_params$index_q_dev), ncol = length(new_years)))
 
       # -- Time-varing selectivity - Assume last year - filled by columns
-      ln_sel_slp_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
+      log_sel_slp_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
       sel_inf_dev = array(0, dim = c(2, nflts, 2, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for logistic
       sel_coff_dev = array(0, dim = c(nflts, 2, n_sel_bins_em, nyrs_hind + length(new_years)))  # selectivity deviations paramaters for non-parameteric
 
-      ln_sel_slp_dev[,,,1:nyrs_hind] <- em_use$estimated_params$ln_sel_slp_dev
+      log_sel_slp_dev[,,,1:nyrs_hind] <- em_use$estimated_params$log_sel_slp_dev
       sel_inf_dev[,,,1:nyrs_hind] <- em_use$estimated_params$sel_inf_dev
       sel_coff_dev[,,,1:nyrs_hind] <- em_use$estimated_params$sel_coff_dev
 
       # - Initialize new years with last year
-      ln_sel_slp_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- ln_sel_slp_dev[,,,nyrs_hind]
+      log_sel_slp_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- log_sel_slp_dev[,,,nyrs_hind]
       sel_inf_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_inf_dev[,,,nyrs_hind]
       sel_coff_dev[,,,(nyrs_hind + 1):(nyrs_hind + length(new_years))] <- sel_coff_dev[,,,nyrs_hind]
 
-      em_use$estimated_params$ln_sel_slp_dev <- ln_sel_slp_dev
+      em_use$estimated_params$log_sel_slp_dev <- log_sel_slp_dev
       em_use$estimated_params$sel_inf_dev <- sel_inf_dev
       em_use$estimated_params$sel_coff_dev <- sel_coff_dev
 
@@ -847,32 +867,37 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
                               Fmult = em_use$data_list$Fmult,
                               HCRorder = em$data_list$HCRorder
               ),
-              recFun = build_srr(srr_fun = em_use$data_list$srr_fun,
-                                 srr_pred_fun = em_use$data_list$srr_pred_fun,
-                                 proj_mean_rec = em_use$data_list$proj_mean_rec,
-                                 srr_mse_switchyr = em_use$data_list$endyr, # Update end year
-                                 srr_hat_styr = em_use$data_list$srr_hat_styr,
-                                 srr_hat_endyr = em_use$data_list$srr_hat_endyr,
-                                 srr_est_mode  = em_use$data_list$srr_est_mode ,
-                                 srr_prior = em_use$data_list$srr_prior,
-                                 srr_prior_sd = em_use$data_list$srr_prior_sd,
-                                 Bmsy_lim = em_use$data_list$Bmsy_lim,
-                                 srr_indices = em_use$data_list$srr_indices),
-              M1Fun =     build_M1(M1_model = em_use$data_list$M1_model,
-                                   M1_re = em_use$data_list$M1_re,
-                                   updateM1 = FALSE,
-                                   M1_use_prior = em_use$data_list$M1_use_prior,
-                                   M2_use_prior = em_use$data_list$M2_use_prior,
-                                   M_prior = em_use$data_list$M_prior,
-                                   M_prior_sd = em_use$data_list$M_prior_sd,
-                                   M1_indices = em_use$data_list$M1_indices),
+              # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices.
+              recFun = suppressWarnings(build_srr(
+                srr_fun = em_use$data_list$srr_fun,
+                srr_pred_fun = em_use$data_list$srr_pred_fun,
+                proj_mean_rec = em_use$data_list$proj_mean_rec,
+                srr_mse_switchyr = em_use$data_list$endyr,
+                srr_hat_styr = em_use$data_list$srr_hat_styr,
+                srr_hat_endyr = em_use$data_list$srr_hat_endyr,
+                srr_est_mode  = em_use$data_list$srr_est_mode,
+                srr_prior = em_use$data_list$srr_prior,
+                srr_prior_sd = em_use$data_list$srr_prior_sd,
+                Bmsy_lim = em_use$data_list$Bmsy_lim,
+                srr_indices = em_use$data_list$srr_indices,
+                linkages = em_use$data_list$srr_linkages)),
+              # suppressWarnings: legacy M1_indices may travel via em_use$data_list.
+              M1Fun = suppressWarnings(build_M1(
+                M1_model = em_use$data_list$M1_model,
+                M1_re = em_use$data_list$M1_re,
+                updateM1 = FALSE,
+                M1_use_prior = em_use$data_list$M1_use_prior,
+                M2_use_prior = em_use$data_list$M2_use_prior,
+                M_prior = em_use$data_list$M_prior,
+                M_prior_sd = em_use$data_list$M_prior_sd,
+                M1_indices = em_use$data_list$M1_indices,
+                linkages = em_use$data_list$M1_linkages)),
+              growthFun = build_growth(fun = em_use$data_list$growth_fun,
+                                       linkages = em_use$data_list$growth_linkages),
               dsem = build_DSEM(sem = em_use$data_list$dsem_settings$sem,
                                 family = em_use$data_list$dsem_settings$family,
                                 all_vars = em_use$data_list$dsem_settings$all_vars,
                                 estimate_projection = em_use$data_list$dsem_settings$estimate_projection),
-              growthFun = build_growth(growth_model = em_use$data_list$growth_model,
-                                       growth_re = em_use$data_list$growth_re,
-                                       growth_indices = em_use$data_list$growth_indices),
               random_rec = em_use$data_list$random_rec,
               niter = em_use$data_list$niter,
               msmMode = em_use$data_list$msmMode,
@@ -913,9 +938,9 @@ run_mse <- function(om, em, nsim = 10, start_sim = 1, assessment_period = 1, sam
       em_use$opt <- NULL
       em_use$sdrep <- NULL
       em_use$quantities[names(em_use$quantities) %!in% c("catch_hat",
-                                                         "ln_catch_sd",
+                                                         "log_catch_sd",
                                                          "index_hat",
-                                                         "ln_index_sd",
+                                                         "log_index_sd",
                                                          "ssb_depletion",
                                                          "biomass_depletion",
                                                          "biomass",

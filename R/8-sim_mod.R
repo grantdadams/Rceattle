@@ -20,15 +20,15 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
 
 
   # Indices of abundance/biomass ----
-  ln_index_sd <- quantities$ln_index_sd
+  log_index_sd <- quantities$log_index_sd
   index_hat <- quantities$index_hat
 
   if (simulate) {
     # Log-normal simulation with bias correction
     dat_sim$index_data$Observation <- exp(stats::rnorm(
       n = length(index_hat),
-      mean = log(index_hat) - (ln_index_sd^2) / 2,
-      sd = ln_index_sd
+      mean = log(index_hat) - (log_index_sd^2) / 2,
+      sd = log_index_sd
     ))
   } else {
     # Expected value
@@ -119,15 +119,15 @@ sim_mod <- function(Rceattle, simulate = FALSE) {
 
 
   # Catch ----
-  ln_catch_sd <- quantities$ln_catch_sd
+  log_catch_sd <- quantities$log_catch_sd
   catch_hat <- quantities$catch_hat
 
   if (simulate) {
     # Log-normal simulation with bias correction
     dat_sim$catch_data$Catch <- exp(stats::rnorm(
       n = length(dat_sim$catch_data$Catch),
-      mean = log(catch_hat) - (ln_catch_sd^2) / 2,
-      sd = ln_catch_sd
+      mean = log(catch_hat) - (log_catch_sd^2) / 2,
+      sd = log_catch_sd
     ))
   } else {
     # Expected values
@@ -250,28 +250,37 @@ sample_rec <- function(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_tre
                             Fmult = Rceattle$data_list$Fmult,
                             HCRorder = Rceattle$data_list$HCRorder
             ),
-            recFun = build_srr(srr_fun = Rceattle$data_list$srr_fun,
-                               srr_pred_fun  = Rceattle$data_list$srr_pred_fun,
-                               proj_mean_rec  = Rceattle$data_list$proj_mean_rec,
-                               srr_mse_switchyr = Rceattle$data_list$srr_mse_switchyr,
-                               srr_hat_styr = Rceattle$data_list$srr_hat_styr,
-                               srr_hat_endyr = Rceattle$data_list$srr_hat_endyr,
-                               srr_est_mode  = Rceattle$data_list$srr_est_mode ,
-                               srr_prior  = Rceattle$data_list$srr_prior,
-                               srr_prior_sd   = Rceattle$data_list$srr_prior_sd,
-                               Bmsy_lim = Rceattle$data_list$Bmsy_lim,
-                               srr_indices = Rceattle$data_list$srr_indices),
-            M1Fun =     build_M1(M1_model = Rceattle$data_list$M1_model,
-                                 M1_re = Rceattle$data_list$M1_re,
-                                 updateM1 = FALSE,  # Dont update M1 from data, fix at previous parameters
-                                 M1_use_prior = Rceattle$data_list$M1_use_prior,
-                                 M2_use_prior = Rceattle$data_list$M2_use_prior,
-                                 M_prior = Rceattle$data_list$M_prior,
-                                 M_prior_sd = Rceattle$data_list$M_prior_sd,
-                                 M1_indices = Rceattle$data_list$M1_indices),
-            growthFun = build_growth(growth_model = Rceattle$data_list$growth_model,
-                                     growth_re = Rceattle$data_list$growth_re,
-                                     growth_indices = Rceattle$data_list$growth_indices),
+            # suppressWarnings: legacy srr_fun = 1|3|5 / srr_indices may
+            # travel via data_list; the deprecation warning was already
+            # surfaced on the user's first build_srr() call.
+            recFun = suppressWarnings(build_srr(
+              srr_fun = Rceattle$data_list$srr_fun,
+              srr_pred_fun  = Rceattle$data_list$srr_pred_fun,
+              proj_mean_rec  = Rceattle$data_list$proj_mean_rec,
+              srr_mse_switchyr = Rceattle$data_list$srr_mse_switchyr,
+              srr_hat_styr = Rceattle$data_list$srr_hat_styr,
+              srr_hat_endyr = Rceattle$data_list$srr_hat_endyr,
+              srr_est_mode  = Rceattle$data_list$srr_est_mode ,
+              srr_prior  = Rceattle$data_list$srr_prior,
+              srr_prior_sd   = Rceattle$data_list$srr_prior_sd,
+              Bmsy_lim = Rceattle$data_list$Bmsy_lim,
+              srr_indices = Rceattle$data_list$srr_indices,
+              linkages = Rceattle$data_list$srr_linkages)),
+            # suppressWarnings: re-call from a fitted model's data_list
+            # may carry legacy M1_indices; the deprecation warning was
+            # already surfaced on the user's first build_M1() call.
+            M1Fun = suppressWarnings(build_M1(
+              M1_model = Rceattle$data_list$M1_model,
+              M1_re = Rceattle$data_list$M1_re,
+              updateM1 = FALSE,
+              M1_use_prior = Rceattle$data_list$M1_use_prior,
+              M2_use_prior = Rceattle$data_list$M2_use_prior,
+              M_prior = Rceattle$data_list$M_prior,
+              M_prior_sd = Rceattle$data_list$M_prior_sd,
+              M1_indices = Rceattle$data_list$M1_indices,
+              linkages = Rceattle$data_list$M1_linkages)),
+            growthFun = build_growth(fun = Rceattle$data_list$growth_fun,
+                                     linkages = Rceattle$data_list$growth_linkages),
             random_rec = Rceattle$data_list$random_rec,
             niter = Rceattle$data_list$niter,
             msmMode = Rceattle$data_list$msmMode,
@@ -383,14 +392,14 @@ compare_sim <- function(operating_mod, simulation_mods, object = "quantities") {
 #' @param maxage_sp Numeric. The age at which growth enters the asymptotic phase.
 #' @param growth_params_sp Array. Dimensions (sex, yr, 4).
 #'   Params: K, L1, Linf, Richards m.
-#' @param growth_ln_sd_sp Array. Dimensions (sex, 2).
+#' @param growth_log_sd_sp Array. Dimensions (sex, 2).
 #'   Log-SD of length: 1st param is SD at minage, 2nd param is SD at maxage.
 #' @param growth_model_sp Integer. 1 = Von Bertalanffy, 2 = Richards.
 #'
 #' @return A 4D array of probabilities with dimensions (sex, age, length, year).
 get_growth_matrix_r <- function(fracyr, nsex_sp, nages_sp, nlengths_sp, nyrs,
                                 lengths_sp, minage_sp, maxage_sp,
-                                growth_params_sp, growth_ln_sd_sp, growth_model_sp) {
+                                growth_params_sp, growth_log_sd_sp, growth_model_sp) {
 
   # Define names for the dimensions
   dim_names <- list(
@@ -475,8 +484,8 @@ get_growth_matrix_r <- function(fracyr, nsex_sp, nages_sp, nlengths_sp, nyrs,
         }
 
         # --- 3. SD Calculation ---
-        sd1 <- exp(growth_ln_sd_sp[s, 1])
-        sda <- exp(growth_ln_sd_sp[s, 2])
+        sd1 <- exp(growth_log_sd_sp[s, 1])
+        sda <- exp(growth_log_sd_sp[s, 2])
 
         if(current_age <= minage_sp) {
           length_sd[s, a, y] <- sd1

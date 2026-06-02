@@ -1,4 +1,501 @@
-# Rceattle 4.0.3 (in development)
+# Rceattle 4.4.2
+
+## Code organisation (no change to fitted results)
+
+The pre-fit pipeline files in `R/` were reorganised so they are easier to
+navigate. None of these changes alter model output.
+
+* **File prefixes now follow execution order.** `fit_mod()` runs its stages
+  as `clean_data()` -> `data_check()` -> `build_params()` -> `build_map()` ->
+  `build_bounds()` -> `rearrange_data()` -> fit -> `rename_output()`, so the
+  files were renumbered to match (`data_check` is now `1-`, `build_params`
+  `2-`, `build_map` `3-`, `build_parameter_bounds` `4-`). A pipeline map was
+  added to the top of `fit_mod()`.
+* **Switch lifecycle consolidated** into a single `R/0-switches.R`: the
+  string<->integer maps (formerly `0-constants.R`) plus `switch_check()`,
+  `revert_switches()`, `validate_switches()`, and `convert_switches()`, with a
+  header documenting the order in which they run.
+* **HCR helpers co-located.** `build_hcr_map()` moved into `R/0-build_hcr.R`
+  alongside `build_hcr()` (the separate `2-build_hcr_map.R` was removed).
+
+## Rename / deprecation
+
+* `rearrange_dat()` is renamed **`rearrange_data()`**. The old name still works
+  as a deprecated alias (emits a one-time `.Deprecated()` warning) and will be
+  removed in a future release.
+
+## Export hygiene
+
+* `check_composition_data()`, `check_caal_data()`, `calc_mcall_ianelli()`, and
+  `calc_mcall_ianelli_diet()` are no longer exported; they are internal
+  helpers called only from within the package.
+
+## Internal / R CMD check
+
+* Removed `Rceattle:::` self-references in `build_bounds()` (a package should
+  not use `:::` for its own objects).
+* `profile.Rceattle()` gained `...` for S3 consistency with the
+  `stats::profile` generic.
+
+# Rceattle 4.4.1
+
+## Rename
+
+`profile_param()` was renamed `profile()` and turned into an S3 class.
+
+# Rceattle 4.4.0
+
+## New features
+
+* **Double Normal Selectivity (Type 8)**: Added support for the four-parameter Double Normal selectivity curve (Peak, Ascending SD, Descending SD, and Floor). This includes full support for annual deviates on all four parameters and is compatible with the age- and length-based selectivity engines.
+* **Growth SD Control**: The linkage system now supports `sd_L1` and `sd_Linf` parameters. This allows users to specify priors, initial values, and bounds for growth SD endpoints using the same formula-driven interface used for mean growth parameters.
+* **Natural-scale linkage API**: Renamed the linkage parameter keys from `log_*` to their natural-scale counterparts (`K` / `L1` / `Linf` / `m`; `M1`; `R0` / `alpha` / `beta`). Internal parameters remain on the log scale.
+* **Natural-scale priors**: Standardized prior evaluation so that probability densities are applied to parameters on their natural scale by default, unless a lognormal family is explicitly requested.
+* **Natural-scale inits**: Standardized init evaluation so initial values for `"(Intercept)"` parameters are applied on their natural scale.
+* **Linkage link functions**: Fully implemented dual-path linkage offsets. `link = "log"` (the new default) applies the offset multiplicatively on the natural scale (additive on the log scale); `link = "identity"` applies it additively on the natural scale.
+* **Per-species VB anchor age**: `build_growth()` gains a `growth_age_L1` argument (scalar or length-`nspp` vector) for the age at which mean length equals `L1`. Matches SS3's `Growth_Age_for_L1`. Default `NA` inherits `data_list$growth_age_L1` if set, else falls back to `max(0.5, minage[sp])` so `minage = 0` models pick up an SS3-consistent half-year anchor while `minage >= 1` models stay backwards-compatible.
+* **Self-test simulation**: New `self_test()` simulates `nsim` datasets from a fitted model and re-fits the model to each simulated dataset, returning the list of refits. Runs in parallel by default (PSOCK cluster, capped at 2 cores under `R CMD check`) with a per-simulation `seed + i` so results are reproducible under both sequential and parallel execution.
+* **Likelihood profile**: New `profile_param()` generalises the legacy `profile_rsigma()` example helper to any parameter slot in `Rceattle$estimated_params`. Supports arbitrary N-D cross-profiles via `expand.grid()` over a list of per-cell value grids (e.g. cross-profiling `log_M1` across sex, or `R_log_sd` across multiple species). Natural-scale aliases `"sigmaR"` / `"R_sd"`, `"M1"`, and `"R0"` / `"alpha"` / `"beta"` apply the implicit `log()` transform and (for the `rec_pars` aliases) auto-fill the column, so `slots` only needs the species index. `slots` defaults to species 1 with a warning. Fits run in parallel on the same PSOCK harness as `jitter()` / `retrospective()` / `self_test()`.
+* **Parallel `retrospective()` and `jitter()`**: Both diagnostics now run their independent peels / starts on a PSOCK cluster (same approach as `run_mse()`). New `cores` argument on each (default `parallel::detectCores() - 6`, capped at 2 when `_R_CHECK_LIMIT_CORES_` is set); pass `cores = 1` to force sequential execution.
+* **Standard errors in `as.data.frame.Rceattle()`**: The tidy long-format frame now carries a `se` column alongside `value` / `lwr` / `upr`, populated from the TMB `sdreport` for any `ADREPORT`'d quantity. Set to `NA` for non-ADREPORT'd quantities and for fits produced with `getsd = FALSE`.
+
+
+## Bug fixes
+
+* **SRR logic**: Fixed a bug in `build_srr()` where the `Bmsy_lim` penalty was incorrectly disabled for current Ricker implementations due to an index mismatch.
+* **Selectivity RW prior scaling**: Corrected the random walk prior scaling in the TMB template to ensure consistent $4 \times$ SD multipliers for both ascending and descending limb slope/SD parameters.
+* **`last_par` returned wrong vector**: Fixed `fit_mod()` so the value stored on the returned fit is the optimizer's last parameter vector rather than a stale prior reference, removing the need for the surrounding `try()` guards in downstream callers.
+* **Growth at `minage = 0`**: Fixed a segfault in `growth.hpp` when `minage = 0` by guarding `current_age`, `age_L1`, and the cohort-boundary `age_L1_ceil` against the zero-age anchor. Also corrected length-at-age at `minage = 0` so the closed-form anchor at `L1` is honored on both the within-year and cohort recursion paths.
+* **Length-bin midpoint for weight-at-age**: `calculate_weight()` now computes each bin's midpoint as `(lengths[ln] + lengths[ln+1]) / 2` (with the plus-group extended by half the final interior width) rather than `lengths[ln] + (lengths[1] - lengths[0]) / 2`. The previous formula assumed uniform bin widths and silently mis-located the midpoint for non-uniform length bins; for uniform bins (the common case) the two are algebraically identical, so existing fits are unchanged.
+* **Plus-group SD-at-age continuity**: `growth.hpp` no longer special-cases the oldest age class when computing `length_sd`. Previously the plus group used `exp(growth_log_sd(sp, sex, 1))` directly (SD at `Linf`); it now uses the same length-based linear interpolation between SD(`L1`) and SD(`Linf`) as all other ages above `age_L1`. This restores continuity across the plus-group boundary; users with archived fits whose plus group did not reach `Linf` should expect small numerical drift in `length_sd` at the oldest age.
+* **`fit_mod()` bounds ordering**: `fit_mod()` now indexes parameter bounds by name rather than positional order when assembling `L` / `U` for `nlminb`. Previously, when `map$mapFactor` and `bounds$lower` were not in identical order, parameters could be paired with another parameter's bounds, producing silently wrong constraints. `start_par` is now also subset by name with `drop = FALSE`.
+* **`mse_summary()` Tier-3 Flimit**: The internal `flimit_tier3_fun()` returned `Flimit` (its argument) instead of the depletion-adjusted `tier3_flimit` it had just computed, so the Tier-3 (HCR = 5) branch of P(F > Flimit) reduced to the base-Flimit check. Now returns the adjusted vector.
+* **`mse_summary()` HCR coercion**: `HCR` is now normalized to its integer code before downstream comparisons (`HCR == 5`, etc.). `build_hcr()` accepts either an integer or a string alias (e.g. `"NPFMC"`); `mse_summary()` previously assumed integer form and silently produced wrong status flags when fits carried the string form.
+* **`mse_summary()` OM status at assessment years**: P(F > Flimit) and P(SSB < SSBlimit) are now reported for the OM evaluated at the same assessment years as the EM (previously only the EM's perceived status was returned), and the SSB-limit threshold dispatch is consolidated in one helper so the Tier-3 / Category-1 / dynamic-vs-static cases stay aligned across the EM and OM paths.
+* **`clean_data()` inactive-fleet handling**: The auto-Off branch no longer nulls out `proj_F_prop` and `Catchability` on fleets it flips to `"Off"`. The downstream TMB code already ignores those columns for off fleets, and clearing them lost information users needed when re-enabling a fleet.
+* **Selectivity block indexing**: Renamed the within-loop `biom_yrs` index vector to `block_yrs` in the selectivity and catchability block branches of `build_map_*()`. The previous name was a leftover from the index-data path and shadowed nothing, but read as if it referred to biomass-observation years.
+* **`plot_index()` / `plot_catch()` / `plot_logindex()` warnings**: Wrapped the internal `gplots::plotCI()` calls in `suppressWarnings()` so plotting a fit no longer prints the recurring `"In arrows(...): zero-length arrow is of indeterminate angle and so skipped"` noise when CI half-widths are zero.
+
+## Data checks
+
+* **Empirical growth + CAAL**: `data_check()` now errors when `growth_model == 0` (empirical weight-at-age) is combined with non-empty `caal_data` for a given species. The C++ growth matrix is not populated from the age-transition matrix in the empirical branch, so `pred_CAAL` collapses to ~0 and the multinomial NLL becomes uninformative.
+* **Selectivity identifiability**: Fleets with estimated `Selectivity` and `Fleet_type != "Off"` now require at least one positive-sample `comp_data` or `caal_data` row. Either provide composition / CAAL data, mark the fleet as `Selectivity = "Fixed"` with `emp_sel`, or set `Fleet_type = "Off"`.
+* **Auto-Off inactive fleets**: `clean_data()` automatically flips `Fleet_type` to `"Off"` for fleets that carry no catch or index observations, preventing the optimizer from drifting on unconstrained selectivity / catchability blocks.
+* **`minage` guard**: `data_check()` errors when any species has `minage < 0`.
+
+## Documentation
+* Added `vignette("environmental-linkages-and-priors")` (and updated `_pkgdown.yml`) to cover the new linkage intercept behavior, link-function semantics, growth SD endpoints, and Double Normal selectivity.
+* Updated all cross-references in `build_srr()` / `build_M1()` / `build_growth()` (deprecation warnings, soft-deprecated arg docs, and the `vignette()` pointers in the model-options vignette) from the old `environmental-linkages` slug to the renamed `environmental-linkages-and-priors` vignette so the soft-deprecation warnings now resolve.
+* Expanded the Double Normal (selectivity type 8) doxygen / roxygen so the four estimable parameters (peak, ascending SD, descending SD, and logit right-floor) and their TV deviates are documented in one place; `sel_inf(1)` is the right-tail floor (analogous to SS3 P6 / `end_logit`), not a fixed-by-map placeholder.
+
+## Deprecations
+
+* The soft-deprecated `srr_indices` / `M1_indices` arguments and the
+  legacy env-driven integer codes (`srr_fun %in% c(1, 3, 5)`,
+  `M1_model %in% c(4, 5)`) continue to work in 4.4.0 with a one-time
+  warning that points users at the linkage table. **Removal has been
+  rescheduled from v4.2.0 to v4.5.0** to extend the migration window;
+  see the "Scheduled removal" section under 4.1.0 below for the
+  unchanged cleanup checklist.
+
+# Rceattle 4.3.1
+
+## Bug fixes
+
+* Fixed a segfault in `MakeADFun` triggered by Beverton-Holt / Ricker
+  fits with a recruitment linkage. Section 6.9 (expected recruitment)
+  was indexing `R0`, `alpha`, and `Beta` with the function-scope `yr`
+  variable, which the preceding forecast loop left equal to `nyrs` --
+  one column past the end of the `(nspp, nyrs)` matrices. The year-0
+  block now uses an explicit `first_yr = 0` constant. Mean-recruitment
+  fits (`srr_fun = 0`) happened to dodge the segfault because
+  `calculate_recruitment()` doesn't dereference `alpha`/`Beta` for
+  that case.
+* Fixed the recruitment-parameter offset formula at the top of section
+  5.6: `alpha` and `Beta` now apply the linkage offset on the log
+  scale (`exp(rec_pars + offset)`) to match the documented contract
+  and the `log_R0` formula on the same line. Previously the offset
+  was added on the linear scale, which silently corrupted BH/Ricker
+  recruitment whenever a non-zero `log_alpha` or `log_beta` linkage
+  offset was active.
+* Added a `R0/alpha/Beta` column-count assertion at the entry of
+  section 6.9 so future stale-loop / sizing regressions surface as a
+  clean R-level error from TMB rather than an opaque segfault.
+
+## Reparameterised intercept handling for the linkage system
+
+Linkage rows whose `design_col == "(Intercept)"` no longer carry the
+parameter level themselves. Instead:
+
+* The base parameter (`rec_pars`, `log_M1`, `log_growth_pars`)
+  remains estimable and holds the level. Phasing and the per-process
+  map machinery operate on the base parameter as they would without
+  any linkages.
+* The `(Intercept)` row's `beta_linkage` slot is fixed at `0` and
+  mapped NA. It exists in the table for bookkeeping plus as a hook
+  for `init` and `priors`.
+* `init = list(`(Intercept)` = X)` on the spec **flows to the base
+  parameter** -- it sets the base parameter's starting value rather
+  than the linkage row.
+* Priors attached to an `(Intercept)` row are **re-targeted to the
+  base parameter** in the slot 19 contribution; the prior density
+  evaluates against `rec_pars(sp, 0)` / `log_M1(sp, sx, ag)` /
+  `log_growth_pars(sp, sx, par)` rather than the (zero) linkage
+  value.
+
+For slope-only formulas (`~ 0 + temp`) the behaviour is unchanged:
+the base parameter is still mapped NA at its `build_params()`
+default, and the linkage row carries the year-by-year offset.
+
+### Recruitment offset semantics
+
+Year 0 of the recruitment block no longer bakes the year-0 covariate
+contribution into `R0`. `R0` is computed from `rec_pars(sp, 0)`
+alone, and the linkage offset multiplies against `R0` each year
+(including year 0):
+
+```
+R(yr) = R0 * exp(rec_dev(yr) + linkage_offset(yr))
+```
+
+This makes the legacy `srr_fun = 1 / 3 / 5` quirk (which double-counted
+`Temp[0]`) obsolete. Users migrating from the legacy paths should now
+get clean log-linear behaviour without surprise offsets.
+
+### Schema additions
+
+* New `init_supplied` (logical) column on `Rceattle_linkage_table`
+  tracks whether the user explicitly supplied an `init` for that row.
+  Used by `build_params()` to decide whether to push a base-parameter
+  init.
+* New `linkage_is_intercept` IVECTOR in the TMB encoding (set from
+  `design_col == "(Intercept)"`) used by the slot-19 prior dispatch
+  to evaluate intercept priors against the base parameter.
+
+### Tests
+
+`tests-Dynamics/test-linkage-auto-map.R`,
+`tests-Dynamics/test-recruitment-linkage.R`, and
+`tests-Dynamics/test-growth-linkage-species.R` were updated to assert
+the new contract (base parameters estimable, intercept rows fixed at
+0, slope-only offsets in the year-by-year tensor).
+
+# Rceattle 4.3.0
+
+## Tidy long-format extraction: `as.data.frame.Rceattle()`
+
+A new S3 method on `as.data.frame()` flattens derived population
+quantities into a long data.frame with columns
+`year, species, sex, age, quantity, value, lwr, upr` so that custom
+plotting and post-processing don't have to walk the nested
+`quantities` list or rely on the dimnames decisions in
+`rename_output()`. Two shapes are supported and combined into one
+frame:
+
+* **Species-by-year** (default `which`): `biomass`, `ssb`, `R`,
+  `biomass_depletion`, `ssb_depletion`, `F_spp`. Other species/year
+  series (`B0`, `SB0`, `DynamicB0`, `DynamicSB0`, `DynamicSBF`,
+  `exploitable_biomass`, `proj_F`, `fT`) are available by name; pass
+  `which = "all"` to get every known quantity present on the fit.
+
+* **Species-by-sex-by-age-by-year**: `N_at_age`, `biomass_at_age`,
+  `Z_at_age`, `M_at_age`, `M1_at_age`, `M2_at_age`, `F_at_age`,
+  `consumption_at_age`, `B_eaten_as_prey`, `NByage0`, `NByageF`. The
+  `age` column is biological age (offset by `data_list$minage`), and
+  cells padded out to `max(nsex)` / `max(nages)` for species with
+  fewer sexes or ages are dropped rather than returned as `NA`.
+
+`lwr` / `upr` are populated from the TMB `sdreport` for any quantity
+that was `ADREPORT`'d (currently `biomass`, `ssb`, `R`); other
+quantities and fits produced with `getsd = FALSE` get `NA` for the
+band. The `ci_level` argument (default `0.95`) controls width.
+
+## Optional data fields, continued (Phases B, C, D)
+
+Continuing the Phase A work from 4.2.0, three more classes of inputs
+that were previously required as non-NULL can now be omitted, with
+`data_check()` enforcing them only when the model actually needs them:
+
+* **Phase B: bioenergetics scalars.** `Ceq`, `Cindex`, `Pvalue`,
+  `fday`, `CA`, `CB`, `Qc`, `Tco`, `Tcm`, `Tcl`, `CK1`, `CK4` may be
+  `NULL` in single-species mode. `switch_check()` fills them with
+  safe sentinels so TMB's length-`nspp` `DATA_VECTOR` requirements
+  are satisfied. When `msmMode > 0` the scalars are required;
+  `data_check()` reports which ones are missing or wrong-length in
+  a single grouped error.
+
+* **Phase C: `env_data`.** May be `NULL`. `clean_data()` defaults it
+  to a Year-only `data.frame(Year = styr:projyr)` with zero indices.
+  Existing checks still error when a feature actually needs an
+  index (env-dependent catchability, temperature-dependent
+  consumption, env linkages, `srr_indices`, `M1_indices`).
+
+* **Phase D: `emp_sel`.** New requirement check: when any fleet has
+  `Selectivity = "Fixed"`, `emp_sel` must be supplied. Other fleets
+  do not need it.
+
+* **Tests.** A new `tests-Data-processing/test-optional-fields.R`
+  file exercises 25 NULL / requirement scenarios across the four
+  phases.
+
+# Rceattle 4.2.0
+
+## Optional data fields & data_check cleanup
+
+Several fields in `data_list` that were previously required as non-NULL
+data.frames are now truly optional. Users who do not need composition
+data, conditional age-at-length, empirical selectivity, fixed
+numbers-at-age, ration data, or diet data can omit them entirely;
+`clean_data()` default-fills the missing fields with empty data.frames
+that carry the metadata columns the downstream code expects, and
+`data_check()` enforces the field only under the conditions where the
+model actually needs it.
+
+* **Phase A (this release): `comp_data`, `caal_data`, `emp_sel`,
+  `NByageFixed`, `ration_data`, `diet_data` may be `NULL`.** Conditional
+  requirements are still enforced (`caal_data` when
+  `any(growth_model > 0)`; `NByageFixed` when `any(estDynamics > 0)`;
+  `diet_data` when `msmMode > 0`).
+
+* **`data_check()` reorganisation.** The validation function has been
+  reorganised into eight topical sections (top-level scalars; per-species
+  dimensions; biology; fleet control; observation tables; diet &
+  predation; environmental data; switches), with shared `has_data()` /
+  `fc_num()` helpers and consolidated duplicate guards. New checks were
+  added for year-scalar ordering, lognormal SDs, sample sizes,
+  probability ranges, observation values, fleet referential integrity,
+  selectivity bin bounds, predation cross-checks, duplicate observations,
+  and probability-matrix row sums. Several pre-existing dead branches and
+  matrix-`$` access bugs were fixed at the same time.
+
+* **`transpose_fleet_control()` removed.** The deprecated long-format
+  fleet_control transposer has been removed from `clean_data()`,
+  `read_data()`, and the package namespace.
+
+# Rceattle 4.1.0
+
+## Environmental linkages: a unified, formula-driven API
+
+A new long-format **linkage table** lets users express how process
+parameters depend on environmental covariates and on stratifying
+factors (species, sex, age) through a single formula-driven helper,
+`linkage_spec()`. Each row of the table corresponds to exactly one
+estimated coefficient. `fit_mod()` pools every spec into a shared
+design matrix `X` and a per-row parameter vector
+`beta_linkage`; the TMB template iterates the table once and
+accumulates per-process offsets on the linear predictor of the
+underlying parameter.
+
+* **New constructor: `linkage_spec()`.** Captures
+  `(formula, by, species, link, init, bounds, priors, est_phase)`
+  for one process parameter. Anything `model.matrix()` understands
+  works: `~ 1`, `~ temp + PDO`, `~ poly(temp, 4)`, `~ I(temp^2)`,
+  `~ splines::ns(temp, df = 4)`, `~ temp * PDO`, etc.
+
+* **Per-species formulas.** Register multiple specs against the
+  same parameter via `linkages = list(log_K = list(spec_a, spec_b))`
+  with each spec's optional `species = ...` argument scoping it
+  to a subset of stocks. The pooler unions the design columns
+  across specs so there's no duplication when species share
+  covariates.
+
+* **Priors.** First-class via `prior_normal()`,
+  `prior_lognormal()`, `prior_gamma()`, `prior_beta()`. The same
+  constructors are available unprefixed (`normal()` /
+  `lognormal()` / ...) **only inside** the `priors = ...` argument
+  via a private NSE data mask, so user code stays close to
+  mathematical notation without masking
+  `base::gamma()` / `base::beta()` at the package level. Priors
+  can be a single value applied to every species, or a named list
+  keyed by species id (and shortly, by `(species, sex)`).
+
+* **Bounds.** Per-row `lower` / `upper` flow into
+  `build_bounds()$lower$beta_linkage` /
+  `build_bounds()$upper$beta_linkage`.
+
+* **Growth** (von Bertalanffy / Richards) is the first process
+  fully wired to the new pipeline. `build_growth()` gains a
+  `linkages` argument and a string-named `fun`
+  (`"empirical"` / `"vonBertalanffy"` / `"Richards"`); integer
+  codes still work (`fun = 1` is shorthand for
+  `fun = "vonBertalanffy"`) so existing scripts don't need to be
+  rewritten apart from substituting `fun =` for `growth_model =`.
+
+  ```r
+  build_growth(
+    fun = "vonBertalanffy",
+    linkages = list(
+      log_K = linkage_spec(
+        formula = ~ temp,
+        by      = ~ species + sex,
+        priors  = list(temp = normal(0, 1))
+      )
+    )
+  )
+  ```
+
+* **TMB plumbing.** New `src/TMB/linkage.hpp` accumulator;
+  `ceattle_v01_11.cpp` reads parallel `DATA_IVECTOR(linkage_*)`
+  inputs plus a `DATA_MATRIX(linkage_X)` and writes a
+  `growth_linkage_offset` tensor that is added (additively, on the
+  log scale) to `growth_parameters`. Per-row prior densities
+  contribute to slot 19 of the joint NLL ("Linkage-table priors"
+  in `fit$quantities$jnll_comp`).
+
+* **Documentation.** New vignette
+  `vignette("environmental-linkages", package = "Rceattle")` walks
+  through the API, prior families, species-keyed priors,
+  per-species formulas, basis-expansion formulas, and the
+  underlying pipeline.
+
+* **Natural mortality** is the second process wired to the
+  pipeline. `build_M1()` gains a `linkages` argument keyed by
+  `log_M1`; the offset is added on the log scale to `log_M1` inside
+  the `M1_at_age` compute. A row's `age_bin == NA` broadcasts the
+  offset across ages; specific values pin it to that age slice.
+  `build_M1()` also gains string-form acceptance for `M1_model`
+  and `M1_re` (parity with `build_growth(fun)`):
+
+  ```r
+  build_M1(M1_model = "sex_age_invariant",   # or 1
+           M1_re    = "ar1_age",             # or 4
+           linkages = list(
+             log_M1 = linkage_spec(formula = ~ temp, by = ~ species)
+           ))
+  ```
+
+  Growth and M can be linked in the same fit; their rows share the
+  same global linkage table and the same `beta_linkage`
+  parameter vector.
+
+* **Per-(species, sex) priors.** In addition to scalar and
+  species-keyed priors, each `priors[[col]]` value may be a
+  two-level nested list keyed first by species id then by sex id:
+
+  ```r
+  priors = list(
+    temp = list(
+      `1` = list(`1` = normal(0, 0.1),
+                 `2` = normal(0, 0.2)),    # sp 1 by sex
+      `2` = normal(0, 0.5)                  # sp 2, both sexes
+    )
+  )
+  ```
+
+  Missing keys at either level resolve to "no prior" for that
+  stratum. The validator checks the structure recursively and
+  emits actionable error messages keyed by
+  `priors$<col>$<species>[$<sex>]` paths.
+
+* **Default `by = ~ species`.** `linkage_spec()` now defaults the
+  `by` argument to `~ species`, so each linkage produces one
+  coefficient per species without the user having to spell it out.
+  Pass `~ species + sex` for per-(species, sex) coefficients, or
+  `by = NULL` to share a single coefficient across every
+  species/sex (the prior default). This matches the typical
+  multispecies assessment use case where each stock has its own
+  environmental sensitivity.
+
+* **Recruitment** is the third process wired to the pipeline.
+  `build_srr()` gains a `linkages` argument keyed by `log_R0`,
+  `log_alpha`, or `log_beta`; the offset is added on the log scale
+  to the corresponding parameter at every recruitment compute
+  call site (hindcast, BRPs, projections, expected R). `log_R0`
+  is meaningful for any `srr_fun`; `log_alpha` and `log_beta`
+  only do work for SRRs that consume them
+  (`srr_fun in c(2, 3, 4, 5)` -- Beverton-Holt and Ricker).
+
+  ```r
+  build_srr(
+    srr_fun  = 2,
+    linkages = list(
+      log_alpha = linkage_spec(formula = ~ temp,
+                               priors  = list(temp = normal(0, 0.5)))
+    )
+  )
+  ```
+
+  Growth, M, and recruitment can be linked in the same fit; their
+  rows share the same global linkage table and the same
+  `beta_linkage` parameter vector. End-to-end tests in
+  `tests/testthat/tests-Dynamics/test-linkage-auto-map.R` verify that
+  the base parameter (e.g., `log_growth_pars`, `log_M1`, `rec_pars`)
+  is automatically mapped out (set to `NA`) when a linkage is active
+  for that parameter, allowing the linkage intercept to define the base value.
+  
+  `tests/testthat/tests-Dynamics/test-recruitment-linkage.R`
+  cover the analytical relations
+  `R = R0 * exp(beta * temp[yr])` (mean R) and the
+  `growth + M + recruitment` composition.
+
+* **Soft deprecation in `build_M1()`.** The legacy column-index
+  argument `M1_indices` and the env-driven structural integer
+  codes `M1_model %in% c(4, 5)` are subsumed by the new
+  `linkages = list(log_M1 = ...)` argument. Both still work for one
+  release cycle, but emit a one-time warning that points users at
+  the equivalent linkage-table call. The string aliases
+  `"env_sex_invariant"` / `"env_sex_specific"` (added briefly on
+  the dev branch) are removed; they were never released. The cpp's
+  `M1_beta` / `M1_mult` code path stays in place for now -- both
+  paths add additively to `log_M1` on the log scale -- but do not
+  use both for the same coefficient or you will double-count.
+
+* **Roadmap.** Recruitment is next on the same pipeline; then
+  random-effects pooling on `re_group` for hierarchical
+  shrinkage. The legacy `M1_indices` / `M1_model = 4|5` paths
+  retire when recruitment migrates.
+
+## Scheduled removal (v4.5.0)
+
+> **Schedule update (v4.4.0):** The removal originally targeted for
+> v4.2.0 has been pushed to **v4.5.0** to give downstream users a
+> longer migration window for the natural-scale linkage API rolled
+> out in v4.4.0. The soft-deprecation warnings continue to point
+> users at the equivalent linkage-table call. The cleanup checklist
+> below is unchanged.
+
+The soft-deprecated API surfaces below remain functional and emit
+one-time warnings pointing users at the linkage table. They will be
+**removed entirely in 4.5.0**. To migrate, replace:
+
+| Legacy                                | New                                                      |
+|---------------------------------------|----------------------------------------------------------|
+| `build_srr(srr_indices = ...)`        | `build_srr(linkages = list(log_R0 = linkage_spec(...)))` |
+| `build_srr(srr_fun = 1)`              | `build_srr(srr_fun = 0)` + linkage on `log_R0`           |
+| `build_srr(srr_fun = 3)`              | `build_srr(srr_fun = 2)` + linkage on `log_alpha`        |
+| `build_srr(srr_fun = 5)`              | `build_srr(srr_fun = 4)` + linkage on `log_alpha`        |
+| `build_M1(M1_indices = ...)`          | `build_M1(linkages = list(log_M1 = linkage_spec(...)))`  |
+| `build_M1(M1_model = 4)`              | `build_M1(M1_model = 1)` + linkage on `log_M1`           |
+| `build_M1(M1_model = 5)`              | `build_M1(M1_model = 2)` + linkage on `log_M1`           |
+
+**Cpp cleanup checklist** (search for `LEGACY` in
+`src/TMB/ceattle_v01_11.cpp`):
+
+* Drop `PARAMETER_MATRIX(beta_rec_pars)`, `PARAMETER_ARRAY(M1_beta)`,
+  and the scratch vectors `srr_mult`, `beta_rec_tmp`, `env_rec_tmp`,
+  `M1_mult`, `beta_M1_tmp`, `env_M1_tmp`.
+* Delete the five `srr_env_mult` blocks (hindcast, BRPs, dynamic
+  BRPs, projection, R_hat) and the `M1_mult.sum()` term inside the
+  M1_at_age compute.
+* Pass `Type(0.0)` for `srr_env_mult` at each
+  `calculate_recruitment()` call site (or drop the parameter from
+  the function signature in `recruitment.hpp` if no caller still
+  needs it).
+
+**R-side cleanup**:
+
+* Remove `srr_indices` and `M1_indices` arguments from
+  `build_srr()` and `build_M1()`.
+* Reject `srr_fun %in% c(1, 3, 5)` and
+  `M1_model %in% c(4, 5)` as unknown integer values in
+  `.coerce_srr_fun()` and `.coerce_M1_arg()` (drop the
+  `.SRR_DEPRECATED_FUNS` / `.M1_DEPRECATED_MODELS` constants).
+* Remove the `suppressWarnings()` wrappers around internal
+  `build_srr()` / `build_M1()` re-callers in `sim_mod()`,
+  `retrospective()`, `jitter()`, `run_mse()`, `project_no_F()`.
+
+
+# Rceattle 4.0.3
 
 ## API
 

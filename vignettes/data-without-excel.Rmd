@@ -1,10 +1,10 @@
 ---
-title: "6. Building a data object without Excel"
+title: "6. Building a data object in R"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteIndexEntry{6. Building a data object without Excel}
+  %\VignetteIndexEntry{6. Building a data object in R}
   %\VignetteEncoding{UTF-8}
 ---
 
@@ -25,6 +25,23 @@ Rceattle normally reads input data from an Excel workbook via `read_data()`. The
 - Integrating Rceattle into pipelines that don't use Excel
 
 Everything passed to `fit_mod()` lives in this list, so understanding its structure also helps you modify existing data objects read from Excel. This vignette walks through each component. The result can be validated with `data_check()` and fitted with `fit_mod()`, or exported back to Excel with `write_data()`.
+
+### Required vs. optional fields
+
+The list are optional and only needed when a particular feature is turned on. `Rceattle` fills missing optional fields with safe defaults and stops model runs under the conditions that actually require them:
+
+| Field                                    | Required when                                  |
+|------------------------------------------|------------------------------------------------|
+| `comp_data`                              | (always optional)                              |
+| `caal_data`                              | `any(growth_model > 0)` (estimating growth)    |
+| `emp_sel`                                | any fleet has `Selectivity = "Fixed"`          |
+| `NByageFixed`                            | `any(estDynamics > 0)`                         |
+| `env_data`                               |  env linkages                                  |
+| `diet_data`                              | `msmMode > 0`                                  |
+| `ration_data`                            | `msmMode > 0`                                  |
+| Bioenergetics scalars (`Ceq`, `CA`, `CB`, `Tco`, ...) | `msmMode > 0`                     |
+
+In default single-species mode (`msmMode = 0`) you can omit any of these by simply not setting the field on the list. The single-species example below shows the full machinery, but feel free to skip sections you don't need.
 
 ## Setup
 
@@ -63,14 +80,13 @@ simData$nsex    <- rep(1, nspp)
 simData$spawn_month <- rep(6, nspp)
 
 simData$nages   <- rep(nages, nspp)   # number of age classes per species
-simData$minage  <- rep(1, nspp)       # minimum age (usually 1 or 0)
+simData$minage  <- rep(1, nspp)       # minimum age (usually 1)
 simData$nlengths <- rep(nlengths, nspp)
 
 # estDynamics controls how population abundance is estimated:
 #   0 = estimate population dynamics (standard statistical catch-at-age)
 #   1 = fix N-at-age exactly to values in NByageFixed (e.g., external estimates)
 #   2 = scale NByageFixed by a single estimated scalar per species
-#   3 = scale NByageFixed by age-specific estimated scalars per species
 simData$estDynamics <- rep(0, nspp)
 
 # Indices linking each species to its weight and growth datasets.
@@ -80,12 +96,12 @@ simData$pop_wt_index <- 1:nspp
 simData$ssb_wt_index <- 1:nspp
 simData$pop_age_transition_index <- rep(1, nspp)
 
-# Length-weight relationship coefficients: W = alpha * L ^ beta (metric tonnes).
-# Used internally to convert length-based selectivity to weight.
+# Length-weight relationship coefficients: W = alpha * L ^ beta.
+# Used internally to convert length-based selectivity to weight when estimating growth.
 simData$alpha_wt_len <- rep(0.00001, nspp)
 simData$beta_wt_len  <- rep(3, nspp)
 
-# Prior standard deviation for log-recruitment deviations. Controls the
+# Prior or initial standard deviation for log-recruitment deviations. Controls the
 # strength of the recruitment penalty in penalized-likelihood mode.
 simData$sigma_rec_prior <- rep(1, nspp)
 
@@ -127,7 +143,7 @@ This is the most important configuration table. Each row defines one fleet (fish
 #   "PowerEquation"        (4) -- power-equation Q (habitat area scaling)
 #   "Environmental"        (5) -- mu_q + X * beta, where X is a covariate in env_data
 #   "AR1"                  (6) -- auto-regressive catchability (Rogers et al. 2024)
-#   NA                         -- not applicable (use for fishery fleets)
+#   NA                         -- not applicable (use for fisheries without CPUE)
 
 # Comp_loglike / CAAL_loglike options:
 #   "Multinomial"           -- standard multinomial
@@ -151,11 +167,13 @@ simData$fleet_control <- data.frame(
   Sel_curve_pen1            = NA,    # smoothness penalty (NonParametric)
   Sel_curve_pen2            = NA,
   # Time_varying_sel:
-  #   0 = time-invariant (default)
-  #   1 = penalized log-normal deviates (SD fixed at Time_varying_sel_sd_prior
+  #   0 / "Off" = time-invariant (default)
+  #   1 / "IID" = penalized log-normal deviates (SD fixed at Time_varying_sel_sd_prior
   #       unless random_sel = TRUE in fit_mod)
-  #   3 = time blocks (specify via R-side mapping)
-  #   4 = random walk
+  #   2 / "AR1" = AR(1) (not yet implemented)
+  #   3 / "Block" = time blocks (specify via R-side mapping)
+  #   4 / "RandomWalk" = random walk
+  #   5 / "RandomWalkAscending" = random walk on ascending portion of double logistic
   Time_varying_sel          = 0,
   Time_varying_sel_sd_prior = 1,
   Bin_first_selected        = 1,     # youngest fully-selected age or length bin
@@ -179,10 +197,12 @@ simData$fleet_control <- data.frame(
   Q_prior              = rep(c(1,   NA), nspp),
   Q_sd_prior           = rep(c(0.2, NA), nspp),
   # Time_varying_q:
-  #   0 = time-invariant
-  #   1 = penalized log-normal deviates
-  #   3 = time blocks
-  #   4 = random walk
+  #   0 / "Off" = time-invariant
+  #   1 / "IID" = penalized log-normal deviates (SD fixed at Time_varying_q_sd_prior
+  #       unless random_q = TRUE in fit_mod)
+  #   2 / "AR1" = AR(1) (not yet implemented)
+  #   3 / "Block" = time blocks
+  #   4 / "RandomWalk" = random walk
   Time_varying_q          = rep(c(0, NA), nspp),
   Time_varying_q_sd_prior = rep(c(1, NA), nspp),
 
@@ -245,6 +265,8 @@ simData$catch_data <- data.frame(
 
 Age or length composition data. `Age0_Length1 = 0` for age compositions, `1` for length compositions. `Sex = 0` for combined sex, `1` for females, `2` for males, `3` for joint female+male. Composition columns (`Comp_1`, `Comp_2`, ...) can be raw counts or proportions — Rceattle normalises internally.
 
+Skip this section entirely (don't set `simData$comp_data`) if no composition data are available — `clean_data()` will fill it with an empty data.frame.
+
 ```{r}
 comp_matrix <- matrix(abs(rnorm(nyrs * nspp * nages * 2)),
                       nrow = nyrs * nspp * 2, ncol = nages)
@@ -269,6 +291,8 @@ simData$comp_data <- cbind(
 ## 6. Conditional age-at-length (CAAL) data (optional)
 
 CAAL data provide observed age frequencies within each length bin and allow the model to jointly fit length and age compositions, and optionally estimate the growth curve internally (see `vignette("model-parameterizations")` and `?build_growth`). One row per fleet-sex-year-length-bin combination.
+
+`caal_data` becomes **required** when growth is being estimated internally (`any(growth_model > 0)`); otherwise it can be omitted.
 
 ```{r}
 caal_matrix <- matrix(abs(rnorm(nyrs * nspp * nages * 2 * nlengths)),
@@ -364,6 +388,38 @@ colnames(sex_matrix) <- paste0("Age", 1:nages)
 simData$sex_ratio <- cbind(data.frame(Species = 1:nspp), sex_matrix)
 ```
 
+### Fixed selectivity (optional)
+
+Pre-specified selectivity-at-age values for fleets whose selectivity is fixed (not estimated). **Required** when any fleet has `Selectivity = "Fixed"`. Skip if all fleets estimate their own selectivity (as in this example).
+
+When you do need it, the table looks like:
+
+```{r}
+# Example for one fleet whose selectivity is fixed at the supplied row of values
+emp_sel <- data.frame(
+  Fleet_name = "Survey Species 1",
+  Fleet_code = 1,
+  Species    = 1,
+  Sex        = 0,
+  Year       = 0,                       # 0 = applied to every year
+  t(matrix(c(0.1, 0.5, 1, rep(1, nages - 3)), ncol = 1,
+           dimnames = list(paste0("Comp_", 1:nages), NULL)))
+)
+simData$emp_sel <- NULL
+```
+
+### Fixed numbers-at-age (optional)
+
+Used when `estDynamics > 0`:
+
+- `1` = numbers-at-age fixed exactly to these values
+- `2` = numbers-at-age scaled by a single estimated scalar per species
+- `3` = numbers-at-age scaled by age-specific estimated scalars per species
+
+**Required** when `any(estDynamics > 0)`. Skip if you're estimating population dynamics from scratch (the default `estDynamics = 0`).
+
+When you do need it, the table has columns `Species_name`, `Species`, `Sex`, `Year`, then `Age1 ... Age<nages>` for the fixed numbers-at-age.
+
 ### Natural mortality (M1 base)
 
 Residual natural mortality-at-age before any predation component. In single-species mode, total mortality M = M1. In multi-species mode, M = M1 + M2 where M2 is predation mortality estimated from the bioenergetics model. When switching to multi-species mode it is important to reduce M1 accordingly (see `vignette("single-vs-multispecies")`).
@@ -376,9 +432,35 @@ simData$M1_base <- cbind(data.frame(Species = 1:nspp, Sex = 0), m_matrix)
 
 M1 can also be estimated rather than fixed. See `?build_M1` for options including estimating a single scalar, an age-specific vector, or a temperature-dependent function.
 
-### Environmental covariate data
+### Weight-at-age
 
-An optional time series used in environment-recruitment, -M1, or -catchability relationships. Missing years are filled with the column mean. Column names after `Year` can be anything and are referenced by column order.
+Used for biomass calculations. Linked to species or fleets. Set Year = 0 to apply the same weight-at-age to all years (time-invariant). Age_1 ... Age_nages columns hold mean weight (usually kg) at each age.
+
+```{r}
+weight_matrix <- matrix(
+  (1:nages / nages)^3 * 0.01,   # Simple power curve placeholder
+  nrow = nspp, ncol = nages, byrow = TRUE
+)
+colnames(weight_matrix) <- paste0("Age", 1:nages)
+
+simData$weight <- cbind(
+  data.frame(
+    Wt_name  = paste("Species", 1:nspp),
+    Wt_index = 1:nspp,
+    Species  = 1:nspp,
+    Sex      = 0,
+    Year     = 0    # Year = 0 applies to all years (time-invariant)
+  ),
+  weight_matrix
+)
+```
+
+
+### Environmental covariate data (optional)
+
+An optional time series used in environment-recruitment, -M1, -catchability, or -growth relationships. Missing years are filled with the column mean. Column names after `Year` can be anything and are referenced by column order.
+
+Skip this if no environmental covariates are used. `clean_data()` will fall back to a Year-only data.frame with no indices, and `data_check()` will only complain when a feature actually needs an index (env-q catchability, `Ceq[sp] > 1`, or any env linkage).
 
 ```{r}
 simData$env_data <- data.frame(
@@ -387,9 +469,13 @@ simData$env_data <- data.frame(
 )
 ```
 
-## 8. Multi-species bioenergetics parameters (optional)
+## 8. Multi-species bioenergetics parameters (optional in single-species mode)
 
-These parameters govern the Wisconsin bioenergetics model used to compute predation mortality (M2) in multi-species mode. They are unused in single-species mode. See `?build_M1` and the CEATTLE technical documentation for full details on each parameter.
+These parameters govern the Wisconsin bioenergetics model used to compute predation mortality (M2) in multi-species mode. They are unused in single-species mode and can be omitted entirely — `switch_check()` fills any missing scalars with safe sentinels (`Ceq = 1`, `Pvalue = 1`, `fday = 365`, others `0`) so TMB's length-`nspp` `DATA_VECTOR` requirements are satisfied.
+
+In multi-species mode (`msmMode > 0`) **all** of `Ceq`, `Cindex`, `Pvalue`, `fday`, `CA`, `CB`, `Qc`, `Tco`, `Tcm`, `Tcl`, `CK1`, `CK4` must be supplied as length-`nspp` vectors; `data_check()` will list any that are missing or wrong-length. Likewise `diet_data` and `ration_data` are required.
+
+See `?build_M1` and the CEATTLE technical documentation for full details on each parameter.
 
 ```{r}
 # Ceq: consumption equation form following Hanson et al. (1997)
@@ -418,27 +504,24 @@ simData$CK4 <- rep(1,  nspp)
 simData$Diet_loglike      <- rep(0, nspp)
 simData$Diet_comp_weights <- rep(1, nspp)
 
-# Ration data (optional): observed mean ration-at-age from bioenergetics studies.
-# Leave empty if not available.
-simData$ration_data <- data.frame(matrix(NA, nrow = 0, ncol = 3 + nages))
-colnames(simData$ration_data) <- c("Species", "Sex", "Year",
-                                   paste0("Age", 1:nages))
+# Ration data (optional in single-species mode): observed mean ration-at-age from
+# bioenergetics studies. Required when msmMode > 0. Skip in single-species mode.
+#
+# When provided, columns are: Species, Sex, Year, Age1, ..., Age<nages>.
 
 # Diet composition data: observed stomach content proportions (predator-prey pairs).
-# Leave empty if not available — the model will use the empirical suitability
-# approach (suitMode = 0) derived from whatever diet data are provided.
-simData$diet_data <- data.frame(matrix(NA, nrow = 0, ncol = 9))
-colnames(simData$diet_data) <- c("Pred", "Prey", "Pred_sex", "Prey_sex",
-                                 "Pred_age", "Prey_age", "Year",
-                                 "Sample_size", "Stomach_proportion_by_weight")
+# Required when msmMode > 0; skip in single-species mode.
+#
+# When provided, columns are: Pred, Prey, Pred_sex, Prey_sex, Pred_age,
+# Prey_age, Year, Sample_size, Stomach_proportion_by_weight.
 ```
 
 ## 9. Validate and fit
 
-`data_check()` prints a summary of the data list and flags common issues (mismatched dimensions, missing columns, impossible values) before any model fitting is attempted.
+`plot_data()` prints a summary of the data list.
 
 ```{r}
-data_check(simData)
+plot_data(simData)
 ```
 
 ```{r}
