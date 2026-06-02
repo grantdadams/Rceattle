@@ -144,9 +144,9 @@ clean_data <- function(data_list){
 switch_check <- function(data_list){
 
   # Helper to set defaults and notify
-  set_default <- function(val, default, msg) {
+  set_default <- function(val, default, msg = NULL) {
     if(is.null(val)) {
-      message(msg)
+      if(!is.null(msg)) message(msg)   # msg = NULL -> default silently
       return(default)
     }
     return(val)
@@ -200,8 +200,17 @@ switch_check <- function(data_list){
   # 1. Fleet Control defaults ----
   data_list$fleet_control$Sel_norm_bin1 <- set_default(data_list$fleet_control$Sel_norm_bin1, NA, "'Sel_norm_bin1' not specified in 'fleet_control', assuming 'NA'")
   data_list$fleet_control$Sel_norm_bin2 <- set_default(data_list$fleet_control$Sel_norm_bin2, NA, "'Sel_norm_bin2' not specified in 'fleet_control', assuming 'NA'")
-  data_list$fleet_control$Sel_curve_pen1 <- set_default(data_list$fleet_control$Sel_curve_pen1, 0, "'Sel_curve_pen1' not specified in 'fleet_control', assuming '0'")
-  data_list$fleet_control$Sel_curve_pen2 <- set_default(data_list$fleet_control$Sel_curve_pen2, 0, "'Sel_curve_pen2' not specified in 'fleet_control', assuming '0'")
+  # Sel_curve_pen1/2/3 only matter for non-parametric (Ianelli/PM), Hake, or
+  # LogisticPM (random-walk weights) selectivity; only warn about missing columns
+  # when such a fleet is present, otherwise default silently (avoids noise for
+  # logistic-only models).
+  .np_hake <- any(data_list$fleet_control$Selectivity %in%
+                    c(2, "NonParametric", "Non-parametric", 9, "NonParametricPM", 5, "Hake", 11, "LogisticPM"))
+  data_list$fleet_control$Sel_curve_pen1 <- set_default(data_list$fleet_control$Sel_curve_pen1, 0, if(.np_hake) "'Sel_curve_pen1' not specified in 'fleet_control', assuming '0'")
+  data_list$fleet_control$Sel_curve_pen2 <- set_default(data_list$fleet_control$Sel_curve_pen2, 0, if(.np_hake) "'Sel_curve_pen2' not specified in 'fleet_control', assuming '0'")
+  data_list$fleet_control$Sel_curve_pen3 <- set_default(data_list$fleet_control$Sel_curve_pen3, 0, if(.np_hake) "'Sel_curve_pen3' not specified in 'fleet_control', assuming '0'")
+  data_list$fleet_control$Sel_start_year <- set_default(data_list$fleet_control$Sel_start_year, NA)  # per-fleet selectivity penalty start year (NA -> styr); used by LogisticPM
+  data_list$fleet_control$Sel_pen_first_age <- set_default(data_list$fleet_control$Sel_pen_first_age, NA)  # first age for the non-parametric shape penalty (NA -> bin_first_selected)
   data_list$fleet_control$Selectivity_dimension <- set_default(data_list$fleet_control$Selectivity_dimension, "Age", "'Selectivity_dimension' not specified in 'fleet_control', assuming 'Age'")
   data_list$fleet_control$Comp_loglike <- set_default(data_list$fleet_control$Comp_loglike, "MultinomialAFSC", "'Comp_loglike' not specified in 'fleet_control', assuming 'MultinomialAFSC'")
   data_list$fleet_control$CAAL_loglike <- set_default(data_list$fleet_control$CAAL_loglike, "Multinomial", "'CAAL_loglike' not specified in 'fleet_control', assuming 'Multinomial'")
@@ -209,14 +218,14 @@ switch_check <- function(data_list){
   data_list$fleet_control$Month <- set_default(data_list$fleet_control$Month, 0, "'Month' not specified in 'fleet_control', assuming 0")
 
   # Format adjustment for NonParametric
-  np_idx <- data_list$fleet_control$Selectivity %in% c(2, "NonParametric", "Non-parametric")
-  if(any(np_idx & !is.na(data_list$fleet_control$Time_varying_sel) & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1, "Off", "IID")))){
+  np_idx <- data_list$fleet_control$Selectivity %in% c(2, "NonParametric", "Non-parametric", 9, "NonParametricPM")
+  if(any(np_idx & !is.na(data_list$fleet_control$Time_varying_sel) & (!data_list$fleet_control$Time_varying_sel %in% c(NA, 0, 1, "Off", "IID", "RandomWalk")))){
     data_list$fleet_control <- data_list$fleet_control |>
       dplyr::mutate(
-        Sel_curve_pen1 = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1, "Off", "IID")), Time_varying_sel, Sel_curve_pen1),
-        Sel_curve_pen2 = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1, "Off", "IID")), Time_varying_sel_sd_prior, Sel_curve_pen2),
-        Time_varying_sel = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1, "Off", "IID")), 0, Time_varying_sel),
-        Time_varying_sel_sd_prior = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1, "Off", "IID")), 0, Time_varying_sel_sd_prior)
+        Sel_curve_pen1 = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1, "Off", "IID", "RandomWalk")), Time_varying_sel, Sel_curve_pen1),
+        Sel_curve_pen2 = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1, "Off", "IID", "RandomWalk")), Time_varying_sel_sd_prior, Sel_curve_pen2),
+        Time_varying_sel = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1, "Off", "IID", "RandomWalk")), 0, Time_varying_sel),
+        Time_varying_sel_sd_prior = ifelse(np_idx & (!Time_varying_sel %in% c(NA, 0, 1, "Off", "IID", "RandomWalk")), 0, Time_varying_sel_sd_prior)
       )
     message("Updating format where 'Selectivity == Non-parametric'. Moving non-parametric penalties to 'Sel_curve_pen1' and 'Sel_curve_pen2'.")
   }

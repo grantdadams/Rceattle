@@ -16,7 +16,7 @@
 #include "linkage.hpp"
 
 /** ------------------------------------------------------------------------ //
- *                 CEATTLE version 4.4.0                                     //
+ *                 CEATTLE version 4.4                                       //
  *                  Template Model Builder                                   //
  *               Multispecies Statistical Model                              //
  *          Bioenergetic-based Assessment for Understanding                  //
@@ -206,8 +206,11 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR(flt_varying_sel);          // Vector storing information on whether time-varying selectivity is estimated
   DATA_IVECTOR(flt_spp);                  // Vector to save fleet species
   DATA_IVECTOR(bin_first_selected);       // Vector to save age first selected (selectivity below this age = 0)
-  DATA_IVECTOR(sel_norm_bin1);            // Vector to save age of max selectivity for normalization (if NA not used)
-  DATA_IVECTOR(sel_norm_bin2);            // Vector to save upper age of max selectivity for normalization (if NA not used)
+  DATA_IVECTOR(sel_norm_bin1);            // Vector to save age of max selectivity for normalization (if NA not used). For LogisticPM (type 11): lower age of the selectivity-penalty age-range.
+  DATA_IVECTOR(sel_norm_bin2);            // Vector to save upper age of max selectivity for normalization (if NA not used). For LogisticPM (type 11): upper age of the selectivity-penalty age-range.
+  DATA_IVECTOR(flt_sel_start_yr);         // Per-fleet selectivity start year (0-based from styr); selectivity penalties start the year after this. Default 0 (= styr).
+  DATA_IVECTOR(flt_sel_pen_first_age);    // Per-fleet first age (0-based) for the non-parametric shape/monotonicity penalty. < 0 -> defaults to bin_first_selected. Lets the shape constraint span a narrower age-range than the (possibly non-zero) first selected age (e.g. ATS mina_ats > first selected age).
+  DATA_IVECTOR(flt_sel_lead);             // 1 if this fleet's selectivity penalty should be accumulated; 0 if it mirrors an earlier fleet's selectivity (same Selectivity_index + type) so the shared penalty is counted once.
   DATA_IVECTOR(comp_ll_type);             // Vector to save composition log likelihood type
   DATA_IVECTOR(caal_ll_type);             // Vector to save CAAL composition log likelihood type
   DATA_IVECTOR(flt_units);                // Vector to save fleet units (1 = weight, 2 = numbers)
@@ -2515,29 +2518,26 @@ Type objective_function<Type>::operator() () {
 
 
   // Slot 4-5 -- Selectivity
-  // * - Case 1 / 6: Logistic (2-parameter: slope and inflection) [Age / Length]
-  // * - Case 2 / 7: Non-parametric (Bin-specific coefficients with smoothing, Ianelli style) [Age / Length]
-  // * - Case 3 / 8: Double Logistic (Dorn and Methot 1990) [Age / Length]
-  // * - Case 4 / 9: Descending Logistic [Age / Length]
-  // * - Case 5 / 10: Non-parametric (Cumulative coefficients, Hake/Taylor style) [Age / Length]
   for(flt = 0; flt < n_flt; flt++){ // Loop around surveys
     jnll_comp(4, flt) = 0;
     jnll_comp(5, flt) = 0;
     sp = flt_spp(flt);
 
-    // If estimating survey or fishery
-    if(flt_type(flt) > 0){
+    // If estimating survey or fishery (and not a selectivity mirror of an earlier
+    // fleet - the shared penalty is accumulated once, on the lead fleet).
+    if(flt_type(flt) > 0 && flt_sel_lead(flt) == 1){
 
-      // 1) Ianelli/AMAK non-parametic selectivity penalties
+      // 1a) Ianelli/AMAK non-parametic selectivity penalties
       // - using non-normalized selectivities following the arrowtooth ADMB model
       // - updated to make differentiable using abs to only penalize when sel_ratio_tmp > 0 (decreasing sel_at_age)
+      // - Added time-varying component following Atka mackerel
       if(flt_sel_type(flt) == 2) {
 
         // If time-invariant selectivity
         int nyrs_tmp = 1;
 
-        // If time-varying selectivity
-        if(flt_varying_sel(flt) == 1){
+        // If random walk is on
+        if(flt_varying_sel(flt) == 4){
           nyrs_tmp = nyrs_hind;
         }
 
@@ -2583,10 +2583,85 @@ Type objective_function<Type>::operator() () {
         }
       }
 
+      // 1b) Non-parametric with the ADMB ("pm"/AMAK) selectivity penalty
+      //     (NonParametricPM, type 9). Construction is identical to type 2; only
+      //     the penalty differs to match ADMB's Selectivity_Likelihood:
+      //       jnll_comp(4) = ADMB sel_like(1): decreasing-only penalty,
+      //         weight sel_curve_pen(flt,0) (= ctrl_flag(13)).
+      //       jnll_comp(5) = ADMB sel_like_dev(1):
+      //         - curvature: weight sel_curve_pen(flt,1) (= ctrl_flag(11)/nch) on
+      //           the 2nd difference of log-selectivity, every year;
+      //         - random walk: bare Gaussian SSQ of the year-to-year change in
+      //           log-selectivity / (2*sd^2) (NO dnorm normalizing constant), all ages;
+      //         - dev magnitude: weight sel_curve_pen(flt,2) (= ctrl_flag(10)/group_num)
+      //           on norm2 of the year-to-year coefficient increments.
+      if(flt_sel_type(flt) == 9) {
+
+        int nyrs_tmp = 1;
+        if(flt_varying_sel(flt) == 4){
+          nyrs_tmp = nyrs_hind;
+        }
+
+        // Per-fleet selectivity start year (0-based). Penalties over realized
+        // selectivity skip pre-survey years (and the survey base-year curvature,
+        // matching ADMB's styr-anchored base term which is 0 for a survey that
+        // starts after styr). For a fleet starting at styr (e.g. the fishery,
+        // start_yr = 0) this is the original behaviour.
+        int start_yr = flt_sel_start_yr(flt);
+        int shape_a0 = flt_sel_pen_first_age(flt);              // first age for the shape penalty
+        if(shape_a0 < 0) shape_a0 = bin_first_selected(flt);    // default: first selected age
+        for(sex = 0; sex < nsex(sp); sex++){
+          for(yr = start_yr; yr < nyrs_tmp; yr++){
+
+            // (1) Monotonicity (shape) penalty over ages, all active years  [ADMB sel_like(1)/(3)].
+            //     SIGN of sel_curve_pen(flt,0) sets direction (>=0 penalize DECREASING,
+            //     <0 penalize INCREASING), |weight| the strength. Differentiable via
+            //     (|d| + d)/2 = max(d,0) and (|d| - d)/2 = max(-d,0).
+            //     Starts at bin_first_selected so the shape constraint spans the
+            //     fleet's selected age-range (ADMB j = mina..n_selages); the fishery
+            //     (bin_first = 0) is unchanged.
+            for(age = shape_a0; age < (nages(sp) - 1); age++) {
+              Type d = log(non_par_sel(flt, sex, age, yr)) - log(non_par_sel(flt, sex, age + 1, yr)); // > 0 if decreasing
+              if(sel_curve_pen(flt, 0) >= 0)
+                jnll_comp(4, flt) += sel_curve_pen(flt, 0)  * square( (CppAD::abs(d) + d)/2.0 );  // penalize decreasing
+              else
+                jnll_comp(4, flt) += -sel_curve_pen(flt, 0) * square( (CppAD::abs(d) - d)/2.0 );  // penalize increasing
+            }
+
+            // (2) Curvature (2nd-difference) penalty  [ADMB term 2/3]. Includes the
+            //     base year only when the fleet starts at styr (start_yr == 0);
+            //     otherwise the survey base-year curvature is excluded (ADMB anchors
+            //     the base curvature term at styr, which is 0 pre-survey).
+            if((yr > start_yr) || (start_yr == 0)){
+              vector<Type> ls(nages(sp)); ls.setZero();
+              for(age = 0; age < nages(sp); age++) ls(age) = log(non_par_sel(flt, sex, age, yr));
+              vector<Type> d2 = first_difference( first_difference( ls ) );
+              for(int a2 = 0; a2 < d2.size(); a2++) jnll_comp(5, flt) += sel_curve_pen(flt, 1) * d2(a2) * d2(a2);
+            }
+
+            // (3) Random-walk penalty (bare SSQ, no normalizing constant)  [ADMB term 4]
+            if(yr > start_yr){
+              for(age = 0; age < nages(sp); age++) {
+                Type dd = log(non_par_sel(flt, sex, age, yr)) - log(non_par_sel(flt, sex, age, yr - 1));
+                jnll_comp(5, flt) += dd * dd / (2.0 * sel_dev_sd(flt) * sel_dev_sd(flt));
+              }
+            }
+          }
+
+          // (4) Dev-magnitude penalty: norm2 of the coefficient increments  [ADMB term 1]
+          for(int bin = 0; bin < flt_n_sel_bins(flt); bin++){
+            for(yr = start_yr + 1; yr < nyrs_tmp; yr++){
+              Type inc = sel_coff_dev(flt, sex, bin, yr) - sel_coff_dev(flt, sex, bin, yr - 1);
+              jnll_comp(5, flt) += sel_curve_pen(flt, 2) * inc * inc;
+            }
+          }
+        }
+      }
+
 
       // 2) Logistic selectivity penalties
       // Penalized/random effect likelihood time-varying logistic/double-logistic selectivity deviates
-      if(((flt_varying_sel(flt) == 1)||(flt_varying_sel(flt) == 2)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5)){
+      if(((flt_varying_sel(flt) == 1)||(flt_varying_sel(flt) == 2)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5) && (flt_sel_type(flt) != 11)){
         for(sex = 0; sex < nsex(sp); sex ++){
           for(yr = 0; yr < nyrs_hind; yr++){
 
@@ -2608,7 +2683,7 @@ Type objective_function<Type>::operator() () {
       }
 
       // Random walk: Type 4 = random walk on ascending and descending for double logistic; Type 5 = ascending only for double logistics
-      if(((flt_varying_sel(flt) == 4)||(flt_varying_sel(flt) == 5)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5)){
+      if(((flt_varying_sel(flt) == 4)||(flt_varying_sel(flt) == 5)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5) && (flt_sel_type(flt) != 11)){
         for(sex = 0; sex < nsex(sp); sex ++){
           for(yr = 1; yr < nyrs_hind; yr++){ // Start at second year
 
@@ -2623,6 +2698,39 @@ Type objective_function<Type>::operator() () {
               jnll_comp(5, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr) - sel_inf_dev(1, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt), true);
               jnll_comp(5, flt) -= dnorm(log_sel_slp_dev(1, flt, sex, yr) - log_sel_slp_dev(1, flt, sex, yr-1), Type(0.0), sel_dev_sd(flt) * 4, true);
             }
+          }
+        }
+      }
+
+      // 2b) LogisticPM (type 11): ADMB AMAK ("pm") bottom-trawl-survey penalties,
+      //     ctrl_flag(19) > 0 branch. Two random-walk (norm2 of first-difference)
+      //     terms, BOTH starting the year AFTER the fleet's selectivity start year
+      //     (flt_sel_start_yr) so pre-survey years and the start-year boundary jump
+      //     are excluded (ADMB's dev_vector / flat pre-survey selectivity contribute
+      //     ~0 there):
+      //       (1) RW on the REALIZED log-selectivity-at-age over the penalty
+      //           age-range [sel_norm_bin1, sel_norm_bin2]  (= ADMB ctrl_flag(26) *
+      //           sum_{q_amin..q_amax-1} norm2(first_difference(log_sel_bts))),
+      //           weight sel_curve_pen(flt,0);
+      //       (2) RW on the free age-1 parameter deviates (= ADMB
+      //           8 * norm2(first_difference(sel_age_one_bts_dev))),
+      //           weight sel_curve_pen(flt,2).
+      //     (sel_curve_pen(flt,1) is unused in this branch.)
+      if(flt_sel_type(flt) == 11){
+        int start_yr = flt_sel_start_yr(flt);                 // 0-based; first first-difference is start_yr+1
+        int alo = sel_norm_bin1(flt); int ahi = sel_norm_bin2(flt);
+        if(alo < 0) alo = bin_first_selected(flt);            // default: whole selected range
+        if(ahi < 0) ahi = nages(sp) - 1;
+        for(sex = 0; sex < nsex(sp); sex ++){
+          for(yr = start_yr + 1; yr < nyrs_hind; yr++){
+            // (1) realized log-selectivity random walk over the penalty age-range
+            for(age = alo; age <= ahi; age++){
+              Type d = log(sel_at_age(flt, sex, age, yr)) - log(sel_at_age(flt, sex, age, yr - 1));
+              jnll_comp(5, flt) += sel_curve_pen(flt, 0) * d * d;
+            }
+            // (2) free age-1 parameter-deviate random walk
+            Type da1 = sel_inf_dev(1, flt, sex, yr) - sel_inf_dev(1, flt, sex, yr - 1);
+            jnll_comp(5, flt) += sel_curve_pen(flt, 2) * da1 * da1;
           }
         }
       }

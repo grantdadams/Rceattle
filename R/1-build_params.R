@@ -301,8 +301,11 @@ build_params <- function(data_list) {
   param_list$sel_coff =  array(0, dim = c(n_selectivities, max_sex, max_sel_bins),
                                dimnames = list(data_list$fleet_control$Fleet_name, sex_labels, paste0("Bin", 1:max_sel_bins)))
 
-  # - Non-parametric selectivity penalties (sensu Ianelli)
-  param_list$sel_curve_pen = matrix( c(data_list$fleet_control$Sel_curve_pen1, data_list$fleet_control$Sel_curve_pen2, rep(0, n_selectivities)), nrow = n_selectivities, ncol = 3)
+  # - Non-parametric selectivity penalties (sensu Ianelli / ADMB AMAK):
+  #   col 1 = decreasing penalty weight (ADMB ctrl_flag(13));
+  #   col 2 = curvature (2nd-difference) weight (ADMB ctrl_flag(11)/nch);
+  #   col 3 = dev-magnitude weight on coefficient increments (ADMB ctrl_flag(10)/group_num).
+  param_list$sel_curve_pen = matrix( c(data_list$fleet_control$Sel_curve_pen1, data_list$fleet_control$Sel_curve_pen2, data_list$fleet_control$Sel_curve_pen3), nrow = n_selectivities, ncol = 3)
   param_list$sel_curve_pen[is.na(param_list$sel_curve_pen)] <- 0
 
   # - Non-parametric selectivity coef annual deviates

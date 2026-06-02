@@ -62,7 +62,7 @@ void normalize_and_project_selectivity(
   if(sel_norm_bin1(flt) > -500){
 
     // 1. Normalize by selectivity by specific bin or bin-range
-    if((sel_norm_bin1(flt) >= 0) && (sel_type != 5) && (sel_type != 12)) { // Dont normalize hake type selex
+    if((sel_norm_bin1(flt) >= 0) && (sel_type != 5) && (sel_type != 12) && (sel_type != 11)) { // Dont normalize hake (5/12) or LogisticPM (11; Sel_norm_bin1/2 are reused as the penalty age-range)
       for(int yr = 0; yr < nyrs_hind; yr++) {
         for(int sex = 0; sex < nsex(sp); sex++){
 
@@ -90,7 +90,7 @@ void normalize_and_project_selectivity(
 
     // 2. Normalize by max for each fishery and year across bins, and sexes
     // - Don't for hake non-parametric
-    if((sel_type != 5) && (sel_type != 12) && (sel_norm_bin1(flt) < 0) && (sel_norm_bin1(flt) > -500)) {
+    if((sel_type != 5) && (sel_type != 12) && (sel_type != 11) && (sel_norm_bin1(flt) < 0) && (sel_norm_bin1(flt) > -500)) {
       for(int yr = 0; yr < nyrs_hind; yr++) {
         max_sel = 0;
         for(int bin = 0; bin < nbins; bin++){
@@ -341,6 +341,7 @@ void calculate_selectivity(
           }
           break;
 
+        case 9: // Non-parametric with the ADMB AMAK ("pm") penalty - identical construction to type 2
         case 2: // Non-parametric (Ianelli style)
           for(int bin = 0; bin < n_sel_bins; bin++) {
             non_par_sel(flt, sex, bin, yr) = sel_coff(flt, sex, bin) + sel_coff_dev(flt, sex, bin, yr);
@@ -459,6 +460,34 @@ void calculate_selectivity(
             else sel_at_age(flt, sex, bin, yr) = val;
           }
           break;
+
+        case 11: { // LogisticPM (ADMB AMAK "pm" bottom-trawl survey form)
+          // Standard 2-parameter logistic over all bins, but with MULTIPLICATIVE
+          // time-varying deviations on slope and inflection (matching AMAK's
+          //   sel = 1/(1 + exp(-slp*exp(slp_dev) * (age - a50*exp(a50_dev)))) ),
+          // plus a FREE first-bin (age-1) log-selectivity independent of the
+          // logistic (AMAK sel_age_one_bts*exp(sel_age_one_bts_dev)). The first-bin
+          // base and its deviates are stored in the unused descending-limb slots
+          // sel_inf(1)/sel_inf_dev(1). No internal normalization (set Sel_norm_bin1
+          // = NA): AMAK does not renormalize the BTS curve and age-1 may exceed 1.
+          // NOTE: AMAK evaluates the logistic at age_vector(j) = j + 0.5 (mid-age),
+          // so the age-based x is (bin + 1) + 0.5 = bin + 1.5, NOT bin + 1 as in
+          // the standard Logistic (case 1). This 0.5 shift cannot be folded into a50
+          // because the inflection deviate is multiplicative (a50*exp(dev)).
+          Type slope = exp(log_sel_slp(0, flt, sex) + log_sel_slp_dev(0, flt, sex, yr));
+          Type inf   = sel_inf(0, flt, sex) * exp(sel_inf_dev(0, flt, sex, yr));
+          for (int bin = 0; bin < nbins; bin++) {
+            Type x_val = is_length_based ? (lengths(sp, bin) + 0.5 * binwidth) : Type(bin + 1.5);
+            Type val = 1.0 / (1.0 + exp(-slope * (x_val - inf)));
+            if (is_length_based) sel_at_length(flt, sex, bin, yr) = val;
+            else                 sel_at_age(flt, sex, bin, yr) = val;
+          }
+          // Free first-bin (age-1) log-selectivity override
+          Type log_s1 = sel_inf(1, flt, sex) * exp(sel_inf_dev(1, flt, sex, yr));
+          if (is_length_based) sel_at_length(flt, sex, 0, yr) = exp(log_s1);
+          else                 sel_at_age(flt, sex, 0, yr) = exp(log_s1);
+          break;
+        }
         }
 
       } // End sex

@@ -9,7 +9,9 @@ sel_map <- c(
   "Hake" = 5,
   "2DAR1" = 6,
   "3DAR1" = 7,
-  "DoubleNormal" = 8
+  "DoubleNormal" = 8,
+  "NonParametricPM" = 9,  # Ianelli non-parametric, ADMB AMAK ("pm") selectivity penalty
+  "LogisticPM" = 11       # ADMB AMAK ("pm") BTS: logistic (multiplicative inflection/slope devs) + free age-1 log-selectivity
 )
 
 tv_sel_map <-c(

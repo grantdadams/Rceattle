@@ -548,7 +548,7 @@ build_map_predation <- function(map_list, data_list) {
 #' `0` = 'None'
 #' `1` = 'IID' penalized deviates given \code{sel_sd_prior}
 #' `3` = 'Block' time blocks with no penalty
-#' `4` = 'RandomWalk' random walk following Dorn
+#' `4` = 'RandomWalk' random walk
 #' `5` = 'RandomWalkAscending' random walk on ascending portion of double logistic only.
 #' \code{random_sel} in \code{fit_mod} treats random deviates and random walk parameters as random effects, estimating the variance.
 #'
@@ -647,11 +647,46 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
       }
 
 
+      # * LogisticPM ----
+      # ---- sel_type = 11 (ADMB AMAK "pm" bottom-trawl survey).
+      #      Logistic (slope = log_sel_slp[1], inflection = sel_inf[1]) with
+      #      MULTIPLICATIVE time-varying deviates, PLUS a free first-bin (age-1)
+      #      log-selectivity carried in sel_inf[2] (base) and sel_inf_dev[2] (deviates).
+      #      Time_varying_sel must be "Off" or "RandomWalk".
+      if (sel_type == "LogisticPM") {
+
+        # Base parameters: logistic slope + inflection, and the free age-1 log-selectivity
+        for (sex in 1:nsex) {
+          map_list$log_sel_slp[1, flt, sex] <- ind_slp; ind_slp <- ind_slp + 1
+          map_list$sel_inf[1, flt, sex]     <- ind_inf; ind_inf <- ind_inf + 1
+          map_list$sel_inf[2, flt, sex]     <- ind_inf; ind_inf <- ind_inf + 1  # age-1 log-sel base
+        }
+
+        if (tv_sel %in% c("IID", "AR1", "RandomWalk")) {
+          for (sex in 1:nsex) {
+            map_list$log_sel_slp_dev[1, flt, sex, yrs_hind] <- ind_slp + yrs_hind - 1  # slope devs
+            map_list$sel_inf_dev[1, flt, sex, yrs_hind]     <- ind_inf + yrs_hind - 1  # inflection devs
+            ind_slp <- ind_slp + nyrs_hind
+            ind_inf <- ind_inf + nyrs_hind
+            map_list$sel_inf_dev[2, flt, sex, yrs_hind]     <- ind_inf + yrs_hind - 1  # age-1 devs
+            ind_inf <- ind_inf + nyrs_hind
+          }
+          if (tv_sel == "RandomWalk") { # Random walk: fix first deviate (start at mean)
+            map_list$log_sel_slp_dev[1, flt, , 1] <- NA
+            map_list$sel_inf_dev[1, flt, , 1]     <- NA
+            map_list$sel_inf_dev[2, flt, , 1]     <- NA
+          }
+        }
+      }
+
+
       # * Non-parametric ----
-      # ---- sel_type = 2 (age-based), 9 (length-based)
-      if (sel_type == "NonParametric") {
-        if (tv_sel %in% c("AR1", "RandomWalk", "RandomWalkAscending")) { # Error check
-          stop(paste0("'Time_varying_sel' for fleet ", flt, " with non-parametric selectivity is not 'None'(0) or 'IID'(1). Current value: ", tv_sel))
+      # ---- sel_type = 2 (Ianelli penalty), 9 (NonParametricPM, ADMB AMAK penalty).
+      #      Both share identical parameters / mapping; they differ only in the
+      #      selectivity penalty form (see ceattle_v01_11.cpp).
+      if (sel_type %in% c("NonParametric", "NonParametricPM")) {
+        if (tv_sel %in% c("AR1", "IID", "RandomWalkAscending")) { # Error check
+          stop(paste0("'Time_varying_sel' for fleet ", flt, " with non-parametric selectivity is not 'None'(0) or 'RandomWalk'(4). Current value: ", tv_sel))
         }
 
         bin_first_selected <- data_list$fleet_control$Bin_first_selected[i]
@@ -666,7 +701,7 @@ build_map_selectivity <- function(map_list, data_list, nyrs_hind, random_sel) {
           map_list$sel_coff[flt, sex, bins_on] <- ind_coff + bins_on
           ind_coff <- ind_coff + max_bin_on
 
-          if (tv_sel == "IID") { # Time-varying deviates
+          if (tv_sel == "RandomWalk") { # Time-varying deviates
             map_list$sel_coff[flt, , ] <- NA # Must turn off mean parameter
             dev_indices <- ind_dev_coff + 1:(length(bins_on) * nyrs_hind)
             map_list$sel_coff_dev[flt, sex, bins_on, yrs_hind] <- dev_indices

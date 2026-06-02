@@ -44,6 +44,24 @@ rearrange_dat <- function(data_list){
   data_list$flt_sel_type <- data_list$fleet_control %>%
     dplyr::pull(.data$Selectivity) %>% as.integer()
 
+  # - 4b) Selectivity penalty "lead": 0 if an EARLIER fleet shares this fleet's
+  #       Selectivity_index AND selectivity type (i.e. this fleet mirrors an
+  #       earlier one's estimated selectivity), else 1. The selectivity penalty is
+  #       only accumulated for lead fleets so a mirrored selectivity is penalized
+  #       once (matching ADMB). Requiring the same type means a fleet with empirical
+  #       selectivity (type 0) sharing an index with a parametric fleet does NOT
+  #       suppress the parametric fleet's penalty.
+  {
+    .sel_idx <- data_list$fleet_control$Selectivity_index
+    .sel_typ <- data_list$flt_sel_type
+    .lead <- rep(1L, length(.sel_typ))
+    for(.i in seq_along(.sel_typ)) {
+      if(.i > 1 && any(.sel_idx[seq_len(.i - 1)] == .sel_idx[.i] &
+                       .sel_typ[seq_len(.i - 1)] == .sel_typ[.i], na.rm = TRUE)) .lead[.i] <- 0L
+    }
+    data_list$flt_sel_lead <- as.integer(.lead)
+  }
+
   data_list$flt_sel_dim <- data_list$fleet_control %>%
     dplyr::mutate(Selectivity_dimension = dplyr::case_when(
       .data$Selectivity_dimension == "Age" ~ 0,
@@ -80,6 +98,23 @@ rearrange_dat <- function(data_list){
     dplyr::mutate(Sel_norm_bin2 = .data$Sel_norm_bin2 - data_list$minage[Species],
                   Sel_norm_bin2 = ifelse(is.na(.data$Sel_norm_bin2), -999, .data$Sel_norm_bin2)) %>%
     dplyr::pull(.data$Sel_norm_bin2) %>% as.integer()
+
+  # - 9b) Per-fleet selectivity start year (0-based from styr). Selectivity
+  #       penalties begin the year after this (excludes pre-survey years + the
+  #       start-year boundary). NA -> styr (index 0). Used by LogisticPM (type 11).
+  data_list$flt_sel_start_yr <- data_list$fleet_control %>%
+    dplyr::mutate(Sel_start_year = ifelse(is.na(.data$Sel_start_year), data_list$styr, .data$Sel_start_year),
+                  Sel_start_year = .data$Sel_start_year - data_list$styr) %>%
+    dplyr::pull(.data$Sel_start_year) %>% as.integer()
+
+  # - 9c) First age (0-based) for the non-parametric shape penalty. NA -> -999
+  #       (cpp falls back to bin_first_selected). Lets the ascending/descending
+  #       shape constraint span a narrower age-range than the first selected age
+  #       (e.g. ATS: age-1 is selected but the shape penalty starts at mina_ats).
+  data_list$flt_sel_pen_first_age <- data_list$fleet_control %>%
+    dplyr::mutate(Sel_pen_first_age = .data$Sel_pen_first_age - data_list$minage[Species],
+                  Sel_pen_first_age = ifelse(is.na(.data$Sel_pen_first_age), -999, .data$Sel_pen_first_age)) %>%
+    dplyr::pull(.data$Sel_pen_first_age) %>% as.integer()
 
   # - 10) Index indicating whether to do dirichlet multinomial or a multinomial
   data_list$comp_ll_type <- data_list$fleet_control %>%

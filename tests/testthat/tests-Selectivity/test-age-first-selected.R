@@ -1,4 +1,4 @@
-testthat::test_that("Test age-based non-parametric selectivity bin-first selected", {
+testthat::test_that("Test age-based selectivity bin-first selected", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")
 

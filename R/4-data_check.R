@@ -323,10 +323,55 @@ data_check <- function(data_list) {
         }
       }
 
-      # Non-parametric / Hake selectivity cannot use random-walk time variation
-      if(!fc$Time_varying_sel[flt] %in% c("Off", "IID", "AR1") &&
-         fc$Selectivity[flt] %in% c("NonParametric", "Hake")){
-        errors <- c(errors, "For non-parametric selectivities, 'Time_varying_sel' cannot be a random walk")
+      # Time-varying form is selectivity-type specific:
+      #  - NonParametric (Ianelli, type 2) / NonParametricPM (type 9): the cpp
+      #    penalizes year-to-year log selectivity-at-age, i.e. a RANDOM WALK ->
+      #    allow only "Off"/"RandomWalk".
+      #  - Hake (Taylor, type 5): IID coefficient deviates -> allow only "Off"/"IID".
+      if(fc$Selectivity[flt] %in% c("NonParametric", "NonParametricPM") &&
+         !fc$Time_varying_sel[flt] %in% c("Off", "RandomWalk")){
+        errors <- c(errors, "For 'NonParametric'/'NonParametricPM' selectivity, 'Time_varying_sel' must be 'Off' or 'RandomWalk'")
+      }
+      if(fc$Selectivity[flt] == "Hake" &&
+         !fc$Time_varying_sel[flt] %in% c("Off", "IID")){
+        errors <- c(errors, "For 'Hake' selectivity, 'Time_varying_sel' must be 'Off' or 'IID'")
+      }
+      #  - LogisticPM (ADMB AMAK "pm" BTS, type 11): random-walk deviates on
+      #    slope/inflection/age-1 -> allow only "Off"/"RandomWalk".
+      if(fc$Selectivity[flt] == "LogisticPM" &&
+         !fc$Time_varying_sel[flt] %in% c("Off", "RandomWalk")){
+        errors <- c(errors, "For 'LogisticPM' selectivity, 'Time_varying_sel' must be 'Off' or 'RandomWalk'")
+      }
+
+      # Non-parametric (Ianelli) selectivity penalties (Sel_curve_pen1 =
+      # decreasing penalty, Sel_curve_pen2 = curvature) must be present and
+      # numeric to identify the free coefficients. Catch the case where they are
+      # missing / non-numeric (e.g. a Time_varying_sel mode string accidentally
+      # written into Sel_curve_pen) before it surfaces as a cryptic
+      # "inits not within bounds" error in build_bounds.
+      if(fc$Selectivity[flt] %in% c("NonParametric", "NonParametricPM")){
+        cp1 <- suppressWarnings(as.numeric(fc$Sel_curve_pen1[flt]))
+        cp2 <- suppressWarnings(as.numeric(fc$Sel_curve_pen2[flt]))
+        if(is.na(cp1) || is.na(cp2)){
+          errors <- c(errors, paste0(
+            "Fleet '", fc$Fleet_name[flt], "' has Selectivity = '", fc$Selectivity[flt], "' but ",
+            "'Sel_curve_pen1'/'Sel_curve_pen2' are missing or non-numeric (got '",
+            fc$Sel_curve_pen1[flt], "' / '", fc$Sel_curve_pen2[flt],
+            "'). Non-parametric selectivity requires numeric curvature/smoothness penalties."))
+        }
+      }
+
+      # LogisticPM: Sel_curve_pen1/2/3 are the random-walk weights on the
+      # slope / inflection / age-1 deviates (ADMB 50 / 50 / 8). Require numeric
+      # when time-varying so a stray mode string is caught early.
+      if(fc$Selectivity[flt] == "LogisticPM" && fc$Time_varying_sel[flt] == "RandomWalk"){
+        cps <- suppressWarnings(as.numeric(c(fc$Sel_curve_pen1[flt], fc$Sel_curve_pen2[flt], fc$Sel_curve_pen3[flt])))
+        if(any(is.na(cps))){
+          errors <- c(errors, paste0(
+            "Fleet '", fc$Fleet_name[flt], "' has Selectivity = 'LogisticPM' with time-varying ",
+            "selectivity but 'Sel_curve_pen1'/'Sel_curve_pen2'/'Sel_curve_pen3' (slope/inflection/age-1 ",
+            "random-walk weights) are missing or non-numeric."))
+        }
       }
 
       # 2DAR1/3DAR1: 'Sel_curve_pen1'/'Sel_curve_pen2' are reused as logit-scale AR1
@@ -358,6 +403,9 @@ data_check <- function(data_list) {
     # Estimated selectivity (Selectivity != "Fixed" and Fleet_type != "Off")
     # requires comp or CAAL data with Year > 0 to be identifiable. Otherwise
     # the selectivity parameters are unconstrained and the optimizer wanders.
+    # EXCEPTION: a fleet whose Selectivity_index is shared (mirrored) with
+    # another fleet that DOES have active comp/CAAL data is identifiable through
+    # the master fleet's data, so it is not flagged.
     has_active_age_data <- function(flt_code, df) {
       if (!has_data(df) || !all(c("Fleet_code", "Year") %in% colnames(df))) return(FALSE)
       any(df$Fleet_code == flt_code & !is.na(df$Year) & df$Year > 0 & df$Sample_size > 0)
@@ -366,11 +414,27 @@ data_check <- function(data_list) {
                          fc$Selectivity != "Fixed" &
                          (!"Fleet_type" %in% colnames(fc) | fc$Fleet_type != "Off"),
                        , drop = FALSE]
+    # Selectivity_index values that have active age data in ANY sharing fleet
+    sel_idx_has_data <- if ("Selectivity_index" %in% colnames(fc)) {
+      vapply(unique(fc$Selectivity_index), function(si) {
+        codes <- fc$Fleet_code[!is.na(fc$Selectivity_index) & fc$Selectivity_index == si]
+        any(vapply(codes, function(cc)
+          has_active_age_data(cc, data_list$comp_data) ||
+            has_active_age_data(cc, data_list$caal_data), logical(1)))
+      }, logical(1))
+    } else NULL
+    if (!is.null(sel_idx_has_data)) names(sel_idx_has_data) <- as.character(unique(fc$Selectivity_index))
     if (nrow(est_sel_flts) > 0) {
       missing_age_data <- vapply(seq_len(nrow(est_sel_flts)), function(i) {
         fc_code <- est_sel_flts$Fleet_code[i]
-        !has_active_age_data(fc_code, data_list$comp_data) &&
-          !has_active_age_data(fc_code, data_list$caal_data)
+        own_data <- has_active_age_data(fc_code, data_list$comp_data) ||
+          has_active_age_data(fc_code, data_list$caal_data)
+        # mirrored identifiability: another fleet sharing this Selectivity_index
+        # supplies the comp/CAAL data
+        si <- est_sel_flts$Selectivity_index[i]
+        mirror_data <- !is.null(sel_idx_has_data) && !is.na(si) &&
+          isTRUE(sel_idx_has_data[[as.character(si)]])
+        !own_data && !mirror_data
       }, logical(1))
       if (any(missing_age_data)) {
         errors <- c(errors, paste0(
