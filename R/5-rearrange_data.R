@@ -1,4 +1,4 @@
-#' Rearrange
+#' Rearrange a data_list for TMB
 #'
 #' @description Function to rearrange a \code{data_list} object to be read into TMB
 #'
@@ -9,7 +9,7 @@
 #' @importFrom rlang .data
 #' @importFrom dplyr n
 #' @importFrom tidyselect contains
-rearrange_dat <- function(data_list){
+rearrange_data <- function(data_list){
 
   # Convert text to integer for switches used in TMB
   data_list <- convert_switches(data_list)
@@ -535,7 +535,8 @@ rearrange_dat <- function(data_list){
 #' )
 #' cleaned_data_list <- check_composition_data(data_list)
 #'
-#' @export
+#' @keywords internal
+#' @noRd
 check_composition_data <- function(data_list) {
 
   # If no data, convert to empty matrix
@@ -594,7 +595,8 @@ check_composition_data <- function(data_list) {
 #' @return The modified `data_list` with NA values in `caal_obs` converted to 0.
 #' cleaned_data_list <- check_caal_data(data_list)
 #'
-#' @export
+#' @keywords internal
+#' @noRd
 check_caal_data <- function(data_list) {
 
   # If no data, convert to empty matrix
@@ -633,45 +635,12 @@ check_caal_data <- function(data_list) {
   return(data_list)
 }
 
-#' Convert intuitive text strings to integer switches for TMB
-#'
-#' @param data_list Rceattle data list
-#'
-#' @importFrom rlang .data
-convert_switches <- function(data_list) {
 
-  # Helper: convert a single string value using a map, pass integers through unchanged
-  .conv_single <- function(x, map) {
-    if (is.character(x) && x %in% names(map)) unname(map[[x]]) else x
-  }
-  .conv <- Vectorize(.conv_single, vectorize.args = "x", USE.NAMES = FALSE)
-
-  # Fleet controls ----
-  # If vector is a string that exists in our map, replace it with the integer.
-  data_list$fleet_control <- data_list$fleet_control %>%
-    dplyr::mutate(
-      Fleet_type = .conv(.data$Fleet_type, fleet_map),
-      Selectivity = .conv(.data$Selectivity, sel_map),
-      Time_varying_sel = .conv(.data$Time_varying_sel, tv_sel_map),
-      Catchability = .conv(.data$Catchability, q_map),
-      Time_varying_q = .conv(.data$Time_varying_q, tv_q_map),
-      Comp_loglike = .conv(.data$Comp_loglike, comp_loglike_map),
-      CAAL_loglike = .conv(.data$CAAL_loglike, comp_loglike_map)
-    ) %>%
-    # CRITICAL: Force columns back to integers so TMB doesn't crash expecting ints but getting chars
-    dplyr::mutate(
-      Fleet_type = as.integer(.data$Fleet_type),
-      Selectivity = as.integer(.data$Selectivity),
-      Time_varying_sel = as.integer(.data$Time_varying_sel),
-      Catchability = as.integer(.data$Catchability),
-      Time_varying_q = as.integer(.data$Time_varying_q),
-      Comp_loglike = as.integer(.data$Comp_loglike),
-      CAAL_loglike = as.integer(.data$CAAL_loglike)
-    )
-
-  # Pop dy controls ----
-  data_list$initMode <- as.integer(.conv(data_list$initMode, initMode_map))
-  data_list$HCR <- as.integer(.conv(data_list$HCR, hcr_map))
-
-  return(data_list)
+#' @rdname rearrange_data
+#' @description `rearrange_dat()` is a deprecated alias for `rearrange_data()`
+#'   kept for backwards compatibility; please use `rearrange_data()`.
+#' @export
+rearrange_dat <- function(data_list){
+  .Deprecated("rearrange_data")
+  rearrange_data(data_list)
 }

@@ -76,7 +76,7 @@ testthat::test_that("Diet proportion multinomial likelihood (jnll_comp) matches 
   r_diet_nll <- rep(0, nspp)
 
   # Rceattle stores stomach_id in 0-indexed format for TMB, adjust to 1-indexed for R
-  re_data <-Rceattle::rearrange_dat(mod$data_list)
+  re_data <-Rceattle::rearrange_data(mod$data_list)
   stomach_ids <-re_data$stomach_id + 1
   unique_stomachs <- unique(stomach_ids)
 

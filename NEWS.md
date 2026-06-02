@@ -1,3 +1,42 @@
+# Rceattle 4.4.2
+
+## Code organisation (no change to fitted results)
+
+The pre-fit pipeline files in `R/` were reorganised so they are easier to
+navigate. None of these changes alter model output.
+
+* **File prefixes now follow execution order.** `fit_mod()` runs its stages
+  as `clean_data()` -> `data_check()` -> `build_params()` -> `build_map()` ->
+  `build_bounds()` -> `rearrange_data()` -> fit -> `rename_output()`, so the
+  files were renumbered to match (`data_check` is now `1-`, `build_params`
+  `2-`, `build_map` `3-`, `build_parameter_bounds` `4-`). A pipeline map was
+  added to the top of `fit_mod()`.
+* **Switch lifecycle consolidated** into a single `R/0-switches.R`: the
+  string<->integer maps (formerly `0-constants.R`) plus `switch_check()`,
+  `revert_switches()`, `validate_switches()`, and `convert_switches()`, with a
+  header documenting the order in which they run.
+* **HCR helpers co-located.** `build_hcr_map()` moved into `R/0-build_hcr.R`
+  alongside `build_hcr()` (the separate `2-build_hcr_map.R` was removed).
+
+## Rename / deprecation
+
+* `rearrange_dat()` is renamed **`rearrange_data()`**. The old name still works
+  as a deprecated alias (emits a one-time `.Deprecated()` warning) and will be
+  removed in a future release.
+
+## Export hygiene
+
+* `check_composition_data()`, `check_caal_data()`, `calc_mcall_ianelli()`, and
+  `calc_mcall_ianelli_diet()` are no longer exported; they are internal
+  helpers called only from within the package.
+
+## Internal / R CMD check
+
+* Removed `Rceattle:::` self-references in `build_bounds()` (a package should
+  not use `:::` for its own objects).
+* `profile.Rceattle()` gained `...` for S3 consistency with the
+  `stats::profile` generic.
+
 # Rceattle 4.4.1
 
 ## Rename

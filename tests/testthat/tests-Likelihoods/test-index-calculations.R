@@ -62,7 +62,7 @@ testthat::test_that("Basic index and index likelihood", {
   testthat::expect_equal(dat$index_data$Observation, rep(100, nyrs))
 
   # Check observed in model
-  rearranged_check <- rearrange_dat(dat)
+  rearranged_check <- rearrange_data(dat)
   testthat::expect_equal(rearranged_check$index_obs[,1], rep(100, nyrs))
 
   # Check Loglikelood

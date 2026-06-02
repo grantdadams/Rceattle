@@ -132,7 +132,7 @@ fit_mod_mse <-
 
     Rceattle:::data_check(data_list)
 
-    data_list_reorganized <- Rceattle::rearrange_dat(data_list)
+    data_list_reorganized <- Rceattle::rearrange_data(data_list)
     data_list_reorganized = c(list(model = TMBfilename), data_list_reorganized)
 
     # - Update comp weights, future F (if input) and F_prop from data

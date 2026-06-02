@@ -7,7 +7,7 @@
 #'
 #' @export
 #'
-rename_output = function(data_list = NULL, quantities = NULL){
+rename_output <- function(data_list = NULL, quantities = NULL){
 
   # Dimension attributed
   max_age <- max(data_list$nages, na.rm = TRUE)
@@ -160,8 +160,8 @@ rename_output = function(data_list = NULL, quantities = NULL){
 #' @param data_list_reorganized reorganized data_list
 #' @param quantities list of "report" objects from Rceattle.
 #'
-#' @export
-#'
+#' @keywords internal
+#' @noRd
 calc_mcall_ianelli <- function(data_list = NULL, data_list_reorganized = NULL, quantities = NULL){
 
 
@@ -189,8 +189,8 @@ calc_mcall_ianelli <- function(data_list = NULL, data_list_reorganized = NULL, q
 #' @param data_list an Rceattle data_list
 #' @param quantities list of "report" objects from Rceattle, including diet_hat predictions
 #'
-#' @export
-#'
+#' @keywords internal
+#' @noRd
 calc_mcall_ianelli_diet <- function(data_list = NULL, quantities = NULL){
 
   # - Calculate Mcallister-Iannelli coefficients for diet data
