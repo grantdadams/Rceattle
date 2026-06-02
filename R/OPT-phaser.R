@@ -26,10 +26,10 @@ TMBphase <- function(data, parameters, map, random, phases, model_name,
   map$beta_z <- factor(as.numeric(map$beta_z) * NA)
   map$mu_j <- factor(as.numeric(map$mu_j) * NA)
   map$lnsigma_j <- factor(as.numeric(map$lnsigma_j) * NA)
-  map$sel_dev_ln_sd <- factor(as.numeric(map$sel_dev_ln_sd) * NA)
-  map$index_q_dev_ln_sd <- factor(as.numeric(map$index_q_dev_ln_sd) * NA)
+  map$sel_dev_log_sd <- factor(as.numeric(map$sel_dev_log_sd) * NA)
+  map$index_q_dev_log_sd <- factor(as.numeric(map$index_q_dev_log_sd) * NA)
   map$index_q_rho <- factor(as.numeric(map$index_q_rho) * NA)
-  map$M1_dev_ln_sd <- factor(as.numeric(map$M1_dev_ln_sd) * NA)
+  map$M1_dev_log_sd <- factor(as.numeric(map$M1_dev_log_sd) * NA)
   map$M1_rho <- factor(as.numeric(map$M1_rho) * NA)
 
   # function to fill list component with a factor

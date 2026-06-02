@@ -1008,8 +1008,9 @@ profile.Rceattle <- function(fitted = NULL,
   # transform, and (for rec_pars aliases) fills in the column index so
   # `slots` only needs the species index.
   alias_table <- list(
-    sigmaR = list(param = "R_log_sd", rec_pars_col = NA_integer_),
-    R_sd   = list(param = "R_log_sd", rec_pars_col = NA_integer_),
+    # R_log_sd was removed from the model (replaced by DSEM); aliases retired
+    # sigmaR = list(param = "R_log_sd", rec_pars_col = NA_integer_),
+    # R_sd   = list(param = "R_log_sd", rec_pars_col = NA_integer_),
     M1     = list(param = "log_M1",   rec_pars_col = NA_integer_),
     R0     = list(param = "rec_pars", rec_pars_col = 1L),
     alpha  = list(param = "rec_pars", rec_pars_col = 2L),
