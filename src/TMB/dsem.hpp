@@ -2,24 +2,54 @@
 #define DSEM_HPP
 
 /** * @brief Dynamic Structural Equation Model (DSEM) Module
- * * This module assembles the precision matrix for a Gaussian Markov Random Field (GMRF)
- * using the Reticular Action Model (RAM) specification. It handles SEM path
- * coefficients, sparsity-optimized inversion, and multiple likelihood families.
- * * @param jnll [ref] Joint negative log-likelihood to be updated.
- * @param RAM Reticular Action Model specification matrix.
- * @param RAMstart Starting values or fixed values for RAM paths.
- * @param familycode_j Likelihood family codes for each variable j.
- * @param y_tj Observed data array (time t, variable j).
- * @param x_tj Latent state array (random effects).
- * @param beta_z Estimated path coefficients.
- * @param lnsigma_j Log-standard deviations for likelihood families.
- * @param mu_j Mean offsets for each variable j.
- * @param delta0_j Initial condition offsets.
- * @param options Vector of configuration flags for rank and variance scaling.
+ *
+ * Vendored from the `dsem` package, version 2.0.1
+ *   James-Thorson-NOAA/dsem, commit 81d3d817cc53284018ff6c3f620bd6d8bbe6ab6c
+ *   src/dsem.cpp
+ *   Thorson, J. T., Andrews, A. G., Essington, T., & Large, S. (2024). Dynamic
+ *   structural equation models synthesize ecosystem dynamics constrained by
+ *   ecological mechanisms. Methods in Ecology and Evolution 15(4): 744-755.
+ *   https://doi.org/10.1111/2041-210X.14289
+ *
+ * Adapted from the standalone TMB `objective_function::operator()` into a helper
+ * `calculate_dsem()` that updates `jnll` by reference, for use inside
+ * ceattle_v01_11.cpp. Changes vs upstream:
+ *   - DATA and PARAMETER inputs are passed as function arguments (incl. obs_idx
+ *     and unobs_idx, which upstream reads via DATA_IVECTOR inside option blocks).
+ *   - REPORT()/ADREPORT()/SIMULATE{} removed (they require `this`; unused here).
+ *   - get_submatrix renamed dsem_get_submatrix to avoid symbol clashes.
+ * The matched R-side input assembly lives in R/0-dsem_ram.R (build_dsem_inputs),
+ * validated byte-for-byte against dsem 2.0.1.
+ *
+ * options(0) -> 0: full rank;  1: rank-reduced GMRF;  2: conditional kriging (mvn_project);  3: gmrf_project
+ * options(1) -> 0: constant conditional variance;  1: constant marginal variance;  2: diagonal
+ * options(2) -> 0: use GMRF(Q);  1: use GMRF(Q + 1e-10 * I)  (stabilize_Q)
  */
+
+// Get sparse submatrix, for use in options 2 and 3
+// Modified from dsem 2.0.1 src/dsem.cpp (get_submatrix)
+template<class Type>
+Eigen::SparseMatrix<Type> dsem_get_submatrix( Eigen::SparseMatrix<Type> A,
+                                              vector<int> row_idx,
+                                              vector<int> col_idx ){
+  Eigen::SparseMatrix<Type> sub(row_idx.size(), col_idx.size());
+  for (int k = 0; k < A.outerSize(); ++k) {
+    for (typename Eigen::SparseMatrix<Type>::InnerIterator it(A, k); it; ++it) {
+      auto row_pos = std::find(row_idx.data(), row_idx.data() + row_idx.size(), it.row());
+      auto col_pos = std::find(col_idx.data(), col_idx.data() + col_idx.size(), it.col());
+      if (row_pos != row_idx.data() + row_idx.size() && col_pos != col_idx.data() + col_idx.size()) {
+        int new_row = row_pos - row_idx.data();
+        int new_col = col_pos - col_idx.data();
+        sub.coeffRef(new_row, new_col) = it.value();
+      }
+    }
+  }
+  return sub;
+}
+
 template<class Type>
 void calculate_dsem(
-    Type &jnll, // Modified by reference
+    Type &jnll,                    // Modified by reference
     matrix<int> RAM,
     vector<Type> RAMstart,
     vector<int> familycode_j,
@@ -29,171 +59,345 @@ void calculate_dsem(
     vector<Type> lnsigma_j,
     vector<Type> mu_j,
     vector<Type> delta0_j,
-    vector<int> options
+    vector<int> options,
+    vector<int> obs_idx,           // Full-rank component (options 2,3); 0-based
+    vector<int> unobs_idx          // Reduced/zero-rank component (options 2,3); 0-based
 ) {
-  using namespace density; // necessary to use AR1, SCALE, SEPARABLE
+  using namespace density; // AR1, SCALE, SEPARABLE, GMRF, MVNORM
   using namespace Eigen;
 
-  // Copied from https://github.com/James-Thorson-NOAA/dsem/blob/main/src/dsem.cpp
-  // Thorson, J. T., Andrews, A. G., Essington, T., & Large, S. (2024). Dynamic structural equation models synthesize ecosystem dynamics constrained by ecological mechanisms. Methods in Ecology and Evolution 15(4): 744-755. https://doi.org/10.1111/2041-210X.14289
-
-  // Indices and Dimensions
+  // Indices
   int n_t = y_tj.rows();
   int n_j = y_tj.cols();
   int n_k = n_t * n_j;
+  int k = 0;
 
+  // globals
   Type jnll_gmrf = 0;
-  matrix<Type> loglik_tj(n_t, n_j); loglik_tj.setZero();
-  vector<Type> sigma_j = exp(lnsigma_j);
+  matrix<Type> loglik_tj( n_t, n_j );
+  loglik_tj.setZero();
+  vector<Type> sigma_j( n_j );
+  sigma_j = exp( lnsigma_j );
 
-  // Assemble Precision Matrices
-  Eigen::SparseMatrix<Type> Rho_kk(n_k, n_k); Rho_kk.setZero();
-  Eigen::SparseMatrix<Type> Gamma_kk(n_k, n_k); Gamma_kk.setZero();
-  Eigen::SparseMatrix<Type> I_kk(n_k, n_k); I_kk.setIdentity();
-
-  for (int r = 0; r < RAM.rows(); r++) {
+  // Assemble precision
+  Eigen::SparseMatrix<Type> Rho_kk(n_k, n_k);
+  Eigen::SparseMatrix<Type> Gamma_kk(n_k, n_k);
+  Eigen::SparseMatrix<Type> I_kk( n_k, n_k );
+  Rho_kk.setZero();
+  I_kk.setIdentity();
+  Type tmp;
+  // RAM uses R-style indices (i.e., starting at 1)
+  for(int r=0; r<RAM.rows(); r++){
     // Extract estimated or fixed value
-    Type tmp = (RAM(r, 3) >= 1) ? beta_z(RAM(r, 3) - 1) : RAMstart(r);
-    if (RAM(r, 0) == 1) Rho_kk.coeffRef(RAM(r, 1) - 1, RAM(r, 2) - 1) = tmp;
-    if (RAM(r, 0) == 2) Gamma_kk.coeffRef(RAM(r, 1) - 1, RAM(r, 2) - 1) = tmp; // Cholesky of covariance, so -Inf to Inf;
+    if(RAM(r,3)>=1){
+      tmp = beta_z(RAM(r,3)-1);
+    }else{
+      tmp = RAMstart(r);
+    }
+    if(RAM(r,0)==0){
+      Rho_kk.coeffRef( RAM(r,1)-1, RAM(r,2)-1 ) = x_tj( RAM(r,4)-1, RAM(r,5)-1 );
+    }
+    if(RAM(r,0)==1){
+      Rho_kk.coeffRef( RAM(r,1)-1, RAM(r,2)-1 ) = tmp;
+    }
+    if(RAM(r,0)==2){
+      Gamma_kk.coeffRef( RAM(r,1)-1, RAM(r,2)-1 ) = tmp; // Cholesky of covariance, so -Inf to Inf;
+    }
   }
+  Eigen::SparseMatrix<Type> IminusRho_kk = I_kk - Rho_kk;
 
   // Compute inverse LU-decomposition
-  Eigen::SparseMatrix<Type> IminusRho_kk = I_kk - Rho_kk;
-  Eigen::SparseLU<Eigen::SparseMatrix<Type>, Eigen::COLAMDOrdering<int>> inverseIminusRho_kk;
+  Eigen::SparseLU< Eigen::SparseMatrix<Type>, Eigen::COLAMDOrdering<int> > inverseIminusRho_kk;
   inverseIminusRho_kk.compute(IminusRho_kk);
 
-  // Marginal Variance Rescaling Logic
-  if (options(1) == 1 || options(1) == 2) {
-    Eigen::SparseMatrix<Type> invIminusRho_kk = inverseIminusRho_kk.solve(I_kk); // WORKS:  Based on: https://github.com/kaskr/adcomp/issues/74
+  // Rescale I-Rho and Gamma if using constant marginal variance options
+  if( (options(1)==1) || (options(1)==2) ){
+    Eigen::SparseMatrix<Type> invIminusRho_kk;
+
+    // WORKS:  Based on: https://github.com/kaskr/adcomp/issues/74
+    invIminusRho_kk = inverseIminusRho_kk.solve(I_kk);
 
     // Hadamard squared LU-decomposition
-    // See: https://eigen.tuxfamily.org/dox/group__QuickRefPage.html
-    Eigen::SparseMatrix<Type> squared_invIminusRho_kk = invIminusRho_kk.cwiseProduct(invIminusRho_kk);
-    Eigen::SparseLU<Eigen::SparseMatrix<Type>, Eigen::COLAMDOrdering<int>> invsquared_invIminusRho_kk;
+    Eigen::SparseMatrix<Type> squared_invIminusRho_kk(n_k, n_k);
+    squared_invIminusRho_kk = invIminusRho_kk.cwiseProduct(invIminusRho_kk);
+    Eigen::SparseLU< Eigen::SparseMatrix<Type>, Eigen::COLAMDOrdering<int> > invsquared_invIminusRho_kk;
     invsquared_invIminusRho_kk.compute(squared_invIminusRho_kk);
 
-    if (options(1) == 1) {
-      matrix<Type> ones_k1(n_k, 1); ones_k1.setOnes();
+    if( options(1) == 1 ){
+      // 1-matrix
+      matrix<Type> ones_k1( n_k, 1 );
+      ones_k1.setOnes();
 
       // Calculate diag( t(Gamma) * Gamma )
       Eigen::SparseMatrix<Type> squared_Gamma_kk = Gamma_kk.cwiseProduct(Gamma_kk);
       matrix<Type> sigma2_k1 = squared_Gamma_kk.transpose() * ones_k1;
+
+      // Rowsums
       matrix<Type> margvar_k1 = invsquared_invIminusRho_kk.solve(sigma2_k1);
 
       // Rescale IminusRho_kk and Gamma
       Eigen::SparseMatrix<Type> invmargsd_kk(n_k, n_k);
       Eigen::SparseMatrix<Type> invsigma_kk(n_k, n_k);
-      for (int k = 0; k < n_k; k++) {
-        invmargsd_kk.coeffRef(k, k) = pow(margvar_k1(k, 0), -0.5);
-        invsigma_kk.coeffRef(k, k) = pow(sigma2_k1(k, 0), -0.5);
+      for( int k=0; k<n_k; k++ ){
+        invmargsd_kk.coeffRef(k,k) = pow( margvar_k1(k,0), -0.5 );
+        invsigma_kk.coeffRef(k,k) = pow( sigma2_k1(k,0), -0.5 );
       }
       IminusRho_kk = invmargsd_kk * IminusRho_kk;
       Gamma_kk = invsigma_kk * Gamma_kk;
 
       // Recompute inverse LU-decomposition
       inverseIminusRho_kk.compute(IminusRho_kk);
-    } else {
+    }else{
       // calculate diag(Gamma)^2
-      matrix<Type> targetvar_k1(n_k, 1);
-      for (int k = 0; k < n_k; k++) targetvar_k1(k, 0) = pow(Gamma_kk.coeffRef(k, k), 2);
+      matrix<Type> targetvar_k1( n_k, 1 );
+      for( int k=0; k<n_k; k++ ){
+        targetvar_k1(k,0) = Gamma_kk.coeffRef(k,k) * Gamma_kk.coeffRef(k,k);
+      }
 
       // Rescale Gamma
       matrix<Type> margvar_k1 = invsquared_invIminusRho_kk.solve(targetvar_k1);
-      for (int k = 0; k < n_k; k++) Gamma_kk.coeffRef(k, k) = pow(margvar_k1(k, 0), 0.5);
+      for( int k=0; k<n_k; k++ ){
+        Gamma_kk.coeffRef(k,k) = pow( margvar_k1(k,0), 0.5 );
+      }
     }
   }
 
-  // Initial Conditions (Delta)
-  vector<Type> delta_k(n_k); delta_k.setZero();
-  if (delta0_j.size() > 0) {
-    matrix<Type> delta0_k1(n_k, 1); delta0_k1.setZero();
-    for (int j = 0; j < n_j; j++) delta0_k1(j * n_t, 0) = delta0_j(j);
+  // Calculate effect of initial condition -- SPARSE version
+  vector<Type> delta_k( n_k );
+  delta_k.setZero();
+  if( delta0_j.size() > 0 ){
+    // Compute delta_k
+    matrix<Type> delta0_k1( n_k, 1 );
+    delta0_k1.setZero();
+    for(int j=0; j<n_j; j++){
+      k = j * n_t;
+      delta0_k1(k,0) = delta0_j(j);
+    }
     matrix<Type> x = inverseIminusRho_kk.solve(delta0_k1);
     delta_k = x.array();
   }
 
-  // GMRF Density Calculation
-  array<Type> xhat_tj(n_t, n_j);
-  array<Type> delta_tj(n_t, n_j);
-  for (int j = 0; j < n_j; j++) {
-    for (int t = 0; t < n_t; t++) {
-      xhat_tj(t, j) = mu_j(j);
-      delta_tj(t, j) = delta_k(j * n_t + t);
-    }
-  }
+  // Format mu_j
+  array<Type> xhat_tj( n_t, n_j );
+  array<Type> delta_tj( n_t, n_j );
+  for(int j=0; j<n_j; j++){
+  for(int t=0; t<n_t; t++){
+    k = j*n_t + t;
+    xhat_tj(t,j) = mu_j(j);
+    delta_tj(t,j) = delta_k(k);
+  }}
 
   // Apply GMRF
-  array<Type> z_tj(n_t, n_j);
-  if (options(0) == 0) { // Full Rank
+  array<Type> z_tj( n_t, n_j );
+  // Option-0:  use full-rank GMRF
+  if( options(0)==0 ){
+    // Only compute Vinv_kk if Gamma_kk is full rank
     Eigen::SparseMatrix<Type> V_kk = Gamma_kk.transpose() * Gamma_kk;
-    matrix<Type> Vinv_kk = invertSparseMatrix(V_kk);
-    Eigen::SparseMatrix<Type> Q_kk = IminusRho_kk.transpose() * asSparseMatrix(Vinv_kk) * IminusRho_kk;
+    // Add diagonal if isTRUE(control$stabilize_Q)
+    if( options(2) == 1 ){
+      V_kk += I_kk * 1e-10;
+    }
+    matrix<Type> Vinv_kk = invertSparseMatrix( V_kk );
+    Eigen::SparseMatrix<Type> Vinv2_kk = asSparseMatrix( Vinv_kk );
+    Eigen::SparseMatrix<Type> Q_kk = IminusRho_kk.transpose() * Vinv2_kk * IminusRho_kk;
 
     // Centered GMRF
-    jnll_gmrf = GMRF(Q_kk)(x_tj - xhat_tj - delta_tj);
+    jnll_gmrf = GMRF(Q_kk)( x_tj - xhat_tj - delta_tj );
     z_tj = x_tj;
-  } else if (options(0) == 1) { // Rank Deficient
-    jnll_gmrf = GMRF(I_kk)(x_tj);
+  }
+  // Option-1:  Rank-deficient (projection) method
+  if( options(0)==1 ){
+    jnll_gmrf = GMRF(I_kk)( x_tj );
 
     // Forward-format matrix
-    matrix<Type> z_k1(n_k, 1);
-    for (int j = 0; j < n_j; j++){
-      for (int t = 0; t < n_t; t++){
-        z_k1(j * n_t + t, 0) = x_tj(t, j);
-      }
-    }
+    matrix<Type> z_k1 = x_tj.reshaped( n_k, 1 );
 
     // (I-Rho)^{-1} * Gamma * Epsilon
-    matrix<Type> z3_k1 = inverseIminusRho_kk.solve(matrix<Type>(Gamma_kk * z_k1));
+    matrix<Type> z2_k1 = Gamma_kk * z_k1;
+    matrix<Type> z3_k1 = inverseIminusRho_kk.solve(z2_k1);
 
     // Back-format vector
-    for (int j = 0; j < n_j; j++){
-      for (int t = 0; t < n_t; t++){
-        z_tj(t, j) = z3_k1(j * n_t + t, 0);
-      }
-    }
+    z_tj = z3_k1.reshaped( n_t, n_j );
 
     // Add back mean and deviation
     z_tj += xhat_tj + delta_tj;
   }
+  // Option-2:  full-rank for some variables, projects to reduced-rank for others (mvn_project)
+  if( options(0)==2 ){
+    Eigen::SparseMatrix<Type> I_uu( unobs_idx.size(), unobs_idx.size() );
+    I_uu.setIdentity();
 
-  // Likelihoods for family types
+    // Compute full covariance (potentially rank deficient)
+    Eigen::SparseMatrix<Type> V_kk = Gamma_kk.transpose() * Gamma_kk;
+    Eigen::SparseMatrix<Type> tmp_kk = inverseIminusRho_kk.solve(V_kk);
+    Eigen::SparseMatrix<Type> tmp2_kk = tmp_kk.transpose();
+
+    // Get Sigma components
+    Eigen::SparseMatrix<Type> Sigma_kk = inverseIminusRho_kk.solve( tmp2_kk );
+    Eigen::SparseMatrix<Type> Sigma_oo = dsem_get_submatrix( Sigma_kk, obs_idx, obs_idx );
+    matrix<Type> V_oo = matrix<Type>(Sigma_oo);
+
+    // Extract sub-vectors for observed and unobserved components
+    vector<Type> x_k = x_tj;
+    vector<Type> dev_k = x_tj - xhat_tj - delta_tj;
+    vector<Type> dev_o( obs_idx.size() );
+    Eigen::SparseMatrix<Type> x_o1( obs_idx.size(), 1 );
+    for( int index = 0; index < obs_idx.size(); index++ ){
+      dev_o(index) = dev_k( obs_idx(index) );
+      x_o1.coeffRef(index, 0) = x_k( obs_idx(index) );
+    }
+    vector<Type> x_u( unobs_idx.size() );
+    Eigen::SparseMatrix<Type> x_u1( unobs_idx.size(), 1 );
+    for( int u = 0; u < unobs_idx.size(); u++ ){
+      x_u(u) = x_k( unobs_idx(u) );
+      x_u1.coeffRef(u, 0) = x_k( unobs_idx(u) );
+    }
+
+    // Project residuals
+    Eigen::SimplicialLDLT< Eigen::SparseMatrix<Type> > inverseSigma_oo;
+    inverseSigma_oo.compute(Sigma_oo);
+    Eigen::SparseMatrix<Type> tmp_o1 = inverseSigma_oo.solve(x_o1);
+    Eigen::SparseMatrix<Type> Sigma_uo = dsem_get_submatrix( Sigma_kk, unobs_idx, obs_idx );
+    matrix<Type> mu_u1 = Sigma_uo * tmp_o1;
+
+    // Get variance and Cholesky for remaining terms
+    matrix<Type> xprime_u1( unobs_idx.size(), 1 );
+    if( unobs_idx.size() > 0 ){
+      Eigen::SparseMatrix<Type> Vprime_uu( unobs_idx.size(), unobs_idx.size() );
+      Eigen::SparseMatrix<Type> Sigma_ou = Sigma_uo.transpose();
+      Eigen::SparseMatrix<Type> tmp_ou = inverseSigma_oo.solve(Sigma_ou);
+      Eigen::SparseMatrix<Type> Sigma_uu = dsem_get_submatrix( Sigma_kk, unobs_idx, unobs_idx );
+
+      Vprime_uu = Sigma_uu;
+      Vprime_uu -= (Sigma_uo * tmp_ou);
+      Vprime_uu += 1e-12 * I_uu;
+
+      Eigen::SimplicialLLT< SparseMatrix<Type> > chol(Vprime_uu);
+      SparseMatrix<Type> Lprime_uu = chol.matrixL();
+      xprime_u1 = Lprime_uu * x_u1;
+    }
+
+    // Add projected residuals + other components into linear predictor
+    z_tj = x_tj;
+    int u = 0;
+    if( unobs_idx.size() > 0 ){
+      for(int j=0; j<n_j; j++){
+      for(int t=0; t<n_t; t++){
+        k = j*n_t + t;
+        if( (u < unobs_idx.size()) && (unobs_idx(u)==k) ){
+          z_tj(t,j) = mu_u1(u,0) + xhat_tj(t,j) + delta_tj(t,j) + xprime_u1(u,0);
+          u++;
+        }
+      }}
+    }
+
+    // Evaluate MVN density for full-rank component
+    jnll_gmrf = MVNORM(V_oo)( dev_o );
+    jnll_gmrf += GMRF(I_uu)( x_u );
+  }
+
+  // Option-3:  full rank (some fixed), project to zero-rank component (gmrf_project)
+  if( options(0)==3 ){
+    Eigen::SparseMatrix<Type> Vtilda_oo;
+    Eigen::SparseMatrix<Type> Mtilda_oo;
+    vector<Type> dev_o( obs_idx.size() );
+    z_tj = x_tj;
+    if( unobs_idx.size() > 0 ){
+      // Extract sub-vectors for observed and unobserved components
+      vector<Type> dev_k = x_tj - xhat_tj - delta_tj;
+      for( int o = 0; o < obs_idx.size(); o++ ){
+        dev_o(o) = dev_k( obs_idx(o) );
+      }
+      // Extract V components
+      Eigen::SparseMatrix<Type> V_kk = Gamma_kk.transpose() * Gamma_kk;
+      Eigen::SparseMatrix<Type> V_oo = dsem_get_submatrix( V_kk, obs_idx, obs_idx );
+      Eigen::SparseMatrix<Type> V_uo = dsem_get_submatrix( V_kk, unobs_idx, obs_idx );
+      Eigen::SparseMatrix<Type> V_ou = dsem_get_submatrix( V_kk, obs_idx, unobs_idx );
+      // Extract M components
+      Eigen::SparseMatrix<Type> M_oo = dsem_get_submatrix( IminusRho_kk, obs_idx, obs_idx );
+      Eigen::SparseMatrix<Type> M_uo = dsem_get_submatrix( IminusRho_kk, unobs_idx, obs_idx );
+      Eigen::SparseMatrix<Type> M_ou = dsem_get_submatrix( IminusRho_kk, obs_idx, unobs_idx );
+      Eigen::SparseMatrix<Type> M_uu = dsem_get_submatrix( IminusRho_kk, unobs_idx, unobs_idx );
+      // Compute C
+      Eigen::SparseMatrix<Type> Mt_ou = M_ou.transpose();
+      Eigen::SparseLU< Eigen::SparseMatrix<Type>, Eigen::COLAMDOrdering<int> > inverseMt_uu;
+      inverseMt_uu.compute( M_uu.transpose().eval() );
+      Eigen::SparseMatrix<Type> Ct = inverseMt_uu.solve(Mt_ou);
+      // Mtilda_oo
+      Eigen::SparseLU< Eigen::SparseMatrix<Type>, Eigen::COLAMDOrdering<int> > inverseM_uu;
+      inverseM_uu.compute(M_uu);
+      Mtilda_oo = M_oo - M_ou * inverseM_uu.solve(M_uo);
+      // Vtilda_oo
+      Vtilda_oo = V_oo + Ct.transpose()*V_uo + V_ou*Ct;
+      // Calculate devs
+      matrix<Type> dev_u1 = -(inverseM_uu.solve(M_uo) * dev_o.matrix());
+      // Add projected residuals + other components into linear predictor
+      int u = 0;
+      for(int j=0; j<n_j; j++){
+      for(int t=0; t<n_t; t++){
+        k = j*n_t + t;
+        if( (u < unobs_idx.size()) && (unobs_idx(u)==k) ){
+          z_tj(t,j) = dev_u1(u,0) + xhat_tj(t,j) + delta_tj(t,j);
+          u++;
+        }
+      }}
+    }else{
+      dev_o = x_tj - xhat_tj - delta_tj;
+      Vtilda_oo = Gamma_kk.transpose() * Gamma_kk;
+      // Add diagonal if isTRUE(control$stabilize_Q)
+      if( options(2) == 1 ){
+        Vtilda_oo += I_kk * 1e-10;
+      }
+      Mtilda_oo = IminusRho_kk;
+    }
+
+    // Q_oo (same approach as option 0)
+    matrix<Type> inverseVtilda_oo = invertSparseMatrix( Vtilda_oo );
+    Eigen::SparseMatrix<Type> inverseVtilda2_oo = asSparseMatrix( inverseVtilda_oo );
+    Eigen::SparseMatrix<Type> Q_oo = Mtilda_oo.transpose() * inverseVtilda2_oo * Mtilda_oo;
+
+    jnll_gmrf = GMRF( Q_oo )( dev_o );
+  }
+
+  // Distribution for data
   array<Type> mu_tj( n_t, n_j );
-  for (int t = 0; t < n_t; t++) {
-    for (int j = 0; j < n_j; j++) {
-      mu_tj(t, j) = (familycode_j(j) == 2) ? invlogit(z_tj(t, j)) :
-      (familycode_j(j) == 3 || familycode_j(j) == 4) ? exp(z_tj(t, j)) : z_tj(t, j);
-
-      if (!R_IsNA(asDouble(y_tj(t, j))) && familycode_j(j) != 0) {
-        if (familycode_j(j) == 1) loglik_tj(t, j) = dnorm(y_tj(t, j), mu_tj(t, j), sigma_j(j), true);
-        if (familycode_j(j) == 2) loglik_tj(t, j) = dbinom(y_tj(t, j), Type(1.0), mu_tj(t, j), true);
-        if (familycode_j(j) == 3) loglik_tj(t, j) = dpois(y_tj(t, j), mu_tj(t, j), true);
-        if (familycode_j(j) == 4) loglik_tj(t, j) = dgamma(y_tj(t, j), pow(sigma_j(j), -2), mu_tj(t, j) * pow(sigma_j(j), 2), true);
+  for(int t=0; t<n_t; t++){
+  for(int j=0; j<n_j; j++){
+    // familycode = 0 :  don't include likelihood
+    if( familycode_j(j)==0 ){
+      mu_tj(t,j) = z_tj(t,j);
+    }
+    // familycode = 1 :  normal
+    if( familycode_j(j)==1 ){
+      mu_tj(t,j) = z_tj(t,j);
+      if(R_FINITE(asDouble(y_tj(t,j)))){
+        loglik_tj(t,j) = dnorm( y_tj(t,j), mu_tj(t,j), sigma_j(j), true );
       }
     }
-  }
+    // familycode = 2 :  Bernoulli
+    if( familycode_j(j)==2 ){
+      mu_tj(t,j) = invlogit(z_tj(t,j));
+      if(R_FINITE(asDouble(y_tj(t,j)))){
+        loglik_tj(t,j) = dbinom( y_tj(t,j), Type(1.0), mu_tj(t,j), true );
+      }
+    }
+    // familycode = 3 :  Poisson
+    if( familycode_j(j)==3 ){
+      mu_tj(t,j) = exp(z_tj(t,j));
+      if(R_FINITE(asDouble(y_tj(t,j)))){
+        loglik_tj(t,j) = dpois( y_tj(t,j), mu_tj(t,j), true );
+      }
+    }
+    // familycode = 4 :  Gamma:   shape = 1/CV^2; scale = mean*CV^2
+    if( familycode_j(j)==4 ){
+      mu_tj(t,j) = exp(z_tj(t,j));
+      if(R_FINITE(asDouble(y_tj(t,j)))){
+        loglik_tj(t,j) = dgamma( y_tj(t,j), pow(sigma_j(j),-2), mu_tj(t,j)*pow(sigma_j(j),2), true );
+      }
+    }
+  }}
   jnll -= loglik_tj.sum();
   jnll += jnll_gmrf;
-
-  // Reporting
-  // REPORT( xhat_tj ); // needed to simulate new GMRF in R
-  // REPORT( delta_k ); // FIXME>  Eliminate in simulate.dsem
-  // REPORT( delta_tj ); // needed to simulate new GMRF in R
-  // REPORT( Rho_kk );
-  // REPORT( Gamma_kk );
-  // //REPORT( mu_tj );
-  // //REPORT( devresid_tj );
-  // REPORT( IminusRho_kk );
-  // REPORT( jnll_dsem );
-  // REPORT( loglik_tj_dsem );
-  // REPORT( jnll_gmrf_dsem );
-  // SIMULATE{
-  //   REPORT( y_tj );
-  // }
-  // REPORT( z_tj );
-  // ADREPORT( z_tj );
 }
-
 
 #endif

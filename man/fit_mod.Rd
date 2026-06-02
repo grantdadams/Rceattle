@@ -8,6 +8,7 @@ fit_mod(
   data_list = NULL,
   inits = NULL,
   map = NULL,
+  bounds = NULL,
   file = NULL,
   estimateMode = 0,
   projection_uncertainty = FALSE,
@@ -40,6 +41,8 @@ directly in R; see \code{vignette("data-without-excel", package = "Rceattle")}.}
 from scratch via \code{\link{build_params}}.}
 
 \item{map}{(Optional) A map object from \code{\link{build_map}}.}
+
+\item{bounds}{(Optional) A bounds object from \code{\link{build_bounds}}. If NULL, bounds are built from the parameter list.}
 
 \item{file}{(Optional) Filename where files will be saved. If NULL, no file is saved.}
 

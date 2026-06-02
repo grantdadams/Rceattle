@@ -1,6 +1,6 @@
 Package: Rceattle
 Title: Fits the Multispecies Assessment Model (CEATTLE) Using TMB
-Version: 4.4.2
+Version: 4.4.3
 Authors@R:
     person(given = "Grant",
            family = "Adams",
@@ -45,11 +45,12 @@ Imports:
     plyr,
     tidyselect,
     magrittr,
-    dsem
+    Matrix
 LinkingTo:
     TMB,
     RcppEigen
 Suggests:
+    dsem (>= 2.0.1),
     testthat (>= 2.0.0),
     rmarkdown,
     knitr,

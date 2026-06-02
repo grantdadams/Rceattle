@@ -1,3 +1,30 @@
+# Rceattle 4.4.3
+
+## DSEM re-vendored from dsem 2.0.1 (changes DSEM-model results)
+
+The recruitment DSEM integration was re-vendored cleanly and updated to track
+`dsem` version 2.0.1 (previously a frozen ~1.7.0 C++ snapshot driven by a
+runtime `dsem::dsem(run_model = FALSE)` call that harvested undocumented
+internals).
+
+* **Owned sem -> TMB-inputs pipeline.** `make_dsem_ram()`, `parse_path()`,
+  `classify_variables()`, and a new `build_dsem_inputs()` were ported into
+  `R/0-dsem_ram.R` and now build the RAM, data, parameters, and map directly.
+  `build_dsem_objects()` no longer calls `dsem`. The port is validated
+  byte-for-byte against `dsem` 2.0.1.
+* **Vendored C++ updated to dsem 2.0.1** (`src/TMB/dsem.hpp`): all four GMRF
+  parameterizations, `stabilize_Q`, the 6-column RAM with `-1` NA sentinel, and
+  the `obs_idx`/`unobs_idx` projection plumbing. The default parameterization is
+  now `gmrf_project` (dsem 2.0.x default).
+* **`dsem` moved from Imports to Suggests** (used only for cross-validation
+  tests); `Matrix` added to Imports.
+* **Result change:** DSEM model fits adopt the dsem 2.0.x parameterization.
+  In practice recruitment results are effectively unchanged for full-rank
+  recdevs (the estimated `beta_z` reproduce prior values), but objective values
+  may differ slightly. Non-DSEM fits are unaffected.
+* Fixed a phasing map bug (`sel_dev_ln_sd`/`index_q_dev_ln_sd`/`M1_dev_ln_sd` ->
+  `_log_sd`) that broke `phase = TRUE` DSEM fits after the `ln -> log` rename.
+
 # Rceattle 4.4.2
 
 ## Code organisation (no change to fitted results)

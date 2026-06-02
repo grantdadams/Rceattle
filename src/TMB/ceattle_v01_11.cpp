@@ -59,11 +59,13 @@ Type objective_function<Type>::operator() () {
    * 0. DSEM                                                                   //
    * ------------------------------------------------------------------------- */
   // DSEM DATA
-  DATA_IVECTOR( options );           // [0]: rank mode, [1]: variance mode
-  DATA_IMATRIX( RAM );               // Reticular Action Model matrix
+  DATA_IVECTOR( options );           // [0]: parameterization, [1]: variance mode, [2]: stabilize_Q (see dsem.hpp)
+  DATA_IMATRIX( RAM );               // Reticular Action Model matrix (heads,to,from,parameter,to_t,to_j)
   DATA_VECTOR( RAMstart );           // Starting/fixed values for RAM paths
   DATA_IVECTOR( familycode_j );      // Likelihood family per variable
   DATA_ARRAY( y_tj );                // Observed multivariate time-series data
+  DATA_IVECTOR( obs_idx );           // Full-rank component indices (options 2,3); 0-based
+  DATA_IVECTOR( unobs_idx );         // Reduced/zero-rank component indices (options 2,3); 0-based
 
   // DSEM PARAMETERS
   PARAMETER_VECTOR( beta_z );        // Estimated path coefficients
@@ -848,7 +850,9 @@ Type objective_function<Type>::operator() () {
     lnsigma_j,
     mu_j,
     delta0_j,
-    options
+    options,
+    obs_idx,
+    unobs_idx
   );
   for(sp = 0; sp < nspp; sp++) {
     rec_dev.row(sp) = x_tj.col(sp);              // Set rec_dev to latent dsem matrix

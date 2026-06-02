@@ -63,18 +63,17 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
     stop("Length of 'family' in 'build_DSEM' does not equal 1 or `ncol(env_data) + nspp`")
   }
 
-  # Specify control (i.e. turn off estimation)
-  DSEMcontrol <- dsem::dsem_control(use_REML = FALSE,
-                                    run_model = FALSE,
-                                    quiet = TRUE,
-                                    getJointPrecision = TRUE,
-                                    newton_loops = 0)
-
-  # Run "dsem" to output map and parameter object
-  fit_dsem = dsem::dsem(sem = dsem_settings$sem,
-                        tsdata = stats::ts(dsem_data),
-                        family = dsem_settings$family,
-                        control = DSEMcontrol)
+  # Build DSEM TMB inputs via the vendored sem->inputs pipeline (R/0-dsem_ram.R),
+  # replacing the former dsem::dsem(run_model = FALSE) harvesting. This removes
+  # the runtime dependency on dsem internals; the pipeline is matched to
+  # src/TMB/dsem.hpp and validated byte-for-byte against dsem 2.0.1. Defaults
+  # mirror dsem 2.0.1 dsem_control() plus the controls Rceattle always set
+  # (use_REML = FALSE => Random = "x_tj"; gmrf_parameterization = "gmrf_project").
+  fit_dsem = build_dsem_inputs(sem = dsem_settings$sem,
+                               tsdata = stats::ts(dsem_data),
+                               family = dsem_settings$family,
+                               use_REML = FALSE,
+                               quiet = TRUE)
 
 
   # Extract dsem map and parameter objects
