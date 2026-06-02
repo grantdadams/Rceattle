@@ -78,7 +78,7 @@ plot_stock_recruit <-
       ssb_array[,1:nyrshind[mod],mod] <- Rceattle[[mod]]$quantities$ssb[,1:nyrshind[mod]]/1000000
       rec_array[,1:nyrshind[mod],mod] <- Rceattle[[mod]]$quantities$R[,1:nyrshind[mod]]/1000000
       rec_pars[,,mod] <- Rceattle[[mod]]$estimated_params$rec_pars
-      env_data[[mod]] <-  Rceattle::rearrange_dat(Rceattle[[mod]]$data_list)$env_index
+      env_data[[mod]] <-  Rceattle::rearrange_data(Rceattle[[mod]]$data_list)$env_index
       if(!incl_proj){
         env_data[[mod]] <- env_data[[mod]][1:nyrshind[mod],]
       }

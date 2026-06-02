@@ -179,6 +179,19 @@ fit_mod <-
     verbose             <- fit_control$verbose
     control             <- fit_control$nlminb_control
 
+    # ---------------------------------------------------------------------
+    # Pipeline overview (file prefixes match this execution order):
+    #   0-clean_data.R            clean_data() / 0-switches.R switch_check()
+    #   1-data_check.R            data_check()      validate inputs
+    #   2-build_params.R          build_params()    starting parameter list
+    #   3-build_map.R             build_map()       TMB map (fixed vs estimated)
+    #   4-build_parameter_bounds.R build_bounds()   lower/upper bounds
+    #   5-rearrange_data.R        rearrange_data()  reshape data for TMB
+    #   6-fit_mod.R               (this file)       MakeADFun + nlminb + sdreport
+    #   6-rename_output.R         rename_output()   label derived quantities
+    # HCR map (0-build_hcr.R build_hcr_map()) is applied during projection below.
+    # ---------------------------------------------------------------------
+
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 0 - Start ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
@@ -417,7 +430,7 @@ fit_mod <-
     }
 
     # Reorganize data for .cpp file
-    data_list_reorganized <- Rceattle::rearrange_dat(data_list)
+    data_list_reorganized <- Rceattle::rearrange_data(data_list)
     data_list_reorganized <- c(list(model = TMBfilename), data_list_reorganized)
     data_list_reorganized$forecast <- rep(0, data_list_reorganized$nspp) # hindcast switch
 
@@ -813,8 +826,8 @@ fit_mod <-
 
     mod_objects$quantities <- Rceattle::rename_output(data_list = data_list, quantities = quantities)
 
-    mod_objects$data_list <- Rceattle::calc_mcall_ianelli(data_list = data_list, data_list_reorganized = data_list_reorganized, quantities = quantities)
-    mod_objects$data_list <- Rceattle::calc_mcall_ianelli_diet(data_list = mod_objects$data_list, quantities = quantities)
+    mod_objects$data_list <- calc_mcall_ianelli(data_list = data_list, data_list_reorganized = data_list_reorganized, quantities = quantities)
+    mod_objects$data_list <- calc_mcall_ianelli_diet(data_list = mod_objects$data_list, quantities = quantities)
 
     mod_objects$run_time <- (Sys.time() - start_time)
 
