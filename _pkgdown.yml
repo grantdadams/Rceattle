@@ -174,7 +174,7 @@ reference:
   contents:
   - retrospective
   - jitter
-  - profile
+  - profile.Rceattle
   - self_test
   - sim_mod
   - compare_sim
