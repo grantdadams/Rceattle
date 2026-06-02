@@ -375,22 +375,8 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.character(inits) | is.null(inits)) {
       start_par <- suppressWarnings(Rceattle::build_params(data_list = data_list))
-      start_par <- c(start_par, mod_objects$dsem$tmb_inputs$parameters) # Add DSEM parameters
     } else{
       start_par <- inits
-
-      # Fill in any DSEM parameters missing from a user-supplied `inits`.
-      # build_params() only builds CEATTLE parameters, so an `inits` object
-      # created from it (or any non-DSEM source) lacks beta_z / lnsigma_j /
-      # mu_j / delta0_j / x_tj. Pull defaults from the freshly built DSEM
-      # objects for any that are absent. This is a no-op when `inits` came
-      # from a prior fit's `estimated_params` (which already has them), so no
-      # parameters are duplicated or overwritten.
-      dsem_par <- mod_objects$dsem$tmb_inputs$parameters
-      missing_dsem <- setdiff(names(dsem_par), names(start_par))
-      if (length(missing_dsem) > 0) {
-        start_par <- c(start_par, dsem_par[missing_dsem])
-      }
 
       # Set F for years with 0 catch to very low number
       zero_catch <- data_list$catch_data |>
@@ -406,6 +392,12 @@ fit_mod <-
       start_par$proj_F_prop <- data_list$fleet_control$proj_F_prop
     }
 
+    # Merge DSEM parameters (beta_z, lnsigma_j, mu_j, delta0_j, x_tj). Adds any
+    # absent from start_par; a no-op when already present, so this works for both
+    # a fresh build_params() list and a prior fit's estimated_params. See
+    # merge_dsem_params() in R/0-build_DSEM.R.
+    start_par <- merge_dsem_params(start_par, mod_objects$dsem)
+
     mod_objects$initial_params <- start_par
 
     # Build parameter bounds (mirrors start_par incl. DSEM params) unless supplied
@@ -420,13 +412,15 @@ fit_mod <-
     # 4: Load/build map ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.null(map)) {
+      # build_map() operates on CEATTLE parameters only; exclude DSEM params
+      # (setdiff is safe even if none are present, unlike -which()).
       map <- suppressWarnings(build_map(data_list,
-                                        start_par[-which(names(start_par) %in% names(mod_objects$dsem$tmb_inputs$parameters))],
+                                        start_par[setdiff(names(start_par), dsem_param_names(mod_objects$dsem))],
                                         debug = estimateMode %in% c(2, 4), # Turn off hindcast parameters if debugging or projection mode
                                         random_sel = random_sel))
 
-      map$mapList <- c(map$mapList, mod_objects$dsem$mapList) # Add DSEM map
-      map$mapFactor <- c(map$mapFactor, mod_objects$dsem$tmb_inputs$map) # Add DSEM map
+      # Add DSEM map entries (mapList + mapFactor) to the CEATTLE map
+      map <- merge_dsem_map(map, mod_objects$dsem)
     } else{
       map <- map
     }

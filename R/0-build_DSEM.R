@@ -129,3 +129,62 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
   fit_dsem$sem <- dsem_settings$sem
   return(fit_dsem = fit_dsem)
 }
+
+
+# -----------------------------------------------------------------------------
+# DSEM <-> CEATTLE integration helpers
+# -----------------------------------------------------------------------------
+# build_dsem_objects() produces TMB inputs that fit_mod() merges into the
+# CEATTLE parameter list, map, random-effects vector, and data list at four
+# points in its pipeline. The contract of what DSEM contributes lives here so
+# those merges stay consistent:
+#   * parameters: beta_z, lnsigma_j, mu_j, delta0_j, x_tj
+#   * map:        mapList + mapFactor entries for the above
+#   * random:     x_tj (when random_rec = TRUE)
+#   * data:       options, RAM, RAMstart, familycode_j, y_tj, obs_idx, unobs_idx
+
+#' Names of the DSEM parameters contributed to the CEATTLE parameter list
+#' @param dsem object returned by \code{\link{build_dsem_objects}}
+#' @keywords internal
+#' @noRd
+dsem_param_names <- function(dsem) {
+  names(dsem$tmb_inputs$parameters)
+}
+
+#' Merge DSEM parameters into a CEATTLE parameter list
+#'
+#' Adds any DSEM parameters absent from \code{param_list}, pulling defaults from
+#' the built DSEM objects. A no-op for parameters already present, so it is safe
+#' for both a fresh \code{build_params()} list (none present -> all added) and a
+#' prior fit's \code{estimated_params} (all present -> unchanged). Nothing is
+#' overwritten or duplicated.
+#'
+#' @param param_list CEATTLE parameter list (from build_params or inits)
+#' @param dsem object returned by \code{\link{build_dsem_objects}}
+#' @keywords internal
+#' @noRd
+merge_dsem_params <- function(param_list, dsem) {
+  dsem_par <- dsem$tmb_inputs$parameters
+  missing_par <- setdiff(names(dsem_par), names(param_list))
+  if (length(missing_par) > 0) {
+    param_list <- c(param_list, dsem_par[missing_par])
+  }
+  param_list
+}
+
+#' Merge DSEM map entries into a CEATTLE map object
+#'
+#' DSEM contributes both \code{mapList} (named numeric/NA vectors) and
+#' \code{mapFactor} (the TMB factor map). Merge them together so the two halves
+#' never drift apart.
+#'
+#' @param map CEATTLE map object (from \code{build_map}) with \code{mapList} and
+#'   \code{mapFactor}
+#' @param dsem object returned by \code{\link{build_dsem_objects}}
+#' @keywords internal
+#' @noRd
+merge_dsem_map <- function(map, dsem) {
+  map$mapList   <- c(map$mapList, dsem$mapList)
+  map$mapFactor <- c(map$mapFactor, dsem$tmb_inputs$map)
+  map
+}
