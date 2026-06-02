@@ -3,8 +3,8 @@
 # =============================================================================
 # CEATTLE configuration switches (selectivity type, catchability type,
 # composition likelihood, HCR, init mode, ...) can be supplied by the user
-# either as human-readable strings ("Logistic") or as the integer codes the
-# TMB template ultimately consumes (1L). The maps below are the single source
+# either as strings ("Logistic") or as the integer codes
+# TMB template ultimately uses (1L). The maps below are the single source
 # of truth for that string <-> integer correspondence, and the four functions
 # in this file implement the lifecycle every switch flows through inside
 # fit_mod():
