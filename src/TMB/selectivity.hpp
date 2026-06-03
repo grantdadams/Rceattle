@@ -272,6 +272,7 @@ void calculate_selectivity(
     const vector<int>&  flt_sel_type,
     const vector<int>&  flt_sel_dim,
     const vector<int>&  bin_first_selected,
+    const vector<int>&  age_first_selected,
     const vector<int>&  flt_n_sel_bins,
     const vector<int>&  sel_norm_bin1,
     const vector<int>&  sel_norm_bin2,
@@ -468,11 +469,21 @@ void calculate_selectivity(
           Type init      = Type(1.0) / (Type(1.0) + exp(-init_lt));
           Type finalv    = Type(1.0) / (Type(1.0) + exp(-final_lt));
 
-          // xmin / xmax = first / last bin midpoint on the integration grid
-          // (length midpoints when length-based; age 1..nages when age-based).
-          Type xmin = is_length_based ? (lengths(sp, 0)         + Type(0.5) * binwidth) : Type(1);
-          Type xmax = is_length_based ? (lengths(sp, nbins - 1) + Type(0.5) * binwidth) : Type(nbins);
-          Type peak2 = peak + binwidth + (xmax - peak - binwidth) / (Type(1.0) + exp(-top_lt));
+          // The SS3 peak2 / t1min / t2min anchors are a property of the
+          // sel CURVE, not of the evaluation grid. They must be computed
+          // on the FINE pop grid (the same grid SS3 uses internally for
+          // sel and ALK).
+          // SS3 source (SS_selex.tpl line 153, with binwidth2 defined in
+          // SS_readdata_330.tpl line 1290 as the FULL pop binwidth):
+          //   peak2 = peak + binwidth2 + (0.99*xmax_pop - peak - binwidth2)
+          //            / (1 + exp(-P2))
+          // where xmax_pop = last pop-bin midpoint.
+          Type curve_bw = is_length_based ? (lengths_pop(sp, 1) - lengths_pop(sp, 0)) : Type(1.0);
+          Type xmin     = is_length_based ? (lengths_pop(sp, 0)                    + Type(0.5) * curve_bw) : Type(1);
+          Type xmax     = is_length_based ? (lengths_pop(sp, nlengths_pop(sp) - 1) + Type(0.5) * curve_bw) : Type(nbins);
+          Type peak2    = peak + curve_bw
+                        + (Type(0.99) * xmax - peak - curve_bw)
+                          / (Type(1.0) + exp(-top_lt));
 
           // Normalization anchors so asc -> init at xmin, dsc -> final at xmax
           Type t1min = exp(-(xmin - peak)  * (xmin - peak)  / upselex);
@@ -504,6 +515,25 @@ void calculate_selectivity(
             else                 sel_at_age(flt, sex, bin, yr) = val;
           }
 
+          // SS3 startbin quadratic ramp (per SS_selex.tpl line ~200):
+          //   for bins below startbin: sel(j) = (L_j / L_startbin)^2 * sel(startbin)
+          // SS3 sets startbin = pop-bin index of the FIRST size-comp data bin.
+          // Rceattle's analogue is `bin_first_selected(flt)` (1-based count;
+          // 0 or 1 means "no ramp"). Implemented for the DATA-bin output here;
+          // the pop-grid version follows in the pop loop below.
+          if (is_length_based && bin_first_selected(flt) > 1) {
+            int sb_data = bin_first_selected(flt) - 1;  // 0-indexed
+            if (sb_data < nbins) {
+              Type Lsb = lengths(sp, sb_data) + Type(0.5) * binwidth;
+              Type sel_sb = sel_at_length(flt, sex, sb_data, yr);
+              for (int bin = 0; bin < sb_data; bin++) {
+                Type Lb = lengths(sp, bin) + Type(0.5) * binwidth;
+                Type r = Lb / Lsb;
+                sel_at_length(flt, sex, bin, yr) = r * r * sel_sb;
+              }
+            }
+          }
+
           // For length-based pattern 24, also evaluate at the FINE POP-grid
           // midpoints and store in sel_at_length_pop. The sel-to-age
           // convolution then happens on the pop grid (SS3 parity), which is
@@ -513,6 +543,30 @@ void calculate_selectivity(
             for (int lp = 0; lp < nlengths_pop(sp); lp++) {
               Type Lp = lengths_pop(sp, lp) + Type(0.5) * pop_bw;
               sel_at_length_pop(flt, sex, lp, yr) = eval_p24(Lp);
+            }
+            // SS3 startbin ramp on the POP grid (SS_selex.tpl line ~200):
+            //   for pop bins BELOW startbin, sel(j) = (L_j/L_startbin)^2 *
+            //   sel(startbin). SS3's `startbin` is the pop-bin index whose
+            //   LEFT EDGE equals the first SIZE-COMP data-bin left edge.
+            //   Pop bins below that get the quadratic ramp; pop bins above
+            //   use the standard pattern-24 formula.
+            // For Pcod (data bins 4.5, 9.5, ...; pop bins 0.5, 1.5, ...):
+            // startbin = pop bin index 4 (0-based) where lengths_pop[4]=4.5.
+            // Ramp applies to pop bins 0..3 (L=1..4 cm).
+            Type data_first_left = lengths(sp, 0);
+            int sb_pop = 0;
+            for (int lp = 0; lp < nlengths_pop(sp); lp++) {
+              if (lengths_pop(sp, lp) <= data_first_left) sb_pop = lp;
+              else break;
+            }
+            if (sb_pop > 0) {
+              Type Lsb = lengths_pop(sp, sb_pop) + Type(0.5) * pop_bw;
+              Type sel_sb = sel_at_length_pop(flt, sex, sb_pop, yr);
+              for (int lp = 0; lp < sb_pop; lp++) {
+                Type Lp = lengths_pop(sp, lp) + Type(0.5) * pop_bw;
+                Type r = Lp / Lsb;
+                sel_at_length_pop(flt, sex, lp, yr) = r * r * sel_sb;
+              }
             }
           }
           break;
@@ -529,14 +583,33 @@ void calculate_selectivity(
     );
 
     // --- 4. CONVERT LENGTH TO AGE (If necessary) ---
+    // SS3-parity: convolve POP-grid sel with POP-grid ALK.
     if (is_length_based) {
       for (int yr = 0; yr < nyrs; yr++) {
         for (int sex = 0; sex < nsex(sp); sex++) {
           int wtind = nspp * 2 + flt;
           convert_length_selectivity(
-            flt, sp, sex, yr, wtind, nages, nlengths,
-            sel_at_length, growth_matrix, sel_at_age
+            flt, sp, sex, yr, wtind, nages, nlengths_pop,
+            sel_at_length_pop, growth_matrix_pop, sel_at_age
           );
+        }
+      }
+    }
+
+    // --- 5. AGE-FIRST-SELECTED FLOOR (SS3 pattern-10 age-sel mimic) ---
+    // For fleets where the SS3 model uses age-sel pattern 10 (or any
+    // convention that zeros sel_a below a min age), zero sel_at_age below
+    // age_first_selected. This matches SS3 SS_selex.tpl:999 which sets
+    // sel_a(0) = 0 for pattern 10, regardless of length-sel convolution.
+    if (age_first_selected(flt) > 0) {
+      int sp_f = flt_spp(flt);
+      int amax = age_first_selected(flt);
+      if (amax > nages(sp_f)) amax = nages(sp_f);
+      for (int yr = 0; yr < nyrs; yr++) {
+        for (int sex = 0; sex < nsex(sp_f); sex++) {
+          for (int age = 0; age < amax; age++) {
+            sel_at_age(flt, sex, age, yr) = Type(0.0);
+          }
         }
       }
     }

@@ -101,6 +101,75 @@ build_bounds <- function(param_list = NULL, data_list) {
     tbl <- data_list$linkage_table
     lower_bnd$beta_linkage <- as.numeric(tbl$lower)
     upper_bnd$beta_linkage <- as.numeric(tbl$upper)
+    # Intercept beta_linkage entries are mapped out (fixed at 0) and the
+    # bound for those rows is enforced on the BASE param below. Loosen the
+    # beta_linkage bound for those rows to [-Inf, Inf] so the "inits within
+    # bounds" check downstream doesn't trip on the 0 init vs the
+    # user-supplied natural-scale bound (e.g. Linf [70, 130]).
+    is_int <- tbl$design_col == "(Intercept)"
+    lower_bnd$beta_linkage[is_int] <- -Inf
+    upper_bnd$beta_linkage[is_int] <- Inf
+
+    # Mirror the init-push at 1-build_params.R:218-256: for (Intercept)
+    # rows the beta_linkage coefficient is mapped out and the base
+    # parameter (log_growth_pars / growth_log_sd / log_M1 / rec_pars)
+    # carries the level. Bounds on the (Intercept) MUST therefore be
+    # propagated to the base parameter, otherwise the user's natural-
+    # scale bounds (e.g. K in [0.1, 1.0]) have no effect and the
+    # optimizer can wander into degenerate regions (K -> 0.07 etc).
+    # Inputs are natural-scale; base params are log-scale -> apply log.
+    int_rows <- which(tbl$design_col == "(Intercept)" &
+                      is.finite(as.numeric(tbl$lower)) &
+                      is.finite(as.numeric(tbl$upper)))
+    if (length(int_rows) > 0) {
+      for (ri in int_rows) {
+        row <- tbl[ri, , drop = FALSE]
+        idx <- Rceattle:::.linkage_row_indices(row, data_list)
+        lo  <- as.numeric(row$lower); hi <- as.numeric(row$upper)
+        if (!(lo > 0)) {
+          warning(sprintf("Linkage (Intercept) bound lower = %g <= 0 for ",
+                          lo),
+                  "process '", row$process, "' param '", row$param,
+                  "'; skipping push to log-scale base parameter.",
+                  call. = FALSE)
+          next
+        }
+        switch(row$process,
+          growth = {
+            mean_idx <- Rceattle:::.GROWTH_PARAM_TO_INDEX[row$param]
+            sd_idx   <- Rceattle:::.GROWTH_SD_PARAM_TO_INDEX[row$param]
+            if (!is.na(mean_idx)) {
+              for (s in idx$species) {
+                sx <- idx$per_sp[[as.character(s)]]$sex
+                lower_bnd$log_growth_pars[s, sx, mean_idx] <- log(lo)
+                upper_bnd$log_growth_pars[s, sx, mean_idx] <- log(hi)
+              }
+            } else if (!is.na(sd_idx)) {
+              for (s in idx$species) {
+                sx <- idx$per_sp[[as.character(s)]]$sex
+                lower_bnd$growth_log_sd[s, sx, sd_idx] <- log(lo)
+                upper_bnd$growth_log_sd[s, sx, sd_idx] <- log(hi)
+              }
+            }
+          },
+          M = {
+            for (s in idx$species) {
+              sx <- idx$per_sp[[as.character(s)]]$sex
+              ag <- idx$per_sp[[as.character(s)]]$age
+              lower_bnd$log_M1[s, sx, ag] <- log(lo)
+              upper_bnd$log_M1[s, sx, ag] <- log(hi)
+            }
+          },
+          recruitment = {
+            par_idx <- Rceattle:::.REC_PARAM_TO_INDEX[row$param]
+            if (!is.na(par_idx)) {
+              lower_bnd$rec_pars[idx$species, par_idx] <- log(lo)
+              upper_bnd$rec_pars[idx$species, par_idx] <- log(hi)
+            }
+          }
+        )
+      }
+    }
   }
 
 

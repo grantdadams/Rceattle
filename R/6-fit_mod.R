@@ -22,7 +22,26 @@
 #' @param growthFun The weight-at-age parameterization from \code{\link{build_growth}}.
 #' @param msmMode The predation mortality functions to used. Defaults to no predation mortality used.
 #' @param avgnMode The average abundance-at-age approximation to be used for predation mortality equations. 0 (default) is the \eqn{N/Z ( 1 - exp(-Z) )}, 1 is \eqn{N exp(-Z/2)}, 2 is \eqn{N}.
-#' @param initMode how the population is initialized. 0 = initial age-structure estimated as free parameters; 1 = equilibrium age-structure estimated out from R0 + mortality (M1); 2 = non-equilibrium age-structure estimated out from R0,  mortality (M1), and initial population deviates; 3 = non-equilibrium age-structure estimated out from initial fishing mortality (Finit), R0,  mortality (M1), and initial population deviates; 4 = non-equilibrium age-structure version 2 where initial fishing mortality (Finit) scales R0.
+#' @param initMode how the population is initialized.
+#'   `0 = "FreeParams"`: initial N-at-age estimated as free parameters
+#'   (`N_init[a] = exp(init_dev[a-1])`).
+#'   `1 = "Equilibrium"`: unfished equilibrium age-structure derived from
+#'   R0 and M1 (`N_init[a] = R_init * exp(-sum(M1[0..a-1]))`); init_dev
+#'   mapped off; Finit = 0.
+#'   `2 = "NonEquilibrium"`: unfished equilibrium with per-age deviations
+#'   (`N_init[a] = R_init * exp(-sum(M1[0..a-1]) + init_dev[a-1])`);
+#'   Finit = 0.
+#'   `3 = "FishedNonEquilibrium"`: non-equilibrium with Finit added to M
+#'   per age in the cascade (`N_init[a] = R_init * exp(-sum(M1[0..a-1] +
+#'   Finit) + init_dev[a-1])`); Finit estimated; per-age init_dev on.
+#'   `4 = "NonEquilibriumScaled"`: Finit is a single multiplicative
+#'   offset on initial recruitment, the M-only cascade is applied per
+#'   age (`N_init[a] = R_init * exp(-Finit) * exp(-sum(M1[0..a-1]) +
+#'   init_dev[a-1])`); per-age init_dev on.
+#'   `5 = "EquilibriumScaled"`: same cascade as mode 4 but with
+#'   `init_dev` mapped off and the init_dev NLL skipped (`N_init[a] =
+#'   R_init * exp(-Finit) * exp(-sum(M1[0..a-1]))`). A regime-style
+#'   equilibrium with no per-age deviations.
 #' @param suitMode Switch for suitability derivation for each predator (single value or vector). 0 = empirical based on diet data (Holsman et al. 2015), 1 = length-based gamma suitability, 2 = weight-based gamma suitability, 3 = length-based lognormal suitability, 4 = weight-based lognormal suitability, 5 = length-based normal suitability, 6 = weight-based normal suitability.
 #' @param suit_styr Integer. The first year used to calculate mean suitability. Defaults to $styr$ in $data_list$. Used when diet data were sampled from a subset of years.
 #' @param suit_endyr Integer. The last year used to calculate mean suitability. Defaults to $endyr$ in $data_list$. Used when diet data were sampled from a subset of years.
@@ -305,12 +324,19 @@ fit_mod <-
         lp_mat[sp, seq_along(pop_grids[[sp]])] <- pop_grids[[sp]]
       data_list$lengths_pop <- lp_mat
     } else if (is.null(data_list$lengths_pop) || is.null(data_list$nlengths_pop)) {
-      # No scalars and no converter-supplied grid -- fall back to data bins so
-      # the TMB DATA_MATRIX has a valid shape. WAA / ALK then match the
-      # legacy (data-bin) integration; user opts in to fine-grid integration
-      # by supplying minlength/lengthbin/maxlength.
-      data_list$lengths_pop  <- data_list$lengths
-      data_list$nlengths_pop <- data_list$nlengths
+      # No scalars and no converter-supplied grid -- fall back to data bins
+      # if `lengths` is already populated, otherwise use a minimal stub
+      # (rearrange_dat fills `lengths` LATER from caal_data; at this point
+      # it may still be NULL for models without CAAL). The stub keeps the
+      # TMB DATA_MATRIX valid shape; it's only consumed when sel is length-
+      # based, which requires CAAL/lencomp data anyway.
+      if (!is.null(data_list$lengths) && !is.null(data_list$nlengths)) {
+        data_list$lengths_pop  <- data_list$lengths
+        data_list$nlengths_pop <- data_list$nlengths
+      } else {
+        data_list$lengths_pop  <- matrix(0, nrow = nspp_sp, ncol = 1)
+        data_list$nlengths_pop <- rep(1L, nspp_sp)
+      }
     }
 
 
@@ -393,6 +419,26 @@ fit_mod <-
 
       # Update proj F prop
       start_par$proj_F_prop <- data_list$fleet_control$proj_F_prop
+
+      # Enforce intercept-row invariant on beta_linkage. Intercept rows
+      # ("(Intercept)" design column) are mapped out at 0 -- the base
+      # parameter (log_growth_pars / log_M1 / rec_pars) carries the
+      # level. A non-zero intercept value in `inits` would still be read
+      # by the cpp linkage accumulator (TMB substitutes the start-par
+      # value at NA-mapped entries), producing a phantom log-scale
+      # offset on the affected base parameter. Defensively zero them so
+      # callers can't accidentally collide with another row index when
+      # mixing growth + M linkages. Slope rows are left untouched.
+      if (!is.null(data_list$linkage_table) &&
+          nrow(data_list$linkage_table) > 0L &&
+          length(start_par$beta_linkage) ==
+            nrow(data_list$linkage_table)) {
+        int_rows <- which(
+          data_list$linkage_table$design_col == "(Intercept)")
+        if (length(int_rows) > 0L) {
+          start_par$beta_linkage[int_rows] <- 0
+        }
+      }
     }
 
     mod_objects$initial_params <- start_par

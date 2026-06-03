@@ -29,7 +29,7 @@ double_normal_sel <- function(x, peak, sigma_asc, sigma_desc,
   xmax   <- x[length(x)]
   upselex   <- sigma_asc   # SS3 stores exp(P3); we pass sigma_asc directly.
   downselex <- sigma_desc  # Same for SS3 P4.
-  peak2  <- peak + binwidth + (xmax - peak - binwidth) / (1 + exp(-top_lt))
+  peak2  <- peak + binwidth + (0.99 * xmax - peak - binwidth) / (1 + exp(-top_lt))
   t1min  <- exp(-(xmin - peak ) * (xmin - peak ) / upselex)
   t2min  <- exp(-(xmax - peak2) * (xmax - peak2) / downselex)
   out <- vapply(x, function(L) {

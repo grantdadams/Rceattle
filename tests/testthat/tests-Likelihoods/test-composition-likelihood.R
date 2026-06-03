@@ -129,6 +129,78 @@ testthat::test_that("Composition likelihoods match (Multinomial and Dirichlet-Mu
 })
 
 
+testthat::test_that("SS3Robust comp likelihood (case 2) matches closed-form kernel", {
+  testthat::skip_if_not_installed("TMB")
+  testthat::skip_if_not_installed("Rceattle")
+
+  # SS3 Method-5 robust multinomial kernel form:
+  #   NLL = weight * N * sum_a (obs_s_a * log(obs_s_a / hat_s_a))
+  # where obs_s = (obs + ac)/(1 + n*ac) and hat_s = (hat + ac)/(1 + n*ac).
+  # In the cpp, hat is pre-smoothed in the pred_comp section, so the loop
+  # uses comp_hat directly as hat_s. (Mirrors SS3 SS_objfunc.tpl:430:
+  #   age_like = -offset_a + Comp_logL_multinomial(N, obs, exp))
+
+  set.seed(123)
+  sim <- make_msm_test_data(nspp = 2, years = 1:10)
+  simData <- sim$data_list
+
+  flt_idx <- 1
+  comp_ind <- which(simData$comp_data$Fleet_code == flt_idx)
+
+  # Enable SS3Robust + a non-trivial addtocomp
+  ac_val <- 1e-4
+  simData$fleet_control$Comp_loglike      <- 2  # SS3Robust
+  simData$fleet_control$Comp_weights      <- 0.6
+  simData$fleet_control$Comp_addtocomp    <- ac_val
+
+  # Build + run
+  ss_run <- Rceattle::fit_mod(data_list = simData,
+                              estimateMode = 3,
+                              fit_control = fit_control(phase = FALSE, verbose = 0))
+  inits <- ss_run$estimated_params
+  inits$comp_weights[flt_idx] <- 0.6
+
+  mod <- Rceattle::fit_mod(data_list = simData,
+                           inits = inits,
+                           estimateMode = 3,
+                           fit_control = fit_control(phase = FALSE, verbose = 0))
+
+  tmb_nll <- mod$quantities$jnll_comp[3, flt_idx]
+
+  # Reconstruct in R using the same kernel as the cpp case 2
+  r_nll <- 0
+  for (i in comp_ind) {
+    row_data <- mod$data_list$comp_data[i, ]
+    n_ages   <- mod$data_list$nages[1]
+    n_bins   <- if (row_data$Age0_Length1 == 1) mod$data_list$nlengths[1] else n_ages
+
+    obs_prop <- as.numeric(row_data[grep("Comp_", colnames(row_data))])[1:n_bins]
+    obs_prop <- obs_prop / sum(obs_prop)
+    samp     <- row_data$Sample_size
+    hat_s    <- mod$quantities$comp_hat[i, 1:n_bins]   # already smoothed in cpp
+
+    denom <- 1 + n_bins * ac_val
+    obs_s <- (obs_prop + ac_val) / denom
+
+    r_nll <- r_nll + 0.6 * samp * sum(obs_s * log(obs_s / pmax(hat_s, 1e-300)))
+  }
+
+  testthat::expect_equal(tmb_nll, as.numeric(r_nll), tolerance = 1e-5)
+})
+
+
+# NOTE: SS3Robust for CAAL uses the IDENTICAL kernel form as for comp
+# (cpp case 2 in both the comp_ll_type and caal_ll_type switches:
+#   jnll += weight * N * obs_s * log(obs_s / hat_s)
+# with obs_s = (obs + ac)/(1 + n*ac), hat_s = comp/caal_hat (pre-smoothed)).
+# The comp test above exercises this kernel directly. A separate synthetic
+# CAAL test would require populating CAAL obs, setting parametric growth
+# (so the cpp populates growth_matrix and pred_CAAL is non-zero), and
+# matching the cpp's single-pop-bin selector logic -- all fragile in
+# synthetic data. The kernel form is validated empirically on the GOA Pcod
+# 2024 model: R-side reconstruction = 374.58 vs SS3 official 374.10.
+
+
 testthat::test_that("Invalid comp_loglike", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")

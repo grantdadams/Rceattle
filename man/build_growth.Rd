@@ -4,7 +4,14 @@
 \alias{build_growth}
 \title{Specify the growth model for Rceattle}
 \usage{
-build_growth(fun = "empirical", growth_age_L1 = NA, linkages = NULL)
+build_growth(
+  fun = "empirical",
+  growth_age_L1 = NA,
+  minlength = NA,
+  lengthbin = NA,
+  maxlength = NA,
+  linkages = NULL
+)
 }
 \arguments{
 \item{fun}{Growth function. Either a string (\link{GROWTH_FUNS}:

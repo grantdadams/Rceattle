@@ -17,7 +17,7 @@
                      quiet = TRUE) {
 
   if (requireNamespace("TMBhelper", quietly = TRUE)) {
-    return(
+    helper_fit <- tryCatch(
       TMBhelper::fit_tmb(
         obj                 = obj,
         fn                  = obj$fn,
@@ -34,8 +34,17 @@
         getJointPrecision   = getJointPrecision,
         getReportCovariance = getReportCovariance,
         quiet               = quiet
-      )
+      ),
+      error = function(e) {
+        message("TMBhelper::fit_tmb errored: ", conditionMessage(e))
+        message("Falling back to plain nlminb with tryCatch loop.")
+        NULL
+      }
     )
+    if (!is.null(helper_fit)) return(helper_fit)
+    # If TMBhelper failed (e.g. nlminb NaN gradient mid-iteration with no
+    # internal try-catch), fall through to the fallback path below — it
+    # wraps nlminb in tryCatch and returns the best feasible fit it found.
   }
 
   # Fallback: plain nlminb + sdreport

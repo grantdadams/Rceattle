@@ -336,7 +336,11 @@ build_params <- function(data_list) {
                                  dimnames = list(c("Ascending" , "Descending", "Init"), data_list$fleet_control$Fleet_name, sex_labels, yrs_hind))
 
   # - Log standard deviation for selectivity random walk - used for logistic
-  param_list$sel_dev_log_sd <- log(data_list$fleet_control$Time_varying_sel_sd_prior)
+  # Sentinel: Time_varying_sel_sd_prior <= 0 (or NA) means "skip the
+  # sel-dev N(0, sigma) prior in the cpp" (gated on sel_dev_log_sd > -100).
+  sel_sd_in <- data_list$fleet_control$Time_varying_sel_sd_prior
+  sel_sd_in <- ifelse(is.na(sel_sd_in) | sel_sd_in <= 0, exp(-999), sel_sd_in)
+  param_list$sel_dev_log_sd <- log(sel_sd_in)
   names(param_list$sel_dev_log_sd) <- data_list$fleet_control$Fleet_name
 
 

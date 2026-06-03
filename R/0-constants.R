@@ -16,9 +16,11 @@ tv_sel_map <-c(
   "Off" = 0,
   "IID" = 1,
   "AR1" = 2,
-  "Block" = 3,
+  "Block" = 3,        # SS3 "fully-replace": NA's the base; sub-block = standalone effective sel
   "RandomWalk" = 4,
-  "RandomWalkAscending" = 5
+  "RandomWalkAscending" = 5,
+  "BlockDev" = 6      # SS3 case-2 "block + base": base estimable, sub-block dev ADDS to it.
+                      # Prior fires once per sub-block (= 1/N per cell via *_dev_prior_weight).
 )
 
 q_map <- c(
@@ -28,7 +30,8 @@ q_map <- c(
   "Analytical" = 3,
   "PowerEquation" = 4,
   "Environmental" = 5,
-  "AR1" = 6
+  "AR1" = 6,
+  "EnvExp" = 7   # SS3 case-1 exponential env link: q = exp( LnQ * exp(sum_k beta_k * env_k) )
 )
 
 tv_q_map <- c(
@@ -36,13 +39,15 @@ tv_q_map <- c(
   "IID" = 1,
   "AR1" = 2,
   "Block" = 3,
-  "RandomWalk" = 4
+  "RandomWalk" = 4,
+  "BlockDev" = 5      # SS3 "block + base" q. Same semantics as tv_sel BlockDev.
 )
 
 comp_loglike_map <- c(
   "MultinomialAFSC" = -1,
   "Multinomial" = 0,
-  "DirichletMultinomial" = 1
+  "DirichletMultinomial" = 1,
+  "SS3Robust" = 2
 )
 
 fleet_map <- c(
@@ -56,13 +61,17 @@ fleet_map <- c(
 # 1 = Equilibrium, no init devs, Finit = 0 (unfished)
 # 2 = Equilibrium + init devs, Finit = 0  [default]
 # 3 = Non-equilibrium: Finit estimated, init devs included
-# 4 = Non-equilibrium: Finit scales R0
+# 4 = Non-equilibrium: Finit scales R0 (init_dev ON)
+# 5 = Equilibrium: Finit scales R0 (init_dev OFF / mapped out). Mirrors
+#     SS3's SR_regime mechanism cleanly: N_init[a] = R_init * exp(-Finit)
+#     * exp(-sum(M1[0..a-1])) with no per-age deviation.
 initMode_map <- c(
   "FreeParams"           = 0,
   "Equilibrium"          = 1,
   "NonEquilibrium"       = 2,
   "FishedNonEquilibrium"       = 3,
-  "FishedNonEquilibriumScaled" = 4
+  "NonEquilibriumScaled"       = 4,
+  "EquilibriumScaled"          = 5
 )
 
 # Predator-prey suitability mode (per predator species)

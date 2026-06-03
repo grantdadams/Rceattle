@@ -209,6 +209,9 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR(flt_varying_sel);          // Vector storing information on whether time-varying selectivity is estimated
   DATA_IVECTOR(flt_spp);                  // Vector to save fleet species
   DATA_IVECTOR(bin_first_selected);       // Vector to save age first selected (selectivity below this age = 0)
+  DATA_IVECTOR(age_first_selected);       // Vector to zero sel_at_age below this age (0-based, default 0). Mirrors SS3 pattern-10 age sel.
+  DATA_VECTOR(comp_addtocomp);            // Per-fleet length-comp addtocomp constant (SS3 dat len_info addtocomp; added to every bin before sum=1 normalization)
+  DATA_VECTOR(caal_addtocomp);            // Per-fleet CAAL addtocomp constant (SS3 dat age_info addtocomp)
   DATA_IVECTOR(sel_norm_bin1);            // Vector to save age of max selectivity for normalization (if NA not used)
   DATA_IVECTOR(sel_norm_bin2);            // Vector to save upper age of max selectivity for normalization (if NA not used)
   DATA_IVECTOR(comp_ll_type);             // Vector to save composition log likelihood type
@@ -279,6 +282,18 @@ Type objective_function<Type>::operator() () {
   // -- 2.4.3. Others
   DATA_MATRIX( sex_ratio );               // Proportion-at-age of females of population
   DATA_MATRIX( maturity );                // Proportion of mature females at age; [nspp, nages]
+
+  // -- 2.4.4. BlockDev: per-(slot, fleet, sex, year) prior-weight tensors.
+  //   Multiplied into the per-year dnorm prior on sel_inf_dev /
+  //   log_sel_slp_dev / index_q_dev. Defaults to 1.0 (preserves IID
+  //   behavior). For SS3-style block selectivity: factor-shared dev params
+  //   collapse to a single estimable value per block; setting
+  //   prior_weight = 1/N inside the block years and 0 outside makes the
+  //   per-year prior sum to exactly one block-prior contribution (matches
+  //   SS3's per-block-replacement prior count).
+  DATA_ARRAY( sel_inf_dev_prior_weight );        // [3, n_flt, max_sex, nyrs_hind]
+  DATA_ARRAY( log_sel_slp_dev_prior_weight );    // [3, n_flt, max_sex, nyrs_hind]
+  DATA_MATRIX( index_q_dev_prior_weight );       // [n_flt, nyrs_hind]
 
 
   /** ------------------------------------------------------------------------ //
@@ -568,6 +583,20 @@ Type objective_function<Type>::operator() () {
       if(est_index_q(flt) == 6){
         index_q(flt, yr) = exp(index_log_q(flt) + index_q_beta(flt, 0) * index_q_dev(flt, yr));
       }
+
+      // SS3 case-1 exponential env link: parm_timevary *= exp(beta * env)
+      // applied to LnQ_base. q[y] = exp( LnQ_base * exp( sum_k beta_k * env_k[y] ) ).
+      // Distinguished from mode 5 (additive on log-q) by the NESTED exp:
+      //   mode 5:   log(q) = LnQ + beta . env       (log-linear in env)
+      //   mode 7:   log(q) = LnQ * exp(beta . env)  (nested-exponential in env)
+      // Use this when bridging SS3 fleets with env_var&link of the form 10*var + 1
+      // (e.g. GOA Pcod LLSrv has env_var&link = 101 = link 1, env_var 1).
+      if(est_index_q(flt) == 7){
+        beta_q_tmp = index_q_beta.row(flt);
+        env_q_tmp  = env_index.row(yr);
+        index_q_mult = env_q_tmp * beta_q_tmp;
+        index_q(flt, yr) = exp(index_log_q(flt) * exp((index_q_mult).sum()));
+      }
     }
   }
 
@@ -812,6 +841,7 @@ Type objective_function<Type>::operator() () {
     flt_sel_type,         // Selectivity model type per fleet
     flt_sel_dim,          // Age or length based
     bin_first_selected,   // Min bin selected per fleet
+    age_first_selected,   // Min age selected (zeros sel_at_age below this; SS3 pattern-10 mimic)
     flt_n_sel_bins,       // Max estimated bins per fleet
     sel_norm_bin1,        // Normalization control/bin 1
     sel_norm_bin2,        // Normalization control/bin 2
@@ -1161,7 +1191,15 @@ Type objective_function<Type>::operator() () {
                 }
               }
 
-              if(initMode == 4){
+              // Mode 4 (NonEquilibriumScaled) and mode 5 (EquilibriumScaled)
+              // share the cascade. Both apply Finit as a single multiplicative
+              // offset on R_init (i.e., Finit is added ONCE after the per-age
+              // M1 sum, not per-age as in modes 1-3). The difference is that
+              // mode 5 also has init_dev mapped out (= 0) in build_map, so the
+              // formula reduces to a pure regime equilibrium:
+              //   N_init[a] = R_init * exp(-Finit) * exp(-sum(M1[0..a-1]))
+              // which mirrors SS3's SR_regime mechanism with no per-age devs.
+              if((initMode == 4) | (initMode == 5)){
                 mort_sum(sp, age) = 0;
                 for(int age_tmp = 0; age_tmp < age; age_tmp++){
                   mort_sum(sp, age) += M1_at_age(sp, sex, age_tmp, 0);
@@ -1914,6 +1952,88 @@ Type objective_function<Type>::operator() () {
   age_hat.setZero();     // Age-composition
   age_obs_hat.setZero(); // Age-composition with ageing error
   comp_hat.setZero();    // Age- or length-comp following data
+
+  // SPEEDUP: precompute pop-bin -> data-bin mapping ONCE per evaluation.
+  // pop_to_data_bin(sp, lp) = target data-bin index for pop-bin lp:
+  //   - lp with lengths_pop < lengths(sp,0): target = 0 (minus group)
+  //   - else: largest k with lengths(sp,k) <= lengths_pop(sp,lp)
+  // This is the same logic that was previously inlined in the comp_ind
+  // loop (lengths_pop search per (comp_ind, sex, age, lp)) and in the
+  // CAAL caal_ind loop (single lp_target per ln). Pre-computing it
+  // outside the loops eliminates ~21 conditional ops per pop bin per
+  // observation. No AD ops -- pure int comparisons on data values.
+  int max_lp = 0;
+  for (int sp_pre = 0; sp_pre < nspp; sp_pre++)
+    if (nlengths_pop(sp_pre) > max_lp) max_lp = nlengths_pop(sp_pre);
+  int max_ln = 0;
+  for (int sp_pre = 0; sp_pre < nspp; sp_pre++)
+    if (nlengths(sp_pre) > max_ln) max_ln = nlengths(sp_pre);
+
+  matrix<int> pop_to_data_bin(nspp, max_lp);
+  // CAAL data-bin integration: each CAAL row's data bin [lengths(sp,ln),
+  // lengths(sp,ln+1)) covers a range of pop bins. caal_lp_start/end are the
+  // half-open pop-bin index range [start, end) whose left edges lie in the
+  // data bin. For lbin_method=1 (data == pop), each data bin contains exactly
+  // one pop bin and the loop degenerates to the single-bin call. For
+  // lbin_method=2 (5cm data bin over 1cm pop grid), the data bin contains
+  // multiple pop bins and the integration recovers SS3's CAAL prediction.
+  matrix<int> caal_lp_start(nspp, max_ln);
+  matrix<int> caal_lp_end(nspp, max_ln);
+  pop_to_data_bin.setZero();
+  caal_lp_start.setZero();
+  caal_lp_end.setZero();
+
+  for (int sp_pre = 0; sp_pre < nspp; sp_pre++) {
+    Type data_lo0 = lengths(sp_pre, 0);
+    for (int lp = 0; lp < nlengths_pop(sp_pre); lp++) {
+      Type pop_lo = lengths_pop(sp_pre, lp);
+      int target = 0;
+      if (pop_lo < data_lo0) {
+        target = 0;
+      } else {
+        for (int k = 0; k < nlengths(sp_pre); k++) {
+          if (lengths(sp_pre, k) <= pop_lo) target = k;
+          else break;
+        }
+      }
+      pop_to_data_bin(sp_pre, lp) = target;
+    }
+    // CAAL pop-bin range per data bin. For data bin ln (0-based), the range
+    // is pop bins lp where lengths_pop(lp) is in [lengths(sp,ln),
+    // lengths(sp,ln+1)). Last data bin extends to +inf (plus-group region).
+    for (int ln_pre = 0; ln_pre < nlengths(sp_pre); ln_pre++) {
+      Type data_left  = lengths(sp_pre, ln_pre);
+      Type data_right = (ln_pre + 1 < nlengths(sp_pre))
+                          ? lengths(sp_pre, ln_pre + 1)
+                          : Type(1e9);  // plus-group: integrate to top of pop grid
+      int lp_lo = 0, lp_hi = 0;
+      bool started = false;
+      for (int lp = 0; lp < nlengths_pop(sp_pre); lp++) {
+        Type pop_left = lengths_pop(sp_pre, lp);
+        if (pop_left >= data_left && pop_left < data_right) {
+          if (!started) { lp_lo = lp; started = true; }
+          lp_hi = lp + 1;  // half-open upper bound
+        } else if (started) {
+          break;  // sorted: once we exit the range, we're done
+        }
+      }
+      if (!started) {
+        // No pop bin falls in this data bin (degenerate). Fall back to the
+        // largest pop bin with left edge < data_left, single bin (preserves
+        // the old behavior for any edge case).
+        int lp_fb = 0;
+        for (int lp = 0; lp < nlengths_pop(sp_pre); lp++) {
+          if (lengths_pop(sp_pre, lp) < data_left) lp_fb = lp;
+          else break;
+        }
+        lp_lo = lp_fb;
+        lp_hi = lp_fb + 1;
+      }
+      caal_lp_start(sp_pre, ln_pre) = lp_lo;
+      caal_lp_end  (sp_pre, ln_pre) = lp_hi;
+    }
+  }
+
   for(comp_ind = 0; comp_ind < comp_hat.rows(); comp_ind++){
 
     flt = comp_ctl(comp_ind, 0) - 1;            // Temporary fishery index
@@ -1948,23 +2068,60 @@ Type objective_function<Type>::operator() () {
 
     // 10.1.1. Estimated growth
     if(growth_model(sp) > 0){
-      for(age = 0; age < nages(sp); age++) {
-        for(ln = 0; ln < nlengths(sp); ln++) {
-          for(sex = 0; sex < nsex(sp); sex ++){
-
+      // Two changes vs the original loop:
+      //   1) Gate on flt_sel_dim==1 (length-based), not flt_sel_type==1
+      //      (which is "Logistic"). The earlier check excluded every other
+      //      length-based pattern (DoubleNormal etc) and left pred_CAAL=0.
+      //   2) Compute the contribution on the FINE POP grid (sel_at_length_pop
+      //      x growth_matrix_pop) and aggregate to the DATA-bin pred_CAAL
+      //      array. SS3 does this fine-grid + aggregate workflow (SS_expval
+      //      tpl: exp_AL[a, L_data] += temp * ALK[a, L_pop] * sel_l[L_pop]).
+      //      Evaluating on data bins under-resolves sel * ALK near the peak
+      //      and biases the resulting length-comp + CAAL predictions.
+      // The aggregation rule matches the growth_matrix data-bin aggregation:
+      // pop bins below the first data-bin left-edge fold into data bin 0
+      // (minus group); other pop bins go into the largest data bin whose
+      // left-edge <= pop bin left-edge.
+      bool is_len_based = (flt_sel_dim(flt) == 1);
+      if (is_len_based) {
+        // Zero pred_CAAL data-bin entries for this fleet/sex/age/yr first
+        for(sex = 0; sex < nsex(sp); sex ++) {
+          for(age = 0; age < nages(sp); age++) {
+            for(ln = 0; ln < nlengths(sp); ln++) {
+              pred_CAAL(flt, sex, age, ln, yr) = Type(0.0);
+            }
+          }
+        }
+        Type data_lo0 = lengths(sp, 0);
+        int amin_lcomp = age_first_selected(flt);  // skip ages below first selected
+        for(sex = 0; sex < nsex(sp); sex ++) {
+          for(age = 0; age < nages(sp); age++) {
+            // Mirror CAAL likelihood: SS3 pattern-10 age-sel zeros sel_a[0],
+            // which means age-0 N contributes nothing to predicted length
+            // comp even via the ALK tail at small L. Without this skip,
+            // age-0 N x sel_at_length_pop(small L) x ALK(0, small L) bleeds
+            // into the data-bin minus group (bin 0).
+            if (age < amin_lcomp) continue;
+            // Common-to-all-pop-bin factor for this fleet/age/yr
+            Type common_fac = Type(0.0);
             switch(flt_type(flt)){
-            case 1: // - Fishery
-              if(flt_sel_type(flt) == 1){ // Length based
-                pred_CAAL(flt, sex, age, ln, yr) = sel_at_length(flt, sex, ln, yr) * Frate / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr) * growth_matrix(wtind,  sex, age, ln, yr);
-              }
+            case 1: // - Fishery (Baranov contribution)
+              common_fac = Frate / Z_at_age(sp, sex, age, yr)
+                           * (Type(1.0) - exp(-Z_at_age(sp, sex, age, yr)))
+                           * N_at_age(sp, sex, age, yr);
               break;
-
-
             case 2: // - Survey
-              if(flt_sel_type(flt) == 1){ // Length based
-                pred_CAAL(flt, sex, age, ln, yr) = N_at_age(sp, sex, age, yr) * sel_at_length(flt, sex, ln, yr) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr)) * growth_matrix(wtind,  sex, age, ln, yr);
-              }
+              common_fac = N_at_age(sp, sex, age, yr) * index_q(flt, yr_ind)
+                           * exp(- Type(mo/12.0) * Z_at_age(sp, sex, age, yr));
               break;
+            default: common_fac = Type(0.0);
+            }
+            for(int lp = 0; lp < nlengths_pop(sp); lp++) {
+              // Precomputed pop->data bin index (see top of section 10.1)
+              int target = pop_to_data_bin(sp, lp);
+              pred_CAAL(flt, sex, age, target, yr) += common_fac
+                  * sel_at_length_pop(flt, sex, lp, yr)
+                  * growth_matrix_pop(wtind, sex, age, lp, yr);
             }
           }
         }
@@ -2181,10 +2338,28 @@ Type objective_function<Type>::operator() () {
       }
     } // End empirical weight-at-age loop
 
-    // Standardize to sum to 1
+    // Standardize to sum to 1 (raw → proportions)
     Type penalty = 0.0;
     comp_hat.row(comp_ind) /= posfun(comp_hat.row(comp_ind).sum(), Type(0.001), penalty);
     (void) penalty;
+
+    // SS3-parity addtocomp: SS3 adds a small constant to every PROPORTION
+    // bin (after the initial sum=1 normalization), then re-normalizes.
+    // Equivalently: comp_hat[i] = (p[i] + a) / (1 + n * a) where p is
+    // proportions, a is addtocomp, n is active bin count. With a = 0 the
+    // behavior is unchanged. Mirrors SS3 dat-file len_info / age_info
+    // addtocomp (Pcod default 1e-4).
+    {
+      Type a_to_c = comp_addtocomp(flt);
+      if (a_to_c > Type(0.0)) {
+        int n_active = (comp_type == 0) ? nages(sp) : nlengths(sp);
+        if (flt_sex == 3) n_active *= 2;
+        Type denom = Type(1.0) + Type(n_active) * a_to_c;
+        for (int bb = 0; bb < n_active; bb++) {
+          comp_hat(comp_ind, bb) = (comp_hat(comp_ind, bb) + a_to_c) / denom;
+        }
+      }
+    }
   }
 
 
@@ -2230,22 +2405,45 @@ Type objective_function<Type>::operator() () {
       Frate = proj_F_prop(flt) * proj_F(sp, yr);
     }
 
-    // 12.2.1. Calculate CAAL
-    for(age = 0; age < nages(sp); age++) {
-
-      switch(flt_type(flt)){
-      case 1: // - Fishery
-        if(flt_sel_type(flt) == 1){
-          pred_CAAL(flt, sex, age, ln, yr) = sel_at_length(flt, sex, ln, yr) * Frate / Z_at_age(sp, sex, age, yr) * (1 - exp(-Z_at_age(sp, sex, age, yr))) * N_at_age(sp, sex, age, yr) * growth_matrix(wtind,  sex, age, ln, yr);
+    // 12.2.1. Calculate CAAL on the FINE pop grid.
+    // SS3 with Lbin_method = 2 (data bins) interprets the raw `Lbin_lo` as
+    // a data-bin LEFT-EDGE VALUE; the CAAL data bin spans [Lbin_lo, next
+    // data-bin Lbin_lo). The predicted CAAL aggregates pop-bin contributions
+    // (sel(L_pop) x N x ALK(a, L_pop)) over ALL pop bins whose left edge
+    // falls in that data-bin window. For Lbin_method = 1 (pop bins) the
+    // data bin contains exactly one pop bin and the loop degenerates to a
+    // single contribution, preserving prior behavior. The pop-bin range
+    // per data bin is precomputed once in caal_lp_start / caal_lp_end.
+    if (flt_sel_dim(flt) == 1) {
+      int lp_lo = caal_lp_start(sp, ln);
+      int lp_hi = caal_lp_end  (sp, ln);
+      int amin_caal = age_first_selected(flt);  // skip ages below the first selected
+      for(age = 0; age < nages(sp); age++) {
+        pred_CAAL(flt, sex, age, ln, yr) = Type(0.0);
+        // SS3 pattern-10 age sel zeros sel_a[0]; equivalent to skipping ages
+        // < age_first_selected in pred_CAAL aggregation for the CAAL likelihood
+        // since the contribution gets multiplied by sel_a in SS3's exp_AL.
+        if (age < amin_caal) continue;
+        Type common_fac = Type(0.0);
+        switch(flt_type(flt)){
+        case 1: // Fishery (Baranov)
+          common_fac = Frate / Z_at_age(sp, sex, age, yr)
+                       * (Type(1.0) - exp(-Z_at_age(sp, sex, age, yr)))
+                       * N_at_age(sp, sex, age, yr);
+          break;
+        case 2: // Survey
+          common_fac = N_at_age(sp, sex, age, yr) * index_q(flt, yr_ind)
+                       * exp(- Type(mo/12.0) * Z_at_age(sp, sex, age, yr));
+          break;
+        default: common_fac = Type(0.0);
         }
-        break;
-
-
-      case 2: // - Survey
-        if(flt_sel_type(flt) == 1){
-          pred_CAAL(flt, sex, age, ln, yr) = N_at_age(sp, sex, age, yr) * sel_at_length(flt, sex, ln, yr) * growth_matrix(wtind,  sex, age, ln, yr) * index_q(flt, yr_ind) * exp( - Type(mo/12.0) * Z_at_age(sp, sex, age, yr)) ;
+        // Integrate over pop bins in this data bin (single iteration when
+        // lbin_method = 1 / data == pop).
+        for (int lp = lp_lo; lp < lp_hi; lp++) {
+          pred_CAAL(flt, sex, age, ln, yr) += common_fac
+                                               * sel_at_length_pop(flt, sex, lp, yr)
+                                               * growth_matrix_pop(wtind, sex, age, lp, yr);
         }
-        break;
       }
     }
 
@@ -2256,10 +2454,24 @@ Type objective_function<Type>::operator() () {
       }
     }
 
-    //  Observed CAAL standardize to sum to 1
+    //  Observed CAAL standardize to sum to 1 (raw → proportions)
     Type penalty = 0.0;
     caal_hat.row(caal_ind) /= posfun(caal_hat.row(caal_ind).sum(), Type(0.0001), penalty);
     (void) penalty;
+
+    // SS3-parity addtocomp for CAAL: apply same proportion-space transform
+    // as comp_hat. Pcod dat-file age_info default 1e-4.
+    {
+      Type a_to_c = caal_addtocomp(flt);
+      if (a_to_c > Type(0.0)) {
+        int n_active = nages(sp);
+        if (flt_sex == 3) n_active *= 2;
+        Type denom = Type(1.0) + Type(n_active) * a_to_c;
+        for (int bb = 0; bb < n_active; bb++) {
+          caal_hat(caal_ind, bb) = (caal_hat(caal_ind, bb) + a_to_c) / denom;
+        }
+      }
+    }
   }
 
 
@@ -2372,7 +2584,19 @@ Type objective_function<Type>::operator() () {
     // Only include years from hindcast
     if((flt_yr > 0) && (flt_yr <= endyr) && (flt_type(index) > 0)){
       if(index_obs(index_ind) > 0){
-        jnll_comp(0, index) -= dnorm(log(index_obs(index_ind, 0)), log(index_hat(index_ind)) - square(index_std_dev)/2.0, index_std_dev, true);
+        // SS3-parity kernel: SS3 reports `log(sigma) + 0.5 * z^2`, dropping
+        // the per-obs `0.5 * log(2*pi)` constant. TMB's dnorm(..., true)
+        // returns the full normal log-density including that constant, so
+        // jnll picks up `0.5 * log(2*pi)` per obs. Use the manual kernel
+        // form to match SS3 exactly. See Estimation_Differences.md #3.
+        // To revert to the TMB-full-density form (which only differs from
+        // SS3 by a per-obs constant; estimates unchanged), comment out the
+        // manual block and uncomment the dnorm line below.
+        Type resid = log(index_obs(index_ind, 0))
+                     - (log(index_hat(index_ind)) - square(index_std_dev)/2.0);
+        jnll_comp(0, index) += log(index_std_dev)
+                               + 0.5 * square(resid / index_std_dev);
+        // jnll_comp(0, index) -= dnorm(log(index_obs(index_ind, 0)), log(index_hat(index_ind)) - square(index_std_dev)/2.0, index_std_dev, true);
       }
     }
   }
@@ -2404,9 +2628,34 @@ Type objective_function<Type>::operator() () {
     // Add only years from hindcast
     if((flt_yr > 0) && (flt_yr <= endyr) && (flt_type(flt) == 1)){
       if(catch_obs(fsh_ind, 0) > 0){
-        jnll_comp(1, flt) -= dnorm(log(catch_obs(fsh_ind, 0)), log(catch_hat(fsh_ind)) - square(fsh_std_dev)/2.0, fsh_std_dev, true) ;
-        // Martin's
-        // jnll_comp(1, flt)+= 0.5*square((log(catch_obs(fsh_ind, 0))-log(catch_hat(fsh_ind)))/fsh_std_dev);
+        // SS3-parity ROBUSTIFIED kernel: SS3 (with F_Method > 1) uses
+        //   0.5 * ((log(1.1 * obs) - log(hat + 0.1 * obs)) / sigma)^2
+        // (SS_objfunc.tpl:727 -- catch_mult assumed = 1 here). The
+        // `1.1 * obs` numerator and `+ 0.1 * obs` denominator act as a soft
+        // floor that bounds the residual at log(11) ~= 2.4 when
+        // hat -> 0, preventing one bad evaluation step from sending the
+        // optimizer off a cliff. No per-obs `log(sigma)` constant and no
+        // bias correction on the predicted mean (SS3 omits both). At the
+        // optimum (hat ~ obs), this is numerically identical to a pure
+        // lognormal kernel.
+        //
+        // To revert to the cosmetic-only Survey-style kernel (which still
+        // had `log(sigma)` per obs and bias correction), uncomment the
+        // pre-2026-05-31 block below. To revert all the way to the
+        // original TMB dnorm form, uncomment the dnorm line further down.
+        Type catch_resid = log(Type(1.1) * catch_obs(fsh_ind, 0))
+                           - log(catch_hat(fsh_ind)
+                                 + Type(0.1) * catch_obs(fsh_ind, 0));
+        jnll_comp(1, flt) += Type(0.5) * square(catch_resid / fsh_std_dev);
+        // Pre-2026-05-31 (Survey-style cosmetic only):
+        // Type catch_resid = log(catch_obs(fsh_ind, 0))
+        //                    - (log(catch_hat(fsh_ind)) - square(fsh_std_dev)/Type(2.0));
+        // jnll_comp(1, flt) += log(fsh_std_dev)
+        //                      + Type(0.5) * square(catch_resid / fsh_std_dev);
+        // Original TMB dnorm form (pre-2026-05-31):
+        // jnll_comp(1, flt) -= dnorm(log(catch_obs(fsh_ind, 0)), log(catch_hat(fsh_ind)) - square(fsh_std_dev)/2.0, fsh_std_dev, true) ;
+        // Martin's (no constants, no bias correction, no robustification):
+        // jnll_comp(1, flt) += 0.5*square((log(catch_obs(fsh_ind, 0))-log(catch_hat(fsh_ind)))/fsh_std_dev);
       }
     }
   }
@@ -2472,6 +2721,23 @@ Type objective_function<Type>::operator() () {
         jnll_comp(2, flt) -= ddirmultinom(comp_obs_tmp, alphas,  true);
         unweighted_jnll_comp(2, flt) -= ddirmultinom(comp_obs_tmp, unweighted_alphas,  true);
         break;
+
+      case 2: {  // SS3 robust multinomial kernel (uses per-fleet comp_addtocomp)
+        // NLL = N * sum_j obs_s_j * log(obs_s_j / hat_s_j) where obs/hat are
+        // smoothed via (x + a)/(1 + n*a); hat is already smoothed in the
+        // pred_comp section. Equivalent to SS3's Method-5 robust multinomial.
+        Type a_comp = comp_addtocomp(flt);
+        Type denom_c = Type(1.0) + Type(n_comp) * a_comp;
+        for (int jj = 0; jj < n_comp; jj++) {
+          Type obs_s = (comp_obs(comp_ind, jj) + a_comp) / denom_c;
+          Type hat_s = comp_hat(comp_ind, jj);  // already smoothed
+          jnll_comp(2, flt) += comp_weights(flt) * Type(comp_n(comp_ind, 1))
+                             * obs_s * log(obs_s / hat_s);
+          unweighted_jnll_comp(2, flt) += Type(comp_n(comp_ind, 1))
+                                        * obs_s * log(obs_s / hat_s);
+        }
+      } break;
+
       default:
         error("Invalid 'comp_ll_type'");
       }
@@ -2524,6 +2790,20 @@ Type objective_function<Type>::operator() () {
         jnll_comp(3, flt) -= ddirmultinom(caal_obs_tmp, alphas,  true);
         unweighted_jnll_comp(2, flt) -= ddirmultinom(caal_obs_tmp, unweighted_alphas,  true);
         break;
+
+      case 2: {  // SS3 robust multinomial kernel (uses per-fleet caal_addtocomp)
+        Type a_caal = caal_addtocomp(flt);
+        Type denom_a = Type(1.0) + Type(n_caal) * a_caal;
+        for (int jj = 0; jj < n_caal; jj++) {
+          Type obs_s = (caal_obs(caal_ind, jj) + a_caal) / denom_a;
+          Type hat_s = caal_hat(caal_ind, jj);  // already smoothed
+          jnll_comp(3, flt) += caal_weights(flt) * Type(caal_n(caal_ind, 0))
+                             * obs_s * log(obs_s / hat_s);
+          unweighted_jnll_comp(2, flt) += Type(caal_n(caal_ind, 0))
+                                        * obs_s * log(obs_s / hat_s);
+        }
+      } break;
+
       default:
         error("Invalid 'caal_ll_type'");
       }
@@ -2603,29 +2883,40 @@ Type objective_function<Type>::operator() () {
 
       // 2) Logistic selectivity penalties
       // Penalized/random effect likelihood time-varying logistic/double-logistic selectivity deviates
-      if(((flt_varying_sel(flt) == 1)||(flt_varying_sel(flt) == 2)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5)){
+      // sel_dev_log_sd <= -100 is a sentinel meaning "skip the dev prior"
+      // (Phase-1 forward-pass where devs are pre-baked from another model).
+      // Set via Time_varying_sel_sd_prior <= 0 in fleet_control.
+      if(((flt_varying_sel(flt) == 1)||(flt_varying_sel(flt) == 2)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5) && (sel_dev_log_sd(flt) > Type(-100.0))){
         for(sex = 0; sex < nsex(sp); sex ++){
           for(yr = 0; yr < nyrs_hind; yr++){
 
             // Logistic / ascending-limb deviates (types 1, 3, 8)
             // For DoubleNormal (8): sel_inf_dev(0) = peak deviate, log_sel_slp_dev(0) = ascending-SD deviate
+            // Per-cell prior weight (default 1.0) lets the R caller emit
+            // SS3-style BlockDev priors: weight = 1/N inside a block (so
+            // the per-year sum equals one block-prior), 0 outside.
             if((flt_sel_type(flt) == 1) || (flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 8)){
-              jnll_comp(5, flt) -= dnorm(sel_inf_dev(0, flt, sex, yr), Type(0.0), sel_dev_sd(flt), true);
-              jnll_comp(5, flt) -= dnorm(log_sel_slp_dev(0, flt, sex, yr), Type(0.0), 4 * sel_dev_sd(flt), true);
+              jnll_comp(5, flt) -= sel_inf_dev_prior_weight(0, flt, sex, yr)
+                                   * dnorm(sel_inf_dev(0, flt, sex, yr), Type(0.0), sel_dev_sd(flt), true);
+              jnll_comp(5, flt) -= log_sel_slp_dev_prior_weight(0, flt, sex, yr)
+                                   * dnorm(log_sel_slp_dev(0, flt, sex, yr), Type(0.0), 4 * sel_dev_sd(flt), true);
             }
 
             // Double logistic / descending-limb deviates (types 3, 4, 8)
             // For DoubleNormal (8): sel_inf_dev(1) = right-floor logit deviate; log_sel_slp_dev(1) = descending-SD deviate
             if((flt_sel_type(flt) == 3) || (flt_sel_type(flt) == 4) || (flt_sel_type(flt) == 8)){
-              jnll_comp(5, flt) -= dnorm(sel_inf_dev(1, flt, sex, yr), Type(0.0), sel_dev_sd(flt), true);
-              jnll_comp(5, flt) -= dnorm(log_sel_slp_dev(1, flt, sex, yr), Type(0.0), 4 * sel_dev_sd(flt), true);
+              jnll_comp(5, flt) -= sel_inf_dev_prior_weight(1, flt, sex, yr)
+                                   * dnorm(sel_inf_dev(1, flt, sex, yr), Type(0.0), sel_dev_sd(flt), true);
+              jnll_comp(5, flt) -= log_sel_slp_dev_prior_weight(1, flt, sex, yr)
+                                   * dnorm(log_sel_slp_dev(1, flt, sex, yr), Type(0.0), 4 * sel_dev_sd(flt), true);
             }
           }
         }
       }
 
       // Random walk: Type 4 = random walk on ascending and descending for double logistic; Type 5 = ascending only for double logistics
-      if(((flt_varying_sel(flt) == 4)||(flt_varying_sel(flt) == 5)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5)){
+      // sel_dev_log_sd <= -100 sentinel: skip the RW prior (see IID branch above).
+      if(((flt_varying_sel(flt) == 4)||(flt_varying_sel(flt) == 5)) && (flt_sel_type(flt) != 2) && (flt_sel_type(flt) != 5) && (sel_dev_log_sd(flt) > Type(-100.0))){
         for(sex = 0; sex < nsex(sp); sex ++){
           for(yr = 1; yr < nyrs_hind; yr++){ // Start at second year
 
@@ -2745,11 +3036,14 @@ Type objective_function<Type>::operator() () {
     }
 
     // Penalized/random deviate likelihood
+    // index_q_dev_prior_weight default = 1.0 preserves the IID prior;
+    // BlockDev users set 1/N inside the block years and 0 outside.
     if(((index_varying_q(flt) == 1) || (index_varying_q(flt) == 2))  // - Estimate_q = 1 (free parameter) or 2 (free parameter w/ prior)
          && (flt_type(flt) > 0) &&                                    // - If survey or fishery CPUE
            ((est_index_q(flt) == 1) || (est_index_q(flt) == 2))){        // - Time_varying_q  = 1 (penalized deviate) or 2 (random effect)
       for(yr = 0; yr < nyrs_hind; yr++){
-        jnll_comp(7, flt) -= dnorm(index_q_dev(flt, yr), Type(0.0), index_q_dev_sd(flt), true );
+        jnll_comp(7, flt) -= index_q_dev_prior_weight(flt, yr)
+                             * dnorm(index_q_dev(flt, yr), Type(0.0), index_q_dev_sd(flt), true );
       }
     }
 
@@ -2796,15 +3090,30 @@ Type objective_function<Type>::operator() () {
 
 
     // Slot 9 -- init_dev -- Initial abundance-at-age
-    if(initMode > 1){
+    // Skip for mode 5 (EquilibriumScaled): init_dev is mapped out (= 0) in
+    // build_map, so the prior would only contribute a constant offset and
+    // pollute the Init_eq NLL comparison against SS3. Modes 2-4 keep the
+    // bias-corrected lognormal prior centered at sigma_R^2/2.
+    if(initMode > 1 && initMode != 5){
       for(age = 1; age < nages(sp); age++) {
         jnll_comp(9, sp) -= dnorm( init_dev(sp, age - 1), square(R_sd(sp))/2.0, R_sd(sp), true);
       }
     }
 
     // Slot 10 -- Tau -- Annual recruitment deviation
+    // SS3-parity kernel: SS3 per-year contribution to `noBias_recr_like` is
+    //   0.5 * (dev / sigma_R)^2 + log(sigma_R)
+    // where `dev` is the RAW SS3 deviation (no bias correction inside the
+    // kernel; SS3 applies -sigma_R^2/2 inside the R formula instead). In
+    // Rceattle `rec_dev` is stored as `dev - sigma_R^2/2`, so we recover
+    // SS3's raw dev by adding sigma_R^2/2 back. Also drops the per-year
+    // `0.5 * log(2*pi)` constant that TMB's dnorm(..., true) includes.
+    // See Estimation_Differences.md #5. To revert: comment the manual
+    // block and uncomment the dnorm line below.
     for(yr = 0; yr < nyrs_hind; yr++) {
-      jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr),  square(R_sd(sp))/2.0, R_sd(sp), true);    // Recruitment deviation using random effects.
+      Type dev_ss3 = rec_dev(sp, yr) + square(R_sd(sp))/Type(2.0);
+      jnll_comp(10, sp) += Type(0.5) * square(dev_ss3 / R_sd(sp)) + log(R_sd(sp));
+      // jnll_comp(10, sp) -= dnorm( rec_dev(sp, yr),  square(R_sd(sp))/2.0, R_sd(sp), true);    // Recruitment deviation using random effects.
     }
 
     // Slot 11 -- Additional penalty for SRR curve (sensu AMAK/Ianelli)
@@ -3268,6 +3577,7 @@ Type objective_function<Type>::operator() () {
   REPORT( M_at_age );
   REPORT( weight_hat );
   REPORT( growth_matrix );
+  REPORT( growth_matrix_pop );
   REPORT( length_hat );
 
   // ADREPORT( B_eaten_as_prey );
@@ -3310,6 +3620,9 @@ Type objective_function<Type>::operator() () {
   // -- 14.3. Selectivity
   REPORT( sel_at_age );
   REPORT( sel_at_length );
+  REPORT( sel_at_length_pop );
+  REPORT( comp_addtocomp );
+  REPORT( caal_addtocomp );
   /*
    REPORT( avg_sel );
    REPORT( non_par_sel );
