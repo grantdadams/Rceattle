@@ -34,7 +34,7 @@ For operational / management use, pin a specific tagged release rather than
 tracking `main`, e.g.:
 
 ```r
-devtools::install_github("grantdadams/Rceattle@v4.3.0")
+devtools::install_github("grantdadams/Rceattle@4.3.0")
 ```
 
 The maintainer email in `DESCRIPTION` (`grant.adams@noaa.gov`) is the
