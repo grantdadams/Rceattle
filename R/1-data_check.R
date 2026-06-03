@@ -358,6 +358,9 @@ data_check <- function(data_list) {
     # Estimated selectivity (Selectivity != "Fixed" and Fleet_type != "Off")
     # requires comp or CAAL data with Year > 0 to be identifiable. Otherwise
     # the selectivity parameters are unconstrained and the optimizer wanders.
+    # EXCEPTION: a fleet whose Selectivity_index is shared (mirrored) with
+    # another fleet that DOES have active comp/CAAL data is identifiable through
+    # the master fleet's data, so it is not flagged.
     has_active_age_data <- function(flt_code, df) {
       if (!has_data(df) || !all(c("Fleet_code", "Year") %in% colnames(df))) return(FALSE)
       any(df$Fleet_code == flt_code & !is.na(df$Year) & df$Year > 0 & df$Sample_size > 0)
@@ -366,11 +369,27 @@ data_check <- function(data_list) {
                          fc$Selectivity != "Fixed" &
                          (!"Fleet_type" %in% colnames(fc) | fc$Fleet_type != "Off"),
                        , drop = FALSE]
+    # Selectivity_index values that have active age data in ANY sharing fleet
+    sel_idx_has_data <- if ("Selectivity_index" %in% colnames(fc)) {
+      vapply(unique(fc$Selectivity_index), function(si) {
+        codes <- fc$Fleet_code[!is.na(fc$Selectivity_index) & fc$Selectivity_index == si]
+        any(vapply(codes, function(cc)
+          has_active_age_data(cc, data_list$comp_data) ||
+            has_active_age_data(cc, data_list$caal_data), logical(1)))
+      }, logical(1))
+    } else NULL
+    if (!is.null(sel_idx_has_data)) names(sel_idx_has_data) <- as.character(unique(fc$Selectivity_index))
     if (nrow(est_sel_flts) > 0) {
       missing_age_data <- vapply(seq_len(nrow(est_sel_flts)), function(i) {
         fc_code <- est_sel_flts$Fleet_code[i]
-        !has_active_age_data(fc_code, data_list$comp_data) &&
-          !has_active_age_data(fc_code, data_list$caal_data)
+        own_data <- has_active_age_data(fc_code, data_list$comp_data) ||
+          has_active_age_data(fc_code, data_list$caal_data)
+        # mirrored identifiability: another fleet sharing this Selectivity_index
+        # supplies the comp/CAAL data
+        si <- est_sel_flts$Selectivity_index[i]
+        mirror_data <- !is.null(sel_idx_has_data) && !is.na(si) &&
+          isTRUE(sel_idx_has_data[[as.character(si)]])
+        !own_data && !mirror_data
       }, logical(1))
       if (any(missing_age_data)) {
         errors <- c(errors, paste0(
@@ -382,6 +401,7 @@ data_check <- function(data_list) {
         ))
       }
     }
+
 
     # Mirroring (informational)
     mirror_sel <- fc |> dplyr::group_by(Selectivity_index) |>
