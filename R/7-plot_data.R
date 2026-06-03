@@ -21,6 +21,9 @@
 #'     \item 1 — equal-size points showing presence/absence by year/fleet
 #'     \item 2 — points scaled to relative quantity / precision within each
 #'       data type (catch tonnage, 1/SE for indices, sample size for comps)
+#'     \item 3 — line plot of the environmental covariate value(s) in
+#'       `data_list$env_data` over time (one line per covariate column).
+#'       Skipped silently when the model has no `env_data`.
 #'   }
 #' @param datatypes Either `"all"` or a subset of
 #'   `c("catch", "index", "agecomp", "lencomp", "caal", "diet")`.
@@ -44,6 +47,11 @@
 #' @param alphasize Bubble fill transparency (0–1).
 #' @param mainTitle Logical; if `TRUE` add a default title.
 #' @param cex.main Title character expansion.
+#' @param env_standardize Logical or `NULL` controlling subplot 3. If `TRUE`
+#'   each environmental covariate is z-scored so multiple covariates share a
+#'   common y-axis; if `FALSE` raw values are drawn. `NULL` (default) chooses
+#'   automatically: raw for a single covariate, standardized for two or more
+#'   (which are typically on different scales).
 #'
 #' @return Invisibly, a list with `typetable` — the long data frame underlying
 #'   the plot (year, fleet, data type, relative size).
@@ -51,7 +59,7 @@
 #' @export
 plot_data <- function(Rceattle,
                       file = NULL,
-                      subplots = 1:2,
+                      subplots = 1:3,
                       datatypes = "all",
                       fleets = "all",
                       species = "all",
@@ -67,7 +75,8 @@ plot_data <- function(Rceattle,
                       maxsize = 1,
                       alphasize = 1,
                       mainTitle = FALSE,
-                      cex.main = 1) {
+                      cex.main = 1,
+                      env_standardize = NULL) {
 
   .save_par()  # snapshot graphics par() and restore on exit
 
@@ -350,20 +359,69 @@ plot_data <- function(Rceattle,
     box()
   }
 
+  # Subplot 3: environmental covariate value(s) over time
+  env_data <- data_list$env_data %>%
+    dplyr::arrange(Year)
+  env_covars <- if (is.data.frame(env_data)) setdiff(names(env_data), "Year") else character(0)
+  has_env <- length(env_covars) > 0 && "Year" %in% names(env_data) &&
+             nrow(env_data) > 0
+
+  plotenv <- function() {
+    par(mar = margins)
+    yrs <- env_data$Year
+    vals <- as.matrix(env_data[, env_covars, drop = FALSE])
+
+    standardize <- env_standardize
+    if (is.null(standardize)) standardize <- length(env_covars) > 1
+    if (standardize) {
+      vals <- scale(vals)
+      ylab <- "Standardized value"
+    } else {
+      ylab <- if (length(env_covars) == 1) env_covars else "Value"
+    }
+
+    ncov <- length(env_covars)
+    envcol <- if (ncov == 1) "grey20"
+              else if (ncov == 2) c("blue", "red")
+              else if (ncov == 3) c("blue", "red", "green3")
+              else rich.colors.short(ncov + 1)[-1]
+
+    xlim <- c(-1, 1) + range(yrs, na.rm = TRUE)
+    ylim <- range(vals, na.rm = TRUE)
+    main.temp <- if (mainTitle) "Environmental covariates" else ""
+    plot(0, type = "n", xaxs = "i", xlim = xlim, ylim = ylim,
+         xlab = "Year", ylab = ylab, main = main.temp,
+         cex.main = cex.main, las = 1)
+    xticks <- 5 * (floor(xlim[1] / 5):ceiling(xlim[2] / 5))
+    abline(v = xticks, col = "grey", lty = 3)
+    # mark model endyr (separator between data and projection inputs)
+    abline(v = endyr + 0.5, col = "grey50", lty = 2)
+    for (j in seq_len(ncov)) {
+      lines(yrs, vals[, j], col = envcol[j], lwd = 2)
+      points(yrs, vals[, j], col = envcol[j], pch = 16, cex = 0.6)
+    }
+    if (ncov > 1) {
+      legend("topleft", legend = env_covars, col = envcol, lwd = 2,
+             bty = "n", xpd = NA, inset = c(1.02, 0))
+    }
+    box()
+  }
+
   # Draw + optionally save each requested subplot
-  draw_one <- function(datasize, suffix) {
-    plotdata(datasize = datasize)
+  draw_one <- function(draw_fun, suffix) {
+    draw_fun()
     if (!is.null(file)) {
       filename <- paste0(file, suffix)
       png(filename = filename, width = width, height = height,
           units = "in", res = res, pointsize = ptsize)
-      plotdata(datasize = datasize)
+      draw_fun()
       dev.off()
     }
   }
 
-  if (1 %in% subplots) draw_one(FALSE, "_data_plot.png")
-  if (2 %in% subplots) draw_one(TRUE,  "_data_plot2.png")
+  if (1 %in% subplots) draw_one(function() plotdata(FALSE), "_data_plot.png")
+  if (2 %in% subplots) draw_one(function() plotdata(TRUE),  "_data_plot2.png")
+  if (3 %in% subplots && has_env) draw_one(plotenv, "_env_plot.png")
 
   invisible(list(typetable = typetable))
 }
