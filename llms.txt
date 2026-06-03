@@ -45,7 +45,7 @@ remotes::install_github("grantdadams/Rceattle")
 
 # Optional: TMBhelper provides richer optimization diagnostics.
 # Rceattle falls back to plain nlminb + sdreport if it's not installed.
-# devtools::install_github("kaskr/TMB_contrib_R/TMBhelper")
+# remotes::install_github("kaskr/TMB_contrib_R/TMBhelper")
 ```
 
 For operational / management use, pin a specific tagged release rather
@@ -53,7 +53,7 @@ than tracking `main`, e.g.:
 
 ``` r
 
-devtools::install_github("grantdadams/Rceattle@v4.3.0")
+remotes::install_github("grantdadams/Rceattle@4.3.0")
 ```
 
 The maintainer email in `DESCRIPTION` (`grant.adams@noaa.gov`) is the
