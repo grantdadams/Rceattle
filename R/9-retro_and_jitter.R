@@ -165,8 +165,8 @@ retrospective <- function(Rceattle = NULL, peels = 5, rescale = FALSE, nyrs_fore
     map <- Rceattle$map
 
     if(data_list$dsem_settings$estimate_projection){
-      inits$x_tj[, (nyrs + 1):nyrs_proj] <- 0
-      map$mapList$x_tj[, (nyrs + 1):nyrs_proj] <- NA
+      inits$x_tj[(nyrs + 1):nyrs_proj, ] <- 0          # x_tj is [time, species]
+      map$mapList$x_tj[(nyrs + 1):nyrs_proj, ] <- NA
       map$mapFactor$x_tj <- factor(map$mapList$x_tj)
     }
 

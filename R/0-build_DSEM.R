@@ -95,17 +95,59 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
     mapList <- sapply(mapList, function(x) replace(x, values = rep(NA, length=length(x))))
   }
 
-  # Recruitment variance (turn off variance estimation for recdevs)
-  fit_dsem$tmb_inputs$parameters$beta_z[1:data_list$nspp] <- data_list$sigma_rec_prior
-  if(!data_list$random_rec){
-    mapList$beta_z[1:data_list$nspp] <- NA
+  # Recruitment variance.
+  # Locate the beta_z index of each species' recruitment SD: the two-headed
+  # self-loop on recdevs[sp] (recdevs[sp] <-> recdevs[sp]). Do NOT assume the
+  # first nspp beta_z entries -- user sems can order parameters arbitrarily, so
+  # the recruitment SD may sit anywhere in beta_z. ceattle_v01_11.cpp consumes
+  # rec_sd_idx / rec_sd_fixed to set R_sd(sp) = |beta_z(rec_sd_idx(sp))| (or the
+  # fixed value when the SD is not an estimated parameter).
+  sf       <- fit_dsem$sem_full
+  sf_start <- suppressWarnings(as.numeric(sf$start))
+  sf_par   <- suppressWarnings(as.numeric(sf$parameter))
+  sf_dir   <- abs(suppressWarnings(as.numeric(sf$direction)))
+  sigma_rec_prior <- rep_len(data_list$sigma_rec_prior, data_list$nspp)
+
+  rec_sd_idx   <- integer(data_list$nspp)   # 1-based beta_z index; 0 if SD is fixed in the sem
+  rec_sd_fixed <- numeric(data_list$nspp)   # fixed SD value used when rec_sd_idx == 0
+  for(sp in seq_len(data_list$nspp)){
+    nm   <- paste0("recdevs", sp)
+    rows <- which(sf$first == nm & sf$second == nm & sf_dir == 2)
+    pn   <- unique(sf_par[rows]); pn <- pn[!is.na(pn) & pn > 0]
+    if(length(pn) > 0){
+      rec_sd_idx[sp] <- pn[1]
+      # Initialize the recruitment SD at sigma_rec_prior; fix it if !random_rec
+      fit_dsem$tmb_inputs$parameters$beta_z[rec_sd_idx[sp]] <- sigma_rec_prior[sp]
+      if(!data_list$random_rec){
+        mapList$beta_z[rec_sd_idx[sp]] <- NA
+      }
+    } else {
+      # Recruitment SD fixed in the sem (NA parameter name): use its start value
+      val <- sf_start[rows]; val <- val[!is.na(val)]
+      rec_sd_fixed[sp] <- if(length(val) > 0) val[1] else sigma_rec_prior[sp]
+    }
   }
+  fit_dsem$tmb_inputs$data$rec_sd_idx   <- as.integer(rec_sd_idx)
+  fit_dsem$tmb_inputs$data$rec_sd_fixed <- as.numeric(rec_sd_fixed)
+
+  # x_tj column of each species' recdevs (0-based for the cpp). recdevs columns
+  # are placed first by construction above, but pass the index explicitly so the
+  # recruitment coupling (rec_dev.row(sp) = x_tj.col(rec_dev_col(sp))) never
+  # relies on column ordering.
+  rec_dev_col <- match(paste0("recdevs", seq_len(data_list$nspp)), colnames(dsem_data)) - 1L
+  if(any(is.na(rec_dev_col))){
+    stop("Could not locate a 'recdevs<sp>' column for every species in the DSEM data")
+  }
+  fit_dsem$tmb_inputs$data$rec_dev_col <- as.integer(rec_dev_col)
 
   # Map all variables and projection
   if(!dsem_settings$all_vars){
-    # DSEM parameters
-    pars_off <- which(is.na(fit_dsem$sem_full$start))
-    mapList$beta_z[pars_off] <- NA
+    # Turn off beta_z for sem paths with no start value. Index by beta_z
+    # PARAMETER number (not sem_full row number): equality constraints and
+    # auto-added covariances mean rows != parameters.
+    off_par <- unique(sf_par[is.na(sf_start)])
+    off_par <- off_par[!is.na(off_par) & off_par > 0]
+    if(length(off_par) > 0) mapList$beta_z[off_par] <- NA
 
     # - Latent states x_tj
     x_tj_off <- fit_dsem$sem_full %>%

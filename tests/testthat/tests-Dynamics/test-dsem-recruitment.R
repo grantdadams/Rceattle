@@ -122,6 +122,7 @@ testthat::test_that("single-species DSEM models converge with phase = TRUE", {
   testthat::expect_s3_class(m_env, "Rceattle")
   testthat::expect_true(is.finite(as.numeric(m_env$opt$objective)))
   testthat::expect_lt(max(abs(m_env$sdrep$gradient.fixed)), 1e-2)
-  # Reference objective: dsem 2.0.1 gmrf_project parameterization
-  testthat::expect_equal(as.numeric(m_env$opt$objective), 1127.32, tolerance = 1e-3)
+  # Reference objective: dsem 2.0.1 gmrf_project parameterization, with R_sd
+  # correctly sourced from the sigmaR1 beta_z entry (not the first beta_z).
+  testthat::expect_equal(as.numeric(m_env$opt$objective), 1135.92, tolerance = 1e-3)
 })

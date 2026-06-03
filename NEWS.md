@@ -24,6 +24,15 @@ internals).
   may differ slightly. Non-DSEM fits are unaffected.
 * Fixed a phasing map bug (`sel_dev_ln_sd`/`index_q_dev_ln_sd`/`M1_dev_ln_sd` ->
   `_log_sd`) that broke `phase = TRUE` DSEM fits after the `ln -> log` rename.
+* Fixed DSEM recruitment-coupling indexing in the TMB model. Recruitment SD
+  (`R_sd`) is now read from the correct `beta_z` entry (the `recdevs[sp]`
+  self-loop, located via the parsed sem) instead of assuming the first `nspp`
+  entries, so env-linked / arbitrarily ordered sems are handled correctly;
+  `R_sd` uses `sqrt(square(beta_z))` since the Cholesky sign is unidentified;
+  and a fixed recruitment SD (NA parameter name) is honoured via `rec_sd_fixed`.
+  The recdev<->`x_tj` column link is now passed explicitly (`rec_dev_col`).
+  Also corrected `x_tj` `[time, species]` orientation in the projection /
+  simulation code (`sim_mod()`, `retrospective()`), which had transposed indices.
 * `fit_mod()` now accepts an `inits` object that lacks DSEM parameters (e.g. one
   built with `build_params()`): any missing DSEM parameters (`beta_z`,
   `lnsigma_j`, `mu_j`, `delta0_j`, `x_tj`) are filled from the built DSEM

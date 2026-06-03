@@ -66,6 +66,9 @@ Type objective_function<Type>::operator() () {
   DATA_ARRAY( y_tj );                // Observed multivariate time-series data
   DATA_IVECTOR( obs_idx );           // Full-rank component indices (options 2,3); 0-based
   DATA_IVECTOR( unobs_idx );         // Reduced/zero-rank component indices (options 2,3); 0-based
+  DATA_IVECTOR( rec_sd_idx );        // 1-based beta_z index of each species' recruitment SD; 0 if fixed in sem
+  DATA_VECTOR( rec_sd_fixed );       // Recruitment SD used when rec_sd_idx == 0 (SD fixed in sem)
+  DATA_IVECTOR( rec_dev_col );       // 0-based x_tj column of each species' recruitment devs
 
   // DSEM PARAMETERS
   PARAMETER_VECTOR( beta_z );        // Estimated path coefficients
@@ -855,8 +858,16 @@ Type objective_function<Type>::operator() () {
     unobs_idx
   );
   for(sp = 0; sp < nspp; sp++) {
-    rec_dev.row(sp) = x_tj.col(sp);              // Set rec_dev to latent dsem matrix
-    R_sd(sp) = beta_z(sp);
+    rec_dev.row(sp) = x_tj.col(rec_dev_col(sp));  // Recruitment devs are the DSEM latent states (column from sem)
+    // Recruitment SD = exogenous SD of the recdevs[sp] self-loop. beta_z is the
+    // Cholesky of covariance, so its sign is unidentified -> take |.| via
+    // sqrt(square()). rec_sd_idx locates the SD parameter in beta_z (it is not
+    // necessarily beta_z(sp); user sems order parameters arbitrarily).
+    if( rec_sd_idx(sp) >= 1 ){
+      R_sd(sp) = sqrt(square( beta_z(rec_sd_idx(sp) - 1) ));
+    } else {
+      R_sd(sp) = rec_sd_fixed(sp);               // SD fixed in the sem (no estimated parameter)
+    }
   }
 
 

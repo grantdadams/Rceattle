@@ -203,7 +203,7 @@ sample_rec <- function(Rceattle, sample_rec = TRUE, update_model = TRUE, rec_tre
     # -- where SR curve is estimated directly
     if(Rceattle$data_list$srr_fun == Rceattle$data_list$srr_pred_fun){
       if(sample_rec){ # Sample devs from hindcast
-        x_tj <- sample(x = Rceattle$estimated_params$x_tj[sp, 1:hind_nyrs], size = proj_nyrs, replace = TRUE) + log((1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs)) # - Scale mean rec for rec trend
+        x_tj <- sample(x = Rceattle$estimated_params$x_tj[1:hind_nyrs, sp], size = proj_nyrs, replace = TRUE) + log((1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs)) # - Scale mean rec for rec trend (x_tj is [time, species])
       } else{ # Set to mean rec otherwise
         x_tj <- log(mean(Rceattle$quantities$R[sp,1:hind_nyrs]) * (1+(rec_trend[sp]/proj_nyrs) * 1:proj_nyrs))  - log(Rceattle$quantities$R0[sp]) # - Scale mean rec for rec trend
       }
