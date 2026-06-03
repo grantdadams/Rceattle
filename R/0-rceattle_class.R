@@ -64,11 +64,17 @@ print.Rceattle <- function(x, ...) {
 #'
 #' @return Invisibly returns either:
 #' \itemize{
-#'   \item a data.frame of DSEM path coefficients (when the fit contains a
-#'     DSEM), with columns: \code{path}, \code{lag}, \code{name},
-#'     \code{start}, \code{parameter}, \code{first}, \code{second},
-#'     \code{direction}, \code{Estimate}, and (when \code{sdrep} is
-#'     available) \code{Std_Error}, \code{z_value}, \code{p_value}; or
+#'   \item a list with elements \code{coefficients} and \code{recruitment_sd}
+#'     (when the fit contains a DSEM). \code{coefficients} is a data.frame of
+#'     DSEM path coefficients with columns: \code{path}, \code{lag},
+#'     \code{name}, \code{start}, \code{parameter}, \code{first},
+#'     \code{second}, \code{direction}, \code{Estimate}, and (when \code{sdrep}
+#'     is available) \code{Std_Error}, \code{z_value}, \code{p_value}.
+#'     \code{recruitment_sd} is a data.frame with one row per species and
+#'     columns \code{Species}, \code{R_sd} (the recruitment SD used by the
+#'     model), \code{Estimated} (logical; whether it was estimated via
+#'     \code{random_rec} rather than fixed), and \code{Std_Error} when an
+#'     \code{sdreport} is available; or
 #'   \item the input \code{object}, when no DSEM is attached.
 #' }
 #'
@@ -106,10 +112,72 @@ summary.Rceattle <- function(object, ...) {
   keep  <- !is.na(object$map$mapList$beta_z)
   coefs <- coefs[keep, , drop = FALSE]
 
-  cat("\n<DSEM path coefficients>\n")
-  print(coefs, row.names = FALSE)
+  if (nrow(coefs) > 0) {
+    cat("\n<DSEM path coefficients>\n")
+    print(coefs, row.names = FALSE)
+  }
 
-  invisible(coefs)
+  # Recruitment SD (R_sd) per species: the value the model used, whether it was
+  # estimated (i.e. random_rec) or fixed, and its Std_Error when available.
+  rec_sd <- .rceattle_rec_sd(object)
+  if (!is.null(rec_sd)) {
+    cat("\n<Recruitment SD (R_sd)>\n")
+    print(rec_sd, row.names = FALSE)
+  }
+
+  invisible(list(coefficients = coefs, recruitment_sd = rec_sd))
+}
+
+
+# Per-species recruitment-SD (R_sd) summary for summary.Rceattle(): the value
+# the model used, whether it was estimated (random_rec / beta_z mapped on) or
+# fixed, and its Std_Error when an sdreport is available. Returns NULL if R_sd
+# cannot be located. R_sd(sp) = |beta_z(rec_sd_idx(sp))| when estimated, else the
+# fixed sem value; see build_dsem_objects() and ceattle_v01_11.cpp.
+.rceattle_rec_sd <- function(object) {
+  d <- object$data_list
+  nspp <- d$nspp
+  if (is.null(nspp) || nspp < 1) return(NULL)
+  spnames <- if (!is.null(d$spnames)) d$spnames else as.character(seq_len(nspp))
+
+  # Value (+ SE) from the ADREPORT'd R_sd, then quantities, then obj$report().
+  rsd <- rep(NA_real_, nspp)
+  se  <- rep(NA_real_, nspp)
+  sdr <- object$sdrep
+  if (!is.null(sdr) && !is.null(sdr$value)) {
+    i <- which(names(sdr$value) == "R_sd")
+    if (length(i) == nspp) {
+      rsd <- as.numeric(sdr$value[i])
+      se  <- as.numeric(sdr$sd[i])
+    }
+  }
+  if (all(is.na(rsd)) && !is.null(object$quantities$R_sd)) {
+    rsd <- as.numeric(object$quantities$R_sd)[seq_len(nspp)]
+  }
+  if (all(is.na(rsd)) && !is.null(object$obj)) {
+    rsd <- tryCatch(as.numeric(object$obj$report()$R_sd)[seq_len(nspp)],
+                    error = function(e) rep(NA_real_, nspp))
+  }
+  if (all(is.na(rsd))) return(NULL)
+
+  # Estimated per species: the beta_z entry at the recruitment-SD index is mapped
+  # on. Fall back to the model-level random_rec flag for fits without rec_sd_idx.
+  estimated <- rep(isTRUE(as.logical(d$random_rec)), nspp)
+  idx  <- object$dsem$tmb_inputs$data$rec_sd_idx
+  bmap <- object$map$mapList$beta_z
+  if (!is.null(idx) && !is.null(bmap) && length(idx) == nspp) {
+    estimated <- vapply(seq_len(nspp), function(sp) {
+      isTRUE(idx[sp] >= 1) && !is.na(bmap[idx[sp]])
+    }, logical(1))
+  }
+
+  out <- data.frame(Species = spnames, R_sd = rsd, Estimated = estimated,
+                    stringsAsFactors = FALSE)
+  if (any(!is.na(se))) {
+    se[!estimated] <- NA_real_   # fixed SDs carry no estimation uncertainty
+    out$Std_Error <- se
+  }
+  out
 }
 
 

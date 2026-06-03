@@ -14,11 +14,17 @@
 \value{
 Invisibly returns either:
 \itemize{
-\item a data.frame of DSEM path coefficients (when the fit contains a
-DSEM), with columns: \code{path}, \code{lag}, \code{name},
-\code{start}, \code{parameter}, \code{first}, \code{second},
-\code{direction}, \code{Estimate}, and (when \code{sdrep} is
-available) \code{Std_Error}, \code{z_value}, \code{p_value}; or
+\item a list with elements \code{coefficients} and \code{recruitment_sd}
+(when the fit contains a DSEM). \code{coefficients} is a data.frame of
+DSEM path coefficients with columns: \code{path}, \code{lag},
+\code{name}, \code{start}, \code{parameter}, \code{first},
+\code{second}, \code{direction}, \code{Estimate}, and (when \code{sdrep}
+is available) \code{Std_Error}, \code{z_value}, \code{p_value}.
+\code{recruitment_sd} is a data.frame with one row per species and
+columns \code{Species}, \code{R_sd} (the recruitment SD used by the
+model), \code{Estimated} (logical; whether it was estimated via
+\code{random_rec} rather than fixed), and \code{Std_Error} when an
+\code{sdreport} is available; or
 \item the input \code{object}, when no DSEM is attached.
 }
 }
