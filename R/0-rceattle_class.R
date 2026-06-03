@@ -122,7 +122,10 @@ summary.Rceattle <- function(object, ...) {
   rec_sd <- .rceattle_rec_sd(object)
   if (!is.null(rec_sd)) {
     cat("\n<Recruitment SD (R_sd)>\n")
-    print(rec_sd, row.names = FALSE)
+    rec_sd_print <- rec_sd
+    num <- vapply(rec_sd_print, is.numeric, logical(1))
+    rec_sd_print[num] <- lapply(rec_sd_print[num], round, 4)
+    print(rec_sd_print, row.names = FALSE)
   }
 
   invisible(list(coefficients = coefs, recruitment_sd = rec_sd))
