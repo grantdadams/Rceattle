@@ -64,7 +64,7 @@ TMBphase <- function(data, parameters, map, random, phases, model_name,
     }else{
       opt <- nlminb(obj$par,obj$fn)
     }
-    last_par = suppressWarnings(obj$env$parList(obj$env$last.par.best))
+    last_par = obj$env$parList(par = obj$env$last.par.best)
 
     # Per-phase convergence record (for the phasing diagnostic).
     phase_log[[phase_cur]] <- list(
