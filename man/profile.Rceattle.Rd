@@ -10,7 +10,8 @@
   slots = NULL,
   values = NULL,
   transform = "log",
-  cores = NULL
+  cores = NULL,
+  ...
 )
 }
 \arguments{
@@ -70,6 +71,9 @@ override this with \code{"log"}.}
 \code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
 running under \code{R CMD check} (which sets
 \code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.}
+
+\item{...}{Unused; present for consistency with the \code{stats::profile}
+generic.}
 }
 \value{
 A list with elements:

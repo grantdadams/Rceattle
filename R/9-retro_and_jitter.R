@@ -910,6 +910,8 @@ self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, c
 #'   \code{NULL} picks \code{parallel::detectCores() - 6}, capped at 2 when
 #'   running under \code{R CMD check} (which sets
 #'   \code{_R_CHECK_LIMIT_CORES_}). Set to 1 to force sequential execution.
+#' @param ... Unused; present for consistency with the \code{stats::profile}
+#'   generic.
 #'
 #' @return A list with elements:
 #'   \describe{
@@ -971,7 +973,8 @@ profile.Rceattle <- function(fitted = NULL,
                           slots = NULL,
                           values = NULL,
                           transform = "log",
-                          cores = NULL) {
+                          cores = NULL,
+                          ...) {
 
   # -- Input validation ----
   if (!inherits(fitted, "Rceattle")) {

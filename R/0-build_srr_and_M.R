@@ -617,7 +617,7 @@ build_growth <- function(fun = "empirical",
     # models pick up an SS3-consistent half-year anchor.
     growth_age_L1  = growth_age_L1,
     # Placeholders retained until the random-effects / legacy index
-    # paths in 2-build_map.R and src/TMB/growth.hpp are migrated.
+    # paths in 3-build_map.R and src/TMB/growth.hpp are migrated.
     growth_re      = 0L,
     growth_indices = NA
   )

@@ -358,6 +358,9 @@ data_check <- function(data_list) {
     # Estimated selectivity (Selectivity != "Fixed" and Fleet_type != "Off")
     # requires comp or CAAL data with Year > 0 to be identifiable. Otherwise
     # the selectivity parameters are unconstrained and the optimizer wanders.
+    # EXCEPTION: a fleet whose Selectivity_index is shared (mirrored) with
+    # another fleet that DOES have active comp/CAAL data is identifiable through
+    # the master fleet's data, so it is not flagged.
     has_active_age_data <- function(flt_code, df) {
       if (!has_data(df) || !all(c("Fleet_code", "Year") %in% colnames(df))) return(FALSE)
       any(df$Fleet_code == flt_code & !is.na(df$Year) & df$Year > 0 & df$Sample_size > 0)
@@ -366,11 +369,27 @@ data_check <- function(data_list) {
                          fc$Selectivity != "Fixed" &
                          (!"Fleet_type" %in% colnames(fc) | fc$Fleet_type != "Off"),
                        , drop = FALSE]
+    # Selectivity_index values that have active age data in ANY sharing fleet
+    sel_idx_has_data <- if ("Selectivity_index" %in% colnames(fc)) {
+      vapply(unique(fc$Selectivity_index), function(si) {
+        codes <- fc$Fleet_code[!is.na(fc$Selectivity_index) & fc$Selectivity_index == si]
+        any(vapply(codes, function(cc)
+          has_active_age_data(cc, data_list$comp_data) ||
+            has_active_age_data(cc, data_list$caal_data), logical(1)))
+      }, logical(1))
+    } else NULL
+    if (!is.null(sel_idx_has_data)) names(sel_idx_has_data) <- as.character(unique(fc$Selectivity_index))
     if (nrow(est_sel_flts) > 0) {
       missing_age_data <- vapply(seq_len(nrow(est_sel_flts)), function(i) {
         fc_code <- est_sel_flts$Fleet_code[i]
-        !has_active_age_data(fc_code, data_list$comp_data) &&
-          !has_active_age_data(fc_code, data_list$caal_data)
+        own_data <- has_active_age_data(fc_code, data_list$comp_data) ||
+          has_active_age_data(fc_code, data_list$caal_data)
+        # mirrored identifiability: another fleet sharing this Selectivity_index
+        # supplies the comp/CAAL data
+        si <- est_sel_flts$Selectivity_index[i]
+        mirror_data <- !is.null(sel_idx_has_data) && !is.na(si) &&
+          isTRUE(sel_idx_has_data[[as.character(si)]])
+        !own_data && !mirror_data
       }, logical(1))
       if (any(missing_age_data)) {
         errors <- c(errors, paste0(
@@ -382,6 +401,7 @@ data_check <- function(data_list) {
         ))
       }
     }
+
 
     # Mirroring (informational)
     mirror_sel <- fc |> dplyr::group_by(Selectivity_index) |>
@@ -641,112 +661,4 @@ data_check <- function(data_list) {
   if(length(errors) > 0){
     stop(paste(errors, collapse = "\n"))
   }
-}
-
-
-
-#' Validates switches are correct
-#'
-#' @param data_list Rceattle data list
-#'
-#'
-validate_switches <- function(data_list = NULL){
-  errors <- character(0)
-
-  # Validate fleet_control inputs ----
-  invalid_flt_type <- data_list$fleet_control |>
-    dplyr::filter(!.data$Fleet_type %in% c(fleet_map, names(fleet_map)))
-
-  invalid_sel <- data_list$fleet_control |>
-    dplyr::filter(.data$Fleet_type != "Off" & !.data$Selectivity %in% c(sel_map, names(sel_map)))
-
-  invalid_tv_sel <- data_list$fleet_control |>
-    dplyr::filter(.data$Fleet_type != "Off" & !.data$Time_varying_sel %in% c(tv_sel_map, names(tv_sel_map)))
-
-  invalid_q <- data_list$fleet_control |>
-    dplyr::filter(!.data$Catchability %in% c(NA, q_map, names(q_map)))
-
-  invalid_tv_q <- data_list$fleet_control |>
-    dplyr::filter(.data$Fleet_type != "Off" & .data$Catchability != "Environmental" & !.data$Time_varying_q %in% c(NA, tv_q_map, names(tv_q_map)))
-
-  invalid_comp_ll <- data_list$fleet_control |>
-    dplyr::filter(.data$Fleet_type != "Off" & !.data$Comp_loglike %in% c(comp_loglike_map, names(comp_loglike_map)))
-
-  invalid_caal_ll <- data_list$fleet_control |>
-    dplyr::filter(.data$Fleet_type != "Off" & !.data$CAAL_loglike %in% c(comp_loglike_map, names(comp_loglike_map)))
-
-  # Throw clear errors to guide the user
-  if(nrow(invalid_flt_type) > 0) {
-    errors <- c(errors, paste("Invalid 'Fleet_type' specified for fleets:",
-                              paste(invalid_flt_type$Fleet_name, collapse = ", "),
-                              ".\nPlease use an integer code ",paste(range(fleet_map), collapse = ":")," or one of:",
-                              paste(names(fleet_map), collapse = ", ")))
-  }
-
-  if(nrow(invalid_sel) > 0) {
-    errors <- c(errors, paste("Invalid 'Selectivity' specified for fleets:",
-                              paste(invalid_sel$Fleet_name, collapse = ", "),
-                              ".\nPlease use an integer code ",paste(range(sel_map), collapse = ":")," or one of:",
-                              paste(names(sel_map), collapse = ", ")))
-  }
-
-  if(nrow(invalid_tv_sel) > 0) {
-    errors <- c(errors, paste("Invalid 'Time_varying_sel' specified for fleets:",
-                              paste(invalid_tv_sel$Fleet_name, collapse = ", "),
-                              ".\nPlease use an integer code ",paste(range(tv_sel_map), collapse = ":")," or one of:",
-                              paste(names(tv_sel_map), collapse = ", ")))
-  }
-
-  if(nrow(invalid_q) > 0) {
-    errors <- c(errors, paste("Invalid 'Catchability' specified for fleets:",
-                              paste(invalid_q$Fleet_name, collapse = ", "),
-                              ".\nPlease use an integer code ", paste(range(q_map), collapse = ":")," or one of:",
-                              paste(names(q_map), collapse = ", ")))
-  }
-
-  if(nrow(invalid_tv_q) > 0) {
-    errors <- c(errors, paste("Invalid 'Time_varying_q' specified for fleets:",
-                              paste(invalid_tv_q$Fleet_name, collapse = ", "),
-                              ".\nPlease use an integer code ", paste(range(tv_q_map), collapse = ":")," or one of:",
-                              paste(names(tv_q_map), collapse = ", ")))
-  }
-
-  if(nrow(invalid_comp_ll) > 0) {
-    errors <- c(errors, paste("Invalid 'Comp_loglike' specified for fleets:",
-                              paste(invalid_comp_ll$Fleet_name, collapse = ", "),
-                              ".\nPlease use an integer code ", paste(range(comp_loglike_map), collapse = ":")," or one of:",
-                              paste(names(comp_loglike_map), collapse = ", ")))
-  }
-
-  if(nrow(invalid_caal_ll) > 0) {
-    errors <- c(errors, paste("Invalid 'CAAL_loglike' specified for fleets:",
-                              paste(invalid_caal_ll$Fleet_name, collapse = ", "),
-                              ".\nPlease use an integer code ", paste(range(comp_loglike_map), collapse = ":")," or one of:",
-                              paste(names(comp_loglike_map), collapse = ", ")))
-  }
-
-  # Validate pop dy controls ----
-  # * initMode ----
-  invalid_initMode <- (!data_list$initMode %in% c(initMode_map, names(initMode_map)))
-
-  if(sum(invalid_initMode) > 0) {
-    errors <- c(errors, paste("Invalid 'initMode' specified:",
-                              ".\nPlease use an integer code ", paste(range(initMode_map), collapse = ":")," or one of:",
-                              paste(names(initMode_map), collapse = ", ")))
-  }
-
-  # * HCR ----
-  invalid_hcr <- (!data_list$HCR %in% c(hcr_map, names(hcr_map)))
-
-  if(sum(invalid_hcr) > 0) {
-    errors <- c(errors, paste("Invalid 'HCR' specified:",
-                              ".\nPlease use an integer code ", paste(range(hcr_map), collapse = ":")," or one of:",
-                              paste(names(hcr_map), collapse = ", ")))
-  }
-
-  if (data_list$msmMode > 0 & !data_list$HCR %in% c("NoFishing", "CMSY", "ConstantF", "ConstantFSSB", "PFMC")) {
-    errors <- c(errors, 'Only HCRs "NoFishing" (0), "CMSY" (1), "ConstantF" (2), "ConstantFSSB" (3), or "PFMC" (6) work in multi-species mode currently')
-  }
-
-  return(errors)
 }
