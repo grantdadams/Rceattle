@@ -1,0 +1,475 @@
+# -----------------------------------------------------------------------------
+# Convergence diagnostics
+# -----------------------------------------------------------------------------
+# Each check emits one record -- list(id, tier, severity, message, data),
+# severity in c("OK","NOTE","WARN","FAIL") -- so the battery is a single object
+# (fit$convergence) rather than scattered messages. Tier "spec" = pre-fit
+# screen (check_dsem_spec); tier "fit" = post-optimization checks. fit_mod()
+# attaches the result and surfaces non-OK checks via message() (never errors).
+# -----------------------------------------------------------------------------
+
+# Severity ordering (low -> high). Used to roll individual records up into an
+# overall status (the worst severity present).
+.CONV_SEVERITY <- c("OK", "NOTE", "WARN", "FAIL")
+
+# Build one check record.
+.conv_record <- function(id, tier, severity, message, data = NULL) {
+  severity <- match.arg(severity, .CONV_SEVERITY)
+  list(id = id, tier = tier, severity = severity,
+       message = message, data = data)
+}
+
+# Worst severity across a list of records ("OK" when empty).
+.conv_overall <- function(checks) {
+  if (length(checks) == 0) return("OK")
+  sev <- vapply(checks, function(x) x$severity, character(1))
+  .CONV_SEVERITY[max(match(sev, .CONV_SEVERITY))]
+}
+
+# Snapshot of the hindcast optimizer result, captured in fit_mod() before the
+# projection re-optimization overwrites `opt`. `obj` lets us recompute the
+# gradient and MLE vector directly -- essential in the hard-failure case, where
+# opt$SD/$max_gradient/$diagnostics are often absent. `lower`/`upper` are the
+# configured bounds; `getsd` flags whether an sdreport was requested.
+.capture_opt_convergence <- function(opt, obj = NULL, lower = NULL,
+                                     upper = NULL, getsd = NA) {
+  if (is.null(opt) && is.null(obj)) return(NULL)
+
+  # Fixed-effect MLE vector (named), recomputed from the object.
+  par_fixed <- NULL
+  if (!is.null(obj)) {
+    par_fixed <- tryCatch({
+      par   <- obj$env$last.par.best
+      ran   <- obj$env$random
+      fixed <- if (length(ran)) setdiff(seq_along(par), ran) else seq_along(par)
+      stats::setNames(as.numeric(par[fixed]), names(par)[fixed])
+    }, error = function(e) NULL)
+  }
+
+  diag  <- opt$diagnostics
+  worst <- NULL
+  if (!is.null(diag) && !is.null(diag$final_gradient)) {
+    i <- which.max(abs(diag$final_gradient))
+    if (length(i) == 1L) {
+      worst <- list(param = as.character(diag$Param[i]),
+                    gradient = as.numeric(diag$final_gradient[i]))
+    }
+  }
+  mg <- opt$max_gradient
+  if (is.null(mg) || !is.finite(mg)) {
+    mg <- if (!is.null(worst)) abs(worst$gradient) else NA_real_
+  }
+
+  # Fallback: recompute the marginal gradient (and the worst parameter) from the
+  # hindcast object when opt did not provide it.
+  if ((is.na(mg) || is.null(worst)) && !is.null(par_fixed)) {
+    gg <- tryCatch(stats::setNames(as.numeric(obj$gr(par_fixed)),
+                                   names(par_fixed)),
+                   error = function(e) NULL)
+    if (!is.null(gg) && length(gg) > 0 && any(is.finite(gg))) {
+      i <- which.max(abs(gg))
+      worst <- list(param = names(gg)[i], gradient = unname(gg[i]))
+      if (is.na(mg)) mg <- max(abs(gg))
+    }
+  }
+
+  # Bounds aligned to par_fixed (same map order). Keep only if lengths match.
+  lo <- if (!is.null(lower) && !is.null(par_fixed) &&
+            length(lower) == length(par_fixed)) as.numeric(lower) else NULL
+  hi <- if (!is.null(upper) && !is.null(par_fixed) &&
+            length(upper) == length(par_fixed)) as.numeric(upper) else NULL
+
+  list(
+    par                = par_fixed,
+    lower              = lo,
+    upper              = hi,
+    sd_requested       = isTRUE(getsd),
+    sd_present         = !is.null(opt$SD),
+    max_gradient       = as.numeric(mg),
+    worst              = worst,
+    nlminb_convergence = opt$convergence,
+    message            = opt$message,
+    convergence_check  = opt$Convergence_check,
+    pdHess             = if (!is.null(opt$SD)) isTRUE(opt$SD$pdHess) else NA
+  )
+}
+
+
+# --- Tier "fit" checks -------------------------------------------------------
+
+# T3.1 -- optimizer convergence: max |gradient| (+ the parameter carrying it)
+# and Hessian positive-definiteness. Reads the hindcast snapshot so the result
+# is not clobbered by the projection re-optimization.
+.check_optimizer <- function(object) {
+  ch <- object$.conv_hindcast
+  out <- list()
+  if (is.null(ch)) return(out)
+
+  mg <- ch$max_gradient
+  if (!is.null(mg) && is.finite(mg)) {
+    sev <- if (mg > 1) "FAIL" else if (mg > 1e-3) "WARN" else "OK"
+    worst_txt <- if (!is.null(ch$worst)) {
+      sprintf(" (largest on '%s')", ch$worst$param)
+    } else ""
+    out$max_gradient <- .conv_record(
+      "max_gradient", "fit", sev,
+      sprintf("Maximum absolute marginal gradient = %.3g%s.", mg, worst_txt),
+      ch
+    )
+  }
+
+  if (!is.null(ch$pdHess) && !is.na(ch$pdHess)) {
+    out$pdHess <- .conv_record(
+      "pdHess", "fit",
+      if (isTRUE(ch$pdHess)) "OK" else "FAIL",
+      if (isTRUE(ch$pdHess)) "Hessian is positive definite."
+      else "Hessian is not positive definite; standard errors are unavailable."
+    )
+  }
+  out
+}
+
+# T3.2 -- variance collapse: an *estimated* recruitment SD pinned at the zero
+# boundary. Reuses .rceattle_rec_sd() (per-species R_sd + Estimated flag) so we
+# never flag a legitimately fixed small SD. This is the headline diagnostic.
+.check_variance_collapse <- function(object) {
+  out <- list()
+  rec <- tryCatch(.rceattle_rec_sd(object), error = function(e) NULL)
+  if (is.null(rec) || is.null(rec$Estimated)) return(out)
+
+  est <- rec[rec$Estimated %in% TRUE & is.finite(rec$R_sd), , drop = FALSE]
+  if (nrow(est) == 0) return(out)
+
+  collapsed <- est[est$R_sd < 1e-3, , drop = FALSE]
+  low       <- est[est$R_sd >= 1e-3 & est$R_sd < 0.05, , drop = FALSE]
+
+  if (nrow(collapsed) > 0) {
+    # Name the mechanism when the worst gradient is on beta_z (collapse -> the
+    # 1/R_sd^2 term detonates the DSEM linkage-beta gradients).
+    link <- if (identical(object$.conv_hindcast$worst$param, "beta_z")) {
+      " (worst gradient is on beta_z -- the 1/R_sd^2 blow-up)" } else ""
+    out$rec_sd_collapse <- .conv_record(
+      "rec_sd_collapse", "fit", "FAIL",
+      sprintf(paste0("Estimated recruitment SD collapsed to ~0 for %s ",
+        "(R_sd = %s)%s. Fix/bound sigmaR (e.g. random_rec = FALSE)."),
+        paste(collapsed$Species, collapse = ", "),
+        paste(signif(collapsed$R_sd, 3), collapse = ", "), link),
+      collapsed)
+  } else if (nrow(low) > 0) {
+    out$rec_sd_low <- .conv_record(
+      "rec_sd_low", "fit", "WARN",
+      sprintf("Estimated recruitment SD is very low for %s (R_sd = %s).",
+        paste(low$Species, collapse = ", "),
+        paste(signif(low$R_sd, 3), collapse = ", ")),
+      low)
+  }
+  out
+}
+
+
+# T3.4 -- Hessian eigen-identifiability. Reads the fixed-effect covariance
+# (sdrep$cov.fixed); its eigenvalues are 1/(Hessian eigenvalues), so the
+# condition number kappa = lambda_max/lambda_min of cov.fixed equals the
+# Hessian condition number, and the eigenvector of the LARGEST covariance
+# eigenvalue is the least-identified parameter direction. Complements (does not
+# duplicate) TMBhelper::check_estimability: that gives a per-parameter verdict;
+# this gives the severity (kappa) and the offending linear *combination*.
+.check_hessian_eigen <- function(object) {
+  out <- list()
+  cov <- tryCatch(object$sdrep$cov.fixed, error = function(e) NULL)
+  if (is.null(cov) || !is.matrix(cov) || nrow(cov) < 2L) return(out)
+  ev <- tryCatch(eigen(cov, symmetric = TRUE), error = function(e) NULL)
+  if (is.null(ev)) return(out)
+  vals <- ev$values
+  pos  <- vals[is.finite(vals) & vals > 0]
+  if (length(pos) < 2L) return(out)
+
+  kappa <- max(pos) / min(pos)               # = condition number of the Hessian
+  v  <- abs(ev$vectors[, which.max(vals)])    # flattest Hessian direction
+  nm <- rownames(cov)
+  if (is.null(nm)) nm <- paste0("p", seq_along(v))
+  ord  <- order(-v)
+  load <- data.frame(param = nm[ord], loading = round(v[ord], 3))
+  top  <- utils::head(load, 5L)
+  combo <- paste(unique(top$param[top$loading > 0.1]), collapse = " + ")
+
+  sev <- if (kappa > 1e10) "FAIL" else if (kappa > 1e6) "WARN" else "OK"
+  msg <- sprintf(
+    "Hessian condition number = %.2g.%s", kappa,
+    if (sev != "OK")
+      sprintf(" Least-identified direction loads on: %s.", combo) else "")
+  out$hessian_conditioning <- .conv_record(
+    "hessian_conditioning", "fit", sev, msg,
+    list(condition_number = kappa, loadings = top))
+  out
+}
+
+# T3.x -- sdreport failed: an sdreport was requested but did not return (Hessian
+# not invertible). A strong non-convergence signal even when no gradient is
+# available.
+.check_sdreport_failed <- function(object) {
+  ch <- object$.conv_hindcast
+  if (is.null(ch) || !isTRUE(ch$sd_requested) || isTRUE(ch$sd_present)) {
+    return(list())
+  }
+  list(sdreport_failed = .conv_record(
+    "sdreport_failed", "fit", "FAIL",
+    "sdreport failed (Hessian not invertible); standard errors unavailable."))
+}
+
+# T3.3 -- parameters at a configured bound. Optimization is unbounded in
+# fit_mod(), so a parameter at/beyond its build_bounds() range means the MLE hit
+# the edge of the plausible range -- often unidentified or mis-scaled.
+.check_bounds <- function(object) {
+  ch <- object$.conv_hindcast
+  if (is.null(ch) || is.null(ch$par) || is.null(ch$lower) || is.null(ch$upper)) {
+    return(list())
+  }
+  par <- ch$par; lo <- ch$lower; hi <- ch$upper
+  rng <- hi - lo
+  tol <- pmax(1e-6, 1e-3 * ifelse(is.finite(rng) & rng > 0, rng, 1))
+  at_lo <- is.finite(lo) & par <= lo + tol
+  at_hi <- is.finite(hi) & par >= hi - tol
+  hit <- which((at_lo | at_hi) & par > -900)   # skip -999 sentinels (e.g. log_F)
+  if (length(hit) == 0) return(list())
+  tab <- data.frame(param = names(par)[hit], mle = signif(par[hit], 4),
+                    lower = signif(lo[hit], 4), upper = signif(hi[hit], 4),
+                    bound = ifelse(at_lo[hit], "lower", "upper"))
+  list(parameters_on_bounds = .conv_record(
+    "parameters_on_bounds", "fit", "WARN",
+    sprintf("%d parameter(s) at a configured bound: %s.",
+            length(hit), paste(unique(names(par)[hit]), collapse = ", ")),
+    tab))
+}
+
+# T2.1 -- phasing log: phases that ended with a high gradient localize which
+# parameter block breaks. Reads the per-phase log captured from TMBphase().
+.check_phasing <- function(object) {
+  pl <- object$.conv_phase
+  if (is.null(pl) || length(pl) == 0) return(list())
+  df <- tryCatch(do.call(rbind, lapply(pl, as.data.frame)),
+                 error = function(e) NULL)
+  if (is.null(df) || is.null(df$max_grad)) return(list())
+  bad <- df[is.finite(df$max_grad) & df$max_grad > 1, , drop = FALSE]
+  if (nrow(bad) == 0) return(list())
+  list(phasing = .conv_record(
+    "phasing", "fit", "WARN",
+    sprintf("Phase(s) ended with max|grad| > 1: %s.",
+            paste(sprintf("phase %s (%.2g)", bad$phase, bad$max_grad),
+                  collapse = ", ")),
+    df))
+}
+
+# T3.6 -- surface TMBhelper::check_estimability (run by fit_mod() and stored as
+# object$identified when sdreport fails). Binary per-parameter verdict; pairs
+# with .check_hessian_eigen()'s continuous view.
+.check_estimability_record <- function(object) {
+  out <- list()
+  id <- object$identified
+  if (is.null(id) || is.character(id)) return(out)
+  bad <- tryCatch(id$WhichBad, error = function(e) NULL)
+  if (is.null(bad)) {
+    pc  <- tryCatch(id$BadParams$Param_check, error = function(e) NULL)
+    bad <- if (!is.null(pc)) which(pc == 2L) else NULL
+  }
+  if (!is.null(bad) && length(bad) > 0) {
+    nms <- tryCatch(unique(as.character(id$BadParams$Param[bad])),
+                    error = function(e) NULL)
+    out$estimability <- .conv_record(
+      "estimability", "fit", "FAIL",
+      sprintf("check_estimability flagged %d non-identifiable fixed parameter(s)%s.",
+              length(bad),
+              if (!is.null(nms)) paste0(" (", paste(nms, collapse = ", "), ")")
+              else ""),
+      id)
+  }
+  out
+}
+
+
+#' Convergence diagnostics for a fitted Rceattle model
+#'
+#' Runs the post-fit convergence battery and returns a single structured
+#' object. Each check yields a record with a common schema
+#' (\code{id}, \code{tier}, \code{severity}, \code{message}, \code{data});
+#' \code{severity} is one of \code{"OK"}, \code{"NOTE"}, \code{"WARN"},
+#' \code{"FAIL"}. The object's \code{status} is the worst severity present.
+#'
+#' \code{fit_mod()} runs this automatically and attaches the result as
+#' \code{fit$convergence}; call \code{convergence_diagnostics()} directly to
+#' re-run it on any fit. Checks cover the optimizer gradient, Hessian
+#' positive-definiteness and conditioning, recruitment-SD collapse, parameters
+#' on bounds, phasing, and parameter estimability; plus the pre-fit spec checks
+#' from [check_dsem_spec()] when present.
+#'
+#' @param object An object of class \code{"Rceattle"} returned by [fit_mod()].
+#' @param ... Currently unused.
+#'
+#' @return An object of class \code{"Rceattle_convergence"}: a list with
+#'   \code{status} (overall worst severity) and \code{checks} (named list of
+#'   records).
+#' @export
+convergence_diagnostics <- function(object, ...) {
+  checks <- c(
+    # Pre-fit (tier "spec") records, if fit_mod() ran the screen.
+    if (!is.null(object$.conv_spec)) object$.conv_spec$checks else list(),
+    # Post-fit (tier "fit") checks.
+    .check_phasing(object),
+    .check_optimizer(object),
+    .check_sdreport_failed(object),
+    .check_variance_collapse(object),
+    .check_hessian_eigen(object),
+    .check_bounds(object),
+    .check_estimability_record(object)
+  )
+  structure(
+    list(status = .conv_overall(checks), checks = checks),
+    class = "Rceattle_convergence"
+  )
+}
+
+
+#' @export
+print.Rceattle_convergence <- function(x, all = FALSE, ...) {
+  cat("<Rceattle convergence>  status:", x$status, "\n")
+  if (length(x$checks) == 0) {
+    cat("  (no checks run)\n")
+    return(invisible(x))
+  }
+  show <- if (isTRUE(all)) x$checks else
+    Filter(function(c) c$severity != "OK", x$checks)
+  if (length(show) == 0) {
+    cat("  all checks OK\n")
+    return(invisible(x))
+  }
+  for (c in show) {
+    cat(sprintf("  [%-4s] %-16s %s\n", c$severity, c$id, c$message))
+  }
+  invisible(x)
+}
+
+
+# -----------------------------------------------------------------------------
+# Tier 1 -- pre-fit DSEM spec screen
+# -----------------------------------------------------------------------------
+# Cheap RISK flags from the parsed SEM + env_data, before the fit; confirmed or
+# cleared by the post-fit checks. Collinearity is the condition number of the
+# *lag-aligned* recruitment design (the design the model uses), not naive VIF.
+
+#' Pre-fit screen of a DSEM recruitment specification
+#'
+#' Runs the Tier-1 (\code{"spec"}) convergence checks on a built DSEM and the
+#' model's \code{env_data}, returning the same \code{"Rceattle_convergence"}
+#' object as [convergence_diagnostics()]. \code{fit_mod()} runs this
+#' automatically after building the DSEM (results merged into
+#' \code{fit$convergence}); call it directly to screen a spec before fitting.
+#'
+#' Checks (tier \code{"spec"}):
+#' \itemize{
+#'   \item \code{rec_predictor_observability} -- recruitment predictors observed
+#'     in a low fraction of hindcast years (free latents may absorb recruitment
+#'     variance -> sigmaR collapse).
+#'   \item \code{rec_design_conditioning} -- condition number / max pairwise
+#'     correlation of the lag-aligned recruitment design matrix (collinear
+#'     predictors).
+#'   \item \code{covariate_scale} -- recruitment covariates spanning orders of
+#'     magnitude in SD (ill-conditioning; consider standardizing).
+#' }
+#'
+#' @param data_list A cleaned data list (must carry \code{env_data},
+#'   \code{styr}, \code{endyr}).
+#' @param dsem A built DSEM object (from [build_dsem_objects()]) carrying
+#'   \code{sem_full}.
+#'
+#' @return An object of class \code{"Rceattle_convergence"}.
+#' @export
+check_dsem_spec <- function(data_list, dsem) {
+  empty <- structure(list(status = "OK", checks = list()),
+                     class = "Rceattle_convergence")
+  sf <- tryCatch(dsem$sem_full, error = function(e) NULL)
+  ed <- data_list$env_data
+  if (is.null(sf) || is.null(ed) || is.null(ed$Year)) return(empty)
+
+  # Recruitment paths: one-headed (direction 1) arrows into a recdevs* node.
+  is_rec <- grepl("^recdevs", as.character(sf$second)) &
+            as.numeric(sf$direction) == 1
+  rec <- sf[is_rec, , drop = FALSE]
+  if (nrow(rec) == 0) return(empty)
+
+  preds <- intersect(unique(as.character(rec$first)), colnames(ed))
+  if (length(preds) == 0) return(empty)
+
+  styr <- data_list$styr; endyr <- data_list$endyr
+  yrs  <- styr:endyr
+  nyr  <- length(yrs)
+  edh  <- ed[ed$Year %in% yrs, , drop = FALSE]
+  out  <- list()
+
+  # T1.1 -- latent observability of recruitment predictors
+  cov_frac <- vapply(preds, function(p) sum(!is.na(edh[[p]])) / nyr, numeric(1))
+  low <- preds[cov_frac < 0.5]
+  if (length(low) > 0) {
+    sev <- if (any(cov_frac[low] < 0.25)) "WARN" else "NOTE"
+    out$rec_predictor_observability <- .conv_record(
+      "rec_predictor_observability", "spec", sev,
+      sprintf(paste0(
+        "Recruitment predictor(s) observed in <50%% of hindcast years: %s. ",
+        "Sparse latents can absorb recruitment variance and drive sigmaR to 0."),
+        paste(sprintf("%s (%.0f%%)", low, 100 * cov_frac[low]),
+              collapse = ", ")),
+      data.frame(predictor = preds, coverage = round(cov_frac, 3),
+                 row.names = NULL))
+  }
+
+  # T1.2 -- lag-aligned recruitment design conditioning
+  cols <- lapply(seq_len(nrow(rec)), function(i) {
+    p   <- as.character(rec$first[i]); lag <- as.numeric(rec$lag[i])
+    if (!p %in% colnames(ed)) return(NULL)
+    ed[[p]][match(yrs - lag, ed$Year)]   # predictor at the lag the SEM uses
+  })
+  names(cols) <- make.unique(paste0(rec$first, "_lag", rec$lag))
+  cols <- cols[!vapply(cols, is.null, logical(1))]
+  if (length(cols) >= 2) {
+    X  <- do.call(cbind, cols)
+    Xc <- X[stats::complete.cases(X), , drop = FALSE]
+    if (nrow(Xc) > ncol(Xc)) {
+      keep <- apply(Xc, 2, function(z) stats::sd(z) > 0)
+      Xc   <- Xc[, keep, drop = FALSE]
+      if (ncol(Xc) >= 2) {
+        R     <- stats::cor(Xc)
+        kap   <- tryCatch(kappa(R, exact = TRUE), error = function(e) NA_real_)
+        maxr  <- max(abs(R[upper.tri(R)]))
+        sev   <- if ((is.finite(kap) && kap > 100) || maxr > 0.9) "WARN"
+                 else if (maxr > 0.8) "NOTE" else "OK"
+        if (sev != "OK") {
+          out$rec_design_conditioning <- .conv_record(
+            "rec_design_conditioning", "spec", sev,
+            sprintf(paste0("Collinear lag-aligned recruitment design ",
+              "(condition number = %.3g, max |r| = %.2f over %d years)."),
+              kap, maxr, nrow(Xc)),
+            list(condition_number = kap, max_abs_cor = maxr, R = R))
+        }
+      }
+    }
+  }
+
+  # T1.5 -- covariate scale heterogeneity
+  sds <- vapply(preds, function(p) stats::sd(ed[[p]], na.rm = TRUE), numeric(1))
+  sds <- sds[is.finite(sds) & sds > 0]
+  if (length(sds) >= 2) {
+    ratio <- max(sds) / min(sds)
+    if (ratio > 20) {
+      out$covariate_scale <- .conv_record(
+        "covariate_scale", "spec", "NOTE",
+        sprintf(paste0("Recruitment covariates span %.0fx in SD (%s: %.3g; ",
+          "%s: %.3g); consider standardizing env_data."),
+          ratio, names(which.max(sds)), max(sds),
+          names(which.min(sds)), min(sds)),
+        data.frame(predictor = names(sds), sd = signif(sds, 3),
+                   row.names = NULL))
+    }
+  }
+
+  structure(list(status = .conv_overall(out), checks = out),
+            class = "Rceattle_convergence")
+}

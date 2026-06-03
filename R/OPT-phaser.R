@@ -36,6 +36,7 @@ TMBphase <- function(data, parameters, map, random, phases, model_name,
   fill_vals <- function(x,vals){rep(as.factor(vals), length(x))}
 
   #loop over phases
+  phase_log <- list()
   for (phase_cur in 1:max(unlist(phases))) {
     #phase_cur <- 1
 
@@ -65,10 +66,19 @@ TMBphase <- function(data, parameters, map, random, phases, model_name,
     }
     last_par = suppressWarnings(obj$env$parList(obj$env$last.par.best))
 
-    # write.csv(phase_cur, file = paste0("Phase",phase_cur))
+    # Per-phase convergence record (for the phasing diagnostic).
+    phase_log[[phase_cur]] <- list(
+      phase       = phase_cur,
+      n_par       = length(opt$par),
+      objective   = opt$objective,
+      max_grad    = tryCatch(max(abs(obj$gr(opt$par))),
+                             error = function(e) NA_real_),
+      convergence = opt$convergence
+    )
     #close phase loop
   }
 
+  attr(last_par, "phase_log") <- phase_log
   return(last_par)
 }
 

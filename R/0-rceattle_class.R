@@ -46,6 +46,11 @@ print.Rceattle <- function(x, ...) {
   if (!is.null(x$run_time)) {
     cat("  Run time  :", format(x$run_time), "\n")
   }
+  if (!is.null(x$convergence)) {
+    cat("  Converged :", x$convergence$status,
+        if (x$convergence$status != "OK")
+          "(see fit$convergence)" else "", "\n")
+  }
   invisible(x)
 }
 
