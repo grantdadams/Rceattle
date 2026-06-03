@@ -21,7 +21,7 @@ grid of Rceattle models for downstream NLL surfaces."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.4.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -87,7 +87,8 @@ grid of Rceattle models for downstream NLL surfaces.</p>
 <span>  slots <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  values <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  transform <span class="op">=</span> <span class="st">"log"</span>,</span>
-<span>  cores <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  cores <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -162,6 +163,11 @@ override this with <code>"log"</code>.</p></dd>
 <code>NULL</code> picks <code>parallel::detectCores() - 6</code>, capped at 2 when
 running under <code>R CMD check</code> (which sets
 <code>_R_CHECK_LIMIT_CORES_</code>). Set to 1 to force sequential execution.</p></dd>
+
+
+<dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
+<dd><p>Unused; present for consistency with the <code><a href="https://rdrr.io/r/stats/profile.html" class="external-link">stats::profile</a></code>
+generic.</p></dd>
 
 </dl></div>
     <div class="section level2">

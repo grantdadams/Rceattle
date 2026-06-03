@@ -13,8 +13,9 @@ Read, write, and manipulate Rceattle data lists.
 - [`combine_data()`](https://grantdadams.github.io/Rceattle/reference/combine_data.md)
   : Combine data sets. Will use the env_data data set from data_set1 and
   diet data will have to be updated.
-- [`rearrange_dat()`](https://grantdadams.github.io/Rceattle/reference/rearrange_dat.md)
-  : Rearrange
+- [`rearrange_data()`](https://grantdadams.github.io/Rceattle/reference/rearrange_data.md)
+  [`rearrange_dat()`](https://grantdadams.github.io/Rceattle/reference/rearrange_data.md)
+  : Rearrange a data_list for TMB
 - [`data_check()`](https://grantdadams.github.io/Rceattle/reference/data_check.md)
   : Function to check data for errors. Does not update the data set!
 
@@ -134,19 +135,6 @@ Retrospective analysis, jitter testing, and simulation.
   : Simulate Rceattle data
 - [`compare_sim()`](https://grantdadams.github.io/Rceattle/reference/compare_sim.md)
   : Evaluate simulation performance
-
-## Data weighting
-
-Composition data reweighting methods.
-
-- [`calc_mcall_ianelli()`](https://grantdadams.github.io/Rceattle/reference/calc_mcall_ianelli.md)
-  : Function to calculate McAllister-Ianelli weights
-- [`calc_mcall_ianelli_diet()`](https://grantdadams.github.io/Rceattle/reference/calc_mcall_ianelli_diet.md)
-  : Function to calculate McAllister-Ianelli weights for diet data
-- [`check_composition_data()`](https://grantdadams.github.io/Rceattle/reference/check_composition_data.md)
-  : Check and Clean Composition Data
-- [`check_caal_data()`](https://grantdadams.github.io/Rceattle/reference/check_caal_data.md)
-  : Check and Clean CAAL Data
 
 ## Plotting — population dynamics
 
@@ -278,11 +266,6 @@ S3 methods, utility functions, and internal helpers.
 - [`switch_check()`](https://grantdadams.github.io/Rceattle/reference/switch_check.md)
   : Function to check for missing switches for map and parameter
   functions
-- [`convert_switches()`](https://grantdadams.github.io/Rceattle/reference/convert_switches.md)
-  : Convert intuitive text strings to integer switches for TMB
-- [`revert_switches()`](https://grantdadams.github.io/Rceattle/reference/revert_switches.md)
-  : Convert integer switches to intuitive text strings. Maintains
-  backwards compatability.
 - [`get_growth_matrix_r()`](https://grantdadams.github.io/Rceattle/reference/get_growth_matrix_r.md)
   : Generate Length-at-Age Transition Matrix
 - [`get_weight_at_age_r()`](https://grantdadams.github.io/Rceattle/reference/get_weight_at_age_r.md)
@@ -311,5 +294,3 @@ S3 methods, utility functions, and internal helpers.
   : Lognormal prior on a linkage coefficient
 - [`prior_normal()`](https://grantdadams.github.io/Rceattle/reference/prior_normal.md)
   : Normal prior on a linkage coefficient
-- [`validate_switches()`](https://grantdadams.github.io/Rceattle/reference/validate_switches.md)
-  : Validates switches are correct

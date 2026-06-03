@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.4.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -52,6 +52,35 @@
       <small>Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.4.2" id="rceattle-442">Rceattle 4.4.2<a class="anchor" aria-label="anchor" href="#rceattle-442"></a></h2>
+<div class="section level3">
+<h3 id="code-organisation-no-change-to-fitted-results-4-4-2">Code organisation (no change to fitted results)<a class="anchor" aria-label="anchor" href="#code-organisation-no-change-to-fitted-results-4-4-2"></a></h3>
+<p>The pre-fit pipeline files in <code>R/</code> were reorganised so they are easier to navigate. None of these changes alter model output.</p>
+<ul><li>
+<strong>File prefixes now follow execution order.</strong> <code><a href="../reference/fit_mod.html">fit_mod()</a></code> runs its stages as <code><a href="../reference/clean_data.html">clean_data()</a></code> -&gt; <code><a href="../reference/data_check.html">data_check()</a></code> -&gt; <code><a href="../reference/build_params.html">build_params()</a></code> -&gt; <code><a href="../reference/build_map.html">build_map()</a></code> -&gt; <code><a href="../reference/build_bounds.html">build_bounds()</a></code> -&gt; <code><a href="../reference/rearrange_data.html">rearrange_data()</a></code> -&gt; fit -&gt; <code><a href="../reference/rename_output.html">rename_output()</a></code>, so the files were renumbered to match (<code>data_check</code> is now <code>1-</code>, <code>build_params</code> <code>2-</code>, <code>build_map</code> <code>3-</code>, <code>build_parameter_bounds</code> <code>4-</code>). A pipeline map was added to the top of <code><a href="../reference/fit_mod.html">fit_mod()</a></code>.</li>
+<li>
+<strong>Switch lifecycle consolidated</strong> into a single <code>R/0-switches.R</code>: the string&lt;-&gt;integer maps (formerly <code>0-constants.R</code>) plus <code><a href="../reference/switch_check.html">switch_check()</a></code>, <code>revert_switches()</code>, <code>validate_switches()</code>, and <code>convert_switches()</code>, with a header documenting the order in which they run.</li>
+<li>
+<strong>HCR helpers co-located.</strong> <code><a href="../reference/build_hcr_map.html">build_hcr_map()</a></code> moved into <code>R/0-build_hcr.R</code> alongside <code><a href="../reference/build_hcr.html">build_hcr()</a></code> (the separate <code>2-build_hcr_map.R</code> was removed).</li>
+</ul></div>
+<div class="section level3">
+<h3 id="rename--deprecation-4-4-2">Rename / deprecation<a class="anchor" aria-label="anchor" href="#rename--deprecation-4-4-2"></a></h3>
+<ul><li>
+<code><a href="../reference/rearrange_data.html">rearrange_dat()</a></code> is renamed <strong><code><a href="../reference/rearrange_data.html">rearrange_data()</a></code></strong>. The old name still works as a deprecated alias (emits a one-time <code><a href="https://rdrr.io/r/base/Deprecated.html" class="external-link">.Deprecated()</a></code> warning) and will be removed in a future release.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="export-hygiene-4-4-2">Export hygiene<a class="anchor" aria-label="anchor" href="#export-hygiene-4-4-2"></a></h3>
+<ul><li>
+<code>check_composition_data()</code>, <code>check_caal_data()</code>, <code>calc_mcall_ianelli()</code>, and <code>calc_mcall_ianelli_diet()</code> are no longer exported; they are internal helpers called only from within the package.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="internal--r-cmd-check-4-4-2">Internal / R CMD check<a class="anchor" aria-label="anchor" href="#internal--r-cmd-check-4-4-2"></a></h3>
+<ul><li>Removed <code>Rceattle:::</code> self-references in <code><a href="../reference/build_bounds.html">build_bounds()</a></code> (a package should not use <code>:::</code> for its own objects).</li>
+<li>
+<code><a href="../reference/profile.Rceattle.html">profile.Rceattle()</a></code> gained <code>...</code> for S3 consistency with the <code><a href="https://rdrr.io/r/stats/profile.html" class="external-link">stats::profile</a></code> generic.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.4.1" id="rceattle-441">Rceattle 4.4.1<a class="anchor" aria-label="anchor" href="#rceattle-441"></a></h2>
 <div class="section level3">

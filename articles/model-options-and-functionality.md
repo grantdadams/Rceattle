@@ -312,7 +312,7 @@ for the seed plumbing and reproducibility guarantees.
 | [`sim_mod()`](https://grantdadams.github.io/Rceattle/reference/sim_mod.md) | Parametric simulation from a fitted model |
 | [`compare_sim()`](https://grantdadams.github.io/Rceattle/reference/compare_sim.md) | Estimation-vs-truth comparison across simulated replicates |
 | [`model_average()`](https://grantdadams.github.io/Rceattle/reference/model_average.md) | Weighted average of derived quantities across multiple fits, with optional bootstrap uncertainty |
-| [`calc_mcall_ianelli()`](https://grantdadams.github.io/Rceattle/reference/calc_mcall_ianelli.md) / [`calc_mcall_ianelli_diet()`](https://grantdadams.github.io/Rceattle/reference/calc_mcall_ianelli_diet.md) | McAllister-Ianelli composition-data reweighting |
+| `calc_mcall_ianelli()` / `calc_mcall_ianelli_diet()` | McAllister-Ianelli composition-data reweighting |
 
 ## 12. Plotting
 

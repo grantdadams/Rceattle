@@ -19,7 +19,8 @@ profile(
   slots = NULL,
   values = NULL,
   transform = "log",
-  cores = NULL
+  cores = NULL,
+  ...
 )
 ```
 
@@ -99,6 +100,11 @@ profile(
   `parallel::detectCores() - 6`, capped at 2 when running under
   `R CMD check` (which sets `_R_CHECK_LIMIT_CORES_`). Set to 1 to force
   sequential execution.
+
+- ...:
+
+  Unused; present for consistency with the
+  [`stats::profile`](https://rdrr.io/r/stats/profile.html) generic.
 
 ## Value
 
