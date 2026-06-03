@@ -70,6 +70,49 @@ test_that("a parameter at a configured bound is flagged (WARN)", {
                  names(convergence_diagnostics(fit2)$checks))
 })
 
+test_that(".capture_opt_convergence aligns each MLE with its own bounds", {
+  # Regression for the bug where the (mle, lower, upper) triple was assembled
+  # from two independently-ordered sources, pairing one parameter's MLE with
+  # another's bounds: rec_pars (unbounded, MLE 14.9) was reported "at" log_F's
+  # [-1000, 10] upper bound. The capture must read the MLE back through the SAME
+  # parameter-list shape as the bounds so rows can't drift apart.
+  fake_obj <- list(
+    env = list(
+      last.par.best = c(rec_pars = 14.9, log_F = -999, catch_log_sd = 3),
+      random = integer(0),
+      # parList(x = par[lfixed()], par = last.par) expands the reduced vector
+      # into the full param-list shape that `bounds` and `mapFactor` share.
+      parList = function(x = NULL, par = NULL) list(rec_pars = 14.9,
+                                                    log_F = -999,
+                                                    catch_log_sd = 3)
+    ),
+    gr = function(p) rep(0, length(p))
+  )
+  bounds <- list(
+    lower = list(rec_pars = -Inf, log_F = -1000, catch_log_sd = -10),
+    upper = list(rec_pars =  Inf, log_F =    10, catch_log_sd =   3)
+  )
+  mapFactor <- list(rec_pars = 1, log_F = 1, catch_log_sd = 1)
+
+  snap <- .capture_opt_convergence(opt = list(), obj = fake_obj,
+                                   bounds = bounds, mapFactor = mapFactor,
+                                   random_vars = NULL, getsd = FALSE)
+  # bounds line up with their own parameter
+  expect_equal(unname(snap$par["rec_pars"]), 14.9)
+  expect_equal(snap$lower[match("rec_pars", names(snap$par))], -Inf)
+  expect_equal(snap$upper[match("catch_log_sd", names(snap$par))], 3)
+
+  fit <- structure(list(.conv_hindcast = snap), class = "Rceattle")
+  cv  <- convergence_diagnostics(fit)
+  # rec_pars is unbounded -> must NOT be flagged; log_F is a -999 sentinel ->
+  # skipped; only catch_log_sd genuinely sits at its upper bound.
+  ob <- cv$checks$parameters_on_bounds
+  expect_equal(ob$severity, "WARN")
+  expect_match(ob$message, "catch_log_sd")
+  expect_false(grepl("rec_pars", ob$message))
+  expect_false(grepl("log_F", ob$message))
+})
+
 test_that("a phase that ends with a high gradient is flagged (WARN)", {
   fit <- structure(list(.conv_phase = list(
     list(phase = 1, max_grad = 1e-4),

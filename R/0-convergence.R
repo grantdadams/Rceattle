@@ -28,10 +28,15 @@
 # Snapshot of the hindcast optimizer result, captured in fit_mod() before the
 # projection re-optimization overwrites `opt`. `obj` lets us recompute the
 # gradient and MLE vector directly -- essential in the hard-failure case, where
-# opt$SD/$max_gradient/$diagnostics are often absent. `lower`/`upper` are the
-# configured bounds; `getsd` flags whether an sdreport was requested.
-.capture_opt_convergence <- function(opt, obj = NULL, lower = NULL,
-                                     upper = NULL, getsd = NA) {
+# opt$SD/$max_gradient/$diagnostics are often absent. `getsd` flags whether an
+# sdreport was requested.
+#
+# `bounds` (the full build_bounds() list, $lower/$upper), `mapFactor`
+# (map$mapFactor) and `random_vars` are used to assemble the per-parameter
+# (mle, lower, upper) table.
+.capture_opt_convergence <- function(opt, obj = NULL, bounds = NULL,
+                                     mapFactor = NULL, random_vars = NULL,
+                                     getsd = NA) {
   if (is.null(opt) && is.null(obj)) return(NULL)
 
   # Fixed-effect MLE vector (named), recomputed from the object.
@@ -72,16 +77,44 @@
     }
   }
 
-  # Bounds aligned to par_fixed (same map order). Keep only if lengths match.
-  lo <- if (!is.null(lower) && !is.null(par_fixed) &&
-            length(lower) == length(par_fixed)) as.numeric(lower) else NULL
-  hi <- if (!is.null(upper) && !is.null(par_fixed) &&
-            length(upper) == length(par_fixed)) as.numeric(upper) else NULL
+  # Per-parameter (mle, lower, upper) for the bounds check. Build all three from
+  # a single shared shape so they cannot drift out of alignment.
+  bnd_par <- bnd_lo <- bnd_hi <- NULL
+  if (!is.null(bounds) && !is.null(bounds$lower) && !is.null(bounds$upper) &&
+      !is.null(mapFactor) && !is.null(obj)) {
+    # parList(x = par[lfixed()], par = last.par): pass last.par.best as `par`
+    # (the full vector) so `x` defaults to its fixed-effects subset. Passing it
+    # positionally as `x` triggers `par[lfixed()] <- x` with a length mismatch.
+    full <- tryCatch(obj$env$parList(par = obj$env$last.par.best),
+                     error = function(e) NULL)
+    if (!is.null(full)) {
+      pv <- lv <- uv <- nv <- list()
+      for (nm in names(mapFactor)) {
+        if (nm %in% random_vars) next                 # random effects are unbounded
+        if (is.null(full[[nm]]) || is.null(bounds$lower[[nm]])) next
+        mf <- as.numeric(unlist(mapFactor[[nm]]))
+        pb <- as.numeric(unlist(full[[nm]]))
+        lb <- as.numeric(unlist(bounds$lower[[nm]]))
+        ub <- as.numeric(unlist(bounds$upper[[nm]]))
+        # one row per estimated coefficient (drop NA-mapped/fixed and duplicates)
+        keep <- which(!is.na(mf) & !duplicated(mf))
+        if (length(keep) == 0L) next
+        pv[[nm]] <- pb[keep]; lv[[nm]] <- lb[keep]; uv[[nm]] <- ub[keep]
+        nv[[nm]] <- rep(nm, length(keep))
+      }
+      if (length(pv)) {
+        bnd_par <- stats::setNames(unlist(pv, use.names = FALSE),
+                                   unlist(nv, use.names = FALSE))
+        bnd_lo  <- unlist(lv, use.names = FALSE)
+        bnd_hi  <- unlist(uv, use.names = FALSE)
+      }
+    }
+  }
 
   list(
-    par                = par_fixed,
-    lower              = lo,
-    upper              = hi,
+    par                = if (!is.null(bnd_par)) bnd_par else par_fixed,
+    lower              = bnd_lo,
+    upper              = bnd_hi,
     sd_requested       = isTRUE(getsd),
     sd_present         = !is.null(opt$SD),
     max_gradient       = as.numeric(mg),

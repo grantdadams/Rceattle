@@ -525,17 +525,10 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     # 7: Set up parameter bounds ----
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
-    L <- c()
-    U <- c()
-    for (i in 1:length(map$mapFactor)) {
-      nm <- names(map$mapFactor)[i]
-      if (!nm %in% random_vars) { # no bounds for random effects
-        mf   <- unlist(map$mapFactor[[i]])
-        keep <- which(!is.na(mf) & !duplicated(mf))
-        L <- c(L, unlist(bounds$lower[[nm]])[keep])
-        U <- c(U, unlist(bounds$upper[[nm]])[keep])
-      }
-    }
+    # Optimization is unbounded (see .fit_tmb): the configured bounds are not
+    # passed to nlminb. The full `bounds` list is forwarded to the convergence
+    # snapshot below, where it is aligned to the MLE for the parameters-on-bounds
+    # check (see .capture_opt_convergence in R/0-convergence.R).
 
     # Dimension check
     start_par <- start_par[names(map$mapFactor), drop = FALSE]
@@ -671,7 +664,8 @@ fit_mod <-
       # projection re-optimization overwrites `opt` (see R/0-convergence.R).
       if (estimateMode %in% c(0, 1)) {
         mod_objects$.conv_hindcast <- .capture_opt_convergence(
-          opt, obj, lower = L, upper = U, getsd = getsd)
+          opt, obj, bounds = bounds, mapFactor = map$mapFactor,
+          random_vars = random_vars, getsd = getsd)
       }
     }
 
