@@ -1004,13 +1004,18 @@ profile.Rceattle <- function(fitted = NULL,
     stop("`values` must be a non-empty list of numeric grids.")
   }
 
-  # Natural-scale aliases: each maps to a real parameter, implies log()
+  # Natural-scale aliases: each maps to a real parameter, implies a fixed
   # transform, and (for rec_pars aliases) fills in the column index so
   # `slots` only needs the species index.
+  #
+  # `sigmaR`/`R_sd` now resolve to the DSEM recruitment-SD self-loop
+  # coefficient in `beta_z`. Unlike the old `R_log_sd` aliases this is on the
+  # NATURAL scale -- the cpp uses R_sd(sp) = |beta_z(rec_sd_idx(sp))| -- so the
+  # transform is "identity", and the user's species index is remapped to the
+  # corresponding `beta_z` element via `rec_sd_idx` (set in build_dsem_objects()).
   alias_table <- list(
-    # R_log_sd was removed from the model (replaced by DSEM); aliases retired
-    # sigmaR = list(param = "R_log_sd", rec_pars_col = NA_integer_),
-    # R_sd   = list(param = "R_log_sd", rec_pars_col = NA_integer_),
+    sigmaR = list(param = "beta_z",   rec_pars_col = NA_integer_, dsem_rec_sd = TRUE),
+    R_sd   = list(param = "beta_z",   rec_pars_col = NA_integer_, dsem_rec_sd = TRUE),
     M1     = list(param = "log_M1",   rec_pars_col = NA_integer_),
     R0     = list(param = "rec_pars", rec_pars_col = 1L),
     alpha  = list(param = "rec_pars", rec_pars_col = 2L),
@@ -1019,18 +1024,22 @@ profile.Rceattle <- function(fitted = NULL,
 
   alias_name   <- NA_character_
   rec_pars_col <- NA_integer_
+  dsem_rec_sd  <- FALSE
   if (param %in% names(alias_table)) {
     alias_name <- param
     a <- alias_table[[alias_name]]
 
-    # Aliases force log transform; warn if user passed something else
-    if (!identical(transform, "log")) {
+    # Each alias forces its own scale: the DSEM recruitment-SD self-loop is on
+    # the natural scale (R_sd = |beta_z|), everything else on the log scale.
+    dsem_rec_sd      <- isTRUE(a$dsem_rec_sd)
+    forced_transform <- if (dsem_rec_sd) "identity" else "log"
+    if (!identical(transform, forced_transform)) {
       warning(sprintf(
-        "`param = \"%s\"` is a natural-scale alias for `%s`; ignoring the supplied `transform` (aliases imply transform = \"log\").",
-        alias_name, a$param
+        "`param = \"%s\"` is an alias for `%s`; ignoring the supplied `transform` (this alias implies transform = \"%s\").",
+        alias_name, a$param, forced_transform
       ))
     }
-    transform    <- "log"
+    transform    <- forced_transform
     rec_pars_col <- a$rec_pars_col
     param        <- a$param   # resolve to real parameter slot
   }
@@ -1086,6 +1095,35 @@ profile.Rceattle <- function(fitted = NULL,
         ))
       }
       slots[[k]] <- c(as.integer(slots[[k]]), rec_pars_col)
+    }
+  }
+
+  # Remap species index -> beta_z element for the sigmaR / R_sd alias.
+  # rec_sd_idx[sp] is the 1-based position in beta_z of species sp's
+  # recruitment-SD self-loop (0 if that SD is fixed in the sem).
+  if (dsem_rec_sd) {
+    rec_sd_idx <- fitted$dsem$tmb_inputs$data$rec_sd_idx
+    if (is.null(rec_sd_idx)) {
+      stop("Could not find `rec_sd_idx` in `fitted$dsem$tmb_inputs$data`; ",
+           "the model must be fit on the DSEM branch with a recdev self-loop ",
+           "to profile sigmaR/R_sd.")
+    }
+    for (k in seq_along(slots)) {
+      if (length(slots[[k]]) != 1L) {
+        stop(sprintf(
+          "Under alias `\"%s\"`, slots[[%d]] should be a single species index (got length %d).",
+          alias_name, k, length(slots[[k]])
+        ))
+      }
+      sp  <- as.integer(slots[[k]])
+      idx <- rec_sd_idx[sp]
+      if (is.na(idx) || idx < 1L) {
+        stop(sprintf(
+          "Species %d has no estimated recruitment-SD self-loop (rec_sd_idx = %s); ",
+          sp, if (is.na(idx)) "NA" else as.character(idx)),
+          "its SD is fixed in the sem, so there is nothing to profile.")
+      }
+      slots[[k]] <- as.integer(idx)
     }
   }
 
