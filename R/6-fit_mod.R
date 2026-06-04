@@ -612,8 +612,6 @@ fit_mod <-
     if (estimateMode %in% c(0, 1, 4)) {
       opt <- suppressMessages(
         .fit_tmb(obj                 = obj,
-                 lower               = L,
-                 upper               = U,
                  loopnum             = loopnum,
                  newtonsteps         = newtonsteps,
                  getsd               = getsd,
