@@ -1191,6 +1191,7 @@ profile.Rceattle <- function(fitted = NULL,
 
     inits     <- fitted$estimated_params
     data_list <- fitted$data_list
+    map_obj <- fitted$map
 
     # Substitute fixed values at each profiled cell
     for (k in seq_along(slots)) {
@@ -1200,12 +1201,6 @@ profile.Rceattle <- function(fitted = NULL,
     }
 
     # Build the default map, then force profiled cells to NA
-    map_obj <- Rceattle::build_map(
-      data_list,
-      params     = inits,
-      debug      = FALSE,
-      random_rec = isTRUE(data_list$random_rec)
-    )
     for (k in seq_along(slots)) {
       map_obj$mapList[[param]] <- assign_at(map_obj$mapList[[param]],
                                             slots[[k]],
@@ -1305,7 +1300,7 @@ profile.Rceattle <- function(fitted = NULL,
 
   # NLL aligned with grid; NA for non-converged
   nll <- vapply(mod_list,
-                function(x) if (is.null(x)) NA_real_ else x$quantities$jnll,
+                function(x) if (is.null(x)) NA_real_ else x$opt$objective,
                 numeric(1))
 
   names(mod_list) <- paste0("Fit_", seq_len(ngrid))
