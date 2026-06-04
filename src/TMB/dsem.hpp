@@ -3,7 +3,7 @@
 
 /** * @brief Dynamic Structural Equation Model (DSEM) Module
  *
- * Vendored from the `dsem` package, version 2.0.1
+ * Modified from the `dsem` package, version 2.0.1
  *   James-Thorson-NOAA/dsem, commit 81d3d817cc53284018ff6c3f620bd6d8bbe6ab6c
  *   src/dsem.cpp
  *   Thorson, J. T., Andrews, A. G., Essington, T., & Large, S. (2024). Dynamic
@@ -18,23 +18,26 @@
  *     and unobs_idx, which upstream reads via DATA_IVECTOR inside option blocks).
  *   - REPORT()/ADREPORT()/SIMULATE{} removed (they require `this`; unused here).
  *   - get_submatrix renamed dsem_get_submatrix to avoid symbol clashes.
- * The matched R-side input assembly lives in R/0-dsem_ram.R (build_dsem_inputs),
- * validated byte-for-byte against dsem 2.0.1.
+ * The matched R-side input assembly lives in R/0-dsem_ram.R (build_dsem_inputs).
  *
  * options(0) -> 0: full rank;  1: rank-reduced GMRF;  2: conditional kriging (mvn_project);  3: gmrf_project
  * options(1) -> 0: constant conditional variance;  1: constant marginal variance;  2: diagonal
  * options(2) -> 0: use GMRF(Q);  1: use GMRF(Q + 1e-10 * I)  (stabilize_Q)
  */
 
-// Get sparse submatrix, for use in options 2 and 3
-// Modified from dsem 2.0.1 src/dsem.cpp (get_submatrix)
+// Get sparse submatrix, for use in dgmrf_conditional
+// Modified from chatGPT-5
 template<class Type>
-Eigen::SparseMatrix<Type> dsem_get_submatrix( Eigen::SparseMatrix<Type> A,
-                                              vector<int> row_idx,
-                                              vector<int> col_idx ){
+Eigen::SparseMatrix<Type> get_submatrix( Eigen::SparseMatrix<Type> A,
+                                         vector<int> row_idx,
+                                         vector<int> col_idx ){
+
+  // Build submatrix manually
   Eigen::SparseMatrix<Type> sub(row_idx.size(), col_idx.size());
+
   for (int k = 0; k < A.outerSize(); ++k) {
     for (typename Eigen::SparseMatrix<Type>::InnerIterator it(A, k); it; ++it) {
+      // find if row and col are in the selection
       auto row_pos = std::find(row_idx.data(), row_idx.data() + row_idx.size(), it.row());
       auto col_pos = std::find(col_idx.data(), col_idx.data() + col_idx.size(), it.col());
       if (row_pos != row_idx.data() + row_idx.size() && col_pos != col_idx.data() + col_idx.size()) {
@@ -47,21 +50,29 @@ Eigen::SparseMatrix<Type> dsem_get_submatrix( Eigen::SparseMatrix<Type> A,
   return sub;
 }
 
+
 template<class Type>
 void calculate_dsem(
     Type &jnll,                    // Modified by reference
+
+    // Data
+    vector<int> options,
+    // options(0) -> 0: full rank;  1: rank-reduced GMRF;  2: conditional krigging
+    // options(1) -> 0: constant conditional variance;  1: constant marginal variance
+    // options(2) -> 0: use GMRF(Q);  1: use GMRF(Q + 1e-14 \times I)
     matrix<int> RAM,
     vector<Type> RAMstart,
     vector<int> familycode_j,
     array<Type> y_tj,
-    array<Type> x_tj,
+    vector<int> obs_idx,           // Full-rank component
+    vector<int> unobs_idx,          // Reduced-rank component ... projecting from obs_idx to unobs_idx
+
+    // Parameters
     vector<Type> beta_z,
     vector<Type> lnsigma_j,
     vector<Type> mu_j,
     vector<Type> delta0_j,
-    vector<int> options,
-    vector<int> obs_idx,           // Full-rank component (options 2,3); 0-based
-    vector<int> unobs_idx          // Reduced/zero-rank component (options 2,3); 0-based
+    array<Type> x_tj
 ) {
   using namespace density; // AR1, SCALE, SEPARABLE, GMRF, MVNORM
   using namespace Eigen;
@@ -69,7 +80,7 @@ void calculate_dsem(
   // Indices
   int n_t = y_tj.rows();
   int n_j = y_tj.cols();
-  int n_k = n_t * n_j;
+  int n_k = n_t * n_j;      // data
   int k = 0;
 
   // globals
@@ -80,6 +91,7 @@ void calculate_dsem(
   sigma_j = exp( lnsigma_j );
 
   // Assemble precision
+  // SEM
   Eigen::SparseMatrix<Type> Rho_kk(n_k, n_k);
   Eigen::SparseMatrix<Type> Gamma_kk(n_k, n_k);
   Eigen::SparseMatrix<Type> I_kk( n_k, n_k );
@@ -118,6 +130,7 @@ void calculate_dsem(
     invIminusRho_kk = inverseIminusRho_kk.solve(I_kk);
 
     // Hadamard squared LU-decomposition
+    // See: https://eigen.tuxfamily.org/dox/group__QuickRefPage.html
     Eigen::SparseMatrix<Type> squared_invIminusRho_kk(n_k, n_k);
     squared_invIminusRho_kk = invIminusRho_kk.cwiseProduct(invIminusRho_kk);
     Eigen::SparseLU< Eigen::SparseMatrix<Type>, Eigen::COLAMDOrdering<int> > invsquared_invIminusRho_kk;
@@ -173,6 +186,9 @@ void calculate_dsem(
       k = j * n_t;
       delta0_k1(k,0) = delta0_j(j);
     }
+
+    // SPARSE version
+    // See C:\Users\James.Thorson\Desktop\Work files\AFSC\2023-06 -- Sparse inverse-product\Kasper example\lu.cpp
     matrix<Type> x = inverseIminusRho_kk.solve(delta0_k1);
     delta_k = x.array();
   }
@@ -181,15 +197,15 @@ void calculate_dsem(
   array<Type> xhat_tj( n_t, n_j );
   array<Type> delta_tj( n_t, n_j );
   for(int j=0; j<n_j; j++){
-  for(int t=0; t<n_t; t++){
-    k = j*n_t + t;
-    xhat_tj(t,j) = mu_j(j);
-    delta_tj(t,j) = delta_k(k);
-  }}
+    for(int t=0; t<n_t; t++){
+      k = j*n_t + t;
+      xhat_tj(t,j) = mu_j(j);
+      delta_tj(t,j) = delta_k(k);
+    }}
 
   // Apply GMRF
   array<Type> z_tj( n_t, n_j );
-  // Option-0:  use full-rank GMRF
+  // Option-1:  use full-rank GMRF
   if( options(0)==0 ){
     // Only compute Vinv_kk if Gamma_kk is full rank
     Eigen::SparseMatrix<Type> V_kk = Gamma_kk.transpose() * Gamma_kk;
@@ -205,7 +221,7 @@ void calculate_dsem(
     jnll_gmrf = GMRF(Q_kk)( x_tj - xhat_tj - delta_tj );
     z_tj = x_tj;
   }
-  // Option-1:  Rank-deficient (projection) method
+  // Option-2:  Rank-deficient (projection) method
   if( options(0)==1 ){
     jnll_gmrf = GMRF(I_kk)( x_tj );
 
@@ -222,8 +238,10 @@ void calculate_dsem(
     // Add back mean and deviation
     z_tj += xhat_tj + delta_tj;
   }
-  // Option-2:  full-rank for some variables, projects to reduced-rank for others (mvn_project)
+  // Option-3:  use variance for full-rank component and projects to reduced-rank component
+  // ALlows family = "fixed" for some variables, and rank-deficiency for other variables (e.g., determinstic composite variables)
   if( options(0)==2 ){
+    //error("not implemented yet");
     Eigen::SparseMatrix<Type> I_uu( unobs_idx.size(), unobs_idx.size() );
     I_uu.setIdentity();
 
@@ -234,7 +252,7 @@ void calculate_dsem(
 
     // Get Sigma components
     Eigen::SparseMatrix<Type> Sigma_kk = inverseIminusRho_kk.solve( tmp2_kk );
-    Eigen::SparseMatrix<Type> Sigma_oo = dsem_get_submatrix( Sigma_kk, obs_idx, obs_idx );
+    Eigen::SparseMatrix<Type> Sigma_oo = get_submatrix( Sigma_kk, obs_idx, obs_idx );
     matrix<Type> V_oo = matrix<Type>(Sigma_oo);
 
     // Extract sub-vectors for observed and unobserved components
@@ -254,10 +272,13 @@ void calculate_dsem(
     }
 
     // Project residuals
+    // mu_u = (V_uo %*% solve(V_oo) %*% x_o)[,1]
+    // Eigen::SparseLU< Eigen::SparseMatrix<Type>, Eigen::COLAMDOrdering<int> > inverseSigma_oo;
+    // Using Eigen::SimplicialLDLT instead of Eigen::SparseLU because it's symmetric
     Eigen::SimplicialLDLT< Eigen::SparseMatrix<Type> > inverseSigma_oo;
     inverseSigma_oo.compute(Sigma_oo);
     Eigen::SparseMatrix<Type> tmp_o1 = inverseSigma_oo.solve(x_o1);
-    Eigen::SparseMatrix<Type> Sigma_uo = dsem_get_submatrix( Sigma_kk, unobs_idx, obs_idx );
+    Eigen::SparseMatrix<Type> Sigma_uo = get_submatrix( Sigma_kk, unobs_idx, obs_idx );
     matrix<Type> mu_u1 = Sigma_uo * tmp_o1;
 
     // Get variance and Cholesky for remaining terms
@@ -266,29 +287,34 @@ void calculate_dsem(
       Eigen::SparseMatrix<Type> Vprime_uu( unobs_idx.size(), unobs_idx.size() );
       Eigen::SparseMatrix<Type> Sigma_ou = Sigma_uo.transpose();
       Eigen::SparseMatrix<Type> tmp_ou = inverseSigma_oo.solve(Sigma_ou);
-      Eigen::SparseMatrix<Type> Sigma_uu = dsem_get_submatrix( Sigma_kk, unobs_idx, unobs_idx );
+      Eigen::SparseMatrix<Type> Sigma_uu = get_submatrix( Sigma_kk, unobs_idx, unobs_idx );
 
-      Vprime_uu = Sigma_uu;
+      // CRASHING
+      //Vprime_uu = Sigma_uu - (Sigma_uo * tmp_ou);   // CRASHES
+      Vprime_uu = Sigma_uu;                // FINE
+      //Vprime_uu = Sigma_uo * tmp_ou;     // FINE
       Vprime_uu -= (Sigma_uo * tmp_ou);
-      Vprime_uu += 1e-12 * I_uu;
+      Vprime_uu += 1e-12 * I_uu;      // 1e-16 crashes
 
+      // CONTINUE
       Eigen::SimplicialLLT< SparseMatrix<Type> > chol(Vprime_uu);
       SparseMatrix<Type> Lprime_uu = chol.matrixL();
       xprime_u1 = Lprime_uu * x_u1;
     }
 
-    // Add projected residuals + other components into linear predictor
+    // Add projected residuals + other comonents into linear predictor
     z_tj = x_tj;
     int u = 0;
     if( unobs_idx.size() > 0 ){
       for(int j=0; j<n_j; j++){
-      for(int t=0; t<n_t; t++){
-        k = j*n_t + t;
-        if( (u < unobs_idx.size()) && (unobs_idx(u)==k) ){
-          z_tj(t,j) = mu_u1(u,0) + xhat_tj(t,j) + delta_tj(t,j) + xprime_u1(u,0);
-          u++;
-        }
-      }}
+        for(int t=0; t<n_t; t++){
+          k = j*n_t + t;
+          if( (u < unobs_idx.size()) && (unobs_idx(u)==k) ){
+            //if( (unobs_idx(u)==k) ){
+            z_tj(t,j) = mu_u1(u,0) + xhat_tj(t,j) + delta_tj(t,j) + xprime_u1(u,0);
+            u++;
+          }
+        }}
     }
 
     // Evaluate MVN density for full-rank component
@@ -296,7 +322,49 @@ void calculate_dsem(
     jnll_gmrf += GMRF(I_uu)( x_u );
   }
 
-  // Option-3:  full rank (some fixed), project to zero-rank component (gmrf_project)
+  // Option-4:  use full rank (some of which are fixed),
+  //            and project to zero-rank component (none of which are fixed and measured)
+  //
+  // Given
+  // x = (x_o, x_u)^T
+  // where
+  // x_o has V_oo that is full rank, and some are fixed ("observed")
+  // x_u has V_uu that has no rank (V_uu = 0), and none are fixed ("unobserved" and projected to)
+  //
+  // NOTE:  x_u cannot include moderator variables
+  //
+  // Define
+  // P = | P_oo, P_ou |
+  //     | P_uo, P_uu  |
+  //
+  // V = | V_oo, V_ou |
+  //     | V_uo, V_uu  |
+  //
+  // M = | I-P_oo,  P_ou   |  =  | M_oo,  M_ou |
+  //     | P_uu_oo, I-P_uu |     | M_uo, M_uu  |
+  //
+  // Calculate
+  // C = M_ou M_uu^-1
+  // so
+  // C^T = (M_uu^T)^-1 M_ou^T
+  // and
+  // Mtilda_oo = M_oo - M_ou M_uu^-1 M_uo
+  // Vtilda_oo = V_oo + C V_uu C^T + C V_uo + V_ou C^T
+  //           = V_oo + C V_uo + V_ou C^T   (because V_uu = 0)
+  // Q_oo = Mtilda_oo^T Vtilda_oo^-1 Mtilda_oo
+  //
+  // Then:
+  // x_o ~ GMRF( Q_oo )
+  // mu_u = -M_uu^-1 M_uo x_A (conditional krigging)
+  //
+  // And
+  // x_u = mu_u
+  // Because
+  // x_u ~ MVN( mu_u, Q_uu^-1 )
+  // And:
+  // Q_uu = M_uu^T V_uu^-1 M_uu
+  // so
+  // Q_uu^-1 = 0 (because V_uu = 0)
   if( options(0)==3 ){
     Eigen::SparseMatrix<Type> Vtilda_oo;
     Eigen::SparseMatrix<Type> Mtilda_oo;
@@ -310,14 +378,14 @@ void calculate_dsem(
       }
       // Extract V components
       Eigen::SparseMatrix<Type> V_kk = Gamma_kk.transpose() * Gamma_kk;
-      Eigen::SparseMatrix<Type> V_oo = dsem_get_submatrix( V_kk, obs_idx, obs_idx );
-      Eigen::SparseMatrix<Type> V_uo = dsem_get_submatrix( V_kk, unobs_idx, obs_idx );
-      Eigen::SparseMatrix<Type> V_ou = dsem_get_submatrix( V_kk, obs_idx, unobs_idx );
+      Eigen::SparseMatrix<Type> V_oo = get_submatrix( V_kk, obs_idx, obs_idx );
+      Eigen::SparseMatrix<Type> V_uo = get_submatrix( V_kk, unobs_idx, obs_idx );
+      Eigen::SparseMatrix<Type> V_ou = get_submatrix( V_kk, obs_idx, unobs_idx );
       // Extract M components
-      Eigen::SparseMatrix<Type> M_oo = dsem_get_submatrix( IminusRho_kk, obs_idx, obs_idx );
-      Eigen::SparseMatrix<Type> M_uo = dsem_get_submatrix( IminusRho_kk, unobs_idx, obs_idx );
-      Eigen::SparseMatrix<Type> M_ou = dsem_get_submatrix( IminusRho_kk, obs_idx, unobs_idx );
-      Eigen::SparseMatrix<Type> M_uu = dsem_get_submatrix( IminusRho_kk, unobs_idx, unobs_idx );
+      Eigen::SparseMatrix<Type> M_oo = get_submatrix( IminusRho_kk, obs_idx, obs_idx );
+      Eigen::SparseMatrix<Type> M_uo = get_submatrix( IminusRho_kk, unobs_idx, obs_idx );
+      Eigen::SparseMatrix<Type> M_ou = get_submatrix( IminusRho_kk, obs_idx, unobs_idx );
+      Eigen::SparseMatrix<Type> M_uu = get_submatrix( IminusRho_kk, unobs_idx, unobs_idx );
       // Compute C
       Eigen::SparseMatrix<Type> Mt_ou = M_ou.transpose();
       Eigen::SparseLU< Eigen::SparseMatrix<Type>, Eigen::COLAMDOrdering<int> > inverseMt_uu;
@@ -331,16 +399,17 @@ void calculate_dsem(
       Vtilda_oo = V_oo + Ct.transpose()*V_uo + V_ou*Ct;
       // Calculate devs
       matrix<Type> dev_u1 = -(inverseM_uu.solve(M_uo) * dev_o.matrix());
-      // Add projected residuals + other components into linear predictor
+      // Add projected residuals + other comonents into linear predictor
       int u = 0;
       for(int j=0; j<n_j; j++){
-      for(int t=0; t<n_t; t++){
-        k = j*n_t + t;
-        if( (u < unobs_idx.size()) && (unobs_idx(u)==k) ){
-          z_tj(t,j) = dev_u1(u,0) + xhat_tj(t,j) + delta_tj(t,j);
-          u++;
-        }
-      }}
+        for(int t=0; t<n_t; t++){
+          k = j*n_t + t;
+          if( (u < unobs_idx.size()) && (unobs_idx(u)==k) ){
+            //if( (unobs_idx(u)==k) ){
+            z_tj(t,j) = dev_u1(u,0) + xhat_tj(t,j) + delta_tj(t,j);
+            u++;
+          }
+        }}
     }else{
       dev_o = x_tj - xhat_tj - delta_tj;
       Vtilda_oo = Gamma_kk.transpose() * Gamma_kk;
@@ -351,51 +420,65 @@ void calculate_dsem(
       Mtilda_oo = IminusRho_kk;
     }
 
-    // Q_oo (same approach as option 0)
+    // Q_oo:  Eigen::SimplicialLDLT instead of Eigen::SparseLU because it's symmetric
+    // SEEMS UNSTABLE
+    //Eigen::SimplicialLDLT< Eigen::SparseMatrix<Type> > inverseVtilda_oo;
+    //inverseVtilda_oo.compute(Vtilda_oo);
+    //Eigen::SparseMatrix<Type> Q_oo = Mtilda_oo.transpose() * inverseVtilda_oo.solve(Mtilda_oo);
+
+    // Same way as option(0) = 0
     matrix<Type> inverseVtilda_oo = invertSparseMatrix( Vtilda_oo );
     Eigen::SparseMatrix<Type> inverseVtilda2_oo = asSparseMatrix( inverseVtilda_oo );
     Eigen::SparseMatrix<Type> Q_oo = Mtilda_oo.transpose() * inverseVtilda2_oo * Mtilda_oo;
 
+    // Get GMRF for data
     jnll_gmrf = GMRF( Q_oo )( dev_o );
   }
 
   // Distribution for data
+  // Simulates new data even for NA values, which can then be excluded during simulate.dsem
+  array<Type> devresid_tj( n_t, n_j );
   array<Type> mu_tj( n_t, n_j );
   for(int t=0; t<n_t; t++){
-  for(int j=0; j<n_j; j++){
-    // familycode = 0 :  don't include likelihood
-    if( familycode_j(j)==0 ){
-      mu_tj(t,j) = z_tj(t,j);
-    }
-    // familycode = 1 :  normal
-    if( familycode_j(j)==1 ){
-      mu_tj(t,j) = z_tj(t,j);
-      if(R_FINITE(asDouble(y_tj(t,j)))){
-        loglik_tj(t,j) = dnorm( y_tj(t,j), mu_tj(t,j), sigma_j(j), true );
+    for(int j=0; j<n_j; j++){
+      // familycode = 0 :  don't include likelihood
+      if( familycode_j(j)==0 ){
+        mu_tj(t,j) = z_tj(t,j);
+        devresid_tj(t,j) = 0;
       }
-    }
-    // familycode = 2 :  Bernoulli
-    if( familycode_j(j)==2 ){
-      mu_tj(t,j) = invlogit(z_tj(t,j));
-      if(R_FINITE(asDouble(y_tj(t,j)))){
-        loglik_tj(t,j) = dbinom( y_tj(t,j), Type(1.0), mu_tj(t,j), true );
+      // familycode = 1 :  normal
+      if( familycode_j(j)==1 ){
+        mu_tj(t,j) = z_tj(t,j);
+        if(R_FINITE(asDouble(y_tj(t,j)))){
+          loglik_tj(t,j) = dnorm( y_tj(t,j), mu_tj(t,j), sigma_j(j), true );
+        }
+        devresid_tj(t,j) = y_tj(t,j) - mu_tj(t,j);
       }
-    }
-    // familycode = 3 :  Poisson
-    if( familycode_j(j)==3 ){
-      mu_tj(t,j) = exp(z_tj(t,j));
-      if(R_FINITE(asDouble(y_tj(t,j)))){
-        loglik_tj(t,j) = dpois( y_tj(t,j), mu_tj(t,j), true );
+      // familycode = 2 :  Bernoulli
+      if( familycode_j(j)==2 ){
+        mu_tj(t,j) = invlogit(z_tj(t,j));
+        if(R_FINITE(asDouble(y_tj(t,j)))){
+          loglik_tj(t,j) = dbinom( y_tj(t,j), Type(1.0), mu_tj(t,j), true );
+        }
+        devresid_tj(t,j) = sign(y_tj(t,j) - mu_tj(t,j)) * pow(-2*(((1-y_tj(t,j))*log(1-mu_tj(t,j)) + y_tj(t,j)*log(mu_tj(t,j)))), 0.5);
       }
-    }
-    // familycode = 4 :  Gamma:   shape = 1/CV^2; scale = mean*CV^2
-    if( familycode_j(j)==4 ){
-      mu_tj(t,j) = exp(z_tj(t,j));
-      if(R_FINITE(asDouble(y_tj(t,j)))){
-        loglik_tj(t,j) = dgamma( y_tj(t,j), pow(sigma_j(j),-2), mu_tj(t,j)*pow(sigma_j(j),2), true );
+      // familycode = 3 :  Poisson
+      if( familycode_j(j)==3 ){
+        mu_tj(t,j) = exp(z_tj(t,j));
+        if(R_FINITE(asDouble(y_tj(t,j)))){
+          loglik_tj(t,j) = dpois( y_tj(t,j), mu_tj(t,j), true );
+        }
+        devresid_tj(t,j) = sign(y_tj(t,j) - mu_tj(t,j)) * pow(2*(y_tj(t,j)*log((Type(1e-10) + y_tj(t,j))/mu_tj(t,j)) - (y_tj(t,j)-mu_tj(t,j))), 0.5);
       }
-    }
-  }}
+      // familycode = 4 :  Gamma:   shape = 1/CV^2; scale = mean*CV^2
+      if( familycode_j(j)==4 ){
+        mu_tj(t,j) = exp(z_tj(t,j));
+        if(R_FINITE(asDouble(y_tj(t,j)))){
+          loglik_tj(t,j) = dgamma( y_tj(t,j), pow(sigma_j(j),-2), mu_tj(t,j)*pow(sigma_j(j),2), true );
+        }
+        devresid_tj(t,j) = sign(y_tj(t,j) - mu_tj(t,j)) * pow(2 * ( (y_tj(t,j)-mu_tj(t,j))/mu_tj(t,j) - log(y_tj(t,j)/mu_tj(t,j)) ), 0.5);
+      }
+    }}
   jnll -= loglik_tj.sum();
   jnll += jnll_gmrf;
 }

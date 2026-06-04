@@ -97,7 +97,7 @@ summary.Rceattle <- function(object, ...) {
   }
 
   model  <- object$dsem$sem_full
-  beta_z <- object$obj$env$parList()$beta_z
+  beta_z <- object$estimated_params$beta_z
 
   coefs <- data.frame(
     model,

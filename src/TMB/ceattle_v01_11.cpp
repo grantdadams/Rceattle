@@ -844,18 +844,22 @@ Type objective_function<Type>::operator() () {
   Type jnll_dsem = 0;
   calculate_dsem(
     jnll_dsem,
+
+    // Data
+    options,
     RAM,
     RAMstart,
     familycode_j,
     y_tj,
-    x_tj,
+    obs_idx,
+    unobs_idx,
+
+    // Parameters
     beta_z,
     lnsigma_j,
     mu_j,
     delta0_j,
-    options,
-    obs_idx,
-    unobs_idx
+    x_tj
   );
   for(sp = 0; sp < nspp; sp++) {
     rec_dev.row(sp) = x_tj.col(rec_dev_col(sp));  // Recruitment devs are the DSEM latent states (column from sem)
