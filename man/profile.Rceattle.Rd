@@ -85,7 +85,7 @@ stay aligned with \code{grid}.}
 \code{transform}); one column per profiled cell, named
 \code{slot_1}, \code{slot_2}, ...}
 \item{nll}{numeric vector of joint negative log-likelihoods
-(\code{quantities$jnll}); \code{NA} where the fit did not
+(\code{opt$objective}); \code{NA} where the fit did not
 converge.}
 \item{param}{the profiled parameter name (echoed).}
 \item{slots}{the slots list (echoed for downstream plotting).}

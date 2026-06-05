@@ -52,7 +52,9 @@
 
   diag  <- opt$diagnostics
   worst <- NULL
+  gg <- NULL
   if (!is.null(diag) && !is.null(diag$final_gradient)) {
+    gg <- diag$final_gradient
     i <- which.max(abs(diag$final_gradient))
     if (length(i) == 1L) {
       worst <- list(param = as.character(diag$Param[i]),
@@ -113,6 +115,7 @@
 
   list(
     par                = if (!is.null(bnd_par)) bnd_par else par_fixed,
+    gradient           = gg,
     lower              = bnd_lo,
     upper              = bnd_hi,
     sd_requested       = isTRUE(getsd),
