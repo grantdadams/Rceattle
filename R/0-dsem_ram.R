@@ -193,7 +193,7 @@ make_dsem_ram <- function( sem,
   par.names = model[, 3]
   # Exclude varying slopes
   par.names = ifelse( par.names %in% variables, NA, par.names )
-  pars = na.omit(unique(par.names))
+  pars = stats::na.omit(unique(par.names))
 
   if( length(pars)==0 ){
     par.nos = rep(0, nrow(model))
@@ -437,7 +437,7 @@ build_dsem_inputs <- function( sem,
 
   # Process estimate_mu
   if( is.null(estimate_mu) ){
-    estimate_mu = na.omit( ifelse(colSums(!is.na(tsdata))==0, NA, colnames(tsdata)) )
+    estimate_mu = stats::na.omit( ifelse(colSums(!is.na(tsdata))==0, NA, colnames(tsdata)) )
   }
 
   # Map

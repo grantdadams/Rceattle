@@ -3,7 +3,7 @@
 # (FAIL) vs pollock (OK) fixtures are the integration-level counterpart.
 
 # Minimal object carrying just what the checks read.
-make_fake_fit <- function(R_sd, estimated, max_gradient = 1e-5,
+make_fake_fit <- function(R_sd = 0.5, estimated = TRUE, max_gradient = 1e-5,
                           worst = "log_F", pdHess = TRUE) {
   structure(list(
     data_list = list(nspp = 1L, spnames = "spp1",
@@ -68,47 +68,16 @@ test_that("Hessian eigen check flags an ill-conditioned covariance", {
   fit <- make_fake_fit(R_sd = 0.5, estimated = TRUE)
   fit$sdrep <- list(cov.fixed = cov, pdHess = TRUE)
   cv <- convergence_diagnostics(fit)
-  expect_true("hessian_conditioning" %in% names(cv$checks))# fit-like objects so the suite stays fast (no TMB fits).
+  expect_true("hessian_conditioning" %in% names(cv$checks))
   expect_true(cv$checks$hessian_conditioning$severity %in% c("WARN", "FAIL"))
   expect_gt(cv$checks$hessian_conditioning$data$condition_number, 1e6)
 })
 
-
-make_fake_fit <- function(max_gradient = 1e-5, worst = "log_F", pdHess = TRUE) {
-  structure(list(
-    sdrep = NULL,
-    .conv_hindcast = list(
-      max_gradient = max_gradient,
-      worst = list(param = worst, gradient = max_gradient),
-      pdHess = pdHess)
-  ), class = "Rceattle")
-}
-
-test_that("high gradient and non-PD Hessian are flagged", {
-  fit <- make_fake_fit(max_gradient = 4e12, worst = "beta_z", pdHess = FALSE)
-  cv <- convergence_diagnostics(fit)
-  expect_s3_class(cv, "Rceattle_convergence")
-  expect_equal(cv$status, "FAIL")
-  expect_equal(cv$checks$max_gradient$severity, "FAIL")
-  expect_equal(cv$checks$pdHess$severity, "FAIL")
-  expect_match(cv$checks$max_gradient$message, "beta_z")
-})
 
 test_that("a converged fit is OK", {
   fit <- make_fake_fit(max_gradient = 1e-5, pdHess = TRUE)
   cv <- convergence_diagnostics(fit)
   expect_equal(cv$status, "OK")
-})
-
-test_that("Hessian eigen check flags an ill-conditioned covariance", {
-  cov <- diag(c(1, 1e8))
-  cov[1, 2] <- cov[2, 1] <- 1e3
-  dimnames(cov) <- list(c("a", "b"), c("a", "b"))
-  fit <- make_fake_fit()
-  fit$sdrep <- list(cov.fixed = cov, pdHess = TRUE)
-  cv <- convergence_diagnostics(fit)
-  expect_true(cv$checks$hessian_conditioning$severity %in% c("WARN", "FAIL"))
-  expect_gt(cv$checks$hessian_conditioning$data$condition_number, 1e6)
 })
 
 test_that("Hessian eigen check is OK on a well-conditioned covariance", {
@@ -251,5 +220,7 @@ test_that("print method runs and is non-erroring", {
   fit <- make_fake_fit(max_gradient = 4e12, worst = "beta_z", pdHess = FALSE)
   cv <- convergence_diagnostics(fit)
   expect_output(print(cv), "status: FAIL")
-  expect_invisible(print(cv))
+  # capture.output() swallows print()'s cat() side-effect so it doesn't leak
+  # into the test log, while expect_invisible() still checks the return value.
+  capture.output(expect_invisible(print(cv)))
 })

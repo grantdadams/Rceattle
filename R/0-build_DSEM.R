@@ -50,10 +50,13 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
   for(sp in data_list$nspp:1){
     dsem_data <- dsem_data %>%
       dplyr::mutate(recdevs = NA_real_) %>%
-      dplyr::relocate("recdevs") %>%
-      dplyr::select(-Year)
+      dplyr::relocate("recdevs")
     colnames(dsem_data)[1] <- paste0("recdevs", sp)
   }
+
+  # - Drop the Year column once all recdev columns are added
+  dsem_data <- dsem_data %>%
+    dplyr::select(-Year)
 
   # - Keep only variables referenced in the sem.
   # Mirror make_dsem_ram(): scan the sem to a model table, then parse_path each
