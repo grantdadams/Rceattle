@@ -43,6 +43,7 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
   dsem_data <- data_list$env_data %>%
     # Adding NA in missing years (match assessment begining)
     dplyr::full_join(data.frame(Year=c(data_list$styr:data_list$projyr)), by = dplyr::join_by(Year)) %>%
+    dplyr::filter(Year >= data_list$styr & Year <= data_list$projyr) %>% # FIXME: if including init devs, adjust
     dplyr::arrange(Year)
 
   # - Add column for recdev of each species
@@ -161,29 +162,11 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
   }
   fit_dsem$tmb_inputs$data$rec_dev_col <- as.integer(rec_dev_col)
 
-  # Map all variables and projection
-  if(!dsem_settings$all_vars){
-    # Turn off beta_z for sem paths with no start value. Index by beta_z
-    # PARAMETER number (not sem_full row number): equality constraints and
-    # auto-added covariances mean rows != parameters.
-    off_par <- unique(sf_par[is.na(sf_start)])
-    off_par <- off_par[!is.na(off_par) & off_par > 0]
-    if(length(off_par) > 0) mapList$beta_z[off_par] <- NA
-
-    # - Latent states x_tj
-    x_tj_off <- fit_dsem$sem_full %>%
-      dplyr::filter(is.na(.data$start))
-    x_tj_off <- unique(c(x_tj_off$first, x_tj_off$second))
-    x_tj_off <- which(colnames(dsem_data) %in% x_tj_off)
-    mapList$x_tj[,x_tj_off] <- NA
-    mapList$mu_j[x_tj_off] <- NA
-    mapList$lnsigma_j[x_tj_off] <- NA
-  }
-
+  # Turn off latent states for future
   if(!dsem_settings$estimate_projection){
     hind_years <- data_list$styr:data_list$endyr
     all_years <- data_list$styr:data_list$projyr
-    mapList$x_tj[length(hind_years+1):length(all_years),] <- NA # Turn off latent states for future
+    mapList$x_tj[length(hind_years+1):length(all_years),] <- NA
   }
 
   # Return
