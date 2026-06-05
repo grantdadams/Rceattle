@@ -43,16 +43,38 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
   dsem_data <- data_list$env_data %>%
     # Adding NA in missing years (match assessment begining)
     dplyr::full_join(data.frame(Year=c(data_list$styr:data_list$projyr)), by = dplyr::join_by(Year)) %>%
-    dplyr::arrange(Year) %>%
-    dplyr::select(-Year)
+    dplyr::arrange(Year)
 
   # - Add column for recdev of each species
   for(sp in data_list$nspp:1){
     dsem_data <- dsem_data %>%
       dplyr::mutate(recdevs = NA_real_) %>%
-      dplyr::relocate("recdevs")
+      dplyr::relocate("recdevs") %>%
+      dplyr::select(-Year)
     colnames(dsem_data)[1] <- paste0("recdevs", sp)
   }
+
+  # - Keep only variables referenced in the sem.
+  # Mirror make_dsem_ram(): scan the sem to a model table, then parse_path each
+  # path to collect the variables on both heads of every arrow.
+  sem_model <- scan(
+    text         = dsem_settings$sem,
+    what         = list(path = "", lag = 1, par = "", start = 1, dump = ""),
+    sep          = ",",
+    strip.white  = TRUE,
+    comment.char = "#",
+    fill         = TRUE,
+    quiet        = TRUE
+  )
+  sem_vars <- unique(unlist(lapply(sem_model$path, function(p){
+    pp <- parse_path(p)
+    c(pp$first, pp$second)
+  })))
+
+  # Preserve dsem_data's column order (recdevs<sp> first, then env vars)
+  dsem_data <- dsem_data %>%
+    dplyr::select(dplyr::any_of(intersect(colnames(dsem_data), sem_vars)))
+
 
   # DSEM family
   if(length(dsem_settings$family) == 1){
@@ -69,22 +91,28 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
   # src/TMB/dsem.hpp and validated byte-for-byte against dsem 2.0.1. Defaults
   # mirror dsem 2.0.1 dsem_control() plus the controls Rceattle always set
   # (use_REML = FALSE => Random = "x_tj"; gmrf_parameterization = "gmrf_project").
-  fit_dsem = build_dsem_inputs(sem = dsem_settings$sem,
-                               tsdata = stats::ts(dsem_data),
-                               family = dsem_settings$family,
-                               use_REML = FALSE,
-                               quiet = TRUE)
+  # fit_dsem = build_dsem_inputs(sem = dsem_settings$sem,
+  #                              tsdata = stats::ts(dsem_data),
+  #                              family = dsem_settings$family,
+  #                              use_REML = FALSE,
+  #                              quiet = TRUE)
+  fit_dsem <- dsem::dsem(sem = dsem_settings$sem,
+                         tsdata = stats::ts(dsem_data),
+                         family = dsem_settings$family,
+                         control = dsem::dsem_control(use_REML = FALSE,
+                                                 quiet = TRUE,
+                                                 run_model = FALSE))
 
 
   # Extract dsem map and parameter objects
   fit_dsem$tmb_inputs$map$lnsigma_j <- factor(rep(NA, length=length(fit_dsem$tmb_inputs$map$lnsigma_j))) #FIXME: Not sure why we turn this off?
-  fit_dsem$tmb_inputs$parameters$lnsigma_j <- rep(log(0.1), length=length(fit_dsem$tmb_inputs$parameters$lnsigma_j)) #FIXME: Not sure why we turn this off?
+  fit_dsem$tmb_inputs$parameters$lnsigma_j <- rep(log(0.1), length=length(fit_dsem$tmb_inputs$parameters$lnsigma_j))
 
 
   # Create mapList object
   mapList <- sapply(fit_dsem$tmb_inputs$parameters, function(x) replace(x, values = c(1:length(x))))
 
-  # - Convert dsem map-factor to map-list
+  # - Copy dsem map-factor to map-list
   for(i in 1:length(fit_dsem$tmb_inputs$map)){
     parname <- names(fit_dsem$tmb_inputs$map)[i]
     mapList[[parname]] <- replace(fit_dsem$tmb_inputs$parameters[[parname]], values = as.numeric(fit_dsem$tmb_inputs$map[[i]]))
@@ -97,11 +125,7 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
 
   # Recruitment variance.
   # Locate the beta_z index of each species' recruitment SD: the two-headed
-  # self-loop on recdevs[sp] (recdevs[sp] <-> recdevs[sp]). Do NOT assume the
-  # first nspp beta_z entries -- user sems can order parameters arbitrarily, so
-  # the recruitment SD may sit anywhere in beta_z. ceattle_v01_11.cpp consumes
-  # rec_sd_idx / rec_sd_fixed to set R_sd(sp) = |beta_z(rec_sd_idx(sp))| (or the
-  # fixed value when the SD is not an estimated parameter).
+  # self-loop on recdevs[sp] (recdevs[sp] <-> recdevs[sp]).
   sf       <- fit_dsem$sem_full
   sf_start <- suppressWarnings(as.numeric(sf$start))
   sf_par   <- suppressWarnings(as.numeric(sf$parameter))
@@ -130,10 +154,7 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
   fit_dsem$tmb_inputs$data$rec_sd_idx   <- as.integer(rec_sd_idx)
   fit_dsem$tmb_inputs$data$rec_sd_fixed <- as.numeric(rec_sd_fixed)
 
-  # x_tj column of each species' recdevs (0-based for the cpp). recdevs columns
-  # are placed first by construction above, but pass the index explicitly so the
-  # recruitment coupling (rec_dev.row(sp) = x_tj.col(rec_dev_col(sp))) never
-  # relies on column ordering.
+  # x_tj column of each species' recdevs (0-based for the cpp).
   rec_dev_col <- match(paste0("recdevs", seq_len(data_list$nspp)), colnames(dsem_data)) - 1L
   if(any(is.na(rec_dev_col))){
     stop("Could not locate a 'recdevs<sp>' column for every species in the DSEM data")
