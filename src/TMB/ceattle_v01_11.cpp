@@ -203,6 +203,7 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR(flt_sel_type);             // Vector to save fleet selectivity parameterization
   DATA_IVECTOR(flt_sel_dim);              // Vector to save fleet selectivity dimension (0 = age, 1 = length)
   DATA_IVECTOR(flt_n_sel_bins);           // Vector to save number of age/length bins for non-parametric selectivity
+  DATA_IVECTOR(flt_sel_cap_age);          // NonParametricRPM (type 13): first age (0-based) at/after which the realized selectivity is held flat (RTMB cap_old_age). < 0 -> no cap.
   DATA_IVECTOR(flt_varying_sel);          // Vector storing information on whether time-varying selectivity is estimated
   DATA_IVECTOR(flt_spp);                  // Vector to save fleet species
   DATA_IVECTOR(bin_first_selected);       // Vector to save age first selected (selectivity below this age = 0)
@@ -211,6 +212,8 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR(flt_sel_start_yr);         // Per-fleet selectivity start year (0-based from styr); selectivity penalties start the year after this. Default 0 (= styr).
   DATA_IVECTOR(flt_sel_pen_first_age);    // Per-fleet first age (0-based) for the non-parametric shape/monotonicity penalty. < 0 -> defaults to bin_first_selected. Lets the shape constraint span a narrower age-range than the (possibly non-zero) first selected age (e.g. ATS mina_ats > first selected age).
   DATA_IVECTOR(flt_sel_lead);             // 1 if this fleet's selectivity penalty should be accumulated; 0 if it mirrors an earlier fleet's selectivity (same Selectivity_index + type) so the shared penalty is counted once.
+  DATA_IVECTOR(flt_sel_pen_last_age);     // Per-fleet last age (0-based, = left age of the last adjacent pair) for the non-parametric shape penalty. < 0 -> defaults to nages-2 (whole range).
+  DATA_IVECTOR(flt_sel_shape_mode);       // Non-parametric shape-penalty mode: 0 = directional (sign of Sel_curve_pen1 -> penalize decreasing/increasing, one-sided, ADMB/AMAK); 1 = smooth (two-sided d^2 over adjacent ages, RTMB "rpm").
   DATA_IVECTOR(comp_ll_type);             // Vector to save composition log likelihood type
   DATA_IVECTOR(caal_ll_type);             // Vector to save CAAL composition log likelihood type
   DATA_IVECTOR(flt_units);                // Vector to save fleet units (1 = weight, 2 = numbers)
@@ -801,6 +804,7 @@ Type objective_function<Type>::operator() () {
     flt_sel_dim,          // Age or length based
     bin_first_selected,   // Min bin selected per fleet
     flt_n_sel_bins,       // Max estimated bins per fleet
+    flt_sel_cap_age,      // Age (0-based) at/after which realized non-par sel is capped flat (NonParametricRPM)
     sel_norm_bin1,        // Normalization control/bin 1
     sel_norm_bin2,        // Normalization control/bin 2
     emp_sel_obs,          // Empirical observations matrix
@@ -2608,24 +2612,27 @@ Type objective_function<Type>::operator() () {
         // starts after styr). For a fleet starting at styr (e.g. the fishery,
         // start_yr = 0) this is the original behaviour.
         int start_yr = flt_sel_start_yr(flt);
-        int shape_a0 = flt_sel_pen_first_age(flt);              // first age for the shape penalty
+        int shape_a0 = flt_sel_pen_first_age(flt);              // first (left) age of the shape-penalty pairs
         if(shape_a0 < 0) shape_a0 = bin_first_selected(flt);    // default: first selected age
+        int shape_a1 = flt_sel_pen_last_age(flt);               // last (left) age of the shape-penalty pairs
+        if(shape_a1 < 0) shape_a1 = nages(sp) - 2;              // default: whole range (pairs up to (nages-2, nages-1))
+        int shape_mode = flt_sel_shape_mode(flt);               // 0 = directional (sign of pen), 1 = smooth (two-sided d^2)
         for(sex = 0; sex < nsex(sp); sex++){
           for(yr = start_yr; yr < nyrs_tmp; yr++){
 
-            // (1) Monotonicity (shape) penalty over ages, all active years  [ADMB sel_like(1)/(3)].
-            //     SIGN of sel_curve_pen(flt,0) sets direction (>=0 penalize DECREASING,
-            //     <0 penalize INCREASING), |weight| the strength. Differentiable via
-            //     (|d| + d)/2 = max(d,0) and (|d| - d)/2 = max(-d,0).
-            //     Starts at bin_first_selected so the shape constraint spans the
-            //     fleet's selected age-range (ADMB j = mina..n_selages); the fishery
-            //     (bin_first = 0) is unchanged.
-            for(age = shape_a0; age < (nages(sp) - 1); age++) {
+            // (1) Shape penalty over adjacent ages [shape_a0 .. shape_a1], all active years.
+            //     mode 0 (directional, ADMB/AMAK): SIGN of sel_curve_pen(flt,0) sets
+            //       direction (>=0 penalize DECREASING, <0 penalize INCREASING), one-sided,
+            //       differentiable via (|d|+d)/2 = max(d,0) and (|d|-d)/2 = max(-d,0).
+            //     mode 1 (smooth, RTMB "rpm"): two-sided weight * d^2 smoothness.
+            for(age = shape_a0; age <= shape_a1; age++) {
               Type d = log(non_par_sel(flt, sex, age, yr)) - log(non_par_sel(flt, sex, age + 1, yr)); // > 0 if decreasing
-              if(sel_curve_pen(flt, 0) >= 0)
-                jnll_comp(4, flt) += sel_curve_pen(flt, 0)  * square( (CppAD::abs(d) + d)/2.0 );  // penalize decreasing
+              if(shape_mode == 1)
+                jnll_comp(4, flt) += sel_curve_pen(flt, 0) * d * d;                                 // two-sided smoothness
+              else if(sel_curve_pen(flt, 0) >= 0)
+                jnll_comp(4, flt) += sel_curve_pen(flt, 0)  * square( (CppAD::abs(d) + d)/2.0 );    // penalize decreasing
               else
-                jnll_comp(4, flt) += -sel_curve_pen(flt, 0) * square( (CppAD::abs(d) - d)/2.0 );  // penalize increasing
+                jnll_comp(4, flt) += -sel_curve_pen(flt, 0) * square( (CppAD::abs(d) - d)/2.0 );    // penalize increasing
             }
 
             // (2) Curvature (2nd-difference) penalty  [ADMB term 2/3]. Includes the
@@ -2648,11 +2655,12 @@ Type objective_function<Type>::operator() () {
             }
           }
 
-          // (4) Dev-magnitude penalty: norm2 of the coefficient increments  [ADMB term 1]
+          // (4) Dev-magnitude penalty: norm2 of the RAW per-year increments
+          //     (sel_coff_dev IS the random-walk increment for NonParametricRPM;
+          //     = RTMB norm2(sel_devs)). Increments are 0 at non-change years.
           for(int bin = 0; bin < flt_n_sel_bins(flt); bin++){
-            for(yr = start_yr + 1; yr < nyrs_tmp; yr++){
-              Type inc = sel_coff_dev(flt, sex, bin, yr) - sel_coff_dev(flt, sex, bin, yr - 1);
-              jnll_comp(5, flt) += sel_curve_pen(flt, 2) * inc * inc;
+            for(yr = start_yr; yr < nyrs_tmp; yr++){
+              jnll_comp(5, flt) += sel_curve_pen(flt, 2) * sel_coff_dev(flt, sex, bin, yr) * sel_coff_dev(flt, sex, bin, yr);
             }
           }
         }

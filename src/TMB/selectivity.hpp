@@ -272,6 +272,7 @@ void calculate_selectivity(
     const vector<int>&  flt_sel_dim,
     const vector<int>&  bin_first_selected,
     const vector<int>&  flt_n_sel_bins,
+    const vector<int>&  flt_sel_cap_age,
     const vector<int>&  sel_norm_bin1,
     const vector<int>&  sel_norm_bin2,
     matrix<Type> emp_sel_obs,
@@ -325,6 +326,10 @@ void calculate_selectivity(
     int n_sel_bins = flt_n_sel_bins(flt);
     Type binwidth = is_length_based ? (lengths(sp, 1) - lengths(sp, 0)) : Type(1.0);
 
+    // Uncapped, per-year-centered log-selectivity, carried across years for the
+    // NonParametricRPM (type 9) random walk (the realized curve is then capped).
+    array<Type> np_unc(nsex(sp), nbins, nyrs_hind); np_unc.setZero();
+
     for (int yr = 0; yr < nyrs_hind; yr++) {
       for (int sex = 0; sex < nsex(sp); sex++) {
 
@@ -341,7 +346,38 @@ void calculate_selectivity(
           }
           break;
 
-        case 9: // Non-parametric with the ADMB AMAK ("pm") penalty - identical construction to type 2
+        case 9: { // NonParametricRPM (RTMB "rpm"): random walk on the per-year-
+                  // renormalized log-selectivity, then a flat age-cap.
+          // sel_coff = base coffs (year styr, ages 0..n_sel_bins-1); sel_coff_dev =
+          // RAW per-year increments placed at the year they apply. Ages >= n_sel_bins
+          // plateau at the last coff. The UNCAPPED centered curve (np_unc) is carried
+          // forward for the walk; the realized curve is that capped flat at
+          // flt_sel_cap_age and re-centered (mean(exp)=1).
+          for(int bin = 0; bin < nbins; bin++){
+            Type prev = (yr == 0) ? sel_coff(flt, sex, (bin < n_sel_bins ? bin : n_sel_bins - 1))
+                                  : np_unc(sex, (bin < n_sel_bins ? bin : n_sel_bins - 1), yr - 1);
+            Type inc  = (bin < n_sel_bins) ? sel_coff_dev(flt, sex, bin, yr) : Type(0.0);
+            np_unc(sex, bin, yr) = prev + inc;
+          }
+          for(int bin = n_sel_bins; bin < nbins; bin++) np_unc(sex, bin, yr) = np_unc(sex, n_sel_bins - 1, yr);
+          { Type m = 0; for(int bin = 0; bin < nbins; bin++) m += exp(np_unc(sex, bin, yr));
+            m = log(m / nbins);
+            for(int bin = 0; bin < nbins; bin++) np_unc(sex, bin, yr) -= m; }
+          { vector<Type> cl(nbins);
+            for(int bin = 0; bin < nbins; bin++) cl(bin) = np_unc(sex, bin, yr);
+            int cap = flt_sel_cap_age(flt);
+            if(cap >= 0) for(int bin = cap + 1; bin < nbins; bin++) cl(bin) = cl(cap);
+            Type m2 = 0; for(int bin = 0; bin < nbins; bin++) m2 += exp(cl(bin));
+            m2 = log(m2 / nbins);
+            for(int bin = 0; bin < nbins; bin++){
+              non_par_sel(flt, sex, bin, yr) = exp(cl(bin) - m2);
+              if (is_length_based) sel_at_length(flt, sex, bin, yr) = non_par_sel(flt, sex, bin, yr);
+              else                 sel_at_age(flt, sex, bin, yr) = non_par_sel(flt, sex, bin, yr);
+            }
+          }
+          break;
+        }
+
         case 2: // Non-parametric (Ianelli style)
           for(int bin = 0; bin < n_sel_bins; bin++) {
             non_par_sel(flt, sex, bin, yr) = sel_coff(flt, sex, bin) + sel_coff_dev(flt, sex, bin, yr);

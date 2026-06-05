@@ -211,6 +211,9 @@ switch_check <- function(data_list){
   data_list$fleet_control$Sel_curve_pen3 <- set_default(data_list$fleet_control$Sel_curve_pen3, 0, if(.np_hake) "'Sel_curve_pen3' not specified in 'fleet_control', assuming '0'")
   data_list$fleet_control$Sel_start_year <- set_default(data_list$fleet_control$Sel_start_year, NA)  # per-fleet selectivity penalty start year (NA -> styr); used by LogisticPM
   data_list$fleet_control$Sel_pen_first_age <- set_default(data_list$fleet_control$Sel_pen_first_age, NA)  # first age for the non-parametric shape penalty (NA -> bin_first_selected)
+  data_list$fleet_control$Sel_pen_last_age <- set_default(data_list$fleet_control$Sel_pen_last_age, NA)  # last (left) age of the shape-penalty pairs (NA -> nages-2)
+  data_list$fleet_control$Sel_shape_mode <- set_default(data_list$fleet_control$Sel_shape_mode, NA)  # shape-penalty mode: "Directional" (default) or "Smooth" (two-sided d^2, RTMB)
+  data_list$fleet_control$Sel_cap_age <- set_default(data_list$fleet_control$Sel_cap_age, NA)  # NonParametricRPM age cap (NA -> no cap)
   data_list$fleet_control$Selectivity_dimension <- set_default(data_list$fleet_control$Selectivity_dimension, "Age", "'Selectivity_dimension' not specified in 'fleet_control', assuming 'Age'")
   data_list$fleet_control$Comp_loglike <- set_default(data_list$fleet_control$Comp_loglike, "MultinomialAFSC", "'Comp_loglike' not specified in 'fleet_control', assuming 'MultinomialAFSC'")
   data_list$fleet_control$CAAL_loglike <- set_default(data_list$fleet_control$CAAL_loglike, "Multinomial", "'CAAL_loglike' not specified in 'fleet_control', assuming 'Multinomial'")

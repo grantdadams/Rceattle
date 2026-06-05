@@ -116,6 +116,30 @@ rearrange_dat <- function(data_list){
                   Sel_pen_first_age = ifelse(is.na(.data$Sel_pen_first_age), -999, .data$Sel_pen_first_age)) %>%
     dplyr::pull(.data$Sel_pen_first_age) %>% as.integer()
 
+  # - 9d) Last (left) age (0-based) of the shape-penalty adjacent pairs. NA -> -999
+  #       (cpp falls back to nages-2). With 9c, bounds the shape penalty to a sub-
+  #       range (e.g. RTMB "rpm" fishery smoothness over ages 6-11, ATS 5-7).
+  data_list$flt_sel_pen_last_age <- data_list$fleet_control %>%
+    dplyr::mutate(Sel_pen_last_age = .data$Sel_pen_last_age - data_list$minage[Species],
+                  Sel_pen_last_age = ifelse(is.na(.data$Sel_pen_last_age), -999, .data$Sel_pen_last_age)) %>%
+    dplyr::pull(.data$Sel_pen_last_age) %>% as.integer()
+
+  # - 9e) Non-parametric shape-penalty mode: "Directional" (0; sign of Sel_curve_pen1
+  #       -> one-sided decreasing/increasing, ADMB/AMAK) or "Smooth" (1; two-sided
+  #       d^2 over adjacent ages, RTMB "rpm"). NA/other -> 0.
+  data_list$flt_sel_shape_mode <- data_list$fleet_control %>%
+    dplyr::mutate(Sel_shape_mode = dplyr::case_when(
+      .data$Sel_shape_mode %in% c(1, "Smooth", "smooth") ~ 1L,
+      .default = 0L)) %>%
+    dplyr::pull(.data$Sel_shape_mode) %>% as.integer()
+
+  # - 9f) NonParametricRPM (type 9) age cap (0-based): the realized selectivity is
+  #       held flat at/after this age (RTMB cap_old_age). NA -> -999 (no cap).
+  data_list$flt_sel_cap_age <- data_list$fleet_control %>%
+    dplyr::mutate(Sel_cap_age = .data$Sel_cap_age - data_list$minage[Species],
+                  Sel_cap_age = ifelse(is.na(.data$Sel_cap_age), -999, .data$Sel_cap_age)) %>%
+    dplyr::pull(.data$Sel_cap_age) %>% as.integer()
+
   # - 10) Index indicating whether to do dirichlet multinomial or a multinomial
   data_list$comp_ll_type <- data_list$fleet_control %>%
     dplyr::pull(.data$Comp_loglike) %>% as.integer()
