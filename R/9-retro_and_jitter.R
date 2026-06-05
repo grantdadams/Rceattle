@@ -676,7 +676,7 @@ jitter <- function(Rceattle = NULL, njitter = 50, sd = 0.2, phase = FALSE, seed 
   mod_list <- mod_list[!sapply(mod_list, is.null)]
 
   # Plot ----
-  jnll <- sapply(mod_list, function(x) x$quantities$jnll)
+  jnll <- sapply(mod_list, function(x) x$opt$objective)
   # plot(x = 1:length(jnll), y = jnll)
   if (length(mod_list) > 0) {
     names(mod_list) <- paste0("Jitter_", seq_along(mod_list))
@@ -852,7 +852,7 @@ self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, c
   mod_list <- mod_list[!sapply(mod_list, is.null)]
 
   # Plot ----
-  jnll <- sapply(mod_list, function(x) x$quantities$jnll)
+  jnll <- sapply(mod_list, function(x) x$opt$objective)
   # plot(x = 1:length(jnll), y = jnll)
   if (length(mod_list) > 0) {
     names(mod_list) <- paste0("Sim_", seq_along(mod_list))
@@ -939,7 +939,7 @@ self_test <- function(Rceattle = NULL, nsim = 50, simulate = TRUE, seed = 123, c
 #'       \code{transform}); one column per profiled cell, named
 #'       \code{slot_1}, \code{slot_2}, ...}
 #'     \item{nll}{numeric vector of joint negative log-likelihoods
-#'       (\code{quantities$jnll}); \code{NA} where the fit did not
+#'       (\code{opt$objective}); \code{NA} where the fit did not
 #'       converge.}
 #'     \item{param}{the profiled parameter name (echoed).}
 #'     \item{slots}{the slots list (echoed for downstream plotting).}
@@ -1200,7 +1200,7 @@ profile.Rceattle <- function(fitted = NULL,
                                   trans_fun(grid[i, k]))
     }
 
-    # Build the default map, then force profiled cells to NA
+    # Force profiled cells to NA
     for (k in seq_along(slots)) {
       map_obj$mapList[[param]] <- assign_at(map_obj$mapList[[param]],
                                             slots[[k]],

@@ -6,6 +6,18 @@
 #if defined(__clang__)
 # pragma clang diagnostic pop
 #endif
+
+// Suppress the spurious GCC/Eigen -Warray-bounds false positives emitted when
+// Eigen's vectorized reductions inline TMB's multi-dimensional array indexing
+// (e.g. the 5-D suitability(...) access in predation.hpp). The index math is
+// correct -- this is a well-known GCC/Eigen false positive, not a bug here. We
+// do this as a source pragma rather than a -Wno-array-bounds compiler flag so
+// CRAN's "checking compilation flags used" stays clean; real diagnostics (e.g.
+// -Wmaybe-uninitialized) still surface.
+#if defined(__GNUC__)
+# pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
+
 #include "helper_functions.hpp"
 #include "growth.hpp"
 #include "selectivity.hpp"

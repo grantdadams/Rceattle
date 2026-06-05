@@ -723,6 +723,7 @@ fit_mod <-
       # Capture the hindcast optimizer convergence snapshot now, before any
       # projection re-optimization overwrites `opt`. Consumed by
       # convergence_diagnostics() (see R/0-convergence.R).
+      # projection re-optimization overwrites `opt` (see R/0-convergence.R).
       if (estimateMode %in% c(0, 1)) {
         mod_objects$.conv_hindcast <- .capture_opt_convergence(
           opt, obj, bounds = bounds, mapFactor = map$mapFactor,

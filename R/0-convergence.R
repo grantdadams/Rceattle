@@ -53,6 +53,7 @@
 
   diag  <- opt$diagnostics
   worst <- NULL
+  gg <- NULL
   if (!is.null(diag) && !is.null(diag$final_gradient)) {
     gg <- diag$final_gradient
     i <- which.max(abs(diag$final_gradient))
@@ -164,6 +165,7 @@
   out
 }
 
+
 # T3.2 -- variance collapse: an *estimated* recruitment SD pinned at the zero
 # boundary. Reuses .rceattle_rec_sd() (per-species R_sd + Estimated flag) so we
 # never flag a legitimately fixed small SD. This is the headline diagnostic.
@@ -225,12 +227,11 @@
   if (is.null(nm)) nm <- paste0("p", seq_along(v))
   ord  <- order(-v)
   load <- data.frame(param = nm[ord], loading = round(v[ord], 3))
-  top  <- utils::head(load, 5L)
+  top  <- utils::head(data.frame(param = nm[ord], loading = round(v[ord], 3)), 5L)
   combo <- paste(unique(top$param[top$loading > 0.1]), collapse = " + ")
 
   sev <- if (kappa > 1e10) "FAIL" else if (kappa > 1e6) "WARN" else "OK"
-  msg <- sprintf(
-    "Hessian condition number = %.2g.%s", kappa,
+  msg <- sprintf("Hessian condition number = %.2g.%s", kappa,
     if (sev != "OK")
       sprintf(" Least-identified direction loads on: %s.", combo) else "")
   out$hessian_conditioning <- .conv_record(
@@ -238,6 +239,7 @@
     list(condition_number = kappa, loadings = top))
   out
 }
+
 
 # T3.x -- sdreport failed: an sdreport was requested but did not return (Hessian
 # not invertible). A strong non-convergence signal even when no gradient is
@@ -251,6 +253,7 @@
     "sdreport_failed", "fit", "FAIL",
     "sdreport failed (Hessian not invertible); standard errors unavailable."))
 }
+
 
 # T3.3 -- parameters at a configured bound. Optimization is unbounded in
 # fit_mod(), so a parameter at/beyond its build_bounds() range means the MLE hit
@@ -277,6 +280,7 @@
     tab))
 }
 
+
 # T2.1 -- phasing log: phases that ended with a high gradient localize which
 # parameter block breaks. Reads the per-phase log captured from TMBphase().
 .check_phasing <- function(object) {
@@ -294,6 +298,7 @@
                   collapse = ", ")),
     df))
 }
+
 
 # T3.6 -- surface TMBhelper::check_estimability (run by fit_mod() and stored as
 # object$identified when sdreport fails). Binary per-parameter verdict; pairs
@@ -333,9 +338,8 @@
 #' \code{fit_mod()} runs this automatically and attaches the result as
 #' \code{fit$convergence}; call \code{convergence_diagnostics()} directly to
 #' re-run it on any fit. Checks cover the optimizer gradient, Hessian
-#' positive-definiteness and conditioning, recruitment-SD collapse, parameters
-#' on bounds, phasing, and parameter estimability; plus the pre-fit spec checks
-#' from [check_dsem_spec()] when present.
+#' positive-definiteness and conditioning, parameters on bounds, phasing, and
+#' parameter estimability.
 #'
 #' @param object An object of class \code{"Rceattle"} returned by [fit_mod()].
 #' @param ... Currently unused.
@@ -353,6 +357,9 @@ convergence_diagnostics <- function(object, ...) {
     .check_optimizer(object),
     .check_sdreport_failed(object),
     .check_variance_collapse(object),
+    .check_phasing(object),
+    .check_optimizer(object),
+    .check_sdreport_failed(object),
     .check_hessian_eigen(object),
     .check_bounds(object),
     .check_estimability_record(object)

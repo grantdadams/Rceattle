@@ -68,14 +68,6 @@ bool isFinite(Type x){
 template <class Type> Type square(Type x){return x*x;}
 
 
-// Function for mean of a vector
-template <class Type>
-Type mean(const vector<Type> &x)
-{
-  Type mean = x.sum()/x.size();
-  return mean;
-}
-
 // Function to calculate the first difference
 template <class Type>
 vector<Type> first_difference(const vector<Type> &x)
@@ -83,8 +75,8 @@ vector<Type> first_difference(const vector<Type> &x)
   int length = x.size() - 1;
 
   if(length <= 0){
-    std::cerr << "Error -- vector size too small in first_difference(const dvector&)" << std::endl;
-    return(0);
+    std::cerr << "Error -- vector size too small in first_difference()" << std::endl;
+    return vector<Type>(0); // explicit empty vector (was an ambiguous `return(0)`)
   }
 
   vector<Type> tmp(length);
