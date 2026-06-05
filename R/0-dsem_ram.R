@@ -309,8 +309,9 @@ make_dsem_ram <- function( sem,
 #'
 #' Defaults mirror dsem 2.0.1 \code{dsem_control()} together with the controls
 #' Rceattle always set (\code{use_REML = FALSE}): gmrf_parameterization
-#' \code{"gmrf_project"} (options[1]==3), conditional variance (options[2]==0),
-#' \code{stabilize_Q = FALSE} (options[3]==0), and \code{Random = "x_tj"}.
+#' \code{"gmrf_project"} (\code{options[1]==3}), conditional variance
+#' (\code{options[2]==0}), \code{stabilize_Q = FALSE} (\code{options[3]==0}),
+#' and \code{Random = "x_tj"}.
 #'
 #' @param sem SEM specification text
 #' @param tsdata a \code{ts} object (time x variable) of DSEM data

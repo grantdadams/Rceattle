@@ -6,7 +6,7 @@
 \usage{
 build_DSEM(
   sem = NULL,
-  family = "normal",
+  family = "fixed",
   all_vars = FALSE,
   estimate_projection = FALSE
 )
@@ -14,7 +14,7 @@ build_DSEM(
 \arguments{
 \item{sem}{Specification for time-series structural equation model structure including lagged or simultaneous effects. See Details section in \code{dsem::make_dsem_ram} for more description. All variables must be included in and named following variables in \code{env_data}. The default is assumes IID recruitment deviates. NOTE: must include \code{recdevs[spp]} for each species \code{1:nspp} (recdevs1 and recdevs2 for a 2 species model)! If no start value is provided, those model terms are not estimated.}
 
-\item{family}{Character or character-vector listing the distribution used for each column of \code{env_data} used in the \code{sem}, where each element must be fixed (for no measurement error/measured exactly), normal for normal measurement error using an identity link, gamma for a gamma measurement error using a fixed CV and log-link, bernoulli for a Bernoulli measurement error using a logit-link, or poisson for a Poisson measurement error using a log-link. Default is family family="normal".}
+\item{family}{Character or character-vector listing the distribution used for each column of \code{env_data} used in the \code{sem}, where each element must be fixed (default; for no measurement error/measured exactly), normal for normal measurement error using an identity link, gamma for a gamma measurement error using a fixed CV and log-link, bernoulli for a Bernoulli measurement error using a logit-link, or poisson for a Poisson measurement error using a log-link. Default is family family="normal".}
 
 \item{all_vars}{include all variables from env_data in DSEM model likelihood (estimate observation error) to allow model comparison across different SEM. Default = FALSE.}
 
