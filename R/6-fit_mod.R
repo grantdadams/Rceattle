@@ -394,8 +394,10 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     if (is.character(inits) | is.null(inits)) {
       start_par <- suppressWarnings(Rceattle::build_params(data_list = data_list))
+      inits_supplied <- FALSE
     } else{
       start_par <- inits
+      inits_supplied <- TRUE
 
       # Set F for years with 0 catch to very low number
       zero_catch <- data_list$catch_data |>
@@ -409,6 +411,25 @@ fit_mod <-
 
       # Update proj F prop
       start_par$proj_F_prop <- data_list$fleet_control$proj_F_prop
+    }
+
+    # Reconcile supplied inits against the canonical parameter set. A prior fit's
+    # `estimated_params` (or a hand-built inits) can carry names that are no
+    # longer model parameters -- e.g. a stale `rec_dev` left over from before
+    # recruitment deviations moved into the DSEM latent state (`x_tj`). Such
+    # extras would otherwise survive into the auto-built map (when no `map` is
+    # supplied) and break TMB::MakeADFun with "Names in map must correspond to
+    # parameter names", because TMB drops template-absent parameters but the map
+    # retains them. Keep only names known to build_params() or the DSEM set.
+    if (inits_supplied) {
+      known_par <- c(names(suppressWarnings(Rceattle::build_params(data_list = data_list))),
+                     dsem_param_names(mod_objects$dsem))
+      stale_par <- setdiff(names(start_par), known_par)
+      if (length(stale_par) > 0L) {
+        warning("Dropping unrecognized parameter(s) from `inits`: ",
+                paste(stale_par, collapse = ", "))
+        start_par[stale_par] <- NULL
+      }
     }
 
     # Merge DSEM parameters (beta_z, lnsigma_j, mu_j, delta0_j, x_tj). Adds any
@@ -876,6 +897,7 @@ fit_mod <-
     #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
     mod_objects$estimated_params <- last_par
     mod_objects$obj              <- obj
+    mod_objects$bounds           <- bounds
 
     quantities <- obj$report(obj$env$last.par.best)
 
