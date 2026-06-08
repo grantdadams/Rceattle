@@ -12,7 +12,7 @@
 #' @export
 #'
 build_DSEM <- function(sem = NULL,
-                       family = "fixed",
+                       family = "normal",
                        all_vars = FALSE,
                        estimate_projection = FALSE
 ){
@@ -107,6 +107,8 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
                                                  quiet = TRUE,
                                                  run_model = FALSE))
 
+  fit_dsem$tmb_inputs$map$lnsigma_j <- factor(rep(NA, length=length(fit_dsem$tmb_inputs$map$lnsigma_j))) #FIXME: Not sure why we turn this off?
+  fit_dsem$tmb_inputs$parameters$lnsigma_j <- rep(log(0.1), length=length(fit_dsem$tmb_inputs$parameters$lnsigma_j))
 
   # Extract dsem map and parameter objects
   # - Create mapList object
