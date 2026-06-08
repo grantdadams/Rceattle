@@ -172,6 +172,7 @@ reference:
 - title: "Diagnostics and simulation"
   desc: Retrospective analysis, jitter testing, and simulation.
   contents:
+  - convergence_diagnostics
   - retrospective
   - jitter
   - profile.Rceattle
