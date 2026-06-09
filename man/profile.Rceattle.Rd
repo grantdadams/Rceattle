@@ -20,20 +20,22 @@
 \item{param}{Name of the parameter to profile. Two ways to specify it:
 \describe{
 \item{Raw parameter slot}{any name in
-\code{Rceattle$estimated_params}; tested for \code{"R_log_sd"},
+\code{Rceattle$estimated_params}; tested for \code{"beta_z"},
 \code{"rec_pars"}, and \code{"log_M1"}. \code{slots} must index
 into the full array and \code{transform} controls the scale.}
-\item{Natural-scale alias}{convenience shortcut for the three
-documented parameters. Aliases imply \code{transform = "log"}
-(values are taken in natural units and log'd before being
-substituted) and, for \code{rec_pars}, fill in the column from
-the alias name so \code{slots} only needs the species index:
+\item{Natural-scale alias}{convenience shortcut for the documented
+parameters. Each alias implies its own \code{transform} (values are
+taken in natural units) and, for \code{rec_pars}, fills in the column
+from the alias name so \code{slots} only needs the species index. The
+recruitment-SD aliases resolve to the DSEM \code{beta_z} self-loop
+coefficient (remapped via \code{rec_sd_idx}):
 \itemize{
-\item \code{"sigmaR"}, \code{"R_sd"} -> \code{R_log_sd}
-\item \code{"M1"} -> \code{log_M1}
-\item \code{"R0"} -> \code{rec_pars[, 1]}
-\item \code{"alpha"} -> \code{rec_pars[, 2]}
-\item \code{"beta"} -> \code{rec_pars[, 3]}
+\item \code{"sigmaR"}, \code{"R_sd"} -> \code{beta_z} (natural scale, \code{transform = "identity"})
+\item \code{"R_log_sd"} -> \code{beta_z} (back-compat, log scale, \code{transform = "exp"})
+\item \code{"M1"} -> \code{log_M1} (\code{transform = "log"})
+\item \code{"R0"} -> \code{rec_pars[, 1]} (\code{transform = "log"})
+\item \code{"alpha"} -> \code{rec_pars[, 2]} (\code{transform = "log"})
+\item \code{"beta"} -> \code{rec_pars[, 3]} (\code{transform = "log"})
 }
 If \code{transform} is supplied with an alias it is ignored
 (with a warning).}
@@ -42,7 +44,7 @@ If \code{transform} is supplied with an alias it is ignored
 \item{slots}{A list whose entries are integer index vectors, one entry
 per cell to fix. Each entry's length must equal the number of
 dimensions of the resolved parameter -- 1 for vectors
-(\code{R_log_sd}), 2 for matrices (\code{rec_pars}), 3 for 3-D arrays
+(\code{beta_z}), 2 for matrices (\code{rec_pars}), 3 for 3-D arrays
 (\code{log_M1}). When using the \code{"R0"}/\code{"alpha"}/\code{"beta"}
 aliases, supply only the species index (length 1); the column is
 filled in from the alias. E.g. \code{list(c(1, 2, 1))} fixes
@@ -51,7 +53,7 @@ sex cells for a males-vs-females cross-profile of species 1;
 \code{list(1, 2)} with \code{param = "sigmaR"} cross-profiles species
 1 and 2. If omitted, defaults to a single species-1 slot shaped to
 match the resolved parameter (e.g. \code{list(1)} for
-\code{R_log_sd}, \code{list(c(1, 1, 1))} for \code{log_M1},
+\code{beta_z}, \code{list(c(1, 1, 1))} for \code{log_M1},
 \code{list(1)} for the \code{rec_pars} aliases) and emits a warning;
 pass \code{slots} explicitly to silence the warning. Defaulting
 requires \code{length(values) == 1L} (otherwise the user must
@@ -94,7 +96,7 @@ converge.}
 \description{
 Re-fits an Rceattle model while holding selected cells of a
 parameter fixed at user-specified values. Supports profiling a single
-cell (e.g. \code{R_log_sd[species = 1]}) and arbitrary N-dimensional
+cell (e.g. \code{beta_z[1]}, the recruitment-SD coefficient) and arbitrary N-dimensional
 cross-profiles over multiple cells -- e.g. \code{log_M1[1, 1, 1]} and
 \code{log_M1[1, 2, 1]} jointly, to profile residual M for males against
 females. For each grid point the targeted cells are fixed in the TMB
@@ -112,16 +114,17 @@ ss_run <- fit_mod(data_list = BS2017SS,
 
 # 1-D profile of sigmaR for species 1 (alias form -- natural scale)
 p1 <- profile(ss_run,
-    param  = "sigmaR",
-    slots  = list(1),
-    values = list(seq(0.1, 1.5, by = 0.1)))
+    param     = "sigmaR",
+    slots     = list(1),
+    values    = list(seq(0.1, 1.5, by = 0.1)),
+    transform = "identity")
 
-# Equivalent raw form (log scale -- user does the transform)
+# Equivalent via the R_log_sd back-compat alias (log scale)
 p1_raw <- profile(ss_run,
     param     = "R_log_sd",
     slots     = list(1),
     values    = list(log(seq(0.1, 1.5, by = 0.1))),
-    transform = "identity")
+    transform = "exp")
 
 # 2-D cross-profile of M1 across species 1 and 2 (sex 1, age 1).
 # BS2017SS is single-sex; with a multi-sex model the same form

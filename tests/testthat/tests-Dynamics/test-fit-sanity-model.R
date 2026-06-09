@@ -81,7 +81,6 @@ testthat::test_that("Index, biomass, and catch = 0 match expected", {
 
   # * Fix params ----
   inits$rec_pars[,1] <- R0
-  inits$R_log_sd <- 0
   inits$log_F[] <- -999 # No fishing
   inits$index_log_q[] <- 0 # Set q to 1
 

@@ -6,7 +6,7 @@
 \usage{
 build_DSEM(
   sem = NULL,
-  family = "fixed",
+  family = "normal",
   all_vars = FALSE,
   estimate_projection = FALSE
 )

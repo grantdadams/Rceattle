@@ -39,21 +39,31 @@ The recruitment DSEM integration was re-vendored cleanly and updated to track
 runtime `dsem::dsem(run_model = FALSE)` call that harvested undocumented
 internals).
 
-* **Owned sem -> TMB-inputs pipeline.** `make_dsem_ram()`, `parse_path()`,
-  `classify_variables()`, and a new `build_dsem_inputs()` were ported into
-  `R/0-dsem_ram.R` and now build the RAM, data, parameters, and map directly.
-  `build_dsem_objects()` no longer calls `dsem`. The port is validated
-  byte-for-byte against `dsem` 2.0.1.
+* **Owned sem -> TMB-inputs pipeline (staged).** `make_dsem_ram()`,
+  `parse_path()`, `classify_variables()`, and a new `build_dsem_inputs()` were
+  ported into `R/0-dsem_ram.R` to build the RAM, data, parameters, and map
+  directly, validated byte-for-byte against `dsem` 2.0.1. NOTE: this vendored
+  path is not yet switched on -- `build_dsem_objects()` currently still calls
+  `dsem::dsem(run_model = FALSE)` at runtime; the cut-over to the vendored
+  pipeline is staged for a future release.
 * **Vendored C++ updated to dsem 2.0.1** (`src/TMB/dsem.hpp`): all four GMRF
   parameterizations, `stabilize_Q`, the 6-column RAM with `-1` NA sentinel, and
   the `obs_idx`/`unobs_idx` projection plumbing. The default parameterization is
   now `gmrf_project` (dsem 2.0.x default).
-* **`dsem` moved from Imports to Suggests** (used only for cross-validation
-  tests); `Matrix` added to Imports.
-* **Result change:** DSEM model fits adopt the dsem 2.0.x parameterization.
-  In practice recruitment results are effectively unchanged for full-rank
-  recdevs (the estimated `beta_z` reproduce prior values), but objective values
-  may differ slightly. Non-DSEM fits are unaffected.
+* **`dsem` moved from Imports to Suggests**, but is still **required at runtime
+  for DSEM models** (the `dsem::dsem()` call above). `build_dsem_objects()`
+  enforces **exactly `dsem` 2.0.1** -- the version `src/TMB/dsem.hpp` is matched
+  to -- and errors with install instructions otherwise, since other `dsem`
+  versions emit an incompatible `tmb_inputs$data` layout (e.g. a missing
+  `obs_idx`). `Matrix` added to Imports.
+* **Result change:** DSEM model fits adopt the dsem 2.0.x `gmrf_project`
+  parameterization. Recruitment estimates are effectively unchanged for
+  full-rank recdevs (the estimated `beta_z` reproduce prior values), but
+  **objective values change** because the recruitment marginal density now
+  carries the full `gmrf_project` normalizing constants (e.g. the GOApollock
+  DSEM example moves from ~1138 to ~617). The DSEM term was verified to match
+  standalone `dsem` 2.0.1 (`obj$env$f` at the fitted parameters) to ~1e-14.
+  Non-DSEM fits are unaffected.
 * Fixed a phasing map bug (`sel_dev_ln_sd`/`index_q_dev_ln_sd`/`M1_dev_ln_sd` ->
   `_log_sd`) that broke `phase = TRUE` DSEM fits after the `ln -> log` rename.
 * Fixed DSEM recruitment-coupling indexing in the TMB model. Recruitment SD
@@ -69,6 +79,12 @@ internals).
   built with `build_params()`): any missing DSEM parameters (`beta_z`,
   `lnsigma_j`, `mu_j`, `delta0_j`, `x_tj`) are filled from the built DSEM
   objects. Supplying a prior fit's `estimated_params` is unaffected.
+* `profile()` recruitment-SD aliases now resolve to the DSEM `beta_z`
+  coefficient: `"sigmaR"`/`"R_sd"` map to `beta_z` on the natural scale
+  (`transform = "identity"`, since `R_sd = |beta_z(rec_sd_idx)|`). `"R_log_sd"`
+  is retained as a back-compat alias for the same element on the log scale
+  (`transform = "exp"`), so existing `profile(param = "R_log_sd")` calls keep
+  working even though `R_log_sd` is no longer a stored parameter.
 
 # Rceattle 4.4.2
 

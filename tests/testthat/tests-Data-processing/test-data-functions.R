@@ -23,7 +23,6 @@ testthat::test_that("Test combine single-species data", {
   inits <- ss_run$estimated_params
 
   inits$rec_pars[,1] <- R0
-  inits$R_log_sd[] <- 0
   inits$log_F[] <- -999 # No fishing
   inits$index_log_q[] <- 0 # Set q to 1
 
@@ -119,7 +118,6 @@ testthat::test_that("Test combine multi-species data", {
   inits$log_F[8,] <- log(Fmort2)
   inits$rec_pars[,1] <- rep(log(c(1e2, 1e3)), 2)
   inits$index_log_q[] <- log(1)
-  inits$R_log_sd[] <- log(1)
   inits$x_tj[1:30, 1:2] <- t(sim$model_quantities$rec_devs)
   inits$x_tj[1:30, 3:4] <- t(sim$model_quantities$rec_devs)
   inits$init_dev[1:2,1:14] <- sim$model_quantities$init_devs

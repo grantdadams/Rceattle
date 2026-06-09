@@ -110,8 +110,11 @@ testthat::test_that("single-species DSEM models converge with phase = TRUE", {
   testthat::expect_s3_class(m_iid, "Rceattle")
   testthat::expect_true(is.finite(as.numeric(m_iid$opt$objective)))
   testthat::expect_lt(max(abs(m_iid$sdrep$gradient.fixed)), 1e-2)
-  # Reference objective: dsem 2.0.1 gmrf_project parameterization
-  testthat::expect_equal(as.numeric(m_iid$opt$objective), 1137.50, tolerance = 1e-3)
+  # Reference objective: exact dsem 2.0.1 gmrf_project parameterization.
+  # The DSEM term was verified to match standalone dsem 2.0.1 (obj$env$f at the
+  # fitted parameters) to ~1e-14, so this value reflects the correct recruitment
+  # marginal density (the old 1137.50 predated the exact-2.0.1 re-vendor).
+  testthat::expect_equal(as.numeric(m_iid$opt$objective), 617.43436, tolerance = 1e-3)
 
   # Env-linked DSEM, phase = TRUE
   m_env <- Rceattle::fit_mod(data_list = GOApollock, inits = NULL, file = NULL,
@@ -122,7 +125,8 @@ testthat::test_that("single-species DSEM models converge with phase = TRUE", {
   testthat::expect_s3_class(m_env, "Rceattle")
   testthat::expect_true(is.finite(as.numeric(m_env$opt$objective)))
   testthat::expect_lt(max(abs(m_env$sdrep$gradient.fixed)), 1e-2)
-  # Reference objective: dsem 2.0.1 gmrf_project parameterization, with R_sd
-  # correctly sourced from the sigmaR1 beta_z entry (not the first beta_z).
-  testthat::expect_equal(as.numeric(m_env$opt$objective), 1135.92, tolerance = 1e-3)
+  # Reference objective: exact dsem 2.0.1 gmrf_project parameterization, with
+  # R_sd sourced from the sigmaR1 beta_z entry (not the first beta_z).
+  # (Old 1135.92 predated the exact-2.0.1 re-vendor; see m_iid note above.)
+  testthat::expect_equal(as.numeric(m_env$opt$objective), 672.50090, tolerance = 1e-3)
 })

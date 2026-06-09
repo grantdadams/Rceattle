@@ -100,6 +100,29 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
   #                              family = dsem_settings$family,
   #                              use_REML = FALSE,
   #                              quiet = TRUE)
+
+  # The compiled TMB model (src/TMB/dsem.hpp) and the vendored input pipeline are
+  # matched byte-for-byte to dsem 2.0.1. Other dsem versions can emit a different
+  # `tmb_inputs$data` layout (e.g. missing `obs_idx`/`unobs_idx` under the
+  # gmrf_project parameterization), which surfaces downstream as the cryptic TMB
+  # error "Error when reading the variable: 'obs_idx'". Fail fast instead.
+  if (!requireNamespace("dsem", quietly = TRUE)) {
+    stop("The 'dsem' package (version 2.0.1) is required to build DSEM inputs. ",
+         "Install the matching version with:\n",
+         "  remotes::install_version(\"dsem\", version = \"2.0.1\")",
+         call. = FALSE)
+  }
+  if (utils::packageVersion("dsem") != "2.0.1") {
+    stop("Rceattle's DSEM module requires dsem 2.0.1 (the version src/TMB/dsem.hpp ",
+         "is matched to), but dsem ", utils::packageVersion("dsem"),
+         " is installed.\n",
+         "Other versions can produce an incompatible data layout and a downstream ",
+         "TMB error such as \"Error when reading the variable: 'obs_idx'\".\n",
+         "Install the matching version with:\n",
+         "  remotes::install_version(\"dsem\", version = \"2.0.1\")",
+         call. = FALSE)
+  }
+
   fit_dsem <- dsem::dsem(sem = dsem_settings$sem,
                          tsdata = stats::ts(dsem_data),
                          family = dsem_settings$family,

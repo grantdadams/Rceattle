@@ -20,7 +20,6 @@ testthat::test_that("mean recruitment and devs", {
   inits <- mod0$estimated_params
   inits$rec_pars[1,1] <- R0
   inits$x_tj[1:nyrs,1] <- Rdev
-  inits$R_log_sd <- 0
 
   # Run
   ss_run <- Rceattle::fit_mod(data_list = dat,
@@ -68,7 +67,6 @@ testthat::test_that("ssb under mean recruitment", {
                               verbose = 0))
   inits <- mod0$estimated_params
   inits$rec_pars[,1] <- R0
-  inits$R_log_sd <- rep(0, 3)
   inits$log_F[] <- -999 # No fishing
 
   # Run

@@ -197,17 +197,18 @@ Each simulation uses `seed + i` as its RNG seed, so results are reproducible whe
 
 ## Likelihood profile
 
-`profile()` re-fits the model across a grid of fixed values for one or more cells of a chosen parameter and returns the resulting NLL surface. A flat profile means the data carry little information about the parameter; a sharp minimum away from the MLE means the fit has not actually settled there. The function generalises the legacy `profile_rsigma()` helper from `examples/Profiling_sigmaR.R` and works for any parameter slot in `Rceattle$estimated_params`; it is tested for `R_log_sd` (recruitment sigma), `rec_pars` (stock-recruit parameters), and `log_M1` (residual natural mortality).
+`profile()` re-fits the model across a grid of fixed values for one or more cells of a chosen parameter and returns the resulting NLL surface. A flat profile means the data carry little information about the parameter; a sharp minimum away from the MLE means the fit has not actually settled there. The function generalises the legacy `profile_rsigma()` helper from `examples/Profiling_sigmaR.R` and works for any parameter slot in `Rceattle$estimated_params`; it is tested for `beta_z` (the DSEM recruitment-SD coefficient, via the `sigmaR` alias), `rec_pars` (stock-recruit parameters), and `log_M1` (residual natural mortality).
 
 Two ways to specify `param`:
 
-- **Natural-scale alias** (recommended for the three documented parameters). The alias implies `transform = "log"` so you pass natural-scale values like sigmaR or M directly. For the `rec_pars` aliases (`"R0"`, `"alpha"`, `"beta"`) the column is filled in from the alias name, so `slots` only needs the species index.
-  - `"sigmaR"` / `"R_sd"` &rarr; `R_log_sd`
-  - `"M1"` &rarr; `log_M1`
-  - `"R0"` &rarr; `rec_pars[, 1]`
-  - `"alpha"` &rarr; `rec_pars[, 2]`
-  - `"beta"` &rarr; `rec_pars[, 3]`
-- **Raw parameter slot**. Pass the storage name (`"R_log_sd"`, `"rec_pars"`, `"log_M1"`, etc.); `slots` must index the full array and `transform` controls the scale.
+- **Natural-scale alias** (recommended for the documented parameters). Each alias implies its own transform so you pass natural-scale values directly. For the `rec_pars` aliases (`"R0"`, `"alpha"`, `"beta"`) the column is filled in from the alias name, so `slots` only needs the species index; for `"sigmaR"`/`"R_sd"` only the species index is needed (it is remapped to the corresponding `beta_z` element via `rec_sd_idx`).
+  - `"sigmaR"` / `"R_sd"` &rarr; `beta_z` (recruitment-SD self-loop, natural scale, `transform = "identity"`)
+  - `"R_log_sd"` &rarr; `beta_z` (back-compat alias, log scale, `transform = "exp"`)
+  - `"M1"` &rarr; `log_M1` (`transform = "log"`)
+  - `"R0"` &rarr; `rec_pars[, 1]` (`transform = "log"`)
+  - `"alpha"` &rarr; `rec_pars[, 2]` (`transform = "log"`)
+  - `"beta"` &rarr; `rec_pars[, 3]` (`transform = "log"`)
+- **Raw parameter slot**. Pass the storage name (`"beta_z"`, `"rec_pars"`, `"log_M1"`, etc.); `slots` must index the full array and `transform` controls the scale. (Note: `R_log_sd` is no longer a stored parameter -- the recruitment SD now lives in `beta_z` -- so use the `"sigmaR"`/`"R_log_sd"` aliases above instead.)
 
 `slots` is a list of integer index vectors — one entry per cell to hold fixed — and (under raw names) its entries must match the dimensionality of the parameter array (length 1 for vectors, length 2 for matrices, length 3 for 3-D arrays). `values` is a list of value grids parallel to `slots`; the full grid of fits is `expand.grid(values)`, so multiple slots produce an N-D cross-profile.
 
@@ -215,9 +216,10 @@ Two ways to specify `param`:
 # 1-D profile: sigmaR for species 1 (natural-scale alias)
 prof_sigmaR <- profile(
   fitted = model_1,
-  param    = "sigmaR",
-  slots    = list(1),
-  values   = list(seq(0.1, 1.5, by = 0.1))
+  param     = "sigmaR",
+  slots     = list(1),
+  values    = list(seq(0.1, 1.5, by = 0.1)),
+  transform = "identity"   # sigmaR is natural-scale; matches the forced transform
 )
 
 plot(prof_sigmaR$grid$slot_1,

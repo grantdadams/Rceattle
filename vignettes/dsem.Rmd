@@ -20,6 +20,8 @@ knitr::opts_chunk$set(
 
 `Rceattle` is integrated with the [`dsem`](https://CRAN.R-project.org/package=dsem) package via the `dsem` argument to `fit_mod()`. A dynamic structural equation model (DSEM) lets you place explicit structural relationships on recruitment deviations — including links to environmental covariates and cross-species linkages — instead of treating them as independent random effects.
 
+> **Requires `dsem` 2.0.1.** DSEM models call `dsem::dsem()` internally, and the bundled C++ (`src/TMB/dsem.hpp`) is matched to `dsem` version 2.0.1. Other versions emit an incompatible data layout, so `fit_mod()` stops with an error if a different `dsem` is installed. Install the matching version with `remotes::install_version("dsem", "2.0.1")`.
+
 This vignette covers:
 
 - Specifying a SEM with `build_DSEM()`

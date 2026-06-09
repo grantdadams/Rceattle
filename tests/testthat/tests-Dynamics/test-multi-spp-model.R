@@ -55,7 +55,6 @@ testthat::test_that("Rceattle and multi-species model dynamics match", {
   inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_log_q[] <- log(1)
-  inits$R_log_sd[] <- log(1)
   inits$x_tj[1:30, 1:simData$nspp]  <- t(sim$model_quantities$rec_devs)
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
@@ -181,7 +180,6 @@ testthat::test_that("Equilibrium MSVPA suitability dynamics match", {
   inits$log_F[4,] <- log(0.2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_log_q[] <- log(1)
-  inits$R_log_sd[] <- log(1)
   inits$x_tj[1:30, 1:simData$nspp]  <- t(sim$model_quantities$rec_devs)
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
@@ -295,7 +293,6 @@ testthat::test_that("Test proportion of prey-at-age in predator-at-age averaged 
   inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_log_q[] <- log(1)
-  inits$R_log_sd[] <- log(1)
   inits$x_tj[1:30, 1:simData$nspp]  <- t(sim$model_quantities$rec_devs)
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
@@ -413,7 +410,6 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator-at-ag
   inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_log_q[] <- log(1)
-  inits$R_log_sd[] <- log(1)
   inits$x_tj[1:30, 1:simData$nspp]  <- t(sim$model_quantities$rec_devs)
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
@@ -532,7 +528,6 @@ testthat::test_that("Test proportion of prey (all ages) in predator-at-age avera
   inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_log_q[] <- log(1)
-  inits$R_log_sd[] <- log(1)
   inits$x_tj[1:30, 1:simData$nspp]  <- t(sim$model_quantities$rec_devs)
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
@@ -650,7 +645,6 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (mean
   inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_log_q[] <- log(1)
-  inits$R_log_sd[] <- log(1)
   inits$x_tj[1:30, 1:simData$nspp]  <- t(sim$model_quantities$rec_devs)
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
@@ -769,7 +763,6 @@ testthat::test_that("Test annual proportion of prey (all ages) in predator (weig
   inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_log_q[] <- log(1)
-  inits$R_log_sd[] <- log(1)
   inits$x_tj[1:30, 1:simData$nspp]  <- t(sim$model_quantities$rec_devs)
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
@@ -903,7 +896,6 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
   inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_log_q[] <- log(1)
-  inits$R_log_sd[] <- log(1)
   inits$x_tj[1:30, 1:simData$nspp]  <- t(sim$model_quantities$rec_devs)
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
@@ -1023,7 +1015,6 @@ testthat::test_that("Test average (across years) proportion of prey (all ages) i
   inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_log_q[] <- log(1)
-  inits$R_log_sd[] <- log(1)
   inits$x_tj[1:30, 1:simData$nspp]  <- t(sim$model_quantities$rec_devs)
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
@@ -1151,7 +1142,6 @@ testthat::test_that("Test joint single-species models", {
   inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_log_q[] <- log(1)
-  inits$R_log_sd[] <- log(1)
   inits$x_tj[1:30, 1:simData$nspp]  <- t(sim$model_quantities$rec_devs)
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
@@ -1263,7 +1253,6 @@ testthat::test_that("Mixed suitabilities: MSVPA and lognormal", {
   inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_log_q[] <- log(1)
-  inits$R_log_sd[] <- log(1)
   inits$x_tj[1:30, 1:simData$nspp]  <- t(sim$model_quantities$rec_devs)
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 
@@ -1393,7 +1382,6 @@ testthat::test_that("Mixed suitabilities2: MSVPA and lognormal", {
   inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_log_q[] <- log(1)
-  inits$R_log_sd[] <- log(1)
   inits$x_tj[1:30, 1:simData$nspp]  <- t(sim$model_quantities$rec_devs)
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
 

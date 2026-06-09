@@ -20,7 +20,6 @@ testthat::test_that("Basic index and index likelihood", {
 
   # * Set params ----
   inits$rec_pars[,1] <- R0
-  inits$R_log_sd <- 0
   inits$log_F[] <- -999 # No fishing
   inits$index_log_q[] <- 0 # Set q to 1
 

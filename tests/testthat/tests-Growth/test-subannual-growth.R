@@ -40,7 +40,6 @@ testthat::test_that("Test VB growth with spawn month = 0.00001", {
   inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_log_q[] <- log(1)
-  inits$R_log_sd[] <- log(1)
   inits$x_tj[1:30, 1:simData$nspp]  <- t(sim$model_quantities$rec_devs)
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
   inits$growth_log_sd[] <- log(3)
@@ -119,7 +118,6 @@ testthat::test_that("Test Richard's growth with spawn month = 0.00001", {
   inits$log_F[4,] <- log(Fmort2)
   inits$rec_pars[,1] <- log(c(1e2, 1e3))
   inits$index_log_q[] <- log(1)
-  inits$R_log_sd[] <- log(1)
   inits$x_tj[1:30, 1:simData$nspp]  <- t(sim$model_quantities$rec_devs)
   inits$init_dev[,1:14] <- sim$model_quantities$init_devs
   inits$growth_log_sd[] <- log(3)
