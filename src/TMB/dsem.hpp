@@ -50,12 +50,34 @@ Eigen::SparseMatrix<Type> get_submatrix( Eigen::SparseMatrix<Type> A,
   return sub;
 }
 
+// Positions (0-based, into `node_k`) whose time index t = node_k(p) % n_t is
+// < nyrs_hind. Used to restrict the DSEM likelihood to hindcast years when
+// proj_mean_rec == 0 (projection recruitment set to mean recruitment).
+inline vector<int> dsem_hindcast_positions( vector<int> node_k, int n_t, int nyrs_hind ){
+  int m = 0;
+  for(int p = 0; p < node_k.size(); p++){ if( (node_k(p) % n_t) < nyrs_hind ) m++; }
+  vector<int> pos( m );
+  int h = 0;
+  for(int p = 0; p < node_k.size(); p++){ if( (node_k(p) % n_t) < nyrs_hind ){ pos(h) = p; h++; } }
+  return pos;
+}
+
+// Subset a vector by 0-based positions.
+template<class Type>
+vector<Type> dsem_subset_vec( vector<Type> v, vector<int> pos ){
+  vector<Type> out( pos.size() );
+  for(int i = 0; i < pos.size(); i++){ out(i) = v(pos(i)); }
+  return out;
+}
+
 
 template<class Type>
 void calculate_dsem(
     Type &jnll,                    // Modified by reference
 
     // Data
+    int nyrs_hind,                 // Number of hindcast years (endyr - styr + 1)
+    int proj_mean_rec,             // 0 = mean-rec projection, 1 = SRR projection
     vector<int> options,
     // options(0) -> 0: full rank;  1: rank-reduced GMRF;  2: conditional krigging
     // options(1) -> 0: constant conditional variance;  1: constant marginal variance
@@ -217,13 +239,29 @@ void calculate_dsem(
     Eigen::SparseMatrix<Type> Vinv2_kk = asSparseMatrix( Vinv_kk );
     Eigen::SparseMatrix<Type> Q_kk = IminusRho_kk.transpose() * Vinv2_kk * IminusRho_kk;
 
-    // Centered GMRF
-    jnll_gmrf = GMRF(Q_kk)( x_tj - xhat_tj - delta_tj );
+    // Centered GMRF (gate to hindcast sub-field when proj_mean_rec == 0)
+    if( proj_mean_rec == 0 ){
+      vector<Type> dev_full = x_tj - xhat_tj - delta_tj;
+      vector<int> all_k( n_k ); for(int kk = 0; kk < n_k; kk++) all_k(kk) = kk;
+      vector<int> pos = dsem_hindcast_positions( all_k, n_t, nyrs_hind );
+      Eigen::SparseMatrix<Type> Q_hh = get_submatrix( Q_kk, pos, pos );
+      jnll_gmrf = GMRF( Q_hh )( dsem_subset_vec(dev_full, pos) );
+    } else {
+      jnll_gmrf = GMRF(Q_kk)( x_tj - xhat_tj - delta_tj );
+    }
     z_tj = x_tj;
   }
   // Option-2:  Rank-deficient (projection) method
   if( options(0)==1 ){
-    jnll_gmrf = GMRF(I_kk)( x_tj );
+    if( proj_mean_rec == 0 ){
+      vector<Type> x_full = x_tj;
+      vector<int> all_k( n_k ); for(int kk = 0; kk < n_k; kk++) all_k(kk) = kk;
+      vector<int> pos = dsem_hindcast_positions( all_k, n_t, nyrs_hind );
+      Eigen::SparseMatrix<Type> I_hh( pos.size(), pos.size() ); I_hh.setIdentity();
+      jnll_gmrf = GMRF( I_hh )( dsem_subset_vec(x_full, pos) );
+    } else {
+      jnll_gmrf = GMRF(I_kk)( x_tj );
+    }
 
     // Forward-format matrix
     matrix<Type> z_k1 = x_tj.reshaped( n_k, 1 );
@@ -317,9 +355,24 @@ void calculate_dsem(
         }}
     }
 
-    // Evaluate MVN density for full-rank component
-    jnll_gmrf = MVNORM(V_oo)( dev_o );
-    jnll_gmrf += GMRF(I_uu)( x_u );
+    // Evaluate MVN density for full-rank component (gate to hindcast when
+    // proj_mean_rec == 0; for an MVN the sub-covariance IS the exact marginal).
+    if( proj_mean_rec == 0 ){
+      vector<int> pos_o = dsem_hindcast_positions( obs_idx, n_t, nyrs_hind );
+      matrix<Type> V_hh( pos_o.size(), pos_o.size() );
+      for(int a = 0; a < pos_o.size(); a++){
+        for(int b = 0; b < pos_o.size(); b++){
+          V_hh(a,b) = V_oo( pos_o(a), pos_o(b) );
+        }
+      }
+      jnll_gmrf = MVNORM( V_hh )( dsem_subset_vec(dev_o, pos_o) );
+      vector<int> pos_u = dsem_hindcast_positions( unobs_idx, n_t, nyrs_hind );
+      Eigen::SparseMatrix<Type> I_uu_h( pos_u.size(), pos_u.size() ); I_uu_h.setIdentity();
+      jnll_gmrf += GMRF( I_uu_h )( dsem_subset_vec(x_u, pos_u) );
+    } else {
+      jnll_gmrf = MVNORM(V_oo)( dev_o );
+      jnll_gmrf += GMRF(I_uu)( x_u );
+    }
   }
 
   // Option-4:  use full rank (some of which are fixed),
@@ -431,8 +484,16 @@ void calculate_dsem(
     Eigen::SparseMatrix<Type> inverseVtilda2_oo = asSparseMatrix( inverseVtilda_oo );
     Eigen::SparseMatrix<Type> Q_oo = Mtilda_oo.transpose() * inverseVtilda2_oo * Mtilda_oo;
 
-    // Get GMRF for data
-    jnll_gmrf = GMRF( Q_oo )( dev_o );
+    // Get GMRF for data (gate to hindcast sub-field when proj_mean_rec == 0).
+    // Projection x_tj are mapped out (fixed), so restricting the GMRF to the
+    // hindcast nodes (t = k % n_t < nyrs_hind) drops their contribution.
+    if( proj_mean_rec == 0 ){
+      vector<int> pos = dsem_hindcast_positions( obs_idx, n_t, nyrs_hind );
+      Eigen::SparseMatrix<Type> Q_hh = get_submatrix( Q_oo, pos, pos );
+      jnll_gmrf = GMRF( Q_hh )( dsem_subset_vec(dev_o, pos) );
+    } else {
+      jnll_gmrf = GMRF( Q_oo )( dev_o );
+    }
   }
 
   // Distribution for data
@@ -479,7 +540,18 @@ void calculate_dsem(
         devresid_tj(t,j) = sign(y_tj(t,j) - mu_tj(t,j)) * pow(2 * ( (y_tj(t,j)-mu_tj(t,j))/mu_tj(t,j) - log(y_tj(t,j)/mu_tj(t,j)) ), 0.5);
       }
     }}
-  jnll -= loglik_tj.sum();
+  // Observation likelihood. When proj_mean_rec == 0 the projection years use
+  // mean recruitment, so drop their observation-likelihood contribution
+  // (years t >= nyrs_hind) to match the hindcast-only GMRF above.
+  if( proj_mean_rec == 0 ){
+    for( int t = 0; t < nyrs_hind; t++ ){
+      for( int j = 0; j < n_j; j++ ){
+        jnll -= loglik_tj(t,j);
+      }
+    }
+  } else {
+    jnll -= loglik_tj.sum();
+  }
   jnll += jnll_gmrf;
 }
 

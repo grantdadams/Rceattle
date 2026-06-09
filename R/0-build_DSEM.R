@@ -186,11 +186,28 @@ build_dsem_objects <- function(dsem_settings = NULL, debug = FALSE, data_list = 
   }
   fit_dsem$tmb_inputs$data$rec_dev_col <- as.integer(rec_dev_col)
 
-  # Turn off latent states for future
-  if(!dsem_settings$estimate_projection){
+  # estimate_projection (DSEM latent projection states) overlaps with
+  # proj_mean_rec (SRR projection method). It is contradictory to estimate
+  # projection-period DSEM states while projecting recruitment from mean rec
+  # (proj_mean_rec == 0 / FALSE), because those states are then unused and the
+  # DSEM likelihood excludes the projection years (see src/TMB/dsem.hpp).
+  if( isTRUE(dsem_settings$estimate_projection) &&
+      !is.null(data_list$proj_mean_rec) &&
+      !isTRUE(as.logical(data_list$proj_mean_rec)) ){
+    warning("`estimate_projection = TRUE` with `proj_mean_rec = FALSE` is ",
+            "inconsistent: projection recruitment uses mean recruitment, so the ",
+            "estimated projection DSEM states are unused and the DSEM likelihood ",
+            "covers hindcast years only. Set `proj_mean_rec = TRUE` to project ",
+            "via the SEM, or `estimate_projection = FALSE`.")
+  }
+
+  # Turn off latent states for the projection period (only when projection
+  # years actually exist, i.e. projyr > endyr; otherwise there is nothing to
+  # map out and (nyrs_hind+1):nyrs_hind would be an out-of-bounds range).
+  if(!dsem_settings$estimate_projection && data_list$projyr > data_list$endyr){
     hind_years <- data_list$styr:data_list$endyr
-    all_years <- data_list$styr:data_list$projyr
-    mapList$x_tj[length(hind_years+1):length(all_years),] <- NA
+    all_years  <- data_list$styr:data_list$projyr
+    mapList$x_tj[(length(hind_years) + 1):length(all_years), ] <- NA
   }
 
   # Return

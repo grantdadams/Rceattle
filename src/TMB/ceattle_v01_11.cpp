@@ -858,6 +858,8 @@ Type objective_function<Type>::operator() () {
     jnll_dsem,
 
     // Data
+    nyrs_hind,
+    proj_mean_rec,
     options,
     RAM,
     RAMstart,
