@@ -18,9 +18,12 @@
 #' random effects as each observation is added), so they are not produced during
 #' [fit_mod()]. The model must have been optimized with `estimateMode < 3`.
 #'
-#' This is a staged feature. It currently supports the aggregate `"catch"` and
-#' `"index"` series and the `"comp"` (age/length composition) and `"caal"`
-#' (conditional age-at-length) compositions; `"diet"` is added in a later phase.
+#' Supported observation types are the aggregate `"catch"` and `"index"` series,
+#' the `"comp"` (age/length composition) and `"caal"` (conditional age-at-length)
+#' compositions, and `"diet"` (predator stomach-content composition, for
+#' multispecies models with estimated suitability). Diet is opt-in (not in the
+#' default `types`) because it applies only to multispecies models and can be
+#' expensive.
 #'
 #' For composition data the multivariate multinomial / Dirichlet-multinomial is
 #' decomposed into a sequence of univariate conditional residuals (binomial /
@@ -32,8 +35,9 @@
 #'
 #' @param fit A fitted object of class `Rceattle` (from [fit_mod()]).
 #' @param types Character vector of observation types to residualize: any of
-#'   `"index"`, `"catch"`, `"comp"`, `"caal"`. Defaults to all four; types with
-#'   no observations in the model are silently skipped.
+#'   `"index"`, `"catch"`, `"comp"`, `"caal"`, `"diet"`. Defaults to the first
+#'   four (diet is opt-in); types with no observations in the model are silently
+#'   skipped.
 #' @param method Passed to [TMB::oneStepPredict()]. Defaults to
 #'   `"oneStepGaussianOffMode"` (the WHAM/SAM default), appropriate for the
 #'   lognormal aggregate series.
@@ -98,7 +102,9 @@ osa_residuals <- function(fit,
          "a converged fit.")
   }
 
-  valid_types <- c("index", "catch", "comp", "caal")
+  # "diet" is supported but opt-in: it applies only to multispecies models with
+  # estimated suitability and can be expensive, so it is not in the default set.
+  valid_types <- c("index", "catch", "comp", "caal", "diet")
   types <- match.arg(types, choices = valid_types, several.ok = TRUE)
 
   # ---- Select the obsvec positions to residualize ----

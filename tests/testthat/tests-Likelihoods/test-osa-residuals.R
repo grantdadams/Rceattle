@@ -93,6 +93,46 @@ testthat::test_that("build_osa_data lays CAAL observations into obsvec correctly
 })
 
 
+testthat::test_that("build_osa_data lays diet observations into obsvec correctly", {
+  testthat::skip_if_not_installed("Rceattle")
+
+  # Minimal data_list with two stomachs of predator species 1 (suitMode > 0):
+  # stomach 0 has 2 prey items, stomach 1 has 1. Aggregate/comp/caal are empty.
+  empty_i <- function(nc) matrix(integer(0), 0, nc)
+  empty_n <- function(nc) matrix(numeric(0), 0, nc)
+  dl <- list(
+    endyr = 5, flt_type = c(1L, 2L), nages = c(3L, 3L), nlengths = c(3L, 3L),
+    index_ctl = empty_i(3), index_obs = empty_n(2),
+    catch_ctl = empty_i(3), catch_obs = empty_n(2),
+    comp_ctl = empty_i(5), comp_obs = empty_n(3), comp_n = empty_n(2),
+    caal_ctl = empty_i(5), caal_obs = empty_n(3), caal_n = empty_n(1),
+    n_stomach_obs = 2L,
+    stomach_id = c(0L, 0L, 1L),
+    diet_ctl = matrix(c(1, 1, 0, 0, 1, 1, 3,
+                        1, 2, 0, 0, 1, 1, 3,
+                        1, 1, 0, 0, 2, 1, 4), nrow = 3, byrow = TRUE),
+    diet_obs = matrix(c(50, 0.6, 50, 0.3, 40, 0.7), nrow = 3, byrow = TRUE),
+    suitMode = c(2L, 0L))
+
+  dl <- Rceattle:::build_osa_data(dl)
+
+  testthat::expect_length(dl$diet_obsvec_idx, 2L)
+  testthat::expect_true(all(dl$diet_obsvec_idx >= 0))
+
+  diet_rows <- dl$obs_ctl[dl$obs_ctl$type == "diet", ]
+  # stomach 0: 2 prey + other = 3 bins; stomach 1: 1 prey + other = 2 bins.
+  testthat::expect_equal(nrow(diet_rows), 5L)
+  testthat::expect_equal(sum(diet_rows$is_last_bin), 2L)   # one "other prey" per stomach
+  testthat::expect_setequal(unique(diet_rows$stomach_id), c(0L, 1L))
+
+  # Counts = (proportions + other + 1e-5) normalized, scaled to the sample size.
+  v <- c(0.6, 0.3, 1 - 0.9) + 0.00001
+  expected0 <- v / sum(v) * 50
+  start0 <- dl$diet_obsvec_idx[1]
+  testthat::expect_equal(dl$obsvec[start0 + seq_len(3L)], expected0)
+})
+
+
 testthat::test_that("obsvec/keep refactor leaves the fitted objective finite", {
   testthat::skip_if_not_installed("TMB")
   testthat::skip_if_not_installed("Rceattle")

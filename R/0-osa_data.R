@@ -164,6 +164,44 @@ build_osa_data <- function(data_list) {
     }
   }
 
+  # ---- Diet composition: per-stomach prey counts + "other prey" ----
+  # TMB guard: the predator's suitability is estimated (suitMode[pred] > 0) and
+  # the stomach has >= 1 prey item. The composition for a stomach is its prey
+  # items plus an "other prey" category (the last bin, fixed by the sum-to-1
+  # constraint and dropped). One decomposition unit per stomach; diet_obsvec_idx
+  # is indexed by 0-based stomach id, so it has length n_stomach_obs.
+  n_stomach <- data_list$n_stomach_obs
+  diet_obsvec_idx <- if (is.null(n_stomach)) integer(0) else rep(-1L, n_stomach)
+  if (!is.null(n_stomach) && n_stomach > 0 && !is.null(data_list$diet_ctl) &&
+      nrow(data_list$diet_ctl) > 0) {
+    diet_ctl   <- data_list$diet_ctl
+    diet_obs   <- data_list$diet_obs
+    stomach_id <- data_list$stomach_id
+    suitMode   <- data_list$suitMode
+    for (i in seq_len(n_stomach) - 1L) {        # stomach ids are 0-based
+      rows   <- which(stomach_id == i)
+      n_prey <- length(rows)
+      if (n_prey == 0) next
+      rsp <- diet_ctl[rows[1], 1]               # predator species (1-based)
+      if (is.null(suitMode) || suitMode[rsp] <= 0) next
+      N_s  <- diet_obs[rows[1], 1]              # sample size (number of stomachs)
+      # observed prey proportions plus the residual "other prey" category, then
+      # the same offset/normalize the TMB likelihood applies, scaled to counts.
+      obs_p  <- as.numeric(diet_obs[rows, 2])
+      vec    <- c(obs_p, 1 - min(sum(obs_p), 1)) + 0.00001
+      counts <- vec / sum(vec) * N_s
+      diet_obsvec_idx[i + 1L] <- append_obs(
+        value         = counts, type = "diet",
+        data_row      = c(rows, NA_integer_),
+        fleet_code    = rsp, species = rsp,
+        year          = diet_ctl[rows[1], 7],
+        age_or_length = c(diet_ctl[rows, 2], NA_integer_),   # prey id; NA = other
+        bin_index     = seq_len(n_prey + 1L) - 1L,
+        is_last_bin   = seq_len(n_prey + 1L) == (n_prey + 1L),
+        stomach_id    = i, one_group = TRUE)[1]
+    }
+  }
+
   # TMB needs a non-empty DATA_VECTOR; use a length-1 sentinel when no
   # observations are included (the *_obsvec_idx vectors are then all -1 and the
   # sentinel value is never read by the template).
@@ -175,6 +213,7 @@ build_osa_data <- function(data_list) {
   data_list$catch_obsvec_idx <- as.integer(catch_obsvec_idx)
   data_list$comp_obsvec_idx  <- as.integer(comp_obsvec_idx)
   data_list$caal_obsvec_idx  <- as.integer(caal_obsvec_idx)
+  data_list$diet_obsvec_idx  <- as.integer(diet_obsvec_idx)
   data_list$osa_mode         <- 0L
 
   data_list

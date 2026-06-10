@@ -18,8 +18,9 @@ osa_residuals(
 \item{fit}{A fitted object of class \code{Rceattle} (from \code{\link[=fit_mod]{fit_mod()}}).}
 
 \item{types}{Character vector of observation types to residualize: any of
-\code{"index"}, \code{"catch"}, \code{"comp"}, \code{"caal"}. Defaults to all four; types with
-no observations in the model are silently skipped.}
+\code{"index"}, \code{"catch"}, \code{"comp"}, \code{"caal"}, \code{"diet"}. Defaults to the first
+four (diet is opt-in); types with no observations in the model are silently
+skipped.}
 
 \item{method}{Passed to \code{\link[TMB:oneStepPredict]{TMB::oneStepPredict()}}. Defaults to
 \code{"oneStepGaussianOffMode"} (the WHAM/SAM default), appropriate for the
@@ -64,9 +65,12 @@ OSA residuals are computed \emph{post hoc} and are expensive (TMB re-optimizes t
 random effects as each observation is added), so they are not produced during
 \code{\link[=fit_mod]{fit_mod()}}. The model must have been optimized with \code{estimateMode < 3}.
 
-This is a staged feature. It currently supports the aggregate \code{"catch"} and
-\code{"index"} series and the \code{"comp"} (age/length composition) and \code{"caal"}
-(conditional age-at-length) compositions; \code{"diet"} is added in a later phase.
+Supported observation types are the aggregate \code{"catch"} and \code{"index"} series,
+the \code{"comp"} (age/length composition) and \code{"caal"} (conditional age-at-length)
+compositions, and \code{"diet"} (predator stomach-content composition, for
+multispecies models with estimated suitability). Diet is opt-in (not in the
+default \code{types}) because it applies only to multispecies models and can be
+expensive.
 
 For composition data the multivariate multinomial / Dirichlet-multinomial is
 decomposed into a sequence of univariate conditional residuals (binomial /

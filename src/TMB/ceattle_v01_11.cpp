@@ -262,6 +262,7 @@ Type objective_function<Type>::operator() () {
   DATA_IVECTOR( index_obsvec_idx );         // obsvec position for each index_obs row (-1 = excluded)
   DATA_IVECTOR( comp_obsvec_idx );          // obsvec start position for each comp_obs row's bins (-1 = excluded)
   DATA_IVECTOR( caal_obsvec_idx );          // obsvec start position for each caal_obs row's bins (-1 = excluded)
+  DATA_IVECTOR( diet_obsvec_idx );          // obsvec start position for each stomach's prey bins (incl. "other prey"); length n_stomach_obs (-1 = excluded)
   DATA_INTEGER( osa_mode );                 // 0 = normal fitting (default); 1 = OSA build (unweighted keep-gated comp/caal/diet densities)
 
   // -- 2.4.3. Composition data
@@ -3231,25 +3232,42 @@ Type objective_function<Type>::operator() () {
       vector<Type> unweighted_diet_alphas = pred_diet_prop * N_s; // For "unweighted" likelihood (DM_diet_par = 1)
 
       // Likelihood
-      switch(diet_ll_type(rsp)){
+      if(osa_mode == 0){
+        // ---- Normal fitting: weighted density read from diet_obs (unchanged) ----
+        switch(diet_ll_type(rsp)){
 
-      case 0:  // Full multinomial
-        stomach_log_likelihood = dmultinom(obs_diet_content, pred_diet_prop, true);
+        case 0:  // Full multinomial
+          stomach_log_likelihood = dmultinom(obs_diet_content, pred_diet_prop, true);
 
-        unweighted_jnll_comp(18, rsp) -= stomach_log_likelihood;
-        jnll_comp(18, rsp) -= diet_comp_weights(rsp) * stomach_log_likelihood;
-        break;
-      case 1:  // Dirichlet-multinomial
-        // Calculate the log-likelihood
-        stomach_log_likelihood = ddirmultinom(obs_diet_content, diet_alphas, true);
-        unweighted_stomach_log_likelihood = ddirmultinom(obs_diet_content, unweighted_diet_alphas, true);
+          unweighted_jnll_comp(18, rsp) -= stomach_log_likelihood;
+          jnll_comp(18, rsp) -= diet_comp_weights(rsp) * stomach_log_likelihood;
+          break;
+        case 1:  // Dirichlet-multinomial
+          // Calculate the log-likelihood
+          stomach_log_likelihood = ddirmultinom(obs_diet_content, diet_alphas, true);
+          unweighted_stomach_log_likelihood = ddirmultinom(obs_diet_content, unweighted_diet_alphas, true);
 
-        unweighted_jnll_comp(18, rsp) -= unweighted_stomach_log_likelihood;
-        jnll_comp(18, rsp) -= stomach_log_likelihood;
-        break;
+          unweighted_jnll_comp(18, rsp) -= unweighted_stomach_log_likelihood;
+          jnll_comp(18, rsp) -= stomach_log_likelihood;
+          break;
 
-      default:
-        error("Invalid 'diet_ll_type'");
+        default:
+          error("Invalid 'diet_ll_type'");
+        }
+      } else {
+        // ---- OSA build: unweighted, keep-gated conditional density read from
+        // obsvec. The diet composition for a stomach is its prey items plus an
+        // "other prey" category (the last bin, fixed by sum-to-1 and dropped).
+        // diet_obsvec_idx gives the obsvec start for this stomach. ----
+        int start = diet_obsvec_idx(i);
+        if(start >= 0){
+          vector<Type> osa_x = obsvec.segment(start, n_prey + 1);
+          if(diet_ll_type(rsp) == 1){   // Dirichlet-multinomial (fitted DM par)
+            jnll_comp(18, rsp) -= ddirmultinom_osa(osa_x, diet_alphas, keep.segment(start, n_prey + 1), 1, 1);
+          } else {                      // multinomial
+            jnll_comp(18, rsp) -= dmultinom_osa(osa_x, pred_diet_prop, keep.segment(start, n_prey + 1), 1, 1);
+          }
+        }
       }
     }
   }
