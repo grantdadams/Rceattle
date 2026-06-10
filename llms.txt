@@ -332,6 +332,8 @@ management strategy evaluation.
 
 Retrospective analysis, jitter testing, and simulation.
 
+- [`convergence_diagnostics()`](https://grantdadams.github.io/Rceattle/reference/convergence_diagnostics.md)
+  : Convergence diagnostics for a fitted Rceattle model
 - [`retrospective()`](https://grantdadams.github.io/Rceattle/reference/retrospective.md)
   : Retrospective peels
 - [`jitter()`](https://grantdadams.github.io/Rceattle/reference/jitter.md)

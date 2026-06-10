@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.4.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -76,7 +76,7 @@
 
       <h1>3. Model diagnostics</h1>
             
-            <h4 data-toc-skip class="date">2026-06-05</h4>
+            <h4 data-toc-skip class="date">2026-06-10</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/vignettes/model-diagnostics.Rmd" class="external-link"><code>vignettes/model-diagnostics.Rmd</code></a></small>
       <div class="d-none name"><code>model-diagnostics.Rmd</code></div>
@@ -84,7 +84,8 @@
 
     
     
-<p>Rceattle provides six layers of diagnostics: <strong>S3
+<p>Rceattle provides several layers of diagnostics: <strong>convergence
+diagnostics</strong> attached automatically to every fit, <strong>S3
 methods</strong> (<code>residual</code>, <code>logLik</code>, etc),
 <strong>fit plots</strong> to visually inspect how well the model
 reproduces observed data, <strong>retrospective analysis</strong>
@@ -134,6 +135,59 @@ data are about a particular parameter.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/as.data.frame.html" class="external-link">as.data.frame</a></span><span class="op">(</span><span class="va">model_1</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
+<h2 id="convergence-diagnostics">Convergence diagnostics<a class="anchor" aria-label="anchor" href="#convergence-diagnostics"></a>
+</h2>
+<p><code><a href="../reference/fit_mod.html">fit_mod()</a></code> runs a battery of convergence checks after
+optimization and attaches the result as <code>model$convergence</code>.
+Each check is one record with a <code>severity</code>
+(<code>"OK"</code>, <code>"NOTE"</code>, <code>"WARN"</code>, or
+<code>"FAIL"</code>); the object’s <code>status</code> is the worst
+severity present. Non-OK checks are surfaced via <code><a href="https://rdrr.io/r/base/message.html" class="external-link">message()</a></code>
+during the fit (a non-converged model is never turned into an error —
+the fit is always returned with its diagnostics attached), and
+<code>print(model)</code> shows the overall status.</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">model_1</span><span class="op">$</span><span class="va">convergence</span>            <span class="co"># overall status + any non-OK checks</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">model_1</span><span class="op">$</span><span class="va">convergence</span>, all <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>   <span class="co"># show every check, including OK ones</span></span></code></pre></div>
+<p>Re-run the battery on any fit with
+<code><a href="../reference/convergence_diagnostics.html">convergence_diagnostics()</a></code>:</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/convergence_diagnostics.html">convergence_diagnostics</a></span><span class="op">(</span><span class="va">model_1</span><span class="op">)</span></span></code></pre></div>
+<p>The checks cover:</p>
+<ul>
+<li>
+<strong><code>max_gradient</code></strong> — maximum absolute
+marginal gradient and the parameter carrying it (<code>WARN</code> &gt;
+1e-3, <code>FAIL</code> &gt; 1).</li>
+<li>
+<strong><code>pdHess</code></strong> — whether the Hessian is
+positive definite (<code>FAIL</code> if not).</li>
+<li>
+<strong><code>sdreport_failed</code></strong> — <code>FAIL</code>
+when an <code>sdreport</code> was requested but the Hessian could not be
+inverted.</li>
+<li>
+<strong><code>hessian_conditioning</code></strong> — the Hessian
+condition number and, when poorly conditioned, the parameters loading on
+the least-identified direction (the unidentified linear combination).
+Complements <code><a href="https://rdrr.io/pkg/TMBhelper/man/check_estimability.html" class="external-link">TMBhelper::check_estimability</a></code> (a per-parameter
+verdict) with a continuous severity and direction.</li>
+<li>
+<strong><code>parameters_on_bounds</code></strong> — parameters that
+hit a configured <code><a href="../reference/build_bounds.html">build_bounds()</a></code> limit (often unidentified
+or mis-scaled).</li>
+<li>
+<strong><code>phasing</code></strong> — phases that ended with a
+high gradient, localizing which parameter block is hard to fit.</li>
+<li>
+<strong><code>estimability</code></strong> — surfaces
+<code><a href="https://rdrr.io/pkg/TMBhelper/man/check_estimability.html" class="external-link">TMBhelper::check_estimability</a></code> when it ran.</li>
+</ul>
+<p>Each record carries a <code>data</code> element with the underlying
+numbers (e.g. the condition number and loadings for
+<code>hessian_conditioning</code>).</p>
+</div>
+<div class="section level2">
 <h2 id="fit-plots">Fit plots<a class="anchor" aria-label="anchor" href="#fit-plots"></a>
 </h2>
 <div class="section level3">
@@ -141,7 +195,7 @@ data are about a particular parameter.</p>
 </h3>
 <p><code><a href="../reference/plot_comp.html">plot_comp()</a></code> overlays observed (bars) and predicted
 (line) age or length compositions for every fleet.</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_comp.html">plot_comp</a></span><span class="op">(</span><span class="va">model_1</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
@@ -152,7 +206,7 @@ observed vs. predicted survey biomass on the natural and log scales,
 respectively. <code><a href="../reference/plot_indexresidual.html">plot_indexresidual()</a></code> plots the log-scale
 residuals — a useful first check for time trends or
 heteroscedasticity.</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_index.html">plot_index</a></span><span class="op">(</span><span class="va">model_1</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/plot_logindex.html">plot_logindex</a></span><span class="op">(</span><span class="va">model_1</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/plot_indexresidual.html">plot_indexresidual</a></span><span class="op">(</span><span class="va">model_1</span><span class="op">)</span></span></code></pre></div>
@@ -160,7 +214,7 @@ heteroscedasticity.</p>
 <div class="section level3">
 <h3 id="catch">Catch<a class="anchor" aria-label="anchor" href="#catch"></a>
 </h3>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_catch.html">plot_catch</a></span><span class="op">(</span><span class="va">model_1</span><span class="op">)</span></span></code></pre></div>
 </div>
 </div>
@@ -172,7 +226,7 @@ of data one peel at a time and re-fits the model. Bias in the final
 estimates relative to earlier peels is summarised by Mohn’s rho: values
 outside ±0.2 (for SSB) generally indicate a problem worth
 investigating.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">model_1_retro</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/retrospective.html">retrospective</a></span><span class="op">(</span>Rceattle <span class="op">=</span> <span class="va">model_1</span>, peels <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Mohn's rho for each quantity</span></span>
@@ -222,7 +276,7 @@ starting values to check whether the optimizer consistently returns the
 same minimum negative log-likelihood (NLL). A spread of NLL values
 across jitters suggests the likelihood surface has multiple local minima
 and results should be interpreted cautiously.</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">jitters</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/jitter.html">jitter</a></span><span class="op">(</span>Rceattle <span class="op">=</span> <span class="va">model_1</span>, njitter <span class="op">=</span> <span class="fl">10</span>, phase <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>  <span class="co"># default njitter = 50</span></span>
 <span></span>
 <span><span class="co"># Histogram of NLL differences relative to the best run</span></span>
@@ -255,7 +309,7 @@ around the parameter values of the fit they were simulated from, the
 model is at least self-consistent (it can recover its own estimates from
 data it generated). Persistent bias or wide spread in a quantity is a
 sign that the data are not informative about it.</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">sims</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/self_test.html">self_test</a></span><span class="op">(</span><span class="va">model_1</span>, nsim <span class="op">=</span> <span class="fl">10</span><span class="op">)</span>            <span class="co"># default nsim = 50</span></span>
 <span></span>
 <span><span class="co"># Number of simulations that converged (non-converged runs are dropped)</span></span>
@@ -329,7 +383,7 @@ for matrices, length 3 for 3-D arrays). <code>values</code> is a list of
 value grids parallel to <code>slots</code>; the full grid of fits is
 <code>expand.grid(values)</code>, so multiple slots produce an N-D
 cross-profile.</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># 1-D profile: sigmaR for species 1 (natural-scale alias)</span></span>
 <span><span class="va">prof_sigmaR</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/profile.html" class="external-link">profile</a></span><span class="op">(</span></span>
 <span>  fitted <span class="op">=</span> <span class="va">model_1</span>,</span>
@@ -375,7 +429,7 @@ behaves the same way as in the other diagnostic functions.</p>
 </h2>
 <p>Plotting sensitivity runs together is itself a useful diagnostic —
 large divergences in biomass or mortality deserve scrutiny.</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mod_list</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">model_1</span>, <span class="va">model_1_retro</span><span class="op">$</span><span class="va">Rceattle_list</span><span class="op">$</span><span class="va">Year_2019</span><span class="op">)</span></span>
 <span><span class="va">mod_names</span> <span class="op">&lt;-</span> <span class="fl">1</span><span class="op">:</span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">mod_list</span><span class="op">)</span></span>
 <span></span>
@@ -388,7 +442,7 @@ large divergences in biomass or mortality deserve scrutiny.</p>
 </h2>
 <p>For model averaging across model variants, see
 <code><a href="../reference/model_average.html">?model_average</a></code>.</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mod_avg</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/model_average.html">model_average</a></span><span class="op">(</span>Rceattle <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">model_1</span>, <span class="va">model_1</span><span class="op">)</span>, weights <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>,<span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/plot_biomass.html">plot_biomass</a></span><span class="op">(</span><span class="va">mod_avg</span><span class="op">)</span></span></code></pre></div>
 </div>

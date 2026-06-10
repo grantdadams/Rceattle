@@ -122,7 +122,7 @@ A list with elements:
 
 - nll:
 
-  numeric vector of joint negative log-likelihoods (`quantities$jnll`);
+  numeric vector of joint negative log-likelihoods (`opt$objective`);
   `NA` where the fit did not converge.
 
 - param:

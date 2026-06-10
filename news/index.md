@@ -1,5 +1,41 @@
 # Changelog
 
+## Rceattle 4.5.0
+
+### New features
+
+- Added a general post-fit convergence diagnostics framework via the new
+  exported
+  [`convergence_diagnostics()`](https://grantdadams.github.io/Rceattle/reference/convergence_diagnostics.md)
+  function. It runs a battery of checks covering the optimizer gradient,
+  Hessian positive-definiteness and conditioning, parameters on bounds,
+  phasing, and parameter estimability, and returns a structured
+  `"Rceattle_convergence"` object whose `status` reflects the worst
+  severity found (`"OK"`, `"NOTE"`, `"WARN"`, or `"FAIL"`).
+- [`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+  now runs the convergence battery automatically and attaches the result
+  as `fit$convergence`;
+  [`convergence_diagnostics()`](https://grantdadams.github.io/Rceattle/reference/convergence_diagnostics.md)
+  can also be called directly to re-run it on any fit.
+- Added a model-diagnostics vignette section and accompanying unit tests
+  for the new framework.
+
+### Bug fixes
+
+- Fixed a parameters-on-bounds misalignment in the convergence
+  diagnostics.
+- The joint negative log-likelihood (jnll) is now taken from the
+  optimizer objective for consistency.
+
+### Internal / R CMD check
+
+- Moved the suppression of the spurious GCC/Eigen `-Warray-bounds` false
+  positive from a `-Wno-array-bounds` compiler flag to a source-level
+  `#pragma GCC diagnostic ignored "-Warray-bounds"`, so
+  `R CMD check --as-cran` no longer warns about non-portable,
+  warning-suppressing compilation flags. Real diagnostics still surface.
+- Additional C++ cleanup to remove compiler warnings.
+
 ## Rceattle 4.4.2
 
 ### Code organisation (no change to fitted results)

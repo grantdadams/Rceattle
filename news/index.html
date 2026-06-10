@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">Rceattle</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.4.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -52,6 +52,26 @@
       <small>Source: <a href="https://github.com/grantdadams/Rceattle/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.5.0" id="rceattle-450">Rceattle 4.5.0<a class="anchor" aria-label="anchor" href="#rceattle-450"></a></h2>
+<div class="section level3">
+<h3 id="new-features-4-5-0">New features<a class="anchor" aria-label="anchor" href="#new-features-4-5-0"></a></h3>
+<ul><li>Added a general post-fit convergence diagnostics framework via the new exported <code><a href="../reference/convergence_diagnostics.html">convergence_diagnostics()</a></code> function. It runs a battery of checks covering the optimizer gradient, Hessian positive-definiteness and conditioning, parameters on bounds, phasing, and parameter estimability, and returns a structured <code>"Rceattle_convergence"</code> object whose <code>status</code> reflects the worst severity found (<code>"OK"</code>, <code>"NOTE"</code>, <code>"WARN"</code>, or <code>"FAIL"</code>).</li>
+<li>
+<code><a href="../reference/fit_mod.html">fit_mod()</a></code> now runs the convergence battery automatically and attaches the result as <code>fit$convergence</code>; <code><a href="../reference/convergence_diagnostics.html">convergence_diagnostics()</a></code> can also be called directly to re-run it on any fit.</li>
+<li>Added a model-diagnostics vignette section and accompanying unit tests for the new framework.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="bug-fixes-4-5-0">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-4-5-0"></a></h3>
+<ul><li>Fixed a parameters-on-bounds misalignment in the convergence diagnostics.</li>
+<li>The joint negative log-likelihood (jnll) is now taken from the optimizer objective for consistency.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="internal--r-cmd-check-4-5-0">Internal / R CMD check<a class="anchor" aria-label="anchor" href="#internal--r-cmd-check-4-5-0"></a></h3>
+<ul><li>Moved the suppression of the spurious GCC/Eigen <code>-Warray-bounds</code> false positive from a <code>-Wno-array-bounds</code> compiler flag to a source-level <code>#pragma GCC diagnostic ignored "-Warray-bounds"</code>, so <code>R CMD check --as-cran</code> no longer warns about non-portable, warning-suppressing compilation flags. Real diagnostics still surface.</li>
+<li>Additional C++ cleanup to remove compiler warnings.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.4.2" id="rceattle-442">Rceattle 4.4.2<a class="anchor" aria-label="anchor" href="#rceattle-442"></a></h2>
 <div class="section level3">

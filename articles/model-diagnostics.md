@@ -1,13 +1,15 @@
 # 3. Model diagnostics
 
-Rceattle provides six layers of diagnostics: **S3 methods** (`residual`,
-`logLik`, etc), **fit plots** to visually inspect how well the model
-reproduces observed data, **retrospective analysis** (peels) to detect
-patterns of systematic over- or under-estimation, **jitter testing** to
-check that the optimiser has found a global minimum, **self-testing**
-(simulation–estimation) to check that the model can recover its own
-estimates from simulated data, and **likelihood profiling** to check how
-informative the data are about a particular parameter.
+Rceattle provides several layers of diagnostics: **convergence
+diagnostics** attached automatically to every fit, **S3 methods**
+(`residual`, `logLik`, etc), **fit plots** to visually inspect how well
+the model reproduces observed data, **retrospective analysis** (peels)
+to detect patterns of systematic over- or under-estimation, **jitter
+testing** to check that the optimiser has found a global minimum,
+**self-testing** (simulation–estimation) to check that the model can
+recover its own estimates from simulated data, and **likelihood
+profiling** to check how informative the data are about a particular
+parameter.
 
 ## Setup and plotting data
 
@@ -53,6 +55,57 @@ vcov(model_1)                 # fixed-effect covariance fro
 residuals(model_1)            # data.frame of residuals
 as.data.frame(model_1)
 ```
+
+## Convergence diagnostics
+
+[`fit_mod()`](https://grantdadams.github.io/Rceattle/reference/fit_mod.md)
+runs a battery of convergence checks after optimization and attaches the
+result as `model$convergence`. Each check is one record with a
+`severity` (`"OK"`, `"NOTE"`, `"WARN"`, or `"FAIL"`); the object’s
+`status` is the worst severity present. Non-OK checks are surfaced via
+[`message()`](https://rdrr.io/r/base/message.html) during the fit (a
+non-converged model is never turned into an error — the fit is always
+returned with its diagnostics attached), and `print(model)` shows the
+overall status.
+
+``` r
+
+model_1$convergence            # overall status + any non-OK checks
+print(model_1$convergence, all = TRUE)   # show every check, including OK ones
+```
+
+Re-run the battery on any fit with
+[`convergence_diagnostics()`](https://grantdadams.github.io/Rceattle/reference/convergence_diagnostics.md):
+
+``` r
+
+convergence_diagnostics(model_1)
+```
+
+The checks cover:
+
+- **`max_gradient`** — maximum absolute marginal gradient and the
+  parameter carrying it (`WARN` \> 1e-3, `FAIL` \> 1).
+- **`pdHess`** — whether the Hessian is positive definite (`FAIL` if
+  not).
+- **`sdreport_failed`** — `FAIL` when an `sdreport` was requested but
+  the Hessian could not be inverted.
+- **`hessian_conditioning`** — the Hessian condition number and, when
+  poorly conditioned, the parameters loading on the least-identified
+  direction (the unidentified linear combination). Complements
+  [`TMBhelper::check_estimability`](https://rdrr.io/pkg/TMBhelper/man/check_estimability.html)
+  (a per-parameter verdict) with a continuous severity and direction.
+- **`parameters_on_bounds`** — parameters that hit a configured
+  [`build_bounds()`](https://grantdadams.github.io/Rceattle/reference/build_bounds.md)
+  limit (often unidentified or mis-scaled).
+- **`phasing`** — phases that ended with a high gradient, localizing
+  which parameter block is hard to fit.
+- **`estimability`** — surfaces
+  [`TMBhelper::check_estimability`](https://rdrr.io/pkg/TMBhelper/man/check_estimability.html)
+  when it ran.
+
+Each record carries a `data` element with the underlying numbers
+(e.g. the condition number and loadings for `hessian_conditioning`).
 
 ## Fit plots
 
