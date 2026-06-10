@@ -241,6 +241,26 @@ Type objective_function<Type>::operator() () {
   DATA_MATRIX( index_obs );               // Observed index and log_sd; columns = Observation, Error
   DATA_VECTOR( index_log_q_prior );        // Prior mean for catchability
 
+  // -- 2.4.2b One-step-ahead (OSA) residual support
+  // `obsvec` is a flat vector holding every observation that enters the
+  // likelihood (log catch, then log index for now; composition and diet are
+  // added in later development phases). `keep` is the companion indicator used
+  // by TMB::oneStepPredict(): during normal model fitting it defaults to all
+  // ones, so the likelihood is numerically unchanged; oneStepPredict() toggles
+  // individual elements to compute one-step-ahead residuals. The `*_obsvec_idx`
+  // vectors give, for each row of the corresponding `*_obs` matrix, that
+  // observation's 0-based position in `obsvec` (or -1 when the row is excluded
+  // from the likelihood, e.g. projection years or non-positive observations).
+  // `osa_mode` (0 = normal fitting, the default) is reserved for later phases
+  // where it switches composition/diet branches to a proper, unweighted density
+  // suitable for OSA residuals; it does not alter the aggregate (catch/index)
+  // likelihood and is unused in this phase.
+  DATA_VECTOR( obsvec );                    // Flat observations for OSA residuals
+  DATA_VECTOR_INDICATOR( keep, obsvec );    // oneStepPredict keep indicator (defaults to 1 when fitting)
+  DATA_IVECTOR( catch_obsvec_idx );         // obsvec position for each catch_obs row (-1 = excluded)
+  DATA_IVECTOR( index_obsvec_idx );         // obsvec position for each index_obs row (-1 = excluded)
+  DATA_INTEGER( osa_mode );                 // 0 = normal fitting (default); 1 = OSA build (later phases)
+
   // -- 2.4.3. Composition data
   DATA_IMATRIX( comp_ctl );               // Info on observed age/length comp; columns = Survey_name, Survey_code, Species, Year
   DATA_MATRIX( comp_n );                  // Month and sample size on observed age/length comp; columns = Month, Sample size
@@ -2367,7 +2387,12 @@ Type objective_function<Type>::operator() () {
     // Only include years from hindcast
     if((flt_yr > 0) && (flt_yr <= endyr) && (flt_type(index) > 0)){
       if(index_obs(index_ind) > 0){
-        jnll_comp(0, index) -= dnorm(log(index_obs(index_ind, 0)), log(index_hat(index_ind)) - square(index_std_dev)/2.0, index_std_dev, true);
+        // Read the (log) observation from obsvec and gate it with keep so that
+        // oneStepPredict() can compute OSA residuals. With keep == 1 (normal
+        // fitting) and obsvec(pos) == log(index_obs) this equals the original
+        // lognormal likelihood exactly.
+        int pos = index_obsvec_idx(index_ind);
+        jnll_comp(0, index) -= keep(pos) * dnorm(obsvec(pos), log(index_hat(index_ind)) - square(index_std_dev)/2.0, index_std_dev, true);
       }
     }
   }
@@ -2399,7 +2424,11 @@ Type objective_function<Type>::operator() () {
     // Add only years from hindcast
     if((flt_yr > 0) && (flt_yr <= endyr) && (flt_type(flt) == 1)){
       if(catch_obs(fsh_ind, 0) > 0){
-        jnll_comp(1, flt) -= dnorm(log(catch_obs(fsh_ind, 0)), log(catch_hat(fsh_ind)) - square(fsh_std_dev)/2.0, fsh_std_dev, true) ;
+        // Read the (log) observation from obsvec and gate it with keep for OSA
+        // residuals (see the index slot above). With keep == 1 and
+        // obsvec(pos) == log(catch_obs) this equals the original likelihood.
+        int pos = catch_obsvec_idx(fsh_ind);
+        jnll_comp(1, flt) -= keep(pos) * dnorm(obsvec(pos), log(catch_hat(fsh_ind)) - square(fsh_std_dev)/2.0, fsh_std_dev, true) ;
         // Martin's
         // jnll_comp(1, flt)+= 0.5*square((log(catch_obs(fsh_ind, 0))-log(catch_hat(fsh_ind)))/fsh_std_dev);
       }

@@ -217,10 +217,38 @@ logLik.Rceattle <- function(object, ...) {
 #'   `NA` where they do not apply (e.g. for index/catch rows).
 #' @export
 residuals.Rceattle <- function(object, type = "index", scale = "log", ...) {
-  valid <- c("index", "catch", "comp", "caal", "all")
+  valid <- c("index", "catch", "comp", "caal", "osa", "all")
   type  <- match.arg(type, valid, several.ok = TRUE)
   if ("all" %in% type) type <- c("index", "catch", "comp", "caal")
   scale <- match.arg(scale, c("log", "natural"))
+
+  # One-step-ahead residuals are computed separately (oneStepPredict) and
+  # returned on their own, reshaped into the common residual schema. They are
+  # standard-normal, so `scale` does not apply. Extra args (method, seed, types)
+  # flow through `...` to osa_residuals().
+  if ("osa" %in% type) {
+    if (length(type) > 1L) {
+      warning("type = 'osa' is returned on its own; ignoring other requested types.")
+    }
+    osa <- osa_residuals(object, ...)
+    fc  <- object$data_list$fleet_control
+    return(data.frame(
+      Source       = osa$type,
+      Fleet_code   = osa$fleet,
+      Fleet_name   = fc$Fleet_name[match(osa$fleet, fc$Fleet_code)],
+      Species      = osa$species,
+      Sex          = osa$sex,
+      Year         = osa$year,
+      Length       = rep(NA_real_, nrow(osa)),
+      Bin          = osa$age_or_length,
+      Age0_Length1 = ifelse(osa$index_label == "length", 1L,
+                            ifelse(osa$index_label == "age", 0L, NA_integer_)),
+      Sample_size  = rep(NA_real_, nrow(osa)),
+      Observed     = osa$observed,
+      Fitted       = osa$predicted,
+      Residual     = osa$residual,
+      stringsAsFactors = FALSE))
+  }
 
   q <- object$quantities
   d <- object$data_list

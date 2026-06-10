@@ -506,6 +506,15 @@ rearrange_data <- function(data_list){
                        "avgnMode", "minNByage", "weight", "fleet_control")
   data_list[items_to_remove] <- NULL
 
+  # 17 - One-step-ahead (OSA) residual vector ----
+  # Assemble the flat observation vector (obsvec), the position-map metadata
+  # (obs_ctl), and the per-type obsvec index vectors that the TMB template uses
+  # to compute OSA residuals (see build_osa_data()). Built from the *_ctl/*_obs
+  # matrices above; currently covers the aggregate catch/index series. This runs
+  # AFTER section 16 on purpose: obs_ctl is a mixed-type data frame (R-side
+  # metadata) and must not be swept into the data.frame->matrix coercion above.
+  data_list <- build_osa_data(data_list)
+
   return(data_list)
 }
 

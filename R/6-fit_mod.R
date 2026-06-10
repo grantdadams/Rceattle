@@ -444,6 +444,14 @@ fit_mod <-
     data_list_reorganized$M1_linkages     <- NULL
     data_list_reorganized$srr_linkages    <- NULL
 
+    # OSA residual metadata: obs_ctl maps each obsvec element back to its
+    # fleet/species/year/age. It is an R-side data frame (TMB's dataSanitize
+    # cannot recurse into it), so stash it for the returned object and scrub it
+    # from the TMB data list. The numeric obsvec / *_obsvec_idx / osa_mode
+    # fields are TMB-friendly and stay.
+    .obs_ctl <- data_list_reorganized$obs_ctl
+    data_list_reorganized$obs_ctl <- NULL
+
     # * Inject linkage-table encoding into the TMB DATA ----
     # Empty when no build_*() supplied a `linkages` list. TMB's
     # DATA_MATRIX can be touchy about 0-dim shapes during ADFun
@@ -841,6 +849,10 @@ fit_mod <-
 
     mod_objects$data_list <- calc_mcall_ianelli(data_list = data_list, data_list_reorganized = data_list_reorganized, quantities = quantities)
     mod_objects$data_list <- calc_mcall_ianelli_diet(data_list = mod_objects$data_list, quantities = quantities)
+
+    # OSA residual metadata (maps obsvec positions to fleet/species/year/age),
+    # used by osa_residuals() to interpret oneStepPredict() output.
+    mod_objects$obs_ctl <- .obs_ctl
 
     mod_objects$run_time <- (Sys.time() - start_time)
 
