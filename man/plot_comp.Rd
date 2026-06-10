@@ -11,7 +11,8 @@ plot_comp(
   species = NULL,
   cex = 3,
   lwd = 3,
-  right_adj = 0
+  right_adj = 0,
+  residual_type = c("pearson", "osa")
 )
 }
 \arguments{
@@ -29,6 +30,11 @@ function.}
 \item{lwd}{Line width for observed data lines}
 
 \item{right_adj}{How many units of the x-axis to add to the right side of the figure for fitting the legend.}
+
+\item{residual_type}{\code{"pearson"} (default) for the legacy Pearson-residual and
+aggregate-composition plots, or \code{"osa"} to instead draw one-step-ahead
+residual diagnostics (Q-Q plot with SDNR / tail annotation and signed
+composition bubbles) via \code{\link[=osa_residuals]{osa_residuals()}} and \code{\link[=plot.rceattle_osa]{plot.rceattle_osa()}}.}
 }
 \value{
 Returns and saves a figure

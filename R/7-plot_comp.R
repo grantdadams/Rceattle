@@ -10,6 +10,10 @@
 #' @param cex Line width as specified by user
 #' @param lwd Line width for observed data lines
 #' @param right_adj How many units of the x-axis to add to the right side of the figure for fitting the legend.
+#' @param residual_type `"pearson"` (default) for the legacy Pearson-residual and
+#'   aggregate-composition plots, or `"osa"` to instead draw one-step-ahead
+#'   residual diagnostics (Q-Q plot with SDNR / tail annotation and signed
+#'   composition bubbles) via [osa_residuals()] and [plot.rceattle_osa()].
 #'
 #' @return Returns and saves a figure
 #' @export
@@ -20,13 +24,25 @@ plot_comp <-
            species = NULL,
            cex = 3,
            lwd = 3,
-           right_adj = 0) {
+           right_adj = 0,
+           residual_type = c("pearson", "osa")) {
 
     .save_par()  # snapshot graphics par() and restore on exit
 
     # Make sure we are using only one model
     if(!inherits(Rceattle, "Rceattle")){
       stop("Please only use one Rceattle model")
+    }
+
+    # One-step-ahead residual diagnostics (Stewart & Monnahan 2025): route to the
+    # rceattle_osa plot (Q-Q with SDNR/tail annotation + signed bubbles). The
+    # default "pearson" keeps the legacy Pearson-residual and aggregate plots
+    # below, which remain useful complements (Stewart & Monnahan recommend
+    # retaining Pearson bubbles alongside OSA residuals).
+    residual_type <- match.arg(residual_type)
+    if (residual_type == "osa") {
+      osa <- osa_residuals(Rceattle, types = "comp")
+      return(invisible(plot(osa)))
     }
 
     # Species names
